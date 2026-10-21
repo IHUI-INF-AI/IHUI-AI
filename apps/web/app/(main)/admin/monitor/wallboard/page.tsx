@@ -390,7 +390,7 @@ function StatCell({
         className={cn(
           'wb-num mt-0.5 text-[18px] leading-tight font-semibold',
           tone === 'bad'
-            ? 'text-destructive'
+            ? 'text-danger-text'
             : tone === 'warn'
               ? 'text-warning-text'
               : tone === 'accent'
@@ -943,7 +943,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
 
         {/* overview/trend 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」或旧快照无解释 */}
         {ovError || trendError ? (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-sm border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-destructive">
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-sm border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-danger-text">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>{t('loadFailed')}</span>
             <button
@@ -952,7 +952,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 void refetchOv()
                 void refetchTrend()
               }}
-              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-destructive transition-colors hover:bg-destructive/20"
+              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-danger-text transition-colors hover:bg-destructive/20"
             >
               {t('retry')}
             </button>
@@ -1017,7 +1017,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 'flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px]',
                 alertCount === null
                   ? 'border-border bg-muted/60 text-muted-foreground'
-                  : 'border-destructive/30 bg-destructive/10 text-destructive',
+                  : 'border-destructive/30 bg-destructive/10 text-danger-text',
               )}
             >
               <Bell className="h-3 w-3" />
@@ -1111,7 +1111,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 className={cn(
                   'wb-num mt-1 text-[26px] leading-none font-bold',
                   k.tone === 'bad'
-                    ? 'text-destructive'
+                    ? 'text-danger-text'
                     : k.tone === 'accent'
                       ? 'text-info-text'
                       : k.tone === 'unknown'
@@ -1193,7 +1193,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       className={cn(
                         'wb-num',
                         d.usedPct >= 90
-                          ? 'text-destructive'
+                          ? 'text-danger-text'
                           : d.usedPct >= 75
                             ? 'text-warning-text'
                             : 'text-info-text',
@@ -1318,7 +1318,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                           : s.state === 'running'
                             ? 'text-success-text/90'
                             : s.state === 'stopped'
-                              ? 'text-destructive'
+                              ? 'text-danger-text'
                               : 'text-warning-text',
                       )}
                     >
@@ -1349,7 +1349,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]',
                         target.up === 1
                           ? 'border-success/25 bg-success/10 text-success-text/90'
-                          : 'border-destructive/30 bg-destructive/10 text-destructive',
+                          : 'border-destructive/30 bg-destructive/10 text-danger-text',
                       )}
                     >
                       <Dot tone={target.up === 1 ? 'ok' : 'bad'} />
@@ -1426,14 +1426,14 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   >
                     <div className="flex items-center gap-1.5">
                       <Dot tone={a.severity === 'critical' ? 'bad' : 'warn'} />
-                      <span className="truncate text-[11px] font-medium text-destructive">
+                      <span className="truncate text-[11px] font-medium text-danger-text">
                         {a.name}
                       </span>
                       <span
                         className={cn(
                           'shrink-0 rounded-sm border px-1 text-[9px]',
                           a.state === 'active'
-                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                            ? 'border-destructive/30 bg-destructive/10 text-danger-text'
                             : 'border-warning/30 bg-warning/10 text-warning-text',
                         )}
                       >
@@ -1480,7 +1480,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         className={cn(
                           'shrink-0 rounded-sm border px-1 text-[9px]',
                           a.severity === 'critical'
-                            ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                            ? 'border-destructive/30 bg-destructive/10 text-danger-text'
                             : a.severity === 'info'
                               ? 'border-info/40 bg-info/10 text-info-text'
                               : 'border-warning/30 bg-warning/10 text-warning-text',
@@ -1780,7 +1780,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       className={cn(
                         'wb-num mt-0.5 text-[26px] leading-none font-bold',
                         edgeLastTone === 'bad'
-                          ? 'text-destructive'
+                          ? 'text-danger-text'
                           : edgeLastTone === 'warn'
                             ? 'text-warning-text'
                             : edgeLastTone === 'unknown'
@@ -1804,7 +1804,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       className={cn(
                         'wb-num mt-0.5 text-[26px] leading-none font-bold',
                         edgeHitTone === 'bad'
-                          ? 'text-destructive'
+                          ? 'text-danger-text'
                           : edgeHitTone === 'warn'
                             ? 'text-warning-text'
                             : edgeHitTone === 'unknown'
