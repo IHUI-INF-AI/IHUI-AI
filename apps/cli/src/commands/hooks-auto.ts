@@ -598,6 +598,9 @@ export class HookExecutor {
           timeout: hook.timeout,
           maxBuffer: 1024 * 1024,
           windowsHide: true,
+          // 2026-10-21:不吃的子进程必须显式接管 stdio,否则本机 exec 派生报 EBUSY。
+          // shell hook 不写 stdin(回调只读 stdout/stderr)⇒ stdin 关 ignore 无行为变化。
+          stdio: ['ignore', 'pipe', 'pipe'],
         },
         (err, stdout, stderr) => {
           const duration = Date.now() - start;

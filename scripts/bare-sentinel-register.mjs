@@ -12,7 +12,7 @@ const VBS = 'G:\\IHUI-AI\\scripts\\bare-sentinel-hidden.vbs';
 const RUN = 'wscript.exe "' + VBS + '"';
 
 function run(args) {
-  const out = execFileSync('schtasks', args, { encoding: 'utf8', windowsHide: true });
+  const out = execFileSync('schtasks', args, { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   process.stdout.write(out);
 }
 

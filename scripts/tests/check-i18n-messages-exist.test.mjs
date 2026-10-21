@@ -425,7 +425,7 @@ test('手写字面量在 git 版本树里真实存在(独立真值,不读脚本�
 
 test('CLI:--root 三支坏值 ⇒ exit 2 点名实得 token;不带 --root 行为不变', () => {
   const cli = (args) =>
-    spawnSync(process.execPath, [SCRIPT, ...args], { cwd: REPO, encoding: 'utf8', windowsHide: true })
+    spawnSync(process.execPath, [SCRIPT, ...args], { cwd: REPO, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   for (const [args, token] of [
     [['--root', '--staged'], '"--staged"'],
     [['--root'], '(其后没有任何参数)'],

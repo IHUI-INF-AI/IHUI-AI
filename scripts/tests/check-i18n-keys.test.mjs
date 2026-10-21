@@ -1084,7 +1084,7 @@ function writeCliMessages(root, msgs) {
   }
 }
 function gitAt(root, cmd) {
-  return execSync(`git ${cmd}`, { cwd: root, stdio: 'pipe' })
+  return execSync(`git ${cmd}`, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
 }
 function dropLeaf(obj, path) {
   const segs = path.split('.')

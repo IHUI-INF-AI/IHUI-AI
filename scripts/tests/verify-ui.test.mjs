@@ -118,7 +118,7 @@ test('(b) --spec sidebar:不被拒绝,且与 HEAD 改前副本同档位同退出
     const before = spawnSync('node', [headCopy, ...args], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       timeout: 60_000,
     })
@@ -138,7 +138,7 @@ test('(b) 不带 --spec 的默认档:退出码与改前副本一致(默认行为
     const before = spawnSync('node', [headCopy, '--check-server'], {
       cwd: dir,
       encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       timeout: 60_000,
     })
