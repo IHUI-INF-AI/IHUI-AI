@@ -28,6 +28,15 @@ import {
   readDeliveryKind,
   type RecoveryGateLedger,
 } from '../recovery-gate'
+// G-107 接线面:包外消费方拿到的只能是 barrel(shared 根 index 再 re-export 本 sse barrel)。
+// 本块刻意**只经 barrel 取出口** —— 盘上直接 import 源文件证明不了"闸门装车":源文件在、
+// 测试绿,而 barrel 少一行 export,包外就一帧都拿不到这层判据。
+import {
+  createRecoveryGate as createRecoveryGateFromSseBarrel,
+  formatRecoveryGateLedger as formatLedgerFromSseBarrel,
+  RECOVERY_DELIVERY_KINDS as DELIVERY_KINDS_FROM_SSE_BARREL,
+} from '../index'
+import { createRecoveryGate as createRecoveryGateFromPackageBarrel } from '../../index'
 
 const recoveryEnvelope = (): Record<string, unknown> => ({
   deliveryKind: RECOVERY_DELIVERY_KINDS.RECOVERY,
@@ -509,6 +518,109 @@ describe('G-816031 三态账目', () => {
     )
     // 读数打到 stdout:票面要"未知码逐条报名",而报名只有被打印出来才可被人读到
     console.info(line)
+  })
+})
+
+// ============================================================================
+// G-107 接线:从公开 barrel 取出口,按真实到达序喂帧
+// ============================================================================
+// 判据源仍是 ../recovery-gate;本块**不新写一条路由判据**,只把包外消费方实际会走的
+// 那一条入口(shared 根 barrel → sse barrel → 闸门)执行一遍,再按真实帧到达序喂:
+// RPC 响应先到 → 普通内容片 → 恢复帧 → 迟到片 / 未知 reason-code。三条验收的结论
+// 全部来自生产出口(applyAuthority / decideSubscription / acceptChunk / ledger),
+// 帧在哪条轴由帧自己带哪个字段决定,不在这里再发明一套分派表。
+//
+// 生产消费点的位置(2026-10-21 现读,不在本包):`packages/api-client/src/client.ts`
+// 的 streamChat 建一台 stream-authority 路由,逐帧 observeFrame;该路由与闸门同形
+// (旁证 = api-client 的 recovery-gate-parity-g816031 通路锁),所以本块用同一到达序
+// 建模"帧路由喂进来的帧",而不是用一份更宽松的假顺序自证。
+
+describe('G-107 接线:barrel 出口 + 真实到达序', () => {
+  it('W1 两个 barrel 都真导出同一枚闸门(可执行,不是注释里的"已 export")', () => {
+    expect(createRecoveryGateFromSseBarrel).toBe(createRecoveryGate)
+    expect(createRecoveryGateFromPackageBarrel).toBe(createRecoveryGate)
+    expect(formatLedgerFromSseBarrel).toBe(formatRecoveryGateLedger)
+    expect(DELIVERY_KINDS_FROM_SSE_BARREL.RECOVERY).toBe(RECOVERY_DELIVERY_KINDS.RECOVERY)
+  })
+
+  it('W2 验收①:经 barrel 喂真实到达序 —— RPC 先到不解门,只有 recovery 解', () => {
+    const gate = createRecoveryGateFromSseBarrel()
+    // 1) RPC/HTTP 响应先到(票面点名的反例),随后是普通帧与翻页/续流/常规流
+    const nonRecoveryArrivals: readonly unknown[] = [
+      { type: 'ok', deliveryKind: RECOVERY_DELIVERY_KINDS.RPC_RESPONSE },
+      { type: 'chunk', content: 'a' },
+      { deliveryKind: RECOVERY_DELIVERY_KINDS.PAGE },
+      { deliveryKind: RECOVERY_DELIVERY_KINDS.RESUME },
+      { deliveryKind: RECOVERY_DELIVERY_KINDS.STREAM },
+    ]
+    for (const frame of nonRecoveryArrivals) {
+      const verdict = gate.applyAuthority(frame)
+      expect(verdict.verdict).not.toBe('release')
+      // 门在 recovery 到之前一路是闭的 —— "先到了"不是解门凭据
+      expect(gate.snapshot().open).toBe(false)
+    }
+    // 2) 普通内容片不带权威字段 ⇒ 未判定(不解门,也不冒充 hold)
+    expect(gate.applyAuthority({ type: 'chunk' }).verdict).toBe('undetermined')
+    expect(gate.snapshot().open).toBe(false)
+    // 3) 唯一解门的一帧
+    expect(gate.applyAuthority({ deliveryKind: RECOVERY_DELIVERY_KINDS.RECOVERY }).verdict).toBe(
+      'release',
+    )
+    expect(gate.snapshot().open).toBe(true)
+    // 4) 解门后普通片仍逐帧放行(hold 只回答"这条帧不解门",不是"门又关了")
+    expect(gate.applyAuthority({ type: 'chunk', content: 'b' }).verdict).toBe('undetermined')
+    expect(gate.snapshot().open).toBe(true)
+    // 三枚普通内容片(带与不带 type 都算"没有权威字段")进未判定桶,不并进 hold
+    expect(gate.ledger()).toMatchObject({ released: 1, held: 4, undetermined: 3 })
+  })
+
+  it('W3 验收②:经 barrel 喂未知 reason-code ⇒ 未判定 + 点名,不默认任一档', () => {
+    const gate = createRecoveryGateFromSseBarrel()
+    gate.applyAuthority({ deliveryKind: RECOVERY_DELIVERY_KINDS.RECOVERY })
+    gate.acceptChunk({ ordinal: 2 })
+    const before = gate.snapshot()
+    const outcome = gate.decideSubscription({ reasonCode: 'stale-log-epoch' })
+    expect(outcome).toMatchObject({
+      verdict: 'undetermined',
+      reasonCode: null,
+      detail: 'reason-code-unknown',
+    })
+    // 状态零变化:不解门、不动水位,也不落进任何一档结论
+    expect(gate.snapshot()).toEqual(before)
+    const ledger = gate.ledger()
+    expect(ledger).toMatchObject({
+      resubscribe: 0,
+      keepSubscription: 0,
+      subscriptionUndetermined: 1,
+    })
+    expect(ledger.undeterminedItems).toContainEqual({
+      axis: 'subscription',
+      reason: 'reason-code-unknown',
+      raw: "'stale-log-epoch'",
+    })
+    // "报名"= 读数行里真能读到那条原值,不只是账里加了一个数
+    expect(formatLedgerFromSseBarrel(ledger)).toContain(
+      "subscription:reason-code-unknown='stale-log-epoch'",
+    )
+  })
+
+  it('W4 验收③:经 barrel 丢迟到片,既有序号逐字不动,且解门不被读成回退水位', () => {
+    const gate = createRecoveryGateFromSseBarrel()
+    for (const ordinal of [0, 1, 2]) {
+      expect(gate.acceptChunk({ ordinal }).kind).toBe('accept')
+    }
+    expect(gate.applyAuthority(recoveryEnvelope()).verdict).toBe('release')
+    const settled = gate.snapshot().settledOrdinal
+    expect(settled).toBe(2)
+    const late = gate.acceptChunk({ ordinal: 1 })
+    expect(late.kind).toBe('drop-late')
+    expect(late.settledOrdinalAfter).toBe(settled)
+    expect(gate.snapshot()).toEqual({ open: true, settledOrdinal: settled })
+    // 没有走换代通道 ⇒ 水位不是被"静默清零后重放"顶回去的
+    expect(gate.ledger()).toMatchObject({ chunksDroppedLate: 1, generationResets: 0 })
+    // 迟到的同序号重放同样不推进水位
+    expect(gate.acceptChunk({ ordinal: 2 }).kind).toBe('drop-late')
+    expect(gate.snapshot().settledOrdinal).toBe(settled)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
