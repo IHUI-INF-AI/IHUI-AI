@@ -66,4 +66,52 @@ test('T4 真仓只读冒烟:--next-only 恒一行号;完整报告正常退出(�
   assert.equal(r2.status, 0, `完整报告必须 exit 0:\n${r2.stderr}`)
   assert.match(String(r2.stdout), /下一个号 = O\d+/)
 })
+
+/**
+ * T5/T6 —— G-927(2026-10-21)的系列小节形态锁。
+ * 判据本体只住在 CLI 源码里那一份 HEADING:这里**从源码把那条正则取出来再用**,不复制第二份
+ * 正则字面量(§22c —— 抄一份判据进测试,测试就会永远跟着旧形状绿)。
+ */
+function headingReFromSource() {
+  const m = /^const HEADING = (\/.*\/gm)$/m.exec(TOOL_SRC)
+  assert.ok(m, 'HEADING 必须是源码里那一条 /…/gm 字面量(取不到即判据被拆走,镜像测试失去意义)')
+  return new RegExp(m[1].slice(1, m[1].lastIndexOf('/')), 'gm')
+}
+
+test('T5 系列小节不得被并成重号:同号不同后缀必须各算一条;同后缀逐字重复仍判重(G-927)', () => {
+  const re = headingReFromSource()
+  const src = [
+    '## O82续四 第二批',
+    '## O82补 登记正文重登',
+    '### O62 附:补跑守门链量到的两件事',
+    '### O62 附⑥:把 R6 收到真消费端',
+    '### O62 附⑫:构建漂移的根因',
+    '### O62 附⑬:dev 同样受持久缓存影响',
+    '## O86附⑧ 收口三件',
+    '## O86附⑧ 收口三件',
+    '## O45 凭据巡检根因收口',
+    '## O45 凭据巡检根因收口',
+  ].join('\n')
+  const keys = [...src.matchAll(re)].map((m) => m[1].replace(/[ \t]+/g, ''))
+  const counts = new Map()
+  for (const k of keys) counts.set(k, (counts.get(k) || 0) + 1)
+  // 六支不同小节 ⇒ O62 族三个 key 各 1 次(附 / 附⑥ / 附⑫ / 附⑬),绝不许合成 "O62×4"
+  assert.equal(counts.get('O62'), undefined, '带后缀的系列小节不得记到裸号 O62 名下(那就是把正当形态误报成重号的原病)')
+  for (const k of ['O62附', 'O62附⑥', 'O62附⑫', 'O62附⑬', 'O82续四', 'O82补']) {
+    assert.equal(counts.get(k), 1, `${k} 应各算一条独立小节,实得 ${counts.get(k)}`)
+  }
+  // 反证:同键真重复必须仍然数得出来(判据不能为了消红把真重号也放掉)
+  assert.equal(counts.get('O86附⑧'), 2, '同后缀逐字重复的标题必须仍判重')
+  assert.equal(counts.get('O45'), 2, '同号同题(无后缀)必须仍判重')
+})
+
+test('T6 数字段提取必须走 key 而不是整串:带后缀的 key 不得把 max 算成 NaN(G-927 自伤反证)', () => {
+  assert.match(TOOL_SRC, /const headingNum = /, '必须有一份 headingNum 出口(旧写法 Number(k.slice(1)) 遇到 O62附⑥ 得 NaN,会把 maxLedger 算成 NaN 并顶掉整个发号路径)')
+  assert.doesNotMatch(TOOL_SRC, /Number\((?:k|m\[1\])\.slice\(1\)\)/, '不得再出现 Number(key.slice(1)) 那一族写法(key 现在可能带后缀)')
+  const re = headingReFromSource()
+  const withSuffix = [...'### O62 附⑫:构建漂移'.matchAll(re)][0][1].replace(/[ \t]+/g, '')
+  const numSrc = /const headingNum = \(key\) => Number\(\/\^O\(\\d\+\)\/\.exec\(key\)\[1\]\)/.test(TOOL_SRC)
+  assert.ok(numSrc, 'headingNum 的实现必须是"取 ^O(\\d+) 的数字段"这一份(改成整串 Number 必得 NaN)')
+  assert.equal(Number(/^O(\d+)/.exec(withSuffix)[1]), 62, `数字段提取实得 ${withSuffix} → ${Number(/^O(\d+)/.exec(withSuffix)[1])}`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
