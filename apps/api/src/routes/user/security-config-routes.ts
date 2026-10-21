@@ -12,6 +12,12 @@ import {
   upsertUserPreference,
   USER_PREFERENCE_GROUPS,
 } from '../../db/user-preferences-queries.js'
+import {
+  isIpLiteral,
+  IP_WHITELIST_KEY,
+  readIpWhitelist,
+  recordIpWhitelistChangeSourceIp,
+} from './ip-whitelist-guard.js'
 
 /**
  * 账号级安全配置的读写面 —— 承接两处此前**只有 UI、没有后端**的面板：
@@ -25,17 +31,20 @@ import {
  * (src/components/settings/IpWhitelist.tsx 把 GET 的 data 当 string[] 直接 setIps，
  *  这里回对象会把那张卡炸掉)，不另立形状、也不回带没人消费 currentIp/enabled 这类字段。
  *
- * **本文件只做存储，不含生效链**，两件事各自的原因：
- *   - IP 白名单要在哪一层拦（仅新登录 vs 每次签发 token）是产品语义：统一签发出口
- *     (auth-extended.ts:181-204) 不带 request.ip，且 passkey(auth-passkey.ts:138) 与
- *     MFA(mfa.ts:239) 两条腿不走它 —— 接一层会漏腿，接全部会让换网的用户被直接踢出会话。
- *   - agent 护栏策略进审批判定：apps/ai-service/app/core/exec_policy_decision.py 头注自述
- *     "本模块保持纯函数形态、不接线；接线点留待引入 exec-policy 上下文后由 lead 定档"。
- * 生效链接入前，这两面是"已保存的配置"，不是"已发生的拦截"。
+ * **本文件只做存储与自救锚点，判定链在 ./ip-whitelist-guard.ts**，两件事各自的原因：
+ *   - IP 白名单只拦**新登录会话**，不碰换网后的续期（统一签发出口不带 request.ip，且
+ *     passkey / MFA 两条腿不走它，接一层会漏腿）。闸门挂在凭据验证之后、签发之前，
+ *     已在线会话不受影响 —— 这是机主定的产品语义，不是待补的坑。
+ *   - agent 护栏五字段**已按登录主体生效**：ai-service 侧 app/services/agent_security_prefs.py
+ *     读的就是这里写的键(进程默认 ⊕ 该 principal 的显式表态)。两处口径必须一起看：
+ *     这里的默认值(true / 'flag' / 'enforce' / true / false)与该模块的回落快照同值，
+ *     改任何一边都要同批改另一边；硬门(危险命令、路径穿越、命令注入)不吃这些开关。
+ *     另注：exec_policy_decision.py 头注自称"未接线"已过期 —— 它经
+ *     app/services/agent_engine.py 的 _unmatched_command_decision_meta 被消费(只加文案位、
+ *     不改处置)，那条自述留着会误导下一个来接的人。
  */
 
 const GROUP = USER_PREFERENCE_GROUPS.security
-const IP_LIST_KEY = 'ipWhitelist'
 
 const GUARD_POLICIES = ['flag', 'sanitize', 'refuse'] as const
 const EXEC_MODES = ['enforce', 'audit', 'off'] as const
@@ -54,25 +63,6 @@ const agentSecurityPatchSchema = z
     pipeline_record_enabled: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: '至少要提交一个字段' })
-
-/** 只收字面 IP（v4/v6；zod v4 已把 z.ip() 拆成两个）。CIDR 段的语义属于生效链，
- *  别在这里存进一个没人执行的语法。 */
-function isIpLiteral(value: string): boolean {
-  return z.ipv4().safeParse(value).success || z.ipv6().safeParse(value).success
-}
-
-async function readIpWhitelist(userId: string): Promise<string[]> {
-  const { list } = await findUserPreferences(userId, GROUP)
-  const raw = list.find((row) => row.key === IP_LIST_KEY)?.value
-  if (!raw) return []
-  try {
-    const parsed: unknown = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
-  } catch {
-    // 存行坏了不把读面打碎：回空列表，写面仍会整体覆盖
-    return []
-  }
-}
 
 function pickEnum<T extends string>(
   raw: string | null | undefined,
@@ -105,7 +95,8 @@ export const userSecurityConfigRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     const ips = await readIpWhitelist(userId)
     if (!ips.includes(parsed.data.ip)) ips.push(parsed.data.ip)
-    await upsertUserPreference(userId, GROUP, IP_LIST_KEY, JSON.stringify(ips))
+    await upsertUserPreference(userId, GROUP, IP_WHITELIST_KEY, JSON.stringify(ips))
+    await recordIpWhitelistChangeSourceIp(userId, request.ip)
     return reply.send(success(ips))
   })
 
@@ -115,8 +106,10 @@ export const userSecurityConfigRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
     const userId = request.userId!
     const next = (await readIpWhitelist(userId)).filter((x) => x !== parsed.data.ip)
-    if (next.length === 0) await deleteUserPreference(userId, GROUP, IP_LIST_KEY)
-    else await upsertUserPreference(userId, GROUP, IP_LIST_KEY, JSON.stringify(next))
+    if (next.length === 0) await deleteUserPreference(userId, GROUP, IP_WHITELIST_KEY)
+    else await upsertUserPreference(userId, GROUP, IP_WHITELIST_KEY, JSON.stringify(next))
+    // 清空/删项也要留自救锚点：能走到这里说明这台 IP 已经登录成功过
+    await recordIpWhitelistChangeSourceIp(userId, request.ip)
     return reply.send(success(next))
   })
 

@@ -58,6 +58,10 @@
   ③ 委托假阳性(`request.state.user_id` 通道)由判据二自动认出 —— **已落地**(G-261)。
   现读定性账(2026-09-27,G-261,改前 18 条):真缺陷 0 / 委托已消费 11(判据二认出)/
   公共面无归属轴 7(逐条登记进 `PRINCIPAL_EXEMPTIONS`,每条带理由)。
+  〔2026-10-21 更正,登记时刻读数按 §0.1 现读:那 7 条中的
+  `app/routers/agents.py :: get_agent_security_config` 已随"五开关按用户生效"落地而删除
+  —— 该端点现在消费 JWT 主体,条目再留着就是 `stale_exemptions` 的清单腐烂红。
+  现读 = 6 条豁免;判据本体一字未动。〕
 
 用法:
     python apps/ai-service/scripts/audit_principal_consumed.py [--json] [--strict]
@@ -171,13 +175,18 @@ PRINCIPAL_EXEMPTIONS: list[dict[str, str]] = [
         "属角色轴不是归属轴 —— 判据二刻意不认 role_id(见 IDENTITY_STATE_ATTRS 旁注释),"
         "故在此逐条显式登记。require_request_user_id 保证生产缺身份即 401。",
     },
-    {
-        "file": "app/routers/agents.py",
-        "func": "get_agent_security_config",
-        "reason": "资源是进程级安全配置(get_security_config),全站单份、无按人副本;"
-        "端点级'必须登录'是 O19 记录在案的设计(中间件白名单配错时的兜底),"
-        "更细的管理员档位归 apps/api 侧授权模型。",
-    },
+    # —— 〔2026-10-21 就地改写,原条目「app/routers/agents.py :: get_agent_security_config
+    #    资源是进程级安全配置(get_security_config),全站单份、无按人副本」已删除〕
+    #    那句话在当天之后不再成立,而尺子对"条目不再对应任何判红"的处置就是
+    #    `stale_exemptions` 点名(守门 check-principal-consumed.mjs 按差值棘轮判红),
+    #    所以这里按文件自己第 151-152 行的规矩把条目随修复删除,不留腐烂登记:
+    #    新语义 = GET /agent/security-config 读的是**调用者本人**的生效档
+    #    (`agent_security_prefs.resolve_security_config(current_user)` = 进程默认 ⊕ 该用户
+    #    在 user_preferences(group='security') 的显式表态),并在 data.explicit_by_user
+    #    里回带"哪几个字段是该用户自己定的"。身份只从 `require_request_user_id` 的
+    #    端点级入参进来,读面不接受任何自报主体;PUT 侧维持进程级(那是运维面,
+    #    current_user 进审计日志,判据一按"体内引用"认账)。
+    #    判据本体(两条 ast 判据 + stale 反查)一字未动,也没有新增豁免。
     {
         "file": "app/routers/agents.py",
         "func": "trigger_skill_evolution",

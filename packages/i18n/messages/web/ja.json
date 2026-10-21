@@ -22435,11 +22435,12 @@
     "icpRecordTitle": "ICP届出情報",
     "icpRecordUrl": "備案リンク",
     "ip": {
-      "empty": "コンテンツはまだありません。おしみに",
+      "empty": "ホワイトリスト IP はありません",
       "exists": "このIPアドレスはにします",
       "invalid": "ありなIPアドレスアドレスをしてください",
-      "placeholder": "...",
-      "title": "IPホワイトリスト"
+      "placeholder": "IP アドレスを入力してください",
+      "title": "IP ホワイトリスト",
+      "hint": "新規ログインのみをブロックし、既存セッションには影響しません。最後にこの一覧を編集した IP アドレスは常にログインできます。"
     },
     "labels": {
       "notificationSound": "通知音声"

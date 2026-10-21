@@ -17,7 +17,7 @@
  *
  * 使用(React 组件外,纯逻辑客户端):
  * ```ts
- * const client = new LiveChatClient({ baseUrl: API_BASE_URL, tokenProvider: () => getToken() })
+ * const client = new LiveChatClient({ baseUrl: WS_BASE_URL, tokenProvider: () => getToken() })
  * const unsub = client.subscribe({
  *   onMessage: (msg) => setMessages((p) => [...p, msg]),
  *   onStatusChange: (status) => setStatus(status),

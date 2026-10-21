@@ -70,6 +70,7 @@ import {
   recordAuthLoginFailed,
   recordAuthLoginAnomaly,
 } from '../plugins/business-metrics.js'
+import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
 
 /**
  * G-642(2026-09-29):设备指纹落库前归一 —— trim 首尾空白;归一后为空(如 " ")视为
@@ -597,6 +598,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         }
       }
 
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
+
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,
@@ -793,6 +797,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,
@@ -962,6 +968,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,
@@ -1031,6 +1039,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,
@@ -1112,6 +1122,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,
@@ -1741,6 +1753,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!user || user.status !== 1) {
         return reply.status(401).send(error(401, '用户不存在或已被禁用'))
       }
+      // 判定用的是扫码那台已登录设备的来源 IP；PC 端取回执的 /qr/status 腿看不见它的 IP
+      const gate = await gateLoginIpWhitelist(request, reply, userId)
+      if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair({
         id: user.id,
         phone: user.phone,

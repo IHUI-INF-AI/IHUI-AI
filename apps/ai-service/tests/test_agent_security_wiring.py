@@ -11,11 +11,15 @@
 - 默认配置下良性工具正常执行(零回归)
 - prompt 注入探测拦截(policy=refuse + blocked)→ injection_blocked,不执行
 - 危险入参扫描拦截 → scan_blocked,不执行
-- 双开关关闭 → 占位依赖直通,真实依赖零调用
+- 两开关同关(2026-10-21 口径)→ stage1 占位直通;stage2 只关启发式两类,
+  path_traversal / command_injection 恒扫恒拦(见 test_input_scan_off_still_blocks_hard_kinds)
 - exec_policy PROMPT:审批门已批准 → 跳过二次弹窗,登记一次性放行后重执行
 - exec_policy PROMPT:非高危工具未过审批门 → 真实审批;拒绝 → user_rejected
 - exec_policy audit 模式:不发起审批,NEEDS_APPROVAL 结构原样回给 LLM(旧行为)
 - mcp_server:enforce 拦 PROMPT / 放行登记消费 / audit 记录放行 / off 跳过评估
+
+档位来源:进程快照(`set_security_config`)。"按用户生效"那一层在
+`tests/test_agent_security_prefs_per_user.py`,本文件只测进程档,两条链不混面。
 """
 
 from __future__ import annotations
@@ -35,6 +39,7 @@ from app.services.security_config import (
     reset_security_config,
     set_security_config,
 )
+from app.services.tool_input_scanner import HARD_SCAN_FLAGS
 
 
 @pytest.fixture(autouse=True)
@@ -166,26 +171,60 @@ async def test_input_scan_blocks_dangerous_args(monkeypatch: pytest.MonkeyPatch)
 
 
 async def test_guards_disabled_fully_bypass(monkeypatch: pytest.MonkeyPatch) -> None:
-    """双开关关闭 → 占位依赖直通,真实探测/扫描零调用,执行不受影响。"""
+    """两开关同关(2026-10-21 口径):stage1 占位直通,stage2 **只**关启发式两类。
+
+    改前这一格是"两开关同关 ⇒ 占位依赖直通、真实探测/扫描零调用"。按用户生效改造后,
+    `input_scan_enabled=false` 的语义被收窄成"只关 ssrf_loopback / arg_too_long":
+    `path_traversal` / `command_injection` 属硬拦截,不在任何用户开关的射程内
+    (AGENTS「安全底线必须用测试钉死」第 4c 条)。所以本用例同时钉三件事:
+    ① prompt_guard 占位生效(真实探测零调用);② 良性入参照常执行;
+    ③ 扫描器被调用过,而调用时的 flags 恰为硬拦截两类(不是全四类,也不是"不扫")。
+    """
     set_security_config(prompt_guard_enabled=False, input_scan_enabled=False)
     touched: list[str] = []
+    seen_flags: list[list[str] | None] = []
 
     def _fail_pg(text, **kw):  # noqa: ANN001, ANN202
         touched.append("pg")
         return {"blocked": True}
 
-    def _fail_scan(args, **kw):  # noqa: ANN001, ANN202
+    def _record_scan(args, **kw):  # noqa: ANN001, ANN202
         touched.append("sc")
-        return SimpleNamespace(dangerous=True, findings=[])
+        seen_flags.append(kw.get("flags"))
+        return SimpleNamespace(dangerous=False, findings=[])
 
     monkeypatch.setattr(gtp, "_default_prompt_guard", _fail_pg)
-    monkeypatch.setattr(gtp, "_default_input_scanner", _fail_scan)
+    monkeypatch.setattr(gtp, "_default_input_scanner", _record_scan)
     calls: list[dict] = []
     loop = _make_loop(_echo_tool(calls))
     tr = await loop._execute_single(ToolCall(id="c1", name="echo_tool", args={"q": "x"}))
     assert tr.error is None
     assert len(calls) == 1
-    assert touched == []
+    assert "pg" not in touched  # stage1 仍由用户档完全关掉
+    assert "sc" in touched  # stage2 恒在(硬拦截不随开关消失)
+    assert seen_flags == [sorted(HARD_SCAN_FLAGS)]
+
+
+async def test_input_scan_off_still_blocks_hard_kinds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """input_scan_enabled=false:路径穿越/命令注入仍被拦(工具不执行 = 副作用没发生)。"""
+    from app.services.tool_input_scanner import scan_tool_args
+
+    set_security_config(prompt_guard_enabled=False, input_scan_enabled=False)
+    monkeypatch.setattr(gtp, "_default_input_scanner", scan_tool_args)
+    calls: list[dict] = []
+    loop = _make_loop(_echo_tool(calls))
+    for args in ({"path": "config/../../etc/passwd"}, {"command": "rm -rf ./dist"}):
+        tr = await loop._execute_single(ToolCall(id="c1", name="echo_tool", args=args))
+        assert tr.error_type == "scan_blocked", args
+        assert calls == []
+    # 同一档位下的启发式项不再拦(证明开关真的在生效,而不是判据恒红)
+    tr_ok = await loop._execute_single(
+        ToolCall(id="c1", name="echo_tool", args={"url": "http://127.0.0.1:8810/health"})
+    )
+    assert tr_ok.error is None
+    assert len(calls) == 1
 
 
 # =============================================================================
