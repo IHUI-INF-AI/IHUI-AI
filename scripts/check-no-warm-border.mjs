@@ -662,9 +662,10 @@ function listGeneratedAndroidRes() {
   return out
 }
 
-function listFacePaths(face) {
+function listFacePaths(face, revOid = '') {
   const split = (out) => out.split('\n').map((s) => s.trim()).filter(Boolean)
   if (face === 'staged') return split(gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], root))
+  if (face === 'rev') return split(gitRaw(['ls-tree', '-r', '--name-only', revOid], root))
   if (face === 'worktree') {
     // ls-files 只给已跟踪件 —— 新写的 plugin 在 git add 之前不在其中,会被判成"无人负责"假红
     // (2026-10-20 首跑实测咬到这一型)。按目录补一次未跟踪件。
@@ -679,10 +680,10 @@ function listFacePaths(face) {
  * 按面预取「被审件 ∪ 它们的输入」→ Map<rel, text|null>。
  * 输入与被审件同面同批(见头注:否则"同时改 styles.xml + colors.xml"必假红)。
  */
-function prefetch(face, only = null) {
+function prefetch(face, only = null, revOid = '') {
   const primary = [
     ...new Set(
-      listFacePaths(face)
+      listFacePaths(face, revOid)
         .filter(isInScope)
         .filter((p) => !only || only.has(p)),
     ),
@@ -695,7 +696,7 @@ function prefetch(face, only = null) {
     for (const rel of all) texts.set(rel, readWorktreeFile(root, rel))
     return { texts, primary, inputs }
   }
-  const rev = face === 'staged' ? '' : 'HEAD'
+  const rev = face === 'staged' ? '' : face === 'rev' ? revOid : 'HEAD'
   const specs = all.map((p) => `${rev}:${p}`)
   const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: 120000 })
   const texts = new Map()
@@ -1097,19 +1098,33 @@ function main() {
     console.log(`
 check-no-warm-border.mjs — 暖色描边禁令守门(2026-10-20)
 
-  W1 暖色聚焦态描边(只判聚焦态的描边轴;底色/文字/图标、以及警告横幅的非聚焦暖边框都不判)
+  W1 暖色描边,四条轴 + 一条容器维:
+     W1-css        样式文件里 :focus* 声明块内的描边轴取暖色
+     W1-css-input  样式文件里**输入类选择器**(input/textarea/select 元素或类名带 -input 等)
+                   的常驻暖描边 —— 不要求 :focus,补"框上永远挂着一圈橙"那一型
+     W1-tw         Tailwind 描边类带 focus 族 variant 且取暖色档
+     W1-rn         RN/inline 描边键取暖色,且同行有聚焦信号
+     W1-input      tsx 里文本输入控件向上 ≤2 行的容器开标签带暖色描边档
   W2 原生输入框描边件(res/**/*.xml 引用 textfield_* 9-patch)
-  W3 原生强调色未钉 / 钉成彩色 / 引用不存在的颜色
+  W3 原生强调色未钉 / 钉成彩色 / 引用不存在的颜色(AppCompat 会回落系统强调色)
   W4 生成源被 .gitignore 吞掉(仅全集档判)
+  W5 原生表单控件的 accent-color 未钉(base.css 那份真相源;浏览器/WebView2 会回落
+     Windows 个人化强调色 —— 与 W3 同一条"没设≠没色"因果律,只是宿主不同)
+
+刻意不判:底色/文字/图标/图表取暖色;非输入控件的暖色边框(警告横幅 callout 成套档,
+HEAD 面实测 90 处)—— 那是语义档,判它等于 §12e 禁的恒红门。
 
 用法:
   node scripts/check-no-warm-border.mjs              # 全量(HEAD 面,只报数)
   node scripts/check-no-warm-border.mjs --staged     # 索引面 + 差值棘轮(提交门禁档)
   node scripts/check-no-warm-border.mjs --worktree   # 磁盘(人工逃生舱)
+  node scripts/check-no-warm-border.mjs --rev <tree> --only <a;b;c>
+      # 审**将要落盘的那棵树**(命中即红,不给存量豁免)—— 供 object-space-land 当涉事判据:
+      # 旁路通道不跑 pre-commit,只活在提交链的门对它等于没装。
   node scripts/check-no-warm-border.mjs --self-test  # 判据自检
   node scripts/check-no-warm-border.mjs --json       # 机器可读输出
 
-退出码:0 通过 / 1 BLOCK / 2 无法判定
+退出码:0 通过 / 1 BLOCK / 2 无法判定(取不到面、枚举到 0、台账坏 ⇒ 既不记绿也不冒红)
 跳过:${SKIP_ENV}=1(不推荐)
 `)
     return 0
@@ -1120,34 +1135,65 @@ check-no-warm-border.mjs — 暖色描边禁令守门(2026-10-20)
   }
   if (argv.includes('--self-test')) return runSelfTest()
 
-  const { face, error: faceErr } = selectFace({
-    staged: argv.includes('--staged'),
-    worktree: argv.includes('--worktree'),
-  })
+  // ── 审树档 `--rev <oid> [--only a;b]`:给旁路落地器当涉事判据用 ──
+  // 为什么必须有这一档:旁路通道(commit-tree + CAS)**结构上不跑 pre-commit**,
+  // 而本仓大量落地走的是它 —— 只活在提交链的内容门对这条通道等于没装
+  // (AGENTS:防它必须在它自己的判据源头接)。这一档审的是"将要落盘的那棵树",不是历史。
+  const revAt = argv.indexOf('--rev')
+  const revOid = revAt >= 0 ? String(argv[revAt + 1] ?? '').trim() : ''
+  if (revOid && (argv.includes('--staged') || argv.includes('--worktree'))) {
+    console.error('❌ --rev 与 --staged/--worktree 互斥(审树档只认显式给定的那棵树)')
+    return 2
+  }
+  if (revOid && !/^[0-9a-f]{7,40}$/.test(revOid)) {
+    console.error(`❌ --rev 取值不是合法 oid ⇒ 未判定(不猜要审哪棵树):${revOid.slice(0, 40)}`)
+    return 2
+  }
+  const onlyAt = argv.indexOf('--only')
+  const onlyRaw = onlyAt >= 0 ? String(argv[onlyAt + 1] ?? '') : ''
+  const only = onlyRaw ? new Set(onlyRaw.split(';').map((s) => s.trim()).filter(Boolean)) : null
+
+  let face
+  let faceErr
+  if (revOid) face = 'rev'
+  else {
+    const r = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
+    face = r.face
+    faceErr = r.error
+  }
   if (faceErr) {
     console.error(`❌ ${faceErr}`)
     return 2
   }
   const asJson = argv.includes('--json')
   if (!asJson)
-    console.log(`[check-no-warm-border] 暖色描边禁令守门… 内容口径:${FACE_LABEL[face]} —— ${FACE_NOTE[face]}`)
+    console.log(
+      `[check-no-warm-border] 暖色描边禁令守门… 内容口径:${
+        face === 'rev'
+          ? `落盘树 ${revOid.slice(0, 12)}(旁路落地涉事判据档${only ? ` / 只审 ${only.size} 条声明路径` : ''})`
+          : `${FACE_LABEL[face]} —— ${FACE_NOTE[face]}`
+      }`,
+    )
 
   let scanned
   let exemptions
   try {
-    const { texts, primary } = prefetch(face)
+    const { texts, primary } = prefetch(face, only, revOid)
     if (primary.length === 0) {
-      if (judgeEmptyScope(face) === 'not-applicable') {
+      // 审树档的 --only 是落地器给的明确清单 ⇒ 清单里没有射程件 = 本枚不涉及,不是"没审到东西"
+      if (face === 'rev' || judgeEmptyScope(face) === 'not-applicable') {
         if (!asJson) console.log('\n✅ 本次提交无射程内文件 ⇒ 本门不适用(通过)')
         return 0
       }
       console.error('❌ 无法判定(exit 2):射程内枚举到 0 个候选 ⇒ 判据没跑到东西,不记绿')
       return 2
     }
-    // 被审件在索引面取不到 ⇒ Undetermined(§0.4 不回落另一个面)
-    if (face === 'staged') {
+    // 被审件在该面取不到 ⇒ Undetermined(§0.4 不回落另一个面)。审树档同理:
+    // 清单来自 ls-tree 却读不到 blob,说明树与清单不一致,绝不能当成"没内容=干净"。
+    if (face === 'staged' || face === 'rev') {
+      const label = face === 'rev' ? '落盘树 blob' : '索引 blob'
       for (const rel of primary) {
-        if (texts.get(rel) === null) throw new Undetermined(`${rel}: 索引 blob 取不到 —— 无法判定`)
+        if (texts.get(rel) === null) throw new Undetermined(`${rel}: ${label} 取不到 —— 无法判定`)
       }
     }
     const exRel = EXEMPTIONS_REL
@@ -1163,7 +1209,8 @@ check-no-warm-border.mjs — 暖色描边禁令守门(2026-10-20)
       }
       exemptions = r.rows
     }
-    const flat = collectHits(primary, texts, { subset: face === 'staged' })
+    // 审树档也按子集判:它只带落地器声明的那几条路径,证明不了"全集没有"(同 --staged 口径)。
+    const flat = collectHits(primary, texts, { subset: face === 'staged' || face === 'rev' })
     // W4 只在**全集档**判:被忽略的 plugin 结构上不会出现在 --staged 清单里,
     // 在子集档判它等于永不命中(§0.9 判据必须在真跑它的那一刻才成立)。
     if (face !== 'staged') {
@@ -1204,6 +1251,24 @@ check-no-warm-border.mjs — 暖色描边禁令守门(2026-10-20)
   for (const h of actionable) {
     if (!byFile.has(h.file)) byFile.set(h.file, [])
     byFile.get(h.file).push(h)
+  }
+
+  // 审树档:命中即拒(fail-closed),未判定也拒 —— 这一档没有"存量只报数"的语义,
+  // 因为它审的就是**本枚要落盘的内容本身**,报数等于放行。
+  if (face === 'rev') {
+    if (asJson) console.log(JSON.stringify({ face, total: actionable.length, hits: actionable }, null, 2))
+    if (undetermined.length > 0) {
+      console.error(`❌ 落盘树判定不完整(${undetermined.length} 处未判定)⇒ 不记绿,拒绝落地`)
+      return 2
+    }
+    if (actionable.length > 0) {
+      console.error(`❌ 落盘树里有 ${actionable.length} 处暖色描边 ⇒ 拒绝落地:`)
+      for (const [f, hits] of [...byFile].slice(0, 20))
+        console.error(`    ${f}: ${hits.map((h) => `${h.rule}@${h.line} ${h.text}`).join(' | ')}`)
+      return 1
+    }
+    if (!asJson) console.log('\n✅ 落盘树无暖色描边')
+    return 0
   }
 
   if (face !== 'staged') {
