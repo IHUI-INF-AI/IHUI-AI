@@ -19,10 +19,10 @@
       "id": "npm",
       "job": "npm-publish",
       "coordinate": "@ihui/sdk",
-      "status": "blocked-by-credential",
-      "blocker": "GitHub 仓库 secrets 里没有 NPM_TOKEN(2026-10-19 gh secret list 实测 21 项,已含 CLI 通道的 NPM_PUBLISH_TOKEN,但无 SDK 通道用的 NPM_TOKEN);npm @ihui org 归属未确认。CI 的 gate 步在 real 模式下会因此直接判红,不会静默跳过。",
-      "unblockAction": "① 在 npmjs.com 确认/申请 @ihui org 归属(若为他人 org,先裁决是否换包名 —— 换名必须同步 packages/sdk/package.json 与本台账与 CI 回读字面量,三处由 publish-ready 回归钉住);② 复用 CLI 通道同一枚 granular token 形态(All packages + read-write + 勾 Bypass 2FA)生成 SDK 用 token → gh secret set NPM_TOKEN --repo IHUI-INF-AI/IHUI-AI。⛔ 不启用 2FA、不登记 trusted publisher(用户 2026-10-19 定案,详见 AGENTS.md §0 第 11 条),故本通道永久走 token,不存在『以后再切 OIDC』这一步。",
-      "requiredSecrets": ["NPM_TOKEN"],
+      "status": "blocked-by-external-ownership",
+      "blocker": "npmjs.com 上 `@ihui` org **根本不存在**(2026-10-21 现读:registry `-/org/org:ihui/user` → HTTP 404;`@ihui/sdk` → 404;对照 `ihui-cli` → 200)—— 这是账号侧硬阻塞,补一条 secret 解不了。凭据侧**已不再缺**:gh secret list 2026-10-21 现读 21 项,含 CLI 通道同枚 `NPM_PUBLISH_TOKEN`(2026-10-19 建),release-sdk.yml 已于 2026-10-21 就地改名由它取值(此前登记的 `NPM_TOKEN` 那一枚从未存在,是本台账旧文的错误)。故 gate 步 real 模式对 npm 的『secret 非空』判据已满足;org 一旦建成并首发,本条即应翻账。",
+      "unblockAction": "① 建 org:走 CI 通道 `.github/workflows/npm-bootstrap.yml` 的 `action=org_create`(真 Chrome+xvfb 网页代行,本机/生产机出口被 www.npmjs.com 403)—— 运行命令 `gh workflow run npm-bootstrap.yml -f action=org_create`;卡邮箱 OTP 时补 `-f otp_code=<李总邮件里的验证码>`,卡 reCAPTCHA 时按 rc-live 分支截图识别。② 凭据**无需新建**:复用已入库 secrets 的 `NPM_PUBLISH_TOKEN`(granular + read-write + 勾 Bypass 2FA)。⛔ 不启用 2FA、不登记 trusted publisher(用户 2026-10-19 定案,详见 AGENTS.md §0 第 11 条),故本通道永久走 token,不存在『以后再切 OIDC』这一步。",
+      "requiredSecrets": ["NPM_PUBLISH_TOKEN"],
       "verifyCommand": "npm view @ihui/sdk version --registry=https://registry.npmjs.org/",
       "probe": {
         "kind": "http-status",
@@ -30,8 +30,8 @@
         "presentOn": [200],
         "absentOn": [404, 410]
       },
-      "statusVerifiedAt": "2026-10-19",
-      "lastRealProbe": "absent(HTTP 404,curl 实测 2026-09-26)"
+      "statusVerifiedAt": "2026-10-21",
+      "lastRealProbe": "absent(HTTP 404,registry 现读 2026-10-21;org 端点同为 404,ihui-cli 对照 200)"
     },
     {
       "id": "pypi",
