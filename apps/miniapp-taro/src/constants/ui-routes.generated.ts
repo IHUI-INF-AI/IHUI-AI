@@ -6,10 +6,10 @@
 // 数据源:src/app.config.ts(pages/subPackages/tabBar)+ 各页 *.config.ts 的 navigationBarTitleText;
 // requiresParams 由扫描源码 navigateTo url 是否带 query 得出。改页面请改 app.config.ts 后重新生成。
 
-// // // IHUI-GEN-PIN-BEGIN
+// IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 22245c83f22f37b45213af0a6d147bdd8b2f2396
-// inputsSha256: 0969c25295629c5c1fb226f059e5b82649661d8bc9f344f955d8712e08fbd5d1
+// sourceCommit: 737bd5f90f769dc1c028d11ef82166337a149c71
+// inputsSha256: 61624ea32e55a5b621f94a8e6403ba34a32db479be4383dc9ac65ec28afcd8d0
 // input: apps/miniapp-taro/src/api/index.ts 8802b65e6658ac5b04ac3b7f603263bede3b5748eadc7956a65aa437f445bb12
 // input: apps/miniapp-taro/src/api/social.ts 6fd0f50805af0b076929ce380009d01c6856fa63994bce8367577161e968a160
 // input: apps/miniapp-taro/src/app.config.ts 782c5e8315c502161d00aaeedd892bdcd7c88621621279d8e3e2e9fd5f6752fe
@@ -132,7 +132,7 @@
 // input: apps/miniapp-taro/src/lib/credential-storage.ts 4e3c0f50719a14a7061597cd9e184404c08059ed437cb0962e8dd9a5aaada332
 // input: apps/miniapp-taro/src/lib/device-fingerprint.ts 1999b1834b4af60a8e091dc68d859516bc26d983ba3c7cac078e618aed3740dd
 // input: apps/miniapp-taro/src/lib/image-preview-pack.ts 5e7c9b22fea8d486cfbba70785160dab252527ae48649f22c35c36cba07a506d
-// input: apps/miniapp-taro/src/lib/sse.ts 678e0909f9527151d33edd1fd7b52c88a1831530587b6fd08a617aa45bb3b84f
+// input: apps/miniapp-taro/src/lib/sse.ts a1468d3ff1c769dc6286d0c69ce89dd02d704b26f01f63d6f1111152aba6d61d
 // input: apps/miniapp-taro/src/lib/theme.ts bfb6c3e18b529adefe6b882f7713c1f8ac89b18fbbbf20dacfdb5cc17f1e4291
 // input: apps/miniapp-taro/src/lib/tool-approval-frame.ts 75fd5212e6d1223de287fc6cd5e3c72c95ccde3cc54d9aa5fef4a644bde68161
 // input: apps/miniapp-taro/src/lib/ui-action-registry.ts 476a3ddcc320f513c1da15a46baece8efbc168f2bf5e2d8aa3aef152839ae2b9
@@ -484,9 +484,9 @@
 // input: apps/miniapp-taro/src/utils/upload-image.ts 595d36c6d76e3d4e2673cb66c66942bb4b052f4075a1ae50c8a7ccea1ab796d3
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts 2ea58f7273c643f6e032640c175c2878516be0bf35bba8420e3f847b1218aad7
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 4959a62f1cb83c3b0a280a446f001ac92ed3163cb539a812bc6ec4608924dcc3
-// scanned: 351 source files(navigateTo url 参数探测,requiresParams 的依据)
+// scanned: 353 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=36(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-21T12:08:16.959Z
+// generatedAt: 2026-10-21T14:48:02.236Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
