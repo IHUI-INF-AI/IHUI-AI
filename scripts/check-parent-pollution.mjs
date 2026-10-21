@@ -182,6 +182,10 @@ const USER_LEGIT_PATTERNS = [
   // 它被 `ihui-` 前缀强信号判为污染,而 auto-clean 走 unlinkSync 且无二次确认 → 跑一次
   // `pnpm hygiene:parent:clean` 就会把凭据库整体删掉。改前必须先补本豁免。
   /^ihui-app-password\.txt$/i,
+  // 用户机器的 MiniMax Code 更新自愈脚本(D:/DevEnv/tools/,与 mmcode-update.ps1 配套,
+  // worker+watchdog 双计划任务互保,删了会破坏自愈注册)。2026-10-20 实测被强信号判为
+  // 污染,但它是用户自装的系统维护工具而非 agent 产物 ⇒ 显式豁免。
+  /^mmcode-selfheal\.ps1$/i,
 ]
 
 /**
