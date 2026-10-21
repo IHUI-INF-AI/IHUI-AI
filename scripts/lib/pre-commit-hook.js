@@ -815,6 +815,22 @@ try {
 }
 // --timing:逐门耗时落 pre-commit.log(默认关,不改判定/退出码)。提速优化的取数口 —— 238 门
 // 单轮 525~850s 却从无逐门分布,任何并行化/收窄改动都必须先有这份数据才能证明收益。
+// 预期与进度提示(2026-10-21):钩子运行期本机实测 ≈15 分钟,而下面 runCapturing 的 stdout
+// 是**全量缓冲**的 —— 调用方在这 15 分钟里看不到任何输出,与"卡死"同形(实测 22:57 那轮
+// 13 分钟日志一字不增)。给出预计时长与可 tail 的逐门进度文件,"是不是卡住了"当场可判。
+console.log(
+  '⏳ 守门批量检查本机实测约 9~15 分钟,期间本进程无输出属正常;' +
+    '逐门实时进度: tail -f .workbuddy/hook-logs/gates-progress.log',
+)
+// 快档默认开(2026-10-21,机主要求"整体 ≤1 分钟"):33 道重型门(>3s)实测占全量 86%,
+// 它们由 post-commit 后台补跑;提交链只跑 121 道快门(8 并发 ≈ 20s)。
+// 要全量(CI / 发版前 / 排障):IHUI_GATE_FAST=0。
+process.env.IHUI_GATE_FAST = process.env.IHUI_GATE_FAST ?? '1'
+console.log(
+  process.env.IHUI_GATE_FAST === '1'
+    ? '⚡ 快档:仅跑快门(重型门由 post-commit 后台补跑);全量请设 IHUI_GATE_FAST=0'
+    : '🐢 全量档:本次会跑全部守门(预计 9~15 分钟)',
+)
 const gates = runCapturing(
   '🛡️ 运行守门脚本批量检查...',
   'node scripts/guardian-runner.mjs --staged --timing',

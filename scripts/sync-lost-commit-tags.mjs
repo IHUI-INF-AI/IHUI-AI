@@ -162,6 +162,15 @@ function isBackupNamespace(tag) {
 // 一个名字都不列、却照样按计数 exit,屏幕上看不出任何异常(§0.10 禁止这种失效方向)。
 const LIST_CAP = envPositiveInt('IHUI_TAG_LIST_CAP', 20)
 
+// ── 网络型 git 调用必须让 **git 自己** 放弃(2026-10-21 立)────────────────────────
+// 病灶:execFileSync/execSync 的 `timeout` 在 Windows 上只杀得到**直接子进程** git.exe,
+// 而它派生的 `git-remote-https`(孙进程)仍持有 stdout 管道句柄 ⇒ 父进程读不到 EOF、继续阻塞,
+// 直到网络栈自己超时。实测 2026-10-21 23:07 的 post-commit:`git ls-remote --tags origin`
+// 明明传了 `timeout: 180000`,却挂了 15+ 分钟(CPU 恒 0),把整个提交进程钉在 post-commit 段。
+// 治本:注入 lowSpeed 阈值 —— 20 秒内低于 1KB/s 由 git 自己断开并报错,不再等 TCP 自己死。
+// 本机 GitHub 直连被墙,这条不是可选优化:没有它,凡是走网络的 tag 同步就是无界阻塞。
+const NET_TIMEOUT_ARGS = ['-c', 'http.lowSpeedLimit=1000', '-c', 'http.lowSpeedTime=20']
+
 function run(cmd, opts = {}) {
   try {
     return execSync(cmd, {
@@ -170,6 +179,10 @@ function run(cmd, opts = {}) {
       // 返回值被消费(.trim() 后 return)⇒ stdout 仍须 pipe,只把 stdin 切掉
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
+      // 兜底硬上限(2026-10-21):调用方没显式给 timeout 时也必须封顶;显式 opts 仍可覆盖。
+      // 与 NET_TIMEOUT_ARGS 分工:这一层管"进程被 kill",那一层管"git 自己先放弃" ——
+      // 前者在 Windows 上杀不干净孙进程,所以网络命令两个都要。
+      timeout: 120000,
       ...opts,
     }).trim()
   } catch (e) {
@@ -308,8 +321,8 @@ function lsRemoteTagMap(pattern = null) {
   const argv = ['ls-remote', '--tags', remote]
   if (pattern) argv.push(pattern)
   try {
-    // gitRaw 已自带 safe.directory 配置,无需在此重复
-    const out = gitRaw(argv, process.cwd(), {
+    // gitRaw 已自带 safe.directory 配置,无需在此重复;网络型调用追加低速超时(见 NET_TIMEOUT_ARGS)
+    const out = gitRaw([...NET_TIMEOUT_ARGS, ...argv], process.cwd(), {
       timeout: 180000,
       maxBuffer: 64 * 1024 * 1024,
     })
@@ -788,7 +801,7 @@ ${C.green}✅ dry-run 完成(未实际 push)${C.reset}`)
   for (const [idx, chunk] of chunks.entries()) {
     const refspecs = chunk.map((t) => `refs/tags/${t}`).join(' ')
     const forceFlag = isForce ? '--force ' : ''
-    const cmd = `git push ${forceFlag}--atomic origin ${refspecs}`
+    const cmd = `git ${NET_TIMEOUT_ARGS.join(' ')} push ${forceFlag}--atomic origin ${refspecs}`
     console.log(
       `  ${C.dim}[${idx + 1}/${chunks.length}] $ git push --atomic origin <${chunk.length} tags>${forceFlag ? ' (--force)' : ''}${C.reset}`,
     )
