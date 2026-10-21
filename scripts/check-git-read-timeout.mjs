@@ -63,6 +63,8 @@ export const HOT = [
   'scripts/git-push-guard.mjs',
   'scripts/git-push-converge.mjs',
   'scripts/heal-worktree-tracked.mjs',
+  //  worktree 生命周期回收器由守护 tick 每 10 分钟直派;一次要逐检出跑 status/merge-base ⇒ 必须封顶
+  'scripts/reap-worktrees.mjs',
   'scripts/check-commit-loss-guard.mjs',
   //  守门 98 由 pre-commit 直调,git 挂住 = 提交像死掉了(§80 的原始成因形态)
   'scripts/check-dangling-local-imports.mjs',
