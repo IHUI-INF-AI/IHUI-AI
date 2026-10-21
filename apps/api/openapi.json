@@ -43221,6 +43221,22 @@
         }
       }
     },
+    "/api/agent/security-config": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/agent/tokens": {
       "get": {
         "responses": {
@@ -165998,6 +166014,20 @@
       }
     },
     "/api/user/ip-whitelist": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
       "post": {
         "responses": {
           "200": {

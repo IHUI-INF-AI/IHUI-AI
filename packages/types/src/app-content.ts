@@ -15,7 +15,6 @@ import type { ReactNode } from 'react'
 import type { TFunction } from './app-shared.js'
 import type { CategoryItem } from './app-learning.js'
 
-
 /** 笔记列表项(平台注入,字段对齐 mobile-rn NoteListScreen Note) */
 export interface NoteListItem {
   id: string
@@ -540,7 +539,9 @@ export interface NoteScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 课程学习进度(平台无关镜像,字段对齐 @ihui/api-client CourseProgress) */
+/** 课程学习进度条契约(平台无关。旧 @ihui/api-client CourseProgress 已随
+ *  /api/course 那套死端点一起删除;现由各端 wrapper 从小节制的 LessonProgress
+ *  投影出这几根,投影实现在 mobile-rn VideoPlayerScreen 的 sharedProgress) */
 export interface VideoPlayerProgress {
   courseId: string
   totalLessons: number

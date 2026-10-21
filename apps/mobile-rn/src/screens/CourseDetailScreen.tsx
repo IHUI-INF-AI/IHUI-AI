@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 import { rnRadius } from '@ihui/design-tokens'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -11,7 +11,8 @@ import {
   enrollCourse,
   getCourseById,
   getProgress,
-  type Course,
+  type CourseDetail,
+  type CourseSection,
   type LessonProgress,
 } from '@ihui/api-client'
 import {
@@ -35,8 +36,8 @@ export function CourseDetailScreen() {
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
   const { id } = route.params
-  const [course, setCourse] = useState<Course | null>(null)
-  const [lessons, setLessons] = useState<LessonProgress[]>([])
+  const [course, setCourse] = useState<CourseDetail | null>(null)
+  const [progress, setProgress] = useState<LessonProgress | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [enrolling, setEnrolling] = useState(false)
@@ -54,7 +55,7 @@ export function CourseDetailScreen() {
         setError(courseRes.error || t('course.loadFailed'))
       }
       if (progressRes.success) {
-        setLessons(progressRes.data.lessons ?? [])
+        setProgress(progressRes.data)
       }
       setLoading(false)
     })()
@@ -75,9 +76,32 @@ export function CourseDetailScreen() {
     }
   }
 
+  /** 课程下的小节(可播放项)—— 服务端把章节放顶层、小节挂在章节的 sections 里。 */
+  const sections: CourseSection[] = useMemo(
+    () => course?.chapters.flatMap((chapter) => chapter.sections) ?? [],
+    [course],
+  )
+
+  /** 已完成的小节 id(status 2 = 已完成)。学习记录按小节记,不是按课程记。 */
+  const completedSectionIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const sp of progress?.sectionProgress ?? []) {
+      if (sp.status === 2 && sp.sectionId) ids.add(sp.sectionId)
+    }
+    return ids
+  }, [progress])
+
+  // 播放器要拿**小节**的视频地址:章节行本身没有视频,课程行也没有。
+  // 上一版只带 courseId/lessonId ⇒ 播放器拿不到地址,点开只有一片黑。
   const onPlay = (lessonId: string) => {
     if (!course) return
-    navigation.navigate('VideoPlayer', { courseId: course.id, lessonId, title: course.title })
+    const section = sections.find((s) => s.id === lessonId)
+    navigation.navigate('VideoPlayer', {
+      courseId: course.id,
+      lessonId,
+      title: section?.title ?? course.title,
+      videoUrl: section?.videoUrl ?? undefined,
+    })
   }
 
   const detailItem: CourseDetailItem | null = course
@@ -85,7 +109,7 @@ export function CourseDetailScreen() {
         id: course.id,
         title: course.title,
         description: course.description,
-        categoryName: course.categoryName,
+        categoryName: course.categoryName ?? '',
         level: course.level,
         instructor: course.instructor,
         studentCount: course.studentCount,
@@ -96,10 +120,12 @@ export function CourseDetailScreen() {
       }
     : null
 
-  const detailLessons: CourseDetailLesson[] = lessons.map((l) => ({
-    lessonId: l.lessonId,
-    title: l.title,
-    isCompleted: l.isCompleted,
+  // 课程清单的每一行 = 一个**小节**(可播放项),不是章节、也不是"进度端点返回的课时"。
+  // 上一版读 progressRes.data.lessons —— 那个键在服务端根本不存在,清单恒为空。
+  const detailLessons: CourseDetailLesson[] = sections.map((section) => ({
+    lessonId: section.id,
+    title: section.title,
+    isCompleted: completedSectionIds.has(section.id),
   }))
 
   return (
