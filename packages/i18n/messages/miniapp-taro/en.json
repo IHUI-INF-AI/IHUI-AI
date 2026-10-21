@@ -4452,7 +4452,8 @@
     "p1": "Failed to start recording"
   },
   "webViewPortal": {
-    "title": "Web Feature Portal",
+    "knowledgeBase": "Knowledge Base",
+    "settingsBilling": "Billing Management",    "title": "Web Feature Portal",
     "hint": "Open web features in the built-in browser",
     "sections": {
       "eduAi": "AI Education",

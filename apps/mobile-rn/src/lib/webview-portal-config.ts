@@ -13,6 +13,7 @@
 
 import {
   WEB_PORTAL_SECTIONS,
+  buildMemoryDetailUrl,
   buildWebPortalUrl,
   toWebSsoRedirectUri,
   type WebPortalEntry,
@@ -34,4 +35,9 @@ export function toSsoRedirectUri(url: string): string {
 /** 绑定 RN 底座:拼接门户条目完整 URL */
 export function buildWebUrl(entry: WebPortalEntry): string {
   return buildWebPortalUrl(WEB_BASE_URL, entry)
+}
+
+/** 绑定 RN 底座:记忆详情页 URL(路径形状见 @ihui/shared/constants 的 buildMemoryDetailUrl) */
+export function buildMemoryDetailWebUrl(id: string): string {
+  return buildMemoryDetailUrl(WEB_BASE_URL, id)
 }
