@@ -23,9 +23,16 @@ import {
   anchorRegression,
   audit,
   bareRoundedAudit,
+  classArmResolution,
+  classArmTotals,
+  classifyUsedClassNames,
   clauseDemand,
   collect,
+  cssClassDefinitions,
   diffValues,
+  armFoldVerdict,
+  armMaterialOf,
+  armShadowCompare,
   elementRadiusCount,
   elementRadiusDiff,
   emitBaseline,
@@ -33,7 +40,9 @@ import {
   geometryDeclCheck,
   iconAudit,
   iconGlyphs,
+  indexClassDefinitions,
   namedConflicts,
+  ownDefinedClassNames,
   parseBaseline,
   parseModuleEdges,
   pickCandidate,
@@ -2439,7 +2448,7 @@ export function runSelfTest() {
       const a = rootSlotRadiiOf(carouselShape, tbl)
       // 同名但从业务文件 import ⇒ 根由子组件代渲染,仍必须是"读不出"。
       const b = rootSlotRadiiOf(
-        "import { View } from './view'\nexport default function Foo() {\n  return <View className=\"rounded-2xl\" />\n}\n",
+        'import { View } from \'./view\'\nexport default function Foo() {\n  return <View className="rounded-2xl" />\n}\n',
         tbl,
       )
       // 注释夹在 `return (` 与根标签之间:等长遮罩使取材下标不左移(删注释会切到隔壁材料)。
@@ -2467,19 +2476,25 @@ export function runSelfTest() {
       '③ 真不同档仍必须报分叉(不是把裸档当万能 8)、④ 已认形态一律不得双计、⑤ 注释里逐字写的不计',
     (() => {
       const tbl = { DEFAULT: 8, xs: 2, sm: 4, md: 6, lg: 8, xl: 12, '2xl': 16 }
-      const bare = radiusSetOf('export function Foo() {\n  return <View className="rounded" />\n}\n', tbl)
+      const bare = radiusSetOf(
+        'export function Foo() {\n  return <View className="rounded" />\n}\n',
+        tbl,
+      )
       // ① 识别式被摘掉时这一格读成 [] ⇒ 用例翻红(这就是本票要的"摘掉即红"那半边)。
       if (JSON.stringify(bare) !== '[8]') return `① 裸档未进档集合:${JSON.stringify(bare)}`
       // ② mp 写裸档 / rn 写具名档:两端同一个 8,不得报分叉(改前正是这一型被读成"mp 没写档")。
-      const same = diffValues(new Set(bare), new Set(radiusSetOf('<View className="rounded-lg" />', tbl)))
+      const same = diffValues(
+        new Set(bare),
+        new Set(radiusSetOf('<View className="rounded-lg" />', tbl)),
+      )
       if (same.onlyMiniapp.length || same.onlyRn.length)
         return `② 同值裸档被报成分叉:${JSON.stringify(same)}`
       // ③ 反证:另一端是 12 时必须照样报分叉 —— 补认裸档不是把它折成"永远相等"。
-      const real = diffValues(new Set(bare), new Set(radiusSetOf('<View className="rounded-xl" />', tbl)))
-      if (
-        JSON.stringify(real.onlyMiniapp) !== '[8]' ||
-        JSON.stringify(real.onlyRn) !== '[12]'
+      const real = diffValues(
+        new Set(bare),
+        new Set(radiusSetOf('<View className="rounded-xl" />', tbl)),
       )
+      if (JSON.stringify(real.onlyMiniapp) !== '[8]' || JSON.stringify(real.onlyRn) !== '[12]')
         return `③ 真分叉没报出来:${JSON.stringify(real)}`
       // ④ 收尾边界:带档位/带方括号/full 的字形都归各自判据,裸档支不得再补一个 8(数条目而不是数集合,
       //    集合会把双计折成一个元素、看不出漂移)。
@@ -2492,15 +2507,24 @@ export function runSelfTest() {
         items('.a { border-radius: var(--radius-lg); }') !== 1 ||
         items('.a { border-radius: var(--radius); }') !== 1
       )
-        return `④ 已认形态与裸档双计:${items('<View className="rounded-md" />')}/` +
+        return (
+          `④ 已认形态与裸档双计:${items('<View className="rounded-md" />')}/` +
           `${items('<View className="rounded-full" />')}/${items('<View className="rounded-[12px]" />')}`
+        )
       // ⑤ 遮噪与报名同口径:注释里逐字写出的 rounded 必不计(写进注释必不计,写进代码必计)。
-      if (radiusSetOf('// <View className="rounded" />\nexport default function B() { return <View /> }', tbl).length)
+      if (
+        radiusSetOf(
+          '// <View className="rounded" />\nexport default function B() { return <View /> }',
+          tbl,
+        ).length
+      )
         return '⑤ 注释里的裸档被计进了档集合'
       // ⑥ CSS 侧同一把尺子:var(--radius) 与 rounded 同值同判。
       if (
         JSON.stringify(radiusSetOf('.a {\n  border-radius: var(--radius);\n}', tbl)) !== '[8]' ||
-        JSON.stringify(radiusEntriesOf('.card {\n  border-radius: var(--radius);\n}', tbl).entries.card) !== '[8]'
+        JSON.stringify(
+          radiusEntriesOf('.card {\n  border-radius: var(--radius);\n}', tbl).entries.card,
+        ) !== '[8]'
       )
         return '⑥ CSS 侧 var(--radius) 未并进集合/元素名归属'
       return true
@@ -2515,7 +2539,10 @@ export function runSelfTest() {
       const mp = 'apps/miniapp-taro/src/components/Foo.tsx'
       const rn = 'packages/app/src/components/Foo.tsx'
       const src = 'export function Foo() {\n  return <View className="rounded" />\n}\n'
-      const text = { [mp]: src, [rn]: 'export function Foo() {\n  return <View className="rounded-lg" />\n}\n' }
+      const text = {
+        [mp]: src,
+        [rn]: 'export function Foo() {\n  return <View className="rounded-lg" />\n}\n',
+      }
       const pairs = [{ name: 'Foo', miniapp: mp, rn }]
       // ① 报名与判据两侧同形:名单点数 == 整源报名 == 档集合里那枚 8。
       const aud = bareRoundedAudit(pairs, text, tbl, 'main')
@@ -2534,12 +2561,294 @@ export function runSelfTest() {
         return '② 门内报名未如实写 defaultResolved:false(值未判定)'
       // ③ 装车锁:裸档识别式只准住在 lib/radius-tokens.mjs,门体再抄一份就是第二把尺子。
       const mainSrc = readFileSync(MAIN_SOURCE_PATH, 'utf8')
-      const libSrc = readFileSync(fileURLToPath(new URL('./radius-tokens.mjs', import.meta.url)), 'utf8')
+      const libSrc = readFileSync(
+        fileURLToPath(new URL('./radius-tokens.mjs', import.meta.url)),
+        'utf8',
+      )
       const re = /\(\?<!\[\\w\$-\]\)rounded/g
       const inMain = (mainSrc.match(re) || []).length
       const inLib = (libSrc.match(re) || []).length
-      if (inMain !== 0 || inLib !== 1) return `③ 裸档正则出现第二份:门内 ${inMain} 处、lib ${inLib} 处`
+      if (inMain !== 0 || inLib !== 1)
+        return `③ 裸档正则出现第二份:门内 ${inMain} 处、lib ${inLib} 处`
       return true
+    })(),
+  )
+  /*
+   * ── CA 类臂归属读数(G-16 那一格,机主 2026-10-20 定档口径 1/2/3)───────────────
+   * 四条成对反证:① 唯一无覆盖定义 ⇒ 读得到;② 两处定义(其一带 !important)⇒ 判**未判定**
+   * 而不是"取第一个";③ 条件出现的类名不算 base;④ 反向锁(判据被摘掉即翻红/翻不读)。
+   */
+  const ARM_RN =
+    "import { Bar, Foo } from '@ihui/rn-app'\nexport function RootNavigator() { return null }\n"
+  /**
+   * 类臂夹具:`app.css` 是**全局表**(组件没 import 它),盒值就住在那儿 —— 正是门原先读不到的那一型。
+   * `globalExtraCss` 落第二处定义(实测会咬人的 `bottom:112rpx !important` 页面级 override 型)。
+   */
+  function FIXTURE_ARM({ stateClass = true, globalExtraCss = '' }) {
+    return {
+      ...FIXTURE_BASE({ rn: ARM_RN }),
+      'apps/miniapp-taro/src/components/Foo.tsx': stateClass
+        ? "export function Foo() { return <div className={cn('foo-shell', on && 'foo-state')} /> }\n"
+        : 'export function Foo() { return <div className="foo-shell foo-state" /> }\n',
+      'apps/miniapp-taro/src/app.css': '.foo-shell{padding:0 24rpx}\n.foo-state{padding:0 40rpx}\n',
+      'apps/miniapp-taro/src/pages/index/index.css': globalExtraCss,
+    }
+  }
+  const armOf = (r, name) => (r.classArm ?? []).find((x) => x.name === name) ?? null
+  t(
+    'LA 类臂①唯一无覆盖定义 ⇒ 该元素的盒值读得到(端到端真 git 夹具;两枚类都只定义一次)',
+    (() => {
+      const dir = makeFixtureRepo(FIXTURE_ARM({ stateClass: false }))
+      try {
+        const r = collect(dir, 'head')
+        const f = armOf(r, 'Foo')
+        const arm = String(r.armStyles['apps/miniapp-taro/src/components/Foo.tsx'] ?? '')
+        return (
+          !!f &&
+          f.resolved.map((x) => x.name).join() === 'foo-shell,foo-state' &&
+          f.ambiguous.length === 0 &&
+          f.state.length === 0 &&
+          arm.includes('24rpx') &&
+          arm.includes('40rpx') &&
+          (r.armUndetermined ?? []).length === 0 &&
+          classArmTotals(r.classArm).resolved === 2
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+    '类臂接入应把全局表里的唯一定义读进 armStyles',
+  )
+  t(
+    'LB 类臂②同一类名两处定义(其一 !important)⇒ 判**未判定**并进具名队列:绝不选边、绝不取第一个、绝不取"更像的"',
+    (() => {
+      const dir = makeFixtureRepo(
+        FIXTURE_ARM({
+          stateClass: false,
+          globalExtraCss: '.foo-shell{bottom:112rpx !important}\n',
+        }),
+      )
+      try {
+        const r = collect(dir, 'head')
+        const f = armOf(r, 'Foo')
+        const arm = String(r.armStyles['apps/miniapp-taro/src/components/Foo.tsx'] ?? '')
+        const amb = f?.ambiguous ?? []
+        const bad = amb.find((a) => a.name === 'foo-shell')
+        return (
+          !!f &&
+          f.resolved.map((x) => x.name).join() === 'foo-state' &&
+          !!bad &&
+          bad.count === 2 &&
+          bad.important === true &&
+          // 反证"取第一个":第一处定义(app.css 的 24rpx)与第二处(112rpx)**都不得**进读数
+          !arm.includes('112rpx') &&
+          !arm.includes('24rpx') &&
+          arm.includes('40rpx') &&
+          (r.armUndetermined ?? []).some((u) => /foo-shell/.test(u.spec) && /未判定/.test(u.reason))
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+    '两处定义必须落未判定队列,而不是被某一条静默采信',
+  )
+  t(
+    'LC 类臂③条件出现的类名(`cn("a", on && "b")`)不算 base:即使它在全局表里有唯一定义',
+    (() => {
+      const dir = makeFixtureRepo(FIXTURE_ARM({ stateClass: true }))
+      try {
+        const r = collect(dir, 'head')
+        const f = armOf(r, 'Foo')
+        const arm = String(r.armStyles['apps/miniapp-taro/src/components/Foo.tsx'] ?? '')
+        return (
+          !!f &&
+          f.resolved.map((x) => x.name).join() === 'foo-shell' &&
+          f.state.join() === 'foo-state' &&
+          !arm.includes('40rpx') &&
+          classifyUsedClassNames("className={cn('foo-shell', on && 'foo-state')}").base.has(
+            'foo-shell',
+          ) &&
+          classifyUsedClassNames("className={cn('foo-shell', on && 'foo-state')}").conditional.has(
+            'foo-state',
+          )
+        )
+      } catch (e) {
+        return `抛错:${e?.message ?? e}`
+      } finally {
+        rmScratch(dir)
+      }
+    })(),
+    '状态档混进 base 就是把"弹起时"的高度算进"静止时"的对账',
+  )
+  t(
+    'LD 类臂③补:同一类名**只要有一次**条件出现就整枚归状态域(保守:证明不了它无条件挂着,就不给 base 身份)',
+    (() => {
+      const both = classifyUsedClassNames(
+        "a.className='foo-shell'\nb.className={cn('foo-wrap', on && 'foo-shell')}",
+      )
+      const onlyGuarded = classifyUsedClassNames("b.className={cn('foo-wrap', on && 'foo-shell')}")
+      const onlyPlain = classifyUsedClassNames("a.className='foo-shell'")
+      return (
+        both.conditional.has('foo-shell') === true &&
+        both.base.has('foo-shell') === false &&
+        onlyGuarded.base.has('foo-shell') === false &&
+        onlyPlain.base.has('foo-shell') === true
+      )
+    })(),
+  )
+  t(
+    'LE 归属仍要"最严":只有"选择器恰为单类"才算定义(复合/伪类/关键帧一律不算);@media 里同名第二条 = 两处定义;逗号组各算一枚;括号不配平 ⇒ 整段不解析',
+    (() => {
+      const notAdefinition = cssClassDefinitions(
+        '.page .foo-shell{padding:0 4rpx}\n.foo-shell:hover{padding:0 6rpx}\n@keyframes spin{0%{width:2rpx}}\n',
+        'x.css',
+      )
+      const mediaDup = cssClassDefinitions(
+        '.a{padding:0 4rpx}\n@media (min-width:1px){.a{padding:0 8rpx}}\n',
+        'y.css',
+      )
+      const comma = cssClassDefinitions('.b, .c{gap:4rpx}\n', 'z.css')
+      const unbalanced = cssClassDefinitions('.d{padding:0 4rpx\n', 'w.css')
+      const idxAB = indexClassDefinitions([mediaDup])
+      const idxComma = indexClassDefinitions([comma])
+      const rAB = classArmResolution(new Set(['a']), idxAB)
+      const rComma = classArmResolution(new Set(['b', 'c', 'gone']), idxComma)
+      const rMissing = classArmResolution(new Set(['ghost']), idxComma)
+      // "仍读不到"必须分两型(处置动作不同):规则存在但选择器非单类 vs 全语料根本没有这条定义。
+      const compound = cssClassDefinitions('.page .deep-box{padding:0 4rpx}\n', 'c.css')
+      const idxDeep = indexClassDefinitions([compound])
+      const rDeepLoose = classArmResolution(
+        new Set(['deep-box', 'never-box']),
+        idxDeep,
+        new Set(),
+        new Set(['deep-box']),
+      )
+      const rDeepNoLoose = classArmResolution(new Set(['deep-box']), idxDeep)
+      return (
+        notAdefinition.length === 0 &&
+        unbalanced.length === 0 &&
+        mediaDup.length === 2 &&
+        comma.length === 2 &&
+        rAB.ambiguous.length === 1 &&
+        rAB.resolved.length === 0 &&
+        rComma.resolved.map((x) => x.name).join() === 'b,c' &&
+        rComma.unattributed.map((x) => x.name).join() === 'gone' &&
+        rMissing.unattributed.map((x) => x.name).join() === 'ghost' &&
+        // 没给 looseNames 时不得瞎猜形态(§0.3:取不到输入就如实"不知道",不冒认一种成因)
+        rDeepNoLoose.unattributed[0].mentioned === false &&
+        rDeepLoose.unattributed.map((x) => `${x.name}:${x.mentioned}`).join() ===
+          'deep-box:true,never-box:false' &&
+        /不落在本门射程内/.test(rDeepLoose.unattributed[1].why) &&
+        /恰为单类/.test(rDeepLoose.unattributed[0].why) &&
+        // 自家表定义过、全局表又有第二处 ⇒ 仍判未判定(不得因为"读得到"就顶掉"被覆盖"这个真风险)
+        classArmResolution(new Set(['a']), indexClassDefinitions([mediaDup]), new Set(['a']))
+          .ambiguous.length === 1 &&
+        ownDefinedClassNames('.own{gap:2rpx}').has('own') &&
+        // 反证(本轮现读撞到的第二条):简写多值判据只认**行首**声明。类臂材料若不把每条声明
+        // 落到行首,`.foo-a{padding:0 24rpx}` 这种单行规则接进来也是 0 档 ⇒ "读得到却量不出来"。
+        (() => {
+          const oneLine = readGeometry(
+            `export function Foo(){\n  return <View />\n}\n${armMaterialOf([{ body: 'padding:0 24rpx' }])}`,
+            'miniapp',
+            {},
+          )
+          const twoDecls = armMaterialOf([{ body: 'padding:0 24rpx;border:1px solid red' }])
+          return oneLine.values.has(12) && twoDecls.includes('\nborder')
+        })()
+      )
+    })(),
+  )
+  t(
+    'LF 影子读数的折叠许可:扩面把族推过它**自己的锚点**即不可并(成对:锚点够高才可并)—— 豁免吃掉的红不算没红',
+    (() => {
+      const pairs = { pairs: [{ name: 'Foo', miniapp: 'm.tsx', rn: 'r.tsx' }] }
+      const text = {
+        'm.tsx': 'export function Foo(){ return <View /> }\n',
+        'r.tsx': 'export function Foo(){ return <View style={{width: 99}} /> }\n',
+      }
+      const styles = {}
+      // 材料必须**走生产链**造(定义索引 → 归属 → armMaterialOf),不许手搓一条 CSS 串塞进去:
+      // 手搓的那份带选择器(`.foo-a{padding:0 24rpx}`),声明不在行首 ⇒ 简写判据看不见,
+      // 测出来的"没变化"是夹具形状错,不是判据没牙(本轮现读就是这么错过一次的)。
+      const defs = cssClassDefinitions('.foo-a{padding:0 24rpx}\n', 'g.css')
+      const resolvedFooA = classArmResolution(
+        new Set(['foo-a']),
+        indexClassDefinitions([defs]),
+      ).resolved
+      const armStyles = { 'm.tsx': armMaterialOf(resolvedFooA) }
+      const sh = armShadowCompare(pairs, text, {}, {}, null, styles, armStyles)
+      const tight = armFoldVerdict(sh, {
+        counts: { Foo: 0 },
+        radiusCounts: {},
+        elementRadiusCounts: {},
+      })
+      const loose = armFoldVerdict(sh, {
+        counts: { Foo: 99 },
+        radiusCounts: {},
+        elementRadiusCounts: {},
+      })
+      const none = armShadowCompare(pairs, text, {}, {}, null, styles, {})
+      return (
+        sh.touched.join() === 'm.tsx' &&
+        sh.families.length === 1 &&
+        sh.families[0].after.diff > sh.families[0].before.diff &&
+        sh.newRed.length === 0 &&
+        tight.foldable === false &&
+        tight.overAnchor.length === 1 &&
+        loose.foldable === true &&
+        loose.overAnchor.length === 0 &&
+        none.touched.length === 0 &&
+        none.families.length === 0
+      )
+    })(),
+  )
+  t(
+    'LG 反向锁(判据有牙):类臂材料只准来自 `resolved`;未判定队列、影子读数、折叠结论三样都必须由 collect 产出并被 main 打印/进 json;且 CA 一维**不得**被折进退出码(第一版只报数,§12e)',
+    (() => {
+      const src = readFileSync(MAIN_SOURCE_PATH, 'utf8')
+      const mainBody = src.slice(src.indexOf('function main('))
+      // 退出码求和行按**内容**取(不按下标算长度:一次 append 就把行号挪走了)。
+      const sum = mainBody.match(/return rotRed \+[\s\S]{0,400}?\? 1[\s\S]{0,24}?0/)
+      return (
+        !!sum &&
+        !/arm/i.test(sum[0]) &&
+        /armMaterialOf\(r\.resolved\)/.test(src) &&
+        !/armMaterialOf\(r\.ambiguous\)/.test(src) &&
+        /armUndetermined\.push\(/.test(src) &&
+        /\n {4}armStyles,\n {4}classArm,\n {4}armUndetermined,\n/.test(src) &&
+        /collected\.classArm \?\? \[\]/.test(mainBody) &&
+        /collected\.armUndetermined \?\? \[\]/.test(mainBody) &&
+        /CA 类臂归属读数/.test(mainBody) &&
+        /未并进判据/.test(mainBody) &&
+        /foldable: armFold\.foldable/.test(mainBody)
+      )
+    })(),
+  )
+  t(
+    'LH 装车锁(类臂这一维真的在跑):四桶由 collect 产出、影子读数由 main 在同一轮算、未判定必须进队列并进 json —— 少一条就是"有判据而没人调度"(守门 89 R4 同型)',
+    (() => {
+      const src = readFileSync(MAIN_SOURCE_PATH, 'utf8')
+      const mainBody = src.slice(src.indexOf('function main('))
+      return (
+        /classArm\.push\(\{/.test(src) &&
+        /armUndetermined\.push\(\{/.test(src) &&
+        /classDefIndex[\s\S]{0,80}indexClassDefinitions\(/.test(src) &&
+        /indexClassDefinitions\(\s*\n?\s*\[\.\.\.cssFileText\]/.test(src) &&
+        /const armShadow = armShadowCompare\(/.test(mainBody) &&
+        /const armFold = armFoldVerdict\(armShadow, baseline\)/.test(mainBody) &&
+        mainBody.indexOf('const armShadow = armShadowCompare(') <
+          mainBody.indexOf("if (argv.includes('--json'))") &&
+        /classArm: \{/.test(mainBody) &&
+        /undetermined: collected\.armUndetermined \?\? \[\]/.test(mainBody) &&
+        /overAnchor: armFold\.overAnchor/.test(mainBody) &&
+        // 索引取材面必须是"**伴生 ∪ 全局**"同一份 cssFileText(同面同轮,§0.4):
+        // 只扫全局表会漏掉伴生表里的第二处覆盖,只扫伴生表就是回到旧盲区。
+        /cssFileText\.set\(rel, t\)/.test(src)
+      )
     })(),
   )
   console.log(`--self-test:${pass} 通过 / ${fail} 失败`)

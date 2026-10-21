@@ -4,6 +4,8 @@
 
 import { useTt } from '@/i18n'
 import { View, Text, Switch } from '@tarojs/components'
+import { getRnTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 export interface NotificationSettingItem {
   key: string
@@ -19,6 +21,10 @@ export interface NotificationSettingsProps {
 
 export default function NotificationSettings({ items = [], onToggle }: NotificationSettingsProps) {
   const tt = useTt()
+  /* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量 ⇒ 必须 JS 派生 hex。
+     取墨档 brand.DEFAULT(亮 #000000 / 暗 #FFFFFF,随主题翻转),与 RN trackColor.true 同档。 */
+  const { resolved } = useAppTheme()
+  const switchInk = getRnTokens(resolved).brand.DEFAULT
   return (
     <View className="bg-card">
       <View className="px-4 pt-3 pb-2">
@@ -39,7 +45,7 @@ export default function NotificationSettings({ items = [], onToggle }: Notificat
           </View>
           <Switch
             checked={item.enabled}
-            color="var(--color-primary)"
+            color={switchInk}
             onChange={(e) => onToggle(item.key, e.detail.value)}
           />
         </View>

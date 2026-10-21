@@ -21,8 +21,6 @@ import { RefreshCw, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
-import { PageContainer } from '@/components/common/PageContainer'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import type { NativeDashboard } from './dashboard-config.generated'
 import { rkey, materializeExpr, stepFor, DashboardGrid } from './panel-render'
 import type { QueryResult } from './panel-render'
@@ -62,45 +60,8 @@ type ConfigModule = Awaited<ReturnType<typeof loadConfig>>
 
 // ---------- 页面主体 ----------
 
-type MonitorView = 'panels' | 'wallboard'
-
-/**
- * 选中态三档实测后的定档(2026-10-20,暗色档计算样式现读):
- *   bg-selection = rgb(0,0,0) 纯黑,压在 bg-muted rgb(38,38,38) 的槽上 ⇒ 比底还暗,读成"未选中";
- *   bg-background = rgb(36,36,36) ⇒ 与槽只差 2,等于看不见;
- *   唯一在两档都成立的高对比对是品牌实底对 `bg-cta`/`text-cta-foreground`(暗=纯白底黑字、
- *   亮=纯黑底白字,tokens.css .dark 现读 hsl(0 0% 100%)/hsl(0 0% 0%))。共享 Tabs 的默认档
- *   (packages/ui-react/src/components/tabs.tsx 的 bg-selection)在暗色下是同型坑,源头修归设计系统,
- *   这里先按调用点覆写并留证据。
- */
-const TRIGGER_CLS =
-  'px-4 font-medium data-[state=active]:bg-cta data-[state=active]:text-cta-foreground'
-
-/**
- * 两种呈现的切换器。刻意不自己占一行:由各视图的顶栏承载,复用共享 Tabs 档位
- * (机主 2026-10-20 定档:切换件要显眼,但不许把内容往下挤一行)。
- *
- * 只有 `TabsList` + `TabsTrigger`,没有自己的 `Tabs` 根:根由页面持有,这里从 Radix
- * context 取当前值。本组件经 `headerExtra` 槽渲染在 `TabsContent` 内部,仍在根的子孙树里
- * ⇒ context 取得到。若这里再套一个根,整页会有两根,而两根都没有 `TabsContent` ⇒ 每个
- * trigger 的 `aria-controls` 都指向不存在的 id、整页没有 `role=tabpanel`(仓里其它页如
- * `app/(main)/agent-runtime/page.tsx` 都是"根包 List + Content"的写法)。
- */
-function MonitorViewSwitch() {
-  return (
-    <TabsList className="h-10">
-      <TabsTrigger value="panels" className={TRIGGER_CLS}>
-        监控面板
-      </TabsTrigger>
-      <TabsTrigger value="wallboard" className={TRIGGER_CLS}>
-        数据大屏
-      </TabsTrigger>
-    </TabsList>
-  )
-}
-
 export default function MonitorPanelsPage() {
-  const [view, setView] = React.useState<MonitorView>('panels')
+  const [view, setView] = React.useState<'panels' | 'wallboard'>('panels')
 
   React.useEffect(() => {
     if (new URLSearchParams(window.location.search).get('view') === 'wallboard') {
@@ -108,7 +69,7 @@ export default function MonitorPanelsPage() {
     }
   }, [])
 
-  const switchView = (next: MonitorView) => {
+  const switchView = (next: 'panels' | 'wallboard') => {
     setView(next)
     const url = new URL(window.location.href)
     if (next === 'wallboard') url.searchParams.set('view', 'wallboard')
@@ -116,30 +77,52 @@ export default function MonitorPanelsPage() {
     window.history.replaceState(null, '', url.toString())
   }
 
-  const headerExtra = <MonitorViewSwitch />
-
   return (
-    <PageContainer padded={false} className="flex h-full flex-col">
-      <Tabs
-        value={view}
-        onValueChange={(v) => switchView(v as MonitorView)}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <TabsContent value="panels" className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto">
-          <MonitorPanelsContent headerExtra={headerExtra} />
-        </TabsContent>
-        <TabsContent
-          value="wallboard"
-          className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto"
-        >
-          <WallboardView headerExtra={headerExtra} />
-        </TabsContent>
-      </Tabs>
-    </PageContainer>
+    <div className="flex h-[calc(100vh-64px)] flex-col gap-1 px-4">
+      <div className="flex shrink-0 items-center justify-end">
+        <div className="inline-flex items-center rounded-md border border-border bg-muted/40 p-0.5">
+          <button
+            type="button"
+            onClick={() => switchView('panels')}
+            className={cn(
+              'rounded-sm px-2 py-0.5 text-[11px] transition-colors',
+              view === 'panels'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            监控面板
+          </button>
+          <button
+            type="button"
+            onClick={() => switchView('wallboard')}
+            className={cn(
+              'rounded-sm px-2 py-0.5 text-[11px] transition-colors',
+              view === 'wallboard'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            数据大屏
+          </button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">
+        {view === 'wallboard' ? (
+          <div className="h-full overflow-hidden rounded-lg border border-border bg-background">
+            <div className="h-full overflow-y-auto">
+              <WallboardView />
+            </div>
+          </div>
+        ) : (
+          <MonitorPanelsContent />
+        )}
+      </div>
+    </div>
   )
 }
 
-function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode }) {
+function MonitorPanelsContent() {
   const [config, setConfig] = React.useState<ConfigModule | null>(null)
   const [activeUid, setActiveUid] = React.useState<string>('')
   const [rangeSec, setRangeSec] = React.useState<number>(RANGES[1].seconds)
@@ -198,7 +181,6 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
       })
     })
     const next = new Map<number, QueryResult>()
-    let failed = false
     try {
       // 同键(expr+backend+窗口)去重:同盘常见多面板共享同一表达式,只查一次上游
       const byKey = new Map<string, number[]>() // key -> queries 原始下标列表(含首个)
@@ -230,12 +212,10 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         } catch (e) {
           // 网络异常/请求中止:不静默,给出行内提示(数据保留旧值)
           setPageError(`网络异常:${String((e as Error).message).slice(0, 120)}`)
-          failed = true
           break
         }
         if (!res.success || !res.data) {
           setPageError(res.error || '查询失败')
-          failed = true
           break
         }
         res.data.results.forEach((r, bi) => {
@@ -254,12 +234,9 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
           }
         })
       }
-      // 失败时保留上一轮结果(与行内提示同现);不落半批结果,避免新旧窗口混在同一盘,updatedAt 也不推进
-      if (!failed) {
-        setResults(next)
-        setUpdatedAt(new Date())
-        setCountdown(AUTO_REFRESH_MS / 1000)
-      }
+      setResults(next)
+      setUpdatedAt(new Date())
+      setCountdown(AUTO_REFRESH_MS / 1000)
     } finally {
       inFlight.current = false
       setLoading(false)
@@ -307,7 +284,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
   }, [dashboard, filter])
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div className="flex h-full overflow-hidden rounded-lg border border-border bg-background px-4">
       {/* 左侧导航:21 张盘,按分组 */}
       <aside
         className={cn(
@@ -318,7 +295,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         <button
           type="button"
           onClick={() => setNavOpen((v) => !v)}
-          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-info-text"
+          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-cyan-300"
         >
           {navOpen ? `监控面板 (${boards.length})` : '»'}
         </button>
@@ -345,7 +322,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                         className={cn(
                           'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
                           d.uid === activeUid
-                            ? 'border-l-2 border-info bg-muted text-info-text'
+                            ? 'border-l-2 border-cyan-400 bg-muted text-cyan-300'
                             : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
                         )}
                       >
@@ -364,7 +341,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 顶栏 */}
         <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
-          <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
+          <h2 className="text-sm font-semibold text-foreground">
             {dashboard ? stripBrandPrefix(dashboard.title) : '监控面板'}
           </h2>
           {dashboard && (
@@ -376,14 +353,13 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
             </span>
           )}
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {headerExtra}
             <div className="relative">
               <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="筛选面板…"
-                className="w-32 rounded-sm border border-border bg-muted py-1 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-info/40 focus:outline-none"
+                className="w-32 rounded-sm border border-border bg-muted py-1 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-cyan-500/40 focus:outline-none"
               />
             </div>
             <div className="flex overflow-hidden rounded-sm border border-border">
@@ -395,7 +371,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                   className={cn(
                     'px-2.5 py-1 text-[11px] transition-colors',
                     rangeSec === r.seconds
-                      ? 'bg-info/15 text-info-text'
+                      ? 'bg-cyan-500/15 text-cyan-300'
                       : 'text-muted-foreground hover:text-foreground',
                   )}
                 >
@@ -409,7 +385,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               className={cn(
                 'flex items-center gap-1 rounded-sm border px-2 py-1 text-[11px]',
                 autoRefresh
-                  ? 'border-info/40 text-info-text'
+                  ? 'border-cyan-500/40 text-cyan-300'
                   : 'border-border text-muted-foreground hover:text-foreground',
               )}
             >
@@ -423,7 +399,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               type="button"
               onClick={() => dashboard && void load(dashboard, rangeSec)}
               disabled={loading || !dashboard}
-              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-info/40 hover:text-info-text disabled:opacity-50"
+              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-cyan-500/40 hover:text-cyan-300 disabled:opacity-50"
             >
               刷新
             </button>
@@ -436,7 +412,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         </div>
 
         {pageError && (
-          <div className="border-b border-warning/20 bg-warning/5 px-4 py-1.5 text-[11px] text-warning-text">
+          <div className="border-b border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-[11px] text-amber-400">
             {pageError}
           </div>
         )}

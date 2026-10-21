@@ -31,7 +31,7 @@ import { AlertTriangle, Gauge, MessageSquareText, PlugZap, Wand2, WifiOff } from
 
 import type { PromptPolishState } from '@ihui/shared/chat/prompt-polish'
 
-import { usePaneChatStore } from '@/stores/chat-pane-context'
+import { useChatStore } from '@/stores/chat'
 import { useMcpStatusBroadcast } from '@/hooks/use-mcp-status-broadcast'
 import {
   getBudgetEvent,
@@ -44,10 +44,7 @@ import {
   getStreamAlertsServerSnapshot,
   subscribeStreamAlerts,
 } from '@/hooks/use-chat/stream-alerts'
-import {
-  deriveConnectionState,
-  type ConnectionState,
-} from '@/components/ai/progress-sections/connection-status'
+import { deriveConnectionState, type ConnectionState } from '@/components/ai/progress-sections/connection-status'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 
 import {
@@ -78,13 +75,7 @@ const STATUS_KIND_ICON: Record<StatusKind, React.ComponentType<{ className?: str
 /** 弹层行标签一律 switch + 字面量 t() 键(死 key 扫描按字面量对账,禁动态拼键) */
 function statusSlotLabelKey(
   kind: StatusKind,
-):
-  | 'statusSlot.connection'
-  | 'statusSlot.alerts'
-  | 'statusSlot.mcp'
-  | 'statusSlot.polish'
-  | 'statusSlot.diff'
-  | 'statusSlot.budget' {
+): 'statusSlot.connection' | 'statusSlot.alerts' | 'statusSlot.mcp' | 'statusSlot.polish' | 'statusSlot.diff' | 'statusSlot.budget' {
   switch (kind) {
     case 'connection':
       return 'statusSlot.connection'
@@ -118,8 +109,6 @@ export function InputStatusSlot({
   onPolishRetry,
 }: InputStatusSlotProps) {
   const t = useTranslations('chat')
-  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
-  const chatStore = usePaneChatStore()
   const [manual, setManual] = React.useState<StatusKind | null>(null)
   const [panelOpen, setPanelOpen] = React.useState(false)
   const badgeRef = React.useRef<HTMLButtonElement>(null)
@@ -132,7 +121,7 @@ export function InputStatusSlot({
     getStreamAlertsServerSnapshot,
   )
   const { statuses: mcpStatuses } = useMcpStatusBroadcast()
-  const hasDiff = chatStore((s) => s.pendingDiffComments.length > 0)
+  const hasDiff = useChatStore((s) => s.pendingDiffComments.length > 0)
   const budgetEvent = React.useSyncExternalStore(
     subscribeBudgetEvent,
     getBudgetEvent,
@@ -143,8 +132,7 @@ export function InputStatusSlot({
     ? deriveConnectionState(
         isStreaming,
         connSignal.attempt,
-        connSignal.state === 'disconnected' ||
-          (connSignal.error !== null && connSignal.error !== undefined),
+        connSignal.state === 'disconnected' || (connSignal.error !== null && connSignal.error !== undefined),
         threadId,
       )
     : null
@@ -198,11 +186,7 @@ export function InputStatusSlot({
   })()
 
   return (
-    <div
-      data-testid="input-status-slot"
-      data-expanded={expanded}
-      className="mb-2 flex flex-col gap-1"
-    >
+    <div data-testid="input-status-slot" data-expanded={expanded} className="mb-2 flex flex-col gap-1">
       {notice}
       {others.length > 0 && (
         <div className="flex justify-end">

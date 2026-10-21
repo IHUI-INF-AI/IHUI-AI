@@ -12,6 +12,11 @@ import { get, post, getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon, { type IconName } from '@/components/LineIcon'
+/* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量(dist/base.wxml:93 color="{{i.p1}}")。
+   本处语义为"微信品牌绿",唯一出处 = @ihui/design-tokens oauth-colors.ts
+   「微信绿统一为官方品牌绿 #07C160」(RN/web/packages-app 登录与分享已同用该常量);
+   勿混淆 --color-wechat-green(#4cd964,语义绿/消息气泡档)。 */
+import { OAUTH_BRAND_COLORS } from '@ihui/design-tokens'
 import './create.css'
 
 const MAX_CONTENT = 500

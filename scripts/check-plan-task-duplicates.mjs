@@ -82,27 +82,6 @@ export function stripNoteGroups(s, opener, closer) {
 }
 
 /**
- * 剥掉行首的「括注形状态/租约状语」(`（进行中@…）` / `（认领已释放@…:(嵌套括号)）` / `(待派)`)。
- *
- * 2026-10-20 立:这类括注是**元数据**,不承载任务身份。不剥的实测后果 —— 同一段租约下面挂着
- * 两件不同任务(`…goal-r81…） G-6 「四项…` 与 `…goal-r81…） G-460 **门 130…**`),标题取到
- * 破折号前的整段租约,60 字符截断后两行**指纹撞车**,折叠层把 G-6 折进 G-460(靠
- * `attestFoldPair` 的注记守恒才拦住,否则就是一次静默吞并)。配平沿用仓里唯一实现,配不平
- * (开括号没有对应闭括号)时原样保留 —— 宁可少剥一段,也不从行里吃掉内容。
- */
-function stripLeadingStatusParens(s) {
-  const pairs = { '（': '）', '(': ')' }
-  let out = s.replace(/^\s+/, '')
-  for (;;) {
-    const ch = out[0]
-    if (ch !== '（' && ch !== '(') return out
-    const end = matchBalancedGroupAt(out, 0, pairs)
-    if (end < 0) return out
-    out = out.slice(end).replace(/^\s+/, '')
-  }
-}
-
-/**
  * `idx` 之前还压着几层未闭合的圆括注(全角与半角同视)。用途只有一件:
  * 选标题粗体时要跳过**括注内部**的强调词(见 `extractTaskFingerprint` 内那条 2026-10-20 修)。
  * 深度算不平(少写一个右括号)时按"仍在括注内"处理 ⇒ 宁可不换选择,也不把行尾叙述当成标题。
@@ -132,8 +111,6 @@ export function extractTaskFingerprint(line) {
   // 去前置状语:(进行中@...)/(待派/XXX)/✅(date) 等
   s = s.replace(/^[（(【\[]?(进行中|待派|已完成|✅)[^】）)〕\]]*[】）)〕\]]?\s*/g, '')
   s = s.replace(/^✅\(\d{4}-\d{2}-\d{2}\)\s*/, '')
-  // 行首括注形状语(租约/状态)不参与身份 —— 判据与立因见 stripLeadingStatusParens 头注。
-  s = stripLeadingStatusParens(s)
   // 去注记段(〔…〕)——注记是进度/归并留痕,不参与身份。
   // 2026-10-19 修:原实现是 `/〔[^〕]*〕/g`,**非嵌套**。台账里真实存在的形态是嵌套的
   // (`〔副本正文并入·承载整段:…〔副本正文并入·承载整段:…〔改号(…):原G-1038307〕〕〕`),
@@ -157,24 +134,8 @@ export function extractTaskFingerprint(line) {
   const boldAll = [...s.matchAll(/\*\*([^*]+)\*\*/g)]
   const outsideParen = boldAll.filter((m) => parenDepthBefore(s, m.index) === 0)
   const bold = outsideParen.length ? outsideParen[0] : boldAll[0]
-  // 标题粗体必须出现在**行首区**(2026-10-20 修第二刀):粗体之前只允许"票号/取号令牌 + 括注状语"
-  // 与空白,不该出现任何裸散文。上一版用「粗体在第一个破折号之前」判断,对 G-425 这类
-  // 「标题是散文、破折号落在正文中段」的行仍然误判:正文强调 `**没有**` 在破折号前 21 字符
-  // ⇒ 被当成标题 ⇒ weight 4 ⇒ null,于是同题两态(`[ ]`/`[x]`)恒折不动,归并后 F1 报
-  // 「同主键两态并存(组)」。现行口径把粗体前的括注(含租约/状态状语)与票号剥干净后,
-  // 仍有裸文本 ⇒ 该粗体是正文强调,退回"破折号前那段"这条既有口径。
-  let boldLead = bold ? s.slice(0, bold.index ?? 0) : ''
-  for (let k = 0; k < 10; k++) {
-    const before = boldLead
-    boldLead = boldLead
-      .replace(/\{\{NEXT_ID\}\}/g, '')
-      .replace(/[A-Z]-?\d+/g, '')
-      .replace(/【[^】]*】|〔[^〕]*〕|（[^）]*）|\([^)]*\)|\[[^\]]*\]/g, '')
-    if (boldLead === before) break
-  }
-  const boldIsTitle = !!bold && boldLead.replace(/[\s\p{P}\p{S}]+/gu, '') === ''
   let title = ''
-  if (boldIsTitle) {
+  if (bold) {
     if (/^[A-Z]-?\d+/.test(bold[1].replace(/[.。:：\s]/g, ''))) {
       const after = s.slice((bold.index ?? 0) + bold[0].length)
       // 2026-10-19 修(真值陷阱,本门此前的"整格失明"根因):原写法 `split(...)[0] || bold[1]`。
@@ -454,18 +415,6 @@ function runSelfTest() {
       lines: [
         '- [ ] **W4-W7 四波覆盖票（每波一票，交付判据见上）** —— 派单前先看登记表 `remaining` 名单，勿凭记忆切范围。',
         '- [ ] **W4-W7 四波覆盖票（每波一票，交付判据见上）** —— 派单前先看登记表 `remaining` 名单，勿凭记忆切范围。 〔现读更正@2026-10-19:实测该端目录不存在〕',
-      ],
-      expect: 1,
-    },
-    // ── 2026-10-20 第三型:破折号之后的正文粗体不得被当成标题 ──
-    // 形状逐字取自真台账 G-200 / G-1104166 族:行首无粗体标题,破折号后的正文里才有
-    // `（**成功响应**）`。修前首个粗体命中正文 ⇒ 指纹=「成功响应」⇒ weight 8 ⇒ 两行皆 null,
-    // 同题两态(`[ ]` 与 `[x]`)折不动,归并后 F1 报"同主键两态并存(组) 3"。
-    {
-      name: '破折号后的正文粗体不当标题(G-200 族回归;修前两行皆 null)',
-      lines: [
-        '- [ ]G-200 输出被 max_tokens 截断时没有任何"续写"链路 —— 上游把 `finish_reason` 与（**成功响应**）判为续写而非压缩',
-        '- [ ] G-1104166 输出被 max_tokens 截断时没有任何"续写"链路 —— 上游把 `finish_reason` 与（**成功响应**）判为续写而非压缩',
       ],
       expect: 1,
     },
