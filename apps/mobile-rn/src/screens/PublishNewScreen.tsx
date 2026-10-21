@@ -139,7 +139,12 @@ export default function PublishNewScreen() {
   const pickFile = async () => {
     if (uploading) return
     const picked = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/*', 'video/*'],
+      type: [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/*',
+        'video/*',
+      ],
       multiple: false,
       copyToCacheDirectory: true,
     })
@@ -149,14 +154,11 @@ export default function PublishNewScreen() {
     setUploading(true)
     try {
       const formData = new FormData()
-      formData.append(
-        'file',
-        {
-          uri: asset.uri,
-          name: asset.name || `upload-${Date.now()}`,
-          type: asset.mimeType || 'application/octet-stream',
-        } as never,
-      )
+      formData.append('file', {
+        uri: asset.uri,
+        name: asset.name || `upload-${Date.now()}`,
+        type: asset.mimeType || 'application/octet-stream',
+      } as never)
       const res = await fetchApi<UploadResult>('/api/publish/upload', {
         method: 'POST',
         body: formData,
@@ -275,12 +277,18 @@ export default function PublishNewScreen() {
               />
               <View style={styles.chipRow}>
                 {FORMATS.map((f) => (
-                  <TouchableOpacity key={f} style={[styles.chip, format === f && styles.chipOn]} onPress={() => setFormat(f)} activeOpacity={0.7}>
-                    <Text style={[styles.chipText, format === f && styles.chipTextOn]}>
+                  <TouchableOpacity
+                    key={f}
+                    style={[styles.chip, format === f && styles.chipOn]}
+                    onPress={() => setFormat(f)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.chipText, format === f && styles.chipOnText]}>
                       {t(FORMAT_KEY[f])}
                     </Text>
                   </TouchableOpacity>
-                ))}              </View>
+                ))}{' '}
+              </View>
 
               {isText ? (
                 <TextField
@@ -336,7 +344,7 @@ export default function PublishNewScreen() {
                     activeOpacity={0.7}
                   >
                     <View style={[styles.check, on && styles.checkOn]}>
-                      {on ? <Check size={12} color={tokens.brand.ctaForeground} /> : null}
+                      {on ? <Check size={12} color={styles.checkOn.color} /> : null}
                     </View>
                     <View style={styles.accountMain}>
                       <Text style={styles.accountName} numberOfLines={1}>
@@ -357,7 +365,7 @@ export default function PublishNewScreen() {
                   onPress={() => setScheduleAt(null)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.chipText, scheduleAt === null && styles.chipTextOn]}>
+                  <Text style={[styles.chipText, scheduleAt === null && styles.chipOnText]}>
                     {t('publishNew.scheduleNow')}
                   </Text>
                 </TouchableOpacity>
@@ -366,7 +374,7 @@ export default function PublishNewScreen() {
                   onPress={() => quickSchedule(1)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.chipText, scheduleAt !== null && styles.chipTextOn]}>
+                  <Text style={[styles.chipText, scheduleAt !== null && styles.chipOnText]}>
                     {t('publishNew.scheduleLater')}
                   </Text>
                 </TouchableOpacity>
@@ -415,34 +423,114 @@ function makeStyles() {
     hint: { fontSize: 11, color: tokens.text.tertiary, lineHeight: 16 },
     errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    notice: { padding: 12, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.warning.orangeLight, gap: 4 },
+    notice: {
+      padding: 12,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+      backgroundColor: tokens.warning.orangeLight,
+      gap: 4,
+    },
     noticeText: { fontSize: 12, fontWeight: '600', color: tokens.warning.amberText },
-    card: { padding: 12, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.surface.card, gap: 8 },
+    card: {
+      padding: 12,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+      backgroundColor: tokens.surface.card,
+      gap: 8,
+    },
     cardTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-    input: { height: 40, paddingHorizontal: 12, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, color: tokens.text.primary, fontSize: 14, backgroundColor: tokens.surface.bg },
-    textArea: { minHeight: 140, paddingHorizontal: 12, paddingVertical: 10, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, color: tokens.text.primary, fontSize: 14, textAlignVertical: 'top', backgroundColor: tokens.surface.bg },
+    input: {
+      height: 40,
+      paddingHorizontal: 12,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      color: tokens.text.primary,
+      fontSize: 14,
+      backgroundColor: tokens.surface.bg,
+    },
+    textArea: {
+      minHeight: 140,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      color: tokens.text.primary,
+      fontSize: 14,
+      textAlignVertical: 'top',
+      backgroundColor: tokens.surface.bg,
+    },
     chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-    chip: { paddingHorizontal: 10, height: 28, justifyContent: 'center', borderRadius: rnRadiusFor.chip, borderWidth: 1, borderColor: tokens.border.light },
+    chip: {
+      paddingHorizontal: 10,
+      height: 28,
+      justifyContent: 'center',
+      borderRadius: rnRadiusFor.chip,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+    },
     chipOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
     chipText: { fontSize: 11, color: tokens.text.secondary },
-    chipTextOn: { color: tokens.brand.ctaForeground, fontWeight: '600' },
+    chipOnText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
     fileBox: { gap: 8 },
-    outlineBtn: { height: 40, paddingHorizontal: 14, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+    outlineBtn: {
+      height: 40,
+      paddingHorizontal: 14,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+    },
     outlineBtnText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     fileRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     fileName: { flex: 1, fontSize: 12, color: tokens.text.secondary },
     removeFile: { fontSize: 11, color: tokens.danger.DEFAULT },
-    accountRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 10, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.light },
-    accountRowOn: { borderColor: tokens.brand.DEFAULT },
-    check: { width: 18, height: 18, borderRadius: rnRadius.xs, borderWidth: 1, borderColor: tokens.border.medium, alignItems: 'center', justifyContent: 'center' },
-    checkOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
+    accountRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+    },
+    accountRowOn: { borderColor: tokens.brandAccent.deep },
+    check: {
+      width: 18,
+      height: 18,
+      borderRadius: rnRadius.xs,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    checkOn: {
+      backgroundColor: tokens.brand.cta,
+      borderColor: tokens.brand.cta,
+      color: tokens.brand.ctaForeground,
+    },
     accountMain: { flex: 1, gap: 2 },
     accountName: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     meta: { fontSize: 11, color: tokens.text.tertiary },
     quickRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
     scheduleValue: { fontSize: 12, color: tokens.text.secondary },
     quickText: { fontSize: 11, fontWeight: '600', color: tokens.text.primary },
-    primaryBtn: { height: 46, borderRadius: rnRadius.sm, backgroundColor: tokens.brand.cta, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    primaryBtn: {
+      height: 46,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.brand.cta,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
     primaryBtnText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
     disabled: { opacity: 0.5 },
   })
