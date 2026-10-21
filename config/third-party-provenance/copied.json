@@ -156,7 +156,7 @@
         "acquisition": "从 lucide-static 包复制(文件头自述 v1.31.0)",
         "version": "1.31.0",
         "gitRevision": null,
-        "gitRevisionNote": "复制时未记录上游 commit;版本取自每枚 SVG 文件头的 @license lucide-static v1.31.0 声明,不主张与某次 commit 逐字节对应。"
+        "gitRevisionNote": "复制时未记录上游 commit;版本取自每枚 SVG 文件头的 @license lucide-static v1.31.0 声明。"
       },
       "license": {
         "spdx": "ISC",
@@ -177,7 +177,7 @@
         "apps/miniapp-taro/src/static/images/icons/rectangle-horizontal.svg"
       ],
       "modification": "unmodified-copy",
-      "modificationNote": "6 枚均为 lucide-static 原样 SVG,仅文件名沿用 lucide 的图标名。",
+      "modificationNote": "6 枚均为 lucide-static 原样 SVG。",
       "attributionBoundary": "apps/miniapp-taro/src/static/images/icons/ 目录内未列入本条的其它 SVG 视为本仓自研生成物(gen-line-icons.mjs 产出),不归属上游。",
       "obligations": "升级 lucide-static 时同批更新 version 与文件头声明。"
     }
