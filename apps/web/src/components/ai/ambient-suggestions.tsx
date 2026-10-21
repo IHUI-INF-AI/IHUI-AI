@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Sparkles, X } from 'lucide-react'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
-import { useConversationDetailModeStore } from '@/stores/conversation-detail-mode'
+import { usePaneConversationDetailModeStore } from '@/stores/conversation-detail-mode'
 import {
   resolveToolCategory,
   type CategoryKey,
@@ -25,10 +25,7 @@ import {
  */
 
 export type AmbientSuggestionKind =
-  | 'resume-task'
-  | 'review-files'
-  | 'answer-question'
-  | 'continue-topic'
+  'resume-task' | 'review-files' | 'answer-question' | 'continue-topic'
 
 export interface AmbientSuggestion {
   /** kind 即去重 id:同一建议全流至多一条 */
@@ -45,11 +42,7 @@ const SUGGESTION_LABEL_KEYS: Record<AmbientSuggestionKind, string> = {
 }
 
 /** 文件写入类类目(review-files 建议判据,与 detail-mode-filter 的 commands 档同源) */
-const FILE_WRITE_CATEGORIES: readonly CategoryKey[] = [
-  'file_write',
-  'file_modify',
-  'file_delete',
-]
+const FILE_WRITE_CATEGORIES: readonly CategoryKey[] = ['file_write', 'file_modify', 'file_delete']
 
 /** PlanStep 未完成状态(继续任务判据) */
 const OPEN_STEP_STATUSES: readonly string[] = ['pending', 'in_progress', 'failed']
@@ -84,8 +77,11 @@ interface AmbientSuggestionsProps {
 
 export function AmbientSuggestions({ messages }: AmbientSuggestionsProps) {
   const t = useTranslations('ambientSuggestions')
-  const enabled = useConversationDetailModeStore((s) => s.suggestionsEnabled)
-  const setEnabled = useConversationDetailModeStore((s) => s.setSuggestionsEnabled)
+  // 票60 普查批:本组件只在 MessageList 尾部挂载,而 MessageList 也进非根窗格(ChatPaneBody)
+  // ⇒ 开关按窗格寻址(键含窗格身份);Provider 外回落根单例,既有单窗格行为零变化。
+  const detailStore = usePaneConversationDetailModeStore()
+  const enabled = detailStore((s) => s.suggestionsEnabled)
+  const setEnabled = detailStore((s) => s.setSuggestionsEnabled)
   /** 忽略/采纳过的建议本会话内不再出现(会话级,不持久化) */
   const [dismissed, setDismissed] = React.useState<ReadonlySet<string>>(() => new Set())
 

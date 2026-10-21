@@ -10,7 +10,7 @@ import { useChatStore } from '@/stores/chat'
 import type { ChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { useModeStore } from '@/stores/mode'
+import { getModeStoreForChatStore } from '@/stores/mode'
 import { getSamplingParams } from '@/stores/sampling-params'
 import { toast } from '@/components/common'
 import { fetchApi, getToken, getStreamBaseUrl, isAbortError } from '@/lib/api'
@@ -229,7 +229,7 @@ export async function resumePendingMessage(
         messageId: p.messageId,
         messages: buildResumeMessages(p, chatStore),
         model: store.currentModel,
-        mode: useModeStore.getState().currentMode,
+        mode: getModeStoreForChatStore(chatStore).getState().currentMode,
         // P1-7(2026-09-13):续接保持会话级高级参数,与 send-message/send-answer 一致
         temperature: samplingParams.temperature,
         topP: samplingParams.topP,
