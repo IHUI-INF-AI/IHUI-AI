@@ -129,7 +129,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 267 | `guardianGates` |
 | — blocking | 243 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15615 | `trackedFiles` |
+| 跟踪文件 | 15618 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,6 +6125,9 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (bfc8d9c34e)
+
+**2026-10-22**
 - 🐞 修复:活文档归并补认无需归并短路径(真丢失=0),修 PROJECT_PLAN 被 fail-closed 误悬挂 (c85a82e4d1)
 
 **2026-10-22**
@@ -6176,9 +6179,6 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c647b44ade)
 - 🐞 修复:自动收编器的 git helper 显式接管 stdio —— 门一零三在 HEAD 面点名该处裸奔(本机不写 stdio 稳定 EBUSY,§十二g)。上一笔只补了 windowsHide 就交,等于修一处漏一处,这次同批补全并复跑门一零三/五二/一九九 索引面各 RC=零。 (7606579655)
 - 📚 文档:§1 登记超龄认领牌兜底器物与授权口径 —— 门在提交链上仍不代摘,超龄牌由 strip-stale-claim-marks 周期代摘并把旧形态写进 removed 抗 union 回潮 (ae9bc35767)
-
-**2026-10-22**
-- 🐞 修复:自动收编器两处派生补 windowsHide —— 门五十二 HEAD 面存量红,它会挡住任何会话的提交。取证:改动后 --staged 面复跑该门 RC=0(扫描一枚文件,生产代码零违规);该门判 HEAD blob,故修完必入库才算数。 (51131b0e93)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
