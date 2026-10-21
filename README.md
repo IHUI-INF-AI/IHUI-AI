@@ -6125,6 +6125,9 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 📚 文档:check-task-claims 头注同步单源挂牌判据口径。残余交后手:裸「（进行中）」形态仍只计数不判红(向后兼容是机主既有定档),而本次清账现读该族存量为零 ⇒ 升 blocking 的前置已满足,是否收口待人定档,本席不擅自改纪律。 (9b6e98211f)
+
+**2026-10-22**
 - 🐞 修复:移除 check-task-claims 重构后遗留的未用常量(eslint no-unused-vars) (fd994c3d0b)
 - 📚 文档:§1 登记挂牌判据单源口径(claimMarkOf),防止 31/59 两把尺子再度漂移 (346b407321)
 - 🐞 修复:摘除 57 枚无席位在飞的死认领牌(30 超龄租约 + 27 旧裸标记),按 §1 交回派单面 (86467cf1eb)
@@ -6176,21 +6179,6 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - 🔧 工程/其他:复删被合并复活的 6 枚死图标 —— 机主裁决枚 504f86371720 已删 20 枚,triangle-alert.svg 不在删除名单故保留; §22 门 168 不许删除被合并静默复活 (64a306b786)
 - 📚 文档:补 2026-10-21 收口报告缺失的溯源载荷(远端带入时未注入,水印全量预检「未覆盖」;§5c 注入幂等) (804b5348bd)
 - 🐞 修复:归并 merge 冲突标记 —— 取 theirs 侧 55 行漂移副本注释(ours 侧仅空行,零内容损失); 冲突标记门 79 已 rc=0 (f75d0b3491)
-
-**2026-10-21**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1edf32225cd)
-- 🐞 修复:未合并检出 72h 打标保活后回收 + 备份链路 fail-closed (24f0d51a23d)
-- 📚 文档:归档本会话正式规格 spec.md(与 tasks.md 同批,避免再被工作区清理抹掉) (e7483f27609)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6129fc84b76)
-- 🚀 新功能/改进:机主指令收编本机纯新增在飞件 —— plugins-data 14 枚市场插件数据、FenLeiOverlay/TabBar/NativePanelFrame 组件与镜像测试、归档工具链 6 枚新器与镜像测试、db provider 审计 3 枚、dup-declaration 归档件 (bcc72af873e)
-- 🐞 修复:汇总行解析正则去双转义 —— 轮次正证 total/failed/timedOut 恢复有值,422 轮 null 留痕收口 (9608d09fa9c)
-- 🔧 工程/其他:门168 补登 2 条活跃临时流水 allowlist (6e1b81f8f73)
-- 🐞 修复:根治 worktree 完毕不清理/不合并/不提交 —— 新增生命周期回收器 + S4U 计划任务每 10 分钟无人值守执行 (c1de468ff94)
-- 🐞 修复:G-924 六条线上取不到的图标 URL 改走本仓 lucide SVG —— 补 LineIcon 注册表 3 键 + 远程图标注册表换引用 + ui-routes 自述钉随提交面刷新 (5828ca478c0)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (22245c83f22)
-- ♻️ 重构:落地 back-chevron 组件核心 —— 一份平台无关组件源 + 两端 adapter(O81 票③第一例) (eec42a55eb6)
-- 🐞 修复:修两处 HEAD 存量 lint 红(react/display-name + consistent-type-imports) + 归档 spec 执行清单 (fd87d8c97bd)
-- 🔧 工程/其他:门168 历史欠账裁决 —— 84 条路径登记 allowlist(HEAD 已全不存在,后续删除已生效) (ad17d1546f6)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
