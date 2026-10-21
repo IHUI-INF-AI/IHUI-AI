@@ -3282,6 +3282,11 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | [docs/LLM_SETUP.md](docs/LLM_SETUP.md)           | LLM 模型配置(OpenAI / Anthropic / Google / 国内厂商)                   |
 | [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md) | AI 模型榜单数据                                                        |
 ### 部署与运维
+- **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
+  - `scripts/check-egress-ip-drift.mjs` —— 家宽公网出口 IPv4 ↔ EdgeOne 源站期望 的只读巡检尺子(期望值台账 `scripts/data/eo-origin-expectation.json`,逐面带 `expires`)。强制 `family:4` 取出口地址(本机有 `2408:` 开头 v6 出口,默认解析会答错)且绕过系统代理,三源交叉;三态 `ok/drift/unjudged` 取不到一律 exit 2 显式「未判定」,结论行 `PROBE-RESULT` 恒纯 ASCII。挂 `scripts/git-guardian.mjs` 的 `auditEgressIpDrift`(tick + daemon 两处),**判机器状态 ⇒ 刻意不接提交链、不注册进 `guardian-runner`**(接 blocking 即 §12e 恒红门);自检 = `scripts/tests/check-egress-ip-drift.test.mjs`(镜像档 import 源脚本 `__test__`,例数现读,含"摘掉比较逻辑即翻红"的变异对照),无跳过变量(不在提交链)。
+  - `scripts/warm-prod-cache.mjs` + `deploy/win/ihui-deploy.ps1` 的 `Invoke-ProdCacheWarm` —— 部署收尾在**健康门禁判绿支**主动预热 EdgeOne(清单从 `apps/web/next.config.ts` 现读 `s-maxage` 条目;失败只 WARN 不回滚;结论行 `WARM-RESULT`)。生产实跑的是独立签出 `D:\DevEnv\ihui-prod` 的那一份,常驻体在进程启动时读入 ⇒ 改动**下一轮才起跳**。
+  - `apps/api/src/utils/public-edge-cache.ts` —— 公开只读 GET 接口边缘缓存头的唯一取值点(非 2xx 不写头;头注四条准入纪律由调用方逐条自证,模块不代为判断)。
+  - `apps/web/src/lib/origin-direct-host-guard.ts` —— 源站直连守卫纯函数(只拒 `Host` 为裸公网 IP 字面量,空/畸形/域名/私网/回环一律放行),由 `apps/web/proxy.ts` 消费;它能上线的前提是 EdgeOne 站点**当前没有源站组**(主动源站健康检查只住在源站组里),哪天建了源站组必须重审这一判据。
 | 文档                                                                         | 说明                                                          |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)                     | **部署运维手册**(蓝绿部署 / 回滚 / 证书续期)                  |
