@@ -112,17 +112,18 @@ async def test_prefix_rule_bypasses_prompt_but_not_first_time(monkeypatch):
     monkeypatch.setattr(
         mcp_server, "exec_policy_evaluate", lambda *a, **k: _FakePromptDecision()
     )
-    # security_config 是 frozen pydantic 模型,不能直接 setattr → 用代理只覆盖
-    # exec_policy_mode,其余属性仍走真实配置(不失真)
-    real_cfg = mcp_server.get_security_config()
+    # 档位通道(2026-10-21 起):run_command 读的是
+    # `agent_security_prefs.resolve_security_config(主体)`(进程默认 ⊕ 该用户显式覆盖),
+    # 不再是 `mcp_server.get_security_config()`(该符号已不在本模块 —— 打一个不存在的
+    # 属性等于让判据自己先腐烂)。本用例的主题是前缀放行规则,只需把 exec_policy_mode
+    # 钉在 enforce;其余防线(硬门/白名单/前缀规则)仍走真实实现,不失真。
+    class _CfgEnforce:
+        exec_policy_mode = "enforce"
 
-    class _CfgProxy:
-        def __getattr__(self, name: str):
-            if name == "exec_policy_mode":
-                return "enforce"
-            return getattr(real_cfg, name)
+    async def _cfg_enforce(*a, **k):
+        return _CfgEnforce()
 
-    monkeypatch.setattr(mcp_server, "get_security_config", lambda: _CfgProxy())
+    monkeypatch.setattr(mcp_server, "resolve_security_config", _cfg_enforce)
 
     first = await mcp_server._tool_run_command({"command": "echo hi"})
     assert first.get("errorCode") == "EXEC_POLICY_NEEDS_APPROVAL"
