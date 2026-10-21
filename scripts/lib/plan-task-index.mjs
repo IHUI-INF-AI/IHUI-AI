@@ -78,7 +78,120 @@ export function archiveFaceEntries(root, face) {
 }
 
 export const CLAIM_SOURCE = '（进行中[^）]*）'
-export const CLAIM_MARKER_RE = new RegExp(`^- \\[ \\]${CLAIM_SOURCE}\\s*`)
+/** 结构位:复选框后**允许可选空白**再紧跟标记。
+ *  ⚠ 这里 originally 写成 `^- \[ \]` + 标记、不吃空格,于是 `- [ ] （进行中@…）` 这类
+ *  「多打一个空格」的真租约在守门 109 里隐身成"无人认领"(HEAD 面 2026-10-21 实测 9 枚),
+ *  别的会话照样领走同一张票 —— 正是挂租约要防的那一型。失效方向是安静的。 */
+export const CLAIM_MARKER_RE = new RegExp(`^- \\[ \\]\\s*${CLAIM_SOURCE}\\s*`)
+/** 标记本体 → 租约三要素(@日期 与 /持有者 各可选,组合决定形态)。 */
+export const LEASE_INNER_RE = /^（进行中(?:@(\d{4}-\d{2}-\d{2}))?(?:\/([^）/]+))?）$/
+
+/**
+ * 量出一行内的**反引号代码段**区间(行内码 `` `x` `` 与双反引号码段 ``` ``x`` ```;
+ * CommonMark:闭合串的反引号个数必须与开启串相等,且码段不得跨行)。
+ * 返回 `{ spans, undetermined }`。
+ * 本函数由 `check-task-claims.mjs` 上收为本层**唯一实现**(2026-10-21):挂牌判据必须先问
+ * "这个标记是在挂牌,还是在叙述这个形态本身",而两侧各写一份必然漂成"一边把叙述当挂牌、
+ * 一边把真牌当叙述"。判不出来(反引号配不上对)时由调用方**打印**,不得静默当成"没有代码段"。
+ */
+export function codeSpanRangesOf(line) {
+  // 反斜杠转义的反引号不是定界符(`\`` 在 Markdown 里就是字面反引号)。等长遮罩,索引不变。
+  const s = line.replace(/\\[`*_\[\]<>{}()#+\-.!\s]/g, (m) => ' '.repeat(m.length))
+  const delims = []
+  for (let i = 0; i < s.length; ) {
+    if (s[i] !== '`') {
+      i++
+      continue
+    }
+    let j = i
+    while (j < s.length && s[j] === '`') j++
+    delims.push({ start: i, len: j - i })
+    i = j
+  }
+  const spans = []
+  let undetermined = false
+  let k = 0
+  while (k < delims.length) {
+    const open = delims[k]
+    let closed = -1
+    for (let m = k + 1; m < delims.length; m++) {
+      const c = delims[m]
+      if (c.len !== open.len) continue
+      const inner = open.start + open.len
+      // CommonMark:开启串与闭引串之间必须有内容(裸 `` 不是空码段,而是粘连文本的一部分)。
+      if (c.start > inner) {
+        closed = m
+        break
+      }
+    }
+    if (closed < 0) {
+      undetermined = true
+      break
+    }
+    spans.push([open.start, delims[closed].start + open.len])
+    k = closed + 1
+  }
+  return { spans, undetermined }
+}
+
+/** 标记本体(起于 at、长 len)是否**整体**落在某个反引号代码段区间内(含两侧定界符)。 */
+export function insideCodeSpan(spans, at, len) {
+  return spans.some(([a, b]) => at >= a && at + len <= b)
+}
+
+/** 解析一枚标记本体的租约形态。`2026-02-31` 能被 Date.parse 吞成 3 月 2 日 ⇒ 回读同一日历日才算真日期。 */
+export function parseLeaseForm(mark) {
+  const inner = LEASE_INNER_RE.exec(mark)
+  if (!inner) return { form: 'unknown', date: null, holder: null }
+  const [, date, holder] = inner
+  if (!date && !holder) return { form: 'legacy', date: null, holder: null }
+  if (date && !isValidIsoDate(date)) return { form: 'unknown', date: null, holder: holder ?? null }
+  return { form: 'lease', date: date ?? null, holder: holder ?? null }
+}
+
+/** `2026-02-31` 能被 Date.parse 吞成 3 月 2 日 —— 回读同一日历日才算真日期。 */
+export function isValidIsoDate(iso) {
+  const ms = Date.parse(`${iso}T00:00:00Z`)
+  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === iso
+}
+
+/**
+ * 「这一行有没有人挂牌」的**唯一**判据出口(2026-10-21 立,收三型实测漂移)。
+ *
+ * 判为挂牌的两种位置:
+ *  ① **结构位** —— `- [ ]` 后(可带空白)紧跟标记;裸 `（进行中）` 只在这里算。
+ *  ② **行内任意位置的完整租约形** —— 带 `@日期/持有者` 的标记写在行尾或正文中段也算。
+ *     实测台账里 17 枚把牌挂在行尾注记位(如 `…〕（进行中@2026-10-18/w1-permax:…）`),
+ *     意图明确是认领;只认结构位会让这些真牌永久隐身 ⇒ 两席做同一件事。
+ *
+ * 判为**不挂牌**的:落在反引号代码段内的标记(那是在描述这个形态本身,不是状态),
+ * 以及非结构位的裸标记(叙述里提一句"某某当时挂了（进行中）")。
+ *
+ * 反引号配不上对(截断长行 / 未闭合码段)⇒ `undetermined` 为真,调用方必须打印。
+ * 但**不得**因此把「非结构位的裸标记」升成挂牌:CL3 那条"判不出即计入"的取舍之所以便宜,
+ * 是因为矛盾行数只报数不判红;本判据决定一张票会不会被扣出派单面,照搬会把 198 张真票
+ * 永久锁死(2026-10-21 本席改判据时实测踩中,合计行数从 251 涨到 450 才暴露)。
+ *
+ * @returns {null | {mark:string, at:number, structural:boolean, form:'legacy'|'lease'|'unknown',
+ *                   date:string|null, holder:string|null, undetermined:boolean}}
+ */
+export function claimMarkOf(line) {
+  const text = String(line ?? '')
+  if (!text.includes('（进行中')) return null
+  const matches = [...text.matchAll(new RegExp(CLAIM_SOURCE, 'g'))]
+  if (matches.length === 0) return null
+  const { spans, undetermined } = codeSpanRangesOf(text)
+  const headRe = /^\s*- \[ \]\s*/.exec(text)
+  for (const m of matches) {
+    const inCode = !undetermined && insideCodeSpan(spans, m.index, m[0].length)
+    const structural = headRe !== null && headRe[0].length === m.index
+    const parsed = parseLeaseForm(m[0])
+    if (structural && !inCode) return { mark: m[0], at: m.index, structural, ...parsed, undetermined }
+    if (!structural && parsed.form === 'lease' && !inCode)
+      return { mark: m[0], at: m.index, structural, ...parsed, undetermined }
+  }
+  return null
+}
 
 /** 主键位置窗口:条目正文开头多少个字符内出现的编号才算"这一行的主键"。
  *  实测依据(HEAD 面):`- [x] ✅(2026-09-25) **D33 过程性信息持久化补全(G-39)**` 这类写法里,
@@ -416,10 +529,7 @@ export function keyInWindow(body) {
 }
 
 function extractClaim(line) {
-  const i = line.indexOf('（进行中')
-  if (i < 0) return null
-  const j = line.indexOf('）', i)
-  return j < 0 ? null : line.slice(i, j + 1)
+  return claimMarkOf(line)?.mark ?? null
 }
 
 /**
