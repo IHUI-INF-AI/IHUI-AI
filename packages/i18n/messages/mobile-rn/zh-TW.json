@@ -2607,6 +2607,12 @@
       "openWithdraw": "申請提現"
     },
   "securityCenter": {
+    "ipTitle": "IP 白名單",
+    "ipPlaceholder": "請輸入 IP 位址",
+    "ipEmpty": "尚未設定 IP 白名單",
+    "ipAdd": "新增",
+    "ipInvalid": "請輸入有效的 IP 位址",
+    "ipHint": "僅攔截新登入,已線上工作階段不受影響;最後一次修改本名單的那個 IP 始終可以登入。",
     "title": "安全中心",
     "loadFailed": "載入失敗",
     "actionFailed": "操作失敗,請稍後再試",
