@@ -129,7 +129,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 267 | `guardianGates` |
 | — blocking | 243 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15591 | `trackedFiles` |
+| 跟踪文件 | 15600 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,6 +6125,19 @@ A: Yes. ~14839+ tests / 3017 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-21**
+- 📚 文档:恢复被撤销裁决删除的 agent.md/spec 与 lint-staged 空壳,归档 Discord 频道文案 (737bd5f90f)
+- 🚀 新功能/改进:RN 旋转自适应与 EAS 打包链路修正,补商店素材及桌面依赖 (837c920b25)
+- 🚀 新功能/改进:课程章节播放与进度真实数据源,修复自定义导航同步并清除 NUL 污染 (8ae6fe73a1)
+- 🚀 新功能/改进:接入重放水位守卫与小程序 CI 上传工具,补 pnpm 锁 (91d998fb86)
+- 🐞 修复:移除未使用的系统 Chrome 查找死代码并重锁依赖 (37dc144105)
+
+**2026-10-21**
+- 🐞 修复:删除 PROJECT_PLAN 错误入库的冲突标记 3 行 + 收尾报告补溯源水印 (32dde7723b)
+- 🔧 工程/其他:复删被合并复活的 6 枚死图标 —— 机主裁决枚 504f86371720 已删 20 枚,triangle-alert.svg 不在删除名单故保留; §22 门 168 不许删除被合并静默复活 (64a306b786)
+- 📚 文档:补 2026-10-21 收口报告缺失的溯源载荷(远端带入时未注入,水印全量预检「未覆盖」;§5c 注入幂等) (804b5348bd)
+- 🐞 修复:归并 merge 冲突标记 —— 取 theirs 侧 55 行漂移副本注释(ours 侧仅空行,零内容损失); 冲突标记门 79 已 rc=0 (f75d0b3491)
+
+**2026-10-21**
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1edf32225cd)
 - 🐞 修复:未合并检出 72h 打标保活后回收 + 备份链路 fail-closed (24f0d51a23d)
 - 📚 文档:归档本会话正式规格 spec.md(与 tasks.md 同批,避免再被工作区清理抹掉) (e7483f27609)
@@ -7026,24 +7039,6 @@ A: Yes. ~14839+ tests / 3017 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - 🚀 新功能/改进:G-425 端上截断提示补齐 RN + 小程序两条腿 —— done 帧 finishReason 判 length/max_tokens 即 toast,缺席绝不折成 stop (39471e598a0)
 - 🐞 修复:6 个屏的 8 条死路径改指既有后端 —— 不新建端点、不造表 (8b3e8c5d5fa)
 - 🐞 修复:清掉合并带回的 FormRequestEvent 重复导出 —— HEAD 面 TS2300 打死了本包 build (f1d0b6259cc)
-
-**2026-10-19**
-- 🔧 工程/其他:认领 L5669 ①skills 两级渐进披露+技能前置门 428 (b9de28d220)
-- 📚 文档:自动化文档更新机制 —— 提交即刷新数字,每日 AI 刷新最近更新 (a862205d66)
-- 🔧 工程/其他:同步四端 ui-routes 派生产物(P2 域入口页新增路由) (90c5d44c06)
-- ♻️ 重构:侧边栏收敛 P2 —— 教育/内容/交易三域收为域入口(72→24) (126b47d148)
-- ♻️ 重构:侧边栏收敛 P1 —— 去重 4 处 + 设置项归位 3 项 (3e367aa971)
-- 📚 文档:四语言 README 现算数字刷新(598表/49 CI/4443路由/118模型/38平台/2955测试),对齐最新项目状态并补全新增功能与更新详情 (c6250f420c)
-- 🐞 修复:门 208 按 §7 三问逐条处置三处嵌套仓(一删两留)+ 补 .gitignore 两处真实缺口(门44 exit2 → 0) (9fa43654ec)
-- 📚 文档:npm 发布永久走 granular token,2FA 与 Trusted Publisher 结论固化 (c6433fe3af)
-- 🐞 修复:修守门 203 指纹两处缺陷(同题副本折不掉的生产根因)+ 把 union 归并器的「禁止放行」从注释变成真闸 (9e6f4b17bd)
-- 🔧 工程/其他:TP 登录加网络监听(TP_NET_LOG 抓登录 POST 真实响应) + 表单区 DOM dump(TP_FORM_HTML),定位静默重置根因 (03667e1082)
-- 🐞 修复:去掉 FormRequestEvent 的重复 re-export(TS2300 打死本包 build) (25e315a77b)
-- 📚 文档:量算仪对不在注册面的历史门号如实读法 —— 那是已退役/挪号,不是当下缺门 (a7553a56f9)
-- 📚 文档:G-94 行内旧判断就地订正 —— v2 腿已实跑取证,勾选态归 2026-10-18 侧结清,标注无容器格如实保留 (5a87eef475)
-- 🐞 修复:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (410aa41b13)
-- 🐞 修复:TP 登录提交按钮限定 form 内防误点页头 + 登录后错误诊断/fullPage 截图/Turnstile 探测;upload-artifact 加 4min 超时防挂死 (d7ac1e2a37)
-- 🐞 修复:补 scripts/tests/desktop-build.test.mjs 的溯源水印(门 47 欠账) (8634796f2d)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
