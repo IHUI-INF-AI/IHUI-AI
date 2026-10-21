@@ -292,6 +292,7 @@ function runDevStack() {
       windowsHide: true,
       timeout: 1_000_000, // 四个服务串行等待的上限护栏(4×240s + 启动开销),防 spawnSync 永久挂起
       maxBuffer: 8 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
   if (r.error) return { ok: false, error: `dev-stack 派生失败:${r.error.message}` }

@@ -240,7 +240,7 @@ export async function startTranscodeJob(jobId: string): Promise<TranscodeJob> {
   return new Promise<TranscodeJob>((resolve, reject) => {
     // FFMPEG_PATH(2026-10-18):nssm SYSTEM 服务不继承交互式会话的 PATH 更新,
     // 靠 PATH 裸找 ffmpeg 在服务形态下不可靠 —— 支持显式二进制路径(env 优先)。
-    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+    const child = spawn(process.env.FFMPEG_PATH || 'ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
     childProcesses.set(jobId, child)
 
     let stderrBuffer = ''

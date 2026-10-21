@@ -28,6 +28,7 @@ function assertBadRoot(script, noun = '目录参数') {
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.notEqual(r.status, 0, `${script} ${JSON.stringify(args)} 不得静默通过(普查 B 档那一型)`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
@@ -80,7 +81,7 @@ test('G-322 等号形态:gate-wiring / miniapp-generated 的 --root= 空值与�
     [S('check-miniapp-generated.mjs'), ['--root'], /--root 需要一个目录参数/],
   ]
   for (const [script, args, re] of cases) {
-    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.notEqual(r.status, 0, `${script} ${JSON.stringify(args)} 不得静默按 cwd 跑(旧写法 resolve('')=cwd)`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.match(out, re, `必须点名:${out.slice(0, 200)}`)
@@ -93,7 +94,7 @@ test('G-322 收口批:module-context 的 --face/--policy 漏值与空串各自�
   // 这里只锁本票要修的另外两支:结尾无值 / 空串 —— 旧写法这两支都静默落默认档还报 ✅。
   for (const flag of ['--face', '--policy']) {
     for (const args of [[flag], [flag, '']]) {
-      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       assert.notEqual(r.status, 0, `module-context ${JSON.stringify(args)} 不得静默落默认档`)
       const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
       assert.match(out, new RegExp(`${flag} 需要一个值`.replace(/-/g, '\\-')), out.slice(0, 200))
@@ -118,7 +119,7 @@ test('G-322 第五批:check-api-routes 复用本文件唯一取值出口,四支�
     [['--root='], /等号写法后为空/],
   ]
   for (const [args, re] of arms) {
-    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(
       r.status,
       2,
@@ -134,13 +135,13 @@ test('G-322 第五批:数值档坏值不再被读成 NaN(plan-bypass-ledger-repo
   const script = S('plan-bypass-ledger-report.mjs')
   for (const flag of ['--limit', '--digest-cap']) {
     for (const args of [[flag], [flag, ''], [flag, '--json']]) {
-      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       assert.notEqual(r.status, 0, `${flag} ${JSON.stringify(args)} 不得静默退回默认档`)
       const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
       assert.match(out, new RegExp(`${flag} 需要一个正整数`), out.slice(0, 240))
     }
     // Number('abc')=NaN 那一型:token 合法但数值域不合法 ⇒ 旧写法 slice(0,NaN)=[] 交出"0 条"的空报告
-    const bad = spawnSync(process.execPath, [script, flag, 'abc'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const bad = spawnSync(process.execPath, [script, flag, 'abc'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.notEqual(bad.status, 0, `${flag} abc 不得被 Number() 读成 NaN 后当"没有数据"报出去`)
     assert.match(`${bad.stdout ?? ''}${bad.stderr ?? ''}`, /必须是正整数/)
   }
@@ -159,6 +160,7 @@ test('G-322 第九批:落点/封口型旗标 —— seal-c-root-stray 的 --root
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得静默退回 devEnvRoot()(它是封口的**目标根**)`)
     assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--devenv 需要一个目录/)
@@ -169,7 +171,7 @@ test('G-322 第九批:落点/封口型旗标 —— seal-c-root-stray 的 --root
     { args: ['--out-dir'], expect: '(其后没有任何参数)' },
     { args: ['--out-dir', ''], expect: '""' },
   ]) {
-    const r = spawnSync(process.execPath, [cert, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [cert, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得把认证书写进一个由吞值造出来的目录`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.match(out, /--out-dir 需要一个目录/, out.slice(0, 200))
@@ -181,22 +183,22 @@ test('G-322 第十批:落点/表名型吞值(analyze-hook-log-unknown 五旗标�
   const ah = S('analyze-hook-log-unknown.mjs')
   for (const flag of ['--root', '--limit', '--window-min', '--sample', '--report']) {
     for (const args of [[flag], [flag, ''], [flag, '--json']]) {
-      const r = spawnSync(process.execPath, [ah, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      const r = spawnSync(process.execPath, [ah, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       assert.equal(r.status, 2, `${flag} ${JSON.stringify(args)} 必须 exit 2(旧写法:数字旗标喂进 Number() 得 NaN ⇒ slice(0,NaN)=[] 抽样静默变空;路径旗标吞成假路径)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
       assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, new RegExp(`${flag} 需要`))
     }
   }
   const md = S('check-migration-ledger-drift.mjs')
   for (const args of [['--ledger-table'], ['--ledger-table', ''], ['--ledger-table', '--dsn']]) {
-    const r = spawnSync(process.execPath, [md, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [md, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法 ?? 静默换成默认表去比漂移)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--ledger-table 需要/)
   }
-  const bogus = spawnSync(process.execPath, [md, '--ledger-table', 'bogus'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+  const bogus = spawnSync(process.execPath, [md, '--ledger-table', 'bogus'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(bogus.status, 2, '域名不合法也不得换成默认表')
   assert.match(`${bogus.stdout ?? ''}${bogus.stderr ?? ''}`, /不是合法 "schema.table"/)
   // 阳性对照:默认档的既有语义(SKIP 且非 strict 退 0)不得因新校验被改成判红 —— 校验只准拦"给了旗标却没值"
-  const plain = spawnSync(process.execPath, [md], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+  const plain = spawnSync(process.execPath, [md], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.equal(plain.status, 0, `${plain.stdout ?? ''}${plain.stderr ?? ''}`)
   assert.match(`${plain.stdout ?? ''}${plain.stderr ?? ''}`, /SKIP/)
 })
@@ -212,7 +214,7 @@ test('G-322 第十一批:派单入口 plan-tasks 的 --since/--max-commits 吞�
     ['--reopened-flips', '--max-commits='],
     ['--reopened-flips', '--max-commits=x'],
   ]) {
-    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法:--max-commits 静默退回默认 900,而"已截断"那行照打 = 读数自洽却与调用方要的不是同一件事)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /无法判定 —— --(since|max-commits)/)
     assert.doesNotMatch(`${r.stdout ?? ''}${r.stderr ?? ''}`, /ERR_INVALID_ARG_TYPE|at ModuleJob/, '不得以裸栈当用法错出口')
@@ -222,6 +224,7 @@ test('G-322 第十一批:派单入口 plan-tasks 的 --since/--max-commits 吞�
     cwd: ROOT,
     encoding: 'utf8',
     windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.equal(ok.status, 0, `${ok.stdout ?? ''}${ok.stderr ?? ''}`)
 })
@@ -239,7 +242,7 @@ test('G-322 第十二批:守护巡检(check-env-drift)、ps1 门(check-pwsh-vers
     { args: ['--source'], expect: '(其后没有任何参数)' },
     { args: ['--source', ''], expect: '""' },
   ]) {
-    const r = spawnSync(process.execPath, [np, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [np, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得带着被吞的 rev 继续取号`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.match(out, /--source 需要一个git rev/, out.slice(0, 200))
@@ -264,7 +267,7 @@ test('G-322 第十三批:数值与落点型四站 —— --top / --hours+--days 
   ]
   for (const [script, list, re] of arms) {
     for (const args of list) {
-      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       assert.notEqual(r.status, 0, `${script.split('/').pop()} ${JSON.stringify(args)} 不得静默按默认档出结论`)
       const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
       assert.match(out, re, out.slice(0, 200))
@@ -288,7 +291,7 @@ test('G-322 第十四批:观测/编码/台账类五站的 --root / --manifest / 
     { args: ['--manifest'], expect: '(其后没有任何参数)' },
     { args: ['--manifest', ''], expect: '""' },
   ]) {
-    const r = spawnSync(process.execPath, [sdk, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [sdk, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2:该文件顶层 main().catch() 丢返回码,` +
       `本站的守卫必须 process.exit —— 旧写法会把"少打一个值"冒成"台账不可读"的判红(红记错人)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
@@ -298,7 +301,7 @@ test('G-322 第十四批:观测/编码/台账类五站的 --root / --manifest / 
   const dp = S('check-dispatch-premise.mjs')
   for (const flag of ['--ticket', '--out']) {
     for (const args of [[flag], [flag, ''], [flag, '--json']]) {
-      const r = spawnSync(process.execPath, [dp, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      const r = spawnSync(process.execPath, [dp, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       assert.notEqual(r.status, 0, `${flag} ${JSON.stringify(args)} 不得静默出结论(派单前提判错的票=给别人派错活)`)
       assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, new RegExp(`${flag} 需要一个`))
     }
@@ -339,21 +342,21 @@ test('G-322 第八批:check-write-owner-predicate 的 --root/--files/--limit 三
   assertBadRoot(script)
   for (const flag of ['--files', '--limit']) {
     for (const args of [[flag], [flag, ''], [flag, '--staged']]) {
-      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       assert.notEqual(r.status, 0, `${JSON.stringify(args)} 不得静默出结论(旧写法 --files 顶值 = 扫 0 个文件报绿;--limit 顶值 = NaN)`)
       const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
       assert.match(out, new RegExp(`${flag} 需要一个`), out.slice(0, 220))
     }
   }
   // 数值域那一支:token 形态合法但不是正整数(`--files abc` 不算这一型 —— 那是一张合法的窄清单)
-  const bad = spawnSync(process.execPath, [script, '--limit', 'abc'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+  const bad = spawnSync(process.execPath, [script, '--limit', 'abc'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
   assert.match(`${bad.stdout ?? ''}${bad.stderr ?? ''}`, /必须是正整数/)
 })
 
 test('G-322 第八批:openapi-check 的 --min-coverage 不得把阈值折成 NaN(CI 契约门 D 维比较恒假=静默放行)', () => {
   const script = S('openapi-check.mjs')
   for (const args of [['--min-coverage'], ['--min-coverage', ''], ['--min-coverage', '--fresh'], ['--min-coverage='], ['--min-coverage', 'abc']]) {
-    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2,不得让 NaN 把覆盖率门放行:\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--min-coverage 需要一个数字/)
   }
@@ -373,6 +376,7 @@ test('G-322 第六批:check-staged-deletions 的 --allowlist 三支坏值必须�
       cwd: ROOT,
       encoding: 'utf8',
       windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
     })
     assert.notEqual(r.status, 0, `--allowlist ${JSON.stringify(args)} 不得 rc=0`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
@@ -398,7 +402,7 @@ test('G-322 第十六批:A 档 9 处 —— --root/--rev/--limit/--end/--timeout
     { args: ['--locale'], expect: '(其后没有任何参数)' },
     { args: ['--locale', ''], expect: '""' },
   ]) {
-    const r = spawnSync(process.execPath, [bg, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [bg, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2:静默回落默认语言集 = 把"我指定了语言"写成"我按默认跑"\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.match(out, /--locale 需要一个语言代码/, out.slice(0, 200))
@@ -413,7 +417,7 @@ test('G-322 第十六批:A 档 9 处 —— --root/--rev/--limit/--end/--timeout
       { args: [flag], expect: '(其后没有任何参数)' },
       { args: [flag, ''], expect: '""' },
     ]) {
-      const r = spawnSync(process.execPath, [mal, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      const r = spawnSync(process.execPath, [mal, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
       assert.equal(r.status, 2, `${flag} ${JSON.stringify(args)} 必须 exit 2\n${r.stdout ?? ''}${r.stderr ?? ''}`)
       const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
       assert.match(out, new RegExp(`${flag} 需要一个`), out.slice(0, 200))
@@ -421,7 +425,7 @@ test('G-322 第十六批:A 档 9 处 —— --root/--rev/--limit/--end/--timeout
     }
   }
   for (const script of [mal, S('check-merge-deletion-resurrection.mjs')]) {
-    const r = spawnSync(process.execPath, [script, '--limit', 'abc'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [script, '--limit', 'abc'], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${script.split('/').pop()} --limit abc 必须 exit 2(旧写法 Number('abc')=NaN ⇒ 回看 0 枚仍出结论)`)
     assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /必须是正整数/)
   }
@@ -436,7 +440,7 @@ test('G-322 第十六批:A 档 9 处 —— --root/--rev/--limit/--end/--timeout
     { args: ['--timeout'], expect: '(其后没有任何参数)' },
     { args: ['--timeout', ''], expect: '""' },
   ]) {
-    const r = spawnSync(process.execPath, [tcr, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [tcr, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法 --end 吞掉下一旗标 = 扫另一个端;\n` +
       `--timeout 读成 NaN ⇒ 超时判定恒假 = 慢套件静默放行)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
@@ -451,7 +455,7 @@ test('G-322 第十六批:A 档 9 处 —— --root/--rev/--limit/--end/--timeout
     { args: ['--outDir', 'dist', '--copy-assets'], expect: '(其后没有任何参数)' },
     { args: ['--outDir', 'dist', '--copy-assets', ''], expect: '""' },
   ]) {
-    const r = spawnSync(process.execPath, [ab, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [ab, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2,不得静默跳过拷贝步骤\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.match(out, /--copy-assets 需要一个脚本路径/, out.slice(0, 200))
@@ -472,7 +476,7 @@ test('G-322 第十六批:B 档 4 处 —— 非零但形态不佳(裸栈 rc=1 / 
     { args: ['--check', '--baseline', 'a', '--repo'], expect: '(其后没有任何参数)', flag: '--repo' },
     { args: ['--check', '--baseline', '', '--repo', 'x'], expect: '""', flag: '--baseline' },
   ]) {
-    const r = spawnSync(process.execPath, [hw, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [hw, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.match(out, new RegExp(`${flag} 需要一个参数`), out.slice(0, 200))
@@ -487,7 +491,7 @@ test('G-322 第十六批:B 档 4 处 —— 非零但形态不佳(裸栈 rc=1 / 
     { args: ['--source'], expect: '(其后没有任何参数)' },
     { args: ['--source', ''], expect: '""' },
   ]) {
-    const r = spawnSync(process.execPath, [pf, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [pf, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2(旧写法 exit 0 并给出 HEAD 面的号)\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.match(out, /--source 在场时值必须有效/, out.slice(0, 200))
@@ -501,7 +505,7 @@ test('G-322 第十六批:B 档 4 处 —— 非零但形态不佳(裸栈 rc=1 / 
     { args: ['--threshold-min'], expect: '(其后没有任何参数)' },
     { args: ['--threshold-min', ''], expect: '""' },
   ]) {
-    const r = spawnSync(process.execPath, [ua, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [ua, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(r.status, 2, `${JSON.stringify(args)} 必须 exit 2:静默回落默认阈值 = 超龄判定按另一把尺子出结论\n${r.stdout ?? ''}${r.stderr ?? ''}`)
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
     assert.match(out, /--threshold-min 需要一个正整数分钟数/, out.slice(0, 200))
@@ -512,7 +516,7 @@ test('G-322 第十六批:B 档 4 处 —— 非零但形态不佳(裸栈 rc=1 / 
 test('G-322 第五批:scan-hardcoded-zh 的 --exit blocking 腿不得把坏值读成"非严格档"(§0.10)', () => {
   const script = S('scan-hardcoded-zh.mjs')
   for (const args of [['--exit'], ['--exit', ''], ['--exit', '--staged'], ['--exit', '2']]) {
-    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
+    const r = spawnSync(process.execPath, [script, ...args], { cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     assert.equal(
       r.status,
       2,
