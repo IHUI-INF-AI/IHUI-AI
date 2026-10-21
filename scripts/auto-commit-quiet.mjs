@@ -37,12 +37,12 @@ const EXCLUDE = [
   /(^|\/)\.workbuddy\/hook-logs\//,
   /\.log$/,
   /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|apk|aab|jar|so|dll|exe|mp4|woff2?)$/i,
-  // 人工台账(2026-10-22 立):`PROJECT_PLAN.md`/`AGENTS.md` 是多席位**并发改写**的活文档,
-  // 收编只看工作树现状、不做跨席合并 ⇒ 陈旧副本会造重复登记/丢行,门 203 棘轮判红后
-  // safe-commit 还可能落进 --no-verify 兜底,把污染写进历史。这两份交其所有者显式提交。
-  /(^|\/)(PROJECT_PLAN|AGENTS)\.md$/,
+  // 人工台账**不**在此排除(2026-10-22 改):`PROJECT_PLAN.md`/`AGENTS.md` 是多席位并发改写的
+  // 活文档,但"永不收编"会让改动永久悬挂(实测一份工作树副本吃掉 HEAD 已入库的 7 行)。
+  // 处置改为收编前先过 merge-live-doc 归并(见 mergeLiveDocs):归并后 lost≠0 / 长行重复新增
+  // 的本轮剔除,其余正常收编 —— 既不丢行,也不留无人认领的改动。
 ]
-/** 需要单独记日志的"刻意不收编"类,便于从日志一眼看出哪些改动在等人工。 */
+/** 活文档:收编前必须归并(工作树副本可能滞后于 HEAD,直接提交会吞掉别人已入库的行)。 */
 const HUMAN_LEDGER_RE = /(^|\/)(PROJECT_PLAN|AGENTS)\.md$/
 /** README 生成数字块(由 sync-readme-numbers.mjs 独占写入)。 */
 const README_FILES = ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md']
@@ -97,6 +97,42 @@ function listChanges() {
 }
 
 /**
+ * 活文档归并:把 HEAD 已入库、工作树副本里被吞掉的行插回(merge-live-doc 的既有职责)。
+ * 认绿条件 = 归并后 lost=0 **且** ≥60 字符长行重复新增=0;任一不满足都不收编,
+ * 留给下一轮或文档所有者 —— 宁可悬挂一轮,也不把丢行/重复登记写进历史。
+ */
+function mergeLiveDoc(file) {
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [join(ROOT, 'scripts', 'merge-live-doc.mjs'), '--file', file, '--apply'],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 << 20,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    const lost = out.match(/归并后仍判 lost = (\d+)/)
+    if (!lost) return { ok: false, why: '归并输出缺少 lost 读数(不认绿)' }
+    if (Number(lost[1]) !== 0) return { ok: false, why: `归并后 lost=${lost[1]}` }
+    const dup = out.match(/归并后 \d+\(新增 (\d+)\)/)
+    if (dup && Number(dup[1]) !== 0) return { ok: false, why: `长行重复新增 ${dup[1]}` }
+    return { ok: true }
+  } catch (e) {
+    return {
+      ok: false,
+      why: String(e?.stdout || e?.message || '')
+        .trim()
+        .split('\n')
+        .slice(-3)
+        .join('\n'),
+    }
+  }
+}
+
+/**
  * 把 README 的 GENERATED NUMBERS 块刷到现算值,并把**真写盘**的 README 纳入本次提交。
  *
  * 病灶(2026-10-22 实测):该块由 post-commit 回写 ⇒ 工作树最新、索引面落后一枚;而门 173 判的
@@ -147,12 +183,7 @@ function main() {
   const busy = guardBusy()
   if (busy) return log(`跳过:${busy}`)
 
-  const all = listChanges()
-  const ledger = all.filter((c) => HUMAN_LEDGER_RE.test(c.path))
-  if (ledger.length) {
-    log(`跳过人工台账(多席位并发改写,交所有者显式提交):${ledger.map((c) => c.path).join(', ')}`)
-  }
-  const changes = all.filter((c) => !EXCLUDE.some((re) => re.test(c.path)))
+  const changes = listChanges().filter((c) => !EXCLUDE.some((re) => re.test(c.path)))
   if (changes.length === 0) return
 
   const conflicted = changes.filter((c) => /^(UU|AA|DD|AU|UA|DU|UD)$/.test(c.xy))
@@ -183,6 +214,20 @@ function main() {
   }
   if (deleted.length) log(`跳过删除(不自动收编,请人工确认后显式声明):${deleted.join(', ')}`)
   if (stale.length === 0) return
+
+  // 活文档先归并,再把归并达标的收编(2026-10-22:替代"永不收编"——后者会让改动永久悬挂)。
+  if (!DRY) {
+    for (const f of [...stale].filter((p) => HUMAN_LEDGER_RE.test(p))) {
+      const r = mergeLiveDoc(f)
+      if (r.ok) {
+        log(`活文档归并完成(${f}):lost=0 / 长行重复新增 0,可收编`)
+      } else {
+        log(`活文档归并未达标(${f}),本轮不收编:${r.why}`)
+        stale.splice(stale.indexOf(f), 1)
+      }
+    }
+    if (stale.length === 0) return
+  }
 
   const verb = youngest === Infinity ? '全部已删除' : `最年轻 ${youngest.toFixed(1)} 分钟`
   log(`候选 ${stale.length}/${changes.length} 个文件(${verb},阈值 ${QUIET_MIN} 分钟):${stale.slice(0, 8).join(', ')}${stale.length > 8 ? ' …' : ''}`)
