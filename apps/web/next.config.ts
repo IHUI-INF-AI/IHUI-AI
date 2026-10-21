@@ -36,8 +36,18 @@ const isDev = process.env.NODE_ENV === 'development'
 // 用途:本地 e2e 隔离——生产 api(8802)/ai-service(8803) 被占用时,可在隔离端口起
 // api/web 实例,IHUI_API_PROXY_TARGET/IHUI_AI_PROXY_TARGET 指向隔离端口,
 // 避免测试写入生产库(ihui_dev)。CI 与生产不设这两个变量,行为与硬编码完全一致。
-const IHUI_API_PROXY_TARGET = process.env.IHUI_API_PROXY_TARGET ?? 'http://localhost:8802'
-const IHUI_AI_PROXY_TARGET = process.env.IHUI_AI_PROXY_TARGET ?? 'http://localhost:8803'
+// 2026-10-21 修:默认值由 localhost 改 127.0.0.1(端口不变)。
+// 根因(Node 18+ DNS 语义):dns.lookup(localhost) 默认走 verbatim 排序,本机实测
+// 返回 [{::1,family:6},{127.0.0.1,family:4}] —— **IPv6 优先**。而本机四个后端
+// 无一监听 IPv6(netstat 实测:8802=0.0.0.0、8803=127.0.0.1、8801=127.0.0.1、
+// cdn-server :80=127.0.0.1),故解析到 ::1 的连接一律 ECONNREFUSED。
+// 现场证据:svc-web-nssm-err.log 里 ::1 出现 34,701 次,Failed to proxy 5,966 次,
+// **全部集中在 /ws/notifications 与 /ws/broadcast 两个 WebSocket 端点** ——
+// 即实时通知通道自上线起从未通过反代成功过(HTTP 反代因连接池复用首次成功的连接
+// 而被掩盖,WS 每次独立建连,所以只有它把病灶暴露出来)。
+// 改 127.0.0.1 是字面量 IP,不触发 DNS 解析,与该风险结构性无关。
+const IHUI_API_PROXY_TARGET = process.env.IHUI_API_PROXY_TARGET ?? 'http://127.0.0.1:8802'
+const IHUI_AI_PROXY_TARGET = process.env.IHUI_AI_PROXY_TARGET ?? 'http://127.0.0.1:8803'
 
 // 2026-09-05 修复桌面 SaaS 出包挂死:静态导出 next build 与常驻 next dev/next start
 // (本地 8801)共享同一 apps/web/.next 目录,构建在加载 config 后获取 .next 锁时与
@@ -315,9 +325,11 @@ const nextConfig: NextConfig = {
         // :80 cdn-server.js 实时读盘直出(而非 web 静态 public 的构建快照,后者不含
         // 该目录导致公网 404)。须放最前,优先于一切 /api 等规则,避免被后续吞掉。
         // cdn-server.js server-root 内置防路径穿越 + 7 天缓存,换图免重启。
+        // 2026-10-21:localhost → 127.0.0.1(同 IHUI_API_PROXY_TARGET 理由:本机
+        // cdn-server 只听 127.0.0.1,而 Node 解析 localhost 默认优先 IPv6 ::1)。
         {
           source: '/remote-images/:path*',
-          destination: 'http://localhost:80/remote-images/:path*',
+          destination: 'http://127.0.0.1:80/remote-images/:path*',
         },
         // 2026-08-27 立,2026-09-04 更新: uploads/cdn 静态资源由独立 cdn-server
         // (deploy/cdn-server.js) 与 API 8802(@fastify/static)直出托管,
