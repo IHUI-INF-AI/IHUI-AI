@@ -7,12 +7,12 @@ import type { ChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { useModeStore } from '@/stores/mode'
+import { getModeStoreForChatStore } from '@/stores/mode'
 // D152(2026-09-29 立):goal_updated 下行帧的落点。本 store 自本票起是**本地缓存**,
 // 服务端主副本变了就覆盖它(判序与幂等口径都在 applyServerGoal 里,此处只接线)。
 import { useGoalStore } from '@/stores/goal'
 import { getSamplingParams } from '@/stores/sampling-params'
-import { useTimelineStore } from '@/stores/timeline-store'
+import { getTimelineStoreForChatStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
 import {
   streamChat,
@@ -174,6 +174,11 @@ export function createSendMessage(
   } = ctx
   // 票60 步序三:actionCtx 注册挪到与 sendInstance 同一处(文件尾),按 store 实例落账
   const sendRuntime = getStreamRuntime(chatStore)
+  // 票60 普查批(2026-10-21):mode / timeline 是伴生 store,按 chatStore 反查 paneId 取窗格实例
+  // (chat-panes 的 paneIdForChatStore;根单例 chatStore ⇒ null ⇒ 回落根单例)——
+  // 此前直接读根单例,非根窗格发送时读到的是根窗格的模式档、subagent 事件也写进根时间线。
+  const modeStore = getModeStoreForChatStore(chatStore)
+  const timelineStore = getTimelineStoreForChatStore(chatStore)
   const sendMessage = async (content: string, opts?: SendMessageOptions): Promise<boolean> => {
     const text = content.trim()
     if (!text) return false
@@ -208,7 +213,7 @@ export function createSendMessage(
     // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
     // - 命中即清空输入框 + toast 反馈
     // 重新生成模式跳过:历史问题不应再次触发斜杠命令
-    if (!isRegenerate && tryHandlePlanModeSlash(text, t)) {
+    if (!isRegenerate && tryHandlePlanModeSlash(text, t, modeStore)) {
       sendInFlightRef.current = false
       return true
     }
@@ -216,7 +221,7 @@ export function createSendMessage(
     // /build /review /spec 动作型斜杠命令拦截(2026-07-28 立,补全 ChatMode 4态三通道):
     // - 纯 ChatMode 切换,不需要登录,不调用 LLM,不创建会话
     // - 命中即清空输入框 + toast 反馈(返回 true 与 tryHandlePlanModeSlash 一致)
-    if (!isRegenerate && tryHandleChatModeSlash(text, t)) {
+    if (!isRegenerate && tryHandleChatModeSlash(text, t, modeStore)) {
       sendInFlightRef.current = false
       return true
     }
@@ -266,7 +271,7 @@ export function createSendMessage(
     // - 静默切换,无 toast(自动判断是辅助能力,反复提示会刷屏)
     // - 当前模式徽章(CurrentModeBadge)实时反映新模式,提供视觉反馈
     // - 显式 /命令优先级最高(已在上方拦截,这里只处理普通对话)
-    if (!isRegenerate) tryAutoDetectMode(text)
+    if (!isRegenerate) tryAutoDetectMode(text, modeStore)
 
     // 未登录拦截(2026-07-24 立,修复"未登录点发送无反应"问题):
     // - 不调 createConversation(避免 401 无可见反馈)
@@ -684,7 +689,7 @@ export function createSendMessage(
         // Plan/Act 模式(2026-07-24 立):plan=只制定计划不执行工具,act=正常执行
         extraBody: {
           // ChatMode 4 态唯一模式字段(2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,语义合并到 mode)
-          mode: useModeStore.getState().currentMode,
+          mode: modeStore.getState().currentMode,
           // P1-7:自定义 system prompt(会话级),ai-service 注入系统消息最顶部;
           // 未设置时不传该 key,保持上游默认行为。
           ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
@@ -893,17 +898,17 @@ export function createSendMessage(
         // 2026-07-29 Phase 21:同步写入 timeline-store,让 Timeline tab 实时响应。
         onSubagentSpawn: (evt) => {
           chatStore.getState().addSubagentSpawn(evt)
-          useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
+          timelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
         },
         onSubagentProgress: (evt) => {
           chatStore.getState().updateSubagentProgress(evt)
           const update = mapProgressToTimelineUpdate(evt)
-          if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+          if (update) timelineStore.getState().updateEvent(update.id, update.updates)
         },
         onSubagentEnd: (evt) => {
           chatStore.getState().markSubagentEnd(evt)
           const update = mapEndToTimelineUpdate(evt)
-          if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+          if (update) timelineStore.getState().updateEvent(update.id, update.updates)
         },
         // 2026-07-31 立,AI 对话可视化深度接入:SSE 流末尾 tool-summary 事件落地
         onToolSummary: createToolSummaryHandler(assistantId, chatStore),

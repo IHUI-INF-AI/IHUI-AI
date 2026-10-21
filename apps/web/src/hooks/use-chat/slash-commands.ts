@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { toast } from '@/components/common'
-import { useModeStore } from '@/stores/mode'
+import { useModeStore, type ModeStore } from '@/stores/mode'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 import { useGoalStore } from '@/stores/goal'
@@ -163,6 +163,8 @@ export async function tryHandleAutoTaskSlash(
 export function tryHandlePlanModeSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  /** 票60 普查批(2026-10-21):发送链按窗格传入该窗格的 mode 实例;缺省 = 根单例 ⇒ 既有调用面零回归 */
+  modeStore: ModeStore = useModeStore,
 ): boolean {
   const trimmed = text.trimStart()
   // /plan /act → ChatMode(2026-07-28 移除独立 PlanActToggle 后直接走 ChatMode;
@@ -174,13 +176,13 @@ export function tryHandlePlanModeSlash(
   const labelKey = target === 'build' ? 'modeBuild' : 'modePlan'
   const descKey = target === 'build' ? 'modeBuildDesc' : 'modePlanDesc'
   const label = t(labelKey)
-  const modeStore = useModeStore.getState()
-  if (modeStore.currentMode === target) {
+  const mode = modeStore.getState()
+  if (mode.currentMode === target) {
     // 已是目标模式:不重复切换,仅 toast 提示当前模式
     toast.info(t('modeAlreadyActive', { mode: label }))
     return true
   }
-  modeStore.setMode(target)
+  mode.setMode(target)
   toast.success(t('modeSwitched', { mode: label }), { description: t(descKey) })
   return true
 }
@@ -198,12 +200,14 @@ export function tryHandlePlanModeSlash(
 export function tryHandleChatModeSlash(
   text: string,
   t: (key: string, vars?: Record<string, string>) => string,
+  /** 票60 普查批(2026-10-21):发送链按窗格传入该窗格的 mode 实例;缺省 = 根单例 ⇒ 既有调用面零回归 */
+  modeStore: ModeStore = useModeStore,
 ): boolean {
   const trimmed = text.trimStart()
   const m = /^\/(ask|build|review|spec)\b\s*/.exec(trimmed)
   if (!m) return false
   const target = m[1] as 'ask' | 'build' | 'review' | 'spec'
-  const modeStore = useModeStore.getState()
+  const mode = modeStore.getState()
   const labelKey =
     target === 'ask'
       ? 'modeAsk'
@@ -213,11 +217,11 @@ export function tryHandleChatModeSlash(
           ? 'modeReview'
           : 'modeSpec'
   const label = t(labelKey)
-  if (modeStore.currentMode === target) {
+  if (mode.currentMode === target) {
     toast.info(t('modeAlreadyActive', { mode: label }))
     return true
   }
-  modeStore.setMode(target)
+  mode.setMode(target)
   const descKey =
     target === 'ask'
       ? 'modeAskDesc'
@@ -392,10 +396,7 @@ export function tryHandleGoalSlash(
  * 把它 await 成"发送前的一跳"会让一次网络抖动变成目标设不上;而下行帧会把它追平,
  * 所以写失败的真相面是"日志 + 下一帧没来",不是"界面卡住"。
  */
-function pushGoalToServer(
-  action: 'set' | 'pause' | 'resume' | 'clear',
-  objective?: string,
-): void {
+function pushGoalToServer(action: 'set' | 'pause' | 'resume' | 'clear', objective?: string): void {
   const conversationId = useChatStore.getState().conversationId
   if (!conversationId) {
     logger.info(`[goal] 本轮还没有会话 id,目标只落本机缓存,未上行(action=${action})`)
@@ -408,7 +409,9 @@ function pushGoalToServer(
     .then((ack) => {
       // 未 accepted = 服务端没有这个会话的主副本(或不属于本主体)——两种同形,不区分、不弹错
       if (!ack.accepted) {
-        logger.info(`[goal] 服务端未接收该会话的目标写入(action=${action}, session=${conversationId})`)
+        logger.info(
+          `[goal] 服务端未接收该会话的目标写入(action=${action}, session=${conversationId})`,
+        )
       }
     })
     .catch((e: unknown) => {
@@ -680,12 +683,16 @@ export function suggestMode(userInput: string): ChatMode | null {
  * - 长 prompt 包含多关键词 → 数组优先级优先(plan 优先于 build)
  * - 无关键词 → 保持当前模式不变
  */
-export function tryAutoDetectMode(text: string): void {
+export function tryAutoDetectMode(
+  text: string,
+  /** 票60 普查批(2026-10-21):发送链按窗格传入该窗格的 mode 实例;缺省 = 根单例 ⇒ 既有调用面零回归 */
+  modeStore: ModeStore = useModeStore,
+): void {
   const suggested = suggestMode(text)
   if (!suggested) return
-  const modeStore = useModeStore.getState()
-  if (modeStore.currentMode === suggested) return
-  modeStore.setMode(suggested)
+  const mode = modeStore.getState()
+  if (mode.currentMode === suggested) return
+  mode.setMode(suggested)
 }
 
 /** /bestof 斜杠命令:同任务 N 副本并行执行 + LLM 评审自动择优(2026-09-07 立,对标 Cursor 多副本择优)
