@@ -64,6 +64,46 @@ const pkgDir = join(ROOT, 'packages', 'context-compaction', 'node_modules', 'gpt
 const req = createRequire(join(ROOT, 'packages', 'context-compaction', 'package.json'))
 const hasPkg = existsSync(pkgDir)
 
+// 2026-10-21:门体 Python 侧派生进程要求 ai-service venv 装 tiktoken 且 cl100k_base 编码资源可得
+// (本地缓存或网络下载)。CI 只有空 venv(setup-python 建壳、不装依赖)⇒ runPythonSide 崩、门 rc=2,
+// 这是环境缺资源、不是门体缺陷 ⇒ 惰性探针一次判定,T6/T7 缺资源时显式未判定(skip)。
+let _pyCodec = null
+function pyCodecProbe() {
+  if (_pyCodec) return _pyCodec
+  const py = gate.findPython(ROOT)
+  if (!py) {
+    _pyCodec = { ok: false, why: 'ai-service venv python 不在位(apps/ai-service/.venv)' }
+    return _pyCodec
+  }
+  const r = spawnSync(py, ['-c', 'import tiktoken; tiktoken.get_encoding("cl100k_base")'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+  })
+  _pyCodec =
+    r.status === 0
+      ? { ok: true }
+      : {
+          ok: false,
+          why:
+            'ai-service venv 缺 tiktoken 或 cl100k_base 编码资源不可得(无本地缓存且网络下载不通): rc=' +
+            r.status +
+            ' ' +
+            String(r.stderr || (r.error && r.error.message) || '')
+              .trim()
+              .split('\n')
+              .pop()
+              .slice(0, 140),
+        }
+  return _pyCodec
+}
+function needPyCodec(t) {
+  if (pyCodecProbe().ok) return false
+  t.skip('未判定:' + pyCodecProbe().why + ' ⇒ Python 侧端到端未跑到(非缺陷);资源在位的机器上本用例自动恢复真判')
+  return true
+}
+
 test('T1 接线方向锁:已装车 ⇒ 头注自称已装,且 guardian-runner 真有注册条目(读 HEAD 面真值源)', () => {
   const head = gitShowHead(RUNNER)
   assert.equal(head.status, 0, `读 HEAD:${RUNNER} 失败`)
@@ -162,6 +202,7 @@ test('T6 端到端(真仓 worktree):两端现状必须判绿,并点名 cl100k_ba
   // 2026-10-21:门在工具链不可得时按 §0.3 落 rc=2(未判定)。缺依赖的环境上这条没有可判对象
   // ⇒ 显式 skip 并写清缺口;CI 装依赖后照旧真判。
   if (!hasPkg) return t.skip('gpt-tokenizer 未安装 ⇒ 端到端未判定(门按设计 rc=2)')
+  if (needPyCodec(t)) return
   const r = runCli(['--worktree'])
   assert.equal(r.status, 0, `现状必须判绿(两端已统一 cl100k_base),实得 rc=${r.status}\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /TS\s+: cl100k_base/, '必须点名 TS 侧实际编码')
@@ -169,8 +210,9 @@ test('T6 端到端(真仓 worktree):两端现状必须判绿,并点名 cl100k_ba
   assert.match(r.stdout, /两端在判到的所有探针上同值/, '必须给出行为层同值结论')
 })
 
-test('T7 端到端变异(真跑):TS→o200k ⇒ 判红;两端同改 p50k ⇒ 仍判红', async () => {
-  if (!hasPkg) return
+test('T7 端到端变异(真跑):TS→o200k ⇒ 判红;两端同改 p50k ⇒ 仍判红', async (t) => {
+  if (!hasPkg) return t.skip('gpt-tokenizer 未安装 ⇒ 端到端变异未判定(门按设计 rc=2)')
+  if (needPyCodec(t)) return
   const scratch = mkScratch('ihui-bpe-mirror-')
   try {
     const contents = gate.readBothContents(ROOT, 'worktree')
