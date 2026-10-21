@@ -16,7 +16,8 @@ import { toast } from 'sonner'
 import { ContactFilter } from './ContactFilter'
 import { ContactTable } from './ContactTable'
 import { ContactDialog } from './ContactDialog'
-import { RESOURCE, PERM, EMPTY, FIELDS, api } from './helpers'
+import { RESOURCE, PERM, EMPTY, FIELDS } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { ContactItem, ContactList } from './types'
 import { BackButton } from '@/components/common'
 
@@ -44,7 +45,7 @@ export default function ContactPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'contact', params],
-    queryFn: () => api<ContactList>(`${RESOURCE}?${new URLSearchParams(params)}`),
+    queryFn: () => apiOrThrow<ContactList>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
 
   const saveMut = useMutation({
@@ -54,8 +55,8 @@ export default function ContactPage() {
         corporateCulture: form.corporateCulture,
       })
       return editing?.id
-        ? api(`${RESOURCE}/${editing.id}`, { method: 'PUT', body })
-        : api(RESOURCE, { method: 'POST', body })
+        ? apiOrThrow(`${RESOURCE}/${editing.id}`, { method: 'PUT', body })
+        : apiOrThrow(RESOURCE, { method: 'POST', body })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'contact'] })
@@ -63,7 +64,7 @@ export default function ContactPage() {
     },
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'contact'] }),
   })
 

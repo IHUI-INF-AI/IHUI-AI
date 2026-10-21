@@ -314,6 +314,23 @@ if (process.argv.includes('--self-test')) {
 
 console.log('[typecheck:full] 清除 .tsbuildinfo 增量缓存...')
 const removed = cleanTsbuildinfo(ROOT)
+// 2026-10-21:增量缓存外置到 <root>/node_modules/.cache/tsbuildinfo(回收站灌入根治,
+// 逐包 tsconfig 声明 tsBuildInfoFile)。这批不落在源码树里,上面的递归扫描排除了
+// node_modules,结构上够不到 —— 不补清这里,"全量门防陈旧 buildinfo 假绿"这道机制
+// 就静默退化(该机制挡的是"陈旧缓存让 tsc 误判 up-to-date",与文件住哪无关)。
+const extBuildinfoDir = join(ROOT, 'node_modules', '.cache', 'tsbuildinfo')
+if (existsSync(extBuildinfoDir)) {
+  for (const entry of readdirSync(extBuildinfoDir)) {
+    if (!entry.endsWith('.tsbuildinfo')) continue
+    const full = join(extBuildinfoDir, entry)
+    try {
+      rmSync(full, { force: true })
+      removed.push(full)
+    } catch {
+      /* 忽略删除失败(同树内口径:可能是并发会话正持有) */
+    }
+  }
+}
 if (removed.length === 0) {
   console.log('[typecheck:full] 未发现 .tsbuildinfo 文件，直接全量检查。')
 } else {

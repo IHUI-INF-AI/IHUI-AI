@@ -7,14 +7,9 @@ import type ReactMarkdown from 'react-markdown'
 import type { ComponentType } from 'react'
 import { Info, AlertTriangle, Wrench, RefreshCw } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 
-/** Throw on error, unwrap ApiResponse.data — mirrors `api` helper in feedback.ts */
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+export { apiOrThrow as api }
 
 // ---------------- Announcements ----------------
 export type AnnouncementType = 'info' | 'warning' | 'maintenance' | 'update'

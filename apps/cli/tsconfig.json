@@ -8,6 +8,7 @@
     "rootDir": "src",
     "outDir": "./dist",
     "incremental": true,
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/apps-cli.tsbuildinfo",
     "composite": false,
     "declaration": false,
     "declarationMap": false,

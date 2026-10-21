@@ -160,6 +160,13 @@ vi.mock('@/stores/progress-jump-store', () => ({
       setHoveredPlanStep: mockSetHoveredPlanStep,
       hoveredMessageId: null,
     }),
+  // 票60 d01bc20577:消费面改走窗格寻址 hook(返回绑定态);测试无 Provider ⇒ 与根单例同形回落
+  useProgressJumpStoreForPane: () => (selector: (s: Record<string, unknown>) => unknown) =>
+    selector({
+      requestJumpToMessage: mockRequestJumpToMessage,
+      setHoveredPlanStep: mockSetHoveredPlanStep,
+      hoveredMessageId: null,
+    }),
 }))
 
 afterEach(() => {

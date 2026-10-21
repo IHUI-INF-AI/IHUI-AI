@@ -11,7 +11,7 @@ import { FundsHeader } from './FundsHeader'
 import { FundsTabs } from './FundsTabs'
 import { FundsAccountsTable } from './FundsAccountsTable'
 import { FundsFlowsTable } from './FundsFlowsTable'
-import { api } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { FundAccount, FundFlow } from './types'
 import { BackButton } from '@/components/common'
 
@@ -22,7 +22,9 @@ export default function AdminShopFundsPage() {
   const { data: accounts = [], isLoading: accLoading } = useQuery({
     queryKey: ['admin', 'shop', 'funds', 'accounts'],
     queryFn: () =>
-      api<{ list: FundAccount[] }>('/api/admin/shop/funds/accounts').then((d) => d.list ?? []),
+      apiOrThrow<{ list: FundAccount[] }>('/api/admin/shop/funds/accounts').then(
+        (d) => d.list ?? [],
+      ),
     enabled: tab === 'accounts',
   })
 
@@ -31,7 +33,7 @@ export default function AdminShopFundsPage() {
     queryFn: () => {
       const qs = new URLSearchParams()
       if (flowType !== 'all') qs.set('type', flowType)
-      return api<{ list: FundFlow[] }>(`/api/admin/shop/funds/flows?${qs.toString()}`).then(
+      return apiOrThrow<{ list: FundFlow[] }>(`/api/admin/shop/funds/flows?${qs.toString()}`).then(
         (d) => d.list ?? [],
       )
     },

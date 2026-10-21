@@ -24,7 +24,7 @@ import { StreamingSkeleton, shouldShowStreamingSkeleton } from './streaming-skel
 import { ScrollJumpButtons } from './scroll-jump-buttons'
 import { DetailModeSwitcher } from './detail-mode-switcher'
 import { applyConversationDetailMode } from './detail-mode-filter'
-import { useConversationDetailModeStore } from '@/stores/conversation-detail-mode'
+import { usePaneConversationDetailModeStore } from '@/stores/conversation-detail-mode'
 // 票64(2026-10-18 立):版本族读投影 —— regenerate/edit 的多版本 sibling
 // 只渲染激活版本,否则"点一次编辑出两个气泡"(纯函数在 @/lib/message-version-family)。
 import { projectActiveMessages } from '@/lib/message-version-family'
@@ -137,7 +137,9 @@ export function MessageList({
   // D45(2026-09-24 立,G-53):会话详情聚合档位 —— 档位管信息聚合粒度
   // (过滤哪些类别的活动条目呈现),与 D21 fold-policy(管 section 展开/折叠)语义正交。
   // 'steps' 直通,零行为变化;'commands'/'narrative' 返回过滤拷贝。
-  const detailMode = useConversationDetailModeStore((s) => s.mode)
+  // 票60 普查批:按窗格寻址 —— 非根窗格读本窗格实例,不再把根窗格的档位一起改掉。
+  const detailStore = usePaneConversationDetailModeStore()
+  const detailMode = detailStore((s) => s.mode)
   const visibleMessages = React.useMemo(
     () => applyConversationDetailMode(projectActiveMessages(messages), detailMode),
     [messages, detailMode],

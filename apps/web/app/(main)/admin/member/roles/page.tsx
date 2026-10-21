@@ -27,13 +27,13 @@ import {
   PAGE_SIZE,
   RESOURCE,
   PERM,
-  api,
   FIELDS,
   SEARCH_FIELDS,
   EMPTY,
   EXPORT_COLS,
   itemToForm,
 } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Item, FormState, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -59,14 +59,14 @@ export default function UserRolesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', PERM, params],
-    queryFn: () => api<ListData>(`${RESOURCE}?${new URLSearchParams(params)}`),
+    queryFn: () => apiOrThrow<ListData>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
 
   const saveMut = useMutation({
     mutationFn: () =>
       editing
-        ? api(`${RESOURCE}/${editing.id}`, { method: 'PUT', body: JSON.stringify(form) })
-        : api(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
+        ? apiOrThrow(`${RESOURCE}/${editing.id}`, { method: 'PUT', body: JSON.stringify(form) })
+        : apiOrThrow(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', PERM] })
       toast.success(editing ? '更新成功' : '创建成功')
@@ -75,7 +75,7 @@ export default function UserRolesPage() {
     onError: (e: Error) => toast.error(e.message),
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', PERM] })
       toast.success('删除成功')

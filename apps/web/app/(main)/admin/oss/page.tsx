@@ -11,7 +11,8 @@ import { useTranslations } from 'next-intl'
 import { OssConfigFilter } from './OssConfigFilter'
 import { OssConfigTable } from './OssConfigTable'
 import { OssConfigDialog } from './OssConfigDialog'
-import { api, normList, parseJson, EMPTY_FORM, ossDriverToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { normList, parseJson, EMPTY_FORM, ossDriverToForm } from './helpers'
 import type { OssDriver, OssForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -25,7 +26,7 @@ export default function AdminOssPage() {
 
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['admin', 'oss', 'drivers'],
-    queryFn: async () => normList(await api('/api/admin/oss/drivers')),
+    queryFn: async () => normList(await apiOrThrow('/api/admin/oss/drivers')),
   })
   const saveMut = useMutation({
     mutationFn: () => {
@@ -40,11 +41,11 @@ export default function AdminOssPage() {
         config: parseJson(form.configJson),
       }
       return editing
-        ? api(`/api/admin/oss/drivers/${editing.id}`, {
+        ? apiOrThrow(`/api/admin/oss/drivers/${editing.id}`, {
             method: 'PATCH',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/oss/drivers', { method: 'POST', body: JSON.stringify(body) })
+        : apiOrThrow('/api/admin/oss/drivers', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'oss', 'drivers'] })
@@ -53,7 +54,7 @@ export default function AdminOssPage() {
     onError: (e: Error) => setErr(e.message),
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/oss/drivers/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/oss/drivers/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'oss', 'drivers'] }),
   })
 

@@ -11,14 +11,10 @@ import {
   Award,
   TrendingUp,
 } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import type { OverviewStatistics } from './types'
 
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+export { apiOrThrow as api }
 
 export function buildOverviewCards(t: (key: string) => string, overview?: OverviewStatistics) {
   return [

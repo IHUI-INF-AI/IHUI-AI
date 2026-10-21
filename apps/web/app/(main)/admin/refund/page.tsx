@@ -14,7 +14,8 @@ import { RefundStatsCards } from './RefundStatsCards'
 import { RefundFilter } from './RefundFilter'
 import { RefundTable } from './RefundTable'
 import { RefundDialog } from './RefundDialog'
-import { PAGE_SIZE, api } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE } from './helpers'
 import { useRefundMachine } from '@/lib/workflows'
 import type { ActionState, EduRefund, PageData } from './types'
 import { BackButton } from '@/components/common'
@@ -69,7 +70,7 @@ function RefundList({
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (status !== 'all') qs.set('status', status)
       if (search) qs.set('orderNo', search)
-      return api<PageData<EduRefund>>(`/api/refunds?${qs.toString()}`)
+      return apiOrThrow<PageData<EduRefund>>(`/api/refunds?${qs.toString()}`)
     },
   })
 
@@ -83,7 +84,7 @@ function RefundList({
         action!.mode === 'audit'
           ? { action: 'reject', reason: reason.trim() || undefined }
           : { reason: reason.trim() || undefined }
-      return api(url, { method: 'POST', body: JSON.stringify(body) })
+      return apiOrThrow(url, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'refund'] })
@@ -94,7 +95,7 @@ function RefundList({
 
   const approveMut = useMutation({
     mutationFn: () =>
-      api(`/api/refunds/${action!.refund.id}/audit`, {
+      apiOrThrow(`/api/refunds/${action!.refund.id}/audit`, {
         method: 'POST',
         body: JSON.stringify({ action: 'approve', reason: reason.trim() || undefined }),
       }),

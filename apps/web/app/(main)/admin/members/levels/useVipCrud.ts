@@ -9,7 +9,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { exportFromApi, exportToExcel } from '@/lib/export-utils'
-import { api, PAGE_SIZE, type VipCrudConfig } from './helpers'
+import { PAGE_SIZE, type VipCrudConfig } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Item, FormState } from './types'
 
 export function useVipCrud(config: VipCrudConfig) {
@@ -36,7 +37,9 @@ export function useVipCrud(config: VipCrudConfig) {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', config.perm, params],
     queryFn: () =>
-      api<{ list: Item[]; total: number }>(`${config.resource}?${new URLSearchParams(params)}`),
+      apiOrThrow<{ list: Item[]; total: number }>(
+        `${config.resource}?${new URLSearchParams(params)}`,
+      ),
     enabled: config.enabled,
   })
 
@@ -47,11 +50,11 @@ export function useVipCrud(config: VipCrudConfig) {
   const saveMut = useMutation({
     mutationFn: () =>
       editing
-        ? api(`${config.resource}/${editing.id}`, {
+        ? apiOrThrow(`${config.resource}/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(form),
           })
-        : api(config.resource, { method: 'POST', body: JSON.stringify(form) }),
+        : apiOrThrow(config.resource, { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', config.perm] })
       toast.success(editing ? '更新成功' : '创建成功')
@@ -61,7 +64,7 @@ export function useVipCrud(config: VipCrudConfig) {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`${config.resource}/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`${config.resource}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', config.perm] })
       toast.success('删除成功')

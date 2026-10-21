@@ -153,7 +153,7 @@ function printSummary(useStderr) {
 }
 
 // ─── 条件触发(2026-09-22 立)───
-// 条目声明 stagedTriggers(路径前缀数组)时,--staged 模式下只在**暂存区触及这些前缀**才执行,
+// 条目声明 stagedTriggers(路径前缀数组,支持 `**`/`*`/`?` glob)时,--staged 模式下只在**暂存区触及这些前缀**才执行,
 // 口径与 .husky/pre-commit 的 16b/16c/16e 条件守门完全一致(git diff --cached --name-only)。
 // 为什么需要:领域守门(桌面安装器等)与绝大多数提交无关,无条件挂上既拖慢每次 commit,
 //   又会因他人未完成的工作树改动误伤;但判据本身必须 blocking —— 静默失败类事故
