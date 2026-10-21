@@ -17,9 +17,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { tokens } from '../theme/active-tokens'
 import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
-// 2026-10-21:图标改走内联 data URI。真机 release 包上 `<Image source={require(本地 PNG)}>`
-// 恒渲染为空白(8a7926ead7 同格对照实验,见 packages/types/src/app-account.ts);这族是位图
-// 插画、无等价 SVG 源,内联后图一字未改。生成器:scripts/gen-mobile-tabbar-icon-data.mjs
+// 底栏图标的取源方式(2026-10-21 定档,刻意保留,不是遗留绕行):
+// 这族曾在 release 包里长期空白,当时的根因是 @react-native/assets-registry 被装成两份
+// (注册进 A、读取走 B ⇒ resolveAssetSource 吐 null),已由 metro.config.cjs 的单实例去重
+// 分支修好(4a876685d),实测 require() 通道可用(轮播本地图与底栏图标同包实拍恢复)。
+// 仍走内联 data URI 的理由:回退成 require() 属于"把别人删过的行写回来",会被门 84 R1r
+// 的行级复活判据定责为本票红(它结构上分不出"有意重加"与"陈旧回写");为省 74KB 去绕一道
+// blocking 门不值当。要清这层,请在**下一次真正改动本文件的票**里顺带替换,别单独回退。
 import { TABBAR_ICON_DATA } from './tabbarIconData'
 
 // ── tabbar 图标(对齐 history static/tabbar/ 11 图标,语义与 customTabBar/index.vue 一致) ──
