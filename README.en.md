@@ -90,7 +90,7 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 工程守门 | 267 | `guardianGates` |
 | — blocking | 243 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15603 | `trackedFiles` |
+| 跟踪文件 | 15610 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -102,6 +102,55 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0165022242)
+- ⚡ Perf:按改动性质分档(元门档 31 门)+ README 自动同步移出 pre-commit(消除 O43 窗口冲突) (c930087e84)
+- 🐞 Fix:storeDir 指向已不存在的 G 盘 —— 全仓 install 恒失败(净面/主仓同因),改 D 盘 (8d81ef1995)
+
+**2026-10-22**
+- ⚡ Perf:纯内容门指纹缓存 + 快档重型门真补跑 (010e3cb1a8)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c647b44ade)
+- 🐞 Fix:自动收编器的 git helper 显式接管 stdio —— 门一零三在 HEAD 面点名该处裸奔(本机不写 stdio 稳定 EBUSY,§十二g)。上一笔只补了 windowsHide 就交,等于修一处漏一处,这次同批补全并复跑门一零三/五二/一九九 索引面各 RC=零。 (7606579655)
+- 📚 Docs:§1 登记超龄认领牌兜底器物与授权口径 —— 门在提交链上仍不代摘,超龄牌由 strip-stale-claim-marks 周期代摘并把旧形态写进 removed 抗 union 回潮 (ae9bc35767)
+
+**2026-10-22**
+- 🐞 Fix:自动收编器两处派生补 windowsHide —— 门五十二 HEAD 面存量红,它会挡住任何会话的提交。取证:改动后 --staged 面复跑该门 RC=0(扫描一枚文件,生产代码零违规);该门判 HEAD blob,故修完必入库才算数。 (51131b0e93)
+
+**2026-10-22**
+- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0c65211263)
+
+**2026-10-22**
+- 🔧 Chore/Other:守门一零九补挂牌位置四型的自检,并用变异测试证明两条有牙。取证:第一版对照臂在测试里复制了一份旧正则(违第二二三c),把结构位空白容忍砍掉仍全绿=无牙;改成直接问 claimMarkOf 的归档后,同一变异立刻翻红,再逐字节还原核对通过。 (ee476d06a0)
+- 🐞 Fix:净面 worktree 跑完不回收 —— 每轮出口统一回收(含空分支),失败/早退轮不再漏 (cfff341b7a)
+- 🐞 Fix:净面 worktree 跑完不回收 —— 每轮出口统一回收(含空分支),失败/早退轮不再漏 (928e5fb09b)
+
+**2026-10-21**
+- 🐞 Fix:删除 PROJECT_PLAN 错误入库的冲突标记 3 行 + 收尾报告补溯源水印 (32dde7723b)
+- 🔧 Chore/Other:复删被合并复活的 6 枚死图标 —— 机主裁决枚 504f86371720 已删 20 枚,triangle-alert.svg 不在删除名单故保留; §22 门 168 不许删除被合并静默复活 (64a306b786)
+- 📚 Docs:补 2026-10-21 收口报告缺失的溯源载荷(远端带入时未注入,水印全量预检「未覆盖」;§5c 注入幂等) (804b5348bd)
+- 🐞 Fix:归并 merge 冲突标记 —— 取 theirs 侧 55 行漂移副本注释(ours 侧仅空行,零内容损失); 冲突标记门 79 已 rc=0 (f75d0b3491)
+- 📚 Docs:恢复被撤销裁决删除的 agent.md/spec 与 lint-staged 空壳,归档 Discord 频道文案 (737bd5f90f)
+- 🚀 Feature/Improvement:RN 旋转自适应与 EAS 打包链路修正,补商店素材及桌面依赖 (837c920b25)
+- 🚀 Feature/Improvement:课程章节播放与进度真实数据源,修复自定义导航同步并清除 NUL 污染 (8ae6fe73a1)
+- 🚀 Feature/Improvement:接入重放水位守卫与小程序 CI 上传工具,补 pnpm 锁 (91d998fb86)
+- 🐞 Fix:移除未使用的系统 Chrome 查找死代码并重锁依赖 (37dc144105)
+
+- 🔧 Chore/Other:再生成 README 数字与更新日志、四端 ui-routes 自述钉,推进文档自动更新指针 (e4e7aedae7)
+
+- 🔧 Chore/Other:重钉四端 ui-routes 自述钉(remote-icons 引用清理后) (0904dc3e66)
+
+- 🔧 Chore/Other:收口 README 最近更新窗口与自动更新指针 (ff90a8c33b)
+
+- 🚀 Feature/Improvement:守门 226 增 H3 装载位判据——core.hooksPath 指向空目录时自动推送/备份整链静默停摆,补镜像 M8 (cc6bd20c75)
+- 🐞 Fix:补齐 AI 数据/文章与 SaaS 备份三个被忽略目录的 lint-staged 出口件 (4e92b12806)
+- 🐞 Fix:可见性同步用例改用默认允许集内的 href,修复用例与允许集脱节导致的红 (4d4a761ef2)
+
+- ⚡ Perf:提交链 12.7min → 38s —— 修并行判断 String() 归一(并行池从未生效)+ 快档 35s 预算与延后补跑 + 实时百分比进度 + 30a 结论缓存 + 网络调用治本超时 (3ca997ffba)
+- 🐞 Fix:净面 worktree 建了从不回收 —— 补统一回收出口(remove --force + prune),收尾清孤儿登记 (f2894131a3)
+
+**2026-10-22**
+- 🔧 Chore/Other:收编停留≥0分钟的未提交改动 (af9a2f8bf8)
+
+**2026-10-22**
 - 📚 Docs:check-task-claims 头注同步单源挂牌判据口径。残余交后手:裸「（进行中）」形态仍只计数不判红(向后兼容是机主既有定档),而本次清账现读该族存量为零 ⇒ 升 blocking 的前置已满足,是否收口待人定档,本席不擅自改纪律。 (9b6e98211f)
 
 **2026-10-22**
@@ -111,51 +160,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 **2026-10-22**
 - ♻️ Refactor:任务认领判据单源化 —— check-task-claims 改用 plan-task-index 的 claimMarkOf/codeSpanRangesOf (09e13e0eda)
-
-**2026-10-21**
-- 🐞 Fix:删除 web 词条两枚无引用死 key(detail.duration/detail.objectives) (a7806c96b7)
-
-**2026-10-21**
-- 📚 Docs:补 16b 推送协议与 16c 钩子装载位对账 (88160bab99)
-
-**2026-10-21**
-- 🐞 Fix:删除 learn.detail 死 key duration/objectives(五语言同批,解除死 key 门全局阻塞) (b35c22d2e6)
-
-**2026-10-21**
-- 🐞 Fix:README 测试文件计数同步为 3019(门 173 现算口径)并收口最近更新窗口 (0e715fe6c9)
-
-**2026-10-21**
-- 🔧 Chore/Other:收口 README 最近更新(补 d9bb3a70bb 条目并推进增量基线) (2fbe5a2fe1)
-
-**2026-10-21**
-- 🔧 Chore/Other:收口 README 最近更新窗口与自动更新指针(H3 判据落地后) (d9bb3a70bb)
-
-**2026-10-21**
-- 🚀 Feature/Improvement:守门 226 增 H3 装载位判据——core.hooksPath 指向空目录时自动推送/备份整链静默停摆,补镜像 M8 (cc6bd20c75)
-- 🐞 Fix:补齐 AI 数据/文章与 SaaS 备份三个被忽略目录的 lint-staged 出口件 (4e92b12806)
-- 🐞 Fix:可见性同步用例改用默认允许集内的 href,修复用例与允许集脱节导致的红 (4d4a761ef2)
-
-**2026-10-21**
-- 🔧 Chore/Other:收口 README 最近更新窗口与自动更新指针 (ff90a8c33b)
-
-**2026-10-21**
-- 🔧 Chore/Other:重钉四端 ui-routes 自述钉(remote-icons 引用清理后) (0904dc3e66)
-
-**2026-10-21**
-- 🔧 Chore/Other:再生成 README 数字与更新日志、四端 ui-routes 自述钉,推进文档自动更新指针 (e4e7aedae7)
-
-**2026-10-21**
-- 📚 Docs:恢复被撤销裁决删除的 agent.md/spec 与 lint-staged 空壳,归档 Discord 频道文案 (737bd5f90f)
-- 🚀 Feature/Improvement:RN 旋转自适应与 EAS 打包链路修正,补商店素材及桌面依赖 (837c920b25)
-- 🚀 Feature/Improvement:课程章节播放与进度真实数据源,修复自定义导航同步并清除 NUL 污染 (8ae6fe73a1)
-- 🚀 Feature/Improvement:接入重放水位守卫与小程序 CI 上传工具,补 pnpm 锁 (91d998fb86)
-- 🐞 Fix:移除未使用的系统 Chrome 查找死代码并重锁依赖 (37dc144105)
-
-**2026-10-21**
-- 🐞 Fix:删除 PROJECT_PLAN 错误入库的冲突标记 3 行 + 收尾报告补溯源水印 (32dde7723b)
-- 🔧 Chore/Other:复删被合并复活的 6 枚死图标 —— 机主裁决枚 504f86371720 已删 20 枚,triangle-alert.svg 不在删除名单故保留; §22 门 168 不许删除被合并静默复活 (64a306b786)
-- 📚 Docs:补 2026-10-21 收口报告缺失的溯源载荷(远端带入时未注入,水印全量预检「未覆盖」;§5c 注入幂等) (804b5348bd)
-- 🐞 Fix:归并 merge 冲突标记 —— 取 theirs 侧 55 行漂移副本注释(ours 侧仅空行,零内容损失); 冲突标记门 79 已 rc=0 (f75d0b3491)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
