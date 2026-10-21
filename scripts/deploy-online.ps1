@@ -28,15 +28,13 @@ param(
 $ErrorActionPreference = "Stop"
 
 # ----------------------------- 定位仓库根 -----------------------------
+# 2026-10-21:原先自带一套"候选目录 + G:/D:/C: 全盘扫描"的根解析,与唯一实现
+# ihui-root-common.ps1 各跑各的(deploy\tests\root-resolution.test.mjs 的 R6 抓出)。
+# 统一走 helper —— 脚本在 scripts\ 下,helper 在 deploy\win\,按相对路径 dot-source;
+# 解析不到宁可响(-Required 抛错),绝不静默用错根(与 helper 头注的反向护栏同一句理由)。
 if ([string]::IsNullOrWhiteSpace($Root)) {
-    $candidates = @("D:\IHUI-AI", "$env:USERPROFILE\IHUI-AI", "$PSScriptRoot", (Split-Path $PWD -Parent))
-    foreach ($c in $candidates) {
-        if ($c -and (Test-Path $c) -and (Test-Path "$c\apps\web\package.json") -and (Test-Path "$c\package.json")) { $Root = $c; break }
-    }
-    if ([string]::IsNullOrWhiteSpace($Root)) {
-        $ws = Get-ChildItem "G:","D:","C:" -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path "$($_.FullName)\apps\web\package.json" } | Select-Object -First 1
-        if ($ws) { $Root = $ws.FullName }
-    }
+    . (Join-Path $PSScriptRoot (Join-Path '..\deploy\win' 'ihui-root-common.ps1'))
+    $Root = Resolve-IhuiProjectRoot -StartDir $PSScriptRoot -Required
 }
 if (-not $Root -or -not (Test-Path "$Root\apps\web\package.json")) {
     throw "无法定位 IHUI-AI 仓库根目录。请用 -Root 显式指定(应包含 apps\web\package.json 的目录)。"

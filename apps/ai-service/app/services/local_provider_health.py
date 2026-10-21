@@ -92,9 +92,12 @@ def _classify(resp: httpx.Response | None, exc: Exception | None) -> LocalProbeR
     """把一次 HTTP 尝试折叠成三态。纯函数,单测不碰网络。"""
     now = time.time()
     if exc is not None:
-        # ConnectError/Refused = 服务没在跑,这是**可下结论**的 unavailable;
-        # 超时与其它异常判不了,进 undetermined(见模块头:判不了不得折叠)。
-        if isinstance(exc, httpx.ConnectError):
+        # ConnectError/Refused 与 ConnectTimeout = TCP 握手都没完成,这是**可下结论**
+        # 的 unavailable(本机直连下端口没监听只有这两种表现;本仓 httpx 0.28 里
+        # ConnectTimeout 不继承 ConnectError,必须显式列出,否则会被误判成
+        # undetermined → 显示侧照常显示,就是 2026-10-21 的"没跑也显示"事故);
+        # ReadTimeout 及其它异常判不了,进 undetermined(见模块头:判不了不得折叠)。
+        if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout)):
             return LocalProbeResult(
                 verdict=LocalProbeVerdict.UNAVAILABLE,
                 detail=f"connection refused: {exc}",
@@ -193,8 +196,11 @@ class LocalProviderHealth:
         url = _probe_url(provider_code, base)
         started = time.perf_counter()
         try:
+            # trust_env=False:探针目标是 localhost,系统代理(Clash 等)不监听它,
+            # 走代理会把"连接拒绝"变质成 ReadTimeout → undetermined → 没跑的
+            # 本地模型照样显示(2026-10-21 实测事故);localhost 探针必须直连。
             async with httpx.AsyncClient(
-                timeout=PROBE_TIMEOUT_S, transport=transport
+                timeout=PROBE_TIMEOUT_S, transport=transport, trust_env=False
             ) as client:
                 resp = await client.get(url)
             result = _classify(resp, None)

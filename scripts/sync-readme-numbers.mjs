@@ -22,6 +22,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { gitRaw } from './lib/face-reader.mjs'
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 
@@ -29,15 +31,10 @@ const README_FILES = ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md
 const BEGIN = '<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->'
 const END = '<!-- END GENERATED NUMBERS -->'
 
-/** 跑 git 命令,返回 stdout(utf8)。maxBuffer 放大到 64MB:README 等文件超 1MB 默认缓冲会 ENOBUFS。 */
+/** 跑 git 命令,返回 stdout(utf8)。maxBuffer 放大到 64MB:README 等文件超 1MB 默认缓冲会 ENOBUFS。
+ * 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio 由 gitRaw 同源提供。 */
 function git(args) {
-  return execFileSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  return gitRaw(args, ROOT, { maxBuffer: 64 * 1024 * 1024 })
 }
 
 /** 重新生成 README 生成块(含 BEGIN/END 标记)。 */

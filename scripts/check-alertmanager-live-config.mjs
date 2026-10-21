@@ -30,13 +30,13 @@
 //
 // 用法: node scripts/check-alertmanager-live-config.mjs [--url <status-url>] [--timeout-ms N] [--worktree]
 //        node scripts/check-alertmanager-live-config.mjs --self-test
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import http from 'node:http'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { assertBridgeOnlySurface } from './render-alertmanager-config.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TEMPLATE_REL = 'monitoring/alertmanager/alertmanager.yml.tmpl'
@@ -225,8 +225,11 @@ export function compareProjections(tmpl, live) {
 
 function gitHeadBlob(rel) {
   try {
-    return execFileSync('git', ['-C', ROOT, 'show', `HEAD:${rel}`], { encoding: 'utf8', windowsHide: true, timeout: 8000, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 4 << 20 })
-  } catch { return null }
+    // HEAD blob 正文取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio。
+    return gitRaw(['show', `HEAD:${rel}`], ROOT, { timeout: 8000, maxBuffer: 4 << 20 })
+  } catch {
+    return null
+  }
 }
 
 function fetchStatusJson(url, timeoutMs) {
