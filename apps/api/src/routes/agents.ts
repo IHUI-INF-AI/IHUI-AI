@@ -11,6 +11,7 @@ import { authenticate, checkAuth } from '../plugins/auth.js'
 import { config } from '../config/index.js'
 import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
 import { batchWriteOutcome } from '../utils/batch-outcome.js'
 import { isUuidString } from '../utils/uuid.js'
@@ -446,7 +447,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       }),
     )
   }
-  server.get('/agents/stats', handleAgentStats)
+  server.get('/agents/stats', async (request, reply) => {
+    // 游客与登录用户拿到的是同一份聚合计数(handler 不消费身份)⇒ 可进共享边缘缓存;
+    // POST 别名同契约但语义是"提交一次拉取",刻意不打缓存头。
+    withPublicEdgeCache(reply)
+    return handleAgentStats(request, reply)
+  })
   server.post('/agents/stats', handleAgentStats)
 
   // GET /agents/:agentId - 代理详情

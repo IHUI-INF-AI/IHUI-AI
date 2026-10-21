@@ -29,6 +29,7 @@ import {
   getApiLogStats,
 } from '../db/system-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
 
 // =============================================================================
 // Zod schemas
@@ -176,7 +177,7 @@ export const systemRoutes: FastifyPluginAsync = async (server) => {
   // GET /configs - 公开配置（无需鉴权）
   server.get('/configs', async (_request, reply) => {
     const list = await findPublicConfigs()
-    return reply.send(success({ list }))
+    return withPublicEdgeCache(reply).send(success({ list }))
   })
 }
 

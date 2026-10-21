@@ -25,6 +25,7 @@ import { eq, and, desc, sql } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { carousels, lessons, announcements } from '@ihui/database'
 import { success, error } from '../utils/response.js'
+import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
 import { findLessonChapters } from '../db/learn-queries.js'
 
 /** 课程列表/详情共用的投影源列(两处必须同形,否则同一门课在两个页面长得不一样) */
@@ -117,7 +118,9 @@ export const miniappPublicFallbackRoutes: FastifyPluginAsync = async (server) =>
         .orderBy(desc(announcements.publishedAt))
         .limit(5),
     ])
-    return reply.send(success({ banner, courses, announcements: announcementRows }))
+    return withPublicEdgeCache(reply).send(
+      success({ banner, courses, announcements: announcementRows }),
+    )
   })
 
   // GET /content/banner/list - banner 列表(carousels 表 status=1,支持 position 筛选,分页)
@@ -146,7 +149,9 @@ export const miniappPublicFallbackRoutes: FastifyPluginAsync = async (server) =>
         .from(carousels)
         .where(where),
     ])
-    return reply.send(success({ list, total: totalRows[0]?.total ?? 0, page, pageSize }))
+    return withPublicEdgeCache(reply).send(
+      success({ list, total: totalRows[0]?.total ?? 0, page, pageSize }),
+    )
   })
 
   // GET /content/course/list - 课程列表(lessons 表 isPublished=true + status=1,支持 categoryId,分页)
@@ -176,7 +181,9 @@ export const miniappPublicFallbackRoutes: FastifyPluginAsync = async (server) =>
         .where(where),
     ])
     const list = rows.map(toCourseRow)
-    return reply.send(success({ list, total: totalRows[0]?.total ?? 0, page, pageSize }))
+    return withPublicEdgeCache(reply).send(
+      success({ list, total: totalRows[0]?.total ?? 0, page, pageSize }),
+    )
   })
 
   // GET /content/course/:id - 课程详情(与列表同表同投影,另挂 lesson_chapters 组成的章节大纲)

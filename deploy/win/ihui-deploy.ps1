@@ -573,6 +573,68 @@ function Invoke-Step { param([string]$name,[scriptblock]$body)
     return $LASTEXITCODE
 }
 
+function Invoke-ProdCacheWarm {
+    # 2026-10-21 装车:`scripts/warm-prod-cache.mjs` 落地后全仓零调用方(现读 grep 只命中它自己
+    # 与 .ihui-agent/tmp、outputs),按 §0.9「造好没装车 = 没有」,本函数是它唯一的生产调用方。
+    #
+    # 为什么只在"切流 + 门禁判绿"那一支调(调用点见主流程 Test-HealthGate 的 else 分支末尾):
+    #   门禁失败那一支走 Set-BuildCooldown → Do-Rollback → exit 0(见下方主流程"门禁未过已回滚"
+    #   那段),结构上根本走不到这里。若在回滚路径预热,会把**刚被退回的旧版 HTML** 重新刷回
+    #   EdgeOne —— 源站给公开页的头是 `public, s-maxage=300, stale-while-revalidate=86400`
+    #   (apps/web/next.config.ts),一次错误预热能在边缘侧把旧版续命到 24 小时,比不预热更坏。
+    #
+    # 为什么绝不能让它决定本轮成败:预热打的是公网 URL,而"公网入口坏了但源站健康"恰恰是
+    #   本文件 GATE-ENTRY-BROKEN 那一型故障。所以整段 try/catch、非 0 退出码只记 WARN,
+    #   不回滚、不改退出码、不 throw(§12e:与发布成败无关的判据挂进主链就是恒红门)。
+    #   结论只认 warmer 打印的那一行纯 ASCII `WARM-RESULT ...`;取不到结论行就写"未判定",
+    #   绝不把"没打出结论"读成"预热成功"(§0.3)。
+    #
+    # 时间上限:warmer 自带 --budget(总墙钟)与 --timeout(单 URL),超时自己截断并以
+    #   state=partial/failed reason=budget-exceeded 收口;实测整清单 36 个 URL 墙钟 1.1~2.7 s
+    #   (2026-10-21 本机三次现读),相对守护侧 RunBudgetMin=45 分钟可忽略,
+    #   故不需要在这里再加一层 PowerShell 计时器。
+    #
+    # 派生 node 形态:与本文件 G-204 那段(`& $node98 …check-dangling-local-imports.mjs 2>&1`)
+    #   同源 —— 同步调用是为了拿到 stdout;窗口隐藏由机器级默认钩子
+    #   install-console-window-hook.mjs 负责(§5b 派生进程纪律)。结论行设计成纯 ASCII 键值,
+    #   正是为了绕开 §5d 那个"node 写中文被 GBK 码页吃掉"的坑(部署日志里 U+FFFD 的成因)。
+    param(
+        [int]$PerUrlMs = 15000,
+        [int]$BudgetMs = 120000,
+        [int]$Concurrency = 3
+    )
+
+    $node = Resolve-NodeExe
+    if (-not $node) {
+        Log "WARN  WARM-RESULT state=undetermined reason=no-node - 预热未判定(node.exe 取不到),不影响本轮发布"
+        return
+    }
+    $warmer = Join-Path $Root 'scripts\warm-prod-cache.mjs'
+    if (-not (Test-Path -LiteralPath $warmer)) {
+        Log "WARN  WARM-RESULT state=undetermined reason=script-missing - 预热未判定($warmer 不存在),不影响本轮发布"
+        return
+    }
+    try {
+        Log "公网边缘缓存预热:切流后主动把新版刷上 EdgeOne,不等第一个访客踩回源(失败只 WARN)"
+        $out = & $node $warmer --timeout $PerUrlMs --budget $BudgetMs --concurrency $Concurrency 2>&1
+        $rc = $LASTEXITCODE
+        # 先剥非 ASCII 再定位结论行:服务上下文里 node 的中文 stdout 会被码页切碎(§5d),
+        # 而 warmer 与上一条提示行可能落在同一个输出对象内,整对象直接落日志会带进噪音。
+        # 结论行本身设计成纯 ASCII 键值 ⇒ 剥完仍是完整一行,grep 得到。
+        $joined = (($out | ForEach-Object { "$_" }) -join "`n") -replace '[^\x20-\x7E]', ''
+        $warmAt = $joined.LastIndexOf('WARM-RESULT')
+        if ($warmAt -ge 0) {
+            $line = (($joined.Substring($warmAt) -split "`n")[0]).Trim()
+            if ($rc -eq 0) { Log "  $line" }
+            else { Log "WARN  $line (node rc=$rc ⇒ 预热未全绿;不影响本轮发布,不回滚)" }
+        } else {
+            Log ("WARN  预热未判定:node rc=$rc 且输出中没有 WARM-RESULT 结论行 ⇒ 不记绿(末行实得:{0})" -f (Protect-NotifyOutput @($out | Select-Object -Last 2)))
+        }
+    } catch {
+        Log "WARN  预热调用异常(不影响本轮发布):$_"
+    }
+}
+
 # ── 探测的"操作级"硬上限(2026-09-27 加,实测 LocalSystem 下 -TimeoutSec 不被尊重)──────
 # 关键实测(本机 powershell.exe 与 pwsh.exe 都是 7.6.2,`(Get-Command Invoke-WebRequest)
 # .Parameters` 现读):`TimeoutSec` **是 `ConnectionTimeoutSeconds` 的别名**,不是第三个维度
@@ -2347,6 +2409,12 @@ if (-not (Test-HealthGate)) {
     } else {
         Log "未找到 ai-service 服务(候选:IHUI-AI-SERVICE/ihui-ai-service/svc-ai),跳过重启"
     }
+
+    # ── 公网边缘缓存预热(装车点,判据与理由见 Invoke-ProdCacheWarm 头注)──────────────
+    # 位置在这一支的**末尾**:api / ai-service 已重启并各自探过一次健康,此时公网那份 HTML
+    # 引用的后端数据才是本轮的。整个函数只 Log,不改流程:预热失败 ⇒ WARN;门禁失败/回滚
+    # 那一支在上方已 exit 0,永远走不到这一行。
+    Invoke-ProdCacheWarm
 }
 # 标记的唯一写入点已在"交换完成 + Start-Web 之后"(见上一段 Set-BuildMarker 及其注释),此处不再重复写。
 # 原收尾写入的语义(2026-09-21 立):只有成功轮才写 marker、失败轮一律不写(旧写法在失败轮
