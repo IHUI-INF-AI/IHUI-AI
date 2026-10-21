@@ -2,132 +2,240 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { ChevronLeft, ChevronRight } from 'lucide-react-native'
-import { tokens } from '../theme/active-tokens'
-import { rpx } from '../utils/rpx'
-import type { RootStackParamList } from '../navigation/RootNavigator'
-
+import { BookOpen, ChevronRight, Rocket, Sparkles } from 'lucide-react-native'
 import { rnRadius } from '@ihui/design-tokens'
+import { tokens } from '../theme/active-tokens'
+import { NavBar } from '../components/NavBar'
+import { NavChrome } from '../components/NavChrome'
+import { useI18n } from '../i18n'
+import { WEB_BASE_URL } from '../lib/webview-portal-config'
+import { rpx } from '../utils/rpx'
+import {
+  ABOUT_COMPLIANCE,
+  ABOUT_PLATFORMS,
+  ABOUT_STATS,
+  ABOUT_VALUES,
+  type AboutFeature,
+} from './aboutPageSections'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /**
- * RN 端「关于我们」页(2026-09-05 恢复历史合规跳转列表)。
+ * RN 端「关于我们」—— 段落顺序与取词照 web `app/(main)/about/AboutContent.tsx`:
+ * Hero → 我们的故事 → 4 项价值观 → 6 项平台能力 → 数字见证 → CTA,再保留 7 条合规入口。
+ * 分段数据在 ./aboutPageSections.ts(为把本屏压回 §3 的 250 行上限)。
  *
- * 对齐历史 Uniapp pagesA/settings/about.vue:
- * - 白色 section-card 圆角 16rpx 内 7 项合规条目,每项 28rpx/24rpx 内边距 + 分隔线,
- *   右侧 24rpx 箭头(lucide ChevronRight 对齐历史 arrow_right.png)
- * - 7 项均可点击跳转 RN 端已有合规页(RootStackParamList 均已注册):
- *   服务协议→Agreement / 隐私政策→Privacy / 应用权限→AppPermission / 使用规范→UsageRules
- *   / 营业执照→BusinessLicense / ICP备案→IcpRecord / 模型备案→ModelRecord
- *   (历史 appPermission 点击为空 toast,RN 端已有 AppPermissionScreen 故直接跳转)
- * - 此前被改为 app info 卡的 SharedAboutScreen 包装实现移除,恢复合规列表
+ * 取词全部走 `about.*`(值逐字取 web 同语种词包,只搬 AboutContent 真消费的 41 键;web 的
+ * `about.metaDescription` 是 SEO 出口、本端无消费方 ⇒ 不搬);合规条目复用既有 `menu.*` 键,
+ * 不抄第二份中文标签(§0.6)。CTA 落点按本端真实在册出口:注册 → Register 屏;开放平台
+ * `/developer` 是一整个 web 门户目录(RN 只有 Developer 信息屏)⇒ 走既有 WebView 承载。
  */
 
-// 7 项合规条目(label 与历史 about.vue 1:1,target 为 RN 端已注册屏)
-type ComplianceTarget =
-  | 'Agreement'
-  | 'Privacy'
-  | 'AppPermission'
-  | 'UsageRules'
-  | 'BusinessLicense'
-  | 'IcpRecord'
-  | 'ModelRecord'
-const COMPLIANCE_ITEMS: ReadonlyArray<{ label: string; target: ComplianceTarget }> = [
-  { label: '服务协议', target: 'Agreement' },
-  { label: '隐私政策', target: 'Privacy' },
-  { label: '应用权限', target: 'AppPermission' },
-  { label: '使用规范', target: 'UsageRules' },
-  { label: '营业执照', target: 'BusinessLicense' },
-  { label: 'ICP备案', target: 'IcpRecord' },
-  { label: '模型备案', target: 'ModelRecord' },
-]
+function FeatureCard({ feature, title, desc }: FeatureCardProps) {
+  const { Icon } = feature
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHead}>
+        <View style={styles.iconBox}>
+          <Icon size={rpx(36)} color={tokens.brandAccent.deep} strokeWidth={2} />
+        </View>
+        <Text style={styles.cardTitle}>{title}</Text>
+      </View>
+      <Text style={styles.cardDesc}>{desc}</Text>
+    </View>
+  )
+}
+
+interface FeatureCardProps {
+  feature: AboutFeature
+  title: string
+  desc: string
+}
 
 export function AboutScreen() {
   const navigation = useNavigation<NavigationProp>()
+  const { t } = useI18n()
 
   return (
     <View style={styles.container}>
-      {/* 顶部导航(对齐历史 SettingsPageLayout「关于我们」+ 共享页 back 约定) */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel="返回"
-        >
-          <ChevronLeft size={rpx(40)} color={tokens.text.primary} strokeWidth={2} />
-        </TouchableOpacity>
-        <Text style={styles.title}>关于我们</Text>
-      </View>
+      <NavChrome>
+        <NavBar title={t('menu.about')} onBack={() => navigation.goBack()} />
+      </NavChrome>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <View style={styles.hero}>
+          <View style={styles.chip}>
+            <Sparkles size={rpx(24)} color={tokens.brandAccent.deep} strokeWidth={2} />
+            <Text style={styles.chipText}>{t('about.heroBadge')}</Text>
+          </View>
+          <Text style={styles.heroTitle}>{t('about.heroTitle')}</Text>
+          <Text style={styles.bodyText}>{t('about.heroSubtitle')}</Text>
+        </View>
 
-      {/* 合规条目卡(对齐历史 .section-card) */}
-      <View style={styles.body}>
-        <View style={styles.sectionCard}>
-          {COMPLIANCE_ITEMS.map((item, index) => (
+        <View style={styles.card}>
+          <View style={styles.chip}>
+            <BookOpen size={rpx(24)} color={tokens.brandAccent.deep} strokeWidth={2} />
+            <Text style={styles.chipText}>{t('about.storyBadge')}</Text>
+          </View>
+          <Text style={styles.sectionTitle}>{t('about.storyTitle')}</Text>
+          <Text style={styles.bodyText}>{t('about.storyP1')}</Text>
+          <Text style={styles.bodyText}>{t('about.storyP2')}</Text>
+        </View>
+
+        <View style={styles.grid}>
+          {ABOUT_VALUES.map((f) => (
+            <View key={f.titleKey} style={styles.gridCell}>
+              <FeatureCard feature={f} title={t(f.titleKey)} desc={t(f.descKey)} />
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.sectionTitle}>{t('about.platformTitle')}</Text>
+        <View style={styles.grid}>
+          {ABOUT_PLATFORMS.map((f) => (
+            <View key={f.titleKey} style={styles.gridCell}>
+              <FeatureCard feature={f} title={t(f.titleKey)} desc={t(f.descKey)} />
+            </View>
+          ))}
+        </View>
+
+        <View style={[styles.card, styles.statsCard]}>
+          <Text style={styles.sectionTitle}>{t('about.numbersTitle')}</Text>
+          <View style={styles.statsGrid}>
+            {ABOUT_STATS.map((s) => (
+              <View key={s.valueKey} style={styles.statCell}>
+                <Text style={styles.statValue}>{t(s.valueKey)}</Text>
+                <Text style={styles.bodyText}>{t(s.descKey)}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={[styles.card, styles.ctaCard]}>
+          <Rocket size={rpx(60)} color={tokens.brandAccent.deep} strokeWidth={2} />
+          <Text style={styles.sectionTitle}>{t('about.ctaTitle')}</Text>
+          <Text style={styles.bodyText}>{t('about.ctaDesc')}</Text>
+          <TouchableOpacity
+            style={styles.ctaPrimary}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={t('about.ctaPrimary')}
+            onPress={() => navigation.navigate('Register')}
+          >
+            <Text style={styles.ctaPrimaryText}>{t('about.ctaPrimary')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.ctaSecondary}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={t('about.ctaSecondary')}
+            onPress={() =>
+              navigation.navigate('WebView', {
+                url: `${WEB_BASE_URL}/developer`,
+                title: t('about.ctaSecondary'),
+              })
+            }
+          >
+            <Text style={styles.ctaSecondaryText}>{t('about.ctaSecondary')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionTitle}>{t('about.complianceTitle')}</Text>
+        <View style={styles.card}>
+          {ABOUT_COMPLIANCE.map((item) => (
             <TouchableOpacity
               key={item.target}
-              style={index === 0 ? styles.item : [styles.item, styles.itemDivider]}
-              onPress={() => navigation.navigate(item.target)}
+              style={styles.complianceRow}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel={item.label}
+              accessibilityLabel={t(item.labelKey)}
+              onPress={() => navigation.navigate(item.target)}
             >
-              <Text style={styles.itemLabel}>{item.label}</Text>
-              <ChevronRight size={rpx(24)} color={tokens.text.tertiary} strokeWidth={2} />
+              <Text style={styles.itemLabel}>{t(item.labelKey)}</Text>
+              <ChevronRight size={rpx(30)} color={tokens.text.tertiary} strokeWidth={2} />
             </TouchableOpacity>
           ))}
         </View>
-      </View>
+      </ScrollView>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: tokens.surface.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: rpx(8),
-    paddingHorizontal: rpx(20),
-    paddingVertical: rpx(24),
-  },
-  title: {
-    fontSize: rpx(40),
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+  scroll: { padding: rpx(24), paddingBottom: rpx(64), gap: rpx(24) },
+  hero: { alignItems: 'center', gap: rpx(16), paddingTop: rpx(16) },
+  bodyText: { fontSize: rpx(26), lineHeight: rpx(40), color: tokens.text.secondary },
+  itemLabel: { fontSize: rpx(28), color: tokens.text.primary },
+  chipText: { fontSize: rpx(22), fontWeight: '500', color: tokens.brandAccent.deep },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: rpx(16) },
+  cardTitle: { flex: 1, fontSize: rpx(30), fontWeight: '600', color: tokens.text.primary },
+  cardDesc: { fontSize: rpx(24), lineHeight: rpx(38), color: tokens.text.secondary },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: rpx(20) },
+  gridCell: { flexGrow: 1, flexBasis: '46%' },
+  statsCard: { gap: rpx(24) },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rpx(20) },
+  statCell: { flexGrow: 1, flexBasis: '44%', alignItems: 'center', gap: rpx(8) },
+  ctaCard: { alignItems: 'center', paddingVertical: rpx(36) },
+  sectionTitle: { fontSize: rpx(36), fontWeight: '700', color: tokens.text.primary },
+  statValue: { fontSize: rpx(48), fontWeight: '700', color: tokens.brandAccent.deep },
+  ctaPrimaryText: { fontSize: rpx(28), fontWeight: '600', color: tokens.brand.ctaForeground },
+  ctaSecondaryText: { fontSize: rpx(28), fontWeight: '600', color: tokens.text.primary },
+  heroTitle: {
+    fontSize: rpx(56),
     fontWeight: '700',
+    textAlign: 'center',
     color: tokens.text.primary,
   },
-  body: {
-    padding: rpx(24),
-  },
-  // 白色圆角卡(历史 .section-card:bg #fff / 圆角 16rpx / overflow hidden)
-  sectionCard: {
+  card: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
-    overflow: 'hidden',
+    padding: rpx(24),
+    gap: rpx(16),
   },
-  // 条目(历史 .settings-item:padding 28rpx 24rpx)
-  item: {
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: rpx(10),
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(8),
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.brandAccent.light,
+  },
+  iconBox: {
+    width: rpx(64),
+    height: rpx(64),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: rnRadius.lg,
+    backgroundColor: tokens.brandAccent.light,
+  },
+  ctaPrimary: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: rpx(22),
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.brand.cta,
+  },
+  ctaSecondary: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: rpx(22),
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+  },
+  complianceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: rpx(28),
-    paddingHorizontal: rpx(24),
-  },
-  // 条目分隔线(历史 border-bottom 1rpx #f0f0f0;首项无线)
-  itemDivider: {
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
-  },
-  itemLabel: {
-    fontSize: rpx(30),
-    color: tokens.text.primary,
+    paddingVertical: rpx(26),
   },
 })
+
+export default AboutScreen
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
