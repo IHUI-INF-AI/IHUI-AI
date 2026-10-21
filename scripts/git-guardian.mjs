@@ -3535,14 +3535,18 @@ const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS 
  * "判某件事没发生"的尺子按设计不能进提交链(判机器状态 ⇒ 每台每次被逼 --no-verify,连带全部守门作废),
  * 所以唯一调度器就是这个守护。
  *
- * 四条不可漂的执行细节(与 auditOpsPatrol 同规矩):
+ * 五条不可漂的执行细节(与 auditOpsPatrol 同规矩):
  *  - 节流戳与 `--apply` 一起交给动作器;它内部还另有每台冷却与全局窗口上限(防重启风暴);
- *  - **未判定只写日志不喊人**,但必须报名(取不到报告 ⇒ exit 2,不是"都没事");
+ *  - **单轮未判定只写日志不喊人**,但必须报名(取不到报告 ⇒ exit 2,不是"都没事");
  *  - 真重启过或重启失败才发信,沿用"身份 + 内容指纹 4h 去重、无总量封顶"。
  *  - **自愈注定不会动手的那两种终态也必须到人**(2026-10-21 补,详见函数体内那段):重启预算用完
  *    (`window-capped`)与名单外真坏了(`not-in-list`)都不在"重启过/重启失败"两集里 —— 而按这条判据,
  *    越是不重启能解决的故障越安静。台账对后者的原话是"只喊人",而"只喊人"从来没有生产者。
  *    两个入口共用 `alertTerminalHeld` 一件器物:身份 = 服务名集合 × 持续档,解除即摘起点。
+ *  - 同族第三种:**连续六小时量不到**(`undetermined`)喊的是**看守层自己瞎了**,不是服务坏了。
+ *    单轮必须闭嘴(§0.3 把"没判"当坏了 = 让一把量不到的尺子获得发信权),但 indefinite 的失明
+ *    本身就是事故 —— 而"判某件事没发生"的尺子按设计不进提交链,这里也没有别的调度器。
+ *    门槛取 6h = `alertHeldTier` 已登记的第一条档界,不另拍新数。
  */
 export function healUnresponsiveServices(opts = {}) {
   const {
@@ -3551,6 +3555,7 @@ export function healUnresponsiveServices(opts = {}) {
     tickFile = join(WORKTREE, '.workbuddy', 'service-heal-tick.iso'),
     cappedFile = join(WORKTREE, '.workbuddy', 'service-heal-capped-first.json'),
     offlistFile = join(WORKTREE, '.workbuddy', 'service-offlist-down-first.json'),
+    blindFile = join(WORKTREE, '.workbuddy', 'service-heal-blind-first.json'),
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -3629,15 +3634,29 @@ export function healUnresponsiveServices(opts = {}) {
     // 全仓无一行发信代码看得到它。
     // 两个入口共用一件器物(§0.6 单一真相源):身份 = 服务名集合 × 持续档(跨档即新身份 ⇒
     // 越拖越响,不会被窗口压成静音),解除即摘起点状态件,正文必须带可执行出路(§5e-1)。
-    const alertTerminalHeld = ({ list, kind, file, titleFor, intro, steps }) => {
+    //
+    // `firstAlertAfterMs` 是给**第三个入口(量不到)**用的:一轮未判定必须只报名(§0.3 —— 把
+    // "没判"读成"坏了"等于让一把量不到的尺子获得重启权与发信权),但"连续六小时量不到"本身
+    // 就是一起事故:**看守层瞎了**。这一档原先只写日志,于是"门 153 整个坏了"这件事恰好落在
+    // 唯一能发现它的那封信根本没发出来的位置上。门槛取 6h 不另拍新数 = `alertHeldTier` 的第一
+    // 条已登记档界(6h/24h/72h),到点第一封就是 6-24h 档,之后照常跨档升级。
+    const alertTerminalHeld = ({ list, kind, file, titleFor, intro, steps, firstAlertAfterMs = 0 }) => {
       if (list.length === 0) {
-        // 终态必须会清:恢复应答或不再封顶时把起点摘掉,否则下一次真崩会被算成"已经拖了很久"。
+        // 终态必须会清:恢复应答、不再封顶、或重新量到了,都把起点摘掉,
+        // 否则下一次真故障会被算成"已经拖了很久"。
         clearUndeterminedStreak(file)
-        return 0
+        // `n` 与 `mailed` 必须分开报:只返回"寄没寄"会把"有事但没到门槛"和"没事"读成同一件事
+        // —— 那正是本仓最贵的假绿(§0.3),而这一格本身就是为"安静"而设计的。
+        return { n: 0, mailed: 0 }
       }
       const names = [...new Set(list.map((x) => x.name))].sort().join(' / ')
       const streak = noteUndeterminedStreak(file, now, { firstServices: names })
       const held = alertHeldTier(streak.firstMs, now)
+      if (firstAlertAfterMs > 0 && now - streak.firstMs < firstAlertAfterMs) {
+        // 未到门槛只报名,但**报名必须留痕**:静默 return 与"根本没判"在读数上同形(§0.3)。
+        logger(`ℹ️ 服务自愈:${kind} 累计 ${names} 已持续 ${Math.round((now - streak.firstMs) / 60_000)} 分钟,未到人门槛 ${Math.round(firstAlertAfterMs / 60_000)} 分钟 ⇒ 本轮只报名,不寄信`)
+        return { n: list.length, mailed: 0 }
+      }
       const detail = list.map((x) => `· ${x.name} — ${x.why || '(动作器未给原因)'}`).join('\n')
       notify(
         // 标题与身份里都只放"哪几台 + 档",台数/时刻/原始读数一律进正文(型③、§5e-3、门 224)。
@@ -3646,10 +3665,10 @@ export function healUnresponsiveServices(opts = {}) {
           `本轮明细:\n${detail}\n` +
           `起点 ${new Date(streak.firstMs).toISOString()}(已钉为这一段的最初时刻,后续轮次不覆盖);已持续 ${held.hours ?? '?'} 小时(档 ${held.tier}:6h/24h/72h 跨档即新身份 ⇒ 越拖越响,不会被压成静音)\n` +
           `按序判:\n${steps}\n` +
-          `在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'} / 名单外故障 ${c.offlist ?? '?'}(未登记 ${c.offlistUnregistered ?? 0} / 豁免到期 ${c.offlistAckExpired ?? 0})`,
+          `在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 未判定 ${c.undetermined ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'} / 名单外故障 ${c.offlist ?? '?'}(未登记 ${c.offlistUnregistered ?? 0} / 豁免到期 ${c.offlistAckExpired ?? 0})`,
         { severity: 'critical', dedupKey: `${kind};svcs=${names};held=${held.tier}` },
       )
-      return list.length
+      return { n: list.length, mailed: 1 }
     }
     // 取的是 **`parsed.actions` 不是 `parsed.results`**:动作器把逐台决策写在 actions,
     // results 里只有"真动过手"的三档(restart-failed / restarted-recovered / restarted-unverified)。
@@ -3682,11 +3701,39 @@ export function healUnresponsiveServices(opts = {}) {
         `     要它继续"只喊人" ⇒ 在 excluded 里补一行**单台**的排除(一行只许一台、必须带 reason 与可解析 reviewBy,否则不构成豁免)。\n` +
         `  ④ 若这台已经不再需要(实测 IHUI-OLLAMA 的 Application 指向一个不存在的 exe)⇒ 把服务本身摘掉,而不是让它留在表里天天喊。`,
     })
+    // 第三个入口:**量不到**。一轮未判定只报名(§0.3 —— 把"没判"当坏了,等于让一把量不到的尺子
+    // 获得发信权);但白名单服务连续 6 小时量不到,事故对象是**看守层自己**(门 153 派生不起来、
+    // 应答维取不到、台账复核日过了把整台降级),这一型原先只写日志,而写日志没有人看。
+    // 判据仍是那一把尺子给的 `kind`,派发侧不自立第二档门槛:6h = `alertHeldTier` 的第一条档界。
+    const blind = alertTerminalHeld({
+      list: healActions.filter((x) => x.kind === 'undetermined'),
+      kind: 'service-heal-blind',
+      file: blindFile,
+      firstAlertAfterMs: 6 * 3_600_000,
+      titleFor: (names) => `服务自愈连续六小时量不到这几台:${names}(本层没判出它是好是坏,报的是看守层瞎了)`,
+      intro: '本层**没有判定这几台的好坏** —— 它连"是否 RUNNING / 是否应答"都没读到。这不是"都没事"。',
+      steps:
+        `  ① 先分清两种"量不到":门 153 自己派生不起来(rc≥2 / ENOENT / 被信号终止),还是这台服务确实取不到值。\n` +
+        `  ② 只读复现:node scripts/check-service-binary-paths.mjs --json(看 totals 与这台服务的 blind/hardBlind 各自点名了什么)。\n` +
+        `  ③ 若这台是任务型无端口 ⇒ 它不该待在自动重启白名单里,移到 scripts/data/service-auto-restart.json 的 excluded(带 reason 与 reviewBy)。\n` +
+        `  ④ 若是台账复核日已过 ⇒ 过期只挡那一条不挡整轮,把 reviewBy 重新拍一个日期即恢复动作权。`,
+    })
     if (c.undetermined > 0 || c.planned > 0) {
-      logger(`ℹ️ 服务自愈:未判定 ${c.undetermined ?? 0} 台 / 计划未执行 ${c.planned ?? 0} 台(只读档才会留在"计划";只写日志不喊人)`)
+      logger(`ℹ️ 服务自愈:未判定 ${c.undetermined ?? 0} 台 / 计划未执行 ${c.planned ?? 0} 台(只读档才会留在"计划";单轮未判定不喊人,连续 6 小时才喊 ⇒ 见 service-heal-blind 那一格)`)
     }
-    logger(`✅ 服务自愈:在册 ${c.checked ?? 0} 台,应答 ${c.answering ?? 0},拉起 ${acted.length},失败 ${failed.length},封顶 ${capped},名单外故障 ${offDown}`)
-    return { ran: true, ok: failed.length === 0, checked: c.checked, acted: acted.length, failed: failed.length, capped, offDown, undetermined: c.undetermined ?? 0 }
+    logger(`✅ 服务自愈:在册 ${c.checked ?? 0} 台,应答 ${c.answering ?? 0},拉起 ${acted.length},失败 ${failed.length},封顶 ${capped.n},名单外故障 ${offDown.n},量不到 ${blind.n}${blind.n > 0 && blind.mailed === 0 ? '(未达 6 小时门槛,本轮只报名)' : ''}`)
+    return {
+      ran: true,
+      ok: failed.length === 0,
+      checked: c.checked,
+      acted: acted.length,
+      failed: failed.length,
+      capped: capped.n,
+      offDown: offDown.n,
+      blind: blind.n,
+      blindMailed: blind.mailed,
+      undetermined: c.undetermined ?? 0,
+    }
   } catch (e) {
     logger(`⚠️ 服务自愈异常:${String(e?.message || e).slice(0, 200)}`)
     return { ran: true, ok: false, why: String(e?.message || e) }
