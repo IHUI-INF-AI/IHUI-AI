@@ -153,9 +153,13 @@ const DRIVE_ANCHORED = join(parse(REPO_FROM_TEST).root, 'DevEnv')
 const OLD_DRIVE_LETTER_FORM = join(`${REPO_FROM_TEST.slice(0, 1).toUpperCase()}:\\`, 'DevEnv')
 
 test('T9 真值不变:共用出口落点与"改前自取盘符式"逐字同值', () => {
+  // 启动免疫还账(2026-10-22):改前式子对盘符首字符做 toUpperCase(),盘根锚定则原样保留启动拼写
+  // (`node d:\…` 起 ⇒ 'd:\DevEnv',`node D:\…` 起 ⇒ 'D:\DevEnv')——两式断言的是**同一盘根**,
+  // 不是同一大小写;Windows 盘符不分大小写,按首字符归一后逐字比,启动拼写不再能造出假红。
+  const upperDrive = (p) => p.charAt(0).toUpperCase() + p.slice(1)
   assert.equal(
-    OLD_DRIVE_LETTER_FORM,
-    DRIVE_ANCHORED,
+    upperDrive(OLD_DRIVE_LETTER_FORM),
+    upperDrive(DRIVE_ANCHORED),
     'oracle 前提:仓在 <盘>:/<仓名> 布局下,取盘符首字符与盘根锚定同值 —— 不成立则本用例不构成"真值不变"证明',
   )
   assert.deepEqual(__test__.CANDIDATE_LIVE_DIRS, [join(DRIVE_ANCHORED, 'monitor', 'prometheus')])
