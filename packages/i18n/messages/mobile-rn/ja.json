@@ -1251,6 +1251,9 @@
     "submit": "質問を送信",
     "submitting": "送信中..."
   },
+  "coursePlanet": {
+    "title": "コースプラネット"
+  },
   "courseResource": {
     "title": "コース資料",
     "empty": "資料はありません",
@@ -1870,6 +1873,9 @@
       "noImageHint": "この記録には画像URLが保存されておらず、プロンプトのみが残っています。",
       "noMore": "これ以上ありません"
     },
+  "imageGenHistory": {
+    "title": "生成履歴"
+  },
     "imageGenTemplates": {
       "title": "プロンプトテンプレート",
       "subtitle": "テンプレートを選んで画像をすぐに生成しましょう",
@@ -2508,6 +2514,9 @@
       "submitting": "投稿中…",
       "submit": "依頼を投稿"
     },
+  "businessCard": {
+    "title": "マイ名刺"
+  },
     "businessCardEdit": {
       "pageTitleCreate": "名刺を作成",
       "pageTitleEdit": "名刺を編集",
@@ -2678,6 +2687,9 @@
   },
   "square": {
     "title": "AIニュース"
+  },
+  "studyIndex": {
+    "title": "AI動画"
   },
   "studyProgress": {
     "title": "学習進捗",
@@ -3671,6 +3683,9 @@
     },
     "knowledgeCards": "ナレッジカード",
     "knowledgePlanet": "ナレッジプラネット"
+  },
+  "knowledgePlanet": {
+    "title": "ナレッジプラネット"
   },
   "knowledgeRag": {
     "title": "RAG 知識ベース",
