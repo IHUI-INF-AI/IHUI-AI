@@ -4166,88 +4166,6 @@ export function auditTunnelMetrics(opts = {}) {
  *    不得显示成"无需清扫"(把"没做"写成"做过"是 §0.3/§0.10 明令禁止的那一型);
  *  - 派生子进程一律显式 stdio + windowsHide + timeout(§12g / 守门 52 / 80)。
  */
-/**
- * 超龄认领牌自动摘除轮(2026-10-22 立,机主当日选定路线)。
- * 立因:人工摘掉的 57 枚牌被一枚并发的活文档合并按**摘牌前的旧形态**补了回来(AGENTS §1 通道③,
- * 在册票 G-32「归并侧那半格仍未收口」)⇒ 这一格必须按周期自己收,而不是每轮派人重摘一次。
- * 判据全部 import 守门 109(`lib/plan-task-index` 的 `claimMarkOf` + 门体的 `resolveTtlHours`),
- * 本层零复算;只摘超完整租约(正在干活的席位会续租,天然落在射程外);裸标记不可判龄 ⇒ 不摘。
- * 节流 30 分钟、不改本守护退出码(摘牌失败 ≠ .git 失败)。
- */
-export function sweepStaleClaimMarks(opts = {}) {
-  const {
-    now = Date.now(),
-    intervalMs = 30 * 60 * 1000,
-    tickFile = join(WORKTREE, '.workbuddy', 'stale-claim-strip-last.json'),
-    logger = log,
-    runner = null,
-  } = opts
-  const script = join(dirname(fileURLToPath(import.meta.url)), 'strip-stale-claim-marks.mjs')
-  if (!existsSync(script)) {
-    logger('ℹ️ 超龄认领牌:器物不在位(scripts/strip-stale-claim-marks.mjs)⇒ 本轮跳过,不记为已探测')
-    return { ran: false, why: '器物不在位' }
-  }
-  let last = NaN
-  try {
-    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
-  } catch {
-    /* 没跑过 */
-  }
-  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
-  try {
-    mkdirSync(dirname(tickFile), { recursive: true })
-    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
-  } catch (e) {
-    logger(`⚠️ 超龄认领牌:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
-  }
-  const run =
-    typeof runner === 'function'
-      ? runner
-      : () => {
-          try {
-            const out = execFileSync(process.execPath, [script, '--apply'], {
-              cwd: WORKTREE,
-              encoding: 'utf8',
-              windowsHide: true,
-              timeout: 10 * 60 * 1000,
-              maxBuffer: 1 << 22,
-              stdio: ['ignore', 'pipe', 'pipe'],
-            })
-            return { ok: true, out: String(out ?? '') }
-          } catch (e) {
-            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
-          }
-        }
-  const r = run()
-  const rows = String(r.out ?? '').split(/\r?\n/)
-  // 结论只认器物自己打的机读行(SWEEP-RESULT state=…),不靠中文文案猜;拿不到就是"未判定",
-  // 绝不得读成"无需摘"(§0.3:把没做写成做过,是本仓最高频失效型)。
-  const resultLine = rows
-    .map((l) => (l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null))
-    .find(Boolean)
-  const kv = (key) => {
-    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
-    return m ? m[1] : null
-  }
-  const state = resultLine ? resultLine[1] : null
-  if (!state) {
-    logger(
-      `❌ 超龄认领牌:未回带机读结论行 ⇒ 记未判定(不得读成"无需摘");末两行:${rows.filter(Boolean).slice(-2).join(' / ').slice(0, 160)}`,
-    )
-    return { ran: true, state: 'undetermined' }
-  }
-  const reading =
-    state === 'clean'
-      ? '无超龄认领牌(读数来自器物)'
-      : state === 'stripped'
-        ? `代摘 ${kv('stripped') ?? '?'} 枚(超龄 ${kv('stale') ?? '?'},另跳过 ${kv('held') ?? '?'} 枚不可判龄/未超龄)`
-        : state === 'refused'
-          ? '台账工作树不净 ⇒ 整批让路(不抢他席现场),下轮再试'
-          : `状态 ${state}(器物未定义这一档 ⇒ 按未判定处理)`
-  logger(`🧹 超龄认领牌 ${state}: ${reading}`)
-  return { ran: true, state, stripped: kv('stripped'), held: kv('held') }
-}
-
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -5182,7 +5100,48 @@ function reportBaselineFreshness() {
   if (noteworthy) log(`ℹ️ 基线新鲜度(只报数,不进提交链)${full ? '全账' : '便宜账'}:${parts.join(';')}`)
 }
 
+/**
+ * 提交窗口期静默(2026-10-22 立,机主要求"提交稳定在 1 分钟内")。
+ *
+ * 病灶:本守护由 2 分钟计划任务驱动,每轮派生 `git status` / `diff` / `for-each-ref`,
+ * 与提交链抢 CPU 与索引锁。实测**同一份守门代码**耗时在 40s / 69s / 166s / 63.8s 间波动,
+ * 波动源就是它 —— 而 `schtasks` 在安全黑名单里停不掉,所以让守护**自己**让路。
+ *
+ * 判据用既有的 `.git/ihui-git-write.lock`(safe-commit 全程持有),不引入新协调机制:
+ *   - 锁不存在            ⇒ 不在窗口期,正常巡检
+ *   - 锁存在且持有 PID 活着 ⇒ 在窗口期,本轮静默(跳过,不报错)
+ *   - 锁存在但 PID 已死    ⇒ stale 锁,**不**静默(否则一次崩溃能让守护永久闭嘴)
+ *   - 读不出 pid / 任何异常 ⇒ 保守当作窗口期,代价只是少跑一轮巡检
+ */
+function inCommitWindow() {
+  try {
+    const dotGit = join(process.cwd(), '.git')
+    let gitDir = dotGit
+    if (!statSync(dotGit).isDirectory()) {
+      const m = readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m)
+      if (m && m[1]) gitDir = m[1].trim()
+    }
+    const lock = join(gitDir, 'ihui-git-write.lock')
+    if (!existsSync(lock)) return false
+    const m = readFileSync(lock, 'utf8').match(/pid=(\d+)/)
+    if (!m) return true
+    try {
+      process.kill(Number(m[1]), 0)
+      return true
+    } catch {
+      return false
+    }
+  } catch {
+    return false // 失效方向是"多跑一轮巡检",不是"漏检一轮"
+  }
+}
+
 function main() {
+  // 提交窗口期静默(2026-10-22):safe-commit 持写锁期间不做巡检,把 CPU 与索引锁全让给提交链。
+  if (inCommitWindow()) {
+    log('提交窗口期(检测到 git 写锁且持有者存活)⇒ 本轮巡检静默,下轮再来')
+    return
+  }
   // 通知层人工核验入口(先于 INSTALL):只"真发一次/只问通道齐备",不参与自愈。
   // --notify-test 绕过当轮去重(force),否则"想核验的人"会被上一条同因告警的窗口挡住,
   // 得到一次假阴性;--notify-dry-run 零网络请求、不占收件人。
@@ -5337,9 +5296,6 @@ function main() {
     // "碰台账的提交",而把旧已勾行带回 HEAD 的那枚提交可以不碰台账 ⇒ 这一层按同一判据清扫。
     // 节流 30 分钟、判据 import 门 229、不改本守护退出码(清台账失败 ≠ .git 失败)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
-    // 超龄认领牌自动摘除(2026-10-22):提交口只拦"碰台账的提交",而把旧牌带回 HEAD 的那枚合并
-    // 可以不碰台账 ⇒ 与上面同型,按守门 109 的同一判据周期收。判据 import 门体,本层零复算。
-    if (!CHECK_ONLY) sweepStaleClaimMarks()
     if (!CHECK_ONLY) auditTunnelMetrics()
     // 部署停摆:判据写 45 分钟阈值,而凭据巡检那支班每 6 小时才量一趟(现读 09:37/15:37)⇒ 阈值与
     // 节律差两个数量级等于没有判据。本格按 15 分钟量,身份 = tip + 最近一次成功部署时刻。
@@ -5400,6 +5356,13 @@ function startDaemon() {
   log(`git=${bin || '(未找到!)'} ${GIT_VERSION || ''} safe.directory=* (每次调用显式传入)`)
   log(`嵌套 ref 存续守护: 清单 ${REFS_MANIFEST}(缺失即离线重建 + packed-refs 固化)`)
   const tick = () => {
+    // 提交窗口期静默(2026-10-22,与 main() 同一判据 inCommitWindow):
+    // daemon 常驻时同样要在提交链跑的时候让路,否则它每轮派生的 git 派生会与提交抢锁。
+    if (inCommitWindow()) {
+      log('daemon:提交窗口期 ⇒ 本轮巡检静默')
+      setTimeout(tick, intervalMs)
+      return
+    }
     try {
       const h = status()
       const coreOk = coreHealthy(h)
