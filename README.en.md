@@ -62,7 +62,7 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **599 tables · 4,451 API routes ·
-25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,017 test files ·
+25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,019 test files ·
 267 engineering gates · 49 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-21**
+- 🔧 Chore/Other:收口 README 最近更新(补 d9bb3a70bb 条目并推进增量基线) (2fbe5a2fe1)
+
 **2026-10-21**
 - 🔧 Chore/Other:收口 README 最近更新窗口与自动更新指针(H3 判据落地后) (d9bb3a70bb)
 
@@ -886,10 +889,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 **2026-10-21**
 - 🐞 Fix:用户自装的 mmcode 自愈脚本不是 agent 污染 —— 显式豁免 (18c81b13af9)
-
-**2026-10-21**
-- 📚 Docs:回补 32 枚 PROJECT_PLAN 归档锚点件入库 (aba30748621)
-- 🐞 Fix:把 glass 两档登记进跨端 token 对账 —— 暗档手抄白值的漏登记当场补上 (688d894ae42)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
