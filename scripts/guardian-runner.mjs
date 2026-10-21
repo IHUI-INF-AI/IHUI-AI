@@ -5261,6 +5261,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 台账行长(1 项,blocking)---
+  {
+    id: '234',
+    label:
+      '📏 台账行长守门(blocking,差值棘轮:新增超阈登记行判红,存量按复合主键认领只报数)',
+    script: 'check-plan-row-length.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_ROW_LENGTH',
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    onFailHint: [
+      '',
+      '新增登记行超阈 ⇒ 把叙述与取证从这一行删进提交信息,行内留「标题 + 一句现状/出路」(AGENTS §1 既有纪律,本门只是让它可被机器拦)\\n存量只报数,不得为消红而调低阈值或预登记基线\\n读数:node scripts/check-plan-row-length.mjs(全量档) / --staged(提交链档)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
