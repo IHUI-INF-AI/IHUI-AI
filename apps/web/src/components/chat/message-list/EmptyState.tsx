@@ -40,7 +40,7 @@ export function EmptyState({
       {/* 与 LoginDialog / 全站统一:纯图标版 logo.png(蝴蝶结 + IHUI INF 弧形,无横向文字),非左上角位置统一资产。
           56px 适配小空状态,加 rounded-xl + select-none + priority + draggable=false 与品牌主视觉一致。 */}
       <Image
-        src="/images/logo.png?v=20260719-unify"
+        src="/images/logo.png?v=20261021"
         alt="IHUI AI"
         width={56}
         height={56}

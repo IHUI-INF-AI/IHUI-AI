@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     description: '从文档上传到引用溯源,完整覆盖 RAG 全链路。',
     url: `${SITE_URL}/docs/rag`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI RAG' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI RAG' }],
   },
 }
 

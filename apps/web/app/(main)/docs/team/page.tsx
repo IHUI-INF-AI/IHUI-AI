@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     description: 'RBAC + SSO + 审计 + 积分共享,企业级团队 AI 协作。',
     url: `${SITE_URL}/docs/team`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI 团队协作' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 团队协作' }],
   },
 }
 

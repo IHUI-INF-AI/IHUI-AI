@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: '个人资料、密码、两步验证、API Key、主题、通知、注销账号。',
     url: `${SITE_URL}/docs/manual/account`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI 账户设置' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 账户设置' }],
   },
 }
 
