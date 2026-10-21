@@ -4,7 +4,7 @@
 /**
  * 网页版功能门户(小程序端,2026-10-18 立,对等 RN WebPortalScreen)
  *
- * 覆盖移动端未原生实现的全部复杂功能域(89 条 / 13 组,数据源
+ * 覆盖移动端未原生实现的全部复杂功能域(91 条 / 13 组,数据源
  * @ihui/shared/constants/web-portal 单一真相源)。点击条目经
  * pages/webview 承载页在内置浏览器打开:
  * - 已登录: 先取一次性 sso_code,改走 <origin>/sso/mobile-auth 消费页,

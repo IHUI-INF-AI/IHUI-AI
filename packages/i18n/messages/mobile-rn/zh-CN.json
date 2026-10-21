@@ -3396,7 +3396,7 @@
     "source": "来源"
   },
   "memory": {
-    "title": "我的记忆",
+    "detail": "详情",    "title": "我的记忆",
     "empty": "暂无记忆",
     "emptyHint": "与 AI 的长期对话记忆会保存在这里",
     "loadFailed": "记忆加载失败",
@@ -3571,7 +3571,8 @@
     "loginButton": "去登录"
   },
   "webViewPortal": {
-    "title": "Web 功能门户",
+    "knowledgeBase": "知识库",
+    "settingsBilling": "账单管理",    "title": "Web 功能门户",
     "hint": "以下为网页版功能入口，将在内置浏览器中打开",
     "sections": {
       "eduAi": "教育 AI",

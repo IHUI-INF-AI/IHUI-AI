@@ -3396,7 +3396,7 @@
     "source": "來源"
   },
   "memory": {
-    "title": "我的記憶",
+    "detail": "詳情",    "title": "我的記憶",
     "empty": "暫無記憶",
     "emptyHint": "與 AI 的長期對話記憶會保存在這裡",
     "loadFailed": "記憶載入失敗",
@@ -3527,7 +3527,8 @@
     "loginButton": "去登入"
   },
   "webViewPortal": {
-    "title": "Web 功能入口",
+    "knowledgeBase": "知識庫",
+    "settingsBilling": "賬單管理",    "title": "Web 功能入口",
     "hint": "以下為網頁版功能入口，將於內建瀏覽器開啟",
     "sections": {
       "eduAi": "教育 AI",
