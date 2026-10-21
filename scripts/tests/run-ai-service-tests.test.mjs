@@ -38,8 +38,30 @@ const APP = entry.DEFAULT_APP_DIR
 const SRC_BEFORE = readFileSync(CLI, 'utf8')
 const SHA_BEFORE = createHash('sha256').update(SRC_BEFORE).digest('hex')
 
-/** 生产入口自己的解释器选址结果(取不到 ⇒ 依赖真解释器的用例整组 skip,不冒充红)。 */
+/**
+ * 生产入口自己的解释器选址结果 + **可用性实测**。
+ * 只问"python.exe 在不在位"不够:worktree/CI 的 venv 可能是**裸 venv(缺 pytest)**,
+ * 此时派生报 "No module named pytest" ⇒ 生产 runner 判 exit 2 未判定,而用例 ①③⑤
+ * 期望 rc=1/rc=0 —— 把"依赖没装全"的机器态冒充成代码缺陷红(§12e 恒红机同型)。
+ * 所以闸必须实测到 `import pytest` 这一层;取不到 ⇒ 整组 skip 并点名原因(未判定可见)。
+ */
 const PY = entry.resolvePython({ appDir: APP })
+const PY_OK = (() => {
+  if (!PY) return false
+  try {
+    const r = spawnSync(PY, ['-c', 'import pytest'], {
+      timeout: 30_000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return r.status === 0
+  } catch {
+    return false
+  }
+})()
+const PY_SKIP_REASON = PY
+  ? `venv python 在位(${PY})但 \`import pytest\` 失败(依赖未装全)——机器态未判定,非代码缺陷;补齐 venv 依赖后本组自动恢复`
+  : '本机取不到 ai-service 的 venv python——机器态未判定,非代码缺陷;建好 venv 后本组自动恢复'
 
 function mkFixture(files = {}) {
   const dir = mkScratch('g1058646-mt-')
@@ -194,7 +216,7 @@ test('透传参数:--collect-only 只走档一,extra 两档共用且不重复', 
 
 // ── ① 阳性对照:收集到 0 条 ⇒ 必非零 + 点名"未跑到" ──
 
-test('① 收集到 0 条 ⇒ 非零且写明"未跑到"', { skip: PY ? false : '本机取不到 ai-service 的 venv python' }, () => {
+test('① 收集到 0 条 ⇒ 非零且写明"未跑到"', { skip: PY_OK ? false : PY_SKIP_REASON }, () => {
   const dir = mkFixture({ 'test_empty_surface.py': SRC_ZERO })
   try {
     const { rc, out } = runCli(['--app-dir=' + dir, '--python=' + PY, '--collect-only'])
@@ -208,7 +230,7 @@ test('① 收集到 0 条 ⇒ 非零且写明"未跑到"', { skip: PY ? false : 
 
 // ── ③ 反向锁:正常小样例必须绿(恒红机也是缺陷)──
 
-test('③ 正常小样例 ⇒ 两档都跑且落绿', { skip: PY ? false : '本机取不到 ai-service 的 venv python' }, () => {
+test('③ 正常小样例 ⇒ 两档都跑且落绿', { skip: PY_OK ? false : PY_SKIP_REASON }, () => {
   const dir = mkFixture({ 'test_ok_sample.py': SRC_PASS })
   try {
     const { rc, out } = runCli(['--app-dir=' + dir, '--python=' + PY])
@@ -223,7 +245,7 @@ test('③ 正常小样例 ⇒ 两档都跑且落绿', { skip: PY ? false : '本�
 
 // ── ② 分类:收集期错误不得被算成断言失败(生产入口 + 现读原文两面)──
 
-test('② 收集期 ModuleNotFoundError ⇒ 算收集期失败、断言失败桶记 0', { skip: PY ? false : '本机取不到 venv python' }, () => {
+test('② 收集期 ModuleNotFoundError ⇒ 算收集期失败、断言失败桶记 0', { skip: PY_OK ? false : PY_SKIP_REASON }, () => {
   const dir = mkFixture({ 'test_imp_broken.py': SRC_BADIMP, 'test_ok_sample.py': SRC_PASS })
   try {
     const { rc, out } = runCli(['--app-dir=' + dir, '--python=' + PY])
@@ -259,7 +281,7 @@ test('④ venv 取不到 ⇒ exit 2 未判定,输出里不许有"通过"', () =>
   }
 })
 
-test('④ --python= 指到不存在的解释器 ⇒ 同样 exit 2 未判定', { skip: PY ? false : '本机取不到 venv python' }, () => {
+test('④ --python= 指到不存在的解释器 ⇒ 同样 exit 2 未判定', { skip: PY_OK ? false : PY_SKIP_REASON }, () => {
   const dir = mkFixture({ 'test_ok_sample.py': SRC_PASS })
   try {
     const { rc, out } = runCli(['--app-dir=' + dir, '--python=' + join(dir, 'nope', 'python.exe'), '--collect-only'])
@@ -273,7 +295,7 @@ test('④ --python= 指到不存在的解释器 ⇒ 同样 exit 2 未判定', { 
 
 // ── ⑤ 变异自证:摘掉"0 用例 ⇒ 非零"那一支,① 必须红 ──
 
-test('⑤ 摘掉 0-用例分支 ⇒ ① 的结论消失;生产文件逐字节未动', { skip: PY ? false : '本机取不到 venv python' }, () => {
+test('⑤ 摘掉 0-用例分支 ⇒ ① 的结论消失;生产文件逐字节未动', { skip: PY_OK ? false : PY_SKIP_REASON }, () => {
   const anchor = 'if (noTestsCollected || noTestsRan || collected === 0) {'
   const hits = SRC_BEFORE.split(anchor).length - 1
   assert.equal(hits, 1, '变异锚点在源码里出现 1 次(多了就是形状变了,该重看这条)')
