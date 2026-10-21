@@ -13,6 +13,14 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
+/** GET /api/resources 行(只声明本屏消费到的列) */
+interface ResourceRow {
+  id: string
+  title: string
+  fileSize: number
+  fileUrl: string | null
+}
+
 export function CourseAnnexScreen() {
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
@@ -25,9 +33,19 @@ export function CourseAnnexScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<CourseAnnexItem[]>('/course-annex')
+      // 旧 '/course-annex' 从未在服务端注册(全仓零路由,入口点了恒报错)——「课程附件」
+      // 的真身就是资源库文件:换源 GET /api/resources(与课程资源屏同源),键名投影
+      // title→name、fileSize→size、fileUrl→url,附件屏契约 {id,name,size,url} 不动。
+      const res = await fetchApi<{ list: ResourceRow[] }>('/api/resources')
       if (!res.success) throw new Error()
-      setItems(res.data ?? [])
+      setItems(
+        (res.data?.list ?? []).map((row) => ({
+          id: row.id,
+          name: row.title,
+          size: row.fileSize,
+          url: row.fileUrl ?? '',
+        })),
+      )
     } catch {
       setError(t('courseAnnex.loadFailed'))
     } finally {
