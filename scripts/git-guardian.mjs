@@ -3415,6 +3415,7 @@ export function healUnresponsiveServices(opts = {}) {
     now = Date.now(),
     intervalMs = SERVICE_HEAL_INTERVAL_MS,
     tickFile = join(WORKTREE, '.workbuddy', 'service-heal-tick.iso'),
+    cappedFile = join(WORKTREE, '.workbuddy', 'service-heal-capped-first.json'),
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -3481,11 +3482,50 @@ export function healUnresponsiveServices(opts = {}) {
         { dedupKey: `service-heal;svcs=${[...acted, ...failed].map((x) => x.name).sort().join('+') || 'fail'};acted=${alertCountTier(acted.length)};failed=${alertCountTier(failed.length)}` },
       )
     }
+    // ── 重启预算用完 = 这台不是"没起",是"起了就崩" ⇒ 这个终态必须到人(2026-10-21 实测)────
+    // 现场:IHUI-API 因 Fastify 重复路由声明在 boot 期抛错,崩溃循环 126 次、8802 从未监听、
+    // 登录全量 500 持续 45 分钟,而**一封信都没有**。原因是上面的发信条件只认
+    // `restarted` / `restart-failed`,而自愈按 60 分钟窗口最多拉两次(`maxRestartsPerWindow: 2`),
+    // 两次都无效之后就进入 `window-capped` —— 既不在 acted 也不在 failed,从此只往日志写一行
+    // "请人看"。于是**越是不重启能解决的故障越安静**,恰好把最该喊人的那一型留成静默。
+    // 这一格反过来:预算用完才是真正该喊的那一刻,并按持续档越拖越响(跨档即刻重报)。
+    // 取的是 **`parsed.actions` 不是 `parsed.results`**:动作器把逐台决策写在 actions,
+    // results 里只有"真动过手"的三档(restart-failed / restarted-recovered / restarted-unverified)。
+    // 照上面那两个过滤器抄 `results` 会**恒为空**——一把永远不响的铃,比原来更坏。
+    const capped = (parsed.actions || []).filter((x) => x.kind === 'window-capped')
+    if (capped.length > 0) {
+      const names = capped.map((x) => x.name).sort().join(' / ')
+      const streak = noteUndeterminedStreak(cappedFile, now, { firstServices: names })
+      const held = alertHeldTier(streak.firstMs, now)
+      const detail = capped.map((x) => `· ${x.name} — ${x.why || '(动作器未给原因)'}`).join('\n')
+      notify(
+        // 身份里只放"哪几台 + 持续档"(型③/§5e-3):台数、时刻、原始读数一律进正文不进身份。
+        `服务自愈重启预算用完:${names} 仍无应答(这是启动即崩,不是没起)`,
+        `自愈已按窗口上限拉起过仍无应答 ⇒ **"重启"这一维已被排除**,问题在进程自己起不来。\n` +
+          `本轮明细:\n${detail}\n` +
+          `起点 ${new Date(streak.firstMs).toISOString()}(已钉为这一段的最初时刻,后续轮次不覆盖);已持续 ${held.hours ?? '?'} 小时(档 ${held.tier}:6h/24h/72h 跨档即新身份 ⇒ 越拖越响,不会被压成静音)\n` +
+          `按序判:\n` +
+          `  ① 读该机启动日志找抛错(nssm 的 stdout 是 UTF-16):D:\\DevEnv\\logs\\svc-<机名小写>-nssm*.log\n` +
+          `  ② 若属启动期抛错(Fastify 路由重复声明 / 缺 env / 插件注册失败)—— **部署环不会自愈**:它的回滚只恢复 web 构建产物,既不回退 api 源码也不重启 api,所以会一直"构建→门禁 api=fail→回滚"活锁(2026-10-21 实测 45 分钟)。\n` +
+          `  ③ 出路只有向前修 main:等生产签出前移到含修复的 commit(` +
+          `git -C <生产签出> merge-base --is-ancestor <修复枚> HEAD),再 nssm restart <服务名>。\n` +
+          `  ④ 只读复现本判定:node scripts/heal-unresponsive-services.mjs --json\n` +
+          `在册 ${c.checked ?? '?'} 台:应答 ${c.answering ?? '?'} / 冷却 ${c.cooldown ?? '?'} / 窗口封顶 ${c.capped ?? '?'}`,
+        {
+          severity: 'critical',
+          // 换一台崩的是另一件事(身份含服务名集合);同集合越拖越响靠 held 档,不靠刷屏。
+          dedupKey: `service-heal-capped;svcs=${names};held=${held.tier}`,
+        },
+      )
+    } else {
+      // 终态必须会清:应答恢复或不再封顶时把起点摘掉,否则下一次真崩会被算成"已经拖了很久"。
+      clearUndeterminedStreak(cappedFile)
+    }
     if (c.undetermined > 0 || c.planned > 0) {
       logger(`ℹ️ 服务自愈:未判定 ${c.undetermined ?? 0} 台 / 计划未执行 ${c.planned ?? 0} 台(只读档才会留在"计划";只写日志不喊人)`)
     }
-    logger(`✅ 服务自愈:在册 ${c.checked ?? 0} 台,应答 ${c.answering ?? 0},拉起 ${acted.length},失败 ${failed.length}`)
-    return { ran: true, ok: failed.length === 0, checked: c.checked, acted: acted.length, failed: failed.length, undetermined: c.undetermined ?? 0 }
+    logger(`✅ 服务自愈:在册 ${c.checked ?? 0} 台,应答 ${c.answering ?? 0},拉起 ${acted.length},失败 ${failed.length},封顶 ${capped.length}`)
+    return { ran: true, ok: failed.length === 0, checked: c.checked, acted: acted.length, failed: failed.length, capped: capped.length, undetermined: c.undetermined ?? 0 }
   } catch (e) {
     logger(`⚠️ 服务自愈异常:${String(e?.message || e).slice(0, 200)}`)
     return { ran: true, ok: false, why: String(e?.message || e) }
