@@ -13,7 +13,7 @@ import { toast } from '@/components/common'
 import {
   CHINESE_MODELS,
   DATABASES,
-  IMG_EAGER,
+  IMG_LAZY,
   INTERNATIONAL_MODELS,
   PAYMENTS,
   PROMOTIONS,
@@ -106,7 +106,7 @@ function PlatformIcon({
       width={14}
       height={14}
       className={`${ICON_IMG}${filter}`}
-      {...IMG_EAGER}
+      {...IMG_LAZY}
     />
   )
   const className = ICON_BOX
@@ -134,7 +134,7 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
       width={64}
       height={64}
       className={QR_IMG}
-      {...IMG_EAGER}
+      {...IMG_LAZY}
     />
   )
 
@@ -219,8 +219,7 @@ function QrItem({ qr, t }: { qr: Qr; t: ReturnType<typeof useTranslations<'foote
               width={240}
               height={240}
               className="h-full w-full object-contain"
-              loading="eager"
-              decoding="sync"
+              loading="lazy"
             />
           </div>
         </div>
@@ -525,7 +524,7 @@ export function SiteFooter({ className }: { className?: string }) {
             width={20}
             height={20}
             className="h-5 w-5 object-contain"
-            {...IMG_EAGER}
+            {...IMG_LAZY}
           />
           <Link
             href="/settings/icp-record"

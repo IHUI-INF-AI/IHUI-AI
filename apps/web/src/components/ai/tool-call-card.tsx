@@ -46,7 +46,12 @@ import {
   type StreamStatus,
 } from '@/components/chat/stream/stream-ui'
 import { InlineDiffCard } from './inline-diff-card'
-import { FilePreview, type ImagePreviewItem } from '@/components/media'
+// 2026-10-21 首屏瘦身:走**子路径**而不是 @/components/media 的 barrel。
+// barrel 会把 ImageViewer / VideoPlayer / LivePlayer / CodeViewer / MarkdownViewer 一并
+// 拖进本文件所在的那枚 chunk(本文件在营销页的静态链上:根 layout → GlobalShell →
+// AISidePanel → chat-pane-body → MessageList → MessageItem → 本文件),而工具卡只需要
+// FilePreview 一个符号(FilePreview.tsx 自己按需引 OfficeViewer / PDFViewer / ThreeDViewer)。
+import { FilePreview, type ImagePreviewItem } from '@/components/media/FilePreview'
 import type { InlineDiffInfo } from './types'
 import type { DiffApplyStatus } from '@/stores/chat'
 

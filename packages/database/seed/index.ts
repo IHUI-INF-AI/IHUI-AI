@@ -15,6 +15,7 @@ import { seedAiPricing } from './ai-pricing-seed.js'
 import { seedCourses } from './courses-seed.js'
 import { seedAiCostRecords } from './ai-cost-records-seed.js'
 import { seedRelayPricing } from './relay-pricing-seed.js'
+import { seedLegacyVideos } from './legacy-videos.js'
 
 interface SeedStep {
   /** 步骤编号(1-based) */
@@ -117,6 +118,12 @@ const STEPS: SeedStep[] = [
     name: '中转站定价配置',
     description: '倍率 1.0→1.2 + glm-5.3-flash 保底价 + ai_pricing 有效价回填(幂等)',
     fn: seedRelayPricing,
+  },
+  {
+    index: 14,
+    name: '历史存档课程视频',
+    description: '22 门课 / 867 小节,时长与分辨率实测自 mp4 容器头,视频指向云端对象存储(幂等;草稿态,不上架)',
+    fn: () => seedLegacyVideos({ apply: true, publish: false }).then(() => undefined),
   },
 ]
 

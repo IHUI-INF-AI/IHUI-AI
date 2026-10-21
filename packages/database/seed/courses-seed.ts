@@ -246,6 +246,9 @@ export async function seedCourses() {
     const { id: lessonId, action } = await upsertByUnique(db, {
       table: lessons,
       uniqueBy: { column: lessons.title, value: c.title },
+      // helper 的 idColumn 缺省 = 查重列(此处即 title)⇒ 命中已存在课程时会把标题当 lessonId 回传,
+      // 下游 lesson_chapters.lesson_id 是 uuid 列 ⇒ 直接 string_to_uuid 报错。显式点名主键。
+      idColumn: lessons.id,
       insertValues: {
         title: c.title,
         coverImage: null,

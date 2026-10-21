@@ -222,11 +222,17 @@ export function MessageList({
   // 那条路径(不在本票写面内)同样被这一格覆盖。
   const conversationId = chatStore((s) => s.conversationId)
   const lastConversationIdRef = React.useRef(conversationId)
+  // 票60 普查@2026-10-21:回收范围 = **本组件实例见过的消息集**,而不是整张表。
+  // 多窗格并存时每个窗格各自在切会话,整表 clear 等于"任一窗格一切换就把别窗格
+  // 填到一半的业务表单一起抹掉"(用户可见的数据丢失);键本来就是 messageId。
+  const ownedFormMessageIdsRef = React.useRef<string[]>([])
   React.useEffect(() => {
-    if (lastConversationIdRef.current === conversationId) return
-    lastConversationIdRef.current = conversationId
-    useBusinessFormStore.getState().clearForms()
-  }, [conversationId])
+    if (lastConversationIdRef.current !== conversationId) {
+      lastConversationIdRef.current = conversationId
+      useBusinessFormStore.getState().clearFormsForMessages(ownedFormMessageIdsRef.current)
+    }
+    ownedFormMessageIdsRef.current = messages.map((m) => m.id)
+  }, [conversationId, messages])
 
   // ── Phase 19 集成(2026-07-28 立)────────────────────────────────────
   // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮

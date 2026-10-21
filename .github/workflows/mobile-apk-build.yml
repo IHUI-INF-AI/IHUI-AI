@@ -64,8 +64,13 @@ jobs:
     # ⇒ 线上 App 每一个请求都失败,登录页恒「网络连接异常」。
     # iOS 侧 mobile-ios-ipa-build.yml 早已在 xcodebuild 那步补了同款 env ⇒ 只有安卓漏抄。
     # 提到 job 级:prebuild 与 gradle 打包同读一份,不再有两处可漂移。
+    # 2026-10-21 基址改判:REST 走 www 臂(EdgeOne → 家宽源站,ttfb 现测 0.23~0.29s),
+    # WS 钉在 api 臂(同构造实测 www=404 / api=101,证据与判据见 apps/mobile-rn/src/lib/config.ts
+    # 的 WS_BASE_URL)。两个域名都必须继续活着:EXPO_PUBLIC_* 是 metro 转换期内联进 JS 的,
+    # 已经装在用户机上的旧包仍指向 api.aizhs.top,撤臂等于把没升级的用户整体断网。
     env:
-      EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
+      EXPO_PUBLIC_API_BASE_URL: https://www.aizhs.top
+      EXPO_PUBLIC_WS_BASE_URL: https://api.aizhs.top
       EXPO_PUBLIC_WEB_URL: https://aizhs.top
     steps:
       - uses: actions/checkout@v4

@@ -37,6 +37,27 @@ process.env.IHUI_TRUST_WORKSPACE = '1';
 
 const isWindows = process.platform === 'win32';
 
+/**
+ * 异步执行面上钩子是后台跑的:等钩子写出的文件**有内容**再返回断言。
+ *
+ * 2026-10-21 实测根因(Windows 专有):夹具命令 `cmd /c echo … > file` 经 spawn(shell:true)
+ * 双层 cmd 执行 —— 外层 cmd 先建空文件(重定向),内层 cmd 进程起来(~160ms,负载下更长)
+ * 后才把 echo 输出写进去。只等"文件存在"会在这段空窗内放行,读到空文件 ⇒
+ * `Number('')=0 ≠ 1906` 假红(Linux 的 sh 单进程创建+写入几乎同刻,无此窗,故 CI 恒绿)。
+ * 修法等"内容非空",不等"文件存在"—— 与既有的 waitForMarkerContent 同一口径。
+ */
+async function waitForFileHasContent(filePath: string): Promise<string> {
+  let content = '';
+  await vi.waitFor(
+    () => {
+      content = fs.readFileSync(filePath, 'utf-8').trim();
+      expect(content.length).toBeGreaterThan(0);
+    },
+    { timeout: 5000, interval: 50 },
+  );
+  return content;
+}
+
 const ALL_EVENTS: HookEvent[] = [
   'preToolCall', 'postToolCall', 'sessionStart', 'sessionEnd',
   'userPromptSubmit', 'preCompact', 'postCompact', 'notification',
@@ -313,11 +334,9 @@ describe('HookContext 字段传递', () => {
       compactedTokensAfter: 6789,
     });
 
-    await vi.waitFor(() => expect(fs.existsSync(envPath)).toBe(true), { timeout: 5000 });
-    const content = fs.readFileSync(envPath, 'utf-8').trim();
+    const content = await waitForFileHasContent(envPath);
     expect(content).toContain('12345');
-    expect(content).toContain('6789');
-  });
+    expect(content).toContain('6789');  });
 
   it('compressContextIfNeeded 传递真实的 token 数值给钩子', async () => {
     const cmd = isWindows
@@ -340,8 +359,7 @@ describe('HookContext 字段传递', () => {
     const result = compressContextIfNeeded(messages, { contextLimit: 700 });
 
     expect(result.compressed).toBe(true);
-    await vi.waitFor(() => expect(fs.existsSync(envPath)).toBe(true), { timeout: 5000 });
-    const content = fs.readFileSync(envPath, 'utf-8').trim();
+    const content = await waitForFileHasContent(envPath);
     const parts = content.split('/').map((s) => s.trim());
     expect(Number(parts[0])).toBe(result.originalTokens);
     expect(Number(parts[1])).toBe(result.compressedTokens);
@@ -363,8 +381,7 @@ describe('HookContext 字段传递', () => {
       compactedTokensBefore: 100,
     });
 
-    await vi.waitFor(() => expect(fs.existsSync(envPath)).toBe(true), { timeout: 5000 });
-    const content = fs.readFileSync(envPath, 'utf-8').trim();
+    const content = await waitForFileHasContent(envPath);
     expect(content).toContain('/my/workspace');
     expect(content).toContain('sess-abc');
   });
@@ -580,8 +597,8 @@ describe('runSessionEndHooks 执行成功', () => {
       sessionEnd: [{ name: 'mark-end', command: cmd }],
     };
     await runSessionEndHooks(config, { workspacePath: '/tmp' });
-    await vi.waitFor(() => expect(fs.existsSync(markerPath)).toBe(true), { timeout: 5000 });
-    expect(fs.readFileSync(markerPath, 'utf-8')).toContain('ended');
+    const marker = await waitForFileHasContent(markerPath);
+    expect(marker).toContain('ended');
   });
 
   it('多个 hook 全部成功时无异常', async () => {

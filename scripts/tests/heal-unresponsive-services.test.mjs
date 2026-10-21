@@ -278,6 +278,29 @@ test('T9 映射不猜:门的报告里缺这台服务 ⇒ 未判定(不是"没跑
 })
 
 /**
+ * T13 真台账自身的形状锁(回归用):`excluded` 必须逐台一行、三件齐,一条 problems 都不许有。
+ *
+ * 为什么这条必须住在**每次提交都跑**的这一层而不是只住 `--self-test`:伪名那两行(`a / b / c`)
+ * 在旧口径下完全合法 —— 全仓没人读 excluded,所以它烂了六周没人知道。把它拆成逐台一行只是
+ * 一半,另一半是"再烂回去当场红"。按 §0.7,豁免必须验过才免且会到期;按记忆「回归锁要住在
+ * 每次提交都跑的那一层」,只住自检档等于没锁。
+ */
+test('T13 真台账形状锁:excluded 逐台一行且三件齐(伪名/缺 reason/缺到期 一律当场红)', () => {
+  const c = parseConfig(readFileSync(CONFIG, 'utf8'), Date.now())
+  const bad = c.problems.filter((p) => /^excluded/.test(p))
+  assert.deepEqual(bad, [], `排除台账有 ${bad.length} 条不构成豁免:\n${bad.join('\n')}`)
+  assert.ok(c.excluded.length >= 10, `excluded 现在 ${c.excluded.length} 条 —— 少于逐台一行应有的量,先怀疑又有人把几台并回一行`)
+  for (const e of c.excluded) {
+    assert.ok(!e.name.includes('/'), `${e.name}:一行盖多台的伪名回来 ⇒ 按服务名查表永远命中不了`)
+    assert.ok(e.reason && e.reviewBy, `${e.name}:缺 reason 或 reviewBy,不构成豁免`)
+    assert.equal(e.expired, false, `${e.name}:复核日已过(${e.reviewBy})⇒ 该回看台账,而不是让它静默失效`)
+  }
+  const names = new Set(c.services.map((s) => s.name))
+  const dup = c.excluded.filter((e) => names.has(e.name))
+  assert.deepEqual(dup, [], '同一台同时进 services 与 excluded ⇒ 两份相反的裁定,必须点名是哪台')
+})
+
+/**
  * T10/T11:门的 rc 语义。
  * 立因(2026-10-16 现读):`check-service-binary-paths.mjs` 量到 issue 时**返回 rc=1 并照样打完整 JSON**,
  * 而动作器旧写法把"任何非零退出"读成"取不到报告 ⇒ 本轮不行动"。后果不是少一次日志,是
@@ -327,5 +350,40 @@ test('T11 端到端:真派生一次门,分档必须与门自报的 exitCode 同�
     selfRc === undefined || r.gateRc === selfRc || (r.gateRc === 0 && selfRc === 0) || (r.gateRc === 1 && selfRc === 1),
     `分档与门自报 exitCode 不同形:wrapper=${r.gateRc} 门=${selfRc}`,
   )
+})
+
+/**
+ * T12 端到端:名单外那台必须**进判定面**,而且门 153 已经判出来的可整改那句必须带到出路里。
+ *
+ * 立项现场(2026-10-21 现读):IHUI-OLLAMA `STATE=STOPPED`、Application 指向一个已被卸掉的 exe、
+ * 11434 无应答 —— 而到人通道一封信都没有。三个成因叠在一起:verdicts 只遍历白名单、
+ * `!entry` 那行对健康与故障同形、`excluded` 全仓无消费者。只修第一个会得到一封"它停了"的信,
+ * 收信人还得再跑一次门才知道"是二进制没了" —— 而那一句才是能动手的那一句(§5e-1)。
+ */
+test('T12 端到端:名单外那台进判定面,门自报的问题行原样进出路句', async () => {
+  const cfgPath = fixtureConfig(scratch, [entry('IHUI-DEMO')])
+  const statePath = path.join(scratch, 't12-state.json')
+  const report = {
+    services: [
+      { name: 'IHUI-DEMO', level: 'x', rec: { state: { kind: 'measured', value: 'RUNNING' }, probe: { kind: 'measured', value: { listening: true, ports: [8802] } } } },
+      {
+        name: 'IHUI-OLLAMA',
+        level: 'x',
+        problems: ['STATE=STOPPED', 'Application 路径不是可用文件(missing):C:/Users/x/AppData/Local/Programs/Ollama/ollama.exe'],
+        rec: { state: { kind: 'measured', value: 'STOPPED' }, probe: { kind: 'measured', value: { listening: false, labels: [] } } },
+      },
+    ],
+  }
+  const deps = { gate: () => ({ ok: true, json: JSON.stringify(report) }), restart: () => ({ ok: true }), sleep: () => {} }
+  const r = await main({ argv: ['--json'], deps, now: () => NOW, configFile: cfgPath, stateFile: statePath })
+  const j = JSON.parse(r.json)
+  const off = j.actions.find((a) => a.name === 'IHUI-OLLAMA')
+  assert.ok(off, '名单外那台没进判定面 ⇒ 这一型永远不会被看见(旧写法只遍历白名单)')
+  assert.equal(off.kind, 'not-in-list')
+  assert.equal(off.ackState, 'unregistered', '台账里既无服务也无排除 ⇒ 必须是"没人决定过"那一档,不是静默')
+  assert.match(off.why, /Application 路径不是可用文件/, '门自报的可整改那句必须原样带到出路里(§5e-1)')
+  assert.equal(j.counts.checked, 2, '在册数必须等于门报告里的全部服务,不是白名单大小')
+  assert.equal(j.counts.offlist, 1)
+  assert.equal(j.counts.offlistUnregistered, 1, '未登记这一档必须单独有数,台账烂了要量得到(§5e-3)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
