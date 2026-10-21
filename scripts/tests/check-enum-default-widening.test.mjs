@@ -159,7 +159,10 @@ test('T3 Python 侧三条语法锚点必须一起认(漏一条 = 该语言整型
 test('T4 真仓逐字夹具(§22c):HEAD 的点名站点必须入候选,且按判据落未判定', () => {
   const u = universe()
   const face = faceShow(REAL_SITE)
-  const line = face.split('\n').find((l) => l.includes("tool?.dangerLevel ?? 'read'"))
+  // 2026-10-21:HEAD 的站点已扩成 `tool?.dangerLevel ?? getHubRemoteToolDangerLevel(call.name) ?? 'read'`
+  // ⇒ 旧的整串查找失配。夹具要的是"**票面点名的那一处**仍在",故锚到这一行不变的前半段
+  // (`const dangerLevel = tool?.dangerLevel`),而不是把整串跟着实现抄一遍(那样实现一改就再红)。
+  const line = face.split('\n').find((l) => l.includes('const dangerLevel = tool?.dangerLevel'))
   assert.ok(
     line,
     `HEAD:${REAL_SITE} 里找不到票面点名的站点 ⇒ 票面前提与门体读数已经不同形,必须回票`,
