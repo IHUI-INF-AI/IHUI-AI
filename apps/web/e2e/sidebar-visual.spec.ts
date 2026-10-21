@@ -403,7 +403,7 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
  *     父容器 px-1.5 → px-2 与导航区对齐,justify-center 让内容在行内居中(用户反馈"底部按钮比导航项宽")
  *
  * 守门依据:SidebarUserRow.tsx
- *   - 父容器:`px-2 pb-2`
+ *   - 父容器:`px-2 py-2 bg-background`(2026-10-21 机主定档:纯色底,不做透明/玻璃效果)
  *   - 子容器 `group/row`:`flex h-9 w-full items-center justify-center gap-2 rounded-md px-2.5`
  *   - button:`flex h-9 w-9 shrink-0 items-center justify-center rounded-md`
  *   - span:`min-w-0 truncate text-sm font-medium text-foreground/70`
@@ -470,7 +470,7 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
       const span = (rowSpans[1] as HTMLSpanElement | null) ?? null
       if (!avatarSpan || !span) return { error: 'no button or span in row' }
 
-      const parent = row.parentElement // px-2 pb-2
+      const parent = row.parentElement // px-2 py-2 bg-background
       if (!parent) return { error: 'no parent' }
 
       const rowRect = row.getBoundingClientRect()
