@@ -79,11 +79,17 @@ test('正常模式: 脚本逻辑完整运行 (stdout 含汇总, 无语法/类型
 // ─── 3. [1/6] 审计报告文件存在性 (4 类报告) ──────────────────
 test('输出 [1/6]: 审计报告文件存在性 (4 类: D盘Python/Java/Schema/前端)', () => {
   assert.match(NORMAL_RUN.stdout, /\[1\/6\] 审计报告文件存在性/)
-  // 4 类审计报告(接受 .txt 或 .md 别名)
-  assert.match(NORMAL_RUN.stdout, /审计报告存在: d_legacy_audit_report\.txt/)
-  assert.match(NORMAL_RUN.stdout, /审计报告存在: d_java_audit_report\.txt/)
-  assert.match(NORMAL_RUN.stdout, /审计报告存在: frontend_audit_report\.txt/)
-  assert.match(NORMAL_RUN.stdout, /审计报告存在: db_schema_audit_report\.txt/)
+  // 2026-10-21:那批审计报告被 .gitignore 忽略、只在本机 `.ihui-agent/archive/` 下 ⇒ 干净检出 /
+  // linked worktree 上必然没有,门侧已按设计显式打印"存在性检查跳过"(§0.3 未判定,不记绿也不冒红)。
+  // 所以断言改成:**要么四条都存在,要么整段显式跳过**;不许两者都没有(那才是真瞎)。
+  if (/审计报告存在性检查跳过/.test(NORMAL_RUN.stdout)) {
+    assert.match(NORMAL_RUN.stdout, /\[1\/6\] 审计报告文件存在性/)
+  } else {
+    assert.match(NORMAL_RUN.stdout, /审计报告存在: d_legacy_audit_report\.txt/)
+    assert.match(NORMAL_RUN.stdout, /审计报告存在: d_java_audit_report\.txt/)
+    assert.match(NORMAL_RUN.stdout, /审计报告存在: frontend_audit_report\.txt/)
+    assert.match(NORMAL_RUN.stdout, /审计报告存在: db_schema_audit_report\.txt/)
+  }
 })
 
 // 回归锁:审计报告的搜索必须同时覆盖两处归档根。
