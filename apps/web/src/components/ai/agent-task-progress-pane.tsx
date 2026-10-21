@@ -54,7 +54,7 @@ import {
 import { useChatStore } from '@/stores/chat'
 // 上下文占用的分母唯一出口(按模型 id 查真实容量);发送侧早已用它,resume-stream.ts:211 是同一条链
 import { getModelContextCapacity } from '@ihui/api-client'
-import { useProgressJumpStore } from '@/stores/progress-jump-store'
+import { useProgressJumpStoreForPane } from '@/stores/progress-jump-store'
 import { useTimelineStore } from '@/stores/timeline-store'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
@@ -285,11 +285,12 @@ const PlanStepItem = React.memo(function PlanStepItem({
   const anchorRef = React.useRef<HTMLDivElement>(null)
   const Icon = PLAN_ICON[step.status]
 
-  // ProgressJumpStore 接入点
-  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
-  const setHoveredMessage = useProgressJumpStore((s) => s.setHoveredMessage)
-  const requestJumpToMessage = useProgressJumpStore((s) => s.requestJumpToMessage)
-  const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
+  // ProgressJumpStore 接入点(票60 残余:按窗格寻址,根窗以外各一份)
+  const jumpStore = useProgressJumpStoreForPane()
+  const setHoveredPlanStep = jumpStore((s) => s.setHoveredPlanStep)
+  const setHoveredMessage = jumpStore((s) => s.setHoveredMessage)
+  const requestJumpToMessage = jumpStore((s) => s.requestJumpToMessage)
+  const flashHighlight = jumpStore((s) => s.flashHighlight)
 
   const stepLabel =
     step.status === 'in_progress'
@@ -1038,7 +1039,8 @@ export function AgentTaskProgressPane() {
   }, [planSteps, chatMessages])
 
   // Phase 19: 把映射写入 ProgressJumpStore(供跨组件反向联动)
-  const linkPlanStepToMessage = useProgressJumpStore((s) => s.linkPlanStepToMessage)
+  const jumpStore = useProgressJumpStoreForPane()
+  const linkPlanStepToMessage = jumpStore((s) => s.linkPlanStepToMessage)
   React.useEffect(() => {
     planStepLinkMap.forEach((link, stepId) => {
       linkPlanStepToMessage(stepId, link.messageId)
@@ -1048,9 +1050,9 @@ export function AgentTaskProgressPane() {
   // Phase 19: 切换会话时清空联动状态(避免脏数据)
   React.useEffect(() => {
     if (!open) {
-      useProgressJumpStore.getState().clearAllLinks()
+      jumpStore.getState().clearAllLinks()
     }
-  }, [open, threadId])
+  }, [open, threadId, jumpStore])
 
   // Phase 19: 每个 plan step 关联的工具调用
   // 2026-09-19 v2:优先 toolCallIds 精确匹配(plan_updated 事件携带,权威关联);
@@ -1138,7 +1140,8 @@ export function AgentTaskProgressPane() {
   }, [planSteps, subagents, tools, setEvents])
 
   // Phase 19: 监听 pendingJumpToMessage → 最佳努力滚动到消息
-  const pendingJump = useProgressJumpStore((s) => s.pendingJumpToMessage)
+  // (jumpStore 已在上方按窗格解析:本组件与 MessageList 不在同一窗格时不再互抢这次跳转)
+  const pendingJump = jumpStore((s) => s.pendingJumpToMessage)
   React.useEffect(() => {
     if (!pendingJump) return
     const { messageId } = pendingJump
@@ -1147,8 +1150,8 @@ export function AgentTaskProgressPane() {
   }, [pendingJump])
 
   // Phase 19: 高亮推导(从 store 派生 isHighlighted)
-  const hoveredPlanStepId = useProgressJumpStore((s) => s.hoveredPlanStepId)
-  const hoveredMessageId = useProgressJumpStore((s) => s.hoveredMessageId)
+  const hoveredPlanStepId = jumpStore((s) => s.hoveredPlanStepId)
+  const hoveredMessageId = jumpStore((s) => s.hoveredMessageId)
   const isStepHighlighted = React.useCallback(
     (stepId: string, linkedMessageId: string | null): boolean => {
       if (hoveredPlanStepId === stepId) return true
