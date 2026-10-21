@@ -716,7 +716,10 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     if (!rows[0]) {
       return reply.status(404).send(error(404, '视频不存在'))
     }
-    return reply.send(success(rows[0]))
+    // 出网名同时给 `url`(旧 Java 契约名)与 `playUrl`(本仓小程序 apps/miniapp-taro/src/
+    // pages/study/video-detail/index.tsx:202 读的名)。此前只给 url ⇒ 播放器 src 恒 undefined,
+    // 视频页必然黑屏。两个名字同值,不另起第二份取值。
+    return reply.send(success({ ...rows[0], playUrl: rows[0].url }))
   })
 
   // GET /study/ranking — 学习排行榜(按 lessonRecords 聚合用户:完成数+观看时长)
