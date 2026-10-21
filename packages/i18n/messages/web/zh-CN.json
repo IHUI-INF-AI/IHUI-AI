@@ -22135,6 +22135,8 @@
     "title": "服务"
   },
   "settings": {
+    "event2faDisabled": "已关闭两步验证",
+    "eventIpBlocked": "登录被 IP 白名单拦截",
     "accountDeletionCancel": "取消删除",
     "accountDeletionCodeLabel": "验证码",
     "accountDeletionCodePlaceholder": "输入验证码",
