@@ -5231,6 +5231,34 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- SSE 全量帧盲合并(1 项,blocking;票 G-274 的接线落点)---
+  // 接线前置现读(2026-10-21):① HEAD 全量档 候选 7019 · 实判 312 · 命中 0 · 放过 6 · 未判定 0;
+  // ② 棘轮锚点 = 该文件 HEAD 自身命中数 0 ⇒ 零基线上"绝对判红"与"差值棘轮"等价(存量非零前
+  // 不得升 blocking,§12e);③ 生产消费点已接:`packages/shared/src/utils/sse-parse.ts` 从
+  // `../chat/projection-watermark` 导入(去测试面后非测试命中 2 个文件)。
+  // stagedTriggers 恰等于本门的候选枚举面(apps/ + packages/),执行层再按反向依赖闭包加宽。
+  {
+    id: '233',
+    label:
+      '🧬 SSE 全量帧盲合并(全量帧 snapshot/initial 分支里铺开本地旧状态即红;未判定逐条点名,--strict 下 exit 2)',
+    script: 'check-sse-no-blind-merge.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SSE_NO_BLIND_MERGE',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '  💡 全量帧的语义是"这就是完整状态",写成 `{ ...prev, ... }` 会让 initial 丢失后的',
+      '     新代次第一帧拼在旧投影上,产出一段自洽但根本不存在的对话(日志零痕迹)。',
+      '     唯一正解:全量帧整体替换投影;能不能拼交给 packages/shared/src/chat/projection-watermark.ts',
+      '     (基线代次 + 序号单调 + 断档只重订阅),不得在分支里就地补偿。',
+      '  单独复验:node scripts/check-sse-no-blind-merge.mjs [--staged|--strict|--json]',
+      '     自检:node scripts/check-sse-no-blind-merge.mjs --self-test(15 例)',
+      '  紧急跳过(不推荐):HUSKY_SKIP_SSE_NO_BLIND_MERGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
