@@ -31,7 +31,15 @@
 // .vbs,弹窗在机制上不可能。
 // 输出仍按 label 落 `.workbuddy/hook-logs/<label>.log`,与原行为一致。
 const { execSync, spawn, spawnSync } = require('child_process')
-const { mkdirSync, appendFileSync, readFileSync, existsSync, openSync } = require('fs')
+const {
+  mkdirSync,
+  appendFileSync,
+  readFileSync,
+  existsSync,
+  openSync,
+  copyFileSync,
+  statSync,
+} = require('fs')
 const { join } = require('path')
 
 // ─── GIT_DIR 去污(2026-10-01,同 pre-commit-hook.js 同款病理根治)───
@@ -154,68 +162,6 @@ runLogged(
 // 台账新语义 = 活队列:`- [x]` 翻勾后即可删行,守门 71 判据已同步改为"已勾行不进保护集"
 // (markerOf 顶部),删除不再被判丢、也不被回捞。`pnpm archive` 手动入口一并摘除。
 
-// ─── 2b. README 最近更新自动回捞(2026-10-22 根治)─────────────────────────
-// 为什么必须在这里:pre-commit 时本枚提交还不存在,`git log last-sha..HEAD` 只能看到
-// 上一枚 ⇒ 每次提交都只能补上一枚的条目,README 永远是脏的;下次提交收口又生新条目
-// ⇒ 结构性死循环(机主令:彻底根治)。commit 落地后此处才看得见本枚;刷新 README 后
-// 用 object-space-land(commit-tree + update-ref,不触发钩子)造一枚「自动回捞」提交。
-// 该提交消息命中 auto-update 的 NOISE_RE(/自动回捞|…/)⇒ 下一轮不再为它生成条目,
-// 达到不动点。无 README 变化则零动作;块外有他人在飞改动时脚本会拒 add,本段不强推。
-// 跳过:HUSKY_SKIP_README_RECENT=1
-if (process.env.HUSKY_SKIP_README_RECENT !== '1') {
-  let out = ''
-  let ok = true
-  try {
-    out =
-      execSync('node scripts/auto-update-readme-recent.mjs', {
-        encoding: 'utf8',
-        cwd: ROOT,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        maxBuffer: 32 * 1024 * 1024,
-      }) || ''
-  } catch (e) {
-    ok = false
-    out = `${e.stdout || ''}${e.stderr || ''}${e.message || ''}`
-  }
-  try {
-    appendFileSync(
-      join(LOG_DIR, 'post-commit-readme-recent.log'),
-      `\n===== ${new Date().toISOString()} ok=${ok} =====\n${out}`,
-    )
-  } catch {
-    /* 日志写失败不得影响钩子主流程 */
-  }
-  process.stdout.write(out)
-
-  const stagedReadmes = [...out.matchAll(/^STAGED:(.+)$/gm)].map((m) => m[1].trim()).filter(Boolean)
-  if (!ok) {
-    console.error('⚠️  README 最近更新刷新失败(非阻塞, commit 已落地;详见 hook-logs)')
-  } else if (stagedReadmes.length > 0) {
-    const landPaths = [...new Set([...stagedReadmes, '.doc-autoupdate/last-sha'])].join(';')
-    const landed = runLogged('post-commit-readme-recent-land', 'node scripts/object-space-land.mjs', {
-      timeout: 120000,
-      env: {
-        LAND_PATHS: landPaths,
-        LAND_MSG: 'chore(docs): README 最近更新自动回捞',
-        LAND_ALLOW_STALE: '1',
-      },
-    })
-    if (landed) {
-      console.log(`✅ README 最近更新已自动回捞(${stagedReadmes.length} 个文件)`)
-    } else {
-      console.error(
-        '⚠️  README 最近更新回捞失败(非阻塞;详见 .workbuddy/hook-logs/post-commit-readme-recent-land.log)',
-      )
-    }
-  }
-  if (/^SKIP_PROSE:/m.test(out)) {
-    console.error(
-      '⚠️  有 README 的块外存在未提交改动,脚本已拒 add —— 该文件未自动回捞,请人工提交(避免吞并他人在飞改动)',
-    )
-  }
-}
-
 // ─── 3. 自动 push guard(AGENTS.md §20, 2026-07-20 立) ──────
 // 背景: 历史上多次出现 agent "commit 后忘记 push" 协作事故。
 // 任何 `git commit` 成功后, 自动检测本地 ahead, 立即推送, 并验证 local == remote HEAD。
@@ -281,12 +227,32 @@ if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
       if (j && Array.isArray(j.gates) && j.gates.length > 0) {
         const outLog = join(ROOT, '.workbuddy', 'hook-logs', 'gates-deferred-run.log')
         const fd = openSync(outLog, 'w')
+        // 索引快照(2026-10-22 修正):补跑会大量派生 git 且长期持有**主索引锁**,实测把后续
+        // 提交卡在 "Unable to create index.lock"(13 个 git 进程 + 1.85MB 僵尸锁)。
+        // 这里先把索引复制一份,补跑用 GIT_INDEX_FILE 指向快照 —— 读到的是同一份暂存面,
+        // 锁的是快照文件,与主索引零竞争。快照读失败就退回主索引(宁可慢,不能丢判据)。
+        let envExtra = {}
+        try {
+          const dotGit = join(ROOT, '.git')
+          let gitDir = dotGit
+          if (!statSync(dotGit).isDirectory()) {
+            const m = readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m)
+            if (m && m[1]) gitDir = m[1].trim()
+          }
+          const snapDir = join(ROOT, '.ihui-agent', 'tmp')
+          mkdirSync(snapDir, { recursive: true })
+          const snapshot = join(snapDir, `index-snapshot-${Date.now()}`)
+          copyFileSync(join(gitDir, 'index'), snapshot)
+          envExtra = { GIT_INDEX_FILE: snapshot }
+        } catch {
+          /* 快照失败 ⇒ 用主索引(与旧行为一致),不阻断补跑 */
+        }
         const child = spawn(process.execPath, ['scripts/guardian-runner.mjs', '--staged'], {
           cwd: ROOT,
           detached: true,
           stdio: ['ignore', fd, fd],
           windowsHide: true,
-          env: { ...process.env, IHUI_GATE_FAST: '0' },
+          env: { ...process.env, IHUI_GATE_FAST: '0', ...envExtra },
         })
         child.unref()
         console.log(`⏱  快档延后的 ${j.gates.length} 门已在后台补跑(日志:${outLog})`)
@@ -295,6 +261,37 @@ if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
       /* 补跑派发失败不影响提交(提交已落地) */
     }
   }
+}
+
+// ─── 8. 四端 i18n 死 key 扫描(2026-10-22 从 pre-commit 移来)────────────────────
+// 本档一直是 warn-only(从不阻断提交),却实测占 8.3s 用户等待 ⇒ 移到这里:整条 post-commit
+// 已 detached 后台执行,判据与开关一字未动。要回 pre-commit:HUSKY_SKIP_I18N_DEAD_KEY_OTHER=0。
+if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '0') {
+  for (const target of ['miniapp-taro', 'mobile-rn', 'extension']) {
+    runLogged(
+      `post-commit-i18n-${target}`,
+      `node scripts/scan-${target}-dead-i18n-keys.mjs --staged --exit 1`,
+      {
+        timeout: 120000,
+      },
+    )
+  }
+}
+
+// ─── 9. README 自动同步(2026-10-22 从 pre-commit 移来)──────────────────────────
+// 这两段会 `git add` README,与 pre-commit 之后的 O43②「钩子运行期外来件」护栏**结构性冲突**
+// —— 护栏拒发"钩子窗口期新进索引、又不在本票声明集里"的文件,而这两段每轮都 add README,
+// 实测连续 4 次提交被同一道护栏拒发。移到这里后提交不再被拦;README 的更新落在工作区,
+// 随下一次触及 README 的提交带上。
+// 跳过:HUSKY_SKIP_POST_README=1(注意与 pre-commit 那个 HUSKY_SKIP_README_* 不是一回事:
+// 那两个是"是否在 pre-commit 跑",默认 1=不跑;这里是"是否在 post-commit 跑",默认跑)。
+if (process.env.HUSKY_SKIP_POST_README !== '1') {
+  runLogged('post-commit-readme-numbers', 'node scripts/sync-readme-numbers.mjs', {
+    timeout: 120000,
+  })
+  runLogged('post-commit-readme-recent', 'node scripts/auto-update-readme-recent.mjs', {
+    timeout: 120000,
+  })
 }
 
 // ─── 6. 计划登记行自动回捞(2026-09-22 立,守门 71 的自愈面) ────────────────────

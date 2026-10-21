@@ -34,7 +34,9 @@
 // 2026-10-16 C1 收口:执行段(缓存/计数/attest/汇总/PAR 池/主循环)整体外置到
 // scripts/lib/guardian-executor.mjs 的 runGuardianBatch(ctx);本文件只剩注册表、
 // CLI 解析与 help。执行语义逐字未动,镜像测试同票改取材面(见该 lib 头注)。
+import { execFileSync } from 'node:child_process'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
+import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
 
 
 // === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
@@ -5578,7 +5580,40 @@ const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
 const pushGate = cliArgs.includes('--push-gate')
 
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
-const effectiveChecks = pushGate ? pushGateChecks : checks
+let effectiveChecks = pushGate ? pushGateChecks : checks
+
+// ── 档位裁剪(2026-10-22 立,判据与理由全在 scripts/lib/gate-scope.mjs 头注)──────────
+// 只决定"这次改动该跑哪些门",**不碰任何门的判据**。含业务路径 / 含判据库 / 判不出
+// 一律回落全量 —— 失效方向永远是"多跑",不是"少跑"。
+if (passStaged && !pushGate) {
+  try {
+    const stagedPaths = String(
+      execFileSync('git', ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
+        encoding: 'utf8',
+        cwd: process.cwd(),
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 30_000,
+      }) || '',
+    )
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const sc = resolveGateScope(stagedPaths)
+    if (sc.scope === 'meta') {
+      const before = effectiveChecks.length
+      effectiveChecks = effectiveChecks.filter((c) => isMetaGate(c))
+      console.log(
+        `⚡ 元门档:${sc.reason} ⇒ 只跑 ${effectiveChecks.length}/${before} 道工具/仓库状态门` +
+          `(业务门本轮与改动无关,已跳过;强制全量:IHUI_GATE_SCOPE=full)`,
+      )
+    } else {
+      console.log(`🛡️ 全量档:${sc.reason}`)
+    }
+  } catch (e) {
+    console.log(`⚠️ 档位判定失败(${e?.message || e})⇒ 回落全量(失效方向是多跑,不是少跑)`)
+  }
+}
 
 // ── 守门 id 唯一性自检(2026-09-23 立,不阻塞) ──────────────────────────────
 // 成因:同日实测两道 blocking 门撞同号 —— 77 曾被 check-radius-single-source 与
