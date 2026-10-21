@@ -10,13 +10,20 @@
  *  - GET /api/chat/favorites?page=&pageSize=               → { favorites, page, pageSize, total }
  *  - GET /api/chat/templates                                → { list, categories? }
  *  - GET /api/chat/settings                                 → { model, temperature, maxTokens, systemPrompt }
+ *  - GET /api/chat/conversations/:id/history?limit=&cursor=&direction=
+ *      → turn 分片历史。**这条链本文件不碰 fetch / 不碰投影**:一律经
+ *      `./history-read-ops.js`(它再委派 `@ihui/shared/chat` 与 `@ihui/api-client`)。
+ *      该模块 2026-09-27 落地后长期零生产 importer(只有测试引用它),
+ *      `ihui chat history <conversationId>` 就是它的挂载点(AGENTS §0.9 造好没装车 = 没有)。
  *
  * 类型契约:Conversation / Template / ChatSettings 本地定义,与 Web 端
  * conversation-list.tsx / templates page / settings page 接口对齐。
  * 实现模板复用 capabilities.ts / memory.ts 的 resolveBaseUrl / resolveApiKeyAsync / apiRequest / extractData / handleError。
  *
  * 用法:
- *   ihui chat history [--page <n>] [--json]
+ *   ihui chat history [--page <n>] [--json]                        → 会话列表
+ *   ihui chat history <conversationId> [--turns-per-page <n>] [--max-pages <n>]
+ *                  [--replay-check] [--json]                       → 该会话的 turn 分片历史
  *   ihui chat favorites [--json]
  *   ihui chat templates [--json]
  *   ihui chat settings [--json]
@@ -25,7 +32,25 @@
 import type { Command } from 'commander';
 import chalk from 'chalk';
 
+// 正文读取这条链的传输与鉴权都归 api-client(history-read-ops 内部用 getConversationHistory);
+// 全局注入点在 index.ts 的 preAction,这里再注入一次是为了让子命令级 --api-url / --api-key
+// 与 refresh 后的 access token 真正落到发请求的那一层(否则这条链会打到默认端口)。
+import { setBaseUrl, setTokenProvider } from '@ihui/api-client';
+
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
+import {
+  HISTORY_MAX_PAGES_DEFAULT,
+  HISTORY_TURNS_PER_PAGE_MAX,
+  addHistoryTally,
+  formatHistoryPageLine,
+  formatHistoryReplayCheckLine,
+  formatHistorySummaryLine,
+  formatHistoryTallyLine,
+  historyResumeCursor,
+  readConversationHistory,
+  resumeConversationHistory,
+  type HistoryReadOutcome,
+} from './history-read-ops.js';
 import { missingTokenHint } from './token-manager.js';
 
 const API_PREFIX = '/api/chat';
@@ -96,6 +121,12 @@ interface ChatSettings {
 interface HistoryOptions {
   page?: string;
   json?: boolean;
+  /** 每页 turn 数;交给 history-read-ops → 共享层 `clampHistoryLimit` 夹取,本文件不自算。 */
+  turnsPerPage?: string;
+  /** 单次读取最多翻几页(防失控护栏,默认值取模块常量)。 */
+  maxPages?: string;
+  /** 全量读一遍后再从服务端断点续读,并打印"增量 vs 整段重取"的对账行。 */
+  replayCheck?: boolean;
 }
 
 interface FavoritesOptions {
@@ -188,6 +219,20 @@ function parsePage(v: string | undefined): number {
   return n;
 }
 
+/**
+ * 正文读取的两枚数值旗标:未给 ⇒ null(交 history-read-ops 的默认档,不在这里替它拍数);
+ * 给了但非正整数 ⇒ 当场报错,不把脏值送进共享层的夹取。
+ * 报错文案 ASCII:理由与 history-read-ops 头注同档(apps/cli/src 的中文棘轮,§19)。
+ */
+function parseHistoryFlag(v: string | undefined, flagName: string): number | null {
+  if (v === undefined) return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1) {
+    throw new Error(`${flagName} must be a positive integer, got "${v}"`);
+  }
+  return n;
+}
+
 function buildQueryString(params: Record<string, string | number | undefined>): string {
   const sp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -256,6 +301,117 @@ async function listHistory(
     console.info(chalk.dim(`    ${c.model}  ${fmtDate(c.lastMessageAt)}  ${count}`));
   }
   console.info(chalk.dim(`\n第 ${data.page} 页  共 ${total} 个会话`));
+}
+
+// ==================== history 正文(turn 分片读取)====================
+
+/**
+ * `ihui chat history <conversationId>` 的唯一读取出口 —— 也就是
+ * `./history-read-ops.ts` 在生产面上的挂载点(2026-10-21 装车)。
+ *
+ * 立项理由(AGENTS §0.9「判据必须在真跑它的那一刻才成立」):该模块 2026-09-27 落地,
+ * 三个投影调用点(:327/:328)都在 HEAD 上,共享层那条"装车锁"41/41 绿 —— 但它只读
+ * 文件文本,判不出"模块无人挂载":全 apps/cli 内 `history-read-ops` 的 importer
+ * 只有测试与一条注释,`ihui chat history` 走的是 /api/chat/conversations 另一条路径。
+ * 能力躺在库里而没有任何入口会走到它,正是那条锁想拦而结构上拦不到的形态。
+ *
+ * 本函数**不含任何分页算术**:limit 夹取、游标回传、整轮替换、边界推导、断点存续性
+ * 全部留在 history-read-ops → `@ihui/shared/chat`(§0.6 单一真相源)。这里只做三件事:
+ * 注入 api-client 的基址与 token、排"全量读 → 断点续读"的顺序、原样打印模块自己的计量行。
+ */
+async function readHistoryForConversation(
+  conversationId: string,
+  opts: HistoryOptions,
+  baseUrl: string,
+  apiKey: string,
+): Promise<void> {
+  setBaseUrl(baseUrl);
+  setTokenProvider({ getToken: () => apiKey });
+
+  const turnsPerPage = parseHistoryFlag(opts.turnsPerPage, '--turns-per-page');
+  const maxPages = parseHistoryFlag(opts.maxPages, '--max-pages');
+  const budget = {
+    ...(turnsPerPage !== null ? { turnsPerPage } : {}),
+    ...(maxPages !== null ? { maxPages } : {}),
+  };
+
+  const initial = await readConversationHistory({ conversationId, ...budget });
+  const resumed = opts.replayCheck
+    ? await resumeConversationHistory({ conversationId, ...budget, previous: initial })
+    : null;
+
+  if (opts.json) {
+    printJson({
+      conversationId,
+      initial: historyOutcomeJson(initial),
+      ...(resumed
+        ? {
+            resumed: historyOutcomeJson(resumed),
+            total: addHistoryTally(initial.tally, resumed.tally),
+            replayCheck: formatHistoryReplayCheckLine(resumed.tally, initial.tally).line,
+          }
+        : {}),
+    });
+  } else {
+    printHistoryOutcome(initial, 'initial');
+    if (resumed) {
+      printHistoryOutcome(resumed, 'resume');
+      console.info(chalk.dim(formatHistoryReplayCheckLine(resumed.tally, initial.tally).line));
+      console.info(
+        chalk.dim(formatHistoryTallyLine('total', addHistoryTally(initial.tally, resumed.tally))),
+      );
+    }
+  }
+
+  if (!initial.ok) {
+    process.exitCode = 1;
+    return;
+  }
+  if (resumed && !resumed.ok) {
+    process.exitCode = 1;
+  }
+}
+
+/** 人读档:逐页计量 → 时间线 → 单行汇总。字符串一律来自 history-read-ops 的格式化出口。 */
+function printHistoryOutcome(outcome: HistoryReadOutcome, label: string): void {
+  for (let i = 0; i < outcome.perPage.length; i += 1) {
+    const page = outcome.perPage[i];
+    if (page) console.info(chalk.dim(formatHistoryPageLine(i, page)));
+  }
+  console.info(chalk.dim(formatHistoryTallyLine(label, outcome.tally)));
+  for (const turn of outcome.projection.turns) {
+    for (const m of turn.messages) {
+      console.info(
+        `${chalk.cyan(String(turn.turnOrdinal))} ${chalk.dim(`${m.role}:`)} ${truncate(
+          m.content.replace(/\s+/g, ' '),
+          TEXT_TRUNCATE_LEN,
+        )}`,
+      );
+    }
+  }
+  console.info(chalk.dim(formatHistorySummaryLine(outcome)));
+}
+
+/**
+ * `--json` 载荷:投影结果 + 计量 + 服务端断点原样透传。
+ * `resumeCursor` 经模块唯一出口 `historyResumeCursor` 取(命令侧不得自己拼 base64url)。
+ */
+function historyOutcomeJson(outcome: HistoryReadOutcome): Record<string, unknown> {
+  return {
+    ok: outcome.ok,
+    stop: outcome.stop,
+    error: outcome.error,
+    status: outcome.status,
+    tally: outcome.tally,
+    perPage: outcome.perPage,
+    cursorState: outcome.cursorState,
+    boundary: outcome.projection.boundary,
+    droppedUnordained: outcome.projection.droppedUnordained,
+    replacedTurns: outcome.projection.replacedTurns,
+    resumeCursor: historyResumeCursor(outcome.projectionState),
+    projectionState: outcome.projectionState,
+    turns: outcome.projection.turns,
+  };
 }
 
 // ==================== favorites ====================
@@ -381,11 +537,20 @@ async function showSettings(
  */
 export function attachChatSubcommands(chatCmd: Command): void {
   chatCmd
-    .command('history')
-    .description('历史会话列表 (对标 Web 端 /chat/history)')
+    .command('history [conversationId]')
+    .description('历史会话列表 (对标 Web 端 /chat/history); 带 [conversationId] 时读取该会话的 turn 分片历史')
     .option('--page <n>', '页码(从 1 开始)', '1')
+    .option(
+      '--turns-per-page <n>',
+      `Turns per page, clamped by the shared history limit (server max ${HISTORY_TURNS_PER_PAGE_MAX})`,
+    )
+    .option('--max-pages <n>', `Max pages to walk in one read (default ${HISTORY_MAX_PAGES_DEFAULT})`)
+    .option(
+      '--replay-check',
+      'After the full read, re-read only what follows the server rollout breakpoint and print the byte-saved check',
+    )
     .option('--json', '以 JSON 格式输出完整响应')
-    .action(async (opts: HistoryOptions) => {
+    .action(async (conversationId: string | undefined, opts: HistoryOptions) => {
       try {
         const { apiUrl: cliApiUrl, apiKey: cliApiKey } = getRootOpts(chatCmd);
         const baseUrl = resolveBaseUrl(cliApiUrl);
@@ -393,6 +558,12 @@ export function attachChatSubcommands(chatCmd: Command): void {
         if (!apiKey) {
           console.error(chalk.red(missingTokenHint(baseUrl)));
           process.exitCode = 1;
+          return;
+        }
+        // 给了会话 id ⇒ 正文这条链一律走 history-read-ops(投影与分页算术不在本文件,§0.6);
+        // 未给 id ⇒ 沿用会话列表与 --page 语义,一个字节都不改。
+        if (conversationId) {
+          await readHistoryForConversation(conversationId, opts, baseUrl, apiKey);
           return;
         }
         const page = parsePage(opts.page);
