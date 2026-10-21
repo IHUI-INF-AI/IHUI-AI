@@ -149,7 +149,7 @@ function main(argv) {
     if (c.keys.length < (FLOOR[c.producer] ?? 0)) shrink.push(`${c.producer} 声明 ${c.keys.length} < FLOOR ${FLOOR[c.producer]}`)
     let out = null
     try {
-      out = execFileSync(process.execPath, [c.producer, ...c.args], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, timeout: timeoutMs, stdio: ['ignore', 'pipe', 'pipe'] })
+      out = execFileSync(process.execPath, [c.producer, ...c.args], { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 26, timeout: timeoutMs, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
     } catch (e) {
       out = String(e?.stdout ?? '')
       if (!out.trim()) { console.log(`  ?? ${c.producer} 跑不出 stdout(${typeof e?.status === 'number' ? 'exit ' + e.status : String(e?.message || e).slice(0, 60)})⇒ 该格未判定`); continue }
