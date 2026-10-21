@@ -24,7 +24,10 @@ vi.mock('next-intl', () => ({
 import { MessageList } from '@/components/chat/message-list/MessageList'
 import { TooltipProvider } from '@/components/feedback'
 import { ChatPaneProvider } from '@/stores/chat-pane-context'
-import { useProgressJumpStore } from '@/stores/progress-jump-store'
+import {
+  getProgressJumpStoreForPane,
+  resetProgressJumpPaneStores,
+} from '@/stores/progress-jump-store'
 import type { ChatMessage } from '@/stores/chat'
 
 const NOW = Date.UTC(2026, 10, 21, 1, 2, 3)
@@ -37,7 +40,15 @@ function msg(id: string): ChatMessage {
 let scrolled: HTMLElement[]
 let flash: ReturnType<typeof vi.fn>
 
+// 票60 残余(2026-10-21):高亮动作现在住在`该窗格那一份`store 上,替身必须装在同一次解析出的实例里
+// (注册表按 paneId 懒建并复用 ⇒ 先取实例装替身,再 render,消费面读到的就是它)
+function spyFlash(paneId: string) {
+  flash = vi.fn()
+  getProgressJumpStoreForPane(paneId).setState({ flashHighlight: flash } as never)
+}
+
 function renderInPane(paneId: string, messages: ChatMessage[]) {
+  spyFlash(paneId)
   return render(
     <TooltipProvider>
       <ChatPaneProvider paneId={paneId}>
@@ -64,13 +75,12 @@ beforeEach(() => {
   HTMLElement.prototype.scrollIntoView = vi.fn(function (this: HTMLElement) {
     scrolled.push(this)
   }) as typeof HTMLElement.prototype.scrollIntoView
-  flash = vi.fn()
-  // 只替换高亮动作,其余键保持真实 store(消费侧问的就是这一个动作)
-  useProgressJumpStore.setState({ flashHighlight: flash } as never)
+  resetProgressJumpPaneStores()
 })
 
 afterEach(() => {
   cleanup()
+  resetProgressJumpPaneStores()
   HTMLElement.prototype.scrollIntoView = originalScroll
 })
 
