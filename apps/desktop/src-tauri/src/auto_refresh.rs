@@ -17,7 +17,7 @@
 //!    且优先回跳「切离线前用户所在地址」而非一律回首页。
 //! 4. [通知] 离线/恢复/热刷新经系统通知告知(tauri_plugin_notification)。
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use tauri::{Emitter, Manager};
@@ -165,13 +165,38 @@ fn extract_frontend_fingerprint(html: &str) -> Option<String> {
     ok.then(|| seg.to_string())
 }
 
-fn notify(app: &tauri::AppHandle, title: &str, body: &str) {
+/// 系统通知唯一出口(在线/离线/热刷新三条链共用一份版式)。
+/// 2026-10-21 提为 `pub(crate)`(票 L7220 P3):启动健康门判出"半启动"时要经**同一枚**
+/// 出口说话 —— 通知面写第二份就等于给"用户能不能看见这条故障"再立一个会漂移的真相源。
+pub(crate) fn notify(app: &tauri::AppHandle, title: &str, body: &str) {
     let _ = app
         .notification()
         .builder()
         .title(title)
         .body(body)
         .show();
+}
+
+/// 常驻循环停机请求(票 L7220 P3,2026-10-21 立)。
+///
+/// 立因:lib.rs 的启动健康门判出"webview 根本没建出来"那一型时,本模块的循环**已经
+/// 起来了**(或即将起来),而它每轮都在对一个不存在的渲染端做 `eval`/`url()`——那既是
+/// 静默浪费,也是"僵尸进程一直探活"的形态。清理动作没有第二处,只有这里能停。
+///
+/// 形态:单向闩锁,一次启动只跑一个常驻循环 ⇒ 不提供复位。`request_shutdown()` 之后
+/// 循环最多再走完**当前那一轮**(探活是 await 的,不可打断),不会立刻中断在途请求 ——
+/// 这是取舍,不是遗漏:强行打断 reqwest 在途请求换来的收益是零,代价是把"停机"变成
+/// 一个会留半截状态的动作品。
+static RESIDENT_LOOP_SHUTDOWN: AtomicBool = AtomicBool::new(false);
+
+/// 请求常驻循环停机(由 lib.rs 的启动健康门在判定"半启动"后调用)。
+pub(crate) fn request_shutdown() {
+    RESIDENT_LOOP_SHUTDOWN.store(true, Ordering::SeqCst);
+}
+
+/// 常驻循环每一轮开头问一次:该收了吗。
+pub(crate) fn shutdown_requested() -> bool {
+    RESIDENT_LOOP_SHUTDOWN.load(Ordering::SeqCst)
 }
 
 /// 把字符串安全嵌入 JS 表达式(JSON 转义)。
@@ -580,6 +605,13 @@ fn select_probe_client(base: &BackendBase) -> reqwest::Client {
 
 pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
     tauri::async_runtime::spawn(async move {
+        // 停机请求可能**早于**本函数到达(启动健康门排在 auto_refresh::start 之前,
+        // 见 lib.rs 的形状锁用例「健康门排在常驻循环与退出兜底之前」):那时这里已经
+        // 没有存在的理由,一次探活都不该再发。
+        if shutdown_requested() {
+            log::warn!("[auto-refresh] 常驻循环未启动:已收到停机请求(启动健康门判出半启动)");
+            return;
+        }
         // ── 后端基址:单一真源 = main 窗口的 origin(见 BackendBase 头注)──
         // 生产薄壳(aizhs.top)与旧硬编码常量逐字节等价;开发后端联调(localhost:8801)
         // 自动跟随本机后端。⚠ setup 期活 URL 可能还是 about:blank,必须回落配置初始
@@ -666,6 +698,13 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
         let mut pending_reload = false;
 
         loop {
+            // 每轮开头问一次(判据与不可打断在途探活的取舍见 RESIDENT_LOOP_SHUTDOWN 头注)。
+            if shutdown_requested() {
+                log::warn!(
+                    "[auto-refresh] 收到停机请求 → 常驻循环在第 {round} 轮后退出(不再对不存在的渲染端探活/eval)"
+                );
+                return;
+            }
             let now_healthy = probe_health_with_retry(&client, &base.health_url).await;
 
             if !now_healthy {
@@ -1088,6 +1127,23 @@ mod tests {
         // 再次作废后,上一个"新"checkId 也随之变成旧世代
         invalidate_inflight_update_checks();
         assert!(is_stale_update_check(fresh_id));
+    }
+
+    // ── 票 L7220 P3:常驻循环的停机闩锁 ──
+    // 本用例是 RESIDENT_LOOP_SHUTDOWN 唯一的置位者(其余用例一个都不启动常驻循环),
+    // 所以"初值为未请求"这条断言在本测试二进制里成立;若将来有第二处消费或第二处
+    // 置位,这条初值断言会先红,提示"一次启动一枚闩锁"这个前提已经不再成立。
+
+    #[test]
+    fn 停机请求是单向闩锁_置位后循环判据恒真() {
+        assert!(
+            !shutdown_requested(),
+            "初值必须是未请求:否则 `start()` 一进来就 self-return,常驻循环永远不会跑"
+        );
+        request_shutdown();
+        assert!(shutdown_requested(), "置位后循环必须读得到,否则停机是空动作");
+        request_shutdown();
+        assert!(shutdown_requested(), "重复请求必须幂等,不得翻转");
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
