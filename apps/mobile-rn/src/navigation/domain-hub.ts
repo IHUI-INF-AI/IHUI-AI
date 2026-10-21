@@ -7,21 +7,27 @@ import {
   Award,
   BookOpen,
   ClipboardList,
+  Coins,
+  CreditCard,
   Crown,
   FileText,
   GraduationCap,
   Hash,
   LayoutGrid,
   ListChecks,
+  Megaphone,
   MessageCircle,
+  Mic,
   NotebookPen,
+  Package,
   PenLine,
   PlayCircle,
+  Receipt,
   ScrollText,
-  Send,
   ShoppingBag,
   Star,
   Ticket,
+  Users,
   UsersRound,
   Wallet,
 } from 'lucide-react-native'
@@ -109,6 +115,26 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         route: 'Certificate',
         target: { type: 'route', name: 'Certificate' },
       },
+      // 2026-10-21 对齐 web EDU_HUB_ITEMS:/topics /resources /announcements 三项
+      // 此前本域只取了 7 项,话题/资源中心/公告三项 web 有而本域漏挂 ⇒ 补。
+      {
+        labelKey: 'menu.topicList',
+        Icon: Hash,
+        route: 'TopicList',
+        target: { type: 'route', name: 'TopicList' },
+      },
+      {
+        labelKey: 'resources.title',
+        Icon: Package,
+        route: 'Resources',
+        target: { type: 'route', name: 'Resources' },
+      },
+      {
+        labelKey: 'announcement.title',
+        Icon: Megaphone,
+        route: 'Announcement',
+        target: { type: 'route', name: 'Announcement' },
+      },
     ],
   },
   /**
@@ -135,29 +161,27 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         route: 'ArticleList',
         target: { type: 'route', name: 'ArticleList' },
       },
-      {
-        labelKey: 'menu.topicList',
-        Icon: Hash,
-        route: 'TopicList',
-        target: { type: 'route', name: 'TopicList' },
-      },
-      {
-        labelKey: 'menu.noteList',
-        Icon: NotebookPen,
-        route: 'NoteList',
-        target: { type: 'route', name: 'NoteList' },
-      },
-      {
-        labelKey: 'menu.publish',
-        Icon: Send,
-        route: 'Publish',
-        target: { type: 'route', name: 'Publish' },
-      },
+      // 话题 / 笔记(2026-10-21 归位):web 把 /topics 与 /edu/notes 都收在 EDU_HUB_ITEMS
+      // (教育域),edu 域已登记,本域不再重复(同本文件既有"避免 route 重复登记"纪律)。
+      // 多平台发布(2026-10-21 归位):抽屉热门组已登记同一 route,此处不再重复。
       {
         labelKey: 'menu.selfMedia',
         Icon: PenLine,
         route: 'SelfMedia',
         target: { type: 'route', name: 'SelfMedia' },
+      },
+      // 2026-10-21 对齐 web CONTENT_HUB_ITEMS:/tools/voice-stt /groups 两项(此前漏挂)
+      {
+        labelKey: 'voiceStt.title',
+        Icon: Mic,
+        route: 'VoiceStt',
+        target: { type: 'route', name: 'VoiceStt' },
+      },
+      {
+        labelKey: 'groups.title',
+        Icon: Users,
+        route: 'Groups',
+        target: { type: 'route', name: 'Groups' },
       },
     ],
   },
@@ -201,18 +225,45 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         route: 'TaskCenter',
         target: { type: 'route', name: 'TaskCenter' },
       },
+      // 2026-10-21 对齐 web TRADE_HUB_ITEMS + MEMBER_ITEMS:/payment /invoices /activities
+      // /points /invitations 五项此前漏挂(RN 五路由均可无参导航,已核 RootStackParamList)。
+      {
+        labelKey: 'payment.title',
+        Icon: CreditCard,
+        route: 'Payment',
+        target: { type: 'route', name: 'Payment' },
+      },
+      {
+        labelKey: 'invoices.title',
+        Icon: Receipt,
+        route: 'Invoices',
+        target: { type: 'route', name: 'Invoices' },
+      },
+      {
+        labelKey: 'menu.activity',
+        Icon: Megaphone,
+        route: 'Activity',
+        target: { type: 'route', name: 'Activity' },
+      },
+      {
+        labelKey: 'menu.sectionPoints',
+        Icon: Coins,
+        route: 'Points',
+        target: { type: 'route', name: 'Points' },
+      },
+      {
+        labelKey: 'menu.invite',
+        Icon: Users,
+        route: 'Invite',
+        target: { type: 'route', name: 'Invite' },
+      },
     ],
   },
   community: {
     titleKey: 'drawer.groupCommunity',
     Icon: UsersRound,
     items: [
-      {
-        labelKey: 'menu.articleList',
-        Icon: FileText,
-        route: 'ArticleList',
-        target: { type: 'route', name: 'ArticleList' },
-      },
+      // 文章(2026-10-21 归位):content 域已登记同一 route,社群域只留圈子 / 问答。
       {
         labelKey: 'menu.circleIndex',
         Icon: UsersRound,

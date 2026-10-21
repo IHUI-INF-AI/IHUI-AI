@@ -239,8 +239,12 @@ export default function SecurityCenterScreen() {
     ])
   }
 
-  const levelLabel = (level: SecurityScore['level']): string =>
-    t(`securityCenter.score.level_${level}`)
+/** 等级标签走静态映射表(动态拼键 `level_${level}` 会让键集对账看不见这一维) */
+const LEVEL_LABEL_KEY: Record<SecurityScore['level'], string> = {
+  high: 'securityCenter.score.level_high',
+  medium: 'securityCenter.score.level_medium',
+  low: 'securityCenter.score.level_low',
+}
 
   const toneOfScore = score
     ? score.level === 'high'
@@ -270,7 +274,7 @@ export default function SecurityCenterScreen() {
                 <Text style={[styles.scoreValue, { color: toneOfScore }]}>{score.score}</Text>
                 <Text style={styles.scoreMax}>/100</Text>
                 <Text style={[styles.scoreLevel, { color: toneOfScore }]}>
-                  {levelLabel(score.level)}
+                  {t(LEVEL_LABEL_KEY[score.level])}
                 </Text>
               </View>
               <View style={styles.track}>
