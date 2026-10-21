@@ -50,7 +50,7 @@ export interface ModelOption {
   locked?: boolean
   /** 用途分类(2026-08-29 立,后端 model_catalog 产出;决定"这模型是干什么的") */
   category?: ModelUsageCategory
-  /** 代次档位(2026-08-29 立):latest 进默认列表,standard/legacy 收进"历史模型"折叠区 */
+  /** 代次档位(2026-08-29 立):latest/standard 进默认列表,legacy 收进"历史模型"折叠区 */
   tier?: ModelTier
   /** 系列名(如 `deepseek-v`),代次比较用,调试可查 */
   family?: string
@@ -83,8 +83,8 @@ export function filterByCapabilities(
 /**
  * 把模型拆成"默认展示"与"历史模型"两区。
  *
- * 只有「代次=latest 且 用于对话」的进默认列表,其余全部收进历史模型折叠区
- * (历史过时版本 + 嵌入/重排/语音/图像等聊天场景调不通的专用模型)。
+ * 「代次=latest/standard 且 用于对话」的进默认列表,其余全部收进历史模型折叠区
+ * (过时 legacy 版本 + 嵌入/重排/语音/图像等聊天场景调不通的专用模型)。
  * 后端字段缺失时(老后端 / 降级种子数据)一律按"最新对话模型"处理,
  * 宁可多显示也不误藏 —— 避免列表整体空掉。
  */

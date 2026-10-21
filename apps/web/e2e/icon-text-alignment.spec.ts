@@ -184,13 +184,18 @@ test.describe('icon + 文字垂直对齐守门', () => {
     // 2026-08-28:选择器限定 aside#main-sidebar(桌面端)——移动端抽屉 aside
     // (fixed + min-[1024px]:hidden)常驻 DOM 且 nav data-testid 与桌面端相同,
     // 不限定会命中 2 个元素导致 strict mode violation。
+    // 2026-10-21 修正:nav-learn(/learn)与 nav-settings(/settings)在 2026-10-19 P2/P1
+    // 侧边栏收敛中已移出主侧边栏(edu 收进 /domains/edu 域入口、settings 归设置页统一管理),
+    // 不再是 sidebar 顶层 nav 项 ⇒ 旧 testid 命中 0 元素 → "element(s) not found"。
+    // 改用当前仍在主侧边栏的同型项:eduHubTitle(edu 域入口,icon+span)、help(个人组分组的
+    // 顶层项)。重点回归位点 nav-favorites(/favorites)与 nav-myLearning 保持不变。
     const targetItems = [
       'nav-home',
       'nav-chatHistory',
-      'nav-learn',
+      'nav-eduHubTitle', // 取代已移除的 nav-learn(edu 域入口,同型 icon+span)
       'nav-myLearning', // ★ 重点回归位点
       'nav-favorites',
-      'nav-settings',
+      'nav-help', // 取代已移除的 nav-settings(个人组顶层项)
     ]
 
     for (const testid of targetItems) {

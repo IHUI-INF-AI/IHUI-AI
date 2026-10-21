@@ -36,8 +36,9 @@
  * 退出码:0 = 已备份并删除(或分支本就不存在,如实报)· 1 = 备份/删除失败(现场保留)
  *          2 = 参数不成立 / 不在 git 仓内
  */
-import { execFileSync } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const KNOWN_FLAGS = new Set(['--help', '-h', '--force'])
 
@@ -54,13 +55,10 @@ export function buildBackupTagName(branch, sha) {
   return `lost-commit/branch-${sanitizeBranchForTag(branch)}-${String(sha).slice(0, 7)}`
 }
 
-function git(args, opts = {}) {
-  return execFileSync('git', args, {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-    ...opts,
-  })
+function git(args) {
+  // 派生统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio/windowsHide
+  // 由 gitRaw 同源提供;失败抛 Undetermined(message 首行含 git 原话,catch 侧措辞不变)。
+  return gitRaw(args, process.cwd())
 }
 
 function printHelp() {

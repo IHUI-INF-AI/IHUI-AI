@@ -33,7 +33,14 @@ test('parseTap:正常汇总取到计数,并把 not ok 名字提出来', () => {
   assert.deepEqual(p.notOk, [])
   const r = parseTap(RED_TAP)
   assert.equal(r.fail, 1)
-  assert.deepEqual(r.notOk, ['某门判据回归'])
+  // notOk 的形状是 {name, why} 对象(2026-10-21 现读 collectFailures:why 带"为什么红"的截断摘要,
+  // main 汇总直接消费它)。旧断言写的是裸串 —— 那意味着这面镜像与出口形状漂开后没人跑它,
+  // 恰是本 runner 自己被"写了没人跑"打中的实证,形状锁必须钉住。
+  assert.deepEqual(
+    r.notOk.map((x) => x.name),
+    ['某门判据回归'],
+  )
+  assert.equal(typeof r.notOk[0].why, 'string', 'why 缺失 ⇒ main 的失败汇总没有"为什么",只有名字')
 })
 
 test('parseTap(反假绿核心):只有崩溃残迹、没有计数 ⇒ parsed:false,不得当成 0 失败', () => {
@@ -71,6 +78,14 @@ test('discover:只认 *.test.mjs、排序稳定,目录不存在=空集', () => {
     assert.deepEqual(found, ['a.test.mjs', 'b.test.mjs'], '.test.ts 与 helper.mjs 不得入列')
     assert.deepEqual(discover(dir, ['zzz']), [], '过滤后为空必须真是空集')
     assert.deepEqual(discover(join(dir, 'nope')), [], '目录不存在 ⇒ 空集(交给 main 判红)')
+    // deploy\tests 从 2026-10-21 起并入发现面(此前这批部署链行为测试没有任何 runner 跑,
+    // 里面躺着一枚红了很久没人看见的断言)。反证:没有该目录时不得因此报错或漏另一目录。
+    mkdirSync(join(dir, 'deploy', 'tests'), { recursive: true })
+    writeFileSync(join(dir, 'deploy', 'tests', 'z-deploy.test.mjs'), 'export {}\n', 'utf8')
+    const found2 = discover(dir).map((f) => f.split(/[\\/]/).pop())
+    // 排序按**全路径**做:deploy\tests 在字母序上排在 scripts\tests 前面,所以它的条目整体在前。
+    assert.deepEqual(found2, ['z-deploy.test.mjs', 'a.test.mjs', 'b.test.mjs'], 'deploy\\tests 必须并入发现面且全量排序稳定')
+    assert.deepEqual(discover(join(dir, 'nope')), [], '两个目录都不存在仍 ⇒ 空集')
   } finally {
     rmScratch(dir)
   }

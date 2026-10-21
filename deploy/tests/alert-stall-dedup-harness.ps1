@@ -92,11 +92,53 @@ T '8a 未带 -Stall ⇒ stall=false' ($due8.Due -and -not [bool]$st.Map[(Get-Ale
 $cl8 = Clear-AlertStallIdentities -StateFile $tmp
 T '8b 该类不被成功清偿' ($cl8.Cleared -eq 0) "Cleared=$($cl8.Cleared)"
 
+Write-Output '[10] 生产节奏形状:两轮之间隔 23 分钟(> 窗)时,切流类必须升级'
+# 为什么单独立一档:[2] 那档把 lastSend 回拨到 30 秒前,而部署环的真实节奏是"构建 + 门禁 8 轮 ≈ 20 分钟"
+# 外加最小间隔 30 分钟 ⇒ **两轮之间的间隔恒大于 15 分钟的窗**。原实现在这个形状下每轮都"重新起锚",
+# elapsed 永远是 0,escalated 那一支结构上到不了 —— 2026-10-21 11:33 与 11:56 两轮同身份相隔 22.9 分钟,
+# 两轮都写"已连续抑制 0 分钟",45 分钟登录 500 一封都没寄,最后被"成功切流清偿"抹平。
+# 夹具的形状必须与生产的形状相同,否则"用例全绿"与"判据在生产里有牙"是两件事。
+function BackdateWholeGrace([string]$sig, [double]$minutes) {
+    # 把**整段**抑制(锚点与上一轮)一起回拨,模拟"两轮真的隔了 N 分钟"
+    $st = Read-AlertDedupState -StateFile $tmp
+    $k = Get-AlertDedupKey -Sig ('grace:' + $sig)
+    $ts = (Get-Date).AddMinutes(-$minutes).ToString('o')
+    $st.Map[$k].firstTs = $ts
+    $st.Map[$k].lastSend = $ts
+    Write-AlertDedupState -StateFile $tmp -Map $st.Map | Out-Null
+}
+Fresh
+$null = Test-AlertSuppressionGrace -Sig $sigStall -StateFile $tmp -GraceMinutes 15 -Stall
+BackdateWholeGrace $sigStall 23
+$g10 = Test-AlertSuppressionGrace -Sig $sigStall -StateFile $tmp -GraceMinutes 15 -Stall
+T '10a 隔 23 分钟的下一轮 ⇒ 升级,不再抑制' ($g10.Suppressed -eq $false) "Suppressed=$($g10.Suppressed) Decision=$($g10.Decision) Elapsed=$($g10.ElapsedMinutes)"
+T '10b 升级理由里报的是**整段**时长而不是 0' ($g10.ElapsedMinutes -ge 15) "ElapsedMinutes=$($g10.ElapsedMinutes)"
+T '10c 措辞必须是 escalated(不是重新起锚)' ($g10.Decision -eq 'escalated') $g10.Decision
+# 成对反证:非切流类调用方(监控每 5 分钟一轮)保留"隔一个窗 ⇒ 新一轮"的原语义 ——
+# 摘掉这条,上周的旧锚会让今天一次正常 3 分钟换流在第一轮就秒寄(2026-10-10 修过的假阳,不得回潮)。
+Fresh
+$null = Test-AlertSuppressionGrace -Sig 'IHUI-WEB 掉线' -StateFile $tmp -GraceMinutes 15
+BackdateWholeGrace 'IHUI-WEB 掉线' 23
+$g10d = Test-AlertSuppressionGrace -Sig 'IHUI-WEB 掉线' -StateFile $tmp -GraceMinutes 15
+T '10d 非切流类同形状仍按新一轮起锚并抑制(改动不许越界)' ($g10d.Suppressed -and $g10d.Decision -eq 'grace-reopened') "Suppressed=$($g10d.Suppressed) Decision=$($g10d.Decision)"
+# 再一条:切流类成功切流后锚点退休,下一段仍从 0 开始(升级通道不许变成"永远秒寄")
+Fresh
+$null = Test-AlertSuppressionGrace -Sig $sigStall -StateFile $tmp -GraceMinutes 15 -Stall
+$null = Test-AlertDueByIdentity -Sig $sigStall -StateFile $tmp -RepeatHours 4 -Stall
+$null = Clear-AlertStallIdentities -StateFile $tmp
+$g10e = Test-AlertSuppressionGrace -Sig $sigStall -StateFile $tmp -GraceMinutes 15 -Stall
+T '10e 清偿后下一段重新起锚并抑制' ($g10e.Suppressed -and $g10e.Decision -eq 'grace-window') "Suppressed=$($g10e.Suppressed) Decision=$($g10e.Decision)"
+
 Write-Output '[9] 装车锁:调用点必须真的带上 -Stall 与清偿(否则上面全绿也只是模块自己对了)'
 $src = Get-Content (Join-Path $PSScriptRoot '..\win\ihui-deploy.ps1') -Raw
 T '9a 宽限窗调用带 -Stall' ($src -match 'Test-AlertSuppressionGrace[^\r\n]*-Stall') '调用点没标类 ⇒ 锚点永不被清偿'
 T '9b 去重调用把 -Stall 透传' ($src -match 'Test-AlertDueByIdentity[^\r\n]*-Stall:\$Stall') '身份不带类 ⇒ 清偿无对象'
-T '9c Fail 走切流类' ($src -match 'Invoke-FailNotify -m \$m -Stall') 'Fail 未标记 ⇒ 本轮未切流仍无终态'
+T '9c Fail 走切流类(只判属性名与归属行,不判排版)' (@(@($src -split "\r?\n" | Where-Object { $_ -match 'Invoke-FailNotify' -and $_ -match '-m\s+\$m\b' -and $_ -match '-Stall\b' })).Count -ge 1) 'Fail 未标记 ⇒ 本轮未切流仍无终态'
+# ↑ 9c 原先锚的是**逐字排版**(`Invoke-FailNotify -m $m -Stall`)。2026-10-21 实测它因此长期红着:
+# 后来有人在这两个参数之间插入 `-Detail $Detail`(行为完全正确),字面锚不再命中,而它报的是
+# "Fail 未标记"——**指控错了东西**,而且因为本 harness 没人接进测试层(见同目录新增的 .test.mjs),
+# 这枚红持续 nobody-sees。改成按行取属性(不判顺序、不判空格),并配一条反证:
+T '9c-反证 摘掉 -Stall 的同形行必须判 0(证明上面那把扫描有牙,不是换了个恒真)' (@('try { Invoke-FailNotify -m $m -Detail $Detail } catch {}' | Where-Object { $_ -match '-m\s+\$m\b' -and $_ -match '-Stall\b' }).Count -eq 0) '恒真式 ⇒ 9c 是装饰不是锁'
 T '9d 成功切流处真的清偿' ($src -match 'Clear-AlertStallIdentities -StateFile \$AlertNotifyStateFile') '没接线 ⇒ 本票等于没做'
 T '9e 门禁回滚那处也按切流类' ($src -match 'Invoke-FailNotify -Stall -m "健康门禁未过') '回滚=未切流,漏标会继续 4h 重发'
 

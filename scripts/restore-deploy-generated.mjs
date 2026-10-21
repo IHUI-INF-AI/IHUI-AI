@@ -21,10 +21,11 @@
 //   · 只在这两项同时成立时复原被跟踪文件:索引==HEAD(不是别人暂存的活) ∧ 盘上≠HEAD;
 //   · 未跟踪副本只在"上游 tip 已跟踪同名路径"时才让位(否则那是别人在飞的源码,一律 HANDS-OFF);
 //   · 默认 dry-run,`--apply` 才写;合并进行中整轮让路。
-import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, rmSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REGISTRY = join(ROOT, 'scripts', 'data', 'deploy-generated-paths.json')
@@ -32,15 +33,10 @@ const BACKUP_ROOT = process.env.IHUI_DEPLOY_GENERATED_BACKUP || 'D:\\DevEnv\\bac
 
 const git = (args, cwd, allowFail = false) => {
   try {
-    return execFileSync('git', args, {
-      cwd,
-      encoding: 'utf8',
-      windowsHide: true,
-      maxBuffer: 1 << 26,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio 由 gitRaw 同源提供。
+    return gitRaw(args, cwd, { maxBuffer: 1 << 26 })
   } catch (e) {
-    if (allowFail) return `__FAIL__:${String(e.stderr || e.message).slice(0, 160)}`
+    if (allowFail) return `__FAIL__:${String(e?.message ?? e).slice(0, 160)}`
     throw e
   }
 }

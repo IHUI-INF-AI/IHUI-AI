@@ -10,7 +10,8 @@
  * 删除清理。数据自建自删,不依赖外部状态。
  *
  * 运行:cd apps/web && npx playwright test e2e/checkin-phase1d.spec.ts --project=chromium
- * 前置:seed:test-users 已种 test@aizhs.top;8801 dev + 8803 ai-service 在跑。
+ * 前置:seed:test-users 已种 test@aizhs.top;8801 dev 在跑(签到数据面已整栈桩成内存仓,
+ * 不再需要 8803 ai-service —— CI 的 e2e 作业本就不起该服务,见 installCheckinMocks)。
  */
 import { expect } from '@playwright/test'
 import { test } from './fixtures'
@@ -28,12 +29,139 @@ const ACCOUNT_NAME = `E2E走查号-${Date.now() % 100000}`
 const GROUP_A = '主力'
 const GROUP_B = '备用'
 
+/**
+ * 签到数据面的**有状态内存仓**(2026-10-21 立)。
+ *
+ * 根因:next.config 把 /api/checkin/:path* 反代到 ai-service(8803),而 CI 的 e2e 作业
+ * 不起该服务 ⇒ 页面首屏 loadAll() 的 Promise.all 四路 GET(accounts / records /
+ * credits/history / credits/daily)全 500 ⇒ catch 置 loadError ⇒ 渲染的是"加载失败"
+ * 分支,空状态 / 调度徽章 / tab 空态一个都不出现(CI 现读:断言死在
+ * getByText('暂无签到账号,点击右上角添加') 那一行,重试 3 次全同)。
+ * 2026-10-20 只补了 scheduler/status + accounts 两路桩 —— records / credits 两路仍 500,
+ * Promise.all 照旧整体 reject,补桩等于没补。出路:把签到数据面**整栈**桩成内存仓:
+ * 页面所有变更(录入 POST / 分组 PATCH / 删除 DELETE)都以 await loadAll() 收尾,
+ * 仓即持久层,七个用例的跨用例状态(录入 → 筛选 → 改组 → 删除)由仓承载,
+ * 不依赖外部服务、不留脏数据;POST 按 name upsert,重试/复跑幂等。
+ */
+interface MockCheckinAccount {
+  id: number
+  name: string
+  group: string
+  platform: string
+  device_map: Record<string, unknown>
+  enabled: boolean
+  jwt_exp: string | null
+  cooldown_until: string | null
+  created_at: string
+  updated_at: string
+}
+
+const mockStore = { accounts: [] as MockCheckinAccount[], nextId: 1 }
+
+/** 与后端同款:base64 解 JWT payload 取 exp(不验签),解析失败返回 null */
+function jwtExpOf(jwt: string): string | null {
+  const part = jwt.split('.')[1]
+  if (!part) return null
+  try {
+    const payload = JSON.parse(Buffer.from(part, 'base64url').toString('utf8')) as { exp?: number }
+    return typeof payload.exp === 'number' ? new Date(payload.exp * 1000).toISOString() : null
+  } catch {
+    return null
+  }
+}
+
+const jsonOk = (body: unknown) => ({
+  status: 200,
+  contentType: 'application/json',
+  body: JSON.stringify(body),
+})
+
+/** 把签到数据面整栈桩到 page 上(路由按 page 注册,故每个用例装一次;仓是模块级的) */
+async function installCheckinMocks(page: import('@playwright/test').Page): Promise<void> {
+  await page.route('**/api/checkin/scheduler/status', (route) =>
+    route.fulfill(jsonOk({ enabled: true, started: true, next_run: null, next_run_qoder: null })),
+  )
+  await page.route(/\/api\/checkin\/records(\?.*)?$/, (route) =>
+    route.fulfill(jsonOk({ records: [], count: 0 })),
+  )
+  await page.route(/\/api\/checkin\/credits\/history(\?.*)?$/, (route) =>
+    route.fulfill(jsonOk({ history: [], count: 0, total_credits_delta: 0 })),
+  )
+  await page.route(/\/api\/checkin\/credits\/daily(\?.*)?$/, (route) =>
+    route.fulfill(jsonOk({ days: [], series: { total: [], gained: [], consumed: [] } })),
+  )
+  // 行内 mutation:PATCH /accounts/{id}/{group,enabled,name,jwt}
+  await page.route(/\/api\/checkin\/accounts\/\d+\/(group|enabled|name|jwt)$/, (route) => {
+    const url = new URL(route.request().url())
+    const m = /\/api\/checkin\/accounts\/(\d+)\/(group|enabled|name|jwt)$/.exec(url.pathname)
+    const acc = mockStore.accounts.find((a) => String(a.id) === m?.[1])
+    const body = route.request().postDataJSON() as Record<string, unknown>
+    if (acc && m) {
+      if (m[2] === 'group') acc.group = String(body.group ?? '')
+      if (m[2] === 'enabled') acc.enabled = Boolean(body.enabled)
+      if (m[2] === 'name') acc.name = String(body.name ?? acc.name)
+      if (m[2] === 'jwt') acc.jwt_exp = jwtExpOf(String(body.jwt ?? ''))
+      acc.updated_at = new Date().toISOString()
+    }
+    const id = Number(m?.[1] ?? 0)
+    const resp =
+      m?.[2] === 'group'
+        ? { ok: true, id, group: acc?.group ?? '' }
+        : m?.[2] === 'jwt'
+          ? { ok: true, id, jwt_exp: acc?.jwt_exp ?? null }
+          : m?.[2] === 'enabled'
+            ? { ok: true, id, enabled: acc?.enabled ?? true }
+            : { ok: true, id, name: acc?.name ?? '' }
+    route.fulfill(jsonOk(resp))
+  })
+  // DELETE /accounts/{id}(确认对话框删除后回到空状态)
+  await page.route(/\/api\/checkin\/accounts\/\d+$/, (route) => {
+    const url = new URL(route.request().url())
+    const m = /\/api\/checkin\/accounts\/(\d+)$/.exec(url.pathname)
+    mockStore.accounts = mockStore.accounts.filter((a) => String(a.id) !== m?.[1])
+    route.fulfill(jsonOk({ ok: true, id: Number(m?.[1] ?? 0) }))
+  })
+  // 列表(GET)+ 录入(POST,按 name upsert)
+  await page.route(/\/api\/checkin\/accounts(\?.*)?$/, (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON() as {
+        name: string
+        jwt: string
+        device_map?: Record<string, unknown>
+        group?: string
+        platform?: string
+      }
+      const now = new Date().toISOString()
+      const acc: MockCheckinAccount = {
+        id: mockStore.nextId++,
+        name: body.name,
+        group: body.group ?? '',
+        platform: body.platform ?? 'trae',
+        device_map: body.device_map ?? {},
+        enabled: true,
+        jwt_exp: jwtExpOf(body.jwt),
+        cooldown_until: null,
+        created_at: now,
+        updated_at: now,
+      }
+      mockStore.accounts = mockStore.accounts.filter((a) => a.name !== acc.name)
+      mockStore.accounts.push(acc)
+      route.fulfill(jsonOk(acc))
+      return
+    }
+    route.fulfill(jsonOk({ accounts: mockStore.accounts, count: mockStore.accounts.length }))
+  })
+}
+
 let storageStatePath = ''
 
 test.describe.serial('签到助手 · 登录态全流程', () => {
   let apiContext: import('@playwright/test').APIRequestContext
 
   test.beforeAll(async ({ playwright, baseURL }) => {
+    // 仓复位:重试/复跑时七个用例的跨用例状态从"空表"重新起算(模块级仓在同 worker 内不重置)
+    mockStore.accounts = []
+    mockStore.nextId = 1
     // fixture 的 storageState 由 authenticatedPage 惰性建立;这里直接用同一凭据做 API 上下文,
     // 供走查后删除测试账号(幂等清理,不依赖 UI 删除成功)。
     const account = process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top'
@@ -76,47 +204,22 @@ test.describe.serial('签到助手 · 登录态全流程', () => {
     }
   })
 
+  // 签到数据面整栈桩(内存仓 + 各路由)对每个用例装一次 —— 仓与根因释疑见 installCheckinMocks。
+  // 认证不走桩:fixture 的 apiLoginAndSaveStorageState 打真 API(CI 的 e2e 作业起 8802)。
+  test.beforeEach(async ({ authenticatedPage }) => {
+    await installCheckinMocks(authenticatedPage)
+  })
+
   test('页面渲染:标题/调度徽章/头部按钮/空状态全为翻译文案(无裸键)', async ({
     authenticatedPage,
   }) => {
-    // 2026-10-20 根因:CI 的 e2e 作业没有 ai-service(8803)(.github/workflows/e2e.yml 自述),
-    // 而 next.config 把 /api/checkin/:path* 反代到 http://localhost:8803 ⇒ 调度状态接口必 500;
-    // page.tsx 的 getCheckinSchedulerStatus().catch() 静默把 scheduler 留在 null,徽章那一段
-    // ({scheduler && …},page.tsx:1888)根本不渲染 —— 断言在 CI 永远"取不到输入"而非"判出问题"。
-    // 出路:把状态接口桩成 enabled+started。信封不是 house 标准 { code, message, data } 也不是
-    // { success, data } —— fetchAiServiceJson 把 HTTP body 整体塞进 {success:true, data:json}
-    // (packages/api-client/src/client.ts:1210-1213),api-client 的 unwrap() 再把它取出来,
-    // 而 ai-service 那侧 routers/checkin.py:408 直接 return scheduler.status() 裸字典;
-    // 字段名取 @ihui/types 的 CheckinSchedulerStatusResponse(enabled/started/next_run/next_run_qoder)。
-    // 徽章仍有牙:断的仍是 t('schedulerEnabled') 这句翻译文案本身。
-    await authenticatedPage.route('**/api/checkin/scheduler/status', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          enabled: true,
-          started: true,
-          next_run: null,
-          next_run_qoder: null,
-        }),
-      }),
-    )
-    // 2026-10-21 补第二桩:空状态那句 `t('emptyAccounts')` 只在账号列表**真取到空数组**时渲染
-    // (page.tsx:2100);CI 无 8803 ⇒ getCheckinAccounts 走 catch,列表停在未加载态 ⇒ 徽章能过、
-    // 空状态永远不出现(上一轮 CI 现读正是断在这一行)。后端 GET /accounts 返回
-    // { accounts, count }(routers/checkin.py:263-274),这里桩成空表。
-    await authenticatedPage.route(/\/api\/checkin\/accounts(\?.*)?$/, (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ accounts: [], count: 0 }),
-      }),
-    )
+    // 桩的面(为什么是整栈而不是只桩 accounts)见 installCheckinMocks 的根因释疑:
+    // Promise.all 四路任一 500,页面就整体落"加载失败"分支,空状态永不渲染。
     await authenticatedPage.goto('/checkin')
     await expect(authenticatedPage.getByRole('heading', { name: '签到助手' })).toBeVisible()
     await expect(authenticatedPage.getByRole('button', { name: '一键全部签到' })).toBeVisible()
     await expect(authenticatedPage.getByRole('button', { name: '添加账号' })).toBeVisible()
-    // 调度徽章(状态接口已在上面桩成 enabled+started;CI 无 8803,真接口必然 500)
+    // 调度徽章(仓桩 enabled+started)
     await expect(authenticatedPage.getByText('自动签到已开启')).toBeVisible()
     // 空状态 + 无裸 i18n 键
     await expect(authenticatedPage.getByText('暂无签到账号，点击右上角添加')).toBeVisible()
