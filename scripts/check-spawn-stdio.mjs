@@ -673,6 +673,15 @@ export function classify(call, pipeRequired) {
   if (call.eats) return { verdict: 'skip-eats-stdin' }
   // 第 3 层:判据要求保持 pipe 的注册位
   if (pipeRequired) return { verdict: 'skip-pipe-required' }
+  // 第 3.5 层(2026-10-21 立):exec / execSync 两族的 options 类型(ExecOptions /
+  // ExecSyncOptions)**结构上没有 stdio 字段** —— @types/node 的刻意约束:这两族经
+  // cmd.exe/sh 的派生由 Node 内部固定管道化管理,配置面就不暴露 stdio。给它们"补 stdio"
+  // 连 TS 都过不去:实测 apps/cli/src/commands/hooks-auto.ts 给 exec 加 stdio ⇒
+  // 四个 overload 全失败("stdio does not exist in type ExecOptions"),回调参数
+  // 随之隐式 any ⇒ apps/cli CI Build 红(exit 2)。⇒ "缺 stdio"判据对这两族不适用,
+  // 硬判就是逼人写编译不过的代码。两族的 shell 面孔由 stdin 面判据(EATS_STDIN /
+  // isStringCommand)另行管理,本层只管 stdio 维度。
+  if (call.fn === 'exec' || call.fn === 'execSync') return { verdict: 'skip-exec-no-stdio-option' }
   if (call.stdio === null) return { verdict: 'missing' }
   // 值是变量/三元/函数返回(键在)⇒ 作者已处理,不判红
   if (call.stdio === 'expr') return { verdict: 'ok' }
@@ -788,9 +797,11 @@ const SELFTEST_PASS = [
     'none',
   ],
   [
-    '真导入的 exec 照常认',
+    // 2026-10-21:exec 族出 stdio 维度射程(ExecOptions 无 stdio 字段),
+    // 结论从 missing 改判 skip-exec-no-stdio-option
+    '真导入的 exec 照常认(exec 族出射程 ⇒ skip)',
     "import { exec } from 'node:child_process'\nconst a = exec('ls')",
-    'missing',
+    'skip-exec-no-stdio-option',
   ],
   // 下面两条钉"调用后才写 stdin"这一族(2026-10-04 执行 agent 实测 5 处:
   // ACP JSON-RPC over stdio / StreamMessageWriter(child.stdin) / sendStdioRpc(proc)，
@@ -808,9 +819,12 @@ const SELFTEST_PASS = [
   // CJS 解构导入也是"真导入"(2026-10-04:首版只认 ESM ⇒ CJS 文件整体被判成"没导入"，
   // 整文件缺口被静默放过)
   [
-    'CJS require 导入 ⇒照常认',
+    // 2026-10-21:exec/execSync 族的 options 类型结构上没有 stdio 字段
+    // (ExecOptions/ExecSyncOptions 见 @types/node),本族整体出 stdio 维度射程,
+    // 结论从 missing 改判 skip-exec-no-stdio-option(历史:2026-10-04 起判 missing)
+    'CJS require 导入 ⇒照常认(execSync 族出射程 ⇒ skip)',
     "const { execSync } = require('node:child_process')\nconst a = execSync('git rev-parse')",
-    'missing',
+    'skip-exec-no-stdio-option',
   ],
   [
     'CJS 解构改名 ⇒ 认改后的名',
@@ -922,6 +936,19 @@ const SELFTEST_PASS = [
     '牙:spread 后显式 stdio: \'pipe\' ⇒ 显式赢(pipe-both,不被 spread 洗绿)',
     'const spawnOpts = { stdio: ["ignore","pipe","pipe"] }\nconst r = spawnSync("git", ["x"], { ...spawnOpts, stdio: "pipe" })',
     'pipe-both',
+  ],
+  // 下面两条钉 2026-10-21 第三轮补的 exec 族排除:exec / execSync 的 options 类型
+  // (ExecOptions / ExecSyncOptions)结构上没有 stdio 字段,给它们补 stdio 连 TS 都过不去
+  // (实测 hooks-auto.ts 之坑:四个 overload 全失败 + 回调参数隐式 any ⇒ apps/cli CI Build 红)。
+  [
+    'exec 的 options 类型没有 stdio 字段 ⇒ 不判缺 stdio(硬判=逼人写编译不过的代码)',
+    "import { exec } from 'node:child_process'\nconst r = exec(GIT, { cwd: R })",
+    'skip-exec-no-stdio-option',
+  ],
+  [
+    'execSync 同理(ExecSyncOptions 亦无 stdio 字段)⇒ 不判',
+    "import { execSync } from 'node:child_process'\nconst r = execSync(GIT, { cwd: R })",
+    'skip-exec-no-stdio-option',
   ],
   // 下面这条钉"数组 + .join() 合成面"的真实形态(2026-10-04 执行 agent 实测 1 处):
   // 数组是**某个函数调用的实参**,后面才 `.join('\n')` —— 前面先撞到的是那个 `(` 而非 `[`。
