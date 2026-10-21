@@ -31,15 +31,26 @@ import { pathToFileURL, fileURLToPath } from 'node:url'
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const TEST_DIR_REL = join('scripts', 'tests')
+/**
+ * deploy\tests 也是同一性质(部署链行为验证,harness 包装成 .test.mjs),2026-10-21 起并入发现面。
+ * 立因(现读,不是推测):这批 .test.mjs 此前**没有任何 runner 跑** —— CI 只逐名点 8 个
+ * scripts/tests 文件、`--test scripts/tests` 只扫一个目录 ⇒ alert-stall-dedup-harness 里那条
+ * 9c 从"有人往两个参数之间插进 -Detail"那天起一直红,而它报的"Fail 未标记"根本没人看见;
+ * 同目录 71 条用例里还躺着一枚真红(deploy-online.ps1 的第二份根解析)。测试写了不跑 = 没写。
+ */
+export const TEST_DIRS_REL = [TEST_DIR_REL, join('deploy', 'tests')]
 
 /** 发现测试文件(绝对路径)。`filters` 为文件名子串白名单,空数组=全量。 */
 export function discover(rootDir = ROOT, filters = []) {
-  const dir = join(rootDir, TEST_DIR_REL)
-  if (!existsSync(dir)) return []
-  let files = readdirSync(dir)
-    .filter((f) => f.endsWith('.test.mjs'))
-    .sort()
-    .map((f) => join(dir, f))
+  let files = []
+  for (const rel of TEST_DIRS_REL) {
+    const dir = join(rootDir, rel)
+    if (!existsSync(dir)) continue
+    for (const f of readdirSync(dir)) {
+      if (f.endsWith('.test.mjs')) files.push(join(dir, f))
+    }
+  }
+  files.sort()
   if (filters.length) files = files.filter((f) => filters.some((k) => f.includes(k)))
   return files
 }
@@ -169,7 +180,7 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
   }
   if (!files.length) {
     console.log(
-      `❌ 没发现任何测试文件(${join(rootDir, TEST_DIR_REL)}${filters.length ? ' / -- 过滤后为空' : ''})`,
+      `❌ 没发现任何测试文件(${TEST_DIRS_REL.map((rel) => join(rootDir, rel)).join(' + ')}${filters.length ? ' / -- 过滤后为空' : ''})`,
     )
     return 1
   }
