@@ -652,7 +652,7 @@ const TOKEN_SYNC_TARGETS = [
   },
 ]
 
-if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   try {
     const stagedForTokens = execSync('git diff --cached --name-only --diff-filter=ACMR', {
       encoding: 'utf8',
@@ -1218,7 +1218,7 @@ if (
 // 性能:web + ui-react 全量扫描 ~3.5s,放在 pre-commit 末尾不影响前置检查流。
 // 实现细节:脚本无 --exit 1 参数,只有 --strict 模式命中 exit 1;pre-commit 用 try/catch
 //      接住 --strict 的 exit 1,转为 warn(不阻塞 commit),1 周后(2026-08-04)评估升级 strict 阻塞。
-if (process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
   try {
     execSync('node scripts/check-shrinkable-text-button.mjs --strict', {
       stdio: 'inherit',
@@ -1247,7 +1247,7 @@ if (process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
 //   `--staged` ⇒ 7 份输入同一次 cat-file --batch 取自索引 blob;面上取不到 ⇒ exit 2「未判定」。
 // 阻断条件:1) SiteFooter 关键 class 缺失;2) ECOSYSTEM_GROUPS 不是 5 分组;
 //         3) 5 语言 footer 命名空间任一 key 缺失或为空。
-if (process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
   if (
     !run(
       '🦶 SiteFooter 守门(防 v10/v11 回退, 5 语言 i18n + 关键 class, 2026-07-30 立;判定面=索引 blob)...',
@@ -1271,7 +1271,7 @@ if (process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
 //      ("弹层位置漂移/点击没反应")。规则早已写入 AGENTS.md 但无守门,
 //      本脚本把文档规则升级为强制门禁。
 // 跳过方法(紧急):HUSKY_SKIP_PORTAL_GUARD=1 git commit ...
-if (process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
   if (
     !run(
       '🚪 createPortal 定位守门(portal 容器必显式 position:fixed, 2026-09-07 立)...',
@@ -1293,7 +1293,7 @@ if (process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
 //      <Button> 禁止 className h-*/w-* 覆盖 + size 值必须 ∈ 档位表。
 //      豁免:原生 <button>(IDE 面板 24px 紧凑档有意设计)、Input/SelectTrigger/Skeleton。
 // 跳过方法(紧急):HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1 git commit ...
-if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
   if (
     !run(
       '📏 Button 高度/宽度覆盖守门(必须走 size 档位, 2026-09-07 立)...',
@@ -1314,7 +1314,7 @@ if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
 //      2026-09-13 生产实测确认 `Bearer sk_...` 必 401,而当时 8 个 UI 页面/文档把 Bearer 写成
 //      `sk-xxx`,新用户照抄文档接入必然失败。本守门防止回潮。
 // 跳过方法(紧急):HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD=1 git commit ...
-if (process.env.HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD !== '1') {
   if (
     !run(
       '🔑 凭据前缀一致性守门(Bearer 只能用 ihui_xxx, 2026-09-13 立)...',
@@ -1358,7 +1358,7 @@ if (process.env.HUSKY_SKIP_PWSH_VERSION_GUARD !== '1') {
 //      agent-engine.ts)+ Python 编程编排层(packages/sdk/python/ihui_ai/agent_engine.py)。
 //      单边改名会让第三方调用方到运行时才炸,故三方静态对齐后才允许提交。
 // 跳过方法(紧急):HUSKY_SKIP_AGENT_ENGINE_PARITY=1 git commit ...
-if (process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
   if (
     !run(
       '🔌 Agent Engine 协议 parity 守门(引擎 handler 表 ↔ TS ↔ Python)...',
@@ -1383,7 +1383,7 @@ if (process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
 //      切面(_DELEGATE_ONLY_TOOLS / _TOOL_ALIASES / _FS_DEPENDENT_TOOLS)任何一侧
 //      单边改名前 llm.py 与三个事实源必须对得上,否则漂移在提交时即被拦下。
 // 跳过方法(紧急):HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY=1 git commit ...
-if (process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
   if (
     !run(
       '🔧 工具注册表完整性守门(工具可达面 ↔ 本地注册表 ↔ 前端委托实现)...',
@@ -1412,7 +1412,7 @@ if (process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
 // 判定面(2026-09-28 收口):批外 blocking,旧形态把 apps/ai-service/app 下全部 .py 按**磁盘**读
 //   ⇒ 别人一个未暂存、还没登记进台账的默认关 env 就把无关提交钉红(§12e/§12f)。
 //   `--staged` ⇒ 清单与内容同面同轮取自索引 blob;取不到 ⇒ exit 2「未判定」,不回退磁盘。
-if (process.env.HUSKY_SKIP_CAPABILITY_MATRIX !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_CAPABILITY_MATRIX !== '1') {
   if (
     !run(
       '📋 能力矩阵对账守门(默认关 env 必须登记台账;判定面=索引 blob)...',
@@ -1439,7 +1439,7 @@ if (process.env.HUSKY_SKIP_CAPABILITY_MATRIX !== '1') {
 //      本守门把「Rust emit ⊆ 桥接 listen ⊆ 桥接 case ⊆ 前端消费方」升级为强制门禁,
 //      任一层断裂即阻断,防止"点了没反应"再次静默上线。
 // 跳过方法(紧急):HUSKY_SKIP_DESKTOP_EVENT_WIRING=1 git commit ...
-if (process.env.HUSKY_SKIP_DESKTOP_EVENT_WIRING !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_DESKTOP_EVENT_WIRING !== '1') {
   if (
     !run(
       '🖥️ 桌面端事件链路接线守门(Rust emit → 桥接 → 前端消费方, 2026-09-22 立)...',
