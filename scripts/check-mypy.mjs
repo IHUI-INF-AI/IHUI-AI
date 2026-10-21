@@ -610,6 +610,9 @@ function spawnMypy(exe, args, cwd, timeout) {
   return spawnSync(exe, args, {
     cwd,
     encoding: 'utf8',
+    // 同族口径:Python 系子进程在 Windows 上默认按 ANSI 码页写管道 ⇒ 含中文的路径/报错会乱码。
+    // mypy 的输出会进 `reasons` 与判定分支,故显式钉死 UTF-8。
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
     shell: !isAbsolute(exe),
     windowsHide: true, // AGENTS §5b:缺它必弹可见 cmd 窗口
     timeout,

@@ -273,6 +273,44 @@ export function callSpan(src, openIdx) {
 }
 
 /**
+ * 判 `src[slashIdx]` 这个 `/` 是**正则字面量起点**还是除号。
+ *
+ * 立论(2026-10-21,门 193 判红 2 处的根因):`markHidden` 原先只认注释与三种引号,
+ * **不认正则字面量**。于是 `importedCallNames()` 的 ESM 匹配式
+ *   /import\s*\{([^}]*)\}\s*from\s*['"]node:child_process['"]/g
+ * 里字符类 `['"]` 的引号被当成字符串引号:第一个 `'` 配到字符类里第二个 `'`,
+ * 剩下的 `"` 只好**跨行贪婪**找配对 —— 一路吞到 240 行外的自检夹具,
+ * 把 `check-spawn-stdio.mjs` L700/L765 两条例行(自检夹具的**字符串字面量**)
+ * 判成真调用。台账豁免(2026-10-20 到期)只是把病灶盖住,盖完到期复红。
+ * 2026-10-21 实测定位:污染起点 L477(反向行首切点扫描,见当日取证记录)。
+ *
+ * 判据**只认"确定不是除号"的位置**(保守方向:认不出来就当除号,退回旧行为):
+ *  · 前一非空白字符 ∈ `= ( , [ ! & | ? : ; {` ⇒ 正则(这些位置不可能出现除号)
+ *  · 行首(前面只有空白/换行)               ⇒ 正则
+ *  · 前一有效 token 是 return/typeof/case/in/of/void/delete ⇒ 正则
+ *  · 其余(`) ] }`、标识符、数字、引号、`+ - * % < >` 之后)一律除号 ——
+ *    `arr[i] / 2`、`foo() / 2`、`x / 2`、`1 / 2` 这些真实除号形态全落在这一格。
+ *
+ * ⚠️ 为什么不敢把 `}` 也算正则位:`{}/re/` 语法上成立但本仓不存在;
+ *    而 `function f() {} / 2` 被误认就会把 `}` 后的真代码掩掉 ⇒ 漏掩(假绿)。
+ *    假绿比假红更坏(红会被看见,绿不会),所以边界一律往"不当正则"倒。
+ */
+function regexStartsAt(src, slashIdx) {
+  let j = slashIdx - 1
+  while (j >= 0 && (src[j] === ' ' || src[j] === '\t')) j--
+  if (j < 0 || src[j] === '\n') return true
+  const c = src[j]
+  if ('=([!&|?:;{'.includes(c)) return true
+  if (/[\w$)\]'"`]/.test(c)) {
+    const kw = new RegExp('(?:^|[^$\\w])(return|typeof|case|in|of|void|delete)\\s*$').exec(
+      src.slice(Math.max(0, j - 24), j + 1),
+    )
+    return !!kw
+  }
+  return false
+}
+
+/**
  * 标记"落在注释或字符串字面量里"的字节位置(1=隐藏)。
  *
  * 形态复制自 `check-git-read-timeout.mjs:214`,**刻意不 import**(同上,塌陷隔离)。
@@ -302,6 +340,45 @@ export function markHidden(src) {
       while (i < n && !(src[i] === '*' && src[i + 1] === '/')) i++
       hide(s, i + 2)
       i += 2
+      continue
+    }
+    if (c === '/' && regexStartsAt(src, i)) {
+      // 正则字面量:掩到结束 `/`(含 g/i/m/s/u/y 标志)。**字符类 `[...]` 里的 `/` 不结束**
+      // (L477 病灶正是字符类 `['"]` 里的引号被当成字符串引号);`\` 转义的下一字符不参与判定。
+      // **不跨行**:JS 正则除续行外不能跨行,遇到 `\n` 说明这个 `/` 其实是除号(启发式认错了)
+      // ⇒ 不掩,已前进的 i 保证不死循环,漏掩回到旧行为(安全方向)。
+      const s = i
+      i++
+      let inClass = false
+      let closed = false
+      while (i < n) {
+        const d = src[i]
+        if (d === '\\') {
+          i += 2
+          continue
+        }
+        if (d === '\n') break
+        if (inClass) {
+          if (d === ']') inClass = false
+          i++
+          continue
+        }
+        if (d === '[') {
+          inClass = true
+          i++
+          continue
+        }
+        if (d === '/') {
+          i++
+          closed = true
+          break
+        }
+        i++
+      }
+      if (closed) {
+        while (i < n && /[a-zA-Z]/.test(src[i])) i++
+        hide(s, i)
+      }
       continue
     }
     if (c === '"' || c === "'" || c === '`') {
@@ -1292,6 +1369,47 @@ function selfTest() {
       `const a = ${EF}(${S_GIT}, ['ls-files'], { encoding: 'utf8' /* ${S_STDIO}: ['pipe'] */ })`,
     )
     if (v.verdict !== 'noStdio') throw new Error(`注释里的 ${S_STDIO} 被误当属性:${v.verdict}`)
+  })
+  // ── 2026-10-21 根因回归:markHidden 原先不认正则字面量,L477 的 ESM 匹配式
+  //    /import\s*\{([^}]*)\}\s*from\s*['"]node:child_process['"]/g 里字符类 ['"] 的引号
+  //    被当成字符串引号 ⇒ 跨行贪婪配对错位,把 240 行外自检夹具里的 execFileSync 判成真调用
+  //    ⇒ 门 193 判红 2 处(check-spawn-stdio.mjs L700/L765),台账豁免到期后复红阻塞 push。
+  t('正则字符类里的引号不得跨行吞掉后续夹具(L477 病灶同型)', () => {
+    const src = [
+      `const FN = '(?:execFileSync|execSync)'`,
+      `for (const m of src.matchAll(/import\\s*\\{([^}]*)\\}\\s*from\\s*['"]node:child_process['"]/g)) {`,
+      `  found = true`,
+      `}`,
+      `const fixture = "execFileSync('git', ['x'])"`,
+      `const ok = "const a = execFileSync('git', ['x'], { stdio: ['ignore','pipe','pipe'] })"`,
+    ].join('\n')
+    const r = scanSource(src)
+    if (r.misses.length !== 0) throw new Error(`正则字符类引号引发跨行错位:${JSON.stringify(r.misses)}`)
+  })
+  t('牙:同一形态里放一个真裸调用,仍判红(证明上一条不是恒绿)', () => {
+    const src = [
+      `for (const m of src.matchAll(/import\\s*\\{([^}]*)\\}\\s*from\\s*['"]node:child_process['"]/g)) {`,
+      `  found = true`,
+      `}`,
+      `execFileSync(GIT, ['ls-files'], { encoding: 'utf8' })`,
+    ].join('\n')
+    if (scanSource(src).misses.length !== 1) throw new Error('真裸调用被正则分支洗绿')
+  })
+  t('牙:除号形态不得被正则分支吞掉后续字符串(漏掩方向也不许假绿)', () => {
+    const src = [
+      `const total = 10`,
+      `const half = total / 2 / 5`,
+      `const s = "execFileSync('git', ['x'])"`,
+    ].join('\n')
+    const r = scanSource(src)
+    if (r.misses.length !== 0) throw new Error(`除号被误认成正则并吞掉字符串:${JSON.stringify(r.misses)}`)
+  })
+  t('markHidden 直判:正则整体被掩且不越过换行,后续字符串仍按自身引号配对', () => {
+    const src = `const re = /['"]node:child_process['"]/g\nconst s = 'tail'`
+    const h = markHidden(src)
+    if (!h[src.indexOf('/[')]) throw new Error('正则字面量起始未被掩')
+    if (!h[src.indexOf("'tail'")]) throw new Error('正则后的字符串未被正确掩 ⇒ 跨行错位仍在')
+    if (h[src.indexOf('\\n')]) throw new Error('正则掩过了换行 ⇒ hide 越界')
   })
   t('设计命门:prettier 折行不改判据(合规单行 vs 合规多行,结论相同)', () => {
     const oneLine = `const a = ${EF}(${S_GIT}, ['ls-files'], ${S_OK})`
