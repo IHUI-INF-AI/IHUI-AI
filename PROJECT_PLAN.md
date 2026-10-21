@@ -28856,3 +28856,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - 本轮入库三枚(全量 40 位,不用短 sha):`bb494eba53c9844c5d82e89efd5f7b2d3650aac5` 补 api 侧 IP 白名单与 agent 护栏配置的读写面(整条要登录、只存不拦,含 15 例用例与"路由字面量逐字等于 web 调用点"对账);`cd57f5d3d38b9bbe4a762b4eb3106abdac538abe` 把 RN 关于页照 web 的 AboutContent 补齐六段并保留 7 条合规入口(about.* 42 键 × 5 语言按行插入,合规取词改走既有 menu.*);`ef7cc1697a02866d181242013ff8fc87fcb47305` 门户补 /settings/billing 与 /knowledge 两条(13 组 91 条,两端同表)+ 记忆详情按用户定档走 WebView 承载(共享记忆屏加可选 onOpenDetail,URL 形状住在同源 buildMemoryDetailUrl)。
 - 待拍板(不是待办,不占派单额度):IP 白名单的**生效链**挂哪一层。现读事实 —— 全仓 20 个"产生新登录会话"的签发点散在 6 个文件,三条 buildTokenPair helper 都不接 request,而登录前 request.userId 尚未注入 ⇒ `recordSecurityEvent` 的无主早退使"被拒事件"写不进 security_logs;只接一层会漏腿(passkey / MFA 不走统一签发出口),接全部会让换网用户当场掉线。agent 护栏进审批判定的接线点由 `apps/ai-service/app/core/exec_policy_decision.py` 头注自述留给 lead 定档。两面的存储与用例已实装。
 - §9 平台独占豁免登记:本轮触及 apps/api、packages/app、packages/shared、apps/mobile-rn、apps/miniapp-taro(门户同源 + 离线语言包/四端 ui-routes 派生件同批)与 packages/i18n/{mobile-rn,miniapp-taro};desktop / extension / cli / miniapp 无对等契约改动需求(门户清单与记忆屏共享组件的唯一消费端就是 RN 与小程序,已同批)。
+
+## 2026-10-21 下午 RN↔web 对齐第二轮(生效链 + 三端半截收口;6 枚已入库,取证面=HEAD blob)
+
+- 已入库:`1cd867fbf8008b9cf14f8a6a4e4d7a7b2924a00f` 之前的同一串共 6 枚 —— api 侧把 IP 白名单从"只存不拦"接成真链(18 条新登录腿 + 覆盖率机器守 + `security_logs` 被拒事件)、RN 安全中心接上白名单管理面、ai-service 五项护栏改按登录主体生效(硬门与全局 kill switch 不吃用户档)、小程序关于页补齐成与 web/RN 同构、删掉 PDF print/sign 两条零消费方的假 pending 端点并同步摘除 openapi 两条 path、README 同轮登记。
+- 新派单(web i18n 质量,可动手):`packages/i18n/messages/web/{ja,ko}.json` 的机翻坏文不止 `settings.ip` 一处 —— 本枚只按位置修掉 settings.ip 那一块(证据:同一条坏值 `コンテンツはまだありません。おしみに` 在 ja 全文仍出现 16 次,原本 17 次)。出路=沿用本枚那把"按顶层命名空间块定位 + 断言坏值出现次数只减本块那一次"的尺子逐块清,清完跑 ko/ja/zh-TW 三语纯度与五语 parity 门。〔2026-10-21 登记〕
