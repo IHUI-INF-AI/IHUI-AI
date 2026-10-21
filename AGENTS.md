@@ -333,7 +333,7 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - 原速查整区(约 800 行超长登记)已逐字归档于 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`;此处只留:门 89 本体 + 横向口径 + 全部门名点名索引(R4 义务:每道已接线门必须在本文或 README 可见)。**mode/blocking、skipEnv、编号一律以 `scripts/guardian-runner.mjs` 注册条目现值为准**。
 - **手动全量**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式)/不带为全量;失败不中断,跑完汇总再 exit 1(子门 exit 75 中断仍立即传播;`GUARDIAN_STOP_ON_FIRST=1` 恢复 fail-fast)。
 
-- **文档体积对账(207 `check-agents-doc-size.mjs`,warn 起步)**:AGENTS.md 逐字注入每一轮对话,预算 50KB(出处 = `check-project-plan-size.mjs` 头注的 2026-07-19 档,不得另拍新数);超预算的唯一出路 = 按 §1 两步归档把守门历史/取证叙述/重复登记副本整区移入 `.ihui-agent/archive/`,原位置留指针注记。**升 blocking 的前置 = HEAD 面存量归零(§12e),现在还没到 —— 定级以 runner 注册条目现值为准,门体头注与注册条目必须同值**。
+<!-- 207 的旧档原文(warn 起步 / 预算 50KB)已逐字移入 .ihui-agent/archive/AGENTS_trim-2026-10-20.md;现行口径见下行定档更正 -->
 - **〔定档更正@2026-10-14,取代上一条的阈值与定级;上一条原文按台账规矩逐字留档,只作改判留痕读,不得当口径引用〕**:跨机合并裁定后保留的是远端那份实现 —— 守门 207 = **blocking**,预算 **96,000 字节**;这个数的出处是本机同一份会话日志 `usage.context_usage_ratio` 的实测锚点(1,261,607 B ⇒ ratio 1.000,新会话第 1 轮没有任何历史就被自动压缩;每字节贡献近似线性 ⇒ 96KB ≈ 7.6%),**不是**上一条写的"50KB / 取台账既有档 / warn 起步"。阈值、定级、现值一律以门体头注与 runner 注册条目现值为准(§0.1 凡数字现读),本文不当销账本。
 
 - **守门接线层对账**(89): `scripts/check-gate-wiring.mjs`(blocking)—— 全部守门的"装车检":**R1/R2** 头注或文档声称已接而五处权威点(`guardian-runner` ∪ `scripts/lib/pre-commit-hook.js` ∪ `.husky/*` ∪ 根 `package.json` ∪ `.github/workflows`+cert)零命中 ⇒ 拦;**R4** 已接线而 AGENTS.md/README.md 通篇未点名 ⇒ 拦(去后缀同名即算,文档面按 HEAD∪索引判,绝不读工作区);**R5** 同 id 登记两门 ⇒ 拦;**R7** dispatcher 依据文件不存在 ⇒ 拦;**R8** `stagedTriggers` 会让 `guardian-triggers.mjs` 当场抛错 ⇒ 拦。R3/R6/弱接线只报数。台账 `scripts/gate-wiring-allowlist.json` 只救 R3。
@@ -358,7 +358,6 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 
 <!-- 守门门名索引补漏:以下名称同样受 R4 点名义务覆盖,若上面分组有遗漏以此行兜底: check-adapter-style-parity check-ai-panel-mount-guards check-enum-default-widening check-guardian-review-wired check-load-state-loaded-marks check-sequence-lag check-sse-frame-watermark check-txn-cancel-boundary check-upload-budget check-virtualization-coverage check-dangling-local-imports check-stale-stashes -->
 
-> **本文件为 2026-10-14 压缩版**:规则条款全部保留;历史叙述、失效原文残留、重复登记副本与超长守门登记整区逐字归档于 `.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`(出处 HEAD `c7834a8f0388aa006ca746cb1cc4a3006336c23d`,1,261,607 字节)。本文与归档原文冲突时以本文为准;本文未写的历史案例按归档件查。
 
 - 守门 30a `check-commit-loss-guard.mjs`(blocking):reflog 50 步 + 远端 tag 校验 + tag 可达性 + **悬空 commit 30 天窗维**(2026-10-11 立:近 30 天内新产生且无 `lost-commit/*` 备份的悬空 commit 阻塞,须先 `git tag lost-commit/<name> <hash>` 再 commit;超窗只报数 = §29 人工 GC 存量;时刻读不到 ⇒ 保守算窗内照拦;`--window-days 0` 回全量语义,`--strict` 问责存量)。tag 自动同步 + 全命名空间一致性校验:`sync-lost-commit-tags.mjs`(2026-10-14 起 `--check` 比**名字 + SHA**、覆盖全部命名空间:仅本地 / 同名 SHA 分歧 / 备份族(`lost-commit/`、`backup/` 前缀加斜杠)仅远端 ⇒ exit 1,非备份族仅远端只告警——自治理仓 CI 持续造 `nightly-*`,判红即恒红门;本脚本不在提交链注册表,post-commit 只跑 `--auto-push`);永久档案 `docs/lost-commit-archive.md`。
   - 聚焦反馈这一维(票 G-42 第①格,runner 条目 id 212,2026-10-15):描边的输入/选择控件必须对聚焦有反应,三端同一把尺子;存量按该文件 HEAD 自身棘轮只报数,取证窗只取元素自己的属性区。
