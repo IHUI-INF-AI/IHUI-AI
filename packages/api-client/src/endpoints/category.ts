@@ -2,9 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { ApiResult } from '@ihui/types'
-import { fetchApi } from '../client.js'
-import { buildQs } from '../utils.js'
 import { getCategories as getSystemCategories } from './system.js'
 import { getCategories as getCourseCategories } from './course.js'
 
@@ -57,20 +54,12 @@ export async function getAllCategories(
   return result
 }
 
-export async function getCategoryTreeByType(
-  type: CategoryType,
-  forceRefresh = false,
-): Promise<ApiResult<CategoryNode[]>> {
-  const cached = cache.get(type)
-  if (!forceRefresh && cached && Date.now() - cached.ts < CACHE_TTL) {
-    return { success: true, data: cached.data } as ApiResult<CategoryNode[]>
-  }
-  const res = await fetchApi<CategoryNode[]>(`/api/categories/tree${buildQs({ type })}`)
-  if (res.success && res.data) {
-    cache.set(type, { data: res.data, ts: Date.now() })
-  }
-  return res
-}
+// 死调用清账(2026-10-21): getCategoryTreeByType 打的 GET /api/categories/tree
+// 在服务端**从未注册**(apps/api 全仓零路由,近邻只有 /api/asks/categories/tree
+// 与带 type 查询参数的 GET /api/categories —— 后者才是 getAllCategories 走的活路),
+// 调用必 404;全仓消费方也是零。按「只留打已注册端点的函数」删除,不要看着没有再加回来 ——
+// 要恢复先在 apps/api 注册 /categories/tree 并补路由测试。
+// getAllCategories 打的 GET /api/learn/categories + GET /api/categories?type= 均已注册,链路是活的。
 
 export function clearCategoryCache(type?: CategoryType): void {
   if (type) {
