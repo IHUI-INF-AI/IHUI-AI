@@ -16,7 +16,8 @@ import { Button } from '@ihui/ui-react'
 import { ProductFilter } from './ProductFilter'
 import { ProductTable } from './ProductTable'
 import { ProductDialog } from './ProductDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, fetchProducts, productToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE, EMPTY_FORM, fetchProducts, productToForm } from './helpers'
 import type { Product, ProductForm, ResourcesData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -43,7 +44,8 @@ export default function AdminResourceProductsPage() {
 
   const { data: resourcesData } = useQuery({
     queryKey: ['admin', 'resources', 'list', 'all'],
-    queryFn: () => api<ResourcesData>(`/api/admin/resources?page=1&pageSize=100`).then((d) => d),
+    queryFn: () =>
+      apiOrThrow<ResourcesData>(`/api/admin/resources?page=1&pageSize=100`).then((d) => d),
   })
   const resources = resourcesData?.list ?? []
 
@@ -64,12 +66,12 @@ export default function AdminResourceProductsPage() {
         sort: Number(form.sort) || 0,
       }
       if (editing) {
-        return api<{ product: Product }>(`/api/admin/resources/products/${editing.id}`, {
+        return apiOrThrow<{ product: Product }>(`/api/admin/resources/products/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api<{ product: Product }>(`/api/admin/resources/products`, {
+      return apiOrThrow<{ product: Product }>(`/api/admin/resources/products`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -83,7 +85,8 @@ export default function AdminResourceProductsPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/resources/products/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/resources/products/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'resources', 'products'] })

@@ -28,7 +28,8 @@ import {
 } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
-import { api, STATUS_CLASS, STATUS_KEY } from '../helpers'
+import { STATUS_CLASS, STATUS_KEY } from '../helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Examine } from '../types'
 
 interface ExamineDetail extends Examine {
@@ -76,7 +77,7 @@ export default function DemandSquareDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'demandSquare', 'detail', params.id],
-    queryFn: () => api<ExamineDetail>(`/api/examine/${params.id}`),
+    queryFn: () => apiOrThrow<ExamineDetail>(`/api/examine/${params.id}`),
     enabled: !!params.id,
   })
 
@@ -86,7 +87,7 @@ export default function DemandSquareDetailPage() {
   const [err, setErr] = React.useState<string | null>(null)
 
   const approveMut = useMutation({
-    mutationFn: () => api<Examine>(`/api/examine/${params.id}/approve`, { method: 'PUT' }),
+    mutationFn: () => apiOrThrow<Examine>(`/api/examine/${params.id}/approve`, { method: 'PUT' }),
     onSuccess: () => {
       toast.success(t('approveSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'demandSquare'] })
@@ -96,7 +97,7 @@ export default function DemandSquareDetailPage() {
 
   const rejectMut = useMutation({
     mutationFn: () =>
-      api<Examine>(`/api/examine/${params.id}/reject`, {
+      apiOrThrow<Examine>(`/api/examine/${params.id}/reject`, {
         method: 'PUT',
         body: JSON.stringify({ reason: reason.trim() }),
       }),

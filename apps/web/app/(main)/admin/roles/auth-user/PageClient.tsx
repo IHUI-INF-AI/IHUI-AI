@@ -15,7 +15,8 @@ import { HasPermi } from '@/components/auth/HasPermi'
 import { AuthUserFilter } from './AuthUserFilter'
 import { AuthUserTable } from './AuthUserTable'
 import { SelectUserDialog } from './SelectUserDialog'
-import { api, toggleId } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { toggleId } from './helpers'
 import type { ListResp } from './types'
 
 const PAGE_SIZE = 15
@@ -43,7 +44,7 @@ export default function AuthUserPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'role-auth-users', params],
-    queryFn: () => api<ListResp>(`/api/admin/roles/${roleId}/users?${params}`),
+    queryFn: () => apiOrThrow<ListResp>(`/api/admin/roles/${roleId}/users?${params}`),
     enabled: !!roleId,
   })
   const list = data?.list ?? []
@@ -52,7 +53,7 @@ export default function AuthUserPage() {
 
   const cancelMut = useMutation({
     mutationFn: (userId: string) =>
-      api(`/api/admin/roles/${roleId}/users/${userId}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/admin/roles/${roleId}/users/${userId}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'role-auth-users'] })
       toast.success('取消授权成功')
@@ -61,7 +62,7 @@ export default function AuthUserPage() {
   })
   const cancelAllMut = useMutation({
     mutationFn: (userIds: string[]) =>
-      api(`/api/admin/roles/${roleId}/users`, {
+      apiOrThrow(`/api/admin/roles/${roleId}/users`, {
         method: 'DELETE',
         body: JSON.stringify({ userIds }),
       }),

@@ -17,7 +17,8 @@ import { Button } from '@ihui/ui-react'
 import { ProductIdentityFilter } from './ProductIdentityFilter'
 import { ProductIdentityTable } from './ProductIdentityTable'
 import { ProductIdentityDialog } from './ProductIdentityDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, productIdentityToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE, EMPTY_FORM, EXPORT_COLUMNS, productIdentityToForm } from './helpers'
 import type { ProductIdentity, ProductIdentityForm, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -48,7 +49,7 @@ export default function ProductIdentityPage() {
       if (searchBegin) qs.set('beginTime', searchBegin)
       if (searchEnd) qs.set('endTime', searchEnd)
       if (debouncedCreator) qs.set('creator', debouncedCreator)
-      return api<ListData>(`/api/admin/product-identity?${qs.toString()}`)
+      return apiOrThrow<ListData>(`/api/admin/product-identity?${qs.toString()}`)
     },
   })
 
@@ -64,11 +65,11 @@ export default function ProductIdentityPage() {
         remark: form.remark || undefined,
       }
       return editing
-        ? api(`/api/admin/product-identity/${editing.id}`, {
+        ? apiOrThrow(`/api/admin/product-identity/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/product-identity', { method: 'POST', body: JSON.stringify(body) })
+        : apiOrThrow('/api/admin/product-identity', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? '更新成功' : '新增成功')
@@ -79,7 +80,8 @@ export default function ProductIdentityPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/product-identity/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/product-identity/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'product-identity'] })

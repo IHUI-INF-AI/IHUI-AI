@@ -14,7 +14,8 @@ import { Button } from '@ihui/ui-react'
 import { MenuFilter } from './MenuFilter'
 import { MenuTable } from './MenuTable'
 import { MenuDialog } from './MenuDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, menuToForm } from './helpers'
+import { PAGE_SIZE, EMPTY_FORM, menuToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { MenuItem, MenuForm, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -35,7 +36,7 @@ export default function MenuPage() {
         pageSize: String(PAGE_SIZE),
         keyword: search,
       })
-      const res = await api<ListData | MenuItem[]>(`/api/admin/menu?${qs}`)
+      const res = await apiOrThrow<ListData | MenuItem[]>(`/api/admin/menu?${qs}`)
       const list = Array.isArray(res) ? res : (res.list ?? [])
       const total = Array.isArray(res) ? res.length : (res.total ?? 0)
       return { list, total }
@@ -46,8 +47,8 @@ export default function MenuPage() {
     mutationFn: () => {
       const body = { ...form, sort: Number(form.sort) }
       return editing
-        ? api(`/api/admin/menu/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
-        : api('/api/admin/menu', { method: 'POST', body: JSON.stringify(body) })
+        ? apiOrThrow(`/api/admin/menu/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
+        : apiOrThrow('/api/admin/menu', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'menu'] })
@@ -58,7 +59,7 @@ export default function MenuPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/menu/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/menu/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'menu'] })
       toast.success(t('deleteSuccess'))
@@ -67,7 +68,7 @@ export default function MenuPage() {
 
   const toggleVisibleMut = useMutation({
     mutationFn: (m: MenuItem) =>
-      api(`/api/admin/menu/${m.id}`, {
+      apiOrThrow(`/api/admin/menu/${m.id}`, {
         method: 'PUT',
         body: JSON.stringify({ ...m, visible: !m.visible }),
       }),

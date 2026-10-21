@@ -18,7 +18,8 @@ import { Button } from '@ihui/ui-react'
 import { DeveloperLinkFilter } from './DeveloperLinkFilter'
 import { DeveloperLinkTable } from './DeveloperLinkTable'
 import { DeveloperLinkDialog } from './DeveloperLinkDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, developerLinkToForm } from './helpers'
+import { PAGE_SIZE, EMPTY_FORM, EXPORT_COLUMNS, developerLinkToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { DeveloperLink, DeveloperLinkForm, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -39,7 +40,7 @@ export default function DeveloperLinkPage() {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (searchDeveloper) qs.set('developerId', searchDeveloper)
       if (searchAgent) qs.set('agentId', searchAgent)
-      return api<ListData>(`/api/admin/developer-link?${qs.toString()}`)
+      return apiOrThrow<ListData>(`/api/admin/developer-link?${qs.toString()}`)
     },
   })
 
@@ -51,11 +52,11 @@ export default function DeveloperLinkPage() {
         status: form.status ? 1 : 0,
       }
       return editing
-        ? api(`/api/admin/developer-link/${editing.id}`, {
+        ? apiOrThrow(`/api/admin/developer-link/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/developer-link', { method: 'POST', body: JSON.stringify(body) })
+        : apiOrThrow('/api/admin/developer-link', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? t('updateSuccess') : t('createSuccess'))
@@ -66,7 +67,7 @@ export default function DeveloperLinkPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/developer-link/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/developer-link/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'developer-link'] })

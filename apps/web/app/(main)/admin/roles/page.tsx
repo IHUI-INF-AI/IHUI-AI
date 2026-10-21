@@ -11,7 +11,8 @@ import { useTranslations } from 'next-intl'
 import { RoleFilter } from './RoleFilter'
 import { RoleTable } from './RoleTable'
 import { RoleDialog } from './RoleDialog'
-import { api, EMPTY } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { EMPTY } from './helpers'
 import type { Role, RoleForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -22,10 +23,12 @@ export default function AdminRolesPage() {
   const rolesQ = useQuery({
     queryKey: ['admin', 'roles'],
     queryFn: async () => {
-      const { list } = await api<{ list: Role[] }>('/api/roles')
+      const { list } = await apiOrThrow<{ list: Role[] }>('/api/roles')
       const details = await Promise.all(
         list.map((r) =>
-          api<{ permissions: unknown[] }>(`/api/roles/${r.id}`).catch(() => ({ permissions: [] })),
+          apiOrThrow<{ permissions: unknown[] }>(`/api/roles/${r.id}`).catch(() => ({
+            permissions: [],
+          })),
         ),
       )
       return list.map((r, i) => ({ ...r, permissionsCount: details[i]?.permissions.length ?? 0 }))
@@ -40,7 +43,7 @@ export default function AdminRolesPage() {
 
   const createMut = useMutation({
     mutationFn: () =>
-      api('/api/roles', {
+      apiOrThrow('/api/roles', {
         method: 'POST',
         body: JSON.stringify({
           name: form.name,
@@ -58,7 +61,7 @@ export default function AdminRolesPage() {
 
   const updateMut = useMutation({
     mutationFn: () =>
-      api(`/api/roles/${editingId}`, {
+      apiOrThrow(`/api/roles/${editingId}`, {
         method: 'PATCH',
         body: JSON.stringify({
           displayName: form.displayName,
@@ -74,7 +77,7 @@ export default function AdminRolesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/roles/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/roles/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'roles'] })
       setDelTarget(null)

@@ -10,7 +10,8 @@ import { toast } from 'sonner'
 import { Loader2, Search, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { Button, Input, Label, Checkbox, DialogFooter } from '@ihui/ui-react'
-import { api, inputCls, toggleId } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { inputCls, toggleId } from './helpers'
 import type { ListResp } from './types'
 
 const PAGE_SIZE = 10
@@ -34,7 +35,7 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'role-unallocated-users', params],
-    queryFn: () => api<ListResp>(`/api/admin/roles/${roleId}/unallocated-users?${params}`),
+    queryFn: () => apiOrThrow<ListResp>(`/api/admin/roles/${roleId}/unallocated-users?${params}`),
   })
   const list = data?.list ?? []
   const total = data?.total ?? 0
@@ -42,7 +43,7 @@ export function SelectUserDialog({ roleId, onClose }: { roleId: string; onClose:
 
   const authMut = useMutation({
     mutationFn: (userIds: string[]) =>
-      api(`/api/admin/roles/${roleId}/users`, {
+      apiOrThrow(`/api/admin/roles/${roleId}/users`, {
         method: 'POST',
         body: JSON.stringify({ userIds }),
       }),

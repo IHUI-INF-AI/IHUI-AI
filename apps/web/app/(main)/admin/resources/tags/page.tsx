@@ -17,7 +17,8 @@ import { Button } from '@ihui/ui-react'
 import { ResourceTagFilter } from './ResourceTagFilter'
 import { ResourceTagTable } from './ResourceTagTable'
 import { ResourceTagDialog } from './ResourceTagDialog'
-import { PAGE_SIZE, api, fetchTags, EMPTY_FORM, tagToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE, fetchTags, EMPTY_FORM, tagToForm } from './helpers'
 import type { TagItem, TagForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -56,12 +57,12 @@ export default function AdminResourceTagsPage() {
         status: form.status ? 1 : 0,
       }
       if (editing) {
-        return api<{ tag: TagItem }>(`/api/admin/resources/tags/${editing.id}`, {
+        return apiOrThrow<{ tag: TagItem }>(`/api/admin/resources/tags/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api<{ tag: TagItem }>(`/api/admin/resources/tags`, {
+      return apiOrThrow<{ tag: TagItem }>(`/api/admin/resources/tags`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -75,7 +76,7 @@ export default function AdminResourceTagsPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/resources/tags/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/resources/tags/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'resources', 'tags'] })

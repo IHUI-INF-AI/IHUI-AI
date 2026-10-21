@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { PermissionsHeader } from './PermissionsHeader'
 import { PermissionsFilter } from './PermissionsFilter'
 import { PermissionsList } from './PermissionsList'
-import { api } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Permission } from './types'
 import { BackButton } from '@/components/common'
 
@@ -22,7 +22,7 @@ export default function AdminPermissionsPage() {
 
   const permsQ = useQuery({
     queryKey: ['admin', 'permissions'],
-    queryFn: () => api<{ list: Permission[] }>('/api/permissions').then((d) => d.list ?? []),
+    queryFn: () => apiOrThrow<{ list: Permission[] }>('/api/permissions').then((d) => d.list ?? []),
   })
 
   const perms = React.useMemo(() => permsQ.data ?? [], [permsQ.data])

@@ -13,7 +13,8 @@ import { Button } from '@ihui/ui-react'
 import { ConfigFilter } from './ConfigFilter'
 import { ConfigTable } from './ConfigTable'
 import { ConfigDialog } from './ConfigDialog'
-import { EMPTY_FORM, api, normList, configToForm } from './helpers'
+import { EMPTY_FORM, normList, configToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import { useConfirm } from '@/hooks/use-confirm'
 import type { Category, Config, ConfigForm } from './types'
 import { BackButton } from '@/components/common'
@@ -34,15 +35,18 @@ export default function AdminConfigsPage() {
     isError,
   } = useQuery({
     queryKey: ['admin', 'configs'],
-    queryFn: async () => normList(await api('/api/admin/configs')),
+    queryFn: async () => normList(await apiOrThrow('/api/admin/configs')),
   })
 
   const saveMut = useMutation({
     mutationFn: () => {
       const body = { ...form }
       return editing
-        ? api(`/api/admin/configs/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
-        : api('/api/admin/configs', { method: 'POST', body: JSON.stringify(body) })
+        ? apiOrThrow(`/api/admin/configs/${editing.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+          })
+        : apiOrThrow('/api/admin/configs', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'configs'] })
@@ -52,7 +56,7 @@ export default function AdminConfigsPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/configs/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/configs/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'configs'] }),
   })
 

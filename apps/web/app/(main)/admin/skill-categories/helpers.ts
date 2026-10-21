@@ -2,17 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import type { SkillCategory, SkillCategoryForm } from './types'
 
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+export { apiOrThrow as api }
 
 export async function fetchCategories(): Promise<SkillCategory[]> {
-  const data = await api<{ categories: SkillCategory[] }>('/api/skill-categories')
+  const data = await apiOrThrow<{ categories: SkillCategory[] }>('/api/skill-categories')
   return data?.categories ?? []
 }
 
@@ -22,7 +18,7 @@ export async function createCategory(data: {
   icon?: string
   sort?: number
 }): Promise<SkillCategory> {
-  return api<SkillCategory>('/api/skill-categories', {
+  return apiOrThrow<SkillCategory>('/api/skill-categories', {
     method: 'POST',
     body: JSON.stringify(data),
   })
@@ -32,7 +28,7 @@ export async function updateCategory(
   id: string,
   data: Partial<{ name: string; slug: string; icon: string; sort: number }>,
 ): Promise<SkillCategory> {
-  return api<SkillCategory>(`/api/skill-categories/${id}`, {
+  return apiOrThrow<SkillCategory>(`/api/skill-categories/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   })
