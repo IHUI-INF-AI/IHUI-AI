@@ -190,7 +190,7 @@ export function SharedDemoScreen() {
 
           <Text style={styles.sectionTitle}>用户信息卡片</Text>
           <UserInfoCard
-            avatar="https://file.aizhs.top/sys-mini/daixaodiming.png"
+            avatar="https://aizhs.top/remote-images/daixaodiming.png"
             nickname="李思涵"
             bio="AI 产品经理 · 智能体创作者"
             followingCount={56}
@@ -205,7 +205,7 @@ export function SharedDemoScreen() {
 
           <Text style={styles.sectionTitle}>商务名片</Text>
           <BusinessCard
-            avatar="https://file.aizhs.top/sys-mini/daixaodiming.png"
+            avatar="https://aizhs.top/remote-images/daixaodiming.png"
             name="张明"
             title="技术总监"
             company="智汇科技"
@@ -236,7 +236,7 @@ export function SharedDemoScreen() {
 
           <Text style={styles.sectionTitle}>课程卡片</Text>
           <CourseCard
-            cover="https://file.aizhs.top/sys-mini/daixaodiming.png"
+            cover="https://aizhs.top/remote-images/daixaodiming.png"
             title="AI 智能体开发实战"
             lecturer="王老师"
             price={19900}

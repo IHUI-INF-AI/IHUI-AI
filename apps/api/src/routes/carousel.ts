@@ -6,6 +6,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { eq, and, asc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success } from '../utils/response.js'
+import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
 import { carousels } from '@ihui/database'
 
 export const carouselPublicRoutes: FastifyPluginAsync = async (server) => {
@@ -43,7 +44,7 @@ export const carouselPublicRoutes: FastifyPluginAsync = async (server) => {
         .from(carousels)
         .where(where)
         .orderBy(asc(carousels.sort))
-      return reply.send(success({ list }))
+      return withPublicEdgeCache(reply).send(success({ list }))
     },
   )
 }
