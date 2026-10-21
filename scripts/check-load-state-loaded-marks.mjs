@@ -247,6 +247,13 @@ export function judgeSources({ root = ROOT, python, criterionSrc, cases }) {
     const proc = spawnSync(py, ['-c', PY_DRIVER, criterionPath, payloadPath], {
       cwd: root,
       encoding: 'utf8',
+      // 子进程必须按 UTF-8 写管道。缺这一行,Python 在 Windows 上按 ANSI 码页(cp936)写,
+      // 而这里按 utf8 解 ⇒ 含中文的 `why` 变乱码 ⇒ 回传的 JSON 解析崩 ⇒ 本门把「判据符号
+      // 缺席 ⇒ 逐格未判定」误报成「python 判据侧非零退出」。实测(2026-10-21,主树与干净
+      // worktree 同形):补前 20 过 / 3 红,补后 23 过 / 0 红。
+      // 同族 `check-bpe-encoding-parity` / `check-principal-consumed` / `owner-claim` 早已
+      // 显式设同一对变量,本门此前漏了。
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
       timeout: 300_000,
       maxBuffer: 64 << 20,
       // 本门不消费子进程 stdin ⇒ 必须 ignore(Windows 病窗:不写 stdio 与 'pipe' 同病,
