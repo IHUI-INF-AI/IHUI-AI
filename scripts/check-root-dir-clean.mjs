@@ -292,6 +292,11 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   // 本条同时解除"守门 44 在 --staged 下恒红 ⇒ 各会话被迫 --no-verify 连带跳过全部守门"的系统性风险。
   '.arts',
   '.codeartsdoer',
+  // 2026-10-21 登记:外部 spec 工作流在仓库根自管的会话目录(spec.md/tasks.md,实测 19:07 被重建、
+  // 19:10 仍在写)。当天曾把它移进 .ihui-agent/tmp 隔离区,几分钟后工具又原地重建 ⇒ 搬/删都无效,
+  // 与 `.arts`/`.codeartsdoer` 同类:只登记、不搬不删。本条解除守门 44 在 --staged 下点名该目录
+  // ⇒ 各会话被迫 --no-verify 的系统性风险(§12e 同型)。
+  '.spec-mode',
   // 2026-10-12 登记:IDE 工具态家目录(backups/cache/tools/Temp,实测 16GB,2026-09-30 起在盘)。
   // 与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删(删了会打断他人正在用的工具态)。
   // 本条同时解除守门 44 在 --staged 下点名该目录 ⇒ 提交链被迫 --no-verify 的系统性风险(§12e 同型)。

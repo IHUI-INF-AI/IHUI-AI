@@ -196,10 +196,7 @@ export default function PublishCalendarScreen() {
       appAlert(t('publishCalendar.rescheduleSuccess'))
       await load()
     } catch (e) {
-      appAlert(
-        t('publishCalendar.rescheduleFailed'),
-        e instanceof Error ? e.message : undefined,
-      )
+      appAlert(t('publishCalendar.rescheduleFailed'), e instanceof Error ? e.message : undefined)
     } finally {
       setSaving(false)
     }
@@ -390,12 +387,24 @@ function makeStyles() {
     subtitle: { fontSize: 12, color: tokens.text.tertiary },
     group: { gap: 8 },
     groupTitle: { fontSize: 13, fontWeight: '700', color: tokens.text.primary },
-    card: { padding: 12, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.surface.card, gap: 5 },
+    card: {
+      padding: 12,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+      backgroundColor: tokens.surface.card,
+      gap: 5,
+    },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     itemName: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     meta: { fontSize: 11, color: tokens.text.tertiary },
-    pill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: rnRadiusFor.chip, backgroundColor: tokens.surface.muted },
+    pill: {
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: rnRadiusFor.chip,
+      backgroundColor: tokens.surface.muted,
+    },
     pillSuccess: { backgroundColor: tokens.success.light },
     pillFailed: { backgroundColor: tokens.danger.light },
     pillText: { fontSize: 10, color: tokens.text.secondary },
@@ -407,17 +416,53 @@ function makeStyles() {
     errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
-    mask: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: tokens.overlay.modal },
-    sheet: { maxHeight: '85%', padding: 16, gap: 8, borderTopLeftRadius: rnRadius.xl, borderTopRightRadius: rnRadius.xl, backgroundColor: tokens.surface.card },
+    mask: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: tokens.overlay.modal,
+    },
+    sheet: {
+      maxHeight: '85%',
+      padding: 16,
+      gap: 8,
+      borderTopLeftRadius: rnRadius.xl,
+      borderTopRightRadius: rnRadius.xl,
+      backgroundColor: tokens.surface.card,
+    },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     sheetTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tokens.text.primary },
     cardTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
     rescheduleBox: { gap: 8, marginTop: 4 },
-    input: { height: 40, paddingHorizontal: 12, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, color: tokens.text.primary, fontSize: 14, backgroundColor: tokens.surface.bg },
+    input: {
+      height: 40,
+      paddingHorizontal: 12,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      color: tokens.text.primary,
+      fontSize: 14,
+      backgroundColor: tokens.surface.bg,
+    },
     quickRow: { flexDirection: 'row', gap: 8 },
-    quickChip: { paddingHorizontal: 10, height: 28, justifyContent: 'center', borderRadius: rnRadiusFor.chip, borderWidth: 1, borderColor: tokens.border.light },
+    quickChip: {
+      paddingHorizontal: 10,
+      height: 28,
+      justifyContent: 'center',
+      borderRadius: rnRadiusFor.chip,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+    },
     quickText: { fontSize: 11, color: tokens.text.secondary },
-    primaryBtn: { height: 44, borderRadius: rnRadius.sm, backgroundColor: tokens.brand.cta, alignItems: 'center', justifyContent: 'center' },
+    primaryBtn: {
+      height: 44,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     primaryBtnText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
     disabled: { opacity: 0.5 },
   })

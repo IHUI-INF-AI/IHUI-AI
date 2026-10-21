@@ -221,10 +221,7 @@ export default function UsageScreen() {
                         <Text style={styles.barLabel}>{day.slice(5)}</Text>
                         <View style={styles.barTrack}>
                           <View
-                            style={[
-                              styles.barFill,
-                              { width: pct(row.total_tokens, maxDaily) },
-                            ]}
+                            style={[styles.barFill, { width: pct(row.total_tokens, maxDaily) }]}
                           />
                         </View>
                         <Text style={styles.barValue}>
@@ -254,10 +251,7 @@ export default function UsageScreen() {
                         </View>
                         <View style={styles.barTrack}>
                           <View
-                            style={[
-                              styles.barFill,
-                              { width: pct(row.total_tokens, maxModel) },
-                            ]}
+                            style={[styles.barFill, { width: pct(row.total_tokens, maxModel) }]}
                           />
                         </View>
                       </View>
@@ -281,7 +275,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 8,
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -312,7 +306,12 @@ function makeStyles() {
       backgroundColor: tokens.surface.muted,
       overflow: 'hidden',
     },
-    barFill: { height: '100%', borderRadius: rnRadius.xs, backgroundColor: tokens.brand.DEFAULT },
+    barFill: {
+      height: '100%',
+      borderRadius: rnRadius.xs,
+      backgroundColor: tokens.brand.DEFAULT,
+      color: tokens.brand.foreground,
+    },
     barValue: { width: 116, textAlign: 'right', fontSize: 11, color: tokens.text.secondary },
     modelRow: { gap: 3 },
     modelHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },

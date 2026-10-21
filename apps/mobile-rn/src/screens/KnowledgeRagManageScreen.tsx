@@ -138,27 +138,31 @@ export default function KnowledgeRagManageScreen() {
   }
 
   const onDeleteOne = (doc: KnowledgeDocSummary) => {
-    appAlert(t('knowledgeRagManage.singleDeleteTitle'), t('knowledgeRagManage.singleDeleteMessage'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('knowledgeRagManage.confirm'),
-        style: 'destructive',
-        onPress: () => {
-          setBusy(true)
-          void (async () => {
-            try {
-              await deleteKnowledgeDoc(doc.id, ownerUuid)
-              setFeedback({ type: 'success', text: t('knowledgeRagManage.deleteSuccess') })
-              await load()
-            } catch {
-              setFeedback({ type: 'error', text: t('knowledgeRagManage.deleteFailed') })
-            } finally {
-              setBusy(false)
-            }
-          })()
+    appAlert(
+      t('knowledgeRagManage.singleDeleteTitle'),
+      t('knowledgeRagManage.singleDeleteMessage'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('knowledgeRagManage.confirm'),
+          style: 'destructive',
+          onPress: () => {
+            setBusy(true)
+            void (async () => {
+              try {
+                await deleteKnowledgeDoc(doc.id, ownerUuid)
+                setFeedback({ type: 'success', text: t('knowledgeRagManage.deleteSuccess') })
+                await load()
+              } catch {
+                setFeedback({ type: 'error', text: t('knowledgeRagManage.deleteFailed') })
+              } finally {
+                setBusy(false)
+              }
+            })()
+          },
         },
-      },
-    ])
+      ],
+    )
   }
 
   const onBatchDelete = () => {
@@ -219,7 +223,7 @@ export default function KnowledgeRagManageScreen() {
           accessibilityState={{ checked }}
         >
           <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-            {checked ? <Check size={14} color={tokens.brand.ctaForeground} /> : null}
+            {checked ? <Check size={14} color={styles.checkboxChecked.color} /> : null}
           </View>
         </TouchableOpacity>
         <View style={styles.rowMain}>
@@ -296,10 +300,7 @@ export default function KnowledgeRagManageScreen() {
             />
             {feedback ? (
               <View
-                style={[
-                  styles.feedbackBox,
-                  feedback.type === 'error' && styles.feedbackBoxError,
-                ]}
+                style={[styles.feedbackBox, feedback.type === 'error' && styles.feedbackBoxError]}
               >
                 <Text
                   style={[
@@ -321,9 +322,7 @@ export default function KnowledgeRagManageScreen() {
                   accessibilityState={{ checked: allSelected }}
                 >
                   <View style={[styles.checkbox, allSelected && styles.checkboxChecked]}>
-                    {allSelected ? (
-                      <Check size={14} color={tokens.brand.ctaForeground} />
-                    ) : null}
+                    {allSelected ? <Check size={14} color={styles.checkboxChecked.color} /> : null}
                   </View>
                   <Text style={styles.selectAllText}>
                     {t('knowledgeRagManage.selectAll')} {selected.size}/{docs.length}
@@ -339,9 +338,7 @@ export default function KnowledgeRagManageScreen() {
                   activeOpacity={0.7}
                 >
                   <Trash2 size={14} color={tokens.danger.DEFAULT} />
-                  <Text style={styles.dangerButtonText}>
-                    {t('knowledgeRagManage.batchDelete')}
-                  </Text>
+                  <Text style={styles.dangerButtonText}>{t('knowledgeRagManage.batchDelete')}</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -365,9 +362,7 @@ export default function KnowledgeRagManageScreen() {
               <View style={styles.emptyBox}>
                 <FileText size={32} color={tokens.text.tertiary} />
                 <Text style={styles.emptyText}>
-                  {isFiltered
-                    ? t('knowledgeRagManage.emptySearch')
-                    : t('knowledgeRagManage.empty')}
+                  {isFiltered ? t('knowledgeRagManage.emptySearch') : t('knowledgeRagManage.empty')}
                 </Text>
               </View>
             ) : null}
@@ -388,34 +383,115 @@ const styles = StyleSheet.create({
   body: { padding: 12, paddingBottom: 32, gap: 10 },
   header: { gap: 10, paddingBottom: 2 },
   subtitle: { fontSize: 13, color: tokens.text.secondary },
-  input: { height: 42, paddingHorizontal: 12, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, color: tokens.text.primary, fontSize: 15, backgroundColor: tokens.surface.light },
-  feedbackBox: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: rnRadius.sm, backgroundColor: tokens.success.light },
+  input: {
+    height: 42,
+    paddingHorizontal: 12,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    color: tokens.text.primary,
+    fontSize: 15,
+    backgroundColor: tokens.surface.card,
+  },
+  feedbackBox: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: rnRadius.sm,
+    backgroundColor: tokens.success.light,
+  },
   feedbackBoxError: { backgroundColor: tokens.danger.light },
   feedbackText: { fontSize: 12, color: tokens.success.deepText },
   feedbackTextError: { color: tokens.danger.DEFAULT },
-  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8, borderRadius: rnRadius.md, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.surface.light },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: rnRadius.md,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+  },
   selectAll: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   selectAllText: { fontSize: 13, color: tokens.text.primary },
-  dangerButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.danger.DEFAULT },
+  dangerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.danger.DEFAULT,
+  },
   dangerButtonText: { fontSize: 12, fontWeight: '600', color: tokens.danger.DEFAULT },
   buttonDisabled: { opacity: 0.5 },
   loading: { paddingVertical: 24 },
-  errorBox: { paddingVertical: 16, paddingHorizontal: 12, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tokens.danger.DEFAULT, backgroundColor: tokens.surface.light, gap: 8 },
+  errorBox: {
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: rnRadius.lg,
+    borderWidth: 1,
+    borderColor: tokens.danger.DEFAULT,
+    backgroundColor: tokens.surface.card,
+    gap: 8,
+  },
   errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
-  retryBtn: { alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 6, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium },
+  retryBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+  },
   retryText: { fontSize: 13, color: tokens.text.primary },
   emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 8 },
   emptyText: { fontSize: 13, color: tokens.text.secondary },
-  card: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.surface.light },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 16,
+    borderRadius: rnRadius.lg,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+  },
   cardChecked: { borderColor: tokens.brandAccent.deep },
   checkHit: { paddingVertical: 2 },
-  checkbox: { width: 20, height: 20, borderRadius: rnRadius.xs, borderWidth: 1, borderColor: tokens.border.medium, alignItems: 'center', justifyContent: 'center' },
-  checkboxChecked: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: tokens.brand.cta,
+    borderColor: tokens.brand.cta,
+    color: tokens.brand.ctaForeground,
+  },
   rowMain: { flex: 1, gap: 4 },
   title: { fontSize: 15, fontWeight: '500', color: tokens.text.primary },
   metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
-  badge: { fontSize: 11, color: tokens.text.secondary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: rnRadius.xs, backgroundColor: tokens.surface.muted },
+  badge: {
+    fontSize: 11,
+    color: tokens.text.secondary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: rnRadius.md,
+    backgroundColor: tokens.surface.muted,
+  },
   metaText: { fontSize: 11, color: tokens.text.tertiary },
-  footerText: { paddingVertical: 16, textAlign: 'center', fontSize: 12, color: tokens.text.tertiary },
+  footerText: {
+    paddingVertical: 16,
+    textAlign: 'center',
+    fontSize: 12,
+    color: tokens.text.tertiary,
+  },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
