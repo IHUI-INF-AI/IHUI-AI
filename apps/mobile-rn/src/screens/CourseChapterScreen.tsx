@@ -8,9 +8,10 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   CourseChapterScreen as SharedCourseChapterScreen,
+  type CourseCatalogItem,
   type CourseChapterItem,
 } from '@ihui/rn-app'
-import { fetchApi } from '@ihui/api-client'
+import { getCourseCatalog } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -24,7 +25,7 @@ export function CourseChapterScreen() {
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
   const { courseId } = route.params
-  const [chapters, setChapters] = useState<CourseChapterItem[]>([])
+  const [chapters, setChapters] = useState<CourseCatalogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -33,12 +34,11 @@ export function CourseChapterScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<CourseChapterItem[]>(
-        // /catalog 才是「章节 + children(小节,含 videoUrl)」的投影;/chapters 只有章节骨架
-        `/api/courses/${encodeURIComponent(courseId)}/catalog`,
-      )
+      // 目录投影(章节 + children 小节,含 videoUrl)—— 旧 /api/courses/:id/catalog
+      // 随 course-mobile-routes 注册面被摘,换源到课程详情再投影(与目录屏同一根)。
+      const res = await getCourseCatalog(courseId)
       if (cancelled) return
-      if (res.success) setChapters(res.data ?? [])
+      if (res.success) setChapters(res.data)
       else setError(apiFailureToText(res, t('courseChapter.loadFailed')))
       setLoading(false)
     })()

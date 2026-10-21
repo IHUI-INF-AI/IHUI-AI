@@ -36,10 +36,10 @@ export interface CreateMemoryInput {
 
 /** 从 fetchApi 解出的 data 中防御性提取 entries 数组(兼容 {entries} / {data:{entries}} / 裸数组 / 整段包络) */
 function unwrapEntries(raw: unknown): UnifiedMemoryEntry[] {
-  if (raw == null || typeof raw !== 'object') return []
+  if (raw === null || raw === undefined || typeof raw !== 'object') return []
   const o = raw as Record<string, unknown>
   if (Array.isArray(o.entries)) return o.entries as UnifiedMemoryEntry[]
-  if (o.data != null && typeof o.data === 'object') {
+  if (o.data !== null && o.data !== undefined && typeof o.data === 'object') {
     const inner = o.data as Record<string, unknown>
     if (Array.isArray(inner.entries)) return inner.entries as UnifiedMemoryEntry[]
   }
@@ -49,10 +49,10 @@ function unwrapEntries(raw: unknown): UnifiedMemoryEntry[] {
 
 /** 从 fetchApi 解出的 data 中防御性提取单条 entry(兼容 {id} / {data:{id}} / 整段包络) */
 function unwrapEntry(raw: unknown): UnifiedMemoryEntry | null {
-  if (raw == null || typeof raw !== 'object') return null
+  if (raw === null || raw === undefined || typeof raw !== 'object') return null
   const o = raw as Record<string, unknown>
   if (typeof o.id === 'string') return o as unknown as UnifiedMemoryEntry
-  if (o.data != null && typeof o.data === 'object') {
+  if (o.data !== null && o.data !== undefined && typeof o.data === 'object') {
     const inner = o.data as Record<string, unknown>
     if (typeof inner.id === 'string') return inner as unknown as UnifiedMemoryEntry
   }
