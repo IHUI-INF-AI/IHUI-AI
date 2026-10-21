@@ -270,14 +270,24 @@ function Resolve-AutoVersionCode {
   }
   $adb = Get-Command adb.exe -ErrorAction SilentlyContinue
   if (-not $adb) { return @{ Value = 1; Source = 'PATH 里没有 adb.exe ⇒ 无法问机上版本,回落 1' } }
-  $dev = & $adb.Source devices 2>$null | Out-String
-  if ($dev -notmatch "`tdevice") { return @{ Value = 1; Source = '没有已授权设备在线 ⇒ 无法问机上版本,回落 1' } }
-  $dump = ''
-  try { $dump = (& $adb.Source shell "dumpsys package $Package" 2>$null) -join "`n" } catch { }
-  $m = [regex]::Match($dump, 'versionCode=(\d+)')
-  if (-not $m.Success) { return @{ Value = 1; Source = "机上查不到 $Package 的 versionCode(未装或 dumpsys 形态变) ⇒ 回落 1" } }
-  $installed = [int]$m.Groups[1].Value
-  return @{ Value = $installed + 1; Source = "机上 $Package 现装 versionCode=$installed ⇒ 取 +1" }
+  $devOut = (& $adb.Source devices 2>$null) -join "`n"
+  $serials = @([regex]::Matches($devOut, '(?m)^(\S+)\s+device$') | ForEach-Object { $_.Groups[1].Value })
+  if ($serials.Count -eq 0) { return @{ Value = 1; Source = '没有已授权设备在线 ⇒ 无法问机上版本,回落 1' } }
+  # 多设备必须逐个 -s 问:不带 -s 的 adb shell 在 >1 台时直接报 "more than one device",dump 为空 ⇒ 静默回落 1
+  # (实测 2026/10/21:模拟器+真机同连,产出 versionCode=1 的包,装上去是降级)。
+  $installed = @()
+  $unreadable = @()
+  foreach ($s in $serials) {
+    try { $dump = (& $adb.Source -s $s shell "dumpsys package $Package" 2>$null) -join "`n" } catch { $dump = '' }
+    $m = [regex]::Match($dump, 'versionCode=(\d+)')
+    if ($m.Success) { $installed += [int]$m.Groups[1].Value } else { $unreadable += $s }
+  }
+  if ($installed.Count -eq 0) {
+    return @{ Value = 1; Source = "在线设备($($serials -join ', '))上都查不到 $Package 的 versionCode(未装或 dumpsys 形态变) ⇒ 回落 1" }
+  }
+  $max = ($installed | Measure-Object -Maximum).Maximum
+  $where = if ($installed.Count -eq 1) { '单机' } else { "$($installed.Count) 台都有,OEM 取最大" }
+  return @{ Value = $max + 1; Source = "机上 $Package 现装 versionCode=$($installed -join '/')($where;查不到:$($unreadable.Count) 台)⇒ 取 $max +1" }
 }
 
 if ($VersionCode -le 0) {
