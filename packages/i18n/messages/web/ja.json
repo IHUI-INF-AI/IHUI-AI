@@ -13049,7 +13049,6 @@
     "description": "説明",
     "domain": "ドメイン",
     "domainHint": "ドメインのヒント",
-    "duration": "所要時間",
     "editInfo": "情報を編集",
     "estimatedHint": "見積もりのヒント",
     "highlight": "ハイライト",
@@ -13057,7 +13056,6 @@
     "memory": "メモリ",
     "name": "名前",
     "noInstances": "インスタンスがありません",
-    "objectives": "目標",
     "question": "問題",
     "resources": "リソース",
     "resourcesHint": "リソース使用量のヒント",
@@ -16737,8 +16735,6 @@
     "chapters": "コース",
     "detail": {
       "back": "戻る",
-      "duration": "所要時間",
-      "objectives": "学習目標",
       "studentsLabel": "受講生"
     },
     "empty": "がありません",

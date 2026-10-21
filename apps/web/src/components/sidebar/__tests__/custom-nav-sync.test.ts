@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, cleanup } from '@testing-library/react'
 import type * as ApiClientModule from '@ihui/api-client'
 import { useCustomNav } from '../use-custom-nav'
 
@@ -90,6 +90,12 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
+  // 必须显式 cleanup:本仓 vitest 未开 globals: true,而 RTL 的 auto-cleanup 是靠探测
+  // 全局 afterEach 才注册的 ⇒ 不生效 ⇒ renderHook 实例跨用例泄漏,旧实例的
+  // window focus / storage 监听一直活着。本文件的用例断言"某条通路**没**被调用",
+  // 一旦有旧实例在场就会翻红(实测 getCalls 从 0 变 14)。
+  // 别删这行;要全局修得改 vitest config,那会波及全仓 400+ 测试文件的行为,属另一件事。
+  cleanup()
   vi.useRealTimers()
 })
 
@@ -156,6 +162,61 @@ describe('useCustomNav —— 同步失败退避重试', () => {
 })
 
 describe('useCustomNav —— 上推基线与换号', () => {
+  it('新账号的第一项就要落账号(远端 exists=false 且本地为空 ⇒ 同步成功但零重渲染)', async () => {
+    // 立因(2026-10-19 实测):exists=false + 本地为空这条路径同步成功后既不 setHrefs 也不上传,
+    // ⇒ 不重渲染 ⇒ 上推 effect 不会再跑 ⇒ 基线留在 null。于是用户的第一次改动撞进
+    // 「首次只立基线,不推」分支被静默吞掉,PUT 尝试 0 次,服务端永远是空的。
+    // 表现为「每台设备都得重新设置」:只有再收藏第二项时才会连带把第一项推上去。
+    login('fresh')
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+    expect(server.getCalls).toBeGreaterThanOrEqual(1)
+
+    await act(async () => {
+      result.current.addHref('/models')
+    })
+    await flush()
+    // 只加 1 项就必须已经上云(若基线仍留在 null,这里 putAttempts 会停在 0)
+    expect(server.putAttempts).toHaveLength(1)
+    expect(server.writes).toEqual([['/models']])
+
+    // 正向对照:第二项照旧整表覆盖,且带上第一项(证明上的是完整列表而不是增量)
+    await act(async () => {
+      result.current.addHref('/agents')
+    })
+    await flush()
+    expect(server.writes[server.writes.length - 1]).toEqual(['/models', '/agents'])
+  })
+
+  it('远端已有记录时首次添加照旧上推(修基线不许把已正常的那条路弄坏)', async () => {
+    login('with-remote')
+    server.exists = true
+    server.hrefs = ['/models']
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+    expect(result.current.customHrefs).toEqual(['/models'])
+    expect(server.writes).toHaveLength(0) // 同步不该回声上传
+
+    await act(async () => {
+      result.current.addHref('/agents')
+    })
+    await flush()
+    expect(server.writes).toEqual([['/models', '/agents']])
+  })
+
+  it('远端存在但为空数组时首次添加也照旧上推(exists=true 不等于"没设过")', async () => {
+    login('remote-empty')
+    server.exists = true
+    server.hrefs = []
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+    await act(async () => {
+      result.current.addHref('/models')
+    })
+    await flush()
+    expect(server.writes).toEqual([['/models']])
+  })
+
   it('PUT 失败后复位基线:下一次变更仍会重试(不是静默全丢)', async () => {
     login('u4')
     server.exists = true
@@ -204,6 +265,173 @@ describe('useCustomNav —— 上推基线与换号', () => {
     expect(b.result.current.customHrefs).toEqual(['/models'])
     // 远端从未设置过 ⇒ 本地要被推上去(老用户上云路径)
     expect(server.writes.some((w) => w.includes('/models'))).toBe(true)
+  })
+})
+
+/**
+ * 跨设备实时同步(2026-10-19 立)。
+ * 立因:此前只在挂载时拉一次,之后本页再也不问服务端 ⇒ A 设备改了、B 设备开着的
+ * 标签页永远停在旧值,表现就是"同步没生效、每台设备各是一套"。
+ *
+ * 真核心风险只有一个:重拉会用远端**盖掉**本地。所以每个用例都在钉"什么时候可以盖"。
+ */
+describe('useCustomNav —— 跨设备实时同步(焦点/可见性重拉)', () => {
+  async function focusAndSettle() {
+    await act(async () => {
+      window.dispatchEvent(new Event('focus'))
+      await vi.advanceTimersByTimeAsync(301)
+    })
+    await flush()
+  }
+
+  it('窗口重新获得焦点时跟随远端新增(A 加项 → B 聚焦即见)', async () => {
+    vi.useFakeTimers()
+    login('dev-A')
+    server.exists = true
+    server.hrefs = ['/models']
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+    expect(result.current.customHrefs).toEqual(['/models'])
+
+    server.hrefs = ['/models', '/agents'] // A 设备那边加了 /agents
+    await focusAndSettle()
+    expect(result.current.customHrefs).toEqual(['/models', '/agents'])
+  })
+
+  it('页面从后台恢复可见同样触发跟随', async () => {
+    vi.useFakeTimers()
+    login('dev-B')
+    server.exists = true
+    server.hrefs = ['/models']
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+
+    server.hrefs = ['/models', '/ecosystem']
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+      await vi.advanceTimersByTimeAsync(301)
+    })
+    await flush()
+    expect(result.current.customHrefs).toEqual(['/models', '/ecosystem'])
+  })
+
+  it('远端删除也跟着删(A 删项 → B 聚焦后不再复活)', async () => {
+    vi.useFakeTimers()
+    login('dev-C')
+    server.exists = true
+    server.hrefs = ['/models', '/agents']
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+    expect(result.current.customHrefs).toEqual(['/models', '/agents'])
+
+    server.hrefs = ['/models'] // A 删了 /agents
+    await focusAndSettle()
+    expect(result.current.customHrefs).toEqual(['/models'])
+  })
+
+  it('本机有未落库改动时不拉远端(防未落库的改动被覆盖丢失)', async () => {
+    vi.useFakeTimers()
+    login('dev-D')
+    server.exists = true
+    server.hrefs = ['/models']
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+
+    // 本机改动后 PUT 被拒 ⇒ 基线停在 NEEDS_PUSH,本地有一项正待落库
+    server.putFail = true
+    await act(async () => {
+      result.current.addHref('/agents')
+    })
+    await flush()
+    expect(result.current.customHrefs).toEqual(['/models', '/agents'])
+
+    // 远端此刻是旧值(只有 /models)。若照拉不误,本机待落库的 /agents 会被抹掉。
+    server.getCalls = 0
+    await focusAndSettle()
+    expect(server.getCalls).toBe(0)
+    expect(result.current.customHrefs).toEqual(['/models', '/agents'])
+  })
+
+  it('同步未完成时不拉(不给半截远端盖掉刚载入的本地)', async () => {
+    vi.useFakeTimers()
+    server.getFail = true
+    login('dev-E')
+    window.localStorage.setItem(STORAGE_PREFIX + 'dev-E', JSON.stringify(['/models']))
+    const { result } = renderHook(() => useCustomNav())
+    await flush() // 同步未完成(GET 一直失败)
+    expect(result.current.customHrefs).toEqual(['/models'])
+
+    const before = server.getCalls
+    await focusAndSettle()
+    expect(server.getCalls).toBe(before) // 重拉被"同步未完成"闸门挡下
+    expect(result.current.customHrefs).toEqual(['/models'])
+  })
+
+  it('远端无变化时不写回(基线随重拉更新 ⇒ 不产生乒乓回写)', async () => {
+    vi.useFakeTimers()
+    login('dev-F')
+    server.exists = true
+    server.hrefs = ['/models']
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+
+    server.writes = []
+    server.putAttempts = []
+    await focusAndSettle()
+    await focusAndSettle()
+    // 跟随远端后若基线没跟着换,上推 effect 会把"刚采用"的值当本机改动推回去
+    expect(server.putAttempts).toHaveLength(0)
+    expect(server.writes).toHaveLength(0)
+    expect(result.current.customHrefs).toEqual(['/models'])
+  })
+
+  it('请求期间本机发生改动 ⇒ 丢弃这次过期结果(防 GET 慢于 PUT 时回退本机操作)', async () => {
+    vi.useFakeTimers()
+    login('dev-G')
+    server.exists = true
+    server.hrefs = ['/models']
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+
+    server.hrefs = ['/models', '/agents'] // 远端有新项
+    window.dispatchEvent(new Event('focus'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(301)
+    })
+    // GET 刚发出、本机此刻又改了一项(基线随之推进)
+    await act(async () => {
+      result.current.addHref('/publish/history')
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    await flush()
+    // 过期结果不得把本机刚加的 /publish/history 抹掉
+    expect(result.current.customHrefs).toContain('/publish/history')
+  })
+
+  it('登出后不再跟随远端(结果属于别的用户,必须丢弃)', async () => {
+    vi.useFakeTimers()
+    login('dev-H')
+    server.exists = true
+    server.hrefs = ['/models']
+    const { result } = renderHook(() => useCustomNav())
+    await flush()
+
+    server.hrefs = ['/models', '/agents']
+    window.dispatchEvent(new Event('focus'))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(301)
+    })
+    login(null)
+    await act(async () => {
+      result.current.removeHref('/models')
+    })
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    await flush()
+    expect(result.current.customHrefs).toEqual([])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -56,10 +56,16 @@ export default function EduCourseLearnPage() {
   // 2026-09-30 登录态门:未登录不发注定 401 的请求
   const { allow } = useAuthGate()
 
+  // 章节+小节与 videoUrl 取自课程权威端点(/api/learn/lessons/:id);
+  // 此前读的是 /api/edu/courses/:id/sections,那个端点返回 {list:[{chapter,sections}],total},
+  // 与此处期望的 {sections,title} 不同形 ⇒ 章节恒空、播放器恒退化成图标占位。
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'course', id, 'learn'],
     queryFn: () =>
-      apiOrThrow<{ sections: Section[]; title: string }>(`/api/edu/courses/${id}/sections`),
+      apiOrThrow<{
+        lesson: { id: string; title: string }
+        chapters: { id: string; title: string; sections: Section[] }[]
+      }>(`/api/learn/lessons/${id}`),
     enabled: allow,
   })
 
@@ -143,7 +149,8 @@ export default function EduCourseLearnPage() {
     )
   }
 
-  const sections = data.sections ?? []
+  const sections = data?.chapters?.flatMap((c) => c.sections ?? []) ?? []
+  const courseTitle = data?.lesson?.title ?? ''
   const active = currentSec ?? sections[0] ?? null
 
   return (
@@ -168,7 +175,7 @@ export default function EduCourseLearnPage() {
             )}
           </div>
           <div className="space-y-1">
-            <h1 className="text-lg font-semibold">{active?.title ?? data.title}</h1>
+            <h1 className="text-lg font-semibold">{active?.title ?? courseTitle}</h1>
             {active?.duration && (
               <p className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
@@ -246,7 +253,11 @@ export default function EduCourseLearnPage() {
               标题作为 context 注入 persona prompt(此前无 props 挂载,上下文注入形同虚设) */}
           <AiTutorPanel
             chapterTitle={
-              data ? (currentSec ? `${data.title} · ${currentSec.title}` : data.title) : undefined
+              courseTitle
+                ? currentSec
+                  ? `${courseTitle} · ${currentSec.title}`
+                  : courseTitle
+                : undefined
             }
           />
 

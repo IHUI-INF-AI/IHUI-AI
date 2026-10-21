@@ -775,36 +775,16 @@ if (process.env.HUSKY_SKIP_README_NUMBERS !== '1') {
   console.log('⏭  README 数字生成块自动同步(HUSKY_SKIP_README_NUMBERS=1, 跳过)')
 }
 
-// ── README 最近更新小节自动同步(2026-10-19 立 · 李总诉求:开发时即自动更新文档)────
-// 提交时依据 git log 把四语言 README 的 RECENT UPDATES 标记区间刷新为最近提交摘要;
-// 确定性、零网络、毫秒级,与"数字块同步"同族,都是派生副本随提交重算。正确性由守门 173 兜底(若触及 README)。
-// 脚本自带"块外 prose 安全闸",git add 仍由脚本内部完成;这里只把脚本 git add 过的文件登记进 staged 快照。
-if (process.env.HUSKY_SKIP_README_RECENT !== '1') {
-  try {
-    console.log('📝 README 最近更新小节自动同步(git log 派生)')
-    const out = execSync('node scripts/auto-update-readme-recent.mjs', {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 64 * 1024 * 1024,
-    })
-    process.stdout.write(out)
-    for (const line of out.split('\n')) {
-      const m = /^STAGED:(.+)$/.exec(line.trim())
-      if (m && INITIAL_STAGED_SNAPSHOT && typeof INITIAL_STAGED_SNAPSHOT.add === 'function') {
-        INITIAL_STAGED_SNAPSHOT.add(m[1].trim())
-      }
-    }
-  } catch (e) {
-    console.warn(
-      `⚠️  auto-update-readme-recent.mjs 运行失败,最近更新本次未刷新:${(e && e.message) || e}。` +
-        `正确性仍由守门 173 兜底;紧急跳过:HUSKY_SKIP_README_RECENT=1 git commit ...`,
-    )
-  }
-} else {
-  console.log('⏭  README 最近更新小节自动同步(HUSKY_SKIP_README_RECENT=1, 跳过)')
-}
+// ── README 最近更新小节:已迁到 post-commit(2026-10-22 根治)──────────────────
+// 这里原来直接跑 auto-update-readme-recent.mjs,但 pre-commit 时**本枚提交尚未存在**,
+// `git log last-sha..HEAD` 只能看到上一枚 ⇒ 每次提交都只能补上一枚的条目,并把 README
+// 留在工作区/索引里;下一次提交收口时又为那一枚生成新条目,再脏一次 —— 结构性死循环
+// (机主令:彻底根治,不许再用「再提交一枚收口」的方式掩盖)。
+// 现由 post-commit 在 commit 落地后刷新(此时 git log 已包含本枚),若 README 有变化,
+// 立即用 object-space-land 自动回捞成一枚「自动回捞」提交;该消息命中脚本的 NOISE_RE
+// ⇒ 下一轮不再产生条目,达到不动点。数字块同步仍留在 pre-commit(它从文件系统现算,
+// 不读 git log,没有滞后问题)。
+
 
 // 1-4c, 6-29: 批量执行所有守门脚本(guardian-runner 单进程顺序执行)
 // 守门项数与分级见 `node scripts/guardian-runner.mjs --help` 输出

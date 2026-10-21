@@ -3,7 +3,7 @@
     "name": "IHUI AI",
     "slug": "ihui-ai-mobile",
     "version": "0.0.5",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "ihui",

@@ -28,6 +28,11 @@ function findRealMetroConfig() {
 }
 
 function main() {
+  // Windows 专属 junction 类型,Linux 云端跳过(postinstall 钩子,幂等 no-op)
+  if (process.platform !== 'win32') {
+    console.log('[fix-expo-metro-junction] 非 Windows 平台,跳过(云端 Linux)')
+    return
+  }
   const real = findRealMetroConfig()
   if (!real) {
     console.warn('[fix-expo-metro-junction] 未找到 @expo+metro-config@* 隔离目录,跳过')

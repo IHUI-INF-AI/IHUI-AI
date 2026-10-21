@@ -103,6 +103,15 @@ t('M9 装车成套:注册条目 blocking + skipEnv 齐备(读将要提交的那�
   if (!/stagedTriggers/.test(window) || !/\.husky\//.test(window)) throw new Error('条目缺 stagedTriggers=[".husky/"] ⇒ 会给无关提交造恒红(§12e)')
 })
 
+t('M8 H3 装载位:core.hooksPath 指向不存在目录判红,齐备薄壳零违规,未设置按 .git/hooks 判', () => {
+  const red = G.judgeHooksInstall(ROOT, { configValue: '.git/no-hooks', exists: () => false })
+  if (!red || red.rule !== 'H3') throw new Error('10-21 事故原形(core.hooksPath=.git/no-hooks)未被判红')
+  if (!/pre-commit\/post-commit/.test(red.detail)) throw new Error(`缺件未点名:${red.detail}`)
+  if (G.judgeHooksInstall(ROOT, { configValue: '.husky', exists: () => true }) !== null) throw new Error('齐备薄壳被误判')
+  const unset = G.judgeHooksInstall(ROOT, { configValue: '', exists: (p) => /pre-commit$/.test(p) })
+  if (!unset || !/\.git[\\/]hooks/.test(unset.detail)) throw new Error(`未设置时未回落到 .git/hooks:${JSON.stringify(unset)}`)
+})
+
 let pass = 0
 const fails = []
 for (const c of cases) {

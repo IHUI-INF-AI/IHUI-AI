@@ -119,7 +119,7 @@ describe('G-816030 api-client 侧帧归属屏障 = 判据源同形(判例表)', 
     for (const marker of [
       'export const FRAME_BARRIER_MAX_STAGED_FRAMES = 512',
       'export const FRAME_BARRIER_MAX_STAGED_BYTES = 1 << 20',
-      "export type FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow'",
+      "\ntype FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow'",
       'export class FrameBarrierOverflowError extends Error',
       "readonly reason: 'frames' | 'bytes'",
       'stagedCount(): number',

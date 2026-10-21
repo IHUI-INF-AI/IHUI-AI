@@ -13046,7 +13046,6 @@
     "description": "Description",
     "domain": "Domain",
     "domainHint": "Domain hint",
-    "duration": "Duration",
     "editInfo": "Edit Info",
     "estimatedHint": "Estimation hint",
     "highlight": "Highlight",
@@ -13054,7 +13053,6 @@
     "memory": "Memory",
     "name": "Name",
     "noInstances": "No instances",
-    "objectives": "Objectives",
     "question": "Question",
     "resources": "Resources",
     "resourcesHint": "Resource usage hint",
@@ -16734,8 +16732,6 @@
     "chapters": "Chapters",
     "detail": {
       "back": "Back to Learn",
-      "duration": "Duration",
-      "objectives": "Learning Objectives",
       "studentsLabel": "Students"
     },
     "empty": "No learning content available",

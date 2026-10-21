@@ -227,6 +227,9 @@ pnpm dev                                      # 启动所有服务(端口见 doc
 
 push 前必须确认远端无并发会话新提交(`git-push-converge.mjs` 六态);非快进一律走 converge,禁止强推;commit 污染防护 = `.husky/commit-msg` 的 `check-commit-scope-consistency.mjs`(跳过 `HUSKY_SKIP_SCOPE_CHECK=1`)。
 
+- **16b 推送协议(2026-10-22 机主令,提速到极致)**:只说「推送」时**第一动作固定为 `git push origin main`**,禁止先预判冲突去跑 merge/converge/读工具源码;仅当 push 以 non-fast-forward 失败才进入收敛,且收敛最多一轮 fetch→converge→重生成派生件(README 数字 `gen-doc-numbers --markdown`、`ui-routes` 钉)→再 push。收敛产物(合并树上的生成文件)用普通 `git add` + `git commit`,不再叠 safe-commit/AGENT_SCOPE。
+- **16c 钩子装载位对账**:`core.hooksPath` 必须指向真实存在的钩子目录且 `pre-commit`/`post-commit` 齐备(守门 226 H3)。2026-10-21 实测 `core.hooksPath=.git/no-hooks`(目录不存在)⇒ git 静默跑 **0 个钩子**,post-commit 自动推送/双备份停摆两天、本地积压 7 枚提交才在手工收敛时暴露(失效方向是安静,§12f)。
+
 ## 17. UI 改动验证强制规则(强制)
 
 UI 改动必须真机/真浏览器验证(截图或 e2e),禁止只凭代码审查声明"改好了";web 样式改动 commit message 带 `Verified-DOM:` trailer(`check-style-verification.mjs`,warn)。

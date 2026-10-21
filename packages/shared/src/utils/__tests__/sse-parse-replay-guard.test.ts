@@ -9,11 +9,7 @@
 // 不得二次进状态机;守卫可注入(SSEReplayGuard),缺省不注入时解析行为逐字不变。
 import { describe, expect, it } from 'vitest'
 
-import {
-  parseSSEChunk,
-  SseMonotonicReplayGuard,
-  type SSEReplayGuard,
-} from '../sse-parse'
+import { parseSSEChunk, SseMonotonicReplayGuard, type SSEReplayGuard } from '../sse-parse'
 
 /** 构造一条带 id: 游标的 chunk 事件帧(agents 任务流同形:id 行 + data 行 + 空行)。 */
 function frame(id: string, content: string): string {
@@ -76,10 +72,9 @@ describe('G-640 重放单调性守卫', () => {
   it('重放批整体被拦时 lastId 不回退(游标只随已消费事件推进)', () => {
     const guard = new SseMonotonicReplayGuard()
     parseSSEChunk(frame('task-5', 'x'), { replayGuard: guard })
-    const replay = parseSSEChunk(
-      frame('task-4', 'y') + frame('task-5', 'x'),
-      { replayGuard: guard },
-    )
+    const replay = parseSSEChunk(frame('task-4', 'y') + frame('task-5', 'x'), {
+      replayGuard: guard,
+    })
     expect(replay.events).toHaveLength(0)
     expect(replay.lastId).toBeUndefined()
     expect(replay.replayedDropped).toBe(2)
@@ -134,5 +129,55 @@ describe('G-640 重放单调性守卫', () => {
     expect(events).toHaveLength(2)
     expect(lastId).toBe('task-9')
     expect(replayedDropped).toBeUndefined()
+  })
+})
+
+// G-274(2026-10-18):同一枚守卫的判据改由投影水位协议驱动。旧实现 `seq > maxSeq` 一律放行
+// ⇒ **断档被静 admit**,少一帧还继续拼,产出的正是"自洽但根本不存在的投影";协议禁止本地补偿。
+describe('G-274 投影水位协议接到重放守卫(生产消费点)', () => {
+  it('断档 ⇒ 该帧不放行并给出 resync 原因(旧判据在这里会放行)', () => {
+    const guard = new SseMonotonicReplayGuard()
+    const sm = makeStateMachine()
+    sm.feed(frame('task-1', 'a') + frame('task-2', 'b'), guard)
+    expect(sm.count).toBe(2)
+    expect(guard.pendingResync).toBeNull()
+
+    // 缺 task-3 直接来 task-4:序号确实更大,旧实现会 admit ⇒ 正文少一段而账面看不出来
+    sm.feed(frame('task-4', 'd'), guard)
+    expect(sm.count).toBe(2)
+    expect(sm.text).toBe('ab')
+    expect(guard.pendingResync).toEqual({ reason: 'gap', fromSeq: 4 })
+  })
+
+  it('重订阅换代后可重新立基线(不把"待基线"挂死成每帧全量重拉)', () => {
+    const first = new SseMonotonicReplayGuard()
+    expect(first.admit('t-1')).toBe(true)
+    expect(first.admit('t-3')).toBe(false)
+    expect(first.pendingResync?.reason).toBe('gap')
+
+    const second = new SseMonotonicReplayGuard()
+    expect(second.admit('t-3')).toBe(true)
+    expect(second.admit('t-4')).toBe(true)
+    expect(second.pendingResync).toBeNull()
+  })
+
+  it('正向对照:严格连续的 resume 不误判(误判会把每条 delta 变成全量重拉)', () => {
+    const guard = new SseMonotonicReplayGuard()
+    expect(guard.admit('s-10')).toBe(true)
+    expect(guard.admit('s-11')).toBe(true)
+    expect(guard.admit('s-12')).toBe(true)
+    expect(guard.pendingResync).toBeNull()
+    // 重连重放:已消费过的帧照旧丢弃,且**不算断档**
+    expect(guard.admit('s-11')).toBe(false)
+    expect(guard.admit('s-9')).toBe(false)
+    expect(guard.pendingResync).toBeNull()
+  })
+
+  it('无数字尾段的 id 不喂协议(判"未知"就是未知,不猜)', () => {
+    const guard = new SseMonotonicReplayGuard()
+    expect(guard.admit('550e8400-e29b-41d4')).toBe(true)
+    expect(guard.pendingResync).toBeNull()
+    expect(guard.admit('550e8400-e29b-41d4')).toBe(false)
+    expect(guard.pendingResync).toBeNull()
   })
 })

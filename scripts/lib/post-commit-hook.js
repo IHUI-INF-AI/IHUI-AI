@@ -154,6 +154,68 @@ runLogged(
 // 台账新语义 = 活队列:`- [x]` 翻勾后即可删行,守门 71 判据已同步改为"已勾行不进保护集"
 // (markerOf 顶部),删除不再被判丢、也不被回捞。`pnpm archive` 手动入口一并摘除。
 
+// ─── 2b. README 最近更新自动回捞(2026-10-22 根治)─────────────────────────
+// 为什么必须在这里:pre-commit 时本枚提交还不存在,`git log last-sha..HEAD` 只能看到
+// 上一枚 ⇒ 每次提交都只能补上一枚的条目,README 永远是脏的;下次提交收口又生新条目
+// ⇒ 结构性死循环(机主令:彻底根治)。commit 落地后此处才看得见本枚;刷新 README 后
+// 用 object-space-land(commit-tree + update-ref,不触发钩子)造一枚「自动回捞」提交。
+// 该提交消息命中 auto-update 的 NOISE_RE(/自动回捞|…/)⇒ 下一轮不再为它生成条目,
+// 达到不动点。无 README 变化则零动作;块外有他人在飞改动时脚本会拒 add,本段不强推。
+// 跳过:HUSKY_SKIP_README_RECENT=1
+if (process.env.HUSKY_SKIP_README_RECENT !== '1') {
+  let out = ''
+  let ok = true
+  try {
+    out =
+      execSync('node scripts/auto-update-readme-recent.mjs', {
+        encoding: 'utf8',
+        cwd: ROOT,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        maxBuffer: 32 * 1024 * 1024,
+      }) || ''
+  } catch (e) {
+    ok = false
+    out = `${e.stdout || ''}${e.stderr || ''}${e.message || ''}`
+  }
+  try {
+    appendFileSync(
+      join(LOG_DIR, 'post-commit-readme-recent.log'),
+      `\n===== ${new Date().toISOString()} ok=${ok} =====\n${out}`,
+    )
+  } catch {
+    /* 日志写失败不得影响钩子主流程 */
+  }
+  process.stdout.write(out)
+
+  const stagedReadmes = [...out.matchAll(/^STAGED:(.+)$/gm)].map((m) => m[1].trim()).filter(Boolean)
+  if (!ok) {
+    console.error('⚠️  README 最近更新刷新失败(非阻塞, commit 已落地;详见 hook-logs)')
+  } else if (stagedReadmes.length > 0) {
+    const landPaths = [...new Set([...stagedReadmes, '.doc-autoupdate/last-sha'])].join(';')
+    const landed = runLogged('post-commit-readme-recent-land', 'node scripts/object-space-land.mjs', {
+      timeout: 120000,
+      env: {
+        LAND_PATHS: landPaths,
+        LAND_MSG: 'chore(docs): README 最近更新自动回捞',
+        LAND_ALLOW_STALE: '1',
+      },
+    })
+    if (landed) {
+      console.log(`✅ README 最近更新已自动回捞(${stagedReadmes.length} 个文件)`)
+    } else {
+      console.error(
+        '⚠️  README 最近更新回捞失败(非阻塞;详见 .workbuddy/hook-logs/post-commit-readme-recent-land.log)',
+      )
+    }
+  }
+  if (/^SKIP_PROSE:/m.test(out)) {
+    console.error(
+      '⚠️  有 README 的块外存在未提交改动,脚本已拒 add —— 该文件未自动回捞,请人工提交(避免吞并他人在飞改动)',
+    )
+  }
+}
+
 // ─── 3. 自动 push guard(AGENTS.md §20, 2026-07-20 立) ──────
 // 背景: 历史上多次出现 agent "commit 后忘记 push" 协作事故。
 // 任何 `git commit` 成功后, 自动检测本地 ahead, 立即推送, 并验证 local == remote HEAD。

@@ -13050,7 +13050,6 @@
     "description": "描述",
     "domain": "域名",
     "domainHint": "域名解析提示",
-    "duration": "耗时",
     "editInfo": "编辑信息",
     "estimatedHint": "预估说明",
     "highlight": "高亮",
@@ -13058,7 +13057,6 @@
     "memory": "内存",
     "name": "名称",
     "noInstances": "暂无实例",
-    "objectives": "目标",
     "question": "题目",
     "resources": "资源",
     "resourcesHint": "资源占用提示",
@@ -16738,8 +16736,6 @@
     "chapters": "课程章节",
     "detail": {
       "back": "返回学习中心",
-      "duration": "时长",
-      "objectives": "学习目标",
       "studentsLabel": "学员"
     },
     "empty": "暂无学习内容",
