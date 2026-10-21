@@ -1,0 +1,7121 @@
+{
+ "courses": [
+  {
+   "seriesKey": "3b1b/3b1b_linear",
+   "title": "3Blue1Brown 线性代数",
+   "lecturerName": "3Blue1Brown",
+   "namingEvidence": "3b1b = 3Blue1Brown,linear = 线性代数主题",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "3b1b/3b1b_linear_01.mp4",
+     "duration": 304,
+     "bytes": 24962238,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "3b1b/3b1b_linear_02.mp4",
+     "duration": 592,
+     "bytes": 32728962,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "3b1b/3b1b_linear_03.mp4",
+     "duration": 599,
+     "bytes": 84324751,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "3b1b/3b1b_linear_04.mp4",
+     "duration": 658,
+     "bytes": 94230293,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "3b1b/3b1b_linear_05.mp4",
+     "duration": 603,
+     "bytes": 80850877,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "3b1b/3b1b_linear_06.mp4",
+     "duration": 286,
+     "bytes": 65464977,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "3b1b/3b1b_linear_07.mp4",
+     "duration": 603,
+     "bytes": 105726099,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "3b1b/3b1b_linear_08.mp4",
+     "duration": 728,
+     "bytes": 129136229,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "3b1b/3b1b_linear_09.mp4",
+     "duration": 267,
+     "bytes": 46642268,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "3b1b/3b1b_linear_10.mp4",
+     "duration": 851,
+     "bytes": 59450686,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "3b1b/3b1b_linear_11.mp4",
+     "duration": 533,
+     "bytes": 46452249,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "3b1b/3b1b_linear_12.mp4",
+     "duration": 790,
+     "bytes": 60307723,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "3b1b/3b1b_linear_13.mp4",
+     "duration": 770,
+     "bytes": 79160555,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "3b1b/3b1b_linear_15.mp4",
+     "duration": 1006,
+     "bytes": 91233336,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "ai-agent/ai_agent",
+   "title": "AI Agent 开发实战",
+   "lecturerName": null,
+   "namingEvidence": "ai_agent 前缀",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "ai-agent/ai_agent_01.mp4",
+     "duration": 616,
+     "bytes": 29787927,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "ai-agent/ai_agent_02.mp4",
+     "duration": 430,
+     "bytes": 13148049,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "ai-agent/ai_agent_03.mp4",
+     "duration": 520,
+     "bytes": 20934463,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "ai-agent/ai_agent_04.mp4",
+     "duration": 870,
+     "bytes": 34730960,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "ai-agent/ai_agent_05.mp4",
+     "duration": 447,
+     "bytes": 18616858,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "ai-agent/ai_agent_06.mp4",
+     "duration": 451,
+     "bytes": 20591600,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "ai-agent/ai_agent_07.mp4",
+     "duration": 568,
+     "bytes": 16227205,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "ai-agent/ai_agent_08.mp4",
+     "duration": 608,
+     "bytes": 27050165,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "ai-agent/ai_agent_09.mp4",
+     "duration": 300,
+     "bytes": 16315795,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "ai-agent/ai_agent_10.mp4",
+     "duration": 423,
+     "bytes": 15531792,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "ai-agent/ai_agent_11.mp4",
+     "duration": 85,
+     "bytes": 8438641,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "ai-agent/ai_agent_12.mp4",
+     "duration": 253,
+     "bytes": 14985437,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "ai-agent/ai_agent_13.mp4",
+     "duration": 456,
+     "bytes": 15510025,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "ai-agent/ai_agent_14.mp4",
+     "duration": 196,
+     "bytes": 6991673,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "ai-agent/ai_agent_15.mp4",
+     "duration": 716,
+     "bytes": 36480363,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "ai-agent/ai_agent_16.mp4",
+     "duration": 615,
+     "bytes": 33352249,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "ai-agent/ai_agent_17.mp4",
+     "duration": 453,
+     "bytes": 31102680,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "ai-agent/ai_agent_18.mp4",
+     "duration": 614,
+     "bytes": 32771652,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 19 集",
+     "rel": "ai-agent/ai_agent_19.mp4",
+     "duration": 267,
+     "bytes": 18756015,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "ai-agent/ai_agent_20.mp4",
+     "duration": 772,
+     "bytes": 46706658,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "ai-agent/ai_agent_21.mp4",
+     "duration": 894,
+     "bytes": 57670266,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 22 集",
+     "rel": "ai-agent/ai_agent_22.mp4",
+     "duration": 416,
+     "bytes": 21535545,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 23 集",
+     "rel": "ai-agent/ai_agent_23.mp4",
+     "duration": 249,
+     "bytes": 21745725,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 24 集",
+     "rel": "ai-agent/ai_agent_24.mp4",
+     "duration": 833,
+     "bytes": 48682098,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 25 集",
+     "rel": "ai-agent/ai_agent_25.mp4",
+     "duration": 476,
+     "bytes": 26268876,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 26 集",
+     "rel": "ai-agent/ai_agent_26.mp4",
+     "duration": 497,
+     "bytes": 45563718,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 27 集",
+     "rel": "ai-agent/ai_agent_27.mp4",
+     "duration": 789,
+     "bytes": 67728302,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "ai-agent/ai_agent_28.mp4",
+     "duration": 650,
+     "bytes": 47574384,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "ai-agent/ai_agent_29.mp4",
+     "duration": 367,
+     "bytes": 24848486,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 30 集",
+     "rel": "ai-agent/ai_agent_30.mp4",
+     "duration": 580,
+     "bytes": 28583486,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 31 集",
+     "rel": "ai-agent/ai_agent_31.mp4",
+     "duration": 538,
+     "bytes": 36732432,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 32 集",
+     "rel": "ai-agent/ai_agent_32.mp4",
+     "duration": 497,
+     "bytes": 31883259,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 33 集",
+     "rel": "ai-agent/ai_agent_33.mp4",
+     "duration": 376,
+     "bytes": 20322648,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 34 集",
+     "rel": "ai-agent/ai_agent_34.mp4",
+     "duration": 362,
+     "bytes": 22466759,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 35 集",
+     "rel": "ai-agent/ai_agent_35.mp4",
+     "duration": 591,
+     "bytes": 47917996,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 36 集",
+     "rel": "ai-agent/ai_agent_36.mp4",
+     "duration": 624,
+     "bytes": 31736523,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "ai-agent/ai_agent_37.mp4",
+     "duration": 716,
+     "bytes": 45774715,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "ai-agent/ai_agent_38.mp4",
+     "duration": 710,
+     "bytes": 46412289,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "ai-agent/ai_agent_40.mp4",
+     "duration": 981,
+     "bytes": 84079516,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "ai-agent/ai_agent_41.mp4",
+     "duration": 733,
+     "bytes": 52995878,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "ai-agent/ai_agent_42.mp4",
+     "duration": 583,
+     "bytes": 38403349,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "ai-agent/ai_agent_43.mp4",
+     "duration": 429,
+     "bytes": 29591308,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "ai-agent/ai_agent_44.mp4",
+     "duration": 845,
+     "bytes": 70233139,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "ai-agent/ai_agent_45.mp4",
+     "duration": 323,
+     "bytes": 21723358,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "ai-agent/ai_agent_46.mp4",
+     "duration": 276,
+     "bytes": 17932518,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "ai-agent/ai_agent_47.mp4",
+     "duration": 603,
+     "bytes": 38153046,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "ai-agent/ai_agent_48.mp4",
+     "duration": 495,
+     "bytes": 45872999,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "ai-agent/ai_agent_49.mp4",
+     "duration": 424,
+     "bytes": 28009744,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "ai-agent/ai_agent_50.mp4",
+     "duration": 401,
+     "bytes": 33843841,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 50 集",
+     "rel": "ai-agent/ai_agent_51.mp4",
+     "duration": 461,
+     "bytes": 37912858,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "ai-agent/ai_agent_52.mp4",
+     "duration": 263,
+     "bytes": 19956305,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "ai-agent/ai_agent_53.mp4",
+     "duration": 519,
+     "bytes": 22120736,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "ai-agent/ai_agent_54.mp4",
+     "duration": 414,
+     "bytes": 18852833,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 54 集",
+     "rel": "ai-agent/ai_agent_55.mp4",
+     "duration": 298,
+     "bytes": 19750897,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 55 集",
+     "rel": "ai-agent/ai_agent_56.mp4",
+     "duration": 833,
+     "bytes": 48711258,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 56 集",
+     "rel": "ai-agent/ai_agent_57.mp4",
+     "duration": 275,
+     "bytes": 10943493,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 57 集",
+     "rel": "ai-agent/ai_agent_58.mp4",
+     "duration": 450,
+     "bytes": 16955484,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 58 集",
+     "rel": "ai-agent/ai_agent_59.mp4",
+     "duration": 352,
+     "bytes": 12104971,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 59 集",
+     "rel": "ai-agent/ai_agent_60.mp4",
+     "duration": 604,
+     "bytes": 18859130,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 60 集",
+     "rel": "ai-agent/ai_agent_61.mp4",
+     "duration": 495,
+     "bytes": 17536624,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 61 集",
+     "rel": "ai-agent/ai_agent_62.mp4",
+     "duration": 335,
+     "bytes": 10791377,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 62 集",
+     "rel": "ai-agent/ai_agent_63.mp4",
+     "duration": 247,
+     "bytes": 13420731,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 63 集",
+     "rel": "ai-agent/ai_agent_64.mp4",
+     "duration": 706,
+     "bytes": 19970422,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 64 集",
+     "rel": "ai-agent/ai_agent_65.mp4",
+     "duration": 382,
+     "bytes": 19900142,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 65 集",
+     "rel": "ai-agent/ai_agent_66.mp4",
+     "duration": 284,
+     "bytes": 15129487,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 66 集",
+     "rel": "ai-agent/ai_agent_67.mp4",
+     "duration": 547,
+     "bytes": 18340285,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "ai-agent/copilot",
+   "title": "GitHub Copilot 实战",
+   "lecturerName": null,
+   "namingEvidence": "copilot 前缀",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "ai-agent/copilot_01.mp4",
+     "duration": 191,
+     "bytes": 5548385,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "ai-agent/copilot_02.mp4",
+     "duration": 38,
+     "bytes": 953984,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "ai-agent/copilot_03.mp4",
+     "duration": 452,
+     "bytes": 10350672,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "ai-agent/copilot_04.mp4",
+     "duration": 79,
+     "bytes": 1062818,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "ai-agent/copilot_05.mp4",
+     "duration": 121,
+     "bytes": 3107465,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "ai-agent/copilot_06.mp4",
+     "duration": 288,
+     "bytes": 6008498,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "ai-agent/copilot_07.mp4",
+     "duration": 608,
+     "bytes": 18540023,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "ai-agent/copilot_08.mp4",
+     "duration": 550,
+     "bytes": 14949682,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "ai-agent/copilot_09.mp4",
+     "duration": 795,
+     "bytes": 24683313,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "ai-agent/copilot_10.mp4",
+     "duration": 1020,
+     "bytes": 37764699,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "ai-agent/copilot_11.mp4",
+     "duration": 279,
+     "bytes": 7814753,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "ai-agent/copilot_12.mp4",
+     "duration": 105,
+     "bytes": 3008461,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "ai-agent/copilot_13.mp4",
+     "duration": 583,
+     "bytes": 14398831,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "ai-agent/copilot_14.mp4",
+     "duration": 236,
+     "bytes": 5501550,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "ai-agent/copilot_15.mp4",
+     "duration": 367,
+     "bytes": 8170100,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "ai-agent/copilot_16.mp4",
+     "duration": 512,
+     "bytes": 15308904,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "ai-agent/copilot_17.mp4",
+     "duration": 273,
+     "bytes": 7119289,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "ai-agent/copilot_18.mp4",
+     "duration": 200,
+     "bytes": 4374815,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 19 集",
+     "rel": "ai-agent/copilot_19.mp4",
+     "duration": 158,
+     "bytes": 3694826,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "ai-agent/copilot_20.mp4",
+     "duration": 342,
+     "bytes": 8028358,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "ai-agent/copilot_21.mp4",
+     "duration": 299,
+     "bytes": 8464054,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 22 集",
+     "rel": "ai-agent/copilot_22.mp4",
+     "duration": 323,
+     "bytes": 9029286,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 23 集",
+     "rel": "ai-agent/copilot_23.mp4",
+     "duration": 317,
+     "bytes": 11363212,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 24 集",
+     "rel": "ai-agent/copilot_24.mp4",
+     "duration": 1223,
+     "bytes": 36535878,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 25 集",
+     "rel": "ai-agent/copilot_25.mp4",
+     "duration": 614,
+     "bytes": 18887686,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 26 集",
+     "rel": "ai-agent/copilot_26.mp4",
+     "duration": 176,
+     "bytes": 4894860,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 27 集",
+     "rel": "ai-agent/copilot_27.mp4",
+     "duration": 250,
+     "bytes": 5655072,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "ai-agent/copilot_28.mp4",
+     "duration": 116,
+     "bytes": 1910575,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "ai-agent/copilot_29.mp4",
+     "duration": 198,
+     "bytes": 5167262,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 30 集",
+     "rel": "ai-agent/copilot_30.mp4",
+     "duration": 744,
+     "bytes": 15300870,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 31 集",
+     "rel": "ai-agent/copilot_31.mp4",
+     "duration": 189,
+     "bytes": 2988817,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 32 集",
+     "rel": "ai-agent/copilot_32.mp4",
+     "duration": 844,
+     "bytes": 22490253,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 33 集",
+     "rel": "ai-agent/copilot_33.mp4",
+     "duration": 491,
+     "bytes": 16148255,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 34 集",
+     "rel": "ai-agent/copilot_34.mp4",
+     "duration": 264,
+     "bytes": 8025595,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 35 集",
+     "rel": "ai-agent/copilot_35.mp4",
+     "duration": 617,
+     "bytes": 19277743,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 36 集",
+     "rel": "ai-agent/copilot_36.mp4",
+     "duration": 567,
+     "bytes": 13870984,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "ai-agent/copilot_37.mp4",
+     "duration": 260,
+     "bytes": 6824886,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "ai-agent/copilot_38.mp4",
+     "duration": 314,
+     "bytes": 8239093,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "ai-agent/copilot_39.mp4",
+     "duration": 83,
+     "bytes": 2751346,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "ai-agent/copilot_40.mp4",
+     "duration": 83,
+     "bytes": 2655771,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "ai-agent/copilot_41.mp4",
+     "duration": 461,
+     "bytes": 10218970,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "ai-agent/copilot_42.mp4",
+     "duration": 781,
+     "bytes": 20978645,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "ai-agent/copilot_43.mp4",
+     "duration": 925,
+     "bytes": 21809633,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "ai-agent/copilot_44.mp4",
+     "duration": 297,
+     "bytes": 6339063,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "ai-agent/copilot_45.mp4",
+     "duration": 520,
+     "bytes": 18542500,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "ai-agent/copilot_46.mp4",
+     "duration": 903,
+     "bytes": 19453041,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "ai-agent/copilot_47.mp4",
+     "duration": 565,
+     "bytes": 14500998,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "ai-agent/copilot_48.mp4",
+     "duration": 236,
+     "bytes": 6543244,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "ai-agent/copilot_49.mp4",
+     "duration": 111,
+     "bytes": 3474063,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 50 集",
+     "rel": "ai-agent/copilot_50.mp4",
+     "duration": 300,
+     "bytes": 7794040,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "ai-agent/copilot_51.mp4",
+     "duration": 345,
+     "bytes": 9147734,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "ai-agent/copilot_52.mp4",
+     "duration": 529,
+     "bytes": 13472101,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "ai-agent/copilot_53.mp4",
+     "duration": 604,
+     "bytes": 16148154,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 54 集",
+     "rel": "ai-agent/copilot_54.mp4",
+     "duration": 65,
+     "bytes": 2200641,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "ai-agent/coursera_ai_agents_python",
+   "title": "Coursera AI Agents with Python",
+   "lecturerName": null,
+   "namingEvidence": "文件名单字面",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "ai-agent/coursera_ai_agents_python.mp4",
+     "duration": 616,
+     "bytes": 29787927,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "ai-agent/github_copilot_course",
+   "title": "GitHub Copilot 课程",
+   "lecturerName": null,
+   "namingEvidence": "文件名单字面",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "ai-agent/github_copilot_course.mp4",
+     "duration": 191,
+     "bytes": 5548385,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "andrew_ng/andrew_llm",
+   "title": "Andrew Ng 大模型系列",
+   "lecturerName": "Andrew Ng",
+   "namingEvidence": "andrew + llm",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "andrew_ng/andrew_llm_01.mp4",
+     "duration": 424,
+     "bytes": 13418254,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "andrew_ng/andrew_llm_02.mp4",
+     "duration": 491,
+     "bytes": 16949924,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "andrew_ng/andrew_llm_03.mp4",
+     "duration": 286,
+     "bytes": 11880815,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "andrew_ng/andrew_llm_04.mp4",
+     "duration": 394,
+     "bytes": 15520395,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "andrew_ng/andrew_llm_05.mp4",
+     "duration": 324,
+     "bytes": 12297010,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "andrew_ng/andrew_llm_06.mp4",
+     "duration": 473,
+     "bytes": 17787415,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "andrew_ng/andrew_llm_07.mp4",
+     "duration": 420,
+     "bytes": 15462940,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "andrew_ng/andrew_llm_08.mp4",
+     "duration": 662,
+     "bytes": 24512164,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "andrew_ng/andrew_llm_09.mp4",
+     "duration": 387,
+     "bytes": 14762596,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "andrew_ng/andrew_llm_10.mp4",
+     "duration": 398,
+     "bytes": 16988092,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "andrew_ng/andrew_llm_11.mp4",
+     "duration": 393,
+     "bytes": 13933495,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "andrew_ng/andrew_llm_12.mp4",
+     "duration": 1056,
+     "bytes": 14923824,
+     "width": 360,
+     "height": 640
+    },
+    {
+     "title": "第 13 集",
+     "rel": "andrew_ng/andrew_llm_13.mp4",
+     "duration": 799,
+     "bytes": 11526479,
+     "width": 360,
+     "height": 640
+    },
+    {
+     "title": "第 14 集",
+     "rel": "andrew_ng/andrew_llm_14.mp4",
+     "duration": 453,
+     "bytes": 6635615,
+     "width": 360,
+     "height": 640
+    },
+    {
+     "title": "第 15 集",
+     "rel": "andrew_ng/andrew_llm_15.mp4",
+     "duration": 721,
+     "bytes": 10056114,
+     "width": 360,
+     "height": 640
+    },
+    {
+     "title": "第 16 集",
+     "rel": "andrew_ng/andrew_llm_16.mp4",
+     "duration": 762,
+     "bytes": 10203841,
+     "width": 360,
+     "height": 640
+    },
+    {
+     "title": "第 17 集",
+     "rel": "andrew_ng/andrew_llm_17.mp4",
+     "duration": 409,
+     "bytes": 5990863,
+     "width": 360,
+     "height": 640
+    },
+    {
+     "title": "第 18 集",
+     "rel": "andrew_ng/andrew_llm_18.mp4",
+     "duration": 745,
+     "bytes": 10039126,
+     "width": 360,
+     "height": 640
+    },
+    {
+     "title": "第 19 集",
+     "rel": "andrew_ng/andrew_llm_19.mp4",
+     "duration": 150,
+     "bytes": 5911988,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "andrew_ng/andrew_llm_20.mp4",
+     "duration": 183,
+     "bytes": 8528474,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "andrew_ng/andrew_llm_21.mp4",
+     "duration": 876,
+     "bytes": 19431812,
+     "width": 480,
+     "height": 538
+    },
+    {
+     "title": "第 22 集",
+     "rel": "andrew_ng/andrew_llm_22.mp4",
+     "duration": 911,
+     "bytes": 20760298,
+     "width": 480,
+     "height": 538
+    },
+    {
+     "title": "第 23 集",
+     "rel": "andrew_ng/andrew_llm_23.mp4",
+     "duration": 540,
+     "bytes": 12819918,
+     "width": 480,
+     "height": 538
+    },
+    {
+     "title": "第 24 集",
+     "rel": "andrew_ng/andrew_llm_24.mp4",
+     "duration": 653,
+     "bytes": 13583324,
+     "width": 480,
+     "height": 538
+    },
+    {
+     "title": "第 25 集",
+     "rel": "andrew_ng/andrew_llm_25.mp4",
+     "duration": 975,
+     "bytes": 22858973,
+     "width": 480,
+     "height": 538
+    },
+    {
+     "title": "第 26 集",
+     "rel": "andrew_ng/andrew_llm_26.mp4",
+     "duration": 690,
+     "bytes": 16130145,
+     "width": 480,
+     "height": 538
+    },
+    {
+     "title": "第 27 集",
+     "rel": "andrew_ng/andrew_llm_27.mp4",
+     "duration": 270,
+     "bytes": 8439653,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "andrew_ng/andrew_llm_28.mp4",
+     "duration": 19,
+     "bytes": 972557,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "andrew_ng/andrew_llm_29.mp4",
+     "duration": 490,
+     "bytes": 28067764,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 30 集",
+     "rel": "andrew_ng/andrew_llm_30.mp4",
+     "duration": 89,
+     "bytes": 3273169,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 31 集",
+     "rel": "andrew_ng/andrew_llm_31.mp4",
+     "duration": 329,
+     "bytes": 11900244,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 32 集",
+     "rel": "andrew_ng/andrew_llm_32.mp4",
+     "duration": 264,
+     "bytes": 10114154,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 33 集",
+     "rel": "andrew_ng/andrew_llm_33.mp4",
+     "duration": 357,
+     "bytes": 13081743,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 34 集",
+     "rel": "andrew_ng/andrew_llm_34.mp4",
+     "duration": 580,
+     "bytes": 20301944,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 35 集",
+     "rel": "andrew_ng/andrew_llm_35.mp4",
+     "duration": 308,
+     "bytes": 11342521,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 36 集",
+     "rel": "andrew_ng/andrew_llm_36.mp4",
+     "duration": 78,
+     "bytes": 3254396,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "andrew_ng/andrew_llm_37.mp4",
+     "duration": 85,
+     "bytes": 3248756,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "andrew_ng/andrew_llm_38.mp4",
+     "duration": 209,
+     "bytes": 7988906,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "andrew_ng/andrew_llm_39.mp4",
+     "duration": 265,
+     "bytes": 10290502,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "andrew_ng/andrew_llm_40.mp4",
+     "duration": 427,
+     "bytes": 14951145,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "andrew_ng/andrew_llm_41.mp4",
+     "duration": 288,
+     "bytes": 11060076,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "andrew_ng/andrew_llm_42.mp4",
+     "duration": 450,
+     "bytes": 16175239,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "andrew_ng/andrew_llm_43.mp4",
+     "duration": 459,
+     "bytes": 16982816,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "andrew_ng/andrew_llm_44.mp4",
+     "duration": 504,
+     "bytes": 18493912,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "andrew_ng/andrew_llm_45.mp4",
+     "duration": 373,
+     "bytes": 13637261,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "andrew_ng/andrew_llm_46.mp4",
+     "duration": 127,
+     "bytes": 4904453,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "andrew_ng/andrew_llm_47.mp4",
+     "duration": 78,
+     "bytes": 3328893,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "andrew_ng/andrew_llm_48.mp4",
+     "duration": 477,
+     "bytes": 17299027,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "andrew_ng/andrew_llm_49.mp4",
+     "duration": 329,
+     "bytes": 12353710,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 50 集",
+     "rel": "andrew_ng/andrew_llm_50.mp4",
+     "duration": 395,
+     "bytes": 14659411,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "andrew_ng/andrew_llm_51.mp4",
+     "duration": 350,
+     "bytes": 13511382,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "andrew_ng/andrew_llm_52.mp4",
+     "duration": 360,
+     "bytes": 15160320,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "andrew_ng/andrew_llm_53.mp4",
+     "duration": 500,
+     "bytes": 19130413,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 54 集",
+     "rel": "andrew_ng/andrew_llm_54.mp4",
+     "duration": 266,
+     "bytes": 10592035,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 55 集",
+     "rel": "andrew_ng/andrew_llm_55.mp4",
+     "duration": 116,
+     "bytes": 4880855,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 56 集",
+     "rel": "andrew_ng/andrew_llm_56.mp4",
+     "duration": 72,
+     "bytes": 3040090,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 57 集",
+     "rel": "andrew_ng/andrew_llm_57.mp4",
+     "duration": 539,
+     "bytes": 19989555,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 58 集",
+     "rel": "andrew_ng/andrew_llm_58.mp4",
+     "duration": 492,
+     "bytes": 17401089,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 59 集",
+     "rel": "andrew_ng/andrew_llm_59.mp4",
+     "duration": 493,
+     "bytes": 19085204,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 60 集",
+     "rel": "andrew_ng/andrew_llm_60.mp4",
+     "duration": 344,
+     "bytes": 13633558,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 61 集",
+     "rel": "andrew_ng/andrew_llm_61.mp4",
+     "duration": 492,
+     "bytes": 18731093,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 62 集",
+     "rel": "andrew_ng/andrew_llm_62.mp4",
+     "duration": 456,
+     "bytes": 17701346,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 63 集",
+     "rel": "andrew_ng/andrew_llm_63.mp4",
+     "duration": 326,
+     "bytes": 12645562,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 64 集",
+     "rel": "andrew_ng/andrew_llm_64.mp4",
+     "duration": 375,
+     "bytes": 14110462,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 65 集",
+     "rel": "andrew_ng/andrew_llm_65.mp4",
+     "duration": 380,
+     "bytes": 14528413,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 66 集",
+     "rel": "andrew_ng/andrew_llm_66.mp4",
+     "duration": 74,
+     "bytes": 3207737,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 67 集",
+     "rel": "andrew_ng/andrew_llm_67.mp4",
+     "duration": 102,
+     "bytes": 4005389,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 68 集",
+     "rel": "andrew_ng/andrew_llm_68.mp4",
+     "duration": 207,
+     "bytes": 8344353,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 69 集",
+     "rel": "andrew_ng/andrew_llm_69.mp4",
+     "duration": 448,
+     "bytes": 15741364,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 70 集",
+     "rel": "andrew_ng/andrew_llm_70.mp4",
+     "duration": 255,
+     "bytes": 10310939,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 71 集",
+     "rel": "andrew_ng/andrew_llm_71.mp4",
+     "duration": 310,
+     "bytes": 12303041,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 72 集",
+     "rel": "andrew_ng/andrew_llm_72.mp4",
+     "duration": 468,
+     "bytes": 17476091,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 73 集",
+     "rel": "andrew_ng/andrew_llm_73.mp4",
+     "duration": 338,
+     "bytes": 13379048,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 74 集",
+     "rel": "andrew_ng/andrew_llm_74.mp4",
+     "duration": 279,
+     "bytes": 10978229,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 75 集",
+     "rel": "andrew_ng/andrew_llm_75.mp4",
+     "duration": 321,
+     "bytes": 12507904,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 76 集",
+     "rel": "andrew_ng/andrew_llm_76.mp4",
+     "duration": 382,
+     "bytes": 14256691,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 77 集",
+     "rel": "andrew_ng/andrew_llm_77.mp4",
+     "duration": 116,
+     "bytes": 5076041,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 78 集",
+     "rel": "andrew_ng/andrew_llm_78.mp4",
+     "duration": 177,
+     "bytes": 7592061,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 79 集",
+     "rel": "andrew_ng/andrew_llm_79.mp4",
+     "duration": 450,
+     "bytes": 9437607,
+     "width": 480,
+     "height": 540
+    },
+    {
+     "title": "第 80 集",
+     "rel": "andrew_ng/andrew_llm_80.mp4",
+     "duration": 930,
+     "bytes": 19301972,
+     "width": 480,
+     "height": 540
+    },
+    {
+     "title": "第 81 集",
+     "rel": "andrew_ng/andrew_llm_81.mp4",
+     "duration": 561,
+     "bytes": 12422540,
+     "width": 480,
+     "height": 540
+    },
+    {
+     "title": "第 82 集",
+     "rel": "andrew_ng/andrew_llm_82.mp4",
+     "duration": 708,
+     "bytes": 15657446,
+     "width": 480,
+     "height": 540
+    },
+    {
+     "title": "第 83 集",
+     "rel": "andrew_ng/andrew_llm_83.mp4",
+     "duration": 598,
+     "bytes": 14331004,
+     "width": 480,
+     "height": 540
+    },
+    {
+     "title": "第 84 集",
+     "rel": "andrew_ng/andrew_llm_84.mp4",
+     "duration": 597,
+     "bytes": 13103074,
+     "width": 480,
+     "height": 540
+    },
+    {
+     "title": "第 85 集",
+     "rel": "andrew_ng/andrew_llm_85.mp4",
+     "duration": 101,
+     "bytes": 4024227,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 86 集",
+     "rel": "andrew_ng/andrew_llm_86.mp4",
+     "duration": 199,
+     "bytes": 9509601,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 87 集",
+     "rel": "andrew_ng/andrew_llm_87.mp4",
+     "duration": 471,
+     "bytes": 19171172,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 88 集",
+     "rel": "andrew_ng/andrew_llm_88.mp4",
+     "duration": 892,
+     "bytes": 33376808,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 89 集",
+     "rel": "andrew_ng/andrew_llm_89.mp4",
+     "duration": 433,
+     "bytes": 17893883,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 90 集",
+     "rel": "andrew_ng/andrew_llm_90.mp4",
+     "duration": 536,
+     "bytes": 19852047,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 91 集",
+     "rel": "andrew_ng/andrew_llm_91.mp4",
+     "duration": 552,
+     "bytes": 22077379,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 92 集",
+     "rel": "andrew_ng/andrew_llm_92.mp4",
+     "duration": 741,
+     "bytes": 29876292,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 93 集",
+     "rel": "andrew_ng/andrew_llm_93.mp4",
+     "duration": 680,
+     "bytes": 29334691,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 94 集",
+     "rel": "andrew_ng/andrew_llm_94.mp4",
+     "duration": 381,
+     "bytes": 13592814,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 95 集",
+     "rel": "andrew_ng/andrew_llm_95.mp4",
+     "duration": 479,
+     "bytes": 15495047,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 96 集",
+     "rel": "andrew_ng/andrew_llm_96.mp4",
+     "duration": 575,
+     "bytes": 21364034,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 97 集",
+     "rel": "andrew_ng/andrew_llm_97.mp4",
+     "duration": 119,
+     "bytes": 6438459,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 98 集",
+     "rel": "andrew_ng/andrew_llm_98.mp4",
+     "duration": 312,
+     "bytes": 16414661,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 99 集",
+     "rel": "andrew_ng/andrew_llm_99.mp4",
+     "duration": 303,
+     "bytes": 12700579,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "andrew_ng/andrew_ml_classic",
+   "title": "Andrew Ng 经典机器学习",
+   "lecturerName": "Andrew Ng",
+   "namingEvidence": "andrew + ml + classic",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "andrew_ng/andrew_ml_classic_01.mp4",
+     "duration": 415,
+     "bytes": 12989203,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "andrew_ng/andrew_ml_classic_02.mp4",
+     "duration": 434,
+     "bytes": 49476077,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "andrew_ng/andrew_ml_classic_03.mp4",
+     "duration": 749,
+     "bytes": 55848771,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "andrew_ng/andrew_ml_classic_04.mp4",
+     "duration": 854,
+     "bytes": 32985662,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "andrew_ng/andrew_ml_classic_05.mp4",
+     "duration": 490,
+     "bytes": 13322170,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "andrew_ng/andrew_ml_classic_06.mp4",
+     "duration": 492,
+     "bytes": 18382829,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "andrew_ng/andrew_ml_classic_07.mp4",
+     "duration": 669,
+     "bytes": 24138510,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "andrew_ng/andrew_ml_classic_08.mp4",
+     "duration": 528,
+     "bytes": 37793356,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "andrew_ng/andrew_ml_classic_09.mp4",
+     "duration": 690,
+     "bytes": 49270343,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "andrew_ng/andrew_ml_classic_10.mp4",
+     "duration": 711,
+     "bytes": 49817069,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "andrew_ng/andrew_ml_classic_11.mp4",
+     "duration": 621,
+     "bytes": 53038152,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "andrew_ng/andrew_ml_classic_12.mp4",
+     "duration": 525,
+     "bytes": 18839526,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "andrew_ng/andrew_ml_classic_13.mp4",
+     "duration": 414,
+     "bytes": 27670217,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "andrew_ng/andrew_ml_classic_14.mp4",
+     "duration": 819,
+     "bytes": 48977829,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "andrew_ng/andrew_ml_classic_15.mp4",
+     "duration": 670,
+     "bytes": 24063341,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "andrew_ng/andrew_ml_classic_16.mp4",
+     "duration": 543,
+     "bytes": 33320135,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "andrew_ng/andrew_ml_classic_17.mp4",
+     "duration": 673,
+     "bytes": 43675731,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "andrew_ng/andrew_ml_classic_18.mp4",
+     "duration": 502,
+     "bytes": 18058622,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 19 集",
+     "rel": "andrew_ng/andrew_ml_classic_19.mp4",
+     "duration": 305,
+     "bytes": 10939211,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "andrew_ng/andrew_ml_classic_20.mp4",
+     "duration": 532,
+     "bytes": 19091180,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "andrew_ng/andrew_ml_classic_21.mp4",
+     "duration": 539,
+     "bytes": 19311444,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 22 集",
+     "rel": "andrew_ng/andrew_ml_classic_22.mp4",
+     "duration": 459,
+     "bytes": 16480432,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 23 集",
+     "rel": "andrew_ng/andrew_ml_classic_23.mp4",
+     "duration": 978,
+     "bytes": 35113044,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 24 集",
+     "rel": "andrew_ng/andrew_ml_classic_24.mp4",
+     "duration": 359,
+     "bytes": 37137413,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 25 集",
+     "rel": "andrew_ng/andrew_ml_classic_25.mp4",
+     "duration": 213,
+     "bytes": 20033348,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 26 集",
+     "rel": "andrew_ng/andrew_ml_classic_26.mp4",
+     "duration": 839,
+     "bytes": 30304170,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 27 集",
+     "rel": "andrew_ng/andrew_ml_classic_27.mp4",
+     "duration": 968,
+     "bytes": 96701866,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "andrew_ng/andrew_ml_classic_28.mp4",
+     "duration": 795,
+     "bytes": 28867867,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "andrew_ng/andrew_ml_classic_29.mp4",
+     "duration": 578,
+     "bytes": 24373998,
+     "width": 1280,
+     "height": 640
+    },
+    {
+     "title": "第 30 集",
+     "rel": "andrew_ng/andrew_ml_classic_30.mp4",
+     "duration": 776,
+     "bytes": 28365990,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 31 集",
+     "rel": "andrew_ng/andrew_ml_classic_31.mp4",
+     "duration": 828,
+     "bytes": 30185055,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 32 集",
+     "rel": "andrew_ng/andrew_ml_classic_32.mp4",
+     "duration": 489,
+     "bytes": 17533899,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 33 集",
+     "rel": "andrew_ng/andrew_ml_classic_33.mp4",
+     "duration": 445,
+     "bytes": 15947947,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 34 集",
+     "rel": "andrew_ng/andrew_ml_classic_34.mp4",
+     "duration": 890,
+     "bytes": 32108067,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 35 集",
+     "rel": "andrew_ng/andrew_ml_classic_35.mp4",
+     "duration": 624,
+     "bytes": 51769592,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 36 集",
+     "rel": "andrew_ng/andrew_ml_classic_36.mp4",
+     "duration": 615,
+     "bytes": 22101709,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "andrew_ng/andrew_ml_classic_37.mp4",
+     "duration": 847,
+     "bytes": 30880795,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "andrew_ng/andrew_ml_classic_38.mp4",
+     "duration": 375,
+     "bytes": 13496515,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "andrew_ng/andrew_ml_classic_39.mp4",
+     "duration": 583,
+     "bytes": 20929990,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "andrew_ng/andrew_ml_classic_40.mp4",
+     "duration": 611,
+     "bytes": 40677545,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "andrew_ng/andrew_ml_classic_41.mp4",
+     "duration": 640,
+     "bytes": 22996929,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "andrew_ng/andrew_ml_classic_42.mp4",
+     "duration": 514,
+     "bytes": 18687359,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "andrew_ng/andrew_ml_classic_43.mp4",
+     "duration": 576,
+     "bytes": 20804002,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "andrew_ng/andrew_ml_classic_44.mp4",
+     "duration": 468,
+     "bytes": 18240837,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "andrew_ng/andrew_ml_classic_45.mp4",
+     "duration": 721,
+     "bytes": 26021004,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "andrew_ng/andrew_ml_classic_46.mp4",
+     "duration": 706,
+     "bytes": 25824371,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "andrew_ng/andrew_ml_classic_47.mp4",
+     "duration": 436,
+     "bytes": 15687095,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "andrew_ng/andrew_ml_classic_48.mp4",
+     "duration": 620,
+     "bytes": 61601204,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "andrew_ng/andrew_ml_classic_49.mp4",
+     "duration": 231,
+     "bytes": 27594227,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 50 集",
+     "rel": "andrew_ng/andrew_ml_classic_50.mp4",
+     "duration": 403,
+     "bytes": 37807765,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "andrew_ng/andrew_ml_classic_51.mp4",
+     "duration": 719,
+     "bytes": 26387839,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "andrew_ng/andrew_ml_classic_52.mp4",
+     "duration": 764,
+     "bytes": 80963507,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "andrew_ng/andrew_ml_classic_53.mp4",
+     "duration": 468,
+     "bytes": 48988402,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 54 集",
+     "rel": "andrew_ng/andrew_ml_classic_54.mp4",
+     "duration": 698,
+     "bytes": 76092748,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 55 集",
+     "rel": "andrew_ng/andrew_ml_classic_55.mp4",
+     "duration": 412,
+     "bytes": 36345653,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 56 集",
+     "rel": "andrew_ng/andrew_ml_classic_56.mp4",
+     "duration": 804,
+     "bytes": 32114331,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 57 集",
+     "rel": "andrew_ng/andrew_ml_classic_57.mp4",
+     "duration": 390,
+     "bytes": 23573666,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 58 集",
+     "rel": "andrew_ng/andrew_ml_classic_58.mp4",
+     "duration": 351,
+     "bytes": 44241788,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 59 集",
+     "rel": "andrew_ng/andrew_ml_classic_59.mp4",
+     "duration": 455,
+     "bytes": 42190897,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 60 集",
+     "rel": "andrew_ng/andrew_ml_classic_60.mp4",
+     "duration": 723,
+     "bytes": 26094242,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 61 集",
+     "rel": "andrew_ng/andrew_ml_classic_61.mp4",
+     "duration": 462,
+     "bytes": 49964531,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 62 集",
+     "rel": "andrew_ng/andrew_ml_classic_62.mp4",
+     "duration": 680,
+     "bytes": 24594093,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 63 集",
+     "rel": "andrew_ng/andrew_ml_classic_63.mp4",
+     "duration": 714,
+     "bytes": 25698565,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 64 集",
+     "rel": "andrew_ng/andrew_ml_classic_64.mp4",
+     "duration": 410,
+     "bytes": 49098525,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 65 集",
+     "rel": "andrew_ng/andrew_ml_classic_65.mp4",
+     "duration": 570,
+     "bytes": 63553244,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 66 集",
+     "rel": "andrew_ng/andrew_ml_classic_66.mp4",
+     "duration": 792,
+     "bytes": 88737261,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 67 集",
+     "rel": "andrew_ng/andrew_ml_classic_67.mp4",
+     "duration": 696,
+     "bytes": 25100599,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 68 集",
+     "rel": "andrew_ng/andrew_ml_classic_68.mp4",
+     "duration": 846,
+     "bytes": 30682901,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 69 集",
+     "rel": "andrew_ng/andrew_ml_classic_69.mp4",
+     "duration": 670,
+     "bytes": 24163511,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 70 集",
+     "rel": "andrew_ng/andrew_ml_classic_70.mp4",
+     "duration": 887,
+     "bytes": 82974125,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 71 集",
+     "rel": "andrew_ng/andrew_ml_classic_71.mp4",
+     "duration": 636,
+     "bytes": 22969129,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 72 集",
+     "rel": "andrew_ng/andrew_ml_classic_72.mp4",
+     "duration": 1182,
+     "bytes": 43117292,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 73 集",
+     "rel": "andrew_ng/andrew_ml_classic_73.mp4",
+     "duration": 945,
+     "bytes": 34099910,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 74 集",
+     "rel": "andrew_ng/andrew_ml_classic_74.mp4",
+     "duration": 943,
+     "bytes": 34118480,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 75 集",
+     "rel": "andrew_ng/andrew_ml_classic_75.mp4",
+     "duration": 1263,
+     "bytes": 120136248,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 76 集",
+     "rel": "andrew_ng/andrew_ml_classic_76.mp4",
+     "duration": 197,
+     "bytes": 20908172,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 77 集",
+     "rel": "andrew_ng/andrew_ml_classic_77.mp4",
+     "duration": 753,
+     "bytes": 73644302,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 78 集",
+     "rel": "andrew_ng/andrew_ml_classic_78.mp4",
+     "duration": 425,
+     "bytes": 15276842,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 79 集",
+     "rel": "andrew_ng/andrew_ml_classic_79.mp4",
+     "duration": 469,
+     "bytes": 16892699,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 80 集",
+     "rel": "andrew_ng/andrew_ml_classic_80.mp4",
+     "duration": 502,
+     "bytes": 48700555,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 81 集",
+     "rel": "andrew_ng/andrew_ml_classic_81.mp4",
+     "duration": 610,
+     "bytes": 65350047,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 82 集",
+     "rel": "andrew_ng/andrew_ml_classic_82.mp4",
+     "duration": 328,
+     "bytes": 33915963,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 83 集",
+     "rel": "andrew_ng/andrew_ml_classic_83.mp4",
+     "duration": 546,
+     "bytes": 19733730,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 84 集",
+     "rel": "andrew_ng/andrew_ml_classic_84.mp4",
+     "duration": 914,
+     "bytes": 33210705,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 85 集",
+     "rel": "andrew_ng/andrew_ml_classic_85.mp4",
+     "duration": 630,
+     "bytes": 26405659,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 86 集",
+     "rel": "andrew_ng/andrew_ml_classic_86.mp4",
+     "duration": 234,
+     "bytes": 8446363,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 87 集",
+     "rel": "andrew_ng/andrew_ml_classic_87.mp4",
+     "duration": 769,
+     "bytes": 28044508,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 88 集",
+     "rel": "andrew_ng/andrew_ml_classic_88.mp4",
+     "duration": 458,
+     "bytes": 16509113,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 89 集",
+     "rel": "andrew_ng/andrew_ml_classic_89.mp4",
+     "duration": 628,
+     "bytes": 22620168,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 90 集",
+     "rel": "andrew_ng/andrew_ml_classic_90.mp4",
+     "duration": 723,
+     "bytes": 73406108,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 91 集",
+     "rel": "andrew_ng/andrew_ml_classic_91.mp4",
+     "duration": 788,
+     "bytes": 83955137,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 92 集",
+     "rel": "andrew_ng/andrew_ml_classic_92.mp4",
+     "duration": 456,
+     "bytes": 16974479,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 93 集",
+     "rel": "andrew_ng/andrew_ml_classic_93.mp4",
+     "duration": 737,
+     "bytes": 74130095,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 94 集",
+     "rel": "andrew_ng/andrew_ml_classic_94.mp4",
+     "duration": 826,
+     "bytes": 82775547,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 95 集",
+     "rel": "andrew_ng/andrew_ml_classic_95.mp4",
+     "duration": 843,
+     "bytes": 87333537,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 96 集",
+     "rel": "andrew_ng/andrew_ml_classic_96.mp4",
+     "duration": 475,
+     "bytes": 65705493,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 97 集",
+     "rel": "andrew_ng/andrew_ml_classic_97.mp4",
+     "duration": 872,
+     "bytes": 89129599,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 98 集",
+     "rel": "andrew_ng/andrew_ml_classic_98.mp4",
+     "duration": 615,
+     "bytes": 63175942,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 99 集",
+     "rel": "andrew_ng/andrew_ml_classic_99.mp4",
+     "duration": 507,
+     "bytes": 54948462,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 100 集",
+     "rel": "andrew_ng/andrew_ml_classic_100.mp4",
+     "duration": 508,
+     "bytes": 52924480,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 101 集",
+     "rel": "andrew_ng/andrew_ml_classic_101.mp4",
+     "duration": 511,
+     "bytes": 50682914,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 102 集",
+     "rel": "andrew_ng/andrew_ml_classic_102.mp4",
+     "duration": 345,
+     "bytes": 38244673,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 103 集",
+     "rel": "andrew_ng/andrew_ml_classic_103.mp4",
+     "duration": 799,
+     "bytes": 82871515,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 104 集",
+     "rel": "andrew_ng/andrew_ml_classic_104.mp4",
+     "duration": 378,
+     "bytes": 13601700,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 105 集",
+     "rel": "andrew_ng/andrew_ml_classic_105.mp4",
+     "duration": 692,
+     "bytes": 76963405,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 106 集",
+     "rel": "andrew_ng/andrew_ml_classic_106.mp4",
+     "duration": 771,
+     "bytes": 82865029,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 107 集",
+     "rel": "andrew_ng/andrew_ml_classic_107.mp4",
+     "duration": 849,
+     "bytes": 87891215,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 108 集",
+     "rel": "andrew_ng/andrew_ml_classic_108.mp4",
+     "duration": 422,
+     "bytes": 51063514,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 109 集",
+     "rel": "andrew_ng/andrew_ml_classic_109.mp4",
+     "duration": 880,
+     "bytes": 93245383,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 110 集",
+     "rel": "andrew_ng/andrew_ml_classic_110.mp4",
+     "duration": 980,
+     "bytes": 108588147,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 111 集",
+     "rel": "andrew_ng/andrew_ml_classic_111.mp4",
+     "duration": 831,
+     "bytes": 99730777,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 112 集",
+     "rel": "andrew_ng/andrew_ml_classic_112.mp4",
+     "duration": 282,
+     "bytes": 43894486,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "deepseek/deepseek",
+   "title": "DeepSeek 教程",
+   "lecturerName": null,
+   "namingEvidence": "deepseek 前缀",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "deepseek/deepseek_01.mp4",
+     "duration": 474,
+     "bytes": 14757786,
+     "width": 1280,
+     "height": 714
+    },
+    {
+     "title": "第 02 集",
+     "rel": "deepseek/deepseek_02.mp4",
+     "duration": 399,
+     "bytes": 12075722,
+     "width": 1280,
+     "height": 714
+    },
+    {
+     "title": "第 03 集",
+     "rel": "deepseek/deepseek_03.mp4",
+     "duration": 409,
+     "bytes": 12860263,
+     "width": 1280,
+     "height": 714
+    }
+   ]
+  },
+  {
+   "seriesKey": "expert/deepbook",
+   "title": "专家系列 DeepBook",
+   "lecturerName": null,
+   "namingEvidence": "deepbook 前缀(语义未证,按字面保留)",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "expert/deepbook_01.mp4",
+     "duration": 104,
+     "bytes": 16989142,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "expert/deepbook_02.mp4",
+     "duration": 261,
+     "bytes": 10197890,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "expert/deepbook_03.mp4",
+     "duration": 223,
+     "bytes": 8286302,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "expert/deepbook_04.mp4",
+     "duration": 16,
+     "bytes": 592692,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "expert/deepbook_05.mp4",
+     "duration": 2159,
+     "bytes": 93657999,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "expert/deepbook_06.mp4",
+     "duration": 1337,
+     "bytes": 58214447,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "expert/deepbook_07.mp4",
+     "duration": 1269,
+     "bytes": 61094086,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "expert/deepbook_08.mp4",
+     "duration": 1357,
+     "bytes": 69126851,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "expert/deepbook_09.mp4",
+     "duration": 2013,
+     "bytes": 105880932,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "expert/deepbook_10.mp4",
+     "duration": 1897,
+     "bytes": 95657680,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "expert/deepbook_11.mp4",
+     "duration": 1853,
+     "bytes": 118748181,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "expert/deepbook_12.mp4",
+     "duration": 2194,
+     "bytes": 126069396,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "expert/deepbook_13.mp4",
+     "duration": 990,
+     "bytes": 59854164,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "expert/deepbook_14.mp4",
+     "duration": 382,
+     "bytes": 15366080,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "expert/deepbook_15.mp4",
+     "duration": 1337,
+     "bytes": 60539531,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "expert/deepbook_16.mp4",
+     "duration": 1560,
+     "bytes": 66064702,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "expert/deepbook_17.mp4",
+     "duration": 1122,
+     "bytes": 44106580,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "expert/zhou_watermelon",
+   "title": "周志华《机器学习》(西瓜书)精读",
+   "lecturerName": "周志华",
+   "namingEvidence": "zhou + watermelon = 西瓜书俗称",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "expert/zhou_watermelon_01.mp4",
+     "duration": 22,
+     "bytes": 1975490,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "expert/zhou_watermelon_02.mp4",
+     "duration": 291,
+     "bytes": 66175224,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "expert/zhou_watermelon_03.mp4",
+     "duration": 296,
+     "bytes": 67936886,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "expert/zhou_watermelon_04.mp4",
+     "duration": 206,
+     "bytes": 10638437,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "expert/zhou_watermelon_05.mp4",
+     "duration": 324,
+     "bytes": 11609804,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "expert/zhou_watermelon_06.mp4",
+     "duration": 453,
+     "bytes": 16573911,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "expert/zhou_watermelon_07.mp4",
+     "duration": 1103,
+     "bytes": 51175501,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "expert/zhou_watermelon_08.mp4",
+     "duration": 402,
+     "bytes": 88805971,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "expert/zhou_watermelon_09.mp4",
+     "duration": 615,
+     "bytes": 143949870,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "expert/zhou_watermelon_10.mp4",
+     "duration": 214,
+     "bytes": 47856945,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "expert/zhou_watermelon_11.mp4",
+     "duration": 520,
+     "bytes": 116138044,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "expert/zhou_watermelon_12.mp4",
+     "duration": 214,
+     "bytes": 47678904,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "expert/zhou_watermelon_13.mp4",
+     "duration": 1102,
+     "bytes": 256691074,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "expert/zhou_watermelon_14.mp4",
+     "duration": 289,
+     "bytes": 67724793,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "expert/zhou_watermelon_15.mp4",
+     "duration": 477,
+     "bytes": 110794509,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "expert/zhou_watermelon_16.mp4",
+     "duration": 420,
+     "bytes": 97689831,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "expert/zhou_watermelon_17.mp4",
+     "duration": 487,
+     "bytes": 17772405,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "expert/zhou_watermelon_18.mp4",
+     "duration": 434,
+     "bytes": 97822115,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 19 集",
+     "rel": "expert/zhou_watermelon_19.mp4",
+     "duration": 497,
+     "bytes": 112088900,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "expert/zhou_watermelon_20.mp4",
+     "duration": 175,
+     "bytes": 41004867,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "expert/zhou_watermelon_21.mp4",
+     "duration": 492,
+     "bytes": 110690840,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 22 集",
+     "rel": "expert/zhou_watermelon_22.mp4",
+     "duration": 1003,
+     "bytes": 231620769,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 23 集",
+     "rel": "expert/zhou_watermelon_23.mp4",
+     "duration": 1018,
+     "bytes": 239933398,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 24 集",
+     "rel": "expert/zhou_watermelon_24.mp4",
+     "duration": 597,
+     "bytes": 136815922,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 25 集",
+     "rel": "expert/zhou_watermelon_25.mp4",
+     "duration": 428,
+     "bytes": 96756670,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 26 集",
+     "rel": "expert/zhou_watermelon_26.mp4",
+     "duration": 455,
+     "bytes": 101741736,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 27 集",
+     "rel": "expert/zhou_watermelon_27.mp4",
+     "duration": 682,
+     "bytes": 154663995,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "expert/zhou_watermelon_28.mp4",
+     "duration": 266,
+     "bytes": 57064320,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "expert/zhou_watermelon_29.mp4",
+     "duration": 499,
+     "bytes": 116082362,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 30 集",
+     "rel": "expert/zhou_watermelon_30.mp4",
+     "duration": 681,
+     "bytes": 160045765,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 31 集",
+     "rel": "expert/zhou_watermelon_31.mp4",
+     "duration": 312,
+     "bytes": 69696513,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 32 集",
+     "rel": "expert/zhou_watermelon_32.mp4",
+     "duration": 1217,
+     "bytes": 281184489,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 33 集",
+     "rel": "expert/zhou_watermelon_33.mp4",
+     "duration": 333,
+     "bytes": 76045194,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 34 集",
+     "rel": "expert/zhou_watermelon_34.mp4",
+     "duration": 349,
+     "bytes": 78784112,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 35 集",
+     "rel": "expert/zhou_watermelon_35.mp4",
+     "duration": 367,
+     "bytes": 83327522,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 36 集",
+     "rel": "expert/zhou_watermelon_36.mp4",
+     "duration": 413,
+     "bytes": 91363595,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "expert/zhou_watermelon_37.mp4",
+     "duration": 754,
+     "bytes": 172719136,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "expert/zhou_watermelon_38.mp4",
+     "duration": 439,
+     "bytes": 17555137,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "expert/zhou_watermelon_39.mp4",
+     "duration": 299,
+     "bytes": 68321656,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "expert/zhou_watermelon_40.mp4",
+     "duration": 346,
+     "bytes": 83630387,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "expert/zhou_watermelon_41.mp4",
+     "duration": 575,
+     "bytes": 128279216,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "expert/zhou_watermelon_42.mp4",
+     "duration": 427,
+     "bytes": 94160089,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "expert/zhou_watermelon_43.mp4",
+     "duration": 506,
+     "bytes": 112953109,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "expert/zhou_watermelon_44.mp4",
+     "duration": 304,
+     "bytes": 68433459,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "expert/zhou_watermelon_45.mp4",
+     "duration": 423,
+     "bytes": 95726770,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "expert/zhou_watermelon_46.mp4",
+     "duration": 187,
+     "bytes": 39912628,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "expert/zhou_watermelon_47.mp4",
+     "duration": 730,
+     "bytes": 35384905,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "expert/zhou_watermelon_48.mp4",
+     "duration": 177,
+     "bytes": 40017690,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "expert/zhou_watermelon_49.mp4",
+     "duration": 416,
+     "bytes": 100823266,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 50 集",
+     "rel": "expert/zhou_watermelon_50.mp4",
+     "duration": 207,
+     "bytes": 43983660,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "expert/zhou_watermelon_51.mp4",
+     "duration": 384,
+     "bytes": 84677751,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "expert/zhou_watermelon_52.mp4",
+     "duration": 688,
+     "bytes": 157539425,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "expert/zhou_watermelon_53.mp4",
+     "duration": 187,
+     "bytes": 45344744,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "langchain/agent",
+   "title": "LangChain 智能体开发",
+   "lecturerName": null,
+   "namingEvidence": "langchain 目录 + agent 前缀",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "langchain/agent_01.mp4",
+     "duration": 207,
+     "bytes": 9836552,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "langchain/agent_02.mp4",
+     "duration": 547,
+     "bytes": 10585100,
+     "width": 1230,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "langchain/agent_03.mp4",
+     "duration": 477,
+     "bytes": 15231691,
+     "width": 1230,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "langchain/agent_04.mp4",
+     "duration": 801,
+     "bytes": 18391582,
+     "width": 1230,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "langchain/agent_05.mp4",
+     "duration": 1002,
+     "bytes": 36384747,
+     "width": 1230,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "langchain/agent_06.mp4",
+     "duration": 679,
+     "bytes": 18594012,
+     "width": 1230,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "langchain/agent_07.mp4",
+     "duration": 205,
+     "bytes": 3843423,
+     "width": 1230,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "langchain/agent_08.mp4",
+     "duration": 1251,
+     "bytes": 57228573,
+     "width": 1230,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "langchain/agent_09.mp4",
+     "duration": 714,
+     "bytes": 22731615,
+     "width": 1230,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "langchain/agent_10.mp4",
+     "duration": 616,
+     "bytes": 22117683,
+     "width": 1238,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "langchain/agent_11.mp4",
+     "duration": 478,
+     "bytes": 9502970,
+     "width": 1238,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "langchain/agent_12.mp4",
+     "duration": 596,
+     "bytes": 29544880,
+     "width": 1238,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "langchain/agent_13.mp4",
+     "duration": 679,
+     "bytes": 26626170,
+     "width": 1238,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "langchain/agent_14.mp4",
+     "duration": 363,
+     "bytes": 14005901,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "langchain/agent_15.mp4",
+     "duration": 365,
+     "bytes": 10334060,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "langchain/agent_16.mp4",
+     "duration": 330,
+     "bytes": 5865267,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "langchain/agent_17.mp4",
+     "duration": 279,
+     "bytes": 10101127,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "langchain/agent_18.mp4",
+     "duration": 381,
+     "bytes": 13795413,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 19 集",
+     "rel": "langchain/agent_19.mp4",
+     "duration": 330,
+     "bytes": 15675922,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "langchain/agent_20.mp4",
+     "duration": 353,
+     "bytes": 8592076,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "langchain/agent_21.mp4",
+     "duration": 397,
+     "bytes": 17593717,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 22 集",
+     "rel": "langchain/agent_22.mp4",
+     "duration": 126,
+     "bytes": 4858767,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 23 集",
+     "rel": "langchain/agent_23.mp4",
+     "duration": 356,
+     "bytes": 11591521,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 24 集",
+     "rel": "langchain/agent_24.mp4",
+     "duration": 289,
+     "bytes": 13962487,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 25 集",
+     "rel": "langchain/agent_25.mp4",
+     "duration": 319,
+     "bytes": 13118481,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 26 集",
+     "rel": "langchain/agent_26.mp4",
+     "duration": 170,
+     "bytes": 6139908,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 27 集",
+     "rel": "langchain/agent_27.mp4",
+     "duration": 380,
+     "bytes": 11970083,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "langchain/agent_28.mp4",
+     "duration": 340,
+     "bytes": 8922756,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "langchain/agent_29.mp4",
+     "duration": 328,
+     "bytes": 11043378,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 30 集",
+     "rel": "langchain/agent_30.mp4",
+     "duration": 193,
+     "bytes": 6251427,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 31 集",
+     "rel": "langchain/agent_31.mp4",
+     "duration": 379,
+     "bytes": 12390061,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 32 集",
+     "rel": "langchain/agent_32.mp4",
+     "duration": 326,
+     "bytes": 11021096,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 33 集",
+     "rel": "langchain/agent_33.mp4",
+     "duration": 644,
+     "bytes": 18474582,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 34 集",
+     "rel": "langchain/agent_34.mp4",
+     "duration": 319,
+     "bytes": 10166019,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 35 集",
+     "rel": "langchain/agent_36.mp4",
+     "duration": 581,
+     "bytes": 16105521,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 36 集",
+     "rel": "langchain/agent_37.mp4",
+     "duration": 749,
+     "bytes": 24301899,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "langchain/agent_39.mp4",
+     "duration": 720,
+     "bytes": 20133563,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "langchain/agent_40.mp4",
+     "duration": 296,
+     "bytes": 9850049,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "langchain/agent_41.mp4",
+     "duration": 427,
+     "bytes": 14802780,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "langchain/agent_42.mp4",
+     "duration": 235,
+     "bytes": 10511352,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "langchain/agent_43.mp4",
+     "duration": 297,
+     "bytes": 10078297,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "langchain/agent_44.mp4",
+     "duration": 231,
+     "bytes": 7929710,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "langchain/agent_45.mp4",
+     "duration": 639,
+     "bytes": 20397064,
+     "width": 1112,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "langchain/agent_46.mp4",
+     "duration": 322,
+     "bytes": 11671145,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "langchain/agent_47.mp4",
+     "duration": 537,
+     "bytes": 18449782,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "langchain/agent_48.mp4",
+     "duration": 713,
+     "bytes": 44059121,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "langchain/agent_49.mp4",
+     "duration": 882,
+     "bytes": 41450054,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "langchain/agent_50.mp4",
+     "duration": 1034,
+     "bytes": 34417572,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "langchain/agent_51.mp4",
+     "duration": 303,
+     "bytes": 16184840,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 50 集",
+     "rel": "langchain/agent_52.mp4",
+     "duration": 547,
+     "bytes": 21751509,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "langchain/agent_53.mp4",
+     "duration": 515,
+     "bytes": 21047258,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "langchain/agent_54.mp4",
+     "duration": 440,
+     "bytes": 19844797,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "langchain/agent_55.mp4",
+     "duration": 435,
+     "bytes": 12937976,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 54 集",
+     "rel": "langchain/agent_56.mp4",
+     "duration": 613,
+     "bytes": 30148256,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 55 集",
+     "rel": "langchain/agent_57.mp4",
+     "duration": 349,
+     "bytes": 15884007,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 56 集",
+     "rel": "langchain/agent_58.mp4",
+     "duration": 389,
+     "bytes": 16260509,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 57 集",
+     "rel": "langchain/agent_59.mp4",
+     "duration": 349,
+     "bytes": 15921401,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 58 集",
+     "rel": "langchain/agent_60.mp4",
+     "duration": 1246,
+     "bytes": 51481782,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 59 集",
+     "rel": "langchain/agent_61.mp4",
+     "duration": 258,
+     "bytes": 20243698,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 60 集",
+     "rel": "langchain/agent_62.mp4",
+     "duration": 177,
+     "bytes": 7181544,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 61 集",
+     "rel": "langchain/agent_63.mp4",
+     "duration": 901,
+     "bytes": 34275887,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 62 集",
+     "rel": "langchain/agent_64.mp4",
+     "duration": 455,
+     "bytes": 14113161,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 63 集",
+     "rel": "langchain/agent_65.mp4",
+     "duration": 421,
+     "bytes": 11303502,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 64 集",
+     "rel": "langchain/agent_66.mp4",
+     "duration": 279,
+     "bytes": 7732237,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 65 集",
+     "rel": "langchain/agent_67.mp4",
+     "duration": 261,
+     "bytes": 7503360,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 66 集",
+     "rel": "langchain/agent_68.mp4",
+     "duration": 617,
+     "bytes": 19929950,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 67 集",
+     "rel": "langchain/agent_69.mp4",
+     "duration": 467,
+     "bytes": 15180375,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 68 集",
+     "rel": "langchain/agent_70.mp4",
+     "duration": 550,
+     "bytes": 19792890,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 69 集",
+     "rel": "langchain/agent_71.mp4",
+     "duration": 234,
+     "bytes": 9451036,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 70 集",
+     "rel": "langchain/agent_72.mp4",
+     "duration": 728,
+     "bytes": 28785758,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 71 集",
+     "rel": "langchain/agent_73.mp4",
+     "duration": 261,
+     "bytes": 11536805,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 72 集",
+     "rel": "langchain/agent_74.mp4",
+     "duration": 914,
+     "bytes": 34071767,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 73 集",
+     "rel": "langchain/agent_75.mp4",
+     "duration": 361,
+     "bytes": 24058541,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 74 集",
+     "rel": "langchain/agent_76.mp4",
+     "duration": 430,
+     "bytes": 35800870,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 75 集",
+     "rel": "langchain/agent_77.mp4",
+     "duration": 488,
+     "bytes": 26243736,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 76 集",
+     "rel": "langchain/agent_78.mp4",
+     "duration": 441,
+     "bytes": 15164750,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 77 集",
+     "rel": "langchain/agent_79.mp4",
+     "duration": 1142,
+     "bytes": 39336804,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 78 集",
+     "rel": "langchain/agent_80.mp4",
+     "duration": 753,
+     "bytes": 30966010,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 79 集",
+     "rel": "langchain/agent_81.mp4",
+     "duration": 552,
+     "bytes": 20027429,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 80 集",
+     "rel": "langchain/agent_82.mp4",
+     "duration": 511,
+     "bytes": 26790387,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 81 集",
+     "rel": "langchain/agent_83.mp4",
+     "duration": 282,
+     "bytes": 21872668,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 82 集",
+     "rel": "langchain/agent_84.mp4",
+     "duration": 186,
+     "bytes": 10442201,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 83 集",
+     "rel": "langchain/agent_85.mp4",
+     "duration": 257,
+     "bytes": 14466940,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 84 集",
+     "rel": "langchain/agent_86.mp4",
+     "duration": 918,
+     "bytes": 27898807,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 85 集",
+     "rel": "langchain/agent_87.mp4",
+     "duration": 388,
+     "bytes": 14457836,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 86 集",
+     "rel": "langchain/agent_88.mp4",
+     "duration": 1106,
+     "bytes": 50680793,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 87 集",
+     "rel": "langchain/agent_89.mp4",
+     "duration": 1480,
+     "bytes": 58272102,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 88 集",
+     "rel": "langchain/agent_90.mp4",
+     "duration": 507,
+     "bytes": 14267682,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 89 集",
+     "rel": "langchain/agent_91.mp4",
+     "duration": 985,
+     "bytes": 26886307,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 90 集",
+     "rel": "langchain/agent_92.mp4",
+     "duration": 403,
+     "bytes": 13504188,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 91 集",
+     "rel": "langchain/agent_93.mp4",
+     "duration": 580,
+     "bytes": 26395903,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 92 集",
+     "rel": "langchain/agent_94.mp4",
+     "duration": 428,
+     "bytes": 19247923,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 93 集",
+     "rel": "langchain/agent_95.mp4",
+     "duration": 158,
+     "bytes": 9167128,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 94 集",
+     "rel": "langchain/agent_96.mp4",
+     "duration": 479,
+     "bytes": 48967225,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 95 集",
+     "rel": "langchain/agent_97.mp4",
+     "duration": 564,
+     "bytes": 29319895,
+     "width": 1234,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "lee_hungyi/lee_ml",
+   "title": "李宏毅 机器学习",
+   "lecturerName": "李宏毅",
+   "namingEvidence": "lee + ml",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "lee_hungyi/lee_ml_01.mp4",
+     "duration": 2999,
+     "bytes": 50813369,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "lee_hungyi/lee_ml_02.mp4",
+     "duration": 3515,
+     "bytes": 54215539,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "lee_hungyi/lee_ml_03.mp4",
+     "duration": 3083,
+     "bytes": 52244771,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "lee_hungyi/lee_ml_04.mp4",
+     "duration": 2025,
+     "bytes": 37212976,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "lee_hungyi/lee_ml_05.mp4",
+     "duration": 1858,
+     "bytes": 35017422,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "lee_hungyi/lee_ml_06.mp4",
+     "duration": 2262,
+     "bytes": 38892267,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "lee_hungyi/lee_ml_07.mp4",
+     "duration": 1167,
+     "bytes": 18724754,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "lee_hungyi/lee_ml_08.mp4",
+     "duration": 4440,
+     "bytes": 72082210,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "lee_hungyi/lee_ml_09.mp4",
+     "duration": 3339,
+     "bytes": 57706786,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "lee_hungyi/lee_ml_10.mp4",
+     "duration": 536,
+     "bytes": 8587923,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "lee_hungyi/lee_ml_11.mp4",
+     "duration": 2495,
+     "bytes": 38170634,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "lee_hungyi/lee_ml_12.mp4",
+     "duration": 1698,
+     "bytes": 26258501,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "lee_hungyi/lee_ml_13.mp4",
+     "duration": 2757,
+     "bytes": 46594042,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "lee_hungyi/lee_ml_14.mp4",
+     "duration": 1855,
+     "bytes": 29344214,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "lee_hungyi/lee_ml_15.mp4",
+     "duration": 1968,
+     "bytes": 33556991,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "lee_hungyi/lee_ml_16.mp4",
+     "duration": 3634,
+     "bytes": 64783909,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "lee_hungyi/lee_ml_17.mp4",
+     "duration": 4275,
+     "bytes": 64816915,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "lee_hungyi/lee_ml_18.mp4",
+     "duration": 2348,
+     "bytes": 43582163,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 19 集",
+     "rel": "lee_hungyi/lee_ml_19.mp4",
+     "duration": 2800,
+     "bytes": 49250145,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "lee_hungyi/lee_ml_20.mp4",
+     "duration": 2986,
+     "bytes": 59571482,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "lee_hungyi/lee_ml_21.mp4",
+     "duration": 1420,
+     "bytes": 28336835,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 22 集",
+     "rel": "lee_hungyi/lee_ml_22.mp4",
+     "duration": 430,
+     "bytes": 10379444,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 23 集",
+     "rel": "lee_hungyi/lee_ml_23.mp4",
+     "duration": 3040,
+     "bytes": 50375159,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 24 集",
+     "rel": "lee_hungyi/lee_ml_24.mp4",
+     "duration": 1453,
+     "bytes": 24807489,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 25 集",
+     "rel": "lee_hungyi/lee_ml_25.mp4",
+     "duration": 1023,
+     "bytes": 20176625,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 26 集",
+     "rel": "lee_hungyi/lee_ml_26.mp4",
+     "duration": 4929,
+     "bytes": 109634954,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 27 集",
+     "rel": "lee_hungyi/lee_ml_27.mp4",
+     "duration": 4919,
+     "bytes": 97807362,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "lee_hungyi/lee_ml_28.mp4",
+     "duration": 1140,
+     "bytes": 20880014,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "lee_hungyi/lee_ml_29.mp4",
+     "duration": 802,
+     "bytes": 11506930,
+     "width": 640,
+     "height": 480
+    },
+    {
+     "title": "第 30 集",
+     "rel": "lee_hungyi/lee_ml_30.mp4",
+     "duration": 849,
+     "bytes": 12565586,
+     "width": 640,
+     "height": 480
+    },
+    {
+     "title": "第 31 集",
+     "rel": "lee_hungyi/lee_ml_31.mp4",
+     "duration": 845,
+     "bytes": 12479867,
+     "width": 640,
+     "height": 480
+    },
+    {
+     "title": "第 32 集",
+     "rel": "lee_hungyi/lee_ml_32.mp4",
+     "duration": 247,
+     "bytes": 5088682,
+     "width": 640,
+     "height": 480
+    },
+    {
+     "title": "第 33 集",
+     "rel": "lee_hungyi/lee_ml_33.mp4",
+     "duration": 737,
+     "bytes": 11899095,
+     "width": 640,
+     "height": 480
+    },
+    {
+     "title": "第 34 集",
+     "rel": "lee_hungyi/lee_ml_34.mp4",
+     "duration": 739,
+     "bytes": 12865595,
+     "width": 640,
+     "height": 480
+    },
+    {
+     "title": "第 35 集",
+     "rel": "lee_hungyi/lee_ml_35.mp4",
+     "duration": 362,
+     "bytes": 5639833,
+     "width": 640,
+     "height": 480
+    },
+    {
+     "title": "第 36 集",
+     "rel": "lee_hungyi/lee_ml_36.mp4",
+     "duration": 2948,
+     "bytes": 62568266,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "lee_hungyi/lee_ml_37.mp4",
+     "duration": 1365,
+     "bytes": 29471792,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "lee_hungyi/lee_ml_38.mp4",
+     "duration": 3366,
+     "bytes": 68735636,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "lee_hungyi/lee_ml_39.mp4",
+     "duration": 1789,
+     "bytes": 30736300,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "lee_hungyi/lee_ml_40.mp4",
+     "duration": 2793,
+     "bytes": 59522629,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "lee_hungyi/lee_ml_41.mp4",
+     "duration": 5182,
+     "bytes": 107897248,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "lee_hungyi/lee_ml_42.mp4",
+     "duration": 4219,
+     "bytes": 86574544,
+     "width": 1200,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "lee_hungyi/lee_ml_43.mp4",
+     "duration": 2593,
+     "bytes": 51649489,
+     "width": 1200,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "lee_hungyi/lee_ml_44.mp4",
+     "duration": 2072,
+     "bytes": 39768780,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "lee_hungyi/lee_ml_45.mp4",
+     "duration": 3223,
+     "bytes": 65147462,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "lee_hungyi/lee_ml_46.mp4",
+     "duration": 2702,
+     "bytes": 47443772,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "lee_hungyi/lee_ml_47.mp4",
+     "duration": 2474,
+     "bytes": 50974567,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "lee_hungyi/lee_ml_48.mp4",
+     "duration": 2080,
+     "bytes": 35625855,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "lee_hungyi/lee_ml_49.mp4",
+     "duration": 1055,
+     "bytes": 15956641,
+     "width": 640,
+     "height": 360
+    },
+    {
+     "title": "第 50 集",
+     "rel": "lee_hungyi/lee_ml_50.mp4",
+     "duration": 1628,
+     "bytes": 34355106,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "lee_hungyi/lee_ml_51.mp4",
+     "duration": 1771,
+     "bytes": 37109197,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "lee_hungyi/lee_ml_52.mp4",
+     "duration": 3406,
+     "bytes": 62100590,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "lee_hungyi/lee_ml_53.mp4",
+     "duration": 1919,
+     "bytes": 37198209,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 54 集",
+     "rel": "lee_hungyi/lee_ml_54.mp4",
+     "duration": 2199,
+     "bytes": 41058534,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 55 集",
+     "rel": "lee_hungyi/lee_ml_55.mp4",
+     "duration": 2780,
+     "bytes": 52750001,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 56 集",
+     "rel": "lee_hungyi/lee_ml_56.mp4",
+     "duration": 1897,
+     "bytes": 43386733,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 57 集",
+     "rel": "lee_hungyi/lee_ml_57.mp4",
+     "duration": 1872,
+     "bytes": 42279700,
+     "width": 960,
+     "height": 720
+    },
+    {
+     "title": "第 58 集",
+     "rel": "lee_hungyi/lee_ml_58.mp4",
+     "duration": 1661,
+     "bytes": 31650469,
+     "width": 960,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "li_mu/limu_d2l",
+   "title": "李沐 动手学深度学习",
+   "lecturerName": "李沐",
+   "namingEvidence": "limu + d2l = Dive to Deep Learning",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "li_mu/limu_d2l_01.mp4",
+     "duration": 7254,
+     "bytes": 183519477,
+     "width": 768,
+     "height": 480
+    },
+    {
+     "title": "第 02 集",
+     "rel": "li_mu/limu_d2l_02.mp4",
+     "duration": 7331,
+     "bytes": 189802538,
+     "width": 768,
+     "height": 480
+    },
+    {
+     "title": "第 03 集",
+     "rel": "li_mu/limu_d2l_03.mp4",
+     "duration": 7243,
+     "bytes": 192775326,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 04 集",
+     "rel": "li_mu/limu_d2l_04.mp4",
+     "duration": 7220,
+     "bytes": 182646382,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 05 集",
+     "rel": "li_mu/limu_d2l_05.mp4",
+     "duration": 7049,
+     "bytes": 177311272,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 06 集",
+     "rel": "li_mu/limu_d2l_06.mp4",
+     "duration": 6648,
+     "bytes": 167359030,
+     "width": 810,
+     "height": 480
+    },
+    {
+     "title": "第 07 集",
+     "rel": "li_mu/limu_d2l_07.mp4",
+     "duration": 3827,
+     "bytes": 131413004,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 08 集",
+     "rel": "li_mu/limu_d2l_08.mp4",
+     "duration": 2925,
+     "bytes": 103769613,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 09 集",
+     "rel": "li_mu/limu_d2l_09.mp4",
+     "duration": 3851,
+     "bytes": 169646622,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 10 集",
+     "rel": "li_mu/limu_d2l_10.mp4",
+     "duration": 3615,
+     "bytes": 130857940,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 11 集",
+     "rel": "li_mu/limu_d2l_11.mp4",
+     "duration": 3558,
+     "bytes": 118826660,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 12 集",
+     "rel": "li_mu/limu_d2l_12.mp4",
+     "duration": 4147,
+     "bytes": 102602820,
+     "width": 810,
+     "height": 480
+    },
+    {
+     "title": "第 13 集",
+     "rel": "li_mu/limu_d2l_13.mp4",
+     "duration": 3937,
+     "bytes": 95100246,
+     "width": 770,
+     "height": 480
+    },
+    {
+     "title": "第 14 集",
+     "rel": "li_mu/limu_d2l_14.mp4",
+     "duration": 3890,
+     "bytes": 141483391,
+     "width": 810,
+     "height": 480
+    },
+    {
+     "title": "第 15 集",
+     "rel": "li_mu/limu_d2l_15.mp4",
+     "duration": 3950,
+     "bytes": 98552779,
+     "width": 810,
+     "height": 480
+    },
+    {
+     "title": "第 16 集",
+     "rel": "li_mu/limu_d2l_16.mp4",
+     "duration": 4056,
+     "bytes": 146577850,
+     "width": 810,
+     "height": 480
+    },
+    {
+     "title": "第 17 集",
+     "rel": "li_mu/limu_d2l_17.mp4",
+     "duration": 3985,
+     "bytes": 146776480,
+     "width": 810,
+     "height": 480
+    },
+    {
+     "title": "第 18 集",
+     "rel": "li_mu/limu_d2l_18.mp4",
+     "duration": 3925,
+     "bytes": 133989447,
+     "width": 810,
+     "height": 480
+    },
+    {
+     "title": "第 19 集",
+     "rel": "li_mu/limu_d2l_19.mp4",
+     "duration": 4272,
+     "bytes": 195656721,
+     "width": 810,
+     "height": 480
+    }
+   ]
+  },
+  {
+   "seriesKey": "mcp/deeplearning_mcp_chinese",
+   "title": "DeepLearning.AI MCP 中文课",
+   "lecturerName": null,
+   "namingEvidence": "文件名含 deeplearning/mcp/chinese",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "mcp/deeplearning_mcp_chinese.mp4",
+     "duration": 199,
+     "bytes": 10050976,
+     "width": 1080,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "mcp/mcp_andrew",
+   "title": "Andrew Ng 系 MCP 教程",
+   "lecturerName": "Andrew Ng",
+   "namingEvidence": "mcp + andrew",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "mcp/mcp_andrew_01.mp4",
+     "duration": 199,
+     "bytes": 10050976,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "mcp/mcp_andrew_02.mp4",
+     "duration": 471,
+     "bytes": 16216976,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "mcp/mcp_andrew_03.mp4",
+     "duration": 892,
+     "bytes": 28021543,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "mcp/mcp_andrew_04.mp4",
+     "duration": 433,
+     "bytes": 14392921,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "mcp/mcp_andrew_05.mp4",
+     "duration": 536,
+     "bytes": 16637433,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "mcp/mcp_andrew_06.mp4",
+     "duration": 552,
+     "bytes": 18150872,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "mcp/mcp_andrew_07.mp4",
+     "duration": 741,
+     "bytes": 24784037,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "mcp/mcp_andrew_08.mp4",
+     "duration": 680,
+     "bytes": 24315936,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "mcp/mcp_andrew_09.mp4",
+     "duration": 381,
+     "bytes": 12079051,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "mcp/mcp_andrew_10.mp4",
+     "duration": 479,
+     "bytes": 14718560,
+     "width": 1080,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "mcp/mcp_andrew_11.mp4",
+     "duration": 575,
+     "bytes": 17810142,
+     "width": 1080,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "university/pku_ai",
+   "title": "北京大学 人工智能",
+   "lecturerName": null,
+   "namingEvidence": "pku = 北京大学缩写",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "university/pku_ai_01.mp4",
+     "duration": 659,
+     "bytes": 17506719,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "university/pku_ai_02.mp4",
+     "duration": 1058,
+     "bytes": 22481584,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "university/pku_ai_03.mp4",
+     "duration": 1371,
+     "bytes": 32477206,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "university/pku_ai_04.mp4",
+     "duration": 1401,
+     "bytes": 32070792,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "university/pku_ai_05.mp4",
+     "duration": 1062,
+     "bytes": 20064011,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "university/pku_ai_06.mp4",
+     "duration": 1547,
+     "bytes": 30158430,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "university/pku_ai_07.mp4",
+     "duration": 814,
+     "bytes": 21481667,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "university/pku_ai_08.mp4",
+     "duration": 1038,
+     "bytes": 21932349,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "university/pku_ai_09.mp4",
+     "duration": 1529,
+     "bytes": 46239440,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "university/pku_ai_10.mp4",
+     "duration": 894,
+     "bytes": 16176707,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "university/pku_ai_11.mp4",
+     "duration": 870,
+     "bytes": 17622892,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "university/pku_ai_12.mp4",
+     "duration": 811,
+     "bytes": 16915669,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "university/pku_ai_13.mp4",
+     "duration": 1189,
+     "bytes": 29224135,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "university/pku_ai_14.mp4",
+     "duration": 962,
+     "bytes": 26149238,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "university/pku_ai_15.mp4",
+     "duration": 990,
+     "bytes": 42542594,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "university/pku_ai_16.mp4",
+     "duration": 1117,
+     "bytes": 25167457,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "university/pku_ai_17.mp4",
+     "duration": 1141,
+     "bytes": 26314375,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "university/pku_ai_18.mp4",
+     "duration": 559,
+     "bytes": 12663131,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 19 集",
+     "rel": "university/pku_ai_19.mp4",
+     "duration": 754,
+     "bytes": 16291313,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "university/pku_ai_20.mp4",
+     "duration": 691,
+     "bytes": 19176209,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "university/pku_ai_21.mp4",
+     "duration": 1011,
+     "bytes": 29464858,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 22 集",
+     "rel": "university/pku_ai_22.mp4",
+     "duration": 802,
+     "bytes": 16659385,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 23 集",
+     "rel": "university/pku_ai_23.mp4",
+     "duration": 888,
+     "bytes": 20357900,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 24 集",
+     "rel": "university/pku_ai_25.mp4",
+     "duration": 1038,
+     "bytes": 21606458,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 25 集",
+     "rel": "university/pku_ai_26.mp4",
+     "duration": 1339,
+     "bytes": 28597961,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 26 集",
+     "rel": "university/pku_ai_27.mp4",
+     "duration": 889,
+     "bytes": 26870413,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 27 集",
+     "rel": "university/pku_ai_28.mp4",
+     "duration": 1412,
+     "bytes": 36716158,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "university/pku_ai_29.mp4",
+     "duration": 1117,
+     "bytes": 21143347,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "university/pku_ai_30.mp4",
+     "duration": 1297,
+     "bytes": 30823339,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 30 集",
+     "rel": "university/pku_ai_31.mp4",
+     "duration": 1269,
+     "bytes": 27527206,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 31 集",
+     "rel": "university/pku_ai_32.mp4",
+     "duration": 823,
+     "bytes": 18159454,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 32 集",
+     "rel": "university/pku_ai_33.mp4",
+     "duration": 1493,
+     "bytes": 40116824,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 33 集",
+     "rel": "university/pku_ai_34.mp4",
+     "duration": 905,
+     "bytes": 20510289,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 34 集",
+     "rel": "university/pku_ai_35.mp4",
+     "duration": 1460,
+     "bytes": 39791425,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 35 集",
+     "rel": "university/pku_ai_36.mp4",
+     "duration": 1098,
+     "bytes": 23435342,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 36 集",
+     "rel": "university/pku_ai_37.mp4",
+     "duration": 1185,
+     "bytes": 24746081,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "university/pku_ai_38.mp4",
+     "duration": 1137,
+     "bytes": 30605982,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "university/pku_ai_39.mp4",
+     "duration": 1404,
+     "bytes": 34059760,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "university/pku_ai_40.mp4",
+     "duration": 1126,
+     "bytes": 24494380,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "university/pku_ai_41.mp4",
+     "duration": 1576,
+     "bytes": 32946286,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "university/pku_ai_42.mp4",
+     "duration": 918,
+     "bytes": 22928285,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "university/pku_ai_43.mp4",
+     "duration": 1457,
+     "bytes": 42139547,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "university/pku_ai_45.mp4",
+     "duration": 701,
+     "bytes": 14162708,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "university/pku_ai_46.mp4",
+     "duration": 966,
+     "bytes": 17053900,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "university/pku_ai_47.mp4",
+     "duration": 1056,
+     "bytes": 20233978,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "university/pku_ai_48.mp4",
+     "duration": 925,
+     "bytes": 25188609,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "university/pku_ai_49.mp4",
+     "duration": 1249,
+     "bytes": 33217987,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "university/pku_ai_50.mp4",
+     "duration": 760,
+     "bytes": 20055423,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "university/pku_ai_51.mp4",
+     "duration": 1328,
+     "bytes": 44220217,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 50 集",
+     "rel": "university/pku_ai_52.mp4",
+     "duration": 540,
+     "bytes": 24469365,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "university/pku_ai_53.mp4",
+     "duration": 779,
+     "bytes": 17158132,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "university/pku_ai_54.mp4",
+     "duration": 528,
+     "bytes": 9994957,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "university/pku_ai_55.mp4",
+     "duration": 461,
+     "bytes": 13873601,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 54 集",
+     "rel": "university/pku_ai_56.mp4",
+     "duration": 909,
+     "bytes": 18908697,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 55 集",
+     "rel": "university/pku_ai_57.mp4",
+     "duration": 876,
+     "bytes": 23412509,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 56 集",
+     "rel": "university/pku_ai_58.mp4",
+     "duration": 845,
+     "bytes": 21876222,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 57 集",
+     "rel": "university/pku_ai_59.mp4",
+     "duration": 1445,
+     "bytes": 36815121,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 58 集",
+     "rel": "university/pku_ai_60.mp4",
+     "duration": 1510,
+     "bytes": 51596956,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "university/sjtu_rl",
+   "title": "上海交通大学 强化学习",
+   "lecturerName": null,
+   "namingEvidence": "sjtu + rl",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "university/sjtu_rl_01.mp4",
+     "duration": 2133,
+     "bytes": 39939685,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 02 集",
+     "rel": "university/sjtu_rl_02.mp4",
+     "duration": 2469,
+     "bytes": 52896788,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 03 集",
+     "rel": "university/sjtu_rl_03.mp4",
+     "duration": 711,
+     "bytes": 15052813,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 04 集",
+     "rel": "university/sjtu_rl_04.mp4",
+     "duration": 2018,
+     "bytes": 36327484,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 05 集",
+     "rel": "university/sjtu_rl_05.mp4",
+     "duration": 1292,
+     "bytes": 24952202,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 06 集",
+     "rel": "university/sjtu_rl_06.mp4",
+     "duration": 1473,
+     "bytes": 29563958,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 07 集",
+     "rel": "university/sjtu_rl_07.mp4",
+     "duration": 1612,
+     "bytes": 31849922,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 08 集",
+     "rel": "university/sjtu_rl_08.mp4",
+     "duration": 1032,
+     "bytes": 20177556,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 09 集",
+     "rel": "university/sjtu_rl_09.mp4",
+     "duration": 1198,
+     "bytes": 24652794,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 10 集",
+     "rel": "university/sjtu_rl_10.mp4",
+     "duration": 2381,
+     "bytes": 45456592,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 11 集",
+     "rel": "university/sjtu_rl_11.mp4",
+     "duration": 1609,
+     "bytes": 44654335,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "university/sjtu_rl_12.mp4",
+     "duration": 2040,
+     "bytes": 40861284,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 13 集",
+     "rel": "university/sjtu_rl_13.mp4",
+     "duration": 1721,
+     "bytes": 33784927,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 14 集",
+     "rel": "university/sjtu_rl_14.mp4",
+     "duration": 2615,
+     "bytes": 48263795,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 15 集",
+     "rel": "university/sjtu_rl_15.mp4",
+     "duration": 2346,
+     "bytes": 47203344,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 16 集",
+     "rel": "university/sjtu_rl_16.mp4",
+     "duration": 1767,
+     "bytes": 32476916,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 17 集",
+     "rel": "university/sjtu_rl_17.mp4",
+     "duration": 2199,
+     "bytes": 43444033,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 18 集",
+     "rel": "university/sjtu_rl_18.mp4",
+     "duration": 2181,
+     "bytes": 41441748,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 19 集",
+     "rel": "university/sjtu_rl_19.mp4",
+     "duration": 889,
+     "bytes": 15383205,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 20 集",
+     "rel": "university/sjtu_rl_20.mp4",
+     "duration": 1136,
+     "bytes": 21215390,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 21 集",
+     "rel": "university/sjtu_rl_21.mp4",
+     "duration": 2108,
+     "bytes": 41085949,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 22 集",
+     "rel": "university/sjtu_rl_22.mp4",
+     "duration": 1767,
+     "bytes": 34814423,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 23 集",
+     "rel": "university/sjtu_rl_23.mp4",
+     "duration": 1929,
+     "bytes": 44018493,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 24 集",
+     "rel": "university/sjtu_rl_24.mp4",
+     "duration": 1991,
+     "bytes": 47192177,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 25 集",
+     "rel": "university/sjtu_rl_25.mp4",
+     "duration": 2130,
+     "bytes": 44197659,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 26 集",
+     "rel": "university/sjtu_rl_26.mp4",
+     "duration": 1983,
+     "bytes": 47820813,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 27 集",
+     "rel": "university/sjtu_rl_27.mp4",
+     "duration": 2024,
+     "bytes": 37379787,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 28 集",
+     "rel": "university/sjtu_rl_28.mp4",
+     "duration": 2069,
+     "bytes": 42557332,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 29 集",
+     "rel": "university/sjtu_rl_29.mp4",
+     "duration": 1977,
+     "bytes": 42864609,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 30 集",
+     "rel": "university/sjtu_rl_30.mp4",
+     "duration": 1978,
+     "bytes": 37461528,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 31 集",
+     "rel": "university/sjtu_rl_31.mp4",
+     "duration": 1878,
+     "bytes": 40435407,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 32 集",
+     "rel": "university/sjtu_rl_32.mp4",
+     "duration": 1497,
+     "bytes": 32782894,
+     "width": 852,
+     "height": 480
+    },
+    {
+     "title": "第 33 集",
+     "rel": "university/sjtu_rl_33.mp4",
+     "duration": 2756,
+     "bytes": 83339033,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "university/stanford_cs221",
+   "title": "Stanford CS221 人工智能原理与方法",
+   "lecturerName": null,
+   "namingEvidence": "cs221 为 Stanford 课程号",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "university/stanford_cs221_01.mp4",
+     "duration": 4713,
+     "bytes": 173688699,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "university/stanford_cs221_02.mp4",
+     "duration": 4877,
+     "bytes": 230584963,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "university/stanford_cs221_03.mp4",
+     "duration": 4765,
+     "bytes": 263938824,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "university/stanford_cs221_04.mp4",
+     "duration": 4893,
+     "bytes": 234295123,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "university/stanford_cs221_05.mp4",
+     "duration": 4986,
+     "bytes": 261169526,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "university/stanford_cs221_06.mp4",
+     "duration": 4833,
+     "bytes": 309129558,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "university/stanford_cs221_07.mp4",
+     "duration": 4913,
+     "bytes": 326100492,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "university/stanford_cs221_08.mp4",
+     "duration": 3708,
+     "bytes": 175883343,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "university/stanford_cs221_09.mp4",
+     "duration": 4825,
+     "bytes": 312334524,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "university/stanford_cs221_10.mp4",
+     "duration": 4376,
+     "bytes": 185956213,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "university/stanford_cs221_11.mp4",
+     "duration": 4794,
+     "bytes": 157754416,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "university/stanford_cs221_12.mp4",
+     "duration": 4987,
+     "bytes": 211196554,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "university/stanford_cs221_13.mp4",
+     "duration": 5025,
+     "bytes": 186601805,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "university/stanford_cs221_14.mp4",
+     "duration": 4942,
+     "bytes": 236051454,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "university/stanford_cs221_15.mp4",
+     "duration": 4309,
+     "bytes": 259504557,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "university/stanford_cs221_16.mp4",
+     "duration": 4898,
+     "bytes": 207784352,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "university/stanford_cs221_17.mp4",
+     "duration": 5245,
+     "bytes": 273410894,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "university/stanford_cs221_18.mp4",
+     "duration": 4670,
+     "bytes": 257008606,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "university/tsinghua_ai",
+   "title": "清华大学 人工智能",
+   "lecturerName": null,
+   "namingEvidence": "tsinghua + ai",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "university/tsinghua_ai_01.mp4",
+     "duration": 1158,
+     "bytes": 36424403,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "university/tsinghua_ai_02.mp4",
+     "duration": 1058,
+     "bytes": 28704754,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "university/tsinghua_ai_03.mp4",
+     "duration": 1371,
+     "bytes": 44573348,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "university/tsinghua_ai_04.mp4",
+     "duration": 1401,
+     "bytes": 45466672,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "university/tsinghua_ai_05.mp4",
+     "duration": 1062,
+     "bytes": 27975100,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "university/tsinghua_ai_06.mp4",
+     "duration": 1547,
+     "bytes": 30753034,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "university/tsinghua_ai_07.mp4",
+     "duration": 814,
+     "bytes": 20609199,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "university/tsinghua_ai_08.mp4",
+     "duration": 1038,
+     "bytes": 23638445,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "university/tsinghua_ai_09.mp4",
+     "duration": 1529,
+     "bytes": 42494271,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "university/tsinghua_ai_10.mp4",
+     "duration": 894,
+     "bytes": 22688039,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "university/tsinghua_ai_11.mp4",
+     "duration": 870,
+     "bytes": 24220451,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "university/tsinghua_ai_12.mp4",
+     "duration": 811,
+     "bytes": 23245655,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "university/tsinghua_ai_13.mp4",
+     "duration": 1189,
+     "bytes": 38535139,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "university/tsinghua_ai_14.mp4",
+     "duration": 962,
+     "bytes": 31458121,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "university/tsinghua_ai_15.mp4",
+     "duration": 990,
+     "bytes": 42523357,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "university/tsinghua_ai_16.mp4",
+     "duration": 1117,
+     "bytes": 26934211,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "university/tsinghua_ai_17.mp4",
+     "duration": 1141,
+     "bytes": 26259252,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "university/tsinghua_ai_18.mp4",
+     "duration": 559,
+     "bytes": 13119676,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 19 集",
+     "rel": "university/tsinghua_ai_19.mp4",
+     "duration": 754,
+     "bytes": 16561691,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "university/tsinghua_ai_20.mp4",
+     "duration": 691,
+     "bytes": 18833820,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "university/tsinghua_ai_21.mp4",
+     "duration": 1011,
+     "bytes": 28962641,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 22 集",
+     "rel": "university/tsinghua_ai_22.mp4",
+     "duration": 802,
+     "bytes": 16707169,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 23 集",
+     "rel": "university/tsinghua_ai_23.mp4",
+     "duration": 888,
+     "bytes": 20471486,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 24 集",
+     "rel": "university/tsinghua_ai_24.mp4",
+     "duration": 936,
+     "bytes": 17895497,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 25 集",
+     "rel": "university/tsinghua_ai_25.mp4",
+     "duration": 1038,
+     "bytes": 21666094,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 26 集",
+     "rel": "university/tsinghua_ai_26.mp4",
+     "duration": 1339,
+     "bytes": 28982335,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 27 集",
+     "rel": "university/tsinghua_ai_27.mp4",
+     "duration": 889,
+     "bytes": 25223962,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "university/tsinghua_ai_28.mp4",
+     "duration": 1412,
+     "bytes": 37431355,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "university/tsinghua_ai_29.mp4",
+     "duration": 1117,
+     "bytes": 30526254,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 30 集",
+     "rel": "university/tsinghua_ai_30.mp4",
+     "duration": 1297,
+     "bytes": 40335784,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 31 集",
+     "rel": "university/tsinghua_ai_31.mp4",
+     "duration": 1269,
+     "bytes": 38051334,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 32 集",
+     "rel": "university/tsinghua_ai_32.mp4",
+     "duration": 823,
+     "bytes": 24828345,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 33 集",
+     "rel": "university/tsinghua_ai_33.mp4",
+     "duration": 1493,
+     "bytes": 51620944,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 34 集",
+     "rel": "university/tsinghua_ai_34.mp4",
+     "duration": 905,
+     "bytes": 28097467,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 35 集",
+     "rel": "university/tsinghua_ai_35.mp4",
+     "duration": 1460,
+     "bytes": 50327800,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 36 集",
+     "rel": "university/tsinghua_ai_36.mp4",
+     "duration": 1098,
+     "bytes": 24886474,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "university/tsinghua_ai_37.mp4",
+     "duration": 1185,
+     "bytes": 26184577,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "university/tsinghua_ai_38.mp4",
+     "duration": 1137,
+     "bytes": 30352047,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "university/tsinghua_ai_39.mp4",
+     "duration": 1404,
+     "bytes": 34486354,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "university/tsinghua_ai_40.mp4",
+     "duration": 1126,
+     "bytes": 25676480,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "university/tsinghua_ai_41.mp4",
+     "duration": 1576,
+     "bytes": 33300667,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "university/tsinghua_ai_42.mp4",
+     "duration": 918,
+     "bytes": 22839066,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "university/tsinghua_ai_43.mp4",
+     "duration": 1457,
+     "bytes": 43745273,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "university/tsinghua_ai_44.mp4",
+     "duration": 1580,
+     "bytes": 49287209,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "university/tsinghua_ai_45.mp4",
+     "duration": 701,
+     "bytes": 19438671,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "university/tsinghua_ai_46.mp4",
+     "duration": 966,
+     "bytes": 25179705,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "university/tsinghua_ai_47.mp4",
+     "duration": 1056,
+     "bytes": 29287934,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "university/tsinghua_ai_48.mp4",
+     "duration": 925,
+     "bytes": 31827876,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "university/tsinghua_ai_49.mp4",
+     "duration": 1249,
+     "bytes": 41200209,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 50 集",
+     "rel": "university/tsinghua_ai_50.mp4",
+     "duration": 760,
+     "bytes": 26345125,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "university/tsinghua_ai_51.mp4",
+     "duration": 1328,
+     "bytes": 55168297,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "university/tsinghua_ai_52.mp4",
+     "duration": 540,
+     "bytes": 28460282,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "university/tsinghua_ai_54.mp4",
+     "duration": 528,
+     "bytes": 9834664,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 54 集",
+     "rel": "university/tsinghua_ai_55.mp4",
+     "duration": 461,
+     "bytes": 13499584,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 55 集",
+     "rel": "university/tsinghua_ai_56.mp4",
+     "duration": 909,
+     "bytes": 19294126,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 56 集",
+     "rel": "university/tsinghua_ai_57.mp4",
+     "duration": 876,
+     "bytes": 23161413,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 57 集",
+     "rel": "university/tsinghua_ai_58.mp4",
+     "duration": 845,
+     "bytes": 20970060,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 58 集",
+     "rel": "university/tsinghua_ai_59.mp4",
+     "duration": 1445,
+     "bytes": 36613769,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 59 集",
+     "rel": "university/tsinghua_ai_60.mp4",
+     "duration": 1510,
+     "bytes": 46996851,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 60 集",
+     "rel": "university/tsinghua_ai_61.mp4",
+     "duration": 983,
+     "bytes": 25073897,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 61 集",
+     "rel": "university/tsinghua_ai_62.mp4",
+     "duration": 1030,
+     "bytes": 26937691,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 62 集",
+     "rel": "university/tsinghua_ai_63.mp4",
+     "duration": 803,
+     "bytes": 26348397,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 63 集",
+     "rel": "university/tsinghua_ai_64.mp4",
+     "duration": 1192,
+     "bytes": 24380364,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 64 集",
+     "rel": "university/tsinghua_ai_65.mp4",
+     "duration": 941,
+     "bytes": 21220446,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 65 集",
+     "rel": "university/tsinghua_ai_66.mp4",
+     "duration": 1396,
+     "bytes": 31962388,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "university/zju_ml",
+   "title": "浙江大学 机器学习",
+   "lecturerName": null,
+   "namingEvidence": "zju = 浙江大学缩写,ml 主题",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "university/zju_ml_01.mp4",
+     "duration": 579,
+     "bytes": 17034695,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 02 集",
+     "rel": "university/zju_ml_02.mp4",
+     "duration": 652,
+     "bytes": 17644666,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 03 集",
+     "rel": "university/zju_ml_03.mp4",
+     "duration": 577,
+     "bytes": 18587791,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 04 集",
+     "rel": "university/zju_ml_04.mp4",
+     "duration": 337,
+     "bytes": 10885816,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 05 集",
+     "rel": "university/zju_ml_05.mp4",
+     "duration": 590,
+     "bytes": 16345523,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 06 集",
+     "rel": "university/zju_ml_06.mp4",
+     "duration": 488,
+     "bytes": 14451977,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 07 集",
+     "rel": "university/zju_ml_07.mp4",
+     "duration": 814,
+     "bytes": 22152443,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 08 集",
+     "rel": "university/zju_ml_08.mp4",
+     "duration": 573,
+     "bytes": 14343771,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 09 集",
+     "rel": "university/zju_ml_09.mp4",
+     "duration": 445,
+     "bytes": 12863756,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 10 集",
+     "rel": "university/zju_ml_10.mp4",
+     "duration": 586,
+     "bytes": 13319255,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 11 集",
+     "rel": "university/zju_ml_11.mp4",
+     "duration": 492,
+     "bytes": 11035040,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 12 集",
+     "rel": "university/zju_ml_12.mp4",
+     "duration": 519,
+     "bytes": 11630120,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 13 集",
+     "rel": "university/zju_ml_13.mp4",
+     "duration": 507,
+     "bytes": 14997937,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 14 集",
+     "rel": "university/zju_ml_14.mp4",
+     "duration": 480,
+     "bytes": 11382280,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 15 集",
+     "rel": "university/zju_ml_15.mp4",
+     "duration": 520,
+     "bytes": 14995059,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 16 集",
+     "rel": "university/zju_ml_16.mp4",
+     "duration": 987,
+     "bytes": 26532098,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 17 集",
+     "rel": "university/zju_ml_17.mp4",
+     "duration": 931,
+     "bytes": 21164063,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 18 集",
+     "rel": "university/zju_ml_18.mp4",
+     "duration": 578,
+     "bytes": 14708643,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 19 集",
+     "rel": "university/zju_ml_19.mp4",
+     "duration": 613,
+     "bytes": 13507850,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 20 集",
+     "rel": "university/zju_ml_20.mp4",
+     "duration": 1131,
+     "bytes": 24134740,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 21 集",
+     "rel": "university/zju_ml_21.mp4",
+     "duration": 645,
+     "bytes": 14748630,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 22 集",
+     "rel": "university/zju_ml_22.mp4",
+     "duration": 594,
+     "bytes": 12929423,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 23 集",
+     "rel": "university/zju_ml_23.mp4",
+     "duration": 876,
+     "bytes": 17792702,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 24 集",
+     "rel": "university/zju_ml_24.mp4",
+     "duration": 928,
+     "bytes": 20268483,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 25 集",
+     "rel": "university/zju_ml_25.mp4",
+     "duration": 842,
+     "bytes": 18023282,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 26 集",
+     "rel": "university/zju_ml_26.mp4",
+     "duration": 663,
+     "bytes": 18295338,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 27 集",
+     "rel": "university/zju_ml_27.mp4",
+     "duration": 1103,
+     "bytes": 25355921,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 28 集",
+     "rel": "university/zju_ml_28.mp4",
+     "duration": 601,
+     "bytes": 13451467,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 29 集",
+     "rel": "university/zju_ml_29.mp4",
+     "duration": 704,
+     "bytes": 15698707,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 30 集",
+     "rel": "university/zju_ml_30.mp4",
+     "duration": 741,
+     "bytes": 21432580,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 31 集",
+     "rel": "university/zju_ml_31.mp4",
+     "duration": 439,
+     "bytes": 10637067,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 32 集",
+     "rel": "university/zju_ml_32.mp4",
+     "duration": 982,
+     "bytes": 22337585,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 33 集",
+     "rel": "university/zju_ml_33.mp4",
+     "duration": 724,
+     "bytes": 17286988,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 34 集",
+     "rel": "university/zju_ml_34.mp4",
+     "duration": 380,
+     "bytes": 10059516,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 35 集",
+     "rel": "university/zju_ml_35.mp4",
+     "duration": 578,
+     "bytes": 15011587,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 36 集",
+     "rel": "university/zju_ml_36.mp4",
+     "duration": 790,
+     "bytes": 25358478,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 37 集",
+     "rel": "university/zju_ml_37.mp4",
+     "duration": 684,
+     "bytes": 20245840,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 38 集",
+     "rel": "university/zju_ml_38.mp4",
+     "duration": 838,
+     "bytes": 21814838,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 39 集",
+     "rel": "university/zju_ml_39.mp4",
+     "duration": 773,
+     "bytes": 23222622,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 40 集",
+     "rel": "university/zju_ml_40.mp4",
+     "duration": 721,
+     "bytes": 21086501,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 41 集",
+     "rel": "university/zju_ml_41.mp4",
+     "duration": 890,
+     "bytes": 21907937,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 42 集",
+     "rel": "university/zju_ml_42.mp4",
+     "duration": 709,
+     "bytes": 21632404,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 43 集",
+     "rel": "university/zju_ml_43.mp4",
+     "duration": 1012,
+     "bytes": 21855990,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 44 集",
+     "rel": "university/zju_ml_44.mp4",
+     "duration": 578,
+     "bytes": 16970629,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 45 集",
+     "rel": "university/zju_ml_45.mp4",
+     "duration": 648,
+     "bytes": 15298452,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 46 集",
+     "rel": "university/zju_ml_46.mp4",
+     "duration": 835,
+     "bytes": 21859003,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 47 集",
+     "rel": "university/zju_ml_47.mp4",
+     "duration": 629,
+     "bytes": 17381937,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 48 集",
+     "rel": "university/zju_ml_48.mp4",
+     "duration": 933,
+     "bytes": 22304159,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 49 集",
+     "rel": "university/zju_ml_49.mp4",
+     "duration": 759,
+     "bytes": 20156249,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 50 集",
+     "rel": "university/zju_ml_50.mp4",
+     "duration": 1044,
+     "bytes": 30361488,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 51 集",
+     "rel": "university/zju_ml_52.mp4",
+     "duration": 781,
+     "bytes": 19552678,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 52 集",
+     "rel": "university/zju_ml_54.mp4",
+     "duration": 1064,
+     "bytes": 39706323,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 53 集",
+     "rel": "university/zju_ml_55.mp4",
+     "duration": 620,
+     "bytes": 18820280,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 54 集",
+     "rel": "university/zju_ml_56.mp4",
+     "duration": 1057,
+     "bytes": 37213554,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 55 集",
+     "rel": "university/zju_ml_57.mp4",
+     "duration": 1242,
+     "bytes": 72881479,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 56 集",
+     "rel": "university/zju_ml_58.mp4",
+     "duration": 1205,
+     "bytes": 80584761,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 57 集",
+     "rel": "university/zju_ml_59.mp4",
+     "duration": 2309,
+     "bytes": 158326219,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 58 集",
+     "rel": "university/zju_ml_60.mp4",
+     "duration": 94,
+     "bytes": 4528261,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 59 集",
+     "rel": "university/zju_ml_61.mp4",
+     "duration": 690,
+     "bytes": 43879587,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 60 集",
+     "rel": "university/zju_ml_62.mp4",
+     "duration": 1709,
+     "bytes": 126904024,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 61 集",
+     "rel": "university/zju_ml_63.mp4",
+     "duration": 1852,
+     "bytes": 141746054,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 62 集",
+     "rel": "university/zju_ml_64.mp4",
+     "duration": 3454,
+     "bytes": 254628745,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 63 集",
+     "rel": "university/zju_ml_65.mp4",
+     "duration": 457,
+     "bytes": 33385440,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 64 集",
+     "rel": "university/zju_ml_66.mp4",
+     "duration": 644,
+     "bytes": 30918296,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 65 集",
+     "rel": "university/zju_ml_67.mp4",
+     "duration": 1912,
+     "bytes": 108163221,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 66 集",
+     "rel": "university/zju_ml_68.mp4",
+     "duration": 264,
+     "bytes": 10039792,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 67 集",
+     "rel": "university/zju_ml_69.mp4",
+     "duration": 1100,
+     "bytes": 80686343,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 68 集",
+     "rel": "university/zju_ml_70.mp4",
+     "duration": 718,
+     "bytes": 62839224,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 69 集",
+     "rel": "university/zju_ml_71.mp4",
+     "duration": 1048,
+     "bytes": 45455840,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 70 集",
+     "rel": "university/zju_ml_72.mp4",
+     "duration": 2339,
+     "bytes": 197278261,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 71 集",
+     "rel": "university/zju_ml_73.mp4",
+     "duration": 907,
+     "bytes": 93611097,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 72 集",
+     "rel": "university/zju_ml_74.mp4",
+     "duration": 704,
+     "bytes": 81456184,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 73 集",
+     "rel": "university/zju_ml_75.mp4",
+     "duration": 955,
+     "bytes": 43614191,
+     "width": 896,
+     "height": 504
+    },
+    {
+     "title": "第 74 集",
+     "rel": "university/zju_ml_76.mp4",
+     "duration": 5395,
+     "bytes": 570529714,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 75 集",
+     "rel": "university/zju_ml_77.mp4",
+     "duration": 4936,
+     "bytes": 138459788,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 76 集",
+     "rel": "university/zju_ml_78.mp4",
+     "duration": 1080,
+     "bytes": 32280737,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 77 集",
+     "rel": "university/zju_ml_79.mp4",
+     "duration": 1423,
+     "bytes": 77178924,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 78 集",
+     "rel": "university/zju_ml_80.mp4",
+     "duration": 4726,
+     "bytes": 218255786,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 79 集",
+     "rel": "university/zju_ml_81.mp4",
+     "duration": 2363,
+     "bytes": 81394700,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 80 集",
+     "rel": "university/zju_ml_82.mp4",
+     "duration": 1773,
+     "bytes": 48686769,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 81 集",
+     "rel": "university/zju_ml_83.mp4",
+     "duration": 1146,
+     "bytes": 45603288,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 82 集",
+     "rel": "university/zju_ml_84.mp4",
+     "duration": 1121,
+     "bytes": 35534411,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 83 集",
+     "rel": "university/zju_ml_85.mp4",
+     "duration": 539,
+     "bytes": 45119361,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 84 集",
+     "rel": "university/zju_ml_86.mp4",
+     "duration": 4689,
+     "bytes": 224044613,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 85 集",
+     "rel": "university/zju_ml_87.mp4",
+     "duration": 1164,
+     "bytes": 53297719,
+     "width": 1280,
+     "height": 720
+    },
+    {
+     "title": "第 86 集",
+     "rel": "university/zju_ml_88.mp4",
+     "duration": 1406,
+     "bytes": 43170558,
+     "width": 960,
+     "height": 540
+    },
+    {
+     "title": "第 87 集",
+     "rel": "university/zju_ml_89.mp4",
+     "duration": 4385,
+     "bytes": 187508969,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "vibe-coding/cursor",
+   "title": "Cursor Vibe Coding 实战",
+   "lecturerName": null,
+   "namingEvidence": "cursor 前缀",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "vibe-coding/cursor_01.mp4",
+     "duration": 1459,
+     "bytes": 59553159,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  },
+  {
+   "seriesKey": "vibe-coding/cursor_complete_chinese",
+   "title": "Cursor 完整中文课",
+   "lecturerName": null,
+   "namingEvidence": "文件名单字面",
+   "sections": [
+    {
+     "title": "第 01 集",
+     "rel": "vibe-coding/cursor_complete_chinese.mp4",
+     "duration": 1459,
+     "bytes": 59553159,
+     "width": 1280,
+     "height": 720
+    }
+   ]
+  }
+ ],
+ "excluded": [
+  "3b1b/3b1b_linear_14.f30064.mp4",
+  "langchain/agent_35.f30064.mp4",
+  "university/tsinghua_ai_53.f30064.mp4"
+ ]
+}

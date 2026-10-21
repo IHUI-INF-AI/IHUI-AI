@@ -61,7 +61,9 @@ import {
   aiGcContent,
   studyPlans,
   studyPosts,
+  learnCategories,
 } from '@ihui/database'
+import { formatMediaTime } from '@ihui/shared'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
 import { isUuidString } from '../utils/uuid.js'
@@ -695,6 +697,10 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /study/videos/:id — 视频小节详情
+  // 出网契约 = 小程序播放页 `VideoData`(apps/miniapp-taro/src/pages/study/video-detail/index.tsx)。
+  // 此前只回小节 6 列 ⇒ coverUrl/chapters/teacher/description 全 undefined,页面上播放器有源、
+  // 目录是空的、选集切不了。现在按 小节 → 章节 → 课程 → 分类 一次取齐,并按付费门槛决定给不给播址
+  // (付费未报名 ⇒ playUrl/url 为 null,但元信息照给,页面不塌)。
   server.get('/study/videos/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
@@ -709,17 +715,74 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         content: lessonChapterSections.content,
         isFree: lessonChapterSections.isFree,
         chapterId: lessonChapterSections.chapterId,
+        lessonId: lessonChapters.lessonId,
+        lessonTitle: lessons.title,
+        coverImage: lessons.coverImage,
+        intro: lessons.intro,
+        lecturerName: lessons.lecturerName,
+        lessonIsFree: lessons.isFree,
+        price: lessons.price,
+        categoryName: learnCategories.name,
       })
       .from(lessonChapterSections)
+      .innerJoin(lessonChapters, eq(lessonChapterSections.chapterId, lessonChapters.id))
+      .innerJoin(lessons, eq(lessonChapters.lessonId, lessons.id))
+      .leftJoin(learnCategories, eq(lessons.categoryId, learnCategories.id))
       .where(eq(lessonChapterSections.id, parsed.data.id))
       .limit(1)
-    if (!rows[0]) {
+    const row = rows[0]
+    if (!row) {
       return reply.status(404).send(error(404, '视频不存在'))
     }
-    // 出网名同时给 `url`(旧 Java 契约名)与 `playUrl`(本仓小程序 apps/miniapp-taro/src/
-    // pages/study/video-detail/index.tsx:202 读的名)。此前只给 url ⇒ 播放器 src 恒 undefined,
-    // 视频页必然黑屏。两个名字同值,不另起第二份取值。
-    return reply.send(success({ ...rows[0], playUrl: rows[0].url }))
+
+    // 放行口径只按**库里已有的免费标志**判:小节开了试看,或整课免费。
+    // 本路由没有 preHandler ⇒ request.userId 恒 undefined(request.userId 的三个赋值点
+    // authenticate / open-capability / internal-service-token 全是 preHandler),所以这里**不写**
+    // "已报名则放行"那种永不成立的分支;付费小节的播放一律走鉴权出口
+    // GET /api/learn/section/:id/video(带 isSignedUp 判定 + 签名)。
+    const playable = row.isFree || row.lessonIsFree
+
+    // 选集目录:同一课程下全部小节(按章节序 + 小节序)。目录只给标题/时长,不带播址 ——
+    // 切换选集时前端会再打一次本路由,付费门槛在那一次照样生效。
+    const catalog = await db
+      .select({
+        id: lessonChapterSections.id,
+        title: lessonChapterSections.title,
+        duration: lessonChapterSections.duration,
+        chapterSort: lessonChapters.sortOrder,
+        sectionSort: lessonChapterSections.sortOrder,
+      })
+      .from(lessonChapterSections)
+      .innerJoin(lessonChapters, eq(lessonChapterSections.chapterId, lessonChapters.id))
+      .where(eq(lessonChapters.lessonId, row.lessonId))
+      .orderBy(asc(lessonChapters.sortOrder), asc(lessonChapterSections.sortOrder))
+
+    const playUrl = playable ? row.url : null
+    return reply.send(
+      success({
+        id: row.id,
+        title: row.title,
+        url: playUrl,
+        playUrl,
+        duration: row.duration,
+        content: row.content,
+        isFree: row.isFree,
+        chapterId: row.chapterId,
+        courseId: row.lessonId,
+        courseName: row.lessonTitle,
+        coverUrl: row.coverImage,
+        description: row.intro,
+        teacher: row.lecturerName,
+        tags: row.categoryName ? [row.categoryName] : [],
+        amount: Number(row.price ?? 0),
+        payType: row.lessonIsFree ? 0 : 1,
+        chapters: catalog.map((c) => ({
+          id: c.id,
+          title: c.title,
+          duration: formatMediaTime(c.duration),
+        })),
+      }),
+    )
   })
 
   // GET /study/ranking — 学习排行榜(按 lessonRecords 聚合用户:完成数+观看时长)
