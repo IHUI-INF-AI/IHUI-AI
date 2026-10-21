@@ -59,6 +59,40 @@ for (const k of [
   delete process.env[k]
 }
 
+// ── 专项段档位判据(2026-10-22 立,与 scripts/lib/gate-scope.mjs 同口径)───────────
+// **必须定义在文件顶部**:下方 13 处专项守门(footer / portal / button / credential /
+// agent / capability / miniapp parity / auth refresh / staged typecheck / tokens sync …)
+// 都读它,而本文件第一个使用点在 650 行附近。曾把定义放在文件中部,结果
+// `ReferenceError: Cannot access 'TOOL_ONLY' before initialization` 直接把 pre-commit
+// 打崩(实测 2026-10-22 23:00,pre-commit 在守门批之前就退出,safe-commit 只能走应急跳门)。
+// 判据:暂存集含 apps/ 或 packages/ ⇒ 全跑;取不到 ⇒ 全跑(失效方向永远是"多跑")。
+function stagedIsToolOnly() {
+  try {
+    const out = execSync('git diff --cached --name-only', {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 30_000,
+    })
+    const paths = String(out)
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (paths.length === 0) return false
+    return !paths.some((p) => /^(apps|packages)\//.test(p))
+  } catch {
+    return false
+  }
+}
+const TOOL_ONLY = process.env.IHUI_SPECIAL_SCOPE === 'full' ? false : stagedIsToolOnly()
+if (TOOL_ONLY) {
+  console.log(
+    '⚡ 专项档:本次改动只含工具/文档路径 ⇒ 跳过判业务代码的专项守门' +
+      '(强制全跑:IHUI_SPECIAL_SCOPE=full)',
+  )
+}
+
 // 0. stale 锁清理(2026-09-19 立,根治 index.lock 卡死多 agent)
 // 在任何 git 操作前清理可能残留的 index.lock(崩溃 git 进程)+ ihui-git-write.lock(死 PID)。
 // 活进程持有的锁不会被误删(clean 内判据:index.lock>60s 或无 git 进程;ihui 锁需 PID 死亡)。
@@ -967,33 +1001,9 @@ if ((process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER ?? '1') !== '1') {
 // 而 miniapp 跨端样式 / auth refresh / staged typecheck 判的都是**业务代码** ——
 // 实测 auth refresh 扫 9477 个候选、typecheck 走全量 tsconfig include;
 // 在"只改 scripts/lib 工具"的提交里纯属浪费(本轮守门只花 16.5s,这 34s 主要在这里)。
-// 判据与 gate-scope.mjs 逐字同口径:暂存集含 apps/ 或 packages/ ⇒ 全跑;取不到 ⇒ 全跑。
-function stagedIsToolOnly() {
-  try {
-    const out = execSync('git diff --cached --name-only', {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 30_000,
-    })
-    const paths = String(out)
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-    if (paths.length === 0) return false // 取不到 ⇒ 全跑(失效方向永远是"多跑")
-    return !paths.some((p) => /^(apps|packages)\//.test(p))
-  } catch {
-    return false
-  }
-}
-const TOOL_ONLY = process.env.IHUI_SPECIAL_SCOPE === 'full' ? false : stagedIsToolOnly()
-if (TOOL_ONLY) {
-  console.log(
-    '⚡ 专项档:本次改动只含工具/文档路径 ⇒ 跳过判业务代码的专项守门' +
-      '(强制全跑:IHUI_SPECIAL_SCOPE=full)',
-  )
-}
+// 判据(TOOL_ONLY / stagedIsToolOnly)已移到**文件顶部** —— 本文件第一个使用点在 650 行附近,
+// 定义放这里会造成 TDZ ReferenceError,把 pre-commit 在守门批之前直接打崩。
+// (TOOL_ONLY 定义已移到文件顶部 —— 本文件多处专项段都用它,必须在所有使用点之前初始化)
 
 // 阻塞规则:RULE-1a(禁用色板)/RULE-2(app.css 回归)/RULE-3(路由页 ThemeRoot)/RULE-5(删除类复用)。
 // WARN 规则:RULE-1b(其他 hex)/RULE-4(tsx 内联 hex)不阻塞提交。
