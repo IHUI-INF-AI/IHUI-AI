@@ -6,45 +6,76 @@ import {
   Activity,
   BarChart3,
   Bell,
+  BookMarked,
   BookOpen,
   Bot,
   Brain,
+  BriefcaseBusiness,
+  CalendarCheck,
   CalendarDays,
+  ChartLine,
+  CircleDollarSign,
   ClipboardList,
   Clock,
   Compass,
   Cpu,
+  CreditCard,
+  Crown,
   Files,
   FolderOpen,
+  Gift,
   Globe,
+  GraduationCap,
   Handshake,
   HelpCircle,
   Home,
   IdCard,
+  Image,
+  Inbox,
   Info,
   KeyRound,
   Layers,
+  Lightbulb,
+  ListChecks,
+  Lock,
+  Mail,
   Megaphone,
   MessageSquare,
   MessagesSquare,
+  Monitor,
   Network,
   Palette,
   Pencil,
+  Phone,
   Plus,
   Puzzle,
+  Receipt,
   Repeat,
   Rocket,
+  ScanLine,
   ScrollText,
+  Search,
   Send,
   Settings,
   Shield,
+  ShoppingCart,
+  Sparkles,
+  SquarePen,
   Star,
   Store,
+  Tag,
+  TrendingUp,
+  Trophy,
   User,
+  UserCog,
   UserPlus,
   Users,
+  UsersRound,
+  Video,
   Wallet,
+  Workflow,
   Wrench,
+  Zap,
 } from 'lucide-react-native'
 import type { HubGlyph, DomainKey } from './domain-hub'
 import type { MainTabKey } from './tab-utils'
@@ -133,6 +164,85 @@ type DrawerNavRouteName =
   | 'McpStore'
   | 'DeepResearch'
   | 'AgentRuntime'
+  // ── 第五批(2026-10-21)web 侧边栏全量对账补齐 ─────────────────────────
+  // 口径修正:前几批只对了 web 的 normal 档(70 条)且域内只取 31/89,
+  // 漏掉 relayOps/experimental/advancedAi/developer 四档(31 条),也漏掉域
+  // 入口页收编的 89 条清单。本批按「web 侧 173 条非 admin 条目」全量双向对账:
+  // RN 注册 251 路由、抽屉仅挂 83 ⇒ 168 屏未挂,逐条判读后本批落 68 条。
+  // A 组(web 缺口):web 侧边栏有、RN 有原生路由,此前漏挂。
+  | 'WrongQuestions'
+  | 'LearnReview'
+  | 'TeacherList'
+  | 'StudyProgress'
+  | 'CertApply'
+  | 'LearnMap'
+  | 'ConnectedAccounts'
+  | 'Income'
+  | 'VipTrader'
+  | 'PointRule'
+  | 'OrderRefund'
+  | 'UserArticles'
+  | 'AgentStat'
+  | 'ImageGenTemplates'
+  | 'Referrer'
+  | 'TeamMemory'
+  | 'TeamKnowledge'
+  | 'KnowledgeRagManage'
+  | 'CheckIn'
+  | 'Connectors'
+  | 'ModelEdit'
+  | 'ChatTemplates'
+  | 'MessageSystem'
+  | 'MessageDirect'
+  | 'MessageGroup'
+  // B 组(RN 独有):web 侧边栏没有、但 RN 有原生路由的功能页,
+  // 按用户授权「可以增加移动端独立的侧边栏选项」收进 5 个独立组。
+  | 'MyPapers'
+  | 'ArticleHot'
+  | 'PublishAccounts'
+  | 'PublishAnalytics'
+  | 'PublishCalendar'
+  | 'ImageGenGallery'
+  | 'Ranking'
+  | 'PointsRecord'
+  | 'PointHistory'
+  | 'Withdraw'
+  | 'BankCard'
+  | 'VipCompare'
+  | 'EarnCommission'
+  | 'DistributionCompany'
+  | 'AgentSetting'
+  | 'N8nModel'
+  | 'TokenValue'
+  | 'AiCareer'
+  | 'BusinessLicense'
+  | 'CustomerService'
+  | 'FeedbackHistory'
+  | 'SettingsAccount'
+  | 'ChangePwd'
+  | 'DataRights'
+  | 'SecurityCenter'
+  | 'QrCode'
+  | 'Privacy'
+  | 'Agreement'
+  | 'Recruitment'
+  | 'IcpRecord'
+  | 'UsageRules'
+  | 'AppPermission'
+  | 'CourseResource'
+  | 'LivePlaybackList'
+  | 'AiGroup'
+  | 'ConversationImport'
+  | 'LearnDevelop'
+  | 'MoreCourse'
+  | 'StudyIndex'
+  | 'Search'
+  | 'SelfHealing'
+  | 'Patrol'
+  | 'Cart'
+  | 'RefundHistory'
+  | 'AIMultimodal'
+  | 'LivePlayback'
   // Vip 由底部用户行菜单直跳(与抽屉导航项同一出口,故同列一处,避免两处各写一份联合)
   | 'Vip'
 
@@ -246,6 +356,29 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             route: 'Usage',
             target: { type: 'route', name: 'Usage' },
           },
+          // 2026-10-21 第五批:web MODELS_CHILDREN 另 4 项(web 归 relayOps 档,
+          // web 简洁模式下整档隐藏,本端统一收在「模型」子项下,入口不丢)。
+          // /models/trajectory(调用轨迹)→ RN 智能体统计屏
+          {
+            labelKey: 'agentStat.title',
+            Icon: ChartLine,
+            route: 'AgentStat',
+            target: { type: 'route', name: 'AgentStat' },
+          },
+          // /models/prompts(提示词库)→ RN 提示词模板屏
+          {
+            labelKey: 'imageGenTemplates.title',
+            Icon: SquarePen,
+            route: 'ImageGenTemplates',
+            target: { type: 'route', name: 'ImageGenTemplates' },
+          },
+          // /models/referral(推荐返利)→ RN 推荐人屏
+          {
+            labelKey: 'referrer.title',
+            Icon: Gift,
+            route: 'Referrer',
+            target: { type: 'route', name: 'Referrer' },
+          }
         ],
       },
       // 智能体(对齐 web /agents):父项进我的智能体列表,子项保留原「智能体市场」入口
@@ -320,6 +453,21 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             route: 'RepoWiki',
             target: { type: 'route', name: 'RepoWiki' },
           },
+          // 2026-10-21 第五批:web KNOWLEDGE_CHILDREN 另两项
+          // /team-knowledge(团队知识引擎,web 归 experimental 档)
+          {
+            labelKey: 'teamKnowledge.title',
+            Icon: Users,
+            route: 'TeamKnowledge',
+            target: { type: 'route', name: 'TeamKnowledge' },
+          },
+          // /knowledge-cards(知识卡片)→ RN 知识文档管理屏
+          {
+            labelKey: 'knowledgeRagManage.title',
+            Icon: BookMarked,
+            route: 'KnowledgeRagManage',
+            target: { type: 'route', name: 'KnowledgeRagManage' },
+          },
         ],
       },
       // 工作区(对齐 web /workspace)
@@ -334,6 +482,14 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         Icon: MessagesSquare,
         route: 'ChatTools',
         target: { type: 'route', name: 'ChatTools' },
+      },
+      // 2026-10-21 第五批:web aiGroup 的 /checkin(签到助手,web 归 experimental 档)
+      // 与 /agent-workbench(Agent 运行时调试台,web 归 experimental 档)
+      {
+        labelKey: 'checkIn.title',
+        Icon: CalendarCheck,
+        route: 'CheckIn',
+        target: { type: 'route', name: 'CheckIn' },
       },
     ],
   },
@@ -403,7 +559,8 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             Icon: Bell,
             route: 'NotificationList',
             target: { type: 'route', name: 'NotificationList' },
-          },          {
+          },
+          {
             labelKey: 'menu.notificationSettings',
             Icon: Bell,
             route: 'NotificationSettings',
@@ -428,6 +585,13 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             Icon: ClipboardList,
             route: 'ExamHistory',
             target: { type: 'route', name: 'ExamHistory' },
+          },
+          // 2026-10-21 第五批:web USER_CHILDREN 的 /user/comment(我的文章)
+          {
+            labelKey: 'userArticles.title',
+            Icon: MessageSquare,
+            route: 'UserArticles',
+            target: { type: 'route', name: 'UserArticles' },
           },
         ],
       },
@@ -567,6 +731,13 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         route: 'AgentRuntime',
         target: { type: 'route', name: 'AgentRuntime' },
       },
+      // 2026-10-21 第五批:web ADVANCED_AI_TOOLS_CHILDREN 的 /orchestration(编排中心)
+      {
+        labelKey: 'teamMemory.title',
+        Icon: Workflow,
+        route: 'TeamMemory',
+        target: { type: 'route', name: 'TeamMemory' },
+      },
     ],
   },
   // 9. 开发者(移动端独立组,对应 web developerGroup;web 简洁模式下整组隐藏,
@@ -588,8 +759,350 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         route: 'DevEnter',
         target: { type: 'route', name: 'DevEnter' },
       },
+      // 2026-10-21 第五批:web DEVELOPER_ITEMS 的 /developer/webhooks(连接器)
+      {
+        labelKey: 'connectors.title',
+        Icon: Puzzle,
+        route: 'Connectors',
+        target: { type: 'route', name: 'Connectors' },
+      },
+      // web /developer/versions(模型版本)→ RN 模型编辑屏
+      {
+        labelKey: 'modelEdit.headerTitle',
+        Icon: Layers,
+        route: 'ModelEdit',
+        target: { type: 'route', name: 'ModelEdit' },
+      },
       // 模型收益(2026-10-21 归位):已升入 AI 组「模型」子项(对齐 web /models/billing),
       // 此处不再登记,否则同一 route 在抽屉里出现两次。
+    ],
+  },
+  // 10~14. 移动端独立组(2026-10-21 第五批立)
+  //
+  // 立因:web 侧边栏全量对账后,RN 侧仍有 40 余个「有原生路由但 web 侧边栏没有」的
+  // 功能页(发布/提现/银行卡/隐私协议/客服/排名…)。用户明确授权「可以增加移动端
+  // 独立的侧边栏选项」,故按语义分 5 组收进来,全部默认收起(不挤占首屏视觉),
+  // 且仍排在 web 的九个分组之后 —— web 侧边栏顺序一动不动。
+  // 10. 更多内容(创作 / 发布 / 内容管理类)
+  {
+    key: 'moreContent',
+    titleKey: 'drawer.groupMoreContent',
+    defaultOpen: false,
+    items: [
+      {
+        labelKey: 'publishAccounts.title',
+        Icon: UserCog,
+        route: 'PublishAccounts',
+        target: { type: 'route', name: 'PublishAccounts' },
+      },
+      {
+        labelKey: 'publishAnalytics.title',
+        Icon: ChartLine,
+        route: 'PublishAnalytics',
+        target: { type: 'route', name: 'PublishAnalytics' },
+      },
+      {
+        labelKey: 'publishCalendar.title',
+        Icon: CalendarDays,
+        route: 'PublishCalendar',
+        target: { type: 'route', name: 'PublishCalendar' },
+      },
+      {
+        labelKey: 'articleHot.title',
+        Icon: TrendingUp,
+        route: 'ArticleHot',
+        target: { type: 'route', name: 'ArticleHot' },
+      },
+      {
+        labelKey: 'imageGenGallery.title',
+        Icon: Image,
+        route: 'ImageGenGallery',
+        target: { type: 'route', name: 'ImageGenGallery' },
+      },
+      {
+        labelKey: 'chatTemplates.title',
+        Icon: MessagesSquare,
+        route: 'ChatTemplates',
+        target: { type: 'route', name: 'ChatTemplates' },
+      },
+      {
+        labelKey: 'myPapers.title',
+        Icon: ClipboardList,
+        route: 'MyPapers',
+        target: { type: 'route', name: 'MyPapers' },
+      },
+      {
+        labelKey: 'courseResource.title',
+        Icon: BookMarked,
+        route: 'CourseResource',
+        target: { type: 'route', name: 'CourseResource' },
+      },
+      {
+        labelKey: 'livePlaybackList.title',
+        Icon: Video,
+        route: 'LivePlaybackList',
+        target: { type: 'route', name: 'LivePlaybackList' },
+      },
+      {
+        labelKey: 'courseScreen.title',
+        Icon: GraduationCap,
+        route: 'MoreCourse',
+        target: { type: 'route', name: 'MoreCourse' },
+      },
+      {
+        labelKey: 'search.title',
+        Icon: Search,
+        route: 'Search',
+        target: { type: 'route', name: 'Search' },
+      },
+    ],
+  },
+  // 11. 账号与安全(个人资料 / 安全 / 授权类)
+  {
+    key: 'moreAccount',
+    titleKey: 'drawer.groupMoreAccount',
+    defaultOpen: false,
+    items: [
+      {
+        labelKey: 'settingsAccount.title',
+        Icon: UserCog,
+        route: 'SettingsAccount',
+        target: { type: 'route', name: 'SettingsAccount' },
+      },
+      {
+        labelKey: 'securityCenter.title',
+        Icon: Lock,
+        route: 'SecurityCenter',
+        target: { type: 'route', name: 'SecurityCenter' },
+      },
+      {
+        labelKey: 'dataRights.title',
+        Icon: Shield,
+        route: 'DataRights',
+        target: { type: 'route', name: 'DataRights' },
+      },
+      {
+        labelKey: 'menu.changePwd',
+        Icon: KeyRound,
+        route: 'ChangePwd',
+        target: { type: 'route', name: 'ChangePwd' },
+      },
+      {
+        labelKey: 'qrCode.title',
+        Icon: ScanLine,
+        route: 'QrCode',
+        target: { type: 'route', name: 'QrCode' },
+      },
+      {
+        labelKey: 'menu.businessLicense',
+        Icon: BriefcaseBusiness,
+        route: 'BusinessLicense',
+        target: { type: 'route', name: 'BusinessLicense' },
+      },
+      {
+        labelKey: 'menu.appPermission',
+        Icon: Monitor,
+        route: 'AppPermission',
+        target: { type: 'route', name: 'AppPermission' },
+      },
+      {
+        labelKey: 'aiCareer.title',
+        Icon: Lightbulb,
+        route: 'AiCareer',
+        target: { type: 'route', name: 'AiCareer' },
+      },
+    ],
+  },
+  // 12. 交易与资金(收益 / 钱包 / 积分 / 提现类)
+  {
+    key: 'moreTrade',
+    titleKey: 'drawer.groupMoreTrade',
+    defaultOpen: false,
+    items: [
+      {
+        labelKey: 'earnCommission.title',
+        Icon: Handshake,
+        route: 'EarnCommission',
+        target: { type: 'route', name: 'EarnCommission' },
+      },
+      {
+        labelKey: 'distributionCompany.title',
+        Icon: UsersRound,
+        route: 'DistributionCompany',
+        target: { type: 'route', name: 'DistributionCompany' },
+      },
+      {
+        labelKey: 'pointsRecord.title',
+        Icon: Receipt,
+        route: 'PointsRecord',
+        target: { type: 'route', name: 'PointsRecord' },
+      },
+      {
+        labelKey: 'pointHistory.title',
+        Icon: ListChecks,
+        route: 'PointHistory',
+        target: { type: 'route', name: 'PointHistory' },
+      },
+      {
+        labelKey: 'pointRule.title',
+        Icon: ListChecks,
+        route: 'PointRule',
+        target: { type: 'route', name: 'PointRule' },
+      },
+      {
+        labelKey: 'tokenValue.title',
+        Icon: Zap,
+        route: 'TokenValue',
+        target: { type: 'route', name: 'TokenValue' },
+      },
+      {
+        labelKey: 'withdraw.title',
+        Icon: Wallet,
+        route: 'Withdraw',
+        target: { type: 'route', name: 'Withdraw' },
+      },
+      {
+        labelKey: 'bankCard.title',
+        Icon: CreditCard,
+        route: 'BankCard',
+        target: { type: 'route', name: 'BankCard' },
+      },
+      {
+        labelKey: 'vipCompare.title',
+        Icon: Crown,
+        route: 'VipCompare',
+        target: { type: 'route', name: 'VipCompare' },
+      },
+      {
+        labelKey: 'refundHistory.title',
+        Icon: ScrollText,
+        route: 'RefundHistory',
+        target: { type: 'route', name: 'RefundHistory' },
+      },
+      {
+        labelKey: 'cart.title',
+        Icon: ShoppingCart,
+        route: 'Cart',
+        target: { type: 'route', name: 'Cart' },
+      },
+    ],
+  },
+  // 13. 更多 AI 工具(智能体 / 模型 / 对话类)
+  {
+    key: 'moreAi',
+    titleKey: 'drawer.groupMoreAi',
+    defaultOpen: false,
+    items: [
+      {
+        labelKey: 'agentSetting.title',
+        Icon: Settings,
+        route: 'AgentSetting',
+        target: { type: 'route', name: 'AgentSetting' },
+      },
+      {
+        labelKey: 'n8nModel.title',
+        Icon: Workflow,
+        route: 'N8nModel',
+        target: { type: 'route', name: 'N8nModel' },
+      },
+      {
+        labelKey: 'aiGroup.title',
+        Icon: Users,
+        route: 'AiGroup',
+        target: { type: 'route', name: 'AiGroup' },
+      },
+      {
+        labelKey: 'messageGroup.title',
+        Icon: UsersRound,
+        route: 'MessageGroup',
+        target: { type: 'route', name: 'MessageGroup' },
+      },
+      {
+        labelKey: 'ranking.title',
+        Icon: Trophy,
+        route: 'Ranking',
+        target: { type: 'route', name: 'Ranking' },
+      },
+      {
+        labelKey: 'learnDevelop.title',
+        Icon: Rocket,
+        route: 'LearnDevelop',
+        target: { type: 'route', name: 'LearnDevelop' },
+      },
+      {
+        labelKey: 'menu.conversationImport',
+        Icon: SquarePen,
+        route: 'ConversationImport',
+        target: { type: 'route', name: 'ConversationImport' },
+      },
+      {
+        labelKey: 'aiMultimodal.title',
+        Icon: Sparkles,
+        route: 'AIMultimodal',
+        target: { type: 'route', name: 'AIMultimodal' },
+      },
+    ],
+  },
+  // 14. 服务与支持(协议 / 客服 / 运营类)
+  {
+    key: 'moreService',
+    titleKey: 'drawer.groupMoreService',
+    defaultOpen: false,
+    items: [
+      {
+        labelKey: 'customerService.title',
+        Icon: Phone,
+        route: 'CustomerService',
+        target: { type: 'route', name: 'CustomerService' },
+      },
+      {
+        labelKey: 'feedbackHistory.title',
+        Icon: MessageSquare,
+        route: 'FeedbackHistory',
+        target: { type: 'route', name: 'FeedbackHistory' },
+      },
+      {
+        labelKey: 'recruitment.title',
+        Icon: Users,
+        route: 'Recruitment',
+        target: { type: 'route', name: 'Recruitment' },
+      },
+      {
+        labelKey: 'privacy.title',
+        Icon: Shield,
+        route: 'Privacy',
+        target: { type: 'route', name: 'Privacy' },
+      },
+      {
+        labelKey: 'agreement.title',
+        Icon: ScrollText,
+        route: 'Agreement',
+        target: { type: 'route', name: 'Agreement' },
+      },
+      {
+        labelKey: 'menu.usageRules',
+        Icon: ListChecks,
+        route: 'UsageRules',
+        target: { type: 'route', name: 'UsageRules' },
+      },
+      {
+        labelKey: 'menu.icpRecord',
+        Icon: Tag,
+        route: 'IcpRecord',
+        target: { type: 'route', name: 'IcpRecord' },
+      },
+      {
+        labelKey: 'selfHealing.title',
+        Icon: Zap,
+        route: 'SelfHealing',
+        target: { type: 'route', name: 'SelfHealing' },
+      },
+      {
+        labelKey: 'patrol.title',
+        Icon: ScanLine,
+        route: 'Patrol',
+        target: { type: 'route', name: 'Patrol' },
+      },
     ],
   },
 ]
@@ -615,6 +1128,12 @@ export const DRAWER_NAV_SECTIONS: readonly DrawerNavSection[] = [
   { kind: 'group', key: 'promote' },
   { kind: 'group', key: 'advanced' },
   { kind: 'group', key: 'developer' },
+  // 2026-10-21 第五批:5 个移动端独立组排在 web 九组之后(web 顺序不动)
+  { kind: 'group', key: 'moreContent' },
+  { kind: 'group', key: 'moreAccount' },
+  { kind: 'group', key: 'moreTrade' },
+  { kind: 'group', key: 'moreAi' },
+  { kind: 'group', key: 'moreService' },
 ]
 
 /** 快捷区第二枚(对齐 web 侧边栏快捷区「自动化任务」/self-media/automation) */
