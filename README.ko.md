@@ -2175,6 +2175,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 ## 최근 업데이트 (자동 유지)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- ♻️ 리팩터:任务认领判据单源化 —— check-task-claims 改用 plan-task-index 的 claimMarkOf/codeSpanRangesOf (09e13e0eda)
+
 **2026-10-21**
 - 🐞 수정:删除 web 词条两枚无引用死 key(detail.duration/detail.objectives) (a7806c96b7)
 
@@ -2248,11 +2251,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5d1c5ca1ab8)
 - 📚 문서:归并 O 族 7 组重复小节标题 + 翻勾 G-927/G-922/G-865 三枚已交付票 (6bc77bd8026)
 - 🐞 수정:WebView2 创建失败出口先提示用户再自动退出 —— 双击无反应时给出可操作提示 (ccbc9924a5d)
-
-**2026-10-21**
-- 🚀 기능/개선:D38 侧边队列宿主接线(流式中发送入队/交互条渲染/流结束出队补答) (ddfcb16bbce)
-- 🚀 기능/개선:生产签出外来工作只读尺子装车(尺子+12例镜像测试+巡检双挂点) —— 未跟踪洪水只计数不判定,结论行新增 untracked 字段;抓到生产签出 12 枚远端没有的已暂存新文件 (e7581c4ee0f)
-- 📚 문서:extension/cli/miniapp 分区注释与 models --all 帮助文案对齐 2026-10-21 isArchivedModel 新判据(standard 不再折叠)——8 处滞后旧语义收口 (2512a6b8ee7)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
