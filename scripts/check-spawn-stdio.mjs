@@ -94,6 +94,20 @@ const EATS_STDIN = [
 ]
 
 /**
+ * ES6 属性简写形态的 `stdio` 键(2026-10-21 补,与守门 193 的 STDIO_PROP 第二支同口径)。
+ *
+ * 本仓常见合规写法是模块级 `const stdio = ['ignore','pipe','pipe']` + 各处 options
+ * `{ …, stdio }` 简写引用。原 `stdioOf` 只认 `\bstdio\s*:` 冒号形态 ⇒ 简写全判 missing,
+ * 而代码明明已接管(实测 check-api-key-permission-labels.test.mjs 一批)。
+ *
+ * 口径 `(?:^|[{,])\s*stdio\s*[,}]`:只认 stdio 作为**键位**出现,
+ * **刻意不认值位置** —— `{ encoding: stdio }` 的 stdio 前是冒号,`[{,]` 匹配不上;
+ * `{ xstdio: 1 }` / `{ stdioX }` 被前后边界排除。带引号键 `{ "stdio": 1 }` 漏认
+ * ⇒ 报 missing(安全方向:宁可放过,不误伤)。
+ */
+const SHORTHAND_STDIO = /(?:^|[{,])\s*stdio\s*[,}]/
+
+/**
  * 判据**要求保持 `pipe`** 的注册位(改它就是砸掉那道门)。
  *
  * 每条必须写清"哪道判据逐字断言了它",否则这张表会变成"我不想改就往里加"的万能豁免。
@@ -187,6 +201,30 @@ export const EXEMPT = [
     line: 513,
     fn: 'spawnSync',
     why: '`gitIn(args, env, input)` 同上。',
+  },
+  {
+    file: 'apps/cli/tests/g-692-mcp-reconnect-generation.test.ts',
+    line: 40,
+    fn: 'spawn',
+    why: '**判据的反向锚**:G-692 重连票的夹具 `silentChild()` —— "永不回话也不退出的 stdio 子进程"是这张票的**被测对象本身**(逼出多起一个的可数代价),三通道 pipe 是钉住"这确实是 stdio 传输子进程"的前提;SILENT_SERVER 只 setInterval 不读 stdin,测试也不写 child.stdin,改 ignore 测试虽仍过但夹具再也表达不出 stdio 语义。与 plugin-git-guard-g814388 同型。',
+  },
+  {
+    file: 'apps/cli/tests/g-694-mcp-stdio-cleanup.test.ts',
+    line: 62,
+    fn: 'spawn',
+    why: '**判据的反向锚**:G-694 成对清理票的 `spawnChild()` —— 专测"超时路径的 stdout data 监听器必须清干净",被测对象就是带 stdio 管道的子进程(stdout 监听器计数是判据),同上不改。',
+  },
+  {
+    file: 'apps/cli/tests/g-694b-stdio-cleanup-self.test.ts',
+    line: 63,
+    fn: 'spawn',
+    why: '**判据的反向锚**:G-694b 同票自证面(四条终态路径与成功路径成对清理),与 g-694 同一夹具形态,同上不改。',
+  },
+  {
+    file: 'apps/cli/tests/mcp-runtime.test.ts',
+    line: 84,
+    fn: 'spawn',
+    why: '**判据的反向锚**:G-689 stdio 子进程诊断票的 `spawnSilentChild()` —— 专测"spawn 失败时报错消息点名 stderr 尾",被测对象即 stdio 子进程,同上不改。',
   },
 ]
 
@@ -297,6 +335,9 @@ function eatsStdin(inner) {
  * 返回 `{ expr }` 形态 —— 那一律按"已写 stdio"处理(键在就说明作者处理过),
  * 由 `classify` 的 `ok` 收口。**否则会把上批已修的 `opts.quiet ? A : B` 形态整片误报成 missing。**
  *
+ * 2026-10-21 补 ES6 属性简写族(见下方实现):`{ stdio }` / `{ cwd, stdio }` 也返回 'expr'。
+ * 判据口径与守门 193 的 `STDIO_PROP` 对齐,并刻意**不认值位置**。
+ *
  * ⚠️ 2026-10-04 两处修正(都是执行 agent 实测报出来的):
  * ① **必须跑在掩码文本上**。原实现跑的是**未掩码**的参数区,于是
  *    `check-watermark-coverage.mjs` 里 438 行**注释**写的 ``// 原来写的是 `stdio: 'pipe'` ``
@@ -320,7 +361,30 @@ function stdioOf(inner, maskedInner, bindingMap) {
       break
     }
   }
-  if (rawKey === -1) return stdioFromBindingVar(inner, bindingMap)
+  if (rawKey === -1) {
+    // 2026-10-21 补简写族:ES6 属性简写(`{ stdio }` / `{ cwd, stdio }`)同样是"已接管 stdio"。
+    // 本仓常见写法是模块级 `const stdio = ['ignore','pipe','pipe']` + 各处 options 简写引用
+    // (实测 check-api-key-permission-labels.test.mjs 等一批),原判据只认冒号形态 ⇒ 简写全判 missing。
+    // 判据与守门 193 的 STDIO_PROP 第二支同口径:`(?:^|[{,])\s*stdio\s*[,}]`。
+    // **不认值位置** —— `{ encoding: stdio }` 里 stdio 前是冒号,`[{,]` 匹配不上;
+    // `{ xstdio: 1 }` / `{ stdioX }` 同理被排除。带引号键 `{ "stdio": 1 }` 漏认 ⇒ 报 missing(安全方向)。
+    if (SHORTHAND_STDIO.test(use)) return 'expr'
+    // 2026-10-21 补对象 spread 回查:`{ ...spawnOpts, cwd, env }` 里 stdio 来自被展开的
+    // 模块级常量(实测 check-miniapp-taro-design-tokens.test.mjs 三处,spawnOpts 定义里
+    // `stdio: ['ignore','pipe','pipe']` 明明在场,字面量层面却看不到 ⇒ 误判 missing)。
+    // 与 stdioFromBindingVar 同一思路:回查 bindingStdioMap。**取最后一个含 stdio 的
+    // spread** —— spread 语义是后者覆盖前者;显式 `stdio:` 键已在上面 rawKey 分支先处理
+    // (显式覆盖 spread),到不了这一支。
+    let spreadStdio
+    if (bindingMap) {
+      for (const sm of use.matchAll(/\.\.\.\s*([A-Za-z_$][\w$]*)/g)) {
+        const v = bindingMap.get(sm[1])
+        if (v !== undefined) spreadStdio = v
+      }
+    }
+    if (spreadStdio !== undefined) return spreadStdio
+    return stdioFromBindingVar(inner, bindingMap)
+  }
   const after = inner.slice(rawKey + keyLen(inner, rawKey)).trimStart()
   const lit = after.match(/^(\[[^\]]*\]|'[^']*'|"[^"]*")/)
   return lit ? lit[1] : 'expr'
@@ -506,11 +570,19 @@ export function importedCallNames(src) {
  *
  * 只认**顶层** `const/let/var <名> = {` 且对象里确有 `stdio` 键;值取字面量,
  * 取不到就记 'expr'(键在就说明作者处理过)。
+ *
+ * 2026-10-21 修正(TS 类型标注盲区):原正则 `\s*=\s*\{` 不认
+ * `const spawnOpts: SpawnSyncOptions = {` 这种带标注的写法 ⇒ 具名 options 整体漏收,
+ * 下一行的 `spawnSync(commandLine, spawnOpts)` 被判 missing(实测
+ * apps/cli/src/sandbox/index.ts 两处,而定义里 `stdio` 明明已在场)。
+ * ⇒ 类型标注改为可选组 `(?::[^={;]+)?`:`: SpawnSyncOptions` / `: Record<string, unknown>`
+ * 都能吃下;`= foo({`(右侧不是字面量)仍不匹配(安全方向);行内类型字面量
+ * `const x: { a: number } = {` 含 `{` 吃不下 ⇒ 漏收回到旧行为(报 missing,不洗绿)。
  */
 function bindingStdioMap(src) {
   const map = new Map()
   const masked = maskCommentsAndStrings(src)
-  const re = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*\{/g
+  const re = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^={;]+)?=\s*\{/g
   let m
   while ((m = re.exec(masked))) {
     const name = m[1]
@@ -808,6 +880,48 @@ const SELFTEST_PASS = [
     '末位实参后有尾逗号 ⇒ ok(回查那个变量)',
     'const runOpts = { stdio: ["ignore","pipe","pipe"] }\nconst r = execFileSync("git", args, runOpts,)',
     'ok',
+  ],
+  // 下面五条钉 2026-10-21 第三轮修的三个判据盲区(清偿存量时实测报出来的):
+  // ① TS 类型标注的具名 options(`const x: T = { stdio }`)原先整体漏收 ⇒ 下一行调用误判 missing
+  //    (实测 apps/cli/src/sandbox/index.ts 两处,而定义里 stdio 明明在场);
+  // ② ES6 属性简写 `{ stdio }` 原先只认冒号形态 ⇒ 简写全判 missing
+  //    (实测 check-api-key-permission-labels.test.mjs 一批,模块级 const stdio + 简写引用);
+  // ③ 对象 spread `{ ...spawnOpts, cwd }` 里的 stdio 来自被展开的模块级常量,字面量层面看不到
+  //    (实测 check-miniapp-taro-design-tokens.test.mjs 三处)。三条各配一条"牙"证明没被放宽。
+  [
+    'TS 类型标注的具名 options(const x: T = { stdio })⇒ ok',
+    'const spawnOpts: SpawnSyncOptions = { stdio: ["ignore","pipe","pipe"] }\nconst r = spawnSync("git", ["x"], spawnOpts)',
+    'ok',
+  ],
+  [
+    '牙:TS 标注但对象里没有 stdio ⇒ 仍 missing(不放宽)',
+    'const plainOpts: SpawnSyncOptions = { cwd: R }\nconst r = spawnSync("git", ["x"], plainOpts)',
+    'missing',
+  ],
+  [
+    'ES6 属性简写 { stdio } ⇒ ok(模块级 const stdio + 简写引用)',
+    'const stdio = ["ignore","pipe","pipe"]\nconst r = spawnSync("git", ["x"], { cwd: R, stdio })',
+    'ok',
+  ],
+  [
+    '牙:值位置的 stdio({ encoding: stdio })不算接管 ⇒ 仍 missing',
+    'const stdio = ["ignore","pipe","pipe"]\nconst r = spawnSync("git", ["x"], { encoding: stdio })',
+    'missing',
+  ],
+  [
+    '对象 spread { ...spawnOpts, cwd } ⇒ ok(stdio 在被展开的模块级常量里)',
+    'const spawnOpts = { stdio: ["ignore","pipe","pipe"] }\nconst r = spawnSync("git", ["x"], { ...spawnOpts, cwd: R })',
+    'ok',
+  ],
+  [
+    '牙:spread 的变量里没有 stdio ⇒ 仍 missing(不放宽)',
+    'const plainOpts = { cwd: R, encoding: "utf8" }\nconst r = spawnSync("git", ["x"], { ...plainOpts })',
+    'missing',
+  ],
+  [
+    '牙:spread 后显式 stdio: \'pipe\' ⇒ 显式赢(pipe-both,不被 spread 洗绿)',
+    'const spawnOpts = { stdio: ["ignore","pipe","pipe"] }\nconst r = spawnSync("git", ["x"], { ...spawnOpts, stdio: "pipe" })',
+    'pipe-both',
   ],
   // 下面这条钉"数组 + .join() 合成面"的真实形态(2026-10-04 执行 agent 实测 1 处):
   // 数组是**某个函数调用的实参**,后面才 `.join('\n')` —— 前面先撞到的是那个 `(` 而非 `[`。

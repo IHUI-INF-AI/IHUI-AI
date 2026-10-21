@@ -4452,7 +4452,8 @@
     "p1": "녹음을 시작하지 못했습니다"
   },
   "webViewPortal": {
-    "title": "웹 기능 포털",
+    "knowledgeBase": "지식 베이스",
+    "settingsBilling": "청구 관리",    "title": "웹 기능 포털",
     "hint": "아래는 웹 버전 기능 진입점입니다. 내장 브라우저에서 열립니다",
     "sections": {
       "eduAi": "교육 AI",

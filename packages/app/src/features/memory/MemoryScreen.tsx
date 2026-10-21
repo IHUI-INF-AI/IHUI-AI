@@ -60,6 +60,11 @@ export interface MemoryScreenProps {
   onCreateSubmit: () => void
   /** 删除记忆(确认 Alert 由 wrapper 处理) */
   onDelete: (entry: MemoryEntry) => void
+  /**
+   * 打开单条记忆的详情页(web `/memory/[id]`,承载方式由各端 wrapper 决定)。
+   * 可选:那张页带编辑+保存,而本组件只有新建/删除 —— 给了就多一个出口,不给就维持原样。
+   */
+  onOpenDetail?: (id: string) => void
   /** 下拉刷新 */
   onRefresh: () => void
   /** 错误态重试 */
@@ -150,6 +155,7 @@ export function MemoryScreen({
   onNewScopeChange,
   onCreateSubmit,
   onDelete,
+  onOpenDetail,
   onRefresh,
   onRetry,
   onBack,
@@ -182,13 +188,25 @@ export function MemoryScreen({
             {formatTime(item.updatedAt)}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.deleteBtn}
-          onPress={() => onDelete(item)}
-          disabled={deleting}
-        >
-          <Text style={styles.deleteText}>{t('memory.delete')}</Text>
-        </TouchableOpacity>
+        <View style={styles.rowActions}>
+          {onOpenDetail ? (
+            <TouchableOpacity
+              style={styles.detailBtn}
+              onPress={() => onOpenDetail(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={t('memory.detail')}
+            >
+              <Text style={styles.detailText}>{t('memory.detail')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={() => onDelete(item)}
+            disabled={deleting}
+          >
+            <Text style={styles.deleteText}>{t('memory.delete')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     )
   }
@@ -531,7 +549,6 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary,
     },
     deleteBtn: {
-      marginTop: 8,
       alignSelf: 'flex-start',
       borderRadius: rnRadius.sm,
       borderWidth: 1,
@@ -542,6 +559,24 @@ function createStyles(tk: AppThemeTokens) {
     deleteText: {
       fontSize: 12,
       color: tk.danger.DEFAULT,
+    },
+    rowActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
+    detailBtn: {
+      alignSelf: 'flex-start',
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tk.border.medium,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+    },
+    detailText: {
+      fontSize: 12,
+      color: tk.text.secondary,
     },
     /* 空态 */
     emptyWrap: {
