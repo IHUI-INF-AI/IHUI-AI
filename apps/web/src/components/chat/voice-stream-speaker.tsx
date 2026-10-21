@@ -20,7 +20,7 @@ import * as React from 'react'
 import { AudioLines, Volume2, VolumeX } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { IconButton } from '@ihui/ui-react'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useWebAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 
@@ -137,10 +137,12 @@ export function VoiceHandsFreeToggle({ disabled }: { disabled?: boolean }) {
 
 /** 流式完成自动朗读(挂 AI 面板根部,自身无 UI) */
 export function VoiceStreamSpeaker() {
-  const isStreaming = useChatStore((s) => s.isStreaming)
+  // 票60 长尾(2026-10-21):朗读腿随输入框进非根窗格 ⇒ 播的是本窗格那次流式,不是根窗格的
+  const chatStore = usePaneChatStore()
+  const isStreaming = chatStore((s) => s.isStreaming)
   const accessToken = useWebAuthStore((s) => s.token)
   // 只订阅叶子值:最后一条 assistant 内容(字符串引用稳定)
-  const content = useChatStore((s) => {
+  const content = chatStore((s) => {
     const msgs = s.messages
     for (let i = msgs.length - 1; i >= 0; i--) {
       const msg = msgs[i]

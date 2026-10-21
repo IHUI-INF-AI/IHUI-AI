@@ -14,7 +14,7 @@ import {
   hydrateAgentProgressPaneFromStorage,
   useAgentProgressPaneStore,
 } from '@/stores/agent-progress-pane'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useModeStore } from '@/stores/mode'
 import type { ChatMode } from '@ihui/types'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
@@ -66,8 +66,9 @@ export function AgentProgressTrigger({
   const paneOpen = useAgentProgressPaneStore((s) => s.open)
   const togglePane = useAgentProgressPaneStore((s) => s.toggle)
 
-  // Phase 16: 从 useChatStore 获取 conversationId 用于推导连接状态
-  const conversationId = useChatStore((s) => s.conversationId)
+  // Phase 16: 从按窗格寻址的 chat store 取 conversationId 用于推导连接状态(票60 长尾)
+  const chatStore = usePaneChatStore()
+  const conversationId = chatStore((s) => s.conversationId)
 
   // 当前 ChatMode(从 current-mode-badge 整合)
   const currentMode = useModeStore((s) => s.currentMode)
