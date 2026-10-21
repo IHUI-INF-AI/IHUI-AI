@@ -158,8 +158,6 @@ const ALLOWED_FILES = new Set([
   // 项目强制文档
   'AGENTS.md',
   'PROJECT_PLAN.md',
-  // 2026-10-19 显式审批:机主 2026-10-18 下达的 Agent 行为准则(其中要求每次会话开始必读)
-  'agent.md',
   // /goal 模式运行时文件(AGENTS.md §1 唯一例外条款:goal-runtime 状态与运行日志)
   'STATE.md',
   'loop-run-log.md',
