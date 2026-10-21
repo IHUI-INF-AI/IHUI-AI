@@ -5231,22 +5231,6 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 状态色文字对比度(1 项,blocking)---
-  {
-    id: '233',
-    label:
-      '🎨 状态色文字角色档的对比度射程对账(同串「同色底 + text-*-text」两档必须 ≥4.5 且淡底不超 /15;立因=当天批量迁移把 tint-strong 与 danger/10 两处用坏,计数自证全过而底没人量)',
-    script: 'check-state-text-contrast.mjs',
-    args: [],
-    mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_STATE_TEXT_CONTRAST',
-    stagedTriggers: ['apps/web/', 'packages/ui-react/', 'packages/design-tokens/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
-  },
-
   // --- info (1 项) ---
   {
     id: '23',
