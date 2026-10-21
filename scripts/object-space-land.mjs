@@ -1426,6 +1426,44 @@ function runDanglingGate({ tree, anchor }) {
   }
 }
 
+/**
+ * 暖色描边涉事判据(门 231 审树档 `--rev <tree> --only <清单>`)。
+ *
+ * 为什么必须接在这里而不是"把门加进 pre-commit":旁路通道(commit-tree + CAS)**结构上不跑钩子**,
+ * 只活在提交链的内容门对这条通道等于没装 —— 而本仓大量落地走的正是它(AGENTS:
+ * 「防它必须在它自己的判据源头接」)。
+ *
+ * 触发面**刻意不另立第二份扩展名表**:整份声明清单原样交给门,由门自己的 isInScope 判
+ * "本枚不涉及射程"并 exit 0 —— 同一条射程在两个文件里各写一遍必然漂移(§0.6)。
+ */
+function runWarmBorderGate({ tree, paths }) {
+  const gate =
+    String(process.env.LAND_WARM_BORDER_GATE ?? '').trim() ||
+    join(dirname(fileURLToPath(import.meta.url)), 'check-no-warm-border.mjs')
+  try {
+    const out = execFileSync(process.execPath, [gate, '--rev', tree, '--only', paths.join(';')], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 180000,
+      maxBuffer: 64 << 20,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { pass: true, out: String(out) }
+  } catch (e) {
+    const rc = e.status ?? 9
+    const out = String((e.stdout ?? '') + (e.stderr ?? ''))
+    if (rc !== 1 && /跳过/.test(out))
+      return {
+        pass: false,
+        undetermined: true,
+        why: `暖色描边涉事判据未判定(门自称跳过,跳过等于没审):${gate}`,
+        out,
+      }
+    if (rc === 1) return { pass: false, why: '暖色描边涉事判据判红(输入框上的暖色描边),拒绝落盘', out }
+    return { pass: false, undetermined: true, why: `暖色描边涉事判据未判定(rc=${rc}),拒绝落盘`, out }
+  }
+}
+
 async function main() {
   const parsed = parseArgs()
   if (parsed.error) {
@@ -1437,8 +1475,10 @@ async function main() {
   // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
   const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'
   const skipDanglingGate = process.env.IHUI_LAND_SKIP_DANGLING_GATE === '1'
+  const skipWarmBorderGate = process.env.IHUI_LAND_SKIP_WARM_BORDER === '1'
   let importGaps = { scanned: 0, missing: [], undetermined: [] }
   let danglingGate = null
+  let warmBorderGate = null
 
   const head0 = git(['rev-parse', 'HEAD'], { root })
   const base = new Map(paths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
@@ -1617,6 +1657,13 @@ async function main() {
           danglingGate = r
           if (!r.pass) return r.why
         }
+        // 暖色描边涉事判据(门 231 审树档)。整份清单交过去,由门自己的 isInScope 判
+        // "本枚不涉及射程"并放行 —— 不在这里复刻一份扩展名表(§0.6)。
+        if (!skipWarmBorderGate) {
+          const r = runWarmBorderGate({ tree, paths: entries.map((e) => e.path) })
+          warmBorderGate = r
+          if (!r.pass) return r.why
+        }
         return ''
       },
     })
@@ -1630,6 +1677,16 @@ async function main() {
             '应急跳过 IHUI_LAND_SKIP_DANGLING_GATE=1(会把跳过那行打进输出留痕)',
         )
         process.exit(danglingGate.undetermined ? 2 : 1)
+      }
+      if (warmBorderGate && !warmBorderGate.pass) {
+        console.error(`❌ ${warmBorderGate.why}(未创建任何 commit、HEAD 与主索引均未动):`)
+        for (const line of String(warmBorderGate.out ?? '').split('\n').slice(-12))
+          if (line.trim()) console.error(`   ${line.slice(0, 220)}`)
+        console.error(
+          '   出路:把该处描边改成中性档(border.light/medium)或强调档(brandAccent.light/deep)后重落;' +
+            '判据边界见门体头注。应急跳过 IHUI_LAND_SKIP_WARM_BORDER=1(会把跳过那行打进输出留痕)',
+        )
+        process.exit(warmBorderGate.undetermined ? 2 : 1)
       }
       console.error(`❌ 悬空相对引用预检不通过,拒绝落地(未创建任何 commit、HEAD 与主索引均未动):`)
       for (const m of importGaps.missing) {
@@ -1660,6 +1717,11 @@ async function main() {
       console.log(`✅ 涉事判据(门 98 --rev <tree>):通过,落盘树无新增悬空`)
     } else {
       console.log('ℹ️ 涉事判据未触发:声明面无源码路径(门 98 只审源码)')
+    }
+    if (skipWarmBorderGate) {
+      console.log('⚠️ IHUI_LAND_SKIP_WARM_BORDER=1 ⇒ 本次跳过暖色描边涉事判据(门 231 --rev)(该行输出即留痕)')
+    } else if (warmBorderGate) {
+      console.log('✅ 暖色描边涉事判据(门 231 --rev <tree>):通过,落盘树无输入框暖色描边')
     }
     const commit = made.commit
     if (casUpdateRef(commit, head, { root })) {

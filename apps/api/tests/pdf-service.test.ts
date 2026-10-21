@@ -4,6 +4,10 @@
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { PDFDocument } from 'pdf-lib'
 
 const { mockAuthenticate } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
@@ -13,10 +17,27 @@ vi.mock('../src/plugins/auth.js', () => ({
   authenticate: mockAuthenticate,
 }))
 
-import { otherRoutes as frontendStubOtherRoutes } from '../src/routes/other/index.js'
+/**
+ * 路由模块在 **import 期** 就求值 `PDF_UPLOAD_DIR = process.env.UPLOAD_DIR ?? cwd/uploads/public`，
+ * 所以临时目录必须先落定、再用动态 import 载入路由。写成静态 import 的话，用例会把生成物
+ * 落进真实 uploads 目录（且同名互相覆盖）。
+ */
+function mkTmp(): string {
+  const base = join(tmpdir(), `ihui-pdf-svc-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  mkdirSync(base, { recursive: true })
+  return base
+}
+
+const TMP = mkTmp()
+process.env.UPLOAD_DIR = TMP
+const { otherRoutes } = await import('../src/routes/other/index.js')
 
 const USER_ID = '00000000-0000-4000-8000-000000000001'
 const PREFIX = '/api'
+
+const FILE_A = '00000000-0000-4000-8000-000000000aaa' // 2 页
+const FILE_B = '00000000-0000-4000-8000-000000000bbb' // 3 页
+const FILE_MISSING = '00000000-0000-4000-8000-000000000ccc'
 
 function mockAuthed(userId: string = USER_ID) {
   mockAuthenticate.mockImplementation(
@@ -33,8 +54,17 @@ function mockUnauthed() {
   mockAuthenticate.mockRejectedValue(err)
 }
 
-const VALID_FILE_ID_A = '00000000-0000-4000-8000-000000000aaa'
-const VALID_FILE_ID_B = '00000000-0000-4000-8000-000000000bbb'
+async function makePdf(pageCount: number): Promise<Buffer> {
+  const doc = await PDFDocument.create()
+  for (let i = 0; i < pageCount; i++) doc.addPage([200, 200])
+  return Buffer.from(await doc.save())
+}
+
+/** 落盘文件的真实页数 —— 响应里的自述数字不能当证据。 */
+async function pageCountOfStored(id: string): Promise<number> {
+  const doc = await PDFDocument.load(readFileSync(join(TMP, id)))
+  return doc.getPageCount()
+}
 
 describe('pdf-service routes — /api/pdf-service/*', () => {
   const server = Fastify({ logger: false })
@@ -48,12 +78,15 @@ describe('pdf-service routes — /api/pdf-service/*', () => {
         message: statusCode >= 500 ? '服务器错误' : err.message,
       })
     })
-    await server.register(frontendStubOtherRoutes, { prefix: PREFIX })
+    await server.register(otherRoutes, { prefix: PREFIX })
     await server.ready()
+    writeFileSync(join(TMP, FILE_A), await makePdf(2))
+    writeFileSync(join(TMP, FILE_B), await makePdf(3))
   })
 
   afterAll(async () => {
     await server.close()
+    rmSync(TMP, { recursive: true, force: true })
   })
 
   beforeEach(() => {
@@ -65,98 +98,149 @@ describe('pdf-service routes — /api/pdf-service/*', () => {
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/pdf-service/merge`,
-      payload: { fileIds: [VALID_FILE_ID_A, VALID_FILE_ID_B] },
+      payload: { fileIds: [FILE_A, FILE_B] },
     })
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /pdf-service/merge → 201 + taskId + fileCount', async () => {
+  it('merge 真合并：taskId 已落盘，页数 = 两份源之和', async () => {
     mockAuthed()
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/pdf-service/merge`,
-      payload: { fileIds: [VALID_FILE_ID_A, VALID_FILE_ID_B] },
+      payload: { fileIds: [FILE_A, FILE_B] },
     })
     expect(res.statusCode).toBe(201)
     const body = res.json()
     expect(body.code).toBe(0)
     expect(body.data.taskId).toMatch(/^[0-9a-f-]{36}$/)
     expect(body.data.operation).toBe('merge')
-    expect(body.data.status).toBe('pending')
+    expect(body.data.status).toBe('done')
     expect(body.data.fileCount).toBe(2)
+    expect(existsSync(join(TMP, body.data.taskId))).toBe(true)
+    expect(await pageCountOfStored(body.data.taskId)).toBe(5)
   })
 
-  it('POST /pdf-service/merge fileIds 不足 2 → 400', async () => {
+  it('taskId 可经 GET /pdf-service/result/:id 取回 PDF 字节', async () => {
+    mockAuthed()
+    const merged = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/pdf-service/merge`,
+      payload: { fileIds: [FILE_A, FILE_B] },
+    })
+    const taskId: string = merged.json().data.taskId
+    const dl = await server.inject({ method: 'GET', url: `${PREFIX}/pdf-service/result/${taskId}` })
+    expect(dl.statusCode).toBe(200)
+    expect(dl.headers['content-type']).toContain('application/pdf')
+    expect((await PDFDocument.load(dl.rawPayload)).getPageCount()).toBe(5)
+  })
+
+  it('merge 源文件不存在 → 400 并点名，绝不回一个取不到的 taskId', async () => {
     mockAuthed()
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/pdf-service/merge`,
-      payload: { fileIds: [VALID_FILE_ID_A] },
+      payload: { fileIds: [FILE_A, FILE_MISSING] },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().message).toContain('源文件不存在')
+  })
+
+  it('merge fileIds 不足 2 → 400', async () => {
+    mockAuthed()
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/pdf-service/merge`,
+      payload: { fileIds: [FILE_A] },
     })
     expect(res.statusCode).toBe(400)
   })
 
-  it('POST /pdf-service/split → 201 + ranges 透传', async () => {
+  it('split 按 ranges 提取：结果页数等于所选页', async () => {
     mockAuthed()
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/pdf-service/split`,
-      payload: { fileId: VALID_FILE_ID_A, ranges: '1-3,5,7-9' },
+      payload: { fileId: FILE_B, ranges: '1-2,3' },
     })
     expect(res.statusCode).toBe(201)
     const body = res.json()
-    expect(body.code).toBe(0)
     expect(body.data.operation).toBe('split')
-    expect(body.data.ranges).toBe('1-3,5,7-9')
+    expect(body.data.status).toBe('done')
+    expect(body.data.ranges).toBe('1-2,3')
+    expect(body.data.pageCount).toBe(3)
+    expect(await pageCountOfStored(body.data.taskId)).toBe(3)
   })
 
-  it('POST /pdf-service/split ranges 非法 → 400', async () => {
+  it('split 页码越界 → 400（不静默丢页）', async () => {
     mockAuthed()
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/pdf-service/split`,
-      payload: { fileId: VALID_FILE_ID_A, ranges: 'abc' },
+      payload: { fileId: FILE_A, ranges: '1-99' },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json().message).toContain('页码范围')
+  })
+
+  it('split ranges 非法格式 → 400', async () => {
+    mockAuthed()
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/pdf-service/split`,
+      payload: { fileId: FILE_A, ranges: 'abc' },
     })
     expect(res.statusCode).toBe(400)
   })
 
-  it('POST /pdf-service/print → 201 + operation:print', async () => {
-    mockAuthed()
-    const res = await server.inject({
-      method: 'POST',
-      url: `${PREFIX}/pdf-service/print`,
-      payload: { fileId: VALID_FILE_ID_A },
-    })
-    expect(res.statusCode).toBe(201)
-    const body = res.json()
-    expect(body.code).toBe(0)
-    expect(body.data.operation).toBe('print')
-  })
-
-  it('POST /pdf-service/sign → 201 + operation:sign', async () => {
-    mockAuthed()
-    const res = await server.inject({
-      method: 'POST',
-      url: `${PREFIX}/pdf-service/sign`,
-      payload: { fileId: VALID_FILE_ID_A, signature: 'data:image/png;base64,iVBOR...' },
-    })
-    expect(res.statusCode).toBe(201)
-    const body = res.json()
-    expect(body.code).toBe(0)
-    expect(body.data.operation).toBe('sign')
-  })
-
-  it('POST /pdf-service/watermark → 201 + operation:watermark', async () => {
+  it('watermark 逐页加水印：结果仍是可读 PDF 且页数不变', async () => {
     mockAuthed()
     const res = await server.inject({
       method: 'POST',
       url: `${PREFIX}/pdf-service/watermark`,
-      payload: { fileId: VALID_FILE_ID_A },
+      payload: { fileId: FILE_A, text: 'IHUI', fontSize: 30, opacity: 0.2, rotation: 30 },
     })
     expect(res.statusCode).toBe(201)
     const body = res.json()
-    expect(body.code).toBe(0)
     expect(body.data.operation).toBe('watermark')
+    expect(body.data.status).toBe('done')
+    expect(body.data.text).toBe('IHUI')
+    expect(body.data.pageCount).toBe(2)
+    expect(await pageCountOfStored(body.data.taskId)).toBe(2)
+  })
+
+  it('watermark 源文件不存在 → 400', async () => {
+    mockAuthed()
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/pdf-service/watermark`,
+      payload: { fileId: FILE_MISSING },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  // print/sign 两端都没有消费方，仍是"任务受理"形态的桩。刻意保留 pending 断言：
+  // 让"这个文件里哪几条腿已真处理、哪两条还没有"可被读到，而不是被一次批量改写抹平。
+  it('print 仍是桩：201 + pending（未实装、无消费方）', async () => {
+    mockAuthed()
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/pdf-service/print`,
+      payload: { fileId: FILE_A },
+    })
+    expect(res.statusCode).toBe(201)
+    expect(res.json().data).toMatchObject({ operation: 'print', status: 'pending' })
+  })
+
+  it('sign 仍是桩：201 + pending（未实装、无消费方）', async () => {
+    mockAuthed()
+    const res = await server.inject({
+      method: 'POST',
+      url: `${PREFIX}/pdf-service/sign`,
+      payload: { fileId: FILE_A, signature: 'data:image/png;base64,iVBOR...' },
+    })
+    expect(res.statusCode).toBe(201)
+    expect(res.json().data).toMatchObject({ operation: 'sign', status: 'pending' })
   })
 
   it('POST /pdf-service/print fileId 非法 → 400', async () => {
