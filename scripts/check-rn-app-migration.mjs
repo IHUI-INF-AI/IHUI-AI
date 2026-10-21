@@ -127,6 +127,10 @@ export const WHITELIST_ENTRIES = new Map(
       why: '图像生成画廊屏:Image 瀑布流 + 详情弹层,共享层无同名屏,RN 端独占图片浏览交互',
       expires: '2027-06-30',
     },
+    'PublishAnalyticsScreen.tsx': {
+      why: '发布分析屏:数据卡片 + 趋势条 + 周期切换,共享层无同名屏,RN 端独占统计视图',
+      expires: '2027-06-30',
+    },
     'AiAssistantN8nScreen.tsx': {
       why: 'N8n 工作流 AI 助手:streamChat SSE + VoiceInput + ModelConfigDialog + Drawer 历史对话,RN 端独占流式对话交互(L30 的"复用 @ihui/rn-app Drawer"仅是 doc comment,非 import)',
       expires: '2027-06-30',
