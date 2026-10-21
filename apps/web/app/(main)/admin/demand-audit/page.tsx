@@ -13,7 +13,7 @@ import { DemandAuditFilter } from './DemandAuditFilter'
 import { DemandAuditTable } from './DemandAuditTable'
 import { DemandAuditEditDialog } from './DemandAuditEditDialog'
 import { DemandAuditApprovalDialog } from './DemandAuditApprovalDialog'
-import { api } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { DemandRow, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -35,22 +35,25 @@ export default function DemandAuditPage() {
       Object.entries(search)
         .filter(([, v]) => v)
         .forEach(([k, v]) => qs.set(k, v))
-      return api<ListData>(`/api/admin/examine?${qs}`)
+      return apiOrThrow<ListData>(`/api/admin/examine?${qs}`)
     },
   })
 
   const editMut = useMutation({
     mutationFn: () =>
       editId
-        ? api(`/api/admin/examine/${editId}`, { method: 'PUT', body: JSON.stringify(editForm) })
-        : api('/api/admin/examine', { method: 'POST', body: JSON.stringify(editForm) }),
+        ? apiOrThrow(`/api/admin/examine/${editId}`, {
+            method: 'PUT',
+            body: JSON.stringify(editForm),
+          })
+        : apiOrThrow('/api/admin/examine', { method: 'POST', body: JSON.stringify(editForm) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'demand-audit'] })
       setEditOpen(false)
     },
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/examine/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/examine/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'demand-audit'] }),
   })
 

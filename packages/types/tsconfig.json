@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/packages-types.tsbuildinfo",
     "strict": true,
     "noUncheckedIndexedAccess": true
   },

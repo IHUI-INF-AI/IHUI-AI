@@ -3,21 +3,31 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTranslations } from 'next-intl'
-import { Check, ChevronDown, Eye, FileText, Hammer, ClipboardList, Wrench, MessageCircleQuestion } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  Eye,
+  FileText,
+  Hammer,
+  ClipboardList,
+  Wrench,
+  MessageCircleQuestion,
+} from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useModeStore } from '@/stores/mode'
+import { usePaneModeStore } from '@/stores/mode'
 import { useAiToolsPanelStore } from '@/stores/ai-tools-panel'
 import type { ChatMode } from '@ihui/types'
 import { cn } from '@/lib/utils'
 
 /**
  * 对话模式切换器(2026-09-13 矩阵 A #24):同会话模式切换的可见控件,
- * 与 / 命令、Ctrl+1-5、AI 自动判断三通道共用 useModeStore 单一状态源。
+ * 与 / 命令、Ctrl+1-5、AI 自动判断三通道共用同一份 mode store 状态源
+ * (票60 普查批起按窗格寻址 usePaneModeStore,根窗格仍是原 useModeStore 单例)。
  *
  * 五态语义见 stores/mode.ts(ask/build/plan/review/spec)。
  * 文案复用 chat.modeBuild/modePlan/modeReview/modeSpec/modeAsk 现有 i18n 键,不新增键。
@@ -42,8 +52,10 @@ const MODE_ITEMS: Array<{
 export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
   const t = useTranslations('chat')
   const tTools = useTranslations('aiToolsPanel')
-  const currentMode = useModeStore((s) => s.currentMode)
-  const setMode = useModeStore((s) => s.setMode)
+  // 票60 普查批:按窗格寻址(Provider 外回落根单例 ⇒ 单窗格形态逐字不变)
+  const modeStore = usePaneModeStore()
+  const currentMode = modeStore((s) => s.currentMode)
+  const setMode = modeStore((s) => s.setMode)
   const toolsPanelOpen = useAiToolsPanelStore((s) => s.open)
   const toggleToolsPanel = useAiToolsPanelStore((s) => s.toggle)
   const current = MODE_ITEMS.find((m) => m.mode === currentMode) ?? MODE_ITEMS[0]

@@ -398,17 +398,33 @@ function reflogLineSourceHash(line) {
 }
 
 /**
- * 2026-09-04 修复:若 reset 的源 commit(hash 即行首字段)已被 lost-commit/* tag
- * 备份,则该次 reset 不构成丢失风险,放行(与悬空 commit 的 tag 备份判定对齐)。
- * 否则历史 reset 会永久滞留 reflog 最近 50 步窗口内,无解阻塞所有后续 commit。
+ * reflog 行的 ref 名(`HEAD@{}` / `refs/heads/main@{}` / `worktrees/x/HEAD@{}` → 前者)。
+ * 用来把 reset 行与"同 ref 更旧一条"配对 —— 后者才是被 reset 丢掉的那枚。
+ */
+function reflogRefOf(line) {
+  const m = String(line || '')
+    .trim()
+    .match(/^\S+\s+(\S+?)@\{/)
+  return m ? m[1] : ''
+}
+
+/**
+ * 2026-09-04 修复:若 reset 丢掉的 commit 已被 lost-commit/* tag 备份,则放行。
+ * 2026-10-21 更正:此前只看行首 hash(= **reset 之后**的 HEAD),而被丢的那一枚在 reflog 里
+ * 根本不在这一行 —— 实测把"丢了 A、A 已 tag"判成未备份(恒红,§12e),同时可能把"丢了 A、
+ * 只有 reset 后的 HEAD 恰好被 tag"误放过。现在两枚都看:
+ *   ① beforeHashOf(line) = 同 ref 更旧一条 reflog 的 hash(真正被丢的那枚);
+ *   ② 行首 hash(保留旧行为,不把既有已放行样本翻红)。
+ * 任一被备份 ⇒ 放行;两枚都取不到 ⇒ 保守判"未备份"。
  * 前缀匹配是双向的(git 可能输出短 hash,tag 名里可能带短 hash)。
  */
-function dropBackedResets(resets, backedHashes) {
+function dropBackedResets(resets, backedHashes, beforeHashOf = () => '') {
   return resets.filter((line) => {
-    const srcHash = reflogLineSourceHash(line)
-    if (!srcHash) return true
-    // 前缀匹配(git 对唯一对象输出短 hash)
-    for (const h of backedHashes) if (h.startsWith(srcHash) || srcHash.startsWith(h)) return false
+    const candidates = [beforeHashOf(line), reflogLineSourceHash(line)].filter(Boolean)
+    if (candidates.length === 0) return true
+    for (const srcHash of candidates) {
+      for (const h of backedHashes) if (h.startsWith(srcHash) || srcHash.startsWith(h)) return false
+    }
     return true
   })
 }
@@ -431,7 +447,15 @@ function detectResets() {
       .map((r) => r.hash)
       .filter(Boolean),
   )
-  return dropBackedResets(resets, backedHashes)
+  // 被 reset 丢掉的那枚 = 同 ref 更旧一条 reflog 的行首 hash(列表是新→旧)。
+  const beforeByLine = new Map()
+  for (let i = 0; i < lines.length; i++) {
+    if (!isResetReflogLine(lines[i])) continue
+    const ref = reflogRefOf(lines[i])
+    const older = lines.slice(i + 1).find((l) => reflogRefOf(l) === ref)
+    if (older) beforeByLine.set(lines[i], reflogLineSourceHash(older))
+  }
+  return dropBackedResets(resets, backedHashes, (line) => beforeByLine.get(line) || '')
 }
 
 function isStashSubject(subject) {
@@ -1668,6 +1692,7 @@ export const __test__ = {
   RESET_LINE_RE,
   isResetReflogLine,
   reflogLineSourceHash,
+  reflogRefOf,
   dropBackedResets,
   // 悬空 commit 分类
   UNREACHABLE_COMMIT_PREFIX,

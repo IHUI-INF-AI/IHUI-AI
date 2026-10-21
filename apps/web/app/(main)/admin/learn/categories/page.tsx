@@ -12,7 +12,8 @@ import { useTranslations } from 'next-intl'
 import { LearnCategoryFilter } from './LearnCategoryFilter'
 import { LearnCategoryTable } from './LearnCategoryTable'
 import { LearnCategoryDialog } from './LearnCategoryDialog'
-import { api, EMPTY_FORM, categoryToForm } from './helpers'
+import { EMPTY_FORM, categoryToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Category, CategoryForm, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -27,7 +28,7 @@ export default function AdminLearnCategoriesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'learn', 'categories', 'all'],
-    queryFn: () => api<ListData>(`/api/admin/learn/categories`).then((d) => d.list ?? []),
+    queryFn: () => apiOrThrow<ListData>(`/api/admin/learn/categories`).then((d) => d.list ?? []),
   })
 
   const saveMut = useMutation({
@@ -39,11 +40,11 @@ export default function AdminLearnCategoriesPage() {
         status: form.status ? 1 : 0,
       }
       return editing
-        ? api<{ category: Category }>(`/api/admin/learn/categories/${editing.id}`, {
+        ? apiOrThrow<{ category: Category }>(`/api/admin/learn/categories/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : api<{ category: Category }>(`/api/admin/learn/categories`, {
+        : apiOrThrow<{ category: Category }>(`/api/admin/learn/categories`, {
             method: 'POST',
             body: JSON.stringify(body),
           })
@@ -57,7 +58,8 @@ export default function AdminLearnCategoriesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/learn/categories/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/learn/categories/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'learn', 'categories'] })

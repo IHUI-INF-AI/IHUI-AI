@@ -28,7 +28,7 @@ import { isTopOverlay } from '@/lib/overlay-stack'
 import { useSearchMentions } from '@/hooks/use-context-mention'
 import { useMentionTranslator } from '@/hooks/use-mention-dimension-label'
 import { viewOfDimensionId } from '@/components/chat/mention/dimension-views'
-import { useContextMentionStore } from '@/stores/context-mention'
+import { usePaneMentionStore } from '@/stores/context-mention'
 import {
   dimensionsForSigil,
   selectionFromSearchMention,
@@ -133,9 +133,12 @@ export function FileMentionPopover({
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLUListElement>(null)
 
-  // 维度 tab 的激活态存在那份唯一状态里(store.activeDimensionId),不在本组件另起一份
-  const activeDimensionId = useContextMentionStore((s) => s.activeDimensionId)
-  const setActiveDimension = useContextMentionStore((s) => s.setActiveDimension)
+  // 维度 tab 的激活态存在那份唯一状态里(store.activeDimensionId),不在本组件另起一份。
+  // 票60 普查(2026-10-21):挂载链 = message-input 输入区 ⇒ 跟随本窗格的那份草稿
+  // (非根窗格子树内取窗格实例,根窗格/Provider 外回落根单例)
+  const mentionStore = usePaneMentionStore()
+  const activeDimensionId = mentionStore((s) => s.activeDimensionId)
+  const setActiveDimension = mentionStore((s) => s.setActiveDimension)
   const atDimensions = AT_DIMENSIONS
   const activeDim: MentionDimension =
     atDimensions.find((d) => d.id === activeDimensionId) ?? atDimensions[0]!

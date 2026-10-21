@@ -15,7 +15,8 @@ import { Loader2 } from 'lucide-react'
 import { ChapterFilter } from './ChapterFilter'
 import { ChapterTable } from './ChapterTable'
 import { ChapterDialog } from './ChapterDialog'
-import { api, EMPTY_FORM } from './helpers'
+import { EMPTY_FORM } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Chapter, ChapterForm, ChaptersData, LessonsData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -35,21 +36,23 @@ function ChaptersContent() {
 
   const { data: lessonsData } = useQuery({
     queryKey: ['admin', 'learn', 'lessons', 'all'],
-    queryFn: () => api<LessonsData>(`/api/admin/learn/lessons?page=1&pageSize=100`),
+    queryFn: () => apiOrThrow<LessonsData>(`/api/admin/learn/lessons?page=1&pageSize=100`),
   })
   const lessons = lessonsData?.list ?? []
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'learn', 'chapters', lessonId],
     queryFn: () =>
-      api<ChaptersData>(`/api/admin/learn/lessons/${lessonId}/chapters`).then((d) => d.list ?? []),
+      apiOrThrow<ChaptersData>(`/api/admin/learn/lessons/${lessonId}/chapters`).then(
+        (d) => d.list ?? [],
+      ),
     enabled: !!lessonId,
   })
 
   const createMut = useMutation({
     mutationFn: () => {
       const body = { title: form.title.trim(), sortOrder: Number(form.sortOrder) || 0 }
-      return api(`/api/admin/learn/lessons/${lessonId}/chapters`, {
+      return apiOrThrow(`/api/admin/learn/lessons/${lessonId}/chapters`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -65,7 +68,7 @@ function ChaptersContent() {
   const updateMut = useMutation({
     mutationFn: () => {
       const body = { title: form.title.trim(), sortOrder: Number(form.sortOrder) || 0 }
-      return api(`/api/admin/learn/lessons/${lessonId}/chapters/${editing?.id}`, {
+      return apiOrThrow(`/api/admin/learn/lessons/${lessonId}/chapters/${editing?.id}`, {
         method: 'PUT',
         body: JSON.stringify(body),
       })
@@ -80,7 +83,7 @@ function ChaptersContent() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
-      api(`/api/admin/learn/lessons/${lessonId}/chapters/${id}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/admin/learn/lessons/${lessonId}/chapters/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'learn', 'chapters', lessonId] })

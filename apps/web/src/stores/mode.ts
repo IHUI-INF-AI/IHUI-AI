@@ -5,6 +5,9 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { ChatMode } from '@ihui/types'
+import * as React from 'react'
+import { useOptionalPaneId } from '@/stores/chat-pane-context'
+import { paneIdForChatStore, type ChatStore } from '@/stores/chat-panes'
 
 /**
  * 对话模式 store(2026-07-22 立,对标 自研 IDE Plan/Spec 双模式)。
@@ -17,6 +20,13 @@ import type { ChatMode } from '@ihui/types'
  * - spec:   从代码反向生成 spec 文档
  *
  * currentMode 持久化到 localStorage(key: ihui-mode),刷新页面保留。
+ *
+ * 票60 普查批(2026-10-21):按窗格分家 —— 此前全局一个键,pane-1 切模式会把根窗格
+ * 一起切走(且发送链读到的 mode 与用户在本窗格看到的档不一致)。窗格实例同一份 persist
+ * 写法、键含窗格身份(`ihui-mode-<paneId>`);根窗格/Provider 外仍用单例与原键
+ * `ihui-mode` ⇒ 既有消费面(全局快捷键/命令面板/AI 面板)零回归。
+ * 非 React 面(发送链)手里只有 chatStore ⇒ 走 getModeStoreForChatStore 反查,
+ * 根单例 chatStore 查得 null ⇒ 回落根单例,与 useOptionalPaneId 同一条回落判据。
  */
 
 interface ModeState {
@@ -33,21 +43,86 @@ const noopStorage = {
   removeItem: () => {},
 }
 
-export const useModeStore = create<ModeState>()(
-  persist(
-    (set) => ({
-      currentMode: 'build',
+export const MODE_STORAGE_KEY = 'ihui-mode'
 
-      setMode: (currentMode) => set({ currentMode }),
-    }),
-    {
-      name: 'ihui-mode',
-      storage: createJSONStorage(() =>
-        typeof window !== 'undefined' ? window.localStorage : noopStorage,
-      ),
-      // 仅持久化 currentMode(setMode 是函数,由 store 自动重建)
-      partialize: (state) => ({ currentMode: state.currentMode }),
-    },
-  ),
-)
+export const MODE_PANE_KEY_PREFIX = `${MODE_STORAGE_KEY}-`
+
+function buildModeStore(persistName: string) {
+  return create<ModeState>()(
+    persist(
+      (set) => ({
+        currentMode: 'build',
+
+        setMode: (currentMode) => set({ currentMode }),
+      }),
+      {
+        name: persistName,
+        storage: createJSONStorage(() =>
+          typeof window !== 'undefined' ? window.localStorage : noopStorage,
+        ),
+        // 仅持久化 currentMode(setMode 是函数,由 store 自动重建)
+        partialize: (state) => ({ currentMode: state.currentMode }),
+      },
+    ),
+  )
+}
+
+export type ModeStore = ReturnType<typeof buildModeStore>
+
+/** 根单例(原键 `ihui-mode`、原形态);Provider 外与非 React 全局面继续用它 ⇒ 零回归 */
+export const useModeStore = buildModeStore(MODE_STORAGE_KEY)
+
+/** paneId → 独立实例;默认单例不进表(与 chat-panes / ai-tools-panel 的注册表同形) */
+const paneModeStores = new Map<string, ModeStore>()
+
+/**
+ * 取某窗格的模式实例(懒建 + 复用)。
+ * paneId 空/空白直接抛:静默回落单例 = 两窗格共用一份模式档,正是本批要消灭的互串形态
+ * (与 getChatStoreForPane / getAiToolsPanelStoreForPane 同一判据)。
+ */
+export function getModeStoreForPane(paneId: string): ModeStore {
+  const key = paneId.trim()
+  if (!key) throw new Error('getModeStoreForPane: paneId 不能为空(回落单例 = 窗格间互串)')
+  const existing = paneModeStores.get(key)
+  if (existing) return existing
+  const created = buildModeStore(`${MODE_PANE_KEY_PREFIX}${key}`)
+  paneModeStores.set(key, created)
+  return created
+}
+
+/**
+ * 发送链等非 React 面的寻址:按 chatStore 反查 paneId 取窗格实例;
+ * 根单例 chatStore(或未登记实例)⇒ null ⇒ 回落根单例(与 useOptionalPaneId 同判据)。
+ */
+export function getModeStoreForChatStore(chatStore: ChatStore): ModeStore {
+  const paneId = paneIdForChatStore(chatStore)
+  return paneId === null ? useModeStore : getModeStoreForPane(paneId)
+}
+
+/** 关闭窗格时回收实例(persist 快照留在 localStorage,重开同 paneId 会恢复) */
+export function disposeModeStoreForPane(paneId: string): void {
+  paneModeStores.delete(paneId.trim())
+}
+
+/** 测试/宿主重置:清空全部窗格实例(默认单例不受影响) */
+export function resetModePaneStores(): void {
+  paneModeStores.clear()
+}
+
+/** 当前窗格实例数(测试断言用,不进生产判定) */
+export function modePaneCount(): number {
+  return paneModeStores.size
+}
+
+/**
+ * 窗格寻址的模式解析 hook(与 usePaneAiToolsPanelStore 同一身份来源 useOptionalPaneId):
+ * Provider 内 = 该窗格的独立实例;无 Provider = 根单例本尊(恒同一引用 ⇒ 单窗格形态逐字不变)。
+ */
+export function usePaneModeStore(): ModeStore {
+  const paneId = useOptionalPaneId()
+  return React.useMemo(
+    () => (paneId === null ? useModeStore : getModeStoreForPane(paneId)),
+    [paneId],
+  )
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

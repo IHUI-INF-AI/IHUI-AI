@@ -1039,8 +1039,9 @@ export function Drawer(props: DrawerProps) {
               </View>
             </ScrollView>
 
-            {/* 6. 底部 UserRow(web SidebarUserRow 同构):头像 24 + 昵称,点击上浮菜单 */}
-            <View className="shrink-0 px-2 pb-2">
+            {/* 6. 底部 UserRow(web SidebarUserRow 同构):头像 24 + 昵称,点击上浮菜单。
+                2026-10-21 与 web 同步:上下对称 8px;底色继续继承抽屉的 surface.card(同源)。 */}
+            <View className="shrink-0 px-2 py-2">
               <Pressable
                 onPress={isLoggedIn ? () => setUserMenuOpen((v) => !v) : handleLoginPress}
                 className="h-9 flex-row items-center gap-2.5 rounded-md px-2.5"

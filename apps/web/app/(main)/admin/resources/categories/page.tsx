@@ -12,7 +12,8 @@ import { useTranslations } from 'next-intl'
 import { ResourceCategoryFilter } from './ResourceCategoryFilter'
 import { ResourceCategoryTable } from './ResourceCategoryTable'
 import { ResourceCategoryDialog } from './ResourceCategoryDialog'
-import { api, EMPTY_FORM, categoryToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { EMPTY_FORM, categoryToForm } from './helpers'
 import type { Category, CategoryForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -28,7 +29,7 @@ export default function AdminResourceCategoriesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'resources', 'categories', 'all'],
     queryFn: () =>
-      api<{ list: Category[] }>(`/api/admin/resources/categories`).then((d) => d.list ?? []),
+      apiOrThrow<{ list: Category[] }>(`/api/admin/resources/categories`).then((d) => d.list ?? []),
   })
 
   const saveMut = useMutation({
@@ -40,12 +41,12 @@ export default function AdminResourceCategoriesPage() {
         status: form.status ? 1 : 0,
       }
       if (editing) {
-        return api<{ category: Category }>(`/api/admin/resources/categories/${editing.id}`, {
+        return apiOrThrow<{ category: Category }>(`/api/admin/resources/categories/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api<{ category: Category }>(`/api/admin/resources/categories`, {
+      return apiOrThrow<{ category: Category }>(`/api/admin/resources/categories`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -59,7 +60,8 @@ export default function AdminResourceCategoriesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/resources/categories/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/resources/categories/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'resources', 'categories'] })

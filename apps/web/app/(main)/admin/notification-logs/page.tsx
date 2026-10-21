@@ -13,7 +13,8 @@ import { Button } from '@ihui/ui-react'
 import { NotificationLogFilter } from './NotificationLogFilter'
 import { NotificationLogTable } from './NotificationLogTable'
 import { NotificationLogDetailDialog } from './NotificationLogDetailDialog'
-import { PAGE_SIZE, RESOURCE, EMPTY_SEARCH, api, buildQueryParams } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE, RESOURCE, EMPTY_SEARCH, buildQueryParams } from './helpers'
 import type { NotificationLog, NotificationLogSearch, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -27,7 +28,7 @@ export default function NotificationLogsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'notification-logs', params],
-    queryFn: () => api<ListData>(`${RESOURCE}?${new URLSearchParams(params)}`),
+    queryFn: () => apiOrThrow<ListData>(`${RESOURCE}?${new URLSearchParams(params)}`),
   })
   const list = data?.list ?? []
   const total = data?.total ?? 0
