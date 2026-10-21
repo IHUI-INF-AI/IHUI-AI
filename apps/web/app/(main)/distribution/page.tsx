@@ -121,7 +121,7 @@ export default function DistributionHomePage() {
       <Card className="overflow-hidden">
         <CardContent className="min-[640px]:p-3 flex items-center gap-4 p-3">
           <Image
-            src="/images/logo.png?v=20260719-unify"
+            src="/images/logo.png?v=20261021"
             alt=""
             aria-hidden
             width={64}

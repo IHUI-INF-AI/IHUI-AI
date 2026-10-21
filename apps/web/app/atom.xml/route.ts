@@ -59,8 +59,8 @@ export async function GET() {
   <link href="${SITE_URL}" rel="alternate" type="text/html" />
   <link href="${SITE_URL}/atom.xml" rel="self" type="application/atom+xml" />
   <link href="${SITE_URL}/websub" rel="hub" />
-  <icon>${SITE_URL}/images/logo.png</icon>
-  <logo>${SITE_URL}/images/logo.png</logo>
+  <icon>${SITE_URL}/images/logo.png?v=20261021</icon>
+  <logo>${SITE_URL}/images/logo.png?v=20261021</logo>
   <updated>${now}</updated>
   <rights>© 2024-2026 ${escapeXml(SITE_TITLE)}</rights>
   <generator>IHUI AI Atom Generator</generator>

@@ -132,7 +132,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/images/logo.png?v=20260719-unify',
+        url: '/images/logo.png?v=20261021',
         width: 1200,
         height: 630,
         alt: '智汇 AI 文档中心',

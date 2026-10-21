@@ -65,7 +65,7 @@ export function ContactDialog({
 
           <div className="flex items-center gap-3 rounded-md border bg-muted/30 p-3">
             <Image
-              src="/footer/erweima/wechat-vx.png"
+              src="/footer/erweima/wechat-vx.png?v=20261021"
               alt={t('contactWechat')}
               width={64}
               height={64}

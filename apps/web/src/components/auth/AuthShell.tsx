@@ -57,6 +57,7 @@ export function AuthShell({ className, ...rest }: AuthShellProps) {
       // cn 合并而非 ??:调用方可叠加类(如 LoginDialog 的 animate-login-dialog-pop)而无需
       // 重复默认值;冲突时调用方优先(twMerge 语义)。
       className={cn('max-w-[460px] px-5 pb-2 pt-2', className)}
+      logoSrc="/images/logo.png?v=20261021"
       {...rest}
     />
   )

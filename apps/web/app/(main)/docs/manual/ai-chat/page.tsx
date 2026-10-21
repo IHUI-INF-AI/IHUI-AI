@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: '如何与 AI 对话、上传文件、切换模型、查看历史。',
     url: `${SITE_URL}/docs/manual/ai-chat`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI 对话' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 对话' }],
   },
 }
 
