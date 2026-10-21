@@ -4,7 +4,7 @@
 
 import * as React from 'react'
 import type { ChatMessage } from '@/stores/chat'
-import { usePaneChatStore } from '@/stores/chat-pane-context'
+import { useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import {
   BOTTOM_REATTACH_PX,
@@ -25,6 +25,20 @@ import {
   type ScrollMetrics,
   type UserScrollIntent,
 } from './scroll-authority'
+import {
+  RESTORE_PHASE2_DELAY_MS,
+  buildScrollSessionKey,
+  createRestoreGrace,
+  needsPhase2Repin,
+  phase1TargetOffset,
+  resolveRestoreConsume,
+  resolveRestoreGrace,
+  sessionScrollStore,
+  sessionStartFallbackState,
+  type PendingScrollRestore,
+  type RestoreGrace,
+  type ScrollSessionState,
+} from './scroll-session-restore'
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
 // - ESTIMATED_ITEM_HEIGHT:消息平均高度估计值,用于初始 padding 计算
@@ -75,6 +89,37 @@ export interface MessageListScrollOptions {
   onLoadMoreHistory?: () => void
 }
 
+/**
+ * 会话级恢复的在飞账目(票 G-934)。每个列表实例一份:窗格之间天然隔离,
+ * 只有落账键(sessionScrollStore 的键)是跨实例共享的模块级单例。
+ */
+interface SessionRestoreFlight {
+  /** 挂起中:已决定要恢复到哪,还在等这一格的新会话内容就位 */
+  pending: PendingScrollRestore | null
+  /** 已消费后的宽限期修正档(null = 不在宽限期内) */
+  grace: RestoreGrace | null
+  /** 本次恢复的现场快照(第二段钉位要按它现判 needsPhase2Repin) */
+  state: ScrollSessionState | null
+  /** 宽限期内用户自己滚过 ⇒ 修正永久让位(位置还给用户) */
+  cancelledByUser: boolean
+  /** 第二段(100ms 后按测量再钉一次)的定时器句柄 */
+  phase2Timer: number | null
+}
+
+/**
+ * 末条消息的流式 diff 增量(P2b,票 G-934 补的第二维):
+ * `partialDiff` 由 tool-delta 帧按 seq 追加,**不改 content**,所以贴底 effect 原有的
+ * 两维 deps(messages.length / lastContent)对它全盲 —— 文件写到一半列表不追底就是这一型。
+ * 只看末条(流式只可能长在末条)⇒ O(该条 toolCalls 数),不是 O(会话长度)。
+ */
+function lastPartialDiffLength(messages: readonly ChatMessage[]): number {
+  const last = messages[messages.length - 1]
+  if (!last?.toolCalls) return 0
+  let total = 0
+  for (const toolCall of last.toolCalls) total += toolCall.partialDiff?.length ?? 0
+  return total
+}
+
 export interface MessageListScrollResult {
   containerRef: React.RefObject<HTMLDivElement | null>
   bottomRef: React.RefObject<HTMLDivElement | null>
@@ -107,6 +152,8 @@ export function useMessageListScroll({
   const bottomRef = React.useRef<HTMLDivElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const lastContent = messages[messages.length - 1]?.content
+  // P2b(G-934):partialDiff 不改 content,原 deps 对它全盲 ⇒ 流式写文件时列表不追底
+  const partialDiffLength = lastPartialDiffLength(messages)
 
   // #7 虚拟滚动状态
   const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
@@ -190,6 +237,88 @@ export function useMessageListScroll({
   const markProgrammaticScroll = React.useCallback(() => {
     programmaticUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_WINDOW_MS
   }, [])
+
+  // ── 会话级滚动位置恢复(G-934,2026-10-21 接回生产)──────────────────────
+  // 判据(键构成、消费条件、钉位目标、宽限期)全部住在 scroll-session-restore.ts,
+  // 这里只做 DOM 写入与账目流转 —— 与 scroll-authority 的分工同型。
+  // 落账身份是**窗格 + 会话**二元:两窗格承载同一会话时各自的落点不得互相顶。
+  const paneId = useOptionalPaneId()
+  const conversationId = chatStore((s) => s.conversationId)
+  const sessionKey = conversationId === null ? null : buildScrollSessionKey(paneId, conversationId)
+  const restoreFlightRef = React.useRef<SessionRestoreFlight>({
+    pending: null,
+    grace: null,
+    state: null,
+    cancelledByUser: false,
+    phase2Timer: null,
+  })
+  /** 上一枚 commit 看到的 { 会话键, messages 引用 }:切换与"内容是否已就位"两判的凭据都从这里取。 */
+  const sessionSwitchRef = React.useRef<{ key: string | null; messages: ChatMessage[] } | null>(
+    null,
+  )
+
+  /** 作废在飞的恢复(换会话/卸载都走这里,不留旧定时器与旧挂起)。 */
+  const clearRestoreFlight = React.useCallback(() => {
+    const flight = restoreFlightRef.current
+    if (flight.phase2Timer !== null) clearTimeout(flight.phase2Timer)
+    flight.pending = null
+    flight.grace = null
+    flight.state = null
+    flight.cancelledByUser = false
+    flight.phase2Timer = null
+  }, [])
+
+  /** 钉到绝对位置。刻意不经 scrollIntoView:钉位不是"跳到底部",不该被计入贴底动作。 */
+  const pinScrollTop = React.useCallback(
+    (el: HTMLElement, offset: number) => {
+      markProgrammaticScroll()
+      el.scrollTop = offset
+      observedScrollTopRef.current = el.scrollTop
+    },
+    [markProgrammaticScroll],
+  )
+
+  /**
+   * 主动落一次底。既有贴底 effect 的 deps 只有 messages.length / lastContent / isStreaming,
+   * 两会话同长同内容时它全盲(真机"恢复 762px 停 0"即此型)⇒ 跟随档必须自己滚一次。
+   */
+  const stickToBottomNow = React.useCallback(() => {
+    const el = bottomRef.current
+    if (!el) return
+    markProgrammaticScroll()
+    el.scrollIntoView({ behavior: 'auto', block: 'end' })
+  }, [markProgrammaticScroll])
+
+  /** 消费一份现场快照:跟随档交回贴底,钉位档先钉第一段并按需挂第二段。 */
+  const applyRestoredState = React.useCallback(
+    (el: HTMLElement, state: ScrollSessionState) => {
+      const flight = restoreFlightRef.current
+      const now = Date.now()
+      flight.state = state
+      flight.grace = createRestoreGrace(state, now)
+      flight.cancelledByUser = false
+      if (state.following) {
+        applyAuthority({ following: true })
+        stickToBottomNow()
+        return
+      }
+      applyAuthority({ following: false })
+      pinScrollTop(el, phase1TargetOffset(state, el.scrollTop))
+      if (needsPhase2Repin(state)) {
+        flight.phase2Timer = window.setTimeout(() => {
+          const current = restoreFlightRef.current
+          current.phase2Timer = null
+          const node = containerRef.current
+          const saved = current.state
+          if (!node || !saved) return
+          if (current.grace === null || current.cancelledByUser) return
+          if (Date.now() >= current.grace.until) return
+          pinScrollTop(node, phase1TargetOffset(saved, node.scrollTop))
+        }, RESTORE_PHASE2_DELAY_MS)
+      }
+    },
+    [applyAuthority, pinScrollTop, stickToBottomNow],
+  )
   // 2026-07-28 立:键盘导航的 focused message index(-1 = 无聚焦)
   // - ↑/↓ 切换时设置,Enter 展开/折叠 reasoning,Esc 取消聚焦
   // - focused 消息添加 ring 视觉 + data-message-focused 属性
@@ -337,6 +466,25 @@ export function useMessageListScroll({
         setIsFarFromBottom(farBottom)
       }
 
+      // 会话恢复的宽限期修正(G-934):首帧内容矮于保存位会被浏览器 clamp 砸回 0,
+      // 异步资源撑高后必须按目标再钉一次,否则用户停在半路(真机"恢复 762px 停 0"型)。
+      // 只认 'layout'(测高引起的重算)—— 我方贴底/钉位派发的 programmatic 帧再去 stick
+      // 就是让补偿追自己的尾巴;'user' 一律夺权(失效方向 = 少修正一次)。
+      const flight = restoreFlightRef.current
+      if (flight.grace !== null) {
+        if (resolvedSource === 'user') {
+          flight.cancelledByUser = true
+        } else if (resolvedSource === 'layout') {
+          const correction = resolveRestoreGrace({
+            grace: flight.grace,
+            now: Date.now(),
+            cancelled: flight.cancelledByUser,
+          })
+          if (correction.kind === 'pin') pinScrollTop(el, correction.offset)
+          else if (correction.kind === 'stick') stickToBottomNow()
+        }
+      }
+
       // #8 滚到窗口顶部时补页。2026-09-27 改两件事:
       // ① 触发阈值不再写死 60px,改按视口高推两屏(网络与渲染应在用户抵达窗口边界前完成;
       //    60px 那一档用户必然先撞到边界,看到的就是"滚到顶卡一下再跳")。
@@ -416,6 +564,8 @@ export function useMessageListScroll({
       applyAuthority,
       readScrollMetrics,
       takeUserIntent,
+      pinScrollTop,
+      stickToBottomNow,
     ],
   )
 
@@ -486,6 +636,7 @@ export function useMessageListScroll({
   }, [
     messages.length,
     lastContent,
+    partialDiffLength,
     isStreaming,
     applyAuthority,
     markProgrammaticScroll,
@@ -591,6 +742,65 @@ export function useMessageListScroll({
     }
     // setUserScrolledUp 是 zustand store 稳定引用,无需列入依赖
   }, [messages.length, applyAuthority])
+
+  // ── 会话级滚动位置:切走落账 / 切回二段恢复(G-934,2026-10-21 接回生产)─────────
+  // 判据在 scroll-session-restore.ts(纯函数),这里只做账目流转与 DOM 写入。
+  // 为什么是 useLayoutEffect:① 切走要读到**旧会话**的 scrollTop,晚一帧就读成了新会话的;
+  // ② 钉位必须在这一帧画出来之前;③ 必须早于上面那个 passive 贴底 effect,否则跟随权会被
+  // 它拿着旧账再改一次。
+  React.useLayoutEffect(() => {
+    const el = containerRef.current
+    // 容器不在(列表整块未挂载)⇒ 落点量不出来,这一格什么都不动,也不要把身份推进一格
+    if (!el) return
+    const prev = sessionSwitchRef.current
+    sessionSwitchRef.current = { key: sessionKey, messages }
+    if (!prev) return // 首帧:没有"上一段现场"可落账
+    const now = Date.now()
+    if (prev.key !== sessionKey) {
+      if (prev.key !== null) {
+        // 落点取"DOM 现读 vs 几何账目"的较大者:layout effect 跑在 DOM 已被新会话替换之后,
+        // 上一段读到 400 而新内容更矮时浏览器会把 scrollTop clamp 下来,现读就成了旧会话的假值。
+        // 几何账目(observedScrollTopRef)由每一枚 scroll 事件更新,才是用户真正停过的那一位。
+        sessionScrollStore.save(
+          prev.key,
+          Math.max(el.scrollTop, observedScrollTopRef.current),
+          authorityRef.current.following,
+        )
+      }
+      clearRestoreFlight()
+      // 换会话后旧前插锚点与上一条用户凭据都不作数:那条 awayFromBottom 若还在 400ms TTL 里,
+      // 贴底 effect 会把"刚交回的跟随权"当场再解除一次(scrollToBottom 同款处置)。
+      pendingAnchorRef.current = null
+      userIntentRef.current = null
+      if (sessionKey !== null) {
+        restoreFlightRef.current.pending = {
+          conversationId: sessionKey,
+          state: sessionScrollStore.lookup(sessionKey) ?? sessionStartFallbackState(now),
+          // 上一枚 commit 的 messages 引用 = "切换瞬间内容还是旧会话"那一格的凭据(测试 5 的异步腿)
+          messagesAtSwitch: prev.messages,
+          createdAt: now,
+        }
+      }
+    }
+    const pending = restoreFlightRef.current.pending
+    if (!pending) return
+    const outcome = resolveRestoreConsume({
+      pending,
+      conversationId: sessionKey,
+      messages,
+      now,
+    })
+    if (outcome.kind === 'hold') return
+    restoreFlightRef.current.pending = null
+    // discard(挂起过期)= 这份现场已经不属于这次切换 ⇒ 作废并回落会话起始,不拿旧位置砸新内容
+    applyRestoredState(
+      el,
+      outcome.kind === 'consume' ? pending.state : sessionStartFallbackState(now),
+    )
+  }, [sessionKey, messages, applyRestoredState, clearRestoreFlight])
+
+  // 恢复的第二段是定时器,卸载必须收(否则 cleanup 之后还会去写一枚已经没人看的 DOM)
+  React.useEffect(() => clearRestoreFlight, [clearRestoreFlight])
 
   // 前插历史的位置恢复(2026-09-27 立,取代原先的 rAF 轮询 scrollHeight)。
   // 用 useLayoutEffect:补偿必须发生在这一帧画出来之前,否则用户先看到跳一下。
