@@ -435,8 +435,13 @@ test('面·行为锁:在册源文件与 tmp 落点都在面内,被忽略的第�
     '.DevEnv',
     'cache/userhome/.codex/plugins/cache/openai-bundled/browser/26.1007.21434/scripts/browser-service.mjs',
   )
-  assert.ok(existsSync(join(PROJECT_ROOT, stray)), '夹具前提:这条真实存在的缓存文件正是旧版挡红的那一条')
-  assert.ok(!rel.includes(stray), '被 .gitignore 忽略的他人工具缓存不得进面')
+  // 2026-10-21:这条缓存文件住在 `.DevEnv/`(被 .gitignore 忽略)⇒ **任何干净检出上都不存在**,
+  // 原来那句 existsSync「夹具前提」在 CI 上必红。要锁的判据是"被忽略的他人工具缓存不得进面",
+  // 与那个具体文件在不在盘上无关 —— 改成恒真锁(面里一旦出现 .DevEnv/ 前缀就红)。
+  assert.ok(
+    !rel.some((p) => p.startsWith('.DevEnv/')),
+    '被 .gitignore 忽略的他人工具缓存不得进面(与它在盘上存不存在无关)',
+  )
 })
 
 test('面·取不到与枚举为 0 都走「未判定」,不记绿也不冒红', () => {

@@ -10,7 +10,7 @@
  * 直接铺平展示会让用户根本选不到模型。
  *
  * 本组件把列表切成两段:
- *   1. 默认列表 —— `isArchivedModel() === false`(tier=latest 且 chat/vision 类)
+ *   1. 默认列表 —— `isArchivedModel() === false`(tier=latest/standard 且 chat/vision 类)
  *   2. 历史模型折叠区 —— 其余全部收起,点底部「历史模型 (N)」才展开,
  *      区内按**用途分类**分组(对话推理 / 向量嵌入 / 语音合成 / 图像生成 …),
  *      并带搜索框(归档模型可能上千个,没有搜索等于不可用)
@@ -37,7 +37,7 @@ import {
   normalizeTier,
 } from '@ihui/shared'
 import type { ModelTier, ModelUsageCategory } from '@ihui/types'
-import { tokens , currentRnTheme} from '../theme/active-tokens'
+import { tokens, currentRnTheme } from '../theme/active-tokens'
 import { ChevronDown, ChevronUp, History, Search } from 'lucide-react-native'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import ModelList, { type ModelListItem, type ModelListGroup } from './ModelList'
@@ -68,7 +68,7 @@ function compareArchived(a: ModelListItem, b: ModelListItem): number {
   return a.name.localeCompare(b.name)
 }
 
-/** 默认列表排序:名称升序(全部是 latest,无需比代次) */
+/** 默认列表排序:名称升序(latest/standard 混排,无代次排序需求) */
 function comparePrimary(a: ModelListItem, b: ModelListItem): number {
   return a.name.localeCompare(b.name)
 }

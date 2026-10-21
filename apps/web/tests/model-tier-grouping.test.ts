@@ -6,7 +6,8 @@
  * 模型选择器"默认区 / 历史模型折叠区"分组逻辑单测(2026-08-29 立)
  *
  * 守的是三条产品红线:
- *   1. 只有「latest + 对话类(chat/vision)」进默认列表
+ *   1. 「latest/standard + 对话类(chat/vision)」进默认列表
+ *      (2026-10-21 起:standard 是仍可调用的正式代次,折叠会造成"能调通的没显示")
  *   2. 非对话专用模型(嵌入/语音/图像…)即使 tier=latest 也必须折叠(聊天场景调不通)
  *   3. **后端字段缺失时不能把模型藏起来** —— 老后端/缓存数据没这两个可选字段时,
  *      一律按"最新对话模型"处理,宁可多显示也不让选择器空掉
@@ -42,13 +43,15 @@ describe('splitByTier — 默认区 vs 历史模型折叠区', () => {
     expect(archived).toHaveLength(0)
   })
 
-  it('standard / legacy 一律折叠', () => {
+  it('standard 对话类进默认区,legacy 折叠(2026-10-21 定档)', () => {
     const { primary, archived } = splitByTier([
       opt('glm-5.2', 'chat', 'standard'),
       opt('gpt-4o', 'vision', 'legacy'),
+      opt('bge-m3', 'embedding', 'standard'),
     ])
-    expect(primary).toHaveLength(0)
-    expect(archived.map((m) => m.value)).toEqual(['glm-5.2', 'gpt-4o'])
+    expect(primary.map((m) => m.value)).toEqual(['glm-5.2'])
+    // legacy 对话类 + 非对话专用 standard 都进折叠区
+    expect(archived.map((m) => m.value)).toEqual(['gpt-4o', 'bge-m3'])
   })
 
   it('非对话专用模型即使 latest 也必须折叠', () => {

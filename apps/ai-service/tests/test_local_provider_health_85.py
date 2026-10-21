@@ -111,6 +111,20 @@ async def test_connect_refused_is_unavailable_not_undetermined():
     assert local_provider_health.is_available("ollama") is False
 
 
+async def test_connect_timeout_is_unavailable_not_undetermined():
+    """2026-10-21 事故钉子:本仓 httpx 0.28 里 ConnectTimeout **不继承** ConnectError,
+    直连下 TCP 握手超时 = 端口没监听(与 refused 同为可下结论证据);旧判据把它
+    折进 undetermined → 没跑的本地模型照样显示。与 ReadTimeout 用例成对:读超时
+    仍判不了(服务可能只是慢),握手超时可下结论。"""
+    calls: list[str] = []
+    transport = _transport_error(httpx.ConnectTimeout("connect timed out"), calls)
+    r = await local_provider_health.probe(
+        "ollama", base_override="http://127.0.0.1:11434", transport=transport
+    )
+    assert r.verdict == LocalProbeVerdict.UNAVAILABLE
+    assert local_provider_health.is_available("ollama") is False
+
+
 async def test_timeout_is_undetermined_and_never_folds_into_unavailable():
     calls: list[str] = []
     transport = _transport_error(httpx.ReadTimeout("timed out"), calls)

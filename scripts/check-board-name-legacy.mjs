@@ -27,11 +27,12 @@
  * 用法:node scripts/check-board-name-legacy.mjs [--staged|--worktree] [--self-test]
  * 跳过:HUSKY_SKIP_BOARD_NAME_LEGACY=1(跳门留痕,§0.10)
  */
-import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const LEDGER_REL = 'scripts/data/board-name-legacy-exemptions.json'
@@ -41,12 +42,9 @@ const NEEDLE = Buffer.from('Z3JhZmFuYQ==', 'base64').toString('utf8')
 const SKIP_PREFIXES = ['node_modules/', '.git/', '.next/', 'out/', 'dist/', 'build/', 'coverage/']
 
 function git(args) {
-  return execFileSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 256 * 1024 * 1024,
-  })
+  // 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio/windowsHide
+  // 由 gitRaw 同源提供,不再自拼裸 'git' 派生。
+  return gitRaw(args, ROOT, { maxBuffer: 256 * 1024 * 1024 })
 }
 
 /** 命中行数(不区分大小写) */

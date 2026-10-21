@@ -28,13 +28,14 @@
  *
  * 退出码:0 = 已执行 / 已按旗标跳过;1 = 破坏性档被前置拦下(会逐条点名并给出路);2 = 脚本自身异常。
  */
-import { execFileSync, execSync, spawn, spawnSync } from 'node:child_process'
+import { execSync, spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 // 剥 ANSI 只做一件事,且**不另立第四份实现**:`commit-gate-attribution` 已是"解析门输出"那层的
 // 共用出口(analyze-hook-log-unknown / check-test-collection-runs / plan-bypass-ledger-report
 // 各留了一份是历史欠账,不是可以照着抄的先例)。
 import { stripAnsi } from './lib/commit-gate-attribution.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 function run(cmd, allowFail = false) {
   try {
@@ -242,12 +243,9 @@ function main() {
     console.log(`🔒 已获取写锁,执行 git ${decision.args.join(' ')}(可能耗时,请勿并行 git 操作)`)
     console.log(`   └ ${decision.note}`)
     const before = run('git count-objects -v -H', true) ?? '(未量到)'
-    const out = execFileSync('git', ['-c', 'safe.directory=*', ...decision.args], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      // 2026-10-04 同一条本机纪律:必须显式 stdio,否则 spawnSync git EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
+    // 派生统一走层(scripts/lib/face-reader.mjs):绝对 git + safe.directory + 显式 stdio
+    // 由 gitRaw 同源提供(层内恒带 `-c safe.directory=*`,与本处原写法等价)。
+    const out = gitRaw(decision.args, repoRoot, {
       // gc 在 19GB 仓上可远超默认 execSync 上限;给 60 分钟,超时按失败报出而不是静默
       timeout: 3600000,
       maxBuffer: 64 * 1024 * 1024,
