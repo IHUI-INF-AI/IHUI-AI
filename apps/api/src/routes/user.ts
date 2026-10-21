@@ -73,12 +73,6 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ removed: deviceId }))
   })
 
-  server.post('/user/ip-whitelist', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const { ip } = z.object({ ip: z.string().min(1) }).parse(request.body)
-    return reply.send(success({ added: ip }))
-  })
-
   server.delete('/user/sessions/:sessionId', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const { sessionId } = z.object({ sessionId: z.string() }).parse(request.params)
