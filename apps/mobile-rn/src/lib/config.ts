@@ -48,6 +48,22 @@ export const API_BASE_URL =
     ? ENV_API_BASE_URL.replace('10.0.2.2', 'localhost')
     : ENV_API_BASE_URL
 
+// 2026-10-21 立:设备/发布包里 API 基址仍指向本机回环 = 构建配置错误,拒绝启动。
+// 设备侧 localhost 不是宿主机(连不上);更严重的是它会把**生产 token** 送到 dev API ——
+// 两边 JWT 密钥不同 ⇒ refresh 判 401 ⇒ App 按"服务端明确否定"清会话(实测:机主账号被登出)。
+// 开发档豁免:__DEV__ / NODE_ENV≠production 时本机回环正是开发形态。
+const IS_DEV_BUILD =
+  typeof __DEV__ === 'boolean' ? __DEV__ : process.env.NODE_ENV !== 'production'
+if (
+  !IS_DEV_BUILD &&
+  /^(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|10\.0\.2\.2)(?::\d+)?(?:\/|$)/.test(ENV_API_BASE_URL)
+) {
+  throw new Error(
+    `[ihui-rn] 拒绝启动:EXPO_PUBLIC_API_BASE_URL 指向本机回环(${ENV_API_BASE_URL})。` +
+      '设备/发布包必须显式带真实 API 域名(如 https://api.aizhs.top):否则既连不上,还会把生产 token 送到错误 API 导致会话被清。',
+  )
+}
+
 /**
  * WebSocket 基址(实时通道专用,与 REST **刻意分域**;键名与解析优先级照搬 web 侧
  * `apps/web/src/lib/ws-url.ts` + `deploy/prod-bundle/svc/run-web.ps1`,不新造第二套口径)。
