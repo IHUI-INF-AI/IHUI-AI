@@ -131,10 +131,7 @@ function makeLocalCommit(dir, message) {
       'pipe',
     ],
   })
-  // 2026-10-21:`second` 是 `git clone` 出来的仓,clone **不继承** createTempRepo 里的 local user.*
-  // ⇒ 在 CI 那种没有全局身份的机器上 `git commit` 直接 128「Author identity unknown」。
-  // 身份挂在这一次命令上,不依赖宿主配置。
-  execSync(`git -c user.name=test -c user.email=test@test.com commit -m "${message}"`, {
+  execSync(`git commit -m "${message}"`, {
     cwd: dir,
     /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: [
       'ignore',

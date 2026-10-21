@@ -25,14 +25,6 @@ const GUARD = join(REPO, 'scripts', SCRIPT_NAME)
 const RUNNER = join(REPO, 'scripts', 'guardian-runner.mjs')
 const SIDEBAR = join(REPO, 'apps/web/src/components/sidebar-chat-history.tsx')
 
-// 2026-10-21:装载点已按产品意图分散到不同宿主(`BusinessFormSection` 现在挂在
-// `MessageList.tsx`,不再是侧栏)⇒ 逐符号指定宿主文件,未登记的默认仍读侧栏。
-// 门侧语义是"任一生产文件使用"(W1),收紧到"必须住在宿主"会禁掉合法重构,故只改测试取样面。
-const HOST_FILES = {
-  BusinessFormSection: join(REPO, 'apps/web/src/components/chat/message-list/MessageList.tsx'),
-}
-const hostTextOf = (symbol) => readFileSync(HOST_FILES[symbol] ?? SIDEBAR, 'utf8')
-
 const src = readFileSync(GUARD, 'utf8')
 const sidebarText = readFileSync(SIDEBAR, 'utf8')
 
@@ -66,11 +58,11 @@ test('T2 取材面形状锁:必须走 face-reader 的读取入口,不得按磁�
   )
 })
 
-test('T3 真文件形态锁:真实源码里的各处装载点必须被同一判据认出(逐字取自交付文件)', () => {
+test('T3 真文件形态锁:侧栏真实源码里的三处装载点必须被同一判据认出(逐字取自交付文件)', () => {
+  const masked = __test__.maskNoise(sidebarText, { keepStrings: false })
   for (const exit of __test__.MOUNT_EXITS.filter((x) => x.lane === 'ui')) {
-    const masked = __test__.maskNoise(hostTextOf(exit.symbol), { keepStrings: false })
     const used = masked.split(/\r?\n/).some((l) => __test__.isUseLine(l, exit.symbol))
-    assert.ok(used, `${exit.symbol} 的真实宿主源码应含它的调用/渲染点 —— 缺了就是本票没接上`)
+    assert.ok(used, `真实侧栏源码应含 ${exit.symbol} 的调用/渲染点 —— 缺了就是本票没接上`)
   }
 })
 
@@ -113,9 +105,8 @@ test('T3b 变异对照:把装载点整行注释掉,同一条判据必须翻红(�
       .findIndex((l) => __test__.isUseLine(l, symbol))
 
   for (const exit of __test__.MOUNT_EXITS.filter((x) => x.lane === 'ui')) {
-    const hostText = hostTextOf(exit.symbol)
-    const lines = hostText.split(/\r?\n/)
-    const idx = findUseLine(hostText, exit.symbol)
+    const lines = sidebarText.split(/\r?\n/)
+    const idx = findUseLine(sidebarText, exit.symbol)
     assert.ok(idx >= 0, `真实侧栏应含 ${exit.symbol} 的调用点(否则 T3b 无变异对象)`)
     assert.ok(!lines[idx].trim().startsWith('//'), '被变异的这一行原本必须是真代码')
 

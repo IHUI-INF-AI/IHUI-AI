@@ -208,7 +208,7 @@ Free code signing provided by SignPath.io, certificate by SignPath Foundation.
 
 This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. The only outbound connections, each triggered by user-configured features, are:
 
-- **AI API calls**: sent to the user-configured IHUI API endpoint (default `http://localhost:8802`, per `src/config/defaults.ts`; there is no built-in public host) when the user runs a chat/agent task;
+- **AI API calls**: sent to the user-configured IHUI API endpoint (default `https://api.aizhs.top`) when the user runs a chat/agent task;
 - **Version check**: contacts the user-configured API endpoint and `registry.npmjs.org` to check for CLI updates — disable entirely with the environment variable `IHUI_NO_UPDATE_CHECK=1`;
 - **Telemetry**: disabled by default (`settings.telemetry.enabled = false`, fully no-op). If explicitly enabled by the user, events go only to the user-configured endpoint.
 

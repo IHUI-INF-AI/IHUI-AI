@@ -159,11 +159,8 @@ const VIOLATION_CHECKS = [
 // ===== 行级白名单 =====
 function isLineWhitelisted(line) {
   const trimmed = line.trim();
-  // 注释行(2026-10-21 补 `*` / `/*`):JSDoc 的正文行以 `*` 开头、块首是 `/*`,
-  // 原先只豁免 `#`/`//` ⇒ 文档里**举例用的**中文绝对路径(`> *   (\`D:\电脑软件\…\`)`)被当成
-  // 真代码判红。这与 `//` 同级、不是新增豁免类:真代码/字符串里的路径照判。
-  if (trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*'))
-    return true;
+  // 注释行
+  if (trimmed.startsWith('#') || trimmed.startsWith('//')) return true;
   // 包含"禁止/反面/deprecated/forbidden"(规则文档中的反面案例)
   if (/禁止|反面|deprecated|forbidden|不要|不得|禁止使用/i.test(line)) return true;
   // .log / .txt 文件路径

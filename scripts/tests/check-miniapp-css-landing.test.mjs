@@ -1126,21 +1126,10 @@ test('引擎不一致时必须把"不得据以决策"打在输出里(判据存�
  *  ③ **反向对照**:换一个不存在的类名必须**不**在参考层里 —— 否则参考层是"全都算"的假尺,
  *    覆盖率会恒等于 100%。
  */
-test('参考层真换成 v4:两把尺子结论不同的名字 + 分母读数确实变了 + 不存在的类名不得被认作候选', async (t) => {
+test('参考层真换成 v4:两把尺子结论不同的名字 + 分母读数确实变了 + 不存在的类名不得被认作候选', async () => {
   const appDir = join(ROOT, 'apps', 'miniapp-taro')
   const candidates = ['px-4', 'text-sm', 'flex', 'bg-muted', 'invisible', 'not-a-class-xyz']
-  let v4
-  try {
-    v4 = await G.buildUtilityReferenceV4({ root: ROOT, appDir, candidates })
-  } catch (e) {
-    // 2026-10-21:干净检出/无 node_modules 时 `@ihui/design-tokens/tailwind-preset` 的 subpath
-    // 指向未入库的 dist ⇒ 取不到 v4 参考层。这是**环境未就绪**(门侧已按 §0.3 落 exit 2 未判定),
-    // 不是判据红 ⇒ 与同文件另外 4 处 dist 缺失同样显式 skip 并写清缺口,不假绿也不冒红。
-    const why = String(e?.message ?? e)
-    if (/Cannot find module|ERR_MODULE_NOT_FOUND|tailwind-preset/.test(why))
-      return t.skip(`v4 参考层不可得(dist/依赖未构)⇒ 本格未判定:${why.slice(0, 160)}`)
-    throw e
-  }
+  const v4 = await G.buildUtilityReferenceV4({ root: ROOT, appDir, candidates })
   const v3 = await G.buildUtilityReference(appDir)
   assert.equal(v4.engine, 'v4')
   assert.match(v4.tailwindVersion, /^4\./, `v4 档拿到的却是 ${v4.tailwindVersion}`)

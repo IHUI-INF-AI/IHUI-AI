@@ -422,13 +422,9 @@ test('T13 三面各自给出读数,且 HEAD 与索引不同面时结论不同(�
   } finally {
     if (ledgerBefore !== null) writeFileSync(LEDGER, ledgerBefore)
   }
-  // 2026-10-21:存量已被三批清偿(322337e / a8f285f / 5298350)清到 0 ⇒「无台账必然 >0」这个
-  // 前提随存量归零失效(不是判据坏了:阳性牙由 T3/T5/T15/T17 的夹具正控证明)。
-  // 改成**等值**:无台账不得比台账在位时多豁免出命中来 —— 少一处就是判据瞎了。
-  assert.equal(
-    headNoLedger.misses,
-    head.misses,
-    `无台账时的命中(${headNoLedger.misses})必须等于台账在位时(${head.misses})—— 少就是判据瞎了`,
+  assert.ok(
+    headNoLedger.misses > 0,
+    '无台账时 HEAD 面零判红 —— 判据已经瞎了(EBUSY 病灶在真仓是实测存在的)',
   )
   // 台账在位时判红必须**不多于**无台账时(豁免只能减少命中,不能凭空造出命中)
   assert.ok(
@@ -539,15 +535,9 @@ test('T14 CLI:self-test 全绿且例数 ≥5(票面下界),默认面 exit 1(存�
   } finally {
     if (ledgerBefore !== null) writeFileSync(LEDGER, ledgerBefore)
   }
-  // 2026-10-21:同上 —— 存量归零后"默认面必 exit 1"不再成立。判据改成**退出码与判红处数一致**:
-  // 报了几处就得按几处给码(0 处 ⇒ 0,>0 处 ⇒ 1),这比钉死某个数更能证明"码是算出来的"。
-  const redCount = Number(/判红 (\d+) 处/.exec(defaultOut)?.[1] ?? -1)
-  assert.ok(redCount >= 0, `无台账时必须有实打实的判红处数(0 也是实读数):\n${defaultOut}`)
-  assert.equal(
-    code,
-    redCount > 0 ? 1 : 0,
-    `默认面退出码必须与判红处数一致(${redCount} 处 ⇒ ${redCount > 0 ? 1 : 0}),实得 ${code}\n${defaultOut}`,
-  )
+  assert.equal(code, 1, `无台账时默认面应 exit 1(判红),实得 ${code}\n${defaultOut}`)
+  // 台账搬走期间不得"因判红而顺带丢判据":判红处数必须 > 0,不能是"扫不到所以 0 处绿"
+  assert.match(defaultOut, /判红 [1-9]\d* 处/, `无台账时必须有实打实的判红处数:\n${defaultOut}`)
   // 面旗互斥 ⇒ exit 2「无法判定」(绝不静默挑一面)
   let code2 = 0
   let err = ''

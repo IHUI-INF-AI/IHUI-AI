@@ -31,14 +31,6 @@ import { resolveGitBin } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(HERE, '..', 'object-space-land.mjs')
-
-// 门 231(暖色描边)涉事判据的测试通道 —— 与 `object-space-land.test.mjs` 同一理由:
-// 夹具仓里的树是本器用临时索引写出来的,真门在夹具仓 `git ls-tree` 报 `not a tree object`
-// ⇒ 判未判定 ⇒ 落地器拒绝落盘(2026-10-21 实测本文件 2 条端到端因此全红)。
-// 模块级设一次,覆盖所有内联拼 env 的用例;需要真门行为的那几条可自行覆写。scratch 随进程退出回收。
-const WARM_STUB = join(mkScratch('osl-json-warm-'), 'stub-warm-border.mjs')
-writeFileSync(WARM_STUB, 'process.exit(0)\n')
-process.env.LAND_WARM_BORDER_GATE = WARM_STUB
 const GIT = resolveGitBin() || 'git'
 // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
 const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }

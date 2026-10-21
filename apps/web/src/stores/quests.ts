@@ -13,7 +13,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { GOAL_STATUSES, type GoalStatus as CanonicalGoalStatus } from '@ihui/types'
-import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import type { MyGoalAssessment, MyGoalRow } from '@ihui/api-client'
 
 import { ssrStorage } from './persist-helpers'
@@ -74,7 +73,7 @@ function ingestServerAssessments(
       id: a.id,
       at: a.at,
       status: a.status as QuestStatus,
-      progress: clampPercent(Math.round(a.progress)),
+      progress: Math.max(0, Math.min(100, Math.round(a.progress))),
       summary: a.summary,
       // 端内来源词汇只有 auto/manual:引擎轨迹归自动评估腿
       source: 'auto',
