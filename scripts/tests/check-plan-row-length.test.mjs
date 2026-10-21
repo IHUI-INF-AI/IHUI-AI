@@ -44,6 +44,13 @@ test('无主键的叙述式待办退化为整行文本身份,不许悄悄不认'
   assert.match(g.violationKey(`- [ ] ${'叙述式待办'.repeat(90)}`), /^T:/)
 })
 
+test('面选择四臂:--staged 不得落回 head(第一版就是把 selectFace 调错参数,门自称 blocking 却永远只报数)', () => {
+  assert.equal(g.pickFace(['--staged']).face, 'staged')
+  assert.equal(g.pickFace([]).face, 'head')
+  assert.equal(g.pickFace(['--worktree']).face, 'worktree')
+  assert.equal(g.pickFace(['--staged', '--worktree']).face, null, '两面旗同给必须判死,不得选一个面')
+})
+
 test('形状锁:登记行识别来自单源,门体不自带正则', () => {
   const src = readFileSync(path.join(HERE, '..', 'check-plan-row-length.mjs'), 'utf8')
   assert.match(

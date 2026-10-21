@@ -87,12 +87,21 @@ function resolveMax(flagVal) {
   return Number.isFinite(env) && env > 0 ? env : DEFAULT_MAX
 }
 
+/**
+ * 面选择自成纯函数并可被自检直接打到:本门第一版把 `selectFace` 当 `(argv, {file, root})` 调,
+ * 参数对不上 ⇒ 参数全 undefined ⇒ **任何档都落回 head**,于是一道自称 blocking 的门
+ * 实际永远只报数(§0.9:造好没装车 = 没有;绿本身就是缺陷)。
+ */
+export function pickFace(argv) {
+  return selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
+}
+
 function run(argv, nowMs = Date.now()) {
   void nowMs
   if (argv.includes('--self-test')) return selfTest()
   const maxFlag = argv.find((a) => a.startsWith('--max-chars'))
   const maxChars = resolveMax(maxFlag ? Number(String(maxFlag).split('=')[1]) : undefined)
-  const face = selectFace(argv, { file: FILE, root: ROOT })
+  const face = pickFace(argv)
   if (face.error) {
     console.log(`❌ ${face.error}`)
     return 2
@@ -105,13 +114,13 @@ function run(argv, nowMs = Date.now()) {
   }
   let subjectText = null
   if (face.face === 'head') subjectText = headText
-  else if (face.face === 'index') {
+  else if (face.face === 'staged') {
     try {
       subjectText = gitRaw(['show', `:${FILE}`], ROOT, { timeout: 120000 })
     } catch {
       subjectText = null
     }
-  } else subjectText = readWorktreeFile(path.join(ROOT, FILE))
+  } else subjectText = readWorktreeFile(ROOT, FILE)
 
   if (typeof subjectText !== 'string' || subjectText === '') {
     console.log(`❌ 未判定:被审面(${face.face})取不到 ${FILE} ⇒ 不记绿也不冒红(§0.3)`)
@@ -179,6 +188,11 @@ function selfTest() {
   t('无主键行退化为整行文本身份(不许悄悄不认)', noKey.startsWith('T:'))
   t('锚点取不到 ⇒ 未判定,既不记绿也不冒红', judge(f.over, null, 400).state === 'undetermined')
   t('阈值可上调(环境/旗标生效路径与默认档同形)', findOverLength(LONG, 900).over.length === 0 && findOverLength(LONG, 400).over.length === 1)
+  // 面选择四臂:这一族错了,上面所有判据都白写(实测第一版就是这么把 blocking 门跑成永远只报数的)
+  t('面选择:--staged ⇒ 索引档(不得落回 head)', pickFace(['--staged']).face === 'staged')
+  t('面选择:默认档 = HEAD blob', pickFace([]).face === 'head')
+  t('面选择:两面旗同给当场判死', pickFace(['--staged', '--worktree']).face === null)
+  t('面选择:--worktree ⇒ 磁盘人工档', pickFace(['--worktree']).face === 'worktree')
   console.log(`--self-test: ${pass}/${pass + fail} 通过`)
   return fail
 }
@@ -186,5 +200,5 @@ function selfTest() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) process.exitCode = run(process.argv.slice(2))
 
-export const __test__ = { findOverLength, judge, violationKey, DEFAULT_MAX }
+export const __test__ = { findOverLength, judge, violationKey, pickFace, DEFAULT_MAX }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
