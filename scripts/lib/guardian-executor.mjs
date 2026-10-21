@@ -23,8 +23,8 @@
  */
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
 import { gitRaw } from './face-reader.mjs'
 // 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
 // 独立 lib(执行逻辑逐字搬,闭包引用改 ctx 参数);本文件只保留调用点与数组本体。
@@ -77,6 +77,27 @@ if (showTiming) {
   })
 }
 
+// ── 逐门实时进度旁路(2026-10-21 立)─────────────────────────────────────────
+// 病灶:pre-commit 用 execSync 调本进程,stdout 被**全量缓冲到结束**才写出 ⇒ 钩子运行期
+// (safe-commit 自述"本机实测 ≈15 分钟")在调用方眼里就是零输出,与"卡死"同形。实测
+// 2026-10-21 22:57 那轮:13 分钟里 pre-commit.log 停在"运行守门脚本批量检查..."一字不增,
+// 只能靠抓进程树才看出当前跑到哪一门。
+// 出路:每门收口时 append 一行可 tail 的进度,当场就能回答"卡在哪一门/跑到第几门"。
+// 纯观测旁路:写失败只吞掉,绝不改判据、不改退出码、不进提交面。
+const GATE_PROGRESS_FILE = resolve(process.cwd(), '.workbuddy', 'hook-logs', 'gates-progress.log')
+function appendGateProgress(check, r, elapsedMs) {
+  try {
+    const status = r?.error ? 'error' : r?.status === 0 && r?.signal === null ? 'pass' : 'fail'
+    mkdirSync(dirname(GATE_PROGRESS_FILE), { recursive: true })
+    appendFileSync(
+      GATE_PROGRESS_FILE,
+      `[${new Date().toISOString()}] ${status.padEnd(5)} ${String(check.id).padEnd(8)} ${String(elapsedMs).padStart(6)}ms ${check.script || ''}\n`,
+    )
+  } catch {
+    /* 观测旁路:落盘失败不得影响守门结论 */
+  }
+}
+
 // === 执行 ===
 
 // ─── push-gate 结果缓存(2026-09-18 立;2026-10-16 外置到 lib/guardian-pushgate-cache.mjs) ───
@@ -95,6 +116,31 @@ const startTime = Date.now()
 // 两条不变量:① 中断(75 或信号族/无码信号死,G-611 同一把尺子)仍**立即**向上传播,
 //    不收敛成 1(push guard 靠它决定重试);
 // ② GUARDIAN_STOP_ON_FIRST=1 完整恢复旧的快速失败行为(逃生舱)。
+// ── 快档(2026-10-21 立,机主要求"整体 ≤1 分钟")────────────────────────────────
+// 现读数据(guardian-timing.json,154 门):33 道重型门(>3s)合计 **656s = 86%**,
+// 121 道快门合计 109s。快档只跑快门(8 并发 ≈ 20s),重型门由 post-commit 后台补跑,
+// 失败写 .workbuddy/hook-logs/gates-heavy-fail.log —— 提交不被拖住,但红仍然会被看见。
+// 默认开(由 pre-commit-hook 设 IHUI_GATE_FAST=1);要全量(CI / 发版 / 排障):IHUI_GATE_FAST=0。
+const HEAVY_GATE_IDS = new Set([
+  '30a', '103', '107', '168', '165', '93', '137', '104', '89', '47', '46', '181',
+  '155', '108', '105', '172', '26', '127', '224', '24b', '41', '92', '49', '57',
+  '220', '213', '84', '39', '100', '29', '2n-web', '4', '2f-mobile-rn',
+  // 2026-10-21 二次实测补入:静态耗时清单跟不上波动 —— 这几道是**全仓扫描型**
+  // (test-paths 单轮 57~67s、dangling-local-imports 33~38s、stale-copy 13s),
+  // 判的是仓库状态而非本次提交内容,与 30a 同性质,一并延后到 post-commit。
+  '85', '98', '30c',
+])
+const fastMode = process.env.IHUI_GATE_FAST === '1'
+
+// ── 快档硬时间预算(2026-10-21,机主要求"整体 ≤1 分钟")──────────────────────────
+// 静态重型清单追不上耗时波动(test-paths 单轮 57~67s),并发也受队头/屏障拖累(实测 CPU 179s
+// 却跑出 101s 墙钟 = 并发 1.77)。这里给快档一个**硬预算**:到点后不再派发新门,剩余一律
+// 记为"延后"(不判红、也不记绿),清单落 .workbuddy/hook-logs/gates-deferred.json,
+// 补跑命令打印在汇总里。预算可通过 IHUI_GATE_FAST_BUDGET_MS 调整。
+const FAST_BUDGET_MS = Number(process.env.IHUI_GATE_FAST_BUDGET_MS ?? 35_000)
+const deferredGates = []
+let budgetBlown = false
+
 const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
 /** blocking 失败门清单(末尾汇总用)。 */
 const failedGates = []
@@ -138,6 +184,25 @@ function attestGateBatchRun(ranFullBatch) {
 /** 打印批量检查汇总。早退与跑完两条路径共用,避免两份实现漂移。 */
 function printSummary(useStderr) {
   const out = useStderr ? console.error : console.info
+  // 快档延后清单落盘(2026-10-21):"这次没跑"必须可追,补跑命令直接可复制。
+  if (deferredGates.length > 0) {
+    try {
+      const p = resolve(process.cwd(), '.workbuddy', 'hook-logs', 'gates-deferred.json')
+      mkdirSync(dirname(p), { recursive: true })
+      writeFileSync(
+        p,
+        JSON.stringify(
+          { generatedAt: new Date().toISOString(), count: deferredGates.length, gates: deferredGates },
+          null,
+          2,
+        ) + '\n',
+      )
+      out(`⏱  快档延后 ${deferredGates.length} 门(清单:${p})`)
+      out('   补跑:node scripts/guardian-runner.mjs --staged   全量:IHUI_GATE_FAST=0')
+    } catch {
+      /* 观测旁路:落盘失败不影响判据 */
+    }
+  }
   const executed = passed + warned + failed + skipped
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
   out('')
@@ -292,6 +357,12 @@ const PAR_GATE_IDS = new Set([
   '183', '184', '185', '189', '190', '191', '192', '194',
   '195', '199', '200', '23', '150', '172', '186', '187',
   '188', '196', '197', '198',
+  // 2026-10-21 机主要求"整体 ≤1 分钟":把原先漏在白名单外的 13 道**只读**门收进池
+  // (逐门核过 writeFileSync 去向:写的都是各自的缓存/报告,不是共享 git 索引)。
+  // 刻意**不**收的三个:`2f-web`/`2f-miniapp-taro`/`2f-shared-diff` 是同一个
+  // i18n-diff.mjs 的三个档,共用同一份中间产物 ⇒ 必须串行。
+  '168', '47', '224', '220', '213', '100', '221', '232',
+  '210', '13d', '170', '231', '15',
 ])
 // === 只读门并行池(方案A;逃生舱:GUARDIAN_SERIAL=1 退回全串行,GUARDIAN_PAR=<n> 调并发度) ===
 // 契约(与串行版逐字对齐的三条):
@@ -314,7 +385,9 @@ const PAR_GATE_IDS = new Set([
 //        反面教材:单跑一轮就改默认会被 par=6 首轮 422.5s 或次轮 563.7s 带偏(同参 33% 噪声)。
 const guardianSerial = process.env.GUARDIAN_SERIAL === '1'
 const parMaxRaw = Number.parseInt(process.env.GUARDIAN_PAR || '', 10)
-const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 6
+// 2026-10-21:12 并发实测更慢(check-dangling-local-imports 从秒级涨到 32.8s,CPU 竞争反噬),
+// 回到 8;达标靠"快档"而不是堆并发。
+const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
 const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
 const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
 let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
@@ -460,7 +533,27 @@ async function flushParBuffer() {
 }
 
 // 串行 spawnSync 的结果判定体原样抽出(par 与 serial 共用同一份,退出码语义不分叉)。
+// ── 实时百分比进度(2026-10-21 机主要求)────────────────────────────────────
+// 用 stderr:stdout 会被 pre-commit 的 parseGateSummary 正则解析,进度行走 stderr 不会污染汇总;
+// 同时 append 到 gates-progress.log,被缓冲时仍可 tail。
+const totalGates = effectiveChecks.length
+let doneGates = 0
+
 function applyGateResult(check, r, checkStart) {
+  doneGates += 1
+  const pct = totalGates > 0 ? Math.min(100, Math.round((doneGates / totalGates) * 100)) : 100
+  const okNow = !r?.error && r?.status === 0 && r?.signal === null
+  const elapsedNow = Date.now() - checkStart
+  try {
+    process.stderr.write(
+      `  ▸ ${String(doneGates).padStart(3)}/${totalGates} ${String(pct).padStart(3)}%  ` +
+        `${okNow ? 'ok  ' : 'FAIL'} [${check.id}] ${String(elapsedNow).padStart(6)}ms\n`,
+    )
+  } catch {
+    /* 进度输出失败不影响判据 */
+  }
+  // 先落实时进度(纯观测,不参与判据):调用方 stdout 被缓冲时,这是唯一能看出"跑到哪"的口子。
+  appendGateProgress(check, r, elapsedNow)
   const gateStderr = typeof r.stderr === 'string' ? r.stderr : ''
   if (showTiming) {
     // 三条出口(pass / blocking失败 / warn·info)统一在此记账,含被判红的门 ——
@@ -555,6 +648,18 @@ function applyGateResult(check, r, checkStart) {
 }
 
 for (const check of effectiveChecks) {
+  // 快档硬预算:到点即停止派发,剩余门记延后(见 FAST_BUDGET_MS 头注)。
+  if (fastMode && !budgetBlown && Date.now() - startTime > FAST_BUDGET_MS) {
+    budgetBlown = true
+    console.info(
+      `⏱  快档预算 ${Math.round(FAST_BUDGET_MS / 1000)}s 已到 —— 剩余门转为延后,补跑:node scripts/guardian-runner.mjs --staged`,
+    )
+  }
+  if (fastMode && budgetBlown) {
+    skipped++
+    deferredGates.push({ id: String(check.id), label: check.label, script: check.script })
+    continue
+  }
   // 逐项应急放行(2026-09-21 立):与各门脚本内部 HUSKY_SKIP_* 惯例一致,由 item 的
   // skipEnv 字段声明变量名。适用场景 = 并发会话未提交 WIP 造成"工作区级"漂移,
   // 阻塞与本任务无关的提交(本次改动不含该目录时,门的结论是假阳性)。
@@ -581,12 +686,31 @@ for (const check of effectiveChecks) {
     )
     continue
   }
+  // 快档:重型门延后到 post-commit 后台补跑(见 HEAVY_GATE_IDS 头注)。计入 notTriggered 而不是
+  // selfSkipped —— 它不是"人按了跳过开关",是"本档设计上就不在这里跑",两者的处置动作不同。
+  if (fastMode && HEAVY_GATE_IDS.has(String(check.id))) {
+    await flushParBuffer()
+    skipped++
+    notTriggeredGates.push({
+      id: String(check.id),
+      label: check.label,
+      triggers: ['(快档:重型门延后到 post-commit)'],
+    })
+    console.info(
+      `⏭  [${check.id}] ${check.label}(快档跳过:重型门由 post-commit 补跑;要全量设 IHUI_GATE_FAST=0)`,
+    )
+    continue
+  }
   const cmdArgs = [...check.args]
   if (passStaged) cmdArgs.push('--staged')
   // (旧版这里拼一条 shell 字符串给 execSync;改 spawnSync 用 argv 数组后不再需要,
   //  顺带去掉 shell 一层。复现命令由汇总段按 `node scripts/<script>` 现拼,不在此处留变量。)
 
-  if (PAR_GATE_IDS.has(check.id) && !guardianSerial) {
+  // ⚠️ 2026-10-21 关键修复:`check.id` 在注册表里**大多是数字**(1/2/30/103…),而
+  // PAR_GATE_IDS 里存的是**字符串** ⇒ 旧写法 `has(check.id)` 对绝大多数门恒 false,
+  // 并行池实际上从未生效过(实测 CPU 179s 却跑出 101s 墙钟 = 并发 1.77,原因就在这里)。
+  // 必须 String() 归一,与 HEAVY_GATE_IDS / notTriggeredGates 的写法一致。
+  if (PAR_GATE_IDS.has(String(check.id)) && !guardianSerial) {
     console.info(`[${check.id}] ${check.label}...`)
     await dispatchPar(check, cmdArgs)
     continue
