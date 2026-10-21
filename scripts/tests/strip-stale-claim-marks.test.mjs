@@ -31,22 +31,60 @@ test('①摘除集=三枚(两枚超龄租约 + 一枚裸标记),新鲜租约不�
   assert.equal(p.ok, true, p.why)
 })
 
-test('①注记逐字保留原牌日期与持有者(摘牌可追责)', () => {
+test('①行内注记只是指针:含 #seq 且长度 ≤62 字(依据不糊台账)', () => {
   const p = planSweep(strip.FIXTURE, base)
-  assert.match(p.text, /原牌 2026-01-01\/甲席 超龄 \d+h/)
-  assert.match(p.text, /原牌 2026-01-02\/丙席 超龄 \d+h/)
+  const notes = [...p.text.matchAll(/（认领已释放@[^）]*）/g)].map((m) => m[0])
+  assert.equal(notes.length, 3)
+  for (const n of notes) {
+    assert.ok(n.includes('#'), `注记没有指针:${n}`)
+    assert.ok(n.length <= 62, `注记过长(${n.length} 字):${n}`)
+  }
 })
 
-test('①注记只放最小可追责要素,行内长度有上限(依据进提交信息,不糊台账)', () => {
-  const d = planSweep(strip.FIXTURE, base)
-  assert.match(d.text, /原裸标记无日期/)
-  for (const m of d.text.matchAll(/（认领已释放@[^）]*）/g)) {
-    assert.ok(m[0].length <= 80, `注记过长(${m[0].length} 字):依据类文字不得写进台账行 —— ${m[0]}`)
-  }
+test('①原牌信息住在留痕条目里,逐字段等于判据读数', () => {
+  const p = planSweep(strip.FIXTURE, base)
+  const es = strip.buildEntries(p, { stamp: p.stamp, at: '2026-10-22T12:00:00Z', seat: 't', planSha: 'd'.repeat(40) })
+  assert.equal(es.length, 3)
+  const leases = es.filter((e) => e.form === 'lease')
+  assert.equal(leases.length, 2)
+  assert.ok(leases.every((e) => /^2026-01-0\d$/.test(e.claimDate) && e.holder && e.ageHours > 0))
+  assert.ok(es.every((e) => typeof e.rowBefore === 'string' && e.rowBefore.includes('（进行中')))
+  assert.ok(es.every((e) => p.text.includes(`#${e.seq}`)), '注记指向的 seq 在留痕里不存在')
+})
+
+test('①机主原话进留痕的 ruling 字段,行内仍是纯指针', () => {
   const a = planSweep(strip.FIXTURE, { ...base, legacyByOwnerRuling: '机主 2026-10-22 判定无席位在飞' })
-  assert.equal(a.leases.length, 3)
-  assert.match(a.text, /机主原话见本轮提交信息/)
+  const es = strip.buildEntries(a, { stamp: a.stamp, at: '2026-10-22T12:00:00Z', seat: 't', planSha: 'e'.repeat(40) })
+  assert.equal(es.filter((e) => e.form === 'legacy')[0].ruling, '机主 2026-10-22 判定无席位在飞')
+  assert.ok(!a.text.includes('判定无席位在飞'), '原话又漏进台账行了')
   assert.equal(a.ok, true, a.why)
+})
+
+test('②留痕真写盘:落文件后能解回,老化窗口裁掉多少必须报出来', async () => {
+  const { mkScratch, rmScratch } = await import('../lib/scratch-dir.mjs')
+  const dir = mkScratch('claim-ledger')
+  const file = path.join(dir, 'ledger.jsonl')
+  const p = planSweep(strip.FIXTURE, base)
+  const es = strip.buildEntries(p, { stamp: p.stamp, at: '2026-10-22T12:00:00Z', seat: 't', planSha: 'f'.repeat(40) })
+  const w = strip.appendLedger(es, { file, nowMs: Date.parse('2026-10-22T12:00:00Z') })
+  assert.equal(w.written, 3)
+  assert.equal(w.pruned, 0)
+  const rep = strip.readLedgerReport({ file })
+  assert.equal(rep.undetermined, false, '刚落盘就读不到')
+  assert.equal(rep.lines, 3)
+  assert.equal(rep.forms.lease, 2)
+  assert.equal(rep.forms.legacy, 1)
+  // 两年后同一本账:超窗条目必须被裁掉,且裁掉的条数被报出来(静默删等于没记录)
+  const later = strip.appendLedger(es, { file, nowMs: Date.parse('2028-10-22T12:00:00Z') })
+  assert.equal(later.pruned, 3, `老化未报出被裁条数:${JSON.stringify(later)}`)
+  assert.equal(strip.reportLedger(readFileSync(file, 'utf8')).lines, 3)
+  rmScratch(dir)
+})
+
+test('②留痕取不到时判未判定,不用 0 冒充"没摘过"', () => {
+  const r = strip.readLedgerReport({ file: path.join(HERE, '..', '..', 'no-such-ledger-file.jsonl') })
+  assert.equal(r.undetermined, true)
+  assert.ok(typeof r.why === 'string' && r.why.length > 0, '未判定必须带原因')
 })
 
 test('①超龄维有牙:TTL 收到零时新鲜牌同批可摘', () => {
