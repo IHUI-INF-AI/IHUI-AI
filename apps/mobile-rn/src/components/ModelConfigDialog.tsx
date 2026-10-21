@@ -34,15 +34,7 @@
  *      媒体参数用 Chip 选择器,音色用下拉展开列表(替代旧 Vue picker)。
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import {
-  Modal,
-  View,
-  Text,
-  Pressable,
-  ScrollView,
-  Switch,
-  TouchableOpacity,
-} from 'react-native'
+import { Modal, View, Text, Pressable, ScrollView, Switch, TouchableOpacity } from 'react-native'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
 import type { ModelConfigType } from '@ihui/ui-native'
@@ -403,7 +395,11 @@ function DynamicVariables({
                   <Text className="text-xs" style={{ color: tokens.text.secondary }}>
                     {cur ? '已启用' : '未启用'}
                   </Text>
-                  <Switch value={!!cur} onValueChange={(nv) => emit({ [v.name]: nv })} />
+                  <Switch
+                    value={!!cur}
+                    onValueChange={(nv) => emit({ [v.name]: nv })}
+                    trackColor={{ false: tokens.border.light, true: tokens.brand.DEFAULT }}
+                  />
                 </View>
               </Row>
             )
@@ -607,6 +603,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           <Switch
             value={config.streamEnabled}
             onValueChange={(v) => update({ streamEnabled: v })}
+            trackColor={{ false: tokens.border.light, true: tokens.brand.DEFAULT }}
           />
         </View>
       </Row>
