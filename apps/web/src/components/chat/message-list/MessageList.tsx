@@ -14,7 +14,7 @@ import {
   MessageContextMenu,
   MessageSearchBar,
 } from '@/components/ai/progress-sections/message-context-menu'
-import { useProgressJumpStore } from '@/stores/progress-jump-store'
+import { useProgressJumpStoreForPane } from '@/stores/progress-jump-store'
 import { matchesPaneEvent, useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 
@@ -230,13 +230,16 @@ export function MessageList({
 
   // ── Phase 19 集成(2026-07-28 立)────────────────────────────────────
   // ProgressJumpStore:PlanStep ↔ Message 双向跳转 + 联动高亮
-  const pendingJump = useProgressJumpStore((s) => s.pendingJumpToMessage)
-  const highlightedMessageId = useProgressJumpStore((s) => s.highlightedMessageId)
-  const messageToPlanStepIds = useProgressJumpStore((s) => s.messageToPlanStepIds)
-  const flashHighlight = useProgressJumpStore((s) => s.flashHighlight)
-  const clearPendingJump = useProgressJumpStore((s) => s.clearPendingJump)
-  const setHoveredMessage = useProgressJumpStore((s) => s.setHoveredMessage)
-  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
+  // 票60 残余(2026-10-21):这一份按窗格寻址 —— 根窗格仍是单例,非根窗格各一份,
+  // 于是别窗格消费后的 clearPendingJump 不再抢走本窗格这次跳转,高亮也不再跨窗格串。
+  const jumpStore = useProgressJumpStoreForPane()
+  const pendingJump = jumpStore((s) => s.pendingJumpToMessage)
+  const highlightedMessageId = jumpStore((s) => s.highlightedMessageId)
+  const messageToPlanStepIds = jumpStore((s) => s.messageToPlanStepIds)
+  const flashHighlight = jumpStore((s) => s.flashHighlight)
+  const clearPendingJump = jumpStore((s) => s.clearPendingJump)
+  const setHoveredMessage = jumpStore((s) => s.setHoveredMessage)
+  const setHoveredPlanStep = jumpStore((s) => s.setHoveredPlanStep)
   // 已处理的 pendingJump nonce(防止同一次 jump 重复触发 scrollIntoView)
   const handledJumpNonceRef = React.useRef<number>(-1)
 
@@ -381,7 +384,7 @@ export function MessageList({
     const onPlanStep = (e: Event) => {
       const detail = (e as CustomEvent<{ planStepId: string; paneId?: string | null }>).detail
       if (!detail?.planStepId || !matchesPaneEvent(detail.paneId, paneId)) return
-      const messageId = useProgressJumpStore.getState().planStepToMessageId[detail.planStepId]
+      const messageId = jumpStore.getState().planStepToMessageId[detail.planStepId]
       if (messageId) scrollToMessage(messageId)
     }
     const onToolCall = (e: Event) => {
@@ -397,7 +400,7 @@ export function MessageList({
       window.removeEventListener('ihui:scroll-to-plan-step', onPlanStep as EventListener)
       window.removeEventListener('ihui:scroll-to-tool-call', onToolCall as EventListener)
     }
-  }, [chatStore, paneId])
+  }, [chatStore, jumpStore, paneId])
 
   if (messages.length === 0) {
     return (

@@ -21,7 +21,7 @@ import {
 } from '@/components/chat/stream/stream-ui'
 import { FoldableSection, formatDuration } from '@/components/ai/progress-sections/foldable-section'
 import { MarkdownViewer } from '@/components/media/MarkdownViewer'
-import { useProgressJumpStore } from '@/stores/progress-jump-store'
+import { useProgressJumpStoreForPane } from '@/stores/progress-jump-store'
 import { toast } from '@/components/common'
 import type { PlanStep, PlanStepStatus } from '@/hooks/use-agent-progress'
 
@@ -98,10 +98,11 @@ export function PlanStepsCard({
   // 组级耗时:流式中实时 tick,终态由累计 durationMs 接管(与 StreamGroup 头同一措辞)
   const liveElapsed = useLiveElapsed(isStreaming, totalDurationMs > 0 ? totalDurationMs : null)
 
-  // ProgressJumpStore:点击跳转 + hover 联动
-  const requestJumpToMessage = useProgressJumpStore((s) => s.requestJumpToMessage)
-  const setHoveredPlanStep = useProgressJumpStore((s) => s.setHoveredPlanStep)
-  const hoveredMessageId = useProgressJumpStore((s) => s.hoveredMessageId)
+  // ProgressJumpStore:点击跳转 + hover 联动(票60 残余:按窗格寻址,根窗以外各一份)
+  const jumpStore = useProgressJumpStoreForPane()
+  const requestJumpToMessage = jumpStore((s) => s.requestJumpToMessage)
+  const setHoveredPlanStep = jumpStore((s) => s.setHoveredPlanStep)
+  const hoveredMessageId = jumpStore((s) => s.hoveredMessageId)
 
   if (steps.length === 0) return null
 
