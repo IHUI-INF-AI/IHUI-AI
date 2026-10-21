@@ -82,7 +82,7 @@ export default function AdminMonitorFunnelPage() {
               <CardTitle className="text-xs font-medium text-muted-foreground">转化用户</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success-deep-text">
+              <div className="text-2xl font-bold text-success-text">
                 {formatNumber(data.convertedUsers)}
               </div>
             </CardContent>
@@ -92,7 +92,7 @@ export default function AdminMonitorFunnelPage() {
               <CardTitle className="text-xs font-medium text-muted-foreground">转化率</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-warning-amber-text">
+              <div className="text-2xl font-bold text-warning-text">
                 {data.conversionRate.toFixed(2)}%
               </div>
             </CardContent>
@@ -137,7 +137,7 @@ export default function AdminMonitorFunnelPage() {
                           i === 0
                             ? 'bg-primary text-primary-foreground' /* r5-cta-exempt: 漏斗首段进度条填充,非主按钮;品牌墨底+配对前景是该图表的既有形态 until 2026-12-20 */
                             : i === stages.length - 1
-                              ? 'bg-success-tint-strong text-success-deep-text' /* 原 bg-emerald-600 + 白字:亮档实测 3.61 < AA 4.5,且是调色板字面量;此对实测 5.80/6.30 */
+                              ? 'bg-success-tint-strong text-success-deep-text' /* 字压在 25% 同色浓底上 ⇒ 必须用 deep 档(实测 5.01/5.39);角色档在这一底上只有 3.53/3.80 */
                               : 'bg-primary/70 text-primary-foreground',
                         )}
                         style={{ width: `${Math.max(width, 15)}%` }}

@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     description: 'n8n 风格节点画布,可视化编排复杂 AI 流程。',
     url: `${SITE_URL}/docs/workflow`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI 工作流' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 工作流' }],
   },
 }
 
