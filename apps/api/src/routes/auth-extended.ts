@@ -45,6 +45,7 @@ import { success, error } from '../utils/response.js'
 import { setAuthCookies } from '../utils/auth-cookies.js'
 import { encryptJSON, decryptJSON } from '../utils/crypto.js'
 import { db } from '../db/index.js'
+import { recordSecurityEvent } from '../db/security-logs-queries.js'
 import { config } from '../config/index.js'
 import { users } from '@ihui/database'
 import { toUserFriendlyMessage } from '@ihui/shared'
@@ -1040,6 +1041,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, '旧密码错误'))
       }
       await updateUser(request.userId!, { passwordHash: await hashPassword(newPwd) })
+      await recordSecurityEvent(request, 'password_change')
       return reply.send(success({ success: true, updated: true }))
     },
   )
@@ -3152,6 +3154,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         })
         .where(eq(users.id, userId))
 
+      await recordSecurityEvent(request, 'two_factor_enable')
       return reply.send(
         success({
           verified: true,
@@ -3224,6 +3227,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         })
         .where(eq(users.id, userId))
 
+      await recordSecurityEvent(request, 'two_factor_disable')
       return reply.send(success({ disabled: true }))
     },
   )

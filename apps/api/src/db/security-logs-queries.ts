@@ -37,4 +37,35 @@ export async function createSecurityLog(
   if (!row) throw new Error('创建安全日志失败')
   return row
 }
+
+/**
+ * 带请求归因的安全事件写入口 —— 本表此前**零调用方**（`createSecurityLog` 造好没装车），
+ * 于是 /settings/security-logs 与其消费端（web 设置页安全日志、RN 安全中心）永远只能说"暂无"。
+ * ip / UA 的取法与 plugins/audit-logger.ts:343,368-369 逐字同形（含 512 截断，对齐列宽），
+ * 不在这里另起一套口径；写失败只报一行、绝不把业务请求带崩（安全事件是旁路账）。
+ */
+export async function recordSecurityEvent(
+  request: {
+    ip: string
+    headers: Record<string, string | string[] | undefined>
+    userId?: string
+  },
+  action: string,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
+  if (!request.userId) return // 表上 user_id notNull：无主事件不写，不拿 null 去撞约束
+  const rawUA = request.headers['user-agent']
+  const userAgent = typeof rawUA === 'string' ? rawUA.slice(0, 512) : null
+  try {
+    await createSecurityLog({
+      userId: request.userId,
+      action,
+      ip: request.ip ?? null,
+      userAgent,
+      metadata: metadata ?? {},
+    })
+  } catch (e) {
+    console.error('[security-logs] 写入失败（不影响本次请求）:', (e as Error).message)
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
