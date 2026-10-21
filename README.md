@@ -882,7 +882,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **对话流过程可见性(2026-09-24 起)** | 队列语义完整交互 | 五动词(重排 / 撤回 / 编辑 / 打断并执行 / 模式 steer↔queue)判定唯一真相源 `@ihui/shared/chat/queue-interactions`;许可门复用 D69 `queueInteractionPerms`,被拒动作**显式渲染原因**不静默禁用;web 交互条(宿主已接 `message-input`) + cli 端 `/queue move|edit|run|mode` 四命令;「打断并执行」只产出计划,停流走 W2 既有 abort、队首仍读 `queue[0]`。**rn / miniapp / extension 三端尚无队列态**,故该三端未接(缺的是端内排队层,不是漏挂) |
 | | Credits 用量可见性 | `GET /api/credits/usage/daily`(登录态 + Zod,days≤365,UTC 分桶缺日补零,纯只读零写入)驱动热力图卡;**单日消耗**与**当日新建会话数**是两条独立序列(积分流水的 reference_id 存 HTTP 请求 id 而非会话 id),不可互相换算 |
 | | 小元素包(D64) | 图片预览翻页 / 第 N·M 张 / 缩放档位进退 / 保存与复制**成败都说话**;思考卡双态标题(有思考→"思考过程",无思考有引用→"使用了 N 个引用");后台子任务八态含 `stopFailed` 显式文案 + 重试停止;回复反馈问卷卡(三选 + 可跳过 + 免打扰)。**宿主覆盖(2026-09-25)**:web 全五项;rn ②预览+传输 / ③思考卡 / ④子任务八态;miniapp ②(逻辑+渲染,复制降级为复制地址)/ ③;extension ④;cli 属终端形态豁免(无图像预览/无子任务面板宿主)。①热力图 web 专有(rn/miniapp 无积分页),⑤反馈落库待后端载荷 |
-| | 多任务窗格(D73) | 窗格树唯一真相源 `@ihui/shared/chat/multi-pane`:向右/向下拆分、最大化还原、**相邻窗格联动调宽**(最小份额钳制)、空窗格复用 D22 `application/x-ihui-conversation` 通道拖入、Fork 失败三态显式文案 |
+| | 多任务窗格(D73) | 窗格树唯一真相源 `@ihui/shared/chat/multi-pane`:向右/向下拆分、最大化还原、**相邻窗格联动调宽**(最小份额钳制)、空窗格复用 D22 `application/x-ihui-conversation` 通道拖入、Fork 失败三态显式文案 、**会话级滚动位按「窗格::会话」落账**(切走存 scrollTop 与 following,切回走两段恢复 + grace 期修正;同一会话挂在两个窗格时各记各的位置,G-934) |
 | | 跨端词表落点纪律 | `ai.pane.*` 79 叶 × 5 语言由 `messages/web/` **迁入** `messages/shared/` —— web 合并 shared+web,而 miniapp / rn / cli / extension **只合并 shared + 各自端包**,键留在 web 包即四端裸键回显(由 `check-word-table-resolvable` W3/W4 逐键逐语言逐端钉住) |
 ---
 ## 🎬 AI 流式输出体验(Phase 19)
