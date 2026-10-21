@@ -209,6 +209,37 @@ t('M13 CSS 输入类选择器的常驻暖描边(不要求 :focus)有牙,且不�
     throw new Error('按钮描边被误咬(2026-10-21 审计实测该型 7 处全落在卡片/按钮/色条,非输入框)')
 })
 
+t('M14 旁路落地腿在位:落地器必须以 --rev 审树档调用本门(只活在 pre-commit 的门对它无效)', () => {
+  const lander = readFileSync(join(ROOT, 'scripts', 'object-space-land.mjs'), 'utf8')
+  if (!/check-no-warm-border\.mjs/.test(lander))
+    throw new Error('object-space-land 不再引用本门 ⇒ 旁路通道(commit-tree+CAS)不跑 pre-commit,这条腿一摘就等于没装')
+  if (!/'--rev'/.test(lander) || !/'--only'/.test(lander))
+    throw new Error('落地器调用本门时未走 --rev <tree> --only <清单> ⇒ 审的不是将要落盘的那棵树')
+  if (!/IHUI_LAND_SKIP_WARM_BORDER/.test(lander))
+    throw new Error('缺应急跳过出口 —— blocking 判据没有具名出口,漂移时只会逼人绕开整条链')
+  // 反向对照:审树档三态在真树上实测(旧树红 / 新树绿 / 坏 oid 未判定)由本档 M15 钉住
+})
+
+t('M15 审树档三态:红/绿/未判定各自成立(纯函数面 + 真 git 树)', () => {
+  const run = (args) => {
+    try {
+      execFileSync(process.execPath, [join(ROOT, 'scripts', 'check-no-warm-border.mjs'), ...args], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 120000,
+      })
+      return { rc: 0, out: '' }
+    } catch (e) {
+      return { rc: e.status ?? 9, out: String((e.stdout ?? '') + (e.stderr ?? '')) }
+    }
+  }
+  const bad = run(['--rev', 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', '--only', 'apps/web/src/app/globals.css'])
+  if (bad.rc !== 2) throw new Error(`不存在的 oid 必须 exit 2(未判定),实得 ${bad.rc} —— fail-open 会把"读不到树"放成绿`)
+  const mixed = run(['--rev', 'deadbeef1', '--staged'])
+  if (mixed.rc === 0 || !/互斥/.test(mixed.out))
+    throw new Error(`--rev 与 --staged 同给必须报错并 exit 2,实得 rc=${mixed.rc}`)
+})
+
 for (const c of cases) {
   try {
     c.fn()
