@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Animated, Dimensions, Modal, PanResponder, Pressable, View } from 'react-native'
+import { Animated, Modal, PanResponder, Pressable, useWindowDimensions, View } from 'react-native'
 import { cn } from '@ihui/design-tokens'
 
 export interface SheetProps {
@@ -16,13 +16,14 @@ export interface SheetProps {
 
 const ANIM_DURATION = 300
 const SWIPE_THRESHOLD = 80
-const SCREEN_H = Dimensions.get('window').height
 
 /**
  * RN Sheet — Radix Dialog 的移动端等价物。
  * 用 RN Modal + Animated slideUp + 遮罩层实现,支持点击遮罩或下拉关闭。
  */
 export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetProps) {
+  // 旋转/分屏后窗口高度会变,隐藏位移必须取当次值
+  const { height: screenHeight } = useWindowDimensions()
   const [modalVisible, setModalVisible] = useState(false)
   const progress = useRef(new Animated.Value(0)).current
   const drag = useRef(new Animated.Value(0)).current
@@ -68,7 +69,7 @@ export function Sheet({ open, onOpenChange, children, side = 'bottom' }: SheetPr
 
   const baseTranslate = progress.interpolate({
     inputRange: [0, 1],
-    outputRange: [side === 'bottom' ? SCREEN_H : -SCREEN_H, 0],
+    outputRange: [side === 'bottom' ? screenHeight : -screenHeight, 0],
   })
   const dragTranslate = Animated.multiply(drag, side === 'bottom' ? 1 : -1)
   const translateY = Animated.add(baseTranslate, dragTranslate)
