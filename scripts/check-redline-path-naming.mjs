@@ -1326,7 +1326,15 @@ export function selfTest() {
   )
   // 认领判据的形状:`rev-list <base>..HEAD` 差集。纯函数部分只能是"起点 sha 不合规就
   // fail-closed 报 failures,而不是静默返回空账"—— 空账会被上层读成"没有残留"。
-  const badBase = retainProbeCommits('g:/IHUI-AI', 'g:/tmp-probe', 'not-a-sha', PROBES[0])
+  // 2026-10-21:P8 为幂等加的 `existsSync(worktree)` 短路让"目录不存在"先返空 ⇒ P7 想验的
+  // "起点 sha 不合规必须记 failures"永远走不到(空账)。这里喂一个**真实存在**的目录,
+  // 让 P7 验的还是它声称的那一格;P8 那条"不存在的 worktree"语义照旧不动。
+  const badBase = retainProbeCommits(
+    'g:/IHUI-AI',
+    dirname(fileURLToPath(import.meta.url)),
+    'not-a-sha',
+    PROBES[0],
+  )
   ok(
     'P7 起点 sha 不合规 ⇒ 处置账记 failures(不静默返空 ⇒ 上层不会读成"无残留")',
     badBase.tagged.length === 0 && badBase.failures.length === 1,
