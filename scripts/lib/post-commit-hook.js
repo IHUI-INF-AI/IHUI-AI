@@ -235,6 +235,17 @@ if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
   }
 }
 
+// ─── 8. 四端 i18n 死 key 扫描(2026-10-22 从 pre-commit 移来)────────────────────
+// 本档一直是 warn-only(从不阻断提交),却实测占 8.3s 用户等待 ⇒ 移到这里:整条 post-commit
+// 已 detached 后台执行,判据与开关一字未动。要回 pre-commit:HUSKY_SKIP_I18N_DEAD_KEY_OTHER=0。
+if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '0') {
+  for (const target of ['miniapp-taro', 'mobile-rn', 'extension']) {
+    runLogged(`post-commit-i18n-${target}`, `node scripts/scan-${target}-dead-i18n-keys.mjs --staged --exit 1`, {
+      timeout: 120000,
+    })
+  }
+}
+
 // ─── 6. 计划登记行自动回捞(2026-09-22 立,守门 71 的自愈面) ────────────────────
 // 为什么放 post-commit 而不是只靠 pre-commit:并发会话 routinely 用 --no-verify 提交,
 // pre-commit 那道闸(pre-commit #71)会被一起跳过;而"按内存里旧计划文档整文件提交"

@@ -2176,6 +2176,29 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-21**
+- ⚡ 성능:提交链 12.7min → 38s —— 修并行判断 String() 归一(并行池从未生效)+ 快档 35s 预算与延后补跑 + 实时百分比进度 + 30a 结论缓存 + 网络调用治本超时 (3ca997ffba0)
+
+**2026-10-21**
+- 🐞 수정:净面 worktree 建了从不回收 —— 补统一回收出口(remove --force + prune),收尾清孤儿登记 (f2894131a3d)
+
+**2026-10-21**
+- 🐞 수정:删除 PROJECT_PLAN 错误入库的冲突标记 3 行 + 收尾报告补溯源水印 (32dde7723b4)
+- 🔧 기타:复删被合并复活的 6 枚死图标 —— 机主裁决枚 504f86371720 已删 20 枚,triangle-alert.svg 不在删除名单故保留; §22 门 168 不许删除被合并静默复活 (64a306b7868)
+- 📚 문서:补 2026-10-21 收口报告缺失的溯源载荷(远端带入时未注入,水印全量预检「未覆盖」;§5c 注入幂等) (804b5348bd9)
+- 🐞 수정:恢复 504f863717 被裁决删除的 6 枚 lucide 图标 —— 该裁决正被撤销批(索引里 agent.md/spec-mode/lint-staged/reaper 15 件已在恢复) (bddc5effff3)
+- 🐞 수정:release/设备包禁止回环 API 基址 —— 防误清生产会话 (657853ed9d8)
+- 🐞 수정:归并 merge 冲突标记 —— 取 theirs 侧 55 行漂移副本注释(ours 侧仅空行,零内容损失); 冲突标记门 79 已 rc=0 (f75d0b34919)
+- 📚 문서:登记 Android 原生构建 MAX_PATH 与 ninja 1.12.1 修法 (cec5b62f2fa)
+- 🐞 수정:清零 39/52/73/89/103/135/166/207 存量(白名单/补 windowsHide/迁 api-client 保留错误身份/文档点名/拆 git-guardian/AGENTS 减重 29KB 配逐字归档档); 166 已判 lost 0,归档件 8f5afeb38f6 (0d9f7cbeb97)
+- 🔧 기타:收口弃管暂存批与再生件——README 四语 changelog 再生、轮次收口报告归档、tmp 指针件删除 (2cd07c15647)
+- 📚 문서:2026-10-21b 归档件改为逐字原文(去行号前缀,守门 166 归档豁免要求逐行相等) (8f5afeb38f6)
+- 🐞 수정:chat-element-coverage 私有索引派生 stdin 由 ignore 改 pipe —— [193] 第3b条 input↔stdin 存量红,strict 档 push 门问责,input 才能送达 git (63f1690f45c)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (87f9eebffb1)
+- 🐞 수정:commit-loss-guard 镜像测试 git rev-parse 派生显式接管 stdio —— 触 [193] push 门(判定面 HEAD blob),补 ['ignore','pipe','pipe'] 后判红 0 处 (e94d61259e6)
+- 📚 문서:压缩 AGENTS.md 至 80KB 并补 worktree 生命周期规则;ensure-silent-tasks 审计回收链路健康 (6efeeadc20c)
+- 📚 문서:AGENTS.md 2026-10-21b 重复副本归档件(55 行,零信息损失) (9ceac550c0a)
+
+**2026-10-21**
 - 🐞 수정:清零 39/52/73/89/103/135/166/207 存量(白名单/补 windowsHide/迁 api-client 保留错误身份/文档点名/拆 git-guardian/AGENTS 减重 29KB 配逐字归档档); 166 已判 lost 0,归档件 8f5afeb38f6 (0d9f7cbeb97)
 - 🔧 기타:收口弃管暂存批与再生件——README 四语 changelog 再生、轮次收口报告归档、tmp 指针件删除 (2cd07c15647)
 - 📚 문서:2026-10-21b 归档件改为逐字原文(去行号前缀,守门 166 归档豁免要求逐行相等) (8f5afeb38f6)
@@ -3125,73 +3148,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-10-21**
 - 🚀 기능/개선:补齐 IP 白名单与 agent 护栏配置的读写面(整条要登录、只存不拦) (bb494eba53c)
-
-**2026-10-21**
-- 🚀 기능/개선:侧边栏第四批对齐 web 终态对账(10 入口,web 端零改动) (08e1da5b63d)
-
-**2026-10-21**
-- 🐞 수정:安全日志页按 security_logs 实列渲染，删掉后端从不给的"状态"列 (761a7a22cab)
-- 🚀 기능/개선:PDF 三链真处理落地 + security_logs 接上写入出口 (e1cc3e36ec0)
-- 🔧 기타:钉住危险操作确认的唯一旁路出口(L7224) (251ee617671)
-- 🔧 기타:翻勾 G-107 / G-929 (7ea5a84ed10)
-- 🔧 기타:修 G-929 过期用例并补 G-107 接线四例 (1a12afbdbf2)
-- 🔧 기타:裁决 5 张待拍板票 + 销账 3 张失效票 + 修 1 张回捞副本标记 (a525b912d17)
-- 🐞 수정:扫码弹窗平台清单拉取失败必须响 —— 不再静默留白 (79451dab125)
-- 🔧 기타:publish-scan 归入 @browser-hub 档 + 平台选择兼容 pill(机主选 A) (c364b64a0de)
-- 🐞 수정:补齐 ROUTE_ROOT_BG 剩余 27 屏 chrome 档 —— 顶栏结构锁全量测试唯一红清零 (63cd174c852)
-- 🐞 수정:补齐 ROUTE_ROOT_BG 剩余 27 屏 chrome 档 —— 顶栏结构锁全量测试唯一红清零 (b6568357c97)
-- 🔧 기타:work-panel 切 tab 改按 store 现读 id 选「非激活那颗」—— 收 P4-6 (ddfa3590e0e)
-- 🚀 기능/개선:暖色描边禁令装上旁路落地腿 —— 门 231 增 --rev 审树档,落地器 fail-closed 调用 (e1f18b5a320)
-- 🐞 수정:登录历史改接真数据源 audit_logs，并清偿本会话写进的 zh-TW 简体用字 (05940a38cef)
-- 🔧 기타:重钉 ui-routes 派生自述钉(承接 6ddca76ce8 的 11 处源改动) (b39af6dae53)
-- 🐞 수정:原生组件着色属性位的 CSS var 全部改成 JS 派生值 —— 11 处此前静默回落宿主默认色 (6ddca76ce83)
-- 🔧 기타:重钉 web/RN ui-routes 自述钉并补回 MyPapers/DistributionCompany 两枚白名单(1fc61a86437 旁路落地未跑写回钩子) (5bede5f6858)
-- 🚀 기능/개선:把"没设≠没色"这条因果律推到 web 腿 —— 门 231 增 W5 与 CSS 输入类维,并钉掉 3 枚裸 Switch (be681a0bcee)
-- 🔧 기타:fix(tokens)+feat(scripts): danger 暗档文字改取 #f87171(原 #ef4444 压在自己 /10 淡底上实测 4.21 不达 AA)+ 状态色文字射程对账尺子入库(自检 8/8、镜像 9/9,含同面口径修正) (721e61b929b)
-- 🐞 수정:资产注册表强制单实例 —— 根治「本地 PNG 的 Image 在 release 上恒空白」这一类 (4a876685d26)
-- ⚡ 성능:图片引用升 ?v=20261021 + 预热脚本 no-cache 强制回源 (720d3f582f7)
-- 📚 문서:补 §21 欠账——登记移动 App 与 web 逐页对齐口径与本批 35 屏 (2834f08be35)
-- 🐞 수정:登录历史卡按 security_logs 实列渲染，不再读后端从不返回的字段 (dcf3735fc2a)
-- 🐞 수정:补录侧边栏新挂 7 入口的 ROUTE_ROOT_BG chrome 档(ApiKeys/Usage/Groups/Invoices/Points/VoiceStt/AgentCategories) (76452bb2069)
-- 🚀 기능/개선:补齐我的试卷与分销中心，并收口 i18n 动态拼键反模式 (1fc61a86437)
-- 🐞 수정:反代目标 localhost → 127.0.0.1(修正 d4bfb37b7e6:标题即此修复但内容未落地) (0d36f406d20)
-- 🚀 기능/개선:侧边栏对齐 web 第二批 —— AI 组补 /models 与 /agents 父子入口,三域补 web 漏挂项,清 4 处重复登记,回归锁扩到域 hub(web 端零改动) (330056b5352)
-- 🔧 기타:按 HEAD 干净面重生成 web/RN 两份 ui-routes 产物钉 —— 收门 105 的 G5 (acc4ab047d5)
-- 🔧 기타:摘回门 233 注册条目 —— 点名面被他人 605 行在飞改动占住,先不给别人埋雷;门体降为常设只读尺子 (ec025c8fd6d)
-- 🔧 기타:work-panel 收藏按钮按 aria-label 定位 + 切 tab 改为轮询等待 (d07b67bfdbb)
-- 🔧 기타:清掉 check-ops-patrol 三枚存量红 —— 两枚是测量缺陷,一枚是半截落地的欠账 (04b56a1011f)
-- 🐞 수정:反代目标 localhost → 127.0.0.1,根治 WS 通知 ECONNREFUSED(34,701 次 ::1) (d4bfb37b7e6)
-- 🔧 기타:G-924 apps/cli 记忆模块两处直连后端改走 api-client(守门 73 真存量):新增 packages/api-client/src/endpoints/memory.ts 端点(listMemories/createMemory),endpoints barrel 增加导出;UnifiedMemoryClient.getEntries/addEntry 由裸 fetch 改调 api-client 端点,保留 SSRF 守卫与降级语义 (7f586945251)
-- 🚀 기능/개선:门 233 门体入库 —— 状态色文字角色档的对比度射程对账(自检 8/8 含两支阳性对照与两支反证) (33bee2381e2)
-- 🚀 기능/개선:新守门 check-state-text-contrast.mjs 接进提交链 (c7d7f57aaf8)
-- ⚡ 성능:/status 只 SSR 前 30 条模型,其余按需展开(1.05MB → ~30KB) (b9ec5f4dfaf)
-
-**2026-10-21**
-- 🚀 기능/개선:补齐 6 屏对齐 web 内容编辑域(文章/问答/名片/AI世界/广场发布) (ce9c8c08a8e)
-- 🔧 기타:登录请求显式声明通道 —— 解开本机 e2e 全量的 401 阻断 (67c57e311b6)
-- 🚀 기능/개선:补齐 14 屏对齐 web 用户/发布/学习域 (1982228870b)
-- 📚 문서:G-939 成因查明并改写 —— 门 100 头注自写口径只覆盖提交链,而 git-sync-converge 是 commit-tree+CAS 旁路不跑钩子 ⇒ 对旁路合并结构性失明;活改成"把 A1 判据 import 给旁路侧复量" (587f74e7c7d)
-- 📚 문서:登记「已推送提交被并发合并吞掉且守门 100/168 当场没响」这一格(现读枚 12898ccd9b 双否,已 tag 保全并重落) (ffc81df2014)
-- 📚 문서:G-921 翻勾 —— 三枚(Connectors / DomainHub / McpStore)共享层下沉全部落地并上线(枚 588a6342d8 / 7f9eb8eb00 / cc9b3672ef) (316bc4bf2e7)
-- 📚 문서:登记门 39 全量档新增的 6 枚 V1 红(枚 8f16334f48 补齐 12 屏里的 ConnectedAccounts / ImageGenGallery / ImageGenTemplates / Points / Usage / WrongQuestions 六屏未做共享层下沉) (d7deeddd30b)
-- 🔧 기타:重生成 RN ui-routes 自述钉并补回 SecurityCenter 白名单条目(45088b42447 旁路落地时未跑写回钩子) (752074e67f6)
-- 🐞 수정:后台守卫不再把「角色还没查到」折成 0 —— 真管理员冷加载 6 次有 3 次被弹到 /forbidden(附双臂变异自证的时序测试) (c9a75878532)
-- 🐞 수정:监控面板查询失败整轮不落结果 (f6f9715fe98)
-- 📚 문서:守门 229 那条就地改写 —— 补 H4 档(摘前先问门 71 会不会把这条按未勾还原)、H3 基线改判 HEAD^、新增 state=all-held 与 exit 3 的机读结论(全仓不再有无需清扫式兜底文案) (ef8e6666cc9)
-- 📚 문서:票60 就地改写进度注记 —— 第三、四批已落(含被并发合并吞掉那枚的重落凭据),未收口只剩 e2e 真机核验与描边态分窗格 (4e4fc9e5b25)
-- 📚 문서:登记本轮收口留下的六件真活(归档件 lint-staged 雷区其余 84 枚 / 取号入口被 O 族重号顶死 / 门 105 G5 产物钉存量红 / D197 换行开关用例存量红 / 会话滚动位恢复无生产接线 / 多窗格缺 e2e 真机核验) (d96c474a17c)
-- 🚀 기능/개선:票60 第三、四批 —— 续传/工具面板/发起分析全面窗格化,跳转总线按窗格门控(重落被并发合并吞掉的 12898ccd9b) (d3541dc2670)
-- 🚀 기능/개선:G-921 第三枚(收官)—— McpStoreScreen 的 UI 下沉到共享层(新建 packages/app/src/features/mcp-store/McpStoreScreen.tsx + index.ts 导出组件、类型与共享判据 mcpInstallBlockedKey),RN 侧改 wrapper(只留四项 API 调用 get / install / setStoreServerEnabled / uninstall、安装与卸载二次确认弹层 appAlert、i18n 与主题注入),照 PaymentScreen / DomainHubScreen / ConnectorsScreen 同一型 wrapper 模式。 (cc9b3672ef2)
-- 🐞 수정:输入框外框的常驻暖色环也纳入判据 —— 门 231 W1 增 W1-input 维 (177e5230c40)
-- 🚀 기능/개선:补齐 12 屏对齐 web 设置/内容/交易域 (8f16334f483)
-- 🐞 수정:监控面板查询失败保留旧数据 + 筛选下拉不再撑满整行 (70ea7877d40)
-- 🐞 수정:底栏图标改走内联 data URI —— 本地 PNG 的 Image 取源链在 release 上恒空白 (10c2d9e7643)
-- 📚 문서:G-921 登记第二枚(ConnectorsScreen)下沉共享层的进展与凭据(枚 588a6342d8;门 39 全量红 2→1;剩一枚 McpStoreScreen 归下一批) (c8ee7a2c4d6)
-- 🐞 수정:持续性门槛的 firstAt 必须同时进 info —— 派发侧读的就是那一份 (b398a4035ca)
-- 🚀 기능/개선:G-921 第二枚 —— ConnectorsScreen 的 UI 下沉到共享层(新建 packages/app/src/features/connectors/ConnectorsScreen.tsx + index.ts 导出组件与类型),RN 侧改 wrapper(只留 API 调用 get/setEnabled/sync/delete、删除二次确认弹层 appAlert、i18n 与主题注入),照 PaymentScreen/DomainHubScreen 同一型 wrapper 模式。 (588a6342d8b)
-- 🐞 수정:补录 SecurityCenter 的 ROUTE_ROOT_BG chrome 档(屏内渲染 NavBar,顶栏 chrome 结构锁判据要求) (c849c50fa11)
-- 🐞 수정:守门 78 补第六维——外部依赖声明↔链接对账,根治 lucide-react 断链致 8 端构建阻断 (c1e0350c61b)
-- 🐞 수정:监控域之外 5 处状态色文字同接角色档 —— 全 web 残留读数 0(同族后缀档 4/4 未动) (1227a9742cb)
 <!-- END RECENT UPDATES -->
 
 <p align="center">

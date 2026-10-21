@@ -129,7 +129,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 267 | `guardianGates` |
 | — blocking | 243 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15581 | `trackedFiles` |
+| 跟踪文件 | 15575 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,6 +6125,29 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-21**
+- ⚡ 性能:提交链 12.7min → 38s —— 修并行判断 String() 归一(并行池从未生效)+ 快档 35s 预算与延后补跑 + 实时百分比进度 + 30a 结论缓存 + 网络调用治本超时 (3ca997ffba0)
+
+**2026-10-21**
+- 🐞 修复:净面 worktree 建了从不回收 —— 补统一回收出口(remove --force + prune),收尾清孤儿登记 (f2894131a3d)
+
+**2026-10-21**
+- 🐞 修复:删除 PROJECT_PLAN 错误入库的冲突标记 3 行 + 收尾报告补溯源水印 (32dde7723b4)
+- 🔧 工程/其他:复删被合并复活的 6 枚死图标 —— 机主裁决枚 504f86371720 已删 20 枚,triangle-alert.svg 不在删除名单故保留; §22 门 168 不许删除被合并静默复活 (64a306b7868)
+- 📚 文档:补 2026-10-21 收口报告缺失的溯源载荷(远端带入时未注入,水印全量预检「未覆盖」;§5c 注入幂等) (804b5348bd9)
+- 🐞 修复:恢复 504f863717 被裁决删除的 6 枚 lucide 图标 —— 该裁决正被撤销批(索引里 agent.md/spec-mode/lint-staged/reaper 15 件已在恢复) (bddc5effff3)
+- 🐞 修复:release/设备包禁止回环 API 基址 —— 防误清生产会话 (657853ed9d8)
+- 🐞 修复:归并 merge 冲突标记 —— 取 theirs 侧 55 行漂移副本注释(ours 侧仅空行,零内容损失); 冲突标记门 79 已 rc=0 (f75d0b34919)
+- 📚 文档:登记 Android 原生构建 MAX_PATH 与 ninja 1.12.1 修法 (cec5b62f2fa)
+- 🐞 修复:清零 39/52/73/89/103/135/166/207 存量(白名单/补 windowsHide/迁 api-client 保留错误身份/文档点名/拆 git-guardian/AGENTS 减重 29KB 配逐字归档档); 166 已判 lost 0,归档件 8f5afeb38f6 (0d9f7cbeb97)
+- 🔧 工程/其他:收口弃管暂存批与再生件——README 四语 changelog 再生、轮次收口报告归档、tmp 指针件删除 (2cd07c15647)
+- 📚 文档:2026-10-21b 归档件改为逐字原文(去行号前缀,守门 166 归档豁免要求逐行相等) (8f5afeb38f6)
+- 🐞 修复:chat-element-coverage 私有索引派生 stdin 由 ignore 改 pipe —— [193] 第3b条 input↔stdin 存量红,strict 档 push 门问责,input 才能送达 git (63f1690f45c)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (87f9eebffb1)
+- 🐞 修复:commit-loss-guard 镜像测试 git rev-parse 派生显式接管 stdio —— 触 [193] push 门(判定面 HEAD blob),补 ['ignore','pipe','pipe'] 后判红 0 处 (e94d61259e6)
+- 📚 文档:压缩 AGENTS.md 至 80KB 并补 worktree 生命周期规则;ensure-silent-tasks 审计回收链路健康 (6efeeadc20c)
+- 📚 文档:AGENTS.md 2026-10-21b 重复副本归档件(55 行,零信息损失) (9ceac550c0a)
+
+**2026-10-21**
 - 🐞 修复:清零 39/52/73/89/103/135/166/207 存量(白名单/补 windowsHide/迁 api-client 保留错误身份/文档点名/拆 git-guardian/AGENTS 减重 29KB 配逐字归档档); 166 已判 lost 0,归档件 8f5afeb38f6 (0d9f7cbeb97)
 - 🔧 工程/其他:收口弃管暂存批与再生件——README 四语 changelog 再生、轮次收口报告归档、tmp 指针件删除 (2cd07c15647)
 - 📚 文档:2026-10-21b 归档件改为逐字原文(去行号前缀,守门 166 归档豁免要求逐行相等) (8f5afeb38f6)
@@ -6984,84 +7007,6 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - ♻️ 重构:SquareScreen / PlazaScreen 两处共享类型重声明改为 import 共享层 (3ead65aee50)
 - 🐞 修复:门 105 小程序端 ui-routes 派生产物再对齐 —— 并发会话在本席上一枚落库后又改了 apps/miniapp-taro/src/components/DrawerComponent.tsx,产物自述钉遂与 head 面现算不等;重生成前已验全部输入源的工作树与 HEAD 逐字一致(工作树干净),故产物钉住的是 HEAD 面的源 (00960fa854c)
 - 🐞 修复:sso 隧道源站 8543→8850(端口铁律,注册表+docs §2.7 双向登记) (b2503baa8ee)
-
-**2026-10-20**
-- 🐞 修复:监控大屏(panels)适配明暗主题,移除写死蓝黑配色 (790f669fbc3)
-
-**2026-10-20**
-- 🐞 修复:orchestration_hub 事件改为单键 JSON 写入 Redis 流 (6048e094485)
-
-**2026-10-19**
-- 🐞 修复:disable xinference local provider probe by default (afd853023e9)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a6291841552)
-- 📚 文档:结清 D113 流式 diff 实时预览(复验+回归绿) (79c54edbd64)
-- 🐞 修复:--staged 归属判据改差值棘轮(锚 HEAD),解除全场提交被迫跳门的恒红 (18eb57d63de)
-- 📚 文档:结清两条 P0 技能市场授权缺陷(复验+回归绿) (5b52770931d)
-- 📚 文档:守门 207 体积瘦身 —— §1「重复登记副本」两行历史叙述整区搬入归档件(逐字原文,原位置留一行压缩条款,规则内核一字未减),另删一处与文首逐字重复的压缩版说明行;载荷行逐字未变、零宽字符总数未变(脚本自证) (8b05e0e2f5b)
-- 🐞 修复:sso 隧道源站 8543→8850(端口铁律,注册表+docs §2.7 双向登记) (3b5fa476169)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a969d2a5aa1)
-- 🐞 修复:W3 补命名空间相对取词出口,并收口图片标注裸 TextInput (ba671cd8a99)
-- 📚 文档:登记 P1 2026-10-19 LLM 观测失配修复轮(用户级指标+并发闸+探测降噪+系统身份映射) (715aac66435)
-- 🐞 修复:门 105 四端 ui-routes 派生产物重生成对齐当前 HEAD 源 —— 生成器原话出路(机械动作);生成前已验三个输入源的工作树与 HEAD 逐字一致,故产物自述钉与 head 面现算相等 (c59ee4d85c0)
-- 🐞 修复:LLM 观测失配修复(用户级指标)+ 自伤并发闸 + 探测降噪 + 系统身份映射 (66a47341319)
-- 🐞 修复:门 83 基线补登 ChatScreen.tsx 的 R2 存量 2 处(图片预览浮钮实底 surface.light,D124 引入时漏登基线 ⇒ 全量档恒红);按全量实测只补这一处,不动其余键 (893b31371c7)
-- ♻️ 重构:斜杠命令模板类 id 清单下沉共享层 —— web/RN 共用同一份(端与端 import 边违反架构契约 D1,门 103 判红);web 侧改 re-export 消费方零改动,RN 测试基准换为共享层 (e77e5bb8e49)
-- 🐞 修复:ChatScreen exhaustive-deps 两条 + ImageAnnotator 裸 TextInput 按 G-978007 判据补齐(CI lint/test 存量红) (b98806f33dd)
-- 🐞 修复:agent 迁移 325 三处 ALTER TYPE 补 DROP DEFAULT(CI 测试库 42804 炸点,default 无法自动转换:federated id/dp_noise_added + meta source_skills) (4af9df7f938)
-- 🔧 工程/其他:chat-branch i18n mock 形状对齐类型定义(CI typecheck 5×TS2322) (4dd69c99528)
-- 🐞 修复:token 就位后等 HubSpot 回调自动提交,不再重点 Submit(否则 reCAPTCHA 重弹) (b88382c6836)
-- 🐞 修复:修最后一处 shotPush 作用域错误 (82722394440)
-- ♻️ 重构:划词批注输入框改用共享层 TextField(§3 共享层优先,端内禁止裸 TextInput);tsc/eslint/门218/门128/水印 全绿 (aaf524d3ebd)
-- 📚 文档:G-194 结清 —— 真机复量:当前 HEAD 首页滚动已不复现,修法未落地 (5041621176d)
-- 🐞 修复:沿祖先链修正显示属性并抬高层级(挑战被页面盖住) (f40959d2d9c)
-- 📚 文档:G-167 ② 已落地并翻勾 —— 流键派生收口到 i18n-key-flow.mjs (0171084ee26)
-- 🚀 新功能/改进:G-167 ② 流键提取收口到 i18n-key-flow.mjs,门 2 与死键扫描共用同一份派生 (704aeb8f43d)
-- 🐞 修复:强制把挑战 iframe 摆到可见位置(宿主 CSS 压成 150px 条带) (bba38b54b88)
-- 🐞 修复:撤掉 CDP DPR 覆盖(打乱挑战浮层定位) + 网格截图取最大 bframe (df022c4ee35)
-- 🐞 修复:挑战可见性判据改用格子计数 (7f0d26c28aa)
-- 🐞 修复:修 shotPush 作用域错误 + console.error 入镜像 (0fe03661205)
-- 📚 文档:撤回票 68 的错误翻勾 —— 运行时合格证未取得,且该行认领在他席 (68f7664a39e)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cf85ee4574f)
-- 🔧 工程/其他:提交后加诊断截图 (77bbeb81aeb)
-- 🐞 修复:不可见 reCAPTCHA 需等待挑战弹出(45s) + anchor 可见性判定 (d0617767f7a)
-- 📚 文档:结清票 68 —— 流式中切换模型三端齐备(web 18 / 小程序 17 / RN 14 用例通过) (24c516271e6)
-- 🐞 修复:先过 reCAPTCHA 再提交 + Submit JS 兜底 + 提交后复查挑战 (c5ccf62a858)
-- 🐞 修复:批注面板圆角补齐角色档(门 150 点名 panel 应为 xl) (1b23b990989)
-- 🐞 修复:reCAPTCHA 通过判据改 token + 2x 超采样截图 + Submit 重放 (50c8f28b5b9)
-- 🐞 修复:SelectionAnnotationBar 徽章圆角改走档位源 rnRadius.md,去掉 rpx(14) 字面量(AGENTS.md 圆角单一源头:禁止 px/rpx 字面量,计数徽章模板即 rounded-md) (5b2b21def28)
-- 🐞 修复:reCAPTCHA 支持动态挑战多屏循环 + 指令改走 Contents API 免 CDN (a6c085b7f16)
-- 📚 文档:登记 RN↔web 能力对齐收口轮 —— 已对齐面/四类平台豁免/四处误报更正/落库与守门收口实证 (da046c43ad1)
-- 🐞 修复:reCAPTCHA 支持动态挑战多屏循环 + 指令改走 Contents API 免 CDN (cc07bcfbeb8)
-- 🐞 修复:mobile-rn ja 的 slashCmd.wechatArticle 去掉简体字「众」(日文应用「公式アカウント記事」);守门 2o ja 中文残留判红 (a2f39092003)
-- 🐞 修复:守门 8 修两处判据盲区 + BP 腿基线下调到 15 (c1afcfc8ce0)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (76045c98e0d)
-- 🐞 修复:reCAPTCHA 指令轮询窗口 6 分钟 -> 10 分钟 (1dc3aa64282)
-- 📚 文档:摘除 6 行 F1/F4 重复登记副本(并发旧基线 union 合并带回),认领标记原样转移 —— F1 3→0 / F4 3→0 (489ad005a52)
-- 🚀 新功能/改进:清 BP 腿量出的裸路径死调用 —— RN/小程序 2 处 + web 6 处改指在册端点 (4ba1934c568)
-- 📚 文档:仪表盘数字订正为现读 26(删 jaeger/nginx 幻觉盘下游:MONITORING 21→26、README 三处 21/3/21→26、生成器头注 20+1→24 Prometheus+2 Loki)+ sync-readme-numbers.mjs 补溯源水印(CI watermark check 唯一未覆盖文件) (61031d3ad84)
-- 🐞 修复:reCAPTCHA 挑战改按 DOM 格子序号点击,消除 3x3/4x4 坐标漂移 (f67bcb5fa4e)
-- 🚀 新功能/改进:斜杠命令面对齐 web(模板正文逐字取自 web chat.cmd*)+ 会话批注补复合归属键与 AsyncStorage 落盘(D180 对齐 web 三处语义);附 mobile-rn 五语言 slashCmd/slashTemplate/selectionAnnotations 词条与 automations.schedule 缺键 (895eefbdbd1)
-- 🔧 工程/其他:npm-bootstrap runner 加远端日志镜像与防挂死硬超时 (28563b79d73)
-- 📚 文档:全文陈旧数字现读刷新(四语言同步,遗留项整改) (d56aa604a9d)
-- 🔧 工程/其他:删除已零引用的计划指针净化临时票据 plan-pointer-purge-2026-10-14-b56c9ad7.md(工作树删除收口,全仓零引用,git 历史可取回) (d6d12cfa96c)
-- 📚 文档:补桌面/MSVC 构建注入与未签名豁免文档段 + 端口登记/port 文档 8861 对齐 dev:desktop:saas 新流程【出口②留痕:AGENTS.md 5 段在祖先 fc3cc1e03(union merge)提交过但被后续重组挤出 HEAD,属恢复丢失非复活陈旧——同批代码 msvc-env/desktop-build*/desktop-unsigned-config/desktop-artifact-single 早已在 HEAD(d03e3fe8d68+c304d2bcbb9),文档与代码是同一次工作的两部分;dev-port-registry.json 键路径复活 0、port-management.md 干净,均非 stale】 (f093663094b)
-- 🐞 修复:健康门禁 llm 维加源站 liveness 腿(公网 unknown 折算为绿)+CLEAN-BUILD 净面还原 sw.js (2ed0508fcb5)
-- 🔧 工程/其他:删除 5 个无引用死文件——3 张轮播图(引用已被 banner-*.jpg 替换)+ jaeger/nginx 两盘幻觉看板(零生成贡献) (741338179d2)
-- 🚀 新功能/改进:reCAPTCHA 闭环升级——挑战截图经 GITHUB_TOKEN 实时推 rc-live 分支(李总侧 raw 读取识别→坐标 rc-clicks.json 回传→点击),成功后清理 (9a598d8e405)
-- 📚 文档:特性总览重写为结构化可扫读的能力展示(基于现读) (14de5d970c3)
-- 🚀 新功能/改进:reCAPTCHA 图像挑战闭环(截图回传→rc-clicks.json 坐标指令→人类化点击→VERIFY→多轮);automation 超时 40min (998e83c7232)
-- 🐞 修复:BottomPops 门150 半径 control→sm + check-artifact-budget buildHint 对齐 wrapper/unsigned + ONBOARDING 桌面 dev 命令对齐 (a81e7cd986a)
-- 🐞 修复:SignPath DD 改 label 定位 hsfc-DropdownField + combobox/option 交互;dump SP_DD_HTML 诊断 (342bd7a49e3)
-- 🐞 修复:收归未签名豁免单源 + 银行 build 会话桌面端增量(MSVC 根治体系后续) (c304d2bcbb9)
-- 📚 文档:修复最近更新机制基线悬空缺陷 + 块内容改由主线历史重生成 (6e2e29f3605)
-- 🚀 新功能/改进:守门 8 补 BP 腿 —— 裸路径传输口调用进调用集(本簇真正的根因器物) (a1c2f1f116a)
-- 📚 文档:G-200 结清 —— 服务端有界续写随码入库,本号行与旧号同题副本一并翻勾 (b48b9675bbf)
-- 🚀 新功能/改进:守门 98 补 D5 维 —— 同一 barrel 文件内同名导出重复当场拦(防第五次回灌) (e4ef3b38ac8)
-- 🚀 新功能/改进:G-200 服务端有界续写落地 —— finish_reason 三面透传 + 每恢复段 ≤3 次 + 补丁不落持久历史 (bac27c8f7b0)
-- 🚀 新功能/改进:补 GET /api/user/security 与 /api/circles/users/recommend —— 两条死路径的真实数据源 (7cfd10d17e3)
-- 🚀 新功能/改进:G-425 端上截断提示补齐 RN + 小程序两条腿 —— done 帧 finishReason 判 length/max_tokens 即 toast,缺席绝不折成 stop (39471e598a0)
-- 🐞 修复:6 个屏的 8 条死路径改指既有后端 —— 不新建端点、不造表 (8b3e8c5d5fa)
-- 🐞 修复:清掉合并带回的 FormRequestEvent 重复导出 —— HEAD 面 TS2300 打死了本包 build (f1d0b6259cc)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
