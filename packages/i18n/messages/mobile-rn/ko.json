@@ -545,6 +545,11 @@
     "claimFree": "무료 자료 받기",
     "groupAdvanced": "고급 도구",
     "groupDeveloper": "개발자",
+    "groupMoreContent": "더 많은 콘텐츠",
+    "groupMoreAccount": "계정 및 보안",
+    "groupMoreTrade": "거래 및 자금",
+    "groupMoreAi": "더 많은 AI 도구",
+    "groupMoreService": "서비스 및 지원",
     "automation": "자동화 작업",
     "myLearning": "내 학습",
     "userCenter": "내 계정",
@@ -3396,7 +3401,7 @@
     "source": "출처"
   },
   "memory": {
-    "title": "내 메모리",
+    "detail": "상세",    "title": "내 메모리",
     "empty": "메모리가 없습니다",
     "emptyHint": "AI와의 장기 대화 메모리가 여기에 저장됩니다",
     "loadFailed": "메모리 로드 실패",
@@ -3527,7 +3532,8 @@
     "loginButton": "로그인"
   },
   "webViewPortal": {
-    "title": "웹 기능 포털",
+    "knowledgeBase": "지식 베이스",
+    "settingsBilling": "청구 관리",    "title": "웹 기능 포털",
     "hint": "아래는 웹 버전 기능 진입점입니다. 내장 브라우저에서 열립니다",
     "sections": {
       "eduAi": "교육 AI",

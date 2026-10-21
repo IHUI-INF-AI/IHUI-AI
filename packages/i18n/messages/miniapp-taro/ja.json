@@ -4452,7 +4452,8 @@
     "p1": "録音を開始できませんでした"
   },
   "webViewPortal": {
-    "title": "Web 機能ポータル",
+    "knowledgeBase": "ナレッジベース",
+    "settingsBilling": "請求管理",    "title": "Web 機能ポータル",
     "hint": "以下は Web 版機能の入口です。内蔵ブラウザで開きます",
     "sections": {
       "eduAi": "教育 AI",

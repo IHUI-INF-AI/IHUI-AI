@@ -5,7 +5,10 @@
 import type { LucideIcon } from 'lucide-react-native'
 import {
   Award,
+  BadgeCheck,
   BookOpen,
+  CircleAlert,
+  CircleDollarSign,
   ClipboardList,
   Coins,
   CreditCard,
@@ -13,8 +16,12 @@ import {
   FileText,
   GraduationCap,
   Hash,
+  Inbox,
   LayoutGrid,
+  Link,
   ListChecks,
+  Mail,
+  Map,
   MapPin,
   Megaphone,
   MessageCircle,
@@ -23,12 +30,15 @@ import {
   Package,
   PenLine,
   PlayCircle,
+  Presentation,
   Receipt,
+  RefreshCcw,
   ScrollText,
   ShoppingBag,
   ShoppingCart,
   Star,
   Ticket,
+  TrendingUp,
   Users,
   UsersRound,
   Wallet,
@@ -137,6 +147,50 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         route: 'Announcement',
         target: { type: 'route', name: 'Announcement' },
       },
+      // 2026-10-21 第五批:web EDU_HUB_ITEMS 另有 6 项此前漏挂(本域原只取 10 条,
+      // web 该清单 41 条)。RN 六路由均可无参导航(已核 RootStackParamList)。
+      {
+        // web /exam/wrong-questions(错题本)
+        labelKey: 'wrongQuestions.title',
+        Icon: CircleAlert,
+        route: 'WrongQuestions',
+        target: { type: 'route', name: 'WrongQuestions' },
+      },
+      {
+        // web /learn/review(每日复习)
+        labelKey: 'learnReview.title',
+        Icon: RefreshCcw,
+        route: 'LearnReview',
+        target: { type: 'route', name: 'LearnReview' },
+      },
+      {
+        // web /lecturers(讲师)
+        labelKey: 'teacher.list.title',
+        Icon: Presentation,
+        route: 'TeacherList',
+        target: { type: 'route', name: 'TeacherList' },
+      },
+      {
+        // web /edu/progress(学习进度)
+        labelKey: 'studyProgress.title',
+        Icon: TrendingUp,
+        route: 'StudyProgress',
+        target: { type: 'route', name: 'StudyProgress' },
+      },
+      {
+        // web /edu-ai/map(学习地图)
+        labelKey: 'learnMap.title',
+        Icon: Map,
+        route: 'LearnMap',
+        target: { type: 'route', name: 'LearnMap' },
+      },
+      {
+        // web /edu-ai/certification(讲师认证)
+        labelKey: 'certApply.title',
+        Icon: BadgeCheck,
+        route: 'CertApply',
+        target: { type: 'route', name: 'CertApply' },
+      },
     ],
   },
   /**
@@ -184,6 +238,28 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         Icon: Users,
         route: 'Groups',
         target: { type: 'route', name: 'Groups' },
+      },
+      // 2026-10-21 第五批:web CONTENT_HUB_ITEMS 另有 3 项此前漏挂
+      {
+        // web /oauth/platform(已连接账号)
+        labelKey: 'connectedAccounts.title',
+        Icon: Link,
+        route: 'ConnectedAccounts',
+        target: { type: 'route', name: 'ConnectedAccounts' },
+      },
+      {
+        // web /messages 的系统消息子项
+        labelKey: 'messageSystem.title',
+        Icon: Inbox,
+        route: 'MessageSystem',
+        target: { type: 'route', name: 'MessageSystem' },
+      },
+      {
+        // web /messages 的私信子项
+        labelKey: 'messageDirect.title',
+        Icon: Mail,
+        route: 'MessageDirect',
+        target: { type: 'route', name: 'MessageDirect' },
       },
     ],
   },
@@ -278,6 +354,28 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         Icon: MapPin,
         route: 'Addresses',
         target: { type: 'route', name: 'Addresses' },
+      },
+      // 2026-10-21 第五批:web TRADE_HUB_ITEMS 另有 3 项此前漏挂
+      {
+        // web /earnings(收益)
+        labelKey: 'income.title',
+        Icon: CircleDollarSign,
+        route: 'Income',
+        target: { type: 'route', name: 'Income' },
+      },
+      {
+        // web /traders(VIP 操盘手)
+        labelKey: 'vipTrader.title',
+        Icon: TrendingUp,
+        route: 'VipTrader',
+        target: { type: 'route', name: 'VipTrader' },
+      },
+      {
+        // web /refund(申请退款)
+        labelKey: 'orderRefund.title',
+        Icon: Receipt,
+        route: 'OrderRefund',
+        target: { type: 'route', name: 'OrderRefund' },
       },
     ],
   },
