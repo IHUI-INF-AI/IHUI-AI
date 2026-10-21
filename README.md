@@ -129,7 +129,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 267 | `guardianGates` |
 | — blocking | 243 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15610 | `trackedFiles` |
+| 跟踪文件 | 15611 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,6 +6125,15 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (980c5f92b2)
+
+**2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (980c5f92b2)
+
+**2026-10-22**
+- 🔧 工程/其他:收口四语 README 最近更新与跟踪文件计数(15610) —— 派生区按 MAX_GROUPS 封顶主动裁旧属设计,块外仅 trackedFiles 一行变更,已按文档口径 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (16c2dc4f56)
+
+**2026-10-22**
 - 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0165022242)
 - ⚡ 性能:按改动性质分档(元门档 31 门)+ README 自动同步移出 pre-commit(消除 O43 窗口冲突) (c930087e84)
 - 🐞 修复:storeDir 指向已不存在的 G 盘 —— 全仓 install 恒失败(净面/主仓同因),改 D 盘 (8d81ef1995)
@@ -6172,17 +6181,6 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 
 **2026-10-22**
 - 🔧 工程/其他:收编停留≥0分钟的未提交改动 (af9a2f8bf8)
-
-**2026-10-22**
-- 📚 文档:check-task-claims 头注同步单源挂牌判据口径。残余交后手:裸「（进行中）」形态仍只计数不判红(向后兼容是机主既有定档),而本次清账现读该族存量为零 ⇒ 升 blocking 的前置已满足,是否收口待人定档,本席不擅自改纪律。 (9b6e98211f)
-
-**2026-10-22**
-- 🐞 修复:移除 check-task-claims 重构后遗留的未用常量(eslint no-unused-vars) (fd994c3d0b)
-- 📚 文档:§1 登记挂牌判据单源口径(claimMarkOf),防止 31/59 两把尺子再度漂移 (346b407321)
-- 🐞 修复:摘除 57 枚无席位在飞的死认领牌(30 超龄租约 + 27 旧裸标记),按 §1 交回派单面 (86467cf1eb)
-
-**2026-10-22**
-- ♻️ 重构:任务认领判据单源化 —— check-task-claims 改用 plan-task-index 的 claimMarkOf/codeSpanRangesOf (09e13e0eda)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.

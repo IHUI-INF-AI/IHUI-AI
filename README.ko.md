@@ -2176,6 +2176,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (980c5f92b2)
+
+**2026-10-22**
 - 🔧 기타:收口四语 README 最近更新与跟踪文件计数(15610) —— 派生区按 MAX_GROUPS 封顶主动裁旧属设计,块外仅 trackedFiles 一行变更,已按文档口径 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (16c2dc4f56)
 
 **2026-10-22**
@@ -2226,9 +2229,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-10-21**
 - 🐞 수정:删除 learn.detail 死 key duration/objectives(五语言同批,解除死 key 门全局阻塞) (b35c22d2e6)
-
-**2026-10-21**
-- 🐞 수정:README 测试文件计数同步为 3019(门 173 现算口径)并收口最近更新窗口 (0e715fe6c9)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
