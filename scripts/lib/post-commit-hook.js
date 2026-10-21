@@ -30,8 +30,8 @@
 // 机器级 NODE_OPTIONS 钩子,后者对 sh→node 派生链无效);② 没有可被误删的
 // .vbs,弹窗在机制上不可能。
 // 输出仍按 label 落 `.workbuddy/hook-logs/<label>.log`,与原行为一致。
-const { execSync, spawnSync } = require('child_process')
-const { mkdirSync, appendFileSync, readFileSync, existsSync } = require('fs')
+const { execSync, spawn, spawnSync } = require('child_process')
+const { mkdirSync, appendFileSync, readFileSync, existsSync, openSync } = require('fs')
 const { join } = require('path')
 
 // ─── GIT_DIR 去污(2026-10-01,同 pre-commit-hook.js 同款病理根治)───
@@ -266,6 +266,34 @@ if (process.env.HUSKY_SKIP_TAG_SYNC !== '1') {
     console.log(
       '⚠️  tag 同步超时/失败(非阻塞, commit 已落地并 push 到 branch; 需补推时: node scripts/sync-lost-commit-tags.mjs --auto-push --force)',
     )
+  }
+}
+
+// ─── 7. 快档延后守门补跑(2026-10-21 立,配合 pre-commit 的 35s 硬预算)────────────
+// pre-commit 快档到点后,未跑完的门写进 gates-deferred.json;这里 **detached** 补跑全量,
+// 不阻塞本次提交返回,结果落 gates-deferred-run.log。提交已落地 ⇒ 这里失败只留日志不阻断。
+// 跳过:HUSKY_SKIP_DEFERRED_GATES=1
+if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
+  const deferredFile = join(ROOT, '.workbuddy', 'hook-logs', 'gates-deferred.json')
+  if (existsSync(deferredFile)) {
+    try {
+      const j = JSON.parse(readFileSync(deferredFile, 'utf8'))
+      if (j && Array.isArray(j.gates) && j.gates.length > 0) {
+        const outLog = join(ROOT, '.workbuddy', 'hook-logs', 'gates-deferred-run.log')
+        const fd = openSync(outLog, 'w')
+        const child = spawn(process.execPath, ['scripts/guardian-runner.mjs', '--staged'], {
+          cwd: ROOT,
+          detached: true,
+          stdio: ['ignore', fd, fd],
+          windowsHide: true,
+          env: { ...process.env, IHUI_GATE_FAST: '0' },
+        })
+        child.unref()
+        console.log(`⏱  快档延后的 ${j.gates.length} 门已在后台补跑(日志:${outLog})`)
+      }
+    } catch {
+      /* 补跑派发失败不影响提交(提交已落地) */
+    }
   }
 }
 
