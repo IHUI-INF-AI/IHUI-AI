@@ -17,7 +17,8 @@ import { Button } from '@ihui/ui-react'
 import { DemandSquareFilter } from './DemandSquareFilter'
 import { DemandSquareTable } from './DemandSquareTable'
 import { DemandSquareDialog } from './DemandSquareDialog'
-import { PAGE_SIZE, api, fetchExamine, EXPORT_COLUMNS, STAT_KEY } from './helpers'
+import { PAGE_SIZE, fetchExamine, EXPORT_COLUMNS, STAT_KEY } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Examine, ExamineStats } from './types'
 import { BackButton } from '@/components/common'
 
@@ -33,7 +34,7 @@ export default function AdminDemandSquarePage() {
 
   const { data: stats } = useQuery({
     queryKey: ['admin', 'demandSquare', 'stats'],
-    queryFn: () => api<ExamineStats>('/api/examine/stats/summary'),
+    queryFn: () => apiOrThrow<ExamineStats>('/api/examine/stats/summary'),
   })
 
   const { data, isLoading, error } = useQuery({
@@ -42,7 +43,8 @@ export default function AdminDemandSquarePage() {
   })
 
   const approveMut = useMutation({
-    mutationFn: (id: string) => api<Examine>(`/api/examine/${id}/approve`, { method: 'PUT' }),
+    mutationFn: (id: string) =>
+      apiOrThrow<Examine>(`/api/examine/${id}/approve`, { method: 'PUT' }),
     onSuccess: () => {
       toast.success(t('approveSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'demandSquare'] })
@@ -52,7 +54,7 @@ export default function AdminDemandSquarePage() {
 
   const rejectMut = useMutation({
     mutationFn: () =>
-      api<Examine>(`/api/examine/${rejectTarget!.id}/reject`, {
+      apiOrThrow<Examine>(`/api/examine/${rejectTarget!.id}/reject`, {
         method: 'PUT',
         body: JSON.stringify({ reason: reason.trim() }),
       }),

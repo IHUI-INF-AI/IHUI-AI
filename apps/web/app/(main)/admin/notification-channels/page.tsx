@@ -21,11 +21,11 @@ import {
 import { ChannelsTable } from './ChannelsTable'
 import { ChannelDialog } from './ChannelDialog'
 import { BackButton } from '@/components/common'
+import { apiOrThrow } from '@/lib/api'
 import {
   RESOURCE,
   PAGE_SIZE,
   EMPTY_FORM,
-  api,
   itemToForm,
   type Item,
   type ListData,
@@ -48,7 +48,7 @@ export default function NotificationChannelsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'notification-channels', qs],
-    queryFn: () => api<ListData>(`${RESOURCE}?${qs}`),
+    queryFn: () => apiOrThrow<ListData>(`${RESOURCE}?${qs}`),
   })
   const list = data?.list ?? []
   const total = data?.total ?? 0
@@ -72,8 +72,11 @@ export default function NotificationChannelsPage() {
         remark: form.remark.trim() || undefined,
       }
       return editing
-        ? api<Item>(`${RESOURCE}/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
-        : api<Item>(RESOURCE, { method: 'POST', body: JSON.stringify(body) })
+        ? apiOrThrow<Item>(`${RESOURCE}/${editing.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+          })
+        : apiOrThrow<Item>(RESOURCE, { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'notification-channels'] })
@@ -83,7 +86,7 @@ export default function NotificationChannelsPage() {
     onError: (e: Error) => toast.error(e.message),
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`${RESOURCE}/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`${RESOURCE}/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'notification-channels'] })
       toast.success(t('saved'))

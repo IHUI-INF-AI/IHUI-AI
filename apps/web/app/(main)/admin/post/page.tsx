@@ -16,7 +16,8 @@ import { Button } from '@ihui/ui-react'
 import { PostFilter } from './PostFilter'
 import { PostTable } from './PostTable'
 import { PostDialog } from './PostDialog'
-import { RESOURCE, PAGE_SIZE, EMPTY, EXPORT_COLUMNS, api } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { RESOURCE, PAGE_SIZE, EMPTY, EXPORT_COLUMNS } from './helpers'
 import type { Post, ListResp, PostForm, PostSearch } from './types'
 import { BackButton } from '@/components/common'
 
@@ -45,7 +46,7 @@ export default function PostPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'posts', params],
-    queryFn: () => api<ListResp>(`${RESOURCE}?${params}`),
+    queryFn: () => apiOrThrow<ListResp>(`${RESOURCE}?${params}`),
   })
   const list = data?.list ?? []
   const total = data?.total ?? 0
@@ -54,8 +55,8 @@ export default function PostPage() {
   const saveMut = useMutation({
     mutationFn: () =>
       editing
-        ? api(`${RESOURCE}/${editing.id}`, { method: 'PUT', body: JSON.stringify(form) })
-        : api(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
+        ? apiOrThrow(`${RESOURCE}/${editing.id}`, { method: 'PUT', body: JSON.stringify(form) })
+        : apiOrThrow(RESOURCE, { method: 'POST', body: JSON.stringify(form) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'posts'] })
       setOpen(false)

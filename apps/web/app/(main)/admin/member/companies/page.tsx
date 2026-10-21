@@ -16,7 +16,8 @@ import { Button } from '@ihui/ui-react'
 import { CompaniesFilter } from './CompaniesFilter'
 import { CompaniesTable } from './CompaniesTable'
 import { CompanyDialog } from './CompanyDialog'
-import { PAGE_SIZE, EMPTY_FORM, api, fetchCompanies } from './helpers'
+import { PAGE_SIZE, EMPTY_FORM, fetchCompanies } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Company } from './types'
 import { BackButton } from '@/components/common'
 
@@ -59,12 +60,12 @@ export default function AdminMemberCompaniesPage() {
         status: form.status ? 1 : 0,
       }
       if (editing) {
-        return api<{ company: Company }>(`/api/admin/members/companies/${editing.id}`, {
+        return apiOrThrow<{ company: Company }>(`/api/admin/members/companies/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api<{ company: Company }>(`/api/admin/members/companies`, {
+      return apiOrThrow<{ company: Company }>(`/api/admin/members/companies`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -78,7 +79,8 @@ export default function AdminMemberCompaniesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/members/companies/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/members/companies/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'member', 'companies'] })

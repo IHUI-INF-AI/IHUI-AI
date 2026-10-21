@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { api } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { RefundStats } from './types'
 
 interface RefundStatsCardsProps {
@@ -20,7 +20,7 @@ export function RefundStatsCards({ currencyFmt }: RefundStatsCardsProps) {
   const t = useTranslations('admin.refund')
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'refund', 'stats'],
-    queryFn: () => api<RefundStats>('/api/admin/refunds/stats'),
+    queryFn: () => apiOrThrow<RefundStats>('/api/admin/refunds/stats'),
   })
 
   const cards = [

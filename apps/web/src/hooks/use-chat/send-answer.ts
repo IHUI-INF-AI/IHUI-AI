@@ -7,9 +7,9 @@ import type { ChatStore } from '@/stores/chat-pane-context'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { useModeStore } from '@/stores/mode'
+import { getModeStoreForChatStore } from '@/stores/mode'
 import { getSamplingParams } from '@/stores/sampling-params'
-import { useTimelineStore } from '@/stores/timeline-store'
+import { getTimelineStoreForChatStore } from '@/stores/timeline-store'
 import { toast } from '@/components/common'
 // D131:主对话流连接状态位的信号出口(侧问题流与主流同一状态位,不得各立一套)
 import {
@@ -68,6 +68,10 @@ export function createSendAnswer(
     streamGenerationRef,
     streamConversationRef,
   } = ctx
+  // 票60 普查批(2026-10-21):mode / timeline 按 chatStore 反查 paneId 取窗格实例
+  // (根单例 chatStore ⇒ null ⇒ 回落根单例),侧问题回答不再读写根窗格的伴生态。
+  const modeStore = getModeStoreForChatStore(chatStore)
+  const timelineStore = getTimelineStoreForChatStore(chatStore)
   const sendAnswer = async (answer: string, opts?: { fromRetry?: boolean }) => {
     const trimmed = answer.trim()
     if (!trimmed) return
@@ -221,7 +225,7 @@ export function createSendAnswer(
           answer: trimmed,
           // 模式透传(2026-07-22 立,对标 主流 AI IDE Plan/Spec):build/plan/review/spec
           // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,仅传 mode
-          mode: useModeStore.getState().currentMode,
+          mode: modeStore.getState().currentMode,
           // P1-7:自定义 system prompt(未设置时不传,保持上游默认)
           ...(samplingParams.systemPrompt ? { systemPrompt: samplingParams.systemPrompt } : {}),
         },
@@ -385,17 +389,17 @@ export function createSendAnswer(
         // 2026-07-29 Phase 21:补齐 onSubagentProgress + 同步写入 timeline-store。
         onSubagentSpawn: (evt) => {
           chatStore.getState().addSubagentSpawn(evt)
-          useTimelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
+          timelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
         },
         onSubagentProgress: (evt) => {
           chatStore.getState().updateSubagentProgress(evt)
           const update = mapProgressToTimelineUpdate(evt)
-          if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+          if (update) timelineStore.getState().updateEvent(update.id, update.updates)
         },
         onSubagentEnd: (evt) => {
           chatStore.getState().markSubagentEnd(evt)
           const update = mapEndToTimelineUpdate(evt)
-          if (update) useTimelineStore.getState().updateEvent(update.id, update.updates)
+          if (update) timelineStore.getState().updateEvent(update.id, update.updates)
         },
         // 2026-07-31 立,与 sendMessage 对称:sendAnswer 续流同样发出 tool-summary 事件
         onToolSummary: createToolSummaryHandler(assistantId),

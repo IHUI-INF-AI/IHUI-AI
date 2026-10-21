@@ -23,6 +23,7 @@ import { useTranslations } from 'next-intl'
 import dynamic from 'next/dynamic'
 
 import { getConversation, getMessages } from '@ihui/api-client'
+import { toast } from '@/components/common'
 import { ImportProvenanceSlot } from '@/components/ai/import-source-banner'
 import { MessageInput } from '@/components/chat/message-input'
 import { MessageList } from '@/components/chat/message-list/MessageList'
@@ -36,7 +37,7 @@ import { useApplyDiff } from '@/hooks/use-apply-diff'
 import { judgePageAdvance } from '@/lib/pagination-stall'
 import { parsePendingQuestion } from '@/lib/pending-question'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
-import { useModeStore } from '@/stores/mode'
+import { usePaneModeStore } from '@/stores/mode'
 import type { ImportProvenance } from '@ihui/shared/import-analysis'
 import { readImportProvenance } from '@ihui/shared/import-analysis'
 
@@ -60,8 +61,11 @@ export interface ChatPaneBodyProps {
 
 export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
   const t = useTranslations('chat')
+  const tcommon = useTranslations('common')
   const chatStore = usePaneChatStore()
-  const currentMode = useModeStore((s) => s.currentMode)
+  // 票60 普查批:模式档按窗格分家(此前直读根单例 ⇒ 切档把根窗格一起切走)
+  const modeStore = usePaneModeStore()
+  const currentMode = modeStore((s) => s.currentMode)
   const {
     messages,
     isStreaming,
@@ -183,6 +187,9 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
         rows: older,
       })
       if (advance.retryable) {
+        // 票60 残余②(2026-10-21):与根窗格 ai-side-panel 同一表现 —— 此前非根窗格静默
+        // 收起"加载更多"且无任何提示,用户读不出是失败,只当历史到底了。
+        toast.error(tcommon('loadFailed'))
         setHasMoreHistory(false)
         return
       }
@@ -196,6 +203,8 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
     } finally {
       setLoadingMoreHistory(false)
     }
+    // tcommon 是 next-intl 取词函数,按 ai-side-panel 同一口径不进依赖(取词函数恒同一引用)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tcommon 取词函数不进依赖
   }, [
     conversationId,
     chatStore,

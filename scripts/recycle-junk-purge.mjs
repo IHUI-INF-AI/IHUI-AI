@@ -4,10 +4,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 回收站垃圾分类清理器。
-// 动机:这台机的两个卷都写了 NukeOnDelete=1(实测:请求可撤销删除被 shell 拒绝),
-// 但 AI 编程工具的"安全删除"自己请求把文件送进回收站,那条路径不受该开关约束,
-// 于是回收站无限积累。本工具不解散回收站(那会连带抹掉用户自己的可恢复项),
-// 而是只删命中垃圾类前缀的条目;解析失败或认不出类别的条目一律不动。
+// 动机(2026-10-21 按当次实测更正,原句"AI 工具送回收站那条路径不受 NukeOnDelete 约束"
+// 已被 recycle-bin-policy --verify 的 A/B 两臂推翻:genie-trash 与显式可撤销删除请求
+// 都被硬删):卷上 NukeOnDelete 在位时删除不落回收站;但这道闸此前全仓零处维护,一旦被
+// 重置,灌入立刻恢复 —— 所以本件保留为兜底清理腿,卷策略的存续由同目录 recycle-bin-policy
+// 每轮巡检(见本文件 policyLeg)。本工具不解散回收站(那会连带抹掉用户自己的可恢复项),
+// 而是只删命中垃圾类前缀或具名再生缓存的条目;git 状态件与源码文件永不命中,
+// 解析失败或认不出类别的条目一律不动。
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -47,13 +50,52 @@ export function normalizePath(p) {
   return String(p ?? '').replace(/\//g, '\\').trim().toLowerCase()
 }
 
-export function classify(originalPath) {
+/**
+ * 树内可再生缓存:路径住在仓库树里,却纯属"删了会被工具自己重建"的那一族。
+ * 单靠 JUNK_PREFIXES 收不到它们 —— 前缀表刻意不覆盖源码树(见上),于是这类条目
+ * 一律判 KEEP、永久滞留,成了回收站涨的主要来源。
+ * 每条必须带 reason + evidence + expires:命中是"验过的豁免",不是默认放行。
+ */
+export const REGENERABLE = [
+  {
+    id: 'tsbuildinfo',
+    suffix: '.tsbuildinfo',
+    reason: 'TypeScript 增量构建缓存,下一次 tsc 自行重建',
+    evidence: '2026-10-21 实测:15:35 一轮 486 条中 483 条判 KEEP;16:13 那 8 秒连续落地 15 条,原位置全是 apps/*/tsconfig.tsbuildinfo 与 packages/*/tsconfig.tsbuildinfo(最大一枚 2,293,840 字节)',
+    expires: '2027-04-21',
+  },
+]
+
+// 无论后缀多"可再生",这几族永不判垃圾:git 状态件在回收站里可能是最后一份副本。
+export function isProtected(normalizedPath) {
+  const n = String(normalizedPath || '')
+  if (!n) return false
+  if (n.includes('\\.git\\')) return true
+  if (n.endsWith('\\.git')) return true
+  if (n.includes('ihui-ai-git-repo')) return true
+  if (n.includes('$recycle.bin')) return true
+  return false
+}
+
+function activeRegenerable(n, now) {
+  for (const r of REGENERABLE) {
+    if (!n.endsWith(r.suffix)) continue
+    const exp = Date.parse(r.expires + 'T23:59:59')
+    if (Number.isNaN(exp)) return null
+    if (exp < now) return null
+    return 'regenerable:' + r.id
+  }
+  return null
+}
+
+export function classify(originalPath, now = Date.now()) {
   const n = normalizePath(originalPath)
   if (!n) return null
   for (const prefix of JUNK_PREFIXES) {
     if (n.startsWith(prefix)) return prefix
   }
-  return null
+  if (isProtected(n)) return null
+  return activeRegenerable(n, now)
 }
 
 /** 解析单个 $I 文件。任何异常一律返回 null,由调用方计入「未判定」并保留条目。 */
@@ -152,11 +194,20 @@ export function summarize(items, undetermined) {
       kept.push(it)
     }
   }
+  // kept 必须带路径形态,不能只带条数:2026-10-21 之前这里只落计数,于是"回收站里 1.6 万条
+  // 到底是什么"结构上无人能答,涨到当天才有人肉眼发现 —— 观测盲区本身就是故障的一层。
+  const keptTop = new Map()
+  for (const it of kept) {
+    const seg = normalizePath(it.originalPath).split('\\').filter(Boolean)
+    const key = seg.slice(0, Math.min(seg.length, 4)).join('\\')
+    keptTop.set(key, (keptTop.get(key) || 0) + 1)
+  }
   return {
     entriesTotal: items.length,
     matched: { entries: matched, bytes: matchedBytes, byRule: Object.fromEntries(byRule) },
     keptUnmatched: kept.length,
     keptSamples: kept.slice(0, 20).map((k) => k.originalPath),
+    keptTop: [...keptTop.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12),
     undetermined: undetermined.length,
     undeterminedSamples: undetermined.slice(0, 10),
   }
@@ -187,7 +238,7 @@ export function purgeItem(it) {
   return { removed: errors.length === 0, errors }
 }
 
-function readMySid() {
+export function readMySid() {
   // whoami 是原生件,比拉一个 pwsh 便宜两个数量级;失败才回落 pwsh。
   try {
     const out = execFileSync('whoami.exe', ['/user', '/fo', 'csv', '/nh'], {
@@ -224,6 +275,53 @@ function logRun(record) {
   }
 }
 
+/**
+ * 回收站策略腿(2026-10-21 接进本任务)。卷上的 NukeOnDelete 才是"删除不落回收站"的那道闸,
+ * 而它此前全仓零处维护 —— 只有两行注释声称"写了 =1",于是它哪天被重置,灌入立刻恢复,
+ * 唯一的发现方式却是有人肉眼打开回收站。这里每轮问一次策略器,不自建第二份判据。
+ * 走子进程而非 import:策略器反向依赖本件的 scanBinDirs,直接 import 会成环。
+ */
+function policyLeg(mayRepair) {
+  const script = join(ROOT, 'scripts', 'recycle-bin-policy.mjs')
+  if (!existsSync(script)) return { status: 'undetermined', why: '策略器不存在:' + script }
+  const call = (args) => {
+    try {
+      const out = execFileSync(process.execPath, [script, ...args], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: 90000,
+      })
+      return { json: JSON.parse(String(out).trim().split(/\r?\n/).pop()), code: 0 }
+    } catch (e) {
+      const tail = String(e.stdout || '').trim().split(/\r?\n/).pop()
+      let json = null
+      try {
+        json = tail ? JSON.parse(tail) : null
+      } catch {}
+      if (json) return { json, code: e.status ?? 1 }
+      return { json: null, code: e.status ?? 2, error: String(e.message).split(/\r?\n/)[0] }
+    }
+  }
+  const first = call(['--check', '--json'])
+  if (first.error) return { status: 'undetermined', why: first.error }
+  if (!first.json) return { status: 'undetermined', why: '策略器 --check 未给出 JSON(exit ' + first.code + ')' }
+  if (first.json.status === 'ok') return { status: 'ok', rows: first.json.rows }
+  if (first.json.status === 'undetermined') {
+    return { status: 'undetermined', why: first.json.why || '策略器 --check 落未判定', before: first.json }
+  }
+  if (!mayRepair) return { status: 'breach-unrepaired', before: first.json }
+  const applied = call(['--apply', '--json'])
+  const after = call(['--check', '--json'])
+  return {
+    status: after.json ? (after.json.status === 'ok' ? 'self-healed' : 'breach') : 'undetermined',
+    before: first.json,
+    apply: applied.json || { error: applied.error },
+    after: after.json || null,
+  }
+}
+
 async function selfTest() {
   const scratchMod = await import(pathToFileURL(join(ROOT, 'scripts', 'lib', 'scratch-dir.mjs')).href)
   const { mkScratch, rmScratch } = scratchMod
@@ -250,6 +348,13 @@ async function selfTest() {
       if (classify(gitPath) !== null) fails.push('REVERSE CONTROL BROKEN: a git state file classified as junk: ' + gitPath)
     }
     if (classify('d:/devenv/temp/x') === null) fails.push('forward-slash form did not classify')
+    // 树内可再生缓存:这一族住在源码树里,前缀表结构上收不到(2026-10-21 现场抓到 8 秒内 15 条连续落地)
+    const cacheHit = 'D:\\IHUI-AI\\apps\\web\\tsconfig.tsbuildinfo'
+    if (classify(cacheHit) !== 'regenerable:tsbuildinfo') fails.push('POSITIVE CONTROL BROKEN: an in-tree .tsbuildinfo did not classify, got ' + String(classify(cacheHit)))
+    if (classify('D:\\IHUI-AI\\.git\\objects\\pack.tsbuildinfo') !== null) fails.push('REVERSE CONTROL BROKEN: a protected .git path classified as junk')
+    if (classify('D:\\IHUI-AI\\apps\\web\\index.tsx') !== null) fails.push('REVERSE CONTROL BROKEN: a source file classified as junk')
+    if (classify(cacheHit, Date.parse('2035-01-01T00:00:00')) !== null) fails.push('REVERSE CONTROL BROKEN: an expired REGENERABLE entry still classified')
+    if (REGENERABLE.some((r) => !r.reason || !r.evidence || !r.expires)) fails.push('REGENERABLE entry lacks reason/evidence/expires — 豁免必须验过才免且会到期')
     const bad = parseIMeta(Buffer.from([1, 2, 3]), 'tiny')
     if (!bad.error) fails.push('a 3-byte blob parsed anyway (fail-open)')
     const half = Buffer.alloc(40)
@@ -269,6 +374,9 @@ async function selfTest() {
     const fixtureSummary = summarize(fixtureScan.items, fixtureScan.undetermined)
     if (fixtureSummary.matched.entries !== 1) fails.push('fixture expected exactly 1 matched, got ' + fixtureSummary.matched.entries)
     if (fixtureSummary.keptUnmatched !== 1) fails.push('fixture expected exactly 1 kept, got ' + fixtureSummary.keptUnmatched)
+    if (!Array.isArray(fixtureSummary.keptTop) || fixtureSummary.keptTop.length !== 1) {
+      fails.push('keptTop must carry the path shape of what is being kept, got ' + JSON.stringify(fixtureSummary.keptTop))
+    }
     const junkItem = fixtureScan.items.find((i) => i.rule)
     const keepItem = fixtureScan.items.find((i) => !i.rule)
     if (junkItem) {
@@ -378,6 +486,7 @@ async function main() {
     }
   }
 
+  const policy = policyLeg(opts.apply)
   const record = {
     at: new Date().toISOString(),
     sid,
@@ -386,8 +495,21 @@ async function main() {
     binDirsSkipped: skipped,
     scan: summary,
     purge,
+    policy,
   }
-  const logged = logRun({ at: record.at, sid, mode: record.mode, entries: summary.entriesTotal, matched: summary.matched.entries, kept: summary.keptUnmatched, undetermined: summary.undetermined, removed: purge ? purge.removed : 0, failed: purge ? purge.failed : 0 })
+  const logged = logRun({
+    at: record.at,
+    sid,
+    mode: record.mode,
+    entries: summary.entriesTotal,
+    matched: summary.matched.entries,
+    kept: summary.keptUnmatched,
+    undetermined: summary.undetermined,
+    removed: purge ? purge.removed : 0,
+    failed: purge ? purge.failed : 0,
+    byRule: summary.matched.byRule,
+    keptTop: summary.keptTop,
+  })
   record.logWritten = logged
 
   if (opts.json) {
@@ -400,6 +522,8 @@ async function main() {
     for (const s of summary.keptSamples.slice(0, 10)) process.stdout.write('    keep: ' + s + '\n')
     process.stdout.write('未判定(解析失败,一律保留) = ' + summary.undetermined + ' 条\n')
     for (const u of record.scan.undeterminedSamples) process.stdout.write('    undetermined: ' + (u.iPath || u.dir) + ' ' + u.error + '\n')
+    process.stdout.write('卷回收站策略 = ' + policy.status + (policy.rows ? ' (' + policy.rows.map((r) => r.drive + ':NukeOnDelete=' + r.nukeOnDelete).join(' ') + ')' : '') + '\n')
+    if (policy.why) process.stdout.write('  策略腿未判定:' + policy.why + '\n')
     process.stdout.write('模式 = ' + record.mode + (opts.apply ? '' : '(未做任何改动;要落地加 --apply)') + '\n')
     if (purge) process.stdout.write('删除 = 尝试 ' + purge.attempted + ' 成功 ' + purge.removed + ' 失败 ' + purge.failed + ';重扫后总数 ' + purge.afterRescan.entriesTotal + ' 命中 ' + purge.afterRescan.matched.entries + '\n')
     process.stdout.write('日志 = ' + LOG_FILE + ' 写入=' + logged + '\n')
@@ -417,5 +541,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { parseIMeta, buildIMeta, classify, normalizePath, summarize, scanBinDirs, listBinDirs, purgeItem, JUNK_PREFIXES, I_HEADER_BYTES }
+export const __test__ = { parseIMeta, buildIMeta, classify, isProtected, REGENERABLE, normalizePath, summarize, scanBinDirs, listBinDirs, purgeItem, readMySid, JUNK_PREFIXES, I_HEADER_BYTES }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

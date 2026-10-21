@@ -3,6 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/packages-ui-react.tsbuildinfo",
     "jsx": "react-jsx",
     "moduleResolution": "Bundler",
     "lib": ["ES2023", "DOM", "DOM.Iterable"],

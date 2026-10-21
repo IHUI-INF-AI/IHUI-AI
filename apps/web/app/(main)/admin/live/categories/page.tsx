@@ -12,7 +12,8 @@ import { useTranslations } from 'next-intl'
 import { LiveCategoryFilter } from './LiveCategoryFilter'
 import { LiveCategoryTable } from './LiveCategoryTable'
 import { LiveCategoryDialog } from './LiveCategoryDialog'
-import { api, EMPTY_FORM, categoryToForm } from './helpers'
+import { EMPTY_FORM, categoryToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Category, CategoryForm, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -27,7 +28,7 @@ export default function AdminLiveCategoriesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'live', 'categories', 'all'],
-    queryFn: () => api<ListData>(`/api/admin/live/categories`).then((d) => d.list ?? []),
+    queryFn: () => apiOrThrow<ListData>(`/api/admin/live/categories`).then((d) => d.list ?? []),
   })
 
   const saveMut = useMutation({
@@ -39,11 +40,11 @@ export default function AdminLiveCategoriesPage() {
         status: form.status ? 1 : 0,
       }
       return editing
-        ? api<{ category: Category }>(`/api/admin/live/categories/${editing.id}`, {
+        ? apiOrThrow<{ category: Category }>(`/api/admin/live/categories/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : api<{ category: Category }>(`/api/admin/live/categories`, {
+        : apiOrThrow<{ category: Category }>(`/api/admin/live/categories`, {
             method: 'POST',
             body: JSON.stringify(body),
           })
@@ -57,7 +58,8 @@ export default function AdminLiveCategoriesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/live/categories/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/live/categories/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'live', 'categories'] })
