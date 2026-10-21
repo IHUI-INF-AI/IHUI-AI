@@ -17,7 +17,9 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/u
 const ipSchema = z.union([z.ipv4(), z.ipv6()])
 
 /**
- * IP 白名单：列表 + 添加 + 删除，仅白名单内 IP 可登录。
+ * IP 白名单：列表 + 添加 + 删除。
+ * 判定链在 apps/api/src/routes/user/ip-whitelist-guard.ts —— 只作用于**新登录会话**，不碰令牌续期；
+ * 空表 = 未启用；最后一次修改本列表的来源 IP 恒被放行(自救出口)。
  */
 export function IpWhitelist() {
   const t = useTranslations('settings')
@@ -103,6 +105,9 @@ export function IpWhitelist() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* 生效语义必须写在界面上:只拦新登录、已在线会话不掉线,且最后改这张表的那台 IP 恒可进
+            (否则在错误网络上清空列表的用户会把自己永久锁死,而改列表本身要先登录) */}
+        <p className="text-xs leading-relaxed text-muted-foreground">{t('ip.hint')}</p>
         <div className="flex gap-2">
           <Input
             placeholder={t('ip.placeholder')}

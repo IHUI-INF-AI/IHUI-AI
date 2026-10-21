@@ -22440,7 +22440,8 @@
       "exists": "该 IP 已存在",
       "invalid": "请输入有效的 IP 地址",
       "placeholder": "请输入 IP 地址",
-      "title": "IP 白名单"
+      "title": "IP 白名单",
+      "hint": "仅拦截新登录,已在线会话不受影响;最后一次修改本名单的那台 IP 始终可以登录。"
     },
     "labels": {
       "notificationSound": "通知声音"

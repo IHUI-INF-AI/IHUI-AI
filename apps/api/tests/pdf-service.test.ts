@@ -219,38 +219,18 @@ describe('pdf-service routes — /api/pdf-service/*', () => {
     expect(res.statusCode).toBe(400)
   })
 
-  // print/sign 两端都没有消费方，仍是"任务受理"形态的桩。刻意保留 pending 断言：
-  // 让"这个文件里哪几条腿已真处理、哪两条还没有"可被读到，而不是被一次批量改写抹平。
-  it('print 仍是桩：201 + pending（未实装、无消费方）', async () => {
+  // print/sign 曾只回 status:'pending' + 随机 taskId,全仓零消费方 ⇒ 端点已整条删除。
+  // 这两条留成 404 断言而不是删掉:防"顺手把假 pending 加回来"(加了也没人接,不如让用例先响)。
+  it('print / sign 端点已不存在 ⇒ 404', async () => {
     mockAuthed()
-    const res = await server.inject({
-      method: 'POST',
-      url: `${PREFIX}/pdf-service/print`,
-      payload: { fileId: FILE_A },
-    })
-    expect(res.statusCode).toBe(201)
-    expect(res.json().data).toMatchObject({ operation: 'print', status: 'pending' })
-  })
-
-  it('sign 仍是桩：201 + pending（未实装、无消费方）', async () => {
-    mockAuthed()
-    const res = await server.inject({
-      method: 'POST',
-      url: `${PREFIX}/pdf-service/sign`,
-      payload: { fileId: FILE_A, signature: 'data:image/png;base64,iVBOR...' },
-    })
-    expect(res.statusCode).toBe(201)
-    expect(res.json().data).toMatchObject({ operation: 'sign', status: 'pending' })
-  })
-
-  it('POST /pdf-service/print fileId 非法 → 400', async () => {
-    mockAuthed()
-    const res = await server.inject({
-      method: 'POST',
-      url: `${PREFIX}/pdf-service/print`,
-      payload: { fileId: 'not-a-uuid' },
-    })
-    expect(res.statusCode).toBe(400)
+    for (const op of ['print', 'sign']) {
+      const res = await server.inject({
+        method: 'POST',
+        url: `${PREFIX}/pdf-service/${op}`,
+        payload: { fileId: FILE_A },
+      })
+      expect(res.statusCode, op).toBe(404)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

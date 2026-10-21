@@ -42,6 +42,7 @@ import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { appAlert } from '../components/BottomPops'
+import { IpWhitelistPanel } from '../components/IpWhitelistPanel'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -74,8 +75,8 @@ const ACTION_LABEL_KEY: Record<string, string> = {
  * 与 web 侧的三处**契约更正**(照 web 旧组件抄会把假字段带到移动端):
  *  1. `/settings/authorizations` 只投影 `id/createdAt/expiresAt/familyId`,没有 ip/device/browser;
  *  2. `/settings/security-logs` 的实列是 `action/ip/userAgent/createdAt`,没有 time/device/status;
- *  3. `GET /api/user/ip-whitelist` 后端从未注册(只有 POST 空壳、无存储)⇒ 本屏不接 IP 白名单,
- *     不把"点了没反应"的假能力搬到 RN。
+ *  3. `GET /api/user/ip-whitelist` 此前从未注册 ⇒ 本屏当时不接;2026-10-21 后端把读写面补真
+ *     (apps/api/src/routes/user/security-config-routes.ts)后,本屏经 `IpWhitelistPanel` 接上。
  * 评分/2FA/会话均为真实现端点,逐项在调用处标注路径。
  */
 function fmt(iso: string | null | undefined, locale: string): string {
@@ -432,6 +433,9 @@ const LEVEL_LABEL_KEY: Record<SecurityScore['level'], string> = {
             ))
           )}
         </View>
+
+        {/* IP 白名单 — GET/POST/DELETE /api/user/ip-whitelist(面板自带取数与错误态) */}
+        <IpWhitelistPanel />
 
         {/* 登录与安全事件 — GET /api/settings/security-logs */}
         <View style={styles.card}>

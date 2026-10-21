@@ -5,15 +5,18 @@
 /**
  * PDF 工具与服务(从 frontend-stub-other-routes.ts 拆分)。
  *
- * 端点契约(与原 frontend-stub-other-routes.ts 行为一致,JSON 请求 + 任务化响应):
- *   GET    /tools/pdf/{convert,merge,split,watermark}     — 可用操作元数据查询
- *   POST   /pdf-service/{merge,split,watermark,print,sign} — 任务化处理(返回 taskId)
- *   GET    /pdf-service/result/:id                          — 结果下载
+ * 端点契约:
+ *   GET    /tools/pdf/{convert,merge,split,watermark}  — 可用操作元数据查询
+ *   POST   /pdf-service/{merge,split,watermark}        — 真处理,返回 taskId + status:'done'
+ *   GET    /pdf-service/result/:id                     — 结果下载
  *
  * 实现策略:
- *   - POST 接受 JSON body(Zod 校验),返回 201 + taskId + operation + status:pending
+ *   - POST 接受 JSON body(Zod 校验),返回 201 + taskId + operation + status:'done'
  *   - 任务化响应契约保留;真实处理逻辑内联于本文件,从未接线的 services/pdf-tools.ts 已随 G-1079151 移除
- *   - 保持原 stub 时代的"任务化"响应契约,前端可基于 taskId 轮询结果
+ *   - 曾经有 print / sign 两条 POST 只回 `status:'pending'` + 一个随机 taskId:全仓零消费者
+ *     (web 的 /tools/pdf 四页只用 merge/split/watermark),轮询 /result/:id 恒 404 ——
+ *     那是"点了没反应"的按钮,已整条删除,不是功能缺失。打印属客户端能力(浏览器 window.print),
+ *     签名要做就得先定"视觉签章还是 PKCS#7"并连着消费方一起进 PLAN。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { randomUUID } from 'node:crypto'
@@ -49,16 +52,6 @@ const watermarkSchema = z.object({
   fontSize: z.number().int().min(8).max(200).optional(),
   opacity: z.number().min(0).max(1).optional(),
   rotation: z.number().min(-180).max(180).optional(),
-})
-
-const printSchema = z.object({
-  fileId: z.uuid(),
-  operation: z.literal('print').optional(),
-})
-
-const signSchema = z.object({
-  fileId: z.uuid(),
-  operation: z.literal('sign').optional(),
 })
 
 /**
@@ -250,36 +243,6 @@ export const pdfRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       return reply.status(400).send(error(400, (e as Error).message))
     }
-  })
-
-  // POST /pdf-service/print — 打印任务(JSON 任务化响应)
-  server.post('/pdf-service/print', async (request, reply) => {
-    const body = printSchema.safeParse(request.body)
-    if (!body.success)
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
-    return reply.status(201).send(
-      success({
-        taskId: randomUUID(),
-        operation: 'print',
-        status: 'pending',
-        fileId: body.data.fileId,
-      }),
-    )
-  })
-
-  // POST /pdf-service/sign — 数字签名任务(JSON 任务化响应)
-  server.post('/pdf-service/sign', async (request, reply) => {
-    const body = signSchema.safeParse(request.body)
-    if (!body.success)
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
-    return reply.status(201).send(
-      success({
-        taskId: randomUUID(),
-        operation: 'sign',
-        status: 'pending',
-        fileId: body.data.fileId,
-      }),
-    )
   })
 
   // GET /pdf-service/result/:id — 下载 PDF 处理结果

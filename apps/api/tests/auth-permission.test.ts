@@ -55,7 +55,7 @@ const {
   mockGetLockRemainingMs: vi.fn(),
   mockRecordLoginFailure: vi.fn(),
   mockClearLoginFailures: vi.fn(),
-  mockFindUserPreferences: vi.fn(),
+  mockFindUserPreferences: vi.fn(async () => ({ list: [], total: 0 })),
   mockUpsertUserPreference: vi.fn(),
   mockSignChallengeToken: vi.fn(),
 }))
@@ -124,6 +124,7 @@ vi.mock('../src/db/oauth-queries.js', () => ({
 }))
 
 vi.mock('../src/db/user-preferences-queries.js', () => ({
+  USER_PREFERENCE_GROUPS: { security: 'security' },
   findUserPreferences: mockFindUserPreferences,
   upsertUserPreference: mockUpsertUserPreference,
 }))

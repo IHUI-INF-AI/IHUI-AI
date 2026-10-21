@@ -154724,15 +154724,6 @@
         }
       }
     },
-    "/api/pdf-service/print": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
     "/api/pdf-service/result/{id}": {
       "get": {
         "parameters": [
@@ -154745,15 +154736,6 @@
             "required": true
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/pdf-service/sign": {
-      "post": {
         "responses": {
           "200": {
             "description": "Default Response"

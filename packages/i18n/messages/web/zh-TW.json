@@ -22436,11 +22436,12 @@
     "icpRecordTitle": "ICP備案信息",
     "icpRecordUrl": "備案鏈接",
     "ip": {
-      "empty": "暫未設置 IP 白名單",
+      "empty": "尚未設定 IP 白名單",
       "exists": "該 IP 已存在",
       "invalid": "請輸入有效的 IP 地址",
-      "placeholder": "請輸入 IP 地址",
-      "title": "IP 白名單"
+      "placeholder": "請輸入 IP 位址",
+      "title": "IP 白名單",
+      "hint": "僅攔截新登入,已線上工作階段不受影響;最後一次修改本名單的那個 IP 始終可以登入。"
     },
     "labels": {
       "notificationSound": "通知聲音"
