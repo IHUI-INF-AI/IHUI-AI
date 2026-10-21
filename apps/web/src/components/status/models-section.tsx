@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { Cpu } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import { getPublicStatusModels } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 
 /**
@@ -95,12 +96,10 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
-/** 全量拉取的响应形如 { code, message, data: { models: [...] } };逐条校验后再落到 state。 */
-function pickModels(raw: unknown): StatusModelItem[] | null {
-  if (!isRecord(raw)) return null
-  const data = raw.data
-  if (!isRecord(data)) return null
-  const arr = data.models
+/** api-client 已解信封,载荷形如 { models: [...] };逐条校验后再落到 state。 */
+function pickModels(payload: unknown): StatusModelItem[] | null {
+  if (!isRecord(payload)) return null
+  const arr = payload.models
   if (!Array.isArray(arr)) return null
   const out: StatusModelItem[] = []
   for (const it of arr) {
@@ -140,10 +139,11 @@ export function ModelsSection({
     setFailed(false)
     try {
       // 同源反代(生产构建 NEXT_PUBLIC_API_BASE_URL 置空 ⇒ 浏览器走 /api/* 到 8802),
-      // 不跨域,也不受页面 60s ISR 缓存影响。
-      const res = await fetch('/api/public/status/models')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const parsed = pickModels((await res.json()) as unknown)
+      // 不跨域,也不受页面 60s ISR 缓存影响。端点经 @ihui/api-client 统一层(守门
+      // check-direct-backend-calls:端内禁止裸 fetch 直连后端)。
+      const r = await getPublicStatusModels()
+      if (!r.success) throw new Error(r.error)
+      const parsed = pickModels(r.data as unknown)
       if (!parsed) throw new Error('unexpected payload')
       setAllModels(parsed)
     } catch {
