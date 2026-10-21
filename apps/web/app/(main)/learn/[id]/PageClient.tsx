@@ -4,11 +4,12 @@
 
 'use client'
 
+import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Clock, Users, PlayCircle, Check, Loader2 } from 'lucide-react'
+import { ArrowLeft, Clock, Users, PlayCircle, Play, Check, Loader2 } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
@@ -19,7 +20,7 @@ interface Section {
   id: string
   title: string
   duration?: string
-  completed?: boolean
+  videoUrl?: string | null
 }
 interface Chapter {
   id: string
@@ -31,14 +32,16 @@ interface LessonDetail {
   title: string
   instructor: string
   description: string
-  duration?: string
   students: number
-  price: number
-  cover?: string
-  objectives?: string[]
-  chapters?: Chapter[]
+  price: string | number
+  cover: string | null
   signedUp?: boolean
   progress?: number
+}
+interface SectionProgress {
+  sectionId: string | null
+  progress: number
+  status: number
 }
 
 const formatCNY = (n: number) =>
@@ -49,11 +52,23 @@ export default function CourseDetailPage() {
   const router = useRouter()
   const t = useTranslations('learn')
   const qc = useQueryClient()
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
 
+  // 章节+小节在响应顶层(lesson 体内没有 chapters 字段),videoUrl 随小节一起下发
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'lesson', id],
     queryFn: () =>
-      apiOrThrow<{ lesson: LessonDetail }>(`/api/learn/lessons/${id}`).then((d) => d.lesson),
+      apiOrThrow<{ lesson: LessonDetail; chapters: Chapter[] }>(`/api/learn/lessons/${id}`),
+  })
+
+  const { data: progressData } = useQuery({
+    queryKey: ['learn', 'lesson', id, 'progress'],
+    queryFn: () =>
+      apiOrThrow<{ progress: number; sectionProgress: SectionProgress[] }>(
+        `/api/learn/lessons/${id}/progress`,
+      ),
+    enabled: Boolean(data?.lesson.signedUp),
+    retry: false,
   })
 
   const signUpMut = useMutation({
@@ -65,7 +80,7 @@ export default function CourseDetailPage() {
     return (
       <div className="flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        {t('loading')}
+        <span>{t('loading')}</span>
       </div>
     )
 
@@ -78,7 +93,7 @@ export default function CourseDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          {t('detail.back')}
+          <span>{t('detail.back')}</span>
         </button>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {(error as Error)?.message ?? t('notFound')}
@@ -87,10 +102,18 @@ export default function CourseDetailPage() {
     )
   }
 
-  const lesson = data
-  const chapters = lesson.chapters ?? []
-  const totalSections = chapters.reduce((s: number, c: Chapter) => s + c.sections.length, 0)
-  const progress = lesson.progress ?? 0
+  const lesson = data.lesson
+  const chapters = data.chapters ?? []
+  const allSections = chapters.flatMap((c) => c.sections)
+  const totalSections = allSections.length
+  const progress = lesson.progress ?? progressData?.progress ?? 0
+  const price = Number(lesson.price ?? 0)
+  const completedIds = new Set(
+    (progressData?.sectionProgress ?? [])
+      .filter((p) => p.status === 2 && p.sectionId)
+      .map((p) => p.sectionId as string),
+  )
+  const activeSection = allSections.find((s) => s.id === activeSectionId) ?? null
 
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
@@ -99,47 +122,53 @@ export default function CourseDetailPage() {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        {t('detail.back')}
+        <span>{t('detail.back')}</span>
       </Link>
 
       <div className="flex flex-col gap-6 min-[1024px]:flex-row">
         <div className="min-w-0 flex-1 space-y-4">
           <div className="space-y-3">
-            <div className="flex h-48 items-center justify-center rounded-lg bg-gradient-to-br from-primary/15 to-primary/5">
-              <PlayCircle className="h-16 w-16 text-primary/30" />
-            </div>
+            {activeSection?.videoUrl ? (
+              <video
+                key={activeSection.id}
+                src={activeSection.videoUrl}
+                poster={lesson.cover ?? undefined}
+                controls
+                playsInline
+                preload="metadata"
+                className="aspect-video w-full rounded-lg bg-black"
+              />
+            ) : lesson.cover ? (
+              <img
+                src={lesson.cover}
+                alt={lesson.title}
+                className="aspect-video w-full rounded-lg bg-muted object-cover"
+              />
+            ) : (
+              <div className="flex aspect-video items-center justify-center rounded-lg bg-muted">
+                <PlayCircle className="h-16 w-16 text-muted-foreground/30" />
+              </div>
+            )}
             <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
               {lesson.title}
             </h1>
             <p className="text-sm text-muted-foreground">{lesson.description}</p>
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{lesson.instructor}</span>
-              {lesson.duration && (
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  {lesson.duration}
-                </span>
+              {lesson.instructor && (
+                <span className="font-medium text-foreground">{lesson.instructor}</span>
               )}
               <span className="flex items-center gap-1">
                 <Users className="h-4 w-4" />
-                {t('signupCount', { count: lesson.students })}
+                <span>{t('signupCount', { count: lesson.students })}</span>
               </span>
+              {activeSection?.duration && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  <span>{activeSection.duration}</span>
+                </span>
+              )}
             </div>
           </div>
-
-          {lesson.objectives && lesson.objectives.length > 0 && (
-            <section className="space-y-3">
-              <h2 className="text-lg font-semibold">{t('detail.objectives')}</h2>
-              <ul className="space-y-2">
-                {lesson.objectives.map((obj, i) => (
-                  <li key={`obj-${i}`} className="flex items-start gap-2 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span>{obj}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
 
           <section className="space-y-3">
             <div className="flex items-center gap-2">
@@ -158,23 +187,34 @@ export default function CourseDetailPage() {
                         {chapter.sections.length}
                       </span>
                     </summary>
-                    <div className="mt-4 pt-4">
+                    <div className="space-y-1 px-4 pb-4">
                       {chapter.sections.map((sec) => (
-                        <div
+                        <button
                           key={sec.id}
-                          className="flex items-center justify-between px-4 py-2 text-sm transition-colors hover:bg-accent/50"
+                          type="button"
+                          onClick={() => setActiveSectionId(sec.id)}
+                          className={cn(
+                            'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors',
+                            activeSection?.id === sec.id
+                              ? 'bg-primary/10 text-primary'
+                              : 'hover:bg-accent/50',
+                          )}
                         >
-                          <span className="flex items-center gap-2 text-muted-foreground">
-                            {sec.completed && <Check className="h-3.5 w-3.5 text-emerald-500" />}
-                            {sec.title}
+                          <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+                            {completedIds.has(sec.id) ? (
+                              <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                            ) : sec.videoUrl ? (
+                              <Play className="h-3.5 w-3.5 shrink-0" />
+                            ) : null}
+                            <span className="truncate">{sec.title}</span>
                           </span>
                           {sec.duration && (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
                               <Clock className="h-3 w-3" />
-                              {sec.duration}
+                              <span>{sec.duration}</span>
                             </span>
                           )}
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </details>
@@ -188,24 +228,15 @@ export default function CourseDetailPage() {
           <Card className={cn('sticky top-4 z-10')}>
             <CardHeader>
               <CardTitle className="text-2xl">
-                {lesson.price > 0 ? formatCNY(lesson.price) : t('free')}
+                {price > 0 ? formatCNY(price) : t('free')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2 text-sm text-muted-foreground">
-                {lesson.duration && (
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="h-4 w-4" />
-                      {t('detail.duration')}
-                    </span>
-                    <span className="text-foreground">{lesson.duration}</span>
-                  </div>
-                )}
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
                     <Users className="h-4 w-4" />
-                    {t('detail.studentsLabel')}
+                    <span>{t('detail.studentsLabel')}</span>
                   </span>
                   <span className="text-foreground">{lesson.students}</span>
                 </div>
@@ -217,7 +248,7 @@ export default function CourseDetailPage() {
 
               {/* 付费课 → 购买确认页(buyconfirm 此前全站无入口,付费课买不了,G-978073);
                   已报名 → 开始学习(视频播放+AI 助教学习页,/learn 与 /edu/courses 同一 lessons 表);免费课 → 报名 */}
-              {lesson.price > 0 && !lesson.signedUp ? (
+              {price > 0 && !lesson.signedUp ? (
                 <Button className="w-full" size="lg" asChild>
                   <Link href={`/learn/buyconfirm?courseId=${lesson.id}`}>{t('buyNow')}</Link>
                 </Button>
@@ -249,4 +280,5 @@ export default function CourseDetailPage() {
     </div>
   )
 }
+// ⁠‌‌‌‍‍‌‌‍‍‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‍‍‌‌‍‍‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‌‌‌‌‌‌‌‍‍‌‌‌‌‌‌‌‌‍‍‌‌‍‍‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‌‌‌‌‌‌‍‍‌‌‌‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‌‌‌‌‌‌‌‍‍‌‌‌‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‌‌‍‍‌‌‍‍‌‌‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‍‍‌‌‍‍‌‌‌‌‌‌‍‍‌‌‌‍‍‌‌‍‍‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‍‍‌‌‌‍‍‌‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‍‍‌‌‌‍‍‌‌‌‍‍‌‌‍‍‌‌‌‍‍‌‌‌‍‍‌‌‌‍‍‌‌‍‍‌‌‌‍‍‌‌‍‍‌‌‌‍‍‌‌‌﻿‍‍‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‌‍‍‌‌️‌‍‍‌‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‌‍‌‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‌‌‍‌‌‌‍‍‌‌‌‌‍‍‌‌‍‍‌‌‍‍‌‌‌‍‍‌‌‌‌‍‍‌‌‍‍‌‌‌‍‍‌‌‌‍‍‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‍‍‌‌‌‌‌⁠
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
