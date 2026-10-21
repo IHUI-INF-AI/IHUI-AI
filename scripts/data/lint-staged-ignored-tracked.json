@@ -2,7 +2,7 @@
   "schema": 1,
   "ticket": "G-926",
   "decidedAt": "2026-10-21",
-  "scopeNote": "除 .ihui-agent/archive/(已收口一族)以外,'已跟踪却被 .gitignore 覆盖'的目录性质清单。枚数/是否真会被根 lint-staged 命中/出口件是否生效,一律由 scripts/tests/lint-staged-ignored-tracked-ledger.test.mjs 现算,本文件只记机器推不出的判断事实(档位、归属、消费方证据、到期、出路)。判据出处:lint-staged lib/searchConfigs.js 只枚举 git 可见的 .lintstagedrc.json,lib/groupFilesByConfig.js 按目录前缀整体划走子树,收尾 git add 不带 -f ⇒ 声明集里含被忽略的已跟踪文件即整批废掉全部守门。 〔2026-10-21 摘 2 条〕apps/api 与 apps/mobile-rn 按各自 route 写明的出路收口(.gitignore 放 !apps/api/ecosystem.config.cjs、!apps/mobile-rn/metro.config.cjs 例外 ⇒ 离开「已跟踪却被忽略」形态);T10 清单腐烂档当场点名「不再命中任何 ignored-tracked 文件」,依 §0.7 删条目,收口动作与取证留在提交信息与台账行。",
+  "scopeNote": "除 .ihui-agent/archive/(已收口一族)以外,'已跟踪却被 .gitignore 覆盖'的目录性质清单。枚数/是否真会被根 lint-staged 命中/出口件是否生效,一律由 scripts/tests/lint-staged-ignored-tracked-ledger.test.mjs 现算,本文件只记机器推不出的判断事实(档位、归属、消费方证据、到期、出路)。判据出处:lint-staged lib/searchConfigs.js 只枚举 git 可见的 .lintstagedrc.json,lib/groupFilesByConfig.js 按目录前缀整体划走子树,收尾 git add 不带 -f ⇒ 声明集里含被忽略的已跟踪文件即整批废掉全部守门。 〔2026-10-21 摘 2 条〕apps/api 与 apps/mobile-rn 按各自 route 写明的出路收口(.gitignore 放 !apps/api/ecosystem.config.cjs、!apps/mobile-rn/metro.config.cjs 例外 ⇒ 离开「已跟踪却被忽略」形态);T10 清单腐烂档当场点名「不再命中任何 ignored-tracked 文件」,依 §0.7 删条目,收口动作与取证留在提交信息与台账行。 〔2026-10-21 再摘 2 条〕B 档收口:.ihui-agent/tmp 与 outputs 两条已失去命中(60 枚全部取消跟踪:现读 60 = 56 枚 plan-pointer-purge-*.md + 4 枚 outputs,票面写 58,多出 2 枚系同族机器标识变体、同一定性一并摘除;树里 0/60、盘上 41/60、gitignore 60/60),依 §0.7 删条目,收口动作与取证留在提交信息。器物侧(取消跟踪的落地器出口)由 object-space-land.mjs 的 LAND_REMOVE_PATHS 承接,镜像 10/10 + 器物 --self-test 7/7。残留登记(不藏):plan-pointer-purge.mjs 的台账落点仍写 .ihui-agent/tmp/(该工具自身已「不再入库」),防再入库靠 safe-commit 的 -f 兜底只放行已在索引路径 + 本账 T10 腐烂档逐轮复命。",
   "tierLegend": {
     "A": "长期合法且该保留跟踪 —— 会被根 glob 命中者配就近空转出口件;不被命中者无需出口件(该事实由测试现算并锁住)",
     "B": "该取消跟踪(属删除类动作,须机主/主控席拍板)—— 本票只出证据,不执行",
@@ -105,24 +105,6 @@
       "until": "2027-04-21",
       "why": "session-expiry-navigation.test.ts 第 290 行按路径读 rootnavigator-parent-e0efe41cfd.txt 作父组件源夹具;被 .gitignore:285 的 __* 吞掉(该规则的 !/**/__tests__/ 例外救不到 __fixtures__)。.txt 不在根 glob 内 ⇒ 零爆炸风险。",
       "consumers": ["apps/mobile-rn/tests/session-expiry-navigation.test.ts"]
-    },
-    {
-      "dir": ".ihui-agent/tmp",
-      "tier": "B",
-      "owner": "主控席(取消跟踪属删除类)",
-      "until": "2026-11-15",
-      "why": "AGENTS §15/§15b 规定 .ihui-agent/tmp/ 是 gitignored 临时区、任务收尾必须清理;这 54 枚 plan-pointer-purge-*.md 是 2026-10-20 一枚提交把旁路落地的清偿台账连同工作树一起带进索引的。全仓 git grep 零消费方(只命中文件自身标题行)。",
-      "route": "先确认门 71/166 的删行凭据只读 .ihui-agent/archive/PROJECT_PLAN_*.md(现读成立),再 git rm --cached 整目录;同时把 plan-pointer-purge 的台账落点改到 scripts/lib/scratch-dir.mjs 的 mkScratch()(工作区外)或批准目录,否则下一轮清偿又造 54 枚。",
-      "consumers": []
-    },
-    {
-      "dir": "outputs",
-      "tier": "B",
-      "owner": "主控席(取消跟踪属删除类)",
-      "until": "2026-11-15",
-      "why": ".gitignore:493 的 outputs/* 是带理由的整目录忽略(该目录现存 GITHUB-SECRETS-填写指南.md、DESKTOP_TAURI_KEY_PASSWORD.txt 等凭据类文件);G-1113921 已裁定'要长期引用的报告不得再落 gitignored 的 outputs/'。这 4 枚 TRAE-*/g937953-* 报告属一次性取证件。",
-      "route": "把需要长期引用的报告移到 docs/(或 reports/)并正常入库,再对 outputs/ 下的跟踪态做 git rm --cached;取证流水按 §1 只进 commit message。",
-      "consumers": []
     }
   ]
 }
