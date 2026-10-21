@@ -61,6 +61,14 @@ test('T8 反向回归锁:注册表里不得再有裸字符串 stagedTriggers', (
   for (const keep of ["stagedTriggers: ['scripts/']", "stagedTriggers: ['apps/cli/src/']", "stagedTriggers: ['apps/', 'packages/']"]) {
     assert.ok(src.includes(keep), `注册丢失:${keep}`)
   }
+  // 2026-10-21:三条 glob 注册同理必须仍在 —— 本票是让 matcher 认 glob,不是把 glob 删成前缀。
+  for (const keep of [
+    "stagedTriggers: ['apps/mobile-rn/**', 'packages/app/**']",
+    "stagedTriggers: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/**/*.ts', 'packages/**/*.tsx', 'scripts/**/*.mjs']",
+    "stagedTriggers: ['apps/**/*.tsx', 'apps/**/*.ts', 'packages/app/**/*.tsx', 'packages/**/*.ts']",
+  ]) {
+    assert.ok(src.includes(keep), `glob 注册丢失(门会被摘线):${keep}`)
+  }
 })
 
 test('T9 消费面两处都走归一层(不得只修一处留下另一个崩点)', () => {
@@ -72,5 +80,52 @@ test('T9 消费面两处都走归一层(不得只修一处留下另一个崩点)
   assert.ok(body.includes('triggersTouch('), 'stagedPathsTouch 未改道共用层')
   assert.ok(!body.includes('prefixes.some'), '仍在直接调用数组方法(旧崩点)')
   assert.ok(src.includes('normalizeTriggers(check.stagedTriggers).join'), '跳过提示行仍可能崩在 .join 上')
+})
+
+test('T10 glob 中间段:apps/**/*.tsx 覆盖任意深度,且不越目录、不过扩展名', () => {
+  const t = ['apps/**/*.tsx']
+  assert.equal(triggersTouch(['apps/x.tsx'], t), true, '零层目录也必须命中(globstar 语义)')
+  assert.equal(triggersTouch(['apps/web/src/x.tsx'], t), true)
+  assert.equal(triggersTouch(['apps/web/src/deep/x.tsx'], t), true)
+  assert.equal(triggersTouch(['apps/web/src/x.ts'], t), false)
+  assert.equal(triggersTouch(['packages/web/x.tsx'], t), false)
+})
+
+test('T11 glob 尾段:apps/mobile-rn/** 只覆盖该目录,不吃前缀相近的兄弟目录', () => {
+  const t = ['apps/mobile-rn/**', 'packages/app/**']
+  assert.equal(triggersTouch(['apps/mobile-rn/App.tsx'], t), true)
+  assert.equal(triggersTouch(['apps/mobile-rn/src/screens/x.tsx'], t), true)
+  assert.equal(triggersTouch(['packages/app/src/components/x.tsx'], t), true)
+  assert.equal(triggersTouch(['apps/mobile-rn2/App.tsx'], t), false, '** 不得退化成前缀匹配')
+  assert.equal(triggersTouch(['apps/api/src/x.ts'], t), false)
+})
+
+test('T12 单星不跨目录(scripts/*.mjs 只吃一层)', () => {
+  assert.equal(triggersTouch(['scripts/a.mjs'], ['scripts/*.mjs']), true)
+  assert.equal(triggersTouch(['scripts/lib/a.mjs'], ['scripts/*.mjs']), false)
+})
+
+test('T13 前缀与 glob 混用:各按各的语义,互不污染', () => {
+  const t = ['PROJECT_PLAN.md', 'apps/**/*.ts']
+  assert.equal(triggersTouch(['PROJECT_PLAN.md'], t), true)
+  assert.equal(triggersTouch(['apps/api/src/x.ts'], t), true)
+  assert.equal(triggersTouch(['apps/api/src/x.tsx'], t), false)
+})
+
+test('T14 Windows 反斜杠与 glob 同用', () => {
+  assert.equal(triggersTouch(['apps\\web\\src\\x.tsx'], ['apps/**/*.tsx']), true)
+})
+
+test('T15 阳性对照:去掉 glob 分支后,注册表里的真实 glob 对真实路径必须判"不触及"', () => {
+  // 用真实注册形态 + 真实路径复现修复前的行为:startsWith 一定为假 ⇒ 门被隐形跳过。
+  const globTriggers = ['apps/**/*.tsx', 'apps/**/*.ts', 'packages/app/**/*.tsx', 'packages/**/*.ts']
+  const realPaths = [
+    'apps/web/src/components/sidebar/SidebarUserRow.tsx',
+    'apps/mobile-rn/src/components/Drawer.tsx',
+    'packages/app/src/components/BackChevron.tsx',
+  ]
+  const oldBehavior = realPaths.some((f) => globTriggers.some((p) => f.startsWith(p)))
+  assert.equal(oldBehavior, false, '修复前 startsWith 恒假 —— 这就是三道门永不执行的原因')
+  assert.equal(triggersTouch(realPaths, globTriggers), true, '修复后同一组输入必须判"触及"')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

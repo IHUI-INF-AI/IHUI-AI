@@ -19,6 +19,12 @@
  *  - 裸字符串 → 归一成数组(作者的意图显然可辨);
  *  - 空清单(`[]` / `''` / `','`)→ **抛错**,不得静默变成"该门永不运行"
  *    (旧写法 `stagedTriggers: []` 是 truthy,会让那道门在提交链上隐形失踪)。
+ *
+ * 2026-10-21 补第三面(glob):本层此前只做 `startsWith` 前缀匹配,而注册表里有三道 blocking
+ * 门把 `stagedTriggers` 写成了 glob —— 97(状态栏避让)/ 98(悬空导入)/ 102(文本箭头)。
+ * `startsWith` 对 `apps/**` 这类 glob 的任何真实路径都为假 ⇒ 这三道门在 --staged 档**结构上永不
+ * 执行**,而全量档是绿的,所以长期没人发现。现在 `*`/`?` 形态走 glob 编译(`**` 跨目录、
+ * `*`/`?` 不跨目录),纯前缀形态保持原快路径(语义与性能都不变)。
  */
 
 /** @param {unknown} raw @returns {string[]} */
@@ -41,14 +47,50 @@ export function normalizeTriggers(raw) {
 
 /**
  * 本次暂存的路径是否触及任一触发前缀。取不到暂存清单时**保守判"触及"**(照旧跑门)。
+ * 纯前缀走 `startsWith` 快路径;含 `*`/`?` 的条目编译成锚定 glob 正则。
  * @param {string[]|null} files @param {unknown} raw
  */
 export function triggersTouch(files, raw) {
-  const prefixes = normalizeTriggers(raw)
+  const triggers = normalizeTriggers(raw)
   if (files === null) return true
+  const matchers = triggers.map((t) => {
+    const pattern = t.replace(/\\/g, '/')
+    return /[*?]/.test(pattern) ? globToRegExp(pattern) : null
+  })
   return files.some((f) => {
     const norm = String(f).replace(/\\/g, '/')
-    return prefixes.some((p) => norm.startsWith(p))
+    return triggers.some((t, i) => {
+      const matcher = matchers[i]
+      return matcher ? matcher.test(norm) : norm.startsWith(t)
+    })
   })
+}
+
+const REGEX_SPECIAL = /[.+^${}()|[\]\\]/g
+
+/** `**` 跨目录、`*`/`?` 不跨目录;结果锚定首尾,防 `apps/**` 误吃 `apps2/…`。 */
+function globToRegExp(glob) {
+  let source = '^'
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i]
+    if (ch === '*') {
+      if (glob[i + 1] === '*') {
+        if (glob[i + 2] === '/') {
+          source += '(?:[^/]+/)*'
+          i += 2
+        } else {
+          source += '.*'
+          i += 1
+        }
+      } else {
+        source += '[^/]*'
+      }
+    } else if (ch === '?') {
+      source += '[^/]'
+    } else {
+      source += ch.replace(REGEX_SPECIAL, '\\$&')
+    }
+  }
+  return new RegExp(`${source}$`)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
