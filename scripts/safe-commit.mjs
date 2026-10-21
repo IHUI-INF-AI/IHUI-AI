@@ -543,16 +543,26 @@ const stagedBaselineAtStep3 = stagedFiles.map(normalize)
 // 规则本来就写着"提交前先跑 merge-live-doc",但它只存在于文档里 ⇒ 谁忘了都成立,
 // 而忘了的代价是**别人的内容消失**。这里改成:声明了活文档就必须先过对账,不过即拒提交。
 const LIVE_DOCS = ['README.md', 'AGENTS.md', 'PROJECT_PLAN.md']
-// 「最近更新」派生区由 auto-update-readme-recent.mjs 独占维护,并按 MAX_GROUPS 封顶裁旧 ⇒
-// 块内少行是设计内收缩,不是谁的手写内容被吃掉。3e 只对**块外**要求"工作树 ⊇ HEAD"。
-// (2026-10-22 实证:回写后的 README 每次裁旧都会被原判据判红,自动收编因此每 3 分钟空转一轮。)
-const AUTO_BLOCK_BEGIN = '<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->'
-const AUTO_BLOCK_END = '<!-- END RECENT UPDATES -->'
-function outsideAutoBlock(text) {
-  const bi = text.indexOf(AUTO_BLOCK_BEGIN)
-  const ei = text.indexOf(AUTO_BLOCK_END)
-  if (bi === -1 || ei === -1 || ei < bi) return null
-  return text.slice(0, bi) + '\n' + text.slice(ei + AUTO_BLOCK_END.length)
+// 两片**派生区**各有独占写入器,块内"少行/改值"是设计内收缩,不是谁的手写内容被吃掉:
+//   · `RECENT UPDATES` ← auto-update-readme-recent.mjs(按 MAX_GROUPS 封顶裁旧);
+//   · `GENERATED NUMBERS` ← gen-doc-numbers.mjs --markdown(数字由现算值覆盖,正确性归门 173)。
+// 3e 只对**派生区之外**要求"工作树 ⊇ HEAD"。
+// (2026-10-22 实证:回写后的 README 每次裁旧/换代都会被原判据判红,自动收编因此每 3 分钟空转一轮。)
+const DERIVED_BLOCKS = [
+  ['<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->', '<!-- END RECENT UPDATES -->'],
+  ['<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->', '<!-- END GENERATED NUMBERS -->'],
+]
+function outsideDerivedBlocks(text) {
+  let out = text
+  let stripped = false
+  for (const [begin, end] of DERIVED_BLOCKS) {
+    const bi = out.indexOf(begin)
+    const ei = out.indexOf(end)
+    if (bi === -1 || ei === -1 || ei < bi) continue
+    out = out.slice(0, bi) + '\n' + out.slice(ei + end.length)
+    stripped = true
+  }
+  return stripped ? out : null
 }
 const liveDocsStaged = expectedFiles
   .map((f) => f.replace(/\\/g, '/'))
@@ -562,10 +572,10 @@ if (liveDocsStaged.length && process.env.IHUI_SKIP_LIVE_DOC_CHECK !== '1') {
     // 差异只落在派生区 ⇒ 直接放行(交给 merge-live-doc 反而会把裁掉的旧条目塞回来)。
     // 块外一旦真丢行,这里得不到相等 ⇒ 回落到下面的 merge-live-doc 原判据。
     try {
-      const a = outsideAutoBlock(gitRaw(['show', `HEAD:${f}`], ROOT))
-      const b = outsideAutoBlock(readFileSync(join(ROOT, f), 'utf8'))
+      const a = outsideDerivedBlocks(gitRaw(['show', `HEAD:${f}`], ROOT))
+      const b = outsideDerivedBlocks(readFileSync(join(ROOT, f), 'utf8'))
       if (a !== null && b !== null && a === b) {
-        log('info', `活文档对账通过:${C.cyan}${f}${C.reset} 块外逐字一致(「最近更新」派生区归脚本,按 MAX_GROUPS 裁旧)`)
+        log('info', `活文档对账通过:${C.cyan}${f}${C.reset} 派生区之外逐字一致(「最近更新」/「生成数字」归脚本)`)
         continue
       }
     } catch {
