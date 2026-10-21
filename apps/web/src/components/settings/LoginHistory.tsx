@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import Link from 'next/link'
 import { History, Loader2, ChevronRight } from 'lucide-react'
 
@@ -14,21 +14,36 @@ import { fetchApi } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { buildQs, type PageData } from '@/lib/edu'
 
+/**
+ * GET /settings/security-logs 的行 = `security_logs` 表实列
+ * (packages/database/src/schema/security-logs.ts:18-27,查询见 db/security-logs-queries.ts)。
+ * 旧声明的 time/device/event/status 后端从未返回 ⇒ 卡片把时间渲染成空、把设备渲染成空。
+ */
 interface SecurityLogItem {
   id: string
-  time: string
-  ip: string
-  device: string
-  event: string
-  status: 'success' | 'failed'
+  action: string
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
 }
 
 /** 登录历史概览：显示最近一条登录记录，点击进入完整安全日志页面。 */
 export function LoginHistory() {
   const t = useTranslations('settings')
+  const locale = useLocale()
   const [recent, setRecent] = React.useState<SecurityLogItem | null>(null)
   const [loading, setLoading] = React.useState(true)
   const { allow } = useAuthGate()
+
+  const dateFmt = React.useMemo(
+    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
+    [locale],
+  )
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso)
+    // 解析不了就交原文,不编一个日期
+    return Number.isNaN(d.getTime()) ? iso : dateFmt.format(d)
+  }
 
   React.useEffect(() => {
     if (!allow) {
@@ -66,11 +81,11 @@ export function LoginHistory() {
             className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-accent"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-muted-foreground">{recent.time}</p>
+              <p className="text-sm text-muted-foreground">{fmtTime(recent.createdAt)}</p>
               <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                <span className="font-mono">{recent.ip}</span>
+                <span>{recent.action}</span>
                 <span className="text-border">·</span>
-                <span>{recent.device}</span>
+                <span className="font-mono">{recent.ip ?? '-'}</span>
               </p>
             </div>
             <span className="flex items-center gap-1 text-sm font-medium text-primary">
