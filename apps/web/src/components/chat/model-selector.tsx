@@ -29,7 +29,12 @@ import { MODEL_CATEGORY_META, normalizeCategory, normalizeTier } from '@ihui/sha
 import { useAuthStore } from '@/stores/auth'
 import { Tooltip } from '@/components/feedback'
 import { fetchSelectorModels, fetchProvidersHealth, type ProviderHealth } from '@/lib/models-api'
-import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
+// 2026-10-21 首屏瘦身:图标全集与纯函数分家(同 ai-side-panel.tsx:15-17 的既有口径)。
+// 本文件此前静态 `import { BrandIcon }`,而 message-input → AISidePanel → GlobalShell →
+// 根 layout 全是静态边,于是纯展示的营销页(/、/en、/pricing)也被迫下载整包
+// @lobehub/icons(现读单 chunk 1,541KB / gzip 258KB)。图标改走 React.lazy 边界。
+import type { BrandIconProps } from '@/components/ai/brand-icon'
+import { inferVendor } from '@/components/ai/vendor-infer'
 import { FALLBACK_MODELS, DEMO_TIER_MODELS, VENDOR_LABEL } from '@/components/chat/fallback-models'
 import { fetchConfigs } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, BACKEND_BUILTIN_FREE_CODES } from '@/lib/llm-templates'
@@ -44,6 +49,31 @@ import {
 
 // 兼容既有外部引用(model-selector 此前直接导出这些类型)
 export type { ModelOption, ModelTier, ModelUsageCategory } from '@/components/chat/model-tier-utils'
+
+/**
+ * 厂商图标的懒加载边界(形态与 ai-side-panel.tsx:170 的 BrandIconLazy 一致):
+ * React.lazy 只出现在动态 import 里,图标全集因此不进入本路由组的初始编译图;
+ * fallback 按同一 size 占位 ⇒ 加载完成不跳动。
+ */
+const BrandIconLazy = React.lazy(() =>
+  import('@/components/ai/brand-icon').then((m) => ({ default: m.BrandIcon })),
+)
+
+function BrandIconDeferred({ size = 16, className, ...rest }: BrandIconProps) {
+  return (
+    <React.Suspense
+      fallback={
+        <span
+          aria-hidden
+          className={cn('inline-block shrink-0 rounded bg-muted', className)}
+          style={{ width: size, height: size }}
+        />
+      }
+    >
+      <BrandIconLazy size={size} className={className} {...rest} />
+    </React.Suspense>
+  )
+}
 
 /** 自动模式(value='auto'):后端根据任务类型自动选择最优模型
  * 2026-07-30 用户反馈"智能路由"措辞太复杂,简化为"自动"
@@ -264,7 +294,7 @@ function ModelOptionRow({
       )}
     >
       <Check className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')} />
-      <BrandIcon
+      <BrandIconDeferred
         vendor={opt.vendor}
         iconUrl={opt.iconUrl}
         size={14}
@@ -831,7 +861,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
             'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
           )}
         >
-          <BrandIcon
+          <BrandIconDeferred
             vendor={current?.vendor}
             iconUrl={current?.iconUrl}
             size={16}
@@ -909,7 +939,7 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
                   'bg-card text-muted-foreground',
                 )}
               >
-                <BrandIcon vendor={vendor} size={12} className="text-muted-foreground" />
+                <BrandIconDeferred vendor={vendor} size={12} className="text-muted-foreground" />
                 <span className="flex-1 truncate">
                   {VENDOR_LABEL[vendor] ? t(VENDOR_LABEL[vendor]) : vendor}
                 </span>

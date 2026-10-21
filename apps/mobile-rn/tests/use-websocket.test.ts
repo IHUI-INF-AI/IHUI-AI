@@ -40,7 +40,9 @@ vi.mock('../src/lib/token', () => ({
 }))
 
 vi.mock('../src/lib/config', () => ({
-  API_BASE_URL: 'http://localhost:8801',
+  // 两臂刻意取不同值:hook 若错用 REST 基址,下面的分域断言当场失败
+  API_BASE_URL: 'https://www.aizhs.top',
+  WS_BASE_URL: 'https://api.aizhs.top',
 }))
 
 import { useNotificationWebSocket } from '../src/hooks/use-websocket'
@@ -68,6 +70,17 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
     renderHook(() => useNotificationWebSocket('test-token'))
     expect(mockCreateClient).toHaveBeenCalledTimes(1)
     expect(clients[0]!.connect).toHaveBeenCalled()
+  })
+
+  // 回归锁(2026-10-21 基址改判):REST 移到 www 快臂后,WS 必须仍钉在 api 慢臂 ——
+  // www 臂实测握不了手(101/404 取证见 src/lib/config 的 WS_BASE_URL 注释),
+  // 这一条若被"顺手统一成 API_BASE_URL"改掉,通知链路会在真机上安静死掉。
+  it('WS 基址取 WS_BASE_URL(快臂),不得被改成 REST 基址', () => {
+    renderHook(() => useNotificationWebSocket('test-token'))
+    expect(mockCreateClient).toHaveBeenCalledTimes(1)
+    const arg = mockCreateClient.mock.calls[0]![0] as { baseUrl: string }
+    expect(arg.baseUrl).toBe('https://api.aizhs.top')
+    expect(arg.baseUrl).not.toBe('https://www.aizhs.top')
   })
 
   it('无 token 时不建立连接', () => {

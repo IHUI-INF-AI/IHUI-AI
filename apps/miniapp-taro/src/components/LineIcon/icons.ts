@@ -177,6 +177,17 @@ export const ICONS = {
     '<svg\n  class="lucide lucide-square"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="18" height="18" x="3" y="3" rx="2" />\n</svg>',
   smile:
     '<svg\n  class="lucide lucide-smile"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M15 10V9" />\n  <path d="M16.472 15a6 6 0 01-8.943 0" />\n  <path d="M9 10V9" />\n  <circle cx="12" cy="12" r="10" />\n</svg>',
+  blocks:
+    '<svg\n  class="lucide lucide-blocks"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M10 22V7a1 1 0 0 0-1-1H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5a1 1 0 0 0-1-1H2" />\n  <rect x="14" y="2" width="8" height="8" rx="1" />\n</svg>',
+  'circle-dollar-sign':
+    '<svg\n  class="lucide lucide-circle-dollar-sign"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <circle cx="12" cy="12" r="10" />\n  <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8" />\n  <path d="M12 18V6" />\n</svg>',
+  database:
+    '<svg\n  class="lucide lucide-database"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <ellipse cx="12" cy="5" rx="9" ry="3" />\n  <path d="M3 5V19A9 3 0 0 0 21 19V5" />\n  <path d="M3 12A9 3 0 0 0 21 12" />\n</svg>',
+  'shield-check':
+    '<svg\n  class="lucide lucide-shield-check"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />\n  <path d="m9 12 2 2 4-4" />\n</svg>',
+  plug: '<svg\n  class="lucide lucide-plug"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <path d="M12 22v-5" />\n  <path d="M15 8V2" />\n  <path d="M17 8a1 1 0 0 1 1 1v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1z" />\n  <path d="M9 8V2" />\n</svg>',
+  workflow:
+    '<svg\n  class="lucide lucide-workflow"\n  xmlns="http://www.w3.org/2000/svg"\n  width="24"\n  height="24"\n  viewBox="0 0 24 24"\n  fill="none"\n  stroke="#000000"\n  stroke-width="2"\n  stroke-linecap="round"\n  stroke-linejoin="round"\n>\n  <rect width="8" height="8" x="3" y="3" rx="2" />\n  <path d="M7 11v4a2 2 0 0 0 2 2h4" />\n  <rect width="8" height="8" x="13" y="13" rx="2" />\n</svg>',
 } as const
 
 export type IconName = keyof typeof ICONS

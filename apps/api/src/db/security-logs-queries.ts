@@ -43,6 +43,10 @@ export async function createSecurityLog(
  * 于是 /settings/security-logs 与其消费端（web 设置页安全日志、RN 安全中心）永远只能说"暂无"。
  * ip / UA 的取法与 plugins/audit-logger.ts:343,368-369 逐字同形（含 512 截断，对齐列宽），
  * 不在这里另起一套口径；写失败只报一行、绝不把业务请求带崩（安全事件是旁路账）。
+ *
+ * `options.principalUserId` 给的是**登录前**那一格：那时 checkAuth 还没跑、request.userId 恒空，
+ * 而本表 user_id notNull —— 认证不等于授权，主体只能由承载层把"刚验证过凭据的那个 userId"
+ * 显式传进来，绝不从被操作记录反推、更不读客户端可写的 body/query/header。
  */
 export async function recordSecurityEvent(
   request: {
@@ -52,13 +56,15 @@ export async function recordSecurityEvent(
   },
   action: string,
   metadata?: Record<string, unknown>,
+  options?: { principalUserId?: string },
 ): Promise<void> {
-  if (!request.userId) return // 表上 user_id notNull：无主事件不写，不拿 null 去撞约束
+  const userId = options?.principalUserId ?? request.userId
+  if (!userId) return // 表上 user_id notNull：无主事件不写，不拿 null 去撞约束
   const rawUA = request.headers['user-agent']
   const userAgent = typeof rawUA === 'string' ? rawUA.slice(0, 512) : null
   try {
     await createSecurityLog({
-      userId: request.userId,
+      userId,
       action,
       ip: request.ip ?? null,
       userAgent,

@@ -30,7 +30,11 @@
  *  ⑦ 名单外真坏了 ⇒ 独立身份一封,且与封顶**不并桶**(一型恢复不许压掉另一型);健康的不立行、
  *    豁免到期与未登记两档都必须响 —— 方向恒为**多喊一次**,绝不是多静音一次(§0.10);
  *  ⑧ 本档自己的 teardown 必须在位(C11):`after(…rmScratch…)` 那一行在本次落地的那枚提交里
- *    **整行不见了而 6 条用例照样全绿** —— 少一个收尾钩子不会让任何断言变红,这一型天生安静。
+ *    **整行不见了而 6 条用例照样全绿** —— 少一个收尾钩子不会让任何断言变红,这一型天生安静;
+ *  ⑨ 第三种终态"连续六小时量不到"的门槛**方向与前两种相反**(C12~C14):单轮未判定必须闭嘴
+ *    (§0.3 把"没判"当坏了 = 让一把量不到的尺子获得发信权),但 indefinite 的失明必须喊,
+ *    且**不寄的那一轮也要留痕**(返回里 `blind` 与 `blindMailed` 两个数分开)——
+ *    只报"寄没寄"会把"有事但没到门槛"读成"没事",又回到同一个假绿。
  *
  * 判据一律 import 源脚本的 `healUnresponsiveServices`,本档不复制第二份(§22c)。
  */
@@ -98,6 +102,8 @@ function run(tag, now, stdout) {
     intervalMs: 0, // 每轮都必须判,不受守护自身节律影响
     tickFile: path.join(scratch, `${tag}.tick.iso`),
     cappedFile: path.join(scratch, `${tag}.capped-first.json`),
+    offlistFile: path.join(scratch, `${tag}.offlist-first.json`),
+    blindFile: path.join(scratch, `${tag}.blind-first.json`),
     logger: (line) => logs.push(String(line)),
     notify: (name, detail, opts) => {
       mails.push({ name, detail, opts })
@@ -215,6 +221,46 @@ test('C10 豁免到期与未登记都必须响(方向是多喊一次,绝不是�
 test('C11 本档的收尾钩子必须真在位(静默丢行的一型:测试全绿而 teardown 没了)', () => {
   const src = readFileSync(new URL(import.meta.url), 'utf8')
   assert.match(src, /^after\(\(\) => rmScratch\(scratch\)\)\s*$/m, 'after(…rmScratch…) 这一行不在了 ⇒ 用例仍会全绿,而夹具目录没人回收')
+})
+
+/**
+ * C12~C14 同族第三种:**量不到**。这一格的门槛与前面两格方向相反 ——
+ * 一轮未判定**不许**寄信(§0.3:把"没判"当坏了 = 让一把量不到的尺子获得发信权),
+ * 但连续 6 小时量不到必须寄,因为它报的不是"服务坏了"而是"**看守层瞎了**"。
+ * 三条互相成对:C12 单轮不寄但**留痕**、C13 到 6h 寄且跨档、C14 恢复后摘起点。
+ */
+const BLIND = { name: 'IHUI-API', kind: 'undetermined', why: '未判定:门的应答维没结论 ⇒ 不记故障也不清零' }
+
+test('C12 单轮量不到 ⇒ 零封,但起点必须已经落账、日志必须报名(不寄 ≠ 不留痕)', () => {
+  const { mails, logs, r } = run('C12', T0, report({ actions: [HEALTHY, BLIND] }))
+  assert.equal(mails.length, 0, '一轮未判定就寄信 = 把"没判"读成"坏了"(§0.3)')
+  assert.equal(r.blind, 1, '返回必须报"量不到 1 台" —— 只报寄没寄会把"有事但没到门槛"读成"没事"')
+  assert.equal(r.blindMailed, 0)
+  assert.match(logs.join('\n'), /未到人门槛 360 分钟 ⇒ 本轮只报名,不寄信/, '日志必须写明"为什么这轮没寄"(这条只许来自逐轮报名那行,不许由收尾汇总行顶替)')
+  assert.ok(existsSync(path.join(scratch, 'C12.capped-first.json')) === false, '封顶状态件不该被这一格写')
+  const off = JSON.parse(readFileSync(path.join(scratch, 'C12.blind-first.json'), 'utf8'))
+  assert.equal(off.firstMs, T0, '6 小时的分母必须从**第一次量不到**那刻起算')
+})
+
+test('C13 连续量不到跨过 6h ⇒ 恰好一封,且报的是"看守层瞎了"而不是"服务坏了"', () => {
+  run('C13', T0, report({ actions: [BLIND] }))
+  const { mails } = run('C13', T0 + 7 * 3_600_000, report({ actions: [BLIND] }))
+  assert.equal(mails.length, 1, '6 小时之后还不响 = indefinite 的失明永远没人知道')
+  const m = mails[0]
+  assert.match(m.name, /量不到/, `标题必须点名这是看守层的事故:${m.name}`)
+  assert.match(m.name, /看守层/, '标题必须说清"坏的是这把尺子"')
+  assert.doesNotMatch(m.name, /服务坏了|启动即崩/, '不得把它写成服务故障 —— 本层根本没判出它是好是坏')
+  assert.match(m.opts.dedupKey, /^service-heal-blind;svcs=IHUI-API;held=6-24h$/, `身份形状坏了:${m.opts.dedupKey}`)
+  assert.match(m.detail, /没有判定这几台的好坏/, '正文必须先声明"这不是判定,是量不到"')
+  assert.match(m.detail, /check-service-binary-paths\.mjs --json/, '出路必须指到那把尺子本身')
+})
+
+test('C14 重新量到 ⇒ 零封且起点被摘(否则下次真失明第一封就冒充"已经六小时")', () => {
+  run('C14', T0, report({ actions: [BLIND] }))
+  assert.ok(existsSync(path.join(scratch, 'C14.blind-first.json')), '前置不成立:量不到那轮没落起点')
+  const { mails } = run('C14', T0 + 30 * 60_000, report({ actions: [HEALTHY] }))
+  assert.equal(mails.length, 0)
+  assert.equal(existsSync(path.join(scratch, 'C14.blind-first.json')), false, '起点没摘掉 ⇒ 下一次失明第一封就到 6-24h 档')
 })
 
 after(() => rmScratch(scratch))

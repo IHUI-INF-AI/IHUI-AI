@@ -4,12 +4,31 @@
 
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import { getAbout } from '@/api'
-import LineIcon from '@/components/LineIcon'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
+import { navigateToWebView } from '@/pages/webview/index'
+import { WEB_BASE_URL } from '@/constants/web-portal'
+import {
+  ABOUT_MENUS,
+  ABOUT_PLATFORMS,
+  ABOUT_STATS,
+  ABOUT_VALUES,
+  type AboutFeature,
+} from './aboutSections'
+
+/**
+ * 小程序端「关于我们」—— 段落顺序与取词照 RN `AboutScreen.tsx`(其上游为 web AboutContent):
+ * Hero → 我们的故事 → 4 项价值观 → 6 项平台能力 → 数字见证 → CTA → 合规/帮助入口。
+ * 分段数据在 ./aboutSections.ts(为把本页压在 §3 的 250 行上限内)。
+ *
+ * CTA 落点取本端真实在册出口:注册 → /pages/register/index(app.config.ts 分包在册页);
+ * 开放平台 /developer 与本端其他 web 承载页同形,经 pages/webview 承载页打开,不留空按钮。
+ * 合规/帮助入口沿用本端既有实装路由与 about.* 取词,改版不删入口。
+ */
 
 interface AboutInfo {
   name: string
@@ -18,21 +37,31 @@ interface AboutInfo {
   logo?: string
 }
 
-interface MenuItem {
-  key: string
-  label: string
-  url: string
+function Chip({ icon, label }: { icon: IconName; label: string }) {
+  return (
+    <View className="inline-flex items-center gap-[10rpx] px-[20rpx] py-[8rpx] rounded-md bg-brand-accent-light self-start">
+      <LineIcon name={icon} size={24} color="var(--color-brand-accent-deep)" />
+      <Text className="text-[length:22rpx] font-medium text-brand-accent-deep">{label}</Text>
+    </View>
+  )
+}
+
+function FeatureCard({ feature, title, desc }: { feature: AboutFeature; title: string; desc: string }) {
+  return (
+    <View className="w-[calc(50%-10rpx)] bg-card rounded-lg p-[24rpx] space-y-[16rpx]">
+      <View className="flex items-center gap-[16rpx]">
+        <View className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-lg bg-brand-accent-light">
+          <LineIcon name={feature.icon} size={36} color="var(--color-brand-accent-deep)" />
+        </View>
+        <Text className="flex-1 text-[length:30rpx] font-semibold text-foreground">{title}</Text>
+      </View>
+      <Text className="block text-[length:24rpx] leading-[38rpx] text-muted-foreground">{desc}</Text>
+    </View>
+  )
 }
 
 export default function AboutIndexPage() {
   const { t } = useI18n()
-  const tt = useCallback(
-    (k: string, fb: string) => {
-      const v = t(k)
-      return v === k ? fb : v
-    },
-    [t],
-  )
   const [info, setInfo] = useState<AboutInfo>({ name: '', version: '', intro: '' })
 
   const load = useCallback(async () => {
@@ -40,72 +69,21 @@ export default function AboutIndexPage() {
       setInfo(await getAbout())
     } catch (e) {
       logger.error('about/index', '获取关于信息', e)
-      Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
-  }, [tt])
+  }, [t])
 
-  const navigate = useCallback((url: string) => {
-    Taro.navigateTo({ url })
-  }, [])
-
-  // 返回(对齐 RN AboutScreen header ChevronLeft onPress goBack;页面栈为空时回退到「我的」)
   const goBack = useCallback(() => {
-    Taro.navigateBack({
-      fail: () => Taro.switchTab({ url: '/pages/user/index' }),
-    })
+    Taro.navigateBack({ fail: () => Taro.switchTab({ url: '/pages/user/index' }) })
   }, [])
 
-  const menus = useMemo<MenuItem[]>(
-    () => [
-      {
-        key: 'protocol',
-        label: tt('about.protocol.title', '用户协议'),
-        url: '/pkg-about/about/protocol',
-      },
-      {
-        key: 'privacy',
-        label: tt('about.privacy.mainTitle', '隐私政策'),
-        url: '/pkg-about/about/privacy',
-      },
-      {
-        key: 'businessLicense',
-        label: tt('about.businessLicense.title', '营业执照'),
-        url: '/pkg-about/about/business-license/index',
-      },
-      {
-        key: 'icpRecord',
-        label: tt('about.icpRecord.title', 'ICP备案'),
-        url: '/pkg-about/about/icp-record/index',
-      },
-      {
-        key: 'modelRecord',
-        label: tt('about.modelRecord.title', '模型备案'),
-        url: '/pkg-about/about/model-record/index',
-      },
-      {
-        key: 'usageRules',
-        label: tt('about.usageRules.title', '使用规则'),
-        url: '/pkg-about/about/usage-rules/index',
-      },
-      {
-        key: 'apiSettings',
-        label: tt('about.apiSettings.title', 'API 设置'),
-        url: '/pkg-about/about/api-settings/index',
-      },
-      {
-        key: 'appPermission',
-        label: tt('about.appPermission.title', '应用权限'),
-        url: '/pkg-about/about/app-permission/index',
-      },
-      { key: 'help', label: tt('about.help.title', '帮助中心'), url: '/pkg-about/about/help' },
-      {
-        key: 'contact',
-        label: tt('about.contact.title', '联系我们'),
-        url: '/pkg-about/about/contact',
-      },
-    ],
-    [tt],
-  )
+  const goRegister = useCallback(() => {
+    Taro.navigateTo({ url: '/pages/register/index' })
+  }, [])
+
+  const openDeveloper = useCallback(() => {
+    navigateToWebView(`${WEB_BASE_URL}/developer`, t('about.ctaSecondary'))
+  }, [t])
 
   useDidShow(() => load())
 
@@ -113,57 +91,146 @@ export default function AboutIndexPage() {
     <ThemeRoot>
       {/* 对齐 RN AboutScreen container:bg surface.bg;custom 导航补状态栏 safe-area */}
       <View className="min-h-screen bg-background pt-[calc(env(safe-area-inset-top)+8rpx)]">
-        {/* 顶部导航(对齐 RN AboutScreen header:ChevronLeft 40rpx/foreground + 标题 40rpx/700,gap 8 padding 20/24) */}
+        {/* 顶部导航(返回键为页面栈空时回退到「我的」) */}
         <View className="flex items-center gap-[8rpx] px-[20rpx] py-[24rpx]">
           {/* hitSlop 8dp → p 16rpx + 负 margin 抵消,扩大点击区不改视觉间距 */}
           <View className="p-[16rpx] -m-[16rpx]" onClick={goBack} hoverClass="opacity-60">
             <LineIcon name="chevron-left" size={40} color="var(--color-foreground)" />
           </View>
-          <Text className="text-[length:40rpx] font-bold text-foreground">关于我们</Text>
+          <Text className="text-[length:40rpx] font-bold text-foreground">{t('setting.aboutUs')}</Text>
         </View>
 
-        {info.name ? (
-          <View className="pt-[80rpx] pb-[60rpx] text-center bg-card">
-            <Image
-              className="w-[160rpx] h-[160rpx]"
-              src={info.logo || '/pkg-about/assets/images/logo.png'}
-              mode="aspectFit"
-            />
-            <Text className="block text-[length:32rpx] text-foreground font-semibold mt-[24rpx]">
-              {info.name}
+        <View className="p-[24rpx] pb-[64rpx] space-y-[24rpx]">
+          {/* Hero(对齐 RN styles.hero) */}
+          <View className="flex flex-col items-center gap-[16rpx] pt-[16rpx]">
+            <Chip icon="sparkles" label={t('about.heroBadge')} />
+            <Text className="block text-center text-[length:56rpx] font-bold text-foreground">
+              {t('about.heroTitle')}
             </Text>
-            <Text className="block text-[length:24rpx] text-muted-foreground mt-[8rpx]">
-              {t('about.version', { version: info.version })}
+            <Text className="block text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+              {t('about.heroSubtitle')}
+            </Text>
+            {info.version ? (
+              <Text className="text-[length:22rpx] text-muted-foreground">
+                {t('about.version', { version: info.version })}
+              </Text>
+            ) : null}
+          </View>
+
+          {/* 我们的故事 */}
+          <View className="bg-card rounded-lg p-[24rpx] space-y-[16rpx]">
+            <Chip icon="book-open" label={t('about.storyBadge')} />
+            <Text className="block text-[length:36rpx] font-bold text-foreground">
+              {t('about.storyTitle')}
+            </Text>
+            <Text className="block text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+              {t('about.storyP1')}
+            </Text>
+            <Text className="block text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+              {t('about.storyP2')}
             </Text>
           </View>
-        ) : null}
 
-        <View className="m-[24rpx] p-[32rpx] bg-card rounded-lg">
-          <Text className="text-[length:26rpx] text-muted-foreground leading-[1.8]">
-            {info.intro || tt('about.introFallback', '智汇 AI 致力于打造一站式 AI 服务平台')}
-          </Text>
-        </View>
+          {/* 4 项价值观 */}
+          <View className="flex flex-wrap gap-[20rpx]">
+            {ABOUT_VALUES.map((f) => (
+              <FeatureCard key={f.titleKey} feature={f} title={t(f.titleKey)} desc={t(f.descKey)} />
+            ))}
+          </View>
 
-        {/* 合规条目卡(对齐 RN sectionCard:白卡圆角 16rpx,条目分隔线 1rpx border.light) */}
-        <View className="m-[24rpx] bg-card rounded-lg overflow-hidden">
-          {menus.map((m, idx) => (
-            <View
-              key={m.key}
-              className={`flex items-center justify-between py-[28rpx] px-[24rpx]${idx > 0 ? ' border-t border-border' : ''}`}
-              onClick={() => navigate(m.url)}
-              hoverClass="opacity-60"
-            >
-              <Text className="text-[length:30rpx] text-foreground flex-1">{m.label}</Text>
-              {/* 对齐 RN ChevronRight:rpx(24)/text.tertiary/strokeWidth 2 */}
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
+          {/* 6 项平台能力 */}
+          <View className="space-y-[24rpx]">
+            <Text className="block text-[length:36rpx] font-bold text-foreground">
+              {t('about.platformTitle')}
+            </Text>
+            <View className="flex flex-wrap gap-[20rpx]">
+              {ABOUT_PLATFORMS.map((f) => (
+                <FeatureCard
+                  key={f.titleKey}
+                  feature={f}
+                  title={t(f.titleKey)}
+                  desc={t(f.descKey)}
+                />
+              ))}
             </View>
-          ))}
-        </View>
+          </View>
 
-        <View className="text-center pt-[40rpx] px-[24rpx] pb-[20rpx]">
-          <Text className="text-[length:22rpx] text-muted-foreground">
-            {tt('about.copyright', '© 2026 智汇 AI. 保留所有权利')}
-          </Text>
+          {/* 数字见证 */}
+          <View className="bg-card rounded-lg p-[24rpx] space-y-[24rpx]">
+            <Text className="block text-center text-[length:36rpx] font-bold text-foreground">
+              {t('about.numbersTitle')}
+            </Text>
+            <View className="flex flex-wrap gap-[20rpx]">
+              {ABOUT_STATS.map((s) => (
+                <View
+                  key={s.valueKey}
+                  className="flex-1 basis-[44%] flex flex-col items-center gap-[8rpx]"
+                >
+                  <Text className="text-[length:48rpx] font-bold text-brand-accent-deep">
+                    {t(s.valueKey)}
+                  </Text>
+                  <Text className="text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+                    {t(s.descKey)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* CTA(主按钮走 --color-cta / --color-cta-foreground 同源档) */}
+          <View className="bg-card rounded-lg p-[24rpx] pt-[36rpx] pb-[36rpx] flex flex-col items-center gap-[16rpx]">
+            <LineIcon name="rocket" size={60} color="var(--color-brand-accent-deep)" />
+            <Text className="block text-center text-[length:36rpx] font-bold text-foreground">
+              {t('about.ctaTitle')}
+            </Text>
+            <Text className="block text-center text-[length:26rpx] leading-[40rpx] text-muted-foreground">
+              {t('about.ctaDesc')}
+            </Text>
+            <View
+              className="self-stretch mt-[8rpx] bg-cta rounded-sm py-[22rpx] text-center"
+              hoverClass="opacity-60"
+              onClick={goRegister}
+            >
+              <Text className="text-[length:28rpx] font-semibold text-cta-foreground">
+                {t('about.ctaPrimary')}
+              </Text>
+            </View>
+            <View
+              className="self-stretch border border-border rounded-sm py-[22rpx] text-center"
+              hoverClass="opacity-60"
+              onClick={openDeveloper}
+            >
+              <Text className="text-[length:28rpx] font-semibold text-foreground">
+                {t('about.ctaSecondary')}
+              </Text>
+            </View>
+          </View>
+
+          {/* 合规/帮助入口(本端实装页,改版不删;无边框分隔,行距即分隔) */}
+          <View className="space-y-[16rpx]">
+            <Text className="block text-[length:36rpx] font-bold text-foreground">
+              {t('about.complianceTitle')}
+            </Text>
+            <View className="bg-card rounded-lg p-[24rpx] space-y-[28rpx]">
+              {ABOUT_MENUS.map((m) => (
+                <View
+                  key={m.key}
+                  className="flex items-center justify-between"
+                  onClick={() => Taro.navigateTo({ url: m.url })}
+                  hoverClass="opacity-60"
+                >
+                  <Text className="text-[length:30rpx] text-foreground flex-1">
+                    {t(m.labelKey)}
+                  </Text>
+                  <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <View className="text-center pt-[16rpx]">
+            <Text className="text-[length:22rpx] text-muted-foreground">{t('about.copyright')}</Text>
+          </View>
         </View>
       </View>
     </ThemeRoot>
