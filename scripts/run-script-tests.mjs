@@ -188,7 +188,10 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
     tally.fail += p.fail
     tally.skipped += p.skipped
     tally.cancelled += p.cancelled
-    for (const n of p.notOk) failures.push({ chunk: i + 1, name: n })
+    // collectFailures 返回的是 {name, why};这里必须逐字段取出 —— 直接把对象塞进 name
+    // 会让清单打成 `[object Object]`(2026-10-21 实测:CI 日志 100 条全成这个,等于把失败名
+    // 整个丢了,比改之前更糟)。
+    for (const n of p.notOk) failures.push({ chunk: i + 1, name: n.name, why: n.why })
     console.log(
       `  片 ${i + 1}/${chunks.length}: ${chunk.length} 文件 → pass ${p.pass} / fail ${p.fail}`,
     )
