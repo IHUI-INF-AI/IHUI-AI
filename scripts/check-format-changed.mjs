@@ -26,6 +26,8 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 
+import { gitRaw } from './lib/face-reader.mjs'
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TAG = '[format-ratchet]'
 const MAX_BATCH = 200
@@ -121,20 +123,10 @@ export function decideOutcome({ fileCount, failures }) {
   return { code: 0, line: `通过：检查 ${fileCount} 个改动文件` }
 }
 
-const GIT_OPTS = {
-  cwd: ROOT,
-  encoding: 'utf8',
-  windowsHide: true,
-  stdio: ['ignore', 'pipe', 'pipe'],
-  timeout: 120_000,
-  maxBuffer: 64 * 1024 * 1024,
-  // 只读判定不刷新索引 stat 缓存(共享工作树里少抢一次 .git/index)
-  env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
-}
-
 function git(args) {
-  // windowsHide / stdio 必须写在调用点上:守门 52 与 193 的静态判据都不解析 GIT_OPTS 常量。
-  return execFileSync('git', args, { ...GIT_OPTS, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] })
+  // 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + 显式 stdio/windowsHide + timeout +
+  // GIT_OPTIONAL_LOCKS=0(只读判定不刷新索引 stat 缓存)都由 gitRaw 同源提供,不再自拼派生。
+  return gitRaw(args, ROOT, { timeout: 120_000, maxBuffer: 64 * 1024 * 1024 })
 }
 
 function canResolve(ref) {
