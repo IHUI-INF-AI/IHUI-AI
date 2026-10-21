@@ -231,6 +231,9 @@ function runPythonSide(pythonPath, llmText, scratch) {
     res = spawnSync(pythonPath, [progFile, payloadFile], {
       stdio: ['ignore', 'pipe', 'pipe'],
       encoding: 'utf8',
+      // 同族口径:Python 在 Windows 上往管道写默认走 ANSI 码页 ⇒ 含中文时这里读成乱码。
+      // 本门回传的对照结果可能带中文,故显式钉死 UTF-8(与 bpe-encoding-parity 等门同一对变量)。
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
       windowsHide: true,
       timeout: 60000,
       maxBuffer: 8 << 20,

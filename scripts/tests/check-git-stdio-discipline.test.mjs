@@ -374,6 +374,26 @@ test('T12 callSpan / markHidden / maskComments / splitArgs 的配平边界', () 
   const codeStart = msrc.indexOf('const b')
   assert.equal(h[codeStart], 0, '真实代码被误遮')
   assert.equal(h[codeStart + 6], 0, '真实代码被误遮')
+  // 2026-10-21 根因回归:markHidden 必须认正则字面量。此前不认 ⇒ L477 的 ESM 匹配式
+  // /import\s*\{([^}]*)\}\s*from\s*['"]node:child_process['"]/g 里字符类 ['"] 的引号
+  // 被当成字符串引号,跨行贪婪配对吞掉 240 行外的自检夹具 ⇒ 门 193 把夹具里的
+  // execFileSync 判成真调用(判红 2 处,台账豁免到期复红阻塞 push)。
+  const rsrc = [
+    `for (const m of src.matchAll(/import\\s*\\{([^}]*)\\}\\s*from\\s*['"]node:child_process['"]/g)) {`,
+    `  found = true`,
+    `}`,
+    `const fixture = "execFileSync('git', ['x'])"`,
+  ].join('\n')
+  const rh = markHidden(rsrc)
+  assert.equal(rh[rsrc.indexOf('/import')], 1, '正则字面量未被掩 ⇒ 字符类引号将跨行错位')
+  assert.equal(rh[rsrc.indexOf('const fixture')], 0, '正则后的真实代码被误遮')
+  assert.equal(rh[rsrc.indexOf('"execFileSync')], 1, '字符串字面量里的夹具未被掩')
+  // 牙:同一形态里放一个真裸调用,仍判红(证明正则分支不是恒绿口子)
+  assert.equal(
+    scanSource(`${rsrc}\nexecFileSync(GIT, ['ls-files'], { encoding: 'utf8' })`).misses.length,
+    1,
+    '正则分支把真裸调用洗绿',
+  )
 })
 
 // ── T13 三面读数:缺省= HEAD,--staged 走索引,--worktree 走盘 ─────────────────

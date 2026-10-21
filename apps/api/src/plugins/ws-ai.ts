@@ -10,6 +10,7 @@ import { cloneTimbre } from '../routes/ai-vendors.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
+import { DEFAULT_AI_SERVICE_URL } from '../constants.js'
 
 const send = (socket: WebSocket, obj: unknown): void => {
   try {
@@ -38,7 +39,7 @@ const FREE_TTS_VOICE_MAP: Record<string, string> = {
 async function synthesizeTTS(text: string, voice: string, signal?: AbortSignal): Promise<Buffer> {
   // 1. 免费 TTS 优先(edge-tts,零 key)
   try {
-    const aiBase = (process.env.AI_SERVICE_URL ?? 'http://localhost:8803').replace(/\/$/, '')
+    const aiBase = (process.env.AI_SERVICE_URL ?? DEFAULT_AI_SERVICE_URL).replace(/\/$/, '')
     const freeVoice = FREE_TTS_VOICE_MAP[voice] ?? 'zh-CN-XiaoxiaoNeural'
     const resp = await fetch(`${aiBase}/api/voice/tts`, {
       method: 'POST',
