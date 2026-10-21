@@ -35,7 +35,7 @@
  *   1  校验失败(意外文件/缺文件/agent scope 越界)
  *   2  环境错误(非 git 仓库/无 origin 等)
  */
-import { execSync, spawn, spawnSync } from 'node:child_process'
+import { execFileSync, execSync, spawn, spawnSync } from 'node:child_process'
 import {
   appendFileSync,
   closeSync,
@@ -464,6 +464,44 @@ if (addResult.status !== 0) {
   process.exit(1)
 }
 
+// ─── 2b. README 生成数字发令前对齐(2026-10-22 立)──────────────────────────
+// 病灶:数字块由 post-commit 回写 ⇒ 索引面永远落后一枚,凡带 README 的提交都被门 173 判红
+// (实测 tracked 15613 / 索引 15612 / HEAD 15611)。
+// 修在 Step 2 之后而不是 pre-commit 里:README 此刻已在索引 ⇒ 改内容不算"窗口期新进",
+// O43② 护栏零感知(在钩子里补写并 add 会被它整枚拒发 —— 那正是这段移到 post-commit 的由来)。
+// 处理面严格限定在**声明面里的** README:`--files` 防本器顺手 add 未声明的兄弟文件,
+// 否则 Step 3 的精确匹配会判"意外文件"并中止。
+const readmeDeclared = expectedFiles
+  .map((f) => f.replace(/\\/g, '/'))
+  .filter((f) => /^README(\.en|\.ko|\.ja)?\.md$/.test(f))
+if (readmeDeclared.length > 0 && process.env.IHUI_SKIP_README_NUMBERS_SYNC !== '1') {
+  try {
+    execFileSync(
+      process.execPath,
+      [join(ROOT, 'scripts', 'sync-readme-numbers.mjs'), `--files=${readmeDeclared.join(',')}`],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 << 20,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    log('info', `Step 2b/5: README 生成数字已对齐现算值(${readmeDeclared.join(', ')})`)
+  } catch (e) {
+    log(
+      'warn',
+      `Step 2b/5: sync-readme-numbers 失败(不阻断,门 173 照索引面判):${String(
+        e?.stdout || e?.message || '',
+      )
+        .trim()
+        .split('\n')
+        .slice(-3)
+        .join('\n')}`,
+    )
+  }
+}
+
 // ─── 3. 校验 staged 内容是否 == 预期 ───────────────────────
 log('info', 'Step 3/5: 校验 staged 内容与预期一致')
 // D171:清单走 lib 的 -z 形态(NUL 分帧、不经 core.quotePath 转写),声明侧与 git 侧
@@ -543,11 +581,44 @@ const stagedBaselineAtStep3 = stagedFiles.map(normalize)
 // 规则本来就写着"提交前先跑 merge-live-doc",但它只存在于文档里 ⇒ 谁忘了都成立,
 // 而忘了的代价是**别人的内容消失**。这里改成:声明了活文档就必须先过对账,不过即拒提交。
 const LIVE_DOCS = ['README.md', 'AGENTS.md', 'PROJECT_PLAN.md']
+// 两片**派生区**各有独占写入器,块内"少行/改值"是设计内收缩,不是谁的手写内容被吃掉:
+//   · `RECENT UPDATES` ← auto-update-readme-recent.mjs(按 MAX_GROUPS 封顶裁旧);
+//   · `GENERATED NUMBERS` ← gen-doc-numbers.mjs --markdown(数字由现算值覆盖,正确性归门 173)。
+// 3e 只对**派生区之外**要求"工作树 ⊇ HEAD"。
+// (2026-10-22 实证:回写后的 README 每次裁旧/换代都会被原判据判红,自动收编因此每 3 分钟空转一轮。)
+const DERIVED_BLOCKS = [
+  ['<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->', '<!-- END RECENT UPDATES -->'],
+  ['<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->', '<!-- END GENERATED NUMBERS -->'],
+]
+function outsideDerivedBlocks(text) {
+  let out = text
+  let stripped = false
+  for (const [begin, end] of DERIVED_BLOCKS) {
+    const bi = out.indexOf(begin)
+    const ei = out.indexOf(end)
+    if (bi === -1 || ei === -1 || ei < bi) continue
+    out = out.slice(0, bi) + '\n' + out.slice(ei + end.length)
+    stripped = true
+  }
+  return stripped ? out : null
+}
 const liveDocsStaged = expectedFiles
   .map((f) => f.replace(/\\/g, '/'))
   .filter((f) => LIVE_DOCS.includes(f))
 if (liveDocsStaged.length && process.env.IHUI_SKIP_LIVE_DOC_CHECK !== '1') {
   for (const f of liveDocsStaged) {
+    // 差异只落在派生区 ⇒ 直接放行(交给 merge-live-doc 反而会把裁掉的旧条目塞回来)。
+    // 块外一旦真丢行,这里得不到相等 ⇒ 回落到下面的 merge-live-doc 原判据。
+    try {
+      const a = outsideDerivedBlocks(gitRaw(['show', `HEAD:${f}`], ROOT))
+      const b = outsideDerivedBlocks(readFileSync(join(ROOT, f), 'utf8'))
+      if (a !== null && b !== null && a === b) {
+        log('info', `活文档对账通过:${C.cyan}${f}${C.reset} 派生区之外逐字一致(「最近更新」/「生成数字」归脚本)`)
+        continue
+      }
+    } catch {
+      /* 取不到版本就回落到原判据 */
+    }
     const r = spawnSync(
       process.execPath,
       [join(ROOT, 'scripts', 'merge-live-doc.mjs'), '--file', f],

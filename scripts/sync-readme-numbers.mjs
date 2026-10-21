@@ -28,6 +28,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 
 const README_FILES = ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md']
+/**
+ * `--files=a.md,b.md`:只处理指定文件(2026-10-22 立)。
+ * 调用方(safe-commit)只声明了 README.md 时,若本器顺手把 README.en 也 `git add` 进索引,
+ * Step 3 的「暂存区精确匹配声明面」会判意外文件并整枚中止 —— 处理面必须与声明面同源。
+ * 不带该参数 = 处理全部(独立运行/auto-commit 的既有语义)。
+ */
+const ONLY_FILES = (() => {
+  const arg = process.argv.find((a) => a.startsWith('--files='))
+  if (!arg) return null
+  const set = new Set(arg.slice('--files='.length).split(',').map((s) => s.trim()).filter(Boolean))
+  return set.size ? set : null
+})()
 const BEGIN = '<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->'
 const END = '<!-- END GENERATED NUMBERS -->'
 
@@ -67,11 +79,12 @@ function outsideBlock(text) {
 const freshFull = genBlockMarkdown()
 const freshCmp = stripDateLine(freshFull)
 
-let staged = []
-let skipped = []
+const staged = []
+const skipped = []
 let touched = 0
 
 for (const f of README_FILES) {
+  if (ONLY_FILES && !ONLY_FILES.has(f)) continue
   const p = path.join(ROOT, f)
   if (!fs.existsSync(p)) continue
   const wt = fs.readFileSync(p, 'utf8')
