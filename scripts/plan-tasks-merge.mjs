@@ -1452,13 +1452,13 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
     const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
-      casUpdateRef(parent, landed.commit, { root: ROOT })
+      casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return 1
     }
     const recheck = verifyRestoreTerminals(src, landedText, r.edits)
     if (recheck.problems.length) {
       console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
-      casUpdateRef(parent, landed.commit, { root: ROOT })
+      casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return 1
     }
     // G-800 留痕:复验通过之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
@@ -1941,14 +1941,14 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
     const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
-      casUpdateRef(parent, landed.commit, { root: ROOT })
+      casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return 1
     }
     const after = audit(landedText).counts
     const leftAfter = findRowTwins(landedText).filter((g) => !match || g.line.includes(match))
     if (leftAfter.length > 0) {
       console.log(`❌ 落地后回读仍有 ${leftAfter.length} 组等值副本,回退到 ${parent.slice(0, 11)}`)
-      casUpdateRef(parent, landed.commit, { root: ROOT })
+      casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return 1
     }
     // G-800 留痕:回读闭合之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
@@ -2469,7 +2469,7 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
     const landedText = catBatch(root, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
-      casUpdateRef(parent, landed.commit, { root })
+      casUpdateRef(parent, landed.commit, { root, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
     }
     const leftAll = finder(landedText)
@@ -2484,7 +2484,7 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
       console.log(
         `❌ 落地后回读不闭合(本轮认领的组残留 ${leftAfter.length} 组 / 活数 ${c0.claimable}→${after.claimable}),回退到 ${parent.slice(0, 11)}`,
       )
-      casUpdateRef(parent, landed.commit, { root })
+      casUpdateRef(parent, landed.commit, { root, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return { kind: 'failed', deletedCount: 0, sha: null, remainingGroups: 0, remainingRows: 0 }
     }
     // G-800 留痕:本轮认领的组已清零(回读闭合)之后、共享索引对齐之前。
@@ -3005,13 +3005,13 @@ export function twinFoldAndLand(maxAttempts = 8) {
     const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
-      casUpdateRef(parent, landed.commit, { root: ROOT })
+      casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return 1
     }
     const recheck = verifyTwinFold(src, landedText, f.edits, f.refused)
     if (recheck.problems.length) {
       console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
-      casUpdateRef(parent, landed.commit, { root: ROOT })
+      casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return 1
     }
     // G-800 留痕:折叠复验通过之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
@@ -3334,13 +3334,13 @@ export function driftedMergeAndLand(anchor, keeperLine, maxAttempts = 8) {
     const landedText = catBatch(ROOT, [landedSpec], { maxBuffer: 1 << 28 }).get(landedSpec)
     if (landedText === null || landedText === undefined) {
       console.log(`❌ 落地后回读不到 ${landed.commit.slice(0, 11)} 的台账 ⇒ 不记为已修,回退`)
-      casUpdateRef(parent, landed.commit, { root: ROOT })
+      casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return 1
     }
     const recheck = verifyDriftedMerge(src, landedText, f.edits, f.refused, anchor, keeperLine)
     if (recheck.problems.length) {
       console.log(`❌ 落地后复验不过(${recheck.problems[0]}),回退到 ${parent.slice(0, 11)}`)
-      casUpdateRef(parent, landed.commit, { root: ROOT })
+      casUpdateRef(parent, landed.commit, { root: ROOT, allowNonFastForward: 'rollback:回退本器刚落地且复验不过的那枚(G-939 守卫显式档)' })
       return 1
     }
     // G-800 留痕:复验通过之后、共享索引对齐之前(次序判据见 BYPASS_LANDING_SITES)。
