@@ -84,7 +84,41 @@ export function parseConfig(text, nowMs = Date.now()) {
     if (expired) problems.push(`${name}:复核日已过期(${s.reviewBy})⇒ 本轮不行动`)
   }
   if (services.length === 0) throw new Error(`台账里没有任何可用条目(${problems.join('; ') || '全被字段问题挡掉'})`)
-  return { limits, services, problems, excluded: Array.isArray(raw.excluded) ? raw.excluded : [] }
+  // ── 排除台账也要"验过才免、且会到期"(§0.7)────────────────────────────────────────
+  // 这一族此前只是**散文**:`excluded` 整份原样透传,全仓**没有一个消费者**读过它 —— 于是
+  // 它的真实作用等于零,而头注与条目 reason 里写着"只喊人"。"只喊人"这件事从来没有生产者。
+  // 现在把它接进判定(见 decideRound 的 `not-in-list` 分支),并逐行要求三件:
+  //  ① 一行只许一台(原先两行写成 `ihui-prometheus / ihui-loki / ihui-promtail` 这种伪名,
+  //    任何按服务名的查表**结构上永远命中不了** ⇒ 5 台服务在台账里"看着有豁免",实际无人豁免);
+  //  ② 带 reason(为什么不许自动重启);
+  //  ③ 带可解析 reviewBy(豁免必须到期;缺或坏 ⇒ 不生效并点名,方向是**多喊一次**,不是多静音一次,§0.10)。
+  const excluded = []
+  const excludedByName = new Map()
+  for (const e of Array.isArray(raw.excluded) ? raw.excluded : []) {
+    const name = typeof e?.name === 'string' ? e.name.trim() : ''
+    if (!name) {
+      problems.push('excluded 有一条缺 name')
+      continue
+    }
+    if (name.includes('/')) {
+      problems.push(`excluded「${name}」一行盖多台(伪名)⇒ 按服务名查表永远命中不了 ⇒ 这行不构成豁免,请拆成逐台一行`)
+      continue
+    }
+    const reason = typeof e?.reason === 'string' && e.reason.trim() ? e.reason.trim() : ''
+    if (!reason) {
+      problems.push(`excluded「${name}」缺 reason ⇒ 说不清为什么不自动重启的豁免不生效`)
+      continue
+    }
+    const due = Date.parse(e?.reviewBy)
+    if (!Number.isFinite(due)) {
+      problems.push(`excluded「${name}」缺可解析 reviewBy(${e?.reviewBy ?? '(缺)'})⇒ 永不到期的豁免不生效(§0.7)`)
+      continue
+    }
+    const item = { name, reason, reviewBy: e.reviewBy, expired: due < nowMs }
+    excluded.push(item)
+    excludedByName.set(name, item)
+  }
+  return { limits, services, problems, excluded, excludedByName }
 }
 const pos = (v, d) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : d)
 
@@ -129,7 +163,30 @@ export function decideRound({ config, state, verdicts, nowMs, apply = false }) {
       next.services[name] = { strikes, lastRestartMs: p.lastRestartMs ?? null, lastVerdict: v.verdict }
     }
     if (!entry) {
-      actions.push({ name, kind: 'not-in-list', why: '不在白名单(排除项或未登记)⇒ 不行动' })
+      // 白名单外**不重启**,但"坏了就必须对人"(2026-10-21 补)。原先这一格对 answering 也推一行,
+      // 而真停的那台和它同形;更要紧的是全仓没有任何消费者读这一档 —— 台账 reason 里写着"只喊人",
+      // 而"只喊人"这件事从来没有生产者(门 153 只是提交链上的 warn,几天没人提交就几天不响)。
+      // ⚠️ 语义分界:`excluded` 免的是**自动重启**这一项,**不免"对人喊一声"** —— 这张表自己的
+      // 措辞就是"只喊人"。所以三档都进发信集,`ackState` 只决定出路那句话怎么写、以及台账烂没烂:
+      //  - acked       有人裁定过不自动重启 ⇒ 喊人时给"按登记的处置"
+      //  - expired     复核日已过 ⇒ 豁免到期,喊人时点名"这条要回看"(§0.7:豁免必须会到期)
+      //  - unregistered 既无服务条目也无排除条目 ⇒ 这台压根没人决定过(RSSHub 静默停 3 天那一型)
+      if (v.verdict === 'down' || v.verdict === 'silent') {
+        const acked = config.excludedByName?.get?.(name)
+        const ackState = !acked ? 'unregistered' : acked.expired ? 'expired' : 'acked'
+        actions.push({
+          name,
+          kind: 'not-in-list',
+          ackState,
+          why:
+            `${v.verdict}:${v.why} ⇒ 白名单外不自动重启,` +
+            (ackState === 'acked'
+              ? `已登记排除(${acked.reviewBy} 前回看):${acked.reason}`
+              : ackState === 'expired'
+                ? `排除台账复核日已过(${acked.reviewBy})⇒ 豁免到期,请重新裁定是否仍不自动重启`
+                : '既无服务条目也无排除条目 ⇒ 这台没人决定过,请补登记'),
+        })
+      }
       keep(p.strikes ?? 0)
       continue
     }
@@ -319,7 +376,12 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps, n
   const byName = new Map((gate.services || []).map((s) => [s.name, s]))
   if ((gate.services || []).length === 0) return { text: '❌ 门的报告里一个服务都没有 ⇒ 判据失明,不记为通过', exit: 2 }
   const verdicts = {}
-  for (const s of config.services) verdicts[s.name] = verdictOf(s.name, byName.get(s.name))
+  // 名单**内**的每台要判,名单**外**的也要判 —— 否则"这台压根不在任何台账里"这一型永远不会被看见
+  // (2026-10-21 现读:IHUI-OLLAMA STATE=STOPPED、Application 路径已不存在、11434 无应答,
+  // 而到人通道一封信都没有;直接原因就是这个循环只遍历白名单)。
+  for (const name of new Set([...config.services.map((s) => s.name), ...(gate.services || []).map((s) => s.name)])) {
+    verdicts[name] = verdictOf(name, byName.get(name))
+  }
   const state = readState(statePath)
   const { actions, next } = decideRound({ config, state, verdicts, nowMs: now(), apply: opts.apply })
   const results = []
@@ -345,6 +407,12 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps, n
   }
   if (opts.apply) writeState(statePath, next)
   const act = (kind) => actions.filter((a) => a.kind === kind).length
+  // 名单外的健康/未判定**不立行**(不是故障,不该在报告里刷 13 行"不行动"),但它们必须**有数**:
+  // 否则 `checked` 与各档之和不相等,读起来就像"有 13 台被漏判了"—— 而真正的漏判反而藏在这笔糊涂账里。
+  const whiteSet = new Set(config.services.map((s) => s.name))
+  const offVerdicts = Object.entries(verdicts)
+    .filter(([name]) => !whiteSet.has(name))
+    .map(([, v]) => v)
   const counts = {
     checked: Object.keys(verdicts).length,
     answering: act('answering'),
@@ -355,11 +423,17 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps, n
     cooldown: act('cooldown'),
     capped: act('window-capped'),
     undetermined: act('undetermined'),
+    // 名单外**且真坏了**的台数,再按台账形态折三档 —— 台账烂没烂必须是量得到的数(§5e-3),
+    // 不能只写在散文 reason 里等人自己去读。
     offlist: act('not-in-list'),
+    offlistAnswering: offVerdicts.filter((v) => v.verdict === 'answering').length,
+    offlistUndetermined: offVerdicts.filter((v) => v.verdict === 'undetermined').length,
+    offlistUnregistered: actions.filter((a) => a.kind === 'not-in-list' && a.ackState === 'unregistered').length,
+    offlistAckExpired: actions.filter((a) => a.kind === 'not-in-list' && a.ackState === 'expired').length,
   }
   const body = [...actions.map((a) => `· ${a.name} ${a.kind} — ${a.why}`), ...results.map((r) => `✔ ${r.name} ${r.kind} — ${r.why}`)].join('\n')
   const line =
-    `动作器完 ${new Date(now()).toISOString()} | ${opts.apply ? 'APPLY' : '只读'} | 在册 ${counts.checked} 台:应答 ${counts.answering} / 计划 ${counts.planned} / 已重启 ${counts.restarted} / 失败 ${counts.failed} / 观察 ${counts.watch} / 冷却 ${counts.cooldown} / 窗口封顶 ${counts.capped} / 未判定 ${counts.undetermined} / 名单外 ${counts.offlist}`
+    `动作器完 ${new Date(now()).toISOString()} | ${opts.apply ? 'APPLY' : '只读'} | 在册 ${counts.checked} 台:应答 ${counts.answering} / 计划 ${counts.planned} / 已重启 ${counts.restarted} / 失败 ${counts.failed} / 观察 ${counts.watch} / 冷却 ${counts.cooldown} / 窗口封顶 ${counts.capped} / 未判定 ${counts.undetermined} / 名单外故障 ${counts.offlist}(未登记 ${counts.offlistUnregistered} / 豁免到期 ${counts.offlistAckExpired})/ 名单外健康 ${counts.offlistAnswering} / 名单外未判定 ${counts.offlistUndetermined}`
   const exit = counts.failed > 0 || counts.restarted > 0 ? 1 : 0
   if (opts.json) {
     return { json: JSON.stringify({ at: new Date(now()).toISOString(), apply: opts.apply, counts, actions, results }, null, 2), exit, text: line }
@@ -473,6 +547,62 @@ async function selfTest() {
   ok('H10 台账里一条正常记录解析得出来,且带过期标记', (() => {
     const c = parseConfig(JSON.stringify({ services: [{ name: 'A', reason: 'r', owner: 'o', reviewBy: '2026-01-01' }] }), NOW)
     return c.services.length === 1 && c.services[0].expired === true && c.problems.length === 1
+  })())
+  // H11~H13:名单外那一格从"只有一行散文、无人消费"改成"真坏了就立行待喊人"(2026-10-21 补)。
+  // 三条互相成对:健康/未判定都不许长行(H11)⇔ 真坏了必须长行且分三档(H12)⇔ 分档的依据
+  // (排除台账)自身必须"验过才免、且会到期",否则 8 台服务会在"看着有豁免"的伪名下无人豁免(H13)。
+  ok('H11 名单外**健康或未判定**的服务不立行(它不是故障;白名单内的应答仍每台报名)', (() => {
+    const r = decideRound({ config: cfg, state: empty, verdicts: { Z: { verdict: 'answering', why: 'ok' }, Y: { verdict: 'undetermined', why: '无端口' } }, nowMs: NOW, apply: true })
+    return r.actions.length === 0 && !r.actions.some((a) => a.kind === 'restart')
+  })())
+  ok('H12 名单外真坏了 ⇒ 恰好一行 not-in-list,ackState 三档各归各的(免自动重启 ≠ 免喊人)', (() => {
+    const ackedCfg = {
+      ...cfg,
+      excludedByName: new Map([
+        ['E', { name: 'E', reason: 'r', reviewBy: '2027-01-01', expired: false }],
+        ['X', { name: 'X', reason: 'r', reviewBy: '2026-01-01', expired: true }],
+      ]),
+    }
+    const r = decideRound({
+      config: ackedCfg,
+      state: empty,
+      verdicts: { E: { verdict: 'down', why: 'STOPPED' }, X: { verdict: 'silent', why: '8802' }, Z: { verdict: 'down', why: 'STOPPED' } },
+      nowMs: NOW,
+      apply: true,
+    })
+    const byName = Object.fromEntries(r.actions.map((a) => [a.name, a]))
+    return (
+      r.actions.length === 3 &&
+      byName.E.ackState === 'acked' &&
+      /已登记排除/.test(byName.E.why) &&
+      byName.X.ackState === 'expired' &&
+      /复核日已过/.test(byName.X.why) &&
+      byName.Z.ackState === 'unregistered' &&
+      /没人决定过/.test(byName.Z.why) &&
+      !r.actions.some((a) => a.kind === 'restart')
+    )
+  })())
+  ok('H13 排除台账与白名单同规矩:伪名/缺 reason/缺到期 一律不入册并点名(§0.7)', (() => {
+    const c = parseConfig(
+      JSON.stringify({
+        services: [{ name: 'A', reason: 'r', owner: 'o', reviewBy: '2027-01-01' }],
+        excluded: [
+          { name: 'ok1', reason: 'r', reviewBy: '2027-01-01' },
+          { name: 'a / b', reason: 'r', reviewBy: '2027-01-01' },
+          { name: 'noreason', reviewBy: '2027-01-01' },
+          { name: 'noexpiry', reason: 'r' },
+        ],
+      }),
+      NOW,
+    )
+    return (
+      c.excluded.length === 1 &&
+      c.excluded[0].name === 'ok1' &&
+      c.excludedByName.has('ok1') &&
+      !c.excludedByName.has('a / b') &&
+      !c.excludedByName.has('noexpiry') &&
+      c.problems.filter((p) => /^excluded/.test(p)).length === 3
+    )
   })())
   ok('V1 四态映射:不应答=silent、非 RUNNING=down、无端口/取不到=未判定(四态不得并桶)', (() => {
     const gate = (stateVal, probe) => verdictOf('X', { rec: { state: { kind: 'measured', value: stateVal }, probe } })
