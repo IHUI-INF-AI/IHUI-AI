@@ -1171,9 +1171,15 @@ class SecurityConfigUpdateRequest(BaseModel):
 async def get_agent_security_config(
     current_user: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
-    """读取 Agent 安全配置(P0-3 安全三件套单一事实源)。
+    """读取**当前调用者生效**的 Agent 安全配置(2026-10-21 起按用户解析)。
 
-    返回当前生效配置(env 默认 + 进程内更新;重启回 env 默认)。
+    口径 = 进程默认(env `AGENT_SECURITY_*` + PUT 的进程内更新)⊕ 该用户在
+    `user_preferences(group='security', key='agentSecurity.*')` 的**显式表态**
+    (唯一出口 `agent_security_prefs.resolve_security_config`)。没表过态 ⇒ 逐字段
+    等于进程快照 ⇒ 与本次改造前一字不差。
+
+    `data.explicit_by_user` 登记"这五个字段里哪几个是该用户自己定的":读面必须能
+    自证"这个档位是谁定的",否则"用户说开关没生效"这件事在两端之间无从判定。
 
     O19(2026-09-21):补端点级"必须登录"。此前该 router 全靠 JWT 中间件的
     路径白名单把关 —— `.env` 里一条 `/api/agents/` 前缀就把整个执行面(含本端点)
@@ -1181,10 +1187,16 @@ async def get_agent_security_config(
     白名单配错也不会漏。注:本端点只到"登录即可读",更细的管理员档位
     (roleId>=1)属 apps/api 侧的授权模型,ai-service 不重复实现。
     """
-    from ..services.security_config import get_security_config
+    from ..services.agent_security_prefs import (
+        get_agent_security_prefs,
+        resolve_security_config,
+    )
 
-    cfg = get_security_config()
-    return {"code": 0, "message": "ok", "data": cfg.to_dict()}
+    cfg = await resolve_security_config(current_user)
+    prefs = await get_agent_security_prefs(current_user)
+    data = cfg.to_dict()
+    data["explicit_by_user"] = list(prefs.explicit_fields())
+    return {"code": 0, "message": "ok", "data": data}
 
 
 @router.put("/agent/security-config")

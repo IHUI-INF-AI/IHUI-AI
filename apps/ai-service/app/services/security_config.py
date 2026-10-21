@@ -25,10 +25,25 @@
                                      DENY 硬红线仍拒绝,不降级;
                            off     = 完全跳过 exec_policy 评估(危险命令硬门、
                                      黑白名单等其他防线不受影响)。
-- input_scan_enabled:      危险工具入参扫描(command_injection/path_traversal/
-                           ssrf_loopback/arg_too_long)总开关(默认 ON)。
+- input_scan_enabled:      危险工具入参扫描总开关(默认 ON)。
+                           ON = 四类全扫(command_injection/path_traversal/
+                           ssrf_loopback/arg_too_long);
+                           OFF = **只关启发式两类**(ssrf_loopback/arg_too_long),
+                           command_injection 与 path_traversal 属硬拦截,不受本开关
+                           影响(2026-10-21 定档,判据 tool_input_scanner.HARD_SCAN_FLAGS)。
 - pipeline_record_enabled: guarded_pipeline 步骤录制开关(默认 ON;
-                           recorder 已注入 loop 时生效)。
+                           recorder 已注入 loop 时生效)。2026-10-21 补一条:生产构造点
+                           从不注入 recorder,所以"用户档显式 = '1'"才是自动接入录制器的
+                           唯一条件 —— 本字段的进程默认 True **不**触发自动接入,否则
+                           没表过态的用户会凭空开始写 data/step_records.json。
+
+## 按用户生效(2026-10-21)
+
+本模块的快照是**进程默认**,全局入口 `get_security_config()` 保持不动(其它调用方与
+进程级管理面继续读它)。"进程默认 ⊕ 该用户在 user_preferences 的显式表态"这一层由
+`app/services/agent_security_prefs.py` 的唯一出口
+`resolve_security_config(user_id)` 承担:缺行 / 坏值 / 主体不是 UUID / 读库失败 ⇒ 一律
+恰等于本模块那份进程快照 ⇒ 未配置的用户行为一字不变。
 
 线程/协程安全说明:配置对象为不可变 dataclass,更新即整体替换(原子引用切换),
 无锁需求;读取端拿到的引用永远自洽。

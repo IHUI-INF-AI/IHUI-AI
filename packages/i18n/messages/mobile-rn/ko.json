@@ -2607,6 +2607,12 @@
       "openWithdraw": "출금 신청"
     },
   "securityCenter": {
+    "ipTitle": "IP 허용 목록",
+    "ipPlaceholder": "IP 주소를 입력하세요",
+    "ipEmpty": "허용된 IP가 없습니다",
+    "ipAdd": "추가",
+    "ipInvalid": "유효한 IP 주소를 입력하세요",
+    "ipHint": "새 로그인만 차단하며 기존 세션은 영향 없습니다. 마지막으로 이 목록을 편집한 IP 주소는 항상 로그인할 수 있습니다.",
     "title": "보안 센터",
     "loadFailed": "불러오지 못했습니다",
     "actionFailed": "작업에 실패했습니다. 잠시 후 다시 시도해 주세요",
