@@ -16,9 +16,20 @@
 # 与段编号与迁入前逐字一致)。
 # 失败语义:commit 已落地,钩子失败只回显日志末 40 行,不静默、不阻断提交。
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
-wscript //nologo scripts/hook-run-hidden.vbs post-commit scripts/lib/post-commit-hook.js "$@" || {
-  printf '%s\n' "❌ post-commit 链失败(commit 已落地;推送/自愈段未完成)—— 日志末 40 行:" >&2
-  tail -40 .workbuddy/hook-logs/post-commit.log >&2 || true
-  printf '%s\n' "   手动复跑:node scripts/lib/post-commit-hook.js;推送核验:node scripts/git-push-converge.mjs" >&2
-  exit 1
-}
+# ─── 后台执行(2026-10-21,机主要求"提交整体 ≤1 分钟")────────────────────────────
+# 本钩子的语义本来就是"失败不阻断提交"(commit 已落地),但它此前**同步**跑完整条链
+# (push-guard / pollution / tag-sync / plan-heal),实测 64s 全部计入用户的提交等待时间。
+# 改为 `&` 后台派发:提交命令立即返回,各段结果照旧落 .workbuddy/hook-logs/*.log。
+# 代价:这里不再能回显失败摘要 —— 失败看日志(post-commit*.log),或跑
+# `node scripts/lib/post-commit-hook.js` 手动复跑。要恢复同步:HUSKY_POST_COMMIT_SYNC=1。
+if [ "$HUSKY_POST_COMMIT_SYNC" = "1" ]; then
+  wscript //nologo scripts/hook-run-hidden.vbs post-commit scripts/lib/post-commit-hook.js "$@" || {
+    printf '%s\n' "❌ post-commit 链失败(commit 已落地;推送/自愈段未完成)—— 日志末 40 行:" >&2
+    tail -40 .workbuddy/hook-logs/post-commit.log >&2 || true
+    printf '%s\n' "   手动复跑:node scripts/lib/post-commit-hook.js;推送核验:node scripts/git-push-converge.mjs" >&2
+    exit 1
+  }
+else
+  wscript //nologo scripts/hook-run-hidden.vbs post-commit scripts/lib/post-commit-hook.js "$@" >/dev/null 2>&1 &
+  printf '%s\n' "⏱  post-commit 已转入后台(push-guard / tag-sync / plan-heal);日志 .workbuddy/hook-logs/post-commit*.log"
+fi
