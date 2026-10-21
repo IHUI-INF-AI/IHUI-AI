@@ -1251,6 +1251,9 @@
     "submit": "提交問題",
     "submitting": "提交中..."
   },
+  "coursePlanet": {
+    "title": "課程星球"
+  },
   "courseResource": {
     "title": "課程資源",
     "empty": "暫無資源",
@@ -1870,6 +1873,9 @@
       "noImageHint": "此作品記錄中沒有圖片位址，僅保留提示詞。",
       "noMore": "沒有更多了"
     },
+  "imageGenHistory": {
+    "title": "生成歷史"
+  },
     "imageGenTemplates": {
       "title": "提示詞範本",
       "subtitle": "選擇範本快速生成圖片",
@@ -2508,6 +2514,9 @@
       "submitting": "發佈中…",
       "submit": "發佈需求"
     },
+  "businessCard": {
+    "title": "我的名片"
+  },
     "businessCardEdit": {
       "pageTitleCreate": "建立名片",
       "pageTitleEdit": "編輯名片",
@@ -2678,6 +2687,9 @@
   },
   "square": {
     "title": "AI 資訊"
+  },
+  "studyIndex": {
+    "title": "AI 影片"
   },
   "studyProgress": {
     "title": "學習進度",
@@ -3671,6 +3683,9 @@
     },
     "knowledgeCards": "知識卡片",
     "knowledgePlanet": "知識星球"
+  },
+  "knowledgePlanet": {
+    "title": "知識星球"
   },
   "knowledgeRag": {
     "title": "RAG 知識庫",
