@@ -545,6 +545,11 @@
     "claimFree": "领取免费资料",
     "groupAdvanced": "高级工具",
     "groupDeveloper": "开发者",
+    "groupMoreContent": "更多内容",
+    "groupMoreAccount": "账号与安全",
+    "groupMoreTrade": "交易与资金",
+    "groupMoreAi": "更多 AI 工具",
+    "groupMoreService": "服务与支持",
     "automation": "自动化任务",
     "myLearning": "我的学习",
     "userCenter": "用户中心",
@@ -3396,7 +3401,7 @@
     "source": "来源"
   },
   "memory": {
-    "title": "我的记忆",
+    "detail": "详情",    "title": "我的记忆",
     "empty": "暂无记忆",
     "emptyHint": "与 AI 的长期对话记忆会保存在这里",
     "loadFailed": "记忆加载失败",
@@ -3571,7 +3576,8 @@
     "loginButton": "去登录"
   },
   "webViewPortal": {
-    "title": "Web 功能门户",
+    "knowledgeBase": "知识库",
+    "settingsBilling": "账单管理",    "title": "Web 功能门户",
     "hint": "以下为网页版功能入口，将在内置浏览器中打开",
     "sections": {
       "eduAi": "教育 AI",
