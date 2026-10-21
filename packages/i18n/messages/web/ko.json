@@ -22134,6 +22134,8 @@
     "title": "봉사"
   },
   "settings": {
+    "event2faDisabled": "2단계 인증 해제",
+    "eventIpBlocked": "IP 허용 목록에 의해 로그인 차단",
     "accountDeletionCancel": "삭제 취소",
     "accountDeletionCodeLabel": "인증번호",
     "accountDeletionCodePlaceholder": "인증 코드를 입력해 주십시오",
