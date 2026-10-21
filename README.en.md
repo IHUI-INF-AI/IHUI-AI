@@ -90,7 +90,7 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 工程守门 | 267 | `guardianGates` |
 | — blocking | 243 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15611 | `trackedFiles` |
+| 跟踪文件 | 15613 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -101,6 +101,20 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- ⚡ Perf:safe-commit 发令前对齐 README 生成数字,根治门173滞后竞态;sync 增 --files 限定处理面与声明面同源 (b02793d354)
+- 🚀 Feature/Improvement:摘牌器补三格 —— 留痕键集单一清单(LEDGER_KEYS 导出,自产与补写同形状,缺字段抛错不落半形)、backfillEntry 收敛器补写口、注记日期改本地日(上一轮用 UTC 日写注记,当天上午摘的牌全落在前一天,按日期收敛时整批六十三枚被漏掉)。测试先行:键集一致性臂先跑 ReferenceError 再实现;器物自检廿一例全过。 (098aa44d30)
+- 🐞 Fix:把本席上一轮漏收敛的 63 枚摘牌注记收敛成指针(原牌信息已无损回填留痕,seq 前缀 bfmviq9p9d)。上一轮我只按 @2026-10-22 匹配就报了「收敛完」——器物当时用 UTC 日写注记,当天上午的摘牌全落在 @2026-10-21,整批被我漏掉,那是交付不实;本轮同时把日期口径改成本地日,并给留痕补写口与键集一致性自检(防两种形状)。历史他人席位的注记一枚未动。校验:注记 #seq 六十三/六十三可在留痕解到、lease 三十五/三十五带原牌三要素、前后整行双全。 (7488b9cd66)
+
+**2026-10-22**
+- ♻️ Refactor:摘牌可追责性搬到仓外留痕 —— 行内注记只留 #seq 指针(实测最长五十二字,注记本身会被活文档归并洗掉:一轮六十四枚只剩六枚),原牌日期/持有者/超龄量/摘除前后整行/基线与落地枚 sha 逐条落 .workbuddy/stale-claim-strip.jsonl,九十天窗口老化且裁掉条数必须报出,取不到判未判定不用零冒充没摘过。测试先行:新臂先跑出红再实现;两次变异(去指针 / 留痕不存整行)分别使三四臂翻红,还原后逐字节核对基线指纹一致。器物自检十九例、镜像十例(含真写盘与老化)全过,门一零三/五二/一九九/一九四/一七六/十五/廿五各 RC=零。 (de551d1755)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c21ed373c9)
+- 🚀 Feature/Improvement:守门一零九新增 CL4 拦新增裸「（进行中）」(机主定档),与 CL1/CL3 共用 HEAD 存量棘轮只拦本次带进来的;超龄牌器物默认档改为代摘裸标记,依据是同批 CL4 已在提交链拦住新增、而器物只读 HEAD 面。测试先行:先写 S21 与 S1 更新跑出新红再实现,自检廿二例、镜像廿一例、器物镜像七例(第二遍复跑证幂等)、器物自检十一例全过;runner 标签同批改到四档名。取证:真仓 --check-gate 现读零红且 CL4 存量廿七处逐条点名、新增零处判红。 (cde5d204f2)
+- 📚 Docs:§1 同步 CL4 定档与器物默认档改写 —— 裸「（进行中）」新增即拦、存量只报数;器物代摘裸标记的依据是同批 CL4(不是口头状态) (18fc90a789)
+
+**2026-10-22**
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d6fb50905f)
+
 **2026-10-22**
 - 🐞 Fix:3e 活文档对账同时豁免两片派生区(RECENT UPDATES 归 auto-update-readme-recent、GENERATED NUMBERS 归 gen-doc-numbers;后者正确性由门 173 守),块外仍要求工作树⊇HEAD (1d1ed2680b)
 
@@ -148,16 +162,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - 🔧 Chore/Other:重钉四端 ui-routes 自述钉(remote-icons 引用清理后) (0904dc3e66)
 
 - 🔧 Chore/Other:收口 README 最近更新窗口与自动更新指针 (ff90a8c33b)
-
-- 🚀 Feature/Improvement:守门 226 增 H3 装载位判据——core.hooksPath 指向空目录时自动推送/备份整链静默停摆,补镜像 M8 (cc6bd20c75)
-- 🐞 Fix:补齐 AI 数据/文章与 SaaS 备份三个被忽略目录的 lint-staged 出口件 (4e92b12806)
-- 🐞 Fix:可见性同步用例改用默认允许集内的 href,修复用例与允许集脱节导致的红 (4d4a761ef2)
-
-- ⚡ Perf:提交链 12.7min → 38s —— 修并行判断 String() 归一(并行池从未生效)+ 快档 35s 预算与延后补跑 + 实时百分比进度 + 30a 结论缓存 + 网络调用治本超时 (3ca997ffba)
-- 🐞 Fix:净面 worktree 建了从不回收 —— 补统一回收出口(remove --force + prune),收尾清孤儿登记 (f2894131a3)
-
-**2026-10-22**
-- 🔧 Chore/Other:收编停留≥0分钟的未提交改动 (af9a2f8bf8)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
