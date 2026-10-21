@@ -426,7 +426,7 @@ test('T15 真进程并发对照:两发真 CLI 同时抢同一把锁 ⇒ 恰好�
   const dir = join(base, 'concurrent.lock')
   const script = fileURLToPath(new URL('../deploy-lock.mjs', import.meta.url))
   const args = ['acquire', '--mode', 'build', '--timeout', '2500', '--lock-dir', dir]
-  const kids = [0, 1].map(() => spawn(process.execPath, [script, ...args], { windowsHide: true }))
+  const kids = [0, 1].map(() => spawn(process.execPath, [script, ...args], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true }))
   const outs = await Promise.all(
     kids.map(
       (k) =>

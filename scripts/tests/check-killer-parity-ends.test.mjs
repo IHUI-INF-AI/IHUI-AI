@@ -14,6 +14,10 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+// `check:all` 自 2026-09-29(枚 a769910adf8)起改为派发到 all-checks-runner.mjs 的步骤表,
+// 别名不再以文本形式出现在 package.json 的脚本串里 ⇒ T8 的"到底有没有人跑"必须在**步骤表**上
+// 再问一次。runner 自带 isDirectRun 守卫(AGENTS §22d),import 不触发主流程。
+import { CHECK_ALL_STEPS } from '../all-checks-runner.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..', '..')
@@ -151,9 +155,14 @@ test('T8 已接线:check:all 经别名真调用本脚本,且脚本在 HEAD 面�
       all,
     ),
   )
+  // 两条腿都问:老形态(别名直接写在 check:all 串里)与新形态(派发到步骤表)。
+  // 判据方向不变 —— 两处都问不到才算"门存在但无人跑"。
+  const viaRunner = aliases.some((a) => CHECK_ALL_STEPS.includes(`pnpm ${a}`))
   assert.ok(
-    viaAlias || callsThisScript(all),
-    `check:all 未挂本门(本次红就是在它身上量到的)。候选别名:${aliases.join(', ')};check:all:${all.slice(0, 120)}…`,
+    viaAlias || callsThisScript(all) || viaRunner,
+    `check:all 未挂本门(本次红就是在它身上量到的)。候选别名:${aliases.join(', ')};check:all:${all.slice(0, 120)}…;步骤表:${
+      viaRunner ? '已含' : '未含'
+    }`,
   )
   const tree = execFileSync('git', ['-c', 'safe.directory=*', 'ls-tree', 'HEAD', '--', SRC_REL], {
     cwd: ROOT,
