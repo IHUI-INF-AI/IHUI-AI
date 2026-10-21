@@ -19,6 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatPaneProvider } from '@/stores/chat-pane-context'
 import { getChatStoreForPane, resetChatPaneStores } from '@/stores/chat-panes'
 import { useChatStore } from '@/stores/chat'
+import type { ChatMessage } from '@/stores/chat'
 import { VOICE_PLAYBACK_KEY, VoiceStreamSpeaker } from '@/components/chat/voice-stream-speaker'
 
 vi.mock('next-intl', () => ({
@@ -34,7 +35,7 @@ vi.mock('@/stores/auth-store', () => ({
 const fetchCalls: string[][] = []
 const ROOT = path.resolve(process.cwd(), 'src')
 
-function assistant(id: string, content: string) {
+function assistant(id: string, content: string): ChatMessage {
   return { id, role: 'assistant', content, createdAt: 1 }
 }
 
