@@ -131,6 +131,18 @@ export const WHITELIST_ENTRIES = new Map(
       why: '发布分析屏:数据卡片 + 趋势条 + 周期切换,共享层无同名屏,RN 端独占统计视图',
       expires: '2027-06-30',
     },
+    'AgentCategoriesScreen.tsx': {
+      why: '智能体分类屏:分类网格 + 详情入口,对齐 web /agents/categories;共享层无同名屏,RN 端独占导航交互',
+      expires: '2027-06-30',
+    },
+    'PublishAccountsScreen.tsx': {
+      why: '平台账号屏:账号列表 + 绑定状态,对齐 web /publish/accounts;共享层无同名屏,RN 端独占授权流',
+      expires: '2027-06-30',
+    },
+    'aboutPageSections.ts': {
+      why: '数据文件:非 screen 组件,导出 about 页的分区配置数组与图标映射',
+      expires: '2027-06-30',
+    },
     'AiAssistantN8nScreen.tsx': {
       why: 'N8n 工作流 AI 助手:streamChat SSE + VoiceInput + ModelConfigDialog + Drawer 历史对话,RN 端独占流式对话交互(L30 的"复用 @ihui/rn-app Drawer"仅是 doc comment,非 import)',
       expires: '2027-06-30',
