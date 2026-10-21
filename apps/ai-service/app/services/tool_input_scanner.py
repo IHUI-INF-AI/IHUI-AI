@@ -38,6 +38,15 @@ DEFAULT_FLAGS = frozenset(
     {"command_injection", "path_traversal", "ssrf_loopback", "arg_too_long"}
 )
 
+# **硬拦截类别(2026-10-21 立)**:这两类是确定性越权/注入形态(路径穿越分段、
+# 沙箱危险命令模式),不是启发式猜测,因此**恒不受 `input_scan_enabled` 开关影响** ——
+# 该开关关到 false 时只允许关 `HEURISTIC_SCAN_FLAGS` 那两类。判据由
+# `tests/test_agent_security_prefs_per_user.py` 的 4c 用例钉死(不许只写在注释里)。
+HARD_SCAN_FLAGS = frozenset({"command_injection", "path_traversal"})
+
+# 启发式类别:允许被 `input_scan_enabled=false` 关掉(回环 SSRF 探测、入参长度上限)。
+HEURISTIC_SCAN_FLAGS = frozenset({"ssrf_loopback", "arg_too_long"})
+
 # 默认单条入参长度上限(字符)
 DEFAULT_MAX_ARG_LEN = 2000
 
