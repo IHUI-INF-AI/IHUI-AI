@@ -19,6 +19,9 @@
  *   这类页面对壳端(desktop/mobile-cap 即 web 本身)无意义;功能型缺口才进门户。
  */
 
+// 守门 70 的内容文案声明式出口:本文件整份是「条目 → 标签」台账,fallbackLabel 按上面头注的
+// 约定**必然**是中文兜底串(真界面取词走 webViewPortal.* 五语言键,缺键才用它),不是界面 chrome。
+// i18n-content-exempt-file: 门户标签台账,fallbackLabel 是约定好的中文兜底串,界面取词在五语言词包 until 2027-04-20
 export interface WebPortalEntry {
   /** 全局唯一标识(domain 前缀 + 页面,连字符分隔) */
   key: string
@@ -102,6 +105,9 @@ export const WEB_PORTAL_SECTIONS = [
     fallbackLabel: '知识与工具',
     entries: [
       { key: 'knowledge-graph', titleKey: 'webViewPortal.knowledgeGraph', path: '/knowledge-graph', domain: 'knowledge-graph', fallbackLabel: '知识图谱' },
+      // web `/knowledge` 是「按语义搜索检索记忆库里的知识」那张页(knowledgeList 命名空间),
+      // 与本端原生 KnowledgeBase(RAG 知识库)不是同一件事 ⇒ 门户承接,不另造第三张屏。
+      { key: 'knowledge-base', titleKey: 'webViewPortal.knowledgeBase', path: '/knowledge', domain: 'knowledge', fallbackLabel: '知识库' },
       { key: 'tools-voice-stt', titleKey: 'webViewPortal.tools.voiceStt', path: '/tools/voice-stt', domain: 'tools', fallbackLabel: '语音转文字' },
       { key: 'resources', titleKey: 'webViewPortal.resources', path: '/resources', domain: 'resources', fallbackLabel: '资源库' },
       { key: 'stock', titleKey: 'webViewPortal.stock', path: '/stock', domain: 'stock', fallbackLabel: '股票行情' },
@@ -143,6 +149,9 @@ export const WEB_PORTAL_SECTIONS = [
       { key: 'oauth-authorized', titleKey: 'webViewPortal.oauth.authorized', path: '/oauth/my-authorized', domain: 'oauth', fallbackLabel: '授权管理' },
       { key: 'enterprise', titleKey: 'webViewPortal.enterprise', path: '/enterprise', domain: 'enterprise', fallbackLabel: '企业服务' },
       { key: 'feature-center', titleKey: 'webViewPortal.featureCenter', path: '/feature-center', domain: 'feature-center', fallbackLabel: '能力中心' },
+      // 账户账单/发票(web settings.billingTitle 那张)。与上面开发者组的 /developer/billing
+      // 不是同一页:那张是 API 消费账单,这张是账户订单与发票。
+      { key: 'settings-billing', titleKey: 'webViewPortal.settingsBilling', path: '/settings/billing', domain: 'settings', fallbackLabel: '账单管理' },
     ],
   },
   {
@@ -217,6 +226,17 @@ export const WEB_PORTAL_SECTIONS = [
 /** 拼接门户条目的完整 URL */
 export function buildWebPortalUrl(webBase: string, entry: WebPortalEntry): string {
   return `${webBase}${entry.path}`
+}
+
+/**
+ * 记忆详情页 URL(web `/memory/[id]`)—— 路径形状住在门户同源里,端内不许各拼一份。
+ *
+ * 为什么移动端要承它而不是自己再画一张屏:那张页带**编辑 + 保存**,而移动端原生记忆列表
+ * 只有新建与删除(packages/app/src/features/memory/MemoryScreen.tsx 现读无 update 通道),
+ * 补原生等于把 web 的一张页在两端各写一遍(§3 共享层优先 + §4 跨端同形)。
+ */
+export function buildMemoryDetailUrl(webBase: string, id: string): string {
+  return `${webBase}/memory/${encodeURIComponent(id)}`
 }
 
 /**

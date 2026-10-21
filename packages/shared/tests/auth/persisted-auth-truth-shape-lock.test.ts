@@ -201,7 +201,7 @@ function trackedSources(): string[] {
     out = execFileSync(
       'git',
       ['-c', 'safe.directory=*', '-C', REPO_ROOT, 'ls-files', '-z', '--', ...SCAN_ROOTS],
-      { encoding: 'utf8', windowsHide: true, timeout: 60000, maxBuffer: 1 << 26 },
+      { encoding: 'utf8', windowsHide: true, timeout: 60000, maxBuffer: 1 << 26, stdio: ['ignore', 'pipe', 'pipe'] },
     )
   } catch (e) {
     throw new Error(

@@ -1032,7 +1032,9 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
   const spawnOpts: SpawnOptions = {
     cwd: opts.cwd,
     shell: true,
-    stdio: ['pipe', 'pipe', 'pipe'],
+    // 2026-10-21:stdin 无人写(输出全走 stdout/stderr 流式收集)⇒ ignore;
+    // 三通道全 pipe 会被 stdio 纪律门判成病(且没必要)。
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     env: filteredEnv,
     // POSIX:detached 建立独立进程组,超时可 kill(-pid) 团灭整组(含孙进程);
@@ -1053,7 +1055,7 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
     if (!pid) return;
     if (process.platform === 'win32') {
       try {
-        spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true });
+        spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
       } catch { /* ignore */ }
     } else {
       try {

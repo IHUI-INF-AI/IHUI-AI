@@ -545,6 +545,11 @@
     "claimFree": "無料資料を受け取る",
     "groupAdvanced": "高度なツール",
     "groupDeveloper": "開発者",
+    "groupMoreContent": "その他のコンテンツ",
+    "groupMoreAccount": "アカウントとセキュリティ",
+    "groupMoreTrade": "取引と資金",
+    "groupMoreAi": "その他の AI ツール",
+    "groupMoreService": "サービスとサポート",
     "automation": "自動化タスク",
     "myLearning": "マイ学習",
     "userCenter": "アカウント",
@@ -3396,7 +3401,7 @@
     "source": "出典"
   },
   "memory": {
-    "title": "メモリー",
+    "detail": "詳細",    "title": "メモリー",
     "empty": "メモリーがありません",
     "emptyHint": "AI との長期会話メモリーが保存されます",
     "loadFailed": "メモリーの読み込みに失敗",
@@ -3527,7 +3532,8 @@
     "loginButton": "ログイン"
   },
   "webViewPortal": {
-    "title": "Web 機能ポータル",
+    "knowledgeBase": "ナレッジベース",
+    "settingsBilling": "請求管理",    "title": "Web 機能ポータル",
     "hint": "以下は Web 版機能の入口です。内蔵ブラウザで開きます",
     "sections": {
       "eduAi": "教育 AI",
