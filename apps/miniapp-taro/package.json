@@ -71,6 +71,7 @@
     "@types/react": "^18.3.0",
     "babel-preset-taro": "4.2.1",
     "eslint": "catalog:",
+    "miniprogram-ci": "^2.1.31",
     "rimraf": "catalog:",
     "tailwindcss": "^3.4.17",
     "typescript": "catalog:",

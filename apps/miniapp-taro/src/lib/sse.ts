@@ -17,7 +17,12 @@
 import { getToken } from '../utils/auth'
 import { STREAM_READ_TIMEOUT_MS } from '@ihui/shared/constants'
 import { runResumableSSEStream } from '@ihui/api-client'
-import { parseSSEChunk, type SSEEvent } from '@ihui/shared/utils/sse-parse'
+import {
+  parseSSEChunk,
+  SseMonotonicReplayGuard,
+  type SSEEvent,
+  type SSEReplayGuard,
+} from '@ihui/shared/utils/sse-parse'
 
 /**
  * 纯函数式 SSE 帧解析器。
@@ -32,9 +37,20 @@ export class SSEStreamParser {
   private lastEventId?: string
   /** D136:整行旁路(可选)。共享解析面不认领的帧族(如 tool-approval)从这里拿原始行自认领。 */
   private onLine?: (line: string) => void
+  /**
+   * G-274:投影水位守卫。缺省不注入 ⇒ `parseSSEChunk` 行为与既有语义逐字一致;
+   * 注入后"这帧能不能拼在我手上这份状态"由共享层的水位协议判,不再各端自拼。
+   */
+  private replayGuard?: SSEReplayGuard
 
-  constructor(onLine?: (line: string) => void) {
+  constructor(onLine?: (line: string) => void, replayGuard?: SSEReplayGuard) {
     this.onLine = onLine
+    this.replayGuard = replayGuard
+  }
+
+  /** 换一代守卫:断档之后协议禁止本地补偿,只能带着一份新基线重新订阅。 */
+  setReplayGuard(guard?: SSEReplayGuard): void {
+    this.replayGuard = guard
   }
 
   /** 把本次已成完整事件的原始文本按行递给旁路(空行不递;半包残余留在下一轮)。 */
@@ -52,7 +68,10 @@ export class SSEStreamParser {
   push(raw: string): SSEEvent[] {
     if (!raw) return []
     this.buffer += raw
-    const { events, remainder, lastId } = parseSSEChunk(this.buffer)
+    const { events, remainder, lastId } = parseSSEChunk(
+      this.buffer,
+      this.replayGuard ? { replayGuard: this.replayGuard } : undefined,
+    )
     this.emitCompleteLines(this.buffer, remainder)
     this.buffer = remainder
     if (lastId) this.lastEventId = lastId
@@ -136,7 +155,11 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
   }
 
   // 每次尝试用全新解析器(与旧自写层"每 attempt 新建 parser"同语义)
-  let parser = new SSEStreamParser(onRawLine)
+  //
+  // G-274:守卫**跨 attempt 只建一份** —— 重连时服务端按 Last-Event-ID 重放,重叠/迟到帧
+  // 必须由同一代水位判掉(每 attempt 新建会退化成"每轮首帧都当基线",重放照拼不误)。
+  let guard: SseMonotonicReplayGuard = new SseMonotonicReplayGuard()
+  let parser = new SSEStreamParser(onRawLine, guard)
 
   await runResumableSSEStream({
     url,
@@ -146,10 +169,21 @@ export async function streamSSE(options: StreamSSEOptions): Promise<void> {
     signal,
     readTimeoutMs,
     onAttemptStart: () => {
-      parser = new SSEStreamParser(onRawLine)
+      parser = new SSEStreamParser(onRawLine, guard)
     },
     onLine: (line) => {
       for (const evt of parser.push(line + '\n')) onEvent(evt)
+      // 断档判据:协议禁止本地补偿(不裁头、不补洞)⇒ 该帧不进状态机,换一代守卫,
+      // 并按本仓既有词汇把"重订阅"表达成一次尝试失败(runner 统一走退避重连,重连后
+      // 服务端按游标重放,新守卫用回来的第一帧重新立基线 —— 洞由重放窗口补,不由本地凑)。
+      const pending = guard.pendingResync
+      if (pending) {
+        guard = new SseMonotonicReplayGuard()
+        parser.setReplayGuard(guard)
+        throw new Error(
+          `[sse] projection resync (reason=${pending.reason}, seq=${pending.fromSeq})`,
+        )
+      }
     },
     onReconnect,
   })
