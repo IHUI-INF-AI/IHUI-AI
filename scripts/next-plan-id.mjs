@@ -42,18 +42,21 @@
  *   node scripts/next-plan-id.mjs                # 打印下一个可用号 + 现有号分布
  *   node scripts/next-plan-id.mjs --next-only     # 只打印一个号(供脚本串用)
  *   node scripts/next-plan-id.mjs --source origin/main
- *   node scripts/next-plan-id.mjs --check        # 有重号即 exit 1(不打印建议号)
+ *   node scripts/next-plan-id.mjs --check        # 有**登记行**重号即 exit 1(不打印建议号;标题口径只报数)
  *
- * 退出码:0 正常 / 1 --check 发现重号,或取不到权威版本、占用面判不出 / 2 脚本自身异常。
- * 对外契约不变:--check 的 stdout 与退出码逐字同改动前(重号仍按**台账面自身的条目标题**判 ——
- * 归档件里"台账一行 + 归档一份"是归档机制的正常形态,把它读成重号就是一台恒红误报);
- * --next-only 的 stdout 恒为一行号(所有面信息一律走 stderr)。
- * 〔更正@2026-10-21/G-927,上一条"stdout 逐字同改动前"只作改判留痕读〕:key 形状改了(见上面 HEADING
- * 头注),同面同一把尺的**语义**没变(仍只认条目标题、仍按台账自身面判、有真重号仍 exit 1),变的是
- * 报名内容 —— 系列小节不再被误报成重号。现读 HEAD 面:改前 7 组里 O62×6 / O82×5 / O86×9 三支全是
- * 系列小节误报,改后剩 7 组全部是逐字同键的真重复小节(O1×2 / O37×2 / O45×3 / O50×2 / O82续三×3 /
- * O86附⑧×2 / O86附⑨×2)⇒ 本器现在报的是它该报的东西;那 7 组是块级重复登记,归活文档归并线处置,
- * 不由取号器替人裁掉。
+ * 退出码:0 正常 / 1 --check 发现登记行重号、判据未判定,或取不到权威版本、占用面判不出 / 2 脚本自身异常。
+ * 〔更正@2026-10-21/G-927 第二次,取代上一条"stdout 逐字同改动前"与"重号按台账面自身的条目标题判";
+ * 上一条只作改判留痕读,不得当口径引用〕:
+ *   key 形状那一档(枚 82ee72dbf1)已认系列后缀,现读它把 7 组收窄成**逐字同键的重复小节**
+ *   (O1×2 / O37×2 / O45×3 / O50×2 / O82续三×3 / O86附⑧×2 / O86附⑨×2),方向是对的;但把**取号入口**
+ *   继续钉在那 7 组上,等于让历史叙述区的块级重复决定"现在能不能登记新活" —— 那正是上一条自己写的
+ *   "把它读成重号就是一台恒红误报"的同一型,只是换了落点。⇒ 本器现在:
+ *   ① 判红只看**登记行的编号声明位**(§1「一个编号只能有一行当前状态」说的是行),尺在
+ *      `lib/plan-id-duplicates.mjs` 一份(内部用 plan-task-index 的 parseTaskRows,不另写"什么算登记行");
+ *   ② 标题口径照旧算(号段 max 吃它,HEADING 那把尺一字未动),但**只作读数打印**,不判红也不判绿;
+ *   ③ 判据取不到输入 ⇒ exit 1 并显式写未判定。
+ *   那 7 组重复小节本身仍是真活(块级重复登记),归活文档归并线处置,不由取号器替人裁掉 —— 只是它
+ *   不再顺带把取号入口一起堵死。现读 HEAD 面:登记行 O 族声明 2 处、同号多行 0 ⇒ `--check` 绿。
  */
 import { resolve } from 'node:path'
 
@@ -65,6 +68,10 @@ import { collectIdFace } from './lib/plan-id-face.mjs'
 import { readRemoteIdBasis, idBasisGate } from './live-doc-edit.mjs'
 // 池式取号(2026-10-14):"池内最小空闲"的尺与 live-doc-edit 同住 lib/plan-id-lease.mjs 一份。
 import { smallestFreeId, poolFreeList, poolBlocked, LEASE_POOL_MAX } from './lib/plan-id-lease.mjs'
+// 重号判据(G-927,2026-10-21):**登记行的编号声明位**同号多行才判红;历史小节标题同 id 只报数不判红。
+// 尺同住这一份 lib(它内部用 plan-task-index 的 parseTaskRows),本器不另写"什么算一条登记行"。
+// 标题口径那把尺(带 `附①/续三/补` 子模式)不动 —— 号段 max 吃它,本 lib 也不复制它。
+import { judgeRowIdDuplicates } from './lib/plan-id-duplicates.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const PLAN_PATH = 'PROJECT_PLAN.md'
@@ -77,7 +84,8 @@ const PLAN_PATH = 'PROJECT_PLAN.md'
  * 归一化去空白 ⇒ `O62 附` 与 `O62附` 同键;后缀只认既有的三种书写形态(附N/附N补、续X、补),
  * **不放宽成"标题前缀"**,否则两支真重号只要标题首词不同就会被认成两个小节(那才是把病洗成绿)。
  */
-const HEADING = /^#{2,3}[ \t]+(O\d+(?:[ \t]*(?:附[①-⑳0-9]+(?:[ \t]*补)?|附(?![①-⑳0-9])|续[一二三四五六七八九十]+|补))?)/gm
+const HEADING =
+  /^#{2,3}[ \t]+(O\d+(?:[ \t]*(?:附[①-⑳0-9]+(?:[ \t]*补)?|附(?![①-⑳0-9])|续[一二三四五六七八九十]+|补))?)/gm
 /** key 归一化:后缀与数字之间可有可无空格,比对前一律去掉空白 */
 const headingKey = (raw) => raw.replace(/[ \t]+/g, '')
 /** 从 key 取数字段(key 现在可能带系列后缀,"剥掉首字母再转数"那一族旧写法一律作废,遇 `O62附⑥` 得 NaN) */
@@ -137,15 +145,30 @@ for (const m of text.matchAll(HEADING)) seen.push(headingKey(m[1]))
 const count = new Map()
 for (const id of seen) count.set(id, (count.get(id) || 0) + 1)
 const nums = [...count.keys()].map(headingNum)
+// 标题口径的重号分组:G-927 起**只作读数**,不再参与判红(判红走 lib/plan-id-duplicates.mjs 那一档)。
 const dups = [...count.entries()].filter(([, n]) => n > 1).sort((a, b) => a[0].localeCompare(b[0]))
 
 if (flags.has('--check')) {
-  if (dups.length) {
-    console.log(`❌ ${SOURCE} 上条目编号重号 ${dups.length} 组:`)
-    for (const [id, n] of dups) console.log(`   ${id} ×${n}`)
+  // G-927:判红只看**登记行的编号声明位**(§1「一个编号只能有一行当前状态」说的是行);
+  // 历史叙述区里同 id 的小节标题(`## O82续三` ×3、`### O62 附⑪` 这一族)是系列小节,不是重复登记,
+  // 旧口径把它们读成红 ⇒ --check 恒 exit 1、独立取号入口整体不可用,而真正该拦的一条都没拦到。
+  const dup = judgeRowIdDuplicates({ ledgerText: text, family: FAMILY })
+  if (!dup.ok) {
+    console.log(`❌ 重号判据未判定:${dup.reason}`)
+    console.log('  ⇒ 既不记绿也不冒红;先修占用面取材(见上面 stderr 的 face 读数)再重跑本命令。')
     process.exit(1)
   }
-  console.log(`✅ ${SOURCE} 无条目编号重号(共 ${count.size} 个号,最大 O${Math.max(...nums)})`)
+  if (dup.rowDups.length) {
+    console.log(`❌ ${SOURCE} 上登记行的编号声明位同号多行 ${dup.rowDups.length} 组:`)
+    for (const [id, n] of dup.rowDups) console.log(`   ${id} ×${n}`)
+    process.exit(1)
+  }
+  const headingNote = dups.length
+    ? `;另有历史小节标题同 id ${dups.length} 组(${dups.map(([i, n]) => `${i}×${n}`).join(' ')})—— 系列小节,只报数不判红`
+    : ''
+  console.log(
+    `✅ ${SOURCE} 无登记行重号(声明位 ${dup.rowDecls} 处 / 标题口径 ${count.size} 个号,最大 O${Math.max(...nums)})${headingNote}`,
+  )
   process.exit(0)
 }
 
@@ -155,10 +178,15 @@ if (flags.has('--check')) {
 //     行首形态上,只看标题会漏;而归档器搬走的正是这些行)。
 // 取两者较大 ⇒ 本器**只会给出比改动前更大或相等的号**,不存在"改完反而开始撞车"。
 // 两个都判不出(该面一条 O 记录都没有)时保持既有算术:Math.max() 空集 = -Infinity。
-const headingMaxWide = Math.max(...[...wideText.matchAll(HEADING)].map((m) => headingNum(headingKey(m[1]))))
+const headingMaxWide = Math.max(
+  ...[...wideText.matchAll(HEADING)].map((m) => headingNum(headingKey(m[1]))),
+)
 const rowUsedWide = usedIdsOfPrefix(wideText, FAMILY)
 const maxLedger = Math.max(...nums)
-const maxWide = Math.max(headingMaxWide, rowUsedWide === null ? Number.NEGATIVE_INFINITY : rowUsedWide.max)
+const maxWide = Math.max(
+  headingMaxWide,
+  rowUsedWide === null ? Number.NEGATIVE_INFINITY : rowUsedWide.max,
+)
 
 // ── 远端那一维(G-313 出路②;2026-09-30 起硬前置,与 live-doc-edit 同一把尺)─────────────
 let remote = null
@@ -222,9 +250,7 @@ const fmt = (n) => (Number.isFinite(n) ? `O${n}` : '无(该面一条 O 记录都
 console.log(
   `权威口径 = git show ${SOURCE}:${PLAN_PATH} ⊕ ${face.archiveFiles.length} 份归档件(台账条目标题 ${seen.length} 行 / 去重 ${count.size} 个号)`,
 )
-console.log(
-  `已占用的最大号 = ${fmt(maxWide)}   下一个号 = O${next}(池内最小空闲)`,
-)
+console.log(`已占用的最大号 = ${fmt(maxWide)}   下一个号 = O${next}(池内最小空闲)`)
 console.log(
   `  取号口径:池式 1..${LEASE_POOL_MAX}(2026-10-14 硬上限)⇒ 池内空闲 ${freeList.length} 号,池满 ⇒ 拒绝发号(绝不发 1000+;>999 的归档大号不占池)`,
 )
@@ -240,21 +266,36 @@ if (remote) {
         : remoteWide > poolLowMax
           ? `⇒ 池内避让远端已占号(${poolLowMax + 1}..${remoteWide} 不发)`
           : '⇒ 与本地池内占用同值'
-  console.log(`  号段基准(含远端):${remote.remote} ${remote.ref} 该族 max=${remoteWide === null ? '未判到' : fmt(remoteWide)} ${rel}`)
+  console.log(
+    `  号段基准(含远端):${remote.remote} ${remote.ref} 该族 max=${remoteWide === null ? '未判到' : fmt(remoteWide)} ${rel}`,
+  )
 }
 if (freeList.length)
   console.log(
-    `(池内空闲 ${freeList.length} 个,如实报:${freeList.slice(0, 12).map((n) => `O${n}`).join(', ')}${freeList.length > 12 ? ' …' : ''})`,
+    `(池内空闲 ${freeList.length} 个,如实报:${freeList
+      .slice(0, 12)
+      .map((n) => `O${n}`)
+      .join(', ')}${freeList.length > 12 ? ' …' : ''})`,
   )
-const addenda = dups.filter(([id]) => text.includes(`${id} 追加`))
-const real = dups.filter(([id]) => !text.includes(`${id} 追加`))
-if (addenda.length) {
-  console.log(`ℹ️  其中 ${addenda.length} 组是同日"追加"续写(${addenda.map(([id]) => id).join(', ')}),属同一持有人在原条目下续写,不算相撞。`)
+// G-927:发号路径的重号读数与 `--check` 用**同一个判据**(lib/plan-id-duplicates.mjs 一份)。
+// 旧版这里按"同日『追加』续写"豁免、`--check` 那支却按编号计数不豁免 ⇒ 同一把尺在两个面上
+// 给出互相打脸的结论(§0.6)。历史小节标题同 id 只报数,不再冒充相撞。
+const dupRow = judgeRowIdDuplicates({ ledgerText: text, family: FAMILY })
+if (dupRow.ok && dupRow.rowDups.length) {
+  console.log(`⚠️  该版本自身已有登记行重号 ${dupRow.rowDups.length} 组(登记时没查权威版本所致):`)
+  for (const [id, n] of dupRow.rowDups) console.log(`   ${id} ×${n}`)
+  console.log(
+    '  按本仓既有口径"后来者改号"处理;改别人已入库的号会牵动 README/commit 引用,须由人决定。',
+  )
+} else if (!dupRow.ok) {
+  console.log(
+    `⚠️  重号这一维未判定:${dupRow.reason} —— 建议号照常给,但不得把"没报"读成"没有重号"。`,
+  )
 }
-if (real.length) {
-  console.log(`⚠️  该版本自身已有真重号 ${real.length} 组(登记时没查权威版本所致):`)
-  for (const [id, n] of real) console.log(`   ${id} ×${n}`)
-  console.log('  按本仓既有口径"后来者改号"处理;改别人已入库的号会牵动 README/commit 引用,须由人决定。')
+if (dups.length) {
+  console.log(
+    `ℹ️  历史小节标题同 id ${dups.length} 组(${dups.map(([i, n]) => `${i}×${n}`).join(' ')}):属同一票下的系列小节,不判相撞,也不判绿(G-927 分档)。`,
+  )
 }
 console.log(`建议本次使用:${fmt(next)}`)
 process.exit(0)
