@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
 import {
@@ -34,7 +35,6 @@ import { cn } from '@/lib/utils'
 import { fetchGatedBlob } from '@/lib/gated-blob-fetch'
 import { downloadFilenameFor } from '@/lib/file-preview-attachment'
 import { OfficeViewer } from './OfficeViewer'
-import { ThreeDViewer } from './ThreeDViewer'
 import { PDFViewer } from './PDFViewer'
 import {
   PreviewExpiredState,
@@ -45,6 +45,18 @@ import {
   usePreviewCopy,
 } from './preview-degradation-banner'
 import { usePreviewMediaProbe, usePreviewTextFeed } from './use-preview-staleness'
+
+/**
+ * 2026-10-21 首屏瘦身(切 3D 栈出初始图):three / @react-three/fiber / @react-three/drei
+ * 的字节实测落在 media 那一枚 chunk 里(该 chunk 现读 1,006KB 未压 / 271KB gzip,three 一族
+ * 从第 293KB 延伸到约 981KB),而 3D 预览只在消息里真出现 glb/gltf/obj/stl 附件时才可见。
+ * ThreeDViewer.tsx:108 那句 `dynamic(() => Promise.resolve(Impl))` 只关掉了 SSR,**不产生
+ * 分包**(模块早已被静态边载入),真正的切分必须落在消费侧的 import() —— 本文件与
+ * UnifiedViewer.tsx 是它的两个消费侧。
+ */
+const ThreeDViewer = dynamic(() => import('./ThreeDViewer').then((m) => m.ThreeDViewer), {
+  ssr: false,
+})
 
 /** D64 ②:同组多图的一项(多图数据由调用方注入,本组件不自行收集消息附件)。 */
 export interface ImagePreviewItem {
