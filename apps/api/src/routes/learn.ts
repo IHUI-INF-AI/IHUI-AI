@@ -106,6 +106,7 @@ import {
   createCommunityPost,
   updateCommunityPost,
   deleteCommunityPost,
+  findLessonAverageRating,
 } from '../db/learn-extended-queries.js'
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
@@ -552,16 +553,24 @@ function adaptLesson<
   }
 }
 
-/** 将后端 section 的 duration(integer 秒)格式化为 "mm:ss" 字符串。 */
+/**
+ * 将后端 section 的 duration(integer 秒)格式化为 "mm:ss" 字符串,
+ * 并**同时**给出 durationSeconds(秒,库里原生口径)。
+ *
+ * 为什么要多这一根:端内上报学习进度(position/duration)要的是**秒**,而"mm:ss"是展示形态。
+ * 上一版只给展示串,端内只能自己拆字符串 —— 那是第二份时长口径(守门 8 死调用同族的
+ * "形状看着有、其实只能猜"那一型)。加这一根是**加法**:旧消费点只读 duration,不受影响。
+ */
 function adaptSection<T extends { duration: number | null }>(
   row: T,
-): Omit<T, 'duration'> & { duration: string | undefined } {
+): Omit<T, 'duration'> & { duration: string | undefined; durationSeconds: number } {
   const dur = row.duration ?? 0
   const mins = Math.floor(dur / 60)
   const secs = dur % 60
   return {
     ...row,
     duration: dur > 0 ? `${mins}:${String(secs).padStart(2, '0')}` : undefined,
+    durationSeconds: dur,
   }
 }
 
@@ -659,7 +668,14 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
         return { ...c, sections: sections.map(adaptSection) }
       }),
     )
-    const adaptedLesson = { ...adaptLesson(lesson), signedUp, progress }
+    const adaptedLesson = {
+      ...adaptLesson(lesson),
+      signedUp,
+      progress,
+      // 评分 = 已发布评价的真实聚合(无评价 ⇒ 0)。端内详情页要显示这一根,
+      // 上一版没有它,端内只能自己编一个常量 —— 那正是"看着有、其实恒空"那一型。
+      rating: await findLessonAverageRating(parsed.data.id),
+    }
     return reply.send(success({ lesson: adaptedLesson, chapters: chaptersWithSections }))
   })
 
