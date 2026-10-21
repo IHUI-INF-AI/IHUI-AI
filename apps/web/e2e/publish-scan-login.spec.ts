@@ -31,7 +31,7 @@ interface Hit {
   method: string
 }
 
-test.describe('发布账号 · 扫码登录必须走 HTTP 二维码通道', () => {
+test.describe('@browser-hub 发布账号 · 扫码登录必须走 HTTP 二维码通道', () => {
   test('发起 → 二维码可见可解码 → 取消,且全程不碰内置浏览器路由', async ({
     authenticatedPage: page,
   }) => {
@@ -53,10 +53,15 @@ test.describe('发布账号 · 扫码登录必须走 HTTP 二维码通道', () =
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible({ timeout: 10000 })
 
-    // 选平台(默认已是列表第一个,这里显式选一次,保证断言的不是"碰巧默认值")
-    // 平台清单里有两条名字含"知乎"的条目,strict mode 会报歧义 ⇒ 精确名 + first
-    await dialog.getByRole('combobox').first().click()
-    await page.getByRole('option', { name: PICK_PLATFORM, exact: true }).first().click()
+    // 2026-10-21:产品 09-30 重设计后,热门平台(含知乎)是弹窗内直接可见的 pill,
+    // 只有「更多平台」才走 combobox 下拉 ⇒ 先按 pill 点,取不到再回落到下拉。
+    const platformPill = dialog.getByRole('button', { name: PICK_PLATFORM, exact: true }).first()
+    if (await platformPill.count()) {
+      await platformPill.click()
+    } else {
+      await dialog.getByRole('combobox').first().click()
+      await page.getByRole('option', { name: PICK_PLATFORM, exact: true }).first().click()
+    }
 
     await dialog
       .getByRole('button', { name: /开始扫码登录|扫码登录/ })
