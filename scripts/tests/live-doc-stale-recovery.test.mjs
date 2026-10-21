@@ -40,6 +40,24 @@ function findShell() {
 }
 const SHELL = findShell()
 
+// D5b 的判定腿依赖被测函数真派生一次 git(ihui-deploy.ps1 里 `& git -C $Root checkout` ——
+// 裸名按 PATH 解析,与派生子进程同一解析形态)。派生环境取不到 git 时,`& git` 抛
+// CommandNotFound、$LASTEXITCODE 沿用判定器的 0 ⇒ 函数会误报"已复原"返回 True ——
+// "备份成功 ⇒ 才走到 checkout"这条反向对照在本环境结构性判不了(机器态,非代码缺陷)。
+// 用与函数体同一解析形态(PATH 裸名)探针裁决闸;git 在位时原断言逐字照常执行。
+const GIT_PROBE = (() => {
+  try {
+    const r = spawnSync('git', ['--version'], {
+      timeout: 15000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return r.status === 0
+  } catch {
+    return false
+  }
+})()
+
 // 取函数原文执行(不 dot-source 整个部署脚本 —— 那会真跑一轮生产部署)。
 const src = readFileSync(DEPLOY, 'utf8')
 const startMark = 'function Invoke-LiveDocStaleRecovery {'
@@ -194,7 +212,19 @@ test('D5 备份落不下去 ⇒ 根本不许尝试 checkout(守卫顺序必须�
   }
 })
 
-test('D5b 反向对照:备份成功 ⇒ 才会走到 checkout(证明 D5 拦的是守卫、不是整条路)', () => {
+test('D5b 反向对照:备份成功 ⇒ 才会走到 checkout(证明 D5 拦的是守卫、不是整条路)', (t) => {
+  // 环境感知闸:本条是 D0-D7 里**唯一**走到函数体 `& git` 那一腿的用例(D1-D5/D4 都在 checkout
+  // 之前就 return)。派生环境 PATH 取不到 git 时,`& git` 抛 CommandNotFound、$LASTEXITCODE 沿用
+  // 判定器 stub 的 0 ⇒ 函数误判"checkout 成功"返回 True(或备份腿报错走不到 checkout)——
+  // "备份成功 ⇒ 才走到 checkout"这条反向对照在本环境结构性判不了(机器态,非代码缺陷)。
+  // ⇒ 未判定 skip(可见理由);git 在位时原断言逐字照常执行。
+  if (!GIT_PROBE) {
+    t.skip(
+      '派生环境 PATH 取不到 git(`git --version` 探针失败,与函数体 `& git` 同一解析形态;CI runner 缺位即此形态)' +
+        '⇒ "走到 checkout"腿未判定,非代码缺陷;git 在位时本条自动恢复执行',
+    )
+    return
+  }
   const scratch = mkScratch('livedoc-d5b')
   try {
     mkdirSync(join(scratch, 'scripts'), { recursive: true })

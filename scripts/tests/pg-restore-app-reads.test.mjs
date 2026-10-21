@@ -19,13 +19,15 @@
  *    只有端到端则看不见别人把它换回 `-c`。
  */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { assertReadOnlySql, decideQuery, shouldFail, isAllowedProdDb, main } from '../pg-restore-app-reads.mjs'
+import { resolveCredential } from '../pg-restore-drill.mjs'
+import { devEnvRoot } from '../seal-c-root-stray.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -34,6 +36,35 @@ const FIXTURE = join(here, '..', 'data', 'restore-read-queries.json')
 
 /** 与日历无关的合法演练库名(形状由工具自己的 /^ihui_restore_drill_\d{8}$/ 焊死) */
 const DRILL = 'ihui_restore_drill_20260101'
+
+// ── 环境感知闸(R7/R8/R9)──────────────────────────────────────────────────
+// 这三条注入 deps.spawnPsql 假执行器,确实"不真连库"——但 main 在把语句交给假执行器
+// **之前**还有两道真环境前置,吃的是与工具同一份实现/同一推导:
+//   ① resolveCredential() —— env IHUI_DB_BACKUP_* 或 db-backup 口令文件在位;
+//   ② psql.exe 在位 —— PG_BIN = IHUI_PG_BIN_DIR || devEnvRoot()/runtimes/pgsql/bin。
+// CI(windows-latest)两者皆缺 ⇒ main 提前 exit 2、假执行器一次都没被调用:
+// R7/R9 拿到 code=2(红在 expected=1),R8 的读数是"凭据/psql 不在位"而非"演练库不可达"。
+// 红因是环境缺资源、尺子无从执行,不是判据失效(§12e 恒红机同型)⇒ 落未判定 + 点名
+// 缺哪枚资源(静默跳过与判过在账面上不可分);资源在位时原断言逐字保留照常执行。
+const PG_BIN = process.env.IHUI_PG_BIN_DIR || join(devEnvRoot(), 'runtimes', 'pgsql', 'bin')
+const CRED_PROBE = (() => {
+  try {
+    return resolveCredential()
+  } catch {
+    return null
+  }
+})()
+function needPgToolchain(t) {
+  const missing = []
+  if (!CRED_PROBE || CRED_PROBE.null) missing.push('备份凭据(env IHUI_DB_BACKUP_PASSWORD 或 db-backup 口令文件)')
+  if (!existsSync(join(PG_BIN, 'psql.exe'))) missing.push(`psql.exe 不在位(${join(PG_BIN, 'psql.exe')})`)
+  if (missing.length === 0) return false
+  t.skip(
+    `未判定:本机缺 ${missing.join(' + ')} —— main 在调用注入的假执行器之前先被这道真环境前置挡住,` +
+      '本用例判据无从执行;机器态未判定,非代码缺陷,资源补齐后本用例自动恢复执行',
+  )
+  return true
+}
 
 /** 端到端用例要看结论行,而 main 走 console —— 临时接管,取完必还原(不还原会污染同轮其它用例) */
 function runCaptured(argv, deps) {
@@ -127,7 +158,8 @@ test('R6 形状锁:语句必须走 -f 文件(走 -c 会被 Windows ANSI 代码�
   assert.match(src, /statement_timeout=/, '无超时的一条坏查询能把整轮回放挂死')
 })
 
-test('R7 端到端(注入假执行器,不真连库):一条还原侧报错必须落 drill-error 并判红', () => {
+test('R7 端到端(注入假执行器,不真连库):一条还原侧报错必须落 drill-error 并判红', (t) => {
+  if (needPgToolchain(t)) return
   const calls = []
   // 库名显式给定,**不靠日历** —— 旧写法让假执行器去匹配"写下那天"的默认库名,
   // 于是 2026-09-28 起这条恒红(红的不是仓库,是尺子给自己设了个日期闹钟)。
@@ -151,7 +183,8 @@ test('R7 端到端(注入假执行器,不真连库):一条还原侧报错必须�
   assert.equal(calls.filter((c) => c.probe).length, 1, '探询恰好一次,且在逐条之前')
 })
 
-test('R8 演练库不可达 ⇒ 整轮未判定 + exit 2,一条生产查询都不许白打(2026-09-30 补的缺陷)', () => {
+test('R8 演练库不可达 ⇒ 整轮未判定 + exit 2,一条生产查询都不许白打(2026-09-30 补的缺陷)', (t) => {
+  if (needPgToolchain(t)) return
   const calls = []
   const fake = (db, sql) => {
     calls.push({ db, sql })
@@ -173,7 +206,8 @@ test('R8 演练库不可达 ⇒ 整轮未判定 + exit 2,一条生产查询都�
   assert.doesNotMatch(out.join('\n'), /drill-error/, '绝不把"连不上库"计成还原库报错 —— 那正是本工具违背自身头注的那一型')
 })
 
-test('R9 反向对照(防"为消红而放宽"):库在位、而某条语句在还原库超时(FATAL)必须仍判 drill-error', () => {
+test('R9 反向对照(防"为消红而放宽"):库在位、而某条语句在还原库超时(FATAL)必须仍判 drill-error', (t) => {
+  if (needPgToolchain(t)) return
   const fake = (db, sql) => {
     const drill = db === DRILL
     if (drill && sql === 'SELECT 1') return { ok: true, stdout: '1\n', stderr: '', rc: 0 }
