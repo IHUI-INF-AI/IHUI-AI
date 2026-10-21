@@ -130,8 +130,33 @@ async function mockConversationBackend(page: Page): Promise<void> {
  * 并捕获所有 form-response POST(不发真请求)。
  */
 async function mockStreamAndCaptureResponse(page: Page): Promise<void> {
+  // 页面内 fetch 覆盖:直接收口 form_response 上行(本应直连 ai-service 8803;CI 不起该服务,
+  // 且跨域 POST 的预检会被浏览器拦截 ⇒ page.route 桩拦截不到真实 POST ⇒ 捕获恒为 0)。
+  // 在 JS 层拦截绕开 CORS/预检,断言只验前端发射形状(request_id / values / reject_reason)。
   await page.addInitScript(() => {
-    ;(window as unknown as Record<string, unknown>).__e2eFormResponses = []
+    const w = window as unknown as { fetch: typeof fetch; __e2eFormResponses: unknown[] }
+    w.__e2eFormResponses = []
+    const nativeFetch = w.fetch.bind(window)
+    w.fetch = ((input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.includes('/llm/complete/stream/') && url.endsWith('/form-response')) {
+        let payload: unknown
+        try {
+          payload = JSON.parse((init?.body as string | undefined) ?? '{}')
+        } catch {
+          payload = init?.body ?? null
+        }
+        w.__e2eFormResponses.push(payload)
+        // 满足 api-client assertAiServiceAccepted 的 body.ok === true 判据
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      }
+      return nativeFetch(input, init)
+    }) as typeof fetch
   })
   await page.route(/\/api\/ai\/chat\/stream/, async (route: Route) => {
     const req = route.request()
@@ -147,23 +172,6 @@ async function mockStreamAndCaptureResponse(page: Page): Promise<void> {
         formRequestFrame('email'),
         `data: ${JSON.stringify({ type: 'done' })}\n\n`,
       ].join(''),
-    })
-  })
-  await page.route(/\/llm\/complete\/stream\/[^/]+\/form-response/, async (route: Route) => {
-    const req = route.request()
-    if (req.method() === 'OPTIONS') {
-      await route.fulfill({ status: 204, headers: corsHeadersFor(req) })
-      return
-    }
-    const body = JSON.parse(req.postData() ?? '{}') as Record<string, unknown>
-    await page.evaluate((payload: unknown) => {
-      const sink = (window as unknown as Record<string, unknown[]>).__e2eFormResponses
-      sink?.push(payload as Record<string, unknown>)
-    }, body)
-    await route.fulfill({
-      status: 200,
-      headers: { ...JSON_HEADERS, ...corsHeadersFor(req) },
-      body: JSON.stringify({ code: 0, message: 'ok', data: { ok: true } }),
     })
   })
 }
