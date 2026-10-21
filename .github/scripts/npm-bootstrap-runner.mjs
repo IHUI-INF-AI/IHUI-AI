@@ -6,6 +6,7 @@
 //   action=signup         注册 npm 账号(随机密码) → RSA 加密凭据 → artifact
 //   action=verify_token   打开邮箱验证链接(secret) → 登录 → 建 Classic Automation token → 加密 → artifact
 //   action=publish        build:npm → 用 secret token 发布 ihui-cli@x.y.z
+//   action=org_create     网页登录后创建 npm organization `ihui`(双证据判定,详见 runOrgCreate 头注)
 // 加密:RSA-OAEP(SHA256) 包 AES-256-GCM,公钥来自 secret PUBKEY_PEM(只有李总持私钥)。
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
@@ -89,6 +90,24 @@ function saveSecretArtifact(name, obj) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// 逐字段多路兜底 + 拟人逐字符输入(fillSignup / runOrgCreate 共用,唯一实现)
+async function typeIntoFirst(page, sels, value, label) {
+  for (const s of sels) {
+    const loc = page.locator(s).first()
+    try {
+      if (await loc.isVisible({ timeout: 3000 })) {
+        await loc.click({ timeout: 3000 })
+        await page.keyboard.type(value, { delay: 90 + Math.floor(Math.random() * 60) })
+        console.log(`TYPED ${label} via ${s}`)
+        return true
+      }
+    } catch {}
+  }
+  throw new Error(
+    `field not found: ${label} | url=${page.url()} | body=${(((await page.textContent('body').catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 200))}`
+  )
+}
 
 async function waitPastCloudflare(page, maxMs = 600000) {
   const t0 = Date.now()
@@ -261,25 +280,9 @@ async function fillSignup(page) {
   const emailSel = ['input[name="email"]', 'input#email', 'input[type="email"]']
   const userSel = ['input[name="username"]', 'input#username', 'input[autocomplete="username"]']
   const passSel = ['input[name="password"]', 'input#password', 'input[type="password"]']
-  async function typeFirst(sels, value, label) {
-    for (const s of sels) {
-      const loc = page.locator(s).first()
-      try {
-        if (await loc.isVisible({ timeout: 3000 })) {
-          await loc.click({ timeout: 3000 })
-          await page.keyboard.type(value, { delay: 90 + Math.floor(Math.random() * 60) })
-          console.log(`TYPED ${label} via ${s}`)
-          return true
-        }
-      } catch {}
-    }
-    throw new Error(
-      `field not found: ${label} | url=${page.url()} | body=${(((await page.textContent('body').catch(() => '')) || '').replace(/\s+/g, ' ').slice(0, 200))}`
-    )
-  }
-  await typeFirst(emailSel, EMAIL, 'email')
-  await typeFirst(userSel, USERNAME, 'username')
-  await typeFirst(passSel, PASSWORD, 'password')
+  await typeIntoFirst(page, emailSel, EMAIL, 'email')
+  await typeIntoFirst(page, userSel, USERNAME, 'username')
+  await typeIntoFirst(page, passSel, PASSWORD, 'password')
   await shot(page, 'signup-filled')
   // Turnstile 可能在提交前就要求通过
   await waitPastCloudflare(page, 60000)
@@ -306,6 +309,7 @@ async function main() {
       if (ACTION === 'signup') await runSignup(page, n)
       else if (ACTION === 'trusted_publisher') await runTrustedPublisher(page, n)
       else if (ACTION === 'signpath') await runSignPath(page, n)
+      else if (ACTION === 'org_create') await runOrgCreate(page, n)
       else await runVerifyToken(page)
       lastErr = null
       await browser.close()
@@ -376,10 +380,13 @@ async function runSignup(page, attempt) {
   saveSecretArtifact('npm-credentials', { username: USERNAME, email: EMAIL, password: PASSWORD })
 }
 
-// ---------- action=trusted_publisher ----------
-// 在 npm 网页给 ihui-cli 登记 GitHub Trusted Publisher(Workflow OIDC),registry API 无此端点。
-// npm 发布页:https://www.npmjs.com/package/ihui-cli/access
-async function runTrustedPublisher(page, attempt) {
+// ---------- 网页登录共用件(唯一实现;trusted_publisher / org_create 共用,§0.6 不抄第二份) ----------
+// npm 已禁用 API 换 token ⇒ 账号级操作(登记 Trusted Publisher、建 org)只能走网页。
+// 负责:过 CF 盾 → 填表提交 → 邮箱 OTP(NPM_OTP_CODE) → 回读诊断。
+// 三类硬失败直接抛出(fail fast,不假装往前走,调用方据此停机等人):
+//   'npm login rejected: …' / 'npm login requires email OTP — …' / 'OTP verification failed — …'
+// 其余异常(如登录表单不出现=可能已登录)吞掉并正常返回,由调用方目标页的 /sign in/ 检查兜底。
+async function npmWebLogin(page, attempt) {
   // 0) 网络监听:抓登录 POST 的真实响应(无 UI 错误时唯一的真相来源)
   const netLog = []
   const onResp = (r) => {
@@ -473,9 +480,19 @@ async function runTrustedPublisher(page, attempt) {
       throw new Error('npm login rejected: ' + errMatch[0])
     }
   } catch (e) {
-    if (/npm login rejected/.test(e.message)) throw e
+    if (/npm login rejected|requires email OTP|OTP verification failed/.test(e.message)) throw e
     console.log('TP-LOGIN-SKIP ' + String(e.message).slice(0, 100))
   }
+  return true
+}
+
+// ---------- action=trusted_publisher ----------
+// 在 npm 网页给 ihui-cli 登记 GitHub Trusted Publisher(Workflow OIDC),registry API 无此端点。
+// npm 发布页:https://www.npmjs.com/package/ihui-cli/access
+async function runTrustedPublisher(page, attempt) {
+  // 1) 网页登录(复用共用件 npmWebLogin;行为注记:OTP 缺失现在直接抛错停机,
+  //    旧行为是吞掉后到 access 页才报 'access page requires login' —— 终态同为失败,报错更准)
+  await npmWebLogin(page, attempt)
 
   // 2) 包 publishing access 页
   await page.goto('https://www.npmjs.com/package/ihui-cli/access', {
@@ -1136,6 +1153,156 @@ async function handleRecaptchaChallenge(page, attempt, waitMs = 0) {
   return false
 }
 
+// ---------- action=org_create ----------
+// 建 npm organization `ihui`(使 @ihui/sdk 等 scoped 包可发布)。
+// org 只有网页入口 https://www.npmjs.com/org/create ⇒ 复用 npmWebLogin 登录后填表。
+// 成功判定用两步独立证据,绝不靠猜:
+//   (a) 网页落地文案/URL(/org/ihui 或 created 类文案);
+//   (b) 注册面变化:probeOrg() 三端点从"全部缺失"变为任一存在。
+// 两块证据都立不住 ⇒ 抛 ORGCREATE-UNDETERMINED(run 红),绝不冒报"建好了"(§0.3)。
+async function probeOrg() {
+  const get = async (url) => {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.timeout(15000) })
+      const txt = ((await r.text()) || '').replace(/\s+/g, ' ').slice(0, 160)
+      return { status: r.status, body: txt }
+    } catch (e) {
+      return { status: -1, body: 'fetch-error: ' + String(e.message).slice(0, 60) }
+    }
+  }
+  const v1 = await get('https://registry.npmjs.org/-/v1/org/ihui')
+  const dash = await get('https://registry.npmjs.org/-/org/ihui')
+  const web = await get('https://www.npmjs.com/org/ihui')
+  return { v1, dash, web }
+}
+// 存在性判据:registry 两端点任一非 404,或 www 组织页 200 且不是 Not Found 壳
+const orgPresent = (p) =>
+  p.v1.status !== 404 || p.dash.status !== 404 || (p.web.status === 200 && !/page not found|not found/i.test(p.web.body))
+
+async function runOrgCreate(page, attempt) {
+  const before = await probeOrg()
+  console.log('ORG_PROBE_BEFORE=' + JSON.stringify(before))
+  if (orgPresent(before)) {
+    console.log('ORG-ALREADY-EXISTS — 证据(b):本轮动手前注册面已非缺失,无需创建')
+    console.log('ORG-CREATE-OK pre-existing=true')
+    return
+  }
+  // 1) 登录:OTP 缺失/验证失败/密码被拒都是硬阻塞,必须抛错停机等人(绝不改密码/接管邮箱)
+  try {
+    await npmWebLogin(page, attempt)
+  } catch (e) {
+    throw new Error('ORG-CREATE-BLOCKED-AT-LOGIN: ' + String(e.message).slice(0, 160))
+  }
+  // 2) 打开建 org 页
+  await page.goto('https://www.npmjs.com/org/create', { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await waitPastCloudflare(page)
+  await sleep(4000)
+  await shot(page, `oc-page-${attempt}`)
+  const bodyText = async () => (((await page.textContent('body').catch(() => '')) || '').replace(/\s+/g, ' '))
+  console.log('OC_URL=' + page.url())
+  console.log('OC_BODY_HEAD=' + (await bodyText()).slice(0, 300))
+  if (/\/login/.test(page.url())) {
+    throw new Error('org create redirected to login — session not authenticated; see shots/oc-page-*.png')
+  }
+  // 3) 填 org 名称(逐字符拟人输入,同 fillSignup 口径)
+  await typeIntoFirst(
+    page,
+    ['input[name="name"]', 'input#name', 'form input[type="text"]', 'main input[type="text"]'],
+    'ihui',
+    'org-name'
+  )
+  await shot(page, 'oc-name-filled')
+  // 4) 选免费计划:先把全部可点控件文本 dump 成取证,再按文案命中 Free/Open source;
+  //    找不到不瞎猜(npm 建 org 默认档历史上即免费,OC_PLAN_CLICKED 会如实记 (none))
+  const ctrlMeta = []
+  try {
+    const els = page.locator('button, [role="radio"], input[type="radio"], label')
+    const n = await els.count()
+    for (let i = 0; i < Math.min(n, 40); i++) {
+      const el = els.nth(i)
+      const t = ((await el.textContent({ timeout: 1200 }).catch(() => '')) || '').replace(/\s+/g, ' ').trim().slice(0, 70)
+      const v = await el.getAttribute('value').catch(() => null)
+      if (t || v) ctrlMeta.push({ i, t, v })
+    }
+  } catch {}
+  console.log('OC_CONTROLS=' + JSON.stringify(ctrlMeta))
+  let planClicked = '(none)'
+  for (const sel of [
+    'button:has-text("Free")',
+    '[role="radio"]:has-text("Free")',
+    'label:has-text("Free")',
+    'button:has-text("Open source")',
+    'label:has-text("Open source")',
+    'input[value="free"]',
+  ]) {
+    const loc = page.locator(sel).first()
+    if (await loc.isVisible({ timeout: 1200 }).catch(() => false)) {
+      await loc.click({ timeout: 5000 }).catch(() => {})
+      planClicked = sel
+      break
+    }
+  }
+  console.log('OC_PLAN_CLICKED=' + planClicked)
+  await shot(page, 'oc-plan-selected')
+  // 5) 提交
+  let submitted = false
+  for (const sel of [
+    'button:has-text("Create Organization")',
+    'button:has-text("Create organization")',
+    'form button[type="submit"]',
+    'button[type="submit"]',
+  ]) {
+    const loc = page.locator(sel).first()
+    if (await loc.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await loc.click({ timeout: 10000 })
+      console.log('OC_SUBMIT=' + sel)
+      submitted = true
+      break
+    }
+  }
+  if (!submitted) {
+    await page.screenshot({ path: `${SHOT_DIR}/oc-no-submit-btn-full.png`, fullPage: true })
+    throw new Error('org create submit button not found — see shots/oc-no-submit-btn-full.png + OC_CONTROLS')
+  }
+  // 6) 双证据回读:网页文案轮询 + 每轮同步探注册面(注册面变化即定案,不必等文案)
+  let webVerdict = 'unknown'
+  let errSnip = ''
+  let probe = before
+  for (let i = 0; i < 12; i++) {
+    await sleep(5000)
+    const b = await bodyText()
+    await shot(page, `oc-wait-${i}`)
+    console.log(`OC_WAIT_${i} url=${page.url()} body=${b.slice(0, 220)}`)
+    if (/has been created|successfully created|organization.{0,40}created|created.{0,40}organization/i.test(b) || /\/org\/ihui(\?|$|\/)/i.test(page.url())) {
+      webVerdict = 'created'
+    } else if (/already taken|already exists|not available|is not valid|Invalid|must be|failed|denied|wrong/i.test(b) && /\/org\/create/i.test(page.url())) {
+      // 错误判据仅在仍停留创建页时成立(成功会离开 /org/create),避免把表单帮助文案里的
+      // "must/invalid" 误判成 rejected;错误取证只取首句,不改判方向
+      webVerdict = 'rejected'
+      const m = b.match(/[^.]{0,160}(already taken|already exists|not available|is not valid|Invalid|must be|failed|denied|wrong)[^.]{0,120}/i)
+      errSnip = (m ? m[0] : b.slice(0, 240)).trim()
+    }
+    probe = await probeOrg()
+    console.log(`OC_PROBE_${i}=${JSON.stringify(probe)}`)
+    if (webVerdict === 'created' || orgPresent(probe) || webVerdict === 'rejected') break
+  }
+  await shot(page, 'oc-final')
+  await page.screenshot({ path: `${SHOT_DIR}/oc-final-full.png`, fullPage: true })
+  console.log('ORG_PROBE_AFTER=' + JSON.stringify(probe))
+  console.log(`OC_WEB_VERDICT=${webVerdict} OC_ERR=${JSON.stringify(errSnip.slice(0, 240))}`)
+  const registryOk = orgPresent(probe)
+  if (registryOk && (webVerdict === 'created' || webVerdict === 'unknown')) {
+    console.log(`ORG-CREATE-OK evidence-registry=true evidence-web=${webVerdict}`)
+    return
+  }
+  if (webVerdict === 'rejected' || errSnip) {
+    throw new Error(`org create rejected on page: ${JSON.stringify(errSnip.slice(0, 240))} — registry still missing, see shots/oc-final.png`)
+  }
+  throw new Error(
+    `ORGCREATE-UNDETERMINED: web=${webVerdict} registry_after v1=${probe.v1.status} dash=${probe.dash.status} web=${probe.web.status} — 未判定,不得当"建好了",查 artifacts + rc-live 日志`
+  )
+}
+
 async function runVerifyToken(page) {
   await page.goto(VERIFY_URL, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await waitPastCloudflare(page)
@@ -1213,3 +1380,4 @@ main().catch((e) => {
   console.log('MAIN-THROW ' + String((e && e.stack) || e).slice(0, 1200))
   flushRemoteLog().finally(() => process.exit(1))
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

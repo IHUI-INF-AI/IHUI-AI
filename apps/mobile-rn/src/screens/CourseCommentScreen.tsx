@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getCourseComments } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import {
   CourseCommentScreen as SharedCourseCommentScreen,
@@ -33,11 +33,11 @@ export function CourseCommentScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<CourseCommentItem[]>(
-        `/api/courses/${encodeURIComponent(courseId)}/comments`,
-      )
+      // 评价列表换源:旧 /api/courses/:id/comments 随 course-mobile-routes 注册面被摘,
+      // 打已注册的 /api/learn/lessons/:id/rates(投影同口径,见 api-client getCourseComments)。
+      const res = await getCourseComments(courseId)
       if (cancelled) return
-      if (res.success) setComments(res.data ?? [])
+      if (res.success) setComments(res.data)
       else setError(apiFailureToText(res, t('courseComment.loadFailed')))
       setLoading(false)
     })()

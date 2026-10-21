@@ -822,7 +822,7 @@ jobs:
           cd ${{ steps.pkg.outputs.path }}
           npm publish --access public --provenance
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
 
       - name: Summary
         run: |
