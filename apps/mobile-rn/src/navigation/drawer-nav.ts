@@ -7,8 +7,10 @@ import {
   BookOpen,
   Bot,
   Brain,
+  ClipboardList,
   Clock,
   Compass,
+  Cpu,
   Files,
   FolderOpen,
   Globe,
@@ -24,8 +26,8 @@ import {
   MessagesSquare,
   Network,
   Palette,
-  PenLine,
   Pencil,
+  Plus,
   Puzzle,
   Repeat,
   ScrollText,
@@ -72,11 +74,17 @@ type DrawerNavRouteName =
   | 'Publish'
   | 'AiWorld'
   | 'ModelPlaza'
+  | 'ApiKeys'
+  | 'ModelRecord'
   | 'MessageCenter'
   | 'History'
   | 'Workspace'
   | 'Automations'
+  | 'Agent'
   | 'AgentMarket'
+  | 'AgentCreate'
+  | 'AgentCategories'
+  | 'AgentReviewList'
   | 'Assistant'
   | 'AigcList'
   | 'KnowledgeBase'
@@ -100,6 +108,7 @@ type DrawerNavRouteName =
   | 'ProfileEdit'
   | 'SecuritySettings'
   | 'RealNameAuth'
+  | 'NotificationList'
   | 'NotificationSettings'
   | 'AccountCancel'
   | 'Feedback'
@@ -109,6 +118,7 @@ type DrawerNavRouteName =
   | 'Promote'
   | 'Distribution'
   | 'Team'
+  | 'RepoWiki'
   // Vip 由底部用户行菜单直跳(与抽屉导航项同一出口,故同列一处,避免两处各写一份联合)
   | 'Vip'
 
@@ -168,15 +178,12 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         route: 'AiWorld',
         target: { type: 'route', name: 'AiWorld' },
       },
-      {
-        labelKey: 'modelPlaza.title',
-        Icon: Bot,
-        route: 'ModelPlaza',
-        target: { type: 'route', name: 'ModelPlaza' },
-      },
     ],
   },
   // 2. AI(对齐 web aiGroupLabel)
+  //    2026-10-21 补:web 本组可见项 /models(/models/* 三级子菜单)与 /agents 此前本端漏挂,
+  //    模型广场只作为热门组单项存在 ⇒ 现把「模型」父子项与「智能体」父子项补进本组,
+  //    热门组不再登记 ModelPlaza(否则同 route 双条目,同 domain-hub.ts 既有纪律)。
   //    web 该组可见项:对话历史 / 模型 / agents / AI 世界 / 高级AI工具 / 媒体任务 / 知识库 / 工作区。
   //    RN 取有原生路由的那几项;记忆/子智能体等 web 归 advancedAi 档的项下移「高级工具」组。
   {
@@ -192,11 +199,67 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         route: 'History',
         target: { type: 'route', name: 'History' },
       },
+      // 模型(对齐 web /models + MODELS_CHILDREN):父项点进模型广场,子项取 web
+      // /models/keys、/models/logs、/models/billing 三类中 RN 有原生路由可无参导航的三项。
       {
-        labelKey: 'menu.agentMarket',
-        Icon: Store,
-        route: 'AgentMarket',
-        target: { type: 'route', name: 'AgentMarket' },
+        labelKey: 'modelPlaza.title',
+        Icon: Bot,
+        route: 'ModelPlaza',
+        target: { type: 'route', name: 'ModelPlaza' },
+        children: [
+          {
+            labelKey: 'apiKeys.title',
+            Icon: KeyRound,
+            route: 'ApiKeys',
+            target: { type: 'route', name: 'ApiKeys' },
+          },
+          {
+            labelKey: 'menu.modelRecord',
+            Icon: ClipboardList,
+            route: 'ModelRecord',
+            target: { type: 'route', name: 'ModelRecord' },
+          },
+          {
+            labelKey: 'drawer.modelIncome',
+            Icon: Wallet,
+            route: 'ModelIncome',
+            target: { type: 'route', name: 'ModelIncome' },
+          },
+        ],
+      },
+      // 智能体(对齐 web /agents):父项进我的智能体列表,子项保留原「智能体市场」入口
+      // 并补 web 同族的创建/分类/评价三项(RN 均有原生路由且无必参)。
+      {
+        labelKey: 'nav.agents',
+        Icon: Cpu,
+        route: 'Agent',
+        target: { type: 'route', name: 'Agent' },
+        children: [
+          {
+            labelKey: 'menu.agentMarket',
+            Icon: Store,
+            route: 'AgentMarket',
+            target: { type: 'route', name: 'AgentMarket' },
+          },
+          {
+            labelKey: 'menu.agentCreate',
+            Icon: Plus,
+            route: 'AgentCreate',
+            target: { type: 'route', name: 'AgentCreate' },
+          },
+          {
+            labelKey: 'agentCategories.title',
+            Icon: Layers,
+            route: 'AgentCategories',
+            target: { type: 'route', name: 'AgentCategories' },
+          },
+          {
+            labelKey: 'menu.agentReviewList',
+            Icon: Star,
+            route: 'AgentReviewList',
+            target: { type: 'route', name: 'AgentReviewList' },
+          },
+        ],
       },
       {
         labelKey: 'chat.navAgent',
@@ -228,6 +291,13 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             Icon: Brain,
             route: 'KnowledgeRag',
             target: { type: 'route', name: 'KnowledgeRag' },
+          },
+          // 对齐 web KNOWLEDGE_CHILDREN 的 /repo-wiki(2026-10-21 补)
+          {
+            labelKey: 'repoWiki.title',
+            Icon: Files,
+            route: 'RepoWiki',
+            target: { type: 'route', name: 'RepoWiki' },
           },
         ],
       },
@@ -306,7 +376,13 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             route: 'RealNameAuth',
             target: { type: 'route', name: 'RealNameAuth' },
           },
+          // 对齐 web USER_CHILDREN 的 /notifications(2026-10-21 补):与「通知设置」是两回事
           {
+            labelKey: 'menu.notificationList',
+            Icon: Bell,
+            route: 'NotificationList',
+            target: { type: 'route', name: 'NotificationList' },
+          },          {
             labelKey: 'menu.notificationSettings',
             Icon: Bell,
             route: 'NotificationSettings',
@@ -410,12 +486,8 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         route: 'Spec',
         target: { type: 'route', name: 'Spec' },
       },
-      {
-        labelKey: 'menu.selfMedia',
-        Icon: PenLine,
-        route: 'SelfMedia',
-        target: { type: 'route', name: 'SelfMedia' },
-      },
+      // 自媒体(2026-10-21 归位):web 把 /self-media/* 收在 CONTENT_HUB_ITEMS(内容域),
+      // 内容域已登记同一 route,本组不再重复(回归锁「全局不重复」实测抓出)。
       {
         labelKey: 'menu.pdfTools',
         Icon: Files,
@@ -455,12 +527,8 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         route: 'DevEnter',
         target: { type: 'route', name: 'DevEnter' },
       },
-      {
-        labelKey: 'drawer.modelIncome',
-        Icon: Wallet,
-        route: 'ModelIncome',
-        target: { type: 'route', name: 'ModelIncome' },
-      },
+      // 模型收益(2026-10-21 归位):已升入 AI 组「模型」子项(对齐 web /models/billing),
+      // 此处不再登记,否则同一 route 在抽屉里出现两次。
     ],
   },
 ]
