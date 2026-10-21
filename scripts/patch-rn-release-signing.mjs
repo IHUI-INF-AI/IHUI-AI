@@ -77,7 +77,11 @@ const SECTIONS = [
   },
   {
     label: 'signingConfigs.release (凭据读 ~/.gradle)',
-    detect: (s) => s.includes('project.hasProperty(\'IHUI_RELEASE_STORE_FILE\')') && /signingConfigs \{\n        debug \{[\s\S]*?release \{/.test(s),
+    // 判据放宽成「signingConfigs 段里已有 release 块」(2026-10-18):
+    // 本机 build.gradle 已有一份生效的 release 签名(指向 apps/mobile-rn/credentials/release.keystore,
+    // 存量 APK/AAB 就是这把证书签的)。此时再按模板锚点重注入必然匹配失败 ⇒ 整条出包链在第 1 步就断。
+    // 已有 release 签名即视为"已配置",不再要求它必须读 IHUI_RELEASE_*。
+    detect: (s) => /signingConfigs \{[\s\S]{0,2000}?\n {8}release \{/.test(s),
     apply: (s) =>
       s.replace(
         [
@@ -115,7 +119,8 @@ const SECTIONS = [
   },
   {
     label: 'buildTypes.release 条件签名 (有凭据→release, 无→debug)',
-    detect: (s) => s.includes('release {\n            // Caution! In production') && s.includes('if (project.hasProperty(\'IHUI_RELEASE_STORE_FILE\')) {\n                signingConfig signingConfigs.release'),
+    // 同上放宽:buildTypes.release 已无条件签 release 签名即视为已配置。
+    detect: (s) => /buildTypes \{[\s\S]{0,3000}?signingConfig signingConfigs\.release/.test(s),
     apply: (s) =>
       s.replace(
         [
