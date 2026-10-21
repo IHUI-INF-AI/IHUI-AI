@@ -13,6 +13,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement, type ReactNode } from 'react'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
+// @typescript-eslint/consistent-type-imports 禁止内联 import() 类型注解 ⇒ 用顶层 type 别名
+import type * as I18nModule from '../src/i18n'
 
 const api = vi.hoisted(() => ({ fetchApi: vi.fn() }))
 
@@ -51,7 +53,7 @@ vi.mock('@ihui/rn-app', () => ({
 // 真词包取词,但 useI18n 必须返回**稳定引用**:面板里 load=useCallback([t]),
 // 每次渲染发新对象会让 useEffect 反复重取,把 mockResolvedValueOnce 全吃光(实测就是这样假失败的)。
 vi.mock('../src/i18n', async (importOriginal) => {
-  const mod = await importOriginal<typeof import('../src/i18n')>()
+  const mod = await importOriginal<typeof I18nModule>()
   const t = (key: string) => {
     const v = mod.getValueByPath(mod.messages['zh-CN'], key)
     return typeof v === 'string' ? v : key
@@ -102,7 +104,9 @@ describe('IpWhitelistPanel', () => {
     api.fetchApi.mockResolvedValueOnce(ok(['198.51.100.7']))
     fireEvent.click(screen.getByText(zhKey('securityCenter.ipAdd')))
     await waitFor(() => expect(screen.getByText('198.51.100.7')).toBeTruthy())
-    const call = api.fetchApi.mock.calls.find((c) => (c[1] as { method?: string })?.method === 'POST')
+    const call = api.fetchApi.mock.calls.find(
+      (c) => (c[1] as { method?: string })?.method === 'POST',
+    )
     expect(call, '没发出 POST').toBeDefined()
     expect(call![0]).toBe('/api/user/ip-whitelist')
     expect(JSON.parse((call![1] as { body: string }).body)).toEqual({ ip: '198.51.100.7' })
