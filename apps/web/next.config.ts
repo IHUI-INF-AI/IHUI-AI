@@ -784,6 +784,68 @@ const nextConfig: NextConfig = {
         ].join('; '),
       },
     ]
+
+    // 2026-10-21 公网提速：公开内容页的边缘缓存白名单。
+    // 判据：页面没有服务端用户态（不读 cookies/headers/session/鉴权），用户相关数据都在
+    // 客户端 hydrate 后填充，因此共享 HTML 外壳不串号；TTL 按内容变化频率分档。
+    // 明确排除（不得加进来）：/login、/sso/*、OAuth 回调、/admin/*、/edu/edu-management/*、
+    // /user/*、/member/*、/messages/*、/chat/*、/wallet/*、/orders/*、/settings/*、
+    // /developer/*、/publish/*、/distribution/*、/h5/share/*、一次性 code / 授权流。
+    // 与既有 5 条规则同一已知限制：根 layout 用 cookies() 读 locale，共享缓存只影响
+    // <html lang> 首帧；正文由客户端 i18n 渲染。要按语种分缓存需在 EO 配 Cookie: locale。
+    const publicHtmlCache = [
+      // 状态页：Next 数据缓存 60s；边缘只留 60s，故障态最多多活 1 分钟。
+      { source: '/status', value: 'public, s-maxage=60, stale-while-revalidate=60' },
+      // 新闻/博客：正文变化快，边缘 5 分钟 + 回退 1 小时。
+      { source: '/ai-news', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+      { source: '/blog/:path*', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+      { source: '/news/:path*', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+      {
+        source: '/announcements/:path*',
+        value: 'public, s-maxage=300, stale-while-revalidate=3600',
+      },
+      { source: '/articles/:path*', value: 'public, s-maxage=300, stale-while-revalidate=3600' },
+      // 静态营销/文档/协议/对比页：内容低频变化，5 分钟 + 回退 1 天（与 /about 等既有档一致）。
+      { source: '/agreement/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/legal/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/faq', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/help/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/contact', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/use-cases/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      {
+        source: '/ja/use-cases/:path*',
+        value: 'public, s-maxage=300, stale-while-revalidate=86400',
+      },
+      {
+        source: '/ko/use-cases/:path*',
+        value: 'public, s-maxage=300, stale-while-revalidate=86400',
+      },
+      {
+        source: '/zh-TW/use-cases/:path*',
+        value: 'public, s-maxage=300, stale-while-revalidate=86400',
+      },
+      { source: '/compare/:path*', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/docs/:path+', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/en/:path+', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/models-pricing', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/developers', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      { source: '/enterprise', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      {
+        source: '/enterprise/inquiry',
+        value: 'public, s-maxage=300, stale-while-revalidate=86400',
+      },
+      { source: '/free-ai', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+      // 下载页：版本号由 generateStaticParams 决定，10 分钟 + 回退 1 小时。
+      { source: '/download/:platform', value: 'public, s-maxage=600, stale-while-revalidate=3600' },
+      // 市场列表壳：内容更新较频繁，2 分钟 + 回退 1 小时。
+      { source: '/agents', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/models', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/plaza', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/ai-world', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/skills-market', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/mcp-store', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+      { source: '/capability-market', value: 'public, s-maxage=120, stale-while-revalidate=3600' },
+    ]
     return [
       {
         // Service Worker 脚本必须禁 HTTP 缓存(2026-10-16 立,配 stamp-sw-version.mjs)。
@@ -844,7 +906,9 @@ const nextConfig: NextConfig = {
         //   价值在语义显式化 + 将来回源切到国内通道（中转机 / nginx）后由该层直接生效。
         //   若要让 EO 按语种分别缓存，需在 EO 控制台配「缓存键 → 包含 Cookie: locale」。
         source: '/',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
       {
         // 2026-10-21 同上批：英文首页与公开内容页（关于/定价/文档）同属无服务端用户态的
@@ -856,20 +920,32 @@ const nextConfig: NextConfig = {
         //   曾因 headers source 是非法 path-to-regexp 模式导致 next build 连续失败、
         //   生产被冻结一个多小时（见下方静态资产规则注释）。精确匹配零解析风险。
         source: '/en',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
       {
         source: '/about',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
       {
         source: '/pricing',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
       {
         source: '/docs',
-        headers: [{ key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' }],
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=86400' },
+        ],
       },
+      ...publicHtmlCache.map(({ source, value }) => ({
+        source,
+        headers: [{ key: 'Cache-Control', value }],
+      })),
       {
         source: '/(.*)',
         headers: securityHeaders,
