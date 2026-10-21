@@ -430,6 +430,11 @@
       "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62.md",
       "reason": "同 96818d62-2 枚:对侧 11f54b8d07e/ea325b1eeac 有意重入库,本侧删除早于合并基线,带回=对齐远端现状",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-3.md",
+      "reason": "对侧远端 tip 仍持有该路径;本侧删除为 G-926 取消跟踪(988a243cd12,60 枚 tracked-but-ignored 临时件)早于本次合并基线,合并带回=与远端现状对齐,非抹任何在飞行",
+      "reviewBy": "2026-11-30"
     }
   ]
 }
