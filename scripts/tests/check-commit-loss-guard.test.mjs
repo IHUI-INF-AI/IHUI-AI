@@ -209,6 +209,40 @@ test('检测: reset + --blocking → exit 1(阻塞模式)', () => {
   }
 })
 
+test('检测: reset 丢掉的那一枚已打 lost-commit tag ⇒ blocking 放行(2026-10-21 判据更正)', () => {
+  const dir = createTempRepo()
+  try {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git commit --allow-empty -m "temp-dropped"', { cwd: dir, stdio: 'ignore' })
+    const dropped = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync('git reset HEAD~1', { cwd: dir, stdio: 'ignore' })
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    execSync(`git tag lost-commit/test-dropped ${dropped}`, { cwd: dir, stdio: 'ignore' })
+    const r = runScript(['--blocking'], { cwd: dir })
+    assert.equal(r.status, 0, `被丢的那枚已备份 ⇒ 应放行,实际 ${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.match(r.stdout, /未检测到 reset|无 commit 丢失风险/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('判据单元: dropBackedResets 看被丢的那枚,不看 reset 后的 HEAD', () => {
+  const line = 'bbbbbbb HEAD@{0}: reset: moving to HEAD~1'
+  // beforeHash(被丢的 aaaaaaa)已备份、行首 bbbbbbb 未备份 ⇒ 放行
+  assert.deepEqual(__test__.dropBackedResets([line], new Set(['aaaaaaa']), () => 'aaaaaaa'), [])
+  // 两枚都未备份 ⇒ 保留
+  assert.equal(__test__.dropBackedResets([line], new Set(['ccccccc']), () => 'aaaaaaa').length, 1)
+  // 取不到 beforeHash 时退回旧行为(行首已备份 ⇒ 放行)
+  assert.deepEqual(__test__.dropBackedResets([line], new Set(['bbbbbbb'])), [])
+})
+
+test('判据单元: reflogRefOf 从 ref@{} 前缀取 ref 名', () => {
+  assert.equal(__test__.reflogRefOf('abc1234 refs/heads/main@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1'), 'refs/heads/main')
+  assert.equal(__test__.reflogRefOf('abc1234 HEAD@{2026-10-21 16:50:22 +0800}: reset: moving to HEAD~1'), 'HEAD')
+  assert.equal(__test__.reflogRefOf(''), '')
+})
+
 // ─── fsck 悬空 commit 检测 ───────────────────────────────
 
 test('检测: fsck 悬空 commit(分支删除) → 命中', () => {
