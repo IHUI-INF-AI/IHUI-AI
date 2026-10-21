@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { Zap, Bot, Wrench, GitBranch, Split, RefreshCw, Puzzle, PauseCircle, Plug } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
@@ -264,18 +265,18 @@ export default function WorkflowDocsPage() {
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3">
         <h2 className="text-lg font-semibold">下一步</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
-          <a href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
             <Bot className="mr-1 inline h-4 w-4" />Agent 开发 →<br />
             <span className="text-xs text-muted-foreground">工作流内嵌 Agent 节点</span>
-          </a>
-          <a href="/docs/mcp" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          </Link>
+          <Link href="/docs/mcp" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
             <Plug className="mr-1 inline h-4 w-4" />MCP 工具集成 →<br />
             <span className="text-xs text-muted-foreground">工作流调用 MCP 工具</span>
-          </a>
-          <a href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          </Link>
+          <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
             <Wrench className="mr-1 inline h-4 w-4" />API 参考 →<br />
             <span className="text-xs text-muted-foreground">通过 API 触发工作流</span>
-          </a>
+          </Link>
         </div>
       </section>
     </main>
