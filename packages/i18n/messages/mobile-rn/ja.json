@@ -2607,6 +2607,12 @@
       "openWithdraw": "出金を申請"
     },
   "securityCenter": {
+    "ipTitle": "IP ホワイトリスト",
+    "ipPlaceholder": "IP アドレスを入力してください",
+    "ipEmpty": "ホワイトリスト IP はありません",
+    "ipAdd": "追加",
+    "ipInvalid": "有効な IP アドレスを入力してください",
+    "ipHint": "新規ログインのみをブロックし、既存セッションには影響しません。最後にこの一覧を編集した IP アドレスは常にログインできます。",
     "title": "セキュリティセンター",
     "loadFailed": "読み込みに失敗しました",
     "actionFailed": "操作に失敗しました。しばらくしてからもう一度お試しください",

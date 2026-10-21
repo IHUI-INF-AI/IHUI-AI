@@ -159,6 +159,7 @@ import {
   recordAuthLoginFailed,
   recordAuth2faUsed,
 } from '../plugins/business-metrics.js'
+import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
 
 // Token TTL 复用 @ihui/auth 的统一常量(2026-07-22 修复一致性)
 // - ACCESS_TOKEN_TTL_SECONDS 默认 15min(env.JWT_ACCESS_TTL_SECONDS 可覆盖)
@@ -500,21 +501,27 @@ export async function mintClientCredentialsToken(
 // 主 agent 后续如需独立 oauth_accounts 表再迁移。
 
 async function loginWithOAuthAccount(params: {
+  request: FastifyRequest
+  reply: FastifyReply
   platform: 'oidc' | 'discord' | 'telegram'
   openId: string
   unionId?: string
   nickname?: string
   avatar?: string
   email?: string
-}): Promise<{
-  accessToken: string
-  refreshToken: string
-  expiresIn: number
-  refreshExpiresIn: number
-  userId: string
-  isNewUser: boolean
-}> {
-  const { platform, openId, unionId, nickname, avatar, email } = params
+}): Promise<
+  | { blocked: true }
+  | {
+      blocked: false
+      accessToken: string
+      refreshToken: string
+      expiresIn: number
+      refreshExpiresIn: number
+      userId: string
+      isNewUser: boolean
+    }
+> {
+  const { request, reply, platform, openId, unionId, nickname, avatar, email } = params
   const binding = await findThirdPartyAccount(platform, openId)
   let user: NonNullable<Awaited<ReturnType<typeof findUserById>>>
   let isNewUser = false
@@ -543,8 +550,11 @@ async function loginWithOAuthAccount(params: {
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
     }
   }
+  const gate = await gateLoginIpWhitelist(request, reply, user.id)
+  if (!gate.allowed) return { blocked: true }
   const tokens = await buildTokenPair(user)
   return {
+    blocked: false,
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     expiresIn: tokens.expiresIn,
@@ -698,6 +708,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         recordAuthLoginFailed(request.ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const { accessToken, refreshToken } = await buildTokenPair(user, reply)
       recordAuthLoginSuccess()
       return reply.send(
@@ -759,6 +771,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
       await clearLoginFailures(username, ip)
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const { accessToken, refreshToken } = await buildTokenPair(user, reply)
       recordAuthLoginSuccess()
       return reply.send(
@@ -1119,6 +1133,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    const gate = await gateLoginIpWhitelist(request, reply, user.id)
+    if (!gate.allowed) return gate.reply
     const { accessToken, refreshToken } = await buildTokenPair(user, reply)
     return reply.send(success({ userId: user.id, accessToken, refreshToken }))
   })
@@ -1232,6 +1248,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserById(binding.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(
         user,
         reply,
@@ -1301,6 +1319,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    const gate = await gateLoginIpWhitelist(request, reply, user.id)
+    if (!gate.allowed) return gate.reply
     const { accessToken, refreshToken, expiresIn, refreshExpiresIn } = await buildTokenPair(
       user,
       reply,
@@ -2855,6 +2875,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
     }
 
+    const gate = await gateLoginIpWhitelist(request, reply, user.id)
+    if (!gate.allowed) return gate.reply
     const { accessToken, refreshToken } = await buildTokenPair(user, reply)
     return reply.send(
       success({
@@ -2884,9 +2906,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const { code, state } = z
       .object({ code: z.string(), state: z.string().optional() })
       .parse(request.query)
+    // 转 inject 会把来源 IP 洗成 127.0.0.1，而白名单判的正是来源 IP ⇒ 必须把真实来源带过去
     const res = await server.inject({
       method: 'POST',
       url: `/api/auth/${platform}/callback`,
+      remoteAddress: request.ip,
       payload: { code, state },
     })
     return reply.status(res.statusCode).send(res.json())
@@ -2899,6 +2923,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/auth/wechat/callback',
+      remoteAddress: request.ip,
       payload: { code, state },
     })
     return reply.status(res.statusCode).send(res.json())
@@ -2928,6 +2953,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         })
       }
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair(user, reply)
       return reply.send(success({ userId: user.id, ...tokens, tokenType: 'Bearer' }))
     },
@@ -3324,6 +3351,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       // 校验通过 → 签发完整 access + refresh token 对(与正常登录响应一致,含 user 信息)
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair(
         {
           id: user.id,
@@ -3362,6 +3391,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/auth/sso/exchange',
+      remoteAddress: request.ip,
       payload: { code, clientId: clientId ?? 'web' },
     })
     return reply.status(res.statusCode).send(res.json())
@@ -3623,6 +3653,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const token = await provider.exchangeCodeForToken(parsed.data.code)
       const info = await provider.fetchUserInfo(token.accessToken)
       const result = await loginWithOAuthAccount({
+        request,
+        reply,
         platform: 'oidc',
         openId: info.openId,
         unionId: info.unionId,
@@ -3630,6 +3662,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         avatar: info.avatar,
         email: info.email,
       })
+      if (result.blocked) return reply
       // 浏览器闭环(2026-09-19 立):OIDC 由后端代理,回调落在浏览器会话,
       // 必须写 httpOnly cookie 并 302 回前端登录页/首页,否则浏览器停留在 API JSON 页。
       setAuthCookies(
@@ -3675,6 +3708,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const token = await provider.exchangeCodeForToken(parsed.data.code)
       const info = await provider.fetchUserInfo(token.accessToken)
       const result = await loginWithOAuthAccount({
+        request,
+        reply,
         platform: 'discord',
         openId: info.openId,
         unionId: info.unionId,
@@ -3682,6 +3717,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         avatar: info.avatar,
         email: info.email,
       })
+      if (result.blocked) return reply
       return reply.send(buildOAuthCallbackResponse(result))
     } catch (e) {
       request.log.error(e)
@@ -3763,11 +3799,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       // Bot 已回写 → 查/建用户 + 颁发 token
       try {
         const result = await loginWithOAuthAccount({
+          request,
+          reply,
           platform: 'telegram',
           openId: authResult.openId,
           nickname: authResult.nickname,
           avatar: authResult.avatar,
         })
+        if (result.blocked) return reply
         return reply.send(
           success({
             status: 'success',

@@ -22436,7 +22436,8 @@
       "exists": "This IP already exists",
       "invalid": "Please enter a valid IP address",
       "placeholder": "Enter IP address",
-      "title": "IP Whitelist"
+      "title": "IP Whitelist",
+      "hint": "Blocks new sign-ins only — active sessions are unaffected. The IP address that last edited this list can always sign in."
     },
     "labels": {
       "notificationSound": "Notice"
