@@ -76,6 +76,8 @@ describe('D197 — 代码块自动换行开关', () => {
   beforeEach(() => {
     window.localStorage.clear()
     useCodeBlockPrefsStore.setState({ wrap: false })
+    // 传导断言只认本用例内高亮器的真实渲染:清掉上一用例遗留键,避免旧值冒充新值
+    for (const key of Object.keys(hlprProps)) delete hlprProps[key]
   })
 
   it('默认关闭:按钮 aria-pressed=false 且文案为 wrapOn,pre 走横滚不高亮器不换行', async () => {
@@ -96,17 +98,35 @@ describe('D197 — 代码块自动换行开关', () => {
 
   it('点击开启:aria-pressed=true 文案切 wrapOff,pre 切 pre-wrap,wrapLongLines 传导高亮器', async () => {
     const { container } = render(<MarkdownStream content={JS_BLOCK} />)
-    const btn = container.querySelector('[data-testid="wrap-toggle-button"]') as HTMLElement
-    fireEvent.click(btn)
+    // G-827 起,wrap 档的 CodeOverflowShell 换根(OverflowShadow → 直接透传 children),
+    // <pre> 连同工具条整棵子树重挂载:点击前抓的节点会游离(isConnected=false、属性停在旧值),
+    // 所以按钮状态必须从当前树现查,不能复用点击前的引用(原断言在 HEAD 面即因此变红)。
+    const wrapButton = () =>
+      container.querySelector('[data-testid="wrap-toggle-button"]') as HTMLElement
+    fireEvent.click(wrapButton())
     await waitFor(() => {
-      expect(btn.getAttribute('aria-pressed')).toBe('true')
+      expect(wrapButton().getAttribute('aria-pressed')).toBe('true')
     })
-    expect(btn.getAttribute('aria-label')).toBe('codeBlock.wrapOff')
+    expect(wrapButton().getAttribute('aria-label')).toBe('codeBlock.wrapOff')
     const pre = outerPre(container)
     expect(pre.className).toContain('whitespace-pre-wrap')
     expect(pre.className).toContain('break-words')
     expect(pre.className).not.toContain('overflow-x-auto')
-    expect(hlprProps.wrapLongLines).toBe(true)
+    // 高亮器随同一棵子树重挂载,等新实例渲染完再读传导值
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="syntax-highlighter"]')).not.toBeNull()
+      expect(hlprProps.wrapLongLines).toBe(true)
+    })
+
+    // 反向再点一次:同一开关必须切回横滚档,证明是真实双向切换而非一次性置位
+    fireEvent.click(wrapButton())
+    await waitFor(() => {
+      expect(wrapButton().getAttribute('aria-pressed')).toBe('false')
+    })
+    expect(outerPre(container).className).toContain('overflow-x-auto')
+    await waitFor(() => {
+      expect(hlprProps.wrapLongLines).toBe(false)
+    })
   })
 
   it('偏好持久化:开关后写入 ihui-code-block-prefs,store 重读仍为开启态', async () => {
