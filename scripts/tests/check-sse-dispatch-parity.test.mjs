@@ -320,6 +320,7 @@ test('⑩ 台账判定面:索引与磁盘不一致时按索引出结论(旧磁�
         windowsHide: true,
         timeout: 120000,
         env,
+        stdio: ['pipe', 'pipe', 'pipe'],
       },
     ).trim()
 
