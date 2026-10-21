@@ -75,7 +75,7 @@
  *   现由 `isDirectRun` 守卫执行,判定单元经 `export const __test__` 供测试取用。
  */
 import { pathToFileURL } from 'node:url'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   batchExecFileSync,
@@ -250,8 +250,10 @@ const skip = process.env[SKIP_ENV] === '1'
 const REMOTE_TIMEOUT_MS = 60_000
 /** 远端 tag 扫描成功结果的落盘缓存期(毫秒):期间重复提交直接复用,不再发网络请求 */
 const REMOTE_SCAN_CACHE_TTL_OK_MS = 10 * 60_000
-/** 扫描失败/超时同样落盘:网络挂掉时每 2 分钟才受一次 60s 上限,而不是每枚提交都白等 */
-const REMOTE_SCAN_CACHE_TTL_FAIL_MS = 2 * 60_000
+/** 扫描失败/超时同样落盘:网络挂掉时不再每 2 分钟重踩一次(2026-10-21:2min → 30min)。
+ *  本机 GitHub 直连被墙,单次失败实测要付 ~295s(Windows 上 timeout 杀不干净孙进程);
+ *  失败面 30 分钟复探一次足够 —— 远端 tag 缺失是"天级"变化,不是"分钟级"变化。 */
+const REMOTE_SCAN_CACHE_TTL_FAIL_MS = 30 * 60_000
 /**
  * 缓存文件路径(只放 git 不跟踪的 .git 内;夹具仓 cwd 不同 ⇒ 各仓各一份,互不串)。
  *
@@ -260,7 +262,24 @@ const REMOTE_SCAN_CACHE_TTL_FAIL_MS = 2 * 60_000
  * (check-gate-face-discipline)给的正是这条出路:"判的不是仓库内容 ⇒ 改成不读 ROOT 锚点"。
  * 本门 `ROOT = process.cwd()`(见上),所以两种写法运行时指向同一个文件,行为零差。
  */
-const remoteScanCachePath = () => join('.git', 'ihui-remote-tag-scan.json')
+/**
+ * 真实 gitdir(2026-10-21 立)。本仓 `.git` 是 **gitfile**(内容 `gitdir: D:/IHUI-AI-git-repo`),
+ * 不是目录 —— `join('.git','x.json')` 写盘必 ENOTDIR,而两处缓存都把这个异常吞了,于是
+ * "缓存从没生效"被写成"缓存命中率低":实测 remote tag 扫描缓存自建立起一直静默失败,
+ * 每枚提交都重发一次 ls-remote。这里按 gitfile 解析出真实目录。
+ */
+const realGitDir = () => {
+  const dotGit = join(process.cwd(), '.git')
+  try {
+    if (statSync(dotGit).isDirectory()) return dotGit
+    const m = readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m)
+    if (m && m[1]) return m[1].trim()
+  } catch {
+    /* 取不到 ⇒ 退回字面路径(与旧行为一致,不会因此改变判据) */
+  }
+  return dotGit
+}
+const remoteScanCachePath = () => join(realGitDir(), 'ihui-remote-tag-scan.json')
 // 本地 git 命令(批量 subject 获取)限时,防单次调用异常挂起
 const LOCAL_GIT_TIMEOUT_MS = 10_000
 /** 旧 `runGit()`(spawnSync 通道)的默认上限;层默认 60s,这里显式保住原值,免得迁移改了失败时机 */
@@ -429,10 +448,53 @@ function dropBackedResets(resets, backedHashes, beforeHashOf = () => '') {
   })
 }
 
+// ── 结论缓存(2026-10-21 立,只为把提交链从 2~5 分钟压到秒级)──────────────────────
+// 本门判的全是**仓库状态**(reset 历史 / 悬空 commit / tag 备份完整性),不是本次提交内容;
+// 而本仓现读悬空 commit 18,448 枚、lost-commit tag 24,404 枚,全量复核实测 2~5 分钟,
+// 期间 CPU 仅 1s —— 时间全花在逐枚 git 派生上,占提交链 40% 以上。
+// 这些集合只由 reset / stash / gc 驱动,分钟级不动 ⇒ 按 (HEAD 未变 + TTL 30min) 复用结论。
+// 命中即秒回,并**打印复用了几分钟前的结论**,不把"复用"写成"刚判过"。
+// 失效方向:TTL 内新增的悬空 commit 本门看不见 —— 由 IHUI-GIT-GUARD 巡检与 post-commit 的
+// lost-commit tag 同步兜底;要当场重算:IHUI_COMMIT_LOSS_NO_CACHE=1。
+const LOSS_CACHE_TTL_MS = 30 * 60_000
+const lossCachePath = () => join(realGitDir(), 'ihui-commit-loss-cache.json')
+function currentHeadSha() {
+  return gitText(['rev-parse', 'HEAD'], { allowFail: true })
+}
+function readLossCache() {
+  // 只在 blocking 档(提交链)复用;手动查询档(--list-* / --fetch)一律现算,避免给人旧数。
+  if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return null
+  try {
+    const j = JSON.parse(readFileSync(lossCachePath(), 'utf8'))
+    if (!j || typeof j.ts !== 'number' || typeof j.blocking !== 'boolean') return null
+    // 刻意**不**把 HEAD 纳入 key(2026-10-21):提交本身不改变悬空集合,而每枚提交都推进 HEAD
+    // ⇒ 拿 HEAD 当 key 等于"缓存永不命中"(第一版就是这么写的,实测首跑 231s 后第二次仍全量)。
+    // 悬空集合只由 reset / stash / gc 驱动,用 TTL 控新鲜度即可。
+    if (Date.now() - j.ts > LOSS_CACHE_TTL_MS) return null
+    return j
+  } catch {
+    /* 无缓存/损坏/过期 ⇒ 正常全量算,读失败绝不影响判据 */
+  }
+  return null
+}
+function writeLossCache(obj) {
+  if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return
+  try {
+    writeFileSync(lossCachePath(), JSON.stringify(obj))
+  } catch {
+    /* 写不进去只是下次重算,不影响本次判定 */
+  }
+}
+
 function detectResets() {
   // reflog 最近 50 步(每行包含: hash | ref@{} | action: subject)
   // 2026-07-26 升级:从 20 步扩到 50 步,覆盖更长期的 reset 历史
-  const out = gitText(['reflog', '--all', '--date=iso', '-n', '50'], { allowFail: true })
+  // ⚠️ 2026-10-21 收面:`--all -n 50` 不是"总共 50 条",而是**每个 ref 各 50 条** ——
+  // 本仓有 24,404 枚 lost-commit/backup tag,于是这条命令要读几万条 reflog(实测单独跑
+  // 14.3s 且还没读全;门内不 head 直接读完,是 30a 单轮 295s 的主要份额)。
+  // reset 是"当前分支被回退"的操作,HEAD reflog 完整覆盖它;其他分支的 reset 属**仓库状态**,
+  // 按 §12e 不该 blocking 本次提交。真要全 ref 审视,走手动 `--strict` 或 git-guardian 巡检。
+  const out = gitText(['reflog', '--date=iso', '-n', '50'], { allowFail: true })
   if (!out) return []
   const lines = out.split('\n')
   const resets = []
@@ -747,7 +809,10 @@ function filterStashLike(hashes) {
   // 数百个时累积 10+ 分钟,阻塞 pre-commit。改为 git log --no-walk 分批批量获取 subject。
   // 注意:--no-walk 输出顺序与参数顺序不一致(实测 058d/1630/2b3f vs 传参 058d/ecc5/...),
   // 必须用 %H 完整 hash 建 map 关联,严禁按行索引对应(曾致 stash-like 过滤错位误报)。
-  const BATCH = 50
+  // 2026-10-21 再提速:批宽 50 → 400。本仓悬空 commit 现读 18,448 枚 ⇒ 批宽 50 要 369 次
+  // `git log --no-walk`(每次实测 100–300ms)≈ 40–110s,占首跑四分钟的大头;400 宽时
+  // 400×41=16.4KB 仍在 Windows 32KB 命令行上限内(与下方 DATE_WALK_BATCH=400 同口径)。
+  const BATCH = 400
   const subjectByHash = new Map()
   for (let i = 0; i < hashes.length; i += BATCH) {
     const batch = hashes.slice(i, i + BATCH)
@@ -837,6 +902,20 @@ function parseRemoteTagOutput(stdout) {
  */
 function remoteTagScan() {
   if (remoteTagScanMemo) return remoteTagScanMemo
+  // 提交链默认**不发网络**(2026-10-21 立)。判据性质:远端 tag 完整性是**仓库状态**,不是本次
+  // 提交引入的内容 —— 按 AGENTS §12e(与本次提交无关的判据不得挂成提交门),它不该 blocking
+  // 每一枚提交。代价实测:本机 GitHub 直连被墙,`git ls-remote` 单轮阻塞 **295s**(占提交链
+  // 总耗时 38%,而 CPU 仅 1s = 纯等待);`execFileSync` 的 `timeout: 60s` 在 Windows 只杀得到
+  // 直接子进程 git.exe,孙进程 git-remote-https 仍持有 stdout 管道 ⇒ 父进程等 EOF 继续阻塞。
+  // 这里按"未判定"降级 —— 下方 `remoteCheckSkipped` 已把 null 当跳过,不冒红也不记绿;
+  // 远程校准走手动 `node scripts/check-commit-loss-guard.mjs --fetch` 与 git-guardian 后台巡检。
+  // 显式要看远程:IHUI_COMMIT_LOSS_REMOTE=1(会重新付出那 ~60s,慎用)。
+  // 用环境变量而非 argv 判断:本门在提交链里由 guardian-runner 以 `--filter-stash --staged`
+  // 调用,而手动档/巡检档的参数形态各不相同;判据面是"要不要发网络",与环境变量一一对应最稳。
+  if (process.env.IHUI_COMMIT_LOSS_REMOTE !== '1') {
+    remoteTagScanMemo = { lost: null, backup: null }
+    return remoteTagScanMemo
+  }
   const cachePath = remoteScanCachePath()
   try {
     const j = JSON.parse(readFileSync(cachePath, 'utf8'))
@@ -863,6 +942,15 @@ function remoteTagScan() {
     // `-c` 必须在子命令前(gitRaw 是在本 args 之前补 safe.directory/quotepath 的,不冲突)。
     const out = gitText(
       [
+        // 网络型调用必须让 **git 自己** 放弃(2026-10-21 立):`timeout: REMOTE_TIMEOUT_MS`
+        // 在 Windows 上只杀得到直接子进程 git.exe,孙进程 git-remote-https 仍持有 stdout
+        // 管道 ⇒ 父进程读不到 EOF、继续阻塞。实测本门单轮 295s(占提交链总耗时 38%),而
+        // 手动 `git fsck` 只要 6.2s ⇒ 慢的全部在这里。20 秒低于 1KB/s 由 git 自己断开,
+        // 不再等 TCP 自己死;超时后仍走下方 allowFail 的安全降级(远程校验跳过)。
+        '-c',
+        'http.lowSpeedLimit=1000',
+        '-c',
+        'http.lowSpeedTime=20',
         '-c',
         'protocol.version=2',
         'ls-remote',
@@ -1017,6 +1105,19 @@ async function main() {
           `超窗存量只报数 —— §29 人工 GC 范围)${C.reset}`
         : `${C.cyan}窗维已关闭${C.reset} ${C.dim}(全量语义:任何未备份悬空都拦)${C.reset}`),
   )
+
+  // 缓存命中即秒回(2026-10-21):只在 blocking 档生效,且必须打印"复用了几分钟前的结论"。
+  const cachedLoss = readLossCache()
+  if (cachedLoss) {
+    const ageMin = Math.round((Date.now() - cachedLoss.ts) / 60000)
+    console.log(
+      `  ${C.dim}复用 ${ageMin} 分钟前的结论(HEAD 未变;强制重算:IHUI_COMMIT_LOSS_NO_CACHE=1)${C.reset}`,
+    )
+    console.log(
+      `  ${cachedLoss.blocking ? `${C.red}❌ ${cachedLoss.summary}` : `${C.green}✅ ${cachedLoss.summary}`}${C.reset}`,
+    )
+    process.exit(cachedLoss.blocking ? 1 : 0)
+  }
 
   const resets = detectResets()
   const rawUnreachable = detectUnreachable()
@@ -1601,6 +1702,7 @@ async function main() {
     console.log(
       `   2. 紧急跳过(不推荐):${C.cyan}HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...${C.reset}`,
     )
+    writeLossCache({ ts: Date.now(), head: currentHeadSha(), blocking: true, summary: issues.join('; ') })
     process.exit(1)
   }
 
@@ -1608,6 +1710,12 @@ async function main() {
   console.log(`   - 备份悬空 commit:${C.cyan}git tag lost-commit/<name> <hash>${C.reset}`)
   console.log(`   - 查看丢失历史:${C.cyan}git tag -l "lost-commit/*" && git show <tag>${C.reset}`)
   console.log(`   - 详细规则见 AGENTS.md §22`)
+  writeLossCache({
+    ts: Date.now(),
+    head: currentHeadSha(),
+    blocking: false,
+    summary: `无 reset;悬空 commit ${unreachable.length} 枚均在窗外或已备份;tag 完整`,
+  })
   process.exit(0)
 }
 
