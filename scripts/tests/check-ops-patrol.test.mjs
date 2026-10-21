@@ -11,6 +11,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
+import { maskComments } from '../lib/code-mask.mjs'
 // P7 用例需要:独立算一次摘要做"证据真伪"对照,以及把夹具 mtime 摆到指定时刻。
 // 单独起 import 语句而不是改上面既有那行 —— 既有用例的字节面不许被我动了。
 import { createHash } from 'node:crypto'
@@ -32,14 +33,18 @@ const { checkBackupReplicaPresence, sha256File, P7_BOUNDARY_NOTE, LIMITS } = mod
 const REAL_W32TM_LINE = '上次成功同步时间: 2026/9/28 19:52:42'
 
 test('T1 装车:派发点必须真住在守护的两个执行体里(不跑它等于没有调度器)', () => {
-  const g = src('scripts/git-guardian.mjs')
+  // 计数前必须遮注释(遮罩唯一出口 `lib/code-mask.mjs`,§22c 不许在此重抄一份):
+  // `git-guardian.mjs:3255` 那句 JSDoc「巡检由本文件的 auditOpsPatrol() 派发」里有同样的字面量,
+  // 裸 matchAll 会把它数成第三个挂点 ⇒ 实测 3 ≠ 期望 2,而两个执行体其实都好好在位。
+  // 判的是**代码结构**(调用点存在性)而不是字面量 ⇒ 只遮注释、不动字符串。
+  const g = maskComments(src('scripts/git-guardian.mjs'))
   assert.match(g, /export function auditOpsPatrol\(/, '派发函数缺失')
   const calls = [...g.matchAll(/auditOpsPatrol\(\)/g)].length
   assert.equal(calls, 2, `调用点应为 2 处(健康轮 + daemon tick),实测 ${calls} —— 少一处就是某个执行体永不巡检`)
 })
 
 test('T2 摘线不得被读成已装车(构造面反向对照,T1 的牙)', () => {
-  const g = src('scripts/git-guardian.mjs')
+  const g = maskComments(src('scripts/git-guardian.mjs'))
   const onlyOnce = g.replace(/if \(!CHECK_ONLY\) auditOpsPatrol\(\)/, '')
   const calls = [...onlyOnce.matchAll(/auditOpsPatrol\(\)/g)].length
   assert.equal(calls, 1, '摘掉一处调用后必须只剩 1 —— 剩 2 说明 T1 数的是别处文本,不是挂点')
@@ -962,8 +967,16 @@ test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未�
         runner: () => ({ status: 0, stdout: payload(true), stderr: '' }),
       })
     assert.equal(sendsB.length, 1, `第 3 轮必须寄且只寄一封,实得 ${sendsB.length}`)
-    assert.equal(sendsB[0].name, '元运维巡检红(1 格)')
-    assert.equal(sendsB[0].dedupKey, 'cells=P4a', '去重身份仍按"哪几格红了",逐轮变动的读数只进正文')
+    // 标题自枚 53ca446387e4(2026-10-17)起**不许带计数**——原先 `元运维巡检红(N 格)` 每轮红格数
+    // 一变就是新身份 ⇒ 24h 去重被绕穿;实时计数只进正文。同批已同步 git-guardian-notify 等四枚
+    // 镜像测试,**唯独漏了本枚**(本文件 965-971 行自那以后零提交)⇒ 本枚就是那笔欠账。
+    assert.equal(sendsB[0].name, '元运维巡检红')
+    assert.doesNotMatch(sendsB[0].name, /\d/, '标题里出现数字 ⇒ 计数又回到身份,红格数每轮抖一次就是每轮新身份')
+    assert.match(
+      sendsB[0].dedupKey,
+      /^cells0=P4a;new=-;/,
+      '去重身份 = 起点格集合 + 本轮新增格(只有真新增才另开身份);tier/held 这类逐轮量只进正文',
+    )
     assert.match(sendsB[0].detail, /连续第 P4a=3 轮越阈\(门槛 3 轮/)
     assert.match(sendsB[0].detail, /大头:trae-agent-toolhost/, '门给的归属点名必须原样进正文,否则收信人无从下手(§5e-1)')
     assert.match(sendsB[0].detail, /ops-patrol-last\.json/, '信里要指得出盲区与逐格读数的盘上凭据')
