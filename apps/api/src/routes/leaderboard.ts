@@ -5,6 +5,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
 import { listLeaderboard, getLeaderboardEntry } from '../services/leaderboard-service.js'
 
 // =============================================================================
@@ -41,7 +42,7 @@ const leaderboardRoutes: FastifyPluginAsync = async (server) => {
       subcategory: parsed.data.subcategory,
       limit: parsed.data.limit,
     })
-    return reply.send(success(result))
+    return withPublicEdgeCache(reply).send(success(result))
   })
 
   // GET /model-leaderboard/:modelId — 模型详情
