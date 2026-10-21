@@ -390,7 +390,9 @@ check('use-agent.ts:34 已修复为 /api/agents/{list|my} + PageData<Agent> 类�
   // 2026-10-21:产品把"列全部 agent"改成"列我的 agent"(use-agent.ts:35-40 走 /api/agents/my,
   // 后端 agents.ts:400-402 在位)⇒ 本项接受这一对现役路径。判的仍是同一件事:
   // **必须是具名端点 + 不能被降级成 Agent[]**,不是那个字符串长什么样。
-  if (!text.includes("'/api/agents/list'") && !text.includes("'/api/agents/my'"))
+  // 现役写法带查询串(`'/api/agents/my?pageSize=100'`)⇒ 用正则匹配"具名端点 + 可选查询串",
+  // 而不是钉死闭合引号(那样一加参数就假红)。
+  if (!/['"]\/api\/agents\/(?:list|my)(?:\?|['"])/.test(text))
     throw new Error('use-agent.ts 未调用 /api/agents/list 或 /api/agents/my');
   if (text.includes("fetchApi<Agent[]>('/api/agents')")) {
     throw new Error('use-agent.ts:34 仍有错误类型 Agent[]');
