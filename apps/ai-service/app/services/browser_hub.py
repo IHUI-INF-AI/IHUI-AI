@@ -167,34 +167,6 @@ def _find_chromium_executable() -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# 外部 Chrome 查找(2026-09-02 新增,与 desktop 端 lib.rs open_in_chrome 同路径候选)
-# ---------------------------------------------------------------------------
-def _find_system_chrome() -> str | None:
-    """查找系统安装的 Google Chrome。找不到返回 None。"""
-    import os
-    from pathlib import Path
-
-    candidates = []
-    local = os.environ.get("LOCALAPPDATA")
-    if local:
-        candidates.append(Path(local) / "Google" / "Chrome" / "Application" / "chrome.exe")
-    pf = os.environ.get("PROGRAMFILES")
-    if pf:
-        candidates.append(Path(pf) / "Google" / "Chrome" / "Application" / "chrome.exe")
-    pf86 = os.environ.get("PROGRAMFILES(X86)")
-    if pf86:
-        candidates.append(Path(pf86) / "Google" / "Chrome" / "Application" / "chrome.exe")
-    candidates += [
-        Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
-        Path(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"),
-    ]
-    for p in candidates:
-        if p.exists():
-            return str(p)
-    return None
-
-
-# ---------------------------------------------------------------------------
 # 用户本机浏览器探测 + 真实 profile 复用(2026-09-16,"用你自己的浏览器"扫码登录)
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
