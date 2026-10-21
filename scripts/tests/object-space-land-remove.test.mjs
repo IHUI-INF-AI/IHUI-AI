@@ -72,9 +72,10 @@ function makeRepo(t) {
 }
 
 /**
- * 真跑一次落地。跳过四项在临时仓里判不出的预检(它们各有自己的应急出口与留痕,
+ * 真跑一次落地。跳过三项在临时仓里判不出的预检(它们各有自己的应急出口与留痕,
  * 与删除档判据正交):水印(临时仓无横幅基线)、悬空引用(closure 未复制)、
- * 门 98(树不是本仓 HEAD)、门 231(同)。
+ * 门 98(树不是本仓 HEAD)。**暖色描边门不跳** —— G-929 起门体支持 `--root`,
+ * 落地器把它透传给门,临时仓的真树真判(射程外 ⇒ 本门不适用 ⇒ 放行)。
  */
 function land(dir, { paths = '', remove = '', msg = 'e2e', extra = {} }) {
   const r = spawnSync(process.execPath, [SCRIPT], {
@@ -87,7 +88,6 @@ function land(dir, { paths = '', remove = '', msg = 'e2e', extra = {} }) {
       IHUI_LAND_SKIP_WATERMARK: '1',
       IHUI_LAND_SKIP_IMPORT_CHECK: '1',
       IHUI_LAND_SKIP_DANGLING_GATE: '1',
-      IHUI_LAND_SKIP_WARM_BORDER: '1',
       ...extra,
     },
     encoding: 'utf8',

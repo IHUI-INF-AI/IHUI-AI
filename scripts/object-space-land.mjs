@@ -1471,13 +1471,18 @@ function runDanglingGate({ tree, anchor }) {
  *
  * 触发面**刻意不另立第二份扩展名表**:整份声明清单原样交给门,由门自己的 isInScope 判
  * "本枚不涉及射程"并 exit 0 —— 同一条射程在两个文件里各写一遍必然漂移(§0.6)。
+ *
+ * G-929:必须把 `root`(被审仓根)显式传给门体(`--root`)。门体缺省按自身位置推导,
+ * 而镜像测试把 LAND_ROOT 指到 mkScratch 临时仓 —— 不传 root,门就在主仓里问一枚只存在于
+ * 临时仓的树 ⇒ "not a tree object" ⇒ 未判定 ⇒ 本器 fail-closed 拒绝 ⇒ 镜像套件整批红。
+ * 生产路径 root === 门体自身所在仓,传与不传同解(该档由门的镜像用例 M16 钉三态)。
  */
-function runWarmBorderGate({ tree, paths }) {
+function runWarmBorderGate({ root, tree, paths }) {
   const gate =
     String(process.env.LAND_WARM_BORDER_GATE ?? '').trim() ||
     join(dirname(fileURLToPath(import.meta.url)), 'check-no-warm-border.mjs')
   try {
-    const out = execFileSync(process.execPath, [gate, '--rev', tree, '--only', paths.join(';')], {
+    const out = execFileSync(process.execPath, [gate, '--rev', tree, '--only', paths.join(';'), '--root', root], {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 180000,
@@ -1710,7 +1715,7 @@ async function main() {
         // 暖色描边涉事判据(门 231 审树档)。整份清单交过去,由门自己的 isInScope 判
         // "本枚不涉及射程"并放行 —— 不在这里复刻一份扩展名表(§0.6)。
         if (!skipWarmBorderGate) {
-          const r = runWarmBorderGate({ tree, paths: entries.map((e) => e.path) })
+          const r = runWarmBorderGate({ root, tree, paths: entries.map((e) => e.path) })
           warmBorderGate = r
           if (!r.pass) return r.why
         }
@@ -1990,9 +1995,10 @@ export function uiRoutesFreshnessNotice({ root, paths }) {
  * 结论问 git(ls-tree/cat-file)与盘上字节,不解析本器自己的输出文本下结论 ——
  * 唯一读输出的一处是"反向自证那行到底打没打"(留痕可见性),且只查在不在,不查数值。
  *
- * 临时仓里判不出的四道预检(水印横幅基线/悬空相对引用/门 98/门 231)各有应急出口,
+ * 临时仓里判不出的三道预检(水印横幅基线 / 悬空相对引用 / 门 98 源码面)各有应急出口,
  * 与删除档判据正交(它们的真仓覆盖在各自守门与镜像测试里),子进程侧跳过时自己出声留痕;
  * 判据本体(反向自证/互斥/clobber 同语义/工作树不被动/纯删除合法入口)一条不跳。
+ * 暖色描边门**不跳**:G-929 起它支持 `--root`,本器把被审仓根透传过去,临时仓的真树真判。
  */
 const SELF_TEST_PLAN = [
   { id: 'ST1', name: '正控:摘一枚基线在位的跟踪件 ⇒ 树里没有、盘上字节未变、反向自证留痕', expect: 'accept' },
@@ -2049,11 +2055,11 @@ function stRun(dir, { paths = '', remove = '', msg = 'selftest' }) {
       LAND_PATHS: paths,
       LAND_REMOVE_PATHS: remove,
       LAND_MSG: msg,
-      // 四道临时仓判不出的预检:各自有应急出口,跳过由子进程出声留痕;删除档判据本体不跳
+      // 三道临时仓判不出的预检:各自有应急出口,跳过由子进程出声留痕;删除档判据本体不跳。
+      // 暖色描边门(G-929)已支持 --root ⇒ 不跳,临时仓的真树真判。
       IHUI_LAND_SKIP_WATERMARK: '1',
       IHUI_LAND_SKIP_IMPORT_CHECK: '1',
       IHUI_LAND_SKIP_DANGLING_GATE: '1',
-      IHUI_LAND_SKIP_WARM_BORDER: '1',
     },
     encoding: 'utf8',
     windowsHide: true,
