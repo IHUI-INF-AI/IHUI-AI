@@ -62,7 +62,7 @@ $principal = New-ScheduledTaskPrincipal `
     -LogonType S4U `
     -RunLevel Limited
 
-$description = 'IHUI-AI worktree lifecycle reaper: every 10 min, reap clean worktrees already merged into main (idle >= 6h), back up dirty ones before reaping (idle >= 24h), tag unmerged ones as lost-commit and never delete them. Runtime JSONL: .workbuddy/worktree-reap.log'
+$description = 'IHUI-AI worktree lifecycle reaper: every 10 min, reap clean worktrees already merged into main (idle >= 6h), back up dirty ones before reaping (idle >= 24h). Unmerged worktrees are tagged lost-commit/worktree-* (commits sealed); the checkout is reaped only after 72h idle, and its branch + tag are preserved for later merge. Runtime JSONL: .workbuddy/worktree-reap.log'
 
 Register-ScheduledTask `
     -TaskName $TaskName `
