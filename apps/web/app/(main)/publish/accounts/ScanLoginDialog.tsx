@@ -24,7 +24,15 @@
  */
 
 import * as React from 'react'
-import { Loader2, QrCode, CheckCircle2, XCircle, ExternalLink, RefreshCw, Import as ImportIcon } from 'lucide-react'
+import {
+  Loader2,
+  QrCode,
+  CheckCircle2,
+  XCircle,
+  ExternalLink,
+  RefreshCw,
+  Import as ImportIcon,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import {
   cancelScanLogin,
@@ -89,7 +97,8 @@ const SLOW_HINT_AFTER_SECONDS = 5
 const TIMEOUT_MS = 5 * 60 * 1000
 const TIMEOUT_SECONDS = 300
 
-type Phase = 'idle' | 'starting' | 'polling' | 'manual-import' | 'chrome-import' | 'success' | 'failed'
+type Phase =
+  'idle' | 'starting' | 'polling' | 'manual-import' | 'chrome-import' | 'success' | 'failed'
 
 /** 连续多少次"根本没拿到应答"(网络层失败)才判失败。有状态码的应答一律当场点名,不拖到超时。 */
 const MAX_NETWORK_RETRIES = 3
@@ -230,6 +239,12 @@ export function ScanLoginDialog({
                 '',
             )
           }
+        } else {
+          // 2026-10-21:此前 listScanLoginPlatforms 返回 success:false 时**完全静默** ——
+          // 平台区整块消失、无任何提示,用户只看到空白弹窗(CI e2e 的 30s 超时也源于此)。
+          // 失败必须响,且清空残留平台避免拿上一轮的旧值继续扫码。
+          toast.error('平台清单加载失败，请稍后重试')
+          setPlatforms([])
         }
       } catch (e) {
         toast.error((e as Error).message)
@@ -315,7 +330,11 @@ export function ScanLoginDialog({
   function cancelTaskIfNotScanned() {
     const id = taskIdRef.current
     if (!id) return
-    if (!lastStatusRef.current || lastStatusRef.current === 'pending' || lastStatusRef.current === 'waiting_scan') {
+    if (
+      !lastStatusRef.current ||
+      lastStatusRef.current === 'pending' ||
+      lastStatusRef.current === 'waiting_scan'
+    ) {
       void cancelScanLogin(id).catch(() => undefined)
     }
     taskIdRef.current = ''
