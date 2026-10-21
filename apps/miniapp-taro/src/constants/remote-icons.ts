@@ -133,7 +133,11 @@ const likeLocalIcon = aizhsUrl('remote-images/like.png')
 const icon1LocalIcon = aizhsUrl('remote-images/icon1.png')
 const n8nLocalIcon = aizhsUrl('remote-images/n8n.png')
 
-/** 远程图标注册表:name → 资源路径(本地 import 或远程 URL) */
+/**
+ * 远程图标注册表:name → 资源路径(本地 import 或远程 URL)
+ * G-924(2026-10-21):10 条线上取不到的 URL 已处置 —— 6 条残路径改走本仓 lucide 风格 SVG
+ * (§4,gen-taro-lucide-icons.mjs 生成),4 条旧系统上传件(零消费)撤引用删除。
+ */
 export const REMOTE_ICONS: Record<string, string> = {
   delete: bspappUrl('user/删除.png'),
   bottomfigure: bspappUrl('tabbar/home/carousel4-footer1/BottomFigure.png'),
@@ -155,7 +159,7 @@ export const REMOTE_ICONS: Record<string, string> = {
   drawerMenu4: drawerMenu4Icon,
   rightArrow: bspappUrl('tabbar/home/zhong/right-arrow.png'),
   shouruIcon: shouruIconIcon,
-  icon: bspappUrl('distribution/图标'),
+  icon: '/static/images/icons/layout-grid.svg',
   textareaopen: aizhsUrl('sys-mini/xtk/textareaOpen.png'),
   searchShang: searchShangIcon,
   model: modelIcon,
@@ -202,7 +206,7 @@ export const REMOTE_ICONS: Record<string, string> = {
   tabbar2: bspappUrl('tabbar/tabbar/2.png'),
   tabbar5: bspappUrl('tabbar/tabbar/5.png'),
   tabbar3: bspappUrl('tabbar/tabbar/3.png'),
-  pic: bspappUrl('tabbar/tabbar/图片'),
+  pic: '/static/images/icons/image.svg',
   backa: bspappUrl('tabbar/home/zhong/backA.png'),
   icon20250418221944: bspappUrl('tabbar/tabbar/_20250418221944.png'),
   uservipAct: aizhsUrl('sys-mini/default/home/userVip_act.png'),
@@ -217,9 +221,6 @@ export const REMOTE_ICONS: Record<string, string> = {
   aiIcon: aiIconLocalIcon,
   courseIcon: courseIconLocalIcon,
   knowledgeIcon: knowledgeIconLocalIcon,
-  qwenImageFe8514b76c874ffa84e6a8d0f6df392220250830094749a007: aizhsUrl(
-    'sys-backs/2025/08/30/qwen_image_fe8514b76c874ffa84e6a8d0f6df3922_20250830094749A007.jpg',
-  ),
   tuanduiIcon: tuanduiIconIcon,
   gerenIcon: gerenIconIcon,
   erweimaIcon: erweimaIconIcon,
@@ -247,13 +248,13 @@ export const REMOTE_ICONS: Record<string, string> = {
   date: bspappUrl('yongjin/date.png'),
   qz: bspappUrl('yongjin/qz.png'),
   left: bspappUrl('user/左.png'),
-  statis: aizhsUrl('sys-center/default/statis/'),
+  statis: '/static/images/icons/chart-column.svg',
   guanlogo: guanlogoIcon,
   appenda: appendaIcon,
   wechatimg032f010ce4ee6be32aca6623cde9de09: bspappUrl(
     'tabbar/ai_agent/WechatIMG032f010ce4ee6be32aca6623cde9de09.png',
   ),
-  doc: bspappUrl('distribution/文档'),
+  doc: '/static/images/icons/file-text.svg',
   aihui: aizhsUrl('sys-mini/default/aihui.png'),
   usericon: usericonIcon,
   xiugai: xiugaiIcon,
@@ -290,7 +291,7 @@ export const REMOTE_ICONS: Record<string, string> = {
   spaceOne: spaceOneIcon,
   spaceTwo: spaceTwoIcon,
   aiVideo: bspappUrl('tabbar/home/zhong/ai-video.png'),
-  rect: bspappUrl('distribution/矩形'),
+  rect: '/static/images/icons/rectangle-horizontal.svg',
   secondJiqirenBig2: bspappUrl('tabbar/home/second/jiqiren-big.png'),
   hello: bspappUrl('tabbar/home/second/hello.png'),
   secondUserAvatar2: bspappUrl('tabbar/home/second/user-avatar.jpg'),
@@ -306,7 +307,6 @@ export const REMOTE_ICONS: Record<string, string> = {
   courseplanet6: bspappUrl('tabbar/coursePlanet/6.png'),
   courseplanet9: bspappUrl('tabbar/coursePlanet/9.png'),
   courseplanet1: bspappUrl('tabbar/coursePlanet/1.png'),
-  aiAgentPic2: bspappUrl('tabbar/ai_agent/图片'),
   icon12071746256773Pic: bspappUrl('tabbar/ai_agent/12071746256773_.pic.jpg'),
   cash: aizhsUrl('sys-mini/xtk/cash.png'),
   modelCardBtnBg: modelCardBtnBgIcon,
@@ -367,9 +367,6 @@ export const REMOTE_ICONS: Record<string, string> = {
   setNeedMoney: aizhsUrl('sys-mini/xtk/set_need_money.png'),
   bigtp2x: bspappUrl('recruitment/bigtp@2x.png'),
   studyIconAddGrad: aizhsUrl('sys-mini/xtk/study_icon_add_grad.png'),
-  yqdnazxpvyrbc4af0c2a72b01e20d1e917d3772e3e18: aizhsUrl(
-    'sys-backs/2025/09/05/1757054903945/YQdNaZxpVyRbc4af0c2a72b01e20d1e917d3772e3e18.mp4',
-  ),
   searchAdd: searchAddIcon,
   studyIconPlaying: aizhsUrl('sys-mini/xtk/study_icon_playing.png'),
   studyIconRightEnd: aizhsUrl('sys-mini/xtk/study_icon_right_end.png'),
@@ -386,9 +383,6 @@ export const REMOTE_ICONS: Record<string, string> = {
   newShare: newShareIcon,
   logo: logoIcon,
   studyIconVideo: aizhsUrl('sys-mini/xtk/study_icon_video.png'),
-  icon5ff9lbytjxfmc4af0c2a72b01e20d1e917d3772e3e18: aizhsUrl(
-    'sys-backs/2025/09/06/1757124515307/5ff9LbytJXfmc4af0c2a72b01e20d1e917d3772e3e18.mp4',
-  ),
   rankone: rankoneIcon,
   ranktwo: ranktwoIcon,
   rankthree: rankthreeIcon,
@@ -414,9 +408,7 @@ export const REMOTE_ICONS: Record<string, string> = {
   select: aizhsUrl('sys-mini/default/select.png'),
   emphty: aizhsUrl('sys-mini/Emphty.png'),
   wechat: aizhsUrl('sys-mini/default/wechat.png'),
-  e5BeAeE4BfA1E59bBeE7898720250806001129: aizhsUrl(
-    'sys-mini/default/logo/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20250806001129.png',
-  ),
+  e5BeAeE4BfA1E59bBeE7898720250806001129: '/static/images/icons/images.svg',
   topup: bspappUrl('user/topup.png'),
   backHudie: backHudieIcon,
   xing: aizhsUrl('sys-mini/default/xing.png'),
