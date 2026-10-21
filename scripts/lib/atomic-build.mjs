@@ -80,6 +80,21 @@ function main(argv) {
   }
   const tsbuildinfo = join(pkgRoot, 'tsconfig.tsbuildinfo')
   if (existsSync(tsbuildinfo)) rmSync(tsbuildinfo, { force: true })
+  // 2026-10-21:增量缓存已外置到 <仓根>/node_modules/.cache/tsbuildinfo/<ident>.tsbuildinfo
+  // (回收站灌入根治:树内落点会被 safe-delete shim 改道进回收站)。预清理跟着读
+  // tsconfig 的声明走,而不是把 ident 抄第二份 —— 包改了落点这里自动跟。
+  const cfgRaw = (() => {
+    try {
+      return readFileSync(join(pkgRoot, 'tsconfig.json'), 'utf8')
+    } catch {
+      return null
+    }
+  })()
+  const declared = cfgRaw ? /"tsBuildInfoFile"\s*:\s*"([^"]+)"/.exec(cfgRaw) : null
+  if (declared) {
+    const ext = resolve(pkgRoot, declared[1])
+    if (existsSync(ext)) rmSync(ext, { force: true })
+  }
 
   // 2. 编译到暂存目录(outDir 必须与 TMP 同名 —— 见 tmpRel 上的缺陷注记)
   const r = spawnSync('pnpm', ['exec', 'tsc', ...tscArgs, '--outDir', tmpRel], {
