@@ -109,7 +109,7 @@
  */
 
 import { hasAnyWatermarkTrace, hasExactCanonicalBanner, dropZeroWidth } from './lib/watermark-lines.mjs'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { dirname, join, normalize, resolve } from 'node:path'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -1977,12 +1977,192 @@ export function uiRoutesFreshnessNotice({ root, paths }) {
   return { rc: r.status ?? 1, stale }
 }
 
+/**
+ * `--self-test` 自含电池(G-926 票面原话:"带 `--self-test` 与镜像用例")。
+ *
+ * 与镜像测试 `scripts/tests/object-space-land-remove.test.mjs` 的分工:
+ *  - 那一份钉判据的**两臂成对**(正控/反证/互斥/纯删除/clobber/混同九例,node --test 跑);
+ *  - 本电池是**器物自证**:不依赖测试框架与断言库,任何人
+ *    `node scripts/object-space-land.mjs --self-test` 一条命令就能问"删除档还在不在"。
+ *    交付现场(值守/复盘/跨机复量)没有 node --test 也能跑,这是它与镜像测试并列存在的理由。
+ *
+ * 夹具一律走 mkScratch 临时仓(退出即回收),**不碰真仓**;子进程以真身重入本器,
+ * 结论问 git(ls-tree/cat-file)与盘上字节,不解析本器自己的输出文本下结论 ——
+ * 唯一读输出的一处是"反向自证那行到底打没打"(留痕可见性),且只查在不在,不查数值。
+ *
+ * 临时仓里判不出的四道预检(水印横幅基线/悬空相对引用/门 98/门 231)各有应急出口,
+ * 与删除档判据正交(它们的真仓覆盖在各自守门与镜像测试里),子进程侧跳过时自己出声留痕;
+ * 判据本体(反向自证/互斥/clobber 同语义/工作树不被动/纯删除合法入口)一条不跳。
+ */
+const SELF_TEST_PLAN = [
+  { id: 'ST1', name: '正控:摘一枚基线在位的跟踪件 ⇒ 树里没有、盘上字节未变、反向自证留痕', expect: 'accept' },
+  { id: 'ST2', name: '反证:摘一枚基线不在位的路径 ⇒ 拒(不得静默变成"什么都没删")', expect: 'reject' },
+  { id: 'ST3', name: '互斥:同一路径同时声明写入与删除 ⇒ 拒(自相矛盾)', expect: 'reject' },
+  { id: 'ST4', name: '纯删除是合法入口:只有 LAND_REMOVE_PATHS ⇒ 放行(ST1 已跑,这里钉"不误拒")', expect: 'accept' },
+  { id: 'ST5', name: '写删混同:一次落地既有写入又有摘除 ⇒ 两条自证各问各的方向', expect: 'accept' },
+  { id: 'ST6', name: '嵌套路径:sub/stay.txt 摘除后父目录与其他文件原样', expect: 'accept' },
+  { id: 'ST7', name: '双边空清单 ⇒ 拒(空清单会把 undefined 当路径,本仓踩过)', expect: 'reject' },
+]
+
+/** 自含电池共用的 git 直跑姿势(与镜像测试同构:显式身份 + safe.directory + autocrlf 关)。 */
+let SELF_TEST_GIT = 'git'
+try {
+  SELF_TEST_GIT = gitBinary()
+} catch {
+  /* 解析不到就回落 'git',由具体用例把失败喊出来,不在这里静默改结论 */
+}
+const stGit = (dir, args) =>
+  execFileSync(
+    SELF_TEST_GIT,
+    ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args],
+    { encoding: 'utf8', windowsHide: true, timeout: 120_000, maxBuffer: 32 << 20, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
+const stTreeHas = (dir, p) => {
+  try {
+    stGit(dir, ['ls-tree', '-r', '--name-only', 'HEAD', '--', p])
+    // ls-tree 对不存在的路径输出空(rc=0),对坏树才非零 ⇒ 用输出判,不用 rc 判
+    return stGit(dir, ['cat-file', '-e', `HEAD:${p}`]) === ''
+  } catch {
+    return false
+  }
+}
+
+/** 造三文件临时仓:gone.txt(待摘) / keep.txt(不动) / sub/stay.txt(嵌套路径)。 */
+function stMakeRepo() {
+  const dir = mkScratch('osl-self-')
+  stGit(dir, ['init', '-q'])
+  writeFileSync(join(dir, 'gone.txt'), 'to be untracked\n', 'utf8')
+  writeFileSync(join(dir, 'keep.txt'), 'keep me v1\n', 'utf8')
+  mkdirSync(join(dir, 'sub'), { recursive: true })
+  writeFileSync(join(dir, 'sub', 'stay.txt'), 'stay\n', 'utf8')
+  stGit(dir, ['add', '-A'])
+  stGit(dir, ['commit', '-q', '-m', 'selftest-base'])
+  return dir
+}
+
+/** 以子进程真身重入本器(env 契约与外部调用完全同形,不走任何内存内快捷路径)。 */
+function stRun(dir, { paths = '', remove = '', msg = 'selftest' }) {
+  const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
+    env: {
+      ...process.env,
+      LAND_ROOT: dir,
+      LAND_PATHS: paths,
+      LAND_REMOVE_PATHS: remove,
+      LAND_MSG: msg,
+      // 四道临时仓判不出的预检:各自有应急出口,跳过由子进程出声留痕;删除档判据本体不跳
+      IHUI_LAND_SKIP_WATERMARK: '1',
+      IHUI_LAND_SKIP_IMPORT_CHECK: '1',
+      IHUI_LAND_SKIP_DANGLING_GATE: '1',
+      IHUI_LAND_SKIP_WARM_BORDER: '1',
+    },
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  return { rc: r.status ?? -1, out: `${r.stdout ?? ''}${r.stderr ?? ''}`, err: r.error }
+}
+
+/** 跑全部自含用例。永不抛:每条用例自己收尾,汇总 `self-test: X/Y 通过`。 */
+async function runSelfTest() {
+  const results = []
+  const one = async (id, name, fn) => {
+    const dir = stMakeRepo()
+    try {
+      const why = await fn(dir)
+      results.push({ id, name, ok: why === null, why: why ?? '' })
+    } catch (e) {
+      results.push({ id, name, ok: false, why: `用例自身抛出:${String(e?.message ?? e).split('\n')[0]}` })
+    } finally {
+      rmScratch(dir, { bestEffort: true })
+    }
+  }
+
+  await one('ST1', SELF_TEST_PLAN[0].name, (dir) => {
+    const before = readFileSync(join(dir, 'gone.txt'), 'utf8')
+    const r = stRun(dir, { remove: 'gone.txt' })
+    if (r.rc !== 0) return `正控必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'gone.txt')) return '落地后 gone.txt 仍在 HEAD 树里 ⇒ 删除没生效'
+    const after = readFileSync(join(dir, 'gone.txt'), 'utf8')
+    if (after !== before) return `工作树字节被改动(取消跟踪≠删盘上文件):${JSON.stringify(before)} ⇒ ${JSON.stringify(after)}`
+    if (!r.out.includes('反向自证')) return '输出里没有"反向自证"留痕行 ⇒ 自证可见性丢失'
+    return null
+  })
+
+  await one('ST2', SELF_TEST_PLAN[1].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    const r = stRun(dir, { remove: 'ghost-not-in-base.txt' })
+    if (r.rc === 0) return `反证必须拒,实得 rc=0(静默变成"什么都没删"):${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST3', SELF_TEST_PLAN[2].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    const r = stRun(dir, { paths: 'keep.txt', remove: 'keep.txt' })
+    if (r.rc === 0) return `互斥必须拒,实得 rc=0:${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST4', SELF_TEST_PLAN[3].name, (dir) => {
+    const r = stRun(dir, { remove: 'gone.txt', msg: 'selftest-pure-remove' })
+    if (r.rc !== 0) return `纯删除必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'gone.txt')) return '纯删除后 gone.txt 仍在树里'
+    return null
+  })
+
+  await one('ST5', SELF_TEST_PLAN[4].name, (dir) => {
+    writeFileSync(join(dir, 'keep.txt'), 'keep me v2(本次写入)\n', 'utf8')
+    const r = stRun(dir, { paths: 'keep.txt', remove: 'gone.txt' })
+    if (r.rc !== 0) return `写删混同必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'gone.txt')) return 'gone.txt 没被摘掉'
+    if (!stTreeHas(dir, 'keep.txt')) return 'keep.txt 不在树里'
+    const treeKeep = stGit(dir, ['show', 'HEAD:keep.txt'])
+    if (!treeKeep.includes('v2')) return `树里 keep.txt 不是新内容:${JSON.stringify(treeKeep.slice(0, 80))}`
+    if (readFileSync(join(dir, 'gone.txt'), 'utf8') !== 'to be untracked\n') return 'gone.txt 盘上字节被改动'
+    return null
+  })
+
+  await one('ST6', SELF_TEST_PLAN[5].name, (dir) => {
+    const r = stRun(dir, { remove: 'sub/stay.txt' })
+    if (r.rc !== 0) return `嵌套路径摘除必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'sub/stay.txt')) return 'sub/stay.txt 仍在树里'
+    if (!stTreeHas(dir, 'keep.txt')) return '无关文件 keep.txt 被连带摘掉'
+    if (readFileSync(join(dir, 'sub', 'stay.txt'), 'utf8') !== 'stay\n') return 'sub/stay.txt 盘上字节被改动'
+    return null
+  })
+
+  await one('ST7', SELF_TEST_PLAN[6].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    const r = stRun(dir, { paths: '', remove: '' })
+    if (r.rc === 0) return `双边空清单必须拒,实得 rc=0:${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.id} ${r.name}${r.ok ? '' : `\n    ${r.why}`}`)
+  const bad = results.filter((r) => !r.ok).length
+  console.log(`\nself-test: ${results.length - bad}/${results.length} 通过`)
+  return bad === 0 ? 0 : 1
+}
+
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
-  main().catch((e) => {
-    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
-    process.exit(2)
-  })
+  // --self-test 先于 main:它是器物自证入口,不该被 env 契约(缺 LAND_PATHS 即拒)挡住
+  if (process.argv.includes('--self-test')) {
+    runSelfTest()
+      .then((rc) => process.exit(rc))
+      .catch((e) => {
+        console.error(`❌ self-test 派生失败:${e?.message ?? e}\n${e?.stack ?? ''}`)
+        process.exit(2)
+      })
+  } else {
+    main().catch((e) => {
+      console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+      process.exit(2)
+    })
+  }
 }
 
 export const __test__ = {
@@ -1996,5 +2176,7 @@ export const __test__ = {
   jsonKeyPathAudit,
   staleReport,
   commitFacePresence,
+  SELF_TEST_PLAN,
+  runSelfTest,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
