@@ -315,8 +315,6 @@ const VENDOR_COMPONENTS = {
   mai: Boxes, // Mai(国内新势力,无公开 logo)
 } satisfies Record<VendorCode, VendorIconComponent>
 
-
-
 export interface BrandIconProps {
   /** 厂商代码(如 'openai'、'deepseek') */
   vendor?: string | null
@@ -377,7 +375,7 @@ export function BrandIcon({
   // 仅在 vendor 无映射 + 无 fallbackIcon 时使用(无 vendor 字段的旧调用方)
   return (
     <Image
-      src="/images/logo.png?v=20260719-unify"
+      src="/images/logo.png?v=20261021"
       alt=""
       width={size}
       height={size}

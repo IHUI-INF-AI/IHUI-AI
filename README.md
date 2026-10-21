@@ -180,6 +180,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 跨端契约与「改了手机端 web 没改」这一型的防治,见 [`AGENTS.md` §4 跨端样式同步铁律](./AGENTS.md);
 8 端职责、下载矩阵与桌面薄壳方案全文见 [`readme-04`](./docs/engineering/readme-04-architecture-and-modules.md)。
 
+移动 App（`apps/mobile-rn`）的用户侧功能面按 web 同名页逐页对齐，硬规矩是**每屏只接 `apps/api` 里真实注册的路由**：后端没有实现或只回显不入库的入口，端内不造 UI（宁可不做，也不给一个点了没反应的按钮）。2026-10-21 一批补齐 35 屏 —— 安全中心（评分／两步验证／会话撤销／安全事件）、开发者 API 密钥、数据权利与导出、第三方账号、用量、发票、收货地址、积分中心、错题本、我的试卷、分销汇总、发布四屏（账号／新建／日历／数据）、智能体分类、知识库与 RAG 文档管理、图片模板与画廊、语音转写、群组、文章与问答编辑、广场发布、AI 世界创建等。入口分布在「设置」菜单与「我的」页菜单，五语言词条同批落 [`packages/i18n/messages/mobile-rn/`](./packages/i18n/messages/mobile-rn)。
+
 ---
 
 ## 🚀 快速开始

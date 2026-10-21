@@ -383,6 +383,22 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     })
     return { type: 'sourceFile', filePath: realpathOrNull(localRNPath) }
   }
+  // @react-native/assets-registry 单实例去重(2026-10-21 根治「本地位图 <Image> 恒空白」):
+  // monorepo 根桶 hoist 了一份 0.74.89,而 react-native@0.86.2 用的是自己隔离目录里的 0.86.2。
+  // expo-asset 并不依赖该包 ⇒ 它沿链上爬命中根桶的 0.74.89,RN 的 AssetSourceResolver 命中 0.86.2
+  // ⇒ 资产注册进 A、读取走 B ⇒ getAssetByID 返回 undefined ⇒ resolveAssetSource 吐 null ⇒
+  // <Image source={null}> 空白、无报错、布局仍占位(935 模块的最小图即可复现,不依赖任何业务代码)。
+  // 统一解析到 react-native 自己那一份,与 AssetSourceResolver 同实例。
+  if (
+    moduleName === '@react-native/assets-registry' ||
+    moduleName.startsWith('@react-native/assets-registry/')
+  ) {
+    const rnDir = path.dirname(
+      require.resolve('react-native/package.json', { paths: [__dirname] }),
+    )
+    const target = require.resolve(moduleName, { paths: [rnDir] })
+    return { type: 'sourceFile', filePath: realpathOrNull(target) }
+  }
   // pnpm 隔离目录内包的裸包名依赖(详见上方 react-devtools-core 红屏修复注释):
   // 两级解析——
   // ① app 本地 node_modules 优先:react-native-svg 等共享包存在多个 peer 组合的
