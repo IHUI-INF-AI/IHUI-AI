@@ -255,19 +255,22 @@ test('W5 源码形状反向锁:窗口不得改小、探针哨兵不得拆、"未
     2,
     'analyze 与 analyzeMerge 两条通道都必须真 push(少一条 = 该通道回到静默)',
   )
+  // 2026-10-21:枚 9085a780baf(G-926)给 analyze / analyzeMerge / verdictLine 各加了
+  // `watermarkPass` 一路 —— 三处形状锁仍停在旧形(红的就是这三条)。锁仍是**形状锁**
+  // (钉"必须把收集口传进去"),只把新增的那一路按现役调用形状补上,不放松。
   assert.match(
     code,
-    /analyze\(\s*repoRoot,\s*judged,\s*\{\s*source:\s*src,\s*windowLoss\s*\}/,
+    /analyze\(\s*repoRoot,\s*judged,\s*\{\s*source:\s*src,\s*windowLoss,\s*watermarkPass\s*\}/,
     'audit 必须把收集口传给 analyze',
   )
   assert.match(
     code,
-    /analyzeMerge\(\s*repoRoot,\s*judged,\s*mergeHead,\s*\{\s*source:\s*src,\s*windowLoss\s*\}/,
+    /analyzeMerge\(\s*repoRoot,\s*judged,\s*mergeHead,\s*\{\s*source:\s*src,\s*windowLoss,\s*watermarkPass,?\s*\}/,
     '合并分支同样要传(两父一致那一格也在射程)',
   )
   assert.match(
     code,
-    /verdictLine\(\s*modified\.length,\s*rr,\s*windowLoss\.length\s*\)/,
+    /verdictLine\(\s*modified\.length,\s*rr,\s*windowLoss\.length,\s*watermarkPass\.length\s*\)/,
     '尾注数字必须现算现传,不得写 0',
   )
   assert.match(
