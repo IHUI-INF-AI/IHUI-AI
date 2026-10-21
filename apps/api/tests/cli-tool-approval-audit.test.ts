@@ -426,7 +426,7 @@ describe('86H 装车:路由必须真被注册,且 CLI 侧常量与之等值', ()
         '--',
         cliSrcRoot,
       ],
-      { encoding: 'utf8', windowsHide: true },
+      { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] },
     )
     const files = out.split('\n').filter(Boolean)
     expect(
