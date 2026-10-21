@@ -208,14 +208,12 @@ export async function getLearnCategories(): Promise<ApiResult<LearnCategoryRow[]
   return { success: true as const, data: Array.isArray(data) ? data : (data?.list ?? []) }
 }
 
-/** 获取学习课程详情 */
-export async function getLearnCourseDetail(id: string): Promise<ApiResult<LearnCourse>> {
-  return fetchApi<LearnCourse>(`/api/learn/lessons/${id}`)
-}
-
-/** 报名学习课程 */
-export async function enrollLearnCourse(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/learn/lessons/${id}/sign-up`, { method: 'POST' })
+/**
+ * 报名学习课程。服务端真形态是 `success({ ok: true })`(learn.ts:699)—— 上一版声明的
+ * `{ success: boolean }` 与真形态不同名,端内读 res.data.success 永远拿到 undefined。
+ */
+export async function enrollLearnCourse(id: string): Promise<ApiResult<{ ok: boolean }>> {
+  return fetchApi<{ ok: boolean }>(`/api/learn/lessons/${id}/sign-up`, { method: 'POST' })
 }
 
 /** 获取我的学习课程 */
