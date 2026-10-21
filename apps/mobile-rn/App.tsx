@@ -59,6 +59,16 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   // SecurityCenter(2026-10-21 补录):他人落库该屏时注册了路由却漏登记本表,
   // 屏内确实渲染 <NavBar> ⇒ 按上表判据取 chrome 档(与 Home/Settings 同档)。
   SecurityCenter: (t) => t.surface.chrome,
+  // 2026-10-21 第二批补录:侧边栏对齐 web 时新挂了 7 个入口(AI 组「模型」/「智能体」子项 +
+  // 三域补挂项),这些屏由他人落库、屏内渲染 <NavBar> 却漏登记本表 ⇒ 用户从侧边栏点进去
+  // 就是状态栏带与导航行两截色。按上表判据补 chrome 档(与 Home/Settings 同档)。
+  ApiKeys: (t) => t.surface.chrome,
+  Usage: (t) => t.surface.chrome,
+  Groups: (t) => t.surface.chrome,
+  Invoices: (t) => t.surface.chrome,
+  Points: (t) => t.surface.chrome,
+  VoiceStt: (t) => t.surface.chrome,
+  AgentCategories: (t) => t.surface.chrome,
   Plaza: (t) => t.surface.chrome,
   News: (t) => t.surface.chrome,
   ProfileMain: (t) => t.surface.chrome,
