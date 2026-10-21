@@ -88,6 +88,25 @@ jobs:
         # 就是 node_modules 里的链接是否齐全(实测:`git archive` 式无依赖快照上稳定红)。
         run: pnpm install --frozen-lockfile
 
+      # 有一族守门把**判据**放在 ai-service 的 Python 里(单一实现,门里不许抄第二份),
+      # 运行期用 `apps/ai-service/.venv/{Scripts/python.exe,bin/python}` 去 import 它:
+      # check-load-state-loaded-marks / check-egress-facts / check-line-split-parity /
+      # check-bpe-encoding-parity / check-principal-consumed / check-mypy 都是同一形状。
+      # 缺这个 venv ⇒ 门按设计折「未判定」,而它们的镜像测试(正例必须被点名)当场红 ——
+      # 本 workflow 此前是纯 Node 环境,于是这一族在夜间常年假红。
+      # 只要**空 venv**:实测被判据模块 `_load_lifecycle.py` 只 import 标准库
+      # (time/dataclasses/ast/re),不装 ai-service 依赖。
+      - name: Setup Python (判据在 Python 里的那族守门要它)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Create ai-service venv (门探的就是这个路径)
+        shell: pwsh
+        run: |
+          python -m venv apps/ai-service/.venv
+          apps/ai-service/.venv/Scripts/python.exe -c "import sys; print('venv python', sys.version.split()[0])"
+
       - name: Run all mirror tests
         id: mirror
         # 工具任何一片解析不到 pass/fail 计数就按失败计,不会把"runner 崩了"洗成绿
