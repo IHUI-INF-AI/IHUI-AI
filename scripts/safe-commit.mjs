@@ -35,7 +35,7 @@
  *   1  校验失败(意外文件/缺文件/agent scope 越界)
  *   2  环境错误(非 git 仓库/无 origin 等)
  */
-import { execSync, spawn, spawnSync } from 'node:child_process'
+import { execFileSync, execSync, spawn, spawnSync } from 'node:child_process'
 import {
   appendFileSync,
   closeSync,
@@ -462,6 +462,44 @@ if (addResult.status !== 0) {
   log('err', `git add 失败: ${addResult.stderr}`)
   log('warn', '可能原因: 路径错误/仓库锁定/权限问题')
   process.exit(1)
+}
+
+// ─── 2b. README 生成数字发令前对齐(2026-10-22 立)──────────────────────────
+// 病灶:数字块由 post-commit 回写 ⇒ 索引面永远落后一枚,凡带 README 的提交都被门 173 判红
+// (实测 tracked 15613 / 索引 15612 / HEAD 15611)。
+// 修在 Step 2 之后而不是 pre-commit 里:README 此刻已在索引 ⇒ 改内容不算"窗口期新进",
+// O43② 护栏零感知(在钩子里补写并 add 会被它整枚拒发 —— 那正是这段移到 post-commit 的由来)。
+// 处理面严格限定在**声明面里的** README:`--files` 防本器顺手 add 未声明的兄弟文件,
+// 否则 Step 3 的精确匹配会判"意外文件"并中止。
+const readmeDeclared = expectedFiles
+  .map((f) => f.replace(/\\/g, '/'))
+  .filter((f) => /^README(\.en|\.ko|\.ja)?\.md$/.test(f))
+if (readmeDeclared.length > 0 && process.env.IHUI_SKIP_README_NUMBERS_SYNC !== '1') {
+  try {
+    execFileSync(
+      process.execPath,
+      [join(ROOT, 'scripts', 'sync-readme-numbers.mjs'), `--files=${readmeDeclared.join(',')}`],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 << 20,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    )
+    log('info', `Step 2b/5: README 生成数字已对齐现算值(${readmeDeclared.join(', ')})`)
+  } catch (e) {
+    log(
+      'warn',
+      `Step 2b/5: sync-readme-numbers 失败(不阻断,门 173 照索引面判):${String(
+        e?.stdout || e?.message || '',
+      )
+        .trim()
+        .split('\n')
+        .slice(-3)
+        .join('\n')}`,
+    )
+  }
 }
 
 // ─── 3. 校验 staged 内容是否 == 预期 ───────────────────────
