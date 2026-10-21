@@ -40,7 +40,8 @@ const EXCLUDE = [
 ]
 
 function git(args, opts = {}) {
-  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20, ...opts })
+  // windowsHide 强制置后:本器由计划任务后台派生,任何一次漏 windowsHide 都会弹控制台窗(§5f 机器级默认)
+  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20, ...opts, windowsHide: true })
 }
 
 function log(line) {
@@ -112,7 +113,7 @@ function main() {
     const out = execFileSync(
       process.execPath,
       [join(ROOT, 'scripts', 'safe-commit.mjs'), '-m', `chore(auto): 收编停留≥${QUIET_MIN}分钟的未提交改动`, '--', ...stale],
-      { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20, env: { ...process.env, AGENT_SCOPE: '' } },
+      { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20, windowsHide: true, env: { ...process.env, AGENT_SCOPE: '' } },
     )
     log(`✅ safe-commit 成功\n${String(out).trim().split('\n').slice(-4).join('\n')}`)
   } catch (e) {
