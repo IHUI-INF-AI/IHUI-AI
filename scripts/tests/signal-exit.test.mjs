@@ -41,7 +41,7 @@ const ROOT = resolve(HERE, '..', '..')
 const LIB = join(ROOT, 'scripts', 'lib', 'signal-exit.mjs')
 const CHECK_TYPECHECK = join(ROOT, 'scripts', 'check-typecheck.mjs')
 const TYPECHECK_FULL = join(ROOT, 'scripts', 'typecheck-full.mjs')
-const GUARDIAN_EXECUTOR = join(ROOT, 'scripts', 'lib', 'guardian-executor.mjs')
+const GUARDIAN_RUNNER = join(ROOT, 'scripts', 'guardian-runner.mjs')
 const API_TS_MODULE = join(ROOT, 'apps', 'api', 'src', 'lib', 'shutdown-signals.ts')
 const API_INDEX_TS = join(ROOT, 'apps', 'api', 'src', 'index.ts')
 
@@ -255,17 +255,15 @@ test('T10 产出侧必须真装在两个被派生方(门在判"被杀≠结论",
 
 test('T11 消费侧三处必须用同一把尺子,字面量集合全仓只许住在 lib 一处', () => {
   const ct = readFileSync(CHECK_TYPECHECK, 'utf8')
-  // 2026-10-16 executor 二次拆分:信号消费逻辑从 guardian-runner.mjs 迁至
-  // scripts/lib/guardian-executor.mjs(runner 本体已无信号逻辑)—— 钉随新世。
-  const executor = readFileSync(GUARDIAN_EXECUTOR, 'utf8')
+  const runner = readFileSync(GUARDIAN_RUNNER, 'utf8')
   assert.match(ct, /from '\.\/lib\/signal-exit\.mjs'/)
   assert.match(ct, /classifySpawnOutcome\(\{/, 'check-typecheck 的 close 分类没接共享尺子')
   assert.match(ct, /fastOutcome/, '定向快通道没做中断分类(全量臂与快通道臂不得只装一边)')
-  assert.match(executor, /from '\.\/signal-exit\.mjs'/, 'guardian-executor 没引共享尺子')
-  assert.match(executor, /shouldPropagateAsInterrupt\(e\)/, 'guardian-executor 没把族码/无码信号归中断')
+  assert.match(runner, /from '\.\/lib\/signal-exit\.mjs'/)
+  assert.match(runner, /shouldPropagateAsInterrupt\(e\)/, 'guardian-runner 没把族码/无码信号死归中断')
   assert.ok(
-    !/e && e\.status === 75/.test(executor),
-    'executor 的回退形态(只认 75)不得回来 —— 那正是消费侧的归因分叉',
+    !/e && e\.status === 75/.test(runner),
+    'runner 的回退形态(只认 75)不得回来 —— 那正是 runner 层的归因分叉',
   )
   // 全仓唯一一份 `new Set([130`:递归 scripts/*.mjs(排除 tests 自身与 node_modules)
   const hits = []

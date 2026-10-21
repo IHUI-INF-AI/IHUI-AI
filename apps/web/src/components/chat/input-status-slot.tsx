@@ -31,7 +31,7 @@ import { AlertTriangle, Gauge, MessageSquareText, PlugZap, Wand2, WifiOff } from
 
 import type { PromptPolishState } from '@ihui/shared/chat/prompt-polish'
 
-import { usePaneChatStore } from '@/stores/chat-pane-context'
+import { useChatStore } from '@/stores/chat'
 import { useMcpStatusBroadcast } from '@/hooks/use-mcp-status-broadcast'
 import {
   getBudgetEvent,
@@ -118,8 +118,6 @@ export function InputStatusSlot({
   onPolishRetry,
 }: InputStatusSlotProps) {
   const t = useTranslations('chat')
-  // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
-  const chatStore = usePaneChatStore()
   const [manual, setManual] = React.useState<StatusKind | null>(null)
   const [panelOpen, setPanelOpen] = React.useState(false)
   const badgeRef = React.useRef<HTMLButtonElement>(null)
@@ -132,7 +130,7 @@ export function InputStatusSlot({
     getStreamAlertsServerSnapshot,
   )
   const { statuses: mcpStatuses } = useMcpStatusBroadcast()
-  const hasDiff = chatStore((s) => s.pendingDiffComments.length > 0)
+  const hasDiff = useChatStore((s) => s.pendingDiffComments.length > 0)
   const budgetEvent = React.useSyncExternalStore(
     subscribeBudgetEvent,
     getBudgetEvent,

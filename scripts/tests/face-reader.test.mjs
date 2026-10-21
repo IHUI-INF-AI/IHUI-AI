@@ -67,26 +67,12 @@ const GATES = [
   'check-cross-end-tokens.mjs',
 ]
 
-test('层自身:绝对路径 git(裸 "git" 会让服务账户/GUI 宿主下的取数静默失败)', (t) => {
-  // 源码形状判据与本机 git 解析形态无关,先跑完(与 deploy/tests/prod-bundle-diagnose.test.mjs
-  // T3 同一取向:别让"宿主取不到"把不依赖宿主的判据也连带跳过)。
+test('层自身:绝对路径 git(裸 "git" 会让服务账户/GUI 宿主下的取数静默失败)', () => {
+  const bin = gitBinary()
+  assert.ok(/[\\/]/.test(bin) && bin.length > 5, `gitBinary() 退化成裸命令: ${bin}`)
   const src = read('lib/face-reader.mjs')
   assert.match(src, /from '\.\/gitdir\.mjs'/, '未走 resolveGitBin —— 又变成各自猜路径')
   assert.match(src, /resolveGitBin\(\) \|\| 'git'/, '兜底必须显式写在层里,不得散在各门')
-  // 环境感知闸:"gitBinary() 必须绝对路径"本质是**机器态**判据 —— resolveGitBin() 按候选序
-  // (IHUI_PORTABLE_GIT / PortableGit versions 扫描 / GIT_BIN / PATH 裸名 / Program Files 安装位)
-  // 逐个试跑,本机没有 portable/安装态 Git 时(如 GitHub windows runner)第一命中就是 PATH 裸 "git",
-  // 层的 `resolveGitBin() || 'git'` 随之必然交出裸名。那是本机 git 的解析形态,不是"层绕开退化出口"
-  // 的证据 —— 本环境无从判这条 ⇒ 未判定 skip(可见理由);绝对路径 git 在位时原断言逐字照常执行。
-  const bin = gitBinary()
-  if (!(/[\\/]/.test(bin) && bin.length > 5)) {
-    t.skip(
-      `本机 resolveGitBin() 自身解析不到绝对路径 git(gitBinary() 返回裸 "${bin}" —— portable/安装态候选不在位,` +
-        'PATH 裸名第一命中;CI runner 即此形态)⇒ 机器态未判定,非代码缺陷;绝对路径 git 在位时本条自动恢复执行',
-    )
-    return
-  }
-  assert.ok(/[\\/]/.test(bin) && bin.length > 5, `gitBinary() 退化成裸命令: ${bin}`)
 })
 
 test('层自身:每一处 cat-file --batch* 的 stdio[0] 都必须是 pipe(设成 ignore 会让每个 rev 都"取不到")', () => {
