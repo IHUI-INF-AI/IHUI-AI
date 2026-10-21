@@ -8,6 +8,7 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "composite": false,
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/apps-mobile-rn.tsbuildinfo",
     "resolveJsonModule": true,
     "allowImportingTsExtensions": false,
     "skipLibCheck": true,

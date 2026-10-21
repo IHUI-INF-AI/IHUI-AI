@@ -204,6 +204,33 @@ function armExplicitUndo(dirs, tag, secs) {
   }
 }
 
+/**
+ * 状态判定抽成纯函数,一是给自检当夹具面,二是因为"枚举到 0 个卷"绝不能读成"都设好了"。
+ * §0.3:取不到输入 ⇒ 显式未判定;这里连"量到 0 个候选"也一并归未判定 —— mountvol 权限受限、
+ * 输出形态变化、或本进程看不到装载卷时,rows 会空;空集上 missing=0 ∧ off=0,按上一版会判
+ * ok(2 卷全部在位)那种绿,是自我宣称的健康。
+ */
+export function judgeVolumes(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { status: 'undetermined', code: 2, missing: [], off: [], readFailed: [], why: '枚举到 0 个有盘符的卷 ⇒ 无从判定,不记绿也不冒红' }
+  }
+  const readFailed = rows.filter((r) => !r.present && !r.missingKey)
+  if (readFailed.length > 0) {
+    return {
+      status: 'undetermined',
+      code: 2,
+      missing: rows.filter((r) => !r.present && r.missingKey),
+      off: [],
+      readFailed,
+      why: readFailed.map((r) => `${r.drive}:读取策略键失败(${r.error || '未知'})`).join(' / '),
+    }
+  }
+  const missing = rows.filter((r) => !r.present)
+  const off = rows.filter((r) => r.present && r.nukeOnDelete !== NUKE)
+  const breach = missing.length > 0 || off.length > 0
+  return { status: breach ? 'breach' : 'ok', code: breach ? 1 : 0, missing, off, readFailed: [] }
+}
+
 async function cmdCheck(json) {
   const fv = fixedVolumes()
   if (fv.error) {
@@ -212,21 +239,30 @@ async function cmdCheck(json) {
     return 2
   }
   const rows = fv.vols.map((v) => ({ drive: v.drive, ...readVolumePolicy(v.guid) }))
-  const missing = rows.filter((r) => !r.present)
-  const off = rows.filter((r) => r.present && r.nukeOnDelete !== NUKE)
-  const status = missing.length > 0 || off.length > 0 ? 'breach' : 'ok'
-  if (json) process.stdout.write(JSON.stringify({ status, rows }) + '\n')
-  else {
-    for (const r of rows) process.stdout.write(`  ${r.drive}  guid=${r.guid}  present=${r.present}  NukeOnDelete=${r.nukeOnDelete}  MaxCapacity=${r.maxCapacity ?? '-'}\n`)
-    process.stdout.write('CHECK ' + status + (status === 'ok' ? ` (${rows.length} 卷全部在位)\n` : ` 缺键 ${missing.length} / 未开 ${off.length}\n`))
+  const j = judgeVolumes(rows)
+  if (json) {
+    process.stdout.write(JSON.stringify({ status: j.status, code: j.code, rows, why: j.why ?? null }) + '\n')
+  } else {
+    for (const r of rows) process.stdout.write(`  ${r.drive}  guid=${r.guid}  present=${r.present}  NukeOnDelete=${r.nukeOnDelete}  MaxCapacity=${r.maxCapacity ?? '-'}${r.error ? '  error=' + r.error : ''}\n`)
+    if (j.status === 'ok') process.stdout.write(`CHECK ok (${rows.length} 卷全部在位)\n`)
+    else if (j.status === 'undetermined') process.stdout.write(`CHECK undetermined — ${j.why}\n`)
+    else process.stdout.write(`CHECK breach 缺键 ${j.missing.length} / 未开 ${j.off.length} ⇒ 修法:node scripts/recycle-bin-policy.mjs --apply\n`)
   }
-  return status === 'ok' ? 0 : 1
+  return j.code
 }
 
 async function cmdApply(json) {
   const fv = fixedVolumes()
   if (fv.error) {
     process.stderr.write('x ' + fv.error + '\n')
+    return 2
+  }
+  // 与 cmdCheck 同一条纪律:枚举到 0 卷时若照跑写循环,会输出"writes=[] ⇒ APPLY OK",
+  // 一把永远成功、永远什么都没做的自愈(§0.3 的空枚举,§12f 的跑不通的出路)。
+  if (fv.vols.length === 0) {
+    const msg = 'UNDETERMINED: 枚举到 0 个有盘符的卷,拒绝在未知射程上执行写策略'
+    if (json) process.stdout.write(JSON.stringify({ status: 'undetermined', error: msg, writes: [] }) + '\n')
+    else process.stderr.write('x ' + msg + '\n')
     return 2
   }
   const writes = []
@@ -309,6 +345,48 @@ async function cmdVerify(json, secs) {
   return code
 }
 
+async function selfTest(json) {
+  const fails = []
+  // mountvol 解析夹具:两枚有盘符卷 + 一枚无装入点的卷(后者必须仍被枚举到,只是 drive=null 被滤掉)
+  const sample = [
+    '',
+    '\\\\?\\Volume{0BCD46E9-cfa3-4f35-b310-b4ec0985846d}\\',
+    '        C:\\',
+    '',
+    '\\\\?\\Volume{86961f69-b446-4ece-ba06-c454aacd68ec}\\',
+    '',
+    '\\\\?\\Volume{15ba644e-fe35-487f-9820-c215157ab9cd}\\',
+    '        D:\\',
+  ].join('\r\n')
+  const vols = parseMountvol(sample)
+  if (vols.length !== 3) fails.push('POSITIVE CONTROL BROKEN: 夹具应解析出 3 卷,实得 ' + vols.length)
+  const drives = vols.map((v) => driveOf(v.mounts))
+  if (drives[0] !== 'C:' || drives[1] !== null || drives[2] !== 'D:') fails.push('卷归属判定错:' + JSON.stringify(drives))
+  if (vols[0].guid !== '0bcd46e9-cfa3-4f35-b310-b4ec0985846d') fails.push('GUID 未归一小写:' + vols[0].guid)
+  if (driveOf(['\\\\?\\Volume{deadbeef-0000-0000-0000-000000000000}\\']) !== null) fails.push('REVERSE CONTROL BROKEN: 卷设备路径自身被当成了盘符')
+  if (driveOf(['D:\\']) !== 'D:') fails.push('mountvol 装入点形态 "D:\\" 未被认成盘符')
+
+  const reg = parseRegValues(['HKCU\\...\\{x}', '    MaxCapacity    REG_DWORD    0x3000', '    NukeOnDelete    REG_DWORD    0x1', ''].join('\r\n'))
+  if (!reg.NukeOnDelete || reg.NukeOnDelete.type !== 'DWORD') fails.push('reg 值解析丢键:' + JSON.stringify(reg))
+  if (Number.parseInt(reg.NukeOnDelete.raw, 16) !== 1) fails.push('NukeOnDelete 取值错:' + reg.NukeOnDelete.raw)
+
+  // 状态判定的四态 —— 空枚举这一例钉的是上一版真存在过的假绿:0 卷时 missing/off 皆空 ⇒ 曾判 ok
+  const j0 = judgeVolumes([])
+  if (j0.status !== 'undetermined' || j0.code !== 2) fails.push('REVERSE CONTROL BROKEN: 枚举 0 卷被判成 ' + j0.status + '(code ' + j0.code + ') —— 空集不是健康')
+  const jOk = judgeVolumes([{ drive: 'C:', present: true, missingKey: false, nukeOnDelete: 1 }, { drive: 'D:', present: true, missingKey: false, nukeOnDelete: 1 }])
+  if (jOk.status !== 'ok' || jOk.code !== 0) fails.push('POSITIVE CONTROL BROKEN: 两卷全开被判成 ' + jOk.status)
+  const jOff = judgeVolumes([{ drive: 'C:', present: true, missingKey: false, nukeOnDelete: 0 }])
+  if (jOff.status !== 'breach' || jOff.code !== 1) fails.push('未开策略应 breach:' + jOff.status)
+  const jMiss = judgeVolumes([{ drive: 'D:', present: false, missingKey: true, nukeOnDelete: null }])
+  if (jMiss.status !== 'breach') fails.push('缺键应 breach(可由 apply 补):' + jMiss.status)
+  const jFail = judgeVolumes([{ drive: 'C:', present: false, missingKey: false, error: '拒绝访问' }])
+  if (jFail.status !== 'undetermined') fails.push('读取失败不得算 breach(不得替机器猜"没设"):' + jFail.status)
+
+  if (json) process.stdout.write(JSON.stringify({ ok: fails.length === 0, fails }) + '\n')
+  else process.stdout.write((fails.length === 0 ? 'SELF-TEST PASS\n' : 'SELF-TEST FAIL\n') + fails.map((f) => '  - ' + f).join('\n') + (fails.length ? '\n' : '\n'))
+  return fails.length === 0 ? 0 : 1
+}
+
 function parseArgs(argv) {
   const o = { mode: 'check', json: false, secs: 10 }
   for (let i = 0; i < argv.length; i++) {
@@ -316,6 +394,7 @@ function parseArgs(argv) {
     if (a === '--check') o.mode = 'check'
     else if (a === '--apply') o.mode = 'apply'
     else if (a === '--verify') o.mode = 'verify'
+    else if (a === '--self-test') o.mode = 'selftest'
     else if (a === '--json') o.json = true
     else if (a === '--seconds') o.secs = Math.max(3, Number(argv[++i] || 10))
     else if (a === '--help' || a === '-h') o.help = true
@@ -324,12 +403,12 @@ function parseArgs(argv) {
   return o
 }
 
-const HELP = `usage: node scripts/recycle-bin-policy.mjs [--check|--apply|--verify] [--json] [--seconds N]
+const HELP = `usage: node scripts/recycle-bin-policy.mjs [--check|--apply|--verify|--self-test] [--json] [--seconds N]
 
-check  只读:逐卷报 NukeOnDelete 是否在位(卷身份取自 mountvol 装入点)
-apply  为每个有盘符的卷写上 NukeOnDelete=1,幂等,已开的不重写
-verify 真删臂:造夹具交 genie-trash 删,再高频扫回收站证明条目没落地;
-       另跑一臂显式请求可撤销删除,用来证明扫描面不是瞎的`
+check      只读:逐卷报 NukeOnDelete 是否在位(卷身份取自 mountvol 装入点;0 卷 ⇒ 未判定不记绿)
+apply      为每个有盘符的卷写上 NukeOnDelete=1,幂等,已开的不重写;0 卷 ⇒ 拒绝空转
+verify     真删臂:造夹具交 genie-trash 删 + 显式可撤销删除臂 + 扫描面有牙臂,三臂合判
+self-test  纯函数对照:mountvol 解析 / reg 值解析 / 四态判定,含"枚举 0 卷不得判绿"反证`
 
 async function main() {
   const o = parseArgs(process.argv.slice(2))
@@ -337,6 +416,7 @@ async function main() {
     process.stdout.write(HELP + '\n')
     return 0
   }
+  if (o.mode === 'selftest') return selfTest(o.json)
   if (o.mode === 'apply') return cmdApply(o.json)
   if (o.mode === 'verify') return cmdVerify(o.json, o.secs)
   return cmdCheck(o.json)
@@ -351,5 +431,5 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { parseMountvol, driveOf, parseRegValues, readVolumePolicy, writeVolumePolicy, findGenieTrash, GENIE_CANDIDATES, BITBUCKET, NUKE }
+export const __test__ = { parseMountvol, driveOf, parseRegValues, readVolumePolicy, writeVolumePolicy, findGenieTrash, judgeVolumes, selfTest, GENIE_CANDIDATES, BITBUCKET, NUKE }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

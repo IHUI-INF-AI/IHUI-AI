@@ -9,6 +9,7 @@
     "allowJs": false,
     "noEmit": true,
     "incremental": true,
+    "tsBuildInfoFile": "../../node_modules/.cache/tsbuildinfo/apps-web.tsbuildinfo",
     "composite": false,
     "declaration": false,
     "declarationMap": false,
