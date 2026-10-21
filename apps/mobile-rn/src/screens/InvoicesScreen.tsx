@@ -193,10 +193,7 @@ export default function InvoicesScreen() {
                   activeOpacity={0.7}
                 >
                   <Text
-                    style={[
-                      styles.typeChipText,
-                      invoiceType === type && styles.typeChipTextActive,
-                    ]}
+                    style={[styles.typeChipText, invoiceType === type && styles.typeChipTextActive]}
                   >
                     {typeLabel(type)}
                   </Text>
@@ -265,9 +262,7 @@ export default function InvoicesScreen() {
             {rows.map((inv) => (
               <View key={inv.id} style={styles.card}>
                 <View style={styles.rowTop}>
-                  <Text style={styles.amount}>
-                    {currencyFmt.format(Number(inv.amount ?? 0))}
-                  </Text>
+                  <Text style={styles.amount}>{currencyFmt.format(Number(inv.amount ?? 0))}</Text>
                   <View style={styles.statusBadge}>
                     <Text style={styles.statusText}>
                       {t(STATUS_KEYS[inv.status] ?? 'invoices.statusUnknown')}
@@ -278,9 +273,7 @@ export default function InvoicesScreen() {
                   <Text style={styles.metaText}>
                     {t('invoices.invoiceType')}: {typeLabel(inv.invoiceType)}
                   </Text>
-                  <Text style={styles.metaText}>
-                    {dateFmt.format(new Date(inv.createdAt))}
-                  </Text>
+                  <Text style={styles.metaText}>{dateFmt.format(new Date(inv.createdAt))}</Text>
                 </View>
                 {inv.remark ? (
                   <Text style={styles.muted} numberOfLines={2}>
@@ -300,9 +293,7 @@ export default function InvoicesScreen() {
                   <ChevronLeft size={14} color={tokens.text.primary} />
                   <Text style={styles.pageBtnText}>{t('invoices.prev')}</Text>
                 </TouchableOpacity>
-                <Text style={styles.pageInfo}>
-                  {t('invoices.pageInfo', { page, totalPages })}
-                </Text>
+                <Text style={styles.pageInfo}>{t('invoices.pageInfo', { page, totalPages })}</Text>
                 <TouchableOpacity
                   style={[styles.pageBtn, page >= totalPages && styles.pageBtnDisabled]}
                   onPress={() => goPage(page + 1)}
@@ -342,7 +333,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 6,
     },
     cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
@@ -351,13 +342,16 @@ function makeStyles() {
     typeChip: {
       height: 32,
       paddingHorizontal: 14,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    typeChipActive: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.brandAccent.light },
+    typeChipActive: {
+      borderColor: tokens.brandAccent.deep,
+      backgroundColor: tokens.brandAccent.light,
+    },
     typeChipText: { fontSize: 12, color: tokens.text.secondary },
     typeChipTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
     input: {
@@ -389,7 +383,7 @@ function makeStyles() {
     statusBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
     statusText: { fontSize: 11, fontWeight: '600', color: tokens.text.secondary },
@@ -405,7 +399,7 @@ function makeStyles() {
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     pageBtnDisabled: { opacity: 0.4 },
     pageBtnText: { fontSize: 12, color: tokens.text.primary },

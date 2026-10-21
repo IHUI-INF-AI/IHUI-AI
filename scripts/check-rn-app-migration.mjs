@@ -75,6 +75,62 @@ export const WHITELIST_ENTRIES = new Map(
       expires: '2027-06-30',
     },
     // ── RN 独占 screen(无跨端需求,深度依赖 RN 特定 API/组件) ──
+    'ImageGenTemplatesScreen.tsx': {
+      why: '提示词模板屏:FlatList + 分类 chip + 详情 Modal,对齐 web /image-gen/templates;共享层无同名屏,RN 端独占列表/弹层交互',
+      expires: '2027-06-30',
+    },
+    'LearnMapScreen.tsx': {
+      why: '学习地图屏:ScrollView 节点地图 + 进度环,共享层无同名屏,RN 端独占视觉交互',
+      expires: '2027-06-30',
+    },
+    'LearnReviewScreen.tsx': {
+      why: '学习复习屏:SM-2 复习队列 + 卡片翻转,共享层无同名屏,RN 端独占手势与动画',
+      expires: '2027-06-30',
+    },
+    'UserArticlesScreen.tsx': {
+      why: '用户文章屏:Image 封面 + FlatList 分页 + 下拉刷新,共享层无同名屏,RN 端独占列表交互',
+      expires: '2027-06-30',
+    },
+    'VoiceSttScreen.tsx': {
+      why: '语音转写屏:录音状态机 + 转写结果滚动区,共享层无同名屏,RN 端独占麦克风/权限通道',
+      expires: '2027-06-30',
+    },
+    'WrongQuestionsScreen.tsx': {
+      why: '错题本屏:FlatList + 筛选 chip + 详情 Modal,共享层无同名屏,RN 端独占列表/弹层交互',
+      expires: '2027-06-30',
+    },
+    'PointsScreen.tsx': {
+      why: '积分明细屏:ScrollView 分组流水 + 筛选 chip,共享层无同名屏,RN 端独占滚动/筛选交互',
+      expires: '2027-06-30',
+    },
+    'UsageScreen.tsx': {
+      why: '用量统计屏:模型用量条 + 周期切换,共享层无同名屏,RN 端独占统计视图',
+      expires: '2027-06-30',
+    },
+    'UserFansScreen.tsx': {
+      why: '粉丝列表屏:Image 头像 + ScrollView 分页 + 关注态切换,共享层无同名屏,RN 端独占列表交互',
+      expires: '2027-06-30',
+    },
+    'ArticleHotScreen.tsx': {
+      why: '热门文章屏:ScrollView 排行列表 + 热度排序,共享层无同名屏,RN 端独占列表交互',
+      expires: '2027-06-30',
+    },
+    'ConnectedAccountsScreen.tsx': {
+      why: '已连接账户屏:第三方账号绑定/解绑 + 状态徽章,共享层无同名屏,RN 端独占账号管理交互',
+      expires: '2027-06-30',
+    },
+    'DistributionCompanyScreen.tsx': {
+      why: '分销公司屏:公司信息表单 + 审核状态,共享层无同名屏,RN 端独占表单交互',
+      expires: '2027-06-30',
+    },
+    'ImageGenGalleryScreen.tsx': {
+      why: '图像生成画廊屏:Image 瀑布流 + 详情弹层,共享层无同名屏,RN 端独占图片浏览交互',
+      expires: '2027-06-30',
+    },
+    'PublishAnalyticsScreen.tsx': {
+      why: '发布分析屏:数据卡片 + 趋势条 + 周期切换,共享层无同名屏,RN 端独占统计视图',
+      expires: '2027-06-30',
+    },
     'AiAssistantN8nScreen.tsx': {
       why: 'N8n 工作流 AI 助手:streamChat SSE + VoiceInput + ModelConfigDialog + Drawer 历史对话,RN 端独占流式对话交互(L30 的"复用 @ihui/rn-app Drawer"仅是 doc comment,非 import)',
       expires: '2027-06-30',

@@ -259,18 +259,18 @@ export default function SecurityCenterScreen() {
     ])
   }
 
-/** 等级标签走静态映射表(动态拼键 `level_${level}` 会让键集对账看不见这一维) */
-const LEVEL_LABEL_KEY: Record<SecurityScore['level'], string> = {
-  high: 'securityCenter.score.level_high',
-  medium: 'securityCenter.score.level_medium',
-  low: 'securityCenter.score.level_low',
-}
+  /** 等级标签走静态映射表(动态拼键 `level_${level}` 会让键集对账看不见这一维) */
+  const LEVEL_LABEL_KEY: Record<SecurityScore['level'], string> = {
+    high: 'securityCenter.score.level_high',
+    medium: 'securityCenter.score.level_medium',
+    low: 'securityCenter.score.level_low',
+  }
 
   const toneOfScore = score
     ? score.level === 'high'
       ? tokens.success.DEFAULT
       : score.level === 'medium'
-        ? tokens.warning?.DEFAULT ?? tokens.brand.DEFAULT
+        ? (tokens.warning?.DEFAULT ?? tokens.brand.DEFAULT)
         : tokens.danger.DEFAULT
     : tokens.text.tertiary
 
@@ -301,7 +301,10 @@ const LEVEL_LABEL_KEY: Record<SecurityScore['level'], string> = {
                 <View
                   style={[
                     styles.trackFill,
-                    { width: `${Math.max(0, Math.min(100, score.score))}%`, backgroundColor: toneOfScore },
+                    {
+                      width: `${Math.max(0, Math.min(100, score.score))}%`,
+                      backgroundColor: toneOfScore,
+                    },
                   ]}
                 />
               </View>
@@ -451,9 +454,7 @@ const LEVEL_LABEL_KEY: Record<SecurityScore['level'], string> = {
             logs.map((l, i) => (
               <View key={l.id} style={[styles.row, i === logs.length - 1 && styles.rowLast]}>
                 <View style={styles.rowMain}>
-                  <Text style={styles.rowPrimary}>
-                    {t(ACTION_LABEL_KEY[l.action] ?? l.action)}
-                  </Text>
+                  <Text style={styles.rowPrimary}>{t(ACTION_LABEL_KEY[l.action] ?? l.action)}</Text>
                   <Text style={styles.rowSecondary}>
                     {fmt(l.createdAt, locale)}
                     {l.ip ? ` · ${l.ip}` : ''}
@@ -494,7 +495,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 8,
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -541,7 +542,11 @@ function makeStyles() {
     },
     dangerButtonText: { fontSize: 15, fontWeight: '600', color: tokens.danger.DEFAULT },
     // QR 码必须恒定亮底(跟随暗色主题会让多数扫码器识别失败),故取亮色板的书面白,不走当前主题。
-    qrWrap: { alignItems: 'center', paddingVertical: 8, backgroundColor: rnLightTokens.surface.light },
+    qrWrap: {
+      alignItems: 'center',
+      paddingVertical: 8,
+      backgroundColor: rnLightTokens.surface.light,
+    },
     secret: {
       fontFamily: 'monospace',
       fontSize: 13,
@@ -585,7 +590,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     linkText: { flex: 1, fontSize: 15, color: tokens.text.primary },
     footerNote: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 },

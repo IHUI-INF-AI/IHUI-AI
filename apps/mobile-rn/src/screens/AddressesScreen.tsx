@@ -248,7 +248,7 @@ export default function AddressesScreen() {
             >
               <View style={[styles.checkbox, form.isDefault && styles.checkboxOn]}>
                 {form.isDefault ? (
-                  <Check size={12} color={tokens.brand.ctaForeground} strokeWidth={3} />
+                  <Check size={12} color={styles.checkboxOnText.color} strokeWidth={3} />
                 ) : null}
               </View>
               <Text style={styles.checkLabel}>{t('addresses.defaultLabel')}</Text>
@@ -353,7 +353,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 8,
     },
     cardTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
@@ -373,13 +373,14 @@ function makeStyles() {
     checkbox: {
       width: 18,
       height: 18,
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tokens.border.medium,
       alignItems: 'center',
       justifyContent: 'center',
     },
     checkboxOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
+    checkboxOnText: { color: tokens.brand.ctaForeground },
     checkLabel: { fontSize: 14, color: tokens.text.primary },
     button: {
       height: 44,
@@ -403,7 +404,7 @@ function makeStyles() {
     badge: {
       paddingHorizontal: 6,
       paddingVertical: 1,
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
     badgeText: { fontSize: 11, color: tokens.text.secondary },
