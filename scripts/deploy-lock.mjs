@@ -1983,8 +1983,19 @@ async function runSelfTest() {
     t('S11c 空文件在 readMeta 层仍是 invalid(不是 absent)', readMeta(collapse2).kind === 'invalid')
 
     // —— 3) 无锁 ⇒ 直接获取
+    // 2026-10-21 归因(本票 flaky):S12 的 2s 预算此前把**进程启动时刻探针**也包在计时窗里 ——
+    // writeMeta 每次 acquire 都要 processStartEpoch(判活主体) ⇒ 冷启动派生一次 PowerShell/CIM
+    // (`Get-CimInstance Win32_Process`)。现读:空载 ~0.7s,8 路并发自检下 2.9–3.2s(18 发里 6 发 >2s),
+    // 于是 S12 在"锁其实一毫秒就拿到了"的形态下判红(ms=2898..3175)。
+    // 判据主体是"absent ⇒ acquire 不等待 stale",不是"这台机的 PowerShell 有多快" ⇒ 用注入 run 把
+    // 外部探针挡在计时窗之外(注入一律不入缓存,见 processStartEpoch);阈值保持 2000ms 不动。
+    // 真探针路径仍有覆盖:S40(writeMeta 落身份三元组)、HB-M2 真 CLI 断言 `pidStart > 0`、
+    // 以及下面**不计时**的 acquire(invalid/stale 那几档)都跑真 run。
     const d3 = join(base, 'no-lock')
-    const r3 = await elapsed(() => acquire({ mode: 'build', timeoutMs: 3000, dir: d3 }))
+    const noProbe = () => ''
+    const r3 = await elapsed(() =>
+      acquire({ mode: 'build', timeoutMs: 3000, dir: d3, identityRun: noProbe }),
+    )
     t('S12 absent(连锁目录都没有)⇒ acquire 秒成功', r3.r === true && r3.ms < 2000, `ms=${r3.ms}`)
     t('S13 获取后 meta.json 记录了自己 pid', readMeta(d3).meta?.pid === process.pid)
     t(
@@ -2019,10 +2030,12 @@ async function runSelfTest() {
     )
 
     // —— 5) 回归对照:强杀 dev 树后立即重启(持有者已退出 + 锁龄 1s ⇒ 必须秒抢占)
+    // 同 S12:计时窗里不许夹外部探针。否则 S12 一旦不再顺手把探针缓存焐热,这里就变成
+    // "冷探针 + 归档 + 原子改名"一起挤 4000ms(空载 ~0.7s、并发峰值 3.2s 的那一发)。
     const d5 = freshDir()
     putMeta(d5, JSON.stringify({ mode: 'dev', pid: DEAD_PID, ts: Date.now() - 1000 }))
     const r5 = await elapsed(() =>
-      acquire({ mode: 'dev', timeoutMs: 600_000, staleMs: 600_000, dir: d5 }),
+      acquire({ mode: 'dev', timeoutMs: 600_000, staleMs: 600_000, dir: d5, identityRun: noProbe }),
     )
     t(
       'S17 持有者已退出 + 锁龄 1s + stale=600s ⇒ 秒抢占(2026-08-27 行为保住)',
