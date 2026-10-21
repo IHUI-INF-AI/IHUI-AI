@@ -19,10 +19,11 @@
 //   · 安全闸:仅当"块外内容"相对索引版本无差异时才 git add,绝不把他人/他席未提交的 prose 改动吞进本次提交。
 // 退出码 0 = 成功(无论是否写盘);非 0 = git 取材失败。
 // ─────────────────────────────────────────────────────────────────────────
-import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -51,13 +52,9 @@ const TYPE_LABELS = {
 const NOISE_RE = /自动回捞|台账|登记行|随勾|收账|回写|被回写/
 
 function git(args) {
-  return execFileSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  // 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio/windowsHide
+  // 由 gitRaw 同源提供,不再自拼裸 'git' 派生。
+  return gitRaw(args, ROOT, { maxBuffer: 64 * 1024 * 1024 })
 }
 
 /** 判断 SHA 是否真实存在于本仓库(防止基线指向已不在当前历史的提交,导致 git log <sha>..HEAD 报错卡死钩子)。 */

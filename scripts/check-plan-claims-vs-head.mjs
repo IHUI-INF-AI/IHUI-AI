@@ -37,9 +37,10 @@
  * 取材面(§0.4 / 守门 118):全量档判 **HEAD blob** 的 PROJECT_PLAN.md,不读滞后的工作树副本;
  * 无 `--worktree` 逃生舱(本门的意义就是"仓库里到底有没有",读盘会自证)。
  */
-import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DOC = process.env.PLAN_CLAIMS_DOC || 'PROJECT_PLAN.md'
@@ -112,15 +113,12 @@ const PROSE_DENY = new Set([
 ])
 
 function git(args, input) {
-  const stdio = input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  return execFileSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
+  // 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio(带 input
+  // 走 ['pipe','pipe','pipe'])由 gitRaw 同源提供;timeout/maxBuffer 沿用本文件原值。
+  return gitRaw(args, ROOT, {
     timeout: GIT_TIMEOUT,
     maxBuffer: 256 * 1024 * 1024,
-    stdio,
-    input,
-    windowsHide: true,
+    ...(input === undefined ? {} : { input }),
   })
 }
 
