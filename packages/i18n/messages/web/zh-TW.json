@@ -22135,6 +22135,8 @@
     "title": "服務"
   },
   "settings": {
+    "event2faDisabled": "已關閉兩步驗證",
+    "eventIpBlocked": "登入被 IP 白名單封鎖",
     "accountDeletionCancel": "取消刪除",
     "accountDeletionCodeLabel": "驗證碼",
     "accountDeletionCodePlaceholder": "輸入驗證碼",

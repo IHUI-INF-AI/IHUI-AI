@@ -54,6 +54,9 @@ import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 // 旁路合并的"对侧独有新增必须 ∈ 结果"复量:判据一律 import 守门 100 自己那份 A1 实现,
 // 本器不复算第二份集合运算(AGENTS §0.6 单一真相源 / §22c 镜像测试纪律)。
 import { auditOne as auditMergeAdditionLoss } from './check-merge-addition-loss.mjs'
+// 旁路合并的"本侧显式删除被合并带回结果树"复量:判据一律 import 守门 168 自己那份实现
+// (auditMerge + classifyCandidate + readAllowlist),本器不复算第二份(AGENTS §0.6 / §22c)。
+import { auditMerge, classifyCandidate, readAllowlist } from './check-merge-deletion-resurrection.mjs'
 // 判据只有一份:`planStateRegressions` 住在 union-converge(在收敛器里再写一遍
 // "什么算状态放大"必然与它漂移,而漂移的代价固定是"一条尺子绿灯、另一条同一改动判红")。
 // probe/ratchetViolations 同理 —— 维度清单不得在别处再抄一份 `['F1', …]`。
@@ -155,6 +158,24 @@ export function additionLossVerdict({ lost = [], skip = false, reason = '' } = {
 }
 
 /**
+ * 纯函数:把"删除复活 + 应急出口"的裁定从 CLI 里剥出来,好让镜像测试真判(§0.3 方向:裸开关不放行)。
+ *
+ * 口径与守门 168 一致:`reds` 是硬红;`undetermined`(含台账读不到)一律按 fail-closed 计入拦截 ——
+ * 因为这条路不跑钩子,漏判的代价是"已删文件悄悄回流 origin/main",与 G-939 同一类事故。
+ * @returns {{proceed:boolean, block:boolean, skipUsed:boolean, bareSkip:boolean, reds:number, undetermined:number}}
+ */
+export function deletionResurrectionVerdict({ reds = [], undetermined = [], skip = false, reason = '' } = {}) {
+  const n = reds.length
+  const u = undetermined.length
+  if (n === 0 && u === 0)
+    return { proceed: true, block: false, skipUsed: false, bareSkip: false, reds: 0, undetermined: 0 }
+  if (skip && String(reason).trim())
+    return { proceed: true, block: false, skipUsed: true, bareSkip: false, reds: n, undetermined: u }
+  // 裸跳门(只给 1 不给原因)与"什么都没给"同结局:拦。放行不是这一型的失效方向。
+  return { proceed: false, block: true, skipUsed: false, bareSkip: skip === true, reds: n, undetermined: u }
+}
+
+/**
  * 推进前复量:这枚合并提交有没有把某一侧"独有的新增"吞掉(守门 100 的 A1 判据)。
  *
  * 为什么必须在旁路侧再问一次:守门 100 的头注自写口径是"提交链口径:未进入 origin/main 的合并",
@@ -169,6 +190,46 @@ export function additionLossVerdict({ lost = [], skip = false, reason = '' } = {
 export function preAdvanceAdditionLoss({ mergeSha, cwd }) {
   const a = auditMergeAdditionLoss(mergeSha, cwd, mergeSha)
   return { lost: a.lost, repaired: a.repaired, atRefUndetermined: a.atRefUndetermined, ok: a.lost.length === 0 }
+}
+
+/**
+ * 推进前复量:这枚合并提交有没有把某一侧"显式删除"的文件带回结果树(守门 168 的判据)。
+ *
+ * 为什么必须在旁路侧再问一次:守门 168 走提交链(commit 钩子),而本器走 merge-tree + commit-tree +
+ * update-ref **不跑任何 git 钩子** ⇒ 提交链那道闸对这条路结构性失明。G-939 的现读就是这型事故:
+ * 枚 12898ccd9bcb2b8e094e0057d94e0fab0380293a 在无钩子的合并之后对 HEAD 与 origin 双非祖先,
+ * 内容退回未提交态(台账 G-939)。
+ *
+ * `atRef` 取合并提交自身:`auditMerge` 用合并树当结果面,所得 candidates 即"被带回"的真集。
+ * 判据一律 import 守门 168 自己那份实现(auditMerge + classifyCandidate + readAllowlist),本器不复算。
+ * 台账按**路径**豁免:登记且未过期的条目把对应候选判为 waived,不进红;台账读不到按 fail-closed 计入未判定。
+ * @returns {{reds:Array<{path:string,ours:string}>,waived:Array,undetermined:Array<string>,ok:boolean,allowBroken:boolean}}
+ */
+export function preAdvanceDeletionResurrection({ mergeSha, parents, cwd }) {
+  const a = auditMerge(mergeSha, parents, cwd)
+  const today = new Date().toISOString().slice(0, 10)
+  const allow = readAllowlist(cwd, 'head')
+  const allowByPath = new Map()
+  for (const e of allow.entries || []) if (e && e.path) allowByPath.set(e.path, e)
+  const reds = []
+  const waived = []
+  const undetermined = []
+  for (const c of a.candidates || []) {
+    const v = classifyCandidate(c, { allowByPath, today })
+    if (v.kind === 'red') reds.push({ ...c, ...v })
+    else if (v.kind === 'waived-allowlist' || v.kind === 'waived-marker') waived.push({ ...c, ...v })
+    else undetermined.push(`${c.path} @ ${String(c.merge).slice(0, 11)} —— ${v.why}`)
+  }
+  // 台账读不到 ⇒ 同样按 fail-closed 计入未判定(不冒成"没复活")。
+  if (allow.broken) undetermined.push(`台账不可判读:${allow.broken}`)
+  if ((a.undetermined || []).length) undetermined.push(...a.undetermined)
+  return {
+    reds,
+    waived,
+    undetermined,
+    ok: reds.length === 0 && undetermined.length === 0,
+    allowBroken: Boolean(allow.broken),
+  }
 }
 
 /** 把一枚 CAS 落空的合并提交按 §29 零损失流程备份成 tag 并固化(pack-refs)。 */
@@ -1774,6 +1835,61 @@ function main() {
         if (loss.atRefUndetermined)
           log(C.yellow, `  ⚠️ 吞并复量有一维未判定:${loss.atRefUndetermined} ⇒ 本轮结论只按"合并结果是否缺路径"判`)
       }
+      // 推进前复量(G-939 同源根因):合并提交把任一"本侧显式删除"的文件带回结果树 ⇒ 拒绝推进。
+      // 旁路不跑钩子 ⇒ 守门 168 对这条路永不可见,故在这里借它自己的判据再问一次(零复算)。
+      const resurrect = preAdvanceDeletionResurrection({
+        mergeSha,
+        parents: [freshLocal, freshRemote],
+        cwd: repoRoot,
+      })
+      const resurrectVerdict = deletionResurrectionVerdict({
+        reds: resurrect.reds,
+        undetermined: resurrect.undetermined,
+        skip: process.env.IHUI_SKIP_CONVERGE_DELETION_RESURRECTION === '1',
+        reason: String(process.env.IHUI_SKIP_CONVERGE_DELETION_RESURRECTION_REASON ?? '').trim(),
+      })
+      if (resurrectVerdict.block) {
+        log(
+          C.red,
+          `❌ 合并树把 ${resurrect.reds.length} 处"本侧显式删除"带回结果树(守门 168 判据,经 import 复量)⇒ 拒绝推进 HEAD,绝不 update-ref/推送:`,
+        )
+        for (const r of resurrect.reds.slice(0, 20)) {
+          log(C.red, `   · ${r.path}  在父 ${String(r.ours).slice(0, 11)} 本侧被删,合并结果树里又出现`)
+        }
+        if (resurrect.undetermined.length) {
+          log(
+            C.yellow,
+            `  ⚠️ 另有 ${resurrect.undetermined.length} 条未判定(fail-closed,按拦处理):${resurrect.undetermined.slice(0, 3).join(' / ')}`,
+          )
+        }
+        // 已 commit-tree 的合并提交此刻成悬空对象 ⇒ 必须先按 §29 备份,否则把 30a 的红转嫁给下一位提交者
+        backupOrphanMerge(mergeSha, 'deletion-resurrection')
+        log(
+          C.yellow,
+          `   人工出口:被带回的文件若确应恢复,先在台账 scripts/data/deletion-survival-allowlist.json 登记该路径(载明原因 + 复核日)再重跑;` +
+            `确属误判时的应急出口是 IHUI_SKIP_CONVERGE_DELETION_RESURRECTION=1 **且必须同时带** IHUI_SKIP_CONVERGE_DELETION_RESURRECTION_REASON=<原因>。`,
+        )
+        log(
+          C.red,
+          resurrectVerdict.bareSkip
+            ? `❌ 裸跳门标记(IHUI_SKIP_CONVERGE_DELETION_RESURRECTION=1)不放行:缺 IHUI_SKIP_CONVERGE_DELETION_RESURRECTION_REASON ⇒ 本枚拒绝推进`
+            : `❌ 本枚拒绝推进(未给应急出口)—— 删除被静默复活不是可以咽下的成本`,
+        )
+        process.exit(1)
+      }
+      if (resurrectVerdict.skipUsed) {
+        log(
+          C.yellow,
+          `⚠️ 删除复活复量按应急出口放行(留痕):原因=${String(process.env.IHUI_SKIP_CONVERGE_DELETION_RESURRECTION_REASON ?? '').trim().slice(0, 160)} —— 被带回的删除不会因此消失,请照人工出口处置`,
+        )
+      } else {
+        // 过了也得把"判过"这件事量出来:静默通过和"根本没跑到这一步"在日志里同形,
+        // 而这一格正是 G-939 立项的原因(删除被静默复活)。台账路径豁免的条目报出来,不静默消失。
+        log(
+          C.dim,
+          `  删除复活复量(守门 168,import 复量):硬红 ${resurrect.reds.length} 处 / 豁免 ${resurrect.waived.length} 处 / 未判定 ${resurrect.undetermined.length} 处`,
+        )
+      }
       // CAS 更新引用:only-if-HEAD 未动。被并发推进则本轮作废转下一轮,
       // 绝不覆盖他人刚落地的本地提交(覆盖=丢 commit,见 AGENTS.md §22)。
       const cas = git(['update-ref', `refs/heads/${branch}`, mergeSha, freshLocal], {
@@ -1885,6 +2001,8 @@ export const __test__ = {
   mergeCommitArgs,
   preAdvanceAdditionLoss,
   additionLossVerdict,
+  preAdvanceDeletionResurrection,
+  deletionResurrectionVerdict,
   GIT_MACHINE_IDENTITY,
   selfTest,
   ensureUnionModule,

@@ -22134,6 +22134,8 @@
     "title": "サービス"
   },
   "settings": {
+    "event2faDisabled": "二段階認証を無効化しました",
+    "eventIpBlocked": "IP 許可リストによりログインが遮断されました",
     "accountDeletionCancel": "削除を取り消す",
     "accountDeletionCodeLabel": "コード",
     "accountDeletionCodePlaceholder": "認証コードを入力してください",
