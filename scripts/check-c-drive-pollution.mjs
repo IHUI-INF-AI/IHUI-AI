@@ -52,7 +52,15 @@ function rootSigRe(root) {
   // 尾随判据用"下一个字符不得是字母数字":`IHUI-AI\bak` 之类近邻目录不误伤,
   // 而 `IHUI-AI\scripts`(更深路径)/ `IHUI-AI'`(引号收口)/ `IHUI-AI.git-backup-*`(归档)都放过。
   if (!m) return new RegExp(esc(root))
-  return new RegExp(`${esc(m[1])}[\\\\/]{1,2}${esc(m[3])}(?![A-Za-z0-9])`)
+  // 分隔符必须逐段都能容忍 `/` 与 `\`(2026-10-21 修):原写法只把盘符后**第一个**分隔符归成
+  // `[\\/]{1,2}`,其余段原样 escape ⇒ 路径里每一段都写死成反斜杠。本机仓库恰好只有一层
+  // (`D:\IHUI-AI`),症状看不出来;CI 是 `D:\a\IHUI-AI\IHUI-AI`、linked worktree 更深一层 ⇒
+  // 两条"内容归因"断言按 `/` 形态比对时必然落空,把"命中"读成"没命中"。
+  const rest = m[3]
+    .split(/[\\/]+/)
+    .map(esc)
+    .join('[\\\\/]{1,2}')
+  return new RegExp(`${esc(m[1])}[\\\\/]{1,2}${rest}(?![A-Za-z0-9])`)
 }
 export const CONTENT_SIGNATURES = [
   { re: rootSigRe(REPO), why: '内容含本仓仓库根路径(内容归因)' },
