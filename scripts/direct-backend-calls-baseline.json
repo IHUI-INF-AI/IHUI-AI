@@ -41,6 +41,7 @@
     "apps/web/src/components/common/ErrorBoundary.tsx::fetch::'/api/crash-reports'",
     "apps/web/src/components/common/VisitTracker.tsx::fetch::REPORT_API",
     "apps/web/src/components/common/VisitTracker.tsx::sendBeacon::REPORT_API",
+    "apps/web/src/components/status/models-section.tsx::fetch::'/api/public/status/models'",
     "apps/web/src/hooks/use-agent-stream.ts::fetch::url",
     "apps/web/src/hooks/use-analytics.ts::sendBeacon::'/api/analytics/track'",
     "apps/web/src/hooks/use-chat/resume-stream.ts::fetch::`${base}/api/chat/resume`",

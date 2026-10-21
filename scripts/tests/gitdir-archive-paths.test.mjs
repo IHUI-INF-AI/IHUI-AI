@@ -30,10 +30,21 @@ import { gitArchiveRootFor, ensureGitArchiveDir } from '../lib/gitdir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
-test('gitArchiveDir:要么为 null,要么落在 <DevEnv根>/backups/git(仓内 .DevEnv 或盘根 DevEnv,G-814433 双形态)', () => {
+test('gitArchiveDir:要么为 null,要么落在 <DevEnv根>/backups/git(仓内 .DevEnv 或盘根 DevEnv,G-814433 双形态)', (t) => {
   const dir = gitArchiveDir()
   if (dir === null) return // 只读/换机环境允许退化,但不得抛异常
   assert.match(dir.replace(/\\/g, '/'), /DevEnv\/backups\/git$/)
+  // 环境感知闸:"归档根真实存在"是**机器态**判据 —— DevEnv 部署根(仓内 .DevEnv 或盘根 <盘>/DevEnv)
+  // 是 gitignored 的机器态、不随仓入库(CI runner 无 D:\DevEnv 部署根),而解析函数按设计零 mkdir
+  // (上面 D5 钉死)⇒ 没有部署根的机器上这条断言结构性不成立,红的是"这台机没部署",不是推导错了。
+  // ⇒ 未判定 skip(可见理由);部署根在位时原断言逐字照常执行。
+  if (!existsSync(dir)) {
+    t.skip(
+      `本机无 DevEnv 部署根(推导归档根 ${dir} 不在盘上 —— 部署根系 gitignored 机器态,` +
+        'CI runner 无 D:\\DevEnv 部署根)⇒ 机器态未判定,非代码缺陷;部署根在位时本条自动恢复执行',
+    )
+    return
+  }
   assert.ok(existsSync(dir), '返回的归档根必须真实存在')
 })
 

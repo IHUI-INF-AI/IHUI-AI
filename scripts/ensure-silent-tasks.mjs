@@ -18,6 +18,9 @@
  *      Service,session 0 账户无窗口能力)→ 违规
  *   ② 启动文件夹(用户 + 公共):.cmd/.bat 登录即闪控制台 → 违规(仅报告)
  *   ③ 注册表 Run 键(HKCU/HKLM):控制台程序自启 → 违规(仅报告)
+ *   ④ worktree 回收链路(Windows):计划任务 IHUI-Worktree-Reap 必须存在,且运行台账
+ *      `.workbuddy/worktree-reap.log` 必须新鲜(> 30 分钟未更新 = 回收器卡死/未跑)。
+ *      任务缺失或台账超时**不可自动修**,只响亮报红 —— 静默失效的回收器等于没有回收器。
  *
  * 修复策略:
  *   - 任务名或 action 含 "IHUI" 的违规任务:**自动修复** —— 生成隐藏 VBS 包装
@@ -32,7 +35,7 @@
  * 常驻:dev-stack watcher(--watch)每 10 分钟调用本脚本一次,开机自启即永远有人兜底。
  */
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, readdirSync, existsSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readdirSync, existsSync, statSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, basename, extname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -42,6 +45,10 @@ const LOG_DIR = join(ROOT, '.tmp-sync')
 const AUDIT_LOG = join(LOG_DIR, 'silent-tasks-audit.log')
 const WRAPPER_DIR = join(homedir(), '.ihui-silent-guard')
 const CHECK_ONLY = process.argv.includes('--check')
+const WORKTREE_REAP_TASK = 'IHUI-Worktree-Reap'
+const WORKTREE_REAP_LOG = join(ROOT, '.workbuddy', 'worktree-reap.log')
+/** 10 分钟一轮 ⇒ 连丢 3 轮(30 分钟)才判红,避免单次任务排队/杀毒扫描误报。 */
+const WORKTREE_REAP_MAX_AGE_MS = Number(process.env.IHUI_WORKTREE_REAP_MAX_AGE_MS || 30 * 60_000)
 
 /** 会弹控制台窗的程序(小写、去 .exe)。wscript/mshta 等 GUI 子系统不在列。 */
 const CONSOLE_EXES = new Set([
@@ -187,10 +194,39 @@ function replaceActionWithWrapper(taskName, taskToRun) {
   return ok ? vbsPath : null
 }
 
+/** 计划任务名的叶子(TaskPath+TaskName 形如 "\IHUI-Worktree-Reap")。 */
+function taskLeaf(name) {
+  return String(name || '').split('\\').filter((seg) => seg.length > 0).pop() || ''
+}
+
+/**
+ * worktree 回收链路健康判据(纯函数,镜像测试直接喂夹具 —— §22c)。
+ * 任务缺失 / 台账缺失 / 台账超时三态各自给理由;取不到台账读数按缺失算,不冒充健康。
+ */
+export function judgeWorktreeReapHealth({
+  taskNames = [],
+  logMtimeMs = null,
+  now = Date.now(),
+  maxAgeMs = WORKTREE_REAP_MAX_AGE_MS,
+} = {}) {
+  const present = (Array.isArray(taskNames) ? taskNames : []).some((n) => taskLeaf(n) === WORKTREE_REAP_TASK)
+  const ageMs = Number.isFinite(logMtimeMs) && logMtimeMs > 0 ? Math.max(0, now - logMtimeMs) : null
+  let reason = ''
+  if (!present) {
+    reason = `计划任务 ${WORKTREE_REAP_TASK} 不存在(worktree 回收链断)`
+  } else if (ageMs === null) {
+    reason = `台账 ${WORKTREE_REAP_LOG} 缺失(任务在但从未跑成功)`
+  } else if (ageMs > maxAgeMs) {
+    reason = `台账已 ${Math.round(ageMs / 60_000)} 分钟未更新(> ${Math.round(maxAgeMs / 60_000)} 分钟,回收器可能卡死)`
+  }
+  return { ok: reason === '', present, ageMs, maxAgeMs, reason }
+}
+
 export function audit({ fix = false } = {}) {
   const violations = []
+  const tasks = listTasks()
   // ① 计划任务:任一 action 直指控制台程序且非 session 0 账户 → 违规
-  for (const t of listTasks()) {
+  for (const t of tasks) {
     if (/disabled|禁用/i.test(t.state)) continue
     if (SESSION0_USER.test(t.runAs)) continue // SYSTEM/Service 跑在 session 0,无窗口能力
     // LogonType 枚举:Interactive / Token / Group 属"仅登录时运行"(有桌面,会弹窗);
@@ -203,6 +239,21 @@ export function audit({ fix = false } = {}) {
     if (!badActions.length) continue
     const isIhui = IS_IHUI.test(t.name) || t.actions.some((a) => IS_IHUI.test(`${a.exe} ${a.args || ''}`))
     violations.push({ kind: 'task', name: t.name, detail: actionToCommand(badActions[0]), ihui: isIhui })
+  }
+  // ④ worktree 回收链路(Windows 专有;其他平台无计划任务概念,不判)
+  if (process.platform === 'win32') {
+    let logMtimeMs = null
+    try {
+      logMtimeMs = statSync(WORKTREE_REAP_LOG).mtimeMs
+    } catch {
+      /* 台账缺失由判据自己报 */
+    }
+    const health = judgeWorktreeReapHealth({ taskNames: tasks.map((t) => t.name), logMtimeMs })
+    if (health.ok) {
+      log(`worktree 回收链路健康: ${WORKTREE_REAP_TASK} 在册,台账 ${Math.round((health.ageMs || 0) / 60_000)} 分钟前更新`)
+    } else {
+      violations.push({ kind: 'worktree-reap', name: WORKTREE_REAP_TASK, detail: health.reason, ihui: true })
+    }
   }
   // ② 启动文件夹(.cmd/.bat 登录即闪控制台;仅报告)
   const startupDirs = [
@@ -250,7 +301,7 @@ function main() {
   if (CHECK_ONLY) {
     const v = audit({ fix: false })
     if (v.length) {
-      console.error(`❌ [ensure-silent-tasks --check] ${v.length} 处「交互会话直跑控制台程序」违规,桌面会弹窗`)
+      console.error(`❌ [ensure-silent-tasks --check] ${v.length} 处违规(交互控制台弹窗 / worktree 回收链路失活)`)
       process.exit(1)
     }
     console.info('✅ [ensure-silent-tasks --check] 全盘零弹窗:无交互控制台计划任务/启动项/Run键违规')
@@ -265,6 +316,11 @@ function main() {
     process.exit(1)
   }
   if (after.length) log('自愈完成:IHUI 违规清零 ✅(非 IHUI 违规仅报告不自动修)')
+  const reapLeft = after.filter((v) => v.kind === 'worktree-reap')
+  if (reapLeft.length) {
+    console.error(`❌ [ensure-silent-tasks] worktree 回收链路失活:${reapLeft[0].detail}`)
+    process.exit(1)
+  }
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -272,5 +328,5 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { exeNameOf, isConsoleAction, actionToCommand, listTasks, wrapperVbsContent }
+export const __test__ = { exeNameOf, isConsoleAction, actionToCommand, listTasks, wrapperVbsContent, judgeWorktreeReapHealth }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

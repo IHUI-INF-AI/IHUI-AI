@@ -214,7 +214,7 @@ test('检测: reset 丢掉的那一枚已打 lost-commit tag ⇒ blocking 放行
   try {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync('git commit --allow-empty -m "temp-dropped"', { cwd: dir, stdio: 'ignore' })
-    const dropped = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+    const dropped = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync('git reset HEAD~1', { cwd: dir, stdio: 'ignore' })
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
