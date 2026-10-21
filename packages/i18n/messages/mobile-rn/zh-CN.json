@@ -2600,8 +2600,9 @@
       "revokeConfirm": "撤销后该设备需要重新登录,确定继续?"
     },
     "logs": {
-      "title": "安全事件",
-      "empty": "暂无安全事件"
+      "login": "登录",
+      "title": "登录历史",
+      "empty": "暂无登录记录"
     }
   },
   "securitySettings": {
