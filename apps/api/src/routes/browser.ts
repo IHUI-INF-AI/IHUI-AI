@@ -21,7 +21,11 @@ import { checkAuth } from '../plugins/auth.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
-/** ai-service 基础 URL(默认 http://localhost:8803) */
+/**
+ * ai-service 基础 URL(默认见 ../constants.ts 的 DEFAULT_AI_SERVICE_URL;
+ * 2026-10-21 由 localhost 改 127.0.0.1 —— 本机 localhost 解析优先 IPv6 ::1,
+ * 而 ai-service 只听 IPv4)
+ */
 // AI_SERVICE_URL 局部常量已由 aiServiceFetch(config.AI_SERVICE_URL) 取代(2026-09-13 jwt_auth 鉴权修复)
 
 const screenshotSchema = z.object({
