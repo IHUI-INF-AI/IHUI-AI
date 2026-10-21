@@ -4166,6 +4166,88 @@ export function auditTunnelMetrics(opts = {}) {
  *    不得显示成"无需清扫"(把"没做"写成"做过"是 §0.3/§0.10 明令禁止的那一型);
  *  - 派生子进程一律显式 stdio + windowsHide + timeout(§12g / 守门 52 / 80)。
  */
+/**
+ * 超龄认领牌自动摘除轮(2026-10-22 立,机主当日选定路线)。
+ * 立因:人工摘掉的 57 枚牌被一枚并发的活文档合并按**摘牌前的旧形态**补了回来(AGENTS §1 通道③,
+ * 在册票 G-32「归并侧那半格仍未收口」)⇒ 这一格必须按周期自己收,而不是每轮派人重摘一次。
+ * 判据全部 import 守门 109(`lib/plan-task-index` 的 `claimMarkOf` + 门体的 `resolveTtlHours`),
+ * 本层零复算;只摘超完整租约(正在干活的席位会续租,天然落在射程外);裸标记不可判龄 ⇒ 不摘。
+ * 节流 30 分钟、不改本守护退出码(摘牌失败 ≠ .git 失败)。
+ */
+export function sweepStaleClaimMarks(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 30 * 60 * 1000,
+    tickFile = join(WORKTREE, '.workbuddy', 'stale-claim-strip-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'strip-stale-claim-marks.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 超龄认领牌:器物不在位(scripts/strip-stale-claim-marks.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '器物不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 超龄认领牌:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  // 结论只认器物自己打的机读行(SWEEP-RESULT state=…),不靠中文文案猜;拿不到就是"未判定",
+  // 绝不得读成"无需摘"(§0.3:把没做写成做过,是本仓最高频失效型)。
+  const resultLine = rows
+    .map((l) => (l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null))
+    .find(Boolean)
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  const state = resultLine ? resultLine[1] : null
+  if (!state) {
+    logger(
+      `❌ 超龄认领牌:未回带机读结论行 ⇒ 记未判定(不得读成"无需摘");末两行:${rows.filter(Boolean).slice(-2).join(' / ').slice(0, 160)}`,
+    )
+    return { ran: true, state: 'undetermined' }
+  }
+  const reading =
+    state === 'clean'
+      ? '无超龄认领牌(读数来自器物)'
+      : state === 'stripped'
+        ? `代摘 ${kv('stripped') ?? '?'} 枚(超龄 ${kv('stale') ?? '?'},另跳过 ${kv('held') ?? '?'} 枚不可判龄/未超龄)`
+        : state === 'refused'
+          ? '台账工作树不净 ⇒ 整批让路(不抢他席现场),下轮再试'
+          : `状态 ${state}(器物未定义这一档 ⇒ 按未判定处理)`
+  logger(`🧹 超龄认领牌 ${state}: ${reading}`)
+  return { ran: true, state, stripped: kv('stripped'), held: kv('held') }
+}
+
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
@@ -5255,6 +5337,9 @@ function main() {
     // "碰台账的提交",而把旧已勾行带回 HEAD 的那枚提交可以不碰台账 ⇒ 这一层按同一判据清扫。
     // 节流 30 分钟、判据 import 门 229、不改本守护退出码(清台账失败 ≠ .git 失败)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
+    // 超龄认领牌自动摘除(2026-10-22):提交口只拦"碰台账的提交",而把旧牌带回 HEAD 的那枚合并
+    // 可以不碰台账 ⇒ 与上面同型,按守门 109 的同一判据周期收。判据 import 门体,本层零复算。
+    if (!CHECK_ONLY) sweepStaleClaimMarks()
     if (!CHECK_ONLY) auditTunnelMetrics()
     // 部署停摆:判据写 45 分钟阈值,而凭据巡检那支班每 6 小时才量一趟(现读 09:37/15:37)⇒ 阈值与
     // 节律差两个数量级等于没有判据。本格按 15 分钟量,身份 = tip + 最近一次成功部署时刻。
