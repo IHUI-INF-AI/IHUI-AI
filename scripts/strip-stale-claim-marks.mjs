@@ -295,6 +295,19 @@ export function appendLedger(entries, { file = LEDGER_FILE(), nowMs = Date.now()
   return { written: entries.length, pruned: pr.pruned, malformed: pr.malformed, file }
 }
 
+/**
+ * 落地后复验(2026-10-22 补,本器实犯):摘牌必须回读**落地后的 HEAD 面**再判一次。
+ * 只算落地前的守恒就报成功是不够的 —— 实测出现过"留痕写了 57 条、HEAD 面上牌一枚没少",
+ * 而 `git rev-parse HEAD` 取到的还是别席刚顶上来那枚 ⇒ 留痕会指向一枚不是自己的提交。
+ * ok 要求两条同时成立:被摘的原行一条都不在面上,且面上挂牌总数等于本轮跳过数。
+ */
+export function verifyLanded(headText, plan) {
+  const lines = String(headText).split('\n')
+  const staleLeft = plan.removed.filter((raw) => lines.includes(raw)).length
+  const held = lines.filter((l) => /^\s*- \[ \]/.test(l) && claimMarkOf(l)).length
+  return { ok: staleLeft === 0 && held === plan.held.length, staleLeft, held }
+}
+
 /** 留痕读数 CLI 出口:取不到文件一律判未判定,不得用 0 冒充"没摘过"(§0.3)。 */
 export function readLedgerReport({ file = LEDGER_FILE() } = {}) {
   if (!existsSync(file)) return { undetermined: true, why: `留痕文件不在位:${path.relative(ROOT, file)}` }
@@ -426,7 +439,22 @@ export function run({
       kept = true
       return 2
     }
-    const landedSha = git(['rev-parse', 'HEAD']).trim()
+    // 新枚 sha 只能从落地器自己的输出里解,不能用 rev-parse 现取(并发下别人一秒内就能顶上来)
+    const shaHit = /CAS 成功 HEAD=([0-9a-f]{40})/.exec(out)
+    if (!shaHit) {
+      console.log('❌ 未从落地器输出解出 40 位新枚 sha ⇒ 不写留痕、不报成功(宁可白跑一轮)')
+      kept = true
+      return 2
+    }
+    const landedSha = shaHit[1]
+    const v = verifyLanded(git(['show', `HEAD:${FILE}`]), plan)
+    if (!v.ok) {
+      console.log(
+        `❌ 落地后复验不过:HEAD 面仍含 ${v.staleLeft} 枚被摘原行 · 面上挂牌 ${v.held} 条(应 ${plan.held.length} 条)⇒ 本轮判未生效,不写留痕`,
+      )
+      kept = true
+      return 2
+    }
     const ents = sealEntries(
       buildEntries(plan, { stamp: plan.stamp, at: new Date(nowMs).toISOString(), seat, planSha }),
       { landedSha, plan },
@@ -575,6 +603,20 @@ function selfTest() {
     `${Object.keys(bf).sort().join(',')} vs ${Object.keys(own).sort().join(',')}`,
   )
   t('补写条目必须自证 source,不得冒充器物本轮摘的', bf.source === 'backfill' && own.source === 'strip')
+  t(
+    '落地后复验:HEAD 面仍含被摘的原行 ⇒ ok=false 并报出残留数(不许"写了留痕就当落了地")',
+    (() => {
+      const v = verifyLanded(FIXTURE, p)
+      return v.ok === false && v.staleLeft === 3
+    })(),
+  )
+  t(
+    '落地后复验:摘除生效时 ok=true 且 held 等于本轮跳过数',
+    (() => {
+      const v = verifyLanded(p.text, p)
+      return v.ok === true && v.held === p.held.length
+    })(),
+  )
   console.log(`--self-test: ${pass}/${pass + fail} 通过`)
   return fail
 }
@@ -615,7 +657,9 @@ export const __test__ = {
   backfillEntry,
   shapeEntry,
   sealEntries,
+  verifyLanded,
   localDay,
+  LEDGER_FILE,
   LEDGER_KEYS,
   reportLedger,
   pruneLedger,
