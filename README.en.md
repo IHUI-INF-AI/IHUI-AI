@@ -63,7 +63,7 @@ the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **599 tables · 4,451 API routes ·
 25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,019 test files ·
-267 engineering gates · 49 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+268 engineering gates · 49 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
@@ -87,8 +87,8 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 测试文件 | 3019 | `testFiles` |
 | CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 267 | `guardianGates` |
-| — blocking | 243 | `guardianBlocking` |
+| 工程守门 | 268 | `guardianGates` |
+| — blocking | 244 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
 | 跟踪文件 | 15618 | `trackedFiles` |
 
@@ -101,6 +101,17 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- 🐞 Fix:自动收编器两处派生补 windowsHide —— 门五十二 HEAD 面存量红,它会挡住任何会话的提交。取证:改动后 --staged 面复跑该门 RC=0(扫描一枚文件,生产代码零违规);该门判 HEAD blob,故修完必入库才算数。 (51131b0e93)
+- 🐞 Fix:storeDir 误指新建空 store —— 令部署链每轮整轮卡死;改回真身 + 非交互兜底 (a3f2e82e14)
+- ⚡ Perf:重放 22f9a151 —— 守门去掉 17 次无效全屏障(69s→40s)+ 元门档排除两道全仓存量门(103 架构策略 / 127 出站路由)+ 并发诊断 (94be8486b1)
+- 🐞 Fix:storeDir 第二次改错 —— 误指向新建空 store,令部署链每轮整轮卡死 (0558687dfe)
+- ⚡ Perf:全部业务专项段加档位判据 + 修 TOOL_ONLY TDZ 错误 (32cf86dc9e)
+- ⚡ Perf:全部业务专项段加档位判据 —— 只改工具代码时跳过 10 项业务专项(footer/portal/button/credential/agent/capability 等) (a3a1d471b9)
+- ⚡ Perf:专项段加档位判据 —— 只改工具代码时跳过 miniapp parity / auth refresh / staged typecheck(实测省 34s) (057fb56f07)
+- ⚡ Perf:i18n 死 key 扫描移入守门并行池(门 70b)—— 省 6.6s 串行独占 (119085b0ff)
+- ⚡ Perf:守护 git 派生加 GIT_OPTIONAL_LOCKS=0 —— 不再每 12 秒抢索引锁(撞锁重试会重跑整条 pre-commit) (4a2a013cd0)
+
 **2026-10-22**
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (bfc8d9c34e)
 
@@ -153,9 +164,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c647b44ade)
 - 🐞 Fix:自动收编器的 git helper 显式接管 stdio —— 门一零三在 HEAD 面点名该处裸奔(本机不写 stdio 稳定 EBUSY,§十二g)。上一笔只补了 windowsHide 就交,等于修一处漏一处,这次同批补全并复跑门一零三/五二/一九九 索引面各 RC=零。 (7606579655)
 - 📚 Docs:§1 登记超龄认领牌兜底器物与授权口径 —— 门在提交链上仍不代摘,超龄牌由 strip-stale-claim-marks 周期代摘并把旧形态写进 removed 抗 union 回潮 (ae9bc35767)
-
-**2026-10-22**
-- 🐞 Fix:自动收编器两处派生补 windowsHide —— 门五十二 HEAD 面存量红,它会挡住任何会话的提交。取证:改动后 --staged 面复跑该门 RC=0(扫描一枚文件,生产代码零违规);该门判 HEAD blob,故修完必入库才算数。 (51131b0e93)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
