@@ -67,6 +67,12 @@ export const CONTENT_CACHE_GATE_IDS = new Set([
   '184', // 活文档点名路径存续
   '211', // PROJECT_PLAN 号池
   '221', // .mjs 语法(写 tmp 探针后删)
+  // 2026-10-22 补入三门(均为提交面纯内容判定):
+  //   173 —— README 生成数字 vs 现算 tracked 计数,输入全在索引/HEAD 面,无时间依赖;
+  //   203 —— 台账同题多号差值棘轮,只读 HEAD blob 与索引 blob;
+  //   229 —— 已闭合任务存量,只读 PROJECT_PLAN。
+  // 三者都已进 executor 的 PAR_GATE_IDS(T1 镜像测试逐条锁)。
+  '173', '203', '229',
 ])
 
 /**
