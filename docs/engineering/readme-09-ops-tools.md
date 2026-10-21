@@ -62,6 +62,12 @@
 
 
 ## 运维与生产监控工具(2026-09-27 起)
+> **2026-10-21 同日再补三条(都是"改错了会把全站打死"的那种事实,必须写在文档里而不只写在代码注释里)**:
+>
+> - **公网两臂都得活着,一条都撤不得**:`www.aizhs.top`(EdgeOne → 家宽 IP → web 8801 → rewrite → api 8802)是快臂,REST 与 SSE 走它(实测同轮 ttfb 0.28s vs 1.25~3.03s,慢臂还出现过 `POST /api/crash-reports` 连不上 code=000);`api.aizhs.top`(Cloudflare Tunnel → 8802)是慢臂,**但 WebSocket 只能留它** —— 实测带 Upgrade 打快臂三发全 `404`(同请求不带 Upgrade 时两臂 404 签名一致,证明抵达了 8802,是升级语义没能走完 EdgeOne→web 那一跳)。`EXPO_PUBLIC_*` 在 metro 转换期内联 ⇒ 已装在用户机上的旧包仍指慢臂,**撤慢臂等于把没升级的用户整体断网**。RN 侧按此把 WS 与 REST 分成两个基址(`src/lib/config.ts` 的 `WS_BASE_URL`)。
+> - **EdgeOne 站点当前「没有源站组」**(控制台现读:源站配置 → 源站组 → 您还没有建立源站组)。这条事实是有用的而不是趣闻:EO 的主动源站健康检查/负载均衡只住在源站组里,所以"边缘拿裸 IP 当 Host 探测源站"这条路不存在 —— 源站直连守卫(`apps/web/src/lib/origin-direct-host-guard.ts`,matcher 全站化)敢上线的前提就是它。**哪天建了源站组,必须先重审守卫会不会把健康检查 403 掉。**
+> - **不要给 web 设 `assetPrefix`**:线上首页那条畸形 `Link: </>; rel=preconnect` 来自 Next 内部 fallback(`next-font-manifest` 有条目但可预载字体为空数组 —— 六个 `@font-face` 全带 unicode-range 不可 preload ⇒ `new URL('')` 抛错后 preconnect 到 `/`)。浏览器直接忽略它,是良性垃圾;而仓内唯一"修复杠杆"是 `next.config.ts` 的 `assetPrefix`,一旦把它钉成某个具体域名,从另一个域名进来的访客就会因 CSP `script-src 'self'` 全部被拦 ⇒ **修一条无害响应头的代价是全站脚本加载失败**。
+> - 页脚/首屏那 10 条 `rel=preload` 不是谁写的 preload,而是 **React 19.2 SSR 的本体行为**:渲染器对任意 `loading !== 'lazy'` 的 `<img>` 自动发 image preload。所以"去掉 preload"的正确形态是把图转 lazy(`IMG_LAZY`),而不是去找 `<Image priority>` —— 全站零 priority。
 > **2026-10-21 公网链路根治后的三件新器物**(全部现读交付,判机器状态 ⇒ 一律**不接提交链**,接了就是逼人 `--no-verify` 的恒红门):
 >
 > - `scripts/check-egress-ip-drift.mjs` —— 现测本机公网出口 IPv4 并与 `scripts/data/eo-origin-expectation.json` 的期望值比(强制 `family:4`,绕过系统代理,多源交叉);三态 `ok/drift/unjudged`,取不到一律 exit 2 显式「未判定」。立因:EdgeOne 源站直填家宽动态 IP(实测把回源 ttfb 从 10~45s 压到 0.28~0.34s),该地址一变即全公网 5xx,而本机无腾讯云凭据 ⇒ 器物只能"量到 + 到人"。挂 `scripts/git-guardian.mjs` 巡检轮(`auditEgressIpDrift`),告警身份 = 类别+面+持续档(不含 sha/时刻/计数),unjudged 连满 30 分钟才到人。镜像用例 `scripts/tests/check-egress-ip-drift.test.mjs`(含"摘掉比较逻辑即翻红"的变异对照)。
