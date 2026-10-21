@@ -4452,7 +4452,8 @@
     "p1": "录音启动失败"
   },
   "webViewPortal": {
-    "title": "Web 功能门户",
+    "knowledgeBase": "知识库",
+    "settingsBilling": "账单管理",    "title": "Web 功能门户",
     "hint": "以下为网页版功能入口，将在内置浏览器中打开",
     "sections": {
       "eduAi": "教育 AI",

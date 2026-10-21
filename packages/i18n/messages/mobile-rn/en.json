@@ -3396,7 +3396,7 @@
     "source": "Source"
   },
   "memory": {
-    "title": "My Memory",
+    "detail": "Details",    "title": "My Memory",
     "empty": "No memories",
     "emptyHint": "Long-term conversation memories with AI are kept here",
     "loadFailed": "Failed to load memories",
@@ -3571,7 +3571,8 @@
     "loginButton": "Sign in"
   },
   "webViewPortal": {
-    "title": "Web Feature Portal",
+    "knowledgeBase": "Knowledge Base",
+    "settingsBilling": "Billing Management",    "title": "Web Feature Portal",
     "hint": "Open web features in the built-in browser",
     "sections": {
       "eduAi": "AI Education",
