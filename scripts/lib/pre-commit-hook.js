@@ -169,7 +169,7 @@ function runCapturing(
  * 拿不到(格式漂移/被杀) => total:null + timedOut:true —— 未判定，不冒 0。
  */
 function parseGateSummary(output) {
-  const lines = stripAnsi(output).split(/\\r?\\n/)
+  const lines = stripAnsi(output).split(/\r?\n/)
   let total = null
   let failed = null
   for (const line of lines) {

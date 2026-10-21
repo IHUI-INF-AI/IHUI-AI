@@ -85,7 +85,7 @@ test('T3 反例②:非图顶点的改动(如 .sql)⇒ 行为与"闭包为空"逐
   const out = dryRun(['packages/database/drizzle/20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql'])
   assert.match(out, /反向依赖加宽\(G-406 ②\): 未加宽/, `.sql 不在 import 图内,应走"闭包为空"分支:\n${out}`)
   assert.equal(scopeCount(out), 1, '非顶点改动的判据面应逐字不变')
-  assert.match(out, /闭包为空\(本次改动无人 import\),scope 逐字不变/, '必须给出"闭包为空"的可读理由')
+  assert.match(out, /改动集无源码扩展名\(\.ts\/\.tsx\/\.js\/\.mjs 等\),import 图闭包必然为空,跳过建图/, '必须给出"非源码扩展名早退"的可读理由')
 })
 
 test('T4 接线形态:主流程必须真的调 widen(变异掉这一步时本用例是防线)', () => {
@@ -97,7 +97,7 @@ test('T4 接线形态:主流程必须真的调 widen(变异掉这一步时本用
   )
   assert.match(
     SRC,
-    /import \{ buildFileGraph, widenOverDependents \} from '\.\/lib\/import-graph\.mjs'/,
+    /import \{ buildFileGraph, widenFilesOverDependents \} from '\.\/lib\/import-graph\.mjs'/,
     '未从 import-graph.mjs 引入闭包能力 —— 边解析必须只有那一份实现,不许本地重造',
   )
 })
@@ -134,7 +134,7 @@ test('T6 建图失败不得静默:必须退回未加宽 scope 并留下可见理
   assert.match(SRC, /建图失败/, '源码应保留"建图失败"这一可见告警分支')
   assert.match(
     SRC,
-    /退回未加宽 scope\(=改前行为\)/,
+    /退回未加宽 scope\(=改前逐字行为\)/,
     '建图失败必须明写"退回未加宽 scope",让人看得见判据被跳过',
   )
 })
