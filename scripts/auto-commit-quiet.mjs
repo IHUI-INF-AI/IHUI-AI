@@ -114,9 +114,15 @@ function mergeLiveDoc(file) {
         stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
-    const lost = out.match(/归并后仍判 lost = (\d+)/)
-    if (!lost) return { ok: false, why: '归并输出缺少 lost 读数(不认绿)' }
-    if (Number(lost[1]) !== 0) return { ok: false, why: `归并后 lost=${lost[1]}` }
+    // 两种输出形态都要认(2026-10-22 实测):
+    //   · 有整行丢失 → apply 插回后打印「归并后仍判 lost = N(必须 0)」;
+    //   · 无整行丢失 → apply 是空操作,只打印「真丢失(需插回)= 0」,不打归并汇总。
+    // 只认这两类 lost 读数;都读不到就 fail-closed(不认绿,宁可悬挂一轮)。
+    const after = out.match(/归并后仍判 lost = (\d+)/)
+    const before = out.match(/真丢失\(需插回\)=\s*(\d+)/)
+    const lost = after ? Number(after[1]) : before ? Number(before[1]) : null
+    if (lost === null) return { ok: false, why: '归并输出缺少 lost 读数(不认绿)' }
+    if (lost !== 0) return { ok: false, why: `归并后 lost=${lost}` }
     const dup = out.match(/归并后 \d+\(新增 (\d+)\)/)
     if (dup && Number(dup[1]) !== 0) return { ok: false, why: `长行重复新增 ${dup[1]}` }
     return { ok: true }
