@@ -420,6 +420,16 @@
       "path": "scripts/verify-grafana-panel-data.mjs",
       "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62.md",
+      "reason": "活跃临时流水文件:plan-pointer-purge 会话持续写入同族文件(本日仍在更新),删除会破坏在飞清账工作;合并 ede80b6337d 的复活属该工作流正常产物,故可接受。",
+      "reviewBy": "2026-12-31"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-2.md",
+      "reason": "活跃临时流水文件:plan-pointer-purge 会话持续写入同族文件(本日仍在更新),删除会破坏在飞清账工作;合并 ede80b6337d 的复活属该工作流正常产物,故可接受。",
+      "reviewBy": "2026-12-31"
     }
   ]
 }
