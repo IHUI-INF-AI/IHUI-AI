@@ -136,6 +136,9 @@ const ROUTE_ROOT_BG: Record<string, (t: RnThemeTokens, dark: boolean) => string>
   TopicDetail: (t) => t.surface.chrome,
   TopicList: (t) => t.surface.chrome,
   WebPortal: (t) => t.surface.chrome,
+  // 2026-10-21 第六批:AboutScreen 照 web 补齐六段内容时加了 <NavBar>(cd57f5d3d38),
+  // 却漏登记本表 ⇒ nav-chrome-route-parity 判据当场红。补 chrome 档(与 Settings/Help 同档)。
+  About: (t) => t.surface.chrome,
   ChatTools: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   WebView: (t, dark) => (dark ? t.gray[900] : t.surface.light),
   Note: (t) => t.surface.light,

@@ -1251,6 +1251,9 @@
     "submit": "질문 제출",
     "submitting": "제출 중..."
   },
+  "coursePlanet": {
+    "title": "강의 플래닛"
+  },
   "courseResource": {
     "title": "강좌 자료",
     "empty": "자료가 없습니다",
@@ -1870,6 +1873,9 @@
       "noImageHint": "이 기록에는 이미지 URL이 저장되어 있지 않아 프롬프트만 남아 있습니다.",
       "noMore": "더 이상 없습니다"
     },
+  "imageGenHistory": {
+    "title": "생성 기록"
+  },
     "imageGenTemplates": {
       "title": "프롬프트 템플릿",
       "subtitle": "템플릿을 선택해 이미지를 빠르게 생성하세요",
@@ -2508,6 +2514,9 @@
       "submitting": "등록 중…",
       "submit": "의뢰 등록"
     },
+  "businessCard": {
+    "title": "내 명함"
+  },
     "businessCardEdit": {
       "pageTitleCreate": "명함 만들기",
       "pageTitleEdit": "명함 편집",
@@ -2678,6 +2687,9 @@
   },
   "square": {
     "title": "AI 정보"
+  },
+  "studyIndex": {
+    "title": "AI 동영상"
   },
   "studyProgress": {
     "title": "학습 진도",
@@ -3671,6 +3683,9 @@
     },
     "knowledgeCards": "지식 카드",
     "knowledgePlanet": "지식 플래닛"
+  },
+  "knowledgePlanet": {
+    "title": "지식 플래닛"
   },
   "knowledgeRag": {
     "title": "RAG 지식 베이스",

@@ -8,10 +8,11 @@
 // 语义不变量:命中早退在本函数内 process.exit(0)(与拆分前同位)、写入段含 mkdirSync
 // 与「failed === 0 才写」守卫、TTL 10 分钟、指纹 = HEAD:apps/packages 树 hash + 脏文件内容 hash。
 
-import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
+
+import { gitRaw } from './face-reader.mjs'
 
 const PUSHGATE_CACHE_TTL_MS = 10 * 60 * 1000
 const pushGateCacheFile = resolve(process.cwd(), '.workbuddy/push-gate-cache.json')
@@ -27,27 +28,14 @@ function readPushGateCache() {
 /** 计算门检查输入的内容指纹:HEAD 类型相关子树 + 工作区脏状态(含脏文件内容) */
 export function computeGateFingerprint() {
   try {
-    const trees = execFileSync('git', ['rev-parse', 'HEAD:apps', 'HEAD:packages'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      // 只读查询,可安全封顶:同日 check-port-registry 因无 timeout 挂住 80 分钟,
-      // 把整条 pre-commit 拖成"看起来像卡死"。5 分钟远高于任何正常耗时,只截病态挂起。
+    // 派生统一走层(scripts/lib/face-reader.mjs):绝对 git + 显式 stdio/windowsHide + timeout。
+    const trees = gitRaw(['rev-parse', 'HEAD:apps', 'HEAD:packages'], process.cwd(), {
       timeout: 300_000,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
     // -z:NUL 分隔,路径无转义歧义;rename 条目 "R  new\0old\0" 需跳过 old 段
-    const statusRaw = execFileSync(
-      'git',
-      ['status', '--porcelain', '-z', '--', 'apps', 'packages'],
-      {
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 300_000,
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-        stdio: ['ignore', 'pipe', 'pipe'],
-      },
-    )
+    const statusRaw = gitRaw(['status', '--porcelain', '-z', '--', 'apps', 'packages'], process.cwd(), {
+      timeout: 300_000,
+    })
     const h = createHash('sha1')
     h.update(trees)
     h.update(statusRaw)
