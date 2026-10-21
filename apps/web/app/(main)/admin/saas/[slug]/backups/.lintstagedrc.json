@@ -1,3 +1,0 @@
-{
-  "*.archive-noop": "node -e 0"
-}
