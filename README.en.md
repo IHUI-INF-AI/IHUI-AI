@@ -102,6 +102,9 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 🐞 Fix:活文档收编前先归并(lost=0 才提交),README 生成数字发令前对齐;清空并行席位悬挂改动 (08d9add06e)
+
+**2026-10-22**
 - ⚡ Perf:safe-commit 发令前对齐 README 生成数字,根治门173滞后竞态;sync 增 --files 限定处理面与声明面同源 (b02793d354)
 - 🚀 Feature/Improvement:摘牌器补三格 —— 留痕键集单一清单(LEDGER_KEYS 导出,自产与补写同形状,缺字段抛错不落半形)、backfillEntry 收敛器补写口、注记日期改本地日(上一轮用 UTC 日写注记,当天上午摘的牌全落在前一天,按日期收敛时整批六十三枚被漏掉)。测试先行:键集一致性臂先跑 ReferenceError 再实现;器物自检廿一例全过。 (098aa44d30)
 - 🐞 Fix:把本席上一轮漏收敛的 63 枚摘牌注记收敛成指针(原牌信息已无损回填留痕,seq 前缀 bfmviq9p9d)。上一轮我只按 @2026-10-22 匹配就报了「收敛完」——器物当时用 UTC 日写注记,当天上午的摘牌全落在 @2026-10-21,整批被我漏掉,那是交付不实;本轮同时把日期口径改成本地日,并给留痕补写口与键集一致性自检(防两种形状)。历史他人席位的注记一枚未动。校验:注记 #seq 六十三/六十三可在留痕解到、lease 三十五/三十五带原牌三要素、前后整行双全。 (7488b9cd66)
@@ -160,8 +163,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - 🔧 Chore/Other:再生成 README 数字与更新日志、四端 ui-routes 自述钉,推进文档自动更新指针 (e4e7aedae7)
 
 - 🔧 Chore/Other:重钉四端 ui-routes 自述钉(remote-icons 引用清理后) (0904dc3e66)
-
-- 🔧 Chore/Other:收口 README 最近更新窗口与自动更新指针 (ff90a8c33b)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
