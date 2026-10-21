@@ -2,27 +2,82 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
+import {
+  Pressable,
+  View,
+  type GestureResponderEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native'
 import { ChevronLeft } from 'lucide-react-native'
 import {
-  backChevronBoxStyle,
-  backChevronGlyphPx,
-  BACK_CHEVRON_PRESSED_OPACITY,
+  BackChevronCore,
+  type BackChevronPlatform,
+  type BackChevronGlyphProps,
+  type BackChevronPressableProps,
 } from '@ihui/shared/ui'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
 import { useFontMultiplier } from './MoreLink'
 
 /**
- * 命中块与图标墨迹**不在本文件取数** —— 档位唯一真相源是
- * `packages/design-tokens/src/geometry.js`(取值依据写在那个头注里,含"为什么移动端不取
- * web 顶栏的 14px")。这里取它的 dp 投影,与小程序端 `taroGeometry` 同表同枚。
+ * 页头返回键(RN 端唯一实现,packages/app 各屏与 apps/mobile-rn 共用)——
+ * 自 O81 票③收口起它是 **RN adapter 壳**:尺寸/居中结构/按压透明度/无障碍语义住在
+ * `@ihui/shared/ui` 的 `BackChevronCore`,本文件只注入 RN 原语 + 取 token 色。
+ * 与小程序端 apps/miniapp-taro/src/components/BackChevron.tsx 走**同一个核心** ⇒
+ * 「改一处、两端自动生效」;约 134 个 RN 调用点(props 形态不变)零改动。
  *
- * 之前本文件写 `ICON = 22`、小程序端写 `40rpx`(=20px),两句注释都自称"与 web 同档"
- * 而屏幕上差 2px —— "端内既定档"就是第二份真相。守门 128 立项时把这处量成差异档。
+ * 对齐 web 端 apps/web/src/components/layout/GlobalTopBar.tsx 的 TopBarBackButton:
+ * 返回 affordance 只用矢量箭头(ChevronLeft / chevron-left)+ 无障碍名称,
+ * 不得把「返回」两个字或 ‹ 字符当图标渲染(AGENTS.md §4 图标统一)。
+ *
+ * 图标墨迹与按钮方块**不在本文件取数** —— 档位唯一真相源是
+ * `packages/design-tokens/src/geometry.js`(含「为什么移动端不取 web 顶栏 14px」取值依据),
+ * 经 `BackChevronCore` 的 `backChevronBoxStyle` / `backChevronGlyphPx` 取数,与小程序端同表同枚。
+ *
+ * 注入的平台原语四件(与小程序端 TaroPressable 同形契约,见共享核心头注):
+ *  - 可按压容器 = react-native Pressable。pressed 只能经 children render prop
+ *    落到子 View 的**数组**样式上 —— 函数形态 style 会被 cssInterop 静默吃掉(守门 131
+ *    立项那一型,真机 A/B 定案),所以这里严格走数组形态,与改动前逐字同结构。
+ *  - 按压态:`BACK_CHEVRON_PRESSED_OPACITY`(0.6),由共享核心恒定供出、映射到子 View opacity。
+ *  - 图标字形:lucide-react-native `ChevronLeft`(守门 102 的 S0 机制清单按该字面量判矢量出口)。
+ *  - 字号倍率:`useFontMultiplier`(系统字号缩放),墨迹边长 = glyphPx × 倍率。
  */
-/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等;数字与居中结构在 @ihui/shared/ui
-const BOX_STYLE = backChevronBoxStyle((px: number) => px)
-const ICON = backChevronGlyphPx()
+/// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等;数字与居中结构在 BackChevronCore。
+const RN_PLATFORM: BackChevronPlatform<number, StyleProp<ViewStyle>, GestureResponderEvent> = {
+  toUnit: (px) => px,
+  glyphUnit: (px) => px,
+  useFontMultiplier,
+  Pressable: function RnPressable({
+    onActivate,
+    accessibilityLabel,
+    testID,
+    boxStyle,
+    pressedStyle,
+    style,
+    children,
+  }: BackChevronPressableProps<number, StyleProp<ViewStyle>, GestureResponderEvent>) {
+    return (
+      // 动态样式**不得写成 `style={({pressed}) => …}`**:Pressable 注册过 cssInterop,interop 对
+      // 非数组声明执行 `{ ...declaration }`,而 `{ ...函数 }` === `{}`,且 applyStyles 先把
+      // `state.props` 清成 `{}` ⇒ 这份内联 style 整份静默消失(守门 131 立项那一型,真机 A/B 定案)。
+      // 改法是把样式落到子 View 的**数组形态**上,pressed 由 children render prop 供。
+      <Pressable
+        onPress={onActivate}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        testID={testID}
+        hitSlop={4}
+      >
+        {({ pressed }) => (
+          <View style={[boxStyle, pressed ? pressedStyle : null, style]}>{children}</View>
+        )}
+      </Pressable>
+    )
+  },
+  Glyph: function RnGlyph({ size, color }: BackChevronGlyphProps) {
+    return <ChevronLeft size={size} color={color} />
+  },
+}
 
 export interface BackChevronProps {
   onPress?: () => void
@@ -46,41 +101,24 @@ export interface BackChevronProps {
  *
  * 为什么不用「返回」两个汉字当箭头:那是把**文案**当**图标**用。web 端早在 2026-09-08 就把
  * 这一 affordance 收进顶栏唯一实现并用 lucide `ChevronLeft`,小程序端 2026-09-25 收进
- * `components/BackChevron.tsx`;RN 侧此前 223 处 / 168 文件各写各的 `<Text>{t('common.back')}</Text>`
+ * Taro adapter 壳的 `BackChevronCore`;RN 侧此前 223 处 / 168 文件各写各的 `<Text>{t('common.back')}</Text>`
  * 加各自的 `styles.back*`,于是"手机上返回键和网页长得不一样"。载体统一为零新素材
  * (`lucide-react-native` 已是本端图标库,`ChevronLeft` 亦在 7 个既有屏里这么用)。
  */
 export function BackChevron({ onPress, label, colorScheme, style, testID }: BackChevronProps) {
   const tk = getTokens(colorScheme)
-  const multiplier = useFontMultiplier()
 
   return (
-    // 动态样式**不得写成 `style={({pressed}) => …}`**:Pressable 注册过 cssInterop,interop 对
-    // 非数组声明执行 `{ ...declaration }`,而 `{ ...函数 }` === `{}`,且 applyStyles 先把
-    // `state.props` 清成 `{}` ⇒ 这份内联 style 整份静默消失(守门 131 立项那一型,真机 A/B 定案)。
-    // 改法是把样式落到子 View 的**数组形态**上,pressed 由 children render prop 供。
-    <Pressable
+    <BackChevronCore
+      platform={RN_PLATFORM}
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
+      label={label}
+      glyphColor={tk.text.medium}
+      style={style}
       testID={testID}
-      hitSlop={4}
-    >
-      {({ pressed }) => (
-        <View style={[styles.box, pressed ? styles.pressed : null, style]}>
-          <ChevronLeft size={Math.round(ICON * multiplier)} color={tk.text.medium} />
-        </View>
-      )}
-    </Pressable>
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  box: BOX_STYLE,
-  pressed: {
-    opacity: BACK_CHEVRON_PRESSED_OPACITY,
-  },
-})
 
 export default BackChevron
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
