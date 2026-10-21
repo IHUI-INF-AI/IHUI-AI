@@ -2176,6 +2176,11 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 🐞 修正:移除 check-task-claims 重构后遗留的未用常量(eslint no-unused-vars) (fd994c3d0b)
+- 📚 ドキュメント:§1 登记挂牌判据单源口径(claimMarkOf),防止 31/59 两把尺子再度漂移 (346b407321)
+- 🐞 修正:摘除 57 枚无席位在飞的死认领牌(30 超龄租约 + 27 旧裸标记),按 §1 交回派单面 (86467cf1eb)
+
+**2026-10-22**
 - ♻️ リファクタ:任务认领判据单源化 —— check-task-claims 改用 plan-task-index 的 claimMarkOf/codeSpanRangesOf (09e13e0eda)
 
 **2026-10-21**
@@ -2237,20 +2242,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - ♻️ リファクタ:落地 back-chevron 组件核心 —— 一份平台无关组件源 + 两端 adapter(O81 票③第一例) (eec42a55eb6)
 - 🐞 修正:修两处 HEAD 存量 lint 红(react/display-name + consistent-type-imports) + 归档 spec 执行清单 (fd87d8c97bd)
 - 🔧 その他:门168 历史欠账裁决 —— 84 条路径登记 allowlist(HEAD 已全不存在,后续删除已生效) (ad17d1546f6)
-
-**2026-10-21**
-- 🐞 修正:镜像测试红数清零(基线31+基线后新增第32枚)—— A族4文件改钉(接线随生产者换形:signal-exit迁executor/safe-gc gitRaw/typecheck-scope三钉/desktop-dev-identifier双参正控) + B族环境感知未判定闸16枚(prod-bundle 6+venv 4+B3族9枚中6文件+c-disk-breakdown T6独立探针闸) + C族真债(AGENTS.md归档瘦身94674B/direct-backend-calls补status.ts单源出口实修/sync-prometheus T5同票双写避让承接他席规则推导版);判据方向零放宽,缺失一律可见未判定;本地199用例0红+双门绿复验 (3bb7f44e828)
-- 🔧 その他:摘除 3 条已勾滞留行(完成即删;G-922/924/927 撞号消解) (82807bca081)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (11f54b8d07e)
-- 🔧 その他:刷新派生产物(README 数字块/最近更新/FA 数字 + ui-routes pin) (874e675890d)
-- 🚀 機能/改善:落地 spec 项16/项18 两道 apiOrThrow 迁移验收门(混用 0 / 待验解包 0) (22c07dced5f)
-- 🐞 修正:根目录白名单登记 .spec-mode(外部 spec 工作流在根自建) (03976f4f63c)
-- 🐞 修正:Publish 三屏门83 存量清零 + 门39 白名单补登 (b7d7a151c70)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4493f94b4d4)
-- 🐞 修正:12 屏批次三道门收口 —— 门150 角色档 21 族归零 + 门83 R2/R3/R8 存量清零 + 门39 十三条 RN 独占白名单 (e17289f18c3)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5d1c5ca1ab8)
-- 📚 ドキュメント:归并 O 族 7 组重复小节标题 + 翻勾 G-927/G-922/G-865 三枚已交付票 (6bc77bd8026)
-- 🐞 修正:WebView2 创建失败出口先提示用户再自动退出 —— 双击无反应时给出可操作提示 (ccbc9924a5d)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
