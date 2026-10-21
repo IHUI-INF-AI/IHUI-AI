@@ -89,9 +89,7 @@ export default function AskEditScreen() {
     setLoading(true)
     setLoadError('')
     try {
-      const res = await fetchApi<{ ask: AskDetail }>(
-        `/api/asks/${encodeURIComponent(editingId)}`,
-      )
+      const res = await fetchApi<{ ask: AskDetail }>(`/api/asks/${encodeURIComponent(editingId)}`)
       if (!res.success) throw new Error(apiFailureToText(res, t('askEdit.loadFailed')))
       const ask = res.data?.ask
       if (!ask) throw new Error(t('askEdit.loadFailed'))
@@ -281,7 +279,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
   retryBtn: {
@@ -299,7 +297,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },

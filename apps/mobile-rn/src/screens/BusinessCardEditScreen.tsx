@@ -278,7 +278,9 @@ export default function BusinessCardEditScreen() {
     <View style={styles.container}>
       <NavChrome>
         <NavBar
-          title={editingId ? t('businessCardEdit.pageTitleEdit') : t('businessCardEdit.pageTitleCreate')}
+          title={
+            editingId ? t('businessCardEdit.pageTitleEdit') : t('businessCardEdit.pageTitleCreate')
+          }
           onBack={() => navigation.goBack()}
         />
       </NavChrome>
@@ -412,7 +414,7 @@ function Chip({
       accessibilityState={{ selected }}
     >
       {icon}
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
+      <Text style={[styles.chipText, selected && styles.chipSelectedText]}>{label}</Text>
     </TouchableOpacity>
   )
 }
@@ -429,7 +431,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
   retryBtn: {
@@ -447,7 +449,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
@@ -472,14 +474,14 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
   },
   chipSelected: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
   chipText: { fontSize: 12, color: tokens.text.secondary },
-  chipTextSelected: { color: tokens.brand.ctaForeground, fontWeight: '600' },
+  chipSelectedText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
   primaryBtn: {
     height: 44,
     flexDirection: 'row',
