@@ -102,6 +102,9 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-21**
+- 🐞 Fix:README 测试文件计数同步为 3019(门 173 现算口径)并收口最近更新窗口 (0e715fe6c9)
+
+**2026-10-21**
 - 🔧 Chore/Other:收口 README 最近更新(补 d9bb3a70bb 条目并推进增量基线) (2fbe5a2fe1)
 
 **2026-10-21**
@@ -886,9 +889,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - 🚀 Feature/Improvement:G-425 端上截断提示补齐 RN + 小程序两条腿 —— done 帧 finishReason 判 length/max_tokens 即 toast,缺席绝不折成 stop (39471e598a0)
 - 🐞 Fix:6 个屏的 8 条死路径改指既有后端 —— 不新建端点、不造表 (8b3e8c5d5fa)
 - 🐞 Fix:清掉合并带回的 FormRequestEvent 重复导出 —— HEAD 面 TS2300 打死了本包 build (f1d0b6259cc)
-
-**2026-10-21**
-- 🐞 Fix:用户自装的 mmcode 自愈脚本不是 agent 污染 —— 显式豁免 (18c81b13af9)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
