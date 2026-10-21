@@ -9,6 +9,7 @@ import {
   BookOpen,
   CircleAlert,
   CircleDollarSign,
+  CircleQuestionMark,
   ClipboardList,
   Coins,
   CreditCard,
@@ -33,6 +34,7 @@ import {
   Presentation,
   Receipt,
   RefreshCcw,
+  RotateCcw,
   ScrollText,
   ShoppingBag,
   ShoppingCart,
@@ -190,6 +192,13 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         Icon: BadgeCheck,
         route: 'CertApply',
         target: { type: 'route', name: 'CertApply' },
+      },
+      {
+        // web /edu/qa(课程问答)
+        labelKey: 'courseQAList.title',
+        Icon: CircleQuestionMark,
+        route: 'CourseQAList',
+        target: { type: 'route', name: 'CourseQAList' },
       },
     ],
   },
@@ -373,7 +382,7 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
       {
         // web /refund(申请退款)
         labelKey: 'orderRefund.title',
-        Icon: Receipt,
+        Icon: RotateCcw,
         route: 'OrderRefund',
         target: { type: 'route', name: 'OrderRefund' },
       },
