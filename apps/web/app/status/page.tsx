@@ -305,6 +305,20 @@ export function IncidentsUnavailableNotice({ label }: { label: string }) {
   )
 }
 
+/**
+ * 状态页首屏 SSR 的模型条数上限。
+ * 1162 个模型全渲染会让 HTML 达 ~740 KB;取 30 条后 HTML 降到十几 KB,
+ * 同时保证首屏与 SEO 仍能见到最有信息量的一批(异常优先)。
+ */
+const SSR_MODEL_LIMIT = 30
+
+/** 异常优先:中断 > 降级 > 正常。同档内按名称稳定排序,避免每次 revalidate 抖动。 */
+const STATUS_RANK: Record<ServiceStatus, number> = {
+  outage: 0,
+  degraded: 1,
+  operational: 2,
+}
+
 function overallStatus(
   services: Record<string, ServiceStatus>,
   models: ModelStatus[],
@@ -339,6 +353,17 @@ export default async function StatusPage() {
     incidents: { incidents, degraded: incidentsDegraded },
   } = result
   const overall = overallStatus(overview.services, models)
+  // 服务端只 SSR 前 SSR_MODEL_LIMIT 条(异常优先),其余交给 ModelsSection 按需拉取。
+  // 依据:2026-10-21 实测模型 API 返回 1162 个(213 KB),全部渲染进 HTML 使 /status 达
+  // 1.05 MB,而回源通道仅 ~600 B/s ⇒ 约 30 分钟,公网事实上打不开。
+  // 整体状态 overall 仍用**全量** models 算(上面那行),与渲染条数无关,截断不影响判定。
+  const modelsForRender = [...models]
+    .sort(
+      (a, b) =>
+        STATUS_RANK[a.status] - STATUS_RANK[b.status] ||
+        (a.displayName ?? a.modelId).localeCompare(b.displayName ?? b.modelId),
+    )
+    .slice(0, SSR_MODEL_LIMIT)
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 px-4 py-4">
@@ -388,7 +413,7 @@ export default async function StatusPage() {
         </div>
       </Section>
 
-      <ModelsSection models={models} />
+      <ModelsSection models={modelsForRender} total={models.length} />
 
       <Section icon={ShieldAlert} title="最近事件(30 天)">
         {incidentsDegraded ? (
