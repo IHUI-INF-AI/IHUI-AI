@@ -36,12 +36,13 @@ const isDev = process.env.NODE_ENV === 'development'
 // 用途:本地 e2e 隔离——生产 api(8802)/ai-service(8803) 被占用时,可在隔离端口起
 // api/web 实例,IHUI_API_PROXY_TARGET/IHUI_AI_PROXY_TARGET 指向隔离端口,
 // 避免测试写入生产库(ihui_dev)。CI 与生产不设这两个变量,行为与硬编码完全一致。
+//
 // 2026-10-21 修:默认值由 localhost 改 127.0.0.1(端口不变)。
-// 根因(Node 18+ DNS 语义):dns.lookup(localhost) 默认走 verbatim 排序,本机实测
+// 根因(Node 18+ DNS 语义):`dns.lookup('localhost')` 默认走 verbatim 排序,本机实测
 // 返回 [{::1,family:6},{127.0.0.1,family:4}] —— **IPv6 优先**。而本机四个后端
 // 无一监听 IPv6(netstat 实测:8802=0.0.0.0、8803=127.0.0.1、8801=127.0.0.1、
 // cdn-server :80=127.0.0.1),故解析到 ::1 的连接一律 ECONNREFUSED。
-// 现场证据:svc-web-nssm-err.log 里 ::1 出现 34,701 次,Failed to proxy 5,966 次,
+// 现场证据:svc-web-nssm-err.log 里 `::1` 出现 34,701 次,`Failed to proxy` 5,966 次,
 // **全部集中在 /ws/notifications 与 /ws/broadcast 两个 WebSocket 端点** ——
 // 即实时通知通道自上线起从未通过反代成功过(HTTP 反代因连接池复用首次成功的连接
 // 而被掩盖,WS 每次独立建连,所以只有它把病灶暴露出来)。
@@ -331,22 +332,10 @@ const nextConfig: NextConfig = {
           source: '/remote-images/:path*',
           destination: 'http://127.0.0.1:80/remote-images/:path*',
         },
-        // 2026-10-21 补回 /uploads 代理(实测立项,不是推测):
-        // @fastify/static 把 uploads/public 白名单挂在 api 进程 cwd 下(server.ts 的
-        // fastifyStatic 注册段),同一枚探针文件在 127.0.0.1:8802 与 api.aizhs.top 两臂都
-        // 200 image/png,而走 www.aizhs.top(EdgeOne 快臂,用户实际进来的那条)拿到的是
-        // Next 的 133KB 404 HTML 页 ⇒ 公开文件在快臂上结构性不可达,后端无论把出链基址填成
-        // 哪个域名都救不了这一条。只放这一条精确前缀,**不加正则兜底**(AGENTS §5:
-        // 禁止兜底放行参数路由),私有目录本来就没挂(白名单 root=uploads/public)。
-        {
-          source: '/uploads/:path*',
-          destination: `${IHUI_API_PROXY_TARGET}/uploads/:path*`,
-        },
-        // 2026-08-27 立,2026-09-04 更新,2026-10-21 改判:/cdn 仍不经 web;
-        // 但 /uploads **必须**经 web 代理到 8802 —— 原结论"故此处不再保留 /uploads 的
-        // rewrite"在实测面前不成立(证据见下面那条规则的注释)。web 端不再有本地磁盘路由
-        // (原 app/cdn 与 app/uploads 的 route.ts 已删除)这一点没变,变的是出链形态:
-        // 后端 FILE_CDN_BASE 要给客户端一个绝对 URL,而快臂上只有经 web 代理才拿得到。
+        // 2026-08-27 立,2026-09-04 更新: uploads/cdn 静态资源由独立 cdn-server
+        // (deploy/cdn-server.js) 与 API 8802(@fastify/static)直出托管,
+        // web 端不再有本地磁盘路由(原 app/cdn 与 app/uploads 的 route.ts 已删除),
+        // 故此处不再保留 /uploads、/cdn 的 rewrite,也不经 web。
         // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
         // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
         // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +

@@ -15,7 +15,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { after, test } from 'node:test'
 // G-814426 新增(T12/T12b 要跑真 CLI 的 --json 端到面;既有 T1–T7 一行未动)
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
@@ -102,31 +102,7 @@ test('T5 ROOTKEY 不得带尾斜杠,depthOf 层级要对(尾斜杠=假结论)', 
   assert.equal(depthOf(`${ROOTKEY}/Windows/System32`), 2)
 })
 
-// 环境探针:本机 C 盘是否**真**有三件套(pagefile/swapfile/hiberfil)。
-// 必须用与被测取数形态**不同**的 PS API(Get-ChildItem 枚举,而非 Join-Path+Test-Path+Get-Item),
-// 否则探针与被测代码同坏同哑,失去对照意义。CI runner(Azure 系)页文件在 D:、Server 档无休眠/交换文件,
-// 此时"空表且无错"是环境的真相,不是工具坏了。
-function specialFilesPresentOnRoot(letter) {
-  const ps = 'C:/Program Files/PowerShell/7/pwsh.exe'
-  try {
-    const out = execFileSync(
-      ps,
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `(Get-ChildItem -Force -LiteralPath '${letter}:\\' | Where-Object { $_.Name -in 'pagefile.sys','swapfile.sys','hiberfil.sys' }).Count`,
-      ],
-      { encoding: 'utf8', windowsHide: true, timeout: 40000, stdio: ['ignore', 'pipe', 'ignore'] },
-    )
-    const n = Number(String(out).trim())
-    return Number.isFinite(n) ? n : null
-  } catch {
-    return null
-  }
-}
-
-test('T6 量不到不得伪装成结论,且报告层必须有"一个都没量到"的喊话', (t) => {
+test('T6 量不到不得伪装成结论,且报告层必须有"一个都没量到"的喊话', () => {
   const r = specialFilesMB('Q') // 本机不存在的盘
   assert.ok(r.map && typeof r.map === 'object')
   assert.equal(Object.values(r.map).reduce((s, n) => s + n, 0), 0, '量不到却报出字节')
@@ -140,16 +116,6 @@ test('T6 量不到不得伪装成结论,且报告层必须有"一个都没量到
   // 阳性对照:同一支取数逻辑在真盘上必须量到东西(pagefile 在位),否则"量不到"才是常态。
   const c = specialFilesMB(ROOTKEY.replace(/:$/, ''))
   const hit = Object.values(c.map).reduce((s, n) => s + n, 0)
-  if (hit === 0 && !c.error) {
-    // 空表且无错:先独立探一下本机 C 盘到底有没有三件套。CI runner(Azure 系)页文件在 D:、
-    // Server 档无 hiberfil/swapfile ⇒ "没有"是环境真相,判未判定 skip(可见理由),不硬红。
-    // 探针不可用(null)或探到确实有(>0)⇒ 不豁免,照旧落回原断言 ⇒ 该红的仍是工具。
-    const present = specialFilesPresentOnRoot(ROOTKEY.replace(/:$/, ''))
-    if (present === 0) {
-      t.skip('未判定:本机 C 盘根确实无 pagefile/swapfile/hiberfil(CI runner 页文件在 D:),阳性对照无对象可量')
-      return
-    }
-  }
   assert.ok(
     hit > 0 || c.error,
     `C 盘既没量到特殊文件也没报错 ⇒ 取数通道本身坏了(该红的是工具,不是世界)`,

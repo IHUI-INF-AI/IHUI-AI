@@ -112,21 +112,6 @@ const bash = (script, cwd = REPO) => {
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' }
 }
 
-// ── bundle 副本环境感知(与 needBash 同形:机器态 ≠ 代码缺陷)────────────────
-// deploy/prod-bundle/ 整目录被 .gitignore 忽略(部署机产物,即本文件头注 §5e 的"盲区")——
-// CI/worktree 无副本,直接 read 会 ENOENT 硬红。那红是"未判定"而不是"副本分叉":
-// skip 必须点名原因("把没判写成判过"是本仓最高频失效型,静默跳过与判过在账面上不可分),
-// 在部署机(目录在位)上逐字节校验自动恢复执行。
-const BUNDLE_ROOT = join(REPO, 'deploy', 'prod-bundle')
-function needBundle(t) {
-  if (existsSync(BUNDLE_ROOT)) return false
-  t.skip(
-    'deploy/prod-bundle/ 为部署机产物(被 .gitignore 忽略),本环境无副本 ⇒ 未判定(非分叉/非缺陷);' +
-      '在部署机上本用例自动恢复逐字节校验',
-  )
-  return true
-}
-
 /** 临时物唯一落点;任何删除前先确认目标仍在 SCRATCH_ROOT 之下(§15 工作区卫生) */
 function mkScratch(name) {
   mkdirSync(SCRATCH_ROOT, { recursive: true })
@@ -154,8 +139,7 @@ test('T1 阳性对照:蓝绿链 deploy.sh 确实已接 ai_diagnose 且是 4 个�
 })
 
 // ── T2 compose 链的失败点确实接上了诊断 ───────────────────────────────────
-test('T2 compose 链 ≥4 个失败点各接 ihui_diag_run,且每个都先落 result', (t) => {
-  if (needBundle(t)) return
+test('T2 compose 链 ≥4 个失败点各接 ihui_diag_run,且每个都先落 result', () => {
   const src = read(BUNDLE_DEPLOY)
   const runs = countCalls(src, /^\s*ihui_diag_run\s+"/)
   const fails = countCalls(src, /^\s*ihui_diag_result\s+failed/)
@@ -176,7 +160,6 @@ test('T3 四个 shell 文件 bash -n 全过,mjs node --check 过', (t) => {
     windowsHide: true,
   })
   if (needBash(t)) return
-  if (needBundle(t)) return
   for (const f of [TRACKED_LIB, BUNDLE_LIB, BUNDLE_DEPLOY, BUNDLE_HEALTH]) {
     execFileSync(BASH, ['-n', join(REPO, f)], {
       stdio: 'pipe',
@@ -187,8 +170,7 @@ test('T3 四个 shell 文件 bash -n 全过,mjs node --check 过', (t) => {
 })
 
 // ── T4 影子副本逐字节对账(§5e:不得只改一边)─────────────────────────────
-test('T4 bundle 副本与入库源逐字节等值,且变异必被发现', (t) => {
-  if (needBundle(t)) return
+test('T4 bundle 副本与入库源逐字节等值,且变异必被发现', () => {
   for (const [a, b] of [
     [TRACKED_LIB, BUNDLE_LIB],
     [TRACKED_MJS, BUNDLE_MJS],
@@ -250,7 +232,6 @@ test('T5 采集库产三件输入,且不吃掉失败退出码', (t) => {
 // ── T6 health-check --json:格式换了,失败判定不能跟着换 ───────────────────
 test('T6 prod-bundle/health-check.sh --json 产合法 JSON 且退出码与 text 模式一致', (t) => {
   if (needBash(t)) return
-  if (needBundle(t)) return
   const hc = abs(BUNDLE_HEALTH)
   const json = bash(`bash "${hc}" --json`)
   const line = json.stdout.split('\n').find((l) => l.trim().startsWith('{'))
@@ -273,7 +254,6 @@ test('T6 prod-bundle/health-check.sh --json 产合法 JSON 且退出码与 text 
 
 // ── T7 摘线保护:库不见了,部署脚本必须还能跑 ─────────────────────────────
 test('T7 采集库缺失时 bundle deploy.sh 的空函数兜底跑得通', (t) => {
-  if (needBundle(t)) return
   const src = read(BUNDLE_DEPLOY)
   if (!src.includes('缺 deploy-diagnose.sh'))
     throw new Error('摘线兜底分支不在 —— 库被摘等于脚本被摘')
@@ -304,8 +284,7 @@ test('T7 采集库缺失时 bundle deploy.sh 的空函数兜底跑得通', (t) =
 })
 
 // ── T8 红线复验:本票不得引入任何自拼发信通道(§5e / 守门 81 的镜像)──────
-test('T8 新增/改动的 deploy 文件里没有自拼 SMTP/Resend/第三方推送', (t) => {
-  if (needBundle(t)) return
+test('T8 新增/改动的 deploy 文件里没有自拼 SMTP/Resend/第三方推送', () => {
   const banned =
     /Send-MailMessage|api\.resend\.com|createTransport|scut\.fun|ftqq\.com|pushplus|serverchan/i
   for (const f of [TRACKED_LIB, BUNDLE_DEPLOY, BUNDLE_HEALTH]) {
