@@ -2176,6 +2176,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-21**
+- 🔧 その他:收口 README 最近更新(补 d9bb3a70bb 条目并推进增量基线) (2fbe5a2fe1)
+
+**2026-10-21**
 - 🔧 その他:收口 README 最近更新窗口与自动更新指针(H3 判据落地后) (d9bb3a70bb)
 
 **2026-10-21**
@@ -2960,10 +2963,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-10-21**
 - 🐞 修正:用户自装的 mmcode 自愈脚本不是 agent 污染 —— 显式豁免 (18c81b13af9)
-
-**2026-10-21**
-- 📚 ドキュメント:回补 32 枚 PROJECT_PLAN 归档锚点件入库 (aba30748621)
-- 🐞 修正:把 glass 两档登记进跨端 token 对账 —— 暗档手抄白值的漏登记当场补上 (688d894ae42)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
