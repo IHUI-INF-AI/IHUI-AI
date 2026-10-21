@@ -12,10 +12,13 @@ name: Release SDK
 # 鉴权(*):见下方逐通道登记 —— npm / PyPI / Maven 当前均以长期 token 鉴权
 #   (OIDC trusted publishing 未接线:npm 因不启用 2FA 永久不登记,见 AGENTS.md §0 第 11 条;
 #    PyPI/Maven 尚无 pending publisher 配置)。Go 用自带 GITHUB_TOKEN;NuGet 走 API key。
-# npm 通道现状(2026-10-19 实测登记):
+# npm 通道现状(2026-10-21 更正本文件此前的错误登记):
 #   npm 账号 ihui-ai **已建成**,CLI 通道 `ihui-cli@1.0.0` 已发布并 registry 回读确认;
-#   SDK 通道缺的是 secrets.NPM_TOKEN 这一枚(CLI 用的是 NPM_PUBLISH_TOKEN,互不复用)。
+#   SDK 通道**复用 CLI 那一枚 `secrets.NPM_PUBLISH_TOKEN`**(granular,勾 Bypass 2FA)。
+#   本文件此前登记的 `NPM_TOKEN` 那一枚 secret 从未存在(2026-09-19 实测 real 模式
+#   npm gate 判红即根源于此(而非"尚未配置"),2026-10-21 就地改名更正。
 #   未配置时下方 real 模式 npm gate 判红(设计如此,不静默跳过)。
+#   内部环境变量名仍叫 NPM_TOKEN(下面 auth 步骤沿用),改的只是它**取自哪一枚 secret**。
 #   发布实现:先试 `--provenance`(前向兼容,失败属预期),随即回退 token 发布 ——
 #   与 release-cli.yml 同构。⛔ 不启用 2FA、不登记 trusted publisher、不存在"以后切 OIDC"。
 # .NET/NuGet 通道现状(2026-09-24 更正本文件此前的错误登记):
@@ -197,7 +200,7 @@ jobs:
         shell: bash
         env:
           LANGUAGE: ${{ github.event.inputs.language }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_TOKEN: ${{ secrets.MAVEN_TOKEN }}
@@ -219,7 +222,7 @@ jobs:
 
           if need npm; then
             if [ -z "$NPM_TOKEN" ]; then
-              echo "❌ npm:secrets.NPM_TOKEN 为空"
+              echo "❌ npm:secrets.NPM_PUBLISH_TOKEN 为空"
               echo "   (发布走 granular token,勾 Bypass 2FA;不启用 2FA → 不登记 Trusted Publisher,"
               echo "    OIDC 分支属前向兼容尝试,失败会回退 token)"
               fail=1
@@ -327,6 +330,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # ⚠️ @ihui/types 的 `types` 字段指向 ./dist/index.d.ts,而 dist **不入库**
+      # (git ls-files packages/types/dist == 0)。干净 CI 检出没有这份 dist ⇒ sdk 内
+      # 13 处 `import '@ihui/types'` 全部解析失败(2026-10-21 实测 CI 13 个类型错误)。
+      # 本机 typecheck 绿只是因为本机留着 dist —— 假绿。故必须先构建 types 再 typecheck sdk。
+      - name: Build @ihui/types (sdk typecheck 的前置,dist 不入库)
+        run: pnpm --filter @ihui/types build
+
       - name: Typecheck
         run: pnpm --filter @ihui/sdk typecheck
 
@@ -398,7 +408,7 @@ jobs:
             chmod 600 "$HOME/.npmrc"
             npm publish --access public
           else
-            echo "::error::OIDC 发布失败且 secrets.NPM_TOKEN 为空 —— SDK npm 通道不可发布"
+            echo "::error::OIDC 发布失败且 secrets.NPM_PUBLISH_TOKEN 为空 —— SDK npm 通道不可发布"
             exit 1
           fi
           # 回读验证:registry 拿不到就等于没发布,绝不用"命令没报错"当结论。
@@ -416,7 +426,7 @@ jobs:
           echo "proof=@ihui/sdk@$VERSION (registry 回读确认)" >> "$GITHUB_OUTPUT"
           echo "✅ @ihui/sdk@$VERSION 已在 npm registry 可见"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
 
       - name: Dry-run verification
         if: needs.extract.outputs.dry_run == 'true'

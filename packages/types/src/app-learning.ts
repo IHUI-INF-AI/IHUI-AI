@@ -56,6 +56,10 @@ export interface CourseCatalogItem {
   duration: number
   /** 子章节(可选,用于树形目录) */
   children?: CourseCatalogItem[]
+  /** 小节行直接进播放时携带的视频地址(章节行本身没有;空值不打字段)。
+   *  目录屏与章节屏取的是同一份目录投影,章节屏靠这一根拍平可播放行 —— 与
+   *  CourseChapterItem.videoUrl 同一格,只是挂在目录树的子行上。 */
+  videoUrl?: string
 }
 
 /** CourseCatalog 屏 props */

@@ -71,6 +71,9 @@ export function CourseDetailScreen() {
     setEnrolling(false)
     if (res.success) {
       setCourse({ ...course, isEnrolled: true })
+      // 报名即建学习记录:立刻补拉一次进度,否则进度区停在未报名的 0 直到下次冷启动进入。
+      const progressRes = await getProgress(course.id)
+      if (progressRes.success) setProgress(progressRes.data)
     } else {
       setError(res.error || t('common.failed'))
     }

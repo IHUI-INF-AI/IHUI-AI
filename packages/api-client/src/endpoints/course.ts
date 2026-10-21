@@ -2,7 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { ApiResult, LessonDifficulty, LessonPriceAxis } from '@ihui/types'
+import type {
+  ApiResult,
+  CourseCatalogItem,
+  CourseCommentItem,
+  LessonDifficulty,
+  LessonPriceAxis,
+} from '@ihui/types'
 
 import { fetchApi } from '../client.js'
 import type { PageData } from '../utils.js'
@@ -274,6 +280,74 @@ export async function getCourseById(id: string): Promise<ApiResult<CourseDetail>
       chapters,
     },
   }
+}
+
+/**
+ * 课程目录(章节为顶层,小节挂 children)—— 详情端点的再投影,不新开取数。
+ * 旧 `/api/courses/:id/catalog`(course-mobile-routes)整个注册面正被别席清除
+ * ⇒ 目录屏/章节屏换源到这一根,与 `/api/learn` 注册面同生共死。
+ * duration 口径与旧端点逐字同:秒 → 分钟(Math.round);空 videoUrl 不打字段
+ * (章节行本身没有视频地址,只有小节行有)。
+ */
+export async function getCourseCatalog(id: string): Promise<ApiResult<CourseCatalogItem[]>> {
+  const res = await getCourseById(id)
+  if (!res.success) return res
+  const toMinutes = (seconds: number) => Math.round(seconds / 60)
+  const data: CourseCatalogItem[] = res.data.chapters.map((chapter) => ({
+    id: chapter.id,
+    title: chapter.title,
+    type: 'chapter',
+    duration: toMinutes(chapter.sections.reduce((sum, section) => sum + section.durationSeconds, 0)),
+    children: chapter.sections.map((section) => ({
+      id: section.id,
+      title: section.title,
+      type: 'section',
+      duration: toMinutes(section.durationSeconds),
+      ...(section.videoUrl ? { videoUrl: section.videoUrl } : {}),
+    })),
+  }))
+  return { success: true, data }
+}
+
+/** 服务端评价行(GET /learn/lessons/:lessonId/rates;三个分项与 isAnonymous 都可空) */
+interface WireRate {
+  id: string
+  content?: string | null
+  contentUtilityScore?: number | null
+  teacherScore?: number | null
+  serviceScore?: number | null
+  isAnonymous?: boolean
+  createdAt: string
+}
+
+/**
+ * 课程评价列表 —— 打已注册的 `GET /api/learn/lessons/:lessonId/rates`
+ * (旧 `/api/courses/:id/comments` 随 course-mobile-routes 一并被摘,换源到这一根)。
+ * 投影与旧端点逐字同口径:rating = 有值分项的均值取一位小数(一项都没有 → 0),
+ * 匿名行 user = 「匿名用户」否则「学员」;服务端 findRateList 只出 status='published' 行。
+ * pageSize=50 与旧端点写死的 50 同档,首页一次拉齐。
+ */
+export async function getCourseComments(id: string): Promise<ApiResult<CourseCommentItem[]>> {
+  const res = await fetchApi<{ list?: WireRate[] }>(
+    `/api/learn/lessons/${encodeURIComponent(id)}/rates?page=1&pageSize=50`,
+  )
+  if (!res.success) return res
+  const data: CourseCommentItem[] = (res.data.list ?? []).map((row) => {
+    const scores = [row.contentUtilityScore, row.teacherScore, row.serviceScore].filter(
+      (score): score is number => typeof score === 'number',
+    )
+    const rating = scores.length
+      ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10
+      : 0
+    return {
+      id: row.id,
+      user: row.isAnonymous ? '匿名用户' : '学员',
+      content: row.content ?? '',
+      rating,
+      createdAt: row.createdAt,
+    }
+  })
+  return { success: true, data }
 }
 
 /** 课程(学习)分类列表
