@@ -63,10 +63,22 @@ export const CONTRACTS = [
   { producer: 'scripts/heal-worktree-tracked.mjs', args: ['--json', '--dry-run'], consumer: 'healWorktreeTracked 那一格', keys: ['restored', 'held', 'reconciled', 'orphanIndex', 'paths', 'intentLost', 'intentLostPaths', 'layerSkips'] },
   { producer: 'scripts/check-env-drift.mjs', args: ['--json'], consumer: 'auditEnvDrift', keys: ['exit', 'counts', 'verdicts', 'backupDir', 'face', 'state', 'id', 'drift', 'backup'] },
   { producer: 'scripts/check-baseline-freshness.mjs', args: ['--json'], consumer: 'reportBaselineFreshness', keys: ['code', 'lines', 'axes', 'measured', 'upstream'] },
+  // 服务自愈动作器 ⇒ 派发侧 `healUnresponsiveServices`。这一格是 2026-10-21 那两封"该响没响"
+  // 之后补的:封顶(`window-capped`)与名单外故障(`not-in-list`)两个终态都由**逐台决策**承载,
+  // 而决策住在 `actions` 不是 `results` —— 派发侧一旦抄错集合,读到的就是恒空,铃永远不响。
+  // `ackState` 走 conditional:它只在"名单外且真坏了"时才出口(今天命中 IHUI-OLLAMA);
+  // 那台一旦被摘掉,这一键就该从出口里消失,不得让它把审计读成"清单腐烂"。
+  {
+    producer: 'scripts/heal-unresponsive-services.mjs',
+    args: ['--json'],
+    consumer: 'healUnresponsiveServices',
+    keys: ['at', 'apply', 'counts', 'actions', 'results', 'name', 'kind', 'why', 'checked', 'answering', 'planned', 'restarted', 'failed', 'watch', 'cooldown', 'capped', 'undetermined', 'offlist', 'offlistAnswering', 'offlistUndetermined', 'offlistUnregistered', 'offlistAckExpired'],
+    conditional: [{ key: 'ackState', evidence: 'heal-unresponsive-services.mjs 的 decideRound `!entry` 分支只在 verdict∈{down,silent} 时给 ackState;派发侧 git-guardian.mjs 的 alertTerminalHeld(名单外)按它分三档出路' }],
+  },
 ]
 
 /** 声明面下限(2026-10-21 现读)。要降它必须连着说明"为什么这一格不再需要",写进 diff。 */
-export const FLOOR = { 'scripts/check-host-timezone.mjs': 11, 'scripts/check-disk-root-hygiene.mjs': 7, 'scripts/check-ops-patrol.mjs': 9, 'scripts/check-public-path-probe.mjs': 13, 'scripts/check-tunnel-leg-health.mjs': 12, 'scripts/check-credential-health.mjs': 14, 'scripts/check-orphan-deletion-refs.mjs': 4, 'scripts/record-tunnel-metrics.mjs': 16, 'scripts/check-temp-landing.mjs': 11, 'scripts/heal-worktree-tracked.mjs': 8, 'scripts/check-env-drift.mjs': 9, 'scripts/check-baseline-freshness.mjs': 5 }
+export const FLOOR = { 'scripts/check-host-timezone.mjs': 11, 'scripts/check-disk-root-hygiene.mjs': 7, 'scripts/check-ops-patrol.mjs': 9, 'scripts/check-public-path-probe.mjs': 13, 'scripts/check-tunnel-leg-health.mjs': 12, 'scripts/check-credential-health.mjs': 14, 'scripts/check-orphan-deletion-refs.mjs': 4, 'scripts/record-tunnel-metrics.mjs': 16, 'scripts/check-temp-landing.mjs': 11, 'scripts/heal-worktree-tracked.mjs': 8, 'scripts/check-env-drift.mjs': 9, 'scripts/check-baseline-freshness.mjs': 5, 'scripts/heal-unresponsive-services.mjs': 22 }
 
 /** 递归收集一份 JSON 里出现过的所有键名。 */
 export function allKeys(j, out = new Set()) {
