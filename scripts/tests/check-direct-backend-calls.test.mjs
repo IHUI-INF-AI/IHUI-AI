@@ -8,6 +8,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as gate } from '../check-direct-backend-calls.mjs'
 
@@ -295,8 +296,16 @@ test('(c) 源码形状锁:jsonOut 不得回到裸 argv[indexOf+1] 形态,且共�
 test('--root 三支坏值 ⇒ exit 2 且点名实得 token;不带 --root 行为不变(正反成对)', async () => {
   const { spawnSync } = await import('node:child_process')
   const script = new URL('../check-direct-backend-calls.mjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+  // cwd 必须从本文件位置推导(AGENTS §15:禁止硬编码绝对路径)。原写法写死 `G:/IHUI-AI` ——
+  // 那是仓库迁移前的旧盘符,任何别的机器/检出上这个 cwd 都不存在 ⇒ spawn 直接 ENOENT,
+  // 表现为 status=null、stdout 空,断言只能读到 `actual:''`(CI 红的就是这一型)。
+  const repoRoot = fileURLToPath(new URL('../../', import.meta.url))
   const cli = (args) =>
-    spawnSync(process.execPath, [script, ...args], { cwd: 'G:/IHUI-AI', encoding: 'utf8', windowsHide: true })
+    spawnSync(process.execPath, [script, ...args], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      windowsHide: true,
+    })
   for (const [args, token] of [
     [['--root', '--staged'], '"--staged"'],
     [['--root'], '(其后没有任何参数)'],
