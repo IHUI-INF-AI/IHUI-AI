@@ -8,7 +8,7 @@ import type { SubAgentActivity } from '@/components/ai/types'
 import type { PlanStep } from '@/hooks/use-agent-progress'
 import { stabilizeListItems } from '@ihui/shared/ui/list-stabilization'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
-import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
+import { usePaneTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
 import { useProgressJumpStoreForPane } from '@/stores/progress-jump-store'
 
 export interface MessageListDerivationsOptions {
@@ -32,8 +32,11 @@ export function useMessageListDerivations({
   const chatStore = usePaneChatStore()
   // TimelineStore:事件列表(2026-07-28 立;2026-07-31 立,移除 tab 切换,单一对话流视图)
   // - tab 切换已移除(对标 主流 IDE 单一对话流),保留 events 供其他组件共享
-  const timelineEvents = useTimelineStore((s) => s.events)
-  const setTimelineEvents = useTimelineStore((s) => s.setEvents)
+  // 票60 普查批(2026-10-21):按窗格寻址 —— 本 hook 每窗格都跑,setEvents 又是整体替换,
+  // 走根单例时 pane-1 切会话会把根窗格时间线顶掉;Provider 外仍回落根单例(单窗格形态不变)。
+  const timelineStore = usePaneTimelineStore()
+  const timelineEvents = timelineStore((s) => s.events)
+  const setTimelineEvents = timelineStore((s) => s.setEvents)
 
   // ChatStore:subAgentActivities(2026-07-28 立)用于派生 TimelineEvent + SubAgentTaskTree
   // 优先用 prop 传入的 subAgentActivities(由 ai-side-panel 派生),
