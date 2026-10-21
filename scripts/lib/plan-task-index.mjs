@@ -177,6 +177,9 @@ export function isValidIsoDate(iso) {
  */
 export function claimMarkOf(line) {
   const text = String(line ?? '')
+  // 条目行前置**住在判据本体里**,不由各调用方各记一遍(2026-10-22 实测:本席在门 109 装了这道
+  // 护栏,转头在新器物里漏掉 ⇒ 同一 HEAD 面把 216 行叙述当成挂牌 —— 一份纪律散在多处必然漏)。
+  if (!/^\s*- \[ \]/.test(text)) return null
   if (!text.includes('（进行中')) return null
   const matches = [...text.matchAll(new RegExp(CLAIM_SOURCE, 'g'))]
   if (matches.length === 0) return null
