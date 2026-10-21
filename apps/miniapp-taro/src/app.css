@@ -724,7 +724,7 @@ iframe#webpack-dev-server-client-overlay {
   --color-info-text: hsl(199 80% 55%);
   --color-success-text: hsl(142 65% 50%);
   --color-warning-text: hsl(38 85% 55%);
-  --color-danger-text: #ef4444;
+  --color-danger-text: #f87171;
 }
 
 /* ===== 通用工具类 ===== */
