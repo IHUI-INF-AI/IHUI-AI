@@ -49,7 +49,10 @@ const CATEGORY_ID_MAP: Readonly<Record<string, string>> = {
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'CourseMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
-/** Course → PopularCourses 卡片项,VIP 标识用 tags 启发式判断(后端未提供 isVip 字段) */
+/** Course → PopularCourses 卡片项。
+ *  isVip 恒 false:服务端从不发 tags(旧 GET /api/course 也是常量 tags: [],新 /api/learn
+ *  无此列),原「tags 含 vip」启发式从第一天起就恒不亮 —— 保留 false 占住必填位,等真实
+ *  isVip 列落地再接,不再读已删除的假字段 Course.tags。 */
 function toPopularCourses(items: Course[]): CourseTabScreenProps['popularItems'][number][] {
   return items.slice(0, 6).map((c) => ({
     id: c.id,
@@ -58,7 +61,7 @@ function toPopularCourses(items: Course[]): CourseTabScreenProps['popularItems']
     lessons: c.lessonCount,
     price: c.price,
     isFree: c.isFree,
-    isVip: c.tags.some((tag) => tag.toLowerCase().includes('vip')),
+    isVip: false,
     studentCount: c.studentCount,
   }))
 }
