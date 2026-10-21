@@ -40,6 +40,7 @@ import {
   updateNewsRecommendSort,
 } from '../db/misc-extended-queries.js'
 import { success, error } from '../utils/response.js'
+import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
 import {
   fetchProviderHealth,
   isProviderHardUnavailable,
@@ -183,17 +184,17 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
   // GET /news/articles/pinned - 置顶资讯列表（公开）
   server.get('/news/articles/pinned', async (_request, reply) => {
     const tops = await findNewsTopList()
-    if (tops.length === 0) return reply.send(success({ list: [] }))
+    if (tops.length === 0) return withPublicEdgeCache(reply).send(success({ list: [] }))
     const articles = await findArticlesByIds(tops.map((t) => t.newsId))
-    return reply.send(success({ list: articles }))
+    return withPublicEdgeCache(reply).send(success({ list: articles }))
   })
 
   // GET /news/articles/recommended - 推荐资讯列表（公开）
   server.get('/news/articles/recommended', async (_request, reply) => {
     const recs = await findNewsRecommendList()
-    if (recs.length === 0) return reply.send(success({ list: [] }))
+    if (recs.length === 0) return withPublicEdgeCache(reply).send(success({ list: [] }))
     const articles = await findArticlesByIds(recs.map((r) => r.newsId))
-    return reply.send(success({ list: articles }))
+    return withPublicEdgeCache(reply).send(success({ list: articles }))
   })
 
   // GET /news/feed - AI 资讯 feed(公开,合并置顶+推荐+最新发布,去重按 limit 截断)
@@ -307,7 +308,7 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
-    return reply.send(success({ items }))
+    return withPublicEdgeCache(reply).send(success({ items }))
   })
 
   // GET /models/market - 模型市场公开列表(DB 驱动 zhsAiModelInfo status=1)
@@ -353,7 +354,7 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
             ),
         )
       : models
-    return reply.send(success({ models: visibleModels }))
+    return withPublicEdgeCache(reply).send(success({ models: visibleModels }))
   })
 
   // GET /news/articles/:id - 资讯详情（公开）
