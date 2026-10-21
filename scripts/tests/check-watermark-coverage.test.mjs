@@ -104,6 +104,12 @@ function makeRepo({ commit = false, residueAndFix = false } = {}) {
   writeFileSync(join(dir, 'README.md'), '# fixture\n', 'utf8')
   git(['init', '-b', 'main'], dir)
   git(['config', 'core.hooksPath', join(dir, '.no-hooks')], dir)
+  // 2026-10-21:身份与换行必须落进仓库自己的 config —— CI 的干净检出没有全局 user.name/email
+  // ⇒ 下面每条 `git commit` 都以 128 退出「Author identity unknown」(本机有全局身份,44/0 看不出来)。
+  // A/B:GIT_CONFIG_GLOBAL=空文件 + GIT_CONFIG_NOSYSTEM=1 复现 ⇒ 补前 4 过 / 6 红,补后全绿。
+  git(['config', 'user.name', 't'], dir)
+  git(['config', 'user.email', 't@t'], dir)
+  git(['config', 'core.autocrlf', 'false'], dir)
   runWatermark(dir, ['inject', 'README.md'])
   git(['add', 'README.md'], dir)
   git(['commit', '-m', 'base', '--no-verify'], dir)

@@ -272,6 +272,16 @@ const GIT_G = ['-c', 'safe.directory=*', '-c', 'core.autocrlf=false', '-c', 'use
 function freshRepo(tag) {
   const root = box(tag)
   gitRaw([...GIT_G, 'init', '-q'], root)
+  // 2026-10-21:身份与换行必须落进**仓库自己的 config**,不能只挂在 `git init` 那一次的命令行上 ——
+  // 后面的 add/commit 走的是裸 `gitRaw`(只注入 safe.directory/quotepath),而 CI 的干净检出
+  // **没有全局 user.name/email** ⇒ `git commit` 以 128 退出「Author identity unknown」,
+  // 所有造真夹具的用例在第一步就抛(本机有全局身份,所以 40/0 看不出来)。
+  // A/B 取证:把 GIT_CONFIG_GLOBAL 指向空文件 + GIT_CONFIG_NOSYSTEM=1 复现 CI 条件 ⇒ 26 过 / 14 红,
+  // 红的正是 CI 清单那 13 条 + C4,error 全是 "git commit 失败: Author identity unknown";
+  // 落进 repo config 后同一条件下全绿。
+  gitRaw(['config', 'user.name', 't'], root)
+  gitRaw(['config', 'user.email', 't@t'], root)
+  gitRaw(['config', 'core.autocrlf', 'false'], root)
   writeFileSync(join(root, 'src/a.ts'), 'export const a = 1\n')
   gitRaw(['add', 'src/a.ts'], root)
   gitRaw(['commit', '-q', '-m', 'base'], root)

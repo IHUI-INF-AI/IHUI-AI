@@ -199,6 +199,7 @@ function gitShowHead(relFromRoot: string): string {
     encoding: 'utf8',
     windowsHide: true,
     maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
 }
 
