@@ -24,10 +24,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const NOW = Date.parse('2026-10-22T12:00:00Z')
 const base = { nowMs: NOW, ttlHours: 72, seat: 't', asOf: '2026-10-22' }
 
-test('①摘除集=两枚超龄(结构位+行尾),新鲜租约与裸标记一律不动', () => {
+test('①摘除集=三枚(两枚超龄租约 + 一枚裸标记),新鲜租约不许动', () => {
   const p = planSweep(strip.FIXTURE, base)
-  assert.equal(p.leases.length, 2)
-  assert.equal(p.held.length, 2)
+  assert.equal(p.leases.length, 3)
+  assert.equal(p.held.length, 1)
   assert.equal(p.ok, true, p.why)
 })
 
@@ -37,9 +37,9 @@ test('①注记逐字保留原牌日期与持有者(摘牌可追责)', () => {
   assert.match(p.text, /原牌 2026-01-02\/丙席 超龄 \d+h/)
 })
 
-test('①裸标记默认不摘,带机主具名授权才摘且出处留在注记里', () => {
+test('①裸标记默认代摘,依据是同批的 CL4 定档(不是口头状态);出处句可被机主原话覆盖', () => {
   const d = planSweep(strip.FIXTURE, base)
-  assert.equal(d.leases.length, 2, '默认档不该把不可判龄的裸标记算进摘除集')
+  assert.match(d.text, /裸标记的新增已由守门 109 CL4 在提交链拦住/, '默认注记必须写清依据是提交链已拦新增')
   const a = planSweep(strip.FIXTURE, { ...base, legacyByOwnerRuling: '机主 2026-10-22 判定无席位在飞' })
   assert.equal(a.leases.length, 3)
   assert.match(a.text, /依机主判定「机主 2026-10-22 判定无席位在飞」代摘/)
@@ -47,7 +47,7 @@ test('①裸标记默认不摘,带机主具名授权才摘且出处留在注记�
 })
 
 test('①超龄维有牙:TTL 收到零时新鲜牌同批可摘', () => {
-  assert.equal(planSweep(strip.FIXTURE, { ...base, ttlHours: -1 }).leases.length, 3)
+  assert.equal(planSweep(strip.FIXTURE, { ...base, ttlHours: -1 }).leases.length, 4)
 })
 
 test('①幂等:摘过的文本再跑=零可摘(否则每轮都在抖台账)', () => {
