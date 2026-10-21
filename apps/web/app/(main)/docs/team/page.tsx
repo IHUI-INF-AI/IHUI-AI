@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { Users, Lock, MessageCircle, Building2 } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
@@ -325,18 +326,18 @@ export default function TeamDocsPage() {
       <section className="mt-16 rounded-2xl border bg-gradient-to-br from-primary/5 to-primary/10 p-3">
         <h2 className="text-lg font-semibold">下一步</h2>
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
-          <a href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/agent" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
             🤖 Agent 开发 →<br />
             <span className="text-xs text-muted-foreground">团队共建 Agent</span>
-          </a>
-          <a href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          </Link>
+          <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
             🛠️ API 参考 →<br />
             <span className="text-xs text-muted-foreground">团队 API Key 调用</span>
-          </a>
-          <a href="/docs/self-host" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          </Link>
+          <Link href="/docs/self-host" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
             🐳 自托管部署 →<br />
             <span className="text-xs text-muted-foreground">企业版私有化部署</span>
-          </a>
+          </Link>
         </div>
       </section>
     </main>

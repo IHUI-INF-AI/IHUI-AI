@@ -29,6 +29,7 @@ import { and, desc, eq, gte, isNotNull, sql, type SQL } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
 import { aiModelConfig, aiModelConfigModels, llmCallLogs } from '@ihui/database'
 import { error, success } from '../utils/response.js'
+import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
 
 // ===== 共享类型 =====
 type ServiceStatus = 'operational' | 'degraded' | 'outage'
@@ -330,7 +331,7 @@ const publicStatusRoutes: FastifyPluginAsync = async (server) => {
             return { models: result }
           },
         )
-        return reply.send(success(data))
+        return withPublicEdgeCache(reply).send(success(data))
       } catch (e) {
         request.log.error(e)
         return reply.status(503).send({ error: 'status_unavailable' })
@@ -382,7 +383,9 @@ const publicStatusRoutes: FastifyPluginAsync = async (server) => {
             return { incidents: mapIncidentRows(rows), degraded: false }
           },
         )
-        return reply.send(success(data))
+        // 降级分支(下方 catch 的 degraded:true)刻意不打缓存头:
+        // "查不到所以列表为空"不得在共享边缘里停留,下一次请求必须立刻回源重试。
+        return withPublicEdgeCache(reply).send(success(data))
       } catch (e) {
         // schema drift(provider_code 字段未迁移)、驱动返回形态异常或任何其他查询错误时,
         // 仍回 HTTP 200 以免拖累状态页整体可用性,**但响应体必须喊出"这是降级不是清白"**:
