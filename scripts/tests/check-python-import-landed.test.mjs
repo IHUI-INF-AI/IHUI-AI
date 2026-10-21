@@ -276,6 +276,7 @@ test('T4 端到端双向锁:注入未入库模块必红并点名,补齐文件后
         cwd: repo,
         windowsHide: true,
         maxBuffer: 1 << 26,
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
     const appDir = join(repo, 'apps', 'ai-service', 'app')
     mkdirSync(appDir, { recursive: true })
@@ -309,6 +310,7 @@ test('T5 --staged 本次无 ai-service 的 .py 时必须回退 HEAD 全量且 rc
     timeout: 300000,
     windowsHide: true,
     maxBuffer: 1 << 26,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   const out = String(r.stdout ?? '') + String(r.stderr ?? '')
   assert.doesNotMatch(out, /SyntaxError|Cannot find module|ERR_MODULE_NOT_FOUND/, '崩溃不是判据结论:\n' + out.slice(0, 300))
@@ -328,6 +330,7 @@ test('T6 覆盖面自证:HEAD 全量必须真扫到成百个 .py,扫到 0 不记
     timeout: 300000,
     windowsHide: true,
     maxBuffer: 1 << 27,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   assert.doesNotMatch(String(r.stderr ?? ''), /SyntaxError|Cannot find module/)
   assert.equal(r.status, 0, `默认档只报存量 ⇒ rc 应 0(实得 ${String(r.status)})`)
