@@ -306,13 +306,13 @@ describe('useCustomNav —— 跨设备实时同步(焦点/可见性重拉)', ()
     const { result } = renderHook(() => useCustomNav())
     await flush()
 
-    server.hrefs = ['/models', '/publish/history']
+    server.hrefs = ['/models', '/ecosystem']
     await act(async () => {
       document.dispatchEvent(new Event('visibilitychange'))
       await vi.advanceTimersByTimeAsync(301)
     })
     await flush()
-    expect(result.current.customHrefs).toEqual(['/models', '/publish/history'])
+    expect(result.current.customHrefs).toEqual(['/models', '/ecosystem'])
   })
 
   it('远端删除也跟着删(A 删项 → B 聚焦后不再复活)', async () => {
