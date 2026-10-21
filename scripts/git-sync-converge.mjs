@@ -51,6 +51,9 @@ import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { resolveRemoteHead } from './lib/face-reader.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
+// 旁路合并的"对侧独有新增必须 ∈ 结果"复量:判据一律 import 守门 100 自己那份 A1 实现,
+// 本器不复算第二份集合运算(AGENTS §0.6 单一真相源 / §22c 镜像测试纪律)。
+import { auditOne as auditMergeAdditionLoss } from './check-merge-addition-loss.mjs'
 // 判据只有一份:`planStateRegressions` 住在 union-converge(在收敛器里再写一遍
 // "什么算状态放大"必然与它漂移,而漂移的代价固定是"一条尺子绿灯、另一条同一改动判红")。
 // probe/ratchetViolations 同理 —— 维度清单不得在别处再抄一份 `['F1', …]`。
@@ -136,6 +139,36 @@ export function orphanBackupRefName(sha) {
   const s = String(sha || '').trim()
   if (!/^[0-9a-f]{7,40}$/.test(s)) return null
   return `lost-commit/wip-conv-${s.slice(0, 7)}`
+}
+
+/**
+ * 纯函数:把"吞并 + 应急出口"的裁定从 CLI 里剥出来,好让镜像测试真判(§0.3 方向:裸开关不放行)。
+ * @returns {{proceed:boolean, block:boolean, skipUsed:boolean, bareSkip:boolean, lost:number}}
+ */
+export function additionLossVerdict({ lost = [], skip = false, reason = '' } = {}) {
+  const n = lost.length
+  if (n === 0) return { proceed: true, block: false, skipUsed: false, bareSkip: false, lost: 0 }
+  if (skip && String(reason).trim())
+    return { proceed: true, block: false, skipUsed: true, bareSkip: false, lost: n }
+  // 裸跳门(只给 1 不给原因)与"什么都没给"同结局:拦。放行不是这一型的失效方向。
+  return { proceed: false, block: true, skipUsed: false, bareSkip: skip === true, lost: n }
+}
+
+/**
+ * 推进前复量:这枚合并提交有没有把某一侧"独有的新增"吞掉(守门 100 的 A1 判据)。
+ *
+ * 为什么必须在旁路侧再问一次:守门 100 的头注自写口径是"提交链口径:未进入 origin/main 的合并",
+ * 而本器走 merge-tree + commit-tree + update-ref **不跑任何 git 钩子** ⇒ 提交链那道闸对这条路
+ * 结构性失明。现读代价:枚 `12898ccd9bcb2b8e094e0057d94e0fab0380293a`(11 枚文件的真实功能提交,
+ * post-commit 当时报"将自动推送")在合并后对 HEAD 与 origin 双非祖先,内容退回未提交态(台账 G-939)。
+ *
+ * `atRef` 刻意取合并提交自己:否则"后手补回"那一维会拿**尚未推进的旧 HEAD** 去判,把远端刚带来的
+ * 新增误记成 repaired(那等于给吞并放行)。取合并树时 alive ≡ 结果树 ⇒ repaired 恒空,lost 就是真丢。
+ * @returns {{lost:Array<{path:string,addedBy:string}>,repaired:Array<unknown>,atRefUndetermined:string,ok:boolean}}
+ */
+export function preAdvanceAdditionLoss({ mergeSha, cwd }) {
+  const a = auditMergeAdditionLoss(mergeSha, cwd, mergeSha)
+  return { lost: a.lost, repaired: a.repaired, atRefUndetermined: a.atRefUndetermined, ok: a.lost.length === 0 }
 }
 
 /** 把一枚 CAS 落空的合并提交按 §29 零损失流程备份成 tag 并固化(pack-refs)。 */
@@ -1692,6 +1725,45 @@ function main() {
       const mergeSha = git(
         mergeCommitArgs({ tree, parents: [freshLocal, freshRemote], message: mergeMsg }),
       )
+      // 推进前复量(G-939):合并提交吞掉任一"某父独有的新增"⇒ 拒绝推进。旁路不跑钩子 ⇒
+      // 提交链那道守门 100 对这条路永不可见,故在这里借它自己的 A1 判据再问一次(零复算)。
+      const loss = preAdvanceAdditionLoss({ mergeSha, cwd: repoRoot })
+      const lossVerdict = additionLossVerdict({
+        lost: loss.lost,
+        skip: process.env.IHUI_SKIP_CONVERGE_ADDITION_LOSS === '1',
+        reason: String(process.env.IHUI_SKIP_CONVERGE_ADDITION_LOSS_REASON ?? '').trim(),
+      })
+      if (lossVerdict.block) {
+        log(
+          C.red,
+          `❌ 合并树吞掉 ${lossVerdict.lost} 处"某侧独有新增"(守门 100 的 A1 判据,经 import 复量)⇒ 拒绝推进 HEAD,绝不 update-ref/推送:`,
+        )
+        for (const l of loss.lost.slice(0, 20)) {
+          log(C.red, `   · ${l.path}  由父 ${String(l.addedBy).slice(0, 11)} 独有,合并结果里没有`)
+        }
+        if (lossVerdict.lost > 20)
+          log(C.red, `   …另 ${lossVerdict.lost - 20} 处(逐条见 git show ${mergeSha.slice(0, 11)})`)
+        // 已 commit-tree 的合并提交此刻成悬空对象 ⇒ 必须先按 §29 备份,否则把 30a 的红转嫁给下一位提交者
+        backupOrphanMerge(mergeSha, 'addition-loss')
+        log(
+          C.yellow,
+          `   人工出口:① 被吞侧的内容重落走 scripts/object-space-land.mjs(先 git tag lost-commit/<全40位> 保全原枚);` +
+            `② 判据本身错了就改判据(带反证用例),确属误判时的应急出口是 IHUI_SKIP_CONVERGE_ADDITION_LOSS=1 **且必须同时带** IHUI_SKIP_CONVERGE_ADDITION_LOSS_REASON=<原因>。`,
+        )
+        log(
+          C.red,
+          lossVerdict.bareSkip
+            ? `❌ 裸跳门标记(IHUI_SKIP_CONVERGE_ADDITION_LOSS=1)不放行:缺 IHUI_SKIP_CONVERGE_ADDITION_LOSS_REASON ⇒ 本枚拒绝推进`
+            : `❌ 本枚拒绝推进(未给应急出口)—— 吞并已推送提交不是可以咽下的成本`,
+        )
+        process.exit(1)
+      }
+      if (lossVerdict.skipUsed) {
+        log(
+          C.yellow,
+          `⚠️ 吞并复量按应急出口放行(留痕):原因=${String(process.env.IHUI_SKIP_CONVERGE_ADDITION_LOSS_REASON ?? '').trim().slice(0, 160)} —— 被吞新增不会因此回来,请照人工出口补落`,
+        )
+      }
       // CAS 更新引用:only-if-HEAD 未动。被并发推进则本轮作废转下一轮,
       // 绝不覆盖他人刚落地的本地提交(覆盖=丢 commit,见 AGENTS.md §22)。
       const cas = git(['update-ref', `refs/heads/${branch}`, mergeSha, freshLocal], {
@@ -1801,6 +1873,8 @@ export const __test__ = {
   nextAlignState,
   recordAlignOutcome,
   mergeCommitArgs,
+  preAdvanceAdditionLoss,
+  additionLossVerdict,
   GIT_MACHINE_IDENTITY,
   selfTest,
   ensureUnionModule,
