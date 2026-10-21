@@ -721,7 +721,7 @@ const GIT = process.env.GIT_BIN || (process.platform === 'win32' ? 'C:/Program F
 
 function gitIn(args, env, input) {
   const r = spawnSync(GIT, ['-c', 'safe.directory=*', '-C', ROOT_DIR, ...args], {
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['pipe', 'pipe', 'pipe'],
     encoding: 'utf8',
     env,
     input,
