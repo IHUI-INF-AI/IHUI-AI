@@ -5526,6 +5526,17 @@ const checks = [
     stagedTriggers: ['PROJECT_PLAN.md'],
     skipEnv: 'HUSKY_SKIP_PLAN_CLOSED_STOCK',
   },
+  {
+    id: '70b',
+    label: '🌐 i18n 死 key 扫描(blocking,判定面=索引 blob;2026-10-22 从 pre-commit 移入并行池)',
+    script: 'scan-dead-i18n-keys.mjs',
+    args: ['--exit', '1'],
+    mode: 'blocking',
+    // 2026-10-22 立:原先由 pre-commit-hook 用 execSync **串行**跑,独占 6.6s(实测)。
+    // 移进并行池后与其他门重叠 ⇒ 这 6.6s 等于白得。判据、退出码、跳过开关一字未动。
+    // 逃生:HUSKY_SKIP_I18N_DEAD_KEY=1(与原 pre-commit 段同一变量,语义不变)。
+    skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY',
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
