@@ -77,3 +77,59 @@ def test_bare_agnes_model_ids_infer_provider() -> None:
     assert _infer_provider_code("agnes-2.5-pro") == "agnes"
     assert _infer_provider_code("agnes-image-2.5-flash") == "agnes"
     assert _infer_provider_code("agnes/agnes-2.5-flash") == "agnes"
+
+
+# --- 刷新分派:扁平 env key 的 provider 不许被藏(2026-10-21 事故钉子) ---
+
+
+async def test_flat_env_key_provider_is_pinged_not_hidden(monkeypatch):
+    """key 只配在扁平 .env 键(STEPFUN_API_KEY 等)、LLM_PROVIDERS JSON 为空时,
+    旧判据把整家标 NOT_CONFIGURED → is_model_available 藏掉,而网关按同一 env 键
+    能调通("能调通的没显示")。修复后必须把 env 里的真实 key 交给 ping,
+    健康状态由实测说话;env key 缺失时才维持跳过。"""
+    import app.services.model_availability as ma
+    from app.core.config import settings
+    from app.services.local_provider_health import (
+        LocalProbeResult,
+        LocalProbeVerdict,
+        local_provider_health,
+    )
+
+    monkeypatch.setattr(settings, "llm_providers", "")
+    monkeypatch.setenv("STEPFUN_API_KEY", "sk-test-flat-env-key")
+
+    pinged: list[tuple[str, str, str]] = []
+
+    async def _fake_ping(self, code, api_key, api_base):
+        pinged.append((code, api_key, api_base))
+        return ma.ProviderHealth(
+            status=ma.ProviderHealthStatus.HEALTHY, last_check=1.0
+        )
+
+    async def _fake_probe(code, **kwargs):
+        return LocalProbeResult(verdict=LocalProbeVerdict.UNDETERMINED, detail="mocked")
+
+    monkeypatch.setattr(ma.ModelAvailabilityService, "_ping_provider_v2", _fake_ping)
+    monkeypatch.setattr(local_provider_health, "probe", _fake_probe)
+
+    ma.model_availability._health.clear()
+    try:
+        await ma.model_availability._refresh_all_providers()
+        # 正向:env key 原样进了 ping(ping 收到真钥匙,不是被标 NOT_CONFIGURED)
+        entry = next(p for p in pinged if p[0] == "stepfun")
+        assert entry[1] == "sk-test-flat-env-key"
+        assert entry[2], "ping 的 api_base 不应为空"
+        health = ma.model_availability._health["stepfun"]
+        assert health.status == ma.ProviderHealthStatus.HEALTHY
+        assert health.error_type == ma.ProviderErrorType.NONE
+
+        # 反向(变异自证):摘掉 env key,stepfun 回到"未配置"格 —— 不入 ping、
+        # is_model_available False,证明正向断言不是恒真
+        monkeypatch.delenv("STEPFUN_API_KEY", raising=False)
+        pinged.clear()
+        ma.model_availability._health.clear()
+        await ma.model_availability._refresh_all_providers()
+        assert all(p[0] != "stepfun" for p in pinged)
+        assert ma.model_availability.is_model_available("stepfun/step-3.7-flash") is False
+    finally:
+        ma.model_availability._health.clear()

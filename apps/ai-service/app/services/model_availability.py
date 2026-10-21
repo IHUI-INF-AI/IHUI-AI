@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import time
 from dataclasses import dataclass
 from enum import StrEnum
@@ -444,14 +445,29 @@ class ModelAvailabilityService:
                             error="no api_base configured",
                         )
                 else:
-                    # has_key=True 但 api_key 为空(仅 free_provider_registry 判定 CONFIGURED 但 JSON 无 key)
-                    # 标记 NOT_CONFIGURED,避免后续 is_model_available 因 health=None 错误显示
-                    async with self._lock:
-                        self._health[p.provider_code] = ProviderHealth(
-                            status=ProviderHealthStatus.NOT_CONFIGURED,
-                            last_check=time.time(),
-                            error="key configured in env but not in LLM_PROVIDERS JSON",
-                        )
+                    # key 只配在扁平 .env 键(如 IHUI_RELAY_API_KEY / DEEPSEEK_API_KEY)、
+                    # LLM_PROVIDERS JSON 里没有:registry 已判 CONFIGURED,网关按 env
+                    # 能调通 —— 此处若标 NOT_CONFIGURED 会把能调通的 provider 整家藏掉
+                    # (2026-10-21 实测:qwen/zhipu/ihui_relay 全中招)。从 registry
+                    # 登记的 key_env_vars 把真实 key 取出来入 ping,与网关同一把钥匙。
+                    # keyless provider(key_env_vars 只有 *_API_BASE)取到的是 URL
+                    # 形态的值,不当 key;它们与 zero_cost 同待遇:空 key 照样 ping。
+                    env_key = ""
+                    for env_var in p.key_env_vars:
+                        val = os.environ.get(env_var, "").strip()
+                        if val and not val.startswith(("http://", "https://")):
+                            env_key = val
+                            break
+                    api_base = cfg.api_base or p.default_base_url
+                    if api_base:
+                        providers_to_ping.append((p.provider_code, env_key, api_base))
+                    else:
+                        async with self._lock:
+                            self._health[p.provider_code] = ProviderHealth(
+                                status=ProviderHealthStatus.NOT_CONFIGURED,
+                                last_check=time.time(),
+                                error="key configured in env but no api_base to ping",
+                            )
 
         # 并发 ping
         semaphore = asyncio.Semaphore(PING_CONCURRENCY)
