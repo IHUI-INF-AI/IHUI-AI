@@ -43,7 +43,12 @@ vi.mock('@react-navigation/native', () => ({
 // 图标素材不是本页的判据;替掉以免 lucide 的 RN 依赖把套件拖进收集期失败。
 // 名单必须覆盖 AboutScreen + aboutPageSections 两处 import —— 漏一个就是运行时 export 缺失。
 vi.mock('lucide-react-native', () => {
-  const icon = (name: string) => () => createElement('i', { 'data-icon': name })
+  const icon = (name: string) => {
+    const MockIcon = () => createElement('i', { 'data-icon': name })
+    // react/display-name:箭头直返的匿名组件在 DevTools/报错栈里认不出是谁,补名
+    MockIcon.displayName = `MockIcon(${name})`
+    return MockIcon
+  }
   return Object.fromEntries(
     [
       'BookOpen',
@@ -76,8 +81,7 @@ import { WEB_BASE_URL } from '../src/lib/webview-portal-config'
 import { I18nProvider } from '../src/i18n'
 
 /** 屏本身不含 Provider(真机由 App.tsx 挂),渲染必须包一层 —— 包的是真的取词实现,不是替身 */
-const renderScreen = () =>
-  render(createElement(I18nProvider, null, createElement(AboutScreen)))
+const renderScreen = () => render(createElement(I18nProvider, null, createElement(AboutScreen)))
 
 const zh = messages['zh-CN'] as Record<string, unknown>
 const val = (k: string) => getValueByPath(zh, k) as string
