@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     gap: 8,
   },
   errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     overflow: 'hidden',
   },
   imageBox: {

@@ -178,7 +178,7 @@ export default function ChatTemplatesScreen() {
         activeOpacity={0.7}
         style={[styles.chip, activeCat === 'all' && styles.chipActive]}
       >
-        <Text style={[styles.chipText, activeCat === 'all' && styles.chipTextActive]}>
+        <Text style={[styles.chipText, activeCat === 'all' && styles.chipActiveText]}>
           {t('chatTemplates.all')}
         </Text>
       </TouchableOpacity>
@@ -191,7 +191,7 @@ export default function ChatTemplatesScreen() {
             activeOpacity={0.7}
             style={[styles.chip, active && styles.chipActive]}
           >
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>{c.name}</Text>
+            <Text style={[styles.chipText, active && styles.chipActiveText]}>{c.name}</Text>
           </TouchableOpacity>
         )
       })}
@@ -216,9 +216,7 @@ export default function ChatTemplatesScreen() {
       </Text>
       <View style={styles.cardMeta}>
         <View style={styles.cardMetaLeft}>
-          {item.categoryId ? (
-            <Text style={styles.badge}>{catName(item.categoryId)}</Text>
-          ) : null}
+          {item.categoryId ? <Text style={styles.badge}>{catName(item.categoryId)}</Text> : null}
           <Text style={styles.metaText}>{t('chatTemplates.use')}</Text>
         </View>
         <Text style={styles.metaText}>
@@ -346,7 +344,16 @@ const styles = StyleSheet.create({
   body: { padding: 12, paddingBottom: 32, gap: 10 },
   header: { gap: 10 },
   subtitle: { fontSize: 13, color: tokens.text.secondary },
-  input: { height: 42, paddingHorizontal: 12, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, color: tokens.text.primary, fontSize: 15, backgroundColor: tokens.surface.light },
+  input: {
+    height: 42,
+    paddingHorizontal: 12,
+    borderRadius: rnRadius.sm,
+    borderWidth: 1,
+    borderColor: tokens.border.medium,
+    color: tokens.text.primary,
+    fontSize: 15,
+    backgroundColor: tokens.surface.card,
+  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     paddingHorizontal: 12,
@@ -356,7 +363,7 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: tokens.brand.cta },
   chipText: { fontSize: 12, fontWeight: '500', color: tokens.text.secondary },
-  chipTextActive: { color: tokens.brand.ctaForeground },
+  chipActiveText: { color: tokens.brand.ctaForeground },
   loading: { paddingVertical: 24 },
   errorBox: {
     paddingVertical: 16,
@@ -364,7 +371,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     gap: 8,
   },
   errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
@@ -384,7 +391,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     gap: 8,
   },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -407,7 +414,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: rnRadius.xs,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   metaText: { fontSize: 11, color: tokens.text.tertiary },
@@ -418,8 +425,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.overlay.modal,
   },
   sheet: {
-    borderRadius: rnRadius.lg,
-    backgroundColor: tokens.surface.light,
+    borderRadius: rnRadius.xl,
+    backgroundColor: tokens.surface.card,
     padding: 16,
     gap: 10,
     maxHeight: '80%',

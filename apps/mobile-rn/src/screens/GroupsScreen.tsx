@@ -214,7 +214,7 @@ export default function GroupsScreen() {
                 onPress={() => setFilter(f)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.chipText, filter === f && styles.chipTextOn]}>
+                <Text style={[styles.chipText, filter === f && styles.chipOnText]}>
                   {f === 'all' ? t('groups.allGroups') : t('groups.myGroups')}
                 </Text>
               </TouchableOpacity>
@@ -335,7 +335,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 8,
     },
     cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
@@ -376,11 +376,11 @@ function makeStyles() {
       borderRadius: rnRadiusFor.chip,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     chipOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
     chipText: { fontSize: 12, color: tokens.text.secondary },
-    chipTextOn: { color: tokens.brand.ctaForeground, fontWeight: '600' },
+    chipOnText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
     itemHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     avatar: {
       width: 36,
@@ -414,7 +414,7 @@ function makeStyles() {
       gap: 10,
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     sheetTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tokens.text.primary },

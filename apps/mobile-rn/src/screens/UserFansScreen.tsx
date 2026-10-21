@@ -86,32 +86,29 @@ export default function UserFansScreen() {
     }
   }, [])
 
-  const loadFans = useCallback(
-    async (targetPage: number, append: boolean) => {
-      if (append) setLoadingMore(true)
-      else setLoading(true)
-      setFailed(false)
-      try {
-        const res = await fetchApi<{ list: FanRow[]; total: number }>(
-          `/api/follows/followers?page=${targetPage}&pageSize=${PAGE_SIZE}`,
-        )
-        if (!res.success) throw new Error(res.error)
-        const list = res.data?.list ?? []
-        setRows((prev) => (append ? [...prev, ...list] : list))
-        setTotal(res.data?.total ?? 0)
-      } catch {
-        if (!append) {
-          setRows([])
-          setTotal(0)
-        }
-        setFailed(true)
-      } finally {
-        setLoading(false)
-        setLoadingMore(false)
+  const loadFans = useCallback(async (targetPage: number, append: boolean) => {
+    if (append) setLoadingMore(true)
+    else setLoading(true)
+    setFailed(false)
+    try {
+      const res = await fetchApi<{ list: FanRow[]; total: number }>(
+        `/api/follows/followers?page=${targetPage}&pageSize=${PAGE_SIZE}`,
+      )
+      if (!res.success) throw new Error(res.error)
+      const list = res.data?.list ?? []
+      setRows((prev) => (append ? [...prev, ...list] : list))
+      setTotal(res.data?.total ?? 0)
+    } catch {
+      if (!append) {
+        setRows([])
+        setTotal(0)
       }
-    },
-    [],
-  )
+      setFailed(true)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+    }
+  }, [])
 
   useEffect(() => {
     void loadFollowing()
@@ -249,7 +246,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     avatar: {
       width: 44,

@@ -143,7 +143,7 @@ export default function ImageGenTemplatesScreen() {
         activeOpacity={0.7}
         style={[styles.chip, activeCat === 'all' && styles.chipActive]}
       >
-        <Text style={[styles.chipText, activeCat === 'all' && styles.chipTextActive]}>
+        <Text style={[styles.chipText, activeCat === 'all' && styles.chipActiveText]}>
           {t('imageGenTemplates.all')}
         </Text>
       </TouchableOpacity>
@@ -156,7 +156,7 @@ export default function ImageGenTemplatesScreen() {
             activeOpacity={0.7}
             style={[styles.chip, active && styles.chipActive]}
           >
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
+            <Text style={[styles.chipText, active && styles.chipActiveText]}>{c}</Text>
           </TouchableOpacity>
         )
       })}
@@ -314,7 +314,11 @@ export default function ImageGenTemplatesScreen() {
               <Text style={styles.buttonText}>{t('imageGenTemplates.copy')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, styles.secondaryButton, !preview?.prompt && styles.buttonDisabled]}
+              style={[
+                styles.button,
+                styles.secondaryButton,
+                !preview?.prompt && styles.buttonDisabled,
+              ]}
               disabled={!preview?.prompt}
               onPress={() => {
                 if (preview) void copyAndCreate(preview)
@@ -346,14 +350,14 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: tokens.brand.cta },
   chipText: { fontSize: 12, fontWeight: '500', color: tokens.text.secondary },
-  chipTextActive: { color: tokens.brand.ctaForeground },
+  chipActiveText: { color: tokens.brand.ctaForeground },
   errorBox: {
     paddingVertical: 16,
     paddingHorizontal: 12,
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     gap: 8,
   },
   errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
@@ -374,7 +378,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
     gap: 8,
   },
   cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -397,7 +401,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: rnRadius.xs,
+    borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
   metaText: { fontSize: 11, color: tokens.text.tertiary },
@@ -408,8 +412,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.overlay.modal,
   },
   sheet: {
-    borderRadius: rnRadius.lg,
-    backgroundColor: tokens.surface.light,
+    borderRadius: rnRadius.xl,
+    backgroundColor: tokens.surface.card,
     padding: 16,
     gap: 10,
     maxHeight: '80%',
