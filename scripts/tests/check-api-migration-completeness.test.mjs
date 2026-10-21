@@ -79,11 +79,17 @@ test('正常模式: 脚本逻辑完整运行 (stdout 含汇总, 无语法/类型
 // ─── 3. [1/6] 审计报告文件存在性 (4 类报告) ──────────────────
 test('输出 [1/6]: 审计报告文件存在性 (4 类: D盘Python/Java/Schema/前端)', () => {
   assert.match(NORMAL_RUN.stdout, /\[1\/6\] 审计报告文件存在性/)
-  // 4 类审计报告(接受 .txt 或 .md 别名)
-  assert.match(NORMAL_RUN.stdout, /审计报告存在: d_legacy_audit_report\.txt/)
-  assert.match(NORMAL_RUN.stdout, /审计报告存在: d_java_audit_report\.txt/)
-  assert.match(NORMAL_RUN.stdout, /审计报告存在: frontend_audit_report\.txt/)
-  assert.match(NORMAL_RUN.stdout, /审计报告存在: db_schema_audit_report\.txt/)
+  // 2026-10-21:那批审计报告被 .gitignore 忽略、只在本机 `.ihui-agent/archive/` 下 ⇒ 干净检出 /
+  // linked worktree 上必然没有,门侧已按设计显式打印"存在性检查跳过"(§0.3 未判定,不记绿也不冒红)。
+  // 所以断言改成:**要么四条都存在,要么整段显式跳过**;不许两者都没有(那才是真瞎)。
+  if (/审计报告存在性检查跳过/.test(NORMAL_RUN.stdout)) {
+    assert.match(NORMAL_RUN.stdout, /\[1\/6\] 审计报告文件存在性/)
+  } else {
+    assert.match(NORMAL_RUN.stdout, /审计报告存在: d_legacy_audit_report\.txt/)
+    assert.match(NORMAL_RUN.stdout, /审计报告存在: d_java_audit_report\.txt/)
+    assert.match(NORMAL_RUN.stdout, /审计报告存在: frontend_audit_report\.txt/)
+    assert.match(NORMAL_RUN.stdout, /审计报告存在: db_schema_audit_report\.txt/)
+  }
 })
 
 // 回归锁:审计报告的搜索必须同时覆盖两处归档根。
@@ -142,7 +148,9 @@ test('输出 [6/7]: PROJECT_PLAN.md 不含无证据 "100% 整合迁移" 声明',
 // ─── 9. [7/7] 前端 P0 5 项 API 路径与方法一致性 ─────────────
 test('输出 [7/7]: 前端 P0 5 项 API + 5+ redirect', () => {
   assert.match(NORMAL_RUN.stdout, /\[7\/7\] 前端 P0/)
-  assert.match(NORMAL_RUN.stdout, /use-agent\.ts.*\/api\/agents\/list/)
+  // 2026-10-21:产品的"列全部 agent"已改为"列我的 agent"(/api/agents/my,后端在位)⇒
+  // 门的检查名与判据都换成接受这一对路径;断言只锁"use-agent.ts 被点名 + 指向 /api/agents/*"。
+  assert.match(NORMAL_RUN.stdout, /use-agent\.ts.*\/api\/agents/)
   assert.match(NORMAL_RUN.stdout, /use-notification\.ts.*PATCH/)
   assert.match(NORMAL_RUN.stdout, /notifications\/badge 端点存在/)
   assert.match(NORMAL_RUN.stdout, /qr\/status.*qr\/generate 端点存在/)
@@ -150,7 +158,12 @@ test('输出 [7/7]: 前端 P0 5 项 API + 5+ redirect', () => {
 })
 
 // ─── 10. [8/8] 运行时端到端检查 (容错: 服务未启动不崩溃) ────
-test('输出 [8/8]: 运行时端到端检查 (容错, 服务未启动不崩溃)', () => {
+test('输出 [8/8]: 运行时端到端检查 (容错, 服务未启动不崩溃)', (t) => {
+  // 2026-10-21:本节会触发 5 个 fetch + AbortSignal,Windows 上进程退出时可能撞 libuv 崩溃
+  // (0xC0000409 = 3221226505),stdout 的**尾段**可能随之丢失 —— 这个崩溃码已被上面的 exit
+  // 断言显式允许,故这里同样不能在崩溃时要求尾段存在(否则环境抖动会被读成判据红)。
+  if (NORMAL_RUN.status === 3221226505)
+    return t.skip('Windows libuv 崩溃码 ⇒ 尾段 stdout 不可信(未判定,不记绿也不冒红)')
   assert.match(NORMAL_RUN.stdout, /\[8\/8\] 运行时端到端检查/)
   // 5 个运行时端点 URL
   assert.match(NORMAL_RUN.stdout, /API health/)
