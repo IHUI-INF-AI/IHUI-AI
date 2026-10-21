@@ -1,0 +1,157 @@
+# 本轮收尾执行报告（2026-10-21）
+
+> 范围：接手 19:47 导出的中断会话，从“守门 runner 全量体检与红门归因”断点继续，至全批告绿、提交推送完成。
+> 报告口径：所有结论均以现仓读数、提交对象与日志原文为准；未实测的内容明确标注来源。
+
+---
+
+## 1. 结论摘要
+
+| 项 | 结果 |
+| --- | --- |
+| 代码修复 | 1 处（1 文件 1 行）：守门汇总行解析正则去双转义 |
+| 提交 | `9608d09fa9c`，已入 origin/main 并随后续合并前移 |
+| 全量守门批 | `总检查数 268 / 失败 0 / gatesPassed=true / gatesTimedOut=false / exit 0` |
+| blocking 红 | 0（门 103、105、108、207 均已归零） |
+| 残留 | 仅 5 枚 warn 级（45 / 13b / 19 / 110 / 153），按设计不阻断 |
+| 同步态 | 本地 HEAD 与 origin/main 相等，`behind=0 / ahead=0` |
+| 未代劳 | 门 105 产物、门 103 拆分均为他席在飞成果，核对后未重复实现 |
+
+---
+
+## 2. 背景与任务边界
+
+- 导出文件 `导航数据补全与重复清理_2026-10-21_19-47.md`（14588 行）结束于只读诊断子任务“全量守门体检与红门归因”，因用量上限中断，未产出最终报告。
+- 上一会话已确认的现象：每枚提交的守门批都判“未判定/超时”，日志里 30a 曾出现 300081ms；本轮接手后逐项复核，纠正了其中两处误读。
+- 本轮边界：只做“让提交链恢复可判定、可提交”的最小修复；他人正在编辑/落地的文件（门 105 产物、git-guardian 拆分）只读核对，不代提交。
+
+---
+
+## 3. 执行时间线（本地时间 Asia/Shanghai）
+
+| 时间 | 动作 | 结果 |
+| --- | --- | --- |
+| 19:47 | 读取导出文档，定位断点 | 停在红门归因子任务 |
+| 19:50 | 复核仓库状态 | HEAD `e7581c4ee0f`，落后 origin 17 枚，工作区含他席在飞改动 |
+| 19:51 | 复跑 `check-miniapp-generated --group ui-routes` | 门 105 红：小程序端产物输入钉对不上 HEAD |
+| 19:52 | 复核门 207 | 绿：AGENTS.md 94674 / 上限 96000 |
+| 19:53 | 复跑 30a 历史统计脚本 | 38 轮有效读数，30a 自身 158–550ms，无超时 |
+| 19:54 | 定位汇总行解析缺陷 | `split(/\\r?\\n/)` 未切开换行 ⇒ total/failed 恒 null |
+| 19:55 | 修复 + 正反例验证 | 正例 268/3/false；无汇总反例仍判“未判定” |
+| 19:56–20:05 | 两次 safe-commit 被共享索引窗口期阻断 | 他席在飞文件反复进出索引；按纪律不代提交 |
+| 20:06 | 改走 object-space-land（blob 模式） | 提交 `9608d09fa9c`，仅 1 文件 1 行 |
+| 20:08 | `git-sync-converge` 首轮撞台账文件冲突 | 该冲突非本票，未代裁 |
+| 20:0x | 他席继续合并推送 | 冲突自解，本票随收敛入 origin（`7d8bad5470c`） |
+| 20:27 | 他席拆分 `git-guardian.mjs` 落地 | HEAD `7aaa8d13b4a`，文件 6066 → 5924 行，全批 268/0 通过 |
+| 20:32 | 终验门 103 / 108 | 均 RC=0 |
+| 20:33 | 推送本地最后一枚提交 | `7aaa8d13b4a` 推送成功 |
+| 20:36 | 终态复核 | 远端=本地 `63f1690f45c`，behind 0 / ahead 0 |
+
+---
+
+## 4. 诊断证据（逐项）
+
+### 4.1 30a「每轮超时」是读数假红，不是慢门
+
+- 上一会话留痕：422 轮记录中 `total/failed` 全为 null、`gatesTimedOut` 恒 true。
+- 本轮复跑日志统计脚本（`analyze-log-30a.mjs`）：38 轮有效读数，30a 自身耗时 **158–550ms**，无一轮被杀。
+- 30a 自身成本实测（直接运行 `check-commit-loss-guard.mjs`）：**80.4s**；批内并行负载下 **108–122s**；上一会话确有一轮撞到 300s 上限（大仓 `fsck` + 带限时 `ls-remote` 叠加负载）。
+- 定性：告警信号由解析缺陷伪造；30a 的真实形态是“成本波动”，不是判据失效。
+
+### 4.2 根因：汇总行解析正则多转义
+
+- 位置：[scripts/lib/pre-commit-hook.js](file:///d:/IHUI-AI/scripts/lib/pre-commit-hook.js#L172)。
+- 缺陷形态：`stripAnsi(output).split(/\\r?\\n/)` —— 正则字面中 `\\` 是“反斜杠字符”，真实换行永远切不开，整段 stdout 被当成一行，`^\s*总检查数:` 匹配不上。
+- 影响面：轮次正证 `total`、`failed` 恒 null，`timedOut` 恒 true；据此做出的“守门不稳定”判断全部失真。
+
+### 4.3 门 105（小程序 ui-routes 陈旧）
+
+- 接手时 HEAD 面红：小程序端产物自述钉与 `model-catalog.ts` 现算输入不一致。
+- 我重生成后工作树面已验证 matched（四端），但随 origin 合并，他席已把该产物修进主线；复核 HEAD 面四端全 matched，故不再重复提交。
+
+### 4.4 门 103（架构契约，真正的全局阻塞）
+
+- 判定：`scripts/git-guardian.mjs` [C1] 6067 行 > 上限 6000，判红 1 处。
+- 核查发现工作树已有他席在飞的拆分版（5924 行，已暂存但未提交）——属他席认领中的实现。
+- 处置：不代提交。20:27 该拆分由其自行落地（HEAD `7aaa8d13b4a`），复跑门 103 现为 **违规 0 处、RC=0**。
+
+### 4.5 门 108（豁免到期账）
+
+- 中间轮次曾报红（4638ms）；终验复跑：标记 427 处 / 154 文件 / 47 族，带到期日 69、无日期 43（基线存量 17）、已过期 0，**RC=0**。
+- 定性：该门当时的红与在飞暂存面有关，非存量债务。
+
+### 4.6 门 207（AGENTS.md 体量）
+
+- 当时红是他人暂存 AGENTS.md 增加行所致；复核 HEAD 面 94674 / 96000（余量 1326），绿。
+
+### 4.7 收敛器报「台账缺 1 条登记行 G-56」
+
+- 收敛时 HEAD 面点名缺 1 条（历史面 533 条）；20:3x 复跑 `check-plan-line-loss.mjs`：`无登记行丢失，RC=0`，历史窗口已推进到最新提交。
+- 定性：由合并窗口期读数造成，已自清，未代裁。
+
+---
+
+## 5. 代码变更
+
+```diff
+-  const lines = stripAnsi(output).split(/\\r?\\n/)
++  const lines = stripAnsi(output).split(/\r?\n/)
+```
+
+- 文件：[scripts/lib/pre-commit-hook.js](file:///d:/IHUI-AI/scripts/lib/pre-commit-hook.js#L172)
+- 规模：+1 / -1
+- 验证：
+  - 正例（真实 stdout 形态）：`total=268 failed=3 timedOut=false`
+  - 反例（无汇总行/被杀）：`total=null timedOut=true`，不冒 0
+  - `node --check` 通过；钩子镜像测试 `pre-commit-hook-no-import-side-effects.test.mjs` fail 0
+  - 生产轮次实测：`2026-10-21T11:59:44Z` 记录 `total=268 failed=2 gatesTimedOut=false`；`12:27:15Z` 记录 `total=268 failed=0 gatesTimedOut=false`（修复前恒为 null/true）
+
+---
+
+## 6. 落地与推送过程（含决策记录）
+
+1. **为什么两次 safe-commit 未落地**：共享索引窗口期内有 12 条非本票路径进入索引（他席在飞），工具按纪律拒发令，并要求改走对象空间落地。未使用任何 `--no-verify` 或跳过环境变量。
+2. **object-space-land（blob 模式）**：构造内容取自工作树且与索引逐字同形；`git hash-object -w` 得 blob `d5633b946be`；相对 HEAD 仅一行增删；祖先对账无同形行回写；落地提交 `9608d09fa9c`。
+3. **推送**：`git-sync-converge` 首轮因 `scripts/data/deletion-survival-allowlist.json` 与他席在飞改动冲突而退出；该文件非本票，未代裁。随后他席合并推进，冲突自解，本票随之进入 origin（远端 `7d8bad5470c`）。
+4. **最后一枚本地提交**：他席拆分落地后本地领先 1 枚，`git-sync-converge` 走 FF 直达推送，远端推进到 `7aaa8d13b4a`；此后并行会话继续前移，终态远端=本地 `63f1690f45c`。
+
+---
+
+## 7. 终态读数
+
+- HEAD / origin/main：`63f1690f45c`（behind 0 / ahead 0）
+- 最近全量批（`12:27:15Z`）：`268 检查 / 0 失败 / 0 警告阻塞 / timedOut=false / exit 0`
+- 逐门耗时最新一轮（170 行）：未通过项仅 `45 warn / 13b warn / 19 warn / 110 warn / 153 warn`
+- 30a：`108250ms`（批内实测，ok=true）
+- 门 103：违规 0；门 108：RC=0；门 105：四端 matched；门 207：94674/96000
+
+---
+
+## 8. 未代劳事项与边界说明
+
+| 事项 | 原因 | 现状 |
+| --- | --- | --- |
+| 门 105 产物重钉 | 复核时他席已随 origin 合入修复 | 绿，未重复提交 |
+| 门 103 `git-guardian.mjs` 拆分 | 工作树已有他席在飞实现（5924 行已暂存） | 20:27 他席自行落地，绿 |
+| `deletion-survival-allowlist.json` 合并冲突 | 属他席合并流，非本票文件 | 他席解决，已自解 |
+| 17 枚 30 天窗内悬空 commit 未打 tag | 多为 lint-staged 瞬态 stash；打 tag 会把垃圾固化成永久 ref | 常态告警，不阻断 |
+| 131 枚 lost-commit tag 仅本地 | 需推 tag，属网络写操作且非本票 | 常态告警，不阻断 |
+
+---
+
+## 9. 残留风险与后续建议
+
+1. **30a 成本波动**：大仓 `fsck` + `ls-remote` 在 20 路并行下可放大到 108–122s，极端时撞 300s 上限。属性能问题，无低风险改法；若要治，需单独立票（如给 fsck 结果做安全缓存、或独立调度长门），不建议在收尾窗口内动刀。
+2. **warn 级门 45 / 13b / 19 / 110 / 153**：按设计不阻断，保持现状。
+3. 无其他待执行项。
+
+---
+
+## 10. 附录：证据出处
+
+- 修复与验证：`scripts/lib/pre-commit-hook.js`（L172）、`.ihui-agent/tmp/g-runner-triage/verify-parse-summary.mjs`
+- 轮次正证：`.workbuddy/hook-logs/pre-commit-rounds.jsonl`（`11:59:44Z`、`12:27:15Z` 两条）
+- 逐门耗时：`.ihui-agent/tmp/guardian-timing.json`（`12:32:04` 生成，170 行）
+- 30a 历史统计：`.ihui-agent/tmp/g-runner-triage/analyze-log-30a.mjs`
+- 落地清单：`.ihui-agent/tmp/land-parse-fix/blobs.json`（blob `d5633b946be`）
+- 提交对象：`9608d09fa9c`（本票）、`7d8bad5470c`（收敛）、`7aaa8d13b4a`（他席拆分）、`63f1690f45c`（终态）
