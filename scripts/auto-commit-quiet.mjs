@@ -40,8 +40,17 @@ const EXCLUDE = [
 ]
 
 function git(args, opts = {}) {
-  // windowsHide 强制置后:本器由计划任务后台派生,任何一次漏 windowsHide 都会弹控制台窗(§5f 机器级默认)
-  return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20, ...opts, windowsHide: true })
+  // 三件事同批:显式 stdio(§12g,本机不写稳定 EBUSY)、windowsHide 置后(强制生效,调用方覆盖不掉)、
+  // 带 input 时 stdin 必须是 pipe。
+  const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
+  return execFileSync('git', args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 << 20,
+    stdio,
+    ...opts,
+    windowsHide: true,
+  })
 }
 
 function log(line) {
