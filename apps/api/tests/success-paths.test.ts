@@ -92,6 +92,17 @@ vi.mock('../src/db/queries.js', () => ({
 }))
 
 // =============================================================================
+// Mock db/user-preferences-queries.js
+// =============================================================================
+// 登录腿现在要读 IP 白名单：本文件不测白名单，交空表 = 未启用 = 放行
+vi.mock('../src/db/user-preferences-queries.js', () => ({
+  USER_PREFERENCE_GROUPS: { security: 'security' },
+  findUserPreferences: vi.fn(async () => ({ list: [], total: 0 })),
+  upsertUserPreference: vi.fn(),
+  deleteUserPreference: vi.fn(),
+}))
+
+// =============================================================================
 // Mock db/billing-queries.js
 // =============================================================================
 vi.mock('../src/db/billing-queries.js', () => ({
