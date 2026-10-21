@@ -309,7 +309,7 @@ export const AUTO_HEAL_LEDGER = {
     // 2026-10-21 立档时即登记(生产签出外来工作,尺子 scripts/check-prod-checkout-foreign-work.mjs)。
     mode: 'manual',
     where: 'auditProdForeignWork → check-prod-checkout-foreign-work.mjs --json(只判不修)',
-    why: '生产签出里的外来改动只有两条出路——"把活落进仓"或"确认可丢",都归人;在别人的签出上代删代提交等于覆盖他人未提交工作(§12d 零触碰),器物绝不代做',
+    why: '生产签出里的外来改动只有两条出路——"把活落进仓"或"确认可丢",都需人判;在别人的签出上代删代提交等于覆盖他人未提交工作(§12d 零触碰),器物绝不代做',
   },
 }
 
