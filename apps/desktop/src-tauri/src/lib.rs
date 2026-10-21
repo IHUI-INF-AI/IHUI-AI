@@ -517,6 +517,68 @@ fn arm_forced_exit(app: &tauri::AppHandle, grace_secs: u64) {
     });
 }
 
+/// 启动健康门的等待档(毫秒)与轮询步长。
+///
+/// 60s 不是"随手比 15s 大一点":这一档的动作是**不可逆的退出**,而旧那 15s 档的动作
+/// 只是一次多余的 `show()` —— 判错的代价不同量级,阈值就不能沿用。取 60s 的依据是
+/// 本机现读的现场:并发构建把机器压满时首屏可慢到十几秒,而离线冷启动那一支在
+/// ≈24–30s(`auto_refresh` 启动探活最多 2 次 × 12s)就已经把窗口导航到离线兜底页,
+/// 那次导航同样会置位 `MAIN_PAGE_READY` ⇒ 正常慢启动不会被误杀。
+const STARTUP_HEALTH_GATE_TIMEOUT_MS: u64 = 60_000;
+const STARTUP_HEALTH_GATE_POLL_MS: u64 = 200;
+
+/// 票 L7220 P3(2026-10-21 立):把"webview 到底建出来没有"这条判据**后置到事件循环
+/// 之后**的执行体 —— 它就是旧 15s 兜底线程的替身。
+///
+/// 为什么要替身(取证摘要,细节见 `MAIN_PAGE_READY` 头注与 `startup_guard.rs` 模块头注):
+/// 旧守卫写成 `app.get_webview_window("main").is_none()` ⇒ 判,而 tauri 2.11 的
+/// `CreateWebview` 是异步投递、立即返回 Ok,真失败只在事件循环里写一行 `log::error!`,
+/// 窗口仍以 `webviews: []` 注册 ⇒ 这条判据在**目标失效型**下结构上打不中(实测 40 次
+/// 启动开火 0 次);而旧兜底线程用 `is_visible()` 问"亮没亮",同一个失效型下那个阻塞
+/// getter 永不返回 ⇒ 也静默。两处都判不到的那一段,就是"静默半启动"。
+///
+/// 现在判据换成唯一还活着的那一头:**主文档加载完成过没有**(`on_page_load` 的 Finished
+/// 回调置位)。超时仍为 false ⇒ 这一轮界面永远不会有任何东西可看,按"僵尸实例"处理:
+/// 报名 ERROR → 经同一枚通知出口喊到人 → 停掉常驻循环 → 走全仓唯一退出序列。
+///
+/// ⚠️ 本函数体内**只允许读原子标志**:不得出现任何阻塞式窗口 getter(取 URL 那个
+/// `url()` 与取可见性那个 `is_visible()`)。理由不是洁癖:本门要抓的正是"事件循环/
+/// 渲染端已经不在"那一型,而在同一型下这两个 getter 永不返回 —— 一个"检测卡死"的探测器
+/// 自己卡在卡本身上,等于没有检测。这条由 lib.rs 测试
+/// `兜底线程体内不得出现阻塞式窗口getter` 按"从函数签名起做括号配平取体、在体内搜
+/// 带前导点的两者"钉住(反向对照:在体内加一处取 URL 的调用即红)。
+///
+/// 如实登记取舍:摘掉 `show()` 那一腿之后,"页面卡住但窗口在位"那一型不再得到一个
+/// 黑窗可看,而是在 60s 后得到一条系统通知 + 进程退出。判据换成不可逆动作,代价就必须
+/// 换方向 —— 旧那一腿的语义(绝不黑窗)由 `on_page_load` 点亮那一支单独保住。
+fn startup_health_gate(app: tauri::AppHandle) {
+    let start = std::time::Instant::now();
+    loop {
+        if main_page_ready() {
+            return;
+        }
+        if start.elapsed().as_millis() as u64 >= STARTUP_HEALTH_GATE_TIMEOUT_MS {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(
+            STARTUP_HEALTH_GATE_POLL_MS,
+        ));
+    }
+    log::error!(
+        "[desktop] 启动健康门:{}ms 内主文档从未加载完成(webview 未建成 / 事件循环未消费建窗消息);\
+         本进程既不显示也没有可投递的对象,按僵尸实例收口:通知 + 停常驻循环 + 退出。\
+         同型判据的历史见 MAIN_PAGE_READY 头注与 startup_guard.rs 模块头注第 1/6 条",
+        STARTUP_HEALTH_GATE_TIMEOUT_MS / 1000
+    );
+    auto_refresh::notify(
+        &app,
+        "智汇AI",
+        "本次启动未能加载界面,已自动退出 —— 请再双击一次图标",
+    );
+    auto_refresh::request_shutdown();
+    exit_application(&app);
+}
+
 /// 重启应用(2026-07-31 立,updater 安装完成后调用)。
 /// Tauri 2 标准 API `app.restart()`:终止当前进程并以新进程拉起同路径可执行文件。
 /// 用于 updater 下载安装完毕后让新版本立即生效,无需用户手动关闭再打开。
@@ -2434,6 +2496,32 @@ struct DeepLinkGateState {
 /// 主窗点亮是否被用户"先进托盘/--minimized"压住(setup 写入,on_page_load 回调读取)。
 static STARTUP_START_HIDDEN: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
+
+/// 票 L7220 P3(2026-10-21 立):main 窗的**主文档加载完成**标记,由 `on_page_load`
+/// 的 `PageLoadEvent::Finished` 回调置位,由启动健康门(`startup_health_gate`)读。
+///
+/// 为什么必须另立这一枚,而不是沿用"窗口在不在/看得见看不见":
+/// tauri 2.11 把 `CreateWebview` 作为 `send_user_message` **异步投递**并立即返回 `Ok`,
+/// 真正的失败只在事件循环里 `log::error!("failed to create webview: …")` —— 窗口仍以
+/// `webviews: []` 注册,setup 照跑、`auto_refresh` 常驻循环照起。于是"窗口没建出来"
+/// 这件事从外面**读不出来**:`get_webview_window("main")` 回 Some、`is_visible()` 这类
+/// 阻塞 getter 在没有渲染端时干脆永不返回。取证实测 40 次启动 / `failed to create
+/// webview` 2 次 / 旧守卫"main 窗口未创建"开火 **0 次** —— 判据结构上打不中。
+/// 唯一活着的那一头是"页面到底加载完过没有",所以健康门判的就是这一枚原子标志。
+static MAIN_PAGE_READY: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// 读主文档加载完成标记(健康门唯一的输入)。
+fn main_page_ready() -> bool {
+    MAIN_PAGE_READY.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// 应用日志主文件名(**不含扩展名**)—— 唯一出处。
+///
+/// 它同时喂两个地方:①日志插件 `TargetKind::LogDir { file_name }`;②`startup_guard::preflight`
+/// 的落账那一行(预检阶段没有 AppHandle,拿不到 `app.path().app_log_dir()`,只能按同一个根
+/// 自己拼路径)。写成第二份字面量就等于允许两处各写各的(AGENTS §0.6),所以从这里注入。
+const APP_LOG_FILE_STEM: &str = "ihui-desktop";
 static DEEP_LINK_GATE: LazyLock<Mutex<DeepLinkGateState>> =
     LazyLock::new(|| Mutex::new(DeepLinkGateState::default()));
 
@@ -2851,6 +2939,182 @@ mod deep_link_gate_tests {
     }
 }
 
+/// 票 L7220 P3 的形状锁(2026-10-21 立)。
+///
+/// 判的是**源码形状**,不是运行时行为:单元测试只能证明纯函数分支对,而本票真正的失效型
+/// 是"判据写对了却没接在该接的位置"(旧守卫 `get_webview_window().is_none()` 就是这一型 ——
+/// 它在,却结构上打不中)。三格各自一条用例,每格都有对应的**反证**(改坏必红):
+/// ① 摘掉 `on_page_load` 里的置位 ⇒ `置位点必须落在…` 红 + 运行时那条红;
+/// ② 把 `auto_refresh::start` 挪回健康门之前 ⇒ `健康门排在…` 红;
+/// ③ 在兜底门体内加一处取 URL 的调用 ⇒ `兜底线程体内不得出现阻塞式窗口getter` 红;
+/// ④ 删掉 `startup_guard::decide` 的启动相位那一臂 ⇒ 该文件内 `启动相位档永不清理旧实例` 红
+///    (不在本模块,列在这里是为了四条反证同批可查)。
+#[cfg(test)]
+mod startup_health_gate_tests {
+    use super::main_page_ready;
+    use super::MAIN_PAGE_READY;
+
+    /// 取材面 = 本文件自身的源码(与 `导航发起处无一例外必须先复位闸门` 同一种器物:
+    /// 判调用点的锁只能读源码,读不到就别装锁)。
+    const SRC: &str = include_str!("lib.rs");
+
+    // ⚠️ 标记一律用 `concat!` 拼出来,不写成一整串字面量。理由是本模块被 `include_str!`
+    // 一起读了进来:写成整串 ⇒ 每个标记在 SRC 里至少出现两次(被测处 + 本测试里那一串),
+    // 而下面那条"标记必须唯一命中"的自检会当场红 —— 实测第一次就是这么红的。
+    // 拆开写之后,源码文本里再没有出现连续的标记,唯一性判据才只判被测代码本身。
+    const M_ON_PAGE_LOAD: &str = concat!(".on_page_", "load(");
+    const M_GATE_FN: &str = concat!("fn startup_", "health_gate(");
+    const M_GATE_SPAWN: &str = concat!("|| startup_", "health_gate(");
+    const M_SETUP: &str = concat!(".setup(|a", "pp| {");
+    const M_LOOP_START: &str = concat!("auto_refresh:", ":start(");
+    const M_SET_FLAG: &str = concat!("MAIN_PAGE_READY.", "store(true");
+    /// 取"可见性早退"那一处的**代码**位置:带上取引用的 `&`,这样注释里提到常量名
+    /// 不会被算成早退点(实测踩过:注释写了裸常量名 ⇒ 顺序锁读到的"早退"其实是注释)。
+    const M_HIDDEN_REF: &str = concat!("&STARTUP_START_", "HIDDEN");
+    const M_EXIT: &str = concat!("std::process:", ":exit(0)");
+    const M_READINESS_FN: &str = concat!("main_page_", "ready()");
+    const M_FORBIDDEN_URL: &str = concat!(".", "url()");
+    const M_FORBIDDEN_VIS: &str = concat!(".", "is_visible()");
+    const M_OLD_REVEAL: &str = concat!("site=startup_", "timeout_reveal");
+
+    /// 从 `marker` 之后第一个 `{` 起做**括号配平**,返回该块(含首尾括号)的字节区间。
+    ///
+    /// ⚠️ 刻意不做注释/字符串遮蔽:被测这几处代码里字符串内的花括号都成对。这条前提
+    /// 不是"应该没事",由 `取材面形状自检` 量出来 —— 一旦有人在门体内写进不配平的括号,
+    /// 配平会一路跑到文件尾并返回 None,那条用例立刻红,不会静默放过。
+    fn block_after(marker: &str) -> Option<(usize, usize)> {
+        let occurrences = SRC.matches(marker).count();
+        if occurrences != 1 {
+            return None;
+        }
+        let at = SRC.find(marker)?;
+        let open = at + SRC[at..].find('{')?;
+        let bytes = SRC.as_bytes();
+        let mut depth: i64 = 0;
+        let mut i = open;
+        while i < bytes.len() {
+            match bytes[i] {
+                b'{' => depth += 1,
+                b'}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some((open, i + 1));
+                    }
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        None
+    }
+
+    #[test]
+    fn 取材面形状自检() {
+        // 空枚举判死不记绿(§0.3):五个标记都必须**唯一命中**,否则下面三条锁全在判空气。
+        for marker in [
+            M_ON_PAGE_LOAD,
+            M_GATE_FN,
+            M_SETUP,
+            M_GATE_SPAWN,
+            M_LOOP_START,
+        ] {
+            let hits = SRC.matches(marker).count();
+            assert_eq!(
+                hits, 1,
+                "标记 {marker:?} 命中 {hits} 处(应为 1)⇒ 形状锁失去唯一锚点,下面的区间判定不可信"
+            );
+        }
+        // 括号配平必须真收得回来(前提被破坏时这里红,而不是悄悄判绿)。
+        for marker in [M_ON_PAGE_LOAD, M_GATE_FN, M_SETUP] {
+            assert!(block_after(marker).is_some(), "{marker:?} 的块配平不收口");
+        }
+    }
+
+    #[test]
+    fn 置位点必须落在on_page_load的finished分支内() {
+        let (s, e) = block_after(M_ON_PAGE_LOAD).expect("on_page_load 块取不到");
+        let body = &SRC[s..e];
+        assert!(
+            body.contains(M_SET_FLAG),
+            "置位被摘掉或改写 ⇒ 健康门永远读不到就绪 ⇒ 判据形同虚设(反证①)"
+        );
+        assert!(
+            body.contains("PageLoadEvent::Finished"),
+            "置位必须挂在主文档加载完成那一支,不是任意一次回调"
+        );
+        // 反证①之外的另一半:置位必须**早于**可见性早退,
+        // 否则"启动后进托盘"的用户整批落在门的外面(同一条失效型换个人群重演)。
+        let store = body.find(M_SET_FLAG).unwrap();
+        let hidden = body
+            .find(M_HIDDEN_REF)
+            .expect("on_page_load 内不再取用 STARTUP_START_HIDDEN ⇒ 早退那一条被挪走了,本锁射程需重裁");
+        assert!(
+            store < hidden,
+            "置位排在可见性早退之后 ⇒ 先进托盘的启动永远不会置位(健康门会被误判成半启动)"
+        );
+        assert!(
+            body.contains("if label == \"main\""),
+            "置位必须只认 main 窗:admin/其它窗与主窗就绪与否不是同一件事"
+        );
+    }
+
+    #[test]
+    fn 健康门排在常驻循环与退出兜底之前() {
+        let spawn_at = SRC.find(M_GATE_SPAWN).expect("健康门的派生点不见了");
+        let start_at = SRC.find(M_LOOP_START).expect("auto_refresh::start 调用点不见了");
+        assert!(
+            spawn_at < start_at,
+            "健康门排在 auto_refresh::start 之后 ⇒ 判出半启动时循环已经起来,正是要防的那一型(反证②)"
+        );
+        // 同一轮 setup 里那条 (a) 出口的 process::exit 也必须排在门之后:门先武装,
+        // 才有资格说"这一轮不会再有界面"。(取 setup 块内的第一处 process::exit。)
+        let (s, e) = block_after(M_SETUP).expect("setup 块取不到");
+        let setup_body = &SRC[s..e];
+        let exit_rel = setup_body
+            .find(M_EXIT)
+            .expect("setup 内的 (a) 出口不见了");
+        let gate_rel = setup_body
+            .find(M_GATE_SPAWN)
+            .expect("setup 内的健康门派生点不见了");
+        assert!(
+            gate_rel < exit_rel,
+            "健康门必须早于 setup 内第一处 process::exit —— 兜底顺序写反就又是「先退再说没建好」"
+        );
+        assert!(e > s, "setup 块区间为空 ⇒ 取材面判定失效");
+    }
+
+    #[test]
+    fn 兜底线程体内不得出现阻塞式窗口getter() {
+        let (s, e) = block_after(M_GATE_FN).expect("健康门函数体取不到");
+        let body = &SRC[s..e];
+        // 旧兜底线程的整条形状也必须已经不在(加回来即红):它当年就是用第二个被禁
+        // 字符串点名的那个 getter 问"亮没亮",在同一失效型下永不返回。
+        for forbidden in [M_FORBIDDEN_URL, M_FORBIDDEN_VIS, M_OLD_REVEAL] {
+            assert!(
+                !body.contains(forbidden),
+                "健康门体内出现 {forbidden} ⇒ 探测器会卡在被探测的失效型本身上,等于没有检测(反证③)"
+            );
+        }
+        assert!(
+            body.contains(M_READINESS_FN),
+            "健康门不再读原子标志 ⇒ 上面两条禁令失去意义,本锁必须跟着重裁"
+        );
+    }
+
+    /// 运行时那一半(与形状锁分两条用例的理由:形状对但标志读不到,也是没有门)。
+    #[test]
+    fn 健康门读的原子标志初始为未就绪置位后必须读得回() {
+        assert!(
+            !main_page_ready(),
+            "初值必须为 false:否则本用例与真实启动路径都读不到「从未就绪」这一态"
+        );
+        MAIN_PAGE_READY.store(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(main_page_ready(), "置位后读不回 ⇒ 判据与置位点不是同一枚标志");
+        // 本用例是这一枚标志在测试进程内唯一的置位者(取走/复位都不做:标志语义是
+        // 单向闩锁)。若将来有第二处置位或第二处断言初值,这条初值断言会先红。
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // G-921(2026-10-19 立):identifier 一律取运行期配置,不得再写死任何一份。
@@ -2887,7 +3151,10 @@ pub fn run() {
     // 根治"双击打不开"(tauri-plugin-single-instance 2.4.3 无超时 SendMessage +
     // 隐藏窗口缺失时放行两个缺陷的组合,详见 startup_guard.rs 模块头注)。
     // 必须早于 tauri::Builder:此刻本进程还没建任何窗口,清理旧实例不会误伤自己。
-    startup_guard::preflight(&app_identifier);
+    // 2026-10-21(票 L7220 P1)补第二枚入参:落账那一行要写进**插件那本日志**,而预检
+    // 阶段没有 AppHandle、拿不到 `app.path().app_log_dir()`,只能由这里把同一枚文件名
+    // 常量注入下去 —— 在 startup_guard 里再写一遍字面量就是第二个真相源。
+    startup_guard::preflight(&app_identifier, APP_LOG_FILE_STEM);
     // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
     // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
     // - 2026-09-25 收窄:旧写法是 `remove_dir_all(EBWebView)`,而 `cfg(dev)` **确实会被编译**
@@ -2926,6 +3193,16 @@ pub fn run() {
         .on_page_load(|wv, payload| {
             let label = wv.label().to_string();
             if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
+                // 2026-10-21 立(票 L7220 P3):主文档加载完成 ⇒ 置位"这一轮界面真的渲染过"。
+                // 置位点必须在下面那条 `STARTUP_START_HIDDEN` 早退**之前**:先进托盘的启动
+                // 一样会加载页面,而健康门判的是"webview 活着没有",与可见性无关 —— 放在
+                // 早退之后,等于让所有"启动后进托盘"的用户永远处在无门状态(那正是本票要
+                // 消灭的静默半启动人群)。第二次及以后的导航(离线兜底页/热刷新/错误页自愈)
+                // 同样置位:判据是"加载完成过",不是"首次加载成功",后者在断网冷启动下会
+                // 把健康应用误杀(实测离线那一支约 24–30s 导航到 offline 页,同样落这里)。
+                if label == "main" {
+                    MAIN_PAGE_READY.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
                 if label == "main" || label == "admin" {
                     // 2026-10-18:按 URL 切原生窗控按钮深浅(离线/壳占位页深底白字、
                     // 线上浅顶栏深字),在窗口点亮前完成首帧即正确。
@@ -2974,7 +3251,9 @@ pub fn run() {
                 .targets([
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::Webview),
                     tauri_plugin_log::Target::new(tauri_plugin_log::TargetKind::LogDir {
-                        file_name: Some("ihui-desktop".into()),
+                        // 2026-10-21(票 L7220 P1):文件名取 `APP_LOG_FILE_STEM` 单源 ——
+                        // 预检那一行落账写的是同一本册子,两处各写一遍字面量必然漂移。
+                        file_name: Some(APP_LOG_FILE_STEM.into()),
                     }),
                 ])
                 // G-379/G-407/G-774,2026-10-07:默认 KeepOne 在文件超限时直接
@@ -3176,12 +3455,41 @@ pub fn run() {
                     killed_stale
                 );
             }
-            let lock_wait = startup_guard::take_webview_lock_wait_ms();
-            if lock_wait > 0 {
-                log::warn!(
-                    "[desktop] 启动守护:等旧实例遗留的孤儿 WebView2 释放 EBWebView 数据目录用了 {}ms(这段时间未建窗口属预期等待)",
-                    lock_wait
-                );
+            let preflight_reading = startup_guard::take_last_reading();
+            // 2026-10-21 立(票 L7220 P1/P3):预检读数**逐条**报名,一条一行。
+            // 不拼成一行是刻意的:半启动那一型下,事后能拿到的往往只有其中几行,
+            // 拼成一行就只剩"有一行 WARN"这一条信息,量不出判据当时看到了什么。
+            match preflight_reading {
+                None => log::warn!(
+                    "[desktop] 启动守护读数:本次预检**未落账**(非 Windows 平台没有这套预检,\
+                     或 `preflight()` 未执行)⇒ 未判定,不猜"
+                ),
+                Some(r) => {
+                    log::warn!("[desktop] 启动守护读数 1/6 mutex_exists={:?}", r.mutex_exists);
+                    log::warn!("[desktop] 启动守护读数 2/6 siw_found={}", r.siw_found);
+                    log::warn!("[desktop] 启动守护读数 3/6 siw_responsive={}", r.responsive);
+                    log::warn!("[desktop] 启动守护读数 4/6 other_instances={:?}", r.other);
+                    log::warn!(
+                        "[desktop] 启动守护读数 5/6 other_has_visible={}",
+                        r.other_has_visible
+                    );
+                    log::warn!("[desktop] 启动守护读数 6/6 waited_lock_ms={}", r.waited_lock_ms);
+                    if r.waited_lock_ms > 0 {
+                        log::warn!(
+                            "[desktop] 启动守护:等旧实例遗留的孤儿 WebView2 释放 EBWebView 数据目录用了 {}ms(这段时间未建窗口属预期等待)",
+                            r.waited_lock_ms
+                        );
+                    }
+                }
+            }
+            // 2026-10-21 立(票 L7220 P3):启动健康门。必须排在 `auto_refresh::start`
+            // **与下面那条 (a) 出口的 `process::exit` 之前**(顺序由 lib.rs 测试
+            // 「健康门排在常驻循环与退出兜底之前」钉住):门判的是"这一轮界面到底会不会
+            // 出现东西",而一旦常驻循环起来了,半启动的进程就会一边探活一边占着数据目录,
+            // 下一次启动跟着撞锁 —— 越晚收口,污染面越大。
+            {
+                let gate_app = app.handle().clone();
+                std::thread::spawn(move || startup_health_gate(gate_app));
             }
 
             // G-379/G-407/G-774,2026-10-07:日志保留期。此刻日志插件自己的 setup 已跑完
@@ -3198,6 +3506,12 @@ pub fn run() {
             // 后果是任务栏/托盘多出一个既看不见界面、又没人会去关的进程,并且它会继续占住
             // 数据目录,使下一次启动同样失败 —— 用户侧表现为"杀一个还剩一个、永远退不干净"。
             // 必须挡在 auto_refresh::start 之前(它在本闭包更下方),否则循环已经起来了。
+            // ⚠️ 2026-10-21(票 L7220)如实登记这一格的射程:它判的是**窗口注册表**,而
+            // tauri 2.11 把建 webview 作为异步消息投递、立即返回 Ok,真失败只在事件循环里
+            // 写一行 ERROR,窗口仍以 `webviews: []` 注册 ⇒ 目标失效型下这条判据打不中
+            // (本机 40 次启动实测开火 0 次)。它留着是因为还能抓住"配置里就没建出 main 窗"
+            // 那一型;而异步失败那一型由上面那枚 `startup_health_gate` 后置判定(判据 =
+            // 主文档加载完成过没有),两者不互相替代。
             if app.get_webview_window("main").is_none() {
                 log::error!(
                     "[desktop] main 窗口未创建成功(最常见原因:另一实例正占住 WebView2 用户数据目录);\
@@ -3327,22 +3641,12 @@ pub fn run() {
                 should_start_hidden(startup_prefs.launch_minimized, argv_has_minimized);
             STARTUP_START_HIDDEN.store(start_hidden, std::sync::atomic::Ordering::SeqCst);
             auto_refresh::start(app.handle().clone(), !start_hidden);
-            {
-                let app_handle = app.handle().clone();
-                let start_hidden_timeout = start_hidden;
-                std::thread::spawn(move || {
-                    std::thread::sleep(std::time::Duration::from_secs(15));
-                    if start_hidden_timeout {
-                        return;
-                    }
-                    if let Some(win) = app_handle.get_webview_window("main") {
-                        if !win.is_visible().unwrap_or(true) {
-                            log::info!("[window-show] site=startup_timeout_reveal trigger=15s 硬超时页面仍未点亮 ⇒ 兜底显示(绝不黑窗)");
-                            let _ = win.show();
-                        }
-                    }
-                });
-            }
+            // 2026-10-21 撤(票 L7220 P3):这里原来是一枚"15s 硬超时仍不可见 ⇒ 盲调
+            // show()"的兜底线程。它用取可见性那个 getter(is_visible)问"亮没亮",而本票要抓的那个
+            // 失效型下 webview 列表是空的、阻塞 getter 永不返回 ⇒ 线程自己也静默(取证:
+            // 40 次启动里守卫开火 0 次,兜底也没留下任何一行)。判据已被上面那枚
+            // `startup_health_gate` 取代(排在 `auto_refresh::start` 之前),它只读原子标志;
+            // "绝不黑窗"那一语义由 `on_page_load` 的点亮支单独保住(同一次置位)。
             // 2026-08-16 修复:autostart 插件透传 --minimized(开机自启最小化到托盘),
             // 此前无任何 args 解析,开机自启会直接弹出主窗口。须在恢复窗口状态后执行。
             // 2026-09-28 立:**用户开关压过命令行参数** —— 这条反直觉,所以把理由写全:
