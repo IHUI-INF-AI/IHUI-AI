@@ -113,6 +113,16 @@ function Test-LoopbackUrl {
   return ($Url -match '://(localhost|127\.0\.0\.1|0\.0\.0\.0|::1|10\.0\.2\.2)(:|/|$)')
 }
 
+# 裸 apex 基址检测(2026-10-21 真机实测):`https://aizhs.top` 对 POST 回 301 跳 `www.aizhs.top`,
+# 而 301 会把 POST 改写成 GET ⇒ /api/auth/login 之类只注册 POST 的路由全 404(真机现象:
+# 点登录后提示 `Route GET:/api/auth/login not found`)。`www` 与 `api` 两个别名都不跳,只有裸 apex 跳。
+# 不许给旗放行:这是测出来的服务端行为,不是本地联调偏好(对照 -AllowLocalBackend 的正当例外)。
+function Test-ApexRedirectUrl {
+  param([string]$Url)
+  try { $host_ = ([uri]$Url).Host } catch { return $false }
+  return ($host_ -eq 'aizhs.top')
+}
+
 function Get-BundleText {
   param([string]$ApkPath)
   Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -162,6 +172,10 @@ if ($SelfTestApk -ne '') {
   Chk 'lan-ip-not-loopback' (-not (Test-LoopbackUrl 'http://192.168.1.7:8802'))
   Chk 'prod-domain-not-loopback' (-not (Test-LoopbackUrl 'https://aizhs.top'))
   Chk 'hostname-prefix-localhost-not-loopback' (-not (Test-LoopbackUrl 'https://localhost8802.example/'))
+  Chk 'apex-host-detected' (Test-ApexRedirectUrl 'https://aizhs.top')
+  Chk 'apex-host-with-path-detected' (Test-ApexRedirectUrl 'https://aizhs.top/api')
+  Chk 'api-subdomain-not-apex' (-not (Test-ApexRedirectUrl 'https://api.aizhs.top'))
+  Chk 'www-subdomain-not-apex' (-not (Test-ApexRedirectUrl 'https://www.aizhs.top'))
   # 取值优先级:参数 > 进程环境 > .env > config.ts 缺省。这一维错了的表现是「我传了参数却烤了别人的值」。
   $ApiBaseUrl = 'https://param.example'; $WebBaseUrl = 'https://param.example'
   $env:EXPO_PUBLIC_API_BASE_URL = 'https://env.example'; $env:EXPO_PUBLIC_WEB_URL = 'https://env.example'
@@ -330,6 +344,22 @@ if ($loop.Count -gt 0 -and -not $AllowLocalBackend) {
     "禁止的出路:删掉这一步、或把它降级成 warning —— 那等于把「装上手机才发现全不通」留给下一个人。"
   )
 }
+$apex = @()
+if (Test-ApexRedirectUrl $Backend.Api) { $apex += "API=$($Backend.Api)" }
+if (Test-ApexRedirectUrl $Backend.Web) { $apex += "WEB=$($Backend.Web)" }
+if ($apex.Count -gt 0) {
+  Write-Error ("REFUSED: release build would bake an apex host that 301-redirects to www: " + ($apex -join ', ') +
+    " | why: 301 rewrites POST into GET, so POST-only routes (/api/auth/login ...) return 404 on device." +
+    " | fix: pass -ApiBaseUrl https://api.aizhs.top (-WebBaseUrl https://www.aizhs.top).")
+  throw (
+    "拒绝产出基址为裸 apex 的 release 包:$($apex -join ', ')。" +
+    "2026-10-21 真机实测:aizhs.top 对 POST 回 301 → www.aizhs.top,301 把 POST 改写成 GET," +
+    "于是 /api/auth/login 这类只注册 POST 的路由一律 404(真机提示 `Route GET:/api/auth/login not found`)。" +
+    "正解:显式传 -ApiBaseUrl https://api.aizhs.top(或 https://www.aizhs.top/api),Web 用 https://www.aizhs.top。" +
+    "禁止的出路:加旗放行 —— 这是服务端实测行为,不是本地联调偏好。"
+  )
+}
+
 # 显式回写,让 Metro 与脚本判决读同一份值(不依赖调用方 shell 里恰好 export 过)。
 $env:EXPO_PUBLIC_API_BASE_URL = $Backend.Api
 $env:EXPO_PUBLIC_WEB_URL = $Backend.Web
@@ -341,13 +371,40 @@ if (-not (Test-Path $Gradle)) { throw "gradlew 不存在: $Gradle (请先 expo p
 
 Push-Location $AndroidDir
 try {
-  & .\gradlew.bat :app:assembleRelease $abiArg "-PversionCode=$VersionCode" --console=plain
-  if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease 失败 (exit=$LASTEXITCODE)" }
+  # 先停 daemon:打包期的 `EXPO_PUBLIC_*` 内联读的是 **gradle daemon 进程**的环境,而 daemon 复用旧环境
+  # ⇒ 本脚本刚设的值到不了打包器(2026-10-21 实测:参数是 api.aizhs.top,包里却是 env 里的 apex)。
+  # --stop 后新 daemon 继承本进程 env,回读臂仍会兜底核对。
+  & .\gradlew.bat --stop | Out-Null
+  # 逗号列表必须经 env 传:gradlew.bat 是批处理,裸 `-P...=a,b` 会被 cmd 按逗号再切一刀,
+  # 实测只装进一个 ABI(x86_64),构建照样 BUILD SUCCESSFUL、装真机才 NO_MATCHING_ABIS。
+  # ORG_GRADLE_PROJECT_* 不走命令行解析,A 与 :app 两侧同取一份。
+  $prevAbiEnv = $env:ORG_GRADLE_PROJECT_reactNativeArchitectures
+  $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = ($abiArg -replace '^-PreactNativeArchitectures=', '')
+  try {
+    & .\gradlew.bat :app:assembleRelease "-PversionCode=$VersionCode" --console=plain
+    if ($LASTEXITCODE -ne 0) { throw "gradle assembleRelease 失败 (exit=$LASTEXITCODE)" }
+  } finally {
+    $env:ORG_GRADLE_PROJECT_reactNativeArchitectures = $prevAbiEnv
+  }
 } finally { Pop-Location }
 
 $Apk = Join-Path $AndroidDir 'app/build/outputs/apk/release/app-release.apk'
 if (-not (Test-Path $Apk)) { throw "产物未找到: $Apk" }
 $SizeMB = [math]::Round((Get-Item $Apk).Length / 1MB, 1)
+
+# 产物 ABI 对账:BUILD SUCCESSFUL ≠ 目标 ABI 真在包里。2026-10-21 实测:逗号列表经 gradlew.bat(批处理)
+# 被 cmd 再切一刀 ⇒ 只打进 x86_64,arm64 真机安装报 INSTALL_FAILED_NO_MATCHING_ABIS。
+$wantAbis = if ($FullAbi) { @('armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64') } elseif ($Abi) { @($Abi -split ',') } else { @($DefaultAbi -split ',') }
+$wantAbis = @($wantAbis | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+$zipAbi = [System.IO.Compression.ZipFile]::OpenRead($Apk)
+try {
+  $presentAbis = @($zipAbi.Entries | Where-Object { $_.FullName -like 'lib/*/*.so' } | ForEach-Object { ($_.FullName -split '/')[1] } | Sort-Object -Unique)
+} finally { $zipAbi.Dispose() }
+$missingAbis = @($wantAbis | Where-Object { $presentAbis -notcontains $_ })
+Write-Host "  ABI 实装:$($presentAbis -join ',')  期望:$($wantAbis -join ',')" -ForegroundColor Gray
+if ($missingAbis.Count -gt 0) {
+  throw "APK 缺目标 ABI:$($missingAbis -join ', ') —— 构建成功但装不上对应真机。不要看 BUILD SUCCESSFUL 就交付。"
+}
 
 Write-Host "`n===== [3.5/4] 从包里回读烤进去的后端(不信任「我传了 env」) =====" -ForegroundColor Cyan
 $bundle = Get-BundleText -ApkPath $Apk
