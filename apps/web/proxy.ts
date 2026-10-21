@@ -63,13 +63,36 @@
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { verifyAccessTokenEdge } from '@/lib/auth-utils'
+import { evaluateOriginHostGuard } from '@/lib/origin-direct-host-guard'
 
 const AUTH_COOKIE = 'auth_token'
 const LOGIN_PATH = '/sso/login'
 const UNAUTHORIZED_PATH = '/admin/unauthorized'
 
+/**
+ * 鉴权射程(2026-10-21 随 matcher 全站化迁入函数内,逐字等价于旧 matcher
+ * `['/admin/:path*', '/edu/edu-management/:path*']` 的命中集,不多不少)。
+ */
+const PROTECTED_PATHS = ['/admin', '/edu/edu-management'] as const
+
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+}
+
 export async function proxy(request: NextRequest) {
+  // 源站直连守卫:只拒「Host 为裸公网 IP 字面量」;空/畸形/域名/私网一律放行。
+  // 判据与立项边界见 src/lib/origin-direct-host-guard.ts。403 响应体不携带任何内部信息。
+  const hostGuard = evaluateOriginHostGuard(request.headers.get('host'))
+  if (!hostGuard.allowed) {
+    return new NextResponse('Forbidden', { status: 403 })
+  }
+
   const { pathname, search } = request.nextUrl
+
+  // matcher 已扩为全站:非鉴权射程的请求在此原样放行(行为与旧窄 matcher 等价)
+  if (!isProtectedPath(pathname)) {
+    return NextResponse.next()
+  }
 
   // 不阻塞 /admin/unauthorized(让用户看到无权限页)
   if (pathname === UNAUTHORIZED_PATH) {
@@ -89,9 +112,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // 仅匹配 /admin/* 与 /edu/edu-management/*(教务管理,后端为 admin 权限页面),
-  // 避免匹配静态资源 / api / _next(由 Next.js 自动跳过)
-  // 2026-08-30 安全加固:matcher 扩展加入教务管理路由,未登录访问 307 跳转登录(与 /admin/* 一致)
-  matcher: ['/admin/:path*', '/edu/edu-management/:path*'],
+  // 2026-10-21 源站直连守卫要求全请求面生效(8801 已公网可达,拦截面不能只住在 /admin 下),
+  // matcher 由窄射程扩为全站;原「仅 /admin/* 与 /edu/edu-management/* 走鉴权重定向」的
+  // 射程逐字保持,由函数内 isProtectedPath 判定(命中集与旧 matcher 等价,不多不少)。
+  matcher: ['/:path*'],
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
