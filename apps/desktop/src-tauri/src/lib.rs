@@ -3083,6 +3083,24 @@ mod startup_health_gate_tests {
         assert!(e > s, "setup 块区间为空 ⇒ 取材面判定失效");
     }
 
+    /// 票 L7220 方向 (a) 的三格 = ERROR + **提示** + process::exit(ERROR 与 exit 由上面那条
+    /// 顺序锁兼看)。本锁补第三格的前半:退出之前必须先经 `auto_refresh::notify` 喊到人 ——
+    /// 进程自己知道自己退了,用户只会看到图标点了一下没反应。反证:摘掉 (a) 出口里的通知调用
+    /// ⇒ 本条红(计数 0);在 (a) 出口之前再加第二处通知 ⇒ 同样红(计数 2),射程需重裁。
+    #[test]
+    fn a出口在退出之前必须先提示用户() {
+        let (s, e) = block_after(M_SETUP).expect("setup 块取不到");
+        let setup_body = &SRC[s..e];
+        let exit_rel = setup_body.find(M_EXIT).expect("setup 内的 (a) 出口不见了");
+        let hits = setup_body[..exit_rel]
+            .matches(concat!("auto_refresh:", ":notify("))
+            .count();
+        assert_eq!(
+            hits, 1,
+            "(a) 出口之前应恰有一处通知提示(现命中 {hits} 处)—— 0 = 票面 (a) 的「提示」格被摘,>1 = 本锁射程需重裁"
+        );
+    }
+
     #[test]
     fn 兜底线程体内不得出现阻塞式窗口getter() {
         let (s, e) = block_after(M_GATE_FN).expect("健康门函数体取不到");
@@ -3516,6 +3534,14 @@ pub fn run() {
                 log::error!(
                     "[desktop] main 窗口未创建成功(最常见原因:另一实例正占住 WebView2 用户数据目录);\
                      不启动后台常驻循环,直接退出本进程。已有实例的窗口不受影响。"
+                );
+                // 票 L7220 方向 (a) 的「提示」格(2026-10-21 补):进程知道自己退了,
+                // 用户只会看到图标点了一下没反应 —— 与启动健康门同一枚通知出口喊一声再走。
+                // 必须排在 cleanup_before_exit 之前:插件清理跑完之后,通知未必还发得出去。
+                auto_refresh::notify(
+                    app.handle(),
+                    "智汇AI",
+                    "本次启动未能创建界面,已自动退出 —— 请再双击一次图标",
                 );
                 app.cleanup_before_exit();
                 std::process::exit(0);

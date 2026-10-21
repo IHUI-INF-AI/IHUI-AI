@@ -205,7 +205,7 @@ export default function WrongQuestionsScreen() {
               onPress={() => setFilter(f)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.chipText, filter === f && styles.chipTextOn]}>
+              <Text style={[styles.chipText, filter === f && styles.chipOnText]}>
                 {f === 'all'
                   ? t('wrongQuestions.filterAll')
                   : f === 'unresolved'
@@ -341,7 +341,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 2,
     },
     statLabel: { fontSize: 11, color: tokens.text.tertiary },
@@ -354,18 +354,18 @@ function makeStyles() {
       borderRadius: rnRadiusFor.chip,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     chipOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
     chipText: { fontSize: 12, color: tokens.text.secondary },
-    chipTextOn: { color: tokens.brand.ctaForeground, fontWeight: '600' },
+    chipOnText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
     listBody: { padding: 12, gap: 10, paddingBottom: 32 },
     card: {
       padding: 16,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 6,
     },
     itemHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
@@ -379,7 +379,7 @@ function makeStyles() {
     badge: {
       paddingHorizontal: 6,
       paddingVertical: 1,
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
     },
     badgeText: { fontSize: 11, color: tokens.text.tertiary },
@@ -417,7 +417,7 @@ function makeStyles() {
       gap: 10,
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     sheetTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: tokens.text.primary },

@@ -82,11 +82,8 @@ export function SelfHealingScreen() {
     setRefreshing(false)
   }, [])
 
-  const inputClass = `rounded-sm border px-3 py-2 text-sm ${
-    isDark
-      ? 'border-neutral-700 bg-neutral-800 text-neutral-100'
-      : 'border-neutral-300 bg-white text-neutral-900'
-  }`
+  const inputClass =
+    'rounded-sm border px-3 py-2 text-sm border-neutral-300 bg-white text-neutral-900 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100'
 
   const lastRun = outcome?.run_history.length
     ? outcome.run_history[outcome.run_history.length - 1]

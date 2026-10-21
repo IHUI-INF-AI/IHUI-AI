@@ -134,7 +134,7 @@ export default function PublishAnalyticsScreen() {
               onPress={() => setPeriod(p)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.chipText, period === p && styles.chipTextOn]}>
+              <Text style={[styles.chipText, period === p && styles.chipOnText]}>
                 {p === '7d'
                   ? t('publishAnalytics.period7d')
                   : p === '30d'
@@ -172,9 +172,7 @@ export default function PublishAnalyticsScreen() {
                 <Text style={styles.statLabel}>{t('publishAnalytics.successRate')}</Text>
               </View>
               <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {fmtDuration(overview?.avgDurationMs ?? 0)}
-                </Text>
+                <Text style={styles.statValue}>{fmtDuration(overview?.avgDurationMs ?? 0)}</Text>
                 <Text style={styles.statLabel}>{t('publishAnalytics.avgDuration')}</Text>
               </View>
               <View style={styles.statCard}>
@@ -193,7 +191,10 @@ export default function PublishAnalyticsScreen() {
                     <Text style={styles.barLabel}>{fmtDate(item.date)}</Text>
                     <View style={styles.track}>
                       <View
-                        style={[styles.fill, { width: `${Math.round((item.count / maxTrend) * 100)}%` }]}
+                        style={[
+                          styles.fill,
+                          { width: `${Math.round((item.count / maxTrend) * 100)}%` },
+                        ]}
                       />
                     </View>
                     <Text style={styles.barValue}>{item.count}</Text>
@@ -296,7 +297,7 @@ function makeStyles() {
     },
     chipOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
     chipText: { fontSize: 12, color: tokens.text.secondary },
-    chipTextOn: { color: tokens.brand.ctaForeground, fontWeight: '600' },
+    chipOnText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
     stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
     muted: { fontSize: 13, color: tokens.text.secondary },
     hint: { fontSize: 11, color: tokens.text.tertiary, lineHeight: 16 },
@@ -332,7 +333,12 @@ function makeStyles() {
       backgroundColor: tokens.surface.muted,
       overflow: 'hidden',
     },
-    fill: { height: 6, borderRadius: rnRadius.xs, backgroundColor: tokens.brand.DEFAULT },
+    fill: {
+      height: 6,
+      borderRadius: rnRadius.xs,
+      backgroundColor: tokens.brand.DEFAULT,
+      color: tokens.brand.foreground,
+    },
     barValue: { width: 32, textAlign: 'right', fontSize: 11, color: tokens.text.secondary },
     reasonRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
     reasonText: { flex: 1, fontSize: 12, color: tokens.text.secondary, lineHeight: 17 },

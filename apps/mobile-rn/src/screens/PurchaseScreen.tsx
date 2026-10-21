@@ -3,7 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Check, Crown, Wallet } from 'lucide-react-native'
@@ -23,7 +30,10 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type Tab = 'subscribe' | 'topup'
 type PayMethod = 'wechat' | 'alipay'
 const QUICK_AMOUNTS = [50, 100, 200, 500, 1000, 2000] as const
-const MIN_YUAN = 1, MAX_YUAN = 50000, DEFAULT_YUAN = 100, POLL_INTERVAL_MS = 3000
+const MIN_YUAN = 1,
+  MAX_YUAN = 50000,
+  DEFAULT_YUAN = 100,
+  POLL_INTERVAL_MS = 3000
 /**
  * 购买中枢 —— 对齐 web `/purchase`(订阅套餐 + 账户充值双 Tab)。
  * 订阅(apps/api/src/routes/developer-relay.ts):
@@ -335,10 +345,7 @@ export default function PurchaseScreen() {
                   activeOpacity={0.7}
                 >
                   <Text
-                    style={[
-                      styles.quickText,
-                      amountText === String(v) && styles.quickTextActive,
-                    ]}
+                    style={[styles.quickText, amountText === String(v) && styles.quickTextActive]}
                   >
                     ¥{v}
                   </Text>
@@ -355,9 +362,7 @@ export default function PurchaseScreen() {
                   onPress={() => setMethod(m)}
                   activeOpacity={0.7}
                 >
-                  <Text
-                    style={[styles.methodText, method === m && styles.methodTextActive]}
-                  >
+                  <Text style={[styles.methodText, method === m && styles.methodTextActive]}>
                     {t(m === 'wechat' ? 'purchase.wechat' : 'purchase.alipay')}
                   </Text>
                 </TouchableOpacity>
@@ -411,14 +416,29 @@ function makeStyles() {
     body: { padding: 12, gap: 10, paddingBottom: 32 },
     subtitle: { fontSize: 12, color: tokens.text.tertiary },
     tabRow: { flexDirection: 'row', gap: 8 },
-    tab: { flex: 1, height: 36, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, alignItems: 'center', justifyContent: 'center' },
+    tab: {
+      flex: 1,
+      height: 36,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     tabActive: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.brandAccent.light },
     tabText: { fontSize: 13, color: tokens.text.secondary },
     tabTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
     stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
     errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    card: { padding: 14, borderRadius: rnRadius.lg, borderWidth: 1, borderColor: tokens.border.light, backgroundColor: tokens.surface.light, gap: 6 },
+    card: {
+      padding: 14,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+      backgroundColor: tokens.surface.card,
+      gap: 6,
+    },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary },
     cardValue: { fontSize: 18, fontWeight: '700', color: tokens.text.primary },
@@ -427,24 +447,75 @@ function makeStyles() {
     featureRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     featureText: { flex: 1, fontSize: 12, color: tokens.text.secondary },
     label: { marginTop: 4, fontSize: 12, color: tokens.text.secondary },
-    input: { height: 42, paddingHorizontal: 12, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, color: tokens.text.primary, fontSize: 14, backgroundColor: tokens.surface.bg },
+    input: {
+      height: 42,
+      paddingHorizontal: 12,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      color: tokens.text.primary,
+      fontSize: 14,
+      backgroundColor: tokens.surface.bg,
+    },
     quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    quickChip: { height: 30, paddingHorizontal: 12, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, alignItems: 'center', justifyContent: 'center' },
-    quickChipActive: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.brandAccent.light },
+    quickChip: {
+      height: 30,
+      paddingHorizontal: 12,
+      borderRadius: rnRadius.md,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    quickChipActive: {
+      borderColor: tokens.brandAccent.deep,
+      backgroundColor: tokens.brandAccent.light,
+    },
     quickText: { fontSize: 12, color: tokens.text.secondary },
     quickTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
     methodRow: { flexDirection: 'row', gap: 8 },
-    methodChip: { flex: 1, height: 34, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium, alignItems: 'center', justifyContent: 'center' },
-    methodChipActive: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.brandAccent.light },
-    methodText: { fontSize: 13, color: tokens.text.secondary }, methodTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
-    noteBox: { flexDirection: 'row', gap: 6, padding: 10, borderRadius: rnRadius.sm, backgroundColor: tokens.surface.bg },
+    methodChip: {
+      flex: 1,
+      height: 34,
+      borderRadius: rnRadius.md,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    methodChipActive: {
+      borderColor: tokens.brandAccent.deep,
+      backgroundColor: tokens.brandAccent.light,
+    },
+    methodText: { fontSize: 13, color: tokens.text.secondary },
+    methodTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
+    noteBox: {
+      flexDirection: 'row',
+      gap: 6,
+      padding: 10,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.surface.bg,
+    },
     noteText: { flex: 1, fontSize: 11, lineHeight: 17, color: tokens.text.secondary },
-    payBtn: { height: 42, marginTop: 4, borderRadius: rnRadius.sm, backgroundColor: tokens.brand.cta, alignItems: 'center', justifyContent: 'center' },
-    btnDisabled: { opacity: 0.5 }, payBtnText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
+    payBtn: {
+      height: 42,
+      marginTop: 4,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnDisabled: { opacity: 0.5 },
+    payBtnText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
     qrBox: { alignItems: 'center', gap: 6, paddingVertical: 10 },
     // 二维码必须恒定亮底(跟随暗色主题会让多数扫码器识别失败),取亮色板书面白。
-    qrCanvas: { padding: 8, borderRadius: rnRadius.sm, backgroundColor: rnLightTokens.surface.light },
-    qrTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary }, paidText: { fontSize: 15, fontWeight: '600', color: tokens.success.DEFAULT },
+    qrCanvas: {
+      padding: 8,
+      borderRadius: rnRadius.sm,
+      backgroundColor: rnLightTokens.surface.light,
+    },
+    qrTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
+    paidText: { fontSize: 15, fontWeight: '600', color: tokens.success.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

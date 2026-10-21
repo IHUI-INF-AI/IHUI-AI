@@ -59,7 +59,11 @@ function fmt(iso: string | null | undefined, locale: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return new Intl.DateTimeFormat(locale, {
-    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   }).format(d)
 }
 function maskKey(key: string): string {
@@ -167,10 +171,9 @@ export default function ApiKeysScreen() {
           setDeleting(key.id)
           void (async () => {
             try {
-              const res = await fetchApi<{ ok: boolean }>(
-                `/api/developer/api-keys/${key.id}`,
-                { method: 'DELETE' },
-              )
+              const res = await fetchApi<{ ok: boolean }>(`/api/developer/api-keys/${key.id}`, {
+                method: 'DELETE',
+              })
               if (!res.success) appAlert(t('common.error'), res.error || t('apiKeys.deleteFailed'))
               else void load()
             } catch {
@@ -193,8 +196,14 @@ export default function ApiKeysScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('apiKeys.secretTitle')}</Text>
             <Text style={styles.muted}>{t('apiKeys.secretHint')}</Text>
-            <Text selectable style={styles.secret}>{secret}</Text>
-            <TouchableOpacity style={styles.button} onPress={() => setSecret(null)} activeOpacity={0.7}>
+            <Text selectable style={styles.secret}>
+              {secret}
+            </Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => setSecret(null)}
+              activeOpacity={0.7}
+            >
               <Text style={styles.buttonText}>{t('apiKeys.secretDone')}</Text>
             </TouchableOpacity>
           </View>
@@ -271,7 +280,11 @@ export default function ApiKeysScreen() {
           ) : loadError ? (
             <View style={styles.centerBox}>
               <Text style={styles.error}>{loadError}</Text>
-              <TouchableOpacity style={styles.outlineButton} onPress={() => void load()} activeOpacity={0.7}>
+              <TouchableOpacity
+                style={styles.outlineButton}
+                onPress={() => void load()}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.outlineText}>{t('apiKeys.retry')}</Text>
               </TouchableOpacity>
             </View>
@@ -300,10 +313,14 @@ export default function ApiKeysScreen() {
                       </Text>
                     </View>
                   </View>
-                  <Text selectable style={styles.mono}>{maskKey(key.key)}</Text>
+                  <Text selectable style={styles.mono}>
+                    {maskKey(key.key)}
+                  </Text>
                   <View style={styles.chips}>
                     {key.permissions.slice(0, 3).map((p) => (
-                      <Text key={p} style={styles.chip}>{p}</Text>
+                      <Text key={p} style={styles.chip}>
+                        {p}
+                      </Text>
                     ))}
                     {key.permissions.length > 3 ? (
                       <Text style={styles.chipMore}>+{key.permissions.length - 3}</Text>
@@ -347,7 +364,9 @@ export default function ApiKeysScreen() {
                           ) : (
                             u.topEndpoints.map((e) => (
                               <View key={`${e.method}-${e.path}`} style={styles.endpointRow}>
-                                <Text style={styles.monoSmall}>{e.method} {e.path}</Text>
+                                <Text style={styles.monoSmall}>
+                                  {e.method} {e.path}
+                                </Text>
                                 <Text style={styles.meta}>{e.count}</Text>
                               </View>
                             ))
@@ -370,8 +389,12 @@ function makeStyles() {
     container: { flex: 1, backgroundColor: tokens.surface.bg },
     body: { padding: 12, gap: 12, paddingBottom: 32 },
     card: {
-      padding: 16, borderRadius: rnRadius.lg, borderWidth: 1,
-      borderColor: tokens.border.light, backgroundColor: tokens.surface.light, gap: 8,
+      padding: 16,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+      backgroundColor: tokens.surface.card,
+      gap: 8,
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     cardTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
@@ -382,38 +405,62 @@ function makeStyles() {
     centerBox: { alignItems: 'center', gap: 8, paddingVertical: 16 },
     emptyTitle: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
     input: {
-      height: 42, paddingHorizontal: 12, borderRadius: rnRadius.sm, borderWidth: 1,
-      borderColor: tokens.border.medium, color: tokens.text.primary, fontSize: 15,
+      height: 42,
+      paddingHorizontal: 12,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      color: tokens.text.primary,
+      fontSize: 15,
       backgroundColor: tokens.surface.bg,
     },
     permsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     permGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
     permChip: {
-      paddingHorizontal: 8, paddingVertical: 4, borderRadius: rnRadius.sm, borderWidth: 1,
-      borderColor: tokens.border.light, backgroundColor: tokens.surface.bg,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: rnRadius.md,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+      backgroundColor: tokens.surface.bg,
     },
     permChipOn: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.brandAccent.light },
     permText: { fontSize: 11, color: tokens.text.secondary },
     permTextOn: { color: tokens.brandAccent.foreground, fontWeight: '600' },
     button: {
-      height: 44, borderRadius: rnRadius.sm, backgroundColor: tokens.brand.cta,
-      alignItems: 'center', justifyContent: 'center', marginTop: 4,
+      height: 44,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 4,
     },
     disabled: { opacity: 0.5 },
     buttonText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
     outlineButton: {
-      height: 36, paddingHorizontal: 16, borderRadius: rnRadius.sm, borderWidth: 1,
-      borderColor: tokens.border.medium, alignItems: 'center', justifyContent: 'center',
+      height: 36,
+      paddingHorizontal: 16,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     outlineText: { fontSize: 14, color: tokens.text.primary },
     keyRow: {
-      gap: 6, paddingVertical: 10, paddingHorizontal: 10,
-      borderRadius: rnRadius.sm, backgroundColor: tokens.surface.bg,
+      gap: 6,
+      paddingVertical: 10,
+      paddingHorizontal: 10,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.surface.bg,
     },
     rowHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     keyName: { flex: 1, fontSize: 15, fontWeight: '600', color: tokens.text.primary },
     badge: {
-      paddingHorizontal: 6, paddingVertical: 1, borderRadius: rnRadius.xs, borderWidth: 1,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: rnRadius.md,
+      borderWidth: 1,
     },
     badgeOn: { borderColor: tokens.success.DEFAULT },
     badgeOff: { borderColor: tokens.border.medium },
@@ -422,8 +469,13 @@ function makeStyles() {
     monoSmall: { fontFamily: 'monospace', fontSize: 11, color: tokens.text.secondary, flex: 1 },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
     chip: {
-      fontSize: 10, color: tokens.text.secondary, backgroundColor: tokens.surface.muted,
-      paddingHorizontal: 5, paddingVertical: 1, borderRadius: rnRadius.xs, overflow: 'hidden',
+      fontSize: 10,
+      color: tokens.text.secondary,
+      backgroundColor: tokens.surface.muted,
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      borderRadius: rnRadius.md,
+      overflow: 'hidden',
     },
     chipMore: { fontSize: 10, color: tokens.text.tertiary, paddingHorizontal: 4 },
     meta: { fontSize: 12, color: tokens.text.tertiary },
@@ -432,13 +484,23 @@ function makeStyles() {
     trashRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     dangerLink: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
     usageBox: {
-      marginTop: 4, padding: 10, borderRadius: rnRadius.sm, backgroundColor: tokens.surface.light,
-      borderWidth: 1, borderColor: tokens.border.light, gap: 4,
+      marginTop: 4,
+      padding: 10,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.surface.card,
+      borderWidth: 1,
+      borderColor: tokens.border.light,
+      gap: 4,
     },
     usageTitle: { fontSize: 12, fontWeight: '600', color: tokens.text.primary, marginTop: 2 },
     secret: {
-      fontFamily: 'monospace', fontSize: 13, color: tokens.text.primary, paddingVertical: 6,
-      paddingHorizontal: 8, borderRadius: rnRadius.sm, backgroundColor: tokens.surface.bg,
+      fontFamily: 'monospace',
+      fontSize: 13,
+      color: tokens.text.primary,
+      paddingVertical: 6,
+      paddingHorizontal: 8,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.surface.bg,
     },
     endpointRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   })
