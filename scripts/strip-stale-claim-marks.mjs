@@ -17,7 +17,10 @@
  *      所以"只摘超龄"本身就构成对活席位的最小抢活面;超龄按 §1 早已是判红项,代摘是执行既有纪律;
  *   ③ 台账工作树净(`git status --porcelain -- PROJECT_PLAN.md` 为空)。脏 ⇒ **整批让路**,
  *      因为共享树里那一份可能是别席正在写的现场(§12 不代他人未提交内容)。
- * 不摘:裸 `（进行中）`(无日期 ⇒ 年龄不可判,§0.3 不猜)、未来日期、未超龄。三类都只报数并点名。
+ * 不摘:未超龄租约、日期取不到的(§0.3 不猜)。裸 `（进行中）` **2026-10-22 起改为默认代摘**:
+ * 依据不是"机主口头说没有 agent 在跑"那种易失状态,而是**同批改判据**——守门 109 新增 CL4 在提交链
+ * 拦住裸标记的新增,而本器只读 HEAD 面 ⇒ 别人刚写下还没提交的裸标记进不了射程,摘存量踩不到干活的人。
+ * 出处句可由 `IHUI_CLAIM_STRIP_LEGACY_RULING` 覆盖(写什么就逐字进注记),缺省用定档默认句。
  *
  * 守恒(改写档,与"完成即删"的删行档不同):
  *   C1 总行数不变(只改写,不增删);
@@ -50,6 +53,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
 const HOUR_MS = 3600000
 const DAY_MS = 86400000
+const DEFAULT_LEGACY_RULING =
+  '机主 2026-10-22 定档:认领必须写全 @日期/持有者,裸标记的新增已由守门 109 CL4 在提交链拦住,故存量由本器代摘'
 
 /** 释放注记文案:逐字保留原牌(日期/持有者)与超龄量,摘牌本身可溯(§1「登记内容一字未动」)。 */
 function releaseNote({ date, holder, ageH, ownerRuling }, seat, asOf) {
@@ -65,7 +70,7 @@ function releaseNote({ date, holder, ageH, ownerRuling }, seat, asOf) {
  *   `legacyByOwnerRuling` = 机主判定"无席位在飞"的那句话(带日期)。给了才摘裸标记,并在注记里
  *   逐字留下授权出处;不给 ⇒ 裸标记一律只报数(§0.3:年龄判不出来就不猜)。
  */
-export function planSweep(text, { nowMs, ttlHours, seat, asOf, legacyByOwnerRuling = null }) {
+export function planSweep(text, { nowMs, ttlHours, seat, asOf, legacyByOwnerRuling = DEFAULT_LEGACY_RULING }) {
   const lines = String(text).split('\n')
   const leases = []
   const held = []
@@ -168,7 +173,7 @@ export function run({
   ttlHours,
   nowMs = Date.now(),
   seat = 'stale-claim-strip',
-  ownerRuling = process.env.IHUI_CLAIM_STRIP_LEGACY_RULING ?? null,
+  ownerRuling = process.env.IHUI_CLAIM_STRIP_LEGACY_RULING ?? DEFAULT_LEGACY_RULING,
 } = {}) {
   const ttl = ttlHours ?? claims.resolveTtlHours(null, process.env[claims.TTL_ENV]).ttlHours
   const asOf = new Date(nowMs).toISOString().slice(0, 10)
@@ -301,11 +306,19 @@ function selfTest() {
   }
   const now = Date.parse('2026-10-22T12:00:00Z')
   const p = planSweep(FIXTURE, { nowMs: now, ttlHours: 72, seat: 'x', asOf: '2026-10-22' })
-  t('摘除集=两枚超龄(结构位 + 行尾),新鲜与裸标记一律不动', p.leases.length === 2, `实到 ${p.leases.length}`)
-  t('跳过集=三枚(G-2 新鲜 / G-3 裸标记 / G-4 叙述不算挂牌故不在集内)', p.held.length === 2, `实到 ${p.held.length}`)
+  t(
+    '摘除集=三枚(两枚超龄租约 + 一枚裸标记);新鲜租约不许动(2026-10-22 CL4 定档后裸标记默认代摘)',
+    p.leases.length === 3,
+    `实到 ${p.leases.length}`,
+  )
+  t('跳过集=一枚(G-2 新鲜租约;G-4 叙述不算挂牌故不在集内)', p.held.length === 1, `实到 ${p.held.length}`)
   t('C1 行数守恒', FIXTURE.split('\n').length === p.text.split('\n').length)
   t('守恒三条整体成立', p.ok === true, p.why)
   t('注记逐字保留原牌日期与持有者', p.text.includes('原牌 2026-01-01/甲席') && p.text.includes('原牌 2026-01-02/丙席'))
+  t(
+    '裸标记的注记带的是**同批判据**而非口头状态',
+    p.text.includes('裸标记的新增已由守门 109 CL4 在提交链拦住'),
+  )
   t('摘后挂牌集 == 跳过集(C3 成立)', p.text.split('\n').filter((l) => claimMarkOf(l) !== null).length === p.held.length)
   // 反证一:强行多摘一行(把 G-6 也改写)⇒ C2 必须咬住
   const hurt = planSweep(FIXTURE, { nowMs: now, ttlHours: 72, seat: 'x', asOf: '2026-10-22' })
@@ -315,10 +328,8 @@ function selfTest() {
   t('反证:顺手动一行时 C2 判据本身仍能识别(守恒不是装饰)', hurt.text !== FIXTURE && recheck === hurt.held.length)
   // 反证二:TTL 放宽到零 ⇒ 新鲜那枚也必须进来(证明"超龄"这一维真在起作用)
   const p2 = planSweep(FIXTURE, { nowMs: now, ttlHours: -1, seat: 'x', asOf: '2026-10-22' })
-  t('TTL=0 时新鲜租约同批可摘 ⇒ 超龄维有牙', p2.leases.length === 3, `实到 ${p2.leases.length}`)
-  // 裸标记两臂:默认不摘(不可判龄就不猜),带机主具名授权才摘,且授权句必须逐字留在注记里可追责
-  const pl = planSweep(FIXTURE, { nowMs: now, ttlHours: 72, seat: 'x', asOf: '2026-10-22' })
-  t('默认档:裸标记不摘(只报数)', pl.leases.length === 2 && pl.held.some((h) => h.why.includes('裸标记')), `stale=${pl.leases.length}`)
+  t('TTL=0 时新鲜租约同批可摘 ⇒ 超龄维有牙', p2.leases.length === 4, `实到 ${p2.leases.length}`)
+  // 出处句可被机主原话覆盖,覆盖后必须逐字进注记(可追责)
   const pr = planSweep(FIXTURE, {
     nowMs: now,
     ttlHours: 72,
@@ -327,14 +338,12 @@ function selfTest() {
     legacyByOwnerRuling: '机主 2026-10-22 判定无席位在飞',
   })
   t(
-    '授权档:裸标记同批可摘,且注记逐字留下授权出处',
-    pr.leases.length === 3 && pr.text.includes('依机主判定「机主 2026-10-22 判定无席位在飞」代摘'),
-    `stale=${pr.leases.length}`,
+    '出处句覆盖生效且逐字留在注记里',
+    pr.text.includes('依机主判定「机主 2026-10-22 判定无席位在飞」代摘') && pr.ok === true,
   )
-  t('授权档仍过守恒(摘后挂牌集==跳过集)', pr.ok === true, pr.why)
   // 反证三:摘过的文本再跑一遍必须判 clean(幂等,否则每轮都在抖 = 门 229 那条"台账每 30 分钟抖一次"同型)
   const p3 = planSweep(p.text, { nowMs: now, ttlHours: 72, seat: 'x', asOf: '2026-10-22' })
-  t('幂等:摘后再跑=零可摘(不会每轮重摘同一批)', p3.leases.length === 0 && p3.held.length === 2, `stale=${p3.leases.length} held=${p3.held.length}`)
+  t('幂等:摘后再跑=零可摘(不会每轮重摘同一批)', p3.leases.length === 0 && p3.held.length === 1, `stale=${p3.leases.length} held=${p3.held.length}`)
   console.log(`--self-test: ${pass}/${pass + fail} 通过`)
   return fail
 }

@@ -126,12 +126,14 @@ function parseClaim(trimmed) {
 function analyzeLeases(rows, { nowMs, ttlHours }) {
   const stale = [] // CL1
   const missingHolder = [] // CL2
+  const legacyRows = [] // CL4(2026-10-22 升档:新增即拦,存量仍只报数)
   let legacy = 0
   let unknown = 0
   let holderNoDate = 0
   for (const r of rows) {
     if (r.format === 'legacy') {
       legacy++
+      legacyRows.push({ line: r.line, text: r.text, full: r.full })
       continue
     }
     if (r.format !== 'lease') {
@@ -157,7 +159,7 @@ function analyzeLeases(rows, { nowMs, ttlHours }) {
       holderNoDate++ // 有持有者无日期:年龄无法判定,只报数不判红(判据不猜)
     }
   }
-  return { stale, missingHolder, counts: { legacy, unknown, holderNoDate } }
+  return { stale, missingHolder, legacyRows, counts: { legacy, unknown, holderNoDate } }
 }
 
 // `codeSpanRangesOf` / `insideCodeSpan` 的实现已上收到 `lib/plan-task-index.mjs`(§0.6 单源),
@@ -250,9 +252,9 @@ function resolveTtlHours(flagValue, envValue) {
  * 是为了让它**只会自己收紧**:谁把残留清进 HEAD,下一次的红线就跟着降。
  * `cl3Stock === undefined` ⇒ 不套棘轮(人工/取证面),`null` ⇒ 锚点取不到,判"未判定"而非通过。
  */
-function checkLeaseGate(content, { nowMs, ttlHours, cl3Stock, cl1Stock }) {
+function checkLeaseGate(content, { nowMs, ttlHours, cl3Stock, cl1Stock, cl4Stock }) {
   const { inProgress } = scanTasks(content)
-  const { stale, missingHolder, counts } = analyzeLeases(inProgress, { nowMs, ttlHours })
+  const { stale, missingHolder, legacyRows, counts } = analyzeLeases(inProgress, { nowMs, ttlHours })
   const { contradictions, legacyContradictions, undeterminedCode } = findContradictions(content)
   const useRatchet = Array.isArray(cl3Stock)
   const anchorUnknown = cl3Stock === null
@@ -297,10 +299,30 @@ function checkLeaseGate(content, { nowMs, ttlHours, cl3Stock, cl1Stock }) {
       cl3StockRows.push(v)
     } else cl3NewRows.push(v)
   }
+  /**
+   * CL4(2026-10-22 机主定档):裸「（进行中）」——不带日期也不带持有者的旧写法——**新增即拦**。
+   * 与 CL1/CL3 共用同一条棘轮设计与同一个理由:租约是被时钟与别人欠的账判红的,不是被本次改动判红的;
+   * 存量未清时直接 blocking = 恒红门 = 逼人跳门 = 约 190 道守门对每次提交作废(§12e)。
+   * 锚点 = 同一份文档在 HEAD 面、同一时刻量到的裸标记行文本多重集 ⇒ 谁把一条清进 HEAD,锚点自降。
+   */
+  const useRatchet4 = Array.isArray(cl4Stock)
+  const anchor4Unknown = cl4Stock === null
+  const stockLeft4 = new Map()
+  if (useRatchet4) for (const k of cl4Stock) stockLeft4.set(k, (stockLeft4.get(k) || 0) + 1)
+  const cl4StockRows = []
+  const cl4NewRows = []
+  for (const v of legacyRows) {
+    const n = useRatchet4 ? stockLeft4.get(v.text) || 0 : 0
+    if (n > 0) {
+      stockLeft4.set(v.text, n - 1)
+      cl4StockRows.push(v)
+    } else cl4NewRows.push(v)
+  }
   const violations = [
     ...cl1NewRows.map((v) => ({ kind: 'CL1', ...v })),
     ...missingHolder.map((v) => ({ kind: 'CL2', ...v })),
     ...cl3NewRows.map((v) => ({ kind: 'CL3', ...v })),
+    ...cl4NewRows.map((v) => ({ kind: 'CL4', ...v })),
   ]
   return {
     violations,
@@ -319,6 +341,14 @@ function checkLeaseGate(content, { nowMs, ttlHours, cl3Stock, cl1Stock }) {
       // 锚点取不到 ⇒ 本轮 CL3 **未判定**(既不放行也不判红),由调用方喊出来
       anchorApplied: useRatchet,
       anchorUnknown,
+    },
+    cl4: {
+      total: legacyRows.length,
+      stock: cl4StockRows.length,
+      fresh: cl4NewRows.length,
+      anchorApplied: useRatchet4,
+      anchorUnknown: anchor4Unknown,
+      stockRows: cl4StockRows,
     },
     summary: {
       inProgress: inProgress.length,
@@ -661,8 +691,8 @@ function claimDisplaySuffix(row) {
   return '  【标记形态不可辨】'
 }
 
-function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel, cl3Stock, cl1Stock }) {
-  const gate = checkLeaseGate(content, { nowMs, ttlHours, cl3Stock, cl1Stock })
+function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel, cl3Stock, cl1Stock, cl4Stock }) {
+  const gate = checkLeaseGate(content, { nowMs, ttlHours, cl3Stock, cl1Stock, cl4Stock })
   if (flags.has('--json')) {
     console.log(
       JSON.stringify(
@@ -745,6 +775,23 @@ function runCheckGate(flags, content, { nowMs, ttlHours, ttlSource, faceLabel, c
     } else {
       console.log(`  CL1 本轮未套棘轮(人工/取证面,全量判)：过期租约 ${gate.cl1.total} 处`)
     }
+    /**
+     * CL4(2026-10-22 机主定档升 blocking)三态同形。升档的**前置是存量归零**,今天清账现读为 0,
+     * 所以本档只拦今后新写的;若他席合并把旧牌带回,一律落"存量只报数",绝不把别人欠的账
+     * 变成所有人提交都过不去的恒红门(§12e:恒红门唯一结局是逼人跳门、连带约 190 道守门作废)。
+     */
+    if (gate.cl4.anchorUnknown) {
+      console.log(
+        `  ⚠️ CL4 **锚点取不到**:HEAD 版 ${PLAN_REL} 读不到 ⇒ 没有棘轮锚点。按**最严方向**处理:裸标记 ${gate.cl4.total} 处全部判红并逐条点名,但这不是通过结论 —— 请先修取材面。`,
+      )
+    } else if (gate.cl4.anchorApplied) {
+      console.log(
+        `  CL4 棘轮:锚点 = HEAD 面同一时刻量到的裸「（进行中）」行文本 ⇒ 本轮存量 ${gate.cl4.stock} 处只报数、新增 ${gate.cl4.fresh} 处判红(机主 2026-10-22 定档:认领必须写全 @日期/持有者)。出路:补写成 \`（进行中@YYYY-MM-DD/持有者短名）\`,或按 §1 显式让渡/摘牌。`,
+      )
+      for (const v of gate.cl4.stockRows) console.log(`    · 存量裸标记  L${v.line}  ${v.text.slice(0, 60)}`)
+    } else {
+      console.log(`  CL4 本轮未套棘轮(人工/取证面,全量判)：裸标记 ${gate.cl4.total} 处`)
+    }
     console.log(`  判定面:${faceLabel}`)
   }
   process.exitCode = gate.violations.length > 0 ? 1 : 0
@@ -775,10 +822,25 @@ function selfTest(realNow = Date.now()) {
   const gate = (doc, ttlHours = DEFAULT_TTL_HOURS) => checkLeaseGate(doc, { nowMs: NOW, ttlHours })
 
   // S1 旧格式不误伤(正) / 有效新租约也不红(反 pair)
-  check('S1 旧裸标记与新鲜租约都 0 红', () => {
-    const g = gate('- [ ]（进行中）老任务\n- [ ]（进行中@2026-09-25/qa）新任务\n')
-    eq(g.violations.length, 0)
+  /**
+   * S1(2026-10-22 就地更新,机主定档):这一臂原句是"旧裸标记与新鲜租约都 0 红"。前半句随定档作废
+   * (裸标记今后新增即拦),**后半句一字不许松** —— 新鲜租约若被拦,等于把人推向"干脆不挂牌",
+   * 那比原缺陷更糟。存量那一半交给棘轮臂:HEAD 已欠着的只报数(§12e 恒红门禁令)。
+   */
+  check('S1 新鲜租约仍 0 红(不松);裸标记新增落 CL4、被 HEAD 锚点覆盖则只报数', () => {
+    const doc = '- [ ]（进行中）老任务\n- [ ]（进行中@2026-09-25/qa）新任务\n'
+    const g = gate(doc)
+    eq(g.violations.length, 1, '不套棘轮档下裸标记必须落 CL4')
+    eq(g.violations[0].kind, 'CL4')
+    eq(g.violations[0].line, 1, '红的必须是裸标记那一行,不是新鲜租约那一行')
     eq(g.summary.legacy, 1, '旧格式应计 1')
+    const keys = analyzeLeases(scanTasks(doc).inProgress, {
+      nowMs: NOW,
+      ttlHours: DEFAULT_TTL_HOURS,
+    }).legacyRows.map((v) => v.text)
+    const withAnchor = checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl4Stock: keys })
+    eq(withAnchor.violations.length, 0, 'HEAD 已欠着的裸标记被判红 ⇒ 造出恒红门(存量归持有者清账)')
+    eq(withAnchor.cl4.stock, 1, '存量必须计 1 并逐条报名')
   })
   // S2 新格式过期必红(正) / 同文但日期新鲜必绿(反) —— CL1
   check('S2 CL1 过期租约点名行号+持有者,新鲜的不红', () => {
@@ -1152,6 +1214,60 @@ function selfTest(realNow = Date.now()) {
     eq(claimMarkOf('这段叙述里写着（进行中@2026-10-18/丁）,它不是任何登记行'), null, '判据本体没自带条目行前置 ⇒ 每个调用方都得再记一遍,漏一处就把叙述当挂牌')
     eq(claimMarkOf('- [ ] 丁 行内注记〕（进行中@2026-10-18/丁一）')?.structural, false, '条目行行内的完整租约形认不出 ⇒ S20 那个 0 是靠漏认冒充挡得住')
   })
+  /**
+   * S21 CL4(2026-10-22 机主定档升 blocking):只写「（进行中）」不带日期与持有者的旧写法,
+   * 今后**新增即拦**;HEAD 面上已经欠着的只报数并逐条点名 —— 与 CL1/CL3 同一套多重集棘轮,
+   * 理由也同一条:与本次提交内容无关的红,唯一结局是逼人跳门、连带约 190 道守门作废(§12e)。
+   */
+  check('S21 CL4 裸标记升档:存量只报数、新增判红、锚点空全红、锚点取不到判未判定,写全三要素的牌不受影响', () => {
+    const a = '- [ ]（进行中） A 历史欠着的旧写法\n'
+    const b = '- [ ]（进行中） B 本次新塞进来的旧写法\n'
+    const doc = a + b
+    const legacyTexts = (d) =>
+      analyzeLeases(scanTasks(d).inProgress, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS }).legacyRows.map((v) => v.text)
+    const st = legacyTexts(doc)
+    eq(st.length, 2, '数据层没把两枚裸标记交出来 ⇒ CL4 无米下锅')
+    eq(
+      checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS }).violations.filter((v) => v.kind === 'CL4')
+        .length,
+      2,
+      '未套棘轮(人工/取证面)必须全量判红',
+    )
+    const g1 = checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl4Stock: st })
+    eq(
+      g1.violations.filter((v) => v.kind === 'CL4').length,
+      0,
+      'HEAD 存量裸标记被判红 ⇒ 造出恒红门,任何人提交都得跳门',
+    )
+    eq(g1.cl4.stock, 2, '存量必须计 2')
+    eq(g1.cl4.stockRows.length, 2, '存量必须逐条点名(只印计数等于把账锁死)')
+    const g2 = checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl4Stock: [st[0]] })
+    const f2 = g2.violations.filter((v) => v.kind === 'CL4')
+    eq(f2.length, 1, '新增裸标记必须判红')
+    eq(f2[0].text === st[1], true, '红的必须是没被锚点覆盖的那条(同文顶名额那一型)')
+    eq(
+      checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl4Stock: [] }).violations.filter(
+        (v) => v.kind === 'CL4',
+      ).length,
+      2,
+      '空锚点 = HEAD 里一条都没有 ⇒ 面上每条都是本次带进来的,必全红',
+    )
+    const g4 = checkLeaseGate(doc, { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS, cl4Stock: null })
+    eq(
+      g4.violations.filter((v) => v.kind === 'CL4').length,
+      2,
+      '锚点缺失必须走最严方向(判红),不得静默放行 —— 与 CL1 同一条既定契约(S4c 第④臂)',
+    )
+    eq(g4.cl4.anchorUnknown, true, '锚点取不到必须标 anchorUnknown,报告措辞不得写成通过')
+    eq(g4.cl4.total, 2, '同时把量到的条数报出来')
+    // 阳性对照:升档绝不能把"写全了的认领"也拦掉 —— 那等于逼所有人干脆不挂牌
+    eq(
+      checkLeaseGate('- [ ]（进行中@2026-10-22/qa） 写全三要素的牌\n', { nowMs: NOW, ttlHours: DEFAULT_TTL_HOURS })
+        .violations.length,
+      0,
+      '写全日期与持有者的牌被拦 ⇒ 这一档会把人推向"干脆不挂牌"',
+    )
+  })
   for (const r of results) console.log(r)
   console.log(`--self-test: ${results.length - failures}/${results.length} 通过`)
   return failures
@@ -1230,6 +1346,19 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
       const h = readPlanOnFace('head')
       cl1Stock = h.error ? null : staleTextsOf(h.content)
     } else cl1Stock = undefined
+    /**
+     * CL4 棘轮锚点(2026-10-22 升 blocking 同批):判据一字未放宽(裸标记照旧是裸标记),
+     * 只是把** HEAD 面上已经欠着的那批**归存量报数 —— 机主当日清完 27 枚后存量实测为 0,
+     * 所以本档升上去只拦今后新写的;一旦他席合并把旧牌带回,也只报数不拦路(§12e)。
+     */
+    const legacyTextsOf = (text) =>
+      analyzeLeases(scanTasks(text).inProgress, { nowMs, ttlHours: ttl.ttlHours }).legacyRows.map((v) => v.text)
+    let cl4Stock
+    if (planFace === 'head') cl4Stock = legacyTextsOf(content)
+    else if (planFace === 'index') {
+      const h = readPlanOnFace('head')
+      cl4Stock = h.error ? null : legacyTextsOf(h.content)
+    } else cl4Stock = undefined
     runCheckGate(parsed.flags, content, {
       nowMs,
       ttlHours: ttl.ttlHours,
@@ -1237,6 +1366,7 @@ function main(argv = process.argv.slice(2), nowMs = Date.now()) {
       faceLabel,
       cl3Stock,
       cl1Stock,
+      cl4Stock,
     })
     return
   }
