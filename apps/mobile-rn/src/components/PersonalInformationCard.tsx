@@ -31,7 +31,6 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BG_IMAGE = require('../../assets/images/common/bjcspNew.jpg')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -101,7 +100,8 @@ export function PersonalInformationCard({
   onWithdraw,
 }: PersonalInformationCardProps) {
   const hasAvatarUrl = Boolean(avatar)
-  const avatarUrl = avatar || DEFAULT_AVATAR_URL
+  // 无头像 URL 时走下方 initials 兜底(原 DEFAULT_AVATAR_URL 指向已失效的 file.aizhs.top,2026-10-21 摘除)
+  const avatarUrl = avatar ?? ''
 
   // 兼容原「分销者卡」字段:仅当调用方仍传入时,以次级信息行展示,避免信息丢失
   const hasLegacyInfo = Boolean(inviteCode || level || commissionRate !== undefined)
