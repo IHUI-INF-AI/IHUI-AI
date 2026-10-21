@@ -230,6 +230,9 @@ const progressJumpStoreState = {
 vi.mock('@/stores/progress-jump-store', () => ({
   useProgressJumpStore: (selector?: (s: typeof progressJumpStoreState) => unknown) =>
     selector ? selector(progressJumpStoreState) : progressJumpStoreState,
+  // 票60 d01bc20577:消费面改走窗格寻址 hook(返回绑定态);测试无 Provider ⇒ 与根单例同形回落
+  useProgressJumpStoreForPane: () => (selector?: (s: typeof progressJumpStoreState) => unknown) =>
+    selector ? selector(progressJumpStoreState) : progressJumpStoreState,
 }))
 
 // timeline-store mock
@@ -245,6 +248,9 @@ const timelineStoreState = {
 }
 vi.mock('@/stores/timeline-store', () => ({
   useTimelineStore: (selector?: (s: typeof timelineStoreState) => unknown) =>
+    selector ? selector(timelineStoreState) : timelineStoreState,
+  // 票60 普查批:MessageList 派生面改走窗格寻址 hook;测试无 Provider ⇒ 与根单例同形回落
+  usePaneTimelineStore: () => (selector?: (s: typeof timelineStoreState) => unknown) =>
     selector ? selector(timelineStoreState) : timelineStoreState,
 }))
 

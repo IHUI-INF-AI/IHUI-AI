@@ -362,7 +362,8 @@ export function SidebarUserRow({
   )
 
   return (
-    <div className="px-2 pb-2">
+    // 机主 2026-10-21 定档:这一格不做任何透明/玻璃效果 —— 纯色底(与侧栏同源)+ 上下对称 8px。
+    <div className="px-2 py-2 bg-background">
       {/*
         group/row:头像+昵称作为整体悬停单元
         - 2026-07-20 v3 改(根除"文字贴上按钮右侧"问题):
