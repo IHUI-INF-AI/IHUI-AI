@@ -181,6 +181,34 @@ t('M11 源脚本自身语法可解析 + 判据未被复制进门体之外的第�
 
 let pass = 0
 const fails = []
+t('M12 W5 原生表单控件的 accent-color:四档缺一即红,取不到落未判定', () => {
+  const sels = G.ACCENT_CONTROL_SELECTORS
+  const all = sels.join(',') + '{accent-color:var(--color-primary)}'
+  if (G.scanAccentColorRule(all).length !== 0) throw new Error('四类控件全钉住的 base.css 被判红')
+  for (let i = 0; i < sels.length; i++) {
+    const minus = sels.filter((_, j) => j !== i).join(',') + '{accent-color:var(--color-primary)}'
+    const hits = G.scanAccentColorRule(minus)
+    if (!hits.some((h) => h.rule === 'W5' && h.text.includes(sels[i])))
+      throw new Error(`摘掉 ${sels[i]} 一档未被点名 ⇒ 这一维的牙不是"全没钉才红"`)
+  }
+  const warm = G.scanAccentColorRule(sels.join(',') + '{accent-color:#f59e0b}')
+  if (warm.length !== sels.length || !warm.every((h) => h.rule === 'W5'))
+    throw new Error('accent-color 取暖色未逐档点名')
+  if (!G.scanAccentColorRule(null).every((h) => h.rule === 'W5-undetermined'))
+    throw new Error('base.css 取不到必须落未判定档(§0.3 不记绿也不冒红)')
+})
+
+t('M13 CSS 输入类选择器的常驻暖描边(不要求 :focus)有牙,且不误咬结果区/按钮', () => {
+  if (!css('textarea{ border-color: #f59e0b; }').some((h) => h.rule === 'W1-css-input'))
+    throw new Error('textarea 元素选择器的常驻暖描边未命中 ⇒ 只判 :focus 的那条盲区没补上')
+  if (!css('.bfc-input{ border: 1rpx solid var(--color-warning); }').some((h) => h.rule === 'W1-css-input'))
+    throw new Error('类名带 -input 的包装容器未命中')
+  if (css('.search-results{ border-color: #f59e0b; }').length !== 0)
+    throw new Error('结果区被误咬 ⇒ 选择器收得太宽(裸 search 一旦收进来就是恒红门)')
+  if (css('.member-cta-outlined{ border: 2rpx solid #ffd700; }').length !== 0)
+    throw new Error('按钮描边被误咬(2026-10-21 审计实测该型 7 处全落在卡片/按钮/色条,非输入框)')
+})
+
 for (const c of cases) {
   try {
     c.fn()
