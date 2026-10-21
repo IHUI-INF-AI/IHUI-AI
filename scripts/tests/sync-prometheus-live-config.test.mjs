@@ -53,19 +53,74 @@ test('T4 幂等:对同一份源连派两次结果逐字相同', () => {
   assert.equal(deriveLiveConfig(src, RULES_IN_REPO), deriveLiveConfig(src, RULES_IN_REPO))
 })
 
-// §22c 的硬要求:判据对象是真实文件形态时,至少一条用例的输入必须逐字取自那个真实文件。
-// 否则夹具复刻的是实现形状,测试只会替缺陷背书。
-test('T5 真仓 prometheus.yml 派生后:job 清单一条不少,规则指向仓库那份', () => {
+/**
+ * T5 派生不得增删 job,且**规则里精确引用的每个 job 都必须在抓取面内**。
+ *
+ * 为什么把硬名单换成"从规则里推":原名单写死 `['alertmanager','alertbridge','loki','promtail','grafana']`,
+ * 里面 `grafana` 那一格的前提**已经腐烂**。2026-10-21 三面现读证伪:
+ *   ① 仓源与运行副本都**没有** `job_name: grafana`(各 grep = 0);
+ *   ② 8816 `curl` = 000 拒连,`sc query IHUI-GRAFANA` 报"指定的服务未安装"(大屏 2026-10-18 退役,
+ *      唯一入口改为项目页);
+ *   ③ alerts*.yml 里没有任何一条规则引用 grafana ⇒ 它声称的"依赖该 job 的 Down 告警"不存在。
+ * 更坏的走向是照名单去补 job:抓一个不存在的端点会让 `up{job="grafana"}` 恒 0,将来谁补一条 Down
+ * 规则就秒变"永远响的告警"(本仓配置自己的注释就点过这个坑)。名单会腐烂,而"规则引用了什么"不会。
+ *
+ * 豁免也不是随手写的:唯一来源是 alerts.yml 顶部那行 `LOG_SOURCE_ANCHOR`(它登记了哪些 job 值是
+ * 日志源锚点而非抓取目标,`monitorlogs` 即属此类 —— 它被精确引用却按设计不被抓取)。
+ * 从**那行本身**读,不在这份测试里再抄一份清单(§0.6);对不上时红的是登记面。
+ */
+const jobSetOf = (t) => new Set([...t.matchAll(/job_name:\s*'?([A-Za-z0-9_-]+)'?/g)].map((m) => m[1]))
+const ruleFilesOf = (src) => {
+  // 从 `rule_files:` 抓到**下一个顶层键**为止(块内允许夹注释行 —— 派生器自己也保留它们),
+  // 再取块内所有列表项。原先按"连续条目行"匹配会被那条注释截断,只读到一份规则文件。
+  const start = src.split(/\r?\n/).findIndex((l) => /^rule_files:\s*$/.test(l))
+  if (start < 0) return []
+  const lines = src.split(/\r?\n/).slice(start + 1)
+  const end = lines.findIndex((l) => /^[^\s#-]/.test(l))
+  const block = (end < 0 ? lines : lines.slice(0, end)).join('\n')
+  return [...block.matchAll(/^\s*-\s+'([^']+)'/gm)].map((m) => m[1])
+}
+/** 纯判据:规则精确引用的 job 必须可抓;锚点行登记的例外放行。返回缺的口清单。 */
+function missingScrapedJobs({ configText, rulesTexts, anchorRule }) {
+  const jobs = jobSetOf(configText)
+  const exact = new Set()
+  for (const t of rulesTexts) for (const m of t.matchAll(/job="([A-Za-z0-9_-]+)"/g)) exact.add(m[1])
+  const exempt = new Set(anchorRule ? [...anchorRule[1].matchAll(/job=~?"([^"]+)"/g)].flatMap((x) => x[1].split('|')) : [])
+  return [...exact].filter((j) => !jobs.has(j) && !exempt.has(j)).sort()
+}
+
+test('T5 真仓形态:派生不增删 job,且规则精确引用的 job 全部可抓(锚点例外读它自己的登记行)', () => {
   const src = readFileSync(CONFIG_SRC, 'utf8')
   const out = deriveLiveConfig(src, RULES_IN_REPO)
-  const jobsOf = (t) => [...t.matchAll(/job_name:\s*'?([A-Za-z0-9_-]+)'?/g)].map((m) => m[1])
-  const before = new Set(jobsOf(src))
-  const after = new Set(jobsOf(out))
+  const before = jobSetOf(src)
+  const after = jobSetOf(out)
   assert.ok(before.size >= 10, `真实配置应有 ≥10 个 job,现读 ${before.size}`)
-  for (const j of ['alertmanager', 'alertbridge', 'loki', 'promtail', 'grafana']) {
-    assert.ok(after.has(j), `部署机副本必须带上 ${j} —— 缺它则依赖该 job 的 Down 告警恒不成立`)
-  }
   assert.deepEqual([...after].sort(), [...before].sort(), '派生不得增删 job')
+
+  const rulesDir = dirname(RULES_IN_REPO)
+  const rulesTexts = ruleFilesOf(src).map((rel) => readFileSync(join(rulesDir, ...rel.split('/')), 'utf8'))
+  assert.ok(rulesTexts.length >= 2, `rule_files 应 ≥2 份(alerts 与 alerts-ai),现读 ${rulesTexts.length} ⇒ 抽取式失灵,本条什么都没测`)
+  const anchor = rulesTexts.join('\n').match(/^#\s*LOG_SOURCE_ANCHOR:(.*)$/m)
+  assert.ok(anchor, 'alerts.yml 顶部那行 LOG_SOURCE_ANCHOR 不在位 ⇒ 例外清单失去了唯一来源,不许猜')
+  assert.deepEqual(
+    missingScrapedJobs({ configText: src, rulesTexts, anchorRule: anchor }),
+    [],
+    '有规则精确引用了抓取面里不存在的 job(该规则恒不成立 = 该响永远不响),或缺了登记',
+  )
+
+  // 阳性对照:换成"引用一个不存在的 job"的规则必须判出缺口 —— 否则上面那条深绿是恒真式。
+  const poisoned = missingScrapedJobs({
+    configText: src,
+    rulesTexts: ['expr: up{job="no-such-ihui-job"} == 0'],
+    anchorRule: anchor,
+  })
+  assert.deepEqual(poisoned, ['no-such-ihui-job'], '抽取式对真缺口不敏感 ⇒ 本测试替缺陷背书')
+  // 反证之二:锚点行登记的值必须被放行(否则 monitorlogs 那一格天天红,变恒红门)。
+  assert.deepEqual(
+    missingScrapedJobs({ configText: src, rulesTexts: ['expr: up{job="monitorlogs"} == 0'], anchorRule: anchor }),
+    [],
+    '锚点登记的例外没被放行 ⇒ 下一个改动会撞上一道与本票无关的恒红',
+  )
 })
 
 test('T6 运行副本目录不在位时如实报不可达(而不是猜一个路径去写)', () => {
@@ -98,9 +153,13 @@ const DRIVE_ANCHORED = join(parse(REPO_FROM_TEST).root, 'DevEnv')
 const OLD_DRIVE_LETTER_FORM = join(`${REPO_FROM_TEST.slice(0, 1).toUpperCase()}:\\`, 'DevEnv')
 
 test('T9 真值不变:共用出口落点与"改前自取盘符式"逐字同值', () => {
+  // 启动免疫还账(2026-10-22):改前式子对盘符首字符做 toUpperCase(),盘根锚定则原样保留启动拼写
+  // (`node d:\…` 起 ⇒ 'd:\DevEnv',`node D:\…` 起 ⇒ 'D:\DevEnv')——两式断言的是**同一盘根**,
+  // 不是同一大小写;Windows 盘符不分大小写,按首字符归一后逐字比,启动拼写不再能造出假红。
+  const upperDrive = (p) => p.charAt(0).toUpperCase() + p.slice(1)
   assert.equal(
-    OLD_DRIVE_LETTER_FORM,
-    DRIVE_ANCHORED,
+    upperDrive(OLD_DRIVE_LETTER_FORM),
+    upperDrive(DRIVE_ANCHORED),
     'oracle 前提:仓在 <盘>:/<仓名> 布局下,取盘符首字符与盘根锚定同值 —— 不成立则本用例不构成"真值不变"证明',
   )
   assert.deepEqual(__test__.CANDIDATE_LIVE_DIRS, [join(DRIVE_ANCHORED, 'monitor', 'prometheus')])
@@ -136,10 +195,18 @@ test('T11 反向锁:不得再自取盘符,必须真的 import 共用出口', () 
   assert.equal(/slice\(0, *1\)/.test(src), false, '自取盘符首字符那一份实现不得回来(否则同一件事又有两个答案)')
   assert.equal(/function\s+devEnvRoot\s*\(/.test(src), false, '本文件不得再声明私有 devEnvRoot —— 落点只许有一个出口')
   assert.match(src, /import \{ devEnvRoot \} from '\.\/seal-c-root-stray\.mjs'/, '必须真的 import 共用出口(§22c 装车证明)')
-  // 边界如实登记:共用出口不接收工作树参数(锚在它自己的模块位置),所以"两层深夹具 ⇒ 落点跟着
-  // 夹具走"这一维**未被本票关闭**;要关它得在 seal-c-root-stray 侧照 `971690247` 对 gitdir 做的事
-  // 改盘根锚定 + 夹具闸,或改用 gitdir 的 gitArchiveRootFor(语义是 <盘>/DevEnv/backups/git,不符)。
+  // 边界重判(2026-10-21,签名哨兵变红后的还账):哨兵红是因为 `7ec2b804aa2`(G-345 第④格)把
+  // 共用出口改成 `devEnvRoot(repoRoot = REPO)` —— 它开始接收工作树参数了。旧登记写"要关'两层深
+  // 夹具 ⇒ 落点跟着夹具走'这一维,需要 改盘根锚定 + 夹具闸",而那次提交恰好把这两个条件都补齐了:
+  //   ① 盘根锚定:推导问 `path.parse(repoRoot).root` 要根(对任何深度都稳定,不再向上数两级);
+  //   ② 夹具闸:`countScratchSegments(repoRoot) > 0` 当场抛错(落点绝不静默跟着夹具走)。
+  // 所以那一维**已关闭**,不再是未决登记。本票调用方仍无参调用(`devEnvRoot()`),落点锚在 seal
+  // 自己的模块位置,与改前逐字同值。哨兵现在钉的是**这段登记所依赖的条件**而不是签名本身 ——
+  // 任一条件被摘(夹具闸删了/锚定退回数两级/调用方开始传参)都会红,不让登记再次腐烂成注释化石。
   const sealSrc = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'seal-c-root-stray.mjs'), 'utf8')
-  assert.match(sealSrc, /export function devEnvRoot\(\)/, '共用出口签名已变(开始接收参数?)⇒ 上面那段边界登记需重新判定')
+  assert.match(sealSrc, /export function devEnvRoot\(repoRoot = REPO\)/, '共用出口签名又变了 ⇒ 上面那段边界登记需重新判定')
+  assert.match(sealSrc, /countScratchSegments\(repoRoot\) > 0/, '夹具闸被摘 ⇒ "落点跟着夹具走"那一维重新打开,登记需重新判定')
+  assert.match(sealSrc, /parse\(repoRoot\)\.root/, '盘根锚定退回"向上数两级" ⇒ 深层工作树会把 DevEnv 推进别人目录,登记需重新判定')
+  assert.match(src, /devEnvRoot\(\)/, '调用方开始传工作树参数 ⇒ 落点锚定随调用方走,本段"锚在 seal 模块位置"的登记失效,需重新判定')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

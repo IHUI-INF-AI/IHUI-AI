@@ -91,6 +91,7 @@ import { redactChildOutput } from './lib/secret-shape-redact.mjs'
 // 公网探测的**告警身份归一**住在尺子那侧(§0.6 单一真相源,2026-10-17 立):派发层只负责把它填进
 // dedupKey,不再自己拼含计数的身份。模块有 §22d 直跑守卫,import 不会触发采样。
 import { classifyAlertIdentity } from './check-public-path-probe.mjs'
+import { auditProdForeignWork } from './git-guardian-prod-foreign.mjs'
 
 // 纯判据层(2026-10-21 原样搬出:守门 103 C1 行数上限;实现单源在 lib/git-guardian-pure.mjs)
 import {
@@ -129,7 +130,7 @@ export {
 }
 
 // 工作树 / 真实 gitdir / 备份目录动态解析(不再硬编码 D: 盘;见 scripts/lib/gitdir.mjs 2026-09-15)
-const WORKTREE = resolveWorktree()
+export const WORKTREE = resolveWorktree()
 const GITDIR = resolveGitdir(WORKTREE)
 const BACKUP = resolveBackupDir(WORKTREE)
 const GITEE_URL = 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
@@ -340,7 +341,7 @@ export const AUTO_HEAL_LEDGER = {
     // 2026-10-21 立档时即登记(生产签出外来工作,尺子 scripts/check-prod-checkout-foreign-work.mjs)。
     mode: 'manual',
     where: 'auditProdForeignWork → check-prod-checkout-foreign-work.mjs --json(只判不修)',
-    why: '生产签出里的外来改动只有两条出路——"把活落进仓"或"确认可丢",都归人;在别人的签出上代删代提交等于覆盖他人未提交工作(§12d 零触碰),器物绝不代做',
+    why: '生产签出里的外来改动只有两条出路——"把活落进仓"或"确认可丢",都需人判;在别人的签出上代删代提交等于覆盖他人未提交工作(§12d 零触碰),器物绝不代做',
   },
 }
 
@@ -349,7 +350,7 @@ const STATUS_ONLY = process.argv.includes('--status')
 const INSTALL = process.argv.includes('--install')
 const DAEMON = process.argv.includes('--daemon')
 
-function log(msg) {
+export function log(msg) {
   const line = `[${new Date().toISOString()}] ${msg}`
   console.log(line)
   try {
@@ -2762,7 +2763,7 @@ export function checkConvergeAlignStall(opts = {}) {
 const ENV_UNDET_FILE = join(WORKTREE, '.workbuddy', 'env-drift-undetermined-first.json')
 const ENV_UNDET_HORIZON_MS = Number(process.env.IHUI_ENV_UNDET_HORIZON_MS || 30 * 60 * 1000)
 
-function notifyEnvUndetermined(name, detail, notify, logger, file = ENV_UNDET_FILE, horizonMs = ENV_UNDET_HORIZON_MS, keyPrefix = 'env-undet') {
+export function notifyEnvUndetermined(name, detail, notify, logger, file = ENV_UNDET_FILE, horizonMs = ENV_UNDET_HORIZON_MS, keyPrefix = 'env-undet') {
   const { firstMs, heldMs } = noteUndeterminedStreak(file)
   const held = alertHeldTier(firstMs)
   if (heldMs >= horizonMs) {
@@ -3047,153 +3048,10 @@ export function auditEgressIpDrift(opts = {}) {
 }
 
 /**
- * 生产签出外来工作巡检(2026-10-21 立;尺子 = scripts/check-prod-checkout-foreign-work.mjs)。
- *
- * 立因(当天 15:0x~16:1x 实测):生产服务与部署环跑**独立生产签出**(nssm IHUI-DEPLOYLOOP
- * AppDirectory/AppParameters 现读指向 `D:\DevEnv\ihui-prod` 形态),它不在任何提交链/CI 的取材面上:
- * 16:0x 实测其工作区 blob `bf7ee8ab8c...` 在 prod HEAD 与 origin 两侧都是 `4159ac393c...` ⇒ 29 行新增
- * 只活在盘上,一次 checkout 就静默蒸发;另有 11 枚 `A ` 的远端没有的新文件,一次 reset 整批蒸发。
- * 14:27/15:5x 两枚部署冻结(未提交文件与更新路径重叠挡 ff)也是同一个签出的脏态。
- *
- * 三态分流(与尺子退出码同形,互不顶掉):
- *   foreign / staged-untracked ⇒ 首轮即到人("正在丢失的边缘"),notifyGuardRed(critical)。
- *       身份 = `prod-foreign;faces=<外来路径集合>;tier=<持续档>` / `prod-staged;faces=…;tier=…`
- *       —— §5e-1:类别+面集合,不含 blob sha/时刻/原始计数(门 224 射程);跨 6h/24h/72h 档即新身份。
- *   unjudged  ⇒ notifyEnvUndetermined 持续门槛(单轮 nssm/git 抢不到不是结构性故障;
- *       连满 30 分钟 ≈ 15 趟才按"这一格瞎了"到人 —— 与 env-drift/egress 同一把量过的尺子)。
- *   duplicate ⇒ 只写日志不发信:内容已在仓里,无丢失风险;但它挡 ff 的部署冻结由 auditDeployStall
- *       那格负责,本格不重复盖一层(尺子头注同文)。
- * run/notify/logger 全可注入(§22c:镜像测试用假派发器断言"哪种结论发哪种身份",绝不真发信)。
+ * 生产签出外来工作巡检已外置至 scripts/git-guardian-prod-foreign.mjs
+ * (2026-10-21 拆分:本文件加完巡检后 6088 行 > 守门 [103] C1 上限 6000;判据语义零改动,
+ * 只换文件归属。挂点仍在本文件 main()/startDaemon() 两处 !CHECK_ONLY 分支。)
  */
-const PROD_FOREIGN_SCRIPT = join(dirname(fileURLToPath(import.meta.url)), 'check-prod-checkout-foreign-work.mjs')
-const PROD_FOREIGN_UNDET_FILE = join(WORKTREE, '.workbuddy', 'prod-foreign-work-undetermined-first.json')
-const PROD_FOREIGN_FIRST_FILE = join(WORKTREE, '.workbuddy', 'prod-foreign-work-first.json')
-const PROD_FOREIGN_UNDET_HORIZON_MS = Number(process.env.IHUI_PROD_FOREIGN_UNDET_HORIZON_MS || 30 * 60 * 1000)
-
-/** 派生那把尺子的唯一出口:只读、带超时、不带控制台窗(§5b / 守门 52·80)。 */
-function runProdForeignProbe() {
-  if (!existsSync(PROD_FOREIGN_SCRIPT)) return { missing: true, code: 2, stdout: '' }
-  try {
-    const stdout = String(
-      execFileSync(process.execPath, [PROD_FOREIGN_SCRIPT, '--json'], {
-        cwd: WORKTREE,
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 120_000, // 逐路径 hash-object + ls-tree;脏路径多时不拖垮整轮巡检
-        maxBuffer: 1 << 22,
-        stdio: ['ignore', 'pipe', 'ignore'],
-      }) || '',
-    )
-    return { code: 0, stdout }
-  } catch (e) {
-    return { code: typeof e.status === 'number' ? e.status : 2, stdout: String(e.stdout || '') }
-  }
-}
-
-/** 告警正文唯一拼装处:路径 + blob 前 12 位 + 行数差 + 人工出路(归人,器物不代删代提交)。 */
-export function prodForeignAlertDetail(parsed, kindLabel) {
-  const c = parsed.counts || {}
-  const lines = [`判定面:生产签出 ${parsed.prodRoot || '(路径未取到)'} 的工作区/索引 blob ↔ prod HEAD ↔ origin/main`, `计数:foreign=${c.foreign ?? 0} duplicate=${c.duplicate ?? 0} staged=${c.staged ?? 0} unjudged=${c.unjudged ?? 0}`]
-  for (const it of parsed.foreign || [])
-    lines.push(`[外来] ${it.path} blob=${it.blob}${it.lineDiff ? ` 行数差 +${it.lineDiff.added ?? '?'}/-${it.lineDiff.deleted ?? '?'}` : ''}`)
-  for (const it of parsed.staged || []) lines.push(`[已暂存·远端没有] ${it.path} blob=${it.blob}`)
-  for (const it of parsed.unjudged || []) lines.push(`[未判定] ${it.path} —— ${it.why}`)
-  if (parsed.why) lines.push(`[整轮未判定] ${parsed.why}`)
-  return (
-    `${kindLabel}:生产签出(独立于本仓 D:/IHUI-AI)里有不进任何仓/远端/CI 的工作,一次 checkout/reset 就静默蒸发。\n` +
-    `${lines.join('\n')}\n` +
-    '人工出路(二选一,都归人;器物绝不代删代提交):把活落进仓(在有归属的会话里提交推送),或确认可丢后由持有者自己处置。\n' +
-    '手动复核:node scripts/check-prod-checkout-foreign-work.mjs(结论行 PROBE-RESULT 恒纯 ASCII)。'
-  )
-}
-
-export function auditProdForeignWork(opts = {}) {
-  const {
-    notify = notifyGuardRed,
-    run = runProdForeignProbe,
-    logger = log,
-    now = Date.now(),
-    undetFile = PROD_FOREIGN_UNDET_FILE,
-    firstFile = PROD_FOREIGN_FIRST_FILE,
-    horizonMs = PROD_FOREIGN_UNDET_HORIZON_MS,
-  } = opts
-  const probe = run()
-  if (probe.missing) {
-    logger('⚠️ 生产签出外来工作巡检没装车:scripts/check-prod-checkout-foreign-work.mjs 不在这台机上 ⇒ 这一格当前无人看守')
-    notify(
-      '生产签出外来工作巡检没装车(尺子文件不在这台机上)',
-      'check-prod-checkout-foreign-work.mjs 不存在或被删 ⇒ 生产签出里"只活在盘上"的工作无人看守,而账面看起来"什么都没发生"。',
-      { dedupKey: 'prod-foreign;not-installed' },
-    )
-    return { state: 'not-installed' }
-  }
-  let parsed = null
-  try {
-    parsed = JSON.parse(probe.stdout)
-  } catch {
-    parsed = null
-  }
-  if (!parsed || !['clean', 'dirty', 'duplicate', 'unjudged'].includes(parsed.state)) {
-    notifyEnvUndetermined(
-      '生产签出外来工作巡检不可判定(尺子输出不是可解析 JSON 或状态越界)',
-      `派生 exit ${probe.code};stdout 前 300 字符:${String(probe.stdout || '').slice(0, 300)}\n手动:node scripts/check-prod-checkout-foreign-work.mjs`,
-      notify,
-      logger,
-      undetFile,
-      horizonMs,
-      'prod-foreign-undet',
-    )
-    return { state: 'unreadable', code: probe.code }
-  }
-  const counts = parsed.counts || {}
-  if (parsed.state === 'unjudged') {
-    logger('❓ 生产签出外来工作巡检未判定(nssm 取不到实跑路径 / 签出不可读 / git 失败),不记为通过')
-    notifyEnvUndetermined(
-      '生产签出外来工作巡检未判定(生产签出取不到或 git 失败)',
-      prodForeignAlertDetail(parsed, '未判定'),
-      notify,
-      logger,
-      undetFile,
-      horizonMs,
-      'prod-foreign-undet',
-    )
-    return { state: 'undetermined' }
-  }
-  const facesOf = (list) => (list || []).map((x) => x.path).sort().join('+') || 'na'
-  let mailed = false
-  if (Number(counts.foreign || 0) > 0) {
-    const faces = facesOf(parsed.foreign)
-    const { firstMs, heldMs } = noteUndeterminedStreak(firstFile, now, { faces })
-    const held = alertHeldTier(firstMs, now)
-    logger(`❌ 生产签出存在两侧都取不到的外来改动(foreign=${counts.foreign}):${faces}(首轮即到人,已持续 ${Math.round(heldMs / 60000)} 分钟,持续档=${held.tier})`)
-    notify('生产签出有只活在盘上的外来改动(正在丢失的边缘)', `${prodForeignAlertDetail(parsed, '外来改动')}\n已持续 ${Math.round(heldMs / 60000)} 分钟;持续档=${held.tier}(跨 6h/24h/72h 档即新身份重报)。`, {
-      severity: 'critical',
-      dedupKey: `prod-foreign;faces=${faces};tier=${held.tier}`,
-    })
-    mailed = true
-  }
-  if (Number(counts.staged || 0) > 0) {
-    const faces = facesOf(parsed.staged)
-    const { firstMs, heldMs } = noteUndeterminedStreak(firstFile, now, { faces })
-    const held = alertHeldTier(firstMs, now)
-    logger(`❌ 生产签出有"已 git add 但远端没有"的新文件(staged=${counts.staged}):${faces}(一次 reset 整批蒸发;已持续 ${Math.round(heldMs / 60000)} 分钟,持续档=${held.tier})`)
-    notify('生产签出有已暂存但远端没有的新文件(一次 reset 就整批蒸发)', `${prodForeignAlertDetail(parsed, '已暂存新文件')}\n已持续 ${Math.round(heldMs / 60000)} 分钟;持续档=${held.tier}(跨 6h/24h/72h 档即新身份重报)。`, {
-      severity: 'critical',
-      dedupKey: `prod-staged;faces=${faces};tier=${held.tier}`,
-    })
-    mailed = true
-  }
-  if (Number(counts.duplicate || 0) > 0 && !mailed) {
-    // 边界(尺子头注同文):duplicate 无丢失风险,不发信;挡 ff 的部署冻结归 auditDeployStall。
-    logger(`⚠️ 生产签出有与 HEAD/origin 同 blob 的未提交改动(duplicate=${counts.duplicate}):${facesOf(parsed.duplicates)} —— 内容已在仓里,本格不发信;挡 ff 的部署冻结由 auditDeployStall 格负责`)
-  }
-  if (mailed) clearUndeterminedStreak(undetFile)
-  if (parsed.state === 'clean') {
-    clearUndeterminedStreak(firstFile)
-    clearUndeterminedStreak(undetFile)
-  }
-  return { state: parsed.state, counts }
-}
 
 /**
  * 追加型运行日志的保留期回收(机制对标 ZCode desktop 的 logRetention:双上限 + 稳定窗 + 留痕)。
