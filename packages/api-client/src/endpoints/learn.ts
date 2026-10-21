@@ -405,18 +405,10 @@ export async function getMembers(
   return fetchApi<PageData<Member>>(`/api/members${buildQs(query)}`)
 }
 
-/** 获取会员详情 */
-export async function getMemberDetail(id: string): Promise<ApiResult<Member>> {
-  return fetchApi<Member>(`/api/members/${id}`)
-}
-
-/** 更新会员信息 */
-export async function updateMember(id: string, input: Partial<Member>): Promise<ApiResult<Member>> {
-  return fetchApi<Member>(`/api/members/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(input),
-  })
-}
+// 死调用清账(2026-10-21):getMemberDetail / updateMember 打的 GET·PUT /api/members/:id
+// 在服务端**从未注册**(全仓零路由,唯一近邻是 user/member-routes 的 /members/me),
+// 调用必 404;全仓消费方也是零。按「只留打已注册端点的函数」删除,不要看着没有再加回来 ——
+// 要恢复先在 apps/api 注册 /members/:id 并补路由测试。
 
 /** 获取会员等级列表 */
 export async function getMemberLevels(): Promise<ApiResult<MemberLevel[]>> {
