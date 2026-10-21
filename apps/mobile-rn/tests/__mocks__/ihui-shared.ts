@@ -32,7 +32,6 @@ export {
   TOKEN_STORAGE_KEY,
   REFRESH_TOKEN_STORAGE_KEY,
 } from '../../../../packages/shared/src/constants/storage-keys'
-export { DEFAULT_AVATAR_URL } from '../../../../packages/shared/src/constants/external-urls'
 
 export type ChatMessage = Record<string, unknown>
 
