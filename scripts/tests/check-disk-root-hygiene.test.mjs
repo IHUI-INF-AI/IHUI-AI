@@ -210,9 +210,16 @@ test('T10 消费侧:git-guardian 的未判定分支必须逐维报名(旧写法�
 
 test('T13 消费侧:告警去重身份用档位而不是原始计数(实测 34 封、30 分钟一封的成因)', () => {
   const g = readFileSync(join(REPO, 'scripts', 'git-guardian.mjs'), 'utf8')
-  assert.match(g, /dedupKey: `stray=\$\{tier\(c\.diskRootStray\)\};wtOutside=\$\{tier\(c\.worktreeOutside\)\}`/, '身份必须走 tier()')
+  // 2026-10-21:实现已把本地 `tier()` 收进共享的 `alertCountTier`(git-guardian.mjs:2246 导出;
+  // 同文件 1879 行注写明"同一把尺子两副面孔正是 §0.6 立的第二份必然漂移")。本门钉的是
+  // **身份走档位而不是原始计数**这个方向,不是那个函数的名字 ⇒ 跟着现役单源走。
+  assert.match(
+    g,
+    /dedupKey: `stray=\$\{alertCountTier\(c\.diskRootStray\)\};wtOutside=\$\{alertCountTier\(c\.worktreeOutside\)\}/,
+    '身份必须走档位函数(现役单源 alertCountTier)',
+  )
   assert.doesNotMatch(g, /stray=\$\{parsed\.counts\.diskRootStray\}/, '原始计数不得再进身份 —— 它在多会话并行时每轮都变,4 小时窗口形同虚设')
-  assert.match(g, /function tier\(n\)/, '档位函数在位')
+  assert.match(g, /export function alertCountTier\(n\)/, '档位函数在位(现役单源 alertCountTier)')
   assert.match(g, /禁止删除/, '信文必须写明"本信不构成删除依据"(§5b 禁删项不能被一封告警指挥去删恢复源)')
 })
 
