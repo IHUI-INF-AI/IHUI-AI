@@ -2875,7 +2875,7 @@ const checks = [
 
   {
     id: '109',
-    label: '🔒 任务认领租约对账(blocking,（进行中）必须带日期与持有者;过期未清账即红,存量裸标记只报数)',
+    label: '🔒 任务认领租约对账(blocking,CL1 过期租约/CL2 缺持有者/CL3 翻勾未摘牌/CL4 新增裸「（进行中）」;四档同用 HEAD 存量棘轮,只拦本次带进来的)',
     script: 'check-task-claims.mjs',
     args: ['--check-gate'],
     mode: 'blocking',
