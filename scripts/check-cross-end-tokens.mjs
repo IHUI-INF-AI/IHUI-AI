@@ -127,6 +127,13 @@ const FACE_TXT = {
 // ─── 映射表(每条含取值依据,rn 路径 = [常量名, ...嵌套键]) ───
 const MAPPINGS = [
   {
+    label: 'glass.bg ↔ --color-glass-bg',
+    rn: { light: ['rnLightTokens', 'glass', 'bg'], dark: ['rnDarkTokens', 'glass', 'bg'] },
+    css: { light: '--color-glass-bg', dark: '--color-glass-bg' },
+    basis:
+      '2026-10-20 立(用户实拍「底部停靠区暗色下发白、与页面底色不一致」)。glass 两档:tokens.css @theme/:root L294 亮 rgba(255,255,255,0.66) / .dark L665 暗 rgba(26,26,26,0.66);rn-tokens.ts 两表 glass.bg 此前都是手抄白值 —— 注释声称「由 sync-rn-tokens.mjs 派生」但本 MAPPINGS 从未登记,暗档白玻璃即这一漏登记。登记后派生自动改写暗表;rn-tokens.ts 的「勿手改」注释自此才属实。',
+  },
+  {
     label: 'vip.gold ↔ --color-vip-gold-start',
     rn: { light: ['rnLightTokens', 'vip', 'gold'], dark: ['rnDarkTokens', 'vip', 'gold'] },
     css: { light: '--color-vip-gold-start', dark: '--color-vip-gold-start' },
