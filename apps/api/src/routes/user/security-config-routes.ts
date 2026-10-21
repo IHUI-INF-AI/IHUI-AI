@@ -35,8 +35,13 @@ import {
  *   - IP 白名单只拦**新登录会话**，不碰换网后的续期（统一签发出口不带 request.ip，且
  *     passkey / MFA 两条腿不走它，接一层会漏腿）。闸门挂在凭据验证之后、签发之前，
  *     已在线会话不受影响 —— 这是机主定的产品语义，不是待补的坑。
- *   - agent 护栏策略进审批判定：apps/ai-service/app/core/exec_policy_decision.py 头注自述
- *     "本模块保持纯函数形态、不接线；接线点留待引入 exec-policy 上下文后由 lead 定档"。
+ *   - agent 护栏五字段**已按登录主体生效**：ai-service 侧 app/services/agent_security_prefs.py
+ *     读的就是这里写的键(进程默认 ⊕ 该 principal 的显式表态)。两处口径必须一起看：
+ *     这里的默认值(true / 'flag' / 'enforce' / true / false)与该模块的回落快照同值，
+ *     改任何一边都要同批改另一边；硬门(危险命令、路径穿越、命令注入)不吃这些开关。
+ *     另注：exec_policy_decision.py 头注自称"未接线"已过期 —— 它经
+ *     app/services/agent_engine.py 的 _unmatched_command_decision_meta 被消费(只加文案位、
+ *     不改处置)，那条自述留着会误导下一个来接的人。
  */
 
 const GROUP = USER_PREFERENCE_GROUPS.security
