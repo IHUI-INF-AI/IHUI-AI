@@ -184,7 +184,8 @@ export function decideRound({ config, state, verdicts, nowMs, apply = false }) {
               ? `已登记排除(${acked.reviewBy} 前回看):${acked.reason}`
               : ackState === 'expired'
                 ? `排除台账复核日已过(${acked.reviewBy})⇒ 豁免到期,请重新裁定是否仍不自动重启`
-                : '既无服务条目也无排除条目 ⇒ 这台没人决定过,请补登记'),
+                : '既无服务条目也无排除条目 ⇒ 这台没人决定过,请补登记') +
+            (v.problems?.length ? `|门 153 自报:${v.problems.join(' / ')}` : ''),
         })
       }
       keep(p.strikes ?? 0)
@@ -380,7 +381,13 @@ export async function main({ argv = process.argv.slice(2), deps = defaultDeps, n
   // (2026-10-21 现读:IHUI-OLLAMA STATE=STOPPED、Application 路径已不存在、11434 无应答,
   // 而到人通道一封信都没有;直接原因就是这个循环只遍历白名单)。
   for (const name of new Set([...config.services.map((s) => s.name), ...(gate.services || []).map((s) => s.name)])) {
-    verdicts[name] = verdictOf(name, byName.get(name))
+    const v = verdictOf(name, byName.get(name))
+    // 把门 153 **自己已经判出来的问题行**原样带到 verdict 上(纯透传,不在这里再量任何东西,§0.6)。
+    // 为什么必须有:`verdictOf` 给的 `why` 只有 `STATE=STOPPED` 这一句,收信人拿到信还要再去跑
+    // 一次门才知道"哦,它的 Application 指向一个已经被卸掉的 exe" —— 而那才是能整改的那一句(§5e-1)。
+    const rec = byName.get(name)
+    const problems = Array.isArray(rec?.problems) ? rec.problems.filter((p) => typeof p === 'string' && p.trim()).slice(0, 4) : []
+    verdicts[name] = problems.length ? { ...v, problems } : v
   }
   const state = readState(statePath)
   const { actions, next } = decideRound({ config, state, verdicts, nowMs: now(), apply: opts.apply })
@@ -602,6 +609,21 @@ async function selfTest() {
       !c.excludedByName.has('a / b') &&
       !c.excludedByName.has('noexpiry') &&
       c.problems.filter((p) => /^excluded/.test(p)).length === 3
+    )
+  })())
+  ok('H14 门自报的问题行必须透传到出路句里(成对:没有 problems 时不得凭空造一句)', (() => {
+    const withP = decideRound({
+      config: cfg,
+      state: empty,
+      verdicts: { Z: { verdict: 'down', why: 'STATE=STOPPED', problems: ['Application 路径不是可用文件(missing):C:/x/ollama.exe'] } },
+      nowMs: NOW,
+      apply: true,
+    })
+    const withoutP = decideRound({ config: cfg, state: empty, verdicts: { Z: { verdict: 'down', why: 'STATE=STOPPED' } }, nowMs: NOW, apply: true })
+    return (
+      /门 153 自报:Application 路径不是可用文件/.test(withP.actions[0].why) &&
+      !/门 153 自报/.test(withoutP.actions[0].why) &&
+      withoutP.actions[0].kind === 'not-in-list'
     )
   })())
   ok('V1 四态映射:不应答=silent、非 RUNNING=down、无端口/取不到=未判定(四态不得并桶)', (() => {
