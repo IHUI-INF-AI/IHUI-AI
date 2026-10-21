@@ -101,17 +101,27 @@ function main() {
   const now = Date.now()
   let youngest = Infinity
   const stale = []
+  const deleted = []
   for (const c of changes) {
+    // 删除**永不**自动收编(2026-10-22 实证):删除件没有 mtime 可判"停止呼吸",旧实现按
+    // ageMin=Infinity 直接收,于是别的席位刚暂存的 `D scripts/lib/gate-scope.mjs` 立刻被本器
+    // 当候选提交 —— 而 runner 仍 import 它,提交即等于把整条守门链打断(靠 pre-commit 崩在
+    // ERR_MODULE_NOT_FOUND 才拦住)。删除是"删错一枚就断链"的一类,交人工确认后显式声明。
+    if (/D/.test(c.xy)) {
+      deleted.push(c.path)
+      continue
+    }
     const abs = isAbsolute(c.path) ? c.path : join(ROOT, c.path)
     let ageMin
     try {
       ageMin = (now - statSync(abs).mtimeMs) / 60_000
     } catch {
-      ageMin = Infinity // 已删除的文件:无 mtime,视为早已停止呼吸
+      continue // 刚被移除/改名:状态已过期,本轮不碰
     }
     youngest = Math.min(youngest, ageMin)
     if (ageMin >= QUIET_MIN) stale.push(c.path)
   }
+  if (deleted.length) log(`跳过删除(不自动收编,请人工确认后显式声明):${deleted.join(', ')}`)
   if (stale.length === 0) return
 
   const verb = youngest === Infinity ? '全部已删除' : `最年轻 ${youngest.toFixed(1)} 分钟`
