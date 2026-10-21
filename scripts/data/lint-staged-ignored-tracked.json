@@ -1,0 +1,118 @@
+{
+  "schema": 1,
+  "ticket": "G-926",
+  "decidedAt": "2026-10-21",
+  "scopeNote": "除 .ihui-agent/archive/(已收口一族)以外,'已跟踪却被 .gitignore 覆盖'的目录性质清单。枚数/是否真会被根 lint-staged 命中/出口件是否生效,一律由 scripts/tests/lint-staged-ignored-tracked-ledger.test.mjs 现算,本文件只记机器推不出的判断事实(档位、归属、消费方证据、到期、出路)。判据出处:lint-staged lib/searchConfigs.js 只枚举 git 可见的 .lintstagedrc.json,lib/groupFilesByConfig.js 按目录前缀整体划走子树,收尾 git add 不带 -f ⇒ 声明集里含被忽略的已跟踪文件即整批废掉全部守门。 〔2026-10-21 摘 2 条〕apps/api 与 apps/mobile-rn 按各自 route 写明的出路收口(.gitignore 放 !apps/api/ecosystem.config.cjs、!apps/mobile-rn/metro.config.cjs 例外 ⇒ 离开「已跟踪却被忽略」形态);T10 清单腐烂档当场点名「不再命中任何 ignored-tracked 文件」,依 §0.7 删条目,收口动作与取证留在提交信息与台账行。 〔2026-10-21 再摘 2 条〕B 档收口:.ihui-agent/tmp 与 outputs 两条已失去命中(60 枚全部取消跟踪:现读 60 = 56 枚 plan-pointer-purge-*.md + 4 枚 outputs,票面写 58,多出 2 枚系同族机器标识变体、同一定性一并摘除;树里 0/60、盘上 41/60、gitignore 60/60),依 §0.7 删条目,收口动作与取证留在提交信息。器物侧(取消跟踪的落地器出口)由 object-space-land.mjs 的 LAND_REMOVE_PATHS 承接,镜像 10/10 + 器物 --self-test 7/7。残留登记(不藏):plan-pointer-purge.mjs 的台账落点仍写 .ihui-agent/tmp/(该工具自身已「不再入库」),防再入库靠 safe-commit 的 -f 兜底只放行已在索引路径 + 本账 T10 腐烂档逐轮复命。",
+  "tierLegend": {
+    "A": "长期合法且该保留跟踪 —— 会被根 glob 命中者配就近空转出口件;不被命中者无需出口件(该事实由测试现算并锁住)",
+    "B": "该取消跟踪(属删除类动作,须机主/主控席拍板)—— 本票只出证据,不执行",
+    "C": "性质不明,或中和手段结构性不可用 —— 不动,交主控席"
+  },
+  "entries": [
+    {
+      "dir": ".ihui-agent/archive",
+      "tier": "A",
+      "owner": "主控席",
+      "until": "2027-04-21",
+      "why": "守门 71(check-plan-line-loss.mjs)与 §1 归档协议以 archive 下 md 为'这行是被正当归档、不是被删'的依据;.gitignore 171-173 只放行 PROJECT_PLAN_*.md,同目录其余已跟踪件(AGENTS_trim-*、plan-pointer-purge-*、出口件本身)落 /.ihui-agent/archive/* 忽略面。",
+      "consumers": [
+        "scripts/check-plan-line-loss.mjs",
+        "scripts/check-plan-dup-pointer-ratchet.mjs",
+        "scripts/check-live-doc-archive-reinflation.mjs",
+        "scripts/check-agents-doc-size.mjs",
+        "scripts/check-exemption-expiry.mjs"
+      ]
+    },
+    {
+      "dir": ".ihui-agent/tmp",
+      "tier": "A",
+      "owner": "工程执行席(承 G-926)",
+      "until": "2027-04-21",
+      "why": "本账 scopeNote 于 2026-10-21 摘过这一条(当时 60 枚全部取消跟踪、不再命中);现读又命中 2 枚 —— `union-converge` 的 G-32 复清与 plan-pointer-purge 落点各写回一枚 `plan-pointer-purge-2026-10-14-694a78bf*.md`。定 A 而不定 B 的依据只有一条:门 71 的 `archivedCopy` 按**被审面 blob** 取逐字原文、不退磁盘 readdir,取消跟踪会当场削掉 `plan-pointer-purge-*.md` 这条归档豁免的依据 ⇒ 该保留跟踪。目录本身被 .gitignore 覆盖 ⇒ 对 lint-staged 的 git 枚举等于不存在,故按 .ihui-agent/archive 同族先例配就近空转出口件 `.ihui-agent/tmp/.lintstagedrc.json`(内容 `{\"*.tmp-noop\": \"node -e 0\"}`),入库须 `git add -f`(普通 add 会被忽略面挡)。⚠️ 出口件的代价必须看见才算决定:`groupFilesByConfig` 按**目录前缀整体划走子树**,所以这枚出口件会连带把 `.ihui-agent/tmp/` 下**没被忽略的已跟踪源文件**一起划出 eslint/prettier 覆盖面;本子树现读只有 plan-pointer-purge-*.md 这类台账件(零源码),面积上限由该测试的 T7b/OUTLET_LOSS_LIMIT 现算钉住 —— 将来若有人往这里落已跟踪源文件,这条 A 档要重裁(改 C 档交人,或把源文件挪出本子树)。",
+      "consumers": ["scripts/check-plan-line-loss.mjs", "scripts/plan-pointer-purge.mjs"]
+    },
+    {
+      "dir": "apps/ai-service/app/data",
+      "tier": "A",
+      "owner": "ai-service 侧",
+      "until": "2027-04-21",
+      "why": "两份 JSON 是运行时/生成链的权威输入,被 apps/ai-service/.gitignore:14 的 data/ 整目录规则顺带吞掉(该规则本意是忽略本地数据目录,不是这两枚入库源)。",
+      "consumers": [
+        "scripts/generate-command-policy-ts.mjs",
+        "scripts/gen-doc-numbers.mjs",
+        "docs/AI_SERVICE.md",
+        "apps/web/tests/visual/model-selector.spec.ts",
+        ".env.example"
+      ]
+    },
+    {
+      "dir": "apps/ai-service/app/skills/content_engine/articles",
+      "tier": "A",
+      "owner": "content_engine 侧",
+      "until": "2027-04-21",
+      "why": "该目录是 content_engine 的写作源(README:'articles/ # 源 md'),AGENTS.md 规定 publish_pipeline 自动检测同名 _csdn.md;其 archive/ 子目录三枚 0713/0714/0716.md 是 RAG 验收测试逐字回验的真实语料夹具。出口件放在父目录一枚即覆盖 archive/ 子树(groupFilesByConfig 按目录前缀划走,深者在前)。",
+      "consumers": [
+        "apps/ai-service/tests/test_rag_rrf_fusion.py",
+        "apps/ai-service/app/skills/content_engine/AGENTS.md",
+        "apps/ai-service/app/skills/content_engine/README.md"
+      ]
+    },
+    {
+      "dir": "apps/web/app/(main)/admin/saas/[slug]/backups",
+      "tier": "A",
+      "owner": "web/saas 侧",
+      "until": "2027-04-21",
+      "why": "Next.js 真实路由页面(page.tsx + PageClient.tsx),被 .gitignore:193 的 backups/ 目录规则顺带吞掉(该规则本意是忽略备份产物,不是这个页面目录)。取消跟踪 = 该路由在干净检出上直接 404。",
+      "consumers": [
+        "apps/web/app/(main)/admin/saas/_components/TenantTable.tsx",
+        "apps/web/app/(main)/admin/saas/[slug]/PageClient.tsx",
+        "apps/web/src/lib/ui-routes.generated.ts",
+        "deploy/saas/README.md"
+      ]
+    },
+    {
+      "dir": "deploy/scripts/prod-bundle",
+      "tier": "A",
+      "owner": "运维/部署侧",
+      "until": "2027-04-21",
+      "why": "守门 104(check-prod-bundle-shadow.mjs)PAIRS 表登记的 tracked↔runner 逐字节对账项:nssm 服务 ihui-alert-bridge 的运行副本 deploy/prod-bundle/alert-webhook-bridge.cjs(按设计只存在于部署机)以本目录这份为唯一入库真相源;被 .gitignore:241 的 *.cjs 全局规则吞掉。",
+      "consumers": ["scripts/check-prod-bundle-shadow.mjs", "scripts/all-checks-runner.mjs"]
+    },
+    {
+      "dir": "monitoring/alertbridge",
+      "tier": "A",
+      "owner": "监控/告警侧",
+      "until": "2027-04-21",
+      "why": "alert-webhook-bridge.cjs 是常驻生产服务(§5e 邮件单通道的 webhook 接收腿)的真相源,被 .gitignore:241 的 *.cjs 吞掉;两道守门把它当判据输入。",
+      "consumers": [
+        "scripts/check-brand-email-channel.mjs",
+        "scripts/check-grafana-metric-exists.mjs",
+        "scripts/check-prod-bundle-shadow.mjs"
+      ]
+    },
+    {
+      "dir": "docs",
+      "tier": "A",
+      "owner": "文档侧",
+      "until": "2027-04-21",
+      "why": "入库文档目录;agent-enhancement-report.html 被 .gitignore:248 的 *.html 全局规则吞掉。*.html 不在根 lint-staged 两条 glob 内 ⇒ 本目录当前零爆炸风险(该前提由测试锁住,根 glob 若纳入 html 即翻红)。",
+      "consumers": ["README.md", "docs/architecture.md"]
+    },
+    {
+      "dir": "apps/extension/entrypoints",
+      "tier": "A",
+      "owner": "extension 侧",
+      "until": "2027-04-21",
+      "why": "WXT 规定的 popup/sidepanel index.html 入口,缺失即构建失败;被 .gitignore:248 的 *.html 吞掉(同规则已有 !apps/miniapp-taro/src/index.html 例外先例)。*.html 不在根 glob 内 ⇒ 零爆炸风险。",
+      "consumers": ["apps/extension/package.json", "apps/extension/wxt.config.ts"]
+    },
+    {
+      "dir": "apps/mobile-rn/tests/__fixtures__",
+      "tier": "A",
+      "owner": "mobile-rn 侧",
+      "until": "2027-04-21",
+      "why": "session-expiry-navigation.test.ts 第 290 行按路径读 rootnavigator-parent-e0efe41cfd.txt 作父组件源夹具;被 .gitignore:285 的 __* 吞掉(该规则的 !/**/__tests__/ 例外救不到 __fixtures__)。.txt 不在根 glob 内 ⇒ 零爆炸风险。",
+      "consumers": ["apps/mobile-rn/tests/session-expiry-navigation.test.ts"]
+    }
+  ]
+}
