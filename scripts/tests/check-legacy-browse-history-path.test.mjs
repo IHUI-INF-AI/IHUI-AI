@@ -210,7 +210,10 @@ test('T5 三个写入/读取侧调用点都指向新路径(漏一处就是 404)'
   ]
   for (const [rel, expected] of sites) {
     const src = readFileSync(join(REPO_ROOT, rel), 'utf8')
-    const callRe = /(?:\bapi|\bfetchApi)(?:<[^>]*>)?\(\s*[`'"]\/api\/browse-history/g
+    // 2026-10-21:页面已迁到单源 `apiOrThrow`(ceec372e6d 起 page.tsx:39/46)⇒ 调用形态不是
+    // `api()/fetchApi()` 了。判据方向不变(仍要求"每个站点各一处、且不留旧路径"),只是把
+    // 现役的单源包装器一并认进调用形态。
+    const callRe = /(?:\bapi|\bapiOrThrow|\bfetchApi)(?:<[^>]*>)?\(\s*[`'"]\/api\/browse-history/g
     const n = (src.match(callRe) ?? []).length
     assert.equal(n, expected, `${rel}:期望 ${expected} 处 api()/fetchApi() 调用 /api/browse-history,实到 ${n}`)
     // 注释里也不许留旧路径(那会误导下一个照着注释改的人)
