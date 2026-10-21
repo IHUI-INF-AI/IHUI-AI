@@ -82,7 +82,7 @@ export const REGISTRY = [
   {
     id: 'ssrf-denied-cidrs',
     title: 'SSRF 拒发网段表',
-    list: { kind: 'js', file: 'packages/shared/src/utils/ssrf-guard.ts', name: 'DENIED_CIDRS' },
+    list: { kind: 'js', file: 'packages/shared/src/utils/ip-literal.ts', name: 'DENIED_CIDRS' },
     proofs: ['apps/cli/tests/ssrf-outbound.test.ts'],
   },
 ]
