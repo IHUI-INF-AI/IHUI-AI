@@ -2,28 +2,24 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow } from '@/lib/api'
 import type { IpReputation, BlockIpRequest, BlockIpResponse, UnblockIpResponse } from './types'
 
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
-
 export async function fetchIpReputation(ip: string): Promise<IpReputation> {
-  return api<IpReputation>(`/api/security/ip-reputation/${encodeURIComponent(ip)}`)
+  return apiOrThrow<IpReputation>(`/api/security/ip-reputation/${encodeURIComponent(ip)}`)
 }
 
 export async function blockIp(req: BlockIpRequest): Promise<BlockIpResponse> {
-  return api<BlockIpResponse>('/api/block-ip', {
+  return apiOrThrow<BlockIpResponse>('/api/block-ip', {
     method: 'POST',
     body: JSON.stringify(req),
   })
 }
 
 export async function unblockIp(ip: string): Promise<UnblockIpResponse> {
-  return api<UnblockIpResponse>(`/api/block-ip/${encodeURIComponent(ip)}`, { method: 'DELETE' })
+  return apiOrThrow<UnblockIpResponse>(`/api/block-ip/${encodeURIComponent(ip)}`, {
+    method: 'DELETE',
+  })
 }
 
 export function scoreClass(score: number): string {

@@ -12,7 +12,8 @@ import { Button } from '@ihui/ui-react'
 import { OauthAppFilter } from './OauthAppFilter'
 import { OauthAppTable } from './OauthAppTable'
 import { OauthAppCreateDialog, OauthAppDeleteDialog } from './OauthAppDialog'
-import { api, EMPTY_FORM } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { EMPTY_FORM } from './helpers'
 import type { OAuthApp, OAuthAppForm, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -25,12 +26,12 @@ export default function AdminOAuthAppsPage() {
 
   const { data: apps = [], isLoading } = useQuery({
     queryKey: ['admin', 'oauth', 'apps'],
-    queryFn: () => api<ListData>('/api/admin/oauth/apps').then((d) => d.list ?? []),
+    queryFn: () => apiOrThrow<ListData>('/api/admin/oauth/apps').then((d) => d.list ?? []),
   })
 
   const createMut = useMutation({
     mutationFn: () =>
-      api<OAuthApp>('/api/admin/oauth/apps', {
+      apiOrThrow<OAuthApp>('/api/admin/oauth/apps', {
         method: 'POST',
         body: JSON.stringify({
           name: form.name.trim(),
@@ -56,7 +57,7 @@ export default function AdminOAuthAppsPage() {
 
   const toggleMut = useMutation({
     mutationFn: (a: OAuthApp) =>
-      api(`/api/admin/oauth/apps/${a.id}/status`, {
+      apiOrThrow(`/api/admin/oauth/apps/${a.id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status: a.status === 'active' ? 'disabled' : 'active' }),
       }),
@@ -64,7 +65,7 @@ export default function AdminOAuthAppsPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/oauth/apps/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/oauth/apps/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'oauth', 'apps'] })
       setDelTarget(null)

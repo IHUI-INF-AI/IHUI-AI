@@ -13,7 +13,7 @@ import { Loader2, ArrowLeft } from 'lucide-react'
 
 import { RefundDetailInfo } from './RefundDetailInfo'
 import { RefundDetailDialog } from './RefundDetailDialog'
-import { api } from '../helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { RefundDetail } from '../types'
 
 export default function RefundDetailPage() {
@@ -32,7 +32,7 @@ export default function RefundDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'refund', 'detail', params.id],
-    queryFn: () => api<RefundDetail>(`/api/admin/refunds/${params.id}`),
+    queryFn: () => apiOrThrow<RefundDetail>(`/api/admin/refunds/${params.id}`),
     enabled: !!params.id,
   })
 
@@ -43,7 +43,7 @@ export default function RefundDetailPage() {
 
   const auditMut = useMutation({
     mutationFn: (act: 'approve' | 'reject') =>
-      api(`/api/refunds/${params.id}/audit`, {
+      apiOrThrow(`/api/refunds/${params.id}/audit`, {
         method: 'POST',
         body: JSON.stringify({ action: act, reason: reason.trim() || undefined }),
       }),
@@ -56,7 +56,7 @@ export default function RefundDetailPage() {
 
   const rejectMut = useMutation({
     mutationFn: () =>
-      api(`/api/refunds/${params.id}/reject`, {
+      apiOrThrow(`/api/refunds/${params.id}/reject`, {
         method: 'POST',
         body: JSON.stringify({ reason: reason.trim() || undefined }),
       }),

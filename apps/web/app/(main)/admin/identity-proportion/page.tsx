@@ -18,7 +18,8 @@ import { Button } from '@ihui/ui-react'
 import { IdentityProportionFilter } from './IdentityProportionFilter'
 import { IdentityProportionTable } from './IdentityProportionTable'
 import { IdentityProportionDialog } from './IdentityProportionDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, EXPORT_COLUMNS, identityProportionToForm } from './helpers'
+import { PAGE_SIZE, EMPTY_FORM, EXPORT_COLUMNS, identityProportionToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { IdentityProportion, IdentityProportionForm, ListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -40,7 +41,7 @@ export default function IdentityProportionPage() {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (searchBegin) qs.set('beginTime', searchBegin)
       if (searchEnd) qs.set('endTime', searchEnd)
-      return api<ListData>(`/api/admin/identity-proportion?${qs.toString()}`)
+      return apiOrThrow<ListData>(`/api/admin/identity-proportion?${qs.toString()}`)
     },
   })
 
@@ -57,11 +58,14 @@ export default function IdentityProportionPage() {
         status: form.status ? 1 : 0,
       }
       return editing
-        ? api(`/api/admin/identity-proportion/${editing.id}`, {
+        ? apiOrThrow(`/api/admin/identity-proportion/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/identity-proportion', { method: 'POST', body: JSON.stringify(body) })
+        : apiOrThrow('/api/admin/identity-proportion', {
+            method: 'POST',
+            body: JSON.stringify(body),
+          })
     },
     onSuccess: () => {
       toast.success(editing ? t('updateSuccess') : t('createSuccess'))
@@ -72,7 +76,8 @@ export default function IdentityProportionPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/identity-proportion/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/identity-proportion/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'identity-proportion'] })

@@ -13,7 +13,8 @@ import { Button } from '@ihui/ui-react'
 
 import { ExchangeRateTable } from './ExchangeRateTable'
 import { ExchangeRateDialog } from './ExchangeRateDialog'
-import { api, EMPTY } from './helpers'
+import { EMPTY } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { ExchangeRate } from './types'
 import { BackButton } from '@/components/common'
 
@@ -28,7 +29,7 @@ export default function ExchangeRatesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'exchange-rates', currentPage],
-    queryFn: () => api<{ list: ExchangeRate[]; total: number }>('/api/admin/exchange-rates'),
+    queryFn: () => apiOrThrow<{ list: ExchangeRate[]; total: number }>('/api/admin/exchange-rates'),
   })
 
   const saveMut = useMutation({
@@ -41,11 +42,11 @@ export default function ExchangeRatesPage() {
         status: form.status,
       }
       return editing
-        ? api<ExchangeRate>(`/api/admin/exchange-rates/${editing.id}`, {
+        ? apiOrThrow<ExchangeRate>(`/api/admin/exchange-rates/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : api<ExchangeRate>('/api/admin/exchange-rates', {
+        : apiOrThrow<ExchangeRate>('/api/admin/exchange-rates', {
             method: 'POST',
             body: JSON.stringify(body),
           })
@@ -59,7 +60,8 @@ export default function ExchangeRatesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: number) => api<void>(`/api/admin/exchange-rates/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: number) =>
+      apiOrThrow<void>(`/api/admin/exchange-rates/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'exchange-rates'] })
       toast.success(t('deleteSuccess'))

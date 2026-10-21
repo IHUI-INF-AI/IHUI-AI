@@ -16,7 +16,8 @@ import { Button } from '@ihui/ui-react'
 import { LecturerFilter } from './LecturerFilter'
 import { LecturerTable } from './LecturerTable'
 import { LecturerDialog } from './LecturerDialog'
-import { PAGE_SIZE, api, fetchLecturers, EMPTY_FORM, lecturerToForm } from './helpers'
+import { PAGE_SIZE, fetchLecturers, EMPTY_FORM, lecturerToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Lecturer, LecturerForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -56,12 +57,12 @@ export default function AdminLiveLecturersPage() {
         status: form.status ? 1 : 0,
       }
       if (editing) {
-        return api<{ lecturer: Lecturer }>(`/api/admin/live/lecturers/${editing.id}`, {
+        return apiOrThrow<{ lecturer: Lecturer }>(`/api/admin/live/lecturers/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api<{ lecturer: Lecturer }>(`/api/admin/live/lecturers`, {
+      return apiOrThrow<{ lecturer: Lecturer }>(`/api/admin/live/lecturers`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -75,7 +76,7 @@ export default function AdminLiveLecturersPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/live/lecturers/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/live/lecturers/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'live', 'lecturers'] })

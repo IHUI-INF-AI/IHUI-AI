@@ -14,7 +14,8 @@ import { Button } from '@ihui/ui-react'
 import { CompanyTypeFilter } from './CompanyTypeFilter'
 import { CompanyTypeTable } from './CompanyTypeTable'
 import { CompanyTypeDialog } from './CompanyTypeDialog'
-import { PAGE_SIZE, api, fetchCompanyTypes, EMPTY_FORM, companyTypeToForm } from './helpers'
+import { PAGE_SIZE, fetchCompanyTypes, EMPTY_FORM, companyTypeToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { CompanyType, CompanyTypeForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -40,12 +41,12 @@ export default function AdminMemberCompanyTypesPage() {
         status: form.status ? 1 : 0,
       }
       if (editing) {
-        return api<{ type: CompanyType }>(`/api/admin/members/company-types/${editing.id}`, {
+        return apiOrThrow<{ type: CompanyType }>(`/api/admin/members/company-types/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api<{ type: CompanyType }>(`/api/admin/members/company-types`, {
+      return apiOrThrow<{ type: CompanyType }>(`/api/admin/members/company-types`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -59,7 +60,8 @@ export default function AdminMemberCompanyTypesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/members/company-types/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/members/company-types/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'member', 'company-types'] })

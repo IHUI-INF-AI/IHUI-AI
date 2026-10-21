@@ -15,7 +15,8 @@ import { Button } from '@ihui/ui-react'
 import { RuleFilter } from './RuleFilter'
 import { RuleTable } from './RuleTable'
 import { RuleDialog } from './RuleDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, ruleToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE, EMPTY_FORM, ruleToForm } from './helpers'
 import type { Channel, Rule, RuleForm, RulesData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -42,7 +43,7 @@ export default function AdminPointRulesPage() {
   const { data: channelsData } = useQuery({
     queryKey: ['admin', 'point', 'channels', 'all'],
     queryFn: () =>
-      api<{ list: Channel[] }>(`/api/admin/edu-points/channels`).then((d) => d.list ?? []),
+      apiOrThrow<{ list: Channel[] }>(`/api/admin/edu-points/channels`).then((d) => d.list ?? []),
   })
   const channels = channelsData ?? []
 
@@ -51,7 +52,7 @@ export default function AdminPointRulesPage() {
     queryFn: () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (debounced) qs.set('name', debounced)
-      return api<RulesData>(`/api/admin/edu-points/rules?${qs.toString()}`)
+      return apiOrThrow<RulesData>(`/api/admin/edu-points/rules?${qs.toString()}`)
     },
   })
 
@@ -67,12 +68,12 @@ export default function AdminPointRulesPage() {
         status: form.status ? 1 : 0,
       }
       if (editing) {
-        return api<{ point: Rule }>(`/api/admin/edu-points/rules/${editing.id}`, {
+        return apiOrThrow<{ point: Rule }>(`/api/admin/edu-points/rules/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
       }
-      return api<{ point: Rule }>(`/api/admin/edu-points/rules`, {
+      return apiOrThrow<{ point: Rule }>(`/api/admin/edu-points/rules`, {
         method: 'POST',
         body: JSON.stringify(body),
       })
@@ -86,7 +87,8 @@ export default function AdminPointRulesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/edu-points/rules/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/edu-points/rules/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success(t('deleteSuccess'))
       qc.invalidateQueries({ queryKey: ['admin', 'point', 'rules'] })

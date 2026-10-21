@@ -11,7 +11,8 @@ import { useTranslations } from 'next-intl'
 import { HelpFilter } from './HelpFilter'
 import { HelpTable } from './HelpTable'
 import { HelpDialog } from './HelpDialog'
-import { api, fetchList, EMPTY_FORM, articleToForm } from './helpers'
+import { fetchList, EMPTY_FORM, articleToForm } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import { slugify } from '@/lib/content'
 import type { HelpArticle, HelpForm } from './types'
 import { BackButton } from '@/components/common'
@@ -37,11 +38,11 @@ export default function AdminHelpPage() {
         isPublished: input.isPublished,
       }
       return editing
-        ? api(`/api/admin/help/articles/${editing.id}`, {
+        ? apiOrThrow(`/api/admin/help/articles/${editing.id}`, {
             method: 'PATCH',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/help/articles', { method: 'POST', body: JSON.stringify(body) })
+        : apiOrThrow('/api/admin/help/articles', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'help'] })
@@ -49,7 +50,7 @@ export default function AdminHelpPage() {
     },
   })
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/help/articles/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/help/articles/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'help'] }),
   })
 

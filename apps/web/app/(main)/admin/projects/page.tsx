@@ -20,7 +20,8 @@ import {
 
 import { ProjectTable } from './ProjectTable'
 import { ProjectDialog } from './ProjectDialog'
-import { PAGE_SIZE, api, EMPTY_FORM, projectToForm, STATUS_KEY } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE, EMPTY_FORM, projectToForm, STATUS_KEY } from './helpers'
 import type { AdminProject, ProjectForm, PageData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -37,7 +38,7 @@ export default function AdminProjectsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'projects', page],
-    queryFn: () => api<PageData>(`/api/admin/projects?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: () => apiOrThrow<PageData>(`/api/admin/projects?page=${page}&pageSize=${PAGE_SIZE}`),
   })
 
   const saveMut = useMutation({
@@ -48,14 +49,14 @@ export default function AdminProjectsPage() {
       }
       if (editing) {
         body.status = form.status
-        return api(`/api/admin/projects/${editing.id}`, {
+        return apiOrThrow(`/api/admin/projects/${editing.id}`, {
           method: 'PATCH',
           body: JSON.stringify(body),
         })
       }
       body.userId = form.userId.trim()
       body.status = form.status
-      return api('/api/admin/projects', { method: 'POST', body: JSON.stringify(body) })
+      return apiOrThrow('/api/admin/projects', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'projects'] })
@@ -65,7 +66,7 @@ export default function AdminProjectsPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/projects/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/projects/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'projects'] })
       setDelTarget(null)

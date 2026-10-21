@@ -14,7 +14,8 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { SignupFilter } from './SignupFilter'
 import { SignupTable } from './SignupTable'
-import { PAGE_SIZE, api } from './helpers'
+import { PAGE_SIZE } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { SignupRow, SignupsData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -44,13 +45,13 @@ export default function AdminLearnSignupsPage() {
       })
       if (debounced) qs.set('search', debounced)
       if (statusFilter !== 'all') qs.set('status', statusFilter)
-      return api<SignupsData>(`/api/admin/learn/signups?${qs.toString()}`)
+      return apiOrThrow<SignupsData>(`/api/admin/learn/signups?${qs.toString()}`)
     },
   })
 
   const updateMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: number }) =>
-      api<{ signup: SignupRow }>(`/api/admin/learn/signups/${id}`, {
+      apiOrThrow<{ signup: SignupRow }>(`/api/admin/learn/signups/${id}`, {
         method: 'PUT',
         body: JSON.stringify({ status }),
       }),
