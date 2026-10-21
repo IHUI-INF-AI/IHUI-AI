@@ -279,7 +279,7 @@ export async function updateInvoiceApplicationStatus(
   const rows = await db
     .update(learnInvoiceApplications)
     .set({ status, updatedAt: new Date() })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(learnInvoiceApplications.id, id))
     .returning()
   return rows[0]
@@ -981,7 +981,7 @@ export async function setTaskStatus(id: string, status: string): Promise<LessonT
   const rows = await db
     .update(lessonTask)
     .set({ status, updatedAt: new Date() })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(lessonTask.id, id))
     .returning()
   return rows[0]
@@ -1015,6 +1015,41 @@ export async function findRateList(
     .where(and(eq(lessonRate.lessonId, lessonId), eq(lessonRate.status, 'published')))
   const total = countRows[0]?.count ?? 0
   return { list, total, page, pageSize }
+}
+
+/**
+ * 单条评价的评分 —— 三个分项(contentUtility / teacher / service)里**有值那几项**的均值。
+ * 三项都可空;一项都没有 ⇒ null(这条没有可算的评分,不是 0 分)。
+ */
+export function rateRowScore(row: {
+  contentUtilityScore: number | null
+  teacherScore: number | null
+  serviceScore: number | null
+}): number | null {
+  const scores = [row.contentUtilityScore, row.teacherScore, row.serviceScore].filter(
+    (score): score is number => typeof score === 'number',
+  )
+  if (!scores.length) return null
+  return scores.reduce((sum, score) => sum + score, 0) / scores.length
+}
+
+/**
+ * 课程评分 = 已发布评价的**逐条评分均值**(无评价 ⇒ 0)。
+ * 端内详情页要显示"评分:x.x";上一版端内只能塞常量 0(看着有、其实恒空),
+ * 这一根把它换成真实聚合值。
+ */
+export async function findLessonAverageRating(lessonId: string): Promise<number> {
+  const rows = await db
+    .select({
+      contentUtilityScore: lessonRate.contentUtilityScore,
+      teacherScore: lessonRate.teacherScore,
+      serviceScore: lessonRate.serviceScore,
+    })
+    .from(lessonRate)
+    .where(and(eq(lessonRate.lessonId, lessonId), eq(lessonRate.status, 'published')))
+  const scores = rows.map(rateRowScore).filter((score): score is number => score !== null)
+  if (!scores.length) return 0
+  return Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 10) / 10
 }
 
 export async function findRateById(id: string): Promise<LessonRate | undefined> {
@@ -1147,7 +1182,7 @@ export async function auditHomeworkRecord(
   const rows = await db
     .update(learnHomeworkRecord)
     .set({ status, updatedAt: new Date() })
-  // status-guard-exempt: 审核决定写点(approved|rejected 闭集入向),状态机合法性由服务层裁决
+    // status-guard-exempt: 审核决定写点(approved|rejected 闭集入向),状态机合法性由服务层裁决
     .where(eq(learnHomeworkRecord.id, id))
     .returning()
   return rows[0]
