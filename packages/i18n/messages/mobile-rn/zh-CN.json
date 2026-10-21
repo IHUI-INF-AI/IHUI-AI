@@ -1251,6 +1251,9 @@
     "submit": "提交问题",
     "submitting": "提交中..."
   },
+  "coursePlanet": {
+    "title": "课程星球"
+  },
   "courseResource": {
     "title": "课程资源",
     "empty": "暂无资源",
@@ -1870,6 +1873,9 @@
       "noImageHint": "该作品记录中没有图片地址，仅保留了提示词。",
       "noMore": "没有更多了"
     },
+  "imageGenHistory": {
+    "title": "生成历史"
+  },
     "imageGenTemplates": {
       "title": "提示词模板",
       "subtitle": "选择模板快速生成图片",
@@ -2508,6 +2514,9 @@
       "submitting": "发布中…",
       "submit": "发布需求"
     },
+  "businessCard": {
+    "title": "我的名片"
+  },
     "businessCardEdit": {
       "pageTitleCreate": "创建名片",
       "pageTitleEdit": "编辑名片",
@@ -2678,6 +2687,9 @@
   },
   "square": {
     "title": "AI资讯"
+  },
+  "studyIndex": {
+    "title": "AI 视频"
   },
   "studyProgress": {
     "title": "学习进度",
@@ -3715,6 +3727,9 @@
     },
     "knowledgeCards": "知识卡片",
     "knowledgePlanet": "知识星球"
+  },
+  "knowledgePlanet": {
+    "title": "知识星球"
   },
   "knowledgeRag": {
     "title": "RAG 知识库",
