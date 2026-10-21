@@ -2176,6 +2176,11 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 🔧 기타:收编停留≥3分钟的未提交改动 (0165022242)
+- ⚡ 성능:按改动性质分档(元门档 31 门)+ README 自动同步移出 pre-commit(消除 O43 窗口冲突) (c930087e84)
+- 🐞 수정:storeDir 指向已不存在的 G 盘 —— 全仓 install 恒失败(净面/主仓同因),改 D 盘 (8d81ef1995)
+
+**2026-10-22**
 - ⚡ 성능:纯内容门指纹缓存 + 快档重型门真补跑 (010e3cb1a8)
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c647b44ade)
 - 🐞 수정:自动收编器的 git helper 显式接管 stdio —— 门一零三在 HEAD 面点名该处裸奔(本机不写 stdio 稳定 EBUSY,§十二g)。上一笔只补了 windowsHide 就交,等于修一处漏一处,这次同批补全并复跑门一零三/五二/一九九 索引面各 RC=零。 (7606579655)
@@ -2224,9 +2229,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-10-21**
 - 🔧 기타:收口 README 最近更新(补 d9bb3a70bb 条目并推进增量基线) (2fbe5a2fe1)
-
-**2026-10-21**
-- 🔧 기타:收口 README 最近更新窗口与自动更新指针(H3 判据落地后) (d9bb3a70bb)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
