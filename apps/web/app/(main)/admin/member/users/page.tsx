@@ -15,7 +15,8 @@ import { UserFilter } from './UserFilter'
 import { UserTable } from './UserTable'
 import { CreateUserDialog } from './CreateUserDialog'
 import { DeleteUserDialog } from './DeleteUserDialog'
-import { PAGE_SIZE, api } from './helpers'
+import { PAGE_SIZE } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { ListData, MemberUser, CreateUserForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -52,19 +53,22 @@ export default function AdminMemberUsersPage() {
       if (debounced) qs.set('search', debounced)
       if (level !== 'all') qs.set('level', level)
       if (status !== 'all') qs.set('status', status)
-      return api<ListData>(`/api/admin/member/users?${qs.toString()}`)
+      return apiOrThrow<ListData>(`/api/admin/member/users?${qs.toString()}`)
     },
   })
 
   const patchMut = useMutation({
     mutationFn: (p: { id: string; body: { status?: number; level?: number } }) =>
-      api(`/api/admin/member/users/${p.id}`, { method: 'PATCH', body: JSON.stringify(p.body) }),
+      apiOrThrow(`/api/admin/member/users/${p.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(p.body),
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'member', 'users'] }),
   })
 
   const createMut = useMutation({
     mutationFn: (body: { nickname: string; phone?: string; email?: string; password: string }) =>
-      api('/api/admin/member/users', { method: 'POST', body: JSON.stringify(body) }),
+      apiOrThrow('/api/admin/member/users', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => {
       toast.success('用户创建成功')
       qc.invalidateQueries({ queryKey: ['admin', 'member', 'users'] })
@@ -75,7 +79,7 @@ export default function AdminMemberUsersPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/member/users/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/member/users/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('用户已删除')
       qc.invalidateQueries({ queryKey: ['admin', 'member', 'users'] })

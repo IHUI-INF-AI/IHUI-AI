@@ -12,12 +12,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 
-import {
-  ROOT_PANE_ID,
-  createPaneTree,
-  splitPane,
-  type PaneNode,
-} from '@ihui/shared/chat/multi-pane'
+import { ROOT_PANE_ID, createPaneTree, splitPane, type PaneNode } from '@ihui/shared/chat/multi-pane'
 import { removedPaneIds, useChatPaneSync } from '@/hooks/use-chat-pane-sync'
 import {
   chatPaneStoreCount,
@@ -44,9 +39,10 @@ describe('removedPaneIds 纯 diff', () => {
 describe('useChatPaneSync 生命周期对齐', () => {
   it('拆分(树叶增加)不回收既有实例', () => {
     const root = createPaneTree(null, ROOT_PANE_ID)
-    const { rerender } = renderHook<void, { tree: PaneNode }>(({ tree }) => useChatPaneSync(tree), {
-      initialProps: { tree: root },
-    })
+    const { rerender } = renderHook<void, { tree: PaneNode }>(
+      ({ tree }) => useChatPaneSync(tree),
+      { initialProps: { tree: root } },
+    )
     // 叶子被消费侧懒建后(paneId = leaf.id),拆分不回收它
     getChatStoreForPane(ROOT_PANE_ID)
     const split = splitPane(root, ROOT_PANE_ID, 'right', null, 'pane-2')

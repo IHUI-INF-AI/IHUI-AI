@@ -20,7 +20,8 @@ import {
   Timeline,
   type TimelineItem,
 } from '@/components/data'
-import { api, textareaClass } from '../helpers'
+import { textareaClass } from '../helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { ListData } from '../types'
 
 const STATUS_VARIANT: Record<string, 'default' | 'success' | 'warning' | 'danger'> = {
@@ -50,7 +51,9 @@ export default function DemandAuditDetailPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin', 'demand-audit', 'detail', params.id],
     queryFn: () =>
-      api<ListData>(`/api/admin/examine?${new URLSearchParams({ page: '1', pageSize: '100' })}`),
+      apiOrThrow<ListData>(
+        `/api/admin/examine?${new URLSearchParams({ page: '1', pageSize: '100' })}`,
+      ),
     enabled: !!params.id,
   })
   const row = data?.list?.find((r) => r.id === params.id) ?? null
@@ -64,7 +67,7 @@ export default function DemandAuditDetailPage() {
         action === 'pass'
           ? `/api/admin/examine/${row.id}/pass`
           : `/api/admin/examine/${row.id}/reject`
-      return api(url, {
+      return apiOrThrow(url, {
         method: 'PUT',
         ...(action === 'reject' && {
           headers: { 'Content-Type': 'application/json' },

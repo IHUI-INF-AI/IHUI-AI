@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { AlertFilter } from './AlertFilter'
 import { AlertTable } from './AlertTable'
 import { AlertRules } from './AlertDialog'
-import { api } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import type { Alert, AlertRule } from './types'
 import { BackButton } from '@/components/common'
 
@@ -27,7 +27,7 @@ export default function AdminMonitorAlertsPage() {
       const qs = new URLSearchParams()
       if (level !== 'all') qs.set('level', level)
       if (status !== 'all') qs.set('status', status)
-      return api<{ list: Alert[] }>(`/api/admin/monitor/alerts?${qs.toString()}`).then(
+      return apiOrThrow<{ list: Alert[] }>(`/api/admin/monitor/alerts?${qs.toString()}`).then(
         (d) => d.list ?? [],
       )
     },
@@ -36,15 +36,17 @@ export default function AdminMonitorAlertsPage() {
   const { data: rules = [] } = useQuery({
     queryKey: ['admin', 'monitor', 'alert-rules'],
     queryFn: () =>
-      api<{ list: AlertRule[] }>('/api/admin/monitor/alert-rules').then((d) => d.list ?? []),
+      apiOrThrow<{ list: AlertRule[] }>('/api/admin/monitor/alert-rules').then((d) => d.list ?? []),
   })
 
   const ackMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/monitor/alerts/${id}/ack`, { method: 'POST' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/monitor/alerts/${id}/ack`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'monitor', 'alerts'] }),
   })
   const resolveMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/monitor/alerts/${id}/resolve`, { method: 'POST' }),
+    mutationFn: (id: string) =>
+      apiOrThrow(`/api/admin/monitor/alerts/${id}/resolve`, { method: 'POST' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'monitor', 'alerts'] }),
   })
 

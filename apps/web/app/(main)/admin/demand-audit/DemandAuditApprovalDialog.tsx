@@ -19,7 +19,8 @@ import {
   DialogTitle,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { useChatWs, AGENT_INFO, textareaClass, api } from './helpers'
+import { useChatWs, AGENT_INFO, textareaClass } from './helpers'
+import { apiOrThrow } from '@/lib/api'
 import { useApprovalMachine } from '@/lib/workflows'
 import type { DemandRow, ChatMsg } from './types'
 
@@ -63,7 +64,7 @@ export function DemandAuditApprovalDialog({ open, row, onClose }: DemandAuditApp
 
   const approveMut = useMutation({
     mutationFn: (action: 'pass' | 'reject') =>
-      api(`/api/admin/examine/${row?.id}/${action}`, {
+      apiOrThrow(`/api/admin/examine/${row?.id}/${action}`, {
         method: 'PUT',
         body: JSON.stringify(action === 'pass' ? {} : { reason: remark }),
       }),

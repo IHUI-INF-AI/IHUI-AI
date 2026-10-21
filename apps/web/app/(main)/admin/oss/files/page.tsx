@@ -19,7 +19,8 @@ import { Button } from '@ihui/ui-react'
 import { OssFileFilter } from './OssFileFilter'
 import { OssFileTable } from './OssFileTable'
 import { OssFileDialog } from './OssFileDialog'
-import { PAGE_SIZE, api, EXPORT_COLUMNS } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE, EXPORT_COLUMNS } from './helpers'
 import type { OssFile, FileListData } from './types'
 import { BackButton } from '@/components/common'
 
@@ -47,7 +48,7 @@ export default function AdminOssFilesPage() {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (debounced) qs.set('fileName', debounced)
       if (uploadDate) qs.set('uploadDate', uploadDate)
-      return api<FileListData>(`/api/admin/oss/files?${qs.toString()}`)
+      return apiOrThrow<FileListData>(`/api/admin/oss/files?${qs.toString()}`)
     },
   })
 
@@ -56,7 +57,7 @@ export default function AdminOssFilesPage() {
       for (const file of files) {
         const fd = new FormData()
         fd.append('file', file)
-        await api<OssFile>('/api/admin/oss/files', { method: 'POST', body: fd })
+        await apiOrThrow<OssFile>('/api/admin/oss/files', { method: 'POST', body: fd })
       }
     },
     onSuccess: () => {
@@ -67,7 +68,7 @@ export default function AdminOssFilesPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/oss/files/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => apiOrThrow(`/api/admin/oss/files/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'oss', 'files'] })

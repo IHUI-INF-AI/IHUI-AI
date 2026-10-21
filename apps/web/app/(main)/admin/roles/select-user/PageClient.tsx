@@ -15,7 +15,8 @@ import { HasPermi } from '@/components/auth/HasPermi'
 
 import { SelectUserFilter } from './SelectUserFilter'
 import { SelectUserTable } from './SelectUserTable'
-import { PAGE_SIZE, api } from './helpers'
+import { apiOrThrow } from '@/lib/api'
+import { PAGE_SIZE } from './helpers'
 import type { ListResp, SearchState } from './types'
 
 export default function SelectUserPage() {
@@ -40,7 +41,7 @@ export default function SelectUserPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'role-select-users', params],
-    queryFn: () => api<ListResp>(`/api/admin/roles/${roleId}/unallocated-users?${params}`),
+    queryFn: () => apiOrThrow<ListResp>(`/api/admin/roles/${roleId}/unallocated-users?${params}`),
     enabled: !!roleId,
   })
   const list = data?.list ?? []
@@ -49,7 +50,7 @@ export default function SelectUserPage() {
 
   const authMut = useMutation({
     mutationFn: (userIds: string[]) =>
-      api(`/api/admin/roles/${roleId}/users`, {
+      apiOrThrow(`/api/admin/roles/${roleId}/users`, {
         method: 'POST',
         body: JSON.stringify({ userIds }),
       }),

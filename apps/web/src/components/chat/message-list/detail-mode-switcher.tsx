@@ -7,7 +7,7 @@
 import { useTranslations } from 'next-intl'
 import {
   CONVERSATION_DETAIL_MODES,
-  useConversationDetailModeStore,
+  usePaneConversationDetailModeStore,
   type ConversationDetailMode,
 } from '@/stores/conversation-detail-mode'
 
@@ -24,8 +24,10 @@ const MODE_LABEL_KEYS: Record<ConversationDetailMode, string> = {
  */
 export function DetailModeSwitcher() {
   const t = useTranslations('conversationDetailMode')
-  const mode = useConversationDetailModeStore((s) => s.mode)
-  const setMode = useConversationDetailModeStore((s) => s.setMode)
+  // 票60 普查批:按窗格寻址 —— 切换落在本窗格实例,Provider 外回落根单例(零回归)。
+  const detailStore = usePaneConversationDetailModeStore()
+  const mode = detailStore((s) => s.mode)
+  const setMode = detailStore((s) => s.setMode)
   return (
     <div className="flex justify-center pb-1" data-testid="detail-mode-switcher">
       <div
