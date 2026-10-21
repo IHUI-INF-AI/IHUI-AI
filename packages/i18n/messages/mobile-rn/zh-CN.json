@@ -2607,6 +2607,12 @@
       "openWithdraw": "申请提现"
     },
   "securityCenter": {
+    "ipTitle": "IP 白名单",
+    "ipPlaceholder": "请输入 IP 地址",
+    "ipEmpty": "暂未设置 IP 白名单",
+    "ipAdd": "添加",
+    "ipInvalid": "请输入有效的 IP 地址",
+    "ipHint": "仅拦截新登录,已在线会话不受影响;最后一次修改本名单的那台 IP 始终可以登录。",
     "title": "安全中心",
     "loadFailed": "加载失败",
     "actionFailed": "操作失败,请稍后重试",

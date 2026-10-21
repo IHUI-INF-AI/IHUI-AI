@@ -2607,6 +2607,12 @@
       "openWithdraw": "Request withdrawal"
     },
   "securityCenter": {
+    "ipTitle": "IP Whitelist",
+    "ipPlaceholder": "Enter IP address",
+    "ipEmpty": "No IP whitelist set",
+    "ipAdd": "Add",
+    "ipInvalid": "Please enter a valid IP address",
+    "ipHint": "Blocks new sign-ins only — active sessions are unaffected. The IP address that last edited this list can always sign in.",
     "title": "Security Center",
     "loadFailed": "Failed to load",
     "actionFailed": "Action failed. Please try again later",
