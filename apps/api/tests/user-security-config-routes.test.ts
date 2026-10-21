@@ -90,7 +90,10 @@ describe('GET/POST/DELETE /api/user/ip-whitelist', () => {
     expect((await putIp('203.0.113.9')).json().data).toEqual(['203.0.113.9'])
     expect((await putIp('2001:db8::1')).json().data).toEqual(['203.0.113.9', '2001:db8::1'])
     expect((await getIps()).json().data).toEqual(['203.0.113.9', '2001:db8::1'])
-    expect([...store.keys()]).toEqual([rowKey(AUTH_USER_ID, 'security', 'ipWhitelist')])
+    // 自救锚点行随每次写面刷新(ipWhitelistTrustedIp),这里只盯列表行本身
+    expect(
+      [...store.keys()].filter((k) => k.endsWith('|ipWhitelist')),
+    ).toEqual([rowKey(AUTH_USER_ID, 'security', 'ipWhitelist')])
   })
 
   it('DELETE 摘一条;摘到空时删行而不是留 "[]"', async () => {
@@ -107,7 +110,9 @@ describe('GET/POST/DELETE /api/user/ip-whitelist', () => {
       url: `/api/user/ip-whitelist?ip=${encodeURIComponent('198.51.100.7')}`,
     })
     expect(last.json().data).toEqual([])
-    expect(store.size).toBe(0)
+    // 列表行被删,自救锚点行留守(清空白名单的那台 IP 仍是自救出口)
+    expect(store.has(rowKey(AUTH_USER_ID, 'security', 'ipWhitelist'))).toBe(false)
+    expect(store.get(rowKey(AUTH_USER_ID, 'security', 'ipWhitelistTrustedIp'))).toBe('127.0.0.1')
     expect(q.deleteUserPreference).toHaveBeenCalledWith(AUTH_USER_ID, 'security', 'ipWhitelist')
   })
 

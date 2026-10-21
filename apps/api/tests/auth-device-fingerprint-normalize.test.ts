@@ -113,7 +113,8 @@ vi.mock('../src/db/oauth-queries.js', () => ({
 }))
 
 vi.mock('../src/db/user-preferences-queries.js', () => ({
-  findUserPreferences: vi.fn(),
+  USER_PREFERENCE_GROUPS: { security: 'security' },
+  findUserPreferences: vi.fn(async () => ({ list: [], total: 0 })),
   upsertUserPreference: vi.fn(),
 }))
 

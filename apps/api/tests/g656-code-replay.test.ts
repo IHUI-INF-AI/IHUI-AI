@@ -78,6 +78,14 @@ vi.mock('../src/db/rbac-queries.js', () => ({
   getUserPermissions: mockGetUserPermissions,
 }))
 
+// 登录腿现在要读 IP 白名单：本文件不测白名单，交空表 = 未启用 = 放行
+vi.mock('../src/db/user-preferences-queries.js', () => ({
+  USER_PREFERENCE_GROUPS: { security: 'security' },
+  findUserPreferences: vi.fn(async () => ({ list: [], total: 0 })),
+  upsertUserPreference: vi.fn(),
+  deleteUserPreference: vi.fn(),
+}))
+
 vi.mock('../src/services/token-service.js', () => ({
   issueTokenPair: mockIssueTokenPair,
 }))
