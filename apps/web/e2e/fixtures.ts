@@ -117,6 +117,10 @@ async function apiLoginAndSaveStorageState(
       data: {
         account: credentials.account,
         password: credentials.password,
+        // 2026-10-21:服务端不声明 type 时**默认走手机通道** ⇒ 用邮箱登录恒 401。
+        // 本机实测:test@aizhs.top / e2e-admin@aizhs.top 带 type:'email' 均 200,不带则 401;
+        // 纯数字账号走 phone。按形态逐条声明,不一刀切(admin 是 DB 触发器锁死的行,只能另建 e2e 管理员)。
+        type: /^\d{6,}$/.test(credentials.account) ? 'phone' : 'email',
       },
     })
     if (response.status() !== 429) break
