@@ -4,16 +4,12 @@
 
 import type * as React from 'react'
 import { Clock, CheckCircle, XCircle, Wallet } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import type { OrderStatus, OrdersData } from './types'
 
 export const PAGE_SIZE = 20
 
-export async function api<T>(url: string): Promise<T> {
-  const r = await fetchApi<T>(url)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+export { api }
 
 export function fetchOrders(params: {
   page: number
