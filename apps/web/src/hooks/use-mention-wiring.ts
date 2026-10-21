@@ -14,7 +14,7 @@
 
 import * as React from 'react'
 
-import { useContextMentionStore } from '@/stores/context-mention'
+import { usePaneMentionStore } from '@/stores/context-mention'
 import {
   removeMentionInsert,
   replaceTrailingTrigger,
@@ -44,8 +44,11 @@ export interface UseMentionWiringResult {
 
 export function useMentionWiring(options: UseMentionWiringOptions): UseMentionWiringResult {
   const { setValue, inputRef, refocusAfterInsert = true } = options
-  const addMention = useContextMentionStore((s) => s.addMention)
-  const removeMention = useContextMentionStore((s) => s.removeMention)
+  // 票60 普查(2026-10-21):本 hook 只被 message-input 调,而 MessageInput 每个非根窗格
+  // 都挂一份 ⇒ 提及草稿必须按窗格寻址(Provider 外恒回落根单例,单窗格行为零变化)
+  const mentionStore = usePaneMentionStore()
+  const addMention = mentionStore((s) => s.addMention)
+  const removeMention = mentionStore((s) => s.removeMention)
 
   const refocus = React.useCallback(() => {
     if (!refocusAfterInsert) return

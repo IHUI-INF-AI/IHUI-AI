@@ -13,7 +13,7 @@
 
 import * as React from 'react'
 
-import { useContextMentionStore } from '@/stores/context-mention'
+import { usePaneMentionStore } from '@/stores/context-mention'
 import { ContextSelectorChips } from '@/components/ai/context-selector-popover'
 import { useMentionTranslator } from '@/hooks/use-mention-dimension-label'
 import {
@@ -57,8 +57,10 @@ interface MentionChipsProps {
  * "chip 没了、引用还在正文里"的分叉。
  */
 export function MentionChips({ onRemove }: MentionChipsProps) {
-  const mentions = useContextMentionStore((s) => s.mentions)
-  const removeMention = useContextMentionStore((s) => s.removeMention)
+  // 票60 普查(2026-10-21):chips 挂在输入框上方 ⇒ 跟随本窗格的提及草稿(Provider 外 = 根单例)
+  const mentionStore = usePaneMentionStore()
+  const mentions = mentionStore((s) => s.mentions)
+  const removeMention = mentionStore((s) => s.removeMention)
   const nameOf = useHashCategoryNames()
 
   const rows = React.useMemo(

@@ -15,7 +15,7 @@ import {
   useAgentProgressPaneStore,
 } from '@/stores/agent-progress-pane'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
-import { useModeStore } from '@/stores/mode'
+import { usePaneModeStore } from '@/stores/mode'
 import type { ChatMode } from '@ihui/types'
 import { useAgentProgress } from '@/hooks/use-agent-progress'
 
@@ -70,8 +70,9 @@ export function AgentProgressTrigger({
   const chatStore = usePaneChatStore()
   const conversationId = chatStore((s) => s.conversationId)
 
-  // 当前 ChatMode(从 current-mode-badge 整合)
-  const currentMode = useModeStore((s) => s.currentMode)
+  // 当前 ChatMode(从 current-mode-badge 整合);票60 普查批:按窗格寻址
+  const modeStore = usePaneModeStore()
+  const currentMode = modeStore((s) => s.currentMode)
   const modeMeta = CHAT_MODE_META[currentMode]
   // 左侧图标:用户自定义 > ChatMode 默认
   const ModeIcon = leftIcon ?? modeMeta.icon
