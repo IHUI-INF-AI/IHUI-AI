@@ -2,7 +2,7 @@
   "schema": 1,
   "ticket": "G-926",
   "decidedAt": "2026-10-21",
-  "scopeNote": "除 .ihui-agent/archive/(已收口一族)以外,'已跟踪却被 .gitignore 覆盖'的目录性质清单。枚数/是否真会被根 lint-staged 命中/出口件是否生效,一律由 scripts/tests/lint-staged-ignored-tracked-ledger.test.mjs 现算,本文件只记机器推不出的判断事实(档位、归属、消费方证据、到期、出路)。判据出处:lint-staged lib/searchConfigs.js 只枚举 git 可见的 .lintstagedrc.json,lib/groupFilesByConfig.js 按目录前缀整体划走子树,收尾 git add 不带 -f ⇒ 声明集里含被忽略的已跟踪文件即整批废掉全部守门。",
+  "scopeNote": "除 .ihui-agent/archive/(已收口一族)以外,'已跟踪却被 .gitignore 覆盖'的目录性质清单。枚数/是否真会被根 lint-staged 命中/出口件是否生效,一律由 scripts/tests/lint-staged-ignored-tracked-ledger.test.mjs 现算,本文件只记机器推不出的判断事实(档位、归属、消费方证据、到期、出路)。判据出处:lint-staged lib/searchConfigs.js 只枚举 git 可见的 .lintstagedrc.json,lib/groupFilesByConfig.js 按目录前缀整体划走子树,收尾 git add 不带 -f ⇒ 声明集里含被忽略的已跟踪文件即整批废掉全部守门。 〔2026-10-21 摘 2 条〕apps/api 与 apps/mobile-rn 按各自 route 写明的出路收口(.gitignore 放 !apps/api/ecosystem.config.cjs、!apps/mobile-rn/metro.config.cjs 例外 ⇒ 离开「已跟踪却被忽略」形态);T10 清单腐烂档当场点名「不再命中任何 ignored-tracked 文件」,依 §0.7 删条目,收口动作与取证留在提交信息与台账行。",
   "tierLegend": {
     "A": "长期合法且该保留跟踪 —— 会被根 glob 命中者配就近空转出口件;不被命中者无需出口件(该事实由测试现算并锁住)",
     "B": "该取消跟踪(属删除类动作,须机主/主控席拍板)—— 本票只出证据,不执行",
@@ -123,28 +123,6 @@
       "why": ".gitignore:493 的 outputs/* 是带理由的整目录忽略(该目录现存 GITHUB-SECRETS-填写指南.md、DESKTOP_TAURI_KEY_PASSWORD.txt 等凭据类文件);G-1113921 已裁定'要长期引用的报告不得再落 gitignored 的 outputs/'。这 4 枚 TRAE-*/g937953-* 报告属一次性取证件。",
       "route": "把需要长期引用的报告移到 docs/(或 reports/)并正常入库,再对 outputs/ 下的跟踪态做 git rm --cached;取证流水按 §1 只进 commit message。",
       "consumers": []
-    },
-    {
-      "dir": "apps/api",
-      "tier": "C",
-      "owner": "主控席",
-      "until": "2026-11-15",
-      "why": "ecosystem.config.cjs(pm2 配置)现读全仓零消费方 —— git grep 'pm2' 只命中该文件自己的用法注释与 apps/api/src/index.ts 一句'let tsx watch / pm2 restart'文案;AGENTS §5e 说服务承载体按 nssm AppParameters 现读。且就近出口件在这一档结构性不可用:在 apps/api/ 放 .lintstagedrc.json 会把整端 1892 枚 root-hit 源文件划出 eslint/prettier 覆盖面(测试现算),等于为保一枚遗留件废掉后端全部格式/静态检查。",
-      "route": "需要人裁三选一:①确认 pm2 已不再是任何一台机的承载体 ⇒ 删除或取消跟踪;②仍在用 ⇒ 给 .gitignore 加 !apps/api/ecosystem.config.cjs 例外(照 !apps/mobile-rn/plugins/*.cjs 先例);③留着但不入库 ⇒ 移到部署侧配置。本票不动。",
-      "consumers": []
-    },
-    {
-      "dir": "apps/mobile-rn",
-      "tier": "C",
-      "owner": "主控席",
-      "until": "2026-11-15",
-      "why": "metro.config.cjs 性质确属长期合法(NativeWind × Tailwind v4 共存的 monkey-patch,apps/mobile-rn/CONTEXT.md 明写'构建侧不可轻动',另有 5 处源码注释以其为 alias/transformer 依据),但中和手段不可用:在 apps/mobile-rn/ 放出口件会划走整端 571 枚 root-hit = RN 端 lint/format 覆盖归零。",
-      "route": "唯一不伤覆盖面的出路 = 给 .gitignore 加 !apps/mobile-rn/metro.config.cjs 例外(与 !apps/mobile-rn/plugins/*.cjs 同形、同条规则的先例已在仓里),属本票禁区,交主控席。",
-      "consumers": [
-        "apps/mobile-rn/CONTEXT.md",
-        "apps/mobile-rn/stubs/expo-media-library.web.js",
-        "apps/mobile-rn/src/lib/web-stubs/react-native-webview.tsx"
-      ]
     }
   ]
 }
