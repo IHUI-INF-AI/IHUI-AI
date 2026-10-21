@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     description: '100+ LLM 统一接入,自动 fallback,Combo 链组合调用。',
     url: `${SITE_URL}/docs/models`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI 多模型调度' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 多模型调度' }],
   },
 }
 

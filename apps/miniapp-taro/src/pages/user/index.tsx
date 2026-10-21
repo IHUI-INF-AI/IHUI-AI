@@ -37,7 +37,7 @@ import aiIconLocal from '@/assets/remote-images/ai-icon.svg'
 import courseIconLocal from '@/assets/remote-images/course-icon.svg'
 import vipActIconLocal from '@/assets/remote-images/user-vip-act.svg'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, getRnTokens } from '@ihui/design-tokens'
 const dingdanIcon = aizhsUrl('remote-images/dingdan.jpg')
 const gerenIcon = aizhsUrl('remote-images/geren-icon.png')
 const shezhiIcon = aizhsUrl('remote-images/shezhi.png')
@@ -46,6 +46,7 @@ const downloadIcon = aizhsUrl('remote-images/download.png')
 const yejiaoIcon = aizhsUrl('remote-images/yejiao.png')
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useAppTheme } from '@/lib/theme'
 import LineIcon from '@/components/LineIcon'
 import { ICONS } from '@/components/LineIcon/icons'
 import './index.css'
@@ -226,6 +227,13 @@ function renderMarkdown(content: string): ReactNode {
 export default function UserIndex() {
   const tt = useTt()
   const { t } = useI18n()
+  /* 微信 slider 的 activeColor / backgroundColor / blockColor 都走 wxml 原生属性位
+     (与 style 槽是两个位置),不解析 CSS 变量、也不报错,只会静默回落宿主默认色 ⇒ 必须给 JS
+     派生色值。三处共用下面这一枚已解析的 token 集:进度条已激活段与滑块取墨档 brand.DEFAULT
+     (原意主色,随主题明暗翻转),轨道底色取中性微亮档 surface.muted(原意 muted 底),
+     与同端已修好的那批 Switch 开关墨色同一先例(见 subscribe.tsx)。 */
+  const { resolved } = useAppTheme()
+  const tk = getRnTokens(resolved)
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [showBenefits, setShowBenefits] = useState<boolean>(false)
   // isshow: 对齐原项目，iOS 设备标识（UserCard 和会员权益在非 iOS 设备上显示）
@@ -1266,10 +1274,10 @@ export default function UserIndex() {
                             value={audioProgress[index] || 0}
                             min={0}
                             max={100}
-                            activeColor="var(--color-primary)"
-                            backgroundColor="var(--color-muted)"
+                            activeColor={tk.brand.DEFAULT}
+                            backgroundColor={tk.surface.muted}
                             blockSize={12}
-                            blockColor="var(--color-primary)"
+                            blockColor={tk.brand.DEFAULT}
                             onChange={(e) => onAudioProgressChange(index, e)}
                           />
                         </View>

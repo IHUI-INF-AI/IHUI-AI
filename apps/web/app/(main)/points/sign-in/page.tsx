@@ -114,7 +114,7 @@ export default function SignInPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Image
-              src="/images/kouzi-icon.png"
+              src="/images/kouzi-icon.png?v=20261021"
               alt=""
               aria-hidden
               width={32}

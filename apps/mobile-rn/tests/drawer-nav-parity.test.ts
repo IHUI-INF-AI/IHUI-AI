@@ -56,6 +56,19 @@ function lookup(pack: unknown, key: string): unknown {
 }
 
 describe('抽屉导航单源(对齐 web 侧边栏)', () => {
+  // 域 hub(教育/内容/交易/社群四域)2026-10-21 纳入本锁:它与抽屉分组是同一张侧边栏的
+  // 两半,此前只锁抽屉分组那一半,域里填错键/填未注册路由一样只有用户看得见。
+  const domainItems = Object.entries(DOMAIN_HUBS).flatMap(([domain, hub]) =>
+    hub.items.map((item) => ({ ...item, where: `域:${domain}` })),
+  )
+
+  /** 只收首层(不含 children):web 的 /favorites 父项与它的子项同 href 是既有形态,
+   *  把父-子同名判成重复会误伤 web 自己,故本锁只钉"首层不得出现两个同名入口"。 */
+  const topLevelItems = [
+    ...DRAWER_NAV_GROUPS.flatMap((group) => group.items),
+    DRAWER_HOME_ITEM,
+    DRAWER_AUTOMATION_ITEM,
+  ]
   it('竖排序列引用的分组与域都真实存在', () => {
     const groupKeys = new Set(DRAWER_NAV_GROUPS.map((group) => group.key))
     for (const section of DRAWER_NAV_SECTIONS) {
@@ -111,6 +124,46 @@ describe('抽屉导航单源(对齐 web 侧边栏)', () => {
       [...DRAWER_NAV_GROUPS.flatMap((group) => group.items), DRAWER_AUTOMATION_ITEM],
       '顶层',
     )
+  })
+
+  it('域 hub 条目的 labelKey 五语言齐全', () => {
+    const packs = LOCALES.map((locale) => ({
+      locale,
+      end: JSON.parse(readFileSync(join(I18N_DIR, `${locale}.json`), 'utf-8')) as unknown,
+      shared: JSON.parse(readFileSync(join(SHARED_DIR, `${locale}.json`), 'utf-8')) as unknown,
+    }))
+    for (const item of domainItems) {
+      for (const { locale, end, shared } of packs) {
+        const value = lookup(end, item.labelKey) ?? lookup(shared, item.labelKey)
+        expect(
+          typeof value,
+          `${locale} 缺键 ${item.labelKey}(${item.where})`,
+        ).toBe('string')
+      }
+    }
+  })
+
+  it('域 hub 条目的目标路由都在 RootNavigator 注册(不放假入口)', () => {
+    const src = readFileSync(join(APP, 'src/navigation/RootNavigator.tsx'), 'utf-8')
+    for (const item of domainItems) {
+      if (!item.route) continue
+      if (item.route === 'HomeMain' || item.route === 'ProfileMain') continue
+      expect(
+        src.includes(`name="${item.route}"`),
+        `未注册路由: ${item.route}(${item.where})`,
+      ).toBe(true)
+    }
+  })
+
+  it('抽屉与域 hub 之间路由全局不重复(同一张侧边栏不得出现两个同名入口)', () => {
+    const seen = new Map<string, string>()
+    for (const item of [...topLevelItems, ...domainItems]) {
+      if (!item.route) continue
+      if (item.route === 'HomeMain' || item.route === 'ProfileMain') continue
+      const prev = seen.get(item.route)
+      expect(prev, `路由 ${item.route} 重复登记:${prev} 与 ${item.labelKey}`).toBeUndefined()
+      seen.set(item.route, item.labelKey)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

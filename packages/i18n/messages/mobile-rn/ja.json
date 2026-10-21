@@ -2523,6 +2523,42 @@
       "submitting": "送信中…",
       "submit": "項目を作成"
     },
+    "myPapers": {
+      "title": "マイ試験問題",
+      "add": "問題を追加",
+      "fieldTitle": "タイトル",
+      "fieldUrl": "問題URL",
+      "titlePlaceholder": "問題タイトルを入力してください",
+      "urlPlaceholder": "任意、ダウンロード先",
+      "submit": "送信",
+      "titleRequired": "タイトルは必須です",
+      "createFailed": "送信に失敗しました。しばらくしてからもう一度お試しください",
+      "deleteTitle": "問題を削除",
+      "deleteConfirm": "削除すると復元できません。続行しますか？",
+      "deleteFailed": "削除に失敗しました",
+      "delete": "削除",
+      "loadFailed": "問題の読み込みに失敗しました",
+      "empty": "アップロードされた問題はありません",
+      "reason": "審査コメント",
+      "status_pending": "審査中",
+      "status_approved": "承認済み",
+      "status_rejected": "却下されました"
+    },
+    "distributionCompany": {
+      "title": "販売代理センター",
+      "refresh": "更新",
+      "loadFailed": "データの読み込みに失敗しました",
+      "empty": "リワードデータはありません",
+      "windowTitle": "リワードサマリー",
+      "lastDays": "直近 {n} 日の確定リワードを集計",
+      "totalAmount": "リワード金額",
+      "totalToken": "リワードポイント",
+      "subordinates": "配下メンバー",
+      "subordinatesEmpty": "配下メンバーはいません",
+      "anonymousUser": "匿名ユーザー",
+      "openDistribution": "販売代理概要を見る",
+      "openWithdraw": "出金を申請"
+    },
   "securityCenter": {
     "title": "セキュリティセンター",
     "loadFailed": "読み込みに失敗しました",
@@ -2564,8 +2600,9 @@
       "revokeConfirm": "その端末は再度ログインが必要になります。続行しますか?"
     },
     "logs": {
-      "title": "セキュリティイベント",
-      "empty": "セキュリティイベントはありません"
+      "login": "ログイン",
+      "title": "ログイン履歴",
+      "empty": "ログイン履歴はありません"
     }
   },
   "securitySettings": {

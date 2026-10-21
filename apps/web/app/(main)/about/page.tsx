@@ -24,7 +24,7 @@ const aboutJsonLd = {
       about: { '@id': 'https://aizhs.top/#organization' },
       primaryImageOfPage: {
         '@type': 'ImageObject',
-        url: 'https://aizhs.top/images/logo.png',
+        url: 'https://aizhs.top/images/logo.png?v=20261021',
       },
     },
     {

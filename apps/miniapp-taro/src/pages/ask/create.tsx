@@ -12,6 +12,8 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { createAsk } from '@/api'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
+import { getRnTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import './create.css'
 
 interface FormState {
@@ -40,6 +42,10 @@ const REWARDS = [0, 5, 10, 20, 50]
 
 export default function AskCreatePage() {
   const tt = useTt()
+  /* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量 ⇒ 必须 JS 派生 hex。
+     取墨档 brand.DEFAULT(亮 #000000 / 暗 #FFFFFF,随主题翻转),与 RN trackColor.true 同档。 */
+  const { resolved } = useAppTheme()
+  const switchInk = getRnTokens(resolved).brand.DEFAULT
 
   const [form, setForm] = useState<FormState>({
     title: '',
@@ -282,7 +288,7 @@ export default function AskCreatePage() {
             </View>
             <Switch
               checked={form.anonymous}
-              color="var(--color-primary)"
+              color={switchInk}
               onChange={(e) => updateForm({ anonymous: e.detail.value })}
             />
           </View>

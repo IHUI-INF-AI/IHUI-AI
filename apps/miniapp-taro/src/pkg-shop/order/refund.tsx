@@ -11,6 +11,8 @@ import { useUiField } from '@/lib/ui-field-registry'
 import { refund, getOrderDetail, type Order } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { getRnTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
   { key: 'orderRefund.d1', fb: tt('orderRefund.d1', '不想要了') },
@@ -22,6 +24,11 @@ const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
 
 export default function OrderRefund() {
   const tt = useTt()
+  /* 微信 radio 的 color 走 wxml 原生属性位(与 style 槽是两个位置),不解析 CSS 变量、也不报错,
+     只会静默回落宿主默认色 ⇒ 必须给 JS 派生色值。原意是墨档(主色),取 brand.DEFAULT
+     (随主题明暗翻转),与同端已修好的那批 Switch 开关墨色同一先例(见 subscribe.tsx)。 */
+  const { resolved } = useAppTheme()
+  const radioInk = getRnTokens(resolved).brand.DEFAULT
   const router = useRouter()
   const gate = useAuthReadyGate()
   const [orderNo, setOrderNo] = useState('')
@@ -177,7 +184,7 @@ export default function OrderRefund() {
           >
             {REASONS(tt).map((r) => (
               <View key={r.key} className="flex items-center gap-[16rpx]">
-                <Radio value={r.key} checked={reason === r.key} color="var(--color-primary)" />
+                <Radio value={r.key} checked={reason === r.key} color={radioInk} />
                 <Text className="text-[length:28rpx] text-foreground">{tt(r.key, r.fb)}</Text>
               </View>
             ))}

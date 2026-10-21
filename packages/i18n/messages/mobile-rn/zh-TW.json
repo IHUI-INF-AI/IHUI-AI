@@ -2070,12 +2070,12 @@
       "back": "返回"
     },
     "publishAccounts": {
-      "title": "平台帳號",
-      "subtitle": "管理已綁定的發佈平台帳號",
+      "title": "平臺帳號",
+      "subtitle": "管理已綁定的發佈平臺帳號",
       "loadFailed": "帳號載入失敗",
-      "empty": "還沒有綁定平台帳號",
+      "empty": "還沒有綁定平臺帳號",
       "emptyHint": "在 web 端掃碼登入或設定憑證後，這裡會顯示帳號",
-      "platform": "平台",
+      "platform": "平臺",
       "status": "狀態",
       "boundAt": "綁定時間",
       "statusActive": "正常",
@@ -2085,7 +2085,7 @@
       "statusUnknown": "未知狀態",
       "clearedHint": "憑證已被清除，請重新授權",
       "reauth": "重新授權",
-      "reauthUnsupported": "該平台暫不支援掃碼授權",
+      "reauthUnsupported": "該平臺暫不支援掃碼授權",
       "scanTitle": "掃碼重新授權",
       "scanStarting": "正在啟動掃碼…",
       "scanHint": "請使用手機 App 掃碼，成功後會自動儲存登入狀態",
@@ -2101,7 +2101,7 @@
     },
     "publishAnalytics": {
       "title": "發佈資料",
-      "subtitle": "依週期檢視發佈成功率、平台分佈與帳號健康度",
+      "subtitle": "依週期檢視發佈成功率、平臺分佈與帳號健康度",
       "loadFailed": "資料載入失敗",
       "empty": "暫無發佈資料",
       "emptyHint": "完成一次發佈後，這裡會顯示統計",
@@ -2115,8 +2115,8 @@
       "seconds": "{value} 秒",
       "trend": "發佈趨勢",
       "noTrend": "暫無趨勢資料",
-      "platformDistribution": "平台分佈",
-      "noPlatforms": "暫無平台資料",
+      "platformDistribution": "平臺分佈",
+      "noPlatforms": "暫無平臺資料",
       "failureReasons": "失敗原因",
       "noFailures": "暫無失敗紀錄",
       "accountHealth": "帳號健康度",
@@ -2143,7 +2143,7 @@
       "statusCancelled": "已取消",
       "statusSkipped": "已略過",
       "statusUnknown": "未知狀態",
-      "platforms": "{count} 個平台",
+      "platforms": "{count} 個平臺",
       "taskId": "任務 ID",
       "status": "狀態",
       "scheduledAt": "排程時間",
@@ -2163,7 +2163,7 @@
       "title": "新建立發佈",
       "subtitle": "選擇帳號、填寫內容並設定發佈時間",
       "accountLoadFailed": "帳號載入失敗",
-      "noAccounts": "沒有可用的平台帳號",
+      "noAccounts": "沒有可用的平臺帳號",
       "noAccountsHint": "請先在 web 端完成掃碼登入或設定憑證",
       "contentTitle": "內容",
       "titlePlaceholder": "請輸入標題",
@@ -2523,6 +2523,42 @@
       "submitting": "送出中…",
       "submit": "建立項目"
     },
+    "myPapers": {
+      "title": "我的試卷",
+      "add": "新增試卷",
+      "fieldTitle": "試卷標題",
+      "fieldUrl": "試卷連結",
+      "titlePlaceholder": "請輸入試卷標題",
+      "urlPlaceholder": "選填，試卷下載位置",
+      "submit": "提交",
+      "titleRequired": "試卷標題不能為空",
+      "createFailed": "提交失敗,請稍後再試",
+      "deleteTitle": "刪除試卷",
+      "deleteConfirm": "刪除後無法復原,確定繼續?",
+      "deleteFailed": "刪除失敗",
+      "delete": "刪除",
+      "loadFailed": "試卷載入失敗",
+      "empty": "暫未上傳試卷",
+      "reason": "審核意見",
+      "status_pending": "待審核",
+      "status_approved": "已通過",
+      "status_rejected": "已駁回"
+    },
+    "distributionCompany": {
+      "title": "分銷中心",
+      "refresh": "重新整理",
+      "loadFailed": "資料載入失敗",
+      "empty": "暫無佣金資料",
+      "windowTitle": "佣金彙總",
+      "lastDays": "統計近 {n} 天已結算的佣金",
+      "totalAmount": "佣金金額",
+      "totalToken": "佣金積分",
+      "subordinates": "下級成員",
+      "subordinatesEmpty": "暫無下級成員",
+      "anonymousUser": "匿名使用者",
+      "openDistribution": "檢視分銷概覽",
+      "openWithdraw": "申請提現"
+    },
   "securityCenter": {
     "title": "安全中心",
     "loadFailed": "載入失敗",
@@ -2564,8 +2600,9 @@
       "revokeConfirm": "撤銷後該裝置需要重新登入,確定繼續?"
     },
     "logs": {
-      "title": "安全事件",
-      "empty": "暫無安全事件"
+      "login": "登入",
+      "title": "登入歷史",
+      "empty": "暫無登入記錄"
     }
   },
   "securitySettings": {

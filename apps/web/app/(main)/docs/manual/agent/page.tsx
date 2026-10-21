@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: '从市场选用 Agent、收藏、定制提示词、发布。',
     url: `${SITE_URL}/docs/manual/agent`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI Agent 使用' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI Agent 使用' }],
   },
 }
 

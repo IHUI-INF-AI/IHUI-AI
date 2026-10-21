@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: '上传文档、检索测试、挂载到 Agent,让 AI 懂你的业务。',
     url: `${SITE_URL}/docs/manual/knowledge-base`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI 知识库' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 知识库' }],
   },
 }
 
