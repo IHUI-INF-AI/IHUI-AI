@@ -8,7 +8,8 @@ import { useUiField } from '@/lib/ui-field-registry'
 import { View, Text, Input, Switch } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ModelConfigType } from '@ihui/types'
-import { TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { getRnTokens, TARO_RPX_PER_PX } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import {
   MODEL_CONFIG_BLOCK_GLYPH_PX,
   MODEL_CONFIG_CHIP_GAP_PX,
@@ -165,6 +166,11 @@ export default function ModelConfigDialog({
   systemVoices = SYSTEM_VOICES,
 }: ModelConfigDialogProps) {
   const tt = useTt()
+  /* 原生 <switch color> 的值进的是微信原生属性位(产物 base.wxml 的 color="{{i.p1}}"),
+     不经 CSS 变量解析 ⇒ 必须给 JS 派生 hex。墨档 brand.DEFAULT(亮 #000000 / 暗 #FFFFFF,
+     源 = tokens.css --color-primary),与 RN 端本弹窗的 trackColor.true 同档。 */
+  const { resolved: appTheme } = useAppTheme()
+  const switchInk = getRnTokens(appTheme).brand.DEFAULT
   // aigc variant 内部状态
   const [configParamsObj, setConfigParamsObj] = useState<Record<string, unknown>>({})
   const [setVariables, setSetVariables] = useState<
@@ -316,6 +322,7 @@ export default function ModelConfigDialog({
               <Text className="text-sm text-foreground">{tt('model.streaming', '流式输出')}</Text>
               <Switch
                 checked={config.streamEnabled ?? true}
+                color={switchInk}
                 onChange={(e) => update({ streamEnabled: e.detail.value })}
               />
             </View>

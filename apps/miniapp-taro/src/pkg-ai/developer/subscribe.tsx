@@ -9,6 +9,8 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { getRnTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 interface DevInfo {
   id: string
@@ -43,6 +45,10 @@ const toNum = (v: unknown) => Number(v) || 0
 export default function DeveloperSubscribePage() {
   const { t } = useI18n()
   const tt = useTt()
+  /* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量 ⇒ 必须 JS 派生 hex。
+     取墨档 brand.DEFAULT(亮 #000000 / 暗 #FFFFFF,随主题翻转),与 RN trackColor.true 同档。 */
+  const { resolved } = useAppTheme()
+  const switchInk = getRnTokens(resolved).brand.DEFAULT
   const router = useRouter()
   const devId = toStr(router.params.id || router.params.developerId, '')
 
@@ -289,7 +295,7 @@ export default function DeveloperSubscribePage() {
             <Switch
               checked={notifyNew}
               onChange={(e) => setNotifyNew(e.detail.value)}
-              color="var(--color-primary)"
+              color={switchInk}
             />
           </View>
           <View className="flex items-center justify-between p-[20rpx] bg-card rounded-lg mb-[16rpx]">
@@ -299,7 +305,7 @@ export default function DeveloperSubscribePage() {
             <Switch
               checked={notifyUpdate}
               onChange={(e) => setNotifyUpdate(e.detail.value)}
-              color="var(--color-primary)"
+              color={switchInk}
             />
           </View>
         </View>
