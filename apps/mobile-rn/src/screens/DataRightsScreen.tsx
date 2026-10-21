@@ -287,7 +287,9 @@ export default function DataRightsScreen() {
                 <TouchableOpacity
                   style={styles.dangerOutline}
                   onPress={() => {
-                    setEraseError(null); setConfirmText(''); setEraseOpen(true)
+                    setEraseError(null)
+                    setConfirmText('')
+                    setEraseOpen(true)
                   }}
                   activeOpacity={0.7}
                 >
@@ -314,7 +316,9 @@ export default function DataRightsScreen() {
                     <TouchableOpacity
                       style={[styles.outlineButton, styles.flex1]}
                       onPress={() => {
-                        setEraseOpen(false); setConfirmText(''); setEraseError(null)
+                        setEraseOpen(false)
+                        setConfirmText('')
+                        setEraseError(null)
                       }}
                       disabled={erasing}
                       activeOpacity={0.7}
@@ -373,7 +377,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 8,
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -386,38 +390,66 @@ function makeStyles() {
     value: { fontSize: 14, color: tokens.text.primary },
     error: { fontSize: 13, color: tokens.danger.DEFAULT },
     button: {
-      height: 44, borderRadius: rnRadius.sm, backgroundColor: tokens.brand.cta,
-      alignItems: 'center', justifyContent: 'center', marginTop: 4,
+      height: 44,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 4,
     },
     buttonText: { fontSize: 15, fontWeight: '600', color: tokens.brand.ctaForeground },
     disabled: { opacity: 0.5 },
     outlineButton: {
-      height: 44, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.border.medium,
-      alignItems: 'center', justifyContent: 'center',
+      height: 44,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     outlineText: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
     dangerButton: {
-      height: 44, borderRadius: rnRadius.sm, backgroundColor: tokens.danger.DEFAULT,
-      alignItems: 'center', justifyContent: 'center',
+      height: 44,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.danger.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     dangerOutline: {
-      height: 44, borderRadius: rnRadius.sm, borderWidth: 1, borderColor: tokens.danger.DEFAULT,
-      alignItems: 'center', justifyContent: 'center', marginTop: 4,
+      height: 44,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.danger.DEFAULT,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 4,
     },
     dangerText: { fontSize: 15, fontWeight: '600', color: tokens.danger.DEFAULT },
     dangerBox: {
-      gap: 8, padding: 12, borderRadius: rnRadius.sm, borderWidth: 1,
-      borderColor: tokens.danger.DEFAULT, backgroundColor: tokens.surface.bg,
+      gap: 8,
+      padding: 12,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.danger.DEFAULT,
+      backgroundColor: tokens.surface.bg,
     },
     buttonRow: { flexDirection: 'row', gap: 8 },
     flex1: { flex: 1 },
     input: {
-      height: 42, paddingHorizontal: 12, borderRadius: rnRadius.sm, borderWidth: 1,
-      borderColor: tokens.border.medium, color: tokens.text.primary, fontSize: 15,
-      backgroundColor: tokens.surface.light,
+      height: 42,
+      paddingHorizontal: 12,
+      borderRadius: rnRadius.sm,
+      borderWidth: 1,
+      borderColor: tokens.border.medium,
+      color: tokens.text.primary,
+      fontSize: 15,
+      backgroundColor: tokens.surface.card,
     },
     resultBox: {
-      gap: 4, padding: 10, borderRadius: rnRadius.sm, backgroundColor: tokens.surface.bg,
+      gap: 4,
+      padding: 10,
+      borderRadius: rnRadius.sm,
+      backgroundColor: tokens.surface.bg,
     },
     receiptRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
     receiptName: { flex: 1, fontSize: 13, color: tokens.text.primary },

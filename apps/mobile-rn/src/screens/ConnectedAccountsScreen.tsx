@@ -138,9 +138,7 @@ export default function ConnectedAccountsScreen() {
       appAlert(t('common.error'), t('connectedAccounts.openBrowserFailed'))
     }
   }
-  const extraBindings = bindings.filter(
-    (b) => !KNOWN_PLATFORMS.some((p) => p === b.platform),
-  )
+  const extraBindings = bindings.filter((b) => !KNOWN_PLATFORMS.some((p) => p === b.platform))
   return (
     <View style={styles.container}>
       <NavChrome>
@@ -204,16 +202,14 @@ export default function ConnectedAccountsScreen() {
                       </TouchableOpacity>
                     ) : (
                       <TouchableOpacity
-                        style={styles.buttonSmall}
+                        style={styles.button}
                         onPress={() => {
                           void openWebBinding()
                         }}
                         activeOpacity={0.7}
                       >
                         <Link2 size={13} color={tokens.brand.ctaForeground} />
-                        <Text style={styles.buttonText}>
-                          {t('connectedAccounts.bindOnWeb')}
-                        </Text>
+                        <Text style={styles.buttonText}>{t('connectedAccounts.bindOnWeb')}</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -255,7 +251,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 10,
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -278,7 +274,7 @@ function makeStyles() {
     rowMain: { flex: 1, gap: 2 },
     platformName: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
     meta: { fontSize: 12, color: tokens.text.tertiary },
-    buttonSmall: {
+    button: {
       height: 32,
       paddingHorizontal: 10,
       borderRadius: rnRadius.sm,

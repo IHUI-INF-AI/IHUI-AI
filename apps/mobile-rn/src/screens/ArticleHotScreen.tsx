@@ -153,9 +153,7 @@ export default function ArticleHotScreen() {
                   </Text>
                 ) : null}
                 <View style={styles.metaRow}>
-                  {item.authorName ? (
-                    <Text style={styles.meta}>{item.authorName}</Text>
-                  ) : null}
+                  {item.authorName ? <Text style={styles.meta}>{item.authorName}</Text> : null}
                   <Text style={styles.meta}>
                     {t('articleHot.publishedAt', { date: fmtDate(item.publishedAt) })}
                   </Text>
@@ -198,7 +196,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.danger.DEFAULT,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
   retryBtn: {
@@ -218,7 +216,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   rank: {
     width: 32,
