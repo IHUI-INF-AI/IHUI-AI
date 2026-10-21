@@ -12,6 +12,8 @@ import { getNotificationSettings, updateNotificationSettings } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { getRnTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 interface NotificationSettingItem {
   key: string
@@ -22,6 +24,10 @@ interface NotificationSettingItem {
 export default function NotificationPage() {
   const { t } = useI18n()
   const gate = useAuthReadyGate()
+  /* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量 ⇒ 必须 JS 派生 hex。
+     取墨档 brand.DEFAULT(亮 #000000 / 暗 #FFFFFF,随主题翻转),与 RN trackColor.true 同档。 */
+  const { resolved } = useAppTheme()
+  const switchInk = getRnTokens(resolved).brand.DEFAULT
   const [list, setList] = useState<NotificationSettingItem[]>([])
   const [loading, setLoading] = useState(true)
   const tt = useCallback(
@@ -122,10 +128,11 @@ export default function NotificationPage() {
                     <Text className="text-[length:28rpx] text-muted-foreground">{item.title}</Text>
                   </View>
 
-                  {/* Switch trackColor true 对齐 RN brand.DEFAULT → --color-primary */}
+                  {/* Switch 对齐 RN trackColor.true = brand.DEFAULT(源 --color-primary 墨档);
+                      原生属性位不解析 var(),取 JS 派生 switchInk */}
                   <Switch
                     checked={item.enabled}
-                    color="var(--color-primary)"
+                    color={switchInk}
                     onChange={(e) => onToggle(item.key, e.detail.value)}
                   />
                 </View>

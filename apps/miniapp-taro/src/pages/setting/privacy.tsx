@@ -8,6 +8,8 @@ import { View, Text, Switch, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
+import { getRnTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 // 系统权限项配置:label 走 i18n(settingPrivacy.permissions.<key>)
 interface PermissionItem {
@@ -46,6 +48,10 @@ const PRIVACY_KEYS = {
 
 export default function PrivacySettingPage() {
   const { t } = useI18n()
+  /* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量 ⇒ 必须 JS 派生 hex。
+     取墨档 brand.DEFAULT(亮 #000000 / 暗 #FFFFFF,随主题翻转),与 RN trackColor.true 同档。 */
+  const { resolved } = useAppTheme()
+  const switchInk = getRnTokens(resolved).brand.DEFAULT
   // 系统权限状态:granted(已授权) / denied(已拒绝) / unknown(未请求)
   const [permStatus, setPermStatus] = useState<Record<string, string>>({})
   // 隐私设置开关
@@ -196,7 +202,7 @@ export default function PrivacySettingPage() {
                 </View>
                 <Switch
                   checked={item.value}
-                  color="var(--color-primary)"
+                  color={switchInk}
                   onChange={(e) => onToggle(item.key, e.detail.value)}
                 />
               </View>

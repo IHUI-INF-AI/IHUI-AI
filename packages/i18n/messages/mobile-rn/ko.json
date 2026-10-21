@@ -2600,8 +2600,9 @@
       "revokeConfirm": "해당 기기에서는 다시 로그인해야 합니다. 계속할까요?"
     },
     "logs": {
-      "title": "보안 이벤트",
-      "empty": "보안 이벤트가 없습니다"
+      "login": "로그인",
+      "title": "로그인 기록",
+      "empty": "로그인 기록이 없습니다"
     }
   },
   "securitySettings": {

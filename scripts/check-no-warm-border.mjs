@@ -223,6 +223,15 @@ export function scanWarmInputChrome(cleanText) {
   return hits
 }
 
+/**
+ * 选择器指向"文本输入控件或其包装容器"的形态:元素选择器 input/textarea/select,
+ * 或类名/id 里带 input|textarea|searchbox|search-box|search-field|field 这一族。
+ * 刻意不收裸 `search` —— `.search-results`/`.search-panel` 是结果区不是输入框,
+ * 收进来等于把 §12e 的恒红门往自己家里搬。
+ */
+const CSS_INPUT_SELECTOR_RE =
+  /(?:^|[\s,>+~])(?:input|textarea|select)(?![\w-])|[.#][\w-]*(?:input|textarea|searchbox|search-box|search-field|field)(?![\w-])/i
+
 /** 聚焦态的 CSS 伪类(选择器含它 ⇒ 该块内描边属"激活态描边"这一例外位)。 */
 const CSS_FOCUS_PSEUDO_RE = /:focus(?:-within|-visible)?\b/
 
@@ -238,6 +247,25 @@ export function focusRuleRanges(cleanText) {
   let m
   while ((m = re.exec(t)) !== null) {
     if (!CSS_FOCUS_PSEUDO_RE.test(m[1])) continue
+    const bodyStart = m.index + m[1].length + 1
+    out.push([bodyStart, bodyStart + m[2].length])
+  }
+  return out
+}
+
+/**
+ * 找出"选择器命中输入控件"的声明块区间 —— 与 `focusRuleRanges` 同族,但**不要求 :focus**。
+ * 立因(2026-10-21 四路审计实测):`.input`/`.bfc-input`/`textarea` 这类真实输入选择器存在,
+ * 而它们的描边若写成暖色,只判聚焦态的 W1-css 结构上看不见 —— 盲区补在判据里,不等出事。
+ * 现读存量 0(该审计逐条比过 7 处样式文件常驻暖描边,落点全是会员卡/按钮/色条/投影)。
+ */
+export function inputRuleRanges(cleanText) {
+  const t = String(cleanText)
+  const out = []
+  const re = /([^{}]+)\{([^{}]*)\}/g
+  let m
+  while ((m = re.exec(t)) !== null) {
+    if (!CSS_INPUT_SELECTOR_RE.test(m[1])) continue
     const bodyStart = m.index + m[1].length + 1
     out.push([bodyStart, bodyStart + m[2].length])
   }
@@ -268,18 +296,28 @@ export function scanWarmBorderText(text, { css = false } = {}) {
   const clean = maskComments(String(text))
   const hits = []
   if (css) {
-    for (const [a, b] of focusRuleRanges(clean)) {
-      const startLine = lineAt(clean, a)
-      clean
-        .slice(a, b)
-        .split('\n')
-        .forEach((l, k) => {
-          for (const m of l.matchAll(CSS_BORDER_PROP_RE)) {
-            if (hasWarmColor(m[2]))
-              hits.push({ line: startLine + k, rule: 'W1-css', text: m[0].trim().slice(0, 120) })
-          }
-        })
+    const seen = new Set()
+    const scanRanges = (ranges, rule) => {
+      for (const [a, b] of ranges) {
+        const startLine = lineAt(clean, a)
+        clean
+          .slice(a, b)
+          .split('\n')
+          .forEach((l, k) => {
+            for (const m of l.matchAll(CSS_BORDER_PROP_RE)) {
+              if (!hasWarmColor(m[2])) continue
+              const text = m[0].trim().slice(0, 120)
+              // 同一行同一声明只记一次:选择器既带 :focus 又命中输入类时两档都会抓到它
+              const key = `${startLine + k}|${text}`
+              if (seen.has(key)) continue
+              seen.add(key)
+              hits.push({ line: startLine + k, rule, text })
+            }
+          })
+      }
     }
+    scanRanges(focusRuleRanges(clean), 'W1-css')
+    scanRanges(inputRuleRanges(clean), 'W1-css-input')
     return hits
   }
   clean.split('\n').forEach((line, i) => {
@@ -674,6 +712,44 @@ function prefetch(face, only = null) {
   return { texts, primary, inputs }
 }
 
+/** W5 的真相源:共享基础样式(web / extension 直接 @import,小程序走派生副本)。 */
+const ACCENT_BASE_REL = 'packages/design-tokens/src/styles/base.css'
+/** 会被宿主上色的原生表单控件 —— 少钉一枚,那一枚就回落系统强调色。 */
+const ACCENT_CONTROL_SELECTORS = ["input[type='checkbox']", "input[type='radio']", "input[type='range']", 'progress']
+
+/**
+ * W5 原生表单控件的选中色必须钉死 —— 与 W3 同型,只是宿主从 AppCompat 换成浏览器/WebView2。
+ *
+ * 为什么单列一维:W1/W2/W3 判的都是"**写了**暖色",而这一族的病是**什么都没写** ——
+ * `accent-color` 初值是 `auto`,由宿主决定:Chromium 在 Windows 上取「设置→个人化→配色→
+ * 强调色」,那是用户机器上的任意色,完全可以是橙。2026-10-21 实测:全仓 `accent-color`
+ * 声明 0 处,而裸原生 `type=checkbox|radio|range` 控件有 31 个文件在用。
+ *
+ * 取不到 base.css ⇒ 未判定(不判绿);缺选择器 / 块内无声明 / 取了暖色 ⇒ 命中。
+ */
+export function scanAccentColorRule(text) {
+  if (typeof text !== 'string')
+    return [{ line: 1, rule: 'W5-undetermined', text: `${ACCENT_BASE_REL} 取不到 ⇒ 无法判定(不判绿)` }]
+  const clean = maskComments(String(text))
+  const hits = []
+  for (const sel of ACCENT_CONTROL_SELECTORS) {
+    const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const m = new RegExp(`${esc}[^{}]*\\{([^{}]*)\\}`, 's').exec(clean)
+    if (!m) {
+      hits.push({ line: 1, rule: 'W5', text: `${sel} 未钉 accent-color ⇒ 回落宿主系统强调色` })
+      continue
+    }
+    const decl = /accent-color\s*:\s*([^;]+)/.exec(m[1])
+    if (!decl) hits.push({ line: 1, rule: 'W5', text: `${sel} 的声明块里没有 accent-color 声明` })
+    else if (hasWarmColor(decl[1]))
+      hits.push({ line: 1, rule: 'W5', text: `${sel} 的 accent-color 取了暖色:${decl[1].trim()}` })
+  }
+  return hits
+}
+
+/** "未判定"档规则名(§0.3:既不记绿也不冒红)—— W3 取不到 colors.xml / W5 取不到 base.css。 */
+const UNDETERMINED_RE = /^W[35]-undetermined$/
+
 /**
  * 廉价预筛:正文里连一个暖色源 token 都没有 ⇒ W1 结构上不可能命中,跳过遮罩与三组正则。
  * (实测不加这一层,全量档要跑 5 分钟以上 —— 判据慢到没人肯跑,等同于没有判据。)
@@ -726,6 +802,11 @@ function collectHits(primary, texts, { subset = false } = {}) {
   } else {
     flat.push(...auditPluginChromeSet(plugins))
   }
+  // W5 定向审一份真相源(与 W4 同族:"必须存在"型判据不能靠枚举被审件 —— 它缺的时候
+  // 枚举到的是"什么都没有",而不是"有一个坏东西")。子集档只在本次真的动了 base.css 时判:
+  // 否则一个没碰过它的提交会被它拦住,那正是 §12e 禁的恒红门。
+  if (!subset || primary.includes(ACCENT_BASE_REL))
+    flat.push(...scanAccentColorRule(texts.get(ACCENT_BASE_REL)).map((h) => ({ ...h, file: ACCENT_BASE_REL })))
   return flat
 }
 
@@ -764,6 +845,11 @@ function runSelfTest() {
   ok(css('.a{ box-shadow: 0 1px 2px rgba(0,0,0,0.05); }').length === 0, '中性阴影不得命中')
   ok(css('@media (min-width:1px){ .a:focus{ border-color:#ffa500 } }').some((x) => x.rule === 'W1-css'), '嵌套在 @media 里的聚焦块仍要抓到')
   ok(css('.a:focus{ border-color: var(--color-primary); }').length === 0, '聚焦墨档描边是合法例外位,不得命中')
+  ok(css('textarea{ border-color: #f59e0b; }').some((x) => x.rule === 'W1-css-input'), 'textarea 元素选择器的常驻暖描边必命中(无 :focus 也判)')
+  ok(css('.search-box input{ outline: 2px solid orange; }').some((x) => x.rule === 'W1-css-input'), '输入类里的 input 元素选择器必命中')
+  ok(css('.bfc-input{ border: 1rpx solid var(--color-warning); }').some((x) => x.rule === 'W1-css-input'), '类名带 -input 的包装容器必命中')
+  ok(css('.search-results{ border-color: #f59e0b; }').length === 0, '结果区不是输入框,不得命中(收进裸 search 就会误咬)')
+  ok(css('.member-cta-outlined{ border: 2rpx solid #ffd700; }').length === 0, '按钮描边不在本维射程(实测该型 7 处全落在卡片/按钮/色条)')
   ok(scanWarmBorderText('c="focus-visible:ring-amber-500/40"').some((x) => x.rule === 'W1-tw'), 'focus-visible:ring-amber 必命中')
   ok(scanWarmBorderText('c="focus:border-orange-500 focus:shadow-amber-900"').filter((x) => x.rule === 'W1-tw').length === 2, '两个聚焦暖色档都要抓到(重数不折半)')
   ok(scanWarmBorderText('c="group-focus:ring-yellow-500 dark:focus:border-amber-200"').filter((x) => x.rule === 'W1-tw').length === 2, 'group-focus 与 dark:focus 复合 variant 都要抓到')
@@ -839,6 +925,32 @@ function runSelfTest() {
     ok(scanAndroidThemeText('<style name="AppTheme" parent="T"/>', colors)?.length === 2, '自闭合的 AppTheme(什么都没钉)必须命中,不得静默不判')
     const noColors = scanAndroidThemeText('<resources><style name="AppTheme"><item name="colorAccent">@color/x</item><item name="colorControlActivated">@color/x</item></style></resources>', new Map(), false)
     ok(noColors && noColors.every((x) => x.rule === 'W3-undetermined'), 'colors.xml 取不到 ⇒ 落未判定档,不冒红也不记绿')
+    // ── W5:原生表单控件的 accent-color 必须钉死(web / extension / WebView2 腿) ──
+    const ACCENT_OK =
+      "body{color:red}input[type='checkbox'],input[type='radio'],input[type='range'],progress{accent-color:var(--color-primary)}"
+    ok(scanAccentColorRule(ACCENT_OK).length === 0, '四类原生控件全钉住中性 accent-color ⇒ 判绿')
+    ok(
+      scanAccentColorRule(ACCENT_OK.replace("input[type='range'],", '')).some(
+        (x) => x.rule === 'W5' && /range/.test(x.text),
+      ),
+      '摘掉 range 一档必须当场点名(这一维的牙是"少钉一枚即红",不是"全没钉才红")',
+    )
+    ok(
+      scanAccentColorRule(ACCENT_OK.replace('var(--color-primary)', '#f59e0b')).some(
+        (x) => x.rule === 'W5' && /暖色/.test(x.text),
+      ),
+      'accent-color 取了暖色必命中',
+    )
+    ok(
+      scanAccentColorRule(null).every((x) => x.rule === 'W5-undetermined'),
+      'base.css 取不到 ⇒ 落未判定档,不记绿也不冒红',
+    )
+    ok(
+      scanAccentColorRule("input[type='checkbox'],input[type='radio'],input[type='range'],progress{color:red}").filter(
+        (x) => x.rule === 'W5',
+      ).length === 4,
+      '块里没有 accent-color 声明 ⇒ 四档各点名一次(重数不折半)',
+    )
   }
 
   // ── 组 6 输入回落:限定符档 + 基础档都要预取 ──
@@ -970,7 +1082,9 @@ function runSelfTest() {
     console.error(`\n❌ 自检失败 ${fails.length} 条`)
     return 1
   }
-  console.log('[SELF-TEST OK] 暖色描边守门判据自检通过(组:暖色尺 / W1 三轴 / 预筛 / 遮罩方向 / W2 / W3 / 生成源集合级 / 输入回落 / 棘轮 / 豁免 / 射程 / W4 可跟踪)')
+  console.log(
+    '[SELF-TEST OK] 暖色描边守门判据自检通过(组:暖色尺 / W1 四轴(css·css-input·tw·rn)+ 输入容器 / 预筛 / 遮罩方向 / W2 / W3 / W5 accent-color / 生成源集合级 / 输入回落 / 棘轮 / 豁免 / 射程 / W4 可跟踪)',
+  )
   return 0
 }
 
@@ -1079,8 +1193,8 @@ check-no-warm-border.mjs — 暖色描边禁令守门(2026-10-20)
   }
 
   const { kept, expiredOrBroken, candidateCount } = scanned
-  const undetermined = kept.filter((h) => h.rule === 'W3-undetermined')
-  const actionable = kept.filter((h) => h.rule !== 'W3-undetermined')
+  const undetermined = kept.filter((h) => UNDETERMINED_RE.test(h.rule))
+  const actionable = kept.filter((h) => !UNDETERMINED_RE.test(h.rule))
   if (!asJson)
     console.log(`  射程:${candidateCount} 件;命中 ${actionable.length} 处 / 未判定 ${undetermined.length} 处`)
   for (const e of expiredOrBroken) console.warn(`⚠️ 豁免失效回队列:${e.row.file}(${e.reason})`)
@@ -1146,7 +1260,7 @@ function headAnchorCounts(files) {
   const exRaw = texts.get(exRel) ?? (existsSync(join(root, exRel)) ? readFileSync(join(root, exRel), 'utf8') : null)
   const rows = exRaw === null ? [] : (loadExemptions(exRaw).rows ?? [])
   for (const h of applyExemptions(flat, rows).kept) {
-    if (h.rule === 'W3-undetermined') continue
+    if (UNDETERMINED_RE.test(h.rule)) continue
     out.set(h.file, (out.get(h.file) ?? 0) + 1)
   }
   return out
@@ -1164,6 +1278,10 @@ export const __test__ = {
   hasWarmColor,
   warmFocusClassOf,
   focusRuleRanges,
+  inputRuleRanges,
+  scanWarmInputChrome,
+  scanAccentColorRule,
+  ACCENT_CONTROL_SELECTORS,
   scanWarmBorderText,
   scanNativeTextfieldText,
   auditPluginChromeSource,

@@ -12,6 +12,8 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { clearAuth } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { getRnTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 const VERSION = '1.0.0'
 const NOTIFICATION_KEY = 'messageNotificationEnabled'
@@ -19,6 +21,11 @@ const NOTIFICATION_KEY = 'messageNotificationEnabled'
 export default function Settings() {
   const { t } = useI18n()
   const gate = useAuthReadyGate()
+  /* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量 ⇒ 必须 JS 派生 hex。
+     此处原取 --color-brand-accent-deep(非墨档),按同源映射取 brandAccent.deep
+     (rn-tokens 由 sync-rn-tokens.mjs 派生自 tokens.css:亮 #4a7a96 / 暗 #a3c4d6),不改变色档。 */
+  const { resolved } = useAppTheme()
+  const switchAccentDeep = getRnTokens(resolved).brandAccent.deep
   const [user, setUser] = useState<Partial<UserInfo>>({})
   const [notifEnabled, setNotifEnabled] = useState(true)
 
@@ -195,7 +202,7 @@ export default function Settings() {
 
               <Switch
                 checked={notifEnabled}
-                color="var(--color-brand-accent-deep)"
+                color={switchAccentDeep}
                 onChange={onNotifChange}
               />
             </View>
