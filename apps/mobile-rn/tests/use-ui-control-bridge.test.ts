@@ -57,7 +57,9 @@ vi.mock('../src/lib/ui-action-registry', () => ({
 }))
 
 vi.mock('../src/lib/config', () => ({
-  API_BASE_URL: 'http://localhost:8802',
+  // 两臂刻意取不同值:桥接若错用 REST 基址建 WS,分域断言当场失败
+  API_BASE_URL: 'https://www.aizhs.top',
+  WS_BASE_URL: 'https://api.aizhs.top',
 }))
 
 import {
@@ -159,7 +161,8 @@ describe('startUiControlBridge 连接生命周期', () => {
     startUiControlBridge('tok-1')
     expect(h.posts[0]?.url).toBe('/api/agent-control/capability')
     expect(h.posts[0]?.body.endpoint).toBe('rn')
-    expect(h.configs[0]?.baseUrl).toBe('http://localhost:8802')
+    // WS 分域回归锁:桥接的 WS 用慢臂,能力上报(REST)仍走快臂(见上一条 h.posts 的相对路径)
+    expect(h.configs[0]?.baseUrl).toBe('https://api.aizhs.top')
     expect(h.configs[0]?.tokenProvider()).toBe('tok-1')
     expect(lastClient().connect).toHaveBeenCalledTimes(1)
     const injected = registry.configure.mock.calls[0]?.[0] as { isAuthed: () => boolean }

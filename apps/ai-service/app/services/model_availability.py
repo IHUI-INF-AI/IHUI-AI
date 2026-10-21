@@ -328,6 +328,15 @@ def _to_llm_providers_name(provider_code: str) -> str:
     return _PROVIDER_CODE_TO_LLM_PROVIDERS_NAME.get(provider_code, provider_code)
 
 
+def _is_zero_price_variant(model_id: str) -> bool:
+    """该模型是否为上游**官方标记**的零定价变体(OpenRouter `:free` 后缀)。
+
+    只认上游写在模型 ID 里的零定价标记,不猜价格、不看本地库:
+    本地 `input_price_per_1k = 0` 多数是"价格没同步到",拿它当"免费"用等于造假。
+    """
+    return model_id.strip().lower().endswith(":free")
+
+
 # ============================================================================
 # 服务单例
 # ============================================================================
@@ -548,12 +557,39 @@ class ModelAvailabilityService:
                         if balance > 0:
                             err_msg = f"余额不足: {balance} {currency or 'unknown'} < 阈值 {threshold}(无法完成一次最小调用),需充值"
                         else:
-                            err_msg = f"余额为 0({currency or 'unknown'}),账户没钱"
+                            # 负余额(透支)也走这一支:不把 -0.09 说成"余额为 0"(措辞失真)
+                            err_msg = f"余额不足: {balance} {currency or 'unknown'}(≤0,账户没钱),需充值"
+                        # 2026-10-21 根治:没钱 ≠ 调不通,二者不能互相冒充。
+                        # OpenRouter 的 `:free` 变体零定价,余额为 0 照样实证可调通(本次
+                        # minimax/minimax-m3.1-flash:free 直连实测 200 + 真实 usage)。旧逻辑见
+                        # 余额为 0 就直接 DOWN,把整家 provider 连同它**唯一还能用**的免费模型
+                        # 一起从选择器里抹掉 —— 用户看到的是"没这家",真相是"这家只有免费的能用"。
+                        # 现改为:余额不足一律降级到推理 ping 实证,让连通性由实测说话:
+                        #   ping 通 → DEGRADED(受限可用,非 HEALTHY:不把没钱粉饰成健康),
+                        #             余额/error_type 原样保留,管理端"去充值"按钮不受影响;
+                        #   ping 不通 → 维持 DOWN,死因仍是余额不足(不伪装成网络错误)。
+                        ping = await self._inference_ping(
+                            client, code, api_key, api_base, start, recharge_url
+                        )
+                        if ping.status in (
+                            ProviderHealthStatus.HEALTHY,
+                            ProviderHealthStatus.DEGRADED,
+                        ):
+                            return ProviderHealth(
+                                status=ProviderHealthStatus.DEGRADED,
+                                latency_ms=ping.latency_ms,
+                                last_check=ping.last_check,
+                                error=f"{err_msg};已实证通道可用,仅零定价/免费模型可调",
+                                error_type=ProviderErrorType.PAYMENT_REQUIRED,
+                                balance=balance,
+                                balance_currency=currency,
+                                recharge_url=recharge_url,
+                            )
                         return ProviderHealth(
                             status=ProviderHealthStatus.DOWN,
-                            latency_ms=latency,
-                            last_check=time.time(),
-                            error=err_msg,
+                            latency_ms=ping.latency_ms,
+                            last_check=ping.last_check,
+                            error=f"{err_msg};实证 ping 亦失败: {ping.error or 'unknown'}",
                             error_type=ProviderErrorType.PAYMENT_REQUIRED,
                             balance=balance,
                             balance_currency=currency,
@@ -1018,8 +1054,11 @@ class ModelAvailabilityService:
             # zero_cost 免费 provider 限流时仍隐藏(用户未主动配置,恢复后自动显示)
             if health.error_type == ProviderErrorType.RATE_LIMITED:
                 return not is_zero_cost
+            if health.error_type == ProviderErrorType.PAYMENT_REQUIRED:
+                # 余额不足:付费模型点了必然 402,不能进列表;但上游零定价变体
+                # (OpenRouter `:free`)实证仍可调通,必须留下(否则"能用的也被抹掉")。
+                return _is_zero_price_variant(model_id)
             if health.error_type in (
-                ProviderErrorType.PAYMENT_REQUIRED,
                 ProviderErrorType.INVALID_KEY,
                 ProviderErrorType.FORBIDDEN,
             ):

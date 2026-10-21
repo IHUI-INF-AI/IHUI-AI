@@ -17,6 +17,7 @@ import {
 } from '../db/queries.js'
 import { getUserPermissions } from '../db/rbac-queries.js'
 import { success, error } from '../utils/response.js'
+import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
 import { randomBytes } from 'node:crypto'
 
 const SSO_CODE_PREFIX = 'sso:code:'
@@ -294,6 +295,8 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
         return reply.code(403).send(error(403, '用户已被禁用'))
       }
 
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const tokens = await buildTokenPair(user, reply)
       const permissions = await resolveUserPermissions(user.id, user.roleId)
 

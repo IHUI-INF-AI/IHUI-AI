@@ -142,23 +142,6 @@
         ]
       }
     },
-    "mobile-rn": {
-      "nav.agents": {
-        "reason": "跨端词包契约:同一个 nav.agents 由 web 后台导航表与 extension 侧栏取词(两条依据均 HEAD 现读),而 mobile-rn 的导航由原生栈渲染、本端没有该词的取词点 ⇒ 本端零静态引用属结构必然,不是孤儿;语言包基线跨端同源,单端摘键会打断另两端的取词。",
-        "evidence": [
-          {
-            "file": "apps/web/src/components/layout/AdminNav.tsx",
-            "line": 941,
-            "contains": "agents: 'nav.agents',"
-          },
-          {
-            "file": "apps/extension/entrypoints/sidepanel/pages/AgentPage.tsx",
-            "line": 82,
-            "contains": "t('nav.agents')"
-          }
-        ]
-      }
-    },
     "cli": {
       "cliEntry.undoSucceeded": {
         "reason": "取词点真实存在但静态扫描看不见:undo-claim-copy.ts:91 用常量相加 t(UNDO_CLAIM_KEY_PREFIX + 'undoSucceeded', { count }) 渲染,而 :41 才把前缀写成 'cliEntry.' ⇒ 全仓没有一处把 'cliEntry.undoSucceeded' 整串写成字面量。摘键等于让 CLI 回退成功时报出一句空白;补字面引用要改他人已入库的纯函数与 :62 的反向锁注释,归该线持有人。",
