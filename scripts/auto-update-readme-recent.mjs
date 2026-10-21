@@ -49,7 +49,10 @@ const TYPE_LABELS = {
   other: { zh: '工程/其他', en: 'Chore/Other', ko: '기타', ja: 'その他' },
 }
 // 内部台账/守门记账类噪声:这些 commit 是工程治理自洽动作,不是用户可感知的"项目改动",落 README 反而显脏。
-const NOISE_RE = /自动回捞|台账|登记行|随勾|收账|回写|被回写/
+// 2026-10-22 补两条**自激**来源(实测 post-commit 回写 → auto-commit 收编 → 又生成条目,每 3 分钟一枚):
+//   · `README 最近更新` —— 本器自己产出的文档收口提交,记进去等于把"更新 README"这件事再写进 README;
+//   · `chore(auto):`    —— auto-commit-quiet 的收编提交,它落地 README 回写后又会触发下一次回写。
+const NOISE_RE = /自动回捞|台账|登记行|随勾|收账|回写|被回写|README 最近更新|^chore\(auto\)/
 
 function git(args) {
   // 取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio/windowsHide
@@ -143,8 +146,8 @@ function main() {
   const headSha = git(['rev-parse', 'HEAD']).trim()
 
   let touched = 0
-  let staged = []
-  let skipped = []
+  const staged = []
+  const skipped = []
 
   for (const { file, lang } of READMES) {
     const p = path.join(ROOT, file)
