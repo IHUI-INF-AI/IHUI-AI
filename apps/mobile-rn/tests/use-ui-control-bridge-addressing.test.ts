@@ -35,7 +35,10 @@ vi.mock('../src/lib/ui-action-registry', () => ({
   executeRnUiAction: h.execute,
 }))
 
-vi.mock('../src/lib/config', () => ({ API_BASE_URL: 'http://localhost:8802' }))
+vi.mock('../src/lib/config', () => ({
+  API_BASE_URL: 'http://localhost:8802',
+  WS_BASE_URL: 'http://localhost:8802',
+}))
 
 import { getRnInstanceId, handleWsNotification } from '../src/hooks/use-ui-control-bridge'
 

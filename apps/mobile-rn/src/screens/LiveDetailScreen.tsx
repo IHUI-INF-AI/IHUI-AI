@@ -20,7 +20,7 @@ import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatTimeOnly } from '../utils/date-utils'
 import { getToken } from '../lib/token'
-import { API_BASE_URL } from '../lib/config'
+import { WS_BASE_URL } from '../lib/config'
 import { LiveChatClient, type ChatMessage, type ChatStatus } from '../lib/ws/chat-client'
 import { NavChrome } from '../components/NavChrome'
 
@@ -91,7 +91,7 @@ export function LiveDetailScreen() {
   useEffect(() => {
     if (loading) return
     const client = new LiveChatClient({
-      baseUrl: API_BASE_URL,
+      baseUrl: WS_BASE_URL,
       tokenProvider: () => getToken(),
     })
     clientRef.current = client
