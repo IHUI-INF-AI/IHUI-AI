@@ -36,7 +36,7 @@
  * 每族号池 = 1..999(三位数拍板),池内占用 = 条目标题号 ∪ 登记行号 ∪ 远端避让段;
  * "最小空闲"这一把尺只住在 `scripts/lib/plan-id-lease.mjs`(与第一发号出口共用,不抄第二份)。
  * 池满 ⇒ **拒绝发号**(exit 1)—— 绝不发 1000+;>999 的归档大号不占池(存量债不挡新号)。
- * `--check` 的重号对账与退出码逐字不变。
+ * `--check` 的重号对账按**归一化后的条目标题 key**(含系列小后缀)判,退出码语义不变(有真重号仍 exit 1)。
  *
  * 用法:
  *   node scripts/next-plan-id.mjs                # 打印下一个可用号 + 现有号分布
@@ -48,6 +48,12 @@
  * 对外契约不变:--check 的 stdout 与退出码逐字同改动前(重号仍按**台账面自身的条目标题**判 ——
  * 归档件里"台账一行 + 归档一份"是归档机制的正常形态,把它读成重号就是一台恒红误报);
  * --next-only 的 stdout 恒为一行号(所有面信息一律走 stderr)。
+ * 〔更正@2026-10-21/G-927,上一条"stdout 逐字同改动前"只作改判留痕读〕:key 形状改了(见上面 HEADING
+ * 头注),同面同一把尺的**语义**没变(仍只认条目标题、仍按台账自身面判、有真重号仍 exit 1),变的是
+ * 报名内容 —— 系列小节不再被误报成重号。现读 HEAD 面:改前 7 组里 O62×6 / O82×5 / O86×9 三支全是
+ * 系列小节误报,改后剩 7 组全部是逐字同键的真重复小节(O1×2 / O37×2 / O45×3 / O50×2 / O82续三×3 /
+ * O86附⑧×2 / O86附⑨×2)⇒ 本器现在报的是它该报的东西;那 7 组是块级重复登记,归活文档归并线处置,
+ * 不由取号器替人裁掉。
  */
 import { resolve } from 'node:path'
 
@@ -62,8 +68,20 @@ import { smallestFreeId, poolFreeList, poolBlocked, LEASE_POOL_MAX } from './lib
 
 const ROOT = resolve(import.meta.dirname, '..')
 const PLAN_PATH = 'PROJECT_PLAN.md'
-/** 条目级编号:只认标题行(`## O123 …` / `### O123 …`),正文里引用的别的号不算占用 */
-const HEADING = /^#{2,3}[ \t]+(O\d+)/gm
+/**
+ * 条目级编号:只认标题行(`## O123 …` / `### O123 …`),正文里引用的别的号不算占用。
+ *
+ * G-927(2026-10-21):key 必须带上**系列小节后缀**。同一票下的 `### O62 附⑥` / `O62 附⑫` /
+ * `## O82续三` / `## O82补` 是正当的系列小节,旧 key 只取 `O\d+` 数字段,把六支不同小节读成
+ * "O62 重号 6 次" ⇒ 七组误报把独立取号入口整个顶死(exit 1,登记只能改走 live-doc-edit 的带族令牌)。
+ * 归一化去空白 ⇒ `O62 附` 与 `O62附` 同键;后缀只认既有的三种书写形态(附N/附N补、续X、补),
+ * **不放宽成"标题前缀"**,否则两支真重号只要标题首词不同就会被认成两个小节(那才是把病洗成绿)。
+ */
+const HEADING = /^#{2,3}[ \t]+(O\d+(?:[ \t]*(?:附[①-⑳0-9]+(?:[ \t]*补)?|附(?![①-⑳0-9])|续[一二三四五六七八九十]+|补))?)/gm
+/** key 归一化:后缀与数字之间可有可无空格,比对前一律去掉空白 */
+const headingKey = (raw) => raw.replace(/[ \t]+/g, '')
+/** 从 key 取数字段(key 现在可能带系列后缀,"剥掉首字母再转数"那一族旧写法一律作废,遇 `O62附⑥` 得 NaN) */
+const headingNum = (key) => Number(/^O(\d+)/.exec(key)[1])
 /** 只把 `O<number>` 的数字段取出来(族名与连字符两种书写都由 usedIdsOfPrefix 认) */
 const FAMILY = 'O'
 
@@ -115,10 +133,10 @@ const text = face.ledgerText
 const wideText = face.text
 
 const seen = []
-for (const m of text.matchAll(HEADING)) seen.push(m[1])
+for (const m of text.matchAll(HEADING)) seen.push(headingKey(m[1]))
 const count = new Map()
 for (const id of seen) count.set(id, (count.get(id) || 0) + 1)
-const nums = [...count.keys()].map((k) => Number(k.slice(1)))
+const nums = [...count.keys()].map(headingNum)
 const dups = [...count.entries()].filter(([, n]) => n > 1).sort((a, b) => a[0].localeCompare(b[0]))
 
 if (flags.has('--check')) {
@@ -137,7 +155,7 @@ if (flags.has('--check')) {
 //     行首形态上,只看标题会漏;而归档器搬走的正是这些行)。
 // 取两者较大 ⇒ 本器**只会给出比改动前更大或相等的号**,不存在"改完反而开始撞车"。
 // 两个都判不出(该面一条 O 记录都没有)时保持既有算术:Math.max() 空集 = -Infinity。
-const headingMaxWide = Math.max(...[...wideText.matchAll(HEADING)].map((m) => Number(m[1].slice(1))))
+const headingMaxWide = Math.max(...[...wideText.matchAll(HEADING)].map((m) => headingNum(headingKey(m[1]))))
 const rowUsedWide = usedIdsOfPrefix(wideText, FAMILY)
 const maxLedger = Math.max(...nums)
 const maxWide = Math.max(headingMaxWide, rowUsedWide === null ? Number.NEGATIVE_INFINITY : rowUsedWide.max)
