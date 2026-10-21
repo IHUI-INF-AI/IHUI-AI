@@ -129,7 +129,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 267 | `guardianGates` |
 | — blocking | 243 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15600 | `trackedFiles` |
+| 跟踪文件 | 15603 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,6 +6125,14 @@ A: Yes. ~14839+ tests / 3017 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-21**
+- 🚀 新功能/改进:守门 226 增 H3 装载位判据——core.hooksPath 指向空目录时自动推送/备份整链静默停摆,补镜像 M8 (cc6bd20c75)
+- 🐞 修复:补齐 AI 数据/文章与 SaaS 备份三个被忽略目录的 lint-staged 出口件 (4e92b12806)
+- 🐞 修复:可见性同步用例改用默认允许集内的 href,修复用例与允许集脱节导致的红 (4d4a761ef2)
+
+**2026-10-21**
+- 🔧 工程/其他:收口 README 最近更新窗口与自动更新指针 (ff90a8c33b)
+
+**2026-10-21**
 - 🔧 工程/其他:重钉四端 ui-routes 自述钉(remote-icons 引用清理后) (0904dc3e66)
 
 **2026-10-21**
@@ -6953,23 +6961,6 @@ A: Yes. ~14839+ tests / 3017 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - 📚 文档:L29247 传输层单点化 —— 翻勾并留终态取证(代码已为落地态) (8c68744302b)
 - 📚 文档:G-29 现读口径纠偏 + 两端收集存量现读追加 (4962b1ce2f7)
 - 🐞 修复:miniapp 验证码弹窗标题与 RN 对齐「请输入验证码」(verify.getCode 五语值纠偏) (5c00ad26050)
-
-**2026-10-19**
-- 🐞 修复:受检形态必须等于该端真实跑法 —— 派生 vitest 时不再丢掉 test script 的旗标(实测 31 条用例假红) (66cfdd0d19a)
-- 📚 文档:协议通道②/③ 与 VideoPlayerScreen 两行翻勾(仓库侧内容已全部入库;剩余是环境前提,写在本枚信息与两行注记里交后手) (5392c69cc96)
-- 🔧 工程/其他:三枚套件收集期即炸 ⇒ 端内 93 条用例从未执行 —— vi.mock 改 partial-mock(importOriginal 形态),不再手抄闭集出口表 (dc41de3bb57)
-- 🐞 修复:disable xinference local provider probe by default (53597943dc7)
-- 🔧 工程/其他:门128 基线入账 VerifyCodeModal 族(counts 3 / radiusCounts 0 / elementRadiusCounts 0) (108d1fe6434)
-- 🐞 修复:门 105 四端 ui-routes 派生产物第三次对齐 —— 并发会话连续改小程序与 web 侧页面源文件,产物自述钉与 head 面现算持续不等;重生成前已验全部输入源的工作树与 HEAD 逐字一致(工作树干净),故产物钉住的是 HEAD 面的源 (cf46bb2a8ef)
-- 📚 文档:协议通道②/③与 VideoPlayerScreen 两行就地补现状与出路(逐字原文保留,只追加行尾注记) (1ef9ebdb469)
-- ♻️ 重构:VerifyCodeModal 收进共享单一源 verify-code-modal-spec(门128唯一判红族) (4c0dbc10212)
-- 📚 文档:登记 RN↔web 能力对齐收口轮的守门收口(③)并订正两处过时表述 —— 标题由「本轮未入库」改为已入库 14 枚;①里「单测直接 import web 的 SLASH_COMMAND_IDS」订正为「直接 import 共享层 @ihui/shared/chat/slash-command-ids」(端→端 import 边违反架构契约 D1,门 103 判红,已下沉共享层消解);③ 记本轮 8 道恒红门的逐条处置与唯一未消项(门 184 系并发会话在飞删除 desktop 构建脚本的中间态) (f439d089fdf)
-- ♻️ 重构:SquareScreen / PlazaScreen 两处共享类型重声明改为 import 共享层 (3ead65aee50)
-- 🐞 修复:门 105 小程序端 ui-routes 派生产物再对齐 —— 并发会话在本席上一枚落库后又改了 apps/miniapp-taro/src/components/DrawerComponent.tsx,产物自述钉遂与 head 面现算不等;重生成前已验全部输入源的工作树与 HEAD 逐字一致(工作树干净),故产物钉住的是 HEAD 面的源 (00960fa854c)
-- 🐞 修复:sso 隧道源站 8543→8850(端口铁律,注册表+docs §2.7 双向登记) (b2503baa8ee)
-
-**2026-10-20**
-- 🐞 修复:监控大屏(panels)适配明暗主题,移除写死蓝黑配色 (790f669fbc3)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
