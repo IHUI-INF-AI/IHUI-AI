@@ -38,6 +38,9 @@ import {
   assertSafeFetchUrl,
   type SelfHostedTrust,
 } from '@ihui/shared/utils/ssrf-guard';
+// G-924(2026-10-21):记忆读写改走 @ihui/api-client 端点(令牌 / CSRF / 超时 / 包络校验统一托管),
+// 不再端内裸 fetch 直连后端。SSRF 信任(127.0.0.1 自托管)仍由本类在调用前守门。
+import { listMemories, createMemory } from '@ihui/api-client/endpoints/memory';
 
 const MEMORY_DIR = '.ihui';
 const MEMORY_FILE = 'MEMORY.md';
@@ -256,32 +259,6 @@ export function formatMemoryForPrompt(entries: MemoryEntry[]): string {
 export type { MemoryEntry as UnifiedMemoryEntry, MemoryScope } from '@ihui/types';
 
 /**
- * 从任意常见响应壳中提取 entries 数组。
- * 兼容:bare array / { entries: [...] } / { data: { entries: [...] } } / { data: [...] }。
- */
-function extractMemoryEntries(data: unknown): UnifiedMemoryEntry[] {
-  if (Array.isArray(data)) return data as UnifiedMemoryEntry[];
-  if (!data || typeof data !== 'object') return [];
-  const obj = data as Record<string, unknown>;
-  if (Array.isArray(obj.entries)) return obj.entries as UnifiedMemoryEntry[];
-  if (obj.data !== undefined) return extractMemoryEntries(obj.data);
-  return [];
-}
-
-/**
- * 从任意常见响应壳中提取单条 entry。
- * 兼容:bare entry(含 id) / { entry: {...} } / { data: {...} }。
- */
-function extractMemoryEntry(data: unknown): UnifiedMemoryEntry | null {
-  if (!data || typeof data !== 'object') return null;
-  const obj = data as Record<string, unknown>;
-  if (typeof obj.id === 'string') return obj as unknown as UnifiedMemoryEntry;
-  if (obj.entry !== undefined) return extractMemoryEntry(obj.entry);
-  if (obj.data !== undefined) return extractMemoryEntry(obj.data);
-  return null;
-}
-
-/**
  * UnifiedMemoryClient — 对接 api /api/memory 路由,实现跨端记忆同步。
  *
  * 文件系统(现有 MEMORY.md)优先,api 持久化兜底。
@@ -300,7 +277,7 @@ export class UnifiedMemoryClient {
 
   /**
    * 拉取指定用户/作用域的记忆条目。
-   * 失败(网络/非 2xx/解析错)返回 [],不抛错。
+   * 失败(网络/非 2xx/解析错/SSRF 不信任)返回 [],不抛错。
    */
   async getEntries(
     userId: string,
@@ -314,13 +291,9 @@ export class UnifiedMemoryClient {
       // ssrf-trust-source: settings.apiUrl(调用方传入的 SelfHostedTrust;本类不自行声明)
       const verdict = await assertSafeFetchUrl(url, { selfHosted: this.trust });
       if (!verdict.safe) return [];
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) return [];
-      const data = (await res.json()) as unknown;
-      return extractMemoryEntries(data);
+      const res = await listMemories({ apiBaseUrl: this.apiBaseUrl, userId, scope, sessionId });
+      if (!res.success) return [];
+      return res.data;
     } catch {
       return [];
     }
@@ -328,7 +301,7 @@ export class UnifiedMemoryClient {
 
   /**
    * 新增一条记忆条目(api 负责生成 id/createdAt/updatedAt)。
-   * 失败(网络/非 2xx/解析错)返回 null,不抛错。
+   * 失败(网络/非 2xx/解析错/SSRF 不信任)返回 null,不抛错。
    */
   async addEntry(
     userId: string,
@@ -338,14 +311,9 @@ export class UnifiedMemoryClient {
       const url = `${this.apiBaseUrl}/api/memory`;
       const verdict = await assertSafeFetchUrl(url, { selfHosted: this.trust });
       if (!verdict.safe) return null;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ userId, entry }),
-      });
-      if (!res.ok) return null;
-      const data = (await res.json()) as unknown;
-      return extractMemoryEntry(data);
+      const res = await createMemory({ apiBaseUrl: this.apiBaseUrl, userId, entry });
+      if (!res.success) return null;
+      return res.data;
     } catch {
       return null;
     }
