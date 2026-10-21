@@ -19,6 +19,7 @@ import { findUserByPhone, createUser } from '../db/queries.js'
 import { success, error } from '../utils/response.js'
 import { setAuthCookies } from '../utils/auth-cookies.js'
 import { publicUser, resolveUserPermissions } from './auth.js'
+import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
 import {
   verifyCarrierToken,
   CarrierLoginError,
@@ -124,6 +125,8 @@ export const authCarrierRoutes: FastifyPluginAsync = async (server) => {
       // 4) 签发 token 对并返回统一登录结构
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
       const tokens = await issueTokenPair({
         userId: user.id,
         phone: user.phone ?? '',
