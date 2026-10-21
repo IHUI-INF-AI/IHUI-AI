@@ -121,12 +121,19 @@ test('P3-3: addFavorite 收藏 + Star 按钮 amber-500 class', async ({ page }) 
   // 2. 等 UI 渲染后验证 Star 按钮 amber-500 class
   await page.waitForTimeout(500)
   const domResult = await page.evaluate(() => {
-    const starBtn = Array.from(document.querySelectorAll('button')).find(
-      (b) =>
+    // 2026-10-21:ToolbarButton 从不写原生 title(本仓禁 title),它把 title 转成 **aria-label**
+    // 并用 Tooltip 包裹(packages/ui-react/src/components/work-panel.tsx:629-655)。
+    // 旧探针只认 b.title === '取消收藏'/'添加收藏' ⇒ 生产构建下恒取不到(CI 现读 starBtnExists=false)。
+    const starBtn = Array.from(document.querySelectorAll('button')).find((b) => {
+      const label = b.getAttribute('aria-label') ?? ''
+      return (
+        label === '取消收藏' ||
+        label === '添加收藏' ||
+        label.toLowerCase().includes('star') ||
         b.title === '取消收藏' ||
-        b.title === '添加收藏' ||
-        b.getAttribute('aria-label')?.toLowerCase().includes('star'),
-    )
+        b.title === '添加收藏'
+      )
+    })
     return {
       starBtnExists: !!starBtn,
       starBtnClass: starBtn?.className ?? '',
@@ -445,6 +452,12 @@ test('P4-6: tab pill 合法内容模型 + 关闭钮聚焦显形(2026-09-22 非�
     })
   const before = await readState()
   await pills.nth(1).locator('button').first().click()
+  // 2026-10-21:点击后 store 的 activeTabId 由 React 提交才会变,原写法 click 完立刻 evaluate
+  // 读到的是提交前的旧值(CI/本机现读 switched.active === before.active)。用 poll 等它落定,
+  // 断言语义不变(active 必须换一个)。
+  await expect
+    .poll(async () => (await readState()).active, { timeout: 5_000 })
+    .not.toBe(before.active)
   const switched = await readState()
   expect(switched.active).not.toBe(before.active)
   expect(switched.count).toBe(before.count)
