@@ -264,7 +264,7 @@ async function listModels(
     }
   }
 
-  // 默认只列出"最新 + 对话类",其余按用途分类收进历史模型折叠区
+  // 默认列出"latest/standard + 对话类",其余(legacy 与非对话专用)按用途分类收进历史模型折叠区
   const split = splitModelCatalog(models);
 
   console.info('');
@@ -473,7 +473,7 @@ export function registerModelsCommand(program: Command): void {
     .command('list')
     .description('列出可用模型 (LLM 网关)')
     .option('--provider <p>', '按厂商过滤 (如 openai / anthropic / deepseek)')
-    .option('--all', '展开"历史模型"折叠区 (默认只展示最新对话类模型)')
+    .option('--all', '展开"历史模型"折叠区 (默认展示最新/标准代次的对话类模型)')
     .option('--json', '以 JSON 格式输出完整响应')
     .action(async (opts: ListOptions) => {
       try {
