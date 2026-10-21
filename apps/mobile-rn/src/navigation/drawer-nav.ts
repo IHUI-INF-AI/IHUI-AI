@@ -6,6 +6,7 @@ import {
   Activity,
   BarChart3,
   Bell,
+  BellRing,
   BookMarked,
   BookOpen,
   Bot,
@@ -16,10 +17,12 @@ import {
   ChartLine,
   ClipboardList,
   Clock,
+  Coins,
   Compass,
   Cpu,
   CreditCard,
   Crown,
+  FileText,
   Files,
   FolderOpen,
   Gift,
@@ -41,7 +44,10 @@ import {
   MessagesSquare,
   Monitor,
   Network,
+  NotebookPen,
+  Orbit,
   Palette,
+  Paperclip,
   Pencil,
   Phone,
   Plus,
@@ -66,6 +72,7 @@ import {
   User,
   UserCog,
   UserPlus,
+  UserRoundX,
   Users,
   UsersRound,
   Video,
@@ -211,7 +218,6 @@ type DrawerNavRouteName =
   | 'AgentSetting'
   | 'N8nModel'
   | 'TokenValue'
-  | 'AiCareer'
   | 'BusinessLicense'
   | 'CustomerService'
   | 'FeedbackHistory'
@@ -239,7 +245,17 @@ type DrawerNavRouteName =
   | 'Cart'
   | 'RefundHistory'
   | 'AIMultimodal'
-  | 'LivePlayback'
+  // ── 第六批(2026-10-21)web 侧边栏对账补挂 + RN 独立入口 ─────────────────────
+  // 口径:均有原生路由,且 ui-routes.generated.ts 标 requiresParams=false(无必参),
+  // 逐个现读 RootNavigator 注册对后落表。同批清两处存量:LivePlayback 死声明
+  // (由 profileMenuData 自承载,与本联合无关)与 AiCareer 重复成员(B 组与热门组各一份)。
+  | 'Note'
+  | 'CourseEnroll'
+  | 'ImageGenHistory'
+  | 'CourseAnnex'
+  | 'CoursePlanet'
+  | 'KnowledgePlanet'
+  | 'BusinessCard'
   // Vip 由底部用户行菜单直跳(与抽屉导航项同一出口,故同列一处,避免两处各写一份联合)
   | 'Vip'
 
@@ -500,7 +516,7 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
       // 我的学习二级(对齐 web /favorites 父项:收藏 / 关注 / 订阅)
       {
         labelKey: 'drawer.myLearning',
-        Icon: Star,
+        Icon: BookOpen,
         route: 'Favorites',
         target: { type: 'route', name: 'Favorites' },
         children: [
@@ -559,13 +575,13 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
           },
           {
             labelKey: 'menu.notificationSettings',
-            Icon: Bell,
+            Icon: BellRing,
             route: 'NotificationSettings',
             target: { type: 'route', name: 'NotificationSettings' },
           },
           {
             labelKey: 'menu.accountCancel',
-            Icon: Info,
+            Icon: UserRoundX,
             route: 'AccountCancel',
             target: { type: 'route', name: 'AccountCancel' },
           },
@@ -586,7 +602,7 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
           // 2026-10-21 第五批:web USER_CHILDREN 的 /user/comment(我的文章)
           {
             labelKey: 'userArticles.title',
-            Icon: MessageSquare,
+            Icon: FileText,
             route: 'UserArticles',
             target: { type: 'route', name: 'UserArticles' },
           },
@@ -594,7 +610,7 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
       },
       {
         labelKey: 'menu.messageCenter',
-        Icon: Bell,
+        Icon: MessageSquare,
         route: 'MessageCenter',
         target: { type: 'route', name: 'MessageCenter' },
       },
@@ -621,6 +637,12 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         Icon: Info,
         route: 'About',
         target: { type: 'route', name: 'About' },
+      },
+      {
+        labelKey: 'note.title',
+        Icon: NotebookPen,
+        route: 'Note',
+        target: { type: 'route', name: 'Note' },
       },
     ],
   },
@@ -852,6 +874,43 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         route: 'Search',
         target: { type: 'route', name: 'Search' },
       },
+      // 2026-10-21 第六批:web 侧边栏/域入口页对账补挂(均有原生路由、无必参)
+      {
+        labelKey: 'courseEnroll.title',
+        Icon: CalendarCheck,
+        route: 'CourseEnroll',
+        target: { type: 'route', name: 'CourseEnroll' },
+      },
+      {
+        labelKey: 'studyIndex.title',
+        Icon: Monitor,
+        route: 'StudyIndex',
+        target: { type: 'route', name: 'StudyIndex' },
+      },
+      {
+        labelKey: 'imageGenHistory.title',
+        Icon: Clock,
+        route: 'ImageGenHistory',
+        target: { type: 'route', name: 'ImageGenHistory' },
+      },
+      {
+        labelKey: 'courseAnnex.title',
+        Icon: Paperclip,
+        route: 'CourseAnnex',
+        target: { type: 'route', name: 'CourseAnnex' },
+      },
+      {
+        labelKey: 'coursePlanet.title',
+        Icon: Orbit,
+        route: 'CoursePlanet',
+        target: { type: 'route', name: 'CoursePlanet' },
+      },
+      {
+        labelKey: 'knowledgePlanet.title',
+        Icon: Globe,
+        route: 'KnowledgePlanet',
+        target: { type: 'route', name: 'KnowledgePlanet' },
+      },
     ],
   },
   // 11. 账号与安全(个人资料 / 安全 / 授权类)
@@ -908,6 +967,12 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         route: 'AiCareer',
         target: { type: 'route', name: 'AiCareer' },
       },
+      {
+        labelKey: 'businessCard.title',
+        Icon: IdCard,
+        route: 'BusinessCard',
+        target: { type: 'route', name: 'BusinessCard' },
+      },
     ],
   },
   // 12. 交易与资金(收益 / 钱包 / 积分 / 提现类)
@@ -936,13 +1001,13 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
       },
       {
         labelKey: 'pointHistory.title',
-        Icon: ListChecks,
+        Icon: Coins,
         route: 'PointHistory',
         target: { type: 'route', name: 'PointHistory' },
       },
       {
         labelKey: 'pointRule.title',
-        Icon: ListChecks,
+        Icon: FileText,
         route: 'PointRule',
         target: { type: 'route', name: 'PointRule' },
       },
