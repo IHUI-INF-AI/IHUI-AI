@@ -39,8 +39,14 @@ function fixture() {
   // 绕开出口 ⇒ gitdir/scratch 的夹具闸与退出清理对这一族零覆盖)。
   const dir = mkScratch('cert-mirror-')
   try {
-    for (const f of ['apiclient_cert.pem', 'apiclient_key.pem'])
-      copyFileSync(join(REPO, 'cert', f), join(dir, f))
+    // 这两件是**运维投放件**:`git ls-files cert` = 0,而 `.gitignore` 的 `**/cert/` 把整个目录
+    // 忽略 ⇒ 干净检出、换一台机上它们必然不存在。原写法无条件 copyFileSync ⇒ 三条用例死在夹具的
+    // ENOENT 上(CI 报的那 3 枚就是这个),而它们判的是"文件名/内容形态/到期窗",不依赖真实材料。
+    // 口径与下面 pub_key 那段一致:在位时照用,不在位就跳过复制。
+    for (const f of ['apiclient_cert.pem', 'apiclient_key.pem']) {
+      const src = join(REPO, 'cert', f)
+      if (existsSync(src)) copyFileSync(src, join(dir, f))
+    }
     // `pub_key.pem` 是微信支付"公钥模式"的**运维投放件**(`git log -- cert/pub_key.pem` 零历史,
     // 从未入库)⇒ 换一台机 / 干净检出上它就是不存在。镜像测试不得因为"这台机没投这个件"而红
     // (§12e:判机器状态的断言钉成 blocking = 唯一结局是逼人跳门)。本夹具要的只是"一份形如
