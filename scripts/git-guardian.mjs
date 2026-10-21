@@ -403,6 +403,13 @@ function git(args, allowFail = false) {
       // 一次(按清单撒 7149 枚松散 ref 再 pack),而盘上 ref 其实一枚没少。
       // 与门 99 那次同族:**缓冲区溢出不是"没有",它必须有自己的名字**(见 currentRefs 的 null 档)。
       maxBuffer: GIT_ENUM_MAX_BUFFER,
+      // 2026-10-22 立:**守护的 git 派生一律不抢"可选锁"**。
+      // 病灶:本守护每 12 秒巡检一轮,`git status`/`diff` 会"顺手"刷新索引 stat 缓存 ⇒ 抢
+      // index.lock;而提交链在钩子窗口期(实测 31 门约 30s)一直持有索引 ⇒ 两者反复相撞,
+      // safe-commit 撞锁后重试会**重跑整条 pre-commit**(实测同一枚提交出现两轮 31 门,
+      // 端到端从 60s 涨到 3 分钟)。
+      // GIT_OPTIONAL_LOCKS=0 只关"可选锁",add/commit/checkout 的必需锁不受影响 ⇒ 写路径语义不变。
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
     }).trim()
   } catch (e) {
     if (allowFail) return null

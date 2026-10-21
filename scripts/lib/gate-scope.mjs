@@ -72,7 +72,8 @@ const META_SCRIPT_RE = new RegExp(
       'check-husky-', // 钩子形态
       'check-no-conflict-markers', // 冲突标记
       'check-commit-loss', // 提交丢失(30a)
-      'check-architecture-policy', // 架构策略
+      // 刻意**不**收 `check-architecture-policy`(103):全仓架构策略存量对账,实测 18.2s,
+      // 判的是存量不是本次改动;改工具代码时它恒为"无关"。要在此刻看:IHUI_GATE_SCOPE=full。
       'check-watermark', // 水印语法/覆盖(47 查"本次携带的文件",已覆盖本档)
       // 刻意**不**收 `provenance-ledger`(107):它是"全仓台账存量对账",单轮 58.9s,
       // 判的是存量而不是本次改动;本次文件的水印完整性已由 47 check-watermark-coverage 覆盖。
@@ -85,7 +86,8 @@ const META_SCRIPT_RE = new RegExp(
       'check-direct-run-guard', // 直接运行守卫
       'check-mjs-syntax', // 语法
       'check-plan-', // 计划台账
-      'check-declared-', // 声明面
+      // 刻意**不**收 `check-declared-`(127 出站路由):全仓出站路由存量对账,实测 18.3s,
+      // 判的是存量不是本次改动;改 API 路由时它会随 apps/ 一起进全量档。
       'check-git-', // git 派生纪律
       'check-ignored-', // 忽略规则
       'check-tracked-', // 跟踪文件
