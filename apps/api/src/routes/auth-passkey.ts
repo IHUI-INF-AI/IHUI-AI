@@ -39,6 +39,7 @@ import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { setAuthCookies } from '../utils/auth-cookies.js'
 import { findUserById, saveRefreshToken } from '../db/queries.js'
+import { gateLoginIpWhitelist } from './user/ip-whitelist-guard.js'
 // ihui_auth_jwt_issued_total:passkey 副本 buildTokenPair 与 auth-extended 同口径打点
 import { recordAuthJwtIssued } from '../plugins/business-metrics.js'
 import {
@@ -431,6 +432,9 @@ const authPasskeyRoutes: FastifyPluginAsync = async (server) => {
       const user = await findUserById(credRow.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
 
       const tokens = await buildTokenPair(
         {

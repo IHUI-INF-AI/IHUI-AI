@@ -50,6 +50,16 @@ from .merge3 import merge3_for_edit
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
 from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
 
+# 2026-10-21(五开关按用户生效):本模块 exec_policy_mode 的档位一律经
+# `agent_security_prefs.resolve_security_config(主体)` 解析 —— 进程默认 ⊕ 该用户显式覆盖。
+# 主体唯一来源是 `call_tool` 的 `user_id` 形参(承载层注入)与 agent_loop_v2 在执行工具前
+# 发布的作用域;**绝不**读 arguments 里的 `__user_id`(那是 handler 入参,模型可填的形状)。
+from .agent_security_prefs import (
+    current_security_principal,
+    resolve_security_config,
+    security_principal_scope,
+)
+
 # 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
 # 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。
 from .path_guard import find_sensitive_segment, sensitive_error_message
@@ -57,7 +67,6 @@ from .path_guard import find_sensitive_segment, sensitive_error_message
 # V3 #75 后半:懒索引护栏用**枚举层同一份**有界探测出口(该模块只依赖标准库,
 # 无重依赖、无回环,所以可以在顶层 import;函数内再 import 一次只会造成两个出处)。
 from .rg_fallback_parity import SizeProbe, probe_code_file_count
-from .security_config import get_security_config
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
@@ -2801,12 +2810,19 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             }
 
     # exec_policy 策略引擎评估(在硬门之后、cwd 校验之前)
-    # P0-3(2026-09-12):三档模式由 security_config 决定(设置页可热更)——
+    # P0-3(2026-09-12):三档模式由安全配置决定 —— 2026-10-21 起按**当前 principal** 解析
+    # (进程默认 ⊕ 该用户显式表态;取不到主体 ⇒ 恰为进程快照 = 改动前行为)。三档语义不变:
     # enforce = DENY 拒绝;PROMPT 返回审批结构(agent_loop_v2 转真实用户审批弹窗,
     #           批准后经 approve_exec_command 一次性放行重执行);
     # audit   = PROMPT 仅记录后放行(观察期);DENY 硬红线仍拒绝,不降级;
-    # off     = 跳过评估(危险命令硬门/黑白名单等其他防线不受影响)。
-    _exec_mode = get_security_config().exec_policy_mode
+    # off     = 跳过策略引擎评估。
+    # 边界(恒不受本开关影响,任何档位都不放松,用例 4a/4b 钉死):
+    #   上面那段破坏性命令硬门(DANGEROUS_COMMAND_BLOCKED)与 _DESTRUCTIVE_PATTERNS、
+    #   工作区/cwd 校验、黑白名单等其他防线、以及 agent_loop_v2 的审批门全局 kill
+    #   switch TOOL_APPROVAL_ENABLED(优先级高于用户档)。
+    _exec_mode = (
+        await resolve_security_config(current_security_principal())
+    ).exec_policy_mode
     # 一次性放行 或 长期前缀放行规则命中 → 跳过 PROMPT 分支
     # (第十六批:前缀规则不消费,长期有效;仅服务端可登记,LLM 无法伪造)
     _exec_approved = _consume_exec_approval(command) or _matches_exec_prefix(command)
@@ -11140,13 +11156,21 @@ class MCPServer:
             _extra_roots_token = _ACTIVE_SESSION_EXTRA_ROOTS.set(
                 get_session_extra_roots(session_id)
             )
-            # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
-            try:
-                result = await asyncio.wait_for(
-                    handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT
-                )
-            finally:
-                _ACTIVE_SESSION_EXTRA_ROOTS.reset(_extra_roots_token)
+            # 2026-10-21(五开关按用户生效):把**承载层已验证的主体**发布进安全档位
+            # 作用域,handler 及其 await 链同处一个 asyncio task ⇒ `_tool_run_command`
+            # 在策略评估处读得到"谁在调"。来源只有这一个形参(由 routers/mcp.py 从
+            # request.state.user_id 即 JWT 注入);`args_with_role["__user_id"]` 是给
+            # handler 内部既有逻辑用的旧通道,本档位链**不读它** —— 入参形状是模型可填面。
+            # 空主体不覆盖已有主体(见 set_security_principal):agent_loop_v2 已经把它那轮
+            # 的主体发布过,这里传 None 只表示"这条通道没带主体",不该把已证明的降回无。
+            with security_principal_scope(user_id):
+                # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
+                try:
+                    result = await asyncio.wait_for(
+                        handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT
+                    )
+                finally:
+                    _ACTIVE_SESSION_EXTRA_ROOTS.reset(_extra_roots_token)
             # 2026-09-09 媒体任务统一落库:对话内媒体工具(video/music/tts/image/改图)
             # 提交即持久化到 media_tasks,支撑"我的媒体任务"查询/取消;DB 异常仅告警,
             # 绝不阻断对话主流程(与 video_generation_tasks 并存:该表是 REST 视频任务队列)。
