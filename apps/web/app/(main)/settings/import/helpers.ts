@@ -5,7 +5,7 @@
 /**
  * CLI 配置导入 API 调用函数
  */
-import { fetchApi } from '@/lib/api'
+import { apiOrThrow as api } from '@/lib/api'
 import type {
   CliConfigSource,
   CommitResult,
@@ -15,12 +15,7 @@ import type {
   SourcesData,
 } from './types'
 
-/** 通用 API 包装:从 ApiResult 解出 data,失败抛错 */
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
-  return r.data
-}
+export { api }
 
 /** GET /api/user/cli-import/sources — 支持的导入来源 */
 export function fetchSources() {
