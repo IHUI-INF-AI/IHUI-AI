@@ -3,10 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import {
+  Activity,
+  BarChart3,
   Bell,
   BookOpen,
   Bot,
   Brain,
+  CalendarDays,
   ClipboardList,
   Clock,
   Compass,
@@ -30,6 +33,7 @@ import {
   Plus,
   Puzzle,
   Repeat,
+  Rocket,
   ScrollText,
   Send,
   Settings,
@@ -119,6 +123,16 @@ type DrawerNavRouteName =
   | 'Distribution'
   | 'Team'
   | 'RepoWiki'
+  | 'Purchase'
+  | 'VipBenefit'
+  | 'Addresses'
+  | 'UserFans'
+  | 'ExamHistory'
+  | 'Usage'
+  | 'StudyPlan'
+  | 'McpStore'
+  | 'DeepResearch'
+  | 'AgentRuntime'
   // Vip 由底部用户行菜单直跳(与抽屉导航项同一出口,故同列一处,避免两处各写一份联合)
   | 'Vip'
 
@@ -224,6 +238,13 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             Icon: Wallet,
             route: 'ModelIncome',
             target: { type: 'route', name: 'ModelIncome' },
+          },
+          // 对齐 web MODELS_CHILDREN 的 /models/usage(normal 档,所有用户可见)
+          {
+            labelKey: 'usage.title',
+            Icon: BarChart3,
+            route: 'Usage',
+            target: { type: 'route', name: 'Usage' },
           },
         ],
       },
@@ -394,6 +415,20 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
             route: 'AccountCancel',
             target: { type: 'route', name: 'AccountCancel' },
           },
+          // 2026-10-21 对齐 web USER_CHILDREN 的 /user/fans 与 /user/exam
+          // (/user/comment、/user/ask、/user/resource 三项 RN 无原生路由,按纪律不放假入口)
+          {
+            labelKey: 'userFans.title',
+            Icon: Users,
+            route: 'UserFans',
+            target: { type: 'route', name: 'UserFans' },
+          },
+          {
+            labelKey: 'examHistory.title',
+            Icon: ClipboardList,
+            route: 'ExamHistory',
+            target: { type: 'route', name: 'ExamHistory' },
+          },
         ],
       },
       {
@@ -505,6 +540,32 @@ export const DRAWER_NAV_GROUPS: readonly DrawerNavGroup[] = [
         Icon: Compass,
         route: 'WebPortal',
         target: { type: 'route', name: 'WebPortal' },
+      },
+      // 2026-10-21 对齐 web ADVANCED_AI_TOOLS_CHILDREN 剩余四项
+      // (/plan /registry /deep-research /computer-use;RN 四路由均可无参导航)
+      {
+        labelKey: 'studyPlan.title',
+        Icon: CalendarDays,
+        route: 'StudyPlan',
+        target: { type: 'route', name: 'StudyPlan' },
+      },
+      {
+        labelKey: 'mcpStore.title',
+        Icon: Store,
+        route: 'McpStore',
+        target: { type: 'route', name: 'McpStore' },
+      },
+      {
+        labelKey: 'deepResearch.title',
+        Icon: Rocket,
+        route: 'DeepResearch',
+        target: { type: 'route', name: 'DeepResearch' },
+      },
+      {
+        labelKey: 'agentRuntime.title',
+        Icon: Activity,
+        route: 'AgentRuntime',
+        target: { type: 'route', name: 'AgentRuntime' },
       },
     ],
   },
