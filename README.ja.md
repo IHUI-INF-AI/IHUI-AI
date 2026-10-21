@@ -2176,6 +2176,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 🐞 修正:3e 活文档对账同时豁免两片派生区(RECENT UPDATES 归 auto-update-readme-recent、GENERATED NUMBERS 归 gen-doc-numbers;后者正确性由门 173 守),块外仍要求工作树⊇HEAD (1d1ed2680b)
+
+**2026-10-22**
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (980c5f92b2)
 
 **2026-10-22**
@@ -2226,9 +2229,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-10-21**
 - 📚 ドキュメント:补 16b 推送协议与 16c 钩子装载位对账 (88160bab99)
-
-**2026-10-21**
-- 🐞 修正:删除 learn.detail 死 key duration/objectives(五语言同批,解除死 key 门全局阻塞) (b35c22d2e6)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
