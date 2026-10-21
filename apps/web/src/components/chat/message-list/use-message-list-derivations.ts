@@ -9,7 +9,7 @@ import type { PlanStep } from '@/hooks/use-agent-progress'
 import { stabilizeListItems } from '@ihui/shared/ui/list-stabilization'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { useTimelineStore, type TimelineEvent } from '@/stores/timeline-store'
-import { useProgressJumpStore } from '@/stores/progress-jump-store'
+import { useProgressJumpStoreForPane } from '@/stores/progress-jump-store'
 
 export interface MessageListDerivationsOptions {
   messages: ChatMessage[]
@@ -188,7 +188,9 @@ export function useMessageListDerivations({
 
   // Phase 19 集成(2026-07-31 立):把 planStep → message 映射写入 ProgressJumpStore
   // 供 PlanStepsCard 点击步骤跳转 + hover 联动 + message-list 反向高亮
-  const linkPlanStepToMessage = useProgressJumpStore((s) => s.linkPlanStepToMessage)
+  // 票60 残余(2026-10-21):映射按窗格寻址写入,别的窗格不再看到本窗格这套联动关系
+  const jumpStore = useProgressJumpStoreForPane()
+  const linkPlanStepToMessage = jumpStore((s) => s.linkPlanStepToMessage)
   React.useEffect(() => {
     for (const step of planSteps) {
       if (step.sourceMessageId) {
