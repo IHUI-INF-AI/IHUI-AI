@@ -76,8 +76,11 @@ test('②形状锁:器物与守门 109 共用同一份挂牌判据,不得自带�
 test('③派发层只认机读结论行:stripped 分读正确,拿不到一律未判定', () => {
   const logs = []
   const dir = path.join(HERE, '..', '..', '.ihui-agent', 'tmp', 'gc-claim-test')
+  // tickFile 必须每臂唯一:派发层自带 30 分钟节流,复用同一个文件会让第二次运行落进
+  // "未到节流窗口"分支而拿到 undefined —— 那是**测试不幂等**,不是器物错(2026-10-22 实犯)。
+  const uniq = (k) => path.join(dir, `${k}-${process.pid}-${Date.now()}.json`)
   const r = sweepStaleClaimMarks({
-    tickFile: path.join(dir, 'a.json'),
+    tickFile: uniq('a'),
     logger: (l) => logs.push(l),
     runner: () => ({ ok: true, out: 'x\nSWEEP-RESULT state=stripped stale=30 held=27 stripped=30 lines=258' }),
   })
@@ -87,7 +90,7 @@ test('③派发层只认机读结论行:stripped 分读正确,拿不到一律未
   assert.match(logs.join('\n'), /代摘 30 枚/)
 
   const r2 = sweepStaleClaimMarks({
-    tickFile: path.join(dir, 'b.json'),
+    tickFile: uniq('b'),
     logger: () => {},
     runner: () => ({ ok: true, out: '看起来一切正常,但没有机读行' }),
   })
