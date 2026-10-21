@@ -456,7 +456,7 @@
     "promotion": "Coupons",
     "sectionPoints": "Points",
     "pointsMall": "Points Mall",
-    "pointsRecord": "Points History",
+    "pointsRecord": "Token Value Details",
     "pointRule": "Points Rules",
     "pointHistory": "Points History",
     "taskCenter": "Task Center",
@@ -1251,6 +1251,9 @@
     "submit": "Submit",
     "submitting": "Submitting..."
   },
+  "coursePlanet": {
+    "title": "Course Planet"
+  },
   "courseResource": {
     "title": "Course Resources",
     "empty": "No resources yet",
@@ -1538,7 +1541,7 @@
     "seek": "Seek"
   },
   "pointsRecord": {
-    "title": "Points History",
+    "title": "Token Value Details",
     "tabAll": "All",
     "tabEarn": "Earned",
     "tabSpend": "Spent",
@@ -1870,6 +1873,9 @@
       "noImageHint": "This record stores no image URL; only the prompt is available.",
       "noMore": "No more items"
     },
+  "imageGenHistory": {
+    "title": "Generation History"
+  },
     "imageGenTemplates": {
       "title": "Prompt Templates",
       "subtitle": "Pick a template to generate images quickly",
@@ -2508,6 +2514,9 @@
       "submitting": "Publishing…",
       "submit": "Publish request"
     },
+  "businessCard": {
+    "title": "My Business Card"
+  },
     "businessCardEdit": {
       "pageTitleCreate": "Create business card",
       "pageTitleEdit": "Edit business card",
@@ -2678,6 +2687,9 @@
   },
   "square": {
     "title": "AI Feed"
+  },
+  "studyIndex": {
+    "title": "AI Video"
   },
   "studyProgress": {
     "title": "Study Progress",
@@ -3715,6 +3727,9 @@
     },
     "knowledgeCards": "Knowledge Cards",
     "knowledgePlanet": "Knowledge Planet"
+  },
+  "knowledgePlanet": {
+    "title": "Knowledge Planet"
   },
   "knowledgeRag": {
     "title": "RAG Knowledge Base",
