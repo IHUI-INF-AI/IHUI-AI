@@ -5,10 +5,17 @@
 /**
  * 回归锁:服务自愈的**终态**必须到人(2026-10-21 实测事故型)。
  *
- * 现场:IHUI-API 因 Fastify 重复路由声明在 boot 期抛错,崩溃循环 126 次、8802 从未监听、
+ * 文件名里的 capped 是这两个入口里的第一个;本档现覆盖**两个**只能交人的终态,它们共用
+ * `alertTerminalHeld` 一件器物(§0.6 只有一份实现),所以也就共用这一份取证。
+ *
+ * 现场一:IHUI-API 因 Fastify 重复路由声明在 boot 期抛错,崩溃循环 126 次、8802 从未监听、
  * 登录全量 500 持续 45 分钟,而**一封信都没有**。派发侧只认 `restarted*` / `restart-failed`,
  * 而窗口上限(`maxRestartsPerWindow: 2`)用完后那台落进 `window-capped` —— 两集都不是,
  * 从此只往守护日志写一行"请人看"。**越是不重启能解决的故障越安静。**
+ * 现场二:IHUI-OLLAMA `STATE=STOPPED`、Application 指向一个不存在的 exe、11434 无应答。
+ * 它落在自愈白名单之外,而排除台账对这一族的原话是"只喊人" —— 可"只喊人"从来没有生产者,
+ * 门 153 只是提交链上的 warn。更要紧的是那两行排除写成 `a / b / c` 的伪名:任何按服务名的
+ * 查表**结构上永远命中不了**,8 台服务在台账里"看着有豁免",实际无人豁免、也无人喊人。
  *
  * 本档锁的每一格都有成对反证(§"修复必须带变异自证"):
  *  ① 封顶 ⇒ 恰好一封,身份带服务名集合与持续档;
@@ -19,7 +26,11 @@
  *  ④ 同一批封顶越拖越响:6h → 24h 跨档 ⇒ 身份变 ⇒ 不会被 4h 窗压成静音;
  *  ⑤ 每一轮都必须**真的跑过**(`r.ran === true`)—— 被节律戳挡掉的一轮返回的是同一个"零封信",
  *    和"判过且没问题"在读数上完全同形。这一条不是补充,是第一版当场假绿换来的(C3 那次);
- *  ⑥ 新增那一格不许吃掉旧那一格:重启后仍无应答 ⇒ 原「服务自愈动作」身份逐字不变。
+ *  ⑥ 新增那一格不许吃掉旧那一格:重启后仍无应答 ⇒ 原「服务自愈动作」身份逐字不变;
+ *  ⑦ 名单外真坏了 ⇒ 独立身份一封,且与封顶**不并桶**(一型恢复不许压掉另一型);健康的不立行、
+ *    豁免到期与未登记两档都必须响 —— 方向恒为**多喊一次**,绝不是多静音一次(§0.10);
+ *  ⑧ 本档自己的 teardown 必须在位(C11):`after(…rmScratch…)` 那一行在本次落地的那枚提交里
+ *    **整行不见了而 6 条用例照样全绿** —— 少一个收尾钩子不会让任何断言变红,这一型天生安静。
  *
  * 判据一律 import 源脚本的 `healUnresponsiveServices`,本档不复制第二份(§22c)。
  */
@@ -36,6 +47,7 @@ const scratch = mkScratch('service-heal-capped')
 /** 造一份动作器 `--json --apply` 的 stdout(形状与真机一致,字段不自己发明)。 */
 function report({ actions, results = [] }) {
   const act = (kind) => actions.filter((a) => a.kind === kind).length
+  const off = (state) => actions.filter((a) => a.kind === 'not-in-list' && a.ackState === state).length
   return JSON.stringify({
     at: new Date(T0).toISOString(),
     apply: true,
@@ -50,6 +62,10 @@ function report({ actions, results = [] }) {
       capped: act('window-capped'),
       undetermined: act('undetermined'),
       offlist: act('not-in-list'),
+      offlistAnswering: 0,
+      offlistUndetermined: 0,
+      offlistUnregistered: off('unregistered'),
+      offlistAckExpired: off('expired'),
     },
     actions,
     results,
@@ -58,6 +74,13 @@ function report({ actions, results = [] }) {
 
 const CAP = { name: 'IHUI-DEMO', kind: 'window-capped', why: '本 60 分钟窗口已动作 2/2 台 ⇒ 防重启风暴,本轮不动' }
 const HEALTHY = { name: 'IHUI-DEMO', kind: 'answering', why: '应答正常:127.0.0.1:8802 有应答' }
+/** 名单外真坏了(动作器给的形状:kind + ackState + 带三档出路措辞的 why)。 */
+const offDown = (name, ackState, extra = '') => ({
+  name,
+  kind: 'not-in-list',
+  ackState,
+  why: `down:STATE=STOPPED ⇒ 白名单外不自动重启,${extra}`,
+})
 
 /**
  * 跑一轮派发,收 notify/logger,零真派生(runner 由夹具给)。
@@ -146,4 +169,53 @@ test('C6 原有那格没被我加的这一格挤掉:重启过但仍不应答 ⇒
   assert.equal(mails[0].name, '服务自愈动作', `旧身份被改写:${mails[0].name}`)
   assert.match(mails[0].opts.dedupKey, /^service-heal;svcs=IHUI-DEMO;acted=1;failed=0$/, `旧身份形状坏了:${mails[0].opts.dedupKey}`)
 })
+
+test('C7 名单外真坏了 ⇒ 恰好一封,身份独立于封顶那一型,出路点名"补登记/摘服务"', () => {
+  const { mails } = run('C7', T0, report({ actions: [HEALTHY, offDown('IHUI-OLLAMA', 'acked', '已登记排除(2027-01-01 前回看):B 档 provider')] }))
+  assert.equal(mails.length, 1, `名单外故障应当恰好一封,现读 ${mails.length} 封`)
+  const m = mails[0]
+  assert.match(m.name, /不得自动重启/, '标题必须说清"重启它不是本层的授权动作"')
+  assert.equal(m.opts.severity, 'critical')
+  assert.match(m.opts.dedupKey, /^service-offlist-down;svcs=IHUI-OLLAMA;held=lt6h$/, `身份形状坏了:${m.opts.dedupKey}`)
+  assert.match(m.detail, /service-auto-restart\.json/, '正文必须指到那张台账,否则收信人不知道该在哪儿改')
+  assert.match(m.detail, /已登记排除/, '动作器给的三档措辞必须原样透传(派发侧不得自己重算台账形态)')
+  assert.doesNotMatch(m.opts.dedupKey, /\d{2,}/, '身份里不许出现原始计数/时刻(型③、§5e-3、门 224)')
+})
+
+test('C8 名单外**健康**不立行 ⇒ 派发侧零封(把"没事"与"坏了"分开的下半边)', () => {
+  const { mails } = run('C8', T0, report({ actions: [HEALTHY, { name: 'ihui-loki', kind: 'answering', why: '应答正常' }] }))
+  assert.equal(mails.length, 0, '健康服务进发信集 = 天天轰炸')
+})
+
+test('C9 两型同时坏 ⇒ 两封各带各的身份(并桶会让一型恢复压掉另一型)', () => {
+  const { mails } = run('C9', T0, report({ actions: [CAP, offDown('IHUI-RSSHUB', 'unregistered', '既无服务条目也无排除条目 ⇒ 这台没人决定过,请补登记')] }))
+  assert.equal(mails.length, 2, `封顶与名单外是两件事,必须两封,现读 ${mails.length} 封`)
+  const kinds = mails.map((m) => String(m.opts.dedupKey).split(';')[0]).sort().join('+')
+  assert.equal(kinds, 'service-heal-capped+service-offlist-down', `身份被并桶:${kinds}`)
+  const off = mails.find((m) => m.opts.dedupKey.startsWith('service-offlist-down'))
+  assert.match(off.detail, /没人决定过/, '未登记那一档的出路必须是补登记,不是"按登记的处置"')
+})
+
+test('C10 豁免到期与未登记都必须响(方向是多喊一次,绝不是多静音一次 §0.10)', () => {
+  const expired = run('C10a', T0, report({ actions: [offDown('IHUI-MONITOR', 'expired', '排除台账复核日已过(2026-01-01)⇒ 请重新裁定')] }))
+  const unreg = run('C10b', T0, report({ actions: [offDown('IHUI-NEW-SVC', 'unregistered', '这台没人决定过,请补登记')] }))
+  assert.equal(expired.mails.length, 1, '复核日已过的排除条目不得继续当豁免用')
+  assert.equal(unreg.mails.length, 1, '压根没登记的新服务必须响(RSSHub 静默停 3 天那一型)')
+  assert.match(expired.mails[0].detail, /复核日已过/)
+  assert.match(unreg.mails[0].detail, /请补登记/)
+})
+
+/**
+ * C11 收尾钩子必须真的挂在文件里 —— 这一条是被"一行代码静默消失"逼出来的:
+ * 本档的 `after(() => rmScratch(scratch))` 在落地那枚提交里**整行不见了**,而 6 条用例照样全绿
+ * (没有任何一条断言它存在)。夹具目录靠 mkScratch 的进程退出回收兜住,所以后果是"盘上多一份
+ * 目录"而不是"用例红" —— 也就是说,**这一型的失效天生是安静的**。加这条锁,并且它自己就是
+ * "判据要能在真跑它的那一刻才成立"的形状:摘掉 after 那一行,本档立刻翻红。
+ */
+test('C11 本档的收尾钩子必须真在位(静默丢行的一型:测试全绿而 teardown 没了)', () => {
+  const src = readFileSync(new URL(import.meta.url), 'utf8')
+  assert.match(src, /^after\(\(\) => rmScratch\(scratch\)\)\s*$/m, 'after(…rmScratch…) 这一行不在了 ⇒ 用例仍会全绿,而夹具目录没人回收')
+})
+
+after(() => rmScratch(scratch))
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
