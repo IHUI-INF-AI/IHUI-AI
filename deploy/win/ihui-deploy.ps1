@@ -1249,7 +1249,11 @@ function Get-CleanBuildWebDir {
                 # 而 pnpm 的错误消息本体在第一行 —— 2026-10-21 那轮排障时日志里只剩
                 # "at async installDeps ..." 一串,真因(`mkdir '\\?'`)从未落盘,只能重建净面复现。
                 # 现改为「首 3 行 + 末 8 行」,并在中间标出省略行数:首行必留,尾部仍能看到退出上下文。
-                $instLines = @(& 'D:\DevEnv\tools\npm-global\pnpm.cmd' install --frozen-lockfile 2>&1 | ForEach-Object { "$_" })
+                # 非交互(同日第二次加固):`$null |` 关 stdin + `--config.confirm-modules-purge=false`
+                # ⇒ 防 pnpm 的「store 已变更 ⇒ 需要 purge?」确认在非交互管道里把整轮部署挂死
+                # (2026-10-22 06:04 实测卡 43 分钟、pnpm CPU 恒 0、日志零输出)。
+                $env:CI = '1'
+                $instLines = @($null | & 'D:\DevEnv\tools\npm-global\pnpm.cmd' install --frozen-lockfile --config.confirm-modules-purge=false 2>&1 | ForEach-Object { "$_" })
                 $irc = $LASTEXITCODE
                 if ($instLines.Count -le 12) {
                     $instLines | ForEach-Object { Log "[clean-install] $_" }
@@ -1405,8 +1409,22 @@ function Build-Web {
         $rootInstalled = if (Test-Path -LiteralPath $rootStampFile) { (Get-Content -LiteralPath $rootStampFile -Raw).Trim() } else { '' }
         if (Test-CleanBuildInstallNeeded -WebBinExists (Test-Path -LiteralPath (Join-Path $Root 'node_modules')) -DepStamp $rootDepStamp -StampInstalled $rootInstalled) {
             Log '主仓依赖面缺失或已变 ⇒ pnpm install --frozen-lockfile'
-            & "D:\DevEnv\tools\npm-global\pnpm.cmd" install --frozen-lockfile 2>&1 |
-                Select-Object -Last 6 | ForEach-Object { Log "[root-install] $_" }
+            # 非交互三保险(2026-10-22 立,实测 06:04 整轮卡死 43 分钟后):pnpm 判定
+            # "store 已变更 ⇒ 需要 purge 重建" 时会等确认输入,非交互管道里 stdin 永远
+            # 不给 ⇒ CPU 恒 0、日志零输出,部署链整轮挂住。
+            #   ① $env:CI='1'  ⇒ pnpm/npm 在 CI 下默认不提示;
+            #   ② --config.confirm-modules-purge=false ⇒ 明确关掉这一条确认;
+            #   ③ `$null |`   ⇒ stdin 立即 EOF,不给"等一个永不到来的回车"的机会。
+            # 采样口径同净面那段:首 3 + 末 8,错误首行必落盘。
+            $env:CI = '1'
+            $rootLines = @($null | & "D:\DevEnv\tools\npm-global\pnpm.cmd" install --frozen-lockfile --config.confirm-modules-purge=false 2>&1 | ForEach-Object { "$_" })
+            if ($rootLines.Count -le 12) {
+                $rootLines | ForEach-Object { Log "[root-install] $_" }
+            } else {
+                $rootLines[0..2] | ForEach-Object { Log "[root-install] $_" }
+                Log ("[root-install] …(省略 {0} 行)…" -f ($rootLines.Count - 11))
+                $rootLines[($rootLines.Count - 8)..($rootLines.Count - 1)] | ForEach-Object { Log "[root-install] $_" }
+            }
             if ($LASTEXITCODE -ne 0) {
                 Log "WARN  主仓 pnpm install 失败(exit $LASTEXITCODE),api 可能滞留旧 dist"
             } else {
