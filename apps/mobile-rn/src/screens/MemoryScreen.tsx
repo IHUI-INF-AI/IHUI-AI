@@ -25,6 +25,7 @@ import type {
   MemoryCreateInput,
 } from '@ihui/types'
 import { MemoryScreen as SharedMemoryScreen } from '@ihui/rn-app'
+import { buildMemoryDetailWebUrl } from '../lib/webview-portal-config'
 import { useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -183,6 +184,12 @@ export function MemoryScreen() {
       onNewScopeChange={setNewScope}
       onCreateSubmit={() => void onCreate()}
       onDelete={onDelete}
+      onOpenDetail={(id: string) =>
+        navigation.navigate('WebView', {
+          url: buildMemoryDetailWebUrl(id),
+          title: t('memory.detail'),
+        })
+      }
       onRefresh={() => {
         setRefreshing(true)
         void load()

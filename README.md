@@ -181,6 +181,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 8 端职责、下载矩阵与桌面薄壳方案全文见 [`readme-04`](./docs/engineering/readme-04-architecture-and-modules.md)。
 
 移动 App（`apps/mobile-rn`）的用户侧功能面按 web 同名页逐页对齐，硬规矩是**每屏只接 `apps/api` 里真实注册的路由**：后端没有实现或只回显不入库的入口，端内不造 UI（宁可不做，也不给一个点了没反应的按钮）。2026-10-21 一批补齐 35 屏 —— 安全中心（评分／两步验证／会话撤销／安全事件）、开发者 API 密钥、数据权利与导出、第三方账号、用量、发票、收货地址、积分中心、错题本、我的试卷、分销汇总、发布四屏（账号／新建／日历／数据）、智能体分类、知识库与 RAG 文档管理、图片模板与画廊、语音转写、群组、文章与问答编辑、广场发布、AI 世界创建等。入口分布在「设置」菜单与「我的」页菜单，五语言词条同批落 [`packages/i18n/messages/mobile-rn/`](./packages/i18n/messages/mobile-rn)。
+同轮补的后端与承载面(2026-10-21):`GET/POST/DELETE /api/user/ip-whitelist` 与 `GET/PUT /api/agent/security-config` 落进 `user_preferences(group='security')` —— web 那两张卡此前打的是没有后端的路径;两面**只存不拦**(IP 白名单要拦在哪一层是待拍板的产品语义,`security-config-routes.ts` 头注把原因写全)。「Web 功能门户」现读 13 组 91 条(本轮新增「账单管理」`/settings/billing` 与「知识库」`/knowledge`,两端同表,清单唯一真相源在 `packages/shared/src/constants/web-portal.ts`);记忆详情按 web `/memory/[id]`(那张页带编辑+保存,共享记忆屏只有新建/删除)走既有 WebView 承载,URL 形状同样住在该同源。
 
 ---
 

@@ -7,7 +7,8 @@
  *
  * 背景:移动端无法原生实现的复杂功能域(edu-ai/教务家长/开发者平台/自媒体/知识图谱/模型管理)
  * 通过本门户按细分 URL 打开 WebViewScreen(替代此前"网页版"整站入口)。
- * 数据源:lib/webview-portal-config.ts 的 WEB_PORTAL_SECTIONS(8 组 49 条)。
+ * 数据源:packages/shared/src/constants/web-portal.ts(经 lib/webview-portal-config.ts 绑底座,
+ * 现读 13 组 91 条;两端同源,清单只许那一份)。
  * 平台特有:依赖 RN SectionList/Pressable,不适合共享。
  */
 import { useState } from 'react'
