@@ -15,6 +15,7 @@ import {
   Hash,
   LayoutGrid,
   ListChecks,
+  MapPin,
   Megaphone,
   MessageCircle,
   Mic,
@@ -25,6 +26,7 @@ import {
   Receipt,
   ScrollText,
   ShoppingBag,
+  ShoppingCart,
   Star,
   Ticket,
   Users,
@@ -256,6 +258,26 @@ export const DOMAIN_HUBS: Record<DomainKey, HubDomain> = {
         Icon: Users,
         route: 'Invite',
         target: { type: 'route', name: 'Invite' },
+      },
+      // 2026-10-21 第四批对齐(web TRADE_HUB_ITEMS + MEMBER_ITEMS):购买 / 会员权益 / 收货地址
+      // 三项此前漏挂,RN 三路由均可无参导航(已核 RootStackParamList)。
+      {
+        labelKey: 'purchase.title',
+        Icon: ShoppingCart,
+        route: 'Purchase',
+        target: { type: 'route', name: 'Purchase' },
+      },
+      {
+        labelKey: 'vipBenefit.title',
+        Icon: Award,
+        route: 'VipBenefit',
+        target: { type: 'route', name: 'VipBenefit' },
+      },
+      {
+        labelKey: 'addresses.title',
+        Icon: MapPin,
+        route: 'Addresses',
+        target: { type: 'route', name: 'Addresses' },
       },
     ],
   },

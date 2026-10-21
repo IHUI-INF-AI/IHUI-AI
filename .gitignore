@@ -245,6 +245,12 @@ monitoring/alertmanager/alertmanager.rendered.yml
 # 一个字节都不显示(2026-10-20 实测:写完 withNativeInputChrome.cjs 后 status 全程干净)。
 # 同形态先例见下方 `!apps/miniapp-taro/src/index.html`。
 !apps/mobile-rn/plugins/*.cjs
+# 同一条 `*.cjs` 也把两份**已入库**的构建/部署配置吞成"已跟踪却被忽略"(G-926 现读):
+# metro.config.cjs 是 NativeWind×Tailwind v4 的唯一 monkey-patch 源,ecosystem.config.cjs 是 pm2 侧配置。
+# 这种形态的代价不是"看不见改动",而是它们一进暂存集就让 lint-staged 的 `git add` 报错、
+# 连带把全部守门废掉。放例外 = 回到正常跟踪态,不动判据也不摘跟踪。
+!apps/mobile-rn/metro.config.cjs
+!apps/api/ecosystem.config.cjs
 *.html
 # 例外: miniapp-taro H5 模板文件(构建时 webpack 处理,源文件需 git 追踪)
 !apps/miniapp-taro/src/index.html

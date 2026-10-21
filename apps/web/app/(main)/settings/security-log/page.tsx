@@ -5,10 +5,10 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
-import { ShieldCheck, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import {
   Card,
@@ -27,27 +27,38 @@ import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
-import { cn } from '@/lib/utils'
 
+/**
+ * GET /settings/security-logs 的行 = `security_logs` 表实列
+ * (packages/database/src/schema/security-logs.ts:18-27)。
+ * 旧声明的 time/event/device/status 后端从未返回 ⇒ 四列里三列恒空、状态列恒判"成功"。
+ * 后端也不给成败结论(它只记发生了什么)，故本表不再有一列"状态"。
+ */
 interface SecurityLogItem {
   id: string
-  time: string
-  event: string
-  ip: string
-  device: string
-  status: 'success' | 'failed'
+  action: string
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
 }
 
 const PAGE_SIZE = 20
 
 type TabKey = 'all' | 'security' | 'abnormal'
 
-const SECURITY_EVENTS = new Set(['passwordChange', 'abnormalLogin', 'twoFactorEnabled'])
+/** 本表已插桩写入口径（recordSecurityEvent）；abnormal 那一维等 IP 白名单拦截落地后才有行。 */
+const SECURITY_EVENTS = new Set([
+  'password_change',
+  'two_factor_enable',
+  'two_factor_disable',
+])
+const ABNORMAL_EVENTS = new Set(['login_blocked_by_ip_allowlist'])
 
 export default function SecurityLogPage() {
   const t = useTranslations('settings')
   // 2026-10-15 登录态门(与 /settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
   const tGate = useTranslations('chatHistory')
+  const locale = useLocale()
   const { allow } = useAuthGate()
   const [logs, setLogs] = React.useState<SecurityLogItem[]>([])
   const [total, setTotal] = React.useState(0)
@@ -57,11 +68,20 @@ export default function SecurityLogPage() {
   const [tab, setTab] = React.useState<TabKey>('all')
 
   const eventLabels: Record<string, string> = {
-    login: t('eventLogin'),
-    logout: t('eventLogout'),
-    passwordChange: t('eventPasswordChange'),
-    abnormalLogin: t('eventAbnormalLogin'),
-    twoFactorEnabled: t('event2faEnabled'),
+    password_change: t('eventPasswordChange'),
+    two_factor_enable: t('event2faEnabled'),
+    two_factor_disable: t('event2faDisabled'),
+    login_blocked_by_ip_allowlist: t('eventIpBlocked'),
+  }
+
+  const dateFmt = React.useMemo(
+    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
+    [locale],
+  )
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso)
+    // 解析不了就交原文，不编一个时间给表格
+    return Number.isNaN(d.getTime()) ? iso : dateFmt.format(d)
   }
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
@@ -101,9 +121,9 @@ export default function SecurityLogPage() {
   const filteredLogs = React.useMemo(() => {
     if (tab === 'all') return logs
     if (tab === 'security') {
-      return logs.filter((l) => SECURITY_EVENTS.has(l.event))
+      return logs.filter((l) => SECURITY_EVENTS.has(l.action))
     }
-    return logs.filter((l) => l.event === 'abnormalLogin' && l.status === 'failed')
+    return logs.filter((l) => ABNORMAL_EVENTS.has(l.action))
   }, [logs, tab])
 
   const tabs: { key: TabKey; label: string }[] = [
@@ -161,43 +181,24 @@ export default function SecurityLogPage() {
                       <TableHead>{t('logEvent')}</TableHead>
                       <TableHead>{t('logIp')}</TableHead>
                       <TableHead>{t('logDevice')}</TableHead>
-                      <TableHead>{t('logStatus')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredLogs.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell className="whitespace-nowrap text-xs">{log.time}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {fmtTime(log.createdAt)}
+                        </TableCell>
                         <TableCell className="text-xs">
                           <span className="inline-flex items-center gap-1.5">
-                            <span
-                              className={cn(
-                                'inline-flex h-5 w-5 items-center justify-center rounded',
-                                log.status === 'failed' ? 'bg-red-100' : 'bg-green-100',
-                              )}
-                            >
-                              {log.status === 'failed' ? (
-                                <ShieldAlert className="h-3 w-3 text-red-600" />
-                              ) : (
-                                <ShieldCheck className="h-3 w-3 text-green-600" />
-                              )}
-                            </span>
-                            {eventLabels[log.event] ?? log.event}
+                            <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                            {/* 未插桩的 action 显原文，不替它编一个中文名 */}
+                            {eventLabels[log.action] ?? log.action}
                           </span>
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{log.ip}</TableCell>
-                        <TableCell className="text-xs">{log.device}</TableCell>
-                        <TableCell>
-                          <span
-                            className={cn(
-                              'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                              log.status === 'success'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-red-100 text-red-700',
-                            )}
-                          >
-                            {log.status === 'success' ? t('statusSuccess') : t('statusFailed')}
-                          </span>
+                        <TableCell className="font-mono text-xs">{log.ip ?? '-'}</TableCell>
+                        <TableCell className="max-w-[280px] truncate text-xs">
+                          {log.userAgent ?? '-'}
                         </TableCell>
                       </TableRow>
                     ))}
