@@ -445,23 +445,34 @@ test('P4-6: tab pill 合法内容模型 + 关闭钮聚焦显形(2026-09-22 非�
   await page.mouse.move(0, 0) // 离开 pill,避免 group-hover 干扰后续判定
 
   // ⑤ 点标题=激活;点非激活 tab 的 X=关闭且激活态不变(证明关闭不会串到 onTabChange)
+  // 2026-10-21 复核(旧写法 pills.nth(1) 必红):pill 顺序 == store.tabs 顺序,而 newTab
+  // 会把新 tab 置为 active(stores/work-panel.ts newTab 里 activeTabId: tab.id)⇒ 末颗 pill
+  // 恰是当前激活 tab,点它是 no-op。故按 store 现读的 id 算"非激活那颗"的下标,不写死 nth;
+  // 断言语义不变:active 必须真的换成被点那颗,且关非激活 tab 的 X 不得改激活态。
   const readState = () =>
     page.evaluate(() => {
       const s = (window as any).__workPanelStore.getState()
-      return { count: s.tabs.length, active: s.activeTabId as string | null }
+      return {
+        count: s.tabs.length,
+        active: s.activeTabId as string | null,
+        ids: s.tabs.map((t: any) => t.id as string) as string[],
+      }
     })
   const before = await readState()
-  await pills.nth(1).locator('button').first().click()
-  // 2026-10-21:点击后 store 的 activeTabId 由 React 提交才会变,原写法 click 完立刻 evaluate
-  // 读到的是提交前的旧值(CI/本机现读 switched.active === before.active)。用 poll 等它落定,
-  // 断言语义不变(active 必须换一个)。
+  const idleIdx = before.ids.findIndex((id) => id !== before.active)
+  expect(idleIdx).toBeGreaterThanOrEqual(0)
+  await pills.nth(idleIdx).locator('button').first().click()
   await expect
     .poll(async () => (await readState()).active, { timeout: 5_000 })
     .not.toBe(before.active)
   const switched = await readState()
   expect(switched.active).not.toBe(before.active)
+  expect(switched.active).toBe(before.ids[idleIdx])
   expect(switched.count).toBe(before.count)
-  await close0.click()
+  // 点标题后激活已换到上面那颗 ⇒ 关闭目标按当前激活态现算,保证点的是"非激活 tab 的 X"
+  const idleIdx2 = switched.ids.findIndex((id) => id !== switched.active)
+  expect(idleIdx2).toBeGreaterThanOrEqual(0)
+  await pills.nth(idleIdx2).locator('[data-testid="work-panel-tab-close"]').click()
   const closed = await readState()
   expect(closed.count).toBe(before.count - 1)
   expect(closed.active).toBe(switched.active)
