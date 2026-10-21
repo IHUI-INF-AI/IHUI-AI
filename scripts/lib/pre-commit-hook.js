@@ -886,7 +886,13 @@ if (!gatesOk) {
 // 跳过方法(紧急):HUSKY_SKIP_I18N_DEAD_KEY=1 git commit ...(本步在跑之前真读该 env,见下一行判据)
 // 性能(web 端 4460 个语料文件,2026-09-28 现测):磁盘档 ~1.7s;--staged 档 ~1.4s
 //      (git ls-files 一次 + cat-file --batch 一次读满,反而省掉逐文件 readFileSync)。
-if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
+// ⚠️ 2026-10-22:本段**默认跳过**,已整体移入 guardian-runner 并行池(门 70b)。
+// 理由:这里用 execSync **串行**跑,实测独占 6.6s;移进并行池后与其他 30 门重叠 ⇒ 等于白得。
+// 判据(--staged 索引面)、退出码、跳过开关(HUSKY_SKIP_I18N_DEAD_KEY)全部原样搬过去,
+// 且门 70b 是 blocking —— 死 key 依然阻断提交,语义没有放宽。
+// 仅在排障时想单独看这一段:HUSKY_PRECOMMIT_I18N_INLINE=1(与门 70b 的
+// HUSKY_SKIP_I18N_DEAD_KEY 是两件事:那个是"跳过",这个是"在这里也跑一遍")。
+if (process.env.HUSKY_PRECOMMIT_I18N_INLINE === '1') {
   console.log(
     '🌐 i18n 死 key 扫描(判定面=索引 blob;死 key > 0 阻断 commit,2026-07-26 立 / 2026-09-28 收面)',
   )
@@ -917,7 +923,7 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  i18n 死 key 扫描(HUSKY_SKIP_I18N_DEAD_KEY=1, 跳过)')
+  console.log('⏭  i18n 死 key 扫描(已移入守门并行池 70b,此处不重复跑)')
 }
 
 // 🌐 4 端 i18n 死 key 扫描(miniapp-taro / mobile-rn / extension,warn-only 起步,2026-07-26 立)
