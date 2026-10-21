@@ -4,10 +4,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 回收站垃圾分类清理器。
-// 动机:这台机的两个卷都写了 NukeOnDelete=1(实测:请求可撤销删除被 shell 拒绝),
-// 但 AI 编程工具的"安全删除"自己请求把文件送进回收站,那条路径不受该开关约束,
-// 于是回收站无限积累。本工具不解散回收站(那会连带抹掉用户自己的可恢复项),
-// 而是只删命中垃圾类前缀的条目;解析失败或认不出类别的条目一律不动。
+// 动机(2026-10-21 按当次实测更正,原句"AI 工具送回收站那条路径不受 NukeOnDelete 约束"
+// 已被 recycle-bin-policy --verify 的 A/B 两臂推翻:genie-trash 与显式可撤销删除请求
+// 都被硬删):卷上 NukeOnDelete 在位时删除不落回收站;但这道闸此前全仓零处维护,一旦被
+// 重置,灌入立刻恢复 —— 所以本件保留为兜底清理腿,卷策略的存续由同目录 recycle-bin-policy
+// 每轮巡检(见本文件 policyLeg)。本工具不解散回收站(那会连带抹掉用户自己的可恢复项),
+// 而是只删命中垃圾类前缀或具名再生缓存的条目;git 状态件与源码文件永不命中,
+// 解析失败或认不出类别的条目一律不动。
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync, appendFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -305,6 +308,9 @@ function policyLeg(mayRepair) {
   if (first.error) return { status: 'undetermined', why: first.error }
   if (!first.json) return { status: 'undetermined', why: '策略器 --check 未给出 JSON(exit ' + first.code + ')' }
   if (first.json.status === 'ok') return { status: 'ok', rows: first.json.rows }
+  if (first.json.status === 'undetermined') {
+    return { status: 'undetermined', why: first.json.why || '策略器 --check 落未判定', before: first.json }
+  }
   if (!mayRepair) return { status: 'breach-unrepaired', before: first.json }
   const applied = call(['--apply', '--json'])
   const after = call(['--check', '--json'])
