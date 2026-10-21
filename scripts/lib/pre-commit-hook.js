@@ -59,6 +59,40 @@ for (const k of [
   delete process.env[k]
 }
 
+// ── 专项段档位判据(2026-10-22 立,与 scripts/lib/gate-scope.mjs 同口径)───────────
+// **必须定义在文件顶部**:下方 13 处专项守门(footer / portal / button / credential /
+// agent / capability / miniapp parity / auth refresh / staged typecheck / tokens sync …)
+// 都读它,而本文件第一个使用点在 650 行附近。曾把定义放在文件中部,结果
+// `ReferenceError: Cannot access 'TOOL_ONLY' before initialization` 直接把 pre-commit
+// 打崩(实测 2026-10-22 23:00,pre-commit 在守门批之前就退出,safe-commit 只能走应急跳门)。
+// 判据:暂存集含 apps/ 或 packages/ ⇒ 全跑;取不到 ⇒ 全跑(失效方向永远是"多跑")。
+function stagedIsToolOnly() {
+  try {
+    const out = execSync('git diff --cached --name-only', {
+      encoding: 'utf8',
+      cwd: process.cwd(),
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 30_000,
+    })
+    const paths = String(out)
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (paths.length === 0) return false
+    return !paths.some((p) => /^(apps|packages)\//.test(p))
+  } catch {
+    return false
+  }
+}
+const TOOL_ONLY = process.env.IHUI_SPECIAL_SCOPE === 'full' ? false : stagedIsToolOnly()
+if (TOOL_ONLY) {
+  console.log(
+    '⚡ 专项档:本次改动只含工具/文档路径 ⇒ 跳过判业务代码的专项守门' +
+      '(强制全跑:IHUI_SPECIAL_SCOPE=full)',
+  )
+}
+
 // 0. stale 锁清理(2026-09-19 立,根治 index.lock 卡死多 agent)
 // 在任何 git 操作前清理可能残留的 index.lock(崩溃 git 进程)+ ihui-git-write.lock(死 PID)。
 // 活进程持有的锁不会被误删(clean 内判据:index.lock>60s 或无 git 进程;ihui 锁需 PID 死亡)。
@@ -652,7 +686,7 @@ const TOKEN_SYNC_TARGETS = [
   },
 ]
 
-if (process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   try {
     const stagedForTokens = execSync('git diff --cached --name-only --diff-filter=ACMR', {
       encoding: 'utf8',
@@ -886,7 +920,13 @@ if (!gatesOk) {
 // 跳过方法(紧急):HUSKY_SKIP_I18N_DEAD_KEY=1 git commit ...(本步在跑之前真读该 env,见下一行判据)
 // 性能(web 端 4460 个语料文件,2026-09-28 现测):磁盘档 ~1.7s;--staged 档 ~1.4s
 //      (git ls-files 一次 + cat-file --batch 一次读满,反而省掉逐文件 readFileSync)。
-if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
+// ⚠️ 2026-10-22:本段**默认跳过**,已整体移入 guardian-runner 并行池(门 70b)。
+// 理由:这里用 execSync **串行**跑,实测独占 6.6s;移进并行池后与其他 30 门重叠 ⇒ 等于白得。
+// 判据(--staged 索引面)、退出码、跳过开关(HUSKY_SKIP_I18N_DEAD_KEY)全部原样搬过去,
+// 且门 70b 是 blocking —— 死 key 依然阻断提交,语义没有放宽。
+// 仅在排障时想单独看这一段:HUSKY_PRECOMMIT_I18N_INLINE=1(与门 70b 的
+// HUSKY_SKIP_I18N_DEAD_KEY 是两件事:那个是"跳过",这个是"在这里也跑一遍")。
+if (process.env.HUSKY_PRECOMMIT_I18N_INLINE === '1') {
   console.log(
     '🌐 i18n 死 key 扫描(判定面=索引 blob;死 key > 0 阻断 commit,2026-07-26 立 / 2026-09-28 收面)',
   )
@@ -917,7 +957,7 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  i18n 死 key 扫描(HUSKY_SKIP_I18N_DEAD_KEY=1, 跳过)')
+  console.log('⏭  i18n 死 key 扫描(已移入守门并行池 70b,此处不重复跑)')
 }
 
 // 🌐 4 端 i18n 死 key 扫描(miniapp-taro / mobile-rn / extension,warn-only 起步,2026-07-26 立)
@@ -956,6 +996,15 @@ if ((process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER ?? '1') !== '1') {
 // 🎨 miniapp-taro 跨端样式一致性守门(2026-09-03 立)
 // 背景:web 与 miniapp-taro 必须视觉一致。本次重构建立守门,防止深色科技风回潮、
 //       路由页漏挂 <ThemeRoot>、已删除装饰类重新引用、app.css token 块被手改。
+// ── 专项段档位判据(2026-10-22 立,与 scripts/lib/gate-scope.mjs 同口径)───────────
+// 下面这些"专项守门"跑在 guardian-runner 之外,原先**不看改动性质**,一律全跑。
+// 而 miniapp 跨端样式 / auth refresh / staged typecheck 判的都是**业务代码** ——
+// 实测 auth refresh 扫 9477 个候选、typecheck 走全量 tsconfig include;
+// 在"只改 scripts/lib 工具"的提交里纯属浪费(本轮守门只花 16.5s,这 34s 主要在这里)。
+// 判据(TOOL_ONLY / stagedIsToolOnly)已移到**文件顶部** —— 本文件第一个使用点在 650 行附近,
+// 定义放这里会造成 TDZ ReferenceError,把 pre-commit 在守门批之前直接打崩。
+// (TOOL_ONLY 定义已移到文件顶部 —— 本文件多处专项段都用它,必须在所有使用点之前初始化)
+
 // 阻塞规则:RULE-1a(禁用色板)/RULE-2(app.css 回归)/RULE-3(路由页 ThemeRoot)/RULE-5(删除类复用)。
 // WARN 规则:RULE-1b(其他 hex)/RULE-4(tsx 内联 hex)不阻塞提交。
 // 跳过方法(紧急):HUSKY_SKIP_MINIAPP_PARITY=1 git commit ...
@@ -963,7 +1012,8 @@ if ((process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER ?? '1') !== '1') {
 //   按**磁盘**读 ⇒ 别人一次未暂存的 miniapp 页面就把无关提交钉红,唯一出路 --no-verify
 //   (约等于链上全部守门对该提交作废,§12e/§12f)。`--staged` ⇒ 判索引 blob,红点从此只可能
 //   来自本次提交;面上取不到 ⇒ 脚本 exit 2「未判定」(不冒红也不记绿),不回退磁盘。
-if (process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
+// 2026-10-22:判业务代码的专项段,专项档(TOOL_ONLY)下跳过 —— 判据见上方 TOOL_ONLY 头注。
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
   if (
     !run(
       '🎨 miniapp-taro 跨端样式一致性守门(2026-09-03 立,判定面=索引 blob)',
@@ -987,7 +1037,8 @@ if (process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
 //       无冷却,形成 6+ 次串行重复 → 后端 refresh token 单次轮转 + RFC 6749 §10.4 family
 //       重用检测 → 整个 family 吊销 → 登录态静默丢失。
 // 跳过方法(紧急):HUSKY_SKIP_AUTH_REFRESH=1 git commit ...
-if (process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
+// 2026-10-22:判业务代码的专项段,专项档(TOOL_ONLY)下跳过。
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
   if (
     !run(
       '🛡️ auth refresh 单例守门(禁绕过单例直发 /auth/refresh,2026-09-04 立)...',
@@ -1011,7 +1062,9 @@ if (process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
 // 假阳性) + tsc 输出按行过滤,只保留错误文件 ∈ staged 的错误。
 // 其他 agent 引入的非 staged 错误自动过滤不阻塞,跨端(web/api/mobile-rn/miniapp-taro/packages/*)统一。
 // 紧急跳过:HUSKY_SKIP_STAGED_TYPECHECK=1 git commit ...
-if (process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
+// 2026-10-22:staged typecheck 走全量 tsconfig include(实测 30s+),而它判的是 TS 业务代码;
+// 只改 scripts/lib 工具(JS)时结论恒为"无关",专项档下跳过。要全跑:IHUI_SPECIAL_SCOPE=full。
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
   if (
     !run(
       '🔍 staged typecheck 闸门(全量 include + 过滤非 staged 错误, 2026-08-18 根治)...',
@@ -1175,7 +1228,7 @@ if (
 // 性能:web + ui-react 全量扫描 ~3.5s,放在 pre-commit 末尾不影响前置检查流。
 // 实现细节:脚本无 --exit 1 参数,只有 --strict 模式命中 exit 1;pre-commit 用 try/catch
 //      接住 --strict 的 exit 1,转为 warn(不阻塞 commit),1 周后(2026-08-04)评估升级 strict 阻塞。
-if (process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
   try {
     execSync('node scripts/check-shrinkable-text-button.mjs --strict', {
       stdio: 'inherit',
@@ -1204,7 +1257,7 @@ if (process.env.HUSKY_SKIP_BUTTON_WRAP_CHECK !== '1') {
 //   `--staged` ⇒ 7 份输入同一次 cat-file --batch 取自索引 blob;面上取不到 ⇒ exit 2「未判定」。
 // 阻断条件:1) SiteFooter 关键 class 缺失;2) ECOSYSTEM_GROUPS 不是 5 分组;
 //         3) 5 语言 footer 命名空间任一 key 缺失或为空。
-if (process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
   if (
     !run(
       '🦶 SiteFooter 守门(防 v10/v11 回退, 5 语言 i18n + 关键 class, 2026-07-30 立;判定面=索引 blob)...',
@@ -1228,7 +1281,7 @@ if (process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
 //      ("弹层位置漂移/点击没反应")。规则早已写入 AGENTS.md 但无守门,
 //      本脚本把文档规则升级为强制门禁。
 // 跳过方法(紧急):HUSKY_SKIP_PORTAL_GUARD=1 git commit ...
-if (process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
   if (
     !run(
       '🚪 createPortal 定位守门(portal 容器必显式 position:fixed, 2026-09-07 立)...',
@@ -1250,7 +1303,7 @@ if (process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
 //      <Button> 禁止 className h-*/w-* 覆盖 + size 值必须 ∈ 档位表。
 //      豁免:原生 <button>(IDE 面板 24px 紧凑档有意设计)、Input/SelectTrigger/Skeleton。
 // 跳过方法(紧急):HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1 git commit ...
-if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
   if (
     !run(
       '📏 Button 高度/宽度覆盖守门(必须走 size 档位, 2026-09-07 立)...',
@@ -1271,7 +1324,7 @@ if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
 //      2026-09-13 生产实测确认 `Bearer sk_...` 必 401,而当时 8 个 UI 页面/文档把 Bearer 写成
 //      `sk-xxx`,新用户照抄文档接入必然失败。本守门防止回潮。
 // 跳过方法(紧急):HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD=1 git commit ...
-if (process.env.HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_CREDENTIAL_PREFIX_GUARD !== '1') {
   if (
     !run(
       '🔑 凭据前缀一致性守门(Bearer 只能用 ihui_xxx, 2026-09-13 立)...',
@@ -1315,7 +1368,7 @@ if (process.env.HUSKY_SKIP_PWSH_VERSION_GUARD !== '1') {
 //      agent-engine.ts)+ Python 编程编排层(packages/sdk/python/ihui_ai/agent_engine.py)。
 //      单边改名会让第三方调用方到运行时才炸,故三方静态对齐后才允许提交。
 // 跳过方法(紧急):HUSKY_SKIP_AGENT_ENGINE_PARITY=1 git commit ...
-if (process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
   if (
     !run(
       '🔌 Agent Engine 协议 parity 守门(引擎 handler 表 ↔ TS ↔ Python)...',
@@ -1340,7 +1393,7 @@ if (process.env.HUSKY_SKIP_AGENT_ENGINE_PARITY !== '1') {
 //      切面(_DELEGATE_ONLY_TOOLS / _TOOL_ALIASES / _FS_DEPENDENT_TOOLS)任何一侧
 //      单边改名前 llm.py 与三个事实源必须对得上,否则漂移在提交时即被拦下。
 // 跳过方法(紧急):HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY=1 git commit ...
-if (process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
   if (
     !run(
       '🔧 工具注册表完整性守门(工具可达面 ↔ 本地注册表 ↔ 前端委托实现)...',
@@ -1369,7 +1422,7 @@ if (process.env.HUSKY_SKIP_TOOL_REGISTRY_INTEGRITY !== '1') {
 // 判定面(2026-09-28 收口):批外 blocking,旧形态把 apps/ai-service/app 下全部 .py 按**磁盘**读
 //   ⇒ 别人一个未暂存、还没登记进台账的默认关 env 就把无关提交钉红(§12e/§12f)。
 //   `--staged` ⇒ 清单与内容同面同轮取自索引 blob;取不到 ⇒ exit 2「未判定」,不回退磁盘。
-if (process.env.HUSKY_SKIP_CAPABILITY_MATRIX !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_CAPABILITY_MATRIX !== '1') {
   if (
     !run(
       '📋 能力矩阵对账守门(默认关 env 必须登记台账;判定面=索引 blob)...',
@@ -1396,7 +1449,7 @@ if (process.env.HUSKY_SKIP_CAPABILITY_MATRIX !== '1') {
 //      本守门把「Rust emit ⊆ 桥接 listen ⊆ 桥接 case ⊆ 前端消费方」升级为强制门禁,
 //      任一层断裂即阻断,防止"点了没反应"再次静默上线。
 // 跳过方法(紧急):HUSKY_SKIP_DESKTOP_EVENT_WIRING=1 git commit ...
-if (process.env.HUSKY_SKIP_DESKTOP_EVENT_WIRING !== '1') {
+if (!TOOL_ONLY && process.env.HUSKY_SKIP_DESKTOP_EVENT_WIRING !== '1') {
   if (
     !run(
       '🖥️ 桌面端事件链路接线守门(Rust emit → 桥接 → 前端消费方, 2026-09-22 立)...',
