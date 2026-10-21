@@ -270,6 +270,12 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'UserFans', labelKey: 'userFans.title', icon: Users, viaParent: true },
       { key: 'UserArticles', labelKey: 'userArticles.title', icon: Newspaper, viaParent: true },
       { key: 'AgentCategories', labelKey: 'agentCategories.title', icon: Bot, viaParent: true },
+      { key: 'ArticleEdit', labelKey: 'articleEdit.title', icon: PenLine, viaParent: true },
+      { key: 'ArticleHot', labelKey: 'articleHot.title', icon: Trophy, viaParent: true },
+      { key: 'AskEdit', labelKey: 'askEdit.title', icon: HelpCircle, viaParent: true },
+      { key: 'PlazaNew', labelKey: 'plazaNew.title', icon: Plus, viaParent: true },
+      { key: 'BusinessCardEdit', labelKey: 'businessCardEdit.title', icon: IdCard, viaParent: true },
+      { key: 'AiWorldCreate', labelKey: 'aiWorldCreate.title', icon: Earth, viaParent: true },
     ],
   },
   {
