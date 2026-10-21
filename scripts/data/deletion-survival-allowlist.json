@@ -1,4 +1,20 @@
 {
   "$schemaNote": "check-merge-deletion-resurrection 的唯一豁免台账(第二条例出口;第一条是删除提交信息里的 `intentional-delete:` 短语,那个不住在这里)。每条必须有 path + reason + reviewBy 三字段,缺任一即判『字段不齐』,不得当空表用。path 是**仓库相对路径逐字**(不做归一化:归一化会把两个不同元素并成一对,那比漏配更糟)。reason 必须成句并写明『为什么这一枚合并把它带回来是可接受的』——加条目的前提是逐条读过那枚合并两侧的内容,不得为消红而填。reviewBy 是 ISO 日期,过期一律判红(到期处置只有两条:续期并补证据,或删除条目并同时修好实现)。字段与判据的唯一定义在 scripts/lib/deletion-intent.mjs(ALLOWLIST_FIELDS / entryDefect / rotEntries),本文件不另立规则。另:『路径已不在复活面』这一型(清单腐烂)只在 --strict 档判红,默认档只报名字与条数 —— 理由写在 deletion-intent.mjs 的 rotEntries 注释里(豁免条目对应的合并被推走之后会永久退出提交链窗口,当场判红就是一台与任何提交都无关的恒红门,AGENTS §12e 同型)。",
-  "entries": []
+  "entries": [
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-694a78bf.md",
+      "reason": "对侧主线已有意重入库(11f54b8d07e 台账清偿批按远端逐字节原值恢复,ea325b1eeac 同型先例点名解推送车道);本侧 G-926 取消跟踪(988a243cd12)早于本次合并基线 e7581c4ee0f,合并带回=与远端现状对齐,非抹任何在飞行",
+      "reviewBy": "2026-11-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62-2.md",
+      "reason": "同 694a78bf 枚:对侧 11f54b8d07e/ea325b1eeac 有意重入库,本侧删除早于合并基线,带回=对齐远端现状",
+      "reviewBy": "2026-11-30"
+    },
+    {
+      "path": ".ihui-agent/tmp/plan-pointer-purge-2026-10-14-lichunchuan-96818d62.md",
+      "reason": "同 694a78bf 枚:对侧 11f54b8d07e/ea325b1eeac 有意重入库,本侧删除早于合并基线,带回=对齐远端现状",
+      "reviewBy": "2026-11-30"
+    }
+  ]
 }
