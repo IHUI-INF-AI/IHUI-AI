@@ -56,11 +56,18 @@ const DAY_MS = 86400000
 const DEFAULT_LEGACY_RULING =
   '机主 2026-10-22 定档:认领必须写全 @日期/持有者,裸标记的新增已由守门 109 CL4 在提交链拦住,故存量由本器代摘'
 
-/** 释放注记文案:逐字保留原牌(日期/持有者)与超龄量,摘牌本身可溯(§1「登记内容一字未动」)。 */
+/**
+ * 释放注记文案 —— **行内只放最小可追责三要素**(原牌日期/持有者/超龄量)。
+ * 为什么刻意做短(2026-10-22 机主指"又搞出来一堆"):第一版把定档依据整段写进台账行,实测每枚 118 字,
+ * 而台账未勾行本来就平均 1859 字 ⇒ 摘牌本身变成了新的噪音。依据的住处是提交信息与本器头注,
+ * 不是每一行台账;行内多写一个字,就多一个人要读它。由 `--self-test` 与镜像的形状锁钉住不得回长。
+ */
 function releaseNote({ date, holder, ageH, ownerRuling }, seat, asOf) {
+  if (ownerRuling === DEFAULT_LEGACY_RULING)
+    return `（认领已释放@${asOf}/${seat}:原裸标记无日期）`
   if (ownerRuling)
-    return `（认领已释放@${asOf}/${seat}:原为裸标记无日期无持有者,年龄不可判;依机主判定「${ownerRuling}」代摘,按 §1 交回派单面;登记内容一字未动）`
-  return `（认领已释放@${asOf}/${seat}:原牌 ${date}/${holder} 超龄 ${ageH}h 未清账,按 §1 由器物代摘;登记内容一字未动）`
+    return `（认领已释放@${asOf}/${seat}:原裸标记无日期;机主原话见本轮提交信息）`
+  return `（认领已释放@${asOf}/${seat}:原牌 ${date}/${holder} 超龄 ${ageH}h）`
 }
 
 /**
@@ -316,9 +323,11 @@ function selfTest() {
   t('守恒三条整体成立', p.ok === true, p.why)
   t('注记逐字保留原牌日期与持有者', p.text.includes('原牌 2026-01-01/甲席') && p.text.includes('原牌 2026-01-02/丙席'))
   t(
-    '裸标记的注记带的是**同批判据**而非口头状态',
-    p.text.includes('裸标记的新增已由守门 109 CL4 在提交链拦住'),
+    '形状锁:行内注记只放最小可追责要素,长度必须 ≤80 字(依据进提交信息,不塞台账)',
+    [...p.text.matchAll(/（认领已释放@[^）]*）/g)].every((m) => m[0].length <= 80),
+    [...p.text.matchAll(/（认领已释放@[^）]*）/g)].map((m) => m[0].length).join(','),
   )
+  t('裸标记注记为最短形态(定档依据不写进行内)', p.text.includes('原裸标记无日期'))
   t('摘后挂牌集 == 跳过集(C3 成立)', p.text.split('\n').filter((l) => claimMarkOf(l) !== null).length === p.held.length)
   // 反证一:强行多摘一行(把 G-6 也改写)⇒ C2 必须咬住
   const hurt = planSweep(FIXTURE, { nowMs: now, ttlHours: 72, seat: 'x', asOf: '2026-10-22' })
@@ -338,8 +347,8 @@ function selfTest() {
     legacyByOwnerRuling: '机主 2026-10-22 判定无席位在飞',
   })
   t(
-    '出处句覆盖生效且逐字留在注记里',
-    pr.text.includes('依机主判定「机主 2026-10-22 判定无席位在飞」代摘') && pr.ok === true,
+    '机主原话覆盖时行内只留指针句(原话本身进提交信息)',
+    pr.text.includes('机主原话见本轮提交信息') && pr.ok === true,
   )
   // 反证三:摘过的文本再跑一遍必须判 clean(幂等,否则每轮都在抖 = 门 229 那条"台账每 30 分钟抖一次"同型)
   const p3 = planSweep(p.text, { nowMs: now, ttlHours: 72, seat: 'x', asOf: '2026-10-22' })

@@ -37,12 +37,15 @@ test('①注记逐字保留原牌日期与持有者(摘牌可追责)', () => {
   assert.match(p.text, /原牌 2026-01-02\/丙席 超龄 \d+h/)
 })
 
-test('①裸标记默认代摘,依据是同批的 CL4 定档(不是口头状态);出处句可被机主原话覆盖', () => {
+test('①注记只放最小可追责要素,行内长度有上限(依据进提交信息,不糊台账)', () => {
   const d = planSweep(strip.FIXTURE, base)
-  assert.match(d.text, /裸标记的新增已由守门 109 CL4 在提交链拦住/, '默认注记必须写清依据是提交链已拦新增')
+  assert.match(d.text, /原裸标记无日期/)
+  for (const m of d.text.matchAll(/（认领已释放@[^）]*）/g)) {
+    assert.ok(m[0].length <= 80, `注记过长(${m[0].length} 字):依据类文字不得写进台账行 —— ${m[0]}`)
+  }
   const a = planSweep(strip.FIXTURE, { ...base, legacyByOwnerRuling: '机主 2026-10-22 判定无席位在飞' })
   assert.equal(a.leases.length, 3)
-  assert.match(a.text, /依机主判定「机主 2026-10-22 判定无席位在飞」代摘/)
+  assert.match(a.text, /机主原话见本轮提交信息/)
   assert.equal(a.ok, true, a.why)
 })
 
