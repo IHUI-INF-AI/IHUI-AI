@@ -16737,8 +16737,6 @@
     "chapters": "챕터 수",
     "detail": {
       "back": "뒤로",
-      "duration": "소요 시간",
-      "objectives": "학습 목표",
       "studentsLabel": "수강생 수"
     },
     "empty": "학습 콘텐츠가 없습니다",

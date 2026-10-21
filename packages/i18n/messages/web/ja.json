@@ -16737,8 +16737,6 @@
     "chapters": "コース",
     "detail": {
       "back": "戻る",
-      "duration": "所要時間",
-      "objectives": "学習目標",
       "studentsLabel": "受講生"
     },
     "empty": "がありません",
