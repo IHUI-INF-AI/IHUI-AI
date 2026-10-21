@@ -62,6 +62,11 @@
 
 
 ## 运维与生产监控工具(2026-09-27 起)
+> **2026-10-21 公网链路根治后的三件新器物**(全部现读交付,判机器状态 ⇒ 一律**不接提交链**,接了就是逼人 `--no-verify` 的恒红门):
+>
+> - `scripts/check-egress-ip-drift.mjs` —— 现测本机公网出口 IPv4 并与 `scripts/data/eo-origin-expectation.json` 的期望值比(强制 `family:4`,绕过系统代理,多源交叉);三态 `ok/drift/unjudged`,取不到一律 exit 2 显式「未判定」。立因:EdgeOne 源站直填家宽动态 IP(实测把回源 ttfb 从 10~45s 压到 0.28~0.34s),该地址一变即全公网 5xx,而本机无腾讯云凭据 ⇒ 器物只能"量到 + 到人"。挂 `scripts/git-guardian.mjs` 巡检轮(`auditEgressIpDrift`),告警身份 = 类别+面+持续档(不含 sha/时刻/计数),unjudged 连满 30 分钟才到人。镜像用例 `scripts/tests/check-egress-ip-drift.test.mjs`(含"摘掉比较逻辑即翻红"的变异对照)。
+> - `scripts/warm-prod-cache.mjs` + `deploy/win/ihui-deploy.ps1` 的 `Invoke-ProdCacheWarm` —— 部署收尾**健康门禁判绿之后**自动预热边缘缓存(清单从 `apps/web/next.config.ts` 现读 `s-maxage` 条目,失败只 WARN 不回滚,结论行 `WARM-RESULT state=…` 纯 ASCII 可 grep)。此前该脚本全仓零调用方,属"造好没装车=没有"。生效有一个轮次的滞后:prod 克隆的常驻 ps1 在进程启动时读入。
+> - `apps/api/src/utils/public-edge-cache.ts` —— 公开只读 GET 接口的边缘缓存头唯一出口(`public, s-maxage=60, swr=60`,非 2xx 不写头)。头注写死四条准入纪律(游客可读 / 身份无关 / 已发布投影 / 仅 2xx),**模块不代为判断**;调用方逐条自证,排除面与理由见枚 `42e21bacda0587f050baf71be528abc341bf57b4` 的提交信息。
 这台机由一支 agent 运维班组常驻值守(5 个班次:每小时巡检 / 每 30 分钟版本核验 / 每日 04:00 自愈 / 每日 05:30 备份核验 / 每周一体检邮件)。下面这几件是它们共用的出口,都不在提交链上,判的是**机器状态**——挂进提交链就会变成与任何提交都无关的恒红门,唯一结局是逼人 `--no-verify` 连带全部检查作废。
 | 工具 | 干什么 | 为什么必须有它 |
 | --- | --- | --- |
