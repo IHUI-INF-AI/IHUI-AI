@@ -72,7 +72,9 @@ jobs:
       - name: Generate iOS project (expo prebuild)
         working-directory: apps/mobile-rn
         env:
-          EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
+          EXPO_PUBLIC_API_BASE_URL: https://www.aizhs.top
+          # WS 与 REST 分域:www 臂实测握不了手(101/404 取证见 apps/mobile-rn/src/lib/config.ts)
+          EXPO_PUBLIC_WS_BASE_URL: https://api.aizhs.top
           EXPO_PUBLIC_WEB_URL: https://aizhs.top
         run: npx expo prebuild --platform ios --no-install
 
@@ -105,7 +107,9 @@ jobs:
       - name: Build unsigned IPA (Release, iphoneos, no code signing)
         working-directory: apps/mobile-rn/ios
         env:
-          EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
+          EXPO_PUBLIC_API_BASE_URL: https://www.aizhs.top
+          # WS 与 REST 分域:www 臂实测握不了手(101/404 取证见 apps/mobile-rn/src/lib/config.ts)
+          EXPO_PUBLIC_WS_BASE_URL: https://api.aizhs.top
           EXPO_PUBLIC_WEB_URL: https://aizhs.top
         run: |
           SCHEME=$(xcodebuild -list -json | python3 -c "
