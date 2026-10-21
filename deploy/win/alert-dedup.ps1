@@ -248,9 +248,11 @@ function Test-AlertSuppressionGrace {
 
       返回 @{ Suppressed; ElapsedMinutes; Decision; Note }
         Decision = 'grace-window'    仍在宽限窗内 ⇒ 抑制(ElapsedMinutes 必须写进日志,让人看得见"还差多久升级")
-                 | 'grace-reopened'  这条身份已断了一个窗以上 ⇒ 视为**新一轮**预期窗口,重新起锚并抑制
-                                      (不这样修就会造出新的假阳:上周一次部署留下的旧锚,会让今天正常
-                                       的 3 分钟换流在第一轮就直接寄信 —— 修噪声不能以造噪声为代价)
+                 | 'grace-reopened'  **只给非切流类调用方**:这条身份已断了一个窗以上 ⇒ 视为**新一轮**
+                                     预期窗口,重新起锚并抑制(不这样修就会造出新的假阳:上周一次部署留下的
+                                     旧锚,会让今天正常的 3 分钟换流在第一轮就直接寄信 —— 修噪声不能以造噪声
+                                     为代价)。切流类**不走这一支**,理由见函数体内 2026-10-21 那段:
+                                     部署环一轮 ≈ 20 分钟恒大于窗,留着它 `escalated` 永远到不了。
                  | 'escalated'       连续抑制已超过 GraceMinutes ⇒ **不再抑制**,交回正常发信路径
                  | 'undetermined'    状态读不出/时间戳解析不出 ⇒ 同样不抑制(宁可多喊一次)
       与 Test-AlertDueByIdentity 共用同一份状态档案,但身份键带 `grace:` 前缀 ⇒ 两种语义永不互相顶账。
@@ -298,10 +300,18 @@ function Test-AlertSuppressionGrace {
             return @{ Suppressed = $false; ElapsedMinutes = 0; Decision = 'undetermined'; Key = $key;
                       Note = '抑制档案里的时刻解析不出 ⇒ 不按预期现象抑制,本轮照常告警' }
         }
-    } elseif (($now - $lastSeen).TotalMinutes -gt $GraceMinutes) {
+    } elseif ((-not $Stall) -and (($now - $lastSeen).TotalMinutes -gt $GraceMinutes)) {
         $anchor = $now
         $decision = 'grace-reopened'
     } else {
+        # ⚠️ 切流受阻类**不因"隔得久"重新起锚**(2026-10-21 实测根因,原先这一支对所有调用方都开)。
+        # 部署环的真实节奏是"构建 + 门禁 8 轮 ≈ 20 分钟",外加最小间隔 30 分钟 —— **恒大于** 15 分钟的窗,
+        # 于是每一轮都命中"距上次已超一个窗口 ⇒ 重新起锚",elapsed 永远回到 0,`escalated` 那一支
+        # 结构上到不了。真账:2026-10-21 11:33:40 与 11:56:36 两轮同身份 cd6ae64593237c2b 相隔 22.9 分钟,
+        # 两轮都写"已连续抑制 0 分钟",12:18 成功切流把整段清偿 ⇒ **45 分钟登录 500 一封都没寄**。
+        # 而"上周留下的旧锚别让今天正常的换流秒寄"这个顾虑(它当初是修噪声加的),对本类**已有终态**:
+        # `-Stall` 的身份与抑制锚点由 Clear-AlertStallIdentities 在成功切流那一刻一起退休
+        # (本档 [4c] 用行为断言钉着),不需要再靠时间隔断来防陈旧锚。
         $decision = 'grace-window'
     }
 

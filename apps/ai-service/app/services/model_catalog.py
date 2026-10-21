@@ -117,7 +117,7 @@ class ModelTier(StrEnum):
     """代次档位(决定默认展示还是收进"历史模型")。"""
 
     LATEST = "latest"  # 最新最强 —— 默认直接展示
-    STANDARD = "standard"  # 可用但非最新 —— 折叠区
+    STANDARD = "standard"  # 可用但非最新 —— 默认直接展示(2026-10-21 起,折叠会藏掉能调通的)
     LEGACY = "legacy"  # 已过时 —— 折叠区,排在最后
 
 

@@ -29,11 +29,11 @@
  *   node scripts/check-db-blind-updatedat-set.mjs --update-baseline   # 只许收窄(基线只能减不能加)
  *   node scripts/check-db-blind-updatedat-set.mjs --self-test
  */
-import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join, resolve } from 'node:path'
 import { parseGrepRow } from './lib/git-grep-rows.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -58,16 +58,16 @@ export function judgeLine(text) {
  *  git grep 无命中 exit 1 = 合法(0 处),不判错。 */
 function readFace() {
   const PATTERN = '\\.set({ .*updatedAt: new Date()'
-  const r = spawnSync(
-    'git',
-    ['grep', '-n', PATTERN, 'HEAD', '--', SCAN_DIR],
-    { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
-  )
-  if (r.status !== 0 && r.status !== 1) {
-    throw new Error(`git grep 失败: status=${r.status} errno=${r.errno} ${r.stderr}`)
+  let out
+  try {
+    // HEAD 面取材统一走层(scripts/lib/face-reader.mjs):绝对 git + quotepath + 显式 stdio。
+    out = gitRaw(['grep', '-n', PATTERN, 'HEAD', '--', SCAN_DIR], ROOT)
+  } catch (e) {
+    if (e?.status === 1) out = '' // git grep 无命中 exit 1 = 合法(0 处),不判错
+    else throw new Error(`git grep 失败: status=${e?.status} ${e?.message ?? e}`)
   }
   const perFile = new Map() // file -> Array<{line, text}>
-  for (const row of (r.stdout || '').split('\n')) {
+  for (const row of String(out || '').split('\n')) {
     if (!row) continue
     // 行格式解析只有一份(scripts/lib/git-grep-rows.mjs)—— 与镜像测试
     // clamp-percent-single-source.test.mjs 曾各写一遍同一拆解,守门 191 报的那对复制即此。
@@ -182,33 +182,33 @@ function main() {
  *  只看本次暂存的 apps/api/src 文件:暂存内容命中数 > 该文件 HEAD 面命中数(或 HEAD 无此文件而暂存有命中)
  *  ⇒ 红并点名;其余一律不判 —— 别人的在飞/存量与本门无关,全局只减不增由 HEAD 面全量档守护。 */
 function stagedRun(asJson) {
-  const r = spawnSync(
-    'git',
-    ['diff', '--cached', '--name-only', '--diff-filter=d', '--', SCAN_DIR],
-    { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
-  )
-  if (r.status !== 0) {
-    console.log(`[盲写棘轮] ⚠️ 未判定:git diff --cached 失败 status=${r.status}(不判红,§12e 恒红门纪律)`)
+  let r
+  try {
+    r = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=d', '--', SCAN_DIR], ROOT)
+  } catch (e) {
+    console.log(`[盲写棘轮] ⚠️ 未判定:git diff --cached 失败 status=${e?.status}(不判红,§12e 恒红门纪律)`)
     process.exitCode = 0
     return
   }
-  const files = (r.stdout || '').split('\n').filter(Boolean)
+  const files = String(r || '').split('\n').filter(Boolean)
   const offenders = []
   for (const f of files) {
-    const idx = spawnSync('git', ['show', `:${f}`], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-    if (idx.status !== 0) continue // 已删除/取不到:不判
-    const stagedHits = idx.stdout.split('\n').map((l, i) => ({ line: i + 1, text: l })).filter((h) => judgeLine(h.text))
+    let idx
+    try {
+      idx = gitRaw(['show', `:${f}`], ROOT)
+    } catch {
+      continue // 已删除/取不到:不判
+    }
+    const stagedHits = idx.split('\n').map((l, i) => ({ line: i + 1, text: l })).filter((h) => judgeLine(h.text))
     if (!stagedHits.length) continue
-    const head = spawnSync('git', ['grep', '-c', '\\.set({ .*updatedAt: new Date()', 'HEAD', '--', f], {
-      cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
-    })
-    // 出口豁免在 HEAD 计数里也该扣掉:粗口径用宽计数即可(只会多算 HEAD 存量 ⇒ 更难红,不误伤)
-    const headCount = head.status === 0 ? Number((head.stdout || '').split(':').pop()?.trim() || 0) : 0
+    let headCount = 0
+    try {
+      const head = gitRaw(['grep', '-c', '\\.set({ .*updatedAt: new Date()', 'HEAD', '--', f], ROOT)
+      // 出口豁免在 HEAD 计数里也该扣掉:粗口径用宽计数即可(只会多算 HEAD 存量 ⇒ 更难红,不误伤)
+      headCount = Number(String(head || '').split(':').pop()?.trim() || 0)
+    } catch {
+      /* 无命中(grep 退出码 1)= HEAD 零计数,照 0 处理 */
+    }
     if (stagedHits.length > headCount) {
       offenders.push({ file: f, staged: stagedHits.length, head: headCount, lines: stagedHits.map((h) => h.line) })
     }
