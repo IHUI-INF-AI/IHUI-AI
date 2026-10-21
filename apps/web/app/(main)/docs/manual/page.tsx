@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     description: '面向终端用户的图文教程,7 章覆盖全部常用功能。',
     url: `${SITE_URL}/docs/manual`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI 使用说明手册' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 使用说明手册' }],
   },
 }
 

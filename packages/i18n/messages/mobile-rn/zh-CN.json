@@ -2523,6 +2523,42 @@
       "submitting": "提交中…",
       "submit": "创建条目"
     },
+    "myPapers": {
+      "title": "我的试卷",
+      "add": "新增试卷",
+      "fieldTitle": "试卷标题",
+      "fieldUrl": "试卷链接",
+      "titlePlaceholder": "请输入试卷标题",
+      "urlPlaceholder": "选填，试卷下载地址",
+      "submit": "提交",
+      "titleRequired": "试卷标题不能为空",
+      "createFailed": "提交失败，请稍后重试",
+      "deleteTitle": "删除试卷",
+      "deleteConfirm": "删除后不可恢复，确定继续？",
+      "deleteFailed": "删除失败",
+      "delete": "删除",
+      "loadFailed": "试卷加载失败",
+      "empty": "暂未上传试卷",
+      "reason": "审核意见",
+      "status_pending": "待审核",
+      "status_approved": "已通过",
+      "status_rejected": "已驳回"
+    },
+    "distributionCompany": {
+      "title": "分销中心",
+      "refresh": "刷新",
+      "loadFailed": "数据加载失败",
+      "empty": "暂无佣金数据",
+      "windowTitle": "佣金汇总",
+      "lastDays": "统计近 {n} 天已结算的佣金",
+      "totalAmount": "佣金金额",
+      "totalToken": "佣金积分",
+      "subordinates": "下级成员",
+      "subordinatesEmpty": "暂无下级成员",
+      "anonymousUser": "匿名用户",
+      "openDistribution": "查看分销概览",
+      "openWithdraw": "申请提现"
+    },
   "securityCenter": {
     "title": "安全中心",
     "loadFailed": "加载失败",
@@ -2564,8 +2600,9 @@
       "revokeConfirm": "撤销后该设备需要重新登录,确定继续?"
     },
     "logs": {
-      "title": "安全事件",
-      "empty": "暂无安全事件"
+      "login": "登录",
+      "title": "登录历史",
+      "empty": "暂无登录记录"
     }
   },
   "securitySettings": {

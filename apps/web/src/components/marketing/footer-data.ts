@@ -160,7 +160,7 @@ export const PROMOTIONS: readonly Icon[] = [
 export const QRS: readonly Qr[] = [
   { src: '/footer/erweima/footer-icon-2.png', altKey: 'officialApp' },
   {
-    src: '/footer/erweima/wechat-vx.png',
+    src: '/footer/erweima/wechat-vx.png?v=20261021',
     altKey: 'officialWechat',
     action: 'copy',
     copyValue: 'ok502319984',
@@ -196,15 +196,15 @@ export const SCHOOL_BRANDS: readonly {
   // brand4.svg 在架构变更中丢失,跳过
   { nameKey: 'zhipu', src: '/brands/zhipu.png' },
   { nameKey: 'brand8', src: '/brands/brand8.png' },
-  { nameKey: 'ali', src: '/brands/ali.png' },
+  { nameKey: 'ali', src: '/brands/ali.png?v=20261021' },
   { nameKey: 'baidu', src: '/brands/baidu.svg' },
-  { nameKey: 'dbsfdx', src: '/brands/dbsfdx.png' },
+  { nameKey: 'dbsfdx', src: '/brands/dbsfdx.png?v=20261021' },
   { nameKey: 'gork', src: '/brands/gork.png', darkInvert: true },
   { nameKey: 'huawei', src: '/brands/huawei.svg' },
   { nameKey: 'jldx', src: '/brands/jldx.png' },
   { nameKey: 'openai', src: '/brands/openai.png', darkInvert: true },
   { nameKey: 'tencent', src: '/brands/tencent.png' },
   { nameKey: 'yuanbaoxiang', src: '/brands/ybx.png' },
-  { nameKey: 'yushu', src: '/brands/yushu.png', darkInvert: true },
+  { nameKey: 'yushu', src: '/brands/yushu.png?v=20261021', darkInvert: true },
 ]
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

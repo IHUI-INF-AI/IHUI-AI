@@ -2523,6 +2523,42 @@
       "submitting": "Submitting…",
       "submit": "Create item"
     },
+    "myPapers": {
+      "title": "My Papers",
+      "add": "Add paper",
+      "fieldTitle": "Paper title",
+      "fieldUrl": "Paper URL",
+      "titlePlaceholder": "Enter the paper title",
+      "urlPlaceholder": "Optional, download link",
+      "submit": "Submit",
+      "titleRequired": "Paper title is required",
+      "createFailed": "Failed to submit. Please try again later",
+      "deleteTitle": "Delete paper",
+      "deleteConfirm": "This cannot be undone. Continue?",
+      "deleteFailed": "Failed to delete",
+      "delete": "Delete",
+      "loadFailed": "Failed to load papers",
+      "empty": "No papers uploaded yet",
+      "reason": "Review note",
+      "status_pending": "Pending",
+      "status_approved": "Approved",
+      "status_rejected": "Rejected"
+    },
+    "distributionCompany": {
+      "title": "Distribution Center",
+      "refresh": "Refresh",
+      "loadFailed": "Failed to load data",
+      "empty": "No commission data",
+      "windowTitle": "Commission summary",
+      "lastDays": "Settled commission over the last {n} days",
+      "totalAmount": "Commission amount",
+      "totalToken": "Commission tokens",
+      "subordinates": "Subordinates",
+      "subordinatesEmpty": "No subordinates yet",
+      "anonymousUser": "Anonymous user",
+      "openDistribution": "View distribution overview",
+      "openWithdraw": "Request withdrawal"
+    },
   "securityCenter": {
     "title": "Security Center",
     "loadFailed": "Failed to load",
@@ -2564,8 +2600,9 @@
       "revokeConfirm": "That device will need to sign in again. Continue?"
     },
     "logs": {
-      "title": "Security events",
-      "empty": "No security events"
+      "login": "Login",
+      "title": "Login history",
+      "empty": "No login records"
     }
   },
   "securitySettings": {

@@ -16,7 +16,7 @@
       "url": "https://aizhs.top",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://aizhs.top/images/logo.png",
+        "url": "https://aizhs.top/images/logo.png?v=20261021",
         "width": 512,
         "height": 512,
         "encodingFormat": "image/png"
@@ -260,7 +260,7 @@
       "@type": "Brand",
       "name": "IHUI AI",
       "alternateName": "智汇AI",
-      "logo": "https://aizhs.top/images/logo.png",
+      "logo": "https://aizhs.top/images/logo.png?v=20261021",
       "slogan": "30 分钟拥有自己的 AI 中台",
       "description": "一站式全栈 AI 操作系统",
       "url": "https://aizhs.top"

@@ -2523,6 +2523,42 @@
       "submitting": "제출 중…",
       "submit": "항목 만들기"
     },
+    "myPapers": {
+      "title": "내 시험지",
+      "add": "시험지 추가",
+      "fieldTitle": "시험지 제목",
+      "fieldUrl": "시험지 링크",
+      "titlePlaceholder": "시험지 제목을 입력해 주세요",
+      "urlPlaceholder": "선택, 다운로드 주소",
+      "submit": "등록",
+      "titleRequired": "시험지 제목은 필수입니다",
+      "createFailed": "등록에 실패했습니다. 잠시 후 다시 시도해 주세요",
+      "deleteTitle": "시험지 삭제",
+      "deleteConfirm": "삭제하면 복원할 수 없습니다. 계속할까요?",
+      "deleteFailed": "삭제에 실패했습니다",
+      "delete": "삭제",
+      "loadFailed": "시험지를 불러오지 못했습니다",
+      "empty": "업로드한 시험지가 없습니다",
+      "reason": "검토 의견",
+      "status_pending": "검토 대기",
+      "status_approved": "승인됨",
+      "status_rejected": "반려됨"
+    },
+    "distributionCompany": {
+      "title": "판매 유통 센터",
+      "refresh": "새로고침",
+      "loadFailed": "데이터를 불러오지 못했습니다",
+      "empty": "커미션 데이터가 없습니다",
+      "windowTitle": "커미션 요약",
+      "lastDays": "최근 {n}일 정산 커미션 집계",
+      "totalAmount": "커미션 금액",
+      "totalToken": "커미션 포인트",
+      "subordinates": "하위 멤버",
+      "subordinatesEmpty": "하위 멤버가 없습니다",
+      "anonymousUser": "익명 사용자",
+      "openDistribution": "판매 유통 개요 보기",
+      "openWithdraw": "출금 신청"
+    },
   "securityCenter": {
     "title": "보안 센터",
     "loadFailed": "불러오지 못했습니다",
@@ -2564,8 +2600,9 @@
       "revokeConfirm": "해당 기기에서는 다시 로그인해야 합니다. 계속할까요?"
     },
     "logs": {
-      "title": "보안 이벤트",
-      "empty": "보안 이벤트가 없습니다"
+      "login": "로그인",
+      "title": "로그인 기록",
+      "empty": "로그인 기록이 없습니다"
     }
   },
   "securitySettings": {

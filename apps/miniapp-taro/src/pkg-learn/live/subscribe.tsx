@@ -9,6 +9,8 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getLiveList, del, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { getRnTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 const REMINDER_KEY = 'live_reminder_enabled'
 
@@ -26,6 +28,12 @@ const STATUS_LABEL: Record<Live['status'], { key: string; fb: string }> = {
 
 export default function LiveSubscribe() {
   const tt = useTt()
+  /* 微信 <switch color> 是原生属性、不在 style 槽,不解析 CSS 变量 ⇒ 必须给 JS 派生 hex。
+     取墨档 brand.DEFAULT(亮 #000000 / 暗 #FFFFFF,源 = tokens.css --color-primary),与 RN
+     端同族开关的 trackColor.true 同档(packages/app/src/features/notification-settings/
+     NotificationSettingsScreen.tsx)。 */
+  const { resolved } = useAppTheme()
+  const switchInk = getRnTokens(resolved).brand.DEFAULT
 
   const [list, setList] = useState<Live[]>([])
   const [loading, setLoading] = useState(false)
@@ -109,7 +117,11 @@ export default function LiveSubscribe() {
               {tt('live.subscribe.reminderDesc', '订阅直播开播前 10 分钟通知')}
             </Text>
           </View>
-          <Switch checked={reminder} onChange={(e) => toggleReminder(e.detail.value)} />
+          <Switch
+            checked={reminder}
+            color={switchInk}
+            onChange={(e) => toggleReminder(e.detail.value)}
+          />
         </View>
 
         {list.length > 0 ? (
