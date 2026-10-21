@@ -154,6 +154,14 @@ from ..core.mcp_tool_approval import (
 
 # A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
 from ..core.retry_after import hint_from_error, resolve_retry_delay_s
+from .agent_security_prefs import (
+    apply_prefs,
+    get_agent_security_prefs,
+    reset_security_principal,
+    resolve_security_config,
+    set_security_principal,
+    user_explicit_pipeline_record,
+)
 from .guarded_tool_pipeline import (
     ERROR_INJECTION_BLOCKED,
     ERROR_SCAN_BLOCKED,
@@ -180,6 +188,7 @@ from .llm_budget_governor import (
 # 的免审批分支(4846 行),不是可用性判定。
 from .plan_mode import is_readonly_tool
 from .security_config import get_security_config
+from .tool_input_scanner import HARD_SCAN_FLAGS
 
 logger = logging.getLogger(__name__)
 
@@ -293,15 +302,11 @@ def _summarize_step(value: Any) -> str:
 # guarded_pipeline 作为工具执行默认包装层:每次工具执行前先跑
 # prompt 注入探测 + 危险入参扫描(均 fail-closed),命中即拦截——
 # 不进审批流、不执行,直接以结构化错误回填给 LLM。
-# 配置单一事实源 security_config(env 默认 + 设置页 /agent/security-config 热更)。
+# 配置口径(2026-10-21 按用户生效改造):基准 = `security_config`(env 默认 +
+# 进程内热更,**保留原全局入口不动**),其上叠加该 principal 在
+# `user_preferences(group='security', key='agentSecurity.*')` 的显式表态 —— 唯一出口
+# `agent_security_prefs.resolve_security_config(user_id)`。缺表态 = 进程快照 = 改动前行为。
 # =====================================================================
-
-
-class _ScanPass:
-    """入参扫描禁用时的占位结果(永不拦截)。"""
-
-    dangerous = False
-    findings: tuple[Any, ...] = ()
 
 
 def _no_prompt_guard(text: str, **_kw: Any) -> dict[str, Any]:
@@ -309,6 +314,12 @@ def _no_prompt_guard(text: str, **_kw: Any) -> dict[str, Any]:
 
     pipeline 构造器对 None 依赖会回退到默认实现,无法经 None 关停,
     故用占位函数显式禁用(契约与 prompt_guard.act 同构:含 blocked 键)。
+
+    对应地,入参扫描**没有**"占位永不拦"这一档了:`input_scan_enabled=false` 只关
+    启发式两类(`ssrf_loopback`/`arg_too_long`),`path_traversal`/`command_injection`
+    恒扫恒拦(见 `tool_input_scanner.HARD_SCAN_FLAGS`)。原先那份
+    `_no_input_scanner` / `_ScanPass` 在新口径下已无合法消费者,连同"两开关同关 ⇒
+    零开销直通"那一格一起删除 —— 留着它就等于给"一键关掉硬拦截"留一条回头路。
     """
     return {
         "action": "pass",
@@ -317,11 +328,6 @@ def _no_prompt_guard(text: str, **_kw: Any) -> dict[str, Any]:
         "risk_level": "none",
         "hits": [],
     }
-
-
-def _no_input_scanner(args: Any, **_kw: Any) -> _ScanPass:
-    """入参扫描禁用时的占位实现(永不拦截)。"""
-    return _ScanPass()
 
 
 # =====================================================================
@@ -2392,6 +2398,11 @@ class AgentLoopV2:
         # 可观测录制(2026-09-03 立):默认 None 时零开销,不接入任何录制器
         # (默认路径与现状逐零差异)。
         self._step_recorder: Any | None = recorder
+        # 2026-10-21(pipeline_record_enabled 变真通):本次 run 是否真的落录制。
+        # 缺省 True 是**刻意**的:构造方显式注入 recorder 的老路径(测试/云端 run 绑定
+        # run_id)必须与改动前逐字一致;run/resume 入口的 _ensure_step_recorder 会按
+        # 生效档重算它,而 recorder 为 None 时 _maybe_record_* 本来就直接 return。
+        self._pipeline_record_active: bool = True
         # G-816021(2026-10-14):上下文链标签(main/subagent/workflow,…;空=未标注)。
         # 本循环实例即一条 context 链;录制步骤带上链标签,账本读面的增量基线才能
         # 把同 session 内同为 tool_name="llm" 的主链与子代理分开持基线(不少计)。
@@ -3122,6 +3133,9 @@ class AgentLoopV2:
         - 出口:成功完成后自动提取记忆写回 API(失败不阻塞,不覆盖 result)
         """
         self._reset_run_state()
+        # 2026-10-21:按该 principal 的档位决定是否接入步骤录制器
+        # (self._user_id 由承载层显式入参;缺省 None ⇒ 不接入 ⇒ 与改动前逐字一致)。
+        await self._ensure_step_recorder()
         # Hook 引擎: session.start(1-5 起经事件流层发射,失败降级不阻塞)
         await self._events.session_start(
             session_id=self._session_id or "",
@@ -4811,6 +4825,9 @@ class AgentLoopV2:
         self._messages = messages
         self._tool_state = json.loads(json.dumps(checkpoint.tool_state, ensure_ascii=False))
         self._reset_run_state()
+        # 2026-10-21:续跑同样按该 principal 的档位决定是否落步骤录制
+        # (与 run() 入口同一个出口,不在此重复判据)。
+        await self._ensure_step_recorder()
 
         # 批 40 接线:TurnAborted 中断指导(对标 codex context/turn_aborted.rs)。
         # 被取消/暂停后显式 resume 时,把持久化中断片段追加进历史尾部——LLM 感知
@@ -5197,25 +5214,36 @@ class AgentLoopV2:
     async def _pre_guard_check(self, tc: ToolCall) -> ToolResult | None:
         """P0-3:guarded_pipeline 前置守卫(prompt 注入探测 + 危险入参扫描)。
 
-        - 两开关(prompt_guard_enabled / input_scan_enabled)均关闭时零开销直通;
-        - 配置每次实时读取(get_security_config),设置页热更立即生效;
-        - 安全阶段 fail-closed:探测/扫描自身异常一律按拦截处理;
-        - 拦截 → ToolResult(error_type=injection_blocked / scan_blocked),
-          不进审批流、不执行,LLM 收到结构化错误可自行调整。
+        配置口径(2026-10-21 按用户生效):`resolve_security_config(self._user_id)`
+        = 进程默认 ⊕ 该 principal 的显式表态。`self._user_id` 由承载层显式入参
+        (routers/agents.py / engine.py::_bind_principal / run_converged_agent),
+        本函数不从 tc.args、不从请求头、不从 session 记录反推身份;拿不到主体
+        (None / 非 UUID)⇒ 解析结果恰为进程快照 = 改动前的行为。
+
+        边界(哪些档受用户开关影响、哪些恒不受影响,由用例 4c 钉死):
+        - `prompt_guard_enabled` / `prompt_guard_policy`:完全受用户档影响;
+        - `input_scan_enabled`:**只**关启发式两类(ssrf_loopback / arg_too_long),
+          `path_traversal` / `command_injection` 恒扫恒拦 ⇒ 这里不再有"两开关同关
+          ⇒ 零开销直通"那一格(直通会把硬拦截一起关掉,而硬拦截不在任何开关射程内);
+        - fail-closed 语义(探测/扫描自身异常按拦截)不受任何档位影响。
+
+        拦截 → ToolResult(error_type=injection_blocked / scan_blocked),
+        不进审批流、不执行,LLM 收到结构化错误可自行调整。
         """
-        cfg = get_security_config()
-        if not (cfg.prompt_guard_enabled or cfg.input_scan_enabled):
-            return None
+        cfg = await resolve_security_config(getattr(self, "_user_id", None))
         pipeline_kwargs: dict[str, Any] = {
-            # 两阶段共用 scan_enabled 门;各自再经占位依赖实现独立开关
+            # 两阶段共用 scan_enabled 门;各自再经占位/入参实现独立开关
             "scan_enabled": True,
             "guard_enabled": False,   # budget 治理由 loop 1-6 独立链路承担,不在此重复
             "record_enabled": False,  # 步骤录制由 _maybe_record_step 统一(含决策提示),防双写
         }
         if not cfg.prompt_guard_enabled:
             pipeline_kwargs["prompt_guard"] = _no_prompt_guard
-        if not cfg.input_scan_enabled:
-            pipeline_kwargs["input_scanner"] = _no_input_scanner
+        # None = 走 scan_tool_args 的 DEFAULT_FLAGS(四类全扫,与改动前逐字一致);
+        # 关档时收窄到硬拦截两类,绝不全关。
+        scan_flags: list[str] | None = None if cfg.input_scan_enabled else sorted(
+            HARD_SCAN_FLAGS
+        )
         pipeline = GuardedToolPipeline(**pipeline_kwargs)
         try:
             pr = await pipeline.run(
@@ -5229,6 +5257,7 @@ class AgentLoopV2:
                 scan_source="mcp",
                 scan_policy="flag",
                 block_on_scan=True,
+                scan_flags=scan_flags,
             )
         except Exception as e:  # fail-closed:管线自身异常按拦截处理
             msg = f"安全前置守卫异常,已拦截: {e}"
@@ -5292,7 +5321,11 @@ class AgentLoopV2:
             and result.get("errorCode") == "EXEC_POLICY_NEEDS_APPROVAL"
         ):
             return None
-        cfg = get_security_config()
+        # 档位按**当前 principal** 解析(self._user_id 由承载层显式入参,见类内注释);
+        # 全局 kill switch `TOOL_APPROVAL_ENABLED`(构造期固化进 self._approval_enabled)
+        # 的优先级**高于**用户档:它关掉时,用户把 exec_policy_mode 设成 enforce 也
+        # 不会多出一次弹窗(用例 4b 断言"审批事件没发出 + 命令没执行")。
+        cfg = await resolve_security_config(getattr(self, "_user_id", None))
         if cfg.exec_policy_mode != "enforce" or not self._approval_enabled:
             return None
         if not gate_approved:
@@ -5514,6 +5547,44 @@ class AgentLoopV2:
             fields["model"] = model
         return fields
 
+    async def _ensure_step_recorder(self) -> None:
+        """按**该 principal 的档位**决定本次 run 是否落步骤录制(2026-10-21 立)。
+
+        `pipeline_record_enabled` 此前是死字段:全仓没有任何判定读它,而生产三个构造点
+        (routers/agents.py、routers/engine.py 的工厂、本文件 run_converged_agent)都没传
+        `recorder=`,于是 `self._step_recorder` 恒 None、`data/step_records.json` 一次不写。
+        本轮把它接成真开关,规则两条缺一不可:
+
+        1. **接入条件**:构造方没显式注入 recorder ∧ 该用户**显式**把
+           `agentSecurity.pipeline_record_enabled` 设成 '1'。进程档(env 默认 True)
+           **不**作为接入条件 —— 否则这次改造等于给每一个没表过态的用户开始写盘,
+           违反「缺行 = 现状一字不变」。
+        2. **短路条件**:`self._pipeline_record_active` = 生效档的
+           `pipeline_record_enabled` ∧ recorder 在位。显式注入 recorder 的老路径因此
+           仍按生效档开合(该字段的既有文档语义就是"recorder 已注入 loop 时生效")。
+
+        默认档(用户未配置 / 设成 '0')⇒ recorder 仍是 None ⇒ `_maybe_record_step` 与
+        `_maybe_record_llm_step` 一进来就 return:内存表不写、`data/step_records.json`
+        不打开、不产生任何 IO —— 与改前逐字一致(用例
+        `test_pipeline_record_absent_keeps_byte_for_byte_default` 钉死)。
+
+        任何异常(读库失败 / 录制器不可用)⇒ 不接入并 warning:录制是可观测面,
+        它的故障不许反过来打断主链路,更不许把"没录上"写成"录好了"。
+        """
+        try:
+            prefs = await get_agent_security_prefs(getattr(self, "_user_id", None))
+            cfg = apply_prefs(get_security_config(), prefs)
+            if self._step_recorder is None and user_explicit_pipeline_record(prefs):
+                from .agent_step_recorder import agent_step_recorder
+
+                self._step_recorder = agent_step_recorder
+            self._pipeline_record_active = bool(
+                cfg.pipeline_record_enabled and self._step_recorder is not None
+            )
+        except Exception as e:  # noqa: BLE001 - 降级为不录制,绝不阻塞主链路
+            self._pipeline_record_active = False
+            logger.warning("按用户档接入步骤录制器失败(本次 run 不录制): %s", e)
+
     def _maybe_record_llm_step(
         self,
         *,
@@ -5529,9 +5600,13 @@ class AgentLoopV2:
         绝不阻塞主链路。usage 经 normalize_usage 归一化(Anthropic input_tokens/
         OpenAI prompt_tokens/DeepSeek prompt_cache_hit_tokens 等别名统一),
         tokens 全 0 时也保留该步(轮次与耗时仍有审计价值)。
+
+        2026-10-21:`_pipeline_record_active` 是本次 run 的录制短路位(按用户档在
+        `_ensure_step_recorder` 里算),关掉时 recorder 在位也不写 —— 默认档恒为
+        "recorder None ⇒ 一进来就 return",与改动前逐字一致。
         """
         rec = getattr(self, "_step_recorder", None)
-        if rec is None:
+        if rec is None or not self._pipeline_record_active:
             return
         run_id = getattr(rec, "run_id", None) or self._session_id or ""
         try:
@@ -5575,8 +5650,9 @@ class AgentLoopV2:
         """
         rec = getattr(self, "_step_recorder", None)
         # 1-1:先弹出决策提示(auto 免审批等不可见路径),无提示再从结果推导
+        # (pop 必须在短路之前:提示表是 per-tc 的,不弹就会漏给下一个同名 tc)
         hint = self._decision_hints.pop(tc.id, None)
-        if rec is None:
+        if rec is None or not self._pipeline_record_active:
             return
         run_id = getattr(rec, "run_id", None) or self._session_id or ""
         try:
@@ -6035,6 +6111,15 @@ class AgentLoopV2:
         # file_editor.rollback_file 真正回滚——打通「单 run 文件级回滚」死代码。
         self._snapshot_before_write(tc)
 
+        # 2026-10-21(按用户生效):把**承载层已验证的主体**发布进安全档位作用域,
+        # 让工具 handler 深处(mcp_server._tool_run_command 读 exec_policy_mode)拿到的是
+        # "谁在跑这一轮",而不是进程级快照。身份唯一来源 = self._user_id,由
+        # routers/agents.py / engine.py::_bind_principal / run_converged_agent 显式入参;
+        # 绝不从 tc.args(LLM 可填)读,也绝不从 session 记录反推。
+        # finally 配对复位(与下面 terminal_ctx_token 同一条纪律):漏复位 = A 用户的档位
+        # 漏进 B 用户的工具调用,那比"读不到档位"贵得多。
+        principal_token = set_security_principal(getattr(self, "_user_id", None))
+
         # P0-B(2026-09-18):终端流上下文注入——run_command 等工具执行期间经
         # mcp_server 的 _spawn_terminal_delta 发 terminal.delta 实时输出,事件
         # 按本 tc 归属(session/iteration/tool_call_id);finally 配对复位防跨工具
@@ -6186,6 +6271,8 @@ class AgentLoopV2:
                     from .mcp_server import reset_terminal_stream_context
 
                     reset_terminal_stream_context(terminal_ctx_token)
+            # 2026-10-21:复位安全档位主体(与 _execute_single 开头的 set 配对)。
+            reset_security_principal(principal_token)
 
     def _build_tools_schema(self) -> list[dict[str, Any]]:
         """构建 tools schema(给 LLM 的 function calling 格式)。"""
