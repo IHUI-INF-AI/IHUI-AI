@@ -20,7 +20,9 @@
  * 不摘:未超龄租约、日期取不到的(§0.3 不猜)。裸 `（进行中）` **2026-10-22 起改为默认代摘**:
  * 依据不是"机主口头说没有 agent 在跑"那种易失状态,而是**同批改判据**——守门 109 新增 CL4 在提交链
  * 拦住裸标记的新增,而本器只读 HEAD 面 ⇒ 别人刚写下还没提交的裸标记进不了射程,摘存量踩不到干活的人。
- * 出处句可由 `IHUI_CLAIM_STRIP_LEGACY_RULING` 覆盖(写什么就逐字进注记),缺省用定档默认句。
+ * 出处句由 `IHUI_CLAIM_STRIP_LEGACY_RULING` 覆盖,写进留痕条目的 `ruling` 字段(不写进台账行)。
+ * 可追责性的真相源 = 仓外留痕 `.workbuddy/stale-claim-strip.jsonl`(逐条存原牌/超龄/前后整行/落地枚)
+ * 加提交信息;行内只留 `#seq` 指针 —— 因为注记本身会被活文档归并洗掉(实测一轮 64 枚只剩 6 枚)。
  *
  * 守恒(改写档,与"完成即删"的删行档不同):
  *   C1 总行数不变(只改写,不增删);
@@ -41,7 +43,7 @@
  * 裸标记需机主具名授权才代摘:`IHUI_CLAIM_STRIP_LEGACY_RULING="<原话>"`(注记里逐字留出处)。
  */
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -57,17 +59,92 @@ const DEFAULT_LEGACY_RULING =
   '机主 2026-10-22 定档:认领必须写全 @日期/持有者,裸标记的新增已由守门 109 CL4 在提交链拦住,故存量由本器代摘'
 
 /**
- * 释放注记文案 —— **行内只放最小可追责三要素**(原牌日期/持有者/超龄量)。
- * 为什么刻意做短(2026-10-22 机主指"又搞出来一堆"):第一版把定档依据整段写进台账行,实测每枚 118 字,
- * 而台账未勾行本来就平均 1859 字 ⇒ 摘牌本身变成了新的噪音。依据的住处是提交信息与本器头注,
- * 不是每一行台账;行内多写一个字,就多一个人要读它。由 `--self-test` 与镜像的形状锁钉住不得回长。
+ * 行内注记 = **最小指针**。为什么不在行内写原牌与依据(2026-10-22 实测否掉):
+ * 摘牌注记会被活文档归并整批洗掉(一轮 64 枚只剩 6 枚),而未勾行本来平均 1859 字 ⇒
+ * 行内写得越详细,既是噪音又越保不住,两头亏。可追责性改由仓外 JSONL 留痕承载(见 `buildEntries`)。
  */
-function releaseNote({ date, holder, ageH, ownerRuling }, seat, asOf) {
-  if (ownerRuling === DEFAULT_LEGACY_RULING)
-    return `（认领已释放@${asOf}/${seat}:原裸标记无日期）`
-  if (ownerRuling)
-    return `（认领已释放@${asOf}/${seat}:原裸标记无日期;机主原话见本轮提交信息）`
-  return `（认领已释放@${asOf}/${seat}:原牌 ${date}/${holder} 超龄 ${ageH}h）`
+function releaseNote({ seq }, seat, asOf) {
+  return `（认领已释放@${asOf}/${seat}#${seq}）`
+}
+
+/** 留痕条目:每条等于判据在摘那一刻的读数,逐字段可复算,不是另写一份叙事。 */
+export function buildEntries(plan, { stamp, at, seat, planSha }) {
+  return plan.leases.map((r, i) => ({
+    seq: `${stamp}-${i}`,
+    at,
+    seat,
+    file: FILE,
+    line: r.line,
+    planSha,
+    form: r.mark.form,
+    mark: r.mark.mark,
+    claimDate: r.mark.date ?? null,
+    holder: r.mark.holder ?? null,
+    ageHours: r.ageH === null ? null : r.ageH,
+    ttlHours: plan.ttlHours ?? null,
+    ruling: r.ownerRuling ?? null,
+    rowBefore: r.raw,
+    rowAfter: null,
+  }))
+}
+
+/** 落地后回填 rowAfter 与 landedSha(留痕必须能指回那枚提交,否则只是自述)。 */
+export function sealEntries(entries, { landedSha, plan }) {
+  const afterByLine = new Map(plan.linesAfter.entries())
+  return entries.map((e) => ({ ...e, landedSha, rowAfter: afterByLine.get(e.line) ?? null }))
+}
+
+/** 留痕读数(只判形状,不据此判红)。空文件 ⇒ undetermined,绝不用 0 冒充"没摘过"(§0.3)。 */
+export function reportLedger(text) {
+  const s = String(text ?? '')
+  if (s.trim() === '') return { undetermined: true, why: '留痕文件为空或读不到', lines: 0, malformed: 0, forms: {} }
+  let lines = 0
+  let malformed = 0
+  const forms = {}
+  for (const raw of s.split('\n')) {
+    if (raw.trim() === '') continue
+    let o
+    try {
+      o = JSON.parse(raw)
+    } catch {
+      malformed++
+      continue
+    }
+    if (!o || typeof o !== 'object' || typeof o.seq !== 'string' || typeof o.at !== 'string') {
+      malformed++
+      continue
+    }
+    lines++
+    forms[o.form] = (forms[o.form] || 0) + 1
+  }
+  if (lines === 0) return { undetermined: true, why: '一行都没解出来(全是畸形)', lines: 0, malformed, forms }
+  return { undetermined: false, lines, malformed, forms }
+}
+
+/** 老化:只按窗口裁,且**必须报出被裁条数**(静默删等于没有记录;§"工作队列必须有死亡机制")。 */
+export function pruneLedger(text, { nowMs, keepDays = 90 }) {
+  const cut = nowMs - keepDays * 86400000
+  const kept = []
+  let pruned = 0
+  let malformed = 0
+  for (const raw of String(text ?? '').split('\n')) {
+    if (raw.trim() === '') continue
+    let o
+    try {
+      o = JSON.parse(raw)
+    } catch {
+      malformed++
+      kept.push(raw)
+      continue
+    }
+    const ms = Date.parse(String(o.at ?? ''))
+    if (!Number.isFinite(ms) || ms < cut) {
+      pruned++
+      continue
+    }
+    kept.push(raw)
+  }
+  return { text: kept.join('\n') + (kept.length ? '\n' : ''), kept: kept.length, pruned, malformed }
 }
 
 /**
@@ -77,7 +154,10 @@ function releaseNote({ date, holder, ageH, ownerRuling }, seat, asOf) {
  *   `legacyByOwnerRuling` = 机主判定"无席位在飞"的那句话(带日期)。给了才摘裸标记,并在注记里
  *   逐字留下授权出处;不给 ⇒ 裸标记一律只报数(§0.3:年龄判不出来就不猜)。
  */
-export function planSweep(text, { nowMs, ttlHours, seat, asOf, legacyByOwnerRuling = DEFAULT_LEGACY_RULING }) {
+export function planSweep(
+  text,
+  { nowMs, ttlHours, seat, asOf, stamp = null, legacyByOwnerRuling = DEFAULT_LEGACY_RULING },
+) {
   const lines = String(text).split('\n')
   const leases = []
   const held = []
@@ -108,21 +188,21 @@ export function planSweep(text, { nowMs, ttlHours, seat, asOf, legacyByOwnerRuli
     leases.push({ line: i + 1, raw: lines[i], mark: m, ageH })
   }
 
+  const stampUsed = stamp ?? nowMs.toString(36)
   const removed = []
   const added = []
+  const linesAfter = new Map()
   const out = [...lines]
-  for (const r of leases) {
+  leases.forEach((r, i) => {
     const idx = r.line - 1
-    const note = releaseNote(
-      { date: r.mark.date, holder: r.mark.holder, ageH: r.ageH, ownerRuling: r.ownerRuling ?? null },
-      seat,
-      asOf,
-    )
+    r.seq = `${stampUsed}-${i}`
+    const note = releaseNote({ seq: r.seq }, seat, asOf)
     const after = out[idx].slice(0, r.mark.at) + note + out[idx].slice(r.mark.at + r.mark.mark.length)
     removed.push(out[idx])
     added.push(after)
+    linesAfter.set(r.line, after)
     out[idx] = after
-  }
+  })
   const strippedText = out.join('\n')
 
   // C1 行数守恒
@@ -144,9 +224,34 @@ export function planSweep(text, { nowMs, ttlHours, seat, asOf, legacyByOwnerRuli
     text: strippedText,
     removed,
     added,
+    linesAfter,
+    ttlHours,
+    stamp: stampUsed,
     ok: c1 && c2 && c3,
     why: !c1 ? 'C1 行数变了(本器只改写,不增删行)' : !c2 ? 'C2 有未列入摘除集的行被改动' : !c3 ? 'C3 摘后挂牌集不等于本轮跳过集(多摘或少摘)' : '',
   }
+}
+
+const LEDGER_FILE = () => path.join(ROOT, '.workbuddy', 'stale-claim-strip.jsonl')
+
+/**
+ * 追加留痕并就地老化。**必须打印被裁条数** —— 静默删等于这一族从来没发生过。
+ * 写在 `.workbuddy/`(gitignored、活文档归并射程外):台账行内的注记会被别席的清偿提交洗掉
+ * (实测一轮 64 枚只剩 6 枚),所以可追责性的真相源只能是这里 + 提交信息。
+ */
+export function appendLedger(entries, { file = LEDGER_FILE(), nowMs = Date.now(), keepDays = 90 } = {}) {
+  mkdirSync(path.dirname(file), { recursive: true })
+  const prior = existsSync(file) ? readFileSync(file, 'utf8') : ''
+  const pr = pruneLedger(prior, { nowMs, keepDays })
+  const body = entries.map((e) => JSON.stringify(e)).join('\n')
+  writeFileSync(file, `${pr.text}${body}\n`, 'utf8')
+  return { written: entries.length, pruned: pr.pruned, malformed: pr.malformed, file }
+}
+
+/** 留痕读数 CLI 出口:取不到文件一律判未判定,不得用 0 冒充"没摘过"(§0.3)。 */
+export function readLedgerReport({ file = LEDGER_FILE() } = {}) {
+  if (!existsSync(file)) return { undetermined: true, why: `留痕文件不在位:${path.relative(ROOT, file)}` }
+  return reportLedger(readFileSync(file, 'utf8'))
 }
 
 function result(state, n) {
@@ -218,6 +323,8 @@ export function run({
     return result('refused', n).state === 'refused' ? 2 : 2
   }
 
+  // 留痕要能指回"摘之前是哪枚提交",所以基线 sha 必须在落地前取。
+  const planSha = git(['rev-parse', 'HEAD']).trim()
   let kept = false
   const dir = mkdtempSync(path.join(ROOT, '.ihui-agent', 'tmp', 'stale-claim-strip-'))
   try {
@@ -272,6 +379,15 @@ export function run({
       kept = true
       return 2
     }
+    const landedSha = git(['rev-parse', 'HEAD']).trim()
+    const ents = sealEntries(
+      buildEntries(plan, { stamp: plan.stamp, at: new Date(nowMs).toISOString(), seat, planSha }),
+      { landedSha, plan },
+    )
+    const led = appendLedger(ents, { nowMs })
+    console.log(
+      `📝 留痕 ${led.written} 条 → ${path.relative(ROOT, led.file)}(老化裁掉 ${led.pruned} 条 · 畸形 ${led.malformed} 条 · 落地枚 ${landedSha.slice(0, 12)})`,
+    )
     const push = spawnSync(process.execPath, [path.join(ROOT, 'scripts/git-push-guard.mjs')], {
       cwd: ROOT,
       encoding: 'utf8',
@@ -321,13 +437,19 @@ function selfTest() {
   t('跳过集=一枚(G-2 新鲜租约;G-4 叙述不算挂牌故不在集内)', p.held.length === 1, `实到 ${p.held.length}`)
   t('C1 行数守恒', FIXTURE.split('\n').length === p.text.split('\n').length)
   t('守恒三条整体成立', p.ok === true, p.why)
-  t('注记逐字保留原牌日期与持有者', p.text.includes('原牌 2026-01-01/甲席') && p.text.includes('原牌 2026-01-02/丙席'))
   t(
-    '形状锁:行内注记只放最小可追责要素,长度必须 ≤80 字(依据进提交信息,不塞台账)',
-    [...p.text.matchAll(/（认领已释放@[^）]*）/g)].every((m) => m[0].length <= 80),
+    '形状锁:行内注记只是指针,长度必须 ≤62 字且含 #seq(原牌信息住在留痕,不塞台账)',
+    [...p.text.matchAll(/（认领已释放@[^）]*）/g)].every((m) => m[0].length <= 62 && m[0].includes('#')),
     [...p.text.matchAll(/（认领已释放@[^）]*）/g)].map((m) => m[0].length).join(','),
   )
-  t('裸标记注记为最短形态(定档依据不写进行内)', p.text.includes('原裸标记无日期'))
+  t(
+    '原牌三要素改由留痕条目承载,且逐字段等于判据读数',
+    (() => {
+      const es = buildEntries(p, { stamp: p.stamp, at: '2026-10-22T12:00:00Z', seat: 'x', planSha: 'b'.repeat(40) })
+      const ls = es.filter((e) => e.form === 'lease')
+      return ls.length === 2 && ls.every((e) => /^2026-01-0\d$/.test(e.claimDate) && !!e.holder && !!e.rowBefore)
+    })(),
+  )
   t('摘后挂牌集 == 跳过集(C3 成立)', p.text.split('\n').filter((l) => claimMarkOf(l) !== null).length === p.held.length)
   // 反证一:强行多摘一行(把 G-6 也改写)⇒ C2 必须咬住
   const hurt = planSweep(FIXTURE, { nowMs: now, ttlHours: 72, seat: 'x', asOf: '2026-10-22' })
@@ -347,12 +469,40 @@ function selfTest() {
     legacyByOwnerRuling: '机主 2026-10-22 判定无席位在飞',
   })
   t(
-    '机主原话覆盖时行内只留指针句(原话本身进提交信息)',
-    pr.text.includes('机主原话见本轮提交信息') && pr.ok === true,
+    '机主原话进留痕的 ruling 字段,行内仍然只是指针(换了位置也不丢出处)',
+    (() => {
+      const es = buildEntries(pr, { stamp: pr.stamp, at: '2026-10-22T12:00:00Z', seat: 'x', planSha: 'c'.repeat(40) })
+      const legacy = es.filter((e) => e.form === 'legacy')
+      return (
+        legacy.length === 1 &&
+        legacy[0].ruling === '机主 2026-10-22 判定无席位在飞' &&
+        /（认领已释放@2026-10-22\/x#[a-z0-9]+-\d+）/.test(pr.linesAfter.get(legacy[0].line))
+      )
+    })(),
   )
   // 反证三:摘过的文本再跑一遍必须判 clean(幂等,否则每轮都在抖 = 门 229 那条"台账每 30 分钟抖一次"同型)
   const p3 = planSweep(p.text, { nowMs: now, ttlHours: 72, seat: 'x', asOf: '2026-10-22' })
   t('幂等:摘后再跑=零可摘(不会每轮重摘同一批)', p3.leases.length === 0 && p3.held.length === 1, `stale=${p3.leases.length} held=${p3.held.length}`)
+  // ── 留痕三段(条目构造 / 读数 / 老化)——台账行内的注记会被活文档归并洗掉(实测 64 枚只剩 6 枚),
+  //    所以可追责性的真相源必须是仓外的 JSONL,行内只留指针。
+  const ents = buildEntries(p, { stamp: p.stamp, at: '2026-10-22T12:00:00Z', seat: 'x', planSha: 'a'.repeat(40) })
+  t('留痕条目逐字段等于判据读数(不是重写一遍)', ents.length === 3 && ents.every((e) => e.rowBefore && e.form && e.seq))
+  t(
+    '行内注记的 #seq 与留痕条目一一对应(否则指针指向不存在的事)',
+    ents.every((e) => p.text.includes(`#${e.seq}`)) && new Set(ents.map((e) => e.seq)).size === ents.length,
+  )
+  t('留痕条目里 lease 与 legacy 分型清楚,超龄量不猜', ents.filter((e) => e.form === 'lease').length === 2 && ents.filter((e) => e.form === 'legacy').every((e) => e.ageHours === null))
+  const rep = reportLedger(ents.map((e) => JSON.stringify(e)).join('\n') + '\n')
+  t('读数器按身份分桶并显式报 malformed', rep.lines === 3 && rep.malformed === 0 && rep.forms.lease === 2)
+  t('读数器对空文件判未判定,不用 0 冒充"没摘过"', reportLedger('').undetermined === true)
+  t('读数器对畸形行逐条计数不静默(缺字段与解不出都算畸形)', reportLedger('{"seq":"a"}\n不是JSON\n').malformed === 2)
+  const aged = [
+    JSON.stringify({ seq: 'old', at: '2026-01-01T00:00:00Z', form: 'lease' }),
+    JSON.stringify({ seq: 'new', at: '2026-10-22T00:00:00Z', form: 'lease' }),
+  ].join('\n')
+  const pruned = pruneLedger(aged, { nowMs: now, keepDays: 90 })
+  t('老化只按窗口裁且**报出被裁条数**(工作队列必须有死亡机制,静默删等于没记录)', pruned.kept === 1 && pruned.pruned === 1)
+  t('老化不静默吞畸形行', pruneLedger('乱码\n', { nowMs: now, keepDays: 90 }).malformed === 1)
   console.log(`--self-test: ${pass}/${pass + fail} 通过`)
   return fail
 }
@@ -360,8 +510,21 @@ function selfTest() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
   const argv = process.argv.slice(2)
-  if (argv.includes('--self-test')) process.exitCode = selfTest() === 0 ? 0 : 1
-  else {
+  const known = new Set(['--self-test', '--apply', '--dry-run', '--report'])
+  const unknown = argv.filter((a) => !known.has(a) && !a.startsWith('--ttl-hours'))
+  if (unknown.length > 0) {
+    console.error(`❌ 未登记的旗标:${unknown.join(' ')} ⇒ 拒绝执行(未知开关不得静默落进默认分支)`)
+    process.exitCode = 2
+  } else if (argv.includes('--self-test')) process.exitCode = selfTest() === 0 ? 0 : 1
+  else if (argv.includes('--report')) {
+    const r = readLedgerReport()
+    console.log(
+      r.undetermined
+        ? `LEDGER-REPORT state=undetermined why=${r.why}`
+        : `LEDGER-REPORT state=ok lines=${r.lines} malformed=${r.malformed} forms=${JSON.stringify(r.forms)}`,
+    )
+    process.exitCode = r.undetermined ? 2 : 0
+  } else {
     const ttlFlag = argv.find((a) => a.startsWith('--ttl-hours'))
     process.exitCode = run({
       apply: argv.includes('--apply'),
@@ -371,5 +534,17 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { planSweep, FIXTURE, releaseNote, FILE }
+export const __test__ = {
+  planSweep,
+  FIXTURE,
+  releaseNote,
+  FILE,
+  buildEntries,
+  sealEntries,
+  reportLedger,
+  pruneLedger,
+  appendLedger,
+  readLedgerReport,
+  LEDGER_FILE,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
