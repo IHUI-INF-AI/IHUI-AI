@@ -13,13 +13,14 @@ import {
   type UseWebSocketReturn,
 } from '@ihui/shared/notifications/use-notification-websocket'
 import { getToken } from '../lib/token'
-import { API_BASE_URL } from '../lib/config'
+import { WS_BASE_URL } from '../lib/config'
 
 export type { UseWebSocketReturn }
 
 export function useNotificationWebSocket(token: string | null): UseWebSocketReturn {
   return useNotificationWebSocketShared(token, {
-    baseUrl: API_BASE_URL,
+    // WS 与 REST 分域:www 臂实测握不了手(见 src/lib/config 的 WS_BASE_URL 注释)
+    baseUrl: WS_BASE_URL,
     tokenProvider: () => getToken(),
   })
 }

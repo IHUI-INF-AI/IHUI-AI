@@ -2,14 +2,14 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 平台特有:依赖 RN 的 config(API_BASE_URL)与本端日志约定,不适合共享。
+// 平台特有:依赖 RN 的 config(WS_BASE_URL)与本端日志约定,不适合共享。
 // 接线本体在 `src/lib/user-broadcast`(可被用例直接驱动),跨端判据在
 // `@ihui/shared/chat/user-broadcast-store`(AGENTS §3 共享层优先)—— 本文件只是挂载点。
 
 import { useEffect, useRef } from 'react'
 import { conversationMetaLedger, mcpStatusLedger } from '@ihui/shared/chat'
 
-import { API_BASE_URL } from '../lib/config'
+import { WS_BASE_URL } from '../lib/config'
 import { attachUserBroadcast, resetBroadcastNotices } from '../lib/user-broadcast'
 
 const LOG_TAG = '[user-broadcast]'
@@ -45,7 +45,7 @@ export function useUserBroadcastSync(opts: UseUserBroadcastSyncOptions): void {
       return
     }
     const sub = attachUserBroadcast({
-      baseUrl: API_BASE_URL,
+      baseUrl: WS_BASE_URL,
       token,
       translate: (key, params) => optsRef.current.translate(key, params),
       notify: (message) => optsRef.current.notify(message),

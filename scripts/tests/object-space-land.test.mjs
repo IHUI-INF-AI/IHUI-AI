@@ -641,7 +641,7 @@ test('T-BLOB-4 端到端:落地成功、索引对齐,而盘上那份(别人的)�
  */
 test('T-BLOB-5 接线与措辞:blob 模式已装进主流程,且不得凭空声称发生过一次放行', () => {
   const src = readFileSync(TOOL, 'utf8')
-  assert.match(src, /const \{ root, paths, msg, baseRef, blobOf(?:, jsonStructure)? \} =/, 'main 必须取 blobOf(G-816037 起该解构多一个字段,允许带上)')
+  assert.match(src, /const \{ root, paths, (?:removePaths, )?msg, baseRef, blobOf(?:, jsonStructure)? \} =/, 'main 必须取 blobOf(G-816037 起该解构多一个字段,允许带上;G-926 起 paths 后可多一个 removePaths)')
   assert.match(src, /else if \(skipWatermark\)/, '"跳过了水印预检"这句必须只在真设了应急变量时打印')
   assert.ok(
     !/if \(!skipWatermark && !blobOf\) \{[\s\S]{0,600}?\} else \{\s*console\.log\('⚠️ IHUI_LAND_SKIP_WATERMARK/.test(src),

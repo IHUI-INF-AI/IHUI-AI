@@ -2,11 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   streamChat,
   fetchModels,
   formatSSEError,
+  isAbortError,
   getModelContextCapacity,
   createConversation,
   sendMessage as persistChatMessage,
@@ -36,6 +37,10 @@ import {
   hydrateBranchTranscript,
 } from './chat-branch-utils'
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
+// 票 68 / G-53 扩展腿:「流式中切换模型 → 终止后自动带入新模型」的判据单点(端内腿,判据形状照
+// `apps/mobile-rn/src/lib/model-switch.ts`;`shouldTerminateForModelSwitch` 的表与四端逐条同值,
+// 端内不再写第二份。本端**不调** `resolveRoundModel` —— 见该文件尾注)
+import { shouldTerminateForModelSwitch, terminateActiveStream } from '../../../src/lib/model-switch'
 import { toolsForChatRequest } from '../../../lib/ui-control-tools'
 import { applyToolCallStart, applyToolDelta } from '../../../lib/tool-call-frames'
 // D64⑤ 消费票(2026-10-14):历史消息带 metadata.elementPack 时解析出等价元素帧卡
@@ -189,6 +194,13 @@ export default function ChatPage() {
   })
   /** 当前流的 AbortController(W2 既有 abort 通道;「打断并执行」经它停流,不新建第三种停流语义) */
   const abortRef = useRef<AbortController | null>(null)
+  /**
+   * 票 68 / G-53:换档 effect 判「模型确实变了」的上一档引用。首帧与 fetchModels 回填两侧
+   * 都会让 previous/current 同值(回填只改一次 model,不产生第二次比较)⇒ 判据不成立 ⇒ 不打断。
+   * (本端刻意**没有** web/RN 那个 `modelRef` 最新档出口:它只为 `resolveRoundModel` 服务,
+   * 而本端按机主定档采取"换档即终止",不静默跟到新档 —— 见 src/lib/model-switch.ts 尾注。)
+   */
+  const previousModelRef = useRef(model)
   const sendRef = useRef<(overrideText?: string) => Promise<void>>(async () => {})
   /** 同一毫秒连排两条时防 id 撞车 */
   const queueSeqRef = useRef(0)
@@ -220,6 +232,43 @@ export default function ChatPage() {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
+
+  /**
+   * 票 68 / G-53:终止在途流的唯一出口。「流式中切换模型」与(下面 D38 的)「打断并执行」做的是
+   * 同一件事 —— abort 当前控制器 + 回收在途旗;差别只在要不要给用户一个看得见的理由(notice)。
+   * 提示面复用本页既有 `notice` 状态条(与 onCompaction / onPartialDone 同一出口,不新立 UI)。
+   */
+  const terminateStream = useCallback(
+    (notice?: string): boolean =>
+      terminateActiveStream({
+        abortRef,
+        reclaimStreaming: () => setStreaming(false),
+        ...(notice ? { notice, showNotice: (message: string) => setNotice(message) } : {}),
+      }),
+    [],
+  )
+
+  // 票 68 / G-53(判据表照 web `use-chat.ts`、小程序 `pkg-ai/ai/chat.tsx`、RN `ChatScreen.tsx`;
+  // 结果按机主定档只取「终止」这一半:换档 = 终止在途轮,本轮不自动用新模型重发,下一条消息才走新档):
+  // 首帧与 fetchModels 回填时 previous/current 同值,或根本没有在途流 ⇒ 判据不成立 ⇒ 什么都不做。
+  useEffect(() => {
+    const previousModel = previousModelRef.current
+    previousModelRef.current = model
+    if (
+      !shouldTerminateForModelSwitch({
+        previousModel,
+        currentModel: model,
+        hasLiveStream: Boolean(abortRef.current),
+      })
+    ) {
+      return
+    }
+    // 理由复用本端**已有**键 chat.partialDoneTitle(「回答被中断,以下内容可能不完整」)——
+    // web/小程序/RN 那三端用的是 chat.modelSwitchStopped,该键在本端词包 packages/i18n/messages/extension
+    // 里不存在;补键要动 packages/i18n/(本轮射程外),而 t() 取不到键会把原始键名直接打到屏幕上
+    // (本端 queue-bar-ext.test.tsx 钉的同一条破窗禁令)。所以取"语义真实且不新立 UI"的现成键。
+    terminateStream(t('chat.partialDoneTitle'))
+  }, [model, terminateStream, t])
 
   // W6:把更新应用到「流式输出的当前 assistant 消息」。
   // 扩展端消息 id 为本地生成,后端 SSE 的 messageId 不一定与本地相等:
@@ -354,17 +403,27 @@ export default function ChatPage() {
     setMessages(next)
     setStreaming(true)
 
+    // 票 68 / G-53:abort 句柄必须**先于 await 窗**登记。旧写法在 ensureConversation 之后才 new,
+    // 那段 await 里屏幕上已经是"流式中"(在途旗亮、空气泡已挂),换档时 hasLiveStream 却判不出
+    // 有在途流 ⇒ 什么都不终止,这一轮照旧带着发起那一刻的档位进 provider(票面禁止的"用旧模型发新一轮")。
+    // 登记提前后整轮都可被终止;api-client 对已 aborted 的 signal 有短路
+    // (`client.ts` 的 `if (externalSignal?.aborted) throw createAbortError()`),被终止的轮不会抢发。
+    const controller = new AbortController()
+    // D38:登记当前流 abort 句柄 —— 「打断并执行」的 stopFirst 走 W2 既有 abort 通道
+    abortRef.current = controller
+
     // 会话与落库:失败只交代、不打断流式(流式不依赖会话)
     const cid = await ensureConversation()
     if (cid) void persistTurnMessage(userLocalId, cid, text, 'user')
     // onDone 时 React 状态未必已刷新,正文用局部累加量兜住;出错的那轮不落库
     let assistantText = ''
     let streamFailed = false
-
-    const controller = new AbortController()
-    // D38:登记当前流 abort 句柄 —— 「打断并执行」的 stopFirst 走 W2 既有 abort 通道
-    abortRef.current = controller
-    const timeoutId = window.setTimeout(() => controller.abort(), 15_000)
+    // 票 G-53:超时 abort 与用户主动 abort 必须分得开(见下方 catch 的静默分支)
+    let abortedByTimeout = false
+    const timeoutId = window.setTimeout(() => {
+      abortedByTimeout = true
+      controller.abort()
+    }, 15_000)
     // W6:记录每个工具调用的起始时间,tool-result 到达时补算耗时(与 web stream-handlers 一致)
     const toolStartTimes = new Map<string, number>()
 
@@ -710,8 +769,21 @@ export default function ChatPage() {
       await streamChat(opts)
     } catch (err) {
       window.clearTimeout(timeoutId)
-      const formatted = formatSSEError(err)
-      setError(formatted.message)
+      // 票 G-53:换档终止(与 D38「打断并执行」)走的都是 controller.abort() ⇒ 这条 catch。
+      // 照 web `use-chat/send-message.ts` 的 AbortError 静默分支:用户自己按下的停止不是"请求失败",
+      // 报错条会把主动终止演成错误、还附赠一个必然撞同一轮的「重试上一条」按钮;
+      // 只有 15s 首字超时那种"系统替用户中止"才必须如实交代。
+      // 「这一轮是被中止的」不能只按**错误形态**反推:`isAbortError`(`client.ts`)在宿主有 DOMException 时
+      // 要求 `err instanceof DOMException`,而同一份 `createAbortError()` 在宿主没有 DOMException 时
+      // 兜底成的就是「普通 Error + name=AbortError」(见其尾注)—— 两半只在"宿主恰好没有 DOMException"
+      // 时才互相咬合。本票用例实测到的正是分叉的那一格:DOMException 在位、中止却按普通 Error 交出 ⇒
+      // `isAbortError` 判假 ⇒ 换档终止被写成「网络连接失败,请检查网络后重试」,并带出一个必然撞同一轮的
+      // 「重试上一条」。而本轮究竟是不是被本地终止的,ChatPage 手里就握着那个 controller:
+      // `controller.signal.aborted` 是直证,不必反推错误长什么样;超时那一格仍由 abortedByTimeout 如实交代。
+      const terminatedLocally = isAbortError(err) || controller.signal.aborted
+      if (!terminatedLocally || abortedByTimeout) {
+        setError(formatSSEError(err).message)
+      }
       setStreaming(false)
     } finally {
       if (abortRef.current === controller) abortRef.current = null
@@ -855,11 +927,13 @@ export default function ChatPage() {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between pb-2 border-b border-border">
         <h3 className="m-0 text-sm font-semibold">{t('chat.title')}</h3>
+        {/* 票 68 / G-53:流式中**不再禁用**档位选择(旧写法把该选择器绑在在途旗上禁用,让用户只能等
+            本轮自己跑完、或先去点停止再换)。换档由上面的 effect 终止当前这一轮;新档位对下一条消息生效,
+            本轮不自动用新模型重发(机主定档)。 */}
         <select
           className="text-xs text-foreground px-2 py-1 border border-border rounded-sm bg-card cursor-pointer transition-colors hover:border-muted-foreground focus:outline-none focus:border-muted-foreground"
           value={model}
           onChange={(e) => setModel(e.target.value)}
-          disabled={streaming}
           aria-label={t('chat.selectModel')}
         >
           {split.primary.map((m) => (

@@ -5,13 +5,13 @@
 'use client'
 
 import * as React from 'react'
+import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Download, Maximize2, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { OfficeViewer } from './OfficeViewer'
-import { ThreeDViewer } from './ThreeDViewer'
 import { PDFViewer } from './PDFViewer'
 import {
   PreviewFileUpdatedBar,
@@ -20,6 +20,11 @@ import {
   usePreviewCopy,
 } from './preview-degradation-banner'
 import { usePreviewTextFeed } from './use-preview-staleness'
+
+/** 3D 栈出初始图(成因与判据同 FilePreview.tsx 同名注释):消费侧的 import() 才是分包点。 */
+const ThreeDViewer = dynamic(() => import('./ThreeDViewer').then((m) => m.ThreeDViewer), {
+  ssr: false,
+})
 
 interface UnifiedViewerProps {
   url: string

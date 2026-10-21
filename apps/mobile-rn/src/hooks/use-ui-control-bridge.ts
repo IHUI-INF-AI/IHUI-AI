@@ -19,7 +19,7 @@ import type {
   AppUiActionType,
 } from '@ihui/types'
 
-import { API_BASE_URL } from '../lib/config'
+import { WS_BASE_URL } from '../lib/config'
 import {
   configureRnUiBridge,
   executeRnUiAction,
@@ -259,7 +259,7 @@ export function startUiControlBridge(token: string | null): void {
   capabilityTimer = setInterval(reportCapability, CAPABILITY_INTERVAL_MS)
 
   wsClient = createNotificationClient(
-    { baseUrl: API_BASE_URL, tokenProvider: () => token },
+    { baseUrl: WS_BASE_URL, tokenProvider: () => token },
     { onMessage: handleWsNotification },
   )
   wsClient.connect()

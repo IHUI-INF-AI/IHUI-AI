@@ -32,6 +32,17 @@
  *              · 缺省(工作树模式)内容取各路径的工作树当前字节
  *              · 配 LAND_BLOBS 时内容来自清单,**不读工作树** —— 用于"同一文件里别人有在飞改动"
  *                的场景:那种情况下交工作树字节 = 替别人落地(§12 污染型),正确内容只能是 HEAD⊕本票行
+ *  LAND_REMOVE_PATHS 可选,以 `;` 分隔的仓库相对路径清单(G-926,2026-10-21 立):这些路径要从
+ *              **结果树里摘掉**(取消跟踪)。此前本器只有写入一档,"旁路落地要删文件"只能手搓临时索引
+ *              (AGENTS 记过:6 份同形脚本互相漂开);底层 `lib/bypass-git.mjs` 的 `commitTreeWithIndex`
+ *              删除档(G-1080881)本就自带两条护栏(deleted 项不得带 text/blob、路径必须在 baseRef 树里在位),
+ *              这里只把它暴露成声明式出口。三条硬纪律:
+ *              ① **反向自证**:删除项的回读问的是"不在树里",不是写入档那把"在树里"的尺子 ——
+ *                 拿后者的尺子量删除,一条都没删也能过(2026-10-18 空内容守卫同型事故);
+ *              ② **互斥**:同一路径不得同时出现在 LAND_PATHS 与 LAND_REMOVE_PATHS(自相矛盾);
+ *              ③ **clobber 同语义**:CAS 期间 HEAD 推进而该路径在位性变了 ⇒ 拒绝,不照旧删。
+ *              `paths` 与 `removePaths` 可同时非空(一次落地里既有写入又有摘除);两边都空才拒绝。
+ *              他席已暂存的删除路径由 `alignSharedIndex` 保护:不动并点名(§12)。
  *  LAND_MSG    必填,提交信息
  *  LAND_BLOBS  可选,指向一份 JSON 清单**文件的路径**(内容 `{files:[{path,blob}]}`;
  *              blob 由 hash-object -w 得到,须已在对象库)。注意与 LAND_CLASH_SCOPE 同形:传的是路径,
@@ -98,7 +109,7 @@
  */
 
 import { hasAnyWatermarkTrace, hasExactCanonicalBanner, dropZeroWidth } from './lib/watermark-lines.mjs'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { dirname, join, normalize, resolve } from 'node:path'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -162,6 +173,21 @@ export function parseArgs(env = process.env) {
   const msg = env.LAND_MSG ?? ''
   const baseRef = env.LAND_BASE_REF || 'HEAD'
   /**
+   * `LAND_REMOVE_PATHS` = 从结果树里**摘掉**的路径清单(以 `;` 分隔)。G-926(2026-10-21 立):
+   * "旁路落地器表达不了删除"这一格把 58 枚"已跟踪却被 .gitignore 覆盖"的临时件卡死在台账里 ——
+   * 取消跟踪是**从树里摘路径**,而本器此前只有"写入"一档,调用方只能手搓临时索引(那正是
+   * AGENTS 记过"6 份同形脚本互相漂开"的形状)。底层能力其实早已具备:
+   * `lib/bypass-git.mjs` 的 `commitTreeWithIndex` 删除档(G-1080881)自带两条护栏
+   * (① deleted 项不得同时带 text/blob;② 路径必须在 baseRef 树里真在位),本器只把它暴露成声明式出口。
+   * 反向自证也必须是"不在树里":删除这一支的回读问的是 `git ls-tree <tree> <path>` **查不到**,
+   * 而不是"在树里"(写入档问的是在树里) —— 拿写入档的尺子量删除,一条都没删也能过。
+   * 他席已暂存的路径一律不动并点名(§12),这一条与写入档同一处理。
+   */
+  const removePaths = String(env.LAND_REMOVE_PATHS ?? '')
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  /**
    * `LAND_BLOBS` = 内容清单(JSON:`{files:[{path,blob}]}`)。为什么要有这条通道:
    * 共享工作树里**别人的在飞改动**与本票的改动常常落在同一个文件的不同行上,而"交工作树字节"
    * 就是替别人落地(§12 污染型)。这时正确内容只能是 `HEAD ⊕ 本票行`,它只存在于对象空间。
@@ -176,11 +202,21 @@ export function parseArgs(env = process.env) {
    * 它只影响"行级复活"那一支是否参与拒绝;整 blob 命中祖先(真回写)照判红,活文档非 JSON 直接不适用。
    */
   const jsonStructure = env.LAND_JSON_STRUCTURE === '1'
-  if (paths.length === 0)
-    return { error: '缺 LAND_PATHS(以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)' }
+  // 声明面必须至少有一边:LAND_PATHS(写入)或 LAND_REMOVE_PATHS(删除)非空。
+  // 单独把"删除"做成合法入口(G-926):58 枚临时件的收口是纯删除、零写入,若仍要求 LAND_PATHS 非空,
+  // 调用方就得塞一个假路径进去,而那正是本器要防的"声明面与内容面不一致"。
+  if (paths.length === 0 && removePaths.length === 0)
+    return { error: '缺 LAND_PATHS / LAND_REMOVE_PATHS(至少给一边,以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)' }
   if (msg === '') return { error: '缺 LAND_MSG ⇒ 拒绝执行(不允许空消息落地,提交史无法归因)' }
   if (!resolveHeadRef({ root }))
     return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
+  // 删除档与写入档的声明面必须互斥:同一条路径"既写入又删除"是自相矛盾(底层 commitTreeWithIndex
+  // 对 deleted+blob 也会拒,但那一层报的是英文堆栈,在 CLI 面上要先说人话)。
+  const bothWays = paths.filter((p) => removePaths.includes(p))
+  if (bothWays.length > 0)
+    return {
+      error: `这些路径同时出现在 LAND_PATHS 与 LAND_REMOVE_PATHS ⇒ 自相矛盾,拒绝落地:\n  ${bothWays.join('\n  ')}`,
+    }
   if (blobOf) {
     const noBlob = paths.filter((p) => !blobOf.get(p))
     if (noBlob.length > 0)
@@ -234,7 +270,7 @@ export function parseArgs(env = process.env) {
     const missing = paths.filter((p) => !existsSync(join(root, p)))
     if (missing.length > 0) return { error: `声明路径不在盘上:\n  ${missing.join('\n  ')}` }
   }
-  return { root, paths, msg, baseRef, blobOf, jsonStructure }
+  return { root, paths, removePaths, msg, baseRef, blobOf, jsonStructure }
 }
 
 /** 防覆盖护栏:基线快照与当下 HEAD 之间,哪些目标路径的内容被别人动过。 */
@@ -1470,7 +1506,7 @@ async function main() {
     console.error(`❌ ${parsed.error}`)
     process.exit(2)
   }
-  const { root, paths, msg, baseRef, blobOf, jsonStructure } = parsed
+  const { root, paths, removePaths, msg, baseRef, blobOf, jsonStructure } = parsed
   const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
   // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
   const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'
@@ -1630,7 +1666,21 @@ async function main() {
       )
       process.exit(1)
     }
+    // 删除档同款护栏(G-926):删除路径的"基线"是它在 baseRef 树里的**在位性**。
+    // CAS 期间若 HEAD 推进而该路径的在位性变了(别人已经删了它/或新加了同名路径),
+    // 照旧删就是在猜别人的意图 —— 与写入档的 clobber 同一语义,只是比对量从 blob 换成在位性。
+    const removeBase = new Map(removePaths.map((p) => [p, headBlobOf(baseRef, p, { root })]))
+    const removeClobber = removePaths.filter((p) => headBlobOf(head, p, { root }) !== removeBase.get(p))
+    if (removeClobber.length > 0) {
+      console.error(
+        `❌ 放弃落地:HEAD 已推进且这些待摘除路径的在位性被别人改过 ⇒ 需重新归并而非照旧删(第 ${attempt} 次尝试):\n  ${removeClobber.join('\n  ')}`,
+      )
+      process.exit(1)
+    }
     const entries = paths.map((p) => ({ path: p, blob: mine.get(p) }))
+    // 删除档(G-926):声明要从树里摘掉的路径走底层 commitTreeWithIndex 的删除出口
+    // (`{path, deleted:true}`,两条护栏住在那一层,不在这里复刻)。
+    for (const p of removePaths) entries.push({ path: p, deleted: true })
     const made = commitTreeWithIndex({
       root,
       parent: head,
@@ -1755,6 +1805,24 @@ async function main() {
     console.error(`❌ 提交面回读缺路径(消息声称的改动没真进树;git 逐路径答"不在 ${landed.slice(0, 9)} 的树里"):\n  ${notProven.join('\n  ')}`)
     process.exit(1)
   }
+  // ①b 删除档反向自证(G-926):删除项的自证必须是"**不在**树里"。
+  //     拿写入档那把尺子(`cat-file -e` 要求 status 0)量删除,一条都没删也能过 ——
+  //     那正是本器 2026-10-18 空内容守卫那次事故的同型:自检全绿而实际什么都没发生。
+  //     三态与写入档同构:未判定(问不到)exit 2、仍在树里 exit 1、确认不在 ⇒ 放行。
+  if (removePaths.length > 0) {
+    const delFace = commitFacePresence({ root, commit: landed, paths: removePaths })
+    if (delFace.undetermined.length > 0) {
+      console.error(`❌ 删除档反向自证未判定(${delFace.undetermined.length} 路径):git 对"在不在树里"给不出结论 ⇒ 既不报"已删"也不报"未删":`)
+      for (const u of delFace.undetermined) console.error(`   ${u.path} (${u.why})`)
+      console.error(`   落地已推进 HEAD=${landed};先查 git 为何问不到,再逐路径核验 \`git cat-file -e ${landed.slice(0, 9)}:<path>\`;禁止按"已删除"重跑本次落地`)
+      process.exit(2)
+    }
+    if (delFace.present.length > 0) {
+      console.error(`❌ 删除档反向自证失败(声明摘除却仍在 ${landed.slice(0, 9)} 的树里):\n  ${delFace.present.join('\n  ')}`)
+      process.exit(1)
+    }
+    console.log(`✅ 删除档反向自证 ${removePaths.length}/${removePaths.length} 路径已不在树`)
+  }
   // 混提核查(D171 起统一走 lib/git-paths 的 -z 出口:diff-tree NUL 分帧取真路径,
   // 与当年 G-801 的"-c core.quotePath=false"同效但不依赖文本行分帧;与 safe-commit
   // Step 5 共用一份实现)。它只留作"是否混提"的辅助提醒,**不参与存在性结论** ——
@@ -1767,9 +1835,9 @@ async function main() {
       `⚠️ 混提核查问不到(辅助提醒维,不参与存在性结论):${e && e.message ? e.message : e}`,
     )
   }
-  const extras = listed ? [...listed].filter((p) => !paths.includes(p)) : []
+  const extras = listed ? [...listed].filter((p) => !paths.includes(p) && !removePaths.includes(p)) : []
   console.log(
-    `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${listed ? (extras.length ? `;另有非声明路径 ${extras.length} 条(检查是否混提)` : '') : '(混提核查未判定)'}`,
+    `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${removePaths.length ? `;删除档 ${removePaths.length} 路径已摘除` : ''}${listed ? (extras.length ? `;另有非声明路径 ${extras.length} 条(检查是否混提)` : '') : '(混提核查未判定)'}`,
   )
 
   /**
@@ -1785,7 +1853,10 @@ async function main() {
     source: 'object-space-land',
     landedSha: landed,
     headBefore: parentSha,
-    declaredFiles: paths,
+    // 声明面 = 写入档 ∪ 删除档:两者都是"本次落地动过的路径",留痕只记一边会让纯删除的落地
+    // 从旁路台账里整批消失(实测:declaredFiles 传空数组时 buildBypassRecord 直接拒写,而
+    // 那一维的缺失会被总量统计读成"未判定")。
+    declaredFiles: paths.concat(removePaths),
     watermarkSkipped: skipWatermark,
   })
   if (!attest.ok)
@@ -1827,7 +1898,10 @@ async function main() {
   uiRoutesFreshnessNotice({ root, paths })
 
   // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
-  const align = alignSharedIndex({ root, paths, parentRef: parentSha })
+  //    删除路径一并交给它:lib 内建的删除档会把索引里的删除残留清掉(否则 `git status` 显一条
+  //    `D `,此后任何人一次不带 pathspec 的普通提交就把刚删的死文件加回 HEAD —— 本仓 2026-09-27/28
+  //    连复活四次的孤儿组件正是这一型),且他席真暂存过的一律不动并点名(§12)。
+  const align = alignSharedIndex({ root, paths: paths.concat(removePaths), parentRef: parentSha })
   if (align.lockAbandoned) {
     console.error('❌ .git/index.lock 锁龄超上限:不代删别人的锁,请人工确认持有者后单跑索引对齐')
     process.exit(1)
@@ -1903,12 +1977,192 @@ export function uiRoutesFreshnessNotice({ root, paths }) {
   return { rc: r.status ?? 1, stale }
 }
 
+/**
+ * `--self-test` 自含电池(G-926 票面原话:"带 `--self-test` 与镜像用例")。
+ *
+ * 与镜像测试 `scripts/tests/object-space-land-remove.test.mjs` 的分工:
+ *  - 那一份钉判据的**两臂成对**(正控/反证/互斥/纯删除/clobber/混同九例,node --test 跑);
+ *  - 本电池是**器物自证**:不依赖测试框架与断言库,任何人
+ *    `node scripts/object-space-land.mjs --self-test` 一条命令就能问"删除档还在不在"。
+ *    交付现场(值守/复盘/跨机复量)没有 node --test 也能跑,这是它与镜像测试并列存在的理由。
+ *
+ * 夹具一律走 mkScratch 临时仓(退出即回收),**不碰真仓**;子进程以真身重入本器,
+ * 结论问 git(ls-tree/cat-file)与盘上字节,不解析本器自己的输出文本下结论 ——
+ * 唯一读输出的一处是"反向自证那行到底打没打"(留痕可见性),且只查在不在,不查数值。
+ *
+ * 临时仓里判不出的四道预检(水印横幅基线/悬空相对引用/门 98/门 231)各有应急出口,
+ * 与删除档判据正交(它们的真仓覆盖在各自守门与镜像测试里),子进程侧跳过时自己出声留痕;
+ * 判据本体(反向自证/互斥/clobber 同语义/工作树不被动/纯删除合法入口)一条不跳。
+ */
+const SELF_TEST_PLAN = [
+  { id: 'ST1', name: '正控:摘一枚基线在位的跟踪件 ⇒ 树里没有、盘上字节未变、反向自证留痕', expect: 'accept' },
+  { id: 'ST2', name: '反证:摘一枚基线不在位的路径 ⇒ 拒(不得静默变成"什么都没删")', expect: 'reject' },
+  { id: 'ST3', name: '互斥:同一路径同时声明写入与删除 ⇒ 拒(自相矛盾)', expect: 'reject' },
+  { id: 'ST4', name: '纯删除是合法入口:只有 LAND_REMOVE_PATHS ⇒ 放行(ST1 已跑,这里钉"不误拒")', expect: 'accept' },
+  { id: 'ST5', name: '写删混同:一次落地既有写入又有摘除 ⇒ 两条自证各问各的方向', expect: 'accept' },
+  { id: 'ST6', name: '嵌套路径:sub/stay.txt 摘除后父目录与其他文件原样', expect: 'accept' },
+  { id: 'ST7', name: '双边空清单 ⇒ 拒(空清单会把 undefined 当路径,本仓踩过)', expect: 'reject' },
+]
+
+/** 自含电池共用的 git 直跑姿势(与镜像测试同构:显式身份 + safe.directory + autocrlf 关)。 */
+let SELF_TEST_GIT = 'git'
+try {
+  SELF_TEST_GIT = gitBinary()
+} catch {
+  /* 解析不到就回落 'git',由具体用例把失败喊出来,不在这里静默改结论 */
+}
+const stGit = (dir, args) =>
+  execFileSync(
+    SELF_TEST_GIT,
+    ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args],
+    { encoding: 'utf8', windowsHide: true, timeout: 120_000, maxBuffer: 32 << 20, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
+const stTreeHas = (dir, p) => {
+  try {
+    stGit(dir, ['ls-tree', '-r', '--name-only', 'HEAD', '--', p])
+    // ls-tree 对不存在的路径输出空(rc=0),对坏树才非零 ⇒ 用输出判,不用 rc 判
+    return stGit(dir, ['cat-file', '-e', `HEAD:${p}`]) === ''
+  } catch {
+    return false
+  }
+}
+
+/** 造三文件临时仓:gone.txt(待摘) / keep.txt(不动) / sub/stay.txt(嵌套路径)。 */
+function stMakeRepo() {
+  const dir = mkScratch('osl-self-')
+  stGit(dir, ['init', '-q'])
+  writeFileSync(join(dir, 'gone.txt'), 'to be untracked\n', 'utf8')
+  writeFileSync(join(dir, 'keep.txt'), 'keep me v1\n', 'utf8')
+  mkdirSync(join(dir, 'sub'), { recursive: true })
+  writeFileSync(join(dir, 'sub', 'stay.txt'), 'stay\n', 'utf8')
+  stGit(dir, ['add', '-A'])
+  stGit(dir, ['commit', '-q', '-m', 'selftest-base'])
+  return dir
+}
+
+/** 以子进程真身重入本器(env 契约与外部调用完全同形,不走任何内存内快捷路径)。 */
+function stRun(dir, { paths = '', remove = '', msg = 'selftest' }) {
+  const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
+    env: {
+      ...process.env,
+      LAND_ROOT: dir,
+      LAND_PATHS: paths,
+      LAND_REMOVE_PATHS: remove,
+      LAND_MSG: msg,
+      // 四道临时仓判不出的预检:各自有应急出口,跳过由子进程出声留痕;删除档判据本体不跳
+      IHUI_LAND_SKIP_WATERMARK: '1',
+      IHUI_LAND_SKIP_IMPORT_CHECK: '1',
+      IHUI_LAND_SKIP_DANGLING_GATE: '1',
+      IHUI_LAND_SKIP_WARM_BORDER: '1',
+    },
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  return { rc: r.status ?? -1, out: `${r.stdout ?? ''}${r.stderr ?? ''}`, err: r.error }
+}
+
+/** 跑全部自含用例。永不抛:每条用例自己收尾,汇总 `self-test: X/Y 通过`。 */
+async function runSelfTest() {
+  const results = []
+  const one = async (id, name, fn) => {
+    const dir = stMakeRepo()
+    try {
+      const why = await fn(dir)
+      results.push({ id, name, ok: why === null, why: why ?? '' })
+    } catch (e) {
+      results.push({ id, name, ok: false, why: `用例自身抛出:${String(e?.message ?? e).split('\n')[0]}` })
+    } finally {
+      rmScratch(dir, { bestEffort: true })
+    }
+  }
+
+  await one('ST1', SELF_TEST_PLAN[0].name, (dir) => {
+    const before = readFileSync(join(dir, 'gone.txt'), 'utf8')
+    const r = stRun(dir, { remove: 'gone.txt' })
+    if (r.rc !== 0) return `正控必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'gone.txt')) return '落地后 gone.txt 仍在 HEAD 树里 ⇒ 删除没生效'
+    const after = readFileSync(join(dir, 'gone.txt'), 'utf8')
+    if (after !== before) return `工作树字节被改动(取消跟踪≠删盘上文件):${JSON.stringify(before)} ⇒ ${JSON.stringify(after)}`
+    if (!r.out.includes('反向自证')) return '输出里没有"反向自证"留痕行 ⇒ 自证可见性丢失'
+    return null
+  })
+
+  await one('ST2', SELF_TEST_PLAN[1].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    const r = stRun(dir, { remove: 'ghost-not-in-base.txt' })
+    if (r.rc === 0) return `反证必须拒,实得 rc=0(静默变成"什么都没删"):${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST3', SELF_TEST_PLAN[2].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    const r = stRun(dir, { paths: 'keep.txt', remove: 'keep.txt' })
+    if (r.rc === 0) return `互斥必须拒,实得 rc=0:${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST4', SELF_TEST_PLAN[3].name, (dir) => {
+    const r = stRun(dir, { remove: 'gone.txt', msg: 'selftest-pure-remove' })
+    if (r.rc !== 0) return `纯删除必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'gone.txt')) return '纯删除后 gone.txt 仍在树里'
+    return null
+  })
+
+  await one('ST5', SELF_TEST_PLAN[4].name, (dir) => {
+    writeFileSync(join(dir, 'keep.txt'), 'keep me v2(本次写入)\n', 'utf8')
+    const r = stRun(dir, { paths: 'keep.txt', remove: 'gone.txt' })
+    if (r.rc !== 0) return `写删混同必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'gone.txt')) return 'gone.txt 没被摘掉'
+    if (!stTreeHas(dir, 'keep.txt')) return 'keep.txt 不在树里'
+    const treeKeep = stGit(dir, ['show', 'HEAD:keep.txt'])
+    if (!treeKeep.includes('v2')) return `树里 keep.txt 不是新内容:${JSON.stringify(treeKeep.slice(0, 80))}`
+    if (readFileSync(join(dir, 'gone.txt'), 'utf8') !== 'to be untracked\n') return 'gone.txt 盘上字节被改动'
+    return null
+  })
+
+  await one('ST6', SELF_TEST_PLAN[5].name, (dir) => {
+    const r = stRun(dir, { remove: 'sub/stay.txt' })
+    if (r.rc !== 0) return `嵌套路径摘除必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (stTreeHas(dir, 'sub/stay.txt')) return 'sub/stay.txt 仍在树里'
+    if (!stTreeHas(dir, 'keep.txt')) return '无关文件 keep.txt 被连带摘掉'
+    if (readFileSync(join(dir, 'sub', 'stay.txt'), 'utf8') !== 'stay\n') return 'sub/stay.txt 盘上字节被改动'
+    return null
+  })
+
+  await one('ST7', SELF_TEST_PLAN[6].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    const r = stRun(dir, { paths: '', remove: '' })
+    if (r.rc === 0) return `双边空清单必须拒,实得 rc=0:${r.out.slice(0, 300)}`
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  for (const r of results) console.log(`${r.ok ? '✅' : '❌'} ${r.id} ${r.name}${r.ok ? '' : `\n    ${r.why}`}`)
+  const bad = results.filter((r) => !r.ok).length
+  console.log(`\nself-test: ${results.length - bad}/${results.length} 通过`)
+  return bad === 0 ? 0 : 1
+}
+
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
-  main().catch((e) => {
-    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
-    process.exit(2)
-  })
+  // --self-test 先于 main:它是器物自证入口,不该被 env 契约(缺 LAND_PATHS 即拒)挡住
+  if (process.argv.includes('--self-test')) {
+    runSelfTest()
+      .then((rc) => process.exit(rc))
+      .catch((e) => {
+        console.error(`❌ self-test 派生失败:${e?.message ?? e}\n${e?.stack ?? ''}`)
+        process.exit(2)
+      })
+  } else {
+    main().catch((e) => {
+      console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+      process.exit(2)
+    })
+  }
 }
 
 export const __test__ = {
@@ -1922,5 +2176,7 @@ export const __test__ = {
   jsonKeyPathAudit,
   staleReport,
   commitFacePresence,
+  SELF_TEST_PLAN,
+  runSelfTest,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

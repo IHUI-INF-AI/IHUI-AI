@@ -52,12 +52,13 @@
  *   3 有滞留但**全部**被判「门 71 仍保护」⇒ 本轮一条未摘(这不是"无需清扫",交人工)
  */
 
-import { execFileSync, spawnSync } from 'node:child_process'
+import { spawnSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { parseTaskRows } from './lib/plan-task-index.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 import { staleClosedVerdict } from './check-plan-closed-stock.mjs'
 // H4 的尺子**一律借守门 71 自己的出口**(§0.6/§22c 单一真相源):
 //   historyMarkers = 历史配平状态机(它决定一个 marker 到底算「勾销」还是「仍保护」),
@@ -78,16 +79,19 @@ const FILE = 'PROJECT_PLAN.md'
 /** 单批上限:超出即拒绝自动回写(与水印门"单次缺口 >200 拒绝自动回写"同一取向,§0.10 失效方向是多要一次说明) */
 const BATCH_CAP = 400
 
-const C = { red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[36m', reset: '\x1b[0m' }
+const C = {
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  reset: '\x1b[0m',
+}
 
-function git(args, encoding = 'utf8') {
-  return execFileSync('git', args, {
-    cwd: ROOT,
-    encoding,
-    maxBuffer: 64 * 1024 * 1024,
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+// 派生 git 一律走脚本层(lib/face-reader 的 gitRaw):裸起 git 进程的那种写法会被
+// scripts/tests/face-reader.test.mjs 的"裸派生生产文件只减不增"棘轮记为新增者(2026-10-21 实测
+// 本文件就是新增者之一),而走层同时也拿到它的超时/stdio 纪律。
+function git(args) {
+  return gitRaw(args, ROOT)
 }
 
 /** 取一面 blob;取不到返回 null(调用方落「未判定」,不回落另一个面 —— §0.4) */
@@ -108,14 +112,15 @@ export function buildStripPlan(baseText, staleLines) {
   const drop = new Set(staleLines)
   const removed = lines.filter((_, i) => drop.has(i + 1)).length
   if (removed !== drop.size)
-    return { ok: false, keptClosed: 0, why: `H0 行号集有 ${drop.size - removed} 枚指不到行(面已变)` }
+    return {
+      ok: false,
+      keptClosed: 0,
+      why: `H0 行号集有 ${drop.size - removed} 枚指不到行(面已变)`,
+    }
   const out = lines.filter((_, i) => !drop.has(i + 1))
   const openBefore = lines.filter((l) => /^\s*- \[ \]/.test(l))
   const openAfter = out.filter((l) => /^\s*- \[ \]/.test(l))
-  if (
-    openBefore.length !== openAfter.length ||
-    !openBefore.every((l, i) => l === openAfter[i])
-  )
+  if (openBefore.length !== openAfter.length || !openBefore.every((l, i) => l === openAfter[i]))
     return { ok: false, keptClosed: 0, why: 'H1 未勾登记行没做到逐字节同序不变' }
   if (out.length !== lines.length - removed)
     return { ok: false, keptClosed: 0, why: 'H2 行数差不等于清扫条数' }
@@ -144,18 +149,28 @@ export function emitResult(state, kv = {}) {
  *      "没有一行会被回捞"而放行删除(那正是把"没判"写成"判过")。
  * @returns {{ok:true, seen:Map, window:object, lossesOf:(text:string)=>Array|null}|{ok:false, why:string}}
  */
-export function buildLineLossRuler({ depth = historyDepth(), root = ROOT, archived = undefined } = {}) {
+export function buildLineLossRuler({
+  depth = historyDepth(),
+  root = ROOT,
+  archived = undefined,
+} = {}) {
   let seen = null
   try {
     seen = historyMarkers(depth, root)
   } catch (e) {
-    return { ok: false, why: `守门 71 的 historyMarkers 抛错:${String(e?.message ?? e).slice(0, 140)}` }
+    return {
+      ok: false,
+      why: `守门 71 的 historyMarkers 抛错:${String(e?.message ?? e).slice(0, 140)}`,
+    }
   }
   if (!seen || typeof seen.size !== 'number')
     return { ok: false, why: '守门 71 未返回保护集(历史面取不到)' }
   const win = lastHistoryWindow()
   if (!win || !win.commits)
-    return { ok: false, why: `历史窗口枚数为 0(depth ${depth})⇒ 尺子没有取材面,不得读成"没有保护行"` }
+    return {
+      ok: false,
+      why: `历史窗口枚数为 0(depth ${depth})⇒ 尺子没有取材面,不得读成"没有保护行"`,
+    }
   if (seen.size === 0)
     return {
       ok: false,
@@ -200,7 +215,12 @@ function rowMatchesLoss(row, entry, idOfLine) {
  *            unattributed:Array, text?:string, removed?:number, baseLostCount:number,
  *            freshFirst:number, freshVerify:number}}
  */
-export function partitionStaleByProtection(headText, staleRows, lossesOf, idOfLine = closedRegistrationOf) {
+export function partitionStaleByProtection(
+  headText,
+  staleRows,
+  lossesOf,
+  idOfLine = closedRegistrationOf,
+) {
   const empty = {
     ok: false,
     strippable: [],
@@ -217,9 +237,11 @@ export function partitionStaleByProtection(headText, staleRows, lossesOf, idOfLi
   const fresh = (list) =>
     list === null || list === undefined ? null : list.filter((e) => !baseSet.has(e.marker))
 
-  const first = buildStripPlan(headText, staleRows.map((r) => r.line))
-  if (!first.ok)
-    return { ...empty, undetermined: true, why: `摘除集预演本身不过守恒:${first.why}` }
+  const first = buildStripPlan(
+    headText,
+    staleRows.map((r) => r.line),
+  )
+  if (!first.ok) return { ...empty, undetermined: true, why: `摘除集预演本身不过守恒:${first.why}` }
   const freshFirst = fresh(lossesOf(first.text))
   if (freshFirst === null)
     return { ...empty, undetermined: true, why: '守门 71 在摘除后的假想面上取不到点名 ⇒ 未判定' }
@@ -247,19 +269,49 @@ export function partitionStaleByProtection(headText, staleRows, lossesOf, idOfLi
       freshFirst: freshFirst.length,
       why:
         `摘除后新增 ${unattributed.length} 条点名归不到本次任何一枚被摘行` +
-        `(${unattributed.slice(0, 3).map((e) => e.marker || e.id || '(无名)').join(' / ')})` +
+        `(${unattributed
+          .slice(0, 3)
+          .map((e) => e.marker || e.id || '(无名)')
+          .join(' / ')})` +
         ' ⇒ 解释不了的红必须多要一次定向说明,整批不落',
     }
 
   const strippable = staleRows.filter((r) => !heldByLine.has(r.line))
-  const plan = buildStripPlan(headText, strippable.map((r) => r.line))
+  const plan = buildStripPlan(
+    headText,
+    strippable.map((r) => r.line),
+  )
   if (!plan.ok)
-    return { ...empty, held, baseLostCount: base.length, freshFirst: freshFirst.length, undetermined: true, why: `可摘集复演不过守恒:${plan.why}` }
+    return {
+      ...empty,
+      held,
+      baseLostCount: base.length,
+      freshFirst: freshFirst.length,
+      undetermined: true,
+      why: `可摘集复演不过守恒:${plan.why}`,
+    }
   if (strippable.length === 0)
-    return { ok: true, strippable, held, unattributed: [], text: plan.text, removed: 0, baseLostCount: base.length, freshFirst: freshFirst.length, freshVerify: 0 }
+    return {
+      ok: true,
+      strippable,
+      held,
+      unattributed: [],
+      text: plan.text,
+      removed: 0,
+      baseLostCount: base.length,
+      freshFirst: freshFirst.length,
+      freshVerify: 0,
+    }
   const freshVerify = fresh(lossesOf(plan.text))
   if (freshVerify === null)
-    return { ...empty, held, baseLostCount: base.length, freshFirst: freshFirst.length, undetermined: true, why: '守门 71 复验时取不到点名 ⇒ 未判定' }
+    return {
+      ...empty,
+      held,
+      baseLostCount: base.length,
+      freshFirst: freshFirst.length,
+      undetermined: true,
+      why: '守门 71 复验时取不到点名 ⇒ 未判定',
+    }
   if (freshVerify.length)
     return {
       ...empty,
@@ -269,7 +321,10 @@ export function partitionStaleByProtection(headText, staleRows, lossesOf, idOfLi
       freshVerify: freshVerify.length,
       why:
         `H4 复验:跳过 ${held.length} 条之后再摘余下的 ${strippable.length} 条,` +
-        `门 71 仍点名 ${freshVerify.length} 条(${freshVerify.slice(0, 3).map((e) => e.marker || e.id || '(无名)').join(' / ')})⇒ 整批不落`,
+        `门 71 仍点名 ${freshVerify.length} 条(${freshVerify
+          .slice(0, 3)
+          .map((e) => e.marker || e.id || '(无名)')
+          .join(' / ')})⇒ 整批不落`,
     }
   return {
     ok: true,
@@ -338,7 +393,17 @@ function selfTest() {
   }
   for (const c of cases) {
     const r = buildStripPlan(c.base, c.drop)
-    const ok = r.ok === c.ok && (c.ok ? r.removed === c.removed && r.text === c.base.split('\n').filter((_, i) => !c.drop.includes(i + 1)).join('\n') && r.keptClosed === c.keptClosed : true)
+    const ok =
+      r.ok === c.ok &&
+      (c.ok
+        ? r.removed === c.removed &&
+          r.text ===
+            c.base
+              .split('\n')
+              .filter((_, i) => !c.drop.includes(i + 1))
+              .join('\n') &&
+          r.keptClosed === c.keptClosed
+        : true)
     t(c.n, ok, ` ok=${r.ok} removed=${r.removed}${r.why ? ' why=' + r.why : ''}`)
   }
   // 反证:摘掉一枚未勾行必须被 H1 咬住(守恒不是装饰)
@@ -372,7 +437,11 @@ function selfTest() {
   )
   // ① 滞留且尺子判「可删」⇒ 摘
   const p1 = partitionStaleByProtection(P_HEAD, STALE, () => [])
-  t('①尺子零点名 ⇒ 两条全判可摘(removed=2、held=0)', p1.ok && p1.strippable.length === 2 && p1.held.length === 0 && p1.removed === 2, ` ok=${p1.ok} strippable=${p1.strippable.length} held=${p1.held.length} removed=${p1.removed}`)
+  t(
+    '①尺子零点名 ⇒ 两条全判可摘(removed=2、held=0)',
+    p1.ok && p1.strippable.length === 2 && p1.held.length === 0 && p1.removed === 2,
+    ` ok=${p1.ok} strippable=${p1.strippable.length} held=${p1.held.length} removed=${p1.removed}`,
+  )
   // ② 滞留但判「仍保护」⇒ 不摘且逐条点名
   const p2 = partitionStaleByProtection(P_HEAD, STALE, (text) =>
     text.includes(P_R3) ? [] : [{ marker: 'G-7003 探针', id: 'G-7003', shape: 'checkbox' }],
@@ -390,38 +459,79 @@ function selfTest() {
   )
   // ③ 判据取不到 ⇒ 未判定(整批不落,不得静默当成"不可删"了事,更不得当成"可删")
   const p3 = partitionStaleByProtection(P_HEAD, STALE, () => null)
-  t('③尺子取不到 ⇒ undetermined 且可摘集为空(整批不落)', p3.undetermined === true && p3.ok === false && p3.strippable.length === 0 && p3.held.length === 0, ` undetermined=${p3.undetermined} ok=${p3.ok} why=${p3.why}`)
-  t('③b 未判定档的退出码必须是"多要一次说明"(exit 2),不得落成 0', sweepOutcome(p3, { apply: true }).exit === 2 && sweepOutcome(p3, { apply: true }).state === 'undetermined', JSON.stringify(sweepOutcome(p3, { apply: true })))
+  t(
+    '③尺子取不到 ⇒ undetermined 且可摘集为空(整批不落)',
+    p3.undetermined === true &&
+      p3.ok === false &&
+      p3.strippable.length === 0 &&
+      p3.held.length === 0,
+    ` undetermined=${p3.undetermined} ok=${p3.ok} why=${p3.why}`,
+  )
+  t(
+    '③b 未判定档的退出码必须是"多要一次说明"(exit 2),不得落成 0',
+    sweepOutcome(p3, { apply: true }).exit === 2 &&
+      sweepOutcome(p3, { apply: true }).state === 'undetermined',
+    JSON.stringify(sweepOutcome(p3, { apply: true })),
+  )
   // 反证:点名归不到本次任何一枚被摘行 ⇒ 解释不了的红不落(而不是"那就全摘")
   const p4 = partitionStaleByProtection(P_HEAD, STALE, (text) =>
     text === P_HEAD ? [] : [{ marker: 'G-7999 无人摘过的编号', id: 'G-7999', shape: 'checkbox' }],
   )
-  t('④新增点名归不到被摘行 ⇒ 整批不落并点名(unattributed=1)', p4.ok === false && p4.unattributed.length === 1 && p4.why.includes('归不到'), ` ok=${p4.ok} unattributed=${p4.unattributed.length} why=${p4.why}`)
-  // 反证:跳过「仍保护」那一类之后复验仍被点名 ⇒ 整批不落(绝不部分落)
-  const p5 = partitionStaleByProtection(
-    P_HEAD,
-    STALE,
-    (text) => {
-      const lost = []
-      if (!text.includes(P_R3)) lost.push({ marker: 'G-7003 探针', id: 'G-7003', shape: 'checkbox' })
-      if (!text.includes(P_R2) && text.includes(P_R3))
-        lost.push({ marker: 'G-7002 探针', id: 'G-7002', shape: 'checkbox' })
-      return lost
-    },
+  t(
+    '④新增点名归不到被摘行 ⇒ 整批不落并点名(unattributed=1)',
+    p4.ok === false && p4.unattributed.length === 1 && p4.why.includes('归不到'),
+    ` ok=${p4.ok} unattributed=${p4.unattributed.length} why=${p4.why}`,
   )
-  t('⑤跳过后复验仍被点名 ⇒ 整批不落(H4 复验臂)', p5.ok === false && p5.held.length === 1 && p5.freshVerify > 0 && p5.why.includes('H4 复验'), ` ok=${p5.ok} held=${p5.held.length} freshVerify=${p5.freshVerify} why=${p5.why}`)
+  // 反证:跳过「仍保护」那一类之后复验仍被点名 ⇒ 整批不落(绝不部分落)
+  const p5 = partitionStaleByProtection(P_HEAD, STALE, (text) => {
+    const lost = []
+    if (!text.includes(P_R3)) lost.push({ marker: 'G-7003 探针', id: 'G-7003', shape: 'checkbox' })
+    if (!text.includes(P_R2) && text.includes(P_R3))
+      lost.push({ marker: 'G-7002 探针', id: 'G-7002', shape: 'checkbox' })
+    return lost
+  })
+  t(
+    '⑤跳过后复验仍被点名 ⇒ 整批不落(H4 复验臂)',
+    p5.ok === false && p5.held.length === 1 && p5.freshVerify > 0 && p5.why.includes('H4 复验'),
+    ` ok=${p5.ok} held=${p5.held.length} freshVerify=${p5.freshVerify} why=${p5.why}`,
+  )
   // 反证:摘除集里混进未勾行 ⇒ 由守恒(H1)拦下并落「未判定」,不是"放行后少删一行"
   const p6 = partitionStaleByProtection(P_HEAD, [{ line: 2, raw: P_OPEN }], () => [])
-  t('⑥摘除集含未勾行 ⇒ 预演即被 H1 拦下(未判定,不落)', p6.undetermined === true && p6.ok === false && p6.why.includes('H1'), ` undetermined=${p6.undetermined} why=${p6.why}`)
+  t(
+    '⑥摘除集含未勾行 ⇒ 预演即被 H1 拦下(未判定,不落)',
+    p6.undetermined === true && p6.ok === false && p6.why.includes('H1'),
+    ` undetermined=${p6.undetermined} why=${p6.why}`,
+  )
   // 分档退出码契约(守护日志靠它 + SWEEP-RESULT 分三态)
   const allHeld = partitionStaleByProtection(P_HEAD, STALE, (text) =>
-    text === P_HEAD ? [] : [{ marker: 'G-7002 探针', id: 'G-7002' }, { marker: 'G-7003 探针', id: 'G-7003' }],
+    text === P_HEAD
+      ? []
+      : [
+          { marker: 'G-7002 探针', id: 'G-7002' },
+          { marker: 'G-7003 探针', id: 'G-7003' },
+        ],
   )
-  t('⑦全部被判仍保护 ⇒ state=all-held / exit 3(绝不显示成"无需清扫")', allHeld.ok && allHeld.strippable.length === 0 && sweepOutcome(allHeld, { apply: true }).state === 'all-held' && sweepOutcome(allHeld, { apply: true }).exit === 3, ` ok=${allHeld.ok} strippable=${allHeld.strippable.length} ${JSON.stringify(sweepOutcome(allHeld, { apply: true }))}`)
-  t('⑧预演档(不带 --apply)有可摘集 ⇒ 仍是 exit 1(契约不变)', sweepOutcome(p1, { apply: false }).exit === 1 && sweepOutcome(p1, { apply: true }).exit === 0, JSON.stringify([sweepOutcome(p1, { apply: false }), sweepOutcome(p1, { apply: true })]))
+  t(
+    '⑦全部被判仍保护 ⇒ state=all-held / exit 3(绝不显示成"无需清扫")',
+    allHeld.ok &&
+      allHeld.strippable.length === 0 &&
+      sweepOutcome(allHeld, { apply: true }).state === 'all-held' &&
+      sweepOutcome(allHeld, { apply: true }).exit === 3,
+    ` ok=${allHeld.ok} strippable=${allHeld.strippable.length} ${JSON.stringify(sweepOutcome(allHeld, { apply: true }))}`,
+  )
+  t(
+    '⑧预演档(不带 --apply)有可摘集 ⇒ 仍是 exit 1(契约不变)',
+    sweepOutcome(p1, { apply: false }).exit === 1 && sweepOutcome(p1, { apply: true }).exit === 0,
+    JSON.stringify([sweepOutcome(p1, { apply: false }), sweepOutcome(p1, { apply: true })]),
+  )
   // 机读结论行形状:三态必须能被 state= 区分,且三个计数恒在场
   const shape = `state=stripped stale=2 held=1 stripped=1`
-  t('⑨SWEEP-RESULT 行可被守护按 state= 解析(形状锁)', /^SWEEP-RESULT state=[a-z-]+( \S+=\S+)+$/.test(`SWEEP-RESULT ${shape}`.trim()) && /state=(clean|preflight|stripped|all-held|refused|undetermined)\b/.test(shape), `SWEEP-RESULT ${shape}`)
+  t(
+    '⑨SWEEP-RESULT 行可被守护按 state= 解析(形状锁)',
+    /^SWEEP-RESULT state=[a-z-]+( \S+=\S+)+$/.test(`SWEEP-RESULT ${shape}`.trim()) &&
+      /state=(clean|preflight|stripped|all-held|refused|undetermined)\b/.test(shape),
+    `SWEEP-RESULT ${shape}`,
+  )
 
   // 反证:判据 import 的是守门本体,不是本地抄一份
   let wired = false
@@ -436,8 +546,8 @@ function selfTest() {
   let g71wired = false
   try {
     const s = git(['show', 'HEAD:scripts/check-plan-line-loss.mjs'])
-    g71wired = ['historyMarkers', 'missingFrom', 'closedRegistrationOf', 'lastHistoryWindow'].every((n) =>
-      s.includes(`export function ${n}`),
+    g71wired = ['historyMarkers', 'missingFrom', 'closedRegistrationOf', 'lastHistoryWindow'].every(
+      (n) => s.includes(`export function ${n}`),
     )
   } catch {
     g71wired = false
@@ -458,17 +568,29 @@ function main() {
   const baseText = blobOf('HEAD^:' + FILE)
   if (headText === null || baseText === null) {
     console.error(`${C.yellow}⏭ 未判定:${C.reset}HEAD 或 HEAD^ 面的 ${FILE} 取不到 ⇒ 不清扫(§0.3)`)
-    emitResult('undetermined', { stale: 'unknown', held: 'unknown', stripped: 0, why: 'face-unavailable' })
+    emitResult('undetermined', {
+      stale: 'unknown',
+      held: 'unknown',
+      stripped: 0,
+      why: 'face-unavailable',
+    })
     process.exit(2)
   }
   const v = staleClosedVerdict(headText, baseText)
   if (v.undetermined) {
     console.error(`${C.yellow}⏭ 未判定:登记行解析异常 ⇒ 不得读成"没有滞留行"${C.reset}`)
-    emitResult('undetermined', { stale: 'unknown', held: 'unknown', stripped: 0, why: 'rows-parse-failed' })
+    emitResult('undetermined', {
+      stale: 'unknown',
+      held: 'unknown',
+      stripped: 0,
+      why: 'rows-parse-failed',
+    })
     process.exit(2)
   }
   if (v.stale.length === 0) {
-    console.log(`${C.green}✅ 无跨枚滞留的已完成登记行${C.reset}(HEAD 面已勾 ${v.faceClosed} 条,均为刚翻勾的一枚宽限)`)
+    console.log(
+      `${C.green}✅ 无跨枚滞留的已完成登记行${C.reset}(HEAD 面已勾 ${v.faceClosed} 条,均为刚翻勾的一枚宽限)`,
+    )
     emitResult('clean', { stale: 0, held: 0, stripped: 0, closed: v.faceClosed })
     process.exit(0)
   }
@@ -477,7 +599,12 @@ function main() {
       `${C.red}❌ 拒绝自动回写:${v.stale.length} 条 > 单批上限 ${BATCH_CAP}${C.reset} —— 这个量级要么是清扫本身出问题,` +
         `要么是台账被整片带回;交人工按守门提示分批处理,不静默批量删。`,
     )
-    emitResult('refused', { stale: v.stale.length, held: 'unknown', stripped: 0, why: 'over-batch-cap' })
+    emitResult('refused', {
+      stale: v.stale.length,
+      held: 'unknown',
+      stripped: 0,
+      why: 'over-batch-cap',
+    })
     process.exit(1)
   }
   console.log(
@@ -492,7 +619,12 @@ function main() {
       `${C.yellow}⏭ 未判定(H4 尺子):${C.reset}${ruler.why} ⇒ 整批不落。` +
         `绝不把"量不到"读成"摘了不会被回捞",也不读成"全部仍保护"(§0.3/§0.10)。`,
     )
-    emitResult('undetermined', { stale: v.stale.length, held: 'unknown', stripped: 0, why: 'ruler-unavailable' })
+    emitResult('undetermined', {
+      stale: v.stale.length,
+      held: 'unknown',
+      stripped: 0,
+      why: 'ruler-unavailable',
+    })
     process.exit(2)
   }
   console.log(
@@ -512,7 +644,8 @@ function main() {
       console.log(
         `   ${C.yellow}·${C.reset} L${h.row.line} 跳过原因:摘它会引出守门 71 点名「${h.reasons.join(' / ')}」⇒ 仍保护 ${h.row.raw.slice(0, 90)}`,
       )
-    if (part.held.length > 20) console.log(`   …另有 ${part.held.length - 20} 条(同上,逐条见复跑本器不带 --apply)`)
+    if (part.held.length > 20)
+      console.log(`   …另有 ${part.held.length - 20} 条(同上,逐条见复跑本器不带 --apply)`)
   }
 
   if (!part.ok) {
@@ -534,7 +667,12 @@ function main() {
       `${C.red}⚠ 有滞留 ${v.stale.length} 条,但**全部**被守门 71 判为仍保护 ⇒ 本轮一条未摘。${C.reset}` +
         `这一档不等于"账面干净":清扫没有做成,滞留仍在 HEAD,只是做它会被门 71 回捞。交人工逐条裁定(出路见上方点名)。`,
     )
-    emitResult('all-held', { stale: v.stale.length, held: part.held.length, stripped: 0, why: 'gate71-protects-all' })
+    emitResult('all-held', {
+      stale: v.stale.length,
+      held: part.held.length,
+      stripped: 0,
+      why: 'gate71-protects-all',
+    })
     process.exit(outcome.exit)
   }
 
@@ -542,28 +680,49 @@ function main() {
     console.log(
       `${C.yellow}只读预演(零副作用):将摘 ${part.strippable.length} 条、跳过 ${part.held.length} 条。落地:--apply${C.reset}`,
     )
-    emitResult('preflight', { stale: v.stale.length, held: part.held.length, stripped: 0, willStrip: part.strippable.length })
+    emitResult('preflight', {
+      stale: v.stale.length,
+      held: part.held.length,
+      stripped: 0,
+      willStrip: part.strippable.length,
+    })
     process.exit(outcome.exit)
   }
 
   const plan = { text: part.text, removed: part.removed }
   if (!plan.text || plan.removed !== part.strippable.length) {
     console.error(`${C.red}❌ 守恒不过,整批不落:${C.reset}清扫条数与可摘集不等`)
-    emitResult('refused', { stale: v.stale.length, held: part.held.length, stripped: 0, why: 'count-mismatch' })
+    emitResult('refused', {
+      stale: v.stale.length,
+      held: part.held.length,
+      stripped: 0,
+      why: 'count-mismatch',
+    })
     process.exit(1)
   }
   // H3(加固后的口径):摘完仍滞留的行必须**恰好等于**本轮跳过的「仍保护」集,不得多出无人负责的一条。
   // 基线取 HEAD^(与本轮判滞留同一面),不取 headText:拿 headText 当基线会把每一行"刚翻勾、
   // 本就该由下一枚提交摘掉"的宽现行也读成滞留,把 H3 变成"只要台账里有刚翻勾的行就整批不落"的假红。
   const after = staleClosedVerdict(plan.text, baseText)
-  const heldRaws = [...part.held].map((h) => h.row.raw).sort().join('\n')
-  const afterRaws = after.stale.map((r) => r.raw).sort().join('\n')
+  const heldRaws = [...part.held]
+    .map((h) => h.row.raw)
+    .sort()
+    .join('\n')
+  const afterRaws = after.stale
+    .map((r) => r.raw)
+    .sort()
+    .join('\n')
   if (after.undetermined || after.stale.length !== part.held.length || afterRaws !== heldRaws) {
     console.error(
       `${C.red}❌ H3 不过:摘完仍有 ${after.stale.length} 条被判滞留,而本轮跳过集是 ${part.held.length} 条` +
         ` ⇒ 行号集与判据不自洽(或冒出一条没人负责的红),不落${C.reset}`,
     )
-    emitResult('refused', { stale: v.stale.length, held: part.held.length, stripped: 0, why: 'H3-mismatch' })
+    emitResult('refused', {
+      stale: v.stale.length,
+      held: part.held.length,
+      stripped: 0,
+      why: 'H3-mismatch',
+    })
     process.exit(1)
   }
 
@@ -610,7 +769,9 @@ function main() {
     const out = `${land.stdout ?? ''}${land.stderr ?? ''}`
     console.log(out.split('\n').slice(-12).join('\n'))
     if (land.status !== 0) {
-      console.error(`${C.red}❌ 落地器拒绝(exit ${land.status})${C.reset} ⇒ 不重试、不强推,交人工看上面的点名`)
+      console.error(
+        `${C.red}❌ 落地器拒绝(exit ${land.status})${C.reset} ⇒ 不重试、不强推,交人工看上面的点名`,
+      )
       emitResult('refused', {
         stale: v.stale.length,
         held: part.held.length,
