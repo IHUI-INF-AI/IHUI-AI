@@ -8,12 +8,12 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: c9a758785329a472cfd006ea6dc7fd05cd9fbb0a
-// inputsSha256: 00b86ec75b6c124c451741486be4d35f72af9873a9aa27f1daf026d450df659a
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx b442722347e546c26bceb593d1c0ce99ab7b5bb39110c983e9d0d0d3d0daf17e
+// sourceCommit: ec025c8fd6d93a917c903af22b16865a858e0dc0
+// inputsSha256: 2c554a0f8e06ede17b690340106192a685744843e2445c31e4886003ace2b9dc
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 095ee2a3e1c498c3c43eee7d6df90252a45b9bf0b7b5b2670aa22c77f60f54a8
 // input: apps/mobile-rn/src/navigation/linking.ts a837df56feae352828f449fb73b6635acf01e7a0601272c04c70ab9d8dc8c108
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-20T18:14:25.541Z
+// generatedAt: 2026-10-21T00:13:41.595Z
 // IHUI-GEN-PIN-END
 
 
@@ -29,7 +29,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 216 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 248 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -62,6 +62,38 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'IdentityVerify', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'SecuritySettings', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'SecurityCenter', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ApiKeys', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'DataRights', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ConnectedAccounts', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Usage', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ChatTemplates', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ImageGenGallery', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ImageGenTemplates', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'KnowledgeRagManage', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Addresses', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'WrongQuestions', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Points', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Groups', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'UserFans', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'UserArticles', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Invoices', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'Purchase', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'PublishAccounts', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'PublishAnalytics', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'PublishCalendar', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'PublishNew', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AgentCategories', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'LearnMap', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'LearnReview', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'KnowledgeBaseEdit', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'MemoryNew', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'VoiceStt', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ArticleEdit', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'ArticleHot', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AskEdit', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'PlazaNew', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'BusinessCardEdit', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'AiWorldCreate', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Privacy', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Agreement', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'About', tab: false, requiresParams: false, requiredParams: [] },
