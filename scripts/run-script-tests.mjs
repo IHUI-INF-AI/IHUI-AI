@@ -85,11 +85,41 @@ export function parseTap(stdout) {
     fail,
     skipped: grab('skip') ?? 0,
     cancelled: grab('cancelled') ?? 0,
-    notOk: out
-      .split('\n')
-      .filter((l) => l.startsWith('not ok '))
-      .map((l) => l.replace(/^not ok \d+ - /, '').trim()),
+    notOk: collectFailures(out.split('\n')),
   }
+}
+
+/**
+ * 每条失败带一句"为什么"。原先只留用例名 ⇒ CI 上看到"红 13 条"却读不到任何断言原文,
+ * 排查只能靠猜(2026-10-21 实测:13 枚同名失败,日志里没有一个字能说明它们为什么红)。
+ * TAP 的 `not ok` 之后跟着缩进诊断行,取前 3 条关键行(error/code/expected/actual/stack/message)。
+ * 方向与 §0.3 一致:拿不到诊断就留空,不编。
+ */
+export function collectFailures(lines) {
+  const KEY = /^\s+(error|code|expected|actual|stack|message):\s*(.*)$/
+  const out = []
+  let cur = null
+  const flush = () => {
+    if (cur) out.push({ name: cur.name, why: cur.why.join(' | ').slice(0, 400) })
+    cur = null
+  }
+  for (const raw of lines) {
+    const line = String(raw).replace(/\r$/, '')
+    if (line.startsWith('not ok ')) {
+      flush()
+      cur = { name: line.replace(/^not ok \d+ - /, '').trim(), why: [] }
+      continue
+    }
+    if (line.startsWith('ok ') || line.startsWith('# Subtest:')) {
+      flush()
+      continue
+    }
+    if (!cur) continue
+    const m = KEY.exec(line)
+    if (m && cur.why.length < 3) cur.why.push(`${m[1]}=${m[2].slice(0, 160)}`.trim())
+  }
+  flush()
+  return out
 }
 
 /** 跑一片(一个 `node --test` 子进程)。 */
@@ -172,7 +202,10 @@ export function main(argv = process.argv.slice(2), rootDir = ROOT) {
   }
   if (failures.length) {
     console.log(`❌ 失败用例 ${failures.length} 条:`)
-    for (const x of failures.slice(0, 40)) console.log(`   [片${x.chunk}] ${x.name}`)
+    for (const x of failures.slice(0, 40)) {
+      console.log(`   [片${x.chunk}] ${x.name}`)
+      if (x.why) console.log(`         ↳ ${x.why}`)
+    }
     if (failures.length > 40) console.log(`   …另 ${failures.length - 40} 条`)
     console.log('单独复现:node --test scripts/tests/<文件>.test.mjs')
   } else if (!unparsed.length) {
