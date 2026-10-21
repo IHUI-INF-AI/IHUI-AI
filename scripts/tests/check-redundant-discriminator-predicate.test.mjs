@@ -353,10 +353,10 @@ test('T12 门体自检必须全绿且构造面例数不得掉(证据变薄 = 下
   const r = gate.selfTest()
   assert.equal(r.fail, 0, `门体自检未全绿:${r.failed.map((c) => c.name).join(' | ')}`)
   assert.ok(r.total >= 40, `自检例数掉了(${r.total}),这把尺子的构造面证据太薄`)
-  // harness 必须在登记时就求值:本门的 t() 把 cond 立刻过 !!,存的是布尔而不是函数
+  // harness 必须走共用出口:thunk 族 + 消费循环 report() 求值,登记侧存不下"未求值"的账
   const src = readFileSync(GATE, 'utf8')
   const body = src.slice(src.indexOf('export function selfTest'))
-  assert.match(body, /ok:\s*\(\(\)\s*=>\s*!!cond\)\s*\(\)/, 't() 必须在登记那一刻求值,裸存 cond / 存函数都会让"N/N 通过"变成零条判过')
+  assert.match(body, /makeRegistrar\(\)/, 't() 必须走共用出口 scripts/lib/selftest-registrant.mjs,裸存 cond / 存函数都会让"N/N 通过"变成零条判过')
   assert.doesNotMatch(body, /cases\.push\(\{\s*name,\s*ok:\s*cond\s*\}\)/, '不得把未求值的 cond 直接记账')
 })
 

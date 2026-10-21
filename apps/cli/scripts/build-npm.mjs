@@ -185,7 +185,8 @@ const published = {
   repository: pkg.repository,
   bugs: pkg.bugs,
   engines: pkg.engines,
-  bin: { ihui: './dist/index.js' },
+  // bin 路径不能以 ./ 开头:npm 会把它判为"invalid script name"静默移除,装完没有 ihui 命令
+  bin: { ihui: 'dist/index.js' },
   files: ['dist', 'LICENSE', 'NOTICE', 'README.md'],
   publishConfig: { access: 'public', registry: 'https://registry.npmjs.org/' },
 }

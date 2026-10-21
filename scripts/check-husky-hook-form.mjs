@@ -53,7 +53,8 @@
  * 跳过:HUSKY_SKIP_HOOK_FORM=1(应急,须留痕)
  */
 
-import { dirname, resolve } from 'node:path'
+import { existsSync } from 'node:fs'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -215,6 +216,35 @@ function auditHookTexts(entries, facePaths) {
   return { violations, scanned: entries.length }
 }
 
+/**
+ * H3 装载位(2026-10-21 实测事故,机主令「彻底杜绝根治」):
+ *   core.hooksPath 被写成 `.git/no-hooks`(该目录根本不存在)⇒ git 静默跑 **0 个**钩子,
+ *   而 H1/H2 只看 `.husky/` 里的内容,对"整片钩子没被装载"完全失明。
+ *   事故后果:post-commit 的自动推送/双备份整链停摆两天,本地积压 7 枚提交后才在手工
+ *   收敛时暴露 —— 失效方向是安静(§12f)。
+ * 判据:解析后的钩子目录必须真实存在,且 pre-commit / post-commit 两枚薄壳都在。
+ *   safe-commit 的 `-c core.hooksPath=<临时转发目录>` 一样满足(它逐文件转发 .husky 全部钩子)。
+ * configValue / exists 可注入,供 --self-test 与镜像测试用真值判定。
+ */
+function judgeHooksInstall(root, { configValue, exists = existsSync } = {}) {
+  let val = configValue
+  if (val === undefined) {
+    try {
+      val = String(gitRaw(['config', '--get', 'core.hooksPath'], root, { timeout: 30_000 })).trim()
+    } catch {
+      val = '' // 未设置:git 回落到 .git/hooks(本仓默认无钩子 ⇒ 下面按缺件判红)
+    }
+  }
+  const dir = val ? (isAbsolute(val) ? val : resolve(root, val)) : resolve(root, '.git', 'hooks')
+  const missing = ['pre-commit', 'post-commit'].filter((h) => !exists(join(dir, h)))
+  if (missing.length === 0) return null
+  return {
+    rule: 'H3',
+    path: 'core.hooksPath',
+    detail: `${val ? `= ${val}` : '未设置(默认 .git/hooks)'} ⇒ 钩子目录 ${dir} 缺 ${missing.join('/')} ⇒ git 静默跑 0 个钩子,自动推送/双备份整链停摆。修法:git config core.hooksPath .husky`,
+  }
+}
+
 function runAudit({ root = ROOT, face = 'head', json = false } = {}) {
   const lines = []
   try {
@@ -225,6 +255,9 @@ function runAudit({ root = ROOT, face = 'head', json = false } = {}) {
       paths.map((p) => ({ p, s: texts.get(p) })),
       listed.all,
     )
+    // H3:钩子写得再对,没被装载也等于没有(2026-10-21 core.hooksPath=.git/no-hooks 事故)
+    const install = judgeHooksInstall(root)
+    if (install) violations.push(install)
     if (json) {
       return {
         status: violations.length > 0 ? 1 : 0,
@@ -257,6 +290,7 @@ export const __test__ = {
   judgeShebang,
   judgeDispatchRefs,
   judgeHook,
+  judgeHooksInstall,
   auditHookTexts,
   listFace,
   readHooks,
@@ -371,6 +405,13 @@ function selfTest() {
     if (r.status !== 0 && r.status !== 1) throw new Error(`worktree 档应给出裁决,实得 ${r.status}`)
     const bad = runAudit({ root: dirname(ROOT), face: 'head' })
     if (bad.status !== 2) throw new Error(`非仓库根应落未判定,实得 ${bad.status}`)
+  })
+
+  t('T12 H3 装载位:事故原形(.git/no-hooks 不存在)判红,`.husky` 齐备判绿', () => {
+    const red = judgeHooksInstall(ROOT, { configValue: '.git/no-hooks', exists: existsSync })
+    if (!red || red.rule !== 'H3') throw new Error('core.hooksPath 指向不存在目录未被判红(10-21 事故原形)')
+    const green = judgeHooksInstall(ROOT, { configValue: '.husky', exists: existsSync })
+    if (green !== null) throw new Error(`真仓 .husky 被误判:${JSON.stringify(green)}`)
   })
 
   let pass = 0

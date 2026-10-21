@@ -58,6 +58,11 @@ $Apk = Join-Path $MobileRn 'android\app\build\outputs\apk\debug\app-debug.apk'
 $TmpDir = Join-Path $RepoRoot 'tmp'
 $MetroLog = Join-Path $TmpDir 'metro-mobile-rn.log'
 $PatchScript = Join-Path $ScriptRoot 'patch-rn-deepfreeze.mjs'
+# applicationId 只认 build.gradle 一处(不写死包名:本仓包名已从 ai.ihui.mobile 改为 zh.ai.sq)
+$BuildGradle = Join-Path $MobileRn 'android\app\build.gradle'
+$AppIdMatch = Select-String -Path $BuildGradle -Pattern "applicationId\s+'([^']+)'" | Select-Object -First 1
+if (-not $AppIdMatch) { throw "未能从 $BuildGradle 解析 applicationId" }
+$AppId = $AppIdMatch.Matches[0].Groups[1].Value
 
 # ============================================================
 # 颜色输出
@@ -202,9 +207,10 @@ function Install-ToDevice([string]$serial) {
 # ============================================================
 function Launch-App([string]$serial) {
   Write-Hdr "启动 App(等待 ${WaitSec}s 后截图)"
-  & $Adb -s $serial shell am force-stop ai.ihui.mobile 2>$null
+  & $Adb -s $serial shell am force-stop $AppId 2>$null
   Start-Sleep -Seconds 1
-  & $Adb -s $serial shell am start -n ai.ihui.mobile/.MainActivity 2>&1 | Out-Host
+  & $Adb -s $serial shell am start -n "$AppId/.MainActivity" 2>&1 | Out-Host
+  if ($LASTEXITCODE -ne 0) { Write-Err "启动失败: $AppId/.MainActivity"; exit 1 }
   Start-Sleep -Seconds $WaitSec
 
   if (-not (Test-Path $TmpDir)) { New-Item -ItemType Directory -Path $TmpDir -Force | Out-Null }

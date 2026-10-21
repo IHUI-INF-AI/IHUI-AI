@@ -17,8 +17,13 @@ node_modules/
 .pnp.js
 .yarn/cache/
 .yarn/unplugged/
+.pnpm-store-cloud/
 
 # ── JS/RN 构建产物 ──
+# 注意:不全局排除 dist/,因为 mobile-rn 依赖 7 个 @ihui/* workspace 包,
+# 其 dist/ 编译产物(合计 ~11MB)必须随 archive 上传,云端 pnpm install
+# 时 node_modules/@ihui/* 是符号链接,指向 packages/*/dist/。
+# 如需排除无关 dist/ 可在此精确列出(如 packages/sdk/dist/)。
 .next/
 **/.next/
 .next-static/
@@ -27,8 +32,6 @@ node_modules/
 .next-staging/
 .out/
 **/out/
-dist/
-**/dist/
 dist-*/
 build/
 coverage/
@@ -81,3 +84,123 @@ __count_g_routes.ps1
 Thumbs.db
 
 # 例外:apps/web/app/uploads 为 Next 路由目录(/uploads route handler),保留源码
+
+# ── monorepo 根目录下的无关大目录(与 RN 构建无关,全部排除) ──
+# .ihui-agent/ (3.8GB)  : 本地 agent 工作区/缓存
+.ihui-agent/
+
+# .worktrees/ (737MB)  : git worktree 副本
+.worktrees/
+
+# .DevEnv/ (2.4GB)     : 本机开发环境
+.DevEnv/
+
+# .codeartsdoer/ (300MB): 华为云 CodeArts 残留
+.codeartsdoer/
+
+# .workbuddy/ (150MB)  : 本地 workbuddy 缓存
+.workbuddy/
+
+# .trae/ (74MB)        : 本地 trae 缓存
+.trae/
+
+# .trae-cn/ (52MB)     : 本地 trae 缓存
+.trae-cn/
+
+# .tmp-* (400MB)       : 临时同步目录
+.tmp-sync/
+.tmp-ab/
+.tmp-audit-head/
+.tmp-banners/
+.tmp-l3-tickets/
+
+# turbo 缓存 (69MB)
+.turbo/
+
+# logs (6.5MB)
+logs/
+
+# outputs (5.3MB)
+outputs/
+
+# data (0.4MB)
+data/
+
+# test-results
+test-results/
+
+# cert / uploads / monitoring / products / benchmarks / config / deploy
+cert/
+uploads/
+monitoring/
+products/
+benchmarks/
+config/
+deploy/
+
+# HRSoftstore/ (1.8GB) : HR 数据存储,与 RN 构建无关
+HRSoftstore/
+
+# scripts/ 保留(postinstall 钩子 fix-expo-metro-junction.mjs 需要)
+# 但排除 scripts/ 下的大文件/测试文件,只保留 EAS 构建必需脚本
+# docs/ 保留(与构建无关但体积小,不排除)
+docs/
+.github/
+
+# .qoder (8MB)
+.qoder/
+
+# .ihui (0.4MB)
+.ihui/
+
+# 根级 android/ ios/ 保留在上方(仅排除仓库根,不排除 apps/mobile-rn 内的)
+# 补充:apps/mobile-rn/android/ 排除
+apps/mobile-rn/android/
+
+# ── monorepo 下与 RN 构建无关的 apps(体积大,排除) ──
+apps/web/
+apps/ai-service/
+apps/api/
+apps/cli/
+apps/extension/
+apps/miniapp-taro/
+apps/mobile-cap/
+apps/.ihui-agent/
+apps/.trae-cn/
+apps/desktop/
+# packages/ 下与 RN 无关的包(保留 ui-native / app / api-client / shared / types / i18n / design-tokens)
+# 注意:
+# - packages/shared/ 不能排除,mobile-rn 通过 workspace:* 依赖 @ihui/shared,其 dist/ 必须上传
+# - packages/app/ 不能排除,@ihui/rn-app 在 packages/app/ 中,mobile-rn 依赖其源码 src/index.ts
+packages/sdk/
+packages/database/
+packages/auth/
+packages/dom-actions/
+packages/tsconfig/
+
+# 根级文件(保留 EAS 所需的 monorepo 元数据,排除无关文件)
+railway.json
+render.yaml
+docker-compose.yml
+.gitattributes
+.gitignore
+.husky/
+.knip-baseline.json
+.knip.jsonc
+.eslint.config.mjs
+.prettierignore
+.prettierrc
+.editorconfig
+.npmrc
+AGENTS.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+GAP-PLAN.md
+PROJECT_PLAN.md
+README.en.md
+README.ja.md
+README.ko.md
+README.md
+SECURITY.md
+# 以下文件是 pnpm monorepo 安装/构建必需,不得排除:
+# package.json / pnpm-lock.yaml / pnpm-workspace.yaml / tsconfig.base.json / turbo.json
