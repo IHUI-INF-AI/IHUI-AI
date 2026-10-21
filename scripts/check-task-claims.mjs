@@ -71,6 +71,14 @@ import {
 // 判定面取材的唯一出口(2026-09-26 迁)。计划文档的正文必须由共用层按面读 ——
 // git 绝对路径 / stdio[0]='pipe' / maxBuffer 给足 / 未预取即抛不静默,这四件各门自己写必错。
 import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// 挂牌判据单源(§0.6):本门不得再自带一份「什么算挂了牌」的实现。
+import {
+  CLAIM_SOURCE,
+  claimMarkOf,
+  codeSpanRangesOf,
+  insideCodeSpan,
+  isValidIsoDate,
+} from './lib/plan-task-index.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -86,36 +94,25 @@ const HOUR_MS = 3600000
 //   `（进行中`，`@日期/持有者）` 残留在正文里，text/bodyOf 全被污染。
 //   可选形态**必须整组包住**：`(?:（进行中[^）]*）)?`。正反例由 --self-test S5 与
 //   镜像测试 T11 钉死。
-const CLAIM_MARKER_SRC = '（进行中[^）]*）' // 裸旧标记 或 租约形（进行中@YYYY-MM-DD/持有者）
-const CLAIM_MARKER_RE = new RegExp(`^- \\[ \\]${CLAIM_MARKER_SRC}\\s*`) // 进行中分类(必须含标记)
-const CLAIM_MARKER_OPTIONAL_RE = new RegExp(`^- \\[ \\](?:${CLAIM_MARKER_SRC})?\\s*`) // 可选形态
-const CLAIM_MARKER_BODY_RE = new RegExp(`^(${CLAIM_MARKER_SRC})\\s*`) // bodyOf 用(已剥掉 `- [ ] `)
-// 从行里截出标记本体
-const CLAIM_MARK_EXTRACT_RE = new RegExp(`^- \\[ \\](${CLAIM_MARKER_SRC})`)
-// 标记内部:（进行中[@YYYY-MM-DD][/持有者]）——两段都可选，组合决定形态
-const LEASE_INNER_RE = /^（进行中(?:@(\d{4}-\d{2}-\d{2}))?(?:\/([^）/]+))?）$/
+// 「什么算一行挂了牌」的唯一实现住在 `lib/plan-task-index.mjs`(§0.6 单一真相源)。
+// 2026-10-21 之前本门自带一份行首正则、派单侧自带一份 `indexOf`,同一份台账读出 31 vs 59,
+// 且行首那份不吃「复选框后的空格」⇒ 9 枚真租约隐身成"无人认领"。现两侧共用 `claimMarkOf`。
+const CLAIM_MARKER_SRC = CLAIM_SOURCE // 裸旧标记 或 租约形（进行中@YYYY-MM-DD/持有者）
+const CLAIM_MARKER_RE = new RegExp(`^- \\[ \\]\\s*${CLAIM_MARKER_SRC}\\s*`) // 结构位分类(允许可选空白)
+const CLAIM_MARKER_OPTIONAL_RE = new RegExp(`^- \\[ \\]\\s*(?:${CLAIM_MARKER_SRC})?\\s*`) // 可选形态
+const CLAIM_MARKER_BODY_RE = new RegExp(`^(${CLAIM_MARKER_SRC})\\s*`) // bodyOf 用(已剥掉 `- [ ]`)
+// 标记本体(起于行首结构位时)截出
+const CLAIM_MARK_EXTRACT_RE = new RegExp(`^- \\[ \\]\\s*(${CLAIM_MARKER_SRC})`)
 
 /**
  * 解析一条「进行中」行的租约三要素。
  * @param {string} trimmed 已 trimStart 的整行
- * @returns {{format:'legacy'|'lease'|'unknown', date:string|null, holder:string|null}}
+ * @returns {{format:'none'|'legacy'|'lease'|'unknown', date:string|null, holder:string|null}}
  */
 function parseClaim(trimmed) {
-  const m = CLAIM_MARK_EXTRACT_RE.exec(trimmed)
-  if (!m) return { format: 'none', date: null, holder: null }
-  const inner = LEASE_INNER_RE.exec(m[1])
-  if (!inner) return { format: 'unknown', date: null, holder: null }
-  const [, date, holder] = inner
-  if (!date && !holder) return { format: 'legacy', date: null, holder: null }
-  if (date && !isValidIsoDate(date))
-    return { format: 'unknown', date: null, holder: holder ?? null }
-  return { format: 'lease', date: date ?? null, holder: holder ?? null }
-}
-
-/** `2026-02-31` 能被 Date.parse 吞成 3 月 2 日 —— 回读同一日历日才算真日期。 */
-function isValidIsoDate(iso) {
-  const ms = Date.parse(`${iso}T00:00:00Z`)
-  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === iso
+  const hit = claimMarkOf(trimmed)
+  if (!hit) return { format: 'none', date: null, holder: null }
+  return { format: hit.form, date: hit.date, holder: hit.holder }
 }
 
 /**
@@ -161,59 +158,9 @@ function analyzeLeases(rows, { nowMs, ttlHours }) {
   return { stale, missingHolder, counts: { legacy, unknown, holderNoDate } }
 }
 
-/**
- * 量出一行内的**反引号代码段**区间(行内码 `` `x` `` 与双反引号码段 ``` ``x`` ```;
- * CommonMark:闭合串的反引号个数必须与开启串相等,且码段不得跨行)。
- * 返回 `{ spans, undetermined }`:
- *  - `spans` —— 已配对的 `[起, 止)` 区间(止=闭引串末尾之后);
- *  - `undetermined` —— 有开启串找不到等长的闭引串(截断的长行 / 未闭合码段 / 退化成
- *    裸双反引号空码段的粘连文本)⇒ 这一行"哪些字在代码段内"**判不出来**。
- * 判据失效的表现永远是安静,所以判不出来必须由调用方**打印**,不得静默当成"没有代码段"。
- */
-function codeSpanRangesOf(line) {
-  // 反斜杠转义的反引号不是定界符(`\`` 在 Markdown 里就是字面反引号)。等长遮罩,索引不变。
-  const s = line.replace(/\\[`*_\[\]<>{}()#+\-.!\s]/g, (m) => ' '.repeat(m.length))
-  const delims = []
-  for (let i = 0; i < s.length; ) {
-    if (s[i] !== '`') {
-      i++
-      continue
-    }
-    let j = i
-    while (j < s.length && s[j] === '`') j++
-    delims.push({ start: i, len: j - i })
-    i = j
-  }
-  const spans = []
-  let undetermined = false
-  let k = 0
-  while (k < delims.length) {
-    const open = delims[k]
-    let closed = -1
-    for (let m = k + 1; m < delims.length; m++) {
-      const c = delims[m]
-      if (c.len !== open.len) continue
-      const inner = open.start + open.len
-      // CommonMark:开启串与闭引串之间必须有内容(裸 `` 不是空码段,而是粘连文本的一部分)。
-      if (c.start > inner) {
-        closed = m
-        break
-      }
-    }
-    if (closed < 0) {
-      undetermined = true
-      break
-    }
-    spans.push([open.start, delims[closed].start + open.len])
-    k = closed + 1
-  }
-  return { spans, undetermined }
-}
-
-/** 标记本体(起于 at、长 len)是否**整体**落在某个反引号代码段区间内(含两侧定界符)。 */
-function insideCodeSpan(spans, at, len) {
-  return spans.some(([a, b]) => at >= a && at + len <= b)
-}
+// `codeSpanRangesOf` / `insideCodeSpan` 的实现已上收到 `lib/plan-task-index.mjs`(§0.6 单源),
+// 本门从那里 import —— 挂牌判据必须先问"这个标记是在挂牌还是在叙述这个形态",
+// 两侧各写一份迟早漂成"一边把叙述当挂牌、一边把真牌当叙述"(2026-10-21 实测即此型)。
 
 /**
  * CL3:同一行同时出现「进行中」与 [x] —— 协议自相矛盾,等价于「释放失败」的现场。
@@ -254,7 +201,7 @@ function findContradictions(content) {
      * 判据把"叙述里的 [x]"当"状态的 [x]",就是它自己造出来的恒红面。
      */
     if (!/^- \[[xX]\]/.test(t)) continue
-    const matches = [...t.matchAll(/（进行中[^）]*）/g)]
+    const matches = [...t.matchAll(new RegExp(CLAIM_SOURCE, 'g'))]
     if (matches.length === 0) continue
     const { spans, undetermined } = codeSpanRangesOf(t)
     /**
@@ -528,14 +475,27 @@ function scanTasks(content) {
     // 每条规则各推一类:顺序即优先级(进行中必须先于"无人认领"判,否则会被后一条通吃)。
     // 进行中规则用 CLAIM_MARKER_RE(含标记体,兼容旧裸 `（进行中）` 与新租约 `（进行中@日期/持有者）`),
     // 它同时把整段标记从 text 里剥掉 —— 若按 `（进行中）?` 那种写法,租约行会残留 `@日期/持有者）`。
+    // 只有**条目行**才谈得上挂牌:第二档的正则无锚(`（进行中…）` 在行内任意位置都命中),
+    // 不加这道前置会把 186 行纯叙述正文算成"进行中"(2026-10-21 本席改判据时实测踩中,
+    // 三态合计从 251 涨到 437 才暴露)。
+    const claim = /^- \[ \]/.test(trimmed) ? claimMarkOf(trimmed) : null
     const kinds = [
       [/^- \[[xX]\]\s*/, completed],
-      [CLAIM_MARKER_RE, inProgress],
+      // 挂牌与否只问单源 `claimMarkOf`(结构位 ∪ 行尾完整租约形,反引号码段内的叙述不算)。
+      // 本档过去只认行首,于是 ①「复选框后多一个空格」的 9 枚真租约隐身成"无人认领",
+      // ② 17 枚挂在行尾注记位的真租约同样隐身 —— 两席会去领同一张票(§1 挂租约要防的正身)。
+      [claim ? new RegExp(CLAIM_SOURCE) : null, inProgress],
       [/^- \[ \]\s*/, unclaimed],
     ]
     for (const [re, arr] of kinds) {
-      if (!re.test(trimmed)) continue
-      const row = { line: i + 1, text: trimmed.replace(re, '').slice(0, 120), full: trimmed }
+      if (!re || !re.test(trimmed)) continue
+      // text 只作标题预览,必须剥掉状态标记(S11 钉的就是"租约标记没被剥进 text")。
+      // 结构位连 `- [ ] ` 前缀整段剥;标记漂在行尾/正文的,剥前缀后再剥标记本体。
+      let text = arr === inProgress ? trimmed.replace(CLAIM_MARKER_RE, '') : trimmed.replace(re, '')
+      if (arr === inProgress && text === trimmed) {
+        text = trimmed.replace(/^- \[ \]\s*/, '').replace(new RegExp(CLAIM_SOURCE), '')
+      }
+      const row = { line: i + 1, text: text.slice(0, 120), full: trimmed }
       if (arr === inProgress) Object.assign(row, parseClaim(trimmed))
       arr.push(row)
       break

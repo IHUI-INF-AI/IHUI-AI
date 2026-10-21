@@ -31,7 +31,6 @@ import { Check } from 'lucide-react-native'
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Easing,
   Modal,
   PanResponder,
@@ -43,6 +42,7 @@ import {
   View,
   type TextStyle,
   type ViewStyle,
+  useWindowDimensions,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
@@ -98,9 +98,7 @@ export interface HandPlatePopsProps {
   onPay?: () => void
 }
 
-const SCREEN_HEIGHT = Dimensions.get('window').height
 const ANIM_DURATION_MS = 300
-const SHEET_HIDDEN_OFFSET = SCREEN_HEIGHT
 const DRAG_CLOSE_THRESHOLD = 80 // 下拉超过此阈值触发关闭
 
 const HANDLE_WIDTH = 36
@@ -136,10 +134,15 @@ export function HandPlatePops({
   onPay,
 }: HandPlatePopsProps) {
   const insets = useSafeAreaInsets()
+  // 屏幕旋转/分屏后窗口高度会变(app.json orientation 已放开为 default),
+  // 隐藏位移取当次窗口高度,PanResponder 闭包通过 ref 读最新值。
+  const { height: windowHeight } = useWindowDimensions()
+  const hiddenOffsetRef = useRef(windowHeight)
+  hiddenOffsetRef.current = windowHeight
   const [rendered, setRendered] = useState(visible)
   const [internalPayMethod, setInternalPayMethod] = useState<string | null>(null)
   const [internalAgreed, setInternalAgreed] = useState(false)
-  const translateY = useRef(new Animated.Value(SHEET_HIDDEN_OFFSET)).current
+  const translateY = useRef(new Animated.Value(windowHeight)).current
   const maskOpacity = useRef(new Animated.Value(0)).current
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -165,7 +168,7 @@ export function HandPlatePops({
     } else if (rendered) {
       Animated.parallel([
         Animated.timing(translateY, {
-          toValue: SHEET_HIDDEN_OFFSET,
+          toValue: hiddenOffsetRef.current,
           duration: ANIM_DURATION_MS,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
@@ -191,7 +194,7 @@ export function HandPlatePops({
         if (g.dy > DRAG_CLOSE_THRESHOLD) {
           Animated.parallel([
             Animated.timing(translateY, {
-              toValue: SHEET_HIDDEN_OFFSET,
+              toValue: hiddenOffsetRef.current,
               duration: ANIM_DURATION_MS,
               easing: Easing.inOut(Easing.ease),
               useNativeDriver: true,

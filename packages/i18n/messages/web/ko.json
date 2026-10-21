@@ -13049,7 +13049,6 @@
     "description": "설명",
     "domain": "도메인",
     "domainHint": "도메인 힌트",
-    "duration": "소요 시간",
     "editInfo": "정보 편집",
     "estimatedHint": "예상 힌트",
     "highlight": "강조",
@@ -13057,7 +13056,6 @@
     "memory": "메모리",
     "name": "이름",
     "noInstances": "인스턴스 없음",
-    "objectives": "목표",
     "question": "문제",
     "resources": "리소스",
     "resourcesHint": "리소스 사용량 힌트",
@@ -16737,8 +16735,6 @@
     "chapters": "챕터 수",
     "detail": {
       "back": "뒤로",
-      "duration": "소요 시간",
-      "objectives": "학습 목표",
       "studentsLabel": "수강생 수"
     },
     "empty": "학습 콘텐츠가 없습니다",

@@ -236,6 +236,14 @@ export default defineConfig(async (merge) => {
                   ...options,
                   presets: [['taro', { framework: 'react', ts: true, compiler: 'webpack5' }]],
                 }))
+              // packages/shared 里存在 `.js` 后缀的相对导入(ESM 写法,如
+              // `../chat/projection-watermark.js` 指向同名 .ts 源)。webpack 默认按字面后缀找文件,
+              // 不加 extensionAlias 时 build:weapp 直接解析失败(2026-10-18 实测:缺这条时
+              // `resolve '../chat/projection-watermark.js'` 报 no extension / .js / .ts 全不存在)。
+              chain.resolve.set('extensionAlias', {
+                '.js': ['.ts', '.tsx', '.js'],
+                '.mjs': ['.mts', '.mjs'],
+              })
               // weapp 端注入 weapp-tailwindcss webpack 版插件(2026-09-10 自 vite
               // 版迁移):处理 Tailwind 任意值语法 [xxx] 的 WXSS 选择器转义 +
               // wxml class 匹配 + rem2rpx。v5.2.9 webpack 入口导出同名类,
