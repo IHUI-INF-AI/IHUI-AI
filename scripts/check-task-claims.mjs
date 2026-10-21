@@ -101,8 +101,6 @@ const CLAIM_MARKER_SRC = CLAIM_SOURCE // 裸旧标记 或 租约形（进行中@
 const CLAIM_MARKER_RE = new RegExp(`^- \\[ \\]\\s*${CLAIM_MARKER_SRC}\\s*`) // 结构位分类(允许可选空白)
 const CLAIM_MARKER_OPTIONAL_RE = new RegExp(`^- \\[ \\]\\s*(?:${CLAIM_MARKER_SRC})?\\s*`) // 可选形态
 const CLAIM_MARKER_BODY_RE = new RegExp(`^(${CLAIM_MARKER_SRC})\\s*`) // bodyOf 用(已剥掉 `- [ ]`)
-// 标记本体(起于行首结构位时)截出
-const CLAIM_MARK_EXTRACT_RE = new RegExp(`^- \\[ \\]\\s*(${CLAIM_MARKER_SRC})`)
 
 /**
  * 解析一条「进行中」行的租约三要素。
