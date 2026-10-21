@@ -895,6 +895,35 @@ def annotate_models(
                     f"minor-behind ({cls.family} {cls.generation} < {'.'.join(map(str, max_ver))})"
                 )
 
+    # ---- 第二点四趟:免费旗舰救回(2026-10-21 立)----
+    # 第一趟把 `:free` 价格变体一律压成 standard(初衷:防 `deepseek-v4-pro-0813:batch`
+    # 这类变体混进 latest),但顺手把"厂商当前最高代次的免费变体"也压死了 ——
+    # minimax-m3.1-flash:free 是 MiniMax 最新代次,却因后缀 :free 永远沉在折叠区,
+    # 用户侧表现成"没接入"。救回条件四条同时满足,缺一不可:
+    #   ① 第一趟死因就是 pricing-or-snapshot-variant(不是别的原因压成 standard);
+    #   ② raw 里带 `:free` —— 只救免费变体;`:batch` / 日期快照仍按 standard 处理;
+    #   ③ 同 family 内它就是最高代次(老代次已在第二趟压掉,不会借尸还魂);
+    #   ④ 命中 CURATED_LATEST —— 该代次是人认的"厂商当前新代次",不是变体在装新。
+    for _family, idxs in by_family.items():
+        max_key = max(
+            _version_sort_key(_version_tuple(classifications[i].generation)) for i in idxs
+        )
+        for i in idxs:
+            model = models[i]
+            if model.get("classify_reason") != "pricing-or-snapshot-variant":
+                continue
+            if str(model.get("classify_reason") or "").startswith("preset:"):
+                continue
+            raw_id = str(model.get("id") or model.get("model") or "")
+            if ":free" not in raw_id.lower():
+                continue
+            if _version_sort_key(_version_tuple(classifications[i].generation)) != max_key:
+                continue
+            if not _is_curated(_normalize(raw_id), raw_id):
+                continue
+            model["model_tier"] = ModelTier.LATEST.value
+            model["classify_reason"] = "curated-latest-free-variant"
+
     # ---- 第二点五趟:零 curated 厂商的最高代次兜底(必须在代次比较之后)----
     # 放在第二趟之后,才能复用"同系列旧版本已被压成 legacy/minor-behind"的结果:
     # 兜底只抬厂商内的最高代次,老代次的 reason 已被第二趟改掉,天然不会再被抬起来。
