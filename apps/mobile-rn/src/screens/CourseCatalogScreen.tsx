@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getCourseCatalog } from '@ihui/api-client'
 import {
   CourseCatalogScreen as SharedCourseCatalogScreen,
   type CourseCatalogItem,
@@ -31,11 +31,9 @@ export function CourseCatalogScreen() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetchApi<CourseCatalogItem[]>(
-        `/api/courses/${encodeURIComponent(courseId)}/catalog`,
-      )
+      const res = await getCourseCatalog(courseId)
       if (!res.success) throw new Error(res.error)
-      setItems(res.data ?? [])
+      setItems(res.data)
     } catch {
       setError(t('courseCatalog.loadFailed'))
     } finally {
@@ -48,8 +46,8 @@ export function CourseCatalogScreen() {
   }, [load])
 
   const onPressItem = () => {
-    // CourseChapter 的取数是 /api/courses/:courseId/chapters ⇒ 必须传**课程 id**(本页路由参数),
-    // 传章节 id 会把章节当课程查,接口 404、页面回「找不到对应的资源」(同一缺陷在 CourseChapter 内已修)。
+    // CourseChapter 的取数是课程详情的目录投影(= 课程详情数据的 chapters 再投影)
+    // ⇒ 必须传**课程 id**(本页路由参数),传章节 id 会把章节当课程查、页面回「找不到对应的资源」。
     navigation.navigate('CourseChapter', { courseId })
   }
 
