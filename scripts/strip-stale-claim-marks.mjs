@@ -144,11 +144,13 @@ function result(state, n) {
 }
 
 function git(args, opts = {}) {
+  // §12g:派生 git 必须显式接管 stdio;喂 input 时 stdin 只能是 pipe(写成 ignore 会被 Node 当场拒)。
+  const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
   return execFileSync('git', args, {
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 1 << 28,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio,
     windowsHide: true,
     ...opts,
   })
@@ -204,11 +206,19 @@ export function run({
     return result('refused', n).state === 'refused' ? 2 : 2
   }
 
+  let kept = false
   const dir = mkdtempSync(path.join(ROOT, '.ihui-agent', 'tmp', 'stale-claim-strip-'))
   try {
     const blobsPath = path.join(dir, 'blobs.json')
     const scopePath = path.join(dir, 'clash.json')
-    writeFileSync(blobsPath, JSON.stringify({ files: [{ path: FILE, blob: plan.text }] }))
+    // `blob` 字段要的是**已在对象库里的 blob sha**(object-space-land 的契约),不是内容文本 ——
+    // 直接塞文本会被判"字节数取不到 ⇒ 不落地"(2026-10-22 本器首次 --apply 即栽在这格)。
+    const blob = git(['hash-object', '-w', '--stdin'], { input: plan.text }).trim()
+    if (!/^[0-9a-f]{40}$/.test(blob)) {
+      console.log(`❌ hash-object 未回带 40 位 blob sha(实得 ${String(blob).slice(0, 40)})⇒ 不落,拒绝用猜的值继续`)
+      return 2
+    }
+    writeFileSync(blobsPath, JSON.stringify({ files: [{ path: FILE, blob }] }))
     writeFileSync(
       scopePath,
       JSON.stringify({ files: [{ path: FILE, removed: plan.removed, added: plan.added }] }),
@@ -236,9 +246,18 @@ export function run({
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     const out = `${land.stdout ?? ''}${land.stderr ?? ''}`
-    console.log(out.split('\n').slice(-8).join('\n'))
+    const rowsOut = String(out)
+      .split(/\r?\n/)
+      .filter(Boolean)
+    console.log(rowsOut.slice(-8).join('\n'))
     if (land.status !== 0) {
+      // 被拒时必须把拒因交出来:落地器的诊断行常常埋在它回显的台账正文之间,
+      // 只打末 8 行就等于"失败了但没说为什么"(本器 2026-10-22 首次 --apply 实犯)。
+      const diag = rowsOut.filter((l) => /❌|⛔|拒绝|守卫|复活|陈旧|不过|未判定|冲突|≠|判不出|需要人工|需人工/.test(l))
+      console.log(`── 拒因诊断(${diag.length} 行,取器物筛出的判据行)──\n${diag.slice(-25).join('\n')}`)
+      console.log(`── 原始末 ${Math.min(60, rowsOut.length)} 行 ──\n${rowsOut.slice(-60).join('\n')}`)
       console.log('❌ object-space-land 未落地 ⇒ 不推送,整批不落')
+      kept = true
       return 2
     }
     const push = spawnSync(process.execPath, [path.join(ROOT, 'scripts/git-push-guard.mjs')], {
@@ -251,7 +270,10 @@ export function run({
     console.log(String(push.stdout ?? '').trim().split('\n').slice(-3).join('\n'))
     return result('stripped', { ...n, stripped: plan.leases.length }).state === 'stripped' ? 0 : 0
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    // 落地被拒时**保留现场**并打印路径:临时件一删,下一句"为什么被拒"就再也问不出来了
+    // (本器 2026-10-22 首次 --apply 即因此只能看到台账正文,看不到落地器的结论行)。
+    if (kept) console.log(`现场保留:${dir}(blobs.json / clash.json 可手工复喂 object-space-land)`)
+    else rmSync(dir, { recursive: true, force: true })
   }
 }
 
