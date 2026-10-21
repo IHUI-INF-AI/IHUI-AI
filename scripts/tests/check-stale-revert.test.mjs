@@ -683,6 +683,7 @@ test('探针索引端到端:混合体只进私有 GIT_INDEX_FILE ⇒ --staged �
       windowsHide: true,
       env: mainEnv(),
       timeout: 300000,
+      stdio: ['ignore', 'pipe', 'pipe'],
     }).trim()
   const mainIdxBefore = gitMain(['ls-files', '-s', '--', 'locale.json'])
   const gitWith = (args, opts = {}) =>
@@ -691,6 +692,7 @@ test('探针索引端到端:混合体只进私有 GIT_INDEX_FILE ⇒ --staged �
       encoding: 'utf8',
       windowsHide: true,
       env: { ...process.env, GIT_INDEX_FILE: probe },
+      stdio: ['ignore', 'pipe', 'pipe'],
       ...opts,
     })
 
