@@ -90,7 +90,7 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 工程守门 | 267 | `guardianGates` |
 | — blocking | 243 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15610 | `trackedFiles` |
+| 跟踪文件 | 15611 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -101,6 +101,12 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (980c5f92b2)
+
+**2026-10-22**
+- 🔧 Chore/Other:收口四语 README 最近更新与跟踪文件计数(15610) —— 派生区按 MAX_GROUPS 封顶主动裁旧属设计,块外仅 trackedFiles 一行变更,已按文档口径 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (16c2dc4f56)
+
 **2026-10-22**
 - 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0165022242)
 - ⚡ Perf:按改动性质分档(元门档 31 门)+ README 自动同步移出 pre-commit(消除 O43 窗口冲突) (c930087e84)
@@ -152,14 +158,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 **2026-10-22**
 - 📚 Docs:check-task-claims 头注同步单源挂牌判据口径。残余交后手:裸「（进行中）」形态仍只计数不判红(向后兼容是机主既有定档),而本次清账现读该族存量为零 ⇒ 升 blocking 的前置已满足,是否收口待人定档,本席不擅自改纪律。 (9b6e98211f)
-
-**2026-10-22**
-- 🐞 Fix:移除 check-task-claims 重构后遗留的未用常量(eslint no-unused-vars) (fd994c3d0b)
-- 📚 Docs:§1 登记挂牌判据单源口径(claimMarkOf),防止 31/59 两把尺子再度漂移 (346b407321)
-- 🐞 Fix:摘除 57 枚无席位在飞的死认领牌(30 超龄租约 + 27 旧裸标记),按 §1 交回派单面 (86467cf1eb)
-
-**2026-10-22**
-- ♻️ Refactor:任务认领判据单源化 —— check-task-claims 改用 plan-task-index 的 claimMarkOf/codeSpanRangesOf (09e13e0eda)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
