@@ -1,0 +1,29 @@
+{
+  "$comment": "EdgeOne 源站直填地址的期望台账 —— 唯一消费方 scripts/check-egress-ip-drift.mjs(只读巡检,判机器态,不进提交链 §12e)。expectedIPv4 = 家宽公网出口 IPv4(动态!),一变即全公网 5xx;本机无腾讯云/EdgeOne API 凭据 ⇒ 器物只能量到'漂了'并到人,改源站那一格归人工。expires 到期 = 该重裁(§0.7 同族纪律:登记必须会到期)。",
+  "schema": 1,
+  "updatedByConvention": "改期望值必须同步 updatedOn 与 expires(默认 30 天窗,2026-10-21 立档依据:家宽动态地址的常态重拨周期未实测,取'一个自然月内人必回 EO 控制台复核一次'的重裁节律,不是拍脑袋的到期恐吓)",
+  "rows": [
+    {
+      "face": "www.aizhs.top",
+      "role": "EdgeOne 站点源站直填地址(2026-10 起取代 Cloudflare Tunnel 跨境回源,实测回源 ttfb 10~45s → 0.28~0.34s)",
+      "expectedIPv4": "218.27.70.129",
+      "port": 8801,
+      "owner": "机主(唯一可整改动作:腾讯云 EdgeOne 控制台 → 站点 aizhs.top → 源站配置,把源站 IP 改成巡检信里 current= 的那一个,端口 8801)",
+      "note": "本机 git status 现读无 EO API 凭据(D:/DevEnv/secrets/ 无 tencent/edgeone 条目,2026-10-21 实测),故无自动改源站腿;信里给的是人工出口(§5e-1 可整改性)。",
+      "judge": true,
+      "updatedOn": "2026-10-21",
+      "expires": "2026-11-20"
+    },
+    {
+      "face": "bsm.aizhs.top",
+      "role": "同域站点,外部只见 EdgeOne 边缘节点 —— 是否同一源站**未经现读确认**(需 EO 控制台人工看源站那一格)",
+      "expectedIPv4": null,
+      "port": null,
+      "owner": "机主",
+      "note": "登记但不判(与 check-env-drift 的 ai-service 目标同型):判它 = 拿未证实的期望值冒假 drift。人工在 EO 控制台确认同源后,填 expectedIPv4/port 并把 judge 翻 true。",
+      "judge": false,
+      "updatedOn": "2026-10-21",
+      "expires": "2026-11-20"
+    }
+  ]
+}
