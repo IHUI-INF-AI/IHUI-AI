@@ -76,7 +76,7 @@ export interface ArticleSchema {
 }
 
 const DEFAULT_PUBLISHER_NAME = '智汇 AI'
-const DEFAULT_PUBLISHER_LOGO = 'https://aizhs.top/images/logo.png'
+const DEFAULT_PUBLISHER_LOGO = 'https://aizhs.top/images/logo.png?v=20261021'
 const DEFAULT_AUTHOR_URL = 'https://aizhs.top/about'
 const SITE_WEBSITE_ID = 'https://aizhs.top/#website'
 

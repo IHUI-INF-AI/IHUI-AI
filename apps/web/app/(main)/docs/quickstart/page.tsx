@@ -225,7 +225,7 @@ export const metadata: Metadata = {
     type: 'article',
     images: [
       {
-        url: '/images/logo.png?v=20260719-unify',
+        url: '/images/logo.png?v=20261021',
         width: 1200,
         height: 630,
         alt: 'IHUI AI 快速开始',
@@ -236,7 +236,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: '5 分钟快速开始 — 智汇 AI',
     description: '5 分钟从注册到发布第一个 AI Agent。',
-    images: ['/images/logo.png?v=20260719-unify'],
+    images: ['/images/logo.png?v=20261021'],
   },
 }
 

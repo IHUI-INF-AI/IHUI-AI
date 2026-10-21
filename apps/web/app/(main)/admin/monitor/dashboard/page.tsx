@@ -62,13 +62,13 @@ export default function AdminMonitorDashboardPage() {
     { label: 'CPU', value: perf?.cpu ?? 0, unit: '%', max: 100, cls: 'text-primary' },
     { label: '内存', value: perf?.memory ?? 0, unit: '%', max: 100, cls: 'text-primary' },
     { label: '磁盘', value: perf?.diskUsage ?? 0, unit: '%', max: 100, cls: 'text-primary' },
-    { label: 'QPS', value: perf?.qps ?? 0, unit: '', max: 0, cls: 'text-success-deep-text', raw: true },
+    { label: 'QPS', value: perf?.qps ?? 0, unit: '', max: 0, cls: 'text-success-text', raw: true },
     {
       label: '平均响应',
       value: perf?.avgResponse ?? 0,
       unit: 'ms',
       max: 0,
-      cls: 'text-warning-amber-text',
+      cls: 'text-warning-text',
       raw: true,
     },
   ]
@@ -115,16 +115,16 @@ export default function AdminMonitorDashboardPage() {
                       className="flex items-center justify-between rounded-md border p-2.5"
                     >
                       <div className="flex items-center gap-2">
-                        <Icon className={cn('h-4 w-4', ok ? 'text-success-deep-text' : 'text-danger-text')} />
+                        <Icon className={cn('h-4 w-4', ok ? 'text-success-text' : 'text-danger-text')} />
                         <span className="text-sm font-medium">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         {ok ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-success-deep-text" />
+                          <CheckCircle2 className="h-3.5 w-3.5 text-success-text" />
                         ) : (
                           <XCircle className="h-3.5 w-3.5 text-danger-text" />
                         )}
-                        <span className={cn('text-xs', ok ? 'text-success-deep-text' : 'text-danger-text')}>
+                        <span className={cn('text-xs', ok ? 'text-success-text' : 'text-danger-text')}>
                           {s.latency}ms
                         </span>
                       </div>
