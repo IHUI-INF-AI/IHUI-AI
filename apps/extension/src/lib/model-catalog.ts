@@ -36,9 +36,9 @@ export interface ModelCategoryGroup<M> {
   items: M[]
 }
 
-/** 拆分结果:默认展示的 latest 对话模型 + 折叠区按用途分组的历史模型 */
+/** 拆分结果:默认展示的 latest/standard 对话模型 + 折叠区按用途分组的历史模型 */
 export interface ModelCatalogSplit<M> {
-  /** 默认展示(tier=latest 且用途为对话类) */
+  /** 默认展示(tier=latest/standard 且用途为对话类;2026-10-21 起 standard 不再折叠) */
   primary: M[]
   /** 折叠区:按用途分类排序,组内 standard 在前 legacy 在后 */
   archived: ModelCategoryGroup<M>[]
