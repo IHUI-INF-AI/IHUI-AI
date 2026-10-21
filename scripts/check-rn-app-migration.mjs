@@ -175,6 +175,19 @@ export const WHITELIST_ENTRIES = new Map(
       why: '关于页:2026-09-05 产品定稿恢复历史合规跳转列表(对齐 Uniapp about.vue),7 条目跳转 RN 端合规屏集合;共享层 app-info 卡版 UI 不适用,曾接 SharedAboutScreen 后有意移除',
       expires: '2027-06-30',
     },
+    // ── 2026-10-21 补登(HEAD 面 V1 红 3 条,逐条按现读判"无低成本真迁移") ──
+    'AgentCategoriesScreen.tsx': {
+      why: '智能体分类屏(405 行):本地 NavBar/NavChrome + useNavigation 跳 AgentDetail(第 30-39/265 行),分类详情与分类内智能体收进 Modal 弹层(web /agents/categories 与 /agents/categories/[id] 是两个独立路由);packages/app 现有 agent-market(AgentMarketScreen,搜索列表)与 category-detail(CategoryDetailScreen,按 Tab 的条目流)都不覆盖"分类列表 + 分类内智能体"这一形态,真共享需新写屏并重定 props 契约(>100 行),故 RN 独占',
+      expires: '2027-06-30',
+    },
+    'PublishAccountsScreen.tsx': {
+      why: '平台账号屏(443 行):扫码重新授权走 /api/publish/scan-login/start + 2.5s 轮询 + 关闭时 cancel(第 141-183 行),二维码用 RN Image 的 headers 带 Bearer(第 246-251/341-346 行,依赖 getToken 与 API_BASE_URL),解绑走本地 appAlert;packages/app 只有 PublishScreen(发布任务列表),web /publish/accounts 是 DOM 实现且另带批量导入/分组,无同名共享屏',
+      expires: '2027-06-30',
+    },
+    'aboutPageSections.ts': {
+      why: '数据模块不是屏:AboutScreen 的分段数据源(ABOUT_VALUES/ABOUT_PLATFORMS/ABOUT_STATS/ABOUT_COMPLIANCE 四张表 + AboutFeature/ComplianceTarget 类型),图标取 lucide-react-native 的 LucideIcon,只被 RN AboutScreen.tsx 第 22 行 import;其宿主屏 AboutScreen.tsx 因 2026-09-05 产品定稿已在本表登记为 RN 独占,小程序端另有同形 aboutSections.ts(图标走本地 LineIcon),本文件无 UI 可共享,随宿主屏留在端内',
+      expires: '2027-06-30',
+    },
   }),
 )
 

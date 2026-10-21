@@ -7,6 +7,12 @@
 import { useState } from 'react'
 import { Cpu } from 'lucide-react'
 import { Button, Card, CardContent } from '@ihui/ui-react'
+import {
+  getPublicStatusModels,
+  type PublicStatusModelItem,
+  type PublicStatusServiceStatus,
+} from '@ihui/api-client'
+import { apiFailureToError } from '@ihui/shared/utils'
 import { cn } from '@/lib/utils'
 
 /**
@@ -39,17 +45,8 @@ import { cn } from '@/lib/utils'
  *   的正确性不依赖本组件的渲染条数，故截断渲染不影响判定。
  */
 
-type ServiceStatus = 'operational' | 'degraded' | 'outage'
-
-export interface StatusModelItem {
-  modelId: string
-  displayName: string | null
-  providerCode: string
-  status: ServiceStatus
-  p95LatencyMs: number
-  errorRate: number
-  lastIncidentAt: string | null
-}
+/** 类型唯一源在 @ihui/api-client 的 public-status 端点(§0.6 不抄第二份)。 */
+export type StatusModelItem = PublicStatusModelItem
 
 const dtf = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
@@ -73,13 +70,13 @@ function formatLatency(ms: number): string {
   return ms > 0 ? `${ms}ms` : '—'
 }
 
-function StatusBadge({ status }: { status: ServiceStatus }) {
-  const styles: Record<ServiceStatus, string> = {
+function StatusBadge({ status }: { status: PublicStatusServiceStatus }) {
+  const styles: Record<PublicStatusServiceStatus, string> = {
     operational: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
     degraded: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
     outage: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
   }
-  const labels: Record<ServiceStatus, string> = {
+  const labels: Record<PublicStatusServiceStatus, string> = {
     operational: '正常运行',
     degraded: '性能降级',
     outage: '服务中断',
@@ -95,21 +92,19 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null
 }
 
-/** 全量拉取的响应形如 { code, message, data: { models: [...] } };逐条校验后再落到 state。 */
-function pickModels(raw: unknown): StatusModelItem[] | null {
+/** fetchApi 已拆信封,这里拿到的是 { models: [...] };逐条校验后再落到 state。 */
+function pickModels(raw: unknown): PublicStatusModelItem[] | null {
   if (!isRecord(raw)) return null
-  const data = raw.data
-  if (!isRecord(data)) return null
-  const arr = data.models
-  if (!Array.isArray(arr)) return null
-  const out: StatusModelItem[] = []
+  const arr: unknown[] | null = Array.isArray(raw.models) ? raw.models : null
+  if (!arr) return null
+  const out: PublicStatusModelItem[] = []
   for (const it of arr) {
     if (!isRecord(it) || typeof it.modelId !== 'string') continue
     out.push({
       modelId: it.modelId,
       displayName: typeof it.displayName === 'string' ? it.displayName : null,
       providerCode: typeof it.providerCode === 'string' ? it.providerCode : '',
-      status: (it.status as ServiceStatus) ?? 'operational',
+      status: (it.status as PublicStatusServiceStatus) ?? 'operational',
       p95LatencyMs: typeof it.p95LatencyMs === 'number' ? it.p95LatencyMs : 0,
       errorRate: typeof it.errorRate === 'number' ? it.errorRate : 0,
       lastIncidentAt: typeof it.lastIncidentAt === 'string' ? it.lastIncidentAt : null,
@@ -139,11 +134,11 @@ export function ModelsSection({
     setLoading(true)
     setFailed(false)
     try {
-      // 同源反代(生产构建 NEXT_PUBLIC_API_BASE_URL 置空 ⇒ 浏览器走 /api/* 到 8802),
-      // 不跨域,也不受页面 60s ISR 缓存影响。
-      const res = await fetch('/api/public/status/models')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const parsed = pickModels((await res.json()) as unknown)
+      // 走 @ihui/api-client 共享端点(基址由 web src/lib/api.ts 注入;生产为同源相对路径
+      // ⇒ 浏览器走 /api/* 到 8802),不跨域,也不受页面 60s ISR 缓存影响。
+      const res = await getPublicStatusModels()
+      if (!res.success) throw apiFailureToError(res)
+      const parsed = pickModels(res.data)
       if (!parsed) throw new Error('unexpected payload')
       setAllModels(parsed)
     } catch {
@@ -180,7 +175,9 @@ export function ModelsSection({
                   <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     <span>P95 {formatLatency(m.p95LatencyMs)}</span>
                     <span>错误率 {formatPercent(m.errorRate)}</span>
-                    <span>最近事件 {m.lastIncidentAt ? formatDateTime(m.lastIncidentAt) : '—'}</span>
+                    <span>
+                      最近事件 {m.lastIncidentAt ? formatDateTime(m.lastIncidentAt) : '—'}
+                    </span>
                     <StatusBadge status={m.status} />
                   </div>
                 </div>
@@ -192,9 +189,7 @@ export function ModelsSection({
                   {loading ? '加载中…' : `展开全部（还有 ${hidden} 个）`}
                 </Button>
                 {failed ? (
-                  <span className="text-xs text-rose-600 dark:text-rose-400">
-                    加载失败,可重试
-                  </span>
+                  <span className="text-xs text-rose-600 dark:text-rose-400">加载失败,可重试</span>
                 ) : null}
               </div>
             ) : null}

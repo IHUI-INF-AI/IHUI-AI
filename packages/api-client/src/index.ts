@@ -333,6 +333,8 @@ export * from './endpoints/srs.js'
 export * from './endpoints/study.js'
 export * from './endpoints/subscription.js'
 export * from './endpoints/system.js'
+// 公开状态页端点(2026-10-21 立,web /status「展开全部」;守门 73 收口)
+export * from './endpoints/public-status.js'
 export * from './endpoints/voice-stt.js'
 export * from './endpoints/teacher.js'
 export * from './endpoints/token.js'
