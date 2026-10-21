@@ -114,21 +114,16 @@ export function findHardcodedIdentifierHits(rustSrc) {
 /** 预检与调用方必须成套:preflight 收标识参数,lib.rs 从运行期配置取标识后传进去。 */
 export function findPreflightWiringGaps({ guardSrc, libSrc }) {
   const gaps = []
-  // 2026-10-21 重钉(票 L7220 P1 把签名演进为 (app_id, log_stem) 双参:日志文件名取源
-  // lib.rs 的 APP_LOG_FILE_STEM 单源,§0.6 禁止守护内抄第二份字面量)。判据跟着生产者
-  // 换形(与 ③ 段包装壳换形同一理由),语义一格未松:首参仍**必须**是运行期 identifier、
-  // 两档同形、调用点仍必须把配置取来的标识传进去 —— 三条都只放宽"闭括号紧跟 &str"
-  // 这一形状约束,参数名/类型/传参事实照钉。
-  if (!/pub fn preflight\(\s*app_id: &str\b/.test(guardSrc)) {
+  if (!/pub fn preflight\(app_id: &str\)/.test(guardSrc)) {
     gaps.push('startup_guard::preflight 未收 app_id 参数 ⇒ 锁名只能来自写死的常量')
   }
-  if (!/pub fn preflight\(\s*_app_id: &str\b/.test(guardSrc)) {
+  if (!/pub fn preflight\(_app_id: &str\)/.test(guardSrc)) {
     gaps.push('非 Windows 档的 preflight 签名未同步(两档必须同形,否则调用点会分裂成两份)')
   }
   if (!/context\.config\(\)\.identifier/.test(libSrc)) {
     gaps.push('lib.rs 未从运行期配置取 identifier ⇒ 单实例锁名与预检取源可能劈叉')
   }
-  if (!/startup_guard::preflight\(&app_identifier\b/.test(libSrc)) {
+  if (!/startup_guard::preflight\(&app_identifier\)/.test(libSrc)) {
     gaps.push('lib.rs 调 preflight 时没把配置取来的标识传进去')
   }
   if (!/identifier:\s*app\.config\(\)\.identifier\.clone\(\)/.test(libSrc) && !/let identifier = app\.config\(\)\.identifier\.clone\(\)/.test(libSrc)) {
@@ -296,24 +291,6 @@ test('⑥ 尺子本身有牙:喂回旧形态必须判红(构造面,不靠仓库�
     }),
     [],
     '正确接线被判红 ⇒ 恒红门',
-  )
-  // L7220 双参现行形态的正控(与上面单参正控成对):重钉后两档签名/调用点带
-  // log_stem 第二参必须照样判绿,否则本尺子对现行生产形态失明。
-  assert.deepEqual(
-    findPreflightWiringGaps({
-      guardSrc:
-        'pub fn preflight(app_id: &str, log_stem: &str) {}\npub fn preflight(_app_id: &str, _log_stem: &str) {}',
-      libSrc: [
-        'let context = tauri::generate_context!();',
-        'let app_identifier = context.config().identifier.clone();',
-        'startup_guard::preflight(&app_identifier, APP_LOG_FILE_STEM);',
-        'fn clear_webview_cache(app: tauri::AppHandle) {',
-        '    let identifier = app.config().identifier.clone();',
-        '}',
-      ].join('\n'),
-    }),
-    [],
-    '双参现行形态(app_id+log_stem)被判红 ⇒ 恒红门',
   )
 
   assert.deepEqual(

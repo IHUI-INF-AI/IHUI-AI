@@ -107,7 +107,7 @@ const src = readFileSync(SRC_PATH, 'utf8')
 
 test('装车证明: main 必须真走 decideGcRun / gcArgsFor 这条链,而不是自己拼命令', () => {
   assert.match(src, /const decision = decideGcRun\(\{ destructive/, 'main 必须调判据')
-  assert.match(src, /gitRaw\(\s*decision\.args/, '派生 git 必须吃判据给出的参数(经 face-reader gitRaw 同源消费 decision.args)')
+  assert.match(src, /\.\.\.decision\.args/, '派生 git 必须吃判据给出的参数')
   assert.match(src, /measurePreconditions\(repoRoot\)/, '破坏性档必须实测前置')
 })
 
