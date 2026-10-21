@@ -847,6 +847,45 @@ const pump = (r) => {
   return `${r.stdout || ''}${r.stderr || ''}`
 }
 
+/**
+ * 异步 spawn + **实时转发**(2026-10-21 立)。钩子链本机实测 9~15 分钟,而 spawnSync 把子进程
+ * 输出全量缓冲到结束 ⇒ 终端这段时间零输出,与卡死同形(机主原话:"接受不了 15 分钟,要实时百分比")。
+ * 这里逐块转发到父进程 stdout/stderr,同时合成 combined 供既有归因/isGitLockFailure 读;
+ * 返回值刻意把 stdout/stderr 留空,避免上层 pump() 二次打印。
+ */
+function spawnStreaming(cmd, args, opts) {
+  return new Promise((resolve) => {
+    let text = ''
+    let settled = false
+    const done = (payload) => {
+      if (settled) return
+      settled = true
+      resolve(payload)
+    }
+    const child = spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] })
+    child.stdout?.on('data', (d) => {
+      text += d
+      try {
+        process.stdout.write(d)
+      } catch {
+        /* 终端写失败不影响子进程 */
+      }
+    })
+    child.stderr?.on('data', (d) => {
+      text += d
+      try {
+        process.stderr.write(d)
+      } catch {
+        /* 同上 */
+      }
+    })
+    child.on('error', (err) =>
+      done({ status: null, signal: null, stdout: '', stderr: '', combined: text + String(err?.message ?? err) }),
+    )
+    child.on('close', (status, signal) => done({ status, signal, stdout: '', stderr: '', combined: text }))
+  })
+}
+
 // O43②:护栏目录生命周期 —— 每次发令前重生成(基线必须是"此刻"的全量索引),进程退出
 // (含 process.exit 路径)时清理;目录在 .ihui-agent/tmp 下,不进库。
 let hookWindowGuard = null
@@ -881,7 +920,14 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
       `O43② 钩子运行期外来件护栏已布防:基线 ${hookWindowGuard.baselineCount} 条 / 转发 ` +
         `${hookWindowGuard.hookNames.length} 个钩子(pre-commit 成功后写树前复量)`,
     )
-  const r = spawnSync(
+  // 长钩子链的预期提示(2026-10-21):本机实测 ≈15 分钟,期间 spawnSync 把子进程输出全量
+  // 缓冲 ⇒ 终端零输出与"卡死"同形。逐门进度由 guardian-executor 每门 append 一行,可 tail。
+  log(
+    'info',
+    '钩子链(守门批量检查)本机实测约 9~15 分钟,期间无输出属正常;' +
+      '逐门实时进度: tail -f .workbuddy/hook-logs/gates-progress.log',
+  )
+  const r = await spawnStreaming(
     'git',
     hookWindowGuard.hooksDir
       ? ['-c', `core.hooksPath=${hookWindowGuard.hooksDir}`, ...commitArgs(false)]
@@ -889,17 +935,12 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
     {
       encoding: 'utf8',
       cwd: repoRoot,
-      // G-978004 ②:把本枚声明的提交面传给钩子链(整链继承)。pre-commit-hook 写进
-      // rounds.jsonl 的 declaredFiles,让统计器能按"声明集 == 落地面"发强证;
-      // 普通直 git commit 不带此 env ⇒ 维持 ⊆ 弱证,失效方向是少发强证不是发假证。
-      // O43②:护栏的写树前复量也从这里拿声明集(env 透传给钩子进程)。
       env: { ...process.env, IHUI_DECLARED_FILES: expectedFiles.join('\n') },
       windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
     },
   )
-  const out = pump(r)
+  // 输出已在 spawnStreaming 里实时转发,这里只取合成文本(不能再 pump,否则每行打两遍)
+  const out = r.combined
   hookOutput += out
   commitResult = r
   if (r.status === 0) break
