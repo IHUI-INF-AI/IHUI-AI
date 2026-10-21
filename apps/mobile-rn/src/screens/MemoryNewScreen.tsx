@@ -239,7 +239,7 @@ function Chip({
       accessibilityRole="button"
       accessibilityState={{ selected }}
     >
-      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
+      <Text style={[styles.chipText, selected && styles.chipSelectedText]}>{label}</Text>
     </TouchableOpacity>
   )
 }
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardTitle: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
@@ -277,14 +277,14 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
   },
   chipSelected: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
   chipText: { fontSize: 12, color: tokens.text.secondary },
-  chipTextSelected: { color: tokens.brand.ctaForeground, fontWeight: '600' },
+  chipSelectedText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
   errorText: { fontSize: 12, color: tokens.danger.DEFAULT },
   primaryBtn: {
     height: 44,

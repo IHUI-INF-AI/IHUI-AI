@@ -89,7 +89,9 @@ export default function MyPapersScreen() {
 
   const fmt = (iso: string): string => {
     const d = new Date(iso)
-    return Number.isNaN(d.getTime()) ? iso : new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(d)
+    return Number.isNaN(d.getTime())
+      ? iso
+      : new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(d)
   }
 
   const onCreate = async () => {
@@ -259,7 +261,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 6,
     },
     label: { fontSize: 13, color: tokens.text.secondary },
@@ -289,7 +291,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 6,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -301,7 +303,10 @@ function makeStyles() {
       fontSize: 11,
       fontWeight: '600',
     },
-    badgeOk: { backgroundColor: tokens.success.light ?? tokens.surface.muted, color: tokens.success.DEFAULT },
+    badgeOk: {
+      backgroundColor: tokens.success.light ?? tokens.surface.muted,
+      color: tokens.success.DEFAULT,
+    },
     badgeBad: { backgroundColor: tokens.surface.muted, color: tokens.danger.DEFAULT },
     badgePending: { backgroundColor: tokens.surface.muted, color: tokens.text.secondary },
     meta: { fontSize: 12, color: tokens.text.tertiary },
@@ -309,7 +314,12 @@ function makeStyles() {
     actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
     dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 48, gap: 12 },
-    centerText: { textAlign: 'center', paddingVertical: 48, fontSize: 14, color: tokens.text.secondary },
+    centerText: {
+      textAlign: 'center',
+      paddingVertical: 48,
+      fontSize: 14,
+      color: tokens.text.secondary,
+    },
     errorText: { fontSize: 14, color: tokens.danger.DEFAULT },
     retry: {
       paddingHorizontal: 16,

@@ -177,9 +177,7 @@ export default function ArticleEditScreen() {
                       onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
                       disabled={saving}
                     >
-                      <Text
-                        style={[styles.chipText, categoryId === c.id && styles.chipTextActive]}
-                      >
+                      <Text style={[styles.chipText, categoryId === c.id && styles.chipActiveText]}>
                         {c.name}
                       </Text>
                     </TouchableOpacity>
@@ -236,7 +234,7 @@ function makeStyles() {
       borderColor: tokens.border.medium,
       color: tokens.text.primary,
       fontSize: 15,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     contentInput: { height: 220, paddingTop: 12, paddingBottom: 12, textAlignVertical: 'top' },
     summaryInput: { height: 78, paddingTop: 10, paddingBottom: 10, textAlignVertical: 'top' },
@@ -247,11 +245,11 @@ function makeStyles() {
       borderRadius: rnRadius.md,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     chipActive: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
     chipText: { fontSize: 13, color: tokens.text.primary },
-    chipTextActive: { color: tokens.brand.ctaForeground },
+    chipActiveText: { color: tokens.brand.ctaForeground },
     switchRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -261,11 +259,15 @@ function makeStyles() {
     radio: {
       width: 20,
       height: 20,
-      borderRadius: rnRadius.xs,
+      borderRadius: rnRadius.sm,
       borderWidth: 2,
       borderColor: tokens.border.medium,
     },
-    radioOn: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
+    radioOn: {
+      backgroundColor: tokens.brand.cta,
+      borderColor: tokens.brand.cta,
+      color: tokens.brand.ctaForeground,
+    },
     submit: {
       height: 46,
       marginTop: 20,
