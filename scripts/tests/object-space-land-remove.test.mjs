@@ -21,6 +21,7 @@
  *  T7  clobber 同语义:CAS 期间 HEAD 推进而该路径在位性变了 ⇒ 拒绝照旧删
  *  T8  写删混同一次落地:既有写入又有摘除,两条自证各自问各自的方向
  *  T9  形状锁:源码里删除档的接线在位(import 了 commitTreeWithIndex、entries 里有 deleted 项)
+ *  T10 器物自证入口:`--self-test` 真跑得通(交付现场没有 node --test 也能问"删除档还在不在")
  *
  * 一律走 mkScratch 临时仓(退出即回收),**不碰真仓**;不跑会写工作树的命令。
  */
@@ -33,10 +34,24 @@ import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
+import { __test__ as LANDER } from '../object-space-land.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SCRIPT = join(HERE, '..', 'object-space-land.mjs')
 const SRC = readFileSync(SCRIPT, 'utf8')
+/**
+ * 自含电池的**字面期望**(期望值不许由被测函数生成,否则变异测不出 —— 仓内同族惯例):
+ * 落地器 SELF_TEST_PLAN 少一条、改一个 id、或把"必须拒"的例子换成放行,这里立刻红。
+ */
+const SELF_TEST_PLAN_FOR_TEST = [
+  { id: 'ST1', expect: 'accept' },
+  { id: 'ST2', expect: 'reject' },
+  { id: 'ST3', expect: 'reject' },
+  { id: 'ST4', expect: 'accept' },
+  { id: 'ST5', expect: 'accept' },
+  { id: 'ST6', expect: 'accept' },
+  { id: 'ST7', expect: 'reject' },
+]
 const GIT = resolveGitBin() || 'git'
 const RUN_OPTS = { encoding: 'utf8', windowsHide: true, timeout: 120_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
 const runGit = (dir, args) =>
@@ -174,5 +189,33 @@ test('T9 形状锁:源码里删除档的接线在位(import 了底层、entries 
   assert.match(SRC, /!removePaths\.includes\(p\)/, '混提核查必须把删除路径算作已声明')
   // 主索引对齐必须收到删除路径(否则索引留 `D `,下一次普通提交会把死文件加回 HEAD)
   assert.match(SRC, /alignSharedIndex\(\{ root, paths: paths\.concat\(removePaths\)/, '索引对齐必须覆盖删除路径')
+})
+
+test('T10 器物自证入口:--self-test 真跑得通,且每条用例都点名(不是空跑)', (t) => {
+  // 票面原话"带 --self-test 与镜像用例"的前半截:交付现场/值守复盘没有 node --test,
+  // `node scripts/object-space-land.mjs --self-test` 一条命令必须能自证删除档还在。
+  // 它自己造自己的临时仓(走 mkScratch),这里只当调用方:问退出码、问汇总行、问每条用例都在。
+  const r = spawnSync(process.execPath, [SCRIPT, '--self-test'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 300_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  assert.equal(r.status, 0, `--self-test 必须全绿,实得 rc=${r.status}:${r.stdout}\n${r.stderr}`)
+  assert.match(r.stdout, /self-test: \d+\/\d+ 通过/, '汇总行必须存在')
+  const plan = SELF_TEST_PLAN_FOR_TEST
+  assert.ok(Array.isArray(plan) && plan.length >= 5, `自含用例清单至少 5 条,实得 ${plan?.length}`)
+  // 被测自己导出的清单必须与字面期望**逐条同 id 同期望** —— 否则"把 reject 的例子改成 accept"
+  // 这种变异(自证失效的最危险形态)只靠输出里有个 ✅ 是拦不住的
+  const actual = LANDER.SELF_TEST_PLAN
+  assert.deepEqual(
+    actual.map((c) => ({ id: c.id, expect: c.expect })),
+    plan,
+    'SELF_TEST_PLAN 的 id 与期望必须与字面清单逐条一致(改了就是变异)',
+  )
+  for (const c of plan) assert.ok(r.stdout.includes(c.id), `汇总输出必须点名 ${c.id}(空跑/漏跑都算坏)`)
+  // 反证与互斥两条"必须拒"的用例不能悄悄变成放行(那等于自证失效)
+  for (const c of plan.filter((x) => x.expect === 'reject'))
+    assert.ok(r.stdout.includes(`✅ ${c.id}`), `拒的例子 ${c.id} 必须真拒(✅),实得输出里找不到它`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
