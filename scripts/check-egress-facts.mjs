@@ -467,6 +467,11 @@ function collectPythonParityFacts(reasons) {
     {
       cwd: resolve(ROOT, 'apps/ai-service'),
       encoding: 'utf8',
+      // 子进程必须按 UTF-8 写管道:上面 `ensure_ascii=False` 会带出中文,而 Windows 上 Python
+      // 往管道写默认走 ANSI 码页(cp936)⇒ 这里按 utf8 解就是乱码 ⇒ JSON 解析崩 ⇒ 把"判据
+      // 说了话"误报成"派生失败"。同族已设同一对变量的门:bpe-encoding-parity /
+      // principal-consumed / owner-claim / load-state-loaded-marks。
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' },
       timeout: 120_000,
       stdio: ['ignore', 'pipe', 'pipe'],
     },
