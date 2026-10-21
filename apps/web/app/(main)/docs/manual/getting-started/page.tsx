@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: '注册、登录、界面导览、首次对话,3 分钟上手。',
     url: `${SITE_URL}/docs/manual/getting-started`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI 开始使用' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI 开始使用' }],
   },
 }
 

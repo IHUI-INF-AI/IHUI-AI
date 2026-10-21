@@ -110,7 +110,7 @@ export const metadata: Metadata = {
     //   theme_color/background_color=#000000 与图标黑底统一, PWA 启动闪屏无色差
     icon: [
       { url: '/favicon.ico', sizes: '16x16 32x32 48x48', type: 'image/x-icon' },
-      { url: '/images/logo.png', sizes: '512x512', type: 'image/png' },
+      { url: '/images/logo.png?v=20261021', sizes: '512x512', type: 'image/png' },
       { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
     ],
     shortcut: [{ url: '/favicon.ico', type: 'image/x-icon' }],
@@ -273,7 +273,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   url: 'https://aizhs.top',
                   logo: {
                     '@type': 'ImageObject',
-                    url: 'https://aizhs.top/images/logo.png',
+                    url: 'https://aizhs.top/images/logo.png?v=20261021',
                     width: 512,
                     height: 512,
                   },
@@ -362,7 +362,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   },
                   featureList:
                     '8 端同源分发 (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp),AI Agent 市场,可视化拖拽 Agent 构建器,知识库 RAG,多模型统一调度(OpenAI/Claude/通义/DeepSeek/智谱/文心/豆包/Kimi/Ollama/Mistral/Llama),MCP 工具协议,工作流编排,团队协作,积分通兑,SSO/OAuth,Apache 2.0 开源,私有化部署,Docker Compose 一键部署',
-                  screenshot: 'https://aizhs.top/images/logo.png',
+                  screenshot: 'https://aizhs.top/images/logo.png?v=20261021',
                   softwareRequirements: 'Node.js 20+, PostgreSQL 18+, Redis 7+',
                   memoryRequirements: '4GB RAM minimum, 8GB recommended',
                   storageRequirements: '20GB available disk space',

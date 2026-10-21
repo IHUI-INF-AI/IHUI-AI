@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     description: '账号 / 积分 / 对话 / Agent / 知识库 / 安全 / 付费高频 FAQ。',
     url: `${SITE_URL}/docs/manual/faq`,
     type: 'article',
-    images: [{ url: '/images/logo.png?v=20260719-unify', width: 1200, height: 630, alt: '智汇 AI FAQ' }],
+    images: [{ url: '/images/logo.png?v=20261021', width: 1200, height: 630, alt: '智汇 AI FAQ' }],
   },
 }
 

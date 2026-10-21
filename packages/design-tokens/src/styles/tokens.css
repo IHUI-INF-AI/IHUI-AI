@@ -269,7 +269,10 @@
    * 即"这套色只在暗档能读",亮档整片监控文字是糊的。
    * 本档只管**文字**:暗档逐字沿用现值(大屏霓虹观感一个字不动),亮档取同色相加深到 AA 之上
    * (worst-of 三个亮面:info 4.60 / success 4.54 / warning 4.54 / danger 5.43)。
-   * 不得拿 --color-*-foreground 顶替:那一档是"实底上的前景"(98% 白),配 bg-success 实测 2.21 更差。 */
+   * **射程边界(2026-10-21 现算,别拿它当万能文字档)**:本档在**中性卡面**与**同色淡底 ≤ /15** 上达标;
+   * 压在**同色 tint-strong(/20~/25)**上时四支里有三支掉到 3.5~4.5(亮 4.09 / 暗 4.93 一类),
+   * 那种位置要用 `--color-success-deep-text` / `--color-warning-amber-text`(实测 5.0~6.4)。
+   * 不得用 --color-*-foreground 顶替:那一档是"实底上的前景"(98% 白),配 bg-success 实测 2.21 更差。 */
   --color-info-text: hsl(199 89% 33%);
   --color-success-text: hsl(142 71% 28%);
   --color-warning-text: hsl(38 92% 30%);
@@ -666,7 +669,11 @@ select:-webkit-autofill:focus {
   --color-info-text: hsl(199 80% 55%);
   --color-success-text: hsl(142 65% 50%);
   --color-warning-text: hsl(38 85% 55%);
-  --color-danger-text: #ef4444;
+  /* danger 这一支暗档不能照抄 --color-danger(#ef4444):它在**同色淡底**上量不到 AA
+   * (bg-danger/10 实测 4.35、/25 3.74,是四支里唯一失败的)。取 #f87171 —— 数值上等于
+   * **亮档**的 --color-danger-bright(暗档那一档恰是 #ef4444,不能引它为据);卡面 6.29、
+   * /10 5.91、/15 5.64、/25 5.09 全过。 */
+  --color-danger-text: #f87171;
   /* RN 对齐补齐暗色覆盖(与上方 @theme 亮色值成对,取自 rnDarkTokens):
    * surface.light 明暗同值恒白;warning.amber 暗色取 amber-400 */
   --color-surface-light: #ffffff;
