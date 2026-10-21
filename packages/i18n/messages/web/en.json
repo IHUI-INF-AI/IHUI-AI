@@ -22131,6 +22131,8 @@
     "title": "Services"
   },
   "settings": {
+    "event2faDisabled": "Two-factor authentication disabled",
+    "eventIpBlocked": "Login blocked by IP allowlist",
     "accountDeletionCancel": "Cancel Deletion",
     "accountDeletionCodeLabel": "Verification Code",
     "accountDeletionCodePlaceholder": "Enter verification code",
