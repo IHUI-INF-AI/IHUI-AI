@@ -44,6 +44,9 @@ import {
 import { formatTokenCount } from '@ihui/shared/utils'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { applyStreamError, isErrorTurn, resendTargetText } from '@ihui/shared/chat'
+import { effectiveMode } from '@ihui/shared/chat/queue-interactions'
+import { useSideQueue } from './side-queue-host'
+import QueueInteractionBar from './queue-interaction-bar'
 // D77(2026-10-17 落地小程序腿):form_request 帧的投影纯函数单源在共享层
 // (@ihui/shared/chat/form-request-frame,由 apps/web 迁入共用,端内不抄第二份)。
 import { projectFormRequestFrame } from '@ihui/shared/chat/form-request-frame'
@@ -190,6 +193,9 @@ export default function ChatPage() {
   const [approvalQueue, setApprovalQueue] = useState<readonly ApprovalRequestView[]>([])
   const [approvalRecords, setApprovalRecords] = useState<readonly ApprovalRecord[]>([])
   const [approvalSending, setApprovalSending] = useState(false)
+  // D38 侧边队列宿主(小程序端):队列是会话态;W27 出队只有一个出口(下方流结束 effect)
+  const sideQueue = useSideQueue()
+  const sideQueueRef = useRef(sideQueue)
   // ── D77(2026-10-17 落地小程序腿):对话流业务表单(form_request → 可填卡 → form_response)──
   // 形状 = 共享投影的 BusinessFormFrameEntry + 宿主级 status/error(web store 同构,
   // 本端用页级 useState 承载 —— 表单是会话内状态,不进消息体也不另起全局 store)。
@@ -775,7 +781,13 @@ export default function ChatPage() {
   const sendMessage = useCallback(
     async (overrideText?: string, baseHistory?: readonly ChatMessage[]) => {
       const text = (overrideText ?? '').trim()
-      if (!text || thinking) return
+      if (!text) return
+      // W27:流式中发送 ⇒ 入队而不是丢弃(出队由下方流结束 effect 统一负责)
+      if (thinking) {
+        sideQueueRef.current.enqueue(text)
+        setInputValue('')
+        return
+      }
       if (checkSpecialModel(text)) return
       const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
       const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
@@ -1228,7 +1240,25 @@ export default function ChatPage() {
   // 「回放落定后自动发出分析指令」调用(声明顺序在那条边之上,直接引用会撞 TDZ)。
   useEffect(() => {
     sendMessageRef.current = sendMessage
+    sideQueueRef.current = sideQueue
   })
+
+  /**
+   * D38:流结束 ⇒ 出队队首补答(队列不会自己发消息)。
+   * effectiveMode 只在这里判一次:Runtime 不支持插话时 steer 偏好降级为 queue,
+   * 出队语义不变(W27:恒取队首,选择逻辑不在队列模块里)。
+   */
+  const prevThinkingRef = useRef(false)
+  useEffect(() => {
+    const wasThinking = prevThinkingRef.current
+    prevThinkingRef.current = thinking
+    if (!wasThinking || thinking) return
+    const host = sideQueueRef.current
+    const resolution = effectiveMode(host.mode, false)
+    if (resolution.mode !== 'queue') return
+    const head = host.takeHead()
+    if (head) void sendMessageRef.current(head.text)
+  }, [thinking])
 
   // 票 68:终止在途流的唯一出口。「停止」按钮与下面的换档 effect 都走这里,
   // 差别只在要不要给用户一个看得见的理由(notice)—— 用户自己点停止不需要解释。
@@ -2013,6 +2043,23 @@ export default function ChatPage() {
         onDecision={(payload) => void handleApprovalDecision(payload)}
       />
 
+      {/* D38:队列交互条(空队列返回 null,零占位);打断只停流,出队交给流结束 effect */}
+      <QueueInteractionBar
+        items={sideQueue.items}
+        streaming={thinking}
+        mode={sideQueue.mode}
+        onReorder={sideQueue.reorder}
+        onUndo={(itemId) => {
+          const removed = sideQueue.remove(itemId)
+          if (removed) setInputValue(removed)
+        }}
+        onEdit={sideQueue.edit}
+        onInterruptAndRun={(plan) => {
+          if (plan.stopFirst) terminateStream()
+        }}
+        onModeChange={sideQueue.setMode}
+      />
+
       <View className="input-box-content safe-area-bottom">
         <View className="tool-icons">
           <Image
@@ -2034,7 +2081,6 @@ export default function ChatPage() {
           value={inputValue}
           onInput={(text) => setInputValue(text)}
           placeholder={t('ai.inputPlaceholder')}
-          disabled={thinking}
           imgsList={imgsList}
           onSend={(text) => sendMessage(text)}
           onUpload={handleUpload}

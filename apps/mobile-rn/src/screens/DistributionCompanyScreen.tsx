@@ -84,7 +84,11 @@ export default function DistributionCompanyScreen() {
           title={t('distributionCompany.title')}
           onBack={() => navigation.goBack()}
           rightActions={[
-            { icon: RefreshCw, label: t('distributionCompany.refresh'), onPress: () => void load() },
+            {
+              icon: RefreshCw,
+              label: t('distributionCompany.refresh'),
+              onPress: () => void load(),
+            },
           ]}
         />
       </NavChrome>
@@ -170,7 +174,7 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
       gap: 8,
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -197,10 +201,15 @@ function makeStyles() {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.light,
+      backgroundColor: tokens.surface.card,
     },
     linkText: { fontSize: 15, color: tokens.text.primary },
-    centerText: { textAlign: 'center', paddingVertical: 32, fontSize: 14, color: tokens.text.secondary },
+    centerText: {
+      textAlign: 'center',
+      paddingVertical: 32,
+      fontSize: 14,
+      color: tokens.text.secondary,
+    },
     errorText: { paddingVertical: 16, fontSize: 14, color: tokens.danger.DEFAULT },
   })
 }

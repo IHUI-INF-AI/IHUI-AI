@@ -185,7 +185,7 @@ export default function VoiceSttScreen() {
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                   >
-                    <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                    <Text style={[styles.chipText, selected && styles.chipSelectedText]}>
                       {t(option.labelKey)}
                     </Text>
                   </TouchableOpacity>
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.lg,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.light,
+    backgroundColor: tokens.surface.card,
   },
   fileBox: {
     padding: 12,
@@ -289,14 +289,14 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     borderWidth: 1,
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.bg,
   },
   chipSelected: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
   chipText: { fontSize: 12, color: tokens.text.secondary },
-  chipTextSelected: { color: tokens.brand.ctaForeground, fontWeight: '600' },
+  chipSelectedText: { color: tokens.brand.ctaForeground, fontWeight: '600' },
   primaryBtn: {
     height: 44,
     flexDirection: 'row',
