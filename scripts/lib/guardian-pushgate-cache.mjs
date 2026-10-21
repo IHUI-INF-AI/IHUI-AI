@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto'
 
 import { gitRaw } from './face-reader.mjs'
 
-const PUSHGATE_CACHE_TTL_MS = 10 * 60 * 1000
+const PUSHGATE_CACHE_TTL_MS = 60 * 60 * 1000 // 2026-10-22 提速:指纹未变即复用,10→60 分钟(改代码才会变指纹)
 const pushGateCacheFile = resolve(process.cwd(), '.workbuddy/push-gate-cache.json')
 
 function readPushGateCache() {
