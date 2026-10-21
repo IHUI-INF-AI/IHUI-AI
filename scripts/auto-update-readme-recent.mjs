@@ -185,12 +185,17 @@ function main() {
     }
   }
 
-  // 无论是否写盘,都先把基线推进到当前 HEAD,避免下次重复处理同一批。
-  try {
-    fs.mkdirSync(path.dirname(BASELINE), { recursive: true })
-    fs.writeFileSync(BASELINE, headSha + '\n')
-  } catch {
-    /* 基线写入失败不致命,下次会重试 */
+  // 基线只在**真的写盘**时推进(2026-10-22 根治):
+  // 旧实现无论 touched 是否为 0 都写 last-sha ⇒ post-commit 每跑一次就把基线文件弄脏,
+  // 即使范围里只有噪声提交也要再回捞一枚"只有指针"的提交。留在原地即可:下次重扫
+  // 同一批噪声提交是无害的(NOISE_RE 过滤后仍不产条目),而真实提交进来时会正常生成。
+  if (touched > 0) {
+    try {
+      fs.mkdirSync(path.dirname(BASELINE), { recursive: true })
+      fs.writeFileSync(BASELINE, headSha + '\n')
+    } catch {
+      /* 基线写入失败不致命,下次会重试 */
+    }
   }
 
   if (touched === 0) console.log('  ✅ 最近更新无新增提交,跳过')
