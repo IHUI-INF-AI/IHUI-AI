@@ -14,7 +14,7 @@ import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { Tooltip } from '@/components/feedback'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 import { useCanvasStore, type CanvasVersion } from '@/stores/canvas-store'
-import { useChatStore } from '@/stores/chat'
+import { usePaneChatStore } from '@/stores/chat-pane-context'
 import { ArtifactTurnNav, useArtifactTurnNav } from '@/components/media/artifact-turn-badge'
 
 /** 层栈 id(见 @/lib/overlay-stack):canvas overlay 是全屏 z-modal,Esc 只在栈顶时被消费 */
@@ -117,7 +117,9 @@ export function CanvasOverlay() {
 
   // D76 挂载:面板头部产物 turn 导航(从 chat store 消息流派生,零新契约);
   // open 时重置到首个产物 turn,onChange 联动双向跳转(滚消息 + 定位产物卡)
-  const messages = useChatStore((s) => s.messages)
+  // 票60 长尾(2026-10-21):本覆盖层随 MessageList 进非根窗格 ⇒ 产物 turn 导航读的是本窗格那份消息
+  const chatStore = usePaneChatStore()
+  const messages = chatStore((s) => s.messages)
   const turnNav = useArtifactTurnNav(messages)
   React.useEffect(() => {
     if (open) turnNav.reset()

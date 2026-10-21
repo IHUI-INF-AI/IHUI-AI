@@ -118,9 +118,25 @@ describe('D184 锚点层:宿主监听在位且走同一包装/回报链(防「�
       resolve(process.cwd(), 'src/components/chat/message-list/MessageItem.tsx'),
       'utf-8',
     )
-    expect(emitter).toContain(
-      "new CustomEvent('ihui:add-selection-attachment', { detail: { text: selectionText } })",
+    // 钉的是"派发同一个事件名 + detail 带 text",不是排版:prettier 把这行折成多行后,
+    // 逐字单行断言会把合法代码读成"没派发"(实测 HEAD 面就是这样红的)⇒ 先归一空白再比。
+    // 字面量也必须跟着现形走:票60 片 4 起 detail 里除 text 还带 paneId,旧字面量缺这一键,
+    // 那条红其实是"锁陈旧"而不是"派发丢了"。归一化只吞空白,不吞语义。
+    const flat = (src: string): string =>
+      src
+        .replace(/,([\s*)\]])/g, '$1') // 尾逗号也是排版(prettier 折行时补的)
+        .replace(/\s+/g, ' ')
+    const NEEDLE = flat(
+      "new CustomEvent('ihui:add-selection-attachment', { detail: { text: selectionText, paneId } })",
     )
+    expect(flat(emitter)).toContain(NEEDLE)
+    // 必须仍被拒的两型:事件名不同 / detail 里不是 selectionText
+    expect(
+      flat("new CustomEvent('ihui:add-selection', { detail: { text: selectionText, paneId } })"),
+    ).not.toContain(NEEDLE)
+    expect(
+      flat("new CustomEvent('ihui:add-selection-attachment', { detail: { text, paneId } })"),
+    ).not.toContain(NEEDLE)
   })
 })
 

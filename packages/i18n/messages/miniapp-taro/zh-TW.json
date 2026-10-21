@@ -4452,7 +4452,8 @@
     "p1": "錄音啟動失敗"
   },
   "webViewPortal": {
-    "title": "Web 功能入口",
+    "knowledgeBase": "知識庫",
+    "settingsBilling": "賬單管理",    "title": "Web 功能入口",
     "hint": "以下為網頁版功能入口，將於內建瀏覽器開啟",
     "sections": {
       "eduAi": "教育 AI",
