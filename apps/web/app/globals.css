@@ -1268,12 +1268,6 @@ iframe::-webkit-scrollbar {
   --lift-shadow-dark:
     0 0 18px var(--color-black-40), 0 3px 8px -2px var(--color-black-50),
     0 16px 34px -8px var(--color-black-70);
-  /* 暗档的"浮起"信号不能只靠黑阴影 —— 黑落在深灰底上量不出差值(机主实测"没啥区别")。
-     真正让它离开纸面的是**表面提亮 + 边缘变亮**:近=亮、远=暗 是深度线索的主通道。 */
-  --lift-surface-dark: color-mix(in srgb, var(--color-card) 88%, #fff);
-  --lift-border-dark: color-mix(in srgb, var(--color-border) 45%, #fff);
-  /* 亮档白底已是最亮,提亮无处可去 ⇒ 改走"边缘压深"这条反向通道 */
-  --lift-border-light: color-mix(in srgb, var(--color-border) 55%, #000);
   --duration-lift: 160ms;
 }
 /* 刻意**不分层**:Tailwind 的 shadow / hover:shadow-* 住在 utilities 层,
@@ -1284,29 +1278,27 @@ iframe::-webkit-scrollbar {
 main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):not([class*='h-full']) {
   transition:
     transform var(--duration-lift) var(--ease-premium-out),
-    box-shadow var(--duration-lift) var(--ease-premium-out),
-    background-color var(--duration-lift) var(--ease-premium-out),
-    border-color var(--duration-lift) var(--ease-premium-out);
+    box-shadow var(--duration-lift) var(--ease-premium-out);
 }
-/* 用 transform 而不是独立的 scale/translate 属性:实测独立属性在这批卡片上被入场动画的
-   合成层吃掉(内联 !important 都改不动 computed 值),而 transform 各内核都稳。
+/* 用 transform 而不是独立的 scale/translate 属性:实测独立属性在这批卡片上会被吞掉,
+   而 transform 各内核都稳。
    z-index 对 grid/flex 子项**不需要 position** 就生效(卡片全是网格/弹性子项)—— 少了这一格,
-   放大后的卡片会压到邻居边框上、被邻居裁掉一角,读起来像"错位"而不是"浮起来"。 */
+   放大后的卡片会压到邻居边框上、被邻居裁掉一角,读起来像"错位"而不是"浮起来"。
+   hover 只改这两样(位移缩放 + 投影):**不碰 border-color、不碰底色** —— 上一版我给暗档加了
+   "边缘变亮"(border-color 混 45% 白),结果就是一圈描边,正撞在 §4「hover 用 subtle 变化,
+   不要发光边框」的反例上,机主 2026-10-23 点名退掉。 */
 .ui-lift:not(.ui-lift-off):hover,
 main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):not([class*='h-full']):hover {
   z-index: 1;
   transform: translateY(var(--lift-offset)) scale(var(--lift-scale));
   box-shadow: var(--lift-shadow);
-  border-color: var(--lift-border-light);
 }
-/* 暗档:黑阴影量不出差值,深度线索改走"表面提亮 + 边缘变亮"(近=亮、远=暗) */
+/* 暗档只换阴影浓度,不换形状语言 */
 .dark .ui-lift:not(.ui-lift-off):hover,
 .dark
   main
   :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):not([class*='h-full']):hover {
   box-shadow: var(--lift-shadow-dark);
-  background-color: var(--lift-surface-dark);
-  border-color: var(--lift-border-dark);
 }
 /* 排除 h-full / min-h-full 一族:那是**布局壳**(撑满工作区的侧栏、整页容器),
    不是卡片。实测 API 密钥页有一个 6111px 高的 bg-card 壳、用户管理页有 h-full 侧栏壳,
