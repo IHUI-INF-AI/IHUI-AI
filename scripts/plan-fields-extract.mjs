@@ -38,13 +38,49 @@ import {
   dispositionOf,
   dispositionOfV2,
   ownedElsewhereRe,
+  waitingEnvRe,
+  waitingEnvSlotRe,
 } from './lib/plan-task-index.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 /** 只取 `归属:` 后面的**值**;词表(整族判据)在 `plan-task-index`,这里不复制。 */
-const OWNER_VALUE_RE = /归属[:：]\s*([^,，。;；)）\n]{1,80})/
+const OWNER_VALUE_RE = /归属[:：]\s*([^,，。;；\n]{1,120})/
 const MAX_OWNER = 48
+const MAX_BLOCKING = 24
+/** 归属值里这些形态一定是"别的话"混进来:破折号后的叙述、连续空白(台账排版分隔两件事)、括号补充。 */
+const OWNER_CUT_RE = /(?:\s*[—–]{1,2}\s+|\s{2,}|[（(])/
+/** 截完还以虚词开头/结尾的,是被人句子的中段顶出来的假持有人 ⇒ 整条不造。 */
+const OWNER_LEAD_PARTICLE_RE = /^[的与和及是在为把对跟]/
+const OWNER_TAIL_PARTICLE_RE = /[的和与及了]$/
 const UPDATED_BY = 'plan-fields-extract'
+
+function cleanOwner(raw) {
+  const cut = String(raw ?? '')
+    .split(OWNER_CUT_RE)[0]
+    .trim()
+  if (cut.length < 2) return null
+  if (OWNER_LEAD_PARTICLE_RE.test(cut)) return null
+  if (OWNER_TAIL_PARTICLE_RE.test(cut)) return null
+  return cut.slice(0, MAX_OWNER)
+}
+
+/**
+ * blocking = **让这一行不落"现在可做"的那段话本身**,不是替他写一句理由。
+ * 先取作者自己的自述槽(`在等什么:` / `在等:`),槽里没有才退回词族命中词 ——
+ * 两把尺子都问 `plan-task-index` 要同一份正则(§0.6),所以"搬进侧车"不会因词表分家而改判。
+ * 等人拍板那一档没有可复用的词族出口(它的判据是带四档护栏的函数),拿不到槽就留空:
+ * 宁缺 ⇒ 侧车绝不替人编一句等待理由。
+ */
+function blockingOf(face, bucket) {
+  const slot = waitingEnvSlotRe().exec(face)
+  const slotText = slot && slot[1] ? slot[1].trim() : ''
+  if (slotText !== '') return slotText.slice(0, MAX_BLOCKING)
+  if (bucket === 'waiting-env') {
+    const m = waitingEnvRe().exec(face)
+    if (m) return m[0].slice(0, MAX_BLOCKING)
+  }
+  return ''
+}
 
 /**
  * 一行 → 一条忠实记录,或 `null`(搬不动)。
@@ -58,20 +94,23 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
   if (!key) return null
   const bucket = dispositionOf(line)
   if (bucket === 'actionable') return null
+  const face = dispositionFace(line)
   const rec = { key, waiting: 'none', updatedAt: nowIso, updatedBy: UPDATED_BY }
   if (bucket === 'owned-elsewhere') {
-    const face = dispositionFace(line)
+    // 命中若只存在于反引号里,那是转述别人的理由(G-1058610 病②),不是本行的归属表态
     if (!ownedElsewhereRe().test(face)) return null
     const m = OWNER_VALUE_RE.exec(face)
     if (!m) return null
-    const owner = String(m[1]).trim().slice(0, MAX_OWNER)
-    if (owner === '') return null
+    const owner = cleanOwner(m[1])
+    if (owner === null) return null
     rec.owner = owner
   } else if (bucket === 'waiting-human') {
     rec.waiting = 'human'
   } else {
     rec.waiting = 'env'
   }
+  const blocking = blockingOf(face, bucket)
+  if (blocking !== '') rec.blocking = blocking
   return rec
 }
 

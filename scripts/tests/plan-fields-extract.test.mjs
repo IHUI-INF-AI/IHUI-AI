@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { __test__ as X } from '../plan-fields-extract.mjs'
-import { compositeKeyOf } from '../lib/plan-task-index.mjs'
+import { compositeKeyOf, dispositionOf } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 describe('侧车抽取:逐行取值', () => {
@@ -135,8 +135,61 @@ describe('侧车抽取:写盘', () => {
   })
 })
 
+describe('侧车抽取:字段质量(投影要能给人看,不是把半句话搬过去)', () => {
+  it('owner 在破折号与连续空白处截断 —— 只留归属本身,后面那句别人的叙述不进 owner', () => {
+    const a = X.extractFromLine('- [ ] G-1 甲 —— 归属:union-converge 落地闸持有人 —— 两版修法互相吞')
+    assert.equal(a.owner, 'union-converge 落地闸持有人')
+    const b = X.extractFromLine('- [ ] G-2 乙 归属:台账状态门持有人     的')
+    assert.equal(b.owner, '台账状态门持有人')
+  })
+
+  it('截完只剩虚词 ⇒ 整条不造记录(宁缺:侧车里的假 owner 比没有更难查)', () => {
+    assert.equal(X.extractFromLine('- [ ] G-3 丙 归属:与     两条线持有人'), null)
+    assert.equal(X.extractFromLine('- [ ] G-4 丁 归属:的 那条线持有人'), null)
+  })
+
+  it('waiting 记录带 blocking:作者自述槽优先,拿不到槽就用让这行不落"可做"的那段命中词', () => {
+    const slot = X.extractFromLine('- [ ] G-5 戊 在等什么:dev 栈机器级依赖被拉回(不是等代码)')
+    assert.equal(slot.waiting, 'env')
+    assert.equal(slot.blocking, 'dev 栈机器级依赖被拉回')
+    const word = X.extractFromLine('- [ ] G-6 己 需真机复跑')
+    assert.equal(word.waiting, 'env')
+    assert.equal(word.blocking, '需真机')
+  })
+
+  it('等人拍板而没有自述槽 ⇒ blocking 留空(绝不替作者编一句等待理由)', () => {
+    const h = X.extractFromLine('- [ ] G-7 庚 需用户拍板')
+    assert.equal(h.waiting, 'human')
+    assert.equal(h.blocking, undefined)
+  })
+
+  it('词表只 import:抽取器里不得出现第二份等待词族', () => {
+    const src = readFileSync(new URL('../plan-fields-extract.mjs', import.meta.url), 'utf8')
+    assert.match(src, /waitingEnvRe/, '等待词族必须问 plan-task-index 要那一份')
+    for (const lit of ['需真机', '阻塞主体', '不可执行', '开发者工具'])
+      assert.ok(!src.includes(lit), `抽取器里出现 "${lit}" = 抄了第二把尺子`)
+  })
+})
+
+describe('台账判据的等待词族补洞(现读改判凭据)', () => {
+  it('自述"在等:另一张前置票"的行不得再被判成现在可做', () => {
+    assert.equal(dispositionOf('- [ ] P1-② 批量对齐(在等:P0-① 补齐的触发面先攒出样本)'), 'waiting-env')
+    assert.equal(dispositionOf('- [ ] G-923 端到端复量 —— 在等什么:等 dev 栈依赖被拉回'), 'waiting-env')
+  })
+
+  it('否定式转述不算等待(补洞不得把护栏削掉)', () => {
+    assert.notEqual(dispositionOf('- [ ] X-1 这条不需要在等:任何人'), 'waiting-env')
+  })
+
+  it('指针行折叠来的旧题面不算本行的等待(结构让路,不抄词表)', () => {
+    const ptr =
+      '- [ ] 副本指针(编号 P1-①):本行折叠自旧形态行 **P1-① 扩共享层首批(在等:逐屏清单裁决,量级 10–20 人日)** —— 那整句已被实测否证'
+    assert.notEqual(dispositionOf(ptr), 'waiting-env', '指针行带的是**别票的旧题面**,不是本行在等')
+  })
+})
+
 describe('侧车抽取:不复制判据(§0.6/§22c)', () => {
-  it('词表必须 import,不得在抽取器里出现第二份', () => {
+  it('归属词表必须 import,不得在抽取器里出现第二份', () => {
     const src = readFileSync(new URL('../plan-fields-extract.mjs', import.meta.url), 'utf8')
     assert.match(src, /ownedElsewhereRe/, '必须问 plan-task-index 要那份词表')
     for (const lit of ['本票不认领', '不代裁', '他人账', '不归本机'])
