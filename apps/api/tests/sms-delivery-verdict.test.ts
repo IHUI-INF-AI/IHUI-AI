@@ -103,7 +103,14 @@ describe('judgeAliyunResponse：HTTP 200 不等于发出去了', () => {
   })
 
   it('响应体缺 code / 整个 body 缺失 / code 非字符串 ⇒ 一律判未发送,不得默认成功', () => {
-    for (const raw of [undefined, null, {}, { body: {} }, { body: { code: 200 } }, { code: 'OK' }]) {
+    for (const raw of [
+      undefined,
+      null,
+      {},
+      { body: {} },
+      { body: { code: 200 } },
+      { code: 'OK' },
+    ]) {
       expect(sms.judgeAliyunResponse(raw).sent).toBe(false)
     }
   })
@@ -138,6 +145,56 @@ describe('maskPhone：日志面不得出现裸号', () => {
   })
   it('短号一律全遮,不得把整号原样吐出', () => {
     expect(sms.maskPhone('12345')).toBe('***')
+  })
+})
+
+describe('pickTemplateCode：场景 → 模板码,缺配必须回落而不是失败', () => {
+  const KEYS = ['ALI_SMS_TEMPLATE_CODE', ...Object.values(sms.SCENE_TEMPLATE_ENV_KEYS)] as const
+  const saved: Record<string, string | undefined> = {}
+
+  for (const k of KEYS) saved[k] = process.env[k]
+  const restore = () => {
+    for (const k of KEYS) {
+      const v = saved[k]
+      if (v === undefined) delete process.env[k]
+      else process.env[k] = v
+    }
+  }
+
+  it('四个场景各有独立的 env 键,且键名互不相同(闭集被缩小 ⇒ 本例翻红)', () => {
+    const values = Object.values(sms.SCENE_TEMPLATE_ENV_KEYS)
+    expect(values).toHaveLength(4)
+    expect(new Set(values).size).toBe(4)
+    expect(new Set(values).size).toBe(values.length)
+  })
+
+  it('场景专用键已配 ⇒ 用它,不得借用主模板(主模板是登录文案,发给注册就是误导)', () => {
+    process.env.ALI_SMS_TEMPLATE_CODE = 'SMS_LOGIN_MAIN'
+    process.env.ALI_SMS_TEMPLATE_CODE_REGISTER = 'SMS_REGISTER_ONLY'
+    expect(sms.pickTemplateCode('register')).toBe('SMS_REGISTER_ONLY')
+    restore()
+  })
+
+  it('场景专用键没配 ⇒ 回落主模板,不得判失败(换机只配一枚主模板是常态)', () => {
+    process.env.ALI_SMS_TEMPLATE_CODE = 'SMS_LOGIN_MAIN'
+    delete process.env.ALI_SMS_TEMPLATE_CODE_RESET
+    expect(sms.pickTemplateCode('reset')).toBe('SMS_LOGIN_MAIN')
+    restore()
+  })
+
+  it('不传场景 ⇒ 主模板;主模板也空 ⇒ 返回 undefined 交给调用方判未配置', () => {
+    process.env.ALI_SMS_TEMPLATE_CODE = 'SMS_LOGIN_MAIN'
+    expect(sms.pickTemplateCode()).toBe('SMS_LOGIN_MAIN')
+    delete process.env.ALI_SMS_TEMPLATE_CODE
+    expect(sms.pickTemplateCode('login')).toBeUndefined()
+    restore()
+  })
+
+  it('空串不等于已配(空值键必须继续回落,否则四场景全发空模板)', () => {
+    process.env.ALI_SMS_TEMPLATE_CODE = 'SMS_LOGIN_MAIN'
+    process.env.ALI_SMS_TEMPLATE_CODE_LOGIN = ''
+    expect(sms.pickTemplateCode('login')).toBe('SMS_LOGIN_MAIN')
+    restore()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
