@@ -59,7 +59,8 @@
  *   与守门 36/93/124/13c 同口径。兜住五件各门自己写必错的事(git 绝对路径、batch 的
  *   stdio[0]=pipe、一次派生读一批而非 fork 风暴、junction 穿根比较、maxBuffer 给足)。
  *   只做**路径枚举/存在性**的调用(`ls-files` / `diff --name-only` / `rev-parse --show-toplevel`)
- *   不读 blob、层无对应出口,**留原样** —— 把它们算成"读内容"并硬改是本仓登记过的假阳型。
+ *   不读 blob,走的是层里另一档出口 `gitRaw`(G-54 起;此前是各门自己拼 `execFileSync`)——
+ *   两档都必须留在层内:自拼派生 = fork 风暴 + 裸 `git` 在服务账户 PATH 下静默失效。
  *   语义未动:全量档仍判 HEAD blob(棘轮锚点也恒取 HEAD),--staged/--files 仍取工作树。
  *
  * 用法:
@@ -75,9 +76,8 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, relative, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { execFileSync } from 'node:child_process'
 
-import { catBatch, Undetermined } from './lib/face-reader.mjs'
+import { catBatch, Undetermined, gitRaw } from './lib/face-reader.mjs'
 import {
   objectDims,
   boxDims,
@@ -145,17 +145,12 @@ function loadTable() {
 /**
  * 只读 git 调用:一律带 timeout(守门 80)+ windowsHide(守门 52)。
  * 共享工作区里 git 挂起过 80 分钟(CPU 仅 2.84s),钩子链上没有超时等于没有交付。
+ *
+ * G-54:派生统一走取材层 `gitRaw`(绝对 git + safe.directory/quotepath + 显式 stdio + EBUSY 兜底),
+ * 本函数只保留本门自己的两个参数:60s 超时与 256MB 缓冲(全仓清单的实测余量)。
  */
 function gitRo(args) {
-  // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 1 << 28,
-    timeout: 60000,
-  })
+  return gitRaw(args, ROOT, { maxBuffer: 1 << 28, timeout: 60000 })
 }
 
 /** 一份 git 文件清单(路径统一正斜杠);取不到返回 null,调用方按"无法收窄"处理而非静默放行 */
@@ -220,13 +215,9 @@ function* walk(dir) {
 const STAGED_SET = (() => {
   if (!isStaged) return null
   try {
+    // G-54:同一派生出口 gitRo(此前这里另有一份内联派生,取数口径会与 gitRo 漂开)
     return new Set(
-      execFileSync(process.execPath === '' ? 'git' : 'git', ['diff', '--cached', '--name-only'], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        cwd: ROOT,
-        encoding: 'utf8',
-        windowsHide: true,
-      })
+      gitRo(['diff', '--cached', '--name-only'])
         .split('\n')
         .filter(Boolean)
         .map((f) => f.replaceAll('\\', '/')),
@@ -1761,14 +1752,8 @@ async function main() {
   // 判据 C:覆盖面对账。与暂存范围无关,恒按全仓跟踪清单判 —— 静默逃逸不会因"本次没碰"而消失
   let cov = { red: [], exempt: [] }
   try {
-    const tracked = execFileSync('git', ['ls-files'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      maxBuffer: 1 << 28,
-      timeout: 120000,
-    })
+    // G-54:裸 git 派生迁取材层;120s 超时与 256MB 缓冲按原值显式保留(全仓清单较大)
+    const tracked = gitRaw(['ls-files'], ROOT, { maxBuffer: 1 << 28, timeout: 120000 })
       .split('\n')
       .filter(Boolean)
     cov = coverageAudit(tracked, (f) => readFileSync(join(ROOT, f), 'utf8'))
