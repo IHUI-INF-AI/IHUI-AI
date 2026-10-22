@@ -90,7 +90,7 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 工程守门 | 268 | `guardianGates` |
 | — blocking | 245 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15670 | `trackedFiles` |
+| 跟踪文件 | 15674 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3a75fa10a2)
+
 **2026-10-22**
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2526330525)
 
@@ -184,12 +187,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1bbcfc21a4)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (eca731e546)
 - 📚 Docs:撤回 G-960 行内「隧道零活动副本」的错归因,只留下量到的事实 (8797dcd702)
-
-**2026-10-22**
-- 🔧 Chore/Other:拆掉一枚从入库起就永不可满足的同形标记,改为逐字钉住两侧现实 (0ff719575c)
-- 🐞 Fix:把话术分档补到 !ready 骨架分支——生产首屏实测打出来的漏网格 (7508b306ae)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1cdb4def64)
-- 📚 Docs:G-929 复验收口结清(落地器镜像 66/66 现跑转绿,修复已在仓) (a24a4195ba)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
