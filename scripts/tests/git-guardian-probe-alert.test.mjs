@@ -265,7 +265,7 @@ test('判据自身:门槛计数是纯函数,未列 verdict 形态一律不推进
 
 // ───────── 脏账本自卫(2026-10-16 真实自伤的回归锁) ─────────
 // 现场:上一版夹具把 `now` 固定成 2027-01-15 又没覆写 streakFile ⇒ 写进了生产账本
-// `.workbuddy/public-path-probe-streak.json` 一条"未来"条目。危害不是难看:`now - ageAnchor` 为负
+// `.ihui-agent/state/public-path-probe-streak.json` 一条"未来"条目。危害不是难看:`now - ageAnchor` 为负
 // ⇒ 永远不超 TTL(条目永生),且同身份真越阈的第一轮会被它加成的"第 2 轮"当场放行 = 门槛被脏数据绕过。
 
 test('脏账本:时刻在未来的条目既不参与加连击,也被回收并点名(不得永生)', () => {
@@ -331,7 +331,7 @@ test('dedupKey 不吃小数点抖动:同一故障的 13s / 13.5s 必须同身份
 })
 
 // ───────── 严重度档必须真能穿过派发契约(2026-10-20 立,实测 sev 恒 0 两周) ─────────
-// 现场:尺子的 `.workbuddy/public-path-probe-last.json` 里 results 每条只有
+// 现场:尺子的 `.ihui-agent/state/public-path-probe-last.json` 里 results 每条只有
 // verdict/reasons/numbers/leg —— **没有 stat**。而派发侧按 `r?.stat || {}` 取,
 // 取不到不报错,只把 classifyAlertIdentity 的严重度档冻在 0。后果不是"少一封信",
 // 而是"坏到断流级也不会变成新身份"⇒ 24h 窗口把恶化压成同一件事(§12f:失效的表现永远是安静)。

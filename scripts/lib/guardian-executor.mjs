@@ -87,7 +87,7 @@ if (showTiming) {
 // 只能靠抓进程树才看出当前跑到哪一门。
 // 出路:每门收口时 append 一行可 tail 的进度,当场就能回答"卡在哪一门/跑到第几门"。
 // 纯观测旁路:写失败只吞掉,绝不改判据、不改退出码、不进提交面。
-const GATE_PROGRESS_FILE = resolve(process.cwd(), '.workbuddy', 'hook-logs', 'gates-progress.log')
+const GATE_PROGRESS_FILE = resolve(process.cwd(), '.ihui-agent', 'state', 'hook-logs', 'gates-progress.log')
 function appendGateProgress(check, r, elapsedMs) {
   try {
     const status = r?.error ? 'error' : r?.status === 0 && r?.signal === null ? 'pass' : 'fail'
@@ -122,7 +122,7 @@ const startTime = Date.now()
 // ── 快档(2026-10-21 立,机主要求"整体 ≤1 分钟")────────────────────────────────
 // 现读数据(guardian-timing.json,154 门):33 道重型门(>3s)合计 **656s = 86%**,
 // 121 道快门合计 109s。快档只跑快门(8 并发 ≈ 20s),重型门由 post-commit 后台补跑,
-// 失败写 .workbuddy/hook-logs/gates-heavy-fail.log —— 提交不被拖住,但红仍然会被看见。
+// 失败写 .ihui-agent/state/hook-logs/gates-heavy-fail.log —— 提交不被拖住,但红仍然会被看见。
 // 默认开(由 pre-commit-hook 设 IHUI_GATE_FAST=1);要全量(CI / 发版 / 排障):IHUI_GATE_FAST=0。
 const HEAVY_GATE_IDS = new Set([
   '30a', '103', '107', '168', '165', '93', '137', '104', '89', '47', '46', '181',
@@ -143,7 +143,7 @@ const fastMode = process.env.IHUI_GATE_FAST === '1'
 // ── 快档硬时间预算(2026-10-21,机主要求"整体 ≤1 分钟")──────────────────────────
 // 静态重型清单追不上耗时波动(test-paths 单轮 57~67s),并发也受队头/屏障拖累(实测 CPU 179s
 // 却跑出 101s 墙钟 = 并发 1.77)。这里给快档一个**硬预算**:到点后不再派发新门,剩余一律
-// 记为"延后"(不判红、也不记绿),清单落 .workbuddy/hook-logs/gates-deferred.json,
+// 记为"延后"(不判红、也不记绿),清单落 .ihui-agent/state/hook-logs/gates-deferred.json,
 // 补跑命令打印在汇总里。预算可通过 IHUI_GATE_FAST_BUDGET_MS 调整。
 const FAST_BUDGET_MS = Number(process.env.IHUI_GATE_FAST_BUDGET_MS ?? 35_000)
 const deferredGates = []
@@ -199,7 +199,7 @@ function printSummary(useStderr) {
   // 快档延后清单落盘(2026-10-21):"这次没跑"必须可追,补跑命令直接可复制。
   if (deferredGates.length > 0) {
     try {
-      const p = resolve(process.cwd(), '.workbuddy', 'hook-logs', 'gates-deferred.json')
+      const p = resolve(process.cwd(), '.ihui-agent', 'state', 'hook-logs', 'gates-deferred.json')
       mkdirSync(dirname(p), { recursive: true })
       writeFileSync(
         p,

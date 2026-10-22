@@ -379,7 +379,7 @@ test('G-1118437 一次真实的 safe-commit 提交 ⇒ 留痕含 gates-then-comm
   const ran = runSafe(dir, { files: ['b.txt'], message: 'test: landed proof' })
   assert.equal(ran.status, 0, `safe-commit 在夹具里失败了:\n${ran.stdout}\n${ran.stderr}`)
   const sha = git(dir, 'rev-parse', 'HEAD').trim()
-  const ledgerFile = join(dir, '.workbuddy', 'safe-commit-attestation.jsonl')
+  const ledgerFile = join(dir, '.ihui-agent', 'state', 'safe-commit-attestation.jsonl')
   assert.ok(existsSync(ledgerFile), 'Step 5 判干净之后必须落一条正证留痕(没落 = 统计器永远读不到)')
   const recs = readFileSync(ledgerFile, 'utf8')
     .trim()

@@ -32,8 +32,8 @@
 if [ "$1" = "committed" ]; then
   W_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
   [ -n "$W_ROOT" ] || exit 0
-  W_DIR="$W_ROOT/.workbuddy"
-  # 目录不存在就必须先造:新克隆 / 别的机器 / CI 上没有 .workbuddy,而 `>>` 在缺目录时**只报错不创建**,
+  W_DIR="$W_ROOT/.ihui-agent/state"
+  # 目录不存在就必须先造:新克隆 / 别的机器 / CI 上没有 .ihui-agent/state,而 `>>` 在缺目录时**只报错不创建**,
   # 错误被 2>/dev/null 吞掉 ⇒ 见证一条都不落而提交照常成功 —— 统计器于是把每一枚都读成"本机无见证",
   # 尺子朝最坏的方向说谎(把"没记"报成"没发生")。实测:临时仓首跑就是这个形态。
   [ -d "$W_DIR" ] || mkdir -p "$W_DIR" 2>/dev/null || exit 0

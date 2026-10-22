@@ -243,7 +243,7 @@ jobs:
           # 机主只能靠"咦今天怎么没信"发现。这一步跑在 failure() 分支上,它再红也只是把
           # 已经红着的 run 说得清楚一点,不会盖掉真失败。
           # 为什么**不**带 --alert-id:去重状态与投递台账都住在"执行这份脚本的那份 checkout"的
-          # .workbuddy/ 下(notify-deploy-failure.ts 里的 defaultDedupeStatePath /
+          # .ihui-agent/state/ 下(notify-deploy-failure.ts 里的 defaultDedupeStatePath /
           # defaultMailSendLedgerPath 两个路径解析器),临时 runner 每次从空状态起、跑完连文件一起销毁
           # ⇒ 跨 run 去重在 CI 上结构性做不到,本机量算仪也读不到 CI 寄的那几封(硬加一个不生效的
           # --alert-id 只是把"有去重"写在脸上)。要真量到/压住 CI 侧,得给这两份状态换共享存储 ——

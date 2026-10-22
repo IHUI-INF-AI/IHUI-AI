@@ -53,9 +53,9 @@ const ROOT = resolve(HERE, '..')
 const SRC = {
   deployLog: join(ROOT, 'deploy', 'win', 'deploy-loop.log'),
   alertState: join(ROOT, 'deploy', 'win', '.alert-notify-state.json'),
-  dedupeState: join(ROOT, '.workbuddy', 'notify-dedupe-state.json'),
-  attest: join(ROOT, '.workbuddy', 'safe-commit-attestation.jsonl'),
-  mailLedger: join(ROOT, '.workbuddy', 'mail-send-ledger.jsonl'),
+  dedupeState: join(ROOT, '.ihui-agent', 'state', 'notify-dedupe-state.json'),
+  attest: join(ROOT, '.ihui-agent', 'state', 'safe-commit-attestation.jsonl'),
+  mailLedger: join(ROOT, '.ihui-agent', 'state', 'mail-send-ledger.jsonl'),
   runner: 'scripts/guardian-runner.mjs', // 注册表按"被审面"取,不读滞后的工作树副本
 }
 
@@ -213,7 +213,7 @@ export function scanMailLog(text, { nowMs, hours = 24, days = 7 }) {
 }
 
 /**
- * 发信面之二:`.workbuddy/mail-send-ledger.jsonl`(生产者投递后自己落的机读账)。
+ * 发信面之二:`.ihui-agent/state/mail-send-ledger.jsonl`(生产者投递后自己落的机读账)。
  *
  * 为什么必须有第二面(2026-10-18 现读):本工具的判据是"ASCII 关键字 + 时间戳,中文一律不解码",
  * 而 git-guardian 这一层的人到留痕是中文散文行 —— 当天这台机寄出 **28 封**,本工具账面上
@@ -359,7 +359,7 @@ export function findStorms(entries, { windowMs = STORM_WINDOW_MS, min = STORM_MI
 }
 
 /**
- * 跳门面:`.workbuddy/safe-commit-attestation.jsonl` 是跳门次数的**唯一真值来源**(AGENTS §12f)。
+ * 跳门面:`.ihui-agent/state/safe-commit-attestation.jsonl` 是跳门次数的**唯一真值来源**(AGENTS §12f)。
  * 坏行单独计数并报行号 —— 解不出的行**不得**被算成"没有跳过",也不得混进总数。
  */
 export function parseAttestation(text, { nowMs, hours = 24, days = 7 }) {
@@ -783,7 +783,7 @@ function renderHuman(rep) {
   p(dd.state === 'ok' ? `  发信出口去重台账:${dd.entries} 个标识(4h 内活跃 ${dd.within4h},ts 不可解 ${dd.malformedTs})` : `  发信出口去重台账:未判定 —— ${dd.reason}`)
 
   p('')
-  p('①b 发信面之二 —— 机读投递台账 `.workbuddy/mail-send-ledger.jsonl`(2026-10-18 立)')
+  p('①b 发信面之二 —— 机读投递台账 `.ihui-agent/state/mail-send-ledger.jsonl`(2026-10-18 立)')
   if (!rep.ledger) {
     p('  未判定:台账取不到 ⇒ "这个面寄了几封"给不出结论(不得读成 0 封;git-guardian 那一层的每一封都会在这里留一行)。')
   } else {
@@ -802,7 +802,7 @@ function renderHuman(rep) {
   }
 
   p('')
-  p('② 跳门面 —— `.workbuddy/safe-commit-attestation.jsonl`(跳门次数的唯一真值来源)')
+  p('② 跳门面 —— `.ihui-agent/state/safe-commit-attestation.jsonl`(跳门次数的唯一真值来源)')
   if (!rep.att) {
     p('  未判定:台账取不到 ⇒ "0 次跳门"这个结论今天给不出。')
   } else {
@@ -857,7 +857,7 @@ function fmtKinds(kinds) {
 
 /** 射程边界必须**报名**,不得只报数(本仓"报数不报名"记过多次:守门 70/76/81 同族)。 */
 const NOT_COVERED = [
-  '发信面覆盖到"本机这一路"已闭合(2026-10-18/19 收口):投递台账记在**唯一出口** `apps/api/scripts/notify-deploy-failure.ts`,alert-bridge / IHUI-MONITOR / 部署环 ps1 / ai-service 都经它发 ⇒ 真寄一封就有账,不再依赖"每个生产者记得写"。三条硬边界:① **CI 在本机无账** —— 出口把行写在它自己那份 checkout 的 .workbuddy/ 下,临时 runner 随 run 销毁;② 各生产者**自己窗口压住**的轮次走不到出口,不进"压住"桶(那一桶只量出口 --alert-id 窗口);③ 不经出口的自拼 SMTP 写手(守门 81 拦;今天抓到一支 `alert-notification-service.ts` 自建 transport,已登记进 alert-mail-faces.json 并标 inScope:false)',
+  '发信面覆盖到"本机这一路"已闭合(2026-10-18/19 收口):投递台账记在**唯一出口** `apps/api/scripts/notify-deploy-failure.ts`,alert-bridge / IHUI-MONITOR / 部署环 ps1 / ai-service 都经它发 ⇒ 真寄一封就有账,不再依赖"每个生产者记得写"。三条硬边界:① **CI 在本机无账** —— 出口把行写在它自己那份 checkout 的 .ihui-agent/state/ 下,临时 runner 随 run 销毁;② 各生产者**自己窗口压住**的轮次走不到出口,不进"压住"桶(那一桶只量出口 --alert-id 窗口);③ 不经出口的自拼 SMTP 写手(守门 81 拦;今天抓到一支 `alert-notification-service.ts` 自建 transport,已登记进 alert-mail-faces.json 并标 inScope:false)',
   '被轮转/被删/被清空的旧日志:窗口内计数只反映文件现存部分',
   '手工 `git commit --no-verify`(不经 safe-commit 就不写台账 ⇒ 账面一次都没跳,现实可能跳了)',
   '邮件是否真的到达:只有日志侧留痕,SMTP/Resend 的回执不在这个面内',

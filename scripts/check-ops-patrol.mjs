@@ -150,8 +150,8 @@ const RENDER_SCRIPT = join(SELF_DIR, 'render-alertmanager-config.mjs')
 // 形态派生它 —— 通道配置的解析住在派发器里,本文件再读一遍 .env 就是第二个真相
 // (在检查里自拼 SMTP/Resend 同样被 §5e 与守门 81 禁止)。两条路径由 repoRoot 在函数内推导,
 // 因为自检要在临时仓里造现场;模块级常量会让那一档永远走真仓。
-const MAIL_PROBE_TICK = join(REPO, '.workbuddy', 'mail-probe-tick.ts')
-const MAIL_PROBE_LAST = join(REPO, '.workbuddy', 'mail-probe-last.json')
+const MAIL_PROBE_TICK = join(REPO, '.ihui-agent', 'state', 'mail-probe-tick.ts')
+const MAIL_PROBE_LAST = join(REPO, '.ihui-agent', 'state', 'mail-probe-last.json')
 const MAIL_PROBE_TIMEOUT_MS = Number(process.env.IHUI_MAIL_PROBE_TIMEOUT_MS || 45_000)
 /** 告警身份"确证没送到"的宽限期 = 守护派发层的失败退避(30min)。超过它仍是 false ⇒ 欠账。 */
 const UNDELIVERED_GRACE_MS = 30 * 60 * 1000
@@ -240,7 +240,7 @@ export function measureDir(path, { maxEntries = 120000, byTop = false } = {}) {
  *   ② 外部程序的**输出形状随登录账户区域设置变**(常驻档身份 NT AUTHORITY\SYSTEM 默认 en-US,交互档 zh-CN)。
  *   ① 由本函数堵死(绝对路径优先,不依赖 PATH);② 由 `parseLastSync` 补 en-US 那一形堵死。
  *   到底哪一档起的作用不必再猜:ok 分支的 detail 现在带 `(取用=绝对路径|裸名兜底)`,
- *   盘上凭据在 `.workbuddy/ops-patrol-last.json`。修后现读:两档执行体都成「21 格绿(0 格未判定)」(自 10:53Z 起)。
+ *   盘上凭据在 `.ihui-agent/state/ops-patrol-last.json`。修后现读:两档执行体都成「21 格绿(0 格未判定)」(自 10:53Z 起)。
  * 根一律取 `%SystemRoot%`(AGENTS §26:不得硬编码 C 盘);量不到根就只剩裸名一档,
  * 并把"试过哪些路径"写进未判定原因 —— 失明必须说得清为什么瞎(§0.3),不得只报格名。
  *
@@ -463,7 +463,7 @@ export async function checkRulesLoaded({ alertsFile, baseUrl = 'http://127.0.0.1
 
 /**
  * P8 投递失败标记对账(2026-10-01 立)。生产者寄不出信时会留一份
- * `.workbuddy/<类>-alert-UNDELIVERED.json`(§5e「失败必须响」的落地形态)。
+ * `.ihui-agent/state/<类>-alert-UNDELIVERED.json`(§5e「失败必须响」的落地形态)。
  * 立因是当日实测:备份失败的通报**自己也没寄出去**(开机窗口里 SMTP 与 Resend 双双失败),
  * 而这枚标记除了一条"源码里必须出现该文件名"的断言外**没有任何生产消费者** ——
  * 于是"有一件事从来没人知道"这件事本身也没人知道。判据失效的表现永远是安静。
@@ -476,7 +476,7 @@ export async function checkRulesLoaded({ alertsFile, baseUrl = 'http://127.0.0.1
  */
 export function checkUndeliveredAlertMarkers({ repoRoot = REPO } = {}) {
   const id = 'P8·投递失败标记'
-  const dir = join(repoRoot, '.workbuddy')
+  const dir = join(repoRoot, '.ihui-agent', 'state')
   if (!existsSync(dir)) return { id, state: 'undetermined', detail: `取不到标记目录:${dir}(非本机 / 尚无生产者 ⇒ 未判定,不读成"无未送达")` }
   let files
   try {
@@ -842,7 +842,7 @@ export function ackCoversDebt({ ack, name, fp, ts, now }) {
  *   ④ 有**逐条**出口(loadDebtAcks):免掉的条数照旧报名,到期或复发自动回红 ——
  *      一条永远修不动、又没有出处的红,结局和恒红门一样是"大家学会不看它"。
  * 措辞里只有绝对时刻,不写"已挂 N 分钟":指纹吃 detail,逐轮变动的数字 = 每轮一封新信。
- * 生产者不写死清单:扫 `.workbuddy/*notify-state*.json`,谁的台账带 delivered 这一维就查谁 ——
+ * 生产者不写死清单:扫 `.ihui-agent/state/*notify-state*.json`,谁的台账带 delivered 这一维就查谁 ——
  * 新增生产者自动进射程,而"手工登记一份生产者名单"必然腐烂(§4 对 RN_ONLY_BRAND_KEYS 同课)。
  */
 export function checkUndeliveredAlertDebt({
@@ -853,7 +853,7 @@ export function checkUndeliveredAlertDebt({
   channelOkAtMs = null,
 } = {}) {
   const id = 'P10·未送达欠账'
-  const dir = join(repoRoot, '.workbuddy')
+  const dir = join(repoRoot, '.ihui-agent', 'state')
   if (!existsSync(dir))
     return { id, state: 'undetermined', detail: `取不到台账目录:${dir}(非本机 / 尚无派发者 ⇒ 未判定,不读成"无欠账")` }
   let files
@@ -872,7 +872,7 @@ export function checkUndeliveredAlertDebt({
   let entriesSeen = 0
   let coveredByChannel = 0
   // 通道最近一次"有收件人且投递成功"的时刻(毫秒,0 = 量不到/通道从未通)。
-  // 取径:邮件通道活性探针的落盘件(`.workbuddy/mail-probe-last.json`,P9 同一个生产者写的),
+  // 取径:邮件通道活性探针的落盘件(`.ihui-agent/state/mail-probe-last.json`,P9 同一个生产者写的),
   // **只认 verdict==='ok' 且确实有收件人的那次** —— 探针说 ok 而台账一条都没寄出去,
   // 那是"探针只验了握手、不代表真寄到人",此时 channelOkSinceMs 保持 0(不豁免任何欠账)。
   // **必须可注入**(channelOkAtMs):夹具仓库里没有探针件,若让它回落去读**真机**的
@@ -1123,8 +1123,8 @@ export function heartbeatRows({ now, devEnv, databases, execCands = EXEC_CANDIDA
       })
     }
   }
-  push('凭据活性巡检', join(REPO, '.workbuddy/credential-health-last.json'), LIMITS.credentialHealthMaxAgeHours * 60, '计划任务 6h')
-  push('公网路径探测', join(REPO, '.workbuddy/public-path-probe-last.json'), LIMITS.publicProbeMaxAgeHours * 60, '守护 30min 派一次')
+  push('凭据活性巡检', join(REPO, '.ihui-agent/state/credential-health-last.json'), LIMITS.credentialHealthMaxAgeHours * 60, '计划任务 6h')
+  push('公网路径探测', join(REPO, '.ihui-agent/state/public-path-probe-last.json'), LIMITS.publicProbeMaxAgeHours * 60, '守护 30min 派一次')
   return rows
 }
 
@@ -2135,8 +2135,8 @@ export async function checkHeadTypecheckLanded(opts = {}) {
   const now = typeof opts.now === 'number' ? opts.now : Date.now()
   const repoRoot = opts.repoRoot ?? REPO
   const windowMs = opts.windowMs ?? HEAD_TYPECHECK_WINDOW_MS
-  const tickFile = opts.tickFile ?? join(repoRoot, '.workbuddy', 'head-typecheck-last-run')
-  const lastFile = opts.lastFile ?? join(repoRoot, '.workbuddy', 'head-typecheck-last-row')
+  const tickFile = opts.tickFile ?? join(repoRoot, '.ihui-agent', 'state', 'head-typecheck-last-run')
+  const lastFile = opts.lastFile ?? join(repoRoot, '.ihui-agent', 'state', 'head-typecheck-last-row')
   const runner = opts.runner ?? (() => runHeadTypecheck({ repoRoot }))
   const readRow = () => {
     try {
@@ -2454,8 +2454,8 @@ async function main(argv) {
   // 现在把红档与**未判定的原因原文**一起落盘(有界:每条截 300 字符、最多 40 条),
   // 下一轮班次跑完就能直接读出瞎在哪。
   try {
-    mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
-    writeFileSync(join(REPO, '.workbuddy/ops-patrol-last.json'), JSON.stringify(heartbeatRecord({ at: r.at, counts: r.counts, rc: r.rc, json, findings: r.findings, undetermined: r.undetermined })), 'utf8')
+    mkdirSync(join(REPO, '.ihui-agent', 'state'), { recursive: true })
+    writeFileSync(join(REPO, '.ihui-agent/state/ops-patrol-last.json'), JSON.stringify(heartbeatRecord({ at: r.at, counts: r.counts, rc: r.rc, json, findings: r.findings, undetermined: r.undetermined })), 'utf8')
   } catch {
     /* 心跳自记失败不改判定:它只影响下一轮看没看到这一轮 */
   }
@@ -2477,7 +2477,7 @@ function undeliveredMarkerFixture() {
   const base = mkdtempSync(join(root, 'ops-p8-'))
   try {
     const repo = join(base, 'repo')
-    const wb = join(repo, '.workbuddy')
+    const wb = join(repo, '.ihui-agent', 'state')
     mkdirSync(wb, { recursive: true })
     const marker = join(wb, 'pg-backup-alert-UNDELIVERED.json')
     const at = '2026-10-01 09:08:29 +08:00'
@@ -2545,7 +2545,7 @@ async function mailProbeFixture() {
   if (junkRow.state !== 'undetermined') return { ok: false, why: '输出解不出却给出了确定结论' }
   // 未到窗口 + 有上次结论 ⇒ 复述,不得再派生
   const repo = join(base, 'repo2')
-  mkdirSync(join(repo, '.workbuddy'), { recursive: true })
+  mkdirSync(join(repo, '.ihui-agent', 'state'), { recursive: true })
   const tick = join(base, 'tick2')
   const last = join(base, 'last2')
   writeFileSync(tick, String(now - 3600_000), 'utf8')
@@ -2646,7 +2646,7 @@ function undeliveredDebtFixture() {
   const now = Date.parse('2026-10-01T12:00:00.000Z')
   const repo = join(base, 'repo')
   try {
-  const wb = join(repo, '.workbuddy')
+  const wb = join(repo, '.ihui-agent', 'state')
   mkdirSync(wb, { recursive: true })
   const st = join(wb, 'git-guardian-notify-state.json')
   const write = (obj) => writeFileSync(st, JSON.stringify(obj), 'utf8')

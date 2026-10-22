@@ -859,12 +859,12 @@ export function stallExitCode(level) {
  * 一律落未判定,不得折成红。
  *
  * 为什么这一档**一行盘都不写**(两种许可形态里选了"显式不写盘"那一种,并在此写明取舍):
- *   1. 日级班次的去重台账 `.workbuddy/credential-health-alert-state.json` 记的是"某项身份**上次通报**
+ *   1. 日级班次的去重台账 `.ihui-agent/state/credential-health-alert-state.json` 记的是"某项身份**上次通报**
  *      的时刻";高频档若去碰它,20h 重发窗口会被自己反复拨回 ⇒ 持续停摆被高频档**消音**,
  *      正是本文件头注反对的哑弹方向。
  *   2. 另立一枚高频心跳件 = 让被测对象自己写"探针在跑"的证据(崩之前写完心跳、之后不再跑 = 自证谎),
  *      而派发方本就有自己的 tick 取证面,该由它记。
- *   3. 零写盘的"不污染"可以逐字节证明(跑前跑后对账 .workbuddy 三件运行态);若改成"写另一枚文件",
+ *   3. 零写盘的"不污染"可以逐字节证明(跑前跑后对账 .ihui-agent/state 三件运行态);若改成"写另一枚文件",
  *      还得再对一次"没串味"。
  * 结构上也不得触达 mail 出口:本函数不调 `runChecks`/`maybeAlert`/`deliver`/`sendEmail`/
  * `dispatchBrandMail`,也不碰 STATE/UNDEL/LEDGER 三个写路径 —— 镜像测试对函数体有源码级反向锁。
@@ -1014,7 +1014,7 @@ function selfTest() {
   eq('空引号 "" 仍判 fail(不得被当成有值)', lvl(judgeAppEnvCredentials({ envText: 'K_CANARY=""\n', required: REQ })), 'fail')
   eq('缺省清单就两键(扩表须逐条给"缺失即静默拒客"的证据)', APP_ENV_REQUIRED_KEYS.map((r) => r.key).join(','), 'USDT_WEBHOOK_SECRET,OIDC_CLIENT_SECRET')
   // ── 告警去重的**身份粒度**(2026-09-29 由"整条 sig 拼接"改成"逐项身份")──
-  // 全部走构造输入 + 固定时刻:这类"什么情况下寄"的行为若依赖仓库此刻的 .workbuddy 状态,
+  // 全部走构造输入 + 固定时刻:这类"什么情况下寄"的行为若依赖仓库此刻的 .ihui-agent/state 状态,
   // 断言会随别人那一轮的成败漂(§103 T12 那一课)。
   const T0 = Date.parse('2026-09-29T00:00:00Z')
   const HR = 3600 * 1000
@@ -1070,7 +1070,7 @@ function selfTest() {
   const capEchoRe = new RegExp(['每日', '每天', '每轮' + '\\s*最多', 'MAX_' + 'ALERTS', 'QUOTA'].join('|'))
   eq('去重窗口只有一个(逐项),且不得有第二种"按封数封顶"的量', [ALERT_ITEM_WINDOW_MS, capEchoRe.test(String(decideAlert))], [20 * HR, false])
   // ── 部署停摆**只读单维档**(2026-10-17 立;立项实测:阈值写 45 分钟,而日级班次每 6 小时才量一次)──
-  // 全部走构造输入:不触网、不读盘、不碰 .workbuddy —— 这三件事由镜像测试的夹具与逐字节对账另证。
+  // 全部走构造输入:不触网、不读盘、不碰 .ihui-agent/state —— 这三件事由镜像测试的夹具与逐字节对账另证。
   const NOW = Date.parse('2026-10-17T03:00:00Z')
   const SHA_A = 'a'.repeat(40)
   const SHA_B = 'b'.repeat(40)
@@ -1160,7 +1160,7 @@ function ensureVbs() {
     'If Len(node) = 0 Then node = "node.exe"',
     'script = dir & "\\check-credential-health.mjs"',
     // 不得在这里写 `--json >> xxx.log`:WshShell.Run 走 CreateProcess,**不解析 shell 重定向**,
-    // `>>` 只会被当成两个普通参数传给 node —— 曾据此以为有日志,实测 .workbuddy 下从未生成该文件。
+    // `>>` 只会被当成两个普通参数传给 node —— 曾据此以为有日志,实测 .ihui-agent/state 下从未生成该文件。
     // 运行态取证面是 credential-health-last.json(最近一次结论)+ LEDGER(追加式流水),
     // 需要文本日志就必须显式经 cmd.exe /c 包一层,不要把重定向写进 Run 的命令行。
     'sh.Run """" & node & """ """ & script & """ --json", 0, False',
@@ -1237,11 +1237,11 @@ function taskStatus() {
  * "身份"随组合漂移 = 那句话在这条链上从未成立。现在"该不该寄"逐项判:一封汇总信里只要有一项
  * 是新身份/到点重发就寄,已在窗口内的项不因"组合变了"被重寄。
  */
-const STATE = join(REPO, '.workbuddy', 'credential-health-alert-state.json')
+const STATE = join(REPO, '.ihui-agent', 'state', 'credential-health-alert-state.json')
 /** 全通道投递失败时写此标记:告警没送出去 = 故障从未被人看见,必须留下可被下轮检出的证据 */
-const UNDEL = join(REPO, '.workbuddy', 'credential-health-alert-UNDELIVERED.json')
+const UNDEL = join(REPO, '.ihui-agent', 'state', 'credential-health-alert-UNDELIVERED.json')
 /** 本地留痕账本:通道全挂时至少有一条人类可读的追加流水 */
-const LEDGER = join(REPO, '.workbuddy', 'credential-health-alerts.log')
+const LEDGER = join(REPO, '.ihui-agent', 'state', 'credential-health-alerts.log')
 /**
  * 单项重发窗口。**沿用本脚本原有的那个常量**(旧实现把 `20 * 3600 * 1000` 写死在 maybeAlert 里),
  * 只是提到判据旁边并改成逐项适用 —— 值一字未改。
@@ -1392,7 +1392,7 @@ export function buildLedgerEntry({ title, desp, delivery, nowIso = new Date().to
 
 function appendLedger(title, desp, delivery) {
   try {
-    mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
+    mkdirSync(join(REPO, '.ihui-agent', 'state'), { recursive: true })
     appendFileSync(LEDGER, buildLedgerEntry({ title, desp, delivery }), 'utf8')
   } catch (e) {
     console.error(`⚠️ 告警账本写入失败(${e?.message})—— 台账本身也不能静默失败`)
@@ -1572,7 +1572,7 @@ async function maybeAlert(results, dryRun) {
   }
   appendLedger(title, desp, d)
   if (d.sent) {
-    mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
+    mkdirSync(join(REPO, '.ihui-agent', 'state'), { recursive: true })
     const table = normalizeAlertState(st).table
     const next = advanceAlertState({ table, failNames: names, notified: recovered ? [] : d0.due, nowMs: now, recovered })
     // 原子替换(G-653):写出的字节与改动前逐字相同,只是下一轮再也读不到半截 JSON。
@@ -1611,7 +1611,7 @@ async function main() {
         '用法: node scripts/check-credential-health.mjs [模式]',
         '',
         '  (缺省)        全量巡检并判定告警,异常 exit 1',
-        '  --json        机器可读输出(写 .workbuddy/credential-health-last.json 心跳)',
+        '  --json        机器可读输出(写 .ihui-agent/state/credential-health-last.json 心跳)',
         '  --stall-only  **只读单维档**:只量「部署停摆」,stdout 恒为单行 JSON(带 --json 也一样,该档本就输出 JSON)',
         '                零发信、零写盘(不碰日级去重台账/心跳/UNDEL 标记),退出码 0=ok / 1=fail / 2=未判定',
         '                样例: node scripts/check-credential-health.mjs --stall-only --json',
@@ -1662,11 +1662,11 @@ async function main() {
     const results = await runChecks()
     const bad = results.filter((r) => r.level === 'fail')
     if (argv.includes('--json')) {
-      mkdirSync(join(REPO, '.workbuddy'), { recursive: true })
+      mkdirSync(join(REPO, '.ihui-agent', 'state'), { recursive: true })
       const a = await maybeAlert(results, false)
       const line = JSON.stringify({ ts: new Date().toISOString(), fail: bad.length, alert: a, results })
       // 心跳件走同一出口:git-guardian 读它判"巡检到底有没有在跑",半截 JSON 会被读成"没跑"。
-      atomicWriteFileSync(join(REPO, '.workbuddy', 'credential-health-last.json'), line)
+      atomicWriteFileSync(join(REPO, '.ihui-agent', 'state', 'credential-health-last.json'), line)
       console.log(line)
       if (!a.sent) console.log(`告警判定: sent=false ${a.why}`)
       process.exit(bad.length ? 1 : 0)

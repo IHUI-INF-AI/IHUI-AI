@@ -16,7 +16,7 @@
  *  - 守门 98(悬空具名导入)与 99(暂存删除存续性)都**只判一个面**:98 判 HEAD、99 判索引。
  *    本型恰好在**两面之间** —— 文件在 HEAD 的引用者眼里"必须存在",在索引里"已被删除";
  *  - 旁路落地(commit-tree + CAS)与对象空间合并**不跑钩子**,所以提交链上那两道门对这批提交从未执行
- *    (§12f 已登记这一族;本仓跳门总量的唯一真值来源是 `.workbuddy/safe-commit-attestation.jsonl`);
+ *    (§12f 已登记这一族;本仓跳门总量的唯一真值来源是 `.ihui-agent/state/safe-commit-attestation.jsonl`);
  *  - `heal-worktree-tracked` 早就把这 9–10 个路径**如实报数**了,但它只报数不喊人,
  *    而"报数"在没人看日志时等于安静(本仓最高频失效型)。
  *
@@ -325,7 +325,7 @@ function selfTest() {
       `无清空账时这一条该交恢复层补(不进本门点名),实测 ${JSON.stringify(rNoLedger.hits.map((h) => h.path))}`,
     )
     put(
-      '.workbuddy/staged-delete-intent-ledger.jsonl',
+      '.ihui-agent/state/staged-delete-intent-ledger.jsonl',
       `${JSON.stringify({ ts: new Date().toISOString(), event: 'index-purge-cleared-staged-deletions', actionTaken: 'report-only', clearedIntentLost: ['packages/shared/src/voice-world.ts'] })}\n`,
     )
     const rLedger = auditOrphanDeletionRefs(tmp)
@@ -342,7 +342,7 @@ function selfTest() {
     // 读账要验"声明过没动过手":同一份账把 actionTaken 改成"已恢复"就不该再当证据用
     // (heal 层正是按这个字段决定不代裁的;本门跟着一个自称动过手的账喊人 = 拿过期证据出结论)。
     put(
-      '.workbuddy/staged-delete-intent-ledger.jsonl',
+      '.ihui-agent/state/staged-delete-intent-ledger.jsonl',
       `${JSON.stringify({ ts: new Date().toISOString(), event: 'index-purge-cleared-staged-deletions', actionTaken: 'restored-by-owner', clearedIntentLost: ['packages/shared/src/voice-world.ts'] })}\n`,
     )
     const rClaimed = auditOrphanDeletionRefs(tmp)
