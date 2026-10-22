@@ -10,6 +10,7 @@
  */
 
 import type { Settings } from '../commands/settings.js'
+import { DEFAULT_SANDBOX_PROFILE } from './sandbox-profile.js'
 
 /**
  * 策略四档的唯一字面量落点(G-816013):first-run.ts / DEFAULT_SETTINGS 一律经展开引用,
@@ -28,7 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultModel: 'default',
   maxIterations: 25,
   ...DEFAULT_POLICY_OPTIONS,
-  sandbox: { profile: 'trusted' },
+  sandbox: { profile: DEFAULT_SANDBOX_PROFILE },
   sampler: { temperature: 0.7, maxTokens: 4096 },
   locale: 'zh-CN',
   permissionMode: 'default',
