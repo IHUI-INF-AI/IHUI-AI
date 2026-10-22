@@ -62,9 +62,9 @@ describe('G-816030 api-client 侧帧归属屏障 = 判据源同形(判例表)', 
     expect(barrier.stagedCount()).toBe(0)
     expect(barrier.stagedBytes()).toBe(0)
     expect(barrier.overflowOf('sub-a')).toBe(true)
-    expect(() =>
-      barrier.activate({ subscriptionId: 'sub-a', topics: ['chat-stream'] }),
-    ).toThrow(FrameBarrierOverflowError)
+    expect(() => barrier.activate({ subscriptionId: 'sub-a', topics: ['chat-stream'] })).toThrow(
+      FrameBarrierOverflowError,
+    )
   })
 
   // 验收③:activate 抛错前必须已反向退订(断调用次数,不看日志文案)
@@ -119,7 +119,6 @@ describe('G-816030 api-client 侧帧归属屏障 = 判据源同形(判例表)', 
     for (const marker of [
       'export const FRAME_BARRIER_MAX_STAGED_FRAMES = 512',
       'export const FRAME_BARRIER_MAX_STAGED_BYTES = 1 << 20',
-      "\ntype FrameBarrierDeliveryKind = 'pass' | 'staged' | 'overflow'",
       'export class FrameBarrierOverflowError extends Error',
       "readonly reason: 'frames' | 'bytes'",
       'stagedCount(): number',
@@ -132,6 +131,18 @@ describe('G-816030 api-client 侧帧归属屏障 = 判据源同形(判例表)', 
       expect(local.includes(marker), `local 缺 ${marker}`).toBe(true)
       expect(shared.includes(marker), `shared 缺 ${marker}`).toBe(true)
     }
+    /**
+     * 投递形态那一行**两端本就不同,原先把它列进"逐字同族"是错判据**:
+     * 枚出的标记是不带 export 的三臂形态,而两个文件都是 `export type` ⇒ 这条标记在任何版本上都
+     * 取不到,测试从入库起就恒红(实测 2026-10-22 CI `@ihui/api-client#test` 即此型)。
+     * 更关键的是职责分层不同:shared 把迟到帧判在屏障里(`'stale'`),api-client 把同一件事判在
+     * 水位层 —— `src/frame-watermark.ts` 的 `FrameGapKind = 'generation-change' | …` 与
+     * `recovery-gate.ts` 的 `resetForNewGeneration`,所以屏障这一层不需要第四臂。
+     * 这里改为**逐字钉住两侧各自的现实**(任何一方增删臂都红),而不是假装同形。
+     */
+    const armsOf = (src: string) => /type FrameBarrierDeliveryKind = ([^\n]+)\n/.exec(src)?.[1]
+    expect(armsOf(local)).toBe("'pass' | 'staged' | 'overflow'")
+    expect(armsOf(shared)).toBe("'pass' | 'staged' | 'overflow' | 'stale'")
   })
 
   it('通路锁:client.ts 的水位闸真接帧归属屏障(暂存/ACK/复位三路都在,读环仍走 processLine)', () => {
