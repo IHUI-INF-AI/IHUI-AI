@@ -48,7 +48,11 @@ const IDENT = '[A-Za-z0-9_$]+'
 /** 每次新建实例 —— 共享 lastIndex 的正则常量是"第二次调用静默漏扫"的经典成因 */
 const g = (source) => new RegExp(source, 'g')
 
-const VERB_CALL_SRC = `\\b(${IDENT})\\.(${VERBS.join('|')})\\s*\\(`
+// 动词注册必须认带 TS 泛型的形态(`server.patch<{ Params: { id: string } }>('/x', h)`)——
+// 本仓 routes/plugins.ts 的 PATCH /:id/preferences、POST /:id/click 全是这一型;
+// 旧式只认 `verb(` 紧邻,泛型档整族漏读 ⇒ 前端真打的在册路由被判死(2026-10-22 O87g 假红实证)。
+// `[^()]*` 不吃括号:泛型里带函数类型(`<q: () => void}>`)仍解不出,与旧行为一致(漏读不冒判)。
+const VERB_CALL_SRC = `\\b(${IDENT})\\.(${VERBS.join('|')})\\s*(?:<[^()]*>)?\\s*\\(`
 const ROUTE_OBJ_SRC = `\\b(${IDENT})\\.route\\s*\\(\\s*\\{`
 const REGISTER_SRC = `\\b(${IDENT})\\.register\\s*\\(`
 const FN_DECL_SRC =
@@ -111,6 +115,118 @@ export function skipComment(text, i) {
   }
   const end = text.indexOf('*/', i + 2)
   return end === -1 ? text.length : end + 1
+}
+
+/**
+ * 把正则字面量的**内容**打码成空格(保留定界符/长度/行号)。必须跑在 maskComments **之前**:
+ * maskComments 只认引号与注释、不认正则 —— 正则里的引号会被它当字符串开头(实测 agents.ts
+ * 导出 CSV 的 `/[",\n]/`),引号态错位级联扩散 ⇒ 几十行后模板串里的 `https://` 被当行注释遮掉
+ * ⇒ 模板闭引号丢失 ⇒ 花括号配平崩 ⇒ 插件函数 bodyEnd=-1 被 findTopLevelFunctions 静默丢弃 ⇒
+ * 该文件全部注册落 `(module)` 兜底档、不带挂载前缀(2026-10-22 O87g 实证:agentsRoutes 整族
+ * 丢图,`GET /api/categories/list` 在册路由被判死)。本函数自带注释/字符串跳段,可安全跑在原文上。
+ * 判别启发(漏判只是退回旧行为,冒判才会咬人,故只在「前一个有效 token 是
+ * 运算符/分隔符/关键字」时认定为正则;标识符/数字/`)`/`]`/引号之后的 `/` 是除法,不碰):
+ * 正则内遇 `\` 跳一字符、`[`/`]` 跟踪字符类、裸换行即中止(正则不跨行,中止 ⇒ 按除法处理)。
+ */
+const REGEX_ALLOWED_AFTER = new Set([
+  '(',
+  ',',
+  '=',
+  ':',
+  '[',
+  '!',
+  '&',
+  '|',
+  '?',
+  '{',
+  '}',
+  ';',
+  '+',
+  '-',
+  '*',
+  '%',
+  '~',
+  '^',
+  '<',
+  '>',
+])
+const REGEX_KEYWORDS = new Set([
+  'return',
+  'typeof',
+  'instanceof',
+  'in',
+  'of',
+  'new',
+  'delete',
+  'void',
+  'do',
+  'else',
+  'case',
+  'yield',
+  'await',
+])
+
+export function maskRegexLiterals(text) {
+  const s = String(text || '')
+  if (!s.includes('/')) return s
+  const out = s.split('')
+  let prevSig = ''
+  let prevWord = ''
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (ch === "'" || ch === '"' || ch === '`') {
+      i = skipQuoted(s, i)
+      prevSig = ch
+      prevWord = ''
+      continue
+    }
+    if (ch === '/' && (s[i + 1] === '/' || s[i + 1] === '*')) {
+      i = skipComment(s, i)
+      continue
+    }
+    if (ch === '/') {
+      if (REGEX_KEYWORDS.has(prevWord) || REGEX_ALLOWED_AFTER.has(prevSig)) {
+        let j = i + 1
+        let inClass = false
+        let closed = -1
+        for (; j < s.length; j++) {
+          const c = s[j]
+          if (c === '\n') break
+          if (c === '\\') {
+            j++
+            continue
+          }
+          if (c === '[') inClass = true
+          else if (c === ']') inClass = false
+          else if (c === '/' && !inClass) {
+            closed = j
+            break
+          }
+        }
+        if (closed !== -1) {
+          for (let k = i + 1; k < closed; k++) out[k] = ' '
+          i = closed
+          while (i + 1 < s.length && /[gimsuyd]/.test(s[i + 1])) i++
+          prevSig = '/'
+          prevWord = ''
+          continue
+        }
+      }
+      prevSig = '/'
+      prevWord = ''
+      continue
+    }
+    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r' || ch === '\f' || ch === '\v') continue
+    if (/[A-Za-z0-9_$]/.test(ch)) {
+      // 标识符/数字结尾 ⇒ 后面的 `/` 是除法,不得继承标识符**之前**的运算符上下文
+      prevWord += ch
+      prevSig = '@'
+      continue
+    }
+    prevWord = ''
+    prevSig = ch
+  }
+  return out.join('')
 }
 
 /** 从开括号找到配对闭括号(跳过字符串与注释);-1 = 未配平 */
@@ -405,7 +521,9 @@ export function enclosingFn(fns, idx) {
  * @param {string} raw 原文
  */
 export function analyzeTsFile(rel, raw) {
-  const src = maskComments(raw, 'ts')
+  // 顺序是牙:先遮正则再遮注释。反过来时 maskComments 会被正则里的引号带偏引号态,
+  // 级联错位把模板串里的 `//`(URL)当行注释遮掉 ⇒ 花括号配平崩 ⇒ 插件函数整族丢图。
+  const src = maskComments(maskRegexLiterals(raw), 'ts')
   const dir = dirname(rel)
   const fns = findTopLevelFunctions(src)
   const fnByName = new Map()
@@ -429,6 +547,34 @@ export function analyzeTsFile(rel, raw) {
     if (!head.startsWith('{') && !head.startsWith('*')) {
       const def = /^([A-Za-z_$][\w$]*)/.exec(head)
       if (def) imports.set(def[1], target)
+    }
+  }
+
+  // 动态 import 的默认导出解构:`const { default: X } = await import('./p.js')` —— 本仓
+  // admin-missing-routes.ts 整族(admin/ 子路由 ~30 个)用这一型挂载后 `register(X)`;
+  // 不认它,边解不到目标 ⇒ 子路由全落 unreached 兜底档、带前缀调用被假红(2026-10-22 O87g)。
+  const dynImportRe = g(
+    `\\b(?:const|let|var)\\s*\\{\\s*default\\s*:\\s*([A-Za-z_$][\\w$]*)[^}]*\\}\\s*=\\s*(?:await\\s+)?import\\(\\s*['"](\\.[^'"]*)['"]\\s*\\)`,
+  )
+  while ((m = dynImportRe.exec(src)) !== null) {
+    imports.set(m[1], normalizePosix(`${dir}/${m[2].replace(/\.jsx?$/, '')}`))
+  }
+
+  // re-export barrel:`export { X } from './p.js'` / `export { X as Y } from './p.js'`,
+  // 以及 `export { X }`(X 是本文件 import 进来的局部绑定,如 ai-vendors.ts)。
+  // barrel 自身没有函数声明,挂载符号必须顺着 re-export 追到定义文件,否则整棵子图
+  // 停在 barrel(实测:user/、admin-sys/、other/ 三族 ~60 文件全落兜底档 ⇒ /api/vip/benefits 假红)。
+  const reexports = new Map() // 局部导出名 → 定义文件(已归一的 posix 相对路径,无扩展名)
+  const reExportRe = g(`\\bexport\\s*\\{([^}]*)\\}\\s*(?:from\\s*['"](\\.[^'"]*)['"])?`)
+  while ((m = reExportRe.exec(src)) !== null) {
+    const target = m[2] ? normalizePosix(`${dir}/${m[2].replace(/\.jsx?$/, '')}`) : null
+    for (const part of m[1].split(',')) {
+      const pieces = part.trim().split(/\s+as\s+/)
+      const orig = (pieces[0] || '').trim().replace(/^type\s+/, '')
+      const local = (pieces[1] || pieces[0] || '').trim()
+      if (!local || !orig) continue
+      if (target) reexports.set(local, target)
+      else if (imports.has(orig)) reexports.set(local, imports.get(orig))
     }
   }
 
@@ -510,7 +656,12 @@ export function analyzeTsFile(rel, raw) {
     const openIdx = m.index + m[0].length - 1
     const args = splitTopLevelArgs(readParenArgs(src, openIdx))
     const arg = parsePathArg(args[0])
-    const shaped = (arg.kind === 'literal' || arg.kind === 'template') && arg.value.startsWith('/')
+    // 空串 localPath 也是合法注册(挂在节点前缀本身):实测 admin-sys/dict-data-routes.ts 的
+    // `s.post('', h)` / `s.put('', h)` ⇒ POST/PUT /api/admin/dict/data —— 旧判据要求 `/` 开头,
+    // 整条静默丢弃 ⇒ 前端在册调用被降级(2026-10-22 O87g 收尾实证)。
+    const shaped =
+      (arg.kind === 'literal' || arg.kind === 'template') &&
+      (arg.value.startsWith('/') || arg.value === '')
     // 实例过滤:不是 Fastify 实例的接收者(`db.delete(table)` / `cache.get('/api/x')`)不是注册
     if (!instanceNames.has(m[1])) {
       verbRe.lastIndex = openIdx
@@ -567,6 +718,7 @@ export function analyzeTsFile(rel, raw) {
     fns,
     fnByName,
     imports,
+    reexports,
     pathConsts,
     loops,
     matrices,
@@ -700,6 +852,26 @@ export function extraPrefix(info, fnName, recv) {
   return acc
 }
 
+/**
+ * 顺 re-export barrel 链找符号的定义文件(带环保护);追不到返回 null(不猜)。
+ * 2026-10-22 O87g:missing-user-routes.ts / admin-sys.ts / other/_exports.ts 都是纯 barrel,
+ * 不追链则整棵子图停在 barrel 文件,~60 个路由文件全落兜底档 ⇒ 在册路由被假红。
+ */
+function followReexports(tsInfos, file, symbol, seen) {
+  const guard = seen || new Set()
+  const info = tsInfos.get(file)
+  if (!info) return null
+  const rp = info.reexports.get(symbol)
+  if (!rp || guard.has(rp)) return null
+  guard.add(rp)
+  const target = pickExisting(tsInfos, [`${rp}.ts`, `${rp}/index.ts`])
+  if (!target) return null
+  const t = tsInfos.get(target)
+  if (t.fnByName.has(symbol)) return [{ file: target, fn: symbol, approx: false }]
+  if (t.fnByName.has('(default)')) return [{ file: target, fn: '(default)', approx: false }]
+  return followReexports(tsInfos, target, symbol, guard)
+}
+
 /** 解析挂载符号 → 目标节点列表;`{missing}` = 目标文件不在面上;`{ambiguous}` = 多解;null = 解不出 */
 function resolveSymbol(tsInfos, info, symbol) {
   if (info.fnByName.has(symbol)) return [{ file: info.rel, fn: symbol, approx: false }]
@@ -710,6 +882,8 @@ function resolveSymbol(tsInfos, info, symbol) {
     const tInfo = tsInfos.get(target)
     if (tInfo.fnByName.has(symbol)) return [{ file: target, fn: symbol, approx: false }]
     if (tInfo.fnByName.has('(default)')) return [{ file: target, fn: '(default)', approx: false }]
+    const re = followReexports(tsInfos, target, symbol)
+    if (re) return re
     const cands = tInfo.fns.filter((f) => f.name !== '(default)')
     if (cands.length === 1) return [{ file: target, fn: cands[0].name, approx: true }]
     if (cands.length > 1) return cands.map((f) => ({ file: target, fn: f.name, approx: true }))
@@ -776,7 +950,7 @@ export function walkFastifyGraph(tsInfos, opts = {}) {
             })
         }
         for (const v of values) {
-          if (!v.startsWith('/')) continue
+          if (v !== '' && !v.startsWith('/')) continue // 空串=挂在节点前缀本身(见 shaped 注释)
           entries.push({ method: r.method, path: fullPathOf(base, v), file: info.rel, line: r.line, via })
         }
         continue

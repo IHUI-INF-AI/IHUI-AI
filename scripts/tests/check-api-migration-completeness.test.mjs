@@ -79,9 +79,9 @@ test('正常模式: 脚本逻辑完整运行 (stdout 含汇总, 无语法/类型
 // ─── 3. [1/6] 审计报告文件存在性 (4 类报告) ──────────────────
 test('输出 [1/6]: 审计报告文件存在性 (4 类: D盘Python/Java/Schema/前端)', () => {
   assert.match(NORMAL_RUN.stdout, /\[1\/6\] 审计报告文件存在性/)
-  // 2026-10-21:那批审计报告被 .gitignore 忽略、只在本机 `.ihui-agent/archive/` 下 ⇒ 干净检出 /
-  // linked worktree 上必然没有,门侧已按设计显式打印"存在性检查跳过"(§0.3 未判定,不记绿也不冒红)。
-  // 所以断言改成:**要么四条都存在,要么整段显式跳过**;不许两者都没有(那才是真瞎)。
+  // 2026-10-22 (G-620 复测):盘面副本(.ihui-agent/.trae-cn 归档根)之外,门还查退役备份 tag 面
+  // backup/archive-removal-2026-10-16 ⇒ 正常仓(fetch-depth:0)四条都存在;linked worktree 按设计
+  // 显式打印"存在性检查跳过"(§0.3 未判定)。断言:**要么四条都存在,要么整段显式跳过**;两者都没有=真瞎。
   if (/审计报告存在性检查跳过/.test(NORMAL_RUN.stdout)) {
     assert.match(NORMAL_RUN.stdout, /\[1\/6\] 审计报告文件存在性/)
   } else {
@@ -92,13 +92,16 @@ test('输出 [1/6]: 审计报告文件存在性 (4 类: D盘Python/Java/Schema/�
   }
 })
 
-// 回归锁:审计报告的搜索必须同时覆盖两处归档根。
-// 2026-09-13 头注就写明报告分居 .ihui-agent 与 .trae-cn;2026-10-16 归档退役清空了
-// .ihui-agent/archive/ ⇒ 若代码退回单搜 .ihui-agent,门 15 会因报告只剩 .trae-cn 而复发阻断红(§12e)。
-test('回归锁: 审计报告搜索覆盖 .ihui-agent + .trae-cn 两处归档根(防单路径回归)', () => {
+// 回归锁:审计报告的取材必须同时覆盖 两处归档根 + 退役备份 tag 面。
+// 2026-10-16 归档退役(7a77c44d86,机主令"完成即删")清空了 .ihui-agent/archive/,而 2026-10-17
+// 补的 .trae-cn 第二根在仓根从未存在 ⇒ 只搜盘面=恒红(G-620 复测实锤)。证据真实归宿是退役提交
+// 自述的备份 tag backup/archive-removal-2026-10-16;若代码退回"只搜盘面"或丢掉 tag 面,本锁判红。
+test('回归锁: 审计报告取材覆盖 .ihui-agent + .trae-cn 两处归档根 + 退役备份 tag 面(防盘面单路径恒红回归)', () => {
   const src = readFileSync(SCRIPT_PATH, 'utf8')
   assert.match(src, /\.ihui-agent\/archive\/audit-reports-2026-07-21/, '应搜 .ihui-agent 归档根')
-  assert.match(src, /\.trae-cn\/archive\/audit-reports-2026-07-21/, '应搜 .trae-cn 归档根(归档退役后报告只剩此处)')
+  assert.match(src, /\.trae-cn\/archive\/audit-reports-2026-07-21/, '应搜 .trae-cn 归档根(盘面兼容)')
+  assert.match(src, /backup\/archive-removal-2026-10-16/, '应查退役备份 tag 面(归档退役后证据唯一归宿)')
+  assert.match(src, /gitRaw/, 'tag 面取材必须走 face-reader gitRaw,不得裸 execSync git 派生')
 })
 
 // ─── 4. [2/7] Schema 表完整性 (5 表 + index.ts 导出) ──────────
