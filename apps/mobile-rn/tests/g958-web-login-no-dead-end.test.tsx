@@ -27,7 +27,11 @@ import { createElement } from 'react'
 
 const { sharedPropsCaptured, appAlertCalls, ssoLib } = vi.hoisted(() => ({
   sharedPropsCaptured: [] as Array<Record<string, unknown>>,
-  appAlertCalls: [] as Array<{ title: string; message?: string; buttons?: Array<{ text: string; style?: string; onPress?: () => void }> }>,
+  appAlertCalls: [] as Array<{
+    title: string
+    message?: string
+    buttons?: Array<{ text: string; style?: string; onPress?: () => void }>
+  }>,
   ssoLib: {
     openSsoLogin: vi.fn(async () => null as unknown),
     extractSsoCode: vi.fn(() => null as unknown),
@@ -198,6 +202,11 @@ describe('G-958 web(H5)登录引导不得指向被自己拒绝的死路', () => 
     expect(ssoLib.openSsoLogin).not.toHaveBeenCalled()
     const error = String(latestSharedProps().error ?? '')
     expect(error).not.toMatch(/暂不支持一键授权登录/)
+  })
+
+  it('web 不渲染"打开网页登录"SSO 按钮(该按钮点下去必被 ssoLogin 拒绝)', () => {
+    render(<LoginScreen />)
+    expect(latestSharedProps().onSsoLogin).toBeUndefined()
   })
 
   it('web 第三方引导文案必须给出 H5 上真实可行的出路', () => {
