@@ -16,14 +16,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 
 import { __test__ } from '../object-space-land.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { resolveGitBin } from '../lib/gitdir.mjs'
 
-const HERE = dirname(fileURLToPath(import.meta.url))
 const GIT = resolveGitBin() || 'git'
 
 const ZH_PATH = 'docs/项目说明/8端一致性 认证矩阵.txt' // 中文目录 + 中文名 + 内含空格

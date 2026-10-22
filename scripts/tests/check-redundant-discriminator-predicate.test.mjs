@@ -112,7 +112,6 @@ function realFace() {
 const J = (src, rel = 'a.ts') => gate.judgeSource(rel, src)
 const st = (src, rel) => J(src, rel).sites.map((s) => s.state)
 const ks = (src, rel) => J(src, rel).sites.map((s) => `${s.state}:${s.kind}`)
-const passes = (src, rel) => J(src, rel).sites.filter((s) => s.state === 'pass')
 
 test('T0 import 门体不得触发 CLI 主流程(§22d 的立身之本)', () => {
   // "没炸"不能靠本文件自己没炸来断言:再拿一个独立子进程 import 门体并打哨兵。

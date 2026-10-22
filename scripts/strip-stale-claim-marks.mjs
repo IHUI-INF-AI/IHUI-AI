@@ -43,7 +43,15 @@
  * 裸标记需机主具名授权才代摘:`IHUI_CLAIM_STRIP_LEGACY_RULING="<原话>"`(注记里逐字留出处)。
  */
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, mkdirSync } from 'node:fs'
+import {
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  mkdirSync,
+  statSync,
+} from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { claimMarkOf } from './lib/plan-task-index.mjs'
@@ -316,6 +324,81 @@ function result(state, n) {
   const line = `SWEEP-RESULT state=${state} stale=${n.stale ?? 0} held=${n.held ?? 0} stripped=${n.stripped ?? 0} lines=${n.lines ?? 0}`
   console.log(line)
   return { state, line }
+}
+
+/**
+ * 派发层(2026-10-22 补建,门 98 那条悬空导入就是缺它)。
+ *
+ * 立因:AGENTS.md §1 写着"兜底器物 `strip-stale-claim-marks.mjs`(guardian 每 30 分钟派发)",
+ * 而本函数**从未被实现过** —— `scripts/tests/strip-stale-claim-marks.test.mjs` 为它写了三段
+ * 断言(含"拿不到结论行必须落 undetermined,不得读成无需摘"),门 98 一直把这条悬空导入当存量债报。
+ * 本函数按那些断言实现,不改任何既有判据:
+ *
+ *   ① **节流闸**:与其余各层同口径(读戳 → 干活 → 写戳)。戳读不到 ⇒ 不当成"最近跑过",
+ *      照常干活 —— 失效方向是多跑一次,不是漏跑一次。
+ *   ② **runner 注入**:跑法由调用方给(测试注入假 runner,真实派发传 spawnSync 那支),
+ *      本层只负责节流与结论解析,不自己派生 git。
+ *   ③ **结论行解析**:只认机读行 `SWEEP-RESULT state=… stale=… held=… stripped=… lines=…`。
+ *      拿不到 ⇒ `undetermined`(§0.3:没判绝不写成判过;把"没做"读成"无需摘"是最坏的一种绿)。
+ *   ④ **跑失败同理**落 undetermined,不记绿也不冒红。
+ *
+ * @param {{tickFile:string, logger?:(l:string)=>void, runner:()=>({ok:boolean,out:string}), ttlMs?:number}} o
+ * @returns {{state:string, stale?:string, held?:string, stripped?:string, lines?:string, why?:string}}
+ */
+export function sweepStaleClaimMarks({
+  tickFile,
+  logger = (l) => console.log(l),
+  runner,
+  ttlMs = 30 * 60 * 1000,
+}) {
+  // ① 节流闸
+  let throttled = false
+  try {
+    if (tickFile && existsSync(tickFile)) {
+      const age = Date.now() - statSync(tickFile).mtimeMs
+      if (Number.isFinite(age) && age >= 0 && age < ttlMs) throttled = true
+    }
+  } catch {
+    /* 戳读不到 ⇒ 不节流 */
+  }
+  if (throttled) {
+    logger(`未到节流窗口(< ${Math.round(ttlMs / 60000)} 分钟),本轮不派发`)
+    return { state: 'throttled', why: '未到节流窗口' }
+  }
+
+  // ② 注入式 runner
+  const r = typeof runner === 'function' ? runner() : null
+  if (!r || r.ok !== true) {
+    logger('清扫器运行失败 ⇒ 落未判定(不记绿也不冒红)')
+    return { state: 'undetermined', why: '清扫器运行失败' }
+  }
+
+  // ③ 结论行解析(只认机读行)
+  const m =
+    /SWEEP-RESULT\s+state=(\S+)\s+stale=(\S+)\s+held=(\S+)\s+stripped=(\S+)\s+lines=(\S+)/.exec(
+      String(r.out || ''),
+    )
+  if (!m) {
+    logger('拿不到机读结论行 ⇒ 落未判定(不把"没做"读成"无需摘")')
+    return { state: 'undetermined', why: '结论行缺失' }
+  }
+  const [, state, stale, held, stripped, lines] = m
+  if (state === 'stripped' && Number(stripped) > 0) {
+    logger(`代摘 ${stripped} 枚(滞留 ${stale} / 本轮不动 ${held} / 台账 ${lines} 行)`)
+  } else {
+    logger(`清扫结论 state=${state}(滞留 ${stale} / 本轮不动 ${held} / 台账 ${lines} 行)`)
+  }
+
+  // ④ 写戳(失败不改变结论)
+  try {
+    if (tickFile) {
+      mkdirSync(path.dirname(tickFile), { recursive: true })
+      writeFileSync(tickFile, new Date().toISOString())
+    }
+  } catch {
+    /* 写戳失败不影响本轮结论 */
+  }
+  return { state, stale, held, stripped, lines }
 }
 
 function git(args, opts = {}) {

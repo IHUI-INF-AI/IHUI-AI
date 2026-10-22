@@ -35,20 +35,34 @@
 const BUSINESS_PATH_RE = /^(apps|packages)\//
 
 /**
- * 判据库(2026-10-22 立):被大量门 import 的**判据/基础设施**代码。
- * 改这些必须全量 —— 它们不改变"门跑不跑",而是改变"门怎么判",改错会静默失效。
- * 新增此类文件时请加到这里:漏加的代价是"少跑",这是唯一不能接受的失效方向。
+ * 判据库清单 —— **单一真相源 = `scripts/lib/judgement-libs.json`**(2026-10-22 收口)。
+ *
+ * 为什么单独一份 JSON:这份清单原先在 `gate-scope.mjs` 与 `pre-commit-hook.js` **各存一份**,
+ * 违反 §0.6「同类判据全仓只许一份,第二份必然漂移」。改成 JSON 后 ESM 与 CJS 都能读
+ * (pre-commit-hook 是 CJS,import 不了 .mjs),从此只有一处需要维护。
+ *
+ * 入库口径 = **被 3 道以上门 import 的 `scripts/lib/*` 公共库**(含 3)。实测口径
+ * (2026-10-22,扫 guardian-runner 全部注册项的 import 语句):
+ *   face-reader 184 / flag-value 59 / code-mask 47 / selftest-registrant 36 /
+ *   exclude-dirs 26 / i18n-script-families 19 / i18n-message-faces 18 / logger 14 /
+ *   scratch-dir 52 / i18n-key-flow 5 / gitdir 5 / plan-task-index 5 / box-geometry 4 /
+ *   radius-tokens 4 / design-token-blocks 3 / third-party-roots 3 / watermark-lines 3
+ *   + git-lock / gate-failure-kind / staging-snapshot / guardian-batch-attest /
+ *     guardian-pushgate-cache(不靠 import 计数,但同属"改错让门静默失效"族)
+ *
+ * 改这些文件 ⇒ 本地强制 full。理由:它们被大量门 import,改错会让门**静默失效**
+ * (不报错、判据却变了),而 CI 是延迟发现 ⇒ 本地必须当场验。
+ *
+ * 复核命令(新增 lib 后跑一遍,别靠记忆):
+ *   node -e "const fs=require('fs');const src=fs.readFileSync('scripts/guardian-runner.mjs','utf8');
+ *   const regs=[...src.matchAll(/script: '([^']+)'/g)].map(m=>m[1]);const c={};
+ *   for(const s of regs){let t='';try{t=fs.readFileSync('scripts/'+s,'utf8')}catch{continue}
+ *   for(const m of t.matchAll(/from '(\.\.?\/lib\/[a-z0-9-]+\.(?:mjs|js))'/g)){const k=m[1].replace(/^\.*\//,'');c[k]=(c[k]||0)+1}}
+ *   console.log(Object.entries(c).filter(([,n])=>n>=3).sort((a,b)=>b[1]-a[1]))"
  */
-const JUDGEMENT_LIBS = new Set([
-  'scripts/lib/face-reader.mjs', // 全仓门的 git 派生唯一出口
-  'scripts/lib/git-lock.mjs', // 写锁:错了会让所有门读到半截状态
-  'scripts/lib/gitdir.mjs', // gitdir 解析
-  'scripts/lib/scratch-dir.mjs', // 临时目录:错了会让门互相踩
-  'scripts/lib/gate-failure-kind.mjs', // 失败归因
-  'scripts/lib/staging-snapshot.js', // 索引快照
-  'scripts/lib/guardian-batch-attest.mjs', // 批次留痕
-  'scripts/lib/guardian-pushgate-cache.mjs', // push 门缓存
-])
+import judgementLibs from './judgement-libs.json' with { type: 'json' }
+
+const JUDGEMENT_LIBS = new Set(judgementLibs)
 
 /**
  * 只影响**调度**、不影响**判据**的基础设施:改它们走元门档即可。

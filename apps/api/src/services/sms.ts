@@ -17,8 +17,38 @@ import {
   CODE_RESEND_INTERVAL_MS,
 } from '../utils/code-store.js'
 import { logger } from '../utils/logger.js'
+import { isProductionGuard } from '../config/index.js'
 
 const FETCH_TIMEOUT_MS = 10_000
+
+/** 一次投递的诚实结论。`reason` 只放厂商错误码或配置键名 —— 云侧原文、异常正文与凭据
+ *  一律不得进这里(守门 67:它会被调用方拼进对外 message)。 */
+export interface SmsDeliveryResult {
+  sent: boolean
+  reason?: string
+}
+
+/** 发送失败归类,供调用方选状态码。不得靠 `msg` 文案猜 —— 文案会改,归类不会。 */
+export type SendCodeFailure = 'rate_limited' | 'delivery_failed'
+
+export interface SendCodeResult {
+  success: boolean
+  msg: string
+  failure?: SendCodeFailure
+}
+
+/** 手机号脱敏:仅留前 3 后 4。日志面一律走它,不得写裸号。 */
+function maskPhone(phone: string): string {
+  return phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : '***'
+}
+
+/** 从异常里只取机器可读的错误码(SDK 的 `code` 或 Error 的 `name`),丢弃自由文本正文。 */
+function providerErrorCode(e: unknown): string {
+  const code = (e as { code?: unknown })?.code
+  if (typeof code === 'string' && /^[A-Za-z0-9._-]{1,64}$/.test(code)) return code
+  const name = (e as Error)?.name
+  return typeof name === 'string' && /^[A-Za-z0-9._-]{1,64}$/.test(name) ? name : 'unknown'
+}
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
   const controller = new AbortController()
@@ -31,9 +61,34 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
 }
 
 interface AliyunSmsModules {
-  default: new (config: unknown) => { sendSms(request: unknown): Promise<unknown> }
+  Client: new (config: unknown) => { sendSms(request: unknown): Promise<unknown> }
   SendSmsRequest: new (input: Record<string, unknown>) => unknown
   Config: new (input: Record<string, unknown>) => unknown
+}
+
+type Ctor = new (input: never) => unknown
+
+function asCtor(v: unknown): Ctor | null {
+  return typeof v === 'function' ? (v as Ctor) : null
+}
+
+/** 剥掉 CJS↔ESM 互操作多出来的那一层。
+ *  `optional-deps.d.ts` 把 SDK 声明成 `export default class`,所以 tsc 眼里 `mod.default` 就是
+ *  构造函数;但运行时该包是 CJS —— `import()` 给的 namespace.default 是 module.exports 本身,
+ *  真正的类挂在 `module.exports.default` 上,少剥一层拿到的是普通对象,`new` 它必抛
+ *  "not a constructor"。2026-10-22 实测:这条阿里云腿从写进仓库那天起就没构造成功过,
+ *  只因 AK/SK 一直为空、策略 1 从未进入,异常也就从没露头。三种形态都认,不再赌一种。 */
+function resolveDefaultCtor(mod: unknown): Ctor | null {
+  const one = (mod as { default?: unknown } | undefined)?.default
+  const two = (one as { default?: unknown } | undefined)?.default
+  return asCtor(mod) ?? asCtor(one) ?? asCtor(two)
+}
+
+/** 命名导出同样可能在 module.exports 那一层,两面都找。 */
+function resolveNamedCtor(mod: unknown, name: string): Ctor | null {
+  const bag = mod as Record<string, unknown> | undefined
+  const nested = (mod as { default?: Record<string, unknown> } | undefined)?.default
+  return asCtor(bag?.[name]) ?? asCtor(nested?.[name])
 }
 
 let aliyunSdkCache: AliyunSmsModules | null | undefined
@@ -41,16 +96,26 @@ let aliyunSdkCache: AliyunSmsModules | null | undefined
 async function loadAliyunSdk(): Promise<AliyunSmsModules | null> {
   if (aliyunSdkCache !== undefined) return aliyunSdkCache
   try {
-    // 阿里云短信 SDK 为可选依赖,未安装时降级为日志输出
-    // 类型声明见 src/types/optional-deps.d.ts
-    const sdk = (await import('@alicloud/dysmsapi20170525')) as AliyunSmsModules
-    const openApi = (await import('@alicloud/openapi-client')) as {
-      Config: new (input: Record<string, unknown>) => unknown
+    // 阿里云短信 SDK 为可选依赖,取不到构造函数时降级为日志输出
+    const sdkRaw: unknown = await import('@alicloud/dysmsapi20170525')
+    const openApiRaw: unknown = await import('@alicloud/openapi-client')
+    const Client = resolveDefaultCtor(sdkRaw)
+    const SendSmsRequest = resolveNamedCtor(sdkRaw, 'SendSmsRequest')
+    const Config = resolveNamedCtor(openApiRaw, 'Config')
+    if (!Client || !SendSmsRequest || !Config) {
+      // 装上了却认不出构造函数 ⇒ 必须点名,不能再伪装成"未安装所以降级"这种无害形态
+      logger.error('阿里云短信 SDK 已加载但取不到构造函数 ⇒ 判不可用,不记为已发送', {
+        client: Boolean(Client),
+        sendSmsRequest: Boolean(SendSmsRequest),
+        config: Boolean(Config),
+      })
+      aliyunSdkCache = null
+      return null
     }
     aliyunSdkCache = {
-      default: sdk.default,
-      SendSmsRequest: sdk.SendSmsRequest,
-      Config: openApi.Config,
+      Client: Client as AliyunSmsModules['Client'],
+      SendSmsRequest: SendSmsRequest as AliyunSmsModules['SendSmsRequest'],
+      Config: Config as AliyunSmsModules['Config'],
     }
     return aliyunSdkCache
   } catch (e) {
@@ -107,9 +172,9 @@ function checkRateLimit(phone: string): { ok: boolean; msg: string } {
 }
 
 /** 发送短信验证码 */
-export async function sendSmsCode(phone: string): Promise<{ success: boolean; msg: string }> {
+export async function sendSmsCode(phone: string, scene?: SmsScene): Promise<SendCodeResult> {
   const rl = checkRateLimit(phone)
-  if (!rl.ok) return { success: false, msg: rl.msg }
+  if (!rl.ok) return { success: false, msg: rl.msg, failure: 'rate_limited' }
 
   const code = generateCode()
   const now = Date.now()
@@ -117,7 +182,7 @@ export async function sendSmsCode(phone: string): Promise<{ success: boolean; ms
   // 检查重发间隔
   const existing = codeStore.get(phone)
   if (existing && now - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
-    return { success: false, msg: '验证码已发送,请稍候' }
+    return { success: false, msg: '验证码已发送,请稍候', failure: 'rate_limited' }
   }
 
   // 存储验证码
@@ -128,46 +193,109 @@ export async function sendSmsCode(phone: string): Promise<{ success: boolean; ms
   })
 
   // 实际发送
-  await dispatchSms(phone, code)
+  const delivery = await dispatchSms(phone, code, scene)
+  if (!delivery.sent) {
+    return { success: false, msg: '验证码发送失败,请稍后重试', failure: 'delivery_failed' }
+  }
 
   return { success: true, msg: '验证码已发送' }
 }
 
-async function dispatchSms(phone: string, code: string): Promise<void> {
+/** 投递一枚「调用方自己已经生成并存进 code-store」的验证码。
+ *  与 sendSmsCode 的分工:那支自带取码 + 限速 + 重发间隔,适合只管发的端点;
+ *  这支只负责"送出去并如实回报",供已在自己作用域内生成/存码的端点复用
+ *  (routes/auth.ts 的 /send-code 与 /sms/send —— 它们还要把码交给回显闸,不能另生成一枚)。 */
+export function deliverSmsCode(
+  phone: string,
+  code: string,
+  scene?: SmsScene,
+): Promise<SmsDeliveryResult> {
+  return dispatchSms(phone, code, scene)
+}
+
+/** 无凭据也无代理时,这一轮到底算不算"发出去了"。
+ *  生产档必须算失败:记成成功 ⇒ 响应写"验证码已发送"而用户永远等不到那条短信,
+ *  而"降级"这件事只留下一行 warn,没人会去查。开发档保留降级(调用方拿得到回显码)。
+ *  抽成纯函数是为了让两档各自有夹具可钉 —— 判据住在模块加载期读死的全局旗标时,
+ *  测试永远只能覆盖其中一档,另一档等于没锁。 */
+export function judgeUnconfiguredDelivery(production: boolean): SmsDeliveryResult {
+  return production
+    ? { sent: false, reason: 'not_configured: ALI_SMS_ACCESS_KEY_ID/SECRET' }
+    : { sent: true, reason: 'dev_console' }
+}
+
+async function dispatchSms(
+  phone: string,
+  code: string,
+  scene?: SmsScene,
+): Promise<SmsDeliveryResult> {
   // 策略 1：阿里云
   if (env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET) {
-    await sendViaAliyun(phone, code)
-    return
+    return sendViaAliyun(phone, code, scene)
   }
   // 策略 2：代理
   if (env.SMS_API_BASE_URL) {
-    await sendViaProxy(phone, code)
-    return
+    return sendViaProxy(phone, code)
   }
-  // 策略 3：dev console（降级）
-  // 2026-07-24 安全加固:手机号脱敏(防 PII 泄露到日志),仅保留前 3 后 4
-  const maskedPhone = phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : '***'
-  logger.warn('SMS 降级为 console 输出（未配置阿里云/代理）', { phone: maskedPhone })
+  // 策略 3：dev console（仅非生产档降级）
+  logger.warn('SMS 未配置阿里云/代理 ⇒ 本轮没有真发送', { phone: maskPhone(phone) })
+  return judgeUnconfiguredDelivery(isProductionGuard)
 }
 
-async function sendViaAliyun(phone: string, code: string): Promise<void> {
+/** 发码场景。与 routes/auth.ts 的 sendCodeSchema.scene 同一闭集。 */
+export type SmsScene = 'register' | 'login' | 'reset' | 'phone-binding'
+
+/** 场景 → 该场景专用模板码的 env 键。四枚模板在阿里云侧均已过审。 */
+const SCENE_TEMPLATE_ENV_KEYS: Record<SmsScene, string> = {
+  register: 'ALI_SMS_TEMPLATE_CODE_REGISTER',
+  login: 'ALI_SMS_TEMPLATE_CODE_LOGIN',
+  reset: 'ALI_SMS_TEMPLATE_CODE_RESET',
+  'phone-binding': 'ALI_SMS_TEMPLATE_CODE_PHONE_BINDING',
+}
+
+/** 按场景取模板码;该场景没单独配 ⇒ 回落 ALI_SMS_TEMPLATE_CODE。
+ *  回落不是偷懒:换机/换环境时只配一枚主模板是常态,把"没逐场景配齐"当失败会让这些环境
+ *  直接发不出码 —— 而那正是 §12e 说的"判据把出路堵死"。 */
+function pickTemplateCode(scene?: SmsScene): string | undefined {
+  const scoped = scene ? env[SCENE_TEMPLATE_ENV_KEYS[scene]] : undefined
+  return scoped || env.ALI_SMS_TEMPLATE_CODE
+}
+
+/** 阿里云 SendSms 的响应判定。HTTP 200 ≠ 发出去了:签名不合法、账户欠费(isv.OUT_OF_SERVICE)、
+ *  模板变量不匹配这些业务失败云侧一律回 200 + body.Code。只看 Promise 没抛错,会把它们全读成
+ *  "已发送" —— 而留痕里再不会有一条线索指向真正的原因。 */
+function judgeAliyunResponse(raw: unknown): SmsDeliveryResult {
+  const body = (raw as { body?: Record<string, unknown> } | null | undefined)?.body
+  const pick = (k: string) => (typeof body?.[k] === 'string' ? (body[k] as string) : '')
+  // SDK 模型实例上是 camelCase(`code`),toMap()/裸 JSON 上是 PascalCase(`Code`),两面都认
+  const code = pick('code') || pick('Code')
+  if (!code) return { sent: false, reason: 'aliyun_response_unparsable' }
+  return code === 'OK' ? { sent: true } : { sent: false, reason: `aliyun_rejected:${code}` }
+}
+
+async function sendViaAliyun(
+  phone: string,
+  code: string,
+  scene?: SmsScene,
+): Promise<SmsDeliveryResult> {
   const signName = env.ALI_SMS_SIGN_NAME
-  const templateCode = env.ALI_SMS_TEMPLATE_CODE
+  const templateCode = pickTemplateCode(scene)
   if (!signName || !templateCode) {
-    // 2026-07-24 安全加固:手机号脱敏(防 PII 泄露到日志)
-    const maskedPhone = phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : '***'
-    logger.warn('阿里云短信缺少 ALI_SMS_SIGN_NAME 或 ALI_SMS_TEMPLATE_CODE,降级为 console', {
-      phone: maskedPhone,
+    const missing = !signName
+      ? 'ALI_SMS_SIGN_NAME'
+      : `ALI_SMS_TEMPLATE_CODE${scene ? `(或场景专用 ${SCENE_TEMPLATE_ENV_KEYS[scene]})` : ''}`
+    logger.warn('阿里云短信配置不齐 ⇒ 判未配置,不记为已发送', {
+      phone: maskPhone(phone),
+      reason: `not_configured: ${missing}`,
     })
-    return
+    return { sent: false, reason: `not_configured: ${missing}` }
   }
 
   const sdk = await loadAliyunSdk()
   if (!sdk) {
-    // 2026-07-24 安全加固:手机号脱敏(防 PII 泄露到日志)
-    const maskedPhone = phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : '***'
-    logger.warn('阿里云短信 SDK 不可用,降级为 console', { phone: maskedPhone })
-    return
+    // 走到这里说明凭据与模板都在位、本应真发,却加载不了 SDK ⇒ 这是失败,不是"降级即成功"
+    logger.warn('阿里云短信 SDK 不可用(有凭据却发不出去) ⇒ 如实报失败', { phone: maskPhone(phone) })
+    return { sent: false, reason: 'aliyun_sdk_unavailable' }
   }
 
   try {
@@ -176,28 +304,49 @@ async function sendViaAliyun(phone: string, code: string): Promise<void> {
       accessKeySecret: env.ALI_SMS_ACCESS_KEY_SECRET,
       endpoint: 'dysmsapi.aliyuncs.com',
     })
-    const client = new sdk.default(config)
+    const client = new sdk.Client(config)
     const request = new sdk.SendSmsRequest({
       phoneNumbers: phone,
       signName,
       templateCode,
       templateParam: JSON.stringify({ code }),
     })
-    await client.sendSms(request)
+    const result = judgeAliyunResponse(await client.sendSms(request))
+    if (!result.sent) {
+      logger.warn('阿里云短信未发出', { phone: maskPhone(phone), reason: result.reason })
+    }
+    return result
   } catch (e) {
-    logger.warn(`阿里云短信发送失败: ${(e as Error).message}`, { phone })
-    throw e
+    const reason = `aliyun_call_failed:${providerErrorCode(e)}`
+    logger.warn('阿里云短信调用异常', { phone: maskPhone(phone), reason })
+    return { sent: false, reason }
   }
 }
 
-async function sendViaProxy(phone: string, code: string): Promise<void> {
+async function sendViaProxy(phone: string, code: string): Promise<SmsDeliveryResult> {
   const base = env.SMS_API_BASE_URL!
   const endpoint = env.SMS_VERIFY_ENDPOINT ?? '/ai/login/pwd/smsVerify'
-  await fetchWithTimeout(`${base}${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone, code }),
-  })
+  try {
+    const res = await fetchWithTimeout(`${base}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, code }),
+    })
+    if (!res.ok) {
+      logger.warn('短信代理返回非 2xx ⇒ 不记为已发送', {
+        phone: maskPhone(phone),
+        reason: `proxy_http_${res.status}`,
+      })
+      return { sent: false, reason: `proxy_http_${res.status}` }
+    }
+    return { sent: true }
+  } catch (e) {
+    logger.warn('短信代理调用异常 ⇒ 不记为已发送', {
+      phone: maskPhone(phone),
+      reason: providerErrorCode(e),
+    })
+    return { sent: false, reason: 'proxy_call_failed' }
+  }
 }
 
 /** 发送通用短信通知（非验证码）。复用 dispatchSms 的发送策略：阿里云 → 代理 → dev console。
@@ -216,7 +365,9 @@ export async function sendSmsMessage(
       // 注定被拒发的模板去发,留痕里只剩一行云侧报错,运营看不出真正的原因是这台机没配通知模板。
       const notifyTemplateCode = env.ALI_SMS_NOTIFY_TEMPLATE_CODE
       if (!notifyTemplateCode) {
-        logger.warn('通知短信未配置 ALI_SMS_NOTIFY_TEMPLATE_CODE ⇒ 判为未配置,不记为已发送', { phone })
+        logger.warn('通知短信未配置 ALI_SMS_NOTIFY_TEMPLATE_CODE ⇒ 判为未配置,不记为已发送', {
+          phone,
+        })
         return {
           success: false,
           error:
@@ -239,14 +390,18 @@ export async function sendSmsMessage(
         accessKeySecret: env.ALI_SMS_ACCESS_KEY_SECRET,
         endpoint: 'dysmsapi.aliyuncs.com',
       })
-      const client = new sdk.default(config)
+      const client = new sdk.Client(config)
       const request = new sdk.SendSmsRequest({
         phoneNumbers: phone,
         signName,
         templateCode,
         templateParam: JSON.stringify({ content }),
       })
-      await client.sendSms(request)
+      const verdict = judgeAliyunResponse(await client.sendSms(request))
+      if (!verdict.sent) {
+        logger.warn('通知短信未发出', { phone: maskPhone(phone), reason: verdict.reason })
+        return { success: false, error: verdict.reason }
+      }
       return { success: true }
     }
     if (env.SMS_API_BASE_URL) {
@@ -308,17 +463,36 @@ export async function sendArrearSms(
       accessKeySecret: env.ALI_SMS_ACCESS_KEY_SECRET,
       endpoint: 'dysmsapi.aliyuncs.com',
     })
-    const client = new sdk.default(config)
+    const client = new sdk.Client(config)
     const request = new sdk.SendSmsRequest({
       phoneNumbers: phone,
       signName,
       templateCode,
       templateParam: JSON.stringify(vars),
     })
-    await client.sendSms(request)
+    const verdict = judgeAliyunResponse(await client.sendSms(request))
+    if (!verdict.sent) {
+      logger.warn('催缴短信未发出', { phone: maskPhone(phone), reason: verdict.reason })
+      return { success: false, error: verdict.reason }
+    }
     return { success: true }
   } catch (e) {
     return { success: false, error: (e as Error).message }
   }
+}
+
+/** 测试出口(§22c):镜像测试直接用生产判据,不得在测试里复制一份。
+ *  这里暴露的三样都是"错了不会喊"的静默型判据 —— 少剥一层 interop ⇒ 抛 not a constructor;
+ *  不判响应体 ⇒ 欠费停机在账面上是"已发送";不判降级方向 ⇒ 生产档把没发出去记成成功。 */
+export const __test__ = {
+  resolveDefaultCtor,
+  resolveNamedCtor,
+  judgeAliyunResponse,
+  judgeUnconfiguredDelivery,
+  providerErrorCode,
+  maskPhone,
+  loadAliyunSdk,
+  pickTemplateCode,
+  SCENE_TEMPLATE_ENV_KEYS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
