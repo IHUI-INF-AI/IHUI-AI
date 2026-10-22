@@ -414,7 +414,7 @@ Restart-Service Cloudflared
 
 **隧道侧可观测性(2026-10-16 补齐两条,今天定位时就是缺这两样):**
 
-1. **指标时间轴(已自动,零人工)**:`scripts/record-tunnel-metrics.mjs` 每 15 分钟把 cloudflared metrics 的白名单指标**追加一行**到 `.workbuddy/tunnel-metrics.jsonl`(腿数 / 累计请求 / 回源错误 / 落点 PoP / 进程启动时刻 / origin 连接均值),并给出与上一轮的差分 —— **进程重启过则差分记 `null`**(不同进程的累计值相减会得出负数或天量,是台账污染的头号来源)。派发点 `git-guardian.mjs: auditTunnelMetrics()`。回看:`tail -n 50 .workbuddy/tunnel-metrics.jsonl`。**为什么不挂 Prometheus**:metrics 端点**端口每次启动会变**,静态 target 天然会漂;本尺子按 pid 从 netstat 现读端口。
+1. **指标时间轴(已自动,零人工)**:`scripts/record-tunnel-metrics.mjs` 每 15 分钟把 cloudflared metrics 的白名单指标**追加一行**到 `.ihui-agent/state/tunnel-metrics.jsonl`(腿数 / 累计请求 / 回源错误 / 落点 PoP / 进程启动时刻 / origin 连接均值),并给出与上一轮的差分 —— **进程重启过则差分记 `null`**(不同进程的累计值相减会得出负数或天量,是台账污染的头号来源)。派发点 `git-guardian.mjs: auditTunnelMetrics()`。回看:`tail -n 50 .ihui-agent/state/tunnel-metrics.jsonl`。**为什么不挂 Prometheus**:metrics 端点**端口每次启动会变**,静态 target 天然会漂;本尺子按 pid 从 netstat 现读端口。
 2. **运行期日志(2026-10-17 已落地)**:Cloudflared 服务 ImagePath 曾为裸 `tunnel run`,隧道握手 / 重连错误不落任何文件。已补 `--logfile D:\DevEnv\logs\cloudflared.log --loglevel info`,当前 ImagePath(全局位写法):
 
    ```

@@ -17,7 +17,7 @@
  *   target 的静态配置天然会漂,只有"按 pid 现读端口 + 自己落盘"这条形态才稳。
  *
  * 本尺子每轮做三件事:按 pid 现读端口 → 抓一次 metrics → 抽白名单指标**追加一行**到
- * `.workbuddy/tunnel-metrics.jsonl`,并给出与上一轮的差分(新增请求 / 新增错误 / 进程是否
+ * `.ihui-agent/state/tunnel-metrics.jsonl`,并给出与上一轮的差分(新增请求 / 新增错误 / 进程是否
  * 重启过 / 落点 PoP 是否换过)。它不判红、不寄信,只负责把时间轴留下来。
  *
  * ## 三态纪律(§0.3)
@@ -252,7 +252,7 @@ async function main() {
     return
   }
   const ledgerArg = argv[argv.indexOf('--ledger') + 1]
-  const ledger = typeof ledgerArg === 'string' && !ledgerArg.startsWith('-') ? ledgerArg : '.workbuddy/tunnel-metrics.jsonl'
+  const ledger = typeof ledgerArg === 'string' && !ledgerArg.startsWith('-') ? ledgerArg : '.ihui-agent/state/tunnel-metrics.jsonl'
   let c
   try {
     c = await collect()

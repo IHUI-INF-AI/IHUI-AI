@@ -7,7 +7,7 @@
 /**
  * push-attempt-triage.mjs — 把「一趟 `git push` 的结果」分诊成可执行结论的纯函数
  *
- * 立因(2026-09-26,`deploy/win/deploy-loop.log` + `.workbuddy/git-push-guard-async.log` 实测):
+ * 立因(2026-09-26,`deploy/win/deploy-loop.log` + `.ihui-agent/state/git-push-guard-async.log` 实测):
  *   `scripts/git-push-guard.mjs` 的"首次 push 失败"分支把**任何** exit 1 当成"pre-push hook 阻塞",
  *   随后按 §12「hook 失败因其他 agent 代码 → --no-verify」再推一趟。而
  *   `! [rejected] main -> main (non-fast-forward)` 是**远端拒收**,与质量门毫无关系:
@@ -132,7 +132,7 @@ export const NON_FAST_FORWARD_RE =
 
 /**
  * 凭据**不可得**(≠凭据失效 —— 根本没拿到,而不是拿到了被拒)。特征串逐字取自
- * `.workbuddy/git-push-guard-async.log` 的真实回显(2026-09-27 实测 60 条同型):
+ * `.ihui-agent/state/git-push-guard-async.log` 的真实回显(2026-09-27 实测 60 条同型):
  *   · `could not read Username|Password for '<url>'` —— 所有 helper 都没交出凭据、
  *     git 回落交互提示后失败(有无 tty / GIT_TERMINAL_PROMPT 取值决定尾串形态);
  *   · `failed to execute prompt script` —— 提示脚本本身跑不动(同一断点的另一形态)。
@@ -378,7 +378,7 @@ function sameSha(a, b) {
 }
 
 /**
- * 一条 `.workbuddy/push-state.json` 读数**相对当前 HEAD** 的出处判定 —— 纯函数,零副作用。
+ * 一条 `.ihui-agent/state/push-state.json` 读数**相对当前 HEAD** 的出处判定 —— 纯函数,零副作用。
  *
  * 立因(2026-09-28):`git-push-converge.mjs` 报 `PUSH_FAILED` / `SKIP` / `DIVERGED` 时,
  * 依据的是状态文件里**几小时前**的那条记录(`headSha` 还停在更早的提交),而它自己

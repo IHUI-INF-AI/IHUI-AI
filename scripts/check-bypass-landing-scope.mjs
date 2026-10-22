@@ -10,7 +10,7 @@
  * 路径**按磁盘旧副本整文件写回(吞掉了别人刚入库的圆角统一),链上三道防回退门全部拦不住 ——
  * 守门 84 R1 只跑提交链的 --staged 面、守门 100 管合并吞并、守门 30c 只跑 --staged,而旁路通道
  * (object-space-land / live-doc-edit / commit-tree+CAS)**结构上不跑钩子**。G-725 起旁路落地必须
- * 在 .workbuddy/safe-commit-attestation.jsonl 留痕(声明路径 + landedSha),本门把这份留痕当成
+ * 在 .ihui-agent/state/safe-commit-attestation.jsonl 留痕(声明路径 + landedSha),本门把这份留痕当成
  * 「提交意图」的唯一机器可读面,事后逐枚复量:
  *
  *   S1 射程:只审 kind=bypass-landing 且带 landedSha 的记录;其余 kind(not-ours/mine/…)与缺
@@ -26,7 +26,7 @@
  *      纯"声明面不全"的混提由落地器自身的 extras 提醒负责。
  *   S5 未判定档:landedSha 取材失败 / 是合并提交(多父)/ 祖先窗口截断仍无命中 ⇒ 逐条点名;
  *      --strict 下 exit 2,不静默绿。
- *   S6 增量台账:.workbuddy/bypass-landing-scope-audited.json 记 landedSha → 判定,每枚记录
+ *   S6 增量台账:.ihui-agent/state/bypass-landing-scope-audited.json 记 landedSha → 判定,每枚记录
  *      **只判一次**(判红不许反复红 —— 修复动作是前向回补,不是让每次提交都陪葬;门 168 同款
  *      设计)。台账是"已判"不是"豁免":红被点名一次后进台账,损坏内容仍须人修。
  *
@@ -60,7 +60,7 @@ const DEFAULT_ROOT = resolve(SCRIPT_DIR, '..')
 /** 祖先窗口(G-806 同款纪律):log 取 41 条用第 41 条判截断;截断仍无命中 ⇒ 未判定,不静默绿 */
 const ANC_WINDOW = 40
 /** 增量台账(每枚 bypass 记录只判一次;S6) */
-const AUDITED_LEDGER_REL = join('.workbuddy', 'bypass-landing-scope-audited.json')
+const AUDITED_LEDGER_REL = join('.ihui-agent', 'state', 'bypass-landing-scope-audited.json')
 const AUDITED_VERSION = 1
 const GIT_TIMEOUT = 120_000
 

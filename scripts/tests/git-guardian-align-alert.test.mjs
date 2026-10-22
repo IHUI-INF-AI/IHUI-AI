@@ -5,7 +5,7 @@
 // 守护「收敛器收尾对齐停摆 → 喊人」镜像测试(§22c:import 源模块 __test__,零复制实现)。
 //
 // 立因(票 O74):收敛器 alignWorktreeAfterHeadMove 长期失败(锁一直被占)过去只记日志。
-// 现由收敛器写 .workbuddy/converge-align-state.json,守护每轮读它并按阈值
+// 现由收敛器写 .ihui-agent/state/converge-align-state.json,守护每轮读它并按阈值
 // 经 notifyGuardRed('converge-align-stall', …) 走 §5e 唯一邮件通道。本测试钉:
 //   (a) 阳性对照:连续 3 次 + 最后失败 12 分钟前 ⇒ 该喊;
 //   (b) 反向对照:2 次不喊 / 3 次但 1 分钟前不喊 / 成功归零不喊 / 状态缺失不喊;
@@ -176,7 +176,7 @@ test('(e)装车证明:tick 真执行分支调用 checkConvergeAlignStall,名与�
   // daemon tick 分支也要有(双执行体并存,见 §5b)
   const daemonSeg = src.slice(src.indexOf('function startDaemon'))
   assert.match(daemonSeg, /checkConvergeAlignStall\(\)/)
-  // 派发名逐字固定;状态文件路径与收敛器写入侧同源(.workbuddy/converge-align-state.json)
+  // 派发名逐字固定;状态文件路径与收敛器写入侧同源(.ihui-agent/state/converge-align-state.json)
   //
   // 2026-10-04 放宽了这条断言的**形状**(存量红的根因修复,不是把判据放松):
   // 原式 `/notify\('converge-align-stall', detail\)/` 要求**恰好两个参数**,而提交 25ce43fc6a
@@ -187,7 +187,7 @@ test('(e)装车证明:tick 真执行分支调用 checkConvergeAlignStall,名与�
   // 逐字名 + 变量名仍在本条正则内,加参数不该让"装车证明"失效。
   // 判别力已变异验证:把派发名改掉(挪到别的 alert 身份)仍会被这条正则抓住。
   assert.match(src, /notify\('converge-align-stall', detail\b/)
-  assert.match(src, /'.workbuddy', 'converge-align-state\.json'/)
+  assert.match(src, /'.ihui-agent', 'state', 'converge-align-state\.json'/)
   // __test__ 暴露判据(§22c)—— 钉的是**运行时真取得到那三个判据**,不是"在源码里截 600 个字符
   // 找 `key,`"。窗口式文本判据在 HEAD 面长期红:键住在一个大对象字面量里(:587 起),越出窗口
   // 就被读成"没导出",而"越窗"根本不是这件事要证的东西(§12e:与提交内容无关的恒红只会逼人跳门)。

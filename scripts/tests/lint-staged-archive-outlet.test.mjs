@@ -5,7 +5,7 @@
 // 归档件 lint-staged 就近出口(2026-10-20 立)的镜像测试 —— 本文件不复制任何 glob 语义,
 // 判据一律 import lint-staged 自己的导出(matchFiles / groupFilesByConfig / validateConfigLogic)。
 //
-// 立项原因(实锤,现读 .workbuddy/hook-logs/pre-commit.log:106281-106284):`.gitignore` 第 167/169 行
+// 立项原因(实锤,现读 .ihui-agent/state/hook-logs/pre-commit.log:106281-106284):`.gitignore` 第 167/169 行
 // 忽略 `.ihui-agent/*` 与 `.ihui-agent/archive/`,而 archive 下的 .md 是**已跟踪**的归档凭据(守门 71/166
 // 拿它们当"正当删行"依据)。任何经 `node scripts/safe-commit.mjs` 的提交,只要声明集里含
 // `.ihui-agent/archive/*.md`,根 package.json 的 lint-staged glob `*.{ts,tsx,js,jsx,json,md,yml,yaml,css,scss}`

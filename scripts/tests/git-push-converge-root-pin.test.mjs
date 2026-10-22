@@ -121,7 +121,7 @@ test('T3 两处派生都必须显式传 cwd,且 git 走唯一出口而不是裸 
 test('T4 push-state 不得再由 process.cwd() 拼出来(反向锁:回潮即红)', () => {
   const src = codeFace()
   assert.doesNotMatch(src, /process\.cwd\(\)/, '代码面重新出现 process.cwd() ⇒ 那一处读数会跟着调用方终端走')
-  assert.match(src, /resolve\(\s*ROOT\s*,\s*'\.workbuddy\/push-state\.json'\s*\)/, 'push-state 必须钉在 ROOT 上读')
+  assert.match(src, /resolve\(\s*ROOT\s*,\s*'\.ihui-agent\/state\/push-state\.json'\s*\)/, 'push-state 必须钉在 ROOT 上读')
 })
 
 test('T5 遮罩必须真起作用:同一句旧写法只出现在注释里时不得判红,写进代码里必须判红(成对)', () => {

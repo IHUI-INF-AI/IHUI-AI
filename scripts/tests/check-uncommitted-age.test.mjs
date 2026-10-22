@@ -259,7 +259,7 @@ const box = (tag) => {
   const d = mkScratch(`cuea-idx-${tag}-`)
   scratchMade.push(d)
   mkdirSync(join(d, 'src'), { recursive: true })
-  mkdirSync(join(d, '.workbuddy'), { recursive: true })
+  mkdirSync(join(d, '.ihui-agent', 'state'), { recursive: true })
   return d
 }
 after(() => {
@@ -301,7 +301,7 @@ function porcelainEntries(root) {
   return src.parsePorcelainZ(gitRaw(['status', '--porcelain', '-z'], root))
 }
 function writeAttest(root, lines) {
-  writeFileSync(join(root, '.workbuddy', 'safe-commit-attestation.jsonl'), lines.map((l) => JSON.stringify(l) + '\n').join(''))
+  writeFileSync(join(root, '.ihui-agent', 'state', 'safe-commit-attestation.jsonl'), lines.map((l) => JSON.stringify(l) + '\n').join(''))
 }
 function readLedger(root) {
   return JSON.parse(readFileSync(src.indexPendingLedgerPath(root), 'utf8'))
@@ -611,7 +611,7 @@ test('C4【CLI·④§0.3 反控】台账被拿掉那一轮 ⇒ 必须是 undeter
   assert.match(first.indexFace.undetermined[0].reason, /stage 时刻取不到/)
   assert.ok(first.indexFace.stamped >= 1, '首见必须由判据自己盖 first-seen 台账')
 
-  const ledgerFile = join(root, '.workbuddy', 'index-pending-first-seen.json')
+  const ledgerFile = join(root, '.ihui-agent', 'state', 'index-pending-first-seen.json')
   assert.equal(existsSync(ledgerFile), true, '台账必须落在夹具内(不污染真仓)')
   // 把台账里的时刻手工推老 4 小时 ⇒ 证明这把尺子真的参与判定
   const led = JSON.parse(readFileSync(ledgerFile, 'utf8'))
@@ -625,7 +625,7 @@ test('C4【CLI·④§0.3 反控】台账被拿掉那一轮 ⇒ 必须是 undeter
 
   // ★ 反控:把台账拿掉(且 mtime/attestation 两把也拿不到)⇒ 结论必须退回未判定,而不是"没有悬留"
   rmSync(ledgerFile, { force: true })
-  rmSync(join(root, '.workbuddy', 'safe-commit-attestation.jsonl'), { force: true })
+  rmSync(join(root, '.ihui-agent', 'state', 'safe-commit-attestation.jsonl'), { force: true })
   const third = runCli(root, ['--json'])
   assert.equal(third.indexFace.undetermined.length, 1, '拿掉台账却报"0 违规"就是把没判写成判过了')
   assert.equal(third.indexFace.scanned, 0)
@@ -660,7 +660,7 @@ test('W3 台账落点纪律:相对路径 + 由 root 推导(禁绝对路径、禁
   assert.doesNotMatch(src.INDEX_PENDING_LEDGER_REL, /^[A-Za-z]:[\\/]/, '禁硬编码盘符(§26)')
   const root = box('ledgerpath')
   const p = src.indexPendingLedgerPath(root)
-  assert.equal(dirname(p), join(root, '.workbuddy'), '台账必须落在被审 root 之内(测试夹具不得逃逸到真仓)')
+  assert.equal(dirname(p), join(root, '.ihui-agent', 'state'), '台账必须落在被审 root 之内(测试夹具不得逃逸到真仓)')
   assert.ok(!/[A-Za-z]:[\\\\/]DevEnv/.test(SRC_TEXT), '源脚本不得硬编码项目外落点')
 })
 
