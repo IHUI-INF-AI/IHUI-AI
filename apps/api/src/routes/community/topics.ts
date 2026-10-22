@@ -14,6 +14,20 @@ import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { circleCategoryRelation, circleCircleCategoryRelation, circleDynamic } from '@ihui/database'
 import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
+import {
+  countSubscribers,
+  findTagById,
+  isSubscribed,
+  subscribe,
+  unsubscribe,
+} from '../../db/social-queries.js'
+
+/**
+ * 话题关注落库时的 subscriptions.target_type 取值。
+ * 'tag' 是 social.ts 的 TARGET_TYPES(['user','project','tag','category'])在册值,不是新造档位;
+ * 话题实体即 tags 行(见 GET /api/circles/topics/hot 的取源理由)。
+ */
+const TOPIC_TARGET_TYPE = 'tag'
 
 const topicsRoutes: FastifyPluginAsync = async (server) => {
   // 统一鉴权：所有 circles / asks 路由均需登录
@@ -180,6 +194,52 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
       .returning({ id: circleDynamic.id })
     if (removed.length === 0) return reply.status(404).send(error(404, '话题不存在'))
     return reply.send(success({ id: tidNum, deleted: removed.length > 0 }))
+  })
+
+  // POST /circles/topic/:tid/follow - 关注/取关话题(一次 POST 翻转一次,语义由两端调用点声明)
+  //
+  // 立因:RN TopicDetailScreen.tsx:131 与小程序 pkg-content/topic/detail.tsx:113 都在打这条
+  // 路径,后端零注册 ⇒ 关注按钮恒"操作失败"。
+  //
+  // 落点选谁(全部现读定性,不造壳):
+  //  - user_follows:两侧都是 users FK(follower_id/following_id),结构上放不进"话题" ⇒ 用它要迁移;
+  //  - t_follow / t_favorite / t_like:以 member_id(bigint 旧会员号)为主体,而 JWT 主体是
+  //    users.id(uuid) ⇒ 要么补一张 uuid↔memberId 映射,要么从被操作记录反推身份(§5 禁止);
+  //  - subscriptions:user_id(uuid,FK users)+ target_type varchar(32) + target_id varchar(128),
+  //    联合唯一,已在册为 POST/DELETE/GET /api/subscriptions(social.ts),且 'tag' 本就是
+  //    TARGET_TYPES 里的合法值 ⇒ 话题=tag 行,零迁移复用这条真实机制。
+  //
+  // 话题身份域 = tags.id(uuid),与 GET /api/circles/topics/hot 同源。本文件既有的
+  // /circles/topic/:tid 走 circle_dynamic 整数域,两条不混用:传整数 ⇒ 400(不进库、不落一条
+  // 指向不存在话题的订阅),传不存在的 uuid ⇒ 404。
+  //
+  // followerCount 是 COUNT(*) 实算(countSubscribers),不是 +1/−1 累加 ⇒ 不与明细漂移。
+  server.post('/circles/topic/:tid/follow', async (request, reply) => {
+    const parsed = z
+      .strictObject({ tid: z.uuid({ error: '无效的话题 ID' }) })
+      .safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const tid = parsed.data.tid
+    // 归属只认 JWT 主体;query/body 里自报的 userId 一律不读(§5 认证不等于授权)
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '请先登录'))
+    if (!(await findTagById(tid))) {
+      return reply.status(404).send(error(404, '话题不存在'))
+    }
+    const wasFollowing = await isSubscribed({
+      userId,
+      targetType: TOPIC_TARGET_TYPE,
+      targetId: tid,
+    })
+    if (wasFollowing) {
+      await unsubscribe({ userId, targetType: TOPIC_TARGET_TYPE, targetId: tid })
+    } else {
+      await subscribe({ userId, targetType: TOPIC_TARGET_TYPE, targetId: tid })
+    }
+    const followerCount = await countSubscribers(TOPIC_TARGET_TYPE, tid)
+    return reply.send(success({ topicId: tid, followed: !wasFollowing, followerCount }))
   })
 
   // ===== 圈子分类关系（历史 circle_category_relation，integer id） =====
