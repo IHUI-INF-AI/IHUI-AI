@@ -32,6 +32,7 @@ from pydantic import BaseModel, Field
 
 from ..core.config import settings
 from ..core.context_compaction import SUMMARY_MARKER, compress_messages_if_needed
+from ..core.jwt_auth import resolve_request_user_id
 from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.model_naming import to_official_model_name
 from ..core.permission_mode import (
@@ -2445,6 +2446,19 @@ def _resolve_owner_uuid(request: Request) -> str | None:
     return str(uid)
 
 
+def _billing_conversation_id(req: Any) -> str | None:
+    """llm_call_logs.conversation_id 列取值:只取请求透传的 metadata.conversationId。
+
+    它是**关联键不是凭据**(D172 同口径):归属判定一律不读它,写入前钳到列宽 100。
+    """
+    meta = getattr(req, "metadata", None)
+    if isinstance(meta, dict):
+        cid = meta.get("conversationId")
+        if cid:
+            return str(cid)[:100]
+    return None
+
+
 def _resolve_user_role(request: Request) -> int:
     """从 JWT(request.state.role_id)派生用户角色(0=普通用户,>=1=admin)。
 
@@ -2660,7 +2674,18 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     _eff_kwargs, _ = _resolve_reasoning_effort(req)
     if _eff_kwargs is not None:
         kwargs["reasoning_effort"] = _eff_kwargs
-    result = await llm_gateway.complete(messages, model=req.model, owner_uuid=owner_uuid, **kwargs)
+    # 逐条落库(2026-10-22):主体由承载层显式下传(JWT 派生,非 owner_uuid 反推、
+    # 非客户端自报)。拿不到主体时**连 kwarg 都不带**(网关缺主体 ⇒ 不写行;
+    # 也保住既有的严格签名 fake 替身调用面)。
+    _billing_uid = resolve_request_user_id(request)
+    _billing_kwargs: dict[str, Any] = (
+        {"billing_user_id": _billing_uid, "conversation_id": _billing_conversation_id(req)}
+        if _billing_uid
+        else {}
+    )
+    result = await llm_gateway.complete(
+        messages, model=req.model, owner_uuid=owner_uuid, **_billing_kwargs, **kwargs
+    )
     # 错误前置返回(P1 错误标准化,2026-07-22 立):
     # 之前 LLM 错误一律 HTTP 200 + result.error:True,网关/监控层无法通过状态码识别失败,
     # 必须在调用方解析 result 字段才能区分成功/失败,影响 ELK/Prometheus 错误率统计。
@@ -3094,6 +3119,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     await _ensure_restricted_model_access(request, req.model)
     owner_uuid = _resolve_owner_uuid(request)
+    # 逐条落库(2026-10-22):llm_call_logs 归属主体 = JWT 令牌主体,在本端点入口
+    # 一次性解析并显式下传给网关(不从 owner_uuid 反推、不信客户端自报);
+    # 拿不到主体 ⇒ 不带头调用网关 ⇒ 网关不写行。条件展开保住既有严格签名替身。
+    _billing_uid = resolve_request_user_id(request)
+    _billing_kwargs: dict[str, Any] = (
+        {"billing_user_id": _billing_uid, "conversation_id": _billing_conversation_id(req)}
+        if _billing_uid
+        else {}
+    )
     # D130(2026-09-30 立):整条流共用一次档位解析(生效值 + 回落通知)。
     # 算在 gen() 之外:done 帧有三处产出点,它们都闭包读这两个量,不得各算各的。
     _reasoning_effort_effective, _reasoning_effort_notice = _resolve_reasoning_effort(req)
@@ -3638,6 +3672,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             first_round_tool_calls: list[dict[str, Any]] = []
                             async for evt in llm_gateway.astream(
                                 messages, model=req.model, owner_uuid=owner_uuid,
+                                **_billing_kwargs,
                                 tools=openai_tools, tool_choice="auto",
                             ):
                                 _evt_type = evt.get("type", "")
@@ -3809,6 +3844,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             }
                             async for evt in llm_gateway.astream(
                                 messages, model=req.model, owner_uuid=owner_uuid,
+                                **_billing_kwargs,
                                 tools=openai_tools, tool_choice="auto",
                             ):
                                 _evt_type = evt.get("type", "")
@@ -5364,7 +5400,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             _native_fc_emitted_tools = False
 
             _native_fc_stream = llm_gateway.astream(
-                messages, model=req.model, owner_uuid=owner_uuid, **_native_fc_kwargs
+                messages, model=req.model, owner_uuid=owner_uuid,
+                **_billing_kwargs,
+                **_native_fc_kwargs
             )
             async for event in _native_fc_stream:
                 if await request.is_disconnected():
