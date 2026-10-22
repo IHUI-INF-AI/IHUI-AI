@@ -361,7 +361,7 @@ function StatBody({
     <div className="space-y-1.5">
       <div className={cn('grid gap-2', cols)}>
         {shown.map((s, i) => (
-          <div key={i} className="rounded-md bg-muted/60 px-3 py-2">
+          <div key={i} className="rounded-lg bg-muted/60 px-3 py-2">
             <div className="truncate text-[11px] text-muted-foreground">{s.name}</div>
             <div className="mt-0.5 font-mono text-2xl font-semibold tabular-nums text-info-text">
               {fmtValue(s.value, unit)}
@@ -637,7 +637,7 @@ function LogsBody({
         return (
           <div
             key={i}
-            className="flex gap-2 rounded-sm px-1 py-0.5 transition-colors hover:bg-muted/40"
+            className="flex gap-2 rounded-md px-1 py-0.5 transition-colors hover:bg-muted/40"
           >
             <span className={cn('mt-0.5 h-3 w-0.5 shrink-0 rounded', LEVEL_BAR[level])} />
             <span className="shrink-0 tabular-nums text-muted-foreground">
