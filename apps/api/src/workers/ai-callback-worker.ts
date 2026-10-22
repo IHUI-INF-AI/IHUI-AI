@@ -43,6 +43,9 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
         completionTokens,
         idempotencyKey,
         metadata,
+        // 票59(3/3):regenerate 新回复的版本族坐标(回调端点从 metadata 提出后进顶层)
+        parentMessageId,
+        siblingIndex,
       } = job.data
 
       // D64⑤(2026-10-14 立):落库前原子取走网关捕获的元素包帧(subagent 帧族,
@@ -121,6 +124,11 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
           content,
           reasoning,
           tokens: tokens,
+          // 票59(3/3):regenerate 的新回复以 sibling 身份入族(坐标缺省 = 普通消息,
+          // Drizzle 落列默认 null,与存量行为逐字一致)。update 路径不接坐标:
+          // regenerate 流的占位 messageId 是前端 UUID,DB 里不存在,必走本分支。
+          parentMessageId,
+          siblingIndex,
           metadata: {
             ...(metadata ?? {}),
             // D64⑤:同 update 路径 —— 元素包随创建一次性落库,不做二次 UPDATE
