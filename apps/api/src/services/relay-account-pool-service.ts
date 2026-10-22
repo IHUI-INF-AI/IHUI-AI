@@ -27,6 +27,7 @@ import {
   extractTenantId,
   extractTokenExpiry,
   extractUid,
+  parseFlexibleExpiry,
   type RelayProviderCode,
 } from './relay-account-format.js'
 
@@ -156,6 +157,60 @@ function mapCodeartsImport(acc: ImportAccountInput): CodeartsImportMapping | nul
 }
 
 // =============================================================================
+// Qoder 导入映射(2026-10-23 立)
+// =============================================================================
+
+/**
+ * Qoder 导入映射:token 是 27 字符 opaque 单段串(非 JWT,真机实证
+ * 2026-10-12/10-23)⇒
+ * - uid 真源 = 显式 uid(桌面端 checkin_capture.rs 的 session.user.id),
+ *   也认 user.{id,userId,uid,user_id};全缺才退化为 extractUid 哈希;
+ * - expiresAt 是 ISO 8601 字符串(auth.v1.dat 原文),也收 epoch 秒;
+ * - Cosy 设备头族(machineToken/machineCode/machineType/version,客户端
+ *   resources/umid/runtime-info.exe 产出)随 extraMetadata 落库,adapter
+ *   刷新/健康检查时带上(缺失时 adapter 兜底默认,不阻塞)。
+ */
+interface QoderImportMapping {
+  token: string
+  refreshToken: string | null
+  uid: string
+  expiresAt: Date | null
+  refreshExpiresAt: Date | null
+  name: string | null
+  cosy: Record<string, string> | null
+}
+
+function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
+  const a = acc as Record<string, unknown>
+  const token = cstr(a['token'])
+  if (!token) return null
+  const user =
+    a['user'] !== null && typeof a['user'] === 'object' && !Array.isArray(a['user'])
+      ? (a['user'] as Record<string, unknown>)
+      : null
+  const uid =
+    cstr(a['uid']) ||
+    (user
+      ? cstr(user['id']) || cstr(user['userId']) || cstr(user['uid']) || cstr(user['user_id'])
+      : '') ||
+    extractUid(token)
+  const cosy: Record<string, string> = {}
+  for (const k of ['machineToken', 'machineCode', 'machineType', 'version']) {
+    const v = cstr(a[k])
+    if (v) cosy[k] = v
+  }
+  return {
+    token,
+    refreshToken: cstr(a['refreshToken']) || null,
+    uid,
+    expiresAt: parseFlexibleExpiry(a['expiresAt']) ?? extractTokenExpiry(token),
+    refreshExpiresAt: parseFlexibleExpiry(a['refreshTokenExpiresAt']),
+    name: cstr(a['name']) || cstr(a['nickname']) || cstr(a['phone']) || null,
+    cosy: Object.keys(cosy).length > 0 ? cosy : null,
+  }
+}
+
+// =============================================================================
 // 批量导入
 // =============================================================================
 
@@ -183,17 +238,27 @@ export async function importAccounts(
     const accName = typeof acc.name === 'string' && acc.name ? acc.name : ''
     let displayName = accName || `#${i + 1}`
     try {
-      // CodeArts 分支(2026-10-22):STS 凭据包非 JWT,桌面端导出/Seventy73 落盘两种格式都认
-      const mapped = providerCode === 'codearts' ? mapCodeartsImport(acc) : null
+      // 非 JWT 平台映射分支:CodeArts(2026-10-22)STS 凭据包 / Qoder(2026-10-23)
+      // opaque token 会话。两种格式的 uid/expiresAt 都在映射层显式解析,
+      // 不透传则退化为哈希 uid + 无过期时刻。
+      const mapped =
+        providerCode === 'codearts'
+          ? mapCodeartsImport(acc)
+          : providerCode === 'qoder'
+            ? mapQoderImport(acc)
+            : null
       if (!accName && mapped?.name) displayName = mapped.name
-      if (providerCode === 'codearts' && !mapped) {
+      if ((providerCode === 'codearts' || providerCode === 'qoder') && !mapped) {
         result.failed++
         result.items.push({
           index: i,
           name: displayName,
           uid: null,
           status: 'failed',
-          reason: 'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)',
+          reason:
+            providerCode === 'codearts'
+              ? 'CodeArts 导入缺少 STS 凭据(securitytoken/accessKey/secretAccessKey)'
+              : 'Qoder 导入缺少 token',
         })
         continue
       }
@@ -240,6 +305,13 @@ export async function importAccounts(
       const extra: Record<string, unknown> = {}
       const tenantId = providerCode === 'trae' ? extractTenantId(token) : null
       if (tenantId) extra.tenantId = tenantId
+      if (providerCode === 'qoder') {
+        // Qoder:Cosy 设备头族(导入时随账号带上,adapter 刷新/健康检查用)与
+        // refreshToken 到期时刻(调度器判断"能否自救刷新"的参考)
+        const q = mapped as QoderImportMapping | null
+        if (q?.cosy) extra.cosy = q.cosy
+        if (q?.refreshExpiresAt) extra.refreshTokenExpiresAt = q.refreshExpiresAt.toISOString()
+      }
       if (cookies.length > 0) extra.cookieCount = cookies.length
       const cookieEarliest = earliestCookieExpiry(cookies)
       if (cookieEarliest !== null)
@@ -253,12 +325,14 @@ export async function importAccounts(
         tokenEnc: encryptField(token),
         refreshTokenEnc: refreshToken ? encryptField(refreshToken) : null,
         cookiesEnc: cookies.length > 0 ? encryptField(JSON.stringify(cookies)) : null,
-        secretsEnc: mapped ? encryptField(JSON.stringify(mapped.secrets)) : null,
+        secretsEnc:
+          mapped && 'secrets' in mapped ? encryptField(JSON.stringify(mapped.secrets)) : null,
         deviceId:
           typeof acc.deviceId === 'string' && acc.deviceId ? acc.deviceId.slice(0, 128) : null,
         machineId:
           typeof acc.machineId === 'string' && acc.machineId ? acc.machineId.slice(0, 128) : null,
         tokenExpiresAt,
+        refreshExpiresAt: mapped && 'refreshExpiresAt' in mapped ? mapped.refreshExpiresAt : null,
         isEnabled: acc.enabled === false ? false : true,
         tempUnschedulable: down,
         healthStatus,

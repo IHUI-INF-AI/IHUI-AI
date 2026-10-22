@@ -17,7 +17,7 @@
 import { createHash } from 'node:crypto'
 
 /** 支持反代的第三方 AI IDE 平台 */
-export const RELAY_PROVIDERS = ['trae', 'workbuddy', 'codearts'] as const
+export const RELAY_PROVIDERS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
 export type RelayProviderCode = (typeof RELAY_PROVIDERS)[number]
 
 export function isRelayProviderCode(v: string): v is RelayProviderCode {
@@ -64,6 +64,30 @@ export function earliestCookieExpiry(cookies: unknown[]): number | null {
     if (ms !== null && (min === null || ms < min)) min = ms
   }
   return min
+}
+
+/**
+ * 宽松过期时刻解析(Qoder 导入用,2026-10-23 立):ISO 8601 字符串
+ * (auth.v1.dat 实证形态,如 "2026-11-21T11:38:26Z")或 epoch 秒
+ * (数字/纯数字串) → Date;缺失/坏格式 → null。与 ai-service
+ * checkin_qoder._parse_expiry_value 同判据(那边是 Python 侧投影)。
+ */
+export function parseFlexibleExpiry(v: unknown): Date | null {
+  if (typeof v === 'number') {
+    if (!Number.isFinite(v) || v <= 0) return null
+    const d = new Date(v * 1000)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  const s = cstr(v)
+  if (!s) return null
+  if (/^\d+$/.test(s)) {
+    const n = Number(s)
+    if (!(n > 0)) return null
+    const d = new Date(n * 1000)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? null : d
 }
 
 /**
@@ -234,7 +258,9 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
       cstr(acc['name']) ||
       (isCodearts
         ? cstr(codeartsAccount?.['label']) || cstr(acc['user_name']) || `#${index + 1}`
-        : `#${index + 1}`)
+        : opts.providerCode === 'qoder'
+          ? cstr(acc['nickname']) || cstr(acc['phone']) || `#${index + 1}`
+          : `#${index + 1}`)
 
     // ── 凭证必填面 ──
     let token = cstr(acc['token'])
@@ -364,18 +390,26 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
         issues.push(issue('warning', 'expires-at-invalid', 'expires_at/expiration 不是合法日期'))
       }
     } else if (token) {
-      const claims = parseJwtClaims(token)
-      if (!claims) {
-        issues.push(
-          issue(
-            'warning',
-            'token-not-jwt',
-            'token 不是三段式 JWT,无法解析 uid/exp;服务端将按哈希去重',
-          ),
-        )
+      if (opts.providerCode === 'qoder') {
+        // Qoder(2026-10-23 立):token 是 27 字符 opaque 单段串(非 JWT,真机实证)
+        // ⇒ uid 真源 = 显式传入的 uid(桌面端捕获的 session.user.id),expiresAt 是
+        // ISO 8601 字符串(auth.v1.dat 原文);缺失才退化为哈希 uid / 无过期时刻。
+        uid = cstr(acc['uid']) || extractUid(token)
+        expiresAt = parseFlexibleExpiry(acc['expiresAt']) ?? extractTokenExpiry(token)
+      } else {
+        const claims = parseJwtClaims(token)
+        if (!claims) {
+          issues.push(
+            issue(
+              'warning',
+              'token-not-jwt',
+              'token 不是三段式 JWT,无法解析 uid/exp;服务端将按哈希去重',
+            ),
+          )
+        }
+        uid = extractUid(token)
+        expiresAt = extractTokenExpiry(token)
       }
-      uid = extractUid(token)
-      expiresAt = extractTokenExpiry(token)
     }
 
     if (uid) {
