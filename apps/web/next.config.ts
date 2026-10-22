@@ -298,6 +298,10 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
       { protocol: 'https', hostname: 'platform-lookaside.fbsx.com' },
       { protocol: 'https', hostname: 'api.qrserver.com' },
+      // 2026-10-22 G-921:历史课程视频桶(legacy-assets/videos/*)的 OSS 域名放行。
+      // 域名与 packages/database/seed/legacy-videos.ts 的 DEFAULT_LEGACY_ASSET_BASE 同源;
+      // 若生产改用 LEGACY_ASSET_BASE_URL 指向别的桶,此条需同步。只放精确桶域名,不放 *.aliyuncs.com 通配。
+      { protocol: 'https', hostname: 'test-for-dp.oss-cn-guangzhou.aliyuncs.com' },
     ],
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',
