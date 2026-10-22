@@ -20,7 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { usePaneModeStore } from '@/stores/mode'
-import { useAiToolsPanelStore } from '@/stores/ai-tools-panel'
+import { usePaneAiToolsPanelStore } from '@/stores/ai-tools-panel'
 import type { ChatMode } from '@ihui/types'
 import { cn } from '@/lib/utils'
 
@@ -56,8 +56,12 @@ export function ModeSwitcher({ disabled = false }: { disabled?: boolean }) {
   const modeStore = usePaneModeStore()
   const currentMode = modeStore((s) => s.currentMode)
   const setMode = modeStore((s) => s.setMode)
-  const toolsPanelOpen = useAiToolsPanelStore((s) => s.open)
-  const toggleToolsPanel = useAiToolsPanelStore((s) => s.toggle)
+  // 缺口A 结清(2026-10-21 票60 片3 收尾):工具面板开关与面板体同源 ——
+  // ai-side-panel-tools.tsx 读 usePaneAiToolsPanelStore(Provider 内=窗格实例),
+  // 开关此前硬写根单例 ⇒ 窗格内开关只点亮根格面板,开关环断裂。
+  const toolsPanelStore = usePaneAiToolsPanelStore()
+  const toolsPanelOpen = toolsPanelStore((s) => s.open)
+  const toggleToolsPanel = toolsPanelStore((s) => s.toggle)
   const current = MODE_ITEMS.find((m) => m.mode === currentMode) ?? MODE_ITEMS[0]
   if (!current) return null
   const CurrentIcon = current.icon
