@@ -7,7 +7,7 @@
  *
  * 两种跑法、同一份成对用例:
  *  1. 票面验收(node:test):`node --test packages/shared/src/chat/__tests__/projection-watermark.test.mjs`
- *     —— 本文件被 node:test 直接执行,转装载全集(18 例)。
+ *     —— 本文件被 node:test 直接执行,转装载全集(例数以 `node --test` 末行现读为准,本文不钉数字)。
  *  2. 本包 vitest(turbo test → `vitest run`):include 含 `src/**\/*.test.mjs`,本文件被收集;
  *     此时派生 `node --test` 子进程跑**同一份**全集并断言 RC=0 + pass>0 + fail=0 ——
  *     node:test 用例因此真的进 CI,不是"造好没装车"。
