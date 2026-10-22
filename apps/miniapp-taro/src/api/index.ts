@@ -1212,21 +1212,21 @@ interface AgentRawRow {
  * 后端返回 { list: Agent[], total, page, pageSize },此处映射为前端 AgentInfo 兼容结构。
  */
 export const getAgentList = () =>
-  get<{ list: AgentRawRow[]; total: number; page: number; pageSize: number }>('/agents/list', { pageSize: 200 }).then(
-    (res) => ({
-      list: (res.list || []).map((a) => ({
-        id: String(a.agentId),
-        name: a.name,
-        desc: a.description ?? '',
-        avatar: a.avatar ?? undefined,
-        uses: a.usageCount,
-        isVipExclusive: a.isVipExclusive ?? false,
-      })),
-      total: res.total,
-      page: res.page,
-      pageSize: res.pageSize,
-    }),
-  )
+  get<{ list: AgentRawRow[]; total: number; page: number; pageSize: number }>('/agents/list', {
+    pageSize: 200,
+  }).then((res) => ({
+    list: (res.list || []).map((a) => ({
+      id: String(a.agentId),
+      name: a.name,
+      desc: a.description ?? '',
+      avatar: a.avatar ?? undefined,
+      uses: a.usageCount,
+      isVipExclusive: a.isVipExclusive ?? false,
+    })),
+    total: res.total,
+    page: res.page,
+    pageSize: res.pageSize,
+  }))
 
 /**
  * 获取智能体详情(对接后端 GET /api/agents/:agentId)。
@@ -1604,6 +1604,14 @@ export const bindUser = (data: unknown) => post('/auth/bind-user', data)
 /** 微信手机号登录 — 对齐后端 POST /auth/wechat/mini/phone */
 export const getPhoneNumber = (data: { code: string; phoneCode?: string }) =>
   post('/auth/wechat/mini/phone', data)
+/** 微信手机号「一键登录」— 对齐后端 POST /auth/wechat/mini/one-tap-login
+ *
+ * 与上面 getPhoneNumber 的区别不是命名偏好:那支第 1145 行 `await authenticate(request)`
+ * 要求已登录、且只回 {userId, phone} 不发 token,所以它只能用于「已登录用户换绑手机号」,
+ * 拿它做登录是结构性死路(新用户进不去、老前端读 .token 恒为空)。
+ * 两个 code 都由微信服务端签发、一次性;手机号是微信验证过的结果,不是客户端自报字段。 */
+export const oneTapLogin = (data: { loginCode: string; phoneCode: string }) =>
+  unwrapApi(post('/auth/wechat/mini/one-tap-login', data)) as Promise<LoginResult>
 /** 查询是否已设置密码 */
 export const pwdExist = (phone: string) =>
   get<{ exists?: boolean }>(`/api/auth/exist/${phone}`).then((r) => !!r.exists)

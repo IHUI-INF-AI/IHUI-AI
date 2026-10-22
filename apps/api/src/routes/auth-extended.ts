@@ -1207,8 +1207,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
 
       const gate = await gateLoginIpWhitelist(request, reply, user.id)
       if (!gate.allowed) return gate.reply
-      const { accessToken, refreshToken } = await buildTokenPair(user, reply)
-      return reply.send(success({ userId: user.id, accessToken, refreshToken }))
+      const tokens = await buildTokenPair(user, reply)
+      // 响应形状对齐 /auth/login/sms 等既有登录端点({...tokens, user: publicUser(...)}):
+      // 小程序登录页拿 res.user 填昵称头像,只回 userId 的话前端还得再打一次 profile。
+      const permissions = await resolveUserPermissions(user.id, user.roleId)
+      return reply.send(success({ ...tokens, user: publicUser(user, permissions) }))
     },
   )
 

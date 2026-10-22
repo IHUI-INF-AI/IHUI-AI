@@ -62,6 +62,12 @@ vi.mock('../../db/usercenter-queries.js', () => ({
   getUserStatus: vi.fn(async () => 1),
 }))
 
+// resolveUserPermissions 对 roleId=0 的用户会真查 RBAC 表 ⇒ 桩掉,否则成功路径整例 500
+vi.mock('../../db/rbac-queries.js', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return { ...actual, getUserPermissions: vi.fn(async () => [] as string[]) }
+})
+
 vi.mock('@ihui/auth', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
   return {
@@ -117,13 +123,15 @@ describe('POST /api/auth/wechat/mini/one-tap-login — 微信手机号一键登�
 
   const post = (body: unknown) => app.inject({ method: 'POST', url: URL, payload: body as object })
 
-  it('免鉴权:不带 Authorization 也能完成登录并拿到 token 对', async () => {
+  it('免鉴权:不带 Authorization 也能完成登录,并拿到 token 对 + user(形状对齐 /login/sms)', async () => {
     const res = await post(BODY)
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.data.accessToken).toBe('access-jwt')
     expect(body.data.refreshToken).toBe('refresh-jwt')
-    expect(body.data.userId).toBe('u-1')
+    // 页面直接读 data.user 填昵称头像;退化成只回 userId 就等于逼前端再打一次 profile
+    expect(body.data.user).toBeTruthy()
+    expect(body.data.user.id).toBe('u-1')
     // 反向锁:这支端点结构上不得调用 authenticate(否则新用户永远进不来)
     expect(userMocks.authenticate).not.toHaveBeenCalled()
   })
@@ -135,7 +143,7 @@ describe('POST /api/auth/wechat/mini/one-tap-login — 微信手机号一键登�
     expect(userMocks.createUser).not.toHaveBeenCalled()
     // 对照:同一具手机号只能通过 phoneCode 换回来,走通后确实拿得到登录态
     const ok = await post(BODY)
-    expect(ok.json().data.userId).toBe('u-1')
+    expect(ok.json().data.user.id).toBe('u-1')
     expect(wechatMocks.getPhoneNumber).toHaveBeenCalledWith('phone-code-1')
   })
 
