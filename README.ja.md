@@ -2176,6 +2176,11 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ⚡ パフォーマンス:门8延后post-commit + 去掉跳过分支无效屏障 + 纯内容缓存接线补全 (5164d81bf0)
+- 🐞 修正:净面 worktree remove 三次败在 Windows 长路径 —— 补 core.longpaths + .NET 递归兜底 (a5bc756e0f)
+- ⚡ パフォーマンス:守护提交窗口期静默 —— 检测到 git 写锁即跳过本轮巡检,把 CPU 与索引锁全让给提交链(消除 40~170s 波动的干扰源) (3697e5dc4f)
+
+**2026-10-22**
 - 📚 ドキュメント:守门总数与 blocking 数对齐现算(268/244),消除门173散文滞后 (cd3ec0633f)
 
 **2026-10-22**
@@ -2229,11 +2234,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-10-22**
 - 🔧 その他:收口四语 README 最近更新与跟踪文件计数(15610) —— 派生区按 MAX_GROUPS 封顶主动裁旧属设计,块外仅 trackedFiles 一行变更,已按文档口径 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (16c2dc4f56)
-
-**2026-10-22**
-- 🔧 その他:收编停留≥3分钟的未提交改动 (0165022242)
-- ⚡ パフォーマンス:按改动性质分档(元门档 31 门)+ README 自动同步移出 pre-commit(消除 O43 窗口冲突) (c930087e84)
-- 🐞 修正:storeDir 指向已不存在的 G 盘 —— 全仓 install 恒失败(净面/主仓同因),改 D 盘 (8d81ef1995)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
