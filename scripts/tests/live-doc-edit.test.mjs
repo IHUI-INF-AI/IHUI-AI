@@ -2589,6 +2589,137 @@ test('RS8 端到端·改写档两臂:before 干净而 after 带裸令牌 ⇒ rc=
   assert.match(`${acc.stdout}${acc.stderr}`, /携带存量/, '放过必须喊出来,不得静默')
 })
 
+// ── G965 族:整行改写档的三维守恒接线(2026-10-22 立,规格 §2)────────────────────────
+// 判据唯一实现在 `scripts/lib/plan-row-conservation.mjs`,本文件只做端到端接线自证:
+// 只 spawn 生产 CLI(不复算判据),且一律打临时 LIVE_ROOT,绝不碰真台账。
+// 五条成对:删归属句 ⇒ 拒 / 只缩短正文 ⇒ 放 / 摘租约 ⇒ 拒 / 翻勾 ⇒ 不被守恒拦 / 违规时零写盘。
+const CONSERVATION_LINES = [
+  '# 标题',
+  '- [ ] G-900 修登录（归属:api 线）',
+  '- [ ] G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）',
+  '- [ ] G-902 （进行中@2026-10-20/张三） 修复上传超时',
+  '- [ ] G-903 修复导出按钮',
+  '',
+]
+
+test('G965-1 端到端·open→open 删掉「归属:…」判据句 ⇒ 拒写(exit 1)', (t) => {
+  const { dir, inputs } = makeDocRepo(t, CONSERVATION_LINES.join('\n'))
+  const head0 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const rep = join(inputs, 'rc1.json')
+  writeFileSync(
+    rep,
+    JSON.stringify([{ before: '- [ ] G-900 修登录（归属:api 线）', after: '- [ ] G-900 修登录' }]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(
+    r.status,
+    1,
+    `删掉归属句必须拒写,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 400)}`,
+  )
+  const out = `${r.stdout}${r.stderr}`
+  assert.match(out, /三维守恒/, '拒绝必须点名这道闸')
+  assert.match(out, /归属判定会漂/, '违规条目必须逐条打印')
+  assert.match(out, /命中行 2/, '违规必须给出行定位')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '拒写时 HEAD 必须原地不动')
+})
+
+test('G965-2 端到端·open→open 仅缩短正文、判据不动 ⇒ 放行(exit 0)', (t) => {
+  const { dir, inputs } = makeDocRepo(t, CONSERVATION_LINES.join('\n'))
+  const after = '- [ ] G-901 修 Safari 布局（归属:web 线）'
+  const rep = join(inputs, 'rc2.json')
+  writeFileSync(
+    rep,
+    JSON.stringify([{ before: '- [ ] G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）', after }]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(
+    r.status,
+    0,
+    `只缩短正文必须放行(否则尺子过牙),rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 400)}`,
+  )
+  assert.match(r.stdout, /三维守恒:1 项 open→open 改写已过断言/, '放行也必须喊出来')
+  assert.equal(
+    norm(runGit(dir, ['show', 'HEAD:DOC.md'])).split('\n')[2],
+    after,
+    '缩短后的整行必须真落地',
+  )
+})
+
+test('G965-3 端到端·open→open 摘掉「（进行中@…）」租约 ⇒ 拒写(exit 1)', (t) => {
+  const { dir, inputs } = makeDocRepo(t, CONSERVATION_LINES.join('\n'))
+  const head0 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const rep = join(inputs, 'rc3.json')
+  writeFileSync(
+    rep,
+    JSON.stringify([
+      { before: '- [ ] G-902 （进行中@2026-10-20/张三） 修复上传超时', after: '- [ ] G-902 修复上传超时' },
+    ]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(
+    r.status,
+    1,
+    `代摘租约必须拒写,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 400)}`,
+  )
+  const out = `${r.stdout}${r.stderr}`
+  assert.match(out, /租约被切掉/, '违规条目必须点名租约这一维')
+  assert.match(out, /命中行 4/, '违规必须给出行定位')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '拒写时 HEAD 必须原地不动')
+})
+
+test('G965-4 端到端·open→done 翻勾 ⇒ 不被守恒断言拦(走原有翻勾路径)', (t) => {
+  const { dir, inputs } = makeDocRepo(t, CONSERVATION_LINES.join('\n'))
+  const after = '- [x] ✅(2026-10-22) G-903 修复导出按钮'
+  const rep = join(inputs, 'rc4.json')
+  writeFileSync(rep, JSON.stringify([{ before: '- [ ] G-903 修复导出按钮', after }]), 'utf8')
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(
+    r.status,
+    0,
+    `翻勾是活文档编辑器的正当动作,不得被守恒断言拦下,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 400)}`,
+  )
+  assert.match(r.stdout, /三维守恒跳过第 1 项:open→done 翻勾/, '跳过必须打印原因,不许静默')
+  assert.doesNotMatch(r.stdout, /open→open 改写已过断言/, '翻勾不该被算成 open→open')
+  assert.equal(norm(runGit(dir, ['show', 'HEAD:DOC.md'])).split('\n')[4], after, '翻勾必须真落地')
+})
+
+test('G965-5 端到端·批次里任一项违规 ⇒ 零写盘(文件字节与 HEAD 前后相同)', (t) => {
+  const { dir, inputs } = makeDocRepo(t, CONSERVATION_LINES.join('\n'))
+  const head0 = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const disk0 = readFileSync(join(dir, 'DOC.md'), 'utf8')
+  const rep = join(inputs, 'rc5.json')
+  writeFileSync(
+    rep,
+    JSON.stringify([
+      // 合法项:只缩短正文(单独跑会放行)
+      {
+        before: '- [ ] G-901 修复登录页在 Safari 下布局错位并补齐回归用例（归属:web 线）',
+        after: '- [ ] G-901 修 Safari 布局（归属:web 线）',
+      },
+      // 违规项:删归属句
+      { before: '- [ ] G-900 修登录（归属:api 线）', after: '- [ ] G-900 修登录' },
+    ]),
+    'utf8',
+  )
+  const r = runLive(dir, { replaceFile: rep })
+  assert.equal(r.status, 1, `批次内任一项违规必须整批拒绝,rc=${r.status}`)
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '零写盘:HEAD 不许前进')
+  assert.equal(readFileSync(join(dir, 'DOC.md'), 'utf8'), disk0, '零写盘:文件字节必须前后相同')
+  assert.equal(
+    norm(runGit(dir, ['show', 'HEAD:DOC.md'])),
+    norm(CONSERVATION_LINES.join('\n')),
+    '零写盘:HEAD 内容必须一字未动',
+  )
+  assert.equal(
+    (norm(runGit(dir, ['show', 'HEAD:DOC.md'])).match(/G-901 修复登录页/g) || []).length,
+    1,
+    '合法项也不许半落地',
+  )
+})
+
 test('RS9 接线锁 + 单一实现锁:闸必须真挂在 CAS 循环之前,匹配式全器只许一份', () => {
   const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
   const call = src.indexOf('judgeResidualIdTokens(rsEntries)')
