@@ -890,9 +890,9 @@ export default function AdminRelayAccountPoolPage() {
                             </span>
                           </Tooltip>
                           <Button
-                            size="sm"
+                            size="xs"
                             variant="ghost"
-                            className="h-7 px-2 text-xs"
+                            className="px-2 text-xs"
                             disabled={claimMut.isPending}
                             onClick={() =>
                               claimMut.mutate({
