@@ -43,7 +43,7 @@ import {
   serializeSnapshotResult,
   snapshotOutcomeOf,
   wrapInstallerSource,
-} from '../dist/index.js'
+} from '@ihui/dom-actions'
 
 const SCOPE = 'abcdefgh'
 
