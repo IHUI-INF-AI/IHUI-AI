@@ -83,17 +83,10 @@ function stagedIsToolOnly() {
       .map((s) => s.trim())
       .filter(Boolean)
     if (paths.length === 0) return false // 取不到 ⇒ 全跑(失效方向永远是"多跑")
-    // 判据库改动 ⇒ 不当成工具档(与 gate-scope.mjs 的 JUDGEMENT_LIBS 同口径)
-    const JUDGEMENT_LIBS = new Set([
-      'scripts/lib/face-reader.mjs',
-      'scripts/lib/git-lock.mjs',
-      'scripts/lib/gitdir.mjs',
-      'scripts/lib/scratch-dir.mjs',
-      'scripts/lib/gate-failure-kind.mjs',
-      'scripts/lib/staging-snapshot.js',
-      'scripts/lib/guardian-batch-attest.mjs',
-      'scripts/lib/guardian-pushgate-cache.mjs',
-    ])
+    // 判据库清单:**单一真相源 = ./judgement-libs.json**(与 gate-scope.mjs 共用同一份)。
+    // 本文件是 CJS,import 不了 .mjs,所以读 JSON —— 从此两边不会漂移(§0.6)。
+    // 入库口径与复核命令见 gate-scope.mjs 头注。
+    const JUDGEMENT_LIBS = new Set(require('./judgement-libs.json'))
     if (paths.some((p) => JUDGEMENT_LIBS.has(p.replace(/\\/g, '/')))) return false
     return true
   } catch {
