@@ -14,12 +14,9 @@
  * 有中止能力的运行时走 signal,没有的走 transport 的 timeoutMs。哪一条断了都得红。
  */
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
 import { fetchApi, fetchRaw } from '../src/client.js'
 import { setTransport, type Transport, type TransportInit } from '../src/transport.js'
-import { maskComments } from '../../../scripts/lib/code-mask.mjs'
 
 type Captured = { url: string; init: TransportInit }
 
@@ -148,20 +145,10 @@ describe('有 AbortController 的运行时(web/desktop/RN)行为零变化', () =
   })
 })
 
-describe('判据单源:四条请求腿不得再各自裸 new AbortController()', () => {
-  it('W6 client.ts 里 new AbortController() 只剩 mergeAbortSignals 那一处(它只在有中止能力时被调)', () => {
-    const face = maskComments(
-      readFileSync(resolve(__dirname, '../src/client.ts'), 'utf8'),
-    ) as string
-    const sites = face.split('\n').filter((l: string) => l.includes('new AbortController()'))
-    expect(sites).toHaveLength(1)
-    expect(sites[0]).toContain('const controller = new AbortController()')
-  })
-
-  it('W7 超时看门狗的实现全仓只住 transport.ts 一处', () => {
-    const face = readFileSync(resolve(__dirname, '../src/client.ts'), 'utf8')
-    expect(face).not.toMatch(/setTimeout\(\(\)\s*=>\s*timeoutController\.abort/)
-    expect(face).toMatch(/startTimeoutWatchdog\(/)
-  })
-})
+// W6/W7(读 client.ts 源码文本的两条"判据单源"锁)自本文件搬到
+// `scripts/tests/api-client-request-leg-wiring.test.mjs`,判据一字未改。搬的理由不是洁癖:
+// 端包测试 import 仓库工具 `scripts/lib/code-mask.mjs` 会坐实 api-client(rank 20)→ repo-tooling
+// (rank 90)的反向依赖与 shared→api-client→repo-tooling→shared 的成环,而架构契约门的
+// D4(module-cycle)既不登记表级 exceptions 也不认行内 arch-exempt ⇒ 除环只有搬文件这一条路。
+// 本文件留 W1–W5:那是端包该测的行为(超时保护在两种运行时各自怎么落地)。
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
