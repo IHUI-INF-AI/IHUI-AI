@@ -11298,6 +11298,8 @@
     "modeSpecDesc": "AI will reverse-generate spec docs from code",
     "modeSwitched": "Switched to {mode} mode",
     "modeSwitcherLabel": "Switch AI mode",
+    "modeTaskAria": "{mode} task",
+    "taskProgressAria": "Task progress {status}",
     "taskProgressOpen": "Task progress",
     "toolsPanelOpen": "Show tools panel",
     "toolsPanelClose": "Hide tools panel",

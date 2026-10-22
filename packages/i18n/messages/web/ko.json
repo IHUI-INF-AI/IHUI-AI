@@ -11298,6 +11298,8 @@
     "modeSpecDesc": "AI가 코드에서 spec 문서를 역방향 생성합니다",
     "modeSwitched": "{mode} 모드로 전환됨",
     "modeSwitcherLabel": "AI 모드 전환",
+    "modeTaskAria": "{mode} 작업",
+    "taskProgressAria": "작업 진행 상황 {status}",
     "taskProgressOpen": "작업 진행 상황",
     "toolsPanelOpen": "도구 패널 열기",
     "toolsPanelClose": "도구 패널 숨기기",
