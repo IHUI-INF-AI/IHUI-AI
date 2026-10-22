@@ -149,7 +149,10 @@ vi.mock('../src/config/index.js', () => ({
     NODE_ENV: 'test',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     DATABASE_URL: 'postgres://localhost:5432/test',
-    REDIS_URL: 'redis://localhost:6379',
+    // G-192 改造后 code-store 会真连这个地址。指到死端口 ⇒ 走「内存兜底」档
+    // (与 tests/code-store.test.ts 的 memory 档跑法同口径),避免与并行文件共享
+    // code:* 键被对方 beforeEach 的 codeStoreTest.reset() 删光 ⇒ verifyCode 间歇 false。
+    REDIS_URL: 'redis://127.0.0.1:1/0',
     AI_SERVICE_URL: 'http://localhost:8803',
   },
 }))
@@ -700,7 +703,8 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
       mockFindUserById.mockResolvedValueOnce(
         makeUser({ passwordHash: await hashPassword('oldpass') }),
       )
-      mockUpdateUser.mockResolvedValueOnce(undefined)
+      // 真 updateUser 经 RETURNING 回报命中行(零命中抛错);路由侧 updated 由该行派生
+      mockUpdateUser.mockResolvedValueOnce(makeUser())
       mockRevokeAllUserRefreshTokens.mockResolvedValueOnce(undefined)
       const res = await app.inject({
         method: 'PUT',

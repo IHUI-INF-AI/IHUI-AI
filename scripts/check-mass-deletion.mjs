@@ -29,7 +29,9 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const GIT = process.env.IHUI_GIT_BIN || 'C:\\Program Files\\Git\\cmd\\git.exe'
+const GIT =
+  process.env.IHUI_GIT_BIN ||
+  (process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : 'git')
 const ABS_LIMIT = 1000
 const RATIO = 0.2
 
@@ -79,7 +81,9 @@ function selfTest() {
     const gotBlock = reason !== null
     const ok = gotBlock === expectBlock
     if (!ok) bad++
-    console.log(`${ok ? '✔' : '✘'} ${why}: 删除=${d} HEAD=${h} → ${gotBlock ? '拦截' : '放行'}${reason ? ' (' + reason + ')' : ''}`)
+    console.log(
+      `${ok ? '✔' : '✘'} ${why}: 删除=${d} HEAD=${h} → ${gotBlock ? '拦截' : '放行'}${reason ? ' (' + reason + ')' : ''}`,
+    )
   }
   console.log(bad === 0 ? 'self-test 全部通过' : `self-test 失败 ${bad} 例`)
   process.exit(bad === 0 ? 0 : 1)
@@ -87,9 +91,13 @@ function selfTest() {
 
 if (process.argv.includes('--self-test')) selfTest()
 
-const headCount = Number.parseInt(git(['ls-tree', '-r', '--name-only', 'HEAD']).split('\n').filter(Boolean).length, 10)
+const headCount = Number.parseInt(
+  git(['ls-tree', '-r', '--name-only', 'HEAD']).split('\n').filter(Boolean).length,
+  10,
+)
 const deletedCount = Number.parseInt(
-  git(['diff', '--cached', '--diff-filter=D', '--name-only', 'HEAD']).split('\n').filter(Boolean).length,
+  git(['diff', '--cached', '--diff-filter=D', '--name-only', 'HEAD']).split('\n').filter(Boolean)
+    .length,
   10,
 )
 const allowed = process.env.IHUI_ALLOW_MASS_DELETION === '1'
@@ -97,10 +105,16 @@ const reason = judge(deletedCount, headCount, allowed)
 
 if (reason) {
   console.error(`\n❌ [check-mass-deletion] ${reason}`)
-  console.error('   这正是 2026-09 两次「整树删除」事故的形态(单次提交删掉 11,607 / 11,640 个文件)。')
+  console.error(
+    '   这正是 2026-09 两次「整树删除」事故的形态(单次提交删掉 11,607 / 11,640 个文件)。',
+  )
   console.error('   先判断成因,别急着放行:')
-  console.error('     ① 索引被清空过? 复现验证:git ls-files | wc -l  与  git ls-tree -r HEAD | wc -l  应接近')
-  console.error('        成因通常是 `git rm -r --cached .` 后未重加、lint-staged 中断、或索引被外部工具打残。')
+  console.error(
+    '     ① 索引被清空过? 复现验证:git ls-files | wc -l  与  git ls-tree -r HEAD | wc -l  应接近',
+  )
+  console.error(
+    '        成因通常是 `git rm -r --cached .` 后未重加、lint-staged 中断、或索引被外部工具打残。',
+  )
   console.error('     ② 真是有意的大规模删除? 必须逐项列在提交信息里,再用应急开关:')
   console.error('        IHUI_ALLOW_MASS_DELETION=1 git commit ...')
   console.error('     ③ 已经误删并提交? 用**索引层重建**前向修复(零触碰他人未提交文件),')
@@ -111,5 +125,6 @@ if (reason) {
 console.log(
   `[check-mass-deletion] OK —— 索引 vs HEAD 缺失 ${deletedCount}/${headCount} 个文件(阈值 ${ABS_LIMIT} 或 ${RATIO * 100}%)`,
 )
-if (allowed && deletedCount > 0) console.log('  ⚠️ 应急开关 IHUI_ALLOW_MASS_DELETION=1 处于放行状态')
+if (allowed && deletedCount > 0)
+  console.log('  ⚠️ 应急开关 IHUI_ALLOW_MASS_DELETION=1 处于放行状态')
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

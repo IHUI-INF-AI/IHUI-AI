@@ -448,7 +448,7 @@ class SessionSummary(TypedDict):
 
 SubagentPersona = Literal["researcher", "coder", "reviewer", "planner", "general"]
 CapabilityMode = Literal["read-only", "read-write", "execute", "all"]
-IsolationMode = Literal["none", "worktree"]
+IsolationMode = Literal["none", "worktree", "subprocess"]
 
 
 class SkillFrontmatter(TypedDict, total=False):

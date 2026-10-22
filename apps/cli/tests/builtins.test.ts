@@ -17,8 +17,8 @@ import {
 import type { ToolContext } from '../src/tools/index.js'
 
 describe('BUILTIN_TOOLS', () => {
-  it('注册 16 个核心工具(含 4 个后台任务工具 + 5 个终端工具 + todo_write + ask_user_question)', () => {
-    expect(BUILTIN_TOOLS).toHaveLength(16)
+  it('注册 17 个核心工具(含 4 个后台任务工具 + 5 个终端工具 + todo_write/todo_read + ask_user_question)', () => {
+    expect(BUILTIN_TOOLS).toHaveLength(17)
     const names = BUILTIN_TOOLS.map((t) => t.name).sort()
     expect(names).toEqual([
       'ask_user_question',
@@ -35,6 +35,7 @@ describe('BUILTIN_TOOLS', () => {
       'terminal_read',
       'terminal_resize',
       'terminal_send',
+      'todo_read',
       'todo_write',
       'wait_command',
     ])

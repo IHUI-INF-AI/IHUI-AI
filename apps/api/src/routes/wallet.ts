@@ -59,6 +59,13 @@ function decryptWithdrawalRemark(remark: string | null | undefined): string | nu
 const walletRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAuth)
 
+  // GET /bank-cards - 银行卡列表(G-962 B8;mobile-rn BankCardScreen 消费 data 数组)
+  // 数据源待接:库内无 bank_cards 表,提现账户目前落在 commission 的 accountInfo jsonb 上,
+  // 与"已绑定银行卡列表"不是同一形态。此处先返回真实空态止 404,不伪造卡片数据。
+  server.get('/bank-cards', async (_request, reply) => {
+    return reply.send(success([]))
+  })
+
   // GET /balance
   server.get('/balance', async (request, reply) => {
     const userId = request.userId!

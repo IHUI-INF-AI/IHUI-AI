@@ -14,11 +14,8 @@
  * 上游协议细节(端点/头/请求体/SSE 帧)全部封装在各平台实现内,链路层不感知。
  */
 import { type AiRelayAccountPool } from '@ihui/database'
-import {
-  isRelayProviderCode,
-  type RelayProviderCode,
-  type AccountCredentials,
-} from './relay-account-pool-service.js'
+import type { AccountCredentials } from './relay-account-pool-service.js'
+import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
 
 // =============================================================================
 // 类型
@@ -150,8 +147,7 @@ export interface RelayUpstreamAdapter {
   isAuthError?(err: unknown): boolean
   /**
    * 富错误分类(可选,对标码道分级冷却):转发层据此决定「罚不罚号、罚多久」。
-   * - credit(积分耗尽)→ 12h 冷却 + 摘除;risk(账号/IP/设备风控)→ ≥30m 长冷却;
-   *   rate → 60s;session_dead → 永久摘除
+   * - credit(积分耗尽)→ 12h 冷却 + 摘除;rate → 60s;session_dead → 永久摘除
    * - not_found → 短冷却不计数;request(参数级)→ 不罚号直接透传
    * 未实现时转发层回退 isAuthFailure + HTTP 状态粗分类。
    */

@@ -921,6 +921,52 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       )
     },
   )
+
+  // GET /message/group - 私信会话分组列表(G-962 批7 补后端,迁移自 D 盘历史死路径)
+  // 返回 MessageGroupItem[]:{groupId,groupName,lastMessage,lastMessageTime,unreadCount}
+  // 注:不挂 response schema —— successSchema 会把 data 限定为 object,数组直传会序列化失败。
+  server.get(
+    '/message/group',
+    {
+      schema: {
+        summary: '私信会话分组列表',
+        description: '返回当前用户的私信会话分组(每会话最后一条消息 + 未读数)',
+        tags: ['message'],
+      },
+    },
+    async (request, reply) => {
+      const userId = request.userId!
+      const rows = await db.execute(
+        sql`SELECT t.peer_id, t.content, t.created_at, t.unread_count, u.nickname AS group_name
+            FROM (
+              SELECT
+                CASE WHEN sender_id = ${userId} THEN receiver_id ELSE sender_id END AS peer_id,
+                content,
+                created_at,
+                SUM(CASE WHEN receiver_id = ${userId} AND is_read = false THEN 1 ELSE 0 END)
+                  OVER (PARTITION BY CASE WHEN sender_id = ${userId} THEN receiver_id ELSE sender_id END) AS unread_count,
+                ROW_NUMBER() OVER (
+                  PARTITION BY CASE WHEN sender_id = ${userId} THEN receiver_id ELSE sender_id END
+                  ORDER BY created_at DESC, id DESC
+                ) AS rn
+              FROM "message_private_letter"
+              WHERE sender_id = ${userId} OR receiver_id = ${userId}
+            ) t
+            LEFT JOIN "users" u ON u.id::text = t.peer_id
+            WHERE t.rn = 1
+            ORDER BY t.created_at DESC`,
+      )
+      const list = (rows as Record<string, unknown>[]).map((r) => ({
+        groupId: String(r.peer_id),
+        groupName: String(r.group_name ?? r.peer_id),
+        lastMessage: String(r.content ?? ''),
+        lastMessageTime:
+          r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at ?? ''),
+        unreadCount: Number(r.unread_count ?? 0),
+      }))
+      return reply.send(success(list))
+    },
+  )
 }
 
 // =============================================================================

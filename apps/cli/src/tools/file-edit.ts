@@ -11,6 +11,8 @@
  *   - edit_file: search-and-replace 块(对标 codex 的 apply_patch 格式)
  *   - delete_file: 删除文件
  *   - 所有写操作接入 checkpoints(编辑前自动快照)+ hooks(preToolCall/postToolCall)
+ *   - 读后写校验(write_file / edit_file):覆盖已存在文件前,该文件必须在本会话
+ *     被 read_file 读过(或由本工具刚写过)且此后未被外部改动;新建文件不要求先读。
  *
  * search-and-replace 格式:
  *   <<<<<<< SEARCH
@@ -36,6 +38,12 @@ import {
   WriteConflictError,
 } from '../util/atomic-write.js';
 import { withMissingFileSuggestion } from '../util/file-suggest.js';
+import {
+  createReadFileStateKey,
+  getReadFileStateMap,
+  isCachedReadFresh,
+  statFingerprint,
+} from './read-file-state.js';
 
 /**
  * 落盘失败 → ToolResult 的归一出口。
@@ -111,6 +119,75 @@ export function resolvePath(ctx: ToolContext, filePath: string): string {
   return path.isAbsolute(filePath) ? filePath : path.resolve(ctx.workspacePath, filePath);
 }
 
+/** 读后写校验的稳定错误码(调用方/重试判据读 errorType,不读中文短句) */
+export type ReadBeforeWriteErrorCode = 'file_not_read' | 'file_stale_read';
+
+interface ReadGuardRejection {
+  error: string;
+  errorType: ReadBeforeWriteErrorCode;
+}
+
+/**
+ * 「读后写」校验(对齐上游 write.ts:278-332 / edit.ts:200 的 FILE_NOT_READ + stale 两档)。
+ *
+ * 判据只读 ToolContext 上的已读状态(read-file-state.ts 的 WeakMap,与 file_unchanged
+ * 短路同源),四态:
+ *   - 目标不存在 ⇒ 放行(新建文件,没有"旧内容"可覆盖);
+ *   - 有状态且 mtime+size 与磁盘一致 ⇒ 放行;
+ *   - 一条状态都没有 ⇒ file_not_read:模型没看过该文件,写进去的是什么它自己都不知道;
+ *   - 有状态但已不新鲜 ⇒ file_stale_read:读后被外部改过,或只读过被截断的部分视图。
+ *
+ * 与落盘前 CAS 的分工:commitAtomicWrite 的逐字节复核防"校验与落盘之间"的微秒级并发,
+ * 本校验防"模型写的是旧内容"——两件事,缺一不可(上游同样两档并存)。
+ */
+function checkReadBeforeWrite(ctx: ToolContext, abs: string, filePath: string): ReadGuardRejection | null {
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(abs);
+  } catch {
+    return null; // 不存在 = 新建,不要求先读
+  }
+  if (!stat.isFile()) return null; // 目录等交给后续落盘路径报错
+  const fingerprint = statFingerprint(stat);
+  let sawEntry = false;
+  for (const entry of getReadFileStateMap(ctx).values()) {
+    if (entry.path !== abs) continue;
+    sawEntry = true;
+    if (isCachedReadFresh(entry, fingerprint)) return null;
+  }
+  if (!sawEntry) {
+    return {
+      errorType: 'file_not_read',
+      error:
+        `FILE_NOT_READ: 未读取 ${filePath} 的当前内容,拒绝写入。` +
+        '请先 read_file 该路径确认现状后再写,避免用旧内容覆盖磁盘上的当前版本。',
+    };
+  }
+  return {
+    errorType: 'file_stale_read',
+    error: `FILE_STALE_READ: ${filePath} 在读取后已被改动(或只读到部分视图),请重新 read_file 后再写。`,
+  };
+}
+
+/**
+ * 工具自身成功写入后登记状态:内容由本次写入确定,后续 write/edit 不必再读一遍。
+ * 登记失败不阻塞写入 —— 失效方向是"下一次多要一次 read_file",不是放行。
+ */
+function recordWriteState(ctx: ToolContext, abs: string): void {
+  try {
+    const stat = fs.statSync(abs);
+    getReadFileStateMap(ctx).set(createReadFileStateKey(abs), {
+      path: abs,
+      isPartialView: false,
+      mtimeMs: stat.mtimeMs,
+      sizeBytes: stat.size,
+      recordedAt: Date.now(),
+    });
+  } catch {
+    // 记录失败不阻塞写入
+  }
+}
+
 function snapshotBeforeEdit(ctx: EditToolContext, files: string[], reason: string): void {
   if (!ctx.checkpoints) return;
   try {
@@ -164,10 +241,15 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       const perm = checkPathWritePermission(filePath, ctx);
       if (!perm.allowed) return { success: false, output: '', error: perm.reason };
 
+      const abs = resolvePath(ctx, filePath);
+      const readGuard = checkReadBeforeWrite(execCtx, abs, filePath);
+      if (readGuard) {
+        return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
+      }
+
       const preResult = await runPreToolCall('write_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
-      const abs = resolvePath(ctx, filePath);
       try {
         // 捕获基线 ⇒ 落盘前逐字节复核:窗口内被人改过就拒绝,绝不静默覆盖(读后写校验)
         const baseline = captureWriteBaseline(abs);
@@ -179,6 +261,7 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
         warnConflictIfAny(ctx, abs, startLine, endLine);
         snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
         commitAtomicWrite(baseline, content);
+        recordWriteState(execCtx, abs);
         recordHunk(ctx, abs, startLine, endLine, content);
         await runPostToolCall('write_file', { path: filePath, bytes: content.length }, execCtx.signal);
         const lines = content.split('\n').length;
@@ -357,10 +440,15 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       const perm = checkPathWritePermission(filePath, ctx);
       if (!perm.allowed) return { success: false, output: '', error: perm.reason };
 
+      const abs = resolvePath(ctx, filePath);
+      const readGuard = checkReadBeforeWrite(execCtx, abs, filePath);
+      if (readGuard) {
+        return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
+      }
+
       const preResult = await runPreToolCall('edit_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
-      const abs = resolvePath(ctx, filePath);
       // 基线一次捕获两用:① "是否存在"沿用原语义(不存在 ⇒ 报错,不新建),
       // ② 内容作为落盘前的复核锚点 —— 快照/patch 计算这段时间里磁盘被改过就必须失败
       let original: string;
@@ -393,6 +481,7 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
         const { startLine, endLine } = computeChangedRange(original, applied.result);
         warnConflictIfAny(ctx, abs, startLine, endLine);
         commitAtomicWrite(baseline, applied.result);
+        recordWriteState(execCtx, abs);
         recordHunk(ctx, abs, startLine, endLine, applied.result);
         await runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements }, execCtx.signal);
         const diff = computeUnifiedDiff(original, applied.result, filePath);

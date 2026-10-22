@@ -66,24 +66,40 @@ const GIT_TIMEOUT = 120_000
 
 /** 一枚提交的实际改动路径集(diff-tree 对非合并提交 = 对第一父的差;-z 免引号转写) */
 export function pathsOfCommit(root, sha) {
-  const out = gitRaw(['diff-tree', '-r', '--root', '--no-commit-id', '--name-only', '--no-renames', '-z', sha], root, {
-    timeout: GIT_TIMEOUT,
-  })
-  return out.split('\0').map((s) => s.trim()).filter(Boolean)
+  const out = gitRaw(
+    ['diff-tree', '-r', '--root', '--no-commit-id', '--name-only', '--no-renames', '-z', sha],
+    root,
+    {
+      timeout: GIT_TIMEOUT,
+    },
+  )
+  return out
+    .split('\0')
+    .map((s) => s.trim())
+    .filter(Boolean)
 }
 
 /** 父提交数(>1 = 合并提交,本门不判) */
 export function parentsOf(root, sha) {
-  const out = gitRaw(['rev-list', '--parents', '-n', '1', sha], root, { timeout: GIT_TIMEOUT }).trim()
+  const out = gitRaw(['rev-list', '--parents', '-n', '1', sha], root, {
+    timeout: GIT_TIMEOUT,
+  }).trim()
   return out.split(/\s+/).slice(1)
 }
 
 /** 该路径在 sha^ 侧的改写历史(新→旧),带截断标记 */
 export function ancestorCommits(root, sha, path) {
-  const out = gitRaw(['log', '--format=%H', '-n', String(ANC_WINDOW + 1), `${sha}^`, '--', path], root, {
-    timeout: GIT_TIMEOUT,
-  })
-  const commits = out.split('\n').map((s) => s.trim()).filter(Boolean)
+  const out = gitRaw(
+    ['log', '--format=%H', '-n', String(ANC_WINDOW + 1), `${sha}^`, '--', path],
+    root,
+    {
+      timeout: GIT_TIMEOUT,
+    },
+  )
+  const commits = out
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
   return { commits, truncated: commits.length > ANC_WINDOW }
 }
 
@@ -110,12 +126,16 @@ export function judgeRecord(root, rec) {
   } catch (e) {
     return { verdict: 'undetermined', why: `landedSha 取材失败:${shortErr(e)}` }
   }
-  if (parents.length > 1) return { verdict: 'undetermined', why: `合并提交(${parents.length} 个父)不在本门射程` }
+  if (parents.length > 1)
+    return { verdict: 'undetermined', why: `合并提交(${parents.length} 个父)不在本门射程` }
   const declaredSet = new Set(declared)
   const extras = actual.filter((p) => !declaredSet.has(p))
   if (extras.length === 0) return { verdict: 'clean', extras: [], stale: [], reportOnly: [] }
 
-  const oids = catBatchOids(root, extras.map((p) => `${sha}:${p}`))
+  const oids = catBatchOids(
+    root,
+    extras.map((p) => `${sha}:${p}`),
+  )
   const stale = []
   const undetermined = []
   const reportOnly = []
@@ -136,10 +156,14 @@ export function judgeRecord(root, rec) {
       reportOnly.push({ path: p, kind: '全新文件(该路径无祖先历史)' })
       continue
     }
-    const ancOids = catBatchOids(root, anc.commits.map((c) => `${c}:${p}`))
+    const ancOids = catBatchOids(
+      root,
+      anc.commits.map((c) => `${c}:${p}`),
+    )
     const hit = anc.commits.find((c) => ancOids.get(`${c}:${p}`) === oid)
     if (hit) stale.push({ path: p, ancestor: hit })
-    else if (anc.truncated) undetermined.push({ path: p, why: `祖先窗口 ${ANC_WINDOW} 截断仍无命中` })
+    else if (anc.truncated)
+      undetermined.push({ path: p, why: `祖先窗口 ${ANC_WINDOW} 截断仍无命中` })
     else reportOnly.push({ path: p, kind: '新内容(窗口内无同字节祖先)' })
   }
   if (stale.length > 0) return { verdict: 'red', extras, stale, undetermined, reportOnly }
@@ -164,7 +188,11 @@ export function loadAudited(root) {
 
 export function saveAudited(root, map) {
   const p = resolve(root, AUDITED_LEDGER_REL)
-  writeFileSync(p, JSON.stringify({ version: AUDITED_VERSION, judged: Object.fromEntries(map) }, null, 1) + '\n', 'utf8')
+  writeFileSync(
+    p,
+    JSON.stringify({ version: AUDITED_VERSION, judged: Object.fromEntries(map) }, null, 1) + '\n',
+    'utf8',
+  )
   return p
 }
 
@@ -174,7 +202,13 @@ export function saveAudited(root, map) {
  */
 export function audit(root, { strict = false, now = new Date().toISOString() } = {}) {
   const ledger = readLedgerRecords(root)
-  if (!ledger.ok) return { status: 'exit2', why: `留痕日志不可读(${ledger.state}):${ledger.why}` }
+  if (!ledger.ok) {
+    // 留痕日志在 .ihui-agent/state/(gitignored):干净检出/CI 结构上不存在 ⇒ 未判定,
+    // 不是"审计通过";读得到但坏格式仍按 exit2(那是真问题)。
+    if (ledger.state === 'missing')
+      return { status: 'undetermined', why: '留痕日志不存在(干净检出无本地状态面)' }
+    return { status: 'exit2', why: `留痕日志不可读(${ledger.state}):${ledger.why}` }
+  }
 
   const audited = loadAudited(root)
   const counts = {
@@ -246,6 +280,10 @@ export function audit(root, { strict = false, now = new Date().toISOString() } =
 }
 
 function printReport(r) {
+  if (r.status === 'undetermined') {
+    console.log(`⚪ 未判定:${r.why} —— 不记绿也不冒红(拿到留痕面后重跑)`)
+    return
+  }
   if (r.status === 'exit2') {
     console.error(`❌ [bypass-landing-scope] 无法判定:${r.why}`)
     console.error('   声明面不存在就无从对账 —— 这是未判定,不是通过。排查为何本机没有留痕日志。')
@@ -255,25 +293,36 @@ function printReport(r) {
   console.log(
     `[bypass-landing-scope] 留痕 ${c.totalLines} 行(坏行 ${c.badLines})|按 kind ${JSON.stringify(c.byKind)}|bypass 可审 ${c.bypass}(缺 sha 不审 ${c.bypassNoSha} / 已判过跳过 ${c.skipped} / clean ${c.clean} / 只报数 ${c.reportOnlyRecords})|增量台账 ${r.ledgerState}`,
   )
-  if (c.ledgerSaveError) console.log(`⚠️ 增量台账写入失败(判定不受影响,下次会重判):${c.ledgerSaveError}`)
+  if (c.ledgerSaveError)
+    console.log(`⚠️ 增量台账写入失败(判定不受影响,下次会重判):${c.ledgerSaveError}`)
   for (const b of r.badLines.slice(0, 5)) console.log(`   · 坏行 L${b.n}:${b.err}`)
   for (const u of r.undetermined) {
     console.log(`? 未判定 ${u.landedSha.slice(0, 10)} (${u.source} @${u.ts}) —— ${u.why}`)
     for (const d of (u.detail ?? []).slice(0, 4)) console.log(`    · ${d.path}:${d.why}`)
   }
   for (const ro of r.reportOnly) {
-    console.log(`ℹ️ 只报数 ${ro.landedSha.slice(0, 10)} (${ro.source}) —— 射程外但无写回形态(本门只认领写回旧态这一型):`)
-    for (const it of (ro.reportOnly ?? []).slice(0, 6)) console.log(`    · ${it.path} —— ${it.kind}`)
+    console.log(
+      `ℹ️ 只报数 ${ro.landedSha.slice(0, 10)} (${ro.source}) —— 射程外但无写回形态(本门只认领写回旧态这一型):`,
+    )
+    for (const it of (ro.reportOnly ?? []).slice(0, 6))
+      console.log(`    · ${it.path} —— ${it.kind}`)
   }
   if (r.reds.length > 0) {
     for (const red of r.reds) {
       console.log(`❌ 旁路落地写回旧态:${red.landedSha.slice(0, 10)} (${red.source} @${red.ts})`)
-      for (const s of red.stale) console.log(`    · ${s.path} == 祖先 ${s.ancestor.slice(0, 10)} 的版本(声明面之外,整文件写回)`)
+      for (const s of red.stale)
+        console.log(
+          `    · ${s.path} == 祖先 ${s.ancestor.slice(0, 10)} 的版本(声明面之外,整文件写回)`,
+        )
       for (const it of (red.reportOnly ?? []).slice(0, 4))
         console.log(`    · (同枚另有无写回形态的射程外路径,只报数)${it.path} —— ${it.kind}`)
     }
-    console.error('  💡 这是 G-978069 那一型:旁路入库的提交把票面射程外的路径按旧副本写回,吞掉了别人已入库的内容。')
-    console.error('     修复只有前向回补(§22 不重写历史):按被吞内容的原 blob 重新落地,参照 cfabf3128a 的形态。')
+    console.error(
+      '  💡 这是 G-978069 那一型:旁路入库的提交把票面射程外的路径按旧副本写回,吞掉了别人已入库的内容。',
+    )
+    console.error(
+      '     修复只有前向回补(§22 不重写历史):按被吞内容的原 blob 重新落地,参照 cfabf3128a 的形态。',
+    )
     console.error('     本枚已在增量台账里判过一次,不会反复红;但损坏内容仍须修,台账不是豁免。')
   } else {
     console.log('✅ 旁路落地声明面对账通过(射程外路径无写回旧态;未判定与只报数均已逐条点名)')
@@ -317,158 +366,261 @@ function selfTest() {
     mkdirSync(dirname(journalPath), { recursive: true })
     writeFileSync(journalPath, recs.map((o) => JSON.stringify(o)).join('\n') + '\n', 'utf8')
   }
-  const rec = (sha, declared, source) => ({ ts: '2026-09-30T00:00:00Z', kind: 'bypass-landing', landedSha: sha, declaredFiles: declared, source: source ?? 'selftest' })
+  const rec = (sha, declared, source) => ({
+    ts: '2026-09-30T00:00:00Z',
+    kind: 'bypass-landing',
+    landedSha: sha,
+    declaredFiles: declared,
+    source: source ?? 'selftest',
+  })
 
   // 1 真写回(阳性对照):声明只含 b,却把 a 写回 v1、另搭车全新 c-new ⇒ red 并点名祖先,c-new 进只报数档
   {
     const { dir, run } = repo('bypass-st-red-')
     try {
-      put(dir, 'a.txt', 'v1\n'); put(dir, 'b.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
-      put(dir, 'a.txt', 'v2\n'); put(dir, 'b.txt', 'v2\n'); run('add', '-A'); run('commit', '-qm', 'c2')
+      put(dir, 'a.txt', 'v1\n')
+      put(dir, 'b.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v2\n')
+      put(dir, 'b.txt', 'v2\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c2')
       const sha = bypassCommit(dir, run, () => {
         put(dir, 'a.txt', 'v1\n') // 写回 v1
         put(dir, 'c-new.txt', 'brand new\n')
       })
       const v = judgeRecord(dir, rec(sha, ['b.txt']))
       t('1 射程外路径写回祖先版本 ⇒ red', v.verdict === 'red', v.verdict)
-      t('1a 点名写回路径与等值祖先', v.stale?.length === 1 && v.stale[0].path === 'a.txt' && !!v.stale[0].ancestor)
-      t('1b 同枚无写回形态的射程外路径进只报数档', v.reportOnly?.some((x) => x.path === 'c-new.txt') === true)
-    } finally { rmScratch(dir) }
+      t(
+        '1a 点名写回路径与等值祖先',
+        v.stale?.length === 1 && v.stale[0].path === 'a.txt' && !!v.stale[0].ancestor,
+      )
+      t(
+        '1b 同枚无写回形态的射程外路径进只报数档',
+        v.reportOnly?.some((x) => x.path === 'c-new.txt') === true,
+      )
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 2 干净记录(阴性对照):声明 ⊇ 实际 ⇒ clean
   {
     const { dir, run } = repo('bypass-st-clean-')
     try {
-      put(dir, 'a.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
-      put(dir, 'a.txt', 'v2\n'); run('add', '-A'); run('commit', '-qm', 'c2')
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v2\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c2')
       const sha = bypassCommit(dir, run, () => put(dir, 'a.txt', 'v3\n'))
       const v = judgeRecord(dir, rec(sha, ['a.txt']))
       t('2 声明面覆盖实际面 ⇒ clean', v.verdict === 'clean', v.verdict)
-    } finally { rmScratch(dir) }
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 3 射程外但全是新内容 ⇒ 只报数不判红(S4)
   {
     const { dir, run } = repo('bypass-st-new-')
     try {
-      put(dir, 'a.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
-      put(dir, 'a.txt', 'v2\n'); run('add', '-A'); run('commit', '-qm', 'c2')
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v2\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c2')
       const sha = bypassCommit(dir, run, () => put(dir, 'c-new.txt', 'new\n'))
       const v = judgeRecord(dir, rec(sha, ['a.txt']))
       t('3 射程外新增文件 ⇒ report-only', v.verdict === 'report-only', v.verdict)
-    } finally { rmScratch(dir) }
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 4 声明面为空 ⇒ 未判定(S2:不是"全都射程外")
   {
     const { dir, run } = repo('bypass-st-empty-')
     try {
-      put(dir, 'a.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
       const v = judgeRecord(dir, rec(headSha(run), []))
       t('4 声明面为空 ⇒ undetermined', v.verdict === 'undetermined', v.verdict)
-    } finally { rmScratch(dir) }
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 5 缺 landedSha ⇒ out-of-scope(不做任何 git 调用)
   {
-    const v = judgeRecord('D:/nonexistent-root-must-not-be-touched', { landedSha: '', declaredFiles: ['x'] })
+    const v = judgeRecord('D:/nonexistent-root-must-not-be-touched', {
+      landedSha: '',
+      declaredFiles: ['x'],
+    })
     t('5 缺 landedSha ⇒ out-of-scope', v.verdict === 'out-of-scope')
   }
   // 6 合并提交 ⇒ 未判定(S5)
   {
     const { dir, run } = repo('bypass-st-merge-')
     try {
-      put(dir, 'base.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
+      put(dir, 'base.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
       run('checkout', '-qb', 'side')
-      put(dir, 'side.txt', 's\n'); run('add', '-A'); run('commit', '-qm', 's1')
+      put(dir, 'side.txt', 's\n')
+      run('add', '-A')
+      run('commit', '-qm', 's1')
       run('checkout', '-q', 'main')
-      put(dir, 'main.txt', 'm\n'); run('add', '-A'); run('commit', '-qm', 'm1')
+      put(dir, 'main.txt', 'm\n')
+      run('add', '-A')
+      run('commit', '-qm', 'm1')
       run('merge', '-q', '--no-edit', 'side')
       const mergeSha = headSha(run)
       t('6a 夹具确为合并提交', parentsOf(dir, mergeSha).length === 2)
       const v = judgeRecord(dir, rec(mergeSha, ['main.txt']))
       t('6 合并提交的记录 ⇒ undetermined', v.verdict === 'undetermined', v.verdict)
-    } finally { rmScratch(dir) }
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 7 landedSha 取不到 ⇒ 未判定(S5)
   {
     const { dir, run } = repo('bypass-st-unreach-')
     try {
-      put(dir, 'a.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
       const v = judgeRecord(dir, rec('0'.repeat(40), ['a.txt']))
       t('7 landedSha 对象不存在 ⇒ undetermined', v.verdict === 'undetermined', v.verdict)
-    } finally { rmScratch(dir) }
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 8 祖先窗口截断 ⇒ 未判定(46 个祖先 > 40 窗口,写回最老版)
   {
     const { dir, run } = repo('bypass-st-window-')
     try {
-      put(dir, 'a.txt', 'v0\n'); run('add', '-A'); run('commit', '-qm', 'c0')
+      put(dir, 'a.txt', 'v0\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c0')
       for (let i = 1; i <= 45; i++) {
         put(dir, 'a.txt', `v${i}\n`)
-        run('add', '-A'); run('commit', '-qm', `c${i}`)
+        run('add', '-A')
+        run('commit', '-qm', `c${i}`)
       }
       const sha = bypassCommit(dir, run, () => put(dir, 'a.txt', 'v0\n'))
       const v = judgeRecord(dir, rec(sha, ['zzz-unused.txt']))
       t('8 窗口截断无命中 ⇒ undetermined(不静默绿)', v.verdict === 'undetermined', v.verdict)
-    } finally { rmScratch(dir) }
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 9 增量台账:同枚只判一次(S6)
   {
     const { dir, run } = repo('bypass-st-ledger-')
     try {
-      put(dir, 'a.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
       const sha = bypassCommit(dir, run, () => put(dir, 'a.txt', 'v2\n'))
       writeJournal(dir, [rec(sha, ['a.txt'])])
       const r1 = audit(dir)
-      t('9 首跑 clean 计数 1', r1.counts.clean === 1 && r1.status === 'ok', JSON.stringify(r1.counts))
+      t(
+        '9 首跑 clean 计数 1',
+        r1.counts.clean === 1 && r1.status === 'ok',
+        JSON.stringify(r1.counts),
+      )
       const r2 = audit(dir)
-      t('9a 二跑只跳过不重判', r2.counts.skipped === 1 && r2.counts.clean === 0, JSON.stringify(r2.counts))
-    } finally { rmScratch(dir) }
+      t(
+        '9a 二跑只跳过不重判',
+        r2.counts.skipped === 1 && r2.counts.clean === 0,
+        JSON.stringify(r2.counts),
+      )
+    } finally {
+      rmScratch(dir)
+    }
   }
-  // 10 日志缺失 ⇒ exit2(S2:未判定,绝不静默绿)
+  // 10 日志缺失 ⇒ 未判定(干净检出的常态;不是 exit2,也不是通过)
   {
     const { dir, run } = repo('bypass-st-nojournal-')
     try {
-      put(dir, 'a.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
       const r = audit(dir)
-      t('10 日志缺失 ⇒ exit2', r.status === 'exit2', r.status)
-    } finally { rmScratch(dir) }
+      t('10 日志缺失 ⇒ 未判定(不记绿也不判红)', r.status === 'undetermined', r.status)
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 11 审计汇总判红 + 红记录带声明外路径全集
   {
     const { dir, run } = repo('bypass-st-shape-')
     try {
-      put(dir, 'a.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
-      put(dir, 'a.txt', 'v2\n'); run('add', '-A'); run('commit', '-qm', 'c2')
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v2\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c2')
       const sha = bypassCommit(dir, run, () => put(dir, 'a.txt', 'v1\n'))
       writeJournal(dir, [rec(sha, ['nope.txt'])])
       const r = audit(dir)
       t('11 审计汇总判红', r.status === 'ok' && r.reds.length === 1, `${r.status}/${r.reds.length}`)
       t('11a 红记录带声明外路径全集', r.reds[0]?.extras.includes('a.txt') === true)
-      t('11b 红记录带来源与时间戳锚点', typeof r.reds[0]?.source === 'string' && typeof r.reds[0]?.ts === 'string')
-    } finally { rmScratch(dir) }
+      t(
+        '11b 红记录带来源与时间戳锚点',
+        typeof r.reds[0]?.source === 'string' && typeof r.reds[0]?.ts === 'string',
+      )
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 12 中文路径逐字对账(-z 面,quotePath 不变形)
   {
     const { dir, run } = repo('bypass-st-zh-')
     try {
-      put(dir, '组件.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
-      put(dir, '组件.txt', 'v2\n'); run('add', '-A'); run('commit', '-qm', 'c2')
+      put(dir, '组件.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
+      put(dir, '组件.txt', 'v2\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c2')
       const sha = bypassCommit(dir, run, () => put(dir, '组件.txt', 'v1\n'))
       const v = judgeRecord(dir, rec(sha, ['别的.txt']))
-      t('12 中文路径写回被点名(不乱码不漏判)', v.verdict === 'red' && v.stale[0]?.path === '组件.txt', String(v.stale?.[0]?.path))
-    } finally { rmScratch(dir) }
+      t(
+        '12 中文路径写回被点名(不乱码不漏判)',
+        v.verdict === 'red' && v.stale[0]?.path === '组件.txt',
+        String(v.stale?.[0]?.path),
+      )
+    } finally {
+      rmScratch(dir)
+    }
   }
   // 13 坏行计数 + 其余记录照判
   {
     const { dir, run } = repo('bypass-st-badline-')
     try {
-      put(dir, 'a.txt', 'v1\n'); run('add', '-A'); run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
       const sha = bypassCommit(dir, run, () => put(dir, 'a.txt', 'v2\n'))
       const journalPath = resolve(dir, LEDGER_REL)
       mkdirSync(dirname(journalPath), { recursive: true })
-      writeFileSync(journalPath, '{broken json\n' + JSON.stringify(rec(sha, ['a.txt'])) + '\n', 'utf8')
+      writeFileSync(
+        journalPath,
+        '{broken json\n' + JSON.stringify(rec(sha, ['a.txt'])) + '\n',
+        'utf8',
+      )
       const r = audit(dir)
-      t('13 坏行计数不吞记录', r.counts.badLines === 1 && r.counts.clean === 1, JSON.stringify({ bad: r.counts.badLines, clean: r.counts.clean }))
-    } finally { rmScratch(dir) }
+      t(
+        '13 坏行计数不吞记录',
+        r.counts.badLines === 1 && r.counts.clean === 1,
+        JSON.stringify({ bad: r.counts.badLines, clean: r.counts.clean }),
+      )
+    } finally {
+      rmScratch(dir)
+    }
   }
   const pass = results.filter(Boolean).length
   console.log(`--self-test:${pass} 通过 / ${results.length - pass} 失败(共 ${results.length} 例)`)
@@ -491,6 +643,7 @@ function main() {
   const r = audit(root, { strict })
   printReport(r)
   if (r.status === 'exit2') process.exit(2)
+  if (r.status === 'undetermined') process.exit(0)
   process.exit(r.reds.length > 0 ? 1 : 0)
 }
 

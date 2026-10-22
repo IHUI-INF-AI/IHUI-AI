@@ -22,18 +22,17 @@ import { and, eq } from 'drizzle-orm'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { db } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
+import {
+  earliestCookieExpiry,
+  extractTenantId,
+  extractTokenExpiry,
+  extractUid,
+  type RelayProviderCode,
+} from './relay-account-format.js'
 
 // =============================================================================
 // 类型
 // =============================================================================
-
-/** 支持反代的第三方 AI IDE 平台 */
-export const RELAY_PROVIDERS = ['trae', 'workbuddy', 'codearts'] as const
-export type RelayProviderCode = (typeof RELAY_PROVIDERS)[number]
-
-export function isRelayProviderCode(v: string): v is RelayProviderCode {
-  return (RELAY_PROVIDERS as readonly string[]).includes(v)
-}
 
 /** 导入 JSON 里的单账号形状(与账号导出工具/浏览器插件格式对齐,字段宽松) */
 export interface ImportAccountInput {
@@ -68,79 +67,6 @@ export interface ImportBatchResult {
   skipped: number
   failed: number
   items: ImportItemResult[]
-}
-
-// =============================================================================
-// JWT / Cookie 解析工具(纯本地,无网络)
-// =============================================================================
-
-/**
- * 解 JWT payload(**不验签**,只取声明)。非三段式/非 base64url JSON → null。
- */
-export function parseJwtClaims(token: string): Record<string, unknown> | null {
-  const parts = token.split('.')
-  const payloadB64 = parts.length === 3 ? parts[1] : undefined
-  if (!payloadB64) return null
-  try {
-    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'))
-    if (typeof payload !== 'object' || payload === null) return null
-    return payload as Record<string, unknown>
-  } catch {
-    return null
-  }
-}
-
-/**
- * WebKit epoch(1601-01-01 起的微秒)→ Unix 毫秒。0/空 = 会话 cookie(返回 null)。
- */
-export function webkitEpochToUnixMs(expiresUtc: unknown): number | null {
-  const v = typeof expiresUtc === 'number' ? expiresUtc : Number(expiresUtc)
-  if (!Number.isFinite(v) || v <= 0) return null
-  // 1601-01-01 → 1970-01-01 相差 11644473600 秒
-  return Math.floor(v / 1000) - 11_644_473_600_000
-}
-
-/** 从 cookies 数组里取最早过期时间(全部会话 cookie → null) */
-export function earliestCookieExpiry(cookies: unknown[]): number | null {
-  let min: number | null = null
-  for (const c of cookies) {
-    const ms = webkitEpochToUnixMs((c as { expires_utc?: unknown })?.expires_utc)
-    if (ms !== null && (min === null || ms < min)) min = ms
-  }
-  return min
-}
-
-/**
- * 解析账号 uid(去重键)。优先 JWT 声明:payload.data.id(Trae 会话惯例)→ sub → uid → data.user_id;
- * 全失败:sha256(token) 前 32 位(加 'auto:' 前缀,保证可去重可追溯)。
- */
-export function extractUid(token: string): string {
-  const claims = parseJwtClaims(token)
-  if (claims) {
-    const data = claims['data'] as Record<string, unknown> | undefined
-    const candidates: unknown[] = [data?.['id'], claims['sub'], claims['uid'], data?.['user_id']]
-    for (const c of candidates) {
-      if (typeof c === 'string' && c.length > 0 && c.length <= 128) return c
-      if (typeof c === 'number') return String(c).slice(0, 128)
-    }
-  }
-  return `auto:${createHash('sha256').update(token).digest('hex').slice(0, 32)}`
-}
-
-/** 从 JWT 取 exp(Unix 秒)→ Date;无 exp → null */
-export function extractTokenExpiry(token: string): Date | null {
-  const claims = parseJwtClaims(token)
-  const exp = claims?.['exp']
-  if (typeof exp === 'number' && Number.isFinite(exp)) return new Date(exp * 1000)
-  return null
-}
-
-/** Trae 特有:payload.data.tenant_id(导入时顺手存进 extraMetadata) */
-function extractTenantId(token: string): string | null {
-  const claims = parseJwtClaims(token)
-  const data = claims?.['data'] as Record<string, unknown> | undefined
-  const t = data?.['tenant_id']
-  return typeof t === 'string' && t.length > 0 ? t : null
 }
 
 // =============================================================================
@@ -435,13 +361,5 @@ export function decryptAccountCredentials(row: AiRelayAccountPool): AccountCrede
     cookies,
     secrets,
   }
-}
-
-/** 把 Chrome 导出 cookies 数组拼成 Cookie 请求头(name=value; …) */
-export function buildCookieHeader(cookies: Array<Record<string, unknown>>): string {
-  return cookies
-    .filter((c) => typeof c['name'] === 'string' && typeof c['value'] === 'string')
-    .map((c) => `${c['name']}=${c['value']}`)
-    .join('; ')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

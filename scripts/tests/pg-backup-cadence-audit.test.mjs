@@ -875,7 +875,7 @@ test('反向锁:旁族(dash)档只替它自己那个库作证', () => {
 // 遮噪只遮**注释**、保留字符串 —— 要禁的那两型("仓根上跳两级"、"字面量 DevEnv")
 // 恰恰活在字符串里,连字符串一起抹会让本锁对立项要防的形态全盲(与本仓多处"遮噪方向
 // 不同"的教训同族:判据问什么,就只许抹掉问不到的那一层)。
-test("落点反向锁:私有数层推导不得回来,必须真的 import 共用出口 devEnvRoot()", () => {
+test("落点反向锁:私有数层推导与 PG 落点都不得回来,必须真的 import 共用出口", () => {
   const src = readFileSync(new URL('../pg-backup-cadence-audit.mjs', import.meta.url), 'utf8')
   const code = maskComments(src)
   assert.doesNotMatch(code, /['"]\.\.['"]\s*,\s*['"]\.\.['"]/, '不得再出现"仓根上跳两级"那一份盘根推导(工作树落在夹具里时它会把落点带进夹具)')
@@ -884,11 +884,15 @@ test("落点反向锁:私有数层推导不得回来,必须真的 import 共用�
   assert.doesNotMatch(code, /function\s+devEnvRoot\s*\(/, '本模块不得再声明私有 devEnvRoot —— 落点只许有一个出口')
   assert.match(
     code,
-    /import\s*\{[^}]*\bdevEnvRoot\b[^}]*\}\s*from\s*'\.\/seal-c-root-stray\.mjs'/,
-    '必须真的 import 共用出口(§22c 装车证明:只写注释不接线,等于这句话是假的)',
+    /import\s*\{[^}]*\bpgBinDir\b[^}]*\bbackupPgDir\b[^}]*\}\s*from\s*'\.\/lib\/psql-client-locate\.mjs'/,
+    '必须真的 import PG 落点共用出口(§22c 装车证明:只写注释不接线,等于这句话是假的)',
   )
-  // 环境变量覆盖名是本工具的契约,共用出口不得把它们挤掉(IHUI_DEVENV_ROOT 只是第三档兜底)
-  assert.match(code, /process\.env\.IHUI_PG_BIN_DIR\s*\|\|/, 'IHUI_PG_BIN_DIR 必须仍优先于任何推导')
-  assert.match(code, /process\.env\.IHUI_BACKUP_PG_DIR\s*\|\|/, 'IHUI_BACKUP_PG_DIR 必须仍优先于任何推导')
+  assert.doesNotMatch(code, /function\s+(pgBinDir|backupPgDir)\s*\(/, '本模块不得再声明私有 PG 落点 —— 只许有一个出口')
+  // 环境变量覆盖名是本工具的契约;覆盖顺序(env > devEnvRoot)由共用出口那一份实现统一持有。
+  assert.match(
+    readFileSync(new URL('../lib/psql-client-locate.mjs', import.meta.url), 'utf8'),
+    /env\.IHUI_PG_BIN_DIR\s*\|\|/,
+    'IHUI_PG_BIN_DIR 必须仍优先于任何推导',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

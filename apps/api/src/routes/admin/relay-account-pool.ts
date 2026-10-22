@@ -33,16 +33,16 @@ import { z } from 'zod'
 import { eq, and, or, ilike, lt, gte, isNull, isNotNull, sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import { aiRelayAccountPool } from '@ihui/database'
+import { PROVIDER_HEALTH_STATUSES } from '@ihui/types'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { paginationSchema, idParamSchema } from './_shared.js'
 import {
   importAccounts,
-  isRelayProviderCode,
-  RELAY_PROVIDERS,
   decryptAccountCredentials,
   type ImportAccountInput,
 } from '../../services/relay-account-pool-service.js'
+import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
 import { sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
 import { getAccountUsage, getAccountUsageSummaries } from '../../services/relay-account-usage.js'
@@ -85,9 +85,7 @@ const importBodySchema = z.object({
 const listQuerySchema = paginationSchema.extend({
   provider: z.transform(emptyToUndefined).pipe(z.enum(RELAY_PROVIDERS).optional()),
   enabled: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
-  health: z
-    .transform(emptyToUndefined)
-    .pipe(z.enum(['unknown', 'healthy', 'degraded', 'down']).optional()),
+  health: z.transform(emptyToUndefined).pipe(z.enum(PROVIDER_HEALTH_STATUSES).optional()),
 })
 
 const updateBodySchema = z.object({
@@ -348,14 +346,30 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const b = updateBodySchema.safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
-    const patch: Record<string, unknown> = { updatedAt: new Date() }
+    const patch: Record<string, unknown> = {}
     for (const k of ['name', 'priority', 'weight', 'tempUnschedulable', 'proxyUrl'] as const) {
       if (b.data[k] !== undefined) patch[k] = b.data[k]
     }
     try {
+      const [existing] = await dbRead
+        .select({
+          name: aiRelayAccountPool.name,
+          priority: aiRelayAccountPool.priority,
+          weight: aiRelayAccountPool.weight,
+          tempUnschedulable: aiRelayAccountPool.tempUnschedulable,
+          proxyUrl: aiRelayAccountPool.proxyUrl,
+        })
+        .from(aiRelayAccountPool)
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .limit(1)
+      if (!existing) return reply.status(404).send(error(404, '账号不存在'))
+      const changed = Object.fromEntries(
+        Object.entries(patch).filter(([k, v]) => (existing as Record<string, unknown>)[k] !== v),
+      )
+      if (Object.keys(changed).length === 0) return reply.send(success({ id: p.data.id }))
       const updated = await db
         .update(aiRelayAccountPool)
-        .set(patch)
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(aiRelayAccountPool.id, p.data.id))
         .returning({ id: aiRelayAccountPool.id })
       if (updated.length === 0) return reply.status(404).send(error(404, '账号不存在'))
@@ -378,9 +392,10 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         .limit(1)
       if (!row) return reply.status(404).send(error(404, '账号不存在'))
       const next = !row.isEnabled
+      const changed = { isEnabled: next }
       await db
         .update(aiRelayAccountPool)
-        .set({ isEnabled: next, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(aiRelayAccountPool.id, p.data.id))
       return reply.send(success({ id: p.data.id, isEnabled: next }))
     } catch (e) {

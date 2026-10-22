@@ -62,6 +62,12 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
+      - name: 构建 packages(门 4/98 的 dist 取材面)
+        # check-stale-dist / check-dangling-local-imports 读 packages/*/dist;
+        # 干净 checkout 没有构建产物,不补就会把"未构建"判成"陈旧/悬空"。
+        # 只构建 packages,不构建 apps(门对 apps dist 缺失只跳过)。
+        run: pnpm -r --filter "./packages/*" build
+
       - name: 全量守门(271 道)
         # 刻意**不传** --staged:CI 的 checkout 是干净工作树,没有暂存区概念,
         # 门的判据面回落到"磁盘全量";同时本地那套元门档裁剪也不生效

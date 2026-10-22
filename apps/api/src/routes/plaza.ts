@@ -41,11 +41,7 @@ const plazaListQuerySchema = z.object({
 
 const createPlazaSchema = z.object({
   title: z.string().trim().min(2, '标题至少 2 个字').max(200, '标题最多 200 字'),
-  description: z
-    .string()
-    .trim()
-    .min(10, '描述至少 10 个字')
-    .max(10000, '描述最多 10000 字'),
+  description: z.string().trim().min(10, '描述至少 10 个字').max(10000, '描述最多 10000 字'),
   lowestPrice: z.number().positive('价格必须大于 0').optional(),
   peakPrice: z.number().positive('价格必须大于 0').optional(),
   contact: z.string().trim().max(200, '联系方式最多 200 字').optional(),
@@ -53,7 +49,10 @@ const createPlazaSchema = z.object({
   cycleUnit: z.string().trim().max(20, '周期单位最多 20 字').optional(),
   closingTime: z.iso.datetime('截止时间格式不正确').optional(),
   types: z.array(z.string().max(50, '单个类型最多 50 字')).max(20, '类型最多 20 个').optional(),
-  categories: z.array(z.string().max(50, '单个分类最多 50 字')).max(20, '分类最多 20 个').optional(),
+  categories: z
+    .array(z.string().max(50, '单个分类最多 50 字'))
+    .max(20, '分类最多 20 个')
+    .optional(),
 })
 
 // =============================================================================
@@ -161,6 +160,69 @@ export const plazaRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     if (!item) return reply.status(404).send(error(404, '广场条目不存在'))
     return reply.send(success(item))
+  })
+
+  // PUT /:id — 更新广场需求(G-962 #84: 消费方 business.ts:260,仅创建者本人可改)
+  const updatePlazaSchema = createPlazaSchema.partial().extend({
+    taskStatus: z.string().max(20, 'taskStatus 过长').optional(),
+  })
+  server.put('/:id', async (request, reply) => {
+    const idParsed = z.object({ id: z.uuid() }).safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, '无效的广场条目 ID'))
+    const parsed = updatePlazaSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(zhsDemandSquare)
+      .where(eq(zhsDemandSquare.id, idParsed.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '广场条目不存在'))
+    if (existing.userId !== request.userId)
+      return reply.status(403).send(error(403, '仅发布者可修改此需求'))
+    const input = parsed.data
+    const lowest =
+      input.lowestPrice ?? (existing.lowestPrice ? Number(existing.lowestPrice) : undefined)
+    const peak = input.peakPrice ?? (existing.peakPrice ? Number(existing.peakPrice) : undefined)
+    if (lowest !== undefined && peak !== undefined && lowest > peak) {
+      return reply.status(400).send(error(400, '起步价不能高于最高价'))
+    }
+    const [updated] = await db
+      .update(zhsDemandSquare)
+      .set({
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.lowestPrice !== undefined ? { lowestPrice: input.lowestPrice.toFixed(2) } : {}),
+        ...(input.peakPrice !== undefined ? { peakPrice: input.peakPrice.toFixed(2) } : {}),
+        ...(input.contact !== undefined ? { contact: input.contact } : {}),
+        ...(input.cycle !== undefined ? { cycle: input.cycle } : {}),
+        ...(input.cycleUnit !== undefined ? { cycleUnit: input.cycleUnit } : {}),
+        ...(input.closingTime !== undefined ? { closingTime: new Date(input.closingTime) } : {}),
+        ...(input.types !== undefined ? { types: input.types } : {}),
+        ...(input.categories !== undefined ? { categories: input.categories } : {}),
+        ...(input.taskStatus !== undefined ? { taskStatus: input.taskStatus } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(zhsDemandSquare.id, idParsed.data.id))
+      .returning()
+    if (!updated) return reply.status(500).send(error(500, '更新需求失败'))
+    return reply.send(success(updated))
+  })
+
+  // DELETE /:id — 删除广场需求(G-962 #85: 消费方 business.ts:268,仅创建者本人可删)
+  server.delete('/:id', async (request, reply) => {
+    const idParsed = z.object({ id: z.uuid() }).safeParse(request.params)
+    if (!idParsed.success) return reply.status(400).send(error(400, '无效的广场条目 ID'))
+    const [existing] = await db
+      .select()
+      .from(zhsDemandSquare)
+      .where(eq(zhsDemandSquare.id, idParsed.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '广场条目不存在'))
+    if (existing.userId !== request.userId)
+      return reply.status(403).send(error(403, '仅发布者可删除此需求'))
+    await db.delete(zhsDemandSquare).where(eq(zhsDemandSquare.id, idParsed.data.id))
+    return reply.send(success({ success: true }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

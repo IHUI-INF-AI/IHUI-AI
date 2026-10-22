@@ -894,6 +894,12 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
     if (left <= 0) want.delete(l)
     else want.set(l, left)
   }
+  /**
+   * 「本侧已让号删除」的旧形态不得从对侧/基底被补回(G-32, 2026-10-22):产出面(`unionLines`)
+   * 与自证面(`verifyUnion` 的未存活行/旧行复活两判)共用这一张表 ⇒ union 不补、落地闸也不按
+   * "未存活行"追讨,本侧不再被自己已经让掉的号死锁(三条判据与失效方向见 yieldedIdCaps 头注)。
+   */
+  for (const l of yieldedIdCaps(oursText, theirsText)) want.delete(l)
   return want
 }
 
@@ -974,6 +980,69 @@ export function theirsRewriteCaps(oursText, theirsText, baseText, suppress = nul
       const dropped = n - (ct.get(l) || 0)
       if (dropped > 0) caps.set(l, (caps.get(l) || 0) + dropped)
     }
+  }
+  return caps
+}
+
+/**
+ * 「本侧已让号删除」的旧形态摘除表(2026-10-22,在册票 G-32)。
+ *
+ * 立因(现读取证):本侧把 7 枚登记行整体让号(枚 `c8cecd2572`,旧号→新号,四条断言含
+ * 「旧号引用只允许是【归并】留痕行」)之后,被让出的旧形态只要在对侧被改写过一笔(哪怕只
+ * 追加一条取证注记),新字符串在基底面上不存在 ⇒ 被 `liveDocExpectedCounts` 读成"对侧相对
+ * 基底新增"并补回;而本面已经没有那个键位行 ⇒ 本侧无法自清 ⇒ 落地闸对本侧死锁。
+ *
+ * 判据(三条全过才摘,缺一条即不摘 —— 失效方向恒为"多留一份",绝不"少带别人的行"):
+ *  ① 本面存在**让号留痕**:带主键的行自己挂着 `〔改号(…):原G-旧〕` / `〔同题原号 G-旧〕` /
+ *    `〔…让号:G-旧 → G-新…〕`(票面断言④"旧号引用只允许是留痕行"的三种在册形态;箭头型
+ *    还要求箭头右端等于该行主键,散文里转述别人的让号不构成认领);
+ *  ② 新号行**在册**(本面真有一行 keyOfRow = 新号 —— 留痕行本身就是那一行,故①已蕴含,
+ *    仍按行主键逐一回查,防留痕挂在别的键位行上);
+ *  ③ 要补回的旧形态与本面新号行**是同一件事**:复用 theirsRewriteCaps 那把字符二元组
+ *    Jaccard 与同源阈值(判"是不是同一件事"的尺子只许有一份,§22c)。③ 正是两半的分界:
+ *    对侧同号**异题**的活登记相似度低 ⇒ 照常补回、真冲突照常拦;本侧让号前的旧形态正文
+ *    逐字守恒 ⇒ 摘除。
+ * 只摘**本面已无逐字同一行**的旧形态 ⇒ 本侧自己还留着的行处置权仍在本侧,一处不碰。
+ */
+export function yieldedIdCaps(oursText, theirsText) {
+  const caps = new Set()
+  if (typeof oursText !== 'string' || typeof theirsText !== 'string') return caps
+  if (oursText === '' || theirsText === '') return caps
+  const co = counter(oursText)
+  const oursByKey = new Map()
+  const olds = new Map() // 旧号 -> 认领它的那些本面新号行(可多行,逐行过③)
+  for (const l of oursText.split('\n')) {
+    const k = keyOfRow(l)
+    if (!k) continue
+    if (!oursByKey.has(k)) oursByKey.set(k, l)
+    const claimed = []
+    for (const m of l.matchAll(/改号[^〕\n]*[:：]\s*原\s*(G-\d+)/g)) claimed.push(m[1])
+    for (const m of l.matchAll(/同题原号\s*(G-\d+)/g)) claimed.push(m[1])
+    for (const m of l.matchAll(/让号[:：]\s*(G-\d+)\s*(?:→|->)\s*(G-\d+)/g))
+      if (m[2] === k) claimed.push(m[1])
+    for (const old of claimed) {
+      if (old === k) continue // 留痕里提到自己(自引用)不构成让号
+      if (!olds.has(old)) olds.set(old, [])
+      olds.get(old).push(l)
+    }
+  }
+  if (olds.size === 0) return caps
+  for (const l of new Set(theirsText.split('\n'))) {
+    if (l === '') continue // 空行不参与:与 liveDocExpectedCounts 同一条规矩
+    const k = keyOfRow(l)
+    if (!k) continue
+    const newLines = olds.get(k)
+    if (!newLines || !newLines.length) continue
+    if ((co.get(l) || 0) > 0) continue // 本面还留着逐字同一行 ⇒ 不属"已让号删除"
+    let same = false
+    for (const nl of newLines) {
+      if (!oursByKey.has(keyOfRow(nl))) continue // 新号行不在册 ⇒ 让号不成立,不摘
+      if (jaccard(tokenize(stripState(l)), tokenize(stripState(nl))) >= SIM_THRESHOLD) {
+        same = true
+        break
+      }
+    }
+    if (same) caps.add(l)
   }
   return caps
 }
@@ -3421,6 +3490,83 @@ function selfTest() {
         })(),
       )
     }
+    // ── 让号摘除(2026-10-22,在册票 G-32):union 不得把"本侧已让号删除的旧形态"补回 ──
+    // 立因现读:让号枚 `c8cecd2572` 之后 F9 从 7 组降到 2 组,余下两组的键位行本面已经没有 ⇒
+    // 补回只可能来自 base/对侧;落地闸只判"合并结果是否放大",本侧无法自清 ⇒ 死锁。
+    {
+      const Y_OLD =
+        '- [ ] G-791 **让号摘除夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。'
+      const Y_NEW =
+        '- [ ] G-792 〔改号(2026-10-22):原G-791〕 **让号摘除夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。'
+      const Y_VAR = Y_OLD + '〔对侧新取证@2026-10-22:仍红〕'
+      const Y_OTHER =
+        '- [ ] G-791 **完全另一件事的题面,同样长到能过指纹权重门,与让号夹具无关**,取证段 KKKKLLLLMMMMNNNN,尾段 PPPPQQQQRRRRSSSS 也不同。'
+      const oursY = `# 台账\n${Y_NEW}\n`
+      const theirsY = `# 台账\n${Y_VAR}\n${Y_OTHER}\n`
+      const baseY = `# 台账\n${Y_OLD}\n`
+      ok(
+        '让号摘除(正):对侧改写出新取证的旧形态,本侧已按留痕让号 ⇒ 期望表与产出面都不得再补回它',
+        (() => {
+          const want = liveDocExpectedCounts(oursY, theirsY, baseY)
+          const merged = unionLines(oursY, theirsY, baseY)
+          return !want.has(Y_VAR) && !merged.includes(Y_VAR) && merged.includes(Y_NEW)
+        })(),
+      )
+      ok(
+        '让号摘除反向对照(真冲突仍拦/别人的活账仍带):对侧同号**异题**的登记行必须照常补回,摘除只咬同一件事的旧形态',
+        (() => {
+          const want = liveDocExpectedCounts(oursY, theirsY, baseY)
+          return want.has(Y_OTHER) && unionLines(oursY, theirsY, baseY).includes(Y_OTHER)
+        })(),
+      )
+      ok(
+        '让号摘除反向锁(无留痕不摘):本侧新号行没带改号/同题原号/让号箭头 ⇒ 旧形态照常补回(判据只在有证据时生效)',
+        (() => {
+          const bare = Y_NEW.replace(' 〔改号(2026-10-22):原G-791〕', '')
+          return liveDocExpectedCounts(`# 台账\n${bare}\n`, theirsY, baseY).has(Y_VAR)
+        })(),
+      )
+      ok(
+        '让号摘除:三种在册留痕形态(改号/同题原号/让号箭头)同样生效;箭头右端不等于行主键(散文转述)不生效',
+        (() => {
+          const twin =
+            '- [ ] G-792 **让号摘除夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。〔同题原号 G-791〕'
+          const arrow =
+            '- [ ] G-792 〔2026-10-22 让号:G-791 → G-792 —— 同号异题撞上,本侧让;正文一字未改〕 **让号摘除夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。'
+          const prose =
+            '- [ ] G-793 **另一枚票的正文里转述了别人的让号:G-791 → G-792,标题同样长到能过指纹权重门**,与夹具正文无关的取证段 TTTTVVVVWWWWXXXX,尾段 YYYYZZZZAAAABBBB。'
+          return (
+            !liveDocExpectedCounts(`# 台账\n${twin}\n`, theirsY, baseY).has(Y_VAR) &&
+            !liveDocExpectedCounts(`# 台账\n${arrow}\n`, theirsY, baseY).has(Y_VAR) &&
+            liveDocExpectedCounts(`# 台账\n${prose}\n`, theirsY, baseY).has(Y_VAR)
+          )
+        })(),
+      )
+      ok(
+        '让号摘除的失效方向:新号行不在册 ⇒ 不摘(多留一份交人工,绝不反向把对侧的活账少带掉)',
+        (() => {
+          const noReg = liveDocExpectedCounts('# 台账\n', theirsY, baseY)
+          return noReg.has(Y_VAR) && noReg.has(Y_OTHER)
+        })(),
+      )
+      ok(
+        '让号摘除接进落地闸同一张尺:死锁夹具的产物面不再被"未存活行"追讨旧形态,而经典撞号(两侧各一件活账)的 F9 一处不松',
+        (() => {
+          const mergedY = unionLines(oursY, theirsY, baseY)
+          const gate = planStateRegressions(mergedY, [baseY, oursY, theirsY])
+          const noYield = `- [ ] G-791 ${'经典撞号本侧活账的题面长到能过指纹权重门,与让号夹具无关的取证段 ' + 'UUUUWWWWXXXXYYYY,尾段 ZZZZAAAABBBBCCCC。'}`
+          const theirOwn = `- [ ] G-791 ${'对侧另一件活账的题面同样长到能过指纹权重门,取证段 ' + 'DDDDFFFFGGGGHHHHJJJJ,尾段 KKKKLLLLMMMMNNNN。'}`
+          const classic = planStateRegressions(
+            `# 台账\n${noYield}\n${theirOwn}\n`,
+            [`# 台账\n${noYield}\n`, `# 台账\n${theirOwn}\n`],
+          )
+          return (
+            !gate.some((b) => String(b).includes('F9') || String(b).includes('未存活行') || String(b).includes(Y_VAR.slice(0, 40))) &&
+            classic.some((b) => String(b).includes('F9 归并新增撞号组'))
+          )
+        })(),
+      )
+    }
     ok(
       '举证判据的牙:伪造一本"把它折进了另一件事"的台账必须给 lost(信台账 ≠ 信调用方)',
       (() => {
@@ -4457,6 +4603,8 @@ export const __test__ = {
   mergeThreeBlobs,
   liveDocExpectedCounts,
   theirsRewriteCaps,
+  // 让号摘除(G-32, 2026-10-22):镜像测试直接用它,不得在测试里再写一份留痕/相似度判据(§22c)
+  yieldedIdCaps,
   // 折叠台账这一族(2026-10-16):镜像测试直接用它,不得在测试里再写一份折叠/举证判据(§22c)
   foldLedgerOf,
   foldDedupe,

@@ -14,6 +14,8 @@ import { AiGenerationPreview } from './AiGenerationPreview'
 import { callApi } from './helpers'
 import type { ResourceType } from './types'
 import { BackButton } from '@/components/common'
+import { fetchApi } from '@/lib/api'
+import { extractMediaUrls } from '@/lib/ai-media'
 
 export default function AiGenerationPageClient() {
   const [type, setType] = React.useState<GenerationType>('auto')
@@ -55,13 +57,35 @@ export default function AiGenerationPageClient() {
     return url
   }
 
+  // Kling 文生视频真腿:POST /api/chat/kling/video/generate 为异步任务(返回 task_id),
+  // 需轮询 GET /api/chat/kling/task/:taskId 至终态再取产物 URL。
+  // resolution 不在后端 klingVideoSchema 在册字段,按 zod strip 语义不发送。
+  const generateKlingVideo = async (prompt: string): Promise<string> => {
+    const submit = await fetchApi<{ task_id?: string }>('/api/chat/kling/video/generate', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, duration: '5' }),
+    })
+    if (!submit.success) throw new Error(submit.error || 'Request failed')
+    const taskId = submit.data?.task_id
+    if (!taskId) throw new Error('No task_id in response')
+    for (let attempt = 0; attempt < 100; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      const poll = await fetchApi<unknown>(`/api/chat/kling/task/${taskId}`)
+      if (!poll.success) throw new Error(poll.error || 'Request failed')
+      const status = (poll.data as { task_status?: string } | undefined)?.task_status
+      if (status === 'succeed') {
+        const url = extractMediaUrls(poll.data)[0]
+        if (!url) throw new Error('No media URL in response')
+        return url
+      }
+      if (status === 'fail') throw new Error('Kling 视频生成失败')
+    }
+    throw new Error('Kling 视频生成超时')
+  }
+
   const onGenerateVideo = async (prompt: string, provider: VideoProvider) => {
     const url = await (provider === 'kling'
-      ? callApi(
-          '/api/ai/kling/video/generate',
-          { prompt, duration: '5', resolution: '720p' },
-          'media',
-        )
+      ? generateKlingVideo(prompt)
       : callApi('/api/ai/dashscope/video', { prompt, model: 'wan2.5-t2v-plus' }, 'media'))
     setLastVideo(url)
     return url
