@@ -94,6 +94,14 @@ __pycache__/
 .next.bak-*/
 dist.old-*/
 deploy/win/deploy-loop.log.*
+# 2026-10-22 同一轮补的第二批(生产 ff 后 status 从 11 → 8,剩的是这两族):
+#   ① `*.bak-*`:热修前的源码现场备份(实测 model_availability.py.bak-balancefix-20261021 /
+#      model_catalog.py.bak-freeflagship-20261021)。既有规则只盖 `.env.bak-*`(第 519/520 行),
+#      这两枚零命中。备份有留存价值但**不该入库** —— 入了就和源码双份漂移。
+#   ② `dist.__lock`:pnpm/构建在 packages/*/dist 旁落的运行态锁(实测 5 枚),进程结束即失效,
+#      入库只会污染工作树让每轮 converge 多一批脏文件。
+*.bak-*
+dist.__lock
 # 2026-09-07 零停机蓝绿部署:staging 构建目录与回滚点,均为本地构建产物不入库
 .next-staging/
 # 2026-09-13 e2e 隔离构建 distDir(IHUI_BUILD_DIST=.next-e2e,本地 e2e triage 用)。
