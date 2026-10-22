@@ -49,7 +49,6 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
-  mkdtempSync,
   readFileSync,
   rmSync,
   statSync,
@@ -1988,9 +1987,7 @@ export function heal(repoRoot, { dryRun = false } = {}) {
 
 /** 独立临时仓演练:①外部删除必被识别并恢复 ②他人 `git rm --cached` 的删除绝不碰 */
 function selfTestRun() {
-  const tmp = mkdtempSync(
-    join(dirname(fileURLToPath(import.meta.url)), '..', '.ihui-agent', 'tmp', 'wt-heal-drill-'),
-  )
+  const tmp = mkScratch('wt-heal-drill-')
   const g = makeGit(tmp)
   // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
   const { t: check, report } = makeRegistrar()
@@ -2325,9 +2322,7 @@ function selfTestRun() {
     // ⑭⑮ 旁路提交新增文件的残留形态 —— 用**独立小仓**造现场,不复用上面 17 例累积的索引状态
     //     (第一版复用同一仓库时,祖先树判据被前序用例留下的改动污染,⑭b 恒红 ⇒ 假故障)。
     {
-      const t3 = mkdtempSync(
-        join(dirname(fileURLToPath(import.meta.url)), '..', '.ihui-agent', 'tmp', 'wt-heal-idx-'),
-      )
+      const t3 = mkScratch('wt-heal-idx-')
       const q = makeGit(t3)
       q(['init', '-q', '--initial-branch=main'])
       q(['config', 'user.email', 't@t'])
@@ -2360,7 +2355,7 @@ function selfTestRun() {
         '⑮ 有意 rm --cached(索引非祖先树)绝不插手',
         rec2.reconciled === 0 && /不碰/.test(rec2.reason),
       )
-      rmSync(t3, { recursive: true, force: true })
+      rmScratch(t3)
     }
 
     // ㉒–㉗ 第四层(旁路提交孤儿路径恢复,2026-09-26)—— 全部用独立小仓,理由同 ⑭⑮:
@@ -2981,13 +2976,7 @@ function selfTestRun() {
     // 清理失败不得掩盖真结果(2026-10-12):本会话环境里 WorkBuddy 的 safe-delete shim 会拦
     // >50 项的 rmSync —— 旧写法让 finally 的清理异常**顶掉** try 里真正的断言输出,
     // 自测表现为"一行判据都看不见,只剩清理报错",真红被假红吞掉。判据结果第一,清理失败点名即可。
-    try {
-      rmSync(tmp, { recursive: true, force: true })
-    } catch (e) {
-      console.warn(
-        `⚠️ 自测临时目录清理失败(不影响判据结果):${tmp} — ${String(e?.message ?? e).slice(0, 160)}`,
-      )
-    }
+    rmScratch(tmp, { bestEffort: true })
   }
 }
 

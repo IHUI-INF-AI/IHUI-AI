@@ -16,6 +16,7 @@ import {
   type LoginResult,
   type QrPlatformConfig,
   type LoginTab,
+  type PasskeyAuthOptionsData,
   isValidPhone,
   loadLoginHistory,
 } from '@ihui/ui-react'
@@ -183,6 +184,18 @@ function useWebLoginApiClient(
         fetchApi<{ sent: boolean }>('/api/auth/sms/send', {
           method: 'POST',
           body: JSON.stringify({ phone, scene: 'login' }),
+        }),
+      /**
+       * Passkey 免密登录(G-874,2026-10-22 立):后端 auth/options 与 auth/verify 早已实现,
+       * 此前只有设置页注册侧在用、登录侧零调用方。这里补齐共享 LoginForm 需要的两个调用点,
+       * 注入后共享表单才渲染 Passkey 入口(未注入的扩展端不渲染)。
+       */
+      passkeyAuthOptions: async () =>
+        fetchApi<PasskeyAuthOptionsData>('/api/auth/passkey/auth/options', { method: 'POST' }),
+      passkeyAuthVerify: async (challengeId, response) =>
+        fetchApi<LoginResult>('/api/auth/passkey/auth/verify', {
+          method: 'POST',
+          body: JSON.stringify({ challengeId, response }),
         }),
     }
   }, [request2faCode])
@@ -354,7 +367,9 @@ export function LoginFormContent({ onSuccess, tabs }: LoginFormContentProps) {
         // 持久标志,从不问"用户刚刚是不是主动退出",于是 web 点完退出落到登录页,300ms 后
         // 表单自己把账密提交上去又登回去了 —— 绕过了 use-auth-bootstrap / api.ts 那两条
         // 已收口的径路。判据唯一住在 @ihui/shared/auth/auto-login-policy,这里只注入 web 落盘实现。
-        canAutoSubmitCredentials={() => canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })}
+        canAutoSubmitCredentials={() =>
+          canSilentlyReLogin({ sessionLoggedOut: isSessionLoggedOut })
+        }
         // 2026-09-06 立:移动端开启微信整行大按钮 + 最近手机号自动回填
         thirdPartyFeaturedPlatform={isMobileLayout ? 'wechat' : undefined}
         thirdPartyFeaturedBackground={isMobileLayout ? OAUTH_BRAND_COLORS.wechat : undefined}

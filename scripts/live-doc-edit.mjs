@@ -174,7 +174,7 @@ import {
   newMalformed,
   malformedLine,
 } from './lib/plan-task-index.mjs'
-import { collectIdFace } from './lib/plan-id-face.mjs'
+import { collectIdFace, scanFamilyIds } from './lib/plan-id-face.mjs'
 
 // 守门 194 同题查重(2026-10-13):指纹判据只此一份,取号器不另写"什么算同题"
 import { extractTaskFingerprint, findSameFingerprint } from './check-plan-task-duplicates.mjs'
@@ -203,6 +203,7 @@ import {
   decideLease,
   machineIdentity,
   poolFreeList,
+  LEASE_MARK,
   LEASE_POOL_MAX,
 } from './lib/plan-id-lease.mjs'
 
@@ -465,6 +466,9 @@ export function idBasisGate({ families = [], remote = null, allowUnaligned = fal
  * machineId 给定 ⇒ 每族先问租约(lib/plan-id-lease.mjs 那一份):自有池内段按段内空闲序连号;
  * 没有/段满就池内新占一段(段=50,租约行由 main 随本块落账);池满 ⇒ 拒绝发号。
  * 不给 machineId ⇒ 直接按池内最小空闲发(池式新基准,镜像 N2/N3 的锁已随之改写)。
+ * G-14(2026-10-22):候选号还要过一遍**全文件正则扫出的号集**(`scanFamilyIds`,台账 ⊕ 归档件),
+ * 命中即跳过并由 `scanNotes` 点名 —— 别席既存题只以归档占位注释/正文引用留在面上时,
+ * `usedIdsOfPrefix` 看不见它,旧口径就会把已占号当空闲发出。
  */
 export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const machineId =
@@ -476,6 +480,8 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const basis = []
   const leaseClaims = []
   const leaseNotes = []
+  const scanNotes = []
+  const scanSkips = []
   const dupTitleNotes = []
   const numOf = (label) => {
     const m = /(\d+)$/.exec(String(label))
@@ -492,10 +498,26 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       .map(numOf)
       .filter(Number.isFinite)
     const usedNums = [...(used.ids ?? []).map(numOf).filter(Number.isFinite), ...remoteNums]
+    const lbl = (n) => used.template.replace('%d', String(n))
+    // G-14(2026-10-22,票面出路①):发号前再核**全文件正则扫出的号集**。`usedIdsOfPrefix` 只认
+    // 登记行的声明位,而别席既存题常只以归档占位注释/正文引用的形态留在面上(实测 G-924/G-926/G-929
+    // 三个号当日就是这样被当成空闲发出去的)⇒ 扫描命中即跳过并点名。扫描只有一份实现
+    // (lib/plan-id-face.mjs 的 scanFamilyIds)。租约行**不参与扫描**:行内 `段=G-901~G-950`
+    // 是预留声明而不是实占(段尾主键已由 usedIdsOfPrefix 计入),把它算成已占会让每段首号白白跳过
+    // —— 租约制"一个号不浪费"的既有行为必须不变。
+    const scanText = String(baseContent)
+      .split('\n')
+      .filter((l) => !l.includes(LEASE_MARK))
+      .join('\n')
+    const scanned = scanFamilyIds(scanText, f)
+    const keepIfFree = (n) => {
+      if (!scanned.has(n)) return true
+      scanSkips.push(lbl(n))
+      return false
+    }
     let freeList
     if (machineId) {
       const cur = decideLease({ baseContent, family: f, used, baseMax: chosenMax, machineId })
-      const lbl = (n) => used.template.replace('%d', String(n))
       if (cur.mode === 'in-lease') {
         const segUsed = new Set(
           usedNums.filter(
@@ -504,13 +526,13 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
         )
         freeList = []
         for (let n = cur.lease.start; n < cur.lease.end; n += 1)
-          if (!segUsed.has(n)) freeList.push(n)
+          if (!segUsed.has(n) && keepIfFree(n)) freeList.push(n)
         leaseNotes.push(
           `号段租约:本机=${machineId} 在自有段 ${lbl(cur.lease.start)}~${lbl(cur.lease.end)} 内按空闲序连号(本次首号=${lbl(freeList[0] ?? cur.lease.end)})`,
         )
       } else if (cur.mode === 'claim') {
         freeList = []
-        for (let n = cur.start; n < cur.end; n += 1) freeList.push(n)
+        for (let n = cur.start; n < cur.end; n += 1) if (keepIfFree(n)) freeList.push(n)
         leaseClaims.push({ family: f, template: used.template, start: cur.start, end: cur.end })
         leaseNotes.push(
           `号段租约:本机=${machineId} 池内新占段 ${lbl(cur.start)}~${lbl(cur.end)}(主键=段尾号,随本块落账;段满由后续取号另占池内下一窗;池满 ⇒ 拒绝发号)`,
@@ -526,7 +548,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
         }
       }
     } else {
-      freeList = poolFreeList({ usedNumbers: usedNums, baseMax: chosenMax })
+      freeList = poolFreeList({ usedNumbers: usedNums, baseMax: chosenMax }).filter(keepIfFree)
     }
     if (!freeList.length)
       return {
@@ -544,6 +566,12 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     basis.push({ family: f, localMax: used.max, remoteMax, chosenMax })
   }
   const got = []
+  if (scanSkips.length > 0) {
+    const labels = [...new Set(scanSkips)]
+    scanNotes.push(
+      `G-14 全文件扫描:候选号 ${labels.join(', ')} 已在台账/归档件里出现过(别席已占,或只活在归档占位注释/正文引用里)⇒ 跳过换下一个`,
+    )
+  }
   let exhaustedFamily = null
   // 守门 194 同题查重(2026-10-13):携带取号令牌的行 = 新登记 ⇒ 发号前先按标题指纹
   // 在底稿里查同题;命中 ⇒ 拒发号(根治"同题不同号"漂移的源头闸)。
@@ -610,6 +638,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     basis,
     leaseClaims,
     leaseNotes,
+    scanNotes,
     dupTitleNotes,
   }
 }
@@ -1825,6 +1854,7 @@ async function main() {
     for (const b of tok.basis ?? []) console.log(describeIdBasis(b, remote))
     // 租约读数逐条交出:段内连号还是新占段、段界在哪,报告必须能对上"号为什么是这一个"。
     for (const n of tok.leaseNotes ?? []) console.log(`ℹ ${n}`)
+    for (const n of tok.scanNotes ?? []) console.log(`ℹ ${n}`)
     for (const n of tok.dupTitleNotes ?? []) console.log(`⚠️ 守门194:${n}`)
     {
       const gate = idBasisGate({

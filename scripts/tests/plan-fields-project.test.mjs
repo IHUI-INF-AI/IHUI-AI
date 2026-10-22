@@ -10,10 +10,10 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import os from 'node:os'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as P } from '../plan-fields-project.mjs'
 import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 import { parseHeader, renderHeader, roundTripOk } from '../lib/plan-field-line.mjs'
@@ -182,7 +182,7 @@ describe('分批与出件契约', () => {
   })
 
   it('--emit 产出:替换档只含 before/after,摘除声明逐行带旧形态与出处', () => {
-    const tmp = mkdtempSync(path.join(os.tmpdir(), 'ihui-pfp-'))
+    const tmp = mkScratch('ihui-pfp-')
     try {
       const rows = [
         { before: '- [ ] **G-1 甲题** a', after: '- [ ] 〔归:甲〕 **G-1 甲题** a' },
@@ -213,19 +213,19 @@ describe('分批与出件契约', () => {
       assert.match(drop[0].why, /删逐字等价的散文归属句/)
       assert.ok(!Number.isNaN(Date.parse(drop[0].at)), 'at 必须是可解析时间戳')
     } finally {
-      rmSync(tmp, { recursive: true, force: true })
+      rmScratch(tmp)
     }
   })
 
   it('无可投影行 ⇒ 不出件,也不写旧形态声明(空替换档会被读成"未命中")', () => {
-    const tmp = mkdtempSync(path.join(os.tmpdir(), 'ihui-pfp-empty-'))
+    const tmp = mkScratch('ihui-pfp-empty-')
     try {
       const jsonPath = path.join(tmp, 'replace.json')
       assert.equal(P.emit({ rewrite: [] }, jsonPath, 40, { root: tmp }), 0)
       assert.equal(existsSync(jsonPath), false)
       assert.equal(existsSync(path.join(tmp, '.ihui-agent', 'state', 'plan-row-drop.jsonl')), false)
     } finally {
-      rmSync(tmp, { recursive: true, force: true })
+      rmScratch(tmp)
     }
   })
 })

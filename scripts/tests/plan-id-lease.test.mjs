@@ -17,6 +17,8 @@
  *      baseMax(远端只抬高)≤999 参与避让、>999 池外大号不参与。
  *  T4  resolveIdTokens 接线:给 machineId ⇒ 段内空闲序/池内新占段两态取号正确且 leaseClaims 齐全;
  *      不给 machineId ⇒ 池内最小空闲(池式新基准;旧"与旧口径逐字同形"锁随池式改造废除)。
+ *  T4c/T4d G-14(2026-10-22):候选号命中全文件扫描号集(只活在归档占位注释里)⇒ 跳过并点名;
+ *      未命中的号必须照发(不得恒跳过)。
  *  T5  appendLeaseRows:只追加不删改;区在插区头、区不在文件尾新建。
  *  T6  源码形状锁:live-doc-edit 必须经 lib 取租约判据(抄第二份必漂),且 CAS 循环内取号带 machineId。
  *  T8  段窗选择:同面同轮确定、两机窗分离(claimOffset 混机器指纹,下标=hash|窗数%窗数)、
@@ -309,6 +311,57 @@ test('T4b resolveIdTokens 接线:段内空闲序 / 池内新占段 / 无 machine
   assert.equal(r5.reason, 'pool-exhausted:G', '整池无窗 ⇒ 拒绝发号(出路=归档腾号,绝不突破三位数)')
 })
 
+test('T4c G-14:本机段空闲但全文件已被别席占用 ⇒ 跳过该号并在 scanNotes 点名', () => {
+  // 现场逐字复刻 2026-10-22 病型:号只活在**归档占位注释**里 ⇒ 不进 parseTaskRows,
+  // usedIdsOfPrefix 看不见它,而它确实已被别席登记(同号不同题 ⇒ 复合主键门也不拦)。
+  const leased = ['- [ ] G-700 基准行。', row({ start: 1, end: 50 })].join('\n')
+  const occupied = `${leased}\n<!-- 已归档(2026-10-15):✅(2026-10-15) **G-1 别席既存题** —— 完整内容在归档件 -->`
+  const r = lde.resolveIdTokens(['- [ ] {{NEXT_ID:G}} 甲。'], occupied, null, {
+    machineId: 'hostA-fp',
+  })
+  assert.equal(r.ok, true)
+  assert.equal(r.assigned, 'G-2', '段内首号 G-1 已被别席占用 ⇒ 必须跳过换下一个')
+  assert.ok(
+    r.scanNotes.some((n) => n.includes('G-1') && n.includes('跳过')),
+    `跳过的号必须点名(票面出路①);实得 ${JSON.stringify(r.scanNotes)}`,
+  )
+  assert.equal(
+    r.leaseClaims.length,
+    0,
+    '跳过发生在自有段内 ⇒ 不得因此另占新段(千段租约行为不变)',
+  )
+  assert.ok(
+    r.leaseNotes.some((n) => n.includes('自有段')),
+    '租约读数照旧交出(段内连号)',
+  )
+  // 两个令牌:跳过 G-1 后仍是段内连号 G-2/G-3(不得因扫描而跨段或重占)
+  const two = lde.resolveIdTokens(
+    ['- [ ] {{NEXT_ID:G}} 甲。', '- [ ] {{NEXT_ID:G}} 乙。'],
+    occupied,
+    null,
+    { machineId: 'hostA-fp' },
+  )
+  assert.equal(two.assigned, 'G-2,G-3', '跳过占用号后按段内空闲序连号')
+  // 点名必须真打到 stdout(CAS 报告那一层),不能只活在返回值里
+  assert.match(
+    LDE_SRC,
+    /for \(const n of tok\.scanNotes \?\? \[\]\) console\.log/,
+    '跳过原因必须打印到 stdout',
+  )
+})
+
+test('T4d G-14 反证:未被占用的号必须照发,不得恒跳过', () => {
+  const leased = ['- [ ] G-700 基准行。', row({ start: 1, end: 50 })].join('\n')
+  const clean = `${leased}\n<!-- 归档件里提到的是别的号:G-900 -->
+正文引用 G-901 也只是别处.`
+  const r = lde.resolveIdTokens(['- [ ] {{NEXT_ID:G}} 甲。'], clean, null, {
+    machineId: 'hostA-fp',
+  })
+  assert.equal(r.ok, true)
+  assert.equal(r.assigned, 'G-1', '段内空号照发(否则就是"恒跳过",等于把取号器变成恒红工具)')
+  assert.deepEqual(r.scanNotes, [], '没有占用命中时不得产出跳过点名的噪声')
+})
+
 test('T5 appendLeaseRows:只追加不删改;区在插区头,区不在文件尾新建', () => {
   const lines = ['- [ ] G-1 某票', '']
   const out1 = appendLeaseRows(lines, [row()])
@@ -343,7 +396,7 @@ test('T6 源码形状锁:live-doc-edit 必须经 lib 取租约判据,CAS 循环�
   assert.match(loop, /machineId/, 'CAS 循环内必须把 machineId 喂进取号(整批重算含租约)')
   assert.match(
     loop,
-    /appendLeaseRows\(built\.next/,
+    /appendLeaseRows\(\s*built\.next/,
     '租约行必须在畸形判据之前并进 next(写前守卫看到的就是将要提交的内容)',
   )
 })
