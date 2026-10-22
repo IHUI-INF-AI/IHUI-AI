@@ -6125,6 +6125,13 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (89b41d74e2)
+- 🔧 工程/其他:摘除 MCP stdio 族三条已结清票(G-691 isError 语义 / G-692 重连代次守卫 / G-694 成对清理) —— 票面自写验收用例 5 文件 38 例本席当轮复跑全绿,凭据与复算命令写进 LAND_BLOB_PROOF;同族 G-689 已于前一轮结清。走门 229 出路②一次摘除,不留翻勾中间态 (a15b2488ba)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7d81ae46f9)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9587053b75)
+- ⚡ 性能:本地一律元门档(业务提交也 49s)—— 全量守门归 CI;仅判据库改动仍强制全量(改错会让门静默失效,CI 是延迟发现) (c104102fb0)
+
+**2026-10-22**
 - 🐞 修复:G-689 结清(本席复跑票面自写判据三条全中:验收用例 8 passed + 复跑判据 RC=0 + 被点名消灭的那行注释已不在面上,实现住在 mcp-runtime.ts:261 并点名本票) —— 这是"实现早已入库、行还挂着未勾"的第一条实锤样本;摘行交兜底轮,本席不代删 (6c69ce0e7a)
 - 🔧 工程/其他:新增全量守门 workflow(手动触发) —— 本地 pre-commit 只跑元门档 27 道(49s),全量 269 道移交 CI;已验证 pnpm install --frozen-lockfile 退出 0 (693a05eb6c)
 - 🔧 工程/其他:再补 *.bak-* 与 dist.__lock 两族忽略 —— 生产 ff 后 status 11→8 的残余两族 (39c9e2b353)
@@ -6188,9 +6195,6 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 
 **2026-10-22**
 - 🐞 修复:3e 活文档对账同时豁免两片派生区(RECENT UPDATES 归 auto-update-readme-recent、GENERATED NUMBERS 归 gen-doc-numbers;后者正确性由门 173 守),块外仍要求工作树⊇HEAD (1d1ed2680b)
-
-**2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (980c5f92b2)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
