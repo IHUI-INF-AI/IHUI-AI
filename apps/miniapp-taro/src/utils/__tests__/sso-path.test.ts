@@ -12,7 +12,9 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 
 // === Mock @tarojs/taro ===
-const taroStorage: Record<string, unknown> = {}
+// taroStorage 必须走 vi.hoisted:sso.ts 现静态引 utils/auth,auth 在模块初始化就调
+// getStorageSync(hydrate tokenStore),普通 const 会被 vi.mock 提升甩到后面(TDZ)。
+const taroStorage = vi.hoisted(() => ({}) as Record<string, unknown>)
 vi.mock('@tarojs/taro', () => ({
   getStorageSync: (key: string) => taroStorage[key] ?? '',
   removeStorageSync: (key: string) => {
