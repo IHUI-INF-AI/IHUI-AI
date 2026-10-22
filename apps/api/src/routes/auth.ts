@@ -407,7 +407,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 2026-10-22 根治:这里过去只写一行"验证码已生成"的日志,从不投递 ——
       // 响应却回"已发送",于是用户永远在等那条根本不会来的短信。现在真发,且发不出去就如实报错。
-      const delivery = await deliverSmsCode(phone, code)
+      const delivery = await deliverSmsCode(phone, code, parsed.data.scene)
       if (!delivery.sent) {
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
         return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
@@ -1485,7 +1485,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const code = generateCode()
       codeStore.set(phone, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
       // 与 /send-code 同口径:真投递,失败如实报错(这支是小程序登录实际在打的端点)
-      const delivery = await deliverSmsCode(phone, code)
+      const delivery = await deliverSmsCode(phone, code, parsed.data.scene)
       if (!delivery.sent) {
         request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
         return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
