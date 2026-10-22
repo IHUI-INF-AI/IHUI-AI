@@ -1,0 +1,237 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "访客与机器人流量(2026-10-23 立)。立因:这台机的大屏此前没有任何一格回答\"有没有除机主以外的人或 AI 在访问\"——数据其实一直在录(`api_logs` 每条请求都带服务端 ip + user-agent,现读近 6 天 186231 行),但 `monitoring/` 全目录对 UA/bot/crawler/visitor 零判据,而这个维度从来没被发射成指标。本盘读 api 手拼 /business-metrics 的 ihui_traffic_requests_total{client_family,status_class} 与 ihui_traffic_scan_hits_total{kind,client_family}:两维都是源码里的封闭枚举并逐值开 0 基线,所以**看到 0 是\"这段时间真没发生过\",不是埋点没接**(这与旧 nginx.json 那 9 块面板查一个零 exporter 的死指标不同形)。口径三条,别误读:① client_family 是**自述**——2026-10-23 实测有一批腾讯云海外段来源成批伪装 Googlebot/GrokBot/Claude-User 打 path-traversal 与 /api/.env,族面如实记它自称什么,真伪不在这张盘上判(判真伪要把 UA 与来源归属交叉核,那是另一件事);② human-browser 只代表\"UA 长成真实浏览器形态\",HeadlessChrome/QoderCN/TraeCN 已被更前的族收走,不会冒充真人;③ UA 原文与 IP 一律不入标签(开放集),要看具体某把 UA/某个来源 IP 请回 `api_logs` 与 admin「访客追踪」页。本盘不做 UV/PV:UV 是按 IP 与 session 去重的开放集,只能落预聚合表,不能塞进 Prometheus 标签。",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "title": "入口请求速率(按客户端族)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum by (client_family) (rate(ihui_traffic_requests_total{instance=~\"$instance\"}[5m]))",
+          "legendFormat": "{{client_family}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "id": 1
+    },
+    {
+      "title": "真人/首方 vs 自动化(自述口径)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(ihui_traffic_requests_total{client_family=~\"human-browser|first-party\",instance=~\"$instance\"}[5m]))",
+          "legendFormat": "真人浏览器 + 首方客户端",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(ihui_traffic_requests_total{client_family!~\"human-browser|first-party\",instance=~\"$instance\"}[5m]))",
+          "legendFormat": "其余全部(机器/脚本/爬虫/无 UA)",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "id": 2
+    },
+    {
+      "title": "各客户端族 24 小时请求量",
+      "type": "barchart",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (client_family) (increase(ihui_traffic_requests_total{instance=~\"$instance\"}[24h]))",
+          "legendFormat": "{{client_family}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "id": 3
+    },
+    {
+      "title": "恶意路径形态命中(按形态 / 按自述族)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "sum by (kind) (increase(ihui_traffic_scan_hits_total{instance=~\"$instance\"}[1h]))",
+          "legendFormat": "kind={{kind}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (client_family) (increase(ihui_traffic_scan_hits_total{instance=~\"$instance\"}[1h]))",
+          "legendFormat": "自称 {{client_family}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "id": 4
+    },
+    {
+      "title": "各族 4xx/5xx 速率(外部访客是不是在被门挡住)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "sum by (client_family) (rate(ihui_traffic_requests_total{status_class=~\"status_4xx|status_5xx\",instance=~\"$instance\"}[10m]))",
+          "legendFormat": "{{client_family}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "id": 5
+    },
+    {
+      "title": "business-metrics 采集器存续",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "count(up{job=\"business-metrics\"} == 1)",
+          "legendFormat": "在采的实例数",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 6
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["ihui-ai", "domain:traffic", "traffic", "entry"],
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "query": "label_values(up{job=\"business-metrics\"}, instance)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "访客与机器人流量",
+  "uid": "ihui-ai-visitor-bot",
+  "version": 1,
+  "weekStart": ""
+}

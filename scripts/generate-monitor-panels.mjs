@@ -39,6 +39,8 @@ const GROUP_OF = {
   'ihui-ai-exam-usage': '业务',
   'ihui-ai-live-room': '业务',
   'ihui-ai-auth-security': '业务',
+  // 2026-10-23 立:访客/机器人流量此前"数据在 api_logs 里、盘上一格没有"。
+  'ihui-ai-visitor-bot': '业务',
   'ihui-ai-ws': '业务',
   'ihui-ai-bullmq': '基础设施',
   'ihui-ai-cache': '基础设施',

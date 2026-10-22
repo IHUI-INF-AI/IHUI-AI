@@ -271,7 +271,7 @@ function DataTable<TData>({
           >
             <TableHeader className="bg-muted">
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="hover:bg-transparent border-b">
+                <TableRow key={headerGroup.id} className="hover:bg-transparent">
                   {headerGroup.headers.map((header) => {
                     const canSort = header.column.getCanSort()
                     const sorted = header.column.getIsSorted()

@@ -312,4 +312,156 @@ describe('D) 复位/重启后基线仍在', () => {
     }
   })
 })
+
+/**
+ * 访客 vs 机器人两族(2026-10-23 立)。
+ *
+ * 立因:大屏 28 张盘里没有任何一格回答"谁来了"——不是数据没录(`api_logs` 每条请求
+ * 都带 ip + user_agent),而是**这个维度从来没被发射成指标**。今天补上发射点,
+ * 所以这里的锁是"族面有界 + 钩子真写",不是重复验 UA 分类本身(那是
+ * `client-family.test.ts` 的活)。
+ */
+describe('F) 访客 vs 机器人族:有界标签 + 钩子真写出', () => {
+  const trafficFamilies = (text: string): string[] =>
+    sampleLines(text)
+      .filter((l) => l.startsWith('ihui_traffic_requests_total{'))
+      .map((l) => /client_family="([^"]+)"/.exec(l)?.[1] ?? '')
+
+  it('F1 事件发生前:客户端族 × 状态码族 逐组合各一条 0 样本,且只这么多', async () => {
+    server = await boot()
+    const text = await render(server)
+    for (const family of BM.CLIENT_FAMILIES) {
+      for (const statusClass of BM.STATUS_CLASSES) {
+        expect(
+          sample(text, 'ihui_traffic_requests_total', {
+            client_family: family,
+            status_class: statusClass,
+          }),
+          `${family}/${statusClass} 缺 0 基线`,
+        ).toBe('0')
+      }
+    }
+    expect(familyLineCount(text, 'ihui_traffic_requests_total')).toBe(
+      BM.CLIENT_FAMILIES.length * BM.STATUS_CLASSES.length,
+    )
+  })
+
+  it('F2 探测族基线齐:探测形态 × 客户端族 逐组合各一条 0', async () => {
+    server = await boot()
+    const text = await render(server)
+    for (const kind of BM.SCAN_PROBE_KINDS) {
+      for (const family of BM.CLIENT_FAMILIES) {
+        expect(
+          sample(text, 'ihui_traffic_scan_hits_total', { kind, client_family: family }),
+          `${kind}/${family} 缺 0 基线`,
+        ).toBe('0')
+      }
+    }
+    expect(familyLineCount(text, 'ihui_traffic_scan_hits_total')).toBe(
+      BM.SCAN_PROBE_KINDS.length * BM.CLIENT_FAMILIES.length,
+    )
+  })
+
+  it('F3 onResponse 钩子把那条 0 顶成 1,不另开基线之外的序列', async () => {
+    server = await boot((app) => {
+      app.get('/api/traffic-probe-ok', async () => 'ok')
+    })
+    await server.inject({
+      method: 'GET',
+      url: '/api/traffic-probe-ok',
+      headers: { 'user-agent': 'python-requests/2.34.2' },
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const text = await render(server)
+    expect(
+      sample(text, 'ihui_traffic_requests_total', {
+        client_family: 'sdk',
+        status_class: 'status_2xx',
+      }),
+    ).toBe('1')
+    // 未动的组合仍是 0(证明这不是"整族被同一条写入顶起")
+    expect(
+      sample(text, 'ihui_traffic_requests_total', {
+        client_family: 'human-browser',
+        status_class: 'status_2xx',
+      }),
+    ).toBe('0')
+    expect(familyLineCount(text, 'ihui_traffic_requests_total')).toBe(
+      BM.CLIENT_FAMILIES.length * BM.STATUS_CLASSES.length,
+    )
+  })
+
+  it('F4 探测路径命中:编码后的 traversal 载荷落 proc-self-read', async () => {
+    server = await boot((app) => {
+      app.get('/api/*', async (_request, reply) => reply.status(404).send('nope'))
+    })
+    await server.inject({
+      method: 'GET',
+      // 2026-10-23 实测载荷原样(打 43.x 那批 AI 爬虫伪装 UA 走的就是这条):
+      // /api/w/starter/jobs_u/get_log_file/../../../../proc/self/environ
+      url: '/api/w/starter/jobs_u/get_log_file/%2e%2e%2f%2e%2e%2fproc/self/environ',
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; GrokBot/1.0; +https://x.ai/)' },
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const text = await render(server)
+    expect(
+      sample(text, 'ihui_traffic_scan_hits_total', {
+        kind: 'proc-self-read',
+        client_family: 'ai-crawler',
+      }),
+    ).toBe('1')
+    // 一次命中只记一种形态(优先级唯一),不得同时点亮 path-traversal
+    expect(
+      sample(text, 'ihui_traffic_scan_hits_total', {
+        kind: 'path-traversal',
+        client_family: 'ai-crawler',
+      }),
+    ).toBe('0')
+    expect(familyLineCount(text, 'ihui_traffic_scan_hits_total')).toBe(
+      BM.SCAN_PROBE_KINDS.length * BM.CLIENT_FAMILIES.length,
+    )
+  })
+
+  it('F5 UA 原文绝不入标签:畸形 UA 只落封闭族,且引号不炸整次 scrape', async () => {
+    server = await boot((app) => {
+      app.get('/api/traffic-probe-evil', async () => 'ok')
+    })
+    await server.inject({
+      method: 'GET',
+      url: '/api/traffic-probe-evil',
+      headers: { 'user-agent': 'python-requests/"\n ihui_evil{a="b"} 1\n' },
+    })
+    await new Promise((resolve) => setImmediate(resolve))
+
+    const text = await render(server)
+    expect(text).not.toContain('ihui_evil')
+    for (const f of trafficFamilies(text)) {
+      expect(BM.CLIENT_FAMILIES as readonly string[]).toContain(f)
+    }
+    // 注入换行也不会劈出多余行:样本行仍精确等于 族 × 状态码族
+    expect(familyLineCount(text, 'ihui_traffic_requests_total')).toBe(
+      BM.CLIENT_FAMILIES.length * BM.STATUS_CLASSES.length,
+    )
+  })
+
+  it('F6 枚举值天然标签安全(sanitize 对每个取值是恒等)', () => {
+    for (const v of [...BM.CLIENT_FAMILIES, ...BM.SCAN_PROBE_KINDS, ...BM.STATUS_CLASSES]) {
+      expect(BM.sanitizeIhuiLabel(v), `枚举值 ${v} 过洗后会变形 ⇒ 基线键与钩子键不同源`).toBe(v)
+    }
+  })
+
+  it('F7 复位后基线回来(admin reset 不得把这两族打回 No data)', async () => {
+    server = await boot()
+    BM.resetIhuiState()
+    const text = await render(server)
+    expect(familyLineCount(text, 'ihui_traffic_requests_total')).toBe(
+      BM.CLIENT_FAMILIES.length * BM.STATUS_CLASSES.length,
+    )
+    expect(familyLineCount(text, 'ihui_traffic_scan_hits_total')).toBe(
+      BM.SCAN_PROBE_KINDS.length * BM.CLIENT_FAMILIES.length,
+    )
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
