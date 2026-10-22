@@ -203,5 +203,55 @@ describe('miniapp-taro 真实微信登录', () => {
     }
     await expect(wechatLogin({}, client)).rejects.toThrow('unionid not found')
   })
+
+  // ===== needPhone 那一格(未绑定 openid)=====
+  // 后端 /auth/wechat/mini/login 对查无绑定的 openid 回的是 success({needPhone:true, openId}),
+  // 既没有 accessToken 也没有 user ⇒ 这是"新用户"的常规分支,不是异常。
+  it('needPhone:抛出可指引下一步的错误,而不是读 undefined 崩', async () => {
+    const { loginByWechat } = await import('../../api')
+    vi.mocked(loginByWechat).mockResolvedValueOnce({
+      needPhone: true,
+      openId: 'o-unbound-001',
+      unionId: null,
+    } as never)
+    const client: WechatClient = {
+      login: vi.fn(async () => 'code-7'),
+      getEnv: () => 'weapp',
+    }
+    await expect(wechatLogin({}, client)).rejects.toThrow(/手机号/)
+  })
+
+  it('needPhone:不得动已有会话(一次失败的登录不能把 token 写成空)', async () => {
+    // 先建立一次成功登录
+    const seed = { login: vi.fn(async () => 'code-seed'), getEnv: () => 'weapp' }
+    await wechatLogin({}, seed)
+    expect(getToken()).toBe('at-code-seed')
+
+    const { loginByWechat } = await import('../../api')
+    vi.mocked(loginByWechat).mockResolvedValueOnce({
+      needPhone: true,
+      openId: 'o-unbound-002',
+      unionId: null,
+    } as never)
+    const client: WechatClient = {
+      login: vi.fn(async () => 'code-8'),
+      getEnv: () => 'weapp',
+    }
+    await expect(wechatLogin({}, client)).rejects.toThrow(/手机号/)
+    expect(getToken()).toBe('at-code-seed')
+    expect(getRefreshToken()).toBe('rt-code-seed')
+    expect(isLoggedIn()).toBe(true)
+  })
+
+  it('正向对照:同一份 mock 换回带 token 的答复,链路照常落盘(证明上面两例不是判据失效)', async () => {
+    const client: WechatClient = {
+      login: vi.fn(async () => 'code-9'),
+      getEnv: () => 'weapp',
+    }
+    const result = await wechatLogin({}, client)
+    expect(result.user.id).toBe('u-001')
+    expect(getToken()).toBe('at-code-9')
+    expect(isLoggedIn()).toBe(true)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1904,7 +1904,11 @@ const WALLBOARD_CSS = `
  * 面板一浮起就会"变平"(辉光消失)。浮起只换**外阴影**那一层。 */
 .wb-panel {
   --wb-inset: inset 0 0 24px color-mix(in srgb, var(--color-info) 6%, transparent);
-  box-shadow: var(--wb-inset), 0 8px 26px var(--color-black-20);
+  /* 静止档收回到规范淡影(= --shadow-premium 的 0 2px 8px / black-6)。
+     原先这里写的是 0 8px 26px / black-20(2026-10-18 HUD 改版自创,超规范三倍),
+     结果是**不 hover 也带着大投影**,而 hover 的 lift 影只比它大 4px —— 差值读不出来,
+     机主两轮"没区别/没立体感"的真正根因就在这条静止影上。投影只该属于浮起态。 */
+  box-shadow: var(--wb-inset), 0 2px 8px var(--color-black-6);
 }
 .wb-panel.ui-lift:hover {
   box-shadow: var(--wb-inset), var(--lift-shadow);
@@ -1985,7 +1989,10 @@ const WALLBOARD_CSS = `
   .wb-header { flex-wrap: wrap; }
   .wb-hdr-status { width: 100%; justify-content: flex-end; }
 }
-.wb-rise { animation: wb-rise 0.55s ease-out both; }
+/* fill-mode 用 backwards 而不是 both:both 会在动画结束后**永久占住 transform**
+ * (动画优先级高于普通作者声明),把 hover 浮起的 transform 整个吃掉 —— 实测这些卡片
+ * 内联 !important 都改不动 scale/transform。backwards 只在延迟期套首帧,结束即交还。 */
+.wb-rise { animation: wb-rise 0.55s ease-out backwards; }
 @keyframes wb-rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }

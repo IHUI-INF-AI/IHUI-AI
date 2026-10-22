@@ -25,6 +25,7 @@ import {
 import { loginByWechat, loginByAlipay } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo, type LoginResult } from './auth'
 import { useUserStore } from '../stores/user'
+import { requireLoginSession, type LoginSessionReply } from './login-session'
 
 export interface MiniAppLoginOptions {
   /** 是否同时获取用户头像/昵称 */
@@ -63,6 +64,11 @@ export async function miniAppLogin(options: MiniAppLoginOptions = {}): Promise<M
   } else {
     result = (await loginByAlipay(code)) as LoginResult
   }
+  // 与 utils/wechat-login.ts 同一把尺子:未绑定 openid 的答复里没有 user,判在任何读取与落盘之前。
+  requireLoginSession(result as LoginSessionReply, {
+    notBound: t('login.wechatNotBound'),
+    noSession: t('login.loginFailed'),
+  })
   const { accessToken, refreshToken, user } = result
 
   // 3. (可选)拿用户资料合并

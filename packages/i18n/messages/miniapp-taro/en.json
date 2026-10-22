@@ -117,6 +117,7 @@
     "loginSuccess": "Login successful",
     "wechatFailed": "WeChat login failed",
     "wechatUnavailable": "WeChat login isn't available in this environment, please log in with your phone, email verification code or password instead",
+    "wechatNotBound": "This WeChat account isn't linked yet. Please sign in with your phone verification code",
     "login": "Login",
     "logging": "Logging in…",
     "brand": "IHUI AI",
