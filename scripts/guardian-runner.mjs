@@ -4278,7 +4278,7 @@ const checks = [
       '     存在一笔非合并提交删掉了它」—— 对侧独有新增拿不出删除出处 ⇒ 不判(那是守门 100 的地盘)。',
       '     同一路径两条取证只计一条(两份基线互相顶掉,真值就读不出)。正当豁免:删除提交信息含',
       '     intentional-delete:,或 scripts/data/deletion-survival-allowlist.json 带 path+reason+reviewBy 且未过期。',
-      '     增量台账 .workbuddy/merge-deletion-resurrection-audited.json 让每枚合并只判一次(判红不许反复红)。',
+      '     增量台账 .ihui-agent/state/merge-deletion-resurrection-audited.json 让每枚合并只判一次(判红不许反复红)。',
       '     自检:node scripts/check-merge-deletion-resurrection.mjs --self-test(43 例);',
       '     镜像:node --test scripts/tests/check-merge-deletion-resurrection.test.mjs(11 例,含 T1 方向锁)。',
     ].join('\n'),
@@ -4901,10 +4901,10 @@ const checks = [
   {
     id: '211',
     label:
-      '🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名,warn)',
+      '🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名)',
     script: 'check-plan-id-pool.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_PLAN_ID_POOL',
     stagedTriggers: ['PROJECT_PLAN.md'],
     onFailHint: [
@@ -5306,7 +5306,7 @@ const checks = [
       '     **声明路径之外**的路径按旧副本整文件写回,吞掉别人已入库的内容 —— 提交链三道门(84 R1 /',
       '     100 / 30c)都跑在钩子里,拦不到结构上不跑钩子的旁路通道;本门按留痕日志事后逐枚复量。',
       '     修复只有前向回补(§22 不重写历史):按被吞内容的原 blob 重新落地,参照 cfabf3128a 的形态;',
-      '     判红已记入增量台账(.workbuddy/bypass-landing-scope-audited.json),不会反复红,但内容必须修。',
+      '     判红已记入增量台账(.ihui-agent/state/bypass-landing-scope-audited.json),不会反复红,但内容必须修。',
       '     单独复验:node scripts/check-bypass-landing-scope.mjs',
     ].join('\n'),
   },
