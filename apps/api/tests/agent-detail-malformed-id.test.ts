@@ -51,12 +51,15 @@ vi.mock('../src/services/agent-service.js', () => svc)
 
 let app: FastifyInstance
 
+// 动态 import agents.js 会拉起整张路由图;全量套件 700+ 文件并发抢 transform 时,
+// 本 hook 实测可从静机 ~10s 顶过全局 15s hookTimeout(2026-10-22 全量回归连红两轮)。
+// 只给这一条 hook 放宽预算,不动 vitest.config.ts 全局值;判据与断言一字未动。
 beforeAll(async () => {
   const { agentsRoutes } = await import('../src/routes/agents.js')
   app = Fastify()
   await app.register(agentsRoutes, { prefix: '/api' })
   await app.ready()
-})
+}, 60_000)
 
 afterAll(async () => {
   await app?.close()
@@ -103,7 +106,9 @@ describe('反向对照 —— 闸不得把正当请求一起挡掉', () => {
   })
 
   it('合法 uuid 的 GET 命中未发布记录 ⇒ 游客侧仍按"不存在"处理(不泄露存在性)', async () => {
-    svc.getAgentDetail.mockClear().mockResolvedValue({ agent: { agentId: A_UUID, status: 'draft' } })
+    svc.getAgentDetail
+      .mockClear()
+      .mockResolvedValue({ agent: { agentId: A_UUID, status: 'draft' } })
     const res = await app.inject({ method: 'GET', url: `/api/agents/${A_UUID}` })
     expect(svc.getAgentDetail).toHaveBeenCalledTimes(1)
     expect(res.statusCode).toBe(404)
@@ -116,10 +121,7 @@ describe('判据只许有一份(且不得把更严的那一份换宽)', () => {
     const { fileURLToPath } = await import('node:url')
     const path = await import('node:path')
     const root = path.resolve(fileURLToPath(import.meta.url), '..', '..', '..', '..')
-    for (const rel of [
-      'apps/api/src/routes/interactions.ts',
-      'apps/api/src/plugins/ws-tasks.ts',
-    ]) {
+    for (const rel of ['apps/api/src/routes/interactions.ts', 'apps/api/src/plugins/ws-tasks.ts']) {
       const src = readFileSync(path.join(root, rel), 'utf8')
       expect(src, rel).toContain("from '../utils/uuid.js'")
       expect(src, rel).not.toMatch(/\[0-9a-f\]\{8\}/)

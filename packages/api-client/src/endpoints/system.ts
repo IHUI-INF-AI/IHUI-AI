@@ -288,7 +288,7 @@ export async function getMonitorMetrics(
 
 /** 获取服务健康状*/
 export async function getServicesHealth(): Promise<ApiResult<MonitorStatus['services']>> {
-  return fetchApi<MonitorStatus['services']>('/api/monitor/services')
+  return fetchApi<MonitorStatus['services']>('/api/admin/monitor/services')
 }
 
 // ===================== settings（设置） =====================
@@ -458,7 +458,9 @@ export async function verifyTwoFactor(
 }
 
 /** 禁用两步验证(POST /api/auth/2fa/disable;需当前密码二次确认)。 */
-export async function disableTwoFactor(password: string): Promise<ApiResult<{ disabled: boolean }>> {
+export async function disableTwoFactor(
+  password: string,
+): Promise<ApiResult<{ disabled: boolean }>> {
   return fetchApi<{ disabled: boolean }>('/api/auth/2fa/disable', {
     method: 'POST',
     body: JSON.stringify({ password }),

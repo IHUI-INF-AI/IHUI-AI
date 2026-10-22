@@ -269,8 +269,11 @@ export async function updateUserPwd(
   })
 }
 
-export async function uploadAvatar(data: FormData): Promise<ApiResult<{ avatar: string }>> {
-  return fetchApi<{ avatar: string }>('/api/users/avatar', {
+export async function uploadAvatar(
+  userId: string,
+  data: FormData,
+): Promise<ApiResult<{ avatar: string }>> {
+  return fetchApi<{ avatar: string }>(`/api/users/${userId}/avatar`, {
     method: 'POST',
     body: data,
   })

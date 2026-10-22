@@ -894,6 +894,12 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
     if (left <= 0) want.delete(l)
     else want.set(l, left)
   }
+  /**
+   * 「本侧已让号删除」的旧形态不得从对侧/基底被补回(G-32, 2026-10-22):产出面(`unionLines`)
+   * 与自证面(`verifyUnion` 的未存活行/旧行复活两判)共用这一张表 ⇒ union 不补、落地闸也不按
+   * "未存活行"追讨,本侧不再被自己已经让掉的号死锁(三条判据与失效方向见 yieldedIdCaps 头注)。
+   */
+  for (const l of yieldedIdCaps(oursText, theirsText)) want.delete(l)
   return want
 }
 
@@ -974,6 +980,69 @@ export function theirsRewriteCaps(oursText, theirsText, baseText, suppress = nul
       const dropped = n - (ct.get(l) || 0)
       if (dropped > 0) caps.set(l, (caps.get(l) || 0) + dropped)
     }
+  }
+  return caps
+}
+
+/**
+ * 「本侧已让号删除」的旧形态摘除表(2026-10-22,在册票 G-32)。
+ *
+ * 立因(现读取证):本侧把 7 枚登记行整体让号(枚 `c8cecd2572`,旧号→新号,四条断言含
+ * 「旧号引用只允许是【归并】留痕行」)之后,被让出的旧形态只要在对侧被改写过一笔(哪怕只
+ * 追加一条取证注记),新字符串在基底面上不存在 ⇒ 被 `liveDocExpectedCounts` 读成"对侧相对
+ * 基底新增"并补回;而本面已经没有那个键位行 ⇒ 本侧无法自清 ⇒ 落地闸对本侧死锁。
+ *
+ * 判据(三条全过才摘,缺一条即不摘 —— 失效方向恒为"多留一份",绝不"少带别人的行"):
+ *  ① 本面存在**让号留痕**:带主键的行自己挂着 `〔改号(…):原G-旧〕` / `〔同题原号 G-旧〕` /
+ *    `〔…让号:G-旧 → G-新…〕`(票面断言④"旧号引用只允许是留痕行"的三种在册形态;箭头型
+ *    还要求箭头右端等于该行主键,散文里转述别人的让号不构成认领);
+ *  ② 新号行**在册**(本面真有一行 keyOfRow = 新号 —— 留痕行本身就是那一行,故①已蕴含,
+ *    仍按行主键逐一回查,防留痕挂在别的键位行上);
+ *  ③ 要补回的旧形态与本面新号行**是同一件事**:复用 theirsRewriteCaps 那把字符二元组
+ *    Jaccard 与同源阈值(判"是不是同一件事"的尺子只许有一份,§22c)。③ 正是两半的分界:
+ *    对侧同号**异题**的活登记相似度低 ⇒ 照常补回、真冲突照常拦;本侧让号前的旧形态正文
+ *    逐字守恒 ⇒ 摘除。
+ * 只摘**本面已无逐字同一行**的旧形态 ⇒ 本侧自己还留着的行处置权仍在本侧,一处不碰。
+ */
+export function yieldedIdCaps(oursText, theirsText) {
+  const caps = new Set()
+  if (typeof oursText !== 'string' || typeof theirsText !== 'string') return caps
+  if (oursText === '' || theirsText === '') return caps
+  const co = counter(oursText)
+  const oursByKey = new Map()
+  const olds = new Map() // 旧号 -> 认领它的那些本面新号行(可多行,逐行过③)
+  for (const l of oursText.split('\n')) {
+    const k = keyOfRow(l)
+    if (!k) continue
+    if (!oursByKey.has(k)) oursByKey.set(k, l)
+    const claimed = []
+    for (const m of l.matchAll(/改号[^〕\n]*[:：]\s*原\s*(G-\d+)/g)) claimed.push(m[1])
+    for (const m of l.matchAll(/同题原号\s*(G-\d+)/g)) claimed.push(m[1])
+    for (const m of l.matchAll(/让号[:：]\s*(G-\d+)\s*(?:→|->)\s*(G-\d+)/g))
+      if (m[2] === k) claimed.push(m[1])
+    for (const old of claimed) {
+      if (old === k) continue // 留痕里提到自己(自引用)不构成让号
+      if (!olds.has(old)) olds.set(old, [])
+      olds.get(old).push(l)
+    }
+  }
+  if (olds.size === 0) return caps
+  for (const l of new Set(theirsText.split('\n'))) {
+    if (l === '') continue // 空行不参与:与 liveDocExpectedCounts 同一条规矩
+    const k = keyOfRow(l)
+    if (!k) continue
+    const newLines = olds.get(k)
+    if (!newLines || !newLines.length) continue
+    if ((co.get(l) || 0) > 0) continue // 本面还留着逐字同一行 ⇒ 不属"已让号删除"
+    let same = false
+    for (const nl of newLines) {
+      if (!oursByKey.has(keyOfRow(nl))) continue // 新号行不在册 ⇒ 让号不成立,不摘
+      if (jaccard(tokenize(stripState(l)), tokenize(stripState(nl))) >= SIM_THRESHOLD) {
+        same = true
+        break
+      }
+    }
+    if (same) caps.add(l)
   }
   return caps
 }
@@ -4457,6 +4526,8 @@ export const __test__ = {
   mergeThreeBlobs,
   liveDocExpectedCounts,
   theirsRewriteCaps,
+  // 让号摘除(G-32, 2026-10-22):镜像测试直接用它,不得在测试里再写一份留痕/相似度判据(§22c)
+  yieldedIdCaps,
   // 折叠台账这一族(2026-10-16):镜像测试直接用它,不得在测试里再写一份折叠/举证判据(§22c)
   foldLedgerOf,
   foldDedupe,

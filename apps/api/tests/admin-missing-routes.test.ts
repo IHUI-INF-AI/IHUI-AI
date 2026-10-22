@@ -153,6 +153,9 @@ describe('admin-missing-routes', () => {
     rearmDbMockDefaults()
   })
 
+  // 5 枚 admin 路由的注册+ready 在静机 <1.5s,但全量套件 700+ 文件并发抢 CPU 时
+  // 可被顶过全局 15s hookTimeout(2026-10-22 全量回归 run3 即因此红一次)。
+  // 只给这一条 hook 放宽预算,不动 vitest.config.ts 全局值;判据与断言一字未动。
   beforeAll(async () => {
     await server.register(adminMissingRoutes, { prefix: '/api/admin' })
     await server.register(adminContentOpsRoutes, { prefix: '/api/admin' })
@@ -160,7 +163,7 @@ describe('admin-missing-routes', () => {
     await server.register(adminMonitoringRoutes, { prefix: '/api/admin' })
     await server.register(adminShopRoutes, { prefix: '/api/admin' })
     await server.ready()
-  })
+  }, 60_000)
 
   afterAll(async () => {
     await server.close()

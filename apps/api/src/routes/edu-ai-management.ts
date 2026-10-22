@@ -4581,6 +4581,28 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   // --- 试听预约:前端 /trial-reservation ↔ 后端 /trial-booking ---
+  // G-962 #68: 前端 enrollment/page.tsx 用 GET /trial-reservation 拉列表,此前仅 POST/PUT 在册。
+  server.get('/trial-reservation', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const parsed = trialBookingListQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
+    const conds: SQL[] = []
+    if (parsed.data.status) conds.push(eq(eduTrialBooking.status, parsed.data.status))
+    if (parsed.data.date) conds.push(eq(eduTrialBooking.trialDate, parsed.data.date))
+    const where = conds.length > 0 ? and(...conds) : undefined
+    const result = await paginate(
+      eduTrialBooking,
+      where,
+      desc(eduTrialBooking.createdAt),
+      page,
+      pageSize,
+    )
+    return reply.send(success(result))
+  })
+
   server.post('/trial-reservation', async (request, reply) => {
     await requireEduManage(request, reply)
     if (reply.sent) return
@@ -4768,6 +4790,31 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // --- 家长绑定:前端 /parent-binding ↔ 后端 /parent/binding ---
+  // G-962 #69: 前端 parent/bind/page.tsx 用 GET /parent-binding 拉本人绑定列表。
+  server.get('/parent-binding', async (request, reply) => {
+    const parsed = bindingListQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const conds: SQL[] = [
+      or(
+        eq(eduParentStudentBinding.parentId, userId),
+        eq(eduParentStudentBinding.studentId, userId),
+      ) ?? sql`false`,
+      isNull(eduParentStudentBinding.deletedAt),
+    ]
+    if (parsed.data.status) conds.push(eq(eduParentStudentBinding.status, parsed.data.status))
+    const where = and(...conds) ?? sql`true`
+    const list = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(where)
+      .orderBy(desc(eduParentStudentBinding.createdAt))
+    return reply.send(success({ list }))
+  })
+
   server.post('/parent-binding', async (request, reply) => {
     const parsed = createBindingSchema.safeParse(request.body)
     if (!parsed.success)

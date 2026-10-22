@@ -484,4 +484,80 @@ test('K1b 防过度收紧:表达式体内出现的注册形态仍要抽出,不�
     `表达式体里的注册不得整条静默丢\nentries: ${JSON.stringify(out.entries)}`,
   )
 })
+// ─── R8 bare 标识符注册(G-962 批1,2026-10-22 github-app.ts:266/277/302 实证)─────────
+// 病根:`server.get(HEALTH_PATH, …)`(同文件 export const 单引号常量)整族落 identifier-path 桶 ⇒
+// 精确图无这三条,前端真打的 GET /api/github-app/installations 在册路由反被台账代裁误判死。
+// 修复口径:先查 pathConsts(与模板串展开同一份),解不到退工厂调用点同款绑定正则(认双引号/
+// 反引号/类型注记);解到按 literal 同守卫产出,解不到仍逐条报名 —— 运行时变量/成员表达式/
+// 带括号实参一律不冒判(实测全仓 11 条此类一条不吞)。
+test('R8 bare 常量注册带挂载前缀入图:同文件常量 + 多行带 options 第二实参(github-app 三型)', () => {
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { ghRoutes } from './routes/github-app.js'\n" +
+          "server.register(ghRoutes, { prefix: '/api/github-app' })",
+      ),
+      'apps/api/src/routes/github-app.ts':
+        "export const HEALTH_PATH = '/health'\n" +
+        "export const INSTALLATIONS_PATH = '/installations'\n" +
+        "export const WEBHOOK_PATH = '/webhook'\n" +
+        'export const ghRoutes = async (server) => {\n' +
+        '  server.get(HEALTH_PATH, async () => null)\n' +
+        '  server.get(\n' +
+        '    INSTALLATIONS_PATH,\n' +
+        '    { preHandler: adminGuard },\n' +
+        '    async (req, reply) => reply.status(200).send(null),\n' +
+        '  )\n' +
+        '  server.post(WEBHOOK_PATH, async () => null)\n' +
+        '}\n',
+    }),
+  )
+  assert.ok(
+    hasEntry(out, 'GET', '/api/github-app/health', 'apps/api/src/routes/github-app.ts'),
+    `单行 bare 常量必须代入入图并带挂载前缀\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  assert.ok(
+    hasEntry(out, 'GET', '/api/github-app/installations', 'apps/api/src/routes/github-app.ts'),
+    `多行调用 + options 对象第二实参不得挡住首参解析(277 实形)\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  assert.ok(
+    hasEntry(out, 'POST', '/api/github-app/webhook', 'apps/api/src/routes/github-app.ts'),
+    `POST bare 常量同样必须入图\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  assert.ok(
+    !out.undetermined.some(
+      (u) => u.kind === 'identifier-path' && /HEALTH_PATH|INSTALLATIONS_PATH|WEBHOOK_PATH/.test(u.detail || ''),
+    ),
+    `解到定值的常量不得再落 identifier-path 报名\nundetermined: ${JSON.stringify(out.undetermined)}`,
+  )
+})
+
+test('R8b 反向锁:运行时变量/成员表达式/带括号实参仍逐条报名,不得被常量代入冒判吞进图', () => {
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { looseRoutes } from './routes/loose.js'\n" +
+          "server.register(looseRoutes, { prefix: '/api' })",
+      ),
+      'apps/api/src/routes/loose.ts':
+        'export const looseRoutes = async (server) => {\n' +
+        '  const key = redisKey(userId)\n' +
+        '  server.get(key, async () => null)\n' +
+        '  server.get(PATHS.health, async () => null)\n' +
+        '  server.get(indexKey(owner), async () => null)\n' +
+        '}\n',
+    }),
+  )
+  for (const frag of ['key', 'PATHS.health', 'indexKey']) {
+    assert.ok(
+      out.undetermined.some((u) => u.kind === 'identifier-path' && (u.detail || '').includes(frag)),
+      `${frag} 静态解不到必须仍报名(报数不报名=把这格锁死)\nundetermined: ${JSON.stringify(out.undetermined)}`,
+    )
+  }
+  assert.equal(
+    out.entries.filter((e) => e.file === 'apps/api/src/routes/loose.ts').length,
+    0,
+    `报名档三条一条都不许被冒判成注册条目\nentries: ${JSON.stringify(out.entries)}`,
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

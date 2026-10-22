@@ -108,10 +108,10 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 599 | `dbTables` |
+| 数据库表 | 600 | `dbTables` |
 | schema 文件 | 232 | `dbSchemaFiles` |
-| API 路由 | 4451 | `apiRoutes` |
-| 路由文件 | 609 | `apiRouteFiles` |
+| API 路由 | 4462 | `apiRoutes` |
+| 路由文件 | 610 | `apiRouteFiles` |
 | AI 服务路由 | 576 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 118 | `llmModels` |
@@ -123,13 +123,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3035 | `testFiles` |
+| 测试文件 | 3046 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 269 | `guardianGates` |
-| — blocking | 245 | `guardianBlocking` |
-| — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15701 | `trackedFiles` |
+| — blocking | 246 | `guardianBlocking` |
+| — warn | 26 | `guardianWarn` |
+| 跟踪文件 | 15763 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,6 +6125,19 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 🐞 修复:G-13 守门98 D6错名影子判据维(覆盖面0不新增恒红,self-test改前后逐字同)/G-941 成本账本生产者chain接线(main×2+subagent×1,端到端基线不互吞锁)/L5881 元认知真冲突判据三型拦截+写前带幂等证;子席定向 120/68+90/24+195 全绿 (40801f217b)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (65f8ea94a5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6d6d21aeae)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (31be3e642f)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d45134fb73)
+- 🔧 工程/其他:fix(scripts)+docs(plan): G-952 可发现性落地(--merge-drifted 出口点名+钉锁测)+G-952 结清+L7231 出口注+D18 纠偏注 (3ce56ca283)
+
+**2026-10-22**
+- 📚 文档:结清 O87g(守门8前缀假设扩提取式已随机制⑥入库)+G-962 进展注记+离线包自述钉(登记即结清);同枚按完成即删摘除全部跨枚滞留已勾行(结清凭据在各枚入库提交) [live-doc-skip=有意摘行留痕] (b04eeb3134)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (aa3ae15340)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2f7de8e0d0)
+
+**2026-10-22**
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a4efee57ef)
 - 📚 文档:重落被旧基座吞回的 G-107 结清+D690 认领(拍板A)，结清 G-923(端到复量全绿) (c28c3b8287)
 - 📚 文档:结清 D195(实现已入库,验收实证全绿) (5f24b4f106)
@@ -6189,16 +6202,6 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (28c0230be9)
 - 📚 文档:另立门 8 未判定桶 237 条裁决票(O87g 结清遗留,禁消音) (cca1767d1a)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6914bc3c31)
-
-**2026-10-22**
-- 🚀 新功能/改进:把"改写整行须断言三维不变"做成共享器物,AGENTS §1 那条不再是话 (a4ba22a7ac)
-- 🚀 新功能/改进:标头投影层:渲染与解析同一份实现,超预算只截 owner 不牺牲等段 (c362cda2d8)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (58d84b4527)
-- 🔧 工程/其他:撤回"部署承载者没查清"那票——前提是本席自己的误判(已按现号处理) (bb0e9a835a)
-
-**2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (29180d0b38)
-- 📚 文档:登记取号器把已占号当空闲发出的缺陷(G-14),并列存量 3 组同号多题的让号出口 (2198a4f2ed)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.

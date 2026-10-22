@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * 读侧 uuid 形状闸普查(G-536 / G-431 的姊妹面)。
  *
@@ -71,9 +70,26 @@ const { dbMock, mockAuthenticate, stubs } = vi.hoisted(() => {
     // 链式桩:from/where/limit/orderBy/offset/groupBy/leftJoin/innerJoin… 全部返回自身,
     // 终结子方法 thenable 化,于是 `await db.select()…limit(1)` 得到 []。
     const o: Record<string, unknown> = {}
-    for (const m of ['from', 'where', 'limit', 'orderBy', 'offset', 'groupBy', 'innerJoin',
-      'leftJoin', 'rightJoin', 'fullJoin', 'having', 'distinct', 'for', 'set', 'values',
-      'returning', 'onConflictDoNothing', 'onConflictDoUpdate']) {
+    for (const m of [
+      'from',
+      'where',
+      'limit',
+      'orderBy',
+      'offset',
+      'groupBy',
+      'innerJoin',
+      'leftJoin',
+      'rightJoin',
+      'fullJoin',
+      'having',
+      'distinct',
+      'for',
+      'set',
+      'values',
+      'returning',
+      'onConflictDoNothing',
+      'onConflictDoUpdate',
+    ]) {
       o[m] = vi.fn(() => o)
     }
     o.then = (res: (v: unknown) => void) => res([])
@@ -176,16 +192,18 @@ const MALFORMED: ReadonlyArray<readonly [string, string]> = [
 ]
 
 /** 路径参数版矩阵:剔除超长项(Fastify 414 先拦)。 */
-const MALFORMED_PATH: ReadonlyArray<readonly [string, string]> =
-  MALFORMED.filter(([name]) => name !== '超长(300 字符)')
+const MALFORMED_PATH: ReadonlyArray<readonly [string, string]> = MALFORMED.filter(
+  ([name]) => name !== '超长(300 字符)',
+)
 
 /**
  * `emptyToUndefined` 版矩阵:该 transform 先把 '' 映成 undefined(utils/response.ts:50-52),
  * 于是空串的既有语义是"不过滤"(200),**不是** 400。这是先于本票存在的既有契约,
  * 本票不得顺手改掉它,故从矩阵里剔除并在用例里显式登记。
  */
-const MALFORMED_NO_EMPTY: ReadonlyArray<readonly [string, string]> =
-  MALFORMED.filter(([name]) => name !== '空串')
+const MALFORMED_NO_EMPTY: ReadonlyArray<readonly [string, string]> = MALFORMED.filter(
+  ([name]) => name !== '空串',
+)
 
 const appRegistry: FastifyInstance[] = []
 
@@ -233,16 +251,19 @@ afterAll(async () => {
 // ============================================================================
 describe('tbox 设备路由:三条 POST 的 :id 形状闸(GET 早有闸,POST 漏站)', () => {
   let app: FastifyInstance
+  // 动态 import tbox.js 会拉起整张路由图;全量套件 700+ 文件并发抢 transform 时,
+  // 本 hook 实测可从静机 ~10s 顶过全局 15s hookTimeout(2026-10-22 全量回归连红两轮)。
+  // 只给这一条 hook 放宽预算,不动 vitest.config.ts 全局值;判据与断言一字未动。
   beforeAll(async () => {
     // tbox.ts 是 default 导出(250 行 `export default tboxRoutes`)
     const mod = await import('../src/routes/tbox.js')
-    const plugin = (mod as Record<string, unknown>).default ??
-      (mod as Record<string, unknown>).tboxRoutes
+    const plugin =
+      (mod as Record<string, unknown>).default ?? (mod as Record<string, unknown>).tboxRoutes
     app = makeApp()
     await app.register(plugin as never, { prefix: '/api/tbox' })
     await app.ready()
     appRegistry.push(app)
-  })
+  }, 60_000)
 
   const posts: ReadonlyArray<readonly [string, string]> = [
     ['POST /devices/:id/command', '/api/tbox/devices/%s/command'],
@@ -287,7 +308,8 @@ describe('remote POST /remote/agent/favorite:agentId 形状闸(agents.agent_id �
   let app: FastifyInstance
   beforeAll(async () => {
     const mod = await import('../src/routes/remote-extended.js')
-    const plugin = (mod as Record<string, unknown>).remoteExtendedRoutes ??
+    const plugin =
+      (mod as Record<string, unknown>).remoteExtendedRoutes ??
       (mod as Record<string, unknown>).default
     app = makeApp()
     await app.register(plugin as never, { prefix: '/api' })
@@ -365,7 +387,8 @@ describe('oauth-keys /rotate 与 /revoke:keyId 形状闸(oauth_private_keys.id �
   let app: FastifyInstance
   beforeAll(async () => {
     const mod = await import('../src/routes/oauth-keys.js')
-    const plugin = (mod as Record<string, unknown>).oauthKeysRoutes ??
+    const plugin =
+      (mod as Record<string, unknown>).oauthKeysRoutes ??
       Object.values(mod).find((v) => typeof v === 'function')!
     app = makeApp()
     await app.register(plugin as never, { prefix: '/api/oauth' })
@@ -382,7 +405,10 @@ describe('oauth-keys /rotate 与 /revoke:keyId 形状闸(oauth_private_keys.id �
           url: `/api/oauth${path}`,
           payload: { keyId: bad },
         })
-        expect(res.statusCode, `${path} 畸形 keyId(${name}) ⇒ 期望 400,实得 ${res.statusCode}`).toBe(400)
+        expect(
+          res.statusCode,
+          `${path} 畸形 keyId(${name}) ⇒ 期望 400,实得 ${res.statusCode}`,
+        ).toBe(400)
         assertZeroDbCalls(`oauth ${path} / ${name}`)
       }
     })
@@ -410,7 +436,8 @@ describe('finance margin/adjust:userId 形状闸(user_margins.user_id 是 uuid �
   let app: FastifyInstance
   beforeAll(async () => {
     const mod = await import('../src/routes/finance-extended.js')
-    const plugin = (mod as Record<string, unknown>).financeExtendedRoutes ??
+    const plugin =
+      (mod as Record<string, unknown>).financeExtendedRoutes ??
       Object.values(mod).find((v) => typeof v === 'function')!
     app = makeApp()
     await app.register(plugin as never, { prefix: '/api' })
@@ -450,7 +477,8 @@ describe('content PUT /content/banners/:id:形状闸(carousels.id 是 uuid 列)'
   let app: FastifyInstance
   beforeAll(async () => {
     const mod = await import('../src/routes/content-extended.js')
-    const plugin = (mod as Record<string, unknown>).contentExtendedRoutes ??
+    const plugin =
+      (mod as Record<string, unknown>).contentExtendedRoutes ??
       Object.values(mod).find((v) => typeof v === 'function')!
     app = makeApp()
     await app.register(plugin as never, { prefix: '/api' })
@@ -522,7 +550,7 @@ describe('admin-invoices GET /invoices/titles:userId 筛选位形状闸(上一�
   // 登记既有契约:listQuerySchema 各字段都过 emptyToUndefined(utils/response.ts:50-52),
   // 它先把 '' 映成 undefined,于是空串的语义是"不过滤" ⇒ 200,不是 400。
   // 本票只收"非空但畸形"的形状,不动这条语义(改它属对外契约变更)。
-  it("空串 userId ⇒ 200 且不过滤(既有 emptyToUndefined 语义,本票刻意不动)", async () => {
+  it('空串 userId ⇒ 200 且不过滤(既有 emptyToUndefined 语义,本票刻意不动)', async () => {
     dbMock.select.mockClear()
     const res = await app.inject({ method: 'GET', url: '/api/invoices/titles?userId=' })
     expect(res.statusCode).toBe(200)
@@ -536,7 +564,8 @@ describe('ai-users:users.id 的形状闸(body 的 id/uuid + 路径 :uuid)', () =
   let app: FastifyInstance
   beforeAll(async () => {
     const mod = await import('../src/routes/user/ai-users-routes.js')
-    const plugin = (mod as Record<string, unknown>).aiUserRoutes ??
+    const plugin =
+      (mod as Record<string, unknown>).aiUserRoutes ??
       Object.values(mod).find((v) => typeof v === 'function')!
     app = makeApp()
     await app.register(plugin as never, { prefix: '/api' })
@@ -580,12 +609,17 @@ describe('ai-users:users.id 的形状闸(body 的 id/uuid + 路径 :uuid)', () =
           method,
           url: `/api/ai/users/${encodeURIComponent(bad)}`,
         })
-        expect(res.statusCode, `${method} 畸形 :uuid(${name}) ⇒ 期望 404,实得 ${res.statusCode}`).toBe(404)
+        expect(
+          res.statusCode,
+          `${method} 畸形 :uuid(${name}) ⇒ 期望 404,实得 ${res.statusCode}`,
+        ).toBe(404)
         expect(dbMock.select.mock.calls.length, `${method} / ${name}: select 必须零调用`).toBe(0)
         expect(dbMock.delete.mock.calls.length, `${method} / ${name}: delete 必须零调用`).toBe(0)
         // 闸必须排在 isSystemAdminUser 之前:形状与"是不是内置用户"无关
-        expect(stubs.isSystemAdminUser.mock.calls.length,
-          `${method} / ${name}: 畸形值不该进 isSystemAdminUser`).toBe(0)
+        expect(
+          stubs.isSystemAdminUser.mock.calls.length,
+          `${method} / ${name}: 畸形值不该进 isSystemAdminUser`,
+        ).toBe(0)
       }
     })
   }
@@ -626,10 +660,9 @@ describe('机理取证:22P02 若不被形状闸拦,Fastify 兜出来就是 500(�
    * 故这里用一个独立 app + 独立的一次性桩,只验一件事:22P02 ⇒ 500。
    */
   function pg22P02() {
-    return Object.assign(
-      new Error('invalid input syntax for type uuid: "not-a-uuid"'),
-      { code: '22P02' },
-    )
+    return Object.assign(new Error('invalid input syntax for type uuid: "not-a-uuid"'), {
+      code: '22P02',
+    })
   }
 
   it('机理基准:值合法不抛;值畸形落到 uuid 列 ⇒ 未被兜住时是 500', async () => {
