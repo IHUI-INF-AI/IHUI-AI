@@ -1194,6 +1194,32 @@ iframe::-webkit-scrollbar {
 .wb-scroll-host {
   container-type: inline-size;
 }
+/* 监控面板网格(2026-10-22 立):列数按面板区自己的宽度走,不按视口。
+ * 项目 xl 断点 = 1920px,且工作区会被左侧 AI 面板挤压(视口 1600 时容器只剩 914),
+ * 用 md:/xl: 会让列数与可用宽度脱节 —— 大屏在 1920 以下只能单列、面板页在窄容器里
+ * 又保不住两列。容器查询宿主放在滚动容器 .pn-panels 上,阈值取「网格可用宽」:
+ * 620 = 两列各 304px(含 gap),1000 = 三列各 ~321px。 */
+.pn-panels {
+  container-type: inline-size;
+}
+.pn-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+.pn-span-full {
+  grid-column: 1 / -1;
+}
+@container (min-width: 620px) {
+  .pn-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container (min-width: 1000px) {
+  .pn-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 
 .account-card .account-card-actions {
   display: grid;

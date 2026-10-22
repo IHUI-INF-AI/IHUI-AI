@@ -25,6 +25,24 @@ export function EChart({ option, className, height = 300, loading }: EChartProps
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const textColor = chartText(isDark)
+  const wrapRef = React.useRef<HTMLDivElement>(null)
+
+  // 工作区侧栏开合(容器查询换列)不会触发 window resize,而 echarts-for-react 只监听 window
+  // ⇒ 卡片宽已变、画布仍是旧尺寸。把容器尺寸变化翻译成一次 window resize(经 rAF 合并)。
+  React.useEffect(() => {
+    const el = wrapRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    let raf = 0
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
+    })
+    ro.observe(el)
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+    }
+  }, [loading])
 
   const themedOption = React.useMemo<EChartsOption>(
     () => ({
@@ -40,6 +58,7 @@ export function EChart({ option, className, height = 300, loading }: EChartProps
   if (loading) {
     return (
       <div
+        ref={wrapRef}
         className={cn('flex items-center justify-center text-muted-foreground', className)}
         style={{ height: heightStyle }}
       >
@@ -49,7 +68,7 @@ export function EChart({ option, className, height = 300, loading }: EChartProps
   }
 
   return (
-    <div className={cn('w-full', className)} style={{ height: heightStyle }}>
+    <div ref={wrapRef} className={cn('w-full', className)} style={{ height: heightStyle }}>
       <ReactECharts
         option={themedOption}
         notMerge
