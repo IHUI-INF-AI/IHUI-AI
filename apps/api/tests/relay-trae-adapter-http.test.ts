@@ -29,7 +29,18 @@ let base = ''
 const seen: Seen[] = []
 /** 上游剧本:每次请求按队列决定返回什么(测 401 自愈用) */
 let createStatus = 200
-let eventsFrames: 'ok' | 'risk' = 'ok'
+let eventsFrames: 'ok' | 'risk' | 'real' = 'ok'
+
+/** 线上真形状帧(2026-10-23 真号抓帧实证):正文住 thought(累积快照,可重复),
+ * 推理增量住 reasoning_content;usage 帧字段为 input/output/prompt_tokens/completion_tokens。 */
+const REAL_SHAPE_FRAMES = [
+  'event: message\ndata: {"id":"pi_1","task_id":"t1","thought":"","reasoning_content":"思考"}\n\n',
+  'event: message\ndata: {"id":"pi_1","thought":"","reasoning_content":"中"}\n\n',
+  'event: message\ndata: {"id":"pi_1","thought":"好的","reasoning_content":"完毕"}\n\n',
+  'event: message\ndata: {"id":"pi_1","thought":"好的","reasoning_content":"完毕"}\n\n',
+  'event: usage\ndata: {"input":10,"output":2,"prompt_tokens":10,"completion_tokens":2,"reasoning_tokens":8,"total_tokens":12}\n\n',
+  'event: done\ndata: {}\n\n',
+]
 
 function readBody(req: IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
@@ -94,6 +105,7 @@ beforeAll(async () => {
           'event: error\ndata: {"code":4015,"message":"账号或 IP 存在风险"}\n\n',
         ])
       }
+      if (eventsFrames === 'real') return sse(res, REAL_SHAPE_FRAMES)
       return sse(res, [
         'event: message\ndata: {"delta":"你好"}\n\n',
         'event: message\ndata: {"delta":"，世界"}\n\n',
@@ -177,6 +189,41 @@ describe('Trae 协议层 · 真 HTTP 往返(本机假上游)', () => {
       chat_session_id: 'cs-http-1',
       user_message_id: 'ms-http-1',
     })
+  })
+
+  it('线上真形状:正文住 thought 累积快照(重复帧不重复),推理住 reasoning_content,usage 真字段', async () => {
+    const { traeAdapter } = await loadAdapter()
+    seen.length = 0
+    createStatus = 200
+    eventsFrames = 'real'
+    try {
+      const res = await traeAdapter.executeChat!(makeCtx(), CHAT_REQ, {})
+      expect(res.stream).toBeTruthy()
+
+      const chunks: Array<Record<string, unknown>> = []
+      for await (const c of res.stream!) chunks.push(c as Record<string, unknown>)
+
+      const choices = chunks.flatMap((c) =>
+        Array.isArray(c.choices) ? (c.choices as Array<Record<string, unknown>>) : [],
+      )
+      const text = choices
+        .map((ch) => (ch.delta as { content?: string } | undefined)?.content ?? '')
+        .join('')
+      const reasoning = choices
+        .map(
+          (ch) => (ch.delta as { reasoning_content?: string } | undefined)?.reasoning_content ?? '',
+        )
+        .join('')
+      expect(text).toBe('好的')
+      expect(reasoning).toBe('思考中完毕')
+      const usage = chunks.find((c) => c.usage) as { usage?: Record<string, number> } | undefined
+      expect(usage?.usage?.prompt_tokens).toBe(10)
+      expect(usage?.usage?.completion_tokens).toBe(2)
+      // thought 重复快照不得产出第二帧 content
+      expect(choices.filter((ch) => (ch.delta as { content?: string })?.content).length).toBe(1)
+    } finally {
+      eventsFrames = 'ok'
+    }
   })
 
   it('请求指纹:Cloud-IDE-JWT + web 渠道头,且不得带 x-user-region', async () => {

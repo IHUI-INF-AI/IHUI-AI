@@ -350,13 +350,26 @@ export function extractTextDelta(obj: Record<string, unknown>): string | null {
   return null
 }
 
-/** 推理增量探测(reasoning_content / reasoning / thinking 字段,仅字符串) */
+/**
+ * 推理增量探测(reasoning_content / reasoning / thinking 字段,仅字符串)。
+ * 注意:线上实证(2026-10-23)reasoning_content 实为**累积快照**(每帧携带当前全文,
+ * 随事件重发多次),差分化在 translateUpstreamEvents 内做,本函数只负责取字段。
+ */
 export function extractReasoningDelta(obj: Record<string, unknown>): string | null {
   for (const key of ['reasoning_content', 'reasoning', 'thinking'] as const) {
     const v = obj[key]
     if (typeof v === 'string' && v !== '') return v
   }
   return null
+}
+
+/**
+ * 正文快照探测(线上实证 2026-10-23):正文答案住 `thought` 字段,且是**累积快照**——
+ * 每帧携带当前全文(未开始时为空串),同一快照会随事件重发多次。不是增量,不能直接 append。
+ */
+export function extractThoughtSnapshot(obj: Record<string, unknown>): string | null {
+  const v = obj['thought']
+  return typeof v === 'string' && v !== '' ? v : null
 }
 
 /** OpenAI usage 形状 */
