@@ -28888,5 +28888,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] G-924 **packages/app 共享登录屏还有 32 处用户可见文案写死中文(QR 状态族 + 一批 accessibilityLabel)** 2026-10-22 逐行实测口径:只统计字符串字面量 / JSX 文本 / a11y label,同文件 205 行中文注释不计。样例按内容锚点列(不写行号,§1):`二维码加载中...`、`请使用微信扫码登录`、`扫码成功,请在手机上确认`、`二维码已过期`、`二维码加载失败`、accessibilityLabel `同意协议复选框`。纠正一条在普查里传走的误判:**这不是门失明** —— `scripts/lib/i18n-scan-targets.mjs` 的 TARGETS 里 `packages/app/src` 两处都在,真实原因是该包条数排不进 `scan-hardcoded-zh.mjs` 的 TOP 30 报表(榜头是两份 generated 目录 860/650 处),所以日常没人看见它。出路:照同批 G-959 的做法取键 + 五语言同批;它是棘轮存量(门只拦新增),清它不与 §12e 冲突。
 
-
-
+- [ ] G-926 **生产 web 的实际部署承载者没查清:被指认的 IHUI-DEPLOYLOOP 有 13 小时零日志、其工作目录从未创建,可线上却确实换了构建** 2026-10-22 现读三件同时成立:①服务 `IHUI-DEPLOYLOOP` STATE=RUNNING(nssm 承载 pwsh 循环),但 `D:\DevEnv\logs\svc-deployloop-nssm.log` 与 `-err.log` 都是 **0 字节、最后写入 09:41**;②`D:\DevEnv\ihui-prod\.ihui-agent\tmp\deploy-loop` **目录不存在**,而脚本里 `$runDir = Join-Path $Root '.ihui-agent\tmp\deploy-loop'` 那一支带 `New-Item -Force` —— 只要真走到过起子进程那步,目录必在;③同一时段线上行为确实变了(`www/login` 从 308 变 200、`/sso/login` 首屏从「统一登录」变「登录」)⇒ **有别的机制在 pull+build+重启 IHUI-WEB**,不是这条被指认的环。出路:先按 `nssm get IHUI-WEB ApplicationParameters` 与生产机计划任务清单实测出真承载者(判"执行的是哪份文件"按 §5b 口径读应用自身参数,不按 `git ls-files`),再把 AGENTS/README 里的部署口径改成实测那一份;节流分支在拿锁与建目录之前 `return`,所以"零日志"本身也可能只是长期被节流,两种解释要分开证。
