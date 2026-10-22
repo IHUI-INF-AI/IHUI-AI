@@ -14,7 +14,12 @@
  * 另:创建请求体形状、401 自愈错误、非流式本地聚合。
  */
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { traeAdapter, isTraeAuthFailure } from '../src/services/upstream-adapters/trae-adapter.js'
+import {
+  classifyUpstreamFailure,
+  traeAdapter,
+  isTraeAuthFailure,
+  TraeUpstreamError,
+} from '../src/services/upstream-adapters/trae-adapter.js'
 import {
   buildExchangeTokenBody,
   deriveBizSessionId,
@@ -482,6 +487,56 @@ describe('接口杂项', () => {
     expect(traeAdapter.isAuthFailure(200, '{"type":"authentication_error"}')).toBe(true)
     expect(traeAdapter.isAuthFailure(200, 'Unauthorized access')).toBe(true)
     expect(traeAdapter.isAuthFailure(429, 'rate limited')).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 7. 上游失败富分类与 TraeUpstreamError
+// ---------------------------------------------------------------------------
+
+describe('classifyUpstreamFailure 语义映射', () => {
+  it('429 → rate', () => {
+    expect(classifyUpstreamFailure(429, '')).toBe('rate')
+  })
+
+  it('额度/积分/quota 文本 → credit(即使状态是 400)', () => {
+    expect(classifyUpstreamFailure(400, '账号额度不足')).toBe('credit')
+    expect(classifyUpstreamFailure(400, 'insufficient quota')).toBe('credit')
+  })
+
+  it('登录失效文本 → session_dead(即使状态是 400)', () => {
+    expect(classifyUpstreamFailure(400, '登录已失效,请重新登录')).toBe('session_dead')
+    expect(classifyUpstreamFailure(400, 'session expired')).toBe('session_dead')
+  })
+
+  it('500 → server', () => {
+    expect(classifyUpstreamFailure(500, 'internal error')).toBe('server')
+  })
+
+  it('400 参数错误 → request', () => {
+    expect(classifyUpstreamFailure(400, 'invalid parameter: messages')).toBe('request')
+    expect(classifyUpstreamFailure(422, '')).toBe('request')
+  })
+
+  it('未知状态且无文本命中 → client', () => {
+    expect(classifyUpstreamFailure(418, 'teapot')).toBe('client')
+  })
+
+  it('executeChat 遇 HTTP 500 抛 TraeUpstreamError 且 statusCode=500', async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response('upstream boom', { status: 500 }),
+    ) as unknown as typeof fetch
+    const err = await traeAdapter.executeChat!(makeCtx(), makeReq(), { fetchImpl }).catch(
+      (e: unknown) => e,
+    )
+    expect(err).toBeInstanceOf(TraeUpstreamError)
+    expect((err as TraeUpstreamError).statusCode).toBe(500)
+    expect(
+      classifyUpstreamFailure(
+        (err as TraeUpstreamError).statusCode,
+        String((err as Error).message),
+      ),
+    ).toBe('server')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
