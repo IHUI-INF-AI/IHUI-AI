@@ -51,7 +51,6 @@ vi.mock('@/components/FocusField', () => {
 })
 
 import LoginPopUp from '../src/components/LoginPopUp'
-import { maskComments } from '../../../scripts/lib/code-mask.mjs'
 
 const FIELD_CLASSES = ['.login-field', '.login-label', '.login-input'] as const
 
@@ -119,30 +118,10 @@ describe('登录界面不许挂假入口,登录页也不许回来', () => {
     const src = readFileSync(resolve(__dirname, '../src/components/LoginPopUp.tsx'), 'utf8')
     expect(src).not.toContain('/pages/webview')
   })
-
-  it('硬编码登录页路由的调用点必须归零,app.config 也不许再注册它', () => {
-    // 不写"被删文件必须不存在"那种断言:对被删路径的任何指认本身就是一条引用(守门 99 会判
-    // "被删文件仍有人引用"),而它要保的性质已由下面两锁覆盖,且不留悬空路径。
-    // 只判**代码位**:历史注记里提到过这个 root 是交代成因,不是把它注册回来了
-    // (判据读注释会把"讲过这件事"误判成"还在做这件事",那会让人学会去删注释而不是删代码)
-    const cfg = maskComments(
-      readFileSync(resolve(__dirname, '../src/app.config.ts'), 'utf8'),
-    ) as unknown as string
-    expect(cfg).not.toContain("root: 'pages/login'")
-    // 路由串只剩这一处锁自己 —— 任何一处再把它硬编码回去,这里就红
-    const grepTargets = [
-      '../src/utils/api-bridge.ts',
-      '../src/utils/auth.ts',
-      '../src/pages/register/index.tsx',
-      '../src/pages/forgot-password/index.tsx',
-      '../src/pages/setting/index.tsx',
-      '../src/pkg-user/account-cancel/index.tsx',
-      '../src/pkg-user/user/settings.tsx',
-    ]
-    for (const rel of grepTargets) {
-      const face = maskComments(readFileSync(resolve(__dirname, rel), 'utf8')) as unknown as string
-      expect(face).not.toContain('/pages/login/login')
-    }
-  })
 })
+// 需要仓库工具遮罩的那条源码面锁("硬编码登录页路由的调用点必须归零",1 + 7 处断言)已搬到
+// `scripts/tests/login-popup-route-hardcode-lock.test.mjs`,判据一字未改。搬的理由:端包 import
+// `scripts/lib/code-mask.mjs` 构成 apps/miniapp-taro(rank 40)→ repo-tooling(rank 90) 的反向依赖,
+// 并坐实 shared → api-client → repo-tooling → shared 的成环,而架构契约门的 D4 既不登记表级
+// exceptions 也不认行内 arch-exempt ⇒ 除环只有搬文件一条路。本文件其余三条只读正文的用例留在原位。
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
