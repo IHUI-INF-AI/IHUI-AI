@@ -13,7 +13,7 @@
 {"key":"G-313#活文档取号在\"并发批次带着旧底稿并入\"这一型下仍","waiting":"env","updatedAt":"2026-10-22T06:39:58.317Z","updatedBy":"plan-fields-extract"}
 {"key":"G-57#git-lock与index","owner":"git 写锁与部署锁同源机制的持有人","waiting":"none","updatedAt":"2026-10-22T06:39:58.317Z","updatedBy":"plan-fields-extract"}
 {"key":"G-78#门94的R4射程对它自己守的那件事的消费者全盲","owner":"门 94 持有人","waiting":"none","updatedAt":"2026-10-22T06:39:58.317Z","updatedBy":"plan-fields-extract"}
-{"key":"G-169#本仓每一次走safe-commit的路径提交都在","owner":"`scripts/lib/pre-commit-hook.js` 与 `scripts/safe","waiting":"none","updatedAt":"2026-10-22T13:03:10.517Z","updatedBy":"ledger-p2"}
+{"key":"G-169#本仓每一次走safe-commit的路径提交都在","owner":"safe-commit 两条线持有人","waiting":"none","updatedAt":"2026-10-22T13:47:29.290Z","updatedBy":"ledger-p2"}
 {"key":"G-175#承G-427第②步","waiting":"env","updatedAt":"2026-10-22T06:39:58.317Z","updatedBy":"plan-fields-extract"}
 {"key":"G-177#config/architecture-poli","owner":"那份副本的持有者","waiting":"none","updatedAt":"2026-10-22T06:39:58.317Z","updatedBy":"plan-fields-extract"}
 {"key":"G-329#机主2026-09-28拍板四条","waiting":"env","updatedAt":"2026-10-22T06:39:58.318Z","updatedBy":"plan-fields-extract"}
@@ -99,7 +99,7 @@
 {"key":"G-262#F1不认重复登记副本注记","owner":"台账状态门持有人","waiting":"none","updatedAt":"2026-10-22T13:43:04.929Z","updatedBy":"ledger-p2"}
 {"key":"G-86#b76-12c票1后续格","waiting":"env","blocking":"等环境","updatedAt":"2026-10-22T08:29:34.918Z","updatedBy":"plan-fields-extract"}
 {"key":"G-24#safe-commit的差分归因会把别人暂存的红","owner":"`scripts/lib/commit-gate-attribution.mjs` 持有人)","waiting":"none","updatedAt":"2026-10-22T13:03:10.517Z","updatedBy":"ledger-p2"}
-{"key":"G-41#围栏只判\"新代码不得选用已删出口\"","owner":"`apps/ai-service/tests/test_mcp_unscoped_exits_a","waiting":"none","updatedAt":"2026-10-22T13:03:10.517Z","updatedBy":"ledger-p2"}
+{"key":"G-41#围栏只判\"新代码不得选用已删出口\"","owner":"mcp_unscoped_exit 围栏持有人","waiting":"none","updatedAt":"2026-10-22T13:47:29.299Z","updatedBy":"ledger-p2"}
 {"key":"G-11#对账器L3「宾语落点」清单只点了7个通用动词","owner":"对账器 L3 工具持有人","waiting":"none","updatedAt":"2026-10-22T13:43:04.930Z","updatedBy":"ledger-p2"}
 {"key":"G-951#provider调用记录表缺trace列","waiting":"env","blocking":"等环境","updatedAt":"2026-10-22T08:29:34.918Z","updatedBy":"plan-fields-extract"}
 {"key":"G-923#「登录态出内容」端到端复量——在等什么","waiting":"env","blocking":"等 dev 栈机器级依赖被拉回","updatedAt":"2026-10-22T08:29:34.918Z","updatedBy":"plan-fields-extract"}
