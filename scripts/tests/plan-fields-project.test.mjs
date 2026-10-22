@@ -5,8 +5,9 @@
 /**
  * `plan-fields-project.mjs` 镜像测试(§22c)—— 判据全从生产出口 import,本文件零复算。
  *
- * 承重的是"什么情况下**不许**改行":信息不被侧车覆盖 / 顶破 400 字档 / 三维守恒任一违规 /
- * 记录里没有可渲染的信息。失效方向永远是"少改一行",绝不是"先收下再说"。
+ * 承重的是"什么情况下**不许**改行":信息不被侧车覆盖 / 把预算内的行顶过 400 字档(那才是
+ * 新增一条长行) / 三维守恒任一违规 / 记录里没有可渲染的信息。失效方向永远是"少改一行",
+ * 绝不是"先收下再说"。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -17,6 +18,8 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as P } from '../plan-fields-project.mjs'
 import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 import { parseHeader, renderHeader, roundTripOk } from '../lib/plan-field-line.mjs'
+
+const padTo = (head, n, ch = '细') => head + ch.repeat(Math.max(0, n - head.length))
 
 const rec = (over = {}) => ({
   key: 'K#1',
@@ -110,12 +113,29 @@ describe('投影规划:加标头 + 删逐字等价的归属句同批(规格 §4.
     assert.match(p.reason, /没有可渲染/)
   })
 
-  it('超预算 ⇒ 点名长度并跳过(差值棘轮会把"被我顶过档"算成新增违规)', () => {
-    const long = '- [ ] **G-4 丁题** ' + '细'.repeat(397) + ' 归属:门 130 持有人'
-    assert.ok(long.length > 400, `夹具本身要过档,实得 ${long.length}`)
-    const p = P.planRow(long, rec({ key: compositeKeyOf(long) }), { maxLen: 400 })
+  it('原行已超预算(500 字)⇒ 候选 551 字仍放行(改写存量长行不算新增)', () => {
+    // 标头内容封顶 48 字(+方括号 2 + 空格 1)⇒ 500 字原行最多投到 551 字;
+    // 判据的关键不是候选绝对值,而是原行本就在存量集里。
+    const line = padTo('- [ ] **G-901 甲题说明** 不归本线 ', 500)
+    assert.equal(line.length, 500)
+    const r = rec({ key: compositeKeyOf(line), waiting: 'env', blocking: '细'.repeat(34) })
+    assert.equal(renderHeader(r).length, 50)
+    const p = P.planRow(line, r, { maxLen: 400 })
+    assert.equal(p.action, 'rewrite', p.reason)
+    assert.ok(p.line.length > 400)
+    assert.equal(p.line.length, 551)
+  })
+
+  it('原行在预算内(380 字)、候选 430 字 ⇒ 仍跳过(不许把短行推进长行存量)', () => {
+    const line = padTo('- [ ] **G-902 乙题说明** 不归本线 ', 380)
+    assert.equal(line.length, 380)
+    const r = rec({ key: compositeKeyOf(line), waiting: 'env', blocking: '细'.repeat(33) })
+    assert.equal(renderHeader(r).length, 49)
+    const p = P.planRow(line, r, { maxLen: 400 })
     assert.equal(p.action, 'skip')
+    assert.equal(p.len, 430)
     assert.match(p.reason, /预算/)
+    assert.match(p.reason, /原行/)
   })
 
   it('标头已在位且与记录一致 ⇒ already(幂等,重跑不再改这一行)', () => {
