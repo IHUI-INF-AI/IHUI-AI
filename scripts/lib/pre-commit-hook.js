@@ -65,7 +65,10 @@ for (const k of [
 // 都读它,而本文件第一个使用点在 650 行附近。曾把定义放在文件中部,结果
 // `ReferenceError: Cannot access 'TOOL_ONLY' before initialization` 直接把 pre-commit
 // 打崩(实测 2026-10-22 23:00,pre-commit 在守门批之前就退出,safe-commit 只能走应急跳门)。
-// 判据:暂存集含 apps/ 或 packages/ ⇒ 全跑;取不到 ⇒ 全跑(失效方向永远是"多跑")。
+//
+// 2026-10-22 机主令"那就上 CI":全量守门(含这些业务专项)移交 CI,本地一律跳过 ——
+// 包括改 apps/、packages/ 的业务提交。仍强制全跑的只剩**判据库**(face-reader 等),
+// 因为改它们会让门静默失效,而 CI 是延迟发现。逃生:IHUI_SPECIAL_SCOPE=full。
 function stagedIsToolOnly() {
   try {
     const out = execSync('git diff --cached --name-only', {
@@ -79,8 +82,20 @@ function stagedIsToolOnly() {
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter(Boolean)
-    if (paths.length === 0) return false
-    return !paths.some((p) => /^(apps|packages)\//.test(p))
+    if (paths.length === 0) return false // 取不到 ⇒ 全跑(失效方向永远是"多跑")
+    // 判据库改动 ⇒ 不当成工具档(与 gate-scope.mjs 的 JUDGEMENT_LIBS 同口径)
+    const JUDGEMENT_LIBS = new Set([
+      'scripts/lib/face-reader.mjs',
+      'scripts/lib/git-lock.mjs',
+      'scripts/lib/gitdir.mjs',
+      'scripts/lib/scratch-dir.mjs',
+      'scripts/lib/gate-failure-kind.mjs',
+      'scripts/lib/staging-snapshot.js',
+      'scripts/lib/guardian-batch-attest.mjs',
+      'scripts/lib/guardian-pushgate-cache.mjs',
+    ])
+    if (paths.some((p) => JUDGEMENT_LIBS.has(p.replace(/\\/g, '/')))) return false
+    return true
   } catch {
     return false
   }
