@@ -965,6 +965,70 @@ test('装车证明:基线面注入口必须真被 safe-commit 接上(否则态�
   assert.match(safeCommitSource, /rmScratch|worktree remove/, '隔离面必须有清理出口,不得留残骸')
 })
 
+test('接线锁(G-24/G-420①,2026-10-22):两个新注入口必须在两枚铰链传入实参,他人面必须是真构造的面', () => {
+  const code = maskComments(safeCommitSource)
+  // ① 他人面出口:定义在位 + 两枚铰链都传入实参(与基线面同一把铰链)
+  assert.match(
+    code,
+    /const runGateForeignFace = \(script\) =>/,
+    '他人面出口没定义 ⇒ G-24 口径①只在归因层自测里活着,提交链上仍拿 HEAD 差分(等于没修)',
+  )
+  assert.match(
+    code,
+    /classifyHookFailure\(\{[\s\S]{0,600}runGateForeignFace/,
+    '首轮归因没接他人面出口 ⇒ 首轮的"仍红未点名"全部只能回落基线面差分',
+  )
+  assert.match(
+    code,
+    /decideWithSelfRunBatch\(\{[\s\S]{0,800}runGateForeignFace/,
+    '自跑支没接他人面出口 ⇒ 两条取证路径不同形,铰链就不是"同一把"了(守门 70/76/81/102 同型)',
+  )
+  // ② 轮次绑定守卫的取材面:两枚铰链都传,且与三路现读同取 gitStagedPaths 的 -z 出口
+  assert.match(
+    code,
+    /classifyHookFailure\(\{[\s\S]{0,600}myFaceStaged/,
+    '首轮没传 myFaceStaged ⇒ G-420① 守卫在生产路径永不触发,introduced 照旧被他人暂存 blob 钉死',
+  )
+  assert.match(
+    code,
+    /decideWithSelfRunBatch\(\{[\s\S]{0,800}myFaceStaged/,
+    '自跑轮没传 myFaceStaged ⇒ 同一轮里钩子侧被守卫、自跑侧被钉成 introduced(第二把尺子)',
+  )
+  assert.match(
+    code,
+    /myFaceStaged:\s*stagedNow/,
+    'myFaceStaged 必须与三路现读同源(gitStagedPaths 的 -z 出口)—— 清单是现读的,不是编的',
+  )
+  assert.doesNotMatch(
+    code,
+    /myFaceStaged:\s*(\[\]|null|undefined)/,
+    '注入空清单=未注入=把守卫接成死端口(臆造观察面来"求个绿"正是票面禁的那件事)',
+  )
+  // ③ 回落契约:建不起来照实 ran:false,由归因层回落基线面(HEAD)差分 —— 不得臆造绿面
+  assert.match(
+    code,
+    /const runGateForeignFace[\s\S]{0,1200}ran: false/,
+    '他人面出口必须有 ran:false 的如实回落支,否则"跑不出去时回落 HEAD 差分"的契约落空',
+  )
+  // ④ 隔离面构造:与基线面同族 —— worktree 钉 beforeSha + 生效索引通道 + 私有减后索引 + 清理
+  assert.match(
+    code,
+    /const ensureForeignTree[\s\S]{0,2600}--detach[\s\S]{0,60}beforeSha/,
+    '他人面必须钉在提交前的那枚 sha 上(与基线面同纪律),不能信"此刻的 HEAD"字样',
+  )
+  assert.match(
+    code,
+    /rev-parse', '--git-path', 'index/,
+    '索引拷贝必须取 runGate("我的面")读的同一份生效索引(随 GIT_INDEX_FILE),不是硬编码 .git/index',
+  )
+  assert.match(
+    code,
+    /GIT_INDEX_FILE:\s*tree\.idx/,
+    '门复跑的 GIT_INDEX_FILE 必须指向"索引减去声明集"的拷贝 —— 继承生效索引会把声明集读回来,他人面就变成我的面',
+  )
+  assert.match(code, /disposeForeignTree/, '隔离他人面必须有清理出口,不得留残骸(§26 同型)')
+})
+
 test('反向锁:差分不得把"点名别人的文件"一律翻成 mine(那会让人人跳门,AGENTS 记过反向自伤)', () => {
   const { classifyHookFailure, SUMMARY, FAIL_29, MY_FILES } = __test__
   // 基线同红 + 门点的是别人的文件 ⇒ 仍是 not-ours(R4 的方向)。若实现偷懒"未点名就 mine",这一条必红。

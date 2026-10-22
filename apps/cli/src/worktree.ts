@@ -63,6 +63,48 @@ export interface WorktreeResult {
   copyStats: CopyStats
   gitDirStats: GitDirStats
   elapsedMs: number
+  /** G-706: true 表示 marker 齐备、直接复用已落盘目录(未重新复制) */
+  reused: boolean
+}
+
+// ============ G-706 落盘提交点与失败半径 ============
+
+/** G-706: 落盘完成标记(committed 证明)路径 — <wtPath>/.git/ihui-worktree-source */
+export function worktreeMarkerPath(wtPath: string): string {
+  return path.join(wtPath, '.git', 'ihui-worktree-source')
+}
+
+/**
+ * G-706: 读取 marker 指向的源仓库路径;文件缺失/不可读/内容为空一律返回
+ * undefined(= 证明不了落盘完整性)。"齐备" = 存在且内容非空。
+ */
+export function worktreeMarkerSource(wtPath: string): string | undefined {
+  try {
+    const marker = worktreeMarkerPath(wtPath)
+    if (!fs.existsSync(marker)) return undefined
+    const content = fs.readFileSync(marker, 'utf-8').trim()
+    return content.length > 0 ? content : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** G-706: marker 齐备(落盘已越过提交点)的唯一判据。 */
+export function isWorktreeMarkerComplete(wtPath: string): boolean {
+  return worktreeMarkerSource(wtPath) !== undefined
+}
+
+/**
+ * G-706 失败半径错误:mkdir EEXIST 原子互斥抢输且 marker 不齐备 ⇒ 证明不了
+ * 目录归属/落盘状态 ⇒ 保留不删,并禁止任何调用方把这一暂时性形态升级成删除。
+ */
+export class WorktreeLandUnprovableError extends Error {
+  readonly destination: string
+  constructor(destination: string) {
+    super(`目标目录已存在且 marker 不齐备(非空残留证明不了落盘完整性),保留不删: ${destination}`)
+    this.name = 'WorktreeLandUnprovableError'
+    this.destination = destination
+  }
 }
 
 // ============ CoW 能力检测 ============
@@ -503,69 +545,93 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
     }
   }
 
-  // 2. 校验目标不存在或为空
-  if (fs.existsSync(destination)) {
-    const entries = fs.readdirSync(destination)
-    if (entries.length > 0) {
-      throw new Error(`目标目录非空: ${destination}`)
-    }
-  } else {
-    // 3. 创建父目录和目标目录
-    await fs.promises.mkdir(path.dirname(destination), { recursive: true })
-    await fs.promises.mkdir(destination, { recursive: true })
-  }
-
-  // 4. 检测 CowKind(用于返回值统计)
-  const cowKind = detectCowKind(destination)
-
-  // 5. 并行三件事:.git 复制 / 工作树复制 / (可选)读 modified files
-  const workSkip = new Set(skip ?? [])
-  workSkip.add('.git')
-
-  const [gitDirStats, copyStats] = await Promise.all([
-    copyGitDir(srcGitDir, path.join(destination, '.git')),
-    copyTree(source, destination, { skip: workSkip }),
-    // preserveWorkingTree 时读 modified files 列表(结果未使用,占位并行)
-    preserveWorkingTree ? readModifiedFiles(source) : Promise.resolve([]),
-  ])
-
-  // 6. 写 marker 文件
+  // 2-3. G-706: mkdir 的 EEXIST 当原子互斥(不做 existsSync 预检,关掉 TOCTOU 竞态窗)。
+  //      mkdir 成功 ⇒ 本进程拥有该目录(会话提交前清理武装只对自己生效);
+  //      EEXIST ⇒ 抢锁失败:marker 齐备 ⇒ reused:true 不重下载;marker 不齐 ⇒ 证明不了 ⇒ 保留不删。
+  await fs.promises.mkdir(path.dirname(destination), { recursive: true })
+  let ownedFresh = false
   try {
-    fs.writeFileSync(
-      path.join(destination, '.git', 'ihui-worktree-source'),
-      source,
-      'utf-8',
-    )
-  } catch {
-    // 写 marker 失败不阻断
+    // 非递归 mkdir:目标已存在(目录或同名文件)必抛 EEXIST,由内核裁决互斥
+    await fs.promises.mkdir(destination)
+    ownedFresh = true
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException)?.code
+    if (code !== 'EEXIST') throw e
+    if (isWorktreeMarkerComplete(destination)) {
+      // marker 齐备 ⇒ 上次落盘已越过提交点:直接复用,不重新下载/复制
+      return {
+        destination,
+        gitDirKind: 'directory',
+        cowKind: 'none',
+        copyStats: { files: 0, dirs: 0, symlinks: 0, bytes: 0, elapsedMs: 0 },
+        gitDirStats: { copiedFiles: 0, skippedFiles: 0, elapsedMs: 0 },
+        elapsedMs: Date.now() - start,
+        reused: true,
+      }
+    }
+    throw new WorktreeLandUnprovableError(destination)
   }
 
-  // 7. ref 指定且不是 HEAD → checkout
-  if (ref && ref !== 'HEAD') {
-    const r = spawnSync('git', ['-C', destination, 'checkout', ref], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-      windowsHide: true,
-    })
-    if (r.status !== 0) {
-      process.stderr.write(
-        `warning: git checkout ${ref} 失败: ${r.stderr ?? ''}\n`,
-      )
-    }
-  }
+  let gitDirStats: GitDirStats
+  let copyStats: CopyStats
+  let cowKind: CowKind
+  try {
+    // 4. 检测 CowKind(用于返回值统计)
+    cowKind = detectCowKind(destination)
 
-  // 8. preserveWorkingTree=false → reset --hard 丢弃未提交修改
-  if (!preserveWorkingTree) {
-    const r = spawnSync('git', ['-C', destination, 'reset', '--hard'], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-      windowsHide: true,
-    })
-    if (r.status !== 0) {
-      process.stderr.write(`warning: git reset --hard 失败: ${r.stderr ?? ''}\n`)
+    // 5. 并行三件事:.git 复制 / 工作树复制 / (可选)读 modified files
+    const workSkip = new Set(skip ?? [])
+    workSkip.add('.git')
+
+    ;[gitDirStats, copyStats] = await Promise.all([
+      copyGitDir(srcGitDir, path.join(destination, '.git')),
+      copyTree(source, destination, { skip: workSkip }),
+      // preserveWorkingTree 时读 modified files 列表(结果未使用,占位并行)
+      preserveWorkingTree ? readModifiedFiles(source) : Promise.resolve([]),
+    ])
+
+    // 6. 写 marker 文件(G-706: marker 是落盘提交点的唯一证明,写不进就判落盘失败,
+    //    绝不带"无证明的半成品"返回成功)
+    fs.writeFileSync(worktreeMarkerPath(destination), source, 'utf-8')
+
+    // 7. ref 指定且不是 HEAD → checkout
+    if (ref && ref !== 'HEAD') {
+      const r = spawnSync('git', ['-C', destination, 'checkout', ref], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf-8',
+        windowsHide: true,
+      })
+      if (r.status !== 0) {
+        process.stderr.write(
+          `warning: git checkout ${ref} 失败: ${r.stderr ?? ''}\n`,
+        )
+      }
     }
+
+    // 8. preserveWorkingTree=false → reset --hard 丢弃未提交修改
+    if (!preserveWorkingTree) {
+      const r = spawnSync('git', ['-C', destination, 'reset', '--hard'], {
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+        encoding: 'utf-8',
+        windowsHide: true,
+      })
+      if (r.status !== 0) {
+        process.stderr.write(`warning: git reset --hard 失败: ${r.stderr ?? ''}\n`)
+      }
+    }
+  } catch (e) {
+    // G-706: 会话提交前清理武装仅对"自己刚 mkdir 出来的目录"生效(own 由原子互斥
+    // 直接证明);抢锁失败的他人目录在上面已以 WorktreeLandUnprovableError 抛出,永不走到这里。
+    if (ownedFresh) {
+      try {
+        fs.rmSync(destination, { recursive: true, force: true })
+      } catch {
+        // 清理失败不覆盖原始错误,残留目录 marker 不齐 ⇒ 启动对账按"证明不了"保留
+      }
+    }
+    throw e
   }
 
   return {
@@ -575,6 +641,7 @@ export async function createWorktree(opts: WorktreeOptions): Promise<WorktreeRes
     copyStats,
     gitDirStats,
     elapsedMs: Date.now() - start,
+    reused: false,
   }
 }
 
