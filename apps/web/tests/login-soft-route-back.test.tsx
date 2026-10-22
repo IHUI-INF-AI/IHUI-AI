@@ -70,13 +70,26 @@ describe('/login 软路由导航决策', () => {
     expect(mocks.open).toHaveBeenCalledWith('login', undefined)
   })
 
-  it('站内点进(有 referrer):回前一页,不整页替换', async () => {
-    setBrowserNavContext(2, 'http://localhost:3000/settings')
+  it('站内 SPA 点到 /login(history=3、referrer 空):必须回前一页,不许被踢回首页', async () => {
+    // 2026-10-22 生产实测:document.referrer 在站内全程为空(n=20 直链与 n=20 站内都是 ''),
+    // 而 history.length 两档完全可分(直链恒 2、站内恒 ≥3)。⇒ 判"有没有前一页"只能看长度,
+    // 用 referrer 当条件会把"在 /topics 点登录"的用户也送回首页,丢掉他正在看的页面。
+    setBrowserNavContext(3, '')
 
     render(<LoginPageClient />)
 
     await waitFor(() => expect(mocks.back).toHaveBeenCalled())
     expect(mocks.replace).not.toHaveBeenCalled()
+    expect(mocks.open).toHaveBeenCalledWith('login', undefined)
+  })
+
+  it('从外站整页点进来(history=2、referrer 非空):仍降级到本站,不把用户 back 回外站', async () => {
+    setBrowserNavContext(2, 'https://example.com/referrer-page')
+
+    render(<LoginPageClient />)
+
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalled())
+    expect(mocks.back).not.toHaveBeenCalled()
     expect(mocks.open).toHaveBeenCalledWith('login', undefined)
   })
 
