@@ -20,9 +20,9 @@ interface ApiKey {
 }
 
 async function fetchKeys(): Promise<ApiKey[]> {
-  const r = await fetchApi<ApiKey[]>('/api/developer/keys')
+  const r = await fetchApi<{ list: ApiKey[] }>('/api/developer/api-keys')
   if (!r.success) throw new Error(r.error)
-  return r.data
+  return r.data.list
 }
 
 type Lang = 'curl' | 'python' | 'node' | 'go' | 'java'

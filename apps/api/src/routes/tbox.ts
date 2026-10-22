@@ -8,7 +8,7 @@ import { createHmac } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { tboxDevice, tboxCommand, tboxAgentChannel } from '@ihui/database'
+import { tboxDevice, tboxCommand, tboxAgentChannel, tboxBean } from '@ihui/database'
 import { success, error, parseOrThrow } from '../utils/response.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { config as env } from '../config/index.js'
@@ -241,6 +241,104 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
       .returning()
     if (!row) return reply.status(500).send(error(500, '回调记录写入失败'))
     return reply.send(success({ id: row.id, status: row.status }))
+  })
+
+  // ===== Tbox 工具根 CRUD(G-962 #91/#92/#93: 消费方 misc.ts:262/273/281) =====
+  // 存储复用 tbox_bean(beanType='tool',beanData=工具 JSON,同 tbox-points.ts 的 Bean 存储先例)。
+  const TOOL_BEAN_TYPE = 'tool'
+  const createToolSchema = z.object({
+    name: z.string().min(1).max(200),
+    description: z.string().max(2000).optional(),
+    icon: z.string().max(500).optional(),
+    category: z.string().max(100).optional(),
+    url: z.string().max(500).optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
+    status: z.number().int().min(0).max(1).optional(),
+  })
+  const updateToolSchema = createToolSchema.partial()
+  const toolIdSchema = z.object({ id: z.coerce.number().int().positive({ message: '无效的 ID' }) })
+
+  function beanToTool(row: typeof tboxBean.$inferSelect): Record<string, unknown> {
+    let payload: Record<string, unknown> = {}
+    try {
+      payload = row.beanData ? (JSON.parse(row.beanData) as Record<string, unknown>) : {}
+    } catch {
+      payload = {}
+    }
+    return { id: String(row.id), ...payload, status: row.status }
+  }
+
+  // POST / — 创建工具
+  server.post('/', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
+    const parsed = createToolSchema.safeParse(req.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { status, ...payload } = parsed.data
+    const [row] = await db
+      .insert(tboxBean)
+      .values({
+        beanType: TOOL_BEAN_TYPE,
+        beanData: JSON.stringify(payload),
+        status: status ?? 1,
+      })
+      .returning()
+    if (!row) return reply.status(500).send(error(500, '创建工具失败'))
+    return reply.status(201).send(success(beanToTool(row)))
+  })
+
+  // PUT /:id — 更新工具
+  server.put('/:id', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
+    const idParsed = toolIdSchema.safeParse(req.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const parsed = updateToolSchema.safeParse(req.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const [existing] = await db
+      .select()
+      .from(tboxBean)
+      .where(eq(tboxBean.id, idParsed.data.id))
+      .limit(1)
+    if (!existing || existing.beanType !== TOOL_BEAN_TYPE)
+      return reply.status(404).send(error(404, '工具不存在'))
+    let payload: Record<string, unknown> = {}
+    try {
+      payload = existing.beanData ? (JSON.parse(existing.beanData) as Record<string, unknown>) : {}
+    } catch {
+      payload = {}
+    }
+    const { status, ...rest } = parsed.data
+    const [updated] = await db
+      .update(tboxBean)
+      .set({
+        beanData: JSON.stringify({ ...payload, ...rest }),
+        ...(status !== undefined ? { status } : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(tboxBean.id, idParsed.data.id))
+      .returning()
+    if (!updated) return reply.status(404).send(error(404, '工具不存在'))
+    return reply.send(success(beanToTool(updated)))
+  })
+
+  // DELETE /:id — 删除工具
+  server.delete('/:id', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
+    const idParsed = toolIdSchema.safeParse(req.params)
+    if (!idParsed.success)
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    const removed = await db
+      .delete(tboxBean)
+      .where(eq(tboxBean.id, idParsed.data.id))
+      .returning({ id: tboxBean.id, beanType: tboxBean.beanType })
+    if (removed.length === 0 || removed[0]?.beanType !== TOOL_BEAN_TYPE)
+      return reply.status(404).send(error(404, '工具不存在'))
+    return reply.send(success({ success: true }))
   })
 }
 

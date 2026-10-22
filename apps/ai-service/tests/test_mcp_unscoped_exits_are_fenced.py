@@ -4,7 +4,7 @@
 
 """外部 MCP「不判属主」出口的围栏(G-371 的常驻尺子,2026-09-29 立,同日格①落地后收紧)。
 
-判的是五件事,每条都配成对的正例 + 反例:
+判的是六件事,每条都配成对的正例 + 反例:
 
 1. **旁路出口零调用、且定义也不许在** —— `app/` 面上 `list_available_tools_unscoped(` 与
    `call_external_tool_unscoped(` 的**调用点**数量必须恰为 0,且这两个 `def` 本身不得再出现。
@@ -24,6 +24,14 @@
    那次调用的括号内;那一支文件里出现 `_unscoped` 调用即判红。防的是"新加一支端点顺手复制旧写法"。
 5. **反向对照(最重要)** —— 判据必须能咬住它要防的那个坏形态:同一行写成真代码必须报,
    只写进注释/docstring 必须不报。两个方向都由构造面证明,见 `_ROUTER_*` / `*_SNIPPET` 夹具。
+6. **存量维(G-41,2026-10-22 补)** —— 判据 1 只扫 `app/**`,它防的是"新代码不得选用已删
+   出口";而"旧代码还在选用已删出口"这一维在 2026-09-29 的本会话自伤实测里无人看守:
+   删一支出口时,`app/**` 之外的选用点(测试面等)没有任何尺子判红,是运行期才炸出来的。
+   所以判据 6 吃**整张已删出口清单**(`UNSCOPED_EXITS`)在**全仓** .py 面上扫选用点
+   (含 `tests/**`、`scripts/**`、`bench/**`),新增选用即红。存量若已有命中,按票面口径
+   逐条登记进 `STOCK_EXEMPTIONS`(或逐条修),**不得为变绿把这一维关掉**。失明守卫:
+   枚举必须真见到全仓 .py 存量(下限),且本围栏文件自己必须在候选面里 —— 它的原文里
+   明明有出口名(正则与夹具),看不见它 = 枚举漏了 `tests/` 面 = 正是自伤那一型。
 
 判据 1 与判据 2 吃两个等长的遮噪面(见 `mask_non_code` / `mask_prose` 上方说明):调用点判据
 要把字符串全抹掉(写在串里/注释里的字样不是"选用这一支"),而路由路径 `"/mcp/external/tools"`
@@ -38,19 +46,24 @@
 调用、或把某个引擎入口的作用域拆掉,它当场红。那正是它存在的理由:散文约束没有尺子,下一次
 有人在 HTTP 端点或装配链里图省事复制旧写法时,账面什么都不会红。
 
-判据只扫 `app/**`,不扫 `tests/**`,所以本文件里出现的这两个名字(正则与夹具文本)
-结构上不会自己触发判据,无需任何行内豁免。已知覆盖面边界:只判 `.py`;把函数名与其左
-括号拆到两行的写法不在射程(本仓实测 0 处)。
+判据 1–5 只扫 `app/**`;判据 6 扫全仓 .py(含 `tests/**`)。两边吃的都是遮噪后的代码面,
+所以本文件里出现的这两个名字(正则与夹具文本,全在字符串/注释里)结构上不会自己触发
+任何判据,无需行内豁免。已知覆盖面边界:只判 `.py`;把函数名与其左括号拆到两行的写法
+不在射程(本仓实测 0 处);判据 6 的枚举剪掉点开头目录与运行期产物树(`.venv`、
+`node_modules`、`__pycache__` 等)—— 归档/检出副本里的同名代码是死代码,不是"旧代码
+还在选用"。
 """
 
 from __future__ import annotations
 
+import os
 import re
 from collections import Counter
 from pathlib import Path
 from typing import Final, NamedTuple
 
 SERVICE_ROOT: Final = Path(__file__).resolve().parent.parent
+REPO_ROOT: Final = SERVICE_ROOT.parent.parent
 APP_DIR: Final = SERVICE_ROOT / "app"
 MCP_ROUTER_PATH: Final = APP_DIR / "routers" / "mcp.py"
 MCP_CLIENT_PATH: Final = APP_DIR / "services" / "mcp_client.py"
@@ -70,6 +83,17 @@ UNSCOPED_EXITS: Final = ("list_available_tools_unscoped", "call_external_tool_un
 EXPECTED_CALL_SITE_TOTAL: Final = 0
 # 每个出口各 0 次(总量对了但某一个被调两次同样破围栏,所以逐出口也判)
 EXPECTED_PER_EXIT: Final = 0
+# --- 判据 6(存量维,G-41)的口径面 ---
+# 枚举时原地剪枝:点开头目录一律不进(归档/临时/检出副本里的是死代码),这些是运行期产物树。
+STOCK_SCAN_PRUNE_DIRS: Final = frozenset(
+    {"node_modules", "__pycache__", "dist", "build", "venv", "site-packages"}
+)
+# 失明守卫下限:2026-10-22 实测全仓 .py(剪枝后)= 19824 个;取一条"仓被摘空才碰得到"的低线。
+STOCK_SCAN_FILE_FLOOR: Final = 1000
+# 存量豁免登记表(票面口径:存量命中要么逐条登记在此、要么逐条修,不得为变绿关掉这一维)。
+# 键 = (相对仓根路径, 遮噪代码面上的行文本) —— 按行文本而不是行号,行号在 append 后必挪位。
+# 2026-10-22 现读:全仓选用点 = 0 处 ⇒ 空集即零容忍。
+STOCK_EXEMPTIONS: Final[frozenset[tuple[str, str]]] = frozenset()
 # 装配链必须显式带主体的三个入口(漏传就是"只看得到部署级",那是静默降档)
 PRINCIPAL_BEARING_CALLS: Final = ("_build_supertool_pool(", "_build_loop_v2_tools(")
 ASSEMBLY_PATHS: Final = (
@@ -366,6 +390,76 @@ def endpoint_exit_violations(source: str) -> list[str]:
         f"router 文件里出现了 _unscoped 调用:{site.code}"
         for site in stray
     ]
+
+
+# ---------------------------------------------------------------------------
+# 判据 6:存量维 —— 已删出口清单在全仓的"旧代码还在选用"看守面(G-41)
+# ---------------------------------------------------------------------------
+
+
+class StockScan(NamedTuple):
+    """全仓存量扫描的结果面。
+
+    `candidate_files` 是"原文里出现过清单上任何名字"的文件集(未遮噪)—— 它用来证明枚举
+    真的看见了 `tests/**` 面,而不是被哪个剪枝条件无声摘掉。
+    """
+
+    sites: dict[str, list[Site]]
+    scanned: int
+    candidate_files: frozenset[str]
+
+
+def iter_repo_py_files(root: Path) -> list[Path]:
+    """全仓 .py 枚举,`os.walk` 原地剪枝(点开头目录 + 运行期产物树不进)。"""
+    out: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d for d in dirnames if not d.startswith(".") and d not in STOCK_SCAN_PRUNE_DIRS
+        ]
+        out.extend(Path(dirpath) / fn for fn in filenames if fn.endswith(".py"))
+    return sorted(out)
+
+
+def repo_stock_scan(root: Path = REPO_ROOT) -> StockScan:
+    """对**整张已删出口清单**在全仓 .py 面上扫"旧代码选用点"。
+
+    吃判据 1 同一把尺子(`unscoped_call_sites` + 代码面遮噪):注释/docstring/字符串里的
+    字样不是"选用"。先用原文子串粗筛、只对候选文件走遮噪器 —— 全仓两万个文件逐个走
+    逐字符遮噪,一把回归锁会把自己跑成性能票(2026-10-22 实测粗筛后候选只有个位数)。
+    """
+    sites: dict[str, list[Site]] = {}
+    candidates: set[str] = set()
+    files = iter_repo_py_files(root)
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8-sig")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not any(name in text for name in UNSCOPED_EXITS):
+            continue
+        rel = path.relative_to(root).as_posix()
+        candidates.add(rel)
+        found = unscoped_call_sites(mask_non_code(text))
+        if found:
+            sites[rel] = found
+    return StockScan(sites, len(files), frozenset(candidates))
+
+
+def stock_violations(
+    scan: StockScan, exemptions: frozenset[tuple[str, str]] = STOCK_EXEMPTIONS
+) -> list[str]:
+    """返回"不在豁免登记表里的选用点"点名。
+
+    豁免按 (文件, 行文本) 逐条匹配,不按整文件放行 —— 登记一处旧账不等于给这个文件里
+    再加一处新选用发合格证。
+    """
+    bad: list[str] = []
+    for rel, sites in sorted(scan.sites.items()):
+        for site in sites:
+            if (rel, site.code) in exemptions:
+                continue
+            bad.append(f"{rel}:{site.lineno} 旧代码还在选用已删出口:{site.code}")
+    return bad
 
 
 # ---------------------------------------------------------------------------
@@ -697,4 +791,107 @@ def test_two_faces_are_length_aligned():
         prose, code = mask_prose(snippet), mask_non_code(snippet)
         assert len(prose) == len(code) == len(snippet), "遮罩改动了长度 ⇒ 行号与偏移全部错位"
         assert prose.count("\n") == code.count("\n") == snippet.count("\n")
+
+
+def test_stock_scan_is_awake_before_it_judges():
+    """判据 6 失明守卫:枚举必须真见到全仓 .py,且 `app/` 与 `tests/` 两侧都在候选面里。
+
+    2026-09-29 自伤那一型的根不是判据写错,而是**看守面压根没装** —— 所以存量维先判
+    "尺子在场":文件数过下限、围栏文件自己(原文含出口名)在候选面、两个已知面各有文件
+    进候选。任何一条不成立都是"尺子失明",不记通过。
+    """
+    scan = repo_stock_scan()
+    assert scan.scanned >= STOCK_SCAN_FILE_FLOOR, (
+        f"全仓 .py 枚举只见到 {scan.scanned} 个(下限 {STOCK_SCAN_FILE_FLOOR},"
+        "2026-10-22 实测 19824)—— 枚举面被摘,存量维失明,不记通过"
+    )
+    rel_self = Path(__file__).resolve().relative_to(REPO_ROOT).as_posix()
+    assert rel_self in scan.candidate_files, (
+        "本围栏文件原文里明明有出口名(正则与夹具),候选面却看不见它 ⇒ 枚举漏了 tests/ 面,"
+        "而 tests/ 面正是自伤那一格"
+    )
+    assert any(
+        p.startswith("apps/ai-service/tests/") and p != rel_self for p in scan.candidate_files
+    ), "除围栏文件外候选面里没有第二个 tests/ 文件 —— tests/ 面实际没被看守"
+    # app/ 侧判"枚举在场"而不是"候选在场":app 面干净时候选里本就不该有 app 文件,
+    # 拿候选判 app 侧会把"守得严"误报成"失明"(判据反了)。
+    rel_app = MCP_CLIENT_PATH.relative_to(REPO_ROOT).as_posix()
+    assert any(p == rel_app for p in _rel_paths(REPO_ROOT)), (
+        "枚举面里没有 app/services/mcp_client.py —— 判据 6 与判据 1 脱钩,失明"
+    )
+
+
+def _rel_paths(root: Path) -> list[str]:
+    return [p.relative_to(root).as_posix() for p in iter_repo_py_files(root)]
+
+
+def test_no_old_code_still_selects_a_deleted_exit_repo_wide():
+    """判据 6(真仓面):已删出口清单在全仓的选用点必须恰为豁免登记表(现读空 ⇒ 零容忍)。"""
+    scan = repo_stock_scan()
+    bad = stock_violations(scan)
+    assert bad == [], (
+        "已删出口在全仓还有选用点(新增选用即红;存量旧账只能逐条登记 STOCK_EXEMPTIONS 或逐条修,"
+        "不得关掉这一维):\n  - " + "\n  - ".join(bad)
+    )
+
+
+def test_stock_ruler_fires_on_old_call_outside_app_and_skips_dead_copies(tmp_path):
+    """判据 6 反向对照 A(红臂):app/ 之外一处真调用必须点名;死副本树里的不算。"""
+    live = tmp_path / "tests"
+    live.mkdir()
+    (live / "test_legacy.py").write_text(
+        "async def t(manager):\n"
+        "    return await manager.call_external_tool_unscoped('a', 'b', {})\n",
+        encoding="utf-8",
+    )
+    for dead in (".ihui-agent/archive", ".venv/lib", "node_modules/pkg"):
+        d = tmp_path / dead
+        d.mkdir(parents=True)
+        (d / "copy.py").write_text(
+            "def use():\n    return list_available_tools_unscoped()\n", encoding="utf-8"
+        )
+    scan = repo_stock_scan(tmp_path)
+    assert set(scan.sites) == {"tests/test_legacy.py"}, (
+        f"选用点应只有活面那一个,实报:{sorted(scan.sites)}(死副本被算进来了?)"
+    )
+    site = scan.sites["tests/test_legacy.py"][0]
+    assert "call_external_tool_unscoped" in site.code
+    assert stock_violations(scan) == [
+        f"tests/test_legacy.py:{site.lineno} 旧代码还在选用已删出口:{site.code}"
+    ]
+    # 豁免按 (文件, 行文本) 逐条匹配:登记它之后这一处不再红,但维还开着
+    exempt = frozenset({("tests/test_legacy.py", site.code)})
+    assert stock_violations(scan, exempt) == []
+    # 同一文件里换一行的新选用,豁免盖不住,必须红
+    (live / "test_legacy.py").write_text(
+        "async def t(manager):\n"
+        "    return await manager.call_external_tool_unscoped('a', 'b', {})\n"
+        "    # 第二处,形态不同\n"
+        "    return list_available_tools_unscoped()\n",
+        encoding="utf-8",
+    )
+    scan2 = repo_stock_scan(tmp_path)
+    again = stock_violations(scan2, exempt)
+    assert len(again) == 1 and "list_available_tools_unscoped" in again[0], (
+        f"豁免盖住了新选用:{again}"
+    )
+
+
+def test_stock_ruler_stays_quiet_when_the_name_only_lives_in_prose(tmp_path):
+    """判据 6 反向对照 B(绿臂):旧代码里只在注释/docstring/字符串里提名字,不算选用。
+
+    这正是 2026-09-29 之后测试面留下的合法形态(`hasattr(manager, "..._unscoped")` 的
+    反向断言、解释性注释)—— 它们必须在候选面里(尺子看见了),但不得判红。
+    """
+    d = tmp_path / "tests"
+    d.mkdir()
+    (d / "test_prose.py").write_text(
+        '"""以前这里是 call_external_tool_unscoped(),现在必须走收窄出口。"""\n'
+        "# list_available_tools_unscoped() 只是解释,不是调用\n"
+        'assert not hasattr(manager, "call_external_tool_unscoped")\n',
+        encoding="utf-8",
+    )
+    scan = repo_stock_scan(tmp_path)
+    assert scan.sites == {}, f"散文里的字样被当成了选用点:{scan.sites}"
+    assert "tests/test_prose.py" in scan.candidate_files, "尺子压根没看见这个文件(失明,不是通过)"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

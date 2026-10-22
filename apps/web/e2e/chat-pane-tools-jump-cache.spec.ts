@@ -679,15 +679,10 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
       panePanel,
       '缺口A:pane-1 内的「工具面板」开关写的是根单例(mode-switcher.tsx:59-60),窗格自身面板体读窗格实例 ⇒ pane-1 自己的面板点不开',
     ).toBeVisible({ timeout: 5_000 })
-    await expect(
-      rootPanel,
-      '缺口A 反证:根格面板体被 pane-1 的开关点亮(互不顶被破坏)',
-    ).toBeHidden()
+    await expect(rootPanel, '缺口A 反证:根格面板体被 pane-1 的开关点亮(互不顶被破坏)').toBeHidden()
   })
 
-  test('② 跳转总线门控:定向 pane-1 的事件根格不接;不带 paneId 的事件只根格接', async ({
-    page,
-  }) => {
+  test('② 跳转总线门控:定向 pane-1 的事件根格不接;不带 paneId 的事件只根格接', async ({ page }) => {
     await prepareSameConversationTwoPanes(page)
 
     // 根格钉在 60% 处(m-36);pane-1 保持"落会话后自动跟随到底"的稳态 ⇒ 目标 m-24(40%):
@@ -705,12 +700,14 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
           for (const pane of ['pane-root', 'pane-1']) {
             const leaf = document.querySelector<HTMLElement>(`[data-pane-leaf="${pane}"]`)
             if (!leaf) throw new Error(`缺少窗格 DOM:${pane}`)
-            const list = leaf.querySelector<HTMLElement>('[data-testid="message-list-inline-panel"]')
+            const list = leaf.querySelector<HTMLElement>(
+              '[data-testid="message-list-inline-panel"]',
+            )
             if (!list) throw new Error(`窗格 ${pane} 没有消息列表`)
             const msg = leaf.querySelector<HTMLElement>(`[data-message-id="${target}"]`)
             if (!msg) throw new Error(`窗格 ${pane} 里目标消息未渲染:${target}`)
             const hl = msg.classList.contains('animate-message-highlight-pulse')
-            const moved = Math.abs(list.scrollTop - baselines[pane]) > 60
+            const moved = Math.abs(list.scrollTop - (baselines[pane] ?? 0)) > 60
             parts.push(`${pane}:${hl ? 'hl' : 'no'}:${moved ? 'moved' : 'still'}`)
           }
           return parts.join('|')
@@ -726,10 +723,10 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     // 腿1:定向 pane-1 ⇒ 只有 pane-1 滚 + 高亮;根格纹丝不动、不高亮
     await dispatchJump({ messageId: target, paneId: SECOND_PANE })
     await expect
-      .poll(
-        () => jumpProbe({ [ROOT_PANE]: rootRecorded, [SECOND_PANE]: pane1Before }),
-        { timeout: 10_000, message: '定向 pane-1 的跳转没有只落 pane-1(门控失效)' },
-      )
+      .poll(() => jumpProbe({ [ROOT_PANE]: rootRecorded, [SECOND_PANE]: pane1Before }), {
+        timeout: 10_000,
+        message: '定向 pane-1 的跳转没有只落 pane-1(门控失效)',
+      })
       .toBe('pane-root:no:still|pane-1:hl:moved')
 
     // 等平滑滚动落定,记下 pane-1 的稳态位,再走腿2
@@ -740,10 +737,10 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     // pane-1 不得再动、不得再亮
     await dispatchJump({ messageId: target })
     await expect
-      .poll(
-        () => jumpProbe({ [ROOT_PANE]: rootRecorded, [SECOND_PANE]: pane1Settled }),
-        { timeout: 10_000, message: '不带 paneId 的跳转没有只落根窗格(门控口径被破坏)' },
-      )
+      .poll(() => jumpProbe({ [ROOT_PANE]: rootRecorded, [SECOND_PANE]: pane1Settled }), {
+        timeout: 10_000,
+        message: '不带 paneId 的跳转没有只落根窗格(门控口径被破坏)',
+      })
       .toBe('pane-root:hl:moved|pane-1:no:still')
   })
 
@@ -861,10 +858,9 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     )
 
     // 契约2:续接闭环 —— 窗格侧预填充/缓存捕获半截消息,历史结算后续尾逐字相连
-    await expect(paneList(page, SECOND_PANE)).toContainText(
-      `${PANE_ORPHAN_PREFIX}${RESUME_TAIL}`,
-      { timeout: 30_000 },
-    )
+    await expect(paneList(page, SECOND_PANE)).toContainText(`${PANE_ORPHAN_PREFIX}${RESUME_TAIL}`, {
+      timeout: 30_000,
+    })
     expect(counters.statusGets, 'reload 后 pane-1 必须问过 resume/status').toBeGreaterThanOrEqual(1)
     expect(counters.resumePosts, 'pane-1 未落库 ⇒ 必须发起恰好一次 POST /api/chat/resume').toBe(1)
 

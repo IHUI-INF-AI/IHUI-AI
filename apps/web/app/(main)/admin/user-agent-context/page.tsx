@@ -60,11 +60,11 @@ export default function UserAgentContextPage() {
         sendTime: form.sendTime || undefined,
       }
       return editing
-        ? api(`/api/admin/user-agent-context/${editing.id}`, {
+        ? api(`/api/misc-ext/user-agent-context/${editing.id}`, {
             method: 'PUT',
             body: JSON.stringify(body),
           })
-        : api('/api/admin/user-agent-context', { method: 'POST', body: JSON.stringify(body) })
+        : api('/api/misc-ext/user-agent-context', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? '更新成功' : '新增成功')
@@ -75,7 +75,7 @@ export default function UserAgentContextPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => api(`/api/admin/user-agent-context/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/misc-ext/user-agent-context/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'user-agent-context'] })

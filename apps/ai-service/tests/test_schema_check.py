@@ -19,6 +19,8 @@ from pathlib import Path
 
 from app.core.schema_check import (
     _SCHEMA_DIR,
+    _SQLITE_DRIVER_RE,
+    _SQL_TABLE_RE,
     diff_columns,
     parse_ts_table_fields,
     scan_ai_service_sql_tables,
@@ -423,5 +425,98 @@ class TestScanExcludesSqliteAndCte:
 
         src = (Path(__file__).resolve().parent.parent / "app" / "core" / "schema_check.py").read_text(encoding="utf-8")
         assert not re.search(r"^\s*_SQLITE_FILES\s*=\s*[\{\(]", src, re.M), "手工文件名清单回来了 —— 它正是本次事故的根因"
+
+
+def _find_borrowed_connection_offenders(app_dir: Path, owned_tables: set[str]) -> dict[str, list[str]]:
+    """app_dir 下"SQL 文本引用 sqlite 归属表、但文件没有 sqlite3 驱动事实"的清单。
+
+    与扫描器同口径地排除下划线开头文件与 schema_check.py 自身;动词表复用
+    _SQL_TABLE_RE(不留第二份实现),驱动事实复用 _SQLITE_DRIVER_RE(函数内 import 也算)。
+    """
+    offenders: dict[str, list[str]] = {}
+    for py in app_dir.rglob("*.py"):
+        if py.name.startswith("_") or py.name == "schema_check.py":
+            continue
+        content = py.read_text(encoding="utf-8")
+        referenced = {m.group(1).lower() for m in _SQL_TABLE_RE.finditer(content)} & owned_tables
+        if referenced and not _SQLITE_DRIVER_RE.search(content):
+            offenders[str(py.relative_to(app_dir))] = sorted(referenced)
+    return offenders
+
+
+class TestBorrowedConnectionOwnership:
+    """G-40:"按驱动事实判 sqlite 侧"看不见"借来的连接"这一型 —— SQL 文本住在不 import sqlite3 的文件里,连接从 import 它的持久层模块借来。
+
+    事故形态(2026-09-29 普查):llm.py 用 approval_persistence._get_conn() 执行
+    `SELECT ... FROM approval_grants WHERE kind='exec_prefix'`,而 llm.py 自身
+    import sqlite3=0、import asyncpg=0 ⇒ "引 sqlite3 且不引 asyncpg ⇒ 整文件跳过"
+    的判据对它不成立 ⇒ approval_grants 混进"本服务 PG 表"集合。
+    修法(2026-10-03,第四型):裸 SQL 收编进 approval_persistence.py,让驱动事实为真 ——
+    既不删幽灵名单(坏下场①:断言它是 PG 表,回退成连红四十多次的事故),
+    也不整文件跳 llm.py(坏下场②:连带削掉其真 PG 查询覆盖,违反不变量②),
+    更不引入语句级/AST 判定(坏下场③:给判据换实现,不是补规则)。
+    下面两条用例把这一型钉成常驻回归(正反例成对)。
+    """
+
+    # 票面点名的 sqlite 归属表:SQL 文本只许住在 import sqlite3 的文件里
+    SQLITE_OWNED_TABLES = {"approval_grants", "sso_identities", "cookies", "sqlite_master"}
+
+    def test_owned_sql_in_driver_file_is_excluded_from_pg_scan(self, tmp_path: Path):
+        """正例:逐字 SQL 文本(取材现读 app/services/approval_persistence.py:476-477,非自造形态)
+        住在 import sqlite3 的文件里 ⇒ 被驱动判据整文件排除,approval_grants 不进 PG 表集合。"""
+        (tmp_path / "persistence_like.py").write_text(
+            "import sqlite3\n\n"
+            "def list_grant_rows(kinds):\n"
+            "    rows = conn.execute(\n"
+            '        "SELECT kind, cache_key, scope, created_at, expires_at FROM approval_grants "\n'
+            '        "WHERE kind IN (?, ?, ?)",\n'
+            "        tuple(kinds),\n"
+            "    ).fetchall()\n"
+            "    return rows\n",
+            encoding="utf-8",
+        )
+        assert "approval_grants" not in scan_ai_service_sql_tables(tmp_path)
+
+    def test_owned_sql_never_lives_in_a_borrowed_connection_file(self):
+        """反锁:文本级归属纪律尺子。扫描器的驱动判据结构上看不见"借来的连接"形态
+        (票面:语句级判定需 AST,属换实现而非补规则),所以这一型的防线不是"让扫描器看见",
+        而是"SQL 不许住在借连接文件里" —— 与 test_manual_sqlite_filename_list_must_not_come_back
+        同形(锁代码形态,不锁扫描器行为)。sqlite 归属表的 SQL 文本一旦回到 app/ 下
+        不 import sqlite3 的文件(如当年的 llm.py),本用例翻红。"""
+        offenders = _find_borrowed_connection_offenders(APP_DIR, self.SQLITE_OWNED_TABLES)
+        assert not offenders, (
+            f"借连接形态回来了:sqlite 归属表的 SQL 文本出现在无 sqlite3 驱动事实的文件 {offenders} "
+            "—— schema_check 会把它当 Postgres 表报数据孤岛(G-40);正解是把 SQL 收编进持久层"
+        )
+
+    def test_borrowed_connection_injection_makes_the_ruler_turn_red(self, tmp_path: Path):
+        """变异对照(尺子不是空转的证据):把事故形态逐字注入一个不 import sqlite3 的文件
+        (复刻 2026-09-29 普查时 llm.py 借 approval_persistence._get_conn() 的那两行),
+        归属纪律尺子必须点名它;同文本放进 import sqlite3 的文件则必须放过。"""
+        borrowed = tmp_path / "router_like.py"
+        borrowed.write_text(
+            "from app.services import approval_persistence\n\n"
+            "def _load_grants():\n"
+            "    conn = approval_persistence._get_conn()\n"
+            "    rows = conn.execute(\n"
+            '        "SELECT cache_key, scope, created_at, expires_at FROM approval_grants "\n'
+            '        "WHERE kind=\'exec_prefix\'",\n'
+            "    ).fetchall()\n"
+            "    return rows\n",
+            encoding="utf-8",
+        )
+        offenders = _find_borrowed_connection_offenders(tmp_path, self.SQLITE_OWNED_TABLES)
+        assert offenders == {"router_like.py": ["approval_grants"]}, f"注入借连接形态未被点名:{offenders}"
+
+        # 正向对照:同一 SQL 文本住进 import sqlite3 的文件 ⇒ 放过(归属纪律满足)
+        borrowed.write_text(
+            "import sqlite3\n\n"
+            "from app.services import approval_persistence\n\n"
+            "def _load_grants():\n"
+            '    sql = "SELECT cache_key, scope, created_at, expires_at FROM approval_grants "\n'
+            "    return sql\n",
+            encoding="utf-8",
+        )
+        assert _find_borrowed_connection_offenders(tmp_path, self.SQLITE_OWNED_TABLES) == {}
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

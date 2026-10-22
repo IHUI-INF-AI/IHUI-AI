@@ -430,6 +430,28 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
     return reply.send(success({ record: record ?? null }))
   })
+
+  // DELETE /resources/:id - 删除资源(G-962 批7 补后端,迁移自 D 盘历史死路径)
+  // 注:resources 表无 owner 列,此处仅做登录闸 + 存在性校验;真归属校验需 schema 迁移(残段登记)。
+  server.delete(
+    '/resources/:id',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      try {
+        await authenticate(request)
+      } catch {
+        return reply.status(401).send(error(401, '操作失败,请稍后重试'))
+      }
+      const parsed = uuidParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const resource = await findResourceById(parsed.data.id)
+      if (!resource) return reply.status(404).send(error(404, '资源不存在'))
+      await deleteResource(parsed.data.id)
+      return reply.send(success({ ok: true }))
+    },
+  )
 }
 
 // =============================================================================

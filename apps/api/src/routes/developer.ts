@@ -3,10 +3,25 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
+import { readFileSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, and, desc, gte, sql } from 'drizzle-orm'
 import { isValidApiKeyPermission } from '@ihui/types'
-import { userMargins, tokenFlows, users } from '@ihui/database'
+import {
+  userMargins,
+  tokenFlows,
+  users,
+  apiLogs,
+  apiSubscriptions,
+  apiSubscriptionWindowUsage,
+  webhookSubscriptions,
+  developerApplications,
+  teams,
+  teamMembers,
+  orders,
+} from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
@@ -17,6 +32,12 @@ import {
   activateDeveloperSubscription,
   getMyDeveloperSubscription,
 } from '../db/developer-queries.js'
+import {
+  USER_PREFERENCE_GROUPS,
+  findUserPreferences,
+  upsertUserPreference,
+  deleteUserPreference,
+} from '../db/user-preferences-queries.js'
 import * as apiKeysService from '../services/developer-api-keys-service.js'
 
 // =============================================================================
@@ -142,6 +163,207 @@ const withdrawalListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
+
+// ── G-962 批 4a(C 组)新增面:开发者控制台 12+1 端点 ──
+
+/** 通知偏好 6 键(与 apps/web developer/notifications 页 NotificationPrefs 对齐)。 */
+const NOTIFICATION_PREF_KEYS = [
+  'apiError',
+  'quotaWarning',
+  'webhookFailure',
+  'weeklyReport',
+  'versionUpdate',
+  'billingReminder',
+] as const
+
+/** 开发者偏好设置 3 键(与 apps/web developer/settings 页 DevPreferences 对齐)。 */
+const SETTINGS_PREF_KEYS = ['defaultVersion', 'sandboxAutoRun', 'errorReport'] as const
+
+/** userPreferences 键前缀:与既有通知渠道偏好/其他设置键隔离(§0.6 单一真相源)。 */
+const DEV_NOTIFY_PREFIX = 'dev.notify.'
+const DEV_SETTINGS_PREFIX = 'dev.settings.'
+
+const notificationPrefsBodySchema = z.object({
+  preferences: z.object({
+    apiError: z.boolean().optional(),
+    quotaWarning: z.boolean().optional(),
+    webhookFailure: z.boolean().optional(),
+    weeklyReport: z.boolean().optional(),
+    versionUpdate: z.boolean().optional(),
+    billingReminder: z.boolean().optional(),
+  }),
+})
+
+const devSettingsBodySchema = z.object({
+  info: z
+    .object({
+      name: z.string().min(1).max(100).optional(),
+      description: z.string().max(1000).nullable().optional(),
+      website: z.string().max(255).nullable().optional(),
+      // email 属账号字段(改绑需验证流程),本面只读不回写;携带时忽略。
+      email: z.string().max(255).optional(),
+      company: z.string().max(100).optional(),
+    })
+    .optional(),
+  preferences: z
+    .object({
+      defaultVersion: z.string().max(50).optional(),
+      sandboxAutoRun: z.boolean().optional(),
+      errorReport: z.boolean().optional(),
+    })
+    .optional(),
+})
+
+const devInfoUpdateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(1000).nullable().optional(),
+  website: z.string().max(255).nullable().optional(),
+})
+
+/**
+ * GET /docs 数据源:apps/api/openapi.json 构建产物(由 `pnpm openapi:export` 落盘)。
+ * 按 tag 派生 ApiDocGroup[];src/routes 与 dist/routes 相对路径同为 ../../openapi.json。
+ * 模块级缓存按 mtime 失效;文件缺失时返回空数组(不造假数据)。
+ */
+type ApiDocEndpoint = {
+  id: string
+  method: string
+  path: string
+  summary: string
+  category: string
+  params: Array<{ name: string; type: string; required?: boolean; description?: string }>
+}
+let apiDocsCache: {
+  mtimeMs: number
+  groups: Array<{ category: string; endpoints: ApiDocEndpoint[] }>
+} | null = null
+
+function loadApiDocGroups(): Array<{ category: string; endpoints: ApiDocEndpoint[] }> {
+  const specPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'openapi.json')
+  let mtimeMs: number
+  try {
+    mtimeMs = statSync(specPath).mtimeMs
+  } catch {
+    return []
+  }
+  if (apiDocsCache && apiDocsCache.mtimeMs === mtimeMs) return apiDocsCache.groups
+  let raw: string
+  try {
+    raw = readFileSync(specPath, 'utf8')
+  } catch {
+    return []
+  }
+  const groups = new Map<string, ApiDocEndpoint[]>()
+  try {
+    const spec = JSON.parse(raw) as {
+      paths?: Record<
+        string,
+        Record<
+          string,
+          {
+            tags?: string[]
+            summary?: string
+            operationId?: string
+            parameters?: Array<{
+              name?: string
+              required?: boolean
+              description?: string
+              schema?: { type?: string }
+            }>
+          }
+        >
+      >
+    }
+    for (const [path, item] of Object.entries(spec.paths ?? {})) {
+      for (const method of ['get', 'post', 'put', 'delete', 'patch']) {
+        const op = item?.[method]
+        if (!op || typeof op !== 'object') continue
+        const category = op.tags?.[0] ?? 'general'
+        const params = (op.parameters ?? [])
+          .filter((p) => typeof p?.name === 'string')
+          .map((p) => ({
+            name: p.name as string,
+            type: p.schema?.type ?? 'string',
+            required: p.required === true ? true : undefined,
+            description: p.description,
+          }))
+        const bucket = groups.get(category) ?? []
+        bucket.push({
+          id: `${method.toUpperCase()}:${path}`,
+          method: method.toUpperCase(),
+          path,
+          summary: op.summary ?? op.operationId ?? `${method.toUpperCase()} ${path}`,
+          category,
+          params,
+        })
+        groups.set(category, bucket)
+      }
+    }
+  } catch {
+    return []
+  }
+  const result = [...groups.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([category, endpoints]) => ({
+      category,
+      endpoints: endpoints.sort(
+        (a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method),
+      ),
+    }))
+  apiDocsCache = { mtimeMs, groups: result }
+  return result
+}
+
+/** 当前生效的 API 订阅快照行(active 且未到期)。 */
+async function findActiveApiSubscription(userId: string) {
+  const rows = await db
+    .select()
+    .from(apiSubscriptions)
+    .where(
+      and(
+        eq(apiSubscriptions.userId, userId),
+        eq(apiSubscriptions.status, 'active'),
+        gte(apiSubscriptions.endAt, new Date()),
+      ),
+    )
+    .orderBy(desc(apiSubscriptions.endAt))
+    .limit(1)
+  return rows[0]
+}
+
+/** 取订阅某窗口类型最近一行的已用 token(无行 = 0)。 */
+async function latestWindowTokensUsed(subscriptionId: string, windowType: string): Promise<number> {
+  const rows = await db
+    .select({ tokensUsed: apiSubscriptionWindowUsage.tokensUsed })
+    .from(apiSubscriptionWindowUsage)
+    .where(
+      and(
+        eq(apiSubscriptionWindowUsage.subscriptionId, subscriptionId),
+        eq(apiSubscriptionWindowUsage.windowType, windowType),
+      ),
+    )
+    .orderBy(desc(apiSubscriptionWindowUsage.windowStart))
+    .limit(1)
+  return rows[0]?.tokensUsed ?? 0
+}
+
+/** 从 userPreferences 行里按前缀解出 boolean/字符串偏好对象(只回真实存过的键)。 */
+function pickPrefValues(
+  list: Array<{ key: string; value: string | null }>,
+  prefix: string,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const row of list) {
+    if (!row.key.startsWith(prefix) || row.value === null) continue
+    const field = row.key.slice(prefix.length)
+    try {
+      out[field] = JSON.parse(row.value)
+    } catch {
+      out[field] = row.value
+    }
+  }
+  return out
+}
 
 // =============================================================================
 // 路由
@@ -455,6 +677,395 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       .returning()
 
     return reply.status(201).send(success({ flow, status: 'pending' }))
+  })
+
+  // =============================================================================
+  // G-962 批 4a(C 组):开发者控制台补面(#54-63、#65、#101;#64 versions 残段移交)
+  // =============================================================================
+
+  // GET /summary — 开发者首页概览(调用量/密钥数/Webhook 数/套餐/配额,全部真实聚合)
+  server.get('/summary', async (request, reply) => {
+    const userId = request.userId!
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+
+    const [callRow, webhookRow, keys, devSub, apiSub] = await Promise.all([
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(apiLogs)
+        .where(and(eq(apiLogs.userId, userId), gte(apiLogs.createdAt, monthStart)))
+        .then((r) => r[0]),
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(webhookSubscriptions)
+        .where(eq(webhookSubscriptions.userId, userId))
+        .then((r) => r[0]),
+      apiKeysService.listKeys(userId),
+      getMyDeveloperSubscription(userId),
+      findActiveApiSubscription(userId),
+    ])
+
+    const pricing = devSub?.pricingId ? await findDeveloperPricingById(devSub.pricingId) : undefined
+
+    let quotaUsed: number | undefined
+    let quotaTotal: number | undefined
+    if (apiSub) {
+      quotaTotal = apiSub.monthlyTokenLimit
+      quotaUsed = await latestWindowTokensUsed(apiSub.id, 'monthly')
+    }
+
+    return reply.send(
+      success({
+        callCount: callRow?.c ?? 0,
+        keyCount: keys.length,
+        webhookCount: webhookRow?.c ?? 0,
+        planName: pricing?.name ?? apiSub?.planName,
+        monthFee: pricing ? Number(pricing.price) : undefined,
+        quotaUsed,
+        // -1 = 不限(前端 formatTokens 已处理 ∞);0 = 未配置该维度时不返回
+        quotaTotal: quotaTotal !== undefined && quotaTotal !== 0 ? quotaTotal : undefined,
+      }),
+    )
+  })
+
+  // GET /docs — API 文档分组(数据源:apps/api/openapi.json 构建产物按 tag 派生)
+  server.get('/docs', async (_request, reply) => {
+    return reply.send(success(loadApiDocGroups()))
+  })
+
+  // GET /billing — 账单流水(developer 订阅订单 orderType=5)+ 支付方式(无表 ⇒ 真实空列表)
+  server.get('/billing', async (request, reply) => {
+    const userId = request.userId!
+    const rows = await db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.userId, userId), eq(orders.orderType, 5)))
+      .orderBy(desc(orders.createdAt))
+      .limit(50)
+
+    const bills = rows.map((o) => ({
+      id: o.id,
+      invoiceNo: o.orderNo,
+      amount: o.amount / 100, // 分 → 元(前端 currencyFmt 直接格式化)
+      period: (o.paidAt ?? o.createdAt).toISOString().slice(0, 7),
+      status: o.status === 'paid' ? 'paid' : o.status === 'pending' ? 'pending' : 'failed',
+      createdAt: o.createdAt.toISOString(),
+    }))
+
+    return reply.send(success({ bills, paymentMethods: [] }))
+  })
+
+  // GET /limits — 日/周/月 token 限额与当前窗口用量(api_subscriptions 快照 + window_usage)
+  server.get('/limits', async (request, reply) => {
+    const userId = request.userId!
+    const apiSub = await findActiveApiSubscription(userId)
+    if (!apiSub) return reply.send(success({ items: [] }))
+
+    const windows: Array<{ key: string; label: string; limit: number }> = [
+      { key: 'daily', label: '每日 Token 限额', limit: apiSub.dailyTokenLimit },
+      { key: 'weekly', label: '每周 Token 限额', limit: apiSub.weeklyTokenLimit },
+      { key: 'monthly', label: '每月 Token 限额', limit: apiSub.monthlyTokenLimit },
+    ]
+    const items: Array<{ key: string; label: string; used: number; total: number; unit: string }> =
+      []
+    for (const w of windows) {
+      if (w.limit === 0) continue // 未配置该维度
+      const used = await latestWindowTokensUsed(apiSub.id, w.key)
+      items.push({ key: w.key, label: w.label, used, total: w.limit, unit: 'tokens' })
+    }
+    return reply.send(success({ planName: apiSub.planName, items }))
+  })
+
+  // GET /versions — API 版本记录(G-962 B8;web developer/versions 页读 data 数组)
+  // 数据源待接:库内无 API 版本表,版本公告只存在于文档/发布记录。返回空数组为真实空态。
+  server.get('/versions', async (_request, reply) => {
+    return reply.send(success([]))
+  })
+
+  // GET /notifications — 开发者通知偏好(userPreferences group=notifications,键前缀 dev.notify.)
+  server.get('/notifications', async (request, reply) => {
+    const userId = request.userId!
+    const { list } = await findUserPreferences(userId, USER_PREFERENCE_GROUPS.notifications)
+    return reply.send(success({ preferences: pickPrefValues(list, DEV_NOTIFY_PREFIX) }))
+  })
+
+  // PUT /notifications — 保存开发者通知偏好(6 键 boolean)
+  server.put('/notifications', async (request, reply) => {
+    const userId = request.userId!
+    const parsed = notificationPrefsBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    for (const [key, value] of Object.entries(parsed.data.preferences)) {
+      if (value === undefined) continue
+      await upsertUserPreference(
+        userId,
+        USER_PREFERENCE_GROUPS.notifications,
+        `${DEV_NOTIFY_PREFIX}${key}`,
+        JSON.stringify(value),
+      )
+    }
+    return reply.send(success({ ok: true }))
+  })
+
+  // GET /sandbox — 沙箱调试台环境快照(密钥/订阅/Webhook 真实状态)
+  server.get('/sandbox', async (request, reply) => {
+    const userId = request.userId!
+    const [keys, devSub, apiSub, webhookRow] = await Promise.all([
+      apiKeysService.listKeys(userId),
+      getMyDeveloperSubscription(userId),
+      findActiveApiSubscription(userId),
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(webhookSubscriptions)
+        .where(eq(webhookSubscriptions.userId, userId))
+        .then((r) => r[0]),
+    ])
+    const activeKeys = keys.filter((k) => k.status === 'active')
+    return reply.send(
+      success({
+        environment: 'developer-sandbox',
+        generatedAt: new Date().toISOString(),
+        keys: {
+          total: keys.length,
+          active: activeKeys.length,
+          firstActiveKey: activeKeys[0]?.key ?? null,
+        },
+        developerSubscription: devSub
+          ? {
+              pricingId: devSub.pricingId,
+              period: devSub.period,
+              endTime: devSub.endTime.toISOString(),
+            }
+          : null,
+        apiSubscription: apiSub
+          ? {
+              planName: apiSub.planName,
+              status: apiSub.status,
+              endAt: apiSub.endAt.toISOString(),
+              dailyTokenLimit: apiSub.dailyTokenLimit,
+              weeklyTokenLimit: apiSub.weeklyTokenLimit,
+              monthlyTokenLimit: apiSub.monthlyTokenLimit,
+            }
+          : null,
+        webhookCount: webhookRow?.c ?? 0,
+      }),
+    )
+  })
+
+  // GET /settings — 开发者设置(申请信息 + 账号邮箱 + 偏好设置 3 键)
+  server.get('/settings', async (request, reply) => {
+    const userId = request.userId!
+    const [application, [userRow], { list: prefRows }] = await Promise.all([
+      findDeveloperInfo(userId),
+      db.select({ email: users.email }).from(users).where(eq(users.id, userId)).limit(1),
+      findUserPreferences(userId, USER_PREFERENCE_GROUPS.preferences),
+    ])
+    return reply.send(
+      success({
+        info: application
+          ? {
+              name: application.name,
+              email: userRow?.email ?? undefined,
+              website: application.website ?? undefined,
+            }
+          : undefined,
+        preferences: pickPrefValues(prefRows, DEV_SETTINGS_PREFIX),
+      }),
+    )
+  })
+
+  // PUT /settings — 保存开发者设置(info 落 developer_applications,preferences 落 userPreferences)
+  server.put('/settings', async (request, reply) => {
+    const userId = request.userId!
+    const parsed = devSettingsBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { info, preferences } = parsed.data
+    if (!info && !preferences) {
+      return reply.status(400).send(error(400, 'info 与 preferences 至少提供一项'))
+    }
+
+    if (
+      info &&
+      (info.name !== undefined || info.description !== undefined || info.website !== undefined)
+    ) {
+      const existing = await findDeveloperInfo(userId)
+      if (existing) {
+        await db
+          .update(developerApplications)
+          .set({
+            name: info.name ?? existing.name,
+            description: info.description !== undefined ? info.description : existing.description,
+            website: info.website !== undefined ? info.website : existing.website,
+            updatedAt: new Date(),
+          })
+          .where(eq(developerApplications.id, existing.id))
+      } else {
+        if (!info.name) {
+          return reply.status(400).send(error(400, '首次保存开发者信息需提供名称'))
+        }
+        await db.insert(developerApplications).values({
+          userId,
+          name: info.name,
+          description: info.description ?? null,
+          website: info.website ?? null,
+        })
+      }
+    }
+
+    if (preferences) {
+      for (const key of SETTINGS_PREF_KEYS) {
+        const value = preferences[key]
+        if (value === undefined) continue
+        await upsertUserPreference(
+          userId,
+          USER_PREFERENCE_GROUPS.preferences,
+          `${DEV_SETTINGS_PREFIX}${key}`,
+          JSON.stringify(value),
+        )
+      }
+    }
+    return reply.send(success({ ok: true }))
+  })
+
+  // DELETE /settings — 清除开发者偏好设置(仅删本面 dev.* 键,不动账号与其他设置)
+  server.delete('/settings', async (request, reply) => {
+    const userId = request.userId!
+    let deleted = 0
+    for (const key of NOTIFICATION_PREF_KEYS) {
+      if (
+        await deleteUserPreference(
+          userId,
+          USER_PREFERENCE_GROUPS.notifications,
+          `${DEV_NOTIFY_PREFIX}${key}`,
+        )
+      )
+        deleted++
+    }
+    for (const key of SETTINGS_PREF_KEYS) {
+      if (
+        await deleteUserPreference(
+          userId,
+          USER_PREFERENCE_GROUPS.preferences,
+          `${DEV_SETTINGS_PREFIX}${key}`,
+        )
+      )
+        deleted++
+    }
+    return reply.send(success({ deleted }))
+  })
+
+  // GET /team — 开发者团队成员(teams + teamMembers join users;owner 不在 members 行时合成)
+  server.get('/team', async (request, reply) => {
+    const userId = request.userId!
+    let [team] = await db.select().from(teams).where(eq(teams.ownerId, userId)).limit(1)
+    if (!team) {
+      const [membership] = await db
+        .select({ teamId: teamMembers.teamId })
+        .from(teamMembers)
+        .where(eq(teamMembers.userId, userId))
+        .limit(1)
+      if (membership) {
+        ;[team] = await db.select().from(teams).where(eq(teams.id, membership.teamId)).limit(1)
+      }
+    }
+    if (!team) return reply.send(success([]))
+
+    const rows = await db
+      .select({
+        id: teamMembers.id,
+        userId: teamMembers.userId,
+        role: teamMembers.role,
+        joinedAt: teamMembers.joinedAt,
+        nickname: users.nickname,
+        username: users.username,
+        email: users.email,
+        avatar: users.avatar,
+      })
+      .from(teamMembers)
+      .innerJoin(users, eq(users.id, teamMembers.userId))
+      .where(eq(teamMembers.teamId, team.id))
+
+    const mapRole = (role: string, isOwner: boolean): string => {
+      if (isOwner) return 'owner'
+      if (role === 'admin') return 'admin'
+      if (role === 'viewer') return 'viewer'
+      return 'developer'
+    }
+
+    const list = rows.map((r) => ({
+      id: r.id,
+      nickname: r.nickname ?? r.username ?? '未命名用户',
+      avatar: r.avatar ?? undefined,
+      email: r.email ?? '',
+      role: mapRole(r.role, r.userId === team!.ownerId),
+      joinedAt: r.joinedAt.toISOString(),
+    }))
+
+    if (!rows.some((r) => r.userId === team.ownerId)) {
+      const [ownerRow] = await db
+        .select({
+          nickname: users.nickname,
+          username: users.username,
+          email: users.email,
+          avatar: users.avatar,
+        })
+        .from(users)
+        .where(eq(users.id, team.ownerId))
+        .limit(1)
+      if (ownerRow) {
+        list.unshift({
+          id: `owner:${team.id}`,
+          nickname: ownerRow.nickname ?? ownerRow.username ?? '团队所有者',
+          avatar: ownerRow.avatar ?? undefined,
+          email: ownerRow.email ?? '',
+          role: 'owner',
+          joinedAt: team.createdAt.toISOString(),
+        })
+      }
+    }
+    return reply.send(success(list))
+  })
+
+  // PUT /info — 更新开发者信息(#101;落 developer_applications,无申请记录时创建)
+  server.put('/info', async (request, reply) => {
+    const userId = request.userId!
+    const parsed = devInfoUpdateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findDeveloperInfo(userId)
+    if (existing) {
+      const [row] = await db
+        .update(developerApplications)
+        .set({
+          name: parsed.data.name ?? existing.name,
+          description:
+            parsed.data.description !== undefined ? parsed.data.description : existing.description,
+          website: parsed.data.website !== undefined ? parsed.data.website : existing.website,
+          updatedAt: new Date(),
+        })
+        .where(eq(developerApplications.id, existing.id))
+        .returning()
+      if (!row) return reply.status(500).send(error(500, '更新开发者信息失败'))
+      return reply.send(success(row))
+    }
+    if (!parsed.data.name) {
+      return reply.status(400).send(error(400, '首次更新开发者信息需提供名称'))
+    }
+    const [row] = await db
+      .insert(developerApplications)
+      .values({
+        userId,
+        name: parsed.data.name,
+        description: parsed.data.description ?? null,
+        website: parsed.data.website ?? null,
+      })
+      .returning()
+    if (!row) return reply.status(500).send(error(500, '创建开发者信息失败'))
+    return reply.status(201).send(success(row))
   })
 }
 

@@ -42,10 +42,7 @@ import {
 } from '../db/content-queries.js'
 import { success, error } from '../utils/response.js'
 import { renderChangelogEmail, renderLaunchEmail } from '../services/email-templates.js'
-import {
-  listEmailRecipients,
-  broadcastDispatchEmail,
-} from '../services/broadcast-email-service.js'
+import { listEmailRecipients, broadcastDispatchEmail } from '../services/broadcast-email-service.js'
 
 const ANNOUNCEMENT_TYPES = ['info', 'warning', 'maintenance', 'update'] as const
 const HELP_CATEGORIES = ['account', 'payment', 'project', 'ai', 'tech', 'other'] as const
@@ -298,6 +295,41 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '公告不存在'))
     }
     await markAnnouncementRead(userId, parsed.data.id)
+    return reply.send(success({ ok: true }))
+  })
+
+  // ----- 公告管理腿(G-962 批 4a #48-49:消费方直调 /api/announcements/:id,
+  // 与 /api/admin 腿同实现,route 级 requireAdmin,不影响本插件公开 GET) -----
+
+  // PATCH /announcements/:id - 更新公告(仅管理员)
+  server.patch('/announcements/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsed = updateAnnouncementSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findAnnouncementById(idParsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '公告不存在'))
+    }
+    const announcement = await updateAnnouncement(idParsed.data.id, parsed.data)
+    return reply.send(success({ announcement }))
+  })
+
+  // DELETE /announcements/:id - 删除公告(仅管理员)
+  server.delete('/announcements/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const existing = await findAnnouncementById(parsed.data.id)
+    if (!existing) {
+      return reply.status(404).send(error(404, '公告不存在'))
+    }
+    await deleteAnnouncement(parsed.data.id)
     return reply.send(success({ ok: true }))
   })
 

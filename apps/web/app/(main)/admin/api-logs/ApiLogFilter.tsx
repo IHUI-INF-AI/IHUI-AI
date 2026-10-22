@@ -43,10 +43,10 @@ export function ApiLogFilter({
           </div>
           <div className="flex-1 min-w-0 space-y-1.5">
             <Label className="text-xs">{t('apiLogs.filterEndpoint')}</Label>
+            {/* G-962 D组#108 同判据假影(提取式按引号紧邻误采 placeholder 假路径串,台账按 method|path 去重后与 api-debug 同条),已删 */}
             <Input
               value={endpointFilter}
               onChange={(e) => setEndpointFilter(e.target.value)}
-              placeholder="/api/..."
               className="h-9"
             />
           </div>

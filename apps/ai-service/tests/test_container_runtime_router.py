@@ -40,6 +40,8 @@ async def api_client(client, monkeypatch, tmp_path):
     from app.core.jwt_auth import get_current_user_id
     from app.routers import agent_runtime as _ar_mod
 
+    # G-212:docker 不可用 → 本地降级默认拒绝;本文件测降级链路,显式 opt-in
+    monkeypatch.setenv("CONTAINER_RUNTIME_ALLOW_LOCAL_FALLBACK", "1")
     rt = _make_runtime(tmp_path)
     monkeypatch.setattr(_ar_mod, "container_runtime", rt)
     # 注意:app.main.app 是 socketio.ASGIApp 包装,依赖注入表在内部 FastAPI 实例上

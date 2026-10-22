@@ -20,6 +20,7 @@ import { toUserFriendlyMessage } from '@ihui/shared'
 import { db, dbRead } from '../db/index.js'
 import {
   agents,
+  agentConfigs,
   zhsAgentBuy,
   agentSettlements,
   zhsAgentNeedTask,
@@ -28,6 +29,7 @@ import {
   agentCallbacks,
   agentUseDetails,
   agentReviews,
+  userPreferences,
   type AgentCategory,
 } from '@ihui/database'
 import {
@@ -508,6 +510,57 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(agent))
   })
 
+  // POST /agents - 创建智能体(AgentCreator 表单端点,G-962 批7 补后端)
+  // 主记录走 createAgent;model/systemPrompt 落 agents 扩展列,其余配置项落 agent_configs KV。
+  server.post('/agents', async (request, reply) => {
+    if (!request.userId) return reply.status(401).send(error(401, '未登录'))
+    const parsed = z
+      .object({
+        name: z.string().min(1, 'name 为必填项').max(100),
+        role: z.string().max(50).optional(),
+        model: z.string().max(100).optional(),
+        tools: z.array(z.string().max(50)).max(50).optional(),
+        permissionMode: z.string().max(32).optional(),
+        maxIterations: z.number().int().min(1).max(100).optional(),
+        systemPrompt: z.string().max(20000).optional(),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { name, role, model, tools, permissionMode, maxIterations, systemPrompt } = parsed.data
+    const agent = await createAgent({ name, userId: request.userId })
+    if (!agent) return reply.status(500).send(error(500, '创建智能体失败'))
+    if (model !== undefined || systemPrompt !== undefined) {
+      await db
+        .update(agents)
+        .set({
+          ...(model !== undefined ? { agentModel: model } : {}),
+          ...(systemPrompt !== undefined ? { agentPrompt: systemPrompt } : {}),
+        })
+        .where(eq(agents.agentId, agent.agentId))
+    }
+    const kv: { agentId: string; configKey: string; configValue: string }[] = []
+    if (role !== undefined)
+      kv.push({ agentId: agent.agentId, configKey: 'role', configValue: role })
+    if (tools !== undefined)
+      kv.push({ agentId: agent.agentId, configKey: 'tools', configValue: JSON.stringify(tools) })
+    if (permissionMode !== undefined)
+      kv.push({
+        agentId: agent.agentId,
+        configKey: 'permissionMode',
+        configValue: permissionMode,
+      })
+    if (maxIterations !== undefined)
+      kv.push({
+        agentId: agent.agentId,
+        configKey: 'maxIterations',
+        configValue: String(maxIterations),
+      })
+    if (kv.length > 0) await db.insert(agentConfigs).values(kv)
+    return reply.send(success(agent))
+  })
+
   // PUT /agents/:agentId - 更新代理
   server.put('/agents/:agentId', async (request, reply) => {
     const { agentId } = agentIdParam.parse(request.params)
@@ -541,6 +594,64 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const agent = await deleteAgent(agentId, request.userId)
     if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
     return reply.send(success({ deleted: true }))
+  })
+
+  // GET/PUT /agent-setting - Agent 全局设置(G-962 B8;mobile-rn AgentSettingScreen 读写)。
+  // 数据源 user_preferences(按 userId+group+key 隔离),库内无独立 agent_settings 表,
+  // 不新增迁移;未设置时返回默认值,不伪造 status。
+  const AGENT_SETTING_GROUP = 'agent-setting'
+  const AGENT_SETTING_KEY = 'profile'
+  const agentSettingSchema = z.object({
+    name: z.string().trim().max(100).default(''),
+    model: z.string().trim().max(100).default(''),
+    temperature: z.number().min(0).max(2).default(0.7),
+    enabled: z.boolean().default(true),
+  })
+  const defaultAgentSetting = { name: '', model: '', temperature: 0.7, enabled: true }
+
+  server.get('/agent-setting', async (request, reply) => {
+    if (!request.userId) return reply.status(401).send(error(401, '未登录'))
+    const rows = await db
+      .select()
+      .from(userPreferences)
+      .where(
+        and(
+          eq(userPreferences.userId, request.userId),
+          eq(userPreferences.group, AGENT_SETTING_GROUP),
+          eq(userPreferences.key, AGENT_SETTING_KEY),
+        ),
+      )
+      .limit(1)
+    const value = rows[0]?.value
+    if (!value) return reply.send(success(defaultAgentSetting))
+    try {
+      const parsed = agentSettingSchema.safeParse(JSON.parse(value))
+      return reply.send(success(parsed.success ? parsed.data : defaultAgentSetting))
+    } catch {
+      return reply.send(success(defaultAgentSetting))
+    }
+  })
+
+  server.put('/agent-setting', async (request, reply) => {
+    if (!request.userId) return reply.status(401).send(error(401, '未登录'))
+    const parsed = agentSettingSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const value = JSON.stringify(parsed.data)
+    await db
+      .insert(userPreferences)
+      .values({
+        userId: request.userId,
+        group: AGENT_SETTING_GROUP,
+        key: AGENT_SETTING_KEY,
+        value,
+      })
+      .onConflictDoUpdate({
+        target: [userPreferences.userId, userPreferences.group, userPreferences.key],
+        set: { value, updatedAt: new Date() },
+      })
+    return reply.send(success(parsed.data))
   })
 
   // -------------------------------------------------------------------------

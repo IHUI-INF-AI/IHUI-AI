@@ -43,7 +43,7 @@ export default function AdminConfigsPage() {
       const body = { ...form }
       return editing
         ? apiOrThrow(`/api/admin/configs/${editing.id}`, {
-            method: 'PUT',
+            method: 'PATCH',
             body: JSON.stringify(body),
           })
         : apiOrThrow('/api/admin/configs', { method: 'POST', body: JSON.stringify(body) })
