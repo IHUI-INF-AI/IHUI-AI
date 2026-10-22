@@ -11298,6 +11298,8 @@
     "modeSpecDesc": "AI 將從代碼反向生成 spec 文檔",
     "modeSwitched": "已切換到{mode}模式",
     "modeSwitcherLabel": "切換 AI 模式",
+    "modeTaskAria": "{mode}任務",
+    "taskProgressAria": "任務進度 {status}",
     "taskProgressOpen": "任務進度",
     "toolsPanelOpen": "展開工具面板",
     "toolsPanelClose": "收起工具面板",
