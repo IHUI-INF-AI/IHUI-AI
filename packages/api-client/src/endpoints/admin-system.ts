@@ -248,9 +248,8 @@ export async function changeUserStatus(
   })
 }
 
-export async function getUserProfile(): Promise<ApiResult<SysUser>> {
-  return fetchApi<SysUser>('/api/auth/profile')
-}
+// 2026-10-22 G-962 #73 摘除:GET /api/auth/profile 从未注册(auth-extended.ts 只有
+// PUT 同路径;本人资料真出口是 GET /api/users/me),全仓零消费方。
 
 export async function updateUserProfile(data: Partial<SysUser>): Promise<ApiResult<SysUser>> {
   return fetchApi<SysUser>('/api/auth/profile', {
@@ -269,8 +268,11 @@ export async function updateUserPwd(
   })
 }
 
-export async function uploadAvatar(data: FormData): Promise<ApiResult<{ avatar: string }>> {
-  return fetchApi<{ avatar: string }>('/api/users/avatar', {
+export async function uploadAvatar(
+  userId: string,
+  data: FormData,
+): Promise<ApiResult<{ avatar: string }>> {
+  return fetchApi<{ avatar: string }>(`/api/users/${userId}/avatar`, {
     method: 'POST',
     body: data,
   })

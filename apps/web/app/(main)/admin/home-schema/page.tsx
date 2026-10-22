@@ -141,7 +141,7 @@ export default function HomeSchemaEditorPage() {
       const value = JSON.stringify(draft)
       if (draftConfigId) {
         await apiOrThrow(`/api/admin/configs/${draftConfigId}`, {
-          method: 'PUT',
+          method: 'PATCH',
           body: JSON.stringify({
             key: DRAFT_KEY,
             value,
@@ -193,7 +193,7 @@ export default function HomeSchemaEditorPage() {
       const value = JSON.stringify(draft)
       if (prodConfigId) {
         await apiOrThrow(`/api/admin/configs/${prodConfigId}`, {
-          method: 'PUT',
+          method: 'PATCH',
           body: JSON.stringify({
             key: PROD_KEY,
             value,

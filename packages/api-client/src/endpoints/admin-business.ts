@@ -67,9 +67,8 @@ export async function listAdminArticles(
   return fetchApi<AdminArticlesData>(`/api/admin/articles${buildQs(query)}`)
 }
 
-export async function getAdminArticle(id: string): Promise<ApiResult<AdminArticle>> {
-  return fetchApi<AdminArticle>(`/api/admin/articles/${id}`)
-}
+// 2026-10-22 G-962 #65 摘除:GET /api/admin/articles/:id 从未注册(content.ts 只挂
+// list/POST/PUT/DELETE),全仓零消费方;恢复前先补后端详情路由与测试。
 
 export async function createAdminArticle(body: {
   title: string
@@ -194,7 +193,7 @@ export async function listAdminMembers(
 }
 
 export async function getAdminMember(id: string): Promise<ApiResult<AdminMember>> {
-  return fetchApi<AdminMember>(`/api/admin/members/by-id?id=${id}`)
+  return fetchApi<AdminMember>(`/api/members/by-id?id=${id}`)
 }
 
 export async function createAdminMember(
@@ -301,7 +300,7 @@ export async function listAdminLiveLecturers(
 }
 
 export async function getAdminLiveStatistics(): Promise<ApiResult<LiveStatistics>> {
-  return fetchApi<LiveStatistics>('/api/admin/live/statistics')
+  return fetchApi<LiveStatistics>('/api/live/statistics')
 }
 
 // ===================== resources(资源管理) =====================
@@ -480,15 +479,9 @@ export async function getAdminRefundDetail(
   )
 }
 
-export async function auditAdminRefund(
-  id: string,
-  body: { action: 'approve' | 'reject'; reason?: string },
-): Promise<ApiResult<EduRefund>> {
-  return fetchApi<EduRefund>(`/api/admin/refunds/${id}/audit`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
-}
+// 2026-10-22 G-962 #70 摘除:POST /api/admin/refunds/:id/audit 从未注册(在册近邻
+// PUT /api/admin/refunds/:id/process|handle、POST /api/refunds/:id/audit),
+// 且全仓零消费方(管理页直连 /api/refunds/:id/audit)。恢复前先对齐其一并补测试。
 
 export async function listAdminInvoiceApplications(
   query: PageQuery = {},
