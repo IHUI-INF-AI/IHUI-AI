@@ -524,6 +524,31 @@ function selfTest() {
     sweepOutcome(p1, { apply: false }).exit === 1 && sweepOutcome(p1, { apply: true }).exit === 0,
     JSON.stringify([sweepOutcome(p1, { apply: false }), sweepOutcome(p1, { apply: true })]),
   )
+  // 反证(G-928/G-960 型,2026-10-22 根治):同主键多枚滞留已勾拷贝必须一次全检出,
+  // 摘完后复量"滞留集==跳过集"必须成立 ⇒ H3 自洽;判据若只报首枚,摘完首枚会冒出
+  // 第二枚"新"滞留,H3 恒拒、台账提交管道卡死(门 229 拦一切 × 清扫器摘不动)。
+  const DUP_OPEN = '- [ ] G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
+  const DUP_R1 = '- [x] ✅(2026-10-20/甲) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
+  const DUP_R2 = '- [x] ✅(2026-10-20/乙) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性〔第二枚拷贝〕'
+  const DUP_FACE = [DUP_OPEN, DUP_R1, DUP_R2].join('\n')
+  const vDup = staleClosedVerdict(DUP_FACE, DUP_FACE)
+  t(
+    '⑩同号未勾+同主键两枚滞留已勾 ⇒ 两枚拷贝一次全检出(未勾副本不遮蔽、首枚不吞后续)',
+    !vDup.undetermined && vDup.stale.length === 2 && vDup.stale.map((r) => r.line).join(',') === '2,3',
+    ` stale=${vDup.stale.length} lines=${vDup.stale.map((r) => r.line).join(',')} undetermined=${vDup.undetermined}`,
+  )
+  const pDup = partitionStaleByProtection(DUP_FACE, vDup.stale, () => [])
+  const afterDup = pDup.ok ? staleClosedVerdict(pDup.text, DUP_FACE) : { stale: [{ raw: '(未过档)' }] }
+  t(
+    '⑩b H3 复量自洽:摘完两枚拷贝后滞留集==跳过集(0==0)⇒ 不再恒拒',
+    pDup.ok &&
+      pDup.strippable.length === 2 &&
+      pDup.held.length === 0 &&
+      afterDup.stale.length === pDup.held.length &&
+      afterDup.stale.map((r) => r.raw).sort().join('\n') ===
+        [...pDup.held].map((h) => h.row.raw).sort().join('\n'),
+    ` ok=${pDup.ok} strippable=${pDup.strippable.length} held=${pDup.held.length} after=${afterDup.stale.length}${pDup.why ? ' why=' + pDup.why : ''}`,
+  )
   // 机读结论行形状:三态必须能被 state= 区分,且三个计数恒在场
   const shape = `state=stripped stale=2 held=1 stripped=1`
   t(

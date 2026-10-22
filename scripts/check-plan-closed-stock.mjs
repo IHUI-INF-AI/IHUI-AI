@@ -57,7 +57,11 @@ const C = { red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[
  * 身份 = 复合主键(编号 + 正文前缀,`compositeKeyOf` 单源);拿不到主键的行退到整行逐字面,
  * 因为"退化成 null 就看不见"的方向是漏判(少拦一条滞留只是多要一次说明,
  * 但把滞留读成不存在就是本门立项防的那一型)。
- * @returns {Map<string,{line:number,raw:string}>} 身份 → 首枚命中行
+ * 同一主键的多枚已勾拷贝**逐枚全部入册**(2026-10-22 根治,本机实读 G-928/G-960 两型):
+ * 此前每个主键只留首枚,第二枚拷贝被首枚遮蔽而不在滞留集里;清扫器摘掉首枚后复量时
+ * 第二枚才冒头 ⇒ H3"摘后滞留集==跳过集"恒不自洽,台账提交管道实质卡死。
+ * 未勾行永不入本册(门 71 的保护面,本门零射程),故同号未勾副本也不得遮蔽已勾拷贝的检出。
+ * @returns {Map<string,Array<{line:number,raw:string}>>} 身份 → 该主键的全部命中行(按行序)
  */
 export function closedRowsOf(content) {
   const out = new Map()
@@ -76,13 +80,18 @@ export function closedRowsOf(content) {
       id = null
     }
     if (!id) id = `raw:${r.raw}`
-    if (!out.has(id)) out.set(id, { line: r.line, raw: r.raw })
+    const hit = out.get(id)
+    if (hit) hit.push({ line: r.line, raw: r.raw })
+    else out.set(id, [{ line: r.line, raw: r.raw }])
   }
   return out
 }
 
 /**
  * S1 滞留判定(纯函数):被审面与基线面**同主键都已勾**的行 = 跨枚留着没删的已完成记录。
+ * 同主键的多枚已勾拷贝**逐枚全部上报**(判定口径不变:仍是"两面对同一复合主键都已勾";
+ * 变的是检出完备性 —— 首枚不再吞掉后续拷贝,否则摘完首枚复量会冒出"新"滞留,
+ * 清扫器 H3 恒拒、台账提交管道卡死,2026-10-22 本机实读 G-928/G-960 两型)。
  * @returns {{stale:Array<{line:number,raw:string}>, faceClosed:number, baseClosed:number, undetermined:boolean}}
  */
 export function staleClosedVerdict(faceContent, baseContent) {
@@ -91,7 +100,7 @@ export function staleClosedVerdict(faceContent, baseContent) {
   if (face === null || base === null)
     return { stale: [], faceClosed: 0, baseClosed: 0, undetermined: true }
   const stale = []
-  for (const [id, row] of face) if (base.has(id)) stale.push(row)
+  for (const [id, rows] of face) if (base.has(id)) stale.push(...rows)
   return { stale, faceClosed: face.size, baseClosed: base.size, undetermined: false }
 }
 
@@ -161,6 +170,21 @@ function selfTest() {
       face: '',
       base: '',
       stale: 0,
+    },
+    {
+      // 2026-10-22 根治(G-928/G-960 型):同主键两枚已勾拷贝必须逐枚全报,
+      // 否则摘掉首枚后复量会冒出"新"滞留 ⇒ 清扫器 H3 恒拒、台账提交管道卡死。
+      n: '同主键两枚滞留已勾拷贝 ⇒ 逐枚全报(首枚不遮蔽后续拷贝)',
+      face: [FLIPPED, '- [x] ✅(2026-10-20/某席) G-1 P1 测试票:要做一件事〔第二枚拷贝〕'].join('\n'),
+      base: [FLIPPED, '- [x] ✅(2026-10-20/某席) G-1 P1 测试票:要做一件事〔第二枚拷贝〕'].join('\n'),
+      stale: 2,
+    },
+    {
+      // 票面夹具:同一编号既有未勾行又有滞留已勾行 ⇒ 已勾拷贝照报,不被未勾副本遮蔽。
+      n: '同号一行未勾+一行滞留已勾 ⇒ 检出已勾拷贝(未勾副本零射程、不遮蔽)',
+      face: [FRESH, FLIPPED, OTHER].join('\n'),
+      base: [FRESH, FLIPPED, OTHER].join('\n'),
+      stale: 1,
     },
   ]
   let fails = 0
