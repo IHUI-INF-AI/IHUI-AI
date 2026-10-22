@@ -156,6 +156,7 @@ export type ProbeFailureKind =
   | 'auth'
   | 'credit'
   | 'session_dead'
+  | 'risk'
   | 'rate'
   | 'not_found'
   | 'request'
