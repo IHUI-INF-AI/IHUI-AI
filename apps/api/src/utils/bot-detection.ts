@@ -225,7 +225,14 @@ const BROWSER_PLATFORM_KEYWORDS = [
   'ipad',
 ] as const
 
-const BROWSER_ENGINE_KEYWORDS = ['chrome', 'safari', 'firefox', 'edg', 'opr', 'samsungbrowser'] as const
+const BROWSER_ENGINE_KEYWORDS = [
+  'chrome',
+  'safari',
+  'firefox',
+  'edg',
+  'opr',
+  'samsungbrowser',
+] as const
 
 /**
  * 客户端族封闭枚举。UA 原文不得进指标标签(基数无界),只能按族折叠;
@@ -296,9 +303,7 @@ const SCAN_PROBE_PATTERNS: ReadonlyArray<readonly [ScanProbeKind, readonly strin
  * 走同一套常量时间比较:命中与否一旦参与拦截(anti-automation 已吃这张表),
  * 计时差异就成了攻击者"试探我的规则集"的 oracle,这里不留。
  */
-export function classifyScanProbe(
-  path: string | null | undefined,
-): ScanProbeKind | null {
+export function classifyScanProbe(path: string | null | undefined): ScanProbeKind | null {
   if (!path || path.length === 0) return null
   for (const [kind, needles] of SCAN_PROBE_PATTERNS) {
     if (timingSafeContainsAny(path, needles)) return kind
