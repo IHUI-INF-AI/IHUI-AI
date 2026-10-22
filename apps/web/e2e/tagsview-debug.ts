@@ -7,11 +7,12 @@
  * 运行: npx playwright test e2e/tagsview-debug.ts --reporter=list
  */
 import { test } from '@playwright/test'
+import { ADMIN_USER } from './fixtures'
 
 test('探查 TagsView DOM 结构和样式', async ({ page }) => {
   // API 登录
   const resp = await page.request.post('http://localhost:8801/api/auth/login', {
-    data: { account: 'admin', password: 'admin123' },
+    data: { account: ADMIN_USER.account, password: ADMIN_USER.password },
   })
   const body = (await resp.json()) as any
   const token = body.data?.accessToken ?? body.data?.token

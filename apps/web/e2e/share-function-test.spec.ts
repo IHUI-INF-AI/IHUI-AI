@@ -15,7 +15,7 @@
  * 7. 测试前端分享按钮 UI 流程
  */
 
-import { setupTest as test, expect } from './fixtures'
+import { setupTest as test, expect, ADMIN_USER } from './fixtures'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import fs from 'node:fs/promises'
@@ -54,7 +54,7 @@ test.describe('分享功能 E2E 测试', () => {
     const httpReq = await newRequest.newContext()
     try {
       const loginResp = await httpReq.post(`${API_URL}/api/auth/login`, {
-        data: { account: 'admin', password: 'admin123' },
+        data: { account: ADMIN_USER.account, password: ADMIN_USER.password },
       })
       expect(loginResp.ok()).toBe(true)
       const loginBody = await loginResp.json()

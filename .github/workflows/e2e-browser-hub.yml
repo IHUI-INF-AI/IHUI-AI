@@ -221,6 +221,12 @@ jobs:
         working-directory: packages/database
         run: pnpm exec drizzle-kit migrate
 
+      - name: Generate ephemeral E2E admin credentials
+        # 管理员口令每次运行随机生成,不落仓库;seed 与 Playwright 步骤经 GITHUB_ENV 共用。
+        run: |
+          echo "E2E_ADMIN_ACCOUNT=e2e_admin" >> "$GITHUB_ENV"
+          echo "E2E_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+
       - name: Seed E2E 测试用户(test@aizhs.top)
         # browser_hub 全部端点都要鉴权(routers/browser_hub.py 每个 handler 都
         # Depends(get_current_user_id)),没有这个用户就没有登录态,链路证不了。
