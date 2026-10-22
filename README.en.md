@@ -84,13 +84,13 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3029 | `testFiles` |
+| 测试文件 | 3030 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 268 | `guardianGates` |
 | — blocking | 245 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15664 | `trackedFiles` |
+| 跟踪文件 | 15668 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- 📚 Docs:G-960 公网入口断流旧副本转注释归并(正主为已撤回误判的修订版),清 F4 同题两版以过收敛落地闸 (004f9b4e4d)
+
 **2026-10-22**
 - 📚 Docs:翻勾守门104 cloudflared存量红收尾条目(记录pg-backup影子漂移同步)+归并活文档重复登记+README测试文件数对齐现算3029 (6299c2911a)
 
@@ -177,15 +180,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - 📚 Docs:G-926/G-927 复验收口结清(雷区残留归零+棘轮 74≤76 转绿) (8d3bb37b7a)
 - 🐞 Fix:收掉话术分档引入的三条 e2e 红,并修掉一条靠竞态才绿的断言 (b457d1e2b7)
 - ♻️ Refactor:post-commit-hook 裸 git 派生改走 face-reader gitRaw(G-927 剩余棘轮收口) (ca99778c00)
-
-**2026-10-22**
-- 🐞 Fix:补回被删掉的超龄认领代摘派发点,并加接线锁 (7de782f367)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7c2f9c706b)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (779c614b11)
-- 🔧 Chore/Other:删除 G-56 重复副本——G-69 为持有行,摘除声明防回捞 (d0af5f3ed1)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ce68f2c9c8)
-- 📚 Docs:G-924 复验收口结清(10 死键零消费现读复验+头注如实化已入库) (bb981ee240)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (15de4f883c)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
