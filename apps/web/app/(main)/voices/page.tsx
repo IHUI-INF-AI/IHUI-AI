@@ -270,7 +270,7 @@ export default function VoicesPage() {
             <p className="text-sm">{t('empty')}</p>
           </div>
         ) : (
-          <div className="divide-y divide-border/40">
+          <div>
             {voices.map((v, idx) => {
               const id = voiceId(v)
               const status = voiceStatus(v).toLowerCase()
