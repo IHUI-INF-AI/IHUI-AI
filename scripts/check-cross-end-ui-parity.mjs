@@ -3676,8 +3676,11 @@ export function main(argv, repoRoot = ROOT) {
       if (web.undetermined.length > 8)
         console.log(`  ? 其余 ${web.undetermined.length - 8} 处 WD 未判定同上`)
       for (const r of webVerdict.red)
+        // `over` 由 audit 那一处单源算出(见 3020 一带),打印层不得再算一遍维度:
+        // 写死"圆角"会把几何分叉念成 `圆角 0 > 锚点 0` 这种数学上不成立的断言,
+        // 下一个人就会去查错的那一维。
         console.log(
-          `  × WD ${r.name}:圆角 ${r.radiusCount} > 该族自己在台账的锚点 ${r.radiusAnchor} —— ` +
+          `  × WD ${r.name}:${r.over.join(' / ')} —— ` +
             `收口姿势与 RD 同:两端各自引用档位表不是目的,同一元素取同一档才是`,
         )
       /**
