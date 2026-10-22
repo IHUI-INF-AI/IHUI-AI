@@ -811,3 +811,135 @@ test('S3 源码锁:dumpFlagValue 的等号分支不得被静默删掉', () => {
     '等号分支被删了 —— 排障出口会再次静默哑火',
   )
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// G-962 py 前缀拼接:include 前缀 ⊕ 文件内自有前缀(FastAPI 真实语义)
+// 旧「二选一」把 connectors/computer-use/cost-ledger 等七族 28 条真挂载链判成
+// "高置信真死候选";挂载面判据收敛到 lib 一份实现(buildPyIncludeMaps)。
+// ─────────────────────────────────────────────────────────────────────────
+
+test('J1 py 拼接:include /api ⊕ 文件内 /computer-use ⇒ /api/computer-use/* 在册(真挂载链不得判死)', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(dir, 'apps/ai-service/app/main.py', 'app.include_router(computer_use.router, prefix="/api")\n')
+    put(
+      dir,
+      'apps/ai-service/app/routers/computer_use.py',
+      [
+        'from fastapi import APIRouter',
+        "router = APIRouter(prefix='/computer-use')",
+        "@router.get('/sessions')",
+        'async def h():',
+        '    return {}',
+        '',
+      ].join('\n'),
+    )
+    put(dir, 'apps/web/src/cu.ts', "export const f = () => api('/api/computer-use/sessions')\n")
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.equal(calls(r.out, 'web'), 1, `调用点必须进调用集\n${r.out}`)
+    assert.deepEqual(missing, [], `拼接路径必须进注册面(旧二选一只有 /computer-use/sessions)\n${JSON.stringify(missing, null, 1)}`)
+    assert.equal(r.status, 0, `真挂载链不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('J2 二级聚合器:include 行写在 killer_extras.py(非 main.py)的族必须参与比对', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(
+      dir,
+      'apps/ai-service/app/main.py',
+      'from .routers import killer_extras\nkiller_extras.register(app)\n',
+    )
+    put(
+      dir,
+      'apps/ai-service/app/routers/killer_extras.py',
+      "from . import cost_ledger\napp.include_router(cost_ledger.router, prefix='/api')\ndef register(app):\n    pass\n",
+    )
+    put(
+      dir,
+      'apps/ai-service/app/routers/cost_ledger.py',
+      [
+        'from fastapi import APIRouter',
+        "router = APIRouter(prefix='/cost-ledger')",
+        "@router.get('/summary')",
+        'async def h():',
+        '    return {}',
+        '',
+      ].join('\n'),
+    )
+    put(dir, 'apps/web/src/cl.ts', "export const f = () => api('/api/cost-ledger/summary')\n")
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.deepEqual(missing, [], `聚合器文件里的 include 行必须进挂载面(旧式只读 main.py 整族失明)\n${JSON.stringify(missing, null, 1)}`)
+    assert.equal(r.status, 0, `在册端点不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('J3 模块别名:include 键 browser_hub_router ≠ 文件名 browser_hub 时仍解到 /api', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(
+      dir,
+      'apps/ai-service/app/main.py',
+      'from app.routers import browser_hub as browser_hub_router\napp.include_router(browser_hub_router.router, prefix="/api")\n',
+    )
+    put(
+      dir,
+      'apps/ai-service/app/routers/browser_hub.py',
+      [
+        'from fastapi import APIRouter',
+        "router = APIRouter(prefix='/browser-hub')",
+        "@router.get('/tools')",
+        'async def h():',
+        '    return {}',
+        '',
+      ].join('\n'),
+    )
+    put(dir, 'apps/web/src/bh.ts', "export const f = () => api('/api/browser-hub/tools')\n")
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.deepEqual(missing, [], `别名 include 必须解到模块文件\n${JSON.stringify(missing, null, 1)}`)
+    assert.equal(r.status, 0, `在册端点不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('J4 防过度收紧:文件内 prefix 已含 /api 且被 include /api ⇒ 只出一份,不叠 /api/api/', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(dir, 'apps/ai-service/app/main.py', 'app.include_router(checkin.router, prefix="/api")\n')
+    put(
+      dir,
+      'apps/ai-service/app/routers/checkin.py',
+      [
+        'from fastapi import APIRouter',
+        "router = APIRouter(prefix='/api/checkin')",
+        "@router.get('/summary')",
+        'async def h():',
+        '    return {}',
+        '',
+      ].join('\n'),
+    )
+    put(dir, 'apps/web/src/ck.ts', "export const f = () => api('/api/checkin/summary')\n")
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.deepEqual(missing, [], `自有前缀已含 /api 时不得叠出双 /api 而丢掉真形态\n${JSON.stringify(missing, null, 1)}`)
+    assert.equal(r.status, 0, `在册端点不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})

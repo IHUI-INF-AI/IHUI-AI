@@ -97,14 +97,100 @@ const FASTIFY_FACTORY_SRC =
 
 /* ─────────────────────────── 词法小工具 ─────────────────────────── */
 
-/** 跳过引号/模板串字面量,返回结尾引号下标 */
+/**
+ * 跳过引号/模板串字面量,返回结尾引号下标。
+ * 反引号必须认 `${…}` 插值段(2026-10-22 G-962 实证:workspace-ai.ts:445 的
+ * `` `git ${…`"…"…}` `` 在插值里套了内层反引号,旧式把内层反引号当闭合 ⇒
+ * 模板提前结束 ⇒ 花括号失衡 ⇒ findTopLevelFunctions bodyEnd=-1 ⇒ 整文件 0 条入图,
+ * 25 条前端真调用落未判定桶)。插值内的引号/嵌套模板/花括号全部跟踪。
+ */
 export function skipQuoted(text, i) {
   const q = text[i]
   for (let j = i + 1; j < text.length; j++) {
-    if (text[j] === '\\') j++
-    else if (text[j] === q) return j
+    const c = text[j]
+    if (c === '\\') {
+      j++
+      continue
+    }
+    if (q === '`' && c === '$' && text[j + 1] === '{') {
+      j = skipTemplateSubstitution(text, j + 1)
+      continue
+    }
+    if (c === q) return j
   }
   return text.length - 1
+}
+
+/**
+ * 从 `${` 的 `{` 下标找到配对 `}`。插值内是**代码态**:引号/嵌套模板(递归回 skipQuoted)/
+ * 注释/花括号全部跟踪;正则字面量必须认(workspace-ai.ts:445 的 `/"/g` 带裸引号,
+ * 不认正则 ⇒ 引号态错位 ⇒ 配平被带偏)。判据与 maskRegexLiterals 同一套上下文集。
+ * 未配平返回末位(漏判退回旧行为,不冒判)。
+ */
+function skipTemplateSubstitution(text, i) {
+  let depth = 0
+  let prevSig = '{'
+  let prevWord = ''
+  for (let j = i; j < text.length; j++) {
+    const c = text[j]
+    if (c === '\\') {
+      j++
+      prevSig = '@'
+      prevWord = ''
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      j = skipQuoted(text, j)
+      prevSig = c
+      prevWord = ''
+      continue
+    }
+    if (c === '/' && (text[j + 1] === '/' || text[j + 1] === '*')) {
+      j = skipComment(text, j)
+      continue
+    }
+    if (c === '/' && (REGEX_KEYWORDS.has(prevWord) || REGEX_ALLOWED_AFTER.has(prevSig))) {
+      const end = regexLiteralEnd(text, j)
+      if (end !== -1) {
+        j = end
+        prevSig = '/'
+        prevWord = ''
+        continue
+      }
+    }
+    if (c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f' || c === '\v') continue
+    if (/[A-Za-z0-9_$]/.test(c)) {
+      prevWord += c
+      prevSig = '@'
+      continue
+    }
+    prevWord = ''
+    prevSig = c
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return j
+    }
+  }
+  return text.length - 1
+}
+
+/** `/` 处若是正则字面量,返回结尾 `/` 下标(字符类/转义跟踪,裸换行=未闭合 ⇒ -1 按除法) */
+function regexLiteralEnd(s, i) {
+  let j = i + 1
+  let inClass = false
+  for (; j < s.length; j++) {
+    const c = s[j]
+    if (c === '\n') return -1
+    if (c === '\\') {
+      j++
+      continue
+    }
+    if (c === '[') inClass = true
+    else if (c === ']') inClass = false
+    else if (c === '/' && !inClass) return j
+  }
+  return -1
 }
 
 /** 跳过注释,返回结束下标 */
@@ -186,23 +272,7 @@ export function maskRegexLiterals(text) {
     }
     if (ch === '/') {
       if (REGEX_KEYWORDS.has(prevWord) || REGEX_ALLOWED_AFTER.has(prevSig)) {
-        let j = i + 1
-        let inClass = false
-        let closed = -1
-        for (; j < s.length; j++) {
-          const c = s[j]
-          if (c === '\n') break
-          if (c === '\\') {
-            j++
-            continue
-          }
-          if (c === '[') inClass = true
-          else if (c === ']') inClass = false
-          else if (c === '/' && !inClass) {
-            closed = j
-            break
-          }
-        }
+        const closed = regexLiteralEnd(s, i)
         if (closed !== -1) {
           for (let k = i + 1; k < closed; k++) out[k] = ' '
           i = closed
@@ -1134,25 +1204,128 @@ export function walkFastifyGraph(tsInfos, opts = {}) {
 
 const PY_DECO_SRC = /@([A-Za-z_][\w.]*)\.(get|post|put|patch|delete|options|head|websocket)\(\s*['"]([^'"]*)['"]/.source
 const PY_ROUTER_PREFIX_SRC = /APIRouter\(\s*prefix\s*=\s*['"]([^'"]+)['"]/g.source
-const PY_INCLUDE_SRC = /app\.include_router\(\s*(\w+)\.router\s*,\s*prefix\s*=\s*['"]([^'"]+)['"]/g.source
 const PY_MOUNT_SRC = /\.mount\(\s*(['"][^'"]*['"])/g.source
+// include 行两种实形:① `NAME(.SUB)*.router, prefix="P"`(NAME 可为模块名或模块别名);
+// ② 裸别名 `ALIAS, prefix="P"`(实测 main.py 的 cloud_runs/computer_use/memory 三族)。
+// prefix 组可缺省(无参挂载 ⇒ 自有前缀即终形,不得登记)。
+const PY_INCLUDE_A_SRC = /app\.include_router\(\s*([\w.]+)\.router\s*(?:,[^)]*?prefix\s*=\s*['"]([^'"]+)['"])?/g.source
+const PY_INCLUDE_B_SRC = /app\.include_router\(\s*([A-Za-z0-9_]+)\s*(?:,[^)]*?prefix\s*=\s*['"]([^'"]+)['"])?/g.source
+// import 统一解析:括号多行形与单行形一把吃(`[^\n#]` 截注释,括号组允许跨行)
+const PY_IMPORT_SRC = /from\s+([.\w]+)\s+import\s*(\(([^)]*)\)|([^\n#]+))/g.source
 
 /**
- * Python(ai-service)注册面。与守门 8 旧实现**逐字同判据**(prefix + localPath 拼接),
- * 另把 `.mount('…')` 提成不透明前缀 —— 旧实现靠一份手写台账,台账会腐烂。
- * @param {Map<string,string>} pyInfos rel → 原文
+ * include 前缀 P 与文件自有前缀 Q 的拼接。旧判据的「二选一」是结构性盲区:
+ * FastAPI 真实路径 = include 前缀 + 自有前缀 + localPath(实测 connectors.py 自有
+ * `/connectors` + main.py include `prefix="/api"` ⇒ 真路径 /api/connectors/*,旧判据
+ * 只记 /connectors/* ⇒ 前端三条真调用全落未判定桶 —— G-962 高置信"真死候选"里
+ * computer-use/cloud-runs/cost-ledger/model-pricing/longterm-memory/prompts/browser-sessions
+ * 七族 28 条全是这一型假死)。
+ * 防双 /api:Q 已以 P 为路径段前缀(checkin.py 自有 /api/checkin)⇒ 不叠,直接取 Q。
+ */
+export function combinePyPrefix(includePrefix, ownPrefix) {
+  const P = String(includePrefix || '').replace(/\/+$/, '')
+  const Q = String(ownPrefix || '')
+  if (!P) return Q
+  if (!Q || Q === '/') return P
+  if (Q === P || Q.startsWith(P + '/')) return Q
+  return joinPrefix(P, Q)
+}
+
+/** 相对导入规约:`.x`/`..x` 相对宿主文件的包路径;绝对名原样 */
+function resolvePyModule(spec, parentPkg) {
+  const dots = /^\.+/.exec(spec)?.[0].length ?? 0
+  if (!dots) return spec
+  const rest = spec.slice(dots)
+  let base = parentPkg
+  for (let i = 1; i < dots; i++) base = base.split('.').slice(0, -1).join('.')
+  if (!rest) return base
+  return base ? `${base}.${rest}` : rest
+}
+
+/**
+ * 从**面上全部 py 文件**解析 include 挂载面(不只 entry):killer_extras.py 是二级聚合器
+ * (main.py 以 `killer_extras.register(app)` 调用),cost-ledger/model-pricing/longterm-memory
+ * 三族的 include 行写在该文件里 —— 只读 main.py 对这一族整型失明(G-962 实证)。
+ * import 别名四形态统一解到模块路径:
+ *   ① from app.x.y import router as A           ⇒ A → app.x.y
+ *   ② from app.x import MOD as A                ⇒ A → app.x.MOD(prompts as prompts_router 型)
+ *   ③ from app.x import (a, b, c) / a, b, c     ⇒ 各 → app.x.<name>
+ *   ④ from . import a, b(相对,killer_extras 型) ⇒ 各 → <parentPkg>.<name>
+ * 无别名导入若 `mod.name` 不在面上而 `mod` 在面上 ⇒ 按对象定义解到 mod
+ * (`from app.api.v1.router import api_v1_router` 型,api_v1_router 是对象不是模块)。
+ * 注释先遮(agent_memory.py:9 的假 include 行是这一锁的真实形态)。
+ * 已知边界:`api_v1_router.include_router(chat.router, prefix="/ai")` 这一**二级聚合**
+ * (挂载对象非 app)不解析 —— 当前未判定桶里该族(/api/v1/ai/*)零前端调用,补图无裁决需求;
+ * 真出现时再按 Fastify 侧 walk 同法扩,并保留未判定出口。
+ * @returns {{byModule: Map<string,string>, byFile: Map<string,string>}}
+ */
+export function buildPyIncludeMaps(pyInfos, entry = DEFAULT_ENTRY_PY) {
+  const byModule = new Map()
+  const byFile = new Map()
+  const faceKeys = new Set()
+  for (const rel of pyInfos.keys()) faceKeys.add(rel.replace(/\.py$/, '').replaceAll('/', '.'))
+  const put = (modKey, prefix) => {
+    byModule.set(modKey, prefix)
+    const seg = modKey.split('.').pop()
+    if (seg && !byFile.has(seg)) byFile.set(seg, prefix)
+  }
+  for (const [rel, raw] of pyInfos) {
+    const src = maskComments(raw, 'py')
+    const moduleKey = rel.replace(/\.py$/, '').replaceAll('/', '.')
+    const parentPkg = moduleKey.split('.').slice(0, -1).join('.')
+    const aliasToModule = new Map()
+    let m
+    const impRe = g(PY_IMPORT_SRC)
+    while ((m = impRe.exec(src)) !== null) {
+      const modBase = resolvePyModule(m[1], parentPkg)
+      const list = String(m[3] ?? m[4] ?? '')
+      for (const pieceRaw of list.split(',')) {
+        const piece = pieceRaw.trim()
+        if (!piece) continue
+        const mm = /^(\w+)(?:\s+as\s+(\w+))?$/.exec(piece)
+        if (!mm) continue
+        const name = mm[1]
+        const alias = mm[2]
+        if (name === 'router' && alias) {
+          aliasToModule.set(alias, modBase)
+          continue
+        }
+        const target = `${modBase}.${name}`
+        if (alias) aliasToModule.set(alias, target)
+        else if (faceKeys.has(target)) aliasToModule.set(name, target)
+        else if (faceKeys.has(modBase)) aliasToModule.set(name, modBase)
+        else aliasToModule.set(name, target)
+      }
+    }
+    const incA = g(PY_INCLUDE_A_SRC)
+    while ((m = incA.exec(src)) !== null) {
+      if (!m[2]) continue
+      const resolved = aliasToModule.get(m[1]) ?? m[1]
+      put(resolved, m[2])
+    }
+    const incB = g(PY_INCLUDE_B_SRC)
+    while ((m = incB.exec(src)) !== null) {
+      if (!m[2]) continue
+      if (aliasToModule.has(m[1]) || /^\w+$/.test(m[1])) {
+        const resolved = aliasToModule.get(m[1]) ?? m[1]
+        put(resolved, m[2])
+      }
+    }
+  }
+  return { byModule, byFile }
+}
+
+/**
+ * Python(ai-service)注册面。前缀判据 = include 前缀 ⊕ 文件自有前缀拼接(见 combinePyPrefix
+ * 头注 —— 旧「二选一」把 G-962 七族 28 条真挂载链判成假死),另把 `.mount('…')` 提成
+ * 不透明前缀 —— 旧实现靠一份手写台账,台账会腐烂。
+ * @param {Map<string,string>} pyInfos rel → 原文(须含 entry 与各二级聚合器文件)
  */
 export function extractFastApiRegistrations(pyInfos, entry = DEFAULT_ENTRY_PY) {
   const entries = []
   const opaque = []
   const undetermined = []
-  const includePrefixMap = new Map()
-  const mainSrc = pyInfos.get(entry)
-  if (mainSrc) {
-    const re = g(PY_INCLUDE_SRC)
-    let m
-    while ((m = re.exec(maskComments(mainSrc, 'py'))) !== null) includePrefixMap.set(m[1], m[2])
-  }
+  const { byModule, byFile } = buildPyIncludeMaps(pyInfos, entry)
   for (const [rel, raw] of pyInfos) {
     const src = maskComments(raw, 'py')
     let m
@@ -1168,11 +1341,16 @@ export function extractFastApiRegistrations(pyInfos, entry = DEFAULT_ENTRY_PY) {
     const routerPrefixes = []
     const preRe = g(PY_ROUTER_PREFIX_SRC)
     while ((m = preRe.exec(src)) !== null) routerPrefixes.push(m[1])
-    if (routerPrefixes.length === 0) {
-      const fileName = rel.replace(/\.py$/, '').split('/').pop()
-      if (includePrefixMap.has(fileName)) routerPrefixes.push(includePrefixMap.get(fileName))
-    }
-    const bases = routerPrefixes.length ? routerPrefixes : ['']
+    const moduleKey = rel.replace(/\.py$/, '').replaceAll('/', '.')
+    const fileName = moduleKey.split('.').pop()
+    const mounted = byModule.get(moduleKey) ?? byFile.get(fileName)
+    const bases = routerPrefixes.length
+      ? mounted
+        ? [...new Set(routerPrefixes.map((q) => combinePyPrefix(mounted, q)))]
+        : routerPrefixes
+      : mounted
+        ? [mounted]
+        : ['']
     const decoRe = g(PY_DECO_SRC)
     while ((m = decoRe.exec(src)) !== null) {
       const verb = m[2]

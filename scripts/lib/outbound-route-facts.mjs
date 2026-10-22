@@ -64,6 +64,134 @@ export function lineOf(src, idx) {
 /* --------------------------- 遮噪 --------------------------- */
 
 /**
+ * 正则字面量上下文判据(与 route-registration-extract.maskRegexLiterals 同一套:
+ * 漏判只是退回除法旧行为,冒判才会咬人,故只在「前一个有效 token 是运算符/分隔符/关键字」时认定)。
+ */
+const RE_CTX_SIGILS = new Set([
+  '(',
+  ',',
+  '=',
+  ':',
+  '[',
+  '!',
+  '&',
+  '|',
+  '?',
+  '{',
+  '}',
+  ';',
+  '+',
+  '-',
+  '*',
+  '%',
+  '~',
+  '^',
+  '<',
+  '>',
+])
+const RE_CTX_KEYWORDS = new Set([
+  'return',
+  'typeof',
+  'instanceof',
+  'in',
+  'of',
+  'new',
+  'delete',
+  'void',
+  'do',
+  'else',
+  'case',
+  'yield',
+  'await',
+])
+
+/** `/` 处若是正则字面量,返回结尾 `/` 下标(字符类/转义跟踪,裸换行=未闭合 ⇒ -1 按除法) */
+function regexLiteralEnd(s, i) {
+  let j = i + 1
+  let inClass = false
+  for (; j < s.length; j++) {
+    const c = s[j]
+    if (c === '\n') return -1
+    if (c === '\\') {
+      j++
+      continue
+    }
+    if (c === '[') inClass = true
+    else if (c === ']') inClass = false
+    else if (c === '/' && !inClass) return j
+  }
+  return -1
+}
+
+/** 跳过引号/模板字面量,返回结尾引号下标;反引号递归认 `${…}` 插值段(内含嵌套模板) */
+function skipQuotedLiteral(text, i) {
+  const q = text[i]
+  for (let j = i + 1; j < text.length; j++) {
+    const c = text[j]
+    if (c === '\\') {
+      j++
+      continue
+    }
+    if (q === '`' && c === '$' && text[j + 1] === '{') {
+      j = skipTemplateSubstitution(text, j + 1)
+      continue
+    }
+    if (c === q) return j
+  }
+  return text.length - 1
+}
+
+/** 从 `${` 的 `{` 下标找到配对 `}`(引号/嵌套模板/注释/正则/花括号全跟踪);未配平返回末位 */
+function skipTemplateSubstitution(text, i) {
+  let depth = 0
+  let prevSig = '{'
+  let prevWord = ''
+  for (let j = i; j < text.length; j++) {
+    const c = text[j]
+    if (c === '\\') {
+      j++
+      prevSig = '@'
+      prevWord = ''
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      j = skipQuotedLiteral(text, j)
+      prevSig = c
+      prevWord = ''
+      continue
+    }
+    if (c === '/' && (text[j + 1] === '/' || text[j + 1] === '*')) {
+      const nl = text.indexOf('\n', j)
+      j = nl === -1 ? text.length : nl - 1
+      continue
+    }
+    if (c === '/' && (RE_CTX_KEYWORDS.has(prevWord) || RE_CTX_SIGILS.has(prevSig))) {
+      const end = regexLiteralEnd(text, j)
+      if (end !== -1) {
+        j = end
+        prevSig = '/'
+        prevWord = ''
+        continue
+      }
+    }
+    if (c === ' ' || c === '\t' || c === '\n' || c === '\r' || c === '\f' || c === '\v') continue
+    if (/[A-Za-z0-9_$]/.test(c)) {
+      prevWord += c
+      prevSig = '@'
+      continue
+    }
+    prevWord = ''
+    prevSig = c
+    if (c === '{') depth++
+    else if (c === '}') {
+      depth--
+      if (depth === 0) return j
+    }
+  }
+  return text.length - 1
+}
+
+/**
  * 两套语法各自成对:JS/TS 是 `//` + `/* *​/`,Python 是 `#` + 三引号 docstring。
  * 三引号块只在**行首缩进后直接以三引号开头**时按 docstring 遮(拼字符串用的三引号必须保留)。
  * 这一步决定"注释里写着 /api/x"不会被当成声明(D9 反例)。字符串本身要留 —— 路径就在字符串里。
@@ -114,20 +242,12 @@ export function maskComments(src, lang) {
     }
     const q2 = text[i]
     if (q2 === "'" || q2 === '"' || q2 === '`') {
-      let j = i + 1
-      while (j < n) {
-        if (text[j] === '\\') {
-          j += 2
-          continue
-        }
-        if (text[j] === q2) {
-          j += 1
-          break
-        }
-        j += 1
-      }
-      out.push(text.slice(i, j))
-      i = j
+      // 反引号必须认 `${…}` 插值段(2026-10-22 G-962 实证:workspace-ai.ts:445 的模板
+      // 在插值里套了内层反引号,旧式把内层反引号当闭合 ⇒ 引号态级联错位 ⇒ 模板后的
+      // 真实代码被当字符串吞,注册面整族丢图)。未闭合退回旧行为(吞到串尾)。
+      const end = skipQuotedLiteral(text, i)
+      out.push(text.slice(i, Math.min(end + 1, n)))
+      i = Math.min(end + 1, n)
       continue
     }
     out.push(text[i])

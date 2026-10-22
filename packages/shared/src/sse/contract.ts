@@ -258,6 +258,16 @@ export type ToolApprovalNetworkTargetWire = {
 }
 
 /**
+ * D690(2026-10-22,方案 A 拍板):断线重连时服务端重放"仍待决"审批帧的**可选标记键**
+ * (值恒 true;前端按 approval_id 幂等渲染)。与生产侧
+ * `apps/ai-service/app/core/sse_contract.py::SSE_APPROVAL_REPLAY_PAYLOAD_KEY` 逐字同值
+ * (两侧同值由 apps/ai-service/tests/test_d690_chat_reconnect_approval_replay.py 现读钉,
+ * 先例:D174 traceId 两侧同表)。刻意不进下方判别成员的必填清单 ——
+ * 正常下发的审批帧没有这一格,只有重放帧带。
+ */
+export const SSE_APPROVAL_REPLAY_PAYLOAD_KEY = 'replay'
+
+/**
  * SSE 判别联合(精确 payload 类型)。
  * 待收紧字段用 `Record<string, unknown>` + 注释标注;禁用 `any`。
  */
@@ -439,6 +449,15 @@ export type SSEEventPayload =
   //   (弹窗整块不渲染)。合成一个就是"把没判写成判过了"那一型。
   // - `network_target`:本次要连的目标;`display` 恒 `host:port`(票面:弹窗不显示哈希)。
   // - `blocked_network_targets`:已被**静态策略**判死的目标;"还没有规则"不算被拦。
+  //
+  // D690(2026-10-22,机主授权代拍板方案 A;承 D131 取证、D1047 diff②):断线重连时
+  // 服务端重放**仍待决**的审批帧带 `replay: true` —— 帧形与正常下发同字段,只多这一格
+  // 可选标记(前端按 approval_id 幂等渲染,不二次弹窗)。生产侧两处:agents.py 任务流
+  // (D1047 先行)与 llm.py 主对话流(本票接线)。键名真相源在
+  // 下方 `SSE_APPROVAL_REPLAY_PAYLOAD_KEY`,与 Python 侧
+  // `apps/ai-service/app/core/sse_contract.py::SSE_APPROVAL_REPLAY_PAYLOAD_KEY` 同值
+  // (两侧同值由 apps/ai-service/tests/test_d690_chat_reconnect_approval_replay.py 钉住,
+  // 先例:D174 traceId 两侧同表)。
   | SSEEventWithMeta<{
       type: 'tool-approval'
       approval_id: string
@@ -450,6 +469,8 @@ export type SSEEventPayload =
       exec_environment?: ToolApprovalExecEnvironmentWire
       network_target?: ToolApprovalNetworkTargetWire
       blocked_network_targets?: ToolApprovalNetworkTargetWire[]
+      /** D690:重放帧标记;正常下发的审批帧**没有**这一格(可选,不是必填) */
+      replay?: true
     }>
   // 对话流业务表单请求(V3 #63:llm.py 的 request_business_form 拦截位发出;
   // 前端 BusinessFormSection 消费,应答经 form-response 端点回传)。

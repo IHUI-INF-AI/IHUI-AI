@@ -14,6 +14,8 @@ import { describe, expect, it } from 'vitest'
 import {
   hasVersionFamilyCoords,
   projectActiveMessages,
+  versionFamilyMembers,
+  versionFamilyPosition,
   versionFamilyRootId,
 } from '@/lib/message-version-family'
 import { hydrateHistoryMessage } from '@/hooks/use-chat/history-message'
