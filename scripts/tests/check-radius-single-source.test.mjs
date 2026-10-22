@@ -21,7 +21,9 @@ const GUARD = join(ROOT, 'scripts/check-radius-single-source.mjs')
 // §22c:B6 的「门体名单」与「文档行定位」两份提取全仓只此一份,主断言与下方两条形态锁共用 ——
 // 测试内不得再抄一份名单(抄了就是第二份会腐烂的真相)。
 function extractGateB6Names(gateSrc) {
-  const arrM = gateSrc.match(/for \(const name of \[('rnRadius', 'rnRadiusFor', 'RADIUS_CSS_PX')\]\)/)
+  const arrM = gateSrc.match(
+    /for \(const name of \[('rnRadius', 'rnRadiusFor', 'RADIUS_CSS_PX')\]\)/,
+  )
   assert.ok(arrM, '门体 B6 清单数组形状变了,请同步更新本钉的提取式')
   return [...arrM[1].matchAll(/'(\w+)'/g)].map((m) => m[1])
 }
@@ -65,7 +67,9 @@ test('B6 标识符清单:门体数组与 AGENTS §4 B6 行同源一份', () => {
   // 若文档漏写名单中任一词,集合不等即红
   const b6Line = extractB6Line(agents)
   assert.ok(b6Line, 'AGENTS §4 的 B6 行丢失')
-  const docNames = [...b6Line.matchAll(/`(\w+)`/g)].map((m) => m[1]).filter((n) => gateNames.includes(n))
+  const docNames = [...b6Line.matchAll(/`(\w+)`/g)]
+    .map((m) => m[1])
+    .filter((n) => gateNames.includes(n))
   assert.deepEqual(
     [...new Set(docNames)].sort(),
     [...gateNames].sort(),
@@ -98,13 +102,11 @@ test('B6 名单真漂移:提取式放宽排版后仍必须判红', () => {
   const line = extractB6Line(drifted)
   assert.ok(line, '漂移样本必须仍能被定位(否则下面的集合比对是空集假绿)')
   const docNames = [
-    ...new Set([...line.matchAll(/`(\w+)`/g)].map((m) => m[1]).filter((n) => gateNames.includes(n))),
+    ...new Set(
+      [...line.matchAll(/`(\w+)`/g)].map((m) => m[1]).filter((n) => gateNames.includes(n)),
+    ),
   ]
-  assert.notDeepEqual(
-    [...docNames].sort(),
-    [...gateNames].sort(),
-    '文档漏写门体名单成员时必须红',
-  )
+  assert.notDeepEqual([...docNames].sort(), [...gateNames].sort(), '文档漏写门体名单成员时必须红')
 })
 
 /**
@@ -145,7 +147,9 @@ test('守门 77 的棘轮锚点必须是 HEAD 自身而不是静态清单(装车
   assert.match(src, /const auditHead = !isStaged && !FILES_MODE/)
   assert.match(src, /export function splitFresh/)
   //  静态清单只是兜底,HEAD 清零后必须为空 —— 留着非空清单等于给"整文件回写旧基线"放行
-  const b = JSON.parse(readFileSync(join(ROOT, 'scripts/radius-single-source-baseline.json'), 'utf8'))
+  const b = JSON.parse(
+    readFileSync(join(ROOT, 'scripts/radius-single-source-baseline.json'), 'utf8'),
+  )
   assert.equal(b.sites.length, 0, `基线应为空,实际 ${b.sites.length} 处`)
   //  自检必须钉住误红、误绿两个方向
   const out = execFileSync(process.execPath, [GUARD, '--self-test'], {
@@ -238,14 +242,31 @@ const FIX_RADIUS_DTS =
 function mkFixtureRepo(base, { withViolation, extra = {} }) {
   writeAt(base, 'packages/design-tokens/src/radius.js', FIX_RADIUS_JS)
   writeAt(base, 'packages/design-tokens/src/radius.d.ts', FIX_RADIUS_DTS)
-  writeAt(base, 'packages/design-tokens/src/styles/tokens.css', '@theme {\n  --radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.25rem;\n  --radius-md: 0.375rem;\n  --radius-lg: 0.5rem;\n  --radius-xl: 0.75rem;\n  --radius-2xl: 1rem;\n}\n')
-  writeAt(base, 'packages/design-tokens/src/tailwind-preset.js', 'const RADIUS_REM = {}\nexport const preset = { theme: { borderRadius: RADIUS_REM } }\n')
+  writeAt(
+    base,
+    'packages/design-tokens/src/styles/tokens.css',
+    '@theme {\n  --radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.25rem;\n  --radius-md: 0.375rem;\n  --radius-lg: 0.5rem;\n  --radius-xl: 0.75rem;\n  --radius-2xl: 1rem;\n}\n',
+  )
+  writeAt(
+    base,
+    'packages/design-tokens/src/tailwind-preset.js',
+    'const RADIUS_REM = {}\nexport const preset = { theme: { borderRadius: RADIUS_REM } }\n',
+  )
   writeAt(base, 'apps/web/src/card.tsx', 'export const card = { a: { borderRadius: 0 } }\n')
-  if (withViolation) writeAt(base, 'apps/web/src/bad.tsx', 'export const bad = { a: { borderRadius: 8 } }\n')
+  if (withViolation)
+    writeAt(base, 'apps/web/src/bad.tsx', 'export const bad = { a: { borderRadius: 8 } }\n')
   for (const [rel, content] of Object.entries(extra)) writeAt(base, rel, content)
   git(base, ['init', '-b', 'main'])
   git(base, ['add', '-A'])
-  git(base, ['-c', 'user.name=radius-guard-fixture', '-c', 'user.email=guard-fixture@invalid', 'commit', '-m', 'fixture'])
+  git(base, [
+    '-c',
+    'user.name=radius-guard-fixture',
+    '-c',
+    'user.email=guard-fixture@invalid',
+    'commit',
+    '-m',
+    'fixture',
+  ])
 }
 function runGuard(guardPath) {
   return spawnSync(process.execPath, [guardPath], {
@@ -262,7 +283,11 @@ test('无 git 环境(任何仓之外)⇒ exit 2 且输出含「无法判定」,�
   try {
     const g = copyGuardWithDeps(base)
     const r = runGuard(g)
-    assert.equal(r.status, 2, `期望 exit 2(无法判定),实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+    assert.equal(
+      r.status,
+      2,
+      `期望 exit 2(无法判定),实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`,
+    )
     assert.match(r.stderr, /无法判定/)
     assert.doesNotMatch(`${r.stdout}`, /对账通过/, '取材面失效时绝不允许打印通过结论')
   } finally {
@@ -278,12 +303,24 @@ test('隔离检出(无 .git 而祖先目录是 git 仓 ⇒ ls-files 假空集而
     git(base, ['init', '-b', 'main'])
     writeAt(base, 'outer-readme.md', 'outer repo anchor\n')
     git(base, ['add', '-A'])
-    git(base, ['-c', 'user.name=radius-guard-fixture', '-c', 'user.email=guard-fixture@invalid', 'commit', '-m', 'outer'])
+    git(base, [
+      '-c',
+      'user.name=radius-guard-fixture',
+      '-c',
+      'user.email=guard-fixture@invalid',
+      'commit',
+      '-m',
+      'outer',
+    ])
     const iso = join(base, 'iso-checkout')
     mkdirSync(iso, { recursive: true })
     const g = copyGuardWithDeps(iso)
     const r = runGuard(g)
-    assert.equal(r.status, 2, `逃逸到外层仓的假空清单必须判"无法判定"(exit 2)而非记绿,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+    assert.equal(
+      r.status,
+      2,
+      `逃逸到外层仓的假空清单必须判"无法判定"(exit 2)而非记绿,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`,
+    )
     assert.match(r.stderr, /无法判定/)
     assert.doesNotMatch(r.stdout, /对账通过/)
   } finally {
@@ -298,7 +335,11 @@ test('判据真的在跑:有 git 的真仓夹具、0 违规 ⇒ exit 0 且扫描
     mkFixtureRepo(base, { withViolation: false })
     const r = runGuard(join(base, ...GUARD_REL.split('/')))
     assert.equal(r.status, 0, `夹具应判绿\nstdout:${r.stdout}\nstderr:${r.stderr}`)
-    assert.match(r.stdout, /扫描 [1-9]\d* 文件/, '结论行的候选计数必须 >0 —— 证明判据真在执行,不是空扫')
+    assert.match(
+      r.stdout,
+      /扫描 [1-9]\d* 文件/,
+      '结论行的候选计数必须 >0 —— 证明判据真在执行,不是空扫',
+    )
     assert.match(r.stdout, /对账通过/)
   } finally {
     rmScratch(base)
@@ -311,7 +352,11 @@ test('注入一处绕档取用(borderRadius: 8 数字字面量)⇒ exit 1 并点
     copyGuardWithDeps(base)
     mkFixtureRepo(base, { withViolation: true })
     const r = runGuard(join(base, ...GUARD_REL.split('/')))
-    assert.equal(r.status, 1, `注入的绕档必须判红,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+    assert.equal(
+      r.status,
+      1,
+      `注入的绕档必须判红,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`,
+    )
     assert.match(r.stderr, /新增 1 处/)
     assert.match(r.stderr, /\[B1\]/)
   } finally {
@@ -341,7 +386,11 @@ test('夹具注入多值混写与任意属性形态 ⇒ 逐值点名(旧整串�
       },
     })
     const r = runGuard(join(base, ...GUARD_REL.split('/')))
-    assert.equal(r.status, 1, `两处混写必须判红,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+    assert.equal(
+      r.status,
+      1,
+      `两处混写必须判红,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`,
+    )
     assert.match(r.stderr, /新增 3 处/, '全 var 的那一条不得被计进来(逐值判不得反过来误伤)')
     assert.match(r.stderr, /24rpx/, '多值声明的第二个角必须被点名')
     assert.match(r.stderr, /\[B3-off\][^\n]*6rpx/, '不在档位表上的角必须按偏档点名')
@@ -352,7 +401,11 @@ test('夹具注入多值混写与任意属性形态 ⇒ 逐值点名(旧整串�
      * 少了它,把 geoPass 整段删掉本测试仍全绿(计数会变成 4 处,而 4≠3 只在有人主动核对时才红)。
      */
     assert.doesNotMatch(r.stderr, /W = \(\)/, '同值落在可证正方盒上不得计红(几何放行必须真的在跑)')
-    assert.equal((r.stderr.match(/dot\.tsx/g) || []).length, 1, 'dot.tsx 只允许被点名一次(第二处已被几何证明放行)')
+    assert.equal(
+      (r.stderr.match(/dot\.tsx/g) || []).length,
+      1,
+      'dot.tsx 只允许被点名一次(第二处已被几何证明放行)',
+    )
   } finally {
     rmScratch(base)
   }
@@ -377,7 +430,7 @@ test('反向锁:B3 不得回到"值里出现 var( 就整条放行"的旧形状',
     '值前导字符类必须含左方括号 —— 旧写法把 Tailwind 任意属性形态 [border-radius:…] 整个漏掉',
   )
   assert.ok(
-    src.includes("([^;}\\n'\"\\]]+)"),
+    src.includes('([^;}\\n\'"\\]]+)'),
     '值字符类必须排除右方括号,否则任意属性形态会把后半串 className 当成一个值读',
   )
 })
@@ -409,13 +462,16 @@ test('B6 标识符表必须含 rnRadiusFor —— 门不得对自己规定的写
  * 立因是本票给 radius.js 加了 popover/bubble,而 .d.ts 是手抄的第二份 —— 运行时取到值、
  * TS 消费方 TS2339、`pnpm typecheck` 只在 worktree 跑,没人写那一行就永远不红。
  */
-test("A4 端到端:radius.js 有新角色而 .d.ts 未跟上 ⇒ exit 1 并点名缺档", () => {
+test('A4 端到端:radius.js 有新角色而 .d.ts 未跟上 ⇒ exit 1 并点名缺档', () => {
   const base = mkScratch('r77-a4')
   try {
     copyGuardWithDeps(base)
     mkFixtureRepo(base, {})
     const js = join(base, 'packages/design-tokens/src/radius.js')
-    writeFileSync(js, readFileSync(js, 'utf8').replace("hero: '2xl' }", "hero: '2xl', popover: 'md' }"))
+    writeFileSync(
+      js,
+      readFileSync(js, 'utf8').replace("hero: '2xl' }", "hero: '2xl', popover: 'md' }"),
+    )
     git(base, ['add', '-A'])
     git(base, [
       '-c',
@@ -427,7 +483,11 @@ test("A4 端到端:radius.js 有新角色而 .d.ts 未跟上 ⇒ exit 1 并点�
       'a4-drift',
     ])
     const r = runGuard(join(base, ...GUARD_REL.split('/')))
-    assert.equal(r.status, 1, `角色漂移必须判红,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+    assert.equal(
+      r.status,
+      1,
+      `角色漂移必须判红,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`,
+    )
     assert.match(r.stderr + r.stdout, /RadiusRole 缺 'popover'/, '红线必须点名缺的是哪个角色')
   } finally {
     rmScratch(base)
@@ -440,7 +500,11 @@ test('A4 端到端反向:两侧同值的同一夹具 ⇒ 判绿且不出现角�
     copyGuardWithDeps(base)
     mkFixtureRepo(base, {})
     const r = runGuard(join(base, ...GUARD_REL.split('/')))
-    assert.equal(r.status, 0, `一致面必须绿,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`)
+    assert.equal(
+      r.status,
+      0,
+      `一致面必须绿,实际 ${r.status}\nstdout:${r.stdout}\nstderr:${r.stderr}`,
+    )
     assert.doesNotMatch(r.stdout + r.stderr, /RadiusRole/, '一致时不该出现角色对账的红线')
   } finally {
     rmScratch(base)
@@ -457,11 +521,18 @@ test('A4 端到端反向:两侧同值的同一夹具 ⇒ 判绿且不出现角�
  *         (抄一份固定名单 = 表改档那天 B7 拿旧名单判新代码)。
  */
 const TABLE_FOR_SCAN = await (async () => {
-  const mod = await import(`file://${join(ROOT, 'packages/design-tokens/src/radius.js').replaceAll('\\', '/')}`)
+  const mod = await import(
+    `file://${join(ROOT, 'packages/design-tokens/src/radius.js').replaceAll('\\', '/')}`
+  )
   return {
     RADIUS_STEPS: mod.RADIUS_STEPS,
-    stepOf: (px) => Object.keys(mod.RADIUS_STEPS).find((k) => mod.RADIUS_STEPS[k] === px && k !== 'DEFAULT') || null,
-    nearest: (px) => [...new Set(Object.values(mod.RADIUS_STEPS))].reduce((a, b) => (Math.abs(b - px) < Math.abs(a - px) ? b : a)),
+    stepOf: (px) =>
+      Object.keys(mod.RADIUS_STEPS).find((k) => mod.RADIUS_STEPS[k] === px && k !== 'DEFAULT') ||
+      null,
+    nearest: (px) =>
+      [...new Set(Object.values(mod.RADIUS_STEPS))].reduce((a, b) =>
+        Math.abs(b - px) < Math.abs(a - px) ? b : a,
+      ),
   }
 })()
 const gateScan = async () => (await import(`file://${GUARD.replaceAll('\\', '/')}`)).scanText
@@ -478,23 +549,38 @@ const FIX_FILE = 'apps/miniapp-taro/src/components/DrawerComponent.tsx'
 
 test('T-B7a 死类名阳性对照:引入缺陷的那枚提交必须被 B7 点名', async () => {
   const broken = gitShow('a95f063636:' + FIX_FILE)
-  assert.ok(broken.includes('rounded-$1-'), '出处提交里没有死类名 ⇒ 本对照已失效,要换现役出处而不是删测试')
-  const hits = (await gateScan())(FIX_FILE, broken, TABLE_FOR_SCAN).filter((b) => b.rule === 'B7-dead-class')
+  assert.ok(
+    broken.includes('rounded-$1-'),
+    '出处提交里没有死类名 ⇒ 本对照已失效,要换现役出处而不是删测试',
+  )
+  const hits = (await gateScan())(FIX_FILE, broken, TABLE_FOR_SCAN).filter(
+    (b) => b.rule === 'B7-dead-class',
+  )
   assert.equal(hits.length, 1, `出处那份文件必须恰好点名 1 处死类名,实际 ${hits.length}`)
   assert.equal(hits[0].raw, 'rounded-$1-xl', '点名的必须是那条被 codemod 吃掉方向字母的类名')
 })
 
 test('T-B7b 同一文件在 HEAD 上必须不再报 B7(与上一条同判据,一红一绿)', async () => {
   const now = gitShow('HEAD:' + FIX_FILE)
-  const hits = (await gateScan())(FIX_FILE, now, TABLE_FOR_SCAN).filter((b) => b.rule === 'B7-dead-class')
+  const hits = (await gateScan())(FIX_FILE, now, TABLE_FOR_SCAN).filter(
+    (b) => b.rule === 'B7-dead-class',
+  )
   assert.equal(hits.length, 0, `死类名复活了:${hits.map((h) => h.raw).join(', ')}`)
 })
 
 test('T-B7c 装车形状锁:B7 挂在类名属性取材上、档位名单现取自 radius.js', () => {
   const txt = readFileSync(GUARD, 'utf8').replace(/\s+/g, ' ')
   assert.match(txt, /rule: 'B7-dead-class'/, 'B7 的判红不见了 ⇒ 死类名再次静默通过')
-  assert.match(txt, /const classStepNames = new Set\(\[\.\.\.Object\.keys\(table\.RADIUS_STEPS\)/, '档位名单必须是 radius.js 现取,不是抄死的名单')
-  assert.doesNotMatch(txt, /classStepNames = new Set\(\['xs'/, '固定名单一腐烂,B7 就会拿旧档名判新代码')
+  assert.match(
+    txt,
+    /const classStepNames = new Set\(\[\.\.\.Object\.keys\(table\.RADIUS_STEPS\)/,
+    '档位名单必须是 radius.js 现取,不是抄死的名单',
+  )
+  assert.doesNotMatch(
+    txt,
+    /classStepNames = new Set\(\['xs'/,
+    '固定名单一腐烂,B7 就会拿旧档名判新代码',
+  )
 })
 
 /**
@@ -509,11 +595,15 @@ test('T-DEPS 夹具清单由传递闭包派生,且派生本身不得漏门自己
   // 清单已经和闭包同源(不可能漂移),所以这一条改守**尺子本身坏了**那一型:
   // 遍历若认不出门顶层的相对 import,夹具就会少复制文件,而症状是"7 条端到端各自解释"。
   const { deps, dangling } = GUARD_DEPS_STATE
-  assert.deepEqual(dangling, [], `闭包里有文件读不到(说明 import 指向不存在的路径):${dangling.join(', ')}`)
+  assert.deepEqual(
+    dangling,
+    [],
+    `闭包里有文件读不到(说明 import 指向不存在的路径):${dangling.join(', ')}`,
+  )
   assert.ok(deps.length > 0, '闭包为空 ⇒ 派生根本没跑,不得当作"没有依赖"')
   const src = readFileSync(GUARD, 'utf8')
-  const direct = [...src.matchAll(/^import[^'"]*from\s+['"](\.[^'"]+)['"]/gm)].map(
-    (m) => join(dirname(GUARD_REL), m[1]).split('\\').join('/'),
+  const direct = [...src.matchAll(/^import[^'"]*from\s+['"](\.[^'"]+)['"]/gm)].map((m) =>
+    join(dirname(GUARD_REL), m[1]).split('\\').join('/'),
   )
   assert.ok(direct.length > 0, '门顶层一条相对 import 都读不到 ⇒ 本锁失去对象(先修尺子)')
   const missed = direct.filter((p) => !deps.includes(p))
@@ -547,7 +637,10 @@ test('T-B8 豁免放行支路不得回来,而 B8 判红必须装车且共用那�
   // 锚点取那行正则里独有一段(整行注释的提前 return),不复制整串 —— 复制来的锚点会跟着判据一起漂。
   const atCommentSkip = src.indexOf('<!--|#\\s|;;')
   assert.ok(atMarker > 0, 'B8 判据不在位')
-  assert.ok(atCommentSkip > 0, '找不到"整行注释提前 return"那一行 ⇒ 锚点变了,本锁必须跟着改,不能默认放过')
+  assert.ok(
+    atCommentSkip > 0,
+    '找不到"整行注释提前 return"那一行 ⇒ 锚点变了,本锁必须跟着改,不能默认放过',
+  )
   assert.ok(
     atMarker < atCommentSkip,
     'B8 被放在"整行注释直接 return"之后 ⇒ 标记活在注释里,门对该族全盲',
@@ -567,7 +660,10 @@ test('上限分工:本门只判数值族,全圆写法归守门 11;两边都不�
   const src = readFileSync(GUARD, 'utf8')
   const gate11 = readFileSync(join(ROOT, 'scripts/check-rounded-full.mjs'), 'utf8')
   assert.match(src, /rule: 'B9'/, '数值半径的上限判据必须在本门(它管数值族)')
-  assert.ok(!/geoCapBreached/.test(src), '几何等效半径的上限闸不得回到本门 —— 那一族由守门 11 的 C7 判')
+  assert.ok(
+    !/geoCapBreached/.test(src),
+    '几何等效半径的上限闸不得回到本门 —— 那一族由守门 11 的 C7 判',
+  )
   assert.match(gate11, /圆角超过上限/, '守门 11 必须真有上限判据(否则分工后这一族无人看守)')
   // 用 includes 而不是再抄一层正则:要证的是"那一族在门 11 里有实现",不是正则字面量的形状。
   // 复制来的锚点会跟着判据一起漂 —— 上面那条被删掉的原写法就是这样把一条正确的锁变成误红的。
@@ -576,4 +672,38 @@ test('上限分工:本门只判数值族,全圆写法归守门 11;两边都不�
     gate11.includes(`['"]?50%`),
     '必须覆盖 RN 的 camelCase 写法(borderRadius 冒号 引号 50%)—— 交接一族时必须同时接住它的书写面',
   )
+})
+
+/**
+ * B10 容器造形(2026-10-22 立)。镜像测试只**调用**门体导出的判据,不重写正则 ——
+ * 抄一份进来就等于"门改了认法而测试照绿"(§22c 红线)。
+ * 三条各钉一态:静态拦 / @keyframes 放 / 注释里的文字不算;
+ * 再加一条接线锁:函数在但 judge 没调用 = 判据从未生效(本仓登记过的"造好没装车"型)。
+ */
+test('B10 容器造形:静态 polygon 拦、动画遮罩放、注释文字放,且 judge 真的调用了它', () => {
+  const stat = gate.findContainerNotches('.p { clip-path: polygon(0 10px, 10px 0, 100% 0); }')
+  assert.equal(stat.length, 1, '静态 clip-path 造角必须被枚举到')
+  assert.equal(stat[0].inKeyframes, false, '静态形状不得被当成动画遮罩放过')
+
+  const kf = gate.findContainerNotches(
+    '@keyframes wipe {\n  0% { clip-path: polygon(0 0, 100% 0); }\n}',
+  )
+  assert.equal(kf.length, 1)
+  assert.equal(kf[0].inKeyframes, true, '@keyframes 内的 clip-path 是动画遮罩,结构性豁免')
+
+  assert.deepEqual(
+    gate.findContainerNotches(
+      '/* 旧写法 clip-path: polygon(0 0, 100% 0) 已废弃 */\n.p { border-radius: var(--radius-lg) }',
+    ),
+    [],
+    '注释里的说明文字不得被当成代码(判据不能吃自己的文档)',
+  )
+
+  const src = readFileSync(GUARD, 'utf8')
+  assert.match(
+    src,
+    /for \(const h of findContainerNotches\(text\)\)/,
+    '判据函数必须被 judge 调用 —— 只 export 不接线等于没装车',
+  )
+  assert.match(src, /rule: 'B10-shape-notch'/, 'B10 必须真有报名,否则 self-test 的红没有归属')
 })
