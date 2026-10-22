@@ -160,7 +160,7 @@ test('T6 纯删除是合法入口:只有 LAND_REMOVE_PATHS 必须放行(G-926 �
   assert.match(r.stdout, /删除档 1 路径已摘除/, '报告行必须体现删除档')
 })
 
-test('T7 clobber 同语义:CAS 期间 HEAD 推进而该路径在位性变了 ⇒ 拒绝照旧删', (t) => {
+test('T7 clobber 同语义:CAS 期间 HEAD 推进而该路径在位性变了 ⇒ 拒绝照旧删', (_t) => {
   // 直接验判据面(纯函数),不模拟真实并发(那需要两个落地进程竞争,夹具噪声大):
   // 在位性对账必须同时看 baseRef 与当下 HEAD 两侧。
   assert.match(SRC, /removeBase/, '删除档必须为在位性建基线快照')
@@ -191,7 +191,7 @@ test('T9 形状锁:源码里删除档的接线在位(import 了底层、entries 
   assert.match(SRC, /alignSharedIndex\(\{ root, paths: paths\.concat\(removePaths\)/, '索引对齐必须覆盖删除路径')
 })
 
-test('T10 器物自证入口:--self-test 真跑得通,且每条用例都点名(不是空跑)', (t) => {
+test('T10 器物自证入口:--self-test 真跑得通,且每条用例都点名(不是空跑)', (_t) => {
   // 票面原话"带 --self-test 与镜像用例"的前半截:交付现场/值守复盘没有 node --test,
   // `node scripts/object-space-land.mjs --self-test` 一条命令必须能自证删除档还在。
   // 它自己造自己的临时仓(走 mkScratch),这里只当调用方:问退出码、问汇总行、问每条用例都在。
