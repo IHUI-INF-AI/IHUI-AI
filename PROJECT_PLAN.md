@@ -29007,3 +29007,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-963 **f9 变异夹具的传递闭包只扫 lib 一跳,check-plan-line-loss.mjs 的 `./scrub-declared-removals.mjs` 同级二跳 import 不入清单 ⇒ 4 枚变异用例 ERR_MODULE_NOT_FOUND(G-955 复跑取证,存量他票 2026-10-22 引入)**〔登记@2026-10-22/goal-20261022]:plan-task-index-f9-title-normalization.test.mjs 的 scratch 夹具复制依赖闭包时只扫 `scripts/lib/*.mjs` 里 `from '../x.mjs'` 一跳;check-plan-line-loss.mjs:116 新增同级 `./scrub-declared-removals.mjs` import 后,该二跳永不入夹具清单 ⇒ 变异臂夹具缺件红(主会话复跑实证 ERR_MODULE_NOT_FOUND)。验收:闭包扫描补同级 `./` 引用(递归到不动点为加分项),f9 全量绿,不动判据本体。
 - [ ] （进行中@2026-10-22/ledger-p1） **G-964 台账字段结构化 P1 残余**:侧车抽取器 `scripts/plan-fields-extract.mjs` 与新守门 `check-plan-fields.mjs`(warn 档)未建;规格 `docs/superpowers/specs/2026-10-22-plan-ledger-schema-design.md`
 
+## 2026-10-22 台账字段结构化 P2(行内投影 + 强制档)
+
+- [ ] **G-965 台账字段结构化 P2**:行内标头投影未写、强制档未落(现读侧车 74 条 / 无结构化交代存量 146 枚 / 标头不一致 0 枚);出路 = 投影只走 `scripts/lib/plan-field-line.mjs` 渲染且整行改写必须先过 `scripts/lib/plan-row-conservation.mjs` 三维守恒,强制只能挂在"只判本次新增"的差值维上(现门 warn,§12e 不许为消红升档)
