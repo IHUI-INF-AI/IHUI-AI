@@ -6,7 +6,7 @@
  * 监控面板原生配置(自动生成,请勿手改)。
  *
  * 由 scripts/generate-monitor-panels.mjs 从 monitoring/panel-defs/panels/*.json 转译;
- * 表达式与 Grafana 盘逐条同源(329 条),模板变量已归一为 All 档(.*)。
+ * 表达式与 Grafana 盘逐条同源(334 条),模板变量已归一为 All 档(.*)。
  * $__interval / $__range 为占位符,由 /admin/monitor/panels 页面按时间窗替换。
  */
 export interface PanelTarget {
@@ -5518,6 +5518,94 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "count(up{job=\"business-metrics\"} == 1)",
             "legend": "在采的实例数"
+          }
+        ]
+      },
+      {
+        "id": "7",
+        "title": "PV / UV(滚动窗口聚合值,小时级刷新)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "max by (window, source) (ihui_traffic_page_views{instance=~\".*\"})",
+            "legend": "PV {{source}}/{{window}}"
+          },
+          {
+            "ref": "B",
+            "expr": "max by (window, source) (ihui_traffic_unique_visitors{instance=~\".*\"})",
+            "legend": "UV {{source}}/{{window}}"
+          }
+        ]
+      },
+      {
+        "id": "8",
+        "title": "真人 vs 自动化占比(近 24h 聚合 PV,按自述族)",
+        "kind": "pie",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (client_family) (ihui_traffic_family_page_views{window=\"24h\",source=\"api_logs\",instance=~\".*\"} > 0)",
+            "legend": "{{client_family}}"
+          }
+        ]
+      },
+      {
+        "id": "9",
+        "title": "聚合器新鲜度(多久没成功刷过 PV/UV)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 7200
+          }
+        ],
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "time() - max(ihui_traffic_aggregation_last_success_timestamp_seconds{instance=~\".*\"})",
+            "legend": "距今"
+          }
+        ]
+      },
+      {
+        "id": "10",
+        "title": "族分解是否被 UA 种类预算截断(1 = 族值只是下界)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "max": 1,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "max by (window, source) (ihui_traffic_family_breakdown_truncated{instance=~\".*\"})",
+            "legend": "{{window}}/{{source}}"
           }
         ]
       }

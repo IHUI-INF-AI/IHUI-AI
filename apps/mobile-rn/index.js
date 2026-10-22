@@ -37,6 +37,9 @@ try {
 try {
   const { ErrorUtils } = require('react-native')
   const { API_BASE_URL } = require('./src/lib/config')
+  // 发射前一律过共享层唯一出口(守门 214 V1):服务端 recordCrash 还会再兜一道,
+  // 但"原文出设备"这一步不可逆,端内不得因为"服务端会兜"就不脱敏。
+  const { redactCrashText } = require('@ihui/shared/utils/redact')
   if (ErrorUtils && typeof ErrorUtils.setGlobalHandler === 'function') {
     const defaultHandler = ErrorUtils.getGlobalHandler()
     ErrorUtils.setGlobalHandler((error, isFatal) => {
@@ -48,8 +51,8 @@ try {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             platform: 'mobile',
-            errorMessage: msg.slice(0, 4000),
-            stack: stack ? stack.slice(0, 20000) : undefined,
+            errorMessage: (redactCrashText(msg) || 'unknown error').slice(0, 4000),
+            stack: stack ? redactCrashText(stack).slice(0, 20000) : undefined,
           }),
         }).catch(() => {})
       } catch {

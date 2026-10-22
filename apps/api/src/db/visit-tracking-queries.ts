@@ -10,19 +10,35 @@ import { visitLogs, type VisitLog } from '@ihui/database'
 // 访问记录写入
 // =============================================================================
 
+/**
+ * 服务端观测面(2026-10-23 真值化立)。
+ *
+ * `ip` / `userAgent` **只能**从这里进库:此前 `saveVisitLog` 照单接收客户端自报的同名
+ * 字段,结果 visit_logs 2555 行里 2550 行 user_agent 为空、IP 维度读不出任何东西
+ * (上报方 `VisitTracker.tsx` 压根不带这两个字段,而带得起来的都是可整写的客户端)。
+ * AGENTS §5「身份不得住客户端可整写字段」⇒ 入参形状上就不给客户端留通道:
+ * 本接口里没有 ip/userAgent 这两个键,调用方要传编译期就报错。
+ */
+export interface ObservedVisitorFields {
+  /** 服务端取到的来源 IP(XFF 首段 ?? request.ip) */
+  ip: string | null
+  /** 服务端取到的 User-Agent 原文(已按列长钳制) */
+  userAgent: string | null
+}
+
 export interface SaveVisitLogInput {
   userId?: string
-  ip?: string
   city?: string
   url?: string
   referer?: string
-  userAgent?: string
   sessionId?: string
   visitDate?: string
+  observed: ObservedVisitorFields
 }
 
 /**
  * 保存访问记录。visitDate 缺省取当天 YYYY-MM-DD(取前 10 位)。
+ * ip / user_agent 一律取 `observed`(服务端观测面),客户端自报值不进这一层。
  */
 export async function saveVisitLog(input: SaveVisitLogInput): Promise<VisitLog> {
   const visitDate = input.visitDate?.slice(0, 10) || new Date().toISOString().slice(0, 10)
@@ -30,11 +46,11 @@ export async function saveVisitLog(input: SaveVisitLogInput): Promise<VisitLog> 
     .insert(visitLogs)
     .values({
       userId: input.userId,
-      ip: input.ip,
+      ip: input.observed.ip,
       city: input.city,
       url: input.url,
       referer: input.referer,
-      userAgent: input.userAgent,
+      userAgent: input.observed.userAgent,
       sessionId: input.sessionId,
       visitDate,
     })

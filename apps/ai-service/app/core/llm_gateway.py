@@ -85,6 +85,90 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
+def _emit_llm_call_log(
+    *,
+    billing_user_id: str | None,
+    model: str,
+    provider: str,
+    status: str,
+    messages: list[dict[str, Any]] | None = None,
+    response_text: str | None = None,
+    usage: dict[str, Any] | None = None,
+    duration_seconds: float | None = None,
+    ttft_seconds: float | None = None,
+    cost_usd: float | None = None,
+    cost_source: str | None = None,
+    http_status: object = None,
+    error_message: str | None = None,
+    error_kind: str | None = None,
+    key_pool_id: str | None = None,
+    attempt: int = 0,
+    call_route: str = "direct",
+    leg_primary: str | None = None,
+    combo_name: str | None = None,
+    native_adapter: bool = False,
+    model_requested: str | None = None,
+    usage_estimated: bool = False,
+    conversation_id: str | None = None,
+) -> None:
+    """llm_call_logs 逐条落库分发(2026-10-22 立,AI 网关逐条落库票)。
+
+    - **缺主体不写**:billing_user_id 为空(或非 str)时直接返回,连任务都不创建,
+      一条 INSERT 都不会发出(§5 认证不等于授权;越权用例锁"副作用没发生")。
+    - core → services 只有函数级 import(红线:async core 不得模块级依赖 services,
+      见 astream 原生分支对 async_gen_close 的同款注释)。
+    - 任何异常只 warn —— 落库层坏了不能把对话链路带崩(audit_service 同款契约)。
+    """
+    if not billing_user_id or not isinstance(billing_user_id, str):
+        return
+    try:
+        from ..services.llm_call_log_writer import (
+            LlmCallLogFields,
+            prompt_from_messages,
+            schedule_llm_call_log,
+        )
+
+        schedule_llm_call_log(
+            LlmCallLogFields(
+                user_id=billing_user_id,
+                model=model,
+                status=status,
+                prompt=prompt_from_messages(messages or []),
+                response=response_text,
+                usage=usage or {},
+                provider_code=provider,
+                latency_ms=(
+                    int(max(duration_seconds, 0.0) * 1000)
+                    if duration_seconds is not None
+                    else 0
+                ),
+                error_message=error_message,
+                error_kind=error_kind,
+                http_status=http_status if isinstance(http_status, int) else None,
+                ttft_ms=(
+                    int(ttft_seconds * 1000)
+                    if ttft_seconds is not None and ttft_seconds >= 0
+                    else None
+                ),
+                cost_usd=cost_usd,
+                cost_source=cost_source,
+                key_pool_id=key_pool_id,
+                config_source="key_pool" if key_pool_id else "byok_or_env",
+                attempt=attempt,
+                call_route=call_route,
+                leg_primary=leg_primary,
+                combo_name=combo_name,
+                native_adapter=native_adapter,
+                model_requested=model_requested,
+                usage_estimated=usage_estimated,
+                conversation_id=conversation_id,
+            )
+        )
+    except Exception as e:
+        logger.warning("llm_call_logs 落库分发失败(忽略,不阻塞业务): %s", e)
+
+
 # ============================================================================
 # ihui_relay api_base 自动检测(国内/海外端点竞速)
 # ============================================================================
@@ -2384,6 +2468,11 @@ class LLMGateway:
         model: str | None = None,
         *,
         owner_uuid: str | None = None,
+        billing_user_id: str | None = None,
+        conversation_id: str | None = None,
+        _call_route: str = "direct",
+        _call_route_primary: str | None = None,
+        _combo_name: str | None = None,
         _skip_fallback: bool = False,
         _pool_retry: int = 0,
         **kwargs: Any,
@@ -2393,7 +2482,15 @@ class LLMGateway:
         Args:
             messages: OpenAI 格式的消息列表。
             model: 模型名称,为空则使用默认模型。
-            owner_uuid: 用户 UUID,用于匹配 ai_model_config 表中的用户私有配置。
+            owner_uuid: 用户 UUID,用于匹配 ai_model_config 表私有配置(语义=配置归属者)。
+            billing_user_id: **鉴权主体**(JWT 派生的 user_id,由 router 层显式下传)。
+                llm_call_logs.user_id 只认这一个来源——§5「认证不等于授权」:不从
+                owner_uuid 反推、不信客户端自报;缺主体 ⇒ 本次调用不写流水行。
+            conversation_id: 会话标识(流水表 conversation_id 列,可空)。
+            _call_route/_call_route_primary/_combo_name: 内部参数,标记本次上游
+                调用是"哪条腿"(direct/fallback/combo/native/key_pool_retry/
+                openrouter_failover)、由哪个 primary 改道而来、所属 combo 链名,
+                进 llm_call_logs.metadata(无迁移授权,新维度全落 jsonb)。
             _skip_fallback: 内部参数,True 时跳过 FallbackRouter(防递归)。
             _pool_retry: 内部参数,号池故障转移重试计数(最多 3 次)。
             **kwargs: 透传给 litellm 的额外参数。
@@ -2481,6 +2578,26 @@ class LLMGateway:
                         usage=_native_usage,
                         duration_seconds=time.perf_counter() - _native_metrics_t0,
                         cost_usd=_estimate_cost_usd(used_model, _native_usage),
+                    )
+                    _emit_llm_call_log(
+                        billing_user_id=billing_user_id,
+                        model=used_model,
+                        provider=_metrics_provider(used_model),
+                        status="success",
+                        messages=trimmed_messages,
+                        response_text=native_result.get("content"),
+                        usage=_native_usage,
+                        duration_seconds=time.perf_counter() - _native_metrics_t0,
+                        cost_usd=_estimate_cost_usd(used_model, _native_usage),
+                        cost_source="price_table",
+                        key_pool_id=None,
+                        attempt=_pool_retry,
+                        call_route="native",
+                        leg_primary=_call_route_primary,
+                        combo_name=_combo_name,
+                        native_adapter=True,
+                        model_requested=model,
+                        conversation_id=conversation_id,
                     )
                     return native_result
                 except ProviderError as e:
@@ -2605,12 +2722,15 @@ class LLMGateway:
             # 生产 Prometheus 上 ihui_llm_* 全仓 30 天 0 条时序,AI 大屏整片 No data。
             # 成本取不到时传 None(宁缺毋假),不影响业务。
             _cost_usd: float | None = None
+            _cost_source: str | None = None
             try:
                 _cost_usd = float(litellm.completion_cost(completion_response=response))
+                _cost_source = "litellm"
             except Exception:
                 _cost_usd = None
             if not _cost_usd:
                 _cost_usd = _estimate_cost_usd(used_model, usage_dict)
+                _cost_source = "price_table" if _cost_usd else None
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,
@@ -2618,6 +2738,25 @@ class LLMGateway:
                 usage=usage_dict,
                 duration_seconds=time.perf_counter() - _metrics_t0,
                 cost_usd=_cost_usd,
+            )
+            _emit_llm_call_log(
+                billing_user_id=billing_user_id,
+                model=used_model,
+                provider=_metrics_provider(used_model),
+                status="success",
+                messages=trimmed_messages,
+                response_text=result.get("content"),
+                usage=usage_dict,
+                duration_seconds=time.perf_counter() - _metrics_t0,
+                cost_usd=_cost_usd,
+                cost_source=_cost_source,
+                key_pool_id=current_key_pool_id,
+                attempt=_pool_retry,
+                call_route=_call_route,
+                leg_primary=_call_route_primary,
+                combo_name=_combo_name,
+                model_requested=model,
+                conversation_id=conversation_id,
             )
             return result
         except Exception as e:
@@ -2653,6 +2792,40 @@ class LLMGateway:
                 duration_seconds=time.perf_counter() - _metrics_t0,
                 error_status=_err_status,
             )
+            # 失败归因文案与错误码(safe_msg/err_code 计算上提:失败流水行要落
+            # **脱敏后**的文本,而不是另起第二份脱敏/归因判据——同一段计算同时喂
+            # 流水行与后面的 fallback/combo 分支闸门,口径唯一。)
+            safe_msg = str(e)
+            err_code = "LLM_ERROR"
+            if "API key 未配置" in safe_msg or "未配置" in safe_msg:
+                err_code = "MODEL_NOT_CONFIGURED"
+            elif "NotImplemented" in safe_msg:
+                err_code = "PROVIDER_NOT_IMPLEMENTED"
+            else:
+                for key_field in ("api_key", "apikey", "authorization"):
+                    if key_field in safe_msg.lower():
+                        safe_msg = f"LLM 调用失败(含敏感信息已脱敏): {type(e).__name__}"
+                        break
+            # 流水收口(失败路径同样逐条落行,不丢):换 key/换模型会各自再落一行,
+            # 与 ihui_llm_calls_total 的"上游尝试次数"量纲一致。
+            _emit_llm_call_log(
+                billing_user_id=billing_user_id,
+                model=used_model,
+                provider=_metrics_provider(used_model),
+                status="error",
+                messages=trimmed_messages,
+                duration_seconds=time.perf_counter() - _metrics_t0,
+                http_status=_http_status,
+                error_message=safe_msg,
+                error_kind=_err_status,
+                key_pool_id=current_key_pool_id,
+                attempt=_pool_retry,
+                call_route=_call_route,
+                leg_primary=_call_route_primary,
+                combo_name=_combo_name,
+                model_requested=model,
+                conversation_id=conversation_id,
+            )
             # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
             # 重试优先于 FallbackRouter/ComboRouter(同模型换 key < 换模型兜底)
             if current_key_pool_id is not None and _pool_retry < 3:
@@ -2665,21 +2838,15 @@ class LLMGateway:
                     messages,
                     model=model,
                     owner_uuid=owner_uuid,
+                    billing_user_id=billing_user_id,
+                    conversation_id=conversation_id,
+                    _call_route=_call_route,
+                    _call_route_primary=_call_route_primary,
+                    _combo_name=_combo_name,
                     _skip_fallback=_skip_fallback,
                     _pool_retry=_pool_retry + 1,
                     **kwargs,
                 )
-            safe_msg = str(e)
-            err_code = "LLM_ERROR"
-            if "API key 未配置" in safe_msg or "未配置" in safe_msg:
-                err_code = "MODEL_NOT_CONFIGURED"
-            elif "NotImplemented" in safe_msg:
-                err_code = "PROVIDER_NOT_IMPLEMENTED"
-            else:
-                for key_field in ("api_key", "apikey", "authorization"):
-                    if key_field in safe_msg.lower():
-                        safe_msg = f"LLM 调用失败(含敏感信息已脱敏): {type(e).__name__}"
-                        break
             # P3-3 OpenRouter 403 failover(2026-07-30):openrouter/<model> 返回 403 时,
             # 自动 failover 到 agnes/<model>(同模型换 provider,优先于 FallbackRouter 换模型)
             # _is_openrouter_403_error 天然防递归:agnes/ 前缀不匹配 openrouter/ 判断
@@ -2706,6 +2873,11 @@ class LLMGateway:
                         messages,
                         model=agnes_model,
                         owner_uuid=owner_uuid,
+                        billing_user_id=billing_user_id,
+                        conversation_id=conversation_id,
+                        _call_route="openrouter_failover",
+                        _call_route_primary=used_model,
+                        _combo_name=_combo_name,
                         **kwargs,
                     )
             # FallbackRouter 接入:LLM_ERROR 且未跳过 fallback 时,
@@ -2718,7 +2890,10 @@ class LLMGateway:
                 and (fallback_router._configs or is_quota_exhaustion_error(e))
             ):
                 fb_result = await fallback_router.complete_with_fallback(
-                    trimmed_messages, used_model, primary_error=e
+                    trimmed_messages, used_model, primary_error=e,
+                    billing_user_id=billing_user_id,
+                    conversation_id=conversation_id,
+                    combo_name=_combo_name,
                 )
                 if not fb_result.get("error"):
                     fb_result["fallback_used"] = True
@@ -2779,6 +2954,11 @@ class LLMGateway:
                                     messages=trimmed_messages,
                                     combo_name=combo_name,
                                     primary=used_model,
+                                    billing_user_id=billing_user_id,
+                                    conversation_id=conversation_id,
+                                    _call_route="combo",
+                                    _call_route_primary=used_model,
+                                    _combo_name=combo_name,
                                     **kwargs,
                                 ),
                             )
@@ -2910,6 +3090,10 @@ class LLMGateway:
         trimmed_messages: list[dict[str, Any]],
         used_model: str,
         error_message: str,
+        *,
+        billing_user_id: str | None = None,
+        conversation_id: str | None = None,
+        combo_name: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """流式主路径失败(未发任何 chunk)时的 FallbackRouter 兜底事件流。
 
@@ -2929,7 +3113,10 @@ class LLMGateway:
         fb_reason = classify_fallback_reason(Exception(error_message))
         try:
             fb_result = await fallback_router.complete_with_fallback(
-                trimmed_messages, used_model, primary_error=error_message
+                trimmed_messages, used_model, primary_error=error_message,
+                billing_user_id=billing_user_id,
+                conversation_id=conversation_id,
+                combo_name=combo_name,
             )
             if not fb_result.get("error"):
                 fb_content = fb_result.get("content", "") or ""
@@ -3080,10 +3267,22 @@ class LLMGateway:
         model: str | None = None,
         *,
         owner_uuid: str | None = None,
+        billing_user_id: str | None = None,
+        conversation_id: str | None = None,
+        _call_route: str = "direct",
+        _call_route_primary: str | None = None,
+        _combo_name: str | None = None,
         _pool_retry: int = 0,
         **kwargs: Any,
     ) -> AsyncIterator[dict[str, Any]]:
         """流式调用 LLM,逐 token 产出。
+
+        Args:
+            billing_user_id: 鉴权主体,由 router 层显式下传(§5 认证不等于授权);
+                缺主体 ⇒ 本次调用不写 llm_call_logs 行。
+            conversation_id: 会话标识(llm_call_logs.conversation_id 列,可空)。
+            _call_route/_call_route_primary/_combo_name: 内部参数,命中腿标记,
+                进 llm_call_logs.metadata(见 services/llm_call_log_writer.py 键清单)。
 
         Yields:
             - {"type": "chunk", "content": "token 文本"}
@@ -3152,6 +3351,9 @@ class LLMGateway:
                 # 取不到时以 litellm.token_counter 估算兜底(与 LiteLLM 流式路径同款)。
                 _native_metrics_t0 = time.perf_counter()
                 _native_final_usage: dict[str, Any] | None = None
+                # usage 是否来自上游 done 事件(决定流水行 metadata.usage_estimated;
+                # 兜底 token_counter 估算才是 estimated,不冒充上游真值)
+                _native_usage_from_upstream = False
                 # 2026-10-19 修复:原生流式分支此前只置 native_sent_content,
                 # 未测量首 token 耗时,导致 ihui_llm_ttft_seconds 在 stepfun/工具
                 # 原生路径上永不产出(与 LiteLLM 分支双标)。首个内容事件即记 TTFT。
@@ -3189,10 +3391,38 @@ class LLMGateway:
                                 and evt.get("type") == "error"
                                 and not native_sent_content
                             ):
+                                # 流水收口(原生流式失败腿):本腿失败落一行(error),
+                                # 兜底腿由 _astream_fallback_events 内部的 complete
+                                # 各自再落行(尝试数口径,与指标一致)。
+                                _emit_llm_call_log(
+                                    billing_user_id=billing_user_id,
+                                    model=used_model,
+                                    provider=_metrics_provider(used_model),
+                                    status="error",
+                                    messages=trimmed_messages,
+                                    duration_seconds=time.perf_counter() - _native_metrics_t0,
+                                    error_message=str(evt.get("message", "") or "")[:2000],
+                                    attempt=_pool_retry,
+                                    call_route="native",
+                                    leg_primary=_call_route_primary,
+                                    combo_name=_combo_name,
+                                    native_adapter=True,
+                                    model_requested=model,
+                                    conversation_id=conversation_id,
+                                )
                                 async for fb_evt in self._astream_fallback_events(
                                     trimmed_messages,
                                     used_model,
                                     str(evt.get("message", "")) or "native provider stream failed",
+                                    **(
+                                        {
+                                            "billing_user_id": billing_user_id,
+                                            "conversation_id": conversation_id,
+                                            "combo_name": _combo_name,
+                                        }
+                                        if billing_user_id
+                                        else {}
+                                    ),
                                 ):
                                     yield fb_evt
                                 return
@@ -3208,6 +3438,7 @@ class LLMGateway:
                                     _native_ttft = time.perf_counter() - _native_metrics_t0
                             if isinstance(evt, dict) and evt.get("usage"):
                                 _native_final_usage = evt["usage"]
+                                _native_usage_from_upstream = True
                             yield evt
                 finally:
                     # return / 正常耗尽 / 消费者提前收流(GeneratorExit)三条出口都走这里;
@@ -3229,6 +3460,7 @@ class LLMGateway:
                         }
                     except Exception:
                         _native_final_usage = {}
+                _native_usage_estimated = not _native_usage_from_upstream
                 record_llm_outcome(
                     _metrics_provider(used_model),
                     used_model,
@@ -3237,6 +3469,29 @@ class LLMGateway:
                     duration_seconds=time.perf_counter() - _native_metrics_t0,
                     ttft_seconds=_native_ttft,
                     cost_usd=_estimate_cost_usd(used_model, _native_final_usage),
+                )
+                _emit_llm_call_log(
+                    billing_user_id=billing_user_id,
+                    model=used_model,
+                    provider=_metrics_provider(used_model),
+                    status="success",
+                    messages=trimmed_messages,
+                    # response 原文:原生流式路径逐事件透传、未在本层累积文本,
+                    # 如实落 NULL(response 列可空;不拿空串冒充"回复是空的")。
+                    response_text=None,
+                    usage=_native_final_usage,
+                    duration_seconds=time.perf_counter() - _native_metrics_t0,
+                    ttft_seconds=_native_ttft,
+                    cost_usd=_estimate_cost_usd(used_model, _native_final_usage),
+                    cost_source="price_table",
+                    attempt=_pool_retry,
+                    call_route="native",
+                    leg_primary=_call_route_primary,
+                    combo_name=_combo_name,
+                    native_adapter=True,
+                    model_requested=model,
+                    usage_estimated=_native_usage_estimated,
+                    conversation_id=conversation_id,
                 )
                 # 2026-08-29 修复:流结束前统一产出累积后的完整 tool_calls(按 index 排序)
                 if native_tool_acc:
@@ -3249,7 +3504,16 @@ class LLMGateway:
         if self._is_stub_mode():
             db_result = await _resolve_from_db(used_model, owner_uuid)
             if not db_result:
-                result = await self.complete(messages, model=model, owner_uuid=owner_uuid)
+                result = await self.complete(
+                    messages,
+                    model=model,
+                    owner_uuid=owner_uuid,
+                    billing_user_id=billing_user_id,
+                    conversation_id=conversation_id,
+                    _call_route=_call_route,
+                    _call_route_primary=_call_route_primary,
+                    _combo_name=_combo_name,
+                )
                 content = result.get("content", "")
                 chunk_size = 10
                 for i in range(0, len(content), chunk_size):
@@ -3499,6 +3763,7 @@ class LLMGateway:
                 await KeyPoolSelector.mark_key_healthy(current_key_pool_id)
             # 观测收口(流式成功):TTFT 只在真流式首 token 处量,降级回退不冒充 TTFT。
             _stream_cost: float | None = None
+            _stream_cost_source: str | None = None
             try:
                 if final_usage:
                     _stream_cost = float(
@@ -3508,10 +3773,12 @@ class LLMGateway:
                             completion_tokens=int(final_usage.get("completion_tokens") or 0),
                         )
                     )
+                    _stream_cost_source = "litellm" if _stream_cost else None
             except Exception:
                 _stream_cost = None
             if not _stream_cost:
                 _stream_cost = _estimate_cost_usd(used_model, final_usage)
+                _stream_cost_source = "price_table" if _stream_cost else None
             record_llm_outcome(
                 _metrics_provider(used_model),
                 used_model,
@@ -3520,6 +3787,29 @@ class LLMGateway:
                 duration_seconds=time.perf_counter() - _metrics_t0,
                 ttft_seconds=_ttft_seconds,
                 cost_usd=_stream_cost,
+            )
+            # 流水收口(流式成功):一行 = 一次上游流式尝试(token 四维/成本/TTFT/
+            # key 池腿别逐条可回溯;缺主体时 _emit 直接返回,零副作用)。
+            _emit_llm_call_log(
+                billing_user_id=billing_user_id,
+                model=used_model,
+                provider=_metrics_provider(used_model),
+                status="success",
+                messages=trimmed_messages,
+                response_text=accumulated_content or None,
+                usage=final_usage,
+                duration_seconds=time.perf_counter() - _metrics_t0,
+                ttft_seconds=_ttft_seconds,
+                cost_usd=_stream_cost,
+                cost_source=_stream_cost_source,
+                key_pool_id=current_key_pool_id,
+                attempt=_pool_retry,
+                call_route=_call_route,
+                leg_primary=_call_route_primary,
+                combo_name=_combo_name,
+                model_requested=model,
+                usage_estimated=bool(final_usage.get("estimated")),
+                conversation_id=conversation_id,
             )
             # 用户级收口(2026-10-19):流式完整跑完 = 一个用户请求成功一次。
             # 非流式走 AuditMiddleware,此处不双计(见 llm_metrics 头注)。
@@ -3583,6 +3873,28 @@ class LLMGateway:
                     if key_field in safe_msg.lower():
                         safe_msg = f"LLM 流式调用失败(含敏感信息已脱敏): {type(e).__name__}"
                         break
+            # 流水收口(流式失败):失败行逐条落库(流中断也算失败行,
+            # 已发出的部分内容由 metadata.call_route 与 error_kind 定位)。
+            _emit_llm_call_log(
+                billing_user_id=billing_user_id,
+                model=used_model,
+                provider=_metrics_provider(used_model),
+                status="error",
+                messages=trimmed_messages,
+                response_text=accumulated_content or None,
+                duration_seconds=time.perf_counter() - _metrics_t0,
+                ttft_seconds=_ttft_seconds,
+                http_status=_http_status_s,
+                error_message=safe_msg,
+                error_kind=_err_status_s,
+                key_pool_id=current_key_pool_id,
+                attempt=_pool_retry,
+                call_route=_call_route,
+                leg_primary=_call_route_primary,
+                combo_name=_combo_name,
+                model_requested=model,
+                conversation_id=conversation_id,
+            )
             # 流式中断标记:已发过 chunk 的流式调用失败时,不可中途切换 provider,
             # 标记 partial_done 让前端知道流被异常截断(收到的是部分内容),避免半截内容 + error 的混淆
             if accumulated_content or accumulated_reasoning:
@@ -3633,6 +3945,11 @@ class LLMGateway:
                     messages,
                     model=model,
                     owner_uuid=owner_uuid,
+                    billing_user_id=billing_user_id,
+                    conversation_id=conversation_id,
+                    _call_route=_call_route,
+                    _call_route_primary=_call_route_primary,
+                    _combo_name=_combo_name,
                     _pool_retry=_pool_retry + 1,
                     **kwargs,
                 ):
@@ -3671,6 +3988,11 @@ class LLMGateway:
                         messages,
                         model=agnes_model,
                         owner_uuid=owner_uuid,
+                        billing_user_id=billing_user_id,
+                        conversation_id=conversation_id,
+                        _call_route="openrouter_failover",
+                        _call_route_primary=used_model,
+                        _combo_name=_combo_name,
                         **kwargs,
                     ):
                         yield evt
@@ -3686,7 +4008,10 @@ class LLMGateway:
                 fb_reason = classify_fallback_reason(e)
                 try:
                     fb_result = await fallback_router.complete_with_fallback(
-                        trimmed_messages, used_model, primary_error=e
+                        trimmed_messages, used_model, primary_error=e,
+                        billing_user_id=billing_user_id,
+                        conversation_id=conversation_id,
+                        combo_name=_combo_name,
                     )
                     if not fb_result.get("error"):
                         # fallback 返回的是完整结果(非流式),拆成 chunk 产出
@@ -3901,6 +4226,9 @@ class FallbackRouter:
         primary: str,
         *,
         primary_error: BaseException | str | None = None,
+        billing_user_id: str | None = None,
+        conversation_id: str | None = None,
+        combo_name: str | None = None,
     ) -> dict[str, Any]:
         """带故障转移的推理。
 
@@ -4009,9 +4337,16 @@ class FallbackRouter:
             try:
                 # P2 修复:fallback 阶段 num_retries=0,防止重试放大
                 # 主 provider 已失败,fallback 也失败时重试只是浪费资源,应快速返回错误
+                # 逐条落库(2026-10-22):fallback 腿同样带主体下传,每腿一行;
+                # call_route='fallback' + leg_primary 指回失败的 primary。
                 result = await llm_gateway.complete(
                     messages, model=provider, _skip_fallback=True,
                     num_retries=0,
+                    billing_user_id=billing_user_id,
+                    conversation_id=conversation_id,
+                    _call_route="fallback",
+                    _call_route_primary=primary,
+                    _combo_name=combo_name,
                 )
                 if not result.get("error"):
                     if provider in equivalents:
