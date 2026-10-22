@@ -69,7 +69,9 @@ async function loginAndSaveStorageState(
   credentials: Credentials,
   storageStatePath: string,
 ) {
-  await page.goto('/login')
+  // 显式直连独立登录页:/login 是软路由(打开弹窗后回前一页/降级首页),2026-10-22 摘掉
+  // /login→/sso/login 的 308 后它不再落在本页;storageState 基座不赌导航落点。
+  await page.goto('/sso/login')
 
   // 邮箱登录表单字段(见 src/components/login/EmailLogin.tsx);
   // account 字段为 username/email/phone 三选一时,统一提交到 #email-login-email 输入框
