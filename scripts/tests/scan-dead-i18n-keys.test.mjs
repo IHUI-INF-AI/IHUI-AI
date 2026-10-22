@@ -1212,10 +1212,24 @@ describe('判定面纪律(缺省 HEAD blob / --staged 索引 blob / --worktree �
       /'node scripts\/scan-dead-i18n-keys\.mjs --exit 1'/,
       '旧的无 --staged 调用形态不得回来',
     )
+    // 2026-10-22 门 70b(commit 119085b0ff):web 步从 pre-commit 串行段整体移入守门并行池,
+    // 跳门开关不再以 `process.env.HUSKY_SKIP_I18N_DEAD_KEY !== '1'` 的字面量住在 hook 里,
+    // 而由「注册条目 skipEnv + 执行器通用读取」承接(同一变量、同一语义)。
+    // 这里钉**当前真实的读者**(出路必须真跑得通,§0.8),不钉已被搬走的那个旧字面量。
+    const runner = fs.readFileSync(path.resolve(__dirname, '../guardian-runner.mjs'), 'utf8')
+    const executor = fs.readFileSync(
+      path.resolve(__dirname, '../lib/guardian-executor.mjs'),
+      'utf8',
+    )
     assert.match(
-      hook,
-      /process\.env\.HUSKY_SKIP_I18N_DEAD_KEY !== '1'/,
-      '应急跳门 env 必须真被脚本读',
+      runner,
+      /script: 'scan-dead-i18n-keys\.mjs'[\s\S]{0,600}?skipEnv: 'HUSKY_SKIP_I18N_DEAD_KEY'/,
+      '应急跳门 env 必须由本门自己的注册条目承接(漏登记 ⇒ 该 env 无人读 = 跑不通的出路)',
+    )
+    assert.match(
+      executor,
+      /process\.env\[check\.skipEnv\] === '1'/,
+      '执行器必须真读注册条目的 skipEnv(否则注册只是注释)',
     )
     // 其余 3 端 warn-only 循环与 web 步同口径收面(否则升级 blocking 那天复刻今天的红)
     assert.match(
