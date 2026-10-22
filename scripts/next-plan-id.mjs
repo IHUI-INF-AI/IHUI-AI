@@ -56,7 +56,16 @@
  *   ② 标题口径照旧算(号段 max 吃它,HEADING 那把尺一字未动),但**只作读数打印**,不判红也不判绿;
  *   ③ 判据取不到输入 ⇒ exit 1 并显式写未判定。
  *   那 7 组重复小节本身仍是真活(块级重复登记),归活文档归并线处置,不由取号器替人裁掉 —— 只是它
- *   不再顺带把取号入口一起堵死。现读 HEAD 面:登记行 O 族声明 2 处、同号多行 0 ⇒ `--check` 绿。
+ *   不再顺带把取号入口一起堵死。
+ * 〔增档@2026-10-22/G-955〕上一条"现读 HEAD 面 ⇒ --check 绿"已被现读推翻:台账里
+ * `- [ ] （待派/QODER-O81） **顺带登记一条归属纪律**…` 一行**指针**被窗口回退档取成 O81 声明,
+ * 与真 O81(跨端 UI 单一源)并成"同号多行"⇒ 判红维又被一行非声明顶死(与票面 7 组同型,换了落点)。
+ * 修法不在本器也不在台账:声明位那一档收进 `lib/plan-task-index.mjs` 的 `declaredKeyOf`
+ * (括注内被引号不算声明;`keyOfRow` 的占用维"宁顶号不空段"语义由 M25③ 钉住,一字未动),
+ * 判红维经 `lib/plan-id-duplicates.mjs` 吃这一档读数。标题口径自此也分两档报数:
+ * **含逐字孪生副本**(该折,归并线出口处置)与**纯系列小节**(附①~⑬ 那一族,正当复用)——
+ * 旧措辞把 7 组一律写成"系列小节",把票面点名的「O86附⑧/O86附⑨ 逐字孪生」洗成了正当,现读数见 --check 绿行。
+ * 现读 HEAD 面(本档落地后):登记行 O 族声明位 3 处、同号多行 0 ⇒ `--check` 绿。
  */
 import { resolve } from 'node:path'
 
@@ -145,12 +154,30 @@ const text = face.ledgerText
 const wideText = face.text
 
 const seen = []
-for (const m of text.matchAll(HEADING)) seen.push(headingKey(m[1]))
+// G-955(2026-10-22):标题读数要分两档 —— 同键且**整行逐字相同** = 孪生副本(该折,票面点名的
+// 「O86附⑧ 收口三件」「O86附⑨ 独立复核两批」正属这一档);同键而标题互异 = 系列小节(附①~⑬ 那一族,
+// 正当复用)。旧措辞把两档一律写成"系列小节",等于把台账里现读的逐字孪生洗成正当 —— 那是把病读没了,
+// 不是把病治了。两档都**只报数不判红**(G-927 分档不变:历史叙述区的块级重复不得决定能不能登记新活;
+// 折叠本身归活文档归并线的既有出口,不由取号器替人裁)。
+const headingLines = new Map()
+for (const m of text.matchAll(HEADING)) {
+  const key = headingKey(m[1])
+  seen.push(key)
+  const ls = text.lastIndexOf('\n', m.index) + 1
+  const le = text.indexOf('\n', m.index)
+  const full = text.slice(ls, le < 0 ? text.length : le).trim()
+  if (!headingLines.has(key)) headingLines.set(key, new Map())
+  const g = headingLines.get(key)
+  g.set(full, (g.get(full) || 0) + 1)
+}
 const count = new Map()
 for (const id of seen) count.set(id, (count.get(id) || 0) + 1)
 const nums = [...count.keys()].map(headingNum)
 // 标题口径的重号分组:G-927 起**只作读数**,不再参与判红(判红走 lib/plan-id-duplicates.mjs 那一档)。
 const dups = [...count.entries()].filter(([, n]) => n > 1).sort((a, b) => a[0].localeCompare(b[0]))
+/** 含逐字孪生副本的组(组内某一条整行出现 ≥2 次);其余为纯系列小节(标题互异)。 */
+const twinDups = dups.filter(([k]) => [...headingLines.get(k).values()].some((n) => n > 1)).map(([k]) => k)
+const seriesDups = dups.map(([k]) => k).filter((k) => !twinDups.includes(k))
 
 if (flags.has('--check')) {
   // G-927:判红只看**登记行的编号声明位**(§1「一个编号只能有一行当前状态」说的是行);
@@ -168,7 +195,9 @@ if (flags.has('--check')) {
     process.exit(1)
   }
   const headingNote = dups.length
-    ? `;另有历史小节标题同 id ${dups.length} 组(${dups.map(([i, n]) => `${i}×${n}`).join(' ')})—— 系列小节,只报数不判红`
+    ? `;另有历史小节标题同 id ${dups.length} 组(${dups.map(([i, n]) => `${i}×${n}`).join(' ')})` +
+      ` —— 含逐字孪生副本 ${twinDups.length} 组(${twinDups.join(' ') || '无'};该折,归活文档归并线既有折叠出口处置)` +
+      ` / 纯系列小节 ${seriesDups.length} 组(${seriesDups.join(' ') || '无'};正当复用)—— 两档只报数不判红`
     : ''
   console.log(
     `✅ ${SOURCE} 无登记行重号(声明位 ${dup.rowDecls} 处 / 标题口径 ${count.size} 个号,最大 O${Math.max(...nums)})${headingNote}`,
@@ -298,7 +327,9 @@ if (dupRow.ok && dupRow.rowDups.length) {
 }
 if (dups.length) {
   console.log(
-    `ℹ️  历史小节标题同 id ${dups.length} 组(${dups.map(([i, n]) => `${i}×${n}`).join(' ')}):属同一票下的系列小节,不判相撞,也不判绿(G-927 分档)。`,
+    `ℹ️  历史小节标题同 id ${dups.length} 组(${dups.map(([i, n]) => `${i}×${n}`).join(' ')}):` +
+      `含逐字孪生副本 ${twinDups.length} 组(${twinDups.join(' ') || '无'}—— 该折,归活文档归并线既有折叠出口处置,不判相撞也不判绿)` +
+      ` / 纯系列小节 ${seriesDups.length} 组(${seriesDups.join(' ') || '无'}—— 同一票下的正当复用)(G-927 分档 + G-955 两档读数)。`,
   )
 }
 console.log(`建议本次使用:${fmt(next)}`)

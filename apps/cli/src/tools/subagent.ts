@@ -39,7 +39,7 @@ import {
   loadSubagentState,
   type SubagentState,
 } from '../subagents/state-store.js';
-import { createWorktree, createWorktreeWithFallback, removeWorktree } from '../subagents/worktree.js';
+import { createWorktree, createWorktreeWithFallback, removeWorktree, reclaimWorktreeMarker } from '../subagents/worktree.js';
 // Worktree 并行隔离层:可选注入,提供后 worktree 隔离走统一的 WorktreeManager(agent-wt-* 分支)
 import { type WorktreeManager } from './worktree.js';
 import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
@@ -445,6 +445,13 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         startedAt: resumedState?.startedAt ?? new Date().toISOString(),
       };
       saveSubagentState(state);
+
+      // G-706: createSession 提交 ⇒ 立刻解除清理武装 —— 回收落盘 marker。
+      // 此后任何后置小失败都不许 rm -rf 已提交数据(失败半径止于提交点):
+      // marker 撤下后启动对账只会走"证明不了⇒保留"臂,永不再把这个目录当可删的自有残留。
+      if (worktreeCreated && isolation === 'worktree') {
+        reclaimWorktreeMarker(effectiveWorkspace);
+      }
 
       runHook('subagentStart', {
         workspacePath: effectiveWorkspace,
