@@ -19,6 +19,19 @@ name: Guardian Full
 # 按门自己的判据(只判未入 origin 的合并)CI 应当不判它们。但"应当"不是"验证过":
 # 在真跑过一次并确认全绿之前,不开放自动触发 —— 否则第一次 push 就是一道无意义的红。
 #
+# 2026-10-22 首次手动全量实测(run 39787486152,触发面 9a96efd75e):271 门 246 通过 / 5 警告 /
+# 20 blocking 红 —— 前置(全绿)未达成,**继续只开手动**。红门分三类:
+#   · 判据/接线缺陷(3):[62] NSIS 模板按平台原生模块取材(win 绿/linux 漂移)、[65] 硬编码 Windows git 路径、
+#     [222] 面名 head 被当 git rev(Linux 大小写敏感崩溃且未折成 exit 2);
+#   · CI 环境门(7,干净 checkout 结构上无输入):[4] dist 未构建、[33] 缺 ai-service/.env、[98] 悬空导入指向未构建 dist、
+#     [226] 未装 husky、[228]/[187] 缺 ai-service venv、[170] 缺 .ihui-agent/state 留痕台账;
+#   · 真存量(10):[8] 前端路由 /api/admin/relay/account-pool 与后端不一致、[47] HEAD 7 文件水印欠账、
+#     [83] UsageScreen 品牌实底无配对前景、[103] 架构契约 3 条(测试位置/反向依赖/6240 行>6000)、
+#     [105] ui-routes.generated 陈旧、[130] F9 撞号 2 组、[150] monitor/panels 4 处 control 圆角、
+#     [198] 三处 updatedAt 盲写、[200] provider 健康四档第二份声明、[234] 台账标头 malformed(后续 HEAD 可能已修)。
+# 处置纪律:环境门按"输入缺失 ⇒ 未判定 exit 0"修语义;判据缺陷按平台/大小写修;真存量逐条修后重跑本工作流。
+# 在红集清零并真跑一次全绿之前,不得取消下面 on: 的注释。
+#
 # 手动验证通过后,把下面 on: 里的 push / pull_request 两段取消注释即可。
 on:
   workflow_dispatch:
