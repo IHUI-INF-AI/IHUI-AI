@@ -60,20 +60,28 @@ ensure_dirs() {
 }
 
 # ── 可选: AI 诊断助手(P2-13 deploy 运维 AI 化) ──
-# 部署失败时把 ${LOG_FILE} 尾部交给 LLM 网关做根因诊断,报告打到 stderr。
-# 默认零行为变化:仅当 node 可用 + 设置了 IHUI_AI_KEY 时才启用,否则静默跳过。
+# 部署失败时把 ${LOG_FILE} 尾部交给 LLM 网关做根因诊断,报告经 --out 落盘到部署日志
+# 同目录(残段②补齐:此前只进 stderr,事后无人能复查)。落盘形态与采集库
+# deploy-diagnose.sh 的 ihui_diag_run 同型:时刻流水一份 + 固定指针 ai-diagnose-latest.md。
+# 默认零行为变化:仅当 node 可用 + 设置了 IHUI_AI_KEY 时才启用,否则静默跳过(拒绝运行、不编造诊断)。
 # 可选环境变量:IHUI_AI_BASE / IHUI_AI_MODEL / IHUI_AI_TIMEOUT_MS(见 ai-diagnose.mjs 头注释)。
 AI_DIAGNOSE_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ai-diagnose.mjs"
 ai_diagnose() {
   local context=$1
   if ! command -v node >/dev/null 2>&1; then return 0; fi
   if [[ -z "${IHUI_AI_KEY:-}" || ! -f "${AI_DIAGNOSE_SCRIPT}" ]]; then return 0; fi
-  log INFO "调用 AI 诊断助手分析失败日志(P2-13)..."
-  if node "${AI_DIAGNOSE_SCRIPT}" --log "${LOG_FILE}" --tail 300 --context "${context}"; then
-    log INFO "AI 诊断报告已生成(见上方输出)"
+  # 流水与部署日志同目录、每次调用一份带时刻(同一轮两个失败点不互相覆盖),外加固定名 latest 指针。
+  local report latest
+  report="${LOG_FILE%.log}-ai-diagnose-$(date +%H%M%S).md"
+  latest="$(dirname "${report}")/ai-diagnose-latest.md"
+  log INFO "调用 AI 诊断助手分析失败日志(P2-13),报告将落盘: ${report}"
+  if node "${AI_DIAGNOSE_SCRIPT}" --log "${LOG_FILE}" --tail 300 --context "${context}" --out "${report}"; then
+    log INFO "AI 诊断报告已生成(落盘: ${report})"
   else
     log WARN "AI 诊断不可用(退出码 $?),不影响回滚流程"
   fi
+  [[ -f "${report}" ]] && { ln -sf "$(basename "${report}")" "${latest}" 2>/dev/null || cp -f "${report}" "${latest}" 2>/dev/null || true; }
+  return 0
 }
 
 # ── 工具函数: 备份当前 nginx 配置 ──
