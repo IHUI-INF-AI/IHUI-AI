@@ -1046,6 +1046,9 @@
         "builtin": "Builtin",
         "plugin": "Plugin",
         "mcp": "MCP"
+      },
+      "subagent": {
+        "title": "Subtask"
       }
     }
   },
@@ -4497,7 +4500,8 @@
   },
   "webViewPortal": {
     "knowledgeBase": "Knowledge Base",
-    "settingsBilling": "Billing Management",    "title": "Web Feature Portal",
+    "settingsBilling": "Billing Management",
+    "title": "Web Feature Portal",
     "hint": "Open web features in the built-in browser",
     "sections": {
       "eduAi": "AI Education",
