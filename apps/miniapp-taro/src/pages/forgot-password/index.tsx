@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n } from '@/i18n'
+import { goToLogin } from '@/utils/auth'
 import { View, Text } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
@@ -105,7 +106,7 @@ export default function ForgotPassword() {
         console.warn('reset-password endpoint failed, mock success', e)
       }
       Taro.showToast({ title: t('forgot.resetSuccess'), icon: 'success' })
-      setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
+      setTimeout(goToLogin, 800)
     } catch {
       // ignore
     } finally {
@@ -115,7 +116,7 @@ export default function ForgotPassword() {
 
   function backToLogin() {
     Taro.navigateBack({
-      fail: () => Taro.reLaunch({ url: '/pages/login/login' }),
+      fail: () => goToLogin(),
     })
   }
 

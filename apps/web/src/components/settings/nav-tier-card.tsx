@@ -64,7 +64,7 @@ export function NavTierCard() {
           />
         </div>
 
-        <div className="space-y-1 border-t pt-3">
+        <div className="space-y-1 pt-3">
           {ALL_NAV_TIERS.map((tier) => (
             <div key={tier} className="flex items-start justify-between gap-3">
               <span className="min-w-0 flex-1">

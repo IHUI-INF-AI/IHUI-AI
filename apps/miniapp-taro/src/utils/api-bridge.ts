@@ -14,7 +14,7 @@ import Taro from '@tarojs/taro'
 import type { ApiResult } from '@ihui/types'
 import { fetchApi, type FetchApiOptions } from '@ihui/api-client'
 import { isTokenExpired } from '@ihui/shared/constants'
-import { expireAuth, getToken } from './auth'
+import { expireAuth, getToken, goToLogin } from './auth'
 
 /**
  * 解包 ApiResult,失败时 toast + throw(行为与原 request.ts 一致)。
@@ -40,7 +40,8 @@ export async function unwrapApi<T>(p: Promise<ApiResult<T>>): Promise<T> {
       }
       expireAuth()
       Taro.showToast({ title: t('auth.expired'), icon: 'none' })
-      setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
+      // 去向只有 `goToLogin()` 一个出口(登录页已删 ⇒ 这里不能再各自硬编码路由串)
+      setTimeout(goToLogin, 800)
     } else {
       Taro.showToast({ title: r.error, icon: 'none' })
     }

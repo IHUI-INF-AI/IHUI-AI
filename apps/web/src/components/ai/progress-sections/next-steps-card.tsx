@@ -5,7 +5,15 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronRight, CirclePlay, FlaskConical, GitCommitHorizontal, ListChecks, Sparkles, X } from 'lucide-react'
+import {
+  ChevronRight,
+  CirclePlay,
+  FlaskConical,
+  GitCommitHorizontal,
+  ListChecks,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useChatStore } from '@/stores/chat'
 import type { PlanStep } from '@/hooks/use-agent-progress'
@@ -163,11 +171,7 @@ function NextStepsCardBase({
   const dismissLabel = safeT(t, 'nextStepsDismiss', '关闭')
 
   return (
-    <section
-      className="shrink-0 border-t border-border/60 bg-muted/30 px-2 py-1.5"
-      aria-label={title}
-      data-testid={testId}
-    >
+    <section className="shrink-0 bg-muted/30 px-2 py-1.5" aria-label={title} data-testid={testId}>
       <div className="mb-1 flex items-center justify-between">
         <span className="flex items-center gap-1 text-[11px] font-medium text-foreground">
           <Sparkles className="h-3 w-3 shrink-0 text-primary" aria-hidden />

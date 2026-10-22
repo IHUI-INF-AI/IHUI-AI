@@ -118,7 +118,7 @@ export function McpDataStructure({ data, name }: McpDataStructureProps) {
 
   return (
     <div className="rounded-lg border bg-muted/30">
-      <div className="flex items-center justify-between border-b px-3 py-2">
+      <div className="flex items-center justify-between px-3 py-2">
         <div className="flex items-center gap-2">
           {name && <span className="text-sm font-medium">{name}</span>}
           <span className={cn('text-xs', typeColor(type))}>{type}</span>

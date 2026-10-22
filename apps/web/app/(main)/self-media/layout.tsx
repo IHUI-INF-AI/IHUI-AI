@@ -30,7 +30,7 @@ export default function SelfMediaLayout({ children }: { children: React.ReactNod
         <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
-      <nav className="flex items-center gap-1 border-b border-border/60">
+      <nav className="flex items-center gap-1 pb-2">
         {TABS.map((tab) => {
           const active = pathname.startsWith(tab.href)
           const Icon = tab.icon

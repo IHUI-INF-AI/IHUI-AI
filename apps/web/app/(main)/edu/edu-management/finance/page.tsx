@@ -1570,7 +1570,7 @@ export default function FinancePage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b">
+                      <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                           班级
                         </th>
@@ -1783,7 +1783,7 @@ export default function FinancePage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b">
+                      <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                           学员
                         </th>
@@ -1864,13 +1864,13 @@ export default function FinancePage() {
           {legacyPayments.length > 0 && (
             <Card>
               <CardContent className="p-0">
-                <div className="border-b px-4 py-3 text-xs text-muted-foreground">
+                <div className="bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
                   历史账 · 遗留课程平台（只读，共 {legacyTotal} 条；不参与欠费与汇总口径）
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b">
+                      <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                           来源
                         </th>
@@ -1984,7 +1984,7 @@ export default function FinancePage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b">
+                      <tr className="bg-muted/40">
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                           学员
                         </th>
@@ -2144,7 +2144,7 @@ export default function FinancePage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b">
+                      <tr className="bg-muted/40">
                         <th className="w-10 px-4 py-3" />
                         <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                           学员
@@ -2310,7 +2310,7 @@ export default function FinancePage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b">
+                        <tr className="bg-muted/40">
                           <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                             通道
                           </th>

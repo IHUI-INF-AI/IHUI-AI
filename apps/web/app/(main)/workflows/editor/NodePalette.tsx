@@ -60,8 +60,8 @@ export function NodePalette({ onDragStart }: Props) {
   )
 
   return (
-    <div className="w-56 shrink-0 border-r bg-card">
-      <div className="border-b px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
+    <div className="w-56 shrink-0 bg-card">
+      <div className="bg-muted/40 px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
         {t('editor.palette')}
       </div>
       <div className="space-y-1 p-2">

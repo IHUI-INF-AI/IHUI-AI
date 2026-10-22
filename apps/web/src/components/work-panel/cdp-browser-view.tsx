@@ -765,7 +765,7 @@ export function CdpBrowserView({
       )}
       {devToolsOpen && (
         <div className="absolute inset-x-2 bottom-2 top-10 z-20 flex flex-col overflow-hidden rounded-md border border-border bg-background/95 shadow-lg">
-          <div className="flex items-center justify-between border-b border-border/60 px-2 py-1">
+          <div className="flex items-center justify-between px-2 py-1">
             <span className="text-[10px] font-semibold">{t('devTools')}</span>
             <button
               type="button"

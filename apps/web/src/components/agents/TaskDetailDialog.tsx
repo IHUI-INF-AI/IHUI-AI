@@ -234,7 +234,7 @@ export function TaskDetailDialog({
         </DialogHeader>
 
         {/* D27(2026-09-20 立):tab 导航条(概览/交付清单/代码变更),样式对齐 ai-side-panel-tools */}
-        <div role="tablist" aria-label={td('title')} className="flex gap-1 border-b pb-1.5">
+        <div role="tablist" aria-label={td('title')} className="flex gap-1 pb-1.5">
           {DETAIL_TABS.map((key) => (
             <button
               key={key}

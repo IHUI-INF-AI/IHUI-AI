@@ -77,8 +77,8 @@ export default function LettersPage() {
       <Card className="h-[70vh] overflow-hidden">
         <div className="flex h-full">
           {/* 左侧会话列表 */}
-          <div className="flex w-[280px] shrink-0 flex-col border-r">
-            <div className="border-b p-3">
+          <div className="flex w-[280px] shrink-0 flex-col">
+            <div className="bg-muted/40 p-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input

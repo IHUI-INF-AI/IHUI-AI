@@ -152,7 +152,7 @@ export function Drawer({
           height: isHorizontal ? '100%' : height,
         }}
       >
-        <div className="flex items-center justify-between border-b p-3">
+        <div className="flex items-center justify-between bg-muted/40 p-3">
           {title && (
             <h2 id={titleId} className="text-lg font-semibold">
               {title}

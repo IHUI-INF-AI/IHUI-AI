@@ -925,7 +925,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between pb-2 border-b border-border">
+      <div className="flex items-center justify-between pb-2">
         <h3 className="m-0 text-sm font-semibold">{t('chat.title')}</h3>
         {/* 票 68 / G-53:流式中**不再禁用**档位选择(旧写法把该选择器绑在在途旗上禁用,让用户只能等
             本轮自己跑完、或先去点停止再换)。换档由上面的 effect 终止当前这一轮;新档位对下一条消息生效,
@@ -1068,7 +1068,7 @@ export default function ChatPage() {
       {/* V3 #58 同族:高危工具执行前的审批横幅;pendingApproval 为空时组件自身返回 null */}
       <ToolApprovalBanner event={pendingApproval} onResolve={resolveApproval} />
       <form
-        className="flex gap-1.5 px-2.5 py-2 border-t border-border bg-card"
+        className="flex gap-1.5 px-2.5 py-2 bg-card"
         onSubmit={(e) => {
           e.preventDefault()
           const text = input.trim()

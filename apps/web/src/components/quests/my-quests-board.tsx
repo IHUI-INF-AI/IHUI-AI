@@ -171,7 +171,7 @@ export function MyQuestsBoard({
   }
 
   return (
-    <div data-testid="my-quests-board" className="space-y-2 border-t pt-2">
+    <div data-testid="my-quests-board" className="space-y-2 pt-2">
       <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
         <ListChecks className="h-3 w-3" />
         <span data-testid="my-quests-title">{t('title')}</span>

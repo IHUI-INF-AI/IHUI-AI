@@ -71,8 +71,8 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
   const t = useTranslations('agentCanvas')
   if (!node || !nodeId) {
     return (
-      <div className="flex w-72 shrink-0 flex-col border-l bg-card">
-        <div className="border-b px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex w-72 shrink-0 flex-col bg-card">
+        <div className="bg-muted/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('inspectorTitle')}
         </div>
         <div className="flex flex-1 items-center justify-center p-3 text-center text-xs text-muted-foreground">
@@ -86,15 +86,15 @@ export function InspectorPanel({ node, nodeId, onUpdateParams, onRename }: Inspe
   const { params } = node
 
   return (
-    <div className="flex w-72 shrink-0 flex-col border-l bg-card">
-      <div className="flex items-center justify-between border-b px-3 py-2.5">
+    <div className="flex w-72 shrink-0 flex-col bg-card">
+      <div className="flex items-center justify-between bg-muted/40 px-3 py-2.5">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('inspectorTitle')}
         </span>
         <Badge className={cn('border-0', meta.badge)}>{meta.title}</Badge>
       </div>
 
-      <div className="flex flex-col gap-3 border-b p-3">
+      <div className="flex flex-col gap-3 p-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="canvas-node-name">节点名称</Label>
           <Input

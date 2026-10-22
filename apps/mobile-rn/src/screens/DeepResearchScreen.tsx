@@ -346,10 +346,7 @@ export function DeepResearchScreen() {
                   {t('deepResearch.sources')}
                 </Text>
                 {sources.map((src, index) => (
-                  <View
-                    key={`${src.url}-${index}`}
-                    className="mb-3 border-b border-neutral-100 pb-2 dark:border-neutral-800"
-                  >
+                  <View key={`${src.url}-${index}`} className="mb-3 pb-2">
                     <Text className="text-xs font-medium text-neutral-800 dark:text-neutral-200">
                       {src.title || src.url}
                     </Text>

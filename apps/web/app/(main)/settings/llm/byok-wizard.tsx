@@ -298,7 +298,7 @@ export function ByokWizard() {
 
       <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : closeDialog())}>
         <DialogContent className="max-w-lg gap-0 p-0 min-[640px]:rounded-lg">
-          <DialogHeader className="space-y-2 border-b p-3">
+          <DialogHeader className="space-y-2 p-3">
             <DialogTitle className="flex items-center gap-2 text-base">
               <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               {t('title')}
@@ -516,7 +516,7 @@ export function ByokWizard() {
           </div>
 
           {/* 底部导航 */}
-          <div className="flex items-center justify-between border-t p-3">
+          <div className="flex items-center justify-between p-3">
             <Button onClick={prev} size="sm" variant="ghost" disabled={step === 0}>
               <ArrowLeft className="mr-1 h-3.5 w-3.5" />
               {t('prev')}

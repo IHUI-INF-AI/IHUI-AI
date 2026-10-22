@@ -185,7 +185,7 @@ export default function UserAttributesPage() {
                     </tr>
                   ) : (
                     attrs.map((attr) => (
-                      <tr key={attr.id} className="border-t border-border">
+                      <tr key={attr.id}>
                         <td className="px-3 py-2 font-mono">{attr.attrKey}</td>
                         <td className="px-3 py-2">
                           <TruncatedText value={attr.attrValue} />

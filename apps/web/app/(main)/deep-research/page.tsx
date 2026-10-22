@@ -182,7 +182,7 @@ export default function DeepResearchPage() {
       {/* 最终报告 */}
       {state?.markdown ? (
         <div className="mb-6 rounded-xl border bg-background">
-          <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="flex items-center justify-between bg-muted/40 px-4 py-3">
             <h2 className="text-sm font-semibold">{t('reportTitle')}</h2>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               {t('sourceCount', { count: state.sources?.length ?? 0 })}
