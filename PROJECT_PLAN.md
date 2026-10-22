@@ -28884,7 +28884,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] G-957 **小程序网页登录三处入口是死路(点了拿不回登录态),Google 图标格挂的还是同一条死路** `apps/miniapp-taro/src/pages/login/login.tsx` 的 handleSsoLogin 只 navigateTo 到 web-view,而它给 web 侧的 redirectUri 是 ihui-miniapp://sso/callback 〔压缩@2026-10-22〕 本票剩余面:①「智汇AI网页授权登录」按钮仍指向无人接管 ihui-miniapp://sso/callback 的 webview 腿,需小程序侧回传 sso_code + 小程序后台业务域名白名单(本机验不了,留人工窗口);②已入库的两格=google 假图标格整块摘除(§7 三问已在提交信息里逐问答过)+ H5 微信失败改为如实提示。
 
-- [ ] G-960 **公网入口整条断流(api/sso/ai 全 530、www 522)而探活尺子一声没报:它的靶钉在裸域,只拿到 Cloudflare 边缘 301,结构上看不到 www 这条真腿** 2026-10-22 实测:入口间歇断流期间(生产机 cloudflared 日志 01:41:43 连续注册 4 条连接;对 ssh 通道 20 次成组对照 = 19 成功 / 1 bad handshake ⇒ 副本在位但会抖,先前那句「零活动副本」是本席误判,已撤回),`check-public-path-probe.mjs` 的公网腿 10/10 都停在 redirected 档(classifySample 把 3xx 记 unavailable:false),而同一时刻 www 4/4=522、api/sso/ai=530。出路:入口 〔压缩@2026-10-22〕
+- [x] ✅(2026-10-22) G-960 **公网入口整条断流(api/sso/ai 全 530、www 522)而探活尺子一声没报:它的靶钉在裸域,只拿到 Cloudflare 边缘 301,结构上看不到 www 这条真腿** 2026-10-22 实测:入口间歇断流期间(生产机 cloudflared 日志 01:41:43 连续注册 4 条连接;对 ssh 通道 20 次成组对照 = 19 成功 / 1 bad handshake ⇒ 副本在位但会抖,先前那句「零活动副本」是本席误判,已撤回),`check-public-path-probe.mjs` 的公网腿 10/10 都停在 redirected 档(classifySample 把 3xx 记 unavailable:false),而同一时刻 www 4/4=522、api/sso/ai=530。出路:入口 〔压缩@2026-10-22〕
 
 - [ ] G-924 **packages/app 共享登录屏还有 32 处用户可见文案写死中文(QR 状态族 + 一批 accessibilityLabel)** 2026-10-22 逐行实测口径:只统计字符串字面量 / JSX 文本 / a11y label,同文件 205 行中文注释不计。样例按内容锚点列(不写行号,§1):`二维码加载中...`、`请使用微信扫码登录`、`扫码成功,请在手机上确认`、`二维码已过期`、`二维码加载失败`、accessibilityLabel `同意协议复选框`。纠正一条在普查里传走的误判:**这不是门失明** —— `scripts/lib/i18n-scan-targets.mjs` 的 TARGETS 里 `packages/app/src` 两处都在,真实原因是该包条数排不进 `scan-hardcoded-zh.mjs` 的 TOP 30 报表(榜头是两份 generated 目录 860/650 处),所以日常没人看见它。出路:照同批 G-959 的做法取键 + 五语言同批;它是棘轮存量(门只拦新增),清它不与 §12e 冲突。
 
