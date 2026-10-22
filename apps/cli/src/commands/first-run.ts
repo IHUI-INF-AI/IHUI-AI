@@ -16,6 +16,7 @@ import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { getSettingsPath, type Settings } from './settings.js';
 import { DEFAULT_POLICY_OPTIONS } from '../config/defaults.js';
+import { DEFAULT_SANDBOX_PROFILE } from '../config/sandbox-profile.js';
 
 /** 检测是否需要首次引导(~/.ihui/settings.json 不存在) */
 export function needsFirstRunSetup(): boolean {
@@ -130,7 +131,7 @@ function buildDefaultSettings(overrides?: Partial<FirstRunAnswers>): Settings {
     defaultModel: overrides?.defaultModel ?? 'default',
     maxIterations: 25,
     ...DEFAULT_POLICY_OPTIONS,
-    sandbox: { profile: 'trusted' },
+    sandbox: { profile: DEFAULT_SANDBOX_PROFILE },
     sampler: {
       temperature: 0.7,
       maxTokens: 4096,
