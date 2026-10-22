@@ -177,7 +177,6 @@ test('台账文件必须真被 git 跟踪(否则任何检出都判"无法判定"
 // 证明"判据会红也会绿";这里只钉**不随仓库内容腐烂的不变量** —— 判据是否真被 runCheck 接到、
 // 归属主张的四种形状各自落到哪一侧、以及"排除面与审计面是不是同一份实现"。
 
-const LIB_SRC = join(REAL_ROOT, 'scripts', 'lib', 'third-party-roots.mjs')
 const lib = await import('../lib/third-party-roots.mjs')
 
 test('P8 装车证明:判据必须真被 runCheck 调用,且两侧消费者都走同一个共享出口', () => {

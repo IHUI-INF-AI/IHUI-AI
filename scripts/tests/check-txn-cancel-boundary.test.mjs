@@ -28,7 +28,6 @@ import { __test__ as gate } from '../check-txn-cancel-boundary.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
 const SCRIPT = join(ROOT, 'scripts', 'check-txn-cancel-boundary.mjs')
-const GATE_REL = 'scripts/check-txn-cancel-boundary.mjs'
 const GATE_STEM = 'check-txn-cancel-boundary'
 
 const L = (...lines) => `${lines.join('\n')}\n`
