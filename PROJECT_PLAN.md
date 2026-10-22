@@ -28903,3 +28903,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-959 **packages/app 登录屏两处文案硬编码中文,违 §19 语种纯度** `packages/app/src/features/login/LoginScreen.tsx` 里「智汇AI网页授权登录」与「打开网页登录...」是直接写死的中文字符串(不是 i18n 键),这条屏被 miniapp-taro 与 mobile-rn 共用 ⇒ 其他语种看到的是中文。出路:提取为键并五语言同批补齐。
 
 - [ ] G-960 **公网入口整条断流(api/sso/ai 全 530、www 522)而探活尺子一声没报:它的靶钉在裸域,只拿到 Cloudflare 边缘 301,结构上看不到 www 这条真腿** 2026-10-22 实测:隧道 ihui-local 零活动副本期间,`check-public-path-probe.mjs` 的公网腿 10/10 都停在 redirected 档(classifySample 把 3xx 记 unavailable:false),而同一时刻 www 4/4=522、api/sso/ai=530。出路:入口恢复后按 ≥20 次成组对照给靶定档(现网 www 与裸域分别取样本,再决定是换靶还是并探两个目标),并按 §5e-1 回答"红了你能做什么";换靶前不得直接升 blocking —— 入口没修好就换靶等于造一道恒红门(§12e)。
+
