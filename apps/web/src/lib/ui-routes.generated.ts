@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 967c222c24077ce1959e054f2c85fb657e35f637
-// inputsSha256: 561bf485a18d32c7c46432a29364862b30d58cf8d85d18224aed6a925fb0f2ac
+// sourceCommit: aa8903afc94f518f1fa7b333682b29deb407ce1f
+// inputsSha256: 09bf473fd6bbe0e7103f0ec78bc77c01d223e6e07f98d10f654bc3c7981839a3
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -258,6 +258,7 @@
 // input: apps/web/app/(main)/admin/refund/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/admin/refund/page.tsx a88b2ceb20ccce16959ac58c55ba249296ed681c5481ad03e4f1e463ecdc3d50
 // input: apps/web/app/(main)/admin/relay-param-ops/page.tsx 95345ef579b2347237c132978c02d6c94b463eba241ddb2f46c285454df0af0c
+// input: apps/web/app/(main)/admin/relay/account-pool/page.tsx 806f2a6534588ff7c52de941e57133b9d14d93923498cde54f552424cc8d95a6
 // input: apps/web/app/(main)/admin/relay/alert-rules/page.tsx c5250e319f4c322abadbe2d6cb0a059995993966d87e19177e960aa16cd0910e
 // input: apps/web/app/(main)/admin/relay/capacity/page.tsx e764a1fd7100863cdad16da8a5011b5951ca304f6eb4fb5735296e70e1263060
 // input: apps/web/app/(main)/admin/relay/channels/page.tsx ee2621001ff5858411a40cc5c8d71dc36aece49b8278adb7947d53e8d860ca3e
@@ -921,7 +922,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 6df145382f287882d4dfd57434356f055a22a13afc39f5a8efff3edf6f8460a2
 // input: apps/web/app/status/page.tsx 8509c1bc6272c3e141461ae79a70c998d3f8298592eaf936a64bb9be2402b464
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-10-22T02:49:35.626Z
+// generatedAt: 2026-10-22T09:21:42.176Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1168,6 +1169,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/admin/refund/:id', param: true, group: 'admin' },
   { path: '/admin/relay', param: false, group: 'admin' },
   { path: '/admin/relay-param-ops', param: false, group: 'admin' },
+  { path: '/admin/relay/account-pool', param: false, group: 'admin' },
   { path: '/admin/relay/alert-rules', param: false, group: 'admin' },
   { path: '/admin/relay/capacity', param: false, group: 'admin' },
   { path: '/admin/relay/channels', param: false, group: 'admin' },

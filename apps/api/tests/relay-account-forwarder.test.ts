@@ -1,0 +1,323 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * relay-account-forwarder 单测(2026-10-22):账号池回落转发核心路径。
+ * 零真实网络/数据库:drizzle 链式 mock + fetch 打桩 + 假适配器注册。
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// ── db mock:select 按查询特征供行(join=provider 反查 / orderBy=账号候选),update 记录 set 参数 ──
+let providerRows: unknown[] = []
+let accountRows: unknown[] = []
+const updateCalls: Array<Record<string, unknown>> = []
+
+vi.mock('../src/db/index.js', () => {
+  const withSettlers = (step: Record<string, unknown>, resolver: () => unknown[]) => {
+    step.then = (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+      Promise.resolve(resolver()).then(resolve, reject)
+    // 转发层对落库更新是 fire-and-forget(.catch),链对象必须支持 catch
+    step.catch = (reject?: (e: unknown) => void) => Promise.resolve(resolver()).catch(reject)
+    step.finally = (fn?: () => void) => Promise.resolve(resolver()).finally(fn)
+    return step
+  }
+  const chainSelect = () => {
+    const flags = { join: false }
+    const step: Record<string, unknown> = {}
+    for (const m of ['from', 'where', 'limit', 'offset', 'orderBy', 'groupBy']) {
+      step[m] = vi.fn(() => step)
+    }
+    step.innerJoin = vi.fn(() => {
+      flags.join = true
+      return step
+    })
+    return withSettlers(step, () => (flags.join ? providerRows : accountRows))
+  }
+  const chainWrite = () => {
+    const step: Record<string, unknown> = {}
+    for (const m of ['from', 'where', 'returning', 'values']) {
+      step[m] = vi.fn(() => step)
+    }
+    step.set = vi.fn((arg?: unknown) => {
+      if (arg && typeof arg === 'object') updateCalls.push(arg as Record<string, unknown>)
+      return step
+    })
+    return withSettlers(step, () => [])
+  }
+  return {
+    db: {
+      select: chainSelect,
+      update: chainWrite,
+      insert: chainWrite,
+      delete: chainWrite,
+    },
+    dbRead: { select: chainSelect },
+  }
+})
+
+vi.mock('../src/utils/crypto.js', () => ({
+  encryptField: (v: string) => `enc:${v}`,
+  decryptField: (v: string) => (v.startsWith('enc:') ? v.slice(4) : v),
+}))
+
+import { forwardToAccountPool } from '../src/services/relay-account-forwarder.js'
+import { registerRelayAdapter } from '../src/services/relay-upstream-adapters.js'
+import type {
+  AdapterAccountContext,
+  RelayUpstreamAdapter,
+  TranslatedChunk,
+} from '../src/services/relay-upstream-adapters.js'
+
+const FUTURE = new Date(Date.now() + 7 * 24 * 3600_000)
+
+// 每次调用(含 vitest retry 重跑)生成唯一 id:隔离模块级熔断/亲和缓存,防跨轮污染
+let rowSeq = 0
+function accountRow(label: string, overrides: Record<string, unknown> = {}): unknown {
+  const id = `${label}-${++rowSeq}`
+  return {
+    id,
+    providerCode: 'trae',
+    uid: `uid-${id}`,
+    name: `测试号-${id}`,
+    tokenEnc: 'enc:jwt-old',
+    refreshTokenEnc: null,
+    cookiesEnc: null,
+    secretsEnc: null,
+    deviceId: null,
+    machineId: null,
+    tokenExpiresAt: FUTURE,
+    refreshExpiresAt: null,
+    priority: 0,
+    weight: 1,
+    isEnabled: true,
+    tempUnschedulable: false,
+    healthStatus: 'unknown',
+    healthCheckedAt: null,
+    lastErrorMessage: null,
+    lastUsedAt: null,
+    lastRefreshAt: null,
+    refreshFailureCount: 0,
+    consecutiveFailures: 0,
+    proxyUrl: null,
+    totalCalls: 0,
+    extraMetadata: {},
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  }
+}
+
+function baseReq(model: string) {
+  return {
+    model,
+    messages: [{ role: 'user' as const, content: 'hi' }],
+    stream: true,
+    userId: 'user-1',
+    affinityKey: 'key-1',
+  }
+}
+
+/** 最小假适配器(必选成员齐全;各测试按需覆盖) */
+function fakeAdapter(
+  overrides: Partial<RelayUpstreamAdapter> & { providerCode: string },
+): RelayUpstreamAdapter {
+  const base: RelayUpstreamAdapter = {
+    providerCode: overrides.providerCode as RelayUpstreamAdapter['providerCode'],
+    buildChatRequest: () => ({
+      url: 'https://upstream.test/v',
+      method: 'POST',
+      headers: {},
+      body: {},
+    }),
+    translateStreamChunk: (_c, raw, _s): TranslatedChunk | null => {
+      const payload = raw.trim().slice(5).trim()
+      if (!payload || payload === '[DONE]') return null
+      return { openaiChunk: JSON.parse(payload) as Record<string, unknown> }
+    },
+    translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+    checkHealth: async () => ({ ok: true }),
+    isAuthFailure: (status) => status === 401 || status === 403,
+  }
+  return { ...base, ...overrides }
+}
+
+beforeEach(() => {
+  providerRows = []
+  accountRows = []
+  updateCalls.length = 0
+  vi.unstubAllGlobals()
+})
+
+describe('forwardToAccountPool', () => {
+  it('模型无账号池平台映射 → null(回退 ai-service)', async () => {
+    providerRows = []
+    accountRows = [accountRow('acct-x')]
+    const res = await forwardToAccountPool(baseReq('no-pool-model-1'), 'no-pool-model-1')
+    expect(res).toBeNull()
+  })
+
+  it('executeChat 路径:chunk 序列合成 SSE Response + [DONE] + 成功计数', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-exec')]
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        buildChatRequest: () => {
+          throw new Error('不应走通用路径')
+        },
+        async executeChat() {
+          async function* gen() {
+            yield {
+              id: 's1',
+              object: 'chat.completion.chunk',
+              choices: [{ index: 0, delta: { content: '你好' } }],
+            }
+            yield {
+              id: 's1',
+              object: 'chat.completion.chunk',
+              choices: [{ index: 0, delta: { content: '世界' }, finish_reason: 'stop' }],
+            }
+          }
+          return { stream: gen() }
+        },
+      }),
+    )
+    const res = await forwardToAccountPool(baseReq('exec-model-1'), 'exec-model-1')
+    expect(res && res.ok).toBe(true)
+    if (!res || !res.ok) return
+    expect(res.channel.groupId).toBe('account-pool')
+    expect(res.channel.configId).toBe(7)
+    const text = await res.response.text()
+    expect(text).toContain('data: {"id":"s1"')
+    expect(text).toContain('你好')
+    expect(text.trimEnd().endsWith('data: [DONE]\n\n'.trimEnd())).toBe(true)
+    // recordSuccess 落库:consecutiveFailures 清零 + healthy
+    await vi.waitFor(() => expect(updateCalls.length).toBeGreaterThan(0))
+    expect(updateCalls.some((s) => s.healthStatus === 'healthy')).toBe(true)
+  })
+
+  it('通用流式路径:上游 SSE 逐帧翻译重封装', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-stream')]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    const upstream = 'data: {"choices":[{"delta":{"content":"AAA"}}]}\n\ndata: [DONE]\n\n'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(upstream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+      ),
+    )
+    const res = await forwardToAccountPool(baseReq('stream-model-1'), 'stream-model-1')
+    expect(res && res.ok).toBe(true)
+    if (!res || !res.ok) return
+    const text = await res.response.text()
+    expect(text).toContain('"content":"AAA"')
+    expect(text).toContain('[DONE]')
+  })
+
+  it('401 自愈:isAuthFailure → refreshToken → 重试一次成功', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-401', { refreshTokenEnc: 'enc:rt-1' })]
+    const refreshToken = vi.fn(async () => ({ token: 'jwt-new', expiresAt: FUTURE }))
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        refreshToken,
+        buildChatRequest: (ctx: AdapterAccountContext) => ({
+          url: 'https://upstream.test/v',
+          method: 'POST',
+          headers: { Authorization: `Bearer ${ctx.credentials.token}` },
+          body: { x: 1 },
+        }),
+      }),
+    )
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'cm-1', object: 'chat.completion', choices: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    const req = { ...baseReq('auth-model-1'), stream: false }
+    const res = await forwardToAccountPool(req, 'auth-model-1')
+    expect(res && res.ok).toBe(true)
+    expect(refreshToken).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    // 第二次请求带刷新后的 token
+    const secondInit = fetchMock.mock.calls[1]?.[1] as { headers: Record<string, string> }
+    expect(secondInit.headers.Authorization).toBe('Bearer jwt-new')
+  })
+
+  it('credit 分类:失败透传 + 摘除落库(tempUnschedulable)', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-credit')]
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        classifyUpstreamFailure: (status) =>
+          status === 402 ? { kind: 'credit' as const } : { kind: 'client' as const },
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{"error":"insufficient credit"}', { status: 402 })),
+    )
+    const res = await forwardToAccountPool(baseReq('credit-model-1'), 'credit-model-1')
+    expect(res && res.ok).toBe(false)
+    if (!res || res.ok) return
+    expect(res.lastHttpStatus).toBe(402)
+    await vi.waitFor(() => expect(updateCalls.some((s) => s.tempUnschedulable === true)).toBe(true))
+  })
+
+  it('非流式请求 + 上游强制流式:网关侧聚合成 chat.completion', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-agg')]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    const sse =
+      'data: {"id":"c9","created":1700000000,"choices":[{"delta":{"content":"Hello "}}]}\n\n' +
+      'data: {"id":"c9","choices":[{"delta":{"content":"World"},"finish_reason":"stop"}]}\n\n' +
+      'data: {"id":"c9","choices":[],"usage":{"prompt_tokens":3,"completion_tokens":5,"total_tokens":8}}\n\n' +
+      'data: [DONE]\n\n'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+      ),
+    )
+    const req = { ...baseReq('agg-model-1'), stream: false }
+    const res = await forwardToAccountPool(req, 'agg-model-1')
+    expect(res && res.ok).toBe(true)
+    if (!res || !res.ok) return
+    const json = (await res.response.json()) as Record<string, unknown>
+    expect(json.object).toBe('chat.completion')
+    const choices = json.choices as Array<{ message: { content: string } }>
+    expect(choices[0]?.message.content).toBe('Hello World')
+    expect(json.usage).toMatchObject({ total_tokens: 8 })
+  })
+
+  it('多候选 failover:首号网络错 → 次号成功', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-bad'), accountRow('acct-good')]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockResolvedValueOnce(
+        new Response('data: {"choices":[{"delta":{"content":"OK"}}]}\n\ndata: [DONE]\n\n', {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    const res = await forwardToAccountPool(baseReq('fail-model-1'), 'fail-model-1')
+    expect(res && res.ok).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

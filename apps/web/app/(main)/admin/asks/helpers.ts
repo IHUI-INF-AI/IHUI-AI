@@ -2,8 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { fetchApi } from '@/lib/api'
-import { ApiError } from '@/lib/api-error'
+import { apiOrThrow } from '@/lib/api'
 import type { AskStatus } from '@ihui/shared/validation/ask-schema'
 import type { AskForm, AskItem, AsksListData } from './types'
 
@@ -39,11 +38,7 @@ export const STATUS_META: Record<AskStatus, AskStatusMeta> = {
   1: { label: 'statusApproved', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
 }
 
-export async function api<T>(url: string, options?: RequestInit): Promise<T> {
-  const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new ApiError(r.error, r.status, r.errorCode)
-  return r.data
-}
+export { apiOrThrow as api }
 
 export async function fetchAsks(params: {
   page: number
@@ -57,7 +52,7 @@ export async function fetchAsks(params: {
   })
   if (params.search) qs.set('search', params.search)
   if (params.resolved !== undefined) qs.set('resolved', String(params.resolved))
-  return api<AsksListData>(`/api/admin/asks?${qs.toString()}`)
+  return apiOrThrow<AsksListData>(`/api/admin/asks?${qs.toString()}`)
 }
 
 export function askToForm(item: AskItem): AskForm {
