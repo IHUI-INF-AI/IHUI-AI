@@ -139,3 +139,6 @@ export * from './turn-answer-integrity'
 // D64⑤ 元素包历史落库契约(子代理帧族随轮次持久化 + metadata.elementPack 读回守卫);
 // 写侧收窄与读侧守卫的唯一实现,api 网关/worker 与三端回放共用,判据见 element-pack-history.ts
 export * from './element-pack-history'
+// G-274 对话投影水位协议(ACK 不构成可用基线 / 迟到重复静默丢弃 / 断档只重订阅不做本地补偿);
+// 此前消费方只能深路径 import chat/projection-watermark,barrel 缺席等于跨端出口没有登记。
+export * from './projection-watermark'
