@@ -28994,3 +28994,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-921 **870 枚历史课程视频已进云端桶,但现网一行都挂不上(learn lessons total=0、lesson_chapter_sections.video_url 零行)**〔登记@2026-10-21/迁移执行席〕:出路 = 按桶内 `legacy-assets/videos/<课程slug>/<课时>.mp4` 建 lessons+chapters+sections 草稿行(isPublished=false,先不上架)。上架前置三件:① 给 `verifyVideoToken` 装真实校验点(现只有测试消费它,签名不生效 ⇒ 付费门槛形同虚设);② web 端 next.config 的 remotePatterns 放行该 OSS 域名;③ 这批是第三方课程(3Blue1Brown / 吴恩达 / 李宏毅 / 李沐 〔压缩@2026-10-22〕 〔现读@2026-10-22/E6:867/867 sections video_url 非空(旧读数零行已腐烂);22 门课 is_published=false 是 total=0 真因,回填/映射/查询均已就位;执行方案见 tmp/E6/G921-backfill-plan.md〕
 - [ ] 〔归:`.git` 存续线〕 **G-245 事故归档无"双上限"回收 —— 与 §5b 的禁删条款正面冲突，必须先由人定代数**〔2026-09-27 用户拍板:**双上限 + 保留最近 10 代**,每次删除写日志、量不确认即拒跑;§5b 禁删名单(活 gitdir / 恢复源 / `*.broken-*`)**一律不回收**,只回收事故现场归档〕
 
+
