@@ -65,9 +65,9 @@
 - `DOCKER_REGISTRY` — Docker 镜像仓库地址
 - `DOCKER_USERNAME` — Docker 仓库用户名
 - `DOCKER_PASSWORD` — Docker 仓库密码
-- `DEPLOY_SSH_KEY` — 部署服务器 SSH 私钥
-- `DEPLOY_HOST` — 部署服务器地址
-- `DEPLOY_USER` — 部署服务器用户名
+- `DEPLOY_SSH_PRIVATE_KEY` — 部署服务器 SSH 私钥(工作流 `blue-green-deploy.yml:34` 读的就是这个名字;旧文档写的 `DEPLOY_SSH_KEY` 不存在,照它配了也不会生效)
+- `DEPLOY_HOST` — 部署服务器地址 —— **2026-10-22 现读 `gh api repos/<owner>/<repo>/actions/secrets` 三枚里只注册了私钥这一枚,`DEPLOY_HOST`/`DEPLOY_USER` 均缺 ⇒ `ssh-keyscan -H ""` 当场 exit 1,蓝绿部署结构性跑不起来(不是构建问题)**
+- `DEPLOY_USER` — 部署服务器用户名 —— 同上,未注册
 
 ### 代码签名（SignPath Foundation）
 
@@ -147,7 +147,7 @@
 | ws-loadtest.yml           | （无，依赖运行中的服务）                                                                                                                                                                                                                                                                                                                                                                         |
 | smoke-new-modules.yml     | （无）                                                                                                                                                                                                                                                                                                                                                                                           |
 | release-cli.yml           | `NPM_PUBLISH_TOKEN`（**已配置**，granular token + Bypass 2FA）；`SIGNPATH_API_TOKEN`/`SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_PROJECT_SLUG`/`SIGNPATH_SIGNING_POLICY_SLUG`（**未配置**，SignPath 批准后填入；缺任一项则 Windows 签名步骤跳过，发布仍为未签名 exe）；`GITHUB_TOKEN` 自动提供。**不读** `NPM_TOKEN`，也**不依赖** Trusted Publishing/OIDC（OIDC 仅作前向兼容尝试，失败自动回退 token） |
-| release-desktop.yml       | `SIGNPATH_API_TOKEN`/`SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_PROJECT_SLUG`/`SIGNPATH_SIGNING_POLICY_SLUG`（**未配置**，与 release-cli 同一组；缺任一项则 Windows 签名步跳过，发布仍为未签名安装包）；`DESKTOP_TAURI_PRIVATE_KEY`/`DESKTOP_TAURI_KEY_PASSWORD`（已配置，构建与 `.sig` 重算共用）；`GITEE_TOKEN`/`GITEE_OWNER`（国内镜像）；`GITHUB_TOKEN` 自动提供                                                                                                            |
+| release-desktop.yml       | `SIGNPATH_API_TOKEN`/`SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_PROJECT_SLUG`/`SIGNPATH_SIGNING_POLICY_SLUG`（**未配置**，与 release-cli 同一组；缺任一项则 Windows 签名步跳过，发布仍为未签名安装包）；`DESKTOP_TAURI_PRIVATE_KEY`/`DESKTOP_TAURI_KEY_PASSWORD`（已配置，构建与 `.sig` 重算共用）；`GITEE_TOKEN`/`GITEE_OWNER`（国内镜像）；`GITHUB_TOKEN` 自动提供                                   |
 | release-sdk.yml           | `NPM_TOKEN`（**尚未配置**，见上方说明；未配置时 real 模式 npm gate 判红）、`PYPI_TOKEN`（未配置）、`MAVEN_USERNAME`/`MAVEN_TOKEN`（未配置）、`NUGET_API_KEY`（未配置）；`GITHUB_TOKEN` 自动提供                                                                                                                                                                                                  |
 | npm-bootstrap.yml         | `NPM_BOOT_PUBKEY`, `NPM_BOOT_EMAIL`, `NPM_BOOT_USERNAME`, `NPM_BOOT_PASSWORD`（已配置，账号已建成）；`NPM_PUBLISH_TOKEN`（**已配置**，publish job 使用）；`SIGNPATH_EMAIL`（已配置）；`NPM_VERIFY_URL`（未配置，仅在重新走 email 验证时需要）。`trusted_publisher` 分支已于 2026-10-19 删除                                                                                                      |
 | weekly-security-audit.yml | `GITHUB_TOKEN`（GitHub 自动提供，无需手动配置）                                                                                                                                                                                                                                                                                                                                                  |
