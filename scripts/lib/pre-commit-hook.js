@@ -12,7 +12,7 @@
 // windowsHide 的 spawn / WMI 链)时,本 node 进程被 Windows 分配可见控制台
 // 窗口且存活数分钟(全 hook 链最长驻的弹窗源)。现在由 .husky/pre-commit
 // 薄壳经 wscript + cmd /c SW_HIDE 执行本文件,stdout/stderr 落
-// .workbuddy/hook-logs/pre-commit.log,由薄壳回显摘要/失败详情。
+// .ihui-agent/state/hook-logs/pre-commit.log,由薄壳回显摘要/失败详情。
 // 本文件内部所有 execSync 均带 windowsHide:true,不受影响。
 const { execSync, spawnSync } = require('child_process')
 const {
@@ -165,7 +165,7 @@ function run(label, cmd) {
 //   定位是兜底不是判据:单门仍有 `GUARDIAN_GATE_TIMEOUT_MS`(默认 300s)各自封顶,
 //   批内和由并行池收敛;只有"runner 本身死住"才由这层拦,不该有正常批走到这。
 //
-// 为什么 capture 而不读 .workbuddy/hook-logs/pre-commit.log:那份日志是 shell 层 tee 的产物，
+// 为什么 capture 而不读 .ihui-agent/state/hook-logs/pre-commit.log:那份日志是 shell 层 tee 的产物，
 // 写入与本进程读取之间没有同步点(tee 缓冲 + 文件系统延迟)，刚跑完就 readFileSync 会拿到半截
 // —— 本仓 §12 记过一次同型(hook 日志当第二输入源而没有轮次绑定锁)。
 // 管道直采不经过文件，没有这个窗口。
@@ -249,7 +249,7 @@ function parseGateSummary(output) {
 //     而 pre-commit 阶段还不存在)⇒ 它仍是**下界型**证据,只是比"逐字等值"结实;
 //  ② 门根本没跑就退出(lint-staged 失败等)时 `gatesRan` 必为 false ⇒ 永远不得被用来发合格证;
 //  ③ 写失败绝不影响提交:整个记录裹在 try 里,连 exit 回调也不允许抛。
-const ROUND_FILE_REL = '.workbuddy/hook-logs/pre-commit-rounds.jsonl'
+const ROUND_FILE_REL = '.ihui-agent/state/hook-logs/pre-commit-rounds.jsonl'
 const ROUND = {
   ts: new Date().toISOString(),
   headBefore: '',
@@ -470,7 +470,7 @@ function runLintStaged() {
       `     1) 等 1-2 分钟让在飞的写索引动作跑完再 commit(本形态会自行消散,不需杀任何进程);`,
     )
     console.error(
-      `     2) 查写者:node scripts/git-lock.mjs check;git status 若长时间不动,看 .workbuddy/git-guardian.out.log;`,
+      `     2) 查写者:node scripts/git-lock.mjs check;git status 若长时间不动,看 .ihui-agent/state/git-guardian.out.log;`,
     )
     console.error(
       `     3) 长期修:让 guardian 对齐层守 git 写锁(scripts/heal-worktree-tracked.mjs,2026-10-12 报告已立项)。`,
@@ -896,7 +896,7 @@ try {
 // 13 分钟日志一字不增)。给出预计时长与可 tail 的逐门进度文件,"是不是卡住了"当场可判。
 console.log(
   '⏳ 守门批量检查本机实测约 9~15 分钟,期间本进程无输出属正常;' +
-    '逐门实时进度: tail -f .workbuddy/hook-logs/gates-progress.log',
+    '逐门实时进度: tail -f .ihui-agent/state/hook-logs/gates-progress.log',
 )
 // 快档默认开(2026-10-21,机主要求"整体 ≤1 分钟"):33 道重型门(>3s)实测占全量 86%,
 // 它们由 post-commit 后台补跑;提交链只跑 121 道快门(8 并发 ≈ 20s)。

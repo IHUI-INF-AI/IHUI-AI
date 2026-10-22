@@ -5,7 +5,7 @@
 // git-guardian 通知层(判红 → 邮件到人)镜像测试(§22c:import 源模块的 __test__,零复制实现)。
 //
 // 立因:守护此前没有任何到人出口 —— "合并吞并对账"抓到 38 个路径被合并抹掉那类红只写进
-// .workbuddy/git-guardian.log,只有翻日志的人知道,而其后果是已入库功能被静默回滚。
+// .ihui-agent/state/git-guardian.log,只有翻日志的人知道,而其后果是已入库功能被静默回滚。
 // 本测试钉住通知层的**行为契约**,而不是它"存在":
 //   ① 去重正反成对:同指纹窗口内只发一次 / 窗口过期再发 / 不同指纹各发一次 / 指纹对数字与
 //      sha 归一(实时计数波动不得变成新一轮轰炸);
@@ -628,7 +628,7 @@ test('形状锁:聚合告警的名字里不许再带计数,公网身份必须走
   )
   assert.match(src, /const tier = alertCountTier\(Math\.max\(Number\(ep\.meta\.count\) \|\| 0, findings\.length\)\)/, '计数档取起点与本轮里较坏的那一档:恶化必报,愈合不重报')
   assert.doesNotMatch(src, /dedupKey: `cells=\$\{findings\.map/, '身份里带"本轮红格集合"= 好了一半就再寄一封')
-  assert.match(src, /clearUndeterminedStreak\(join\(WORKTREE, '\.workbuddy', 'ops-patrol-episode-first\.json'\)\)/, '零红必须摘起点,否则下一场刚冒头就进高档')
+  assert.match(src, /clearUndeterminedStreak\(join\(WORKTREE, '\.ihui-agent', 'state', 'ops-patrol-episode-first\.json'\)\)/, '零红必须摘起点,否则下一场刚冒头就进高档')
   assert.match(src, /dedupKey: `service-heal;svcs=[^`]+;acted=\$\{alertCountTier/, '服务自愈身份 = 服务集合 + 两档')
   assert.match(src, /classifyAlertIdentity\(key,/, '公网探测身份只准调归一那一份实现,不得在派发层另拼')
   assert.doesNotMatch(src, /legs=\$\{Number\(parsed\.legs\)/, '隧道腿数不得以原始值进身份')

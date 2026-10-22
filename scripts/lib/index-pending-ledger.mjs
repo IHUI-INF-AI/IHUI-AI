@@ -26,7 +26,7 @@ const LIB_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(LIB_DIR, '..', '..')
 
 /** 台账唯一相对路径(全仓只许这一份) */
-export const INDEX_PENDING_LEDGER_REL = '.workbuddy/index-pending-first-seen.json'
+export const INDEX_PENDING_LEDGER_REL = '.ihui-agent/state/index-pending-first-seen.json'
 export const INDEX_PENDING_LEDGER_VERSION = 1
 
 /** 归一为 POSIX 仓库相对路径(与消费方同一形状;key 稳定性依赖它) */

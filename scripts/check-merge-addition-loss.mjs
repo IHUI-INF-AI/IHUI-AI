@@ -192,12 +192,12 @@ export function pendingMerges(cwd = ROOT) {
 /** 增量台账:记录"已经判过的合并 → 丢失数",别人推来的合并也会被判到一次,
  *  老提交不会反复红。返回本轮**新判**的结果。 */
 export function markerPath(root) {
-  return join(root, '.workbuddy', 'merge-addition-loss-audited.json')
+  return join(root, '.ihui-agent', 'state', 'merge-addition-loss-audited.json')
 }
 /**
  * 台账取磁盘面 —— 但取法只有层的一份实现(`readWorktreeFile`)，不再自己 `readFileSync`。
  *
- * 为什么这一处**必须**跟磁盘、不能跟 HEAD/索引：`.workbuddy/` 被 `.gitignore` 忽略
+ * 为什么这一处**必须**跟磁盘、不能跟 HEAD/索引：`.ihui-agent/state/` 被 `.gitignore` 忽略
  * （实测 `git check-ignore -v` 命中 `.gitignore:364`），它结构上永不出现在任何检出面里，
  * 而它的价值恰恰是"上一轮写过、这一轮就别重判"。改成读 HEAD 会让台账永远为空 ⇒ 每轮把
  * 已入库的历史事故重判一遍 ⇒ 一台恒红门（只会逼人 `--no-verify`，连带废掉全部守门）。
@@ -348,7 +348,7 @@ function selfTest() {
     // ② `--staged` 必须被如实认下(迁移前它整枚被静默忽略，账面读起来像"已按档判")。
     ok('单面旗如实取档 ⇒ --staged 不再被静默忽略(无旗仍默认 head)', faceFromArgv(['--staged']).face === 'staged' && faceFromArgv([]).face === 'head' && faceFromArgv(['--staged']).error === null)
     // ③ 台账的三面分歧现场：磁盘 / 索引 / HEAD 内容**各不相同** ⇒ 判据必须跟磁盘(运行态)。
-    //    方向与"索引优先"的模板**相反**，这是有意的：`.workbuddy/` 被 .gitignore 忽略，
+    //    方向与"索引优先"的模板**相反**，这是有意的：`.ihui-agent/state/` 被 .gitignore 忽略，
     //    台账结构上不在任何检出面里，而它的价值就是"上一轮写过、这一轮别重判"。
     //    反向对照同时钉住"哪天有人把它改成按 HEAD/索引取，本条立刻红"。
     writeFileSync(join(dir, 'marker3.json'), '{"face":"head-side"}\n', 'utf8')

@@ -156,7 +156,7 @@
 ## 10. 附录：证据出处
 
 - 修复与验证：`scripts/lib/pre-commit-hook.js`（L172）、`.ihui-agent/tmp/g-runner-triage/verify-parse-summary.mjs`
-- 轮次正证：`.workbuddy/hook-logs/pre-commit-rounds.jsonl`（`11:59:44Z`、`12:27:15Z` 两条）
+- 轮次正证：`.ihui-agent/state/hook-logs/pre-commit-rounds.jsonl`（`11:59:44Z`、`12:27:15Z` 两条）
 - 逐门耗时：`.ihui-agent/tmp/guardian-timing.json`（`12:32:04` 生成，170 行）
 - 30a 历史统计：`.ihui-agent/tmp/g-runner-triage/analyze-log-30a.mjs`
 - 落地清单：`.ihui-agent/tmp/land-parse-fix/blobs.json`（blob `d5633b946be`）

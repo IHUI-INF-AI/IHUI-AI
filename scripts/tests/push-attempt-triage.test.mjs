@@ -441,7 +441,7 @@ test('T14 向后兼容:只给等值(旧调用方形态)时结论一字不动', (
 
 test('T11 e2e:converge 在"本地落后 + 一条四小时前的他人读数"下报 SKIP,并把读数喊成历史残留/未现推', () => {
   // 夹具全部落在 scratch 根**之内**(mkScratch 的 mkdtempSync 保证前缀匹配,不嵌套):
-  // 真仓的守护链(git-guardian / git-push-guard)按「cwd 里最近的 .git / .workbuddy」找本仓,
+  // 真仓的守护链(git-guardian / git-push-guard)按「cwd 里最近的 .git / .ihui-agent」找本仓,
   // 落在 scratch 根里的仓对它们而言都是「仓外」的独立仓库,不会把本仓的 push-state
   // 写进夹具 ⇒ 注入的 push-state 保持确定性(2026-10-16 实测:夹具若落在 scratch 根
   // 外,守护链在 peer 的 commit/push 后会把夹具 push-state 刷新成本地 HEAD + 当下 ts,
@@ -480,9 +480,9 @@ test('T11 e2e:converge 在"本地落后 + 一条四小时前的他人读数"下�
       shGit(['fetch', 'origin'], work)
 
       // 一条**关于别的提交、四小时前**的 push-state(正是本票登记的那种失真现场)
-      mkdirSync(join(work, '.workbuddy'), { recursive: true })
+      mkdirSync(join(work, '.ihui-agent', 'state'), { recursive: true })
       writeFileSync(
-        join(work, '.workbuddy', 'push-state.json'),
+        join(work, '.ihui-agent', 'state', 'push-state.json'),
         JSON.stringify({
           status: 'failed',
           headSha: foreignSha,
@@ -494,7 +494,7 @@ test('T11 e2e:converge 在"本地落后 + 一条四小时前的他人读数"下�
 
       // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
       // 注入缝(--root=):让 converge 判**夹具树**的 push-state 与 HEAD(经脚本 --root 旗标),
-      // 不得被真仓 .workbuddy/push-state.json 那条与测试无关的实时读数顶掉(构造场景必须被确定性判定)。
+      // 不得被真仓 .ihui-agent/state/push-state.json 那条与测试无关的实时读数顶掉(构造场景必须被确定性判定)。
       const r = spawnSync(
         process.execPath,
         [CONVERGE_PATH, '--remotes=origin', `--root=${work}`],

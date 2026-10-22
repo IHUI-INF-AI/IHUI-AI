@@ -569,7 +569,7 @@ test('skipPush 语义: HUSKY_SKIP_PUSH=1 优先于异步分叉 → 不写 runnin
     const r = runScript([], { cwd: work, env: { GUARD_ASYNC: '1', HUSKY_SKIP_PUSH: '1' } })
     assert.equal(r.status, 1, `skipPush + ahead 应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
     assert.match(r.stdout, /跳过 push|仅检测/)
-    const stateFile = join(work, '.workbuddy', 'push-state.json')
+    const stateFile = join(work, '.ihui-agent', 'state', 'push-state.json')
     if (existsSync(stateFile)) {
       const st = JSON.parse(readFileSync(stateFile, 'utf8'))
       assert.notEqual(
@@ -623,7 +623,7 @@ const HOOK_SUMMARY_STDERR = [
   '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:',
   '   · [16] staged-typecheck',
   '     单独复现:node scripts/check-staged-typecheck.mjs --staged',
-  '❌ push 门校验失败,推送已阻止(完整日志: .workbuddy/hook-logs/pre-push-gate.log)',
+  '❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)',
   "error: failed to push some refs to 'https://github.com/example/repo.git'",
 ].join('\n')
 
@@ -633,7 +633,7 @@ const SECRET_SCAN_STDERR = [
   'error: failed to push some refs',
 ].join('\n')
 
-/** 凭据不可得的真实回显(逐字取自 .workbuddy/git-push-guard-async.log 2026-09-27 的失败块)。 */
+/** 凭据不可得的真实回显(逐字取自 .ihui-agent/state/git-push-guard-async.log 2026-09-27 的失败块)。 */
 const AUTH_UNAVAILABLE_STDERR = [
   'bash: line 1: /dev/tty: No such device or address',
   'error: failed to execute prompt script (exit code 1)',
@@ -642,7 +642,7 @@ const AUTH_UNAVAILABLE_STDERR = [
 
 /** 每个导出的 kind 都必须有一条**真命中它**的输入 —— 名单不得是死表(守门 120 那一型)。 */
 /**
- * 分支保护拒收的**真实回显**(2026-09-27 17:2x 逐字取自 .workbuddy/git-push-guard-async.log:8533 起)。
+ * 分支保护拒收的**真实回显**(2026-09-27 17:2x 逐字取自 .ihui-agent/state/git-push-guard-async.log:8533 起)。
  * 留着它是因为这一型的全部难点都在"同一段文本里同时出现 `[remote rejected]`"——
  * 旧分诊按那个特征判成并发分叉,于是每个会话去跑 `git-sync-converge.mjs`(3 轮 × 全量门)
  * 而收敛器修不了一个仓库设置。**夹具必须用被审面的真实原文**,自造文本只会让这条锁跟着判据一起漂(§22c)。
@@ -976,7 +976,7 @@ test('e2e:真分叉(远端被并发会话推进)→ exit 1 + 点名 converge + �
       localSha,
       'guard 也不得在本链路里替人 fetch/merge(那会与别的会话竞态)',
     )
-    const st = JSON.parse(readFileSync(join(work, '.workbuddy', 'push-state.json'), 'utf8'))
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
     assert.equal(st.status, 'diverged', `应落具名终态 diverged:${JSON.stringify(st)}`)
     assert.equal(st.headSha, localSha)
     assert.ok(
@@ -1023,7 +1023,7 @@ test('e2e:真 pre-push 钩子失败 → 原有"带 hook 重试 → --no-verify �
     const localSha = sh('git rev-parse HEAD', work).trim()
     const remoteSha = sh('git ls-remote origin refs/heads/main', work).split('\t')[0].trim()
     assert.equal(remoteSha, localSha, '兜底那一趟要真把 commit 推上去')
-    const st = JSON.parse(readFileSync(join(work, '.workbuddy', 'push-state.json'), 'utf8'))
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
     assert.equal(st.status, 'done')
   } finally {
     rmScratch(work)
@@ -1070,7 +1070,7 @@ test('e2e:--no-verify 重试回显 Everything up-to-date → 措辞喊"未推送
     assert.equal(r.status, 0, `验证相等应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
     const remoteSha = sh('git ls-remote origin refs/heads/main', work).split('\t')[0].trim()
     assert.equal(remoteSha, localSha, '远端 tip 应确实包含本地 commit(才配得上 done)')
-    const st = JSON.parse(readFileSync(join(work, '.workbuddy', 'push-state.json'), 'utf8'))
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
     assert.equal(st.status, 'done')
     assert.equal(st.pushedNothing, true, '状态里要留"什么都没推"的痕迹,否则下一轮又读成推送成功')
   } finally {

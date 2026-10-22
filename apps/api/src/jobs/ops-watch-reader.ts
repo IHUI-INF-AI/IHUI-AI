@@ -7,7 +7,7 @@
  * 「mail 欠投递读方并入 API 进程内定时读方,不新增服务拓扑」)。
  *
  * 立因(2026-09-29 现读):
- *  ① 各生产者寄不出信时落的 `.workbuddy/*UNDELIVERED*.json`(§5e「失败必须响」)此前
+ *  ① 各生产者寄不出信时落的 `.ihui-agent/state/*UNDELIVERED*.json`(§5e「失败必须响」)此前
  *     除提交链守门(check-ops-patrol P8)外**没有任何运行时消费者** —— 门只在有人提交时跑,
  *     "有一件事从来没人知道"这件事本身在两次提交之间依然没人知道;
  *  ② :80 图片 CDN 不在任何一班值守眼里(端口清单只查 8801/8802/8803/8810/8811),
@@ -313,7 +313,7 @@ export async function runOpsWatchTick(deps: OpsWatchDeps = {}): Promise<WatchFin
   const failThreshold = deps.cdnFailThreshold ?? readCdnFailThreshold()
 
   const findings: WatchFinding[] = [
-    ...scanUndeliveredDir(join(repoRoot, '.workbuddy')),
+    ...scanUndeliveredDir(join(repoRoot, '.ihui-agent', 'state')),
     ...stateDirs.flatMap((d) => scanUndeliveredDir(d)),
   ]
 

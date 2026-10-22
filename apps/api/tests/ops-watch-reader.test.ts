@@ -24,8 +24,8 @@ let dir: string
 beforeEach(() => {
   _resetDedupForTests()
   dir = mkdtempSync(join(tmpdir(), 'ops-watch-'))
-  // 读方扫的是 <repoRoot>/.workbuddy
-  mkdirSync(join(dir, '.workbuddy'), { recursive: true })
+  // 读方扫的是 <repoRoot>/.ihui-agent/state
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
 })
 
 describe('scanUndeliveredDir — 标记扫描三态', () => {
@@ -87,7 +87,7 @@ describe('runOpsWatchTick — 去重/冷却(机主明令:重复告警是缺陷)'
     JSON.stringify({ producer: 'p', title: 'T', reason: 'R', at: '2026-10-13', ...extra })
 
   it('同一标记冷却内只发一次;仅正文变不重报;消失清键后再现立即重报', async () => {
-    writeFileSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json'), undel({}))
+    writeFileSync(join(dir, '.ihui-agent', 'state', 'a-alert-UNDELIVERED.json'), undel({}))
     const pushed: WatchFinding[] = []
     let t = 1_000_000
     const deps = {
@@ -112,20 +112,23 @@ describe('runOpsWatchTick — 去重/冷却(机主明令:重复告警是缺陷)'
     // (ops-watch-reader.ts:222),生产者每轮重写的 reason/at 只进正文 ⇒ 指纹不变。
     // 这是守门 224 V1b 点名要的形态(把实时读数并进去重身份 = 每轮一个新身份 = 冷却永不命中 = 发信风暴),
     // 所以旧那格"内容变 = 新故障立即重报"的前提已失效,**不得**靠把 reason 塞回身份去买绿。
-    writeFileSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json'), undel({ reason: '第二起' })) // 仅正文变
+    writeFileSync(
+      join(dir, '.ihui-agent', 'state', 'a-alert-UNDELIVERED.json'),
+      undel({ reason: '第二起' }),
+    ) // 仅正文变
     await runOpsWatchTick(deps)
     expect(pushed, '仅正文变 ⇒ 同一身份,冷却内不得重报').toHaveLength(1)
 
-    rmSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json')) // 消失 ⇒ 清键
+    rmSync(join(dir, '.ihui-agent', 'state', 'a-alert-UNDELIVERED.json')) // 消失 ⇒ 清键
     await runOpsWatchTick(deps)
-    writeFileSync(join(dir, '.workbuddy', 'a-alert-UNDELIVERED.json'), undel({})) // 再现 = 真新故障
+    writeFileSync(join(dir, '.ihui-agent', 'state', 'a-alert-UNDELIVERED.json'), undel({})) // 再现 = 真新故障
     t += 60_000
     await runOpsWatchTick(deps)
     expect(pushed).toHaveLength(2)
   })
 
   it('冷却窗口边界:恰好 ALERT_COOLDOWN_MS 后同指纹重发', async () => {
-    writeFileSync(join(dir, '.workbuddy', 'b-alert-UNDELIVERED.json'), undel({}))
+    writeFileSync(join(dir, '.ihui-agent', 'state', 'b-alert-UNDELIVERED.json'), undel({}))
     let t = 2_000_000
     let count = 0
     const deps = {
@@ -148,7 +151,7 @@ describe('runOpsWatchTick — 去重/冷却(机主明令:重复告警是缺陷)'
   })
 
   it('push 失败不外抛且不写冷却(下一轮重试)', async () => {
-    writeFileSync(join(dir, '.workbuddy', 'c-alert-UNDELIVERED.json'), undel({}))
+    writeFileSync(join(dir, '.ihui-agent', 'state', 'c-alert-UNDELIVERED.json'), undel({}))
     let t = 3_000_000
     let calls = 0
     const deps = {
@@ -170,7 +173,7 @@ describe('runOpsWatchTick — 去重/冷却(机主明令:重复告警是缺陷)'
 
   it('findings 里同时含标记与 CDN 两类;全净时为空', async () => {
     const base = { stateDirs: [], cdnUrl: 'http://cdn/', push: () => {}, now: () => 4_000_000 }
-    writeFileSync(join(dir, '.workbuddy', 'd-alert-UNDELIVERED.json'), undel({}))
+    writeFileSync(join(dir, '.ihui-agent', 'state', 'd-alert-UNDELIVERED.json'), undel({}))
     const withDown = await runOpsWatchTick({
       ...base,
       repoRoot: dir,
@@ -180,7 +183,7 @@ describe('runOpsWatchTick — 去重/冷却(机主明令:重复告警是缺陷)'
     expect(withDown.some((f) => f.key.startsWith('cdn:'))).toBe(true)
 
     _resetDedupForTests()
-    rmSync(join(dir, '.workbuddy', 'd-alert-UNDELIVERED.json'))
+    rmSync(join(dir, '.ihui-agent', 'state', 'd-alert-UNDELIVERED.json'))
     const clean = await runOpsWatchTick({ ...base, repoRoot: dir, probe: async () => true })
     expect(clean).toEqual([])
   })

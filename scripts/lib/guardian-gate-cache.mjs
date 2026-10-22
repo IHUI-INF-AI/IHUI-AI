@@ -23,7 +23,7 @@
  * 同一棵树的不同提交(amend/重排)可安全复用,树一变即失效。
  *
  * 逃生舱:`GUARDIAN_NO_CACHE=1` 全关(只影响提速,不影响任何判据)。
- * 缓存文件 `.workbuddy/gate-cache.json`(gitignore 已盖):读坏/写失败只当没缓存。
+ * 缓存文件 `.ihui-agent/state/gate-cache.json`(gitignore 已盖):读坏/写失败只当没缓存。
  */
 
 import { createHash } from 'node:crypto'
@@ -34,7 +34,7 @@ import { gitRaw } from './face-reader.mjs'
 
 const CACHE_VERSION = 1
 export const GATE_CACHE_TTL_MS = 60 * 60 * 1000
-export const GATE_CACHE_FILE_REL = '.workbuddy/gate-cache.json'
+export const GATE_CACHE_FILE_REL = '.ihui-agent/state/gate-cache.json'
 /** 未跟踪文件超过这个数/总量 ⇒ 判不了完整输入,整批禁用缓存(宁多跑,不放行)。 */
 const MAX_UNTRACKED_FILES = 512
 const MAX_UNTRACKED_BYTES = 32 * 1024 * 1024
@@ -42,7 +42,7 @@ const MAX_UNTRACKED_BYTES = 32 * 1024 * 1024
 /**
  * 纯内容门白名单。收录纪律(与 PAR_GATE_IDS 同一安全向):
  *   · 只读文件内容 + git 索引/HEAD 树,不写任何仓库文件(自检 scratch 例外,已逐门核过);
- *   · 不读 origin/远端、不读 reflog、不读 mtime/当前日期、不读 .workbuddy 状态;
+ *   · 不读 origin/远端、不读 reflog、不读 mtime/当前日期、不读 .ihui-agent/state 状态;
  *   · 必须同时出现在 executor 的 PAR_GATE_IDS 中(镜像测试逐条锁)。
  * 刻意**不**收:`3`(schema mtime)、`4b`(dist 产物)、`8`(写报告文件)、`15`(探活 localhost)、
  * `29`/`30a`(远端)、`30c`(origin/main + git log)、`47`(自愈写回并改暂存区)、

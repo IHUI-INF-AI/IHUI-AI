@@ -123,13 +123,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3019 | `testFiles` |
+| 测试文件 | 3024 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 268 | `guardianGates` |
-| — blocking | 244 | `guardianBlocking` |
-| — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15625 | `trackedFiles` |
+| — blocking | 245 | `guardianBlocking` |
+| — warn | 26 | `guardianWarn` |
+| 跟踪文件 | 15652 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5537,7 +5537,7 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `scripts/sync-prometheus-live-config.mjs`                                                                                                                                                                                                                                               | 把 `monitoring/prometheus/prometheus.yml` 派生到部署机那份运行副本,并让运行副本的 `rule_files` 直接指回仓库那份 `alerts.yml`;`--check` 零副作用,`--reload` 走热加载(本机 prometheus 已开 `enable-lifecycle`,改监控配置**不需要重启服务**) | 生产 prometheus 过去读仓库外一份手抄副本,只抓 6 个目标 ⇒ `AlertmanagerDown`/`AlertBridgeDown` 依赖的 `up{job=…}` 序列**根本不存在**,`== 0` 恒不成立 —— 邮件链路断了不会有任何告警。而仓库那份 `alerts.yml` 因带两条 Prometheus 3.x 不认的 `disabled:` 字段被 `promtool` **整份拒绝**,两侧各自"能跑"、合起来从没跑过。**规矩:凡 Down 类判据必须配一条"job 集合差"对账,"序列缺失"比"值为 0"更危险。** 派生器另有占位符凭据守卫(它曾把 `password: __REPLACE…` 逐字烘进生产 ⇒ 主机指标采集器恒 401、磁盘/内存告警长期哑) |
 | `scripts/prune-rotated-nssm-logs.mjs`                                                                                                                                                                                                                                                   | nssm 轮转副本的保留策略量算;**默认只读**,`--keep N --apply` 才删,超 40 份或 512MB 自动拒绝需 `--allow-mass`                                                                                                                               | **轮转 ≠ 保留策略**:nssm 只把写满那份改名,一个旧副本都不删(现读 6 组 / 48 份 / 1.19GB)。活文件(名里无时间戳)永不进候选、刚轮转 <1h 跳过、解析后落在 logs 目录外的一律剔除(防 junction 穿透清空)                                                                                                                                                                                                                                                                                                                      |
-| `scripts/alert-volume-report.mjs`                                                                                                                                                                                                                                                       | 只读量算"发信总量 / 风暴簇 / 跳门总量 / 哪道门导致跳门 / 检查整批没跑的次数"                                                                                                                                                              | 过去全仓没人统计过这些,"修好三道"可能只是"修好我看到的三道"。跳门的唯一真值来源是 `.workbuddy/safe-commit-attestation.jsonl`                                                                                                                                                                                                                                                                                                                                                                                         |
+| `scripts/alert-volume-report.mjs`                                                                                                                                                                                                                                                       | 只读量算"发信总量 / 风暴簇 / 跳门总量 / 哪道门导致跳门 / 检查整批没跑的次数"                                                                                                                                                              | 过去全仓没人统计过这些,"修好三道"可能只是"修好我看到的三道"。跳门的唯一真值来源是 `.ihui-agent/state/safe-commit-attestation.jsonl`                                                                                                                                                                                                                                                                                                                                                                                         |
 | `scripts/pg-restore-drill.mjs`                                                                                                                                                                                                                                                          | 备份可恢复性核验:`--check`/`--offline-verify` 不碰库,`--apply` 才做在线还原演练                                                                                                                                                           | 全仓 `pg_restore` 此前只出现在注释里 —— **没验过的备份不算备份**。文件层已证到最强(整份归档解出 363MB SQL 流零报错);在线演练缺一个建库权限,**属机主授权动作,agent 不得自行提权**                                                                                                                                                                                                                                                                                                                                     |
 | `scripts/run-evidence.mjs`                                                                                                                                                                                                                                                              | 给任何一次取证落件并写 `#EVIDENCE-RC`,读侧 `--verify` 判"跑完 / 被截断 / 被杀"                                                                                                                                                            | 把"跑失败"与"根本没跑到"变成机器可分辨的两件事。管道尾的 `$?` 是 `tail` 的退出码,不是判据的 —— 本仓一天内三次因此得出相反结论                                                                                                                                                                                                                                                                                                                                                                                        |
 | **两条通用口径**:(1) 端内/部署机那份运行配置一律是**派生态**,禁止手改也禁止"只拦红不回写"(与 design-tokens 同源那条同规矩);(2) **改常驻服务的脚本必须重启才生效,而 PowerShell/node 每轮重新派生的子进程改工作树即刻生效** —— 判据是"它是常驻读进内存,还是每轮重新起",别一律当"要重启"。 |
@@ -5586,7 +5586,7 @@ CJS 转译形态 `(0, api_1.cssInterop)(react_native_1.Pressable, …)` —— �
 > 而**带不带现在是运行时判的**,不再是文件级禁令:2026-09-28 在真实产物 `chrome-extension://<id>/sidepanel.html` 实测扩展页是安全上下文、`showDirectoryPicker` 在位、`mode:readwrite` 是被接受的枚举、受信任点击后错误由 SecurityError 翻成 AbortError(手势链通),且那份 12-case 委托执行器对着真实可写目录句柄跑 11 条全部按语义返回。于是 `lib/workspace-capability.ts` 把放行条件钉成「能力探测 ∧ 已登记执行代理」两半(改任何一半都不许放开,`toolsForChatRequest` 必须过它),`lib/workspace-store.ts` 在 pick 到 readwrite-granted 的句柄时才登记,侧栏多了工作区入口与工具审批横幅,`ChatPage` 送 `workspaceContext`(服务端委托分支的开关本身)并接 `onToolDelegate`/`onToolApproval`;同批把 web 取句柄的档位从 `read` 改成 `readwrite` —— 此前浏览器端"让 AI 改文件"是发得出去、执行必失败。提交:`64bc41cad1` / `258b43080a` / `07e789b3e1`;未做与没量到的部分见 PROJECT_PLAN 的 O81 票㉕。**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 小程序 / RN 三端**:载荷 `partialText` 是**累积文本**
 > | **CLI** | `apps/cli/` | Node.js + Commander | 自研命令行 AI 编程助手,50 命令 + 36 工具 + ACP Server + 24 源配置导入 |
 > | **CLI** | `apps/cli/` | 🟡 核心场景级 | ~1500 行 / 50 命令 / 36 工具 | 单元测试 | 自研 AI 编程助手,ACP Server |
-> **两台机器状态探测器现在有名字了(warn,不进提交链)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.workbuddy` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
+> **两台机器状态探测器现在有名字了(warn,不进提交链)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.ihui-agent/state` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
 > | **AI 教育全栈** | 课程学习 | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 分类/难度/价格三轴服务端筛选 + 真分页 / zhs-course |
 > 而**带不带现在是运行时判的**,不再是文件级禁令:2026-09-28 在真实产物 `chrome-extension://<id>/sidepanel.html` 实测扩展页是安全上下文、`showDirectoryPicker` 在位、`mode:readwrite` 是被接受的枚举、受信任点击后错误由 SecurityError 翻成 AbortError(手势链通),且那份 12-case 委托执行器对着真实可写目录句柄跑 11 条全部按语义返回。于是 `lib/workspace-capability.ts` 把放行条件钉成「能力探测 ∧ 已登记执行代理」两半(改任何一半都不许放开,`toolsForChatRequest` 必须过它),`lib/workspace-store.ts` 在 pick 到 readwrite-granted 的句柄时才登记,侧栏多了工作区入口与工具审批横幅,`ChatPage` 送 `workspaceContext`(服务端委托分支的开关本身)并接 `onToolDelegate`/`onToolApproval`;同批把 web 取句柄的档位从 `read` 改成 `readwrite` —— 此前浏览器端"让 AI 改文件"是发得出去、执行必失败。提交:`64bc41cad1` / `258b43080a` / `07e789b3e1`;补账①②③④ 已于同日落地(`3a8726494e` / `43a5248278` / `c3d14f5586` / `fe69a7ae56` / `baca9cbf32`):扩展端三个真键入语言包并换掉借用的近义键、审批多出"本会话都允许"一档("永远放行"仍永久禁用)、工作区上下文缓存提为共享层单源(扩展每轮不再全扫目录树,切换与清除即收回)、守门 49 的判定面收口到 HEAD/索引两面、服务端委托往返补上进程内集成证明(9 例,含"去掉 `workspace_context` 就落服务端执行"的反例)。**没量到的那一格仍然没量到**:真实浏览器与扩展里的一次点击、原生目录选择框、前端执行器产出 payload 的真实形状、真实 provider 调用与计量 —— 本机无可登录后端(8801/8802/8810/8811 实测零监听),属真人验收缺口。逐件落点与判据见 PROJECT_PLAN 的 O81 票㉕。**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 小程序 / RN 三端**:载荷 `partialText` 是**累积文本**
 > | 不开放 | 账号/计费变更、社媒发布、本机 GUI 控制、沙箱命令、外部消息触达 | `computer:operate` / `publish:operate` / `sandbox:run` / `diff:apply` / `im:send` |
@@ -5732,7 +5732,7 @@ RC2 全量档判 HEAD 并逐文件点名存量,RC3 取不到计「未判定」�
 - **组件层的共享真值源(2026-09-29 O92 立;同日按用户拍板改成「基座 + 追加」)**:跨端 Button 的共享档位值收口到 `packages/design-tokens/src/button-variants.ts`,两端 `buttonVariants` 先 spread 基座、**只在基座之外追加**平台修饰,**共享键不得被任何一端整档写成字面量**(那会让共享值只约束另一端)。这是本节"改一端另一端自动生效"的交付标准在**组件层**的第一处落地(此前两端只共享档位的**键名类型**,值各写一份)。覆盖范围仍要按档读,不要读成"整个 Button 已同源":2026-10-10 机主拍板统一后,`outline` 基座 = `border border-input bg-background text-foreground`、`ghost` = `bg-transparent text-foreground`、`size lg` = `h-10 px-8`(取 web 定稿,RN 原 h-12 px-6 跟上来),两端的 hover/shadow/rounded 仍是各自在基座外追加;此前 `ghost` 与 `lg` 的共享值是空串 —— 那是用空串遮住一处真分叉(同档名两端不同串)。仍有三格未统一:圆角(web lg=rounded-sm 4px vs RN 基座 rounded-md 6px)、字号(RN 由组件内部 Text 固定 text-sm,size 只管盒)、默认档高度(RN 独占 md=h-10 而 web default=h-9,现读 RN 侧 size 显式传参 0 处 ⇒ 两端默认按钮仍差 4px),已登记台账归设计规范统一批。并由常驻锁 `scripts/tests/shared-button-tier-base.test.mjs` 的 T11/T12 钉住:统一其中任一格都会让 T11 红一次并要求同步本句与台账 G-1115908(T12 用构造面证明它有牙),不得静默演进。常驻锁:`scripts/tests/shared-button-tier-base.test.mjs`(读 HEAD 面,整档另写即红)。约束正文见 AGENTS.md §4「跨端 Button 共享档位值的唯一源」。
   | 200 | check-provider-health-vocabulary.mjs | **provider 健康四档单一真相源对账(blocking,2026-10-08 立 · 2026-10-10 接线)**:钉住 2026-10-07「并表」决策不许再分叉 —— canonical 在 `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const,unknown/healthy/degraded/down),`ProviderHealthStatus` 由它派生,`apps/web/app/(main)/models/channels/channels-api.ts` 的 `RelayKeyPoolHealthStatus` 是同来源别名。**PV1** canonical 形态与派生 / **PV2** 全仓第二份**同值**声明(接线当轮 HEAD 面 409 候选 · 同值 0 ⇒ 直挂 blocking 不新增恒红面;两处真子集只报名,补齐即翻红)/ **PV3** 别名被换回字面量即红。同名不同域按值不判(web 另一张 `ProviderHealthStatus` = ok/invalid_key/unreachable/not_configured、api-client 7 档、`unhealthy` 族、`.py` 侧机主已裁决不扩)。**无行内豁免通道**,只有具名覆盖边界台账;注册条目带 `--strict`(默认档只报数,不带它的 blocking 就是永不红的尺子,守门 117 同型)。口径同 77/83/151(HEAD blob / 索引 blob / `--worktree` 仅人工 / 两旗同给 exit 2 / 枚举 0 判死);取证 `--self-test` + 镜像(T5/T15 接线方向锁双向臂、T13 两旗同给、T14 唯一真相源被摘线必 exit 2);紧急跳过 `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1`。台账 G-814416 / G-1058634 |
   | 221 | check-mjs-syntax.mjs | **.mjs 语法对账(blocking,2026-10-17 立)**:被审面全量 `scripts/check-mjs-syntax.mjs` 逐一纯解析(只 compile 不 evaluate,绝不执行被检文件);定级走差值棘轮:存量只报数,只拦本次带进来的;自检 `node scripts/check-mjs-syntax.mjs --self-test`;应急跳过 `HUSKY_SKIP_MJS_SYNTAX=1`(须在提交信息写明理由) |
-  **两台机器状态探测器现在有名字了(warn 档:已注册进提交链但不阻塞 —— 它判的是机器状态,升 blocking 就是每台每次逼人跳门)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.workbuddy` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
+  **两台机器状态探测器现在有名字了(warn 档:已注册进提交链但不阻塞 —— 它判的是机器状态,升 blocking 就是每台每次逼人跳门)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.ihui-agent/state` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
   | 5-post | sync-lost-commit-tags.mjs(post-commit) | commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖**全部命名空间**;`--check` 另比名字 + SHA,AGENTS.md §22) |
   - commit 后增量 push 本地缺失于 origin 的 tag(2026-10-14 起覆盖全部命名空间;限流 60s + 积压闸 `IHUI_TAG_AUTO_MAX`)
 
@@ -5913,7 +5913,7 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 | 工具 | 干什么 | 为什么必须有它 |
 | `scripts/sync-prometheus-live-config.mjs` | 把 `monitoring/prometheus/prometheus.yml` 派生到部署机那份运行副本,并让运行副本的 `rule_files` 直接指回仓库那份 `alerts.yml`;`--check` 零副作用,`--reload` 走热加载(本机 prometheus 已开 `enable-lifecycle`,改监控配置**不需要重启服务**) | 生产 prometheus 过去读仓库外一份手抄副本,只抓 6 个目标 ⇒ `AlertmanagerDown`/`AlertBridgeDown` 依赖的 `up{job=…}` 序列**根本不存在**,`== 0` 恒不成立 —— 邮件链路断了不会有任何告警。而仓库那份 `alerts.yml` 因带两条 Prometheus 3.x 不认的 `disabled:` 字段被 `promtool` **整份拒绝**,两侧各自"能跑"、合起来从没跑过。**规矩:凡 Down 类判据必须配一条"job 集合差"对账,"序列缺失"比"值为 0"更危险。** 派生器另有占位符凭据守卫(它曾把 `password: __REPLACE…` 逐字烘进生产 ⇒ 主机指标采集器恒 401、磁盘/内存告警长期哑) |
 | `scripts/prune-rotated-nssm-logs.mjs` | nssm 轮转副本的保留策略量算;**默认只读**,`--keep N --apply` 才删,超 40 份或 512MB 自动拒绝需 `--allow-mass` | **轮转 ≠ 保留策略**:nssm 只把写满那份改名,一个旧副本都不删(现读 6 组 / 48 份 / 1.19GB)。活文件(名里无时间戳)永不进候选、刚轮转 <1h 跳过、解析后落在 logs 目录外的一律剔除(防 junction 穿透清空) |
-| `scripts/alert-volume-report.mjs` | 只读量算"发信总量 / 风暴簇 / 跳门总量 / 哪道门导致跳门 / 检查整批没跑的次数" | 过去全仓没人统计过这些,"修好三道"可能只是"修好我看到的三道"。跳门的唯一真值来源是 `.workbuddy/safe-commit-attestation.jsonl` |
+| `scripts/alert-volume-report.mjs` | 只读量算"发信总量 / 风暴簇 / 跳门总量 / 哪道门导致跳门 / 检查整批没跑的次数" | 过去全仓没人统计过这些,"修好三道"可能只是"修好我看到的三道"。跳门的唯一真值来源是 `.ihui-agent/state/safe-commit-attestation.jsonl` |
 | `scripts/pg-restore-drill.mjs` | 备份可恢复性核验:`--check`/`--offline-verify` 不碰库,`--apply` 才做在线还原演练 | 全仓 `pg_restore` 此前只出现在注释里 —— **没验过的备份不算备份**。文件层已证到最强(整份归档解出 363MB SQL 流零报错);在线演练缺一个建库权限,**属机主授权动作,agent 不得自行提权** |
 | `scripts/run-evidence.mjs` | 给任何一次取证落件并写 `#EVIDENCE-RC`,读侧 `--verify` 判"跑完 / 被截断 / 被杀" | 把"跑失败"与"根本没跑到"变成机器可分辨的两件事。管道尾的 `$?` 是 `tail` 的退出码,不是判据的 —— 本仓一天内三次因此得出相反结论 |
 **两条通用口径**:(1) 端内/部署机那份运行配置一律是**派生态**,禁止手改也禁止"只拦红不回写"(与 design-tokens 同源那条同规矩);(2) **改常驻服务的脚本必须重启才生效,而 PowerShell/node 每轮重新派生的子进程改工作树即刻生效** —— 判据是"它是常驻读进内存,还是每轮重新起",别一律当"要重启"。
@@ -5929,7 +5929,7 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 >   而**带不带现在是运行时判的**,不再是文件级禁令:2026-09-28 在真实产物 `chrome-extension://<id>/sidepanel.html` 实测扩展页是安全上下文、`showDirectoryPicker` 在位、`mode:readwrite` 是被接受的枚举、受信任点击后错误由 SecurityError 翻成 AbortError(手势链通),且那份 12-case 委托执行器对着真实可写目录句柄跑 11 条全部按语义返回。于是 `lib/workspace-capability.ts` 把放行条件钉成「能力探测 ∧ 已登记执行代理」两半(改任何一半都不许放开,`toolsForChatRequest` 必须过它),`lib/workspace-store.ts` 在 pick 到 readwrite-granted 的句柄时才登记,侧栏多了工作区入口与工具审批横幅,`ChatPage` 送 `workspaceContext`(服务端委托分支的开关本身)并接 `onToolDelegate`/`onToolApproval`;同批把 web 取句柄的档位从 `read` 改成 `readwrite` —— 此前浏览器端"让 AI 改文件"是发得出去、执行必失败。提交:`64bc41cad1` / `258b43080a` / `07e789b3e1`;未做与没量到的部分见 PROJECT_PLAN 的 O81 票㉕。**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 小程序 / RN 三端**:载荷 `partialText` 是**累积文本**
 | **CLI**     | `apps/cli/`          | Node.js + Commander             | 自研命令行 AI 编程助手,50 命令 + 36 工具 + ACP Server + 24 源配置导入                                                                                                                                                                                                                                                                                                                                             |
 | **CLI**     | `apps/cli/`          | 🟡 核心场景级 | ~1500 行 / 50 命令 / 36 工具  | 单元测试             | 自研 AI 编程助手,ACP Server                                                                                                                                                                                                                                                                                                                                                      |
-**两台机器状态探测器现在有名字了(warn,不进提交链)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.workbuddy` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
+**两台机器状态探测器现在有名字了(warn,不进提交链)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.ihui-agent/state` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
 | **AI 教育全栈**   | 课程学习            | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / 分类/难度/价格三轴服务端筛选 + 真分页 / zhs-course                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 >   而**带不带现在是运行时判的**,不再是文件级禁令:2026-09-28 在真实产物 `chrome-extension://<id>/sidepanel.html` 实测扩展页是安全上下文、`showDirectoryPicker` 在位、`mode:readwrite` 是被接受的枚举、受信任点击后错误由 SecurityError 翻成 AbortError(手势链通),且那份 12-case 委托执行器对着真实可写目录句柄跑 11 条全部按语义返回。于是 `lib/workspace-capability.ts` 把放行条件钉成「能力探测 ∧ 已登记执行代理」两半(改任何一半都不许放开,`toolsForChatRequest` 必须过它),`lib/workspace-store.ts` 在 pick 到 readwrite-granted 的句柄时才登记,侧栏多了工作区入口与工具审批横幅,`ChatPage` 送 `workspaceContext`(服务端委托分支的开关本身)并接 `onToolDelegate`/`onToolApproval`;同批把 web 取句柄的档位从 `read` 改成 `readwrite` —— 此前浏览器端"让 AI 改文件"是发得出去、执行必失败。提交:`64bc41cad1` / `258b43080a` / `07e789b3e1`;补账①②③④ 已于同日落地(`3a8726494e` / `43a5248278` / `c3d14f5586` / `fe69a7ae56` / `baca9cbf32`):扩展端三个真键入语言包并换掉借用的近义键、审批多出"本会话都允许"一档("永远放行"仍永久禁用)、工作区上下文缓存提为共享层单源(扩展每轮不再全扫目录树,切换与清除即收回)、守门 49 的判定面收口到 HEAD/索引两面、服务端委托往返补上进程内集成证明(9 例,含"去掉 `workspace_context` 就落服务端执行"的反例)。**没量到的那一格仍然没量到**:真实浏览器与扩展里的一次点击、原生目录选择框、前端执行器产出 payload 的真实形状、真实 provider 调用与计量 —— 本机无可登录后端(8801/8802/8810/8811 实测零监听),属真人验收缺口。逐件落点与判据见 PROJECT_PLAN 的 O81 票㉕。**工具流中 diff 预览(SSE `tool-delta` 帧)现覆盖 web / 小程序 / RN 三端**:载荷 `partialText` 是**累积文本**
 | 不开放              | 账号/计费变更、社媒发布、本机 GUI 控制、沙箱命令、外部消息触达                                                                                                                                    | `computer:operate` / `publish:operate` / `sandbox:run` / `diff:apply` / `im:send`                                                                                                                                                                                                                     |
@@ -5994,7 +5994,7 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 | 200        | check-provider-health-vocabulary.mjs                                   | **provider 健康四档单一真相源对账(blocking,2026-10-08 立 · 2026-10-10 接线)**:钉住 2026-10-07「并表」决策不许再分叉 —— canonical 在 `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const,unknown/healthy/degraded/down),`ProviderHealthStatus` 由它派生,`apps/web/app/(main)/models/channels/channels-api.ts` 的 `RelayKeyPoolHealthStatus` 是同来源别名。**PV1** canonical 形态与派生 / **PV2** 全仓第二份**同值**声明(接线当轮 HEAD 面 409 候选 · 同值 0 ⇒ 直挂 blocking 不新增恒红面;两处真子集只报名,补齐即翻红)/ **PV3** 别名被换回字面量即红。同名不同域按值不判(web 另一张 `ProviderHealthStatus` = ok/invalid_key/unreachable/not_configured、api-client 7 档、`unhealthy` 族、`.py` 侧机主已裁决不扩)。**无行内豁免通道**,只有具名覆盖边界台账;注册条目带 `--strict`(默认档只报数,不带它的 blocking 就是永不红的尺子,守门 117 同型)。口径同 77/83/151(HEAD blob / 索引 blob / `--worktree` 仅人工 / 两旗同给 exit 2 / 枚举 0 判死);取证 `--self-test` + 镜像(T5/T15 接线方向锁双向臂、T13 两旗同给、T14 唯一真相源被摘线必 exit 2);紧急跳过 `HUSKY_SKIP_PROVIDER_HEALTH_VOCAB=1`。台账 G-814416 / G-1058634 |
 | 221        | check-mjs-syntax.mjs                                                    | **.mjs 语法对账(blocking,2026-10-17 立)**:被审面全量 `scripts/check-mjs-syntax.mjs` 逐一纯解析(只 compile 不 evaluate,绝不执行被检文件);定级走差值棘轮:存量只报数,只拦本次带进来的;自检 `node scripts/check-mjs-syntax.mjs --self-test`;应急跳过 `HUSKY_SKIP_MJS_SYNTAX=1`(须在提交信息写明理由) |
-**两台机器状态探测器现在有名字了(warn 档:已注册进提交链但不阻塞 —— 它判的是机器状态,升 blocking 就是每台每次逼人跳门)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.workbuddy` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
+**两台机器状态探测器现在有名字了(warn 档:已注册进提交链但不阻塞 —— 它判的是机器状态,升 blocking 就是每台每次逼人跳门)**:`scripts/check-service-binary-paths.mjs`(`pnpm check:service-paths`)按 STATE / `nssm Application` 路径存在性 / 声明端口应答 三件事判一个 Windows 服务是不是"真的活着",并把"取不到值"与"值为空"以退出码分岔(nssm stdout 实测 UTF-16LE)—— 立因是 `IHUI-RSSHUB` 被 `.ihui-agent/state` 自升级换掉 node 目录后**静默停了 3 天**,183 道门禁与告警全都看不见。`scripts/check-public-path-probe.mjs`(`pnpm check:public-path`,并由 `git-guardian` 每 30 分钟跑一次)把**换流窗口的不可用时长**与**常态公网的失败率/延迟**分成两条互不顶账的序列各自量,取证经 `scripts/run-evidence.mjs` 封缄 —— "没跑完"的 0 不算合格证。两者刻意保持 warn:判的是机器运行时状态,挂 blocking 只会逼人跳门、连带废掉全部守门。
 | [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                             |
 **11 个 i18n 工具链脚本**(`scripts/`): apply-brand-glossary.mjs / apply-i18n-translations.mjs / apply-translation-fallback.mjs / deep-i18n-audit.mjs / export-untranslated-i18n.mjs / fix-i18n-deep.mjs / scan-hardcoded-zh.mjs / scan-i18n-zh-residue.mjs / translate-i18n-batch.mjs / analyze-unique-i18n-values.mjs / verify-i18n.mjs
 GITHUB_TOKEN 推送不触发 workflow ⇒ required check 永不出现,只会制造每天一次的假红);
@@ -6125,30 +6125,39 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (89b41d74e2)
-- 🔧 工程/其他:摘除 MCP stdio 族三条已结清票(G-691 isError 语义 / G-692 重连代次守卫 / G-694 成对清理) —— 票面自写验收用例 5 文件 38 例本席当轮复跑全绿,凭据与复算命令写进 LAND_BLOB_PROOF;同族 G-689 已于前一轮结清。走门 229 出路②一次摘除,不留翻勾中间态 (a15b2488ba)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7d81ae46f9)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9587053b75)
-- ⚡ 性能:本地一律元门档(业务提交也 49s)—— 全量守门归 CI;仅判据库改动仍强制全量(改错会让门静默失效,CI 是延迟发现) (c104102fb0)
+- 📚 文档:守卫参考文档补溯源水印(生成器输出后注入) (f1b0d8e799)
+- 🐞 修复:头像 shape 接上实现(演示页的 square 此前渲染成圆),并给门 128 的 VoiceInput 登记带理由豁免 (b85a07a11e)
 
 **2026-10-22**
-- 🐞 修复:G-689 结清(本席复跑票面自写判据三条全中:验收用例 8 passed + 复跑判据 RC=0 + 被点名消灭的那行注释已不在面上,实现住在 mcp-runtime.ts:261 并点名本票) —— 这是"实现早已入库、行还挂着未勾"的第一条实锤样本;摘行交兜底轮,本席不代删 (6c69ce0e7a)
-- 🔧 工程/其他:新增全量守门 workflow(手动触发) —— 本地 pre-commit 只跑元门档 27 道(49s),全量 269 道移交 CI;已验证 pnpm install --frozen-lockfile 退出 0 (693a05eb6c)
-- 🔧 工程/其他:再补 *.bak-* 与 dist.__lock 两族忽略 —— 生产 ff 后 status 11→8 的残余两族 (39c9e2b353)
-- 🔧 工程/其他:补 .next.bak-*/dist.old-*/deploy-loop.log.* 三族忽略 —— 堵生产 5.0G 未跟踪备份被自动收编机制整包入库 (82c0711f86)
+- 🐞 修复:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (97d022cc3d)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c45ca90a55)
+- 📚 文档:G-957 出路补两条实测接手事实(已有 mobile-auth 闭环先例 / 其 clientId 写死 / 域名白名单阻塞) (2a4d89d698)
+- 🐞 修复:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (02a714b81c)
 
 **2026-10-22**
-- 🔧 工程/其他:收口四语 README 最近更新与跟踪文件计数(15610) —— 派生区按 MAX_GROUPS 封顶主动裁旧属设计,块外仅 trackedFiles 一行变更,已按文档口径 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (16c2dc4f56)
-- ⚡ 性能:门8延后post-commit + 去掉跳过分支无效屏障 + 纯内容缓存接线补全 (5164d81bf0)
-- 🐞 修复:净面 worktree remove 三次败在 Windows 长路径 —— 补 core.longpaths + .NET 递归兜底 (a5bc756e0f)
-- ⚡ 性能:守护提交窗口期静默 —— 检测到 git 写锁即跳过本轮巡检,把 CPU 与索引锁全让给提交链(消除 40~170s 波动的干扰源) (3697e5dc4f)
+- 📚 文档:G-957 出路补两条实测接手事实(已有 mobile-auth 闭环先例 / 其 clientId 写死 / 域名白名单阻塞) (2a4d89d698)
+- 🐞 修复:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (02a714b81c)
 
 **2026-10-22**
-- 📚 文档:守门总数与 blocking 数对齐现算(268/244),消除门173散文滞后 (cd3ec0633f)
+- 🚀 新功能/改进:头像尺寸档收进跨端唯一表,小程序按定档整体升一档(门 128 Avatar 族) (967c222c24)
 
 **2026-10-22**
-- ⚡ 性能:纯内容门指纹缓存 + 快档重型门真补跑 (010e3cb1a8)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c647b44ade)
+- 🐞 修复:3e 活文档对账同时豁免两片派生区(RECENT UPDATES 归 auto-update-readme-recent、GENERATED NUMBERS 归 gen-doc-numbers;后者正确性由门 173 守),块外仍要求工作树⊇HEAD (1d1ed2680b)
+- 🚀 新功能/改进:守门一零九新增 CL4 拦新增裸「（进行中）」(机主定档),与 CL1/CL3 共用 HEAD 存量棘轮只拦本次带进来的;超龄牌器物默认档改为代摘裸标记,依据是同批 CL4 已在提交链拦住新增、而器物只读 HEAD 面。测试先行:先写 S21 与 S1 更新跑出新红再实现,自检廿二例、镜像廿一例、器物镜像七例(第二遍复跑证幂等)、器物自检十一例全过;runner 标签同批改到四档名。取证:真仓 --check-gate 现读零红且 CL4 存量廿七处逐条点名、新增零处判红。 (cde5d204f2)
+- 📚 文档:§1 同步 CL4 定档与器物默认档改写 —— 裸「（进行中）」新增即拦、存量只报数;器物代摘裸标记的依据是同批 CL4(不是口头状态) (18fc90a789)
+
+- ♻️ 重构:摘牌可追责性搬到仓外留痕 —— 行内注记只留 #seq 指针(实测最长五十二字,注记本身会被活文档归并洗掉:一轮六十四枚只剩六枚),原牌日期/持有者/超龄量/摘除前后整行/基线与落地枚 sha 逐条落 .workbuddy/stale-claim-strip.jsonl,九十天窗口老化且裁掉条数必须报出,取不到判未判定不用零冒充没摘过。测试先行:新臂先跑出红再实现;两次变异(去指针 / 留痕不存整行)分别使三四臂翻红,还原后逐字节核对基线指纹一致。器物自检十九例、镜像十例(含真写盘与老化)全过,门一零三/五二/一九九/一九四/一七六/十五/廿五各 RC=零。 (de551d1755)
+- ⚡ 性能:safe-commit 发令前对齐 README 生成数字,根治门173滞后竞态;sync 增 --files 限定处理面与声明面同源 (b02793d354)
+- 🚀 新功能/改进:摘牌器补三格 —— 留痕键集单一清单(LEDGER_KEYS 导出,自产与补写同形状,缺字段抛错不落半形)、backfillEntry 收敛器补写口、注记日期改本地日(上一轮用 UTC 日写注记,当天上午摘的牌全落在前一天,按日期收敛时整批六十三枚被漏掉)。测试先行:键集一致性臂先跑 ReferenceError 再实现;器物自检廿一例全过。 (098aa44d30)
+- 🐞 修复:把本席上一轮漏收敛的 63 枚摘牌注记收敛成指针(原牌信息已无损回填留痕,seq 前缀 bfmviq9p9d)。上一轮我只按 @2026-10-22 匹配就报了「收敛完」——器物当时用 UTC 日写注记,当天上午的摘牌全落在 @2026-10-21,整批被我漏掉,那是交付不实;本轮同时把日期口径改成本地日,并给留痕补写口与键集一致性自检(防两种形状)。历史他人席位的注记一枚未动。校验:注记 #seq 六十三/六十三可在留痕解到、lease 三十五/三十五带原牌三要素、前后整行双全。 (7488b9cd66)
+
+- 🐞 修复:活文档收编前先归并(lost=0 才提交),README 生成数字发令前对齐;清空并行席位悬挂改动 (08d9add06e)
+
+- 🐞 修复:摘牌器补落地后复验与新枚 sha 取源 —— 实测本器上一轮用 git rev-parse HEAD 取 landedSha,并发下取到的是别席刚顶上那枚(信息是「清偿重复登记存量」),于是报了「留痕 57 条」而 HEAD 面上一枚牌都没少:留痕指向不存在的改写、成功是自述的。现改为①从落地器自己输出解 40 位 sha,解不到就不写留痕不报成功;②落地后回读 HEAD 面复验(被摘原行残留数必须为 0 且挂牌数等于本轮跳过数),不过则判未生效。测试先行:两臂先跑 ReferenceError 再实现,器物自检廿三例全过。那 57 条假凭据已逐条校验提交信息后作废并留读数。 (52ba2968b3)
+- 🐞 修复:更正 O88 行的失效出路 —— 票面写的 plan-tasks-merge --dedupe-done-twins 不在归并器旗标白名单内,照抄必 rc=2,换成实测 RC=0 的 check-plan-task-duplicates --json 并带上现读读数;裁与不裁的判定权仍归人,其余一字未动(§0.8 文档不许写跑不通的出路) (3c36f0efc7)
+
+- 🐞 修复:活文档归并补认无需归并短路径(真丢失=0),修 PROJECT_PLAN 被 fail-closed 误悬挂 (c85a82e4d1)
+
 - 🐞 修复:自动收编器的 git helper 显式接管 stdio —— 门一零三在 HEAD 面点名该处裸奔(本机不写 stdio 稳定 EBUSY,§十二g)。上一笔只补了 windowsHide 就交,等于修一处漏一处,这次同批补全并复跑门一零三/五二/一九九 索引面各 RC=零。 (7606579655)
 - 📚 文档:§1 登记超龄认领牌兜底器物与授权口径 —— 门在提交链上仍不代摘,超龄牌由 strip-stale-claim-marks 周期代摘并把旧形态写进 removed 抗 union 回潮 (ae9bc35767)
 - 🐞 修复:storeDir 误指新建空 store —— 令部署链每轮整轮卡死;改回真身 + 非交互兜底 (a3f2e82e14)
@@ -6160,41 +6169,25 @@ A: Yes. ~14839+ tests / 3019 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - ⚡ 性能:i18n 死 key 扫描移入守门并行池(门 70b)—— 省 6.6s 串行独占 (119085b0ff)
 - ⚡ 性能:守护 git 派生加 GIT_OPTIONAL_LOCKS=0 —— 不再每 12 秒抢索引锁(撞锁重试会重跑整条 pre-commit) (4a2a013cd0)
 
-**2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (bfc8d9c34e)
+- ⚡ 性能:纯内容门指纹缓存 + 快档重型门真补跑 (010e3cb1a8)
+- 📚 文档:守门总数与 blocking 数对齐现算(268/244),消除门173散文滞后 (cd3ec0633f)
 
-**2026-10-22**
-- 🐞 修复:活文档归并补认无需归并短路径(真丢失=0),修 PROJECT_PLAN 被 fail-closed 误悬挂 (c85a82e4d1)
+- 🔧 工程/其他:收口四语 README 最近更新与跟踪文件计数(15610) —— 派生区按 MAX_GROUPS 封顶主动裁旧属设计,块外仅 trackedFiles 一行变更,已按文档口径 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (16c2dc4f56)
+- ⚡ 性能:门8延后post-commit + 去掉跳过分支无效屏障 + 纯内容缓存接线补全 (5164d81bf0)
+- 🐞 修复:净面 worktree remove 三次败在 Windows 长路径 —— 补 core.longpaths + .NET 递归兜底 (a5bc756e0f)
+- ⚡ 性能:守护提交窗口期静默 —— 检测到 git 写锁即跳过本轮巡检,把 CPU 与索引锁全让给提交链(消除 40~170s 波动的干扰源) (3697e5dc4f)
 
-**2026-10-22**
-- 🐞 修复:更正 O88 行的失效出路 —— 票面写的 plan-tasks-merge --dedupe-done-twins 不在归并器旗标白名单内,照抄必 rc=2,换成实测 RC=0 的 check-plan-task-duplicates --json 并带上现读读数;裁与不裁的判定权仍归人,其余一字未动(§0.8 文档不许写跑不通的出路) (3c36f0efc7)
+- 🐞 修复:G-689 结清(本席复跑票面自写判据三条全中:验收用例 8 passed + 复跑判据 RC=0 + 被点名消灭的那行注释已不在面上,实现住在 mcp-runtime.ts:261 并点名本票) —— 这是"实现早已入库、行还挂着未勾"的第一条实锤样本;摘行交兜底轮,本席不代删 (6c69ce0e7a)
+- 🔧 工程/其他:新增全量守门 workflow(手动触发) —— 本地 pre-commit 只跑元门档 27 道(49s),全量 269 道移交 CI;已验证 pnpm install --frozen-lockfile 退出 0 (693a05eb6c)
+- 🔧 工程/其他:再补 *.bak-* 与 dist.__lock 两族忽略 —— 生产 ff 后 status 11→8 的残余两族 (39c9e2b353)
+- 🔧 工程/其他:补 .next.bak-*/dist.old-*/deploy-loop.log.* 三族忽略 —— 堵生产 5.0G 未跟踪备份被自动收编机制整包入库 (82c0711f86)
 
-**2026-10-22**
-- 🐞 修复:摘牌器补落地后复验与新枚 sha 取源 —— 实测本器上一轮用 git rev-parse HEAD 取 landedSha,并发下取到的是别席刚顶上那枚(信息是「清偿重复登记存量」),于是报了「留痕 57 条」而 HEAD 面上一枚牌都没少:留痕指向不存在的改写、成功是自述的。现改为①从落地器自己输出解 40 位 sha,解不到就不写留痕不报成功;②落地后回读 HEAD 面复验(被摘原行残留数必须为 0 且挂牌数等于本轮跳过数),不过则判未生效。测试先行:两臂先跑 ReferenceError 再实现,器物自检廿三例全过。那 57 条假凭据已逐条校验提交信息后作废并留读数。 (52ba2968b3)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ef64532a32)
+- ⚡ 性能:本地一律元门档(业务提交也 49s)—— 全量守门归 CI;仅判据库改动仍强制全量(改错会让门静默失效,CI 是延迟发现) (c104102fb0)
 
-**2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (03d90ef001)
-
-**2026-10-22**
-- 🐞 修复:活文档收编前先归并(lost=0 才提交),README 生成数字发令前对齐;清空并行席位悬挂改动 (08d9add06e)
-
-**2026-10-22**
-- ⚡ 性能:safe-commit 发令前对齐 README 生成数字,根治门173滞后竞态;sync 增 --files 限定处理面与声明面同源 (b02793d354)
-- 🚀 新功能/改进:摘牌器补三格 —— 留痕键集单一清单(LEDGER_KEYS 导出,自产与补写同形状,缺字段抛错不落半形)、backfillEntry 收敛器补写口、注记日期改本地日(上一轮用 UTC 日写注记,当天上午摘的牌全落在前一天,按日期收敛时整批六十三枚被漏掉)。测试先行:键集一致性臂先跑 ReferenceError 再实现;器物自检廿一例全过。 (098aa44d30)
-- 🐞 修复:把本席上一轮漏收敛的 63 枚摘牌注记收敛成指针(原牌信息已无损回填留痕,seq 前缀 bfmviq9p9d)。上一轮我只按 @2026-10-22 匹配就报了「收敛完」——器物当时用 UTC 日写注记,当天上午的摘牌全落在 @2026-10-21,整批被我漏掉,那是交付不实;本轮同时把日期口径改成本地日,并给留痕补写口与键集一致性自检(防两种形状)。历史他人席位的注记一枚未动。校验:注记 #seq 六十三/六十三可在留痕解到、lease 三十五/三十五带原牌三要素、前后整行双全。 (7488b9cd66)
-
-**2026-10-22**
-- ♻️ 重构:摘牌可追责性搬到仓外留痕 —— 行内注记只留 #seq 指针(实测最长五十二字,注记本身会被活文档归并洗掉:一轮六十四枚只剩六枚),原牌日期/持有者/超龄量/摘除前后整行/基线与落地枚 sha 逐条落 .workbuddy/stale-claim-strip.jsonl,九十天窗口老化且裁掉条数必须报出,取不到判未判定不用零冒充没摘过。测试先行:新臂先跑出红再实现;两次变异(去指针 / 留痕不存整行)分别使三四臂翻红,还原后逐字节核对基线指纹一致。器物自检十九例、镜像十例(含真写盘与老化)全过,门一零三/五二/一九九/一九四/一七六/十五/廿五各 RC=零。 (de551d1755)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c21ed373c9)
-- 🚀 新功能/改进:守门一零九新增 CL4 拦新增裸「（进行中）」(机主定档),与 CL1/CL3 共用 HEAD 存量棘轮只拦本次带进来的;超龄牌器物默认档改为代摘裸标记,依据是同批 CL4 已在提交链拦住新增、而器物只读 HEAD 面。测试先行:先写 S21 与 S1 更新跑出新红再实现,自检廿二例、镜像廿一例、器物镜像七例(第二遍复跑证幂等)、器物自检十一例全过;runner 标签同批改到四档名。取证:真仓 --check-gate 现读零红且 CL4 存量廿七处逐条点名、新增零处判红。 (cde5d204f2)
-- 📚 文档:§1 同步 CL4 定档与器物默认档改写 —— 裸「（进行中）」新增即拦、存量只报数;器物代摘裸标记的依据是同批 CL4(不是口头状态) (18fc90a789)
-
-**2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d6fb50905f)
-
-**2026-10-22**
-- 🐞 修复:3e 活文档对账同时豁免两片派生区(RECENT UPDATES 归 auto-update-readme-recent、GENERATED NUMBERS 归 gen-doc-numbers;后者正确性由门 173 守),块外仍要求工作树⊇HEAD (1d1ed2680b)
+- 🔧 工程/其他:摘除 MCP stdio 族三条已结清票(G-691 isError 语义 / G-692 重连代次守卫 / G-694 成对清理) —— 票面自写验收用例 5 文件 38 例本席当轮复跑全绿,凭据与复算命令写进 LAND_BLOB_PROOF;同族 G-689 已于前一轮结清。走门 229 出路②一次摘除,不留翻勾中间态 (a15b2488ba)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1bbcfc21a4)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (eca731e546)
+- 📚 文档:撤回 G-960 行内「隧道零活动副本」的错归因,只留下量到的事实 (8797dcd702)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.

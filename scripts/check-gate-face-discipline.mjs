@@ -147,7 +147,7 @@ export function gitContentReads(maskedCode) {
 /**
  * 仓库锚点**只认大写 `ROOT`**,这是刻意为之而不是判据漏风(2026-09-26 试过再放宽,数据否决):
  * 把 `join(root, …)` / `join(repoRoot, …)` 也算锚点后,`loose` 从 74 涨到 93,而新增里两格是**假阳** ——
- * `check-merge-addition-loss.mjs` 读的是 `.workbuddy/…-audited.json`(被 gitignore 的运行台账,
+ * `check-merge-addition-loss.mjs` 读的是 `.ihui-agent/state/…-audited.json`(被 gitignore 的运行台账,
  * 结构上没有"面"可言),`check-prod-bundle-shadow.mjs` 读的更是**按设计只存在于部署机**的忽略副本
  * (它的退出码为此专门分了三态)。把"读状态文件"判成"按磁盘判仓库内容",就是把一条好判据做成恒红门。
  * 代价如实登记:小写模块根 + 读盘的门会落进 `unknown`(全量档 16 道),而 `unknown` 不判红 ——
@@ -212,7 +212,7 @@ const REPO_ANCHOR_RE = /(?:join|resolve|normalize|dirname|isAbsolute)\s*\([^)]{0
  *   ③ 内容读取调用(readFileSync / readFile / openSync / createReadStream)的**实参**里出现这个常量名。
  *
  * 为什么要有 ② 的白名单:本节上方已记录两次"把锚点放宽"的否决 —— 一次把 `join(root, …)` 小写根
- * 也算锚点,loose 从 74 涨到 93,其中两格是**假阳**(一格读 `.workbuddy` 运行台账,一格读按设计
+ * 也算锚点,loose 从 74 涨到 93,其中两格是**假阳**(一格读 `.ihui-agent/state` 运行台账,一格读按设计
  * 只存在于部署机的 gitignore 副本)。同一型东西换成大写常量再出现在新判据里,所以同一条理由必须
  * 在这里再生效一次:判据分不清"读被审内容"与"读运行态/机器态",就不该据此判红。
  * 选白名单而非黑名单是**取向**而非省事:白名单漏配 → 退回本改动之前的 no-content/unknown(漏报,
@@ -244,7 +244,7 @@ const REPO_CONTENT_DIR_RE = new RegExp(
   `^(${REPO_CONTENT_DIRS.map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})(/|$)`,
 )
 /** 仓库根上的**被跟踪单文件**(pnpm-lock.yaml / PROJECT_PLAN.md / knip-baseline.json …)。
- *  必须以字母开头且带扩展名 —— 这条同时挡掉 `.workbuddy/`、`.ihui-agent/`(点开头)、
+ *  必须以字母开头且带扩展名 —— 这条同时挡掉 `.ihui-agent/state/`、`.ihui-agent/`(点开头)、
  *  `__gate_result.txt`(下划线开头,CI tee 的运行产物)与任何目录段。 */
 export const REPO_CONTENT_FILE_RE =
   /^[A-Za-z0-9][A-Za-z0-9._-]*\.(json|ya?ml|md|ts|tsx|js|mjs|cjs|sql)$/
@@ -278,7 +278,7 @@ function takeExpr(text, from) {
 const ROOT_BASE_RE = /^\s*(?:[A-Za-z_$][\w$]*\.)?(?:join|resolve|normalize)\s*\(\s*ROOT\s*[,)]/
 /**
  * ②:锚点 + 基参数 + **首个**路径段落在仓库内容白名单里。
- * 只看首段(不是 `.some()`):`join(ROOT, '.workbuddy', 'push-state.json')` 的末段也是 `*.json`,
+ * 只看首段(不是 `.some()`):`join(ROOT, '.ihui-agent', 'state', 'push-state.json')` 的末段也是 `*.json`,
  * 按 some() 判就会被放行 —— 而它首段说的是"这是运行台账"。首段才是这条路径**挂在仓库里的位置**。
  */
 function isRepoContentInitializer(initText, initStrings) {
@@ -895,9 +895,9 @@ function selfTest() {
     { kind: 'loose-fs', qual: 1, read: 1 },
   )
   eq(
-    'P5 .workbuddy 运行台账 ⇒ 预拼规则不 qualify(合取仍判 loose-fs,见上)',
+    'P5 .ihui-agent/state 运行台账 ⇒ 预拼规则不 qualify(合取仍判 loose-fs,见上)',
     pShape(
-      "const LEDGER = join(ROOT, '.workbuddy', 'push-state.json')\nreadFileSync(LEDGER, 'utf8')\n",
+      "const LEDGER = join(ROOT, '.ihui-agent', 'state', 'push-state.json')\nreadFileSync(LEDGER, 'utf8')\n",
     ),
     { kind: 'loose-fs', qual: 0, read: 0 },
   )
@@ -1047,7 +1047,7 @@ function selfTest() {
   //  遮噪修好后 `readFileSync(` 这个 token 一直在场,而合取判据本来就不看白名单、不做配对,
   //  所以这两格的 classify 终态是 loose-fs。**这两条必须读成"白名单在此不参与"** ——
   //  否则会把合取顺手接住的一格,误记成预拼规则赢下的一格(§22c 的复读机正是这个形状)。
-  //  P20 点开头的根级文件被 FILE_RE 挡在外面:点前缀在本仓是机器态的标记(`.workbuddy/`、
+  //  P20 点开头的根级文件被 FILE_RE 挡在外面:点前缀在本仓是机器态的标记(`.ihui-agent/state/`、
   //     `.ihui-agent/`、`.deploy.lock/`、`.env*`),判据不认识 gitignore 就分不开 ⇒ qual 0。
   //     **这一格由上面的构造面证明(qual 0 而终态 loose-fs),不靠仓里恰好有样本** ——
   //     原先写的是"唯一这么写的 `check-api-routes.mjs` 由合取兜住",而该文件已于

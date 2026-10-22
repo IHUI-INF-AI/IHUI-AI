@@ -1891,7 +1891,7 @@ async function main() {
   /**
    * G-816040 的旁路落地半格(2026-10-18 立):四端 `ui-routes` 派生态的写回出口挂在
    * `.husky/pre-commit` 的 `TOKEN_SYNC_TARGETS` 登记表里,而本器走 commit-tree ⇒ 那一档**结构上从不触发**。
-   * 现读量级(同日):`.workbuddy/safe-commit-attestation.jsonl` 里 `kind=bypass-landing` 共 **623 条**
+   * 现读量级(同日):`.ihui-agent/state/safe-commit-attestation.jsonl` 里 `kind=bypass-landing` 共 **623 条**
    * —— 即"改页面/路由源并入库"里相当一部分根本没经过登记表,产物钉必然反复落后 ⇒ 门 105 的 G5
    * 在干净 HEAD 上红 ⇒ 每一次普通提交都被迫再人工重钉一遍(本会话今日已人工重钉两次)。
    * 本步只做**复检与点名**,不做写回:写回档 `--heal-ui-routes` 的纪律是"面上取不到/工作树副本≠面副本/

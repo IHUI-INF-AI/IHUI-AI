@@ -30,10 +30,10 @@
  *   的 commit-witness.log 刻意不带时间戳;`.husky/` 下没有 post-index-change)。
  *   所以年龄只能取**下界** = 三把尺子里"最晚的那一个时刻":
  *     - 工作区文件 mtime(内容落盘时刻,删除态取不到);
- *     - 该路径在 `.workbuddy/safe-commit-attestation.jsonl` 里最近一次**有 headBefore 而无
+ *     - 该路径在 `.ihui-agent/state/safe-commit-attestation.jsonl` 里最近一次**有 headBefore 而无
  *       landedSha** 的 ts(读侧唯一出口 lib/commit-attestation.mjs 的 readLedgerRecords;
  *       语义 = 那一轮 safe-commit 声明了这些文件但提交没落地 ⇒ 至少那一刻它已在飞);
- *     - 本门自建的 first-seen 台账 `.workbuddy/index-pending-first-seen.json`
+ *     - 本门自建的 first-seen 台账 `.ihui-agent/state/index-pending-first-seen.json`
  *       (key = 暂存 blob sha + 路径,sha 变了重计;条目从索引消失即回收 —— 台账必须有终态)。
  *   三把全空 ⇒ 返回 `{state:'undetermined', reason:'stage 时刻取不到'}`,**不记绿也不冒红**
  *   (形状照 scripts/git-guardian.mjs 的 shouldAlertAlignStall:阈值 CLI>env>默认、

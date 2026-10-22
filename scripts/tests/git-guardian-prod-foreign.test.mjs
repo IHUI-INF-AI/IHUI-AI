@@ -15,7 +15,7 @@
 //   T1 装车证明:main() 的 `if (!CHECK_ONLY) auditProdForeignWork()` 落在健康分支内、
 //      健康早退行之前(挂进 CHECK_ONLY 一侧等于永不执行,本文件踩过两次);startDaemon 双覆盖。
 //   T2 摘线必红(方向性对照)+ T3 绝不进提交链(guardian-runner checks 里不得出现尺子)。
-// 状态件全部走注入(scratch 目录),绝不碰真 .workbuddy 台账;时间全注入,绝不等真 30 分钟。
+// 状态件全部走注入(scratch 目录),绝不碰真 .ihui-agent/state 台账;时间全注入,绝不等真 30 分钟。
 // 跑法:node --test scripts/tests/git-guardian-prod-foreign.test.mjs
 // =============================================================================
 import { readFileSync, existsSync, writeFileSync } from 'node:fs'

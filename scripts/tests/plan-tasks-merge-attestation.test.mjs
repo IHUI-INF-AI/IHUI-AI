@@ -370,7 +370,7 @@ test('A5 留痕写不出去 ⇒ 返回 ok:false 并给出原因,绝不抛(构造
   const dir = mkScratch('plan-merge-attest-fail')
   try {
     // 用同名**目录**占住台账该在的位置:appendFileSync 必失败(EISDIR / EPERM)
-    mkdirSync(path.join(dir, '.workbuddy', 'safe-commit-attestation.jsonl'), { recursive: true })
+    mkdirSync(path.join(dir, '.ihui-agent', 'state', 'safe-commit-attestation.jsonl'), { recursive: true })
     let ret
     assert.doesNotThrow(() => {
       ret = attestLanding({

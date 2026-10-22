@@ -6,7 +6,7 @@
  * 跳门 / 旁路落地留痕的**唯一出口**(G-725,2026-09-29 立)。
  *
  * 要补的那一格(AGENTS §12f 的那句话此前答不出):
- *   「跳门次数只有一个真值来源:`.workbuddy/safe-commit-attestation.jsonl`」—— 但只有 `safe-commit.mjs`
+ *   「跳门次数只有一个真值来源:`.ihui-agent/state/safe-commit-attestation.jsonl`」—— 但只有 `safe-commit.mjs`
  *   **决定跳门**时才往它写行。于是两类提交在账面上同形:① 过了全部门禁的正常提交(不写行),
  *   ② 走对象空间旁路的提交(commit-tree + CAS,**根本不跑钩子**,也不写行)。结果"有多少提交是在检查
  *   未跑的状态下入库的"这个问题无法回答 —— 2026-09-29 现读:该台账自当日零点起 0 条,而同一窗口
@@ -39,7 +39,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..', '..')
 
 /** 台账相对路径 —— 全仓唯一,不得在任何调用方再拼一次(拼两份就是两份真相)。 */
-export const LEDGER_REL = join('.workbuddy', 'safe-commit-attestation.jsonl')
+export const LEDGER_REL = join('.ihui-agent', 'state', 'safe-commit-attestation.jsonl')
 
 /** 本类记录的 kind(统计侧靠它把"旁路"与"跳门"分开;与 safe-commit 的 kind 族互不重叠)。 */
 export const BYPASS_KIND = 'bypass-landing'
