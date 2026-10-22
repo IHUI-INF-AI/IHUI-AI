@@ -89,7 +89,7 @@ export const aiRelayKeyPool = pgTable(
  * 本表存的是「完整账号会话凭证」(access token + refreshToken + cookies + 设备指纹),
  * 需要平台适配器负责 token 临期自动刷新、401 自愈与指纹头伪装。
  *
- * - providerCode: 'trae' | 'workbuddy' | 'codearts'(与 ai_relay_key_pool.provider_code 同命名空间,独立表)
+ * - providerCode: 'trae' | 'workbuddy' | 'codearts' | 'qoder'(与 ai_relay_key_pool.provider_code 同命名空间,独立表)
  * - uid: 上游账号唯一标识(导入时从凭证解析,如 Trae JWT payload.data.id;同 provider 内唯一去重)
  * - tokenEnc/refreshTokenEnc/cookiesEnc: AES-256-GCM 字段级加密(同 encryptField 模式)
  * - tokenExpiresAt: access token 过期时刻(导入时解析 JWT exp,刷新后更新;调度器据此临期刷新)
@@ -102,7 +102,7 @@ export const aiRelayAccountPool = pgTable(
   'ai_relay_account_pool',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    /** 平台编码:trae / workbuddy / codearts */
+    /** 平台编码:trae / workbuddy / codearts / qoder */
     providerCode: varchar('provider_code', { length: 64 }).notNull(),
     /** 上游账号唯一 id(导入时解析,同 provider 去重键) */
     uid: varchar('uid', { length: 128 }).notNull(),
