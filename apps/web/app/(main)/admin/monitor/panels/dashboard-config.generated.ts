@@ -5,8 +5,8 @@
 /**
  * 监控面板原生配置(自动生成,请勿手改)。
  *
- * 由 scripts/generate-monitor-panels.mjs 从 monitoring/grafana/dashboards/*.json 转译;
- * 表达式与 Grafana 盘逐条同源(321 条),模板变量已归一为 All 档(.*)。
+ * 由 scripts/generate-monitor-panels.mjs 从 monitoring/panel-defs/panels/*.json 转译;
+ * 表达式与 Grafana 盘逐条同源(329 条),模板变量已归一为 All 档(.*)。
  * $__interval / $__range 为占位符,由 /admin/monitor/panels 页面按时间窗替换。
  */
 export interface PanelTarget {
@@ -5401,6 +5401,123 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "topk(10, sum by (tenant_id, resource) (ihui_tenant_resource_used{instance=~\".*\"}))",
             "legend": "{{tenant_id}}"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "uid": "ihui-ai-visitor-bot",
+    "title": "访客与机器人流量",
+    "group": "业务",
+    "panels": [
+      {
+        "id": "1",
+        "title": "入口请求速率(按客户端族)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (client_family) (rate(ihui_traffic_requests_total{instance=~\".*\"}[5m]))",
+            "legend": "{{client_family}}"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "title": "真人/首方 vs 自动化(自述口径)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(ihui_traffic_requests_total{client_family=~\"human-browser|first-party\",instance=~\".*\"}[5m]))",
+            "legend": "真人浏览器 + 首方客户端"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(rate(ihui_traffic_requests_total{client_family!~\"human-browser|first-party\",instance=~\".*\"}[5m]))",
+            "legend": "其余全部(机器/脚本/爬虫/无 UA)"
+          }
+        ]
+      },
+      {
+        "id": "3",
+        "title": "各客户端族 24 小时请求量",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (client_family) (increase(ihui_traffic_requests_total{instance=~\".*\"}[24h]))",
+            "legend": "{{client_family}}"
+          }
+        ]
+      },
+      {
+        "id": "4",
+        "title": "恶意路径形态命中(按形态 / 按自述族)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (kind) (increase(ihui_traffic_scan_hits_total{instance=~\".*\"}[1h]))",
+            "legend": "kind={{kind}}"
+          },
+          {
+            "ref": "B",
+            "expr": "sum by (client_family) (increase(ihui_traffic_scan_hits_total{instance=~\".*\"}[1h]))",
+            "legend": "自称 {{client_family}}"
+          }
+        ]
+      },
+      {
+        "id": "5",
+        "title": "各族 4xx/5xx 速率(外部访客是不是在被门挡住)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (client_family) (rate(ihui_traffic_requests_total{status_class=~\"status_4xx|status_5xx\",instance=~\".*\"}[10m]))",
+            "legend": "{{client_family}}"
+          }
+        ]
+      },
+      {
+        "id": "6",
+        "title": "business-metrics 采集器存续",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 1
+          }
+        ],
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "count(up{job=\"business-metrics\"} == 1)",
+            "legend": "在采的实例数"
           }
         ]
       }
