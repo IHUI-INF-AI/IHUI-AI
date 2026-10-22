@@ -381,6 +381,40 @@ function identityAuthorizesClaim(identity) {
 }
 
 /**
+ * G-57(2026-10-23 立):锁龄的**可判性**判据 —— 未来时间戳下的负龄处置,全仓唯一一份。
+ *
+ * 病型(本机实测,见交付报告):**mtime / meta.ts 落在 Date.now() 之后 ⇒ 锁龄为负**。
+ * 负龄一旦流进"龄 > staleMs ⇒ 判死"这一跳,该跳恒假 ⇒ **该判死的永远判不死**,而且
+ * 一句都不说 —— 实测把 -3600s 读成"龄 -3600s 未超 60s ⇒ 不判死",账面看着就是一把
+ * 新鲜的锁。成因不是"时钟稍微不准",而是时钟回拨 / NTP 跳变 / 时区误设 / 跨主机共享
+ * gitdir 这类分钟到小时级的偏移,量级远在容差之外。
+ *
+ * 处置方向按 §0.3 / §0.10:**判为不可判定并点名原因**,既不判死也不静默按"新鲜"处理。
+ * 这里**刻意不夹逼**(`Math.max(0, age)`):夹逼会把一个"判不出来"的输入改写成"龄 0,
+ * 刚建的",读者再也看不出曾经有过负龄 —— 那正是本仓反复被批的消音。容差之内的小负龄
+ * (文件系统时间戳粒度、读写之间的抖动)按既有行为走,不需要点名,也不需要夹逼:
+ * `age > staleMs` 对负龄本来就判假,结果与"当成新鲜"逐字一致,但没有改写输入。
+ *
+ * @param {number} ageMs `Date.now() - 时间戳`(负数 = 时间戳在未来)
+ * @param {number} [skewToleranceMs] 时钟偏移容差(默认 LOCK_AGE_SKEW_TOLERANCE_MS)
+ * @returns {{verdict:'judgeable'|'undetermined', why?:string}}
+ */
+export const LOCK_AGE_SKEW_TOLERANCE_MS = 5_000
+
+export function judgeLockAge(ageMs, skewToleranceMs = LOCK_AGE_SKEW_TOLERANCE_MS) {
+  if (!Number.isFinite(ageMs))
+    return { verdict: 'undetermined', why: `锁龄不是一个有限数(${String(ageMs)})⇒ 无从判龄` }
+  if (ageMs < -skewToleranceMs)
+    return {
+      verdict: 'undetermined',
+      why:
+        `锁龄为负 ${Math.round(ageMs)}ms(时间戳在 Date.now() 之后 ${Math.round(-ageMs)}ms,` +
+        `超出时钟偏移容差 ${skewToleranceMs}ms)⇒ mtime/ts 与本机时钟不同步,锁龄不可判定`,
+    }
+  return { verdict: 'judgeable' }
+}
+
+/**
  * 清理 git 原生 index.lock(2026-09-19 立,根治 index.lock 卡死多 agent)。
  *
  * 根因:git 写操作(index/refs)被中断(kill/崩溃/宿主清树)时,index.lock 残留,
@@ -397,7 +431,14 @@ function identityAuthorizesClaim(identity) {
  */
 const INDEX_LOCK_STALE_MS = 60_000
 
-function cleanStaleIndexLocks({ gitRoot, alive = isPidAlive, hasGitProcessProbe } = {}) {
+function cleanStaleIndexLocks({
+  gitRoot,
+  alive = isPidAlive,
+  hasGitProcessProbe,
+  // G-57:未判定的点名出口。默认走 stderr —— "判不出锁龄"是异常,不是常态读数,
+  // 塞进 stdout 会被当普通日志扫过去。`clean` 子命令注入收集器,把点名行并进汇总。
+  log = (m) => console.error(m),
+} = {}) {
   const cleaned = []
   const base = gitRoot ?? gitDir()
   const candidates = [join(base, 'index.lock')]
@@ -435,6 +476,20 @@ function cleanStaleIndexLocks({ gitRoot, alive = isPidAlive, hasGitProcessProbe 
     try {
       const st = statSync(lockPath)
       const age = Date.now() - st.mtimeMs
+      // 无 git 进程 → 必是残留(这一支**不依赖锁龄**,故不问可判性);
+      // 有 git 进程 → 锁龄超阈值才删 ⇒ 锁龄是判据,先问它判不判得出来。
+      // G-57:负龄会让 `age > INDEX_LOCK_STALE_MS` 恒假 ⇒ 该判死的永不判死且零输出
+      // (实测 -3600s ⇒ cleaned=[] 且不打印任何东西)。判不出来 ⇒ 点名后交人工,不静默。
+      if (hasGitProcess) {
+        const v = judgeLockAge(age)
+        if (v.verdict === 'undetermined') {
+          log(
+            `[git-lock] index.lock 未判定:${lockPath} —— ${v.why}` +
+              ` ⇒ 既不按"新鲜"略过也不删除,锁保持原样(出路:先对本机时钟对时,再跑 git-lock.mjs clean)`,
+          )
+          continue
+        }
+      }
       // 无 git 进程 → 必是残留;有 git 进程 → 年龄超阈值才删
       if (!hasGitProcess || age > INDEX_LOCK_STALE_MS) {
         unlinkSync(lockPath)
@@ -981,6 +1036,14 @@ export function tryAcquireSingleInstance({
       } catch {
         continue
       }
+      // G-57:负龄 ⇒ 锁龄判不出来。这里**不许**落到下面那句"龄 Xs 未超 Ys ⇒ 不判死" ——
+      // 那句话把"判不出来"写成了"判过了,是新鲜的",而负龄恰恰会让下一跳恒假 ⇒ 永不判死。
+      const v = judgeLockAge(age)
+      if (v.verdict === 'undetermined') {
+        const why = `[git-lock] 单实例守卫:未判定 —— 锁目录内无可读 meta.json,${v.why} ⇒ 既不判死也不判新鲜,本轮跳过`
+        log(why)
+        return no('undetermined', why, null)
+      }
       if (age > staleMs)
         stealWhy = `锁目录内无可读 meta.json 且目录龄 ${seconds(age)}s 超 ${seconds(staleMs)}s ⇒ 视为残留回收`
       else
@@ -991,6 +1054,13 @@ export function tryAcquireSingleInstance({
         )
     } else if (!isPidAlive(meta.pid)) {
       const age = Date.now() - (meta.ts ?? 0)
+      // G-57:同上 —— 死 pid 这一支的回收条件也是 `age > staleMs`,未来 ts 会把它恒钉成假。
+      const v = judgeLockAge(age)
+      if (v.verdict === 'undetermined') {
+        const why = `[git-lock] 单实例守卫:未判定 —— 持有者 pid=${meta.pid} 已退出,但 ${v.why} ⇒ 既不回收也不判新鲜,本轮跳过`
+        log(why)
+        return no('undetermined', why, meta)
+      }
       if (age > staleMs)
         stealWhy = `持有者 pid=${meta.pid} 已退出,且锁龄 ${seconds(age)}s 超 ${seconds(staleMs)}s ⇒ 回收残留`
       else
@@ -1115,13 +1185,21 @@ async function main() {
         }
       }
       // 2. 清理 stale index.lock
-      const indexLocks = cleanStaleIndexLocks()
+      // G-57:未判定的点名行单独收集 —— 它们不是"已清理",塞进 removed 会让"清了 0 个"读成
+      // "清了 1 个";而只打到 stderr 又会在"✅ 无 stale 锁需清理"旁边被当成噪声略过。
+      const indexNotes = []
+      const indexLocks = cleanStaleIndexLocks({ log: (m) => indexNotes.push(m) })
       removed.push(...indexLocks.map((p) => `index.lock:${p}`))
-      if (removed.length === 0) {
+      for (const n of indexNotes) console.log(`   ⚠️ ${n}`)
+      if (removed.length === 0 && indexNotes.length === 0) {
         console.log('✅ 无 stale 锁需清理')
-      } else {
+      } else if (removed.length !== 0) {
         console.log(`🧹 已清理 ${removed.length} 个 stale 锁:`)
         for (const r of removed) console.log(`   - ${r}`)
+      } else {
+        console.log(
+          `⚠️ 未判定:${indexNotes.length} 个 index.lock 因锁龄判不出来而**未处置**(不是"没有 stale 锁")`,
+        )
       }
     } else {
       console.error(
@@ -1165,6 +1243,10 @@ export const __test__ = {
   heartbeat,
   // G-262 计量与检测的接线面(镜像测试注入夹具目录跑端到端,不碰真实 .git/账本):
   cleanStaleIndexLocks,
+  // G-57 锁龄可判性判据(镜像测试直接判这一份,不得在测试里抄第二份 —— §22c):
+  judgeLockAge,
+  LOCK_AGE_SKEW_TOLERANCE_MS,
+  INDEX_LOCK_STALE_MS,
   metricsFilePath,
   readMetricsLines,
   percentile,

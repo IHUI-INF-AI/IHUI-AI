@@ -14,11 +14,20 @@
 // 绝不碰真实 `.git/ihui-git-write.lock`;归档落点也指进夹具(否则测试往 gitArchiveDir() 堆现场)。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { auditClaimStaleLockSource, createLockInstanceObserver } from '../lib/stale-lock-claim.mjs'
-import { __test__ as gl } from '../git-lock.mjs'
+import { __test__ as gl, tryAcquireSingleInstance } from '../git-lock.mjs'
 
 const DEAD_PID = 999000 // 实测不存在的 pid;下面第 0 条先把它自己验一遍,不靠假设
 const LOCK_NAME = 'ihui-git-write.lock'
@@ -349,6 +358,217 @@ test('⑦c单持有者夹具:meta 全程不动 ⇒ 账本行 instances=1', async
     `单持有者不动 ⇒ instances=1,实得 ${JSON.stringify(acquired[0])}`,
   )
   assert.equal(existsSync(archive), false, '全程零抢占(观察不判红)')
+})
+
+// ── 8. G-57:锁龄为负(未来时间戳)⇒ 必须点名「不可判定」,不许静默按"新鲜"处理 ──
+// 病型:`age = Date.now() - mtime`,mtime 在未来 ⇒ age 为负 ⇒ `age > staleMs` 恒假
+// ⇒ 该判死的永远判不死,且零输出(改前实测:龄 -3600s 被读成"未超 60s ⇒ 不判死")。
+// 处置方向(§0.3/§0.10):判不出来 ⇒ 点名原因,既不判死也不当新鲜;**不许夹逼成 0**。
+const FUTURE_SHIFT_MS = 3_600_000 // 未来 1 小时(时钟回拨/NTP 跳变的量级)
+
+/** 把一个路径的 mtime 盖到未来(夹具动作,与判据无关) */
+function stampFuture(p, shiftMs = FUTURE_SHIFT_MS) {
+  const d = new Date(Date.now() + shiftMs)
+  utimesSync(p, d, d)
+  return Date.now() - statSync(p).mtimeMs
+}
+/** 把一个路径的 mtime 盖到过去 agoMs 毫秒前 */
+function stampPast(p, agoMs) {
+  const d = new Date(Date.now() - agoMs)
+  utimesSync(p, d, d)
+  return Date.now() - statSync(p).mtimeMs
+}
+
+test('⑧判据分档:负龄超容差 ⇒ undetermined 且点名原因;容差内小负龄/过去 ⇒ judgeable', () => {
+  const T = gl.LOCK_AGE_SKEW_TOLERANCE_MS
+  // ① 未来 1 小时 ⇒ 不可判定,且 why 里带着**负号那个数**(不许被 Math.max(0,…) 夹掉)
+  const bad = gl.judgeLockAge(-FUTURE_SHIFT_MS)
+  assert.equal(bad.verdict, 'undetermined')
+  assert.match(bad.why, /锁龄为负 -3600000ms/, `why 必须点名负龄原值:${bad.why}`)
+  assert.match(bad.why, /时钟偏移容差/, 'why 必须点名"时钟偏移"这个成因')
+  assert.match(bad.why, /不可判定/, 'why 必须落"不可判定"这个词(不许写成"新鲜")')
+  // ② 容差边界:恰好 -T 仍可判(容差是"≤"这一侧),-T-1 不可判
+  assert.equal(gl.judgeLockAge(-T).verdict, 'judgeable', '容差之内的抖动不该点名')
+  assert.equal(gl.judgeLockAge(-T - 1).verdict, 'undetermined')
+  assert.equal(gl.judgeLockAge(-1).verdict, 'judgeable', '文件系统时间戳粒度造成的小负龄照旧')
+  // ③ 过去 / 0 / 取不到 ⇒ 可判(既有语义不因本票改形)
+  assert.equal(gl.judgeLockAge(0).verdict, 'judgeable')
+  assert.equal(gl.judgeLockAge(120_000).verdict, 'judgeable')
+  // ④ 非有限数(时间戳取不到被算成 NaN)⇒ 未判定,不猜
+  assert.equal(gl.judgeLockAge(NaN).verdict, 'undetermined')
+  assert.equal(gl.judgeLockAge(undefined).verdict, 'undetermined')
+})
+
+test('⑨index.lock 未来 mtime + 有 git 进程 ⇒ 不删且点名未判定(改前是零输出静默)', (t) => {
+  const { scratch } = mkFixture(t)
+  const g = join(scratch, 'gitdir')
+  mkdirSync(g)
+  const lock = join(g, 'index.lock')
+  writeFileSync(lock, '')
+  const age = stampFuture(lock)
+  assert.ok(age < -FUTURE_SHIFT_MS + 1000, `夹具没造出负龄,实得 ${age}`)
+
+  const notes = []
+  const cleaned = gl.cleanStaleIndexLocks({
+    gitRoot: g,
+    hasGitProcessProbe: () => true,
+    log: (m) => notes.push(m),
+  })
+  // 失效方向 = 不删(宁可留着),但**必须点名**:静默不删就是本票的病
+  assert.equal(cleaned.length, 0, `未判定不该进"已清理"清单:${cleaned}`)
+  assert.ok(existsSync(lock), '未判定的锁不得被删')
+  assert.equal(notes.length, 1, `点名行恰一条,实得 ${notes.length}`)
+  assert.match(notes[0], /未判定/, `点名行必须写"未判定":${notes[0]}`)
+  assert.match(notes[0], /锁龄为负/, '点名行必须带负龄原值(不许夹逼)')
+  assert.match(notes[0], /index\.lock/, '点名行必须给出锁路径(否则没人知道去哪儿处置)')
+  assert.equal(leftoverStale(g), 0)
+})
+
+test('⑨b既有语义一字不变:过去 mtime 的三格(超龄删 / 未超龄留 / 无 git 进程删)全部照旧且零点名', (t) => {
+  const { scratch } = mkFixture(t)
+  // ① 过去 120s(> INDEX_LOCK_STALE_MS=60s)+ 有 git 进程 ⇒ 照旧删除,且不得点名
+  const g1 = join(scratch, 'g1')
+  mkdirSync(g1)
+  const old = join(g1, 'index.lock')
+  writeFileSync(old, '')
+  stampPast(old, 120_000)
+  const notes1 = []
+  const cleaned1 = gl.cleanStaleIndexLocks({
+    gitRoot: g1,
+    hasGitProcessProbe: () => true,
+    log: (m) => notes1.push(m),
+  })
+  assert.equal(cleaned1.length, 1, `超龄的 index.lock 照旧要被清理:${cleaned1}`)
+  assert.equal(existsSync(old), false)
+  assert.equal(notes1.length, 0, `过去 mtime 不该产生任何未判定点名:${notes1}`)
+
+  // ② 过去 10s(未超龄)+ 有 git 进程 ⇒ 照旧留着,同样不得点名(它本来就是"新鲜")
+  const g2 = join(scratch, 'g2')
+  mkdirSync(g2)
+  const fresh = join(g2, 'index.lock')
+  writeFileSync(fresh, '')
+  stampPast(fresh, 10_000)
+  const notes2 = []
+  const cleaned2 = gl.cleanStaleIndexLocks({
+    gitRoot: g2,
+    hasGitProcessProbe: () => true,
+    log: (m) => notes2.push(m),
+  })
+  assert.equal(cleaned2.length, 0)
+  assert.ok(existsSync(fresh), '未超龄的 index.lock 照旧保留')
+  assert.equal(notes2.length, 0, `未超龄是"判过了是新鲜",不是"判不出来":${notes2}`)
+
+  // ③ 无 git 进程 ⇒ 锁龄不进判据(判据是"必是残留")⇒ 连未来 mtime 也照旧删除
+  const g3 = join(scratch, 'g3')
+  mkdirSync(g3)
+  const orphan = join(g3, 'index.lock')
+  writeFileSync(orphan, '')
+  stampFuture(orphan)
+  const notes3 = []
+  const cleaned3 = gl.cleanStaleIndexLocks({
+    gitRoot: g3,
+    hasGitProcessProbe: () => false,
+    log: (m) => notes3.push(m),
+  })
+  assert.equal(cleaned3.length, 1, '无 git 进程那一支不依赖锁龄,既有语义不得被本票改形')
+  assert.equal(existsSync(orphan), false)
+  assert.equal(notes3.length, 0, '不依赖锁龄的那一支不该为负龄点名')
+})
+
+test('⑩单实例守卫:无 meta 的锁目录 + 未来 mtime ⇒ kind=undetermined 且点名,不得夹逼成"新鲜"', (t) => {
+  const { dir, archive } = mkFixture(t)
+  mkdirSync(dir) // 有目录、无 meta.json ⇒ 走"按目录 mtime 估龄"那一支
+  const age = stampFuture(dir)
+  assert.ok(age < 0, `夹具没造出负龄:${age}`)
+
+  const logs = []
+  const r = tryAcquireSingleInstance({
+    dir,
+    unitId: 'g57',
+    staleMs: 1000, // 真实时间线上早已超龄 ⇒ 改前本该回收
+    claimArchiveRoot: archive,
+    log: (m) => logs.push(m),
+  })
+  assert.equal(r.acquired, false, '判不出来 ⇒ 不取得锁(失效方向 = 跳过,不是双实例)')
+  assert.equal(r.kind, 'undetermined', `kind 必须把"判不出来"与"判过是新鲜"分开,实得 ${r.kind}`)
+  assert.equal(r.release, null, '没拿到锁就不给释放句柄')
+  assert.match(r.why, /未判定/, `why 必须落"未判定":${r.why}`)
+  assert.match(r.why, /锁龄为负 -/, 'why 必须带负龄原值 —— 夹逼成 0 就再也看不出有过负龄')
+  assert.match(r.why, /时钟偏移容差/)
+  assert.doesNotMatch(
+    r.why,
+    /⇒ 不判死/,
+    `"未超 Xs ⇒ 不判死"是"判过了是新鲜"的措辞,未判定不得借用它:${r.why}`,
+  )
+  // 点名必须真被人看到(log 出口),不能只躺在返回值里
+  assert.equal(logs.length, 1, `点名必须经 log 出口喊出来:${JSON.stringify(logs)}`)
+  assert.match(logs[0], /单实例守卫:未判定/)
+  // 不动锁、不留现场
+  assert.ok(existsSync(dir), '未判定 ⇒ 锁保持原样')
+  assert.equal(leftoverStale(dir), 0)
+  assert.equal(existsSync(archive), false, '未判定 ⇒ 不得产生任何抢占现场')
+})
+
+test('⑩b单实例守卫:死 pid + 未来 ts ⇒ 同样落 undetermined 点名(不得静默不回收)', (t) => {
+  const { dir, archive } = mkFixture(t)
+  putLock(dir, { unitId: 'unit-甲', pid: DEAD_PID, ts: Date.now() + FUTURE_SHIFT_MS })
+  const before = readFileSync(join(dir, 'meta.json'), 'utf8')
+  const logs = []
+  const r = tryAcquireSingleInstance({
+    dir,
+    unitId: 'g57',
+    staleMs: 1000,
+    claimArchiveRoot: archive,
+    log: (m) => logs.push(m),
+  })
+  assert.equal(r.acquired, false)
+  assert.equal(r.kind, 'undetermined', `实得 kind=${r.kind} why=${r.why}`)
+  assert.match(r.why, /锁龄为负/)
+  assert.doesNotMatch(r.why, /暂不回收/, '既有的"刚退出,暂不回收"是判过了的措辞,不得套用')
+  assert.equal(logs.length, 1)
+  assert.equal(readFileSync(join(dir, 'meta.json'), 'utf8'), before, '未判定 ⇒ 锁内容一字不动')
+  assert.equal(existsSync(archive), false, '零抢占现场')
+})
+
+test('⑩c反向对照:过去 mtime/ts 的既有回收语义一字不变(超龄 ⇒ 照旧回收)', (t) => {
+  // ① 无 meta + 过去超龄 mtime ⇒ 照旧按残留回收
+  const f1 = mkFixture(t)
+  mkdirSync(f1.dir)
+  stampPast(f1.dir, 120_000)
+  const logs1 = []
+  const r1 = tryAcquireSingleInstance({
+    dir: f1.dir,
+    unitId: 'g57',
+    staleMs: 1000,
+    claimArchiveRoot: f1.archive,
+    log: (m) => logs1.push(m),
+  })
+  assert.equal(r1.acquired, true, '既有语义:无 meta 且超龄 ⇒ 照旧回收')
+  assert.equal(r1.kind, 'acquired')
+  assert.ok(
+    logs1.some((l) => /视为残留回收/.test(l)),
+    `回收理由仍须逐字沿用既有措辞:${JSON.stringify(logs1)}`,
+  )
+  assert.ok(!logs1.some((l) => /未判定/.test(l)), '过去 mtime 不得被点名成未判定')
+  if (r1.release) r1.release()
+
+  // ② 死 pid + 过去超龄 ts ⇒ 照旧回收
+  const f2 = mkFixture(t)
+  putLock(f2.dir, { unitId: 'unit-甲', pid: DEAD_PID, ts: Date.now() - 120_000 })
+  const logs2 = []
+  const r2 = tryAcquireSingleInstance({
+    dir: f2.dir,
+    unitId: 'g57',
+    staleMs: 1000,
+    claimArchiveRoot: f2.archive,
+    log: (m) => logs2.push(m),
+  })
+  assert.equal(r2.acquired, true, '既有语义:pid 已死且超龄 ⇒ 照旧回收')
+  assert.ok(
+    logs2.some((l) => /回收残留/.test(l)),
+    `回收理由仍须逐字沿用既有措辞:${JSON.stringify(logs2)}`,
+  )
+  if (r2.release) r2.release()
 })
 
 // ── 工具 ───────────────────────────────────────────────────────────────────
