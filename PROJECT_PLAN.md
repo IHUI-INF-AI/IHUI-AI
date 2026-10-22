@@ -28964,6 +28964,14 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] **G-965 台账字段结构化 P2**:行内标头投影未写、强制档未落。现读 75 个侧车键里 44 枚加标头会超 400 字档(台账 >400 字长行存量 86 枚)⇒ 投影必须与"删中段归属句"同批,逐行先过 `scripts/lib/plan-row-conservation.mjs`;侧车另有 1 键已无对应行、39 条被新版本顶掉,压缩与孤儿治理未定;强制只挂"只判本次新增"的差值维(现门 warn)
 
+## 2026-10-22 CF 收尾轮(机主拍板"都要做";五件全部完成 ✅,取证面=本轮落地提交+公网现读)
+
+- 自建 CF API Token `ihui-cf-automation-20261022`(verify active;值只落 HKCU 环境变量 `CLOUDFLARE_API_TOKEN` 与 `apps/ai-service/.env`,不入提交面)——拆掉"没有令牌动不了 CF API"的借口。
+- `api.aizhs.top` `/api/*` GET Cache Rule(尊重源站头)落地:公开端点实测 `cf-cache-status: HIT`,无缓存头端点 DYNAMIC 不缓存。
+- Workers AI 接入 ai-service:`.env` 的 `LLM_PROVIDERS` 增 cloudflare 条目,schema 守门过,网关实测走通 `@cf/meta/llama-3.2-1b-instruct`。
+- `deploy/cf-preferred-ip.mjs` 整链退役:脚本与 `.env.example` 删除、`.gitignore` 条目摘除、`docs/DEPLOYMENT_RUNBOOK.md` 改退役表述(前提全失:靶记录 img.aizhs.top 已 NXDOMAIN、CloudflareST.exe 不存在、Tunnel CNAME 形态本不适用;边缘减压改由 Cache Rules 承接,勿再排期)。
+- ssh 应用(ssh.aizhs.top)加 Google 登录:GCP OAuth 客户端建成(项目实测无任何结算账号绑定,物理不可能扣费——机主此前扣费顾虑当场排除);CF Access Google IdP `38c3f57d-fdfe-4e1f-ac3a-5d54eda952d9` 配置并 test-idp 通过;应用 `allowed_idps` 本为空(全账户 IdP 可用)、登录策略按 email 条件匹配 ⇒ 无需改策略,公网实测登录页出现 Google+Email 两个选项、点 Google 认证成功回到 ssh.aizhs.top。任务期临时令牌 `ihui-cf-access-policy-20261022` 已删除。
+
 
 
 
