@@ -32,6 +32,8 @@
  *     ⇒ 彩色强调,放过;`transparent` 同理(根本没画线);
  *   · 同一格同时收一条横边 + 一条竖边(`border-b border-r`)⇒ 网格 / 箱体收口(课程表、考勤矩阵
  *     每格自画 bottom+right 的那种格线),放过;只把同向两条(`border-t border-b`)照样判 —— 那是两条线;
+ *   · 竖边 + 同轴缩进对(`ml-4 border-l pl-2`)⇒ 引用块左条 / 树形缩进导引线(§4 明文允许
+ *     "引用块左边框"),放过;横边不享受这一条;
  *   · 宽度为 0(`last:border-b-0`)⇒ 擦除动作,放过。
  * 已知不在射程的形状:实心 CSS 字符串(`border-bottom:1px`)、深色面上的 `border-white/10`。
  * 判据宁窄勿宽 —— 漏的那部分由全量档报数暴露,不许为凑数反手放宽。
@@ -98,7 +100,8 @@ check-no-divider.mjs — 分割线守门
   - 单边低透明度描边(border-t border-border/50):WARN(非阻塞)
   - 单边不透明描边(border-b border-border、<tr className="border-t">):差值棘轮 BLOCKING
     锚点 = 该文件 HEAD 面自身命中数;存量只报数,超出基线才拦提交
-  - 整圈边框、双轴(border-x/y)、宽度≥2 的强调条、彩色描边、横竖各一边的网格收口、宽度 0 的擦除 ⇒ 结构性,放过
+  - 整圈边框、双轴(border-x/y)、宽度≥2 的强调条、彩色描边、横竖各一边的网格收口、
+    竖边+同轴 ml/pl 的缩进轨(引用块左条/树形导引线)、宽度 0 的擦除 ⇒ 结构性,放过
 `)
   process.exit(0)
 }
@@ -161,6 +164,20 @@ export function isNeutralBorderColor(name) {
 }
 
 /**
+ * 缩进轨指纹:这一行的 class 里,每条被收的竖边都在**同一轴**上配齐了
+ * `m<l|r>-` / `mx-`(把整块推离基准)与 `p<l|r>-` / `px-`(内容与轨之间的导流)。
+ * 三条全齐 = 引用块 / 树形导引线(AGENTS.md §4 允许),不是分隔线。
+ */
+export function hasIndentRailPair(line, sides) {
+  const has = (re) => re.test(line)
+  return [...sides].every((s) => {
+    const margin = new RegExp(`(?:[\\w.-]+:)*m(?:${s}|x)-(?:\\d+|\\[[^\\]]*\\])`)
+    const pad = new RegExp(`(?:[\\w.-]+:)*p(?:${s}|x)-(?:\\d+|\\[[^\\]]*\\])`)
+    return has(margin) && has(pad)
+  })
+}
+
+/**
  * 单行判定(纯函数;自检与 CLI 共用同一实现,§0.6 单一真相源)。
  * @returns {{level:'warn'|'blocking', label:string, col:number}|null}
  */
@@ -195,6 +212,13 @@ export function classifyDividerLine(line) {
     (drawnSides.has('t') || drawnSides.has('b')) &&
     (drawnSides.has('l') || drawnSides.has('r'))
   ) {
+    return null
+  }
+  // 引用块左条 / 树形缩进导引线:AGENTS.md §4 明文允许"引用块左边框"。这一族的机械指纹是
+  // **竖边 + 同轴的缩进对**(m?- 与 p?- 同时在场)—— 块被推离基准线、内容又与轨留了导流,
+  // 那这根边就是"缩进块的轨",不是两块内容之间的线。横边(t/b)一律不享受这一条 ——
+  // `mt-3 border-t pt-2` 正是本轮清掉最多的那一型分隔线,横边也走这条出口就等于"加一对 mt/pt 就能遮红"。
+  if ([...drawnSides].every((s) => s === 'l' || s === 'r') && hasIndentRailPair(line, drawnSides)) {
     return null
   }
   const first = drawn[0]
@@ -811,6 +835,23 @@ export function selfTest() {
     ok(hit('  <div className="border-b border-r p-1" />') === null)
     ok(hit('  <div className="border-b p-1" />')?.level === 'blocking')
   })
+  t('S27 缩进轨:竖边 + 同轴 ml/pl 成对 ⇒ 放过(引用块左条 / 树形导引线)', () => {
+    ok(hit('  <div className="ml-4 border-l border-border pl-2 pt-1" />') === null)
+    ok(hit('  <div className="mr-4 border-r border-border pr-2" />') === null)
+    ok(hit('  <div className="mx-2 border-l border-border/40 px-2" />') === null)
+  })
+  t('S28 反向对照:缺任一半缩进对就照判(border-l 不能靠加点 padding 混过去)', () => {
+    ok(
+      hit('  <div className="flex w-72 shrink-0 flex-col border-l bg-card" />')?.level ===
+        'blocking',
+    )
+    ok(hit('  <div className="ml-4 border-l border-border" />')?.level === 'blocking')
+    ok(hit('  <div className="border-l border-border pl-2" />')?.level === 'blocking')
+  })
+  t('S29 横边不享受缩进轨出口(最常见的遮红形状:mt-3 border-t pt-2)', () => {
+    const r = hit('  <div className="mt-3 border-t border-border pt-2" />')
+    ok(r && r.level === 'blocking', JSON.stringify(r))
+  })
 
   let pass = 0
   const lines = []
@@ -851,6 +892,7 @@ if (isDirectRun) {
 export const __test__ = {
   classifyBorderToken,
   classifyDividerLine,
+  hasIndentRailPair,
   isNeutralBorderColor,
   maskBlockComments,
   scanSource,
