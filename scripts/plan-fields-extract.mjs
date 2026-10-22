@@ -106,14 +106,29 @@ function existingLines(root) {
 }
 
 /**
- * 追加记录(侧车**只增不删**):同一条逐字已在位 ⇒ 跳过(幂等,重跑不造重复行 —— 重复行会被
- * `loadFields` 读成 orphans,把"谁改的"查不出来);同键不同值 ⇒ 追加,最新者胜由 `loadFields`
- * 判,本器绝不就地改历史行。写盘走"临时件 + rename",被拒的批次一个字节都不留在目标文件上。
+ * 追加记录(侧车**只增不删**):同键同语义已在位 ⇒ 跳过(幂等 —— 重复行会被 `loadFields` 读成
+ * orphans,把"谁改的"查不出来,而每次跑的 `updatedAt` 都是当下,按整行逐字节去重等于每重跑一次
+ * 就叠一条);同键而语义字段真变了 ⇒ 追加,最新者胜由 `loadFields` 判,本器绝不就地改历史行。
+ * 写盘走"临时件 + rename",被拒的批次一个字节都不留在目标文件上。
  */
 export function writeRecords(root, recs) {
   const abs = recordsFile(root)
   const before = existingLines(root)
-  const have = new Set(before)
+  const haveSigs = new Map()
+  const addHave = (rec) => {
+    if (!haveSigs.has(rec.key)) haveSigs.set(rec.key, new Set())
+    haveSigs.get(rec.key).add(sigOf(rec))
+  }
+  for (const l of before) {
+    let parsed = null
+    try {
+      parsed = JSON.parse(l)
+    } catch {
+      continue // 畸形行不参与去重:它本来就不是"在位"的形态,由门报数
+    }
+    const n = normalizeRecord(parsed)
+    if (n.ok) addHave(n.rec)
+  }
   const toAppend = []
   let dupSkipped = 0
   let rejected = 0
@@ -123,13 +138,12 @@ export function writeRecords(root, recs) {
       rejected++
       continue
     }
-    const line = JSON.stringify(n.rec)
-    if (have.has(line)) {
+    if (haveSigs.get(n.rec.key)?.has(sigOf(n.rec))) {
       dupSkipped++
       continue
     }
-    have.add(line)
-    toAppend.push(line)
+    addHave(n.rec)
+    toAppend.push(JSON.stringify(n.rec))
   }
   if (toAppend.length === 0) return { appended: 0, dupSkipped, rejected, path: abs }
   mkdirSync(path.dirname(abs), { recursive: true })
@@ -150,24 +164,54 @@ export function readBackCount(root) {
   return existingLines(root).length
 }
 
+/** 语义签名:只有这四个字段参与判定;`updatedAt` / `updatedBy` 是留痕,不参与。 */
+const SEMANTIC_KEYS = ['owner', 'waiting', 'blocking', 'next']
+const sigOf = (rec) => SEMANTIC_KEYS.map((k) => `${k}=${String(rec?.[k] ?? '')}`).join('|')
+
+/**
+ * 纯函数:行集 + 侧车现有映射 ⇒ 抽得出多少 / 待追加多少。
+ * "已在位"必须按**语义**认,不能按整行逐字节认:每次跑的 `updatedAt` 都是当下,
+ * 按字节比会让 `--check` 永远报"还有 N 条可搬"、`--apply` 每次叠一条同键旧值 ——
+ * 虚增待办与孤儿记录两个病一起犯(账面永远有活是本仓记过最多次的成因)。
+ */
+export function planFromRows(lines, sideMap) {
+  const candidates = []
+  for (const line of lines) {
+    const rec = extractFromLine(line)
+    if (rec) candidates.push(rec)
+  }
+  const have = new Map()
+  for (const rec of sideMap.values()) {
+    if (!have.has(rec.key)) have.set(rec.key, new Set())
+    have.get(rec.key).add(sigOf(rec))
+  }
+  const pendingList = candidates.filter((c) => !have.get(c.key)?.has(sigOf(c)))
+  return { candidates, extractable: candidates.length, pending: pendingList.length, pendingList }
+}
+
 /** 一次算完:面 → 候选 → 合并侧车 → 漂移。check / dry-run / apply 三处共用同一份,不许两套口径。 */
 export function plan({ root = ROOT, face = 'head' } = {}) {
   const a = auditFace(root, face)
   const lines = a.claimableRows.map((r) => r.raw)
   const side = readFieldsFace(root, face)
   if (side.undetermined)
-    return { undetermined: true, why: side.why, lines, candidates: [], drift: [] }
-  const candidates = []
-  for (const line of lines) {
-    const rec = extractFromLine(line)
-    if (rec) candidates.push(rec)
-  }
+    return {
+      undetermined: true,
+      why: side.why,
+      lines,
+      candidates: [],
+      pendingList: [],
+      extractable: 0,
+      pending: 0,
+      drift: [],
+    }
+  const p = planFromRows(lines, side.map)
   const merged = new Map(side.map)
-  for (const rec of candidates) merged.set(rec.key, rec)
+  for (const rec of p.candidates) merged.set(rec.key, rec)
   return {
     undetermined: false,
     lines,
-    candidates,
+    ...p,
     drift: batchBucketDrift(lines, merged),
     existingCount: readBackCount(root),
   }
@@ -176,18 +220,18 @@ export function plan({ root = ROOT, face = 'head' } = {}) {
 function printVerdict(p, { listLimit = 0 }) {
   if (p.undetermined) {
     console.log(`⚠️ 未判定 —— 侧车面取不到:${p.why}`)
-    console.log('EXTRACT-RESULT state=undetermined changed=0 bucketsDrift=0')
+    console.log('EXTRACT-RESULT state=undetermined changed=0 extractable=0 bucketsDrift=0')
     return 2
   }
   console.log(
-    `派单面 ${p.lines.length} 行 ⇒ 可搬进侧车 ${p.candidates.length} 行 / 搬不动(继续靠散文)` +
-      `${p.lines.length - p.candidates.length} 行;侧车现有 ${p.existingCount} 条记录`,
+    `派单面 ${p.lines.length} 行 ⇒ 抽得出 ${p.extractable} 行(已在侧车 ${p.extractable - p.pending} 行 / 待追加 ${p.pending} 行)` +
+      ` / 抽不出(继续靠散文报数)${p.lines.length - p.extractable} 行;侧车现有 ${p.existingCount} 条记录`,
   )
   if (listLimit > 0)
-    for (const r of p.candidates.slice(0, listLimit))
-      console.log(`   候选 ${r.key}  waiting=${r.waiting}${r.owner ? ` owner=${r.owner}` : ''}`)
-  if (listLimit > 0 && p.candidates.length > listLimit)
-    console.log(`   …另 ${p.candidates.length - listLimit} 条候选未逐条打印`)
+    for (const r of p.pendingList.slice(0, listLimit))
+      console.log(`   待追加 ${r.key}  waiting=${r.waiting}${r.owner ? ` owner=${r.owner}` : ''}`)
+  if (listLimit > 0 && p.pending > listLimit)
+    console.log(`   …另 ${p.pending - listLimit} 条待追加未逐条打印`)
   if (p.drift.length > 0) {
     console.log(
       `❌ 整批不落 —— 抽取后 ${p.drift.length} 行的归属桶发生变化(桶是判定输入,换个地方说不等于可以说错):`,
@@ -198,9 +242,12 @@ function printVerdict(p, { listLimit = 0 }) {
     return 2
   }
   console.log('守恒:抽取前后每一行的归属桶零变化(逐行比 dispositionOf ↔ dispositionOfV2)')
-  const state = p.candidates.length > 0 ? 'changed' : 'ready'
-  console.log(`EXTRACT-RESULT state=${state} changed=${p.candidates.length} bucketsDrift=0`)
-  return p.candidates.length > 0 ? 1 : 0
+  // `changed` 只数**待追加**:全搬完时它是 0 ⇒ state=ready。把"已在位"再报成"有活"就是虚增待办。
+  const state = p.pending > 0 ? 'changed' : 'ready'
+  console.log(
+    `EXTRACT-RESULT state=${state} changed=${p.pending} extractable=${p.extractable} bucketsDrift=0`,
+  )
+  return p.pending > 0 ? 1 : 0
 }
 
 function selfTest() {
@@ -265,7 +312,7 @@ function main() {
     return code
   }
   if (code !== 1) {
-    if (code === 0) console.log('   本轮零条可搬:侧车无需写入。')
+    if (code === 0) console.log('   本轮零条待追加(抽得出的记录已在侧车):侧车无需写入。')
     return code
   }
   const written = writeRecords(ROOT, p.candidates)
@@ -286,5 +333,12 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { extractFromLine, batchBucketDrift, writeRecords, readBackCount, plan }
+export const __test__ = {
+  extractFromLine,
+  batchBucketDrift,
+  writeRecords,
+  readBackCount,
+  planFromRows,
+  plan,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -709,7 +709,7 @@ export function chooseLedgerRel({
   localReason = '',
   remoteFiles = null,
   remoteReason = '',
-  maxSeq = 50,
+  maxSeq = null,
   note = (m) => console.log(m),
 } = {}) {
   const say = (m) => note(m)
@@ -728,7 +728,13 @@ export function chooseLedgerRel({
     say(
       '⚠️ 本轮台账名不含机器标识 ⇒ 跨机同刻取名仍可能同名(检查 IHUI_MACHINE_ID / 主机名 / 仓根指纹)',
     )
-  for (let n = 1; n <= maxSeq; n++) {
+  // 搜索步数缺省**随占用面扩**(至少还能放下一枚新名)。固定 50 的窗口在 2026-10-14 那个被钉死的
+  // 基名下已经顶穿(现读该族 62 枚),于是本通道每轮 rc=2 拒绝取名、又被上游标成"不阻断"而无人看见;
+  // 而这条腿正是"已声明摘除的登记行不得被滞后工作树副本带回"那一道 —— 它停摆的后果当天就量到了:
+  // 兜底器摘除 8 条已勾行后,同批行又以未勾形态回到面上(判定面撞号组数 0 → 4)。
+  // 调用方显式给 maxSeq 时照旧用它 —— 窄窗自测档靠这一条保持有牙(摘掉"随占用扩面"这半边它就红)。
+  const steps = Number.isInteger(maxSeq) ? maxSeq : Math.max(50, used.size + 1)
+  for (let n = 1; n <= steps; n++) {
     const cand = ledgerSeqRel(ledgerRel, tag, n)
     if (!used.has(baseNameOf(cand))) {
       if (!remoteKnown)
@@ -740,7 +746,7 @@ export function chooseLedgerRel({
     }
   }
   say(
-    `❌ 前 ${maxSeq} 个后缀全部被占用 ⇒ 拒绝取名/拒绝落地(绝不整文件重写已有台账:那会抹掉旧台账的` +
+    `❌ 前 ${steps} 个后缀全部被占用 ⇒ 拒绝取名/拒绝落地(绝不整文件重写已有台账:那会抹掉旧台账的` +
       `逐字记录 ⇒ 门 71 的归档豁免失效、清偿与回捞对打复活)`,
   )
   return null
