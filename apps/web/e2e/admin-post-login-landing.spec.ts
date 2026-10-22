@@ -31,7 +31,7 @@ import { test, expect, ADMIN_USER } from './fixtures'
 // `/admin/monitor/panels?view=wallboard`(前者现在是客户端 replace 过去)。
 // 只认前者的话,`toHaveURL` 必须抢在 replace 之前那一瞬才命中 ⇒ 用例随时翻红;两形态都收才稳。
 const WALLBOARD = /\/admin\/monitor\/(wallboard|panels\?view=wallboard)/
-const AUTHORIZE_BUTTON = /授权并跳转|授权|Authorize/i
+const AUTHORIZE_BUTTON = /授权并跳转|授权|Authorize|进入网站/i
 
 /** 打开 SSO 登录页 → 账号密码 tab → 填 admin 凭据 → 勾协议(勾不上走 notice-dialog 兜底)。 */
 async function preparePasswordLogin(page: import('@playwright/test').Page, query = '') {
