@@ -11,8 +11,8 @@
 // 豁免:原生 <button> 自绘(IDE 面板等 24px 紧凑档为有意设计)、Input/SelectTrigger/Skeleton、
 //       Button 上的 h-5/h-6(24px/20px 紧凑档,存量 45 处表格行/侧栏密集场景,与原生紧凑档同哲学)、
 //       packages/ui-react/src/components/button.tsx 定义文件本身、测试文件、注释内的示例代码。
-// 用法:node scripts/check-button-height.mjs            (全量扫描,pre-commit 用)
-//       node scripts/check-button-height.mjs --staged   (仅扫描 staged 文件)
+// 用法:node scripts/check-button-height.mjs            (全量扫描,审计用)
+//       node scripts/check-button-height.mjs --staged   (判定面=索引 blob,提交链用)
 //       node scripts/check-button-height.mjs --root <dir> | --root=<dir>
 //                                                       (显式注入扫描根,自检/审计缝;
 //                                                        根不存在 → exit 2,绝不静默 exit 0;
