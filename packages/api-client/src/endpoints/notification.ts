@@ -46,17 +46,8 @@ export async function getMessageDetail(id: string): Promise<ApiResult<MessageIte
   return fetchApi<MessageItem>(`/api/messages/${id}`)
 }
 
-/** 发送消息 */
-export async function sendMessage(input: {
-  toUserId: string
-  content: string
-  type?: 'text' | 'image' | 'file'
-}): Promise<ApiResult<MessageItem>> {
-  return fetchApi<MessageItem>('/api/messages', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+// 2026-10-22 G-962 #104 摘除:POST /api/messages 从未注册(message.ts 的发消息真形态
+// 是 POST /api/messages/send,契约 { conversationId, content }),全仓零消费方。
 
 /** 标记消息已读 */
 export async function markMessageRead(id: string): Promise<ApiResult<{ success: boolean }>> {

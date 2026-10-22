@@ -246,13 +246,8 @@ export async function getCategoryDetail(id: string | number): Promise<ApiResult<
   return fetchApi<Category>(`/api/categories/${id}`)
 }
 
-/** 创建分类 */
-export async function createCategory(input: Partial<Category>): Promise<ApiResult<Category>> {
-  return fetchApi<Category>('/api/categories', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-}
+// 2026-10-22 G-962 #109 摘除:POST /api/categories 从未注册(agents.ts 的创建真形态是
+// POST /api/categories/create),全仓零消费方。
 
 /** 更新分类 */
 export async function updateCategory(
@@ -274,10 +269,8 @@ export async function deleteCategory(
 
 // ===================== monitor（监控） =====================
 
-/** 获取系统监控状*/
-export async function getMonitorStatus(): Promise<ApiResult<MonitorStatus>> {
-  return fetchApi<MonitorStatus>('/api/monitor/status')
-}
+// 2026-10-22 G-962 #110 摘除:GET /api/monitor/status 从未注册(在册近邻
+// GET /api/relay/monitor/status 是中转站专用形状),全仓零消费方。
 
 /** 获取监控指标 */
 export async function getMonitorMetrics(
@@ -288,7 +281,7 @@ export async function getMonitorMetrics(
 
 /** 获取服务健康状*/
 export async function getServicesHealth(): Promise<ApiResult<MonitorStatus['services']>> {
-  return fetchApi<MonitorStatus['services']>('/api/monitor/services')
+  return fetchApi<MonitorStatus['services']>('/api/admin/monitor/services')
 }
 
 // ===================== settings（设置） =====================
@@ -458,7 +451,9 @@ export async function verifyTwoFactor(
 }
 
 /** 禁用两步验证(POST /api/auth/2fa/disable;需当前密码二次确认)。 */
-export async function disableTwoFactor(password: string): Promise<ApiResult<{ disabled: boolean }>> {
+export async function disableTwoFactor(
+  password: string,
+): Promise<ApiResult<{ disabled: boolean }>> {
   return fetchApi<{ disabled: boolean }>('/api/auth/2fa/disable', {
     method: 'POST',
     body: JSON.stringify({ password }),
