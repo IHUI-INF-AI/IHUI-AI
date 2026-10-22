@@ -28992,4 +28992,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 ## 2026-10-22 台账字段结构化 P1(判定改造 + 侧车 + 守恒器物 + 新门 warn 档)
 
-- [ ] （进行中@2026-10-22/ledger-p1） **G-964 台账字段结构化 P1 残余**:侧车抽取器 `scripts/plan-fields-extract.mjs` 与新守门 `check-plan-fields.mjs`(warn 档)未建;规格 `docs/superpowers/specs/2026-10-22-plan-ledger-schema-design.md`
+- [x] ✅(2026-10-22) **G-964 台账字段结构化 P1 残余**:侧车抽取器 `scripts/plan-fields-extract.mjs` 与新守门 `check-plan-fields.mjs`(warn 档)已装车(warn 档,存量只报数);规格 `docs/superpowers/specs/2026-10-22-plan-ledger-schema-design.md`
