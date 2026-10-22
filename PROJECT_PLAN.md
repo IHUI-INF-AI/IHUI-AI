@@ -29067,3 +29067,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [x] ✅(2026-10-23) 〔归:api-client 审批回传那两枚提交的持有人〕 G-593. **api-client 的"上行应答接受性"守卫测试还在锁旧实现形状,而实现今天已被两枚提交重写 —— 四条断言在云端 `[test]` 步骤连红,其中一条是行为断言"回传未送达必须喊一次"实到 0,需要持有人判定是新实现真的不喊了(= 静默吞,真回归)还是喊的地方换了(= 守卫没跟上)(等环境条件 = 无)**:实测链(2026-09-28,main tip `7baa8ab0e7` 的 CI `[test]` 步骤,公开 annotations 读数)—— 〔压缩@2026-10-22〕〔结清@2026-10-23/工单席复跑:四条断言现读全绿 —— 定向 ai-service-upstream-acceptance + tool-approval-response-acceptance 两文件 21 例 passed,api-client 全套现读 52 文件/476 例 passed(他席随后把超时看门狗收进 transport 单源,套件仍全绿);行为断言的喊点在库:HEAD 面 client.ts 现读 delegate catch 里 invoked 旗标 + console.error「回传未送达」命中 1 处;形状锁两枚(抛出点恰好 1 处、三条腿俱经 assertAiServiceAccepted)由 3fe7587655 改锁新形状清偿,当年实到 0 定性为 7baa8ab0e7 整文件回写的真回归,已由 28862027a9 还回〕
 
 
+
