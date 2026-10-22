@@ -425,6 +425,9 @@ def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str
     agents.py 任务流重放帧同形,前端按 approval_id 幂等渲染)。D159 的 env/network
     区块**不重算** —— 重放要显示的是"发帧那一刻显示过的事实",重算即分叉
     (与 net_fact 存发帧时取值同一条纪律)。纯只读,不改登记表、不取结算名额。
+    **幂等**:同一待决条目重放 N 次 = N 次只读投递(每连接一次),不新增条目、不置
+    event、不写 decision ⇒ 不制造第二个等待者;重复点击也只唤醒原等待一次(幂等键 =
+    approval_id,判据见 tests/test_d690_reconnect_replay_idempotency.py)。
     """
     from app.core.approval_replay import chat_pending_approval_replays
     from app.core.sse_contract import (  # 运行时 import 点(见 sse_contract 头注的 SSE-CONTRACT-IMPORT-SITES)
