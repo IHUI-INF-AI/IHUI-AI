@@ -21,9 +21,10 @@
 // 是手写替身且不含 useLoginForm,见 tests/__mocks__/ihui-shared-hooks.ts 自述),
 // 否则"点引导→被拒"这条链测的就是替身。SharedLoginScreen 用捕 props 的替身是
 // 正确接缝——本票判的是端内 LoginScreen 的引导决策,不判共享 UI 渲染。
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, render } from '@testing-library/react'
 import { createElement } from 'react'
+import { Platform } from 'react-native'
 
 const { sharedPropsCaptured, appAlertCalls, ssoLib } = vi.hoisted(() => ({
   sharedPropsCaptured: [] as Array<Record<string, unknown>>,
@@ -217,6 +218,70 @@ describe('G-958 web(H5)登录引导不得指向被自己拒绝的死路', () => 
     expect(appAlertCalls).toHaveLength(1)
     const message = appAlertCalls.at(-1)?.message ?? ''
     expect(message).toMatch(/验证码|账号密码|账密/)
+  })
+})
+
+// ===== 正向对照 G-958 的修复只准收窄 web,不得把原生端的 SSO 入口一并删掉 =====
+//
+// 为什么必须补这一组:上面五条跑的全部是 Platform.OS === 'web'(共享替身把 OS 钉成 'web')。
+// 倘若有人把 `onSsoLogin={Platform.OS === 'web' ? undefined : form.ssoLoginAction}` 整个回收成
+// `onSsoLogin={undefined}`,上面五条**一条都不会红** —— 它们断言的正是 undefined,
+// 而 iOS/Android 用户从此失去一键授权入口。over-fix 就是这样走掉的,所以这一组跟上面五条必须同批在。
+//
+// 取材纪律:与 tests/device-fingerprint-shape.test.ts 同法 —— 共享替身的 Platform 只保留了够用的
+// API 面,OS 又被 `as const` 收成 'web' 字面量类型;原生支要的是可写 OS,故照同一套 cast 取句柄,
+// 用完务必还原(否则后续用例取的就不是 web 面了)。
+
+/** 共享替身的 Platform.OS 被 `as const` 收成 'web' 字面量类型;原生支要的是可写 OS。 */
+type MutablePlatform = { OS: string }
+const mutablePlatform = Platform as unknown as MutablePlatform
+
+describe('G-958 正向对照:原生平台(iOS/Android)的 SSO 入口必须在', () => {
+  beforeEach(() => {
+    sharedPropsCaptured.length = 0
+    appAlertCalls.length = 0
+    ssoLib.openSsoLogin.mockClear()
+    ssoLib.extractSsoCode.mockClear()
+    ssoLib.exchangeSsoCode.mockClear()
+  })
+
+  afterEach(() => {
+    // 还原成替身默认值:本 describe 若把 OS 留在 'ios',同一进程里后续用例取的就不是 web 面了
+    mutablePlatform.OS = 'web'
+  })
+
+  for (const os of ['ios', 'android'] as const) {
+    it(`${os}:必须透出可用的 onSsoLogin(web 收窄不得株连原生端)`, () => {
+      mutablePlatform.OS = os
+      render(<LoginScreen />)
+      expect(typeof latestSharedProps().onSsoLogin).toBe('function')
+    })
+  }
+
+  it('原生端点 SSO 按钮必须真走到 sso 链路,而不是一枚空壳回调', async () => {
+    mutablePlatform.OS = 'ios'
+    render(<LoginScreen />)
+    const onSsoLogin = latestSharedProps().onSsoLogin as () => Promise<unknown>
+    await act(async () => {
+      await onSsoLogin()
+    })
+    // 替身 openSsoLogin 返回 null ⇒ ssoLogin 走「用户取消授权」提前 return,故只判"链路被发起"
+    expect(ssoLib.openSsoLogin).toHaveBeenCalledTimes(1)
+  })
+
+  it('原生端第三方登录不再被 web 那句如实提示挡住(收窄严格限于 web)', async () => {
+    mutablePlatform.OS = 'android'
+    render(<LoginScreen />)
+    act(() => {
+      ;(latestSharedProps().onThirdPartyLogin as (p: string) => void)('github')
+    })
+    await act(async () => {
+      await Promise.resolve()
+    })
+    // 原生分支应当走 OAuth 跳转(lib/oauth-redirect.ts),不得掉进 web 专属的 WEB_PREVIEW_LOGIN_HINT
+    // —— 逐条扫全部弹窗而不仅扫最后一条:只看末条会在「原生端压根没弹窗」时同样判绿(§0.3 空判)。
+    const messages = appAlertCalls.map((c) => c.message ?? '').join('\n')
+    expect(messages).not.toMatch(/网页预览暂不支持微信及第三方登录/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
