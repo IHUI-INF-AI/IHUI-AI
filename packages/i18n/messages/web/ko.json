@@ -10602,6 +10602,8 @@
     "invalidPhone": "올바른 전화번호를 입력해주세요",
     "invalidUsername": "사용자명은 3자 이상이어야 합니다",
     "loginBtn": "로그인",
+    "loggedInContinue": "이미 로그인했습니다. 아래 버튼을 눌러 계속하세요",
+    "continueToSite": "사이트로 이동",
     "loginFailed": "Login Failed",
     "loginInBrowser": "브라우저에서 로그인",
     "desktopSsoSuccess": "로그인 완료 — 데스크톱 앱에 동기화되었습니다",

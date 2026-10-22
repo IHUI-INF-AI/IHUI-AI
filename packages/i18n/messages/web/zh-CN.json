@@ -10602,6 +10602,8 @@
     "invalidPhone": "请输入正确的手机号",
     "invalidUsername": "使用者名至少 3 位",
     "loginBtn": "登录",
+    "loggedInContinue": "您已登录,点击下方按钮继续",
+    "continueToSite": "进入网站",
     "loginFailed": "登录失败,请重试",
     "loginInBrowser": "在浏览器中登录",
     "desktopSsoSuccess": "登录成功，已同步到桌面端",
