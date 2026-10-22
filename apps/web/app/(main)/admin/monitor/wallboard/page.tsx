@@ -326,7 +326,7 @@ function Panel({
         className,
       )}
     >
-      <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+      <header className="flex shrink-0 items-center gap-2 px-3 pt-2 pb-1">
         <span className="h-3 w-[3px] rounded-full bg-info shadow-[0_0_8px_color-mix(in_srgb,var(--color-info)_80%,transparent)]" />
         {icon ? <span className="text-info-text/70">{icon}</span> : null}
         <h2 className="wb-display text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
@@ -960,7 +960,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         ) : null}
 
         {/* ===== 顶部横梁 ===== */}
-        <header className="wb-header sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-shell-panel/90 px-4 py-2 backdrop-blur">
+        <header className="wb-header sticky top-0 z-20 flex items-center gap-3 bg-shell-panel/90 px-4 py-2 backdrop-blur">
           <div className="wb-hdr-title flex min-w-0 items-center gap-2.5">
             <BackButton />
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-info/40 bg-info/10 shadow-[0_0_12px_color-mix(in_srgb,var(--color-info)_28%,transparent)]">
@@ -1101,7 +1101,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ].map((k) => (
             <div
               key={k.label}
-              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2 transition-colors hover:bg-card"
+              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
                 <span className="text-info-text/70">{k.icon}</span>
@@ -1238,7 +1238,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               {(services?.windows ?? []).map((s) => (
                 <div
                   key={s.name}
-                  className="flex items-center justify-between rounded-md border border-transparent bg-muted/50 px-2 py-[5px] transition-colors hover:border-info/40"
+                  className="flex items-center justify-between rounded-md border border-transparent bg-muted/50 px-2 py-[5px] transition-colors hover:bg-muted"
                 >
                   <span className="wb-num truncate text-[11px] text-foreground">{s.name}</span>
                   <span className="flex shrink-0 items-center gap-1.5">
@@ -1277,7 +1277,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </div>
               ))}
             </div>
-            <div className="mt-3 border-t border-border pt-2">
+            <div className="mt-4">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('scrapeTargets', {
                   up: services ? String(services.targetsUp) : '—',
@@ -1868,7 +1868,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           </Panel>
         </section>
 
-        <footer className="flex items-center justify-between border-t border-border px-5 py-2 text-[10px] text-muted-foreground">
+        <footer className="flex items-center justify-between px-5 pt-1 pb-2 text-[10px] text-muted-foreground">
           <span>{t('footerSources', { url: ov?.prometheusUrl ?? '—' })}</span>
           <span className="wb-num">
             {t('footerUptime', {
