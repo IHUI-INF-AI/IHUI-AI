@@ -207,7 +207,7 @@ export default function NewsDetailPage() {
 
         {/* 底部操作栏:对齐 RN wrapper bottomBar(space-around + hairline 上边框 + 白底) */}
         {!loading && news.title ? (
-          <View className="fixed bottom-0 left-0 right-0 flex flex-row items-center justify-around bg-card border-t border-border pt-[16rpx] pb-[calc(20rpx+env(safe-area-inset-bottom,0))]">
+          <View className="fixed bottom-0 left-0 right-0 flex flex-row items-center justify-around bg-card pt-[16rpx] pb-[calc(20rpx+env(safe-area-inset-bottom,0))]">
             <View
               className="flex flex-row items-center gap-[8rpx] bg-transparent"
               onClick={onLike}

@@ -28,6 +28,22 @@
     {
       "path": "apps/miniapp-taro/src/components/Menu.tsx",
       "reason": "2026-10-15 有意删除。三条证据按当次 HEAD 面现读:\n① 端内零消费者 — 小程序菜单抽屉的真实现是 DrawerComponent.tsx(MaterialPopup:10、SkillsPopup:11、pages/community:19、pages/index:48、pages/user:23、pkg-ai/ai/ChatDrawers:9、pkg-ai/ranking/detail:11 等处具名取用并渲染);本件无任何说明符指向,components/index.ts 不递它。\n② 唯一同名命中的 import 在别端 — apps/mobile-rn/src/screens/CoursePlanetScreen.tsx:40 的 ../components/Menu 解析到 mobile-rn 自己的组件。\n③ 本件与 DrawerComponent 不等价:它的 DEFAULT_ITEMS 硬编码旧 tabbar 外链图标路径(bspapp CDN),而现役抽屉走 DrawerMenuItem + 主题注入 —— 谁按名字误接它,拿到是一份不跟主题、图标走外链的菜单。\"改了会静默错\"才是本条的删除正当性,不是\"没人用\"。\nE2 为何不够:apps/mobile-rn/src/components/Menu.tsx 同名同后缀但在另一端,不构成小程序侧替代腿。\n问责复跑:node scripts/check-staged-deletions.mjs --staged;node scripts/check-glyph-arrow-icon.mjs --staged(该端返回键/菜单箭头唯一实现不得被这次删除摘线)。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/login/login.tsx",
+      "reason": "2026-10-23 机主定档\"小程序端不该有登录页\"⇒ 有意删除登录页整族。删除的正当性不是\"没人用\",而是登录能力已经**逐条真机验过**地迁到唯一宿主:apps/miniapp-taro/src/pages/user/index.tsx 上的 LoginPopUp,内含 ① 微信手机号一键验证(2184a846a9f 之前已入库)② 收起态「密码登录」兜底(2184a846a9f 搬入)。拦着弹窗的那道登录墙也在 ad737b04ada 拆掉(401 分型:游客打到鉴权端点不再被 reLaunch 到登录页)。去登录界面的路由已收成单一出口 utils/auth.ts 的 goToLogin()(原先这条路由串被硬编码在 8 处)。真机取证(微信开发者工具 Stable 2.02.2608080,启动页 pages/user/index,未登录):「我的」页正常渲染、页面路径 = pages/user/index、点「点击登录」弹窗打开且两个入口都在;产物面 dist/pages/login 目录不存在、dist/app.json 里 pages/login 命中 0 条。随页面一起去掉的能力(机主看过取舍后决定,不是遗漏):邮箱验证码登录、手机号验证码登录、以及页面上\"没有账号?立即注册\"的自动回跳(注册页本身还在)。 唯一剩余\"引用方\" apps/miniapp-taro/scripts/i18n-migration/nav-title-i18n.py:17 是**已完成使命的一次性 i18n 迁移脚本的路由别名表项**,不是在役依赖(同清单 PageLoading.tsx 那条已确立同型口径:该目录下的 codemod 规则表项不构成引用)。不得为了让门变绿去改那个迁移脚本的历史规则表 ——那是替别人的取证面做裁决。问责复跑:node scripts/check-staged-deletions.mjs --staged;node scripts/check-miniapp-generated.mjs(产物钉集合须与删除后一致)。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/login/login.css",
+      "reason": "2026-10-23 随登录页同批删除。本件里的**登录字段样式不是被丢掉,而是被提到全局**:app.css 的\"登录字段(全局唯一一份)\"块持有 .login-field / .login-label / .login-label-row / .login-input,由登录页与「我的」弹窗两个宿主共用(§0.6 不在端内出现第二套输入框视觉);页面私有表里只保留 .login-phone-row .login-input 这类**复合覆盖**选择器,特异度更高、与加载顺序无关。锁:apps/miniapp-taro/tests/login-popup-password-fallback.test.tsx 断言 app.css 必须定义这四个类(正例,防\"两处都没有\"的假绿)。引用方同上:一次性迁移脚本的别名表项 + 本条豁免自述。"
+    },
+    {
+      "path": "apps/miniapp-taro/src/pages/login/login.config.ts",
+      "reason": "2026-10-23 随登录页同批删除(页面级路由配置,只服务本页面,页面没了它不可能有消费者)。app.config.ts 里的 `root: 'pages/login'` 子包注册同批摘除,并由测试锁住\"不许再注册回来\"(判据遮注释后再判,免得把\"历史注记讲过这件事\"误判成\"还在做这件事\")。"
+    },
+    {
+      "path": "apps/miniapp-taro/tests/login-thirdparty-entries.test.tsx",
+      "reason": "2026-10-23 随其被测对象(登录页)删除。**它锁的性质没有跟着删** —— \"登录界面不许挂点了拿不回登录态的假入口\"已迁到弹窗侧继续锁:tests/login-popup-password-fallback.test.tsx 断言① 弹窗不渲染 oauth 图标格、不引 Google 素材;② 弹窗源码不往 /pages/webview 那条死路导航(那条路从没有一方接管 sso 回传);③ 7 个原硬编码登录页路由的调用点全部归零。登记本条而不是让门自己放过:门 99 的替代路径判据只认同名同后缀文件,而新载体住在另一个文件名里。"
     }
   ]
 }

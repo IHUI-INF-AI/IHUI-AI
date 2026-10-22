@@ -324,7 +324,7 @@ export default function BackupJobsPage() {
               </tr>
             ) : (
               jobs.map((job) => (
-                <tr key={job.id} className="border-t border-border">
+                <tr key={job.id}>
                   <td className="px-3 py-2 font-medium">
                     <TruncatedText value={job.name} />
                   </td>

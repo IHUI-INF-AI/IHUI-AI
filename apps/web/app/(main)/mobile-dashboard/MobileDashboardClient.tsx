@@ -241,7 +241,7 @@ export function MobileDashboardClient() {
                     </thead>
                     <tbody>
                       {data.topPages.map((p, idx) => (
-                        <tr key={`${p.path}-${idx}`} className="border-b ">
+                        <tr key={`${p.path}-${idx}`}>
                           <td className="px-5 py-2.5">
                             <span
                               className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-semibold ${

@@ -27,10 +27,7 @@ import { useTranslations } from 'next-intl'
 import { ChevronDown, Layers } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import {
-  readFoldPolicyMode,
-  type FoldPolicyMode,
-} from '@/components/chat/message-list/fold-policy'
+import { readFoldPolicyMode, type FoldPolicyMode } from '@/components/chat/message-list/fold-policy'
 
 export interface ContextAssemblyInjection {
   kind: string
@@ -127,9 +124,7 @@ export function ContextAssemblyBar({
   if (injections.length === 0) return null
 
   const hasSources =
-    (citations?.length ?? 0) > 0 ||
-    (steerNotices?.length ?? 0) > 0 ||
-    retryNotice !== undefined
+    (citations?.length ?? 0) > 0 || (steerNotices?.length ?? 0) > 0 || retryNotice !== undefined
 
   return (
     <div
@@ -167,10 +162,7 @@ export function ContextAssemblyBar({
             <AssemblyInjectionRow key={`${injection.kind}-${i}`} injection={injection} />
           ))}
           {hasSources ? (
-            <div
-              className="mt-1 border-t border-border/40 pt-1"
-              data-testid="context-assembly-sources"
-            >
+            <div className="mt-1 pt-1" data-testid="context-assembly-sources">
               <div className="px-1 pb-0.5 text-[11px] text-muted-foreground/80">
                 {t('injectionAssemblySourcesTitle')}
               </div>

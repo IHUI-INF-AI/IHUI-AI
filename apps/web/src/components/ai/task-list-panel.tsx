@@ -44,7 +44,7 @@ const PRIORITY_LABEL: Record<NonNullable<TaskItem['priority']>, string> = {
 export function TaskListPanel({ tasks, onToggle }: TaskListPanelProps) {
   return (
     <div className="rounded-xl border bg-card">
-      <div className="border-b px-4 py-2.5">
+      <div className="bg-muted/40 px-4 py-2.5">
         <h3 className="text-sm font-semibold">任务清单</h3>
       </div>
       <ul className="space-y-1">

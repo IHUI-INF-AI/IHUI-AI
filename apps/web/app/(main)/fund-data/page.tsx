@@ -143,7 +143,7 @@ export default function FundDataPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-xs text-muted-foreground">
+                  <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
                     <th className="pb-2 pr-4 font-medium">{t('fundCode')}</th>
                     <th className="pb-2 pr-4 font-medium">{t('fundName')}</th>
                     <th className="pb-2 pr-4 font-medium">{t('fundType')}</th>
@@ -223,7 +223,7 @@ export default function FundDataPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-xs text-muted-foreground">
+                  <tr className="bg-muted/40 text-left text-xs text-muted-foreground">
                     <th className="pb-2 pr-4 font-medium">{t('date')}</th>
                     <th className="pb-2 text-right font-medium">{t('netValue')}</th>
                   </tr>

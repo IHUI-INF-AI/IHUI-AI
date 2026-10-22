@@ -208,14 +208,11 @@ export default function DistributionTeamDetailPage() {
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border">
-            {subordinates.map((sub, idx) => (
+            {subordinates.map((sub) => (
               <Link
                 key={sub.id}
                 href={`/distribution/team/${sub.id}`}
-                className={cn(
-                  'flex items-center gap-3 p-3 transition-colors hover:bg-accent/40',
-                  idx > 0 && 'border-t',
-                )}
+                className={cn('flex items-center gap-3 p-3 transition-colors hover:bg-accent/40')}
               >
                 {sub.avatar ? (
                   <Image

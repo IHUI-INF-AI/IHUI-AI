@@ -305,7 +305,7 @@ export function AiTutorPanel({ chapterTitle, knowledgePoints }: AiTutorPanelProp
           )}
 
           {history.length > 0 && (
-            <div className="space-y-1.5 border-t pt-3">
+            <div className="space-y-1.5 pt-3">
               <div className="text-xs text-muted-foreground">{t('history')}</div>
               <ul className="space-y-1">
                 {history.map((h) => (

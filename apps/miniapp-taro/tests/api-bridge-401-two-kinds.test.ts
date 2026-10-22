@@ -15,21 +15,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ApiResult } from '@ihui/types'
 
-const { mockGetToken, mockExpireAuth, mockToast, mockReLaunch } = vi.hoisted(() => ({
+const { mockGetToken, mockExpireAuth, mockGoToLogin, mockToast } = vi.hoisted(() => ({
   mockGetToken: vi.fn((): string => ''),
   mockExpireAuth: vi.fn(),
+  mockGoToLogin: vi.fn(),
   mockToast: vi.fn(),
-  mockReLaunch: vi.fn(),
 }))
 
 vi.mock('@/utils/auth', () => ({
   getToken: mockGetToken,
   expireAuth: mockExpireAuth,
+  // 登录页已删 ⇒ 401 的去向只剩这一个出口,测试也照它断言,不再断言具体路由串
+  goToLogin: mockGoToLogin,
 }))
 vi.mock('@tarojs/taro', () => ({
-  default: { showToast: mockToast, reLaunch: mockReLaunch },
+  default: { showToast: mockToast },
   showToast: mockToast,
-  reLaunch: mockReLaunch,
 }))
 vi.mock('@/i18n', () => ({ t: (k: string) => k }))
 
@@ -47,7 +48,7 @@ describe('unwrapApi 的 401 分型', () => {
     mockGetToken.mockReset().mockReturnValue('')
     mockExpireAuth.mockClear()
     mockToast.mockClear()
-    mockReLaunch.mockClear()
+    mockGoToLogin.mockClear()
   })
   afterEach(() => {
     vi.useRealTimers()
@@ -59,7 +60,7 @@ describe('unwrapApi 的 401 分型', () => {
     expect(mockExpireAuth).not.toHaveBeenCalled()
     expect(mockToast).not.toHaveBeenCalled()
     vi.advanceTimersByTime(2000)
-    expect(mockReLaunch).not.toHaveBeenCalled()
+    expect(mockGoToLogin).not.toHaveBeenCalled()
   })
 
   it('A2 正向对照:带着凭据被打回 401 ⇒ 清凭据 + 提示 + 跳登录页(三件都要发生)', async () => {
@@ -68,8 +69,8 @@ describe('unwrapApi 的 401 分型', () => {
     expect(mockExpireAuth).toHaveBeenCalledTimes(1)
     expect(mockToast).toHaveBeenCalledTimes(1)
     vi.advanceTimersByTime(900)
-    expect(mockReLaunch).toHaveBeenCalledTimes(1)
-    expect(mockReLaunch).toHaveBeenCalledWith({ url: '/pages/login/login' })
+    expect(mockGoToLogin).toHaveBeenCalledTimes(1)
+    expect(mockGoToLogin).toHaveBeenCalledWith()
   })
 
   it('A3 凭据有没有必须在发请求之前读:请求期间被清掉也不算游客', async () => {
@@ -85,7 +86,7 @@ describe('unwrapApi 的 401 分型', () => {
     await expect(unwrapApi(expired())).rejects.toThrow()
     expect(mockExpireAuth).toHaveBeenCalledTimes(1)
     vi.advanceTimersByTime(900)
-    expect(mockReLaunch).toHaveBeenCalledTimes(1)
+    expect(mockGoToLogin).toHaveBeenCalledTimes(1)
   })
 
   it('A4 非 401 的失败:照旧 toast + 抛,但不碰会话', async () => {
@@ -94,7 +95,7 @@ describe('unwrapApi 的 401 分型', () => {
     expect(mockToast).toHaveBeenCalledTimes(1)
     expect(mockExpireAuth).not.toHaveBeenCalled()
     vi.advanceTimersByTime(2000)
-    expect(mockReLaunch).not.toHaveBeenCalled()
+    expect(mockGoToLogin).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

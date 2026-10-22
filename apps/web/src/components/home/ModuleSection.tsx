@@ -52,7 +52,7 @@ export function ModuleSection({
 
   return (
     <Card className="overflow-hidden">
-      <header className="flex items-center justify-between border-b px-5 py-3">
+      <header className="flex items-center justify-between bg-muted/40 px-5 py-3">
         <div className="flex items-center gap-2">
           <Icon className="h-5 w-5 text-primary" />
           <h2 className="text-base font-semibold">{title}</h2>

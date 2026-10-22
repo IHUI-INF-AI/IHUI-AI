@@ -120,8 +120,8 @@ export function SidebarHeader({
           // 2026-09-05 修复:左侧 pl-12(48px) 避让 GlobalShell 悬浮的拉出/收回切换按钮
           // (z-popover,常驻 x=6-42),避免 logo 被按钮盖住;logo 允许收缩(flex-1 min-w-0)
           'flex h-[44px] shrink-0 items-center justify-between gap-1 pl-12 pr-2 pt-2 pb-0 mx-0',
-          // 与桌面端展开态同源:品牌区与下方导航之间的发丝分隔线(详见桌面展开态注释)
-          'border-b border-border/40',
+          // 品牌区与下方导航之间不再画发丝分隔线(AGENTS.md §4 禁分割线);分层由本行 pl-12/pr-2
+          // 与下方导航区自身的间距承担。
         )}
       >
         <div className="min-w-0 flex-1">
@@ -182,10 +182,11 @@ export function SidebarHeader({
       <div
         data-tauri-drag-region
         className={cn(
-          // 与展开态同源:品牌区(方形 logo + 展开钮)与下方导航之间的发丝分隔线。
-          // 折叠态 header 高度由内容撑开(36+4+36 + pt/pb),border 只加 1px,不影响
-          // 「拉出按钮与用户行无重叠」那条守门(两者分处上下、间距以整屏计)。
-          'flex shrink-0 flex-col items-center gap-1 px-1 pt-2 pb-1 mx-0 border-b border-border/40',
+          // 与展开态同源:品牌区与下方导航之间不再画发丝分隔线(AGENTS.md §4 禁分割线)。
+          // 折叠态 header 高度仍由内容撑开(36+4+36 + pt/pb);原先那条 border 只加 1px 且落在
+          // 盒模型内,去掉后内容区从 43px 回到 44px,按钮 36px 依旧居中,
+          // 「拉出按钮与用户行无重叠」那条守门不受影响(两者分处上下、间距以整屏计)。
+          'flex shrink-0 flex-col items-center gap-1 px-1 pt-2 pb-1 mx-0',
           isDesktop && 'cursor-move',
         )}
         onMouseDown={handleLogoMouseDown}
@@ -261,11 +262,9 @@ export function SidebarHeader({
       data-tauri-drag-region
       className={cn(
         // header 高 44px(保持不变,新建任务按钮位置不动)。
-        // 2026-10-18 美化:发丝分隔线 —— 把品牌区(logo)与下方导航/快捷区在视觉上分层。
-        // 用 border-b 而非额外 flex 子元素:border 参与盒模型(Tailwind 默认 box-border),
-        // 44px 总高不变,内容区 44-1=43px,按钮仍 36px 且高度守门值不变;
-        // 40% 透明度是"看得见但不抢戏"的档位,深色模式下 border 自反转,无需另写 dark: 覆盖。
-        'border-b border-border/40',
+        // 2026-10-23:原先靠 `border-b border-border/40` 把品牌区与下方导航分层,AGENTS.md §4 禁分割线,
+        // 已摘掉那 1px —— 内容区由 43px 回到 44px,下面这条算式(44-8-0=36)才与代码一致;
+        // 分层改由下方导航区自身的间距承担。
         // pt-2 pb-0 + items-center:content-box = 44-8-0 = 36px(从 y=8 到 y=44),
         // 折叠按钮(36px)填满 content-box,logo(26px)在 content-box 内居中,
         // 两者中心都在 y=26,与 GlobalTopBar 按钮中心(pt-2+h-9/2=26)垂直对齐(2026-07-30 用户反馈)。

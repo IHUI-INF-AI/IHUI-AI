@@ -99,7 +99,7 @@ export default function AdminMemberPermissionsPage() {
         <div className="space-y-4">
           {grouped.map(([resource, items]) => (
             <section key={resource} className="overflow-hidden rounded-lg border">
-              <header className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2">
+              <header className="flex items-center gap-2 bg-muted/40 px-4 py-2">
                 <Lock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-semibold">{resource}</span>
                 <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">

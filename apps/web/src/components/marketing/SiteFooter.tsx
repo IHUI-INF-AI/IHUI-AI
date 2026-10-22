@@ -334,9 +334,7 @@ export function SiteFooter({ className }: { className?: string }) {
     // 去掉 footer 底部 padding(py-2 → pt-2 pb-0 / min-[768px]:py-3 → min-[768px]:pt-3 min-[768px]:pb-0),
     // 让 Row 2 容器底边 = footer 容器底边,Row 2 整体下沉贴合 footer 底(之前 footer pb-3=12px
     // 让 Row 2 距 footer 底 12px 间隙,现在消除);顶部 pt-2/pt-3 保留,Row 1 仍有呼吸空。
-    <footer
-      className={`border-t bg-card/50 px-4 py-2 md:py-3 md:px-8${className ? ` ${className}` : ''}`}
-    >
+    <footer className={`bg-card/50 px-4 py-2 md:py-3 md:px-8${className ? ` ${className}` : ''}`}>
       <div className="flex w-full flex-col gap-0">
         {/* Row 1: 3 栏布局(v10 — 2026-07-30 配合 footer 拉高放宽)
             - 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底) — flex justify-between 消除空白

@@ -734,7 +734,7 @@ export function ReviewStatsBar({ steps }: { steps: readonly AgentPlanStepEvent[]
         <div
           id="review-stats-history"
           role="list"
-          className="mt-1 space-y-0.5 border-t border-border/60 pt-1"
+          className="mt-1 space-y-0.5 pt-1"
           data-testid="review-stats-history"
         >
           {decided.length === 0 ? (

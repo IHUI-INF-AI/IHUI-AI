@@ -276,7 +276,7 @@ export default function PromptAuditPage() {
               </tr>
             ) : (
               (rulesQ.data ?? []).map((rule) => (
-                <tr key={rule.id} className="border-t border-border">
+                <tr key={rule.id}>
                   <td className="px-3 py-2">
                     <TruncatedText value={rule.name} />
                   </td>
@@ -350,7 +350,7 @@ export default function PromptAuditPage() {
               </tr>
             ) : (
               (hitsQ.data ?? []).map((hit) => (
-                <tr key={hit.id} className="border-t border-border">
+                <tr key={hit.id}>
                   <td className="px-3 py-2 font-medium">{hit.ruleName ?? '已删除规则'}</td>
                   <td className="px-3 py-2 font-mono">{hit.keyword ?? '—'}</td>
                   <td className="px-3 py-2">

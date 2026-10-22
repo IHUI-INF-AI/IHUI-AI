@@ -288,7 +288,7 @@ export function ImportAnalysisDialog({
             )}
 
             {/* ③ 发起 */}
-            <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
+            <div className="flex items-center justify-between gap-2 pt-2">
               <p className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
                 {selected
                   ? t('analysisEstimate', {

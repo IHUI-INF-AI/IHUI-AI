@@ -640,7 +640,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
         </div>
 
         {/* 评分区 */}
-        <div className="mt-5 space-y-2 border-t pt-4">
+        <div className="mt-5 space-y-2 pt-4">
           <h3 className="text-sm font-semibold text-foreground">{t('ratingsTitle')}</h3>
           {ratingsLoading && (
             <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">

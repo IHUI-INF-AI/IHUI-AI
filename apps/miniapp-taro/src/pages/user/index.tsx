@@ -7,7 +7,8 @@ import { TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
-import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect, type ReactNode } from 'react'
+import { consumeLoginIntent, subscribeLoginIntent } from '@/stores/login-intent'
 import {
   isLoggedIn,
   getUserInfo,
@@ -703,6 +704,18 @@ export default function UserIndex() {
   // request.userId!，插件级 preHandler :246，前缀 /api/ai 见 routes/index.ts:828)需鉴权；
   // refresh() 读的是本机存储、loadContentByTab(1) 是公开内容 tab，两支**照发**，只延后历史那支。
   const { waitUntilReady } = useAuthReadyGate()
+
+  // 登录页已删(2026-10-23)⇒ 本页那个弹窗是全端唯一的登录界面。
+  // 别的页面(401、登出、注销完成、重置密码成功)不弹页面,只留一张条子 + 切到本页;
+  // 这里既在挂载时读一次(覆盖"刚从别处切过来"),也订阅变化(覆盖"已经在本页时被要登录")。
+  useEffect(() => {
+    const openIfRequested = () => {
+      if (consumeLoginIntent()) setShowLoginPopup(true)
+    }
+    openIfRequested()
+    return subscribeLoginIntent(openIfRequested)
+  }, [])
+
   useDidShow(() => {
     refresh()
     void loadContentByTab(1) // 默认加载文本 tab

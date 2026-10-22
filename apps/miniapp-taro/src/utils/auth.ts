@@ -10,9 +10,10 @@ import {
   getStorageSync,
   setStorageSync,
   removeStorageSync,
-  reLaunch,
+  switchTab,
   getCurrentPages,
 } from '@tarojs/taro'
+import { requestLogin } from '../stores/login-intent'
 import {
   fetchApi,
   TransientRefreshError,
@@ -215,14 +216,14 @@ export function isLoggedIn(): boolean {
 }
 
 /**
- * 检查登录状态，未登录时按需跳转登录页
- * @param redirect 是否在未登录时跳转登录页，默认 true
+ * 检查登录状态，未登录时按需去登录界面
+ * @param redirect 是否在未登录时去登录界面(= 切到「我的」tab 并让弹窗出来),默认 true
  * @returns 是否已登录
  */
 export function checkLoginStatus(redirect = false): boolean {
   const loggedIn = isLoggedIn()
   if (!loggedIn && redirect) {
-    reLaunch({ url: '/pages/login/login' })
+    goToLogin()
   }
   return loggedIn
 }
@@ -250,8 +251,37 @@ export const tokenStore: TokenStoreWithUserInfo<UserInfo> = {
   setUserInfo,
 }
 
-/** 登录页路由(与 app.config.ts 的 pages 串一致;不是 tabBar 页,可用 reLaunch 直达) */
-const LOGIN_PAGE = 'pages/login/login'
+/**
+ * 登录界面的唯一宿主路由(2026-10-23 删掉登录页之后)。
+ *
+ * 登录页 `pages/login/login` 已删除 —— 机主定档:"小程序端怎么可能有登录页"。
+ * 登录现在只剩一个宿主:「我的」tab(`pages/user/index`)上那个 `LoginPopUp`,
+ * 里面是「微信一键登录」+ 收起态的「密码登录」兜底。
+ * 它是 tabBar 页 ⇒ 只能用 `switchTab` 直达(不能带参数),所以"该出登录界面了"
+ * 要靠 `stores/login-intent` 那张一次性条子传给那一页,由它把弹窗打开。
+ *
+ * 随登录页一起去掉的能力(机主看过取舍后决定):邮箱验证码登录、手机号验证码登录、
+ * 以及页面上那个"没有账号?立即注册"的入口(注册页本身还在,只是不再自动跳回登录页)。
+ */
+const LOGIN_HOST_TAB = 'pages/user/index'
+
+/**
+ * 把用户送到"能登录的地方" —— 全端唯一出口,调用点不得再各自硬编码路由。
+ *
+ * 原先这条路由串被抄在 8 处(api-bridge 的 401、checkLoginStatus、onUnrecoverableUnauthorized、
+ * 登出、注销完成、重置密码成功、注册页"去登录"、设置页),那本身就是漂移源:
+ * 改一处漏七处。现在只剩这一处。
+ *
+ * 已经在「我的」这一页时**不重复切**(切 tab 会重走 onLoad,白闪一下),
+ * 只补一张条子 —— 那一页订阅了条子,弹窗会即时开出。
+ */
+export function goToLogin(): void {
+  requestLogin()
+  const pages = getCurrentPages()
+  const current = pages.length > 0 ? pages[pages.length - 1]?.route : undefined
+  if (current === LOGIN_HOST_TAB) return
+  void switchTab({ url: `/${LOGIN_HOST_TAB}` })
+}
 
 /**
  * 401 静默续期(2026-09-27 立,补齐与 RN/web 的同源能力)
@@ -296,21 +326,22 @@ export async function refreshAccessToken(): Promise<string | null> {
 /**
  * 会话彻底失效的统一出口(与 apps/mobile-rn/src/lib/token.ts 同一设计,2026-09-27)
  *
- * 三条边界与 RN 逐字同形:
- * 1. **游客态不接管** —— 手里没有凭据时 401 的含义是"这个接口要登录",不是"你的会话死了";
- * 2. **不重复跳** —— 直接读当前页栈判定"是不是已经在登录页",不引入需要复位的模块级布尔量;
+ * 三条边界与 RN 同形:
+ * 1. **游客态不接管** —— 手里没有凭据时 401 的含义是"这个接口要登录",不是"你的会话死了"
+ *    (这一条在端内的落地判据住在 `utils/api-bridge.ts` 的 `unwrapApi`,2026-10-23 分型);
+ * 2. **不重复跳** —— 直接读当前页栈判定"是不是已经在登录界面宿主那一页",不引入需要复位的模块级布尔量;
  * 3. **不清凭据** —— 清 storage 会让在飞 UI 立刻翻成未登录态(头像/余额闪空),观感比停在原页更差;
  *    登录成功后 `setToken` 自然覆盖。
+ *
+ * 去向自 2026-10-23 起不再是"登录页"(它已删),而是唯一出口 `goToLogin()` ——
+ * RN 端仍指向它自己的登录界面,两端**机制同形、目的地各按各的形态**,这是有意的。
  */
 export function onUnrecoverableUnauthorized(ctx: UnauthorizedContext): void {
   // 与 RN 端同批改:不再以"手里有没有 token"作准入条件(2026-09-27 真机实测)。
   // 能进到这里的前提已经是"本应用主动发了一次需要身份的请求且它 401 了"。
-  const pages = getCurrentPages()
-  const current = pages.length > 0 ? pages[pages.length - 1]?.route : undefined
-  if (current === LOGIN_PAGE) return
-  if (pages.length === 0) {
-    console.warn(`[mp-auth] 会话失效但读不到当前页面栈,仍跳登录页(来源 ${ctx.method} ${ctx.url})`)
+  if (getCurrentPages().length === 0) {
+    console.warn(`[mp-auth] 会话失效但读不到当前页面栈,仍去登录界面(来源 ${ctx.method} ${ctx.url})`)
   }
-  void reLaunch({ url: `/${LOGIN_PAGE}` })
+  goToLogin()
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

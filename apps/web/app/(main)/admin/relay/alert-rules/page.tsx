@@ -272,7 +272,7 @@ export default function AlertRulesPage() {
               </tr>
             ) : (
               (rulesQ.data ?? []).map((rule) => (
-                <tr key={rule.id} className="border-t border-border">
+                <tr key={rule.id}>
                   <td className="px-3 py-2">
                     <TruncatedText value={rule.name} />
                   </td>
@@ -340,7 +340,7 @@ export default function AlertRulesPage() {
               </tr>
             ) : (
               (eventsQ.data ?? []).map((ev) => (
-                <tr key={ev.id} className="border-t border-border">
+                <tr key={ev.id}>
                   <td className="truncate px-3 py-2 font-medium">{ev.ruleName}</td>
                   <td className="px-3 py-2">
                     <TruncatedText value={ev.message} />

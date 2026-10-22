@@ -1,0 +1,68 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * "该出登录界面了"的一次性条子。
+ *
+ * 为什么需要它:2026-10-23 删掉登录页之后,登录只剩一个宿主 —— 「我的」tab 里那个弹窗。
+ * 而"要登录了"这件事常常是在**别的页面**上发生的(401、登出、注销完成、重置密码成功)。
+ * 那些页面没有弹窗,又不能跳登录页(它没了),所以只能:切到「我的」tab + 留一张条子,
+ * 由那一页读到条子后自己把弹窗打开。
+ *
+ * 三条设计约束:
+ *  1. **必须有死亡机制** —— 条子带 TTL。没有上限的话,一次没人消费的"要登录"会挂在身上,
+ *     用户几分钟后随便进「我的」就被弹一个登录框,那是凭空多出来的拦截(比不弹更糟)。
+ *  2. **只有一张,不排队** —— 后到的覆盖前到的。多条请求排队的语义没有任何消费者会去区分,
+ *     排队只会让"弹几次"变成不可预期。
+ *  3. **不引入需要手动复位的布尔量** —— 消费即作废,`consume` 是唯一读取并清零的入口。
+ */
+
+/** 条子有效期:够一次 switchTab 的落地时间,又不至于挂到下一个会话。 */
+export const LOGIN_INTENT_TTL_MS = 30_000
+
+let requestedAt = 0
+const listeners = new Set<() => void>()
+
+function emit(): void {
+  for (const cb of [...listeners]) cb()
+}
+
+/** 记一张"该出登录界面"的条子(覆盖旧的那张)。 */
+export function requestLogin(): void {
+  requestedAt = Date.now()
+  emit()
+}
+
+/** 条子在不在(过期 = 不在)。不清零,给"看一眼再决定"的调用方用。 */
+export function hasLoginIntent(now = Date.now()): boolean {
+  return requestedAt > 0 && now - requestedAt < LOGIN_INTENT_TTL_MS
+}
+
+/** 读走条子并作废:取到 true 的这一次,由调用方负责把登录界面开出来。 */
+export function consumeLoginIntent(now = Date.now()): boolean {
+  if (!hasLoginIntent(now)) {
+    // 过期就顺手清掉,免得一个早已没人认的戳记一直留在模块里。
+    if (requestedAt > 0) {
+      requestedAt = 0
+      emit()
+    }
+    return false
+  }
+  requestedAt = 0
+  emit()
+  return true
+}
+
+/** 订阅条子变化(页面已挂载时靠它即时弹窗)。返回注销函数,**必须**在卸载时调。 */
+export function subscribeLoginIntent(cb: () => void): () => void {
+  listeners.add(cb)
+  return () => {
+    listeners.delete(cb)
+  }
+}
+
+/** 仅供测试:把模块态复位,免得用例之间互相污染。 */
+export function __resetLoginIntentForTests(): void {
+  requestedAt = 0
+  listeners.clear()
+}

@@ -49,7 +49,7 @@ export function ConnectivityBanner() {
       role="status"
       data-testid="connectivity-banner"
       data-kind={banner}
-      className="flex items-center gap-1.5 border-b border-border bg-amber-50 px-3 py-1 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+      className="flex items-center gap-1.5 bg-amber-50 px-3 py-1 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
     >
       <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span className="flex-1">

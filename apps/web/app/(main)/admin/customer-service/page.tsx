@@ -122,7 +122,7 @@ export default function AdminCustomerServicePage() {
       <StatCards stats={stats} />
 
       <div className="flex h-[calc(100vh-280px)] overflow-hidden rounded-lg border bg-card">
-        <div className="flex w-72 shrink-0 flex-col border-r">
+        <div className="flex w-72 shrink-0 flex-col">
           <div className="px-4 py-2.5">
             <p className="flex items-center gap-1.5 text-sm font-medium">
               <Users className="h-4 w-4" /> 会话列表
@@ -199,7 +199,7 @@ export default function AdminCustomerServicePage() {
                   ))
                 )}
               </div>
-              <div className="flex items-center gap-2 border-t p-3">
+              <div className="flex items-center gap-2 p-3">
                 <Input
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}

@@ -138,7 +138,7 @@ export function StudyPlanList({
                   </button>
                   {/* Child plans rendered as sub-items */}
                   {children.length > 0 && (
-                    <div className="border-t bg-muted/20">
+                    <div className="bg-muted/20">
                       {children.map((child) => (
                         <button
                           key={child.id}

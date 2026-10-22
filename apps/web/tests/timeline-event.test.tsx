@@ -328,7 +328,7 @@ describe('TimelineEventRow — 嵌套 depth 渲染', () => {
     cleanup()
   })
 
-  it('depth=0(顶层):row 不含 ml-3 + border-l', () => {
+  it('depth=0(顶层):row 不含缩进与左侧树轨', () => {
     const event = makeEvent()
     const { container } = render(<TimelineEventRow event={event} depth={0} />)
     const row = container.querySelector('[data-testid="timeline-event-row"]') as HTMLElement

@@ -62,7 +62,7 @@ export function ContextReferencePanel({
 
   return (
     <div className="rounded-xl border bg-card">
-      <div className="border-b px-4 py-2.5">
+      <div className="bg-muted/40 px-4 py-2.5">
         <h3 className="text-sm font-semibold">{t('contextUsage.referenceTitle')}</h3>
       </div>
       <ul className="space-y-1">
@@ -143,11 +143,17 @@ export function ContextReferencePanel({
                     </span>
                   )}
                   {ref.uploadState === 'terminal' && (
-                    <Tooltip content={t('attachRetryExhausted', { defaultValue: '重试次数已达上限,请删除后重新添加' })}>
+                    <Tooltip
+                      content={t('attachRetryExhausted', {
+                        defaultValue: '重试次数已达上限,请删除后重新添加',
+                      })}
+                    >
                       <span className="shrink-0">
                         <TriangleAlert
                           className="h-3.5 w-3.5 text-destructive/60"
-                          aria-label={t('attachRetryExhausted', { defaultValue: '重试次数已达上限' })}
+                          aria-label={t('attachRetryExhausted', {
+                            defaultValue: '重试次数已达上限',
+                          })}
                         />
                       </span>
                     </Tooltip>
