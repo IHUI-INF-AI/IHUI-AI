@@ -1133,12 +1133,25 @@ export function blobAncestorClash({ root, paths, blobOf, baseRef = 'HEAD', scope
  * 而构造内容带规范横幅 ⇒ 这是修复,放行并报名。判据最初把这一格也判红,于是"补回被抹掉的署名"
  * 这件正是本器该鼓励的事,被本器自己拦住了 —— 而它拦住的那三份文件,HEAD 上现在仍然没有署名。
  * "篡改规范文案"(两边都规范而文字不同)照旧判红,这一格不让步。
+ *
+ * 器物盲区G(2026-10-23):前三行比较前必须先剥掉**开头的** UTF-8 BOM(U+FEFF)。
+ * BOM 是编码标记,不是文本内容 —— AGENTS §27 明文要求 `.ps1` 用 UTF-8 with BOM 写,
+ * 于是"给一个 .ps1 补 BOM"是**规范强制要求**的合法动作;而 `dropZeroWidth` 只剥零宽族
+ * (U+2060/200B/200C/200D),剥不掉 U+FEFF ⇒ 首行前插 BOM 被读成"改写横幅文字"硬拒
+ * (实测 blob 模式 exit 1,且 `IHUI_LAND_SKIP_WATERMARK` 只管工作树模式的预检、管不到
+ * blobBannerPreserved 这一支 ⇒ 那一类动作**没有任何合法出口**,而 §0.10 不许用加跳门来解)。
+ * 落点选在 `head3`(比较前三行这一件事的入口)而不是给"第一行"开特例:特例会随行号漂移,
+ * 而"BOM 只在字节流首位才是编码标记"这条不变。只剥开头那一个、不逐处剥:正文里真出现的
+ * U+FEFF 是内容,抹掉它才是给偷改横幅开洞。
  */
 export function decideBanner({ baseText, newText, newPayloadOk = false }) {
   const hasAny = hasAnyWatermarkTrace
   const baseCanonical = hasExactCanonicalBanner(baseText)
   const newCanonical = hasExactCanonicalBanner(newText)
-  const head3 = (text) => String(text).split('\n').slice(0, 3).join('\n')
+  const head3 = (text) => String(text).replace(/^\uFEFF/, '').split('\n').slice(0, 3).join('\n')
+  // BOM 有无发生变化(两端都剥过之后仍要能说清"这次为什么算保持")—— 只用于如实报数,不参与放行。
+  const bomToggled =
+    String(baseText).startsWith('\uFEFF') !== String(newText).startsWith('\uFEFF')
   if (!hasAny(baseText) && !hasAny(newText)) {
     return {
       verdict: 'note',
@@ -1183,7 +1196,12 @@ export function decideBanner({ baseText, newText, newPayloadOk = false }) {
       why: '两边都是规范横幅而前三行仍被换掉 ⇒ 这是在改写横幅文字,不是保持',
     }
   }
-  return { verdict: 'kept', why: '前三行与基线逐字等值 ⇒ 横幅未被触碰' }
+  return {
+    verdict: 'kept',
+    why: bomToggled
+      ? '前三行剥掉编码标记 BOM 后与基线逐字等值 ⇒ 横幅未被触碰(BOM 有无变化不是文本改动)'
+      : '前三行与基线逐字等值 ⇒ 横幅未被触碰',
+  }
 }
 
 export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
