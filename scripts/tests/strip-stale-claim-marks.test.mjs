@@ -137,6 +137,33 @@ test('③派发层只认机读结论行:stripped 分读正确,拿不到一律未
   })
   assert.equal(r2.state, 'undetermined', '拿不到结论行被读成"无需摘"就是把没做写成做过')
 })
+
+// 待摘点名行的形状锁(2026-10-22):裸标记那一档没有日期/持有者,照完整租约模板印会产出
+// 「原牌 null/null 超龄 nullh」这种不成立断言(实测就在 refused 那轮的输出里)。
+test('待摘点名行:裸标记不许印 null,完整租约仍印日期与超龄', () => {
+  const bare = strip.leaseReportLine({
+    line: 99,
+    ageH: null,
+    mark: { form: 'legacy', date: null, holder: null },
+  })
+  assert.ok(!bare.includes('null'), '裸标记行仍会出现 null:' + bare)
+  assert.match(bare, /裸标记/)
+  const lease = strip.leaseReportLine({
+    line: 7,
+    ageH: 96,
+    mark: { form: 'lease', date: '2026-10-18', holder: 'w1-x' },
+  })
+  assert.ok(
+    lease.includes('2026-10-18/w1-x') && /超龄 96h/.test(lease),
+    '完整租约行丢了可追责三要素:' + lease,
+  )
+  const src = readFileSync(path.join(HERE, '..', 'strip-stale-claim-marks.mjs'), 'utf8')
+  assert.ok(
+    /console\.log\(leaseReportLine\(r\)\)/.test(src.replace(/\s+/g, ' ')),
+    '打印点必须走单源 leaseReportLine,不得再内联第二份模板(§0.6)',
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**

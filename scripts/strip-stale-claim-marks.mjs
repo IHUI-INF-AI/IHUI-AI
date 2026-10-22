@@ -332,6 +332,21 @@ function planFaceClean() {
   return raw.trim() === ''
 }
 
+/**
+ * 待摘点名行(纯函数,便于镜像测试钉住)。裸标记那一档**没有日期也没有持有者**,
+ * 照完整租约的模板印就会产出 `原牌 null/null 超龄 nullh` 这种数学上不成立的断言,
+ * 让下一个人以为超龄维坏了(§0.8:文案不许说错话)。
+ */
+export function leaseReportLine(r) {
+  const bare = r.mark?.form !== 'lease' || !r.mark?.date
+  if (bare)
+    return (
+      `  ▸ 待摘 L${r.line} 裸标记（进行中）无日期无持有者 ⇒ 超龄维不适用,` +
+      `依据是同批 CL4(新增即拦)+ 本器物只读 HEAD 面`
+    )
+  return `  ▸ 待摘 L${r.line} 原牌 ${r.mark.date}/${r.mark.holder} 超龄 ${r.ageH}h`
+}
+
 export function run({
   apply = false,
   dryRun = false,
@@ -353,8 +368,7 @@ export function run({
   const n = { stale: plan.leases.length, held: plan.held.length, stripped: 0, lines: text.split('\n').length }
 
   for (const h of plan.held) console.log(`  · 本轮不动 L${h.line} [${h.why}] ${h.raw.slice(0, 70)}`)
-  for (const r of plan.leases.slice(0, 12))
-    console.log(`  ▸ 待摘 L${r.line} 原牌 ${r.mark.date}/${r.mark.holder} 超龄 ${r.ageH}h`)
+  for (const r of plan.leases.slice(0, 12)) console.log(leaseReportLine(r))
   if (plan.leases.length > 12) console.log(`  ▸ …另有 ${plan.leases.length - 12} 枚同批`)
 
   if (!plan.ok) {
@@ -643,6 +657,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   planSweep,
+  leaseReportLine,
   FIXTURE,
   releaseNote,
   FILE,
