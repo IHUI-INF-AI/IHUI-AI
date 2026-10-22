@@ -48,7 +48,12 @@ import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
 // O87g(2026-10-22):后端注册面的**精确挂载图**提取式(Fastify 挂载图 + 工厂/模板/内联别名)。
 // 立门因由与提取式覆盖宽度见该文件头注;本门只在 `server.ts` 在面时用它当判据,
 // 不在面时退回旧的「前缀假设」拼接档(见 `buildCompositePrefixes` 调用点)。
-import { extractApiRegistrations, VERBS as BACKEND_VERBS } from './lib/route-registration-extract.mjs'
+import {
+  extractApiRegistrations,
+  VERBS as BACKEND_VERBS,
+  combinePyPrefix,
+  buildPyIncludeMaps,
+} from './lib/route-registration-extract.mjs'
 
 /**
  * ROOT 由脚本自身位置推导(§15)。此前是 `process.cwd()` —— "扫哪棵树"由调用者站哪决定,
@@ -2873,56 +2878,50 @@ function extractBackendRoutes() {
     ...listFace(AI_SERVICE_API_DIR, ['.py']),
   ]
   if (routerFiles.length > 0) {
-    // 1. 先从 main.py 提取 include_router(router.router, prefix="...") 映射
-    const includePrefixMap = new Map() // router变量名 -> prefix
     /**
-     * 1b. 同一份 include 面还有第二种写法:`from app.api.memory import router as memory_router`
-     *     + `app.include_router(memory_router, prefix="/api")` —— 变量名不等于模块名,旧写法
-     *     按"变量名 == 文件名"查,对这一族**整型失明**(实测 ai-service 的 app/api/memory.py
-     *     九个端点全无挂载上下文,前端三条真调用被当死调用)。现按"点分模块路径"建映射,
-     *     与被扫文件的路径同形 ⇒ 两个目录共用一条判据,不各写一份。
+     * include 挂载面判据**收敛到 lib 一份实现**(`buildPyIncludeMaps`,守门 8 与提取式
+     * 两处算同一件事必漂移)。本段旧实现有三重结构性失明,实测把 G-962 的真挂载链
+     * 判成"高置信真死候选":
+     *   ① 只读 main.py —— cost-ledger/model-pricing/longterm-memory 三族的 include 行写在
+     *      二级聚合器 killer_extras.py(main.py 以 `killer_extras.register(app)` 调用);
+     *   ② 「二选一」—— 文件有自有 APIRouter(prefix=Q) 就无视 include 前缀 P,而 FastAPI
+     *      真路径是 P+Q(connectors.py 自有 /connectors + include /api ⇒ /api/connectors/*);
+     *   ③ 别名失明 —— `from app.routers import prompts as prompts_router` 的 include 键是
+     *      'prompts_router',按 fileName 'prompts' 查不到 ⇒ prompts 族整族丢 /api。
+     * 别名四形态/相对导入/注释遮噪的解析与防双 /api 拼接规则见 lib 头注,此处不重述。
      */
-    const modulePrefixMap = new Map() // 'app.api.memory' -> '/api'
+    const pyFace = new Map()
     const mainSrc = readSource(AI_SERVICE_MAIN_FILE)
-    if (mainSrc !== null && mainSrc !== undefined) {
-      const includeRe =
-        /app\.include_router\(\s*(\w+)\.router\s*,\s*prefix\s*=\s*['"`]([^'"`]+)['"`]/g
-      let im
-      while ((im = includeRe.exec(mainSrc)) !== null) {
-        includePrefixMap.set(im[1], im[2])
-      }
-      const aliasToModule = new Map()
-      const importRe = /from\s+(app[\w.]*)\s+import\s+(?:\w+\s*,\s*)?router\s+as\s+([A-Za-z0-9_]+)/g
-      let ir
-      while ((ir = importRe.exec(mainSrc)) !== null) aliasToModule.set(ir[2], ir[1])
-      const bareRe =
-        /app\.include_router\(\s*([A-Za-z0-9_]+)\s*(?:,\s*prefix\s*=\s*['"`]([^'"`]+)['"`])?/g
-      let br
-      while ((br = bareRe.exec(mainSrc)) !== null) {
-        const mod = aliasToModule.get(br[1])
-        if (!mod || !br[2]) continue
-        modulePrefixMap.set(mod, br[2])
-      }
-    }
+    if (mainSrc !== null && mainSrc !== undefined) pyFace.set(AI_SERVICE_MAIN_FILE, mainSrc)
+    const srcCache = new Map()
     for (const rel of routerFiles) {
-      const src = readSource(rel)
-      if (src === null || src === undefined) continue
+      const s = readSource(rel)
+      if (s === null || s === undefined) continue
+      srcCache.set(rel, s)
+      pyFace.set(rel, s)
+    }
+    const { byModule, byFile } = buildPyIncludeMaps(pyFace, AI_SERVICE_MAIN_FILE)
+    for (const rel of routerFiles) {
+      const src = srcCache.get(rel)
+      if (src === undefined) continue
       const fileName = rel.split('/').pop().replace(/\.py$/, '')
       const moduleKey = rel.replace(/^apps\/ai-service\//, '').replace(/\.py$/, '').replaceAll('/', '.')
-      // 提取 router 的 prefix（文件内 APIRouter(prefix=...)）
+      // 提取 router 的 prefix（文件内 APIRouter(prefix=...)）—— 保持 raw 扫描(注释里的
+      // 假前缀形态是既有基线的一部分,本票只补拼接腿,不动这一档,免得 py 面行为变更混进裁决)
       const prefixRe = /APIRouter\(\s*prefix\s*=\s*['"`]([^'"`]+)['"`]/g
       const routerPrefixes = []
       let pm
       while ((pm = prefixRe.exec(src)) !== null) {
         routerPrefixes.push(pm[1])
       }
-      // 如果文件内无 prefix，尝试从 main.py include_router 映射获取(两种写法都查)
-      if (routerPrefixes.length === 0) {
-        const mounted = modulePrefixMap.get(moduleKey) ?? includePrefixMap.get(fileName)
-        if (mounted) routerPrefixes.push(mounted)
-      }
-      // 如果仍无 prefix，使用空字符串
-      const prefixes2 = routerPrefixes.length > 0 ? routerPrefixes : ['']
+      const mounted = byModule.get(moduleKey) ?? byFile.get(fileName)
+      const prefixes2 = routerPrefixes.length
+        ? mounted
+          ? [...new Set(routerPrefixes.map((q) => combinePyPrefix(mounted, q)))]
+          : routerPrefixes
+        : mounted
+          ? [mounted]
+          : ['']
       // 提取 @router.xxx("/path") 注册
       // 2026-10-04 加固(机制②):路径组改 `([^'"`]+)?` —— 原式要求 ≥1 字符,
       // 于是全仓 7 处 `@router.get("")`(model_pricing_api / cloud_runs / connectors / ai_skills /
