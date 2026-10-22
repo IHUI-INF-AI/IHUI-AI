@@ -16145,6 +16145,674 @@
         }
       ],
       "notes": "通用调度器类型契约。ActivityInput 携 node（node-runner 专用），PlannerInput 携 collection+graph+snapshot（planner 专用），两者共享回调 onChildSessionStarted(model/sessionId/traceId/turnId)；PlannerRunResult extends contracts WorkflowGraphPlannerResult 再叠 model/response/sessionId/traceId/turnId；Deps 聚合 IO 端口：appendEvent/appendGraphRecord/writeArtifact/writeSnapshot/now/createActivityId 必填、onWorkflowEvent/plannerRunner 可选、runner 必填；RunOptions 提供 artifactDirectory 与 buildPrompt 注入点、executableNodeIds 限定调度范围；RunResult reason 三值(completed/deadlock/error_threshold)映射 status 二值(completed/paused)；SnapshotAccess get/set 抽象并发主循环共享快照；SchedulerCollection=WorkflowGraphCollection 加必填 analyzedNodeIds/errorCount/exhausted/explorable/nodeIds/plannerRuns/status（对应 graph.normalizeCollection 补默认）；WorkflowSchedulerNodePromise=Promise<NodeRunOutcome>&{started}。改 IO 边界须同步 @zcode/contracts 与 expert/types.ts。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/permission-broker.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/permission-broker.ts:1-25"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/permission-broker.ts",
+          "lines": 25
+        }
+      ],
+      "notes": "判定权限代理是否可解析/可检视的守卫；导出 isResolvablePermissionBroker、isInspectablePermissionBroker。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/permission-grant-resume.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/permission-grant-resume.ts:1-33"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/permission-grant-resume.ts",
+          "lines": 33
+        }
+      ],
+      "notes": "恢复持久化的权限授予标记；导出 restorePermissionGrantMarker。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/persisted-remote-session-path-repair.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/persisted-remote-session-path-repair.ts:1-195"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/persisted-remote-session-path-repair.ts",
+          "lines": 195
+        }
+      ],
+      "notes": "修复持久化远程会话的路径记录；导出 repairPersistedRemoteSessionPaths。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/rewind.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/rewind.ts:1-314"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/rewind.ts",
+          "lines": 314
+        }
+      ],
+      "notes": "rewind/fork 的检查点选择与提示文案；导出 WORKSPACE_CHECKPOINT_CONTENT_TYPE、selectCheckpointForRewind/Message、buildRewindEvaluationItems、formatWorkspaceRewindNoticeBody/ForkNoticeBody 等。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/subagent-interaction-broker.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/subagent-interaction-broker.ts:1-41"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/subagent-interaction-broker.ts",
+          "lines": 41
+        }
+      ],
+      "notes": "创建子代理交互代理端口；导出 createSubagentInteractionBroker。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/turn-errors.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/turn-errors.ts:1-253"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/turn-errors.ts",
+          "lines": 253
+        }
+      ],
+      "notes": "回合中止/失败/取消错误的构造与 outcome 事件落盘；导出 createTurnAbortScope、throwIfTurnAborted、createTurnFailureError、createTurnCancelledError、appendTurnOutcomeEvent、isTurnCancellationError 等。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/completion-notification.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/completion-notification.ts:1-51"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/completion-notification.ts",
+          "lines": 51
+        }
+      ],
+      "notes": "本地代理任务完成通知文案；导出 formatLocalAgentTaskNotification。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/coordinator-response.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/coordinator-response.ts:1-52"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/coordinator-response.ts",
+          "lines": 52
+        }
+      ],
+      "notes": "创建协调者响应端口；导出 createCoordinatorResponsePort。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/index.ts:1-12"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/index.ts",
+          "lines": 12
+        }
+      ],
+      "notes": "subagent 模块统一导出；re-export explore/context-builder/system-prompt/general-purpose/profile/explore-tools/runner/runtime-task-registry。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/interaction-origin.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/interaction-origin.ts:1-33"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/interaction-origin.ts",
+          "lines": 33
+        }
+      ],
+      "notes": "子代理交互来源上下文构建；导出 SubagentInteractionOriginContext、buildSubagentInteractionOrigin。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/message-steering.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/message-steering.ts:1-59"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/message-steering.ts",
+          "lines": 59
+        }
+      ],
+      "notes": "子代理消息注入/转向端口；导出 createSubagentMessageSink。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/runner.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/runner.ts:1-2142"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/runner.ts",
+          "lines": 2142
+        }
+      ],
+      "notes": "子代理运行器：前台/后台生命周期、registry 与完成通知顺序；导出 createExploreSubagentPort 及 ExploreSubagentRuntimeRequest/Result、ParentTaskNotificationCommand 等类型。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/runtime-task-registry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/runtime-task-registry.ts:1-1"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/runtime-task-registry.ts",
+          "lines": 1
+        }
+      ],
+      "notes": "runtime-task registry 的转导出；export * from ../runtime-task/registry.js。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/tool-event-mirror.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/tool-event-mirror.ts:1-154"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/tool-event-mirror.ts",
+          "lines": 154
+        }
+      ],
+      "notes": "把子代理工具事件镜像到父会话；导出 mirrorSubagentToolEvent。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/tool-policy.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/tool-policy.ts:1-22"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/tool-policy.ts",
+          "lines": 22
+        }
+      ],
+      "notes": "子代理子运行时的工具禁用规则与过滤；导出 buildSubagentChildDisallowRules、filterSubagentChildToolNames。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/background-notifications.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/background-notifications.ts:1-246"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/background-notifications.ts",
+          "lines": 246
+        }
+      ],
+      "notes": "后台任务通知的入队/封存/持久化与抑制判定；导出 enqueueBackgroundTaskNotification、sealBackgroundTaskNotifications、persistBackgroundTaskNotificationCommand/Batch、shouldSuppressTaskNotificationRuntimeCommand。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/background-stop-dynamic-workflow.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/background-stop-dynamic-workflow.ts:1-73"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/background-stop-dynamic-workflow.ts",
+          "lines": 73
+        }
+      ],
+      "notes": "后台停止任务中 dynamic workflow 分支的唯一实现；导出 stopDynamicWorkflowBackgroundTask。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/background-stop-types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/background-stop-types.ts:1-64"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/background-stop-types.ts",
+          "lines": 64
+        }
+      ],
+      "notes": "后台停止分派的共享类型；导出 RuntimeBackgroundStopFailureReason/Status/Result/Initiator/Options/Target 等。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/background.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/background.ts:1-484"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/background.ts",
+          "lines": 484
+        }
+      ],
+      "notes": "后台任务生命周期：运行判定、取消/停止与 payload 构建；导出 hasRunningBackgroundTasks、cancelBackgroundTask、stopBackgroundTask、cancelRunningRuntimeBackgroundTasks、buildBackgroundTaskPayload。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/cancelled-stream-persistence.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/cancelled-stream-persistence.ts:1-54"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/cancelled-stream-persistence.ts",
+          "lines": 54
+        }
+      ],
+      "notes": "持久化被取消的流式快照；导出 persistCancelledStreamSnapshot。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/compact-persistence.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/compact-persistence.ts:1-489"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/compact-persistence.ts",
+          "lines": 489
+        }
+      ],
+      "notes": "compact 时间线/摘要的持久化与中断恢复；导出 buildCompactTimelinePayload、persistCompactTimeline、finishCompactTimelineFailure、recoverInterruptedCompactTimelines、persistCompactSummary。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/control-only-turn.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/control-only-turn.ts:1-259"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/control-only-turn.ts",
+          "lines": 259
+        }
+      ],
+      "notes": "仅控制流回合：发出用户回合、持久化 workflow 启动消息与外部提示记录；导出 emitControlOnlyUserTurn、persistWorkflowLaunchUserMessage、runControlOnlyTurnCommand、recordExternalUserPrompt。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/hooks.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/hooks.ts:1-160"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/hooks.ts",
+          "lines": 160
+        }
+      ],
+      "notes": "会话/用户提示/停止三类 hook 的执行与上下文注入；导出 runSessionStartHooks、runUserPromptSubmitHooks、runStopHooks、injectHookAdditionalContextIntoMessageHistory、shouldContinueAfterStopHooks。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/input-intent-persistence.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/input-intent-persistence.ts:1-50"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/input-intent-persistence.ts",
+          "lines": 50
+        }
+      ],
+      "notes": "把运行时输入组装成 transcript/ledger 共用的完整输入事实；导出 buildPersistedConversationInputIntent。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/interaction-auto-resolution.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/interaction-auto-resolution.ts:1-29"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/interaction-auto-resolution.ts",
+          "lines": 29
+        }
+      ],
+      "notes": "记录用户输入自动解决更新的投影事件；导出 recordUserInputAutoResolutionUpdate。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/message-persistence.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/message-persistence.ts:1-388"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/message-persistence.ts",
+          "lines": 388
+        }
+      ],
+      "notes": "消息/分片的持久化与投影重建；导出 persistUserPrompt、persistSyntheticUserNotice(/ForSession)、persistAssistantMessage、persistMessage、persistPart、rebuildProjection。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/microcompact.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/microcompact.ts:1-116"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/microcompact.ts",
+          "lines": 116
+        }
+      ],
+      "notes": "按阈值触发微压缩；导出 microcompactIfNeeded。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/model-token-limits.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/model-token-limits.ts:1-81"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/model-token-limits.ts",
+          "lines": 81
+        }
+      ],
+      "notes": "普通请求与单步模型请求的输出 token 上限解析及日志上下文；导出 resolveNormalRequestMaxOutputTokens、resolveModelStepMaxOutputTokens、modelRequestTokenLimitLogContext。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/resume.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/resume.ts:1-453"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/resume.ts",
+          "lines": 453
+        }
+      ],
+      "notes": "会话恢复：调度状态、待办/目标读回与目标状态注入；导出 toScheduleState、resumeFromStore、readSessionTodosForContext、readSessionTargetForContext、injectTargetStateIntoMessageHistory。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/rewind.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/rewind.ts:1-391"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/rewind.ts",
+          "lines": 391
+        }
+      ],
+      "notes": "rewind 命令执行、状态格式化与工作区回退到检查点；导出 executeRewindCommand、formatRewindStatus、rewindWorkspaceToCheckpoint、finishUnavailableRewind。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-active-loop.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-active-loop.ts:1-90"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-active-loop.ts",
+          "lines": 90
+        }
+      ],
+      "notes": "在活跃回合循环中排空待处理运行时命令；导出 drainPendingRuntimeCommandsForActiveLoop。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-generation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-generation.ts:1-66"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-generation.ts",
+          "lines": 66
+        }
+      ],
+      "notes": "判定陈旧分支运行时命令/任务事件；导出 isStaleBranchRuntimeCommand、isStaleBranchRuntimeTaskEvent。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-submit.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-submit.ts:1-66"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-submit.ts",
+          "lines": 66
+        }
+      ],
+      "notes": "入队可取消的运行时命令；导出 enqueueCancellableRuntimeCommand。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/stable-fork-boundary.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/stable-fork-boundary.ts:1-155"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/stable-fork-boundary.ts",
+          "lines": 155
+        }
+      ],
+      "notes": "持久化稳定 fork 完成边界；导出 persistStableForkCompletionBoundary。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/streaming-recovery.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/streaming-recovery.ts:1-370"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/streaming-recovery.ts",
+          "lines": 370
+        }
+      ],
+      "notes": "流式恢复预算、start-plan-busy 重试与部分助手输出恢复；导出 hasStreamRecoveryBudget、beginStreamRecoveryAttempt、beginStartPlanBusyAdmissionRetryAttempt、recoverPartialAssistantOutputFailure 等。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/subagent-messages.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/subagent-messages.ts:1-106"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/subagent-messages.ts",
+          "lines": 106
+        }
+      ],
+      "notes": "子代理消息入队与命令持久化；导出 enqueueSubagentMessage、persistSubagentMessageCommand。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/subagent.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/subagent.ts:1-915"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/subagent.ts",
+          "lines": 915
+        }
+      ],
+      "notes": "默认子代理端口：衔接 child runtime、工具池、权限、MCP 与 activity watchdog；导出 createDefaultSubagentPort。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/timeline-persistence.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/timeline-persistence.ts:1-167"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/timeline-persistence.ts",
+          "lines": 167
+        }
+      ],
+      "notes": "时间线分片持久化与待处理模型变更记录；导出 recordPendingModelChange、persistPendingModelChangeTimeline、persistAssistantTimelinePartForSession。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/tool-part-metadata.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/tool-part-metadata.ts:1-41"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/tool-part-metadata.ts",
+          "lines": 41
+        }
+      ],
+      "notes": "工具分片元数据构造；导出 mcpToolPartMetadata、completedToolPartMetadata。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn-guide-drain.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/turn-guide-drain.ts:1-66"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn-guide-drain.ts",
+          "lines": 66
+        }
+      ],
+      "notes": "在 model-step 边界消费一条 inline guide 并准备下一次请求；导出 drainInlineGuideForNextRequest。"
     }
   ],
   "ticketIndex": {
