@@ -16,7 +16,7 @@
  * 运行时用户完全不接触外部看板程序。零假数据:所有曲线/数字都来自真实指标。
  */
 import * as React from 'react'
-import { RefreshCw, Search } from 'lucide-react'
+import { ChevronsLeft, ChevronsRight, RefreshCw, Search } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
@@ -74,7 +74,7 @@ type MonitorView = 'panels' | 'wallboard'
  *   这里先按调用点覆写并留证据。
  */
 const TRIGGER_CLS =
-  'px-4 font-medium data-[state=active]:bg-cta data-[state=active]:text-cta-foreground'
+  'h-7 px-3 text-[12px] font-medium data-[state=active]:bg-cta data-[state=active]:text-cta-foreground'
 
 /**
  * 两种呈现的切换器。刻意不自己占一行:由各视图的顶栏承载,复用共享 Tabs 档位
@@ -88,7 +88,7 @@ const TRIGGER_CLS =
  */
 function MonitorViewSwitch() {
   return (
-    <TabsList className="h-10">
+    <TabsList className="h-9 shrink-0">
       <TabsTrigger value="panels" className={TRIGGER_CLS}>
         监控面板
       </TabsTrigger>
@@ -119,18 +119,23 @@ export default function MonitorPanelsPage() {
   const headerExtra = <MonitorViewSwitch />
 
   return (
-    <PageContainer padded={false} className="flex h-full flex-col">
+    <PageContainer padded={false} className="flex min-h-0 flex-1 flex-col">
       <Tabs
         value={view}
         onValueChange={(v) => switchView(v as MonitorView)}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <TabsContent value="panels" className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto">
+        {/* 面板视图自带「侧栏 + 面板区」两条独立滚动腿,外层不能再滚,否则会多出一层嵌套滚动 */}
+        <TabsContent
+          value="panels"
+          className="wb-scroll-host mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
           <MonitorPanelsContent headerExtra={headerExtra} />
         </TabsContent>
+        {/* 大屏视图由本层滚动:粘性顶栏相对它定位 */}
         <TabsContent
           value="wallboard"
-          className="wb-scroll-host mt-0 min-h-0 flex-1 overflow-y-auto"
+          className="wb-scroll-host mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto"
         >
           <WallboardView headerExtra={headerExtra} />
         </TabsContent>
@@ -152,6 +157,26 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
   const [filter, setFilter] = React.useState('')
   const [countdown, setCountdown] = React.useState(AUTO_REFRESH_MS / 1000)
   const inFlight = React.useRef(false)
+  const shellRef = React.useRef<HTMLDivElement | null>(null)
+  const navTouched = React.useRef(false)
+
+  // 工作区宽度 ≠ 视口宽度(左侧 AI 面板展开时可占掉一半)。224px 侧栏在窄容器里会把
+  // 面板区压到 660px 以下,所以按容器宽自动收起;用户手动切过之后不再自动干预。
+  React.useEffect(() => {
+    const el = shellRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([entry]) => {
+      if (navTouched.current) return
+      setNavOpen((entry?.contentRect.width ?? 0) >= 900)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const toggleNav = () => {
+    navTouched.current = true
+    setNavOpen((v) => !v)
+  }
 
   // 配置 chunk 懒加载(首次进入拉取一次,随后走模块缓存)
   React.useEffect(() => {
@@ -307,93 +332,117 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
   }, [dashboard, filter])
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div ref={shellRef} className="flex min-h-0 flex-1 overflow-hidden">
       {/* 左侧导航:21 张盘,按分组 */}
       <aside
         className={cn(
-          'shrink-0 overflow-y-auto border-r border-border bg-card transition-all',
+          'pn-nav shrink-0 overflow-y-auto border-r border-border bg-card/60 transition-[width] duration-200',
           navOpen ? 'w-56' : 'w-12',
         )}
       >
-        <button
-          type="button"
-          onClick={() => setNavOpen((v) => !v)}
-          className="w-full px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground hover:text-info-text"
-        >
-          {navOpen ? `监控面板 (${boards.length})` : '»'}
-        </button>
-        {!config ? (
-          <div className="px-3 py-2 text-[11px] text-muted-foreground">配置加载中…</div>
-        ) : (
-          groups.map((group) => {
-            const groupBoards = boards.filter((d) => d.group === group)
-            if (!groupBoards.length) return null
-            return (
-              <div key={group} className="mb-2">
-                {navOpen && (
-                  <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Tooltip content={navOpen ? '收起面板列表' : '展开面板列表'}>
+          <button
+            type="button"
+            onClick={toggleNav}
+            className={cn(
+              'sticky top-0 z-10 flex w-full items-center gap-2 bg-card/95 px-3 py-2.5 text-left text-[11px] font-medium text-muted-foreground backdrop-blur transition-colors hover:text-foreground',
+              !navOpen && 'justify-center px-0',
+            )}
+          >
+            {navOpen ? (
+              <>
+                <span className="truncate">监控面板</span>
+                <span className="inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums">
+                  {boards.length}
+                </span>
+                <ChevronsLeft className="ml-auto h-3.5 w-3.5 shrink-0" />
+              </>
+            ) : (
+              <ChevronsRight className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </Tooltip>
+        {navOpen &&
+          (!config ? (
+            <div className="px-3 py-2 text-[11px] text-muted-foreground">配置加载中…</div>
+          ) : (
+            groups.map((group) => {
+              const groupBoards = boards.filter((d) => d.group === group)
+              if (!groupBoards.length) return null
+              return (
+                <div key={group} className="mb-2">
+                  <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
                     {group}
                   </div>
-                )}
-                {groupBoards.map((d) => {
-                  const label = stripBrandPrefix(d.title)
-                  return (
-                    <Tooltip key={d.uid} content={label}>
-                      <button
-                        type="button"
-                        onClick={() => switchDashboard(d.uid)}
-                        className={cn(
-                          'block w-full truncate px-3 py-1.5 text-left text-xs transition-colors',
-                          d.uid === activeUid
-                            ? 'border-l-2 border-info bg-muted text-info-text'
-                            : 'border-l-2 border-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
-                        )}
-                      >
-                        {navOpen ? label : label.slice(0, 2)}
-                      </button>
-                    </Tooltip>
-                  )
-                })}
-              </div>
-            )
-          })
-        )}
+                  <div className="space-y-0.5 px-1.5">
+                    {groupBoards.map((d) => {
+                      const label = stripBrandPrefix(d.title)
+                      const active = d.uid === activeUid
+                      return (
+                        <Tooltip key={d.uid} content={label}>
+                          <button
+                            type="button"
+                            onClick={() => switchDashboard(d.uid)}
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors',
+                              active
+                                ? 'bg-info/15 font-medium text-info-text'
+                                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                'h-1.5 w-1.5 shrink-0 rounded-full',
+                                active ? 'bg-info' : 'bg-border',
+                              )}
+                            />
+                            <span className="truncate">{label}</span>
+                          </button>
+                        </Tooltip>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })
+          ))}
       </aside>
 
       {/* 主区域 */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* 顶栏 */}
-        <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
-          <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
-            {dashboard ? stripBrandPrefix(dashboard.title) : '监控面板'}
-          </h2>
-          {dashboard && (
-            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {filter.trim()
-                ? `${panels.length}/${dashboard.panels.length}`
-                : dashboard.panels.length}{' '}
-              面板
-            </span>
-          )}
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {headerExtra}
+        {/* 顶栏:标题 + 呈现切换固定在同一行首,工具组靠右;窄容器时工具组整体换行,顺序不乱 */}
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card px-3 py-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
+              {dashboard ? stripBrandPrefix(dashboard.title) : '监控面板'}
+            </h2>
+            {dashboard && (
+              <span className="inline-flex h-4 shrink-0 items-center justify-center rounded-md bg-muted px-1 text-[10px] font-semibold leading-none tabular-nums text-muted-foreground">
+                {filter.trim()
+                  ? `${panels.length}/${dashboard.panels.length}`
+                  : dashboard.panels.length}
+              </span>
+            )}
+          </div>
+          {headerExtra}
+          <div className="ml-auto flex flex-wrap items-center gap-1.5">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder="筛选面板…"
-                className="w-32 rounded-sm border border-border bg-muted py-1 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-info/40 focus:outline-none"
+                className="h-7 w-32 rounded-md border border-border bg-muted/50 pl-7 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground focus:border-info/40 focus:outline-none"
               />
             </div>
-            <div className="flex overflow-hidden rounded-sm border border-border">
+            <div className="flex h-7 items-center overflow-hidden rounded-md border border-border bg-muted/40">
               {RANGES.map((r) => (
                 <button
                   key={r.seconds}
                   type="button"
                   onClick={() => setRangeSec(r.seconds)}
                   className={cn(
-                    'px-2.5 py-1 text-[11px] transition-colors',
+                    'h-full px-2 text-[11px] transition-colors',
                     rangeSec === r.seconds
                       ? 'bg-info/15 text-info-text'
                       : 'text-muted-foreground hover:text-foreground',
@@ -407,7 +456,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               type="button"
               onClick={() => setAutoRefresh((v) => !v)}
               className={cn(
-                'flex items-center gap-1 rounded-sm border px-2 py-1 text-[11px]',
+                'flex h-7 items-center gap-1 rounded-md border px-2 text-[11px] tabular-nums transition-colors',
                 autoRefresh
                   ? 'border-info/40 text-info-text'
                   : 'border-border text-muted-foreground hover:text-foreground',
@@ -423,12 +472,12 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
               type="button"
               onClick={() => dashboard && void load(dashboard, rangeSec)}
               disabled={loading || !dashboard}
-              className="rounded-sm border border-border px-2 py-1 text-[11px] text-foreground hover:border-info/40 hover:text-info-text disabled:opacity-50"
+              className="h-7 rounded-md border border-border px-2 text-[11px] text-foreground transition-colors hover:border-info/40 hover:text-info-text disabled:opacity-50"
             >
               刷新
             </button>
             {updatedAt && (
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[10px] tabular-nums text-muted-foreground">
                 更新于 {updatedAt.toLocaleTimeString('zh-CN', { hour12: false })}
               </span>
             )}
@@ -441,8 +490,8 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
           </div>
         )}
 
-        {/* 面板网格 */}
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* 面板网格:pn-panels 是网格列的容器查询宿主,列数跟面板区实际宽度走(不跟视口) */}
+        <div className="pn-panels flex-1 overflow-y-auto p-3">
           {!dashboard ? (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               配置加载中…

@@ -17,6 +17,7 @@ import { useTheme } from 'next-themes'
 
 import { cn } from '@/lib/utils'
 import { EChart } from '@/components/charts/EChart'
+import { Tooltip } from '@/components/feedback'
 import { CHART_PALETTE, chartText, chartAxis, chartBg, withAlpha } from '@ihui/design-tokens'
 import type { NativeDashboard, NativePanel, PanelTarget } from './dashboard-config.generated'
 
@@ -227,30 +228,40 @@ function PanelCard({
   return (
     <div
       className={cn(
-        'rounded-lg border border-border bg-card p-3',
-        panel.span === 'full' ? 'md:col-span-2' : 'md:col-span-1',
+        'flex flex-col rounded-lg border border-border/80 bg-card p-3 transition-colors hover:border-border',
+        panel.span === 'full' && 'pn-span-full',
       )}
     >
-      <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h3 className="truncate text-[13px] font-medium text-foreground">{panel.title}</h3>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="h-3 w-[3px] shrink-0 rounded-full bg-info/70" />
+          <h3 className="truncate text-[13px] font-medium text-foreground">{panel.title}</h3>
+        </div>
         {errs.length > 0 && (
-          <span className="shrink-0 text-[10px] text-warning-text" title={errs.join('; ')}>
-            <AlertTriangle className="mr-0.5 inline h-3 w-3" />
-            查询异常
-          </span>
+          <Tooltip content={errs.join('; ')}>
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-warning-text">
+              <AlertTriangle className="h-3 w-3" />
+              查询异常
+            </span>
+          </Tooltip>
         )}
       </div>
       {loading && !hasData ? (
-        <div className="flex h-[220px] items-center justify-center text-xs text-muted-foreground">
-          加载中…
-        </div>
+        <PanelPlaceholder text="加载中…" />
       ) : !hasData ? (
-        <div className="flex h-[220px] items-center justify-center text-xs text-muted-foreground">
-          {errs[0] ? '上游查询失败' : '当前时间窗内暂无数据'}
-        </div>
+        <PanelPlaceholder text={errs[0] ? '上游查询失败' : '当前时间窗内暂无数据'} />
       ) : (
         <PanelBody panel={panel} panelIdx={panelIdx} results={results} />
       )}
+    </div>
+  )
+}
+
+function PanelPlaceholder({ text }: { text: string }) {
+  return (
+    <div className="flex h-[180px] flex-col items-center justify-center gap-2 rounded-md bg-muted/30 text-[11px] text-muted-foreground">
+      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
+      {text}
     </div>
   )
 }
@@ -321,11 +332,7 @@ function PanelBody({
 }
 
 function EmptyBody() {
-  return (
-    <div className="flex h-[220px] items-center justify-center text-xs text-muted-foreground">
-      当前时间窗内暂无数据
-    </div>
-  )
+  return <PanelPlaceholder text="当前时间窗内暂无数据" />
 }
 
 function StatBody({
@@ -351,19 +358,20 @@ function StatBody({
   const shown = stats.slice(0, 6)
   const cols = shown.length <= 1 ? 'grid-cols-1' : shown.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'
   return (
-    <div className={cn('grid gap-2', cols)}>
-      {shown.map((s, i) => (
-        <div
-          key={i}
-          className="rounded-md bg-muted px-3 py-2"
-          title={stats.length > 6 ? `共 ${stats.length} 项` : undefined}
-        >
-          <div className="truncate text-[11px] text-muted-foreground">{s.name}</div>
-          <div className="mt-0.5 font-mono text-2xl font-semibold text-info-text">
-            {fmtValue(s.value, unit)}
+    <div className="space-y-1.5">
+      <div className={cn('grid gap-2', cols)}>
+        {shown.map((s, i) => (
+          <div key={i} className="rounded-md bg-muted/60 px-3 py-2">
+            <div className="truncate text-[11px] text-muted-foreground">{s.name}</div>
+            <div className="mt-0.5 font-mono text-2xl font-semibold tabular-nums text-info-text">
+              {fmtValue(s.value, unit)}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      {stats.length > 6 && (
+        <div className="text-[10px] text-muted-foreground">共 {stats.length} 项，仅显示前 6 项</div>
+      )}
     </div>
   )
 }
@@ -568,9 +576,12 @@ function TableBody({
         </thead>
         <tbody className="font-mono">
           {rows.slice(0, 40).map((r, i) => (
-            <tr key={i} className="border-t border-border text-foreground">
+            <tr
+              key={i}
+              className="border-t border-border text-foreground transition-colors hover:bg-muted/40"
+            >
               <td className="max-w-[280px] truncate px-2 py-1">{r.name}</td>
-              <td className="px-2 py-1 text-right text-info-text">{r.value}</td>
+              <td className="px-2 py-1 text-right tabular-nums text-info-text">{r.value}</td>
             </tr>
           ))}
         </tbody>
@@ -624,12 +635,12 @@ function LogsBody({
         const sameDay = d.toDateString() === t0.toDateString()
         const level = logLevelOf(l.line)
         return (
-          <div key={i} className="flex gap-2 border-b border-border pb-0.5">
-            <span
-              className={cn('mt-0.5 h-3 w-0.5 shrink-0 rounded', LEVEL_BAR[level])}
-              title={level}
-            />
-            <span className="shrink-0 text-muted-foreground">
+          <div
+            key={i}
+            className="flex gap-2 rounded-sm px-1 py-0.5 transition-colors hover:bg-muted/40"
+          >
+            <span className={cn('mt-0.5 h-3 w-0.5 shrink-0 rounded', LEVEL_BAR[level])} />
+            <span className="shrink-0 tabular-nums text-muted-foreground">
               {sameDay
                 ? d.toLocaleTimeString('zh-CN', { hour12: false })
                 : d.toLocaleString('zh-CN', { hour12: false })}
@@ -655,7 +666,7 @@ export function DashboardGrid({
   loading: boolean
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+    <div className="pn-grid">
       {panels.map((p) => {
         const pi = dash.panels.indexOf(p)
         return <PanelCard key={p.id} panel={p} panelIdx={pi} results={results} loading={loading} />
