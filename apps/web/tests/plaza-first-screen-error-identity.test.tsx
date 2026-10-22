@@ -40,6 +40,17 @@ import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 const fetchApiMock = vi.fn()
 vi.mock('@/lib/api', () => ({
   fetchApi: (url: string, options?: RequestInit) => fetchApiMock(url, options),
+  // helpers.api 已改转发单源出口 apiOrThrow:替身按同形补适配器
+  // (失败抛**带 status** 的 Error,成功解包 data —— 身份档判据全靠这个 status)。
+  apiOrThrow: async (url: string, options?: RequestInit) => {
+    const r = await fetchApiMock(url, options)
+    if (!r.success) {
+      const err = new Error(r.error) as Error & { status?: number }
+      err.status = r.status
+      throw err
+    }
+    return r.data
+  },
 }))
 
 const toastError = vi.fn()
@@ -170,12 +181,12 @@ describe('③ 源码锁:广场族只有一份 api(),发布页不再手搓丢身�
     expect(pageSource).toMatch(/from '\.\.\/helpers'/)
   })
 
-  it('api() 只在 helpers 里实现一次(两处各写一遍必然漂开)', () => {
+  it('api() 不再手搓:helpers 只转发单源出口 apiOrThrow(两处各写一遍必然漂开)', () => {
     const implCount = [pageSource, helpersSource].filter((s) =>
       /export async function api<|async function api</.test(s),
     ).length
-    expect(implCount).toBe(1)
-    expect(helpersSource).toMatch('apiFailureToError(r)')
+    expect(implCount).toBe(0)
+    expect(helpersSource).toMatch('export { apiOrThrow as api }')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
