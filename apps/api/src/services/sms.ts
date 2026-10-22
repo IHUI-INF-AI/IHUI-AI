@@ -12,12 +12,15 @@
 import { env } from 'node:process'
 import {
   generateCode,
-  codeStore,
+  getCodeEntry,
+  putCodeEntry,
   CODE_TTL_MS,
+  CODE_TTL_REGISTER_MS,
   CODE_RESEND_INTERVAL_MS,
 } from '../utils/code-store.js'
+import { tryConsumeWindows } from '../utils/window-counter.js'
 import { logger } from '../utils/logger.js'
-import { isProductionGuard } from '../config/index.js'
+import { config } from '../config/index.js'
 
 const FETCH_TIMEOUT_MS = 10_000
 
@@ -127,68 +130,53 @@ async function loadAliyunSdk(): Promise<AliyunSmsModules | null> {
   }
 }
 
-interface RateLimitEntry {
-  count: number
-  windowStart: number
+/** 三档限速的档位表。max 与窗口都写在这里,不再散在判据函数体内 ——
+ *  24h 档的上限直接对应云侧那 100~200 条免费额度,改数必须连带改注释里的理由。 */
+const RATE_LIMIT_WINDOWS = [
+  { windowMs: 60_000, max: 1, msg: '验证码已发送,请稍候' },
+  { windowMs: 3_600_000, max: 5, msg: '一小时内发送次数过多' },
+  { windowMs: 86_400_000, max: 20, msg: '今日发送次数过多' },
+] as const
+
+async function checkRateLimit(phone: string): Promise<{ ok: boolean; msg: string }> {
+  const blocked = await tryConsumeWindows(
+    RATE_LIMIT_WINDOWS.map((w) => ({
+      key: `sms:rl:${w.windowMs}:${phone}`,
+      windowMs: w.windowMs,
+      max: w.max,
+    })),
+  )
+  if (blocked > 0) return { ok: false, msg: RATE_LIMIT_WINDOWS[blocked - 1]?.msg ?? '发送过于频繁' }
+  return { ok: true, msg: '' }
 }
 
-const rateLimit60s = new Map<string, RateLimitEntry>()
-const rateLimit1h = new Map<string, RateLimitEntry>()
-const rateLimit24h = new Map<string, RateLimitEntry>()
-
-function checkRateLimit(phone: string): { ok: boolean; msg: string } {
-  const now = Date.now()
-  // 60s 1 次
-  const r60 = rateLimit60s.get(phone) ?? { count: 0, windowStart: now }
-  if (now - r60.windowStart > 60_000) {
-    r60.count = 0
-    r60.windowStart = now
-  }
-  r60.count++
-  rateLimit60s.set(phone, r60)
-  if (r60.count > 1) return { ok: false, msg: '验证码已发送,请稍候' }
-
-  // 1h 5 次
-  const r1h = rateLimit1h.get(phone) ?? { count: 0, windowStart: now }
-  if (now - r1h.windowStart > 3_600_000) {
-    r1h.count = 0
-    r1h.windowStart = now
-  }
-  r1h.count++
-  rateLimit1h.set(phone, r1h)
-  if (r1h.count > 5) return { ok: false, msg: '一小时内发送次数过多' }
-
-  // 24h 20 次
-  const r24 = rateLimit24h.get(phone) ?? { count: 0, windowStart: now }
-  if (now - r24.windowStart > 86_400_000) {
-    r24.count = 0
-    r24.windowStart = now
-  }
-  r24.count++
-  rateLimit24h.set(phone, r24)
-  if (r24.count > 20) return { ok: false, msg: '今日发送次数过多' }
-
-  return { ok: true, msg: '' }
+/** 场景 → 该场景的验证码有效期。必须与云侧模板文案里承诺的时长一致:
+ *  注册模板 SMS_491200014 写的是"10分钟内有效"(已过审,改文案要重新报审),
+ *  所以这一档实现给 10 分钟;其余三枚模板均写"5分钟",给 5 分钟。
+ *  对齐方向只有一个 —— 实现服从已公示的承诺;反过来(把文案压到 5 分钟)是在用户
+ *  已经看到的短信上做手脚。新增场景不在这张表里 ⇒ 按最短档给,宁可少给不可多给。 */
+export function smsCodeTtlMs(scene?: SmsScene): number {
+  return scene === 'register' ? CODE_TTL_REGISTER_MS : CODE_TTL_MS
 }
 
 /** 发送短信验证码 */
 export async function sendSmsCode(phone: string, scene?: SmsScene): Promise<SendCodeResult> {
-  const rl = checkRateLimit(phone)
+  const rl = await checkRateLimit(phone)
   if (!rl.ok) return { success: false, msg: rl.msg, failure: 'rate_limited' }
 
   const code = generateCode()
   const now = Date.now()
 
   // 检查重发间隔
-  const existing = codeStore.get(phone)
+  const existing = await getCodeEntry(phone)
   if (existing && now - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
     return { success: false, msg: '验证码已发送,请稍候', failure: 'rate_limited' }
   }
 
   // 存储验证码
-  codeStore.set(phone, {
+  await putCodeEntry(phone, {
     code,
-    expiresAt: now + CODE_TTL_MS,
+    expiresAt: now + smsCodeTtlMs(scene),
     sentAt: now,
   })
 
@@ -239,7 +227,10 @@ async function dispatchSms(
   }
   // 策略 3：dev console（仅非生产档降级）
   logger.warn('SMS 未配置阿里云/代理 ⇒ 本轮没有真发送', { phone: maskPhone(phone) })
-  return judgeUnconfiguredDelivery(isProductionGuard)
+  // 读法随仓内既有 7 处(旗标挂在 config 对象上,不是具名导出 —— 具名导入在只 mock
+  // `config` 的测试里会在请求期才炸,表现为 500 而不是"档位不对")。
+  // 真实 config 一定带这个键,退回 NODE_ENV 只为兼容没铺全的 mock。
+  return judgeUnconfiguredDelivery(config.isProductionGuard ?? config.NODE_ENV === 'production')
 }
 
 /** 发码场景。与 routes/auth.ts 的 sendCodeSchema.scene 同一闭集。 */
