@@ -50,6 +50,13 @@
  *   node scripts/dev-with-warmup.mjs --purge                  # 等价旧 `dev:clean`
  *   node scripts/dev-with-warmup.mjs --purge --no-turbopack    # 等价旧 `dev:stable`
  *   node scripts/dev-with-warmup.mjs --no-backend             # 跳过后端保证(后端自管)
+ *
+ * 并发隔离(2026-10-22 参数化,goal-r73-d35 堵点②;默认行为完全不变):
+ *   IHUI_DEV_PORT=8877   第二台 web 用非 8801 端口,不撞他席 dev server
+ *   IHUI_BUILD_DIST=.next-e2e  独立构建目录,不与他席共写同一个 .next
+ *   (IHUI_BUILD_DIST 由 next.config.ts 消费;本脚本只在 --purge 时按同一值整清,
+ *    自定义 distDir 时跳过阈值缓存治理 —— clean-turbopack-cache 的目标硬编码
+ *    .next/dev/cache/turbopack,拿它清自定义目录会误删他席正在写的共享 .next。)
  * 未知参数 ⇒ exit 2 并打印用法(静默忽略会让"以为自己在整清"的人拿到一份没整清的启动)。
  */
 
@@ -65,7 +72,13 @@ import { acquire, release, lockOwnedBy } from './deploy-lock.mjs'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const WEB_DIR = path.join(REPO_ROOT, 'apps', 'web')
-const PORT = 8801
+// 端口与构建目录经环境变量参数化(见文件头"并发隔离");默认值与原硬编码一致。
+const PORT = Number(process.env.IHUI_DEV_PORT ?? 8801)
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  console.error(`[dev-warmup] IHUI_DEV_PORT 非法:${process.env.IHUI_DEV_PORT}(须为 1-65535 整数)`)
+  process.exit(2)
+}
+const DIST_DIR = process.env.IHUI_BUILD_DIST || '.next'
 const BASE = `http://localhost:${PORT}`
 const WARM_LOG_DIR = path.join(REPO_ROOT, '.ihui-agent', 'tmp', 'dev-logs')
 const WARM_LOG = path.join(WARM_LOG_DIR, 'web-warmup.log')
@@ -196,17 +209,30 @@ function runStep(file) {
 {
   const steps = [
     { label: 'dev 预取守卫', file: PREFETCH_SCRIPT },
-    PURGE ? { label: '整清 .next', purge: true } : { label: '缓存治理', file: CACHE_HYGIENE_SCRIPT },
+    PURGE
+      ? { label: `整清 ${DIST_DIR}`, purge: true }
+      : DIST_DIR !== '.next'
+        ? {
+            label: '缓存治理(自定义 IHUI_BUILD_DIST ⇒ 跳过)',
+            skip: true,
+            why: 'clean-turbopack-cache 目标硬编码 .next,清它会误删他席正在写的共享构建;新目录本也无缓存可治',
+          }
+        : { label: '缓存治理', file: CACHE_HYGIENE_SCRIPT },
   ]
   for (const s of steps) {
     // --purge 走进程内 rmSync:原先三条入口用 `rimraf .next .dev.lock`(cwd=apps/web),
-    // 语义等价(recursive + force,不存在不算失败)。`.dev.lock` 是另一把老锁
+    // 语义等价(recursive + force,不存在不算失败)。整清目标随 IHUI_BUILD_DIST 走(默认 .next 不变)。
+    // `.dev.lock` 是另一把老锁
     // (scripts/check-lock.mjs 的 dev-vs-build 标记),**不是** .deploy.lock —— 两把别混;
     // 删它不影响本锁的归属判据(本锁在项目根 .deploy.lock,由 acquire 与心跳自己管)。
+    if (s.skip) {
+      log(`${s.label}:${s.why}`)
+      continue
+    }
     const r = s.purge
       ? (() => {
           try {
-            for (const p of [path.join(WEB_DIR, '.next'), path.join(WEB_DIR, '.dev.lock')])
+            for (const p of [path.join(WEB_DIR, DIST_DIR), path.join(WEB_DIR, '.dev.lock')])
               rmSync(p, { recursive: true, force: true })
             return { ok: true }
           } catch (e) {

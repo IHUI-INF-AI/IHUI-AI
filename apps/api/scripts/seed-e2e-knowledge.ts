@@ -31,7 +31,8 @@ try {
 } catch {
   prodDbNameMatched = DATABASE_URL.includes('ihui_dev')
 }
-if (prodDbNameMatched && process.env.CI !== 'true') {
+// 显式本地标记 E2E_ALLOW_LOCAL_DB=1 ⇒ 操作者声明该库为本机库,放行(与 seed-test-users 同规则)
+if (prodDbNameMatched && process.env.CI !== 'true' && process.env.E2E_ALLOW_LOCAL_DB !== '1') {
   console.error(
     '[seed-e2e-knowledge] 拒绝执行:DATABASE_URL 指向生产库 ihui_dev。' +
       'E2E 种子只允许写入隔离库,请显式传 DATABASE_URL(如 ihui_e2e);CI 环境不受影响。',
