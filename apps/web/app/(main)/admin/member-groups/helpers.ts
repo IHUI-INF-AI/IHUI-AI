@@ -18,7 +18,7 @@ export const EMPTY_FORM: GroupForm = { name: '', description: '' }
 export { apiOrThrow as api }
 
 export async function fetchGroups(): Promise<MemberGroup[]> {
-  const data = await apiOrThrow<GroupsListData>('/api/members/groups?pageSize=200')
+  const data = await apiOrThrow<GroupsListData>('/api/admin/members/groups?pageSize=200')
   return data.list
 }
 

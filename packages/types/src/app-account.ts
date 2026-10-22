@@ -14,7 +14,6 @@
 import type { ReactNode } from 'react'
 import type { TFunction } from './app-shared.js'
 
-
 /** 账号信息(平台注入,字段对齐 mobile-rn SettingsAccountScreen Account) */
 export interface SettingsAccountItem {
   name: string
@@ -123,7 +122,9 @@ export interface LoginScreenProps {
   onAccountChange: (text: string) => void
   onPasswordChange: (text: string) => void
   onLogin: () => void
-  onSsoLogin: () => void
+  /** 不传则不渲染"打开网页登录"SSO 按钮 —— H5 预览无系统浏览器授权会话与
+   * deep link 回跳通道,该按钮点下去必然被 wrapper 的 ssoLogin web 分支拒绝。 */
+  onSsoLogin?: () => void
   colorScheme?: 'light' | 'dark'
   /** logo 图片源(RN Image source,如 require('../../assets/logo.png'))。
    * 不传则渲染深色方块+IHUI 文字作为 fallback,对齐 web AuthShell logo 占位。 */

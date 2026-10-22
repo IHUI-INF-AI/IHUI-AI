@@ -142,6 +142,8 @@ import sdksRoutes from './sdks.js'
 import miniprogramRoutes from './miniprogram.js'
 import productIdentityRoutes from './product-identity.js'
 import groupsRoutes from './groups.js'
+// G-962 #72 补建：报名记录聚合路由
+import signUpsRoutes from './sign-ups.js'
 // M-23 补建：AI 定价引擎路由
 import { pricingRoutes } from './pricing.js'
 // M-22 补建：散点缺失路由
@@ -835,6 +837,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(productIdentityRoutes, { prefix: '/api/product-identity' })
   // 用户组管理：/api/groups/*
   server.register(groupsRoutes, { prefix: '/api/groups' })
+  // 报名记录聚合：/api/sign-ups(G-962 #72)
+  server.register(signUpsRoutes, { prefix: '/api/sign-ups' })
 
   // ===== M-23 补建：AI 定价引擎 =====
   // 定价管理：/api/pricing/*
@@ -1317,7 +1321,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminUserBillingGroupsRoutes, { prefix: '/api/admin' })
   // admin 中转站渠道分组管理(分组 CRUD + 成员 + 组统计 + 一键测速):
   // GET/POST /api/admin/relay/channels/groups 等(8 端点,#4 #6 合并任务)
-  server.register(adminRelayChannelsRoutes, { prefix: '/api/admin' })
+  // 该插件内部路径已自带 /admin 段(与 relay-account-pool 同款),前缀只能给 /api,
+  // 否则实际落在 /api/admin/admin/relay/*,前端 /api/admin/relay/* 全部 404。
+  server.register(adminRelayChannelsRoutes, { prefix: '/api' })
   // admin 阶梯计价规则管理(规则 CRUD + 按 model 筛选):/api/admin/tiered-pricing/rules 等
   server.register(adminTieredPricingRoutes, { prefix: '/api/admin' })
   // admin 价格历史 + 限时折扣调度 + 动态调价建议(7 端点):
