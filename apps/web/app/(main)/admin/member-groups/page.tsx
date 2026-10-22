@@ -44,8 +44,11 @@ export default function AdminMemberGroupsPage() {
         description: form.description.trim() || undefined,
       }
       return editing
-        ? api(`/api/members/groups/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) })
-        : api('/api/members/groups', { method: 'POST', body: JSON.stringify(body) })
+        ? api(`/api/admin/members/groups/${editing.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+          })
+        : api('/api/admin/members/groups', { method: 'POST', body: JSON.stringify(body) })
     },
     onSuccess: () => {
       toast.success(editing ? '更新成功' : '创建成功')
@@ -56,7 +59,7 @@ export default function AdminMemberGroupsPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/api/members/groups/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/admin/members/groups/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'member-groups'] })
