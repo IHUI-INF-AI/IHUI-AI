@@ -210,7 +210,7 @@ import {
   findDocs,
   findDocBySlug,
 } from '../src/db/content-queries'
-import { codeStore } from '../src/utils/code-store'
+import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store'
 
 // =============================================================================
 // 常量与测试数据
@@ -506,7 +506,7 @@ describe('success paths', () => {
     it('POST /api/auth/login/sms 验证码正确成功登录', async () => {
       vi.mocked(findUserByPhone).mockResolvedValue(mockUser)
       // 手动注入验证码到 codeStore
-      codeStore.set('13800000001', {
+      await putCodeEntry('13800000001', {
         code: '123456',
         expiresAt: Date.now() + 5 * 60 * 1000,
         sentAt: Date.now(),
@@ -523,12 +523,12 @@ describe('success paths', () => {
       expect(body.data).toHaveProperty('accessToken')
       expect(body.data.user.phone).toBe('13800000001')
       // 验证码应被消费(一次性)
-      expect(codeStore.has('13800000001')).toBe(false)
+      expect(await codeStoreTest.exists('13800000001')).toBe(false)
     })
 
     it('POST /api/auth/login/sms 验证码错误返回 401', async () => {
       vi.mocked(findUserByPhone).mockResolvedValue(mockUser)
-      codeStore.set('13800000001', {
+      await putCodeEntry('13800000001', {
         code: '123456',
         expiresAt: Date.now() + 5 * 60 * 1000,
         sentAt: Date.now(),
@@ -549,7 +549,7 @@ describe('success paths', () => {
     // 攻击者无法通过响应区分"用户不存在"和"验证码错误"(2026-07-24 安全加固)
     it('POST /api/auth/login/sms 用户不存在返回 401', async () => {
       vi.mocked(findUserByPhone).mockResolvedValue(undefined)
-      codeStore.set('13900000000', {
+      await putCodeEntry('13900000000', {
         code: '123456',
         expiresAt: Date.now() + 5 * 60 * 1000,
         sentAt: Date.now(),

@@ -21,6 +21,7 @@
 import { BlockList, isIP } from 'node:net'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { config } from '../config/index.js'
+import { incrWindow, resetCounters, windowRemainingMs } from './window-counter.js'
 import { logger } from './logger.js'
 
 // ---------------------------------------------------------------------------
@@ -140,71 +141,48 @@ export const SEND_QUOTA_WINDOW_MS = 10 * 60 * 1000
 /** 窗口内被拦 N 次后告警一次(避免刷日志)。 */
 export const SEND_ALERT_AFTER_BLOCKS = 3
 
-interface QuotaEntry {
-  windowStart: number
-  attempts: number
-  blocks: number
-  alerted: boolean
-}
-
-const quotaStore = new Map<string, QuotaEntry>()
-
 export interface SendQuotaResult {
   allowed: boolean
   /** 被拦时建议的重试等待秒数(用于 Retry-After)。 */
   retryAfterSec: number
 }
 
-function cleanupQuotaStore(now: number): void {
-  if (quotaStore.size < 1000) return
-  for (const [key, entry] of quotaStore) {
-    if (now - entry.windowStart >= SEND_QUOTA_WINDOW_MS) quotaStore.delete(key)
-  }
-}
-
 /**
  * 消耗一次取码配额。计数覆盖「取码尝试」而非仅「成功发码」——
  * 否则攻击者可以靠 60 秒重发间隔之外的失败尝试白嫖配额。
+ *
+ * 2026-10-22 迁到共享窗口计数:原来这张 Map 住在进程内,**一次部署就把 5 次/10 分钟的预算清零**,
+ * 而它是「同一 IP 反复换号取码」这条路径上唯一的闸。窗口与告警节流都交给 utils/window-counter。
  */
-export function consumeSendQuota(
+export async function consumeSendQuota(
   identifier: string,
   ip: string | undefined,
-  now: number = Date.now(),
-): SendQuotaResult {
+): Promise<SendQuotaResult> {
   const key = `${identifier}|${normalizeIp(ip)}`
-  const existing = quotaStore.get(key)
-
-  if (!existing || now - existing.windowStart >= SEND_QUOTA_WINDOW_MS) {
-    quotaStore.set(key, { windowStart: now, attempts: 1, blocks: 0, alerted: false })
-    cleanupQuotaStore(now)
+  const attemptsKey = `echo:q:${key}`
+  const attempts = await incrWindow(attemptsKey, SEND_QUOTA_WINDOW_MS)
+  if (attempts <= SEND_QUOTA_MAX_ATTEMPTS) {
     return { allowed: true, retryAfterSec: 0 }
   }
 
-  existing.attempts += 1
-  if (existing.attempts <= SEND_QUOTA_MAX_ATTEMPTS) {
-    return { allowed: true, retryAfterSec: 0 }
-  }
-
-  existing.blocks += 1
-  if (existing.blocks >= SEND_ALERT_AFTER_BLOCKS && !existing.alerted) {
-    existing.alerted = true
+  // 恰好落在第 N 次拦截那一下才告警:比原来的 alerted 布尔更省一个键,且每窗口只响一次
+  const blocks = await incrWindow(`echo:block:${key}`, SEND_QUOTA_WINDOW_MS)
+  if (blocks === SEND_ALERT_AFTER_BLOCKS) {
     logger.warn('验证码发送频控触发:同一标识+IP 在窗口内反复取码', {
       identifier,
       ip: normalizeIp(ip),
-      attempts: existing.attempts,
+      attempts,
       windowMinutes: SEND_QUOTA_WINDOW_MS / 60_000,
     })
   }
 
-  const retryAfterSec = Math.max(
-    1,
-    Math.ceil((existing.windowStart + SEND_QUOTA_WINDOW_MS - now) / 1000),
-  )
-  return { allowed: false, retryAfterSec }
+  const remainingMs = await windowRemainingMs(attemptsKey, SEND_QUOTA_WINDOW_MS)
+  return { allowed: false, retryAfterSec: Math.max(1, Math.ceil(remainingMs / 1000)) }
 }
 
-/** 测试用:清空频控内存(避免跨用例串味)。 */
-export function resetSendQuotaForTests(): void {
-  quotaStore.clear()
+/** 测试用:清空频控计数。计数已搬到共享存储,所以必须**内存与 Redis 两面一起清** ——
+ *  只清内存的话,上一用例留下的 `echo:*` 计数会串进下一用例,表现为"配额测试偶发红"。 */
+export async function resetSendQuotaForTests(): Promise<void> {
+  await resetCounters(['echo:'])
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

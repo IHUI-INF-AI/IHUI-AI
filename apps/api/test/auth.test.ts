@@ -126,6 +126,14 @@ vi.mock('../src/db/oauth-queries.js', () => ({
 }))
 
 vi.mock('../src/db/user-preferences-queries.js', () => ({
+  // 2026-10-22 补:该具名出口由 f214e8b4854 引入,当时没回头更新这份 mock ⇒ 本文件整轮
+  // 收集期就炸("No USER_PREFERENCE_GROUPS export is defined on the mock")。形态照
+  // tests/auth-sso.test.ts / ip-whitelist-login-guard.test.ts 的既有写法,不另发明一套。
+  USER_PREFERENCE_GROUPS: {
+    notifications: 'notifications',
+    preferences: 'preferences',
+    security: 'security',
+  },
   findUserPreferences: vi.fn().mockResolvedValue({ list: [] }),
   upsertUserPreference: vi.fn(),
 }))
@@ -146,7 +154,7 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 import { authRoutes } from '../src/routes/auth.js'
-import { codeStore } from '../src/utils/code-store.js'
+import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store.js'
 import { resetSendQuotaForTests } from '../src/utils/code-echo-guard.js'
 import { config } from '../src/config/index.js'
 
@@ -206,10 +214,10 @@ describe('auth routes', () => {
     await app.close()
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
-    codeStore.clear()
-    resetSendQuotaForTests()
+    await codeStoreTest.reset()
+    await resetSendQuotaForTests()
     delete process.env.AUTH_DEBUG_ECHO_CODE
     config.isDevelopmentRuntime = false
     // 默认鉴权失败(401)
@@ -288,7 +296,7 @@ describe('auth routes', () => {
     it('G-192:同一手机号+IP 超出取码配额返回 429 + Retry-After', async () => {
       // 每次换 codeStore 的 60 秒重发键,只让频控这一层生效
       for (let i = 0; i < 5; i += 1) {
-        codeStore.clear()
+        await codeStoreTest.reset()
         const ok = await app.inject({
           method: 'POST',
           url: '/api/auth/send-code',
@@ -296,7 +304,7 @@ describe('auth routes', () => {
         })
         expect(ok.statusCode).toBe(200)
       }
-      codeStore.clear()
+      await codeStoreTest.reset()
       const blocked = await app.inject({
         method: 'POST',
         url: '/api/auth/send-code',
@@ -346,7 +354,7 @@ describe('auth routes', () => {
     // CWE-204 防用户枚举攻击:用户不存在时统一返回"验证码错误或已过期",
     // 攻击者无法通过响应区分"用户不存在"和"验证码错误"(2026-07-24 安全加固)
     it('用户不存在时统一返回验证码错误(防枚举)返回 400', async () => {
-      codeStore.set('13800000001', {
+      await putCodeEntry('13800000001', {
         code: '123456',
         expiresAt: Date.now() + 60000,
         sentAt: Date.now(),
@@ -362,7 +370,7 @@ describe('auth routes', () => {
     })
 
     it('系统管理员密码不可重置返回 403', async () => {
-      codeStore.set('13800000001', {
+      await putCodeEntry('13800000001', {
         code: '123456',
         expiresAt: Date.now() + 60000,
         sentAt: Date.now(),
@@ -378,7 +386,7 @@ describe('auth routes', () => {
     })
 
     it('重置成功返回 200 并删除验证码', async () => {
-      codeStore.set('13800000001', {
+      await putCodeEntry('13800000001', {
         code: '123456',
         expiresAt: Date.now() + 60000,
         sentAt: Date.now(),
@@ -394,7 +402,7 @@ describe('auth routes', () => {
       expect(res.json().data.reset).toBe(true)
       expect(mockUpdateUser).toHaveBeenCalled()
       // 验证码一次性使用
-      expect(codeStore.has('13800000001')).toBe(false)
+      expect(await codeStoreTest.exists('13800000001')).toBe(false)
     })
   })
 

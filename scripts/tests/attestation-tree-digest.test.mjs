@@ -101,7 +101,7 @@ test('T5 构造校验:结构不齐就抛,不留"看起来有记录"的空壳;dec
   assert.equal(gate.buildGateBatchRecord({ ...base, undeclaredSkipHits: null }).undeclaredSkipHits, null)
 })
 
-function scratchRepo() {
+function scratchRepo(_t) {
   const dir = mkScratch('gate-batch-')
   ro(dir, ['init', '-q', '-b', 'main'])
   writeFileSync(join(dir, 'a.ts'), 'export const a = 1\n')
@@ -153,7 +153,7 @@ test('T6 真 git 面端到端:index digest ↔ commit tree digest 逐字同形,�
   }
 })
 
-test('T7 写留痕永不抛:台账不可写时回 {ok:false,why},不改调用方退出码', () => {
+test('T7 写留痕永不抛:台账不可写时回 {ok:false,why},不改调用方退出码', (_t) => {
   const dir = mkScratch('gate-batch-')
   try {
     writeFileSync(join(dir, 'not-a-dir'), 'x')
@@ -200,7 +200,7 @@ test('T8 步骤级门三态:命中才计数,面读不到落 undetermined(绝不�
   assert.equal(r.ok, false)
 })
 
-test('T9 台账缺席 ≠ 没人跑门:missing 必须如实报 state,不得静默成 0 条', () => {
+test('T9 台账缺席 ≠ 没人跑门:missing 必须如实报 state,不得静默成 0 条', (_t) => {
   const dir = mkScratch('gate-batch-')
   try {
     const r = gate.readGateBatchRecords(dir)
