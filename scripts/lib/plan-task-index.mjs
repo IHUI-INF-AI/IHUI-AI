@@ -106,7 +106,7 @@ export function codeSpanRangesOf(line) {
   // 反斜杠转义的反引号不是定界符(`\`` 在 Markdown 里就是字面反引号)。等长遮罩,索引不变。
   const s = line.replace(/\\[`*_\[\]<>{}()#+\-.!\s]/g, (m) => ' '.repeat(m.length))
   const delims = []
-  for (let i = 0; i < s.length; ) {
+  for (let i = 0; i < s.length;) {
     if (s[i] !== '`') {
       i++
       continue
@@ -197,7 +197,8 @@ export function claimMarkOf(line) {
     const inCode = !undetermined && insideCodeSpan(spans, m.index, m[0].length)
     const structural = headRe !== null && headRe[0].length === m.index
     const parsed = parseLeaseForm(m[0])
-    if (structural && !inCode) return { mark: m[0], at: m.index, structural, ...parsed, undetermined }
+    if (structural && !inCode)
+      return { mark: m[0], at: m.index, structural, ...parsed, undetermined }
     if (!structural && parsed.form === 'lease' && !inCode)
       return { mark: m[0], at: m.index, structural, ...parsed, undetermined }
   }
@@ -781,7 +782,8 @@ export function findReopenedFlipCandidates(content, flippedRows) {
       unkeyable += 1
       continue
     }
-    if (!evidence.has(k)) evidence.set(k, { raw, body: bodyOfRow(raw) ?? '', sha: f?.sha ?? null, day: f?.day ?? null })
+    if (!evidence.has(k))
+      evidence.set(k, { raw, body: bodyOfRow(raw) ?? '', sha: f?.sha ?? null, day: f?.day ?? null })
   }
   const groups = new Map()
   for (const r of parseTaskRows(content)) {
@@ -1090,7 +1092,9 @@ export function findPrefixNestedCopies(content) {
   }
   // 同一对 (short,long) 只算一次:三层套叠 754 ⊂ 1372 ⊂ 1767 会产出 3 对(逐层),这是**正确的**
   // ——每一层都是一次独立的"截断回放",少报一层就等于放过一次重放。逐条点名按行号定序,保证可复现。
-  nested.sort((x, y) => x.short.line - y.short.line || x.long.line - y.long.line || x.lenShort - y.lenShort)
+  nested.sort(
+    (x, y) => x.short.line - y.short.line || x.long.line - y.long.line || x.lenShort - y.lenShort,
+  )
   const groupsTouched = new Set(nested.map((n) => n.key))
   return { pairs: nested, groupKeys: [...groupsTouched].sort() }
 }
@@ -1158,7 +1162,10 @@ export function planPrefixNestedPointer(content, holderFragment) {
   }
   const holder = hits[0]
   if (DUP_POINTER_RE.test(holder.raw)) {
-    return { ok: false, reason: `holder 行 L${holder.line} 已带副本指针 ⇒ 拒绝执行(它已是副本,不能当正本)` }
+    return {
+      ok: false,
+      reason: `holder 行 L${holder.line} 已带副本指针 ⇒ 拒绝执行(它已是副本,不能当正本)`,
+    }
   }
   const holderKey = compositeKeyOf(holder.raw)
   if (!holderKey) {
@@ -1203,7 +1210,11 @@ export function findVoidRows(content) {
  */
 export const POINTER_FAMILIES = [
   { id: 'alive', source: '(?:逐字)?存活于\\s*L(\\d{1,6})(?:\\s*的同编号登记)?' },
-  { id: 'dup', source: '(?:同主键|逐字相同)?(?:的另一条|的权威|的)?(?:完成)?登记在\\s*L(\\d{1,6})(?:\\(本行无编号主键\\))?' },
+  {
+    id: 'dup',
+    source:
+      '(?:同主键|逐字相同)?(?:的另一条|的权威|的)?(?:完成)?登记在\\s*L(\\d{1,6})(?:\\(本行无编号主键\\))?',
+  },
   // 第三种拼法由 2026-09-28 的活体对照抓出来:台账里另有一族「(另|参)见 L####」「指向 L####」的证据引用,
   // 宽尺数到 9 处而判据只命中 1 处 —— 又是"判据落后于产出形态"(一天内第三次)。
   { id: 'ref', source: '(?:另见|参见|见|指向)\\s*L(\\d{1,6})' },
@@ -1214,7 +1225,9 @@ export const POINTER_FAMILIES = [
  * 把 L#### 换成"当下那一行的内容锚点"等于替他把错指针改成看起来对的错指针。
  * 判据的红与修的口子是两件事:**看得见**是门的责任,**猜得出**不是。
  */
-export const POINTER_NO_AUTO_REPAIR = { ref: '目标行已腐烂且意图不可推断 ⇒ 只能由该行持有人改写(点名不自动修)' }
+export const POINTER_NO_AUTO_REPAIR = {
+  ref: '目标行已腐烂且意图不可推断 ⇒ 只能由该行持有人改写(点名不自动修)',
+}
 /**
  * 行号指针的**原始**出现面(比全部族都宽,只用于"族表有没有落后于产出形态"的活体对照,不参与判据)。
  * 为什么要单独留一把宽尺:2026-09-28 一天内同一格栽了三次 —— 族表只认「存活于」时,归并器自产的
@@ -1318,7 +1331,8 @@ export function findRotatedPointers(content) {
       // 共享一个带 /g 的正则跨字符串 exec 会因 lastIndex 残留而漏匹配 —— 每行每族各开一把新的
       const re = new RegExp(fam.source, 'g')
       for (let m = re.exec(r.raw); m !== null; m = re.exec(r.raw)) {
-        if (inQuoted(quoted, m.index) || claimed.some(([a, b]) => m.index >= a && m.index <= b)) continue
+        if (inQuoted(quoted, m.index) || claimed.some(([a, b]) => m.index >= a && m.index <= b))
+          continue
         claimed.push([m.index, m.index + m[0].length - 1])
         const target = Number(m[1])
         const t = lines[target - 1]
@@ -1505,7 +1519,8 @@ const DISPOSITION_RULES = [
     // markdown 粗体/标题引号里(`**需 owner 拍板**` 这种正文引用),把它们一并推出
     // `self` 会实测掉 6 行真等行。① 不同 —— 它判的是**谓语前的语法邻接**,与
     // 「在不在引号里」正交,所以两把尺共用它是安全且必要的。
-    (line) => waitingHumanDirectVerdict(line) === 'self' || waitingHumanSelfVerdict(line) === 'self',
+    (line) =>
+      waitingHumanDirectVerdict(line) === 'self' || waitingHumanSelfVerdict(line) === 'self',
   ],
   [
     'waiting-env',
@@ -1639,7 +1654,8 @@ const WAITING_HUMAN_DISSOLVE_AFTER_RE =
 /** 护栏③引述他行:前文把该引文指为**别行/别票**的题面。
  *  ⚠️ 已知缺口:字符类 `[^"「]` 排除半角 `"` ⇒ 半角引号形态认不出(落兜底 ④)。
  *  当前不产生误判(④兜着),要补须先跑护栏负载读数。 */
-const WAITING_HUMAN_OTHER_ROW_RE = /(?:持有行是|另一条登记|同题登记|持有行|另一条|那一条|以)[^"「]{0,30}$/
+const WAITING_HUMAN_OTHER_ROW_RE =
+  /(?:持有行是|另一条登记|同题登记|持有行|另一条|那一条|以)[^"「]{0,30}$/
 
 /**
  * 引号跨度(半角 `"` + 中文 `「」` / `“”` / `‘’`)。
@@ -1834,7 +1850,13 @@ export function bucketFromFields(rec) {
  */
 export function dispositionOfV2({ line, fields }) {
   const proseBucket = dispositionOf(line)
-  const fallback = (keyKind) => ({ bucket: proseBucket, source: 'prose', conflict: false, keyKind, undetermined: !!fields?.undetermined })
+  const fallback = (keyKind) => ({
+    bucket: proseBucket,
+    source: 'prose',
+    conflict: false,
+    keyKind,
+    undetermined: !!fields?.undetermined,
+  })
   if (fields?.undetermined) return fallback('unknown')
   const f = fieldsFor({ line, map: fields?.map })
   if (!f.rec || f.keyKind !== 'id') return fallback(f.keyKind)
@@ -1844,7 +1866,13 @@ export function dispositionOfV2({ line, fields }) {
    * `actionable` 是散文的兜底值(等于"没说"),拿它去比就等于把"侧车补上了散文没说的信息"
    * 判成矛盾 —— 那样每一次正常迁移都会被门喊成冲突,门一吵人们就会把它当噪声跳过(§12e 同型)。
    */
-  return { bucket, source: 'fields', conflict: proseBucket !== 'actionable' && bucket !== proseBucket, keyKind: f.keyKind, undetermined: false }
+  return {
+    bucket,
+    source: 'fields',
+    conflict: proseBucket !== 'actionable' && bucket !== proseBucket,
+    keyKind: f.keyKind,
+    undetermined: false,
+  }
 }
 
 /** 行内最后一个日期。取**最后**而不是第一个:进展注记按本仓写法追加在行尾,
@@ -2352,7 +2380,11 @@ export function planMalformedStrip(content) {
   for (const r of findMalformedRows(content)) {
     const s = stripMalformedPrefix(r.raw)
     if (!s) {
-      undetermined.push({ line: r.line, raw: r.raw, reason: '畸形判据命中而剥前缀的式子给不出结果 ⇒ 交人工' })
+      undetermined.push({
+        line: r.line,
+        raw: r.raw,
+        reason: '畸形判据命中而剥前缀的式子给不出结果 ⇒ 交人工',
+      })
       continue
     }
     if (!s.key) {
@@ -2373,8 +2405,7 @@ export function planMalformedStrip(content) {
   }
   // 行号降序 splice:前面的替换不会挪后面的行号
   const out = lines.slice()
-  for (const a of [...approved].sort((x, y) => y.line - x.line))
-    out[a.line - 1] = a.stripped
+  for (const a of [...approved].sort((x, y) => y.line - x.line)) out[a.line - 1] = a.stripped
   return {
     candidates: approved.length + refused.length + undetermined.length,
     approved,
@@ -2391,14 +2422,27 @@ export function planMalformedStrip(content) {
  */
 export function verifyMalformedStrip(plan, beforeCounts, afterCounts) {
   const problems = []
-  if (!plan || !Array.isArray(plan.approved)) return { problems: ['规划结果形状不对 ⇒ 未判定'], checked: false }
-  if (!beforeCounts || !afterCounts) return { problems: ['两把读数没给齐 ⇒ 未判定'], checked: false }
-  const KEYS = ['forks', 'voidRows', 'rotatedAuto', 'dupOpenCopies', 'verbatimDupCopies', 'dupBlocks', 'collisionGroups', 'malformedIds']
+  if (!plan || !Array.isArray(plan.approved))
+    return { problems: ['规划结果形状不对 ⇒ 未判定'], checked: false }
+  if (!beforeCounts || !afterCounts)
+    return { problems: ['两把读数没给齐 ⇒ 未判定'], checked: false }
+  const KEYS = [
+    'forks',
+    'voidRows',
+    'rotatedAuto',
+    'dupOpenCopies',
+    'verbatimDupCopies',
+    'dupBlocks',
+    'collisionGroups',
+    'malformedIds',
+  ]
   for (const k of KEYS)
     if ((afterCounts[k] ?? 0) > (beforeCounts[k] ?? 0))
       problems.push(`守恒断言不过:${k} 由底稿 ${beforeCounts[k] ?? 0} 涨到 ${afterCounts[k] ?? 0}`)
   if (afterCounts.malformedIds >= beforeCounts.malformedIds && plan.approved.length)
-    problems.push(`剥了 ${plan.approved.length} 行而畸形号读数没降(底稿 ${beforeCounts.malformedIds} → 落地面 ${afterCounts.malformedIds})`)
+    problems.push(
+      `剥了 ${plan.approved.length} 行而畸形号读数没降(底稿 ${beforeCounts.malformedIds} → 落地面 ${afterCounts.malformedIds})`,
+    )
   return { problems, checked: true }
 }
 
@@ -2486,7 +2530,9 @@ export function auditPlan(content, { archivedKeys = null } = {}) {
   // 改前取 `g.open` 全量,于是 12 条已被归并器正确标注的副本行也顶上了"F1 分叉行"身份,
   // 被`isClaimable` 从派单口径里剔除 —— 与它下面那道独立的 `!DUP_POINTER_RE` 判据重复。
   // 两道判据同口径后,剔除只发生一次、且理由唯一(不是"既是副本又是分叉")。
-  const forkOpenLines = new Set(forks.flatMap((g) => g.open.filter((r) => !DUP_POINTER_RE.test(r.raw)).map((r) => r.line)))
+  const forkOpenLines = new Set(
+    forks.flatMap((g) => g.open.filter((r) => !DUP_POINTER_RE.test(r.raw)).map((r) => r.line)),
+  )
   const voidLines = new Set(voidRows.map((r) => r.line))
   // "真·无人认领"必须**同时**扣掉带租约的行 —— 第一版没扣,于是 146 条"无人认领"里
   // 混着 44 条别人已认领的活(门 109 的租约形 `（进行中@日期/持有者）` 与裸标记都算)。
