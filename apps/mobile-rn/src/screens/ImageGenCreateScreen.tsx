@@ -12,6 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
 import { fetchApi, resolveFileUrl } from '@ihui/api-client'
+import type { ImageGenResult } from '@ihui/types'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useUiTextField } from '../lib/use-ui-text-field'
@@ -20,12 +21,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { BackChevron, TextField } from '@ihui/rn-app'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-/** POST /api/image-gen/generate 响应(对齐 web /image-gen GenResult) */
-interface GenResult {
-  imageUrl: string
-  revisedPrompt?: string
-}
 
 const SIZES: ReadonlyArray<{ value: string; labelKey: string }> = [
   { value: '1024x1024', labelKey: 'imageGen.sizeSquare' },
@@ -51,7 +46,7 @@ export function ImageGenCreateScreen() {
   })
   const [size, setSize] = useState('1024x1024')
   const [generating, setGenerating] = useState(false)
-  const [result, setResult] = useState<GenResult | null>(null)
+  const [result, setResult] = useState<ImageGenResult | null>(null)
   const [saving, setSaving] = useState(false)
 
   const dark = resolvedTheme === 'dark'
@@ -64,7 +59,7 @@ export function ImageGenCreateScreen() {
     setGenerating(true)
     setResult(null)
     try {
-      const res = await fetchApi<GenResult>('/api/image-gen/generate', {
+      const res = await fetchApi<ImageGenResult>('/api/image-gen/generate', {
         method: 'POST',
         body: JSON.stringify({ prompt: prompt.trim(), size }),
       })
