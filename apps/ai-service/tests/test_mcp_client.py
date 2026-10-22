@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os as _os
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -33,6 +34,12 @@ from app.services.mcp_client import (
 
 # 项目根目录(tests/ -> ai-service/ -> IHUI-AI/)
 _REPO = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
+# G-998139 契约:_stdio_connect 先经 resolve_stdio_command 显式解析,解析不到可执行
+# 文件即大声失败(return False),不再拿裸名冒充"已解析"。裸名 "echo"/"cat" 在
+# Windows 上解析不到(echo 是 cmd 内建、无 echo.exe),故连接类用例统一用
+# sys.executable(显式路径必解析成功);create_subprocess_exec 仍被 mock,不会真起进程。
+_STDIO_CMD = sys.executable
 
 # =============================================================================
 # 辅助函数
@@ -139,13 +146,13 @@ def test_mcp_client_config_sse():
 def test_mcp_client_config_protocol_version_default():
     """MCPClientConfig 默认协议版本兼容旧端点(2025-03-26),可覆盖为更高版本。"""
     c = MCPClientConfig(
-        name="test", transport=TRANSPORT_STDIO, command="echo",
+        name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD,
     )
     assert c.protocol_version == DEFAULT_PROTOCOL_VERSION
     assert c.protocol_version == "2025-03-26"
     assert SUPPORTED_PROTOCOL_VERSIONS[-1] == "2025-11-25"
     c2 = MCPClientConfig(
-        name="test2", transport=TRANSPORT_STDIO, command="echo",
+        name="test2", transport=TRANSPORT_STDIO, command=_STDIO_CMD,
         protocol_version="2025-11-25",
     )
     assert c2.protocol_version == "2025-11-25"
@@ -154,7 +161,7 @@ def test_mcp_client_config_protocol_version_default():
 def test_protocol_negotiation_helper():
     """_negotiate_protocol 的分支逻辑(已知更高/未知更新/未知旧值/空值)。"""
     client = MCPClient(
-        MCPClientConfig(name="t", transport=TRANSPORT_STDIO, command="echo")
+        MCPClientConfig(name="t", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     )
 
     def neg(offered: str, server: str | None) -> str:
@@ -191,7 +198,7 @@ def test_compare_protocol_versions_helper():
 
 def test_mcp_client_init():
     """MCPClient 初始化后未连接。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo")
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     client = MCPClient(config)
     assert client.config.name == "test"
     assert client.is_connected() is False
@@ -204,7 +211,7 @@ def test_mcp_client_init():
 @pytest.mark.asyncio
 async def test_stdio_connect_success():
     """stdio 连接成功。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo")
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     client = MCPClient(config)
 
     reader = asyncio.StreamReader()
@@ -237,7 +244,7 @@ async def test_stdio_connect_failure():
 @pytest.mark.asyncio
 async def test_stdio_list_tools():
     """stdio 模式发现工具列表。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo", timeout=5.0)
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD, timeout=5.0)
     client = MCPClient(config)
 
     notification = b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n'
@@ -278,7 +285,7 @@ async def test_stdio_list_tools():
 @pytest.mark.asyncio
 async def test_stdio_call_tool():
     """stdio 模式调用工具。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo", timeout=5.0)
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD, timeout=5.0)
     client = MCPClient(config)
 
     notification = b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n'
@@ -306,7 +313,7 @@ async def test_stdio_call_tool():
 @pytest.mark.asyncio
 async def test_list_tools_empty_response():
     """工具列表为空时返回空列表。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo", timeout=5.0)
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD, timeout=5.0)
     client = MCPClient(config)
 
     notification = b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n'
@@ -331,7 +338,7 @@ async def test_list_tools_empty_response():
 @pytest.mark.asyncio
 async def test_call_tool_error():
     """工具调用返回错误。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo", timeout=5.0)
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD, timeout=5.0)
     client = MCPClient(config)
 
     notification = b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n'
@@ -361,7 +368,7 @@ async def test_call_tool_error():
 @pytest.mark.asyncio
 async def test_ping_success():
     """ping 健康检查成功。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo", timeout=5.0)
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD, timeout=5.0)
     client = MCPClient(config)
 
     notification = b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n'
@@ -386,7 +393,7 @@ async def test_ping_success():
 @pytest.mark.asyncio
 async def test_ping_not_connected():
     """未连接时 ping 返回 False。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo")
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     client = MCPClient(config)
     ok = await client.ping()
     assert ok is False
@@ -395,7 +402,7 @@ async def test_ping_not_connected():
 @pytest.mark.asyncio
 async def test_disconnect_cleanup():
     """disconnect 清理资源。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo")
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     client = MCPClient(config)
 
     reader = asyncio.StreamReader()
@@ -414,7 +421,7 @@ async def test_disconnect_cleanup():
 @pytest.mark.asyncio
 async def test_list_tools_not_connected():
     """未连接时 list_tools 返回空列表。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo")
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     client = MCPClient(config)
     tools = await client.list_tools()
     assert tools == []
@@ -497,7 +504,7 @@ async def test_sse_no_url():
 async def test_request_timeout():
     """请求超时返回错误 dict。"""
     config = MCPClientConfig(
-        name="test", transport=TRANSPORT_STDIO, command="echo",
+        name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD,
         timeout=0.1, reconnect=False,
     )
     client = MCPClient(config)
@@ -528,7 +535,7 @@ async def test_request_timeout():
 async def test_reconnect_triggered():
     """stdio 读取循环因 EOF 退出时触发重连。"""
     config = MCPClientConfig(
-        name="test", transport=TRANSPORT_STDIO, command="echo",
+        name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD,
         reconnect=True, max_reconnect_attempts=1,
     )
     client = MCPClient(config)
@@ -551,7 +558,7 @@ async def test_reconnect_triggered():
 async def test_no_reconnect_when_disabled():
     """reconnect=False 时不触发重连。"""
     config = MCPClientConfig(
-        name="test", transport=TRANSPORT_STDIO, command="echo",
+        name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD,
         reconnect=False, max_reconnect_attempts=1,
     )
     client = MCPClient(config)
@@ -577,7 +584,7 @@ async def test_no_reconnect_when_disabled():
 def test_manager_register():
     """注册 MCP Client 配置。"""
     manager = MCPClientManager()
-    config = MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo")
+    config = MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     name = manager.register(config)
     assert name == "svr1"
     assert manager.get_client("svr1") is not None
@@ -587,7 +594,7 @@ def test_manager_register():
 def test_manager_register_overwrite():
     """重复注册覆盖已有配置。"""
     manager = MCPClientManager()
-    c1 = MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo")
+    c1 = MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     c2 = MCPClientConfig(name="svr", transport=TRANSPORT_SSE, url="http://localhost/sse")
     manager.register(c1)
     manager.register(c2)
@@ -600,7 +607,7 @@ def test_manager_register_overwrite():
 async def test_manager_unregister():
     """注销 Client。"""
     manager = MCPClientManager()
-    config = MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo")
+    config = MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     manager.register(config)
     assert manager.get_client("svr1") is not None
     manager.unregister("svr1")
@@ -612,10 +619,10 @@ async def test_manager_connect_all():
     """连接所有已注册的 Client。"""
     manager = MCPClientManager()
     manager.register(MCPClientConfig(
-        name="svr1", transport=TRANSPORT_STDIO, command="echo",
+        name="svr1", transport=TRANSPORT_STDIO, command=_STDIO_CMD,
     ))
     manager.register(MCPClientConfig(
-        name="svr2", transport=TRANSPORT_STDIO, command="cat",
+        name="svr2", transport=TRANSPORT_STDIO, command=_STDIO_CMD,
     ))
 
     # 每个 client 使用独立的 reader
@@ -645,7 +652,7 @@ async def test_manager_connect_all():
 async def test_manager_disconnect_all():
     """断开所有连接并清空注册表。"""
     manager = MCPClientManager()
-    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo"))
+    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command=_STDIO_CMD))
 
     reader = asyncio.StreamReader()
     reader.feed_data(b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n')
@@ -664,7 +671,7 @@ async def test_manager_call_external_tool():
     """通过 Manager 调用外部工具。"""
     manager = MCPClientManager()
     manager.register(
-        MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo", timeout=5.0)
+        MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command=_STDIO_CMD, timeout=5.0)
     )
 
     notification = b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n'
@@ -702,7 +709,7 @@ async def test_manager_call_external_tool_unknown_server():
 async def test_manager_call_external_tool_not_connected():
     """调用未连接的 Server 返回错误。"""
     manager = MCPClientManager()
-    manager.register(MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo"))
+    manager.register(MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command=_STDIO_CMD))
     # 不调用 connect_all
     result = await manager.call_external_tool("svr", "tool", {}, caller_user_id="any")
     assert result["ok"] is False
@@ -714,7 +721,7 @@ async def test_manager_list_available_tools_async():
     """异步列出所有已连接的工具。"""
     manager = MCPClientManager()
     manager.register(
-        MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo", timeout=5.0)
+        MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command=_STDIO_CMD, timeout=5.0)
     )
 
     notification = b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n'
@@ -747,7 +754,7 @@ async def test_manager_list_available_tools_async():
 @pytest.mark.asyncio
 async def test_double_connect():
     """重复 connect 不报错。"""
-    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="echo")
+    config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     client = MCPClient(config)
 
     reader = asyncio.StreamReader()
@@ -790,7 +797,7 @@ async def test_list_available_tools_async_no_connections():
 async def test_manager_unregister_async():
     """unregister_async 注销并等待断开完成。"""
     manager = MCPClientManager()
-    config = MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo")
+    config = MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command=_STDIO_CMD)
     manager.register(config)
 
     reader = asyncio.StreamReader()
@@ -809,9 +816,9 @@ async def test_manager_unregister_async():
 async def test_manager_list_registered():
     """list_registered 按**可见集**返回摘要(自己的 + 部署级;含连接状态)。"""
     manager = MCPClientManager()
-    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo"))
+    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command=_STDIO_CMD))
     manager.register(
-        MCPClientConfig(name="svr-other", transport=TRANSPORT_STDIO, command="echo"),
+        MCPClientConfig(name="svr-other", transport=TRANSPORT_STDIO, command=_STDIO_CMD),
         owner_user_id="user-b",
     )
 
@@ -843,7 +850,7 @@ def test_manager_client_status_unknown_returns_none():
 def test_manager_client_status_not_connected():
     """未连接/未握手时 client_status 返回 connected:false 且协商字段为空,不抛错。"""
     manager = MCPClientManager()
-    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo"))
+    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command=_STDIO_CMD))
     status = manager.client_status("svr1")
     assert status is not None
     assert status["name"] == "svr1"
@@ -856,7 +863,7 @@ def test_manager_client_status_not_connected():
 def test_manager_client_status_exposes_negotiated():
     """已握手实例能透出协商的协议版本/服务器身份/能力,且含其它扩展键。"""
     manager = MCPClientManager()
-    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo"))
+    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command=_STDIO_CMD))
     client = manager.get_client("svr1")
     client._connected = True
     client._negotiated_protocol = "2025-11-25"
@@ -880,7 +887,7 @@ def test_manager_client_status_exposes_negotiated():
 def test_manager_list_registered_exposes_negotiated():
     """list_registered 增量带出协商能力字段且不影响既有结构。"""
     manager = MCPClientManager()
-    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo"))
+    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command=_STDIO_CMD))
     client = manager.get_client("svr1")
     client._connected = True
     client._negotiated_protocol = "2025-06-18"

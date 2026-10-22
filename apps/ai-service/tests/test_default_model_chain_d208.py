@@ -28,7 +28,14 @@ def test_default_chain_primary_and_fallback(monkeypatch):
     """默认链 = 首选 gemini-3.8-flash + 同族兜底 @cf/glm-4.7-flash(均为 D150 实测健康档)。"""
     monkeypatch.delenv("LITELLM_MODEL", raising=False)
     monkeypatch.delenv("LITELLM_FALLBACK_MODEL", raising=False)
-    assert Settings(_env_file=None).litellm_model == "gemini/gemini-3.8-flash"
+    fresh = Settings(_env_file=None)
+    assert fresh.litellm_model == "gemini/gemini-3.8-flash"
+    # 链读模块级单例 settings(导入期已被本机 .env 的 LITELLM_MODEL 覆盖),
+    # 钉回代码默认再断链组成:默认值漂移由上一行捕获,本机部署配置不背锅。
+    monkeypatch.setattr("app.core.config.settings.litellm_model", fresh.litellm_model)
+    monkeypatch.setattr(
+        "app.core.config.settings.litellm_fallback_model", fresh.litellm_fallback_model
+    )
     assert _default_model_chain() == [
         "gemini/gemini-3.8-flash",
         "@cf/zai-org/glm-4.7-flash",
