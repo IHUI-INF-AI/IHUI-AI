@@ -1101,7 +1101,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ].map((k) => (
             <div
               key={k.label}
-              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2 transition-colors hover:bg-card"
+              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
                 <span className="text-info-text/70">{k.icon}</span>
@@ -1238,7 +1238,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               {(services?.windows ?? []).map((s) => (
                 <div
                   key={s.name}
-                  className="flex items-center justify-between rounded-md border border-transparent bg-muted/50 px-2 py-[5px] transition-colors hover:border-info/40"
+                  className="flex items-center justify-between rounded-md border border-transparent bg-muted/50 px-2 py-[5px] transition-colors hover:bg-muted"
                 >
                   <span className="wb-num truncate text-[11px] text-foreground">{s.name}</span>
                   <span className="flex shrink-0 items-center gap-1.5">
