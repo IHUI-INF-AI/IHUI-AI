@@ -483,7 +483,7 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 const BARE_GIT_BASELINE = 72
 // 2026-10-08 10 → 9:紧贴现读,不留余量=不容忍新增(账见上方 440-456 行)。
 // 行尾注记形态系落地守门"复活行"判别所需(本行`= 9`与祖先 0c6198cc44 逐字相同会误判复活),行为零变化。
-const PATH_BOUND_GIT_BASELINE = 9 // 紧贴现读
+const PATH_BOUND_GIT_BASELINE = 3 // 紧贴现读(2026-10-22 实测 9→3:三枚剩余见测试提示)
 const SELF_BATCH_BASELINE = 0
 
 /**
