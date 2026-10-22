@@ -93,6 +93,16 @@ export interface ThirdPartyConfig {
   onLogin: (platform: ThirdPartyPlatform) => void
 }
 
+/**
+ * Passkey 登录认证选项(options + 一次性 challengeId)。
+ * options 为 @simplewebauthn/server generateAuthenticationOptions() 的原始 JSON
+ * (challenge 为 base64url 字符串),由 @simplewebauthn/browser 消费。
+ */
+export interface PasskeyAuthOptionsData {
+  options: unknown
+  challengeId: string
+}
+
 /** 登录 API 客户端(由调用方注入,适配 web/extension 不同存储/网络) */
 export interface LoginApiClient {
   /** 账号密码登录 */
@@ -118,6 +128,16 @@ export interface LoginApiClient {
    * 未注入时,登录方法应原样返回 twoFactorRequired 响应由上层处理(或提示用户)。
    */
   request2faCode?: (challengeToken: string) => Promise<string>
+  /**
+   * Passkey 免密登录第一步:获取认证选项(后端 POST /api/auth/passkey/auth/options)。
+   * 仅 web(浏览器 WebAuthn)注入;扩展端不注入 ⇒ LoginForm 不渲染 Passkey 入口。
+   */
+  passkeyAuthOptions?: () => Promise<ApiResult<PasskeyAuthOptionsData>>
+  /**
+   * Passkey 免密登录第二步:提交 WebAuthn assertion 验证(后端 POST /api/auth/passkey/auth/verify),
+   * 成功返回与密码登录同形的 LoginResult(token 对 + user)。
+   */
+  passkeyAuthVerify?: (challengeId: string, response: unknown) => Promise<ApiResult<LoginResult>>
 }
 
 /** QR tab 平台配置(由调用方注入,默认 4 个 wechat/wecom/dingtalk/feishu) */
