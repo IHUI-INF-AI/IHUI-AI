@@ -198,14 +198,21 @@ export function pruneLedger(text, { nowMs, keepDays = 90 }) {
  */
 export function planSweep(
   text,
-  { nowMs, ttlHours, seat, asOf, stamp = null, legacyByOwnerRuling = DEFAULT_LEGACY_RULING },
+  { nowMs, ttlHours, seat, asOf, stamp = null, legacyByOwnerRuling = DEFAULT_LEGACY_RULING, skipLines = [] },
 ) {
   const lines = String(text).split('\n')
+  const skip = new Set(Array.isArray(skipLines) ? skipLines.map((n) => Number(n)) : [])
   const leases = []
   const held = []
   for (let i = 0; i < lines.length; i++) {
     const m = claimMarkOf(lines[i])
     if (!m) continue
+    if (skip.has(i + 1)) {
+      // 护栏③(2026-10-23 收窄后):这一行的旧形态已被别席就地改写 ⇒ 只让路它自己,
+      // 不再拉整批陪绑。4 枚在飞、41 枚能摘 —— 少数在飞的必须只挡自己。
+      held.push({ line: i + 1, raw: lines[i], why: '旧形态行被别席就地改写 ⇒ 本轮让路(交人工)' })
+      continue
+    }
     if (m.form === 'legacy') {
       if (legacyByOwnerRuling) {
         leases.push({ line: i + 1, raw: lines[i], mark: m, ageH: null, ownerRuling: legacyByOwnerRuling })
@@ -409,10 +416,42 @@ function git(args, opts = {}) {
   return gitRaw(args, ROOT, { maxBuffer: 1 << 28, ...opts })
 }
 
-/** 台账是否净(护栏③)。非净 ⇒ 整批让路,不摘任何牌。 */
-function planFaceClean() {
-  const raw = git(['status', '--porcelain', '--', FILE])
-  return raw.trim() === ''
+/**
+ * 护栏③(2026-10-23 收窄,治"让路变成永久停摆")。
+ *
+ * 原判据:`git status --porcelain -- PROJECT_PLAN.md` 非空 ⇒ 整批让路。本仓是多会话共写活文档,
+ * 该文件的工作树副本**常年不净**(2026-10-23 实测:留痕最后一条停在 10-22 07:45,而派发节流台账
+ * 显示此后每 30 分钟仍在跑 —— 护栏天天触发,器物天天"让路",45 枚超龄牌一枚都没再摘下来)。
+ *
+ * 为什么"工作树脏"本来就不构成让路条件:
+ *   · 取材面是 `git show HEAD:PROJECT_PLAN.md`(HEAD blob),不是工作树;
+ *   · 落地走 `object-space-land`(blob 档 + CAS + 行级复活守卫),从不写工作树;
+ *   · 本批要摘的旧形态行**逐字**写进 `LAND_CLASH_SCOPE.removed`,复活守卫认得它们是有意删的;
+ *   · 工作树副本滞后带来的回潮,由 `scrub-declared-removals`(auto-commit-quiet 收编后调用)
+ *     与 `union-converge` 的 `declaredDropCaps` 两条通道兜(2026-10-23 均装车并有接线锁)。
+ * ⇒ 脏的是"别人的副本",不是"我的判据面"。
+ *
+ * 收窄后的判据(仍有真语义,只是不再被常态脏误触):
+ *   **本批要摘的旧形态行,若在工作树副本里已被别席就地改写成别的样子**(不再是逐字同一行) ⇒ 让路。
+ *   那一型说明别席正在动这几行本身,不是纯滞后;纯滞后(行还在、只是旧)则照常放行 ——
+ *   它下次收编时旧形态行会被复洁器按台账剔掉,不会把我的改写顶回来。
+ * 失效方向:工作树读不到 ⇒ 让路(未判定不猜,§0.3)。
+ *
+ * @returns {{blocked:boolean, byWorktree:string[]}}
+ */
+function planFaceBlockedBy(leases = [], { root = ROOT } = {}) {
+  const list = Array.isArray(leases) ? leases : []
+  if (list.length === 0) return { blocked: false, byWorktree: [] }
+  let worktree
+  try {
+    worktree = readFileSync(path.join(root, FILE), 'utf8')
+  } catch {
+    return { blocked: true, byWorktree: ['<工作树副本读不到 ⇒ 未判定,按让路处理>'] }
+  }
+  const set = new Set(worktree.split('\n'))
+  // 只问"别席有没有就地改过这几行"——纯滞后(逐字还在)不算改动,回潮交复洁器。
+  const touched = list.filter((r) => !set.has(r.raw)).map((r) => `L${r.line}`)
+  return { blocked: touched.length > 0, byWorktree: touched }
 }
 
 /**
@@ -447,7 +486,8 @@ export function run({
     console.log('❌ 取不到 HEAD 面台账 ⇒ 未判定(不记绿也不冒红,§0.3)')
     return 2
   }
-  const plan = planSweep(text, { nowMs, ttlHours: ttl, seat, asOf, legacyByOwnerRuling: ownerRuling })
+  // let 而非 const:护栏③ 收窄后可能按"可摘面"重算一次(把别席就地改写过的那几枚移出)
+  let plan = planSweep(text, { nowMs, ttlHours: ttl, seat, asOf, legacyByOwnerRuling: ownerRuling })
   const n = { stale: plan.leases.length, held: plan.held.length, stripped: 0, lines: text.split('\n').length }
 
   for (const h of plan.held) console.log(`  · 本轮不动 L${h.line} [${h.why}] ${h.raw.slice(0, 70)}`)
@@ -468,10 +508,51 @@ export function run({
     console.log(`未带 --apply ⇒ 只报数不落地(待摘 ${plan.leases.length} 枚)`)
     return 0
   }
-  if (!planFaceClean()) {
-    console.log(`⛔ 护栏③:台账工作树不净(可能是别席正在写的现场)⇒ 整批让路,本轮一条不摘`)
-    return result('refused', n).state === 'refused' ? 2 : 2
+  // 护栏③(2026-10-23 收窄):不再因"工作树脏"整批让路 —— 本器取材 HEAD 面、落地走对象空间,
+  // 脏的是别人的副本不是我的判据面;只在本批旧形态行**被别席就地改写**时才让路,且**只让路那几枚**
+  // (实测:45 枚里 4 枚在飞,原护栏会连另外 41 枚一起按住 —— 少数在飞的必须只挡自己)。
+  let deferred = 0
+  {
+    const guard = planFaceBlockedBy(plan.leases)
+    if (guard.blocked) {
+      const touched = new Set(guard.byWorktree.map((x) => Number(x.slice(1))))
+      const skipLines = plan.leases.filter((r) => touched.has(r.line)).map((r) => r.line)
+      if (skipLines.length > 0) {
+        deferred = skipLines.length
+        console.log(
+          `⛔ 护栏③:${skipLines.length} 枚旧形态行已被别席就地改写(L${skipLines.join(' L')})⇒ 只让路这几枚,其余照摘`,
+        )
+        // 用同一把判据重算(只把让路行移入 held,不新写第二份判据),落地内容随之只含可摘部分
+        plan = planSweep(text, {
+          nowMs,
+          ttlHours: ttl,
+          seat,
+          asOf,
+          legacyByOwnerRuling: ownerRuling,
+          skipLines,
+        })
+        if (!plan.ok) {
+          console.log(`❌ 守恒不过:${plan.why} ⇒ 整批不落`)
+          return 2
+        }
+      }
+    } else {
+      console.log(
+        `ℹ️ 护栏③:工作树副本不净属常态(别席在写),但本批旧形态行均仍逐字在场(纯滞后)⇒ 放行;回潮由复洁器按摘除台账兜`,
+      )
+    }
   }
+  if (plan.leases.length === 0) {
+    console.log(
+      deferred > 0 ? `本轮可摘 0 枚(另 ${deferred} 枚被别席就地改写而让路,交人工)` : '本轮无待摘',
+    )
+    return result('clean', { ...n, deferred }).state === 'clean' ? 0 : 0
+  }
+  // 护栏③ 之后 plan 已按"可摘面"重算 ⇒ 结论行必须报这个面,不能报护栏前的老数
+  // (把"41 枚可摘"报成"45 枚待摘"会让读日志的人以为还有 4 枚没人负责)。
+  n.stale = plan.leases.length
+  n.held = plan.held.length
+  n.deferred = deferred
 
   // 留痕要能指回"摘之前是哪枚提交",所以基线 sha 必须在落地前取。
   const planSha = git(['rev-parse', 'HEAD']).trim()
@@ -561,7 +642,7 @@ export function run({
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     console.log(String(push.stdout ?? '').trim().split('\n').slice(-3).join('\n'))
-    return result('stripped', { ...n, stripped: plan.leases.length }).state === 'stripped' ? 0 : 0
+    return result('stripped', { ...n, deferred, stripped: plan.leases.length }).state === 'stripped' ? 0 : 0
   } finally {
     // 落地被拒时**保留现场**并打印路径:临时件一删,下一句"为什么被拒"就再也问不出来了
     // (本器 2026-10-22 首次 --apply 即因此只能看到台账正文,看不到落地器的结论行)。
@@ -740,6 +821,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   planSweep,
+  planFaceBlockedBy,
   leaseReportLine,
   FIXTURE,
   releaseNote,
