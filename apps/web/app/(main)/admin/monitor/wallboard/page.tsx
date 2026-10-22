@@ -960,23 +960,23 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         ) : null}
 
         {/* ===== 顶部横梁 ===== */}
-        <header className="wb-header sticky top-0 z-20 flex items-center gap-4 border-b border-border bg-shell-panel/90 px-5 py-2.5 backdrop-blur">
-          <div className="wb-hdr-title flex min-w-0 items-center gap-3">
+        <header className="wb-header sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-shell-panel/90 px-4 py-2 backdrop-blur">
+          <div className="wb-hdr-title flex min-w-0 items-center gap-2.5">
             <BackButton />
-            <div className="flex h-9 w-9 items-center justify-center rounded-sm border border-info/40 bg-info/10 shadow-[0_0_18px_color-mix(in_srgb,var(--color-info)_35%,transparent)]">
-              <Gauge className="h-5 w-5 text-info-text" />
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-info/40 bg-info/10 shadow-[0_0_12px_color-mix(in_srgb,var(--color-info)_28%,transparent)]">
+              <Gauge className="h-4 w-4 text-info-text" />
             </div>
             <div className="min-w-0">
-              <h1 className="wb-display truncate text-[17px] leading-tight font-bold tracking-[0.22em] text-foreground">
+              <h1 className="wb-display truncate text-[15px] leading-tight font-bold tracking-[0.16em] text-foreground">
                 {t('title')}
               </h1>
-              <p className="truncate text-[10px] tracking-[0.3em] text-muted-foreground uppercase">
+              <p className="truncate text-[9px] tracking-[0.24em] text-muted-foreground uppercase">
                 {t('subtitle')}
               </p>
             </div>
           </div>
 
-          <div className="wb-hdr-sources mx-2 flex items-center gap-2">
+          <div className="wb-hdr-sources flex items-center gap-1.5">
             {(
               [
                 [t('srcPrometheus'), ov?.sources.prometheus],
@@ -986,7 +986,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             ).map(([name, state]) => (
               <span
                 key={name}
-                className="flex items-center gap-1.5 rounded-sm border border-border bg-muted/60 px-2 py-1 text-[10px] text-foreground"
+                className="flex items-center gap-1.5 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
               >
                 <Dot tone={state === 'up' ? 'ok' : 'bad'} />
                 {name}
@@ -994,10 +994,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             ))}
           </div>
 
-          <div className="wb-hdr-status ml-auto flex shrink-0 items-center gap-3">
+          <div className="wb-hdr-status ml-auto flex shrink-0 items-center gap-2">
             <span
               className={cn(
-                'flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px]',
+                'flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-[10px]',
                 overallTone === 'ok'
                   ? 'border-success/40 bg-success/10 text-success-text'
                   : overallTone === 'warn'
@@ -1014,7 +1014,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             </span>
             <span
               className={cn(
-                'flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-[11px]',
+                'flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-[10px]',
                 alertCount === null
                   ? 'border-border bg-muted/60 text-muted-foreground'
                   : 'border-destructive/30 bg-destructive/10 text-danger-text',
@@ -1026,7 +1026,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 : t('alertCount', { count: alertCount })}
             </span>
             <div className="text-right">
-              <div className="wb-num text-[15px] leading-tight font-semibold text-foreground">
+              <div className="wb-num text-[13px] leading-tight font-semibold tabular-nums text-foreground">
                 {fmtClockDigits(now)}
               </div>
               <div
@@ -1101,7 +1101,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ].map((k) => (
             <div
               key={k.label}
-              className="wb-panel wb-rise relative overflow-hidden rounded-sm border border-border bg-card/80 px-3 py-2.5"
+              className="wb-panel wb-rise relative overflow-hidden rounded-sm border border-border bg-card/80 px-3 py-2 transition-colors hover:bg-card"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
                 <span className="text-info-text/70">{k.icon}</span>
@@ -1130,12 +1130,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         </section>
 
         {/* ===== 主体网格 ===== */}
-        <section className="wb-grid grid grid-cols-1 gap-2.5 p-4 xl:grid-cols-12">
+        <section className="wb-grid grid gap-2.5 p-4">
           {/* 主机资源 */}
           <Panel
             title={t('panelHost')}
             icon={<Cpu className="h-3.5 w-3.5" />}
-            className="xl:col-span-3"
+            className="wb-c3"
             right={
               <span className="text-[10px] text-muted-foreground">
                 {t('hostUptime', {
@@ -1210,68 +1210,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             </div>
           </Panel>
 
-          {/* 流量趋势 */}
-          <Panel
-            title={t('panelTraffic')}
-            icon={<Radio className="h-3.5 w-3.5" />}
-            className="xl:col-span-6"
-            right={
-              <span className="flex items-center gap-2">
-                {no5xxBadge}
-                <span className="text-[10px] text-muted-foreground">{t('trendWindow')}</span>
-                {trendStale ? (
-                  <span className="flex items-center gap-1 text-[10px] text-warning-text/90">
-                    <Dot tone="warn" />
-                    {t('staleData')}
-                  </span>
-                ) : null}
-              </span>
-            }
-            bodyClassName="flex flex-col gap-2"
-          >
-            <div className="relative flex-1">
-              <EChart option={trendOption} height={228} className="h-full" />
-              {!trend || trend.qps.length === 0 ? (
-                <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noTrendData')} />
-              ) : null}
-            </div>
-            <div className="wb-cells grid gap-2">
-              <StatCell
-                label={t('wsConnections')}
-                value={fmtInt(http?.wsConnections)}
-                unit={t('unitConn')}
-                tone="accent"
-              />
-              <StatCell
-                label={t('aiSessions')}
-                value={fmtInt(http?.aiActiveSessions)}
-                unit={t('unitSession')}
-                tone="accent"
-              />
-              <StatCell
-                label={t('apiCallsToday')}
-                value={fmtCompact(biz?.apiCallsToday)}
-                tone={biz ? 'ok' : 'unknown'}
-              />
-              <StatCell
-                label={t('apiAvgLatency')}
-                value={fmtInt(biz?.apiAvgLatencyMs)}
-                unit={t('unitMs')}
-                tone={biz ? 'ok' : 'unknown'}
-              />
-              <StatCell
-                label={t('apiErrRateLabel')}
-                value={typeof biz?.apiErrRate === 'number' ? fmtPct(biz.apiErrRate, 2) : '—'}
-                tone={thresholdTone(biz?.apiErrRate, (n) => (n > 5 ? 'bad' : 'ok'))}
-              />
-            </div>
-          </Panel>
-
           {/* 服务矩阵 */}
           <Panel
             title={t('panelServices')}
             icon={<Server className="h-3.5 w-3.5" />}
-            className="xl:col-span-3"
+            className="wb-c3"
             right={
               services ? (
                 <span className="text-[10px] text-muted-foreground">
@@ -1284,7 +1227,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <SourceGap text={t('sourceUnreachable')} />
               )
             }
-            bodyClassName="overflow-y-auto"
+            bodyClassName="max-h-[540px] overflow-y-auto"
           >
             <div className="space-y-1">
               {ov !== undefined && services === null ? (
@@ -1361,11 +1304,68 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             </div>
           </Panel>
 
+          {/* 流量趋势 */}
+          <Panel
+            title={t('panelTraffic')}
+            icon={<Radio className="h-3.5 w-3.5" />}
+            className="wb-c6"
+            right={
+              <span className="flex items-center gap-2">
+                {no5xxBadge}
+                <span className="text-[10px] text-muted-foreground">{t('trendWindow')}</span>
+                {trendStale ? (
+                  <span className="flex items-center gap-1 text-[10px] text-warning-text/90">
+                    <Dot tone="warn" />
+                    {t('staleData')}
+                  </span>
+                ) : null}
+              </span>
+            }
+            bodyClassName="flex flex-col gap-2"
+          >
+            <div className="relative min-h-[220px] flex-1">
+              <EChart option={trendOption} height="100%" />
+              {!trend || trend.qps.length === 0 ? (
+                <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noTrendData')} />
+              ) : null}
+            </div>
+            <div className="wb-cells grid gap-2">
+              <StatCell
+                label={t('wsConnections')}
+                value={fmtInt(http?.wsConnections)}
+                unit={t('unitConn')}
+                tone="accent"
+              />
+              <StatCell
+                label={t('aiSessions')}
+                value={fmtInt(http?.aiActiveSessions)}
+                unit={t('unitSession')}
+                tone="accent"
+              />
+              <StatCell
+                label={t('apiCallsToday')}
+                value={fmtCompact(biz?.apiCallsToday)}
+                tone={biz ? 'ok' : 'unknown'}
+              />
+              <StatCell
+                label={t('apiAvgLatency')}
+                value={fmtInt(biz?.apiAvgLatencyMs)}
+                unit={t('unitMs')}
+                tone={biz ? 'ok' : 'unknown'}
+              />
+              <StatCell
+                label={t('apiErrRateLabel')}
+                value={typeof biz?.apiErrRate === 'number' ? fmtPct(biz.apiErrRate, 2) : '—'}
+                tone={thresholdTone(biz?.apiErrRate, (n) => (n > 5 ? 'bad' : 'ok'))}
+              />
+            </div>
+          </Panel>
+
           {/* 状态码分布 + 分时调用 */}
           <Panel
             title={t('panelQuality')}
             icon={<Gauge className="h-3.5 w-3.5" />}
-            className="xl:col-span-4"
+            className="wb-c4"
             bodyClassName="flex flex-col gap-1"
           >
             <div className="relative">
@@ -1399,7 +1399,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelAlerts')}
             icon={<AlertTriangle className="h-3.5 w-3.5" />}
-            className="xl:col-span-5"
+            className="wb-c5"
             right={
               <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <span>
@@ -1412,7 +1412,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <span>{t('dedupSuppressed', { count: fmtInt(bridge?.dedupSuppressed) })}</span>
               </span>
             }
-            bodyClassName="grid grid-cols-1 gap-2 overflow-y-auto md:grid-cols-2"
+            bodyClassName="wb-split overflow-y-auto"
           >
             <div>
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
@@ -1569,7 +1569,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelDatastore')}
             icon={<Database className="h-3.5 w-3.5" />}
-            className="xl:col-span-3"
+            className="wb-c3"
             bodyClassName="flex flex-col gap-2"
           >
             <div>
@@ -1662,8 +1662,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelBusiness')}
             icon={<Wallet className="h-3.5 w-3.5" />}
-            className="xl:col-span-5"
-            bodyClassName="grid grid-cols-1 gap-2 overflow-y-auto md:grid-cols-2"
+            className="wb-c5"
+            bodyClassName="wb-split overflow-y-auto"
           >
             <div>
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
@@ -1751,7 +1751,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelEdge')}
             icon={<Globe className="h-3.5 w-3.5" />}
-            className="xl:col-span-7"
+            className="wb-c7"
             right={
               edge ? (
                 <span className="text-[10px] text-muted-foreground">
@@ -1941,13 +1941,42 @@ const WALLBOARD_CSS = `
 }
 /* .wb-scroll-host 的 container-type 已迁 app/globals.css(与 .ai-input-toolbar/.account-card 同族);
  * 它原本住在这里 ⇒ 只在 wallboard 视图挂载,面板视图没有容器,@container 会退回按视口判定。
- * 主体 12 栏网格同理:它按视口 xl: 生效,而容器宽与视口并不同步(实测 视口1600→容器914、
- * 1280→594、1100→900、900→800)。容器 914 时最窄面板 287px 可读,800 时只剩 249、594 时 181。
- * 故阈值取实测落点 900(899 = N-1 防抖):窄容器整栏堆叠,宽容器维持原 12 栏设计。 */
-.wb-scroll-host { container-type: inline-size; }
-@container (max-width: 899px) {
+ *
+ * 主体网格按容器分档(2026-10-22):原实现靠视口 xl:grid-cols-12,而项目 xl 断点 = 1920px
+ * ⇒ 视口 1920 以下整片单列(实测 1600 视口、容器 914 时滚 4 屏)。改为三档:
+ *   ≥1150 12 栏 = 原设计三列(3/3/6 · 4/3/5 · 5/7);
+ *   620–1149 6 栏 = 两列,映射 3/4/5→半宽、6/7→全宽,按源码顺序零空位;
+ *   <620 单列(手机)。
+ * 面板内部的两栏(告警/业务)也按面板自身宽度判定(.wb-panel 是容器),不再按视口 md:。 */
+.wb-panel { container-type: inline-size; }
+.wb-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.wb-c3 { grid-column: span 3; }
+.wb-c4 { grid-column: span 4; }
+.wb-c5 { grid-column: span 5; }
+.wb-c6 { grid-column: span 6; }
+.wb-c7 { grid-column: span 7; }
+.wb-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+@container (max-width: 1149px) {
+  .wb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .wb-c3, .wb-c4, .wb-c5 { grid-column: span 3; }
+  .wb-c6, .wb-c7 { grid-column: span 6; }
+}
+@container (max-width: 619px) {
   .wb-grid { grid-template-columns: minmax(0, 1fr); }
   .wb-grid > * { grid-column: auto; }
+}
+/* 半宽面板(约 440px)内部两栏会把 11px 文本挤成 2-3 字一行 ⇒ 只有面板自身够宽才开两栏 */
+@container (min-width: 620px) {
+  .wb-split { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* 窄容器:状态区落到第二行右对齐,标题不再被逐字挤压 */
+@container (max-width: 1023px) {
+  .wb-header { flex-wrap: wrap; }
+  .wb-hdr-status { width: 100%; justify-content: flex-end; }
 }
 .wb-rise { animation: wb-rise 0.55s ease-out both; }
 @keyframes wb-rise {
