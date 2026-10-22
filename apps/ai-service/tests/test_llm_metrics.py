@@ -25,7 +25,6 @@ import pytest
 from prometheus_client import REGISTRY, Counter, Gauge, Histogram
 
 from app.middleware.llm_metrics import (
-    llm_active_sessions,
     llm_provider_errors_total,
     llm_request_duration_seconds,
     llm_tokens_total,
@@ -52,18 +51,12 @@ def test_llm_provider_errors_is_counter():
     assert isinstance(llm_provider_errors_total, Counter)
 
 
-def test_llm_active_sessions_is_gauge():
-    """llm_active_sessions 应为 Gauge 实例。"""
-    assert isinstance(llm_active_sessions, Gauge)
-
-
 def test_metric_names_in_registry():
     """4 个指标名都应在默认 REGISTRY 中可见。"""
     names = set(REGISTRY._names_to_collectors.keys())
     assert "ihui_llm_tokens_total" in names
     assert "ihui_llm_request_duration_seconds" in names
     assert "ihui_llm_provider_errors_total" in names
-    assert "ihui_llm_active_sessions" in names
 
 
 # =============================================================================
@@ -257,32 +250,6 @@ def test_record_call_does_not_raise_when_token_inc_fails(monkeypatch, caplog):
         )
 
     assert any("LLM 指标记录失败" in r.message for r in caplog.records)
-
-
-# =============================================================================
-# Gauge 操作(llm_active_sessions)
-# =============================================================================
-
-
-def test_gauge_inc_dec_round_trip():
-    """Gauge inc 然后 dec,值应回到原位(delta = 0)。"""
-    before = llm_active_sessions._value.get()
-    llm_active_sessions.inc()
-    mid = llm_active_sessions._value.get()
-    assert mid - before == 1
-    llm_active_sessions.dec()
-    after = llm_active_sessions._value.get()
-    assert after == before
-
-
-def test_gauge_set_to_explicit_value():
-    """Gauge set 应直接设置当前值。"""
-    before = llm_active_sessions._value.get()
-    llm_active_sessions.set(100)
-    mid = llm_active_sessions._value.get()
-    assert mid == 100
-    # 还原(避免污染后续测试)
-    llm_active_sessions.set(before)
 
 
 # =============================================================================

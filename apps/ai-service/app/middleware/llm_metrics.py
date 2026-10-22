@@ -44,12 +44,6 @@ llm_provider_errors_total = Counter(
     ['provider', 'status'],  # status: '4xx' | '5xx' | 'timeout' | 'connection'
 )
 
-# 活跃 LLM 会话数
-llm_active_sessions = Gauge(
-    'ihui_llm_active_sessions',
-    'Number of active LLM sessions',
-)
-
 # LLM 调用次数(按 provider/model/status)—— 2026-10-17 立。
 # status 是**每次尝试**的结果(号池换 key / fallback 换模型会各计一次),
 # 故成功率 = ok / (ok + error + timeout + interrupted),不要当成"会话成功率"。
