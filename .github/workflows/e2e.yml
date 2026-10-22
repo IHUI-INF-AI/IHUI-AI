@@ -134,6 +134,12 @@ jobs:
           node scripts/pre-migrate-fresh-db-guard.mjs
           pnpm exec drizzle-kit migrate
 
+      - name: Generate ephemeral E2E admin credentials
+        # 管理员口令每次运行随机生成,不落仓库;seed 与 Playwright 步骤经 GITHUB_ENV 共用。
+        run: |
+          echo "E2E_ADMIN_ACCOUNT=e2e_admin" >> "$GITHUB_ENV"
+          echo "E2E_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+
       - name: Seed E2E 测试用户(test@aizhs.top)
         env:
           NODE_ENV: test

@@ -17,9 +17,9 @@
  * - E2E 测试前初始化认证用户（修复 auth.setup.ts 500）
  * - 数据库重置后恢复测试账号
  *
- * 注意：admin 用户由 0067/0071 migration 永久保证（username='admin' / role_id=1 /
- * is_system_admin=true，真实 phone/email 标识不入仓库），本脚本不 seed admin，
- * 避免和 system admin 触发器冲突。
+ * 注意：admin 用户由 0067/0071 migration 创建，迁移内不再写入任何可登录的默认口令；
+ * 真实 phone/email 标识不入仓库。本脚本只在显式提供 E2E_ADMIN_PASSWORD 时写入
+ * 测试专用管理员 e2e_admin（非 system admin），供 e2e 使用，生产库一律拒绝。
  */
 import 'dotenv/config'
 import { hashPassword } from '../src/utils/password-crypto.js'
@@ -70,6 +70,26 @@ const SEED_USERS: SeedUser[] = [
     roleId: 0,
   },
 ]
+
+/**
+ * e2e 管理员：测试专用，非 system admin（不触碰 0067 的不可变触发器）。
+ * 口令只从环境变量读取；缺失则跳过并告警，绝不回落到仓内字面量。
+ */
+const e2eAdminPassword = process.env.E2E_ADMIN_PASSWORD
+if (e2eAdminPassword) {
+  SEED_USERS.push({
+    email: 'e2e_admin@aizhs.top',
+    username: 'e2e_admin',
+    nickname: 'E2E Admin',
+    password: e2eAdminPassword,
+    roleId: 1,
+  })
+} else {
+  console.warn(
+    '[seed-test-users] 未设置 E2E_ADMIN_PASSWORD，跳过 e2e 管理员 seed；' +
+      '需要管理员登录态的用例会失败（口令仅允许从环境注入）。',
+  )
+}
 
 async function main() {
   console.info('[seed-test-users] 开始 seed E2E 测试用户...')

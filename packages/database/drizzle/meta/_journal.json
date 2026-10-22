@@ -2307,6 +2307,13 @@
       "when": 1792683000000,
       "tag": "20261022233000_user_third_party_binding_unique",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 333,
+      "when": 1792683600000,
+      "tag": "20261022234000_invalidate_public_admin_password",
+      "breakpoints": true
     }
   ]
 }
