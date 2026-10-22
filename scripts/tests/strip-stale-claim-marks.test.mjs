@@ -16,9 +16,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { __test__ as strip, planSweep } from '../strip-stale-claim-marks.mjs'
+import { __test__ as strip, planSweep, sweepStaleClaimMarks } from '../strip-stale-claim-marks.mjs'
 import { claimMarkOf } from '../lib/plan-task-index.mjs'
-import { sweepStaleClaimMarks } from '../git-guardian.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const NOW = Date.parse('2026-10-22T12:00:00Z')
