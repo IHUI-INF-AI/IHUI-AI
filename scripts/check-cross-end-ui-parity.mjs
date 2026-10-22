@@ -4000,6 +4000,13 @@ export function main(argv, repoRoot = ROOT) {
         `  · G 几何表 ${g.steps.length} 档与 GeometryStep ${g.declared.length} 档同名(表↔类型一致)`,
       )
   }
+  // 本门按 §12e 只能做差值棘轮(只拦新增),所以"绿着但两端不同脸"是它的**设计后果**;
+  // 存量要变成一族一笔可验收的账,出口在这把配套只读尺子上(它不进提交链)。
+  if (!argv.includes('--json'))
+    console.log(
+      '  ⓘ 逐族欠债账(只读尺子,不进提交链):node scripts/cross-end-ui-parity-debt.mjs' +
+        ' —— 按欠债降序点名每一族;与在册快照对比可看涨跌。',
+    )
   const rotRed = res.rot.length ? 1 : 0
   /**
    * **web 腿的死亡机制**:台账里挂着 web 锚点、而本轮这一族一条记录都没产出 ⇒ 红。
