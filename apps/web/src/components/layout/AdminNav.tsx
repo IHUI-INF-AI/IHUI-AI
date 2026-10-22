@@ -647,6 +647,13 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: '/admin/relay', labelKey: 'adminRelayOverview', icon: Zap },
       { href: '/admin/relay/models', labelKey: 'adminRelayModels', icon: Package },
       { href: '/admin/relay/key-pool', labelKey: 'adminRelayKeyPool', icon: KeyRound },
+      // 第三方 AI IDE 账号池(2026-10-22 立,trae/workbuddy/codearts 账号导入与调度)
+      {
+        href: '/admin/relay/account-pool',
+        labelKey: 'dashboard',
+        icon: IdCard,
+        dynamicLabel: '账号池',
+      },
       { href: '/admin/relay/discovery', labelKey: 'adminRelayDiscovery', icon: Activity },
       { href: '/admin/relay/logs', labelKey: 'adminRelayLogs', icon: Coins },
       { href: '/admin/relay/alert-rules', labelKey: 'adminRelayAlertRules', icon: BellRing },
