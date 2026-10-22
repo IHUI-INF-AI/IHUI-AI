@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test'
  *
  * 覆盖:
  *  - 注册页表单可访问
- *  - 登录页表单可访问(/login 被 middleware 重定向到 /sso/login)
+ *  - 独立登录页表单可访问(直连 /sso/login;/login 的 308 已摘除,不再是本页来路)
  *  - API 登录(/api/auth/login)能拿到 token
  *  - 注销路径:删除 cookie 后访问受保护页面被拦截
  *  - 重新登录:再次 API 登录后访问 dashboard 200
@@ -66,9 +66,12 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
     expect(real).toHaveLength(0)
   })
 
-  test('登录页(/login)被 middleware 重定向到 /sso/login,表单存在', async ({ page }) => {
-    await page.goto('/login')
-    await expect(page).toHaveURL(/\/(sso\/)?login/, { timeout: 8000 })
+  test('独立登录页(/sso/login)表单存在且可切到密码登录', async ({ page }) => {
+    // 2026-10-22:/login→/sso/login 的 308 已摘除,/login 恢复"打开全局登录弹窗 + 回前一页
+    // (无来路时降级首页)"的软路由(判据锁 apps/web/tests/{auth-login-route-redirect,login-soft-route-back})。
+    // e2e 这里直连独立登录页,不再依赖那条重定向。
+    await page.goto('/sso/login')
+    await expect(page).toHaveURL(/\/sso\/login/, { timeout: 8000 })
     const firstInput = page.locator('input:not([type="file"]):visible').first()
     await expect(firstInput).toBeVisible({ timeout: 8000 })
     // 默认 tab 是邮箱验证码登录(无密码框),先切到密码登录 tab 再断言密码框存在
@@ -163,7 +166,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
   })
 
   test('SSO 路径:登录页有 SSO 登录入口或三方登录链接', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/sso/login')
     await page.waitForLoadState('domcontentloaded')
     // 查找常见的 SSO/三方登录元素(WeChat / GitHub / Google / SSO 等)
     const ssoLink = page

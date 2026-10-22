@@ -72,12 +72,14 @@ export default function LoginPageClient() {
     useLoginDialogStore.getState().open('login', redirect ?? undefined)
 
     // 2. 回到前一页(保留工作展示区前一页内容)
-    //    无 history(直接输入 /login / 新标签页打开)时降级到首页或 redirect
+    //    「有没有前一页可回」不能只数 history.length —— 新标签直链时 about:blank 也占一格
+    //    (实测直链与站内点进两个场景都是 2),只判长度会让直链用户被 back() 退回 about:blank
+    //    = 白屏,弹窗随页面卸载一起消失。referrer 为空才是真直链,那一条只能 replace 降级。
     //    延迟一帧导航(2026-08-29):挂载期立即 back/replace 可能命中 Next.js
     //    Router 初始化窗口("Router action dispatched before initialization")。
     //    下一帧 Router 必已就绪;组件提前卸载时 cleanup 取消,避免幽灵导航。
     const raf = requestAnimationFrame(() => {
-      if (typeof window !== 'undefined' && window.history.length > 1) {
+      if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer !== '') {
         router.back()
       } else {
         // G-413②:`redirect` 是客户端可整写的查询参数,裸喂 router 会把 `/\evil.com`(WHATWG

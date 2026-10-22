@@ -60,17 +60,17 @@ test.describe('完整认证流程', () => {
   })
 
   test('登录页可访问且表单存在', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/sso/login')
     await page.waitForLoadState('domcontentloaded')
 
-    // /login 会被中间件重定向到 /sso/login;SSO 登录页第一个 input 即可
-    await expect(page).toHaveURL(/\/(sso\/)?login/)
+    // 直连 /sso/login(独立登录页);/login 的 308 已摘除,恢复弹窗软路由语义
+    await expect(page).toHaveURL(/\/sso\/login/)
     const accountInput = page.locator('input:not([type="file"]):visible').first()
     await expect(accountInput).toBeVisible({ timeout: 10000 })
   })
 
   test('登录表单可填写并提交', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/sso/login')
     // 2026-08-26 修复:goto 后等加载完成,否则 dev 首屏编译中 fill 等待元素稳定 30s 超时
     await page.waitForLoadState('domcontentloaded')
     const accountInput = page.locator('input:not([type="file"]):visible').first()
@@ -93,7 +93,7 @@ test.describe('完整认证流程', () => {
   })
 
   test('忘记密码:链接存在(若可访问)', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/sso/login')
     const forgotLink = page.getByRole('link', { name: /忘记|找回|forgot|reset/i }).first()
     if (await forgotLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await forgotLink.click()
@@ -128,7 +128,7 @@ test.describe('完整认证流程', () => {
   })
 
   test('登录注册页面可切换', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/sso/login')
     const registerLink = page.getByRole('link', { name: /注册|register|sign up/i }).first()
     if (await registerLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       // 2026-08-26 修复:link 可见但点击时可能被动画/overlay 短暂遮挡(click 稳定等待超时),
@@ -142,7 +142,7 @@ test.describe('完整认证流程', () => {
   test('认证页面无控制台未捕获异常', async ({ page }) => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
-    await page.goto('/login')
+    await page.goto('/sso/login')
     await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
