@@ -6125,6 +6125,22 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ccd7ce10f5)
+- 🐞 修复:净面去 git 化(read-tree+checkout-index),根治 worktree 登记四类故障 (5038b8b0ca)
+- 🚀 新功能/改进:验证码按场景分模板 —— 注册/登录/找回密码/改绑各走自己已过审的模板 (765d4621e6)
+- 🔧 工程/其他:清 tests/ 第三批 8 处模块内死代码 + 级联的 2 处 import(删 HERE 后 dirname/fileURLToPath 随之无用) —— 只删 eslint 点名且确认零引用的绑定;8 个文件 lint 0 error、测试全过(注:check-redundant 的 T12 是存量红,HEAD 原版同样失败,与本批无关) (6cc7f536b4)
+- 🐞 修复:阿里云验证码这条腿从入库那天起就没通过 —— 修构造函数互操作 + 补响应体业务码判定 + 接通两条发码端点 (d2c3ba781a)
+- 🔧 工程/其他:清 tests/ 第二批 10 处 unused(多具名 import 删单符号 4 处 + 形参加 _ 前缀 6 处)—— 只动 eslint 点名的那一个符号,同行其余绑定与调用方一律不碰;5 个文件 100 个测试全过。scripts/tests/ error 35 → 17 (e8f8389fc6)
+- 🔧 工程/其他:清 tests/ 首批 8 处未使用 import(整体行 5 处 + 多具名里的 rmScratch 3 处)—— 只删 eslint 点名的那一个符号,保留同行其余绑定;改后 5 个文件 lint 0 error、58 个测试全过 (d9f6746207)
+- 🔧 工程/其他:清 scripts/lib/ 最后 3 处存量 lint error —— plan-tasks-merge-selftest 删未使用的 titleOf 导入与 rewritePointer 解构绑定;stale-lock-claim 的 observedAt 参数加 _ 前缀。eslint scripts/lib/ 现为 0 error (e3e940a046)
+- 📚 文档:readme-06 守门结构描述与实现对齐 —— "56+10 pre-commit 项"改为 269 道 runner 门 + 本地元门档 27 道 + 全量归 CI;两处"pre-commit 第 N 项"改为 guardian-runner 注册门 (ba6898c15d)
+- 🐞 修复:node-version 与根 package.json engines 对齐(>=22.13.0)—— 写死 '22' 可能装到 22.0.0,而本仓用了 22.13 之后的特性 (17e6aaf4c1)
+- 📚 文档:收口三处 —— ① AGENTS.md 那句"guardian 每 30 分钟派发"与实现不符(guardian 对该脚本 0 引用),按实录改为"派发层已补建";② JUDGEMENT_LIBS 从两份重复定义合并为单一真相源 scripts/lib/judgement-libs.json(CJS/ESM 共读);③ 补收 14 个漏册高频公共库(flag-value 59 门/code-mask 47 门/selftest-registrant 36 门等),改错会让几十道门静默失效 (d61206d615)
+- 🐞 修复:补建缺失的派发层 sweepStaleClaimMarks + 清两条存量 lint error(tmpdir/DAY_MS 未使用)—— 门 98 的悬空导入(测试引用了从未实现的函数);按测试断言实现:30 分钟节流闸 + 注入式 runner + 结论行解析,拿不到结论行落 undetermined 不记绿 (fd1aaa8ee8)
+- 🐞 修复:补 workflow 溯源水印头 —— 门 47 检出的 HEAD 面欠账(inject 已写工作区,本次提交销账) (52d59c3a62)
+- 🔧 工程/其他:全量守门 workflow 开自动触发(push/PR),先以记录模式跑(continue-on-error) —— 本地无法可靠预测 CI 结果,存量修完后再转拦截模式 (54190217ce)
+
+**2026-10-22**
 - 📚 文档:G-960 公网入口断流旧副本转注释归并(正主为已撤回误判的修订版),清 F4 同题两版以过收敛落地闸 (004f9b4e4d)
 
 **2026-10-22**
@@ -6195,9 +6211,6 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - 🐞 修复:把本席上一轮漏收敛的 63 枚摘牌注记收敛成指针(原牌信息已无损回填留痕,seq 前缀 bfmviq9p9d)。上一轮我只按 @2026-10-22 匹配就报了「收敛完」——器物当时用 UTC 日写注记,当天上午的摘牌全落在 @2026-10-21,整批被我漏掉,那是交付不实;本轮同时把日期口径改成本地日,并给留痕补写口与键集一致性自检(防两种形状)。历史他人席位的注记一枚未动。校验:注记 #seq 六十三/六十三可在留痕解到、lease 三十五/三十五带原牌三要素、前后整行双全。 (7488b9cd66)
 
 - 🐞 修复:活文档收编前先归并(lost=0 才提交),README 生成数字发令前对齐;清空并行席位悬挂改动 (08d9add06e)
-
-- 🐞 修复:摘牌器补落地后复验与新枚 sha 取源 —— 实测本器上一轮用 git rev-parse HEAD 取 landedSha,并发下取到的是别席刚顶上那枚(信息是「清偿重复登记存量」),于是报了「留痕 57 条」而 HEAD 面上一枚牌都没少:留痕指向不存在的改写、成功是自述的。现改为①从落地器自己输出解 40 位 sha,解不到就不写留痕不报成功;②落地后回读 HEAD 面复验(被摘原行残留数必须为 0 且挂牌数等于本轮跳过数),不过则判未生效。测试先行:两臂先跑 ReferenceError 再实现,器物自检廿三例全过。那 57 条假凭据已逐条校验提交信息后作废并留读数。 (52ba2968b3)
-- 🐞 修复:更正 O88 行的失效出路 —— 票面写的 plan-tasks-merge --dedupe-done-twins 不在归并器旗标白名单内,照抄必 rc=2,换成实测 RC=0 的 check-plan-task-duplicates --json 并带上现读读数;裁与不裁的判定权仍归人,其余一字未动(§0.8 文档不许写跑不通的出路) (3c36f0efc7)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
