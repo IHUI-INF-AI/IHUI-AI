@@ -4261,7 +4261,10 @@ export function sweepStaleClosedRows(opts = {}) {
 export function sweepStaleClaimMarks(opts = {}) {
   const {
     now = Date.now(),
-    intervalMs = 30 * 60 * 1000,
+    // 2026-10-23:30min → 5min(与 sweepStaleClosedRows 同档)。此前 30 分钟那一档实测护栏③
+    // 整批让路 ⇒ 器物永久空转、45 枚超龄牌从 10-22 07:45 起一枚未摘;护栏收窄后无滞留即
+    // 零落地零推送,压到 5 分钟不会刷爆共享仓。
+    intervalMs = 5 * 60 * 1000,
     tickFile = join(WORKTREE, '.ihui-agent', 'state', 'stale-claim-strip-last.json'),
     logger = log,
     runner = null,
