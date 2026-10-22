@@ -145,6 +145,7 @@
     "autoLogin": "自動登入",
     "or": "或",
     "ssoLoginTitle": "智匯AI網頁授權登入",
+    "ssoUnavailable": "網頁授權登入暫不支援,請改用微信登入、手機號或郵箱驗證碼登入",
     "noAccount": "沒有帳號?",
     "registerNow": "立即註冊",
     "agreePrefix": "我已閱讀並同意",
