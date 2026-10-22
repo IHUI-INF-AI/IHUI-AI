@@ -1351,6 +1351,74 @@ test('T-DG5 应急跳过真实存在(文档不得写跑不通的出路),跳过�
   assert.match(r.stdout, /IHUI_LAND_SKIP_DANGLING_GATE=1/, '跳过必须打一行留痕')
 })
 
+// ─────────────────────────────────────────────────────────────────────────────
+// G-929(2026-10-21):门 231(暖色描边)涉事判据的三态必须在落地器这一侧各自成立。
+// 门体自身的换仓三态由 check-no-warm-border.test.mjs 的 M16 钉死;这里只钉落地器的**传输与判决**:
+// 通过/判红/未判定各走一条,且未判定不得被折成判红(exit 1),也不得静默放行。
+// 用桩的理由同 T-DG 族:夹具仓的树是临时索引写的,真门要读它必须靠 `--root` —— 而 `--root`
+// 是否真被传下去,正是第一枚用例要断言的事。
+// ─────────────────────────────────────────────────────────────────────────────
+function runLandWarmStubbed(dir, paths, msg, stubRc) {
+  const log = join(dir, 'stub-warm-argv.log')
+  const gate = join(dir, 'stub-warm-border-logged.mjs')
+  writeFileSync(
+    gate,
+    "import { appendFileSync } from 'node:fs'\n" +
+      "const log = process.env.STUB_LOG\n" +
+      "if (log) appendFileSync(log, JSON.stringify(process.argv.slice(2)) + '\\n')\n" +
+      'process.exit(Number(process.env.STUB_RC_WARM_BORDER ?? 0))\n',
+  )
+  const env = {
+    ...process.env,
+    LAND_ROOT: dir,
+    LAND_PATHS: paths,
+    LAND_MSG: msg,
+    IHUI_LAND_SKIP_WATERMARK: '1',
+    LAND_WARM_BORDER_GATE: gate,
+    STUB_LOG: log,
+    STUB_RC_WARM_BORDER: String(stubRc),
+  }
+  for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE', 'LAND_DANGLING_GATE', 'IHUI_LAND_SKIP_DANGLING_GATE', 'IHUI_LAND_SKIP_WARM_BORDER']) delete env[k]
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  return { r: spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }), log }
+}
+
+test('T-WB1 通过臂:门 231 说干净 ⇒ 照常落地,且被审仓根与树、清单一起传下去', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'notes.md'), '# 叙述\n')
+  const { r, log } = runLandWarmStubbed(dir, 'notes.md', 'test: 暖色门说干净', 0)
+  assert.equal(r.status, 0, `暖色门说干净必须放行:\n${r.stdout}\n${r.stderr}`)
+  assert.match(r.stdout, /暖色描边涉事判据\(门 231 --rev <tree>\):通过/, '放行也要点名本闸,不得静默')
+  const argv = JSON.parse(readFileSync(log, 'utf8').trim().split('\n').pop())
+  assert.ok(argv.includes('--rev'), '必须把落盘树传给门')
+  assert.ok(argv.includes('--only'), '必须把本轮声明清单传给门(由门自己判射程)')
+  assert.equal(argv[argv.indexOf('--root') + 1], dir, '必须把被审仓根传给门(否则换仓即失明 = G-929 的根因)')
+})
+
+test('T-WB2 判红臂:门 231 真违规 ⇒ 拒绝,HEAD 未动且不留 unreachable commit', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'notes.md'), '# 叙述\n')
+  const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const { r } = runLandWarmStubbed(dir, 'notes.md', 'test: 暖色门判红', 1)
+  assert.equal(r.status, 1, `判红必须以业务拒绝 exit 1:\n${r.stdout}\n${r.stderr}`)
+  assert.match(r.stderr + r.stdout, /暖色描边涉事判据判红/, '拒绝原因必须点名"判红"')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, 'HEAD 必须未动')
+  assert.equal(unreachableCommits(dir), 0, '被拒的落地不得留下 unreachable commit(守门 30a 只数 commit 行)')
+})
+
+test('T-WB3 未判定臂:门 231 取不到结论 ⇒ exit 2 且不得折成"判红"/不得静默放行', (t) => {
+  const dir = makeRepo(t)
+  writeFileSync(join(dir, 'notes.md'), '# 叙述\n')
+  const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const { r } = runLandWarmStubbed(dir, 'notes.md', 'test: 暖色门未判定', 2)
+  assert.equal(r.status, 2, `未判定必须 exit 2(与判红的 exit 1 分开):\n${r.stdout}\n${r.stderr}`)
+  const out = r.stderr + r.stdout
+  assert.match(out, /暖色描边涉事判据未判定/, '必须写明"未判定"')
+  assert.ok(!/暖色描边涉事判据判红/.test(out), '未判定不得落成"判红"(两种结论不得并桶)')
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, '未判定也不得落盘(不静默记绿)')
+  assert.equal(unreachableCommits(dir), 0, '未判定的落地同样不得留下 unreachable commit')
+})
+
 test('T-DG6 形状锁:触发面必须与门体 SRC_RE 同形,且门以子进程跑(崩了只算未判定)', () => {
   const src = readFileSync(TOOL, 'utf8')
   const gateSrc = readFileSync(join(dirname(TOOL), 'check-dangling-local-imports.mjs'), 'utf8')
