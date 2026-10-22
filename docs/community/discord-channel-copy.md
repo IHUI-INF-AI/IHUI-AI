@@ -23,7 +23,7 @@
 
 🚀 三种使用方式
 ① 网页端：打开 https://aizhs.top → 手机号 / 邮箱 / 扫码登录 → 直接对话，无需安装
-② Android 内测：加入 https://groups.google.com/g/swaptest-testers → 打开 https://play.google.com/apps/testing/zh.ai.sq 点「参加测试」→ 在 Google Play 安装「智汇AI」。嫌麻烦就在 #内测申请·beta-testing 留 Gmail，我直接加你
+② Android 内测：在 #内测申请·beta-testing 留 Gmail → 我把你加进 Google Play 封闭测试名单（Google 发邀请邮件）→ 打开 https://play.google.com/apps/testing/zh.ai.sq 点「参加测试」→ 在 Google Play 安装「智汇AI」
 ③ 自行部署：git clone → pnpm install → 填 .env → docker compose up（Node 20.10+ / pnpm 9.15 / Python 3.12 / Docker 24+）
 
 ✨ 能做什么
@@ -117,7 +117,7 @@ Web（Next.js 16）、桌面（Tauri 2）、Android / iOS（React Native + Expo�
 三条路自己挑：
 
 🔹 想先用起来 → https://aizhs.top （网页端，30 秒登录就能对话）
-🔹 想装 Android 版 → #内测申请·beta-testing 留 Gmail，或自助：https://groups.google.com/g/swaptest-testers → https://play.google.com/apps/testing/zh.ai.sq 点「参加」
+🔹 想装 Android 版 → #内测申请·beta-testing 留 Gmail，我加你进封闭测试名单后打开 https://play.google.com/apps/testing/zh.ai.sq 点「参加」
 🔹 想看代码 / 自己部署 → https://github.com/IHUI-INF-AI/IHUI-AI
 
 ❓ 提问：直接在本频道发，我看到会回
@@ -135,15 +135,13 @@ Web（Next.js 16）、桌面（Tauri 2）、Android / iOS（React Native + Expo�
 ```
 # 🧪 Android 封闭测试 · 中文指引
 
-两种方式任选：
+步骤（约 2 分钟）：
+1. 在本频道留一句你的 Gmail 地址（或 DM 我「智汇AI Hub」）
+2. 我把你加进 Play Console 封闭测试邮箱名单，Google 会发邀请邮件
+3. 打开 https://play.google.com/apps/testing/zh.ai.sq 点「参加测试」
+4. 回到 Google Play 搜索「智汇AI」安装
 
-方式一（自助，最快）
-1. 加入测试组 → https://groups.google.com/g/swaptest-testers
-2. 打开 https://play.google.com/apps/testing/zh.ai.sq 点「参加测试」
-3. 回到 Google Play 搜索「智汇AI」安装
-
-方式二（我手动加你）
-在本频道留一句你的 Gmail 地址，我会把你加进 Play Console 封闭测试名单，Google 会发邀请邮件，点开就能装。
+⚠️ 旧的 Google 群组（groups.google.com/g/swaptest-testers）方式已失效，Google 不再支持，务必走上面的邮箱名单流程。
 
 加入后请：
 • 每天打开 App 用几分钟（Google 要求连续 14 天保持安装并活跃）
