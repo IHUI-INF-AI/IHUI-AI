@@ -322,7 +322,7 @@ function Panel({
   return (
     <section
       className={cn(
-        'wb-panel relative flex min-h-0 flex-col rounded-xl border border-border bg-card/80',
+        'ui-lift wb-panel relative flex min-h-0 flex-col rounded-xl border border-border bg-card/80',
         className,
       )}
     >
@@ -1101,7 +1101,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ].map((k) => (
             <div
               key={k.label}
-              className="wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2 transition-colors hover:bg-card"
+              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2 transition-colors hover:bg-card"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
                 <span className="text-info-text/70">{k.icon}</span>
@@ -1899,11 +1899,18 @@ const WALLBOARD_CSS = `
   letter-spacing: 0.02em;
 }
 /* 面板形状只认圆角档位(机主 2026-10-22 定档:切角与 rounded-* 叠在一起,每个容器角都被剪掉一块、
- * 边框在斜切处断开,读起来像渲染坏了)。HUD 感改由下面的内辉光 + 页头扫描线承担。 */
+ * 边框在斜切处断开,读起来像渲染坏了)。HUD 感改由下面的内辉光 + 页头扫描线承担。
+ * 内辉光单拆成变量:hover 浮起时 .ui-lift 会整条覆盖 box-shadow,若把内辉光写死在同一条声明里,
+ * 面板一浮起就会"变平"(辉光消失)。浮起只换**外阴影**那一层。 */
 .wb-panel {
-  box-shadow:
-    inset 0 0 24px color-mix(in srgb, var(--color-info) 6%, transparent),
-    0 8px 26px var(--color-black-20);
+  --wb-inset: inset 0 0 24px color-mix(in srgb, var(--color-info) 6%, transparent);
+  box-shadow: var(--wb-inset), 0 8px 26px var(--color-black-20);
+}
+.wb-panel.ui-lift:hover {
+  box-shadow: var(--wb-inset), var(--lift-shadow);
+}
+.dark .wb-panel.ui-lift:hover {
+  box-shadow: var(--wb-inset), var(--lift-shadow-dark);
 }
 .wb-header::after {
   content: '';
