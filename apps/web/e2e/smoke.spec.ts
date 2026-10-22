@@ -18,9 +18,11 @@ test.describe('冒烟测试', () => {
   })
 
   test('登录页可访问', async ({ page }) => {
-    // /login 会被中间件重定向到 /sso/login(统一登录);两者都接受
-    await page.goto('/login')
-    await expect(page).toHaveURL(/\/(sso\/)?login/)
+    // 直连独立登录页 /sso/login(/login 的 308 已于 2026-10-22 摘除,它现在是弹窗软路由,
+    // 判据锁 tests/auth-login-route-redirect.test.ts)
+    await page.goto('/sso/login')
+    await page.waitForLoadState('domcontentloaded')
+    await expect(page).toHaveURL(/\/sso\/login/)
     // 任意可见 input 即可(SSO 页用 type=text, 密码登录用 type=tel/password)
     await expect(page.locator('input:not([type="file"]):visible').first()).toBeVisible({
       timeout: 10000,

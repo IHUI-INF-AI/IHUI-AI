@@ -7,8 +7,9 @@ import { test, expect } from '@playwright/test'
 /**
  * 认证流程 E2E(2026-08-28 根因重写)
  *
- * 真实路由链:/login → 301 → /sso/login(next.config.ts redirects 接入
- * redirects.config.ts 的 /login→/sso/login 永久重定向,dev/next start 生效)。
+ * 落点:/sso/login 直连。/login 一度被 redirects.config.ts 的 308 整页顶到这里,
+ * 该条已于 2026-10-22 摘除(/login 恢复"打开全局登录弹窗 + 回前一页"的软路由语义,
+ * 判据锁 apps/web/tests/auth-login-route-redirect.test.ts);/sso/login 页面本身不变。
  * /sso/login 渲染 AuthShellPage 全屏遮罩 + AuthShell 统一登录卡片:
  * - 登录态 4 tab(邮箱/手机/账号/扫码),复用主站 LoginFormContent
  * - 注册入口是卡片内"立即注册" button → setMode('register') → RegisterFormContent
@@ -19,8 +20,8 @@ import { test, expect } from '@playwright/test'
  */
 
 async function openSsoLogin(page: import('@playwright/test').Page) {
-  // /login 301 → /sso/login,等待统一登录卡片渲染(h1 由 AuthShell 渲染)
-  await page.goto('/login')
+  // 直连 /sso/login(旧路径 /login 的 308 已于 2026-10-22 摘除,它现在是弹窗软路由)
+  await page.goto('/sso/login')
   await expect(page).toHaveURL(/\/sso\/login/)
   const heading = page.getByRole('heading', { name: /统一登录/ })
   await expect(heading).toBeVisible({ timeout: 15000 })
