@@ -1509,18 +1509,20 @@ export function LoginScreen(props: LoginScreenProps) {
           />
         ) : null}
 
-        {/* SSO 按钮(对齐 web outline 按钮) */}
-        <TouchableOpacity
-          style={[styles.ssoBtn, disabled && styles.btnDisabled]}
-          onPress={onSsoLogin}
-          disabled={disabled}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-        >
-          <Text style={styles.ssoBtnText}>
-            {ssoLoading ? t('auth.ssoLoginLoading') : t('auth.ssoLogin')}
-          </Text>
-        </TouchableOpacity>
+        {/* SSO 按钮(对齐 web outline 按钮);无回跳通道的平台不传 onSsoLogin,不渲染 */}
+        {onSsoLogin ? (
+          <TouchableOpacity
+            style={[styles.ssoBtn, disabled && styles.btnDisabled]}
+            onPress={onSsoLogin}
+            disabled={disabled}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <Text style={styles.ssoBtnText}>
+              {ssoLoading ? t('auth.ssoLoginLoading') : t('auth.ssoLogin')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* 注册链接(卡片底部水平排列) */}
         {onRegister ? (

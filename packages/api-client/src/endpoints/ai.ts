@@ -289,21 +289,9 @@ export async function getAiChatTypes(
  * POST /api/ai/chat-types 后端从未注册(chat-types 面只有 GET 列表/改删,见 ai-modules-routes.ts),
  * 本仓零消费方;留一个必 404 的导出 = 假可用。恢复走 git 历史。 */
 
-/** 更新 AI 聊天类型 */
-export async function updateAiChatType(
-  id: string,
-  input: Partial<AiChatType>,
-): Promise<ApiResult<AiChatType>> {
-  return fetchApi<AiChatType>(`/api/ai/chat-types/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(input),
-  })
-}
-
-/** 删除 AI 聊天类型 */
-export async function deleteAiChatType(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/ai/chat-types/${id}`, { method: 'DELETE' })
-}
+/** 更新/删除 AI 聊天类型 —— 2026-10-22 门 8 死调用清账:删除。
+ * PUT/DELETE /api/ai/chat-types/:id 后端从未注册(ai-modules-routes.ts 只有 GET),本仓零消费方。
+ * 恢复走 git 历史。 */
 
 // ===================== ai-community =====================
 
@@ -314,10 +302,9 @@ export async function getAiCommunities(
   return fetchApi<PageData<AiCommunityItem>>(`/api/ai/community${buildQs(query)}`)
 }
 
-/** 获取 AI 社区详情 */
-export async function getAiCommunityDetail(id: string): Promise<ApiResult<AiCommunityItem>> {
-  return fetchApi<AiCommunityItem>(`/api/ai/community/${id}`)
-}
+/** 获取 AI 社区详情 —— 2026-10-22 门 8 死调用清账:删除。
+ * GET /api/ai/community/:id 后端从未注册(ai-modules-routes.ts 只有列表 GET),本仓零消费方。
+ * 恢复走 git 历史。 */
 
 /** 创建 AI 社区帖子 —— 2026-09-28 门 8 死调用清账:删除(POST /api/ai/community 从未注册、零消费方)。 */
 
@@ -382,21 +369,9 @@ export async function getAiTeamDetail(id: string): Promise<ApiResult<AiTeamItem>
 
 /** 创建 AI 团队 —— 2026-09-28 门 8 死调用清账:删除(POST /api/ai/team 从未注册、零消费方)。 */
 
-/** 更新 AI 团队 */
-export async function updateAiTeam(
-  id: string,
-  input: Partial<AiTeamItem>,
-): Promise<ApiResult<AiTeamItem>> {
-  return fetchApi<AiTeamItem>(`/api/ai/team/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(input),
-  })
-}
-
-/** 删除 AI 团队 */
-export async function deleteAiTeam(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/ai/team/${id}`, { method: 'DELETE' })
-}
+/** 更新/删除 AI 团队 —— 2026-10-22 门 8 死调用清账:删除。
+ * PUT/DELETE /api/ai/team/:id 后端从未注册(ai-modules-routes.ts 只有 GET),本仓零消费方。
+ * 恢复走 git 历史。 */
 
 // ===================== ai-proxy =====================
 

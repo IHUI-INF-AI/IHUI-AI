@@ -22,6 +22,8 @@ const developer = read('../../../packages/api-client/src/endpoints/developer.ts'
 const learn = read('../../../packages/api-client/src/endpoints/learn.ts')
 const payment = read('../../../packages/api-client/src/endpoints/payment.ts')
 const aiMedia = read('../../../packages/api-client/src/endpoints/ai-media.ts')
+const community = read('../../../packages/api-client/src/endpoints/community.ts')
+const ai = read('../../../packages/api-client/src/endpoints/ai.ts')
 
 describe('getCategories → GET /api/learn/categories(旧 /api/course/categories 从未注册)', () => {
   const fn = course.slice(course.indexOf('export async function getCategories'))
@@ -104,6 +106,51 @@ describe('公告/会员分组管理页 → /api/admin/*(G-962 台账 7 条的防
     expect(groupsPage).toContain("'/api/admin/members/groups'")
     expect(groupsPage).toContain('/api/admin/members/groups/${id}')
     expect(groupsPage).not.toContain('/api/members/groups')
+  })
+})
+
+describe('relay 渠道组注册前缀只给 /api(旧 /api/admin 叠成 /api/admin/admin/relay/*,11 条前端 404)', () => {
+  // 该插件每个 server.* 路径都自带 /admin 段(relay-channels.ts),与 relay-account-pool 同款;
+  // 注册处再叠 admin 会让真路径多一层,前端按注释写 /api/admin/relay/* 反而全 404。
+  const indexSrc = stripComments(read('../../../apps/api/src/routes/index.ts'))
+  const relayPage = stripComments(
+    read('../../../apps/web/app/(main)/admin/relay/channels/page.tsx'),
+  )
+  it('注册前缀 = /api', () => {
+    expect(indexSrc).toContain("server.register(adminRelayChannelsRoutes, { prefix: '/api' })")
+    expect(indexSrc).not.toContain("server.register(adminRelayChannelsRoutes, { prefix: '/api/admin' })")
+  })
+  it('前端 11 处仍走 /api/admin/relay/channels/*,不出现双 admin', () => {
+    expect(relayPage).toContain('/api/admin/relay/channels/groups')
+    expect(relayPage).toContain('/api/admin/relay/channels/batch-toggle')
+    expect(relayPage).not.toContain('/api/admin/admin/')
+  })
+})
+
+describe('community 问答改稿 → PATCH(旧 PUT 在 /api/asks 两面都未注册)', () => {
+  const code = stripComments(community)
+  const fnBody = (name: string, next: string): string => {
+    const from = code.indexOf(`export async function ${name}`)
+    return code.slice(from, code.indexOf(`export async function ${next}`, from))
+  }
+  it('updateAsk / updateAnswer 用 PATCH(community/asks.ts:208 与 ask-extended.ts:48)', () => {
+    expect(fnBody('updateAsk', 'deleteAsk')).toContain("method: 'PATCH'")
+    expect(fnBody('updateAnswer', 'deleteAnswer')).toContain("method: 'PATCH'")
+    expect(code).not.toContain("method: 'PUT'")
+  })
+})
+
+describe('ai-modules 改删面清零(后端只有 GET,PUT/DELETE 与社区详情从未注册且零消费方)', () => {
+  const code = stripComments(ai)
+  it('改删导出已摘,列表 GET 保留', () => {
+    expect(code).not.toContain('updateAiChatType')
+    expect(code).not.toContain('deleteAiChatType')
+    expect(code).not.toContain('updateAiTeam')
+    expect(code).not.toContain('deleteAiTeam')
+    expect(code).not.toContain('getAiCommunityDetail')
+    expect(code).toContain('/api/ai/chat-types')
+    expect(code).toContain('/api/ai/team')
+    expect(code).toContain('/api/ai/community')
   })
 })
 
