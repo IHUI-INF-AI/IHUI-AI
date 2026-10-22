@@ -363,7 +363,7 @@
     {
       "id": 9,
       "type": "stat",
-      "title": "活跃 LLM 会话",
+      "title": "号池冷却中的腿数",
       "datasource": {
         "type": "prometheus",
         "uid": "Prometheus"
@@ -376,8 +376,8 @@
       },
       "targets": [
         {
-          "expr": "max(ihui_llm_active_sessions{job=\"ai-service\"})",
-          "legendFormat": "sessions",
+          "expr": "sum(ihui_llm_pool_leg_in_cooldown{job=\"ai-service\"})",
+          "legendFormat": "cooling legs",
           "refId": "A"
         }
       ],
