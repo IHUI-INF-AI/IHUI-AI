@@ -1558,8 +1558,8 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     // lessons 表无 examPaperId 字段,存储到 learn_homework 的 jsonb content 中
-    await setLessonExamPaperId(idParsed.data.id, parsed.data.examPaperId)
-    return reply.send(success({ updated: true }))
+    const rows = await setLessonExamPaperId(idParsed.data.id, parsed.data.examPaperId)
+    return reply.send(success({ updated: rows.length > 0 }))
   })
 
   // PUT /learn/lessons/:id/certificate - 更新课程关联证书
@@ -1573,8 +1573,8 @@ export const adminLearnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     // lessons 表无 certificate 字段,存储到 learn_homework 的 jsonb content 中
-    await setLessonCertificateId(idParsed.data.id, parsed.data.certificateTemplateId)
-    return reply.send(success({ updated: true }))
+    const rows = await setLessonCertificateId(idParsed.data.id, parsed.data.certificateTemplateId)
+    return reply.send(success({ updated: rows.length > 0 }))
   })
 
   // ----- Learn Maps (学习地图) -----

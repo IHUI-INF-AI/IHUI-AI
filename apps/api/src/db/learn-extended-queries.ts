@@ -768,8 +768,8 @@ export async function getLessonExamPaperId(lessonId: string): Promise<string | n
 export async function setLessonExamPaperId(
   lessonId: string,
   examPaperId: string | null,
-): Promise<void> {
-  await upsertLessonAssociation(lessonId, { examPaperId })
+): Promise<{ id: string }[]> {
+  return upsertLessonAssociation(lessonId, { examPaperId })
 }
 
 /**
@@ -778,8 +778,8 @@ export async function setLessonExamPaperId(
 export async function setLessonCertificateId(
   lessonId: string,
   certificateTemplateId: string | null,
-): Promise<void> {
-  await upsertLessonAssociation(lessonId, { certificateTemplateId })
+): Promise<{ id: string }[]> {
+  return upsertLessonAssociation(lessonId, { certificateTemplateId })
 }
 
 /**
@@ -788,7 +788,7 @@ export async function setLessonCertificateId(
 async function upsertLessonAssociation(
   lessonId: string,
   patch: Record<string, unknown>,
-): Promise<void> {
+): Promise<{ id: string }[]> {
   const existing = await db
     .select()
     .from(learnHomework)
@@ -797,19 +797,22 @@ async function upsertLessonAssociation(
   const oldContent = (existing[0]?.content as Record<string, unknown> | null) ?? {}
   const newContent = { ...oldContent, ...patch }
   if (existing[0]) {
-    await db
+    return db
       .update(learnHomework)
       .set({ content: newContent, updatedAt: new Date() })
       .where(eq(learnHomework.id, existing[0].id))
-  } else {
-    await db.insert(learnHomework).values({
+      .returning({ id: learnHomework.id })
+  }
+  return db
+    .insert(learnHomework)
+    .values({
       lessonId,
       title: LESSON_ASSOC_TITLE,
       description: '课程关联数据(试卷/证书)',
       content: newContent,
       status: 'draft',
     })
-  }
+    .returning({ id: learnHomework.id })
 }
 
 // =============================================================================
