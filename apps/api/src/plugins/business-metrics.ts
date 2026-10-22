@@ -2147,7 +2147,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE ihui_traffic_requests_total counter')
     for (const [k, v] of ihuiState.trafficRequestsTotal) {
       const [family, statusClass] = k.split('|')
-      lines.push(`ihui_traffic_requests_total{client_family="${family}",status_class="${statusClass}"} ${v}`)
+      lines.push(
+        `ihui_traffic_requests_total{client_family="${family}",status_class="${statusClass}"} ${v}`,
+      )
     }
 
     lines.push(
