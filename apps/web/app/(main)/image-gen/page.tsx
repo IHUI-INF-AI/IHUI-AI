@@ -12,14 +12,10 @@ import { toast } from 'sonner'
 import { Loader2, ImageIcon, Sparkles, Download } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
+import type { ImageGenResult } from '@ihui/types'
 import { Button, Card, CardContent, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-
-interface GenResult {
-  imageUrl: string
-  revisedPrompt?: string
-}
 
 const SIZES = ['1024x1024', '1024x1792', '1792x1024']
 
@@ -27,7 +23,7 @@ export default function ImageGenPage() {
   const t = useTranslations('imageGenPage')
   const [prompt, setPrompt] = React.useState('')
   const [size, setSize] = React.useState(SIZES[0])
-  const [result, setResult] = React.useState<GenResult | null>(null)
+  const [result, setResult] = React.useState<ImageGenResult | null>(null)
   const [err, setErr] = React.useState<string | null>(null)
 
   const genMut = useMutation({
@@ -36,7 +32,7 @@ export default function ImageGenPage() {
         prompt: prompt.trim(),
         size,
       }
-      return apiOrThrow<GenResult>('/api/image-gen/generate', {
+      return apiOrThrow<ImageGenResult>('/api/image-gen/generate', {
         method: 'POST',
         body: JSON.stringify(body),
       })

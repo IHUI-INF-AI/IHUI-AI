@@ -41,12 +41,20 @@ import { devEnvRoot } from '../seal-c-root-stray.mjs'
 const PORTABLE_VERSIONS_ROOT = 'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions'
 const LEGACY_PORTABLE_GIT =
   'C:/Users/Administrator/.workbuddy/binaries/PortableGit/versions/1.2.0/cmd/git.exe'
-export const GIT_CANDIDATES = [
-  process.env.GIT_BIN,
-  'git',
+
+/**
+ * 系统安装位优先于 portable 的立因(2026-10-22 实测):WorkBuddy 自带 PortableGit 2.55 的
+ * git-remote-https 会报 `fatal: remote helper 'https' aborted session`,而按版本倒序优先选它
+ * 曾让 git-sync-converge 连续 fail-closed;系统 Git 2.56 同命令正常。portable 只留作服务账户
+ * 没有 PATH 时的兜底。
+ */
+const SYSTEM_GIT_CANDIDATES = [
   'C:/Program Files/Git/cmd/git.exe',
   'C:/Program Files (x86)/Git/cmd/git.exe',
-].filter(Boolean)
+  'git',
+]
+
+export const GIT_CANDIDATES = [process.env.GIT_BIN, ...SYSTEM_GIT_CANDIDATES].filter(Boolean)
 
 /** 语义版本倒序比较(1.2.10 > 1.2.0),仅用于 versions/ 子目录排序 */
 function compareVersionDesc(a, b) {
@@ -89,37 +97,64 @@ function scanVersionsRoot(root) {
 }
 
 /**
- * PortableGit 动态候选(有序,去重):环境变量 > 默认 versions 根扫描 > 旧 1.2.0 兜底。
- * IHUI_PORTABLE_GIT 可指向 git.exe 本体、某版本目录(含 cmd/git.exe)或 versions 根(含 current/版本子目录)。
+ * IHUI_PORTABLE_GIT 显式指定的候选(空集 = 未指定);与自动扫描族分开,以便排在系统候选之前。
+ * 可指向 git.exe 本体、某版本目录(含 cmd/git.exe)或 versions 根(含 current/版本子目录)。
  */
-export function resolvePortableGitCandidates() {
+function explicitPortableCandidates(env = process.env) {
   const out = []
   const push = (p) => {
     if (p && !out.includes(p)) out.push(p)
   }
-  const envRoot = (process.env.IHUI_PORTABLE_GIT || '').trim()
+  const envRoot = String(env.IHUI_PORTABLE_GIT ?? '').trim()
   if (envRoot) {
     push(envRoot)
     push(join(envRoot, 'cmd/git.exe'))
     push(join(envRoot, 'bin/git.exe'))
     for (const p of scanVersionsRoot(envRoot)) push(p)
   }
-  for (const p of scanVersionsRoot(PORTABLE_VERSIONS_ROOT)) push(p)
-  push(LEGACY_PORTABLE_GIT)
+  return out
+}
+
+/** 自动发现的 PortableGit 候选(仅作系统 Git 不可用时的兜底)。 */
+function discoveredPortableCandidates() {
+  return [...scanVersionsRoot(PORTABLE_VERSIONS_ROOT), LEGACY_PORTABLE_GIT].filter(Boolean)
+}
+
+/** 兼容出口:显式 portable 覆盖 + 自动扫描的顺序不变。 */
+export function resolvePortableGitCandidates(env = process.env) {
+  const out = []
+  const push = (p) => {
+    if (p && !out.includes(p)) out.push(p)
+  }
+  for (const p of explicitPortableCandidates(env)) push(p)
+  for (const p of discoveredPortableCandidates()) push(p)
+  return out
+}
+
+/**
+ * 候选顺序单源:显式覆盖 → 系统安装位/PATH → portable 兜底。
+ * 只排序不验可执行性 —— 可用性由 resolveGitBin 逐枚 `--version` 验证。
+ */
+export function gitCandidateOrder(env = process.env) {
+  const out = []
+  const push = (p) => {
+    if (p && !out.includes(p)) out.push(p)
+  }
+  const envGit = String(env.GIT_BIN ?? '').trim()
+  if (envGit) push(envGit)
+  for (const p of explicitPortableCandidates(env)) push(p)
+  for (const p of SYSTEM_GIT_CANDIDATES) push(p)
+  for (const p of discoveredPortableCandidates()) push(p)
   return out
 }
 
 let _GIT_BIN = null
 let _GIT_VERSION = null
 
-/** 解析可用的 git 可执行文件(带缓存;绝对路径优先,服务账户下仍可定位 PortableGit) */
+/** 解析可用的 git 可执行文件(带缓存;系统安装位优先,portable 兜底) */
 export function resolveGitBin() {
   if (_GIT_BIN) return _GIT_BIN
-  const all = []
-  for (const c of [...resolvePortableGitCandidates(), ...GIT_CANDIDATES]) {
-    if (c && !all.includes(c)) all.push(c)
-  }
-  for (const c of all) {
+  for (const c of gitCandidateOrder()) {
     try {
       const v = execFileSync(c, ['--version'], {
         encoding: 'utf8',

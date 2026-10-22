@@ -78,10 +78,6 @@ export const WHITELIST_ENTRIES = new Map(
       expires: '2027-06-30',
     },
     // ── RN 独占 screen(无跨端需求,深度依赖 RN 特定 API/组件) ──
-    'ImageGenTemplatesScreen.tsx': {
-      why: '提示词模板屏:FlatList + 分类 chip + 详情 Modal,对齐 web /image-gen/templates;共享层无同名屏,RN 端独占列表/弹层交互',
-      expires: '2027-06-30',
-    },
     'LearnMapScreen.tsx': {
       why: '学习地图屏:ScrollView 节点地图 + 进度环,共享层无同名屏,RN 端独占视觉交互',
       expires: '2027-06-30',

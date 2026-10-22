@@ -53,6 +53,8 @@ export function CheckpointRollbackConfirm({
   const [error, setError] = React.useState<string | null>(null)
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
   const [confirming, setConfirming] = React.useState(false)
+  // D222:预览加载失败后必须给重试出口;自增即重新拉取影响范围,不另建状态机。
+  const [reloadToken, setReloadToken] = React.useState(0)
 
   React.useEffect(() => {
     if (!open) return
@@ -65,8 +67,9 @@ export function CheckpointRollbackConfirm({
       .then((data) => {
         if (alive) setImpact(data)
       })
-      .catch((e: unknown) => {
-        if (alive) setError(e instanceof Error ? e.message : t('rollbackConfirmLoadFailed'))
+      .catch(() => {
+        // D222:失败原因不直接抛给用户,统一由「不可用 + 工作区未发生变化」说明承接。
+        if (alive) setError(t('rollbackConfirmLoadFailed'))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -74,7 +77,7 @@ export function CheckpointRollbackConfirm({
     return () => {
       alive = false
     }
-  }, [open, checkpointId, sessionId, scope, t])
+  }, [open, checkpointId, sessionId, scope, t, reloadToken])
 
   if (!open) return null
 
@@ -116,10 +119,28 @@ export function CheckpointRollbackConfirm({
               <span>{t('rollbackConfirmLoading')}</span>
             </div>
           )}
-          {error && (
-            <p className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-              {error}
-            </p>
+          {error && !loading && (
+            /* D222:预览读不出来时必须明说"这次什么都没改",并给重试出口,
+               而不是把原始错误串丢给用户 */
+            <div
+              className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2"
+              role="alert"
+              data-testid="rollback-confirm-unavailable"
+            >
+              <p className="text-sm font-medium text-destructive">
+                {t('rollbackUnavailableTitle')}
+              </p>
+              <p className="text-xs text-destructive">{t('rollbackUnavailableDesc')}</p>
+              <p className="text-[11px] text-muted-foreground">{error}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                data-testid="rollback-confirm-retry"
+                onClick={() => setReloadToken((n) => n + 1)}
+              >
+                {t('rollbackRetry')}
+              </Button>
+            </div>
           )}
           {impact && !loading && (
             <div className="space-y-2">
@@ -203,7 +224,11 @@ export function CheckpointRollbackConfirm({
           <Button variant="outline" size="sm" onClick={onClose} disabled={confirming}>
             {t('rollbackConfirmCancel')}
           </Button>
-          <Button size="sm" onClick={() => void handleConfirm()} disabled={confirming || loading}>
+          <Button
+            size="sm"
+            onClick={() => void handleConfirm()}
+            disabled={confirming || loading || error !== null}
+          >
             {confirming ? (
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             ) : (

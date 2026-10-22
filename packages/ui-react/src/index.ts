@@ -148,6 +148,7 @@ export {
   ThirdPartyLoginButtons,
   AgreementCheckbox,
   AgreementNoticeDialog,
+  PasskeyLoginButton,
   AccountHistoryInput,
   ALL_THIRD_PARTY_PLATFORMS,
   isValidEmail,
@@ -162,6 +163,7 @@ export type {
   ThirdPartyProvider,
   ThirdPartyConfig,
   QrPlatformConfig,
+  PasskeyAuthOptionsData,
   PasswordLoginFormProps,
   EmailCodeLoginFormProps,
   PhoneCodeLoginFormProps,
@@ -169,6 +171,7 @@ export type {
   ThirdPartyLoginButtonsProps,
   AgreementCheckboxProps,
   AgreementNoticeDialogProps,
+  PasskeyLoginButtonProps,
   AccountHistoryInputProps,
 } from './components/login-form'
 // 记住账号 / 账号历史 / 自动登录 凭据管理(2026-07-30 抽到共享包;2026-09-29 票 #27

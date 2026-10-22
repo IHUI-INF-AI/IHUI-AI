@@ -55,7 +55,9 @@ vi.mock('@/components/ai/diff-preview', () => ({
 
 import { CheckpointRollbackConfirm } from '../checkpoint-rollback-confirm'
 
-function impactFile(partial: Partial<CheckpointImpactFile> & { path: string }): CheckpointImpactFile {
+function impactFile(
+  partial: Partial<CheckpointImpactFile> & { path: string },
+): CheckpointImpactFile {
   return { oldContent: '', newContent: '', added: 1, deleted: 1, ...partial }
 }
 
@@ -126,6 +128,44 @@ describe('G-814423 checkpoint 影响预览:读不到 ≠ 空文件', () => {
     expect(stub.getAttribute('data-old')).toBe('old\n')
     expect(stub.getAttribute('data-new')).toBe('new\n')
     expect(screen.queryByTestId('rollback-confirm-content-unreadable')).toBeNull()
+  })
+})
+
+// D222:影响预览整次拉取失败时,用户必须看到"当前无法恢复 + 工作区未发生变化",
+// 且这一态要带重试出口;只把原始错误串丢出来不算兑现。
+describe('D222 影响预览失败:声明工作区未发生变化且可重试', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+  afterEach(() => cleanup())
+
+  it('拉取失败 ⇒ 不可用态 + 未变化声明 + 重试,确认按钮不可点,不渲染伪 diff', async () => {
+    impactMock.getCheckpointImpact.mockRejectedValue(new Error('boom-500'))
+    render(<CheckpointRollbackConfirm {...setupProps()} />)
+    await waitFor(() => expect(screen.getByTestId('rollback-confirm-unavailable')).toBeTruthy())
+    expect(screen.getByText('rollbackUnavailableTitle')).toBeTruthy()
+    expect(screen.getByText('rollbackUnavailableDesc')).toBeTruthy()
+    expect(screen.queryByText('boom-500')).toBeNull()
+    expect(screen.getByTestId('rollback-confirm-retry')).toBeTruthy()
+    const confirmButton = screen
+      .getByText('rollbackConfirmConfirm')
+      .closest('button') as HTMLButtonElement
+    expect(confirmButton.disabled).toBe(true)
+    expect(screen.queryByTestId('stub-diff-preview')).toBeNull()
+  })
+
+  it('重试重新拉取,成功后回到可确认态并撤销失败声明', async () => {
+    impactMock.getCheckpointImpact
+      .mockRejectedValueOnce(new Error('boom-500'))
+      .mockResolvedValueOnce(
+        makeImpact([impactFile({ path: 'ok.ts', oldContent: 'old\n', newContent: 'new\n' })]),
+      )
+    render(<CheckpointRollbackConfirm {...setupProps()} />)
+    await waitFor(() => expect(screen.getByTestId('rollback-confirm-retry')).toBeTruthy())
+    fireEvent.click(screen.getByTestId('rollback-confirm-retry'))
+    await waitFor(() => expect(screen.getByText('ok.ts')).toBeTruthy())
+    expect(screen.queryByTestId('rollback-confirm-unavailable')).toBeNull()
+    expect(impactMock.getCheckpointImpact).toHaveBeenCalledTimes(2)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
