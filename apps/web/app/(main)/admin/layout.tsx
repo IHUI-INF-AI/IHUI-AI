@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/stores/auth'
 
 /**
@@ -30,12 +30,18 @@ const ADMIN_ROLE_THRESHOLD = 1
 /** 等资料落定的宽限:/auth/me 走隧道实测 1–2s,取 10s 留足余量;到点仍无 roleId 才按无权限处理。 */
 const ROLE_SETTLE_GRACE_MS = 10_000
 
+/** 全出血页面:自己要「填满工作区 + 内部滚动」,不能再被 max-w-7xl + 四边 padding 包住。 */
+const FULL_BLEED_PREFIXES = ['/admin/monitor/panels', '/admin/monitor/wallboard'] as const
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const userRoleId = useAuthStore((s) => s.user?.roleId)
   const router = useRouter()
+  const pathname = usePathname()
   const [checked, setChecked] = React.useState(false)
   const [hydrated, setHydrated] = React.useState(false)
+  const fullBleed =
+    pathname !== null && FULL_BLEED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 
   // 等 zustand persist hydration 完成(SSR 时 isAuthenticated=false,需等客户端 hydration)
   React.useEffect(() => {
@@ -97,6 +103,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     )
   }
 
-  return <div className="mx-auto w-full max-w-7xl px-4 py-4">{children}</div>
+  return (
+    <div
+      className={fullBleed ? 'flex min-h-0 flex-1 flex-col' : 'mx-auto w-full max-w-7xl px-4 py-4'}
+    >
+      {children}
+    </div>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
