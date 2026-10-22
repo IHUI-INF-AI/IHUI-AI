@@ -27,7 +27,7 @@
  *
  * 集成位置: .husky/pre-commit 第 19 项 (末尾, 不影响其他守门)
  */
-import { execSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 import { pathToFileURL } from 'node:url'
 
 const ROOT = process.cwd()
@@ -45,14 +45,7 @@ const C = {
 /** 获取 staged 文件列表 (相对路径, 含 Added/Modified/Deleted/Renamed/Copied) */
 function getStagedFiles() {
   try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACDMR', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      // 返回值被消费(下面 output.split)⇒ stdout 仍须 pipe,只把 stdin 切掉
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
+    const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACDMR'], ROOT)
     return output
       .split('\n')
       .filter(Boolean)
