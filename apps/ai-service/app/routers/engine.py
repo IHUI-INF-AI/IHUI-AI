@@ -114,6 +114,9 @@ def _make_loop_factory() -> Any:
             model_params=spec.get("model_params"),
             # 2026-09-18 第三批(Goals 对标):线程目标注入 system 全程可见
             thread_goal=spec.get("goal"),
+            # G-941(2026-10-22):引擎线程的主循环工厂,链标签标 "main"
+            # (账本增量基线按 (chain, tool_name) 分桶,见 agents._new_v2_loop 同款注释)。
+            chain="main",
         )
 
     return _factory

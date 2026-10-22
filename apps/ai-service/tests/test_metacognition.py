@@ -840,14 +840,14 @@ class TestDetectConflicts:
 
     @pytest.mark.asyncio
     async def test_procedural_conflict_detected(self, monkeypatch):
-        """procedural 同 tool_name 不同 pattern → 检出冲突。"""
+        """procedural 同 tool_name + 同经验干前缀 + score 反向 → 检出冲突(L8064 真冲突判据)。"""
         meta = Metacognition()
         conn = FakeConn()
         conn.fetch_returns = [
             [],  # semantic 无数据
             [
-                {"id": "pr-a", "pattern": "pattern_a", "tool_name": "search", "score": 0.8},
-                {"id": "pr-b", "pattern": "pattern_b", "tool_name": "search", "score": 0.5},
+                {"id": "pr-a", "pattern": "search: 优先用 web", "tool_name": "search", "score": 0.8},
+                {"id": "pr-b", "pattern": "search: 优先用 本地 grep", "tool_name": "search", "score": 0.2},
             ],
         ]
         monkeypatch.setattr(
@@ -1141,4 +1141,128 @@ class TestEnumDiversityExemption:
         # 但即便问到,同哈希段不是"枚举多样性"(是同一条记忆),返回 False 不豁免
         a = "doom_loop:run_command:" + "a" * 64
         assert Metacognition._is_enum_diversity(a, a) is False
+
+
+# ── L8064 真冲突判据(2026-10-22 收口):同干前缀 + score 反向才算冲突 ──────────
+
+
+class TestTrueConflictCriterion:
+    """`_is_true_procedural_conflict`:替换"pattern 不同即冲突"的枚举维度误报。
+
+    钉死两头:误报型(枚举多样性/形态差/互补知识/短前缀巧合/未评价默认分)
+    一律不报;可分辨性 —— 同干反向的真冲突必须仍报得出。
+    """
+
+    # ---- 纯判据(不碰库)----
+
+    def test_same_family_diff_hash_not_conflict(self):
+        a = "doom_loop:run_command:" + "a" * 64
+        b = "doom_loop:run_command:" + "b" * 64
+        # 即便 score 反向也不报:族内差异是枚举维度,反向是入参不同所致
+        assert Metacognition._is_true_procedural_conflict(a, b, 0.9, 0.1) is False
+
+    def test_cross_family_hashed_pair_not_conflict(self):
+        # tool_name 列与 pattern 工具段漂移的跨族配对:仍是哈希枚举记录,不报
+        a = "doom_loop:run_command:" + "a" * 64
+        b = "doom_loop:write_file:" + "b" * 64
+        assert Metacognition._is_true_procedural_conflict(a, b, 0.9, 0.1) is False
+
+    def test_family_vs_free_text_not_conflict(self):
+        # 形态差(哈希摘要 vs 自由文本),不是同一经验的两种评价
+        a = "doom_loop:search:" + "a" * 64
+        b = "doom_loop 之外的自由文本记录"
+        assert Metacognition._is_true_procedural_conflict(a, b, 0.9, 0.1) is False
+
+    def test_same_stem_inverted_scores_is_conflict(self):
+        # 可分辨性:真冲突仍要报得出
+        assert Metacognition._is_true_procedural_conflict(
+            "用户偏好用 vim", "用户偏好用 emacs", 0.9, 0.1
+        ) is True
+
+    def test_same_stem_same_direction_not_conflict(self):
+        # 同向(都高/都低)= 互补知识,不是评价矛盾
+        assert Metacognition._is_true_procedural_conflict(
+            "search: 优先 web", "search: 优先本地", 0.9, 0.7
+        ) is False
+        assert Metacognition._is_true_procedural_conflict(
+            "search: 优先 web", "search: 优先本地", 0.1, 0.3
+        ) is False
+
+    def test_short_prefix_inverted_not_conflict(self):
+        # 公共前缀不足经验干阈值(3 < 4)⇒ 形态巧合,不立"同一经验"
+        assert Metacognition._is_true_procedural_conflict("ab:x", "ab:y", 0.9, 0.1) is False
+
+    def test_neutral_default_score_not_conflict(self):
+        # 任一侧恰为中性默认分(0.5)= 未评价,不构成反向
+        assert Metacognition._is_true_procedural_conflict(
+            "search: web", "search: local", 0.8, 0.5
+        ) is False
+
+    def test_common_prefix_len_counts_exact_chars(self):
+        assert Metacognition._common_prefix_len("abcdef", "abcxyz") == 3
+        assert Metacognition._common_prefix_len("abc", "abc") == 3
+        assert Metacognition._common_prefix_len("x", "y") == 0
+
+    # ---- 端到端(FakeConn,不碰库)----
+
+    @pytest.mark.asyncio
+    async def test_family_sedimentation_flood_not_reported(self, monkeypatch):
+        """死循环沉淀越多、枚举配对越长的旧误报洪流:一条都不报。"""
+        meta = Metacognition()
+        conn = FakeConn()
+        conn.fetch_returns = [
+            [],  # semantic 无数据
+            [
+                {"id": "p1", "pattern": "doom_loop:read_file:" + "a" * 64,
+                 "tool_name": "read_file", "score": 0.9},
+                {"id": "p2", "pattern": "doom_loop:read_file:" + "b" * 64,
+                 "tool_name": "read_file", "score": 0.5},
+                {"id": "p3", "pattern": "doom_loop:read_file:" + "c" * 64,
+                 "tool_name": "read_file", "score": 0.1},
+            ],
+        ]
+        monkeypatch.setattr(
+            "app.services.metacognition._get_pool", make_pool_mock(conn)
+        )
+        result = await meta.detect_conflicts("user-1")
+        assert [c for c in result if c["layer"] == "procedural"] == []
+
+    @pytest.mark.asyncio
+    async def test_true_conflict_reported_with_confidence(self, monkeypatch):
+        """真冲突端到端报得出,conflict_type/置信度公式(0.6+|Δscore|×0.3)不变。"""
+        meta = Metacognition()
+        conn = FakeConn()
+        conn.fetch_returns = [
+            [],
+            [
+                {"id": "p1", "pattern": "用户偏好用 vim", "tool_name": "editor", "score": 0.9},
+                {"id": "p2", "pattern": "用户偏好用 emacs", "tool_name": "editor", "score": 0.2},
+            ],
+        ]
+        monkeypatch.setattr(
+            "app.services.metacognition._get_pool", make_pool_mock(conn)
+        )
+        result = await meta.detect_conflicts("user-1")
+        proc = [c for c in result if c["layer"] == "procedural"]
+        assert len(proc) == 1
+        assert proc[0]["conflict_type"] == "same_tool_diff_pattern"
+        assert proc[0]["confidence"] == round(0.6 + 0.7 * 0.3, 2)
+
+    @pytest.mark.asyncio
+    async def test_unrelated_free_text_not_reported(self, monkeypatch):
+        """同工具下两条互补的自由文本(pattern 不同但无同干反向):不再误报。"""
+        meta = Metacognition()
+        conn = FakeConn()
+        conn.fetch_returns = [
+            [],
+            [
+                {"id": "p1", "pattern": "grep: 用 UTF-8 读取", "tool_name": "grep", "score": 0.9},
+                {"id": "p2", "pattern": "rg: 大文件要分页", "tool_name": "grep", "score": 0.2},
+            ],
+        ]
+        monkeypatch.setattr(
+            "app.services.metacognition._get_pool", make_pool_mock(conn)
+        )
+        result = await meta.detect_conflicts("user-1")
+        assert [c for c in result if c["layer"] == "procedural"] == []
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
