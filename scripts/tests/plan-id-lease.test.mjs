@@ -19,6 +19,8 @@
  *      不给 machineId ⇒ 池内最小空闲(池式新基准;旧"与旧口径逐字同形"锁随池式改造废除)。
  *  T4c/T4d/T4e G-14(2026-10-22):候选号命中全文件扫描号集(只活在归档占位注释里)⇒ 跳过并点名;
  *      未命中的号必须照发(不得恒跳过);一次连登三票必须拿到三个互不相同的池内新号。
+ *  T4f/T4g G-14 四格自证之格①「同题占用仍判占用」(2026-10-23 补):被占的号**不按题面放宽** ——
+ *      同题占用走逃生口显式放行同题查重时,号层避让仍独立成立(不许"为新票插队放行同题重号")。
  *  T5  appendLeaseRows:只追加不删改;区在插区头、区不在文件尾新建。
  *  T6  源码形状锁:live-doc-edit 必须经 lib 取租约判据(抄第二份必漂),且 CAS 循环内取号带 machineId。
  *  T8  段窗选择:同面同轮确定、两机窗分离(claimOffset 混机器指纹,下标=hash|窗数%窗数)、
@@ -386,6 +388,56 @@ test('T4e G-14 连登三票:三个候选号都被别席占着 ⇒ 连发三个�
   for (const id of ['G-1', 'G-2', 'G-3'])
     assert.ok(scanNotes.includes(id), `被跳过的号必须点名:${id} 不在 ${JSON.stringify(r.scanNotes)}`)
   assert.equal(r.leaseClaims.length, 0, '跳过发生在自有段内 ⇒ 不得因此另占新段')
+})
+
+test('T4f G-14 格①:号被**同题**占用 ⇒ 仍判占用(不许为新票插队放行同题重号)', () => {
+  // 票面四格自证第一格。占用判据必须**只看号、不看题面**:别席已占的号即使挂着同一件事,
+  // 也不得当成"给新票插队的空位"。F1 说同号同题是同一件事 ⇒ 若照此把号再发给同题新行,
+  // 就是本票要防的"放行同题重号"。病型现场:G-351×2 / G-329×2 正是同号同题副本。
+  // 夹具:同题只以**归档占位注释**留在面上(登记行形态的占用 usedIdsOfPrefix 本来就看得见,
+  // 阳性命中在注释这一型)⇒ 段内首号 G-1 必须跳过,且 scanNotes 点名。
+  const sameTitle = '同一件事被两席各抄一份的同题副本标题,长度足够越过指纹阈值'
+  const leased = ['- [ ] G-700 基准行。', row({ start: 1, end: 50 })].join('\n')
+  const occupied = `${leased}\n<!-- 已归档(2026-10-21):✅(2026-10-21) **G-1 ${sameTitle}** —— 完整内容在归档件 -->`
+  const r = lde.resolveIdTokens([`- [ ] {{NEXT_ID:G}} **${sameTitle}** 乙席重登`], occupied, null, {
+    machineId: 'hostA-fp',
+  })
+  assert.equal(r.ok, true)
+  assert.equal(r.assigned, 'G-2', '同题占用的 G-1 仍判占用 ⇒ 必须跳过换下一个')
+  assert.ok(
+    r.scanNotes.some((n) => n.includes('G-1') && n.includes('跳过')),
+    `跳过的号必须点名;实得 ${JSON.stringify(r.scanNotes)}`,
+  )
+})
+
+test('T4g G-14 格①(回归锁):同题占用即使走逃生口,号层避让仍独立成立', () => {
+  // 第二层钉"逃生口不得连带废掉号层判据":LIVE_ID_ALLOW_DUP_TITLE=1 显式放行同题查重
+  // (守门194,留痕)后,取号器仍不得把被占号当空闲发出 —— 题面层的放行≠号层的放行。
+  // 登记行形态的占用:usedIdsOfPrefix 本就看得见(G-1 不进空闲表),本条钉的就是这个性质
+  // 不因任何"同题理由"被改写(回归锁;改前代码同样满足,防的是未来把两闸合并时漏掉号层)。
+  // 现读注记(2026-10-23 实测,不是推断):extractTaskFingerprint 对**带族令牌行**算出的指纹
+  // 恒带 `nextidg` 前缀(208 行只剥裸写 {{NEXT_ID}},带族的 G 后面不接数字 ⇒ 剥不掉),
+  // 与票号行结构性不等 ⇒ duplicate-title 那道闸对令牌行实际不可达 —— 所以本格只钉号层,
+  // 不拿一道不可达的闸当断言(不可达路径上的绿是假绿)。题面层同题拦截归守门194 射程。
+  const sameTitle = '同一件事被两席各抄一份的同题副本标题,长度足够越过指纹阈值'
+  const base = [`- [ ] G-1 **${sameTitle}** 甲席在飞`, '- [ ] G-900 基准行。'].join('\n')
+  const orig = process.env.LIVE_ID_ALLOW_DUP_TITLE
+  try {
+    process.env.LIVE_ID_ALLOW_DUP_TITLE = '1'
+    const r = lde.resolveIdTokens([`- [ ] {{NEXT_ID:G}} **${sameTitle}** 乙席重登`], base)
+    assert.equal(r.ok, true)
+    assert.ok(
+      !String(r.assigned).split(',').includes('G-1'),
+      `被同题占用的 G-1 不得发出;实得 ${r.assigned}`,
+    )
+    assert.ok(
+      (r.dupTitleNotes ?? []).some((n) => n.includes('LIVE_ID_ALLOW_DUP_TITLE=1')),
+      '逃生口必须留痕(静默放行=伪装成查过没有同题)',
+    )
+  } finally {
+    if (orig === undefined) delete process.env.LIVE_ID_ALLOW_DUP_TITLE
+    else process.env.LIVE_ID_ALLOW_DUP_TITLE = orig
+  }
 })
 
 test('T5 appendLeaseRows:只追加不删改;区在插区头,区不在文件尾新建', () => {
