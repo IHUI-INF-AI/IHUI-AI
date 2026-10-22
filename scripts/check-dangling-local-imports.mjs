@@ -32,6 +32,23 @@
  *   —— 本仓 src 下常年有**未入库**的编译残留 `X.js`,拿磁盘并集判会把别人机器上的产物
  *   记成本仓债务(那正是"滞后的旧草稿被记成债务"那一型)。
  *
+ * D6「错名 .js 影子架空 .ts 说明符映射」(2026-10-22 立,票面 G-13;与 D4 同族,把散文口径收成尺子):
+ *   D4 的两条判红共同的前置是"有 `.js` 说明符字面命中"—— 但同名对本身就是陷阱本体(消费方那一行只是
+ *   引信),而 `.js` 说明符落到入库 `.js` 自身意味着映射已被错名架空;这一维把这两个形状收成独立判红,
+ *   与 D1..D5 同走全量档零容忍:
+ *     · 判据 a(同名并存):入库的 `X.js` 与同目录同 stem 的 `X.ts`/`X.tsx` 并存 ⇒ 报,不管有没有人指向它
+ *       (同伴口径 = D4 的 SHADOW_PARTNERS,`.d.ts` 与 `.jsx` 刻意不算 —— `x.js` + `x.d.ts` 是已发布包的
+ *       正常形态,design-tokens 两处真例就是这条边界的有牙证明)。这一格是对 D4"只报数不判红"的升格:
+ *       假阳的代价照旧是逼人 --no-verify(§12e),所以前置是存量已清零;
+ *     · 判据 b(错名落点):**TS 侧消费方**(`.ts`/`.tsx` 源,`.d.ts` 声明不算源)写下的 `.js` 说明符,
+ *       解析器第一候选落在**入库的 `.js` 自身**(没被改写成 `.ts`/`.tsx`/`.d.ts`/`index` 派生)⇒ 报。
+ *       D4 现读的 8 枚被字面命中的入库 `.js` 在这一口径下全部合规:2 枚带 `.d.ts` 同伴(解析落在声明),
+ *       6 枚的消费方是 `.js` 侧(eslint-config 族 —— JS 导 JS 是字面导入,没有".ts 映射"可被架空)。
+ *   现读覆盖面(2026-10-22):两判据均 0 处 ⇒ 扩这一维不新增恒红面,前置已满足。
+ *   取材与 D4 同一条通道:同一轮跟踪路径集 + 同一遍解析递出的 `.js` 落点;不读内容,故没有"未判定"格 ——
+ *   a 只依赖文件清单面(main() 开头"枚举到 0 个跟踪源文件 ⇒ exit 2"已兜住),b 只依赖 D4 的落点通道
+ *   (d4ChannelBlind 已兜住)。判据与形态清单经 `__test__` 出口交镜像测试(§22c:两处各写一遍必漂移)。
+ *
  * D5「同一 barrel 文件内同名显式导出重复」(2026-10-19 立,本席现读):
  *   成因是 `packages/api-client/src/index.ts` 的 `export type { FormRequestEvent } from './client.js'`
  *   在同一文件出现两份 ⇒ TS2300 Duplicate identifier,把 `@ihui/api-client` 的 build 打死、
@@ -245,7 +262,9 @@ export function auditOneFace(rev) {
   const byFile = auditTree(read, files, hasPath, alias.index, jsSites, d5Unjudged)
   const shadow = auditShadowJs(read, jsSites, new Set(files))
   mergeShadow(byFile, shadow)
-  return { files, byFile, aliasUnparsed: alias.unparsed, aliasSeen: alias.seen, shadow, d5Unjudged }
+  const wrongName = auditWrongNameShadow(jsSites, new Set(files))
+  mergeWrongName(byFile, wrongName)
+  return { files, byFile, aliasUnparsed: alias.unparsed, aliasSeen: alias.seen, shadow, wrongName, d5Unjudged }
 }
 
 const NON_CODE_EXT =
@@ -847,6 +866,90 @@ export function mergeSites(baseSites, pendingSites, pendingSet) {
   return baseSites.filter((s) => !pendingSet.has(s.by)).concat(pendingSites || [])
 }
 
+// ── D6:错名 .js 影子架空 .ts 说明符映射(票面 G-13,2026-10-22 立) ──────────────────
+/** TS 侧消费方:在"源文件写 `.ts`、说明符写 `.js`"约定下写下 `.js` 说明符的文件。
+ *  `.d.ts` 刻意不算源 —— 它是给既有 `.js` 配的声明(`x.js` + `x.d.ts` 单源模块是本门既有口径的
+ *  正常形态,design-tokens 两处真例),它写下的 `.js` 指的就是那个 `.js` 本身,没有"映射被架空"一问。
+ *  `.js` 侧消费方同理:JS 导 JS 是字面导入(eslint-config 族 6 枚正是这一型),不是约定拼写。 */
+const TS_SIDE_CONSUMER_RE = /(?<!\.d)\.tsx?$/
+
+/** D6 的树级判据,与 D4 共用采集通道:`sites` 是 `auditFile` 同一遍解析递出的 `.js` 字面说明符
+ *  落点(`{target, by, line, spec}`),`trackedSrc` 是**同一取材面**上过滤过的跟踪源文件集。
+ *  两条独立判红(现读 2026-10-22:HEAD 面两格均 0 ⇒ 存量零容忍不新增恒红面):
+ *    a) 同名并存:入库 `X.js` 与同目录同 stem 的 `X.ts`/`X.tsx` 并存(同伴口径 = SHADOW_PARTNERS,
+ *       `.d.ts`/`.jsx` 刻意不算)⇒ 报,不管有没有人指向它;
+ *    b) 错名落点:TS 侧消费方写下的 `.js` 说明符,解析器第一候选落在**入库 `.js` 自身**
+ *       (没被改写成 `.ts`/`.tsx`/`.d.ts`/`index` 派生)⇒ 报。
+ *  不读内容,故没有"未判定"格(兜底见头注 D6 段末)。a 与 b 天然互斥:b 成立要求无 `.ts`/`.tsx`
+ *  同伴,而 a 成立恰恰要求有 —— 同一枚 `.js` 不会在两格各记一次。
+ *  返回 `{ byFile, coexist, literalWin }`:`byFile` 是判红表(与 D1..D5 并进同一张表),
+ *  后两格是形态清单(经 `__test__` 出口交镜像测试,§22c:两处各写一遍必漂移)。 */
+function auditWrongNameShadow(sites, trackedSrc) {
+  const byFile = new Map()
+  const coexist = []
+  for (const p of trackedSrc) {
+    if (!JS_SPEC_RE.test(p) || SKIP_DIR.test(p) || FIXTURE_ROOT.test(p)) continue
+    const stem = p.replace(/\.js$/, '')
+    const partners = SHADOW_PARTNERS.filter((e) => trackedSrc.has(stem + e))
+    if (!partners.length) continue
+    coexist.push(p)
+    byFile.set(p, [
+      {
+        line: 1,
+        rule: 'D6',
+        raw: `${p} ⇄ ${partners.map((e) => stem + e).join(' / ')}`,
+        hint:
+          '同目录同名 .js 与 .ts/.tsx 并存 ⇒ 本仓约定写 `.js` 实指 `.ts`,这一对就是影子陷阱本体(消费方那一行只是引信)' +
+          ';修法:删掉/改名那个 .js(把内容留在 .ts 里),别去改说明符',
+      },
+    ])
+  }
+  const literalWin = []
+  const hitsByJs = new Map()
+  for (const s of sites || []) {
+    // 只看入库的 .js:磁盘编译残留是别人机器上的产物,不是本仓债务(与 D4 同口径)
+    if (!JS_SPEC_RE.test(s.target) || !trackedSrc.has(s.target) || SKIP_DIR.test(s.target) || FIXTURE_ROOT.test(s.target))
+      continue
+    if (!TS_SIDE_CONSUMER_RE.test(s.by)) continue // JS 侧字面导入:没有 .ts 映射可被架空
+    if (!hitsByJs.has(s.target)) hitsByJs.set(s.target, [])
+    hitsByJs.get(s.target).push(s)
+  }
+  for (const [jsPath, hits] of hitsByJs) {
+    let winner = null
+    for (const c of resolveCands(jsPath)) {
+      if (trackedSrc.has(c)) {
+        winner = c
+        break
+      }
+    }
+    if (winner !== jsPath) continue // 被改写成 .ts/.tsx/.d.ts/index 派生 ⇒ 约定的映射仍在岗,不报
+    literalWin.push(jsPath)
+    const where = hits.map((h) => `${h.by}:${h.line}`).join(', ')
+    byFile.set(jsPath, [
+      {
+        line: 1,
+        rule: 'D6',
+        raw: `${jsPath} ← ${hits.length} 处 TS 侧 '.js' 说明符解析到 .js 自身`,
+        hint:
+          `本仓约定 TS 源里写 '.js' 实指同 stem 的 .ts,而解析器第一候选就是入库的 ${jsPath} 自身(无同 stem .ts/.tsx/.d.ts)` +
+          ` ⇒ .ts 说明符映射被错名架空(消费方:${where});修法:把实现放回 .ts,或让说明符指向真实模块`,
+      },
+    ])
+  }
+  coexist.sort()
+  literalWin.sort()
+  return { byFile, coexist, literalWin }
+}
+
+/** 把 D6 的按文件违规并进取违规表(与 D1..D5 同表 ⇒ 棘轮锚点、打印、退出码三条只有一套语义)。 */
+function mergeWrongName(byFile, wn) {
+  for (const [f, list] of wn.byFile) {
+    const cur = byFile.get(f) || []
+    byFile.set(f, cur.concat(list))
+  }
+  return byFile
+}
+
 // ── D5:同一 barrel 文件内同名显式导出重复 ──────────────────────────────────────────
 /** 射程封闭集合(头注 D5 段有立项现读;改集合 = 改判据,必须连头注与镜像测试同笔动)。 */
 export const D5_BARREL_RE = /^(?:packages|apps)\/[^/]+\/src\/(?:[^/]+\/)*index\.(?:ts|tsx)$/
@@ -1174,10 +1277,13 @@ async function main() {
   const byHead = auditTree(readHead, headFiles, hasPath, aliasHead.index, jsSitesHead, d5Unhead)
   const shadowHead = auditShadowJs(readHead, jsSitesHead, new Set(headFiles))
   mergeShadow(byHead, shadowHead)
+  const wnHead = auditWrongNameShadow(jsSitesHead, new Set(headFiles))
+  mergeWrongName(byHead, wnHead)
   const headCountOf = (p) => (byHead.get(p) || []).length
 
   let byPending
   let shadowPending = shadowHead
+  let wnPending = wnHead
   let d5Unpending = d5Unhead
   let stagedCount = 0
   let contentMode = 'HEAD 内容'
@@ -1203,12 +1309,13 @@ async function main() {
     d5Unpending = [...d5Unhead, ...d5Unstaged]
     // D4 在暂存档上要跑**整面**(索引内容 ⊕ 其余 HEAD 内容)而不是只跑暂存清单:新加的
     // 影子 `.js` 常常不在这枚提交里被 import,而"它被 import"这一事实本身就来自未改动的那些消费方。
-    shadowPending = auditShadowJs(
-      readPending,
-      mergeSites(jsSitesHead, jsSitesStaged, new Set(staged)),
-      new Set(trackedSourceFiles('')),
-    )
+    // D6 与 D4 同一条通道,共用同一批落点与同一个索引跟踪集(两处各取一遍必漂,§22c)。
+    const stagedSites = mergeSites(jsSitesHead, jsSitesStaged, new Set(staged))
+    const trackedStagedSrc = new Set(trackedSourceFiles(''))
+    shadowPending = auditShadowJs(readPending, stagedSites, trackedStagedSrc)
     mergeShadow(byPending, shadowPending)
+    wnPending = auditWrongNameShadow(stagedSites, trackedStagedSrc)
+    mergeWrongName(byPending, wnPending)
   } else if (FILES_MODE) {
     contentMode = `工作区内容(--files ${FILES_MODE.length} 个,仅供自验,不作结论)`
     const wread = (p) => {
@@ -1229,12 +1336,12 @@ async function main() {
       d5Unfiles,
     )
     d5Unpending = [...d5Unhead, ...d5Unfiles]
-    shadowPending = auditShadowJs(
-      wread,
-      mergeSites(jsSitesHead, jsSitesFiles, new Set(FILES_MODE)),
-      new Set([...trackedSourceFiles(''), ...headFiles, ...FILES_MODE]),
-    )
+    const filesSites = mergeSites(jsSitesHead, jsSitesFiles, new Set(FILES_MODE))
+    const filesTrackedSrc = new Set([...trackedSourceFiles(''), ...headFiles, ...FILES_MODE])
+    shadowPending = auditShadowJs(wread, filesSites, filesTrackedSrc)
     mergeShadow(byPending, shadowPending)
+    wnPending = auditWrongNameShadow(filesSites, filesTrackedSrc)
+    mergeWrongName(byPending, wnPending)
   } else {
     byPending = byHead
   }
@@ -1263,6 +1370,13 @@ async function main() {
       ` | 判红候选 ${shadowPending.byShadow.size} 个` +
       ` | 只报数(同名对无人指向)${shadowPending.deadPairs.length} 个` +
       (shadowPending.undetermined.length ? ` | 未判定 ${shadowPending.undetermined.length} 个` : ''),
+  )
+  // D6 的三个计数与 D4 同屏同取向:「扫过且干净」与「根本没看」必须分得开 —— a 的兜底是
+  // main() 开头的"枚举到 0 个跟踪源文件 ⇒ exit 2",b 的兜底是下面这条 d4ChannelBlind(共用落点通道)。
+  console.log(
+    `[dangling-imports] D6 错名影子:同名并存 .js + .ts/.tsx ${wnPending.coexist.length} 对` +
+      ` | TS 侧 '.js' 说明符解析到入库 .js 自身 ${wnPending.literalWin.length} 处` +
+      ` | 判红候选 ${wnPending.byFile.size} 处`,
   )
   /**
    * 票面 G-815915 反假绿①「扫到 0 个候选判死不记绿」。
@@ -1327,7 +1441,7 @@ async function main() {
         d3Ledgered.map((v) => `\n   ${v.file}:${v.line} ${v.raw}`).join(''),
     )
   if (!isStaged && !FILES_MODE && total - d3Ledgered.length > 0) {
-    console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入 / 影子 .js / barrel 同名导出重复(存量已于 2026-09-24 清零,D4 立门当天与 D5 立门当天(2026-10-19)现读均为 0)`)
+    console.log(`❌ 全量口径为零容忍:HEAD 上仍有 ${total} 处悬空具名导入 / 影子 .js / barrel 同名导出重复 / 错名影子(存量已于 2026-09-24 清零,D4 立门当天、D5 立门当天(2026-10-19)与 D6 立门当天(2026-10-22)现读均为 0)`)
     for (const [f, list] of byPending)
       for (const v of list) console.log(`   ${f}:${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
     console.log('   单独复现:node scripts/check-dangling-local-imports.mjs')
@@ -1335,12 +1449,12 @@ async function main() {
     process.exit(1)
   }
   if (!fresh.length) {
-    console.log('✅ 无新增(悬空具名导入 / 影子 .js)' + (total ? `(存量 ${total} 处如实报数,见下)` : ''))
+    console.log('✅ 无新增(悬空具名导入 / 影子 .js / 错名影子)' + (total ? `(存量 ${total} 处如实报数,见下)` : ''))
     for (const [f, list] of byPending)
       for (const v of list) console.log(`   · 存量 ${f}:${v.line} [${v.rule}] ${v.raw}`)
     return
   }
-  console.log(`❌ 新增 ${fresh.length} 个文件有解析不到的具名导入,或成了遮蔽同 stem .ts 的影子 .js:`)
+  console.log(`❌ 新增 ${fresh.length} 个文件有解析不到的具名导入,或成了遮蔽同 stem .ts 的影子/错名 .js:`)
   for (const { file, list, tol } of fresh) {
     console.log(`   ${file}(HEAD 自身 ${tol} 处 → 本次 ${list.length} 处)`)
     for (const v of list) console.log(`      :${v.line} [${v.rule}] ${v.raw}  → ${v.hint}`)
@@ -2089,5 +2203,14 @@ if (isDirectRun) {
     console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
     process.exit(2)
   })
+}
+// §22d:__test__ 的 export 必须在入口守卫之后(位置本身是判据,镜像测试钉着)。
+// D6 的裁定函数与形态清单走这一出口,镜像测试直接 import 源模块、不复制实现(§22c)。
+export const __test__ = {
+  auditWrongNameShadow,
+  mergeWrongName,
+  TS_SIDE_CONSUMER_RE,
+  SHADOW_PARTNERS,
+  JS_SPEC_RE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

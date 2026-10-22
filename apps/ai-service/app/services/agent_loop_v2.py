@@ -6739,6 +6739,10 @@ async def run_converged_agent(
         turn_denylist=(
             AUTOMATION_TURN_TOOL_DENYLIST if turn_source == "automation" else None
         ),
+        # G-941(2026-10-22):本函数是子 agent 派发的协议信封构造点(见上方
+        # turn_source 注释),链标签标 "subagent" —— 使账本增量基线(G-816021)
+        # 把子代理 llm 步与主链 llm 步分桶,不再共用基线少计。
+        chain="subagent",
     )
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": system_prompt},
