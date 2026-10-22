@@ -62,7 +62,7 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **599 tables · 4,451 API routes ·
-25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,019 test files ·
+25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,029 test files ·
 268 engineering gates · 50 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
@@ -84,13 +84,13 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3019 | `testFiles` |
+| 测试文件 | 3029 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 268 | `guardianGates` |
-| — blocking | 244 | `guardianBlocking` |
-| — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15625 | `trackedFiles` |
+| — blocking | 245 | `guardianBlocking` |
+| — warn | 26 | `guardianWarn` |
+| 跟踪文件 | 15664 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -102,72 +102,99 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (89b41d74e2)
-- 🔧 Chore/Other:摘除 MCP stdio 族三条已结清票(G-691 isError 语义 / G-692 重连代次守卫 / G-694 成对清理) —— 票面自写验收用例 5 文件 38 例本席当轮复跑全绿,凭据与复算命令写进 LAND_BLOB_PROOF;同族 G-689 已于前一轮结清。走门 229 出路②一次摘除,不留翻勾中间态 (a15b2488ba)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7d81ae46f9)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9587053b75)
-- ⚡ Perf:本地一律元门档(业务提交也 49s)—— 全量守门归 CI;仅判据库改动仍强制全量(改错会让门静默失效,CI 是延迟发现) (c104102fb0)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (56a54d2fd0)
+- 📚 Docs:登记 Cloudflare service token 明文本机暴露(6 处副本)待轮换 (915b16d2d2)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f813b056a8)
 
 **2026-10-22**
-- 🐞 Fix:G-689 结清(本席复跑票面自写判据三条全中:验收用例 8 passed + 复跑判据 RC=0 + 被点名消灭的那行注释已不在面上,实现住在 mcp-runtime.ts:261 并点名本票) —— 这是"实现早已入库、行还挂着未勾"的第一条实锤样本;摘行交兜底轮,本席不代删 (6c69ce0e7a)
-- 🔧 Chore/Other:新增全量守门 workflow(手动触发) —— 本地 pre-commit 只跑元门档 27 道(49s),全量 269 道移交 CI;已验证 pnpm install --frozen-lockfile 退出 0 (693a05eb6c)
-- 🔧 Chore/Other:再补 *.bak-* 与 dist.__lock 两族忽略 —— 生产 ff 后 status 11→8 的残余两族 (39c9e2b353)
-- 🔧 Chore/Other:补 .next.bak-*/dist.old-*/deploy-loop.log.* 三族忽略 —— 堵生产 5.0G 未跟踪备份被自动收编机制整包入库 (82c0711f86)
+- 🐞 Fix:ihui-pg-backup 未送达留痕改投运行态新址 .ihui-agent/state(迁移漏网件;旧址已不存在且读方 ops-watch 只扫新址,不改=备份告警静默丢) (85062fbeba)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b670fc84c5)
+- 📚 Docs:登记"生产 web 的真部署承载者未查明"(被指认的 DEPLOYLOOP 13h 零日志、其工作目录从未创建) (d986561468)
+- 🐞 Fix:/login 的"有没有前一页可回"改判 history.length>2,撤掉我在生产上恒空的 referrer 条件 (ae71232df9)
 
 **2026-10-22**
-- ⚡ Perf:门8延后post-commit + 去掉跳过分支无效屏障 + 纯内容缓存接线补全 (5164d81bf0)
-- 🐞 Fix:净面 worktree remove 三次败在 Windows 长路径 —— 补 core.longpaths + .NET 递归兜底 (a5bc756e0f)
-- ⚡ Perf:守护提交窗口期静默 —— 检测到 git 写锁即跳过本轮巡检,把 CPU 与索引锁全让给提交链(消除 40~170s 波动的干扰源) (3697e5dc4f)
+- 📚 Docs:undelivered-debt-acks 阅读提示改指运行态新址 .ihui-agent/state(留迁移注记) (7d2f419cc4)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (982e344432)
+- 🔧 Chore/Other:结清 G-960(探活尺子已换到真入口并加零信息自曝) (2ea8a2c611)
+- 🐞 Fix:模式徽章的 aria-label 不再中英混血,并卡住那条"赌时长"的 e2e 竞态(收掉 CI 唯一剩余红) (56a8b050c8)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3a4c4fef92)
 
 **2026-10-22**
-- 📚 Docs:守门总数与 blocking 数对齐现算(268/244),消除门173散文滞后 (cd3ec0633f)
+- 🔧 Chore/Other:移除 IDE 残留跟踪件 .arts/settings.json 与 .spec-mode/spec.md,tasks.md(用户明令清理全部 IDE 文件夹,内容留档 git 历史) (8a65c2ca3c)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a67b214ecc)
+- 📚 Docs:登记 packages/app 登录屏 32 处可见文案写死中文,并纠正普查里传走的"门失明"误判 (6c47abadca)
+- 🔧 Chore/Other:删掉随假入口一起失效的 login-oauth-* 四条样式 (321643eac8)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d0e9deb82f)
+- 🔧 Chore/Other:结清 G-958 / G-959(复跑过承载性判据后翻勾),G-957 就地写清剩余面 (66294b81e5)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6eadde96d2)
+- 🐞 Fix:摘掉顶着 Google 图标的假入口,H5 微信失败不再导进死路(票 G-957 可验的两格) (4ef8a7340b)
+- 🐞 Fix:H5 微信登录失败不再把用户导进拿不回登录态的 webview(票 G-957 两格之一) (68137fb6e5)
+- 🐞 Fix:共享登录屏两处硬编码中文取键(票 G-959),并删掉零消费的 shared.login.ssoLogin 死键 (b57d497658)
+- 🚀 Feature/Improvement:mobile-auth 的 clientId 改为可配(缺省仍 mobile-rn)——为票 G-957 拆掉第一块砖 (20ac42245c)
+- 🐞 Fix:探活尺子的靶换成真入口,并把"整轮全 3xx"从冒认 ok 改成未判定(票 G-960) (6e2e2a1c0b)
 
 **2026-10-22**
-- 🐞 Fix:自动收编器两处派生补 windowsHide —— 门五十二 HEAD 面存量红,它会挡住任何会话的提交。取证:改动后 --staged 面复跑该门 RC=0(扫描一枚文件,生产代码零违规);该门判 HEAD blob,故修完必入库才算数。 (51131b0e93)
-- 🐞 Fix:storeDir 误指新建空 store —— 令部署链每轮整轮卡死;改回真身 + 非交互兜底 (a3f2e82e14)
-- ⚡ Perf:重放 22f9a151 —— 守门去掉 17 次无效全屏障(69s→40s)+ 元门档排除两道全仓存量门(103 架构策略 / 127 出站路由)+ 并发诊断 (94be8486b1)
-- 🐞 Fix:storeDir 第二次改错 —— 误指向新建空 store,令部署链每轮整轮卡死 (0558687dfe)
-- ⚡ Perf:全部业务专项段加档位判据 + 修 TOOL_ONLY TDZ 错误 (32cf86dc9e)
-- ⚡ Perf:全部业务专项段加档位判据 —— 只改工具代码时跳过 10 项业务专项(footer/portal/button/credential/agent/capability 等) (a3a1d471b9)
-- ⚡ Perf:专项段加档位判据 —— 只改工具代码时跳过 miniapp parity / auth refresh / staged typecheck(实测省 34s) (057fb56f07)
-- ⚡ Perf:i18n 死 key 扫描移入守门并行池(门 70b)—— 省 6.6s 串行独占 (119085b0ff)
-- ⚡ Perf:守护 git 派生加 GIT_OPTIONAL_LOCKS=0 —— 不再每 12 秒抢索引锁(撞锁重试会重跑整条 pre-commit) (4a2a013cd0)
+- 🔧 Chore/Other:项目运行态自 .workbuddy 迁至 .ihui-agent/state,清理 IDE 残留目录 (c4012eacc3)
+- 📚 Docs:守卫参考文档补溯源水印(生成器输出后注入) (f1b0d8e799)
+- 🐞 Fix:头像 shape 接上实现(演示页的 square 此前渲染成圆),并给门 128 的 VoiceInput 登记带理由豁免 (b85a07a11e)
 
 **2026-10-22**
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (bfc8d9c34e)
+- 📚 Docs:守卫参考文档补溯源水印(生成器输出后注入) (f1b0d8e799)
+- 🐞 Fix:头像 shape 接上实现(演示页的 square 此前渲染成圆),并给门 128 的 VoiceInput 登记带理由豁免 (b85a07a11e)
 
 **2026-10-22**
-- 🐞 Fix:活文档归并补认无需归并短路径(真丢失=0),修 PROJECT_PLAN 被 fail-closed 误悬挂 (c85a82e4d1)
+- 🐞 Fix:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (97d022cc3d)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c45ca90a55)
+- 📚 Docs:G-957 出路补两条实测接手事实(已有 mobile-auth 闭环先例 / 其 clientId 写死 / 域名白名单阻塞) (2a4d89d698)
+- 🐞 Fix:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (02a714b81c)
 
 **2026-10-22**
-- 🐞 Fix:更正 O88 行的失效出路 —— 票面写的 plan-tasks-merge --dedupe-done-twins 不在归并器旗标白名单内,照抄必 rc=2,换成实测 RC=0 的 check-plan-task-duplicates --json 并带上现读读数;裁与不裁的判定权仍归人,其余一字未动(§0.8 文档不许写跑不通的出路) (3c36f0efc7)
+- 📚 Docs:G-957 出路补两条实测接手事实(已有 mobile-auth 闭环先例 / 其 clientId 写死 / 域名白名单阻塞) (2a4d89d698)
+- 🐞 Fix:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (02a714b81c)
 
 **2026-10-22**
-- 🐞 Fix:摘牌器补落地后复验与新枚 sha 取源 —— 实测本器上一轮用 git rev-parse HEAD 取 landedSha,并发下取到的是别席刚顶上那枚(信息是「清偿重复登记存量」),于是报了「留痕 57 条」而 HEAD 面上一枚牌都没少:留痕指向不存在的改写、成功是自述的。现改为①从落地器自己输出解 40 位 sha,解不到就不写留痕不报成功;②落地后回读 HEAD 面复验(被摘原行残留数必须为 0 且挂牌数等于本轮跳过数),不过则判未生效。测试先行:两臂先跑 ReferenceError 再实现,器物自检廿三例全过。那 57 条假凭据已逐条校验提交信息后作废并留读数。 (52ba2968b3)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ef64532a32)
+- 🚀 Feature/Improvement:头像尺寸档收进跨端唯一表,小程序按定档整体升一档(门 128 Avatar 族) (967c222c24)
 
 **2026-10-22**
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (03d90ef001)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1bbcfc21a4)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (eca731e546)
+- 📚 Docs:撤回 G-960 行内「隧道零活动副本」的错归因,只留下量到的事实 (8797dcd702)
 
 **2026-10-22**
-- 🐞 Fix:活文档收编前先归并(lost=0 才提交),README 生成数字发令前对齐;清空并行席位悬挂改动 (08d9add06e)
+- 🔧 Chore/Other:拆掉一枚从入库起就永不可满足的同形标记,改为逐字钉住两侧现实 (0ff719575c)
+- 🐞 Fix:把话术分档补到 !ready 骨架分支——生产首屏实测打出来的漏网格 (7508b306ae)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1cdb4def64)
+- 📚 Docs:G-929 复验收口结清(落地器镜像 66/66 现跑转绿,修复已在仓) (a24a4195ba)
 
 **2026-10-22**
-- ⚡ Perf:safe-commit 发令前对齐 README 生成数字,根治门173滞后竞态;sync 增 --files 限定处理面与声明面同源 (b02793d354)
-- 🚀 Feature/Improvement:摘牌器补三格 —— 留痕键集单一清单(LEDGER_KEYS 导出,自产与补写同形状,缺字段抛错不落半形)、backfillEntry 收敛器补写口、注记日期改本地日(上一轮用 UTC 日写注记,当天上午摘的牌全落在前一天,按日期收敛时整批六十三枚被漏掉)。测试先行:键集一致性臂先跑 ReferenceError 再实现;器物自检廿一例全过。 (098aa44d30)
-- 🐞 Fix:把本席上一轮漏收敛的 63 枚摘牌注记收敛成指针(原牌信息已无损回填留痕,seq 前缀 bfmviq9p9d)。上一轮我只按 @2026-10-22 匹配就报了「收敛完」——器物当时用 UTC 日写注记,当天上午的摘牌全落在 @2026-10-21,整批被我漏掉,那是交付不实;本轮同时把日期口径改成本地日,并给留痕补写口与键集一致性自检(防两种形状)。历史他人席位的注记一枚未动。校验:注记 #seq 六十三/六十三可在留痕解到、lease 三十五/三十五带原牌三要素、前后整行双全。 (7488b9cd66)
+- 🐞 Fix:待摘点名行不再给裸标记印 null,并加单源形状锁 (f3d73ae733)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (596561589d)
 
 **2026-10-22**
-- ♻️ Refactor:摘牌可追责性搬到仓外留痕 —— 行内注记只留 #seq 指针(实测最长五十二字,注记本身会被活文档归并洗掉:一轮六十四枚只剩六枚),原牌日期/持有者/超龄量/摘除前后整行/基线与落地枚 sha 逐条落 .workbuddy/stale-claim-strip.jsonl,九十天窗口老化且裁掉条数必须报出,取不到判未判定不用零冒充没摘过。测试先行:新臂先跑出红再实现;两次变异(去指针 / 留痕不存整行)分别使三四臂翻红,还原后逐字节核对基线指纹一致。器物自检十九例、镜像十例(含真写盘与老化)全过,门一零三/五二/一九九/一九四/一七六/十五/廿五各 RC=零。 (de551d1755)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c21ed373c9)
-- 🚀 Feature/Improvement:守门一零九新增 CL4 拦新增裸「（进行中）」(机主定档),与 CL1/CL3 共用 HEAD 存量棘轮只拦本次带进来的;超龄牌器物默认档改为代摘裸标记,依据是同批 CL4 已在提交链拦住新增、而器物只读 HEAD 面。测试先行:先写 S21 与 S1 更新跑出新红再实现,自检廿二例、镜像廿一例、器物镜像七例(第二遍复跑证幂等)、器物自检十一例全过;runner 标签同批改到四档名。取证:真仓 --check-gate 现读零红且 CL4 存量廿七处逐条点名、新增零处判红。 (cde5d204f2)
-- 📚 Docs:§1 同步 CL4 定档与器物默认档改写 —— 裸「（进行中）」新增即拦、存量只报数;器物代摘裸标记的依据是同批 CL4(不是口头状态) (18fc90a789)
+- 📚 Docs:G-926/G-927 复验收口结清(雷区残留归零+棘轮 74≤76 转绿) (8d3bb37b7a)
+- 🐞 Fix:收掉话术分档引入的三条 e2e 红,并修掉一条靠竞态才绿的断言 (b457d1e2b7)
+- ♻️ Refactor:post-commit-hook 裸 git 派生改走 face-reader gitRaw(G-927 剩余棘轮收口) (ca99778c00)
 
 **2026-10-22**
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d6fb50905f)
+- 🐞 Fix:补回被删掉的超龄认领代摘派发点,并加接线锁 (7de782f367)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7c2f9c706b)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (779c614b11)
+- 🔧 Chore/Other:删除 G-56 重复副本——G-69 为持有行,摘除声明防回捞 (d0af5f3ed1)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ce68f2c9c8)
+- 📚 Docs:G-924 复验收口结清(10 死键零消费现读复验+头注如实化已入库) (bb981ee240)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (15de4f883c)
 
 **2026-10-22**
-- 🐞 Fix:3e 活文档对账同时豁免两片派生区(RECENT UPDATES 归 auto-update-readme-recent、GENERATED NUMBERS 归 gen-doc-numbers;后者正确性由门 173 守),块外仍要求工作树⊇HEAD (1d1ed2680b)
+- 🔧 Chore/Other:清偿 4 条同题重复副本——保留持有份,副本逐字留档 (857016f095)
+- 📚 Docs:remote-icons 头注改如实记录 10 条死键最终处置面(G-924 复验收口) (925b8a787b)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (10fb069e0f)
+- 🔧 Chore/Other:删除 3 条归并指针副本——持有行 G-13/G-195 在册,副本行逐字留档 (dae74171a5)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a8c08ceec2)
+- 🔧 Chore/Other:归并指针行转正——G-1118436 唯一活体改正式登记并回池 (77c1efa52d)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d7b60ba59d)
+- 🔧 Chore/Other:D22046 回池——超池声明换池内号并留原号尾注 (d5b1b50728)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0006121770)
+- 🔧 Chore/Other:goal-20261022 结清 tmpdir7/G-922 + 认领批次②12 票 (576ee30ee5)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
