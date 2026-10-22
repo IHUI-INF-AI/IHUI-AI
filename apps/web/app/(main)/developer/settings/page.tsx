@@ -15,6 +15,7 @@ import { Card, CardContent, Button, Input, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { useConfirm } from '@/hooks/use-confirm'
 import { BackButton } from '@/components/common'
 
 interface DevInfo {
@@ -47,6 +48,7 @@ export default function SettingsPage() {
   // 未就绪/未登录不发注定 401 的挂载请求,整页改为显登录引导
   const tGate = useTranslations('chatHistory')
   const { allow } = useAuthGate()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [info, setInfo] = React.useState<DevInfo>({ name: '', email: '', company: '', website: '' })
   const [prefs, setPrefs] = React.useState<DevPreferences>(DEFAULT_PREFS)
   const [loaded, setLoaded] = React.useState(false)
@@ -228,7 +230,13 @@ export default function SettingsPage() {
               size="sm"
               variant="outline"
               className="shrink-0 text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
-              onClick={() => confirm(t('dangerDeleteConfirm')) && deleteMut.mutate()}
+              onClick={() => {
+                void confirm({ title: t('dangerDeleteConfirm'), variant: 'destructive' }).then(
+                  (ok) => {
+                    if (ok) deleteMut.mutate()
+                  },
+                )
+              }}
               disabled={deleteMut.isPending}
             >
               {deleteMut.isPending ? (
@@ -250,6 +258,8 @@ export default function SettingsPage() {
           }
         />
       )}
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

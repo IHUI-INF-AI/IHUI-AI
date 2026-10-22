@@ -13,6 +13,7 @@ import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { th } from './helpers'
 import { DictTag } from '@/components/DictTag'
+import { useConfirm } from '@/hooks/use-confirm'
 import type { DictType } from './types'
 
 interface DictTableProps {
@@ -44,6 +45,7 @@ export function DictTable({
 }: DictTableProps) {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
 
   if (isLoading) {
     return (
@@ -106,7 +108,12 @@ export function DictTable({
                     className="text-destructive hover:text-destructive"
                     disabled={delTypePending}
                     onClick={() => {
-                      if (confirm(t('dict.deleteConfirm'))) onDeleteType(d.id)
+                      void confirm({
+                        title: t('dict.deleteConfirm'),
+                        variant: 'destructive',
+                      }).then((ok) => {
+                        if (ok) onDeleteType(d.id)
+                      })
                     }}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -175,7 +182,12 @@ export function DictTable({
                                 className="text-destructive hover:text-destructive"
                                 disabled={delItemPending}
                                 onClick={() => {
-                                  if (confirm(t('dict.deleteConfirm'))) onDeleteItem(it.id)
+                                  void confirm({
+                                    title: t('dict.deleteConfirm'),
+                                    variant: 'destructive',
+                                  }).then((ok) => {
+                                    if (ok) onDeleteItem(it.id)
+                                  })
                                 }}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -192,6 +204,8 @@ export function DictTable({
           </div>
         )
       })}
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

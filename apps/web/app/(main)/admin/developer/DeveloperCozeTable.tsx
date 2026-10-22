@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
+import { useConfirm } from '@/hooks/use-confirm'
 import {
   Button,
   ChevronLeft,
@@ -65,6 +66,7 @@ export function DeveloperCozeTable({
   deletePending,
 }: DeveloperCozeTableProps) {
   const t = useTranslations('admin.developer')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -162,8 +164,12 @@ export function DeveloperCozeTable({
                               className="text-destructive hover:text-destructive"
                               disabled={deletePending}
                               onClick={() => {
-                                if (confirm(t('cozeDeleteConfirm', { cozeId: c.cozeId })))
-                                  onDelete(c.id)
+                                void confirm({
+                                  title: t('cozeDeleteConfirm', { cozeId: c.cozeId }),
+                                  variant: 'destructive',
+                                }).then((ok) => {
+                                  if (ok) onDelete(c.id)
+                                })
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -205,6 +211,7 @@ export function DeveloperCozeTable({
           </Button>
         </div>
       </div>
+      <ConfirmDialogRenderer />
     </section>
   )
 }
