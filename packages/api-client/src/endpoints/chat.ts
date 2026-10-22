@@ -365,15 +365,20 @@ export function setConversationPinned(id: string, pinned: boolean) {
   )
 }
 
-/** 重新生成对话(2026-08-30 立):删除指定 AI 消息及其之后的所有消息(后端事务) */
+/** 重新生成对话(2026-08-30 立;票59 2026-10-07 改 sibling 语义):后端**不再物理删除** ——
+ *  目标 AI 消息保留为版本族根,返回 rootId/nextSiblingIndex;调用方随后流式生成的新回复
+ *  以 (parentMessageId = rootId, siblingIndex = nextSiblingIndex) 入族(streamChat metadata
+ *  透传),旧回复成为可切换的上一版。remainingCount 为旧契约保留字段(现读数=全量现存)。 */
 export function regenerateConversation(conversationId: string, messageId: string) {
-  return fetchApi<{ regeneratedFrom: string; remainingCount: number }>(
-    `/api/chat/conversations/${encodeURIComponent(conversationId)}/regenerate`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ messageId }),
-    },
-  )
+  return fetchApi<{
+    regeneratedFrom: string
+    remainingCount: number
+    rootId: string
+    nextSiblingIndex: number
+  }>(`/api/chat/conversations/${encodeURIComponent(conversationId)}/regenerate`, {
+    method: 'POST',
+    body: JSON.stringify({ messageId }),
+  })
 }
 
 /** 编辑重跑(2026-09-12 立,四竞品对标 P0-1):更新目标用户消息内容并删除其后的所有消息(后端事务) */

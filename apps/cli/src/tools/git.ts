@@ -35,10 +35,10 @@ const git_status: Tool = {
     const porcelain = args.porcelain === true;
     const cmdArgs = ['status'];
     if (porcelain) cmdArgs.push('--porcelain');
-    const preResult = await runPreToolCall('git_status', { porcelain });
+    const preResult = await runPreToolCall('git_status', { porcelain }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_status', { exitCode: r.exitCode });
+    await runPostToolCall('git_status', { exitCode: r.exitCode }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -66,10 +66,10 @@ const git_diff: Tool = {
       cmdArgs.push(filePath);
     }
 
-    const preResult = await runPreToolCall('git_diff', { staged, path: filePath, ref });
+    const preResult = await runPreToolCall('git_diff', { staged, path: filePath, ref }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_diff', { exitCode: r.exitCode });
+    await runPostToolCall('git_diff', { exitCode: r.exitCode }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -123,12 +123,12 @@ const git_add: Tool = {
       return { success: false, output: '', error: 'files 参数必须包含至少一个非空字符串' };
     }
 
-    const preResult = await runPreToolCall('git_add', { files: filePaths });
+    const preResult = await runPreToolCall('git_add', { files: filePaths }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs = ['add', ...filePaths];
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_add', { exitCode: r.exitCode, files: filePaths });
+    await runPostToolCall('git_add', { exitCode: r.exitCode, files: filePaths }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -265,14 +265,14 @@ const git_commit: Tool = {
       ? (rawPaths.filter((p): p is string => typeof p === 'string' && p.length > 0))
       : undefined;
 
-    const preResult = await runPreToolCall('git_commit', { message, amend, paths: scopedPaths });
+    const preResult = await runPreToolCall('git_commit', { message, amend, paths: scopedPaths }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     if (scopedPaths && scopedPaths.length > 0) {
       if (amend) return { success: false, output: '', error: '按范围提交与 --amend 互斥(语义不明,请分开执行)' };
       const result = commitWithTempIndex(message, scopedPaths, ctx.workspacePath);
       if (!result.ok) return { success: false, output: '', error: result.error };
-      await runPostToolCall('git_commit', { exitCode: 0, message, paths: scopedPaths, sha: result.sha });
+      await runPostToolCall('git_commit', { exitCode: 0, message, paths: scopedPaths, sha: result.sha }, ctx.signal);
       return { success: true, output: `[scoped commit] ${result.sha}\n${scopedPaths.join('\n')}` };
     }
 
@@ -280,7 +280,7 @@ const git_commit: Tool = {
     if (amend) cmdArgs.push('--amend', '--no-edit');
 
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_commit', { exitCode: r.exitCode, message });
+    await runPostToolCall('git_commit', { exitCode: r.exitCode, message }, ctx.signal);
     return formatGitResult(r);
   },
 };

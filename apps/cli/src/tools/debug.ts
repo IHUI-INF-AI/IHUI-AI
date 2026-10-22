@@ -439,7 +439,7 @@ export const debug_launch: Tool = {
     if (!language || !command) {
       return { success: false, output: '', error: '参数错误:需要 type(node/python/web)和 command(程序路径)' };
     }
-    const preResult = await runPreToolCall('debug_launch', { type: language, command });
+    const preResult = await runPreToolCall('debug_launch', { type: language, command }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const progArgs = args.args as string[] | undefined;
@@ -490,7 +490,7 @@ export const debug_launch: Tool = {
 
     sessions.set(client.sessionId, client);
     const launchReaped = reapIdleSessionsNote();
-    await runPostToolCall('debug_launch', { sessionId: client.sessionId, type: language });
+    await runPostToolCall('debug_launch', { sessionId: client.sessionId, type: language }, ctx.signal);
     return {
       success: true,
       output: `调试 session 已启动\nsessionId: ${client.sessionId}\nlanguage: ${language}\ncommand: ${command}\nstopOnEntry: ${stopOnEntry}${launchReaped}`,
@@ -515,7 +515,7 @@ export const debug_attach: Tool = {
     if (!language || typeof port !== 'number') {
       return { success: false, output: '', error: '参数错误:需要 type(node/python/web)和 port(数字)' };
     }
-    const preResult = await runPreToolCall('debug_attach', { type: language, port });
+    const preResult = await runPreToolCall('debug_attach', { type: language, port }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const host = (args.host as string | undefined) ?? 'localhost';
@@ -555,7 +555,7 @@ export const debug_attach: Tool = {
 
     sessions.set(client.sessionId, client);
     const attachReaped = reapIdleSessionsNote();
-    await runPostToolCall('debug_attach', { sessionId: client.sessionId, type: language, port });
+    await runPostToolCall('debug_attach', { sessionId: client.sessionId, type: language, port }, ctx.signal);
     return {
       success: true,
       output: `已 attach 到调试目标\nsessionId: ${client.sessionId}\nlanguage: ${language}\nhost: ${host}\nport: ${port}${attachReaped}`,
@@ -574,14 +574,14 @@ export const debug_set_breakpoints: Tool = {
     lines: { type: 'array', description: '断点行数组', items: { type: 'object', description: '{line, condition?}', properties: { line: { type: 'number', description: '行号(1-based)' }, condition: { type: 'string', description: '条件表达式(可选)' } } } },
   },
   required: ['sessionId', 'file', 'lines'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const sessionId = args.sessionId as string | undefined;
     const file = args.file as string | undefined;
     const lines = args.lines as Array<{ line: number; condition?: string }> | undefined;
     if (!sessionId || !file || !Array.isArray(lines)) {
       return { success: false, output: '', error: '参数错误:需要 sessionId、file、lines(数组)' };
     }
-    const preResult = await runPreToolCall('debug_set_breakpoints', { sessionId, file, count: lines.length });
+    const preResult = await runPreToolCall('debug_set_breakpoints', { sessionId, file, count: lines.length }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const client = getSession(sessionId);
@@ -603,7 +603,7 @@ export const debug_set_breakpoints: Tool = {
         sourceModified: false,
       });
       const breakpoints = (body as { breakpoints?: unknown[] })?.breakpoints ?? [];
-      await runPostToolCall('debug_set_breakpoints', { sessionId, file, verified: breakpoints.length });
+      await runPostToolCall('debug_set_breakpoints', { sessionId, file, verified: breakpoints.length }, ctx.signal);
       const formatted = (breakpoints as Array<Record<string, unknown>>)
         .map((bp, i) => `  行 ${lines[i]?.line}: ${bp['verified'] ? '✓ verified' : '✗ ' + (bp['message'] ?? 'unverified')}`)
         .join('\n');
@@ -626,12 +626,12 @@ export const debug_continue: Tool = {
     sessionId: { type: 'string', description: 'debug session ID' },
   },
   required: ['sessionId'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const sessionId = args.sessionId as string | undefined;
     if (!sessionId) {
       return { success: false, output: '', error: '参数错误:需要 sessionId' };
     }
-    const preResult = await runPreToolCall('debug_continue', { sessionId });
+    const preResult = await runPreToolCall('debug_continue', { sessionId }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const client = getSession(sessionId);
@@ -645,7 +645,7 @@ export const debug_continue: Tool = {
     try {
       await client.sendRequest('continue', { threadId: client.currentThreadId });
       const stopped = await client.waitForStopped();
-      await runPostToolCall('debug_continue', { sessionId, reason: stopped.reason });
+      await runPostToolCall('debug_continue', { sessionId, reason: stopped.reason }, ctx.signal);
       return {
         success: true,
         output: `程序已暂停\nreason: ${stopped.reason}\nthreadId: ${stopped.threadId ?? 'N/A'}${stopped.text ? '\ntext: ' + stopped.text : ''}`,
@@ -666,7 +666,7 @@ export const debug_step: Tool = {
     stepType: { type: 'string', description: '步进类型', enum: ['next', 'stepIn', 'stepOut'] },
   },
   required: ['sessionId', 'stepType'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const sessionId = args.sessionId as string | undefined;
     const stepType = args.stepType as string | undefined;
     if (!sessionId || !stepType) {
@@ -676,7 +676,7 @@ export const debug_step: Tool = {
     if (!valid.includes(stepType)) {
       return { success: false, output: '', error: `无效 stepType: ${stepType},应为 next/stepIn/stepOut` };
     }
-    const preResult = await runPreToolCall('debug_step', { sessionId, stepType });
+    const preResult = await runPreToolCall('debug_step', { sessionId, stepType }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const client = getSession(sessionId);
@@ -690,7 +690,7 @@ export const debug_step: Tool = {
     try {
       await client.sendRequest(stepType, { threadId: client.currentThreadId });
       const stopped = await client.waitForStopped(60_000);
-      await runPostToolCall('debug_step', { sessionId, stepType, reason: stopped.reason });
+      await runPostToolCall('debug_step', { sessionId, stepType, reason: stopped.reason }, ctx.signal);
       return {
         success: true,
         output: `单步执行完成(${stepType})\nreason: ${stopped.reason}\nthreadId: ${stopped.threadId ?? 'N/A'}`,
@@ -710,12 +710,12 @@ export const debug_get_stack_trace: Tool = {
     sessionId: { type: 'string', description: 'debug session ID' },
   },
   required: ['sessionId'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const sessionId = args.sessionId as string | undefined;
     if (!sessionId) {
       return { success: false, output: '', error: '参数错误:需要 sessionId' };
     }
-    const preResult = await runPreToolCall('debug_get_stack_trace', { sessionId });
+    const preResult = await runPreToolCall('debug_get_stack_trace', { sessionId }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const client = getSession(sessionId);
@@ -733,7 +733,7 @@ export const debug_get_stack_trace: Tool = {
         levels: 20,
       });
       const frames = (body as { stackFrames?: Array<Record<string, unknown>> })?.stackFrames ?? [];
-      await runPostToolCall('debug_get_stack_trace', { sessionId, frames: frames.length });
+      await runPostToolCall('debug_get_stack_trace', { sessionId, frames: frames.length }, ctx.signal);
       if (frames.length === 0) {
         return { success: true, output: '(无调用栈帧)' };
       }
@@ -765,14 +765,14 @@ export const debug_get_variables: Tool = {
     scope: { type: 'string', description: '变量作用域过滤(可选,默认 local)', enum: ['local', 'global', 'closure'] },
   },
   required: ['sessionId', 'frameId'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const sessionId = args.sessionId as string | undefined;
     const frameId = args.frameId as number | undefined;
     if (!sessionId || typeof frameId !== 'number') {
       return { success: false, output: '', error: '参数错误:需要 sessionId 和 frameId(数字)' };
     }
     const scope = (args.scope as string | undefined) ?? 'local';
-    const preResult = await runPreToolCall('debug_get_variables', { sessionId, frameId, scope });
+    const preResult = await runPreToolCall('debug_get_variables', { sessionId, frameId, scope }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const client = getSession(sessionId);
@@ -812,7 +812,7 @@ export const debug_get_variables: Tool = {
           }
         }
       }
-      await runPostToolCall('debug_get_variables', { sessionId, frameId, scope, count: variables.length });
+      await runPostToolCall('debug_get_variables', { sessionId, frameId, scope, count: variables.length }, ctx.signal);
       if (variables.length === 0) {
         return { success: true, output: `(scope=${scope} 无变量)` };
       }
@@ -840,14 +840,14 @@ export const debug_eval: Tool = {
     frameId: { type: 'number', description: '栈帧 ID(可选,在指定帧上下文求值)' },
   },
   required: ['sessionId', 'expression'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const sessionId = args.sessionId as string | undefined;
     const expression = args.expression as string | undefined;
     if (!sessionId || !expression) {
       return { success: false, output: '', error: '参数错误:需要 sessionId 和 expression' };
     }
     const frameId = args.frameId as number | undefined;
-    const preResult = await runPreToolCall('debug_eval', { sessionId, expression });
+    const preResult = await runPreToolCall('debug_eval', { sessionId, expression }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const client = getSession(sessionId);
@@ -860,7 +860,7 @@ export const debug_eval: Tool = {
       if (frameId !== undefined) evalArgs['frameId'] = frameId;
       const result = await client.sendRequest('evaluate', evalArgs);
       const r = result as { result?: string; type?: string } | null;
-      await runPostToolCall('debug_eval', { sessionId, expression });
+      await runPostToolCall('debug_eval', { sessionId, expression }, ctx.signal);
       return {
         success: true,
         output: `求值结果:\n  expression: ${expression}\n  result: ${r?.result ?? '(无结果)'}\n  type: ${r?.type ?? '?'}`,
@@ -880,12 +880,12 @@ export const debug_disconnect: Tool = {
     sessionId: { type: 'string', description: '要关闭的 debug session ID' },
   },
   required: ['sessionId'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const sessionId = args.sessionId as string | undefined;
     if (!sessionId) {
       return { success: false, output: '', error: '参数错误:需要 sessionId' };
     }
-    const preResult = await runPreToolCall('debug_disconnect', { sessionId });
+    const preResult = await runPreToolCall('debug_disconnect', { sessionId }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const client = sessions.get(sessionId);
@@ -895,7 +895,7 @@ export const debug_disconnect: Tool = {
 
     await client.disconnect();
     sessions.delete(sessionId);
-    await runPostToolCall('debug_disconnect', { sessionId });
+    await runPostToolCall('debug_disconnect', { sessionId }, ctx.signal);
     return {
       success: true,
       output: `debug session 已断开: ${sessionId}`,
@@ -910,8 +910,8 @@ export const debug_list_sessions: Tool = {
   dangerLevel: 'read',
   parameters: {},
   required: [],
-  async execute(): Promise<ToolResult> {
-    await runPreToolCall('debug_list_sessions', {});
+  async execute(_args, ctx): Promise<ToolResult> {
+    await runPreToolCall('debug_list_sessions', {}, ctx.signal);
     // 摘除出口只有一处:`cleanupIdleSessions()`。此前这里内联了一份"只清 terminated"的重复循环,
     // 同一个 Map 于是有两条写入路径且语义不一致 —— 内联那份永远不看 idle,
     // 而 idle 才是"adapter 子进程还活着却再没人管"的那一半。
@@ -927,7 +927,7 @@ export const debug_list_sessions: Tool = {
       const elapsed = Math.round((Date.now() - client.startedAt) / 1000);
       lines.push(`  ${client.sessionId} | ${client.language} | ${client.status} | ${elapsed}s ago`);
     }
-    await runPostToolCall('debug_list_sessions', { count: sessions.size });
+    await runPostToolCall('debug_list_sessions', { count: sessions.size }, ctx.signal);
     return {
       success: true,
       output: `活跃 debug session(${sessions.size} 个):\n${lines.join('\n')}${listReaped}`,

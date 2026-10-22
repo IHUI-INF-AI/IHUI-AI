@@ -68,14 +68,14 @@ export const fetch_url: Tool = {
     url: { type: 'string', description: '要抓取的 http/https URL' },
   },
   required: ['url'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const url = args.url as string;
     if (!url) return { success: false, output: '', error: '缺少 url 参数' };
     if (!/^https?:\/\//i.test(url)) {
       return { success: false, output: '', error: '仅支持 http/https URL' };
     }
 
-    const preResult = await runPreToolCall('fetch_url', { url });
+    const preResult = await runPreToolCall('fetch_url', { url }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const controller = new AbortController();
@@ -97,12 +97,12 @@ export const fetch_url: Tool = {
           assertFetchLiteralEgress(hopUrl);
         } catch (err) {
           if (!isEgressBlockedError(err)) throw err;
-          runPostToolCall('fetch_url', { error: EGRESS_BLOCKED_ERROR_TYPE });
+          runPostToolCall('fetch_url', { error: EGRESS_BLOCKED_ERROR_TYPE }, ctx.signal);
           return egressBlockedResult(err.message);
         }
         const verdict = await assertSafeFetchUrl(target);
         if (!verdict.safe) {
-          runPostToolCall('fetch_url', { error: verdict.code ?? 'ssrf-denied' });
+          runPostToolCall('fetch_url', { error: verdict.code ?? 'ssrf-denied' }, ctx.signal);
           return { success: false, output: '', error: formatSsrfRejection(verdict), errorType: 'ssrf_denied' };
         }
         res = await fetch(target, {
@@ -113,7 +113,7 @@ export const fetch_url: Tool = {
         // Egress-proxy allowlist rejection arrives as a response header (the
         // proxy owns the connection; there is no body to inspect).
         if (isProxyAllowlistBlock(res.headers)) {
-          runPostToolCall('fetch_url', { error: EGRESS_BLOCKED_ERROR_TYPE });
+          runPostToolCall('fetch_url', { error: EGRESS_BLOCKED_ERROR_TYPE }, ctx.signal);
           await res.body?.cancel().catch(() => {});
           return egressBlockedResult(proxyAllowlistBlockedMessage(hopUrl.hostname));
         }
@@ -121,7 +121,7 @@ export const fetch_url: Tool = {
         const loc = res.headers.get('location');
         if (!loc) break;
         if (++hops > MAX_REDIRECT_HOPS) {
-          runPostToolCall('fetch_url', { error: 'redirect-limit' });
+          runPostToolCall('fetch_url', { error: 'redirect-limit' }, ctx.signal);
           return { success: false, output: '', error: `重定向超过 ${MAX_REDIRECT_HOPS} 跳,已中止`, errorType: 'redirect_limit' };
         }
         // 相对 Location 也要按当前跳解析后再裁决,不得拿原始字符串猜
@@ -133,7 +133,7 @@ export const fetch_url: Tool = {
       const status = res.status;
 
       if (!res.ok) {
-        runPostToolCall('fetch_url', { status, finalUrl });
+        runPostToolCall('fetch_url', { status, finalUrl }, ctx.signal);
         return {
           success: false,
           output: '',
@@ -154,12 +154,12 @@ export const fetch_url: Tool = {
         output = output.slice(0, MAX_OUTPUT_CHARS) + '\n...(truncated)';
       }
 
-      runPostToolCall('fetch_url', { status, finalUrl, contentType, outputLen: output.length });
+      runPostToolCall('fetch_url', { status, finalUrl, contentType, outputLen: output.length }, ctx.signal);
 
       const header = `[${status}] ${finalUrl} (${contentType || 'unknown'})\n\n`;
       return { success: true, output: header + output };
     } catch (err) {
-      runPostToolCall('fetch_url', { error: String(err) });
+      runPostToolCall('fetch_url', { error: String(err) }, ctx.signal);
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('aborted')) {
         return { success: false, output: '', error: `请求超时(${FETCH_TIMEOUT_MS / 1000}s)` };

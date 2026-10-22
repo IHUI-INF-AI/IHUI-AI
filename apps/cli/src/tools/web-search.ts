@@ -113,13 +113,13 @@ export const web_search: Tool = {
     },
   },
   required: ['query'],
-  async execute(args): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const query = String(args.query ?? '').trim();
     if (!query) {
       return { success: false, output: '', error: '缺少 query 参数' };
     }
 
-    const preResult = await runPreToolCall('web_search', { query });
+    const preResult = await runPreToolCall('web_search', { query }, ctx.signal);
     if (!preResult.proceed) {
       return { success: false, output: '', error: preResult.reason };
     }
@@ -128,7 +128,7 @@ export const web_search: Tool = {
     const verdict = await assertSafeFetchUrl(searchUrl);
     if (!verdict.safe) {
       const error = formatSsrfRejection(verdict);
-      await runPostToolCall('web_search', { error });
+      await runPostToolCall('web_search', { error }, ctx.signal);
       return { success: false, output: '', error, errorType: 'network' };
     }
     const controller = new AbortController();
@@ -146,7 +146,7 @@ export const web_search: Tool = {
       });
 
       if (!res.ok) {
-        await runPostToolCall('web_search', { status: res.status });
+        await runPostToolCall('web_search', { status: res.status }, ctx.signal);
         return {
           success: false,
           output: '',
@@ -160,13 +160,13 @@ export const web_search: Tool = {
       await runPostToolCall('web_search', {
         resultCount: results.length,
         htmlLen: html.length,
-      });
+      }, ctx.signal);
       return {
         success: true,
         output: formatResults(query, results),
       };
     } catch (err) {
-      await runPostToolCall('web_search', { error: String(err) });
+      await runPostToolCall('web_search', { error: String(err) }, ctx.signal);
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('aborted')) {
         return {

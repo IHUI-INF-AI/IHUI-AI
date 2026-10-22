@@ -4595,9 +4595,25 @@ const endStats = new Map(
  * 各端调用出口形态不同(RN/小程序经 @ihui/api-client、Taro 可能 Taro.request、扩展走 fetch),
  * 而 pathRe 只认 `/api/` 字面量。文件里有这些传输口却一个路径都没抽出来 ⇒ **不能算判过**:
  * 计入「未判定」并打印条数(判据失效的表现永远是安静 —— 守门 70/76/81 同族)。
+ *
+ * ===== 2026-10-22(P1 扩面票产生路径①的修复):不再手抄第二张载波式 =====
+ * 旧版这里是**手抄字面量**,且与 `LINE_TRANSPORT_RE` 已在形态上漂移:那边认泛型传输口
+ * `fetchApi<Gen>(`(票面点名的 `directFetchRe` 认 `<[^>]*>?` 同一族),这边不认 ⇒
+ * 「同一文件在两个判据里形态不同」。后果不是少几条死调用,而是**整档静默**:
+ * 唯一载波是泛型形态、路径又抽不出的文件,`calls.length===0 && TRANSPORT_RE.test(src)`
+ * 两支都假 ⇒ 连「未判定(有传输口却抽不出路径)」都不进,盲区点名也点不到它 ——
+ * 这正是票面①那条产生路径("扩面只是账面变大")的现存形态。HEAD 面实测 34 个文件落在这格
+ * (packages/api-client 13 / apps/web 17 / 其余 4;探针件 `.ihui-agent/tmp/b8-p1-transport-probe.mjs`)。
+ * 现由既有唯一实现 `LINE_TRANSPORT_RE.source` **派生**(与 `BARE_TRANSPORT_RE_G`、
+ * `TRANSPORT_RE_G` 同一手法,§0.6:两处算同一件事必漂移),只追加 import 支 ——
+ * 消费侧文件把调用交给共享传输口,`from '@ihui/api-client'` 本身就是载波证据,
+ * 而 LINE_TRANSPORT_RE 没有这一支(它判的是遮罩行,import 行由点名侧贴 `import型` 标签)。
+ * 本档只报数与报名,不进判红/基线/退出码 ⇒ 载波集合变宽是**纯可见性收益**,
+ * 既有计数口径(`calls.length===0 && TRANSPORT_RE.test(src)`)一字未动。
  */
-const TRANSPORT_RE =
-  /fetchApi\s*\(|Taro\.request|\bwx\.request|\bmy\.request|\btt\.request|XMLHttpRequest|axios\.|\bfetch\s*\(|from\s+['"]@ihui\/api-client['"]/
+const TRANSPORT_RE = new RegExp(
+  `${LINE_TRANSPORT_RE.source}|from\\s+['"]@ihui\\/api-client['"]`,
+)
 /**
  * ===== 盲区点名(P1 扩面票的收尾,2026-10-05)=====
  * 上面那段 `st.shapeUnknown++` 只给**数字**。票面铁律:"报数必须报名 —— 否则读者不知道哪一行是
