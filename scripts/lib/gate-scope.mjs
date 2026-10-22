@@ -135,7 +135,12 @@ export function isMetaGate(check) {
 export function resolveGateScope(stagedPaths) {
   // 逃生舱:显式全量优先于一切推断。
   if (process.env.IHUI_GATE_SCOPE === 'full') {
-    return { scope: 'full', reason: 'IHUI_GATE_SCOPE=full 强制全量', businessCount: 0, judgementLibs: [] }
+    return {
+      scope: 'full',
+      reason: 'IHUI_GATE_SCOPE=full 强制全量',
+      businessCount: 0,
+      judgementLibs: [],
+    }
   }
   // 2026-10-22 机主令"那就上 CI":全量守门移交 CI(.github/workflows/guardian-full.yml),
   // **本地一律只跑元门档** —— 包括改 apps/、packages/ 的业务提交。
