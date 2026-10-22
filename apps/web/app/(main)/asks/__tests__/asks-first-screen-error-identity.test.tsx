@@ -39,6 +39,17 @@ import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 const fetchApiMock = vi.fn()
 vi.mock('@/lib/api', () => ({
   fetchApi: (url: string, options?: RequestInit) => fetchApiMock(url, options),
+  // helpers.api 已改转发单源出口 apiOrThrow:替身按同形补适配器
+  // (失败抛**带 status** 的 Error,成功解包 data —— 身份档判据全靠这个 status)。
+  apiOrThrow: async (url: string, options?: RequestInit) => {
+    const r = await fetchApiMock(url, options)
+    if (!r.success) {
+      const err = new Error(r.error) as Error & { status?: number }
+      err.status = r.status
+      throw err
+    }
+    return r.data
+  },
 }))
 
 vi.mock('next-intl', () => ({
@@ -164,7 +175,7 @@ describe('③ 源码锁:该族失败分支不得回到丢身份写法', () => {
     src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
 
   it('helpers.api() 只此一份且走唯一出口;AsksList 错误分支经 toUserFriendlyMessage', () => {
-    expect(helpersSource).toMatch('apiFailureToError(r)')
+    expect(helpersSource).toMatch('export { apiOrThrow as api }')
     expect(codeOnly(helpersSource)).not.toMatch(/throw new Error\(\s*r\.error\s*\)/)
     expect(listSource).toMatch('toUserFriendlyMessage(error)')
     // 错误分支直读 error.message 上屏 = 守门 135 明言"不判的第二半",在这里必须锁死
