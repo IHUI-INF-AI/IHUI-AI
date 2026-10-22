@@ -1356,13 +1356,42 @@ export function gate(a, strict, root, before, beforeErr, baseOverride = null) {
     )
     return 2
   }
-  const vsBase = ratchetViolations(base, items, a)
+  // G-681 归属过滤:差值基准面(HEAD 面)在手时,基线层 F9 只认"基线缺 ∧ HEAD 也没有"的键;
+  // 其余键是别人跳门塞进 HEAD 的存量 ⇒ 打印而不判红(静默等于放行),也不进点名名单。
+  // 问责档(--strict / 全量档)不过滤。退出码逐位不变(链上绝对层本就非 blocking,归
+  // absoluteLayerBlocks 管辖;这里只改打印面与 addedKeys 名单)—— 唯一新增的非零出口是
+  // "基准面盲 ⇒ 无法判定 exit 2"(分不清存量与新增时既不冒红也不记绿,与 blind 档同型)。
+  const f9Filter = Boolean(before) && !strict && f9b.added.length > 0
+  let f9Attributed = f9b.added
+  const f9Stock = []
+  if (f9Filter) {
+    if (!Array.isArray(before.collisions) && (before.counts?.collisionGroups ?? 0) > 0) {
+      console.log(
+        '⚠️ 无法判定 —— F9 归属:差值基准面给了撞号组数却没带逐组明细 ⇒ 分不清"HEAD 已有存量"与"本次新增"(既不冒红也不记绿)',
+      )
+      return 2
+    }
+    const f9HeadKeys = new Set(f9KeySetOf(before))
+    f9Attributed = f9b.added.filter((k) => !f9HeadKeys.has(k))
+    for (const k of f9b.added) if (f9HeadKeys.has(k)) f9Stock.push(k)
+    if (f9Stock.length)
+      console.log(
+        `ℹ F9 基线缺项 ${f9Stock.length} 组此刻已在 HEAD 面 ⇒ 不记在本次提交头上(问责档 --strict/全量面照旧判红)`,
+      )
+  }
+  // else 臂保留字面调用给镜像 M20 的源码锁(f9Filter=false 时与改前逐字等价)
+  const vsBase = f9Filter
+    ? ratchetViolations(base, items, {
+        ...a,
+        collisions: (a.collisions ?? []).filter((g) => f9Attributed.includes(g.key)),
+      })
+    : ratchetViolations(base, items, a)
   if (vsBase.length) {
     console.log(`❌ 基线棘轮:${vsBase.join(';')}`)
     console.log(`   差值判据看不见"别人跳门把增长塞进 HEAD"那一型,这一层就是为它留的。`)
     // F9 红必须**逐组点名**(键 / 两侧标题 / 行号)—— "只报数不报名"等于让改的人再跑一遍全量档,
     // 而这一维的存量按设计不判红,所以红只可能是新键:名单就是可执行出口本身。
-    const addedKeys = f9b.kind === 'red' ? new Set(f9b.added) : new Set()
+    const addedKeys = f9b.kind === 'red' ? new Set(f9Attributed) : new Set()
     for (const g of a?.collisions ?? [])
       if (addedKeys.has(g.key)) console.log(`   F9 基线新增撞号:${f9GroupLine(g)}`)
     if (addedKeys.size)

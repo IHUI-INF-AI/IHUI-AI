@@ -32,6 +32,12 @@ PY = sys.executable or "python"
 
 
 @pytest.fixture(autouse=True)
+def _allow_local_fallback(monkeypatch):
+    """G-212 后本地降级默认拒绝;本文件专门验证降级链路,故显式 opt-in。"""
+    monkeypatch.setenv("CONTAINER_RUNTIME_ALLOW_LOCAL_FALLBACK", "1")
+
+
+@pytest.fixture(autouse=True)
 async def _reap_container_tasks():
     """用例结束后回收所有运行时的后台子进程任务。
 

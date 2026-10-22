@@ -33,9 +33,9 @@ export default function DeveloperPage() {
   const { data: keys, isLoading } = useQuery({
     queryKey: ['admin', 'developer', 'keys'],
     queryFn: async () => {
-      const r = await fetchApi<ApiKey[]>('/api/developer/api-keys')
+      const r = await fetchApi<{ list: ApiKey[] }>('/api/developer/api-keys')
       if (!r.success) throw new Error(r.error)
-      return r.data
+      return r.data.list
     },
   })
   const { data: webhooks } = useQuery({

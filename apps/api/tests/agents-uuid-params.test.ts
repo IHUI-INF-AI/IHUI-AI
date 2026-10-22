@@ -66,6 +66,9 @@ const A_UUID = '123e4567-e89b-42d3-a456-426614174000'
 
 let app: FastifyInstance
 
+// 动态 import agents.js 会拉起整张路由图;全量套件 700+ 文件并发抢 transform 时,
+// 本 hook 实测可从静机 ~10s 顶过全局 15s hookTimeout(2026-10-22 全量回归连红两轮)。
+// 只给这一条 hook 放宽预算,不动 vitest.config.ts 全局值;判据与断言一字未动。
 beforeAll(async () => {
   const { agentsRoutes } = await import('../src/routes/agents.js')
   app = Fastify()
@@ -82,7 +85,7 @@ beforeAll(async () => {
   })
   await app.register(agentsRoutes, { prefix: '/api' })
   await app.ready()
-})
+}, 60_000)
 
 afterAll(async () => {
   await app?.close()

@@ -96,6 +96,7 @@ vi.mock('undici', () => ({
 }))
 
 import { forwardToAccountPool } from '../src/services/relay-account-forwarder.js'
+import { classifyUpstreamFailure as classifyTraeFailure } from '../src/services/upstream-adapters/trae-adapter.js'
 import {
   __test__ as sharedState,
   clearAccountCooldown,
@@ -527,6 +528,91 @@ describe('forwardToAccountPool', () => {
     await clearAccountCooldown(row.id)
     const r5 = await forwardToAccountPool(req, 'cool-model-1')
     expect(r5 && r5.ok).toBe(false) // 又打了一次(失败),但确实被选中
+  })
+
+  it('风控命中(4015)→ 30 分钟冷却且不重放:单号池第二次直接无候选', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    const row = accountRow('acct-risk') as { id: string }
+    accountRows = [row]
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        classifyUpstreamFailure: (status, bodyText) => ({
+          kind: classifyTraeFailure(status, bodyText),
+        }),
+      }),
+    )
+    const fetchMock = vi.fn(
+      async () => new Response('{"code":4015,"message":"account risk"}', { status: 400 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const req = { ...baseReq('risk-model-1'), stream: false }
+    const res = await forwardToAccountPool(req, 'risk-model-1')
+    expect(res && res.ok).toBe(false)
+    expect(fetchMock).toHaveBeenCalledTimes(1) // 风控不重放
+    expect((await getAccountsInCooldown([row.id])).has(row.id)).toBe(true)
+    // 冷却期内的请求不再打上游(无候选 → null 回退 ai-service)
+    expect(await forwardToAccountPool(req, 'risk-model-1')).toBeNull()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    // 健康度降级写库,admin 面板可见
+    expect(updateCalls.some((s) => s.healthStatus === 'degraded')).toBe(true)
+    await clearAccountCooldown(row.id)
+  })
+
+  it('executeChat 抛错带 upstreamCode=4015 → 归 risk(不是 network),同样冷却', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    const row = accountRow('acct-risk-code') as { id: string }
+    accountRows = [row]
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        classifyUpstreamFailure: (status, bodyText) => ({
+          kind: classifyTraeFailure(status, bodyText),
+        }),
+        buildChatRequest: () => {
+          throw new Error('不应走通用路径')
+        },
+        async executeChat() {
+          throw Object.assign(new Error('上游风控'), { upstreamCode: 4015 })
+        },
+      }),
+    )
+    const res = await forwardToAccountPool(baseReq('risk-code-model-1'), 'risk-code-model-1')
+    expect(res && res.ok).toBe(false)
+    expect((await getAccountsInCooldown([row.id])).has(row.id)).toBe(true)
+    await clearAccountCooldown(row.id)
+  })
+
+  it('账号级并发闸:单号在途 ≤3,第 4 个并发请求直接失败且不打上游', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-conc')]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    const pending: Array<(r: Response) => void> = []
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => pending.push(resolve)))
+    vi.stubGlobal('fetch', fetchMock)
+    const req = { ...baseReq('conc-model-1'), stream: false }
+    const ps = [0, 1, 2, 3].map(() => forwardToAccountPool(req, 'conc-model-1'))
+    const settled: unknown[] = []
+    for (const p of ps) void p.then((r) => settled.push(r))
+    // 3 个拿到额度并卡在 fetch;第 4 个被并发闸挡下立即失败
+    await vi.waitFor(() => {
+      expect(pending.length).toBe(3)
+      expect(settled.length).toBe(1)
+    })
+    const rejected = settled[0] as { ok: boolean; reason?: string }
+    expect(rejected.ok).toBe(false)
+    expect(rejected.reason).toMatch(/并发已达上限/)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    for (const resolve of pending) {
+      resolve(
+        new Response(JSON.stringify({ id: 'cm-conc', object: 'chat.completion', choices: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+    }
+    const results = await Promise.all(ps)
+    expect(results.filter((r) => r && r.ok).length).toBe(3)
   })
 
   it('会话亲和跨实例共享(内存兜底档):命中号置顶覆盖排序,成功后回写', async () => {

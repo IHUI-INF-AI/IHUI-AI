@@ -4,10 +4,9 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { sql, eq } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { env } from 'node:process'
 import { db } from '../db/index.js'
-import { vipLevels } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
@@ -19,6 +18,7 @@ import {
   purchaseVip,
   listUserVips,
   cancelUserVip,
+  updateVipLevel,
 } from '../db/vip-queries.js'
 import { createOrder, findOrderByNo, updateOrderStatus } from '../db/payment-queries.js'
 import {
@@ -473,13 +473,9 @@ export const adminVipRoutes: FastifyPluginAsync = async (server) => {
   server.put('/vip/levels/:id', async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const body = updateLevelBody.parse(request.body)
-    // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
-    const updatedRows = await db
-      .update(vipLevels)
-      .set({ ...body, updatedAt: new Date() })
-      .where(eq(vipLevels.id, id))
-      .returning({ id: vipLevels.id })
-    return reply.send(success({ updated: updatedRows.length > 0 }))
+    // updated 由库侧命中集派生(守门 134):无实际变化不写库、不推 updatedAt。
+    const result = await updateVipLevel(id, body)
+    return reply.send(success({ updated: result.updated }))
   })
 
   server.delete('/vip/levels/:id', async (request, reply) => {

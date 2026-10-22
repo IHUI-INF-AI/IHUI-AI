@@ -27,12 +27,14 @@
  * 但第二十六批正在把 `deleted` 那一族往下清:清到 0 的那天,"合计 ≤ deleted 字面量数"与
  * "字面量为 0 ⇒ V1 必为 0"两条都会把**还活着的新四族**当成混计判红 —— 那就是与任何提交都无关的
  * 恒红锁,而恒红锁的结局和被删一样(§12e)。现改成**逐键各量各的上界**,比原来的单个合计上界更严、
- * 不是更松;并把"按键表五键恒在位、且之和等于合计"补成硬条件(否则"少一族"与"那一族是 0"同形)。
+ * 不是更松;并把"按键表键族恒在位、且之和等于合计"补成硬条件(否则"少一族"与"那一族是 0"同形)。
+ * 2026-10-22 判据键族再扩到七键(updated/created,见门头注),本测试的独立键名单与 M10 的恒在位
+ * 检查**同一轮**扩面;不同步就由 M11 的"报表缺键"与 self-test K0 两边各自当场红。
  */
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test } from 'node:test'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -370,13 +372,13 @@ test('M10 --json 只新增不改动:四个判据数字段与既有形态逐字�
     ])
       if (!Number.isInteger(j.counts[k]) || j.counts[k] < 0)
         throw new Error(`新计数字段 ${k} 缺失或为负:${JSON.stringify(j.counts)}`)
-    // 2026-09-27 追加的按键分组表:五键必须**恒在位**(缺键 = 报表与判据的键表分叉,静默少一族)。
+    // 2026-09-27 追加的按键分组表:键族必须**恒在位**(缺键 = 报表与判据的键表分叉,静默少一族)。
     const byKey = j.counts.booleanAckByKey
     if (!byKey || typeof byKey !== 'object')
       throw new Error(`counts.booleanAckByKey 缺失:${JSON.stringify(byKey)}`)
-    for (const k of ['deleted', 'removed', 'restored', 'revoked', 'cleared'])
+    for (const k of ['deleted', 'removed', 'restored', 'revoked', 'cleared', 'updated', 'created'])
       if (!Number.isInteger(byKey[k]) || byKey[k] < 0)
-        throw new Error(`booleanAckByKey.${k} 缺失或为负(五键恒在位):${JSON.stringify(byKey)}`)
+        throw new Error(`booleanAckByKey.${k} 缺失或为负(键族恒在位):${JSON.stringify(byKey)}`)
     if (byKey.deleted !== 1 || byKey.removed !== 0)
       throw new Error(
         `夹具只有一处 deleted 那一族(removed 应为 0),实得 ${JSON.stringify(byKey)} —— 既有 booleanAckSites 的语义随键族扩大,但**按键必须分得清是哪一族**`,
@@ -469,8 +471,9 @@ test('M11 真仓 HEAD 阳性对照(两把互相独立的尺子,不只量下限)'
    * 而判据的键族扩到五键 —— 不改这把尺子,`booleanAckSites > ackLit` 会在**判据完全正确**的那天
    * 恒红(§12e 同型:恒红锁的结局和被删一样)。改法是"逐键各量各的",不是"把合计放大":
    * 每个键的上界由它自己的字面量数给出,比原来的单个合计上界**更严**,不是更松。
+   * 2026-10-22 再扩两键(updated/created),本表同轮追加 —— 否则新族会被"合计上界"漏掉。
    */
-  const ACK_FAMILY = ['deleted', 'removed', 'restored', 'revoked', 'cleared']
+  const ACK_FAMILY = ['deleted', 'removed', 'restored', 'revoked', 'cleared', 'updated', 'created']
   const ackLitBy = {}
   for (const k of ACK_FAMILY) ackLitBy[k] = grepFace(`${k}[[:space:]]*:[[:space:]]*true`)
   const ackLit = ACK_FAMILY.reduce((a, k) => a + ackLitBy[k], 0)
@@ -658,7 +661,9 @@ test('M15 跨文件锁:B1 的豁免族必须登记进守门 108 的 FAMILY_LIFET
  *  M20 解析表只认实测存在的形态:门里那条别名必须真声明在 apps/api/tsconfig.json 的 paths 里。
  * 夹具与判据一律从 `__test__` 取(§22c:测试里再抄一份 import 解析或导出索引,就成了第二套真相)。
  */
-const T = (await import(`../${GATE_REL}`)).__test__
+// 走 pathToFileURL 而非模板字面量 import(`../${GATE_REL}`):后者被门 98 的窄扫描器当成
+// 字面说明符 `../`,在旁路落地的悬空引用预检里恒报"树里无候选落点"(目标文件其实就在落地清单)。
+const T = (await import(pathToFileURL(join(SCRIPTS_DIR, GATE_REL)).href)).__test__
 test('M17 真仓 HEAD 变异对照:摘掉委托腿的 .returning( 必被 B2 点名,还原必归零(正确形态不得判红)', () => {
   const root = resolve(SCRIPTS_DIR, '..')
   const CALLER = 'apps/api/src/routes/admin-agreements.ts'

@@ -18,13 +18,22 @@
  *  - POST   /memory            写入一条记忆
  *  - DELETE /memory/:id        删除指定记忆条目
  *  - GET    /memory/graph      记忆图谱子图(P3 #41 面板数据源;代理 ai-service 8803)
+ *  - GET    /memory/status     四层记忆状态聚合(G-962 #76;MemoryPanel 数据源)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
+import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import type { MemoryEntry, MemoryScope, MemoryEntryType } from '@ihui/types'
+import {
+  agentMetaLessons,
+  agentMultimodalMemory,
+  agentSessionSummary,
+  agentWorkingMemoryCompression,
+} from '@ihui/database'
 import { checkAuthOrInternalService } from '../plugins/auth.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 
 const SCOPES: MemoryScope[] = ['global', 'user', 'session', 'project']
@@ -57,6 +66,39 @@ const deleteQuerySchema = z.object({
 const graphQuerySchema = z.object({
   query: z.string().trim().min(1, 'query 不能为空'),
 })
+
+/** 记忆状态聚合查询参数(G-962 #76)。range 形如 24h/7d/30d,宽松解析,非法值回退 30d。 */
+const memoryStatusQuerySchema = z.object({
+  user_id: z.string().trim().min(1).max(200).optional(),
+  range: z.string().trim().max(16).optional(),
+})
+
+interface MemoryStatusEntry {
+  id: string
+  content: string
+  createdAt: string
+  importance: number
+}
+
+function parseRangeMs(range: string | undefined): number {
+  const m = /^(\d+)\s*([hdw])$/i.exec(range ?? '')
+  if (!m) return 30 * 86_400_000
+  const n = Number(m[1])
+  const unit = (m[2] as string).toLowerCase()
+  const factor = unit === 'h' ? 3_600_000 : unit === 'd' ? 86_400_000 : 604_800_000
+  return n * factor
+}
+
+/** importance 归一到 0-100:score<=1 视为 0-1 小数(如 confidence)×100,否则按原值截断。 */
+function normalizeImportance(score: number | null | undefined): number {
+  if (score === null || score === undefined || Number.isNaN(score)) return 0
+  const v = score <= 1 ? score * 100 : score
+  return Math.max(0, Math.min(100, Math.round(v)))
+}
+
+function toIso(ts: Date | null | undefined): string {
+  return ts ? new Date(ts).toISOString() : ''
+}
 
 /** ai-service 记忆图谱统一响应 {code, message, data}。 */
 interface MemoryGraphResp {
@@ -240,6 +282,148 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply.status(502).send(error(502, '记忆图谱查询失败'))
     }
+  })
+
+  // GET /memory/status — 四层记忆状态聚合(G-962 批 4a #76;MemoryPanel 消费 {layers:[...]})
+  //
+  // 真实数据源为引擎记忆四表(agent-state schema):
+  //  working    ← agent_working_memory_compression(工作记忆压缩审计日志)
+  //  episodic   ← agent_session_summary(会话摘要)
+  //  semantic   ← agent_multimodal_memory(多模态记忆)
+  //  procedural ← agent_meta_lessons(元经验教训)
+  server.get('/memory/status', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!(await checkAuthOrInternalService(request, reply))) return
+    const parsed = memoryStatusQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // 面板传 agentId 作 user_id;归属校验缺失属已知残段(见批 4a 处置报告),先按传值过滤。
+    const userId = parsed.data.user_id ?? request.userId!
+    const since = new Date(Date.now() - parseRangeMs(parsed.data.range))
+
+    const wCond = and(
+      eq(agentWorkingMemoryCompression.userId, userId),
+      gte(agentWorkingMemoryCompression.createdAt, since),
+    )
+    const eCond = and(
+      eq(agentSessionSummary.userId, userId),
+      gte(agentSessionSummary.createdAt, since),
+    )
+    const sCond = and(
+      eq(agentMultimodalMemory.userId, userId),
+      gte(agentMultimodalMemory.createdAt, since),
+    )
+    const pCond = and(eq(agentMetaLessons.userId, userId), gte(agentMetaLessons.createdAt, since))
+
+    const [
+      workingCount,
+      episodicCount,
+      semanticCount,
+      proceduralCount,
+      workingRows,
+      episodicRows,
+      semanticRows,
+      proceduralRows,
+    ] = await Promise.all([
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(agentWorkingMemoryCompression)
+        .where(wCond),
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(agentSessionSummary)
+        .where(eCond),
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(agentMultimodalMemory)
+        .where(sCond),
+      db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(agentMetaLessons)
+        .where(pCond),
+      db
+        .select({
+          id: agentWorkingMemoryCompression.id,
+          originalMessages: agentWorkingMemoryCompression.originalMessages,
+          compressedTo: agentWorkingMemoryCompression.compressedTo,
+          strategy: agentWorkingMemoryCompression.strategy,
+          createdAt: agentWorkingMemoryCompression.createdAt,
+        })
+        .from(agentWorkingMemoryCompression)
+        .where(wCond)
+        .orderBy(desc(agentWorkingMemoryCompression.createdAt))
+        .limit(20),
+      db
+        .select({
+          id: agentSessionSummary.id,
+          summary: agentSessionSummary.summary,
+          importanceScore: agentSessionSummary.importanceScore,
+          createdAt: agentSessionSummary.createdAt,
+        })
+        .from(agentSessionSummary)
+        .where(eCond)
+        .orderBy(desc(agentSessionSummary.createdAt))
+        .limit(20),
+      db
+        .select({
+          id: agentMultimodalMemory.id,
+          caption: agentMultimodalMemory.caption,
+          importanceScore: agentMultimodalMemory.importanceScore,
+          createdAt: agentMultimodalMemory.createdAt,
+        })
+        .from(agentMultimodalMemory)
+        .where(sCond)
+        .orderBy(desc(agentMultimodalMemory.createdAt))
+        .limit(20),
+      db
+        .select({
+          id: agentMetaLessons.id,
+          title: agentMetaLessons.title,
+          content: agentMetaLessons.content,
+          confidence: agentMetaLessons.confidence,
+          createdAt: agentMetaLessons.createdAt,
+        })
+        .from(agentMetaLessons)
+        .where(pCond)
+        .orderBy(desc(agentMetaLessons.createdAt))
+        .limit(20),
+    ])
+
+    const workingEntries: MemoryStatusEntry[] = workingRows.map((r) => ({
+      id: r.id,
+      content: `压缩 ${r.originalMessages} 条 → ${r.compressedTo}(${r.strategy ?? 'summary'})`,
+      createdAt: toIso(r.createdAt),
+      importance: 0,
+    }))
+    const episodicEntries: MemoryStatusEntry[] = episodicRows.map((r) => ({
+      id: r.id,
+      content: r.summary ?? '',
+      createdAt: toIso(r.createdAt),
+      importance: normalizeImportance(r.importanceScore),
+    }))
+    const semanticEntries: MemoryStatusEntry[] = semanticRows.map((r) => ({
+      id: r.id,
+      content: r.caption ?? '',
+      createdAt: toIso(r.createdAt),
+      importance: normalizeImportance(r.importanceScore),
+    }))
+    const proceduralEntries: MemoryStatusEntry[] = proceduralRows.map((r) => ({
+      id: String(r.id),
+      content: r.title ? `${r.title}:${r.content ?? ''}` : (r.content ?? ''),
+      createdAt: toIso(r.createdAt),
+      importance: normalizeImportance(r.confidence),
+    }))
+
+    return reply.send(
+      success({
+        layers: [
+          { layer: 'working', count: workingCount[0]?.c ?? 0, entries: workingEntries },
+          { layer: 'episodic', count: episodicCount[0]?.c ?? 0, entries: episodicEntries },
+          { layer: 'semantic', count: semanticCount[0]?.c ?? 0, entries: semanticEntries },
+          { layer: 'procedural', count: proceduralCount[0]?.c ?? 0, entries: proceduralEntries },
+        ],
+      }),
+    )
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

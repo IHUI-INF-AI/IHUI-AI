@@ -239,9 +239,21 @@ export type UpdateProxyResult =
 
 export async function updateProxy(id: string, patch: UpdateProxyPatch): Promise<UpdateProxyResult> {
   try {
+    const [existing] = await dbRead
+      .select()
+      .from(aiRelayProxyPool)
+      .where(eq(aiRelayProxyPool.id, id))
+      .limit(1)
+    if (!existing) return { ok: false, reason: 'not_found' }
+    const changed = Object.fromEntries(
+      Object.entries(patch).filter(
+        ([k, v]) => v !== undefined && (existing as Record<string, unknown>)[k] !== v,
+      ),
+    )
+    if (Object.keys(changed).length === 0) return { ok: true, row: existing }
     const rows = await db
       .update(aiRelayProxyPool)
-      .set({ ...patch, updatedAt: new Date() })
+      .set({ ...changed, updatedAt: new Date() })
       .where(eq(aiRelayProxyPool.id, id))
       .returning()
     const row = rows[0]

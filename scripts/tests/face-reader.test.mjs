@@ -480,7 +480,10 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // ⇒ 72 ≤ 72 提交前后同判得过,不触发"一次只降 1"护栏(2026-10-06 同型账)。
 // 同轮另有 `◽ 型 B 存量已降到 3(基线 9)` 提示 —— 型 B 的下降归属他席迁移面(型 B),
 // 按 2026-10-06 先例**本票不动 PATH_BOUND_GIT_BASELINE**。
-const BARE_GIT_BASELINE = 72
+const BARE_GIT_BASELINE = 65
+// 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
+// benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
+// check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。
 // 2026-10-08 10 → 9:紧贴现读,不留余量=不容忍新增(账见上方 440-456 行)。
 // 行尾注记形态系落地守门"复活行"判别所需(本行`= 9`与祖先 0c6198cc44 逐字相同会误判复活),行为零变化。
 const PATH_BOUND_GIT_BASELINE = 3 // 紧贴现读(2026-10-22 实测 9→3:三枚剩余见测试提示)

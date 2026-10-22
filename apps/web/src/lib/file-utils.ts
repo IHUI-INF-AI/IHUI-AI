@@ -523,18 +523,14 @@ export async function createShareLink(input: {
   })
 }
 
-export async function getShareLink(id: string, password?: string): Promise<ApiResult<ShareLink>> {
-  return fetchApi<ShareLink>(`/files/share/${encodeURIComponent(id)}${buildQs({ password })}`)
-}
+// 2026-10-22 G-962 #114 摘除:GET /files/share/:id 从未注册(真形态是公开面
+// GET /api/files/shared/:token,见 files.ts:315),且全仓零消费方;恢复前先按
+// 后端 { share, file } 真返回体重建签名并补路由测试。
 
 export async function revokeShareLink(id: string): Promise<ApiResult<{ deleted: boolean }>> {
   return fetchApi<{ deleted: boolean }>(`/api/files/shares/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   })
-}
-
-export async function listShareLinks(): Promise<ApiResult<ShareLink[]>> {
-  return fetchApi<ShareLink[]>('/files/share')
 }
 
 /* ------------------------------------------------------------------ */
@@ -557,13 +553,17 @@ export interface FileVersion {
   createdAt: string
 }
 
-export async function listVersions(fileId: string): Promise<ApiResult<{ versions: FileVersion[] }>> {
+export async function listVersions(
+  fileId: string,
+): Promise<ApiResult<{ versions: FileVersion[] }>> {
   return fetchApi<{ versions: FileVersion[] }>(
     `/api/file-versions/list/${encodeURIComponent(fileId)}`,
   )
 }
 
-export async function restoreVersion(versionId: string): Promise<ApiResult<{ version: FileVersion }>> {
+export async function restoreVersion(
+  versionId: string,
+): Promise<ApiResult<{ version: FileVersion }>> {
   return fetchApi<{ version: FileVersion }>(
     `/api/file-versions/rollback/${encodeURIComponent(versionId)}`,
     { method: 'POST' },

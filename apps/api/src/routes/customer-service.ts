@@ -4,9 +4,17 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { and, desc, eq, or, sql } from 'drizzle-orm'
+import {
+  users,
+  customerServiceSessions,
+  customerServiceAgents,
+  customerServiceTickets,
+} from '@ihui/database'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { db } from '../db/index.js'
 import {
   findCategories,
   createCategory,
@@ -153,6 +161,24 @@ export const customerServiceRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!(await checkAuth(request, reply))) return
   })
+
+  // GET /info - 客服联系方式(G-962 B8;mobile-rn CustomerServiceScreen 消费 data)
+  // 配置源待接:库内无客服联系方式表,先读环境变量;未配置时返回空串,不伪造号码/邮箱。
+  server.get(
+    '/info',
+    { schema: { summary: '客服联系方式', tags: ['customer-service'], response: okResponse } },
+    async (_request, reply) => {
+      return reply.send(
+        success({
+          online: true,
+          working: true,
+          phone: process.env.CUSTOMER_SERVICE_PHONE ?? '',
+          email: process.env.CUSTOMER_SERVICE_EMAIL ?? '',
+          workingHours: process.env.CUSTOMER_SERVICE_WORKING_HOURS ?? '',
+        }),
+      )
+    },
+  )
 
   // GET /customer-service/categories - 分类列表（公开给已登录用户）
   server.get(
@@ -618,6 +644,153 @@ export const adminCustomerServiceRoutes: FastifyPluginAsync = async (server) => 
       const agent = await updateAgentStatus(parsed.data.id, body.data.status)
       if (!agent) return reply.status(404).send(error(404, '坐席不存在'))
       return reply.send(success({ agent }))
+    },
+  )
+
+  // =============================================================================
+  // G-962 批 4a(C 组):管理台会话/统计/工单读写面(#50-53)
+  // =============================================================================
+
+  // GET /admin/customer-service/sessions - 实时会话列表
+  // 数据源 customer_service_sessions join users;会话消息无表 ⇒ messages 恒空、
+  // lastMessage 空串、unread 0(真实"暂无消息",非硬编码假数据;消息面属残段移交)。
+  server.get(
+    '/sessions',
+    {
+      schema: {
+        summary: '实时会话列表',
+        tags: ['customer-service'],
+        response: okResponse,
+      },
+    },
+    async (_request, reply) => {
+      const rows = await db
+        .select({
+          sessionId: customerServiceSessions.sessionId,
+          userId: customerServiceSessions.userId,
+          status: customerServiceSessions.status,
+          updatedAt: customerServiceSessions.updatedAt,
+          nickname: users.nickname,
+          username: users.username,
+          avatar: users.avatar,
+        })
+        .from(customerServiceSessions)
+        .innerJoin(users, eq(users.id, customerServiceSessions.userId))
+        .orderBy(desc(customerServiceSessions.updatedAt))
+        .limit(100)
+
+      const list = rows.map((r) => ({
+        id: r.sessionId,
+        userId: r.userId,
+        status: r.status,
+        userName: r.nickname ?? r.username ?? '用户',
+        userAvatar: r.avatar ?? null,
+        lastMessage: '',
+        lastTime: r.updatedAt.toISOString(),
+        unread: 0,
+        messages: [],
+      }))
+      return reply.send(success({ list }))
+    },
+  )
+
+  // GET /admin/customer-service/stats - 工作台统计(在线坐席/排队会话/今日处理完)
+  server.get(
+    '/stats',
+    {
+      schema: {
+        summary: '客服工作台统计',
+        tags: ['customer-service'],
+        response: okResponse,
+      },
+    },
+    async (_request, reply) => {
+      const todayStart = new Date()
+      todayStart.setHours(0, 0, 0, 0)
+
+      const [onlineRow, waitingRow, processedRow] = await Promise.all([
+        db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(customerServiceAgents)
+          .where(eq(customerServiceAgents.status, 'online'))
+          .then((r) => r[0]),
+        db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(customerServiceSessions)
+          .where(eq(customerServiceSessions.status, 'waiting'))
+          .then((r) => r[0]),
+        db
+          .select({ c: sql<number>`count(*)::int` })
+          .from(customerServiceTickets)
+          .where(
+            and(
+              or(
+                sql`${customerServiceTickets.resolvedAt} >= ${todayStart}`,
+                sql`${customerServiceTickets.closedAt} >= ${todayStart}`,
+              ),
+            ),
+          )
+          .then((r) => r[0]),
+      ])
+
+      return reply.send(
+        success({
+          onlineAgents: onlineRow?.c ?? 0,
+          waiting: waitingRow?.c ?? 0,
+          todayProcessed: processedRow?.c ?? 0,
+        }),
+      )
+    },
+  )
+
+  // GET /admin/customer-service/tickets/:id - 工单详情(管理台;data=工单行)
+  server.get(
+    '/tickets/:id',
+    {
+      schema: {
+        summary: '工单详情(管理台)',
+        tags: ['customer-service'],
+        response: okResponse,
+      },
+    },
+    async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const ticket = await findTicketById(parsed.data.id)
+      if (!ticket) return reply.status(404).send(error(404, '工单不存在'))
+      return reply.send(success(ticket))
+    },
+  )
+
+  // PUT /admin/customer-service/tickets/:id - 更新工单字段(标题/描述/分类/优先级)
+  server.put(
+    '/tickets/:id',
+    {
+      schema: {
+        summary: '更新工单',
+        tags: ['customer-service'],
+        body: { type: 'object', additionalProperties: true },
+        response: okResponse,
+      },
+    },
+    async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const body = updateTicketSchema.safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      }
+      const patch = body.data
+      if (Object.values(patch).every((v) => v === undefined)) {
+        return reply.status(400).send(error(400, '至少提供一个待更新字段'))
+      }
+      const ticket = await updateTicket(parsed.data.id, patch)
+      if (!ticket) return reply.status(404).send(error(404, '工单不存在'))
+      return reply.send(success(ticket))
     },
   )
 }

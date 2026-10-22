@@ -14,6 +14,12 @@
 // `interactionAllowed(kind, perms)`(perms 必须来自 D69 `queueInteractionPerms`),端内
 // 不另立第二套判定。被拒动作**必须显式渲染 deniedKey**(静默禁用 = 把"为什么不行"藏起来)。
 //
+// **D162 a)G-171:queueChanged 的真实来源**:编辑窗口打开时记下目标项正文,确认前比对
+// 当前正文 —— 被外部改过 ⇒ 本地实测的 queueChanged 事实,经调用方注入的 blockCtx 取并后
+// 交给 D69 `queueActionBlockView` 判定(原因只有那一处判,本组件不复制 reason→文案表)。
+// 其余条件(queueChanged 的点击型动作 / 控制命令 / 来源匹配)在 web 侧仍无生产者,
+// 一律沿用调用方注入值,不臆造。
+//
 // **W27 纪律**:本条只发"重排/移除/编辑/打断计划"意图,不做任何队列状态写操作;
 // 「打断并执行」只上抛 interruptPlan({stopFirst, thenRun}),停流走 W2 abort 通道、
 // 跑队首由调用方按既有消费路径执行 —— 队首选择逻辑一行不动。
@@ -120,6 +126,20 @@ export function QueueInteractionBar({
   }, [editingId])
   const [editDraft, setEditDraft] = React.useState('')
 
+  // D162 a)G-171:queueChanged 的**真实输入** —— 编辑窗口基线。
+  //   进入编辑时记下目标项当时的正文(用户看到的旧队列);确认前若该项正文已被外部改动,
+  //   说明队列在这次编辑期间发生了变化,写回去就是覆盖别人的新值 ⇒ queueChanged 命中,
+  //   草稿保留、不写回过期队列(判定仍走 D69 `queueActionBlockView` 唯一本体,这里只供事实,
+  //   不另判原因)。单次点击型动作(撤回/重排)没有"看到→操作"窗口,不在此列 —— 无生产者
+  //   的条件一律不臆造。
+  const editBaselineRef = React.useRef<{ id: string; text: string } | null>(null)
+  const editBaseline = editBaselineRef.current
+  const editDrift =
+    editingId !== null &&
+    editBaseline !== null &&
+    editBaseline.id === editingId &&
+    (items.find((item) => item.id === editingId)?.text ?? null) !== editBaseline.text
+
   // 许可门统一走 D69 复用判定(每渲染一次求值;动作触发时再校验一次,防状态漂移)
   const verdicts = React.useMemo(() => {
     const byKind = {} as Record<
@@ -132,14 +152,16 @@ export function QueueInteractionBar({
 
   // D162:六格拒因逐动作求值(仅调用方注入 blockCtx 时启用;缺省 = 零行为变更)。
   // 只读不写:这里只产出"哪个动作因哪个具体条件不能按",不触碰任何队列状态。
+  // editDrift 是编辑窗口内实测到的 queueChanged:与调用方注入的并发标记取并后交给同一判定。
   const blockedByKey = React.useMemo(() => {
     if (!blockCtx) return null
     const byAction = {} as Record<QueueBlockableAction, QueueActionBlockView>
     for (const action of QUEUE_BLOCKABLE_ACTIONS) {
-      byAction[action] = queueActionBlockView(action, blockCtx)
+      const ctx = action === 'edit' && editDrift ? { ...blockCtx, queueChanged: true } : blockCtx
+      byAction[action] = queueActionBlockView(action, ctx)
     }
     return byAction
-  }, [blockCtx])
+  }, [blockCtx, editDrift])
 
   // 动作终局许可 = D69 perms 门 ∧ D162 六格门(队列并发变更时拦下对过期队列的操作)
   const actionAllowed = (kind: (typeof DENIED_HINT_KINDS)[number]): boolean => {
@@ -190,16 +212,25 @@ export function QueueInteractionBar({
 
   const startEdit = (itemId: string, currentText: string) => {
     if (!actionAllowed('edit')) return
+    // 编辑窗口基线:记下用户此刻看到的正文,确认时用它判定队列是否被并发改动
+    editBaselineRef.current = { id: itemId, text: currentText }
     setEditingId(itemId)
     setEditDraft(currentText)
   }
 
+  const cancelEdit = () => {
+    editBaselineRef.current = null
+    setEditingId(null)
+    setEditDraft('')
+  }
+
   const confirmEdit = () => {
     if (editingId === null) return
-    // D162:队列并发变更(queueChanged 命中六格)时确认被拦 —— 草稿保留在输入框,
-    // 不清空不写回,不得让用户误以为编辑已落到过期队列上。
+    // D162:队列并发变更(queueChanged 命中六格,含编辑窗口内实测到的正文漂移)时确认被拦 ——
+    // 草稿保留在输入框,不清空不写回,不得让用户误以为编辑已落到过期队列上。
     if (!actionAllowed('edit')) return
     const text = editDraft.trim()
+    editBaselineRef.current = null
     setEditingId(null)
     setEditDraft('')
     if (!text) return
@@ -264,15 +295,15 @@ export function QueueInteractionBar({
                   onChange={(event) => setEditDraft(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') confirmEdit()
-                    else if (event.key === 'Escape') {
-                      setEditingId(null)
-                      setEditDraft('')
-                    }
+                    else if (event.key === 'Escape') cancelEdit()
                   }}
                 />
                 <button
                   type="button"
                   className="text-xs text-primary"
+                  aria-disabled={!actionAllowed('edit')}
+                  title={blockedTitleOf('edit')}
+                  data-blocked-reason={blockedReasonOf('edit')}
                   data-queue-op="editConfirm"
                   data-item-id={item.id}
                   onClick={confirmEdit}
@@ -284,10 +315,7 @@ export function QueueInteractionBar({
                   className="text-xs text-muted-foreground"
                   data-queue-op="editCancel"
                   data-item-id={item.id}
-                  onClick={() => {
-                    setEditingId(null)
-                    setEditDraft('')
-                  }}
+                  onClick={cancelEdit}
                 >
                   {t('editCancel')}
                 </button>

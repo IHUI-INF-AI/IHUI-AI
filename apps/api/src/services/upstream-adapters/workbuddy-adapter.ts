@@ -33,7 +33,7 @@ import type {
   TranslatedChunk,
   UpstreamHttpRequest,
 } from '../relay-upstream-adapters.js'
-import { parseJwtClaims } from '../relay-account-pool-service.js'
+import { parseJwtClaims } from '../relay-account-format.js'
 import {
   buildChatHeaders,
   buildHealthHeaders,

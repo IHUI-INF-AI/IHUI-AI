@@ -123,6 +123,55 @@ describe('resolveRoundModel — 把 payload 交出去之前的档位复核', () 
   })
 })
 
+describe('完整交错时序(两臂,不是只测最顺的那一条)', () => {
+  it('流式中换模型 → 终止 → 下一轮带新模型:全程只 abort 一次', () => {
+    const state = { model: 'gpt-4o' }
+    const probe = makeProbe()
+
+    // ① 用户改档,此刻确有流在跑 ⇒ 判据成立并终止
+    const nextModel = 'claude-3-5-sonnet'
+    expect(
+      shouldTerminateForModelSwitch({
+        previousModel: state.model,
+        currentModel: nextModel,
+        hasLiveStream: Boolean(probe.deps.abortRef.current),
+      }),
+    ).toBe(true)
+    terminateActiveStream({ ...probe.deps, notice: 'switched' })
+    state.model = nextModel
+
+    // ② 同一档位被 effect 再跑一遍(重渲染 / 依赖变动都会重跑)不得二次打断
+    expect(
+      shouldTerminateForModelSwitch({
+        previousModel: state.model,
+        currentModel: state.model,
+        hasLiveStream: Boolean(probe.deps.abortRef.current),
+      }),
+    ).toBe(false)
+
+    // ③ 下一轮:入口先取到"上一轮"的值,发起前被复核 ⇒ provider 只收到新档
+    expect(resolveRoundModel('gpt-4o', state.model)).toBe('claude-3-5-sonnet')
+    expect(probe.spy).toHaveBeenCalledTimes(1)
+    expect(probe.reclaimed).toHaveBeenCalledTimes(1)
+  })
+
+  it('非流式换模型 ⇒ 判据不成立,终止出口零副作用(不误终止)', () => {
+    const probe = makeProbe()
+    probe.deps.abortRef.current = null
+    expect(
+      shouldTerminateForModelSwitch({
+        previousModel: 'gpt-4o',
+        currentModel: 'claude-3-5-sonnet',
+        hasLiveStream: Boolean(probe.deps.abortRef.current),
+      }),
+    ).toBe(false)
+    expect(terminateActiveStream(probe.deps)).toBe(false)
+    expect(probe.spy).not.toHaveBeenCalled()
+    expect(probe.reclaimed).not.toHaveBeenCalled()
+    expect(probe.printed).not.toHaveBeenCalled()
+  })
+})
+
 describe('ChatScreen 接线锁(判据在位 ≠ 链路可用,这两组按结构配平判)', () => {
   it('入口快照必须被复核,且 model 与 contextLimit 同取一个 roundModel', () => {
     expect(SCREEN_SOURCE).toMatch(/const roundModel = resolveRoundModel\(model, modelRef\.current\)/)

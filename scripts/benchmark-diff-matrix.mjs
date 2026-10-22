@@ -31,6 +31,7 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const USAGE = '用法: benchmark-diff-matrix.mjs [取证目录] | --per-class [输出文件] | --self-test | --help'
@@ -338,11 +339,9 @@ export function buildPerClass(inputs = {}) {
 
 function headStamp() {
   try {
-    return execFileSync('git', ['rev-parse', '--short=10', 'HEAD'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim()
+    // G-54:裸 git 派生迁取材层 gitRaw(绝对 git + stdio 接管 + 有界 timeout + EBUSY 兜底)。
+    // 根取本脚本所在仓的根:原实现靠 cwd 隐式解析,`rev-parse --short HEAD` 在仓内任意子目录同值。
+    return gitRaw(['rev-parse', '--short=10', 'HEAD'], path.resolve(HERE, '..')).trim()
   } catch {
     return 'unknown'
   }

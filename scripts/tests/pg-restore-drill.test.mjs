@@ -385,7 +385,8 @@ test('P-落点3 反向对照与边界:落点与 process.cwd() 无关;私有数�
     assert.deepEqual({ bin: D.pgBinDir(), backup: D.backupPgDir() }, before, '同一进程换 CWD 就换落点 = 按"站在哪儿"推导')
     // 源码级反向锁:私有实现一旦回来,本模块就又多一份推导,而文档里那句"同一出口"变成假话
     assert.equal(/function\s+devEnvRoot\s*\(/.test(src), false, '本模块不得再声明私有 devEnvRoot —— 落点只许有一个出口')
-    assert.match(src, /import \{ devEnvRoot \} from '\.\/seal-c-root-stray\.mjs'/, '必须真的 import 共用出口(§22c 装车证明)')
+    assert.equal(/function\s+(pgBinDir|backupPgDir)\s*\(/.test(src), false, '本模块不得再声明私有 PG 落点 —— 只许有一个出口')
+    assert.match(src, /import \{ pgBinDir, backupPgDir \} from '\.\/lib\/psql-client-locate\.mjs'/, '必须真的 import 共用出口(§22c 装车证明)')
   } finally {
     process.chdir(cwd0)
     rmScratch(dir)

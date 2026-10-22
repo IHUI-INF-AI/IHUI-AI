@@ -43,7 +43,7 @@ import {
   serializeSnapshotResult,
   snapshotOutcomeOf,
   wrapInstallerSource,
-} from '../dist/index.js'
+} from '@ihui/dom-actions'
 
 const SCOPE = 'abcdefgh'
 
@@ -196,7 +196,9 @@ describe('契约：截断阶梯只动定位细节', () => {
   it('超预算行仍含 role/name/handle，rect 与 attrs 先掉', () => {
     const wide = row(7, { attrs: { 'data-testid': 'x'.repeat(120), href: '/some/long/path/here' } })
     const result = serializeSnapshotResult(rawOf({ rows: [wide] }), budgetOf({ maxRowChars: 40 }))
-    const line = renderSnapshot(result).split('\n').find((l) => l.includes(wide.handle))
+    const line = renderSnapshot(result)
+      .split('\n')
+      .find((l) => l.includes(wide.handle))
     assert.ok(line)
     assert.match(line, /role=button/)
     assert.ok(line.includes(wide.handle))
@@ -288,7 +290,10 @@ describe('注入表达式：自足性与辅助符兜底（与消费端 injection
     const context = makeCleanContext()
     const installed = vm.runInContext(`(${expression})`, context, { timeout: 5000 })
     // vm 返回的是跨 realm 对象，逐字段浅拷回宿主 realm 再比结构
-    assert.deepEqual({ ...installed }, { installed: true, scope: SCOPE, schema: PAGE_SNAPSHOT_SCHEMA, reused: false })
+    assert.deepEqual(
+      { ...installed },
+      { installed: true, scope: SCOPE, schema: PAGE_SNAPSHOT_SCHEMA, reused: false },
+    )
     const again = vm.runInContext(expression, context, { timeout: 5000 })
     assert.equal(again.reused, true)
     assert.equal(again.scope, SCOPE)
@@ -308,10 +313,7 @@ describe('注入表达式：自足性与辅助符兜底（与消费端 injection
     assert.equal(raw.rows[0].role, 'button')
     assert.equal(raw.rows[0].name, '提交')
     assert.deepEqual(parsePageHandle(raw.rows[0].handle), { scope: SCOPE, serial: 0 })
-    const state = vm.runInContext(
-      `this[${JSON.stringify(opts.globalKey)}].api.state()`,
-      context,
-    )
+    const state = vm.runInContext(`this[${JSON.stringify(opts.globalKey)}].api.state()`, context)
     assert.equal(state.handles, 1)
   })
 

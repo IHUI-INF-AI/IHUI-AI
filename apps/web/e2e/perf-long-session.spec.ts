@@ -264,6 +264,10 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
     })
     await expect(page.getByText('H20-PERF-MSG-49').first()).toBeVisible({ timeout: 20_000 })
     const elapsed = Date.now() - t0
+    // 真实读数落日志(票 goal-r73-d35:perf e2e 要产出可读数字,不只 pass/fail)
+    console.log(
+      `[perf-long-session] ①首屏 ${elapsed}ms / 预算 ${FIRST_SCREEN_BUDGET_MS * M}ms(${IS_CI ? 'CI 生产口径' : 'dev×2'})`,
+    )
 
     expect(
       elapsed,
@@ -373,6 +377,9 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
         .__h20LongTasks
       return all.filter((e) => e.startTime >= t0)
     }, sendT0)
+    console.log(
+      `[perf-long-session] ②流式窗口 >50ms 长任务=${during.length}(预算 0), rAF=${rafFrames}帧/500ms`,
+    )
 
     expect(
       during,

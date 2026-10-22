@@ -3,16 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * `requireLoginSession` 的判据本体 + 两条微信登录路径的接线锁。
+ * `requireLoginSession` 的判据本体单测。
  *
- * 为什么判据本体要单独测:`wechat-login.test.ts` 已经端到端钉住了一条路径,
- * 但 `miniapp-login.ts` 那条要 mock `../platform` 才能跑到,夹具成本高于收益;
- * 而"漏接这一格"的真实形态就是有人在自己新加的登录路径里忘了调它 —— 那用接线锁更准。
+ * 接线锁（读源码文本、需要 code-mask）已拆到 `scripts/tests/login-session-wiring.test.mjs`，
+ * 避免端应用反向依赖 repo-tooling（门 103）；这里只跑真实函数行为，不碰遮罩。
  */
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { maskComments } from '../../../scripts/lib/code-mask.mjs'
 import {
   requireLoginSession,
   WechatNotBoundError,
@@ -20,9 +16,6 @@ import {
 } from '../src/utils/login-session'
 
 const MSG = { notBound: '该微信尚未绑定账号,请用手机号验证码登录', noSession: '登录失败,请重试' }
-
-const codeFace = (rel: string) =>
-  maskComments(readFileSync(resolve(__dirname, '../src', rel), 'utf8'))
 
 describe('requireLoginSession 判据本体', () => {
   it('非空 accessToken + user 对象 ⇒ 放行(正向对照,证明"没抛错"不是判据失明)', () => {
@@ -57,19 +50,6 @@ describe('requireLoginSession 判据本体', () => {
     expect(() => requireLoginSession({ needPhone: true, accessToken: '' }, MSG)).toThrow(
       WechatNotBoundError,
     )
-  })
-})
-
-describe('两条微信登录路径的接线锁', () => {
-  const sites = ['utils/wechat-login.ts', 'utils/miniapp-login.ts'] as const
-
-  it.each(sites)('%s 必须调用 requireLoginSession(注释掉的形态不算)', (rel) => {
-    expect(codeFace(rel)).toMatch(/requireLoginSession\(/)
-  })
-
-  it('判据全仓只住一处,两条路径不得各自再写一份 needPhone 判定', () => {
-    const implementers = sites.filter((rel) => /needPhone\s*[:=]/.test(codeFace(rel)))
-    expect(implementers).toEqual([])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

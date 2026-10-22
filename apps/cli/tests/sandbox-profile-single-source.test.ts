@@ -7,8 +7,9 @@
  *
  * 这组用例钉四件事,少一件“收成一份出口”就会退化成散文:
  *  1. 五档枚举的取值与顺序被逐字冻结(顺序 = 由严到宽,增删档必须显式改测试);
- *  2. 默认档现读 = `'trusted'`,且 DEFAULT_SETTINGS 经引用后仍是同一值 ——
- *     **默认严档是拍板事项**,本测试只保证“换一处就能全动”,不替任何人做决定;
+ *  2. 默认档现读 = `'limited'`(机主 2026-10-22 拍板:默认严档已切换),
+ *     且 DEFAULT_SETTINGS 经引用后仍是同一值 ——
+ *     本测试只保证“换一处就能全动”,再切换仍须拍板;
  *  3. 非法 profile(拼错/大小写/空白/非字符串)在配置层被拒:环境变量层跳过该键,
  *     合并后保持低层默认值,绝不把自由字符串透传给运行时;
  *  4. settings 模板与首跑模板不再重述字面量,`sandbox/index.ts` 的运行档表与本枚举
@@ -43,8 +44,8 @@ describe('G-212 沙盒 profile 唯一真相源', () => {
     expect([...SANDBOX_PROFILE_IDS]).toEqual(['readonly', 'limited', 'trusted', 'open', 'full'])
   })
 
-  it('② 默认档现读 trusted(默认严档未切换,切换须拍板)', () => {
-    expect(DEFAULT_SANDBOX_PROFILE).toBe('trusted')
+  it('② 默认档现读 limited(机主 2026-10-22 拍板:默认严档已切换)', () => {
+    expect(DEFAULT_SANDBOX_PROFILE).toBe('limited')
     expect(DEFAULT_SETTINGS.sandbox?.profile).toBe(DEFAULT_SANDBOX_PROFILE)
   })
 

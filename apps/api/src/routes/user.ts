@@ -211,5 +211,58 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
       .returning({ id: userThirdPartyAccounts.id, platform: userThirdPartyAccounts.platform })
     return reply.status(201).send(success({ bound: record }))
   })
+
+  // DELETE /user/unbind-third-party?id= - 解绑第三方账号(G-962 #82)
+  // 消费方 apps/web/src/hooks/use-third-party-auth.ts unbindAccount:
+  // fetchApi(`${UNBIND_PATH}?id=${account.id}`, { method: 'DELETE' }) => { success: boolean }
+  // 硬删与上面 bind 的实现闭环一致(bind 查重不看 deletedAt,软删会导致解绑后永远 409 无法重绑)。
+  server.delete('/user/unbind-third-party', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const parsed = z.object({ id: z.uuid({ error: '无效的 ID' }) }).safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // 主键 + 归属 AND 收紧:归属只从 JWT 取,"不存在"与"不是你的"同形 404
+    const [deleted] = await db
+      .delete(userThirdPartyAccounts)
+      .where(
+        and(
+          eq(userThirdPartyAccounts.id, parsed.data.id),
+          eq(userThirdPartyAccounts.userId, request.userId!),
+        ),
+      )
+      .returning({ id: userThirdPartyAccounts.id })
+    if (!deleted) return reply.status(404).send(error(404, '绑定记录不存在'))
+    return reply.send(success({ success: true }))
+  })
+
+  // GET /user/third-party-accounts - 已绑定第三方账号列表(G-962 #83)
+  // 消费方 refreshBoundAccountsImpl: fetchApi<ThirdPartyAccount[]>(BOUND_ACCOUNTS_PATH),
+  // res.data 直接是数组。token 类敏感列(accessToken/refreshToken)不回传;
+  // 表无 username/avatar 列,如实回空串,不造数据。
+  server.get('/user/third-party-accounts', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const rows = await db
+      .select({
+        id: userThirdPartyAccounts.id,
+        platform: userThirdPartyAccounts.platform,
+        openId: userThirdPartyAccounts.openId,
+        deletedAt: userThirdPartyAccounts.deletedAt,
+        createdAt: userThirdPartyAccounts.createdAt,
+      })
+      .from(userThirdPartyAccounts)
+      .where(eq(userThirdPartyAccounts.userId, request.userId!))
+      .orderBy(desc(userThirdPartyAccounts.createdAt))
+    const list = rows.map((r) => ({
+      id: r.id,
+      platform: r.platform,
+      platformUserId: r.openId ?? '',
+      platformUsername: '',
+      platformAvatar: '',
+      bindTime: r.createdAt.toISOString(),
+      status: r.deletedAt ? ('disabled' as const) : ('active' as const),
+    }))
+    return reply.send(success(list))
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

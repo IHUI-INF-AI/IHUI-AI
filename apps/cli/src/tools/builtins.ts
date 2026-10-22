@@ -30,7 +30,7 @@ import {
 import { projectTaskRoster, formatTaskRoster } from './task-roster-projection.js';
 import type { Tool, ToolContext, ToolResult } from './index.js';
 import { mapTerminalState, ABORTED_BEFORE_COMPLETION_NOTE } from './failure-classification.js';
-import { todo_write } from './todo-write.js';
+import { todo_read, todo_write } from './todo-write.js';
 import { ask_user_question } from './ask-user.js';
 import { gateCommandExecution, describeCommandBlock } from './command-safety.js';
 import { tryParseJson, isRecord } from '../util/json.js';
@@ -399,8 +399,26 @@ export const read_file: Tool = {
     // 字节闸在**读取处**生效(旧写法是 readFileSync 整份进内存再切 500 行,行闸形同虚设)。
     const { text, bytesRead, totalBytes, byteTruncated } = readHeadOfFile(abs, MAX_READ_BYTES);
 
+    /** 记一条已读缓存(partial 标记决定它能否被下次短路复用) */
+    const recordReadState = (isPartialView: boolean): void => {
+      readState.set(cacheKey, {
+        path: abs,
+        offset,
+        limit,
+        isPartialView,
+        mtimeMs: stat.mtimeMs,
+        sizeBytes: stat.size,
+        recordedAt: Date.now(),
+      });
+    };
+
     // G-937972:空文件给 system-reminder 警示而非空输出/报错(沉默会被读成"没内容可读")。
-    if (text === '') return { success: true, output: EMPTY_FILE_REMINDER };
+    // 空文件也要登记已读状态:否则"读过空文件"在 write_file/edit_file 的读后写校验里
+    // 永远不算读过,而每次重读都还是空文件 ⇒ 该文件结构上写不进去(死锁,方向性 bug)。
+    if (text === '') {
+      recordReadState(false);
+      return { success: true, output: EMPTY_FILE_REMINDER };
+    }
 
     const allLines = text.split('\n');
     const isRangeRead = offset !== undefined || limit !== undefined;
@@ -424,19 +442,6 @@ export const read_file: Tool = {
     }
     const viewText = viewLines.join('\n');
     const startLine = startIdx + 1;
-
-    /** 记一条已读缓存(partial 标记决定它能否被下次短路复用) */
-    const recordReadState = (isPartialView: boolean): void => {
-      readState.set(cacheKey, {
-        path: abs,
-        offset,
-        limit,
-        isPartialView,
-        mtimeMs: stat.mtimeMs,
-        sizeBytes: stat.size,
-        recordedAt: Date.now(),
-      });
-    };
 
     // 字节闸优先:截断过的视图已如实标注"后面没读",token 部分视图不再叠加第二种截断故事
     // (两条截断说明同屏会让模型不知道该信哪一条)。此路径保持既有输出逐字不变。
@@ -1244,6 +1249,7 @@ export const BUILTIN_TOOLS: Tool[] = [
   terminal_resize,
   terminal_close,
   todo_write,
+  todo_read,
   ask_user_question,
 ];
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

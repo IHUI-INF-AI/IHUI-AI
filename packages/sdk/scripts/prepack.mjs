@@ -52,6 +52,21 @@ try {
   fail('tsc 构建失败,拒绝发布')
 }
 
+// ---------- 1b. 类型声明内联(不把 private workspace 包写进消费者可见的 .d.ts)----------
+log('🧩 [1b/3] 内联 @ihui/types 的 V1 声明 → dist/ihui-types.d.ts')
+try {
+  const out = execFileSync(process.execPath, [join(pkgRoot, 'scripts', 'embed-types.mjs')], {
+    cwd: pkgRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  if (out.trim()) log(out.trim())
+} catch (err) {
+  log(String(err.stdout ?? '') + String(err.stderr ?? '') + String(err.message ?? err))
+  fail('类型声明内联失败,拒绝发布(消费者会拿到无法解析的 @ihui/types 引用)')
+}
+
 // ---------- 2. 附带许可证与 NOTICE ----------
 log('📜 [2/3] 复制 LICENSE / NOTICE(Apache-2.0 分发要求)')
 for (const name of ['LICENSE', 'NOTICE']) {

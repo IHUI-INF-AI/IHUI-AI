@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { eq, and, gte, desc, sql } from 'drizzle-orm'
-import { db } from './index.js'
+import { db, dbRead } from './index.js'
 import { vipLevels, userVips, users } from '@ihui/database'
 
 // ============================================================================
@@ -51,10 +51,20 @@ export async function updateVipLevel(
     status: number
   }>,
 ) {
-  await db
+  const [existing] = await dbRead.select().from(vipLevels).where(eq(vipLevels.id, id)).limit(1)
+  if (!existing) return { updated: false }
+  const changed = Object.fromEntries(
+    Object.entries(input).filter(
+      ([k, v]) => v !== undefined && (existing as Record<string, unknown>)[k] !== v,
+    ),
+  )
+  if (Object.keys(changed).length === 0) return { updated: false }
+  const rows = await db
     .update(vipLevels)
-    .set({ ...input, updatedAt: new Date() })
+    .set({ ...changed, updatedAt: new Date() })
     .where(eq(vipLevels.id, id))
+    .returning({ id: vipLevels.id })
+  return { updated: rows.length > 0 }
 }
 
 // 2026-09-27 布尔删除 ack 清账:旧版未标注返回类型且调用方拿不到命中集

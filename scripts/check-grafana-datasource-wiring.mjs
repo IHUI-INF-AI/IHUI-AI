@@ -86,7 +86,9 @@ function collectProvisionedUids(text) {
   const out = new Map()
   for (const b of blocks) {
     const uidLine = b.lines.find((l) => /^\s*uid:\s*/.test(l))
-    const uid = uidLine ? uidLine.match(/^\s*uid:\s*(.+?)\s*$/)[1].replace(/^['"]|['"]$/g, '') : b.name
+    const uid = uidLine
+      ? uidLine.match(/^\s*uid:\s*(.+?)\s*$/)[1].replace(/^['"]|['"]$/g, '')
+      : b.name
     out.set(uid, b.name)
   }
   return out
@@ -112,7 +114,12 @@ function collectPanelRefs(readDashboard) {
     // 模板变量也能带数据源(下钻用),一并纳入对账。
     for (const v of (json.templating && json.templating.list) || []) {
       if (v.datasource && v.datasource.uid) {
-        refs.push({ file, title: `变量 ${v.name}`, uid: String(v.datasource.uid), type: 'templating' })
+        refs.push({
+          file,
+          title: `变量 ${v.name}`,
+          uid: String(v.datasource.uid),
+          type: 'templating',
+        })
       }
     }
   }
@@ -126,10 +133,11 @@ function collectPanelRefs(readDashboard) {
  * @returns {string[]} 仓库相对路径
  */
 function listFacePaths(face) {
-  const args = face === 'staged' ? ['ls-files', '-z'] : ['ls-tree', '-r', '--name-only', '-z', face]
-  return gitRaw(args, ROOT, { timeout: 120000 })
-    .split('\0')
-    .filter(Boolean)
+  // face 是门的内部面名（'head'/'staged'），git rev 是 'HEAD' —— Linux 大小写敏感，
+  // 直接把 'head' 当 rev 会 fatal: Not a valid object name（Windows 长期掩盖）。
+  const rev = face === 'head' ? 'HEAD' : face
+  const args = face === 'staged' ? ['ls-files', '-z'] : ['ls-tree', '-r', '--name-only', '-z', rev]
+  return gitRaw(args, ROOT, { timeout: 120000 }).split('\0').filter(Boolean)
 }
 
 /**
@@ -151,13 +159,20 @@ function readFromFace(face) {
   const specs = want.map((p) => `${face === 'staged' ? ':' : 'HEAD:'}${p}`)
   const blobs = specs.length ? catBatch(ROOT, specs, { timeout: 120000 }) : new Map()
   for (const tree of DASHBOARD_TREES) {
-    out.provisioning.set(tree.label, blobs.get(`${face === 'staged' ? ':' : 'HEAD:'}${tree.provisioning}`) ?? null)
+    out.provisioning.set(
+      tree.label,
+      blobs.get(`${face === 'staged' ? ':' : 'HEAD:'}${tree.provisioning}`) ?? null,
+    )
     const prefix = tree.dashboards + '/'
     for (const p of paths.filter((s) => s.startsWith(prefix) && s.endsWith('.json'))) {
       const text = blobs.get(`${face === 'staged' ? ':' : 'HEAD:'}${p}`)
       if (typeof text !== 'string') continue
       try {
-        out.dashboards.push({ tree: tree.label, file: p.slice(prefix.length), json: JSON.parse(text) })
+        out.dashboards.push({
+          tree: tree.label,
+          file: p.slice(prefix.length),
+          json: JSON.parse(text),
+        })
       } catch {
         /* 解析不了的面板由别的门负责,这里跳过 */
       }
@@ -173,7 +188,11 @@ function readFromWorktree() {
     if (!existsSync(dir)) continue
     for (const file of readdirSync(dir).filter((f) => f.endsWith('.json'))) {
       try {
-        out.push({ tree: tree.label, file, json: JSON.parse(readWorktreeFile(ROOT, `${tree.dashboards}/${file}`)) })
+        out.push({
+          tree: tree.label,
+          file,
+          json: JSON.parse(readWorktreeFile(ROOT, `${tree.dashboards}/${file}`)),
+        })
       } catch {
         /* 解析不了的面板由别的门负责,这里跳过 */
       }
@@ -214,7 +233,10 @@ function selfTest() {
   {
     const prov = collectProvisionedUids(yaml)
     const bad = collectPanelRefs(() => [
-      { file: 'bad.json', json: { panels: [{ title: '坏板', datasource: { uid: 'PBFA97CFB590B2093' } }] } },
+      {
+        file: 'bad.json',
+        json: { panels: [{ title: '坏板', datasource: { uid: 'PBFA97CFB590B2093' } }] },
+      },
     ])
     req(auditTree(prov, bad).dangling.length === 1, 'S4 样例/未声明 uid 夹具必须判 dangling')
     const good = collectPanelRefs(() => [
@@ -247,25 +269,75 @@ function selfTest() {
     }
   }
   for (const rootCandidate of ['deploy', 'monitoring']) scan(join(ROOT, rootCandidate))
-  req(covered.has('deploy/saas/grafana/dashboards'), 'S5a deploy/saas 树必须在覆盖面清单里(2026-10-18 失明案)')
+  req(
+    covered.has('deploy/saas/grafana/dashboards'),
+    'S5a deploy/saas 树必须在覆盖面清单里(2026-10-18 失明案)',
+  )
   req(strays.length === 0, `S5b 盘面存在未登记的 grafana/dashboards 目录: ${strays.join(', ')}`)
 
   // S6 版面坐标档:成对正反 + 一条"不同原点不得互比"的反证(它比漏判更贵,误咬会逼人跳门)
-  const mkGrid = (y2) => [{ file: 'g.json', json: { panels: [{ type: 'stat', title: 'A', gridPos: { h: 3, w: 24, x: 0, y: 0 } }, { type: 'timeseries', title: 'B', gridPos: { h: 8, w: 12, x: 0, y: y2 } }] } }]
-  req(auditGrid(mkGrid(0)).some((s) => s.why.includes('重叠')), 'S6a 同层两板相交必须判出重叠')
+  const mkGrid = (y2) => [
+    {
+      file: 'g.json',
+      json: {
+        panels: [
+          { type: 'stat', title: 'A', gridPos: { h: 3, w: 24, x: 0, y: 0 } },
+          { type: 'timeseries', title: 'B', gridPos: { h: 8, w: 12, x: 0, y: y2 } },
+        ],
+      },
+    },
+  ]
+  req(
+    auditGrid(mkGrid(0)).some((s) => s.why.includes('重叠')),
+    'S6a 同层两板相交必须判出重叠',
+  )
   req(auditGrid(mkGrid(3)).length === 0, 'S6b 错开 3 格后必须一条不判(反证不乱咬)')
   req(
-    auditGrid([{ file: 'r.json', json: { panels: [{ type: 'row', title: 'R', id: 1, gridPos: { h: 1, w: 24, x: 0, y: 0 }, panels: [{ type: 'stat', title: 'C', gridPos: { h: 4, w: 12, x: 0, y: 1 } }] }, { type: 'stat', title: 'D', gridPos: { h: 4, w: 12, x: 0, y: 0 } }] } }]).every((s) => !s.why.includes('重叠')),
-    'S6c 折叠行内子板(行内相对坐标)不得与行外板互比'
+    auditGrid([
+      {
+        file: 'r.json',
+        json: {
+          panels: [
+            {
+              type: 'row',
+              title: 'R',
+              id: 1,
+              gridPos: { h: 1, w: 24, x: 0, y: 0 },
+              panels: [{ type: 'stat', title: 'C', gridPos: { h: 4, w: 12, x: 0, y: 1 } }],
+            },
+            { type: 'stat', title: 'D', gridPos: { h: 4, w: 12, x: 0, y: 0 } },
+          ],
+        },
+      },
+    ]).every((s) => !s.why.includes('重叠')),
+    'S6c 折叠行内子板(行内相对坐标)不得与行外板互比',
   )
-  req(auditGrid([{ file: 'o.json', json: { panels: [{ type: 'stat', title: 'E', gridPos: { h: 4, w: 20, x: 8, y: 0 } }] } }]).some((s) => s.why.includes('24 列')), 'S6d 超出 24 列必须判出')
-  req(auditGrid([{ file: 'n.json', json: { panels: [{ type: 'stat', title: 'F' }] } }]).some((s) => s.why.includes('没有 gridPos')), 'S6e 缺 gridPos 必须判出')
   req(
-    auditGrid([{ file: 'v.json', json: { panels: [{ type: 'row', gridPos: { h: 1, w: 30, x: 0, y: 0 } }] } }]).length === 0,
-    'S6f row 容器自身不参与格子判'
+    auditGrid([
+      {
+        file: 'o.json',
+        json: { panels: [{ type: 'stat', title: 'E', gridPos: { h: 4, w: 20, x: 8, y: 0 } }] },
+      },
+    ]).some((s) => s.why.includes('24 列')),
+    'S6d 超出 24 列必须判出',
+  )
+  req(
+    auditGrid([{ file: 'n.json', json: { panels: [{ type: 'stat', title: 'F' }] } }]).some((s) =>
+      s.why.includes('没有 gridPos'),
+    ),
+    'S6e 缺 gridPos 必须判出',
+  )
+  req(
+    auditGrid([
+      { file: 'v.json', json: { panels: [{ type: 'row', gridPos: { h: 1, w: 30, x: 0, y: 0 } }] } },
+    ]).length === 0,
+    'S6f row 容器自身不参与格子判',
   )
   // 真面自证:仓里现存 24 张盘必须 0 异常 —— 存量没归零就不许占这个拦门档(§12e)
-  req(auditGrid(readFromWorktree()).length === 0, 'S6g 现读仓内全部大盘必须 0 版面异常(存量归零才配占 blocking)')
+  req(
+    auditGrid(readFromWorktree()).length === 0,
+    'S6g 现读仓内全部大盘必须 0 版面异常(存量归零才配占 blocking)',
+  )
   if (fails.length) {
     for (const f of fails) console.error(`❌ self-test 失败: ${f}`)
     return 1
@@ -305,13 +377,17 @@ function auditGrid(dashboards) {
           out.push({ file: owner, why: `「${p.title || '(无标题)'}」没有 gridPos` })
           continue
         }
-        if (g.x + g.w > GRID_COLS) out.push({ file: owner, why: `「${p.title}」超出 ${GRID_COLS} 列(x=${g.x} w=${g.w})` })
+        if (g.x + g.w > GRID_COLS)
+          out.push({ file: owner, why: `「${p.title}」超出 ${GRID_COLS} 列(x=${g.x} w=${g.w})` })
         cells.push({ title: p.title || '(无标题)', x: g.x, y: g.y, w: g.w, h: g.h })
       }
       for (let i = 0; i < cells.length; i++)
         for (let k = i + 1; k < cells.length; k++)
           if (overlaps(cells[i], cells[k]))
-            out.push({ file: owner, why: `「${cells[i].title}」与「${cells[k].title}」重叠(其中一块被压住看不见)` })
+            out.push({
+              file: owner,
+              why: `「${cells[i].title}」与「${cells[k].title}」重叠(其中一块被压住看不见)`,
+            })
     }
   }
   return out
@@ -332,14 +408,21 @@ function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
   if (argv.includes('--help') || argv.includes('-h')) {
-    console.info('用法: node scripts/check-grafana-datasource-wiring.mjs [--staged|--worktree|--head] [--self-test]')
+    console.info(
+      '用法: node scripts/check-grafana-datasource-wiring.mjs [--staged|--worktree|--head] [--self-test]',
+    )
     return 0
   }
   // 面必须**如实**映射:提交链判索引、全量判 HEAD。第一版把 --staged 映成 'HEAD',
   // 等于提交链判错面(工作树改对了,门还红在 HEAD 旧内容上)。
-  const face = argv.includes('--staged') ? 'staged' : argv.includes('--worktree') ? 'worktree' : 'head'
+  const face = argv.includes('--staged')
+    ? 'staged'
+    : argv.includes('--worktree')
+      ? 'worktree'
+      : 'head'
 
-  const fromFace = face === 'worktree' ? { dashboards: [], provisioning: new Map() } : readFromFace(face)
+  const fromFace =
+    face === 'worktree' ? { dashboards: [], provisioning: new Map() } : readFromFace(face)
   const dashboards = face === 'worktree' ? readFromWorktree() : fromFace.dashboards
   let danglingTotal = 0
   let gridTotal = 0
@@ -347,10 +430,15 @@ function main() {
   for (const tree of DASHBOARD_TREES) {
     let provText
     try {
-      provText = face === 'worktree' ? readProvisioning('worktree', tree) : fromFace.provisioning.get(tree.label)
+      provText =
+        face === 'worktree'
+          ? readProvisioning('worktree', tree)
+          : fromFace.provisioning.get(tree.label)
     } catch (e) {
       provText = null
-      console.error(`⚠️  [${tree.label}] 取不到 provisioning(面=${face}):${e && e.message} ⇒ 本树未判定`)
+      console.error(
+        `⚠️  [${tree.label}] 取不到 provisioning(面=${face}):${e && e.message} ⇒ 本树未判定`,
+      )
       continue
     }
     if (typeof provText !== 'string') {
@@ -363,14 +451,18 @@ function main() {
     const refs = collectPanelRefs(() => treeDashboards)
 
     console.info(`\n━━━ 树 ${tree.label} ━━━`)
-    console.info(`面=${face}  provisioning 数据源 ${provisioned.size} 个: ${[...provisioned.keys()].join(', ')}`)
+    console.info(
+      `面=${face}  provisioning 数据源 ${provisioned.size} 个: ${[...provisioned.keys()].join(', ')}`,
+    )
     console.info(`大屏 ${treeDashboards.length} 份,数据源引用 ${refs.length} 处`)
 
     // 判据 A:引用了本树 provisioning 里不存在的 uid(静态确定的错 ⇒ 判红)
     const { dangling, unused } = auditTree(provisioned, refs)
     if (dangling.length) {
       danglingTotal += dangling.length
-      console.error(`❌ 判据 A[${tree.label}]:${dangling.length} 处引用了 provisioning 里不存在的数据源 uid(必定是空板)`)
+      console.error(
+        `❌ 判据 A[${tree.label}]:${dangling.length} 处引用了 provisioning 里不存在的数据源 uid(必定是空板)`,
+      )
       for (const d of dangling) console.error(`   · [${d.file}] ${d.title} → uid "${d.uid}"`)
       console.error('   本树可用 uid: ' + [...provisioned.keys()].join(', '))
     } else {
@@ -378,14 +470,19 @@ function main() {
     }
 
     // 判据 B:本树声明了却零面板使用(合法但必须报出来 —— 死配置就是这么躺三年的)
-    if (unused.length) {      console.info(
-        `\n⚠️  判据 B(只报数,不判红):${unused.length} 个已声明数据源无任何面板使用 —— ${unused.join(', ')}`
+    if (unused.length) {
+      console.info(
+        `\n⚠️  判据 B(只报数,不判红):${unused.length} 个已声明数据源无任何面板使用 —— ${unused.join(', ')}`,
       )
       for (const u of unused) {
         console.info(`   · ${u}(provisioning name: ${provisioned.get(u)})`)
       }
-      console.info('   若该基建确实未部署(本机 Jaeger 即如此:只在 docker-compose 的 observability profile 里),')
-      console.info('   这是预期状态;派生器 sync-grafana-live-provisioning.mjs 会因探活不通自动跳过它。')
+      console.info(
+        '   若该基建确实未部署(本机 Jaeger 即如此:只在 docker-compose 的 observability profile 里),',
+      )
+      console.info(
+        '   这是预期状态;派生器 sync-grafana-live-provisioning.mjs 会因探活不通自动跳过它。',
+      )
     } else {
       console.info('✅ 判据 B:本树已声明的数据源全部有面板在用')
     }
@@ -394,7 +491,9 @@ function main() {
     const grid = auditGrid(treeDashboards)
     gridTotal += grid.length
     if (grid.length) {
-      console.error(`❌ 判据 C[${tree.label}]:${grid.length} 处版面坐标异常(重叠=有面板被压住;超 24 列=右侧被裁)`)
+      console.error(
+        `❌ 判据 C[${tree.label}]:${grid.length} 处版面坐标异常(重叠=有面板被压住;超 24 列=右侧被裁)`,
+      )
       for (const g of grid) console.error(`   · [${g.file}] ${g.why}`)
     } else {
       console.info('✅ 判据 C:本树面板版面坐标无重叠、无栅格溢出')
@@ -412,6 +511,12 @@ if (isDirect) process.exit(main())
 // 镜像测试 scripts/tests/check-grafana-datasource-wiring.test.mjs 一律从这里取判据
 // (§22c:同一份判据不许有第二份实现)。DASHBOARD_TREES 一并导出:覆盖面清单本身也是判据,
 // 测试要能对账"树是否真的在扫",不许测试另抄一份树清单。
-export const __test__ = { collectProvisionedUids, collectPanelRefs, auditTree, auditGrid, DASHBOARD_TREES }
+export const __test__ = {
+  collectProvisionedUids,
+  collectPanelRefs,
+  auditTree,
+  auditGrid,
+  DASHBOARD_TREES,
+}
 export { collectProvisionedUids, collectPanelRefs, auditTree, auditGrid }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

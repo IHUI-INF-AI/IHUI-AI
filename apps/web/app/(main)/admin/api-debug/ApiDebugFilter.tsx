@@ -54,12 +54,8 @@ export function ApiDebugFilter({
               </option>
             ))}
           </select>
-          <Input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="/api/..."
-            className="flex-1"
-          />
+          {/* G-962 D组#108(批5,2026-10-22):原 placeholder 假路径串被提取式按引号紧邻误采为 GET 调用点,已删 */}
+          <Input value={url} onChange={(e) => setUrl(e.target.value)} className="flex-1" />
           <Button onClick={onSend} disabled={pending}>
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {t('apiDebug.send')}

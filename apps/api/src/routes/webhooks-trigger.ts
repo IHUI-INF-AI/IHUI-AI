@@ -274,9 +274,11 @@ async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
 // =============================================================================
 
 const webhookTriggerRoutes: FastifyPluginAsync = async (server) => {
-  // POST /webhooks/trigger/:id — 接收外部 webhook(核心端点)
+  // POST /trigger/:id — 接收外部 webhook(核心端点;G-962 #99 修双前缀:
+  // 本插件挂载 prefix=/api/webhooks,旧字面量 /webhooks/trigger/:id 合成后为
+  // /api/webhooks/webhooks/trigger/:id,消费方 integrations-panel 调 /api/webhooks/trigger/:id 恒 404)
   // 不挂 authenticate:外部系统用 HMAC 签名验证身份
-  server.post('/webhooks/trigger/:id', async (request, reply) => {
+  server.post('/trigger/:id', async (request, reply) => {
     const { id } = triggerIdParamSchema.parse(request.params)
 
     const config = triggerStore.get(id)

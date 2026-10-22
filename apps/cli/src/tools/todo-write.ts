@@ -3,11 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * TodoWrite 工具 — 让 Agent 管理任务清单(对齐 自研 IDE 的 TodoWrite)。
+ * TodoWrite / TodoRead 工具 — 让 Agent 管理并回读任务清单(对齐 自研 IDE 的 TodoWrite)。
  *
  * 灵感来源:参考行业 Agent 框架的 todo_list 工具 + 自研 IDE 的 TodoWrite。
  * 简化策略(做减法):
- *   - 仅支持全量替换 todos 数组(对齐 自研 IDE 的语义)
+ *   - todo_write 仅支持全量替换 todos 数组(对齐 自研 IDE 的语义)
+ *   - todo_read 只读回读当前清单(对齐上游 todo.ts 的 TodoReadTool,不改任何状态)
  *   - 持久化到 ./.ihui/todos.json(工作区本地,跨会话恢复)
  *   - 不引入外部库,fs + JSON 即可
  *
@@ -180,6 +181,44 @@ export const todo_write: Tool = {
       success: true,
       output: `已保存 ${finalTodos.length} 个 todo:\n${renderTodos(finalTodos)}`,
     };
+  },
+};
+
+/**
+ * TodoRead 工具 — 只读回读当前任务清单(对齐上游 todo.ts:25-47 的 TodoRead)。
+ *
+ * 与 todo_write 的差别只在"不写":模型在多轮之间想知道"现在还剩哪些没做"时,
+ * 不必再发一次 todo_write 全量覆盖来换回显 —— 那次覆盖是个写操作,会被权限档
+ * / 模式档拦下,而且会无谓地刷新 updatedAt。
+ */
+export const todo_read: Tool = {
+  name: 'todo_read',
+  description: '读取当前任务清单(只读,不修改)。无参数。返回按 in_progress > pending > completed 排序的清单,含每项 id/content/status/priority/summary。',
+  dangerLevel: 'read',
+  parameters: {},
+  required: [],
+  // 新增工具必须带契约(守门 TC1:「新增即拦」;存量工具走各文件 HEAD 锚点,这里不替它们补)。
+  // 量纲 = UTF-8 字节;24K 字符 × 3(CJK 保守档,见 result-envelope/budgets.ts)≈ 72K 字节。
+  contract: {
+    shape: { input: { type: 'object', properties: {}, required: [] }, visibleToProvider: true },
+    permission: {
+      permissionKey: 'todo_read',
+      reason: '只读回读工作区 .ihui/todos.json,不产生任何写入',
+      riskLevel: 'read',
+      effectScope: 'workspace',
+      requiresApproval: false,
+    },
+    resultBudget: {
+      inlineLimitBytes: 72_000,
+      providerVisibleLimitBytes: 72_000,
+      policy: 'truncate',
+      preview: { bytes: 3_600, lines: 40, from: 'head' },
+    },
+  },
+  async execute(_args, ctx): Promise<ToolResult> {
+    const todos = loadTodos(ctx);
+    if (todos.length === 0) return { success: true, output: '(无 todo)' };
+    return { success: true, output: `当前 ${todos.length} 个 todo:\n${renderTodos(todos)}` };
   },
 };
 

@@ -117,7 +117,7 @@ export default function AdminLearnTopicCategoryPage() {
       const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
       if (debounced) qs.set('keyword', debounced)
       if (statusFilter !== 'all') qs.set('status', statusFilter)
-      return apiOrThrow<ListData>(`/api/learn/topics/categories?${qs.toString()}`)
+      return apiOrThrow<ListData>(`/api/admin/learn/topics/categories?${qs.toString()}`)
     },
   })
 
@@ -129,8 +129,8 @@ export default function AdminLearnTopicCategoryPage() {
         status: form.status ? 1 : 0,
       }
       const url = editing
-        ? `/api/learn/topics/categories/${editing.id}`
-        : '/api/learn/topics/categories'
+        ? `/api/admin/learn/topics/categories/${editing.id}`
+        : '/api/admin/learn/topics/categories'
       return apiOrThrow<{ category: Category }>(url, {
         method: editing ? 'PUT' : 'POST',
         body: JSON.stringify(body),
@@ -146,7 +146,7 @@ export default function AdminLearnTopicCategoryPage() {
 
   const deleteMut = useMutation({
     mutationFn: (id: string) =>
-      apiOrThrow(`/api/learn/topics/categories/${id}`, { method: 'DELETE' }),
+      apiOrThrow(`/api/admin/learn/topics/categories/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
       toast.success('删除成功')
       qc.invalidateQueries({ queryKey: ['admin', 'learn', 'topic', 'category'] })

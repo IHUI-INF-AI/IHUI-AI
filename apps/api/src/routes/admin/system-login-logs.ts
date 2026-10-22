@@ -225,7 +225,8 @@ const systemLoginLogsRoutes: FastifyPluginAsync = async (server) => {
       dataType: 'string',
     }),
   })
-  // PATCH/PUT /developer/coze/:id/status — 状态切换（cozeVariables 表无 status 字段，返回成功桩）
+  // PATCH/PUT /developer/coze/:id/status — 状态切换（cozeVariables 表无 status 字段）
+  // 本端点整趟不发任何写，故不承诺 updated（旧形态无条件 updated:true 是假 ack）。
   server.put('/developer/coze/:id/status', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
@@ -233,7 +234,6 @@ const systemLoginLogsRoutes: FastifyPluginAsync = async (server) => {
       success({
         id: p.data.id,
         status: (request.body as { status?: number })?.status ?? 0,
-        updated: true,
       }),
     )
   })

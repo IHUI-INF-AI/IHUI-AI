@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-llm-provider-schema.mjs — LLM provider 字典化阶段 3 前置守门
@@ -28,8 +27,13 @@ import { dirname, join, resolve, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const C = {
-  red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m',
-  cyan: '\x1b[36m', dim: '\x1b[2m', bold: '\x1b[1m', reset: '\x1b[0m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  reset: '\x1b[0m',
 }
 
 // provider name 白名单 —— **机器源单向投影**(G-354族/G-393/G-762 拍板②,2026-10-07 落地)。
@@ -180,7 +184,12 @@ export function getProviderWhitelist() {
       }
     },
   )
-  const projected = projectProviderWhitelist({ registrySrc, availabilitySrc, gatewaySrc, literalSrcs })
+  const projected = projectProviderWhitelist({
+    registrySrc,
+    availabilitySrc,
+    gatewaySrc,
+    literalSrcs,
+  })
   const notes = projected.notes.map((n) => ({
     ...n,
     kind:
@@ -271,8 +280,10 @@ function parseEnvFile(filePath) {
     const key = line.slice(0, eqIdx).trim()
     if (!key) return
     let value = line.slice(eqIdx + 1).trim()
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1)
     } else {
       const hashIdx = value.indexOf(' #')
@@ -308,8 +319,13 @@ const FIELD_CHECKS = [
 // ── 核心校验 ──────────────────────────────────────────────────────────────
 function validateProviderConfig(name, cfg, source, issues) {
   if (cfg === null || typeof cfg !== 'object' || Array.isArray(cfg)) {
-    issues.push({ level: 'error', provider: name, field: '(root)',
-      message: `provider config 必须是对象,实际 ${typeOf(cfg)} (${fmtValue(cfg)})`, source })
+    issues.push({
+      level: 'error',
+      provider: name,
+      field: '(root)',
+      message: `provider config 必须是对象,实际 ${typeOf(cfg)} (${fmtValue(cfg)})`,
+      source,
+    })
     return
   }
   for (const [field, accept, desc] of FIELD_CHECKS) {
@@ -318,28 +334,48 @@ function validateProviderConfig(name, cfg, source, issues) {
     if (field === 'models' && Array.isArray(v) && !v.every((m) => typeof m === 'string')) {
       v.forEach((m, i) => {
         if (typeof m !== 'string') {
-          issues.push({ level: 'error', provider: name, field: `models[${i}]`,
-            message: `期望字符串,实际 ${typeOf(m)} (${fmtValue(m)})`, source })
+          issues.push({
+            level: 'error',
+            provider: name,
+            field: `models[${i}]`,
+            message: `期望字符串,实际 ${typeOf(m)} (${fmtValue(m)})`,
+            source,
+          })
         }
       })
     } else if (!accept(v)) {
-      issues.push({ level: 'error', provider: name, field,
-        message: `期望${desc},实际 ${typeOf(v)} (${fmtValue(v)})`, source })
+      issues.push({
+        level: 'error',
+        provider: name,
+        field,
+        message: `期望${desc},实际 ${typeOf(v)} (${fmtValue(v)})`,
+        source,
+      })
     }
   }
   // 未知字段 → info
   for (const k of Object.keys(cfg)) {
     if (!KNOWN_FIELDS.has(k)) {
-      issues.push({ level: 'info', provider: name, field: k,
-        message: `未知字段(将透传到 extra)`, source })
+      issues.push({
+        level: 'info',
+        provider: name,
+        field: k,
+        message: `未知字段(将透传到 extra)`,
+        source,
+      })
     }
   }
   // 空值检查
   const apiKey = cfg.api_key
   const apiBase = cfg.api_base
   if (apiKey === '' && (apiBase === undefined || apiBase === null || apiBase === '')) {
-    issues.push({ level: 'info', provider: name, field: '(root)',
-      message: `provider "${name}" 未配置 api_key 且无 api_base(可能未启用)`, source })
+    issues.push({
+      level: 'info',
+      provider: name,
+      field: '(root)',
+      message: `provider "${name}" 未配置 api_key 且无 api_base(可能未启用)`,
+      source,
+    })
   }
 }
 
@@ -350,25 +386,45 @@ function validateJsonField(rawValue, fieldName, isStrict, seenProviderNames, whi
   try {
     parsed = JSON.parse(rawValue)
   } catch (e) {
-    issues.push({ level: 'error', provider: '(root)', field: fieldName,
-      message: `JSON 解析失败: ${e.message}`, source: fieldName })
+    issues.push({
+      level: 'error',
+      provider: '(root)',
+      field: fieldName,
+      message: `JSON 解析失败: ${e.message}`,
+      source: fieldName,
+    })
     return issues
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    issues.push({ level: 'error', provider: '(root)', field: fieldName,
-      message: `顶层必须是对象(dict),实际 ${typeOf(parsed)}`, source: fieldName })
+    issues.push({
+      level: 'error',
+      provider: '(root)',
+      field: fieldName,
+      message: `顶层必须是对象(dict),实际 ${typeOf(parsed)}`,
+      source: fieldName,
+    })
     return issues
   }
   for (const [name, cfg] of Object.entries(parsed)) {
     if (seenProviderNames.has(name)) {
-      issues.push({ level: 'error', provider: name, field: '(root)',
-        message: `provider name "${name}" 在多个字段中重复配置(最后覆盖,请合并)`, source: fieldName })
+      issues.push({
+        level: 'error',
+        provider: name,
+        field: '(root)',
+        message: `provider name "${name}" 在多个字段中重复配置(最后覆盖,请合并)`,
+        source: fieldName,
+      })
     } else {
       seenProviderNames.add(name)
     }
     if (!whitelist.has(name)) {
-      issues.push({ level: isStrict ? 'error' : 'warning', provider: name, field: '(root)',
-        message: `未知 provider name: "${name}"(不在 ${whitelist.size} 个白名单内)`, source: fieldName })
+      issues.push({
+        level: isStrict ? 'error' : 'warning',
+        provider: name,
+        field: '(root)',
+        message: `未知 provider name: "${name}"(不在 ${whitelist.size} 个白名单内)`,
+        source: fieldName,
+      })
     }
     validateProviderConfig(name, cfg, fieldName, issues)
   }
@@ -387,7 +443,9 @@ function providerNames(v) {
     if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return Object.keys(parsed).slice(0, 12)
     }
-  } catch { /* 非 JSON:不输出任何内容片段,解析错误由 issues 区报告 */ }
+  } catch {
+    /* 非 JSON:不输出任何内容片段,解析错误由 issues 区报告 */
+  }
   return []
 }
 
@@ -396,9 +454,10 @@ function outputHuman(envFile, envVars, allIssues) {
   console.log(`${C.cyan}${C.bold}🔍 LLM Provider Schema 守门 — ${relPath}${C.reset}`)
   for (const f of ['LLM_PROVIDERS_JSON', 'LLM_PROVIDERS']) {
     const v = envVars[f]?.value ?? ''
-    const display = v === ''
-      ? `${C.dim}<empty>${C.reset}`
-      : `${C.dim}非空(${v.length} 字符,providers: ${providerNames(v).join(', ') || '解析失败'})${C.reset}`
+    const display =
+      v === ''
+        ? `${C.dim}<empty>${C.reset}`
+        : `${C.dim}非空(${v.length} 字符,providers: ${providerNames(v).join(', ') || '解析失败'})${C.reset}`
     console.log(`📋 ${f}: ${display}`)
   }
   console.log()
@@ -406,16 +465,22 @@ function outputHuman(envFile, envVars, allIssues) {
   const warnings = allIssues.filter((i) => i.level === 'warning')
   const infos = allIssues.filter((i) => i.level === 'info')
   if (errors.length === 0) {
-    console.log(`${C.green}✅ 通过:${C.reset}${errors.length} error, ${warnings.length} warning, ${infos.length} info`)
+    console.log(
+      `${C.green}✅ 通过:${C.reset}${errors.length} error, ${warnings.length} warning, ${infos.length} info`,
+    )
   } else {
-    console.log(`${C.red}❌ 失败:${C.reset}${errors.length} error, ${warnings.length} warning, ${infos.length} info`)
+    console.log(
+      `${C.red}❌ 失败:${C.reset}${errors.length} error, ${warnings.length} warning, ${infos.length} info`,
+    )
   }
   const printSection = (label, color, items) => {
     if (items.length === 0) return
     console.log(`\n${color}${label}:${C.reset}`)
     for (const it of items) {
-      const loc = it.provider === '(root)' ? it.field
-        : `${it.provider}${it.field === '(root)' ? '' : '.' + it.field}`
+      const loc =
+        it.provider === '(root)'
+          ? it.field
+          : `${it.provider}${it.field === '(root)' ? '' : '.' + it.field}`
       const src = it.source ? ` ${C.dim}[${it.source}]${C.reset}` : ''
       console.log(`  ${color}-${C.reset} ${C.bold}${loc}${C.reset}${src}`)
       console.log(`    ${C.dim}${it.message}${C.reset}`)
@@ -430,22 +495,42 @@ function outputJson(allIssues) {
   const errors = allIssues.filter((i) => i.level === 'error').length
   const warnings = allIssues.filter((i) => i.level === 'warning').length
   const infos = allIssues.filter((i) => i.level === 'info').length
-  console.log(JSON.stringify({
-    passed: errors === 0,
-    errors, warnings, infos,
-    details: allIssues.map((it) => ({
-      level: it.level, provider: it.provider, field: it.field,
-      message: it.message, source: it.source ?? null,
-    })),
-  }, null, 2))
+  console.log(
+    JSON.stringify(
+      {
+        passed: errors === 0,
+        errors,
+        warnings,
+        infos,
+        details: allIssues.map((it) => ({
+          level: it.level,
+          provider: it.provider,
+          field: it.field,
+          message: it.message,
+          source: it.source ?? null,
+        })),
+      },
+      null,
+      2,
+    ),
+  )
 }
 
 function emitFatal(message, args) {
   if (args.json) {
-    console.log(JSON.stringify({
-      passed: false, errors: 1, warnings: 0, infos: 0,
-      details: [{ level: 'error', provider: '(root)', field: '(file)', message, source: null }],
-    }, null, 2))
+    console.log(
+      JSON.stringify(
+        {
+          passed: false,
+          errors: 1,
+          warnings: 0,
+          infos: 0,
+          details: [{ level: 'error', provider: '(root)', field: '(file)', message, source: null }],
+        },
+        null,
+        2,
+      ),
+    )
   } else {
     console.error(`${C.red}❌ ${message}${C.reset}`)
   }
@@ -471,8 +556,9 @@ async function main() {
 
   const envFile = resolve(process.cwd(), args.envFile)
   if (!existsSync(envFile)) {
-    emitFatal(`.env 文件不存在: ${args.envFile}`, args)
-    return 2
+    // 干净检出/CI 没有 .env（gitignore 的机器态）⇒ 无输入,按未判定放行但不记绿。
+    console.error(`⚠️ 未判定: .env 文件不存在(${args.envFile}) —— 无输入,不记绿也不判红`)
+    return 0
   }
 
   let envVars
@@ -492,15 +578,31 @@ async function main() {
   for (const note of wl.notes) {
     if (note.kind === 'ok') continue
     allIssues.push({
-      level: 'warning', provider: '(root)', field: '(whitelist)',
+      level: 'warning',
+      provider: '(root)',
+      field: '(whitelist)',
       message: `provider 名单投影源不可用(kind=${note.kind}): ${note.source}(${note.detail ?? `实读条数 ${note.count ?? 0}`});名单仍按其余源投影,不回退手抄`,
       source: 'provider-whitelist-projection',
     })
   }
-  allIssues.push(...validateJsonField(
-    envVars.LLM_PROVIDERS_JSON?.value ?? '', 'LLM_PROVIDERS_JSON', args.strict, seenProviderNames, wl.set))
-  allIssues.push(...validateJsonField(
-    envVars.LLM_PROVIDERS?.value ?? '', 'LLM_PROVIDERS', args.strict, seenProviderNames, wl.set))
+  allIssues.push(
+    ...validateJsonField(
+      envVars.LLM_PROVIDERS_JSON?.value ?? '',
+      'LLM_PROVIDERS_JSON',
+      args.strict,
+      seenProviderNames,
+      wl.set,
+    ),
+  )
+  allIssues.push(
+    ...validateJsonField(
+      envVars.LLM_PROVIDERS?.value ?? '',
+      'LLM_PROVIDERS',
+      args.strict,
+      seenProviderNames,
+      wl.set,
+    ),
+  )
 
   if (args.json) outputJson(allIssues)
   else outputHuman(envFile, envVars, allIssues)

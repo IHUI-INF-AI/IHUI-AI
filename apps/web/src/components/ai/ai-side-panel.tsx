@@ -86,7 +86,7 @@ import { CostEstimateBar } from '@/components/ai/cost-estimate-bar'
 import { PaneSplitContainer } from '@/components/ai/pane-split-container'
 import { ChatPaneBody } from '@/components/ai/chat-pane-body'
 import { ChatPaneProvider } from '@/stores/chat-pane-context'
-import { usePaneSplitStore } from '@/stores/pane-split'
+import { usePaneSplitStore, rehydratePaneSplitLayout } from '@/stores/pane-split'
 import {
   ROOT_PANE_ID,
   type ForkFailureReason,
@@ -1096,6 +1096,13 @@ export function AISidePanel() {
   const d73PaneTree = usePaneSplitStore((s) => s.tree)
   const d73SplitPane = usePaneSplitStore((s) => s.splitPane)
   const d73DropConversation = usePaneSplitStore((s) => s.dropConversation)
+
+  // G-935 缺口B:布局树持久化恢复只发生在挂载后(首帧必须与服务端同构的单叶树)。
+  // 恢复点必须在 AI 面板宿主而不是 PaneSplitContainer —— 单叶时容器尚未挂载,
+  // 恢复后叶数>1 才会让容器出现。
+  React.useEffect(() => {
+    rehydratePaneSplitLayout()
+  }, [])
 
   // 浮窗最小化态(或浮窗模式 + 面板关闭):渲染 FAB 按钮
   if (floatMode && (floatMinimized || !open)) {

@@ -125,6 +125,16 @@ export const terminalRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ sessions }))
   })
 
+  // GET /terminal/recordings — 终端录制列表(G-962 B8;web use-terminal-session 读 data.recordings)
+  // 数据源待接:库内无终端录制表,服务层也只有内存会话 + Redis scrollback,无录制产物。
+  // 这里返回真实空态,不伪造录制记录。
+  server.get('/terminal/recordings', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    return reply.send(success({ recordings: [] }))
+  })
+
   // GET /terminal/sessions/:id/scrollback — 读取会话 scrollback 历史(Redis,降级返回空)
   server.get('/terminal/sessions/:id/scrollback', async (request, reply) => {
     await requireAuth(request, reply)

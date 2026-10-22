@@ -333,13 +333,13 @@ export interface MemberImportResult {
 
 /**
  * 批量上传会员（JSON 数组提交）。
- * 对接后端 POST /api/members/batch-upload。
+ * 对接后端 POST /api/admin/members/batch-upload。
  * @param members 每条记录可包含 username/password/mobile/email/nickname/gender/status/levelId/companyId/departmentId/avatar 等字段
  */
 export async function batchUploadMember(
   members: Array<Record<string, unknown>>,
 ): Promise<ApiResult<MemberImportResult>> {
-  return fetchApi<MemberImportResult>('/api/members/batch-upload', {
+  return fetchApi<MemberImportResult>('/api/admin/members/batch-upload', {
     method: 'POST',
     body: JSON.stringify({ members }),
   })
@@ -347,13 +347,13 @@ export async function batchUploadMember(
 
 /**
  * 通过 Excel (.xlsx/.xls) 文件批量导入会员（multipart 上传）。
- * 对接后端 POST /api/members/import/excel。
+ * 对接后端 POST /api/admin/members/import/excel。
  * @param file Excel 文件（首行为表头,支持英文键名或中文别名）
  */
 export async function excelUploadMember(file: File): Promise<ApiResult<MemberImportResult>> {
   const form = new FormData()
   form.append('file', file)
-  return fetchApi<MemberImportResult>('/api/members/import/excel', {
+  return fetchApi<MemberImportResult>('/api/admin/members/import/excel', {
     method: 'POST',
     body: form,
   })

@@ -142,6 +142,26 @@ const groupsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ ok: true }))
   })
 
+  // GET /:id/members — 成员列表（G-962 #70：此前仅 POST 在册）
+  server.get('/:id/members', async (request, reply) => {
+    const idParsed = idParamSchema.safeParse(request.params)
+    if (!idParsed.success) {
+      return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [group] = await db
+      .select()
+      .from(userGroups)
+      .where(eq(userGroups.id, idParsed.data.id))
+      .limit(1)
+    if (!group) return reply.status(404).send(error(404, '用户组不存在'))
+    const list = await db
+      .select()
+      .from(userGroupMembers)
+      .where(eq(userGroupMembers.groupId, idParsed.data.id))
+      .orderBy(desc(userGroupMembers.createdAt))
+    return reply.send(success({ list }))
+  })
+
   // POST /:id/members — 添加成员
   server.post('/:id/members', async (request, reply) => {
     const userId = request.userId!
