@@ -13,21 +13,42 @@
  * 它检查的是**行**,而这起事故发生在**文件**上:一侧新增、另一侧从未有过该路径的文件,
  * 在"取某一侧整棵树"的合并里会**静默消失**,既不算冲突也不进 diff 报告。
  *
- * 判据只有一条,且结构上不可能误伤正常合并:
+ * 判据三条(A1 合并吞新增 / A2 两父共有路径 / A3 引用位移丢提交),每条都结构上不可能误伤正常形态:
  *   **A1** 路径 P 满足「P ∈ 某父提交的树」∧「P ∉ 本次合并的共同基底 B」⇒ P 必须 ∈ M 的树。
  *   B 用 `git merge-base --all <parents>` 取,所以"P ∉ B"的定义就是**该侧独有的新增**;
  *   另一侧从未拥有过它,自然谈不上"那一侧删了它"。⇒ 合并结果里没有它 = 被合并吞掉。
  * 合法的删除不受影响:真要在合并里删掉对侧新增的文件,必须显式 `git rm`,而那会体现在
  * **父提交自身的树**里(P 同时不在所有父里 ⇒ 不触发 A1)。
  *
+ * ── A2(2026-10-22 立,票 G-939 的判据缺口①:基底维)──────────────────────────
+ *   **A2** 路径 P ∈ **每一个**父提交的树 ∧ P ∉ M 的树 ⇒ 判红。
+ *   A1 的前件里有「P ∉ 基底」,于是"P 早就进了基底、两父都留着、结果树却丢"这一型结构上不成立;
+ *   而真正的三路合并**不可能**丢掉两父都有的路径(两侧都没删它,合并只会保留) ⇒ A2 命中即
+ *   "结果树不是这枚合并的合并产物"(`commit-tree` 拿旧基线/第三棵树当结果,并集落地与旁路重放造出的
+ *   正是这一形态)。A2 不依赖基底,所以基底里有没有它都判。
+ *
+ * ── A3(2026-10-22 立,票 G-939 的判据缺口②:提交图连通维)──────────────────────
+ *   A1/A2 都只读**合并提交自己**的父子关系。G-939 的现读现场里根本没有合并提交:分支引用被
+ *   `update-ref`(reflog 消息 `g921c relay align`,不经任何钩子)从 `72b3a20c` 移到 `588a6342d8`,
+ *   后者的祖先链从未包含 `12898ccd`/`72b3a20c` 两枚 ⇒ 两枚整批掉出祖先链,A1/A2 的被审对象
+ *   都不存在。**A3** 改判"引用位移":取当前分支 reflog 的相邻位移 `from → to`,若 `from` 不是
+ *   `to` 的祖先(正常前进与真合并天然满足,一律放过),则
+ *     「`from` 线相对共同基底改过的路径」∩「tree(from) 有」∩「tree(to) 没有」= 被这次位移整批
+ *     丢掉的路径 ⇒ 判红;`atRef`(默认 HEAD)已有 ⇒ 记 `repaired` 照常点名、不计红(与 A1 同口径)。
+ *   位移两端都已进 origin/main ⇒ 历史,不重判(§12e 恒红门禁令);任一端从未入库 ⇒ 照判
+ *   (本仓的分支尖端永远先于推送被这一维看到)。
+ *
+ * 取材:reflog 是"引用曾经指向哪里"的唯一可用证据(提交对象里不留前像),取不到就如实报
+ * 「引用位移维未判定」,不拿"没有位移"冒充判过。
+ *
  * 用法:
- *   node scripts/check-merge-addition-loss.mjs                 # 提交链口径:未进入 origin/main 的合并
+ *   node scripts/check-merge-addition-loss.mjs                 # 提交链口径:未进入 origin/main 的合并 + 当前分支最近 40 次引用位移(A3)
  *   node scripts/check-merge-addition-loss.mjs --staged        # runner 统一下发的档(如实记录,判据读同一份提交图)
  *   node scripts/check-merge-addition-loss.mjs --rev <sha>     # 只审计一枚(供钩子精确点名)
  *   node scripts/check-merge-addition-loss.mjs --all-new       # 增量台账:别人推来的合并也会被判一次
  *   node scripts/check-merge-addition-loss.mjs --limit 40      # 手工回看最近 40 枚(取证用,会连历史事故一起报)
  *   node scripts/check-merge-addition-loss.mjs --self-test     # 真临时仓端到端取证
- * 退出码:0 = 无吞并;1 = 有;2 = **无法判定**(git 取数失败 / 两面旗同用 / 脚本自身异常 —— 取数失败绝不静默放行,也绝不冒"无吞并"的绿)。
+ * 退出码:0 = 无吞并且无位移丢提交;1 = 有;2 = **无法判定**(git 取数失败 / 两面旗同用 / 脚本自身异常 —— 取数失败绝不静默放行,也绝不冒"无吞并"的绿)。
  *
  * 取材(2026-09-26 迁入共用层):所有 git 派生经 `scripts/lib/face-reader.mjs` 的 `gitRaw`,
  * 台账经该层的磁盘面读取入口 `readWorktreeFile`。本门**不读 blob 正文**(判据对象是 commit / tree
@@ -37,12 +58,17 @@
 import { writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { Undetermined, assertRepoRoot, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
+import { Undetermined, assertRepoRoot, catBatchOids, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_LIMIT = 12
+/**
+ * A3(引用位移)回看多少条 reflog。位移**在发生后的下一次提交**就位于 reflog 顶部,
+ * 所以窗口只需盖住"最近几次提交";窗口越大,历史重写越多,逐次位移的判据开销也越大。
+ */
+export const REF_MOVE_WINDOW = 40
 /** 沿用迁移前的显式上界:一次审计要 ls-tree 多棵全量树,层的默认 60s/64MB 会把大树读成"取不到" */
 const GIT_TIMEOUT = 120000
 const GIT_MAX_BUFFER = 256 * 1048576
@@ -119,6 +145,17 @@ export function auditOne(rev, cwd = ROOT, atRef = 'HEAD') {
       }
     }
   }
+  // ── A2:两父都有的路径 ⇒ 结果树必须有(与基底无关;A1 的前件"P ∉ 基底"在这一型上恒假)──
+  // 已由 A1 记过的路径不重复计:同一路径被两条判据各记一次,就是两份基线互相顶掉。
+  const seen = new Set([...lost, ...repaired].map((x) => x.path))
+  const [p0, ...rest] = ps
+  for (const path of treePaths(p0, cwd)) {
+    if (mine.has(path) || seen.has(path)) continue
+    if (!rest.every((p) => treePaths(p, cwd).has(path))) continue
+    seen.add(path)
+    if (alive && alive.has(path)) repaired.push({ path, addedBy: p0, restoredAt: atRef, byAllParents: true })
+    else lost.push({ path, addedBy: p0, byAllParents: true })
+  }
   return { rev, merge: true, bases, lost, repaired, atRefUndetermined }
 }
 
@@ -132,6 +169,188 @@ export function auditRecent(limit = DEFAULT_LIMIT, startRef = 'HEAD', cwd = ROOT
     out.push(auditOne(sha, cwd))
   }
   return out
+}
+
+/**
+ * a 是否是 b 的祖先(含 a===b)。经取材层派生;git 以退出码 1 表达"不是",以 128 表达"对象取不到" ——
+ * 两者都返回 false,而"取不到"由调用方先用 `commitExists` 挡掉(不拿"问不到"当"没有位移")。
+ */
+export function isAncestor(a, b, cwd = ROOT) {
+  try {
+    git(['merge-base', '--is-ancestor', a, b], cwd)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 一批路径在某个提交的树里**在不在** —— 与 `treePaths` 同语义,但按路径批问(`cat-file --batch-check`
+ * 只回 oid,不回正文)。A3 每次位移只需问 diff 出来的十几条路径,而列一棵全量树在本仓实测要数秒
+ * (树 10 万+ 条目),且位移维是每次提交都要跑的一维 ⇒ 取按路径批问这一档。
+ */
+export function presentIn(rev, paths, cwd = ROOT) {
+  const usable = paths.filter((p) => p && !p.includes('\n'))
+  const map = new Map()
+  if (usable.length === 0) return { map, failed: false, skipped: paths.length - usable.length }
+  let oids
+  try {
+    oids = catBatchOids(cwd, usable.map((p) => `${rev}:${p}`), { timeout: GIT_TIMEOUT, maxBuffer: GIT_MAX_BUFFER })
+  } catch {
+    return { map, failed: true, skipped: paths.length - usable.length }
+  }
+  for (const p of usable) {
+    const oid = oids.get(`${rev}:${p}`)
+    map.set(p, oid !== null && oid !== undefined)
+  }
+  return { map, failed: false, skipped: paths.length - usable.length }
+}
+
+/**
+ * 当前分支 reflog 的相邻位移(`from → to`,新→旧配对)。**取不到就 ok:false 并点名**:
+ * 分离头 / reflog 被裁 ⇒ 这一维不判,绝不拿"没有位移"冒充判过(§0.3)。
+ * 用分支 reflog 而不是 HEAD reflog:后者混入 `checkout:` 换分支,而换分支天然"新头不是旧头后代",
+ * 那会把每一次切分支都读成位移(A3 会被噪声淹掉)。
+ */
+export function refMoves(cwd = ROOT, limit = REF_MOVE_WINDOW) {
+  let ref = ''
+  try {
+    ref = git(['symbolic-ref', '--short', '-q', 'HEAD'], cwd).trim()
+  } catch {
+    ref = ''
+  }
+  if (!ref) return { ok: false, ref: '', moves: [], why: 'HEAD 不是分支引用(分离头)⇒ 引用位移维未判定' }
+  let out = ''
+  try {
+    out = git(['reflog', 'show', '--format=%H%x09%gs', ref, '-n', String(limit + 1)], cwd)
+  } catch (e) {
+    return { ok: false, ref, moves: [], why: `reflog 取不到(${String(e?.message ?? e).split('\n')[0].slice(0, 80)})⇒ 引用位移维未判定` }
+  }
+  const entries = out
+    .split('\n')
+    .filter((l) => l.trim())
+    .map((l) => {
+      const i = l.indexOf('\t')
+      return { sha: (i < 0 ? l : l.slice(0, i)).trim(), msg: i < 0 ? '' : l.slice(i + 1).trim() }
+    })
+  const moves = []
+  for (let i = 0; i + 1 < entries.length; i++) {
+    const to = entries[i]
+    const from = entries[i + 1]
+    if (!from.sha || !to.sha || from.sha === to.sha) continue
+    moves.push({ from: from.sha, to: to.sha, msg: to.msg })
+  }
+  return { ok: true, ref, moves, why: '' }
+}
+
+/**
+ * 审计**一次引用位移** `from → to`(A3 的核心;`atRef` 与 A1 同义 = "后手有没有补回"的对照面)。
+ * 正常前进/真合并:from 是 to 的祖先 ⇒ 直接放过(零额外派生)。
+ * 否则:以共同基底为界取"from 线改过的路径",其中 tree(from) 有而 tree(to) 没有的就是被这次位移整批
+ * 丢掉的路径。位移两端取不到 / 无共同基底 / 树成员性问不到 ⇒ 逐条落 `atRefUndetermined`,不冒绿。
+ */
+export function auditRefMove(from, to, cwd = ROOT, atRef = 'HEAD') {
+  const row = { rev: to, kind: 'ref-move', merge: false, from, droppedCommits: 0, bases: [], lost: [], repaired: [], atRefUndetermined: '' }
+  if (!commitExists(from, cwd) || !commitExists(to, cwd)) {
+    row.atRefUndetermined = `位移两端在本仓取不到(${String(from).slice(0, 11)} → ${String(to).slice(0, 11)})⇒ 未判定`
+    return row
+  }
+  if (isAncestor(from, to, cwd)) return row
+  const bases = basesOf([from, to], cwd)
+  if (bases.length === 0) {
+    row.atRefUndetermined = `${from.slice(0, 11)} → ${to.slice(0, 11)} 没有共同基底 ⇒ 未判定`
+    return row
+  }
+  row.bases = bases
+  let changed = []
+  try {
+    row.droppedCommits = Number(git(['rev-list', '--count', from, '--not', to], cwd).trim())
+    changed = git(['diff', '--name-only', '-z', `${bases[0]}..${from}`], cwd).split('\0').filter(Boolean)
+  } catch (e) {
+    row.atRefUndetermined = `${from.slice(0, 11)} → ${to.slice(0, 11)} 的位移清单取不到(${String(e?.message ?? e).split('\n')[0].slice(0, 60)})⇒ 未判定`
+    return row
+  }
+  const inFrom = presentIn(from, changed, cwd)
+  const inTo = presentIn(to, changed, cwd)
+  if (inFrom.failed || inTo.failed) {
+    row.atRefUndetermined = `${from.slice(0, 11)} → ${to.slice(0, 11)} 的树成员性问不到(${changed.length} 条)⇒ 未判定`
+    return row
+  }
+  let alive = null
+  const atView = presentIn(atRef, changed, cwd)
+  if (atView.failed) row.atRefUndetermined = `${atRef} 树取不到 ⇒ 后手补回维不判,退回按位移结果判丢失`
+  else alive = atView
+  for (const p of changed) {
+    if (inFrom.map.get(p) !== true || inTo.map.get(p) === true) continue
+    if (alive && alive.map.get(p) === true) row.repaired.push({ path: p, addedBy: from, restoredAt: atRef })
+    else row.lost.push({ path: p, addedBy: from })
+  }
+  return row
+}
+
+/**
+ * 一次取一批提交的父(不遍历祖先,输入序返回)。`rev-list --no-walk` 对"对象不在本仓"的 sha 会整条失败,
+ * 所以失败一律交调用方退回逐枚 `commitExists` —— 这里不吞异常,也不把"取不到"读成"没有父"。
+ */
+export function parentsBatch(shas, cwd = ROOT) {
+  const uniq = [...new Set(shas.filter(Boolean))]
+  if (uniq.length === 0) return new Map()
+  const out = git(['rev-list', '--no-walk=unsorted', '--parents', ...uniq], cwd)
+  const map = new Map()
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue
+    const [sha, ...ps] = line.trim().split(/\s+/)
+    map.set(sha, ps)
+  }
+  return map
+}
+
+/**
+ * A3 的提交链口径:把 reflog 位移逐次送进 `auditRefMove`,**只返回"有话说"的行**(丢失 / 已补回 / 未判定)。
+ * 位移两端都已进 origin/main ⇒ 历史,不重判(§12e:已入库的事故不得把后来每次提交钉红);
+ * 任一端从未入库 ⇒ 照判 —— 本仓的分支尖端先于推送被这一维看到,这才是它值钱的那一格。
+ *
+ * 开销:常规提交的相邻两条 reflog 是直接的父子关系(一次批量 `rev-list --no-walk` 就能证明),
+ * 只有"不是直接父"的位移才需要 `merge-base --is-ancestor` 逐对确认 —— 这道门每次提交都要跑,
+ * 逐对派生在本仓实测要 ~2s(120 次进程),批量后压到 ~0.2s。
+ */
+export function auditRefMoves(cwd = ROOT, opts = {}) {
+  const mv = opts.moves ? { ok: true, ref: opts.ref ?? '', moves: opts.moves, why: '' } : refMoves(cwd, opts.limit ?? REF_MOVE_WINDOW)
+  if (!mv.ok) return { ok: false, ref: mv.ref, rows: [], judged: 0, skipped: 0, missing: 0, why: mv.why }
+  let remote = opts.remote === undefined ? remoteHeadSha(cwd) : opts.remote
+  if (remote && !commitExists(remote, cwd)) remote = ''
+  let parents = null
+  try {
+    parents = parentsBatch(mv.moves.flatMap((m) => [m.from, m.to]), cwd)
+  } catch {
+    parents = null // 批量取父失败 ⇒ 退回逐枚 commitExists(不拿"取不到"当"没有位移")
+  }
+  const rows = []
+  let judged = 0
+  let skipped = 0
+  let missing = 0
+  for (const m of mv.moves) {
+    // 存在性:批量面里查得到就是存在(根提交的父是空数组,同样查得到)
+    const exists = parents ? parents.has(m.from) && parents.has(m.to) : commitExists(m.from, cwd) && commitExists(m.to, cwd)
+    if (!exists) {
+      missing += 1 // 对象不在了 ⇒ 这条位移问不到,不记绿也不冒红(由调用方点名)
+      continue
+    }
+    // 快进:from 是 to 的直接父 ⇒ 必然是祖先(常规提交/常规合并都落这一支,零额外派生)
+    const directParent = Boolean(parents && (parents.get(m.to) || []).includes(m.from))
+    if (directParent || isAncestor(m.from, m.to, cwd)) {
+      skipped += 1
+      continue
+    }
+    if (remote && isAncestor(m.from, remote, cwd) && isAncestor(m.to, remote, cwd)) {
+      skipped += 1
+      continue
+    }
+    const r = auditRefMove(m.from, m.to, cwd, opts.atRef ?? 'HEAD')
+    judged += 1
+    if (r.lost.length || r.repaired.length || r.atRefUndetermined) rows.push({ ...r, msg: m.msg })
+  }
+  return { ok: true, ref: mv.ref, rows, judged, skipped, missing, why: '' }
 }
 
 /** 提交链上的口径:**只审"尚未进入 origin/main 的合并"**。
@@ -161,18 +380,27 @@ export function chooseRange({ remote, exists }) {
   return `${remote}..HEAD`
 }
 
-export function pendingMerges(cwd = ROOT) {
+/**
+ * 当次远端真值(`sha` 优先、`stale` 残值兜底;取不到 ⇒ 空串)。
+ * 只作"落点是否已入库"的对照面用,不拿它落槌 —— 拿残值落槌会把"未收敛"当成"已推送"(静默漏推)。
+ * 抽成单出口是为了让 `pendingMerges` 与 A3 共用**同一次**联网解析(两次 ls-remote 在断网机器上
+ * 各要付一次超时,本仓实测这一档最贵)。
+ */
+export function remoteHeadSha(cwd = ROOT) {
+  try {
+    const r = resolveRemoteHead('main', { root: cwd })
+    return r.sha || r.stale || ''
+  } catch {
+    return ''
+  }
+}
+
+export function pendingMerges(cwd = ROOT, remoteOverride) {
   // 区间左端优先用**当次服务器真值**:残值偏新 ⇒ 漏判别人推来的合并,偏旧 ⇒ 把已审过的重判一遍。
   // 但这一处的兜底方向与收敛器**相反**:收敛器拿残值落槌会把"未收敛"当成"已推送"(静默漏推),
   // 而本门的 `range` 一旦退化成 `'HEAD'` 就是**整条历史**重判 ⇒ 一道恒红门(只会逼人跳门,连带
   // 废掉其余守门)。所以连不上服务器时按 `stale` 残值取一个**保守下界**,宁可多判一轮。
-  let remote = ''
-  try {
-    const r = resolveRemoteHead('main', { root: cwd })
-    remote = r.sha || r.stale || ''
-  } catch {
-    remote = ''
-  }
+  const remote = remoteOverride === undefined ? remoteHeadSha(cwd) : remoteOverride
   const range = chooseRange({ remote, exists: commitExists(remote, cwd) })
   if (range === null) {
     // 拿到了 sha,但它**不在本仓对象库里** —— 多机同仓时别台推来的头会被本地 GC 掉,或 `stale`
@@ -394,6 +622,87 @@ function selfTest() {
       noOracle.lost.some((x) => x.path === 'feature.ts') && Boolean(noOracle.atRefUndetermined),
       JSON.stringify({ lost: noOracle.lost.map((x) => x.path), why: noOracle.atRefUndetermined }),
     )
+
+    // ── A2(2026-10-22,G-939 判据缺口①:基底维)──────────────────────────────
+    // 两父都有 P、且 P 早在基底里 ⇒ A1 的前件"P ∉ 基底"恒假;真正的三路合并不可能丢掉它,
+    // 所以"结果树里没有"= 结果树不是这枚合并的合并产物。
+    writeFileSync(join(dir, 'shared-both.txt'), 'both sides keep it\n', 'utf8')
+    run('add', 'shared-both.txt')
+    run('commit', '-qm', 'feat: 两父都将拥有 shared-both.txt')
+    const pA = run('rev-parse', 'HEAD').trim()
+    // 第二父:树同 pA、多走一枚提交(保证 merge-base 就是 pA ⇒ 基底里有 shared-both.txt)
+    const pB = run('commit-tree', `${pA}^{tree}`, '-p', pA, '-m', 'feat: 第二父(同树)').trim()
+    // 结果树取"pA 的父"那棵(没有 shared-both.txt)—— commit-tree 拿旧基线当结果的形态
+    const pAParent = run('rev-parse', `${pA}^`).trim()
+    const staleTree = run('rev-parse', `${pAParent}^{tree}`).trim()
+    const a2Merge = run('commit-tree', staleTree, '-p', pA, '-p', pB, '-m', 'A2 事故:结果树取旧基线').trim()
+    const a2 = auditOne(a2Merge, dir, a2Merge)
+    ok(
+      'A2:两父都有的路径在结果树里缺席 ⇒ 必须判红(A1 因"P ∈ 基底"结构上看不见这一型)',
+      a2.lost.some((x) => x.path === 'shared-both.txt' && x.byAllParents === true),
+      JSON.stringify(a2.lost),
+    )
+    ok(
+      'A2 反向对照:正常三路合并的两父共有路径不得被算成丢失(A2 不得把正常形态判红)',
+      good.lost.length === 0 && good.repaired.length === 0,
+      JSON.stringify({ lost: good.lost, repaired: good.repaired }),
+    )
+
+    // ── A3(2026-10-22,G-939 判据缺口②:提交图连通维)────────────────────────
+    // 现场没有合并提交可判:分支引用被 update-ref 侧移,整条线掉出祖先链。
+    writeFileSync(join(dir, 'dropped.ts'), 'export const dropped = 1\n', 'utf8')
+    run('add', 'dropped.ts')
+    run('commit', '-qm', 'feat: 只存在于将被丢掉的那条线上')
+    const keepTip = run('rev-parse', 'HEAD').trim()
+    const dropTo = run('rev-parse', 'HEAD~1').trim()
+    run('update-ref', '-m', 'relay align(复现 commit-tree+CAS 旁路落地)', 'HEAD', dropTo)
+    const moves = refMoves(dir)
+    ok(
+      'A3:分支 reflog 的相邻侧移必须被读出来(from 不是 to 的祖先)',
+      moves.ok && moves.moves.some((m) => m.from === keepTip && m.to === dropTo),
+      JSON.stringify(moves.moves.slice(0, 3)),
+    )
+    const dropRow = auditRefMove(keepTip, dropTo, dir, dropTo)
+    ok(
+      'A3:被侧移丢出祖先链的路径必须判红并点名(A1/A2 在这一型上没有合并提交可审)',
+      dropRow.lost.some((x) => x.path === 'dropped.ts') && dropRow.droppedCommits >= 1,
+      JSON.stringify({ lost: dropRow.lost, dropped: dropRow.droppedCommits }),
+    )
+    ok(
+      'A3 反向对照:正常前进(from 是 to 的祖先)一律放过(不许把每次提交都读成位移)',
+      auditRefMove(dropTo, keepTip, dir, keepTip).lost.length === 0 && auditRefMove(dropTo, keepTip, dir, keepTip).droppedCommits === 0,
+    )
+    const liveCatch = auditRefMoves(dir)
+    ok(
+      'A3 提交链口径:未被推送的侧移在 reflog 顶部 ⇒ 下一次提交时必须抓到(这是它值钱的那一格)',
+      liveCatch.ok && liveCatch.rows.some((r) => r.from === keepTip && r.rev === dropTo && r.lost.some((x) => x.path === 'dropped.ts')),
+      JSON.stringify(liveCatch.rows.map((r) => [r.from.slice(0, 7), r.rev.slice(0, 7), r.lost.length])),
+    )
+    writeFileSync(join(dir, 'dropped.ts'), 'export const dropped = 1\n', 'utf8')
+    run('add', 'dropped.ts')
+    run('commit', '-qm', 'fix: 把被侧移丢掉的 dropped.ts 补回')
+    const relanded = auditRefMove(keepTip, dropTo, dir, 'HEAD')
+    ok(
+      'A3:后手补回 ⇒ 该路径进 repaired 不再算丢失(与 A1 同口径,不得洗成无声)',
+      relanded.repaired.some((x) => x.path === 'dropped.ts') && !relanded.lost.some((x) => x.path === 'dropped.ts'),
+      JSON.stringify({ lost: relanded.lost, repaired: relanded.repaired }),
+    )
+    // 两端都已入库 ⇒ 历史,不重判(§12e)。origin/main 指向 keepTip(它同时含两端)。
+    run('update-ref', 'refs/remotes/origin/main', keepTip)
+    const scoped = auditRefMoves(dir)
+    ok(
+      'A3 口径:位移两端都已进 origin/main ⇒ 不重判(历史事故不得把后来每次提交钉红)',
+      !scoped.rows.some((r) => r.from === keepTip && r.rev === dropTo),
+      JSON.stringify(scoped.rows.map((r) => [r.from.slice(0, 7), r.rev.slice(0, 7)])),
+    )
+    run('checkout', '-q', '--detach', 'HEAD')
+    const detached = refMoves(dir)
+    ok(
+      'A3:分离头 ⇒ 该维如实报未判定(不拿"没有位移"冒充判过)',
+      detached.ok === false && Boolean(detached.why),
+      JSON.stringify(detached),
+    )
+    run('checkout', '-q', 'main')
   } finally {
     treeCache.clear()
     rmScratch(dir)
@@ -467,29 +776,47 @@ async function main() {
     console.error(`❌ --limit 必须是正整数,实得:${JSON.stringify(limitFlag.value)}`)
     process.exit(2)
   }
-  const rows = revFlag.present
-    ? [auditOne(revFlag.value)]
-    : limitFlag.present
-      ? auditRecent(Number(limitFlag.value))
-      : argv.includes('--all-new')
-        ? auditUnseen()
-        : pendingMerges()
+  let rows
+  let moveAudit = { ok: true, ref: '', rows: [], judged: 0, skipped: 0, missing: 0, why: '' }
+  if (revFlag.present) rows = [auditOne(revFlag.value)]
+  else if (limitFlag.present) rows = auditRecent(Number(limitFlag.value))
+  else if (argv.includes('--all-new')) rows = auditUnseen()
+  else {
+    // 远端位置只解析一次,合并口径与 A3(引用位移)共用 —— 断网时两次 ls-remote 各付一次超时。
+    const remote = remoteHeadSha()
+    rows = pendingMerges(ROOT, remote)
+    // A3 只在提交链默认档跑:--rev / --limit 是人工取证档(审的是指定的那一枚),--all-new 是别人
+    // 推来的合并的增量台账;把"当前分支的位移"混进这三档会让账面口径读不出来。
+    moveAudit = auditRefMoves(ROOT, { remote })
+  }
+  const moveRows = moveAudit.rows || []
   const scope = revFlag.present ? `单枚 ${revFlag.value}` : limitFlag.present ? `回看 ${limitFlag.value} 枚` : argv.includes('--all-new') ? '增量台账新判' : '未入 origin/main 的合并'
   const bad = rows.filter((r) => r.lost.length)
-  const nLost = bad.reduce((s, r) => s + r.lost.length, 0)
-  const nRepaired = rows.reduce((s, r) => s + ((r.repaired || []).length), 0)
+  const badMoves = moveRows.filter((r) => r.lost.length)
+  const nLost = bad.reduce((s, r) => s + r.lost.length, 0) + badMoves.reduce((s, r) => s + r.lost.length, 0)
+  const nRepaired =
+    rows.reduce((s, r) => s + ((r.repaired || []).length), 0) + moveRows.reduce((s, r) => s + ((r.repaired || []).length), 0)
   console.log(
-    `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失新增路径 ${nLost} / 已被后手补回 ${nRepaired}(照常点名,不计丢失)`,
+    `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失新增路径 ${nLost} / 已被后手补回 ${nRepaired}(照常点名,不计丢失) / 引用位移 ${moveAudit.judged} 次(判红 ${badMoves.length})`,
   )
-  for (const r of rows) for (const l of r.repaired || []) console.log(`  ↻ ${l.path}  —— ${r.rev.slice(0, 11)} 曾吞掉,后手已在 ${l.restoredAt} 面补回`)
-  for (const r of rows) if (r.atRefUndetermined) console.log(`  ⚠️ ${r.rev.slice(0, 11)}: ${r.atRefUndetermined}`)
+  for (const r of [...rows, ...moveRows]) for (const l of r.repaired || []) console.log(`  ↻ ${l.path}  —— ${r.rev.slice(0, 11)} 曾吞掉,后手已在 ${l.restoredAt} 面补回`)
+  for (const r of [...rows, ...moveRows]) if (r.atRefUndetermined) console.log(`  ⚠️ ${r.rev.slice(0, 11)}: ${r.atRefUndetermined}`)
+  if (!moveAudit.ok) console.log(`  ⚠️ 引用位移维未判定:${moveAudit.why}(不记绿,也不冒红)`)
+  if (moveAudit.missing) console.log(`  ⚠️ 引用位移维有 ${moveAudit.missing} 次位移的对象已不在本仓(问不到,不记绿也不冒红)`)
   for (const r of bad)
     for (const l of r.lost)
       console.log(`  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 引入,合并提交 ${r.rev.slice(0, 11)} 的树里没有`)
+  for (const r of badMoves)
+    for (const l of r.lost)
+      console.log(
+        `  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 引入,引用位移 ${r.from.slice(0, 11)} → ${r.rev.slice(0, 11)} 把该线整批丢出祖先链(${r.droppedCommits} 枚提交;reflog 消息「${String(r.msg || '空').slice(0, 40)}」)`,
+      )
   if (nLost)
     console.log(
-      '\n  合并不得吞掉任一父提交的"独有新增"。修法:在合并结果里把该路径补回(`git checkout <引入它的提交> -- <路径>`),\n' +
-        '  或改用真正的三路合并;确要删除,请在合并之后单独 `git rm` 并写明理由(那样所有父提交都不含它,本判据放过)。',
+      '\n  合并不得吞掉任一父提交的"独有新增",引用位移也不得把已入库的提交整批丢出祖先链。修法:\n' +
+        '  ① 合并吞新增:在合并结果里把该路径补回(`git checkout <引入它的提交> -- <路径>`),或改用真正的三路合并;\n' +
+        '  ② 引用位移丢提交:把被丢的提参加回当前分支(`git merge <那枚>` 或 `cherry-pick`),先 `git tag lost-commit/<sha>` 保全原件;\n' +
+        '  确要删除,请在合并之后单独 `git rm` 并写明理由(那时所有父提交都不含它,本判据放过)。',
     )
   process.exit(nLost ? 1 : 0)
 }
@@ -505,5 +832,27 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { treePaths, parentsOf, basesOf, auditOne, auditRecent, pendingMerges, auditUnseen, readMarker, markerPath, chooseRange, commitExists, faceFromArgv, unknownFlags }
+export const __test__ = {
+  treePaths,
+  parentsOf,
+  basesOf,
+  auditOne,
+  auditRecent,
+  pendingMerges,
+  auditUnseen,
+  readMarker,
+  markerPath,
+  chooseRange,
+  commitExists,
+  faceFromArgv,
+  unknownFlags,
+  // A2/A3(2026-10-22,G-939):镜像测试只能用门的实现,不得另写一份判据
+  isAncestor,
+  presentIn,
+  refMoves,
+  auditRefMove,
+  auditRefMoves,
+  remoteHeadSha,
+  REF_MOVE_WINDOW,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

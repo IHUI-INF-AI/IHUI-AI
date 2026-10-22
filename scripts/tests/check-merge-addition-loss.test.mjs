@@ -245,6 +245,109 @@ test('反向锁:remote 三元式不得回来(回来 = 不可解析残值再次�
   assert.match(src, /const range = chooseRange[(]/, '选区间的决策必须走纯函数,不然不可证')
 })
 
+// ── A2(2026-10-22,G-939 判据缺口①):两父都有的路径在结果树里缺席 ──
+test('A2:两父共有且基底里也有的路径,结果树丢掉时必须判红(A1 的前件在这一型上恒假)', () => {
+  const { dir, run } = repo()
+  try {
+    writeFileSync(join(dir, 'shared.txt'), 'both sides keep it\n', 'utf8')
+    run('add', 'shared.txt')
+    run('commit', '-qm', 'shared.txt 进基底')
+    const p1 = run('rev-parse', 'HEAD')
+    // 第二父:树同 p1、多走一枚 ⇒ 共同基底就是 p1 ⇒ shared.txt ∈ 基底 ⇒ A1 结构上看不见
+    const p2 = run('commit-tree', `${p1}^{tree}`, '-p', p1, '-m', '第二父(同树)')
+    const p1Parent = run('rev-parse', `${p1}^`)
+    const staleTree = run('rev-parse', `${p1Parent}^{tree}`)
+    const merge = run('commit-tree', staleTree, '-p', p1, '-p', p2, '-m', 'A2 事故:结果树取旧基线')
+    const res = G.auditOne(merge, dir, merge)
+    assert.deepEqual(
+      res.lost.map((x) => x.path),
+      ['shared.txt'],
+      `A1 必须一无所获(A2 是唯一能看见这一型的判据),实际:${JSON.stringify(res.lost)}`,
+    )
+    assert.equal(res.lost[0].byAllParents, true)
+
+    // 反向对照:正常三路合并(shared.txt 两父都留)⇒ A2 不得判红
+    run('checkout', '-qb', 'x')
+    writeFileSync(join(dir, 'x.txt'), '1\n', 'utf8')
+    run('add', 'x.txt')
+    run('commit', '-qm', 'x 侧新增')
+    run('checkout', '-q', 'main')
+    run('merge', '-q', '--no-edit', 'x')
+    const good = G.auditOne('HEAD', dir)
+    assert.equal(good.lost.length, 0, `正常合并被 A2 误伤:${JSON.stringify(good.lost)}`)
+    assert.equal(good.repaired.length, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('presentIn 与 treePaths 同语义:按路径批问不得漂出第二套成员性判据', () => {
+  const { dir, run } = repo()
+  try {
+    writeFileSync(join(dir, 'only-here.txt'), 'x\n', 'utf8')
+    run('add', 'only-here.txt')
+    run('commit', '-qm', 'add')
+    const set = G.treePaths('HEAD', dir)
+    const r = G.presentIn('HEAD', ['base.txt', 'only-here.txt', 'nope.txt'], dir)
+    assert.equal(r.failed, false)
+    for (const p of ['base.txt', 'only-here.txt', 'nope.txt']) assert.equal(r.map.get(p), set.has(p), `对 ${p} 两路取证不一致`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ── A3(2026-10-22,G-939 判据缺口②):引用位移把整条线丢出祖先链 ──
+test('A3:引用侧移必须判红;补回降级 repaired;位移两端入库后不重判;分离头如实未判定', () => {
+  const { dir, run } = repo()
+  try {
+    writeFileSync(join(dir, 'dropped.ts'), 'export const dropped = 1\n', 'utf8')
+    run('add', 'dropped.ts')
+    run('commit', '-qm', 'feat: 只存在于将被丢掉的那条线上')
+    const keep = run('rev-parse', 'HEAD')
+    const dropTo = run('rev-parse', 'HEAD~1')
+    run('update-ref', '-m', 'relay align(commit-tree+CAS 旁路落地的形态)', 'HEAD', dropTo)
+
+    const mv = G.refMoves(dir)
+    assert.ok(mv.ok, `分支 reflog 必须读得到:${JSON.stringify(mv)}`)
+    assert.ok(mv.moves.some((m) => m.from === keep && m.to === dropTo), `相邻侧移未被读出:${JSON.stringify(mv.moves)}`)
+
+    const row = G.auditRefMove(keep, dropTo, dir, dropTo)
+    assert.deepEqual(row.lost.map((x) => x.path), ['dropped.ts'], `丢的路径必须点名:${JSON.stringify(row)}`)
+    assert.ok(row.droppedCommits >= 1, '被丢提交数必须量到')
+    // 反向对照:正常前进(from 是 to 的祖先)一律放过 —— 否则每次提交都会被读成位移
+    assert.equal(G.auditRefMove(dropTo, keep, dir, keep).lost.length, 0)
+    assert.equal(G.auditRefMove(dropTo, keep, dir, keep).droppedCommits, 0)
+
+    // 提交链口径:落点尚未入库 ⇒ 必须在提交前抓到(这是 A3 值钱的那一格)
+    const live = G.auditRefMoves(dir, { remote: '' })
+    assert.ok(
+      live.ok && live.rows.some((r) => r.from === keep && r.rev === dropTo && r.lost.some((x) => x.path === 'dropped.ts')),
+      `未推送的侧移未被抓到:${JSON.stringify(live.rows.map((r) => [r.from.slice(0, 7), r.rev.slice(0, 7), r.lost.length]))}`,
+    )
+
+    // 后手补回 ⇒ repaired(与 A1 同口径,不得洗成无声)
+    writeFileSync(join(dir, 'dropped.ts'), 'export const dropped = 1\n', 'utf8')
+    run('add', 'dropped.ts')
+    run('commit', '-qm', 'fix: 把被侧移丢掉的 dropped.ts 补回')
+    const healed = G.auditRefMove(keep, dropTo, dir, 'HEAD')
+    assert.ok(healed.repaired.some((x) => x.path === 'dropped.ts'), `补回未进 repaired:${JSON.stringify(healed)}`)
+    assert.ok(!healed.lost.some((x) => x.path === 'dropped.ts'))
+
+    // 两端都已入库 ⇒ 历史不重判(§12e);origin/main 指向 keep(同时包含两端)
+    run('update-ref', 'refs/remotes/origin/main', keep)
+    const scoped = G.auditRefMoves(dir)
+    assert.ok(!scoped.rows.some((r) => r.from === keep && r.rev === dropTo), `已入库位移被重判:${JSON.stringify(scoped.rows)}`)
+
+    // 分离头 ⇒ 该维如实报未判定,不冒绿
+    run('checkout', '-q', '--detach', 'HEAD')
+    const detached = G.refMoves(dir)
+    assert.equal(detached.ok, false, '分离头下不得声称判过')
+    assert.ok(detached.why, '取不到必须点名原因')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ── 2026-09-26 迁入共用取材层:半接线必须被钉死在"不可复发"这一档 ──
 
 /**
