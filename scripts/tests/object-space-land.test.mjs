@@ -804,7 +804,6 @@ test('T-NEWFILE-blobmode 新增文件不得被算成"横幅检查未判定"(blob
     paths: 'brand/new.ts',
     blobs: [{ path: 'brand/new.ts', blob }],
     proof: '该路径基线不存在,构造内容由本票写出',
-    extraEnv: { LAND_DANGLING_GATE: writeGateStub(dir) },
   })
   assert.equal(r.status, 0, `新增文件必须能落地,实得 ${r.status}:${r.stdout}|${r.stderr}`)
   assert.match(r.stdout, /基线里没有该路径\(新增文件\)/, '必须点名"按定义无从保持",不得静默')
@@ -885,7 +884,7 @@ test('T-IMP-1 反例臂(端到端):声明面引用了未随本次落地的相对
   mkdirSync(join(dir, 'src', 'lib'), { recursive: true })
   writeFileSync(join(dir, 'src', 'a.mjs'), "import { x } from './lib/missing.mjs'\nexport const y = x\n")
   const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
-  const r = runLandRaw(dir, 'src/a.mjs', 'test: 只交引用方', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/a.mjs', 'test: 只交引用方')
   assert.notEqual(r.status, 0, '缺实体时不得落地成功')
   assert.match(r.stderr + r.stdout, /悬空相对引用预检不通过/, '拒绝原因必须点名本闸,不能是一句泛化失败')
   assert.match(r.stderr + r.stdout, /lib\/missing\.mjs/, '必须点名缺失的说明符')
@@ -898,7 +897,7 @@ test('T-IMP-2 正例臂(端到端):引用与实体同枚声明 ⇒ 必须放行(
   mkdirSync(join(dir, 'src', 'lib'), { recursive: true })
   writeFileSync(join(dir, 'src', 'a.mjs'), "import { x } from './lib/present.mjs'\nexport const y = x\n")
   writeFileSync(join(dir, 'src', 'lib', 'present.mjs'), 'export const x = 1\n')
-  const r = runLandRaw(dir, 'src/a.mjs;src/lib/present.mjs', 'test: 引用与实体同枚', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/a.mjs;src/lib/present.mjs', 'test: 引用与实体同枚')
   assert.equal(r.status, 0, `同枚带实体必须成功,实际输出:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /悬空相对引用预检:声明面源文件 2 个 \/ 缺失 0/, '放行也要报数,不得静默')
 })
@@ -908,7 +907,7 @@ test('T-IMP-3 TS 约定:import ./c.js 而树里只有 c.ts ⇒ 不得判缺失(�
   mkdirSync(join(dir, 'src'), { recursive: true })
   writeFileSync(join(dir, 'src', 'b.ts'), "import { c } from './c.js'\nexport const d = c\n")
   writeFileSync(join(dir, 'src', 'c.ts'), 'export const c = 2\n')
-  const r = runLandRaw(dir, 'src/b.ts;src/c.ts', 'test: .js 说明符指向 .ts', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/b.ts;src/c.ts', 'test: .js 说明符指向 .ts')
   assert.equal(r.status, 0, `.js→.ts 是合法写法,判红即假阳:\n${r.stdout}\n${r.stderr}`)
 })
 
@@ -916,7 +915,7 @@ test('T-IMP-4 未建模扩展名只报不拦:import ./x.css 不在树 ⇒ exit 0
   const dir = makeRepo(t)
   mkdirSync(join(dir, 'src'), { recursive: true })
   writeFileSync(join(dir, 'src', 'w.ts'), "import './x.css'\nexport const w = 1\n")
-  const r = runLandRaw(dir, 'src/w.ts', 'test: css 不在候选表', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/w.ts', 'test: css 不在候选表')
   assert.equal(r.status, 0, '判不出的一律不拦(误拦一次,后人就学会整闸跳掉了)')
   assert.match(r.stdout, /判不出 1/, '但必须报数并点名,不得静默成"看起来全绿"')
   assert.match(r.stdout, /x\.css/, '未判定必须报名')
@@ -926,7 +925,7 @@ test('T-IMP-5 注释里的相对路径不算调用点(maskComments 装车的反�
   const dir = makeRepo(t)
   mkdirSync(join(dir, 'src'), { recursive: true })
   writeFileSync(join(dir, 'src', 'n.mjs'), "// 曾经写 import './gone.mjs' 后来删了\nexport const n = 1\n")
-  const r = runLandRaw(dir, 'src/n.mjs', 'test: 注释提了一句', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/n.mjs', 'test: 注释提了一句')
   assert.equal(r.status, 0, `注释不是调用点:\n${r.stdout}\n${r.stderr}`)
 })
 
@@ -935,7 +934,7 @@ test('T-IMP-6 形状锁:onTree 必须真传进 commitTreeWithIndex,且两个开�
   assert.match(src, /onTree:/, '摘掉 onTree 就等于本闸不存在 —— 判据在而无人调度是本仓最高频失效型')
   assert.match(src, /IHUI_LAND_SKIP_IMPORT_CHECK === '1'/, '应急跳过通道必须真实存在(文档不得写跑不通的出路)')
   assert.match(src, /拒绝落地\(未创建任何 commit/, '拒绝路径必须明说"什么都没创建"')
-  assert.match(src, /runDanglingGate\(\{ tree, anchor: head \}\)/, 'G-815985:涉事判据必须在 onTree 里以树+锚点跑(先 commit 再审会留 unreachable 地雷)')
+  assert.match(src, /runDanglingGate\(\{ root, tree, anchor: head \}\)/, 'G-815985:涉事判据必须在 onTree 里以仓根+树+锚点跑(先 commit 再审会留 unreachable 地雷;G-929 同型票:漏 root 则换仓即失明)')
   assert.match(src, /IHUI_LAND_SKIP_DANGLING_GATE === '1'/, '涉事判据的应急跳过必须真实存在')
   assert.match(src, /danglingGate\.undetermined \? 2 : 1/, '未判定与判红必须走不同退出码(三态不并桶)')
   const bg = readFileSync(join(dirname(TOOL), 'lib', 'bypass-git.mjs'), 'utf8')
@@ -961,7 +960,7 @@ test('T-IMP-8 回归(本闸第一版被自己的落地枚打回的那一型):字
     join(dir, 'src', 'fixture.mjs'),
     "const tpl = \"import { x } from './lib/ghost.mjs'\\n\"\nexport const tpl2 = tpl\n",
   )
-  const r = runLandRaw(dir, 'src/fixture.mjs', 'test: 夹具里写着别人的 import', { LAND_DANGLING_GATE: writeGateStub(dir) })
+  const r = runLandRaw(dir, 'src/fixture.mjs', 'test: 夹具里写着别人的 import')
   assert.equal(r.status, 0, `字符串内容里的 import 不是调用点:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /缺失 0 /, '且必须如实报"缺失 0",不得静默跳过判定')
 })
@@ -1352,10 +1351,11 @@ test('T-BANNER-BOM-CTRL 对照:不带 BOM 的普通改动(工作树模式)行为
 
 // ─────────────────────────────────────────────────────────────────────────────
 // G-815985 涉事判据:声明面含源码时,在 commit-tree 之前对 onTree 那棵树跑守门 98。
-// 桩只仿"退出码 0/1/2"的传输,不仿判据本身(判据的有牙由门体自检 39 例 + 镜像阳性对照证明)。
-// 既有源码落地下沉(T-IMP-1/2/3/4/5/8、T-NEWFILE-blobmode)用桩,是因为它们的题面是相对引用
-// 预检/新增文件 —— 真门按仓库根自推导,在临时仓里 rev 解析不到,走真门必被拒(那是面错配,
-// 不是被审内容有问题)。
+// 桩只仿"退出码 0/1/2"的传输,不仿判据本身(判据的有牙由门体自检 + 镜像阳性对照证明)。
+// G-929 同型票(2026-10-23)起门体支持 `--root`、本器透传被审仓根 ⇒ 既有源码落地下沉
+// (T-IMP-1/2/3/4/5/8、T-NEWFILE-blobmode)**走真门**:临时仓的真树真判,桩不再替它们
+// 掩盖"取材失败 ⇒ 未判定"这一格(那正是本票要盯的路径)。会记账的桩只留给 T-DG 族——
+// 它们的题面就是传输与判决三态(0/1/2)与 argv 形状。
 // ─────────────────────────────────────────────────────────────────────────────
 function runLandGateStubbed(dir, paths, msg, stubRc, stubName = 'stub-gate.mjs') {
   const gate = writeGateStub(dir, stubName)
@@ -1388,8 +1388,10 @@ test('T-DG1 成对①:门说干净 ⇒ 源码照样落地(否则本闸就是新�
   assert.equal(r.status, 0, `门说干净必须放行:\n${r.stdout}\n${r.stderr}`)
   assert.match(r.stdout, /涉事判据.*通过/, '放行也要报数,不得静默')
   const logged = readFileSync(stubLog, 'utf8')
-  assert.match(logged, /--rev/, '必须把树传给门(审的是落盘树,不是 HEAD)')
-  assert.match(logged, /--anchor/, '必须把锚点传给门(否则棘轮无基准)')
+  const argvLogged = JSON.parse(logged.trim().split('\n').pop())
+  assert.ok(argvLogged.includes('--rev'), '必须把树传给门(审的是落盘树,不是 HEAD)')
+  assert.ok(argvLogged.includes('--anchor'), '必须把锚点传给门(否则棘轮无基准)')
+  assert.equal(argvLogged[argvLogged.indexOf('--root') + 1], dir, '必须把被审仓根传给门(漏 --root = 换仓即在主仓问临时仓的树,门 231 G-929 同型根因)')
 })
 
 test('T-DG2 成对②:门说有悬空 ⇒ 必须拒绝,HEAD 未动且不留 unreachable commit', (t) => {
@@ -1519,7 +1521,7 @@ test('T-DG6 形状锁:触发面必须与门体 SRC_RE 同形,且门以子进程�
     return m[1].split('|').sort()
   }
   assert.deepEqual(extsOf(src, 'SOURCE_LIKE_RE'), extsOf(gateSrc, 'SRC_RE'), '触发面与门的扩展名表必须同形(一边扩一边不扩=一半形态失明)')
-  assert.match(src, /execFileSync\(process\.execPath, \[gate, '--rev', tree, '--anchor', anchor\]/, '门必须以子进程跑并传树+锚点(import 期崩溃不得连带杀死本器)')
+  assert.match(src, /execFileSync\(process\.execPath, \[gate, '--rev', tree, '--anchor', anchor, '--root', root\]/, '门必须以子进程跑并传树+锚点+被审仓根(import 期崩溃不得连带杀死本器;漏 --root = G-929 同型换仓失明)')
   assert.match(src, /windowsHide: true/, '派生控制台程序必须带 windowsHide(守门 52)')
   assert.match(src, /IHUI_LAND_SKIP_DANGLING_GATE === '1'/, '应急跳过通道必须真实存在')
 })

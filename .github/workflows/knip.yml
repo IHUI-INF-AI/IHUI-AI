@@ -49,7 +49,9 @@ jobs:
   knip:
     name: Knip 死代码检查
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 2026-10-23:10 → 20。原因不是"跑不完",而是下面把 store 钉到检出之外 ⇒ 缓存键位换面,
+    # 首轮是冷面(要真下载 4196 个包)。留足余量,免得把一种红换成超时红(§12e 同型教训)。
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -60,16 +62,38 @@ jobs:
         id: setup-pnpm
         uses: pnpm/action-setup@v6
 
+      # 立因(现读 run 39846192962 @ 9f8d15add 的 install 日志,逐字):
+      #   "Content-addressable store is at: /home/runner/work/IHUI-AI/IHUI-AI/D:/DevEnv/tools/pnpm/store/v11"
+      # 仓内 pnpm-workspace.yaml 的 `storeDir` 是 Windows 绝对路径('D:/DevEnv/tools/pnpm/store'),
+      # 而 Linux 上 path.isAbsolute('D:/…') 为假 ⇒ pnpm 把它当**相对路径**,在检出目录里造出一枚
+      # 名为 `D:` 的未跟踪目录。`git status --porcelain` 会把一个未跟踪目录折成一行 ⇒ 脏计数恰为 1
+      # ⇒ scripts/lib/knip-ratchet-face.mjs 判 incomparable(exit 2):棘轮从未量过死代码,
+      # 而它报的"checkout/缓存配置异常"不点名是哪个路径(该取证已由脚本自身补上)。
+      # storeDir 属机器事实(AGENTS §26),不在这里逐机改写;CI 只把它钉在检出之外。
+      # 覆盖形态必须写在命令上:本机 pnpm 11.18.0(与 CI 同版)实测
+      #   `npm_config_store_dir=… pnpm store path` → 仍读 yaml 值;`--userconfig=…` → 仍读 yaml 值;
+      #   唯 `pnpm store path --store-dir=…` 生效。
       - name: Setup Node
         id: setup-node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
+          # 刻意不吃 `cache: 'pnpm'`:该输入让 setup-node 用**不带参数**的 `pnpm store path`
+          # 定位仓存,读到的正是检出里的 `D:/…`,并在 install 之前就把缓存还原进检出目录 ⇒ 脏面照旧。
+          # 缓存改由下面显式的 actions/cache 承担,路径由我们自己钉死。
+
+      - name: Cache pnpm store (检出目录之外)
+        id: store-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/pnpm-store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
 
       - name: Install dependencies
         id: install
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --store-dir="${{ runner.temp }}/pnpm-store"
 
       # 2026-09-10 根因修复:此前直接 `pnpm knip`(发现问题即 exit 1),本仓库恒红——
       #   历史死代码债约 4000 项(未引用文件/导出/类型/重复导出),其中框架装载型依赖
@@ -94,10 +118,11 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/knip.yml
-          TRIAGE_IDS: checkout setup-pnpm setup-node install knip knip-full-report
+          TRIAGE_IDS: checkout setup-pnpm setup-node store-cache install knip knip-full-report
           O_CHECKOUT: ${{ steps.checkout.outcome }}
           O_SETUP_PNPM: ${{ steps.setup-pnpm.outcome }}
           O_SETUP_NODE: ${{ steps.setup-node.outcome }}
+          O_STORE_CACHE: ${{ steps.store-cache.outcome }}
           O_INSTALL: ${{ steps.install.outcome }}
           O_KNIP: ${{ steps.knip.outcome }}
           O_KNIP_FULL_REPORT: ${{ steps.knip-full-report.outcome }}
