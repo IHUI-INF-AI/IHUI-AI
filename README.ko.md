@@ -2176,6 +2176,11 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (56a54d2fd0)
+- 📚 문서:登记 Cloudflare service token 明文本机暴露(6 处副本)待轮换 (915b16d2d2)
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f813b056a8)
+
+**2026-10-22**
 - 🐞 수정:ihui-pg-backup 未送达留痕改投运行态新址 .ihui-agent/state(迁移漏网件;旧址已不存在且读方 ops-watch 只扫新址,不改=备份告警静默丢) (85062fbeba)
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b670fc84c5)
 - 📚 문서:登记"生产 web 的真部署承载者未查明"(被指认的 DEPLOYLOOP 13h 零日志、其工作目录从未创建) (d986561468)
@@ -2263,10 +2268,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-10-22**
 - ♻️ 리팩터:四枚裸 git 派生生产文件改走 face-reader gitRaw(G-927 棘轮降档第一批) (c9462d236d)
-
-**2026-10-22**
-- 📚 문서:纠正蓝绿部署凭据名,并登记两枚凭据从未注册这一实测事实 (525c34eb57)
-- 🐞 수정:守门 39 头注枚数失真改现读口径(G-922 第④条收口) (b903eb343a)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
