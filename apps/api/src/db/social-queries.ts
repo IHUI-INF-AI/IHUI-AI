@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { randomBytes } from 'node:crypto'
-import { eq, and, ne, desc, asc, sql, inArray } from 'drizzle-orm'
+import { eq, and, ne, gt, desc, asc, sql, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   comments,
@@ -171,8 +171,7 @@ export async function findRecommendedUsers(
   const conds = [eq(users.status, 1)]
   if (opts.excludeUserId) conds.push(ne(users.id, opts.excludeUserId))
   const where = and(...conds)
-  const followerCount =
-    sql<number>`(SELECT COUNT(*)::int FROM ${userFollows} uf WHERE uf.following_id = ${users.id})`
+  const followerCount = sql<number>`(SELECT COUNT(*)::int FROM ${userFollows} uf WHERE uf.following_id = ${users.id})`
   const [list, totalRows] = await Promise.all([
     db
       .select({
@@ -187,7 +186,10 @@ export async function findRecommendedUsers(
       .orderBy(desc(followerCount), asc(users.id))
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
-    db.select({ count: sql<number>`COUNT(*)` }).from(users).where(where),
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(users)
+      .where(where),
   ])
   return {
     list: list.map((row) => ({ ...row, followerCount: Number(row.followerCount) })),
@@ -415,6 +417,42 @@ export async function findSubscriptions(
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
+/**
+ * 当前用户是否已订阅某目标(2026-10-23 立,供 /circles/topic/:tid/follow 判翻转前态)。
+ * 与 subscribe/unsubscribe 同表同判据(user_id + target_type + target_id 联合唯一),
+ * 形状对齐既有的 isFavorited / isFollowing ⇒ 不另立一套"订阅关系读法"。
+ */
+export async function isSubscribed(input: {
+  userId: string
+  targetType: string
+  targetId: string
+}): Promise<boolean> {
+  const rows = await db
+    .select({ id: subscriptions.id })
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.userId, input.userId),
+        eq(subscriptions.targetType, input.targetType),
+        eq(subscriptions.targetId, input.targetId),
+      ),
+    )
+    .limit(1)
+  return rows.length > 0
+}
+
+/**
+ * 某目标被多少用户订阅(话题「关注数」口径)。
+ * 与 countFollowers / countFavorites 同为 COUNT(*) 实算,不是累加计数器 ⇒ 不会与明细漂移。
+ */
+export async function countSubscribers(targetType: string, targetId: string): Promise<number> {
+  const rows = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(subscriptions)
+    .where(and(eq(subscriptions.targetType, targetType), eq(subscriptions.targetId, targetId)))
+  return Number(rows[0]?.count ?? 0)
+}
+
 // =============================================================================
 // Tags
 // =============================================================================
@@ -455,6 +493,34 @@ export async function createTag(input: {
 /** 标签列表（按 usage_count 倒序，name 正序）。 */
 export async function findTags(limit = 100): Promise<Tag[]> {
   return db.select().from(tags).orderBy(desc(tags.usageCount), asc(tags.name)).limit(limit)
+}
+
+/**
+ * 热话题榜候选(圈子广场「热话题」副榜,2026-10-23 立)。
+ *
+ * 话题身份 = tags 行:本仓唯一"可命名 + 可计数"的社区话题实体。`circle_dynamic` 没有 name
+ * 列(在册的 GET /api/circles/topic/list 返的就是它),`t_dynamic` 同形 ⇒ 从它们出榜就得
+ * 现造 name/count,故不取。
+ * 只给 usage_count > 0 的行:usage_count 由 attach(+1)/detach(-1) 维护(见 schema 头注),
+ * 为 0 即"没人关联过",放进"热门"是噪声不是读数。
+ * 排序与 findTags 同档(usage_count 倒序、同名次按 name 升序 ⇒ 分页稳定)。
+ */
+export async function findHotTags(opts: PageOpts): Promise<{ list: Tag[]; total: number }> {
+  const where = gt(tags.usageCount, 0)
+  const [list, totalRows] = await Promise.all([
+    db
+      .select()
+      .from(tags)
+      .where(where)
+      .orderBy(desc(tags.usageCount), asc(tags.name))
+      .limit(opts.pageSize)
+      .offset((opts.page - 1) * opts.pageSize),
+    db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(tags)
+      .where(where),
+  ])
+  return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
 export async function findTagBySlug(slug: string): Promise<Tag | undefined> {

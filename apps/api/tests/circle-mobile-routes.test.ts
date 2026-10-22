@@ -13,18 +13,22 @@ const AUTH_USER_ID = '33333333-3333-4333-8333-333333333333'
 const VICTIM_USER_ID = '44444444-4444-4444-8444-444444444444'
 const CANDIDATE_A = '55555555-5555-4555-8555-555555555555'
 const CANDIDATE_B = '66666666-6666-4666-8666-666666666666'
+const TAG_X = '77777777-7777-4777-8777-777777777777'
+const TAG_Y = '88888888-8888-4888-8888-888888888888'
 
 const q = vi.hoisted(() => ({
   checkAuth: vi.fn(),
   authenticate: vi.fn(),
   findRecommendedUsers: vi.fn(),
   findFollowingIds: vi.fn(),
+  findHotTags: vi.fn(),
 }))
 
 vi.mock('../src/plugins/auth.js', () => ({ checkAuth: q.checkAuth, authenticate: q.authenticate }))
 vi.mock('../src/db/social-queries.js', () => ({
   findRecommendedUsers: q.findRecommendedUsers,
   findFollowingIds: q.findFollowingIds,
+  findHotTags: q.findHotTags,
 }))
 
 import { circleMobileRoutes } from '../src/routes/circle-mobile-routes.js'
@@ -61,6 +65,13 @@ beforeEach(() => {
     total: 2,
   })
   q.findFollowingIds.mockResolvedValue([CANDIDATE_A])
+  q.findHotTags.mockResolvedValue({
+    list: [
+      { id: TAG_X, name: '人工智能', slug: 'rengongzhineng', usageCount: 12, description: null },
+      { id: TAG_Y, name: '路亚', slug: 'luya', usageCount: 3, description: '钓鱼' },
+    ],
+    total: 2,
+  })
 })
 
 describe('GET /api/circles/users/recommend', () => {
@@ -77,7 +88,13 @@ describe('GET /api/circles/users/recommend', () => {
     })
     expect(q.findFollowingIds).toHaveBeenCalledWith(AUTH_USER_ID, [CANDIDATE_A, CANDIDATE_B])
     expect(res.json().data.list).toEqual([
-      { id: CANDIDATE_A, nickname: '甲', avatar: 'https://cdn/a.png', bio: '写代码的', followed: true },
+      {
+        id: CANDIDATE_A,
+        nickname: '甲',
+        avatar: 'https://cdn/a.png',
+        bio: '写代码的',
+        followed: true,
+      },
       { id: CANDIDATE_B, nickname: '', followed: false },
     ])
     expect(res.json().data.total).toBe(2)
@@ -92,15 +109,88 @@ describe('GET /api/circles/users/recommend', () => {
   })
 })
 
-describe('反向断言:鉴权先于取数 / 自报身份无效 / 非法分页零查询', () => {
-  it('① 无凭据 ⇒ 401 且一次查询都不发(副榜静默失败,主榜不受影响)', async () => {
+describe('GET /api/circles/topics/hot', () => {
+  it('list 逐条只给 id/name/count 三键;count 就是 tags.usage_count 真列,不现造数字', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/circles/topics/hot?page=1&pageSize=10',
+    })
+    expect(res.statusCode).toBe(200)
+    expect(q.findHotTags).toHaveBeenCalledWith({ page: 1, pageSize: 10 })
+    expect(res.json().data.list).toEqual([
+      { id: TAG_X, name: '人工智能', count: 12 },
+      { id: TAG_Y, name: '路亚', count: 3 },
+    ])
+    expect(res.json().data.total).toBe(2)
+    // slug/description 不外泄:调用方契约 HotTopic{id,name,count} 之外一个键都不给
+    expect(Object.keys(res.json().data.list[0]).sort()).toEqual(['count', 'id', 'name'])
+  })
+
+  it('榜为空 ⇒ 空数组 + total 0(调用方静默渲染,不是报错)', async () => {
+    q.findHotTags.mockResolvedValue({ list: [], total: 0 })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/circles/topics/hot?page=1&pageSize=10',
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data.list).toEqual([])
+    expect(res.json().data.total).toBe(0)
+  })
+
+  it('非法分页 ⇒ 400 且零查询(与推荐关注共用 parsePagination)', async () => {
+    for (const qs of ['page=0', 'page=abc', 'pageSize=101', 'pageSize=-1']) {
+      const res = await app.inject({ method: 'GET', url: `/api/circles/topics/hot?${qs}` })
+      expect(res.statusCode, qs).toBe(400)
+    }
+    expect(q.findHotTags).not.toHaveBeenCalled()
+  })
+
+  it('本榜不读身份:自报 userId 进不了查询参数(整条仍要登录)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/circles/topics/hot?page=1&pageSize=10&userId=${VICTIM_USER_ID}`,
+    })
+    expect(res.statusCode).toBe(200)
+    expect(q.findHotTags).toHaveBeenCalledWith({ page: 1, pageSize: 10 })
+    expect(
+      q.findHotTags.mock.calls.every((call) => !JSON.stringify(call).includes(VICTIM_USER_ID)),
+    ).toBe(true)
+  })
+
+  it('无凭据 ⇒ 401 且零查询', async () => {
     q.checkAuth.mockImplementation(
-      async (_request: unknown, reply: { status: (n: number) => { send: (b: unknown) => unknown } }) => {
+      async (
+        _request: unknown,
+        reply: { status: (n: number) => { send: (b: unknown) => unknown } },
+      ) => {
         reply.status(401).send({ code: 401, message: '请先登录', data: null })
         return false
       },
     )
-    const res = await app.inject({ method: 'GET', url: '/api/circles/users/recommend?page=1&pageSize=10' })
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/circles/topics/hot?page=1&pageSize=10',
+    })
+    expect(res.statusCode).toBe(401)
+    expect(q.findHotTags).not.toHaveBeenCalled()
+  })
+})
+
+describe('反向断言:鉴权先于取数 / 自报身份无效 / 非法分页零查询', () => {
+  it('① 无凭据 ⇒ 401 且一次查询都不发(副榜静默失败,主榜不受影响)', async () => {
+    q.checkAuth.mockImplementation(
+      async (
+        _request: unknown,
+        reply: { status: (n: number) => { send: (b: unknown) => unknown } },
+      ) => {
+        reply.status(401).send({ code: 401, message: '请先登录', data: null })
+        return false
+      },
+    )
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/circles/users/recommend?page=1&pageSize=10',
+    })
     expect(res.statusCode).toBe(401)
     expect(q.findRecommendedUsers).not.toHaveBeenCalled()
     expect(q.findFollowingIds).not.toHaveBeenCalled()
@@ -170,7 +260,9 @@ describe('注册即装车(造好没接线是本仓最高频失效型)', () => {
     }
     expect(judge(worktreeSrc)).toBe(true)
     expect(
-      /server\.register\(\s*courseMobileRoutes\s*,\s*\{\s*prefix:\s*'\/api'\s*\}\s*\)/u.test(headSrc),
+      /server\.register\(\s*courseMobileRoutes\s*,\s*\{\s*prefix:\s*'\/api'\s*\}\s*\)/u.test(
+        headSrc,
+      ),
     ).toBe(true)
   })
 
@@ -187,14 +279,20 @@ describe('注册即装车(造好没接线是本仓最高频失效型)', () => {
       join(apiRoot, '../miniapp-taro/src/pages/circle/index.tsx'),
       'utf8',
     )
-    const rnCalled = [...rnSrc.matchAll(/fetchApi<UserListRes>\(\s*'([^']+)'/gu)].map((m) => m[1])
-    const taroCalled = [...taroSrc.matchAll(/get<UserListRes>\(\s*'([^']+)'/gu)].map((m) => m[1])
+    const rnCalled = [
+      ...rnSrc.matchAll(/fetchApi<(?:UserListRes|TopicListRes)>\(\s*'([^']+)'/gu),
+    ].map((m) => m[1])
+    const taroCalled = [
+      ...taroSrc.matchAll(/get<(?:UserListRes|TopicListRes)>\(\s*'([^']+)'/gu),
+    ].map((m) => m[1])
     expect(rnCalled).toContain('/circles/users/recommend')
     expect(taroCalled).toContain('/circles/users/recommend')
+    expect(rnCalled).toContain('/circles/topics/hot')
+    expect(taroCalled).toContain('/circles/topics/hot')
     for (const p of [...rnCalled, ...taroCalled]) {
       expect(inner.has(`/api${p}`), `/api${p} 未在册`).toBe(true)
     }
-    expect(inner.size).toBe(1)
+    expect(inner.size).toBe(2)
   })
 
   it('整条要登录:preHandler 用 checkAuth,不落在任何公开读面白名单里', () => {
