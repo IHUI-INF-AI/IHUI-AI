@@ -21,7 +21,7 @@
  * 依据不是"机主口头说没有 agent 在跑"那种易失状态,而是**同批改判据**——守门 109 新增 CL4 在提交链
  * 拦住裸标记的新增,而本器只读 HEAD 面 ⇒ 别人刚写下还没提交的裸标记进不了射程,摘存量踩不到干活的人。
  * 出处句由 `IHUI_CLAIM_STRIP_LEGACY_RULING` 覆盖,写进留痕条目的 `ruling` 字段(不写进台账行)。
- * 可追责性的真相源 = 仓外留痕 `.workbuddy/stale-claim-strip.jsonl`(逐条存原牌/超龄/前后整行/落地枚)
+ * 可追责性的真相源 = 仓外留痕 `.ihui-agent/state/stale-claim-strip.jsonl`(逐条存原牌/超龄/前后整行/落地枚)
  * 加提交信息;行内只留 `#seq` 指针 —— 因为注记本身会被活文档归并洗掉(实测一轮 64 枚只剩 6 枚)。
  *
  * 守恒(改写档,与"完成即删"的删行档不同):
@@ -39,22 +39,20 @@
  *   只读预演 `node scripts/strip-stale-claim-marks.mjs --dry-run`
  *   判据自证 `node scripts/strip-stale-claim-marks.mjs --self-test`
  *   停用派发 = 摘掉 `git-guardian.mjs` 里那行 `sweepStaleClaimMarks()` 调用(人工、带理由);
- *   节流台账 `.workbuddy/stale-claim-strip-last.json`(未到窗口本轮不派发)。
+ *   节流台账 `.ihui-agent/state/stale-claim-strip-last.json`(未到窗口本轮不派发)。
  * 裸标记需机主具名授权才代摘:`IHUI_CLAIM_STRIP_LEGACY_RULING="<原话>"`(注记里逐字留出处)。
  */
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, rmSync, existsSync, readFileSync, mkdirSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import { claimMarkOf } from './lib/plan-task-index.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 import { __test__ as claims } from './check-task-claims.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
 const HOUR_MS = 3600000
-const DAY_MS = 86400000
 const DEFAULT_LEGACY_RULING =
   '机主 2026-10-22 定档:认领必须写全 @日期/持有者,裸标记的新增已由守门 109 CL4 在提交链拦住,故存量由本器代摘'
 
@@ -279,11 +277,11 @@ export function localDay(ms) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-const LEDGER_FILE = () => path.join(ROOT, '.workbuddy', 'stale-claim-strip.jsonl')
+const LEDGER_FILE = () => path.join(ROOT, '.ihui-agent', 'state', 'stale-claim-strip.jsonl')
 
 /**
  * 追加留痕并就地老化。**必须打印被裁条数** —— 静默删等于这一族从来没发生过。
- * 写在 `.workbuddy/`(gitignored、活文档归并射程外):台账行内的注记会被别席的清偿提交洗掉
+ * 写在 `.ihui-agent/state/`(gitignored、活文档归并射程外):台账行内的注记会被别席的清偿提交洗掉
  * (实测一轮 64 枚只剩 6 枚),所以可追责性的真相源只能是这里 + 提交信息。
  */
 export function appendLedger(entries, { file = LEDGER_FILE(), nowMs = Date.now(), keepDays = 90 } = {}) {
@@ -321,16 +319,11 @@ function result(state, n) {
 }
 
 function git(args, opts = {}) {
-  // §12g:派生 git 必须显式接管 stdio;喂 input 时 stdin 只能是 pipe(写成 ignore 会被 Node 当场拒)。
-  const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  return execFileSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 1 << 28,
-    stdio,
-    windowsHide: true,
-    ...opts,
-  })
+  // 派生 git 一律走脚本层(lib/face-reader 的 gitRaw,G-927 2026-10-22):裸起 'git' 会被
+  // scripts/tests/face-reader.test.mjs 的"裸派生生产文件只减不增"棘轮记为新增者。层内同批兜住
+  // §12g 显式 stdio(喂 input 时 stdin=pipe)、windowsHide、utf8 与绝对路径 git 二进制纪律;
+  // maxBuffer 沿用本器 1<<28 档(台账整档 show/hash-object 远超层默认 64MB),调用方 opts 仍可覆盖。
+  return gitRaw(args, ROOT, { maxBuffer: 1 << 28, ...opts })
 }
 
 /** 台账是否净(护栏③)。非净 ⇒ 整批让路,不摘任何牌。 */
