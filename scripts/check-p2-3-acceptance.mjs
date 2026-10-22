@@ -9,9 +9,9 @@
 // 全程闭环,验证 P2-3 服务端编排链路(含 2026-09-02 ws-ticket 脱敏修复)真实可用。
 //
 // 用法:
-//   node scripts/check-p2-3-acceptance.mjs            # 默认 admin/admin123
-//   ACCOUNT=test@aizhs.top PASSWORD=Test@123456 node scripts/check-p2-3-acceptance.mjs
+//   ACCOUNT=<账号> PASSWORD=<口令> node scripts/check-p2-3-acceptance.mjs
 //   node scripts/check-p2-3-acceptance.mjs <account> <password>
+// 口令只从参数/环境读取,仓库内无默认值(缺失即拒绝执行)。
 //
 // 注意:本脚本验证的是「api + ws 编排层」。真实 GUI(扩展/桌面端)只需实现
 //   与脚本相同的 capability 上报 + WS 监听 + result 回传闭环即可,已在
@@ -20,8 +20,12 @@
 import { pathToFileURL } from 'node:url'
 
 const BASE = process.env.API_BASE ?? 'http://localhost:8802'
-const ACCOUNT = process.argv[2] ?? process.env.ACCOUNT ?? 'admin'
-const PASSWORD = process.argv[3] ?? process.env.PASSWORD ?? 'admin123'
+const ACCOUNT = process.argv[2] ?? process.env.ACCOUNT
+const PASSWORD = process.argv[3] ?? process.env.PASSWORD
+if (!ACCOUNT || !PASSWORD) {
+  console.error('[check-p2-3-acceptance] 缺少 ACCOUNT/PASSWORD:口令仅允许从参数或环境注入。')
+  process.exit(1)
+}
 
 const log = (...a) => console.log(...a)
 const step = (n, msg) => log(`\n[${n}] ${msg}`)

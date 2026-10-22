@@ -21,13 +21,18 @@
  *   throw 明确错误提示"请用 apps/api/scripts/seed-test-users.ts 替代"
  * - 推荐场景: E2E / 集成测试前初始化认证用户,优先用 apps/api/scripts/seed-test-users.ts
  *
- * 注意: admin 用户由 0067/0071 migration 永久保证(username='admin' /
- * password='admin123' / email='[REDACTED-EMAIL]' / role_id=1 /
- * is_system_admin=true),这里只 seed 普通用户,避免和 system admin 触发器冲突。
+ * 注意: admin 用户由 0067/0071 migration 创建,迁移内不保存任何可登录的默认口令;
+ * 本脚本只 seed 普通测试用户,避免和 system admin 触发器冲突。
  */
 import { sql } from 'drizzle-orm'
 import { createDb } from '../src/client.js'
 import { users } from '../src/schema/users.js'
+
+// 环境守卫:测试数据脚本只允许在 test/CI 或本地开发库执行,生产库一律拒绝。
+if (process.env.NODE_ENV === 'production') {
+  console.error('[packages/database/seed/users] 拒绝执行:NODE_ENV=production。')
+  process.exit(1)
+}
 
 const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui')
 

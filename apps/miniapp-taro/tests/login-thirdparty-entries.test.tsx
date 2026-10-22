@@ -35,6 +35,7 @@ const { nodes, taroMock } = vi.hoisted(() => ({
   taroMock: {
     navigateTo: vi.fn(),
     showToast: vi.fn(),
+    showModal: vi.fn(),
     reLaunch: vi.fn(),
     getStorageSync: (_key: string) => '',
     setStorageSync: (_key: string, _val: unknown) => {},
@@ -121,7 +122,6 @@ vi.mock('@/components/FocusField', () => ({ FocusInput: () => createElement('inp
 vi.mock('@/components/PasswordVisibilityToggle', () => ({ default: () => createElement('div') }))
 
 import Login from '../src/pages/login/login'
-import { getSsoLoginUrl } from '../src/utils/sso'
 
 /** 渲染一次登录页并把本次渲染的元素记进 nodes(先清上一轮的记录) */
 function renderLogin(): void {
@@ -186,30 +186,47 @@ describe('登录页假入口/误导入口(§7 三问的可执行锁)', () => {
       )
     })
 
-    it('正向对照:网页授权入口仍会跳转(证明上一条 not.toHaveBeenCalled 不是空断言)', () => {
-      process.env.TARO_ENV = 'h5'
+    it('网页授权入口不再静默跳进无人接管回调的 webview', () => {
       renderLogin()
       clickClass('login-sso-btn')
-      expect(taroMock.navigateTo).toHaveBeenCalledTimes(1)
-      const arg = taroMock.navigateTo.mock.calls[0]?.[0] as { url?: unknown } | undefined
-      expect(String(arg?.url)).toContain('/pages/webview/index')
-      expect(getSsoLoginUrl('ihui-miniapp://sso/callback')).toContain('/sso/login?')
+      expect(taroMock.navigateTo).not.toHaveBeenCalled()
+    })
+
+    it('网页授权入口给出可见的暂不支持提示(不是空点击)', () => {
+      renderLogin()
+      clickClass('login-sso-btn')
+      expect(taroMock.showModal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'login.ssoLoginTitle',
+          content: 'login.ssoUnavailable',
+          showCancel: false,
+        }),
+      )
     })
   })
 
   describe('文案五语言同批(§19)', () => {
+    const packs: Record<string, { login?: Record<string, unknown> }> = {
+      'zh-CN': msgsZhCN,
+      'zh-TW': msgsZhTW,
+      en: msgsEn,
+      ja: msgsJa,
+      ko: msgsKo,
+    }
+
     it('login.wechatUnavailable 在五种语言里都存在且非空', () => {
-      const packs: Record<string, { login?: Record<string, unknown> }> = {
-        'zh-CN': msgsZhCN,
-        'zh-TW': msgsZhTW,
-        en: msgsEn,
-        ja: msgsJa,
-        ko: msgsKo,
-      }
       for (const [locale, pack] of Object.entries(packs)) {
         const value = pack.login?.wechatUnavailable
         expect(typeof value, `${locale} 缺 login.wechatUnavailable`).toBe('string')
         expect((value as string).trim().length, `${locale} 的 login.wechatUnavailable 是空串`).toBeGreaterThan(0)
+      }
+    })
+
+    it('login.ssoUnavailable 在五种语言里都存在且非空(暂不支持提示不是空壳)', () => {
+      for (const [locale, pack] of Object.entries(packs)) {
+        const value = pack.login?.ssoUnavailable
+        expect(typeof value, `${locale} 缺 login.ssoUnavailable`).toBe('string')
+        expect((value as string).trim().length, `${locale} 的 login.ssoUnavailable 是空串`).toBeGreaterThan(0)
       }
     })
 
