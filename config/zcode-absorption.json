@@ -12701,6 +12701,438 @@
         }
       ],
       "why": "b75-5 否证:纯视觉/业务面组件或绑定上游 v4 会话 runtime 协议,我方架构(web→api→ai-service)无对应协议面;行为思想已记 fragments。重开条件:我方引入对应形态时。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/tool/handlers/generated/bash-command-registry.ts",
+      "status": "rejected",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/tool/handlers/generated/bash-command-registry.ts:1-8"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/tool/handlers/generated/bash-command-registry.ts",
+          "lines": 9
+        }
+      ],
+      "why": "b77 否证:scripts/generate-bash-command-registry.mjs 确定性生成的纯数据件(源 @withfig/autocomplete@2.692.3 ISC,版本与源 hash 烘进头);头 8 行类型契约已读到体,第 9 行是 1.9MB 单行数据 blob(522 命令节点),无手写逻辑可吸收。生成器本体已在 apps/zcode-cli/scripts 切片记 deep(含 --check/版本闸/hash 烘头/字节预算拒生成)。重开条件:我方需要 bash 命令语义分类的离线数据源时。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/background-bash-output.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/background-bash-output.ts:1-12"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/background-bash-output.ts",
+          "lines": 12
+        }
+      ],
+      "notes": "后台 bash 输出按启动时 sessionId 验证归属,祖先 runtime 也不能跨会话读 workId;executionPort 缺失时返回 kind:'unsupported' 降级而非抛错。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/bash-shell-snapshot.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/bash-shell-snapshot.ts:1-213"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/bash-shell-snapshot.ts",
+          "lines": 213
+        }
+      ],
+      "notes": "Bash shell 选择创建时快照落库(变更只影响新 session,冷恢复不重读最新 settings);restore/invalid/stale/fallback 状态机;可用性校验=accessSync X_OK,Windows cmd 方言裸名 cmd.exe 免路径校验;反序列化逐字段手验 dialect/source 枚举而非 cast。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/browser-turn-screenshot.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/browser-turn-screenshot.ts:1-209"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/browser-turn-screenshot.ts",
+          "lines": 209
+        }
+      ],
+      "notes": "轮尾 active tab 截图是展示增强:超 200KiB 展示预算走 imageProcessorPort 统一压缩(不放宽持久化预算、不回灌模型上下文);合成 Scheduled/Started/Result 三事件入 timeline;显式 emitImage 不能替代轮尾最终态;失败只 warn,不得覆盖已成功模型轮次。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/compact-active-helpers.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/compact-active-helpers.ts:1-121"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/compact-active-helpers.ts",
+          "lines": 121
+        }
+      ],
+      "notes": "compact 最终 prompt-too-long 错误 retryable:false——防被外层 auto compact 重试放大成 3x3;GLM/Z.AI 的 length+空文本仅在 compact 路径归类为超窗压力复用降输入重试;compaction 期间 tool use 一律 deny(错误 context 带 toolNames)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/compact-active.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/compact-active.ts:1-725"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/compact-active.ts",
+          "lines": 725
+        }
+      ],
+      "notes": "compact 主链:telemetry 包 trigger/phase/maxAttempts;历史不足是健康 skipped 不暴露成系统故障;工具数>100 时 summary 请求无工具(止血 massive MCP 撑爆 provider context);prompt-too-long 恢复三级(重选 preserve→截断→media strip),finishReason 超窗与 throw 路径共用同一重选;auto 中间失败在同一 operationId 写 retrying 不提前落 failed;ModelRequest 事件记过滤投影、provider 请求用完整上下文(防 query-local Continue 提示进持久化轨迹);summary max output 取模型上限与 20K 较小值。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/compact-log-context.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/compact-log-context.ts:1-23"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/compact-log-context.ts",
+          "lines": 23
+        }
+      ],
+      "notes": "AutoCompactDecision 展平成日志字段(provider usage base/incremental/cache 读写/threshold/tokenSource),skipped/started/completed 三处日志共用单一来源。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/compact-summary-model-request.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/compact-summary-model-request.ts:1-429"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/compact-summary-model-request.ts",
+          "lines": 429
+        }
+      ],
+      "notes": "summary stream→non-stream fallback 边界:content block 提交前隐藏 partial 可丢弃走 HTTP 重放,block end 后禁止重放;raw provider message-block provenance 一旦出现即接管 commit 判定(normalized end 不再算提交证明);AI SDK 为空 SSE 合成的 finish(other) 不接受——须 response start + (block stop 或 truthy stop reason) 至少其一;orphan content_block_stop 立即失败;setup 类错误码不靠第二种 transport 掩盖。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/compact.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/compact.ts:1-462"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/compact.ts",
+          "lines": 462
+        }
+      ],
+      "notes": "manual/auto/reactive 三入口共用 compactActiveConversation:/compact 是维护命令,inputVisibility:'model-only' 保留 raw input 供恢复但 v4 投影不渲染成 user bubble;auto 的 tokenOverride=最近已提交 assistant usage 基线+反向扫描本地增量(随 history replacement 自然移动,不依赖绝对 message cursor);rapid-refill 熔断返回 rapid_refill_blocked;成功清零 autoCompactConsecutiveFailures;reactive 携 initialPromptTooLongCause 从超窗入口进重选;Stop compact 与普通 Stop 同语义(队列重暂停)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/config.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/config.ts:1-274"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/config.ts",
+          "lines": 274
+        }
+      ],
+      "notes": "外部子 runtime 三接缝:共享父 eventStore(子事件按子 sessionId 落同一 store)、notifyExternalChildSessionEvent 只 notify 不 append(防同事件双写)、createChildClientPorts 只能由父调用(parentSessionId 父自填,调用方给不了错值);子 runtime 的 eventSink 必须构造期装好,否则 SessionTitleUpdated 占 seq 1 而 v4 网关只排水连续 seq;project identity 固定 workspaceRoot 不随 Bash cd 漂移;getTools 缓存 null 哨兵+provider-visible 排序;末行 import 是既有风格异常(不影响语义)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/context-history-entries.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/context-history-entries.ts:1-16"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/context-history-entries.ts",
+          "lines": 16
+        }
+      ],
+      "notes": "context 前缀=systemMessages+meta user attachment(systemReminderAttachmentEntry)的唯一构造点,init 与 refresh 共用。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/context-refresh.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/context-refresh.ts:1-50"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/context-refresh.ts",
+          "lines": 50
+        }
+      ],
+      "notes": "rebuildContextPrefix:首轮初始化前只刷同步预览 builder 且 persistEnvInfo:false——防 config-only fallback 的 unknown envInfo 写回 config 后真实 context source 跳过平台/git 探测;replace 时按 countContextPrefixMessages 保留 canonical 会话体;turnRequestEntries 存在时同步重拼前缀。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/context-usage-log-compact.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/context-usage-log-compact.ts:1-107"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/context-usage-log-compact.ts",
+          "lines": 107
+        }
+      ],
+      "notes": "日志快照收敛:category contributors 按 tokens→chars→count 排序取 top5,数组降为 xxxCount 标量,字段白名单 pickDefined——可观测性不撑爆日志。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/context-usage.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/context-usage.ts:1-421"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/context-usage.ts",
+          "lines": 421
+        }
+      ],
+      "notes": "七类 context usage breakdown(system prompt/meta user/skills/tool prompt/system tool schemas/MCP schemas/messages);每条 metric 带 tokenMethod/confidence/tokenizer 版本号(zcode.estimateTokens.v1);warnings 显式声明'本地估算非 provider count';Messages 类不重复计 system role 与 meta_user,task_notification 的 meta user 例外计回;steering 诊断含 drainedInputVisibleAtTail 校验。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/context.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/context.ts:1-347"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/context.ts",
+          "lines": 347
+        }
+      ],
+      "notes": "ensureContextInitialized 幂等门:getSkillCatalog 同过此门并返回防御性副本(UI 与本会话可用 skill 同一快照);workingDirectory 可随 Bash cd 变但 workspaceRoot 是会话边界;config-only 快照的 unknown envInfo 不回写 config;MEMORY.md 读取登记 readFileState 并以 formatted!==raw 标 isPartialView;extractToolCallsFromResult 兼容 responses/flat toolCalls 两形态并按 id 去重。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-progress.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-progress.ts:1-193"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-progress.ts",
+          "lines": 193
+        }
+      ],
+      "notes": "run 进度是出回合追加到父会话(run 自己没有会话),刻意用 rootTraceContext 使 turnId 为空不冒领任何一轮——冷恢复 merge 会把带 turnId 的内存事件插回未完结轮尾,run 事件不属于轮;escalation-raised/run-stalled 各转一条模型可见后台通知,每事件恰好一条、不重发不催办,通知丢失的兜底是 GetWorkflowRun pendingQuestions 查询而非重试;escalation-resolved 不通知(作答方就是主代理,回执已是工具结果);观察面绝不抛异常,载荷形状不对跳过记日志;manifest 文本有界 ≤4000 字符;actor 名兜底链 site@ordinal 通知与 manifest 同源。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-track.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-track.ts:1-41"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-track.ts",
+          "lines": 41
+        }
+      ],
+      "notes": "恢复的 dwf run 合成一个 CreateWorkflow 工具描述子走 executor 同一条 trackBackgroundTask,一次换回四件事(registry 登记=会话回收护栏、BackgroundTaskStarted、轮询/终态 waiter、结算通知);id 用原始 toolCallId(落库还原,工具卡→详情页关联键),缺席时合成 resume- 前缀 id 不冒充真实工具行;name 恒为 CreateWorkflow 让 per-tool 生命周期分派查表;turnId 刻意缺席(UI 命令不属于模型回合)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-settings-turn.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-settings-turn.ts:1-119"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-settings-turn.ts",
+          "lines": 119
+        }
+      ],
+      "notes": "GUI 设置变更记进会话:设置轮不直接落(主代理可能在轮中,user 消息插不进),排进运行时队列 priority:'next' 与通知同优先级;规范句英文不本地化(进 provider transcript);两种结局按 amend.predecessorRunId 在不在场分岔措辞——缺席即就地生效(同一个 run),照修订句写下去模型会去找不存在的 run B;等于天花板=没有自己的界,与快照缺席同一读法。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-settings.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-settings.ts:1-372"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-settings.ts",
+          "lines": 372
+        }
+      ],
+      "notes": "port.amend/retuneConcurrency 的第二调用方,与 AmendWorkflow 工具同构(同一段三态归一不复制、同路由同编译同追踪器),区别只在不经模型轮不开确认窗(GUI 点应用即同意)、inheritArgs 沿用前驱实参;只改并发且 run 在飞就地生效——同 runId 不停不铸后继,且不登记第二个后台任务(rearm 会清空从没停过的 run 的结算面);port.amend 之前每步失败零副作用,之后失败只记日志不回滚(新 run 已在飞可侧板停,撤回反造孤儿);saved 文件坏归 not_found 但 message 说清是文件问题;run 无名绝不兜底成 run id(假名沿修订链传染)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-start.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-start.ts:1-314"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/dynamic-workflow-run-start.ts",
+          "lines": 314
+        }
+      ],
+      "notes": "port.submit 的第二调用方,与 CreateWorkflow 工具路径同构产出不可区分的 run,区别只在绕开 ToolExecutor.execute(用户在枢纽点击即同意,这是特性全部意义)并以 controlOnly 启动轮把真实动作落进会话(模型直到通知才听说);忙碌会话拒绝;①②失败在任何持久化之前,④提交之后失败只记日志不回滚(撤回制造无归属孤儿);launchInputId 一个 UUID v7 同充 run 的 inputId 与启动轮 inputId(run 卡与子代理 agent_step 挂同一 message);phaseNames/phaseAlongside 必须来自同一张图同一次投影(alongside 下标指向 phaseNames);toolCallId 前缀 launch-/settings-/resume-/tool_* 让日志与卡片分得出来源;提交前先 ensureSessionPersisted(actor 的 session_task_link 外键引用父行)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/embedded-search-branch.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/embedded-search-branch.ts:1-54"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/embedded-search-branch.ts",
+          "lines": 54
+        }
+      ],
+      "notes": "Bash 可用性(allowlist+disallowlist 双向)决定 embedded search 分支,启用时 Glob/Grep 注销并从可见工具过滤;refreshBranchAwareBuiltInTools 是第二个注册入口,精简选项集对「只有 true 才注册」的门省略安全,但动态工作流灰度门极性相反(缺席即开启)——省略会把首次装配剃掉的十个工具原样加回且 silentDuplicateWarnings 吞掉告警全程无声,推导必须与 runtime-tools.ts 共用同一个 helper 不能重写判断。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/events.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/events.ts:1-660"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/events.ts",
+          "lines": 660
+        }
+      ],
+      "notes": "appendEvent 只发布已落库事件,让 live/replay/snapshot 的 eventSeq 全部来自同一个 event store(此前 live sink 拿默认 seq=0,同会话两套顺序事实);高频 stream/progress 事件日志按 turnId+type 聚合,100 条阈值或低频事件时 flush,保留 seq 范围+payload kind 分布+字节数(防诊断日志把 eventStore 索引复制成巨量 daily log);session_input 账本在事件汇单点记账而非 5+ 个发射点(TurnSteerQueued admit/DeliveryChanged update/Discarded settle);Discarded reason:'promoted' 不 settle——标 cancelled 会制造 remove→后台 promotion 之间的崩溃丢失窗口,保持 admitted 由 persistUserPrompt 原子置 promoted;session_resumed 归 discarded(裁决留痕不静默);ensureSessionPersisted 保留协议入口路径(规范化丢末尾 / 会让冷恢复按精确 workspaceKey 落到另一身份)、同轮固定 model selection/shell 快照/execution state、first_input title 补 appendEvent 让三端 syncer 走同一收敛路径;workspaceID 只做类型品牌化不能过会改写字符串的 ID 生成器(Memory root 漂移)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/file-rewind.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/file-rewind.ts:1-717"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/file-rewind.ts",
+          "lines": 717
+        }
+      ],
+      "notes": "rewind 预览/应用分离:计划逆序模拟,逐文件 sha256 校验当前态==检查点 after 态,external_modified 即标 unsafe 且 unsafe 非空整批 canApply=false(不做部分应用);journal 先记每文件写前态,任一写失败按逆序补偿,补偿失败升级 AggregateError(不可恢复);commitAfterApply 是组合 rewind 提交闸——文件全写成功后、workspace event 发布前才 branch cut;shell/bash 类工具的 checkpoint 文件整体归 ignored(命令副作用无法按文件恢复);旧 turnId 精确兜底仅对普通 turn,带 ~q 后缀的 split product turn 禁用(防串到别的 queued turn);检查点相对路径按 workspaceRoot 解析(FileSystemPort 只收绝对路径,不解析会把安全文件误报 file_read_failed);afterContent 缺席时由 beforeContent+structuredPatch(fuzz 0)重放推导。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/goal-state-reminder.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/goal-state-reminder.ts:1-79"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/goal-state-reminder.ts",
+          "lines": 79
+        }
+      ],
+      "notes": "Stop 先暂停 goal 再 abort 在飞工具,reminder 若立即写 history 会落在 tool_use 与 cancelled tool_result 之间违反 provider grammar→回合内开 deferral 窗口暂存 pending,close 先同步关闸(activeTurn 存活到 terminal/accounting 结束,不能拿它的存在判断 pending 所有权)再单次物化;物化失败只 warn 不阻断 Stop turn 的 terminal event(权威 target 已先落库),刻意不引入 retry/cursor/额外持久化状态机。"
     }
   ],
   "ticketIndex": {
