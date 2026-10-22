@@ -102,6 +102,11 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 📚 Docs:另立 f9 夹具二跳闭包过期票(G-955 复跑取证) (6e40140c9e)
+- 📚 Docs:补认领 G-922(标记被归并批冲掉) (61bc27922f)
+- 📚 Docs:结清 G-955(--check RC=0 主会话复跑实证)+认领 G-960/G-928 满载5席 (75682d367d)
+
+**2026-10-22**
 - 📚 Docs:结清 G-955(取号器声明位两档,--check RC=0 主会话复跑实证) (3cd980434f)
 - 📚 Docs:守门134①复验释放(hops=18命中0,未达即不做)+认领 G-922 (f70fc1ef78)
 
@@ -164,9 +169,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 **2026-10-22**
 - 📚 Docs:G-960 公网入口断流旧副本转注释归并(正主为已撤回误判的修订版),清 F4 同题两版以过收敛落地闸 (004f9b4e4d)
-
-**2026-10-22**
-- 📚 Docs:翻勾守门104 cloudflared存量红收尾条目(记录pg-backup影子漂移同步)+归并活文档重复登记+README测试文件数对齐现算3029 (6299c2911a)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
