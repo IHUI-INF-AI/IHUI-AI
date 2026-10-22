@@ -63,7 +63,7 @@ import { pathToFileURL } from 'node:url'
 const REMOTE_TUNNEL_PORTS = [7843, 7844]
 // 为什么用 tasklist 而不是 PowerShell 取 pid(2026-10-16 实测,不是偏好问题):守护以 LocalSystem
 // 身份跑,Windows PowerShell 5.1 在该身份下冷启动 >15s 会被本器采集超时杀掉 ⇒ 三格全部 unjudged、
-// 这把哨永远不会喊人(现场:.workbuddy/tunnel-leg-health-last.json 的 failedCollectSources =
+// 这把哨永远不会喊人(现场:.ihui-agent/state/tunnel-leg-health-last.json 的 failedCollectSources =
 // "powershell(命令超时(15000ms)被杀)")。tasklist 是原生命令行工具,亚秒级,且不依赖控制台代码页
 // 与区域(SYSTEM=en-US / Administrator=zh-CN 两档身份的外部程序输出语言不同 —— 解析这类输出的格
 // 必须只认 ASCII 字段,同一条教训今天已在别处咬过两次)。

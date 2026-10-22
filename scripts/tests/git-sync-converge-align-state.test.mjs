@@ -132,7 +132,7 @@ test('④recordAlignOutcome:正常落点写通;落点是文件(不可建目录)�
   const dir = mkScratch('converge-align-')
   try {
     S.recordAlignOutcome(dir, false, 'rc=128 index.lock', null)
-    const p = join(dir, '.workbuddy', 'converge-align-state.json')
+    const p = join(dir, '.ihui-agent', 'state', 'converge-align-state.json')
     assert.ok(existsSync(p), '相对 repo 根的固定落点')
     assert.equal(S.readAlignState(p).consecutiveFailures, 1)
     S.recordAlignOutcome(dir, true, 'aligned=0', 0)

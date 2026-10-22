@@ -688,7 +688,7 @@ export function b11LockedReadSql(lockTimeoutMs) {
  * 纯函数:psql 失败文案的**凭据脱敏**。
  * 为什么必须动这一格而不是只在 B11 里防:`execFileSync` 抛错时 `e.message` 的第一行是
  * `Command failed: <完整命令行>`,而命令行里带着 `-d postgresql://user:密码@host/db` ——
- * B6~B9 那句 catch 会把它原样打进 stdout,而 pre-commit 的 stdout 落进 `.workbuddy/hook-logs/`,
+ * B6~B9 那句 catch 会把它原样打进 stdout,而 pre-commit 的 stdout 落进 `.ihui-agent/state/hook-logs/`,
  * 于是凭据离开仓库(AGENTS §5d「密钥不入仓、不入聊天记录」)。
  * 只剥 DSN,不吞异常类型:真红与未判定的分流照旧由调用方管。
  */
@@ -2147,7 +2147,7 @@ if (isDirectRun) {
         else wa(`B8 journal max(${jMax})> 库内 max(${dbMax})→ 存在待应用迁移(下一轮 deploy 会应用)`)
       } catch (e) {
         // 凭据脱敏:execFileSync 的错误首行是 `Command failed: <完整命令行>`,里面带着 `-d <DSN>`
-        // (含口令)。这一句会打进 stdout,而 pre-commit 的 stdout 落进 .workbuddy/hook-logs/ ——
+        // (含口令)。这一句会打进 stdout,而 pre-commit 的 stdout 落进 .ihui-agent/state/hook-logs/ ——
         // 那就是把口令写进日志(AGENTS §5d「密钥不入仓、不入日志」)。
         const why = psqlFailText(e, dsn)
         wa(`B6~B8 跳过:psql 执行失败(${why})`)

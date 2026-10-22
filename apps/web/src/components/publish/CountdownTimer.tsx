@@ -79,7 +79,7 @@ export function CountdownTimer({
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 text-xs font-medium tabular-nums',
+        'inline-flex items-center gap-1 rounded-md bg-muted px-3 py-1 text-xs font-medium tabular-nums',
         variantClass,
         isDanger && 'animate-pulse',
       )}

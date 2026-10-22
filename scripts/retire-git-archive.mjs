@@ -169,7 +169,7 @@ export const DEFAULT_MIN_FREE_MB = Number(process.env.IHUI_GIT_ARCHIVE_MIN_FREE_
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
-const LOG_REL = '.workbuddy/git-archive-retire.log'
+const LOG_REL = '.ihui-agent/state/git-archive-retire.log'
 const MB = 1048576
 
 const norm = (p) => String(p).split(sep).join('/')

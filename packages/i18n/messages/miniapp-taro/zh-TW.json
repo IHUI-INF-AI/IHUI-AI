@@ -116,6 +116,7 @@
   "login": {
     "loginSuccess": "登入成功",
     "wechatFailed": "微信登入失敗",
+    "wechatUnavailable": "目前環境不支援微信登入,請改用手機號、郵箱驗證碼或密碼登入",
     "login": "登入",
     "logging": "登入中…",
     "brand": "智匯 AI",

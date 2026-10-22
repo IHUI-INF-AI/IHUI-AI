@@ -271,6 +271,11 @@ const TABS: readonly LoginTab[] = ['email', 'phone', 'password']
 // 验证码倒计时秒数(对齐 web 60s)
 const CODE_COUNTDOWN_SECONDS = 60
 
+// G-958:H5(web 预览)不支持第三方/一键授权登录时的唯一如实提示。
+// 不得提及"网页授权/跳转网页端"——该出路被本文件 ssoLogin 的 web 分支明令拒绝,
+// 指向它即自相矛盾死路(用例:tests/g958-web-login-no-dead-end.test.tsx)。
+const WEB_PREVIEW_LOGIN_HINT = '网页预览暂不支持微信及第三方登录,请使用手机号验证码或账号密码登录。'
+
 // 区号选择列表(对齐原 uniapp login.vue nationData:中国 +86/美国 +1/中国台湾 +886/中国香港 +852/韩国 +82/日本 +81,
 // 另加中国澳门 +853;默认中国 +86 由 phoneHead state 持有,列表同样含中国供再次选择)
 const NATIONS: NationOption[] = [
@@ -813,9 +818,17 @@ export function LoginScreen() {
         return
       }
 
-      // 微信:原生 SDK 授权(web 平台 / SDK 未就绪 → fallback 到 SSO 网页端)
+      // 微信:原生 SDK 授权(web 平台 / SDK 未就绪 → 各自如实提示)
       if (platform === 'wechat') {
-        if (Platform.OS === 'web' || !isWechatAvailable()) {
+        if (Platform.OS === 'web') {
+          // G-958:本文件 ssoLogin 在 web 平台直接返回「网页预览暂不支持一键授权登录」,
+          // 弹窗不得再把用户指向那条被同一函数拒绝的"前往网页端"出路;给 H5 真实可行的路径。
+          appAlert(t('auth.thirdPartyLogin'), WEB_PREVIEW_LOGIN_HINT, [
+            { text: '知道了', style: 'cancel' },
+          ])
+          return
+        }
+        if (!isWechatAvailable()) {
           appAlert(
             t('auth.thirdPartyLogin'),
             '微信登录请在原生 App 中使用(需安装微信 App)。\n您可以使用"智汇AI网页授权登录"按钮跳转网页端授权。',
@@ -864,16 +877,13 @@ export function LoginScreen() {
       }
 
       // web 预览不支持 openAuthSessionAsync(系统浏览器授权会话),
-      // 苹果/Google/飞书/钉钉/企微/支付宝/GitHub 的 OAuth 跳转在 web 平台不可用,统一引导走 SSO
+      // 苹果/Google/飞书/钉钉/企微/支付宝/GitHub 的 OAuth 跳转在 web 平台不可用。
+      // G-958:提示只准如实说明"网页预览不支持"+给出 H5 可行路径 —— 此前引导"前往网页端"
+      // 但该出路被本文件 ssoLogin 的 web 分支明令拒绝,是用户点下去必撞的自我矛盾死路。
       if (Platform.OS === 'web') {
-        appAlert(
-          t('auth.thirdPartyLogin'),
-          '网页预览暂不支持第三方授权登录,请使用"智汇AI网页授权登录"跳转网页端完成授权。',
-          [
-            { text: '取消', style: 'cancel' },
-            { text: '前往网页端', onPress: () => void form.ssoLoginAction() },
-          ],
-        )
+        appAlert(t('auth.thirdPartyLogin'), WEB_PREVIEW_LOGIN_HINT, [
+          { text: '知道了', style: 'cancel' },
+        ])
         return
       }
 

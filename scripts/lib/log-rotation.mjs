@@ -5,8 +5,8 @@
 /**
  * 追加型运行日志的保留期回收(机制对标 ZCode `packages/desktop/src/main/logRetention.ts`)。
  *
- * 为什么要有它(实测,不是假想):`.workbuddy/hook-logs/pre-commit.log` 现读 93,344,342 B、
- * `.workbuddy/git-guardian.log` 13,610,246 B,两处都**只有追加、没有死亡**。我方已有同类轮转
+ * 为什么要有它(实测,不是假想):`.ihui-agent/state/hook-logs/pre-commit.log` 现读 93,344,342 B、
+ * `.ihui-agent/state/git-guardian.log` 13,610,246 B,两处都**只有追加、没有死亡**。我方已有同类轮转
  * 只有 `deploy/win/ihui-deploy-loop.ps1` 一处(53MB 事故后加的),即"同类日志各自腐烂"。
  *
  * 为什么挂在守护巡检而不是钩子自身:钩子的日志是由 `scripts/hook-run-hidden.vbs` 用

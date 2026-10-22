@@ -38,6 +38,7 @@ import { execFileSync } from 'node:child_process';
 import http from 'node:http';
 import https from 'node:https';
 import { isRootLinkedWorktree } from './lib/worktree.mjs';
+import { gitRaw } from './lib/face-reader.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -181,19 +182,47 @@ if (!skipAuditReportCheck) {
     'frontend_audit_report.txt': ['frontend_audit_report.txt', 'admin-audit-report.md'],
     'db_schema_audit_report.txt': ['db_schema_audit_report.txt', 'audit_zhs_full_r76.md', 'audit_m63_r76.md'],
   };
+  // 2026-10-22 (G-620 复测):2026-10-17 补的第二归档根 `.trae-cn/archive/` 在仓根**从未存在**
+  // ⇒ 门 15 自归档退役当日起恒红(红在判据,不在仓内状态)。审计证据的真实归宿是退役提交
+  // 7a77c44d86 机主令自述的备份 tag `backup/archive-removal-2026-10-16`(6 份 .md 报告全在其树内;
+  // CI guardian-full.yml 用 fetch-depth:0 ⇒ 读得到 tag)。判据原意 = "审计做过且证据可取回":
+  // 先查盘面(根目录/两处归档目录),盘面没有再查退役备份 tag 面;tag 也取不到(浅克隆/丢失)
+  // 照旧判红 ⇒ 判据未削,只是把取材面补成与归档退役后的现实一致。git 派生走 face-reader gitRaw。
+  const RETIRE_BACKUP_TAG = 'backup/archive-removal-2026-10-16';
+  const RETIRED_REPORT_PREFIX = '.ihui-agent/archive/audit-reports-2026-07-21/';
+  let retiredTreeList = null; // 惰性取材一次,4 项检查共用
+  const inRetirementBackup = (f) => {
+    if (retiredTreeList === null) {
+      try {
+        retiredTreeList = String(
+          gitRaw(['ls-tree', '-r', '--name-only', RETIRE_BACKUP_TAG], ROOT, { timeout: 30_000 }) || '',
+        )
+          .split(/\r?\n/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+      } catch {
+        retiredTreeList = []; // tag 读不到 ⇒ 回落"盘面也没有",照旧判红,不冒绿
+      }
+    }
+    return retiredTreeList.includes(RETIRED_REPORT_PREFIX + f);
+  };
   for (const [canonical, candidates] of Object.entries(AUDIT_REPORT_ALIASES)) {
     check(`审计报告存在: ${canonical}`, () => {
-      // 根目录或任一归档目录存在即通过。头注(2026-09-13)本就写明报告分居 .ihui-agent 与 .trae-cn
-      // 两处归档,但此前代码只搜 .ihui-agent 一支;2026-10-16 归档退役清空了 .ihui-agent/archive/
-      // ⇒ 报告只剩 .trae-cn 一份却搜不到(路径 bug,审计确做过,非历史欠账)。补齐第二处即兑现头注,判据未削。
+      // 根目录或任一归档目录存在即通过(盘面);两处都无再查退役备份 tag 面(见上方头注)。
       const ARCHIVE_DIRS = [
         path.join(ROOT, '.ihui-agent/archive/audit-reports-2026-07-21'),
         path.join(ROOT, '.trae-cn/archive/audit-reports-2026-07-21'),
       ];
       const found = candidates.find(
-        (f) => existsSync(path.join(ROOT, f)) || ARCHIVE_DIRS.some((d) => existsSync(path.join(d, f))),
+        (f) =>
+          existsSync(path.join(ROOT, f)) ||
+          ARCHIVE_DIRS.some((d) => existsSync(path.join(d, f))) ||
+          inRetirementBackup(f),
       );
-      if (!found) throw new Error(`未找到 ${canonical} 或别名 ${candidates.join('/')} 之一(根目录或 .ihui-agent/.trae-cn 归档目录), 必须先跑 D 盘历史项目审计`);
+      if (!found)
+        throw new Error(
+          `未找到 ${canonical} 或别名 ${candidates.join('/')} 之一(根目录 / .ihui-agent/.trae-cn 归档目录 / 退役备份 tag ${RETIRE_BACKUP_TAG}), 必须先跑 D 盘历史项目审计`,
+        );
       return true;
     });
   }

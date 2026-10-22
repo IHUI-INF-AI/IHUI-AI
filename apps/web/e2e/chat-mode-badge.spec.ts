@@ -19,11 +19,15 @@ import { attachErrorGuards } from '../tests/e2e/fixtures/helpers'
  * 不依赖登录态(纯前端 UI 状态,useModeStore zustand),localStorage key `ihui-mode`。
  * 触发登录弹窗时优雅 skip(避免后端不可用阻塞整个 e2e 套件)。
  *
- * DOM 锚点(2026-09-14 校准:message-input.tsx 的 AgentProgressTrigger 以 iconOnly
+ * DOM 锚点(2026-10-22 校准:aria-label 整串经 i18n 词包 chat.modeTaskAria 取形
+ * `{mode}<任务后缀>` —— 此前组件把中文后缀「任务」硬编码在组件里,非 zh-CN locale 渲染
+ * 出混血串(如 ko「빌드任务」),旧用例把混血串钉成了基线;zh-CN 形态逐字不变。
+ * 混血串的本地锁定用例 = apps/web/tests/agent-progress-trigger-aria-i18n.test.tsx;
+ * 2026-09-14 校准:message-input.tsx 的 AgentProgressTrigger 以 iconOnly
  * 渲染紧凑工具条(有意设计,不渲染文本 span)——模式文案只存在于
- * aria-label `${modeLabel}任务` 与 hover Tooltip 中,文本断言一律走 aria-label):
+ * aria-label 与 hover Tooltip 中,文本断言一律走 aria-label):
  *   <button data-testid="agent-progress-trigger" data-mode={currentMode}
- *           aria-label={`${modeLabel}任务`}>
+ *           aria-label={t('chat.modeTaskAria', { mode: modeLabel })}>
  *     <ModeIcon className="h-3.5 w-3.5" />
  *   </button>
  */
@@ -62,6 +66,25 @@ const MODE_LABEL_EXPECT: Record<string, Record<Mode, string>> = {
   ja: { build: 'ビルド', plan: '計画', review: 'レビュー', spec: 'スペック' },
   ko: { build: '빌드', plan: '계획', review: '리뷰', spec: '스펙' },
   'zh-TW': { build: '構建', plan: '計劃', review: '審查', spec: '規格' },
+}
+
+/** aria-label 整串期望模板(2026-10-22):组件改经 chat.modeTaskAria 词包取形,
+ *  各 locale 后缀不再写死中文「任务」。模板与 packages/i18n/messages/web/{locale}.json
+ *  chat.modeTaskAria 逐字一致;zh-CN 形态与旧断值(`{mode}任务`)逐字不变。 */
+const MODE_ARIA_TPL: Record<string, string> = {
+  'zh-CN': '{mode}任务',
+  en: '{mode} task',
+  ja: '{mode}タスク',
+  ko: '{mode} 작업',
+  'zh-TW': '{mode}任務',
+}
+
+/** 由模式标签现拼整串 aria-label 期望值(与组件取词同一模板口径) */
+function modeAria(locale: string, mode: Mode): string {
+  const tpl = MODE_ARIA_TPL[locale]
+  const label = MODE_LABEL_EXPECT[locale]?.[mode]
+  if (!tpl || !label) throw new Error(`modeAria: 未知 locale/mode = ${locale}/${mode}`)
+  return tpl.replace('{mode}', label)
 }
 
 const LOCALES = Object.keys(MODE_LABEL_EXPECT) as Array<keyof typeof MODE_LABEL_EXPECT>
@@ -215,6 +238,28 @@ async function pressModeShortcut(page: Page, digit: string, expectedMode: Mode) 
   }
 }
 
+/** aria-label 断言 + "卡 zh-CN 词包初始态"重载重试守卫(2026-10-22 立)
+ *
+ *  CI run 39710007341 取证(trace 快照):失败瞬间 `html lang="ko"` 但整页内容仍是中文
+ *  ⇒ 语言 store 已切换、I18nProvider 的按需词包 chunk 在断言窗内未应用完
+ *  (prod 下 `LOADERS[locale]` 是动态 import,并发 workers 打满同源连接队列时会排长队;
+ *  同签名曾在 2026-08 以 zh-TW 形态出现过,当时只把超时 5s→15s)。
+ *  本档不再单纯加时长:首轮 15s 未命中即整页 reload 再给 15s(chunk 已被浏览器缓存,
+ *  二次加载近乎瞬时),两态都不命中才算真失败。 */
+async function expectBadgeAria(page: Page, badge: ReturnType<Page['locator']>, expected: string) {
+  try {
+    await expect(badge).toHaveAttribute('aria-label', expected, { timeout: 15_000 })
+  } catch (firstError) {
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 45_000 })
+    await page.waitForSelector('[data-testid="agent-progress-trigger"]', { timeout: 10_000 })
+    await expect(badge).toHaveAttribute('aria-label', expected, {
+      timeout: 15_000,
+      // 重试仍失败时把首轮错误一起带进报告,保留"首轮卡在哪个值"的证据
+      message: `aria-label 重试(含一次 reload)后仍不匹配;首轮错误:${String(firstError)}`,
+    })
+  }
+}
+
 test.describe('ChatModeBadge + 3 通道模式切换', () => {
   // 2026-08-27 修复:并发负载下 beforeEach 双 goto + badge 等待可能超 30s 默认预算
   // (hook 超时不受测试体内 test.setTimeout 追溯覆盖,必须在 describe 级配置)。
@@ -314,9 +359,9 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
           await authenticatedPage.waitForTimeout(250)
         }
       }
-      // 断言 badge 已切换(文案经 aria-label 暴露,iconOnly 无文本 span)
+      // 断言 badge 已切换(文案经 aria-label 暴露,iconOnly 无文本 span;zh-CN 形态逐字不变)
       await expect(badge).toHaveAttribute('data-mode', mode, { timeout: 3000 })
-      await expect(badge).toHaveAttribute('aria-label', `${MODE_LABEL_EXPECT['zh-CN']![mode]}任务`)
+      await expect(badge).toHaveAttribute('aria-label', modeAria('zh-CN', mode))
       // 验证 toast(sonner)出现
       const toast = authenticatedPage.locator('[data-sonner-toast]').first()
       await expect(toast).toContainText(MODE_LABEL_EXPECT['zh-CN']![mode], { timeout: 3000 })
@@ -426,14 +471,17 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       await expect(badge).toHaveAttribute('data-mode', 'build', { timeout: 5000 })
       // 2026-08-28:persist rehydrate + next-intl messages 重载在高负载下可能 >5s
       // (zh-TW 曾命中 zh-CN 初始态"构建"而非"構建")→ 放宽到 15s
+      // 2026-10-22:run 39710007341 里 ko 又在 15s 窗内命中 zh-CN 初始态(trace 快照
+      // lang="ko" 而整页中文 ⇒ store 已切、按需词包 chunk 未应用)→ 改走
+      // expectBadgeAria(15s 未命中自动 reload 再给 15s,不再单纯赌时长)。
       // 2026-09-14:文案经 aria-label 断言(iconOnly 无文本 span)
-      await expect(badge).toHaveAttribute('aria-label', `${MODE_LABEL_EXPECT[locale]!.build}任务`, {
-        timeout: 15000,
-      })
+      // 2026-10-22(本票):期望整串走 modeAria 模板 —— 词包已含各 locale 任务后缀,
+      // 混血串(ko「빌드任务」)从此不是合法通过态。
+      await expectBadgeAria(authenticatedPage, badge, modeAria(locale, 'build'))
       // 切到 plan(2026-08-27:pressModeShortcut 轮询重按,容忍 hydration 时序)
       await pressModeShortcut(authenticatedPage, '2', 'plan')
       await expect(badge).toHaveAttribute('data-mode', 'plan', { timeout: 3000 })
-      await expect(badge).toHaveAttribute('aria-label', `${MODE_LABEL_EXPECT[locale]!.plan}任务`)
+      await expectBadgeAria(authenticatedPage, badge, modeAria(locale, 'plan'))
       // 2026-08-26 移除 html lang 断言:客户端 setLocale 驱动 next-intl messages 重渲染
       // (badge 文本已断言),但 <html lang> 仅由服务端 layout 渲染,项目无客户端更新机制
       // (与实现不符的过度断言,en/ja/ko 恒失败)。

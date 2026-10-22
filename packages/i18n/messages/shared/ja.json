@@ -469,6 +469,8 @@
     "resetPassword": "パスワードをリセット",
     "resetSuccess": "パスワードのリセットが完了しました。再度ログインしてください",
     "sendCode": "認証コードを取得",
+    "ssoLogin": "ウェブサイトでログイン",
+    "ssoLoginLoading": "ウェブサイトでログイン中...",
     "termsOfService": "利用規約",
     "thirdPartyLogin": "サードパーティログイン",
     "toLogin": "ログインへ",
@@ -1455,7 +1457,6 @@
     "password": "パスワード",
     "passwordPlaceholder": "パスワードを入力",
     "loginBtn": "ログイン",
-    "ssoLogin": "SSOログイン",
     "loading": "ログイン中...",
     "error": "ログイン失敗"
   },

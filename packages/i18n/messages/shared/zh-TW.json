@@ -469,6 +469,8 @@
     "resetPassword": "重設密碼",
     "resetSuccess": "密碼重設成功,請重新登入",
     "sendCode": "取得驗證碼",
+    "ssoLogin": "打開網頁登入",
+    "ssoLoginLoading": "正在打開網頁登入...",
     "termsOfService": "服務條款",
     "thirdPartyLogin": "第三方登入",
     "toLogin": "去登入",
@@ -1455,7 +1457,6 @@
     "password": "密碼",
     "passwordPlaceholder": "請輸入密碼",
     "loginBtn": "登入",
-    "ssoLogin": "SSO 登入",
     "loading": "登入中...",
     "error": "登入失敗"
   },

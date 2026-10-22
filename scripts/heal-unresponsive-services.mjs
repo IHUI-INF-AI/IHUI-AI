@@ -37,7 +37,7 @@ import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 export const CONFIG_REL = 'scripts/data/service-auto-restart.json'
-export const STATE_REL = '.workbuddy/service-heal-state.json'
+export const STATE_REL = '.ihui-agent/state/service-heal-state.json'
 export const GATE_REL = 'scripts/check-service-binary-paths.mjs'
 export const NSSM_CANDIDATES = ['C:\\Windows\\System32\\nssm.exe', 'C:/Windows/System32/nssm.exe']
 export const GATE_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_GATE_TIMEOUT_MS || 300_000)

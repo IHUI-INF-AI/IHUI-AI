@@ -303,7 +303,7 @@ async function start() {
   // 启动数据库备份定时调度(读 backup_settings;备份设置页可改,2026-09-16 立)
   void startBackupCronScheduler()
 
-  // 启动生产值守进程内定时读方(每 10 分钟:.workbuddy/状态目录的 UNDELIVERED 标记 + :80 CDN 活性;
+  // 启动生产值守进程内定时读方(每 10 分钟:.ihui-agent/state/状态目录的 UNDELIVERED 标记 + :80 CDN 活性;
   // G-916430③ 机主拍板,ENABLE_OPS_WATCH_READER=false 禁用)
   if (process.env.ENABLE_OPS_WATCH_READER !== 'false') {
     startOpsWatchReaderScheduler()

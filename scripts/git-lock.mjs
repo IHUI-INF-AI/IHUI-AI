@@ -58,7 +58,6 @@
  *   - scripts/safe-gc.mjs:手动 gc 前必须 acquire(杜绝 gc 与写操作并发)
  */
 import { execSync } from 'node:child_process'
-import { runWithRelease, throwTwoCauseChain } from './lib/two-cause-chain.mjs'
 import {
   appendFileSync,
   existsSync,
@@ -477,7 +476,7 @@ function repoRoot() {
 
 /** G-262 计量账本:等待事件与快照都进这一份(不另立文件,避免第二份真相)。 */
 function metricsFilePath() {
-  return join(repoRoot(), '.workbuddy', 'git-lock-metrics.jsonl')
+  return join(repoRoot(), '.ihui-agent', 'state', 'git-lock-metrics.jsonl')
 }
 
 function readMetricsLines(file) {

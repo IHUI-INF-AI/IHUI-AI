@@ -11,7 +11,7 @@ import { writeFileSync } from 'node:fs'
 const code = Number(process.argv[2] || 0)
 try {
   writeFileSync(
-    '.workbuddy/push-gate-last-result.json',
+    '.ihui-agent/state/push-gate-last-result.json',
     JSON.stringify({ ts: Date.now(), code }),
   )
 } catch {

@@ -162,6 +162,11 @@ const LS_REMOTE_TIMEOUT_MS = 30_000
 const DUP_POINTER_RE = idx.DUP_POINTER_RE
 const SELF_DEDISPATCH_RE = idx.SELF_DEDISPATCH_RE
 const CLAIM_RE = /（进行中[^）]*）/
+// 清牌器盖的释放印(producer 与判据同字面:`strip-stale-claim-marks.mjs` 生成
+// `（认领已释放@<日期>/<席位>#<序号>）`,那边自测也按同一 RE 取样)。本器只在两处用它:
+//   ① 认领转移**不往已盖释放印的幸存行上搬旧牌**(搬回去=把已裁决释放的票重新算成在飞);
+//   ② A4 族级守恒把"释放印"也认作该族认领已被记账(不是无声丢失,印就是记录)。
+const RELEASE_RE = /（认领已释放@[^）]*）/
 
 /** 单轮剥掉注记段(深度匹配括号对,不贪婪截断)。
  *  三种括号对都要认(存量实测形态):〔…〕 标准注记 / 【…】 与 【【…】】 变体 / （…） 圆括变体。
@@ -272,7 +277,11 @@ export function buildPlan(lines, opts = {}) {
       }
     }
   }
-  const holders = rows.filter((r) => isCheckedRow(r.line) === false && !isCandidate(r.line))
+  // 持有行 = 非候选行。**不能只用 isCandidate 判**:第三候选族(同号多行组)在下面把漂开副本
+  // 补进 `candidates` 后,若这里仍按"有没有指针注记"筛,候选会同时被当成持有行 ——
+  // 实测 2026-10-22 出现「L4557 自己是自己的外部持有行」「认领转移到 L4557(同轮被删)」,
+  // A4 因此整批拒绝。候选集就是删除集的唯一来源 ⇒ 持有行必须按 candidates 排除。
+  const holders = rows.filter((r) => isCheckedRow(r.line) === false && !candidates.includes(r))
   const bareOf = (l) => stripMergeNotes(stripMergeNotes(l).replace(CLAIM_RE, '')).trim()
   const claimOf = (l) => (CLAIM_RE.exec(stripMergeNotes(l)) || [null])[0]
   const keyOf = (l) => idx.compositeKeyOf(stripMergeNotes(l))
@@ -321,7 +330,7 @@ export function buildPlan(lines, opts = {}) {
       deleteSet.add(c.i)
       stats.L1++
       const target = ext[0]
-      if (claim && !claimOf(target.line)) {
+      if (claim && !claimOf(target.line) && !RELEASE_RE.test(stripMergeNotes(target.line))) {
         claimTransfers.push({ from: c.line, to: target.i, claim })
       }
       reasons.set(c.i, `L1 外部持有行 L${target.i + 1}`)
@@ -333,7 +342,7 @@ export function buildPlan(lines, opts = {}) {
         deleteSet.add(c.i)
         stats.L2++
         const kclaim = claimOf(keep.line)
-        if (claim && !kclaim && !candidates.includes(keep))
+        if (claim && !kclaim && !candidates.includes(keep) && !RELEASE_RE.test(stripMergeNotes(keep.line)))
           claimTransfers.push({ from: c.line, to: keep.i, claim })
         reasons.set(c.i, `L2 族内归并,保留 L${keep.i + 1}`)
       } else {
@@ -403,7 +412,8 @@ export function buildPlan(lines, opts = {}) {
     const cLine = lines[ci]
     const sLine = lines[si]
     const cClaim = claimOf(cLine)
-    if (cClaim && !claimOf(sLine)) claimTransfers.push({ from: cLine, to: si, claim: cClaim })
+    if (cClaim && !claimOf(sLine) && !RELEASE_RE.test(stripMergeNotes(sLine)))
+      claimTransfers.push({ from: cLine, to: si, claim: cClaim })
     // 先剥注记段再算正文包含性:让号记录/拍板挂在行尾 〔…〕 里,幸存行的同类段措辞不同
     // (批② vs 批④),不剥掉它们,正文包含性永远假失败(首版实测 L7193/L10667 全军覆没)。
     const segsAll = segsOf(cLine)
@@ -559,14 +569,18 @@ export function verifyPurge(oldLines, newLines, plan) {
   const countOpen = (ls) => ls.filter((l) => isOpenRow(l)).length
   if (countChecked(newLines) !== countChecked(oldLines))
     errs.push(`A1 已勾选行数变化:${countChecked(oldLines)} → ${countChecked(newLines)}`)
-  // A4 族内认领守恒:清偿前带认领的族,清偿后必须仍带认领(族键与分族同源:复合主键 ∪ 指纹)
+  // A4 族内认领守恒:清偿前带认领的族,清偿后必须仍带认领**(或带清牌器盖的释放印)**
+  // —— 释放印是显式裁决记录,不是无声丢失;2026-10-22 实测两族(WP-7 / 59)的认领牌
+  // 已被 `strip-stale-claim-marks` 判定释放(旧牌超龄/无日期无持有者),幸存行只剩释放印;
+  // 若强行把副本上的旧牌搬回去,会让已裁决释放的票重新显示为在飞(比"少一张牌"更坏)。
   const famKeyOf = (l) => plan.famKeyOf(l)
+  const accounted = (l) => CLAIM_RE.test(stripMergeNotes(l)) || RELEASE_RE.test(stripMergeNotes(l))
   const oldClaims = new Set()
   for (const l of oldLines)
-    if (isRowLine(l) && !isProse(l) && CLAIM_RE.test(stripMergeNotes(l))) oldClaims.add(famKeyOf(l))
+    if (isRowLine(l) && !isProse(l) && accounted(l)) oldClaims.add(famKeyOf(l))
   const newClaimFams = new Set()
   for (const l of newLines)
-    if (isRowLine(l) && !isProse(l) && CLAIM_RE.test(stripMergeNotes(l)))
+    if (isRowLine(l) && !isProse(l) && accounted(l))
       newClaimFams.add(famKeyOf(l))
   const lostClaims = [...oldClaims].filter((k) => !newClaimFams.has(k))
   if (lostClaims.length)

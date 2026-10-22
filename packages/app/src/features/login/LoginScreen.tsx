@@ -52,7 +52,9 @@ import type {
  *   - 第三方登录区:3 列 flexWrap,40×40 圆形按钮
  *   - QR tab:200×200 二维码占位 + 状态文案 + 刷新按钮
  *
- * i18n:仅使用 zh-CN.json 已有 key(任务约束禁止新增 key),QR 状态文案 / a11y label 硬编码中文。
+ * i18n:SSO 按钮走 t('auth.ssoLogin') / t('auth.ssoLoginLoading')(G-959:此前写死简体中文,
+ * 而宿主传的 t 是非中文档案 ⇒ 其他语言直接看到简体字);键住 messages/shared 五语言。
+ * QR 状态文案 / a11y label 仍是硬编码中文(本票射程外,未收口)。
  * 所有新增 props 可选,旧调用方只传 account/password 仍可工作(渲染为单一 password tab)。
  */
 export type { LoginScreenProps }
@@ -1499,7 +1501,7 @@ export function LoginScreen(props: LoginScreenProps) {
           accessibilityRole="button"
         >
           <Text style={styles.ssoBtnText}>
-            {ssoLoading ? '打开网页登录...' : '智汇AI网页授权登录'}
+            {ssoLoading ? t('auth.ssoLoginLoading') : t('auth.ssoLogin')}
           </Text>
         </TouchableOpacity>
 

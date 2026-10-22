@@ -273,7 +273,7 @@ export function mergeCommitArgs({ tree, parents, message }) {
  *  8 分钟才返回 timeout,而收敛器每轮都等一次 = 三轮 24 分钟空转(§5b「🔄 主动收敛」
  *  当初要根治的就是这个)。老状态文件里没有该值 ⇒ 行为与今天一致(向后兼容)。 */
 function waitForPushState(headSha, timeoutMs = 8 * 60 * 1000) {
-  const stateFile = resolve(process.cwd(), '.workbuddy/push-state.json')
+  const stateFile = resolve(process.cwd(), '.ihui-agent/state/push-state.json')
   const deadline = Date.now() + timeoutMs
   for (;;) {
     try {
@@ -705,14 +705,14 @@ export function alignFailureNote(e) {
 
 // ─── 收尾对齐状态台账(2026-09-25 票 O74:从"失败只记日志"到"能喊到人") ───
 // 收敛器是"谁跑谁一次性"的进程,自己不适合直接发邮件;守护 git-guardian 每 2 分钟一轮,
-// 已是所有自愈告警的派发点 ⇒ 本文件**只写** `.workbuddy/converge-align-state.json`
+// 已是所有自愈告警的派发点 ⇒ 本文件**只写** `.ihui-agent/state/converge-align-state.json`
 // (失败 +1 / 成功归零并写 lastOkAt),阈值判断与到人只在 git-guardian.mjs 侧
 // (`shouldAlertAlignStall` → `notifyGuardRed('converge-align-stall', …)`,§5e 唯一邮件通道)。
 // 并发安全:临时文件 + renameSync 原子替换;读不到 / JSON 坏了 ⇒ 视作"无法判定"并照常重写。
 // 收敛器停摆的代价远大于状态缺失,本层任何异常一律吞掉,绝不让状态文件把收敛器搞崩。
 // 相对 repo 根的固定落点(recordAlignOutcome 用 resolve(repoRoot, ALIGN_STATE_FILE) 拼绝对)。
 // **必须保持相对路径** —— 写成 resolve(cwd) 的绝对路径会让 repoRoot 参数形同虚设。
-export const ALIGN_STATE_FILE = '.workbuddy/converge-align-state.json'
+export const ALIGN_STATE_FILE = '.ihui-agent/state/converge-align-state.json'
 
 /** 读状态;文件缺失 / 坏 JSON / 形状不对一律返回 null("无法判定"),不抛 */
 export function readAlignState(p) {
@@ -1501,7 +1501,7 @@ function main() {
   //
   // 立因是上面那段头注自己没盖住的一个洞:alignWorktreeAfterHeadMove 只在**真的推进了 HEAD**
   // 之后才被调用。于是"本地提交已被远端包含"这一轮(实测 2026-10-04:7 秒 rc=0)会整段跳过,
-  // recordAlignOutcome 不被调 ⇒ `.workbuddy/converge-align-state.json` 的
+  // recordAlignOutcome 不被调 ⇒ `.ihui-agent/state/converge-align-state.json` 的
   // consecutiveFailures 永不归零 ⇒ 守护的 converge-align-stall 阈值**结构上无法靠跑收敛解除**。
   // 告警正文给的唯一出路正是"跑一轮收敛",而那条路在本地已同步时是空转 ——
   // 实测 10-03 07:41 失败后 24.8 小时无人推进,告警一直挂着,不是有人忽略它。
@@ -1531,7 +1531,7 @@ function main() {
    * 对齐判据在 scripts/heal-worktree-tracked.mjs:索引==HEAD 且 工作区内容==该路径某祖先版本
    * 才动,任一不成立即放过 ⇒ 会话的真实未提交改动与有暂存的路径都不被覆盖。
    * 失败只记日志,绝不影响收敛结论(推送已成功)。
-   * 2026-09-25 票 O74:成败都写进 .workbuddy/converge-align-state.json,由 git-guardian
+   * 2026-09-25 票 O74:成败都写进 .ihui-agent/state/converge-align-state.json,由 git-guardian
    * 按"连续 ≥3 次且最后失败 ≥10 分钟"的阈值经 notifyGuardRed 喊到人(只记日志不再是终点)。
    */
   function alignWorktreeAfterHeadMove() {
@@ -1960,7 +1960,7 @@ function main() {
   log(C.red, `❌ ${maxRounds} 轮未收敛,稍后重跑: node scripts/git-sync-converge.mjs`)
   const lastState = (() => {
     try {
-      return JSON.parse(readFileSync(resolve(process.cwd(), '.workbuddy/push-state.json'), 'utf8'))
+      return JSON.parse(readFileSync(resolve(process.cwd(), '.ihui-agent/state/push-state.json'), 'utf8'))
     } catch {
       return null
     }

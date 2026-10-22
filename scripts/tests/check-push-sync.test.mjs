@@ -252,8 +252,8 @@ test('ahead: 本地 ahead 3 个 commit → exit 1(显示 3)', () => {
 // 2026-09-26 实测:当天两次提交(12:53 / 12:57)都是被这一格判红,红之后 safe-commit
 // 走 --no-verify ⇒ 那 163 道门对那两枚提交根本没跑。所以"哪一态该红"必须能被机器问出来。
 function writePushState(dir, state) {
-  mkdirSync(join(dir, '.workbuddy'), { recursive: true })
-  writeFileSync(join(dir, '.workbuddy', 'push-state.json'), JSON.stringify(state))
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
+  writeFileSync(join(dir, '.ihui-agent', 'state', 'push-state.json'), JSON.stringify(state))
 }
 
 test('push-state: running 且新鲜且持有者存活 → exit 0(在途推送不算忘记 push)', () => {

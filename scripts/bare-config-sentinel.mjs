@@ -14,7 +14,7 @@
 //   (进程生日 ≈ config mtime)在更窄的锚点上互证。
 //
 // 边界三条(与 §22d / §0.3 对齐):
-//   ① 纯读:绝不写 config,绝不调 git 写路径;唯一写面是 .workbuddy/bare-sentinel/(已
+//   ① 纯读:绝不写 config,绝不调 git 写路径;唯一写面是 .ihui-agent/state/bare-sentinel/(已
 //      被 .gitignore 整目录覆盖的运行态落点,与守护 BARE_AUDIT_DIR 同区,互不覆盖)。
 //   ② 空清单不得记 ok:进程快照失败/为空一律进 selfCheck.reasons(复用守护
 //      bareAuditSelfCheck,同一把尺,不另抄一份)。
@@ -26,7 +26,7 @@
 //   默认(无参) = --once=1:建立/推进基线一轮即退,便于手动触发与计划任务拉起。
 //   --daemon   = 常驻轮询(Ctrl+C 停)。
 //
-// 事件件形状:.workbuddy/bare-sentinel/event-<ISOstamp>-<side>.json,保留最新 20 份。
+// 事件件形状:.ihui-agent/state/bare-sentinel/event-<ISOstamp>-<side>.json,保留最新 20 份。
 
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
@@ -200,7 +200,7 @@ function hasFlag(flag) {
 }
 
 function outDir(worktree) {
-  return join(worktree, '.workbuddy', 'bare-sentinel')
+  return join(worktree, '.ihui-agent', 'state', 'bare-sentinel')
 }
 
 /** 进程快照:win32 走 PowerShell(与守护同一形态,三态失败各自点名);其他平台不取 */

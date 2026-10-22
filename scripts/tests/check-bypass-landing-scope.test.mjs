@@ -6,7 +6,7 @@
  * §22c 镜像测试:check-bypass-landing-scope(守门 169)。
  * 直接 import 源模块与读真仓源码形状,不复制任何判据实现。
  *  - T1 方向锁:runner 已登记(脚本声称已接线必须为真,门 89 R1 的镜像)
- *  - T2 留痕日志路径单一来源:不得在门里再拼第二份 .workbuddy 台账路径
+ *  - T2 留痕日志路径单一来源:不得在门里再拼第二份 .ihui-agent/state 台账路径
  *  - T3~T7 端到端:真脚本 + 夹具仓 + 合成留痕 ⇒ 红/绿/台账/缺失/--strict 的退出码契约
  *  - T8 装车形状:skipEnv 在门头注与 runner 条目里逐字同形
  */
@@ -146,7 +146,7 @@ test('T5 增量台账:红只点名一次,复跑不再红(台账不是豁免,内�
     const r2 = runGate(dir)
     assert.equal(r2.status, 0, `复跑应被台账吸收:${r2.stdout}${r2.stderr}`)
     assert.match(r2.stdout, /已判过跳过 1/)
-    assert.ok(existsSync(join(dir, '.workbuddy', 'bypass-landing-scope-audited.json')))
+    assert.ok(existsSync(join(dir, '.ihui-agent', 'state', 'bypass-landing-scope-audited.json')))
   } finally { rmScratch(dir) }
 })
 
@@ -170,7 +170,7 @@ test('T7 --strict:未判定记录(空声明面)⇒ exit 2;不带 --strict ⇒ ex
     assert.equal(loose.status, 0, `stdout=${loose.stdout}${loose.stderr}`)
     assert.match(loose.stdout, /未判定/)
     // 松跑已把该记录写进增量台账(S6 判一次);删台账走重判路径,--strict 才能再见到未判定
-    rmSync(join(dir, '.workbuddy', 'bypass-landing-scope-audited.json'))
+    rmSync(join(dir, '.ihui-agent', 'state', 'bypass-landing-scope-audited.json'))
     const strict = runGate(dir, ['--strict'])
     assert.equal(strict.status, 2)
   } finally { rmScratch(dir) }

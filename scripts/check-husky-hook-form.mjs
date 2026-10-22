@@ -45,7 +45,7 @@
  *
  * 处置指引(命中时打印):把 node 正文搬到 scripts/lib/<hook>-hook.js,钩子文件本身
  *   只留 sh 薄壳(样板 = .husky/pre-commit 与 .husky/post-commit,经
- *   scripts/hook-run-hidden.vbs 启动,失败进 .workbuddy/hook-logs/<label>.log 并回显)。
+ *   scripts/hook-run-hidden.vbs 启动,失败进 .ihui-agent/state/hook-logs/<label>.log 并回显)。
  *
  * 验证:`node scripts/check-husky-hook-form.mjs --self-test`(条数现读)+
  *   镜像 scripts/tests/check-husky-hook-form.test.mjs(判据 import 本文件 __test__,

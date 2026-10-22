@@ -236,6 +236,11 @@ export const Animated = {
     setValue(next: number) {
       this.current = next
     }
+    // FloatBox(G-958 用例渲染链上)在 visible→false 的 effect 里调 stopAnimation 打断动画;
+    // 替身缺它会让套件挂在收集后的首个渲染上(环境缺件,不是被测缺陷)。
+    stopAnimation(callback?: (value: number) => void) {
+      if (typeof callback === 'function') callback(this.current)
+    }
     __getValue() {
       return this.current
     }

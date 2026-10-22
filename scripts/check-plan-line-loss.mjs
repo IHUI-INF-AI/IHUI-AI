@@ -111,6 +111,9 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // 防丢层把合法改写读成"整行消失"⇒ 回捞未勾原行 ⇒ F1 再红 ⇒ 再翻勾……(两小时 24 枚恢复型提交)。
 // 剥注记的实现与生产者共用一份(scripts/lib/plan-merge-annotation.mjs,§22c 同一条纪律)。
 import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
+// 摘除台账单源(与 auto-commit 复洁器同一份解析):整行已被声明摘除的行,本门不得判丢、不得回捞。
+// 否则"删副本 → 门 71 判丢 → 自动回捞 → 再删"永不收敛(2026-10-22 实测 G-56 回捞提交 ec4171d119)。
+import { declaredRows } from './scrub-declared-removals.mjs'
 // G-722:编号形态判据(畸形号 = 族名在编号段出现两次)的**唯一实现**住在活文档编辑器里 ——
 // 判据住在 `scripts/lib/plan-task-index.mjs` 的下沉方案因该文件正被并发会话在飞编辑而未采,
 // 按票面指定的 import 方案接。两处各抄一遍形态正则必然漂移(§22c 同一条纪律),镜像形状锁钉死。
@@ -423,6 +426,16 @@ export function registrationSlots(src) {
  * `--self-test` 的成对用例与交付报告的全量档读数里,不靠这里的措辞。
  */
 
+/** 改号尾注的固定形状(`〔改号(日期):原<旧号>〕`,行尾)。生产者 = 长号回池/让号改写。 */
+export const RENUMBER_TAIL_RE = /〔改号\([^)]*\):原[A-Za-z]{1,3}-?\d+[A-Za-z]?〕\s*$/
+
+/**
+ * 漂移注释的固定形状(单行 HTML 注释,正文逐字保留)。生产者 = 守门 194 同题多号收拢
+ * (枚 0eb3618@2026-10-21,机主授权)与 F9 分叉合并撞号清偿。刻意**不含** `已归档(` 一族:
+ * 那一型正文是截断的、完整原文在归档件里,由归档形态(archivedCopy)承接,不靠指纹对账。
+ */
+export const DRIFT_COMMENT_RE = /^<!--\s*(?:漂移副本|重复副本)\([^)]*\)\s*[:：]\s*(.*?)\s*-->$/
+
 /**
  * 摘号指针豁免(2026-10-09,F9 批⑤复活竞态根治,归因见 STATE.md 与台账 G-580/D173/G-1058623 组):
  * 台账治理按 §1 把"同号多题"的残行**合法摘号**——整行改写成
@@ -438,6 +451,17 @@ export function registrationSlots(src) {
  * 且同指纹 ⇒ 同题 ⇒ 一起豁免本就是台账治理语义。
  */
 export function mergePointerBodyOf(line) {
+  // 漂移注释(2026-10-22,L28827):守门 194 的"同题多号收拢"把被收拢的登记行**整行转成注释**
+  //   留在 PROJECT_PLAN.md 内(`<!-- 漂移副本(同题多号收拢@…): <原行正文逐字> -->`,同族的
+  //   `<!-- 重复副本(…): … -->` 出自 F9 分叉合并撞号清偿)—— 正文逐字保留、登记槽位摘除,
+  //   与〔【归并】〕指针行同一性质,只是落点从台账行换成注释。不认这一型时,带行首编号的
+  //   收拢行(b 族)只靠归档件/摘除台账两形态兜底;收拢件不在射程(G-69 组:原文只在漂移
+  //   注释里、不在 .ihui-agent/archive/PROJECT_PLAN_*.md)⇒ 每轮被判缺失、heal 捞回开放态
+  //   ⇒ 同题组回潮、再收拢、再捞回(2026-10-21 实测,同题回潮机器成因的后半块)。
+  //   从严面与摘号相同:注释在但正文被换 ⇒ 指纹对不上,照旧判缺失(反向锁见镜像测试);
+  //   既有两形态(〔【归并】〕指针行、改号尾注)的行为逐字节不变 —— 本分支只接注释行。
+  const drift = line.match(DRIFT_COMMENT_RE)
+  if (drift) return drift[1]
   const cb = checkboxBody(line)
   if (cb === null) return null
   // 前缀族放宽(2026-10-13,守门 71 × 守门 194 缝隙):摘号/归并指针段不止"重复登记副本"一族,
@@ -447,10 +471,28 @@ export function mergePointerBodyOf(line) {
   //   G-1038473.,三档一致缺 ⇒ 每轮自愈红着点名却无从回捞)。放宽为整个 〔【归并】…〕 前缀族;
   //   从严面不变:指纹对账(正文逐字保留)才是豁免的实体条件,前缀只是通道 —— 指针行不在、
   //   正文被换照旧判缺失(反向锁用例见 check-plan-line-loss.test.mjs)。
-  if (!cb.startsWith('〔【归并】')) return null
-  const stripped = cb.replace(/^〔【归并】[^〕]*〕/, '')
-  return stripped
+  if (cb.startsWith('〔【归并】')) {
+    const stripped = cb.replace(/^〔【归并】[^〕]*〕/, '')
+    return stripped
+  }
+  // 改号尾注(2026-10-22,长号回池):整行只换编号位、正文逐字保留,行尾留「原<旧号>」。
+  // 与摘号同一性质 —— 旧行不是被抹掉,而是换了身份。不认这一型时,每次合法换号都被判丢
+  // 而回捞旧号(2026-10-22 实测:换号后自愈补回 D22046/G-957/G-958,HEAD 与工作树来回拉锯)。
+  // 从严面与摘号相同:尾注在但正文被换 ⇒ 指纹对不上,照旧判缺失(反向锁见同文件测试)。
+  if (RENUMBER_TAIL_RE.test(cb)) {
+    return cb
+      .replace(RENUMBER_TAIL_RE, '')
+      .replace(/^\*{0,2}[A-Za-z]{1,3}-?\d+[A-Za-z]?\*{0,2}\s*/, '')
+  }
+  return null
 }
+
+/**
+ * 行首编号(含可选点号/顿号与强调记号)的唯一剥离判据。
+ * `G-1018294.` / `D173` / `**G-580 ` 三族都要剥;点号漏剥会让基线侧残留 `.`、
+ * 而语料侧因前导空格没剥到编号 ⇒ 全文比较两端不等(2026-10-22 实测的最后一格)。
+ */
+const LEADING_ROW_ID_RE = /^\s*\*{0,2}[A-Za-z]{1,3}-?\d+[A-Za-z]?[.、]?\*{0,2}\s*/
 
 /** 基线登记行 → 剥编号后的正文指纹(去空白前 20 字;不足 8 字返回 '' 防误配)。 */
 export function lossFingerprintOf(line) {
@@ -458,12 +500,34 @@ export function lossFingerprintOf(line) {
   if (cb === null) return ''
   // 编号两族都要剥:G-580(连字符)与 D173/D1047(D 族无连字符)——只剥连字符形态会让
   // D 族指纹带着编号,而摘号行的正文里没有编号 ⇒ 指纹永远匹配不上,豁免对 D 族整族失效。
-  const noId = cb.replace(/^\*{0,2}[A-Z]{1,3}-?\d+[A-Za-z]?\*{0,2}\s*/, '').replace(/^\*+/, '')
+  const noId = cb.replace(LEADING_ROW_ID_RE, '').replace(/^\*+/, '')
   const fp = noId.replace(/\s+/g, '').slice(0, 20)
   return fp.length >= 8 ? fp : ''
 }
 
-export function resolveRegistrationLoss(entries, targetSrc) {
+/** 摘除声明集合(模块级缓存:同一进程只读一次;取不到 ⇒ 空集,方向是"照旧判丢"而不是误豁免)。 */
+let _declaredRowsCache = null
+function declaredRowSet() {
+  if (_declaredRowsCache) return _declaredRowsCache
+  try {
+    _declaredRowsCache = declaredRows().set
+  } catch {
+    _declaredRowsCache = new Set()
+  }
+  return _declaredRowsCache
+}
+
+/** 改号行正文归一化:去空白、剥尾部压缩注记、编号统一为占位符(改号本身只动编号)。 */
+const normalizeRenumberBody = (s) =>
+  String(s)
+    // 摘号行剥掉〔【归并】…〕前缀后常以 `**` 开头,而基线行剥编号后没有 ⇒ 开头强调记号归一;
+    // 不归一时全文比较会把"同一段正文"判成两端不等(20 字指纹用 includes 恰好掩盖了这一差)。
+    .replace(/^\*+/, '')
+    .replace(/〔压缩@[^〕]*〕/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[A-Za-z]{1,8}-?\d+/g, '<ID>')
+
+export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()) {
   const groups = new Map()
   const textOnly = []
   for (const e of entries) {
@@ -482,21 +546,36 @@ export function resolveRegistrationLoss(entries, targetSrc) {
   }
   const lost = new Set()
   const multiSlot = new Set()
-  // 摘号指针豁免的语料:被审面全部摘号指针行的正文(剥指针段后)拼接,一次构建
-  const pointerCorpus = targetSrc
-    .split(/\r?\n/)
-    .map((l) => mergePointerBodyOf(l))
-    .filter((b) => b !== null)
-    .join('\n')
-    .replace(/\s+/g, '')
+  // 摘号/改号豁免语料(2026-10-22 审计加固):被审面全部合法改写行剥指针段/尾注后的
+  // **全文归一化**集合(去空白、剥压缩注记、编号归一)。此前用 20 字指纹做子串匹配 ——
+  // 实测第 21 字起被改写仍会被判"没丢";统一改成全文逐字比较。
+  // `lossFingerprintOf` 只留作 ≥8 字下限,防止极短行的退化解被当语料。
+  const pointerCorpus = new Set(
+    targetSrc
+      .split(/\r?\n/)
+      .map((l) => mergePointerBodyOf(l))
+      .filter((b) => b !== null)
+      // 漂移注释的正文保留了行首编号(`<!-- 漂移副本(...): G-8815945 **… -->`),
+      // 而基线侧已剥编号 ⇒ 语料侧也剥一次,两形态(有号注释/无号摘号)才同基准。
+      .map((b) => b.replace(LEADING_ROW_ID_RE, ''))
+      .map((b) => normalizeRenumberBody(b)),
+  )
   const pointerExempt = (e) => {
     if (!e.line) return false
-    const fp = lossFingerprintOf(e.line)
-    return fp !== '' && pointerCorpus.includes(fp)
+    if (lossFingerprintOf(e.line) === '') return false
+    const cb = checkboxBody(e.line)
+    if (cb === null) return false
+    const body = cb.replace(LEADING_ROW_ID_RE, '')
+    return pointerCorpus.has(normalizeRenumberBody(body))
   }
+  // 声明摘除豁免(2026-10-22):整行逐字在摘除台账中 ⇒ 这是被主动删掉的副本/结清行,
+  // 不判丢、不回捞。方向从严:只认整行逐字相等,不做指纹/相似度;台账取不到 ⇒ declared 为空,
+  // 一切照旧(不误免)。与 pointerExempt 并存:两条通道互不替代。
+  const declaredExempt = (e) => typeof e.line === 'string' && declared.has(e.line)
   // textOnly 档同样要豁免:批⑤的四行真实形态(`- [ ] **G-580 …` 粗体头带空格)headIdOf 给 null,
   // 全走 textOnly —— 只豁免带 id 的组循环等于对这批真实事故行不生效(2026-10-09 端到端探针实证)。
-  for (const e of textOnly) if (!targetSrc.includes(e.marker) && !pointerExempt(e)) lost.add(e.marker)
+  for (const e of textOnly)
+    if (!targetSrc.includes(e.marker) && !pointerExempt(e) && !declaredExempt(e)) lost.add(e.marker)
   const slots = registrationSlots(targetSrc)
   for (const [key, group] of groups) {
     const slot = slots.get(key)
@@ -506,12 +585,15 @@ export function resolveRegistrationLoss(entries, targetSrc) {
     let present = 0
     for (const { e } of group) {
       if (head.has(e.marker)) present += 1
-      else if (pointerExempt(e)) continue // 合法摘号(正文指纹在被审面指针行中)⇒ 不判丢、不点名、不回捞
-      else absent.push(e)
+      else if (pointerExempt(e)) continue // 合法摘号/改号(全文归一逐字相等)⇒ 不判丢、不点名、不回捞
+      // 已声明摘除**不在这里 continue**:它必须占住 absent 的位置但不消耗 slack,
+      // 否则同组后面那条真删行会被 slack 吞掉(2026-10-22 审计实测:台账空报 1、有台账报 0)。
+      else absent.push(declaredExempt(e) ? { ...e, declared: true } : e)
     }
     // 名额优先解释"组内靠前的"缺席条目(它们来自较新的历史版本,更可能是被改写而不是被吞)
     const slack = Math.max(0, capacity - present)
-    for (const e of absent.slice(slack)) lost.add(e.marker)
+    const undecided = absent.filter((e) => !e.declared)
+    for (const e of undecided.slice(slack)) lost.add(e.marker)
     /**
      * `multiSlot` = 判丢时该编号**在目标面仍占着行首名额**(capacity > 0)。
      * 这一类的含义不是"这个任务没人登记了",而是"同一编号原本有几行、现在少了一行" —— 少的那行
@@ -519,11 +601,13 @@ export function resolveRegistrationLoss(entries, targetSrc) {
      * 所以它只许**点名交人工**,绝不允许进自动回捞:真仓现读的两条此类样本(G-300 / G-301)
      * 都是"同编号被两件事共用"的台账撞号,自动插回去就是替台账长出一份重复登记(§1 红线)。
      */
-    if (capacity > 0) for (const e of absent.slice(slack)) multiSlot.add(e.marker)
+    if (capacity > 0) for (const e of undecided.slice(slack)) multiSlot.add(e.marker)
   }
   // 返回顺序 = 输入顺序:判据语义与旧实现一致,也免得回捞插入顺序被分组打乱
   return entries
-    .filter((e) => e && e.marker && lost.has(e.marker))
+    // 已声明摘除的条目不得随同 marker 被带进回捞集(同号多行时 lost 是 marker 级集合,
+    // 不过滤就会把已声明的行一起插回去 —— 2026-10-22 审计指出的同组吞行面)。
+    .filter((e) => e && e.marker && lost.has(e.marker) && !declaredExempt(e))
     .map((e) => (multiSlot.has(e.marker) ? { ...e, multiSlot: true } : e))
 }
 
@@ -585,11 +669,14 @@ export function registeredLines(src) {
 }
 
 /** 基线里存在、待提交内容里彻底消失的登记行 */
-export function lostMarkers(baselineSrc, candidateSrc) {
+// 默认 declared = 空集(**刻意**):lostMarkers 是提交链 `--staged` 档的尺子,不得依赖仓外
+// 的摘除台账 —— 否则一份被读/写到的 gitignored jsonl 就能让任意登记行在提交链上被误免。
+// 本机自愈走 missingFrom(它显式读台账),CI/净检出无台账时照旧判丢(不回捞)。
+export function lostMarkers(baselineSrc, candidateSrc, declared = new Set()) {
   // 判活只有一份实现(见 resolveRegistrationLoss);`multiSlot` 必须随条目一起传出 ——
   // 报告里"只点名不回捞"那句话与回捞侧的刹车都靠它,在这里 map 成新对象把它抹掉,
   // 等于让提交链那一档退化成"照常自动插回"(镜像用例端到端抓出来的正是这一格)。
-  return resolveRegistrationLoss(registeredLines(baselineSrc), candidateSrc).map((e) => ({
+  return resolveRegistrationLoss(registeredLines(baselineSrc), candidateSrc, declared).map((e) => ({
     marker: e.marker,
     line: e.line,
     id: e.id,
@@ -1131,9 +1218,9 @@ export function historyMarkers(depth = historyDepth(), root = ROOT) {
 }
 
 /** 历史登记行里在 targetSrc 中缺席的那些(归档过的正当移除自动排除) */
-export function missingFrom(seen, targetSrc, archived = archivedCopy) {
+export function missingFrom(seen, targetSrc, archived = archivedCopy, declared = declaredRowSet()) {
   // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"
-  const lost = resolveRegistrationLoss([...seen.values()], targetSrc)
+  const lost = resolveRegistrationLoss([...seen.values()], targetSrc, declared)
   return lost.filter((v) => !(archived(v.marker) || (v.id && archived(v.id))))
 }
 
