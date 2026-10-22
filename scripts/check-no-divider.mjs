@@ -30,6 +30,8 @@
  *   · 单边宽度 ≥2(`border-l-4`、`border-b-2`)⇒ 强调条 / 下划线式选中态,放过;
  *   · 描边颜色不是中性档(非 border|input|muted|card|background,且非 gray|neutral|slate|zinc|stone-N)
  *     ⇒ 彩色强调,放过;`transparent` 同理(根本没画线);
+ *   · 同一格同时收一条横边 + 一条竖边(`border-b border-r`)⇒ 网格 / 箱体收口(课程表、考勤矩阵
+ *     每格自画 bottom+right 的那种格线),放过;只把同向两条(`border-t border-b`)照样判 —— 那是两条线;
  *   · 宽度为 0(`last:border-b-0`)⇒ 擦除动作,放过。
  * 已知不在射程的形状:实心 CSS 字符串(`border-bottom:1px`)、深色面上的 `border-white/10`。
  * 判据宁窄勿宽 —— 漏的那部分由全量档报数暴露,不许为凑数反手放宽。
@@ -41,6 +43,8 @@
  * 用法:
  *   node scripts/check-no-divider.mjs --staged     pre-commit(新增违规则 exit 1)
  *   node scripts/check-no-divider.mjs              全量扫描报告(存量只报数, exit 0)
+ *   node scripts/check-no-divider.mjs --worktree   人工逃生舱:量盘上清偿进度(读磁盘,可能撞并发席的半编辑态,
+ *                                                  不作提交门禁;§0.4 规定的第三面)
  *   node scripts/check-no-divider.mjs --self-test  判据自检(含主判定路径)
  *   node scripts/check-no-divider.mjs --help
  *
@@ -50,10 +54,18 @@ import { relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { COLORS as C } from './lib/logger.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { Undetermined, assertRepoRoot, catBatch, gitRaw } from './lib/face-reader.mjs'
+import {
+  Undetermined,
+  assertRepoRoot,
+  catBatch,
+  gitRaw,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
+const isWorktree = process.argv.includes('--worktree')
 const isSelfTest = process.argv.includes('--self-test')
 const isHelp = process.argv.includes('--help')
 
@@ -76,6 +88,7 @@ check-no-divider.mjs — 分割线守门
 用法:
   node scripts/check-no-divider.mjs --staged     pre-commit 模式(新增违规则 exit 1)
   node scripts/check-no-divider.mjs              全量扫描报告(存量只报数, exit 0)
+  node scripts/check-no-divider.mjs --worktree    人工逃生舱:量盘上进度(不作提交门禁, exit 0)
   node scripts/check-no-divider.mjs --self-test  判据自检
   node scripts/check-no-divider.mjs --help       本帮助
 
@@ -85,7 +98,7 @@ check-no-divider.mjs — 分割线守门
   - 单边低透明度描边(border-t border-border/50):WARN(非阻塞)
   - 单边不透明描边(border-b border-border、<tr className="border-t">):差值棘轮 BLOCKING
     锚点 = 该文件 HEAD 面自身命中数;存量只报数,超出基线才拦提交
-  - 整圈边框、双轴(border-x/y)、宽度≥2 的强调条、彩色描边、宽度 0 的擦除 ⇒ 结构性,放过
+  - 整圈边框、双轴(border-x/y)、宽度≥2 的强调条、彩色描边、横竖各一边的网格收口、宽度 0 的擦除 ⇒ 结构性,放过
 `)
   process.exit(0)
 }
@@ -174,6 +187,16 @@ export function classifyDividerLine(line) {
       !isNeutralBorderColor(t.parsed.color),
   )
   if (colored) return null
+  // 同一格同时收**一条横边 + 一条竖边** = 网格 / 箱体的角(课程表、考勤表、排班矩阵那种
+  // 每格自己画 bottom+right 的格线),不是"两块内容之间的一条线" ⇒ AGENTS.md 的"容器边框收口"。
+  // 刻意只认垂直相交的那一组:`border-t border-b`(上下各一条)是**两条**分隔线,照判。
+  const drawnSides = new Set(drawn.map((t) => t.parsed.side))
+  if (
+    (drawnSides.has('t') || drawnSides.has('b')) &&
+    (drawnSides.has('l') || drawnSides.has('r'))
+  ) {
+    return null
+  }
   const first = drawn[0]
   // 带透明度 ⇒ 老那一档"伪分割线",维持 WARN(存量清完再谈升档)
   if (tokens.some((t) => t.parsed.opacity !== null)) {
@@ -308,7 +331,9 @@ function grepCandidates(top, face) {
   const args =
     face === 'staged'
       ? ['grep', '--cached', '-I', '-l', '-E', PREFILTER_RE, '--', ...SCAN_GLOBS]
-      : ['grep', '-I', '-l', '-E', PREFILTER_RE, 'HEAD', '--', ...SCAN_GLOBS]
+      : face === 'worktree'
+        ? ['grep', '-I', '-l', '-E', PREFILTER_RE, '--', ...SCAN_GLOBS]
+        : ['grep', '-I', '-l', '-E', PREFILTER_RE, 'HEAD', '--', ...SCAN_GLOBS]
   let out
   try {
     out = gitRaw(args, top, { timeout: GIT_TIMEOUT })
@@ -328,10 +353,28 @@ function grepCandidates(top, face) {
 /** 一轮取材:清单与正文同面(`HEAD:<path>` / `:<path>`)。取不到不回落另一个面(§0.4)。 */
 function readFace(top, face, files) {
   if (files.length === 0) return new Map()
+  const out = new Map()
+  if (face === 'worktree') {
+    // 人工逃生舱:盘上可能正被并发席删着 ⇒ 缺文件只跳过并计数,不拿机器态伪装成业务结论
+    let skipped = 0
+    for (const rel of files) {
+      const src = readWorktreeFile(top, rel)
+      if (src === null) {
+        skipped += 1
+        continue
+      }
+      out.set(rel, src)
+    }
+    if (skipped > 0) {
+      console.log(
+        `${C.dim}· worktree 档跳过盘上不存在的文件 ${skipped} 个(清单仍来自被跟踪面)${C.reset}`,
+      )
+    }
+    return out
+  }
   const pre = face === 'staged' ? ':' : 'HEAD:'
   const specs = files.map((p) => `${pre}${p}`)
   const got = catBatch(top, specs, { timeout: GIT_TIMEOUT, maxBuffer: 1 << 28 })
-  const out = new Map()
   for (let i = 0; i < files.length; i++) {
     const src = got.get(specs[i])
     if (src === null || src === undefined) {
@@ -489,9 +532,14 @@ function getStagedAddedLines(top) {
 
 // ───────────────────────────── 主流程 ─────────────────────────────
 
-export async function run({ staged }) {
+export async function run({ staged, worktree }) {
   const top = assertRepoRoot(ROOT, '分割线守门')
-  const face = staged ? 'staged' : 'head'
+  const picked = selectFace({ staged, worktree, def: 'head' })
+  if (picked.error) {
+    console.log(`${C.red}❌ ${picked.error}${C.reset}`)
+    return 2
+  }
+  const face = picked.face
 
   console.log(
     `${C.cyan}${C.bold}[分割线守门] 扫描 divide-y / divide-x / <hr> / 单边描边...${C.reset}`,
@@ -500,21 +548,22 @@ export async function run({ staged }) {
     `${C.dim}规则: AGENTS.md 第 4 节 — 禁止 divide-y/divide-x/<hr>/单边 border-t|b|l|r 当分割线,改用 space-y-* 间距或 bg-muted 对比${C.reset}`,
   )
   console.log(
-    `${C.dim}取材面: ${face === 'staged' ? '索引 blob' : 'HEAD blob'};单边不透明描边按「该文件 HEAD 自身命中数」做差值棘轮${C.reset}`,
+    `${C.dim}取材面: ${face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树(人工逃生舱,不作提交门禁)' : 'HEAD blob'};单边不透明描边按「该文件 HEAD 自身命中数」做差值棘轮${C.reset}`,
   )
   console.log('')
 
   const addedLines = staged ? getStagedAddedLines(top) : null
-  const candidates = staged
+  const candidates0 = staged
     ? grepCandidates(top, face).filter((rel) => addedLines.has(rel))
     : grepCandidates(top, face)
-  if (candidates.length === 0) {
+  if (candidates0.length === 0) {
     console.log(
       `${C.green}✅ ${staged ? '暂存区无含分割线类 token 的源码变更,跳过' : '被审面无含分割线类 token 的源码文件,跳过'}${C.reset}`,
     )
     return 0
   }
-  const contents = readFace(top, face, candidates)
+  const contents = readFace(top, face, candidates0)
+  const candidates = candidates0.filter((rel) => contents.has(rel))
   const addedLinesMap = staged ? addedLines : null
   const anchor = staged ? buildAnchor(top, candidates, contents) : new Map()
 
@@ -616,7 +665,11 @@ export async function run({ staged }) {
     console.log(`${C.dim}跳过方法:HUSKY_SKIP_NO_DIVIDER=1 git commit ...${C.reset}`)
     return 1
   }
-  if (!staged) console.log(`${C.yellow}${C.bold}⚠️  全量模式仅报数(exit 0)${C.reset}`)
+  if (!staged) {
+    console.log(
+      `${C.yellow}${C.bold}⚠️  ${face === 'worktree' ? '工作树档只供人工量进度(exit 0,不作提交门禁)' : '全量模式仅报数(exit 0)'}${C.reset}`,
+    )
+  }
   return 0
 }
 
@@ -744,6 +797,20 @@ export function selfTest() {
     ok(classifyBorderToken('border-b-brand-accent-deep')?.color === 'brand-accent-deep')
     ok(classifyBorderToken('rounded-lg') === null)
   })
+  t('S24 网格收口:同格横边 + 竖边各一 ⇒ 放过(课程表/考勤矩阵那种每格自画格线)', () => {
+    ok(hit('  <div className="min-h-[60px] border-b border-r p-1" />') === null)
+    ok(hit('  <div className="border-t border-l p-2" />') === null)
+  })
+  t('S25 反向对照:同向两条边是两条分隔线,照判', () => {
+    const h = hit('  <div className="border-t border-b px-3 py-2" />')
+    ok(h && h.level === 'blocking', JSON.stringify(h))
+    const v = hit('  <div className="border-l border-r px-3 py-2" />')
+    ok(v && v.level === 'blocking', JSON.stringify(v))
+  })
+  t('S26 反向对照:单边仍判红 —— 网格档只放过垂直相交的那一组', () => {
+    ok(hit('  <div className="border-b border-r p-1" />') === null)
+    ok(hit('  <div className="border-b p-1" />')?.level === 'blocking')
+  })
 
   let pass = 0
   const lines = []
@@ -769,7 +836,7 @@ export function selfTest() {
 
 if (isDirectRun) {
   try {
-    const code = isSelfTest ? selfTest() : await run({ staged: isStaged })
+    const code = isSelfTest ? selfTest() : await run({ staged: isStaged, worktree: isWorktree })
     process.exit(code)
   } catch (e) {
     // 取不到输入 ⇒ exit 2 显式「未判定」,不记绿也不冒红(§0.3)
