@@ -52,8 +52,7 @@
  * 未接 --staged 档:判据走运行时探针 + 首锚台账,台账按「模块|出口」登记、不分面;pre-commit
  * 场景由 HEAD 档承接(新出口入库即被点名),不装"索引档"的样子。
  */
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
@@ -64,7 +63,7 @@ import {
   selectFace,
 } from './lib/face-reader.mjs'
 import { COLORS as C } from './lib/logger.mjs'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { mkScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = process.cwd()
 const argv = process.argv.slice(2)
@@ -413,7 +412,7 @@ function loadBaseline(root, face) {
 /** 构造面自检:正反例必须成对;T6(注入即红)是票面验收①,T14(真模块绿)是票面验收②的探针面。 */
 async function selfTest() {
   const root = mkScratch("g663-selftest-")
-  const probeEnv = { IHUI_SECRETS_ROOT: tmpRoot }
+  const probeEnv = { IHUI_SECRETS_ROOT: root }
   let bad = 0
   const check = (label, cond) => {
     if (!cond) {
@@ -428,7 +427,7 @@ async function selfTest() {
   }
   const judge = (relPath, ns, baselineMap = {}) => {
     // 每用例独立临时根:探针"态二"会建出子目录,共用根会把"态一"污染成存在态(T1 之后全炸)。
-    tmpRoot = mkScratch("g663-selftest-")
+    const root = mkScratch("g663-selftest-")
     try {
       return judgeModuleExports({
         relPath,
@@ -502,7 +501,7 @@ async function selfTest() {
 
   // T9 探针抛错 ⇒ 无法判定(不判红也不判绿,退出码 2)。
   r = judge(base, {
-    resolveFooDetailed: (sub, env = process.env) => {
+    resolveFooDetailed: (sub, _env = process.env) => {
       throw new Error('probe boom')
     },
   })
@@ -570,7 +569,7 @@ async function selfTest() {
   //     全量判定(含首锚/出口面)由 main() 的 HEAD 档承担,这里只证模块判据本体。
   try {
     const ns = await import('./lib/key-dir.mjs')
-    const pr = probeSourcesExit(ns.resolveKeyDirDetailed, { tmpRoot, env: probeEnv, sub: PROBE_SUB })
+    const pr = probeSourcesExit(ns.resolveKeyDirDetailed, { tmpRoot: root, env: probeEnv, sub: PROBE_SUB })
     check(`T14a 真模块 resolveKeyDirDetailed 三键实测 ⇒ 通过(${pr.ok ? '' : pr.why})`, pr.ok === true)
     const proj = ns.resolveKeyDir(PROBE_SUB, probeEnv)
     const det = ns.resolveKeyDirDetailed(PROBE_SUB, probeEnv)
@@ -579,7 +578,7 @@ async function selfTest() {
     check(`T14 真模块探针异常: ${e?.message ?? e}`, false)
   }
 
-  rmSync(tmpRoot, { recursive: true, force: true })
+  rmSync(root, { recursive: true, force: true })
   if (bad === 0) console.log(`${C.green}✅ 构造面自检通过(15 组正反例)`)
   else console.error(`${C.red}❌ 构造面自检失败 ${bad} 处`)
   return bad === 0

@@ -433,4 +433,55 @@ test('F3 deferredTemplate 反向锁(非工厂上下文):普通插件里以 `${` 
     `修复前的病灶正是"shaped=false ⇒ 整条静默丢弃";报名是它唯一的合法出口\nundetermined: ${JSON.stringify(out.undetermined)}`,
   )
 })
+// ─── K1 无花括号箭头函数作用域(G-962,2026-10-22 实证)────────────────────
+// 病根:findTopLevelFunctions 旧式一律 indexOf('{') 找体起点,`const f = (x) => expr`
+// 于是把下一个函数的花括号当自己的体 ⇒ 插件体内紧随其后的注册被 enclosingFn 归给该
+// 辅助箭头函数(图上走不到)⇒ 落 via=fallback 裸路径,前端带前缀的真调用永判不死不活
+// (apps/api/src/routes/workspace-permissions.ts:210 GET /permission-default 实证:
+// readWireMode 单行箭头吞掉 L210 注册 ⇒ 前端 GET /api/workspace/permission-default 落桶)。
+test('K1 无花括号箭头函数不得吞后续注册:紧随的 server.get 归插件函数、带前缀入图', () => {
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { wspRoutes } from './routes/wsp.js'\n" +
+          "server.register(wspRoutes, { prefix: '/api/workspace' })",
+      ),
+      'apps/api/src/routes/wsp.ts':
+        'export const wspRoutes = async (server) => {\n' +
+        '  const readWireMode = (raw: unknown): string | null => permissionModeWire(raw)\n' +
+        "  server.get('/permission-default', async () => null)\n" +
+        '}\n',
+    }),
+  )
+  assert.ok(
+    hasEntry(out, 'GET', '/api/workspace/permission-default', 'apps/api/src/routes/wsp.ts'),
+    `注册必须带挂载前缀入图(修前落 fallback 裸路径 /permission-default)\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  assert.ok(
+    !out.entries.some((e) => e.path === '/permission-default'),
+    `不得再产出无前缀的 fallback 裸路径\nentries: ${JSON.stringify(out.entries)}`,
+  )
+})
+
+// 防过度收紧:无花括号箭头函数**自身**不得被当成注册宿主 —— 表达式体里若真有注册调用
+// (反模式,但形态合法),它仍应被抽出(归到箭头函数名下,走 fallback 口径),不得整条消失。
+test('K1b 防过度收紧:表达式体内出现的注册形态仍要抽出,不得随作用域收窄一起消失', () => {
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { oneRoutes } from './routes/one.js'\n" +
+          "server.register(oneRoutes, { prefix: '/api' })",
+      ),
+      'apps/api/src/routes/one.ts':
+        'export const oneRoutes = async (server) => {\n' +
+        "  const reg = (s) => s.get('/inline-expr', async () => null)\n" +
+        '  reg(server)\n' +
+        '}\n',
+    }),
+  )
+  assert.ok(
+    out.entries.some((e) => e.path.includes('inline-expr')),
+    `表达式体里的注册不得整条静默丢\nentries: ${JSON.stringify(out.entries)}`,
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

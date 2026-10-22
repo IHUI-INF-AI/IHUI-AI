@@ -551,6 +551,36 @@ export function expandTemplatePath(tpl, ctx) {
 
 /* ─────────────────────────── TS 单文件解析 ─────────────────────────── */
 
+/**
+ * 无花括号箭头函数(`const f = (x) => expr`)的表达式体终点:从 `=>` 后首个非空白字符
+ * 起,认字符串/注释/嵌套括号,走到**深度 0 的换行**即止。
+ * 病根(G-962 实测):旧实现一律 `indexOf('{')` 找体起点,无花括号箭头函数于是把
+ * **下一个函数的花括号**当自己的体 ⇒ 作用域虚胖到 L211 之后 ⇒ enclosingFn 把紧随其后的
+ * `server.get('/permission-default')` 归给 `readWireMode` 这种辅助箭头函数(图上走不到)
+ * ⇒ 注册落 via=fallback 裸路径,前端 GET /api/workspace/permission-default 永判不死不活。
+ * 判不出终点(深度不归零)返回 -1,调用方跳过该声明(与旧 bodyEnd===-1 同口径,漏读不冒判)。
+ */
+function findExpressionEnd(text, from) {
+  let depth = 0
+  for (let i = from; i < text.length; i++) {
+    const ch = text[i]
+    if (ch === '/' && (text[i + 1] === '/' || text[i + 1] === '*')) {
+      i = skipComment(text, i)
+      continue
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      i = skipQuoted(text, i)
+      continue
+    }
+    if (ch === '(' || ch === '[' || ch === '{') depth++
+    else if (ch === ')' || ch === ']' || ch === '}') {
+      depth--
+      if (depth < 0) return i - 1
+    } else if (ch === '\n' && depth === 0) return i
+  }
+  return text.length - 1
+}
+
 /** 函数声明表:name → {name, params, start, end} */
 export function findTopLevelFunctions(text) {
   const fns = []
@@ -559,6 +589,26 @@ export function findTopLevelFunctions(text) {
   while ((m = re.exec(text)) !== null) {
     const name = m[1] || m[3] || m[5] || '(default)'
     const paramsRaw = m[1] !== undefined ? m[2] : m[3] !== undefined ? m[4] : m[6]
+    // 箭头函数分支(m[3])的体可以是表达式而非块;其余分支必有块。
+    if (m[3] !== undefined) {
+      let k = m.index + m[0].length
+      while (k < text.length && /\s/.test(text[k])) k++
+      if (text[k] !== '{') {
+        const exprEnd = findExpressionEnd(text, k)
+        if (exprEnd === -1) continue
+        if (fns.some((f) => f.name === name && f.start <= m.index && m.index < f.end)) continue
+        fns.push({
+          name,
+          params: splitTopLevelArgs(String(paramsRaw || ''))
+            .map((p) => p.replace(/\??\s*:\s*[\s\S]*$/, '').trim())
+            .filter(Boolean),
+          start: m.index,
+          end: exprEnd,
+        })
+        re.lastIndex = exprEnd
+        continue
+      }
+    }
     const braceOpen = text.indexOf('{', m.index + m[0].length - 1)
     if (braceOpen === -1) continue
     const bodyEnd = findMatchingBracket(text, braceOpen, '{', '}')
@@ -1259,7 +1309,7 @@ function resolvePyModule(spec, parentPkg) {
  * 真出现时再按 Fastify 侧 walk 同法扩,并保留未判定出口。
  * @returns {{byModule: Map<string,string>, byFile: Map<string,string>}}
  */
-export function buildPyIncludeMaps(pyInfos, entry = DEFAULT_ENTRY_PY) {
+export function buildPyIncludeMaps(pyInfos) {
   const byModule = new Map()
   const byFile = new Map()
   const faceKeys = new Set()
@@ -1321,11 +1371,11 @@ export function buildPyIncludeMaps(pyInfos, entry = DEFAULT_ENTRY_PY) {
  * 不透明前缀 —— 旧实现靠一份手写台账,台账会腐烂。
  * @param {Map<string,string>} pyInfos rel → 原文(须含 entry 与各二级聚合器文件)
  */
-export function extractFastApiRegistrations(pyInfos, entry = DEFAULT_ENTRY_PY) {
+export function extractFastApiRegistrations(pyInfos) {
   const entries = []
   const opaque = []
   const undetermined = []
-  const { byModule, byFile } = buildPyIncludeMaps(pyInfos, entry)
+  const { byModule, byFile } = buildPyIncludeMaps(pyInfos)
   for (const [rel, raw] of pyInfos) {
     const src = maskComments(raw, 'py')
     let m
@@ -1373,7 +1423,6 @@ export function extractFastApiRegistrations(pyInfos, entry = DEFAULT_ENTRY_PY) {
 /** 后端注册面唯一出口。@param {Map<string,string>} files rel → 源码 */
 export function extractApiRegistrations(files, opts = {}) {
   const entryTs = opts.entryTs || DEFAULT_ENTRY_TS
-  const entryPy = opts.entryPy || DEFAULT_ENTRY_PY
   const tsInfos = new Map()
   let skippedTestFiles = 0
   for (const [rel, text] of files) {
@@ -1393,7 +1442,7 @@ export function extractApiRegistrations(files, opts = {}) {
   const pyFiles = new Map()
   for (const [rel, text] of files)
     if (rel.endsWith('.py') && typeof text === 'string') pyFiles.set(rel, text)
-  const fastapi = extractFastApiRegistrations(pyFiles, entryPy)
+  const fastapi = extractFastApiRegistrations(pyFiles)
   // 本地 inline 不透明前缀(第三方插件挂在字面量前缀下却解不到目标)也进 opaque
   const opaque = [...fastify.opaque, ...fastapi.opaque]
   for (const [, info] of tsInfos)
