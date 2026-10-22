@@ -54,6 +54,8 @@ export type ScheduledJobName =
   | 'exam-active-monitor'
   | 'oss-storage-stats'
   | 'tenant-resource-gauge'
+  // 访客 PV/UV 聚合 Gauge 刷新(2026-10-23 立;聚合面见 services/traffic-stats-service.ts)
+  | 'traffic-stats-hourly'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -223,6 +225,17 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'tenant-resource-gauge',
     pattern: '*/5 * * * *',
     description: '租户资源 used/quota Gauge 刷新（每5分钟,查 tenant_quotas）',
+  },
+  // 访客 PV/UV 聚合 Gauge 刷新(2026-10-23 立)。取每时 35 分:错开 heat-stats-hourly
+  // (0 分)、file-cleanup-hourly(0 分)、upload-session-reap-hourly(45 分)、
+  // oss-storage-stats(每10分)与 tenant-resource-gauge(每5分)—— 35 不是 5 的倍数,
+  // 不与任何一条既有的小时级/分钟级任务同分钟抢 DB。这条链扫的是**无二级索引**的
+  // api_logs(2026-10-23 现读近 6 天 186231 行),所以代价靠"限窗 + 每小时一次"钉住,
+  // 既不挂 scrape、也不挂请求路径(理由与后果逐条写在 services/traffic-stats-service.ts 头注)。
+  {
+    name: 'traffic-stats-hourly',
+    pattern: '35 * * * *',
+    description: '访客 PV/UV 聚合 Gauge 刷新（每小时35分,限窗扫 api_logs/visit_logs）',
   },
 ]
 
