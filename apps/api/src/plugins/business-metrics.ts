@@ -9,6 +9,14 @@ import { authenticate } from '../plugins/auth.js'
 import { isSystemAdmin } from './require-permission.js'
 import { error } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
+import {
+  classifyClientFamily,
+  classifyScanProbe,
+  CLIENT_FAMILIES,
+  SCAN_PROBE_KINDS,
+  type ClientFamily,
+  type ScanProbeKind,
+} from '../utils/bot-detection.js'
 
 /**
  * 业务漏斗与自定义业务指标插件。
@@ -538,8 +546,28 @@ export type OssDriverType = (typeof OSS_DRIVER_TYPES)[number]
  */
 const OSS_ERROR_TYPES = ['status_4xx', 'status_5xx'] as const
 
+/**
+ * HTTP 状态码族 → 标签值的唯一实现(2026-10-23 抽出)。
+ * OSS 的 `error_type` 与流量族的 `status_class` 用的是同一把尺子,这里必须只有一份
+ * (§0.6:同类判据第二份必然漂移)。取值总:任何状态码都落进 1..5 五档之一,
+ * 不产生枚举外的新序列 ⇒ 零基线列出的键与钩子写出的键同源。
+ */
+export const STATUS_CLASSES = [
+  'status_1xx',
+  'status_2xx',
+  'status_3xx',
+  'status_4xx',
+  'status_5xx',
+] as const
+export type StatusClass = (typeof STATUS_CLASSES)[number]
+
+export function statusClassFor(statusCode: number): StatusClass {
+  const bucket = Math.min(5, Math.max(1, Math.floor(statusCode / 100)))
+  return STATUS_CLASSES[bucket - 1] as StatusClass
+}
+
 function ossErrorTypeFor(statusCode: number): string {
-  return `status_${Math.floor(statusCode / 100)}xx`
+  return statusClassFor(statusCode)
 }
 
 /**
@@ -621,6 +649,15 @@ const ihuiState = {
   tenantResourceUsed: new Map<string, number>(),
   /** Gauge,key: tenant_id|resource */
   tenantResourceQuota: new Map<string, number>(),
+  // ---- traffic 2(访客 vs 机器人,2026-10-23 立) ----
+  /**
+   * key: client_family|status_class —— 两维都是源码里的封闭集
+   * (CLIENT_FAMILIES / STATUS_CLASSES),所以逐值开 0 基线;UA 原文、IP、
+   * 路由模板一律不入标签(开放集,见本文件"开放集不开零基线"那条纪律)。
+   */
+  trafficRequestsTotal: new Map<string, number>(),
+  /** key: scan_kind|client_family —— 两维同样封闭(SCAN_PROBE_KINDS / CLIENT_FAMILIES) */
+  trafficScanHitsTotal: new Map<string, number>(),
   // ---- 横切:基数上限丢弃计数(单族超 512 条序列后每次新序列写入 +1) ----
   seriesDroppedTotal: 0,
 }
@@ -673,6 +710,14 @@ function seedIhuiClosedEnumBaseline(): void {
     ihuiCounterInc(ihuiState.ossRequestsTotal, driver, 0)
     for (const errorType of OSS_ERROR_TYPES) {
       ihuiCounterInc(ihuiState.ossErrorsTotal, `${driver}|${errorType}`, 0)
+    }
+  }
+  for (const family of CLIENT_FAMILIES) {
+    for (const statusClass of STATUS_CLASSES) {
+      ihuiCounterInc(ihuiState.trafficRequestsTotal, `${family}|${statusClass}`, 0)
+    }
+    for (const kind of SCAN_PROBE_KINDS) {
+      ihuiCounterInc(ihuiState.trafficScanHitsTotal, `${kind}|${family}`, 0)
     }
   }
 }
@@ -910,6 +955,26 @@ export function recordOssError(driver: string, errorType: string): void {
   })
 }
 
+/**
+ * 上报一次入口请求的"客户端族 × 状态码族"。
+ * 入参类型已由两个封闭枚举收窄 ⇒ 调用方传不进枚举外的值,基线与真实事件必然同形。
+ */
+export function recordTrafficRequest(family: ClientFamily, statusClass: StatusClass): void {
+  safeRecord('recordTrafficRequest', () => {
+    ihuiCounterInc(ihuiState.trafficRequestsTotal, `${family}|${statusClass}`)
+  })
+}
+
+/**
+ * 上报一次恶意路径形态命中。族维度记的是**自述**(攻击者把自己伪装成 Googlebot 就会
+ * 落进 search-crawler)—— 族面不判真伪,真伪留给看盘的人,判据不越权编一个"spoofed"。
+ */
+export function recordTrafficScanHit(kind: ScanProbeKind, family: ClientFamily): void {
+  safeRecord('recordTrafficScanHit', () => {
+    ihuiCounterInc(ihuiState.trafficScanHitsTotal, `${kind}|${family}`)
+  })
+}
+
 /** Gauge:一次扫描 set 两个(存储字节 + 文件数)。scheduler 定时刷新。 */
 export function setOssStorageStats(totalBytes: number, totalFiles: number): void {
   safeRecord('setOssStorageStats', () => {
@@ -1062,6 +1127,8 @@ export function resetIhuiState(): void {
   ihuiState.tenantRatelimitTotal.clear()
   ihuiState.tenantResourceUsed.clear()
   ihuiState.tenantResourceQuota.clear()
+  ihuiState.trafficRequestsTotal.clear()
+  ihuiState.trafficScanHitsTotal.clear()
   ihuiState.seriesDroppedTotal = 0
   // 清零后必须把封闭枚举的 0 基线重新开回去,否则一次 admin reset / onClose 就把
   // 面板打回 "No data"(与本次要根治的形态同形)。
@@ -1211,6 +1278,16 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
           recordOssError(driver, ossErrorTypeFor(reply.statusCode))
         }
       }
+      // 访客 vs 机器人(2026-10-23 立):UA 走 bot-detection 的族归一唯一出口,
+      // 状态码走 statusClassFor 唯一出口 —— 与零基线开的键同源。
+      // 不复用 api_logger 的 buffer 做这件事:它 2xx 按 API_LOG_SAMPLE_RATE 采样,
+      // 拿它的样本当计数器底会把真人流量按采样率少算(4xx/5xx 才全量)。
+      const uaHeader = request.headers['user-agent']
+      const ua = Array.isArray(uaHeader) ? uaHeader[0] : uaHeader
+      const family = classifyClientFamily(ua)
+      recordTrafficRequest(family, statusClassFor(reply.statusCode))
+      const scanKind = classifyScanProbe(url)
+      if (scanKind) recordTrafficScanHit(scanKind, family)
     })
   })
 
@@ -2062,6 +2139,26 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
       lines.push(`ihui_tenant_resource_quota{tenant_id="${tenantId}",resource="${resource}"} ${v}`)
     }
 
+    // traffic 2:访客 vs 机器人。两维都是源码封闭枚举 ⇒ 已逐值开 0 基线,
+    // 面板读到 0 是"这段时间真没有",不会与"埋点压根没接"同形。
+    lines.push(
+      '# HELP ihui_traffic_requests_total Entry requests by self-declared client family and status class',
+    )
+    lines.push('# TYPE ihui_traffic_requests_total counter')
+    for (const [k, v] of ihuiState.trafficRequestsTotal) {
+      const [family, statusClass] = k.split('|')
+      lines.push(`ihui_traffic_requests_total{client_family="${family}",status_class="${statusClass}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_traffic_scan_hits_total Requests whose path matches a known-malicious probe shape',
+    )
+    lines.push('# TYPE ihui_traffic_scan_hits_total counter')
+    for (const [k, v] of ihuiState.trafficScanHitsTotal) {
+      const [kind, family] = k.split('|')
+      lines.push(`ihui_traffic_scan_hits_total{kind="${kind}",client_family="${family}"} ${v}`)
+    }
+
     // 横切:基数上限丢弃计数
     lines.push(
       '# HELP ihui_series_dropped_total ihui_* metric series writes dropped at the label cardinality cap',
@@ -2105,6 +2202,13 @@ export const __test__ = {
   OSS_ERROR_TYPES,
   AUTH_LOGIN_ANOMALY_REASONS,
   ossErrorTypeFor,
+  STATUS_CLASSES,
+  statusClassFor,
+  // 访客族的清单同样从源文件取(§22c),测试不抄第二份枚举
+  CLIENT_FAMILIES,
+  SCAN_PROBE_KINDS,
+  recordTrafficRequest,
+  recordTrafficScanHit,
 }
 
 declare module 'fastify' {
