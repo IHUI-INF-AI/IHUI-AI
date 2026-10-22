@@ -135,8 +135,9 @@ const n8nLocalIcon = aizhsUrl('remote-images/n8n.png')
 
 /**
  * 远程图标注册表:name → 资源路径(本地 import 或远程 URL)
- * G-924(2026-10-21):10 条线上取不到的 URL 已处置 —— 6 条残路径改走本仓 lucide 风格 SVG
- * (§4,gen-taro-lucide-icons.mjs 生成),4 条旧系统上传件(零消费)撤引用删除。
+ * G-924(2026-10-21 立,2026-10-22 收口):10 条线上取不到的 URL 经全仓消费方核查均为
+ * 零消费方死键,已全部撤引用删除(其间 6 条曾暂改指本仓 lucide 风格 SVG,后随根文件
+ * 一并摘除;3 条 sys-backs 旧上传件与 tabbar/ai_agent/图片 首笔即删)。
  */
 export const REMOTE_ICONS: Record<string, string> = {
   delete: bspappUrl('user/删除.png'),
