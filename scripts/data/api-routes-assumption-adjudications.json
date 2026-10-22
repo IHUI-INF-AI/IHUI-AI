@@ -3,42 +3,6 @@
   "items": [
     {
       "leg": "main",
-      "method": "PATCH",
-      "path": "/api/announcements/:param",
-      "file": "apps/web/app/(main)/admin/announcements/page.tsx",
-      "site": "apps/web/app/(main)/admin/announcements/page.tsx:43",
-      "verdict": "dead",
-      "evidence": "真值面近邻:GET /api/announcements [content.ts:226] | GET /api/announcements/unread/count [content.ts:257] | GET /api/announcements/:id [content.ts:270] | POST /api/announcements/:id/read [content.ts:283]",
-      "reason": "真值面重建(同上,3567 条全路径)现读无此 method+path;在册近邻:GET /api/announcements [content.ts:226] | GET /api/announcements/unread/count [content.ts:257] | GET /api/announcements/:id [content.ts:270] | POST /api/announcements/:id/read [content.ts:283] ⇒ 前缀/方法错位型死调用(前端 URL 与后端注册面对不上,运行期 404/405)。出路:按近邻真路径改档,或删调用;到期未了结,AJ2 打回未判定桶。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "POST",
-      "path": "/api/announcements",
-      "file": "apps/web/app/(main)/admin/announcements/page.tsx",
-      "site": "apps/web/app/(main)/admin/announcements/page.tsx:47",
-      "verdict": "dead",
-      "evidence": "真值面近邻:GET /api/announcements [content.ts:226] | GET /api/announcements/unread/count [content.ts:257] | GET /api/announcements/:id [content.ts:270] | POST /api/announcements/:id/read [content.ts:283]",
-      "reason": "真值面重建(同上,3567 条全路径)现读无此 method+path;在册近邻:GET /api/announcements [content.ts:226] | GET /api/announcements/unread/count [content.ts:257] | GET /api/announcements/:id [content.ts:270] | POST /api/announcements/:id/read [content.ts:283] ⇒ 前缀/方法错位型死调用(前端 URL 与后端注册面对不上,运行期 404/405)。出路:按近邻真路径改档,或删调用;到期未了结,AJ2 打回未判定桶。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "DELETE",
-      "path": "/api/announcements/:param",
-      "file": "apps/web/app/(main)/admin/announcements/page.tsx",
-      "site": "apps/web/app/(main)/admin/announcements/page.tsx:56",
-      "verdict": "dead",
-      "evidence": "真值面近邻:GET /api/announcements [content.ts:226] | GET /api/announcements/unread/count [content.ts:257] | GET /api/announcements/:id [content.ts:270] | POST /api/announcements/:id/read [content.ts:283]",
-      "reason": "真值面重建(同上,3567 条全路径)现读无此 method+path;在册近邻:GET /api/announcements [content.ts:226] | GET /api/announcements/unread/count [content.ts:257] | GET /api/announcements/:id [content.ts:270] | POST /api/announcements/:id/read [content.ts:283] ⇒ 前缀/方法错位型死调用(前端 URL 与后端注册面对不上,运行期 404/405)。出路:按近邻真路径改档,或删调用;到期未了结,AJ2 打回未判定桶。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
       "method": "GET",
       "path": "/api/...",
       "file": "apps/web/app/(main)/admin/api-debug/ApiDebugFilter.tsx",
@@ -106,54 +70,6 @@
       "verdict": "dead",
       "evidence": "真值面近邻:GET /api/admin/learn/topics/categories [learn.ts:1064] | POST /api/admin/learn/topics/categories [learn.ts:1103] | PUT /api/admin/learn/topics/categories/:id [learn.ts:1120] | DELETE /api/admin/learn/topics/categories/:id [learn.ts:1151]",
       "reason": "真值面重建(同上,3567 条全路径)现读无此 method+path;在册近邻:GET /api/admin/learn/topics/categories [learn.ts:1064] | POST /api/admin/learn/topics/categories [learn.ts:1103] | PUT /api/admin/learn/topics/categories/:id [learn.ts:1120] | DELETE /api/admin/learn/topics/categories/:id [learn.ts:1151] ⇒ 前缀/方法错位型死调用(前端 URL 与后端注册面对不上,运行期 404/405)。出路:按近邻真路径改档,或删调用;到期未了结,AJ2 打回未判定桶。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "GET",
-      "path": "/api/members/groups",
-      "file": "apps/web/app/(main)/admin/member-groups/helpers.ts",
-      "site": "apps/web/app/(main)/admin/member-groups/helpers.ts:26",
-      "verdict": "dead",
-      "evidence": "真值面近邻:GET /api/admin/members/groups [member.ts:900] | POST /api/admin/members/groups [member.ts:910] | PUT /api/admin/members/groups/:id [member.ts:920] | DELETE /api/admin/members/groups/:id [member.ts:936]",
-      "reason": "真值面重建(同上,3567 条全路径)现读无此 method+path;在册近邻:GET /api/admin/members/groups [member.ts:900] | POST /api/admin/members/groups [member.ts:910] | PUT /api/admin/members/groups/:id [member.ts:920] | DELETE /api/admin/members/groups/:id [member.ts:936] ⇒ 前缀/方法错位型死调用(前端 URL 与后端注册面对不上,运行期 404/405)。出路:按近邻真路径改档,或删调用;到期未了结,AJ2 打回未判定桶。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "PUT",
-      "path": "/api/members/groups/:param",
-      "file": "apps/web/app/(main)/admin/member-groups/page.tsx",
-      "site": "apps/web/app/(main)/admin/member-groups/page.tsx:47",
-      "verdict": "dead",
-      "evidence": "真值面近邻:GET /api/admin/members/groups [member.ts:900] | POST /api/admin/members/groups [member.ts:910] | PUT /api/admin/members/groups/:id [member.ts:920] | DELETE /api/admin/members/groups/:id [member.ts:936]",
-      "reason": "真值面重建(同上,3567 条全路径)现读无此 method+path;在册近邻:GET /api/admin/members/groups [member.ts:900] | POST /api/admin/members/groups [member.ts:910] | PUT /api/admin/members/groups/:id [member.ts:920] | DELETE /api/admin/members/groups/:id [member.ts:936] ⇒ 前缀/方法错位型死调用(前端 URL 与后端注册面对不上,运行期 404/405)。出路:按近邻真路径改档,或删调用;到期未了结,AJ2 打回未判定桶。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "POST",
-      "path": "/api/members/groups",
-      "file": "apps/web/app/(main)/admin/member-groups/page.tsx",
-      "site": "apps/web/app/(main)/admin/member-groups/page.tsx:48",
-      "verdict": "dead",
-      "evidence": "真值面近邻:GET /api/admin/members/groups [member.ts:900] | POST /api/admin/members/groups [member.ts:910] | PUT /api/admin/members/groups/:id [member.ts:920] | DELETE /api/admin/members/groups/:id [member.ts:936]",
-      "reason": "真值面重建(同上,3567 条全路径)现读无此 method+path;在册近邻:GET /api/admin/members/groups [member.ts:900] | POST /api/admin/members/groups [member.ts:910] | PUT /api/admin/members/groups/:id [member.ts:920] | DELETE /api/admin/members/groups/:id [member.ts:936] ⇒ 前缀/方法错位型死调用(前端 URL 与后端注册面对不上,运行期 404/405)。出路:按近邻真路径改档,或删调用;到期未了结,AJ2 打回未判定桶。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "DELETE",
-      "path": "/api/members/groups/:param",
-      "file": "apps/web/app/(main)/admin/member-groups/page.tsx",
-      "site": "apps/web/app/(main)/admin/member-groups/page.tsx:59",
-      "verdict": "dead",
-      "evidence": "真值面近邻:GET /api/admin/members/groups [member.ts:900] | POST /api/admin/members/groups [member.ts:910] | PUT /api/admin/members/groups/:id [member.ts:920] | DELETE /api/admin/members/groups/:id [member.ts:936]",
-      "reason": "真值面重建(同上,3567 条全路径)现读无此 method+path;在册近邻:GET /api/admin/members/groups [member.ts:900] | POST /api/admin/members/groups [member.ts:910] | PUT /api/admin/members/groups/:id [member.ts:920] | DELETE /api/admin/members/groups/:id [member.ts:936] ⇒ 前缀/方法错位型死调用(前端 URL 与后端注册面对不上,运行期 404/405)。出路:按近邻真路径改档,或删调用;到期未了结,AJ2 打回未判定桶。",
       "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
       "reviewBy": "2027-01-22"
     },
@@ -1071,18 +987,6 @@
     },
     {
       "leg": "main",
-      "method": "GET",
-      "path": "/api/github-app/installations",
-      "file": "packages/api-client/src/endpoints/admin-github-app.ts",
-      "site": "packages/api-client/src/endpoints/admin-github-app.ts:45",
-      "verdict": "dead",
-      "evidence": "真值面近邻:zero:github-app/installations",
-      "reason": "真值面重建(apps/api/src/routes/index.ts 注册表 symbol→file→prefix × 路由文件 export 块归属,3567 条全路径)现读无此 method+path,且该族在注册面零注册 ⇒ 该调用运行期必 404,判死。出路:删调用或补后端路由;到期未了结,AJ2 会把它打回未判定桶重新报名。",
-      "owner": "packages/api-client 端点持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
       "method": "POST",
       "path": "/api/members/batch-upload",
       "file": "packages/api-client/src/endpoints/admin-member.ts",
@@ -1800,32 +1704,6 @@
       "owner": "apps/mobile-rn 端持有人(票 G-962 续作代裁,复裁归该端)",
       "reviewBy": "2027-01-22",
       "raw": "/points/records"
-    },
-    {
-      "leg": "bare",
-      "method": "PUT",
-      "path": "/api/auth/me",
-      "file": "apps/mobile-rn/src/screens/SettingsAccountScreen.tsx",
-      "site": "apps/mobile-rn/src/screens/SettingsAccountScreen.tsx:57",
-      "verdict": "dead",
-      "evidence": "真值面近邻:GET /api/auth/me [auth.ts:1384]",
-      "reason": "真值面重建(同上,3567 条全路径)现读无此 method+path;在册近邻:GET /api/auth/me [auth.ts:1384] ⇒ 前缀/方法错位型死调用(前端 URL 与后端注册面对不上,运行期 404/405)。出路:按近邻真路径改档,或删调用;到期未了结,AJ2 打回未判定桶。",
-      "owner": "apps/mobile-rn 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22",
-      "raw": "/auth/me"
-    },
-    {
-      "leg": "bare",
-      "method": "GET",
-      "path": "/api/vip-compare",
-      "file": "apps/mobile-rn/src/screens/VipCompareScreen.tsx",
-      "site": "apps/mobile-rn/src/screens/VipCompareScreen.tsx:27",
-      "verdict": "dead",
-      "evidence": "真值面近邻:zero:vip-compare",
-      "reason": "真值面重建(apps/api/src/routes/index.ts 注册表 symbol→file→prefix × 路由文件 export 块归属,3567 条全路径)现读无此 method+path,且该族在注册面零注册 ⇒ 该调用运行期必 404,判死。出路:删调用或补后端路由;到期未了结,AJ2 会把它打回未判定桶重新报名。",
-      "owner": "apps/mobile-rn 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22",
-      "raw": "/vip-compare"
     },
     {
       "leg": "bare",
