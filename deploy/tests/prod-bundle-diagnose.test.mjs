@@ -19,10 +19,12 @@
 // 全程只读真仓;临时物一律落 .ihui-agent/tmp/p2-13-diag/,删除前校验路径前缀。
 // =============================================================================
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { delimiter, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+// §22c 镜像纪律:PAIRS 登记面的判据单源在门自身,这里直接 import 生产登记表,不抄第二份
+import { __test__ as SHADOW } from '../../scripts/check-prod-bundle-shadow.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
@@ -35,6 +37,11 @@ const BUNDLE_MJS = 'deploy/prod-bundle/ai-diagnose.mjs'
 const BUNDLE_DEPLOY = 'deploy/prod-bundle/deploy.sh'
 const BUNDLE_HEALTH = 'deploy/prod-bundle/health-check.sh'
 const BLUE_GREEN_DEPLOY = 'deploy/scripts/deploy.sh'
+// P2-13③ 残段①(PowerShell 姊妹形态)与残段②(蓝绿链 --out 落盘)涉及的文件
+const TRACKED_PSLIB = 'deploy/scripts/deploy-diagnose.ps1'
+const BUNDLE_PSLIB = 'deploy/prod-bundle/deploy-diagnose.ps1'
+const TRACKED_PS_DEPLOY = 'deploy/scripts/prod-bundle/deploy.ps1'
+const BUNDLE_PS_DEPLOY = 'deploy/prod-bundle/deploy.ps1'
 
 const abs = (rel) => join(REPO, rel).replace(/\\/g, '/')
 const read = (rel) => readFileSync(join(REPO, rel), 'utf8')
@@ -125,6 +132,53 @@ function needBundle(t) {
       '在部署机上本用例自动恢复逐字节校验',
   )
   return true
+}
+
+// ── pwsh 宿主解析(残段① T12 用,与 resolveBash 同纪律:机器态 ≠ 代码缺陷)──────
+// 与 bash 同理:没装 PowerShell 7 的机器上把"跑得到 pwsh"写成必过断言 = 恒红(§12e)。
+// 取不到 ⇒ t.skip 并点名原因;候选按官方安装位置 + PATH,实跑 `exit 0` 验真。
+function pwshWorks(candidate) {
+  try {
+    const r = spawnSync(candidate, ['-NoProfile', '-Command', 'exit 0'], {
+      timeout: 20_000,
+      windowsHide: true,
+    })
+    return r.status === 0
+  } catch {
+    return false
+  }
+}
+
+function resolvePwsh() {
+  const candidates = []
+  const pf = process.env.ProgramFiles ?? 'C:\\Program Files'
+  candidates.push(join(pf, 'PowerShell', '7', 'pwsh.exe'), 'pwsh.exe', 'pwsh')
+  const seen = new Set()
+  for (const c of candidates) {
+    if (!c || seen.has(c)) continue
+    seen.add(c)
+    if (pwshWorks(c)) return c
+  }
+  return null
+}
+
+const PWSH = resolvePwsh()
+
+function needPwsh(t) {
+  if (PWSH) return false
+  t.skip('本机取不到可用 pwsh 7(PowerShell 7 未安装)—— 机器态未判定,非代码缺陷;装 pwsh 后本用例自动恢复执行')
+  return true
+}
+
+const pwsh = (script) => {
+  if (!PWSH) throw new Error('pwsh 宿主缺失(用例本应先 needPwsh 跳过)')
+  const r = spawnSync(PWSH, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+    cwd: REPO,
+    encoding: 'utf8',
+    timeout: 120_000,
+    windowsHide: true,
+  })
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' }
 }
 
 /** 临时物唯一落点;任何删除前先确认目标仍在 SCRATCH_ROOT 之下(§15 工作区卫生) */
@@ -317,5 +371,133 @@ test('T8 新增/改动的 deploy 文件里没有自拼 SMTP/Resend/第三方推�
   // 阳性对照:同一把尺子必须能看见"确实有发信出口"的那个文件(唯一出口是 notify-deploy-failure.ts)
   const outlet = readFileSync(join(REPO, 'apps/api/scripts/notify-deploy-failure.ts'), 'utf8')
   if (!banned.test(outlet)) throw new Error('尺子失效:唯一合法出口都没被认出,说明判据是空转')
+})
+
+// ── T9 残段②:蓝绿链 ai_diagnose 的报告必须 --out 落盘(与 ihui_diag_run 同型)────
+test('T9 蓝绿链 ai_diagnose 带 --out 落盘 + 固定指针,且保留"无 key 不编造"守卫', () => {
+  const src = read(BLUE_GREEN_DEPLOY)
+  const m = /ai_diagnose\(\) \{[\s\S]*?\n\}/.exec(src)
+  if (!m) throw new Error('抽不到 ai_diagnose 函数体(源码结构变了,自检要跟着变)')
+  const body = m[0]
+  if (!body.includes('--out "${report}"')) {
+    throw new Error('蓝绿链 ai_diagnose 没带 --out,报告仍只进 stderr(残段②未补齐)')
+  }
+  if (!body.includes('ai-diagnose-latest.md')) throw new Error('缺少固定指针 ai-diagnose-latest.md(与 ihui_diag_run 不同型)')
+  if (!/report="\$\{LOG_FILE%\.log\}-ai-diagnose-\$\(date \+%H%M%S\)\.md"/.test(body)) {
+    throw new Error('流水文件名不是"部署日志同目录 + 时刻"形态,同轮两个失败点会互相覆盖')
+  }
+  // "拒绝运行、不编造诊断"的守卫不得在补落盘时被顺手删掉
+  if (!body.includes('IHUI_AI_KEY') || !body.includes('command -v node')) {
+    throw new Error('node/IHUI_AI_KEY 守卫缺失 —— 诊断不可用时必须拒绝运行而不是编造')
+  }
+  if (!/\n  return 0\n\}/.test(body)) throw new Error('ai_diagnose 未以 return 0 收尾,set -e 下报告缺失会把部署判挂')
+  // 反向对照:同一把尺子扫必然不含它的真文件,必须判 0
+  if (countCalls(read('deploy/scripts/backup-db.sh'), /ai-diagnose-latest\.md/) !== 0) {
+    throw new Error('尺子失效:backup-db.sh 竟被算出 latest 指针')
+  }
+})
+
+// ── T10 残段①:Windows compose 姊妹版的诊断接线(静态面,不依赖 pwsh)──────────
+test('T10 deploy.ps1 已接采集库:dot-source 在输出函数之前、≥4 个失败点、-d 不被吞', () => {
+  const src = read(TRACKED_PS_DEPLOY)
+  if (!src.includes('. $diagLib')) throw new Error('deploy.ps1 未 dot-source deploy-diagnose.ps1')
+  if (!src.includes('缺 deploy-diagnose.ps1')) throw new Error('缺少摘线兜底分支 —— 库被摘等于部署脚本被摘')
+  const dotLine = src.indexOf('. $diagLib')
+  const fnLine = src.indexOf('function Write-Step')
+  if (dotLine < 0 || dotLine > fnLine) throw new Error('加载顺序错:采集库必须在 Write-Step 定义之前')
+  const runs = countCalls(src, /^\s+Invoke-IhuiDiagRun\s+/)
+  const failedResults = countCalls(src, /^\s+Write-IhuiDiagResult\s+'failed'/)
+  if (runs < 4) throw new Error(`deploy.ps1 诊断调用点应 ≥4,实测 ${runs}`)
+  if (failedResults < runs) throw new Error(`有 ${runs - failedResults} 处诊断没有先落结果 JSON`)
+  // success 收尾落在脚本顶层(无前导缩进,与 bash 链同位);failed 调用点全在失败分支内(必带缩进)
+  if (countCalls(src, /^\s*Write-IhuiDiagResult\s+'success'/) !== 1) {
+    throw new Error('部署成功收尾缺(或多出)success 结果落盘')
+  }
+  // VRFA 吞参回归锁:实测 ValueFromRemainingArguments 会把裸尾开关 `-d` 静默丢掉,
+  // 把 `docker compose up -d` 跑成前台 attach ⇒ 调用形态必须是逗号数组,字面量不得回潮。
+  if (!src.includes("Invoke-IhuiDiagCapture docker,'compose','up','-d'")) {
+    throw new Error("compose up 的 capture 调用不是逗号数组形态(-d 会被 VRFA 吞掉)")
+  }
+  if (countCalls(src, /Invoke-IhuiDiagCapture docker compose/) !== 0) {
+    throw new Error('出现空格分隔的 capture 调用形态(同一颗雷的另一半)')
+  }
+  // 反向对照:库文件自己不含调用点,同一把尺子必须判 0
+  if (countCalls(read(TRACKED_PSLIB), /^\s+Invoke-IhuiDiagRun\s+/) !== 0) {
+    throw new Error('尺子失效:库文件竟被算出调用点')
+  }
+})
+
+// ── T11 残段①登记面:新运行副本必须进 PAIRS,且两侧逐字节等值 ──────────────────
+test('T11 deploy-diagnose.ps1 / deploy.ps1 已登记进影子门 PAIRS 并逐字节等值', (t) => {
+  const psLibPair = SHADOW.PAIRS.find((p) => p.runner === BUNDLE_PSLIB)
+  if (!psLibPair || psLibPair.tracked !== TRACKED_PSLIB) {
+    throw new Error(
+      'deploy/prod-bundle/deploy-diagnose.ps1 未登记进 PAIRS —— E1 只会把它报成未登记,门看不见等值',
+    )
+  }
+  if (!SHADOW.PAIRS.some((p) => p.runner === BUNDLE_PS_DEPLOY)) {
+    throw new Error('deploy.ps1 的影子登记被摘掉了')
+  }
+  if (needBundle(t)) return
+  for (const [a, b] of [
+    [TRACKED_PSLIB, BUNDLE_PSLIB],
+    [TRACKED_PS_DEPLOY, BUNDLE_PS_DEPLOY],
+  ]) {
+    if (!existsSync(join(REPO, b))) throw new Error(`${b} 不存在 —— bundle 缺副本,Windows 部署机上就是断的`)
+    const ba = readFileSync(join(REPO, a))
+    const bb = readFileSync(join(REPO, b))
+    if (ba.compare(bb) !== 0) throw new Error(`${a} 与 ${b} 已分叉(只改了一边)`)
+  }
+})
+
+// ── T12 残段①行为面:PowerShell 采集库真跑(落盘/退出码/JSON/无 key 拒绝运行)──
+test('T12 PS 采集库产三件输入,不吃掉失败退出码,无 key 时拒绝运行不编造诊断', (t) => {
+  if (needPwsh(t)) return
+  const dir = mkScratch('pslib')
+  const fwd = (p) => p.replace(/\\/g, '/')
+  // 夹具:stdout 一行 + stderr 一行 + exit 3(bash 版 T5 的 `sh -c "echo OUT; echo ERR>&2"` 同构;
+  // Write-Error 走 PowerShell 错误流,才会被 capture 的 2>&1 接住 —— 与真机 native stderr 同路径)
+  const fixture = join(dir, 'fail.ps1')
+  writeFileSync(fixture, "Write-Output 'OUT'\nWrite-Error 'ERR'\nexit 3\n", 'utf8')
+  const script = [
+    "$ErrorActionPreference='Stop'",
+    `. "${fwd(join(REPO, TRACKED_PSLIB))}"`,
+    `Initialize-IhuiDiag "${fwd(dir)}" 'compose'`,
+    `Invoke-IhuiDiagCapture "${fwd(fixture)}"`,
+    "if ($LASTEXITCODE -ne 3) { 'SWALLOWED' } else { \"PRESERVED $LASTEXITCODE\" }",
+    `Write-IhuiDiagResult 'failed' 'unit' '带"引号" 和\\反斜杠'`,
+    `Update-IhuiDiagHealthJson "${fwd(join(dir, 'nope.ps1'))}" "${fwd(join(dir, 'h.json'))}"`,
+    "$env:IHUI_AI_KEY=''",
+    "Invoke-IhuiDiagRun '无 key 必须拒绝运行'",
+    "'DONE'",
+  ].join('\n')
+  const r = pwsh(script)
+  const all = r.stdout + r.stderr
+  if (!/PRESERVED 3/.test(all)) throw new Error(`EAP=Stop 下失败退出码被吞掉 ⇒ ${all.trim()}`)
+  if (all.includes('SWALLOWED')) throw new Error('失败被误判为成功')
+  if (!all.includes('DONE')) throw new Error(`库让脚本提前挂了:\n${all}`)
+  const logDir = join(dir, 'logs')
+  const logs = existsSync(logDir)
+    ? readdirSync(logDir).filter((f) => f.startsWith('deploy-compose-'))
+    : []
+  if (logs.length === 0) throw new Error('部署日志文件没产出')
+  const resultFile = join(logDir, '.last-deploy-result.json')
+  if (!existsSync(resultFile)) throw new Error('.last-deploy-result.json 没产出(Windows 侧此前全仓零生产者)')
+  const obj = JSON.parse(readFileSync(resultFile, 'utf8'))
+  for (const k of ['status', 'stage', 'message', 'startedAt', 'finishedAt', 'logFile', 'scriptDir']) {
+    if (!(k in obj)) throw new Error(`结果 JSON 缺字段 ${k}(与 bash 版键集必须逐字段同形)`)
+  }
+  if (obj.status !== 'failed' || obj.stage !== 'unit') throw new Error('结果 JSON 字段不符')
+  if (!obj.message.includes('"引号"')) throw new Error('结果 JSON 的引号没转义 → 下游 JSON.parse 会炸')
+  const body = readFileSync(
+    join(logDir, logs.find((f) => !f.endsWith('latest.log')) ?? logs[0]),
+    'utf8',
+  )
+  if (!body.includes('OUT') || !body.includes('ERR')) throw new Error('stdout/stderr 未同时落盘')
+  if (!body.includes('health-check 不存在')) throw new Error('输入取不到时没有留下痕迹(静默失效)')
+  if (!body.includes('未设 IHUI_AI_KEY')) throw new Error('无 key 跳过没留痕(与 bash 版不同型)')
+  // "拒绝运行、不编造诊断":没有 key 就一张诊断报告都不许产
+  const reports = readdirSync(logDir).filter((f) => f.includes('ai-diagnose'))
+  if (reports.length !== 0) throw new Error(`无 IHUI_AI_KEY 却产出了诊断产物:${reports.join(', ')}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

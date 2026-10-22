@@ -27,12 +27,33 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $ProjectRoot
 
-function Write-Step { param([string]$msg) Write-Host "`n========== $msg ==========" -ForegroundColor Cyan }
-function Write-OK { param([string]$msg) Write-Host "[OK] $msg" -ForegroundColor Green }
-function Write-Warn { param([string]$msg) Write-Host "[WARN] $msg" -ForegroundColor Yellow }
-function Write-Err { param([string]$msg) Write-Host "[ERROR] $msg" -ForegroundColor Red }
+# ==================== P2-13 部署诊断采集库(必须在 Write-Step/OK/Warn/Err 定义之前加载:那四个函数会调它)====================
+# 与 compose 链 deploy.sh 的 bash 版同型:库自身所有函数一律不让部署挂掉(见其头注「默认零行为变化」),
+# 诊断不可用(node / IHUI_AI_KEY 不齐)时拒绝运行并留痕,绝不编造诊断;不发任何通知(§5e 邮件单通道)。
+# 摘线保护:库不在了也要跑得动部署,给一堆空实现 + WARN 而不是 exit。
+$IhuiDiagSelfDir = $ScriptDir
+$diagLib = Join-Path $ScriptDir 'deploy-diagnose.ps1'
+if (Test-Path $diagLib) {
+    . $diagLib
+} else {
+    function Initialize-IhuiDiag { param([string]$BaseDir, [string]$Tag) Write-Host "[diag][WARN] 缺 deploy-diagnose.ps1,本轮不落盘" -ForegroundColor Yellow }
+    function Write-IhuiDiagLog { param([string]$Message) }
+    function Invoke-IhuiDiagCapture { param([Parameter(Mandatory = $true, Position = 0)][string[]]$Command) if ($Command.Count -gt 1) { & $Command[0] $Command[1..($Command.Count - 1)] } else { & $Command[0] } }
+    function Write-IhuiDiagResult { param([string]$Status, [string]$Stage, [string]$Message) }
+    function Update-IhuiDiagContainerLogs { param([string]$Note, [string]$ComposeFile) }
+    function Update-IhuiDiagHealthJson { param([string]$ScriptPath, [string]$OutFile) }
+    function Invoke-IhuiDiagRun { param([string]$Context) Write-Host "[diag][WARN] 缺 deploy-diagnose.ps1,诊断未执行" -ForegroundColor Yellow }
+}
+# 日志与结果落进 bundle 自己的 logs/ —— 不写死盘符,全部由脚本所在目录推导(§15b)。
+Initialize-IhuiDiag $ScriptDir 'compose'
+
+function Write-Step { param([string]$msg) Write-Host "`n========== $msg ==========" -ForegroundColor Cyan; Write-IhuiDiagLog "STEP $msg" }
+function Write-OK { param([string]$msg) Write-Host "[OK] $msg" -ForegroundColor Green; Write-IhuiDiagLog "[OK] $msg" }
+function Write-Warn { param([string]$msg) Write-Host "[WARN] $msg" -ForegroundColor Yellow; Write-IhuiDiagLog "[WARN] $msg" }
+function Write-Err { param([string]$msg) Write-Host "[ERROR] $msg" -ForegroundColor Red; Write-IhuiDiagLog "[ERROR] $msg" }
 
 # ==================== 1. 前置依赖检查 ====================
 Write-Step "步骤 1/9:前置依赖检查"
@@ -175,12 +196,14 @@ if ($SkipBuild) {
     Write-Warn "跳过 docker build(-SkipBuild)"
 } else {
     Write-Host "构建中...(Next.js build 需要 ~4GB 内存,请耐心等待)"
-    docker compose build
+    Invoke-IhuiDiagCapture docker,'compose','build'
     if ($LASTEXITCODE -ne 0) {
         Write-Err "docker compose build 失败"
         Write-Err "常见原因:1) 内存不足(改 deploy/docker/Dockerfile.web NODE_OPTIONS=--max-old-space-size=4096)"
         Write-Err "         2) 网络问题(pnpm install 超时,设 HTTP_PROXY/HTTPS_PROXY)"
         Write-Err "         3) 磁盘空间不足(docker system prune -a 清理)"
+        Write-IhuiDiagResult 'failed' 'build' 'docker compose build 失败'
+        Invoke-IhuiDiagRun 'deploy.ps1(compose 链 Windows)docker compose build 失败,已落部署日志'
         exit 1
     }
     Write-OK "Docker 镜像构建完成"
@@ -189,10 +212,13 @@ if ($SkipBuild) {
 # ==================== 5. 启动核心服务 ====================
 Write-Step "步骤 5/9:启动核心服务(db / redis / migrate / api / web / ai-service)"
 
-docker compose up -d
+Invoke-IhuiDiagCapture docker,'compose','up','-d'
 if ($LASTEXITCODE -ne 0) {
     Write-Err "docker compose up 失败"
     Write-Err "查看日志:docker compose logs"
+    Update-IhuiDiagContainerLogs 'compose up 失败后抓取'
+    Write-IhuiDiagResult 'failed' 'up' 'docker compose up -d 失败'
+    Invoke-IhuiDiagRun 'deploy.ps1(compose 链 Windows)docker compose up -d 失败,日志已含容器输出'
     exit 1
 }
 Write-OK "docker compose up 命令已发出"
@@ -235,6 +261,11 @@ if (-not $healthy) {
     Write-Warn "部分服务未在 ${maxWait}s 内健康,继续部署(可能需要更多时间)"
     Write-Host "查看状态:docker compose ps"
     Write-Host "查看日志:docker compose logs <service>"
+    # 这是本链最需要诊断的一类失败:栈起来了但不健康,而此前 Windows 侧没有任何输入被留下来。
+    Update-IhuiDiagContainerLogs "等待 ${maxWait}s 后仍不健康"
+    Update-IhuiDiagHealthJson (Join-Path $ScriptDir 'health-check.ps1') (Join-Path (Join-Path $ScriptDir 'logs') 'health-check.json')
+    Write-IhuiDiagResult 'failed' 'health' "部分服务未在 ${maxWait}s 内健康"
+    Invoke-IhuiDiagRun "deploy.ps1(compose 链 Windows)等待 ${maxWait}s 后容器仍未全部健康,已附容器日志与健康检查输出"
 } else {
     Write-OK "所有核心服务已健康"
 }
@@ -257,12 +288,16 @@ if ($SkipCloudflared) {
         }
         if (-not $tunnelToken) {
             Write-Err ".env.production 缺 TUNNEL_TOKEN,无法启动 cloudflared"
+            Write-IhuiDiagResult 'failed' 'cloudflared' '.env.production 缺 TUNNEL_TOKEN'
         } else {
             $env:TUNNEL_TOKEN = $tunnelToken
-            docker compose -f $cfCompose up -d
+            Invoke-IhuiDiagCapture docker,'compose','-f',$cfCompose,'up','-d'
             if ($LASTEXITCODE -ne 0) {
                 Write-Err "cloudflared 启动失败"
                 Write-Err "查看日志:docker compose -f $cfCompose logs cloudflared"
+                Update-IhuiDiagContainerLogs 'cloudflared 启动失败后抓取' $cfCompose
+                Write-IhuiDiagResult 'failed' 'cloudflared' "docker compose -f $cfCompose up -d 失败"
+                Invoke-IhuiDiagRun 'deploy.ps1(compose 链 Windows)cloudflared 启动失败(第二 compose 栈),日志含该栈容器输出'
             } else {
                 Write-OK "cloudflared 已启动"
                 Write-Host "等待 10 秒让 tunnel 建立..."
@@ -347,5 +382,6 @@ Write-Host "  2. 跑部署后清单: type deploy\prod-bundle\POST-DEPLOY-CHECKLI
 Write-Host "  3. 先执行 reset:admin-password 设置管理员口令并归档,再登录"
 Write-Host "  4. (推荐)rotate Cloudflare Tunnel token"
 Write-Host ""
+Write-IhuiDiagResult 'success' 'done' 'deploy.ps1(compose 链 Windows)执行完毕'
 Write-OK "部署脚本执行完毕"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
