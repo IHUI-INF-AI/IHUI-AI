@@ -134,6 +134,52 @@ export interface UseThirdPartyAuthReturn {
  * 适配新架构 React + Zustand + sonner toast。
  * 覆盖：登录状态管理、账号绑定/解绑、平台启用判断、One Tap 登录。
  */
+/** `GET /api/auth/oauth-status` 的返回体(8 键,少 `oidc`/`app` —— 这两支不走这套凭据判定) */
+type OAuthStatusBody = Partial<
+  Record<
+    | 'google'
+    | 'apple'
+    | 'dingtalk'
+    | 'enterpriseWechat'
+    | 'wechat'
+    | 'feishu'
+    | 'github'
+    | 'alipay',
+    boolean
+  >
+>
+
+/**
+ * 服务器自己知不知道自己配了某平台的 client_secret —— 必须去问,不能靠构建期烘死的开关。
+ *
+ * 立因(2026-10-22 实测):按钮的 `enabled` 此前只看 `NEXT_PUBLIC_*`(构建时烘进产物),
+ * 生产 web 烘的是 `NEXT_PUBLIC_GITHUB_ENABLED=true` 且有 client_id,而**在跑的那份 api `.env`
+ * 里 `GITHUB_CLIENT_SECRET` 整枚缺键** ⇒ 第三方按钮亮着,用户点下去、厂商回跳带 code 回来,
+ * `POST /api/auth/github/callback` 必失败。账面"已启用"与线上"点了必挂"同时成立,就是这一格。
+ * `packages/api-client` 那份 `getOAuthStatus()` 的头注早就写着"前端按需渲染登录按钮",
+ * 但全仓零消费方 ⇒ 声明了却没接线。
+ *
+ * 取不到(端点挂/网络失败)⇒ 记 `null` = **没判**,一行判据都不改:
+ * 失效方向必须是"多要一次说明",绝不能是"多关一次功能"(§0.10)——
+ * 不能因为这条 GET 失败就把本来能用的微信登录按钮也一起藏掉。
+ */
+let oauthStatusCache: Promise<OAuthStatusBody | null> | null = null
+function loadOAuthStatus(): Promise<OAuthStatusBody | null> {
+  if (!oauthStatusCache) {
+    oauthStatusCache = fetchApi<OAuthStatusBody>('/api/auth/oauth-status')
+      .then((r) => (r.success && r.data ? r.data : null))
+      .catch(() => null)
+  }
+  return oauthStatusCache
+}
+
+/** 测试面:这条缓存是模块级"只取一次",不清掉就没法在同一进程里逐档验(报 false / 报 true / 取不到)三种服务器答复。 */
+export const __test__ = {
+  resetOAuthStatusCache: (): void => {
+    oauthStatusCache = null
+  },
+}
+
 export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
   const toast = useToast()
 
@@ -143,21 +189,40 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
   const [boundAccounts, setBoundAccounts] = React.useState<ThirdPartyAccount[]>([])
   const [isLoading, setIsLoading] = React.useState(false)
   const [currentPlatform, setCurrentPlatform] = React.useState<ThirdPartyPlatform | null>(null)
+  const [serverStatus, setServerStatus] = React.useState<OAuthStatusBody | null>(null)
+
+  React.useEffect(() => {
+    let alive = true
+    void loadOAuthStatus().then((s) => {
+      if (alive && s) setServerStatus(s)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   // Google One Tap 回调引用
   const oneTapCallbackRef = React.useRef<((credential: string) => void) | null>(null)
 
   // ---- 计算属性 ----
+  /** 构建期开关 ∧ 服务器实际配置。服务器明确报 false 才算死入口;报不到就不改变行为。 */
+  const isPlatformEnabledNow = (p: ThirdPartyPlatform, local: boolean): boolean =>
+    local && serverStatus?.[p as keyof OAuthStatusBody] !== false
+
   const enabledPlatforms = React.useMemo<ThirdPartyPlatform[]>(() => {
     const configs = getAllPlatformConfigs()
-    return (Object.keys(configs) as ThirdPartyPlatform[]).filter((p) => configs[p].enabled)
-  }, [])
+    return (Object.keys(configs) as ThirdPartyPlatform[]).filter((p) =>
+      isPlatformEnabledNow(p, configs[p].enabled),
+    )
+  }, [serverStatus])
 
   const isAnyPlatformEnabled = enabledPlatforms.length > 0
 
-  const isPlatformEnabled = React.useCallback((platform: ThirdPartyPlatform): boolean => {
-    return getPlatformConfig(platform)?.enabled === true
-  }, [])
+  const isPlatformEnabled = React.useCallback(
+    (platform: ThirdPartyPlatform): boolean =>
+      isPlatformEnabledNow(platform, getPlatformConfig(platform)?.enabled === true),
+    [serverStatus],
+  )
 
   const isBound = React.useCallback(
     (platform: ThirdPartyPlatform): boolean =>
