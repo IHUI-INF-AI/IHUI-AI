@@ -42,11 +42,11 @@ import { findThirdPartyAccount, createThirdPartyBinding } from '../db/oauth-quer
 import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import {
-  codeStore,
+  getCodeEntry,
+  putCodeEntry,
   CODE_TTL_MS,
   CODE_RESEND_INTERVAL_MS,
   generateCode,
-  cleanupExpiredCodes,
   verifyCode,
 } from '../utils/code-store.js'
 import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/totp-service.js'
@@ -56,7 +56,8 @@ import {
   consumeSendQuota,
   sendCodePreSerialization,
 } from '../utils/code-echo-guard.js'
-import { deliverSmsCode } from '../services/sms.js'
+import { deliverSmsCode, smsCodeTtlMs } from '../services/sms.js'
+import { sendVerificationEmail } from '../services/email-service.js'
 import {
   evaluateLoginRisk,
   evaluateRisk,
@@ -387,7 +388,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const { phone } = parsed.data
 
       // G-192:按「手机号 + IP」频控(计数覆盖取码尝试,含后续 60 秒重发拦截)
-      const quota = consumeSendQuota(phone, request.ip)
+      const quota = await consumeSendQuota(phone, request.ip)
       if (!quota.allowed) {
         return reply
           .header('Retry-After', String(quota.retryAfterSec))
@@ -395,15 +396,16 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           .send(error(429, '验证码请求过于频繁,请稍后再试'))
       }
 
-      cleanupExpiredCodes()
-      const existing = codeStore.get(phone)
+      const existing = await getCodeEntry(phone)
       const now = Date.now()
       if (existing && now - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
         return reply.status(429).send(error(429, '验证码已发送,请 60 秒后重试'))
       }
 
+      // 有效期按场景取 —— 必须等于该场景模板文案里对用户的承诺
+      const ttlMs = smsCodeTtlMs(parsed.data.scene)
       const code = generateCode()
-      codeStore.set(phone, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
+      await putCodeEntry(phone, { code, expiresAt: now + ttlMs, sentAt: now })
 
       // 2026-10-22 根治:这里过去只写一行"验证码已生成"的日志,从不投递 ——
       // 响应却回"已发送",于是用户永远在等那条根本不会来的短信。现在真发,且发不出去就如实报错。
@@ -414,7 +416,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
-      return reply.send(success(buildSendCodePayload(request, code, CODE_TTL_MS / 1000)))
+      return reply.send(success(buildSendCodePayload(request, code, ttlMs / 1000)))
     },
   )
 
@@ -451,7 +453,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const { phone, code, newPassword } = parsed.data
 
       // 2026-08-02 修复 P1:改用 verifyCode 统一入口,复用 admin bypass 与统一逻辑
-      // 原实现直接读 codeStore.get(phone) 绕过 verifyCode 的测试 bypass 与自动删除
+      // 原实现直接读存储比对,绕过了 verifyCode 的测试 bypass 与一次性删除
       const codeOk = await verifyCode(phone, code)
       if (!codeOk) {
         return reply.status(400).send(error(400, '验证码错误或已过期'))
@@ -478,7 +480,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 但旧 token 仍有效 → 攻击者仍可登录。必须吊销所有 token 迫使重新认证。
       await revokeAllUserRefreshTokens(user.id)
 
-      // verifyCode 内部已自动删除验证码,无需手动 codeStore.delete(phone)
+      // verifyCode 内部已原子消费掉验证码,这里不需要再手动删
 
       return reply.send(success({ reset: true }))
     },
@@ -1026,9 +1028,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const { phone, code } = parsed.data
 
-      cleanupExpiredCodes()
-      const stored = codeStore.get(phone)
-      if (!stored || stored.code !== code || Date.now() > stored.expiresAt) {
+      // 2026-10-22:改用 verifyCode 原子消费。旧写法是"先读比对、查到用户之后才删",
+      // 读与删之间隔着一次 await —— 进程内 Map 时代靠单线程侥幸免疫,换成 Redis 共享存储后
+      // 这就是一枚跨进程可双重使用的登录码。与 /reset-password 早已定的口径也对齐了。
+      const codeOk = await verifyCode(phone, code)
+      if (!codeOk) {
         recordAuthLoginFailed(request.ip)
         return reply.status(401).send(error(401, '验证码错误或已过期'))
       }
@@ -1044,8 +1048,6 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         recordAuthLoginFailed(request.ip)
         return reply.status(403).send(error(403, '账号已被禁用'))
       }
-
-      codeStore.delete(phone)
 
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
@@ -1187,6 +1189,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
           },
+          502: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
       config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
@@ -1201,7 +1207,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const { email } = parsed.data
 
       // G-192:按「邮箱 + IP」频控(与 /send-code 同口径)
-      const quota = consumeSendQuota(email, request.ip)
+      const quota = await consumeSendQuota(email, request.ip)
       if (!quota.allowed) {
         return reply
           .header('Retry-After', String(quota.retryAfterSec))
@@ -1214,16 +1220,22 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, '邮箱未注册'))
       }
 
-      cleanupExpiredCodes()
-      const existing = codeStore.get(email)
+      const existing = await getCodeEntry(email)
       const now = Date.now()
       if (existing && now - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
         return reply.status(429).send(error(429, '验证码已发送,请 60 秒后重试'))
       }
 
       const code = generateCode()
-      codeStore.set(email, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
-      request.log.info({ email }, '邮箱验证码已生成')
+      await putCodeEntry(email, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
+
+      // 2026-10-22 根治:与短信那条同型 —— 本路由摘要写着"发送验证码",实现里却只 log 一行
+      // "邮箱验证码已生成"就回成功,邮件从来没发过。日志也不得写裸邮箱(PII)。
+      const result = await sendVerificationEmail(email, code, 'login')
+      if (!result.sent && !result.stub) {
+        request.log.warn('邮箱验证码投递失败')
+        return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
+      }
 
       // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
       return reply.send(success(buildSendCodePayload(request, code, CODE_TTL_MS / 1000)))
@@ -1468,7 +1480,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const { phone } = parsed.data
 
       // G-192:按「手机号 + IP」频控(与 /send-code 同口径)
-      const quota = consumeSendQuota(phone, request.ip)
+      const quota = await consumeSendQuota(phone, request.ip)
       if (!quota.allowed) {
         return reply
           .header('Retry-After', String(quota.retryAfterSec))
@@ -1476,14 +1488,14 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           .send(error(429, '验证码请求过于频繁,请稍后再试'))
       }
 
-      cleanupExpiredCodes()
-      const existing = codeStore.get(phone)
+      const existing = await getCodeEntry(phone)
       const now = Date.now()
       if (existing && now - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
         return reply.status(429).send(error(429, '验证码已发送,请 60 秒后重试'))
       }
+      const ttlMs = smsCodeTtlMs(parsed.data.scene)
       const code = generateCode()
-      codeStore.set(phone, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
+      await putCodeEntry(phone, { code, expiresAt: now + ttlMs, sentAt: now })
       // 与 /send-code 同口径:真投递,失败如实报错(这支是小程序登录实际在打的端点)
       const delivery = await deliverSmsCode(phone, code, parsed.data.scene)
       if (!delivery.sent) {
@@ -1491,7 +1503,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
       }
       // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
-      return reply.send(success(buildSendCodePayload(request, code, CODE_TTL_MS / 1000)))
+      return reply.send(success(buildSendCodePayload(request, code, ttlMs / 1000)))
     },
   )
 
