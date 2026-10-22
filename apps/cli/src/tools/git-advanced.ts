@@ -39,13 +39,13 @@ const git_branch_create: Tool = {
     if (!name) return { success: false, output: '', error: '缺少 name 参数(分支名)' };
     const from = args.from as string | undefined;
 
-    const preResult = await runPreToolCall('git_branch_create', { name, from });
+    const preResult = await runPreToolCall('git_branch_create', { name, from }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs = ['branch', name];
     if (from) cmdArgs.push(from);
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_branch_create', { exitCode: r.exitCode, name });
+    await runPostToolCall('git_branch_create', { exitCode: r.exitCode, name }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -67,14 +67,14 @@ const git_branch_switch: Tool = {
     if (!name) return { success: false, output: '', error: '缺少 name 参数(分支名)' };
     const create = args.create === true;
 
-    const preResult = await runPreToolCall('git_branch_switch', { name, create });
+    const preResult = await runPreToolCall('git_branch_switch', { name, create }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs = ['checkout'];
     if (create) cmdArgs.push('-b');
     cmdArgs.push(name);
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_branch_switch', { exitCode: r.exitCode, name });
+    await runPostToolCall('git_branch_switch', { exitCode: r.exitCode, name }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -101,13 +101,13 @@ const git_branch_delete: Tool = {
       return { success: false, output: '', error: '强制删除分支(force=true)需 confirm=true 双重确认' };
     }
 
-    const preResult = await runPreToolCall('git_branch_delete', { name, force });
+    const preResult = await runPreToolCall('git_branch_delete', { name, force }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs = ['branch', '-d', name];
     if (force) cmdArgs[1] = '-D';
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_branch_delete', { exitCode: r.exitCode, name, force });
+    await runPostToolCall('git_branch_delete', { exitCode: r.exitCode, name, force }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -161,7 +161,7 @@ const git_merge: Tool = {
     const squash = args.squash === true;
     const message = args.message as string | undefined;
 
-    const preResult = await runPreToolCall('git_merge', { branch, no_ff, squash });
+    const preResult = await runPreToolCall('git_merge', { branch, no_ff, squash }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs = ['merge'];
@@ -170,7 +170,7 @@ const git_merge: Tool = {
     if (message) cmdArgs.push('-m', message);
     cmdArgs.push(branch);
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_merge', { exitCode: r.exitCode, branch });
+    await runPostToolCall('git_merge', { exitCode: r.exitCode, branch }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -202,13 +202,13 @@ const git_rebase: Tool = {
       return { success: false, output: '', error: '交互式 rebase 需要终端交互,Agent 中不支持。请用非交互模式或手动执行。' };
     }
 
-    const preResult = await runPreToolCall('git_rebase', { upstream, branch });
+    const preResult = await runPreToolCall('git_rebase', { upstream, branch }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs = ['rebase', upstream];
     if (branch) cmdArgs.push(branch);
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_rebase', { exitCode: r.exitCode, upstream });
+    await runPostToolCall('git_rebase', { exitCode: r.exitCode, upstream }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -229,14 +229,14 @@ const git_stash_push: Tool = {
     const message = args.message as string | undefined;
     const include_untracked = args.include_untracked === true;
 
-    const preResult = await runPreToolCall('git_stash_push', { message, include_untracked });
+    const preResult = await runPreToolCall('git_stash_push', { message, include_untracked }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs = ['stash', 'push'];
     if (message) cmdArgs.push('-m', message);
     if (include_untracked) cmdArgs.push('-u');
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_stash_push', { exitCode: r.exitCode });
+    await runPostToolCall('git_stash_push', { exitCode: r.exitCode }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -258,12 +258,12 @@ const git_stash_pop: Tool = {
     const apply = args.apply === true;
     const stashRef = `stash@{${index}}`;
 
-    const preResult = await runPreToolCall('git_stash_pop', { index, apply });
+    const preResult = await runPreToolCall('git_stash_pop', { index, apply }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs = ['stash', apply ? 'apply' : 'pop', stashRef];
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_stash_pop', { exitCode: r.exitCode, index });
+    await runPostToolCall('git_stash_pop', { exitCode: r.exitCode, index }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -322,12 +322,12 @@ const git_conflict_resolve: Tool = {
       return { success: false, output: '', error: `无效 strategy: ${strategy}(允许: ours/theirs/manual)` };
     }
 
-    const preResult = await runPreToolCall('git_conflict_resolve', { file, strategy });
+    const preResult = await runPreToolCall('git_conflict_resolve', { file, strategy }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     if (strategy === 'manual') {
       const r = execGit(['add', file], ctx.workspacePath);
-      await runPostToolCall('git_conflict_resolve', { exitCode: r.exitCode, file, strategy });
+      await runPostToolCall('git_conflict_resolve', { exitCode: r.exitCode, file, strategy }, ctx.signal);
       return formatGitResult(r);
     }
 
@@ -337,7 +337,7 @@ const git_conflict_resolve: Tool = {
       return formatGitResult(rCheckout);
     }
     const rAdd = execGit(['add', file], ctx.workspacePath);
-    await runPostToolCall('git_conflict_resolve', { exitCode: rAdd.exitCode, file, strategy });
+    await runPostToolCall('git_conflict_resolve', { exitCode: rAdd.exitCode, file, strategy }, ctx.signal);
     return formatGitResult(rAdd);
   },
 };
@@ -361,7 +361,7 @@ const git_tag_create: Tool = {
     const message = args.message as string | undefined;
     const annotated = args.annotated === true;
 
-    const preResult = await runPreToolCall('git_tag_create', { name, annotated });
+    const preResult = await runPreToolCall('git_tag_create', { name, annotated }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const cmdArgs = ['tag'];
@@ -373,7 +373,7 @@ const git_tag_create: Tool = {
       cmdArgs.push(name);
     }
     const r = execGit(cmdArgs, ctx.workspacePath);
-    await runPostToolCall('git_tag_create', { exitCode: r.exitCode, name });
+    await runPostToolCall('git_tag_create', { exitCode: r.exitCode, name }, ctx.signal);
     return formatGitResult(r);
   },
 };
@@ -416,11 +416,11 @@ const git_remote_add: Tool = {
     if (!name) return { success: false, output: '', error: '缺少 name 参数(远程名)' };
     if (!url) return { success: false, output: '', error: '缺少 url 参数(仓库 URL)' };
 
-    const preResult = await runPreToolCall('git_remote_add', { name, url });
+    const preResult = await runPreToolCall('git_remote_add', { name, url }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     const r = execGit(['remote', 'add', name, url], ctx.workspacePath);
-    await runPostToolCall('git_remote_add', { exitCode: r.exitCode, name });
+    await runPostToolCall('git_remote_add', { exitCode: r.exitCode, name }, ctx.signal);
     return formatGitResult(r);
   },
 };

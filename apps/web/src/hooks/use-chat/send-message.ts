@@ -133,6 +133,14 @@ export interface SendMessageOptions {
    *  true 时不重复 addMessage/persist 用户消息 —— 历史已被截断到该用户消息之前,
    *  store 中已存在该用户消息,仅需补一个 assistant 占位并走流式。 */
   regenerate?: boolean
+  /** 票59(消息级版本切换 3/3,2026-10-22 立):regenerate 的 sibling 入族坐标。
+   *  后端 /regenerate 已不再物理删除(1/3):目标 AI 消息保留为版本族根,本参数把
+   *  (rootId, siblingIndex) 交给三件事 —— ① 占位行按族尾插入且带坐标(mergeVersionMessage,
+   *  与票64 编辑链同构),旧回复即刻被读投影压成"上一版"而不是消失;② 发给 LLM 的
+   *  history 切到族根之前(旧回复与后续轮次不进上下文,与旧截断语义同位);
+   *  ③ streamChat metadata 透传坐标,回调落库时新回复以 sibling 入族(网关+worker 腿)。
+   *  缺省 = 普通发送,三条全不触发。 */
+  version?: { rootId: string; siblingIndex: number }
 }
 
 /**
@@ -184,6 +192,8 @@ export function createSendMessage(
     if (!text) return false
     // 重新生成模式:跳过斜杠命令拦截/AI 自动模式检测(用户问题来自历史,不应再触发)
     const isRegenerate = opts?.regenerate === true
+    // 票59(3/3):regenerate 的 sibling 入族坐标(由 regenerateMessage 从 /regenerate 响应取)
+    const version = opts?.version
     // 2026-08-06 修复:入口即置在途锁,覆盖 createConversation/斜杠命令等
     // await 间隙,防止快速连按 Enter/双击重复发送(原仅靠 isStreaming 防重,
     // 但 setStreaming(true) 在网络往返之后才执行,存在竞态窗口)。
@@ -430,7 +440,16 @@ export function createSendMessage(
     }
 
     // W24(2026-09-14):/btw 侧聊消息(meta.sidechat)不进入主线 LLM 历史
-    const history = store.messages
+    // 票59(3/3):sibling 模式把上下文切到**族根之前** —— 后端不再删行(1/3)、前端
+    // 也不再截断本地列表,旧回复与后续轮次不得混进新回复的上下文(与旧截断语义同位)。
+    // 族根不在列表(分页切割/局部回放)时回落全量:宁可多带一轮上下文,不可无声丢半段历史
+    // (与读投影"族根缺席则整族保留"同一失效方向,见 message-version-family.ts 头注)。
+    const historySource = (() => {
+      if (!version) return store.messages
+      const cut = store.messages.findIndex((m) => m.id === version.rootId)
+      return cut === -1 ? store.messages : store.messages.slice(0, cut)
+    })()
+    const history = historySource
       .filter(
         (m) =>
           !m.error &&
@@ -504,12 +523,34 @@ export function createSendMessage(
     const permState = useAiPanelStore.getState()
     const currentMode: WorkspacePermissionMode | undefined =
       permState.activeWorkspace?.mode ?? permState.pendingPermissionMode ?? undefined
-    const assistantId = store.addMessage({
-      role: 'assistant',
-      content: '',
-      model: roundModel,
-      permissionMode: currentMode,
-    })
+    // 票59(3/3):sibling 占位行**按族尾插入且自带坐标**(与票64 编辑链的
+    // mergeVersionMessage 同构),而不是 addMessage 追加到列表末尾 ——
+    // 新回复要出现在被再生那条回复的位置(读投影随即把旧回复压成"上一版"),
+    // 且带坐标的行才参与族投影;addMessage 的 W16 parentMessageId(=前一条)
+    // 没有 siblingIndex 伴随,判族只认 siblingIndex 非 null(见 message-version-family.ts)。
+    let assistantId: string
+    if (version) {
+      assistantId = crypto.randomUUID()
+      store.mergeVersionMessage(
+        {
+          id: assistantId,
+          role: 'assistant',
+          content: '',
+          createdAt: Date.now(),
+          model: roundModel,
+          permissionMode: currentMode,
+        },
+        version.rootId,
+        version.siblingIndex,
+      )
+    } else {
+      assistantId = store.addMessage({
+        role: 'assistant',
+        content: '',
+        model: roundModel,
+        permissionMode: currentMode,
+      })
+    }
 
     // 2026-09-13 批次 2 #16:记录流开始时间戳,用于消息级运行时长展示
     const streamStartedAt = Date.now()
@@ -684,6 +725,12 @@ export function createSendMessage(
           conversationId,
           userId,
           messageId: assistantId,
+          // 票59(3/3):sibling 坐标随流透传(网关 schema 声明 → ai-service 原样回显
+          // → 回调端点提出进 job 顶层 → worker 交 createMessage 落两列)。
+          // 非 version 流不写这两键:请求体逐字节与存量一致。
+          ...(version
+            ? { parentMessageId: version.rootId, siblingIndex: version.siblingIndex }
+            : {}),
         },
         // 模式透传(2026-07-22 立,对标 主流 AI IDE Plan/Spec):build/plan/review/spec
         // Plan/Act 模式(2026-07-24 立):plan=只制定计划不执行工具,act=正常执行
@@ -1445,12 +1492,16 @@ export function createSendMessage(
 }
 
 /**
- * 重新生成消息(2026-08-30 立)。
+ * 重新生成消息(2026-08-30 立;票59 3/3,2026-10-22 改 sibling 语义)。
  * 由 MessageList 监听 `ihui:regenerate-message` 后调用,完整闭环:
- * 1. 调后端 POST /conversations/:id/regenerate —— 事务删除目标 AI 消息及之后所有消息(保留之前历史)
- * 2. store.truncateMessagesFrom 同步截断前端消息列表(保留目标消息之前的内容,含前一条用户消息)
- * 3. 复用 sendMessage(regenerate 模式)重新发送前一条用户问题 —— 不重复添加/持久化用户消息,
- *    走既有流式链路(超时/节流/工具调用/错误重试全部复用,不重写)。
+ * 1. 调后端 POST /conversations/:id/regenerate —— **不再物理删除**(1/3):目标 AI 消息
+ *    保留为版本族根(服务端补 siblingIndex=0),响应给回 rootId/nextSiblingIndex
+ * 2. 复用 sendMessage(regenerate + version 模式):旧回复留在列表被读投影压成"上一版",
+ *    新回复占位按族尾插入并带坐标,流式落库经回调链以 sibling 入族 ——
+ *    版本切换器(MessageVersionMenu,与 CanvasVersionMenu 同构交互)当场可切
+ * 3. 用户问题不重复添加/持久化(store 与库中都已存在),走既有流式链路
+ * 与旧链的差别:不再 truncateMessagesFrom —— 截断是物理删除时代的本地同步动作,
+ * sibling 语义下"删除旧回复"本身就是错误形态(旧版本是切换器的内容,不是垃圾)。
  */
 export async function regenerateMessage(
   messageId: string,
@@ -1474,14 +1525,16 @@ export async function regenerateMessage(
   const userMsg = [...messages.slice(0, targetIdx)].reverse().find((m) => m.role === 'user')
   if (!userMsg || !userMsg.content.trim()) return false
 
+  let version: { rootId: string; siblingIndex: number }
   try {
     const res = await regenerateConversation(conversationId, messageId)
-    if (!res.success) {
+    if (!res.success || !res.data) {
       toast.error('重新生成失败', {
         description: res.error || `服务异常(${res.status ?? '未知'})`,
       })
       return false
     }
+    version = { rootId: res.data.rootId, siblingIndex: res.data.nextSiblingIndex }
   } catch (err) {
     toast.error('重新生成失败', {
       description: err instanceof Error ? err.message : String(err),
@@ -1489,10 +1542,8 @@ export async function regenerateMessage(
     return false
   }
 
-  // 后端已删除该消息及之后内容,同步截断前端消息列表(保留该消息之前的历史)
-  chatStore.getState().truncateMessagesFrom(messageId)
-  // 复用 sendMessage(regenerate 模式):不重复添加用户消息,直接流式生成新回复
-  return sendMessage(userMsg.content, { regenerate: true })
+  // 复用 sendMessage(regenerate + version 模式):旧回复保留为族根,新回复以 sibling 入族
+  return sendMessage(userMsg.content, { regenerate: true, version })
 }
 
 /**

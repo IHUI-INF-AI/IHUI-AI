@@ -188,7 +188,7 @@ export function createBatchEditTool(ctx: EditToolContext): Tool {
       confirm: { type: 'boolean', description: 'atomic=false 或含 delete 操作时需 true' },
     },
     required: ['operations'],
-    async execute(args): Promise<ToolResult> {
+    async execute(args, execCtx): Promise<ToolResult> {
       const operationsRaw = args.operations;
       if (!Array.isArray(operationsRaw) || operationsRaw.length === 0) {
         return { success: false, output: '', error: '缺少 operations 参数或为空' };
@@ -217,7 +217,7 @@ export function createBatchEditTool(ctx: EditToolContext): Tool {
         atomic,
         dryRun,
         cwd: ctx.workspacePath,
-      });
+      }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       // 预检所有操作
@@ -273,7 +273,7 @@ export function createBatchEditTool(ctx: EditToolContext): Tool {
           totalCount: operations.length,
           operations: opResults,
         };
-        await runPostToolCall('batch_edit', { dryRun: true, count: operations.length });
+        await runPostToolCall('batch_edit', { dryRun: true, count: operations.length }, execCtx.signal);
         return { success: true, output: JSON.stringify(result, null, 2) };
       }
 
@@ -394,7 +394,7 @@ export function createBatchEditTool(ctx: EditToolContext): Tool {
         appliedCount,
         totalCount: operations.length,
         rollbackPerformed,
-      });
+      }, execCtx.signal);
 
       return {
         success: result.success,
@@ -417,7 +417,7 @@ export function createBatchUndoTool(ctx: EditToolContext): Tool {
       checkpointId: { type: 'string', description: 'batch_edit 返回的 checkpointId' },
     },
     required: ['checkpointId'],
-    async execute(args): Promise<ToolResult> {
+    async execute(args, execCtx): Promise<ToolResult> {
       const checkpointId = args.checkpointId;
       if (!checkpointId || typeof checkpointId !== 'string') {
         return { success: false, output: '', error: '缺少 checkpointId 参数' };
@@ -433,7 +433,7 @@ export function createBatchUndoTool(ctx: EditToolContext): Tool {
         return { success: false, output: '', error: `checkpoint 不存在: ${checkpointId}` };
       }
 
-      const preResult = await runPreToolCall('batch_undo', { checkpointId, cwd: ctx.workspacePath });
+      const preResult = await runPreToolCall('batch_undo', { checkpointId, cwd: ctx.workspacePath }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       let manifest: CheckpointManifest;
@@ -490,7 +490,7 @@ export function createBatchUndoTool(ctx: EditToolContext): Tool {
         }
       }
 
-      await runPostToolCall('batch_undo', { checkpointId, successCount, failureCount });
+      await runPostToolCall('batch_undo', { checkpointId, successCount, failureCount }, execCtx.signal);
 
       const output = {
         success: failureCount === 0,

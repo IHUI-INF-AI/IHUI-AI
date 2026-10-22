@@ -979,7 +979,7 @@ export const run_command: Tool = {
         return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${run_command.name}` };
       }
     }
-    const preResult = await runPreToolCall('bash', { command, cwd: ctx.workspacePath, background });
+    const preResult = await runPreToolCall('bash', { command, cwd: ctx.workspacePath, background }, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
     if (background) {
@@ -1067,7 +1067,7 @@ export const run_command: Tool = {
       return settleForegroundCommand(result, command, ctx);
     }
     const result = runSandboxed(command, sandboxOpts);
-    await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut });
+    await runPostToolCall('bash', { exitCode: result.exitCode, timedOut: result.timedOut }, ctx.signal);
     return settleForegroundCommand(result, command, ctx);
   },
 };
