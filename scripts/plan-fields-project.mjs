@@ -233,8 +233,17 @@ function reportPlan(p, { limit, showSkip }) {
   return 0
 }
 
-/** 出件:整行替换档 + 旧形态摘除声明(声明必须在落地前就在位,门 71 与收编器都读它)。 */
-function emit(p, jsonPath, batch) {
+/** `--batch` 解析:未给 ⇒ 10;非 1..MAX_BATCH 整数 ⇒ null(交给 main 报用法错)。 */
+export function parseBatchArg(argv, fallback = 10) {
+  const at = argv.indexOf('--batch')
+  if (at < 0) return fallback
+  const n = Number(argv[at + 1])
+  return Number.isInteger(n) && n >= 1 && n <= MAX_BATCH ? n : null
+}
+
+/** 出件:整行替换档 + 旧形态摘除声明(声明必须在落地前就在位,门 71 与收编器都读它)。
+ *  `opts.root/dropRel` 只为测试注入临时落点;生产调用一律用默认根,不得拿它绕开正式状态文件。 */
+export function emit(p, jsonPath, batch, { root = ROOT, dropRel = DROP_REL } = {}) {
   const take = p.rewrite.slice(0, batch)
   if (take.length === 0) {
     console.log('本轮没有可投影的行 ⇒ 不出件(空替换档会让活文档器物报"未命中"而不是"没活")')
@@ -249,7 +258,7 @@ function emit(p, jsonPath, batch) {
     ),
     'utf8',
   )
-  const abs = path.join(ROOT, DROP_REL)
+  const abs = path.join(root, dropRel)
   mkdirSync(path.dirname(abs), { recursive: true })
   const stamp = new Date().toISOString()
   for (const r of take)
@@ -261,7 +270,7 @@ function emit(p, jsonPath, batch) {
         file: 'PROJECT_PLAN.md',
         rowBefore: r.before,
         rowAfter: r.after,
-        why: '行内投影:标头替换等价的散文归属句(逐维守恒已过)',
+        why: '行内投影:加标头并删逐字等价的散文归属句(逐维守恒已过)',
       }) + '\n',
       'utf8',
     )
@@ -284,12 +293,17 @@ function selfTest() {
   }
   const p = planRow(line, rec)
   ok(
-    'T1 标头在位且正文一字不删',
-    p.action === 'rewrite' && p.line.includes('细节一:归属:门 130 持有人,细节二'),
+    'T1 标头在位且逐字等价的归属句同批删掉,其余正文一字不动',
+    p.action === 'rewrite' &&
+      p.line.includes('细节一:细节二') &&
+      !p.line.includes('归属:门 130 持有人'),
   )
   ok(
-    'T2 加长量恰好等于标头 + 一个空格(加法可核对)',
-    p.action === 'rewrite' && p.line.length - line.length === renderHeader(rec).length + 1,
+    'T2 净变化 = 标头 + 一个空格 − 删掉的归属句(逐字可核对)',
+    p.action === 'rewrite' &&
+      p.line.length - line.length ===
+        renderHeader(rec).length + 1 - p.removedProse &&
+      p.removedProse > 0,
   )
   ok('T3 幂等(再跑一次判 already)', planRow(p.line, rec).action === 'already')
   const mismatch = '- [ ] **G-2 乙题** 归属:另一个组持有'
@@ -322,11 +336,10 @@ function main() {
     return 2
   }
   const face = has('--staged') ? 'staged' : has('--worktree') ? 'worktree' : 'head'
-  const at = argv.indexOf('--batch')
-  const batch = at > -1 ? Number(argv[at + 1]) : 10
-  if (!Number.isInteger(batch) || batch < 1 || batch > 10) {
+  const batch = parseBatchArg(argv)
+  if (batch === null) {
     console.log(
-      '❌ 用法错 —— --batch 必须是 1..10 的整数(共享活文档上每批最多 10 行,超了就不是"小批"而是批量改写)',
+      `❌ 用法错 —— --batch 必须是 1..${MAX_BATCH} 的整数(规格 §4.3:每批最多 ${MAX_BATCH} 行,超了就不是"小批"而是批量改写)`,
     )
     return 2
   }
@@ -358,5 +371,13 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { planRow, planAll, dimsOf, MAX_LEN }
+export const __test__ = {
+  planRow,
+  planAll,
+  dimsOf,
+  emit,
+  parseBatchArg,
+  MAX_LEN,
+  MAX_BATCH,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
