@@ -22,12 +22,18 @@ import {
 } from '../src/services/upstream-adapters/trae-adapter.js'
 import {
   buildExchangeTokenBody,
+  buildQueryBlocks,
+  buildTraeCustomModel,
+  createStopSequenceFilter,
   deriveBizSessionId,
   extractTokenPayload,
   flattenQuery,
   normalizeEventName,
   parseExpiresAt,
+  resolveReasoningEffortLevel,
+  responseFormatHint,
   splitSseBlocks,
+  TRAE_JSON_OBJECT_HINT,
 } from '../src/services/upstream-adapters/trae-protocol.js'
 import type {
   AdapterAccountContext,
@@ -72,6 +78,21 @@ function makeRelayFetchStub(
 ) {
   return vi.fn(async (input: string | URL) => {
     const url = String(input)
+    if (url.endsWith('/stop')) return jsonResponse({ ok: true })
+    if (url.includes('/events')) return sseResponse(sseText)
+    return jsonResponse(createBody)
+  })
+}
+
+/** 打桩 fetch:model_list → 给定模型元数据;其余同 makeRelayFetchStub */
+function makeFetchStubWithModelList(
+  modelConfigs: unknown[],
+  sseText: string,
+  createBody: unknown = { data: { chat_session_id: 'cs-1', message_id: 'ms-1' } },
+) {
+  return vi.fn(async (input: string | URL) => {
+    const url = String(input)
+    if (url.includes('model_list')) return jsonResponse({ model_configs: modelConfigs })
     if (url.endsWith('/stop')) return jsonResponse({ ok: true })
     if (url.includes('/events')) return sseResponse(sseText)
     return jsonResponse(createBody)
@@ -275,7 +296,12 @@ describe('SSE 事件流解析', () => {
     expect(payload.mode).toBe('code')
     expect(payload.env).toBe('remote')
     const im = payload.initial_message as Record<string, unknown>
-    expect(im.query).toBe('[System Instructions]\nS\n\n[User]\nU')
+    // 线上 web 客户端形状:query 是 JSON.stringify(块数组),不是裸文本
+    expect(im.query).toBe(
+      JSON.stringify([
+        { type: 'text', data: { content: '[System Instructions]\nS\n\n[User]\nU' } },
+      ]),
+    )
     expect(im.model_name).toBe('glm-5.3')
     expect(im.agent_type).toBe('solo_agent_remote')
     expect(im.model_selection_strategy).toBe('manual')
@@ -537,6 +563,190 @@ describe('classifyUpstreamFailure 语义映射', () => {
         String((err as Error).message),
       ),
     ).toBe('server')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 10. 专有协议补全:query 块数组 / custom_model / reasoning_effort / json / stop
+// ---------------------------------------------------------------------------
+
+describe('Trae 专有协议字段', () => {
+  const modelConfigs = [
+    {
+      name: 'glm-5.3',
+      display_name: 'GLM-5.3',
+      provider: 'zhipu',
+      config_source: 1,
+      multimodal: true,
+      prompt_max_tokens: 200000,
+      reasoning_effort_config: {
+        support_thinking: true,
+        options: ['low', 'medium', 'high'],
+        default_level: 'medium',
+      },
+    },
+  ]
+
+  it('query 按线上块数组形状序列化(buildQueryBlocks 纯函数)', () => {
+    expect(buildQueryBlocks('')).toEqual([])
+    expect(buildQueryBlocks('hi')).toEqual([{ type: 'text', data: { content: 'hi' } }])
+  })
+
+  it('custom_model 来自 model_list:prompt_max_tokens/multimodal/provider/reasoning 等级', async () => {
+    const fetchImpl = makeFetchStubWithModelList(modelConfigs, 'event: done\ndata: {}\n\n')
+    const result = await traeAdapter.executeChat!(
+      makeCtx('acc-cm'),
+      makeReq({ reasoningEffort: 'high' }),
+      { fetchImpl },
+    )
+    await collectChunks(result.stream!)
+
+    const fetchUrls = fetchImpl.mock.calls.map(([u]) => String(u))
+    expect(fetchUrls.some((u) => u.includes('model_list'))).toBe(true)
+
+    const im = getCreatePayload(fetchImpl).initial_message as Record<string, unknown>
+    const cm = im.custom_model as Record<string, unknown>
+    expect(cm).toMatchObject({
+      provider: 'zhipu',
+      is_preset: true,
+      config_name: 'glm-5.3',
+      config_source: 1,
+      model_name: 'glm-5.3',
+      display_model_name: 'GLM-5.3',
+      use_remote_service: true,
+      multimodal: true,
+      prompt_max_tokens: 200000,
+      reasoning_effort_level: 'high',
+    })
+  })
+
+  it('auto 不带 custom_model;reasoning 非法 → 回退 default_level', async () => {
+    const fetchAuto = makeFetchStubWithModelList(modelConfigs, 'event: done\ndata: {}\n\n')
+    const rAuto = await traeAdapter.executeChat!(
+      makeCtx('acc-auto'),
+      makeReq({ model: 'auto', reasoningEffort: 'high' }),
+      { fetchImpl: fetchAuto },
+    )
+    await collectChunks(rAuto.stream!)
+    const imAuto = getCreatePayload(fetchAuto).initial_message as Record<string, unknown>
+    expect(imAuto.custom_model).toBeUndefined()
+    expect(imAuto.query).toBe(JSON.stringify(buildQueryBlocks(flattenQuery(makeReq().messages))))
+
+    const fetchBad = makeFetchStubWithModelList(modelConfigs, 'event: done\ndata: {}\n\n')
+    const rBad = await traeAdapter.executeChat!(
+      makeCtx('acc-bad'),
+      makeReq({ reasoningEffort: 'ultra' }),
+      { fetchImpl: fetchBad },
+    )
+    await collectChunks(rBad.stream!)
+    const imBad = getCreatePayload(fetchBad).initial_message as Record<string, unknown>
+    expect((imBad.custom_model as Record<string, unknown>).reasoning_effort_level).toBe('medium')
+  })
+
+  it('resolveReasoningEffortLevel:未请求不发、support_thinking=false 不发、无合法默认不发', () => {
+    const cfg = modelConfigs[0]
+    expect(resolveReasoningEffortLevel(cfg, undefined)).toBeUndefined()
+    expect(resolveReasoningEffortLevel(cfg, 'low')).toBe('low')
+    expect(resolveReasoningEffortLevel(cfg, 2)).toBe('medium') // 无匹配 options → default_level
+    expect(
+      resolveReasoningEffortLevel(
+        { reasoning_effort_config: { support_thinking: false, options: ['low'] } },
+        'low',
+      ),
+    ).toBeUndefined()
+    expect(
+      resolveReasoningEffortLevel(
+        { reasoning_effort_config: { options: ['low'], default_level: 'bad' } },
+        'ultra',
+      ),
+    ).toBeUndefined()
+  })
+
+  it('buildTraeCustomModel:无元数据时只发协议必需字段,不臆造 provider/ak/base_url', () => {
+    const cm = buildTraeCustomModel('glm-5.3', null)
+    expect(cm).toEqual({
+      is_preset: true,
+      config_name: 'glm-5.3',
+      config_source: 1,
+      model_name: 'glm-5.3',
+      display_model_name: 'glm-5.3',
+      use_remote_service: true,
+    })
+    expect(buildTraeCustomModel('auto', null)).toBeUndefined()
+    expect(buildTraeCustomModel('kimi-k2-work', null)?.model_name).toBe('kimi-k2')
+  })
+
+  it('json_object 注入 JSON-only 提示;json_schema 同提示不重复注入', async () => {
+    const fetchObj = makeRelayFetchStub('event: done\ndata: {}\n\n')
+    const rObj = await traeAdapter.executeChat!(
+      makeCtx('acc-json'),
+      makeReq({ responseFormat: { type: 'json_object' } }),
+      { fetchImpl: fetchObj },
+    )
+    await collectChunks(rObj.stream!)
+    const imObj = getCreatePayload(fetchObj).initial_message as Record<string, unknown>
+    const contentObj = (JSON.parse(String(imObj.query)) as Array<{ data: { content: string } }>)[0]!
+      .data.content
+    expect(contentObj).toBe(`[System Instructions]\n${TRAE_JSON_OBJECT_HINT}\n\n[User]\n你好`)
+
+    const schema = { type: 'object', properties: { a: { type: 'string' } } }
+    const schemaHint = responseFormatHint({
+      type: 'json_schema',
+      json_schema: { name: 'x', schema },
+    })!
+    const fetchSchema = makeRelayFetchStub('event: done\ndata: {}\n\n')
+    const rSchema = await traeAdapter.executeChat!(
+      makeCtx('acc-json2'),
+      makeReq({
+        messages: [
+          { role: 'system', content: `Base\n\n${schemaHint}` },
+          { role: 'user', content: 'u' },
+        ],
+        responseFormat: { type: 'json_schema', json_schema: { name: 'x', schema } },
+      }),
+      { fetchImpl: fetchSchema },
+    )
+    await collectChunks(rSchema.stream!)
+    const imSchema = getCreatePayload(fetchSchema).initial_message as Record<string, unknown>
+    const contentSchema = (
+      JSON.parse(String(imSchema.query)) as Array<{ data: { content: string } }>
+    )[0]!.data.content
+    expect(contentSchema.split(schemaHint)).toHaveLength(2) // 只出现一次
+  })
+
+  it('stop 序列跨帧截断:前缀扣留、命中即停、finish_reason=stop', async () => {
+    const sse = [
+      'event: message\ndata: {"delta":"你好"}\n\n',
+      'event: message\ndata: {"delta":"世"}\n\n',
+      'event: message\ndata: {"delta":"界之后的正文"}\n\n',
+      'data: [DONE]\n\n',
+    ].join('')
+    const fetchImpl = makeRelayFetchStub(sse)
+    const result = await traeAdapter.executeChat!(
+      makeCtx('acc-stop'),
+      makeReq({ stop: ['世界'] }),
+      { fetchImpl },
+    )
+    const chunks = await collectChunks(result.stream!)
+    expect(deltaContents(chunks).join('')).toBe('你好')
+    const last = chunks[chunks.length - 1] as { choices: Array<{ finish_reason: string | null }> }
+    expect(last.choices[0]?.finish_reason).toBe('stop')
+    // 命中后必须尽力收尾上游会话
+    expect(fetchImpl.mock.calls.some(([u]) => String(u).endsWith('/stop'))).toBe(true)
+  })
+
+  it('createStopSequenceFilter 纯函数:前缀扣留、无命中 flush 余量、命中后 flush 为空', () => {
+    const filter = createStopSequenceFilter(['世界'])!
+    expect(filter.feed('你好')).toEqual({ emit: '你', hit: false })
+    expect(filter.feed('世')).toEqual({ emit: '好', hit: false })
+    expect(filter.feed('界X')).toEqual({ emit: '', hit: true })
+    expect(filter.flush()).toBe('')
+
+    const plain = createStopSequenceFilter(['zz'])!
+    expect(plain.feed('abc')).toEqual({ emit: 'ab', hit: false })
+    expect(plain.feed('d')).toEqual({ emit: 'c', hit: false })
+    expect(plain.flush()).toBe('d')
+    expect(createStopSequenceFilter([])).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

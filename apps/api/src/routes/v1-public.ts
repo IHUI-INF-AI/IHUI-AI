@@ -143,6 +143,9 @@ const chatCompletionSchema = z.object({
   // OpenAI function-calling 透传(2026-10-22):渠道直连与账号池上游均按 OpenAI 形状处理
   tools: z.array(z.unknown()).optional(),
   tool_choice: z.unknown().optional(),
+  // 输出控制(2026-10-22 协议补全):stop 支持 string | string[];reasoning_effort 支持字符串或数字等级
+  stop: z.union([z.string(), z.array(z.string())]).optional(),
+  reasoning_effort: z.union([z.string(), z.number()]).optional(),
 })
 
 /** 提取 message content 的纯文本(计费/审计用;多模态 parts 取 text 段,null/缺省 → '') */
@@ -174,6 +177,8 @@ const completionRequestSchema = z.object({
   temperature: z.number().optional(),
   max_tokens: z.number().int().positive().optional(),
   maxTokens: z.number().int().positive().optional(),
+  stop: z.union([z.string(), z.array(z.string())]).optional(),
+  reasoning_effort: z.union([z.string(), z.number()]).optional(),
 })
 
 /** chat.completion → legacy text_completion 响应形态适配(/v1/completions 用) */
@@ -613,6 +618,10 @@ async function streamChatCompletion(
     responseFormat?: unknown
     /** OpenAI 协议扩展:seed 透传(符合范围 0-999999) */
     seed?: number
+    /** OpenAI 输出控制:stop 序列(账号池 Trae 走本地截断) */
+    stop?: string | string[]
+    /** OpenAI 输出控制:reasoning_effort(账号池 Trae 映射 custom_model.reasoning_effort_level) */
+    reasoningEffort?: string | number
     /** 响应形态:'chat'=chat.completion.chunk(默认)| 'text'=legacy text_completion chunk(/v1/completions) */
     flavor?: 'chat' | 'text'
     /** 两段式计费:preDeductQuota 预扣凭证(recordCall 透传结算) */
@@ -633,6 +642,7 @@ async function streamChatCompletion(
   const id = `chatcmpl-${randomUUID()}`
   const created = Math.floor(Date.now() / 1000)
   const { model, messages, temperature, maxTokens, userId } = opts
+  const { stop, reasoningEffort } = opts
   const isTextFlavor = opts.flavor === 'text'
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
@@ -687,6 +697,9 @@ async function streamChatCompletion(
       // function-calling 透传(2026-10-22):tools/tool_choice 原样进渠道 body 与账号池 norm
       if (opts.tools !== undefined) baseBody.tools = opts.tools
       if (opts.toolChoice !== undefined) baseBody.tool_choice = opts.toolChoice
+      // 输出控制(2026-10-22):渠道原样,账号池按平台映射/本地截断
+      if (stop !== undefined) baseBody.stop = stop
+      if (reasoningEffort !== undefined) baseBody.reasoning_effort = reasoningEffort
       const channelParamOps = await applyParamOpsToBody(baseBody, { model })
       const fwd = await forwardToChannel({
         model,
@@ -698,6 +711,8 @@ async function streamChatCompletion(
         seed: opts.seed,
         tools: opts.tools,
         toolChoice: opts.toolChoice,
+        stop,
+        reasoningEffort,
         userId,
         affinityKey: opts.affinityKey,
         bodyOverride: channelParamOps.body,
@@ -1333,6 +1348,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           stream: parsed.data.stream ?? false,
           temperature: parsed.data.temperature,
           maxTokens: parsed.data.maxTokens ?? parsed.data.max_tokens,
+          stop: parsed.data.stop,
+          reasoning_effort: parsed.data.reasoning_effort,
         },
         'text',
       )
@@ -1361,6 +1378,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       seed,
       tools,
       tool_choice,
+      stop,
+      reasoning_effort,
     } = body
 
     // OpenAI 协议扩展:json_schema 注入 system 提示 + seed 透传 + stream_usage 检测
@@ -1554,6 +1573,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         seed: upstreamSeed,
         tools,
         toolChoice: tool_choice,
+        stop,
+        reasoningEffort: reasoning_effort,
         // 响应形态 + 两段式计费凭证 + 渠道亲和性
         flavor,
         preDeducted: preDeduction,
@@ -1637,6 +1658,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           // function-calling 透传(2026-10-22):tools/tool_choice 原样进渠道 body 与账号池 norm
           if (tools !== undefined) baseBody.tools = tools
           if (tool_choice !== undefined) baseBody.tool_choice = tool_choice
+          // 输出控制(2026-10-22):渠道原样,账号池按平台映射/本地截断
+          if (stop !== undefined) baseBody.stop = stop
+          if (reasoning_effort !== undefined) baseBody.reasoning_effort = reasoning_effort
           // 参数覆盖系统与 ai-service 路径同源(渠道路径同样生效)
           const paramOpsResult = await applyParamOpsToBody(baseBody, { model: resolvedModel })
           const fwd = await forwardToChannel({
@@ -1649,6 +1673,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             seed: upstreamSeed,
             tools,
             toolChoice: tool_choice,
+            stop,
+            reasoningEffort: reasoning_effort,
             userId: apiKey?.userId,
             affinityKey: apiKey?.id,
             bodyOverride: paramOpsResult.body,
@@ -1666,6 +1692,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         const body: Record<string, unknown> = { messages, model: resolvedModel }
         if (temperature !== undefined) body.temperature = temperature
         if (maxTokens !== undefined) body.max_tokens = maxTokens
+        // 输出控制透传(2026-10-22):与流式路径同源
+        if (stop !== undefined) body.stop = stop
+        if (reasoning_effort !== undefined) body.reasoning_effort = reasoning_effort
         // P0-5 BYOK(2026-07-30):非流式也透传 metadata.userId + byokMode,
         // 让 ai-service 能识别 BYOK 调用并走用户自有 key 路径(与流式 streamChatCompletion 对齐)。
         if (apiKey?.userId) {
