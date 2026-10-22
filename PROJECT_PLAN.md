@@ -9631,6 +9631,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 <!-- 已归档(2026-10-07:✅(2026-09-30) G-998163 票3：昂贵/不可逆动作前的恢复点复查 + 在飞启动按 key 收敛（强推）,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md -->
 <!-- 已归档(2026-10-14:G-998164 票4：事件面按连接角色门控，不允许就返回 no-op 而不是抛错（观察）（出处 b76-12f）：- ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-14:G-998165 票5：ACK 竞态窗口的双限额暂存与"按 id 匹配"（观察）（出处 b76-12f）：- 机制：`p,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
+- [ ] **G-56 D:\caches 泄漏点迁移(等环境条件:TEMP 切换窗口)** —— 实测本机进程环境 TEMP/TMP/TMPDIR=D:\caches\Temp、PNPM_HOME=D:\caches\pnpm,盘面已积累数百个本项目产物(守门 96 每轮点名)。D 盘根不在本次"项目产物不外流"治理范围但同病。不能现在搬:TEMP 被运行中进程持有。做法:① 与 G-158 同窗执行(该窗内本就要重建环境引用面);② 决策点=迁入 G:\IHUI-AI\.DevEnv\cache 还是保持独立盘;③ HKCU 环境块四变量改指新址,重启宿主生效(环境块只被新进程继承,见台账 L73 那条 TEMP 教训)。 〔改号(2026-10-14):原G-814435〕
 <!-- 已归档(2026-10-07:✅(2026-09-30) G-998166 票 1【强推】异步句柄的「await 后对象身份复核」+ disposed,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md -->
 <!-- 已归档(2026-10-08:✅(2026-10-08) G-998170 票3：续传锚点必须「身份 + 序号」共同判定，序号只在同一 epoch 内,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-08_auto-archive.md -->
 <!-- 已归档(2026-10-07:✅(2026-09-30) G-998171 票1：帧水位与纪元（logEpoch + (fromSeq,toSeq] ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_2026-10-07_auto-archive.md -->
