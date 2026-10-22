@@ -268,8 +268,42 @@ describe('relay-usage-ledger', () => {
       expect(values.ts).toBeInstanceOf(Date)
     })
 
-    it('显式 ts 原样使用', async () => {
-      const ts = new Date('2026-10-22T08:00:00Z')
+    it('latencyMs 落库前归一为整数(小数/NaN/负数都不会打挂 integer 列)', async () => {
+      await recordAccountUsage({
+        accountId: 'acc-1',
+        providerCode: 'workbuddy',
+        model: 'hy3',
+        promptTokens: 17,
+        completionTokens: 34,
+        ok: true,
+        latencyMs: 761.6792,
+      })
+      expect((sinks.insert.value as Record<string, unknown>).latencyMs).toBe(762)
+
+      await recordAccountUsage({
+        accountId: 'acc-1',
+        providerCode: 'workbuddy',
+        model: 'hy3',
+        promptTokens: 1,
+        completionTokens: 1,
+        ok: true,
+        latencyMs: Number.NaN,
+      })
+      expect((sinks.insert.value as Record<string, unknown>).latencyMs).toBe(0)
+
+      await recordAccountUsage({
+        accountId: 'acc-1',
+        providerCode: 'workbuddy',
+        model: 'hy3',
+        promptTokens: 1,
+        completionTokens: 1,
+        ok: true,
+        latencyMs: -5,
+      })
+      expect((sinks.insert.value as Record<string, unknown>).latencyMs).toBe(0)
+    })
+
+    it('显式 ts 原样使用', async () => {      const ts = new Date('2026-10-22T08:00:00Z')
       await recordAccountUsage({
         accountId: 'acc-1',
         providerCode: 'trae',
