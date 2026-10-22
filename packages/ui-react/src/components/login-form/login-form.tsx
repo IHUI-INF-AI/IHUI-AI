@@ -13,6 +13,7 @@ import { AgreementNoticeDialog } from './agreement-notice-dialog'
 import { EmailCodeLoginForm } from './email-code-login-form'
 import { PasswordLoginForm } from './password-login-form'
 import { PhoneCodeLoginForm } from './phone-code-login-form'
+import { PasskeyLoginButton } from './passkey-login-button'
 import { QrTab } from './qr-tab'
 import { ThirdPartyLoginButtons } from './third-party-login-buttons'
 import type { LoginFormProps, LoginTab } from './types'
@@ -95,6 +96,11 @@ export function LoginForm(props: LoginFormProps) {
   } = props
 
   const enabledTabs: LoginTab[] = tabs ?? ['email', 'phone', 'password', 'qr']
+  // Passkey(WebAuthn)是 web 能力:只有调用方注入了 auth/options + auth/verify 才渲染。
+  // 小程序/RN 无 WebAuthn,不注入即无入口(平台豁免见 PROJECT_PLAN G-874)。
+  const passkeyEnabled =
+    typeof apiClient.passkeyAuthOptions === 'function' &&
+    typeof apiClient.passkeyAuthVerify === 'function'
   const [tab, setTab] = React.useState<LoginTab>(defaultTab ?? enabledTabs[0] ?? 'email')
   const [agreed, setAgreed] = React.useState(defaultAgreed)
   const [showAgreeErr, setShowAgreeErr] = React.useState(false)
@@ -195,6 +201,11 @@ export function LoginForm(props: LoginFormProps) {
             </TabsTrigger>
           )}
         </TabsList>
+
+        {/* Passkey 免密登录(g-874):web 注入 options/verify 后出现在表单顶部;扫码 tab 不重复展示 */}
+        {passkeyEnabled && tab !== 'qr' && (
+          <PasskeyLoginButton t={t} apiClient={apiClient} onSuccess={onSuccess} className="mt-2" />
+        )}
 
         {enabledTabs.includes('email') && (
           // 2026-09-19 紧凑化:mt-2→mt-1(覆盖 TabsContent 全局默认)
