@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * gate-scope.mjs — 守门档位判定(2026-10-22 立)
  *
@@ -119,30 +123,39 @@ export function resolveGateScope(stagedPaths) {
   if (process.env.IHUI_GATE_SCOPE === 'full') {
     return { scope: 'full', reason: 'IHUI_GATE_SCOPE=full 强制全量', businessCount: 0, judgementLibs: [] }
   }
-  // 判不出 ⇒ 全量(失效方向永远是"多跑")。
+  // 2026-10-22 机主令"那就上 CI":全量守门移交 CI(.github/workflows/guardian-full.yml),
+  // **本地一律只跑元门档** —— 包括改 apps/、packages/ 的业务提交。
+  //
+  // 为什么业务路径不再触发 full:269 道门在本机 12 物理核上要约 400s(全仓扫描门的 CPU 下限),
+  // 那是算力问题;机主要求本地提交进 1 分钟,所以本地求快、CI 求全。
+  //
+  // 代价(必须知道):本地 pre-commit **不再拦业务代码错误**(UI 样式/组件规范/API 路由等),
+  // 那些判据只在 CI 跑。提交会先落地,CI 红了你再修 —— 这是"本地快 + CI 全"的既定分工,
+  // 不是漏判。要本地也全量(发版前/排障):IHUI_GATE_SCOPE=full。
+  //
+  // 仍然强制 full 的只剩**判据库**:那些文件被大量门 import,改错会让门静默失效,
+  // 而 CI 是延迟发现 ⇒ 本地必须当场验。
   if (!Array.isArray(stagedPaths) || stagedPaths.length === 0) {
     return { scope: 'full', reason: '暂存集为空或读不到', businessCount: 0, judgementLibs: [] }
   }
   const norm = stagedPaths.map((p) => String(p).replace(/\\/g, '/').trim()).filter(Boolean)
-  const business = norm.filter((p) => BUSINESS_PATH_RE.test(p))
-  if (business.length > 0) {
-    return {
-      scope: 'full',
-      reason: `含业务路径 ${business.length} 个(如 ${business[0]})`,
-      businessCount: business.length,
-      judgementLibs: [],
-    }
-  }
   const libs = norm.filter((p) => JUDGEMENT_LIBS.has(p))
   if (libs.length > 0) {
     return {
       scope: 'full',
-      reason: `含判据库 ${libs.join(' / ')}(改错会让门静默失效)`,
+      reason: `含判据库 ${libs.join(' / ')}(改错会让门静默失效,CI 是延迟发现 ⇒ 本地当场验)`,
       businessCount: 0,
       judgementLibs: libs,
     }
   }
-  return { scope: 'meta', reason: '仅工具 / 文档 / 钩子路径,不含业务代码与判据库', businessCount: 0, judgementLibs: [] }
+  const business = norm.filter((p) => BUSINESS_PATH_RE.test(p))
+  const bizNote = business.length > 0 ? `(含业务路径 ${business.length} 个,业务判据归 CI)` : ''
+  return {
+    scope: 'meta',
+    reason: `本地元门档:全量守门归 CI${bizNote}`,
+    businessCount: business.length,
+    judgementLibs: [],
+  }
 }
 
 /** 该路径是否属于"只影响调度"的基础设施(供日志说明用)。 */
@@ -151,3 +164,4 @@ export function isSchedulerLib(p) {
 }
 
 export const __testing = { BUSINESS_PATH_RE, JUDGEMENT_LIBS, SCHEDULER_LIBS, META_SCRIPT_RE }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
