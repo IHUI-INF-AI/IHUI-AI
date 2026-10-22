@@ -13,29 +13,39 @@
  *   - D2 web:        /login               (Vue Router beforeEach 守卫)
  *   - D4 mobile:     /auth/login          (uni-app)
  *
- * G 盘 IHUI-AI(统一入口):
- *   - PC 主入口:    /sso/login            (SaaS 风格独立页 + 扫码登录)
- *   - 弹窗入口:     (auth)/login dialog   (openLoginDialogOnce,懒触发,见 src/lib/login-dialog-trigger.ts)
+ * G 盘 IHUI-AI(两条入口,语义不同,不是"统一到一条"):
+ *   - 普通登录入口: /login                (软路由 app/login/:挂载即打开全局 LoginDialog 再回前一页,
+ *                                          无来路降级首页;并承担 ?method=qr&embed=true 的 RN WebView 嵌二维码)
+ *   - SSO 授权页:   /sso/login            (全屏独立页,供外部子项目带 ?redirect= 进来授权;
+ *                                          即本文件下方鉴权射程 307 的目标页)
+ *   - 弹窗基座:     src/lib/login-dialog-trigger.ts(openLoginDialogOnce,懒触发)
  *   - 移动端:       (auth)/callback/*     (OAuth callback 路由组)
  *
  * 兼容性:若需保留 D 盘旧路径,可在此处添加 redirect 规则,例如:
  *   if (pathname === '/auth/login') {
  *     return NextResponse.redirect(new URL('/sso/login', request.url))
  *   }
- * 当前未启用(项目已统一切换到 /sso/login,旧路径无外部引用)。
+ * 当前未启用:`/auth/login` 在本仓无任何引用面,故不需要这条规则。另一条同型规则已经出过事故并
+ * 被摘除:2026-08-25 随 D 盘老口径接线的 `/login → /sso/login` 永久重定向,会把上面那条 /login
+ * 软路由整页顶成本 SSO 授权页(普通用户被引导进"为 web 授权"的话术),现已不在
+ * src/config/redirects.config.ts 中,该表内注释 + apps/web/tests/auth-login-route-redirect.test.ts
+ * 是它的锁;不得加回。
  *
  * ============================================================================
- * P0-1:未登录访问 /admin/* 时 307 重定向到 SSO 登录页
+ * P0-1:未登录访问受保护页(仅 /admin/* 与 /edu/edu-management/*)时 307 重定向到 SSO 授权页
  * ============================================================================
  * - token 校验:src/lib/auth-utils.ts 的 verifyAccessTokenEdge(Web Crypto API,Edge 兼容)
  * - cookie 读取:auth_token(与 src/lib/cookie-utils.ts 一致),只验签不查库
  * - 重定向目标:/sso/login?redirect=<encoded-original-url>(307 保留 method)
  * - 不阻塞:/admin/unauthorized(让用户看到无权限页)
+ * - 不覆盖:/login(普通登录入口 = 打开全局 LoginDialog 的软路由),它若被重定向成本页下方那条
+ *   SSO 授权页即是 2026-08-25 那次接线事故的复现
  *
  * ============================================================================
  * D2 web guard 公开页白名单(迁移自 D:\历史项目存档\code\edu\client\web\web\src\router\guard.js L10-31)
  * ============================================================================
- * 当前 matcher 只匹配 /admin/*,以下白名单仅作文档化(后续扩展 matcher 时复用):
+ * config.matcher 现为全站 `/:path*`(源站直连守卫要求全请求面生效,见文件末 config),但**鉴权射程
+ * 仍由函数内 isProtectedPath 限定为 /admin 与 /edu/edu-management**;以下白名单仅作文档化:
  *   /, /login, /register, /forget-password, /forgot-password, /reset-password,
  *   /agreement, /about, /help, /feedback, /contact, /pricing, /docs,
  *   /sso/*, /share/*, /api/*, /_next/*, /favicon.ico, /admin/unauthorized
