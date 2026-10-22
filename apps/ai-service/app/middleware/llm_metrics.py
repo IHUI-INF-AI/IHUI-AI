@@ -13,6 +13,10 @@
 """
 
 import logging
+import re
+import time
+from collections import deque
+from dataclasses import dataclass
 
 from prometheus_client import Counter, Gauge, Histogram
 
@@ -210,6 +214,11 @@ def record_llm_outcome(
             llm_stream_interrupt_total.labels(
                 provider=provider, model=model, reason=interrupt_reason
             ).inc()
+        # 号池成员健康采样(2026-10-27 立):本函数每次上游尝试都会被调到,
+        # 天然是唯一采样点。腿成功率按 model(号池腿名)滚动窗口更新;
+        # 冷却/额度四档快照走节流刷新(combo_router 现算,不在这里复制状态)。
+        _sample_pool_leg_outcome(model, status)
+        _refresh_pool_health_metric()
     except Exception as e:
         logger.warning("LLM 结果指标记录失败(忽略,不阻塞业务): %s", e)
 
@@ -543,5 +552,240 @@ LLM_TOKEN_COMPACTION_RATIO = Histogram(
     ['strategy'],
     buckets=(0.1, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 0.99),
 )
+
+
+# =============================================================================
+# 号池成员健康 gauge 族(2026-10-27 立)
+#
+# 立因:combo_router._health(ProviderHealthState)是纯进程内存——零指标、重启即
+# 归零,导致"哪家挂了/在冷却/连续失败几次/哪家疑似欠费"在大屏上完全不可见,
+# 而 monitoring/prometheus/alerts.yml 自证欠费 402 不会响。本 gauge 族把这格
+# 内存态变成可被抓取的时序;采样点是 record_llm_outcome(每次上游尝试都调到)。
+#
+# 标签纪律(对齐 apps/api/src/plugins/business-metrics.ts 既有 IHUI_SERIES_CAP
+# 口径,单一实现即本区,不在别处复算):
+# - 唯一标签 leg = 归一化后的号池腿名(provider 模型串,如 "kimi-k2"),
+#   normalize_pool_leg 清洗 + 截断;基数上限 POOL_LEG_SERIES_CAP=512,
+#   超限的新腿**丢弃写入并计入 llm_pool_series_dropped_total**(开放集不开
+#   零基线,超限计数,与 API 侧同款纪律);
+# - 禁止把 traceId / 时刻 / 计数值 / 厂商异常原文写进任何标签——额度/欠费
+#   状态以**封闭数值档**表达(quota_state:0/1/2),厂商原文只进日志不进标签。
+#
+# 呈现判读口径:
+# - ihui_llm_pool_leg_in_cooldown:1 = 该腿此刻在冷却被跳过,0 = 未在冷却。
+#   combo 配置链里的腿有零基线(全集重算);仅出现过但已不在配置里的腿,
+#   series 会被 remove(冷却幽灵不滞留)。
+# - ihui_llm_pool_leg_cooldown_remaining_seconds:本次冷却还剩几秒(节流刷新,
+#   新鲜度下限 = 下一次任意 LLM 尝试)。
+# - ihui_llm_pool_leg_consecutive_failures:连续 429 失败计数(成功即清零)。
+# - ihui_llm_pool_leg_success_ratio:该腿最近 POOL_SUCCESS_WINDOW 次(≤50)
+#   上游尝试成功率 0..1。序列缺失 = 从未被采样(开放集,不铺零基线);
+#   status='interrupted' 是客户端断流不是腿的错,不入样本。
+# - ihui_llm_pool_leg_quota_state:封闭三档。0=无证据(从未命中额度判据),
+#   1=近期正常(mark_success 后无额度信号),2=欠费/额度耗尽疑似
+#   (命中 first_quota_marker/is_quota_exhaustion_error 的封闭清单)。
+# =============================================================================
+
+# 基数上限与标签清洗参数(与 API 侧 business-metrics.ts 同纪律,值现读)
+POOL_LEG_SERIES_CAP = 512
+POOL_LEG_LABEL_MAX_LEN = 64
+POOL_SUCCESS_WINDOW = 50
+# 冷却快照节流:record_llm_outcome 高频调用,5s 内的重复刷新直接跳过
+POOL_REFRESH_MIN_INTERVAL_SECONDS = 5.0
+
+# quota_state 封闭档(唯一合法取值集合;测试 import 本常量,禁止抄第二份)
+POOL_QUOTA_STATE_NO_EVIDENCE = 0
+POOL_QUOTA_STATE_OK = 1
+POOL_QUOTA_STATE_SUSPECT = 2
+POOL_QUOTA_STATES: frozenset[int] = frozenset(
+    {POOL_QUOTA_STATE_NO_EVIDENCE, POOL_QUOTA_STATE_OK, POOL_QUOTA_STATE_SUSPECT}
+)
+
+# 超限丢弃计数(计"被丢弃的写入次数",不是样本数)
+llm_pool_series_dropped_total = Counter(
+    'ihui_llm_pool_series_dropped_total',
+    'Pool health metric writes dropped at the leg label cardinality cap '
+    '(counts overflow writes, not samples)',
+)
+
+llm_pool_leg_in_cooldown = Gauge(
+    'ihui_llm_pool_leg_in_cooldown',
+    'Whether a pool leg is currently cooling down (1) or not (0); full-set '
+    'recomputation on every publish, legs absent from the batch are removed',
+    ['leg'],
+)
+
+llm_pool_leg_cooldown_remaining_seconds = Gauge(
+    'ihui_llm_pool_leg_cooldown_remaining_seconds',
+    'Remaining cooldown seconds for a pool leg (throttled refresh; freshness '
+    'bounded by the next LLM attempt)',
+    ['leg'],
+)
+
+llm_pool_leg_consecutive_failures = Gauge(
+    'ihui_llm_pool_leg_consecutive_failures',
+    'Consecutive 429 failures for a pool leg (reset to 0 on success; the '
+    'exponential backoff 60s..1800s is driven by this count)',
+    ['leg'],
+)
+
+llm_pool_leg_success_ratio = Gauge(
+    'ihui_llm_pool_leg_success_ratio',
+    'Success ratio over the recent <=50 sampled upstream attempts for the '
+    'leg (1=ok, 0=error/timeout/connection; interrupted not sampled; '
+    'missing series = never sampled)',
+    ['leg'],
+)
+
+llm_pool_leg_quota_state = Gauge(
+    'ihui_llm_pool_leg_quota_state',
+    'Closed ladder of account-quota evidence per leg: 0=no evidence, '
+    '1=recently healthy without quota signal, 2=suspected arrearage / '
+    'insufficient quota (matched the closed marker list; vendor raw text '
+    'never enters labels)',
+    ['leg'],
+)
+
+
+@dataclass(frozen=True)
+class PoolLegHealth:
+    """一条腿的健康快照(set_pool_leg_health 的输入)。"""
+
+    in_cooldown: bool
+    cooldown_remaining_seconds: float
+    consecutive_failures: int
+    quota_state: int
+
+
+_POOL_LEG_BAD_CHARS = re.compile(r'[^a-z0-9._/-]+')
+
+# 已登记腿名(全局限额;成功采样与健康快照共用同一族,防两把尺子各开一池)
+_known_pool_legs: set[str] = set()
+# 腿 -> 最近 N 次尝试结果(1=ok,0=失败),滚动窗口
+_pool_leg_outcomes: dict[str, deque[int]] = {}
+# 上一次成功发布过冷却快照的腿(全集重算时用来摘除消失的腿)
+_published_pool_health_legs: set[str] = set()
+_last_pool_refresh_at: float | None = None
+
+
+def normalize_pool_leg(raw: str | None) -> str:
+    """把号池腿名归一为有界安全标签值。
+
+    规则:strip → lower → 去空白 → 非法字符折叠为单个 '_' → 截断
+    POOL_LEG_LABEL_MAX_LEN。清洗后为空返回 ''(调用方按丢弃处理)。
+    """
+    if raw is None:
+        return ''
+    text = raw.strip().lower()
+    text = re.sub(r'\s+', '', text)
+    text = _POOL_LEG_BAD_CHARS.sub('_', text)
+    text = text.strip('_')
+    return text[:POOL_LEG_LABEL_MAX_LEN]
+
+
+def _pool_leg_label(raw: str | None) -> str | None:
+    """归一 + 基数上限登记。返回 None = 本次写入被丢弃(已计数)。"""
+    leg = normalize_pool_leg(raw)
+    if not leg:
+        llm_pool_series_dropped_total.inc()
+        return None
+    if leg in _known_pool_legs:
+        return leg
+    if len(_known_pool_legs) >= POOL_LEG_SERIES_CAP:
+        llm_pool_series_dropped_total.inc()
+        return None
+    _known_pool_legs.add(leg)
+    return leg
+
+
+def _sample_pool_leg_outcome(model: str, status: str) -> None:
+    """record_llm_outcome 的腿成功率采样(interrupted 不入样本)。"""
+    if status == 'ok':
+        outcome = 1
+    elif status in ('error', 'timeout', 'connection'):
+        outcome = 0
+    else:
+        return
+    leg = _pool_leg_label(model)
+    if leg is None:
+        return
+    window = _pool_leg_outcomes.get(leg)
+    if window is None:
+        window = deque(maxlen=POOL_SUCCESS_WINDOW)
+        _pool_leg_outcomes[leg] = window
+    window.append(outcome)
+    llm_pool_leg_success_ratio.labels(leg=leg).set(sum(window) / len(window))
+
+
+def set_pool_leg_health(legs: dict[str, PoolLegHealth]) -> None:
+    """整体置值号池腿健康 gauge(全集重算,不是累加;异常一律吞)。
+
+    Args:
+        legs: 原始腿名 -> 快照。调用方(combo_router.publish_health_metric)
+            负责传**当前全集**(配置链腿 ∪ 有健康状态的腿);本批缺席且上次
+            发布过的腿会被 remove(冷却状态不滞留幽灵序列)。
+            quota_state 不在封闭档集合内的按 0(无证据)写,拒绝自创档。
+    """
+    try:
+        current: set[str] = set()
+        for raw, snapshot in legs.items():
+            leg = _pool_leg_label(raw)
+            if leg is None:
+                continue
+            current.add(leg)
+            quota = (
+                snapshot.quota_state
+                if snapshot.quota_state in POOL_QUOTA_STATES
+                else POOL_QUOTA_STATE_NO_EVIDENCE
+            )
+            llm_pool_leg_in_cooldown.labels(leg=leg).set(
+                1.0 if snapshot.in_cooldown else 0.0
+            )
+            remaining = snapshot.cooldown_remaining_seconds
+            llm_pool_leg_cooldown_remaining_seconds.labels(leg=leg).set(
+                float(remaining) if remaining > 0 else 0.0
+            )
+            llm_pool_leg_consecutive_failures.labels(leg=leg).set(
+                float(max(0, snapshot.consecutive_failures))
+            )
+            llm_pool_leg_quota_state.labels(leg=leg).set(float(quota))
+        for gone in _published_pool_health_legs - current:
+            for gauge in (
+                llm_pool_leg_in_cooldown,
+                llm_pool_leg_cooldown_remaining_seconds,
+                llm_pool_leg_consecutive_failures,
+                llm_pool_leg_quota_state,
+            ):
+                try:
+                    gauge.remove(gone)
+                except (KeyError, ValueError):
+                    pass
+        _published_pool_health_legs.clear()
+        _published_pool_health_legs.update(current)
+    except Exception as e:
+        logger.warning("号池腿健康 gauge 写入失败(忽略,不影响业务): %s", e)
+
+
+def _refresh_pool_health_metric() -> None:
+    """节流刷新号池冷却快照(惰性 import combo_router,异常吞掉)。
+
+    llm_metrics 顶层不得依赖 combo_router(循环导入),故在函数体内取;
+    combo_router 未装载/导入失败只 debug —— 观测层坏了不得影响业务路径。
+    """
+    global _last_pool_refresh_at
+    now = time.monotonic()
+    if (
+        _last_pool_refresh_at is not None
+        and now - _last_pool_refresh_at < POOL_REFRESH_MIN_INTERVAL_SECONDS
+    ):
+        return
+    _last_pool_refresh_at = now
+    try:
+        from ..services.combo_router import combo_router
+
+        combo_router.publish_health_metric()
+    except Exception as e:
+        logger.debug("号池健康快照刷新跳过(忽略): %s", e)
+
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
