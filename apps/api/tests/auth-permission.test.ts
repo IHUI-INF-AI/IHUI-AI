@@ -155,7 +155,7 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 import { authRoutes } from '../src/routes/auth.js'
-import { codeStore } from '../src/utils/code-store.js'
+import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store.js'
 
 const NOW = new Date('2026-07-26T00:00:00Z')
 
@@ -210,9 +210,9 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
     await app.close()
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
-    codeStore.clear()
+    await codeStoreTest.reset()
     // 默认鉴权失败(401)
     mockAuthenticate.mockImplementation(() => {
       const err = new Error('Authentication required')
@@ -550,7 +550,7 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
     })
 
     it('验证码正确但用户不存在统一返回 401(防枚举)', async () => {
-      codeStore.set('13800000001', {
+      await putCodeEntry('13800000001', {
         code: '123456',
         expiresAt: Date.now() + 60000,
         sentAt: Date.now(),
@@ -566,7 +566,7 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
     })
 
     it('验证码正确 + 用户存在返回 token', async () => {
-      codeStore.set('13800000001', {
+      await putCodeEntry('13800000001', {
         code: '123456',
         expiresAt: Date.now() + 60000,
         sentAt: Date.now(),
@@ -580,11 +580,11 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
       expect(res.statusCode).toBe(200)
       expect(res.json().data.accessToken).toBe('access-token')
       // 验证码一次性使用
-      expect(codeStore.has('13800000001')).toBe(false)
+      expect(await codeStoreTest.exists('13800000001')).toBe(false)
     })
 
     it('被禁用账号返回 403', async () => {
-      codeStore.set('13800000001', {
+      await putCodeEntry('13800000001', {
         code: '123456',
         expiresAt: Date.now() + 60000,
         sentAt: Date.now(),

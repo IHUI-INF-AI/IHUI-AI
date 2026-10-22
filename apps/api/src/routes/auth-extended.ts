@@ -108,9 +108,9 @@ import { sendSmsCode, isSmsConfigured } from '../services/sms.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
 import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
 import {
-  codeStore,
+  getCodeEntry,
+  putCodeEntry,
   generateCode,
-  cleanupExpiredCodes,
   verifyCode,
   CODE_TTL_MS,
   CODE_RESEND_INTERVAL_MS,
@@ -792,13 +792,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { email, scene } = parsed.data
-      cleanupExpiredCodes()
-      const existing = codeStore.get(email)
+      const existing = await getCodeEntry(email)
       if (existing && Date.now() - existing.sentAt < CODE_RESEND_INTERVAL_MS) {
         return reply.status(429).send(error(429, '请稍候再试'))
       }
       const code = generateCode()
-      codeStore.set(email, {
+      await putCodeEntry(email, {
         code,
         expiresAt: Date.now() + CODE_TTL_MS,
         sentAt: Date.now(),
