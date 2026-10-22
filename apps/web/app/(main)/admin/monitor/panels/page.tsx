@@ -336,7 +336,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
       {/* 左侧导航:21 张盘,按分组 */}
       <aside
         className={cn(
-          'pn-nav shrink-0 overflow-y-auto border-r border-border bg-card/60 transition-[width] duration-200',
+          'pn-nav shrink-0 overflow-y-auto bg-card/60 transition-[width] duration-200',
           navOpen ? 'w-56' : 'w-12',
         )}
       >
@@ -411,7 +411,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
       {/* 主区域 */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 顶栏:标题 + 呈现切换固定在同一行首,工具组靠右;窄容器时工具组整体换行,顺序不乱 */}
-        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card px-3 py-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 bg-card px-3 py-2">
           <div className="flex min-w-0 items-center gap-2">
             <h2 className="min-w-0 truncate text-sm font-semibold text-foreground">
               {dashboard ? stripBrandPrefix(dashboard.title) : '监控面板'}
@@ -485,7 +485,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
         </div>
 
         {pageError && (
-          <div className="border-b border-warning/20 bg-warning/5 px-4 py-1.5 text-[11px] text-warning-text">
+          <div className="border border-warning/25 bg-warning/5 px-4 py-1.5 text-[11px] text-warning-text">
             {pageError}
           </div>
         )}
