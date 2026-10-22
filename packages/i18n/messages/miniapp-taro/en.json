@@ -116,6 +116,7 @@
   "login": {
     "loginSuccess": "Login successful",
     "wechatFailed": "WeChat login failed",
+    "wechatUnavailable": "WeChat login isn't available in this environment, please log in with your phone, email verification code or password instead",
     "login": "Login",
     "logging": "Logging in…",
     "brand": "IHUI AI",
