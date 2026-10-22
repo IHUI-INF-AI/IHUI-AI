@@ -326,7 +326,7 @@ export const WebViewFrame = React.forwardRef<HTMLDivElement, WebViewFrameProps>(
           <div className="flex h-full w-full flex-col">
             {screenshot ? (
               <>
-                <div className="flex items-center gap-1.5 border-b border-border bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
                   <ImageIcon className="h-3.5 w-3.5" />
                   <span>{labels.screenshotNotice}</span>
                 </div>
