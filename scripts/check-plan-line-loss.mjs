@@ -487,13 +487,20 @@ export function mergePointerBodyOf(line) {
   return null
 }
 
+/**
+ * 行首编号(含可选点号/顿号与强调记号)的唯一剥离判据。
+ * `G-1018294.` / `D173` / `**G-580 ` 三族都要剥;点号漏剥会让基线侧残留 `.`、
+ * 而语料侧因前导空格没剥到编号 ⇒ 全文比较两端不等(2026-10-22 实测的最后一格)。
+ */
+const LEADING_ROW_ID_RE = /^\s*\*{0,2}[A-Za-z]{1,3}-?\d+[A-Za-z]?[.、]?\*{0,2}\s*/
+
 /** 基线登记行 → 剥编号后的正文指纹(去空白前 20 字;不足 8 字返回 '' 防误配)。 */
 export function lossFingerprintOf(line) {
   const cb = checkboxBody(line)
   if (cb === null) return ''
   // 编号两族都要剥:G-580(连字符)与 D173/D1047(D 族无连字符)——只剥连字符形态会让
   // D 族指纹带着编号,而摘号行的正文里没有编号 ⇒ 指纹永远匹配不上,豁免对 D 族整族失效。
-  const noId = cb.replace(/^\*{0,2}[A-Z]{1,3}-?\d+[A-Za-z]?\*{0,2}\s*/, '').replace(/^\*+/, '')
+  const noId = cb.replace(LEADING_ROW_ID_RE, '').replace(/^\*+/, '')
   const fp = noId.replace(/\s+/g, '').slice(0, 20)
   return fp.length >= 8 ? fp : ''
 }
@@ -513,6 +520,9 @@ function declaredRowSet() {
 /** 改号行正文归一化:去空白、剥尾部压缩注记、编号统一为占位符(改号本身只动编号)。 */
 const normalizeRenumberBody = (s) =>
   String(s)
+    // 摘号行剥掉〔【归并】…〕前缀后常以 `**` 开头,而基线行剥编号后没有 ⇒ 开头强调记号归一;
+    // 不归一时全文比较会把"同一段正文"判成两端不等(20 字指纹用 includes 恰好掩盖了这一差)。
+    .replace(/^\*+/, '')
     .replace(/〔压缩@[^〕]*〕/g, '')
     .replace(/\s+/g, '')
     .replace(/[A-Za-z]{1,8}-?\d+/g, '<ID>')
@@ -536,47 +546,36 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()
   }
   const lost = new Set()
   const multiSlot = new Set()
-  // 摘号指针豁免的语料:被审面全部摘号指针行的正文(剥指针段后)拼接,一次构建
-  const pointerCorpus = targetSrc
-    .split(/\r?\n/)
-    .map((l) => mergePointerBodyOf(l))
-    .filter((b) => b !== null)
-    .join('\n')
-    .replace(/\s+/g, '')
+  // 摘号/改号豁免语料(2026-10-22 审计加固):被审面全部合法改写行剥指针段/尾注后的
+  // **全文归一化**集合(去空白、剥压缩注记、编号归一)。此前用 20 字指纹做子串匹配 ——
+  // 实测第 21 字起被改写仍会被判"没丢";统一改成全文逐字比较。
+  // `lossFingerprintOf` 只留作 ≥8 字下限,防止极短行的退化解被当语料。
+  const pointerCorpus = new Set(
+    targetSrc
+      .split(/\r?\n/)
+      .map((l) => mergePointerBodyOf(l))
+      .filter((b) => b !== null)
+      // 漂移注释的正文保留了行首编号(`<!-- 漂移副本(...): G-8815945 **… -->`),
+      // 而基线侧已剥编号 ⇒ 语料侧也剥一次,两形态(有号注释/无号摘号)才同基准。
+      .map((b) => b.replace(LEADING_ROW_ID_RE, ''))
+      .map((b) => normalizeRenumberBody(b)),
+  )
   const pointerExempt = (e) => {
     if (!e.line) return false
-    const fp = lossFingerprintOf(e.line)
-    return fp !== '' && pointerCorpus.includes(fp)
+    if (lossFingerprintOf(e.line) === '') return false
+    const cb = checkboxBody(e.line)
+    if (cb === null) return false
+    const body = cb.replace(LEADING_ROW_ID_RE, '')
+    return pointerCorpus.has(normalizeRenumberBody(body))
   }
   // 声明摘除豁免(2026-10-22):整行逐字在摘除台账中 ⇒ 这是被主动删掉的副本/结清行,
   // 不判丢、不回捞。方向从严:只认整行逐字相等,不做指纹/相似度;台账取不到 ⇒ declared 为空,
   // 一切照旧(不误免)。与 pointerExempt 并存:两条通道互不替代。
   const declaredExempt = (e) => typeof e.line === 'string' && declared.has(e.line)
-  // 改号全文豁免(2026-10-22 审计加固):摘号通道的 20 字指纹会漏判"第 21 字起被改写";
-  // 改号通道只允许**全文归一化后逐字相等**(去空白、剥压缩注记、编号归一为占位符),
-  // 因为改号本身只动编号位,正文必须逐字保留。基线旧行正文里的旧号自引用与目标行新号
-  // 在归一化后相等,不会被误判为丢失。
-  const renumberCorpus = new Set()
-  for (const l of targetSrc.split(/\r?\n/)) {
-    const cb = checkboxBody(l)
-    if (cb === null || !RENUMBER_TAIL_RE.test(cb)) continue
-    const body = cb
-      .replace(RENUMBER_TAIL_RE, '')
-      .replace(/^\*{0,2}[A-Za-z]{1,3}-?\d+[A-Za-z]?\*{0,2}\s*/, '')
-    renumberCorpus.add(normalizeRenumberBody(body))
-  }
-  const renumberExempt = (e) => {
-    if (!e.line) return false
-    const cb = checkboxBody(e.line)
-    if (cb === null) return false
-    const body = cb.replace(/^\*{0,2}[A-Za-z]{1,3}-?\d+[A-Za-z]?\*{0,2}\s*/, '')
-    return renumberCorpus.has(normalizeRenumberBody(body))
-  }
   // textOnly 档同样要豁免:批⑤的四行真实形态(`- [ ] **G-580 …` 粗体头带空格)headIdOf 给 null,
   // 全走 textOnly —— 只豁免带 id 的组循环等于对这批真实事故行不生效(2026-10-09 端到端探针实证)。
   for (const e of textOnly)
-    if (!targetSrc.includes(e.marker) && !pointerExempt(e) && !renumberExempt(e) && !declaredExempt(e))
-      lost.add(e.marker)
+    if (!targetSrc.includes(e.marker) && !pointerExempt(e) && !declaredExempt(e)) lost.add(e.marker)
   const slots = registrationSlots(targetSrc)
   for (const [key, group] of groups) {
     const slot = slots.get(key)
@@ -586,7 +585,7 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()
     let present = 0
     for (const { e } of group) {
       if (head.has(e.marker)) present += 1
-      else if (pointerExempt(e) || renumberExempt(e)) continue // 合法摘号/改号 ⇒ 不判丢、不点名、不回捞
+      else if (pointerExempt(e)) continue // 合法摘号/改号(全文归一逐字相等)⇒ 不判丢、不点名、不回捞
       // 已声明摘除**不在这里 continue**:它必须占住 absent 的位置但不消耗 slack,
       // 否则同组后面那条真删行会被 slack 吞掉(2026-10-22 审计实测:台账空报 1、有台账报 0)。
       else absent.push(declaredExempt(e) ? { ...e, declared: true } : e)
