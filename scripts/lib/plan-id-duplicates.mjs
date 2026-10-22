@@ -19,7 +19,12 @@
 // 免得"同一把尺两份实现" (§0.6) 反过来长出来。
 //
 // 单一真相源:什么算一条登记行、编号声明位在哪,一律走 `./plan-task-index.mjs` 的 parseTaskRows/keyOfRow。
-import { parseTaskRows } from './plan-task-index.mjs'
+// 〔增档@2026-10-22/G-955〕判红维吃的是**声明位**读数 `declaredKeyOf`(同一份 lib,同一份窗口扫描,
+// 只多一档收窄:落在"未被吃掉"的行首装饰括注里的号是**被引号**,不是本行声明 —— 现读实证:
+// `- [ ] （待派/QODER-O81） **顺带登记一条归属纪律**…` 一行指针曾被读成 O81 同号多行,
+// 把独立取号入口顶死;而 `keyOfRow` 那一档的"括注里的号照旧顶位"是 M25③ 钉死的**占用维**语义,
+// 一字不动)。占用维与判红维自此各取所需,仍是同一把尺的两个读数。
+import { parseTaskRows, declaredKeyOf } from './plan-task-index.mjs'
 
 /**
  * @param {string} ledgerText 台账正文(被审面;取哪一面由调用方负责,本器不读盘不读 git)
@@ -42,7 +47,8 @@ export function judgeRowIdDuplicates({ ledgerText, family = 'O' }) {
   const counts = new Map()
   let decls = 0
   for (const row of parseTaskRows(ledgerText)) {
-    const key = row.key
+    // G-955:声明位读数(括注内被引号不算本行声明);占用维仍是 keyOfRow 那一档,互不搬动。
+    const key = declaredKeyOf(row.raw)
     if (typeof key !== 'string' || !key.startsWith(family) || !rowKeyRe.test(key)) continue
     decls += 1
     counts.set(key, (counts.get(key) ?? 0) + 1)

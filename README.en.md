@@ -84,13 +84,13 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3031 | `testFiles` |
+| 测试文件 | 3032 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 268 | `guardianGates` |
 | — blocking | 245 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15684 | `trackedFiles` |
+| 跟踪文件 | 15685 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -101,6 +101,9 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- 📚 Docs:结清 G-956(影子件删除三面实证,防复发归 G-32) (ef6f3f7e27)
+
 **2026-10-22**
 - 📚 Docs:补认领 G-962/G-957/G-958/G-959/G-924(登录屏批次) 加发4席 (56002665ad)
 
@@ -172,20 +175,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - 🔧 Chore/Other:结清 G-960(探活尺子已换到真入口并加零信息自曝) (2ea8a2c611)
 - 🐞 Fix:模式徽章的 aria-label 不再中英混血,并卡住那条"赌时长"的 e2e 竞态(收掉 CI 唯一剩余红) (56a8b050c8)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3a4c4fef92)
-
-**2026-10-22**
-- 🔧 Chore/Other:移除 IDE 残留跟踪件 .arts/settings.json 与 .spec-mode/spec.md,tasks.md(用户明令清理全部 IDE 文件夹,内容留档 git 历史) (8a65c2ca3c)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a67b214ecc)
-- 📚 Docs:登记 packages/app 登录屏 32 处可见文案写死中文,并纠正普查里传走的"门失明"误判 (6c47abadca)
-- 🔧 Chore/Other:删掉随假入口一起失效的 login-oauth-* 四条样式 (321643eac8)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d0e9deb82f)
-- 🔧 Chore/Other:结清 G-958 / G-959(复跑过承载性判据后翻勾),G-957 就地写清剩余面 (66294b81e5)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6eadde96d2)
-- 🐞 Fix:摘掉顶着 Google 图标的假入口,H5 微信失败不再导进死路(票 G-957 可验的两格) (4ef8a7340b)
-- 🐞 Fix:H5 微信登录失败不再把用户导进拿不回登录态的 webview(票 G-957 两格之一) (68137fb6e5)
-- 🐞 Fix:共享登录屏两处硬编码中文取键(票 G-959),并删掉零消费的 shared.login.ssoLogin 死键 (b57d497658)
-- 🚀 Feature/Improvement:mobile-auth 的 clientId 改为可配(缺省仍 mobile-rn)——为票 G-957 拆掉第一块砖 (20ac42245c)
-- 🐞 Fix:探活尺子的靶换成真入口,并把"整轮全 3xx"从冒认 ok 改成未判定(票 G-960) (6e2e2a1c0b)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

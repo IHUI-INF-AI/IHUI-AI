@@ -540,6 +540,36 @@ export function keyInWindow(body) {
   return null
 }
 
+/**
+ * 一行的**编号声明位**主键(G-955,2026-10-22 立):与 `keyOfRow` 同一条取材与同一份窗口扫描,
+ * 只多一档收窄 —— **落在"未被 bodyOfRow 吃掉"的行首装饰括注之内**的号,不算本行的声明。
+ *
+ * 为什么必须有这一档:`keyOfRow` 的窗口语义被 M25③ 刻意钉成"括注后无锚定编号 ⇒ 括注里的号
+ * 照旧当 key"(占用维宁顶号不空段,防重发),这对**发号避让**是对的;但判红维
+ * (§1「一个编号只能有一行当前状态」)吃同一读数就会打偏 —— 现读实证(HEAD 面):
+ * `- [ ] （待派/QODER-O81） **顺带登记一条归属纪律**…` 的 O81 是**跨命名空间的被引号**
+ * (本层头注 ① 原话:"括注里恰好有别的族的号(`QODER-O81` 里的 O81)⇒ keyOfRow 取到的是被引号"),
+ * 它没有自己的 O 族声明,却被 `--check` 读成"O81 同号多行"⇒ 独立取号入口被一行指针顶死(G-955 病根)。
+ * 现读全台账 254 条登记行里,两档读数有差的**仅此一行** —— 本收窄不搬动任何其他键。
+ *
+ * 扫描原语与 `bodyOfRow` 括注档共用同一份(`nextGroupState` = `matchBalancedGroupAt` + LEAD_DECOR_PAIRS),
+ * 不写第二份括号语法;跳过括注后窗口里仍是同一个号 ⇒ 仍算声明(引用落在题面里,维持 M25③ 既有语义)。
+ */
+export function declaredKeyOf(line) {
+  const body = bodyOfRow(line)
+  if (body === null) return null
+  const key = keyInWindow(body)
+  if (key === null) return null
+  let s = body
+  for (;;) {
+    const g = nextGroupState(s)
+    if (g === null) break
+    s = g
+  }
+  if (s === body) return key
+  return keyInWindow(s) === key ? key : null
+}
+
 function extractClaim(line) {
   return claimMarkOf(line)?.mark ?? null
 }
