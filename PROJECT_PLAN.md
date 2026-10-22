@@ -29007,3 +29007,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 60. 真并行多窗格(store 从 `conversationId` 单例改为 `Map<paneId, State>`;独立 SSE/abort;服务端 fork 路由下放) 〔进展@2026-10-18/工程执行席:第一切片已落——chat store 工厂化(createChatStore+buildChatState,单例零回归)+chat-panes 注册表(Map<paneId,Store> 懒建/dispose,空 paneId 抛错),新测 7 例+回归 792 例绿;步序二~五按票面步序续推;服务端腿 apps/api 禁碰只交接口〕 〔压缩@2026-10-22〕〔进行中@2026-10-22/goal-r52:席位在飞〕
 - [ ] **G-965 台账字段结构化 P2**:行内标头投影未写、强制档未落。现读 75 个侧车键里 44 枚加标头会超 400 字档(台账 >400 字长行存量 86 枚)⇒ 投影必须与"删中段归属句"同批,逐行先过 `scripts/lib/plan-row-conservation.mjs`;侧车另有 1 键已无对应行、39 条被新版本顶掉,压缩与孤儿治理未定;强制只挂"只判本次新增"的差值维(现门 warn)
 
+
