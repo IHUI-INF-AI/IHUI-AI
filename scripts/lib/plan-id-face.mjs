@@ -313,6 +313,33 @@ export function familyMaxOn(text, family = PRIMARY_FAMILY) {
 }
 
 /**
+ * 全文件正则扫出的该族号集(G-14,2026-10-22)。
+ *
+ * 缺陷本体:取号器的占用口径只吃「条目标题 ∪ 登记行声明位」(`usedIdsOfPrefix`),而别席既存题
+ * 常常只以**归档占位注释**、正文引用的形态留在面上(`<!-- 已归档(… G-924 …) -->`)—— 那些形态
+ * 不进 parseTaskRows,"同号不同题"的复合主键又不相等 ⇒ 取号器当成空闲发出,而 F1 门看不见这一型。
+ * 所以发号前再叠一把尺:该族编号在整份面上**任何一次出现**都算已占(宁顶号不空段)。
+ *
+ * 唯一实现:两个取号出口(`live-doc-edit.mjs` 的令牌展开、`next-plan-id.mjs` 的建议号)都调本函数,
+ * 不在各自文件里再抄一条正则(§22c:两处算同一件事必漂移)。
+ * 形状:族名前的字符不得是字母/数字(`OO776` 不算 `O776`),族名后可带 `-`/`_`/空格(本仓两种书写都有)。
+ * 租约行(正文带 `〔千段租约〕` 的 `段=X~Y` 声明)是**预留位**而非实占,由调用方决定是否先按
+ * `LEASE_MARK` 剔除 —— 本函数只做纯扫描,不猜哪一行是租约。
+ * 返回 `Set<number>`;空集 = 该族零命中,不是"没扫"(入参由调用方保证是真面文本)。
+ */
+export function scanFamilyIds(text, family) {
+  const want = String(family ?? '').replace(/[^A-Za-z]/g, '')
+  const out = new Set()
+  if (!want) return out
+  const re = new RegExp(`(?<![A-Za-z0-9])${want}[-_ ]?(\\d+)`, 'gi')
+  for (const m of String(text ?? '').matchAll(re)) {
+    const n = Number(m[1])
+    if (Number.isFinite(n)) out.add(n)
+  }
+  return out
+}
+
+/**
  * 池式派生视图(2026-10-14,"编号压缩到三位数"枚 A):该族在给定文本上 **≤poolMax** 的
  * 已用号升序表。>999 的大号不进视图 —— 它们是归档件里的存量债,不占池、不挡新号
  * (占用的裁决住在 `lib/plan-id-lease.mjs` 的 poolBlocked/leaseCursor;本层只把面按池口径
@@ -761,6 +788,7 @@ export const __test__ = {
   baseNameOf,
   joinFace,
   familyMaxOn,
+  scanFamilyIds,
   usedLowIds,
   resolveSource,
   transport: ID_FACE_TRANSPORT,

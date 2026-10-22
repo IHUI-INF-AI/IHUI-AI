@@ -67,8 +67,8 @@
  * 硬约束:全程零写盘、零删除;派生一律绝对路径 + `windowsHide` + `timeout`(§5b/§26);
  * 不用 process.cwd() 定根;盘符不硬编码 —— 外置根一律走 §15b 唯一出口
  * `scripts/seal-c-root-stray.mjs` 的 `devEnvRoot()`(`IHUI_DEVENV_ROOT` 是它的换机逃生舱)。
- * `IHUI_BACKUP_PG_DIR` / `IHUI_PG_BIN_DIR` 两条覆盖名与 pg-restore-drill 保持同一对;
- * 该文件的私有 devEnvRoot 已由 `9716902474` 收口到同一个出口,所以本文件也不再自己数层
+ * `IHUI_BACKUP_PG_DIR` / `IHUI_PG_BIN_DIR` 两条覆盖名与 pg-restore-drill 共用同一实现
+ * (`lib/psql-client-locate.mjs`);该文件的私有 devEnvRoot 早已收口到同一个出口,本文件也不再自己数层
  * 推盘根(旧注释称"那文件是私有的、本票禁止修改,故此处只做同式推导" —— 那句话已随之一并作废,
  * 留着它会教下一个人照旧写法再抄一份)。本工具压根不需要任何口令(`pg_restore -l` 不连库),
  * 故不复制凭据逻辑。
@@ -78,8 +78,8 @@ import { spawnSync } from 'node:child_process'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { classifyDump, DUMP_NAME_RE, todayYmd } from './pg-restore-drill.mjs'
-// 外置根的唯一出口(§15b)—— 与 pg-restore-drill / sync-prometheus-live-config 同源。
-import { devEnvRoot } from './seal-c-root-stray.mjs'
+// 外置根(§15b)与 PG 落点的唯一出口 —— 与 pg-restore-drill / sync-prometheus-live-config 同源。
+import { pgBinDir, backupPgDir } from './lib/psql-client-locate.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -483,13 +483,7 @@ export function parseCliArgs(argv) {
 
 // ────────────────────────────── IO 层 ──────────────────────────────
 
-// DevEnv 根走 §15b 唯一出口(见文件头注);本模块不再自己推导盘根。
-function pgBinDir() {
-  return process.env.IHUI_PG_BIN_DIR || join(devEnvRoot(), 'runtimes', 'pgsql', 'bin')
-}
-function backupPgDir() {
-  return process.env.IHUI_BACKUP_PG_DIR || join(devEnvRoot(), 'backups', 'pg')
-}
+// DevEnv 根与 PG 落点都走共用出口(见 import);本模块不再自己推导。
 
 export const EXEC_CANDIDATES = ['deploy/prod-bundle/pg-backup.ps1', 'deploy/win/ihui-pg-backup.ps1']
 const SCHED_CANDIDATES = ['deploy/prod-bundle/pg-backup-scheduler.ps1', 'deploy/win/ihui-pg-backup-scheduler.ps1']

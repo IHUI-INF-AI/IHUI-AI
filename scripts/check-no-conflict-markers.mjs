@@ -76,7 +76,7 @@
  *   "什么算孤立"只问一次,不允许本门与 lib 各扫一遍行。
  */
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -84,6 +84,7 @@ import { resolveGitBin } from './lib/gitdir.mjs'
 // 配对判据的唯一实现(见头注"判据住在哪儿")。本文件只 re-export,不再各写一份正则。
 import { findMarkerPairs } from './lib/conflict-marker-triples.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 export {
   findMarkerPairs,
@@ -449,7 +450,7 @@ function selfTestRun() {
   // 登记侧走全仓唯一共用出口 scripts/lib/selftest-registrant.mjs(thunk 族,消费循环求值)。
   // 旧本地写法 `results.push({ name, ok: Boolean(ok) })` 装箱强制(函数恒真)—— 已由共用出口封死。
   const { t: check, report } = makeRegistrar()
-  const root = mkdtempSync(join(ROOT, '.ihui-agent', 'tmp', 'conflict-markers-drill-'))
+  const root = mkScratch('conflict-markers-drill-')
   const repo = join(root, 'repo')
   mkdirSync(repo, { recursive: true })
   const g = (args) => git(['-C', repo, ...args])
@@ -758,7 +759,7 @@ function selfTestRun() {
     )
     return fail ? 1 : 0
   } finally {
-    rmSync(root, { recursive: true, force: true })
+    rmScratch(root, { bestEffort: true })
   }
 }
 

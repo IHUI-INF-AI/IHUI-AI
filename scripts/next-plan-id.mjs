@@ -80,7 +80,7 @@ import { resolve } from 'node:path'
 
 import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
-import { collectIdFace } from './lib/plan-id-face.mjs'
+import { collectIdFace, scanFamilyIds } from './lib/plan-id-face.mjs'
 // 远端那一维与 live-doc-edit.mjs(第一发号出口)**同一把尺**:transport(含有界自补救 fetch)、
 // 基准读取与硬闸门都只住在那一份实现里 —— 这里只做出口接线,不抄任何判据。
 import { readRemoteIdBasis, idBasisGate } from './live-doc-edit.mjs'
@@ -267,19 +267,9 @@ const poolUsed = [...new Set([...nums, ...rowNums])]
 // 同号不同题过不了复合主键门 ⇒ 门与取号器都看不见)。现在:`O<数字>` 在全文件任何一次出现
 // (标题、行声明、正文引用、HTML 注释)都算已占 —— 宁顶号不空段;面 = HEAD 宽面 ⊕ 工作树副本
 // (他席未提交的登记活在后者)。命中即换号,被顶掉的号点名打印。`--check` 不发号、不走这一档。
-// 这条正则的**字面量形状是承重的**:镜像测试(scripts/tests/next-plan-id-remote.test.mjs T8)
-// 要从源码里把这颗 `/…/g` 字面量原样抽出来复用,不得交给格式化工具折行。
-// prettier-ignore
-const FULLSCAN = /(?<![A-Za-z0-9])O[-_ ]?(\d+)/g
-const scanNums = (t) => {
-  const s = new Set()
-  for (const m of String(t).matchAll(FULLSCAN)) {
-    const n = Number(m[1])
-    if (Number.isFinite(n)) s.add(n)
-  }
-  return s
-}
-const scanHead = scanNums(wideText)
+// 扫描只有一份实现(lib/plan-id-face.mjs 的 scanFamilyIds):第一发号出口 live-doc-edit 与
+// 本器共用同一把尺,不在两处各抄一条正则(§22c:两处算同一件事必漂移)。
+const scanHead = scanFamilyIds(wideText, FAMILY)
 // 工作树副本读不到 ⇒ 大声警告并退回 HEAD 宽面:这一维是新增的,它的缺席不得把发号入口
 // 堵得比改前更死(失效方向 = 旧面 + 警告,不是新硬闸)。
 let worktreeText = ''
@@ -291,7 +281,7 @@ try {
       `本轮实时占用面退回 HEAD 宽面,他席未提交的登记不在这一轮尺子里`,
   )
 }
-const scanWork = scanNums(worktreeText)
+const scanWork = scanFamilyIds(worktreeText, FAMILY)
 const liveUsed = [...new Set([...poolUsed, ...scanHead, ...scanWork])]
 const nextNarrow = smallestFreeId({ usedNumbers: poolUsed, baseMax: remoteWide })
 const next = smallestFreeId({ usedNumbers: liveUsed, baseMax: remoteWide })
