@@ -29024,3 +29024,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-952 **无编号 P1 视觉票"正文漂开的副本"没有归并出口 ⇒ 三条真机票的进展本轮无处可写** —— 现读(2026-10-04,`git show HEAD:PROJECT_PLAN.md` 按前缀枚举):`- [ ] P1 **区段头「更多」与箭头折成两行**` / `- [ ] P1 **首页「独家开发 AI Agent 应用」宫格…` / `- [ ] P1 **广场(AI需求广场)首屏直接进错误态**` 三条**各有 2 份**,且**两份都不带 〔压缩@2026-10-22〕
 
 - [x] ✅(2026-10-23) **号池接入 Qoder provider(导入映射 + 适配器 + 管理端放行)** —— `O702` 本机 Qoder 登录账号(uid 01a16367-b9e2-7ac3-9943-8974fb16ca2d / 15330637579)已导入 `ai_relay_account_pool`(凭证加密、双到期、设备指纹齐全);`RELAY_PROVIDERS` 增列 qoder,`importAccounts` 增 Qoder 映射(uid→user.id→哈希兜底,expiresAt 收 ISO/epoch),新增 `qoder-adapter`(refresh 走实证端点 `/api/v1/deviceToken/refresh` 双 base 回退、健康检查走 `/api/v2/quota/usage`;**chat 契约未实证,单段式三件套明确抛错不冒充可用,反代上线待实证**);单测 7 例。commit `eedcca814b`。
+
