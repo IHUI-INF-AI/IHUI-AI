@@ -54,7 +54,8 @@ const OWNER_LEAD_PARTICLE_RE = /^[的与和及是在为把对跟]/
 const OWNER_TAIL_PARTICLE_RE = /[的和与及了]$/
 const UPDATED_BY = 'plan-fields-extract'
 
-function cleanOwner(raw) {
+/** owner 归一(单源出口):投影器要问同一把尺子,否则"等价"判断会与抽取时的截断规则分家。 */
+export function cleanOwner(raw) {
   const cut = String(raw ?? '')
     .split(OWNER_CUT_RE)[0]
     .trim()

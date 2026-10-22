@@ -21,6 +21,8 @@
 import type { SelectedChannelKey } from './relay-channel-router.js'
 export type { SelectedChannelKey }
 import { selectChannelCandidates, recordChannelResult } from './relay-channel-router.js'
+// 账号池回落(2026-10-22):无渠道候选时尝试第三方 AI IDE 账号池(trae/workbuddy/codearts)
+import { forwardToAccountPool } from './relay-account-forwarder.js'
 // 格②(2026-09-26)：耗时样本唯一出口——单调钟测量 × 墙钟交叉校验
 import { startStopwatch } from '../utils/elapsed-ms.js'
 // 插件系统(2026-09-17,补强 59):upstream_header_inject 解释器接线(带 30s 缓存,失败降级不注入)
@@ -33,8 +35,9 @@ import { getEnabledPlugins, applyUpstreamHeaderPlugins } from './relay-plugins-s
 export interface UpstreamForwardRequest {
   /** 模型名(允许带 LiteLLM 前缀,内部去前缀后选渠道与直呼上游) */
   model: string
-  /** chat 端点必填;images 端点忽略(body 由 bodyOverride 提供) */
-  messages?: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  /** chat 端点必填;images 端点忽略(body 由 bodyOverride 提供)。
+   *  2026-10-22 放宽:支持 function-calling 回环(role tool/assistant.tool_calls/多模态 content 数组) */
+  messages?: Array<{ role: string; content?: unknown; [key: string]: unknown }>
   /** 上游端点(2026-09-13):chat=POST /chat/completions(默认);images=POST /images/generations */
   endpoint?: 'chat' | 'images'
   temperature?: number
@@ -43,6 +46,10 @@ export interface UpstreamForwardRequest {
   /** response_format 原样透传(上游是否支持由其自身决定) */
   responseFormat?: unknown
   seed?: number
+  /** OpenAI tools 函数调用透传(渠道直连与账号池上游均 OpenAI 兼容;2026-10-22 补) */
+  tools?: unknown[]
+  /** tool_choice 透传(原样,平台归一由适配器负责) */
+  toolChoice?: unknown
   userId?: string
   /** session-affinity 亲和性 key(建议传 apiKeyId) */
   affinityKey?: string
@@ -130,7 +137,12 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
   } catch {
     return null // 渠道查询异常 → 回退 ai-service
   }
-  if (candidates.length === 0) return null
+  if (candidates.length === 0) {
+    // 渠道未配置该模型 → 回落到第三方 AI IDE 账号池;仍无结果则照旧回退 ai-service(向后兼容)
+    const poolResult = await forwardToAccountPool(req, rawModel).catch(() => null)
+    if (poolResult) return poolResult
+    return null
+  }
 
   let body: Record<string, unknown>
   if (endpoint === 'images') {
@@ -148,6 +160,8 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
     if (req.maxTokens !== undefined) body.max_tokens = req.maxTokens
     if (req.responseFormat !== undefined) body.response_format = req.responseFormat
     if (req.seed !== undefined) body.seed = req.seed
+    if (req.tools !== undefined) body.tools = req.tools
+    if (req.toolChoice !== undefined) body.tool_choice = req.toolChoice
     if (req.bodyOverride) {
       body = { ...req.bodyOverride, model: rawModel, stream: req.stream }
     }

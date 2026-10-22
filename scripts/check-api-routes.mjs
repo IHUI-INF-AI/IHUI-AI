@@ -111,6 +111,14 @@ const BASELINE_FILE_REL = 'scripts/api-routes-baseline.json'
  * 基线件不在面里 ⇒ 该腿本轮**未判定**(逐条列出、不判红也不记绿,与 `BASELINE_FILE_REL` 同一手法)。
  */
 const BARE_LEG_BASELINE_REL = 'scripts/data/api-routes-bare-path-baseline.json'
+/**
+ * 「未判定(前缀假设命中)」两腿的裁决台账(票 G-962 续作 2026-10-22 立)。
+ * 主腿按 method|path 全局去重 ⇒ 台账 leg=main 用 method|path;BP 腿按 method|path|file 去重
+ * ⇒ 台账 leg=bare 用 method|path|file —— 与各自去重键同构,不另发明第三把尺子(§0.6)。
+ * 缺档 ⇒ 两腿维持未判定(不判红也不下降,与 BP 基线缺档同一手法);
+ * 三型判红:AJ1 条目形状不全 / AJ2 到期未复裁 / AJ3 台账条目在 head 整仓面找不到对应站点(清单腐烂)。
+ */
+const ASSUMPTION_ADJ_FILE_REL = 'scripts/data/api-routes-assumption-adjudications.json'
 
 /**
  * 四端前端调用面(2026-09-26 由单一 apps/web 扩出)。
@@ -4191,6 +4199,8 @@ const baseInputs = new Set([
   BASELINE_FILE_REL,
   // BP 腿的棘轮锚点必须与其余内容同面同轮读满(缺档 ⇒ 该腿未判定,不判红也不记绿)
   BARE_LEG_BASELINE_REL,
+  // 前缀假设未判定两腿的裁决台账(G-962 续作):同样必须同面同轮读满(缺档 ⇒ 维持未判定,不判红也不下降)
+  ASSUMPTION_ADJ_FILE_REL,
   // next rewrites 转发面的判据输入:必须与其余内容**同面同轮**读满(理由同 CLIENT_TRANSPORT_FILE)。
   // 不进 listFace ⇒ 不受 isIgnoredSourceFile 那条"next.config.* 是 rewrite 规则不是调用点"影响
   // (那条只该挡它在**前端调用面**里被当调用点,与此处作为**判据输入**是两件事)。
@@ -5189,6 +5199,118 @@ for (const c of bareUnique) {
   bareMissing.push(c)
 }
 
+/* ============================================================================
+ * ===== 「未判定(前缀假设命中)」两腿的裁决台账(票 G-962 续作 2026-10-22 立)=====
+ * 桶是"两型静态不可分辨"的暂存格,不是结论;台账把它变成"逐条裁决 + 证据 + 归属 + 到期"。
+ * 已裁条目退出未判定桶(计数按台账下降),但**禁消音** —— 必须在「已裁决(台账)」块逐条点名
+ * (与不透明挂载桶"判不出就点名"同一条禁令)。
+ * 台账经 `readSource` 按判定面读:缺档 ⇒ 本轮两腿维持未判定(不判红、不下降,与 BP 基线缺档
+ * 同一手法);解析失败 ⇒ 同样降级为"台账读不出" —— 坏台账不得静默把桶清空,那比没台账更危险。
+ * 三型判红(仿守门 150 AJ 模板,`check-radius-role-conformance.mjs::applyAdjudications`):
+ *  AJ1 条目形状不全(leg/method/path/verdict/reason/owner/reviewBy 缺一不可;bare 腿另需 file)⇒ 红;
+ *  AJ2 reviewBy 已过 ⇒ 红,该站点退回未判定桶(过期裁决不得继续替站点免检);
+ *  AJ3 台账条目在本轮桶面找不到对应键 ⇒ 清单腐烂红(站点已删/已改对 ⇒ 必须了结该条)。
+ *    AJ3 只在 head 整仓面对账:staged 面只扫暂存文件、桶天然是子集,拿全量台账去比会恒冒假红
+ *    (§12e,与 BP 腿 `repoWide` 同一挡法);worktree 是夹具/人工档,同理记未判定、不冒红不记绿。
+ * ========================================================================== */
+const assumptionAdjLedger = {
+  adjudicatedMain: [],
+  adjudicatedBare: [],
+  problems: [],
+  unjudgedAj3: 0,
+  degraded: null,
+}
+if (GRAPH_AVAILABLE) {
+  const adjSrc = readSource(ASSUMPTION_ADJ_FILE_REL)
+  let ledgerItems = null
+  if (adjSrc === null || adjSrc === undefined) {
+    assumptionAdjLedger.degraded = `${FACE} 面里没有 ${ASSUMPTION_ADJ_FILE_REL} —— 前缀假设未判定两腿本轮不应用任何裁决(如实说明,不是"全部未裁")`
+  } else {
+    try {
+      const j = JSON.parse(adjSrc)
+      if (!j || !Array.isArray(j.items)) throw new Error('缺 items 数组')
+      ledgerItems = j.items
+    } catch (e) {
+      assumptionAdjLedger.degraded = `${ASSUMPTION_ADJ_FILE_REL} 解析失败:${e.message} —— 坏台账不得静默当空台账用,两腿本轮维持未判定`
+    }
+  }
+  if (ledgerItems) {
+    const today = new Date().toISOString().slice(0, 10)
+    const mainBucketKeys = new Set(assumptionUndetermined.map((c) => `${c.method}|${c.path}`))
+    const bareBucketKeys = new Set(bareAssumption.map((c) => `${c.method}|${c.path}|${c.file}`))
+    const validMain = new Map()
+    const validBare = new Map()
+    for (const it of ledgerItems) {
+      const where = `${it?.leg ?? '(缺leg)'} ${it?.method ?? '?'} ${it?.path ?? '(缺path)'}`
+      if (
+        !it ||
+        typeof it !== 'object' ||
+        (it.leg !== 'main' && it.leg !== 'bare') ||
+        typeof it.method !== 'string' ||
+        typeof it.path !== 'string'
+      ) {
+        assumptionAdjLedger.problems.push(`AJ1 条目形状不全(leg ∈ {main,bare} / method / path 缺一不可):${where}`)
+        continue
+      }
+      if (it.leg === 'bare' && typeof it.file !== 'string') {
+        assumptionAdjLedger.problems.push(`AJ1 bare 腿条目缺 file(键 = method|path|file):${where}`)
+        continue
+      }
+      if (!['alive', 'dead', 'human-review'].includes(it.verdict)) {
+        assumptionAdjLedger.problems.push(`AJ1 verdict 不是 alive/dead/human-review:${where}`)
+        continue
+      }
+      if (typeof it.reason !== 'string' || it.reason.trim() === '') {
+        assumptionAdjLedger.problems.push(`AJ1 裁决无理由:${where}`)
+        continue
+      }
+      if (typeof it.owner !== 'string' || it.owner.trim() === '') {
+        assumptionAdjLedger.problems.push(`AJ1 裁决无归属(谁负责复裁):${where}`)
+        continue
+      }
+      if (typeof it.reviewBy !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(it.reviewBy)) {
+        assumptionAdjLedger.problems.push(`AJ1 到期日缺失或形态不对(要 YYYY-MM-DD):${where}`)
+        continue
+      }
+      const key = it.leg === 'main' ? `${it.method}|${it.path}` : `${it.method}|${it.path}|${it.file}`
+      const bucketKeys = it.leg === 'main' ? mainBucketKeys : bareBucketKeys
+      if (!bucketKeys.has(key)) {
+        if (FACE === 'head') {
+          assumptionAdjLedger.problems.push(
+            `AJ3 清单腐烂:台账条目在 head 整仓面的前缀假设桶里找不到对应站点 ⇒ 要么站点已删/已改对,要么桶判据变了,必须把这条了结:${key}`,
+          )
+        } else {
+          assumptionAdjLedger.unjudgedAj3++
+        }
+        continue
+      }
+      if (it.reviewBy < today) {
+        assumptionAdjLedger.problems.push(
+          `AJ2 裁决到期未复裁(reviewBy=${it.reviewBy} < ${today}),该站点退回未判定桶:${key}`,
+        )
+        continue
+      }
+      ;(it.leg === 'main' ? validMain : validBare).set(key, it)
+    }
+    const keptMain = []
+    for (const c of assumptionUndetermined) {
+      const it = validMain.get(`${c.method}|${c.path}`)
+      if (it) assumptionAdjLedger.adjudicatedMain.push({ ...c, verdict: it.verdict, owner: it.owner, reviewBy: it.reviewBy })
+      else keptMain.push(c)
+    }
+    assumptionUndetermined.length = 0
+    assumptionUndetermined.push(...keptMain)
+    const keptBare = []
+    for (const c of bareAssumption) {
+      const it = validBare.get(`${c.method}|${c.path}|${c.file}`)
+      if (it) assumptionAdjLedger.adjudicatedBare.push({ ...c, verdict: it.verdict, owner: it.owner, reviewBy: it.reviewBy })
+      else keptBare.push(c)
+    }
+    bareAssumption.length = 0
+    bareAssumption.push(...keptBare)
+  }
+}
+
 const UPDATE_BARE_BASELINE = process.argv.includes('--update-bare-baseline')
 const bareCountsByFile = new Map()
 for (const c of bareMissing) {
@@ -5665,6 +5787,24 @@ if (GRAPH_AVAILABLE && assumptionUndetermined.length > 0) {
     )
   }
 }
+if (GRAPH_AVAILABLE && assumptionAdjLedger.degraded) {
+  console.log(`${C.yellow}[API 路由比对] ⚠️ ${assumptionAdjLedger.degraded}${C.reset}`)
+}
+if (GRAPH_AVAILABLE && assumptionAdjLedger.unjudgedAj3 > 0) {
+  console.log(
+    `${C.dim}[API 路由比对] ℹ️ 台账 AJ3(清单腐烂对账)本轮未判定 ${assumptionAdjLedger.unjudgedAj3} 条 —— ${FACE} 面桶是子集/夹具档,不冒红也不记绿;head 整仓面会逐条对账${C.reset}`,
+  )
+}
+if (GRAPH_AVAILABLE && assumptionAdjLedger.adjudicatedMain.length > 0) {
+  console.log(
+    `${C.dim}[API 路由比对] ℹ️ 已裁决(前缀假设台账,主腿)${assumptionAdjLedger.adjudicatedMain.length} 处 —— 已退出未判定桶,禁消音逐条点名(裁决与证据见 ${ASSUMPTION_ADJ_FILE_REL}):${C.reset}`,
+  )
+  for (const c of assumptionAdjLedger.adjudicatedMain) {
+    console.log(
+      `${C.dim}    [${c.verdict}] ${c.method} ${c.path} @ ${c.file}:${c.line} —— 复裁:${c.owner} / ${c.reviewBy}${C.reset}`,
+    )
+  }
+}
 if (GRAPH_AVAILABLE && undeterminedDumpPath) {
   writeFileSync(
     undeterminedDumpPath,
@@ -5675,6 +5815,9 @@ if (GRAPH_AVAILABLE && undeterminedDumpPath) {
         opaque: regGraph.opaque,
         assumptionUndetermined,
         bareAssumptionUndetermined: bareAssumption,
+        assumptionAdjudicated: assumptionAdjLedger.adjudicatedMain,
+        bareAssumptionAdjudicated: assumptionAdjLedger.adjudicatedBare,
+        assumptionAdjudicationProblems: assumptionAdjLedger.problems,
         stats: regGraph.stats,
       },
       null,
@@ -5840,6 +5983,16 @@ if (GRAPH_AVAILABLE && bareAssumption.length > 0) {
     )
   }
 }
+if (GRAPH_AVAILABLE && assumptionAdjLedger.adjudicatedBare.length > 0) {
+  console.log(
+    `${C.dim}  已裁决(前缀假设台账,BP 腿)${assumptionAdjLedger.adjudicatedBare.length} 处 —— 已退出未判定桶,禁消音逐条点名:${C.reset}`,
+  )
+  for (const c of assumptionAdjLedger.adjudicatedBare) {
+    console.log(
+      `${C.dim}    [${c.verdict}] ${c.method} ${c.path} @ ${c.file}:${c.line} —— 复裁:${c.owner} / ${c.reviewBy}${C.reset}`,
+    )
+  }
+}
 if (bareIgnored.length > 0) {
   console.log(
     `${C.yellow}  (登记)BP 腿 ${bareIgnored.length} 处被 ${IGNORE_FILE_REL} 豁免(与主腿共用同一份豁免表)${C.reset}`,
@@ -5989,6 +6142,7 @@ if (
   webViolations.length === 0 &&
   ratchetNew.length === 0 &&
   bareNew.length === 0 &&
+  assumptionAdjLedger.problems.length === 0 &&
   channelVerdict.sites.length === 0
 ) {
   console.log(
@@ -6037,6 +6191,20 @@ if (bareNew.length > 0) {
         `${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}(字面量原文 ${c.raw} →归一 ${c.path})${C.reset}`,
       )
     }
+  }
+}
+
+if (assumptionAdjLedger.problems.length > 0) {
+  console.log(
+    `${C.red}[API 路由比对] ❌ 前缀假设裁决台账(${ASSUMPTION_ADJ_FILE_REL})有 ${assumptionAdjLedger.problems.length} 处问题(AJ1 形状不全 / AJ2 到期未复裁 / AJ3 清单腐烂):${C.reset}`,
+  )
+  for (const p of assumptionAdjLedger.problems.slice(0, 50)) {
+    console.log(`${C.red}  ${p}${C.reset}`)
+  }
+  if (assumptionAdjLedger.problems.length > 50) {
+    console.log(
+      `${C.dim}  ... 其余 ${assumptionAdjLedger.problems.length - 50} 条见 --dump-undetermined 的 assumptionAdjudicationProblems${C.reset}`,
+    )
   }
 }
 
