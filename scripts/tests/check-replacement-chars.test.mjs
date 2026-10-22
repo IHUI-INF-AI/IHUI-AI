@@ -4,7 +4,6 @@
 
 // §22c 镜像测试:判据的形态与接线,只能用真实文件 + 构造面证明,不得在测试里再抄一份源判据。
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'

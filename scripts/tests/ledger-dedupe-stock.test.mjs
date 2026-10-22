@@ -8,7 +8,6 @@
  */
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { execFileSync } from 'node:child_process'
 import { writeFileSync, readFileSync } from 'node:fs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { git } from '../lib/bypass-git.mjs'
