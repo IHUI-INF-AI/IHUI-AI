@@ -1019,7 +1019,7 @@ export default function EnrollmentPage() {
                     </thead>
                     <tbody>
                       {leads.map((lead) => (
-                        <tr key={lead.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={lead.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{lead.name}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">{lead.phone}</td>
                           <td className="px-4 py-3 text-xs">{lead.studentName}</td>
@@ -1141,7 +1141,7 @@ export default function EnrollmentPage() {
                     </thead>
                     <tbody>
                       {trials.map((t) => (
-                        <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={t.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{t.studentName}</td>
                           <td className="px-4 py-3 text-xs">{t.parentName}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
@@ -1324,7 +1324,7 @@ export default function EnrollmentPage() {
                     </thead>
                     <tbody>
                       {enrollments.map((e) => (
-                        <tr key={e.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={e.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{e.studentName}</td>
                           <td className="px-4 py-3 text-xs">{e.className}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">{e.termName}</td>
@@ -1496,10 +1496,7 @@ export default function EnrollmentPage() {
                     </thead>
                     <tbody>
                       {roster.map((r) => (
-                        <tr
-                          key={r.enrollmentId}
-                          className="border-b last:border-0 hover:bg-muted/30"
-                        >
+                        <tr key={r.enrollmentId} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{r.studentName}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">
                             {r.studentPhone ?? '-'}
