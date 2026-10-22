@@ -61,12 +61,33 @@ import {
 // 上游端点与 web 渠道指纹常量
 // =============================================================================
 
+/**
+ * 端点可覆写档(2026-10-23 立):默认值 = 线上实证值,非生产档下允许用环境变量指到
+ * 本机假上游,以便真跑协议线(见 tests/relay-trae-adapter-http.test.ts)。
+ * 生产(NODE_ENV=production)一律吃死默认值 —— 环境变量不得把线上流量指走。
+ */
+function endpoint(name: string, fallback: string): string {
+  if (process.env.NODE_ENV === 'production') return fallback
+  const v = process.env[name]?.trim()
+  if (!v || !/^https?:\/\//.test(v)) return fallback
+  return v.replace(/\/$/, '')
+}
+
 /** remote 会话 API 基址(web 渠道,solo.trae.cn 前端同款) */
-const TRAE_REMOTE_BASE = 'https://trae-api-cn.mchost.guru/api/remote/v1'
+const TRAE_REMOTE_BASE = endpoint(
+  'TRAE_REMOTE_BASE',
+  'https://trae-api-cn.mchost.guru/api/remote/v1',
+)
 /** OAuth token 交换端点(无需 Authorization) */
-const TRAE_EXCHANGE_TOKEN_URL = 'https://api.trae.cn/cloudide/api/v3/trae/oauth/ExchangeToken'
+const TRAE_EXCHANGE_TOKEN_URL = endpoint(
+  'TRAE_EXCHANGE_TOKEN_URL',
+  'https://api.trae.cn/cloudide/api/v3/trae/oauth/ExchangeToken',
+)
 /** 模型列表端点(健康检查 + listModels 共用,轻量不耗配额) */
-const TRAE_MODEL_LIST_URL = 'https://trae-api-cn.mchost.guru/api/ide/v1/model_list?type=chat'
+const TRAE_MODEL_LIST_URL = endpoint(
+  'TRAE_MODEL_LIST_URL',
+  'https://trae-api-cn.mchost.guru/api/ide/v1/model_list?type=chat',
+)
 
 const WEB_ORIGIN = 'https://solo.trae.cn'
 const WEB_USER_AGENT =

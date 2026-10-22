@@ -1,0 +1,267 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * Trae 协议层 HTTP 真跑验收(2026-10-23 立)。
+ *
+ * 立因:此前 Trae 适配器的全部用例都是 vi.fn() 打桩 fetch,**从未走过一次真 socket**;
+ * 真上游联调又被卡在鉴权面(本机 IDE 凭证 401/1001、ExchangeToken 20101)。
+ * 本用例把上游换成本机假 Trae(按线上 bundle 实证的端点/帧形状实现),
+ * 让"我们这侧的协议实现"第一次被真实 HTTP 往返量到 —— 不发任何真实上游请求。
+ *
+ * 覆盖面:请求头指纹、创建回合体形状、SSE 帧翻译、tokenusage、stop 收尾、
+ * 401 → ExchangeToken 换票、error 帧 → 风控分类。
+ */
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
+import type { AddressInfo } from 'node:net'
+
+interface Seen {
+  path: string
+  method: string
+  headers: NodeJS.Dict<string | string[]>
+  body: string
+}
+
+let server: Server
+let base = ''
+const seen: Seen[] = []
+/** 上游剧本:每次请求按队列决定返回什么(测 401 自愈用) */
+let createStatus = 200
+let eventsFrames: 'ok' | 'risk' = 'ok'
+
+function readBody(req: IncomingMessage): Promise<string> {
+  return new Promise((resolve) => {
+    let text = ''
+    req.on('data', (c: Buffer) => {
+      text += c.toString('utf8')
+    })
+    req.on('end', () => resolve(text))
+  })
+}
+
+function json(res: ServerResponse, status: number, payload: unknown): void {
+  const text = JSON.stringify(payload)
+  res.writeHead(status, { 'content-type': 'application/json' })
+  res.end(text)
+}
+
+function sse(res: ServerResponse, frames: string[]): void {
+  res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
+  for (const f of frames) res.write(f)
+  res.end()
+}
+
+const MODEL_CONFIGS = {
+  model_configs: [
+    {
+      name: 'auto',
+      model_name: 'auto',
+      display_model_name: 'Auto',
+      is_preset: true,
+      use_remote_service: true,
+      config_source: 'preset',
+      config_name: 'auto',
+      provider: 'trae',
+      multimodal: false,
+      prompt_max_tokens: 200000,
+      support_thinking: false,
+    },
+  ],
+}
+
+beforeAll(async () => {
+  server = createServer(async (req, res) => {
+    const body = await readBody(req)
+    const url = req.url ?? ''
+    seen.push({ path: url, method: req.method ?? '', headers: req.headers, body })
+
+    if (url.startsWith('/api/ide/v1/model_list')) return json(res, 200, MODEL_CONFIGS)
+    if (url.startsWith('/oauth/ExchangeToken')) {
+      return json(res, 200, {
+        Result: { Token: 'jwt-rotated', RefreshToken: 'rt-2', ExpiredAt: 1_893_456_000 },
+      })
+    }
+    if (url.endsWith('/chat_sessions') && req.method === 'POST') {
+      if (createStatus === 401) return json(res, 401, { code: 1001, message: 'unauthorized' })
+      return json(res, 200, { data: { chat_session_id: 'cs-http-1', message_id: 'ms-http-1' } })
+    }
+    if (url.includes('/events')) {
+      if (eventsFrames === 'risk') {
+        return sse(res, [
+          'event: message\ndata: {"delta":"部"}\n\n',
+          'event: error\ndata: {"code":4015,"message":"账号或 IP 存在风险"}\n\n',
+        ])
+      }
+      return sse(res, [
+        'event: message\ndata: {"delta":"你好"}\n\n',
+        'event: message\ndata: {"delta":"，世界"}\n\n',
+        'event: tokenusage\ndata: {"input_tokens":11,"output_tokens":4}\n\n',
+        'event: done\ndata: {}\n\n',
+      ])
+    }
+    if (url.endsWith('/stop')) return json(res, 200, { code: 0 })
+    return json(res, 404, { code: 404 })
+  })
+  await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
+  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  // 端点覆写必须在 import 适配器之前(常量是模块级的)
+  process.env.NODE_ENV = 'test'
+  process.env.TRAE_REMOTE_BASE = `${base}/api/remote/v1`
+  process.env.TRAE_MODEL_LIST_URL = `${base}/api/ide/v1/model_list?type=chat`
+  process.env.TRAE_EXCHANGE_TOKEN_URL = `${base}/oauth/ExchangeToken`
+})
+
+afterAll(async () => {
+  await new Promise<void>((r) => server.close(() => r()))
+  delete process.env.TRAE_REMOTE_BASE
+  delete process.env.TRAE_MODEL_LIST_URL
+  delete process.env.TRAE_EXCHANGE_TOKEN_URL
+})
+
+async function loadAdapter() {
+  const mod = await import('../src/services/upstream-adapters/trae-adapter.js')
+  return mod
+}
+
+function makeCtx(token = 'jwt-original') {
+  return {
+    row: {
+      id: 'acct-http-1',
+      providerCode: 'trae',
+      uid: 'uid-http-1',
+      name: '协议线测试号',
+      proxyUrl: null,
+    } as never,
+    credentials: { token, refreshToken: 'rt-original', cookies: [], secrets: {} },
+  }
+}
+
+const CHAT_REQ = {
+  model: 'auto',
+  messages: [{ role: 'user', content: '说句话' }],
+  stream: true,
+} as never
+
+describe('Trae 协议层 · 真 HTTP 往返(本机假上游)', () => {
+  it('流式:创建回合 → SSE 翻译 → tokenusage → stop 收尾', async () => {
+    const { traeAdapter } = await loadAdapter()
+    seen.length = 0
+    createStatus = 200
+
+    const res = await traeAdapter.executeChat!(makeCtx(), CHAT_REQ, {})
+    expect(res.stream).toBeTruthy()
+
+    const chunks: Array<Record<string, unknown>> = []
+    for await (const c of res.stream!) chunks.push(c as Record<string, unknown>)
+
+    const text = chunks
+      .flatMap((c) =>
+        Array.isArray(c.choices) ? (c.choices as Array<Record<string, unknown>>) : [],
+      )
+      .map((ch) => (ch.delta as { content?: string } | undefined)?.content ?? '')
+      .join('')
+    expect(text).toBe('你好，世界')
+    expect(chunks.some((c) => c.usage)).toBe(true)
+
+    const paths = seen.map((s) => `${s.method} ${s.path.split('?')[0]}`)
+    expect(paths).toContain(`POST ${'/api/remote/v1/chat_sessions'}`)
+    expect(paths.some((p) => p.includes('/events'))).toBe(true)
+
+    // stop 是尽力而为的异步收尾:等一拍再断言
+    await new Promise((r) => setTimeout(r, 150))
+    expect(seen.some((s) => s.path.endsWith('/stop'))).toBe(true)
+    const stop = seen.find((s) => s.path.endsWith('/stop'))
+    expect(JSON.parse(stop!.body)).toMatchObject({
+      chat_session_id: 'cs-http-1',
+      user_message_id: 'ms-http-1',
+    })
+  })
+
+  it('请求指纹:Cloud-IDE-JWT + web 渠道头,且不得带 x-user-region', async () => {
+    const { traeAdapter } = await loadAdapter()
+    seen.length = 0
+    await traeAdapter.executeChat!(makeCtx('jwt-fp'), CHAT_REQ, {})
+
+    const create = seen.find((s) => s.path.endsWith('/chat_sessions') && s.method === 'POST')
+    expect(create).toBeTruthy()
+    const h = create!.headers
+    expect(h.authorization).toBe('Cloud-IDE-JWT jwt-fp')
+    expect(h['x-trae-client-type']).toBe('web')
+    expect(h['x-trae-user-timezone']).toBeTruthy()
+    expect(h.origin).toBe('https://solo.trae.cn')
+    expect(h['x-user-region']).toBeUndefined()
+    // 全链路无签名/nonce
+    expect(Object.keys(h).some((k) => /signature|nonce|x-flow-traceparent/i.test(k))).toBe(false)
+
+    const body = JSON.parse(create!.body) as Record<string, unknown>
+    const initial = body.initial_message as Record<string, unknown>
+    expect(typeof initial.query).toBe('string')
+    const blocks = JSON.parse(String(initial.query)) as Array<Record<string, unknown>>
+    expect(Array.isArray(blocks)).toBe(true)
+    expect(blocks[0]).toMatchObject({ type: 'text' })
+    expect(JSON.stringify(blocks[0])).toContain('说句话')
+    // common_params 是 JSON 字符串(CN 渠道 scope/tenant=marscode,登录态带 biz_user_id)
+    const cp = JSON.parse(String(initial.common_params)) as Record<string, unknown>
+    expect(cp).toMatchObject({ scope: 'marscode', tenant: 'marscode', region: 'cn' })
+    expect(cp.biz_user_id).toBe('uid-http-1')
+    expect(initial.agent_type).toBe('solo_agent_remote')
+  })
+
+  it('401 → ExchangeToken 换票(该端点无 Authorization),新票可继续用', async () => {
+    const { traeAdapter, TraeAuthFailureError } = await loadAdapter()
+    seen.length = 0
+    createStatus = 401
+    await expect(traeAdapter.executeChat!(makeCtx(), CHAT_REQ, {})).rejects.toBeInstanceOf(
+      TraeAuthFailureError,
+    )
+    createStatus = 200
+
+    seen.length = 0
+    const refreshed = await traeAdapter.refreshToken!(makeCtx() as never, {})
+    expect(refreshed?.token).toBe('jwt-rotated')
+    expect(refreshed?.refreshToken).toBe('rt-2')
+    const ex = seen.find((s) => s.path.includes('ExchangeToken'))
+    expect(ex).toBeTruthy()
+    expect(ex!.headers.authorization).toBeUndefined()
+    expect(ex!.body).toContain('ClientID')
+    expect(ex!.body).toContain('rt-original')
+
+    // 换票后同一条链路真跑通
+    seen.length = 0
+    createStatus = 200
+    const res = await traeAdapter.executeChat!(makeCtx('jwt-rotated'), CHAT_REQ, {})
+    let n = 0
+    for await (const _c of res.stream!) n++
+    expect(n).toBeGreaterThan(0)
+  })
+
+  it('健康检查与模型列表走 model_configs', async () => {
+    const { traeAdapter } = await loadAdapter()
+    const health = await traeAdapter.checkHealth(makeCtx() as never, {})
+    expect(health.ok).toBe(true)
+    const models = await traeAdapter.listModels!(makeCtx() as never, {})
+    expect(models).toContain('auto')
+  })
+})
+
+describe('Trae 协议层 · 风控帧分类(真 HTTP)', () => {
+  it('error 帧 4015 → TraeUpstreamError 带业务码,分类为 risk', async () => {
+    const { traeAdapter, TraeUpstreamError, classifyUpstreamFailure } = await loadAdapter()
+    seen.length = 0
+    eventsFrames = 'risk'
+    let caught: unknown = null
+    try {
+      const res = await traeAdapter.executeChat!(makeCtx(), CHAT_REQ, {})
+      for await (const _c of res.stream!) void _c
+    } catch (e) {
+      caught = e
+    }
+    eventsFrames = 'ok'
+    expect(caught).toBeInstanceOf(TraeUpstreamError)
+    expect((caught as InstanceType<typeof TraeUpstreamError>).upstreamCode).toBe('4015')
+    expect(classifyUpstreamFailure(0, 'code:4015')).toBe('risk')
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
