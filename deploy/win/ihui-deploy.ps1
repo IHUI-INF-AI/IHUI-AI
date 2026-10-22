@@ -1201,38 +1201,49 @@ function Start-CleanBuildAsyncDelete {
       为什么改名而不是当场删:3.3G 的长路径递归删要几分钟,压在收尾上会拖住
       Release-DeployLock,而"跑完即回收"必须在放锁前完成(Sweep 头注)。改名毫秒级,
       且几乎不会 Permission denied —— 那是删 26 万个文件时才会撞上的。
+      **改名失败也必须走后台删,不能回退同步删**(2026-10-22 13:24 实测):`Rename-Item`
+      报 `because it is in use` —— 重命名要求**整棵目录树**没有任何打开句柄(构建刚结束时
+      node/pnpm 的句柄往往还没退干净),而**删除单个文件只要该文件无锁**,宽容度天差地别。
+      所以改名失败就原样交给后台进程直接删(`-AllowPlain`),照样不阻塞收尾。
       为什么是独立进程:Start-Process 起的 pwsh 在父脚本退出后仍继续,不受部署轮次
       生命周期影响;机器重启也最多留下一个 `.trash-*`,由 Clear-CleanBuildTrash 兜底。
     #>
     param([string]$Path)
     if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return $true }
     $trashName = '.trash-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+    $trash = Join-Path (Split-Path -Parent $Path) $trashName
+    $renamed = $true
     try {
         Rename-Item -LiteralPath $Path -NewName $trashName -ErrorAction Stop
+        Log "[CLEAN-BUILD] 净面已改名 ⇒ 后台异步删除(收尾不阻塞):$trash"
     } catch {
-        Log "[CLEAN-BUILD] 改名失败($_)⇒ 同步递归删(可能耗时数分钟,收尾被拖住)"
-        Remove-DirLongPath -Path $Path
-        return (-not (Test-Path -LiteralPath $Path))
+        $renamed = $false
+        Log "[CLEAN-BUILD] 改名失败($_)⇒ 原路交后台进程直接删(改名要整树无句柄,删单文件只要该文件无锁,后台删照样不阻塞收尾)"
     }
-    $trash = Join-Path (Split-Path -Parent $Path) $trashName
-    Log "[CLEAN-BUILD] 净面已改名 ⇒ 后台异步删除(收尾不阻塞):$trash"
+    if ($renamed) {
+        # 改名成功 ⇒ 后台删回收站目录
+        $purgeArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $purger, '-Path', $trash, '-DelaySeconds', '3')
+    } else {
+        # 改名失败 ⇒ 后台删原路径(原路径仍是被占用的 clean-build-wt,不是 .trash-*,要 -AllowPlain 放行)
+        $purgeArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $purger, '-Path', $Path, '-DelaySeconds', '5', '-AllowPlain')
+    }
     # $PSScriptRoot 兜底:本文件由部署环以 -File 启动时它等于 deploy\win;若哪天被 -Command
     # 内联或 dot-source 调用,它是空串,Join-Path 会抛"不能绑定到 Path"——
     # 那时退回 $Root\deploy\win(本脚本在生产/开发仓里的固定位置)。
     $purger = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'clean-build-purge.ps1' } else { Join-Path $Root 'deploy\win\clean-build-purge.ps1' }
     $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
     if (-not $pwsh) { $pwsh = (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe') }
-    if ((Test-Path -LiteralPath $purger) -and (Test-Path -LiteralPath $pwsh)) {
-        try {
-            Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $purger, '-Path', $trash) -WindowStyle Hidden -ErrorAction Stop
-            Log "[clean-recycle] 后台删除进程已启动:$purger"
-        } catch {
-            Log "[CLEAN-BUILD] WARN 后台删除进程启动失败($_),改同步删"
-            Remove-DirLongPath -Path $trash
-        }
-    } else {
-        Log "[CLEAN-BUILD] WARN 后台删除器不在位($purger),改同步删"
-        Remove-DirLongPath -Path $trash
+    if (-not ((Test-Path -LiteralPath $purger) -and (Test-Path -LiteralPath $pwsh))) {
+        Log "[CLEAN-BUILD] WARN 后台删除器不在位($purger),收尾只能同步删(可能耗时数分钟)"
+        Remove-DirLongPath -Path $(if ($renamed) { $trash } else { $Path })
+        return $true
+    }
+    try {
+        Start-Process -FilePath $pwsh -ArgumentList $purgeArgs -WindowStyle Hidden -ErrorAction Stop
+        Log ("[clean-recycle] 后台删除进程已启动({0}):{1}" -f $(if ($renamed) { '回收站' } else { '原路径' }), $purger)
+    } catch {
+        Log "[CLEAN-BUILD] WARN 后台删除进程启动失败($_),改同步删"
+        Remove-DirLongPath -Path $(if ($renamed) { $trash } else { $Path })
     }
     return $true
 }
@@ -1282,7 +1293,9 @@ function Invoke-CleanBuildWorktreeSweep {
         }
         Log "[CLEAN-BUILD] 收尾:回收净面 $CleanBuildWt"
         [void](Start-CleanBuildAsyncDelete -Path $CleanBuildWt)
-        $state = if (Test-Path -LiteralPath $CleanBuildWt) { '仍在位(改名失败,见上方 [CLEAN-BUILD] 行)' } else { '已改名待后台删除' }
+        # 改名成功/失败都不再同步删 ⇒ 路径"还在"只代表后台进程还没删完,不是故障;
+        # 真故障形态是 Start-CleanBuildAsyncDelete 里那两条 WARN(删除器不在位/启动失败)。
+        $state = if (Test-Path -LiteralPath $CleanBuildWt) { '已交后台删除(进程进行中)' } else { '已改名待后台删除' }
         Log "[CLEAN-BUILD] 收尾:净面=$state 路径=$CleanBuildWt"
     } catch { Log "WARN  净面收尾回收异常(不影响本轮发布):$_" }
 }
