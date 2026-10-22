@@ -741,6 +741,9 @@ async function acquire({
   // 同一次 acquire 里同一个初始化故障码**只喊一遍**:轮询是 300ms 一轮,反复打印会把日志刷满,
   // 而"喊过一次"与"每轮都喊"给出的判据信息完全相同。
   let initErrorNoted = null
+  // G-57(2026-10-23 收口):负龄点名在一次 acquire 里只喊一遍 —— 轮询 300ms 一轮,
+  // 反复打印会把日志刷满,而"喊过一次"与"每轮都喊"给出的判据信息完全相同。
+  let ageUndeterminedNoted = false
   for (;;) {
     try {
       // G-814425:锁目录必须**写全再对外可见**。旧形态是 `mkdirSync(dir)` 紧接 `writeMeta(dir)`,
@@ -796,6 +799,23 @@ async function acquire({
         // 只有"名义存活"才值得现测身份:pid 已经不在时原判据本来就要抢,
         // 而现测必然量不到(白派生一次 PowerShell,还会把原因写成"取不到启动时间")。
         const identity = holderAlive ? probe(meta) : null
+        // G-57(2026-10-23 收口剩余两格之一,别席 6d9be2907d 已修 cleanStaleIndexLocks 与
+        // tryAcquireSingleInstance,本格同型未收):未来 ts ⇒ age 为负 ⇒ 下面
+        // `age > hardStaleMs || age > staleMs` 恒假 ⇒ "pid 名义存活 + 未来 ts"这一型
+        // **永不判死且对负龄一字不说**(实测 age=-3600s 被读成"持有者仍在运行,请耐心等待",
+        // 超时错的措辞反过来把静默坐实)。判据接单一真相源 judgeLockAge():判不出来 ⇒
+        // 点名,既不判死也不按"新鲜"处理(§0.3/§0.10)。死 pid 那一支由 !holderAlive
+        // 短路照旧回收,不依赖锁龄,故不在这里问可判性。
+        if (holderAlive && !ageUndeterminedNoted) {
+          const v = judgeLockAge(age)
+          if (v.verdict === 'undetermined') {
+            ageUndeterminedNoted = true
+            log(
+              `[git-lock] 锁龄不可判定:${dir} —— ${v.why} ⇒ 不据此抢占,也不按"新鲜"静默略过` +
+                `(出路:先对本机时钟对时,再跑 git-lock.mjs clean)`,
+            )
+          }
+        }
         // —— 2026-09-27 新增的**唯一**一条更精确路径:身份确证该 pid 已被复用 ⇒ 立即抢占。
         // `unverifiable` / `match` 都走不到这里(前者=维持原判据,后者=这人真的还持着锁)。
         // 这里再调一次 claimStaleLock 而不是把两支并成一个条件,是为了不改动下面那行原判据的形状
@@ -1140,6 +1160,9 @@ async function main() {
       // 用法: node scripts/git-lock.mjs clean
       const dir = lockDir()
       const removed = []
+      // G-57:ihui-git-write.lock 负龄未判定的点名收集(与下面 index.lock 的 indexNotes 同型:
+      // 它们不是"已清理",塞进 removed 会让"清了 0 个"读成"清了 1 个")
+      const ageNotes = []
       const probe = makeIdentityProbe()
       // 1. 清理死 PID 的 ihui-git-write.lock
       if (existsSync(dir)) {
@@ -1149,7 +1172,19 @@ async function main() {
           const age = Date.now() - (meta.ts ?? 0)
           const identity = holderAlive ? probe(meta) : null
           // 原判据(死 PID / 超 1800s 硬上限)一字未动;多出来的授权只有"身份确证复用"这一条。
-          if (!holderAlive || age > 1_800_000 || identityAuthorizesClaim(identity)) {
+          // G-57(2026-10-23 收口剩余两格之二,同 acquire 那一格):未来 ts ⇒ age 为负 ⇒
+          // 下面 `age > 1_800_000` 恒假 ⇒ "pid 名义存活 + 未来 ts"原本静默落进"保留"支,
+          // 把"判不出来"写成"保留/新鲜",连汇总都跟着报"✅ 无 stale 锁需清理"
+          // (实测 age=-3600s,§0.3"没判绝不写成判过"的典型)。判据接单一真相源
+          // judgeLockAge():判不出来 ⇒ 点名后不处置(既不抢占也不判新鲜),点名进未判定汇总。
+          // 死 PID 与身份确证复用两支不依赖锁龄,照旧走原判据。
+          const ageV = judgeLockAge(age)
+          if (holderAlive && ageV.verdict === 'undetermined') {
+            ageNotes.push(
+              `[git-lock] clean 未判定:${dir} —— ${ageV.why} ⇒ 既不抢占也不按"新鲜"保留,锁保持原样` +
+                `(出路:先对本机时钟对时,再跑 git-lock.mjs clean)`,
+            )
+          } else if (!holderAlive || age > 1_800_000 || identityAuthorizesClaim(identity)) {
             // 同样是抢占 ⇒ 走原子改名,不得 rmSync 原路径(见 claimStaleLock 注释)
             const claim = claimStaleLock(
               dir,
@@ -1191,14 +1226,15 @@ async function main() {
       const indexLocks = cleanStaleIndexLocks({ log: (m) => indexNotes.push(m) })
       removed.push(...indexLocks.map((p) => `index.lock:${p}`))
       for (const n of indexNotes) console.log(`   ⚠️ ${n}`)
-      if (removed.length === 0 && indexNotes.length === 0) {
+      for (const n of ageNotes) console.log(`   ⚠️ ${n}`)
+      if (removed.length === 0 && indexNotes.length === 0 && ageNotes.length === 0) {
         console.log('✅ 无 stale 锁需清理')
       } else if (removed.length !== 0) {
         console.log(`🧹 已清理 ${removed.length} 个 stale 锁:`)
         for (const r of removed) console.log(`   - ${r}`)
       } else {
         console.log(
-          `⚠️ 未判定:${indexNotes.length} 个 index.lock 因锁龄判不出来而**未处置**(不是"没有 stale 锁")`,
+          `⚠️ 未判定:${indexNotes.length + ageNotes.length} 把锁因锁龄判不出来而**未处置**(不是"没有 stale 锁")`,
         )
       }
     } else {

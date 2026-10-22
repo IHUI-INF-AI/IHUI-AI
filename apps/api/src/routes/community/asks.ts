@@ -869,6 +869,43 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
   })
 
+  // ===== 补建端点:我的问题数 / 我的回答数 =====
+  //
+  // 立因:packages/api-client 的 countMyQuestions()/countMyAnswers()(endpoints/community.ts:207,211)
+  // 是整包再导出的发布面,后端零注册 ⇒ 任何端一旦消费就 404。
+  //
+  // 归属:只取 JWT 主体 request.userId(§5 认证不等于授权)——不从 query/body 拿身份,
+  // 也不从被数的那些记录反推是谁的。
+  //
+  // 可见集口径 = status=1,与两张表的在册读档逐字一致:
+  //  - asks:findAsks 的 conds 起点就是 eq(asks.status, 1),而 admin-asks 的 PUT /asks/:id/audit
+  //    会把 status 置成非 1(审核未通过/隐藏)⇒ 不过滤就会把用户看不到的问题计进徽标;
+  //  - ask_answers:findAskAnswers 用 eq(askAnswers.status, 1),而 DELETE /asks/answers/:id 是
+  //    软删除(set status=-1)⇒ 不过滤就会把用户已删掉的回答计进去。
+  //  同文件的 GET /asks/member/question/list 只按 userId 过滤,那是它自己偏松;
+  //  新计数不跟着松,以免"我的问题数"包含看不见/已删的行。
+  // GET /asks/my/count - 我提的问题数(data 直接是数字,对齐 api-client 的 ApiResult<number>)
+  server.get('/asks/my/count', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '请先登录'))
+    const rows = await dbRead
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(asks)
+      .where(and(eq(asks.userId, userId), eq(asks.status, 1)))
+    return reply.send(success(Number(rows[0]?.count ?? 0)))
+  })
+
+  // GET /asks/my/answers/count - 我写的回答数(可见集口径同上)
+  server.get('/asks/my/answers/count', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '请先登录'))
+    const rows = await dbRead
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(askAnswers)
+      .where(and(eq(askAnswers.userId, userId), eq(askAnswers.status, 1)))
+    return reply.send(success(Number(rows[0]?.count ?? 0)))
+  })
+
   // GET /asks/answer/list/by-ids - 按 ID 批量查询回答(query: ids)
   server.get('/asks/answer/list/by-ids', async (request, reply) => {
     const parsed = z.object({ ids: z.string().min(1, 'ids 不能为空') }).safeParse(request.query)
