@@ -62,11 +62,86 @@ function paneKeyPrefix(paneId: string | null): string {
 /** 全部窗格共用的快照表(插入序即 LRU 序;delete + set 完成"最近使用"提升) */
 const cacheEntries = new Map<string, ConversationCacheEntry>()
 
+/**
+ * 快照落盘键(G-935 缺口B):内存 Map 此前随 reload 清零 ⇒ 窗格历史基线(含半截流孤儿)
+ * 只能靠窗格 chat store 的 recentMessages 单腿恢复;这里补第二腿,切回/reload 后同步命中缓存。
+ */
+export const CONVERSATION_PANE_CACHE_PERSIST_KEY = 'ihui-conversation-pane-cache'
+
+let hydrated = false
+let persistTimer: ReturnType<typeof setTimeout> | null = null
+
+function isValidCacheEntry(value: unknown): value is ConversationCacheEntry {
+  if (!value || typeof value !== 'object') return false
+  const entry = value as Record<string, unknown>
+  return (
+    Array.isArray(entry.messages) &&
+    typeof entry.hasMore === 'boolean' &&
+    (entry.oldestCursor === null || typeof entry.oldestCursor === 'string')
+  )
+}
+
+/**
+ * 惰性装载(首个读写触点才碰 storage,SSR/无 storage 静默跳过 —— 与 pane-split.ts 同一挂载后纪律)。
+ * 坏 blob ⇒ 清键回落空表;单条不合法只丢该条,不牵连整表(键是 `pane-*::conv-*` 自拼,可信面按条判)。
+ */
+function ensureHydrated(): void {
+  if (hydrated) return
+  hydrated = true
+  if (typeof window === 'undefined') return
+  let raw: string | null = null
+  try {
+    raw = window.localStorage.getItem(CONVERSATION_PANE_CACHE_PERSIST_KEY)
+  } catch {
+    return
+  }
+  if (raw === null) return
+  let entries: unknown
+  try {
+    const blob = JSON.parse(raw) as { entries?: unknown }
+    entries = blob.entries
+  } catch {
+    entries = undefined
+  }
+  if (!Array.isArray(entries)) {
+    try {
+      window.localStorage.removeItem(CONVERSATION_PANE_CACHE_PERSIST_KEY)
+    } catch {
+      /* storage 不可用:内存表已保持为空,清键失败只影响下次启动 */
+    }
+    return
+  }
+  for (const item of entries) {
+    if (!Array.isArray(item) || item.length !== 2) continue
+    const [key, entry] = item as [unknown, unknown]
+    if (typeof key !== 'string' || !isValidCacheEntry(entry)) continue
+    cacheEntries.set(key, entry)
+  }
+}
+
+/** 落盘(200ms 合批:流式增量下 patch 高频,整表 stringify 不能跟着每帧跑) */
+function persistCache(): void {
+  if (typeof window === 'undefined') return
+  if (persistTimer !== null) clearTimeout(persistTimer)
+  persistTimer = setTimeout(() => {
+    persistTimer = null
+    try {
+      window.localStorage.setItem(
+        CONVERSATION_PANE_CACHE_PERSIST_KEY,
+        JSON.stringify({ entries: [...cacheEntries.entries()] }),
+      )
+    } catch {
+      /* 配额满/隐私模式:内存快照仍是唯一真相面,落盘尽力而为 */
+    }
+  }, 200)
+}
+
 /** 读快照;命中即提为最近使用(LRU)。未命中返回 null = 该窗格需要自己拉取 */
 export function readConversationCache(
   paneId: string | null,
   conversationId: string,
 ): ConversationCacheEntry | null {
+  ensureHydrated()
   const key = conversationCacheKey(paneId, conversationId)
   const entry = cacheEntries.get(key) ?? null
   if (entry) {
@@ -82,6 +157,7 @@ export function writeConversationCache(
   conversationId: string,
   entry: ConversationCacheEntry,
 ): void {
+  ensureHydrated()
   const key = conversationCacheKey(paneId, conversationId)
   cacheEntries.delete(key)
   cacheEntries.set(key, entry)
@@ -98,6 +174,7 @@ export function writeConversationCache(
     }
     aliveInPane -= 1
   }
+  persistCache()
 }
 
 /**
@@ -111,28 +188,48 @@ export function patchConversationCache(
   messages: ChatMessage[],
   pager: { hasMore: boolean; oldestCursor: string | null },
 ): void {
+  ensureHydrated()
   const entry = cacheEntries.get(conversationCacheKey(paneId, conversationId))
   if (!entry || entry.messages === messages) return
   entry.messages = messages
   entry.hasMore = pager.hasMore
   entry.oldestCursor = pager.oldestCursor
+  persistCache()
 }
 
 /** 摘除某窗格的全部快照(窗格关闭/主体卸载;不摘 = 长会话内存只增不减) */
 export function dropConversationCacheForPane(paneId: string | null): void {
+  ensureHydrated()
   const prefix = paneKeyPrefix(paneId)
+  let dropped = false
   for (const key of [...cacheEntries.keys()]) {
-    if (key.startsWith(prefix)) cacheEntries.delete(key)
+    if (key.startsWith(prefix)) {
+      cacheEntries.delete(key)
+      dropped = true
+    }
   }
+  if (dropped) persistCache()
 }
 
-/** 测试/宿主重置:清空全部快照 */
+/** 测试/宿主重置:清空全部快照(落盘键一并清掉,否则下次装载又灌回来) */
 export function resetConversationCache(): void {
   cacheEntries.clear()
+  hydrated = false
+  if (persistTimer !== null) {
+    clearTimeout(persistTimer)
+    persistTimer = null
+  }
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.removeItem(CONVERSATION_PANE_CACHE_PERSIST_KEY)
+  } catch {
+    /* storage 不可用:内存已清空即达目的 */
+  }
 }
 
 /** 某窗格现存快照数(省略 paneId = 全部窗格合计);只给用例与取证用,不进生产判定 */
 export function conversationCacheSize(paneId?: string | null): number {
+  ensureHydrated()
   if (paneId === undefined) return cacheEntries.size
   const prefix = paneKeyPrefix(paneId)
   let count = 0

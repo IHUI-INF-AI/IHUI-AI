@@ -61,7 +61,7 @@ vi.mock('@/lib/api', async (importOriginal) => ({
   fetchApi: fetchApiMock,
 }))
 
-import { ChatPaneBody } from '@/components/ai/chat-pane-body'
+import { ChatPaneBody, shouldPrefillRecentMessages } from '@/components/ai/chat-pane-body'
 import { ChatPaneProvider } from '@/stores/chat-pane-context'
 import { getChatStoreForPane, resetChatPaneStores } from '@/stores/chat-panes'
 import { useChatStore } from '@/stores/chat'
@@ -168,6 +168,71 @@ describe('ChatPaneBody 续接段(片3)', () => {
     await waitFor(() => expect(pane.getState().messages).toHaveLength(1))
     expect(fetchApiMock).not.toHaveBeenCalled()
     expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['root-1'])
+  })
+
+  it('预填(G-935 缺口B):messages 为空但 recentMessages 匹配 ⇒ 半截消息仍被捕获并续接', async () => {
+    const pane = getChatStoreForPane(PANE_ID)
+    // reload 后的真实形态:messages 未被 persist 恢复(避免 hydration mismatch),
+    // 半截助手消息只躺在 recentMessages 里。
+    pane.setState({
+      conversationId: CONV,
+      messages: [],
+      recentMessages: {
+        conversationId: CONV,
+        messages: [
+          { id: 'u1', role: 'user', content: '问题', createdAt: 1 },
+          { id: 'a-half', role: 'assistant', content: HALF, createdAt: 2, streamCompleted: false },
+        ],
+      },
+    })
+
+    render(
+      <ChatPaneProvider paneId={PANE_ID}>
+        <ChatPaneBody paneId={PANE_ID} conversationId={CONV} />
+      </ChatPaneProvider>,
+    )
+
+    await waitFor(() => expect(fetchApiMock).toHaveBeenCalled())
+    const [statusUrl] = fetchApiMock.mock.calls[0] as unknown as [string]
+    expect(statusUrl).toContain(`conversationId=${CONV}`)
+    expect(statusUrl).toContain('messageId=a-half')
+    await waitFor(() => {
+      const back = pane.getState().messages.find((m) => m.id === 'a-half')
+      expect(back?.content).toBe(AUTHORITATIVE)
+      expect(back?.streamCompleted).toBe(true)
+    })
+  })
+})
+
+describe('shouldPrefillRecentMessages 判据', () => {
+  const matching = { conversationId: CONV, messages: [{ id: 'a-half' }] }
+
+  it('messages 为空 + 同会话 ⇒ 预填', () => {
+    expect(
+      shouldPrefillRecentMessages({ messages: [], recentMessages: matching }, CONV, false),
+    ).toBe(true)
+  })
+
+  it('缓存命中不覆盖(即使 messages 为空)', () => {
+    expect(
+      shouldPrefillRecentMessages({ messages: [], recentMessages: matching }, CONV, true),
+    ).toBe(false)
+  })
+
+  it('messages 非空 / 会话不匹配 / recentMessages 缺失 ⇒ 不预填', () => {
+    expect(
+      shouldPrefillRecentMessages(
+        { messages: [{ id: 'x' }], recentMessages: matching },
+        CONV,
+        false,
+      ),
+    ).toBe(false)
+    expect(
+      shouldPrefillRecentMessages({ messages: [], recentMessages: matching }, 'conv-other', false),
+    ).toBe(false)
+    expect(shouldPrefillRecentMessages({ messages: [], recentMessages: null }, CONV, false)).toBe(
+      false,
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
