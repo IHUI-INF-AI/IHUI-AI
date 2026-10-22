@@ -1240,10 +1240,20 @@ iframe::-webkit-scrollbar {
  * ② prefers-reduced-motion 下整体关掉 —— 位移类反馈必须尊重系统减动效设置。
  * ============================================================ */
 :root {
-  --lift-scale: 1.006;
-  --lift-offset: -2px;
-  --lift-shadow: 0 8px 20px -8px var(--color-black-15);
-  --lift-shadow-dark: 0 8px 20px -8px var(--color-black-45);
+  --lift-scale: 1.01;
+  --lift-offset: -3px;
+  /* 立体感要三层,少一层就不"悬浮":
+     ① 无偏移环境影 —— 负责**四周一圈**的包裹(只有方向影时左右与上缘是空的);
+     ② 近层贴边影(-2px 收一点)—— 负责"离开纸面"的那道硬边;
+     ③ 远层方向影 —— 负责体积与距离。
+     机主两轮反馈的成因各不相同:先是单层大负扩散只在底部留一条淡影(④"四圈没投影"),
+     补成两层后仍缺①,四周包裹感出不来。 */
+  --lift-shadow:
+    0 0 16px var(--color-black-8), 0 3px 8px -2px var(--color-black-12),
+    0 14px 30px -8px var(--color-black-25);
+  --lift-shadow-dark:
+    0 0 18px var(--color-black-40), 0 3px 8px -2px var(--color-black-50),
+    0 16px 34px -8px var(--color-black-70);
   --duration-lift: 160ms;
 }
 /* 刻意**不分层**:Tailwind 的 shadow / hover:shadow-* 住在 utilities 层,
