@@ -50,10 +50,14 @@ describe('OAuth 授权两面 → /api/auth/oauth/my-authorized(旧 /api/oauth-ap
 })
 
 describe('会员等级 PUT/DELETE → id 在体/在 query(旧 /:id 形态从未注册)', () => {
-  it('PUT /api/members/levels 且 id 进 body', () => {
+  it('PUT /api/admin/members/levels 且 id 进 body', () => {
+    // 2026-10-22 对齐真注册面:PUT/DELETE /members/levels 只在 adminMemberRoutes 里
+    // (member.ts:559 起,746/760),routes/index.ts:622 挂 /api/admin ⇒ 真路径
+    // /api/admin/members/levels;第一批清账(60594944da)把客户端钉在 /api/members/levels
+    // 实为 404 死调用,G-962 批 5 已把 learn.ts 全族会员等级端点纠正到 admin 面。
     const fn = learn.slice(learn.indexOf('export async function updateMemberLevel'))
     const body = fn.slice(0, fn.indexOf('\nexport') > 0 ? fn.indexOf('\nexport') : fn.length)
-    expect(body).toContain("'/api/members/levels'")
+    expect(body).toContain("'/api/admin/members/levels'")
     expect(body).toContain('JSON.stringify({ id, ...input })')
     expect(body).not.toContain('/api/members/levels/${id}')
   })
@@ -73,6 +77,33 @@ describe('getWithdrawalStatus → GET 无体(旧 POST 从未注册,昵称/openId
     expect(body).not.toContain("method: 'POST'")
     expect(body).not.toContain('nickname')
     expect(body).not.toContain('openId')
+  })
+})
+
+describe('公告/会员分组管理页 → /api/admin/*(G-962 台账 7 条的防回潮)', () => {
+  // 台账已了结这 7 条(admin 页面写口改挂真注册面),这层钉子防"改回旧前缀"后再造 404。
+  const announcementsPage = stripComments(
+    read('../../../apps/web/app/(main)/admin/announcements/page.tsx'),
+  )
+  const groupsPage = stripComments(
+    read('../../../apps/web/app/(main)/admin/member-groups/page.tsx'),
+  )
+  const groupsHelpers = stripComments(
+    read('../../../apps/web/app/(main)/admin/member-groups/helpers.ts'),
+  )
+  it('公告 增/改/删 全在 /api/admin/announcements(与 adminContentRoutes 同面)', () => {
+    expect(announcementsPage).toContain('/api/admin/announcements/${editing.id}')
+    expect(announcementsPage).toContain("'/api/admin/announcements'")
+    expect(announcementsPage).toContain('/api/admin/announcements/${id}')
+    expect(announcementsPage).not.toContain('/api/announcements/')
+    expect(announcementsPage).not.toContain("'/api/announcements'")
+  })
+  it('会员分组 列表/增/改/删 全在 /api/admin/members/groups(member.ts adminMemberRoutes)', () => {
+    expect(groupsHelpers).toContain('/api/admin/members/groups?pageSize=200')
+    expect(groupsPage).toContain('/api/admin/members/groups/${editing.id}')
+    expect(groupsPage).toContain("'/api/admin/members/groups'")
+    expect(groupsPage).toContain('/api/admin/members/groups/${id}')
+    expect(groupsPage).not.toContain('/api/members/groups')
   })
 })
 

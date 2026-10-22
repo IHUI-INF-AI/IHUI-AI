@@ -96,6 +96,9 @@ export type ApplyReason =
   | 'contiguous' // 同代次内序号恰好接着水位
   | 'resume-overlap' // resume 重发最后一条:拼接其余部分,首条须由调用方幂等去重
 
+/** 三个动作的 reason 合起来的封闭集:任何判决的 reason 都必须落在这里。 */
+export type WatermarkReason = ApplyReason | DropReason | RejectReason
+
 export type WatermarkVerdict =
   | {
       readonly action: 'apply'
@@ -138,7 +141,9 @@ export interface AcknowledgeResult {
   readonly reason: 'applied' | 'not-applied' | 'unknown-frame'
 }
 
-export function createWatermarkState(seed?: { readonly baseId?: string | null }): ProjectionWatermarkState {
+export function createWatermarkState(seed?: {
+  readonly baseId?: string | null
+}): ProjectionWatermarkState {
   return {
     baseId: seed?.baseId ?? null,
     appliedSeq: null,
@@ -168,20 +173,33 @@ function carriesBaseId(value: string | null | undefined): boolean {
   return value !== null && value !== undefined
 }
 
-function verdictOf(
-  action: WatermarkVerdict['action'],
-  reason: string,
+// 三个构造函数按动作分开,而不是一个 `verdictOf(action, reason: string)`:
+// 后者必须把 reason 强转回各自动作的联合,等于在类型层重新开一个"任何字符串都行"的口子。
+function applyVerdict(
+  reason: ApplyReason,
   seq: number | null,
   epochUnchecked: boolean,
   dedupHead: boolean,
 ): WatermarkVerdict {
-  if (action === 'apply') {
-    return { action: 'apply', reason: reason as ApplyReason, seq, epochUnchecked, dedupHead }
-  }
-  if (action === 'drop') {
-    return { action: 'drop', reason: reason as DropReason, seq, epochUnchecked, dedupHead }
-  }
-  return { action: 'resync', reason: reason as RejectReason, seq, epochUnchecked, dedupHead }
+  return { action: 'apply', reason, seq, epochUnchecked, dedupHead }
+}
+
+function dropVerdict(
+  reason: DropReason,
+  seq: number | null,
+  epochUnchecked: boolean,
+  dedupHead: boolean,
+): WatermarkVerdict {
+  return { action: 'drop', reason, seq, epochUnchecked, dedupHead }
+}
+
+function resyncVerdict(
+  reason: RejectReason,
+  seq: number | null,
+  epochUnchecked: boolean,
+  dedupHead: boolean,
+): WatermarkVerdict {
+  return { action: 'resync', reason, seq, epochUnchecked, dedupHead }
 }
 
 /**
@@ -202,11 +220,17 @@ function applyBaseline(state: ProjectionWatermarkState, frame: BaselineFrame): W
     mintedGenerations: minted,
     lastRejection: null,
   }
-  return { state: next, verdict: verdictOf('apply', 'baseline-established', next.appliedSeq, false, false) }
+  return {
+    state: next,
+    verdict: applyVerdict('baseline-established', next.appliedSeq, false, false),
+  }
 }
 
 /** 判定一帧:产出新状态 + 判决。**不改动入参**(纯函数,可安全用在 store reducer 里)。 */
-export function applyFrame(state: ProjectionWatermarkState, frame: WatermarkFrame): WatermarkTransition {
+export function applyFrame(
+  state: ProjectionWatermarkState,
+  frame: WatermarkFrame,
+): WatermarkTransition {
   if (isBaselineFrame(frame)) return applyBaseline(state, frame)
 
   const upper = frameUpperSeq(frame)
@@ -215,7 +239,7 @@ export function applyFrame(state: ProjectionWatermarkState, frame: WatermarkFram
   if (!state.baselineApplied) {
     return {
       state: { ...state, awaitingBase: true, lastRejection: 'no-baseline' },
-      verdict: verdictOf('resync', 'no-baseline', state.appliedSeq, !carriesBaseId(frame.baseId), false),
+      verdict: resyncVerdict('no-baseline', state.appliedSeq, !carriesBaseId(frame.baseId), false),
     }
   }
 
@@ -223,7 +247,12 @@ export function applyFrame(state: ProjectionWatermarkState, frame: WatermarkFram
   if (state.pendingBaseId !== null || state.awaitingBase) {
     return {
       state: { ...state, awaitingBase: true, lastRejection: 'awaiting-base' },
-      verdict: verdictOf('resync', 'awaiting-base', state.appliedSeq, !carriesBaseId(frame.baseId), false),
+      verdict: resyncVerdict(
+        'awaiting-base',
+        state.appliedSeq,
+        !carriesBaseId(frame.baseId),
+        false,
+      ),
     }
   }
 
@@ -231,7 +260,7 @@ export function applyFrame(state: ProjectionWatermarkState, frame: WatermarkFram
   if (carriesBaseId(frame.baseId) && frame.baseId !== state.baseId) {
     return {
       state: { ...state, awaitingBase: true, lastRejection: 'base-mismatch' },
-      verdict: verdictOf('resync', 'base-mismatch', state.appliedSeq, false, false),
+      verdict: resyncVerdict('base-mismatch', state.appliedSeq, false, false),
     }
   }
 
@@ -242,7 +271,7 @@ export function applyFrame(state: ProjectionWatermarkState, frame: WatermarkFram
   if (state.appliedSeq === null) {
     return {
       state: { ...state, awaitingBase: true, lastRejection: 'watermark-unknown' },
-      verdict: verdictOf('resync', 'watermark-unknown', null, epochUnchecked, false),
+      verdict: resyncVerdict('watermark-unknown', null, epochUnchecked, false),
     }
   }
 
@@ -253,7 +282,7 @@ export function applyFrame(state: ProjectionWatermarkState, frame: WatermarkFram
     const reason: DropReason = frame.fromSeq === upper && upper === applied ? 'duplicate' : 'late'
     return {
       state: { ...state, lastRejection: null },
-      verdict: verdictOf('drop', reason, applied, epochUnchecked, false),
+      verdict: dropVerdict(reason, applied, epochUnchecked, false),
     }
   }
 
@@ -263,7 +292,7 @@ export function applyFrame(state: ProjectionWatermarkState, frame: WatermarkFram
   if (!contiguous && !resumeOverlap) {
     return {
       state: { ...state, awaitingBase: true, lastRejection: 'gap' },
-      verdict: verdictOf('resync', 'gap', applied, epochUnchecked, false),
+      verdict: resyncVerdict('gap', applied, epochUnchecked, false),
     }
   }
 
@@ -275,8 +304,7 @@ export function applyFrame(state: ProjectionWatermarkState, frame: WatermarkFram
   }
   return {
     state: next,
-    verdict: verdictOf(
-      'apply',
+    verdict: applyVerdict(
       resumeOverlap ? 'resume-overlap' : 'contiguous',
       nextSeq,
       epochUnchecked,
@@ -293,7 +321,11 @@ export function noteBaselineReceived(
   state: ProjectionWatermarkState,
   frame: BaselineFrame,
 ): ProjectionWatermarkState {
-  return { ...state, pendingBaseId: frame.baseId ?? 'pending-unidentified-baseline', awaitingBase: true }
+  return {
+    ...state,
+    pendingBaseId: frame.baseId ?? 'pending-unidentified-baseline',
+    awaitingBase: true,
+  }
 }
 
 /**
@@ -309,7 +341,9 @@ export function acknowledge(
   applied: boolean,
 ): AcknowledgeResult {
   if (!isBaselineFrame(frame)) {
-    const next = applied ? state : { ...state, awaitingBase: true, lastRejection: 'awaiting-base' as const }
+    const next = applied
+      ? state
+      : { ...state, awaitingBase: true, lastRejection: 'awaiting-base' as const }
     return {
       acked: applied,
       state: next,
@@ -336,7 +370,10 @@ export function isBaselineUsable(state: ProjectionWatermarkState): boolean {
 }
 
 /** 判一帧但不改状态(给守门/测试/日志用的只读视角)。 */
-export function judgeFrame(state: ProjectionWatermarkState, frame: WatermarkFrame): WatermarkVerdict {
+export function judgeFrame(
+  state: ProjectionWatermarkState,
+  frame: WatermarkFrame,
+): WatermarkVerdict {
   return applyFrame(state, frame).verdict
 }
 
@@ -348,11 +385,52 @@ export const PROJECTION_WATERMARK_REJECT_REASONS = [
   'gap',
 ] as const satisfies readonly RejectReason[]
 
-export const PROJECTION_WATERMARK_DROP_REASONS = ['duplicate', 'late'] as const satisfies readonly DropReason[]
+export const PROJECTION_WATERMARK_DROP_REASONS = [
+  'duplicate',
+  'late',
+] as const satisfies readonly DropReason[]
 
 export const PROJECTION_WATERMARK_APPLY_REASONS = [
   'baseline-established',
   'contiguous',
   'resume-overlap',
 ] as const satisfies readonly ApplyReason[]
+
+/**
+ * 三个动作 reason 的合并封闭集。派生自上面三份常量而不是再抄一遍字面量 ——
+ * 多一份手写清单就多一次漂移(§22c),而漂移的表现是"判决产出登记表外的 reason 却没人发现"。
+ */
+export const PROJECTION_WATERMARK_REASONS = [
+  ...PROJECTION_WATERMARK_APPLY_REASONS,
+  ...PROJECTION_WATERMARK_DROP_REASONS,
+  ...PROJECTION_WATERMARK_REJECT_REASONS,
+] as const satisfies readonly WatermarkReason[]
+
+// 反查走 Set:值集只从上面同一份常量派生,不另立第二份清单。
+const APPLY_REASON_SET: ReadonlySet<string> = new Set(PROJECTION_WATERMARK_APPLY_REASONS)
+const DROP_REASON_SET: ReadonlySet<string> = new Set(PROJECTION_WATERMARK_DROP_REASONS)
+const REJECT_REASON_SET: ReadonlySet<string> = new Set(PROJECTION_WATERMARK_REJECT_REASONS)
+const ALL_REASON_SET: ReadonlySet<string> = new Set(PROJECTION_WATERMARK_REASONS)
+
+/**
+ * 值 → 类型守卫。入参取 `unknown` 而不是 `string`:调用方(日志回放、上游帧解析)拿到的
+ * 往往就是 `unknown`,若守卫只收 string,那边就只能先强转 —— 等于把"任何字符串都是 reason"
+ * 的口子重新打开。
+ */
+export function isApplyReason(value: unknown): value is ApplyReason {
+  return typeof value === 'string' && APPLY_REASON_SET.has(value)
+}
+
+export function isDropReason(value: unknown): value is DropReason {
+  return typeof value === 'string' && DROP_REASON_SET.has(value)
+}
+
+export function isRejectReason(value: unknown): value is RejectReason {
+  return typeof value === 'string' && REJECT_REASON_SET.has(value)
+}
+
+/** 任一动作的 reason(不区分动作;需要区分时用上面三个)。 */
+export function isWatermarkReason(value: unknown): value is WatermarkReason {
+  return typeof value === 'string' && ALL_REASON_SET.has(value)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
