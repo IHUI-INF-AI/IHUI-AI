@@ -34,7 +34,6 @@ const HOST_FILES = {
 const hostTextOf = (symbol) => readFileSync(HOST_FILES[symbol] ?? SIDEBAR, 'utf8')
 
 const src = readFileSync(GUARD, 'utf8')
-const sidebarText = readFileSync(SIDEBAR, 'utf8')
 
 test('T1 接线成套性:现在不得被声称已接提交链;一旦被接上则必须 blocking + skipEnv', () => {
   const runner = readFileSync(RUNNER, 'utf8')

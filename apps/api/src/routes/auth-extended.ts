@@ -1393,7 +1393,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const result = await sendSmsCode(parsed.data.phone)
-      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      if (!result.success) {
+        // 限速 → 429;云侧没发出去 → 502。两者不能同形:把欠费读成"慢点再试"没人会去查账户。
+        const status = result.failure === 'delivery_failed' ? 502 : 429
+        return reply.status(status).send(error(status, result.msg))
+      }
       return reply.send(success({ sent: true }))
     },
   )
@@ -1408,7 +1412,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success)
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const result = await sendSmsCode(parsed.data.phone)
-      if (!result.success) return reply.status(429).send(error(429, result.msg))
+      if (!result.success) {
+        // 限速 → 429;云侧没发出去 → 502。两者不能同形:把欠费读成"慢点再试"没人会去查账户。
+        const status = result.failure === 'delivery_failed' ? 502 : 429
+        return reply.status(status).send(error(status, result.msg))
+      }
       return reply.send(success({ sent: true }))
     },
   )

@@ -11,25 +11,32 @@ name: Guardian Full
 # 分工:**本地求快**(元门档,覆盖"本次改动直接相关的工具/仓库状态"判据),
 #       **CI 求全**(269 道,400s 由 CI 机器承担)。
 #
-# 触发:**当前只开手动**(workflow_dispatch)。
+# 触发:push 到 main / PR 到 main / 手动。
 #
-# 为什么先不开 push / pull_request 自动触发(2026-10-22,机主要求"不能出任何 bug"):
-# 本地全量实测 269 门有 7 道红,其中 6 道是门 168 判"未入 origin/main 的合并复活" ——
-# 那些复活文件其实**已在 origin/main 里**(本地只领先 1 枚),CI 的 HEAD 就是 origin/main,
-# 按门自己的判据(只判未入 origin 的合并)CI 应当不判它们。但"应当"不是"验证过":
-# 在真跑过一次并确认全绿之前,不开放自动触发 —— 否则第一次 push 就是一道无意义的红。
+# ⚠️ 当前是**记录模式**(continue-on-error: true):全量跑、日志全留,但失败**不把仓库标红**。
+# 为什么(2026-10-22,机主要求"不能出任何 bug"):本地全量实测 269 门有 7~11 道红,其中至少 4 道
+# 是环境噪声(worktree 模拟时 bypass-landing-scope 直接报 ENOENT 日志不可读 ——
+# `.workbuddy/hook-logs/` 没入库);本地也**无法可靠预测** CI 结果(worktree 与独立 clone 不等价:
+# gitdir 共享、工作区脏)。在没真跑过一次全绿之前开放拦截,第一次 push 就是无意义的红。
 #
-# 手动验证通过后,把下面 on: 里的 push / pull_request 两段取消注释即可。
+# 转拦截模式(存量修完后):删掉下面 job 级的 `continue-on-error: true` 那一行。
+
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 # 同一分支新推送就取消上一轮(省额度,也避免旧结论盖住新结论)
-# concurrency:
-#   group: guardian-full-${{ github.ref }}
-#   cancel-in-progress: true
+concurrency:
+  group: guardian-full-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   guardian-full:
+    # 记录模式:跑全量、留全日志,但失败不标红。存量修完后删掉这行即转拦截模式。
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -43,7 +50,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # 与根 package.json 的 engines 对齐(>=22.13.0)。写死 '22' 有可能装到 22.0.0,
+          # 而本仓用了 22.13 之后的特性 ⇒ 用 range 让 setup-node 自己取满足条件的最新 22.x。
+          node-version: '>=22.13.0'
           cache: pnpm
 
       - name: 安装依赖

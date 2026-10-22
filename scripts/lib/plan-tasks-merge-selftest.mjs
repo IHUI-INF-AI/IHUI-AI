@@ -15,7 +15,13 @@
 // import 只带段内真用到的那几个(多一条不用的会被 no-unused-vars 判红,那是把红推给下一个人)。
 // 主文件的 --self-test 分支照旧调 selfTest(),外部看不出这次搬动。
 import { flagValue } from './flag-value.mjs'
-import { DUP_POINTER_RE, compositeKeyOf, findPrefixNestedCopies, keyOfRow, planPrefixNestedPointer, titleOf } from './plan-task-index.mjs'
+import {
+  DUP_POINTER_RE,
+  compositeKeyOf,
+  findPrefixNestedCopies,
+  keyOfRow,
+  planPrefixNestedPointer,
+} from './plan-task-index.mjs'
 import { headIdOf, lostMarkers, markerOf, loopBreakerDecision } from '../check-plan-line-loss.mjs'
 import { forkPreserved } from './plan-merge-annotation.mjs'
 export function runSelfTest(deps) {
@@ -25,7 +31,6 @@ export function runSelfTest(deps) {
     archivedIndex,
     audit,
     rewriteFork,
-    rewritePointer,
     rewriteDup,
     buildMerge,
     auditPointerTerminals,
