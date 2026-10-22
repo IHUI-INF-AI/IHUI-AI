@@ -29001,3 +29001,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] G-874 web 登录首屏接入 Passkey:后端 auth/options 与 auth/verify 已实现但零前端调用方(注册侧只有设置页在用),缺 @simplewebauthn/browser 依赖与 packages/ui-react login-form 的 tab;动 login-form 连带 8 个既有测试,小程序无 WebAuthn 须按 §9 显式标注平台豁免
 
+
