@@ -2176,6 +2176,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2526330525)
+
+**2026-10-22**
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ccd7ce10f5)
 - 🐞 수정:净面去 git 化(read-tree+checkout-index),根治 worktree 登记四类故障 (5038b8b0ca)
 - 🚀 기능/개선:验证码按场景分模板 —— 注册/登录/找回密码/改绑各走自己已过审的模板 (765d4621e6)
@@ -2261,11 +2264,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 **2026-10-22**
 - 🐞 수정:待摘点名行不再给裸标记印 null,并加单源形状锁 (f3d73ae733)
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (596561589d)
-
-**2026-10-22**
-- 📚 문서:G-926/G-927 复验收口结清(雷区残留归零+棘轮 74≤76 转绿) (8d3bb37b7a)
-- 🐞 수정:收掉话术分档引入的三条 e2e 红,并修掉一条靠竞态才绿的断言 (b457d1e2b7)
-- ♻️ 리팩터:post-commit-hook 裸 git 派生改走 face-reader gitRaw(G-927 剩余棘轮收口) (ca99778c00)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
