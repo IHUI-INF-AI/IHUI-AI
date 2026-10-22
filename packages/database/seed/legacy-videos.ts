@@ -14,6 +14,10 @@
 // CLI:`tsx seed/legacy-videos.ts` 缺省 dry-run(纯读普查,一句写都不发);`--apply` 才写库;
 // `--publish` 才置 isPublished(默认全部草稿,上架与否归内容侧)。作为 seed 步骤被 index.ts 调用时
 // 走 `apply=true, publish=false`。
+//
+// 存量库重跑:`--apply --publish` **也会把已存在的 22 门课翻成发布态**(upsert 的复用分支带
+// updateValues) —— 只补新增行、不翻旧行的话,现网 total=0 永远修不好:视频行早已在库,缺的是
+// isPublished/status 这两个公开列表的过滤谓词。
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -124,27 +128,34 @@ export async function seedLegacyVideos(opts: SeedLegacyVideosOptions = {}): Prom
   }
 
   for (const c of data.courses) {
+    const lessonValues = {
+      title: c.title,
+      coverImage: null,
+      intro: introOf(c),
+      categoryId: null,
+      lecturerId: null,
+      lecturerName: c.lecturerName,
+      difficulty: null,
+      price: '0.00',
+      originalPrice: null,
+      isFree: true,
+      isPublished: publish,
+      sort: 0,
+      lessonCount: c.sections.length,
+      status: 1,
+    }
     const { id: lessonId, action } = await upsertByUnique(db as never, {
       table: lessons,
       uniqueBy: { column: lessons.title, value: c.title },
       // helper 的 idColumn 缺省 = 查重列(此处即 title)⇒ 不显式点名主键就会把标题当 id 回给下游
       idColumn: lessons.id,
       insertValues: {
-        title: c.title,
-        coverImage: null,
-        intro: introOf(c),
-        categoryId: null,
-        lecturerId: null,
-        lecturerName: c.lecturerName,
-        difficulty: null,
-        price: '0.00',
-        originalPrice: null,
-        isFree: true,
-        isPublished: publish,
-        sort: 0,
-        lessonCount: c.sections.length,
-        status: 1,
+        ...lessonValues,
       },
+      // 复用分支:仅 publish 时翻发布态(草稿重跑不改线上状态);lessonCount 是本节点数,恒可校正。
+      updateValues: publish
+        ? { isPublished: true, status: 1, lessonCount: c.sections.length }
+        : { lessonCount: c.sections.length },
     })
     if (action === 'inserted') result.addedLessons++
     else result.reusedLessons++
