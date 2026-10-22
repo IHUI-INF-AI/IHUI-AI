@@ -210,13 +210,32 @@ export async function listActiveScopeMeta() {
 // Third-party Accounts (绑定)
 // ============================================================================
 
+/**
+ * 按 (platform, openId) 找**当前有效**的绑定。
+ *
+ * 必须滤 `deleted_at`(2026-10-22 立):同文件下面的 `listUserBindings` 一直带着
+ * `deletedAt IS NULL`,而这一条从来没带 ⇒ 两条查询对"绑没绑"的理解不一致。后果不是报错,
+ * 而是错身份:用户在「已绑定账号」页解绑(列表按软删过滤 ⇒ 显示未绑),再扫同一次微信,
+ * 这一条仍会命中那枚软删行并把会话登到**旧 user** 上去;`/mini/rebind` 的
+ * `existing.userId !== request.userId ⇒ 409` 也会被一枚早已解绑的死行触发。
+ *
+ * 顺手把 `limit(1)` 补上确定序:此前无 `orderBy`,同键多行时命中哪一行由数据库决定 ——
+ * 那是"偶发登错账号"这种最难复现的故障形态。真并发双绑的第二行还需要库里
+ * `(platform, open_id) WHERE deleted_at IS NULL` 的部分唯一索引才能结构性堵住
+ * (本轮现读:4 行绑定 / 0 软删 / 0 重复组 ⇒ 索引此刻可建,属需要机主点头的 DDL,未擅自动)。
+ */
 export async function findThirdPartyAccount(platform: string, openId: string) {
   const rows = await db
     .select()
     .from(userThirdPartyAccounts)
     .where(
-      and(eq(userThirdPartyAccounts.platform, platform), eq(userThirdPartyAccounts.openId, openId)),
+      and(
+        eq(userThirdPartyAccounts.platform, platform),
+        eq(userThirdPartyAccounts.openId, openId),
+        sql`${userThirdPartyAccounts.deletedAt} IS NULL`,
+      ),
     )
+    .orderBy(userThirdPartyAccounts.createdAt)
     .limit(1)
   return rows[0]
 }
@@ -278,10 +297,7 @@ export async function removeBinding(id: string, userId: string): Promise<string[
  *  ② 写后必须回读:更新完成后按活行面重读一次,若该平台仍有活绑定 = 写入静默落空,
  *    当场抛错而不是把"半解绑"当成功留给下一次用户报障。
  */
-export async function removeBindingByPlatform(
-  userId: string,
-  platform: string,
-): Promise<string[]> {
+export async function removeBindingByPlatform(userId: string, platform: string): Promise<string[]> {
   const rows = await db
     .update(userThirdPartyAccounts)
     .set({ deletedAt: new Date() })
@@ -342,7 +358,7 @@ export async function updateUserSk(id: string, userId: string, status: number) {
   await db
     .update(userSk)
     .set({ status, updatedAt: new Date() })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(and(eq(userSk.id, id), eq(userSk.userId, userId)))
 }
 
