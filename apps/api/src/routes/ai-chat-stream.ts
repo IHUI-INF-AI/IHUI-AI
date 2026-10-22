@@ -433,7 +433,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             // 新连接断开同样走宽限 detach(重复断线/重连安全)
             // G-998166:迟到清理带对象身份复核 —— 只有注册表里仍是本 session 才 detach;
             // 旧 session 的迟到 close 不得对同 key 已换代的新 session 触发宽限/释放
-            request.raw.on('close', () => {
+            // O64(2026-10-22):信号源改本连接 reply.raw —— request.raw 的 'close' 在 Node≥16
+            // 请求体收全即触发且真断连不再二次触发,挂 req 侧接管后断连全漏,宽限定时器从不武装。
+            raw.on('close', () => {
               if (findSession(replayKey) === liveSession) detachOnClose(liveSession)
             })
             request.log.warn(
@@ -547,8 +549,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       controller.abort()
     }, 5 * 60_000)
     // 断线不再立即 abort 上游(#22):进 15s 宽限期等重连接管,超时才 abort
+    // O64(2026-10-22):信号源 = reply.raw。request.raw(IncomingMessage,Readable autoDestroy)
+    // 的 'close' 在 Node≥16 请求体收全即触发(进 handler 前 Fastify 已收完体),真断连不再二次
+    // 触发 —— 挂 req 侧则宽限定时器生产形态从不武装。reply.raw 的 'close' 只在断连/完成时触发,
+    // 完成路径由下方 finally 先行摘除,且 detachOnClose 自带 finished 守卫(双保险)。
     const onClose = () => detachOnClose(session)
-    request.raw.on('close', onClose)
+    raw.on('close', onClose)
 
     try {
       const mergedMetadata = {
@@ -866,7 +872,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       if (opts.agentId) errChunk.agentId = opts.agentId
       emitEvent(session, JSON.stringify(errChunk))
     } finally {
-      request.raw.off('close', onClose)
+      raw.off('close', onClose)
       clearTimeout(serverTimeout)
       // D690 触发面对位:新生流没走到首字节(建连失败/错误/提前中止)时,被复用退役的
       // 原上游不得悬空 —— 其宽限定时器已在退役时撤销,此处是唯一收口点。
