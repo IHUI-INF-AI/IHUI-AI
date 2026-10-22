@@ -526,13 +526,46 @@ const BASE_CLOSE = '/* ===== 共享基础样式结束'
 const BASE_IMPORT_RE = /@import\s+['"][^'"]*packages\/design-tokens\/src\/styles\/base\.css['"];\s*/
 
 /**
+ * weapp 的 wxss 编译器不认 `:where()` —— 命中它不是"这条样式不生效",而是**整份 .wxss 编译失败、
+ * 小程序开屏白屏**(2026-10-22 在微信开发者工具 Stable 2.02.2608080 实测:摘掉 base.css 投影过来的
+ * 那一条 `:where(input[type='checkbox'], …)` 之后重新编译,首页立即渲染出来)。
+ *
+ * 所以这一段按"目标端"改写而不是逐字拷贝:选择器语义不变,只把零特异性的包裹拆掉。
+ * 拆了会不会压掉显式档?不会 —— `input[type='checkbox']` 这类带属性选择器的写法在小程序里根本
+ * 匹配不到任何节点(小程序的 `<input>` 没有 checkbox/radio/range 这三型,也没有 `progress` 标签),
+ * 而 web / extension 读的是 base.css 原件,`:where()` 原样留着,那条"31 处 accent-* 工具类照样赢"
+ * 的约束不受影响。
+ *
+ * 只改"规则开头"的 `:where(`(前面是 `}`/`;`/文件开头,后面紧跟 `{`),不碰声明值里的括号。
+ * 改完还剩 `:where(` ⇒ 拒绝写回(宁可这次不同步,也不把白屏交给下一次构建)。
+ */
+// 规则开头的三种前像:文件开头、上一条规则以 `}`/`;` 收尾、或紧跟在注释结束符 `*/` 之后
+// (base.css 里那条正是"注释说明 + 规则"的写法)。注释**内部**的 `:where()` 是文档措辞,不改也不算漏网。
+const WXPSS_UNSUPPORTED_WHERE_SRC = '(^|[;}]|\\*\\/)(\\s*):where\\(([^{}()]*)\\)(\\s*)(\\{)'
+const WXPSS_UNSUPPORTED_WHERE_RE = new RegExp(WXPSS_UNSUPPORTED_WHERE_SRC, 'g')
+
+function projectSelectorsForWeapp(baseCss) {
+  const out = String(baseCss).replace(
+    WXPSS_UNSUPPORTED_WHERE_RE,
+    (_all, head, gapA, sel, gapB, brace) => `${head}${gapA}${sel.trim()}${gapB}${brace}`,
+  )
+  // 投影后按"遮掉注释"再问一次:注释里提到 `:where()` 是文档措辞(不算漏网),而**代码位**还剩
+  // 任何 `:where(`(例如带嵌套括号的 `:where(:not(a)){}` 这类本投影拆不动的形)⇒ 宁可这次不同步,
+  // 也不把"整份 .wxss 编译失败、开屏白屏"交给下一次构建。
+  if (maskComments(out).includes(':where('))
+    throw new Undetermined('base.css 里还有 wxss 编译器不认的 :where( 规则形态,拒绝写回 app.css')
+  return out
+}
+
+/**
  * base.css 段原位写回:只换两段标记注释之间的内容,标记本身与块外一行不碰。
- * 这一段是**逐字拷贝**(base.css 自带 §5c 零宽横幅,原样搬,不剥不改)。
+ * 块内是**按目标端投影**(wxss 不认的 `:where()` 拆包,见 projectSelectorsForWeapp);
+ * base.css 自带的 §5c 零宽横幅原样搬,不剥不改。
  * 首次迁移(app.css 里还是跨包 `@import`)时整块插入 —— 背景:微信 IDE 以 dist 为根
  * 解析不到 `../../../packages/...` → [WXSS 文件编译错误]。
  */
 export function mergeAppCssBase(css, baseCss) {
-  const body = `\n${baseCss.trim()}\n`
+  const body = `\n${projectSelectorsForWeapp(baseCss).trim()}\n`
   const open = css.indexOf(BASE_OPEN)
   if (open >= 0) {
     if (css.indexOf(BASE_OPEN, open + 1) >= 0) throw new Undetermined('base.css 受管段起始标记重复')
