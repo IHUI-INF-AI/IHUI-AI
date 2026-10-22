@@ -8,11 +8,11 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/extension/scripts/generate-ext-ui-routes.mjs
-// sourceCommit: ce6977dbb1523b9b51c1367b601eb9a708e3d360
-// inputsSha256: 942e489fa29e80a4bc0c7301b16bbea4cc94f99386754faac8c5e3fc09a2c5c2
-// input: apps/extension/entrypoints/sidepanel/SidepanelApp.tsx b4f67f6d2b28a9bff6c906609324636bdef227427eb7da4450a1b9705534f5aa
+// sourceCommit: 6bb7dbed1efe9f7412dd36a7c965d793890e7cf5
+// inputsSha256: 14de46ef3dcec85a1437a05a5a8cd2b50987af1329ca9c0762af142c301e46bc
+// input: apps/extension/entrypoints/sidepanel/SidepanelApp.tsx cc57e8312c8fe61b74b6350cbb7680d7fc10b390042166707c08d1d1ee471fdd
 // skipped: wildcardRoutes=1(`*` 通配,万物兜底不导航); dynamicPaths=0(path 为动态表达式)
-// generatedAt: 2026-10-11T20:08:14.869Z
+// generatedAt: 2026-10-22T19:04:03.216Z
 // IHUI-GEN-PIN-END
 
 /** ext_ui navigate 路由白名单(生成常量,非手写维护):与 web 端 ui-route-index.ts 的站内白名单语义对齐 */
