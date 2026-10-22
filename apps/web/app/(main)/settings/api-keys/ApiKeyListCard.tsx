@@ -97,7 +97,8 @@ export function ApiKeyListCard({
     })
 
   return (
-    <Card>
+    // 整页级长列表壳(实测高 6111px):浮起只该属于卡片,不让整块列表跟着上浮
+    <Card className="ui-lift-off">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <KeyRound className="h-4 w-4" />

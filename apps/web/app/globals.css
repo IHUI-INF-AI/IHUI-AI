@@ -1250,8 +1250,8 @@ iframe::-webkit-scrollbar {
    一旦本规则被放进 @layer components,就会被元素自带的 utility 阴影盖掉
    —— 实测走 Card 基座的卡片浮起时只有位移、阴影纹丝不动(线上量到 rgba(0,0,0,0) 那条
    Tailwind 占位阴影仍在生效)。不分层才压得住,也才谈得上"统一"。 */
-.ui-lift,
-main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off) {
+.ui-lift:not(.ui-lift-off),
+main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):not([class*='h-full']) {
   transition:
     scale var(--duration-lift) var(--ease-premium-out),
     translate var(--duration-lift) var(--ease-premium-out),
@@ -1260,23 +1260,28 @@ main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off) {
 /* z-index 对 grid/flex 子项**不需要 position** 就生效(卡片全是网格/弹性子项)。
    少了这一格,放大后的卡片会压到邻居边框上、被邻居裁掉一角 —— 读起来像"错位"而不是
    "浮起来"(1.012 那版的观感事故即此)。 */
-.ui-lift:hover,
-main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):hover {
+.ui-lift:not(.ui-lift-off):hover,
+main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):not([class*='h-full']):hover {
   z-index: 1;
   scale: var(--lift-scale);
   translate: 0 var(--lift-offset);
   box-shadow: var(--lift-shadow);
 }
 /* 暗档下 black-15 落在深底上几乎量不出来,浮起必须看得见 */
-.dark .ui-lift:hover,
-.dark main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):hover {
+.dark .ui-lift:not(.ui-lift-off):hover,
+.dark
+  main
+  :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):not([class*='h-full']):hover {
   box-shadow: var(--lift-shadow-dark);
 }
-/* 嵌套卡片:内层不跟着位移(内外双层同时挪读起来像抖动),阴影叠加不明显故不管 */
+/* 排除 h-full / min-h-full 一族:那是**布局壳**(撑满工作区的侧栏、整页容器),
+   不是卡片。实测 API 密钥页有一个 6111px 高的 bg-card 壳、用户管理页有 h-full 侧栏壳,
+   鼠标扫过就让整块长内容上浮 2px —— 读起来是"整页在晃"。
+   剩下个别靠内容撑高的长列表卡(如密钥列表),在调用点显式挂 .ui-lift-off 退出。 */
 .ui-lift .ui-lift:hover,
 main
   :is(div, section, article)[class*='bg-card']
-  :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):hover {
+  :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):not([class*='h-full']):hover {
   scale: none;
   translate: none;
 }
