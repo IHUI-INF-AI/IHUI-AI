@@ -120,6 +120,229 @@ const HEADLESS_KEYWORDS = [
 ] as const
 
 /* -------------------------------------------------------------------------- */
+/* 客户端族归一(观测面)                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 族表只新增、不动上面三张原表:上面三表同时喂 `calculateBehaviorScore` 与风控拦截,
+ * 改它们的取值 = 改拦截语义(2026-09-24 首方误判成爬虫的事故就出在词表上)。
+ * 本区只做"自称是什么"的归类,不产出分数、不参与放行。
+ */
+const FIRST_PARTY_KEYWORDS = ['ihui-', 'ihuiai-'] as const
+
+const WEBHOOK_KEYWORDS = [
+  'github-hookshot',
+  'gitee-webhook',
+  'gitlab-webhook',
+  '-webhook',
+  'webhook/',
+] as const
+
+const MONITOR_KEYWORDS = [
+  'uptimerobot',
+  'pingdom',
+  'monitis',
+  'statuspal',
+  'uptime-kuma',
+  'site24x7',
+  'solarwinds',
+  'newrelicpinger',
+  'blackbox-exporter',
+] as const
+
+/** AI 编程工具与自主 agent —— 机主要问的"有没有 AI 来访问"主要落这一族。 */
+const AI_TOOL_KEYWORDS = [
+  'qoder',
+  'traecn',
+  'trae-cn',
+  'workbuddy',
+  'cursor',
+  'windsurf',
+  'copilot',
+  'claude-code',
+  'claude-cli',
+  'codex-cli',
+  'aider',
+  'openclaw',
+  'agentwebmap',
+  'langchain',
+  'autogen',
+  'browser-use',
+  'gemini-cli',
+  'opencode',
+  'cline',
+  'swe-agent',
+] as const
+
+/** AI 厂商的抓取/引用客户端。'claude' 会同时命中 claude-code,靠判定次序排在 AI_TOOL 之后。 */
+const AI_CRAWLER_KEYWORDS = [
+  'gptbot',
+  'chatgpt',
+  'oai-searchbot',
+  'claude',
+  'anthropic-ai',
+  'perplexitybot',
+  'perplexity-user',
+  'grokbot',
+  'moonshotbot',
+  'duckassistbot',
+  'meta-externalagent',
+  'meta-externalindexer',
+  'google-extended',
+  'googleother',
+  'google-other',
+  'applebot-extended',
+  'cohere-training',
+  'imagesift',
+  'tencentyuxiang',
+  'seekport',
+] as const
+
+const CLI_KEYWORDS = [
+  'curl',
+  'wget',
+  'httpie',
+  'powershell',
+  'invoke-webrequest',
+  'invoke-restmethod',
+  'postman',
+  'insomnia',
+  'apifox',
+  'swagger-codegen',
+  'vegeta',
+  'wrk',
+] as const
+
+/** 原表 CURL_LIKE_KEYWORDS 之外的库型客户端;裸 'node' 是 undici 默认不发 UA 时部分运行时的实形态。 */
+const SDK_KEYWORDS = ['undici', 'node', 'reqwest', 'hyper', 'superagent', 'got/', 'fetch/'] as const
+
+const BROWSER_PLATFORM_KEYWORDS = [
+  'windows nt',
+  'macintosh',
+  'x11; linux',
+  'android',
+  'iphone',
+  'ipad',
+] as const
+
+const BROWSER_ENGINE_KEYWORDS = ['chrome', 'safari', 'firefox', 'edg', 'opr', 'samsungbrowser'] as const
+
+/**
+ * 客户端族封闭枚举。UA 原文不得进指标标签(基数无界),只能按族折叠;
+ * 数组次序即判定优先级 —— 首方与 AI 工具必须排在通用浏览器形态之前,
+ * 否则 `QoderCN/0.4.8 Chrome/150` 这类会被读成真人浏览器。
+ */
+export const CLIENT_FAMILIES = [
+  'first-party',
+  'webhook',
+  'monitor',
+  'agent-tool',
+  'ai-crawler',
+  'headless',
+  'search-crawler',
+  'cli',
+  'sdk',
+  'human-browser',
+  'no-ua',
+  'unknown',
+] as const
+
+export type ClientFamily = (typeof CLIENT_FAMILIES)[number]
+
+/** UA 是否形如真实浏览器(Mozilla/5.0 + 平台 + 引擎三者齐备)。只看形态,不验真。 */
+function isBrowserShape(ua: string): boolean {
+  if (!ua.startsWith('Mozilla/5.0')) return false
+  return (
+    timingSafeContainsAny(ua, BROWSER_PLATFORM_KEYWORDS) &&
+    timingSafeContainsAny(ua, BROWSER_ENGINE_KEYWORDS)
+  )
+}
+
+/* -------------------------------------------------------------------------- */
+/* 探测形态归一(观测面)                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * 恶意路径形态封闭枚举。2026-10-23 从 api_logs 现读的探测载荷里取,不自创档位。
+ * 只收"无论本司有没有实现该路由都属恶意形态"的五档:
+ * `graphql-probe`、`llms-txt-probe` 这类**取决于本站是否实现**的一律不收 ——
+ * 今天 api 无 graphql 路由所以它是探测,明天接了 GraphQL 它就变成正常流量,
+ * 判据会随功能演进而静默失真(§12f:判据的失效方向必须是"多要一次说明",不是"多放一次")。
+ */
+export const SCAN_PROBE_KINDS = [
+  'dotenv-probe',
+  'path-traversal',
+  'proc-self-read',
+  'get-log-file-abuse',
+  'admin-console-probe',
+] as const
+
+export type ScanProbeKind = (typeof SCAN_PROBE_KINDS)[number]
+
+/** 判定次序即优先级:先具体后泛化。实测载荷同时命中三档,必须给出唯一确定答案。 */
+const SCAN_PROBE_PATTERNS: ReadonlyArray<readonly [ScanProbeKind, readonly string[]]> = [
+  ['proc-self-read', ['proc/self/', 'proc/self/environ']],
+  ['path-traversal', ['../', '..;/', '%2e%2e/', '%2e%2e%2f']],
+  ['get-log-file-abuse', ['get_log_file', 'get-log-file']],
+  ['dotenv-probe', ['.env']],
+  [
+    'admin-console-probe',
+    ['console/api_server', 'manager/html', 'phpmyadmin', 'wp-login', 'admin/oauth'],
+  ],
+]
+
+/**
+ * 把请求路径归一成探测形态;非探测返回 null。
+ * 走同一套常量时间比较:命中与否一旦参与拦截(anti-automation 已吃这张表),
+ * 计时差异就成了攻击者"试探我的规则集"的 oracle,这里不留。
+ */
+export function classifyScanProbe(
+  path: string | null | undefined,
+): ScanProbeKind | null {
+  if (!path || path.length === 0) return null
+  for (const [kind, needles] of SCAN_PROBE_PATTERNS) {
+    if (timingSafeContainsAny(path, needles)) return kind
+  }
+  return null
+}
+
+/**
+ * 把 UA 归一成有界客户端族。
+ *
+ * 各表都跑完再按优先级选,不在单次匹配里提前返回 —— 沿用本文件的常量时间纪律,
+ * 让"命中哪一族"不从计时上可被反推。
+ * 注意:这是**自述**分类。扫描器会伪装成 Googlebot/GitHub-Hookshot(2026-10-23 实测
+ * 腾讯云海外段成批用 AI 爬虫 UA 打 path-traversal),族面按 UA 如实记自述,
+ * 真伪由路径命中那一族去判,不在这里混。
+ */
+export function classifyClientFamily(ua: string | null | undefined): ClientFamily {
+  if (!ua || ua.length === 0) return 'no-ua'
+
+  const hitFirstParty = timingSafeContainsAny(ua, FIRST_PARTY_KEYWORDS)
+  const hitWebhook = timingSafeContainsAny(ua, WEBHOOK_KEYWORDS)
+  const hitMonitor = timingSafeContainsAny(ua, MONITOR_KEYWORDS)
+  const hitAiTool = timingSafeContainsAny(ua, AI_TOOL_KEYWORDS)
+  const hitAiCrawler = timingSafeContainsAny(ua, AI_CRAWLER_KEYWORDS)
+  const hitHeadless = isHeadlessBrowser(ua)
+  const hitSearchCrawler = isBotUserAgent(ua)
+  const hitCli = timingSafeContainsAny(ua, CLI_KEYWORDS)
+  const hitSdk = isCurlLike(ua) || timingSafeContainsAny(ua, SDK_KEYWORDS)
+  const hitBrowser = isBrowserShape(ua)
+
+  if (hitFirstParty) return 'first-party'
+  if (hitWebhook) return 'webhook'
+  if (hitMonitor) return 'monitor'
+  if (hitAiTool) return 'agent-tool'
+  if (hitAiCrawler) return 'ai-crawler'
+  if (hitHeadless) return 'headless'
+  if (hitSearchCrawler) return 'search-crawler'
+  if (hitCli) return 'cli'
+  if (hitSdk) return 'sdk'
+  if (hitBrowser) return 'human-browser'
+  return 'unknown'
+}
+
+/* -------------------------------------------------------------------------- */
 /* UA 启发式                                                                   */
 /* -------------------------------------------------------------------------- */
 
