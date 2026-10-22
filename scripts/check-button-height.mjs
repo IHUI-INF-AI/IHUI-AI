@@ -11,22 +11,34 @@
 // 豁免:原生 <button> 自绘(IDE 面板等 24px 紧凑档为有意设计)、Input/SelectTrigger/Skeleton、
 //       Button 上的 h-5/h-6(24px/20px 紧凑档,存量 45 处表格行/侧栏密集场景,与原生紧凑档同哲学)、
 //       packages/ui-react/src/components/button.tsx 定义文件本身、测试文件、注释内的示例代码。
-// 用法:node scripts/check-button-height.mjs            (全量扫描,审计用)
+// 用法:node scripts/check-button-height.mjs            (判定面=HEAD blob,全量/guardian 档)
 //       node scripts/check-button-height.mjs --staged   (判定面=索引 blob,提交链用)
+//       node scripts/check-button-height.mjs --worktree (判定面=工作区磁盘,仅人工逃生舱)
 //       node scripts/check-button-height.mjs --root <dir> | --root=<dir>
-//                                                       (显式注入扫描根,自检/审计缝;
+//                                                       (显式注入夹具根,强制工作区面;
 //                                                        根不存在 → exit 2,绝不静默 exit 0;
 //                                                        与 --staged 互斥,同给 → exit 2)
-//       环境变量 BUTTON_HEIGHT_ROOT 等价 --root(照 check-i18n-messages-exist.mjs 惯例)
+//       环境变量 BUTTON_HEIGHT_ROOT 等价 --root(同样强制工作区面、同样与 --staged 互斥)
 //       node scripts/check-button-height.mjs --self-test (独立夹具正反成对取证,不扫真仓)
-// 退出码:0 通过 / 1 发现违规 / 2 脚本自身异常(--root 缺值、根不存在、空根、参数冲突、未知参数)
+// 判定面纪律(AGENTS §0.4):全量 HEAD / --staged 索引 / --worktree 仅人工;取不到面 exit 2,
+//   绝不回落另一个面;两面旗同给 exit 2。
+// 退出码:0 通过 / 1 发现违规 / 2 未判定或脚本自身异常
 // 紧急跳过:HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1 git commit ...
-import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import {
+  Undetermined,
+  assertRepoRoot,
+  catBatch,
+  gitRaw,
+  readWorktreeFile,
+  selectFace,
+} from './lib/face-reader.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 // ───────────────────── 扫描根注入(2026-09-24 自检加固) ─────────────────────
 // 此前 ROOT = process.cwd():自检若只"cd 到夹具"实际仍静默扫真仓(本仓实证事故形态:
@@ -58,7 +70,7 @@ function resolveRoot(argv, env) {
     return { root: path.resolve(SCRIPT_REPO_ROOT, v), explicitCli: true }
   }
   if (env && env.BUTTON_HEIGHT_ROOT) {
-    return { root: path.resolve(env.BUTTON_HEIGHT_ROOT), explicitCli: false }
+    return { root: path.resolve(env.BUTTON_HEIGHT_ROOT), explicitCli: true }
   }
   return { root: SCRIPT_REPO_ROOT, explicitCli: false }
 }
@@ -87,18 +99,24 @@ const FALLBACK_SIZES = ['xs', 'sm', 'default', 'lg', 'icon-2xs', 'icon-xs', 'ico
  * @param {string} root
  * @returns {Set<string>}
  */
+/** 纯解析:档位表源码 → Set(空解析回退静态兜底表;回退是否发生由 --self-test 双向探针钉住) */
+function parseValidSizes(src) {
+  const m = /size:\s*\{/.exec(src)
+  if (!m) return new Set(FALLBACK_SIZES)
+  const tail = src.slice(m.index + m[0].length)
+  const end = tail.indexOf('defaultVariants')
+  const body = (end > 0 ? tail.slice(0, end) : tail)
+    .replace(/\/\/[^\n]*/g, '') // 去行注释(注释中的 `key:` 形态会污染键名解析)
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+  const names = [...body.matchAll(/^\s*'?([A-Za-z][A-Za-z0-9_-]*)'?\s*:/gm)].map((x) => x[1])
+  return names.length > 0 ? new Set(names) : new Set(FALLBACK_SIZES)
+}
+
+/** 工作区面便捷读(镜像测试/自检旧签名);读不到回退兜底表,与旧语义一致 */
 function loadValidSizes(root) {
   try {
-    const src = readFileSync(path.join(root, EXCLUDE_FILE), 'utf8')
-    const m = /size:\s*\{/.exec(src)
-    if (!m) return new Set(FALLBACK_SIZES)
-    const tail = src.slice(m.index + m[0].length)
-    const end = tail.indexOf('defaultVariants')
-    const body = (end > 0 ? tail.slice(0, end) : tail)
-      .replace(/\/\/[^\n]*/g, '') // 去行注释(注释中的 `key:` 形态会污染键名解析)
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-    const names = [...body.matchAll(/^\s*'?([A-Za-z][A-Za-z0-9_-]*)'?\s*:/gm)].map((x) => x[1])
-    return names.length > 0 ? new Set(names) : new Set(FALLBACK_SIZES)
+    const src = readWorktreeFile(root, EXCLUDE_FILE)
+    return src === null ? new Set(FALLBACK_SIZES) : parseValidSizes(src)
   } catch {
     return new Set(FALLBACK_SIZES)
   }
@@ -121,7 +139,10 @@ function maskComments(src) {
     const c = src[i]
     const c2 = src[i + 1]
     if (c === '/' && c2 === '/') {
-      while (i < n && src[i] !== '\n') { out[i] = ' '; i++ }
+      while (i < n && src[i] !== '\n') {
+        out[i] = ' '
+        i++
+      }
       continue
     }
     if (c === '/' && c2 === '*') {
@@ -134,8 +155,14 @@ function maskComments(src) {
       const q = c
       i++
       while (i < n) {
-        if (src[i] === '\\') { i += 2; continue }
-        if (src[i] === q) { i++; break }
+        if (src[i] === '\\') {
+          i += 2
+          continue
+        }
+        if (src[i] === q) {
+          i++
+          break
+        }
         i++
       }
       continue
@@ -153,12 +180,19 @@ function extractTag(src, start) {
   while (i < src.length) {
     const c = src[i]
     if (quote) {
-      if (c === '\\') { i += 2; continue }
+      if (c === '\\') {
+        i += 2
+        continue
+      }
       if (c === quote) quote = null
       i++
       continue
     }
-    if (c === '"' || c === "'" || c === '`') { quote = c; i++; continue }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c
+      i++
+      continue
+    }
     if (c === '{') depth++
     else if (c === '}') depth--
     else if (c === '>' && depth === 0) return src.slice(start, i + 1)
@@ -208,7 +242,9 @@ function collectViolationsInSource(src, validSizes, rel = '<memory>') {
     const size = extractSize(tag)
     const bad = classes.filter((c) => BAD_SIZE_RE.test(c) && SIZE_TOKEN_RE.test(c))
     const badSize =
-      size !== null && !validSizes.has(size) ? [`size="${size}" 不在档位表 ${[...validSizes].join('/')}`] : []
+      size !== null && !validSizes.has(size)
+        ? [`size="${size}" 不在档位表 ${[...validSizes].join('/')}`]
+        : []
     if (bad.length || badSize.length) {
       violations.push({ file: rel, line: lineOf(masked, m.index), bad: [...bad, ...badSize] })
     }
@@ -223,8 +259,8 @@ function walkTsx(dir, out) {
     else if (/\.(tsx|jsx)$/.test(e)) out.push(p.replaceAll('\\', '/'))
   }
 }
-/** 在指定根上扫描(stagedSet 非空时收窄到该集合) */
-function scanTree(root, stagedSet = null) {
+/** 工作区面扫描(人工逃生舱/自检夹具);仓库内容读取一律走 face-reader 的 readWorktreeFile */
+function scanTree(root) {
   const validSizes = loadValidSizes(root)
   const files = []
   for (const r of ROOTS) {
@@ -238,32 +274,74 @@ function scanTree(root, stagedSet = null) {
   for (const f of files) {
     const rel = path.relative(root, f).replaceAll('\\', '/')
     if (!isScannedFile(rel)) continue
-    if (stagedSet && !stagedSet.has(rel)) continue
     let src
     try {
-      src = readFileSync(f, 'utf8')
+      src = readWorktreeFile(root, rel)
     } catch {
       continue
     }
+    if (src === null) continue
     violations.push(...collectViolationsInSource(src, validSizes, rel))
   }
   return { violations, fileCount: files.length, validSizes }
 }
-function getStagedSet(root) {
-  try {
-    const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
-      cwd: root,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 30000,
-      maxBuffer: 16 * 1024 * 1024,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    return new Set(out.split('\n').filter(Boolean).map((f) => f.replaceAll('\\', '/')))
-  } catch {
-    return null
+
+/** HEAD/索引面的清单:只列 ROOTS 下路径;取不到面由 gitRaw/catBatch 抛 Undetermined */
+function listFaceFiles(root, face) {
+  const args =
+    face === 'head'
+      ? ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', ...ROOTS]
+      : ['diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z', '--', ...ROOTS]
+  return gitRaw(args, root).split('\0').filter(Boolean)
+}
+
+/** 按面批量取正文:HEAD 用 HEAD:<rel>,索引用 :<rel>(索引 blob 与工作区磁盘无关) */
+function readFaceFiles(root, face, rels) {
+  if (face === 'worktree') {
+    const out = new Map()
+    for (const rel of rels) out.set(rel, readWorktreeFile(root, rel))
+    return out
   }
+  const specs = rels.map((rel) => (face === 'head' ? `HEAD:${rel}` : `:${rel}`))
+  const raw = catBatch(root, specs)
+  const out = new Map()
+  rels.forEach((rel, i) => out.set(rel, raw.get(specs[i]) ?? null))
+  return out
+}
+
+/** 档位表必须与判定面同面:HEAD/索引面取不到 ⇒ 未判定,绝不回退兜底表冒绿 */
+function loadValidSizesFromFace(root, face) {
+  const src = readFaceFiles(root, face, [EXCLUDE_FILE]).get(EXCLUDE_FILE)
+  if (src === null || src === undefined) {
+    if (face === 'worktree') return new Set(FALLBACK_SIZES)
+    throw new Undetermined(`${face} 面取不到档位源 ${EXCLUDE_FILE}(不回落兜底表)`)
+  }
+  return parseValidSizes(src)
+}
+
+/** 三面取材单源:worktree 复用 scanTree,HEAD/索引面走 face-reader */
+function scanFace(root, face) {
+  if (face === 'worktree') return scanTree(root)
+  assertRepoRoot(root, 'check-button-height')
+  const validSizes = loadValidSizesFromFace(root, face)
+  const allFiles = listFaceFiles(root, face).filter((rel) => /\.(tsx|jsx)$/.test(rel))
+  const targets = allFiles.filter(isScannedFile)
+  if (targets.length === 0) return { violations: [], fileCount: allFiles.length, validSizes }
+  const contents = readFaceFiles(root, face, targets)
+  const violations = []
+  for (const rel of targets) {
+    const src = contents.get(rel)
+    if (src === null || src === undefined) {
+      throw new Undetermined(`${face} 面取不到 ${rel} 的正文(不把没拿到记成没违规)`)
+    }
+    violations.push(...collectViolationsInSource(src, validSizes, rel))
+  }
+  return { violations, fileCount: allFiles.length, validSizes }
+}
+
+/** 空扫策略:索引面无 tsx 变更 = 本次没有可判内容(绿);HEAD/工作区面无候选 = ROOTS 漂移(判死) */
+function emptyFaceVerdict(face) {
+  return face === 'staged' ? 'pass' : 'fail'
 }
 function report(violations, fileCount, validSizes) {
   if (violations.length) {
@@ -274,7 +352,9 @@ function report(violations, fileCount, validSizes) {
     console.error(
       `\n修复:改用 size 档位(${[...validSizes].join('/')}),需要新高度先在 button.tsx size 表立档。`,
     )
-    console.error('规则详见 AGENTS.md §4「Button 高度档位守门」。紧急跳过:HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1')
+    console.error(
+      '规则详见 AGENTS.md §4「Button 高度档位守门」。紧急跳过:HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1',
+    )
     return 1
   }
   console.log(`✅ Button 高度/宽度守门通过(0 违规,扫描 ${fileCount} 个 tsx/jsx)`)
@@ -286,7 +366,7 @@ async function main() {
   if (argv.includes('--self-test')) return runSelfTest()
   const known = new Set()
   argv.forEach((a, i) => {
-    if (a === '--staged' || a === '--self-test') known.add(i)
+    if (a === '--staged' || a === '--worktree' || a === '--self-test') known.add(i)
     if (a === '--root' || a.startsWith('--root=')) {
       known.add(i)
       if (a === '--root') known.add(i + 1)
@@ -294,7 +374,9 @@ async function main() {
   })
   const unknown = argv.filter((_, i) => !known.has(i))
   if (unknown.length) {
-    console.error(`❌ 未知参数:${unknown.join(' ')}(用法:--staged | --root <dir|--root=<dir>> | --self-test)`)
+    console.error(
+      `❌ 未知参数:${unknown.join(' ')}(用法:--staged | --worktree | --root <dir|--root=<dir>> | --self-test)`,
+    )
     return 2
   }
   let parsed
@@ -306,10 +388,20 @@ async function main() {
   }
   const { root, explicitCli } = parsed
   const staged = argv.includes('--staged')
+  const worktree = argv.includes('--worktree')
   if (staged && explicitCli) {
-    console.error('❌ --staged 不得与 --root/BUTTON_HEIGHT_ROOT 并用(暂存集来自真仓、扫描根却是夹具 → 必假绿)')
+    console.error(
+      '❌ --staged 不得与 --root/BUTTON_HEIGHT_ROOT 并用(暂存集来自真仓、扫描根却是夹具 → 必假绿)',
+    )
     return 2
   }
+  // 显式夹具根只能判工作区面:夹具在真仓树内且通常不是独立仓库,HEAD/索引面会认到真仓 ⇒ 必错位
+  const faceSel = selectFace({ staged, worktree, def: explicitCli ? 'worktree' : 'head' })
+  if (faceSel.error) {
+    console.error(`❌ ${faceSel.error}`)
+    return 2
+  }
+  const face = faceSel.face
   let rootOk = false
   try {
     rootOk = statSync(root).isDirectory()
@@ -320,15 +412,22 @@ async function main() {
     console.error(`❌ 扫描根不存在或不是目录:${root}(--root 指错绝不静默放行)`)
     return 2
   }
-  let stagedSet = null
-  if (staged) {
-    stagedSet = getStagedSet(root)
-    if (!stagedSet) console.warn('⚠️ 读取 staged 清单失败(git 不可用?),按旧语义回落全量扫描')
+  let scan
+  try {
+    scan = scanFace(root, face)
+  } catch (e) {
+    console.error(`❌ 未判定(${face} 面):${e?.message ?? e}`)
+    return 2
   }
-  const { violations, fileCount, validSizes } = scanTree(root, stagedSet)
-  // 反假绿:一个 tsx 都没扫到 = 根指错 / ROOTS 漂移,绝不允许输出"通过 0 个"的绿灯
+  const { violations, fileCount, validSizes } = scan
   if (fileCount === 0) {
-    console.error(`❌ 在 ${root} 下未扫到任何 tsx/jsx(ROOTS 漂移或根指错),按脚本异常处理`)
+    if (emptyFaceVerdict(face) === 'pass') {
+      console.log(`✅ Button 高度/宽度守门:${face} 面无 tsx/jsx 变更(0 个候选,无违规)`)
+      return 0
+    }
+    console.error(
+      `❌ 在 ${root} 的 ${face} 面未扫到任何 tsx/jsx(ROOTS 漂移或面取不到),按未判定处理`,
+    )
     return 2
   }
   return report(violations, fileCount, validSizes)
@@ -357,12 +456,7 @@ function buildButtonTsx(withIcon2xs, withZzMega) {
     `      'icon': ICON_BUTTON_SIZE,`,
   )
   if (withZzMega) lines.push(`      'zz-mega': 'h-12 w-12',`)
-  lines.push(
-    `    },`,
-    `  },`,
-    `  defaultVariants: { variant: 'default', size: 'default' },`,
-    `})`,
-  )
+  lines.push(`    },`, `  },`, `  defaultVariants: { variant: 'default', size: 'default' },`, `})`)
   return lines.join('\n') + '\n'
 }
 const FIX_VIOLATIONS_TSX = `import { Button, Input } from '@ihui/ui-react'
@@ -413,7 +507,14 @@ async function runSelfTest() {
   // 求的是"函数对象是否为真值"(恒真)⇒ 自检一路报绿却一条都没判过;出口把求值点收进
   // report(),函数形态用例必被真判,取不到结论一律失败不记绿)。
   const { t: ck, report } = makeRegistrar()
-  const FIX = path.join(SCRIPT_REPO_ROOT, '.ihui-agent', 'tmp', 'button-height', `selftest-${process.pid}`)
+  const FIX = path.join(
+    SCRIPT_REPO_ROOT,
+    '.ihui-agent',
+    'tmp',
+    'button-height',
+    `selftest-${process.pid}`,
+  )
+  let GITFIX = null
   const MAIN = path.join(FIX, 'main')
   const MIN = path.join(FIX, 'min')
   const OKR = path.join(FIX, 'ok')
@@ -440,72 +541,134 @@ async function runSelfTest() {
     w(path.join(MAIN, 'apps/web/src/demo/ok.tsx'), FIX_OK_TSX)
     w(path.join(MAIN, 'apps/web/src/demo/tests/excluded.tsx'), FIX_TESTS_TSX)
     w(path.join(MIN, EXCLUDE_FILE), buildButtonTsx(false, false))
-    w(path.join(MIN, 'apps/web/src/b.tsx'), `export const X = () => <Button size="icon-2xs">最小表删了 icon-2xs,必红</Button>\n`)
+    w(
+      path.join(MIN, 'apps/web/src/b.tsx'),
+      `export const X = () => <Button size="icon-2xs">最小表删了 icon-2xs,必红</Button>\n`,
+    )
     w(path.join(OKR, EXCLUDE_FILE), buildButtonTsx(true, true))
     w(path.join(OKR, 'apps/web/src/ok.tsx'), FIX_OK_TSX)
     mkdirSync(EMPTY, { recursive: true })
 
     // ── 1 必红:h-7 w-7 覆盖 ── 2 必绿:合法档位 icon-2xs/sm ──
     const mainScan = scanTree(MAIN)
-    ck('夹具规模=fileCount 恰为 5(若其实扫了真仓,此数对不上 → 反静默扫真仓)', mainScan.fileCount === 5)
+    ck(
+      '夹具规模=fileCount 恰为 5(若其实扫了真仓,此数对不上 → 反静默扫真仓)',
+      mainScan.fileCount === 5,
+    )
     ck('违规总数恰为 5(violations.tsx 4 + toolbar.tsx 1)', mainScan.violations.length === 5)
     const vio = mainScan.violations
     const badFlat = vio.flatMap((v) => v.bad)
-    ck('A:<Button className="h-7 w-7"> 必红且点名 h-7 与 w-7', badFlat.includes('h-7') && badFlat.includes('w-7'))
-    ck('B:size="xl2"(不存在档位)必红且报"不在档位表"', badFlat.some((b) => b.includes('size="xl2"') && b.includes('不在档位表')))
+    ck(
+      'A:<Button className="h-7 w-7"> 必红且点名 h-7 与 w-7',
+      badFlat.includes('h-7') && badFlat.includes('w-7'),
+    )
+    ck(
+      'B:size="xl2"(不存在档位)必红且报"不在档位表"',
+      badFlat.some((b) => b.includes('size="xl2"') && b.includes('不在档位表')),
+    )
     ck('C:三元 className 里的 h-7 必红', badFlat.filter((b) => b === 'h-7').length >= 2)
     ck('D:多行属性 + {...props} 展开后的 h-9 必红', badFlat.includes('h-9'))
-    ck('ok.tsx 全绿:icon-2xs/sm/zz-mega 档位与白名单不产生任何违规', !vio.some((v) => v.file.endsWith('ok.tsx')))
+    ck(
+      'ok.tsx 全绿:icon-2xs/sm/zz-mega 档位与白名单不产生任何违规',
+      !vio.some((v) => v.file.endsWith('ok.tsx')),
+    )
 
     // ── 3 白名单对照:h-5/h-6 放过而 h-7 仍拦(同断言内对照,防豁免通道被顺手放宽) ──
-    ck('白名单对照:E/F 的 h-5 h-6 w-5 未被判红,而同文件 h-7/h-9 判红',
-      !badFlat.includes('h-5') && !badFlat.includes('h-6') && !badFlat.includes('w-5') && badFlat.includes('h-7') && badFlat.includes('h-9'))
+    ck(
+      '白名单对照:E/F 的 h-5 h-6 w-5 未被判红,而同文件 h-7/h-9 判红',
+      !badFlat.includes('h-5') &&
+        !badFlat.includes('h-6') &&
+        !badFlat.includes('w-5') &&
+        badFlat.includes('h-7') &&
+        badFlat.includes('h-9'),
+    )
 
     // ── 5 非 Button 元素必绿(拦了即误伤) ──
-    ck('非 Button:<Input h-9>/<div h-10>/<button h-8> 不判红', collectViolationsInSource(
-      `export const N = () => (<><Input className="h-9" /><div className="h-10 w-11" /><button className="h-8 w-8" /></>)`,
-      new Set(['default']),
-    ).length === 0)
+    ck(
+      '非 Button:<Input h-9>/<div h-10>/<button h-8> 不判红',
+      collectViolationsInSource(
+        `export const N = () => (<><Input className="h-9" /><div className="h-10 w-11" /><button className="h-8 w-8" /></>)`,
+        new Set(['default']),
+      ).length === 0,
+    )
 
     // ── 7 JSX 边界:注释不得判红 ──
-    ck('注释:单行// 与 块/* */ 及 JSX {/* */} 内的 h-7 Button 全不判红',
-      collectViolationsInSource(`// <Button className="h-7 w-7" /> x\n/* <Button className="h-8">y */\nexport const Q = () => <p>{"z"}</p>\n`, new Set()).length === 0)
-    ck('多行开标签本身可被提取(extractTag 感知花括号配平)',
-      extractTag(`a <Button\n x={ {a:1} }\n className="h-9">`, 2).endsWith('className="h-9">'))
+    ck(
+      '注释:单行// 与 块/* */ 及 JSX {/* */} 内的 h-7 Button 全不判红',
+      collectViolationsInSource(
+        `// <Button className="h-7 w-7" /> x\n/* <Button className="h-8">y */\nexport const Q = () => <p>{"z"}</p>\n`,
+        new Set(),
+      ).length === 0,
+    )
+    ck(
+      '多行开标签本身可被提取(extractTag 感知花括号配平)',
+      extractTag(`a <Button\n x={ {a:1} }\n className="h-9">`, 2).endsWith('className="h-9">'),
+    )
     // 钉死旧语义:标签体内注释含 > 会在注释处截断提取,其后的真 className 不被读。
     // 这是 SidebarHeader.tsx:280 历史绿到今天的根因,属"已知漏拦面"(见报告);
     // 本条把"零行为变更"变成可回归的事实 —— 若将来收紧标签体,本条必红,倒逼显式改判据。
-    ck('标签体保留原始截断语义(注释内含 > 时其后 className 不被读 = 已知漏拦,防无声变红/变绿)',
-      collectViolationsInSource(`export const L = () => <Button\n // 示例 [&>svg]:!h-5 注释含尖括号\n className="h-7">x</Button>\n`, new Set()).length === 0)
+    ck(
+      '标签体保留原始截断语义(注释内含 > 时其后 className 不被读 = 已知漏拦,防无声变红/变绿)',
+      collectViolationsInSource(
+        `export const L = () => <Button\n // 示例 [&>svg]:!h-5 注释含尖括号\n className="h-7">x</Button>\n`,
+        new Set(),
+      ).length === 0,
+    )
 
     // ── 6 动态档位解析:双向探针(防"动态解析其实没生效、回落到硬编码兜底表") ──
-    ck('探针①:夹具独有档位 zz-mega 被 loadValidSizes 认出(兜底表无此档,回退即红)', mainScan.validSizes.has('zz-mega'))
-    ck('探针①b:夹具档位集 ≠ 兜底集(相等即解析根本没读夹具文件)', mainScan.validSizes.size !== new Set(FALLBACK_SIZES).size)
+    ck(
+      '探针①:夹具独有档位 zz-mega 被 loadValidSizes 认出(兜底表无此档,回退即红)',
+      mainScan.validSizes.has('zz-mega'),
+    )
+    ck(
+      '探针①b:夹具档位集 ≠ 兜底集(相等即解析根本没读夹具文件)',
+      mainScan.validSizes.size !== new Set(FALLBACK_SIZES).size,
+    )
     const minScan = scanTree(MIN)
-    ck('探针②:夹具表删掉 icon-2xs 后 size="icon-2xs" 立即变红(判据跟着表走)',
-      minScan.violations.length === 1 && minScan.violations[0].bad[0].includes('icon-2xs'))
-    ck('真仓 sanity:loadValidSizes(真仓根) ⊇ 核心档位 xs/sm/default/lg/icon-2xs', (() => {
-      const s = loadValidSizes(SCRIPT_REPO_ROOT)
-      return ['xs', 'sm', 'default', 'lg', 'icon-2xs'].every((k) => s.has(k))
-    })())
+    ck(
+      '探针②:夹具表删掉 icon-2xs 后 size="icon-2xs" 立即变红(判据跟着表走)',
+      minScan.violations.length === 1 && minScan.violations[0].bad[0].includes('icon-2xs'),
+    )
+    ck(
+      '真仓 sanity:loadValidSizes(真仓根) ⊇ 核心档位 xs/sm/default/lg/icon-2xs',
+      (() => {
+        const s = loadValidSizes(SCRIPT_REPO_ROOT)
+        return ['xs', 'sm', 'default', 'lg', 'icon-2xs'].every((k) => s.has(k))
+      })(),
+    )
 
     // ── tests 目录豁免(同内容必绿) ──
-    ck('tests 目录豁免:excluded.tsx 与违规文件同内容但不判红', !vio.some((v) => v.file.includes('tests/')))
+    ck(
+      'tests 目录豁免:excluded.tsx 与违规文件同内容但不判红',
+      !vio.some((v) => v.file.includes('tests/')),
+    )
 
     // ── CLI 装车证明:退出码全部经 --root 注入夹具,不触真仓 ──
     const rBad = runCli(['--root', MAIN])
-    ck('CLI --root 有违规夹具 → exit 1 且 stderr 点名 h-7', rBad.status === 1 && rBad.stderr.includes('h-7'))
+    ck(
+      'CLI --root 有违规夹具 → exit 1 且 stderr 点名 h-7',
+      rBad.status === 1 && rBad.stderr.includes('h-7'),
+    )
     const rOk = runCli(['--root', OKR])
     ck('CLI --root 全绿夹具 → exit 0', rOk.status === 0 && rOk.stdout.includes('守门通过'))
     const MISSING = path.join(FIX, 'nope-not-exist')
     const rMiss = runCli(['--root', MISSING])
-    ck('CLI --root 指不存在目录 → exit 2(绝不静默 exit 0)', rMiss.status === 2 && rMiss.stderr.includes('根不存在'))
+    ck(
+      'CLI --root 指不存在目录 → exit 2(绝不静默 exit 0)',
+      rMiss.status === 2 && rMiss.stderr.includes('根不存在'),
+    )
     const rEqMiss = runCli([`--root=${MISSING}`])
-    ck('CLI --root=<不存在目录> 等号形态同样 exit 2(防等号形态被静默忽略→直扫真仓假绿)', rEqMiss.status === 2 && rEqMiss.stderr.includes('根不存在'))
+    ck(
+      'CLI --root=<不存在目录> 等号形态同样 exit 2(防等号形态被静默忽略→直扫真仓假绿)',
+      rEqMiss.status === 2 && rEqMiss.stderr.includes('根不存在'),
+    )
     const rEqOk = runCli([`--root=${OKR}`])
     ck('CLI --root=<dir> 等号形态正常注入生效 → exit 0', rEqOk.status === 0)
     const rEnv = runCli([], { BUTTON_HEIGHT_ROOT: MAIN })
-    ck('CLI 环境变量 BUTTON_HEIGHT_ROOT 注入有违规夹具 → exit 1(env 通道装车证明)', rEnv.status === 1)
+    ck(
+      'CLI 环境变量 BUTTON_HEIGHT_ROOT 注入有违规夹具 → exit 1(env 通道装车证明)',
+      rEnv.status === 1,
+    )
     const rConflict = runCli(['--staged', '--root', MAIN])
     ck('CLI --staged 与 --root 并用 → exit 2(互斥,防暂存集/扫描根错配假绿)', rConflict.status === 2)
     const rEmpty = runCli(['--root', EMPTY])
@@ -514,11 +677,90 @@ async function runSelfTest() {
     ck('CLI 未知参数 → exit 2', rBogus.status === 2)
     const rNoVal = runCli(['--root='])
     ck('CLI --root= 空值 → exit 2(明确报错不静默)', rNoVal.status === 2)
+
+    // ── 判定面纪律(AGENTS §0.4):默认 HEAD / --staged 索引 / --worktree 仅人工 ──
+    const rWt = runCli(['--worktree', '--root', MAIN])
+    ck('CLI --worktree + --root 夹具 → exit 1(工作区面装车)', rWt.status === 1)
+    const rBothFaces = runCli(['--staged', '--worktree'])
+    ck('CLI --staged 与 --worktree 同给 → exit 2(两面互斥)', rBothFaces.status === 2)
+    const rEnvStaged = runCli(['--staged'], { BUTTON_HEIGHT_ROOT: MAIN })
+    ck(
+      'CLI BUTTON_HEIGHT_ROOT 与 --staged 同给 → exit 2(env 也是显式夹具根)',
+      rEnvStaged.status === 2,
+    )
+    let headOnNonRepo = null
+    try {
+      scanFace(EMPTY, 'head')
+    } catch (e) {
+      headOnNonRepo = e
+    }
+    ck('默认 HEAD 面在非仓库根 → 未判定(绝不回落工作区面)', headOnNonRepo instanceof Undetermined)
+    ck(
+      '空扫策略:索引面无 tsx 变更判绿,HEAD/工作区面无候选判死',
+      emptyFaceVerdict('staged') === 'pass' &&
+        emptyFaceVerdict('head') === 'fail' &&
+        emptyFaceVerdict('worktree') === 'fail',
+    )
+
+    // ── 三面分叉真 git 正控(项目外 mkScratch,§15b;同一仓三个面必须给出三种结论) ──
+    GITFIX = mkScratch('button-height-git-')
+    const git = (...args) => {
+      const r = spawnSync('git', ['-c', 'safe.directory=*', ...args], {
+        cwd: GITFIX,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      if (r.status !== 0)
+        throw new Error(`git ${args.join(' ')} 失败: ${r.stderr || r.error || ''}`)
+      return r.stdout
+    }
+    git('init', '-q')
+    git('config', 'user.email', 'selftest@example.invalid')
+    git('config', 'user.name', 'selftest')
+    w(path.join(GITFIX, EXCLUDE_FILE), buildButtonTsx(true, true))
+    w(path.join(GITFIX, 'apps/web/src/x.tsx'), FIX_VIOLATIONS_TSX)
+    git('add', '-A')
+    git('commit', '-qm', 'head-red')
+    ck(
+      'git 正控①:HEAD 面读到 h-7(默认面不读工作区)',
+      scanFace(GITFIX, 'head').violations.some((v) => v.bad.includes('h-7')),
+    )
+    w(path.join(GITFIX, 'apps/web/src/x.tsx'), FIX_OK_TSX)
+    git('add', 'apps/web/src/x.tsx')
+    ck(
+      'git 正控②:索引面已修 ⇒ 0 违规,同刻 HEAD 面仍红(两面分叉)',
+      scanFace(GITFIX, 'staged').violations.length === 0 &&
+        scanFace(GITFIX, 'head').violations.length > 0,
+    )
+    w(path.join(GITFIX, 'apps/web/src/x.tsx'), FIX_VIOLATIONS_TSX)
+    ck(
+      'git 正控③:工作区改回红但未 add ⇒ 索引面仍 0、工作区面见红',
+      scanFace(GITFIX, 'staged').violations.length === 0 &&
+        scanFace(GITFIX, 'worktree').violations.some((v) => v.bad.includes('h-7')),
+    )
+    ck('git 正控④:HEAD 面不受索引/工作区影响(仍红)', scanFace(GITFIX, 'head').violations.length > 0)
+    git('reset', '-q', '--', 'apps/web/src/x.tsx')
+    w(path.join(GITFIX, 'apps/web/src/y.ts'), 'export const y = 1\n')
+    git('add', 'apps/web/src/y.ts')
+    const stagedEmpty = scanFace(GITFIX, 'staged')
+    ck(
+      'git 正控⑤:索引只改非 tsx ⇒ 候选 0 且策略判绿(不是"没量到")',
+      stagedEmpty.fileCount === 0 && emptyFaceVerdict('staged') === 'pass',
+    )
   } finally {
     try {
       rmSync(FIX, { recursive: true, force: true })
     } catch {
       /* 临时夹具清理失败不影响自检结论 */
+    }
+    if (GITFIX) {
+      try {
+        rmScratch(GITFIX)
+      } catch {
+        /* 项目外临时仓清理失败不影响自检结论 */
+      }
     }
   }
   const { fail, cases } = report()
@@ -548,6 +790,7 @@ if (isDirectRun) {
 // 测试禁止复制源实现当镜像常量。
 export const __test__ = {
   resolveRoot,
+  parseValidSizes,
   loadValidSizes,
   maskComments,
   extractTag,
@@ -556,6 +799,8 @@ export const __test__ = {
   isScannedFile,
   collectViolationsInSource,
   scanTree,
+  scanFace,
+  emptyFaceVerdict,
   FALLBACK_SIZES,
   SIZE_TOKEN_RE,
   BAD_SIZE_RE,

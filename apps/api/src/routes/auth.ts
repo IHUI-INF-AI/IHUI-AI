@@ -1404,6 +1404,60 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // PUT /api/auth/me - 更新当前用户资料(G-962 批7 补后端,迁移自 D 盘历史死路径)
+  server.put(
+    '/me',
+    { config: { rateLimit: { max: 30, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      try {
+        await authenticate(request)
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+        const message = toUserFriendlyMessage(e) || '操作失败,请稍后重试'
+        return reply.status(statusCode).send(error(statusCode, message))
+      }
+
+      const userId = request.userId!
+      const parsed = z
+        .object({
+          nickname: z.string().min(1).max(100).optional(),
+          email: z.string().email().optional(),
+          phone: z
+            .string()
+            .regex(/^1[3-9]\d{9}$/)
+            .optional(),
+        })
+        .safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { nickname, email, phone } = parsed.data
+      if (nickname === undefined && email === undefined && phone === undefined) {
+        return reply.status(400).send(error(400, '没有可更新的字段'))
+      }
+
+      const user = await findUserById(userId)
+      if (!user) return reply.status(404).send(error(404, '用户不存在'))
+
+      if (email !== undefined && email !== user.email) {
+        const byEmail = await findUserByEmail(email)
+        if (byEmail && byEmail.id !== userId) {
+          return reply.status(400).send(error(400, '邮箱已被使用'))
+        }
+      }
+      if (phone !== undefined && phone !== user.phone) {
+        const byPhone = await findUserByPhone(phone)
+        if (byPhone && byPhone.id !== userId) {
+          return reply.status(400).send(error(400, '手机号已被使用'))
+        }
+      }
+
+      const updated = await updateUser(userId, { nickname, email, phone })
+      const permissions = await resolveUserPermissions(updated.id, updated.roleId)
+      return reply.send(success({ user: publicUser(updated, permissions) }))
+    },
+  )
+
   // POST /api/auth/logout
   server.post(
     '/logout',
@@ -1531,10 +1585,13 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!user?.passwordHash || !(await verifyPassword(oldPassword, user.passwordHash))) {
         return reply.status(400).send(error(400, '原密码错误'))
       }
-      await updateUser(request.userId!, { passwordHash: await hashPassword(newPassword) })
+      // updated 由委托侧 UPDATE … RETURNING 的行存在性派生(守门 134),不再回字面量 true。
+      const updatedUser = await updateUser(request.userId!, {
+        passwordHash: await hashPassword(newPassword),
+      })
       // 2026-07-24 安全加固:密码修改后吊销所有 refresh token(与重置密码对齐)
       await revokeAllUserRefreshTokens(request.userId!)
-      return reply.send(success({ updated: true }))
+      return reply.send(success({ updated: Boolean(updatedUser.id) }))
     },
   )
 

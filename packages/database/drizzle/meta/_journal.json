@@ -2279,6 +2279,27 @@
       "when": 1792677600000,
       "tag": "20261022220000_create_ai_relay_account_pool",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 329,
+      "when": 1792681200000,
+      "tag": "20261022230000_relay_account_usage_ledger",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 330,
+      "when": 1792681800000,
+      "tag": "20261022231000_relay_model_catalog",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 331,
+      "when": 1792682400000,
+      "tag": "20261022232000_relay_proxy_pool",
+      "breakpoints": true
     }
   ]
 }

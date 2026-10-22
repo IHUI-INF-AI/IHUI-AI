@@ -145,6 +145,15 @@ export const aiRelayAccountPool = pgTable(
     consecutiveFailures: integer('consecutive_failures').default(0).notNull(),
     /** 账号级出口代理(如 http://user:pass@ip:port;null = 直连) */
     proxyUrl: text('proxy_url'),
+    // ── 补池认领工作流(2026-10-22 立,迁移 20261022230000_relay_account_usage_ledger.sql)──
+    /** 认领状态:unclaimed / claimed(运营认领某账号负责维护) */
+    claimStatus: varchar('claim_status', { length: 16 }).default('unclaimed').notNull(),
+    /** 认领人(admin 用户 id,明文非敏感) */
+    claimedBy: varchar('claimed_by', { length: 128 }),
+    /** 认领时刻 */
+    claimedAt: timestamp('claimed_at', { withTimezone: true }),
+    /** 认领备注 */
+    claimNote: text('claim_note'),
     /** 累计转发调用次数(号池消耗观测) */
     totalCalls: bigint('total_calls', { mode: 'number' }).default(0).notNull(),
     /** 平台特有附加凭证/元数据(明文,非敏感;敏感一律进 *Enc 字段) */
@@ -159,6 +168,111 @@ export const aiRelayAccountPool = pgTable(
     healthIdx: index('ai_relay_account_pool_health_idx').on(t.healthStatus),
     /** 临期刷新扫描:按 (providerCode, tokenExpiresAt) 建索引,scheduler 轮询用 */
     expiresIdx: index('ai_relay_account_pool_expires_idx').on(t.providerCode, t.tokenExpiresAt),
+  }),
+)
+
+/**
+ * 账号池用量台账表 (ai_relay_account_usage_ledger)。
+ *
+ * 2026-10-22 立:每次转发调用(成功/失败)落一行,供管理面 24h calls/tokens/failRate 聚合。
+ * 写入方 apps/api/src/services/relay-account-usage.ts(fire-and-forget,失败不影响转发)。
+ * - accountId:关联 ai_relay_account_pool.id(不加 FK,允许账号删除后台账留档)
+ * - ok:本次转发是否成功(熔断/失败计数口径与转发器一致)
+ * - ts:调用时刻(聚合窗口判据,索引 (accountId, ts))
+ */
+export const aiRelayAccountUsageLedger = pgTable(
+  'ai_relay_account_usage_ledger',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    /** 关联 ai_relay_account_pool.id(冗余存 providerCode 免回表) */
+    accountId: uuid('account_id').notNull(),
+    /** 平台编码(冗余自账号行,聚合/排查免 JOIN) */
+    providerCode: varchar('provider_code', { length: 64 }).notNull(),
+    /** 本次请求使用的模型名(别名解析前的对外名) */
+    model: varchar('model', { length: 128 }).notNull(),
+    promptTokens: integer('prompt_tokens').default(0).notNull(),
+    completionTokens: integer('completion_tokens').default(0).notNull(),
+    /** 本次转发是否成功 */
+    ok: boolean('ok').notNull(),
+    /** 端到端耗时(毫秒) */
+    latencyMs: integer('latency_ms').default(0).notNull(),
+    /** 调用时刻 */
+    ts: timestamp('ts', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    accountTsIdx: index('ai_relay_account_usage_ledger_account_ts_idx').on(t.accountId, t.ts),
+  }),
+)
+
+/**
+ * 中转模型目录/别名表 (ai_relay_model_catalog)。
+ *
+ * 2026-10-22 立:账号池 provider(trae/workbuddy/codearts)对外模型名 → 上游真实模型名映射。
+ * 转发器经 apps/api/src/services/relay-model-catalog.ts resolveModelAlias 解析,
+ * 无映射时调用方原样透传。
+ * - alias:对外暴露的模型名(同 provider 内唯一)
+ * - upstreamModel:上游真实模型 id
+ * - enabled:false 时不参与解析(软下线)
+ */
+export const aiRelayModelCatalog = pgTable(
+  'ai_relay_model_catalog',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    /** 平台编码:trae / workbuddy / codearts(与账号池同命名空间) */
+    providerCode: varchar('provider_code', { length: 64 }).notNull(),
+    /** 上游真实模型 id(如 'kimi-k2-0905-preview') */
+    upstreamModel: varchar('upstream_model', { length: 128 }).notNull(),
+    /** 展示名(管理面/目录回显,可空) */
+    displayName: varchar('display_name', { length: 256 }),
+    /** 对外别名(调用方请求的 model 名,同 provider 唯一) */
+    alias: varchar('alias', { length: 128 }).notNull(),
+    enabled: boolean('enabled').default(true).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    providerAliasUniq: unique('ai_relay_model_catalog_provider_alias_unique').on(
+      t.providerCode,
+      t.alias,
+    ),
+    providerIdx: index('ai_relay_model_catalog_provider_idx').on(t.providerCode),
+  }),
+)
+
+/**
+ * 出口代理池表 (ai_relay_proxy_pool)。
+ *
+ * 2026-10-22 立:共享代理轮换池,账号自带 proxyUrl 优先,否则由
+ * apps/api/src/services/relay-proxy-pool.ts pickProxyForAccount 从池轮换取 active 代理。
+ * - status:active(可用)/ exhausted(失败超限暂冷)/ dead(人工/检测判死)
+ * - failCount:连续失败计数,reportProxyFailure 累计,达阈值转 exhausted
+ * - boundAccountId:绑定账号(非空则该代理只服务该账号;null = 共享)
+ * - lastPickedAt:轮换游标(最久未用优先)
+ */
+export const aiRelayProxyPool = pgTable(
+  'ai_relay_proxy_pool',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    /** 代理地址(如 http://user:pass@ip:port,全池唯一) */
+    proxyUrl: text('proxy_url').notNull(),
+    /** 限定平台(可空 = 不限平台共享) */
+    providerCode: varchar('provider_code', { length: 64 }),
+    /** 状态:active / exhausted / dead */
+    status: varchar('status', { length: 16 }).default('active').notNull(),
+    /** 连续失败次数(成功即清零,达阈值 → exhausted) */
+    failCount: integer('fail_count').default(0).notNull(),
+    /** 最近一次活性检测/失败上报时刻(活性检测留接口,不强制外网探测) */
+    lastCheckedAt: timestamp('last_checked_at', { withTimezone: true }),
+    /** 绑定账号(非空则该代理仅供该账号;null = 共享轮换) */
+    boundAccountId: uuid('bound_account_id'),
+    /** 轮换游标(取用最久未用,避免单代理打爆) */
+    lastPickedAt: timestamp('last_picked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    proxyUrlUniq: unique('ai_relay_proxy_pool_proxy_url_unique').on(t.proxyUrl),
+    statusIdx: index('ai_relay_proxy_pool_status_idx').on(t.status),
   }),
 )
 
@@ -217,6 +331,12 @@ export type AiRelayKeyPool = typeof aiRelayKeyPool.$inferSelect
 export type NewAiRelayKeyPool = typeof aiRelayKeyPool.$inferInsert
 export type AiRelayAccountPool = typeof aiRelayAccountPool.$inferSelect
 export type NewAiRelayAccountPool = typeof aiRelayAccountPool.$inferInsert
+export type AiRelayAccountUsageLedger = typeof aiRelayAccountUsageLedger.$inferSelect
+export type NewAiRelayAccountUsageLedger = typeof aiRelayAccountUsageLedger.$inferInsert
+export type AiRelayModelCatalog = typeof aiRelayModelCatalog.$inferSelect
+export type NewAiRelayModelCatalog = typeof aiRelayModelCatalog.$inferInsert
+export type AiRelayProxyPool = typeof aiRelayProxyPool.$inferSelect
+export type NewAiRelayProxyPool = typeof aiRelayProxyPool.$inferInsert
 export type AiRelayDiscovery = typeof aiRelayDiscovery.$inferSelect
 export type NewAiRelayDiscovery = typeof aiRelayDiscovery.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
 import {
   Button,
+  Checkbox,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -19,6 +20,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  FileText,
   Input,
   Label,
   Loader2,
@@ -31,9 +33,16 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  ShieldAlert,
   Switch,
   Plus,
   Trash2,
+  TriangleAlert,
   Users,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -49,6 +58,25 @@ const textareaClass =
 const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts'] as const
 type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
 
+// 24h 用量摘要。后端契约字段均为 number,但后端尚未合并时可能整体缺失,
+// 故全部可选并做容错渲染(缺字段显示 "-",不阻塞 typecheck)。
+interface UsageSummary {
+  calls24h?: number | null
+  tokens24h?: number | null
+  failRate24h?: number | null
+}
+interface PoolHealth {
+  expiredCount?: number | null
+  availableCount?: number | null
+  needRefill?: boolean | null
+}
+interface UsageDetailRow {
+  [key: string]: unknown
+}
+interface UsageData {
+  summary?: UsageSummary | null
+  details?: UsageDetailRow[] | null
+}
 interface AccountRow {
   id: number
   providerCode: string
@@ -74,12 +102,20 @@ interface AccountRow {
   extraMetadata: unknown
   createdAt: string
   updatedAt: string
+  usageSummary?: UsageSummary | null
+  circuitBreakReason?: string | null
+  expiresSoon?: boolean | null
+  claimStatus?: string | null
+  claimedBy?: string | null
+  claimedAt?: string | null
+  claimNote?: string | null
 }
 interface ListData {
   list: AccountRow[]
   total: number
   page: number
   pageSize: number
+  poolHealth?: PoolHealth | null
 }
 interface ImportItem {
   index: number
@@ -130,6 +166,30 @@ const EXAMPLE_JSON = `[
   }
 ]`
 
+function fmtNum(v: number | null | undefined): string {
+  return v === null || v === undefined ? '-' : v.toLocaleString()
+}
+
+// failRate24h 契约未指明是 0–1 比例还是 0–100 百分数:≤1 视为比例换算,否则按百分数直显。
+function failRatePct(v: number | null | undefined): number | null {
+  if (v === null || v === undefined) return null
+  return v <= 1 ? v * 100 : v
+}
+
+function fmtDetailValue(v: unknown, f: Intl.DateTimeFormat): string {
+  if (v === null || v === undefined) return '-'
+  if (typeof v === 'boolean') return v ? '是' : '否'
+  if (typeof v === 'number') return v.toLocaleString()
+  if (typeof v === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
+      const d = new Date(v)
+      if (!Number.isNaN(d.getTime())) return f.format(d)
+    }
+    return v
+  }
+  return JSON.stringify(v)
+}
+
 export default function AdminRelayAccountPoolPage() {
   const locale = useLocale()
   const qc = useQueryClient()
@@ -152,6 +212,8 @@ export default function AdminRelayAccountPoolPage() {
     tempUnschedulable: false,
     proxyUrl: '',
   })
+  const [selectedIds, setSelectedIds] = React.useState<number[]>([])
+  const [usageAccountId, setUsageAccountId] = React.useState<number | null>(null)
 
   const qs = React.useMemo(() => {
     const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
@@ -162,7 +224,7 @@ export default function AdminRelayAccountPoolPage() {
     return p.toString()
   }, [page, search, provider, enabled, health])
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['admin', 'relay', 'account-pool', qs],
     queryFn: async () => {
       const r = await fetchApi<ListData>(`/api/admin/relay/accounts?${qs}`)
@@ -175,8 +237,50 @@ export default function AdminRelayAccountPoolPage() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const fmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
+  const poolHealth = data?.poolHealth ?? null
+  const showRefillBanner =
+    poolHealth !== null && ((poolHealth.needRefill ?? false) || (poolHealth.expiredCount ?? 0) > 0)
+
+  const usageQuery = useQuery({
+    queryKey: ['admin', 'relay', 'account-pool', 'usage', usageAccountId],
+    enabled: usageAccountId !== null,
+    queryFn: async () => {
+      const r = await fetchApi<UsageData>(
+        `/api/admin/relay/account-pool/usage/${usageAccountId}?days=7`,
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+  })
+  const usageAccountName =
+    usageAccountId === null ? null : (list.find((k) => k.id === usageAccountId)?.name ?? null)
+  const usageDetailRows = usageQuery.data?.details ?? []
+  const usageDetailCols = React.useMemo(() => {
+    const rows = usageQuery.data?.details ?? []
+    const cols: string[] = []
+    const seen = new Set<string>()
+    for (const row of rows.slice(0, 50)) {
+      for (const key of Object.keys(row)) {
+        if (!seen.has(key)) {
+          seen.add(key)
+          cols.push(key)
+        }
+      }
+    }
+    return cols
+  }, [usageQuery.data])
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'relay', 'account-pool'] })
+
+  const toggleSelect = (id: number) =>
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  const allOnPageSelected = list.length > 0 && list.every((k) => selectedIds.includes(k.id))
+  const toggleSelectAllOnPage = () =>
+    setSelectedIds((prev) =>
+      allOnPageSelected
+        ? prev.filter((id) => !list.some((k) => k.id === id))
+        : [...new Set([...prev, ...list.map((k) => k.id)])],
+    )
 
   const toggleMut = useMutation({
     mutationFn: async (id: number) => {
@@ -262,6 +366,47 @@ export default function AdminRelayAccountPoolPage() {
       invalidate()
     },
     onError: (e: Error) => toast.error(e.message || '导入失败'),
+  })
+
+  const sweepMut = useMutation({
+    mutationFn: async (ids: number[]) => {
+      const r = await fetchApi<unknown>('/api/admin/relay/account-pool/sweep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ids.map(String) }),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (_d, ids) => {
+      toast.success(`已提交 ${ids.length} 个账号的巡检`)
+      setSelectedIds([])
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '巡检失败'),
+  })
+
+  const claimMut = useMutation({
+    mutationFn: async (vars: { ids: number[]; action: 'claim' | 'release' }) => {
+      const results = await Promise.allSettled(
+        vars.ids.map(async (id) => {
+          const r = await fetchApi<unknown>(`/api/admin/relay/account-pool/${id}/${vars.action}`, {
+            method: 'POST',
+          })
+          if (!r.success) throw new Error(r.error)
+        }),
+      )
+      const failed = results.filter((x) => x.status === 'rejected').length
+      return { total: vars.ids.length, failed }
+    },
+    onSuccess: (d, vars) => {
+      const label = vars.action === 'claim' ? '认领' : '释放'
+      if (d.failed === 0) toast.success(`已${label} ${d.total} 个账号`)
+      else toast.error(`${label}:成功 ${d.total - d.failed} / 失败 ${d.failed}`)
+      setSelectedIds([])
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '操作失败'),
   })
 
   const openEdit = (k: AccountRow) => {
@@ -361,11 +506,27 @@ export default function AdminRelayAccountPoolPage() {
             第三方 AI IDE 账号导入、调度与健康检查
           </p>
         </div>
-        <Button onClick={() => setImportOpen(true)}>
-          <Plus className="h-4 w-4" />
-          导入账号
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            刷新
+          </Button>
+          <Button onClick={() => setImportOpen(true)}>
+            <Plus className="h-4 w-4" />
+            导入账号
+          </Button>
+        </div>
       </div>
+
+      {showRefillBanner && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+          <TriangleAlert className="h-4 w-4 shrink-0" />
+          <span>
+            已过期 {poolHealth?.expiredCount ?? 0} 个,可用 {poolHealth?.availableCount ?? 0}{' '}
+            个,建议补池
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <SearchInput
@@ -432,15 +593,62 @@ export default function AdminRelayAccountPoolPage() {
         </Select>
       </div>
 
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <span className="text-muted-foreground">已选 {selectedIds.length} 项</span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={sweepMut.isPending}
+            onClick={() => sweepMut.mutate(selectedIds)}
+          >
+            {sweepMut.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShieldAlert className="h-4 w-4" />
+            )}
+            批量巡检
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={claimMut.isPending}
+            onClick={() => claimMut.mutate({ ids: selectedIds, action: 'claim' })}
+          >
+            批量认领
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={claimMut.isPending}
+            onClick={() => claimMut.mutate({ ids: selectedIds, action: 'release' })}
+          >
+            批量释放
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>
+            取消选择
+          </Button>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
               <tr>
+                <th className="px-3 py-2 text-left">
+                  <Checkbox
+                    checked={allOnPageSelected}
+                    onCheckedChange={toggleSelectAllOnPage}
+                    aria-label="全选本页"
+                  />
+                </th>
                 <th className="px-3 py-2 text-left">名称</th>
                 <th className="px-3 py-2 text-left">平台</th>
                 <th className="px-3 py-2 text-left">uid</th>
                 <th className="px-3 py-2 text-left">健康</th>
+                <th className="px-3 py-2 text-left">熔断</th>
+                <th className="px-3 py-2 text-right">24h 用量</th>
                 <th className="px-3 py-2 text-left">token 到期</th>
                 <th className="px-3 py-2 text-right">优先级</th>
                 <th className="px-3 py-2 text-right">权重</th>
@@ -449,6 +657,7 @@ export default function AdminRelayAccountPoolPage() {
                 <th className="px-3 py-2 text-right">刷新失败</th>
                 <th className="px-3 py-2 text-left">代理</th>
                 <th className="px-3 py-2 text-left">最近使用</th>
+                <th className="px-3 py-2 text-left">认领</th>
                 <th className="px-3 py-2 text-left">启用</th>
                 <th className="px-3 py-2 text-left">摘除</th>
                 <th className="px-3 py-2 text-right">操作</th>
@@ -458,20 +667,20 @@ export default function AdminRelayAccountPoolPage() {
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={`sk-${i}`}>
-                    <td colSpan={15} className="px-3 py-2">
+                    <td colSpan={19} className="px-3 py-2">
                       <Skeleton className="h-6 w-full" />
                     </td>
                   </tr>
                 ))
               ) : isError ? (
                 <tr>
-                  <td colSpan={15} className="px-3 py-8 text-center text-red-500">
+                  <td colSpan={19} className="px-3 py-8 text-center text-red-500">
                     加载失败:{error instanceof Error ? error.message : '未知错误'}
                   </td>
                 </tr>
               ) : list.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={19} className="px-3 py-8 text-center text-muted-foreground">
                     暂无数据
                   </td>
                 </tr>
@@ -481,10 +690,27 @@ export default function AdminRelayAccountPoolPage() {
                   const now = Date.now()
                   const expiringSoon = expMs !== null && expMs - now < 24 * 3600 * 1000
                   const expired = expMs !== null && expMs <= now
+                  const soon = k.expiresSoon === true || expiringSoon
+                  const claimed = k.claimStatus === 'claimed'
+                  const failPct = failRatePct(k.usageSummary?.failRate24h)
                   return (
-                    <tr key={k.id}>
+                    <tr key={k.id} className={soon ? 'bg-amber-500/5' : undefined}>
                       <td className="px-3 py-2">
-                        <div className="font-medium">{k.name}</div>
+                        <Checkbox
+                          checked={selectedIds.includes(k.id)}
+                          onCheckedChange={() => toggleSelect(k.id)}
+                          aria-label={`选择 ${k.name}`}
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-1 font-medium">
+                          {k.name}
+                          {k.expiresSoon === true && (
+                            <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
+                              即将过期
+                            </span>
+                          )}
+                        </div>
                         {k.lastErrorMessage && (
                           <div
                             className="max-w-[16rem] truncate text-xs text-red-500"
@@ -527,6 +753,41 @@ export default function AdminRelayAccountPoolPage() {
                           {HEALTH_LABEL[k.healthStatus] ?? k.healthStatus}
                         </span>
                       </td>
+                      <td className="px-3 py-2">
+                        {k.circuitBreakReason ? (
+                          <Tooltip content={k.circuitBreakReason}>
+                            <span className="inline-flex">
+                              <span className="flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-600 dark:text-red-400">
+                                <ShieldAlert className="h-3 w-3" />
+                                熔断
+                              </span>
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2">
+                        {k.usageSummary ? (
+                          <div className="flex flex-col items-end gap-0.5 text-xs tabular-nums">
+                            <span>{fmtNum(k.usageSummary.calls24h)} 次</span>
+                            <span className="text-muted-foreground">
+                              {fmtNum(k.usageSummary.tokens24h)} tok
+                            </span>
+                            <span
+                              className={
+                                failPct !== null && failPct > 30
+                                  ? 'font-medium text-red-600 dark:text-red-400'
+                                  : 'text-muted-foreground'
+                              }
+                            >
+                              {failPct === null ? '-' : `${failPct.toFixed(1)}%`}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="block text-right text-xs text-muted-foreground">-</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-xs">
                         {expMs !== null ? (
                           <span
@@ -552,6 +813,23 @@ export default function AdminRelayAccountPoolPage() {
                       <td className="px-3 py-2 text-xs">{k.hasProxy ? '是' : '否'}</td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">
                         {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
+                      </td>
+                      <td className="px-3 py-2">
+                        {claimed ? (
+                          <Tooltip
+                            content={`认领人:${k.claimedBy ?? '-'} 时间:${
+                              k.claimedAt ? fmt.format(new Date(k.claimedAt)) : '-'
+                            } 备注:${k.claimNote ?? '-'}`}
+                          >
+                            <span className="inline-flex">
+                              <span className="max-w-[10rem] truncate rounded-md bg-blue-500/10 px-2 py-0.5 text-xs text-blue-600 dark:text-blue-400">
+                                已认领{k.claimedBy ? ` · ${k.claimedBy}` : ''}
+                              </span>
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <Switch
@@ -588,6 +866,17 @@ export default function AdminRelayAccountPoolPage() {
                               </Button>
                             </span>
                           </Tooltip>
+                          <Tooltip content="调用日志">
+                            <span className="inline-flex">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setUsageAccountId(k.id)}
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                            </span>
+                          </Tooltip>
                           <Tooltip content="切换启用">
                             <span className="inline-flex">
                               <Button
@@ -600,6 +889,20 @@ export default function AdminRelayAccountPoolPage() {
                               </Button>
                             </span>
                           </Tooltip>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="px-2 text-xs"
+                            disabled={claimMut.isPending}
+                            onClick={() =>
+                              claimMut.mutate({
+                                ids: [k.id],
+                                action: claimed ? 'release' : 'claim',
+                              })
+                            }
+                          >
+                            {claimed ? '释放' : '认领'}
+                          </Button>
                           <Tooltip content="编辑">
                             <span className="inline-flex">
                               <Button size="sm" variant="ghost" onClick={() => openEdit(k)}>
@@ -847,6 +1150,83 @@ export default function AdminRelayAccountPoolPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Sheet open={usageAccountId !== null} onOpenChange={(o) => !o && setUsageAccountId(null)}>
+        <SheetContent side="right" className="w-full gap-4 sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>调用日志{usageAccountName ? `:${usageAccountName}` : ''}</SheetTitle>
+            <SheetDescription>近 7 天调用用量与明细</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-3 overflow-auto pb-2">
+            {usageQuery.isLoading ? (
+              <Skeleton className="h-12 w-full" />
+            ) : usageQuery.isError ? (
+              <p className="text-sm text-red-500">
+                加载失败:{usageQuery.error instanceof Error ? usageQuery.error.message : '未知错误'}
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-md bg-muted px-2 py-1 tabular-nums text-muted-foreground">
+                    调用 {fmtNum(usageQuery.data?.summary?.calls24h)} 次
+                  </span>
+                  <span className="rounded-md bg-muted px-2 py-1 tabular-nums text-muted-foreground">
+                    Tokens {fmtNum(usageQuery.data?.summary?.tokens24h)}
+                  </span>
+                  <span
+                    className={`rounded-md px-2 py-1 tabular-nums ${
+                      failRatePct(usageQuery.data?.summary?.failRate24h) !== null &&
+                      (failRatePct(usageQuery.data?.summary?.failRate24h) ?? 0) > 30
+                        ? 'bg-red-500/10 font-medium text-red-600 dark:text-red-400'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    失败率{' '}
+                    {failRatePct(usageQuery.data?.summary?.failRate24h) === null
+                      ? '-'
+                      : `${failRatePct(usageQuery.data?.summary?.failRate24h)?.toFixed(1)}%`}
+                  </span>
+                </div>
+                {usageDetailRows.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">暂无调用明细</p>
+                ) : (
+                  <div className="overflow-x-auto rounded-md border border-border">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50 text-muted-foreground [&>tr>th]:whitespace-nowrap">
+                        <tr>
+                          {usageDetailCols.map((c) => (
+                            <th key={c} className="px-2 py-1 text-left">
+                              {c}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {usageDetailRows.map((row, i) => (
+                          <tr key={i} className="border-t border-border">
+                            {usageDetailCols.map((c) => {
+                              const text = fmtDetailValue(row[c], fmt)
+                              return (
+                                <td
+                                  key={c}
+                                  className="max-w-[12rem] truncate px-2 py-1"
+                                  title={text}
+                                >
+                                  {text}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

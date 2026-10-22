@@ -4,16 +4,16 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { sql } from 'drizzle-orm'
+import { sql, eq } from 'drizzle-orm'
 import { env } from 'node:process'
 import { db } from '../db/index.js'
+import { vipLevels } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
   listVipLevels,
   findVipLevel,
   createVipLevel,
-  updateVipLevel,
   deleteVipLevel,
   getMyVip,
   purchaseVip,
@@ -215,6 +215,44 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
   server.get('/vip/products', async (_request, reply) => {
     const levels = await listVipLevels(true)
     return reply.send(success({ products: levels }))
+  })
+
+  // GET /vip-compare - VIP 等级权益对比(G-962 批7 补后端;VipCompareRow[],RN VipCompareScreen 消费)
+  // 注:data 为数组直传,不挂 response schema。
+  server.get('/vip-compare', async (_request, reply) => {
+    const levels = await listVipLevels(true)
+    const colByValue: Record<number, 'basic' | 'premium' | 'enterprise'> = {
+      1: 'basic',
+      2: 'premium',
+      3: 'enterprise',
+    }
+    const colSets: Record<'basic' | 'premium' | 'enterprise', Set<string>> = {
+      basic: new Set(),
+      premium: new Set(),
+      enterprise: new Set(),
+    }
+    const featureOrder: string[] = []
+    for (const level of levels) {
+      const col = colByValue[level.levelValue]
+      if (!col) continue
+      const benefits = Array.isArray(level.benefits) ? (level.benefits as unknown[]) : []
+      for (const b of benefits) {
+        let name: string | null = null
+        if (typeof b === 'string') name = b
+        else if (b && typeof b === 'object' && typeof (b as { name?: unknown }).name === 'string')
+          name = (b as { name: string }).name
+        if (!name) continue
+        colSets[col].add(name)
+        if (!featureOrder.includes(name)) featureOrder.push(name)
+      }
+    }
+    const rows = featureOrder.map((f) => ({
+      feature: f,
+      basic: colSets.basic.has(f) ? '✓' : '—',
+      premium: colSets.premium.has(f) ? '✓' : '—',
+      enterprise: colSets.enterprise.has(f) ? '✓' : '—',
+    }))
+    return reply.send(success(rows))
   })
 
   // 我的 VIP
@@ -435,8 +473,13 @@ export const adminVipRoutes: FastifyPluginAsync = async (server) => {
   server.put('/vip/levels/:id', async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const body = updateLevelBody.parse(request.body)
-    await updateVipLevel(id, body)
-    return reply.send(success({ updated: true }))
+    // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+    const updatedRows = await db
+      .update(vipLevels)
+      .set({ ...body, updatedAt: new Date() })
+      .where(eq(vipLevels.id, id))
+      .returning({ id: vipLevels.id })
+    return reply.send(success({ updated: updatedRows.length > 0 }))
   })
 
   server.delete('/vip/levels/:id', async (request, reply) => {

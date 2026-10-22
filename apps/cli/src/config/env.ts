@@ -20,16 +20,25 @@
  *   - IHUI_ENABLE_MCP → enableMcp(布尔)
  *   - IHUI_SAMPLER_TEMPERATURE → sampler.temperature(数字)
  *   - IHUI_SAMPLER_MAX_TOKENS → sampler.maxTokens(数字)
- *   - IHUI_SANDBOX_PROFILE → sandbox.profile
+ *   - IHUI_SANDBOX_PROFILE → sandbox.profile(枚举 readonly|limited|trusted|open|full,
+ *     未知值忽略并保持下层值 —— 见 config/sandbox-profile.ts 的失效方向说明)
  *   - IHUI_COMPACTION_V2_ENABLED → compactionV2.enabled(布尔)
  *   - 未知 IHUI_ 前缀变量:忽略,不报错
  */
 
 import type { Settings } from '../commands/settings.js'
 import { setNestedPath } from './cli.js'
+import { parseSandboxProfile } from './sandbox-profile.js'
 
-/** 环境变量名 → { 配置路径, 值类型 } */
-const ENV_MAPPING: Record<string, { path: string; type: 'string' | 'number' | 'boolean' }> = {
+/**
+ * 环境变量名 → { 配置路径, 值类型, 可选解析器 }。
+ * `parse` 返回 `undefined` ⇒ 视为该变量未设置(保持低层值),用于枚举类键 ——
+ * 非法值不得原样写进 Settings(否则运行时会按“取不到档位=不加限制”静默放行)。
+ */
+const ENV_MAPPING: Record<
+  string,
+  { path: string; type: 'string' | 'number' | 'boolean'; parse?: (raw: string) => unknown }
+> = {
   IHUI_API_URL: { path: 'apiUrl', type: 'string' },
   IHUI_API_KEY: { path: 'apiKey', type: 'string' },
   // O12 机器凭据:secret 与凭据种类声明(IHUI_SERVE_* 前缀属入站配置,由 serve 直读 env)
@@ -45,7 +54,7 @@ const ENV_MAPPING: Record<string, { path: string; type: 'string' | 'number' | 'b
   IHUI_ENABLE_MCP: { path: 'enableMcp', type: 'boolean' },
   IHUI_SAMPLER_TEMPERATURE: { path: 'sampler.temperature', type: 'number' },
   IHUI_SAMPLER_MAX_TOKENS: { path: 'sampler.maxTokens', type: 'number' },
-  IHUI_SANDBOX_PROFILE: { path: 'sandbox.profile', type: 'string' },
+  IHUI_SANDBOX_PROFILE: { path: 'sandbox.profile', type: 'string', parse: parseSandboxProfile },
   IHUI_COMPACTION_V2_ENABLED: { path: 'compactionV2.enabled', type: 'boolean' },
   IHUI_PROVIDER: { path: 'provider', type: 'string' },
   IHUI_PROVIDER_BASE_URL: { path: 'providerBaseUrl', type: 'string' },
@@ -101,7 +110,12 @@ export function parseEnvOverrides(env: NodeJS.ProcessEnv = process.env): Partial
     const raw = getEnvCI(env, envKey)
     if (raw === undefined || raw === '') continue
     let value: unknown
-    if (spec.type === 'string') {
+    if (spec.parse) {
+      // 枚举类键:解析不出来 ⇒ 跳过该键(不覆盖下层),绝不把自由字符串透传
+      const parsed = spec.parse(raw)
+      if (parsed === undefined) continue
+      value = parsed
+    } else if (spec.type === 'string') {
       value = raw
     } else if (spec.type === 'number') {
       const n = Number(raw)

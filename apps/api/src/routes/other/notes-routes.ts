@@ -158,8 +158,13 @@ export const notesRoutes: FastifyPluginAsync = async (server) => {
     if (body.data.title !== undefined) updateData.title = body.data.title
     if (body.data.isPublic !== undefined) updateData.isPublic = body.data.isPublic
     if (body.data.lessonId !== undefined) updateData.lessonId = body.data.lessonId
-    await db.update(notes).set(updateData).where(eq(notes.id, id))
-    return reply.send(success({ updated: true }))
+    // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+    const updatedRows = await db
+      .update(notes)
+      .set(updateData)
+      .where(eq(notes.id, id))
+      .returning({ id: notes.id })
+    return reply.send(success({ updated: updatedRows.length > 0 }))
   })
 
   // DELETE /notes/:id - 删除笔记(仅所有者)

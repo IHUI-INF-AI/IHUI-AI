@@ -140,17 +140,19 @@ export const addressRoutes: FastifyPluginAsync = async (server) => {
     if (!existing) return reply.status(404).send(error(404, '地址不存在'))
     if (existing.userId !== request.userId)
       return reply.status(403).send(error(403, '无权修改此地址'))
-    await db.transaction(async (tx) => {
+    // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+    const updatedRows = await db.transaction(async (tx) => {
       await tx
         .update(userAddresses)
         .set({ isDefault: false, updatedAt: new Date() })
         .where(and(eq(userAddresses.userId, request.userId!), eq(userAddresses.isDefault, true)))
-      await tx
+      return tx
         .update(userAddresses)
         .set({ isDefault: true, updatedAt: new Date() })
         .where(eq(userAddresses.id, id))
+        .returning({ id: userAddresses.id })
     })
-    return reply.send(success({ updated: true }))
+    return reply.send(success({ updated: updatedRows.length > 0 }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

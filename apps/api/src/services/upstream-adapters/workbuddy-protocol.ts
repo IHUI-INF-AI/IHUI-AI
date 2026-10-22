@@ -132,6 +132,112 @@ export function resolveIdentity(opts: {
 }
 
 // =============================================================================
+// 登录态双格式解析(cookie 串 / token JSON / 裸 JWT·opaque)
+// =============================================================================
+
+/** 解析后的登录材料;accessToken 为空 = 该账号无可用访问凭证(头构造走 X-No-*) */
+export interface WorkBuddyLoginState {
+  accessToken: string
+  /** 首选刷新凭证:credentials.refreshToken 优先,缺省时取内嵌(JSON/cookie 串/cookies 数组) */
+  refreshToken: string
+  /** 内嵌形态的刷新凭证(与首选不同值时才作回退候选;首选失效时换用) */
+  embeddedRefreshToken: string
+}
+
+const ACCESS_KEYS = ['accessToken', 'access_token', 'token', 'user_token']
+const REFRESH_KEYS = ['refreshToken', 'refresh_token']
+
+function firstStr(o: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = str(o[k])
+    if (v) return v
+  }
+  return ''
+}
+
+/** "k1=v1; k2=v2" → 键值表(同名键取首个;无 '=' 段忽略) */
+export function parseCookieString(s: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const seg of s.split(';')) {
+    const eq = seg.indexOf('=')
+    if (eq <= 0) continue
+    const k = seg.slice(0, eq).trim()
+    const v = seg.slice(eq + 1).trim()
+    if (k && v && !(k in out)) out[k] = v
+  }
+  return out
+}
+
+/** 含已知鉴权 cookie 键名 + '=' → 判 cookie 串形态(避免把含 '=' 的 opaque token 误拆) */
+function looksLikeCookieString(s: string): boolean {
+  if (!s.includes('=')) return false
+  const keys = [...ACCESS_KEYS, ...REFRESH_KEYS].join('|')
+  return new RegExp(`(?:^|[;\\s])(?:${keys})\\s*=`).test(s)
+}
+
+/**
+ * 登录态双格式兼容:凭据 token 可能是
+ * - token JSON:{"accessToken":"AT","refreshToken":"RT"}(下划线别名同样认)
+ * - cookie 串:"token=AT; refresh_token=RT"(已知键名才按 cookie 拆)
+ * - 裸 JWT / opaque token:原样作 accessToken
+ * 另支持 Chrome 导出 cookies 数组 [{name,value}] 兜底。刷新凭证:显式 refreshToken > 内嵌。
+ */
+export function parseLoginState(i: {
+  token?: string | null
+  refreshToken?: string | null
+  cookies?: Array<Record<string, unknown>> | null
+}): WorkBuddyLoginState {
+  const primaryRefresh = str(i.refreshToken)
+  let accessToken = ''
+  let embedded = ''
+
+  const token = str(i.token)
+  if (token) {
+    let jsonParsed = false
+    if (token.startsWith('{')) {
+      try {
+        const o = asRecord(JSON.parse(token) as unknown)
+        jsonParsed = true
+        accessToken = firstStr(o, ACCESS_KEYS)
+        embedded = firstStr(o, REFRESH_KEYS)
+      } catch {
+        /* 非法 JSON → 按不透明 token 处理 */
+      }
+    }
+    if (!jsonParsed && looksLikeCookieString(token)) {
+      const pairs: Record<string, unknown> = parseCookieString(token)
+      accessToken = firstStr(pairs, ACCESS_KEYS)
+      embedded = firstStr(pairs, REFRESH_KEYS)
+    } else if (!jsonParsed && !accessToken) {
+      accessToken = token
+    }
+  }
+
+  if (!accessToken || !embedded) {
+    for (const c of i.cookies ?? []) {
+      const name = str(c?.['name'])
+      const value = str(c?.['value'])
+      if (!name || !value) continue
+      if (!accessToken && ACCESS_KEYS.includes(name)) accessToken = value
+      if (!embedded && REFRESH_KEYS.includes(name)) embedded = value
+    }
+  }
+
+  return {
+    accessToken,
+    refreshToken: primaryRefresh || embedded,
+    embeddedRefreshToken: embedded && embedded !== primaryRefresh ? embedded : '',
+  }
+}
+
+// =============================================================================
+// token 刷新端点(主端点失败后按序回退到备用端点)
+// =============================================================================
+
+/** 刷新端点路径(按 realm base 拼接);主 /v2/plugin/auth/token/refresh,备用 /v2/auth/token/refresh */
+export const REFRESH_ENDPOINT_PATHS = ['/v2/plugin/auth/token/refresh', '/v2/auth/token/refresh']
+
+// =============================================================================
 // 请求头构造
 // =============================================================================
 
@@ -418,11 +524,57 @@ const REQUEST_CODES = [11101, 11115, 11135, 6021]
 const TOKEN_BAD_RE = /token.*(expired|invalid)/
 const SESSION_DEAD_RE = /offline user session not found/
 
-/** 鉴权失效判定(401/403 或 body 命中会话死/token 过期标记) */
+/**
+ * 鉴权失效的 body 文案标记:覆盖 JSON error 体({"error":{"code":"unauthorized"}})、
+ * SSE 中途断流帧(data: {"error":{...}})与登录态失效提示(中英)。
+ */
+const AUTH_BODY_MARKERS = [
+  'unauthorized',
+  'authentication failed',
+  'authentication_error',
+  'invalid_token',
+  'invalid token',
+  'session expired',
+  'not logged in',
+  '重新登录',
+  '登录已过期',
+  '登录失效',
+  '未登录',
+]
+
+/**
+ * 非 200 返回 HTML 登录页(会话失效被重定向到登录墙)形态识别:
+ * HTML 骨架 + 登录语义同现才算,避免把正常页面/错误模板误判为鉴权失效。
+ */
+export function looksLikeHtmlLoginPage(bodyText: string): boolean {
+  const l = bodyText.toLowerCase()
+  if (!l.includes('<html') && !l.includes('<!doctype html')) return false
+  return (
+    l.includes('login') ||
+    l.includes('登录') ||
+    l.includes('sign in') ||
+    l.includes('sign-in') ||
+    l.includes('signin') ||
+    l.includes('认证')
+  )
+}
+
+/** body 是否命中鉴权失效标记(不含状态码判定;401/403 由调用方先判) */
+export function hasAuthFailureBodyMarker(bodyText: string): boolean {
+  const lower = bodyText.toLowerCase()
+  return (
+    TOKEN_BAD_RE.test(lower) ||
+    AUTH_BODY_MARKERS.some((m) => lower.includes(m)) ||
+    looksLikeHtmlLoginPage(bodyText)
+  )
+}
+
+/** 鉴权失效判定(401/403 或 body 命中会话死/token 过期/登录墙标记) */
 export function isAuthFailureCore(statusCode: number, bodyText: string): boolean {
   if (statusCode === 401 || statusCode === 403) return true
   const lower = bodyText.toLowerCase()
-  return SESSION_DEAD_RE.test(lower) || lower.includes('12153') || TOKEN_BAD_RE.test(lower)
+  if (SESSION_DEAD_RE.test(lower) || lower.includes('12153')) return true
+  return hasAuthFailureBodyMarker(bodyText)
 }
 
 /**
@@ -435,7 +587,7 @@ export function classifyUpstreamFailure(statusCode: number, bodyText: string): U
 
   if (statusCode === 402 || CREDIT_MARKERS.some((m) => lower.includes(m))) return 'credit'
   if (SESSION_DEAD_RE.test(lower) || lower.includes('12153')) return 'session_dead'
-  if (statusCode === 401 || statusCode === 403 || TOKEN_BAD_RE.test(lower)) return 'auth'
+  if (statusCode === 401 || statusCode === 403 || hasAuthFailureBodyMarker(bodyText)) return 'auth'
   if (
     statusCode === 429 ||
     RATE_MARKERS.some((m) => lower.includes(m)) ||
