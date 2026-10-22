@@ -28878,7 +28878,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 
 
-- [ ] G-927 **镜像棘轮「裸 git 派生的生产文件只减不增」现读 76→85，新增者 9 枚待在各自票内改走 face-reader**〔登记@2026-10-21/工程执行席〕:判据在 `scripts/tests/face-reader.test.mjs`(判 HEAD blob,未提交改动不进分母),基线钉在提交 `14a04f013f` 的 76;现读 85。本席自己那一枚(`scripts/strip-stale-closed-rows.mjs`)已改走 `lib/face-reader` 的 `gitRaw` 并落地(枚 `35be7331286873005435524cdf131598f2cea9f4`),棘轮读数随之 86→85。取新增者名单:对基线提交与 HEAD 各跑一次 〔压缩@2026-10-22〕
+- [x] ✅(2026-10-23) G-927 **镜像棘轮「裸 git 派生的生产文件只减不增」现读 76→85，新增者 9 枚待在各自票内改走 face-reader**〔登记@2026-10-21/工程执行席〕:判据在 `scripts/tests/face-reader.test.mjs`(判 HEAD blob,未提交改动不进分母),基线钉在提交 `14a04f013f` 的 76;现读 85。本席自己那一枚(`scripts/strip-stale-closed-rows.mjs`)已改走 `lib/face-reader` 的 `gitRaw` 并落地(枚 `35be7331286873005435524cdf131598f2cea9f4`),棘轮读数随之 86→85。取新增者名单:对基线提交与 HEAD 各跑一次 〔压缩@2026-10-22〕〔结清@2026-10-23/工单席复跑:同一把尺子(headDerivationScan,遮注释)对基线枚 14a04f013fa8aec2aa1b2a2df93345d30b985c78 与 HEAD 各跑一次求差 ⇒ 新增 0 枚(票面 9 枚已由他席迁移入库,含示范枚 35be7331286873005435524cdf131598f2cea9f4);票面 git grep 法另报的 check-disk-root-write / check-grafana-datasource-wiring / check-panel-datasource-wiring 三枚系注释里谈这条判据本身的散文,遮注释后零命中不作债。降钉已由枚 scripts/tests/face-reader.test.mjs BARE_GIT_BASELINE 65→64 紧贴现读(判据自打的降档提示为准,不留余量),复跑镜像 31/31 绿。残段如实:64 枚属相对基线的存量债不在本票射程(只报数);README 历史 changelog 行仍写 67→65 属活文档席〕
 - [ ] G-929 **旁路落地器的镜像套件红 26 例：暖色描边涉事判据（门 231）在测试通道换仓时必然「未判定」而被落地器当拒绝**〔登记@2026-10-21/工程执行席〕:成因现读复现 = `node scripts/tests/object-space-land.test.mjs` 得 `tests 66 / pass 40 / fail 26`,首条失败自述「❌ 暖色描边涉事判据未判定(rc=2),拒绝落盘 … git ls-tree 失败: fatal: not a tree object」;根因是门 231 的 `--rev <tree>` 档**按门体自身仓根**解析树 oid(`scripts/check-no-warm-border.mjs` 头注自写"门体按仓库根自推导,不跟 LAND_ROOT 走"),而镜像用例把落地器指 〔压缩@2026-10-22〕
 
 
