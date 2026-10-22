@@ -72,14 +72,16 @@ export default function LoginPageClient() {
     useLoginDialogStore.getState().open('login', redirect ?? undefined)
 
     // 2. 回到前一页(保留工作展示区前一页内容)
-    //    「有没有前一页可回」不能只数 history.length —— 新标签直链时 about:blank 也占一格
-    //    (实测直链与站内点进两个场景都是 2),只判长度会让直链用户被 back() 退回 about:blank
-    //    = 白屏,弹窗随页面卸载一起消失。referrer 为空才是真直链,那一条只能 replace 降级。
-    //    延迟一帧导航(2026-08-29):挂载期立即 back/replace 可能命中 Next.js
-    //    Router 初始化窗口("Router action dispatched before initialization")。
-    //    下一帧 Router 必已就绪;组件提前卸载时 cleanup 取消,避免幽灵导航。
+    //    判据 = history.length > 2。凭据:2026-10-22 对生产做 n=20 + n=20 成组对照,两档零重叠
+    //    —— 新标签直链恒 2(about:blank 占一格,back() 会把用户退回空白页 = 白屏),
+    //    先到过站内任意一页再进 /login 恒 ≥3。
+    //    上一枚加的 document.referrer 条件已撤:同批实测**直链与站内两种场景 referrer 都是空串**
+    //    (本站无外部来源页 ⇒ 它恒空),拿它当条件等于把所有 /login 都降级,把正在看 /topics 的
+    //    用户踢回首页 —— 修过头了。延迟一帧导航(2026-08-29):挂载期立即 back/replace 可能命中
+    //    Next.js Router 初始化窗口("Router action dispatched before initialization");
+    //    下一帧 Router 必已就绪,组件提前卸载时 cleanup 取消,避免幽灵导航。
     const raf = requestAnimationFrame(() => {
-      if (typeof window !== 'undefined' && window.history.length > 1 && document.referrer !== '') {
+      if (typeof window !== 'undefined' && window.history.length > 2) {
         router.back()
       } else {
         // G-413②:`redirect` 是客户端可整写的查询参数,裸喂 router 会把 `/\evil.com`(WHATWG
