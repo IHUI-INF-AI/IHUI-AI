@@ -58,7 +58,6 @@ async function importModuleFromText(text, prefix) {
   }
 }
 
-const splitImplOf = (mod) => mod.pySplitLines
 const pyRowsFrom = (splitFn) =>
   gate.splitCorpus().map(([name, text]) => ({ name, py: splitFn(text).length }))
 

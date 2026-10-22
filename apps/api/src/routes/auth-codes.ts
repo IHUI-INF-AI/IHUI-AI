@@ -48,8 +48,9 @@ const authCodeRoutes: FastifyPluginAsync = async (server) => {
       const { mobile } = parsed.data
       const result = await sendSmsCode(mobile)
       if (!result.success) {
-        // 限速或发送失败:返回 429(对应 Java 抛 GlobalException 的语义)
-        return reply.status(429).send(error(429, result.msg))
+        // 限速 → 429(对应 Java 抛 GlobalException 的语义);云侧没发出去 → 502,两者不得同形
+        const status = result.failure === 'delivery_failed' ? 502 : 429
+        return reply.status(status).send(error(status, result.msg))
       }
       return reply.send(success({ mobile, sent: true, message: result.msg }))
     },
