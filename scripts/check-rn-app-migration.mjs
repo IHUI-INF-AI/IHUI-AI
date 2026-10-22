@@ -98,14 +98,6 @@ export const WHITELIST_ENTRIES = new Map(
       why: '语音转写屏:录音状态机 + 转写结果滚动区,共享层无同名屏,RN 端独占麦克风/权限通道',
       expires: '2027-06-30',
     },
-    'WrongQuestionsScreen.tsx': {
-      why: '错题本屏:FlatList + 筛选 chip + 详情 Modal,共享层无同名屏,RN 端独占列表/弹层交互',
-      expires: '2027-06-30',
-    },
-    'PointsScreen.tsx': {
-      why: '积分明细屏:ScrollView 分组流水 + 筛选 chip,共享层无同名屏,RN 端独占滚动/筛选交互',
-      expires: '2027-06-30',
-    },
     'UsageScreen.tsx': {
       why: '用量统计屏:模型用量条 + 周期切换,共享层无同名屏,RN 端独占统计视图',
       expires: '2027-06-30',

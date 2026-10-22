@@ -155,7 +155,7 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       content: { type: 'string', description: '文件完整内容' },
     },
     required: ['path', 'content'],
-    async execute(args): Promise<ToolResult> {
+    async execute(args, execCtx): Promise<ToolResult> {
       const filePath = args.path as string;
       const content = args.content as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
@@ -164,7 +164,7 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       const perm = checkPathWritePermission(filePath, ctx);
       if (!perm.allowed) return { success: false, output: '', error: perm.reason };
 
-      const preResult = await runPreToolCall('write_file', { path: filePath, cwd: ctx.workspacePath });
+      const preResult = await runPreToolCall('write_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
@@ -180,7 +180,7 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
         snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
         commitAtomicWrite(baseline, content);
         recordHunk(ctx, abs, startLine, endLine, content);
-        await runPostToolCall('write_file', { path: filePath, bytes: content.length });
+        await runPostToolCall('write_file', { path: filePath, bytes: content.length }, execCtx.signal);
         const lines = content.split('\n').length;
         const diff = existed ? computeUnifiedDiff(original, content, filePath) : '';
         return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)${diff}` };
@@ -350,14 +350,14 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       patch: { type: 'string', description: '多个 SEARCH/REPLACE 块(格式: <<<<<<< SEARCH\\n...\\n=======\\n...\\n>>>>>>> REPLACE)' },
     },
     required: ['path'],
-    async execute(args): Promise<ToolResult> {
+    async execute(args, execCtx): Promise<ToolResult> {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
 
       const perm = checkPathWritePermission(filePath, ctx);
       if (!perm.allowed) return { success: false, output: '', error: perm.reason };
 
-      const preResult = await runPreToolCall('edit_file', { path: filePath, cwd: ctx.workspacePath });
+      const preResult = await runPreToolCall('edit_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
@@ -394,7 +394,7 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
         warnConflictIfAny(ctx, abs, startLine, endLine);
         commitAtomicWrite(baseline, applied.result);
         recordHunk(ctx, abs, startLine, endLine, applied.result);
-        await runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements });
+        await runPostToolCall('edit_file', { path: filePath, replacements: applied.replacements }, execCtx.signal);
         const diff = computeUnifiedDiff(original, applied.result, filePath);
         // 弱等级命中:告警放在**最前面**,不能让它在 diff 之后被划过去看不见
         return {
@@ -419,14 +419,14 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       path: { type: 'string', description: '要删除的文件路径' },
     },
     required: ['path'],
-    async execute(args): Promise<ToolResult> {
+    async execute(args, execCtx): Promise<ToolResult> {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
 
       const perm = checkPathWritePermission(filePath, ctx);
       if (!perm.allowed) return { success: false, output: '', error: perm.reason };
 
-      const preResult = await runPreToolCall('delete_file', { path: filePath, cwd: ctx.workspacePath });
+      const preResult = await runPreToolCall('delete_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
@@ -445,7 +445,7 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
       fs.unlinkSync(abs);
       recordHunk(ctx, abs, startLine, endLine, original);
-      await runPostToolCall('delete_file', { path: filePath });
+      await runPostToolCall('delete_file', { path: filePath }, execCtx.signal);
       return { success: true, output: `已删除 ${filePath}` };
     },
   };
