@@ -11,13 +11,18 @@
  *
  * 设计(对标 + 超越码道):
  * - 模型→平台反查:join ai_model_config(_models),providerCode ∈ RELAY_PROVIDERS 且启用;60s 进程缓存
- * - 选号:priority asc → weight desc → lastUsedAt asc(未用优先),跳过进程冷却中的号;上限 3 号 failover
+ * - 选号:priority asc → weight desc → lastUsedAt asc(未用优先),跳过冷却中的号;上限 3 号 failover
  * - 会话亲和:affinityKey(apiKeyId)+model → 同账号,10 分钟 TTL(Trae 多轮上下文连续性靠它)
+ * - 多实例协同(2026-10-22):冷却/亲和走 relay-account-shared-state(Redis 优先、
+ *   内存兜底);连续失败计数仍为进程级(计数是启发式,不要求跨实例一致)
+ * - failover 全量回放:换号/401 自愈一律用完整 messages 数组重建请求重放,不截断;
+ *   流式场景下失败号从不向客户端吐过字节,新号 SSE 从头开始、不断流
  * - 双执行路径:适配器定义 executeChat(多段式协议,如 Trae remote 两步会话)直接整体执行;
  *   否则走通用单请求路径 buildChatRequest → fetch → translateStreamChunk/translateNonStream
  * - 401 自愈:鉴权失败 → 适配器 refreshToken → 回写号池 → 重试一次(对标码道 token 自动续期)
  * - 熔断分层(超越码道的单一冷却):
- *   · 进程级:连续 3 败 → 60s 冷却;rate → 60s;credit → 12h;session_dead → 永久摘除(tempUnschedulable)
+ *   · 连续 3 败 → 60s 冷却;rate → 60s;credit → 12h;session_dead → 永久摘除(tempUnschedulable)
+ *     冷却到期时间经 shared-state 跨实例共享(Redis 优先、内存兜底)
  *   · 请求级错误(参数非法/超长/审核)不罚号(直接透传失败,不计数不冷却)
  * - 出口代理:行.proxyUrl → undici ProxyAgent(按 URL 缓存连接池,每号独立出口 IP 降风控)
  * - 流式:上游 SSE 帧逐帧 adapter.translateStreamChunk → OpenAI chunk 重封装 + [DONE];
@@ -43,6 +48,16 @@ import {
   isRelayProviderCode,
   type RelayProviderCode,
 } from './relay-account-pool-service.js'
+import {
+  clearAccountCooldown,
+  getAccountsInCooldown,
+  getSessionAffinity,
+  setAccountCooldown,
+  setSessionAffinity,
+} from './relay-account-shared-state.js'
+import { recordAccountUsage } from './relay-account-usage.js'
+import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './relay-proxy-pool.js'
+import { resolveModelAlias } from './relay-model-catalog.js'
 import {
   getRelayAdapter,
   type AdapterAccountContext,
@@ -81,16 +96,9 @@ type FailureKind =
   | 'client'
   | 'network'
 
-interface BreakerEntry {
-  failures: number
-  cooldownUntil: number
-}
-
-/** 账号级进程熔断表(账号数量有限,不做 LRU) */
-const breaker = new Map<string, BreakerEntry>()
-/** 会话亲和表:key = affinityKey|model */
-const affinity = new Map<string, { accountId: string; expiresAt: number }>()
-/** 模型→可用平台反查缓存 */
+/** 账号级连续失败计数(进程级启发式;冷却到期本身走 shared-state 跨实例共享) */
+const failureCounts = new Map<string, number>()
+/** 模型→平台反查缓存 */
 const providerCache = new Map<
   string,
   { providers: Array<{ providerCode: RelayProviderCode; configId: number }>; expiresAt: number }
@@ -184,11 +192,9 @@ async function selectAccountCandidates(
     )
     .orderBy(asc(aiRelayAccountPool.priority), desc(aiRelayAccountPool.weight))
 
-  const now = Date.now()
-  const usable = rows.filter((r) => {
-    const b = breaker.get(r.id)
-    return !b || b.cooldownUntil <= now
-  })
+  // 冷却跨实例共享(shared-state:Redis 优先、内存兜底);读失败已在内部降级,不会抛
+  const cooling = await getAccountsInCooldown(rows.map((r) => r.id))
+  const usable = rows.filter((r) => !cooling.has(r.id))
   // 同优先级同权重:最久未用优先(null = 从未用过,排最前)
   usable.sort(
     (a, b) =>
@@ -200,9 +206,9 @@ async function selectAccountCandidates(
   // 亲和命中且仍可用 → 置顶(多轮上下文连续;失效则自然 failover 到下一候选)
   const aKey = affinityKeyOf(req, rawModel)
   if (aKey) {
-    const hit = affinity.get(aKey)
-    if (hit && hit.expiresAt > now) {
-      const idx = usable.findIndex((r) => r.id === hit.accountId)
+    const hitId = await getSessionAffinity(aKey)
+    if (hitId) {
+      const idx = usable.findIndex((r) => r.id === hitId)
       if (idx > 0) {
         const row = usable[idx]
         if (row) {
@@ -210,8 +216,6 @@ async function selectAccountCandidates(
           usable.unshift(row)
         }
       }
-    } else if (hit) {
-      affinity.delete(aKey)
     }
   }
   return usable.slice(0, MAX_ACCOUNT_CANDIDATES)
@@ -226,9 +230,11 @@ function recordSuccess(
   req: UpstreamForwardRequest,
   rawModel: string,
 ): void {
-  breaker.delete(row.id)
+  failureCounts.delete(row.id)
+  // shared-state 写入的内存穿透部分是同步的(void 仅指 Redis 往返不阻塞响应路径)
+  void clearAccountCooldown(row.id)
   const aKey = affinityKeyOf(req, rawModel)
-  if (aKey) affinity.set(aKey, { accountId: row.id, expiresAt: Date.now() + AFFINITY_TTL_MS })
+  if (aKey) void setSessionAffinity(aKey, row.id, AFFINITY_TTL_MS)
   void db
     .update(aiRelayAccountPool)
     .set({
@@ -247,17 +253,17 @@ function recordFailure(row: AiRelayAccountPool, kind: FailureKind, reason: strin
   // 请求级错误(参数非法/超长/审核拦截):不罚号
   if (kind === 'request') return
   const now = Date.now()
-  const entry = breaker.get(row.id) ?? { failures: 0, cooldownUntil: 0 }
   if (kind === 'not_found') {
     // 上游偶发 404 抖动:短冷却但不累计错误(防雪崩,对标 workbuddy ErrNotFound)
-    entry.cooldownUntil = now + RATE_COOLDOWN_MS
+    void setAccountCooldown(row.id, now + RATE_COOLDOWN_MS)
   } else {
-    entry.failures += 1
-    if (kind === 'credit') entry.cooldownUntil = now + CREDIT_COOLDOWN_MS
-    else if (kind === 'rate') entry.cooldownUntil = now + RATE_COOLDOWN_MS
-    else if (entry.failures >= BREAKER_FAILURES) entry.cooldownUntil = now + BREAKER_COOLDOWN_MS
+    const failures = (failureCounts.get(row.id) ?? 0) + 1
+    failureCounts.set(row.id, failures)
+    if (kind === 'credit') void setAccountCooldown(row.id, now + CREDIT_COOLDOWN_MS)
+    else if (kind === 'rate') void setAccountCooldown(row.id, now + RATE_COOLDOWN_MS)
+    else if (failures >= BREAKER_FAILURES)
+      void setAccountCooldown(row.id, now + BREAKER_COOLDOWN_MS)
   }
-  breaker.set(row.id, entry)
 
   const set: Record<string, unknown> = {
     consecutiveFailures: sql`${aiRelayAccountPool.consecutiveFailures} + 1`,
@@ -532,11 +538,92 @@ async function safeText(resp: Response): Promise<string> {
 }
 
 // =============================================================================
+// 用量 tap:从响应流提取 OpenAI usage 字段(不消费主路径 body)
+// =============================================================================
+
+interface UsagePair {
+  promptTokens: number
+  completionTokens: number
+}
+
+function extractUsage(json: unknown): UsagePair | null {
+  const rec = asRecord(json)
+  const usage = rec ? asRecord(rec.usage) : null
+  if (!usage) return null
+  const p = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
+  const c = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
+  if (!p && !c) return null
+  return { promptTokens: p, completionTokens: c }
+}
+
+/** SSE data: 行 → JSON(非 JSON/[DONE] → null) */
+function parseDataLine(line: string): unknown {
+  const payload = line.slice(line.indexOf(':') + 1).trim()
+  if (!payload || payload === '[DONE]') return null
+  try {
+    return JSON.parse(payload)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 包裹响应以提取 usage,onUsage **恰好调用一次**(取末帧/最终 usage;无 usage 则 0/0)。
+ * - SSE:body.tee(),tap 支路异步解析,主路零延迟零消费;
+ * - JSON(Response.json 构造,body 已在内存):clone().text() 解析,原响应直接透传。
+ * tap 内部一切异常吞掉 —— 用量统计永不影响转发主链路。
+ */
+function tapAccountUsage(resp: Response, onUsage: (u: UsagePair) => void): Response {
+  const ct = resp.headers.get('content-type') ?? ''
+  if (ct.includes('text/event-stream')) {
+    if (!resp.body) {
+      onUsage({ promptTokens: 0, completionTokens: 0 })
+      return resp
+    }
+    const [pass, tap] = resp.body.tee()
+    void (async () => {
+      let last: UsagePair | null = null
+      try {
+        for await (const line of readSseDataLines(tap)) {
+          if (line.includes('[DONE]')) break
+          const u = extractUsage(parseDataLine(line))
+          if (u) last = u
+        }
+      } catch {
+        /* tap 支路失败不影响主路径 */
+      }
+      onUsage(last ?? { promptTokens: 0, completionTokens: 0 })
+    })()
+    return new Response(pass, {
+      status: resp.status,
+      statusText: resp.statusText,
+      headers: resp.headers,
+    })
+  }
+  void resp
+    .clone()
+    .text()
+    .then((text) => {
+      let u: UsagePair = { promptTokens: 0, completionTokens: 0 }
+      try {
+        const parsed = extractUsage(JSON.parse(text))
+        if (parsed) u = parsed
+      } catch {
+        /* 非 JSON 体按 0/0 记 */
+      }
+      onUsage(u)
+    })
+    .catch(() => onUsage({ promptTokens: 0, completionTokens: 0 }))
+  return resp
+}
+
+// =============================================================================
 // 单账号尝试
 // =============================================================================
 
 interface AccountAttempt {
   ok: boolean
+  kind?: FailureKind
   response?: Response
   latencyMs?: number
   latencyTrusted?: boolean
@@ -564,6 +651,7 @@ async function attemptWithAccount(
   row: AiRelayAccountPool,
   req: UpstreamForwardRequest,
   rawModel: string,
+  opts: { upstreamModel: string; proxy: string | null },
 ): Promise<AccountAttempt> {
   const started = startStopwatch()
   const finish = (resp: Response): AccountAttempt => {
@@ -578,11 +666,13 @@ async function attemptWithAccount(
   }
   const fail = (kind: FailureKind, reason: string, httpStatus?: number): AccountAttempt => {
     recordFailure(row, kind, reason)
-    return { ok: false, reason, httpStatus }
+    return { ok: false, kind, reason, httpStatus }
   }
 
-  const normReq = toNormalized(req, rawModel)
-  const doFetch = poolFetch(row.proxyUrl)
+  // 上游模型名 = 模型目录别名映射结果(无映射原样透传);网关对外语义仍是 rawModel
+  const normReq = toNormalized(req, opts.upstreamModel)
+  // 出口代理 = 账号自带 proxyUrl 优先,否则代理池轮换(池空/异常降级直连)
+  const doFetch = poolFetch(opts.proxy)
 
   // ── 路径 A:多段式协议(executeChat 自带 fetch/会话编排)──
   if (adapter.executeChat) {
@@ -591,7 +681,7 @@ async function attemptWithAccount(
     try {
       const result = await adapter.executeChat(ctx, normReq, {
         signal: req.signal,
-        proxyUrl: row.proxyUrl,
+        proxyUrl: opts.proxy,
         fetchImpl: doFetch,
       })
       if (result.stream) return finish(chunksToSseResponse(result.stream))
@@ -768,16 +858,40 @@ export async function forwardToAccountPool(
         lastError = `平台 ${row.providerCode} 适配器未注册`
         continue
       }
+      // 模型别名映射 + 代理池取号(两服务内部全吞异常,不会抛)
+      const alias = await resolveModelAlias(row.providerCode, rawModel)
+      const upstreamModel = alias?.upstreamModel ?? rawModel
+      const proxy = await pickProxyForAccount({ id: row.id, proxyUrl: row.proxyUrl })
       let attempt: AccountAttempt
       try {
-        attempt = await attemptWithAccount(adapter, row, req, rawModel)
+        attempt = await attemptWithAccount(adapter, row, req, rawModel, {
+          upstreamModel,
+          proxy,
+        })
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') {
-          return { ok: false, reason: 'client aborted' }
+          return { ok: false, reason: 'client aborted' } // 客户端断开:不记失败账
         }
-        attempt = { ok: false, reason: err instanceof Error ? err.message : String(err) }
+        attempt = {
+          ok: false,
+          kind: 'network',
+          reason: err instanceof Error ? err.message : String(err),
+        }
       }
       if (attempt.ok && attempt.response) {
+        if (proxy) void reportProxySuccess(proxy)
+        // 用量台账:tap 响应流提取 usage(恰好一次;无 usage 记 0/0),永不阻塞/影响主路径
+        const response = tapAccountUsage(attempt.response, (u) => {
+          void recordAccountUsage({
+            accountId: row.id,
+            providerCode: row.providerCode,
+            model: rawModel,
+            promptTokens: u.promptTokens,
+            completionTokens: u.completionTokens,
+            ok: true,
+            latencyMs: attempt.latencyMs ?? 0,
+          })
+        })
         const channel: SelectedChannelKey = {
           keyPoolId: row.id,
           apiKey: '',
@@ -789,7 +903,7 @@ export async function forwardToAccountPool(
         }
         return {
           ok: true,
-          response: attempt.response,
+          response,
           channel,
           latencyMs: attempt.latencyMs ?? 0,
           latencyTrusted: attempt.latencyTrusted ?? false,
@@ -797,6 +911,19 @@ export async function forwardToAccountPool(
       }
       lastError = attempt.reason ?? lastError
       if (attempt.httpStatus !== undefined) lastHttpStatus = attempt.httpStatus
+      // 代理级失败(网络/上游 5xx)才计代理失败;账号级问题(auth/credit…)不动代理
+      if (proxy && (attempt.kind === 'network' || attempt.kind === 'server')) {
+        void reportProxyFailure(proxy)
+      }
+      void recordAccountUsage({
+        accountId: row.id,
+        providerCode: row.providerCode,
+        model: rawModel,
+        promptTokens: 0,
+        completionTokens: 0,
+        ok: false,
+        latencyMs: 0,
+      })
     }
     return { ok: false, reason: lastError, lastHttpStatus }
   } catch {

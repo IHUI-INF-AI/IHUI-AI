@@ -19,7 +19,9 @@ import { and, eq, isNotNull, lte, or, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
+import { tryAcquireSharedLock } from './relay-account-shared-state.js'
 import { encryptField } from '../utils/crypto.js'
+import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
@@ -28,6 +30,9 @@ const REFRESH_AHEAD_MS = 15 * 60 * 1000
 const REFRESH_FAILURE_LIMIT = 3
 /** 单轮最多处理的账号数(防刷新风暴打爆上游) */
 const BATCH_LIMIT = 50
+/** 巡检分布式锁:锁名 + 租约 TTL(4 分钟 < 5 分钟巡检间隔;进程崩溃锁自愈,不阻塞下轮) */
+export const SWEEP_LOCK_NAME = 'relay-account-pool-sweep'
+const SWEEP_LOCK_TTL_MS = 4 * 60 * 1000
 
 export interface AccountPoolSweepResult {
   refreshed: number
@@ -35,6 +40,8 @@ export interface AccountPoolSweepResult {
   refreshSkipped: number
   healthChecked: number
   healthRecovered: number
+  /** true = 分布式锁被其他实例持有,本轮整体跳过(多实例不重复 sweep) */
+  skipped: boolean
 }
 
 function ctxOf(row: AiRelayAccountPool, credentials: AccountCredentials): AdapterAccountContext {
@@ -92,13 +99,38 @@ async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
   }
 }
 
+/**
+ * 巡检入口(多实例安全):先抢分布式锁(SET NX PX),锁被其他实例持有 ⇒ 本轮跳过。
+ * 锁在 finally 释放;进程崩溃未释放时靠租约 TTL(4 分钟)自愈。
+ */
 export async function sweepAccountPool(): Promise<AccountPoolSweepResult> {
+  const lock = await tryAcquireSharedLock(SWEEP_LOCK_NAME, SWEEP_LOCK_TTL_MS)
+  if (!lock) {
+    logger.info('[relay-account-pool] 巡检分布式锁被其他实例持有,本轮跳过')
+    return {
+      refreshed: 0,
+      refreshFailed: 0,
+      refreshSkipped: 0,
+      healthChecked: 0,
+      healthRecovered: 0,
+      skipped: true,
+    }
+  }
+  try {
+    return await runSweepOnce()
+  } finally {
+    await lock.release().catch(() => {})
+  }
+}
+
+async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   const out: AccountPoolSweepResult = {
     refreshed: 0,
     refreshFailed: 0,
     refreshSkipped: 0,
     healthChecked: 0,
     healthRecovered: 0,
+    skipped: false,
   }
   const now = new Date()
   const deadline = new Date(now.getTime() + REFRESH_AHEAD_MS)
