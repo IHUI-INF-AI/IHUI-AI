@@ -122,11 +122,13 @@ def test_t5_旧形态条目_摘掉任一格重放字段即回到惰性闸() -> N
     assert chat_pending_approval_replays({'a': without_owner}, 'user-A') == []
 
 
-def test_t6_现读生产面无人调用取数侧_接线格尚未落地() -> None:
-    """装车状态的诚实登记:本笔只开闸,不接线 ⇒ 断言"没有生产调用点"。
+def test_t6_接线格已落地_取数侧唯一生产调用点是llm.py() -> None:
+    """D690(方案 A,2026-10-22)落地登记:取数侧被 routers/llm.py 接线。
 
-    这一条是**会随 diff② 落地而翻红**的:届时必须连同本行注释一起改成"接线侧
-    用例"(不允许只把断言删了凑绿 —— 删断言 = 削弱判据,AGENTS §12e)。
+    本条原为 diff① 的"零行为"登记锁(断言无生产调用点,票面写明会随 diff②
+    落地翻红、届时须就地改成本形态 —— 已按指示改写,不是删断言凑绿)。
+    现在钉的是**接线不旁落**:生产面 import 取数侧的文件恰好只有 routers/llm.py
+    一处;换面、消失或扩散都判红(取数侧判据本身不许被绕过第二份实现另起炉灶)。
     """
     app_root = LLM_PY.parent.parent
     # 只认 import 语句:正文里提到模块名(如 llm.py 的注记)不构成调用点。
@@ -135,7 +137,9 @@ def test_t6_现读生产面无人调用取数侧_接线格尚未落地() -> None
         p.relative_to(app_root).as_posix() for p in app_root.rglob('*.py')
         if p.name != 'approval_replay.py' and import_re.search(p.read_text(encoding='utf-8', errors='ignore'))
     ]
-    assert importers == [], f'取数侧已被 {importers} import,本登记的"零行为"结论需就地改写'
+    assert importers == ['routers/llm.py'], (
+        f'取数侧的生产接线面应为唯一一处 routers/llm.py(D690 接线),现读 {importers}'
+    )
 
 
 # ── T7-T9:重放取数侧的**可达性**(量"接了线能不能有对象",不是量"有没有接线") ────
@@ -243,7 +247,14 @@ def approval_entry_reachability(src: str, *, write_anchor: str, table: str) -> _
 
 
 def test_t7_主对话腿的待决条目在断线时刻即被摘除_取数侧对重连恒空() -> None:
-    """diff② 的承重结论:主对话腿**接了线也不会有对象**,除非先改条目生命周期。"""
+    """diff② 的承重结论:主对话腿**接了线也不会有对象**,除非先改条目生命周期。
+
+    D690 落地注记(2026-10-22,断言一字未动):diff② 接线已落,取数对象恰是
+    **本形状还没摘条目的窗口** —— 干净取消路径(GeneratorExit 从吐帧点抛入)按本尺
+    判"不存续"⇒ 条目已被摘 ⇒ 不重放(无活等待者、答复不可兑现,重放即空头支票);
+    半开连接窗口(写失败尚未被察觉、等待者仍活)条目在表 ⇒ 重放有对象且可兑现。
+    生命周期形状不改正是这个设计的承重件:摘除本身就是"可兑现性"的 fail-closed 闸。
+    """
     got = approval_entry_reachability(
         LLM_PY.read_text(encoding='utf-8'), write_anchor=_CHAT_WRITE_ANCHOR, table=_CHAT_TABLE
     )
