@@ -131,7 +131,7 @@ export async function updateAsk(
   input: { title: string; content: string; tags?: string[] },
 ): Promise<ApiResult<Ask>> {
   return fetchApi<Ask>(`/asks/${encodeURIComponent(id)}`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(input),
   })
 }
@@ -174,7 +174,7 @@ export async function updateAnswer(
   input: { content: string },
 ): Promise<ApiResult<AskAnswer>> {
   return fetchApi<AskAnswer>(`/asks/answers/${encodeURIComponent(answerId)}`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(input),
   })
 }
