@@ -87,7 +87,6 @@
 //   起点(跨行写法时各自成窗),窗口行区间相互重叠 → 合并为 1 处(`contexts` 记命中数);
 //   行区间不相交的同签名写法(不同函数里的重复外泄)仍分别成条,不互相顶掉。
 
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, extname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -96,6 +95,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 载荷里的 `"accessToken":` 常以字符串形态出现(手写 JSON 模板),连字符串一起抹就失明;
 // 而"把同一段只写进注释"必须归绿 —— 注释遮罩是唯一关掉误报的那一层。
 import { maskComments } from './lib/code-mask.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const BASELINE_PATH = resolve(ROOT, 'scripts', 'credential-leak-baseline.json')
@@ -765,16 +765,13 @@ function makeAtRecord(file, line, keys, payloadText) {
 /** 取 HEAD blob(只给"本次有 AT 命中"的文件调,逐文件、带超时)。 */
 export function readHeadBlob(file) {
   try {
-    return execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${file}`], {
-      cwd: ROOT,
-      encoding: 'utf8',
+    // G-54:裸 git 派生收口到取材层。取**正文**必须走 `catBatch` 而不是 transport `gitRaw` ——
+    // 守门 118(check-gate-face-discipline)把 `gitRaw(['show', …])` 仍归 half-wired:管子共用不等于面共用,
+    // 内容读取的唯一合规入口是 catBatch/catBatchBinary/readWorktreeFile。maxBuffer 与 20s 超时显式保留。
+    return catBatch(ROOT, [`HEAD:${file}`], {
       maxBuffer: 64 * 1024 * 1024,
       timeout: 20_000,
-      windowsHide: true,
-      // EBUSY 病窗纪律(见 .workbuddy 技能):不消费 stdin 的子进程 stdio 一律 ['ignore','pipe','pipe'],
-      // 默认全管道会在病窗内死于 stdin 管道创建。git show 只读不喂,ignore 安全。
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    }).get(`HEAD:${file}`)
   } catch {
     return null // 取不到(新文件/改名/异常)⇒ null,调用方按"HEAD 无存量"处理并如实报出
   }
@@ -811,14 +808,8 @@ export function applyAtRatchet(atFindings, readFileForAnchor) {
 }
 
 function gitLines(args) {
-  return execFileSync('git', ['-c', 'safe.directory=*', ...args], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 256 * 1024 * 1024,
-    windowsHide: true,
-    // EBUSY 病窗纪律:ls-files/diff --cached 均不消费 stdin,stdio ignore 建管道只留出/错两侧
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  // G-54:同上,统一走取材层;256MB 缓冲是盘点全仓清单时的实测余量,显式保留。
+  return gitRaw(args, ROOT, { maxBuffer: 256 * 1024 * 1024 })
     .split('\n')
     .map((s) => s.trim())
     .filter(Boolean)
