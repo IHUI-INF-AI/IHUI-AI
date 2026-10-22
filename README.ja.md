@@ -2176,6 +2176,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 📚 ドキュメント:翻勾守门104 cloudflared存量红收尾条目(记录pg-backup影子漂移同步)+归并活文档重复登记+README测试文件数对齐现算3029 (6299c2911a)
+
+**2026-10-22**
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (56a54d2fd0)
 - 📚 ドキュメント:登记 Cloudflare service token 明文本机暴露(6 处副本)待轮换 (915b16d2d2)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f813b056a8)
@@ -2264,10 +2267,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-10-22**
 - ♻️ リファクタ:四枚裸 git 派生生产文件改走 face-reader gitRaw(G-927 棘轮降档第一批) (c9462d236d)
-
-**2026-10-22**
-- 📚 ドキュメント:纠正蓝绿部署凭据名,并登记两枚凭据从未注册这一实测事实 (525c34eb57)
-- 🐞 修正:守门 39 头注枚数失真改现读口径(G-922 第④条收口) (b903eb343a)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
