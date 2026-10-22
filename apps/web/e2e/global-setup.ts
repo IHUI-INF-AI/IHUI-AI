@@ -11,6 +11,9 @@
  *
  * 环境变量开关:
  * - E2E_SKIP_SEED=1:跳过 seed(本地开发可复用已 seed 的数据库,加快迭代)
+ * - E2E_DATABASE_URL:seed 定向到隔离库(如 ihui_e2e)。设置后覆盖传给 seed 脚本的
+ *   DATABASE_URL,不再兜底读 apps/api/.env 的默认库;与 web/api 侧
+ *   IHUI_API_PROXY_TARGET 隔离反代配套,让 e2e 全栈走独立库不碰他席开发库。
  *
  * 失败策略:只 warn 不 throw,与 fixtures.ts 的 ensureStorageState 兜底逻辑兼容
  * (seed 失败时 E2E 以 graceful skip 模式运行,不会阻塞测试报告生成)。
@@ -29,13 +32,21 @@ export default async function globalSetup(): Promise<void> {
   }
 
   const repoRoot = path.resolve(__dirname, '../../..')
+  // E2E_DATABASE_URL ⇒ seed 一律写隔离库;未设则沿用 seed 脚本自身 dotenv 兜底(默认行为不变)。
+  const seedEnv: NodeJS.ProcessEnv = { ...process.env }
+  if (process.env.E2E_DATABASE_URL) {
+    seedEnv.DATABASE_URL = process.env.E2E_DATABASE_URL
+    console.log(
+      '[e2e:global-setup] E2E_DATABASE_URL 已设置 ⇒ seed 定向隔离库(不写 apps/api/.env 默认库)',
+    )
+  }
   console.log('[e2e:global-setup] 开始 seed test@aizhs.top 用户...')
 
   try {
     execSync('pnpm --filter @ihui/api run seed:test-users', {
       cwd: repoRoot,
       stdio: 'inherit',
-      env: { ...process.env },
+      env: seedEnv,
       timeout: 30000,
       windowsHide: true,
     })
@@ -53,7 +64,7 @@ export default async function globalSetup(): Promise<void> {
     execSync('pnpm --filter @ihui/api run seed:e2e-knowledge', {
       cwd: repoRoot,
       stdio: 'inherit',
-      env: { ...process.env },
+      env: seedEnv,
       timeout: 30000,
       windowsHide: true,
     })
@@ -71,7 +82,7 @@ export default async function globalSetup(): Promise<void> {
     execSync('pnpm --filter @ihui/api run seed:e2e-notifications', {
       cwd: repoRoot,
       stdio: 'inherit',
-      env: { ...process.env },
+      env: seedEnv,
       timeout: 30000,
       windowsHide: true,
     })
