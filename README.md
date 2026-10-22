@@ -6125,6 +6125,9 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 📚 文档:翻勾守门104 cloudflared存量红收尾条目(记录pg-backup影子漂移同步)+归并活文档重复登记+README测试文件数对齐现算3029 (6299c2911a)
+
+**2026-10-22**
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (56a54d2fd0)
 - 📚 文档:登记 Cloudflare service token 明文本机暴露(6 处副本)待轮换 (915b16d2d2)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f813b056a8)
@@ -6194,34 +6197,6 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - 🐞 修复:更正 O88 行的失效出路 —— 票面写的 plan-tasks-merge --dedupe-done-twins 不在归并器旗标白名单内,照抄必 rc=2,换成实测 RC=0 的 check-plan-task-duplicates --json 并带上现读读数;裁与不裁的判定权仍归人,其余一字未动(§0.8 文档不许写跑不通的出路) (3c36f0efc7)
 
 - 🐞 修复:活文档归并补认无需归并短路径(真丢失=0),修 PROJECT_PLAN 被 fail-closed 误悬挂 (c85a82e4d1)
-
-- 🐞 修复:自动收编器的 git helper 显式接管 stdio —— 门一零三在 HEAD 面点名该处裸奔(本机不写 stdio 稳定 EBUSY,§十二g)。上一笔只补了 windowsHide 就交,等于修一处漏一处,这次同批补全并复跑门一零三/五二/一九九 索引面各 RC=零。 (7606579655)
-- 📚 文档:§1 登记超龄认领牌兜底器物与授权口径 —— 门在提交链上仍不代摘,超龄牌由 strip-stale-claim-marks 周期代摘并把旧形态写进 removed 抗 union 回潮 (ae9bc35767)
-- 🐞 修复:storeDir 误指新建空 store —— 令部署链每轮整轮卡死;改回真身 + 非交互兜底 (a3f2e82e14)
-- ⚡ 性能:重放 22f9a151 —— 守门去掉 17 次无效全屏障(69s→40s)+ 元门档排除两道全仓存量门(103 架构策略 / 127 出站路由)+ 并发诊断 (94be8486b1)
-- 🐞 修复:storeDir 第二次改错 —— 误指向新建空 store,令部署链每轮整轮卡死 (0558687dfe)
-- ⚡ 性能:全部业务专项段加档位判据 + 修 TOOL_ONLY TDZ 错误 (32cf86dc9e)
-- ⚡ 性能:全部业务专项段加档位判据 —— 只改工具代码时跳过 10 项业务专项(footer/portal/button/credential/agent/capability 等) (a3a1d471b9)
-- ⚡ 性能:专项段加档位判据 —— 只改工具代码时跳过 miniapp parity / auth refresh / staged typecheck(实测省 34s) (057fb56f07)
-- ⚡ 性能:i18n 死 key 扫描移入守门并行池(门 70b)—— 省 6.6s 串行独占 (119085b0ff)
-- ⚡ 性能:守护 git 派生加 GIT_OPTIONAL_LOCKS=0 —— 不再每 12 秒抢索引锁(撞锁重试会重跑整条 pre-commit) (4a2a013cd0)
-- 📚 文档:撤回 G-960 行内「隧道零活动副本」的错归因,只留下量到的事实 (8797dcd702)
-- 🔧 工程/其他:摘除 MCP stdio 族三条已结清票(G-691 isError 语义 / G-692 重连代次守卫 / G-694 成对清理) —— 票面自写验收用例 5 文件 38 例本席当轮复跑全绿,凭据与复算命令写进 LAND_BLOB_PROOF;同族 G-689 已于前一轮结清。走门 229 出路②一次摘除,不留翻勾中间态 (a15b2488ba)
-- ⚡ 性能:本地一律元门档(业务提交也 49s)—— 全量守门归 CI;仅判据库改动仍强制全量(改错会让门静默失效,CI 是延迟发现) (c104102fb0)
-
-- 🐞 修复:G-689 结清(本席复跑票面自写判据三条全中:验收用例 8 passed + 复跑判据 RC=0 + 被点名消灭的那行注释已不在面上,实现住在 mcp-runtime.ts:261 并点名本票) —— 这是"实现早已入库、行还挂着未勾"的第一条实锤样本;摘行交兜底轮,本席不代删 (6c69ce0e7a)
-- 🔧 工程/其他:新增全量守门 workflow(手动触发) —— 本地 pre-commit 只跑元门档 27 道(49s),全量 269 道移交 CI;已验证 pnpm install --frozen-lockfile 退出 0 (693a05eb6c)
-- 🔧 工程/其他:再补 *.bak-* 与 dist.__lock 两族忽略 —— 生产 ff 后 status 11→8 的残余两族 (39c9e2b353)
-- 🔧 工程/其他:补 .next.bak-*/dist.old-*/deploy-loop.log.* 三族忽略 —— 堵生产 5.0G 未跟踪备份被自动收编机制整包入库 (82c0711f86)
-
-- 🔧 工程/其他:收口四语 README 最近更新与跟踪文件计数(15610) —— 派生区按 MAX_GROUPS 封顶主动裁旧属设计,块外仅 trackedFiles 一行变更,已按文档口径 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (16c2dc4f56)
-- ⚡ 性能:门8延后post-commit + 去掉跳过分支无效屏障 + 纯内容缓存接线补全 (5164d81bf0)
-- 🐞 修复:净面 worktree remove 三次败在 Windows 长路径 —— 补 core.longpaths + .NET 递归兜底 (a5bc756e0f)
-- ⚡ 性能:守护提交窗口期静默 —— 检测到 git 写锁即跳过本轮巡检,把 CPU 与索引锁全让给提交链(消除 40~170s 波动的干扰源) (3697e5dc4f)
-
-- ⚡ 性能:纯内容门指纹缓存 + 快档重型门真补跑 (010e3cb1a8)
-- 📚 文档:守门总数与 blocking 数对齐现算(268/244),消除门173散文滞后 (cd3ec0633f)
-
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.

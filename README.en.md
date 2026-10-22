@@ -102,6 +102,9 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 📚 Docs:翻勾守门104 cloudflared存量红收尾条目(记录pg-backup影子漂移同步)+归并活文档重复登记+README测试文件数对齐现算3029 (6299c2911a)
+
+**2026-10-22**
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (56a54d2fd0)
 - 📚 Docs:登记 Cloudflare service token 明文本机暴露(6 处副本)待轮换 (915b16d2d2)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f813b056a8)
@@ -183,18 +186,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ce68f2c9c8)
 - 📚 Docs:G-924 复验收口结清(10 死键零消费现读复验+头注如实化已入库) (bb981ee240)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (15de4f883c)
-
-**2026-10-22**
-- 🔧 Chore/Other:清偿 4 条同题重复副本——保留持有份,副本逐字留档 (857016f095)
-- 📚 Docs:remote-icons 头注改如实记录 10 条死键最终处置面(G-924 复验收口) (925b8a787b)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (10fb069e0f)
-- 🔧 Chore/Other:删除 3 条归并指针副本——持有行 G-13/G-195 在册,副本行逐字留档 (dae74171a5)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a8c08ceec2)
-- 🔧 Chore/Other:归并指针行转正——G-1118436 唯一活体改正式登记并回池 (77c1efa52d)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d7b60ba59d)
-- 🔧 Chore/Other:D22046 回池——超池声明换池内号并留原号尾注 (d5b1b50728)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0006121770)
-- 🔧 Chore/Other:goal-20261022 结清 tmpdir7/G-922 + 认领批次②12 票 (576ee30ee5)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
