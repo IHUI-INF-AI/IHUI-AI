@@ -199,7 +199,7 @@ export async function updateTool(
   input: Partial<ToolItem>,
 ): Promise<ApiResult<ToolItem>> {
   return fetchApi<ToolItem>(`/api/tools/${id}`, {
-    method: 'PUT',
+    method: 'PATCH',
     body: JSON.stringify(input),
   })
 }
@@ -330,10 +330,8 @@ export async function getStockDetail(code: string): Promise<ApiResult<Stock>> {
   return fetchApi<Stock>(`/api/stock/${code}`)
 }
 
-/** 获取股票行情 */
-export async function getStockQuote(code: string): Promise<ApiResult<Stock>> {
-  return fetchApi<Stock>(`/api/stock/${code}/quote`)
-}
+// 2026-10-22 G-962 #81 摘除:GET /api/stock/:code/quote 从未注册(stock.ts 仅有
+// token-balance/analyse/history),全仓零消费方。
 
 // ===================== groups（群组） =====================
 
@@ -370,14 +368,25 @@ export async function deleteGroup(id: string): Promise<ApiResult<{ success: bool
   return fetchApi<{ success: boolean }>(`/api/groups/${id}`, { method: 'DELETE' })
 }
 
-/** 加入群组 */
-export async function joinGroup(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/groups/${id}/join`, { method: 'POST' })
+/** 加入群组（后端为组所有者/管理员添加成员形态，userId 必填） */
+export async function joinGroup(
+  id: string,
+  userId: string,
+): Promise<ApiResult<{ success: boolean }>> {
+  return fetchApi<{ success: boolean }>(`/api/groups/${id}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  })
 }
 
-/** 退出群*/
-export async function leaveGroup(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/groups/${id}/leave`, { method: 'POST' })
+/** 退出群组（本人退出：userId 传当前用户） */
+export async function leaveGroup(
+  id: string,
+  userId: string,
+): Promise<ApiResult<{ success: boolean }>> {
+  return fetchApi<{ success: boolean }>(`/api/groups/${id}/members/${userId}`, {
+    method: 'DELETE',
+  })
 }
 
 // ===================== miniprogram（小程序=====================
@@ -455,9 +464,12 @@ export async function updateProductIdentity(
   })
 }
 
-/** 删除产品身份标识 */
+/** 删除产品身份标识（后端仅 PATCH 在册，以 status=disabled 软删） */
 export async function deleteProductIdentity(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/product-identity/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/product-identity/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'disabled' }),
+  })
 }
 
 /** 验证产品身份标识 */
