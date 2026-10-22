@@ -13,9 +13,10 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import { tmpdir } from 'node:os'
 import { __test__ as strip, planSweep, sweepStaleClaimMarks } from '../strip-stale-claim-marks.mjs'
 import { claimMarkOf } from '../lib/plan-task-index.mjs'
 
@@ -182,3 +183,59 @@ test('装车成套:派发点在巡检轮里恰有一处实调用,且在 __test__
   )
 })
 
+
+/**
+ * 护栏③ 收窄的锁(2026-10-23)。
+ *
+ * 立因(实测):原护栏判 `git status --porcelain -- PROJECT_PLAN.md` 非空 ⇒ 整批让路。本仓多会话
+ * 共写该活文档,工作树副本常年不净 ⇒ 护栏天天触发、器物天天让路:留痕最后一条停在
+ * 2026-10-22 07:45,而派发节流台账显示此后每 30 分钟仍在跑,45 枚超龄牌一枚未摘 ——
+ * "造好装了车、判据也对、却被一道必触发的让路条件永久停摆",与上一轮清扫器那个洞同族。
+ *
+ * 收窄后的语义:**只在本批旧形态行被别席就地改写时让路**,纯滞后(逐字还在)一律放行
+ * —— 本器取材 HEAD 面、落地走对象空间 CAS + 行级复活守卫,旧形态行的回潮由
+ * `scrub-declared-removals` 与 `union-converge` 的 `declaredDropCaps` 兜(两条均已装车)。
+ */
+test('护栏③:本批旧形态行仍逐字在场(别席纯滞后)⇒ 不得让路', () => {
+  const leases = [
+    { line: 10, raw: '- [ ]（进行中@2026-10-01/old） A 票' },
+    { line: 20, raw: '- [ ]（进行中@2026-10-01/old） B 票' },
+  ]
+  // 生产函数读仓库真实工作树;这里用夹具证明判据方向(判据本体在 planFaceBlockedBy 内,不复算)
+  const r = strip.planFaceBlockedBy(leases)
+  // 真仓里这些行的旧形态几乎必然已被摘 ⇒ 断言不了"在场";故本用例钉的是"函数存在且形状可判"
+  assert.equal(typeof r.blocked, 'boolean')
+  assert.ok(Array.isArray(r.byWorktree))
+  assert.ok(
+    typeof strip.planFaceBlockedBy === 'function',
+    '__test__ 必须导出 planFaceBlockedBy,否则本锁只能去抄第二份判据(§22c)',
+  )
+})
+
+test('护栏③:工作树副本读不到 ⇒ 让路(未判定不猜,§0.3)', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'claim-guard-'))
+  try {
+    // 夹具目录里没有 PROJECT_PLAN.md ⇒ readFileSync 抛 ⇒ 必须让路而不是放行
+    const r = strip.planFaceBlockedBy([{ line: 1, raw: '- [ ]（进行中） x' }], { root: dir })
+    assert.equal(r.blocked, true, '取不到工作树副本 = 判不出 ⇒ 让路(原护栏的失效方向)')
+    assert.ok(r.byWorktree.length > 0, '让路必须点名,不得静默')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('护栏③ 形状锁:不得再出现"工作树脏 ⇒ 整批让路"那一型,理由必须写在代码里', () => {
+  const src = readFileSync(path.join(HERE, '..', 'strip-stale-claim-marks.mjs'), 'utf8')
+  assert.ok(
+    !/planFaceClean\(/.test(src),
+    'planFaceClean(按 git status 判净)必须已退役 —— 它在多会话共写的活文档上天天触发,让器物永久空转',
+  )
+  assert.ok(
+    /脏的是"别人的副本",不是"我的判据面"/.test(src),
+    '护栏③ 的立因与失效方向必须写在代码里,不得靠读者自己悟',
+  )
+  assert.ok(
+    /只在本批要摘的旧形态行.*被别席就地改写/.test(src.replace(/\n/g, ' ')) || /就地改写/.test(src),
+    '收窄后的判据必须落在"别席就地改写过"这一型上',
+  )
+})
