@@ -12,6 +12,11 @@ venv/
 
 # MCP 应用商店安装状态持久化(P2-1,运行时数据,不入库)
 data/
+# 例外:app/data/ 是入库的权威输入(command_policy.json / default_models.json,被生成链与
+# 测试当判据消费),被上面 data/ 整目录规则顺带吞成"已跟踪却被忽略"(G-926 台账 A 档)。
+# 放例外 = 回到正常跟踪态,不动 data/ 判据也不摘跟踪(同根 .gitignore uploads/ 例外先例)。
+!app/data/
+!app/data/**
 
 # e2e 验收脚本的落盘产物(2026-10-06 补)。
 # 起因:`scripts/e2e_token6688.py --free` 的 F2 把 mp3 写在**仓内** `scripts/`,
