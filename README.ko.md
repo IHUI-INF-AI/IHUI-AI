@@ -2176,6 +2176,12 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 🐞 수정:G-689 结清(本席复跑票面自写判据三条全中:验收用例 8 passed + 复跑判据 RC=0 + 被点名消灭的那行注释已不在面上,实现住在 mcp-runtime.ts:261 并点名本票) —— 这是"实现早已入库、行还挂着未勾"的第一条实锤样本;摘行交兜底轮,本席不代删 (6c69ce0e7a)
+- 🔧 기타:新增全量守门 workflow(手动触发) —— 本地 pre-commit 只跑元门档 27 道(49s),全量 269 道移交 CI;已验证 pnpm install --frozen-lockfile 退出 0 (693a05eb6c)
+- 🔧 기타:再补 *.bak-* 与 dist.__lock 两族忽略 —— 生产 ff 后 status 11→8 的残余两族 (39c9e2b353)
+- 🔧 기타:补 .next.bak-*/dist.old-*/deploy-loop.log.* 三族忽略 —— 堵生产 5.0G 未跟踪备份被自动收编机制整包入库 (82c0711f86)
+
+**2026-10-22**
 - ⚡ 성능:门8延后post-commit + 去掉跳过分支无效屏障 + 纯内容缓存接线补全 (5164d81bf0)
 - 🐞 수정:净面 worktree remove 三次败在 Windows 长路径 —— 补 core.longpaths + .NET 递归兜底 (a5bc756e0f)
 - ⚡ 성능:守护提交窗口期静默 —— 检测到 git 写锁即跳过本轮巡检,把 CPU 与索引锁全让给提交链(消除 40~170s 波动的干扰源) (3697e5dc4f)
@@ -2231,9 +2237,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-10-22**
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (980c5f92b2)
-
-**2026-10-22**
-- 🔧 기타:收口四语 README 最近更新与跟踪文件计数(15610) —— 派生区按 MAX_GROUPS 封顶主动裁旧属设计,块外仅 trackedFiles 一行变更,已按文档口径 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (16c2dc4f56)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
