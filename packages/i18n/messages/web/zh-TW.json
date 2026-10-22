@@ -10602,6 +10602,8 @@
     "invalidPhone": "請輸入正確的手機號",
     "invalidUsername": "使用者名至少 3 位",
     "loginBtn": "登錄",
+    "loggedInContinue": "您已登入,點擊下方按鈕繼續",
+    "continueToSite": "進入網站",
     "loginFailed": "登錄失敗,請重試",
     "loginInBrowser": "在瀏覽器中登錄",
     "desktopSsoSuccess": "登入成功，已同步到桌面端",

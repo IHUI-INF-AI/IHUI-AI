@@ -10602,6 +10602,8 @@
     "invalidPhone": "しいをしてください",
     "invalidUsername": "ユーザーは3でしてください",
     "loginBtn": "ログイン",
+    "loggedInContinue": "すでにログイン中です。下のボタンをクリックして続行",
+    "continueToSite": "サイトに進む",
     "loginFailed": "Login Failed",
     "loginInBrowser": "ブラウザでログイン",
     "desktopSsoSuccess": "ログイン完了 — デスクトップアプリに同期しました",

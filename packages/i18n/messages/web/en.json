@@ -10602,6 +10602,8 @@
     "invalidPhone": "Please enter a valid phone number",
     "invalidUsername": "Please enter a valid username",
     "loginBtn": "Sign In",
+    "loggedInContinue": "You're already signed in, click the button below to continue",
+    "continueToSite": "Continue to Site",
     "loginFailed": "Login failed, please try again",
     "loginInBrowser": "Log in via browser",
     "desktopSsoSuccess": "Signed in — synced to the desktop app",
