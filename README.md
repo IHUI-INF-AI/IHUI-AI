@@ -123,13 +123,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3033 | `testFiles` |
+| 测试文件 | 3035 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 269 | `guardianGates` |
 | — blocking | 245 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15698 | `trackedFiles` |
+| 跟踪文件 | 15701 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,6 +6125,26 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a4efee57ef)
+- 📚 文档:重落被旧基座吞回的 G-107 结清+D690 认领(拍板A)，结清 G-923(端到复量全绿) (c28c3b8287)
+- 📚 文档:结清 D195(实现已入库,验收实证全绿) (5f24b4f106)
+
+**2026-10-22**
+- 📚 文档:CF 穷举席翻勾 G-870/G-929(令牌轮换)/G-865/G-866/desktop-feed 五行,附控制台与实测证据 (c968894ac8)
+
+**2026-10-22**
+- 📚 文档:结清 G-107(接线已入库实证)+认领 G-923/D690(拍板A) (617f9cf618)
+- 📚 文档:认领 D195(通知中心隐藏归档恢复流+十键五语言;§24 范围由机主授权代拍板按票面十键执行) (56a94e5400)
+- 📚 文档:结清 G-932(待落内容已由 10-15 批入库,HEAD 复验) (47fd04b352)
+- 📚 文档:认领 G-107(recovery 闸门接线到帧路由) (96f5416d47)
+- 📚 文档:结清"生产 web 的部署承载者没查清"(承载者已实证,不是查不到而是取错了面) (cba0a36dee)
+- 🐞 修复:修 Start-CleanBuildAsyncDelete 顺序铁律——purger 先建 args 后赋值,-File 槽捕获 null 致后台删成死进程 (64f9f36f97)
+- 🔧 工程/其他:收尾 scripts/tests 第四批清冗余 + 两处测试判据钉死 (8527b2c007)
+- ♻️ 重构:验证码链上 5 处进程内状态全部迁到共享存储 —— 一次部署不再清零限速与在飞验证码 (18be871c22)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7a3c6c0ad3)
+- 🐞 修复:净面回收补两处生产实测缺口(改名失败走后台删 + 删不动项重试等句柄) (dcec5dc7cb)
+
+**2026-10-22**
 - 🐞 修复:健康门禁与 AI 诊断的公网基址从 apex 换成真入口 www(探测腿此前恒瞎) (72357a8456)
 - 📚 文档:认领 G-865(摘 DEFAULT_AVATAR_URL 死键+同批改两处 RN 测试) (6d135d16ea)
 - 📚 文档:结清 G-960/G-922/G-959/G-924(登录屏i18n票) 四票 (279794970d)
@@ -6179,16 +6199,6 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 **2026-10-22**
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (29180d0b38)
 - 📚 文档:登记取号器把已占号当空闲发出的缺陷(G-14),并列存量 3 组同号多题的让号出口 (2198a4f2ed)
-
-**2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8c92a7f467)
-- 🐞 修复:本席三票让号(原 G-924/G-926/G-929 全部撞上别席已占号) (bd758ca8f8)
-
-**2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3a75fa10a2)
-
-**2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2526330525)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
