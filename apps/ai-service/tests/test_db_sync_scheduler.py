@@ -1031,8 +1031,10 @@ class TestSyncHonestyContract:
         if not env_file.exists():
             pytest.skip("apps/ai-service/.env 不存在")
         raw = env_file.read_text(encoding="utf-8", errors="replace")
-        if "DB_SYNC_ENABLED" not in raw:
+        m = re.search(r"^DB_SYNC_ENABLED\s*=\s*(\S+)", raw, re.M)
+        if not m:
             pytest.skip(".env 未配置 DB_SYNC_ENABLED")
+        expected = m.group(1)
         out = subprocess.run(
             [
                 sys.executable,
@@ -1046,8 +1048,11 @@ class TestSyncHonestyContract:
             timeout=180,
         )
         assert out.returncode == 0, f"子进程失败: {out.stderr[-500:]}"
-        assert out.stdout.strip().lower() == "true", (
-            f"DB_SYNC_ENABLED 未同步进 os.environ(实得 {out.stdout.strip()!r})"
-            " → 调度器开关静默失效,自动化永不运行"
+        # 判据是"同步保真"而非钉死某个值:.env 实值必须原样进 os.environ
+        # (立票时 .env 为 true;本机 .env 现为 false,钉 true 会把部署配置漂移
+        # 误读成同步失效)。同步坏掉的形态是 None/空 ⇒ 与 .env 实值不等,照样红。
+        assert out.stdout.strip().lower() == expected.lower(), (
+            f"DB_SYNC_ENABLED 未把 .env 实值({expected!r})同步进 os.environ"
+            f"(实得 {out.stdout.strip()!r}) → 调度器开关静默失效"
         )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
