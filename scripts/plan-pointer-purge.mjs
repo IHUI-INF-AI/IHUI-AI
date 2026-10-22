@@ -270,7 +270,8 @@ export function buildPlan(lines, opts = {}) {
       // 正本 = 剥注记/租约后正文最长那行(最实质),**不是**"带租约优先"、也不是 grp[0] 任意取:
       // 实测 P5(副本带租约、真持有行无租约)若用 grp.find(CLAIM) 会把短副本当正本、把真持有行降候选删掉 = 净丢活账。
       // 非正此行进候选后,其租记由下游 L1/L2 的 claimTransfers 转移到正本(认领守恒);精确等长时保留靠前(早登记)那条,与原意同向。
-      const bareLen = (r) => stripMergeNotes(stripMergeNotes(r.line).replace(CLAIM_RE, '')).trim().length
+      const bareLen = (r) =>
+        stripMergeNotes(stripMergeNotes(r.line).replace(CLAIM_RE, '')).trim().length
       const holder = grp.reduce((a, b) => (bareLen(b) > bareLen(a) ? b : a))
       for (const r of grp) {
         if (r !== holder && !candidates.includes(r)) candidates.push(r)
@@ -342,7 +343,12 @@ export function buildPlan(lines, opts = {}) {
         deleteSet.add(c.i)
         stats.L2++
         const kclaim = claimOf(keep.line)
-        if (claim && !kclaim && !candidates.includes(keep) && !RELEASE_RE.test(stripMergeNotes(keep.line)))
+        if (
+          claim &&
+          !kclaim &&
+          !candidates.includes(keep) &&
+          !RELEASE_RE.test(stripMergeNotes(keep.line))
+        )
           claimTransfers.push({ from: c.line, to: keep.i, claim })
         reasons.set(c.i, `L2 族内归并,保留 L${keep.i + 1}`)
       } else {
@@ -580,8 +586,7 @@ export function verifyPurge(oldLines, newLines, plan) {
     if (isRowLine(l) && !isProse(l) && accounted(l)) oldClaims.add(famKeyOf(l))
   const newClaimFams = new Set()
   for (const l of newLines)
-    if (isRowLine(l) && !isProse(l) && accounted(l))
-      newClaimFams.add(famKeyOf(l))
+    if (isRowLine(l) && !isProse(l) && accounted(l)) newClaimFams.add(famKeyOf(l))
   const lostClaims = [...oldClaims].filter((k) => !newClaimFams.has(k))
   if (lostClaims.length)
     errs.push(
