@@ -90,8 +90,8 @@
 | **事务安全**     | DB 事务化:order 支付/退款 + social tag + gamification 积分 + chat 清空                |
 | **行锁**         | `.for('update')` 行锁防 TOCTOU 竞态                                                   |
 | **CSRF**         | `@fastify/csrf-protection` 双 token 模式                                              |
-| **XSS**          | sanitizer 绕过检测脚本守门(pre-commit 第 6 项)                                        |
-| **API key 泄露** | `check-api-key-leak.mjs` 守门(pre-commit 第 1 项)                                     |
+| **XSS**          | sanitizer 绕过检测脚本守门(guardian-runner 注册门)                                   |
+| **API key 泄露** | `check-api-key-leak.mjs` 守门(guardian-runner 注册门)                                |
 | **RBAC**         | roleId >= 1 才能访问 admin 路由,plugin-level preHandler 统一鉴权 + data-scope 5 级    |
 | **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + 1h 高风险自动撤销 + 首启确认弹窗           |
 | **多租户**       | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS                               |
@@ -196,9 +196,12 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 
 ---
 
-## 工程守门(56+10 pre-commit 项)
+## 工程守门(269 道 runner 门 · 本地元门档 27 道)
 
-项目通过 56+10 pre-commit 项 + post-commit 自动 push + drizzle-kit push 模式 + 9 PowerShell 启动脚本杜绝协作事故:
+项目通过 269 道守门门杜绝协作事故;本地 `pre-commit` 只跑**元门档**(27 道判工具/仓库状态的门,
+实测约 48 秒),全量 269 道由 CI 承接(`.github/workflows/guardian-full.yml`,push/PR 自动触发)。
+判据与分档规则见 `scripts/lib/gate-scope.mjs` 头注;逃生 `IHUI_GATE_SCOPE=full` 本地全量。
+另有 post-commit 自动 push + drizzle-kit push 模式 + 9 PowerShell 启动脚本:
 
 详细清单见 [核心能力 E4 节](#e4-工程守门30-pre-commit--post-commit--11-迁移审计)。
 
