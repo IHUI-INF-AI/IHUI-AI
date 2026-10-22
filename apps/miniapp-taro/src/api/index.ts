@@ -1615,9 +1615,18 @@ export const getPhoneNumber = (data: { code: string; phoneCode?: string }) =>
  * 与上面 getPhoneNumber 的区别不是命名偏好:那支第 1145 行 `await authenticate(request)`
  * 要求已登录、且只回 {userId, phone} 不发 token,所以它只能用于「已登录用户换绑手机号」,
  * 拿它做登录是结构性死路(新用户进不去、老前端读 .token 恒为空)。
- * 两个 code 都由微信服务端签发、一次性;手机号是微信验证过的结果,不是客户端自报字段。 */
+ * 两个 code 都由微信服务端签发、一次性;手机号是微信验证过的结果,不是客户端自报字段。
+ *
+ * 2026-10-23 真机实测:这一腿后端已回 200 `{code:0,data:{accessToken,refreshToken,user}}`,
+ * 端上却仍是游客 —— 因为这里把 `post()` 的结果又喂了一遍 `unwrapApi`。`post()` 内部**已经**
+ * 调过 unwrapApi 并返回解包后的 data,第二次解包读到的是 `{accessToken,...}`,它的 `.success`
+ * 恒为 undefined ⇒ 直接落进失败分支:`showToast({title: r.error})` 的 title 是 undefined,
+ * 微信当场抛 `errno 1001 parameter.title should be String instead of Undefined`,
+ * 再 `throw new Error(undefined)` 被调用方的 catch 吃掉 ⇒ 按钮看起来"没反应"。
+ * 同文件其余 unwrapApi 包的都是 `@ihui/api-client` 的裸 endpoint(`_` 前缀那些),
+ * 只有这一处包的是端内 helper —— 形状锁见 tests/api-no-double-unwrap.test.ts。 */
 export const oneTapLogin = (data: { loginCode: string; phoneCode: string }) =>
-  unwrapApi(post('/auth/wechat/mini/one-tap-login', data)) as Promise<LoginResult>
+  post<LoginResult>('/auth/wechat/mini/one-tap-login', data)
 /** 查询是否已设置密码 */
 export const pwdExist = (phone: string) =>
   get<{ exists?: boolean }>(`/api/auth/exist/${phone}`).then((r) => !!r.exists)
