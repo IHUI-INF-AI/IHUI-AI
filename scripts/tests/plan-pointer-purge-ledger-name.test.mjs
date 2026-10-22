@@ -168,6 +168,47 @@ test('③c 后缀全被占用 ⇒ 拒绝取名,绝不回退原名(整文件重�
   assert.ok(seen.join('\n').includes('拒绝取名'), JSON.stringify(seen))
 })
 
+test('③d 缺省窗必须随占用面扩(现场:该族 62 枚把固定 50 顶穿 ⇒ 通道每轮静默拒绝落地)', () => {
+  // 立因是实测,不是设想:2026-10-22 现读 HEAD 面 `.ihui-agent/` 下这一族 62 枚,而窗口钉死 1..50
+  // ⇒ chooseLedgerRel 每轮返回 null ⇒ 上游 [G-32] 每次打 "rc=2 不阻断" 继续跑,于是"已声明摘除的行
+  // 不得被滞后副本带回"这一腿整条停摆;当天就量到后果:兜底器摘掉 8 条已勾行后,同批行以未勾形态
+  // 回到面上,判定面撞号组数 0 → 4。
+  const local = Array.from({ length: 62 }, (_, i) =>
+    i === 0 ? MK : `${DIR}plan-pointer-purge-2026-10-14-${TAG}-${i + 1}.md`,
+  )
+  const { seen, note } = gatherNote()
+  const got = chooseLedgerRel({
+    ledgerRel: REL,
+    tag: TAG,
+    localFiles: local,
+    remoteFiles: [],
+    note,
+  })
+  assert.equal(got, `${DIR}plan-pointer-purge-2026-10-14-${TAG}-63.md`, `实测 ${got}`)
+  assert.deepEqual(seen, [], '占用面可读且找到了空位 ⇒ 一声不许喊')
+})
+
+test('③e 反向锁:显式窄窗照旧拒绝取名(缺省扩面不得把"绝不回退原名"这条锁削掉)', () => {
+  const local = [
+    MK,
+    MK2,
+    MK3,
+    `${DIR}plan-pointer-purge-2026-10-14-${TAG}-4.md`,
+    `${DIR}plan-pointer-purge-2026-10-14-${TAG}-5.md`,
+  ]
+  const { seen, note } = gatherNote()
+  const got = chooseLedgerRel({
+    ledgerRel: REL,
+    tag: TAG,
+    localFiles: local,
+    remoteFiles: [],
+    maxSeq: 3,
+    note,
+  })
+  assert.equal(got, null, `实测 ${got} —— 调用方点名窄窗时必须照它拒绝,不能自作主张扩面`)
+  assert.ok(seen.join('\n').includes('前 3 个后缀全部被占用'), `实测报告 ${seen.join('|')}`)
+})
+
 test('④a 正则兼容(门 71 消费方):新名必须落在归档豁免射程内,反向名必须不被认', () => {
   const marker = '- [ ] G-999 **被清偿行的逐字原文** —— 只在台账里留档。'
   for (const p of [MK, MK3, PLAIN6]) {
