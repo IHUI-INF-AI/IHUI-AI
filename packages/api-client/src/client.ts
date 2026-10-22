@@ -42,10 +42,7 @@ import { isFrameGap, readFrameWatermark, type FrameWatermarkCursor } from './fra
 // reason/droppedCount 以屏障内记录为准,本侧不重复构造。
 import { createFrameOwnershipBarrier, type BarrierFrame } from './frame-ownership-barrier.js'
 // G-816031:权威信封路由 —— 恢复闸门在 SSE 帧流上的生产消费点(判据源在 shared,本包同形移植)
-import {
-  createStreamAuthorityRouter,
-  StreamAuthorityResubscribeError,
-} from './stream-authority.js'
+import { createStreamAuthorityRouter, StreamAuthorityResubscribeError } from './stream-authority.js'
 import type { RecoveryGateLedger } from './recovery-gate.js'
 import type { DeviceFingerprintCollector } from '@ihui/types'
 // D152(2026-09-29):goal 状态的合法值集是**运行时判据**(解析帧时要验 status),
@@ -1492,7 +1489,16 @@ export interface StreamChatOptions {
   }) => void
   /** P4-2: 后端 fallback 触发回调(主模型失败 + 切换到备用模型时触发,前端展示横幅提示) */
   onFallback?: (event: FallbackEvent) => void
-  metadata?: { conversationId?: string; userId?: string; messageId?: string }
+  metadata?: {
+    conversationId?: string
+    userId?: string
+    messageId?: string
+    /** 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
+     *  网关 schema 声明后透传上游,ai-callback 回显落 chat_messages 两列;
+     *  缺省 = 普通回复,请求体零变化(L3273 整包写入,undefined 键被 JSON 省略)。 */
+    parentMessageId?: string
+    siblingIndex?: number
+  }
   temperature?: number
   topP?: number
   topK?: number
@@ -5421,7 +5427,9 @@ export async function listMyGoals(limit = 100): Promise<MyGoalRow[]> {
   const aiServiceUrl = aiServiceBaseUrl()
   let resp: Response
   try {
-    resp = await fetch(`${aiServiceUrl}/api/sessions/goals?limit=${encodeURIComponent(String(limit))}`)
+    resp = await fetch(
+      `${aiServiceUrl}/api/sessions/goals?limit=${encodeURIComponent(String(limit))}`,
+    )
   } catch (e) {
     throw new Error(`listMyGoals network error: ${(e as Error).message}`)
   }

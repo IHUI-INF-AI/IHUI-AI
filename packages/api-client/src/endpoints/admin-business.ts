@@ -194,7 +194,7 @@ export async function listAdminMembers(
 }
 
 export async function getAdminMember(id: string): Promise<ApiResult<AdminMember>> {
-  return fetchApi<AdminMember>(`/api/admin/members/by-id?id=${id}`)
+  return fetchApi<AdminMember>(`/api/members/by-id?id=${id}`)
 }
 
 export async function createAdminMember(
@@ -301,7 +301,7 @@ export async function listAdminLiveLecturers(
 }
 
 export async function getAdminLiveStatistics(): Promise<ApiResult<LiveStatistics>> {
-  return fetchApi<LiveStatistics>('/api/admin/live/statistics')
+  return fetchApi<LiveStatistics>('/api/live/statistics')
 }
 
 // ===================== resources(资源管理) =====================

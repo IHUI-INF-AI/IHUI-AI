@@ -50,10 +50,14 @@ describe('OAuth 授权两面 → /api/auth/oauth/my-authorized(旧 /api/oauth-ap
 })
 
 describe('会员等级 PUT/DELETE → id 在体/在 query(旧 /:id 形态从未注册)', () => {
-  it('PUT /api/members/levels 且 id 进 body', () => {
+  it('PUT /api/admin/members/levels 且 id 进 body', () => {
+    // 2026-10-22 对齐真注册面:PUT/DELETE /members/levels 只在 adminMemberRoutes 里
+    // (member.ts:559 起,746/760),routes/index.ts:622 挂 /api/admin ⇒ 真路径
+    // /api/admin/members/levels;第一批清账(60594944da)把客户端钉在 /api/members/levels
+    // 实为 404 死调用,G-962 批 5 已把 learn.ts 全族会员等级端点纠正到 admin 面。
     const fn = learn.slice(learn.indexOf('export async function updateMemberLevel'))
     const body = fn.slice(0, fn.indexOf('\nexport') > 0 ? fn.indexOf('\nexport') : fn.length)
-    expect(body).toContain("'/api/members/levels'")
+    expect(body).toContain("'/api/admin/members/levels'")
     expect(body).toContain('JSON.stringify({ id, ...input })')
     expect(body).not.toContain('/api/members/levels/${id}')
   })

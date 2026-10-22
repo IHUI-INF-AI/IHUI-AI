@@ -1071,18 +1071,6 @@
     },
     {
       "leg": "main",
-      "method": "GET",
-      "path": "/api/github-app/installations",
-      "file": "packages/api-client/src/endpoints/admin-github-app.ts",
-      "site": "packages/api-client/src/endpoints/admin-github-app.ts:45",
-      "verdict": "dead",
-      "evidence": "真值面近邻:zero:github-app/installations",
-      "reason": "真值面重建(apps/api/src/routes/index.ts 注册表 symbol→file→prefix × 路由文件 export 块归属,3567 条全路径)现读无此 method+path,且该族在注册面零注册 ⇒ 该调用运行期必 404,判死。出路:删调用或补后端路由;到期未了结,AJ2 会把它打回未判定桶重新报名。",
-      "owner": "packages/api-client 端点持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
       "method": "POST",
       "path": "/api/members/batch-upload",
       "file": "packages/api-client/src/endpoints/admin-member.ts",

@@ -878,4 +878,16 @@ export type {
   GalleryImageItem,
   ImageGenGalleryScreenProps,
 } from './features/image-gen-gallery/ImageGenGalleryScreen'
+/** 门 39 六屏共享化第二批(2026-10-22):三枚 RN 屏的 UI 逐枚下沉到 features/。
+ *  RN 端对应 screen 改为 wrapper,平台只注入数据、回调、i18n 与主题
+ *  (判据 = `check-rn-app-migration.mjs` 的屏级共享维)。 */
+export { PointsScreen, pointsExpToNext } from './features/points/PointsScreen'
+export type {
+  PointsAccountInfo,
+  PointsLevelInfo,
+  PointsLevelTier,
+  PointsScreenProps,
+  PointsSignInToday,
+  PointsTransactionItem,
+} from './features/points/PointsScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
