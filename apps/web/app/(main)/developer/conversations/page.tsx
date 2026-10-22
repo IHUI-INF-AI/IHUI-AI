@@ -17,6 +17,7 @@ import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 // --- 类型定义(与后端 schema 对齐,JSON 序列化后 Date → string) ---
 interface Conversation {
@@ -61,6 +62,7 @@ export default function ConversationsPage() {
   // 2026-10-15 登录态门:GET /api/developer/conversations 后端 requireAuth(当前用户会话),
   // 未就绪/未登录不发注定 401 的查询(失败被 catch 吞成空态,不加渲染门)
   const { allow } = useAuthGate()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
@@ -240,9 +242,12 @@ export default function ConversationsPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            if (confirm('确认删除该会话?所有消息将一并删除。')) {
-                              delMut.mutate(c.conversationId)
-                            }
+                            void confirm({
+                              title: '确认删除该会话?所有消息将一并删除。',
+                              variant: 'destructive',
+                            }).then((ok) => {
+                              if (ok) delMut.mutate(c.conversationId)
+                            })
                           }}
                           disabled={delMut.isPending}
                           className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
@@ -346,6 +351,7 @@ export default function ConversationsPage() {
           </Button>
         </div>
       )}
+      <ConfirmDialogRenderer />
     </div>
   )
 }

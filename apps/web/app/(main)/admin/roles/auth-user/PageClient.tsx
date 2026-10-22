@@ -17,6 +17,7 @@ import { AuthUserTable } from './AuthUserTable'
 import { SelectUserDialog } from './SelectUserDialog'
 import { apiOrThrow } from '@/lib/api'
 import { toggleId } from './helpers'
+import { useConfirm } from '@/hooks/use-confirm'
 import type { ListResp } from './types'
 
 const PAGE_SIZE = 15
@@ -31,6 +32,7 @@ export default function AuthUserPage() {
   const [page, setPage] = React.useState(1)
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [selectOpen, setSelectOpen] = React.useState(false)
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
 
   const params = React.useMemo(() => {
     const qs = new URLSearchParams()
@@ -111,8 +113,9 @@ export default function AuthUserPage() {
             variant="outline"
             disabled={selected.size === 0 || cancelAllMut.isPending}
             onClick={() => {
-              if (confirm(`确认取消选中 ${selected.size} 个用户的授权？`))
-                cancelAllMut.mutate([...selected])
+              void confirm({ title: `确认取消选中 ${selected.size} 个用户的授权？` }).then((ok) => {
+                if (ok) cancelAllMut.mutate([...selected])
+              })
             }}
           >
             <UserMinus className="h-4 w-4" />
@@ -129,7 +132,9 @@ export default function AuthUserPage() {
         onToggleAll={toggleAll}
         onToggleOne={toggleOne}
         onCancel={(u) => {
-          if (confirm(`确认取消 ${u.username} 的授权？`)) cancelMut.mutate(u.id)
+          void confirm({ title: `确认取消 ${u.username} 的授权？` }).then((ok) => {
+            if (ok) cancelMut.mutate(u.id)
+          })
         }}
       />
 
@@ -169,6 +174,7 @@ export default function AuthUserPage() {
           <SelectUserDialog roleId={roleId} onClose={() => setSelectOpen(false)} />
         </DialogContent>
       </Dialog>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

@@ -28,6 +28,7 @@ import { apiOrThrow } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { useConfirm } from '@/hooks/use-confirm'
 // P3 #31(2026-09-16 立):类型/徽章/状态集提取到共享模块(列表与看板双视图同源,防漂移)
 import {
   PAGE_SIZE,
@@ -53,6 +54,7 @@ export default function MediaTasksPage() {
   const t = useTranslations('mediaTasksPage')
   const locale = useLocale()
   const queryClient = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   // P3 #31(2026-09-16 立):列表(默认,保持既有形态)/看板(Running/Waiting/Completed 三列)双视图
   const [viewMode, setViewMode] = React.useState<'list' | 'board'>('list')
   const [statusFilter, setStatusFilter] = React.useState('')
@@ -118,7 +120,7 @@ export default function MediaTasksPage() {
   }
 
   const deleteTask = async (taskId: string) => {
-    if (!window.confirm(t('deleteConfirm'))) return
+    if (!(await confirm({ title: t('deleteConfirm'), variant: 'destructive' }))) return
     setDeleting(taskId)
     setError(null)
     try {
@@ -136,7 +138,7 @@ export default function MediaTasksPage() {
   }
 
   const clearTasks = async () => {
-    if (!window.confirm(t('clearConfirm'))) return
+    if (!(await confirm({ title: t('clearConfirm'), variant: 'destructive' }))) return
     setClearing(true)
     setError(null)
     setClearInfo(null)
@@ -162,7 +164,7 @@ export default function MediaTasksPage() {
 
   // 2026-09-09 F8:一键取消全部在途任务(已终态任务不受影响)。
   const cancelAllInflight = async () => {
-    if (!window.confirm(t('cancelAllConfirm'))) return
+    if (!(await confirm({ title: t('cancelAllConfirm') }))) return
     setCancellingAll(true)
     setError(null)
     setClearInfo(null)
@@ -611,6 +613,8 @@ export default function MediaTasksPage() {
           )}
         </>
       )}
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

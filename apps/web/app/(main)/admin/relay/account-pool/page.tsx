@@ -53,6 +53,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
+import { useConfirm } from '@/hooks/use-confirm'
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -249,6 +250,7 @@ function fmtDetailValue(v: unknown, f: Intl.DateTimeFormat): string {
 export default function AdminRelayAccountPoolPage() {
   const locale = useLocale()
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState('')
   const [provider, setProvider] = React.useState('')
@@ -988,9 +990,12 @@ export default function AdminRelayAccountPoolPage() {
                                     variant="ghost"
                                     disabled={deleteMut.isPending}
                                     onClick={() => {
-                                      if (confirm(`删除账号 "${k.name}"?`)) {
-                                        deleteMut.mutate(k.id)
-                                      }
+                                      void confirm({
+                                        title: `删除账号 "${k.name}"?`,
+                                        variant: 'destructive',
+                                      }).then((ok) => {
+                                        if (ok) deleteMut.mutate(k.id)
+                                      })
                                     }}
                                   >
                                     <Trash2 className="h-4 w-4" />
@@ -1308,6 +1313,8 @@ export default function AdminRelayAccountPoolPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }
@@ -1315,6 +1322,7 @@ export default function AdminRelayAccountPoolPage() {
 function ProxyPoolPanel() {
   const locale = useLocale()
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [page, setPage] = React.useState(1)
   const [status, setStatus] = React.useState<'all' | ProxyStatus>('all')
   const [createOpen, setCreateOpen] = React.useState(false)
@@ -1567,9 +1575,12 @@ function ProxyPoolPanel() {
                                 variant="ghost"
                                 disabled={deleteMut.isPending}
                                 onClick={() => {
-                                  if (confirm(`删除代理 "${p.proxyUrl ?? p.id}"?`)) {
-                                    deleteMut.mutate(p.id)
-                                  }
+                                  void confirm({
+                                    title: `删除代理 "${p.proxyUrl ?? p.id}"?`,
+                                    variant: 'destructive',
+                                  }).then((ok) => {
+                                    if (ok) deleteMut.mutate(p.id)
+                                  })
                                 }}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -1670,6 +1681,8 @@ function ProxyPoolPanel() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialogRenderer />
     </>
   )
 }
@@ -1677,6 +1690,7 @@ function ProxyPoolPanel() {
 function ModelCatalogPanel() {
   const locale = useLocale()
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [provider, setProvider] = React.useState('')
   const [createOpen, setCreateOpen] = React.useState(false)
   const [form, setForm] = React.useState({
@@ -1876,9 +1890,12 @@ function ModelCatalogPanel() {
                               variant="ghost"
                               disabled={deleteMut.isPending}
                               onClick={() => {
-                                if (confirm(`删除别名 "${m.alias ?? m.id}"?`)) {
-                                  deleteMut.mutate(m.id)
-                                }
+                                void confirm({
+                                  title: `删除别名 "${m.alias ?? m.id}"?`,
+                                  variant: 'destructive',
+                                }).then((ok) => {
+                                  if (ok) deleteMut.mutate(m.id)
+                                })
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -1965,6 +1982,8 @@ function ModelCatalogPanel() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialogRenderer />
     </>
   )
 }

@@ -7,6 +7,7 @@
 import { Loader2, Send, Power, Pencil, Trash2 } from 'lucide-react'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { useConfirm } from '@/hooks/use-confirm'
 import type { WebhookItem } from './types'
 
 interface Props {
@@ -30,6 +31,7 @@ export function WebhooksList({
   onEdit,
   onDelete,
 }: Props) {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   return (
     <Card>
       <CardContent className="p-0">
@@ -93,7 +95,11 @@ export function WebhooksList({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => confirm('确认删除?') && onDelete(wh.id)}
+                      onClick={() => {
+                        void confirm({ title: '确认删除?', variant: 'destructive' }).then((ok) => {
+                          if (ok) onDelete(wh.id)
+                        })
+                      }}
                       className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -105,6 +111,7 @@ export function WebhooksList({
           </div>
         )}
       </CardContent>
+      <ConfirmDialogRenderer />
     </Card>
   )
 }
