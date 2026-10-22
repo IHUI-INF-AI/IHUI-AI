@@ -1473,3 +1473,21 @@ test('T40 真仓对照:票面点名的 INPUT_AREA_IN_SHELL_BTN_PX 假账在 HEAD
   assert.ok(!all.includes('INPUT_AREA_IN_SHELL_BTN_PX'), '改前该档被算成仅 RN 引用(实测假账),现必须不再出现')
   assert.ok(Object.keys(src.specProjectionAliases(c.tiers)).length > 0, '真仓 spec 面投影表为空 ⇒ 这一腿没接到真数据')
 })
+
+/**
+ * 形状锁(2026-10-22):WD 判红行必须印**真超锚的那一维**,不得写死"圆角"。
+ * 立因:实测 VoiceInput 的几何分叉被念成 `圆角 0 > 锚点 0` —— 数学上不成立的断言会把
+ * 下一个人引去查错的那一维(§0.8 文档/命令面不许有说错的话)。
+ * 锁法:先定位打印语句本身(不搜全文 —— `圆角` 这个词在 audit 的 over[] 里合法出现),
+ * 再断言它逐字取 `r.over`、且不再自带 `圆角 ${...radiusCount}` 这种第二份维度计算。
+ */
+test("T- WD 判红文案取单源 over[],不得复算维度", () => {
+  const txt = flat(readFileSync(SELF, "utf8"))
+  const head = txt.indexOf("for (const r of webVerdict.red)")
+  assert.ok(head >= 0, "找不到 WD 判红循环(被摘线?)")
+  const at = txt.indexOf("console.log(", head)
+  assert.ok(at > head && at - head < 500, "循环体里找不到打印语句")
+  const win = txt.slice(at, at + 320)
+  assert.ok(/r.over.join/.test(win), "打印语句不再引用单源 over[] ⇒ 又会自算维度:" + win.slice(0, 120))
+  assert.ok(!/圆角 ${r.radiusCount}/.test(win), "打印层复算了圆角维度 ⇒ 会把几何分叉念成圆角分叉")
+})
