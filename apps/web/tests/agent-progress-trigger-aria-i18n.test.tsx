@@ -35,6 +35,9 @@ import type { Messages } from '@ihui/i18n/types'
 
 import { useModeStore } from '@/stores/mode'
 import { useAgentProgressPaneStore } from '@/stores/agent-progress-pane'
+// consistent-type-imports 禁 `typeof import('...')` 内联标注 ⇒ 顶部 type-only 命名空间
+// import 后以 `typeof _ns` 引用(类型等值,vi.mock 工厂内仅编译期解析,无运行时影响)。
+import type * as _agentProgressNs from '../src/hooks/use-agent-progress'
 
 // useAgentProgress 桩:只驱动 idle/streaming 两分支,数据面与本判据无关
 const { mockProgressState } = vi.hoisted(() => ({
@@ -42,9 +45,7 @@ const { mockProgressState } = vi.hoisted(() => ({
 }))
 
 vi.mock('@/hooks/use-agent-progress', async () => {
-  const actual = await vi.importActual<typeof import('../src/hooks/use-agent-progress')>(
-    '../src/hooks/use-agent-progress',
-  )
+  const actual = await vi.importActual<typeof _agentProgressNs>('../src/hooks/use-agent-progress')
   return {
     ...actual,
     useAgentProgress: () => ({

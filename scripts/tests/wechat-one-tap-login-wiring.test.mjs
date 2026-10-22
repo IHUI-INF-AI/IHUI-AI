@@ -24,7 +24,9 @@ describe('api/index.ts 里 oneTapLogin 的请求形状', () => {
   const decl = apiCode.slice(from, to === -1 ? from + 300 : to)
 
   it('打到 one-tap-login 端点', () => {
-    assert.ok(decl.includes("post('/auth/wechat/mini/one-tap-login'"))
+    // 允许 `post<T>(...)` 这一形(2026-10-23 一键登录不再二次解包 ⇒ 加了返回类型实参);
+    // 端点字面量仍逐字判,换成别的端点照样红。
+    assert.match(decl, /post(?:<[^>]+>)?\(\s*['"`]\/auth\/wechat\/mini\/one-tap-login['"`]/)
   })
 
   it('入参形状逐字只有 loginCode / phoneCode(两个 code 不得同名、不得漏一个)', () => {
