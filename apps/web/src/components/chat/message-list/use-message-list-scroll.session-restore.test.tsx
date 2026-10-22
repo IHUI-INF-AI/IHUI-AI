@@ -39,13 +39,22 @@ interface HarnessProps {
   messages: ChatMessage[]
   isStreaming?: boolean
   onResult: (result: MessageListScrollResult) => void
+  /** 几何桩化必须在 layout effect 之前生效(首帧恢复要写 scrollTop),所以走 callback ref。 */
+  onScrollerRef?: (el: HTMLDivElement | null) => void
 }
 
-function Harness({ messages, isStreaming = false, onResult }: HarnessProps) {
+function Harness({ messages, isStreaming = false, onResult, onScrollerRef }: HarnessProps) {
   const result = useMessageListScroll({ messages, isStreaming })
   onResult(result)
   return (
-    <div ref={result.containerRef} data-testid="scroller" onScroll={() => result.handleScroll()}>
+    <div
+      ref={(el) => {
+        result.containerRef.current = el
+        onScrollerRef?.(el)
+      }}
+      data-testid="scroller"
+      onScroll={() => result.handleScroll()}
+    >
       {messages.map((m) => (
         <div key={m.id} data-message-id={m.id} />
       ))}
@@ -91,6 +100,7 @@ interface HarnessHandle {
   readonly dispatchScroll: () => void
   readonly settle: () => void
   readonly advance: (ms: number) => void
+  readonly unmount: () => void
 }
 
 function mountHarness(
@@ -105,6 +115,30 @@ function mountHarness(
     clientHeight: VIEWPORT_HEIGHT,
   }
 
+  // callback ref 在 layout effect 之前跑 ⇒ 首帧恢复写 scrollTop 时几何桩已经就位
+  const onScrollerRef = (el: HTMLDivElement | null) => {
+    if (!el) return
+    Object.defineProperty(el, 'scrollTop', {
+      configurable: true,
+      get: () => geometry.scrollTop,
+      set: (value: number) => {
+        geometry.scrollTop = value
+      },
+    })
+    Object.defineProperty(el, 'scrollHeight', {
+      configurable: true,
+      get: () => geometry.scrollHeight,
+    })
+    Object.defineProperty(el, 'clientHeight', {
+      configurable: true,
+      get: () => geometry.clientHeight,
+    })
+    Object.defineProperty(el, 'getBoundingClientRect', {
+      configurable: true,
+      value: () => rectOf(0, geometry.clientHeight),
+    })
+  }
+
   const renderHarness = (messages: ChatMessage[], isStreaming?: boolean) =>
     render(
       <Harness
@@ -113,31 +147,12 @@ function mountHarness(
         onResult={(r) => {
           latest = r
         }}
+        onScrollerRef={onScrollerRef}
       />,
     )
 
   const view = renderHarness(initialMessages)
   const scroller = view.container.querySelector('[data-testid="scroller"]') as HTMLElement
-
-  Object.defineProperty(scroller, 'scrollTop', {
-    configurable: true,
-    get: () => geometry.scrollTop,
-    set: (value: number) => {
-      geometry.scrollTop = value
-    },
-  })
-  Object.defineProperty(scroller, 'scrollHeight', {
-    configurable: true,
-    get: () => geometry.scrollHeight,
-  })
-  Object.defineProperty(scroller, 'clientHeight', {
-    configurable: true,
-    get: () => geometry.clientHeight,
-  })
-  Object.defineProperty(scroller, 'getBoundingClientRect', {
-    configurable: true,
-    value: () => rectOf(0, geometry.clientHeight),
-  })
 
   vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation((arg?: unknown) => {
     const passed =
@@ -159,6 +174,7 @@ function mountHarness(
           onResult={(r) => {
             latest = r
           }}
+          onScrollerRef={onScrollerRef}
         />,
       )
     })
@@ -201,6 +217,11 @@ function mountHarness(
     advance: (ms) => {
       act(() => {
         vi.advanceTimersByTime(ms)
+      })
+    },
+    unmount: () => {
+      act(() => {
+        view.unmount()
       })
     },
   }
@@ -441,6 +462,26 @@ describe('恢复的主动贴底与宽限期修正(2026-10-13 真机实测立:dep
     measure(h, 'bm0', 800)
 
     expect(h.geometry.scrollTop, '用户已夺权,不得拽回保存位').toBe(100)
+  })
+})
+
+describe('重挂载(组件卸载再挂回同一会话):卸载落账,首帧恢复', () => {
+  it('13. 卸载时把现场入账,重挂载首帧钉回保存位并恢复滚动权', () => {
+    useChatStore.setState({ conversationId: 'a' })
+    const h = mountHarness(makeMessages(2))
+    h.dispatchScroll()
+    scrollAwayFromBottom(h)
+
+    h.unmount()
+
+    expect(sessionScrollStore.lookup('a')).toMatchObject({ offset: 400, following: false })
+
+    const again = mountHarness(makeMessages(2))
+    expect(again.geometry.scrollTop, '重挂载首帧必须钉回保存位').toBe(400)
+    expect(again.result().userScrolledUp, '滚动权按快照恢复').toBe(true)
+    // 第二段(100ms 后)仍按测量修正,不得回落底部
+    again.advance(RESTORE_PHASE2_DELAY_MS)
+    expect(again.geometry.scrollTop).toBe(400)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
