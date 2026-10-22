@@ -1284,7 +1284,7 @@ export default function AdminRelayAccountPoolPage() {
                       </thead>
                       <tbody>
                         {usageDetailRows.map((row, i) => (
-                          <tr key={i} className="border-t border-border">
+                          <tr key={i}>
                             {usageDetailCols.map((c) => {
                               const text = fmtDetailValue(row[c], fmt)
                               return (
@@ -1499,7 +1499,7 @@ function ProxyPoolPanel() {
                 rows.map((p) => {
                   const rowStatus = toProxyStatus(p.status)
                   return (
-                    <tr key={p.id} className="border-t border-border">
+                    <tr key={p.id}>
                       <td
                         className="max-w-[18rem] truncate px-3 py-2 font-mono text-xs"
                         title={p.proxyUrl ?? undefined}
@@ -1832,7 +1832,7 @@ function ModelCatalogPanel() {
                 </tr>
               ) : (
                 rows.map((m) => (
-                  <tr key={m.id} className="border-t border-border">
+                  <tr key={m.id}>
                     <td className="px-3 py-2 text-xs">{m.providerCode ?? '-'}</td>
                     <td
                       className="max-w-[14rem] truncate px-3 py-2 font-mono text-xs"
