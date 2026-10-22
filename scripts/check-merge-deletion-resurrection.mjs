@@ -80,8 +80,8 @@
  *   node scripts/check-merge-deletion-resurrection.mjs --self-test    # 真临时仓端到端取证
  * 退出码:0 = 无复活(或如实的空窗口/仅报数);1 = 判红;2 = **无法判定**。
  */
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, catBatch, catBatchOids, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
@@ -448,6 +448,8 @@ export function runAudit(cwd = ROOT, face = 'head', opts = {}) {
   if (listed.enumeration === 'failed')
     return { scope, face, enumeration: 'failed', rows: [], merged: 0, skippedByLedger: 0, allow: null, today, reds: [], waivedMarker: [], waivedAllow: [], undetermined: [`窗口枚举失败:${listed.error}`], rot: [], emptyWindow: false, exit: 2 }
   const marker = opts.marker ?? markerPath(cwd)
+  // 必须在**本轮写回之前**问这一次:写完之后磁盘上就有了,净检出那一档会被自己刚落的台账伪装成"本机"。
+  const markerOnDisk = existsSync(marker)
   const seen = opts.dedupe ? readMarker(marker) : null
   const rows = []
   const nextSeen = seen ? { ...seen } : null
@@ -487,6 +489,41 @@ export function runAudit(cwd = ROOT, face = 'head', opts = {}) {
     // "台账已把全部合并判过一遍"误报成"窗口是空的",而那句报告是给人读的证据,报错了就是假结论。
     mergesAudited: merged,
   })
+  /**
+   * 净检出(CI / 干净克隆 / 被 GC 的旧机仓)里增量台账**不在磁盘上**,而本门默认档一旦退化成
+   * "有界回看 400 枚",它判的就是整段已入库历史 —— 那与本次提交无关(§12e 恒红门的定义),
+   * 唯一结局是逼各会话 `--no-verify` 并把整条钩子链作废。本机有台账、`--limit` 人工档刻意不去重,
+   * 两档都不受本条影响:这里只处理"判据输入(哪几枚是新合并)取不到"这一格(§0.3)。
+   * 处置 = **未判定**:候选一条不藏,逐条挪进报名区并点名取证命令;exit 0 但那句写的是"未判定",
+   * 不是"没有复活"。
+   */
+  const blindFreshCheckout =
+    Boolean(scope && scope.bounded) && opts.dedupe === true && !markerOnDisk
+  if (blindFreshCheckout && d.reds && d.reds.length > 0) {
+    return {
+      scope,
+      face,
+      enumeration: 'ok',
+      rows,
+      merged,
+      skippedByLedger,
+      allow,
+      today,
+      ...d,
+      reds: [],
+      exit: 0,
+      undetermined: [
+        ...d.undetermined,
+        `未判定:本档退化成"有界回看 ${DEFAULT_WINDOW} 枚",而增量台账 ${relative(ROOT, marker)} 不在磁盘上` +
+          `(CI / 干净检出 ⇒ 没有上一轮记录)⇒ "哪几枚是本次新合并"这一输入取不到,不得把整段已入库历史判成本次复活。`,
+        ...d.reds.map(
+          (r) =>
+            `净检出无台账,仅报名不判红:${r.path} [${r.code}] 合并 ${String(r.merge).slice(0, 11)} —— ${r.why ?? ''}`,
+        ),
+        `取证命令(人工档,不去重、连历史一起报):node scripts/check-merge-deletion-resurrection.mjs --limit ${DEFAULT_WINDOW}`,
+      ],
+    }
+  }
   return { scope, face, enumeration: 'ok', rows, merged, skippedByLedger, allow, today, ...d }
 }
 
@@ -606,6 +643,32 @@ function selfTest() {
     ok('台账首轮实判到两枚合并', first.rows.length === 2, JSON.stringify(first.rows.map((r) => r.rev.slice(0, 7))))
     ok('台账已记过的合并不得每轮重扫', second.rows.length === 0 && second.skippedByLedger === 2, JSON.stringify([second.rows.length, second.skippedByLedger]))
     ok('坏台账文件退回空表而非抛(巡检链上抛错等于整轮不判)', JSON.stringify(readMarker(join(dir, 'nope.json'))) === '{}')
+
+    // ── ⑧ 净检出的"有界回看 + 无台账"这一格必须落**未判定**,而不是把整段已入库历史判成本次复活
+    //     (§12e 恒红门;§0.3 取不到输入不得记绿也不得冒红)。三向对照:
+    //     B=台账在位(本机档)⇒ 照旧判红;A=同夹具但台账不在磁盘 ⇒ 未判定且候选一条不藏;
+    //     C=人工档不去重 ⇒ 与 B 同红(证明关掉的是"净检出误判",不是判据本身)。 ──
+    const mkNet = join(dir, 'marker-here.json')
+    writeFileSync(mkNet, '{}', 'utf8')
+    const BOUND_NET = { ...SCOPE, bounded: true }
+    const bNet = runAudit(dir, 'head', { scope: BOUND_NET, dedupe: true, marker: mkNet, today: TODAY })
+    const aNet = runAudit(dir, 'head', {
+      scope: BOUND_NET,
+      dedupe: true,
+      marker: join(dir, 'marker-absent.json'),
+      today: TODAY,
+    })
+    const cNet = runAudit(dir, 'head', { scope: BOUND_NET, dedupe: false, today: TODAY })
+    ok('⑧本机档(台账在位)判红数 > 0,否则后面两条对照都是空转', bNet.reds.length > 0, JSON.stringify(bNet.reds.length))
+    ok('⑧净检出档 ⇒ 不判红且 exit 0(已入库历史不该天天钉红)', aNet.reds.length === 0 && aNet.exit === 0, JSON.stringify([aNet.reds.length, aNet.exit]))
+    ok(
+      '⑧净检出档必须显式写"未判定"并点名取证命令(不得记成"没有复活")',
+      aNet.undetermined.some((s) => s.includes('未判定')) &&
+        aNet.undetermined.some((s) => s.includes('--limit')),
+      JSON.stringify(aNet.undetermined.map((s) => s.slice(0, 24))),
+    )
+    ok('⑧候选一条不藏:未判定报名条数 == 本机档判红条数', aNet.undetermined.filter((s) => s.startsWith('净检出无台账')).length === bNet.reds.length, JSON.stringify([aNet.undetermined.length, bNet.reds.length]))
+    ok('⑧人工档(--limit 语义,不去重)与本机档同红 ⇒ 判据本体没被削弱', cNet.reds.length === bNet.reds.length, JSON.stringify([cNet.reds.length, bNet.reds.length]))
 
     // ── ③④ 台账端到端走**被审面**(把 JSON 提交进夹具仓的 ALLOWLIST_FILE 路径),这才证明
     //     "台账从被审的 HEAD 取",而不是按磁盘凑一份(守门 118 判的那一型)。 ──
