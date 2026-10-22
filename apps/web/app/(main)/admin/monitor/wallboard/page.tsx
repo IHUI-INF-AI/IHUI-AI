@@ -9,7 +9,7 @@ import { isNum, isUnset, thresholdTone, type StatusTone } from './unknown-state'
  * 生产在线端监控大屏(/admin/monitor/wallboard)。
  *
  * 数据面:GET /api/admin/ops-wallboard/overview(5s 轮询)+ /ops-wallboard/trend(20s 轮询)。
- * 视觉定位:控制中心/工业 HUD —— 切角面板 + 等宽数字 + 辉光描边,
+ * 视觉定位:控制中心/工业 HUD —— 圆角面板 + 等宽数字 + 辉光描边,
  * 配色全部走语义 token(bg-shell-panel/bg-card/border-border/success/warning/destructive/info),
  * 页面底不自带色块与网格线 —— 大屏直接坐在工作区自己的背景上,
  * 随站点明暗主题切换(ECharts 走 canvas 读不到 CSS var,按 resolvedTheme 显式切换,见下方图表主题)。
@@ -384,7 +384,7 @@ function StatCell({
   tone?: StatusTone | 'accent'
 }) {
   return (
-    <div className="rounded-sm border border-border bg-muted/60 px-2.5 py-2">
+    <div className="rounded-lg border border-border bg-muted/60 px-2.5 py-2">
       <div className="text-[10px] tracking-[0.12em] text-muted-foreground">{label}</div>
       <div
         className={cn(
@@ -411,7 +411,7 @@ function StatCell({
 function ChartEmpty({ text }: { text: string }) {
   return (
     <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-      <span className="rounded-sm border border-border bg-card/80 px-2.5 py-1 text-[10px] text-muted-foreground">
+      <span className="rounded-md border border-border bg-card/80 px-2.5 py-1 text-[10px] text-muted-foreground">
         {text}
       </span>
     </div>
@@ -943,7 +943,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
 
         {/* overview/trend 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」或旧快照无解释 */}
         {ovError || trendError ? (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-sm border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-danger-text">
+          <div className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-danger-text">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>{t('loadFailed')}</span>
             <button
@@ -986,7 +986,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             ).map(([name, state]) => (
               <span
                 key={name}
-                className="flex items-center gap-1.5 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
+                className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
               >
                 <Dot tone={state === 'up' ? 'ok' : 'bad'} />
                 {name}
@@ -997,7 +997,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <div className="wb-hdr-status ml-auto flex shrink-0 items-center gap-2">
             <span
               className={cn(
-                'flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-[10px]',
+                'flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px]',
                 overallTone === 'ok'
                   ? 'border-success/40 bg-success/10 text-success-text'
                   : overallTone === 'warn'
@@ -1014,7 +1014,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             </span>
             <span
               className={cn(
-                'flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-[10px]',
+                'flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px]',
                 alertCount === null
                   ? 'border-border bg-muted/60 text-muted-foreground'
                   : 'border-destructive/30 bg-destructive/10 text-danger-text',
@@ -1101,7 +1101,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ].map((k) => (
             <div
               key={k.label}
-              className="wb-panel wb-rise relative overflow-hidden rounded-sm border border-border bg-card/80 px-3 py-2 transition-colors hover:bg-card"
+              className="wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2 transition-colors hover:bg-card"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
                 <span className="text-info-text/70">{k.icon}</span>
@@ -1238,7 +1238,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               {(services?.windows ?? []).map((s) => (
                 <div
                   key={s.name}
-                  className="flex items-center justify-between rounded-sm border border-transparent bg-muted/50 px-2 py-[5px] transition-colors hover:border-info/40"
+                  className="flex items-center justify-between rounded-md border border-transparent bg-muted/50 px-2 py-[5px] transition-colors hover:border-info/40"
                 >
                   <span className="wb-num truncate text-[11px] text-foreground">{s.name}</span>
                   <span className="flex shrink-0 items-center gap-1.5">
@@ -1422,7 +1422,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {(alerts?.promActive ?? []).slice(0, 5).map((a, i) => (
                   <div
                     key={`${a.name}-${i}`}
-                    className="rounded-sm border border-destructive/25 bg-destructive/[0.08] px-2 py-1.5"
+                    className="rounded-md border border-destructive/25 bg-destructive/[0.08] px-2 py-1.5"
                   >
                     <div className="flex items-center gap-1.5">
                       <Dot tone={a.severity === 'critical' ? 'bad' : 'warn'} />
@@ -1431,7 +1431,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       </span>
                       <span
                         className={cn(
-                          'shrink-0 rounded-sm border px-1 text-[9px]',
+                          'shrink-0 rounded-md border px-1 text-[9px]',
                           a.state === 'active'
                             ? 'border-destructive/30 bg-destructive/10 text-danger-text'
                             : 'border-warning/30 bg-warning/10 text-warning-text',
@@ -1455,12 +1455,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ))}
                 {alerts?.promActiveCount === 0 ? (
-                  <div className="rounded-sm border border-success/20 bg-success/[0.06] px-2 py-3 text-center text-[11px] text-success-text/90">
+                  <div className="rounded-md border border-success/20 bg-success/[0.06] px-2 py-3 text-center text-[11px] text-success-text/90">
                     {t('noActiveAlerts')}
                   </div>
                 ) : null}
                 {alerts?.promActive === null || alerts?.promActive === undefined ? (
-                  <div className="rounded-sm border border-warning/20 bg-warning/[0.06] px-2 py-3 text-center text-[11px] text-warning-text/90">
+                  <div className="rounded-md border border-warning/20 bg-warning/[0.06] px-2 py-3 text-center text-[11px] text-warning-text/90">
                     {t('alertmanagerDown')}
                   </div>
                 ) : null}
@@ -1478,7 +1478,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       <Dot tone={a.status === 'firing' ? 'bad' : 'ok'} />
                       <span
                         className={cn(
-                          'shrink-0 rounded-sm border px-1 text-[9px]',
+                          'shrink-0 rounded-md border px-1 text-[9px]',
                           a.severity === 'critical'
                             ? 'border-destructive/30 bg-destructive/10 text-danger-text'
                             : a.severity === 'info'
@@ -1510,7 +1510,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ))}
                 {alerts === null ? (
-                  <div className="flex justify-center rounded-sm border border-border bg-muted/50 px-2 py-3">
+                  <div className="flex justify-center rounded-md border border-border bg-muted/50 px-2 py-3">
                     <SourceGap text={t('sourceUnreachable')} />
                   </div>
                 ) : alerts.recent.length === 0 ? (
@@ -1528,7 +1528,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {(events ?? []).map((e, i) => (
                   <div
                     key={`${e.createdAt}-${i}`}
-                    className="rounded-sm border border-transparent bg-muted/50 px-2 py-1.5"
+                    className="rounded-md border border-transparent bg-muted/50 px-2 py-1.5"
                   >
                     <div className="flex items-center gap-1.5">
                       <Dot
@@ -1553,7 +1553,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ))}
                 {events === null ? (
-                  <div className="flex justify-center rounded-sm border border-border bg-muted/50 px-2 py-3">
+                  <div className="flex justify-center rounded-md border border-border bg-muted/50 px-2 py-3">
                     <SourceGap text={t('sourceUnreachable')} />
                   </div>
                 ) : events.length === 0 ? (
@@ -1673,10 +1673,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {(biz?.topEndpoints ?? []).map((e, i) => (
                   <div
                     key={`${e.method}-${e.path}-${i}`}
-                    className="flex items-center gap-2 rounded-sm bg-muted/50 px-2 py-1"
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
                   >
                     <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
-                    <span className="shrink-0 rounded-sm border border-info/25 px-1 text-[9px] text-info-text/90">
+                    <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text/90">
                       {e.method}
                     </span>
                     <Tooltip content={e.path}>
@@ -1772,7 +1772,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             ) : (
               <>
                 <div className="wb-cells grid gap-2">
-                  <div className="rounded-sm border border-border bg-muted/60 px-2.5 py-2">
+                  <div className="rounded-lg border border-border bg-muted/60 px-2.5 py-2">
                     <div className="text-[10px] tracking-[0.12em] text-muted-foreground">
                       {t('edgeHeadlineMs')}
                     </div>
@@ -1796,7 +1796,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       ) : null}
                     </div>
                   </div>
-                  <div className="rounded-sm border border-border bg-muted/60 px-2.5 py-2">
+                  <div className="rounded-lg border border-border bg-muted/60 px-2.5 py-2">
                     <div className="text-[10px] tracking-[0.12em] text-muted-foreground">
                       {t('edgeHeadlineHit')}
                     </div>
@@ -1835,7 +1835,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   />
                   <StatCell label={t('edgeStatSamples')} value={fmtInt(edge.stats.samples)} />
                 </div>
-                <div className="flex items-center gap-2 rounded-sm border border-border bg-muted/60 px-2.5 py-2">
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/60 px-2.5 py-2">
                   <Dot tone={edge.legs.originViaCf.ok ? 'ok' : 'bad'} />
                   <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
                     {t('edgeControlLeg')}
@@ -1898,9 +1898,9 @@ const WALLBOARD_CSS = `
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
-/* 切角面板 + 四角亮标 */
+/* 面板形状只认圆角档位(机主 2026-10-22 定档:切角与 rounded-* 叠在一起,每个容器角都被剪掉一块、
+ * 边框在斜切处断开,读起来像渲染坏了)。HUD 感改由下面的内辉光 + 页头扫描线承担。 */
 .wb-panel {
-  clip-path: polygon(0 10px, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px));
   box-shadow:
     inset 0 0 24px color-mix(in srgb, var(--color-info) 6%, transparent),
     0 8px 26px var(--color-black-20);

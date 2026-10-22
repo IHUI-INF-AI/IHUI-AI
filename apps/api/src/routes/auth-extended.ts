@@ -3004,6 +3004,23 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         )
     }
 
+    /**
+     * 身份不变量:落到查/建之前,主体标识必须是非空字符串。
+     * (§5「认证不等于授权」—— 归属型记录的主体不得住在可缺省字段里。)
+     *
+     * 为什么必须有这一道:上面那段 switch 里,只有移动应用那一支显式验了
+     * `access_token/openid`;网站应用那一支验了换 token 那一步,但**没验第二段
+     * `sns/userinfo` 的返回** —— 微信在这个接口上同样回 HTTP 200 + `errcode`
+     * (40001/40003 等),于是 `openId` 会是 undefined。此前它之所以没造成事故,
+     * 纯粹是因为 `用户${openId.slice(-6)}` 恰好先抛了 TypeError ——
+     * **不变量靠求值顺序兜住,等于没有不变量**:哪天昵称字段有值(或有人把模板挪走),
+     * 就会静默造出一个 `open_id` 为空的用户 + 空绑定,而且当场拿到合法 token。
+     */
+    if (typeof openId !== 'string' || openId.length === 0) {
+      request.log.warn({ platform }, 'OAuth 回调未取到非空主体标识 ⇒ 拒绝建/查绑定')
+      return reply.status(400).send(error(400, `${platform} 授权返回异常,请重新登录`))
+    }
+
     const binding = await findThirdPartyAccount(platform, openId)
     let user
     if (binding) {
