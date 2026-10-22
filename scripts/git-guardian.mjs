@@ -38,7 +38,7 @@
  *   node scripts/git-guardian.mjs --notify-dry-run      # 只问品牌邮件派发器「通道是否齐备」(零网络请求)
  *   node scripts/git-guardian.mjs --bare-audit-report [--json]
  *      # 只读:列出守护每次检出 core.bare=true 时留下的现场审计(进程清单 + 嫌疑人),
- *      #   件在 .workbuddy/git-bare-flip-audit/flip-*.json,保留最新 20 份。零副作用。
+ *      #   件在 .ihui-agent/state/git-bare-flip-audit/flip-*.json,保留最新 20 份。零副作用。
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import {
@@ -142,20 +142,20 @@ const GITCODE_URL = 'https://gitcode.com/IHUI-AI/IHUI-AI.git'
 const SSH_COMMAND =
   'ssh -i C:/Users/Administrator/.ssh/id_ed25519_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20'
 const TASK_NAME = 'IHUI-AI git-guardian'
-const LOG = join(WORKTREE, '.workbuddy', 'git-guardian.log')
+const LOG = join(WORKTREE, '.ihui-agent', 'state', 'git-guardian.log')
 const POINTER = join(WORKTREE, '.git')
 const EXPECTED_POINTER = `gitdir: ${GITDIR}\n`
 // 嵌套 ref( depth>=2 )的期望值清单 —— gitdir 顶层文件,宿主清理不到(2026-09-12 立)
 const REFS_MANIFEST = join(GITDIR, 'refs-manifest.json')
 
 // —— 判红 → 邮件到人层(2026-09-24 立,§5e 唯一通道)——
-// 此前守护判红只写 .workbuddy/git-guardian.log:实测"合并吞并对账"抓到 38 个路径被合并抹掉
+// 此前守护判红只写 .ihui-agent/state/git-guardian.log:实测"合并吞并对账"抓到 38 个路径被合并抹掉
 // 那类事,只有去翻日志的人才知道,而它的后果是**已入库功能被静默回滚**。到人一律经品牌派发器
 // (apps/api/scripts/notify-deploy-failure.ts),不在本文件自拼 SMTP/Resend(守门 81 硬拦);
 // 形态照抄 scripts/check-credential-health.mjs(同为 scripts/ 下 .mjs 的现役生产者)。
-const NOTIFY_STATE = join(WORKTREE, '.workbuddy', 'git-guardian-notify-state.json')
+const NOTIFY_STATE = join(WORKTREE, '.ihui-agent', 'state', 'git-guardian-notify-state.json')
 /** 投递失败标记:邮件寄不出去必须留可诊断痕迹(§5e),下一次成功投递自动清除 */
-const NOTIFY_UNDEL = join(WORKTREE, '.workbuddy', 'git-guardian-notify-UNDELIVERED.json')
+const NOTIFY_UNDEL = join(WORKTREE, '.ihui-agent', 'state', 'git-guardian-notify-UNDELIVERED.json')
 /**
  * 发信台账**不在这里写**(2026-10-18 收口):账记在唯一出口
  * `apps/api/scripts/notify-deploy-failure.ts` 的 `recordMailAttempt` 上。
@@ -174,9 +174,9 @@ const NOTIFY_DISPATCH_TIMEOUT_MS = 90_000
 // git-sync-converge 的 alignWorktreeAfterHeadMove 失败原先"只记日志":锁被长期占用时,
 // 工作区会无声地一直落后 HEAD(§12d 的静默回滚温床)。收敛器本体是一次性进程不适合发信,
 // 而本守护每 2 分钟一轮、已是全部自愈告警的派发点 ⇒ 状态由收敛器写
-// (.workbuddy/converge-align-state.json),这里读它并按阈值喊人。
+// (.ihui-agent/state/converge-align-state.json),这里读它并按阈值喊人。
 // 阈值两个数都可被 env 覆盖(IHUI_ALIGN_STALL_FAILS / IHUI_ALIGN_STALL_AGE_MS),默认 3 / 600000。
-const CONVERGE_ALIGN_STATE = join(WORKTREE, '.workbuddy', 'converge-align-state.json')
+const CONVERGE_ALIGN_STATE = join(WORKTREE, '.ihui-agent', 'state', 'converge-align-state.json')
 const ALIGN_STALL_DEFAULT_FAILS = 3
 const ALIGN_STALL_DEFAULT_AGE_MS = 10 * 60 * 1000
 
@@ -196,7 +196,7 @@ const ALIGN_STALL_DEFAULT_AGE_MS = 10 * 60 * 1000
 // 两道都可用 env 调;设 ALIGN_HEAL_DISABLED=1 可整体关掉自愈(回到纯喊人),便于取证对照。
 const ALIGN_HEAL_THROTTLE_MS = Number(process.env.IHUI_ALIGN_HEAL_THROTTLE_MS || 30 * 60 * 1000)
 const ALIGN_HEAL_MAX_ATTEMPTS = Number(process.env.IHUI_ALIGN_HEAL_MAX_ATTEMPTS || 3)
-const ALIGN_HEAL_ATTEMPT_LOG = join(WORKTREE, '.workbuddy', 'converge-align-heal-attempts.json')
+const ALIGN_HEAL_ATTEMPT_LOG = join(WORKTREE, '.ihui-agent', 'state', 'converge-align-heal-attempts.json')
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 通用自动修复骨架(2026-10-04 第二批,李总"要 AI 自动修"授权后立)
@@ -564,7 +564,7 @@ function healWorktreeBare({
 //
 // 为什么必须有:gitdir 的 `core.bare` 会被某个**不明写入者**翻成 true,而 `pointerOk /
 // gitdirOk / gitUsable` 三条判据**全绿**(裸档下 `rev-parse` 照样成功),只有工作树类命令
-// 全失败 —— 账面一片绿而全队提交链不可用。守护每 2 分钟纠一次(`.workbuddy/git-guardian.log`
+// 全失败 —— 账面一片绿而全队提交链不可用。守护每 2 分钟纠一次(`.ihui-agent/state/git-guardian.log`
 // 2026-09-29 一晚 5 回:03:09 / 03:15 / 05:19 / 06:05 / 06:28),但**至今没人知道是谁写的**。
 // 上一轮提的"开 Windows 机器级审计策略(SACL)"会动全机审计面、需用户点头,不是本票;
 // 而翻车频率约 1 小时一次,所以只要守护在检出那一刻抓一份**进程清单**落盘,嫌疑人基本就在
@@ -578,8 +578,8 @@ function healWorktreeBare({
 //     把 D 盘真实目标清空"的同型事故。
 // ————————————————————————————————————————————————————————————————
 
-/** 现场审计落点(在 `.workbuddy/` 下,已被 .gitignore 整目录覆盖 —— 实测 `git check-ignore` 命中,故不需要也不应改 .gitignore) */
-const BARE_AUDIT_DIR = join(WORKTREE, '.workbuddy', 'git-bare-flip-audit')
+/** 现场审计落点(在 `.ihui-agent/state/` 下,已被 .gitignore 整目录覆盖 —— 实测 `git check-ignore` 命中,故不需要也不应改 .gitignore) */
+const BARE_AUDIT_DIR = join(WORKTREE, '.ihui-agent', 'state', 'git-bare-flip-audit')
 /** 只留最新 20 份(每小时一次翻车也够看近两天,而运行态目录不得无限长) */
 const BARE_AUDIT_KEEP = 20
 /**
@@ -1042,7 +1042,7 @@ function captureBareFlipAudit({
 }
 
 /**
- * **打印面**的命令行脱敏。落盘的审计件留在 `.workbuddy/`(gitignored、不出机)保留原文 ——
+ * **打印面**的命令行脱敏。落盘的审计件留在 `.ihui-agent/state/`(gitignored、不出机)保留原文 ——
  * 那是取证价值所在;而人读报告会被贴进日志/台账/聊天,§5d"凭据不入日志"这一条管的是这一面。
  * 只替值、不替键名,`core.bare true` 这类判据字样逐字保留。
  */
@@ -1059,7 +1059,7 @@ function redactCmdlineForPrint(cl) {
 function formatBareFlipAuditReport(records, { dir = BARE_AUDIT_DIR, unreadable = [], missingDir = null } = {}) {
   const lines = []
   lines.push(`core.bare 翻车现场审计(${dir})— 保留最近 ${BARE_AUDIT_KEEP} 份`)
-  lines.push('提示:命令行在本报告里已对凭据值脱敏(`--password=xxx` → `--password=***`),审计件内保留原文;件在 .workbuddy 下,gitignored、不出机。')
+  lines.push('提示:命令行在本报告里已对凭据值脱敏(`--password=xxx` → `--password=***`),审计件内保留原文;件在 .ihui-agent/state 下,gitignored、不出机。')
   if (!records.length) {
     lines.push(
       `尚无记录(不等于没翻过 —— 守护这一维从 ${BARE_AUDIT_SINCE} 起才在位` +
@@ -1583,7 +1583,7 @@ function healWorktreeTracked() {
  * 家目录改道自愈(§26)。**2026-09-24 重做节流**,起因是实测到的死循环:
  *   守护每 2 分钟一趟 ⇒ 每趟都调修复器 `--apply`;而修复器被给的超时是 **240 秒**,
  *   待搬的最大一项是 `.trae-cn`(实测 371MB / 13973 个文件),robocopy 在 240 秒内搬不完
- *   ⇒ 子进程被 SIGTERM 掐死。冷却文件 `.workbuddy/home-junctions-cooldown.json` 是修复器
+ *   ⇒ 子进程被 SIGTERM 掐死。冷却文件 `.ihui-agent/state/home-junctions-cooldown.json` 是修复器
  *   **正常结束时才写**的,被杀就等于"没失败也没成功",于是下一轮从头再搬 ——
  *   实测门 96 连续判红 11 分钟、日志里每 2 分钟一条"修复后仍判红",且当时**只有 1 项**
  *   没治好(其余 10 项 16:41 那轮已改道成功),冷却表还是空的 `{}` ⇒ 不是 EBUSY。
@@ -1598,8 +1598,8 @@ function healWorktreeTracked() {
  *  ③ **如实报因**:旧文案写"多为进程占用(EBUSY)",是猜的且方向不对(实测冷却表为空)。
  *     改为统计修复器自己打的 action 标签,并显式区分 timed-out / copy-failed / EBUSY 类。
  */
-const HOME_HEAL_LOCK = join(WORKTREE, '.workbuddy', 'home-junctions.heal.lock')
-const HOME_HEAL_STAMP = join(WORKTREE, '.workbuddy', 'home-junctions.last-heal.txt')
+const HOME_HEAL_LOCK = join(WORKTREE, '.ihui-agent', 'state', 'home-junctions.heal.lock')
+const HOME_HEAL_STAMP = join(WORKTREE, '.ihui-agent', 'state', 'home-junctions.last-heal.txt')
 
 function healHomeJunctions() {
   const dir = dirname(fileURLToPath(import.meta.url))
@@ -1723,7 +1723,7 @@ function healHomeJunctions() {
       try {
         return Object.keys(
           JSON.parse(
-            readFileSync(join(WORKTREE, '.workbuddy', 'home-junctions-cooldown.json'), 'utf8'),
+            readFileSync(join(WORKTREE, '.ihui-agent', 'state', 'home-junctions-cooldown.json'), 'utf8'),
           ),
         ).length
       } catch {
@@ -1770,7 +1770,7 @@ function healHomeJunctions() {
  *     制造噪声(§5e 失败必须响,但响的是量到的红,不是尺子失效);
  *  ③ 发信只经 notify()(→ notify-deploy-failure.ts),不得在本文件自拼 SMTP(守门 81 硬拦)。
  */
-const TZ_AUDIT_TICK = join(WORKTREE, '.workbuddy', 'host-timezone-audit-tick.ts')
+const TZ_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'host-timezone-audit-tick.ts')
 const TZ_AUDIT_INTERVAL_MS = 30 * 60 * 1000
 
 function auditHostTimezone() {
@@ -1855,7 +1855,7 @@ function auditHostTimezone() {
  *  ② 节流(默认 30 分钟)且**未判定不发信**:量不到 ≠ 外流,把"没判"寄成告警是制造噪声;
  *  ③ 发信只经 notifyGuardRed(),不得在本文件自拼 SMTP(守门 81 硬拦)。
  */
-const DISK_ROOT_AUDIT_TICK = join(WORKTREE, '.workbuddy', 'disk-root-hygiene-audit-tick.ts')
+const DISK_ROOT_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'disk-root-hygiene-audit-tick.ts')
 const DISK_ROOT_AUDIT_INTERVAL_MS = 30 * 60 * 1000
 
 /**
@@ -1952,7 +1952,7 @@ function auditDiskRootHygiene() {
           // 真变化(违规类别或计数变了)仍立即重报。**2026-10-18 再补持续档**:10-16 以来该族 13 封
           // 全是 4h 平窗重发 —— 分档只解决了"计数在抖",没解决"同一批外流条目每隔 4h 再寄一次"。
           // 跨 6h/24h/72h 才重报,清零即摘起点(与隧道腿、部署停摆同一把尺子,§0.6)。
-          dedupKey: `stray=${alertCountTier(c.diskRootStray)};wtOutside=${alertCountTier(c.worktreeOutside)};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.workbuddy', 'disk-root-stray-first.json')).firstMs).tier}`,
+          dedupKey: `stray=${alertCountTier(c.diskRootStray)};wtOutside=${alertCountTier(c.worktreeOutside)};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'disk-root-stray-first.json')).firstMs).tier}`,
         },
       )
       logger(
@@ -1962,7 +1962,7 @@ function auditDiskRootHygiene() {
       return
     }
     // 已判干净 ⇒ 摘掉外流持续计时起点(与上面 dedupKey 的 held 档成套,否则起点会背着历史时长)
-    clearUndeterminedStreak(join(WORKTREE, '.workbuddy', 'disk-root-stray-first.json'))
+    clearUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'disk-root-stray-first.json'))
     logger(
       `✅ 盘根卫生:0 违规(白名单对账 + worktree 落点全在 ${join(WORKTREE, '.worktrees')})` +
         (nN ? `;另有 ${nN} 个声明盘根在本机不适用(不是"已判干净",是"本机没有这块盘")` : ''),
@@ -1972,7 +1972,7 @@ function auditDiskRootHygiene() {
   }
 }
 
-const MERGE_LOSS_UNDET_FILE = join(WORKTREE, '.workbuddy', 'merge-loss-undetermined-first.json')
+const MERGE_LOSS_UNDET_FILE = join(WORKTREE, '.ihui-agent', 'state', 'merge-loss-undetermined-first.json')
 // "这一轮取不到结论"与"对账层真的坏了"在到人信上必须是两件事。2026-10-17 上午共享 git 争用让该
 // 对账连续几趟取不到,守护当场寄出一封 critical 说"对账层自己没在跑"——而同一枚对账手工复跑
 // 0.46 秒即绿(审计 0 枚吞并)。持续性门槛取现读量纲:正常一趟 0.46s、派生上限 240s、守护 2 分钟
@@ -2084,7 +2084,7 @@ function refreshRecoverySource() {
     const to = (applied.out.match(/→\s*([0-9a-f]{7,})/) || [])[1]
     log(`✅ 本地恢复源已增量追平(§5b 空白层)${to ? ` → ${to}` : ''}`)
     // 追平即清偿"这场故障已经多久"的起点,否则下一场失败会拿上一场的账直接落到最高档。
-    clearUndeterminedStreak(join(WORKTREE, '.workbuddy', 'backup-refresh-fail-first.json'))
+    clearUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'backup-refresh-fail-first.json'))
     return
   }
   log(`⚠️ 本地恢复源刷新失败(exit ${applied.code})⇒ 下次 tick 自动重试;手动:node scripts/git-backup-refresh.mjs`)
@@ -2101,12 +2101,12 @@ function refreshRecoverySource() {
     // 平铺一封同样的话(实测 21 封,间隔均值 4.05h)——既不打扰到新人,也不告诉收信人"已经拖多久了"。
     // 带档之后:6h / 24h / 72h 各升级一次(跨档即新身份 ⇒ 立即到人),同档内由窗口压住。
     // 起点件在追平成功时清除,不会拿上一场故障的账续命。
-    { severity: 'critical', dedupKey: `backup-refresh-fail;exit=${applied.code};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.workbuddy', 'backup-refresh-fail-first.json')).firstMs).tier}` },
+    { severity: 'critical', dedupKey: `backup-refresh-fail;exit=${applied.code};held=${alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'backup-refresh-fail-first.json')).firstMs).tier}` },
   )
 }
 
 // ══ 判红 → 邮件到人层(2026-09-24 立,§5e 唯一通道)═══════════════════════════════
-// 此前守护判红只写 .workbuddy/git-guardian.log:实测"合并吞并对账"抓到 38 个路径被合并抹掉
+// 此前守护判红只写 .ihui-agent/state/git-guardian.log:实测"合并吞并对账"抓到 38 个路径被合并抹掉
 // 那类事,只有去翻日志的人才知道,而它的后果是**已入库功能被静默回滚**。发信不在此文件自拼
 // SMTP/Resend(守门 81 硬拦),唯一出口 = 派生 apps/api/scripts/notify-deploy-failure.ts;
 // 形态照抄 scripts/check-credential-health.mjs(同为 scripts/ 下 .mjs 的现役生产者)。
@@ -2566,7 +2566,7 @@ export function healConvergeAlignStall(opts = {}) {
   // "从没试过"的记录而在下一轮立刻再派一次(那会让节流形同虚设)。
   //
   // ⚠ 2026-10-04 复核补一个**反直觉但必须**的分支:台账写失败时**仍然继续跑**。
-  // 直觉上"记不上账就别动手",但那样更糟:台账写不下去(磁盘满 / .workbuddy 权限)时
+  // 直觉上"记不上账就别动手",但那样更糟:台账写不下去(磁盘满 / .ihui-agent/state 权限)时
   // attempts 永远读成 0、lastAttemptAt 永远为空 ⇒ **节流与熔断双双永不触发**
   // ⇒ 每 2 分钟派发一次(每轮都真跑一个 40–51 秒的对齐器),正是本条要防的那件事。
   // 写失败只意味着"本轮记不上账",下轮照旧会派 —— 与其在没护栏的情况下猛跑,
@@ -2767,7 +2767,7 @@ export function checkConvergeAlignStall(opts = {}) {
  * 连满 30 分钟(≈15 趟)全是取不到,才够格按结构性故障到人。方向照 §0.10:短窗只报名并写明已持续多久,
  * 绝不是放行;跨持续档(`alertHeldTier`)即新身份立刻重报,不会被压成静音。
  */
-const ENV_UNDET_FILE = join(WORKTREE, '.workbuddy', 'env-drift-undetermined-first.json')
+const ENV_UNDET_FILE = join(WORKTREE, '.ihui-agent', 'state', 'env-drift-undetermined-first.json')
 const ENV_UNDET_HORIZON_MS = Number(process.env.IHUI_ENV_UNDET_HORIZON_MS || 30 * 60 * 1000)
 
 export function notifyEnvUndetermined(name, detail, notify, logger, file = ENV_UNDET_FILE, horizonMs = ENV_UNDET_HORIZON_MS, keyPrefix = 'env-undet') {
@@ -2791,7 +2791,7 @@ export function auditEnvDrift(opts = {}) {
     notify = notifyGuardRed,
     run = runEnvDriftProbe,
     logger = log,
-    // 这两枚只为准成对夹具而开(测试不得碰真 .workbuddy 的台账、也不得等真 30 分钟):
+    // 这两枚只为准成对夹具而开(测试不得碰真 .ihui-agent/state 的台账、也不得等真 30 分钟):
     // 生产调用一律走默认值,语义与不带参数逐字相同。
     undetFile = ENV_UNDET_FILE,
     horizonMs = ENV_UNDET_HORIZON_MS,
@@ -2950,8 +2950,8 @@ function envDriftDetail(parsed, kindLabel) {
  *   ok        ⇒ 安静,并清掉两本起点账(不得拿上一场抖动的账续命)。
  * run/notify/logger 全可注入(§22c:镜像测试用假派发器断言"哪种结论发哪种身份",绝不真发信)。
  */
-const EGRESS_UNDET_FILE = join(WORKTREE, '.workbuddy', 'egress-ip-drift-undetermined-first.json')
-const EGRESS_DRIFT_FILE = join(WORKTREE, '.workbuddy', 'egress-ip-drift-first.json')
+const EGRESS_UNDET_FILE = join(WORKTREE, '.ihui-agent', 'state', 'egress-ip-drift-undetermined-first.json')
+const EGRESS_DRIFT_FILE = join(WORKTREE, '.ihui-agent', 'state', 'egress-ip-drift-first.json')
 const EGRESS_UNDET_HORIZON_MS = Number(process.env.IHUI_EGRESS_UNDET_HORIZON_MS || 30 * 60 * 1000)
 
 /** 派生那把尺子的唯一出口:只读、带超时、不带控制台窗(§5b / 守门 52·80)。 */
@@ -3063,7 +3063,7 @@ export function auditEgressIpDrift(opts = {}) {
 /**
  * 追加型运行日志的保留期回收(机制对标 ZCode desktop 的 logRetention:双上限 + 稳定窗 + 留痕)。
  *
- * 实测动因:`.workbuddy/hook-logs/pre-commit.log` 现读 93,344,342 B、`.workbuddy/git-guardian.log`
+ * 实测动因:`.ihui-agent/state/hook-logs/pre-commit.log` 现读 93,344,342 B、`.ihui-agent/state/git-guardian.log`
  * 13,610,246 B,两处都只有追加没有死亡;全仓此前只有 `deploy/win/ihui-deploy-loop.ps1` 一处轮转
  * (53MB 事故后加的),即"同类日志各自腐烂"。
  *
@@ -3073,8 +3073,8 @@ export function auditEgressIpDrift(opts = {}) {
  * node 的,node 改名自己正被追加的文件必撞 Windows 共享冲突;巡检撞上了也只是本轮跳过。
  */
 function rotateRunLogs() {
-  const targets = [LOG, join(WORKTREE, '.workbuddy', 'hook-logs', 'pre-commit.log')]
-  const hookDir = join(WORKTREE, '.workbuddy', 'hook-logs')
+  const targets = [LOG, join(WORKTREE, '.ihui-agent', 'state', 'hook-logs', 'pre-commit.log')]
+  const hookDir = join(WORKTREE, '.ihui-agent', 'state', 'hook-logs')
   try {
     for (const n of readdirSync(hookDir)) {
       if (!n.endsWith('.log')) continue
@@ -3137,13 +3137,13 @@ function healRootSeal() {
  * 形态是**安静**:任务被删/被停、node 路径失效、计划任务账户看不到代理 —— 任何一种都会让
  * "本该报警的那条链"静默消失,与今天"生产冻结两天无人知"同构。本守护每 2 分钟一趟且自身
  * 分层自愈,由它盯心跳是成本最低的闭环。
- * 心跳 = 巡检 --json 模式写的 .workbuddy/credential-health-last.json(内含 ts)。
+ * 心跳 = 巡检 --json 模式写的 .ihui-agent/state/credential-health-last.json(内含 ts)。
  * 超时(18h = 标称周期 3 倍,避开机器休眠/夜间空档误报)时:① 重跑 --install 找回任务
  * (脚本自带"注册前用 cscript 实跑一次 vbs 预检"的护栏),② 就地拉起一轮(它会自己走
  * 邮件单通道告警)。kick 标记落盘做 6h 冷却,避免每 2 分钟重复拉起。
  */
-const WATCHDOG_HEARTBEAT = join(WORKTREE, '.workbuddy', 'credential-health-last.json')
-const WATCHDOG_KICK = join(WORKTREE, '.workbuddy', 'credential-health-kick.ts')
+const WATCHDOG_HEARTBEAT = join(WORKTREE, '.ihui-agent', 'state', 'credential-health-last.json')
+const WATCHDOG_KICK = join(WORKTREE, '.ihui-agent', 'state', 'credential-health-kick.ts')
 const WATCHDOG_STALL_MS = 18 * 3600 * 1000
 const WATCHDOG_KICK_COOLDOWN_MS = 6 * 3600 * 1000
 
@@ -3166,7 +3166,7 @@ function watchWatchdog() {
       const k = Date.parse(String(readFileSync(WATCHDOG_KICK, 'utf8')).trim())
       if (Number.isFinite(k) && Date.now() - k < WATCHDOG_KICK_COOLDOWN_MS) return
     }
-    mkdirSync(join(WORKTREE, '.workbuddy'), { recursive: true })
+    mkdirSync(join(WORKTREE, '.ihui-agent', 'state'), { recursive: true })
     writeFileSync(WATCHDOG_KICK, new Date().toISOString(), 'utf8')
     log(
       `⚠️ 凭据/停摆巡检心跳已 ${(ageMs / 3600000).toFixed(1)} 小时未更新(任务被删/停用或 node 路径失效都会是这个形态)⇒ 重注册任务 + 就地拉起一轮`,
@@ -3196,7 +3196,7 @@ function watchWatchdog() {
 /**
  * 元运维巡检的**心跳消费者**(2026-10-17 立)。
  *
- * 盲区:巡检由本文件的 `auditOpsPatrol()` 派发,并每轮落 `.workbuddy/ops-patrol-last.json`。
+ * 盲区:巡检由本文件的 `auditOpsPatrol()` 派发,并每轮落 `.ihui-agent/state/ops-patrol-last.json`。
  * 但那份心跳**一直只有写入者、没有读者** —— 巡检自己停摆时(调度器瞎了、auditOpsPatrol
  * 被并发提交整份写回而静默消失、脚本抛错早退),账面没有任何一格会红:它判的是"别的任务
  * 没在跑",而"它自己没在跑"没有任何判据。这正是本仓反复记的那一型:故障形态是**安静**。
@@ -3211,8 +3211,8 @@ function watchWatchdog() {
  *   - 判定为超时 ⇒ 日志 + 起跳自愈,同样**不直接发信**(起跳那一轮跑完会自己按尺度报);
  *   - 任何异常只写日志,不改本守护退出码(它是调度层,不是判据)。
  */
-const PATROL_HEARTBEAT = join(WORKTREE, '.workbuddy', 'ops-patrol-last.json')
-const PATROL_KICK = join(WORKTREE, '.workbuddy', 'ops-patrol-kick.ts')
+const PATROL_HEARTBEAT = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-last.json')
+const PATROL_KICK = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-kick.ts')
 // 阈值在**函数内**按 `OPS_PATROL_INTERVAL_MS` 惰性求值:那个常量定义在本文件更下方(派发点那一节),
 // 在模块顶层这里直接引用会踩 TDZ(`Cannot access before initialization`)—— 实测导入即崩。
 const PATROL_STALL_FACTOR = 3
@@ -3297,13 +3297,13 @@ export function watchPatrolHeartbeat(opts = {}) {
  *  ③ 判"未判定"与"没跑到"**不得静默**:尺子 exit 3 或 JSON 取不到时只写日志、不发信 ——
  *     发一封"我什么都没量到"的邮件是把噪音冒充成告警;但日志必须点名原因,不得沉默。
  */
-const PUBLIC_PROBE_TICK = join(WORKTREE, '.workbuddy', 'public-path-probe-tick.ts')
-const PUBLIC_PROBE_LAST = join(WORKTREE, '.workbuddy', 'public-path-probe-last.json')
+const PUBLIC_PROBE_TICK = join(WORKTREE, '.ihui-agent', 'state', 'public-path-probe-tick.ts')
+const PUBLIC_PROBE_LAST = join(WORKTREE, '.ihui-agent', 'state', 'public-path-probe-last.json')
 const PUBLIC_PROBE_INTERVAL_MS = Number(process.env.IHUI_PUBLIC_PROBE_INTERVAL_MS || 30 * 60 * 1000)
 /** 尺子最坏墙钟:90 次公网 × 上限 15s 的极端不可能全中,但一次守护不能被网络拖死 ⇒ 硬超时 */
 const PUBLIC_PROBE_TIMEOUT_MS = Number(process.env.IHUI_PUBLIC_PROBE_TIMEOUT_MS || 240_000)
 /** 持续性门槛的状态件:按身份记"同一结论连了几轮" */
-const PUBLIC_PROBE_STREAK_FILE = join(WORKTREE, '.workbuddy', 'public-path-probe-streak.json')
+const PUBLIC_PROBE_STREAK_FILE = join(WORKTREE, '.ihui-agent', 'state', 'public-path-probe-streak.json')
 /**
  * 同一身份连续第几轮越阈才到人。**默认 2 = 最长约 30 分钟**(一轮节流 30 分钟)。
  * 这个数不是拍的:2026-10-16 现读的健康轮里,公网 10 次采样已出现 1 条 9971ms(慢样本率正好
@@ -3318,7 +3318,7 @@ const PUBLIC_PROBE_STREAK_TTL_MS = Number(process.env.IHUI_PUBLIC_PROBE_STREAK_T
  * 2 分钟一轮太贵、每天一轮又兜不住"环停了 3 小时"这一型 ⇒ 15 分钟。
  * 两个执行体(2 分钟计划任务 + 常驻 daemon)**共用这一个戳**,谁先到谁干活。
  */
-const OPS_PATROL_TICK = join(WORKTREE, '.workbuddy', 'ops-patrol-tick.ts')
+const OPS_PATROL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-tick.ts')
 const SERVICE_HEAL_INTERVAL_MS = Number(process.env.IHUI_SERVICE_HEAL_INTERVAL_MS || 30 * 60 * 1000)
 
 /**
@@ -3335,7 +3335,7 @@ const SERVICE_HEAL_INTERVAL_MS = Number(process.env.IHUI_SERVICE_HEAL_INTERVAL_M
  * (§12d 静默回滚温床)迟迟不修。env 可调。
  */
 const WORKTREE_HEAL_INTERVAL_MS = Number(process.env.IHUI_WORKTREE_HEAL_INTERVAL_MS || 5 * 60 * 1000)
-const WORKTREE_ALIGN_TICK = join(WORKTREE, '.workbuddy', 'worktree-align-tick')
+const WORKTREE_ALIGN_TICK = join(WORKTREE, '.ihui-agent', 'state', 'worktree-align-tick')
 const SERVICE_HEAL_TIMEOUT_MS = Number(process.env.IHUI_SERVICE_HEAL_TIMEOUT_MS || 420_000)
 
 /**
@@ -3366,10 +3366,10 @@ export function healUnresponsiveServices(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = SERVICE_HEAL_INTERVAL_MS,
-    tickFile = join(WORKTREE, '.workbuddy', 'service-heal-tick.iso'),
-    cappedFile = join(WORKTREE, '.workbuddy', 'service-heal-capped-first.json'),
-    offlistFile = join(WORKTREE, '.workbuddy', 'service-offlist-down-first.json'),
-    blindFile = join(WORKTREE, '.workbuddy', 'service-heal-blind-first.json'),
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'service-heal-tick.iso'),
+    cappedFile = join(WORKTREE, '.ihui-agent', 'state', 'service-heal-capped-first.json'),
+    offlistFile = join(WORKTREE, '.ihui-agent', 'state', 'service-offlist-down-first.json'),
+    blindFile = join(WORKTREE, '.ihui-agent', 'state', 'service-heal-blind-first.json'),
     logger = log,
     notify = notifyGuardRed,
     runner = null,
@@ -3561,8 +3561,8 @@ const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 1
 // 各只持续了 2 轮就自己回绿(05:21Z 64,205>60,000、05:36Z 64,289 ⇒ 05:51Z 已绿;07:52Z 又一模一样),
 // 而真待修的那一族(备份停摆 63 小时、规则没上岗、副本没出机)一红就是几十轮。
 // ⇒ 3 轮掐得掉"下一轮就没了"的尖峰,压不住真故障;单轮/两轮尖峰只逐轮报名(红档与原因照旧每轮打印、
-// 每轮落 `.workbuddy/ops-patrol-last.json`),**不发信 ≠ 不留痕**(§5e-1:红了要能答"收信人能做什么")。
-const OPS_PATROL_STREAK_FILE = join(WORKTREE, '.workbuddy', 'ops-patrol-streak.json')
+// 每轮落 `.ihui-agent/state/ops-patrol-last.json`),**不发信 ≠ 不留痕**(§5e-1:红了要能答"收信人能做什么")。
+const OPS_PATROL_STREAK_FILE = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-streak.json')
 const OPS_PATROL_STREAK_REQUIRED = Number(process.env.IHUI_OPS_PATROL_STREAK || 3)
 const OPS_PATROL_STREAK_TTL_MS = Number(process.env.IHUI_OPS_PATROL_STREAK_TTL_MS || 24 * 60 * 60 * 1000)
 
@@ -3652,10 +3652,10 @@ export function auditOpsPatrol(opts = {}) {
     if (undet.length) {
       logger(`ℹ️ 元运维巡检:${undet.length} 格未判定(只登记不喊人)—— ${undet.map((x) => x.id).join(', ')}`)
       // 只报格名等于"下一轮还是同一条无名盲区"(§0.3)。原因逐格带上界 120 字符、最多 5 条,
-      // 超出部分指回 `.workbuddy/ops-patrol-last.json`(门在 --json 档也会落盘)——
+      // 超出部分指回 `.ihui-agent/state/ops-patrol-last.json`(门在 --json 档也会落盘)——
       // 这一格每 15 分钟一轮,不设界就是往守护日志里堆无限账。
       for (const x of undet.slice(0, 5)) logger(`   · 未判定原因 ${x.id}:${String(x.detail || '(门没给原因)').slice(0, 120)}`)
-      if (undet.length > 5) logger(`   · 另有 ${undet.length - 5} 格未判定,原因见 .workbuddy/ops-patrol-last.json`)
+      if (undet.length > 5) logger(`   · 另有 ${undet.length - 5} 格未判定,原因见 .ihui-agent/state/ops-patrol-last.json`)
     }
     // ── 持续性门槛(与公网探测同一份 `bumpProbeStreak`,不写第二份,§22c)──────────────
     // 身份 = 格 id;`ok` 清零、`unjudged` 不推进也不清零、`breach` +1(不足 minGapMs 的重复测量只报名)。
@@ -3706,7 +3706,7 @@ export function auditOpsPatrol(opts = {}) {
         '元运维巡检红',
         `本次红 ${findings.length} 格(实时计数只进正文,不进身份):\n${body}\n\n同一身份连续第 ${due.map((x) => `${x.id}=${bump.info[x.id].streak}`).join('、')} 轮越阈(门槛 ${effRequired} 轮,单轮尖峰不寄信)。` +
           `\n手动复现:node scripts/check-ops-patrol.mjs(只读) / --apply(顺手修可修的)` +
-          `\n连击账本:.workbuddy/ops-patrol-streak.json;盲区与逐格读数:.workbuddy/ops-patrol-last.json`,
+          `\n连击账本:.ihui-agent/state/ops-patrol-streak.json;盲区与逐格读数:.ihui-agent/state/ops-patrol-last.json`,
         {
           severity: 'warning',
           // dedupKey(§5e-1 配套,24 封):聚合告警的正文是**逐格 detail 清单**,而每格 detail
@@ -3718,7 +3718,7 @@ export function auditOpsPatrol(opts = {}) {
           // 只有"起点里没有的新格红了"(`new=`)才会立刻另开身份 —— 那才是真新增的一一个问题。
           // 逐格明细照旧全量进正文(信息量不降),实时读数照旧不进身份。
           dedupKey: (() => {
-            const epFile = join(WORKTREE, '.workbuddy', 'ops-patrol-episode-first.json')
+            const epFile = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-episode-first.json')
             const idsArr = findings.map((x) => x.id).sort()
             const ep = noteUndeterminedStreak(epFile, now, { cells: idsArr.join('+'), count: findings.length })
             const pinnedArr = String(ep.meta.cells || idsArr.join('+')).split('+').filter(Boolean)
@@ -3733,7 +3733,7 @@ export function auditOpsPatrol(opts = {}) {
     } else {
       // 零红 ⇒ 这一段结束:摘掉起点件,下一场故障从新起点算(不摘会把上一段的时长算到下一头上,
       // 而那是"刚冒头就直接进高档"的成因 —— 与"愈合半格就重寄"是同一枚硬币的两面)。
-      clearUndeterminedStreak(join(WORKTREE, '.workbuddy', 'ops-patrol-episode-first.json'))
+      clearUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-episode-first.json'))
       logger(`✅ 元运维巡检:${parsed.counts.ok} 格绿,无红(${undet.length} 格未判定)`)
     }
     return { ran: true, ok: true, findings: findings.length, undetermined: undet.length }
@@ -4023,7 +4023,7 @@ export function auditPublicPathProbe(opts = {}) {
         logger(`ℹ️ 公网路径探测 ${key}:未判定 —— ${reasons.join(' | ') || '(无原因)'}`)
       }
     }
-    if (breaches === 0 && unjudged === 0) logger('✅ 公网路径探测:已判定且未越阈值(A/B 两条序列各自的结论见 .workbuddy/public-path-probe-last.json)')
+    if (breaches === 0 && unjudged === 0) logger('✅ 公网路径探测:已判定且未越阈值(A/B 两条序列各自的结论见 .ihui-agent/state/public-path-probe-last.json)')
     return { ran: true, judged: true, breaches, unjudged }
   } catch (e) {
     logger('⚠️ 公网路径探测派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
@@ -4047,8 +4047,8 @@ export function auditPublicPathProbe(opts = {}) {
  * 进程在而腿数 0"是**状态量**,一轮就是一次事实,而且它是**事前**信号 —— 等第二轮就等于多开 15 分钟
  * "随时可能整组断腿"的危险窗口。
  */
-const TUNNEL_LEG_TICK = join(WORKTREE, '.workbuddy', 'tunnel-leg-tick.ts')
-const TUNNEL_LEG_LAST = join(WORKTREE, '.workbuddy', 'tunnel-leg-health-last.json')
+const TUNNEL_LEG_TICK = join(WORKTREE, '.ihui-agent', 'state', 'tunnel-leg-tick.ts')
+const TUNNEL_LEG_LAST = join(WORKTREE, '.ihui-agent', 'state', 'tunnel-leg-health-last.json')
 const TUNNEL_LEG_INTERVAL_MS = Number(process.env.IHUI_TUNNEL_LEG_INTERVAL_MS || 15 * 60 * 1000)
 const TUNNEL_LEG_TIMEOUT_MS = Number(process.env.IHUI_TUNNEL_LEG_TIMEOUT_MS || 90_000)
 
@@ -4060,7 +4060,7 @@ const TUNNEL_LEG_TIMEOUT_MS = Number(process.env.IHUI_TUNNEL_LEG_TIMEOUT_MS || 9
  * 而 cloudflared 服务没有 --logfile、monitoring/prometheus 里也没有 cloudflared job ⇒
  * 今天定位"公网入口慢"时只能当场临时抓一次 metrics,回答不了"什么时候开始劣化的、
  * 落点什么时候换的、回源错误率怎么走的"。这一格只做一件事:每 15 分钟把白名单指标
- * **追加一行**到 `.workbuddy/tunnel-metrics.jsonl`,让下次事故有得回放。
+ * **追加一行**到 `.ihui-agent/state/tunnel-metrics.jsonl`,让下次事故有得回放。
  *
  * 三条纪律(与腿哨同格):
  *  ① **只落盘与报数,不判红、不寄信** —— 累计值本身不构成告警语义,落点变化/进程重启
@@ -4069,8 +4069,8 @@ const TUNNEL_LEG_TIMEOUT_MS = Number(process.env.IHUI_TUNNEL_LEG_TIMEOUT_MS || 9
  *     绝不落一行"全 0"充数 —— 假台账比没台账更害人;
  *  ③ 节流而非封量,与其余派发点同语义。
  */
-const TUNNEL_METRICS_TICK = join(WORKTREE, '.workbuddy', 'tunnel-metrics-tick.ts')
-const TUNNEL_METRICS_LAST = join(WORKTREE, '.workbuddy', 'tunnel-metrics-last.json')
+const TUNNEL_METRICS_TICK = join(WORKTREE, '.ihui-agent', 'state', 'tunnel-metrics-tick.ts')
+const TUNNEL_METRICS_LAST = join(WORKTREE, '.ihui-agent', 'state', 'tunnel-metrics-last.json')
 const TUNNEL_METRICS_INTERVAL_MS = Number(process.env.IHUI_TUNNEL_METRICS_INTERVAL_MS || 15 * 60 * 1000)
 const TUNNEL_METRICS_TIMEOUT_MS = Number(process.env.IHUI_TUNNEL_METRICS_TIMEOUT_MS || 60_000)
 
@@ -4140,7 +4140,7 @@ export function auditTunnelMetrics(opts = {}) {
     if (d.restarted === true) logger(`⚠️ 隧道指标台账报数:cloudflared 进程在本轮与上一轮之间**重启过**(累计计数已归零重来,差分按 null 处理)`)
     if (d.popChanged === true) logger(`⚠️ 隧道指标台账报数:隧道落点 PoP 变了 ⇒ 上一轮 ${String(parsed.previousPops?.join('/') || '(未读)')} → 本轮 ${String((parsed.pops || []).join('/') || '(未读)')}`)
     if (Number.isFinite(d.errorsDelta) && d.errorsDelta > 0) logger(`⚠️ 隧道指标台账报数:本轮新增回源错误 ${d.errorsDelta} 次(累计 ${parsed.requestErrors ?? '(未读)'})`)
-    logger(`✅ 隧道指标台账:已落一行(腿 ${parsed.haConnections ?? '?'} 条,落点 ${(parsed.pops || []).join('/') || '(未读)'},累计请求 ${parsed.totalRequests ?? '?'},回源错误 ${parsed.requestErrors ?? '?'})⇒ ${String(parsed.ledger || '.workbuddy/tunnel-metrics.jsonl')}`)
+    logger(`✅ 隧道指标台账:已落一行(腿 ${parsed.haConnections ?? '?'} 条,落点 ${(parsed.pops || []).join('/') || '(未读)'},累计请求 ${parsed.totalRequests ?? '?'},回源错误 ${parsed.requestErrors ?? '?'})⇒ ${String(parsed.ledger || '.ihui-agent/state/tunnel-metrics.jsonl')}`)
     return { ran: true, judged: true, ok: true, ledger: parsed.ledger || null, diff: d }
   } catch (e) {
     logger('⚠️ 隧道指标台账派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
@@ -4170,7 +4170,7 @@ export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = 30 * 60 * 1000,
-    tickFile = join(WORKTREE, '.workbuddy', 'plan-closed-sweep-last.json'),
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'plan-closed-sweep-last.json'),
     logger = log,
     runner = null,
   } = opts
@@ -4246,6 +4246,94 @@ export function sweepStaleClosedRows(opts = {}) {
       : `${r.ok ? '✅' : '⚠️'} 完成即删清扫轮:${line || r.err || '未取到清扫器结论行(SWEEP-RESULT)⇒ 本轮读数未判定,不等于"账面干净"'}`,
   )
   return { ran: true, ok: r.ok, state: state ?? 'no-result-line', summary: line, reading }
+}
+
+/**
+ * 超龄认领牌代摘轮(2026-10-22 立,同日补回:这一层曾被一枚已入库的提交整段删掉而无人发现
+ * —— 代摘器物 `strip-stale-claim-marks.mjs` 仍在仓里,但没有派发点就是"造好没装车"(§0.9),
+ * 表现是超龄牌永不自清、派单面虚低。接线锁见 scripts/tests/strip-stale-claim-marks.test.mjs)。
+ * 只认器物自己打的机读行 `SWEEP-RESULT state=…`,中文文案不参与判定;取不到那一行一律未判定。
+ */
+export function sweepStaleClaimMarks(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = 30 * 60 * 1000,
+    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'stale-claim-strip-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'strip-stale-claim-marks.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 超龄认领代摘:器物不在位(scripts/strip-stale-claim-marks.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '代摘器不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 超龄认领代摘:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--apply'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true,
+              timeout: 10 * 60 * 1000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? '') }
+          } catch (e) {
+            return { ok: false, out: `${e?.stdout ?? ''}${e?.stderr ?? ''}`, err: String(e?.message ?? e) }
+          }
+        }
+  const r = run()
+  const rows = String(r.out ?? '').split(/\r?\n/)
+  const resultLine = rows
+    .map((l) => (l.match(/SWEEP-RESULT\s+state=([A-Za-z-]+)(.*)$/) ?? null))
+    .find(Boolean)
+  const kv = (key) => {
+    const m = resultLine ? String(resultLine[2]).match(new RegExp(`\\b${key}=(\\S+)`)) : null
+    return m ? m[1] : null
+  }
+  const keep = rows.filter((l) => /代摘|释放|认领|超龄|未判定|拒绝|守恒|跳过|SWEEP-RESULT|❌/.test(l))
+  const line = keep
+    .filter((l) => !/SWEEP-RESULT/.test(l))
+    .slice(-2)
+    .join(' / ')
+  const state = resultLine ? resultLine[1] : null
+  let reading = null
+  if (state === 'clean') reading = `无超龄认领牌(在册 ${kv('held') ?? '?'} 枚均未超龄,读数来自代摘器)`
+  else if (state === 'stripped')
+    reading = `代摘 ${kv('stripped') ?? '?'} 枚超龄牌(超龄 ${kv('stale') ?? '?'},仍持租约跳过 ${kv('held') ?? '?'} 枚)`
+  else if (state === 'refused') reading = `整批不落(refused:${kv('why') ?? '守恒/工作树不净'})⇒ 牌仍在,交人工`
+  logger(
+    reading !== null
+      ? `${state === 'clean' || state === 'stripped' ? '✅' : '⚠️'} 超龄认领代摘轮:${reading}${line ? ` ｜ ${line.slice(0, 160)}` : ''}`
+      : `${r.ok ? '✅' : '⚠️'} 超龄认领代摘轮:${line || r.err || '未取到代摘器结论行(SWEEP-RESULT)⇒ 本轮读数未判定,不等于"账面没有超龄牌"'}`,
+  )
+  return {
+    ran: true,
+    ok: r.ok,
+    state: state ?? 'undetermined',
+    // 机读三键原样带出(测试与问责都读这三枚):把"摘了多少"藏在中文文案里就等于没报
+    stale: kv('stale'),
+    held: kv('held'),
+    stripped: kv('stripped'),
+    summary: line,
+    reading,
+  }
 }
 
 export function auditTunnelLegHealth(opts = {}) {
@@ -4326,14 +4414,14 @@ export function auditTunnelLegHealth(opts = {}) {
         // 而唯一的出路(重启 Cloudflared)代价是 3 分钟 530,按 4h 平窗重报等于每 4 小时逼机主
         // 做一次比故障更贵的操作。现读 10-16 以来该族 8 封全是平窗重发。改后:同一段退化内
         // 只在跨 6h/24h/72h 档时重报,清掉起点即归零。
-        const held = alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.workbuddy', `tunnel-leg-${dim}-first.json`), now).firstMs, now)
+        const held = alertHeldTier(noteUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', `tunnel-leg-${dim}-first.json`), now).firstMs, now)
         const exit =
           dim === 'deprecated-source'
             ? '出路:重启 `Cloudflared` 服务让腿重选源地址。**实测代价(2026-10-16 15:40 那次)**:优雅关闭到旧进程退出约 3 分钟,期间监控现读到 `530` 与 `StopPending(公网入口将不可达)`;写"10-30 秒"是错的。不重启的后果则是源地址被删时 4 条腿同时断 ⇒ 入口长时间 530。挑低峰做,做完用本尺子复验腿数。'
             : '出路:进程在而腿数 0 ⇒ 隧道没连上 CF 边缘。①`node scripts/check-tunnel-leg-health.mjs --json` 看四维与重启账;②隧道**生命周期**落 Windows 事件日志(provider=`Cloudflared`,只到信息级:starting/stopped/graceful),用 `wevtutil qe Application "/q:*[System[Provider[@Name=\'Cloudflared\']]]" /f:XML /rd /c:20`;**运行期错误(握手/重连)不落任何地方**(stdout 被丢),那一段是结构性盲区;③本机出口 `node scripts/net-doctor.mjs`。'
         notify(
           `公网入口隧道腿异常:${dim}`,
-          `读数:${reading}\n原因:${String(d?.reason || '(尺子未给原因)')}\n尺子:scripts/check-tunnel-leg-health.mjs(netsh 地址寿命 + netstat 腿 + 进程三路现读,只读)。\n取证:node scripts/check-tunnel-leg-health.mjs --json(或读 .workbuddy/tunnel-leg-health-last.json)\n${exit}`,
+          `读数:${reading}\n原因:${String(d?.reason || '(尺子未给原因)')}\n尺子:scripts/check-tunnel-leg-health.mjs(netsh 地址寿命 + netstat 腿 + 进程三路现读,只读)。\n取证:node scripts/check-tunnel-leg-health.mjs --json(或读 .ihui-agent/state/tunnel-leg-health-last.json)\n${exit}`,
           { severity: 'warning', dedupKey: `dim=${dim};verdict=${verdict};legs=${alertCountTier(parsed.legs)};held=${held.tier}` },
         )
       } else if (verdict === 'warn') {
@@ -4348,7 +4436,7 @@ export function auditTunnelLegHealth(opts = {}) {
     // 起点清扫:本轮该维判 ok/warn(即"没在坏")就摘掉它的持续计时;unjudged 既不续命也不清零(§0.3)
     for (const [dim, d] of Object.entries(parsed.dims)) {
       const v = String(d?.verdict || '')
-      if (v === 'ok' || v === 'warn') clearUndeterminedStreak(join(WORKTREE, '.workbuddy', `tunnel-leg-${dim}-first.json`))
+      if (v === 'ok' || v === 'warn') clearUndeterminedStreak(join(WORKTREE, '.ihui-agent', 'state', `tunnel-leg-${dim}-first.json`))
     }
     if (breaches === 0 && unjudged === 0) logger(`✅ 隧道腿健康:${parsed.legs} 条腿,源地址未见废弃(${warns} 格只报数)`)
     return { ran: true, judged: true, breaches, warns, unjudged, legs: parsed.legs }
@@ -4383,8 +4471,8 @@ export function auditTunnelLegHealth(opts = {}) {
  * 清偿 = `level` 回到 `ok`(线上追平)并清掉起点;起点件由 `noteUndeterminedStreak`/
  * `clearUndeterminedStreak` 这一份通用件维护,未判定不续命也不清零。
  */
-const DEPLOY_STALL_TICK = join(WORKTREE, '.workbuddy', 'deploy-stall-tick.ts')
-const DEPLOY_STALL_FIRST = join(WORKTREE, '.workbuddy', 'deploy-stall-first.json')
+const DEPLOY_STALL_TICK = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-tick.ts')
+const DEPLOY_STALL_FIRST = join(WORKTREE, '.ihui-agent', 'state', 'deploy-stall-first.json')
 const DEPLOY_STALL_INTERVAL_MS = Number(process.env.IHUI_DEPLOY_STALL_INTERVAL_MS || 15 * 60 * 1000)
 const DEPLOY_STALL_TIMEOUT_MS = Number(process.env.IHUI_DEPLOY_STALL_TIMEOUT_MS || 120_000)
 
@@ -4504,7 +4592,7 @@ export function auditDeployStall(opts = {}) {
  *  ③ **判"未判定"不得静默也不得喊人**:尺子 rc=2 / JSON 取不到 ⇒ 只写日志并点名原因 ——
  *     发一封"我什么都没量到"的信是把噪音冒充成告警;但日志必须报名,不得沉默成"跑过了"。
  */
-const ORPHAN_AUDIT_TICK = join(WORKTREE, '.workbuddy', 'orphan-audit-tick.ts')
+const ORPHAN_AUDIT_TICK = join(WORKTREE, '.ihui-agent', 'state', 'orphan-audit-tick.ts')
 const ORPHAN_AUDIT_INTERVAL_MS = Number(process.env.IHUI_ORPHAN_AUDIT_INTERVAL_MS || 30 * 60 * 1000)
 /** 尺子是纯只读 git 问答,正常 <1s;给 2 分钟硬上限只为"一次守护绝不被它拖死"(守门 80 同取向) */
 const ORPHAN_AUDIT_TIMEOUT_MS = Number(process.env.IHUI_ORPHAN_AUDIT_TIMEOUT_MS || 120_000)
@@ -5296,6 +5384,9 @@ function main() {
     // "碰台账的提交",而把旧已勾行带回 HEAD 的那枚提交可以不碰台账 ⇒ 这一层按同一判据清扫。
     // 节流 30 分钟、判据 import 门 229、不改本守护退出码(清台账失败 ≠ .git 失败)。
     if (!CHECK_ONLY) sweepStaleClosedRows()
+    // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
+    // 正在干活的席位会续租 ⇒ 天然落在射程外;裸标记由器物自己按 CL4 同批依据代摘。
+    if (!CHECK_ONLY) sweepStaleClaimMarks()
     if (!CHECK_ONLY) auditTunnelMetrics()
     // 部署停摆:判据写 45 分钟阈值,而凭据巡检那支班每 6 小时才量一趟(现读 09:37/15:37)⇒ 阈值与
     // 节律差两个数量级等于没有判据。本格按 15 分钟量,身份 = tip + 最近一次成功部署时刻。
@@ -5400,13 +5491,13 @@ function startDaemon() {
         // 收敛器收尾对齐停摆喊人(票 O74;与 main() 单轮路径同一挂点语义,notify 内部
         // 还有一层 CHECK_ONLY/去重保护,双执行体并存也不会翻倍发信)
         checkConvergeAlignStall()
-        // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .workbuddy/ops-patrol-tick.ts 节流戳
+        // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .ihui-agent/state/ops-patrol-tick.ts 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
         auditOpsPatrol()
-        // 同一挂点语义:与 main() 单轮路径共用 .workbuddy/service-heal-tick.iso 节流戳
+        // 同一挂点语义:与 main() 单轮路径共用 .ihui-agent/state/service-heal-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会把同一台服务重启两遍。
         healUnresponsiveServices()
-        // TEMP 夹具清扫:与 main() 单轮路径共用 .workbuddy/temp-scrub-tick.iso 节流戳
+        // TEMP 夹具清扫:与 main() 单轮路径共用 .ihui-agent/state/temp-scrub-tick.iso 节流戳
         // ⇒ 双执行体并存时只有先到那一个真删,不会把同一批夹具删两遍(第二遍也只是"无候选",
         // 但日志会多一行噪声,更重要的是节流语义必须与其余各层一致)。
         scrubTempFixtures()
@@ -5438,7 +5529,7 @@ function startDaemon() {
  *  ③ 动作失败不改守护退出码、也不发信:它不是判据红,是一次没做成的清理。但**必须留一行 ⚠️**,
  *     因为"这一层根本没跑"与"跑了没候选"在日志里必须不同形。
  */
-const TEMP_SCRUB_TICK = join(WORKTREE, '.workbuddy', 'temp-scrub-tick.iso')
+const TEMP_SCRUB_TICK = join(WORKTREE, '.ihui-agent', 'state', 'temp-scrub-tick.iso')
 const TEMP_SCRUB_INTERVAL_MS = Number(process.env.IHUI_TEMP_SCRUB_INTERVAL_MS || 24 * 60 * 60 * 1000)
 const TEMP_SCRUB_MIN_AGE_DAYS = Number(process.env.IHUI_TEMP_SCRUB_MIN_AGE_DAYS || 7)
 /** 清扫器要遍历整个 TEMP(实测这台机 4.6 万个条目);给 5 分钟硬上限,超时只算"本轮没跑成"。 */
@@ -5580,7 +5671,7 @@ const TEMP_LANDING_INTERVAL_MS = Number(
   process.env.IHUI_TEMP_LANDING_INTERVAL_MS || 24 * 60 * 60 * 1000,
 )
 const TEMP_LANDING_TIMEOUT_MS = 60_000
-const TEMP_LANDING_TICK = join(WORKTREE, '.workbuddy', 'temp-landing-tick.ts')
+const TEMP_LANDING_TICK = join(WORKTREE, '.ihui-agent', 'state', 'temp-landing-tick.ts')
 
 export function auditTempLanding(opts = {}) {
   const {
@@ -5693,6 +5784,7 @@ export const __test__ = {
   auditPublicPathProbe,
   auditTunnelLegHealth,
   sweepStaleClosedRows,
+  sweepStaleClaimMarks,
   auditTunnelMetrics,
   bumpProbeStreak,
   parseNotifyState,
