@@ -76,7 +76,7 @@ t('X5 两路一致+一路不一致 ⇒ 取一致值(单源异常不顶死整格)
 })
 
 t('X6 台账缺文件/JSON 坏 ⇒ unjudged 且点名(analyze 走注入 fetch,零真网络)', async () => {
-  const fakeFetch = async (u) => okSrc(EXPECT)
+  const fakeFetch = async (_u) => okSrc(EXPECT)
   const miss = await T.analyze({ ledgerPath: 'Z:/definitely/not/here-eo.json', fetchImpl: fakeFetch, nowMs: NOW, env: {} })
   if (miss.state !== 'unjudged' || miss.exit !== 2 || !/台账读不到/.test(miss.counts.fatal || '')) fail(JSON.stringify(miss.counts))
   const dir = mkScratch('eo-drift-')
