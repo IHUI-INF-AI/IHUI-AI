@@ -4156,7 +4156,10 @@ export function auditTunnelMetrics(opts = {}) {
  * 不在此重写:清扫器 import 门 229 的 `staleClosedVerdict`(§0.6 单一实现)。
  *
  * 纪律:
- *  - **节流 30 分钟**(清扫是一次对象空间落地 + 一次推送,每 2 分钟一轮会把共享仓刷爆);
+ *  - **节流 5 分钟**(2026-10-23 由 30 分钟下调):清扫是一次对象空间落地 + 一次推送,太密会把共享仓
+ *    刷爆;但 30 分钟那一档实测**跟不上造的速度** —— 结清提交每分钟都在落地(03:12/03:14/03:20/
+ *    03:25 各一枚),而清扫一拍只摘一次 ⇒ 存量永远在涨。5 分钟这一档不会刷仓:无滞留时清扫器
+ *    直接 exit 0、零落地零推送,只有真有滞留才产生一次提交。
  *  - 先落"已尝试"再派发(与收尾对齐自愈同一取舍:台账写不下去时宁可多跑一轮也不裸奔,
  *    但节流与熔断不能双双失效);
  *  - 旁路落地不跑 post-commit ⇒ 推送腿由清扫器自带(不推就等于没删,AGENTS §5b 回潮通道①);
@@ -4169,7 +4172,8 @@ export function auditTunnelMetrics(opts = {}) {
 export function sweepStaleClosedRows(opts = {}) {
   const {
     now = Date.now(),
-    intervalMs = 30 * 60 * 1000,
+    // 2026-10-23:30min → 5min(理由见本函数头注)。无滞留那一档零落地,不会刷爆共享仓。
+    intervalMs = 5 * 60 * 1000,
     tickFile = join(WORKTREE, '.ihui-agent', 'state', 'plan-closed-sweep-last.json'),
     logger = log,
     runner = null,
