@@ -5,6 +5,7 @@
 import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
+import { devEnvRoot } from '../seal-c-root-stray.mjs'
 
 // ════════════════════════════════════════════════════════════════════════════
 // psql 客户端定位 —— 全仓唯一一份实现(G-815987,2026-10-07)。
@@ -32,6 +33,19 @@ import { spawnSync } from 'node:child_process'
 
 const DEFAULT_PG_PROGRAM_FILES = 'C:/Program Files/PostgreSQL'
 const LEGACY_DEVENV_PSQL = 'D:\\DevEnv\\runtimes\\pgsql\\bin\\psql.exe'
+
+/**
+ * PG 二进制目录与备份目录的唯一推导(G-343):此前 pg-restore-drill / pg-backup-cadence-audit /
+ * pg-restore-app-reads 各抄一份同式,pgsql 覆盖名先后顺序因此有漂开的风险。
+ * 覆盖名优先于 DevEnv 推导是本仓的既有契约;DevEnv 根本身(盘符回退、仓内 .DevEnv、夹具闸)
+ * 一律问 seal-c-root-stray 的 devEnvRoot(),本层不重复推导。
+ */
+export function pgBinDir(env = process.env) {
+  return env.IHUI_PG_BIN_DIR || join(devEnvRoot(), 'runtimes', 'pgsql', 'bin')
+}
+export function backupPgDir(env = process.env) {
+  return env.IHUI_BACKUP_PG_DIR || join(devEnvRoot(), 'backups', 'pg')
+}
 /**
  * 自动探测根清单(2026-10-18 补第二档)。
  *

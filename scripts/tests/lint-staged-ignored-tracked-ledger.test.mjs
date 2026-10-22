@@ -36,10 +36,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { __test__ as WM } from '../watermark.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const LEDGER_REL = 'scripts/data/lint-staged-ignored-tracked.json'
@@ -523,6 +524,114 @@ test('T12 bootstrap 预演(纯函数,不碰 git):把未入库的 A 档出口件�
       `预演后 ${d} 仍会炸却不在 B/C 档 ⇒ A 档出口件没真接住它(检查 pattern 与目录名里的元字符)`,
     )
   }
+})
+
+/**
+ * T13 的三臂夹具。为什么必须落在 scratch(T13 头注):lint-staged 会真改工作树并 `git add`,
+ * 在真仓里 stage 归档件等于替主控席做提交前的索引写操作(本票禁止)。
+ */
+const { default: lintStaged } = await import(
+  pathToFileURL(path.join(ROOT, 'node_modules/lint-staged/lib/index.js')).href
+)
+
+function gitAt(dir, args) {
+  return execFileSync('git', args, {
+    cwd: dir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    maxBuffer: 64 * 1024 * 1024,
+  })
+}
+
+/** 复刻 `.ihui-agent/tmp` 形状:被忽略子树 + 一棵已跟踪的台账 md + 根配置的 `*.md` 任务。 */
+function makeOutletFixture({ outlet }) {
+  const dir = mkScratch('ls-outlet-e2e-')
+  const write = (rel, text) => {
+    const abs = path.join(dir, ...rel.split('/'))
+    mkdirSync(path.dirname(abs), { recursive: true })
+    writeFileSync(abs, text)
+  }
+  gitAt(dir, ['init', '-q'])
+  write('.gitignore', '.agent/*\n')
+  write(
+    'package.json',
+    JSON.stringify({ 'lint-staged': { '*.md': 'node mutate.mjs' } }, null, 2),
+  )
+  write(
+    'mutate.mjs',
+    "import { appendFileSync } from 'node:fs'\nfor (const f of process.argv.slice(2)) appendFileSync(f, '\\nmutated\\n')\n",
+  )
+  write('root.md', '# root\n')
+  write('.agent/tmp/ledger.md', '# ledger\n')
+  if (outlet !== 'absent') {
+    write('.agent/tmp/.lintstagedrc.json', JSON.stringify({ '*.archive-noop': 'node -e 0' }, null, 2))
+  }
+  gitAt(dir, ['add', '--', '.gitignore', 'package.json', 'mutate.mjs', 'root.md'])
+  gitAt(dir, ['add', '-f', '--', '.agent/tmp/ledger.md'])
+  if (outlet === 'tracked') gitAt(dir, ['add', '-f', '--', '.agent/tmp/.lintstagedrc.json'])
+  return dir
+}
+
+async function runLintStaged(dir) {
+  const lines = []
+  const collect = (...args) => lines.push(args.join(' '))
+  // 不能开 quiet:configureLogger 在 quiet 下把 log/warn 换成 noop,
+  // 而 "Failed to stage changes from tasks!" 走的正是 logger.log ⇒ 开了就再也断言不到。
+  // logger 是 index.js 的**第二个参数**(不是 options 字段),放错位置就落回 console,
+  // 断言面读到空串 —— 这是本用例初版实际踩到的坑。
+  const ok = await lintStaged(
+    {
+      cwd: dir,
+      quiet: false,
+      stash: false,
+      revert: false,
+      allowEmpty: true,
+      concurrent: false,
+    },
+    { error: collect, warn: collect, log: collect },
+  )
+  return { ok, text: lines.join('\n') }
+}
+
+const indexBlob = (dir, rel) => gitAt(dir, ['show', `:${rel}`])
+
+async function runOutletArm(outlet) {
+  const dir = makeOutletFixture({ outlet })
+  try {
+    const result = await runLintStaged(dir)
+    return {
+      ...result,
+      ledger: indexBlob(dir, '.agent/tmp/ledger.md'),
+      root: indexBlob(dir, 'root.md'),
+    }
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+}
+
+/**
+ * T13 三臂端到端:出口机制只在"就近 config 已入库"时生效。
+ * 取材面刻意不用真仓 —— 本票禁止任何 git 写操作;夹具在 scratch 里 git init,
+ * 复刻 `.ihui-agent/tmp` 的"已跟踪 ∧ 被忽略 ∧ 命中根 glob"形状。
+ */
+test('T13 三臂端到端(scratch 夹具):出口件入库 ⇒ 子树整目录跳过且根任务照常;缺出口/未入库 ⇒ 仍复现 Failed to stage', async () => {
+  const noOutlet = await runOutletArm('absent')
+  assert.equal(noOutlet.ok, false, '无出口件竟然成功 ⇒ 夹具没复现炸点,本测试无牙')
+  assert.match(noOutlet.text, /Failed to stage changes from tasks!/, '无出口件未报出 lint-staged 的 staging 失败')
+
+  const trackedOutlet = await runOutletArm('tracked')
+  assert.equal(trackedOutlet.ok, true, '出口件已入库却仍失败 ⇒ 就近空转机制失效')
+  assert.doesNotMatch(trackedOutlet.text, /Failed to stage changes from tasks!/, '出口件已入库仍报 staging 失败')
+  assert.equal(trackedOutlet.ledger, '# ledger\n', '被忽略子树的文件仍被任务改写/重新 add ⇒ 出口桶没接住它')
+  assert.match(trackedOutlet.root, /mutated/, '根配置的 *.md 任务没有照常执行 ⇒ 出口射程外溢')
+
+  const untrackedOutlet = await runOutletArm('untracked')
+  assert.equal(untrackedOutlet.ok, false, '出口件只在盘上未入库却成功 ⇒ "已跟踪"不再是承重条件,判据要重写')
+  assert.match(
+    untrackedOutlet.text,
+    /Failed to stage changes from tasks!/,
+    '未入库的出口件没有复现失败 ⇒ 反证臂没有牙',
+  )
 })
 
 /** 核心取材/判定小工具,供别处 import(§22d 双形态:被 import 时不触发任何 CLI 动作)。 */
