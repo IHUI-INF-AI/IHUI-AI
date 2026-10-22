@@ -179,7 +179,10 @@ import { collectIdFace } from './lib/plan-id-face.mjs'
 // 守门 194 同题查重(2026-10-13):指纹判据只此一份,取号器不另写"什么算同题"
 import { extractTaskFingerprint, findSameFingerprint } from './check-plan-task-duplicates.mjs'
 // 复合主键判据的唯一实现(台账层与归并器共用同一份;本器不得再抄一份 —— 两处算同一个键必漂移)。
-import { compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
+// F9「同号不同题」同一条:成组口径取 `auditPlan().f9Declared`(台账层),全已勾降档取 `narrowF9Face`
+// (CLI 层,与合并落地闸/`--gate` 同一份),点名文案取 `f9GroupLine`(三处共用的唯一出口)。
+import { compositeKeyOf, auditPlan, f9GroupLine } from './lib/plan-task-index.mjs'
+import { narrowF9Face } from './plan-tasks.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
 // G-1079146(2026-10-08):git 派生的唯一 transport(绝对路径 + 显式 stdio + windowsHide + 数字 timeout
@@ -1403,40 +1406,29 @@ export function parseDupAllow(raw = '') {
  *   · 守门 194 判的是"同题多号",方向相反。
  * ⇒ 后果是两席按同一个号各领一张票:派单面虚高,正是"打架重复做"的机器成因。
  *
- * 只拦**本次真新增**:额度 = 被本次操作换掉的同号行数(就地改写与让号都是"删一条加一条",
- * 那是 §1 建议的正当修法,不抵扣就会与取号器互搏)。存量(父提交里已撞)只报数不拦 ——
- * 拿别人留下的账钉红每一次落地,结局是逼人绕开本器改用 pathspec 硬交(§12e 恒红门同一条)。
- * 已勾行不占派单面(清扫器会摘),故不进射程;同号且同题也不归本闸(F1/194 负责)。
+ * 尺子**不在本器里**:什么算一次撞号,由台账层 F9 那一份判(`lib/plan-task-index.mjs` 的
+ * `f9Faces().collisions` 声明位档,再经 `plan-tasks.mjs` 的 `narrowF9Face` 做"组内全已勾 ⇒ 只报数"
+ * 降档)。本器只回答一件额外的问句:**这一组是不是本次写盘新增的**(底稿面没有、落地面才有)。
+ * 为什么必须问窄面而不是自算:合并落地闸(`git-sync-converge.mjs`)与 `plan-tasks.mjs --gate` 吃的
+ * 都是这一个面;本器若自造分组(第一版就是这样,按 `r.key` 当编号分组),就会出现"本器拦的形态
+ * 门看不见、门拦的形态本器放行"两套账面 —— 而同号不同题的红只在落地这一刻最便宜,分叉等于白拦。
+ *
+ * 只拦**本次真新增**:存量(底稿里已在撞)只报数不拦 —— 拿别人留下的账钉红每一次落地,
+ * 结局是逼人绕开本器改用 pathspec 硬交(§12e 恒红门同一条)。
+ * 就地改写与让号天然不落这一档:两种修法落地后该号都只剩一个标题 ⇒ F9 不成组,无需额度抵扣。
+ * 同号**且同题**也不归本闸(那是"同一件事被抄了两遍",F1 与守门 194 负责)—— F9 按标题成组,
+ * 同题自动不成组,所以这一条让界同样不需要本器自己写判据。
  */
-export function judgeNewIdCollisions({ baseLines = [], newLines = [], removedLines = [] } = {}) {
-  // 两面都空 ⇒ 判据没读到输入,不记绿也不冒红(§0.3)
-  if (baseLines.length === 0 && newLines.length === 0)
+export function judgeNewIdCollisions({ baseText, nextText } = {}) {
+  // 输入取不到 ⇒ 未判定:把"没读到内容"读成"没有撞号"就是假绿(§0.3)。
+  // 底稿空串是合法输入(全新文档 ⇒ 本次写的每一组都是新增),故只认类型不认空。
+  if (typeof baseText !== 'string' || typeof nextText !== 'string' || nextText.trim() === '')
     return { blocked: [], preexisting: [], undetermined: true }
-
-  // 号 ⇒ 该号下的未勾登记行。行解析复用 parseTaskRows(台账层与归并器同一份),不另写 checkbox 语法。
-  const openRowsByKey = (lines) => {
-    const m = new Map()
-    for (const r of parseTaskRows(lines.join('\n'))) {
-      if (r.state !== 'open' || !r.key) continue
-      if (!m.has(r.key)) m.set(r.key, [])
-      m.get(r.key).push(r.raw)
-    }
-    return m
-  }
-  const base = openRowsByKey(baseLines)
-  const next = openRowsByKey(newLines)
-  const quota = openRowsByKey(removedLines)
-
+  const face = (text) => narrowF9Face(auditPlan(text), text).collisions
+  const baseKeys = new Set(face(baseText).map((g) => g.key))
   const blocked = []
   const preexisting = []
-  for (const [id, rows] of next) {
-    if (rows.length < 2) continue
-    // 同题同号是"同一件事被抄了两遍",归 F1/守门 194,本闸不抢它的活
-    if (new Set(rows.map((r) => extractTaskFingerprint(r) ?? r)).size < 2) continue
-    const added = rows.length - (base.get(id)?.length ?? 0) - (quota.get(id)?.length ?? 0)
-    if (added > 0) blocked.push({ id, rows })
-    else preexisting.push({ id, rows })
-  }
+  for (const g of face(nextText)) (baseKeys.has(g.key) ? preexisting : blocked).push(g)
   return { blocked, preexisting, undetermined: false }
 }
 
@@ -1820,24 +1812,16 @@ async function main() {
     // 同号不同题闸(2026-10-22 立,判据与理由见函数定义处注释)。为什么必须在 writeBlob 之前:
     // 与上面畸形号守卫同一条理由 —— 内容一旦 commit,再 exit 1 就是把"已入库"谎报成"没落地"。
     {
-      const col = judgeNewIdCollisions({
-        baseLines: baseContent.split('\n'),
-        newLines: nextLines,
-        removedLines: effReplacements ? effReplacements.map((p) => p.before) : [],
-      })
+      const col = judgeNewIdCollisions({ baseText: baseContent, nextText: nextLines.join('\n') })
       if (col.undetermined) {
-        console.error('❌ 同号唯一性复验取不到输入(底稿与新内容都空)⇒ 未判定,拒绝落地(§0.3)')
+        console.error('❌ 同号唯一性复验取不到输入(底稿或新内容不成文本)⇒ 未判定,拒绝落地(§0.3)')
         process.exit(2)
       }
       if (col.blocked.length > 0) {
         console.error(
-          `❌ 落地前复验:本次要写入的内容里有 ${col.blocked.length} 组**同一编号挂着不同的题**⇒ 拒绝落地:`,
+          `❌ 落地前复验:本次要写入的内容新增了 ${col.blocked.length} 组**同一编号挂着不同标题**⇒ 拒绝落地:`,
         )
-        for (const g of col.blocked.slice(0, 4)) {
-          console.error(`   · ${g.id} 共 ${g.rows.length} 题`)
-          for (const r of g.rows.slice(0, 3))
-            console.error(`       ${r.replace(/\s+/g, ' ').slice(0, 72)}`)
-        }
+        for (const g of col.blocked.slice(0, 4)) console.error(`   · ${f9GroupLine(g)}`)
         console.error(
           '   成因:号会随归并/清扫/收编滞后副本在活文档里进出,"取号那一刻空闲"不等于"落地那一刻还空闲";' +
             '而 F1(编号+标题逐字等值)与守门 194(同题多号)都看不见这一型 ⇒ 两席按同一个号各领一张票。\n' +

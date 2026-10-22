@@ -36,11 +36,13 @@ import {
   bodyOfRow,
 } from '../lib/plan-task-index.mjs'
 import { gitRaw } from '../lib/face-reader.mjs'
+import { normalizeRecord } from '../lib/plan-fields.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   countNewUndisposed,
   collectDirtyPaths,
   collectHeadPaths,
+  dispositionSummary,
   excludeInflightRows,
   fileConflictOverlay,
   f9GroupLine,
@@ -2221,5 +2223,53 @@ test('LG3 变异锁:把 verdict 当布尔 ⇒ 必读红(四态对象恒真,布�
   const want = new Set(['proven', 'absent', 'beyond-window', 'undetermined'])
   if (domain.size !== want.size || [...want].some((v) => !domain.has(v)))
     throw new Error(`blobInAncestry 真值域漂了:实得 ${[...domain].sort().join(',')} ⇄ 应为 ${[...want].sort().join(',')}`)
+})
+
+test('派单面必须自报"靠什么判"(dispositionSummary)', () => {
+  // 夹具取**确定命中**的措辞:owned-elsewhere 那一档是纯正则(`归属:`),而 waiting-human
+  // 那档挂着四道语法辖域护栏(见 DISPOSITION_RULES 头注),拿它当夹具会让测试测的是护栏而不是接线。
+  const rows = [{ raw: '- [ ] G-1 甲 归属:门 130 持有人' }, { raw: '- [ ] G-2 乙 可做' }]
+
+  // ① 侧车零条记录(空 map 且**不是**未判定)⇒ 每一枚仍靠散文,数由判据自己数出来
+  const proseOnly = dispositionSummary(rows, { map: new Map(), undetermined: false })
+  if (proseOnly.fields !== 0) throw new Error(`侧车空时 fields 必须是 0,实得 ${proseOnly.fields}`)
+  if (proseOnly.prose !== rows.length)
+    throw new Error(`侧车空时 prose 必须是全部 ${rows.length} 枚,实得 ${proseOnly.prose}`)
+  if (!/仍靠散文判定 2 枚/.test(proseOnly.line))
+    throw new Error(`汇总行必须报名散文依赖面,实得:${proseOnly.line}`)
+
+  // ② 侧车取不到 ⇒ 未判定,绝不能被读成"零散文依赖"(§0.3:取不到输入不记绿也不冒红)
+  const und = dispositionSummary(rows, { map: new Map(), undetermined: true })
+  if (und.undetermined !== true) throw new Error('undetermined 必须透传到汇总面')
+  if (!/未判定/.test(und.line)) throw new Error(`未判定必须写进那一行,实得:${und.line}`)
+
+  // ③ 命中侧车的那一枚改由字段判 ⇒ prose 随之减一("搬一条少一条"的机器凭据)
+  const key = compositeKeyOf(rows[1].raw)
+  if (!key) throw new Error('夹具行必须能算出复合主键,否则测的是兜底 rowhash 档')
+  const norm = normalizeRecord({ key, owner: 'QODER-O81', waiting: 'none', updatedAt: '2026-10-22' })
+  if (!norm.ok) throw new Error(`夹具记录必须合法:${norm.why}`)
+  const mixed = dispositionSummary(rows, { map: new Map([[key, norm.rec]]), undetermined: false })
+  if (mixed.fields !== 1 || mixed.prose !== 1)
+    throw new Error(`命中 1 枚应 fields=1 / prose=1,实得 ${mixed.fields}/${mixed.prose}`)
+  // 散文原本"没说不能做"(兜底 actionable),侧车补上归属 ⇒ 这不是矛盾,是正常迁移
+  if (mixed.conflict !== 0) throw new Error(`正常迁移不得判成矛盾,实得 ${mixed.conflict}`)
+
+  // ④ 两侧都表了态而不一致 ⇒ 以侧车为准并置 conflict(交给门报数,绝不静默)
+  const cRaw = '- [ ] G-3 丙 归属:门 130 持有人'
+  const cKey = compositeKeyOf(cRaw)
+  const cNorm = normalizeRecord({ key: cKey, waiting: 'env', updatedAt: '2026-10-22' })
+  if (!cNorm.ok) throw new Error(`夹具记录必须合法:${cNorm.why}`)
+  const cSum = dispositionSummary([{ raw: cRaw }], { map: new Map([[cKey, cNorm.rec]]), undetermined: false })
+  if (cSum.conflict !== 1) throw new Error(`两侧表态不一致必须点名到枚,实得 ${cSum.conflict}`)
+  if (!/矛盾 1 枚/.test(cSum.line)) throw new Error(`矛盾要在行内点名,实得:${cSum.line}`)
+
+  // ⑤ 形状锁:派单过滤不得再挂在散文判据上(接线漂回去时,账面读数不变而判定面已换)
+  const CODE = readFileSync(new URL('../plan-tasks.mjs', import.meta.url), 'utf8')
+  if (/dispositionOf\(r\.raw\) === 'actionable'/.test(CODE))
+    throw new Error('派单过滤必须走 dispositionOfV2,不得留在散文判据上')
+  const at = CODE.indexOf('派单口径中"现在可做"')
+  if (at < 0) throw new Error('派单口径那行漂了 ⇒ 本形状锁的锚点需同步(不是判据变了)')
+  if (!/dispositionOfV2\(/.test(CODE.slice(Math.max(0, at - 1500), at)))
+    throw new Error('--open --dispatchable 的分桶过滤必须调 dispositionOfV2')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
