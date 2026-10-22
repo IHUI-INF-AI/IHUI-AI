@@ -1599,7 +1599,7 @@ export default function FinancePage() {
                     </thead>
                     <tbody>
                       {tuitions.map((t) => (
-                        <tr key={t.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={t.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs">{t.className}</td>
                           <td className="px-4 py-3 text-xs text-muted-foreground">{t.termName}</td>
                           <td className="px-4 py-3 text-xs font-medium">{t.feeName}</td>
@@ -1815,7 +1815,7 @@ export default function FinancePage() {
                     </thead>
                     <tbody>
                       {payments.map((p) => (
-                        <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={p.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{p.studentName}</td>
                           <td className="px-4 py-3 text-xs">{p.className}</td>
                           <td className="px-4 py-3 text-xs">{p.feeName}</td>
@@ -1899,7 +1899,7 @@ export default function FinancePage() {
                     </thead>
                     <tbody>
                       {legacyPayments.map((p) => (
-                        <tr key={p.payId} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={p.payId} className="hover:bg-muted/30">
                           <td className="px-4 py-3">
                             <Badge
                               variant="secondary"
@@ -2013,7 +2013,7 @@ export default function FinancePage() {
                     </thead>
                     <tbody>
                       {refunds.map((r) => (
-                        <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={r.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{r.studentName}</td>
                           <td className="px-4 py-3 text-xs">{r.className}</td>
                           <td className="px-4 py-3 text-xs font-medium">
@@ -2171,10 +2171,7 @@ export default function FinancePage() {
                     </thead>
                     <tbody>
                       {arrearsList.map((r) => (
-                        <tr
-                          key={r.enrollmentId}
-                          className="border-b last:border-0 hover:bg-muted/30"
-                        >
+                        <tr key={r.enrollmentId} className="hover:bg-muted/30">
                           <td className="px-4 py-3">
                             <input
                               type="checkbox"
@@ -2330,7 +2327,7 @@ export default function FinancePage() {
                       </thead>
                       <tbody>
                         {reminderRecords.map((m) => (
-                          <tr key={m.id} className="border-b last:border-0 hover:bg-muted/30">
+                          <tr key={m.id} className="hover:bg-muted/30">
                             <td className="px-4 py-3 text-xs">
                               {REMINDER_CHANNEL_MAP.get(m.channel) ?? m.channel}
                             </td>

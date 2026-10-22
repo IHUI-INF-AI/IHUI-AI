@@ -93,12 +93,19 @@ test('D02 判据:族 4 计数口径与 scanSource 同尺(棘轮锚点与读数�
   assert.equal(gate.countOpaqueSingles(scan), 2, JSON.stringify(scan.single))
 })
 
-test('D03 形状锁:锚点与读数都走 countOpaqueSingles,不许在门里另写一把尺', () => {
+test('D03 形状锁:锚点走共用层且必须回调用门里那把尺(不许另写一份)', () => {
   const src = readFileSync(SCRIPT_PATH, 'utf8')
-  const uses = (src.match(/countOpaqueSingles\(/g) || []).length
-  assert.ok(uses >= 4, `countOpaqueSingles 至少应有 4 个调用点(定义+读数+锚点两处),实得 ${uses}`)
-  assert.match(src, /anchor\.set\(rel, countOpaqueSingles\(/)
-  assert.match(src, /rename 基线源 HEAD blob 取不到/)
+  const lib = readFileSync(join(__dirname, '..', 'lib', 'face-scan.mjs'), 'utf8')
+  // 门侧:锚点读数都经同一个 countOf 闭包
+  assert.match(src, /headAnchors\(top, candidates, \(rel, src\) => countOpaqueSingles\(scanSource\(rel, src\)\)\)/)
+  // 共用层:两处 HEAD 读数(本路径与 rename 旧路径)都只能调注入的 countOf,不许自带判据
+  assert.match(lib, /anchor\.set\(rel, countOf\(rel, src\)\)/)
+  assert.match(lib, /anchor\.set\(p\.rel, countOf\(p\.old, osrc\)\)/)
+  assert.equal(/classifyDividerLine|classifyBorderToken/.test(lib), false, '共用层不得含业务判据')
+  assert.ok(
+    (src.match(/countOpaqueSingles\(/g) || []).length >= 2,
+    'countOpaqueSingles 至少要有定义 + 锚点闭包两处',
+  )
 })
 
 // ─── 全量档(HEAD blob)───
@@ -348,6 +355,21 @@ test('D17 缩进轨(引用块左条 / 树形导引线)不算分隔线 —— §4
       'blocking',
       '缺 pl 一半就不该豁免',
     )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D19 变体擦除不顶判:`border-b … last:border-0` 表行线必须被点名(24 枚漏在这一格)', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return <tbody>\n    <tr key={a} className="border-b border-border last:border-0" />\n  </tbody>\n}\n',
+  })
+  try {
+    const r = runHead(dir)
+    assert.match(r.stdout, /\[single-side divider\]/, `表行线必须仍被点名\n${r.stdout}`)
+    // 反向对照:真在画的整圈边不许被算成分隔线
+    assert.equal(gate.classifyDividerLine('<div className="border border-border border-t-0" />'), null)
   } finally {
     rmScratch(dir)
   }
