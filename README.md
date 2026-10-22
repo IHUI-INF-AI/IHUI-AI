@@ -123,13 +123,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3031 | `testFiles` |
+| 测试文件 | 3032 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 268 | `guardianGates` |
 | — blocking | 245 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15684 | `trackedFiles` |
+| 跟踪文件 | 15685 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,6 +6125,9 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 📚 文档:结清 G-956(影子件删除三面实证,防复发归 G-32) (ef6f3f7e27)
+
+**2026-10-22**
 - 📚 文档:补认领 G-962/G-957/G-958/G-959/G-924(登录屏批次) 加发4席 (56002665ad)
 
 **2026-10-22**
@@ -6195,20 +6198,6 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - 🔧 工程/其他:结清 G-960(探活尺子已换到真入口并加零信息自曝) (2ea8a2c611)
 - 🐞 修复:模式徽章的 aria-label 不再中英混血,并卡住那条"赌时长"的 e2e 竞态(收掉 CI 唯一剩余红) (56a8b050c8)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3a4c4fef92)
-
-**2026-10-22**
-- 🔧 工程/其他:移除 IDE 残留跟踪件 .arts/settings.json 与 .spec-mode/spec.md,tasks.md(用户明令清理全部 IDE 文件夹,内容留档 git 历史) (8a65c2ca3c)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a67b214ecc)
-- 📚 文档:登记 packages/app 登录屏 32 处可见文案写死中文,并纠正普查里传走的"门失明"误判 (6c47abadca)
-- 🔧 工程/其他:删掉随假入口一起失效的 login-oauth-* 四条样式 (321643eac8)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d0e9deb82f)
-- 🔧 工程/其他:结清 G-958 / G-959(复跑过承载性判据后翻勾),G-957 就地写清剩余面 (66294b81e5)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6eadde96d2)
-- 🐞 修复:摘掉顶着 Google 图标的假入口,H5 微信失败不再导进死路(票 G-957 可验的两格) (4ef8a7340b)
-- 🐞 修复:H5 微信登录失败不再把用户导进拿不回登录态的 webview(票 G-957 两格之一) (68137fb6e5)
-- 🐞 修复:共享登录屏两处硬编码中文取键(票 G-959),并删掉零消费的 shared.login.ssoLogin 死键 (b57d497658)
-- 🚀 新功能/改进:mobile-auth 的 clientId 改为可配(缺省仍 mobile-rn)——为票 G-957 拆掉第一块砖 (20ac42245c)
-- 🐞 修复:探活尺子的靶换成真入口,并把"整轮全 3xx"从冒认 ok 改成未判定(票 G-960) (6e2e2a1c0b)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
