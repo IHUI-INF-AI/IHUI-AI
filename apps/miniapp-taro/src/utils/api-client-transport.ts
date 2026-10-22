@@ -45,7 +45,9 @@ export function createTaroTransport(): Transport {
         method: (init.method || 'GET') as TaroMethod,
         data: typeof init.body === 'string' ? JSON.parse(init.body) : undefined,
         header: init.headers || {},
-        timeout: 30000,
+        // 小程序运行时没有 AbortController ⇒ client.ts 的看门狗给不出 signal,
+        // 超时改由这一端原生实现;调用方自定义的 timeoutMs 必须在这里落地,不能继续写死 30s。
+        timeout: init.timeoutMs && init.timeoutMs > 0 ? init.timeoutMs : 30000,
         success: (res: TaroRequestResult) => {
           // 构建大小写不敏感的 header map
           const headerMap: Record<string, string> = {}
