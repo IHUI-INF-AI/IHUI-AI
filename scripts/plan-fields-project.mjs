@@ -11,8 +11,11 @@
  * 三条不许漂的规矩：
  *  1. 只删**逐字等价**的散文句 —— 用抽取器同一份 `cleanOwner` 归一后必须与记录 owner 相等；
  *     不等价就是"侧车没覆盖这句"，删了就是丢信息(那是本仓最贵的一型:压缩切掉中段归属句 ⇒ 53 枚改判)。
+ *     且只删记录 owner 本字那一截：`归属:某某(补充) —— 叙述` 里的括号补充与叙述一律留着，
+ *     宁可少删也不把侧车没覆盖的话一起吞掉。
  *  2. 每行改完必须过 `assertRowRewriteConservation`(勾选态 ∧ 认领租约 ∧ 归属桶) 与本器自己的
  *     主键/复合主键/租约逐维等值 —— 任一不过 ⇒ 这一行不动，并点名原因。
+ *     删散文句会挪复合主键时，这条断言就是"不许删"的闸(不是注释里的一句承诺)。
  *  3. 本器**不落台账**：它只产出 `live-doc-edit.mjs` 的整行替换档与"旧形态摘除声明"。
  *     落盘只走活文档正牌入口(CAS + 结构等值 + 门 71 自愈)，旧行逐字进
  *     `.ihui-agent/state/plan-row-drop.jsonl`(门 71 与 `scrub-declared-removals` 都读它) ——
@@ -42,9 +45,44 @@ import { readFieldsFace, readPlan } from './plan-tasks.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const MAX_LEN = 400
+/** 规格 §4.3:每批 ≤40 行(与 `strip-stale-closed-rows` 的批量口径同)。 */
+export const MAX_BATCH = 40
 const DROP_REL = path.join('.ihui-agent', 'state', 'plan-row-drop.jsonl')
 /** 散文里那段归属话(与抽取器取的是同一个槽位,判定词表一律不在这里复制)。 */
 const OWNER_SPAN_RE = /归属[:：]\s*([^,，。;；\n]{1,120})/
+
+/**
+ * 只切掉"记录 owner 本字"那一截(含 `归属:` 标签),不切它后面的括号补充与叙述 ——
+ * `归属:守门 130(计划…)持有人 —— 叙述` 只删到 `守门 130`,`(计划…)持有人 —— 叙述` 全留。
+ * 返回 `null` ⇒ 这句散文不能逐字等价地删(被 48 字截断 / 后接字不是边界),调用方退回"只加标头"。
+ */
+function cutOwnerProse(rest, owner) {
+  if (!owner) return null
+  const m = OWNER_SPAN_RE.exec(rest)
+  if (!m) return null
+  const raw = m[1]
+  const lead = raw.length - raw.trimStart().length
+  if (!raw.trimStart().startsWith(owner)) return null
+  const start = m.index + m[0].length - raw.length + lead
+  let end = start + owner.length
+  const next = rest[end] ?? ''
+  // 后接字必须是分隔/边界;否则记录里的 owner 只是散文句的前缀(例如被 48 字截断),删了就是吞话。
+  if (next !== '' && !/[\s,，;；:：。.、)）(（\]】*—–]/.test(next)) return null
+  let from = m.index
+  const before = rest[from - 1] ?? ''
+  const tail = rest[end - 1] ?? ''
+  if ((before === '(' || before === '（') && (next === ')' || next === '）' || tail === ')' || tail === '）')) {
+    // `(归属:某某)` 整组只剩这一句 ⇒ 连括号一起摘,避免留下空括号
+    from -= 1
+  } else if (/[,，;；]/.test(before)) {
+    from -= 1
+    while (/\s/.test(rest[end] ?? '')) end += 1
+  } else if (/[,，;；]/.test(next)) {
+    end += 1
+    while (/\s/.test(rest[end] ?? '')) end += 1
+  }
+  return { line: rest.slice(0, from) + rest.slice(end), removed: end - from }
+}
 
 /** 逐维读数(交给断言与人工复量用;它不是第二把尺子,只是把四把既有尺子的读数摆出来)。
  *  `claim` 只取**标记本身**(不含列位):投影会在复选框与租约之间插进标头,牌的文字一字不变、
@@ -73,16 +111,19 @@ export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
   const bare = stripHeader(line)
   const prefix = /^\s*-\s*\[[ xX]\]\s*/.exec(bare)
   if (!prefix) return { action: 'skip', reason: '不是登记行形,不动' }
-  const rest = bare.slice(prefix[0].length).replace(/^\s+/, '')
+  let rest = bare.slice(prefix[0].length).replace(/^\s+/, '')
+  const owner = String(rec.owner ?? '').trim()
   const span = OWNER_SPAN_RE.exec(rest)
-  if (span && cleanOwner(span[1]) !== String(rec.owner ?? '').trim())
+  if (span && cleanOwner(span[1]) !== owner)
     return {
       action: 'skip',
       reason: `散文说的持有人与记录不等价(散文=${cleanOwner(span[1]) ?? '(截后无意义)'} / 记录=${rec.owner ?? '(空)'})⇒ 记录多半已被别人改散文顶掉,先复算侧车再投影`,
     }
-  // **只做加法**:一行正文一个字符都不删。删掉"已被侧车接管的那句散文"看着是等价的,实测会把
-  // 复合主键挪掉(现读:74 枚里两枚一插标头就取不到键,而删散文句会挪更多)—— 复合主键是
-  // 同题查重(F4/门 203)、归并裁决账、守恒器物共同的寻行键,挪键 = 把别人做完的事当成新事项。
+  // **加标头 + 删逐字等价的归属句同批**(规格 §4.3):只加标头会让 44/75 行顶破 400 字档,
+  // 只删不补则判据落空。删的仅是记录 owner 的本字那一截,括号补充与后续叙述一律留(见 cutOwnerProse)。
+  // 删散文会挪复合主键时由下面守恒断言拒绝 —— 那是"不许删"的闸,不是注释里的承诺。
+  const cut = span ? cutOwnerProse(rest, owner) : null
+  if (cut) rest = cut.line
   const candidate = prefix[0] + want + ' ' + rest
   if (candidate.length > maxLen)
     return {
@@ -113,7 +154,13 @@ export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
       dims,
     }
   dims.conserved = true
-  return { action: 'rewrite', line: candidate, additive: true, len: candidate.length, dims }
+  return {
+    action: 'rewrite',
+    line: candidate,
+    removedProse: cut?.removed ?? 0,
+    len: candidate.length,
+    dims,
+  }
 }
 
 /** 全量规划:台账面 ⊕ 同轮侧车面 ⇒ 三类读数。纯 IO 只在这一个出口里发生。 */
@@ -135,7 +182,14 @@ export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
     }
     const p = planRow(r.raw, rec, { maxLen })
     if (p.action === 'rewrite')
-      rewrite.push({ before: r.raw, after: p.line, delta: p.line.length - r.raw.length, len: p.len, key })
+      rewrite.push({
+        before: r.raw,
+        after: p.line,
+        delta: p.line.length - r.raw.length,
+        len: p.len,
+        removedProse: p.removedProse,
+        key,
+      })
     else if (p.action === 'already') already++
     else skip.push({ key, reason: p.reason ?? '(未点名)' })
   }
@@ -149,6 +203,7 @@ export function planAll({ root = ROOT, face = 'head', maxLen = MAX_LEN } = {}) {
     rewrite,
     skip,
     totalDelta: rewrite.reduce((s, x) => s + x.delta, 0),
+    totalRemoved: rewrite.reduce((s, x) => s + x.removedProse, 0),
   }
 }
 
@@ -162,11 +217,11 @@ function reportPlan(p, { limit, showSkip }) {
     `判定面:${p.face} 台账未勾行 ${p.rows} / 侧车记录 ${p.records}(其中 ${p.noRecord} 行还没有记录)`,
   )
   console.log(
-    `可投影 ${p.rewrite.length} 行(只做加法,合计加长 ${p.totalDelta} 字) / 标头已在位 ${p.already} 行 / 不动 ${p.skip.length} 行`,
+    `可投影 ${p.rewrite.length} 行(加标头并删等价归属句 ${p.totalRemoved} 字,净 ${p.totalDelta >= 0 ? '加' : '减'} ${Math.abs(p.totalDelta)} 字) / 标头已在位 ${p.already} 行 / 不动 ${p.skip.length} 行`,
   )
   const shown = p.rewrite.slice(0, limit)
   for (const r of shown)
-    console.log(`  · ${r.key} ${r.before.length}→${r.len} 字(加 ${r.delta})`)
+    console.log(`  · ${r.key} ${r.before.length}→${r.len} 字(净 ${r.delta >= 0 ? '+' : ''}${r.delta},删句 ${r.removedProse})`)
   if (p.rewrite.length > shown.length)
     console.log(`  …另 ${p.rewrite.length - shown.length} 行未逐条打印`)
   if (showSkip) for (const s of p.skip.slice(0, limit)) console.log(`  ✗ ${s.key} —— ${s.reason}`)
@@ -228,8 +283,14 @@ function selfTest() {
     updatedAt: '2026-10-22T00:00:00.000Z',
   }
   const p = planRow(line, rec)
-  ok('T1 等价散文句可换成标头', p.action === 'rewrite' && !p.line.includes('归属:门 130 持有人'))
-  ok('T2 长度近似不变', Math.abs(p.line.length - line.length) <= 4)
+  ok(
+    'T1 标头在位且正文一字不删',
+    p.action === 'rewrite' && p.line.includes('细节一:归属:门 130 持有人,细节二'),
+  )
+  ok(
+    'T2 加长量恰好等于标头 + 一个空格(加法可核对)',
+    p.action === 'rewrite' && p.line.length - line.length === renderHeader(rec).length + 1,
+  )
   ok('T3 幂等(再跑一次判 already)', planRow(p.line, rec).action === 'already')
   const mismatch = '- [ ] **G-2 乙题** 归属:另一个组持有'
   ok(
