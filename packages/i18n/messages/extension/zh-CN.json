@@ -139,10 +139,10 @@
     "login": "登录",
     "loginSubtitle": "登录您的账号以继续",
     "orUseAccount": "或使用账号登录",
-    "ssoCancelled": "SSO 登录已取消",
-    "ssoLoading": "SSO 授权中...",
-    "ssoLogin": "SSO 一键登录",
-    "ssoFailed": "SSO 登录失败"
+    "ssoCancelled": "已取消网页登录",
+    "ssoLoading": "正在等待网页登录完成…",
+    "ssoLogin": "打开网页登录",
+    "ssoFailed": "网页登录失败，请重试"
   },
   "popup": {
     "copyFailed": "复制失败",

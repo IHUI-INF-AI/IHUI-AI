@@ -139,10 +139,10 @@
     "login": "登入",
     "loginSubtitle": "登入您的帳號以繼續",
     "orUseAccount": "或使用帳號登入",
-    "ssoCancelled": "SSO 登入已取消",
-    "ssoLoading": "SSO 授權中...",
-    "ssoLogin": "SSO 一鍵登入",
-    "ssoFailed": "SSO 登入失敗"
+    "ssoCancelled": "已取消網頁登入",
+    "ssoLoading": "正在等待網頁登入完成…",
+    "ssoLogin": "打開網頁登入",
+    "ssoFailed": "網頁登入失敗，請重試"
   },
   "popup": {
     "copyFailed": "複製失敗",
