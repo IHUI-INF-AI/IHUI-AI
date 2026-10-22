@@ -145,6 +145,7 @@
     "autoLogin": "자동 로그인",
     "or": "또는",
     "ssoLoginTitle": "IHUI AI 웹 승인 로그인",
+    "ssoUnavailable": "웹 승인 로그인은 아직 지원되지 않습니다. WeChat 로그인, 휴대폰 또는 이메일 인증번호로 로그인해 주세요",
     "noAccount": "계정이 없으신가요?",
     "registerNow": "지금 회원가입",
     "agreePrefix": "읽고 동의합니다",

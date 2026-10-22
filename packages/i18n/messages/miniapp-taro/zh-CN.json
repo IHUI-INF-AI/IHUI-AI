@@ -145,6 +145,7 @@
     "autoLogin": "自动登录",
     "or": "或",
     "ssoLoginTitle": "智汇AI网页授权登录",
+    "ssoUnavailable": "网页授权登录暂不支持,请改用微信登录、手机号或邮箱验证码登录",
     "noAccount": "没有账号?",
     "registerNow": "立即注册",
     "agreePrefix": "我已阅读并同意",
