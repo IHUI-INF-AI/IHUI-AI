@@ -1744,12 +1744,15 @@ const checks = [
     script: 'scan-hardcoded-zh.mjs',
     args: ['--exit', '1'],
     mode: 'blocking',
+    // 2026-10-22 G-966:packages/app/src(共享登录屏层)并入扫描射程,注册面射程同步跟上,
+    // 否则该层的暂存提交根本不触发本门。
     stagedTriggers: [
       'apps/web/app/',
       'apps/web/src/components/',
       'apps/web/src/hooks/',
       'packages/ui-react/src/',
       'packages/shared/src/',
+      'packages/app/src/',
     ],
     skipEnv: 'HUSKY_SKIP_HARDCODED_ZH_GUARD',
     onFailHint: [
