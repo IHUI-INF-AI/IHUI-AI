@@ -43,6 +43,10 @@ export interface NormalizedChatRequest {
   tools?: unknown[]
   /** tool_choice 原样透传(WorkBuddy 上游需字符串归一) */
   toolChoice?: unknown
+  /** OpenAI response_format 原样透传(JSON mode 等) */
+  responseFormat?: unknown
+  /** 采样确定性种子 */
+  seed?: number
 }
 
 /** 适配器构造出的上游 HTTP 请求(转发层负责真正发出 + 代理出口) */

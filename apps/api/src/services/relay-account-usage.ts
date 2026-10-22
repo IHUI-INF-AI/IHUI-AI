@@ -9,11 +9,12 @@
  * 1. recordAccountUsage — 每次转发调用(成功/失败)向 ai_relay_account_usage_ledger 落一行。
  *    **fire-and-forget**:内部吞掉一切异常只记 warn,永不抛(台账失败绝不影响转发主链路)。
  * 2. getAccountUsageSummaries — 批量按 accountId 聚合近 24h calls/tokens/failRate(admin list 富化用)。
- * 3. getAccountUsage — 单账号按 days 窗口的 24h 汇总 + 明细(admin usage 端点用)。
+ * 3. getAccountUsage — 单账号按 days 窗口的 24h 汇总 + 分页明细 + 明细总数(admin usage 端点用)。
+ * 4. purgeAccountUsage — 清理早于保留期的台账行(调度每轮 sweep 触发,24h 节流)。
  *
  * 表定义 packages/database/src/schema/ai-relay.ts aiRelayAccountUsageLedger(迁移 329)。
  */
-import { and, eq, gte, inArray, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, lt, sql } from 'drizzle-orm'
 import { aiRelayAccountUsageLedger, type AiRelayAccountUsageLedger } from '@ihui/database'
 import { db, dbRead } from '../db/index.js'
 import { logger } from '../utils/logger.js'
@@ -107,37 +108,98 @@ export interface AccountUsageResult {
   days: number
   /** 近 24h 汇总(calls/tokens/failRate) */
   summary: AccountUsageSummary
-  /** days 窗口内明细(ts 倒序,最多 500 条) */
+  /** days 窗口内明细(ts 倒序,分页;默认 500 条,上限 1000) */
   detail: AiRelayAccountUsageLedger[]
+  /** days 窗口内明细总条数(不受 limit/offset 影响) */
+  detailTotal: number
+}
+
+export interface AccountUsageQueryOptions {
+  limit?: number
+  offset?: number
+}
+
+const DETAIL_LIMIT_DEFAULT = 500
+const DETAIL_LIMIT_MAX = 1000
+
+function normalizeLimit(v: number | undefined): number {
+  if (v === undefined || !Number.isFinite(v)) return DETAIL_LIMIT_DEFAULT
+  return Math.min(Math.max(Math.trunc(v), 1), DETAIL_LIMIT_MAX)
+}
+
+function normalizeOffset(v: number | undefined): number {
+  if (v === undefined || !Number.isFinite(v)) return 0
+  return Math.max(Math.trunc(v), 0)
 }
 
 /**
- * 单账号按 days 窗口的用量:24h 汇总 + 明细。任一查询失败均降级(空值/空明细),永不抛。
+ * 单账号按 days 窗口的用量:24h 汇总 + 分页明细 + 明细总数。
+ * 任一查询失败均降级(空值/空明细/0),永不抛。
  */
-export async function getAccountUsage(accountId: string, days = 7): Promise<AccountUsageResult> {
+export async function getAccountUsage(
+  accountId: string,
+  days = 7,
+  opts: AccountUsageQueryOptions = {},
+): Promise<AccountUsageResult> {
   const summary = (await getAccountUsageSummaries([accountId])).get(accountId) ?? {
     ...EMPTY_SUMMARY,
   }
+  const limit = normalizeLimit(opts.limit)
+  const offset = normalizeOffset(opts.offset)
   let detail: AiRelayAccountUsageLedger[] = []
+  let detailTotal = 0
   try {
     const since = new Date(Date.now() - days * DAY_MS)
+    const where = and(
+      eq(aiRelayAccountUsageLedger.accountId, accountId),
+      gte(aiRelayAccountUsageLedger.ts, since),
+    )
     detail = await dbRead
       .select()
       .from(aiRelayAccountUsageLedger)
-      .where(
-        and(
-          eq(aiRelayAccountUsageLedger.accountId, accountId),
-          gte(aiRelayAccountUsageLedger.ts, since),
-        ),
-      )
+      .where(where)
       .orderBy(sql`${aiRelayAccountUsageLedger.ts} desc`)
-      .limit(500)
+      .limit(limit)
+      .offset(offset)
+    const totalRows = await dbRead
+      .select({ c: sql<number>`count(*)::int` })
+      .from(aiRelayAccountUsageLedger)
+      .where(where)
+    detailTotal = totalRows[0]?.c ?? 0
   } catch (e) {
     logger.warn('[relay-account-usage] 用量明细查询失败(降级为空明细)', {
       accountId,
       error: e instanceof Error ? e.message : String(e),
     })
   }
-  return { accountId, days, summary, detail }
+  return { accountId, days, summary, detail, detailTotal }
+}
+
+/** 台账保留天数默认值;可用 RELAY_ACCOUNT_USAGE_KEEP_DAYS 覆盖。 */
+const KEEP_DAYS_DEFAULT = 30
+const KEEP_DAYS = (() => {
+  const raw = Number(process.env.RELAY_ACCOUNT_USAGE_KEEP_DAYS)
+  return Number.isFinite(raw) && raw > 0 ? raw : KEEP_DAYS_DEFAULT
+})()
+
+/**
+ * 清理早于保留期的台账行,返回删除行数。**永不抛**(失败返回 0)。
+ * 由调度每轮 sweep 调用(调度侧做 24h 节流),避免台账无限膨胀。
+ */
+export async function purgeAccountUsage(beforeDays = KEEP_DAYS): Promise<number> {
+  try {
+    const days = Number.isFinite(beforeDays) && beforeDays > 0 ? beforeDays : KEEP_DAYS_DEFAULT
+    const cutoff = new Date(Date.now() - days * DAY_MS)
+    const deleted = await db
+      .delete(aiRelayAccountUsageLedger)
+      .where(lt(aiRelayAccountUsageLedger.ts, cutoff))
+      .returning({ id: aiRelayAccountUsageLedger.id })
+    return deleted.length
+  } catch (e) {
+    logger.warn('[relay-account-usage] 台账过期清理失败(已吞)', {
+      error: e instanceof Error ? e.message : String(e),
+    })
+    return 0
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

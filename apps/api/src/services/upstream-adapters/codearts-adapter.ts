@@ -178,6 +178,9 @@ function buildChatRequest(
   // function-calling 透传(上游原生 OpenAI 形状,原样带入;签名基于同一 rawBody 字节,不受影响)
   if (req.tools !== undefined) body['tools'] = req.tools
   if (req.toolChoice !== undefined) body['tool_choice'] = req.toolChoice
+  // OpenAI 兼容面透传:JSON mode / 确定性采样
+  if (req.responseFormat !== undefined) body['response_format'] = req.responseFormat
+  if (req.seed !== undefined) body['seed'] = req.seed
   // 签名与发送必须是**同一串字节**,所以固定用 rawBody 字符串透传
   const rawBody = JSON.stringify(body)
   const sessionId = deriveSessionId(secrets.domainId, secrets.accessKeyId)

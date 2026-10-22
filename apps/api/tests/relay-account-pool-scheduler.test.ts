@@ -55,7 +55,17 @@ vi.mock('../src/config/index.js', () => ({
   config: { REDIS_URL: 'redis://127.0.0.1:1/0' },
 }))
 
-import { SWEEP_LOCK_NAME, sweepAccountPool } from '../src/services/relay-account-pool-scheduler.js'
+// 台账清理单独 mock:验证 sweep 每轮触发 + 24h 节流,不牵扯真实删除
+const mockPurgeAccountUsage = vi.hoisted(() => vi.fn().mockResolvedValue(0))
+vi.mock('../src/services/relay-account-usage.js', () => ({
+  purgeAccountUsage: mockPurgeAccountUsage,
+}))
+
+import {
+  SWEEP_LOCK_NAME,
+  __test__,
+  sweepAccountPool,
+} from '../src/services/relay-account-pool-scheduler.js'
 import {
   __test__ as sharedState,
   tryAcquireSharedLock,
@@ -91,6 +101,8 @@ beforeEach(async () => {
   accountRows = []
   selectCalls = 0
   updateCalls.length = 0
+  mockPurgeAccountUsage.mockClear()
+  __test__.resetUsagePurgeThrottle()
   await sharedState.reset()
 })
 
@@ -148,6 +160,44 @@ describe('sweepAccountPool 分布式锁', () => {
     expect(out.healthChecked).toBe(1) // unknown → checkHealth 定级
     await vi.waitFor(() => expect(updateCalls.length).toBeGreaterThan(0))
     expect(updateCalls.some((s) => s.healthStatus === 'healthy')).toBe(true)
+  })
+})
+
+describe('sweepAccountPool 台账清理与并发上限', () => {
+  it('每轮 sweep 触发一次台账清理;24h 内第二轮不再 delete', async () => {
+    await sweepAccountPool()
+    expect(mockPurgeAccountUsage).toHaveBeenCalledTimes(1)
+    await sweepAccountPool()
+    expect(mockPurgeAccountUsage).toHaveBeenCalledTimes(1)
+    // 重置节流后恢复
+    __test__.resetUsagePurgeThrottle()
+    await sweepAccountPool()
+    expect(mockPurgeAccountUsage).toHaveBeenCalledTimes(2)
+  })
+
+  it('健康检查并发不超过 5', async () => {
+    let inFlight = 0
+    let maxInFlight = 0
+    const checkHealth = vi.fn(async () => {
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      await new Promise((r) => setTimeout(r, 5))
+      inFlight--
+      return { ok: true }
+    })
+    registerRelayAdapter({
+      providerCode: 'trae',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      checkHealth,
+      isAuthFailure: (status) => status === 401,
+    } as never)
+    accountRows = Array.from({ length: 8 }, () => sweepRow())
+    const out = await sweepAccountPool()
+    expect(out.healthChecked).toBe(8)
+    expect(maxInFlight).toBeLessThanOrEqual(5)
+    expect(maxInFlight).toBeGreaterThan(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
