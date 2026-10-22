@@ -39,13 +39,11 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const TOOL = join(HERE, '..', 'object-space-land.mjs')
 const GIT = resolveGitBin() || 'git'
 
-// 门 231(暖色描边)涉事判据的**全局测试通道**。它按 `--rev <tree>` 审树,而夹具仓里那棵树是
-// 落地器用临时索引写出来的 ⇒ 真门在这里 `git ls-tree` 报 not a tree object ⇒ 判未判定 ⇒ 拒落
-// (2026-10-21 实测:本文件 26 条端到端全红就是这个原因)。设计上两枚涉事判据都留了
-// `LAND_*_GATE` 测试通道;本文件多数用例直接内联拼 env(blob 模式 / dangling 门那几族),
-// 故在模块加载时给一次全局桩 —— 需要真门行为的那几条自行覆写 extraEnv。
-// 桩不记账(与 dangling 那枚不共用 STUB_LOG)。scratch 目录随进程退出回收。
-process.env.LAND_WARM_BORDER_GATE = writeWarmBorderStub(mkScratch('osl-warm-stub-'))
+// 门 231(暖色描边)按 `--rev <tree> --only <清单> --root <被审仓根>` 审树。G-929 起门体支持
+// `--root`,落地器把夹具仓根透传过去 ⇒ 夹具仓里那棵临时索引写出来的树能被真门读到,射程外
+// 的路径按"本门不适用"放行(2026-10-22 实测:原 26 条端到端红即"门在主仓问临时仓的树"那一型)。
+// 故本文件**不再给全局桩**:桩会让真门的取材失败被掩盖,而这一票的存在理由正是"未判定不得
+// 被读成通过"。只有 T-WB 三态用例为钉传输/判决而自带会记账的桩。
 const runOpts = { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] }
 // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
 const runGit = (dir, args) =>
@@ -121,8 +119,7 @@ function makeLocaleRepo(t) {
 
 function runLand(dir, { paths = '', msg = 'chore: e2e land', baseRef, allowStale, blobs, proof, jsonStructure, extraEnv = {} } = {}) {
   const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: paths, LAND_MSG: msg, ...extraEnv }
-  // 门 231 涉事判据的测试通道(与 runLandRaw 同一口径、同一理由:夹具仓里的树真门读不到)。
-  if (!('LAND_WARM_BORDER_GATE' in extraEnv)) env.LAND_WARM_BORDER_GATE = writeWarmBorderStub(dir)
+  // 门 231 走真门:G-929 起落地器透传 --root,夹具仓的树真判(不再用桩抹平取材失败)。
   if (baseRef) env.LAND_BASE_REF = baseRef
   else delete env.LAND_BASE_REF
   if (allowStale) env.LAND_ALLOW_STALE = '1'
@@ -857,14 +854,10 @@ function runLandRaw(dir, paths, msg, extraEnv = {}) {
   for (const k of ['LAND_BLOBS', 'LAND_BLOB_PROOF', 'LAND_BASE_REF', 'LAND_ALLOW_STALE', 'LAND_DANGLING_GATE', 'IHUI_LAND_SKIP_DANGLING_GATE', 'LAND_WARM_BORDER_GATE', 'IHUI_LAND_SKIP_WARM_BORDER']) {
     if (!(k in extraEnv)) delete env[k]
   }
-  // 门 231(暖色描边)是落地器的第二枚"涉事判据":它按 `--rev <tree>` 审树,而夹具仓里那棵树
-  // 是本器用临时索引写出来的,真门在这里 `git ls-tree` 会报 not a tree object ⇒ 判未判定 ⇒
-  // 落地器拒绝落盘(2026-10-21 实测:26 条端到端全红就是这个)。
-  // 设计上两枚涉事判据都留了 `LAND_*_GATE` 测试通道(dangling 那面早已用桩);这里补上。
-  // 注意**必须放在上面那圈清理之后** —— 先设默认会被 `delete env[k]` 删掉(我第一版就踩了)。
-  // 桩单独写一枚、不记账,免得两枚桩共用 STUB_LOG 把 dangling 的 argv 断言搅浑。
-  if (!('LAND_WARM_BORDER_GATE' in extraEnv)) env.LAND_WARM_BORDER_GATE = writeWarmBorderStub(dir)
-// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+  // 门 231(暖色描边)是落地器的第二枚"涉事判据":它按 `--rev <tree> --root <仓根>` 审树。
+  // G-929 起门体认 `--root`、落地器原样透传 ⇒ 夹具仓的真树真判,不再需要桩(桩会把
+  // "取材失败 ⇒ 未判定"这条本票要盯的路径盖住)。射程外的夹具路径由门判"本门不适用"。
+  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   return spawnSync(process.execPath, [TOOL], { env, encoding: 'utf8', windowsHide: true, timeout: 180_000, maxBuffer: 64 << 20, stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
@@ -875,13 +868,6 @@ const unreachableCommits = (dir) =>
 
 // G-815985 涉事判据桩:只仿"退出码 0/1/2"的传输,不仿判据本身(判据的有牙由门体自检+镜像证明)。
 // STUB_RC: 0 放行 / 1 判红 / 2 未判定。STUB_LOG 存在时把收到的 argv 逐行记账(证明接线传了 --rev/--anchor)。
-/** 冷暖门桩:不记账(不与 dangling 那枚共用 STUB_LOG),只仿退出码。 */
-function writeWarmBorderStub(dir) {
-  const p = join(dir, 'stub-warm-border.mjs')
-  writeFileSync(p, 'process.exit(Number(process.env.STUB_RC_WARM_BORDER ?? 0))\n')
-  return p
-}
-
 function writeGateStub(dir, name = 'stub-gate.mjs') {
   const p = join(dir, name)
   writeFileSync(
