@@ -102,6 +102,22 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ccd7ce10f5)
+- 🐞 Fix:净面去 git 化(read-tree+checkout-index),根治 worktree 登记四类故障 (5038b8b0ca)
+- 🚀 Feature/Improvement:验证码按场景分模板 —— 注册/登录/找回密码/改绑各走自己已过审的模板 (765d4621e6)
+- 🔧 Chore/Other:清 tests/ 第三批 8 处模块内死代码 + 级联的 2 处 import(删 HERE 后 dirname/fileURLToPath 随之无用) —— 只删 eslint 点名且确认零引用的绑定;8 个文件 lint 0 error、测试全过(注:check-redundant 的 T12 是存量红,HEAD 原版同样失败,与本批无关) (6cc7f536b4)
+- 🐞 Fix:阿里云验证码这条腿从入库那天起就没通过 —— 修构造函数互操作 + 补响应体业务码判定 + 接通两条发码端点 (d2c3ba781a)
+- 🔧 Chore/Other:清 tests/ 第二批 10 处 unused(多具名 import 删单符号 4 处 + 形参加 _ 前缀 6 处)—— 只动 eslint 点名的那一个符号,同行其余绑定与调用方一律不碰;5 个文件 100 个测试全过。scripts/tests/ error 35 → 17 (e8f8389fc6)
+- 🔧 Chore/Other:清 tests/ 首批 8 处未使用 import(整体行 5 处 + 多具名里的 rmScratch 3 处)—— 只删 eslint 点名的那一个符号,保留同行其余绑定;改后 5 个文件 lint 0 error、58 个测试全过 (d9f6746207)
+- 🔧 Chore/Other:清 scripts/lib/ 最后 3 处存量 lint error —— plan-tasks-merge-selftest 删未使用的 titleOf 导入与 rewritePointer 解构绑定;stale-lock-claim 的 observedAt 参数加 _ 前缀。eslint scripts/lib/ 现为 0 error (e3e940a046)
+- 📚 Docs:readme-06 守门结构描述与实现对齐 —— "56+10 pre-commit 项"改为 269 道 runner 门 + 本地元门档 27 道 + 全量归 CI;两处"pre-commit 第 N 项"改为 guardian-runner 注册门 (ba6898c15d)
+- 🐞 Fix:node-version 与根 package.json engines 对齐(>=22.13.0)—— 写死 '22' 可能装到 22.0.0,而本仓用了 22.13 之后的特性 (17e6aaf4c1)
+- 📚 Docs:收口三处 —— ① AGENTS.md 那句"guardian 每 30 分钟派发"与实现不符(guardian 对该脚本 0 引用),按实录改为"派发层已补建";② JUDGEMENT_LIBS 从两份重复定义合并为单一真相源 scripts/lib/judgement-libs.json(CJS/ESM 共读);③ 补收 14 个漏册高频公共库(flag-value 59 门/code-mask 47 门/selftest-registrant 36 门等),改错会让几十道门静默失效 (d61206d615)
+- 🐞 Fix:补建缺失的派发层 sweepStaleClaimMarks + 清两条存量 lint error(tmpdir/DAY_MS 未使用)—— 门 98 的悬空导入(测试引用了从未实现的函数);按测试断言实现:30 分钟节流闸 + 注入式 runner + 结论行解析,拿不到结论行落 undetermined 不记绿 (fd1aaa8ee8)
+- 🐞 Fix:补 workflow 溯源水印头 —— 门 47 检出的 HEAD 面欠账(inject 已写工作区,本次提交销账) (52d59c3a62)
+- 🔧 Chore/Other:全量守门 workflow 开自动触发(push/PR),先以记录模式跑(continue-on-error) —— 本地无法可靠预测 CI 结果,存量修完后再转拦截模式 (54190217ce)
+
+**2026-10-22**
 - 📚 Docs:G-960 公网入口断流旧副本转注释归并(正主为已撤回误判的修订版),清 F4 同题两版以过收敛落地闸 (004f9b4e4d)
 
 **2026-10-22**
@@ -175,11 +191,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 **2026-10-22**
 - 🐞 Fix:待摘点名行不再给裸标记印 null,并加单源形状锁 (f3d73ae733)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (596561589d)
-
-**2026-10-22**
-- 📚 Docs:G-926/G-927 复验收口结清(雷区残留归零+棘轮 74≤76 转绿) (8d3bb37b7a)
-- 🐞 Fix:收掉话术分档引入的三条 e2e 红,并修掉一条靠竞态才绿的断言 (b457d1e2b7)
-- ♻️ Refactor:post-commit-hook 裸 git 派生改走 face-reader gitRaw(G-927 剩余棘轮收口) (ca99778c00)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
