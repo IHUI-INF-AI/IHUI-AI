@@ -45,6 +45,26 @@ const OFFLINE_AFTER_FAILS: u32 = 3;
 const REFRESH_EVERY_ROUNDS: u32 = 6;
 /// 热刷新防抖(秒):两次 reload 至少间隔 10 分钟
 const RELOAD_DEBOUNCE_SECS: u64 = 600;
+/// 常驻循环准入的轮询步长(毫秒)。
+///
+/// 与 lib.rs 启动健康门的 `STARTUP_HEALTH_GATE_POLL_MS` 取同一档:两边判的是**同一枚**
+/// 就绪标志,步长不同只会让"谁先看见"变得不可解释(票 P1 僵尸实例,2026-10-22)。
+const LOOP_ADMISSION_POLL_MS: u64 = 200;
+
+/// 常驻循环准入判据(纯函数,便于单测)。
+///
+/// 立因(2026-10-22,票 P1 僵尸实例):tauri-runtime-wry 2.11.4 的 `Message::CreateWebview`
+/// 失败时只在 `handle_user_message` 里写一行 `log::error!`,而 `create_webview()` 照旧返回
+/// `Ok(DetachedWebview)` ⇒ 窗口注册表里 main 仍在、`get_webview_window("main")` 照旧回
+/// Some。于是"有没有窗口"这条判据分不出"有没有渲染端",旧实现在创建失败后照常进常驻
+/// 循环,对一个不存在的渲染端 eval/探活,并一直占住 EBWebView 数据目录(下一次启动跟着
+/// 撞锁)—— 这正是"僵尸实例"的形态。
+///
+/// 唯一活着的那一头是"主文档加载完成过"(lib.rs 的 `MAIN_PAGE_READY`,与启动健康门
+/// 同一枚标志):没加载完成就一次都不该跑;已收到停机请求同理(健康门已判出半启动)。
+fn should_enter_resident_loop(page_ready: bool, shutdown: bool) -> bool {
+    page_ready && !shutdown
+}
 
 /// 后端基址(2026-10-13 立,桌面端「开发后端」联调)。
 ///
@@ -697,6 +717,23 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
         let mut last_reload: Option<std::time::Instant> = None;
         let mut pending_reload = false;
 
+        // ── 常驻循环准入(票 P1 僵尸实例,2026-10-22)──
+        // 判据与立因见 `should_enter_resident_loop` 头注。放在启动探活**之后**是必须的:
+        // 离线兜底页那次导航本身就会置位就绪(真机日志实测「切离线兜底页」下一行即
+        // `page_load_finished`),所以 (b) 的兜底能力一格未削;而 webview 创建失败时
+        // 那次 eval 根本落不到渲染端 ⇒ 永远等不到置位 ⇒ 循环一次都不起。
+        // 停机请求由启动健康门在同一型下先置位(见 RESIDENT_LOOP_SHUTDOWN 头注)。
+        while !should_enter_resident_loop(crate::main_page_ready(), shutdown_requested()) {
+            if shutdown_requested() {
+                log::warn!(
+                    "[auto-refresh] 常驻循环未启动:主文档从未加载完成且已收到停机请求(启动健康门判出半启动)"
+                );
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(LOOP_ADMISSION_POLL_MS)).await;
+        }
+        log::info!("[auto-refresh] 主文档已加载完成 → 常驻循环准入");
+
         loop {
             // 每轮开头问一次(判据与不可打断在途探活的取舍见 RESIDENT_LOOP_SHUTDOWN 头注)。
             if shutdown_requested() {
@@ -1144,6 +1181,80 @@ mod tests {
         assert!(shutdown_requested(), "置位后循环必须读得到,否则停机是空动作");
         request_shutdown();
         assert!(shutdown_requested(), "重复请求必须幂等,不得翻转");
+    }
+
+    // ── 票 P1 僵尸实例(2026-10-22):创建失败 ⇒ 常驻循环一次都不许起 ──
+
+    /// 纯函数两侧都要测:只测"拒绝"那一半,判据写成恒 false 也能绿,而正常运行
+    /// (页面加载完成)就会永远起不来循环 —— 那是把僵尸换成"探活停摆"的另一种坏。
+    #[test]
+    fn 主文档未加载完成时不得进入常驻循环() {
+        // 这一组就是 WebView2 创建失败的真实读数:`get_webview_window("main")` 回 Some,
+        // 而主文档永远不会加载完成;健康门此刻还在等待档(未置位停机)。
+        assert!(
+            !should_enter_resident_loop(false, false),
+            "页面从未加载完成却准入 ⇒ 对不存在的渲染端 eval,正是僵尸实例本体"
+        );
+        assert!(
+            !should_enter_resident_loop(true, true),
+            "已收到停机请求仍准入 ⇒ 健康门刚要退出,循环却又起来,清理动作被反向顶掉"
+        );
+        assert!(
+            !should_enter_resident_loop(false, true),
+            "既无渲染端又已停机,更不得准入"
+        );
+    }
+
+    #[test]
+    fn 主文档加载完成且未请求停机时准人() {
+        assert!(
+            should_enter_resident_loop(true, false),
+            "健康启动被拒 ⇒ 常驻健康检查/热刷新/离线切换整条链停摆"
+        );
+    }
+
+    /// 形状锁:判据写对了却漏接在常驻循环之前,是本票要防的失效型(旧守卫正是
+    /// "在,却打不中")。标记用 `concat!` 拼,避免 `include_str!` 把本测试自己那串
+    /// 也读成命中处(与 lib.rs 形状锁同一纪律)。
+    #[test]
+    fn 常驻循环前必须串上准入闸且离线兜底仍在其前() {
+        const SRC: &str = include_str!("auto_refresh.rs");
+        const M_LOOP: &str = concat!("lo", "op {");
+        const M_ADMISSION: &str = concat!(
+            "should_enter_resident_",
+            "loop(crate::main_page_",
+            "ready()"
+        );
+        const M_OFFLINE_FALLBACK: &str = concat!("启动探活失败 →", " 离线兜底页");
+
+        // 唯一性:准入调用点与常驻循环都只许一枚 —— 多一枚就说明出现了第二条循环
+        // 或第二套判据,本锁的区间判定随即失去意义。
+        assert_eq!(
+            SRC.matches(M_LOOP).count(),
+            1,
+            "常驻循环应恰有一处(现 {} 处)⇒ 准入闸可能被绕在另一条循环外面",
+            SRC.matches(M_LOOP).count()
+        );
+        assert_eq!(
+            SRC.matches(M_ADMISSION).count(),
+            1,
+            "准入判据应恰有一处调用(现 {} 处)⇒ 射程需重裁",
+            SRC.matches(M_ADMISSION).count()
+        );
+
+        let admission = SRC.find(M_ADMISSION).expect("准入闸不见了");
+        let loop_at = SRC.find(M_LOOP).expect("常驻循环不见了");
+        assert!(
+            admission < loop_at,
+            "准入闸排在常驻循环之后 ⇒ 创建失败时循环已经起来,本票修的就是这一型(反证)"
+        );
+        // (b) 的兜底能力不得被这道闸挤掉:启动探活的离线切页必须仍在准入之前,
+        // 否则"离线首屏"根本没机会置位就绪,闸会把正常离线启动也判成僵尸。
+        let fallback = SRC.find(M_OFFLINE_FALLBACK).expect("启动探活的离线兜底分支不见了");
+        assert!(
+            fallback < admission,
+            "离线兜底切页被挪到准入闸之后 ⇒ 断网冷启动永远等不到就绪置位,正常用户被误杀"
+        );
     }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
