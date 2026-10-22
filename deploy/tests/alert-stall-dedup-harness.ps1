@@ -142,6 +142,30 @@ T '9c-反证 摘掉 -Stall 的同形行必须判 0(证明上面那把扫描有�
 T '9d 成功切流处真的清偿' ($src -match 'Clear-AlertStallIdentities -StateFile \$AlertNotifyStateFile') '没接线 ⇒ 本票等于没做'
 T '9e 门禁回滚那处也按切流类' ($src -match 'Invoke-FailNotify -Stall -m "健康门禁未过') '回滚=未切流,漏标会继续 4h 重发'
 
+Write-Output '[11] G-21 身份含"本轮原因":同文本换病因必须另开槽位喊出(票面 04:37 那一型)'
+$msgG21 = '构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)'
+$fpA = Get-AlertIdentitySig -Message $msgG21 -Reason 'Module not found: @ihui/shared'
+$fpB = Get-AlertIdentitySig -Message $msgG21 -Reason 'SyntaxError: Unexpected token'
+Fresh
+$d11a = Test-AlertDueByIdentity -Sig $fpA -StateFile $tmp -RepeatHours 4 -Stall
+T '11a 病因 A 首发 ⇒ due-new' ($d11a.Due -and $d11a.Decision -eq 'due-new') $d11a.Decision
+$d11b = Test-AlertDueByIdentity -Sig $fpA -StateFile $tmp -RepeatHours 4 -Stall
+T '11b 同文本同病因重复 ⇒ window-hit(同原因重复仍去重)' ((-not $d11b.Due) -and $d11b.Decision -eq 'window-hit') "$($d11b.Decision) | $($d11b.Note)"
+$d11c = Test-AlertDueByIdentity -Sig $fpB -StateFile $tmp -RepeatHours 4 -Stall
+T '11c 同文本换病因 ⇒ 第二发不被旧槽压住(due-new)' ($d11c.Due -and $d11c.Decision -eq 'due-new') "$($d11c.Decision) key=$($d11c.Key)"
+T '11d 换病因的槽键与病因 A 的槽键不同(同键=还会被压)' ($d11c.Key -ne $d11a.Key) "A=$($d11a.Key) B=$($d11c.Key)"
+T '11e 同病因身份逐字节稳定(同因去重的前提,不得吃漂移明细)' ((Get-AlertIdentitySig -Message $msgG21 -Reason 'Module not found: @ihui/shared') -eq $fpA) '身份不稳定 ⇒ 每轮换身份,48h/47 封那一型复活'
+T '11f 空原因 ⇒ 身份与改动前逐字同形(存量槽位不失效,不制造重发风暴)' ((Get-AlertIdentitySig -Message $msgG21 -Reason '') -eq (($msgG21 -replace '\s+', ' ').Trim())) "实得:$(Get-AlertIdentitySig -Message $msgG21 -Reason '')"
+
+Write-Output '[12] G-21 装车锁:身份合成真的接进派发入口与调用点(否则上面全绿只是模块自洽)'
+T '12a Invoke-FailNotify 有 -Reason 参数' ($src -match 'function Invoke-FailNotify \{[\r\n]+\s*param\([^\r\n]*\[string\]\$Reason') '派发入口不吃原因 ⇒ 本票等于没做'
+T '12b 去重判定吃含原因身份' ($src -match 'Test-AlertDueByIdentity -Sig \$dedupSig') '仍吃消息面 $sig ⇒ 换病因照样被旧槽压住'
+T '12c 宽限窗锚点仍吃消息面(病因漂移不得重置宽限窗,否则换因反而永久静默)' ($src -match 'Test-AlertSuppressionGrace -Sig \$sig\b') '锚点换成含原因身份 ⇒ 每轮换因重新起锚,escalated 到不了'
+T '12d Fail 转发 -Reason' ($src -match 'Invoke-FailNotify -m \$m -Detail \$Detail -Reason \$Reason -Stall') 'Fail 通道没原因 ⇒ 构建/ff 类照样哑'
+T '12e 构建失败调用点真的带 reason(票面那一格)' ($src -match 'Fail "构建失败[^\r\n]*-Reason "\$_"') '判据在、调用点没有 = 没有'
+T '12f ff 未归类调用点真的带 reason' ($src -match 'Fail "git merge --ff-only 失败\(成因见紧邻上一行\)[^\r\n]*-Reason \$ffErrFp') '通用文案没病因'
+T '12g 连败 throw 带末次报错指纹(-Reason "$_" 的病因来源)' ($src -match 'next build 连续 \$MaxTries 次失败[^\r\n]*末次报错') 'throw 不带因 ⇒ reason 仍是通用文案,换病因照样被压'
+
 if (Test-Path $tmp) { Remove-Item $tmp -Force }
 Write-Output ''
 Write-Output ("RESULT pass={0} fail={1}" -f $pass, $fail)

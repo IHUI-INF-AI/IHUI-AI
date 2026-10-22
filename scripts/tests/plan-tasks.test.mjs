@@ -1816,6 +1816,73 @@ test('M-ABS 绝对层只在问责档判红,提交链(差值档)只报数;差值�
   want('本次提交让 F1 变多必须 exit 1', rcGrewWithBefore, 1)
 })
 
+/**
+ * M681 族(2026-10-22,G-681):基线层 F9 的**归属**。
+ * M-ABS 把绝对层在提交链降成"只报数",但打印面仍把"基线缺 ∧ HEAD 已有"的存量键点名成
+ * "F9 基线新增撞号" —— 被点名的是**此刻碰台账的人**,而不是当年跳门把它塞进 HEAD 的人。
+ * 本族钉两型:①存量不记在本次提交头上(ℹ 行 + 名单摘除),问责两腿(--strict/全量)不过滤;
+ * ②基准面盲(有组数没明细)⇒ 归属判不出只能"无法判定 exit 2",既不冒红也不记绿。
+ * 全部跑构造面 + baseOverride,不读实盘基线(键集与今天的台账瞬时状态无关,§22c)。
+ */
+test('M681-A 存量归属:HEAD 面已有的基线缺项不记在本次提交头上;--strict 与全量档照旧判红不过滤', () => {
+  const base = { F9: BASE_KEYS }
+  const face = f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-681001')])
+  // ① 提交链(差值档):Z-681001 基线缺 ∧ HEAD 也有 ⇒ 存量,不记在本次头上。
+  //    改前这一臂 rc 同为 0(M-ABS 已让绝对层不拦),所以锁的牙在**打印面**:
+  //    没有归属过滤时,名单会把 Z-681001 点名成"F9 基线新增撞号"挂在本次提交头上。
+  const stock = capture(() => gate(face, false, ROOT, face, null, base))
+  if (stock.rc !== 0)
+    throw new Error(`存量归属后提交链仍须只报数,实测 exit ${stock.rc}:${JSON.stringify(stock.cap.slice(-2))}`)
+  if (!stock.cap.some((x) => x.includes('不记在本次提交头上')))
+    throw new Error(`必须大声打印"存量不记在本次头上"(静默等于放行),实测 ${JSON.stringify(stock.cap)}`)
+  if (stock.cap.some((x) => x.includes('基线棘轮') && x.includes('F9 撞号')))
+    throw new Error(`F9 存量不得再进基线棘轮的红文案(那是把别人的账记在本次头上),实测 ${JSON.stringify(stock.cap)}`)
+  if (stock.cap.some((x) => x.includes('F9 基线新增撞号')))
+    throw new Error('逐组点名名单必须摘除 HEAD 已有的存量键')
+  // ② 全量档(无 before,CI/人工问责腿一)⇒ 不过滤,存量照旧红
+  const full = capture(() => gate(face, false, ROOT, null, null, base))
+  if (full.rc !== 1)
+    throw new Error(`全量档必须照判红(归属过滤不得拆问责腿),实测 exit ${full.rc}`)
+  if (!full.cap.some((x) => x.includes('F9 基线新增撞号') && x.includes('Z-681001')))
+    throw new Error('全量档的点名名单不得少这一键(降级只发生在提交链)')
+  // ③ 问责档 --strict(带 before 也照判,腿二)⇒ 不过滤
+  const strict = capture(() => gate(face, true, ROOT, face, null, base))
+  if (strict.rc !== 1)
+    throw new Error(`--strict 必须照判红(否则"只改归属"变成了拆门),实测 exit ${strict.rc}`)
+  if (!strict.cap.some((x) => x.includes('F9 撞号') && x.includes('Z-681001')))
+    throw new Error('--strict 的基线棘轮文案必须仍含该键')
+  // ④ 真新增(HEAD 没有这一键)⇒ 提交链必须仍点名它 —— 过滤不得把本次自己撞的号洗绿。
+  //    基准面用"等量换键"夹具(HEAD 有 Z-681002、本次面换成 Z-681001,组数持平):
+  //    组数若不等,差值棘轮会先 exit 1,根本轮不到基线层的归属 —— 那是另一台门(M17)的辖区。
+  const headSwapped = f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-681002')])
+  const mine = capture(() => gate(face, false, ROOT, headSwapped, null, base))
+  if (mine.rc !== 0)
+    throw new Error(`真新增在提交链仍走"只报数"定级(M-ABS 管辖),实测 exit ${mine.rc}`)
+  if (!mine.cap.some((x) => x.includes('F9 基线新增撞号') && x.includes('Z-681001')))
+    throw new Error(`真新增必须逐组点名(HEAD 没有它 ⇒ 归属就是本次),实测 ${JSON.stringify(mine.cap)}`)
+  if (mine.cap.some((x) => x.includes('不记在本次提交头上')))
+    throw new Error('本次真新增不得被打印成"存量"(归属过滤只摘 HEAD 已有的键)')
+})
+
+test('M681-B 盲基准面:差值基准面有组数没明细 ⇒ F9 归属判不出,只能 exit 2,既不冒红也不记绿;带明细反向对照不得冒红', () => {
+  const base = { F9: BASE_KEYS }
+  const face = f9face([...BASE_KEYS.map((k) => gOf(k)), gOf('Z-681001')])
+  // 基准面各维与判定面持平(差值档不得先红),只把 collisions 明细摘掉 ⇒ 归属无从判定。
+  const blindBefore = {
+    counts: { ...f9face([]).counts, collisionGroups: face.counts.collisionGroups },
+    staleRows: [],
+  }
+  const und = capture(() => gate(face, false, ROOT, blindBefore, null, base))
+  if (und.rc !== 2)
+    throw new Error(`盲基准面不得冒充当过(0)也不得冒红(1),必须 exit 2,实测 ${und.rc}:${JSON.stringify(und.cap.slice(-2))}`)
+  if (!und.cap.some((x) => x.includes('无法判定') && x.includes('F9 归属')))
+    throw new Error(`必须大声报"无法判定 —— F9 归属",实测 ${JSON.stringify(und.cap.slice(-2))}`)
+  // 反向对照:同一份面带明细 ⇒ 走 M681-A 的绿路,不得冒红(证明 2 不是恒 2 的空锁)
+  const withDetail = capture(() => gate(face, false, ROOT, face, null, base))
+  if (withDetail.rc !== 0)
+    throw new Error(`基准面有明细时归属可判,必须 rc 0,实测 ${withDetail.rc}:${JSON.stringify(withDetail.cap.slice(-2))}`)
+})
+
 // ── MC 族:派单叠层「这行点名的文件此刻正被别的会话占着」(2026-10-09 立) ──
 // 判据本体是纯函数(集合注入),所以这四臂完全不碰 git —— 真仓那条读数由 CLI 冒烟另证。
 test('MC1 冲突命中:行内点名的路径在飞 ⇒ 该行进叠层并逐条报名', () => {

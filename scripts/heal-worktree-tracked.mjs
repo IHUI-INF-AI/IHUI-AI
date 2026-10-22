@@ -26,6 +26,7 @@
  *   node scripts/heal-worktree-tracked.mjs --check      # 只判不改 + 有可恢复项即 exit 1(CI/巡检口径)
  *   node scripts/heal-worktree-tracked.mjs --align-drift # 对齐"幻影漂移" + 恢复"旁路提交孤儿路径"(第四层)
  * 紧急跳过:IHUI_SKIP_WORKTREE_HEAL=1
+ * 活工作保护窗:IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC(默认 600,0=关闭 —— 最近被写过的文件不判不还原)
  *
  * 分层:第一层 findOrphanedDeletions+heal(` D` 外部删除)、第二/三层 refreshStaleIndex+alignDrifts
  * (` M ` 落后索引与幻影漂移)、第四层 restoreBypassOrphans(2026-09-26 补:HEAD 有 / 索引无 / 盘无,
@@ -417,6 +418,44 @@ function restoreToHead(g, paths) {
 
 /** 路径归一(与 safe-commit 的 `normalize` 同算式:统一正斜杠、去 ./ 前缀)。 */
 const normRepoPath = (p) => String(p).replace(/\\/g, '/').replace(/^\.\//, '')
+
+/**
+ * 活工作保护窗(2026-10-22 立):幻影漂移对齐的 ③a/③b 两条通道都可能把一份**刚写下的编辑**
+ * 证明成"历史回潮"(整块或逐块曾出现在某个历史版本里),实测后果是在飞改动被 restore 回 HEAD。
+ * 判据只看文件 mtime:最近 N 秒内被写过的路径一律不判不写 —— converge 留下的落后文件必然是旧的,
+ * 不会落进窗口;窗口内的真漂移只是延后一轮,不是丢数据。
+ * 默认 600s;`IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC=0` 关闭(演练/诊断用)。
+ */
+function alignFreshGuardMs() {
+  const raw = process.env.IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC
+  if (raw === undefined || raw === '') return 600_000
+  const n = Number(raw)
+  return Number.isFinite(n) && n >= 0 ? n * 1000 : 600_000
+}
+
+/**
+ * 按 mtime 把候选路径分成「窗口内活工作」与「可判」两堆。
+ * 取不到 mtime 的路径进可判堆:读不到文件状态由后续 analyze/restore 自己的前提复核兜底,
+ * 不在这里静默吞掉(与 G-742 "没判 ≠ 判过"同一纪律)。
+ */
+function splitFreshWorktreePaths(repoRoot, paths, guardMs) {
+  if (guardMs <= 0) return { fresh: [], judgeable: paths }
+  const fresh = []
+  const judgeable = []
+  const now = Date.now()
+  for (const p of paths) {
+    let mtimeMs
+    try {
+      mtimeMs = statSync(resolve(repoRoot, p)).mtimeMs
+    } catch {
+      judgeable.push(p)
+      continue
+    }
+    if (Number.isFinite(mtimeMs) && now - mtimeMs < guardMs) fresh.push(p)
+    else judgeable.push(p)
+  }
+  return { fresh, judgeable }
+}
 
 /**
  * G-1018292:读 safe-commit 清空前留下的"删除意图丢失"账,返回**路径集合**。
@@ -1367,10 +1406,13 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     orphanIntentLost: orphan.intentLost.length,
     orphanDeferred,
   })
+  /** 因"最近被写过"而本轮跳过判定的路径(活工作保护窗;见 alignFreshGuardMs 头注) */
+  const recentSkips = []
   const head = () => ({
     refreshed: refreshed.refreshed,
     refreshDeferred: refreshed.deferred || [],
     refreshExempt: refreshed.exempt || [],
+    recentlySkipped: recentSkips,
     ancestryUndetermined: refreshed.ancestryUndetermined || [],
     subsetUndetermined: refreshed.subsetUndetermined || [],
     landingAligned: landing.aligned,
@@ -1413,15 +1455,19 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
   // 对活文档(PROJECT_PLAN.md)都可能给出"看似可证"的回潮结论,故在 eligible 之前整体绕行。
   const exemptDrift = dirty.filter((p) => ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
   const judgeable = dirty.filter((p) => !ALIGN_EXEMPT_PATHS.has(normRepoPath(p)))
-  const eligible = judgeable.filter((p) => {
+  const indexEligible = judgeable.filter((p) => {
     const ib = indexBlob.get(p)
     return ib && ib === headBlob.get(p)
   })
+  // 活工作保护窗:最近 N 秒被写过的路径不判不写(否则 ③a/③b 会把在飞编辑证成"回潮"并还原)
+  const freshSplit = splitFreshWorktreePaths(repoRoot, indexEligible, alignFreshGuardMs())
+  recentSkips.push(...freshSplit.fresh)
+  const eligible = freshSplit.judgeable
   if (!eligible.length)
     return {
       aligned: 0,
       paths: [],
-      skippedStaged: dirty.length - eligible.length,
+      skippedStaged: dirty.length - indexEligible.length,
       driftUndetermined: [],
       exemptPaths: exemptDrift,
       ...head(),
@@ -1452,7 +1498,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       paths,
       composite: composite.length,
       dryRun: true,
-      skippedStaged: dirty.length - eligible.length,
+      skippedStaged: dirty.length - indexEligible.length,
       driftUndetermined,
       exemptPaths: exemptDrift,
       ...head(),
@@ -1486,7 +1532,7 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     composite: composite.length,
     snapshots: snapshots.length,
     deferred,
-    skippedStaged: dirty.length - eligible.length,
+    skippedStaged: dirty.length - indexEligible.length,
     driftUndetermined,
     exemptPaths: exemptDrift,
     ...head(),

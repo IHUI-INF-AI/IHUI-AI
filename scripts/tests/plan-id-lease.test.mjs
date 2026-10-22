@@ -17,8 +17,8 @@
  *      baseMax(远端只抬高)≤999 参与避让、>999 池外大号不参与。
  *  T4  resolveIdTokens 接线:给 machineId ⇒ 段内空闲序/池内新占段两态取号正确且 leaseClaims 齐全;
  *      不给 machineId ⇒ 池内最小空闲(池式新基准;旧"与旧口径逐字同形"锁随池式改造废除)。
- *  T4c/T4d G-14(2026-10-22):候选号命中全文件扫描号集(只活在归档占位注释里)⇒ 跳过并点名;
- *      未命中的号必须照发(不得恒跳过)。
+ *  T4c/T4d/T4e G-14(2026-10-22):候选号命中全文件扫描号集(只活在归档占位注释里)⇒ 跳过并点名;
+ *      未命中的号必须照发(不得恒跳过);一次连登三票必须拿到三个互不相同的池内新号。
  *  T5  appendLeaseRows:只追加不删改;区在插区头、区不在文件尾新建。
  *  T6  源码形状锁:live-doc-edit 必须经 lib 取租约判据(抄第二份必漂),且 CAS 循环内取号带 machineId。
  *  T8  段窗选择:同面同轮确定、两机窗分离(claimOffset 混机器指纹,下标=hash|窗数%窗数)、
@@ -360,6 +360,32 @@ test('T4d G-14 反证:未被占用的号必须照发,不得恒跳过', () => {
   assert.equal(r.ok, true)
   assert.equal(r.assigned, 'G-1', '段内空号照发(否则就是"恒跳过",等于把取号器变成恒红工具)')
   assert.deepEqual(r.scanNotes, [], '没有占用命中时不得产出跳过点名的噪声')
+})
+
+test('T4e G-14 连登三票:三个候选号都被别席占着 ⇒ 连发三个不撞号的新号,且逐个点名', () => {
+  // 病型现场(2026-10-22):号只活在归档占位注释 / 正文引用里 ⇒ usedIdsOfPrefix 看不见。
+  // 票面判据是"连登不应撞号" ⇒ 三枚令牌必须一次拿到三个**互不相同**且都在扫描号集之外的号。
+  const leased = ['- [ ] G-700 基准行。', row({ start: 1, end: 50 })].join('\n')
+  const occupied = [
+    leased,
+    '<!-- 已归档(2026-10-15):✅(2026-10-15) **G-1 别席既存题甲** —— 完整内容在归档件 -->',
+    '<!-- 已归档(2026-10-15):✅(2026-10-15) **G-2 别席既存题乙** —— 完整内容在归档件 -->',
+    '<!-- 已归档(2026-10-15):✅(2026-10-15) **G-3 别席既存题丙** —— 完整内容在归档件 -->',
+  ].join('\n')
+  const r = lde.resolveIdTokens(
+    ['- [ ] {{NEXT_ID:G}} 甲。', '- [ ] {{NEXT_ID:G}} 乙。', '- [ ] {{NEXT_ID:G}} 丙。'],
+    occupied,
+    null,
+    { machineId: 'hostA-fp' },
+  )
+  assert.equal(r.ok, true)
+  assert.equal(r.assigned, 'G-4,G-5,G-6', '段内 G-1/G-2/G-3 已占 ⇒ 三票应拿 G-4/G-5/G-6')
+  const ids = r.assigned.split(',')
+  assert.equal(new Set(ids).size, ids.length, '同一轮连登不得发出重复号')
+  const scanNotes = r.scanNotes.join(' ')
+  for (const id of ['G-1', 'G-2', 'G-3'])
+    assert.ok(scanNotes.includes(id), `被跳过的号必须点名:${id} 不在 ${JSON.stringify(r.scanNotes)}`)
+  assert.equal(r.leaseClaims.length, 0, '跳过发生在自有段内 ⇒ 不得因此另占新段')
 })
 
 test('T5 appendLeaseRows:只追加不删改;区在插区头,区不在文件尾新建', () => {

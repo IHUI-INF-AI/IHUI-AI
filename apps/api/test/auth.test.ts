@@ -148,7 +148,12 @@ vi.mock('../src/config/index.js', () => ({
     NODE_ENV: 'test',
     JWT_SECRET: 'test-jwt-secret-at-least-32-characters-long!!!',
     DATABASE_URL: 'postgres://localhost:5432/test',
-    REDIS_URL: 'redis://localhost:6379',
+    // G-192 改造后 code-store/频控会真连这个地址。指到死端口 ⇒ 两档后端中的
+    // 「内存兜底」档(与 tests/code-store.test.ts、api-key-quota-enforcement.test.ts 同口径),
+    // 避免与并行测试文件/本机常驻 Redis 共享 code:* 键 —— 他文件 beforeEach 的
+    // codeStoreTest.reset() 会 SCAN 删光全部 code:*,把本文件刚 putCodeEntry 的码吃掉,
+    // verifyCode 转而去信 Redis("在线但查无 ⇒ 以 Redis 为准")⇒ 间歇 400/401。
+    REDIS_URL: 'redis://127.0.0.1:1/0',
     AI_SERVICE_URL: 'http://localhost:8803',
   },
 }))

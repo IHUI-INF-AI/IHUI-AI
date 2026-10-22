@@ -1,4 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // 新文件(票 G-935 补测):普通注释头,不伪造溯源水印。
 
 import type { Locator, Page } from '@playwright/test'
@@ -21,13 +24,10 @@ import { expect, test } from './fixtures'
  *    现读生产码取证(缺口A):mode-switcher.tsx:59-60 的开关读写的是**根单例** useAiToolsPanelStore,
  *    而面板体 ai-side-panel-tools.tsx:292 用 usePaneAiToolsPanelStore(Provider 内=窗格实例)。
  *    ⇒ 本用例预期红,红即证据;诊断快照(两格可见态 + 两枚 persist 键)在断言前落进 annotations。
- * ④b 窗格续传:半截流 reload 后 pane-1 的续传腿不可达(缺口B),三重结构性原因:
- *    布局树不持久化(pane-split.ts:13)⇒ reload 后窗格不重挂载;
- *    ChatPaneBody 无 recentMessages 预填充(仅根主体 ai-side-panel.tsx:803-814 有)⇒ 窗格 store
- *    挂载时 messages=[],findPendingResume 恒 null;
- *    关叶即 dispose 窗格实例(use-chat-pane-sync.ts:38-39),孤儿快照留在 localStorage。
- *    ⇒ 本用例以"探针"形态绿:取证 reload 后无 resume 请求 + 孤儿快照 streamCompleted:false。
- *    同腿的根窗格对照(④a)必须真续上,证明机制本身活着、缺的只是窗格接线。
+ * ④b 窗格续传(G-935 缺口B 已修复):布局树持久化 ⇒ reload 后 pane-1 重挂载;
+ *    ChatPaneBody recentMessages 预填充 ⇒ 半截助手消息仍能捕获;
+ *    窗格 chat store persist 落盘 ⇒ reload 后 resume/status→resume 真续上,孤儿快照收尾为 true。
+ *    同腿的根窗格对照(④a)必须真续上,证明两边共用同一套续接机制。
  *
  * 全链路 route mock + 页面内 fetch 泵(形态照抄 chat-pane-parallel-stream.spec.ts,不依赖活后端)。
  * 登录契约按票面:显式 seed(localStorage ihui-auth zustand persist 形态 + 非 httpOnly auth_token cookie)。
@@ -633,11 +633,11 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     await expect(rootPanel).toBeHidden()
 
     // 在 pane-1 的输入区里打开模式切换器,点「工具面板」。
-    // ⚠ 用键盘 Enter 激活而非鼠标 click:实机取证(首轮跑 + 失败截图)发现窄窗格下
-    //   发送按钮与 mode-switcher 触发器**几何重叠**,鼠标点击被 send-button 拦截
-    //   (Playwright hit-target 检查 3 分钟不通过)——这本身是暴露的生产缺口C,
-    //   但本用例要证的是"开关写哪份 store"(缺口A),与几何无关 ⇒ 键盘激活绕开遮挡,
-    //   重叠事实单独落进 annotations 留证。
+    // 缺口C(2026-10-22 已修,鼠标点击腿恢复):此前窄窗格下发送按钮与 mode-switcher
+    // 触发器几何重叠,鼠标点击被 send-button 拦截(Playwright hit-target 3 分钟不通过,
+    // 实机证据+截图),用例曾以键盘 Enter 绕行、重叠事实只落 annotations。
+    // 修法=globals.css .ai-input-toolbar @container ≤335 档右簇换行避让,命中区留在本窗格内;
+    // 本探针随之升级为硬断言(中心点必须命中自身),再走真实鼠标 click 腿。
     const trigger = page
       .locator(`[data-pane-leaf="${SECOND_PANE}"] [data-testid="mode-switcher"]`)
       .first()
@@ -648,15 +648,11 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
       const btn = top instanceof Element ? top.closest('button') : null
       return `covered-by:${top?.nodeName ?? '?'}#${btn?.getAttribute('data-testid') ?? ''}`
     })
-    if (overlap !== 'self') {
-      test.info().annotations.push({
-        type: 'gap',
-        description:
-          `缺口C(新发现):pane-1 内 mode-switcher 触发器中心命中点是 ${overlap} —— ` +
-          '窄窗格下发送按钮与模式切换器几何重叠,鼠标点不到「工具面板」入口(键盘仍可激活)。',
-      })
-    }
-    await trigger.press('Enter')
+    expect(
+      overlap,
+      '缺口C 回归防线:窄窗格下 mode-switcher 触发器中心命中点必须是自身(不得被 send-button 拦截)',
+    ).toBe('self')
+    await trigger.click()
     await page.locator('[data-testid="menu-tools-panel"]').click()
 
     // 诊断快照先落账(红也要带证据):两格可见态 + 两枚 persist 键
@@ -683,15 +679,10 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
       panePanel,
       '缺口A:pane-1 内的「工具面板」开关写的是根单例(mode-switcher.tsx:59-60),窗格自身面板体读窗格实例 ⇒ pane-1 自己的面板点不开',
     ).toBeVisible({ timeout: 5_000 })
-    await expect(
-      rootPanel,
-      '缺口A 反证:根格面板体被 pane-1 的开关点亮(互不顶被破坏)',
-    ).toBeHidden()
+    await expect(rootPanel, '缺口A 反证:根格面板体被 pane-1 的开关点亮(互不顶被破坏)').toBeHidden()
   })
 
-  test('② 跳转总线门控:定向 pane-1 的事件根格不接;不带 paneId 的事件只根格接', async ({
-    page,
-  }) => {
+  test('② 跳转总线门控:定向 pane-1 的事件根格不接;不带 paneId 的事件只根格接', async ({ page }) => {
     await prepareSameConversationTwoPanes(page)
 
     // 根格钉在 60% 处(m-36);pane-1 保持"落会话后自动跟随到底"的稳态 ⇒ 目标 m-24(40%):
@@ -709,12 +700,14 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
           for (const pane of ['pane-root', 'pane-1']) {
             const leaf = document.querySelector<HTMLElement>(`[data-pane-leaf="${pane}"]`)
             if (!leaf) throw new Error(`缺少窗格 DOM:${pane}`)
-            const list = leaf.querySelector<HTMLElement>('[data-testid="message-list-inline-panel"]')
+            const list = leaf.querySelector<HTMLElement>(
+              '[data-testid="message-list-inline-panel"]',
+            )
             if (!list) throw new Error(`窗格 ${pane} 没有消息列表`)
             const msg = leaf.querySelector<HTMLElement>(`[data-message-id="${target}"]`)
             if (!msg) throw new Error(`窗格 ${pane} 里目标消息未渲染:${target}`)
             const hl = msg.classList.contains('animate-message-highlight-pulse')
-            const moved = Math.abs(list.scrollTop - baselines[pane]) > 60
+            const moved = Math.abs(list.scrollTop - (baselines[pane] ?? 0)) > 60
             parts.push(`${pane}:${hl ? 'hl' : 'no'}:${moved ? 'moved' : 'still'}`)
           }
           return parts.join('|')
@@ -730,10 +723,10 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     // 腿1:定向 pane-1 ⇒ 只有 pane-1 滚 + 高亮;根格纹丝不动、不高亮
     await dispatchJump({ messageId: target, paneId: SECOND_PANE })
     await expect
-      .poll(
-        () => jumpProbe({ [ROOT_PANE]: rootRecorded, [SECOND_PANE]: pane1Before }),
-        { timeout: 10_000, message: '定向 pane-1 的跳转没有只落 pane-1(门控失效)' },
-      )
+      .poll(() => jumpProbe({ [ROOT_PANE]: rootRecorded, [SECOND_PANE]: pane1Before }), {
+        timeout: 10_000,
+        message: '定向 pane-1 的跳转没有只落 pane-1(门控失效)',
+      })
       .toBe('pane-root:no:still|pane-1:hl:moved')
 
     // 等平滑滚动落定,记下 pane-1 的稳态位,再走腿2
@@ -744,10 +737,10 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     // pane-1 不得再动、不得再亮
     await dispatchJump({ messageId: target })
     await expect
-      .poll(
-        () => jumpProbe({ [ROOT_PANE]: rootRecorded, [SECOND_PANE]: pane1Settled }),
-        { timeout: 10_000, message: '不带 paneId 的跳转没有只落根窗格(门控口径被破坏)' },
-      )
+      .poll(() => jumpProbe({ [ROOT_PANE]: rootRecorded, [SECOND_PANE]: pane1Settled }), {
+        timeout: 10_000,
+        message: '不带 paneId 的跳转没有只落根窗格(门控口径被破坏)',
+      })
       .toBe('pane-root:hl:moved|pane-1:no:still')
   })
 
@@ -826,48 +819,64 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     expect(counters.resumePosts, '未落库 ⇒ 必须发起恰好一次 POST /api/chat/resume').toBe(1)
   })
 
-  test('④b 窗格续传探针(缺口B):pane-1 半截流 reload ⇒ 布局不持久化 + 零 resume 请求 + 孤儿快照', async ({
+  test('④b 窗格续传:半截流 reload ⇒ 布局重挂载 + pane-1 resume/status→resume 真续上', async ({
     page,
   }) => {
     const counters: ResumeCounters = { statusGets: 0, resumePosts: 0 }
-    await prepareTwoPanes(page)
+    await seedLoggedIn(page)
+    await mockBackend(page, [SPEC_A, SPEC_B, SPEC_LONG, SPEC_R])
+    await installStreamPump(page)
+    // 续传端点必须在 reload 之前就注册(route 跨导航存活)
     await mockResumeEndpoints(page, counters, RESUME_TAIL)
 
+    await page.goto('/chat')
+    await page.getByRole('button', { name: TITLE_R }).first().click()
+    await expect(rootList(page)).toHaveAttribute('data-window-total', '1', { timeout: 30_000 })
+    await splitFrom(page)
+    // 必须落 CONV_R(userOnly,末条=user):CONV_B(pair,末条=另一条 assistant)会被
+    // 续接守卫(resume-stream.ts:361-365)直接标 completed 不续 —— 那是守卫语义,不是缺腿。
+    await dropConversationIntoPane(page, SECOND_PANE, CONV_R, TITLE_R)
+    await expect(paneList(page, SECOND_PANE)).toHaveAttribute('data-window-total', '1', {
+      timeout: 30_000,
+    })
+
     await sendInPane(page, SECOND_PANE, PROMPT_PANE)
-    await expect.poll(() => pumpState(page, CONV_B), { timeout: 30_000 }).toBe('open')
-    expect(await pumpPush(page, CONV_B, sseChunk(PANE_ORPHAN_PREFIX))).toBe(true)
+    await expect.poll(() => pumpState(page, CONV_R), { timeout: 30_000 }).toBe('open')
+    expect(await pumpPush(page, CONV_R, sseChunk(PANE_ORPHAN_PREFIX))).toBe(true)
+    // 前缀进 DOM = 已写窗格 store = persist/窗格缓存同步落盘(reload 后捕获孤儿的腿都在)
     await expect(paneList(page, SECOND_PANE)).toContainText(PANE_ORPHAN_PREFIX, {
       timeout: 20_000,
     })
 
     await page.reload()
 
-    // 立据1:布局树不持久化 ⇒ reload 后回到单格,pane-1 根本不会重挂载(续传代码无从点火)
-    await expect(page.locator('[data-pane-leaf]')).toHaveCount(0, { timeout: 30_000 })
-    await expect(rootList(page)).toHaveAttribute('data-window-total', '2', { timeout: 30_000 })
-
-    // 立据2:零续传请求(根窗格的 recentMessages 末条助手已收尾,不会代窗格点火)
-    expect(counters.resumePosts, '缺口B:窗格半截流 reload 后没有任何 resume 请求').toBe(0)
-    expect(counters.statusGets).toBe(0)
-
-    // 立据3:孤儿快照仍在 localStorage —— 未收尾助手消息 streamCompleted:false 永不消费
-    const orphanSnap = await readPersistedChat(page, 'ihui-chat-pane-pane-1')
-    const orphan = (orphanSnap?.messages ?? []).find((m) =>
-      (m.content ?? '').includes(PANE_ORPHAN_PREFIX),
+    // 契约1:布局树持久化 ⇒ reload 后两叶重挂载,pane-1 仍绑 CONV_R(续传代码有宿主可点火)
+    await expect(page.locator('[data-pane-leaf]')).toHaveCount(2, { timeout: 30_000 })
+    await expect(page.locator(`[data-pane-leaf="${SECOND_PANE}"]`)).toHaveAttribute(
+      'data-pane-conversation',
+      CONV_R,
     )
-    expect(orphan, 'pane-1 的孤儿半截消息必须仍留在 ihui-chat-pane-pane-1 快照里').not.toBeUndefined()
-    expect(orphan?.role).toBe('assistant')
-    expect(orphan?.streamCompleted, '孤儿消息必须仍是"未收尾"态').toBe(false)
 
-    test.info().annotations.push({
-      type: 'gap',
-      description:
-        '缺口B(窗格续传不可达)现读生产码三重取证:' +
-        '① pane-split.ts:13 布局树"不做任何持久化"⇒ reload 后单格,窗格 store 不重挂载;' +
-        '② ChatPaneBody 无 recentMessages 预填充(仅根主体 ai-side-panel.tsx:803-814 有)⇒ 即便重挂载,' +
-        'messages=[] 也让 findPendingResume 恒 null;' +
-        '③ 关叶即 dispose 窗格实例(use-chat-pane-sync.ts:38-39),孤儿快照永无消费方。' +
-        '对照腿④a 证明根窗格续传机制本身活着;本用例绿=如实记录现行为,不是放行。',
+    // 契约2:续接闭环 —— 窗格侧预填充/缓存捕获半截消息,历史结算后续尾逐字相连
+    await expect(paneList(page, SECOND_PANE)).toContainText(`${PANE_ORPHAN_PREFIX}${RESUME_TAIL}`, {
+      timeout: 30_000,
     })
+    expect(counters.statusGets, 'reload 后 pane-1 必须问过 resume/status').toBeGreaterThanOrEqual(1)
+    expect(counters.resumePosts, 'pane-1 未落库 ⇒ 必须发起恰好一次 POST /api/chat/resume').toBe(1)
+
+    // 契约3:续接完成后窗格快照把孤儿消息收尾(不再是永挂的 streamCompleted:false)
+    await expect
+      .poll(
+        async () => {
+          const snap = await readPersistedChat(page, 'ihui-chat-pane-pane-1')
+          const orphan = (snap?.messages ?? []).find((m) =>
+            (m.content ?? '').includes(PANE_ORPHAN_PREFIX),
+          )
+          return orphan?.streamCompleted ?? 'missing'
+        },
+        { timeout: 20_000, message: 'pane-1 快照的孤儿消息必须写回 streamCompleted:true' },
+      )
+      .toBe(true)
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

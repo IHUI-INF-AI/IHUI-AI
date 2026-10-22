@@ -4416,15 +4416,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       ...parsed.data,
       operatorId: parsed.data.operatorId || request.userId,
     })
-    return reply
-      .status(201)
-      .send(
-        success({
-          refundRecord: r.refund,
-          enrollmentId: r.enrollmentId,
-          unattributed: !r.enrollmentId,
-        }),
-      )
+    return reply.status(201).send(
+      success({
+        refundRecord: r.refund,
+        enrollmentId: r.enrollmentId,
+        unattributed: !r.enrollmentId,
+      }),
+    )
   })
 
   // 审批通过
@@ -4581,6 +4579,28 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   // --- 试听预约:前端 /trial-reservation ↔ 后端 /trial-booking ---
+  // G-962 #68: 前端 enrollment/page.tsx 用 GET /trial-reservation 拉列表,此前仅 POST/PUT 在册。
+  server.get('/trial-reservation', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
+    const parsed = trialBookingListQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize } = paginationSchema.parse(request.query)
+    const conds: SQL[] = []
+    if (parsed.data.status) conds.push(eq(eduTrialBooking.status, parsed.data.status))
+    if (parsed.data.date) conds.push(eq(eduTrialBooking.trialDate, parsed.data.date))
+    const where = conds.length > 0 ? and(...conds) : undefined
+    const result = await paginate(
+      eduTrialBooking,
+      where,
+      desc(eduTrialBooking.createdAt),
+      page,
+      pageSize,
+    )
+    return reply.send(success(result))
+  })
+
   server.post('/trial-reservation', async (request, reply) => {
     await requireEduManage(request, reply)
     if (reply.sent) return
@@ -4682,15 +4702,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       ...parsed.data,
       operatorId: parsed.data.operatorId || request.userId,
     })
-    return reply
-      .status(201)
-      .send(
-        success({
-          refundRecord: r.refund,
-          enrollmentId: r.enrollmentId,
-          unattributed: !r.enrollmentId,
-        }),
-      )
+    return reply.status(201).send(
+      success({
+        refundRecord: r.refund,
+        enrollmentId: r.enrollmentId,
+        unattributed: !r.enrollmentId,
+      }),
+    )
   })
 
   server.put('/refund/:id/approve', async (request, reply) => {
@@ -4768,6 +4786,31 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // --- 家长绑定:前端 /parent-binding ↔ 后端 /parent/binding ---
+  // G-962 #69: 前端 parent/bind/page.tsx 用 GET /parent-binding 拉本人绑定列表。
+  server.get('/parent-binding', async (request, reply) => {
+    const parsed = bindingListQuerySchema.safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+
+    const conds: SQL[] = [
+      or(
+        eq(eduParentStudentBinding.parentId, userId),
+        eq(eduParentStudentBinding.studentId, userId),
+      ) ?? sql`false`,
+      isNull(eduParentStudentBinding.deletedAt),
+    ]
+    if (parsed.data.status) conds.push(eq(eduParentStudentBinding.status, parsed.data.status))
+    const where = and(...conds) ?? sql`true`
+    const list = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(where)
+      .orderBy(desc(eduParentStudentBinding.createdAt))
+    return reply.send(success({ list }))
+  })
+
   server.post('/parent-binding', async (request, reply) => {
     const parsed = createBindingSchema.safeParse(request.body)
     if (!parsed.success)
@@ -5065,7 +5108,10 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = z
-      .object({ enrollmentId: z.string().uuid().optional(), studentId: z.string().uuid().optional() })
+      .object({
+        enrollmentId: z.string().uuid().optional(),
+        studentId: z.string().uuid().optional(),
+      })
       .safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -5073,7 +5119,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '请至少提供 enrollmentId 或 studentId'))
     }
     const conds: SQL[] = [isNull(eduFeeSchedule.deletedAt)]
-    if (parsed.data.enrollmentId) conds.push(eq(eduFeeSchedule.enrollmentId, parsed.data.enrollmentId))
+    if (parsed.data.enrollmentId)
+      conds.push(eq(eduFeeSchedule.enrollmentId, parsed.data.enrollmentId))
     if (parsed.data.studentId) conds.push(eq(eduFeeSchedule.studentId, parsed.data.studentId))
     const rows = await db
       .select()
@@ -5092,29 +5139,24 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const [enrollment] = await db
       .select()
       .from(eduEnrollment)
-      .where(
-        and(
-          eq(eduEnrollment.id, parsed.data.enrollmentId),
-          isNull(eduEnrollment.deletedAt),
-        ),
-      )
+      .where(and(eq(eduEnrollment.id, parsed.data.enrollmentId), isNull(eduEnrollment.deletedAt)))
       .limit(1)
     if (!enrollment) return reply.status(404).send(error(404, '报名记录不存在'))
 
     const existing = await db
       .select({ id: eduFeeSchedule.id })
       .from(eduFeeSchedule)
-      .where(
-        and(
-          eq(eduFeeSchedule.enrollmentId, enrollment.id),
-          isNull(eduFeeSchedule.deletedAt),
-        ),
-      )
+      .where(and(eq(eduFeeSchedule.enrollmentId, enrollment.id), isNull(eduFeeSchedule.deletedAt)))
       .limit(1)
     if (existing.length > 0 && !parsed.data.replace) {
-      return reply.status(409).send(
-        error(409, '该报名已有账期。确要重建请带 replace:true —— 重建会断开已挂在旧账期上的缴费归属'),
-      )
+      return reply
+        .status(409)
+        .send(
+          error(
+            409,
+            '该报名已有账期。确要重建请带 replace:true —— 重建会断开已挂在旧账期上的缴费归属',
+          ),
+        )
     }
 
     const plan = buildSchedulePlan({
@@ -5125,7 +5167,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       monthsPerPeriod: parsed.data.monthsPerPeriod,
     })
     if (!plan) {
-      return reply.status(400).send(error(400, '无法展开账期:参数组合非法(期数/日期/周期请一并核对)'))
+      return reply
+        .status(400)
+        .send(error(400, '无法展开账期:参数组合非法(期数/日期/周期请一并核对)'))
     }
 
     const created = await db.transaction(async (tx) => {
@@ -5134,10 +5178,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
           .update(eduFeeSchedule)
           .set({ deletedAt: new Date(), updatedAt: new Date() })
           .where(
-            and(
-              eq(eduFeeSchedule.enrollmentId, enrollment.id),
-              isNull(eduFeeSchedule.deletedAt),
-            ),
+            and(eq(eduFeeSchedule.enrollmentId, enrollment.id), isNull(eduFeeSchedule.deletedAt)),
           )
       }
       return tx
@@ -5238,7 +5279,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         userId: enrollment.studentId,
         role: 'student',
         channel: 'wechat',
-        bucket: dispatch.wx?.sent ? 'sent' : ((known.includes(r) ? r : 'failed') as DeliveryEntry['bucket']),
+        bucket: dispatch.wx?.sent
+          ? 'sent'
+          : ((known.includes(r) ? r : 'failed') as DeliveryEntry['bucket']),
         at: new Date().toISOString(),
       })
     }
@@ -5277,21 +5320,21 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         .returning()
       return reply
         .status(201)
-        .send(success({ reminder: failed, notified: false, wxSent, wxFailReason, sms: dispatch.sms }))
+        .send(
+          success({ reminder: failed, notified: false, wxSent, wxFailReason, sms: dispatch.sms }),
+        )
     }
-    return reply
-      .status(201)
-      .send(
-        success({
-          reminder: row,
-          notified: true,
-          wxSent,
-          wxFailReason,
-          // 每收件人一档:sent / failed / not_configured / no_phone
-          smsSent: dispatch.smsSent,
-          sms: dispatch.sms,
-        }),
-      )
+    return reply.status(201).send(
+      success({
+        reminder: row,
+        notified: true,
+        wxSent,
+        wxFailReason,
+        // 每收件人一档:sent / failed / not_configured / no_phone
+        smsSent: dispatch.smsSent,
+        sms: dispatch.sms,
+      }),
+    )
   })
 
   // 批量催费:勾选欠费名单(报名记录)一次发送
@@ -5431,9 +5474,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
           .where(eq(eduFeeReminder.id, row.id))
       }
     }
-    return reply
-      .status(201)
-      .send(success({ sent: notified, total: rows.length, wxSent: wxSentCount, sms: smsTally, skipped }))
+    return reply.status(201).send(
+      success({
+        sent: notified,
+        total: rows.length,
+        wxSent: wxSentCount,
+        sms: smsTally,
+        skipped,
+      }),
+    )
   })
 
   // 催费记录列表

@@ -56,6 +56,81 @@ logger = logging.getLogger(__name__)
 OUTPUT_LIMIT = 50_000
 ERROR_LIMIT = 5_000
 
+# ===========================================================================
+# G-212 第十一批(2026-10-22):容器运行时默认严档(safe by default)
+# ---------------------------------------------------------------------------
+# 改动前现读:docker 可用性探测失败时**无条件**自动降级为宿主机本地子进程
+# (``execution_env="local-fallback"``),且 docker 参数没有 ``--network=none``、
+# 没有 CPU/内存/进程数上限;``timeout_sec=None`` 表示永不超时。也就是"没配
+# docker"这一个环境事实,会把容器隔离悄悄换成裸子进程。
+#
+# 严档语义(缺省即此档):
+#   - docker 不可用时**拒绝执行**(fail-closed),不再静默降级;
+#   - docker 参数默认 ``--network=none`` + cap-drop/无提权 + CPU/内存/进程上限;
+#   - 超时缺省 300s,必须是有限正数,上限 3600s;
+#   - 放宽必须显式 opt-in:
+#       * ``CONTAINER_RUNTIME_ALLOW_LOCAL_FALLBACK=1`` 才允许本地降级(审计 WARNING);
+#       * ``CONTAINER_RUNTIME_NETWORK=bridge|host`` 才放开容器网络(审计 WARNING);
+#       * ``CONTAINER_RUNTIME_TIMEOUT_SEC`` 可覆盖缺省超时(仍受上限约束)。
+#   非法档位/非法超时一律拒绝执行并给出可读错误,绝不回退到更宽松的档。
+# ===========================================================================
+
+CONTAINER_RUNTIME_ALLOW_LOCAL_FALLBACK_ENV = "CONTAINER_RUNTIME_ALLOW_LOCAL_FALLBACK"
+CONTAINER_RUNTIME_NETWORK_ENV = "CONTAINER_RUNTIME_NETWORK"
+CONTAINER_RUNTIME_TIMEOUT_SEC_ENV = "CONTAINER_RUNTIME_TIMEOUT_SEC"
+DEFAULT_CONTAINER_TIMEOUT_SEC = 300.0
+CONTAINER_TIMEOUT_CEILING_SEC = 3600.0
+CONTAINER_NETWORK_MODES = ("none", "bridge", "host")
+CONTAINER_MEMORY_LIMIT = "512m"
+CONTAINER_CPU_LIMIT = "1"
+CONTAINER_PIDS_LIMIT = "64"
+
+
+def _env_flag(name: str) -> bool:
+    """显式 opt-in 开关:只认 on/1/true/yes;其余(含缺失/拼错)一律 False。"""
+    return os.environ.get(name, "").strip().lower() in ("on", "1", "true", "yes")
+
+
+def _resolve_network_mode() -> str:
+    """容器网络档:缺省 none;未知值按 none 处理(fail-closed)并留审计日志。"""
+    raw = os.environ.get(CONTAINER_RUNTIME_NETWORK_ENV, "")
+    key = raw.strip().lower() or "none"
+    if key not in CONTAINER_NETWORK_MODES:
+        logger.warning(
+            "[container_runtime] 非法网络档 %r(可用 %s),已按 none 拒绝网络",
+            raw, CONTAINER_NETWORK_MODES,
+        )
+        return "none"
+    return key
+
+
+def _resolve_timeout(timeout_sec: float | None) -> float:
+    """超时档:缺省 300s;非法/超上限一律拒绝执行(fail-closed)。"""
+    if timeout_sec is None:
+        raw = os.environ.get(CONTAINER_RUNTIME_TIMEOUT_SEC_ENV, "")
+        if not raw.strip():
+            return DEFAULT_CONTAINER_TIMEOUT_SEC
+        try:
+            timeout_sec = float(raw)
+        except (TypeError, ValueError) as e:
+            raise ValueError(
+                f"{CONTAINER_RUNTIME_TIMEOUT_SEC_ENV} 必须是数字,得到 {raw!r}"
+            ) from e
+    try:
+        value = float(timeout_sec)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"timeout_sec 必须是有限正数,得到 {timeout_sec!r}") from e
+    if value <= 0 or value != value or value in (float("inf"), float("-inf")):
+        raise ValueError(f"timeout_sec 必须是有限正数,得到 {timeout_sec!r}")
+    if value > CONTAINER_TIMEOUT_CEILING_SEC:
+        logger.warning(
+            "[container_runtime] timeout_sec=%ss 超出上限 %ss,已截断",
+            value, CONTAINER_TIMEOUT_CEILING_SEC,
+        )
+        return CONTAINER_TIMEOUT_CEILING_SEC
+    return value
+
+
 # JSON 持久化文件(ai-service 根下的 data/container_runs.json)
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 _DEFAULT_PERSIST_FILE = _DATA_DIR / "container_runs.json"
@@ -97,6 +172,8 @@ class _RunHandle:
     # 第三十三批:被帧预算挡下并丢弃的输出行数(非协议流,但仍须可观察)
     dropped_lines: int = 0
     dropped_line_bytes: int = 0
+    # G-212:本次运行实际生效的容器网络档(默认 none,fail-closed)
+    network: str = "none"
 
 
 class ContainerRuntime:
@@ -169,11 +246,18 @@ class ContainerRuntime:
         - command: str(容器内 sh / 本地 shell 解释)或 list(容器内 shlex.join,
           本地直接 exec,无 shell 注入面)。
         - image: 覆盖镜像,默认取 CONTAINER_IMAGE 环境变量,再默认 python:3.12-slim。
-        - timeout_sec: 执行超时(秒),超时强杀进程并置 status=timeout。
+        - timeout_sec: 执行超时(秒),缺省 300s、上限 3600s;非法值拒绝执行。
+
+        G-212 严档:docker 不可用且未显式设置
+        ``CONTAINER_RUNTIME_ALLOW_LOCAL_FALLBACK=1`` 时**拒绝执行**(fail-closed),
+        不再把容器隔离静默降级为宿主机裸子进程。
         """
         run_id = run_id or uuid.uuid4().hex
         resolved_image = image or os.getenv("CONTAINER_IMAGE") or "python:3.12-slim"
-        env = "docker" if await self.detect_docker() else "local-fallback"
+        docker_ok = await self.detect_docker()
+        allow_local_fallback = _env_flag(CONTAINER_RUNTIME_ALLOW_LOCAL_FALLBACK_ENV)
+        env = "docker" if docker_ok else "local-fallback"
+        network_mode = _resolve_network_mode()
         cmd_str = command if isinstance(command, str) else shlex.join(command)
 
         # 与 cloud_run_store 联动:同时写入云托管运行记录(端闭环)
@@ -193,20 +277,65 @@ class ContainerRuntime:
             execution_env=env,
             user_id=user_id,
         )
-        handle = _RunHandle(run=run)
+        handle = _RunHandle(run=run, network=network_mode)
         self._runs[run_id] = handle
         handle.events.put_nowait({"event": "start", "run_id": run_id, "execution_env": env})
         self._persist()
+
+        # 严档 fail-closed:要么有 docker 隔离,要么显式 opt-in 本地降级。
+        if not docker_ok and not allow_local_fallback:
+            self._refuse_run(
+                handle,
+                "docker 不可用且未显式允许本地降级;已拒绝执行 (fail-closed)。"
+                f"如确需宿主执行,设置 {CONTAINER_RUNTIME_ALLOW_LOCAL_FALLBACK_ENV}=1",
+            )
+            return self.snapshot(run_id)  # type: ignore[return-value]
+        try:
+            resolved_timeout = _resolve_timeout(timeout_sec)
+        except ValueError as e:
+            self._refuse_run(handle, str(e))
+            return self.snapshot(run_id)  # type: ignore[return-value]
+        if not docker_ok:
+            logger.warning(
+                "[container_runtime] 放宽档生效 tier=local-fallback run=%s "
+                "(显式 opt-in: %s=1)",
+                run_id, CONTAINER_RUNTIME_ALLOW_LOCAL_FALLBACK_ENV,
+            )
+        if network_mode != "none":
+            logger.warning(
+                "[container_runtime] 网络放宽档生效 tier=%s run=%s network=%s "
+                "(显式 opt-in: %s)",
+                env, run_id, network_mode, CONTAINER_RUNTIME_NETWORK_ENV,
+            )
         # 保留原始命令形态(list 直接 exec 无 shell 注入面;str 经 shell 解释),
         # 避免 shlex.join 后再被 cmd /c 二次解释导致 Windows 语法错误
         handle.task = asyncio.create_task(
-            self._execute(handle, dict(files or {}), timeout_sec, command)
+            self._execute(handle, dict(files or {}), resolved_timeout, command)
         )
         logger.info(
-            "[container_runtime] 启动 run=%s env=%s task=%s",
-            run_id, env, task[:80],
+            "[container_runtime] 启动 run=%s env=%s tier=%s network=%s timeout=%ss task=%s",
+            run_id, env,
+            "strict" if docker_ok and network_mode == "none" else "relaxed",
+            network_mode, resolved_timeout, task[:80],
         )
         return self.snapshot(run_id)  # type: ignore[return-value]
+
+    def _refuse_run(self, handle: _RunHandle, message: str) -> None:
+        """拒绝执行并落终态(不派生任何子进程);错误可读、记录可查。"""
+        run = handle.run
+        run.status = "error"
+        run.error = message[:ERROR_LIMIT]
+        run.ended_at = _now_iso()
+        handle.events.put_nowait({"event": "exit", "status": run.status, "exit_code": None})
+        self._get_store().complete(
+            run.run_id, status="error", output="", error=run.error,
+        )
+        self._persist()
+        handle.done_event.set()
+        logger.warning(
+            "[container_runtime] 拒绝执行 run=%s env=%s reason=%s",
+            run.run_id, run.execution_env, run.error,
+        )
 
     async def wait_run(self, run_id: str, timeout: float = 60.0) -> dict[str, Any] | None:
         """等待运行进入终态(测试与同步调用辅助),超时返回当前快照。"""
@@ -293,11 +422,22 @@ class ContainerRuntime:
         return buf.getvalue()
 
     @staticmethod
-    def _docker_args(cmd: str, image: str, has_files: bool) -> list[str]:
-        """构造 docker run 参数(纯函数,便于单测断言)。"""
+    def _docker_args(
+        cmd: str, image: str, has_files: bool, network: str = "none"
+    ) -> list[str]:
+        """构造 docker run 参数(纯函数,便于单测断言)。
+
+        默认 `network="none"`:容器网络关闭;同时限制 CPU/内存/进程数,
+        丢弃全部 capabilities 并禁止提权(G-212 严档)。
+        """
         script = (f"mkdir -p /workspace && tar -x -C /workspace && {cmd}" if has_files else cmd)
         return [
-            "docker", "run", "--rm", "-i", "-w", "/workspace", image,
+            "docker", "run", "--rm", "-i", f"--network={network}",
+            "--cap-drop=ALL", "--security-opt=no-new-privileges",
+            "--pids-limit", CONTAINER_PIDS_LIMIT,
+            "--memory", CONTAINER_MEMORY_LIMIT,
+            "--cpus", CONTAINER_CPU_LIMIT,
+            "-w", "/workspace", image,
             "sh", "-c", script,
         ]
 
@@ -401,7 +541,9 @@ class ContainerRuntime:
         proc: asyncio.subprocess.Process | None = None
         try:
             if run.execution_env == "docker":
-                argv = self._docker_args(run.command, run.image, bool(files))
+                argv = self._docker_args(
+                    run.command, run.image, bool(files), network=handle.network,
+                )
                 stdin_data = self._build_tar(files) if files else None
                 cwd = None
             else:

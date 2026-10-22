@@ -214,9 +214,12 @@ export async function updateSdk(id: string, input: Partial<SdkInfo>): Promise<Ap
   })
 }
 
-/** 删除 SDK */
+/** 删除 SDK（后端仅 PATCH 在册，以 status=deprecated 软删） */
 export async function deleteSdk(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/sdks/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/sdks/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'deprecated' }),
+  })
 }
 
 // ===================== packages（套餐） =====================
@@ -252,9 +255,12 @@ export async function updatePackage(
   })
 }
 
-/** 删除套餐 */
+/** 删除套餐（后端仅 PATCH 在册，以 isActive=false 软删） */
 export async function deletePackage(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/packages/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/packages/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive: false }),
+  })
 }
 
 // ===================== webhooks =====================
@@ -281,16 +287,8 @@ export async function createWebhook(input: {
   })
 }
 
-/** 更新 Webhook */
-export async function updateWebhook(
-  id: string,
-  input: Partial<Webhook>,
-): Promise<ApiResult<Webhook>> {
-  return fetchApi<Webhook>(`/api/developer/webhooks/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(input),
-  })
-}
+// 2026-10-22 G-962 #92 摘除:PUT /api/developer/webhooks/:id 从未注册
+// (webhooks.ts 只挂 GET/POST/DELETE/:id/test),全仓零消费方;恢复前先补路由与测试。
 
 /** 删除 Webhook */
 export async function deleteWebhook(id: string): Promise<ApiResult<{ success: boolean }>> {

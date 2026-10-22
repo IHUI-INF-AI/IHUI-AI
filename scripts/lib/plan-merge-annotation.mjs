@@ -128,4 +128,49 @@ export function forkPreserved(beforeLine, afterLine) {
   if (b === null || a === null) return false
   return a === b
 }
+
+/**
+ * 归并档"行尾沿革"的剥离手术(G-952 缺陷 A 的正解;单源,只此一份)。
+ *
+ * 缺陷形态(2026-10-22 实测,不是假想):F10 孪生折叠档与漂开归并档都会在行尾追加一段沿革
+ * ` (原编号 <号>;持有行题面「<题面>」)`。历史折叠被回捞后,底稿**正文中间**也会留下一条
+ * 同形沿革;再折一次时新沿革追在行尾 ⇒ 一行里出现两条。旧写法
+ * `/ \(原编号 [^();]+;持有行题面「.*」\)$/` 的 `.*` 是贪婪的:它从**第一条**沿革的起点
+ * 一路吃到行尾,把两条之间的正文整段剥掉 ⇒ `stripLastTail(after) !== before` ⇒
+ * `twinFoldRejectReason` / `driftedFoldRejectReason` 一致判"折叠不可逆",两个出口在同一行上
+ * 同时失效(设计面实测:带该残迹的未勾登记行 11 条,全部中置;贪婪剥完停在 `未动。〕`)。
+ *
+ * 手术:只剥**最后一次**出现的沿革 ——
+ *  1. 取各形状 anchor 在行内的最右出现位置,作为唯一候选起点;
+ *  2. 候选起点到行尾必须**整段**匹配该形状的 `pattern`(调用方必须给整段锚定的正则);
+ *  3. 不成立 ⇒ 原样返回。不回落贪婪、不猜次右起点 —— 形状不符就是"这行没有可剥的沿革",
+ *     留给调用方按"不可逆"拒落(失效方向仍是安全的那一侧,§0.10)。
+ *
+ * `shape` = `{ anchors: string[], pattern: RegExp }`,也接受其数组(keyed / keyless 两族同给)。
+ * anchor 是沿革起点的字面量(如 `' (原编号 '`),必须与生成沿革的构造器(`buildTwinFold` /
+ * `buildDriftFold`)同源;本层不定义、不猜任何沿革形状(§0.6 单一真相源)。
+ */
+export function stripLastTail(text, shape) {
+  const s = String(text ?? '')
+  const shapes = (Array.isArray(shape) ? shape : [shape]).filter(
+    (x) => x && Array.isArray(x.anchors) && x.pattern instanceof RegExp,
+  )
+  if (!shapes.length) return s
+  let cut = -1
+  for (const sh of shapes) {
+    for (const anchor of sh.anchors) {
+      if (typeof anchor !== 'string' || anchor === '') continue
+      const i = s.lastIndexOf(anchor)
+      if (i > cut) cut = i
+    }
+  }
+  if (cut < 0) return s
+  const tail = s.slice(cut)
+  const matched = shapes.some((sh) => {
+    // 带 g/y 的正则会留 lastIndex 状态 ⇒ test 前归零,避免同一 shape 复用时判据漂移
+    if (sh.pattern.global || sh.pattern.sticky) sh.pattern.lastIndex = 0
+    return sh.pattern.test(tail)
+  })
+  return matched ? s.slice(0, cut) : s
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

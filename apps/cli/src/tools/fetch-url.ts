@@ -9,6 +9,7 @@
  * 策略:
  *   - 基于 Node 18+ 内置 fetch
  *   - HTML → text 提取:去 script/style/nav/header/footer,保留正文
+ *   - 响应体硬上限 10 MiB(流式计数,超限中止并报错,不做静默截断)
  *   - 截断到 10K 字符(避免上下文膨胀)
  *   - dangerLevel='read'(只读,不接 hooks 阻断)
  *   - 超时 15s,仅允许 http/https
@@ -34,6 +35,53 @@ const MAX_OUTPUT_CHARS = 10_000;
 const FETCH_TIMEOUT_MS = 15_000;
 /** 重定向跳数上限。不设上限时"每一跳都复校验"这条防线会被一条自指的 Location 拖成死循环。 */
 const MAX_REDIRECT_HOPS = 5;
+/**
+ * 响应体硬上限(对齐上游 webfetch 的 maxResponseBytes=10 MiB)。
+ *
+ * 上限量的是**下载下来的字节**,不是转成文本后的字符:压缩炸弹/大文件在
+ * `res.text()` 面前一律先进内存,拿到之后才轮到 10K 字符截断 —— 那条路
+ * 对进程是 OOM,对模型是"前 10K 字符被当成全文引用"。
+ */
+export const MAX_FETCH_RESPONSE_BYTES = 10 * 1024 * 1024;
+
+type BodyReadResult =
+  | { ok: true; text: string }
+  /** source 区分"声明超限(未下载)"与"实读超限(已中止)":报错文案不得把前者写成已读字节 */
+  | { ok: false; bytesRead: number; source: 'declared' | 'streamed' };
+
+/**
+ * 流式读取响应体并施加字节上限。
+ *
+ * 超限的结局是**明确失败**(errorType=response_too_large),不是截断:
+ * 半截正文返回给模型,它会把没读到的部分当作不存在。
+ */
+async function readBodyWithLimit(res: Response, limitBytes: number): Promise<BodyReadResult> {
+  // Content-Length 可信就先拒(省一次完整下载);它本身可以撒谎,所以下面仍逐块计数。
+  const declaredRaw = res.headers.get('content-length');
+  const declared = declaredRaw === null ? Number.NaN : Number(declaredRaw);
+  if (Number.isFinite(declared) && declared > limitBytes) {
+    await res.body?.cancel().catch(() => {});
+    return { ok: false, bytesRead: declared, source: 'declared' };
+  }
+  if (!res.body) return { ok: true, text: '' };
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value || value.byteLength === 0) continue;
+    total += value.byteLength;
+    if (total > limitBytes) {
+      await reader.cancel().catch(() => {});
+      return { ok: false, bytesRead: total, source: 'streamed' };
+    }
+    chunks.push(value);
+  }
+  // 分块边界可能切开多字节字符,所以先拼字节再整体解码(逐块 toString 会出乱码)。
+  const buf = Buffer.concat(chunks.map((c) => Buffer.from(c.buffer, c.byteOffset, c.byteLength)));
+  return { ok: true, text: buf.toString('utf8') };
+}
 
 function htmlToText(html: string): string {
   let text = html;
@@ -141,7 +189,32 @@ export const fetch_url: Tool = {
         };
       }
 
-      const raw = await res.text();
+      const body = await readBodyWithLimit(res, MAX_FETCH_RESPONSE_BYTES);
+      if (!body.ok) {
+        runPostToolCall(
+          'fetch_url',
+          {
+            error: 'response_too_large',
+            limitBytes: MAX_FETCH_RESPONSE_BYTES,
+            bytes: body.bytesRead,
+            source: body.source,
+          },
+          ctx.signal,
+        );
+        const detail =
+          body.source === 'declared'
+            ? `Content-Length 声明 ${body.bytesRead} 字节`
+            : `已读取 ${body.bytesRead} 字节即中止`;
+        return {
+          success: false,
+          output: '',
+          error:
+            `响应体超过 ${MAX_FETCH_RESPONSE_BYTES / 1024 / 1024} MiB 上限(${detail}),` +
+            `未返回任何内容: ${finalUrl}。如需完整内容请改用支持落盘的下载方式。`,
+          errorType: 'response_too_large',
+        };
+      }
+      const raw = body.text;
       let output: string;
 
       if (contentType.includes('text/html')) {

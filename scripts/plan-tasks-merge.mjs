@@ -120,6 +120,7 @@ import {
   forkPreserved,
   anchorOf,
   LEASE_RE,
+  stripLastTail,
 } from './lib/plan-merge-annotation.mjs'
 import {
   alignSharedIndex,
@@ -2661,9 +2662,15 @@ export function buildTwinFold(line, keeperLine, today) {
   return `${m[1]}${twinFoldNote(today)}${line.slice(m[1].length)} (原编号 ${key};持有行题面「${anchor}」)`
 }
 
-/** 剥掉**本档**写的注记与沿革,还原底稿 —— 折叠必须可逆,不可逆就等于在改别人的登记。 */
+/** 剥掉**本档**写的注记与沿革,还原底稿 —— 折叠必须可逆,不可逆就等于在改别人的登记。
+ *  G-952 缺陷 A(2026-10-23 接线):沿革剥离走 stripLastTail 只剥最右一层 —— 旧 `.*` 贪婪会从
+ *  正文中间那条沿革起点吃到行尾,把两条之间的正文整段剥掉 ⇒ 可逆性判据被自己的手术制造失败。 */
 export function stripTwinFold(line) {
-  return String(line).replace(TWIN_FOLDED_RE, '$1').replace(TWIN_TAIL_RE, '')
+  const noNote = String(line).replace(TWIN_FOLDED_RE, '$1')
+  return stripLastTail(noNote, {
+    anchors: [' (原编号 '],
+    pattern: new RegExp(`^${TWIN_TAIL_RE.source}`),
+  })
 }
 
 /** 这行是不是本档折出来的形态(注记 + 沿革都在位才算)。 */
@@ -3078,12 +3085,14 @@ export function driftedFoldNote(today) {
   return `（【归并】重复登记副本·漂开归并·${today}·本行与同题登记的持有行同题而正文已漂开,不翻勾、不并抄,本行正文逐字保留,双方差异以两行原文对照为准,派单以持有行为准）`
 }
 
-/** 剥掉**本档**写的注记与沿革,还原底稿 —— 不可逆的归并等于在改别人的登记。 */
+/** 剥掉**本档**写的注记与沿革,还原底稿 —— 不可逆的归并等于在改别人的登记。
+ *  G-952 缺陷 A 同一手术:keyed / keyless 两种沿革都只剥最右一层。 */
 export function stripDriftFold(line) {
-  return String(line)
-    .replace(DRIFT_FOLDED_RE, '$1')
-    .replace(DRIFT_TAIL_KEYED_RE, '')
-    .replace(DRIFT_TAIL_KEYLESS_RE, '')
+  const noNote = String(line).replace(DRIFT_FOLDED_RE, '$1')
+  return stripLastTail(noNote, [
+    { anchors: [' (原编号 '], pattern: new RegExp(`^${DRIFT_TAIL_KEYED_RE.source}`) },
+    { anchors: [' (持有行题面「'], pattern: new RegExp(`^${DRIFT_TAIL_KEYLESS_RE.source}`) },
+  ])
 }
 
 /** 这行是不是本档折出来的形态(注记 + 两种沿革之一都在位才算)。 */

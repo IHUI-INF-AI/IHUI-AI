@@ -134,8 +134,8 @@ test.describe.parallel('后端契约专项', () => {
 
   test('分页响应结构包含 data / total / page / pageSize', async ({ request }) => {
     test.skip(!accessToken, '未登录,跳过')
-    // 尝试一个分页接口(用户列表)
-    const response = await request.get('/api/users?page=1&pageSize=10', {
+    // 尝试一个分页接口(用户列表;usersRoutes 无根 GET,分页在册腿=GET /api/admin/users)
+    const response = await request.get('/api/admin/users?page=1&pageSize=10', {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     if (response.status() !== 200) {

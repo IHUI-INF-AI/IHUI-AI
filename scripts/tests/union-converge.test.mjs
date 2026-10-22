@@ -2068,3 +2068,93 @@ test('G-815405 ④(F5 逐字副本折半):折半留一份不得判红;漂移副�
     '判红条件必须含逐行欠账这一半(只比总量会让合法折半替真丢失背书,见票面反向臂)',
   )
 })
+
+/**
+ * G-32(2026-10-22):活文档行 union 不得把"本侧已让号删除的旧形态"从 base/对侧补回。
+ * 立因现读:让号枚 `c8cecd2572`(815951..815957 → 815980..815986)之后 F9 从 7 组降到 2 组,
+ * 余下两组的键位行本面已经没有 ⇒ 补回只可能来自 base/对侧;落地闸只判"合并结果是否放大",
+ * 本侧无法自清 ⇒ 死锁。修法:yieldedIdCaps 按 留痕(改号/同题原号/让号箭头) ∧ 新号行在册 ∧
+ * 同一件事(Jaccard 同源阈值) 摘除补回副本,并接进 liveDocExpectedCounts 这一张期望表
+ * (产出面与自证面同形)。票面禁则:不得为变绿抬基线、不得批量改号 —— 本件只证判据形状。
+ */
+const G32_OLD = '- [ ] G-791 **让号摘除镜像夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。'
+const G32_NEW = '- [ ] G-792 〔改号(2026-10-22):原G-791〕 **让号摘除镜像夹具的旧形态题面,标题长到能过指纹权重门**,正文逐字守恒的取证段 AAAABBBBCCCCDDDDEEEE,尾段 FFFFGGGGHHHHJJJJ 同样保留。'
+const G32_VAR = G32_OLD + '〔对侧新取证@2026-10-22:仍红〕'
+const G32_OTHER = '- [ ] G-791 **完全另一件事的镜像题面,同样长到能过指纹权重门,与让号夹具无关**,取证段 KKKKLLLLMMMMNNNN,尾段 PPPPQQQQRRRRSSSS 也不同。'
+
+test('G-32 让号摘除(纯函数):留痕+在册+同一件事三条全过才摘;异题活账与无留痕形态照常补回', () => {
+  const ours = '# 台账\n' + G32_NEW + '\n'
+  const theirs = '# 台账\n' + G32_VAR + '\n' + G32_OTHER + '\n'
+  const base = '# 台账\n' + G32_OLD + '\n'
+  const caps = U.yieldedIdCaps(ours, theirs)
+  assert.ok(caps.has(G32_VAR), '旧形态变体必须被摘除表点名')
+  assert.ok(!caps.has(G32_OTHER), '同号异题的对侧活账不得进摘除表(少带别人的行比死锁更贵)')
+  const want = U.liveDocExpectedCounts(ours, theirs, base)
+  assert.ok(!want.has(G32_VAR), '期望表不得再欠旧形态的份(自证面与产出面同一张尺)')
+  assert.ok(want.has(G32_OTHER), '对侧异题新增照常进期望表')
+  const merged = U.unionLines(ours, theirs, base)
+  assert.ok(
+    !merged.includes(G32_VAR) && merged.includes(G32_NEW) && merged.includes(G32_OTHER),
+    '产出面必须留新号行与异题活账、不带旧形态:\n' + merged,
+  )
+  const bare = G32_NEW.replace(' 〔改号(2026-10-22):原G-791〕', '')
+  assert.ok(
+    U.liveDocExpectedCounts('# 台账\n' + bare + '\n', theirs, base).has(G32_VAR),
+    '反向锁:无留痕 ⇒ 不摘(判据只在有证据时生效)',
+  )
+  assert.ok(
+    U.liveDocExpectedCounts('# 台账\n', theirs, base).has(G32_VAR),
+    '失效方向:新号行不在册 ⇒ 照常补回(多留一份交人工,绝不反向少带)',
+  )
+})
+
+test('G-32 让号摘除端到端(真临时仓兄弟分叉):产物面不再带回已让号旧形态,落地闸对本侧不再死锁', () => {
+  const { dir, run } = fixture()
+  try {
+    run('checkout', '-q', '-b', 'g32-br')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# 台账\n' + G32_OLD + '\n', 'utf8')
+    writeFileSync(join(dir, 'keep.ts'), 'k\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'base')
+    const baseSha = run('rev-parse', 'HEAD')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# 台账\n' + G32_NEW + '\n', 'utf8')
+    writeFileSync(join(dir, 'ours.ts'), 'o\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours-renumber')
+    const ours = run('rev-parse', 'HEAD')
+    run('checkout', '-q', baseSha)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# 台账\n' + G32_VAR + '\n' + G32_OTHER + '\n', 'utf8')
+    writeFileSync(join(dir, 'theirs.ts'), 't\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'theirs')
+    const theirs = run('rev-parse', 'HEAD')
+    // 夹具自证:真兄弟分叉(merge-base 就是 base),否则"没带回"可能只是"本来就没有"
+    assert.equal(run('merge-base', ours, theirs), baseSha, '夹具必须是同一基底的两个兄弟提交')
+    const p = U.plan(ours, theirs, dir)
+    const doc = U.show(p.tree, 'PROJECT_PLAN.md', dir)
+    assert.ok(doc.includes(G32_NEW), '本侧让号后的新形态必须在产物面:\n' + doc)
+    assert.ok(!doc.includes(G32_VAR), '已让号删除的旧形态不得被补回:\n' + doc)
+    assert.ok(!doc.includes(G32_OLD), '基底旧形态不得被补回:\n' + doc)
+    assert.ok(doc.includes(G32_OTHER), '对侧同号异题的活账必须照常带(摘除不得反向吞别人的行)')
+    assert.ok(
+      p.bad.every(
+        (b) =>
+          !String(b).includes('未存活行') &&
+          !String(b).includes('F9') &&
+          !String(b).includes('旧行被复活'),
+      ),
+      '落地闸对本侧不得死锁:' + JSON.stringify(p.bad.slice(0, 3)),
+    )
+    // 同轮反向锁:另造一枚**不带留痕**的本侧提交 ⇒ 旧形态必须被带回(证明上一条的"不带回"是判据在咬)
+    run('checkout', '-q', baseSha)
+    const bare = G32_NEW.replace(' 〔改号(2026-10-22):原G-791〕', '')
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), '# 台账\n' + bare + '\n', 'utf8')
+    run('add', '-A')
+    run('commit', '-qm', 'ours-bare')
+    const bareP = U.plan(run('rev-parse', 'HEAD'), theirs, dir)
+    const bareDoc = U.show(bareP.tree, 'PROJECT_PLAN.md', dir)
+    assert.ok(bareDoc.includes(G32_VAR), '无留痕时旧形态必须照常补回(反向锁不得空转):\n' + bareDoc)
+  } finally {
+    rmScratch(dir)
+  }
+})

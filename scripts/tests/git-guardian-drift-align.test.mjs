@@ -24,6 +24,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, join, normalize, resolve } from 'node:path'
@@ -140,7 +141,13 @@ function runAlign(tmp, env = {}) {
       // 派生命中 EBUSY 面,症状是 status=null(进程没能起来),而断言里写的是
       // "实得 null;stdout 末行=" —— 读起来像"CLI 自己没输出",与真正的派生故障毫无关系。
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, ...env },
+      env: {
+        ...process.env,
+        // 活工作保护窗在演练里默认关闭:下面两条契约用"刚写的文件"造漂移,
+        // 不关的话会被新护栏正确地挡下(护栏自身的正控见下一条测试)。
+        IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC: '0',
+        ...env,
+      },
     },
   )
   return { status: r.status, last: (r.stdout || '').trim().split('\n').pop() }
@@ -157,6 +164,26 @@ test('CLI 契约:有漂移时 exit 0 且最后一行是 aligned>=1 的 JSON,文�
     assert.deepEqual(r.paths, ['a.ts'])
     assert.equal(readFileSync(join(tmp, 'a.ts'), 'utf8'), 'v2\n', '对齐后内容必须等于 HEAD')
     assert.equal(g(['status', '--porcelain']).trim(), '', '对齐后工作区应干净')
+  } finally {
+    rmScratch(tmp)
+  }
+})
+
+test('活工作保护窗:窗口内的漂移文件不还原,超过窗口后照常对齐', () => {
+  const { tmp } = makeDrillRepo()
+  try {
+    writeFileSync(join(tmp, 'a.ts'), 'v1\n') // 刚写下的"回潮"内容 = 在飞编辑的形态
+    const r = JSON.parse(runAlign(tmp, { IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC: '600' }).last)
+    assert.equal(r.aligned, 0, '窗口内的路径不得被还原')
+    assert.deepEqual(r.recentlySkipped, ['a.ts'], '被护栏挡下的路径必须逐条点名')
+    assert.equal(readFileSync(join(tmp, 'a.ts'), 'utf8'), 'v1\n', '在飞编辑被覆盖 = 本护栏失效')
+
+    const old = new Date(Date.now() - 601_000)
+    utimesSync(join(tmp, 'a.ts'), old, old)
+    const r2 = JSON.parse(runAlign(tmp, { IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC: '600' }).last)
+    assert.equal(r2.aligned, 1, '窗口外的真漂移仍必须自愈')
+    assert.deepEqual(r2.recentlySkipped, [])
+    assert.equal(readFileSync(join(tmp, 'a.ts'), 'utf8'), 'v2\n')
   } finally {
     rmScratch(tmp)
   }

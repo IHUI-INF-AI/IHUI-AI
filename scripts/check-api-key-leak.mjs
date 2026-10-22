@@ -20,12 +20,12 @@
  *   --worktree: 判磁盘(人工逃生舱,不得作为提交门禁)
  * 取材走 face-reader 统一层(守门 118:引了层却自己读盘 = 半接线);取不到输入 ⇒ exit 2 无法判定。
  */
-import { execSync } from 'node:child_process'
 import { createLogger } from './lib/logger.mjs'
 import {
   Undetermined,
   assertRepoRoot,
   catBatch,
+  gitRaw,
   readWorktreeFile,
   selectFace,
 } from './lib/face-reader.mjs'
@@ -77,14 +77,9 @@ function collectFiles() {
   ])
   if (face === 'staged') {
     try {
-      const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-        encoding: 'utf8',
-        cwd: ROOT,
-        // 防 Windows 弹可见控制台窗口
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe']
-        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      })
+      // G-54:裸 git 派生迁取材层 gitRaw(绝对 git + stdio 接管 + 有界 timeout + EBUSY 兜底);
+      // 原 cwd/encoding/windowsHide/stdio 四项由层统一提供,取不到仍走下面 catch 归空清单。
+      const output = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACM'], ROOT)
       return output
         .split('\n')
         .map((f) => f.replace(/\r$/, ''))

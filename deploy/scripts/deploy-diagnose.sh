@@ -20,7 +20,7 @@
 #   ihui_diag_capture   把一条命令的 stdout+stderr 同时"透传 + 落盘"(依赖 pipefail)
 #   ihui_diag_container_logs  失败时把容器日志抓进部署日志(它是唯一原本就有内容的输入)
 #   ihui_diag_health_json     跑 health-check --json 落到文件(取不到不报错)
-#   ihui_diag_run       失败点调 ai-diagnose.mjs;node/IHUI_AI_KEY 不齐则静默跳过
+#   ihui_diag_run       失败点调 ai-diagnose.mjs 并把报告落盘 logs/;node/IHUI_AI_KEY 不齐则静默跳过
 #
 # 用法(在调用方脚本里):
 #   set -euo pipefail                 # ihui_diag_capture 依赖 pipefail
@@ -179,9 +179,16 @@ ihui_diag_run() {
         echo "[diag][WARN] 部署日志为空,跳过 AI 诊断" >&2
         return 0
     fi
-    echo "[diag] 调用 AI 诊断助手分析失败日志(P2-13)..." >&2
-    node "${script}" --log "${IHUI_DIAG_LOG_FILE}" --tail 300 --context "${context}" ||
+    # 诊断报告落盘(P2-13③ 票面明令):流水写进部署日志同目录(每次调用一份、带时刻,
+    # 同一轮两个失败点不互相覆盖),外加固定名 latest 指针 —— 与 ihui_diag_init 的
+    # 日志双件同型,失败后在 logs/ 下直接可查。
+    local report latest
+    report="${IHUI_DIAG_LOG_FILE%.log}-ai-diagnose-$(date +%H%M%S).md"
+    latest="$(dirname "${report}")/ai-diagnose-latest.md"
+    echo "[diag] 调用 AI 诊断助手分析失败日志(P2-13),报告将落盘: ${report}" >&2
+    node "${script}" --log "${IHUI_DIAG_LOG_FILE}" --tail 300 --context "${context}" --out "${report}" ||
         echo "[diag][WARN] AI 诊断不可用(退出码 $?),不影响部署流程" >&2
+    [[ -f "${report}" ]] && { ln -sf "$(basename "${report}")" "${latest}" 2>/dev/null || cp -f "${report}" "${latest}" 2>/dev/null || true; }
     return 0
 }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

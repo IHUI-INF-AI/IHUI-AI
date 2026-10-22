@@ -40,6 +40,12 @@ const listTransactionsQuerySchema = z.object({
 })
 import { buildResponseSchema } from '../utils/api-schemas.js'
 
+const pointsRecordsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  type: z.transform(emptyToUndefined).pipe(z.enum(['all', 'earn', 'spend']).default('all')),
+})
+
 const adjustPointsSchema = z.object({
   userId: z.uuid({ error: '无效的用户 ID' }),
   amount: z
@@ -121,6 +127,40 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       const { page, pageSize, type, source } = parsed.data
       const { list, total } = await findPointTransactions({ userId, page, pageSize, type, source })
       return reply.send(success({ list, total, page, pageSize }))
+    },
+  )
+
+  // GET /points/records - 积分明细(G-962 批7 补后端,迁移自 D 盘历史死路径)
+  // 与 /points/transactions 的差异:接受 type=all,并附带当前余额 balance。
+  server.get(
+    '/points/records',
+    {
+      schema: {
+        summary: '获取积分明细',
+        tags: ['gamification'],
+        querystring: {
+          type: 'object',
+          properties: {
+            page: { type: 'integer', minimum: 1, default: 1 },
+            pageSize: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+            type: { type: 'string', enum: ['all', 'earn', 'spend'], default: 'all' },
+          },
+        },
+        response: buildResponseSchema(400, 401),
+      },
+    },
+    async (request, reply) => {
+      const userId = request.userId!
+      const parsed = pointsRecordsQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { page, pageSize, type } = parsed.data
+      const [{ list, total }, points] = await Promise.all([
+        findPointTransactions({ userId, page, pageSize, type: type === 'all' ? undefined : type }),
+        ensureUserPoints(userId),
+      ])
+      return reply.send(success({ list, total, page, pageSize, balance: points.points }))
     },
   )
 

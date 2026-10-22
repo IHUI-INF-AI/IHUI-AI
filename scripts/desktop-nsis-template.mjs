@@ -30,14 +30,14 @@
 //
 // 触发时机:升级 Tauri CLI 后必须跑一次 --check;不一致则看 diff 决定是否 --write。
 
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(HERE, '..');
-const TARGET = join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi');
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(HERE, '..')
+const TARGET = join(ROOT, 'apps/desktop/src-tauri/windows/installer.nsi')
 
 // 目标模板头部:标注来源与定制范围。--check 时连同上游正文一起参与比对。
 const HEADER = [
@@ -58,7 +58,7 @@ const HEADER = [
   ';   禁止手工编辑本文件的非定制段落;要改定制逻辑请改本脚本内的常量后重新 --write。',
   '',
   '',
-].join('\n');
+].join('\n')
 
 // ---- P0:默认安装目录(上游片段 → IHUI 片段) ----
 const P0_UPSTREAM = [
@@ -80,7 +80,7 @@ const P0_UPSTREAM = [
   '    !endif',
   '',
   '    Call RestorePreviousInstallLocation',
-].join('\n');
+].join('\n')
 
 // 设计原则:只替换「默认目录的推导方式」,其余与上游逐字一致 —— 尤其是末尾那句
 // 无条件的 Call RestorePreviousInstallLocation 必须原样保留,它承担两个职责:
@@ -103,41 +103,38 @@ const P0_IHUI = [
   '',
   '    Call RestorePreviousInstallLocation',
   '    ; ==== IHUI 定制结束 ====',
-].join('\n');
+].join('\n')
 
 // ---- P1:欢迎页 → IHUI 自定义品牌页 ----
 const P1_UPSTREAM = [
   '; 1. Welcome Page',
   '!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive',
   '!insertmacro MUI_PAGE_WELCOME',
-].join('\n');
+].join('\n')
 const P1_IHUI = [
   '; 1. Welcome Page(IHUI 自定义品牌页,见 windows/ihui-ui.nsi;passive/静默在页内 Abort 跳过)',
   'Page custom IHUIWelcomePage IHUIWelcomeLeave',
-].join('\n');
+].join('\n')
 
 // ---- P2:目录页 → IHUI 自定义品牌页 ----
 const P2_UPSTREAM = [
   '; 5. Choose install directory page',
   '!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive',
   '!insertmacro MUI_PAGE_DIRECTORY',
-].join('\n');
+].join('\n')
 const P2_IHUI = [
   '; 5. Choose install directory page(IHUI 自定义品牌页,见 windows/ihui-ui.nsi)',
   'Page custom IHUIDirPage IHUIDirLeave',
-].join('\n');
+].join('\n')
 
 // ---- P3:安装页 SHOW/LEAVE 回调(深色化 + 进度条重着色) ----
-const P3_UPSTREAM = [
-  '; 7. Installation page',
-  '!insertmacro MUI_PAGE_INSTFILES',
-].join('\n');
+const P3_UPSTREAM = ['; 7. Installation page', '!insertmacro MUI_PAGE_INSTFILES'].join('\n')
 const P3_IHUI = [
   '; 7. Installation page(IHUI 深色化:SHOW/LEAVE 回调见 windows/ihui-ui.nsi)',
   '!define MUI_PAGE_CUSTOMFUNCTION_SHOW IHUIInstShow',
   '!define MUI_PAGE_CUSTOMFUNCTION_LEAVE IHUIInstLeave',
   '!insertmacro MUI_PAGE_INSTFILES',
-].join('\n');
+].join('\n')
 
 // ---- P4:完成页 → IHUI 自定义品牌页 ----
 const P4_UPSTREAM = [
@@ -155,27 +152,23 @@ const P4_UPSTREAM = [
   '!define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary',
   '!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive',
   '!insertmacro MUI_PAGE_FINISH',
-].join('\n');
+].join('\n')
 const P4_IHUI = [
   '; 8. Finish page(IHUI 自定义品牌页,见 windows/ihui-ui.nsi)',
   '; 上游 MUI_FINISHPAGE_* 已移除:instfiles 完成后自动进入品牌完成页;',
   '; 快捷方式创建/启动应用逻辑移入 IHUIOnFinish/IHUIOnLaunch(Call 模板函数,语义不变)。',
   'Page custom IHUIFinishPage IHUIFinishLeave',
-].join('\n');
+].join('\n')
 
 // ---- P5:重装/升级确认页深色主题 ----
-const P5_UPSTREAM = [
-  '    ${NSD_SetFocus} $R2',
-  '    nsDialogs::Show',
-  '  ${EndIf}',
-].join('\n');
+const P5_UPSTREAM = ['    ${NSD_SetFocus} $R2', '    nsDialogs::Show', '  ${EndIf}'].join('\n')
 const P5_IHUI = [
   '    ${NSD_SetFocus} $R2',
   '    ; IHUI:重装/升级确认页深色主题(只读 $R1/$R2/$R3/$R4,见 windows/ihui-ui.nsi)',
   '    !insertmacro IHUI_REINSTALLTHEME',
   '    nsDialogs::Show',
   '  ${EndIf}',
-].join('\n');
+].join('\n')
 
 // ---- P6:.onInit 尾部开屏动画(衔接 P0 补丁产物) ----
 const P6_UPSTREAM = [
@@ -184,7 +177,7 @@ const P6_UPSTREAM = [
   '',
   '',
   '  !if "${INSTALLMODE}" == "both"',
-].join('\n');
+].join('\n')
 const P6_IHUI = [
   '    ; ==== IHUI 定制结束 ====',
   '  ${EndIf}',
@@ -193,7 +186,7 @@ const P6_IHUI = [
   '  !insertmacro IHUI_INITSPLASH',
   '',
   '  !if "${INSTALLMODE}" == "both"',
-].join('\n');
+].join('\n')
 
 // ---- P7:Install Section 进度埋点(安装页百分比 + 自绘品牌进度条) ----
 // 为什么必须改 Section 正文:安装页是 NSIS 原生 instfiles 页,拿不到任何定时器 ——
@@ -219,7 +212,7 @@ const P7_POINTS = [
   ['  ; Save $INSTDIR in registry for future installations', 88, '正在登记安装位置'],
   ['  ${GetSize} "$INSTDIR" "/M=uninstall.exe /S=0K /G=0" $0 $1 $2', 93, '正在统计占用'],
   ['  ; Create start menu shortcut', 97, '正在创建快捷方式'],
-];
+]
 
 // 补丁集:name 用于诊断输出;apply 时严格断言锚点存在。
 const PATCHES = [
@@ -230,7 +223,7 @@ const PATCHES = [
   { name: 'P4 完成页', upstream: P4_UPSTREAM, ihui: P4_IHUI },
   { name: 'P5 重装页主题', upstream: P5_UPSTREAM, ihui: P5_IHUI },
   { name: 'P6 开屏动画', upstream: P6_UPSTREAM, ihui: P6_IHUI },
-];
+]
 
 // P7 拆成多条独立补丁(锚点分散在 Section 正文各处,不能合并成一段)
 for (const [upstream, pct, text] of P7_POINTS) {
@@ -238,7 +231,7 @@ for (const [upstream, pct, text] of P7_POINTS) {
     name: `P7 进度埋点 ${pct}%`,
     upstream,
     ihui: `  !insertmacro IHUI_PROGRESS ${pct} "${text}"${'\n'}${upstream}`,
-  });
+  })
 }
 
 // ---- U 系列:卸载器主题化(实现见 windows/ihui-uninstaller.nsi) ----
@@ -248,7 +241,10 @@ for (const [upstream, pct, text] of P7_POINTS) {
 // 拿掉后这三个 define 会**漏给下一个页面**(MUI_UNPAGE_INSTFILES),其中
 // un.SkipIfPassive 作为 instfiles 的 PRE 会在 passive 卸载时 Abort 掉卸载页,
 // 即"静默/被动卸载直接不跑了"。这是本补丁最容易埋的雷,故在此写明。
-const U1_UPSTREAM = ['!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive', '!insertmacro MUI_UNPAGE_CONFIRM'].join('\n')
+const U1_UPSTREAM = [
+  '!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive',
+  '!insertmacro MUI_UNPAGE_CONFIRM',
+].join('\n')
 const U1_IHUI = [
   '!undef MUI_PAGE_CUSTOMFUNCTION_SHOW',
   '!undef MUI_PAGE_CUSTOMFUNCTION_LEAVE',
@@ -347,197 +343,219 @@ for (const [upstream, pct, text] of U_POINTS) {
 // 解法:把"仓库文件 vs 上游+P0-P7"的差量用 --emit-patches 逐字节导出成侧车 JSON,
 //   运行时并入 PATCHES。此后 --write 幂等且不丢任何定制;再直接手改 installer.nsi
 //   会被 --check 判红,必须重跑 --emit-patches 登记。
-const RESIDUAL = join(ROOT, 'scripts/desktop-nsis-ihui-patches.json');
+const RESIDUAL = join(ROOT, 'scripts/desktop-nsis-ihui-patches.json')
 
 function loadResidualPatches() {
-  if (!existsSync(RESIDUAL)) return;
-  const list = JSON.parse(readFileSync(RESIDUAL, 'utf8'));
-  list.forEach((r, i) => PATCHES.push({ name: `R${i + 1} 历史手工定制`, upstream: r.upstream, ihui: r.ihui }));
+  if (!existsSync(RESIDUAL)) return
+  const list = JSON.parse(readFileSync(RESIDUAL, 'utf8'))
+  list.forEach((r, i) =>
+    PATCHES.push({ name: `R${i + 1} 历史手工定制`, upstream: r.upstream, ihui: r.ihui }),
+  )
 }
 
 // 行级 LCS diff → 带上下文的补丁窗口(仅 --emit-patches 使用)。
 // 输出每对 {upstream, ihui} 都是逐字节切片,不做任何规范化,保证可精确回放。
 function diffToPatches(oldText, newText, ctx) {
-  const a = oldText.split('\n');
-  const b = newText.split('\n');
-  const n = a.length;
-  const m = b.length;
-  const dp = [];
-  for (let i = 0; i <= n; i++) dp.push(new Uint32Array(m + 1));
+  const a = oldText.split('\n')
+  const b = newText.split('\n')
+  const n = a.length
+  const m = b.length
+  const dp = []
+  for (let i = 0; i <= n; i++) dp.push(new Uint32Array(m + 1))
   for (let i = n - 1; i >= 0; i--) {
     for (let j = m - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1])
     }
   }
-  const ops = [];
-  let i = 0;
-  let j = 0;
+  const ops = []
+  let i = 0
+  let j = 0
   while (i < n && j < m) {
     if (a[i] === b[j]) {
-      ops.push([' ', a[i]]);
-      i++;
-      j++;
+      ops.push([' ', a[i]])
+      i++
+      j++
     } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      ops.push(['-', a[i]]);
-      i++;
+      ops.push(['-', a[i]])
+      i++
     } else {
-      ops.push(['+', b[j]]);
-      j++;
+      ops.push(['+', b[j]])
+      j++
     }
   }
-  while (i < n) ops.push(['-', a[i++]]);
-  while (j < m) ops.push(['+', b[j++]]);
+  while (i < n) ops.push(['-', a[i++]])
+  while (j < m) ops.push(['+', b[j++]])
 
-  const wins = [];
+  const wins = []
   for (let x = 0; x < ops.length; x++) {
-    if (ops[x][0] === ' ') continue;
-    let lo = x;
-    let c = 0;
+    if (ops[x][0] === ' ') continue
+    let lo = x
+    let c = 0
     while (lo > 0 && ops[lo - 1][0] === ' ' && c < ctx) {
-      lo--;
-      c++;
+      lo--
+      c++
     }
-    let hi = x;
-    c = 0;
+    let hi = x
+    c = 0
     while (hi + 1 < ops.length && ops[hi + 1][0] === ' ' && c < ctx) {
-      hi++;
-      c++;
+      hi++
+      c++
     }
-    const prev = wins[wins.length - 1];
-    if (prev && lo <= prev.hi + 1) prev.hi = hi;
-    else wins.push({ lo, hi });
+    const prev = wins[wins.length - 1]
+    if (prev && lo <= prev.hi + 1) prev.hi = hi
+    else wins.push({ lo, hi })
   }
   return wins.map(({ lo, hi }) => {
-    const oldL = [];
-    const newL = [];
+    const oldL = []
+    const newL = []
     for (let y = lo; y <= hi; y++) {
-      if (ops[y][0] !== '+') oldL.push(ops[y][1]);
-      if (ops[y][0] !== '-') newL.push(ops[y][1]);
+      if (ops[y][0] !== '+') oldL.push(ops[y][1])
+      if (ops[y][0] !== '-') newL.push(ops[y][1])
     }
-    return { upstream: oldL.join('\n'), ihui: newL.join('\n') };
-  });
+    return { upstream: oldL.join('\n'), ihui: newL.join('\n') }
+  })
 }
 
 // 定位 Tauri CLI 本地平台原生模块(模板以 include_str! 明文嵌入其中)
 function findCliBinary() {
-  const bases = new Set([join(ROOT, 'node_modules/@tauri-apps'), join(ROOT, 'apps/desktop/node_modules/@tauri-apps')]);
+  const bases = new Set([
+    join(ROOT, 'node_modules/@tauri-apps'),
+    join(ROOT, 'apps/desktop/node_modules/@tauri-apps'),
+  ])
   // pnpm 把平台原生包放在 @tauri-apps/cli 真实路径的同级;用 require.resolve 取真实位置
   try {
-    const require = createRequire(join(ROOT, 'apps/desktop/package.json'));
-    bases.add(dirname(dirname(require.resolve('@tauri-apps/cli/package.json'))));
+    const require = createRequire(join(ROOT, 'apps/desktop/package.json'))
+    bases.add(dirname(dirname(require.resolve('@tauri-apps/cli/package.json'))))
   } catch {
     /* 忽略:下面按目录扫描兜底 */
   }
   for (const base of bases) {
-    if (!existsSync(base)) continue;
-    let entries;
+    if (!existsSync(base)) continue
+    let entries
     try {
-      entries = readdirSync(base);
+      entries = readdirSync(base)
     } catch {
-      continue;
+      continue
     }
     for (const entry of entries) {
-      if (!entry.startsWith('cli-')) continue;
-      const dir = join(base, entry);
-      let names;
+      if (!entry.startsWith('cli-')) continue
+      const dir = join(base, entry)
+      let names
       try {
-        names = readdirSync(dir);
+        names = readdirSync(dir)
       } catch {
-        continue;
+        continue
       }
       for (const name of names) {
-        if (/^cli\..*\.node$/.test(name)) return join(dir, name);
+        if (/^cli\..*\.node$/.test(name)) return join(dir, name)
       }
     }
   }
-  return null;
+  return null
 }
 
 // 从二进制中抽取模板:锚点 + 连续可打印字符区(include_str! 明文,未被压缩)
 function extractTemplate(binPath) {
-  const text = readFileSync(binPath).toString('latin1');
-  const anchor = text.indexOf('!insertmacro MULTIUSER_INIT');
-  if (anchor < 0) throw new Error('未在 Tauri CLI 二进制中定位到 NSIS 模板锚点');
+  const text = readFileSync(binPath).toString('latin1')
+  const anchor = text.indexOf('!insertmacro MULTIUSER_INIT')
+  if (anchor < 0) throw new Error('未在 Tauri CLI 二进制中定位到 NSIS 模板锚点')
   const printable = (c) => {
-    const n = c.charCodeAt(0);
-    return n === 9 || n === 10 || n === 13 || (n >= 32 && n <= 126);
-  };
-  let l = anchor;
-  let r = anchor;
-  while (l > 0 && printable(text[l - 1])) l--;
-  while (r < text.length - 1 && printable(text[r + 1])) r++;
-  const body = text.slice(l, r + 1).replaceAll('\r\n', '\n');
-  if (!body.includes('Section Uninstall') || !body.includes('{{#each languages}}')) {
-    throw new Error('抽取到的片段不像完整 installer.nsi 模板,请检查 Tauri CLI 版本');
+    const n = c.charCodeAt(0)
+    return n === 9 || n === 10 || n === 13 || (n >= 32 && n <= 126)
   }
-  return body;
+  let l = anchor
+  let r = anchor
+  while (l > 0 && printable(text[l - 1])) l--
+  while (r < text.length - 1 && printable(text[r + 1])) r++
+  const body = text.slice(l, r + 1).replaceAll('\r\n', '\n')
+  if (!body.includes('Section Uninstall') || !body.includes('{{#each languages}}')) {
+    throw new Error('抽取到的片段不像完整 installer.nsi 模板,请检查 Tauri CLI 版本')
+  }
+  return body
 }
 
 const mode = process.argv.includes('--write')
   ? 'write'
   : process.argv.includes('--emit-patches')
     ? 'emit'
-    : 'check';
+    : 'check'
 
-const bin = findCliBinary();
-if (!bin) {
-  if (mode === 'write') {
-    console.error('[desktop-nsis-template] 未找到 @tauri-apps/cli 原生模块,无法生成模板(请在已安装依赖的工作区执行)');
-    process.exit(1);
+// 模板比对的取材面是本机 Tauri CLI 原生模块：Linux 上拿到的是 cli-linux-x64-gnu，与仓库
+// Windows NSIS 模板天然不同形。非 win32 只做 check 档未判定，不把平台差异判成漂移。
+if (process.platform !== 'win32') {
+  if (mode === 'check') {
+    console.error('[desktop-nsis-template] 未判定(非 win32 平台,NSIS 模板比对仅在 Windows 有意义)')
+    process.exit(0)
   }
-  console.error('[desktop-nsis-template] 未找到 @tauri-apps/cli 原生模块,跳过校验(模板无法离线比对)');
-  process.exit(0);
+  console.error('[desktop-nsis-template] 非 win32 平台不支持 --write/--emit-patches')
+  process.exit(1)
 }
 
-let upstream;
+const bin = findCliBinary()
+if (!bin) {
+  if (mode === 'write') {
+    console.error(
+      '[desktop-nsis-template] 未找到 @tauri-apps/cli 原生模块,无法生成模板(请在已安装依赖的工作区执行)',
+    )
+    process.exit(1)
+  }
+  console.error(
+    '[desktop-nsis-template] 未找到 @tauri-apps/cli 原生模块,跳过校验(模板无法离线比对)',
+  )
+  process.exit(0)
+}
+
+let upstream
 try {
-  upstream = extractTemplate(bin);
+  upstream = extractTemplate(bin)
 } catch (error) {
-  console.error(`[desktop-nsis-template] 抽取模板失败:${error.message}`);
-  process.exit(1);
+  console.error(`[desktop-nsis-template] 抽取模板失败:${error.message}`)
+  process.exit(1)
 }
 
 // emit 模式要导出的正是"仓库文件 − 上游+P0-P7",故此时不得并入侧车。
-if (mode !== 'emit') loadResidualPatches();
+if (mode !== 'emit') loadResidualPatches()
 
 // 依序应用补丁;任一锚点失配立即报错(IHUI 补丁需人工复核后同步)。
 // HEADER 必须先拼上再打补丁:侧车 R* 的锚点窗口可能覆盖文件头(--emit-patches 比对的是
 // 含头的完整仓库文件),若 HEADER 在循环后才拼,任何落在头部的残留定制都永远匹配不上。
-let expected = HEADER + upstream;
+let expected = HEADER + upstream
 for (const patch of PATCHES) {
-  const hits = patch.upstream === '' ? 0 : expected.split(patch.upstream).length - 1;
+  const hits = patch.upstream === '' ? 0 : expected.split(patch.upstream).length - 1
   if (hits !== 1) {
     console.error(
       `[desktop-nsis-template] 上游模板已变化:${patch.name} 的锚点片段命中 ${hits} 次(需要恰好 1 次),IHUI 补丁需人工复核后同步。`,
-    );
-    console.error(`  上游模板:${bin}`);
-    process.exit(1);
+    )
+    console.error(`  上游模板:${bin}`)
+    process.exit(1)
   }
   // 替换值用函数形式:直接传字符串会让 "$'"/"$&"/"$1" 被当作特殊替换模式,
   // 而 NSIS 正文里满是 $变量 与 $"转义,极易被静默改写。
-  expected = expected.replace(patch.upstream, () => patch.ihui);
+  expected = expected.replace(patch.upstream, () => patch.ihui)
 }
 
 if (mode === 'emit') {
-  const actual = readFileSync(TARGET, 'utf8').replaceAll('\r\n', '\n');
-  const list = diffToPatches(expected, actual, 3);
-  writeFileSync(RESIDUAL, JSON.stringify(list, null, 2) + '\n', 'utf8');
-  console.log(`[desktop-nsis-template] 已导出 ${list.length} 段残留 IHUI 定制 → ${RESIDUAL}`);
-  process.exit(0);
+  const actual = readFileSync(TARGET, 'utf8').replaceAll('\r\n', '\n')
+  const list = diffToPatches(expected, actual, 3)
+  writeFileSync(RESIDUAL, JSON.stringify(list, null, 2) + '\n', 'utf8')
+  console.log(`[desktop-nsis-template] 已导出 ${list.length} 段残留 IHUI 定制 → ${RESIDUAL}`)
+  process.exit(0)
 }
 
 if (mode === 'write') {
-  writeFileSync(TARGET, expected, 'utf8');
-  console.log(`[desktop-nsis-template] 已写入 ${TARGET}(${expected.length} 字节,应用 ${PATCHES.length} 处 IHUI 补丁)`);
-  process.exit(0);
+  writeFileSync(TARGET, expected, 'utf8')
+  console.log(
+    `[desktop-nsis-template] 已写入 ${TARGET}(${expected.length} 字节,应用 ${PATCHES.length} 处 IHUI 补丁)`,
+  )
+  process.exit(0)
 }
 
 if (!existsSync(TARGET)) {
-  console.error(`[desktop-nsis-template] 缺少 ${TARGET},请执行 --write 生成`);
-  process.exit(1);
+  console.error(`[desktop-nsis-template] 缺少 ${TARGET},请执行 --write 生成`)
+  process.exit(1)
 }
 
-const current = readFileSync(TARGET, 'utf8').replaceAll('\r\n', '\n');
+const current = readFileSync(TARGET, 'utf8').replaceAll('\r\n', '\n')
 if (current === expected) {
   // ⚠️ 这里**不能**写成 `console.log(…)` 之后紧跟 `process.exit(0)`(2026-10-12 实测):
   // stdout 是 pipe 时(守门并行派发 stdio: ['ignore','pipe','pipe']),本机 Node v24 上
@@ -549,9 +567,11 @@ if (current === expected) {
     () => process.exit(0),
   )
 } else {
-  console.error('[desktop-nsis-template] DRIFT:仓库模板与当前 Tauri CLI 内置模板不一致,请 diff 后执行 --write');
-  console.error(`  仓库:${TARGET}`);
-  console.error(`  上游:${bin}`);
-  process.exit(1);
+  console.error(
+    '[desktop-nsis-template] DRIFT:仓库模板与当前 Tauri CLI 内置模板不一致,请 diff 后执行 --write',
+  )
+  console.error(`  仓库:${TARGET}`)
+  console.error(`  上游:${bin}`)
+  process.exit(1)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

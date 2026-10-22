@@ -158,7 +158,7 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
     void (async () => {
       try {
         const res = await fetchApi<{ list?: AgentSession[]; data?: AgentSession[] }>(
-          '/api/agent-task',
+          '/api/admin/agent-task',
         )
         if (cancelled) return
         if (res.success) {

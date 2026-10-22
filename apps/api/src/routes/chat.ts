@@ -81,6 +81,11 @@ import {
   persistMessageArchive,
 } from '../utils/conversation-archive.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import {
+  USER_PREFERENCE_GROUPS,
+  findUserPreferences,
+  upsertUserPreference,
+} from '../db/user-preferences-queries.js'
 
 // 压缩调用兜底模型(2026-09-12 去硬编码):优先取请求上下文的对话模型,
 // 其次读环境变量 LITELLM_MODEL(与 utils/semantic-summary.ts 同源,最终默认值由部署环境 .env 决定);
@@ -1982,6 +1987,87 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '归档不存在'))
     }
     return reply.send(success({ archive }))
+  })
+
+  // =============================================================================
+  // G-962 批 4a(C 组)#66-67:聊天设置(userPreferences group=preferences,键前缀 chat.settings.)
+  // 消费方:apps/web (main)/chat/settings(PUT {model,temperature,maxTokens,systemPrompt?})
+  //        apps/cli chat-subcommands(GET,校验 data.model)
+  // =============================================================================
+
+  const CHAT_SETTINGS_PREFIX = 'chat.settings.'
+  const chatSettingsPutSchema = z.object({
+    model: z.string().min(1).max(128),
+    temperature: z.coerce.number().min(0).max(2),
+    maxTokens: z.coerce.number().int().min(1).max(2_000_000),
+    systemPrompt: z.string().max(20_000).optional(),
+  })
+
+  // GET /settings — 当前用户聊天设置(未配置的键回 null;model 兜底部署默认 LITELLM_MODEL)
+  server.get('/settings', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const { list } = await findUserPreferences(request.userId, USER_PREFERENCE_GROUPS.preferences)
+    const saved: Record<string, string> = {}
+    for (const row of list) {
+      if (row.key.startsWith(CHAT_SETTINGS_PREFIX) && row.value !== null) {
+        saved[row.key.slice(CHAT_SETTINGS_PREFIX.length)] = row.value
+      }
+    }
+    const parseNumber = (v: string | undefined): number | null => {
+      if (v === undefined) return null
+      const n = Number(v)
+      return Number.isFinite(n) ? n : null
+    }
+    return reply.send(
+      success({
+        model: saved.model ?? FALLBACK_MODEL ?? null,
+        temperature: parseNumber(saved.temperature),
+        maxTokens: parseNumber(saved.maxTokens),
+        systemPrompt: saved.systemPrompt ?? null,
+      }),
+    )
+  })
+
+  // PUT /settings — 保存聊天设置(4 键 upsert;systemPrompt 缺省 = 不修改)
+  server.put('/settings', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+    const parsed = chatSettingsPutSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { model, temperature, maxTokens, systemPrompt } = parsed.data
+    await upsertUserPreference(
+      userId,
+      USER_PREFERENCE_GROUPS.preferences,
+      `${CHAT_SETTINGS_PREFIX}model`,
+      model,
+    )
+    await upsertUserPreference(
+      userId,
+      USER_PREFERENCE_GROUPS.preferences,
+      `${CHAT_SETTINGS_PREFIX}temperature`,
+      String(temperature),
+    )
+    await upsertUserPreference(
+      userId,
+      USER_PREFERENCE_GROUPS.preferences,
+      `${CHAT_SETTINGS_PREFIX}maxTokens`,
+      String(maxTokens),
+    )
+    if (systemPrompt !== undefined) {
+      await upsertUserPreference(
+        userId,
+        USER_PREFERENCE_GROUPS.preferences,
+        `${CHAT_SETTINGS_PREFIX}systemPrompt`,
+        systemPrompt,
+      )
+    }
+    return reply.send(
+      success({ model, temperature, maxTokens, systemPrompt: systemPrompt ?? null }),
+    )
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

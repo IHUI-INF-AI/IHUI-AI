@@ -12,7 +12,8 @@
  * 设计(对标 + 超越码道):
  * - 模型→平台反查:join ai_model_config(_models),providerCode ∈ RELAY_PROVIDERS 且启用;60s 进程缓存
  * - 选号:priority asc → weight desc → lastUsedAt asc(未用优先),跳过冷却中的号;上限 3 号 failover
- * - 会话亲和:affinityKey(apiKeyId)+model → 同账号,10 分钟 TTL(Trae 多轮上下文连续性靠它)
+ * - 会话亲和:affinityKey(apiKeyId)+model → 同账号,30 分钟 TTL(Trae 多轮上下文连续性靠它;
+ *   30–60 分钟是社区风控实践中"同会话不致跨号漂移"的下限)
  * - 多实例协同(2026-10-22):冷却/亲和走 relay-account-shared-state(Redis 优先、
  *   内存兜底);连续失败计数仍为进程级(计数是启发式,不要求跨实例一致)
  * - failover 全量回放:换号/401 自愈一律用完整 messages 数组重建请求重放,不截断;
@@ -21,9 +22,12 @@
  *   否则走通用单请求路径 buildChatRequest → fetch → translateStreamChunk/translateNonStream
  * - 401 自愈:鉴权失败 → 适配器 refreshToken → 回写号池 → 重试一次(对标码道 token 自动续期)
  * - 熔断分层(超越码道的单一冷却):
- *   · 连续 3 败 → 60s 冷却;rate → 60s;credit → 12h;session_dead → 永久摘除(tempUnschedulable)
+ *   · 连续 3 败 → 60s 冷却;rate → 60s;credit → 12h;risk(4015/4019/4010/4013)→ 30m 起、连续命中翻倍;
+ *     session_dead → 永久摘除(tempUnschedulable)
  *     冷却到期时间经 shared-state 跨实例共享(Redis 优先、内存兜底)
  *   · 请求级错误(参数非法/超长/审核)不罚号(直接透传失败,不计数不冷却)
+ * - 账号级并发上限(2026-10-22):同一账号在途请求默认 ≤3,超出则 failover 到下一候选
+ *   (上游对单账号并发极敏感;这是与"每账号独立代理出口"配套的第二道指纹护栏)
  * - 出口代理:行.proxyUrl → undici ProxyAgent(按 URL 缓存连接池,每号独立出口 IP 降风控)
  * - 流式:上游 SSE 帧逐帧 adapter.translateStreamChunk → OpenAI chunk 重封装 + [DONE];
  *   executeChat 的 chunk 序列合成同款 SSE Response,pipeChannelStream 原样消费
@@ -43,11 +47,8 @@ import {
 import { db, dbRead } from '../db/index.js'
 import { encryptField } from '../utils/crypto.js'
 import { startStopwatch } from '../utils/elapsed-ms.js'
-import {
-  decryptAccountCredentials,
-  isRelayProviderCode,
-  type RelayProviderCode,
-} from './relay-account-pool-service.js'
+import { decryptAccountCredentials } from './relay-account-pool-service.js'
+import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
 import {
   clearAccountCooldown,
   getAccountsInCooldown,
@@ -77,12 +78,20 @@ const MAX_ACCOUNT_CANDIDATES = 3
 /** 进程级熔断:连续失败阈值 / 冷却时长 */
 const BREAKER_FAILURES = 3
 const BREAKER_COOLDOWN_MS = 60_000
-/** 积分耗尽:12h 冷却(对标 workbuddy CoolHard) */
+/** 积分耗尽/日上限:12h 冷却(对标 workbuddy CoolHard) */
 const CREDIT_COOLDOWN_MS = 12 * 60 * 60 * 1000
+/** 风控命中(4015/4019/4010/4013):30 分钟起冷却,连续命中翻倍,封顶 6h */
+const RISK_COOLDOWN_MS = 30 * 60 * 1000
+const RISK_COOLDOWN_MAX_MS = 6 * 60 * 60 * 1000
 /** 上游限流:60s 软冷却(对标 workbuddy CoolSoft) */
 const RATE_COOLDOWN_MS = 60_000
-/** 会话亲和 TTL */
-const AFFINITY_TTL_MS = 10 * 60 * 1000
+/** 会话亲和 TTL:30 分钟(同一会话在多轮间保持同号,降低跨号指纹漂移) */
+const AFFINITY_TTL_MS = 30 * 60 * 1000
+/** 单账号在途请求上限(可选 env 覆盖;超限时换号,不打满上游) */
+const ACCOUNT_MAX_INFLIGHT = (() => {
+  const n = Number(process.env.IHUI_RELAY_ACCOUNT_MAX_INFLIGHT)
+  return Number.isFinite(n) && n >= 1 ? Math.min(8, Math.floor(n)) : 3
+})()
 /** 模型→平台反查缓存 TTL */
 const PROVIDER_CACHE_TTL_MS = 60_000
 /** 反查缓存键上限(客户端可传任意模型名,必须封顶防内存增长) */
@@ -96,6 +105,7 @@ type FailureKind =
   | 'auth'
   | 'credit'
   | 'session_dead'
+  | 'risk'
   | 'rate'
   | 'not_found'
   | 'request'
@@ -105,6 +115,21 @@ type FailureKind =
 
 /** 账号级连续失败计数(进程级启发式;冷却到期本身走 shared-state 跨实例共享) */
 const failureCounts = new Map<string, number>()
+/** 账号级在途请求计数(进程级;多实例各自限流,叠加后仍显著低于上游耐受线) */
+const inflightByAccount = new Map<string, number>()
+
+function tryAcquireAccount(id: string): boolean {
+  const cur = inflightByAccount.get(id) ?? 0
+  if (cur >= ACCOUNT_MAX_INFLIGHT) return false
+  inflightByAccount.set(id, cur + 1)
+  return true
+}
+
+function releaseAccount(id: string): void {
+  const cur = inflightByAccount.get(id) ?? 0
+  if (cur <= 1) inflightByAccount.delete(id)
+  else inflightByAccount.set(id, cur - 1)
+}
 /** 模型→平台反查缓存 */
 const providerCache = new Map<
   string,
@@ -280,6 +305,12 @@ function recordFailure(row: AiRelayAccountPool, kind: FailureKind, reason: strin
     const failures = (failureCounts.get(row.id) ?? 0) + 1
     failureCounts.set(row.id, failures)
     if (kind === 'credit') void setAccountCooldown(row.id, now + CREDIT_COOLDOWN_MS)
+    else if (kind === 'risk')
+      // 风控冷却:30m 起、连续命中线性翻倍,封顶 6h;与 credit 一样不自动重放
+      void setAccountCooldown(
+        row.id,
+        now + Math.min(RISK_COOLDOWN_MS * Math.max(1, failures), RISK_COOLDOWN_MAX_MS),
+      )
     else if (kind === 'rate') void setAccountCooldown(row.id, now + RATE_COOLDOWN_MS)
     else if (failures >= BREAKER_FAILURES)
       void setAccountCooldown(row.id, now + BREAKER_COOLDOWN_MS)
@@ -296,6 +327,9 @@ function recordFailure(row: AiRelayAccountPool, kind: FailureKind, reason: strin
     set.healthStatus = 'down'
   } else if (kind === 'credit') {
     set.tempUnschedulable = true
+    set.healthStatus = 'degraded'
+  } else if (kind === 'risk') {
+    // 风控命中不永久摘除(冷却到期自动恢复),但健康度降级,让 admin 面板可见
     set.healthStatus = 'degraded'
   }
   void db
@@ -344,6 +378,12 @@ function classifyThrownError(adapter: RelayUpstreamAdapter, err: unknown): Failu
     typeof (err as { statusCode?: unknown })?.statusCode === 'number'
       ? (err as { statusCode: number }).statusCode
       : 0
+  // TraeUpstreamError 的业务码不在 message 里(已被打码/截断),直接喂给分类器
+  const upstreamCode = (err as { upstreamCode?: unknown })?.upstreamCode
+  if (typeof upstreamCode === 'number' || typeof upstreamCode === 'string') {
+    const byCode = classifyFailure(adapter, 0, `code:${String(upstreamCode)}`)
+    if (byCode !== 'client') return byCode
+  }
   const msg = err instanceof Error ? err.message : String(err)
   if (statusCode > 0) return classifyFailure(adapter, statusCode, msg)
   const rich = (adapter as RelayUpstreamAdapter & FailureClassifiable).classifyUpstreamFailure
@@ -1020,6 +1060,17 @@ export async function forwardToAccountPool(
       // 模型别名映射 + 代理池取号(两服务内部全吞异常,不会抛)
       const alias = await resolveModelAlias(row.providerCode, rawModel)
       const upstreamModel = alias?.upstreamModel ?? rawModel
+      // 账号级并发闸:超限直接换下一候选,绝不把同一账号打满(上游风控的首要触发面)
+      if (!tryAcquireAccount(row.id)) {
+        lastError = `账号 ${row.name} 并发已达上限(${ACCOUNT_MAX_INFLIGHT})`
+        continue
+      }
+      let released = false
+      const releaseOnce = (): void => {
+        if (released) return
+        released = true
+        releaseAccount(row.id)
+      }
       const proxy = await pickProxyForAccount({ id: row.id, proxyUrl: row.proxyUrl })
       let attempt: AccountAttempt
       try {
@@ -1028,6 +1079,7 @@ export async function forwardToAccountPool(
           proxy,
         })
       } catch (err) {
+        releaseOnce()
         if ((err as Error)?.name === 'AbortError') {
           return { ok: false, reason: 'client aborted' } // 客户端断开:不记失败账
         }
@@ -1041,6 +1093,7 @@ export async function forwardToAccountPool(
         if (proxy) void reportProxySuccess(proxy)
         // 用量台账:tap 响应流提取 usage(恰好一次;无 usage 记 0/0),永不阻塞/影响主路径
         const response = tapAccountUsage(attempt.response, (u) => {
+          releaseOnce() // 流结束/断开时归还并发额度(tap 保证恰好一次)
           void recordAccountUsage({
             accountId: row.id,
             providerCode: row.providerCode,
@@ -1070,6 +1123,7 @@ export async function forwardToAccountPool(
       }
       lastError = attempt.reason ?? lastError
       if (attempt.httpStatus !== undefined) lastHttpStatus = attempt.httpStatus
+      releaseOnce() // 失败号已无在途流,立即归还额度,后续请求可继续探测
       // 代理级失败(网络/上游 5xx)才计代理失败;账号级问题(auth/credit…)不动代理
       if (proxy && (attempt.kind === 'network' || attempt.kind === 'server')) {
         void reportProxyFailure(proxy)

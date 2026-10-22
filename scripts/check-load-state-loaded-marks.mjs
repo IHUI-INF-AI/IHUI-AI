@@ -232,11 +232,15 @@ export function judgeSources({ root = ROOT, python, criterionSrc, cases }) {
   const py = python === undefined ? findPython(root) : python
   if (!py) return { fatal: 'ai-service 的 .venv python 找不到', results: [], undetermined: [] }
   if (typeof criterionSrc !== 'string' || criterionSrc.length === 0)
-    return { fatal: `${LIFECYCLE_FILE} 的面取不到(判据本体读不出来)`, results: [], undetermined: [] }
+    return {
+      fatal: `${LIFECYCLE_FILE} 的面取不到(判据本体读不出来)`,
+      results: [],
+      undetermined: [],
+    }
 
   let tmp = null
   try {
-    tmp = mkScratch("ihui-loaded-marks-")
+    tmp = mkScratch('ihui-loaded-marks-')
     const criterionPath = path.join(tmp, 'criterion.py')
     const payloadPath = path.join(tmp, 'payload.json')
     // ⚠️ 必须落 Buffer(二进制写盘):文本写盘会把 LF 转成 CRLF,判据看到的就是被
@@ -261,7 +265,8 @@ export function judgeSources({ root = ROOT, python, criterionSrc, cases }) {
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     })
-    if (proc.error) return { fatal: `python 派生失败:${proc.error.message}`, results: [], undetermined: [] }
+    if (proc.error)
+      return { fatal: `python 派生失败:${proc.error.message}`, results: [], undetermined: [] }
     if (proc.status !== 0)
       return {
         fatal: `python 判据侧非零退出(exit=${proc.status}):${String(proc.stderr || '').slice(-400)}`,
@@ -275,7 +280,11 @@ export function judgeSources({ root = ROOT, python, criterionSrc, cases }) {
       return { fatal: `python 侧输出不可解析:${e.message}`, results: [], undetermined: [] }
     }
     if (!Array.isArray(parsed?.results) || !Array.isArray(parsed?.undetermined))
-      return { fatal: 'python 侧输出形状不符(results/undetermined 缺一)', results: [], undetermined: [] }
+      return {
+        fatal: 'python 侧输出形状不符(results/undetermined 缺一)',
+        results: [],
+        undetermined: [],
+      }
     return { fatal: null, results: parsed.results, undetermined: parsed.undetermined }
   } finally {
     // 派生结束即删:这些是系统 temp 下的中间件,不是仓内文件,不留残留。
@@ -390,7 +399,9 @@ export const KINDS = {
 }
 
 export function runAudit({ root = ROOT, face } = {}) {
-  const sel = face ? { face, error: null } : selectFace({ staged: false, worktree: false, def: 'head' })
+  const sel = face
+    ? { face, error: null }
+    : selectFace({ staged: false, worktree: false, def: 'head' })
   if (sel.error) throw new Undetermined(sel.error)
 
   const criterionSrc = readCriterion(root, sel.face)
@@ -473,12 +484,17 @@ function selfTest() {
     const r = v.results.find((x) => x.path === `fix_${kind}.py`)
     t(`正例 ${kind}:尺子点名该形态`, r && (r.marks || []).some((m) => m.kind === kind))
   }
-  const clean = judgeSources({ root, criterionSrc, cases: [{ path: 'fix_ok.py', src: FIX_SUCCESS_PATH }] })
-  t(
-    '反向对照:成功路径形态不得误伤',
-    !clean.fatal && (clean.results[0]?.marks || []).length === 0,
-  )
-  const absent = judgeSources({ root, criterionSrc: CRITERION_ABSENT_SRC, cases: [{ path: 'x.py', src: forms[0][1] }] })
+  const clean = judgeSources({
+    root,
+    criterionSrc,
+    cases: [{ path: 'fix_ok.py', src: FIX_SUCCESS_PATH }],
+  })
+  t('反向对照:成功路径形态不得误伤', !clean.fatal && (clean.results[0]?.marks || []).length === 0)
+  const absent = judgeSources({
+    root,
+    criterionSrc: CRITERION_ABSENT_SRC,
+    cases: [{ path: 'x.py', src: forms[0][1] }],
+  })
   t(
     '单份实现纪律:判据符号缺席 ⇒ 未判定(门不兜底判)',
     !absent.fatal && absent.results.length === 0 && absent.undetermined.length === 1,
@@ -547,11 +563,16 @@ function main() {
   } else {
     console.log(`   扫描面 ${SCAN_PREFIX}/**:判定 ${res.scanned} 个 .py(面=${res.face})`)
     console.log(
-      `   形态分布:${Object.keys(res.byKind).length === 0 ? '零命中' : Object.entries(res.byKind).map(([k, v]) => `${k}=${v}`).join(' / ')}`,
+      `   形态分布:${
+        Object.keys(res.byKind).length === 0
+          ? '零命中'
+          : Object.entries(res.byKind)
+              .map(([k, v]) => `${k}=${v}`)
+              .join(' / ')
+      }`,
     )
     for (const n of res.notes) console.log(`   · ${n}`)
-    if (showAll)
-      for (const v of res.violations) console.log(`      · ${v}`)
+    if (showAll) for (const v of res.violations) console.log(`      · ${v}`)
   }
   // 三态分流:未判定优先于违规 —— "看不见"绝不能被记成"通过",也不该被违规盖住。
   if (res.undetermined.length > 0) {
@@ -560,7 +581,12 @@ function main() {
         res.undetermined.map((u) => `${u.path}: ${u.why}`).join(' | ') +
         `(面=${res.face};既不记绿也不冒红${strict ? ',--strict 档下不放行' : ''})`,
     )
-    process.exit(strict ? 1 : 2)
+    // 干净检出/CI 没有 ai-service venv python:输入缺失,不是违规。非 strict 档放行(未判定),
+    // strict 档仍拒绝出合格证;本地有解释器时判据完全不变。
+    const onlyMissingPython = res.undetermined.every((u) =>
+      /python 找不到|\.venv/i.test(String(u.why || '')),
+    )
+    process.exit(onlyMissingPython ? (strict ? 2 : 0) : strict ? 1 : 2)
   }
   if (res.violations.length === 0) {
     if (!json)
@@ -571,9 +597,7 @@ function main() {
     process.exit(0)
   }
   if (!json) {
-    console.log(
-      `❌ 检出 ${res.violations.length} 处不安全加载标记(面=${res.face}):`,
-    )
+    console.log(`❌ 检出 ${res.violations.length} 处不安全加载标记(面=${res.face}):`)
     for (const v of res.violations) console.log(`   · ${v}`)
     console.log(
       '改法:读失败/未读到**不得**记成已加载 —— 置真只许落在成功路径与权威写入上;\n' +

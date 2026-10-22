@@ -14,7 +14,8 @@
  *   L2 near       字符二元组 Jaccard ≥ 0.5（中文按字切，前缀/分词在中文里会漏——本仓 merge-live-doc 同一条教训）
  *   L3 keyonly    原文不同形、但有同能力证据 ⇒ 只能算"需人工核"，不算命中也不算缺失。两条来源：
  *                 ① 键末段同名 ∧ 该键的值与竞品原文互为词头（`composer…edit`="编辑此消息" vs 我方 `…edit`="编辑"）
- *                    **∧ 宾语落点（G-802）**：末段是通用动作词（open/close/copy/delete/send/select/expand）时，
+ *                    **∧ 宾语落点（G-802，清单按 G-11 结构定义扩至 14 词，见 GENERIC_ACTION_SEGS 上方判据）**：
+ *                    末段是通用动作词（open/close/copy/delete/send/select/expand/pin/unpin/generate/add/more/hide/restore）时，
  *                    还须我方语料里有"同一宾语的该动作"或"该宾语是我方被管理对象"，否则不算同能力证据 ——
  *                    通用动词单独出现的词头巧合曾把 7 条真缺失静默洗出 MISS（账面变好而信号变少）；
  *                 ② 子串同形（一方文案整段出现在另一方里）。
@@ -216,7 +217,31 @@ export function isPureEnumOrStyle(raw) {
  *
  * `pool` 是注入参数而不是内部读语料：自检必须能用**构造面**判这条判据（不拿仓库瞬时状态当恒定前提）。
  */
-const GENERIC_ACTION_SEGS = new Set(['open', 'close', 'copy', 'delete', 'send', 'select', 'expand'])
+/**
+ * G-11 的**结构定义（判据成文，承 2026-10-07 拍板"先出通用动作词结构定义、再一次性带逐行定性扩"）**。
+ * 什么算"通用动作词"——三条全中才收，缺一不收，不得按票面点名的实例长清单：
+ *  ① **光杆动作词**：我方该末段的值是纯动作/状态词，词本身只表示"施加于宾语的操作"、
+ *     不携带任何域语义；宾语语义全在竞品原文那一侧（`固定任务监控` 的域信息是"任务监控"，不是"固定"）。
+ *  ② **任何域都会撞可实证**：该词在我方语料里与 ≥2 个不同宾语搭配（固定标签/固定镜头、
+ *     添加工作区/添加注释、生成报表/生成图表、隐藏动态/隐藏到托盘、恢复动态/恢复默认…），
+ *     "末段同名"单独无法区分宾语落在哪个域 —— 这正是 G-802 那 7 条被巧合洗出 MISS 的机理。
+ *  ③ **操作在宾语内容之外**：改状态/可见性/成员/导航供给（open/close/pin/unpin/hide/expand/
+ *     select/add/delete/send/restore/generate/more），而非加工宾语内容本身、也非对内容的查询。
+ * 不同型不收（票面点名，禁止混收）：`edit` 加工内容本身，且是词头规则的原型正例（ST6 的
+ * "编辑此消息"；现读三行宾语 评论/消息/工作区 在我方均有落点）；`search` 是对内容的查询而非
+ * 施加于对象的状态操作；`from` 是介词、`plugin` 是名词，根本不是动作词。
+ * 收词逐条宾语落点依据（HEAD 面语料实证，2026-10-22）：
+ *   pin/unpin —— 我方值为 固定/置顶/取消固定/取消置顶，搭配 标签/镜头/分组/工作区/托盘 等多宾语；
+ *   generate —— 生成，搭配 报表/图表/代码/文档/计划 等多宾语；
+ *   add —— 添加，搭配 工作区/注释/商品/Provider 等多宾语（「添加」本就在建销词表里，②自证）；
+ *   more —— 更多，导航供给位，宾语恒为所在族（更多操作/更多服务/更多动态…）；
+ *   hide —— 隐藏，搭配 动态/托盘/入口/窗口 等；
+ *   restore —— 恢复，搭配 动态/默认/数据/状态 等。
+ * 每收一个即让该末段从"同名+词头"升格为"同名+词头+宾语落点"；翻转出的行逐条定性见 G-11 交付
+ * 报告（票面活例 `chatSession.highlights.pin` 固定任务监控：宾语"任务监控"在文案面零命中 ⇒ 回 MISS；
+ * 同族 `updates.hide` 隐藏动态：「删除动态」在册 ⇒ 仍 L3，收紧不误杀有落点的行）。
+ */
+const GENERIC_ACTION_SEGS = new Set(['open', 'close', 'copy', 'delete', 'send', 'select', 'expand', 'pin', 'unpin', 'generate', 'add', 'more', 'hide', 'restore'])
 const MANAGED_ACTION_WORDS = ['删除', '新增', '添加', '新建', '创建']
 const RESIDUE_NOISE_PREFIX = /^(此|该|这|那|本|一条|一个|一项|当前|所选)/
 const RESIDUE_NOISE_SUFFIX = /(文档|文件|操作|内容|列表|条目|页面)$/
@@ -275,7 +300,8 @@ export function ourStemForSegment(keyName, t, pool = corpusStrings()) {
   for (const [k, v] of list) {
     if (v === t || v.length > 6) continue
     if (t.startsWith(v) || v.startsWith(t)) {
-      // G-802：通用动词那一跳必须另有宾语落点；非通用末段（edit/hide/pin…）本身已带语义，口径不变。
+      // G-802/G-11：通用动词那一跳必须另有宾语落点；非通用末段（edit/search/from…）口径不变，
+      // 收与不收按 GENERIC_ACTION_SEGS 上方的三条结构判据，不按票面实例。
       if (generic && t.startsWith(v) && !objectFootprintOk(t, v, pool).ok) continue
       return [k, v]
     }
@@ -641,6 +667,36 @@ function runSelfTest() {
     t('ST9 同一宾语的同名动作我方确有 ⇒ 仍判 L3(不算差距)；剥占位符后宾语须读成「标签页」',
       pos.ok && premiseTab && e2e.state === 'L3',
       `构造面⇒${pos.ok ? '落地✓' : '误判零落点'} ｜ 前提 语料含「关闭标签页」=${premiseTab} ⇒ 端到端 ${e2e.state}/${e2e.where || e2e.why || '-'}`)
+  }
+
+  // ST10 G-11 结构扩收（承 2026-10-07 拍板：清单按结构定义长，不是按票面实例长）。
+  // 四条臂各钉一处会漂的写法，"会红的条件"逐条写明：
+  //  ① 词表锁：pin/unpin/generate/add/more/hide/restore 七个同型末段必须在清单内 —— 摘掉任何一个，
+  //     对应行就回到"同名+词头"巧合救援（G-11 定罪的那一型）⇒ 红；
+  //  ② 不同型锁：edit/search/from/plugin 不得混收（edit 是 ST6 原型正例、from 介词、plugin 名词）——
+  //     谁无口径扩词表 ⇒ 红（"不得用白名单消账"那条禁令的反方向：也不得无口径扩账）；
+  //  ③ 构造面双臂：pool 里无「任务监控」落点 ⇒ `固定任务监控` 不算同能力；pool 里有「添加工作区」
+  //     ⇒ 工作区系被管理对象，`置顶工作区` 仍算落地 —— 只判负臂不判正臂，删掉约束也照样绿，那不是判据；
+  //  ④ 真语料端到端 + 前提守卫：票面活例 `chatSession.highlights.pin`(固定任务监控) 必须回 MISS，
+  //     同族有落点的 `updates.hide`(隐藏动态，「删除动态」在册) 必须仍 L3 且印出宾语落点依据 ——
+  //     收紧不得把有落点的行误杀；语料前提漂了（文案面出现「固定/置顶+任务监控」同串、或 *.pin 不再=固定/置顶）
+  //     ⇒ 判红并点名，绝不静默变绿（与 ST6/ST8 的第④臂同一条规矩）。
+  {
+    const added = ['pin', 'unpin', 'generate', 'add', 'more', 'hide', 'restore']
+    const inList = added.every((s) => GENERIC_ACTION_SEGS.has(s))
+    const notListed = ['edit', 'search', 'from', 'plugin'].every((s) => !GENERIC_ACTION_SEGS.has(s))
+    const pool = ['添加工作区', '删除动态', '固定标签']
+    const neg = objectFootprintOk('固定任务监控', '固定', pool)
+    const pos = objectFootprintOk('置顶工作区', '置顶', pool)
+    const posHide = objectFootprintOk('隐藏动态', '隐藏', pool)
+    const premisePin = (ourSegs.get('pin') || []).filter(([, v]) => v === '固定' || v === '置顶').length
+    const premiseNoObj = !corpusStrings().some((s) => (s.includes('固定') || s.includes('置顶')) && s.includes('任务监控'))
+    const e2ePin = matchOne('固定任务监控', 'chatSession.highlights.pin')
+    const e2eHide = matchOne('隐藏动态', 'updates.hide')
+    t('ST10 G-11 结构扩收：同型七末段在清单、不同型四末段不得混收；票面活例端到端回 MISS、有落点行仍 L3 且印出落点依据',
+      inList && notListed && !neg.ok && pos.ok && posHide.ok && premisePin > 0 && premiseNoObj
+        && e2ePin.state === 'MISS' && e2eHide.state === 'L3' && /动宾同现|被管理对象/.test(String(e2eHide.where)),
+      `词表：七收=${inList} 四拒=${notListed} ｜ 构造面：固定任务监控⇒${neg.ok ? '误判落地' : '零落点✓'} / 置顶工作区⇒${pos.ok ? '落地✓' : '误判零落点'} / 隐藏动态⇒${posHide.ok ? '落地✓' : '误判零落点'} ｜ 前提 *.pin=「固定/置顶」${premisePin} 条、文案面「固定/置顶+任务监控」同串=${!premiseNoObj} ⇒ 端到端 pin=${e2ePin.state} hide=${e2eHide.state}/${e2eHide.where || e2eHide.why || '-'}`)
   }
 
   for (const [name, ok, got] of out) console.log(`${ok ? '✅' : '❌'} ${name}${ok ? '' : ' —— 实得: ' + got}`)

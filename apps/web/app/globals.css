@@ -1109,6 +1109,20 @@ iframe::-webkit-scrollbar {
   }
 }
 
+/* 缺口C(2026-10-22 立):降级阶梯到"全 icon-only"为止仍有 336 基线宽,
+ * 窗格拆分后 C 可低至 ~186(1280 视口两格,实测),右簇内容左溢越出窗格边界,
+ * mode-switcher 触发器中心点落在相邻窗格的 send-button 上,鼠标点击被拦截
+ * (Playwright hit-target 3 分钟不通过,键盘 Enter 可绕)。
+ * 最低档改为右簇内部换行避让:控件全部保持可见,命中区留在本窗格内,
+ * 输入卡由 2 行变 3 行(仅窄档触发,C≥336 单格/宽面板形态逐字不变)。 */
+@container (max-width: 335px) {
+  .ai-input-toolbar .ai-input-toolbar-right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 2px;
+  }
+}
+
 /* 平板/小笔记本档自动收起 AI 侧面板 (2026-10-15 立)
  * ============================================================
  * 背景:MainShell 三栏里,Sidebar 固定 160px + AI 面板固定 480px + 间距 14px = 654px

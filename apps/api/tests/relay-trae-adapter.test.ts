@@ -16,6 +16,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   classifyUpstreamFailure,
+  extractUpstreamCode,
   traeAdapter,
   isTraeAuthFailure,
   TraeUpstreamError,
@@ -246,9 +247,15 @@ describe('SSE 事件流解析', () => {
     }
     expect(last.choices[0]?.finish_reason).toBe('stop')
 
-    // 收尾 stop 尽力而为被调用
+    // 收尾 stop 尽力而为被调用;body 必带 user_message_id(线上 stopSession 形状)
     const stopCall = fetchImpl.mock.calls.find(([u]) => String(u).endsWith('/stop'))
     expect(stopCall).toBeDefined()
+    const stopInit = stopCall![1] as { method: string; body: string }
+    expect(stopInit.method).toBe('POST')
+    expect(JSON.parse(stopInit.body)).toEqual({
+      chat_session_id: 'cs-1',
+      user_message_id: 'ms-1',
+    })
   })
 
   it('error 帧 → 终止并抛错(错误信息带 code)', async () => {
@@ -289,8 +296,12 @@ describe('SSE 事件流解析', () => {
     const headers = (init as { headers: Record<string, string> }).headers
     expect(headers.Authorization).toBe('Cloud-IDE-JWT jwt-1')
     expect(headers['X-Trae-Client-Type']).toBe('web')
-    expect(headers['x-user-region']).toBe('CN')
+    // CN 配置 includeUserRegionHeader:false —— 多发 x-user-region 反而是指纹偏差
+    expect(headers['x-user-region']).toBeUndefined()
+    expect(headers['X-Trae-User-Timezone']).toBeTruthy()
+    expect(headers['X-Preferenced-Language']).toBe('zh-CN')
     expect(headers.Origin).toBe('https://solo.trae.cn')
+    expect(headers.Referer).toBe('https://solo.trae.cn/')
 
     const payload = JSON.parse(String((init as { body: string }).body)) as Record<string, unknown>
     expect(payload.mode).toBe('code')
@@ -307,7 +318,22 @@ describe('SSE 事件流解析', () => {
     expect(im.model_selection_strategy).toBe('manual')
     const cp = JSON.parse(String(im.common_params)) as Record<string, unknown>
     expect(cp.biz_session_id).toBe(deriveBizSessionId('acc-9', 'glm-5.3'))
-    expect(cp.tenant).toBe('marscode')
+    // 线上 CN 配置(bundle 8974:22591 + main:890993/896209)的 common_params 指纹
+    expect(cp).toMatchObject({
+      language: 'zh-cn',
+      app_language: 'zh-cn',
+      quality: 'stable',
+      app_version: process.env.TRAE_WEB_APP_VERSION?.trim() || '1.0.0.315',
+      scope: 'marscode',
+      tenant: 'marscode',
+      region: 'cn',
+      aiRegion: 'CN',
+      is_privacy_mode: 0,
+      privacy_mode: 'off',
+      solo_chat_mode: 'code',
+      biz_user_id: 'acc-9',
+      user_unique_id: 'acc-9',
+    })
 
     // model=auto → strategy auto + model_name 空
     const fetch2 = makeRelayFetchStub('event: done\ndata: {}\n\n')
@@ -330,6 +356,8 @@ describe('SSE 事件流解析', () => {
     const im3 = p3.initial_message as Record<string, unknown>
     expect(im3.agent_type).toBe('solo_work_remote')
     expect(im3.agent_id).toBe('solo_work_remote')
+    const cp3 = JSON.parse(String(im3.common_params)) as Record<string, unknown>
+    expect(cp3.solo_chat_mode).toBe('work')
   })
 
   it('创建请求 401 → 抛 TraeAuthFailureError(isTraeAuthFailure 可判)', async () => {
@@ -523,6 +551,30 @@ describe('接口杂项', () => {
 describe('classifyUpstreamFailure 语义映射', () => {
   it('429 → rate', () => {
     expect(classifyUpstreamFailure(429, '')).toBe('rate')
+  })
+
+  it('风控业务码 4010/4013/4015/4019 → risk(不受 HTTP 状态影响)', () => {
+    for (const code of [4010, 4013, 4015, 4019]) {
+      expect(classifyUpstreamFailure(400, JSON.stringify({ code }))).toBe('risk')
+      expect(classifyUpstreamFailure(200, `code:${code} upstream says no`)).toBe('risk')
+    }
+    expect(classifyUpstreamFailure(400, '{"error":{"code":4015,"message":"risk"}}')).toBe('risk')
+  })
+
+  it('限流码 3004/4007 → rate;额度码 4008/4011/4021 → credit', () => {
+    expect(classifyUpstreamFailure(200, '{"code":3004}')).toBe('rate')
+    expect(classifyUpstreamFailure(400, '{"error_code":4007}')).toBe('rate')
+    expect(classifyUpstreamFailure(400, '{"code":4008}')).toBe('credit')
+    expect(classifyUpstreamFailure(400, '{"status_code":4011}')).toBe('credit')
+    expect(classifyUpstreamFailure(400, '{"data":{"code":4021}}')).toBe('credit')
+  })
+
+  it('风控文本兜底 → risk;extractUpstreamCode 兼容 JSON/文本/无码', () => {
+    expect(classifyUpstreamFailure(400, 'account risk detected')).toBe('risk')
+    expect(classifyUpstreamFailure(403, '设备异常,请稍后再试')).toBe('risk')
+    expect(extractUpstreamCode('{"code":4015}')).toBe(4015)
+    expect(extractUpstreamCode('upstream error code=4019')).toBe(4019)
+    expect(extractUpstreamCode('no code here')).toBeNull()
   })
 
   it('额度/积分/quota 文本 → credit(即使状态是 400)', () => {

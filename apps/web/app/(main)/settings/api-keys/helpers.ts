@@ -14,13 +14,15 @@
  * - DELETE /api/developer/api-keys/:id      → { ok: true }
  * - PATCH  /api/developer/api-keys/:id      → { apiKey: ApiKeyInfo }
  * - POST   /api/developer/keys/:id/reset    → { apiKey, secret }(轮换)
- * - GET    /api/developer/api-keys/:id/usage→ ApiKeyQuotaInfo
+ * - GET    /api/developer/api-keys/:id/usage→ DeveloperApiKeyUsage { callCount, lastUsedAt, topEndpoints }
+ *   (权威出处 apps/api/src/routes/developer.ts GET /api-keys/:id/usage;
+ *    旧标注 ApiKeyQuotaInfo 系失实——该形状后端零端点返回,键名对齐修正)
  */
 import { fetchApi } from '@/lib/api'
+import type { DeveloperApiKeyUsage } from '@ihui/api-client/endpoints/developer-capabilities'
 import type {
   ApiKeyInfo,
   ApiKeyPermission,
-  ApiKeyQuotaInfo,
   CreateApiKeyRequest,
   CreateApiKeyResponse,
   RotateApiKeyResponse,
@@ -78,9 +80,9 @@ export async function rotateApiKeySecret(id: string): Promise<RotateApiKeyRespon
   return res.data
 }
 
-/** 查询 API 密钥用量。 */
-export async function fetchApiKeyUsage(id: string): Promise<ApiKeyQuotaInfo> {
-  const res = await fetchApi<ApiKeyQuotaInfo>(`/api/developer/api-keys/${id}/usage`)
+/** 查询 API 密钥用量(后端由 api_logs 聚合,非配额窗口)。 */
+export async function fetchApiKeyUsage(id: string): Promise<DeveloperApiKeyUsage> {
+  const res = await fetchApi<DeveloperApiKeyUsage>(`/api/developer/api-keys/${id}/usage`)
   if (!res.success) throw new Error(res.error)
   return res.data
 }

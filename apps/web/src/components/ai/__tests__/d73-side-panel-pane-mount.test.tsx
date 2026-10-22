@@ -99,7 +99,9 @@ describe('M2 D73 判定层:@ihui/shared/chat/multi-pane 真的接进宿主,而�
   })
 
   it('宿主窗格树取自 store(单一真相源),不得自己持有第二份布局状态', () => {
-    expect(host).toContain("import { usePaneSplitStore } from '@/stores/pane-split'")
+    expect(host).toMatch(
+      /import\s*\{[^}]*\busePaneSplitStore\b[^}]*\}\s*from\s*'@\/stores\/pane-split'/s,
+    )
     expect(host).toMatch(/usePaneSplitStore\(\(s\)\s*=>\s*s\.tree\)/)
     expect(host).toContain('usePaneSplitStore.getState().tree')
   })
