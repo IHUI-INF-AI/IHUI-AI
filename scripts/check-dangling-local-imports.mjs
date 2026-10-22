@@ -94,6 +94,10 @@
  *   node scripts/check-dangling-local-imports.mjs --rev <提交/树> [--anchor <提交>]
  *     # 审任意面(对象空间落地的涉事判据出口,G-815985):锚点缺省=被审提交的首个父提交;
  *     # 树对象没有父提交,不给 --anchor 即无法判定(exit 2)。`SELF_SKIP` 在这一档不吃。
+ *   node scripts/check-dangling-local-imports.mjs --rev <提交/树> [--anchor <提交>] --root <dir>
+ *     # 同上,但显式指定**被审仓根**(G-929 同型票:落地器换仓通道 LAND_ROOT 指别的仓时,
+ *     # 缺省按脚本位置推导会在本仓里问一枚只有目标仓才有的树 ⇒ 未判定 ⇒ 落地器误拒)。
+ *     # 目录不存在 ⇒ exit 2,不静默回落;不给 --root 时行为与之前逐字相同(生产路径不受影响)。
  *   node scripts/check-dangling-local-imports.mjs --self-test     # 逻辑自检(正反成对)
  * 紧急跳过:HUSKY_SKIP_DANGLING_IMPORTS=1 git commit ...
  */
@@ -111,7 +115,16 @@ import { catBatch, gitRaw } from './lib/face-reader.mjs'
 // 行号不漂(D4 要报出命中行)。
 import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+// G-929 同型票(2026-10-23,参照门 231 已定型的正解):`--root <dir>` 显式指定**被审仓根**,
+// 缺省仍按本脚本位置自推导 ⇒ 生产行为一字不变。
+// 立因(现读复现):旁路落地器 object-space-land.mjs 的 runDanglingGate 按 `--rev <tree> --anchor <head>`
+// 调本门,而落地器换仓通道(LAND_ROOT 指到别的仓)下门体只认自家仓 ⇒ 在本仓里问一枚只存在于
+// 目标仓的树 ⇒「无法判定」exit 2 ⇒ 落地器 fail-closed 拒绝 ⇒ 换仓通道只剩两条坏出路:逐例打桩
+// 或 IHUI_LAND_SKIP_DANGLING_GATE 跳过 —— 这一道门在换仓通道等于没装(与门 231 G-929 同根因)。
+// 坏值(给了旗标没给值)与目录不存在都 ⇒ exit 2,**不静默回落到自推导**——回落会把
+// "指错了仓"读成"在主仓审过了",是 fail-open 的一种形态(门 231 的 M16 钉同三态)。
+const ROOT_FLAG = requireFlagValue(process.argv.slice(2), '--root', { noun: '被审仓根目录' })
+const ROOT = ROOT_FLAG.value ? resolve(ROOT_FLAG.value) : resolve(dirname(fileURLToPath(import.meta.url)), '..')
 export const SELF_SKIP = 'HUSKY_SKIP_DANGLING_IMPORTS'
 const EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']
 /** 带 `?raw` / `?url` 后缀的导入(Vite/测试里读源码文本):查询串在 resolveSpec 里剥掉,
@@ -1214,6 +1227,16 @@ export function parseCliArgs(argv) {
 
 async function main() {
   const argv = process.argv.slice(2)
+  // --root 的用法错与目录不存在都落「未判定」(exit 2),排在 --self-test 之前:
+  // 自检那档也会按 ROOT 跑 git,仓根指错时让它先撞墙不如先点名(缺省不给 --root 时这两条都不触发)。
+  if (ROOT_FLAG.error) {
+    console.error(`❌ 未判定:${ROOT_FLAG.error}`)
+    process.exit(2)
+  }
+  if (ROOT_FLAG.present && !existsSync(ROOT)) {
+    console.error(`❌ --root 指定的被审仓目录不存在 ⇒ 未判定(不猜要审哪个仓):${ROOT_FLAG.value}`)
+    process.exit(2)
+  }
   if (argv.includes('--self-test')) return selfTest()
   const cli = parseCliArgs(argv)
   if (cli.errors.length > 0) {

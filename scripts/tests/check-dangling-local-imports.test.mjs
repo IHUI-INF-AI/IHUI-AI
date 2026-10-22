@@ -20,10 +20,12 @@
 import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitRaw } from '../lib/face-reader.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { resolveGitBin } from '../lib/gitdir.mjs'
 import {
   auditFile,
   parseExports,
@@ -600,6 +602,57 @@ test('--rev 接线形状锁:revMain 不得被摘,SELF_SKIP 忽略必须有注释
   assert.match(src, /requireFlagValue\(argv, '--rev'/, "--rev 必须仍走 flag-value 共享出口(坏值不猜默认面)")
   assert.match(src, /if \(REV\) return revMain\(REV, ANCHOR_OPT/, '取值必须直连 revMain(接线不被摘)')
   assert.match(src, /SELF_SKIP.*在这一档不吃|在这一档不吃.*SELF_SKIP/)
+})
+
+/**
+ * `--root` 换仓三态(2026-10-23,G-929 同型追单;样板 = check-no-warm-border 的 M16)。
+ * 立因(现读复现):落地器 object-space-land 的 runDanglingGate 在换仓通道(LAND_ROOT 指别的仓)
+ * 用 `--rev <tree> --anchor <head>` 调本门,而门体缺省按脚本位置自推导 ⇒ 在本仓里问一枚
+ * 只有目标仓才有的树 ⇒ exit 2 未判定 ⇒ 落地器 fail-closed 拒绝 ⇒ 换仓通道只剩逐例打桩或
+ * IHUI_LAND_SKIP_DANGLING_GATE 跳过两条坏出路,这一道门在该通道等于没装。
+ * 三例各钉一格:
+ *  ① 换仓不失明:真判 D1 且点名(判据与仓根无关);
+ *  ② 被审仓根目录不存在 ⇒ 未判定,且拒绝理由必须点名"--root 目录不存在"本身 ——
+ *    只钉 rc=2 分不出"校验拒绝"与"静默回落后树问不到",后者正是要禁的 fail-open 形态;
+ *  ③ 不给 --root ⇒ 仍按自推导在主仓问(生产缺省行为一字不变的锁)。
+ */
+test('--root 换仓三态(G-929 同型票):显式仓根真判点名 / 目录不存在 exit 2 点名理由 / 缺省仍自推导', () => {
+  const GIT = resolveGitBin() || 'git'
+  const git = (dir, args) =>
+    execFileSync(
+      GIT,
+      ['-c', 'safe.directory=*', '-c', 'user.email=t@e2e.local', '-c', 'user.name=e2e', '-c', 'core.autocrlf=false', '-C', dir, ...args],
+      { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000 },
+    )
+  const dir = mkScratch('dg-root-')
+  try {
+    git(dir, ['init', '-q', '-b', 'main'])
+    mkdirSync(join(dir, 'src'), { recursive: true })
+    writeFileSync(join(dir, 'src', 'keep.ts'), 'export const keep = 1\n')
+    git(dir, ['add', '-A'])
+    git(dir, ['commit', '-q', '-m', 'base'])
+    const anchor = git(dir, ['rev-parse', 'HEAD']).trim()
+    // 第二枚提交:app.ts 具名导入一个从未写下的导出 ⇒ 相对锚点必红(锚点面里没有这两枚文件)
+    writeFileSync(join(dir, 'src', 'mod.ts'), 'export const real = 1\n')
+    writeFileSync(join(dir, 'src', 'app.ts'), "import { real, Ghost } from './mod'\nexport const y = Ghost\n")
+    git(dir, ['add', '-A'])
+    git(dir, ['commit', '-q', '-m', 'dangling'])
+    const tree = git(dir, ['rev-parse', 'HEAD^{tree}']).trim()
+    // ① 正控:--root 指到夹具仓 ⇒ 照常判红且点名(判据不因换仓失明)
+    const withRoot = runRev(['--rev', tree, '--anchor', anchor, '--root', dir])
+    assert.equal(withRoot.rc, 1, `换仓后必须照常判红(rc=1),实得 rc=${withRoot.rc}:${withRoot.out.slice(0, 300)}`)
+    assert.match(withRoot.out, /src\/app\.ts/, '判红必须点名 app.ts(判据没跑起来就不点名)')
+    assert.match(withRoot.out, /\[D1\]/, '必须以 D1 规则点名悬空具名导入')
+    // ② 反证:--root 指向不存在的目录 ⇒ 未判定,且点名拒绝理由本身(不静默回落)
+    const badRoot = runRev(['--rev', tree, '--anchor', anchor, '--root', join(dir, 'no-such-dir')])
+    assert.equal(badRoot.rc, 2, `--root 不存在必须 exit 2(未判定),实得 rc=${badRoot.rc} —— 静默回落=把指错仓读成审过了`)
+    assert.match(badRoot.out, /目录不存在/, '拒绝理由必须点名"--root 目录不存在"(靠下游树噪声蒙混 = 校验被绕开)')
+    // ③ 方向锁:同一棵树不给 --root(缺省按脚本位置在主仓里问)⇒ 仍 exit 2
+    const noRoot = runRev(['--rev', tree, '--anchor', anchor])
+    assert.equal(noRoot.rc, 2, `不给 --root 必须仍按自推导(夹具仓的树在主仓问不到 ⇒ exit 2),实得 rc=${noRoot.rc} —— 缺省行为被改坏了`)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
 })
 
 /**
