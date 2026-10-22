@@ -65,8 +65,8 @@
  *  LAND_ROOT   测试/换仓通道:被落地的仓库根(缺省 = 本脚本所在仓根)
  *  LAND_BASE_REF 取证通道:防覆盖对账的基线 ref(缺省 HEAD;只有测试用它造"别人已改过"的现场)
  *  LAND_DANGLING_GATE 测试通道:涉事判据门体的可执行路径(缺省 = 与本器同目录的
- *              check-dangling-local-imports.mjs;生产恒走缺省,测试指桩脚本。门体按仓库根
- *              自推导,不跟 LAND_ROOT 走 —— 桩只仿"退出码 0/1/2"的传输,不仿判据本身)
+ *              check-dangling-local-imports.mjs;生产恒走缺省,测试指桩脚本。G-929 同型票起
+ *              本器把被审仓根以 `--root` 透传给门体,桩只仿"退出码 0/1/2"的传输,不仿判据本身)
  *  IHUI_LAND_SKIP_DANGLING_GATE=1 应急跳过涉事判据(默认必跑;跳过打一行留痕,仅应急)
  *  LAND_ALLOW_STALE 显式放行"陈旧落地"(见 staleLandingGuard 的成因),放行时必打一行留痕
  *              (只对工作树模式有意义;blob 模式的对应判据是祖先对账,不放行)
@@ -1452,12 +1452,16 @@ function relativeImportGaps({ root, files, listTree, readBlob }) {
 // 按 fail-closed 拒绝落盘。为什么是 `--rev <tree>` 而不是先 commit-tree 再审:拒落时已创建的
 // commit 对象会变成 unreachable,给守门 30a 留地雷(正是 onTree 存在的原因),故门体必须会审树。
 // 触发面复用本文件既有的 SOURCE_LIKE_RE(不另立第二份扩展名表;与门体 SRC_RE 的同形由镜像形状锁钉死)。
-function runDanglingGate({ tree, anchor }) {
+// G-929 同型票(2026-10-23):必须把 `root`(被审仓根)显式传给门体(`--root`)。门体缺省按自身
+// 位置推导,而换仓通道(LAND_ROOT 指到别的仓)下不传 root,门就在自家仓里问一枚只存在于目标仓
+// 的树与锚点 ⇒「无法判定」⇒ 本器 fail-closed 拒绝 ⇒ 换仓场景只能打桩或整族跳过,判据等于没装。
+// 生产路径 root === 门体自身所在仓,传与不传同解(三态由门镜像用例与 T-DG1 的 argv 记账各自钉死)。
+function runDanglingGate({ root, tree, anchor }) {
   const gate =
     String(process.env.LAND_DANGLING_GATE ?? '').trim() ||
     join(dirname(fileURLToPath(import.meta.url)), 'check-dangling-local-imports.mjs')
   try {
-    const out = execFileSync(process.execPath, [gate, '--rev', tree, '--anchor', anchor], {
+    const out = execFileSync(process.execPath, [gate, '--rev', tree, '--anchor', anchor, '--root', root], {
       encoding: 'utf8',
       windowsHide: true,
       timeout: 120000,
@@ -1726,7 +1730,7 @@ async function main() {
         // G-815985:源码落盘前跑涉事判据(门 98 `--rev <tree>`,锚点=本轮 CAS 基线 head)。
         // 与相对引用预检同处 commit-tree 之前,拒落时同样不产生 commit 对象。
         if (!skipDanglingGate && entries.some((e) => SOURCE_LIKE_RE.test(e.path))) {
-          const r = runDanglingGate({ tree, anchor: head })
+          const r = runDanglingGate({ root, tree, anchor: head })
           danglingGate = r
           if (!r.pass) return r.why
         }
@@ -2013,10 +2017,11 @@ export function uiRoutesFreshnessNotice({ root, paths }) {
  * 结论问 git(ls-tree/cat-file)与盘上字节,不解析本器自己的输出文本下结论 ——
  * 唯一读输出的一处是"反向自证那行到底打没打"(留痕可见性),且只查在不在,不查数值。
  *
- * 临时仓里判不出的三道预检(水印横幅基线 / 悬空相对引用 / 门 98 源码面)各有应急出口,
+ * 临时仓里判不出的两道预检(水印横幅基线 / 悬空相对引用)各有应急出口,
  * 与删除档判据正交(它们的真仓覆盖在各自守门与镜像测试里),子进程侧跳过时自己出声留痕;
  * 判据本体(反向自证/互斥/clobber 同语义/工作树不被动/纯删除合法入口)一条不跳。
- * 暖色描边门**不跳**:G-929 起它支持 `--root`,本器把被审仓根透传过去,临时仓的真树真判。
+ * 门 98 与暖色描边门(G-929 及其同型票)**都不跳**:两枚门体都已支持 `--root`,
+ * 本器把被审仓根透传过去,临时仓的真树真判(自检仓声明面只有 .txt,门 98 触发面本就打不到)。
  */
 const SELF_TEST_PLAN = [
   { id: 'ST1', name: '正控:摘一枚基线在位的跟踪件 ⇒ 树里没有、盘上字节未变、反向自证留痕', expect: 'accept' },
@@ -2073,11 +2078,10 @@ function stRun(dir, { paths = '', remove = '', msg = 'selftest' }) {
       LAND_PATHS: paths,
       LAND_REMOVE_PATHS: remove,
       LAND_MSG: msg,
-      // 三道临时仓判不出的预检:各自有应急出口,跳过由子进程出声留痕;删除档判据本体不跳。
-      // 暖色描边门(G-929)已支持 --root ⇒ 不跳,临时仓的真树真判。
+      // 两道临时仓判不出的预检:各自有应急出口,跳过由子进程出声留痕;删除档判据本体不跳。
+      // 涉事判据(门 98 / 门 231)都已支持 --root ⇒ 都不跳,被审仓根透传给门体,临时仓的真树真判。
       IHUI_LAND_SKIP_WATERMARK: '1',
       IHUI_LAND_SKIP_IMPORT_CHECK: '1',
-      IHUI_LAND_SKIP_DANGLING_GATE: '1',
     },
     encoding: 'utf8',
     windowsHide: true,
