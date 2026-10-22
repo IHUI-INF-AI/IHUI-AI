@@ -150,5 +150,21 @@ describe('Avatar 跨端唯一表接线', () => {
     const spec = stripComments(readFileSync(resolve(HERE, '..', 'avatar-spec.ts'), 'utf8'))
     for (const banned of ['react-native', '@tarojs', 'node:']) expect(spec).not.toMatch(banned)
   })
+
+  /**
+   * 形状档(门 128 的 RD 维就比这个集合):两端都必须同时携带 circle/square 两档的字面类名,
+   * 且档位名与 AVATAR_SHAPE_STEP 逐字对应。此前 web **收了 shape prop 却从不使用**,
+   * 演示页的 `<Avatar shape="square">` 渲染成圆形 ⇒ 档集合少一档,报出来是"仅小程序档 8"。
+   */
+  it('⑥ 两端都携带两档形状类名,且与 AVATAR_SHAPE_STEP 逐字对应', async () => {
+    const { AVATAR_SHAPE_STEP } = await import('../avatar-spec')
+    expect(AVATAR_SHAPE_STEP).toEqual({ circle: 'md', square: 'lg' })
+    for (const f of [WEB, TARO]) {
+      const src = stripComments(readFileSync(resolve(REPO, f), 'utf8'))
+      const steps = new Set([...src.matchAll(/rounded-(xs|sm|md|lg|xl|2xl)/g)].map((m) => m[1]))
+      expect([...steps].sort()).toEqual(['lg', 'md'])
+      for (const s of Object.values(AVATAR_SHAPE_STEP)) expect(steps.has(s)).toBe(true)
+    }
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
