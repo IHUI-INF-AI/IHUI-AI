@@ -152,6 +152,10 @@ import { dedupeByFingerprint, dedupeGroups, uniqueNotes, selfIdOf } from './lib/
 // 自证侧问"被折掉的那一行,产物面里还有没有同一件事的那一行",问的是**身份**而不是**策略** ——
 // 折谁、注记怎么并、保留行怎么选全都住在 lib/dedupe-ledger,本器一处也不重写(§22c)。
 import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
+// 摘除台账(2026-10-23 接进本器,堵"完成即删"的最后一条回潮通道):只有它认得出
+// "这一行是别人按台账正当摘除过的",而不是"对侧多出来的一行"。判据与 `scrub-declared-removals`
+// 同一份(§0.6 单一真相源,本器零复算)。
+import { declaredRows } from './scrub-declared-removals.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -900,6 +904,12 @@ export function liveDocExpectedCounts(oursText, theirsText, baseText = null, sup
    * "未存活行"追讨,本侧不再被自己已经让掉的号死锁(三条判据与失效方向见 yieldedIdCaps 头注)。
    */
   for (const l of yieldedIdCaps(oursText, theirsText)) want.delete(l)
+  /**
+   * 「本侧已按摘除台账删掉」的登记行不得从对侧/基底被补回(2026-10-23,完成即删的回潮通道):
+   * 产出面(`unionLines`)与自证面(`verifyUnion` 的未存活行/旧行复活两判)共用这一张表 ⇒
+   * union 不补、落地闸也不按"未存活行"追讨,摘掉的行不再被自己人带回。
+   */
+  for (const l of declaredDropCaps(oursText)) want.delete(l)
   return want
 }
 
@@ -1043,6 +1053,49 @@ export function yieldedIdCaps(oursText, theirsText) {
       }
     }
     if (same) caps.add(l)
+  }
+  return caps
+}
+
+/**
+ * 「本侧已按摘除台账正当删掉」的登记行,不得从对侧/基底被补回(2026-10-23 立)。
+ *
+ * 立因(实测,非推断):`strip-stale-closed-rows`(完成即删兜底轮)把已勾行摘掉并落地后,
+ * 对侧(旧基线)那份逐字同一行还在 ⇒ 这张期望表把它读成「对侧相对基底新增的独有行」⇒ 补回。
+ * 表现是摘一次、回一次,已勾行存量永远归不了零(2026-10-23 实测 40 条徘徊)。
+ * 上面那条 `yieldedIdCaps` 治的是同一族的"让号"形态,这条治的是"完成即删"形态 ——
+ * 两族合起来才把"本侧处置权已行使"这一整格堵住。
+ *
+ * 判据三条(与 `scrub-declared-removals` 的 scrub 逐条同形,只是方向换成"不补回"而不是"剔"):
+ *   ① 该行逐字出现在摘除声明台账里(说明有人按台账正当摘过它);
+ *   ② **本侧面上 0 份** —— 这一条是硬条件:本侧还留着就说明它仍在册,delete 会连本侧自己那份
+ *      一起掉(那是丢行,方向反了);
+ *   ③ 该行是登记行(`- [ ]` / `- [x]`)—— 只认台账语义,不碰正文其它部分。
+ *
+ * **失效方向**:台账读不出 / 模块不可用 ⇒ 返回空集 = 一条不扣 ⇒ 多留一份(回潮),
+ * 绝不反过来少带别人的行。与 `suppress` 那条"少扣=带回、多扣=丢内容"是同一条禁令。
+ *
+ * @param {string} oursText 本侧文本
+ * @param {Set<string>|null} [declared] 摘除台账行集(注入用,生产面不传则现读)
+ */
+export function declaredDropCaps(oursText, declared = null) {
+  const caps = new Set()
+  if (typeof oursText !== 'string' || oursText === '') return caps
+  let set = declared
+  if (!(set instanceof Set)) {
+    try {
+      set = declaredRows(ROOT).set
+    } catch {
+      return caps // 取不到 ⇒ 一条不扣(多留一份,不是少带一份)
+    }
+  }
+  if (!set || set.size === 0) return caps
+  const co = counter(oursText)
+  // 候选只能来自台账那一侧:本侧 0 份的行才谈得上"已删"(本侧 count 表根本不含它们)。
+  for (const l of set) {
+    if ((co.get(l) || 0) > 0) continue // ②本侧还留着 ⇒ 处置权未行使,一律不扣
+    if (!/^\s*- \[[ xX]\]/.test(l)) continue // ③只认登记行
+    caps.add(l)
   }
   return caps
 }
@@ -4605,6 +4658,8 @@ export const __test__ = {
   theirsRewriteCaps,
   // 让号摘除(G-32, 2026-10-22):镜像测试直接用它,不得在测试里再写一份留痕/相似度判据(§22c)
   yieldedIdCaps,
+  // 完成即删的摘除台账(2026-10-23):镜像测试直接用它,不得在测试里再写一份台账比对判据(§22c)
+  declaredDropCaps,
   // 折叠台账这一族(2026-10-16):镜像测试直接用它,不得在测试里再写一份折叠/举证判据(§22c)
   foldLedgerOf,
   foldDedupe,

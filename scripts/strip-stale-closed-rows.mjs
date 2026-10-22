@@ -53,7 +53,7 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -78,6 +78,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
 /** 单批上限:超出即拒绝自动回写(与水印门"单次缺口 >200 拒绝自动回写"同一取向,§0.10 失效方向是多要一次说明) */
 const BATCH_CAP = 400
+/**
+ * 摘除留痕的仓外落点(与 `strip-stale-claim-marks` 的 `stale-claim-strip.jsonl` 同一处、同一种语义:
+ * 逐条存「摘除前的整行原文」,供 `scrub-declared-removals` 与 `union-converge` 的回潮防线读)。
+ * 必须在 `.ihui-agent/state/`(活文档归并射程外):台账行内任何注记都会被别席的清偿提交洗掉,
+ * 所以可追责性的真相源只能是这里 + 提交信息。
+ */
+const DROP_LEDGER = '.ihui-agent/state/plan-row-drop.jsonl'
 
 const C = {
   red: '\x1b[31m',
@@ -126,6 +133,60 @@ export function buildStripPlan(baseText, staleLines) {
     return { ok: false, keptClosed: 0, why: 'H2 行数差不等于清扫条数' }
   const closedAfter = parseTaskRows(out.join('\n')).filter((r) => r.state === 'done').length
   return { ok: true, text: out.join('\n'), removed, keptClosed: closedAfter }
+}
+
+/**
+ * 摘除留痕(2026-10-23 补 —— 这是「摘了又回来」的元凶,不是又一道保险)。
+ *
+ * 立因(实测,非推断):本器此前摘除成功落地,却**一行留痕都不写**。后果是两条回潮防线同时瞎掉:
+ *   ① `scrub-declared-removals.mjs` 的 `declaredRows` 只认 `plan-row-drop.jsonl` / `stale-claim-strip.jsonl`
+ *      里的整行原文 ⇒ 这批行它根本看不见,收编器把它们当新增内容照收;
+ *   ② `union-converge.mjs` 的活文档行 union 只认「对侧相对基底新增」,对侧旧基线里还留着的同一行
+ *      ⇒ 判成别人的独有行补回。
+ *   于是摘一次、回一次,存量永远归不了零(2026-10-23 实测:03:04 清扫一轮,03:27 已勾行仍 40 条)。
+ * 反面对照:`strip-stale-claim-marks.mjs` 每摘一枚都往 `stale-claim-strip.jsonl` 落整行原文,
+ * 所以那一族没有这个洞 —— 本函数就是补上它对等的那一半。
+ *
+ * 纪律:
+ *   · **只在落地成功后调用**(落地被拒而先写台账 = 台账声称删了、面上还在 ⇒ 复洁器会据此误剔,
+ *     方向变成"丢别人的行",正是 §0.10 明令禁止的那一型);
+ *   · 追加写、同一行重复无害(下游按集合语义消费);
+ *   · 写不进去 ⇒ 抛错由调用方按「留痕失败」大声点名,绝不静默 —— 少一条留痕 = 那一行下次必回潮。
+ *
+ * @param {string[]} rows  被摘行的**整行原文**(逐字,下游靠它逐字比对)
+ * @param {{file?:string, seat?:string, commit?:string, baseline?:string, at?:string}} meta
+ * @param {string} [root]
+ * @returns {{ok:boolean, file:string, written:number, why?:string}}
+ */
+export function appendDropLedger(
+  rows,
+  { file = FILE, seat = 'stale-closed-sweep', commit = '', baseline = '', at = new Date().toISOString() } = {},
+  root = ROOT,
+) {
+  const list = (Array.isArray(rows) ? rows : []).filter((r) => typeof r === 'string' && r !== '')
+  if (list.length === 0) return { ok: true, file: DROP_LEDGER, written: 0 }
+  const abs = path.join(root, DROP_LEDGER)
+  try {
+    mkdirSync(path.dirname(abs), { recursive: true })
+    const payload =
+      list
+        .map((rowBefore) =>
+          JSON.stringify({
+            at,
+            seat,
+            file,
+            rowBefore,
+            kind: 'stale-closed-sweep',
+            baseline,
+            commit,
+          }),
+        )
+        .join('\n') + '\n'
+    appendFileSync(abs, payload, 'utf8')
+    return { ok: true, file: DROP_LEDGER, written: list.length }
+  } catch (e) {
+    return { ok: false, file: DROP_LEDGER, written: 0, why: String(e?.message ?? e).slice(0, 160) }
+  }
 }
 
 /**
@@ -752,6 +813,8 @@ function main() {
   }
 
   const dir = mkScratch('ihui-strip-closed-')
+  // 落地器的退出码要带出 try 块:留痕段(try 之后)要拿它决定"该怎么解释这次推进"。
+  let landStatus = 0
   try {
     const newPath = path.join(dir, 'new.md')
     writeFileSync(newPath, plan.text, 'utf8')
@@ -783,6 +846,10 @@ function main() {
         `未勾行逐字节守恒,判据 import 守门 check-plan-closed-stock,` +
         `摘除前按守门 71 同一把尺子复核 ⇒ 另跳过 ${part.held.length} 条"仍保护"的行交人工)`,
     }
+    // 落地前先钉住 HEAD:留痕的凭据是"面上真的摘掉了",而落地器的退出码答不了这一问 ——
+    // 实测 2026-10-23:落地器 CAS 成功推进 HEAD,却因提交面回读"git 问不到"返 exit 2;
+    // 若按退出码跳过留痕,这一批就成了**无凭据摘除**,下一轮合并必把它们带回。
+    const headBefore = git(['rev-parse', 'HEAD']).trim()
     const land = spawnSync(process.execPath, [path.join(ROOT, 'scripts/object-space-land.mjs')], {
       cwd: ROOT,
       env,
@@ -792,6 +859,7 @@ function main() {
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     const out = `${land.stdout ?? ''}${land.stderr ?? ''}`
+    landStatus = land.status ?? 0
     console.log(out.split('\n').slice(-12).join('\n'))
     if (land.status !== 0) {
       console.error(
@@ -807,6 +875,40 @@ function main() {
     }
   } finally {
     rmScratch(dir)
+  }
+
+  // 留痕必须在**面上真的摘掉之后**:这是两条回潮防线(scrub-declared-removals 的逐字比对 /
+  // union-converge 的活文档 union)唯一认得"这行曾被正当摘除"的凭据。落地被拒而先写台账,
+  // 会把"面上还在"的行说成"已删" ⇒ 复洁器误剔 ⇒ 丢别人的行(§0.10 明令禁止)。
+  // 判据是 **HEAD 有没有被推进**,不是落地器的退出码:退出码 2 的语义是"回读未判定",
+  // 而 CAS 可能已经成功(实测 2026-10-23:HEAD 推进了、退出码 2、行确实摘了)。
+  const landedSha = git(['rev-parse', 'HEAD']).trim()
+  const advanced = Boolean(landedSha) && landedSha !== headBefore
+  if (advanced) {
+    const baseSha = git(['rev-parse', 'HEAD^']).trim()
+    const ledger = appendDropLedger(part.strippable.map((r) => r.raw), {
+      seat: 'stale-closed-sweep',
+      commit: landedSha,
+      baseline: baseSha,
+    })
+    if (!ledger.ok) {
+      // 留痕写不进去 ⇒ 这一批下次必被 union 带回,等于本轮白做。大声点名,但不改落地成败
+      // (行确实已经摘掉了,修好留痕后重跑即可补上)。
+      console.error(
+        `${C.red}❌ 摘除留痕写入失败(${ledger.why})——本轮 ${plan.removed} 行已摘但**无凭据**,下一轮合并会把它们带回;修好留痕后重跑即可${C.reset}`,
+      )
+    } else {
+      console.log(
+        `${C.cyan}📝 摘除留痕 ${ledger.written} 条 → ${ledger.file}(回潮防线的凭据)` +
+          (landStatus !== 0 ? ` —— 落地器 exit ${landStatus} 属回读未判定,而 HEAD 已推进 ⇒ 按推进事实留痕` : '') +
+          C.reset,
+      )
+    }
+  } else {
+    console.error(
+      `${C.yellow}⚠️ HEAD 未推进(${headBefore.slice(0, 11)} ⇒ ${landedSha.slice(0, 11) || '取不到'})⇒ 本轮不写留痕` +
+        `(少了凭据最多是回潮一次,写了假凭据会害复洁器去剔别人的行)${C.reset}`,
+    )
   }
 
   // 旁路落地不跑 post-commit ⇒ 推送腿必须自带(AGENTS §5b 回潮通道①:origin 还带旧行就会被合并带回)
@@ -844,6 +946,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   buildStripPlan,
+  appendDropLedger,
   emitResult,
   buildLineLossRuler,
   partitionStaleByProtection,
