@@ -28889,3 +28889,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] G-926 **生产 web 的实际部署承载者没查清:被指认的 IHUI-DEPLOYLOOP 有 13 小时零日志、其工作目录从未创建,可线上却确实换了构建** 2026-10-22 现读三件同时成立:①服务 `IHUI-DEPLOYLOOP` STATE=RUNNING(nssm 承载 pwsh 循环),但 `D:\DevEnv\logs\svc-deployloop-nssm.log` 与 `-err.log` 都是 **0 字节、最后写入 09:41**;②`D:\DevEnv\ihui-prod\.ihui-agent\tmp\deploy-loop` **目录不存在**,而脚本里 `$runDir = Join-Path $Root '.ihui-agent\tmp\deploy-loop'` 那一支带 `New-Item -Force` —— 只要真走到过起子进程那步,目录必在;③同一时段线上行为确实变了(`www/login` 从 308 变 200、`/sso/login` 首屏从「统一登录」变「登录」)⇒ **有别的机制在 pull+build+重启 IHUI-WEB**,不是这条被指认的环。出路:先按 `nssm get IHUI-WEB ApplicationParameters` 与生产机计划任务清单实测出真承载者(判"执行的是哪份文件"按 §5b 口径读应用自身参数,不按 `git ls-files`),再把 AGENTS/README 里的部署口径改成实测那一份;节流分支在拿锁与建目录之前 `return`,所以"零日志"本身也可能只是长期被节流,两种解释要分开证。
 
+
