@@ -86,6 +86,14 @@ __pycache__/
 # 导致内存爆炸 137GB,SWC 30GB 分配失败(0xC0000409)。
 .next-bak-*/
 .next-failrec-*/
+# 2026-10-22 补漏(实测 D:\DevEnv\ihui-prod 侧 5.0G 裸奔未跟踪):上面两条是**短横线**命名,
+# 生产实际留下的是**点号**变体 `.next.bak-<ts>`(2.5G × 2),零规则命中 ⇒ 常驻未跟踪。
+# 危险不在占盘而在入库:本仓有「收编停留≥3分钟的未提交改动」自动机制,未跟踪件会被整包
+# `git add` 提交 ⇒ 5G 二进制进历史(与上面 Tailwind 扫 4.7GB 目录同族事故)。同批补齐
+# 另外两族:dist 旧产物 `dist.old-*`、部署环轮转日志 `deploy-loop.log.<N>`(单份 21MB)。
+.next.bak-*/
+dist.old-*/
+deploy/win/deploy-loop.log.*
 # 2026-09-07 零停机蓝绿部署:staging 构建目录与回滚点,均为本地构建产物不入库
 .next-staging/
 # 2026-09-13 e2e 隔离构建 distDir(IHUI_BUILD_DIST=.next-e2e,本地 e2e triage 用)。
