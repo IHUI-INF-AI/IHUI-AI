@@ -28,6 +28,7 @@ const h = vi.hoisted(() => {
     session: {
       value: { token: null as string | null, user: null as Record<string, unknown> | null },
     },
+    ready: { value: true },
   }
 })
 
@@ -53,7 +54,9 @@ vi.mock('@/stores/login-dialog', () => {
   store.setState = vi.fn()
   return { useLoginDialogStore: store }
 })
-vi.mock('@/hooks/use-auth-bootstrap', () => ({ useAuthBootstrap: () => ({ ready: true }) }))
+vi.mock('@/hooks/use-auth-bootstrap', () => ({
+  useAuthBootstrap: () => ({ ready: h.ready.value }),
+}))
 vi.mock('@/lib/api', () => ({
   fetchApi: vi.fn(async () => ({ success: true, data: { code: 'X' } })),
 }))
@@ -89,6 +92,7 @@ beforeEach(() => {
   h.replace.mockReset()
   h.params.value = new URLSearchParams('')
   h.session.value = LOGGED_OUT
+  h.ready.value = true
   h.shell.title = undefined
   h.shell.subtitle = undefined
   h.shell.footer = undefined
@@ -133,6 +137,24 @@ describe('/sso/login 话术按"本站自己人 vs 授权场景"分档', () => {
     h.params.value = new URLSearchParams('client_id=web&redirect=%2Fchat%2Fhistory')
     const { getByRole } = render(<SsoLoginPage />)
     expect(getByRole('button').textContent).toBe('sso:authorizeAndRedirect')
+  })
+
+  // 2026-10-22 生产实测补的一格:SSR 与 hydration 完成前走的是 !ready 骨架分支。
+  // 线上 www.aizhs.top/sso/login 渲染出的是 <h1>统一登录</h1> + <p>登录后将为 web 授权并跳转</p>,
+  // 因为骨架分支当时还写死 sso:title / sso.subtitle —— 用户第一眼看到的正是这一帧。
+  it('bootstrap 未就绪的骨架分支也不许对本站自己人说授权话术', () => {
+    h.ready.value = false
+    h.params.value = new URLSearchParams('client_id=web')
+    render(<SsoLoginPage />)
+    expect(h.shell.title).toBe('auth:loginTitle')
+    expect(h.shell.subtitle).toBe('auth:loginSubtitle')
+  })
+
+  it('骨架分支 + 带显式 redirect ⇒ 仍按授权口径(子项目第一眼就该知道是在授权)', () => {
+    h.ready.value = false
+    h.params.value = new URLSearchParams('client_id=web&redirect=%2Fchat%2Fhistory')
+    render(<SsoLoginPage />)
+    expect(h.shell.title).toBe('sso:title')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

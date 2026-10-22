@@ -289,11 +289,14 @@ export default function SsoLoginPage() {
   // (点击竞态:点 tab 实际命中替换后的授权按钮 → 意外跳转,感知为按钮全部失灵)。
   // bootstrap 就绪前渲染 loading 骨架,杜绝表单闪现与点击错位。
   if (!ready) {
+    // 这一帧是用户在 SSR/hydration 期间**第一眼**看到的:2026-10-22 线上实测
+    // www.aizhs.top/sso/login 此处仍写死 sso:title/sso.subtitle,于是自己进站的用户首屏就读到
+    // 「统一登录 / 登录后将为 web 授权并跳转」——分档必须同批覆盖骨架,否则改了等于没改。
     return (
       <AuthShellPage onClose={handleClose}>
         <AuthShell
-          title={tSso('title')}
-          subtitle={tSso('subtitle', { clientId })}
+          title={isOwnSiteVisitor ? tAuth('loginTitle') : tSso('title')}
+          subtitle={isOwnSiteVisitor ? tAuth('loginSubtitle') : tSso('subtitle', { clientId })}
           onClose={handleClose}
         >
           <div className="flex items-center justify-center py-12">
