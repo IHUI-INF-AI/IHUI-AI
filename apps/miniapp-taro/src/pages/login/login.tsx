@@ -298,8 +298,12 @@ export default function Login() {
         })
         .finally(() => setIsSmsLogging(false))
     } else {
-      // H5:走 SSO 网页授权(后端 wechat OAuth 链路)
-      handleSsoLogin()
+      // 非微信/支付宝容器(含 H5):这里不跳转,只如实说明 + 给出同页就有的下一步。
+      // 立因:原先这条 else 导到 handleSsoLogin(),而 web-view 里没有任何一方接管
+      // ihui-miniapp://sso/callback(pages/webview/index.tsx 的 onMessage 只有 logger.info),
+      // 跳过去必然拿不回登录态 = 死路;而手机号/邮箱验证码/密码三条在本页就是通的。
+      // 网页授权闭环(业务域名白名单 + 回跳接管)属另一票,本处不为它背书。
+      Taro.showToast({ title: t('login.wechatUnavailable'), icon: 'none' })
     }
   }
 
@@ -632,7 +636,7 @@ export default function Login() {
           </View>
         ) : null}
 
-        {/* ===== 第三方登录区:微信主推按钮 + "或" + 图标网格(对齐 RN) ===== */}
+        {/* ===== 第三方登录区:微信主推按钮 + "或"(原 Google 图标格已摘:端内无 Google 登录实现) ===== */}
         <View className="login-thirdparty">
           <View className="login-wechat-btn" hoverClass="opacity-60" onClick={handleWechatLogin}>
             <Image
@@ -647,16 +651,6 @@ export default function Login() {
             <View className="login-divider-line" />
             <Text className="login-divider-text">{tt('login.or', '或')}</Text>
             <View className="login-divider-line" />
-          </View>
-
-          <View className="login-oauth-grid">
-            <View className="login-oauth-btn" hoverClass="opacity-60" onClick={handleSsoLogin}>
-              <Image
-                className="login-oauth-icon"
-                src={aizhsUrl('remote-images/google.svg')}
-                mode="aspectFit"
-              />
-            </View>
           </View>
         </View>
 
