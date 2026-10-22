@@ -84,6 +84,12 @@ const RATE_COOLDOWN_MS = 60_000
 const AFFINITY_TTL_MS = 10 * 60 * 1000
 /** 模型→平台反查缓存 TTL */
 const PROVIDER_CACHE_TTL_MS = 60_000
+/** 反查缓存键上限(客户端可传任意模型名,必须封顶防内存增长) */
+const PROVIDER_CACHE_MAX = 1_000
+/** ProxyAgent 缓存上限(代理池位有限,超限逐出最旧并关闭连接池) */
+const PROXY_AGENT_MAX = 64
+/** 上游响应头超时:只约束「拿到响应」这一段,流式正文不受影响 */
+const UPSTREAM_TIMEOUT_MS = 120_000
 
 type FailureKind =
   | 'auth'
@@ -109,6 +115,14 @@ const proxyAgents = new Map<string, ProxyAgent>()
 function getProxyAgent(proxyUrl: string): ProxyAgent {
   let agent = proxyAgents.get(proxyUrl)
   if (!agent) {
+    if (proxyAgents.size >= PROXY_AGENT_MAX) {
+      const oldestKey = proxyAgents.keys().next().value
+      if (oldestKey !== undefined) {
+        const oldest = proxyAgents.get(oldestKey)
+        proxyAgents.delete(oldestKey)
+        void Promise.resolve(oldest?.close()).catch(() => {})
+      }
+    }
     agent = new ProxyAgent(proxyUrl)
     proxyAgents.set(proxyUrl, agent)
   }
@@ -161,6 +175,11 @@ async function resolvePoolProviders(
     )
   } catch {
     providers = []
+  }
+  // 键上限:任意客户端模型名都能进缓存,必须封顶(逐出最早插入项)
+  if (!providerCache.has(rawModel) && providerCache.size >= PROVIDER_CACHE_MAX) {
+    const oldestKey = providerCache.keys().next().value
+    if (oldestKey !== undefined) providerCache.delete(oldestKey)
   }
   providerCache.set(rawModel, { providers, expiresAt: Date.now() + PROVIDER_CACHE_TTL_MS })
   return providers
@@ -309,13 +328,69 @@ function classifyFailure(
   }
   if (adapter.isAuthFailure(status, bodyText)) return 'auth'
   if (status === 429) return 'rate'
+  if (status === 404) return 'not_found'
+  if (status === 400 || status === 413 || status === 422) return 'request'
   if (status >= 500) return 'server'
   return 'client'
+}
+
+/**
+ * executeChat 抛出异常的语义分类:优先取错误携带的 HTTP 状态走富分类;
+ * 无状态时再喂给适配器的文本分类(仅采信非 client 的明确结论),否则按网络错误。
+ */
+function classifyThrownError(adapter: RelayUpstreamAdapter, err: unknown): FailureKind {
+  const statusCode =
+    typeof (err as { statusCode?: unknown })?.statusCode === 'number'
+      ? (err as { statusCode: number }).statusCode
+      : 0
+  const msg = err instanceof Error ? err.message : String(err)
+  if (statusCode > 0) return classifyFailure(adapter, statusCode, msg)
+  const rich = (adapter as RelayUpstreamAdapter & FailureClassifiable).classifyUpstreamFailure
+  if (rich) {
+    try {
+      const kind = rich.call(adapter, 0, msg).kind
+      if (kind !== 'client') return kind
+    } catch {
+      /* 分类异常 → 视为网络错误 */
+    }
+  }
+  return 'network'
+}
+
+/** 区分「上游响应超时」与「客户端断开」:仅约束响应头阶段,流式正文不受限 */
+function withUpstreamTimeout(parent: AbortSignal | undefined): {
+  signal: AbortSignal
+  timedOut: () => boolean
+  clear: () => void
+} {
+  const controller = new AbortController()
+  let fired = false
+  const timer = setTimeout(() => {
+    fired = true
+    controller.abort()
+  }, UPSTREAM_TIMEOUT_MS)
+  timer.unref?.()
+  const onParentAbort = (): void => controller.abort()
+  if (parent) {
+    if (parent.aborted) controller.abort()
+    else parent.addEventListener('abort', onParentAbort, { once: true })
+  }
+  return {
+    signal: controller.signal,
+    timedOut: () => fired,
+    clear: () => {
+      clearTimeout(timer)
+      parent?.removeEventListener('abort', onParentAbort)
+    },
+  }
 }
 
 // =============================================================================
 // 401 自愈刷新
 // =============================================================================
+
+/** 同账号并发刷新合并:refresh token 轮换制下并发刷新会互相覆盖,可能把号刷死 */
+const refreshInFlight = new Map<string, Promise<AiRelayAccountPool | null>>()
 
 /** 刷新单账号凭证并回写号池;返回合并后的新行(供就地重试),失败返回 null */
 async function refreshRowInPlace(
@@ -323,11 +398,24 @@ async function refreshRowInPlace(
   adapter: RelayUpstreamAdapter,
 ): Promise<AiRelayAccountPool | null> {
   if (!adapter.refreshToken) return null
+  const existing = refreshInFlight.get(row.id)
+  if (existing) return existing
+  const task = doRefreshRowInPlace(row, adapter).finally(() => {
+    refreshInFlight.delete(row.id)
+  })
+  refreshInFlight.set(row.id, task)
+  return task
+}
+
+async function doRefreshRowInPlace(
+  row: AiRelayAccountPool,
+  adapter: RelayUpstreamAdapter,
+): Promise<AiRelayAccountPool | null> {
+  const startedAt = new Date()
   try {
     const credentials = decryptAccountCredentials(row)
-    const result = await adapter.refreshToken({ row, credentials }, { proxyUrl: row.proxyUrl })
+    const result = await adapter.refreshToken!({ row, credentials }, { proxyUrl: row.proxyUrl })
     if (!result) return null
-    const now = new Date()
     const tokenEnc = encryptField(result.token)
     const refreshTokenEnc =
       result.refreshToken !== undefined && result.refreshToken !== null
@@ -339,9 +427,9 @@ async function refreshRowInPlace(
         tokenEnc,
         refreshTokenEnc,
         tokenExpiresAt: result.expiresAt,
-        lastRefreshAt: now,
+        lastRefreshAt: startedAt,
         refreshFailureCount: 0,
-        updatedAt: now,
+        updatedAt: startedAt,
       })
       .where(eq(aiRelayAccountPool.id, row.id))
       .catch(() => {})
@@ -350,9 +438,23 @@ async function refreshRowInPlace(
       tokenEnc,
       refreshTokenEnc,
       tokenExpiresAt: result.expiresAt,
-      lastRefreshAt: now,
+      lastRefreshAt: startedAt,
     }
-  } catch {
+  } catch (e) {
+    // 失败也要落账:refreshFailureCount 是管理面「该补池了」的判据,不能永远为 0
+    const failures = (row.refreshFailureCount ?? 0) + 1
+    const msg = e instanceof Error ? e.message : String(e)
+    await db
+      .update(aiRelayAccountPool)
+      .set({
+        refreshFailureCount: failures,
+        lastRefreshAt: startedAt,
+        lastErrorMessage: msg.slice(0, 500),
+        ...(failures >= 3 ? { healthStatus: 'degraded' } : {}),
+        updatedAt: startedAt,
+      })
+      .where(eq(aiRelayAccountPool.id, row.id))
+      .catch(() => {})
     return null
   }
 }
@@ -384,6 +486,11 @@ async function* readSseDataLines(body: ReadableStream<Uint8Array>): AsyncGenerat
   } finally {
     reader.releaseLock()
   }
+}
+
+/** 严格判定终止帧:payload 恰好为 [DONE](内容里出现 "[DONE]" 字样不得误判) */
+function isSseDone(line: string): boolean {
+  return line.slice(line.indexOf(':') + 1).trim() === '[DONE]'
 }
 
 function sseHeaders(): Record<string, string> {
@@ -427,7 +534,7 @@ function translateSseResponse(
     async start(controller) {
       try {
         for await (const line of readSseDataLines(upstream)) {
-          if (line.includes('[DONE]')) break
+          if (isSseDone(line)) break
           const translated = adapter.translateStreamChunk(ctx, line, state)
           if (!translated) continue
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(translated.openaiChunk)}\n\n`))
@@ -471,7 +578,7 @@ async function aggregateSseToCompletion(
   const toolSlots = new Map<number, Slot>()
 
   for await (const line of readSseDataLines(upstream)) {
-    if (line.includes('[DONE]')) break
+    if (isSseDone(line)) break
     const translated = adapter.translateStreamChunk(ctx, line, state)
     if (!translated) continue
     const chunk = translated.openaiChunk
@@ -585,7 +692,7 @@ function tapAccountUsage(resp: Response, onUsage: (u: UsagePair) => void): Respo
       let last: UsagePair | null = null
       try {
         for await (const line of readSseDataLines(tap)) {
-          if (line.includes('[DONE]')) break
+          if (isSseDone(line)) break
           const u = extractUsage(parseDataLine(line))
           if (u) last = u
         }
@@ -642,6 +749,9 @@ function toNormalized(req: UpstreamForwardRequest, rawModel: string): Normalized
   if (req.maxTokens !== undefined) norm.maxTokens = req.maxTokens
   if (req.tools !== undefined) norm.tools = req.tools
   if (req.toolChoice !== undefined) norm.toolChoice = req.toolChoice
+  // OpenAI 兼容面:JSON mode 与 seed 必须透传,否则账号池路径语义弱于渠道路径
+  if (req.responseFormat !== undefined) norm.responseFormat = req.responseFormat
+  if (req.seed !== undefined) norm.seed = req.seed
   if (req.affinityKey) norm.conversationId = req.affinityKey
   return norm
 }
@@ -678,9 +788,10 @@ async function attemptWithAccount(
   if (adapter.executeChat) {
     const credentials = decryptAccountCredentials(row)
     const ctx: AdapterAccountContext = { row, credentials }
+    const timed = withUpstreamTimeout(req.signal)
     try {
       const result = await adapter.executeChat(ctx, normReq, {
-        signal: req.signal,
+        signal: timed.signal,
         proxyUrl: opts.proxy,
         fetchImpl: doFetch,
       })
@@ -689,25 +800,38 @@ async function attemptWithAccount(
       return fail('server', 'executeChat 返回空结果')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
+      // 上游超时与客户端断开必须区分:前者罚号/可 failover,后者立即终止
+      if (timed.timedOut()) return fail('network', `上游响应超时(${UPSTREAM_TIMEOUT_MS}ms)`)
       if (adapter.isAuthError?.(err)) {
         const refreshed = await refreshRowInPlace(row, adapter)
         if (refreshed) {
+          const retryTimed = withUpstreamTimeout(req.signal)
           try {
             const retry = await adapter.executeChat(
               { row: refreshed, credentials: decryptAccountCredentials(refreshed) },
               normReq,
-              { signal: req.signal, proxyUrl: refreshed.proxyUrl, fetchImpl: doFetch },
+              { signal: retryTimed.signal, proxyUrl: refreshed.proxyUrl, fetchImpl: doFetch },
             )
             if (retry.stream) return finish(chunksToSseResponse(retry.stream))
             if (retry.completion) return finish(Response.json(retry.completion))
           } catch (err2) {
-            return fail('auth', `刷新后重试仍失败: ${err2 instanceof Error ? err2.message : msg}`)
+            if (retryTimed.timedOut()) {
+              return fail('network', `刷新后上游响应超时(${UPSTREAM_TIMEOUT_MS}ms)`)
+            }
+            return fail(
+              classifyThrownError(adapter, err2),
+              `刷新后重试仍失败: ${err2 instanceof Error ? err2.message : msg}`,
+            )
+          } finally {
+            retryTimed.clear()
           }
           return fail('server', 'executeChat 刷新重试返回空结果')
         }
         return fail('auth', `鉴权失败且刷新未成功: ${msg}`)
       }
-      return fail('network', msg)
+      return fail(classifyThrownError(adapter, err), msg)
+    } finally {
+      timed.clear()
     }
   }
 
@@ -722,17 +846,21 @@ async function attemptWithAccount(
   }
 
   let resp: Response
+  const timed = withUpstreamTimeout(req.signal)
   try {
     resp = await doFetch(httpReq.url, {
       method: httpReq.method,
       headers: httpReq.headers,
       body:
         httpReq.rawBody ?? (httpReq.body !== undefined ? JSON.stringify(httpReq.body) : undefined),
-      signal: req.signal,
+      signal: timed.signal,
     })
   } catch (err) {
+    if (timed.timedOut()) return fail('network', `上游响应超时(${UPSTREAM_TIMEOUT_MS}ms)`)
     if ((err as Error)?.name === 'AbortError') throw err // 客户端断开:上抛由主循环终止
     return fail('network', `上游网络错误: ${err instanceof Error ? err.message : String(err)}`)
+  } finally {
+    timed.clear() // 响应头已到:正文流式阶段不再受超时约束
   }
 
   if (!resp.ok || !resp.body) {
@@ -748,14 +876,20 @@ async function attemptWithAccount(
             credentials: decryptAccountCredentials(refreshed),
           }
           const retryReq = adapter.buildChatRequest(retryCtx, normReq)
-          const retryResp = await doFetch(retryReq.url, {
-            method: retryReq.method,
-            headers: retryReq.headers,
-            body:
-              retryReq.rawBody ??
-              (retryReq.body !== undefined ? JSON.stringify(retryReq.body) : undefined),
-            signal: req.signal,
-          })
+          const retryTimed = withUpstreamTimeout(req.signal)
+          let retryResp: Response
+          try {
+            retryResp = await doFetch(retryReq.url, {
+              method: retryReq.method,
+              headers: retryReq.headers,
+              body:
+                retryReq.rawBody ??
+                (retryReq.body !== undefined ? JSON.stringify(retryReq.body) : undefined),
+              signal: retryTimed.signal,
+            })
+          } finally {
+            retryTimed.clear()
+          }
           if (retryResp.ok && retryResp.body) {
             return await consumeUpstreamResponse(
               retryResp,
@@ -764,6 +898,7 @@ async function attemptWithAccount(
               req,
               rawModel,
               finish,
+              fail,
             )
           }
           const retryText = await safeText(retryResp)
@@ -773,9 +908,13 @@ async function attemptWithAccount(
             retryResp.status,
           )
         } catch (err) {
+          if ((err as Error)?.name === 'AbortError' && !req.signal?.aborted) {
+            // 重试段的超时(时刻已过)同样按网络类罚号
+            return fail('network', `刷新后上游响应超时(${UPSTREAM_TIMEOUT_MS}ms)`)
+          }
           if ((err as Error)?.name === 'AbortError') throw err
           return fail(
-            'network',
+            classifyThrownError(adapter, err),
             `刷新后重试异常: ${err instanceof Error ? err.message : String(err)}`,
           )
         }
@@ -784,7 +923,7 @@ async function attemptWithAccount(
     return fail(kind, `上游 ${resp.status}: ${bodyText.slice(0, 200) || '(空响应体)'}`, resp.status)
   }
 
-  return consumeUpstreamResponse(resp, adapter, ctx, req, rawModel, finish)
+  return consumeUpstreamResponse(resp, adapter, ctx, req, rawModel, finish, fail)
 }
 
 /** 2xx 响应消费:流式逐帧翻译 / 非流式 JSON 或强制流式聚合 */
@@ -795,31 +934,46 @@ async function consumeUpstreamResponse(
   req: UpstreamForwardRequest,
   rawModel: string,
   finish: (r: Response) => AccountAttempt,
+  fail: (kind: FailureKind, reason: string, httpStatus?: number) => AccountAttempt,
 ): Promise<AccountAttempt> {
   const body = resp.body
-  if (!body) return { ok: false, reason: '上游响应无 body' }
+  // 2xx 但不可消费/不可解析 = 上游服务异常,必须罚号(否则坏上游永远健康)
+  if (!body) return fail('server', '上游响应无 body', resp.status)
   if (req.stream) {
     return finish(translateSseResponse(body, adapter, ctx))
   }
   const ct = resp.headers.get('content-type') ?? ''
   if (ct.includes('text/event-stream')) {
     // 上游拒绝非流式(WorkBuddy):网关侧聚合成 chat.completion
-    const completion = await aggregateSseToCompletion(body, adapter, ctx, rawModel)
-    return finish(Response.json(completion))
+    try {
+      const completion = await aggregateSseToCompletion(body, adapter, ctx, rawModel)
+      return finish(Response.json(completion))
+    } catch (err) {
+      return fail(
+        'server',
+        `上游流聚合失败: ${err instanceof Error ? err.message : String(err)}`,
+        resp.status,
+      )
+    }
   }
   let json: unknown
   try {
     json = await resp.json()
   } catch (err) {
-    return { ok: false, reason: `上游 JSON 解析失败: ${err instanceof Error ? err.message : ''}` }
+    return fail(
+      'server',
+      `上游 JSON 解析失败: ${err instanceof Error ? err.message : ''}`,
+      resp.status,
+    )
   }
   try {
     return finish(Response.json(adapter.translateNonStream(ctx, json)))
   } catch (err) {
-    return {
-      ok: false,
-      reason: `响应翻译失败: ${err instanceof Error ? err.message : String(err)}`,
-    }
+    return fail(
+      'server',
+      `响应翻译失败: ${err instanceof Error ? err.message : String(err)}`,
+      resp.status,
+    )
   }
 }
 

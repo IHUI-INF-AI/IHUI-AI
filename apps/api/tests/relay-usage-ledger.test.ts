@@ -34,6 +34,8 @@ const {
   mockDeleteResult,
   mockSweepAccountPool,
   sinks,
+  limitArgs,
+  offsetArgs,
   rearmDbMockDefaults,
 } = vi.hoisted(() => {
   type Armed = { mockResolvedValue(value: unknown): unknown; mockReset(): unknown }
@@ -63,6 +65,9 @@ const {
     update: { value: undefined as unknown },
     delete: { value: undefined as unknown },
   }
+  // 分页参数探针:limit/offset 是链式方法,记录实际下推值
+  const limitArgs: number[] = []
+  const offsetArgs: number[] = []
   return {
     mockVerifyAccessToken,
     mockSelectResult,
@@ -71,11 +76,15 @@ const {
     mockDeleteResult,
     mockSweepAccountPool,
     sinks,
+    limitArgs,
+    offsetArgs,
     rearmDbMockDefaults: () => {
       rearmers.forEach((rearm) => rearm())
       sinks.insert.value = undefined
       sinks.update.value = undefined
       sinks.delete.value = undefined
+      limitArgs.length = 0
+      offsetArgs.length = 0
     },
   }
 })
@@ -106,6 +115,16 @@ vi.mock('../src/db/index.js', () => {
         if (prop === 'then')
           return (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
             mockSelectResult().then(resolve, reject)
+        if (prop === 'limit')
+          return (v: number) => {
+            limitArgs.push(v)
+            return selectChain()
+          }
+        if (prop === 'offset')
+          return (v: number) => {
+            offsetArgs.push(v)
+            return selectChain()
+          }
         return () => selectChain()
       },
     })
@@ -147,6 +166,7 @@ import {
   recordAccountUsage,
   getAccountUsageSummaries,
   getAccountUsage,
+  purgeAccountUsage,
 } from '../src/services/relay-account-usage.js'
 
 const ADMIN_TOKEN = 'Bearer admin-token'
@@ -313,6 +333,40 @@ describe('relay-usage-ledger', () => {
       expect(result.summary).toEqual({ calls24h: 2, tokens24h: 100, failRate24h: 0.5 })
       expect(result.detail).toHaveLength(1)
     })
+
+    it('默认分页 limit=500/offset=0,detailTotal 取明细总数', async () => {
+      mockSelectResult.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([{ id: 'l1', accountId: 'a1' }])
+      mockSelectResult.mockResolvedValueOnce([{ c: 42 }])
+      const result = await getAccountUsage('a1')
+      expect(limitArgs.at(-1)).toBe(500)
+      expect(offsetArgs.at(-1)).toBe(0)
+      expect(result.detailTotal).toBe(42)
+    })
+
+    it('传入 limit/offset 透传下推,limit 超上限 clamp 到 1000', async () => {
+      mockSelectResult.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([{ c: 0 }])
+      await getAccountUsage('a1', 7, { limit: 5000, offset: 20 })
+      expect(limitArgs.at(-1)).toBe(1000)
+      expect(offsetArgs.at(-1)).toBe(20)
+    })
+  })
+
+  // ===========================================================================
+  // 2b. 服务层:台账保留期清理(purgeAccountUsage)
+  // ===========================================================================
+  describe('purgeAccountUsage', () => {
+    it('按 beforeDays 截止删除并返回删除行数', async () => {
+      mockDeleteResult.mockResolvedValueOnce([{ id: 'l1' }, { id: 'l2' }])
+      await expect(purgeAccountUsage()).resolves.toBe(2)
+    })
+
+    it('删除异常被吞,返回 0 且永不抛', async () => {
+      mockDeleteResult.mockRejectedValueOnce(new Error('db down'))
+      await expect(purgeAccountUsage(30)).resolves.toBe(0)
+    })
   })
 
   // ===========================================================================
@@ -452,12 +506,13 @@ describe('relay-usage-ledger', () => {
   // 5. 管理面:GET /admin/relay/account-pool/usage/:id?days=7
   // ===========================================================================
   describe('GET /api/admin/relay/account-pool/usage/:id', () => {
-    it('默认 days=7,返回 summary + detail', async () => {
+    it('默认 days=7,返回 summary + detail + detailTotal', async () => {
       mockAdmin()
       mockSelectResult.mockResolvedValueOnce([
         { accountId: 'acc-1', calls: 2, tokens: 100, fails: 1 },
       ])
       mockSelectResult.mockResolvedValueOnce([{ id: 'l1', accountId: 'acc-1', ok: true }])
+      mockSelectResult.mockResolvedValueOnce([{ c: 1 }])
       const res = await server.inject({
         method: 'GET',
         url: '/api/admin/relay/account-pool/usage/acc-1',
@@ -469,6 +524,36 @@ describe('relay-usage-ledger', () => {
       expect(body.data.days).toBe(7)
       expect(body.data.summary.calls24h).toBe(2)
       expect(body.data.detail).toHaveLength(1)
+      expect(body.data.detailTotal).toBe(1)
+      expect(limitArgs.at(-1)).toBe(500)
+      expect(offsetArgs.at(-1)).toBe(0)
+    })
+
+    it('limit=9999 被 clamp 到 1000(不 400);offset 透传', async () => {
+      mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([{ c: 0 }])
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/admin/relay/account-pool/usage/acc-1?limit=9999&offset=100',
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(limitArgs.at(-1)).toBe(1000)
+      expect(offsetArgs.at(-1)).toBe(100)
+    })
+
+    it('limit=0 / offset=-1 越界 → 400', async () => {
+      mockAdmin()
+      for (const qs of ['limit=0', 'offset=-1']) {
+        const res = await server.inject({
+          method: 'GET',
+          url: `/api/admin/relay/account-pool/usage/acc-1?${qs}`,
+          headers: { authorization: ADMIN_TOKEN },
+        })
+        expect(res.statusCode).toBe(400)
+      }
     })
 
     it('days=30 透传窗口', async () => {
@@ -509,9 +594,8 @@ describe('relay-usage-ledger', () => {
   describe('POST /api/admin/relay/accounts/:id/claim 与 /release', () => {
     const claimId = '00000000-0000-4000-8000-0000000000a1'
 
-    it('认领成功:写认领列,认领人取 JWT 主体', async () => {
+    it('认领成功:单条条件 UPDATE 写认领列,认领人取 JWT 主体', async () => {
       mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ claimStatus: 'unclaimed', claimedBy: null }])
       mockUpdateResult.mockResolvedValueOnce([
         {
           id: claimId,
@@ -535,11 +619,14 @@ describe('relay-usage-ledger', () => {
       expect(set.claimStatus).toBe('claimed')
       expect(set.claimedBy).toBe(ADMIN_USER_ID)
       expect(set.claimNote).toBe('我来维护')
+      // 原子化后不再先读后写:认领路径不应有前置 SELECT
+      expect(mockSelectResult).not.toHaveBeenCalled()
     })
 
-    it('已被他人认领 → 409', async () => {
+    it('原子 UPDATE 0 行 + 行存在且被他人持有 → 409', async () => {
       mockAdmin()
-      mockSelectResult.mockResolvedValueOnce([{ claimStatus: 'claimed', claimedBy: 'other-admin' }])
+      mockUpdateResult.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([{ claimedBy: 'other-admin' }])
       const res = await server.inject({
         method: 'POST',
         url: `/api/admin/relay/accounts/${claimId}/claim`,
@@ -548,8 +635,9 @@ describe('relay-usage-ledger', () => {
       expect(res.statusCode).toBe(409)
     })
 
-    it('账号不存在 → 404', async () => {
+    it('原子 UPDATE 0 行 + 行不存在 → 404', async () => {
       mockAdmin()
+      mockUpdateResult.mockResolvedValueOnce([])
       mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'POST',
@@ -559,7 +647,18 @@ describe('relay-usage-ledger', () => {
       expect(res.statusCode).toBe(404)
     })
 
-    it('释放认领:清空认领列', async () => {
+    it('JWT 无 userId → 400(绝不写 claimedBy=null)', async () => {
+      mockVerifyAccessToken.mockResolvedValue({ userId: undefined, roleId: 1 })
+      const res = await server.inject({
+        method: 'POST',
+        url: `/api/admin/relay/accounts/${claimId}/claim`,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(sinks.update.value).toBeUndefined()
+    })
+
+    it('释放认领(本人):清空认领列', async () => {
       mockAdmin()
       mockUpdateResult.mockResolvedValueOnce([
         {
@@ -582,6 +681,49 @@ describe('relay-usage-ledger', () => {
       expect(set.claimedBy).toBeNull()
       expect(set.claimedAt).toBeNull()
       expect(set.claimNote).toBeNull()
+    })
+
+    it('释放非本人认领 → 409(条件 UPDATE 0 行)', async () => {
+      mockAdmin()
+      mockUpdateResult.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([{ claimedBy: 'other-admin' }])
+      const res = await server.inject({
+        method: 'POST',
+        url: `/api/admin/relay/accounts/${claimId}/release`,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(409)
+    })
+
+    it('force=true 允许强放并留 warn 记录', async () => {
+      mockAdmin()
+      mockUpdateResult.mockResolvedValueOnce([
+        {
+          id: claimId,
+          claimStatus: 'unclaimed',
+          claimedBy: null,
+          claimedAt: null,
+          claimNote: null,
+        },
+      ])
+      const res = await server.inject({
+        method: 'POST',
+        url: `/api/admin/relay/accounts/${claimId}/release`,
+        body: { force: true },
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.claimStatus).toBe('unclaimed')
+    })
+
+    it('释放时 JWT 无 userId → 400', async () => {
+      mockVerifyAccessToken.mockResolvedValue({ userId: '', roleId: 1 })
+      const res = await server.inject({
+        method: 'POST',
+        url: `/api/admin/relay/accounts/${claimId}/release`,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
     })
 
     it('未登录 401', async () => {
