@@ -2385,11 +2385,13 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '旧密码错误'))
     }
     const passwordHash = await hashPassword(parsed.data.newPassword)
-    await db
+    // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+    const updatedRows = await db
       .update(users)
       .set({ passwordHash, updatedAt: new Date() })
       .where(eq(users.id, request.userId!))
-    return reply.send(success({ success: true, updated: true }))
+      .returning({ id: users.id })
+    return reply.send(success({ success: true, updated: updatedRows.length > 0 }))
   })
 
   server.post('/user/realname', async (request, reply) => {
