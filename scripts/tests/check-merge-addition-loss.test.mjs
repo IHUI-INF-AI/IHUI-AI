@@ -21,6 +21,7 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { __test__ as G } from '../check-merge-addition-loss.mjs'
 import { __test__ as DISC, maskComments } from '../check-gate-face-discipline.mjs'
 
@@ -348,7 +349,159 @@ test('A3:引用侧移必须判红;补回降级 repaired;位移两端入库后不
   }
 })
 
-// ── 2026-09-26 迁入共用取材层:半接线必须被钉死在"不可复发"这一档 ──
+// ── A4(2026-10-23,G-939 残段):位移维的**射程**——滑出窗口的侧移必须仍被判到一次 ──
+/**
+ * A3 判得到"引用侧移整批丢提交"这一型,但它挂在提交链上、只回看当前分支 reflog 最近 40 条;
+ * 而造出这一型的旁路落地 `update-ref` **不跑钩子**(§5b)⇒ 位移发生时没有门在跑,
+ * 等下一次带钩子的提交时它可能已经滑出那 40 条(本仓 40 条实测 ≈ 53 分钟)。
+ * 这一例就是把那个缺口造出来:同一枚侧移,窗口档读成"无位移",游标档必须判到。
+ * 三臂同批:① 阳性 = 游标档抓到并点名丢的路径;② 反向 = 只走快进/正常合并的仓一律 0 行;
+ * ③ 幂等 + 截断 = 同一段位移不重判、超出上界的部分下轮补判且被点名。
+ */
+test('A4:滑出 40 条窗口的侧移 ⇒ 窗口档看不见、游标档必须判到(且不重判、截断不静默丢弃)', () => {
+  const { dir, run } = repo()
+  const marker = join(dir, 'refmoves.json')
+  try {
+    // 游标先落在"什么都还没发生"的那一刻(首轮 degraded)
+    const first = G.sweepRefMoves(dir, { markerPath: marker, remote: '' })
+    assert.equal(first.ok, true, `首轮必须判得动:${JSON.stringify(first)}`)
+    assert.ok(first.degraded, '首轮无游标 ⇒ 必须点名"退回窗口",不得静默当"没有位移"')
+
+    // 造一次侧移,并把丢掉的提提交留在盘上(与既有夹具同一条保真纪律:
+    // update-ref 只动引用不动索引 ⇒ 不对齐索引的话,下一枚普通提交会把 dropped.ts 顺手带回树里,
+    // 于是"丢了"这一臂会被夹具自己洗成"已补回")
+    writeFileSync(join(dir, 'dropped.ts'), 'export const dropped = 1\n', 'utf8')
+    run('add', 'dropped.ts')
+    run('commit', '-qm', 'feat: 只存在于将被丢掉的那条线上')
+    const keep = run('rev-parse', 'HEAD')
+    const dropTo = run('rev-parse', 'HEAD~1')
+    run('update-ref', '-m', 'relay align(旁路落地不跑钩子)', 'HEAD', dropTo)
+    run('reset', '-q', '--mixed', 'HEAD')
+
+    // 60 枚普通提交把这次侧移挤出 REF_MOVE_WINDOW(40)
+    for (let i = 0; i < 60; i++) {
+      writeFileSync(join(dir, `f${i}.txt`), `${i}\n`, 'utf8')
+      run('add', `f${i}.txt`)
+      run('commit', '-qm', `chore: 普通提交 ${i}`)
+    }
+
+    // ① 缺口本身:窗口档读不到这次位移(这就是 G-939 残段的机器形态)
+    const win = G.refMoves(dir)
+    assert.ok(win.ok && win.moves.length > 0, `窗口档必须读得到位移:${JSON.stringify(win)}`)
+    assert.ok(!win.moves.some((m) => m.from === keep && m.to === dropTo), '夹具失准:侧移仍在 40 条窗口内,这一臂证不了射程')
+    const winAudit = G.auditRefMoves(dir, { moves: win.moves, remote: '' })
+    assert.ok(!winAudit.rows.some((r) => r.from === keep), '窗口档里出现了这次侧移 ⇒ 夹具没把它挤出窗口')
+
+    // ② 阳性对照:游标档必须抓到,并点名被整批丢出祖先链的那条线上引入的路径
+    const swept = G.sweepRefMoves(dir, { markerPath: marker, remote: '' })
+    const hit = swept.rows.find((r) => r.from === keep && r.rev === dropTo)
+    assert.ok(hit, `游标档未抓到滑出窗口的侧移:${JSON.stringify(swept.rows.map((r) => [r.from.slice(0, 8), r.rev.slice(0, 8), r.lost.length]))}`)
+    assert.ok(hit.lost.some((x) => x.path === 'dropped.ts'), `丢的路径必须点名:${JSON.stringify(hit.lost)}`)
+    assert.ok(hit.droppedCommits >= 1, `被丢提交数必须量到:${JSON.stringify(hit.droppedCommits)}`)
+    assert.ok(swept.newPairs >= 60, `游标档应把窗口外的位移一并扫到,实得 ${swept.newPairs}`)
+
+    // ③ 幂等:同一段位移不得重判(否则每轮巡检都在重复报警)
+    const tipNow = run('rev-parse', 'HEAD')
+    const again = G.sweepRefMoves(dir, { markerPath: marker, remote: '' })
+    assert.equal(again.newPairs, 0, `第二轮应无新位移,实得 ${again.newPairs}`)
+    assert.equal(again.rows.length, 0, '已判过的位移不得再次成行')
+    assert.equal(again.cursor, tipNow, '游标必须推到本轮已判集合的最新那条')
+
+    // ④ 截断:上界之外的部分必须被点名,并由下一轮补判(方向永远是"欠着的下轮补",不是"跳过")
+    const capMarker = join(dir, 'cap.json')
+    const capped = G.sweepRefMoves(dir, { markerPath: capMarker, remote: '', cursor: '', maxPairs: 5, scanLimit: 2000 })
+    assert.equal(capped.swept, 5, `本轮只该判 5 对,实得 ${capped.swept}`)
+    assert.ok(capped.pending > 0, `超上界的部分必须被点名,pending=${capped.pending}`)
+    const rest = G.sweepRefMoves(dir, { markerPath: capMarker, remote: '' })
+    assert.equal(rest.newPairs, capped.pending, `下一轮必须恰好补上欠的那 ${capped.pending} 对,实得 ${rest.newPairs}`)
+    assert.equal(rest.pending, 0, '补判轮不得再欠账')
+    assert.equal(G.sweepRefMoves(dir, { markerPath: capMarker, remote: '' }).newPairs, 0, '第三轮不该再有残留(不重不漏)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * A4 反向对照(§12e:判据不得把正常形态读成事故):
+ * 一路正常提交 + 一枚正常三路合并的仓,游标档必须 0 行 0 红 —— 侧移的判据前件是
+ * "from 不是 to 的祖先",快进与真合并天然满足祖先关系,一律放过。
+ */
+test('A4 反向对照:正常前进 + 正常三路合并 ⇒ 游标档 0 行 0 红(不得把每次提交读成事故)', () => {
+  const { dir, run } = repo()
+  const marker = join(dir, 'refmoves.json')
+  try {
+    run('checkout', '-qb', 'a')
+    writeFileSync(join(dir, 'feature.ts'), 'export const x = 1\n', 'utf8')
+    run('add', 'feature.ts')
+    run('commit', '-qm', 'feat: 对侧新增 feature.ts')
+    run('checkout', '-q', 'main')
+    writeFileSync(join(dir, 'other.txt'), 'b side\n', 'utf8')
+    run('add', 'other.txt')
+    run('commit', '-qm', 'chore: B 侧改动')
+    run('merge', '-q', '--no-edit', 'a')
+    const merge = run('rev-parse', 'HEAD')
+    for (let i = 0; i < 12; i++) {
+      writeFileSync(join(dir, `n${i}.txt`), `${i}\n`, 'utf8')
+      run('add', `n${i}.txt`)
+      run('commit', '-qm', `chore: 普通提交 ${i}`)
+    }
+    const swept = G.sweepRefMoves(dir, { markerPath: marker, remote: '' })
+    assert.ok(swept.ok, JSON.stringify(swept))
+    assert.equal(swept.rows.length, 0, `正常历史被读成事故:${JSON.stringify(swept.rows.map((r) => [r.from.slice(0, 8), r.rev.slice(0, 8), r.lost.length]))}`)
+    assert.equal(swept.judged, 0, `不该有任何位移进入判定(除快进确认),实得 ${swept.judged}`)
+    // 合并本身也必须是干净的(A1/A2 的正常形态,防止 refactor 把配对改坏后连带误判)
+    const m = G.auditOne(merge, dir)
+    assert.ok(m.merge && m.lost.length === 0, `正常三路合并被误判:${JSON.stringify(m.lost)}`)
+    // 配对实现与窗口档同源:pairMoves 必须等于 refMoves 的 moves(不带 toIndex)
+    const ent = G.reflogEntries(dir, 40)
+    assert.ok(ent.ok, JSON.stringify(ent))
+    assert.deepEqual(G.pairMoves(ent.entries), G.refMoves(dir, 40).moves, 'pairMoves 与 refMoves 必须同源同形(不得两份配对)')
+    assert.equal(G.pairMoves(ent.entries).every((m2) => m2.toIndex === undefined), true, '窗口档不带 toIndex(形状锁)')
+    assert.equal(G.pairMoves(ent.entries, true).every((m2) => typeof m2.toIndex === 'number'), true, '游标档必须带 toIndex')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * A4 阳性对照用**真仓历史**(票 G-939 原案):`72b3a20c50 → 588a6342d8`(reflog 消息 `g921c relay align`)。
+ * 这一型在 2026-10-21 当场没响,是因为门只有 A1、而 A1 的被审对象是"合并提交"—— 现场根本没有合并提交。
+ * 夹具会随仓演进消失(对象被 GC / 别的 checkout 没有这两枚)⇒ 先问可达性,取不到就如实跳过并说明,
+ * 不得让这条真历史例变成别台的恒红门(§12e)。
+ */
+test('A4 阳性对照(真仓 G-939 原案):侧移必须被点名,内容已重落 ⇒ 落 repaired 不落 lost', () => {
+  const REPO = fileURLToPath(new URL('../..', import.meta.url))
+  const from = '72b3a20c50'
+  const to = '588a6342d8'
+  if (!G.commitExists(from, REPO) || !G.commitExists(to, REPO)) {
+    console.log(`ℹ️ 真仓历史两枚位移端点不在本仓(${from}/${to})⇒ 这一例跳过,不记绿也不冒红`)
+    return
+  }
+  // 票面事实①:被吞的那枚既不在 HEAD 祖先链、也不在 origin/main 上
+  assert.equal(G.isAncestor('12898ccd9bcb2b8e094e0057d94e0fab0380293a', 'HEAD', REPO), false, '票面事实① 失准:原枚仍在 HEAD 祖先链')
+  const r = G.auditRefMove(from, to, REPO, 'HEAD')
+  assert.equal(r.kind, 'ref-move')
+  assert.ok(r.droppedCommits >= 1, `被丢提交数应 ≥1,实得 ${r.droppedCommits}`)
+  const named = [...r.lost, ...r.repaired].map((x) => x.path)
+  assert.ok(named.length > 0, `位移两侧的差异必须被点名(lost+repaired 皆空 = 判据没问到东西):${JSON.stringify(r)}`)
+  // 票面事实②:内容已被 d3541dc2 重落 ⇒ 必须落 repaired,不得冒红(红了收信人只能重复补回,§5e-1)
+  assert.equal(r.lost.length, 0, `内容已重落却被判丢失:${JSON.stringify(r.lost)}`)
+  assert.ok(G.isAncestor('d3541dc2670cec8634a57d04bcfbe5ff2b47c093', 'HEAD', REPO), '票面事实② 失准:重落枚不在 HEAD 祖先链')
+  // --move 取值解析(纯函数三臂):两枚齐 / 缺一个点 / 空段
+  assert.deepEqual(G.parseMoveSpec('a..b'), { from: 'a', to: 'b' })
+  assert.deepEqual(G.parseMoveSpec('HEAD~3..HEAD~2'), { from: 'HEAD~3', to: 'HEAD~2' })
+  assert.ok(G.parseMoveSpec('只有单边').error, '缺 .. 必须报错,不得当成一枚位移直取')
+  assert.ok(G.parseMoveSpec('..to').error && G.parseMoveSpec('from..').error, '两端的空段都必须报错')
+  // 未知旗标档必须认得 --move(带值不吃值 ⇒ 否则 unknownFlags 把值读成旗标)
+  assert.deepEqual(G.unknownFlags(['--move', 'a..b']), [])
+  assert.deepEqual(G.unknownFlags(['--move', 'a..b', '--staged']), [])
+  // 游标定位:同一枚 sha 重复出现时必须取**最旧**那次(宁可重判,不可漏判)
+  const ents = [{ sha: 'X' }, { sha: 'Y' }, { sha: 'X' }, { sha: 'Z' }]
+  assert.equal(G.locateMoveCursor(ents, 'X'), 2, `游标必须落在最旧那次出现,实得 ${G.locateMoveCursor(ents, 'X')}`)
+  assert.equal(G.locateMoveCursor(ents, '不存在'), -1, '游标找不到 ⇒ -1(由调用方按 degraded 点名)')
+})
+
+
 
 /**
  * 装车证明(取材面)。三条一起读才成立:

@@ -41,11 +41,25 @@
  * 取材:reflog 是"引用曾经指向哪里"的唯一可用证据(提交对象里不留前像),取不到就如实报
  * 「引用位移维未判定」,不拿"没有位移"冒充判过。
  *
+ * ── A4(2026-10-23 立,票 G-939 的残段:A3 的**射程**维)──────────────────────
+ *   A3 判得到这一型,但它挂在**提交链**上、只回看当前分支 reflog 最近 40 条位移;而旁路落地的
+ *   `update-ref` **不跑钩子**(§5b),位移发生的那一刻没有门在跑。本仓多会话并发 + auto-commit
+ *   的节奏下,40 条位移实测只覆盖约 53 分钟(2026-10-23 现读 main@{0} 03:28:26 ↔ main@{40} 02:35:27),
+ *   原案那枚位移位于 main@{921} ⇒ 等下一次带钩子的提交时它早已滑出窗口。A4 把"回看多少条"换成
+ *   "**游标之后**的每一枚位移都判恰好一次",挂在本就有人调的巡检档 `--all-new` 上(git-guardian),
+ *   单轮上界 `MOVE_SWEEP_MAX` 对、超出从最旧一段先判并把欠的量点名留到下轮(方向永远是"欠着的下轮补判",
+ *   绝不是"新的先判、旧的永久跳过")。游标缺失/被裁 ⇒ 退回窗口档并点名未覆盖范围(§0.3)。
+ *   另补 `--move <from>..<to>` 人工取证档:此前**没有任何 CLI 出口**能把 A3 指向一次指定位移
+ *   (`--rev`/`--limit` 明确排除位移维),票面要求的那次离线对账只能靠手工 import 判据 —— 那是 §0.8
+ *   "文档不得写跑不通的出路"在这一格的具体形态。取证档**不吃**"两端都已入库 ⇒ 不重判"那条豁免
+ *   (那是提交链的恒红防线,人工指名问一次时不适用),也**不去重**(要能反复回看同一枚),口径与 `--limit` 同形。
+ *
  * 用法:
  *   node scripts/check-merge-addition-loss.mjs                 # 提交链口径:未进入 origin/main 的合并 + 当前分支最近 40 次引用位移(A3)
  *   node scripts/check-merge-addition-loss.mjs --staged        # runner 统一下发的档(如实记录,判据读同一份提交图)
  *   node scripts/check-merge-addition-loss.mjs --rev <sha>     # 只审计一枚(供钩子精确点名)
- *   node scripts/check-merge-addition-loss.mjs --all-new       # 增量台账:别人推来的合并也会被判一次
+ *   node scripts/check-merge-addition-loss.mjs --move <from>..<to>  # 只审计一次引用位移(A3/A4 的人工取证档;G-939 原案 = `--move 72b3a20c50..588a6342d8`)
+ *   node scripts/check-merge-addition-loss.mjs --all-new       # 增量台账:别人推来的合并也会被判一次 + 位移游标档 A4(每枚新于游标的位移判恰好一次)
  *   node scripts/check-merge-addition-loss.mjs --limit 40      # 手工回看最近 40 枚(取证用,会连历史事故一起报)
  *   node scripts/check-merge-addition-loss.mjs --self-test     # 真临时仓端到端取证
  * 退出码:0 = 无吞并且无位移丢提交;1 = 有;2 = **无法判定**(git 取数失败 / 两面旗同用 / 脚本自身异常 —— 取数失败绝不静默放行,也绝不冒"无吞并"的绿)。
@@ -55,7 +69,7 @@
  * 对象,层的 `catBatch` 头解析只认 blob),所以它没有"索引面 vs HEAD 面"可切 —— 这一点由 `--self-test`
  * 第 ②③ 组构造面证明,而不是靠注释声称。
  */
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, catBatchOids, gitRaw, readWorktreeFile, resolveRemoteHead, selectFace } from './lib/face-reader.mjs'
@@ -67,8 +81,18 @@ const DEFAULT_LIMIT = 12
 /**
  * A3(引用位移)回看多少条 reflog。位移**在发生后的下一次提交**就位于 reflog 顶部,
  * 所以窗口只需盖住"最近几次提交";窗口越大,历史重写越多,逐次位移的判据开销也越大。
+ * ⚠️ 这句前提在共享工作树里**不成立**(旁路落地的 update-ref 不跑钩子 ⇒ 位移发生时没有门在跑),
+ *    所以另有一把游标档 `sweepRefMoves`(A4)兜住"滑出窗口"的那一段;这里保留窗口只做提交链的快路径。
  */
 export const REF_MOVE_WINDOW = 40
+/**
+ * A4(位移游标档)一次读多少条 reflog、一轮最多判多少对位移。
+ * 读得宽(`MOVE_SCAN_LIMIT`)只花一次 `git reflog` 派生,目的是**让游标尽量落在窗口内**;
+ * 判得窄(`MOVE_SWEEP_MAX`)是因为非快进的位移要付 `diff` + 批量树成员性(2026-10-23 实测:
+ * 960 条位移整扫 = 170s,而守护侧的超时是 240s)⇒ 每轮只推进一步,欠着的点名留到下轮。
+ */
+export const MOVE_SCAN_LIMIT = 2000
+export const MOVE_SWEEP_MAX = 120
 /** 沿用迁移前的显式上界:一次审计要 ls-tree 多棵全量树,层的默认 60s/64MB 会把大树读成"取不到" */
 const GIT_TIMEOUT = 120000
 const GIT_MAX_BUFFER = 256 * 1048576
@@ -212,19 +236,19 @@ export function presentIn(rev, paths, cwd = ROOT) {
  * 用分支 reflog 而不是 HEAD reflog:后者混入 `checkout:` 换分支,而换分支天然"新头不是旧头后代",
  * 那会把每一次切分支都读成位移(A3 会被噪声淹掉)。
  */
-export function refMoves(cwd = ROOT, limit = REF_MOVE_WINDOW) {
+export function reflogEntries(cwd = ROOT, limit = REF_MOVE_WINDOW) {
   let ref = ''
   try {
     ref = git(['symbolic-ref', '--short', '-q', 'HEAD'], cwd).trim()
   } catch {
     ref = ''
   }
-  if (!ref) return { ok: false, ref: '', moves: [], why: 'HEAD 不是分支引用(分离头)⇒ 引用位移维未判定' }
+  if (!ref) return { ok: false, ref: '', entries: [], why: 'HEAD 不是分支引用(分离头)⇒ 引用位移维未判定' }
   let out = ''
   try {
     out = git(['reflog', 'show', '--format=%H%x09%gs', ref, '-n', String(limit + 1)], cwd)
   } catch (e) {
-    return { ok: false, ref, moves: [], why: `reflog 取不到(${String(e?.message ?? e).split('\n')[0].slice(0, 80)})⇒ 引用位移维未判定` }
+    return { ok: false, ref, entries: [], why: `reflog 取不到(${String(e?.message ?? e).split('\n')[0].slice(0, 80)})⇒ 引用位移维未判定` }
   }
   const entries = out
     .split('\n')
@@ -233,14 +257,28 @@ export function refMoves(cwd = ROOT, limit = REF_MOVE_WINDOW) {
       const i = l.indexOf('\t')
       return { sha: (i < 0 ? l : l.slice(0, i)).trim(), msg: i < 0 ? '' : l.slice(i + 1).trim() }
     })
+  return { ok: true, ref, entries, why: '' }
+}
+
+/** 相邻两条 reflog 配成位移(新→旧):`from = entries[i+1]`、`to = entries[i]`。窗口档(`refMoves`)与
+ *  游标档(`sweepRefMoves`)共用这一份配对实现 —— 两档只差"取哪一段",配对不许有两份(§22c)。
+ *  `withIndex` 把 `to` 那条的**条目下标**一起带出来:游标档要靠它算"下一轮的游标落在哪一条",
+ *  而配对数未必等于下标(相邻两条同 sha 会被滤掉)—— 用 `pairs.length` 反推下标就会错位。 */
+export function pairMoves(entries, withIndex = false) {
   const moves = []
   for (let i = 0; i + 1 < entries.length; i++) {
     const to = entries[i]
     const from = entries[i + 1]
     if (!from.sha || !to.sha || from.sha === to.sha) continue
-    moves.push({ from: from.sha, to: to.sha, msg: to.msg })
+    moves.push(withIndex ? { from: from.sha, to: to.sha, msg: to.msg, toIndex: i } : { from: from.sha, to: to.sha, msg: to.msg })
   }
-  return { ok: true, ref, moves, why: '' }
+  return moves
+}
+
+export function refMoves(cwd = ROOT, limit = REF_MOVE_WINDOW) {
+  const e = reflogEntries(cwd, limit)
+  if (!e.ok) return { ok: false, ref: e.ref, moves: [], why: e.why }
+  return { ok: true, ref: e.ref, moves: pairMoves(e.entries), why: '' }
 }
 
 /**
@@ -351,6 +389,94 @@ export function auditRefMoves(cwd = ROOT, opts = {}) {
     if (r.lost.length || r.repaired.length || r.atRefUndetermined) rows.push({ ...r, msg: m.msg })
   }
   return { ok: true, ref: mv.ref, rows, judged, skipped, missing, why: '' }
+}
+
+/**
+ * 位移游标档(A4,2026-10-23 立,G-939 残段):把 A3 的射程从"最近 40 条 reflog"改成"上次判到哪儿"。
+ *
+ * 立因(全部现读,不是推测):
+ *  ① A3 默认档只看当前分支 reflog 最近 `REF_MOVE_WINDOW`(40)条位移,而本仓多会话并发 + auto-commit
+ *    的节奏下 40 条实测只覆盖约 53 分钟(main@{0}=03:28:26 ↔ main@{40}=02:35:27,2026-10-23 现读);
+ *  ② G-939 现场那枚位移(`72b3a20c → 588a6342`,reflog 消息 `g921c relay align`)正是旁路落地
+ *    `update-ref` 写进去的 —— 旁路落地**不跑钩子**(§5b),所以位移发生的那一刻根本没有门在跑;
+ *    等下一次带钩子的提交时,它已经(或很快就会)滑出那 40 条窗口 ⇒ 这一型可以无声过去。
+ * 游标 = 上一轮读到的 reflog 顶部那枚 sha;每枚**严格新于游标**的位移恰好判一次(reflog 只追加,
+ * 按 sha 定位不会错位)。单轮最多判 `MOVE_SWEEP_MAX` 对,超出即从**最旧**一段先判、游标只推到已判处
+ * (方向必须是"欠着的下轮补判",绝不能"新的先判、旧的永久跳过")。
+ * 游标缺失 / 已被 reflog 裁掉 ⇒ 退回最近 40 条并**点名**未覆盖范围(§0.3,不拿"没有位移"冒充判过)。
+ * 台账跟磁盘面、与合并台账同一条纪律(见 `readMarker` 头注:state/ 被 gitignore,结构上不在任何检出面里)。
+ */
+export function moveMarkerPath(root = ROOT) {
+  return join(root, '.ihui-agent', 'state', 'merge-addition-loss-refmoves.json')
+}
+
+/** 读游标;解不开 / 不是字符串 ⇒ 空串(= 首轮,由调用方按"退回窗口档"点名,不静默)。 */
+export function readMoveCursor(p) {
+  const j = readMarker(p)
+  return typeof j.cursor === 'string' ? j.cursor : ''
+}
+
+/** `--move <from>..<to>` 的取值解析(纯函数,构造面可证)。 */
+export function parseMoveSpec(value) {
+  const s = String(value ?? '').trim()
+  const i = s.indexOf('..')
+  if (i <= 0 || i + 2 >= s.length) return { error: `--move 需要 <from>..<to> 两枚提交规格,实得:${JSON.stringify(s)}` }
+  return { from: s.slice(0, i).trim(), to: s.slice(i + 2).trim() }
+}
+
+/**
+ * 游标定位:entries 是新→旧序,同一枚 sha 可能在 reflog 里出现多次(`reset: moving to HEAD~1` 之后
+ * 又走回来)。取**最靠后(最旧)**那次出现:下一轮的射程因此是"已判集合的超集",宁可重判几条,
+ * 绝不能取最新那次而出现"中间那段没人判过"的缺口 —— 与本文件 `pendingMerges` 兜底同一方向
+ * ("宁可多判一轮",漏判才是这一型真正的失效方向)。
+ */
+export function locateMoveCursor(entries, sha) {
+  if (!sha) return -1
+  for (let i = entries.length - 1; i >= 0; i--) if (entries[i].sha === sha) return i
+  return -1
+}
+
+export function sweepRefMoves(cwd = ROOT, opts = {}) {
+  const p = opts.markerPath ?? moveMarkerPath(cwd)
+  const scanLimit = opts.scanLimit ?? MOVE_SCAN_LIMIT
+  const cap = opts.maxPairs ?? MOVE_SWEEP_MAX
+  const e = reflogEntries(cwd, scanLimit)
+  if (!e.ok) return { ok: false, ref: e.ref, rows: [], judged: 0, skipped: 0, missing: 0, newPairs: 0, pending: 0, degraded: '', cursor: '', why: e.why }
+  const cursor = opts.cursor === undefined ? readMoveCursor(p) : opts.cursor
+  let c = locateMoveCursor(e.entries, cursor)
+  let degraded = ''
+  if (c < 0) {
+    degraded = cursor
+      ? `位移游标 ${cursor.slice(0, 11)} 不在本次回看的 ${e.entries.length} 条 reflog 里(已被裁?)⇒ 退回最近 ${REF_MOVE_WINDOW} 次位移,更早的未覆盖`
+      : `位移台账尚无游标(首轮)⇒ 只回看最近 ${REF_MOVE_WINDOW} 次位移(不把 ${e.entries.length} 条历史整批重判,§12e 恒红门禁令)`
+    c = Math.min(REF_MOVE_WINDOW, Math.max(0, e.entries.length - 1))
+  }
+  // 位移 k 对应 (from=entries[k+1], to=entries[k]);严格新于游标的就是 k < c
+  const all = pairMoves(e.entries, true).filter((m) => m.toIndex < c)
+  const batch = all.length > cap ? all.slice(all.length - cap) : all // 超上界时从**最旧**一段先判
+  const pending = all.length - batch.length
+  const remote = opts.remote === undefined ? remoteHeadSha(cwd) : opts.remote
+  const audit = auditRefMoves(cwd, { moves: batch, ref: e.ref, remote, atRef: opts.atRef ?? 'HEAD' })
+  /**
+   * 游标推进的唯一正解:`all`/`batch` 都是**新→旧**序,`batch[0].toIndex` 才是"本轮判到的最新那条",
+   * `batch[last].toIndex` 是最旧那条 —— 拿后者当新游标会把已判过的再判一遍(2026-10-23 首跑现读
+   * 就是这么暴露的:连跑两轮 newPairs 43 → 42、同一段位移被重判)。
+   * 正解:本轮判了 toIndex ∈ [minTo, …] ⇒ 下一轮必须恰好判 toIndex < minTo ⇒ 新游标 = 下标 minTo 那条
+   * 的 sha;未截断时 minTo=0 ⇒ 游标=reflog 顶部 ⇒ 下一轮只剩真正的新位移。
+   * 这里必须用 `toIndex` 而不是 `all.length` 反推:相邻两条同 sha 的位移会被 `pairMoves` 滤掉,
+   * 配对数与条目下标未必相等,按下标算才不错位。
+   */
+  const minTo = batch.length ? batch[0].toIndex : 0
+  const nextCursor = e.entries[minTo]?.sha ?? ''
+  if (nextCursor && nextCursor !== cursor) {
+    try {
+      mkdirSync(dirname(p), { recursive: true })
+      writeFileSync(p, JSON.stringify({ cursor: nextCursor, at: new Date().toISOString(), swept: batch.length, pending }), 'utf8')
+    } catch {
+      /* 台账写不进只影响下轮重复审计,不得影响本轮判定(与合并台账同一条纪律) */
+    }
+  }
+  return { ...audit, newPairs: batch.length, pending, swept: batch.length, degraded, cursor: nextCursor, why: '' }
 }
 
 /** 提交链上的口径:**只审"尚未进入 origin/main 的合并"**。
@@ -703,6 +829,94 @@ function selfTest() {
       JSON.stringify(detached),
     )
     run('checkout', '-q', 'main')
+
+    // ── A4(2026-10-23,G-939 残段:位移维的射程)────────────────────────────
+    // 侧移由旁路落地的 update-ref 写进 reflog,而旁路**不跑钩子** ⇒ 位移发生时没有门在跑;
+    // 本仓 40 条位移实测只覆盖约 53 分钟 ⇒ 滑出窗口后窗口档永远读不到它。游标档必须读到。
+    // 真实时序是"巡检先跑过一轮(游标落在当时顶部)⇒ 之后才发生侧移 ⇒ 侧移滑出窗口",
+    // 所以夹具必须先把游标定下来再造事故:首轮无游标时游标档只承诺窗口(它拿不到"上次判到哪儿")。
+    const agedMarker = join(dir, 'aged.json')
+    const seed = sweepRefMoves(dir, { markerPath: agedMarker, remote: '' })
+    ok(
+      'A4 首轮无游标 ⇒ 必须点名"退回窗口",不得静默当"没有位移"(§0.3)',
+      Boolean(seed.degraded) && Boolean(seed.cursor),
+      JSON.stringify({ degraded: seed.degraded.slice(0, 24), cursor: seed.cursor.slice(0, 8) }),
+    )
+    writeFileSync(join(dir, 'aged-out.ts'), 'export const aged = 1\n', 'utf8')
+    run('add', 'aged-out.ts')
+    run('commit', '-qm', 'feat: 只存在于将被丢掉的那条线上')
+    const agedKeep = run('rev-parse', 'HEAD').trim()
+    const agedTo = run('rev-parse', 'HEAD~1').trim()
+    run('update-ref', '-m', 'relay align(旁路落地不跑钩子)', 'HEAD', agedTo)
+    run('reset', '-q', '--mixed', 'HEAD') // 引用与索引必须对齐,否则下一枚普通提交把 aged-out.ts 顺手带回树里 = 夹具自造"已补回"
+    for (let i = 0; i < 60; i++) {
+      writeFileSync(join(dir, `w${i}.txt`), `${i}\n`, 'utf8')
+      run('add', `w${i}.txt`)
+      run('commit', '-qm', `chore: 普通提交 ${i}`)
+    }
+    const agedWin = pairMoves(reflogEntries(dir).entries)
+    ok(
+      'A4 前提:60 枚普通提交后,这次侧移确实滑出了窗口档的 40 条(否则这一臂证不了射程)',
+      !agedWin.some((m) => m.from === agedKeep && m.to === agedTo) && agedWin.length > 0,
+      JSON.stringify({ win: agedWin.length, has: agedWin.some((m) => m.from === agedKeep) }),
+    )
+    const agedSweep = sweepRefMoves(dir, { markerPath: agedMarker, remote: '' })
+    const agedRow = agedSweep.rows.find((r) => r.from === agedKeep && r.rev === agedTo)
+    ok(
+      'A4:滑出窗口的侧移必须被游标档判到并点名路径(窗口档在这一例上永远读不到它)',
+      Boolean(agedRow) && agedRow.lost.some((x) => x.path === 'aged-out.ts') && agedRow.droppedCommits >= 1,
+      JSON.stringify({ rows: agedSweep.rows.length, swept: agedSweep.swept, pending: agedSweep.pending }),
+    )
+    ok(
+      'A4 幂等:游标推到已判处 ⇒ 同一段位移不得重判(每 30 分钟一轮的巡检重复报警就是噪声)',
+      sweepRefMoves(dir, { markerPath: agedMarker, remote: '' }).newPairs === 0,
+    )
+    const cappedA = sweepRefMoves(dir, { markerPath: join(dir, 'cap.json'), remote: '', cursor: '', maxPairs: 5, scanLimit: 2000 })
+    const cappedB = sweepRefMoves(dir, { markerPath: join(dir, 'cap.json'), remote: '' })
+    ok(
+      'A4 截断:超上界必须点名 pending,且下一轮恰好补上欠的量(不重不漏)',
+      cappedA.swept === 5 && cappedA.pending > 0 && cappedB.newPairs === cappedA.pending && cappedB.pending === 0,
+      JSON.stringify({ a: [cappedA.swept, cappedA.pending], b: [cappedB.newPairs, cappedB.pending] }),
+    )
+    ok(
+      'A4 反向对照:只走快进的仓整条游标扫描必须 0 行(不许把每次提交读成位移)',
+      (() => {
+        const d2 = mkScratch('ihui-merge-loss-ff-')
+        try {
+          const y = (...a) => git(a, d2).trim()
+          y('init', '-q', '-b', 'main')
+          y('config', 'user.email', 't@t')
+          y('config', 'user.name', 't')
+          writeFileSync(join(d2, 'a.txt'), 'a\n', 'utf8')
+          y('add', 'a.txt')
+          y('commit', '-qm', 'init')
+          for (let i = 0; i < 6; i++) {
+            writeFileSync(join(d2, `n${i}.txt`), `${i}\n`, 'utf8')
+            y('add', `n${i}.txt`)
+            y('commit', '-qm', `chore ${i}`)
+          }
+          const s = sweepRefMoves(d2, { markerPath: join(d2, 'm.json'), remote: '' })
+          return s.ok && s.rows.length === 0 && s.judged === 0 && s.newPairs > 0
+        } finally {
+          rmScratch(d2)
+        }
+      })(),
+    )
+    ok(
+      'A4 取证档:--move 必须被 unknownFlags 认得(带值不吃值),而单边/空段取值必须报错',
+      unknownFlags(['--move', 'a..b']).length === 0 &&
+        parseMoveSpec('只有单边').error !== undefined &&
+        parseMoveSpec('from..').error !== undefined &&
+        parseMoveSpec('..to').error !== undefined &&
+        parseMoveSpec('a..b').from === 'a' &&
+        parseMoveSpec('a..b').to === 'b',
+      JSON.stringify([unknownFlags(['--move', 'a..b']), parseMoveSpec('x')]),
+    )
+    ok(
+      'A4 游标定位:同一枚 sha 在 reflog 里重复出现时必须取**最旧**那次(方向永远是宁可重判,不可漏判)',
+      locateMoveCursor([{ sha: 'X' }, { sha: 'Y' }, { sha: 'X' }, { sha: 'Z' }], 'X') === 2 && locateMoveCursor([{ sha: 'X' }], '缺') === -1,
+      JSON.stringify(locateMoveCursor([{ sha: 'X' }, { sha: 'Y' }, { sha: 'X' }], 'X')),
+    )
   } finally {
     treeCache.clear()
     rmScratch(dir)
@@ -730,8 +944,8 @@ export function faceFromArgv(argv) {
  * 与其让人猜"它到底认不认这个旗标",不如当场喊响:它认不得。
  * 纯函数,好让构造面直接证明(含"带值旗标不把值误当旗标"这一条反向对照)。
  */
-const KNOWN_FLAGS = new Set(['--self-test', '--staged', '--worktree', '--all-new', '--rev', '--limit'])
-const VALUE_FLAGS = new Set(['--rev', '--limit'])
+const KNOWN_FLAGS = new Set(['--self-test', '--staged', '--worktree', '--all-new', '--rev', '--limit', '--move'])
+const VALUE_FLAGS = new Set(['--rev', '--limit', '--move'])
 export function unknownFlags(argv) {
   const unknown = []
   for (let i = 0; i < argv.length; i++) {
@@ -776,33 +990,70 @@ async function main() {
     console.error(`❌ --limit 必须是正整数,实得:${JSON.stringify(limitFlag.value)}`)
     process.exit(2)
   }
+  const moveFlag = requireFlagValue(argv, '--move', { noun: '<from>..<to>' })
+  if (moveFlag.error) {
+    console.error(`❌ ${moveFlag.error}`)
+    process.exit(2)
+  }
+  // 两枚"单枚档"旗标同给 = 自相矛盾 ⇒ 判死,不挑一面的结论(与 faceFromArgv 同一条纪律)
+  if (moveFlag.present && revFlag.present) {
+    console.error(`❌ 无法判定:--move 与 --rev 都是单枚取证档,同给等于问两件事(实得 ${moveFlag.value} / ${revFlag.value})`)
+    process.exit(2)
+  }
   let rows
+  let hardUndetermined = ''
   let moveAudit = { ok: true, ref: '', rows: [], judged: 0, skipped: 0, missing: 0, why: '' }
   if (revFlag.present) rows = [auditOne(revFlag.value)]
-  else if (limitFlag.present) rows = auditRecent(Number(limitFlag.value))
-  else if (argv.includes('--all-new')) rows = auditUnseen()
-  else {
+  else if (moveFlag.present) {
+    const spec = parseMoveSpec(moveFlag.value)
+    if (spec.error) {
+      console.error(`❌ ${spec.error}`)
+      process.exit(2)
+    }
+    moveAudit = { ok: true, ref: '', rows: [auditRefMove(spec.from, spec.to, ROOT, 'HEAD')], judged: 1, skipped: 0, missing: 0, why: '' }
+    rows = [] // 单枚位移档不参与合并口径(没有合并提交可审),但账面仍要能报"审计合并 0 枚"
+    // 指名问一次 ⇒ 问不到就是问不到,不得以"没丢"结绿(§0.3)。其余档沿用旧口径(未判定行照常点名)。
+    if (moveAudit.rows[0].atRefUndetermined) hardUndetermined = moveAudit.rows[0].atRefUndetermined
+  } else if (limitFlag.present) rows = auditRecent(Number(limitFlag.value))
+  else if (argv.includes('--all-new')) {
+    rows = auditUnseen()
+    // A4(2026-10-23,G-939 残段):巡检档**必须**带位移游标 —— 旁路落地的 update-ref 不跑钩子,
+    // 提交链那道窗口档(最近 40 条 ≈ 本仓 53 分钟)会在位移发生之后才第一次有机会跑。
+    moveAudit = sweepRefMoves(ROOT)
+  } else {
     // 远端位置只解析一次,合并口径与 A3(引用位移)共用 —— 断网时两次 ls-remote 各付一次超时。
     const remote = remoteHeadSha()
     rows = pendingMerges(ROOT, remote)
-    // A3 只在提交链默认档跑:--rev / --limit 是人工取证档(审的是指定的那一枚),--all-new 是别人
-    // 推来的合并的增量台账;把"当前分支的位移"混进这三档会让账面口径读不出来。
+    // A3 只在提交链默认档跑:--rev / --move / --limit 是人工取证档(审的是指定的那一枚/那一次位移);
+    // --all-new 现在也跑位移维,但跑的是**游标档**(A4),与这里的窗口档是两个口径,不混。
     moveAudit = auditRefMoves(ROOT, { remote })
   }
   const moveRows = moveAudit.rows || []
-  const scope = revFlag.present ? `单枚 ${revFlag.value}` : limitFlag.present ? `回看 ${limitFlag.value} 枚` : argv.includes('--all-new') ? '增量台账新判' : '未入 origin/main 的合并'
+  const scope = revFlag.present
+    ? `单枚 ${revFlag.value}`
+    : moveFlag.present
+      ? `单枚位移 ${moveFlag.value}`
+      : limitFlag.present
+        ? `回看 ${limitFlag.value} 枚`
+        : argv.includes('--all-new')
+          ? '增量台账新判(合并 + 位移游标 A4)'
+          : '未入 origin/main 的合并'
   const bad = rows.filter((r) => r.lost.length)
   const badMoves = moveRows.filter((r) => r.lost.length)
   const nLost = bad.reduce((s, r) => s + r.lost.length, 0) + badMoves.reduce((s, r) => s + r.lost.length, 0)
   const nRepaired =
     rows.reduce((s, r) => s + ((r.repaired || []).length), 0) + moveRows.reduce((s, r) => s + ((r.repaired || []).length), 0)
   console.log(
-    `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失新增路径 ${nLost} / 已被后手补回 ${nRepaired}(照常点名,不计丢失) / 引用位移 ${moveAudit.judged} 次(判红 ${badMoves.length})`,
+    `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失新增路径 ${nLost} / 已被后手补回 ${nRepaired}(照常点名,不计丢失) / 引用位移 ${moveAudit.judged} 次(判红 ${badMoves.length})${
+      moveAudit.swept === undefined ? '' : ` / 位移游标扫描 ${moveAudit.swept} 对(游标 ${String(moveAudit.cursor || '').slice(0, 11)})`
+    }`,
   )
   for (const r of [...rows, ...moveRows]) for (const l of r.repaired || []) console.log(`  ↻ ${l.path}  —— ${r.rev.slice(0, 11)} 曾吞掉,后手已在 ${l.restoredAt} 面补回`)
   for (const r of [...rows, ...moveRows]) if (r.atRefUndetermined) console.log(`  ⚠️ ${r.rev.slice(0, 11)}: ${r.atRefUndetermined}`)
   if (!moveAudit.ok) console.log(`  ⚠️ 引用位移维未判定:${moveAudit.why}(不记绿,也不冒红)`)
   if (moveAudit.missing) console.log(`  ⚠️ 引用位移维有 ${moveAudit.missing} 次位移的对象已不在本仓(问不到,不记绿也不冒红)`)
+  if (moveAudit.degraded) console.log(`  ⚠️ 位移游标档退化:${moveAudit.degraded}`)
+  if (moveAudit.pending) console.log(`  ⚠️ 位移游标档本轮判 ${moveAudit.swept} 对,仍有 ${moveAudit.pending} 对新位移未判 ⇒ 下一轮从最旧那段继续(不静默丢弃)`)
   for (const r of bad)
     for (const l of r.lost)
       console.log(`  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 引入,合并提交 ${r.rev.slice(0, 11)} 的树里没有`)
@@ -818,7 +1069,8 @@ async function main() {
         '  ② 引用位移丢提交:把被丢的提参加回当前分支(`git merge <那枚>` 或 `cherry-pick`),先 `git tag lost-commit/<sha>` 保全原件;\n' +
         '  确要删除,请在合并之后单独 `git rm` 并写明理由(那时所有父提交都不含它,本判据放过)。',
     )
-  process.exit(nLost ? 1 : 0)
+  if (hardUndetermined && !nLost) console.error(`❌ 未判定(exit 2):${hardUndetermined}`)
+  process.exit(nLost ? 1 : hardUndetermined ? 2 : 0)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -854,5 +1106,15 @@ export const __test__ = {
   auditRefMoves,
   remoteHeadSha,
   REF_MOVE_WINDOW,
+  // A4(2026-10-23,G-939 残段:位移维的射程)
+  reflogEntries,
+  pairMoves,
+  locateMoveCursor,
+  sweepRefMoves,
+  moveMarkerPath,
+  readMoveCursor,
+  parseMoveSpec,
+  MOVE_SCAN_LIMIT,
+  MOVE_SWEEP_MAX,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
