@@ -10,7 +10,6 @@
  * 夹具与同目录 agreement-prechecked-default 一致:react-dom/client + React.act(本包无
  * @testing-library 依赖);fetch 与 @simplewebauthn/browser 走 vi mock。
  */
-// @ts-expect-error: packages/ui-react 未安装 vitest(同目录既有测试同款豁免),运行期由测试器注入。
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import * as React from 'react'
 import { createRoot, type Root } from 'react-dom/client'

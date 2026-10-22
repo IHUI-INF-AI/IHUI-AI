@@ -14,9 +14,6 @@
  *    真实执行语义(happy-dom 不实现 iframe sandbox 的权限模型)。"严档真的收紧了权限"
  *    这一维在提交链上没有任何尺子能证,只能由属性值 + HTML 规范语义推得。
  */
-// @ts-expect-error: packages/ui-react 未安装 vitest(无 vitest.config.ts、package.json 无 test
-// script、devDeps 里没有它),所以 'vitest' 的类型不在本包 tsc 视野内;运行期由测试器注入。
-// 本包补上 vitest 入口后必须删掉这一行 —— 留着它会让"装了却没人用"重新变成隐形。
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import * as React from 'react'
 import { createRoot, type Root } from 'react-dom/client'

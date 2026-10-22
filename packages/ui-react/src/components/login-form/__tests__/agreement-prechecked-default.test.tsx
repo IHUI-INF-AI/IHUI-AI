@@ -21,9 +21,6 @@
  *    "勾上时那个方框真的变蓝了"这一维在本提交链上没有尺子,只能由
  *    `aria-checked` + 生产组件的 className 分支推得。
  */
-// @ts-expect-error: packages/ui-react 未安装 vitest(无 vitest.config.ts、package.json 无 test
-// script、devDeps 里没有它),所以 'vitest' 的类型不在本包 tsc 视野内;运行期由测试器注入。
-// 本包补上 vitest 入口后必须删掉这一行 —— 留着它会让"装了却没人用"重新变成隐形。
 import { describe, it, expect, afterEach } from 'vitest'
 import * as React from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -163,16 +160,12 @@ describe('未传 agreed 时不得预勾选', () => {
   })
 
   it('CodeLoginForm(accountType=email):缺省渲染为未同意', () => {
-    const host = render(
-      <CodeLoginForm accountType="email" t={t} apiClient={makeApiClient([])} />,
-    )
+    const host = render(<CodeLoginForm accountType="email" t={t} apiClient={makeApiClient([])} />)
     expectNotPreChecked(host)
   })
 
   it('CodeLoginForm(accountType=phone):缺省渲染为未同意', () => {
-    const host = render(
-      <CodeLoginForm accountType="phone" t={t} apiClient={makeApiClient([])} />,
-    )
+    const host = render(<CodeLoginForm accountType="phone" t={t} apiClient={makeApiClient([])} />)
     expectNotPreChecked(host)
   })
 
