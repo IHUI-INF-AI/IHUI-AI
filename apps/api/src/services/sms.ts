@@ -21,24 +21,12 @@ import {
 import { tryConsumeWindows } from '../utils/window-counter.js'
 import { logger } from '../utils/logger.js'
 import { config } from '../config/index.js'
+import { isTencentSmsConfigured, sendViaTencent } from './sms-tencent.js'
+import type { SendCodeResult, SmsDeliveryResult, SmsProvider, SmsScene } from './sms-types.js'
 
 const FETCH_TIMEOUT_MS = 10_000
 
-/** 一次投递的诚实结论。`reason` 只放厂商错误码或配置键名 —— 云侧原文、异常正文与凭据
- *  一律不得进这里(守门 67:它会被调用方拼进对外 message)。 */
-export interface SmsDeliveryResult {
-  sent: boolean
-  reason?: string
-}
-
-/** 发送失败归类,供调用方选状态码。不得靠 `msg` 文案猜 —— 文案会改,归类不会。 */
-export type SendCodeFailure = 'rate_limited' | 'delivery_failed'
-
-export interface SendCodeResult {
-  success: boolean
-  msg: string
-  failure?: SendCodeFailure
-}
+// 通道共享类型住在 ./sms-types.ts(两家厂商都要用,放任何一家里都会让另一家反向引用它)
 
 /** 手机号脱敏:仅留前 3 后 4。日志面一律走它,不得写裸号。 */
 function maskPhone(phone: string): string {
@@ -208,8 +196,45 @@ export function deliverSmsCode(
  *  测试永远只能覆盖其中一档,另一档等于没锁。 */
 export function judgeUnconfiguredDelivery(production: boolean): SmsDeliveryResult {
   return production
-    ? { sent: false, reason: 'not_configured: ALI_SMS_ACCESS_KEY_ID/SECRET' }
+    ? {
+        sent: false,
+        reason: 'not_configured: ALI_SMS_* / TENCENT_SMS_* / SMS_API_BASE_URL 三档全未配置',
+      }
     : { sent: true, reason: 'dev_console' }
+}
+
+function isAliyunSmsConfigured(): boolean {
+  return Boolean(env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET)
+}
+
+/** 通道优先级。`auto`(缺省)= 历史行为,已配环境一行不变。
+ *  `tencent` 把腾讯云提到第一档,但**没配齐就逐档往下退** —— 签名/模板报审要 7~10 个工作日,
+ *  这期间腾讯云必然处于未配置态,自动落回阿里云才不会把功能停在那儿等审批。 */
+export function smsProviderOrder(provider: SmsProvider): Array<'tencent' | 'aliyun' | 'proxy'> {
+  switch (provider) {
+    case 'tencent':
+      return ['tencent', 'aliyun', 'proxy']
+    case 'aliyun':
+      return ['aliyun', 'proxy']
+    case 'proxy':
+      return ['proxy']
+    case 'auto':
+    default:
+      return ['aliyun', 'proxy']
+  }
+}
+
+/** 在声明的优先级里挑第一个"确实配齐"的通道;全都没配 ⇒ null。
+ *  抽成纯函数是为了让"腾讯云没配齐要自动落回阿里云"这条 fallback 有夹具可钉 ——
+ *  它住在 dispatchSms 里就得真发一次网络请求才测得到。 */
+export function pickConfiguredSmsChannel(
+  provider: SmsProvider,
+  configured: { tencent: boolean; aliyun: boolean; proxy: boolean },
+): 'tencent' | 'aliyun' | 'proxy' | null {
+  for (const p of smsProviderOrder(provider)) {
+    if (configured[p]) return p
+  }
+  return null
 }
 
 async function dispatchSms(
@@ -217,24 +242,25 @@ async function dispatchSms(
   code: string,
   scene?: SmsScene,
 ): Promise<SmsDeliveryResult> {
-  // 策略 1：阿里云
-  if (env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET) {
-    return sendViaAliyun(phone, code, scene)
-  }
-  // 策略 2：代理
-  if (env.SMS_API_BASE_URL) {
-    return sendViaProxy(phone, code)
-  }
+  const declared = (env.SMS_PROVIDER ?? 'auto') as SmsProvider
+  const channel = pickConfiguredSmsChannel(declared, {
+    tencent: isTencentSmsConfigured(),
+    aliyun: isAliyunSmsConfigured(),
+    proxy: Boolean(env.SMS_API_BASE_URL),
+  })
+  if (channel === 'tencent') return sendViaTencent(phone, code, scene)
+  if (channel === 'aliyun') return sendViaAliyun(phone, code, scene)
+  if (channel === 'proxy') return sendViaProxy(phone, code)
   // 策略 3：dev console（仅非生产档降级）
-  logger.warn('SMS 未配置阿里云/代理 ⇒ 本轮没有真发送', { phone: maskPhone(phone) })
+  logger.warn('SMS 没有任何已配置的发送通道 ⇒ 本轮没有真发送', {
+    phone: maskPhone(phone),
+    provider: declared,
+  })
   // 读法随仓内既有 7 处(旗标挂在 config 对象上,不是具名导出 —— 具名导入在只 mock
   // `config` 的测试里会在请求期才炸,表现为 500 而不是"档位不对")。
   // 真实 config 一定带这个键,退回 NODE_ENV 只为兼容没铺全的 mock。
   return judgeUnconfiguredDelivery(config.isProductionGuard ?? config.NODE_ENV === 'production')
 }
-
-/** 发码场景。与 routes/auth.ts 的 sendCodeSchema.scene 同一闭集。 */
-export type SmsScene = 'register' | 'login' | 'reset' | 'phone-binding'
 
 /** 场景 → 该场景专用模板码的 env 键。四枚模板在阿里云侧均已过审。 */
 const SCENE_TEMPLATE_ENV_KEYS: Record<SmsScene, string> = {
@@ -411,10 +437,14 @@ export async function sendSmsMessage(
   }
 }
 
-/** 邮箱验证码发送（复用 email-service） */
+/** 短信发送通道可用性:三家(腾讯云 / 阿里云 / 自建代理)任一配齐即算可用。
+ *  原注释写的是"邮箱验证码发送(复用 email-service)",与本函数无关 —— 那是复制粘贴留下的
+ *  错标,读的人会以为这里在判邮件通道。 */
 export function isSmsConfigured(): boolean {
   return Boolean(
-    (env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET) || env.SMS_API_BASE_URL,
+    isTencentSmsConfigured() ||
+    (env.ALI_SMS_ACCESS_KEY_ID && env.ALI_SMS_ACCESS_KEY_SECRET) ||
+    env.SMS_API_BASE_URL,
   )
 }
 
