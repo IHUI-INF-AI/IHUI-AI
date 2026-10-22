@@ -1196,6 +1196,49 @@ image {
   padding-bottom: env(safe-area-inset-bottom) !important;
 }
 
+/* ===== 登录字段(全局唯一一份)=====
+   原先住在 pages/login/login.css。提到全局的原因:登录表单现在有两个宿主 ——
+   登录页 与 「我的」里的登录弹窗兜底(2026-10-23 机主定档:小程序不该有登录页,
+   账号密码是微信一键验证拿不到时的退路,必须住在弹窗里)。两端共用同一份字段样式,
+   不在端内出现第二套输入框视觉(§0.6);页面侧标记与类名一行未改。
+   取色只用 token:描边取中性 --color-border(§4 描边不得取墨档),圆角取角色档 control→sm。 */
+.login-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 28rpx;
+  position: relative;
+}
+
+.login-label-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.login-label {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+  margin-bottom: 8rpx;
+}
+
+.login-label-row .login-label {
+  margin-bottom: 0;
+}
+
+.login-input {
+  height: 80rpx;
+  border: 1rpx solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  background-color: transparent;
+  box-sizing: border-box;
+}
+
 /* ===== 2026-09-03 删除的遗留全局块(两端一致性重构)=====
    以下零引用或与 Tailwind 同名冲突的旧全局定义已全部删除,
    由 Tailwind 语义 utility(共享 preset,与 web 端同源)接管:

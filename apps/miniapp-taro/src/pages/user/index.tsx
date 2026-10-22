@@ -969,6 +969,20 @@ export default function UserIndex() {
               Taro.showToast({ title: tf('login.loginFailed', '登录失败,请重试'), icon: 'none' })
             }
           }}
+          onPasswordLogin={async (account, password) => {
+            // 账号密码是"微信手机号一键验证拿不到"时的退路(权限没开通 / 用户拒授权 / appid 无该能力)。
+            // 失败一律抛回弹窗由它 toast 原因 —— 这里吞掉错误就等于让人对着一个没反应的按钮。
+            const res = await api.loginByPassword(account, password)
+            if (!res?.accessToken) {
+              throw new Error(tf('login.loginFailed', '登录失败,请重试'))
+            }
+            setToken(res.accessToken)
+            if (res.refreshToken) setRefreshToken(res.refreshToken)
+            if (res.user) persistUserInfo(res.user)
+            setShowLoginPopup(false)
+            refresh()
+            Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
+          }}
           onNicknameChange={async (nickname) => {
             if (!userInfo) return
             try {
