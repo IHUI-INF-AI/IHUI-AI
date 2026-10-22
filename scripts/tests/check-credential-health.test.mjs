@@ -31,7 +31,7 @@
 // 这三件事只有镜像测试(真夹具 + 真子进程 + 逐字节对账)看得见,故 T11–T15。
 //   T11 取材序列锁:服务器答得上来就不得再退本地;退让次序 FETCH_HEAD → 本地 HEAD 不得倒装。
 //   T12 成对夹具(绿 / 停摆超阈 / 未判定×2 / 在飞):未判定各支绝不得产出 ok 或 fail。
-//   T13 零副作用锁:反复量这一维,.workbuddy 四件运行态逐字节不动。
+//   T13 零副作用锁:反复量这一维,.ihui-agent/state 四件运行态逐字节不动。
 //   T14 源码锁:只读档函数体够不着 mail/写盘出口,且 CLI 分支必须排在缺省巡检之前。
 //   T15 真子进程自证:`--stall-only --json` 的 stdout 恒为单行可解析 JSON,退出码与档位一致。
 // 注:下面 oldWayWouldSend 是**修复前判据形态的快照**,只用于证明改动方向,禁止随源文件演进。
@@ -50,7 +50,7 @@ const ROOT = resolve(HERE, '..', '..')
 const SRC_PATH = resolve(ROOT, 'scripts', 'check-credential-health.mjs')
 const SRC = readFileSync(SRC_PATH, 'utf8')
 
-// 副作用快照:本文件所在仓库此刻的 .workbuddy 运行态。被 import 的脚本若没有 §22d 守卫,
+// 副作用快照:本文件所在仓库此刻的 .ihui-agent/state 运行态。被 import 的脚本若没有 §22d 守卫,
 // 顶层 CLI 链会真跑一轮巡检(打厂商 API,判红时还会真发一封到人邮件)—— 那必须可被量到。
 const WATCHED = [
   'credential-health-alert-state.json',
@@ -60,7 +60,7 @@ const WATCHED = [
 ]
 const sideEffects = () =>
   WATCHED.map((f) => {
-    const p = join(ROOT, '.workbuddy', f)
+    const p = join(ROOT, '.ihui-agent', 'state', f)
     if (!existsSync(p)) return [f, 'absent']
     try {
       const s = statSync(p)
@@ -151,7 +151,7 @@ function fnBody(src, name) {
 }
 
 test('T0 import 判据不得触发 CLI 巡检(§22d 双形态守卫在位)', () => {
-  assert.deepEqual(sideEffects(), BEFORE, 'import 后被 import 就动了 .workbuddy 运行态 ⇒ 顶层 CLI 链没被守卫挡住')
+  assert.deepEqual(sideEffects(), BEFORE, 'import 后被 import 就动了 .ihui-agent/state 运行态 ⇒ 顶层 CLI 链没被守卫挡住')
   assert.match(SRC, /const isDirectRun = Boolean\(process\.argv\[1\]\) && import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/)
   assert.match(SRC, /if \(isDirectRun\) \{/, '守卫必须是 AGENTS §22d 模板的正体(`if (isDirectRun) { main()… }`),否则测试一 import 就真跑巡检、真发告警邮件')
   assert.equal(typeof decideAlert, 'function')
@@ -235,9 +235,9 @@ test('T8 源码锁:该不该寄的决定权必须在 decideAlert,不得再就地
 })
 
 test('T9 向后兼容:真实现读的状态文件不得被读成 unknown;取不到则如实报"未判定"', () => {
-  const p = join(ROOT, '.workbuddy', 'credential-health-alert-state.json')
+  const p = join(ROOT, '.ihui-agent', 'state', 'credential-health-alert-state.json')
   if (!existsSync(p)) {
-    console.log('· T9 未判定:.workbuddy/credential-health-alert-state.json 此刻不在位(首轮或被清理)⇒ 不据此得出结论')
+    console.log('· T9 未判定:.ihui-agent/state/credential-health-alert-state.json 此刻不在位(首轮或被清理)⇒ 不据此得出结论')
     return
   }
   let parsed = null
@@ -426,10 +426,10 @@ test('T12 成对夹具:绿 / 停摆超阈 / 未判定(取不到 tip、取不到 
   assert.deepEqual(noMarker.input.missingInputs, [])
 })
 
-test('T13 零副作用锁:高频量这一维 20 次,.workbuddy 运行态四件必须逐字节不动', () => {
-  const present = WATCHED.filter((f) => existsSync(join(ROOT, '.workbuddy', f)))
+test('T13 零副作用锁:高频量这一维 20 次,.ihui-agent/state 运行态四件必须逐字节不动', () => {
+  const present = WATCHED.filter((f) => existsSync(join(ROOT, '.ihui-agent', 'state', f)))
   if (!present.length) {
-    console.log('· T13 未判定:.workbuddy 四件运行态此刻都不在位 ⇒ "没污染"无从比对,不据此声明通过')
+    console.log('· T13 未判定:.ihui-agent/state 四件运行态此刻都不在位 ⇒ "没污染"无从比对,不据此声明通过')
     return
   }
   const dir = makeStallRepo({ buildSha: SHA_LIVE, logLines: [successLine(120), roundEndLine(119)] })

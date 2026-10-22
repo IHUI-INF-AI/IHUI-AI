@@ -114,8 +114,9 @@ test('T2 反假绿锁:bypass-landing 必须真被计进总量(不是并列一个
 test('T3 写留痕不得改变落地成败:写不了只回 {ok:false},全程不抛', () => {
   const dir = mkScratch('attest-unwritable-')
   try {
-    // `.workbuddy` 被占成**普通文件** ⇒ mkdir/append 必失败(不是"目录不存在"那种能自愈的形态)
-    writeFileSync(join(dir, '.workbuddy'), 'occupied\n')
+    // `.ihui-agent/state` 被占成**普通文件** ⇒ mkdir/append 必失败(不是"目录不存在"那种能自愈的形态)
+    mkdirSync(join(dir, '.ihui-agent'), { recursive: true })
+    writeFileSync(join(dir, '.ihui-agent', 'state'), 'occupied\n')
     let threw = null
     let res
     try {
@@ -132,8 +133,8 @@ test('T3 写留痕不得改变落地成败:写不了只回 {ok:false},全程不�
     assert.equal(threw, null, `留痕写失败不得抛出:${String(threw?.message ?? threw)}`)
     assert.equal(res.ok, false)
     assert.match(res.why, /未判定/, 'why 要说清"这一维从此量不到",而不是含糊一个 errno')
-    assert.equal(existsSync(join(dir, '.workbuddy')), true)
-    assert.equal(statSync(join(dir, '.workbuddy')).isFile(), true, '不得把别人的文件覆盖成目录')
+    assert.equal(existsSync(join(dir, '.ihui-agent', 'state')), true)
+    assert.equal(statSync(join(dir, '.ihui-agent', 'state')).isFile(), true, '不得把别人的文件覆盖成目录')
     // 构造面的必填:缺 landedSha / 空 declaredFiles / 缺 source ⇒ build 抛、wrapper 吞
     for (const bad of [{}, { declaredFiles: [] }, { declaredFiles: ['a.ts'] }]) {
       const r = recordBypassLanding({ root: dir, landedSha: 'a'.repeat(40), source: 'x', ...bad })
@@ -277,7 +278,7 @@ test('T5 同源 schema 锁:键名与 safe-commit 那本逐字同族,只多 gates
     theirs,
     '键集漂移(增删改名)即红:台账有两份形状 = 统计永远对不上',
   )
-  assert.equal(LEDGER_REL, join('.workbuddy', 'safe-commit-attestation.jsonl'), '必须是那一本,不得另立文件')
+  assert.equal(LEDGER_REL, join('.ihui-agent', 'state', 'safe-commit-attestation.jsonl'), '必须是那一本,不得另立文件')
   // 落地器不得自己再拼一次路径(第二份落点)
   for (const f of ['object-space-land.mjs', 'live-doc-edit.mjs']) {
     const s = src(f)
@@ -360,9 +361,9 @@ test('T7 钩子轮次:ANSI 色码与"等值才作保"两条都得有牙', () => 
 test('T8 台账坏行不得被算成"没发生"', () => {
   const dir = mkScratch('attest-badline-')
   try {
-    mkdirSync(join(dir, '.workbuddy'), { recursive: true })
+    mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
     writeFileSync(
-      join(dir, '.workbuddy', 'safe-commit-attestation.jsonl'),
+      join(dir, '.ihui-agent', 'state', 'safe-commit-attestation.jsonl'),
       `${JSON.stringify(mkRecord({ kind: BYPASS_KIND, landedSha: 'a'.repeat(40) }))}\n{不是 JSON\n`,
     )
     const led = readLedgerRecords(dir)
@@ -478,7 +479,7 @@ test('T8 覆盖面自证:窗口没走全时不得把枚数当全量(三态)', ()
 test('T9 引用事务见证的取材三态:读到 / 坏行不吞 / 文件不在位不得读成"全部无见证"', () => {
   const dir = mkScratch('witness-read')
   try {
-    const wdir = join(dir, '.workbuddy')
+    const wdir = join(dir, '.ihui-agent', 'state')
     mkdirSync(wdir, { recursive: true })
     const good = 'a'.repeat(40)
     const good2 = 'b'.repeat(40)
@@ -518,7 +519,7 @@ test('T9 引用事务见证的取材三态:读到 / 坏行不吞 / 文件不在�
 test('T10 一方轮次记录:读到 / 坏行计数 / 文件不在位退回回显正证,不得静默', () => {
   const dir = mkScratch('first-party-rounds')
   try {
-    const hdir = join(dir, '.workbuddy', 'hook-logs')
+    const hdir = join(dir, '.ihui-agent', 'state', 'hook-logs')
     mkdirSync(hdir, { recursive: true })
     const parent = 'f'.repeat(40)
     writeFileSync(
@@ -560,7 +561,7 @@ test('T10 一方轮次记录:读到 / 坏行计数 / 文件不在位退回回显
 test('T10b G-978004 ②:声明集与落地面多重集等值 ⇒ 强证 strongDeclared,否则维持弱证两档分开', () => {
   const dir = mkScratch('first-party-declared')
   try {
-    const hdir = join(dir, '.workbuddy', 'hook-logs')
+    const hdir = join(dir, '.ihui-agent', 'state', 'hook-logs')
     mkdirSync(hdir, { recursive: true })
     const parent = 'f'.repeat(40)
     writeFileSync(

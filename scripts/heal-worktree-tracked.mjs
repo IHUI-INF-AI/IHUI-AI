@@ -422,7 +422,7 @@ const normRepoPath = (p) => String(p).replace(/\\/g, '/').replace(/^\.\//, '')
 /**
  * G-1018292:读 safe-commit 清空前留下的"删除意图丢失"账,返回**路径集合**。
  *
- * 账的落点:`<repo>/.workbuddy/staged-delete-intent-ledger.jsonl`(写入方是
+ * 账的落点:`<repo>/.ihui-agent/state/staged-delete-intent-ledger.jsonl`(写入方是
  * `safe-commit.mjs` 的 `recordClearedStagedDeletions`;`.gitignore:377` 已忽略整个目录)。
  *
  * 三条判据纪律:
@@ -438,7 +438,7 @@ export function recentlyClearedStagedIntent(repoRoot) {
   const out = new Set()
   let raw
   try {
-    raw = readFileSync(join(repoRoot, '.workbuddy', 'staged-delete-intent-ledger.jsonl'), 'utf8')
+    raw = readFileSync(join(repoRoot, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'), 'utf8')
   } catch {
     return out // 账不存在 = 从没发生过清空 ⇒ 无证据(调用点按判不出处理,不做写动作)
   }
@@ -2598,7 +2598,7 @@ function selfTestRun() {
     {
       const a = buildDebtRepo('wt-heal-debt-a-')
       try {
-        mkdirSync(join(a.t, '.workbuddy'), { recursive: true })
+        mkdirSync(join(a.t, '.ihui-agent', 'state'), { recursive: true })
         writeLandingRecord(a.t, { landed: a.landed, headBefore: a.headBefore, declared: ['PROJECT_PLAN.md'] })
         const headBlob = a.q(['rev-parse', 'HEAD:PROJECT_PLAN.md']).trim()
         const oldBlob = a.q(['rev-parse', 'HEAD~1:PROJECT_PLAN.md']).trim()
@@ -2619,7 +2619,7 @@ function selfTestRun() {
     {
       const b = buildDebtRepo('wt-heal-debt-b-')
       try {
-        mkdirSync(join(b.t, '.workbuddy'), { recursive: true })
+        mkdirSync(join(b.t, '.ihui-agent', 'state'), { recursive: true })
         writeLandingRecord(b.t, { landed: b.landed, headBefore: b.headBefore, declared: ['PROJECT_PLAN.md'] })
         const idxBefore = idxBlobOf(b.q)
         // 有人正在这份台账上继续写(工作区 != 索引)⇒ 判据③不成立
@@ -2653,7 +2653,7 @@ function selfTestRun() {
     {
       const e = buildDebtRepo('wt-heal-debt-e-')
       try {
-        mkdirSync(join(e.t, '.workbuddy'), { recursive: true })
+        mkdirSync(join(e.t, '.ihui-agent', 'state'), { recursive: true })
         // 有留痕,但那一枚声明的路径不含本文件 ⇒ 前像对不上 ⇒ 不是落地欠账(可能是有意暂存)
         writeLandingRecord(e.t, { landed: e.landed, headBefore: e.headBefore, declared: ['other.md'] })
         const idxBefore = idxBlobOf(e.q)
@@ -2669,7 +2669,7 @@ function selfTestRun() {
     {
       const d = buildDebtRepo('wt-heal-debt-d-')
       try {
-        mkdirSync(join(d.t, '.workbuddy'), { recursive: true })
+        mkdirSync(join(d.t, '.ihui-agent', 'state'), { recursive: true })
         writeLandingRecord(d.t, { landed: d.landed, headBefore: d.headBefore, declared: ['PROJECT_PLAN.md'] })
         const oldBlob = d.q(['rev-parse', 'HEAD~1:PROJECT_PLAN.md']).trim()
         // 变异对照:既有那一层(refreshStaleIndex)对本形态必须读数归零 —— 豁免是刻意的

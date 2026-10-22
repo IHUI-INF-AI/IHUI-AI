@@ -675,13 +675,13 @@ describe('告警标识去重端到端(零网络,状态注入)', () => {
     expect(t.computeExitCode(o2)).toBe(0)
   })
 
-  it('状态文件必须落在仓库根的 .workbuddy/ 下(路径写歪一层 = 读不到 = 去重静默失效)', () => {
+  it('状态文件必须落在仓库根的 .ihui-agent/state/ 下(路径写歪一层 = 读不到 = 去重静默失效)', () => {
     const p = t.defaultDedupeStatePath().replace(/\\/g, '/')
-    // 实测踩过:resolve(dirname,'..','..') 得到 .../apps/.workbuddy/… ⇒ readFileSync 恒 ENOENT,
+    // 实测踩过:resolve(dirname,'..','..') 得到 .../apps/.ihui-agent/state/… ⇒ readFileSync 恒 ENOENT,
     // 每轮 prevMs 都是 null,去重结构上从未生效而账面一切正常。
-    expect(/\/\.workbuddy\/notify-dedupe-state\.json$/.test(p)).toBe(true)
+    expect(/\/\.ihui-agent\/state\/notify-dedupe-state\.json$/.test(p)).toBe(true)
     expect(/\/apps\//.test(p)).toBe(false)
-    expect(p.length).toBeGreaterThan('/.workbuddy/notify-dedupe-state.json'.length)
+    expect(p.length).toBeGreaterThan('/.ihui-agent/state/notify-dedupe-state.json'.length)
   })
 
   it('不带 --alert-id ⇒ 每轮照发(本参数不得替别人关掉告警)', async () => {

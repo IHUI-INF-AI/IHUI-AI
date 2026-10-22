@@ -176,10 +176,10 @@ if (ahead === 0) {
 // 故:后台推送在途(running 且未过期)→ 放行;仅"无在途推送且 ahead>0"(真忘记 push)才阻塞。
 const PUSH_STATE_STALE_MS = 5 * 60 * 1000
 
-/** 读 `.workbuddy/push-state.json`;缺文件/坏 JSON ⇒ null(回到原判据,不猜)。 */
+/** 读 `.ihui-agent/state/push-state.json`;缺文件/坏 JSON ⇒ null(回到原判据,不猜)。 */
 function readPushState() {
   try {
-    return JSON.parse(readFileSync(resolve(repoRoot, '.workbuddy/push-state.json'), 'utf8'))
+    return JSON.parse(readFileSync(resolve(repoRoot, '.ihui-agent/state/push-state.json'), 'utf8'))
   } catch {
     return null
   }
@@ -258,7 +258,7 @@ function pushVerdict(st, { now, localHead, remoteHead }) {
     // 2026-09-26 就地改判(与此前"failed 一律拦"的口径相反,理由必须是实测的而不是偏好):
     // 今天把我拦住的那记 failed,来源是 guard 的**死 worker 终态自愈** —— 它写的是那枚死
     // worker 的 headSha,与本次提交没有因果关系(实测该分支累计落了 353 次;现值可在
-    // .workbuddy/git-push-guard-async.log 用 grep -ac "发现死 worker" 复核)。
+    // .ihui-agent/state/git-push-guard-async.log 用 grep -ac "发现死 worker" 复核)。
     // 而"真推不出去"也不该由 pre-commit 来治:拦提交既修不好推送,又必然逼人 --no-verify
     // ⇒ 当天多数提交跳过全部 163 道门(本节上面 done 档那条是同一课)。
     // 所以新鲜 failed **放行但把话说响**:自动重试由 watchdog 与下一次 guard 负责(§5b ⑤),
@@ -267,7 +267,7 @@ function pushVerdict(st, { now, localHead, remoteHead }) {
       pass: true,
       why: `最近一次后台推送判 failed(${ageText(now, st.ts)}前${
         st.kind ? `,来源 ${st.kind}` : ''
-      })⇒ 本门不拦:拦提交修不好推送,只会逼人跳门;自动重试由 watchdog 负责,持续失败请看 .workbuddy/git-push-guard-async.log 与 .alert-undelivered.json`,
+      })⇒ 本门不拦:拦提交修不好推送,只会逼人跳门;自动重试由 watchdog 负责,持续失败请看 .ihui-agent/state/git-push-guard-async.log 与 .alert-undelivered.json`,
     }
   }
   if (st.status === 'failed') {

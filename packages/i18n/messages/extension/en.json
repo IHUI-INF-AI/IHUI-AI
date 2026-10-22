@@ -139,10 +139,10 @@
     "login": "Sign In",
     "loginSubtitle": "Sign in to continue",
     "orUseAccount": "Or use account login",
-    "ssoCancelled": "SSO sign-in cancelled",
-    "ssoLoading": "SSO authorizing...",
-    "ssoLogin": "SSO one-click sign-in",
-    "ssoFailed": "SSO login failed"
+    "ssoCancelled": "Website sign-in cancelled",
+    "ssoLoading": "Waiting for website sign-in…",
+    "ssoLogin": "Sign in on the website",
+    "ssoFailed": "Website sign-in failed. Please try again."
   },
   "popup": {
     "copyFailed": "Copy failed",

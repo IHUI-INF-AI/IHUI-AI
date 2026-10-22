@@ -139,10 +139,10 @@
     "login": "ログイン",
     "loginSubtitle": "アカウントにログインして続行",
     "orUseAccount": "またはアカウントでログイン",
-    "ssoCancelled": "SSO ログインがキャンセルされました",
-    "ssoLoading": "SSO 認証中...",
-    "ssoLogin": "SSO ワンクリックログイン",
-    "ssoFailed": "SSO ログインに失敗しました"
+    "ssoCancelled": "ウェブサイトへのログインをキャンセルしました",
+    "ssoLoading": "ウェブサイトのログイン完了を待っています…",
+    "ssoLogin": "ウェブサイトでログイン",
+    "ssoFailed": "ウェブサイトのログインに失敗しました。もう一度お試しください"
   },
   "popup": {
     "copyFailed": "コピー失敗",

@@ -57,7 +57,7 @@
  * 取材口径:git 派生一律经 `scripts/lib/face-reader.mjs` 的 `gitRaw` / `catBatchOids`(绝对 git 路径、
  * `safe.directory`、`windowsHide: true`、数字 `timeout`、`maxBuffer`、显式 stdio 在层里只有一份实现
  * ⇒ 守门 52/80/118 各判的那一型在本门结构上不出现)。**台账正文走层的 `catBatch`**、运行态去重台账走
- * `readWorktreeFile`(它按设计只存在于磁盘:`.workbuddy/` 被 .gitignore 忽略,改判 HEAD 会让它永远为空
+ * `readWorktreeFile`(它按设计只存在于磁盘:`.ihui-agent/state/` 被 .gitignore 忽略,改判 HEAD 会让它永远为空
  * ⇒ 每轮重判已入库历史 ⇒ 恒红,与守门 100 同一课)。
  *
  * 【接线状态:已接入】注册条目已落在 scripts/guardian-runner.mjs(id 以 runner 现值为准,
@@ -362,12 +362,12 @@ export function decide({ mergeRows, allowEntries, today, strict = false, enumera
 
 /**
  * 增量去重台账(与守门 100 同一设计):记录"已判过的合并 → 红数",别人推来的合并也会被判到一次,
- * 老提交不会反复红。**取磁盘面** —— `.workbuddy/` 被 .gitignore 忽略,它结构上永不出现在任何检出面里,
+ * 老提交不会反复红。**取磁盘面** —— `.ihui-agent/state/` 被 .gitignore 忽略,它结构上永不出现在任何检出面里,
  * 而它的价值恰是"上一轮写过、这一轮别重判";改判 HEAD/索引 ⇒ 台账永远为空 ⇒ 每轮重判已入库历史
  * ⇒ 一台恒红门(与守门 100 的 `readMarker` 同一课:三面分歧时取哪一面由**语义**决定)。
  */
 export function markerPath(root) {
-  return join(root, '.workbuddy', 'merge-deletion-resurrection-audited.json')
+  return join(root, '.ihui-agent', 'state', 'merge-deletion-resurrection-audited.json')
 }
 export function readMarker(p) {
   try {

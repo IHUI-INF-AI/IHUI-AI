@@ -74,7 +74,7 @@ test('T1 白名单是 PAR_GATE_IDS 子集,且混不进写/时间/远端/产物�
   for (const id of forbidden) {
     assert.ok(!CONTENT_CACHE_GATE_IDS.has(id), `${id} 依赖写/时间/远端/产物,不得进纯内容缓存`)
   }
-  assert.ok(GATE_CACHE_FILE_REL.startsWith('.workbuddy/'), '缓存文件必须落在 gitignore 已盖的 .workbuddy/')
+  assert.ok(GATE_CACHE_FILE_REL.startsWith('.ihui-agent/state/'), '缓存文件必须落在 gitignore 已盖的 .ihui-agent/state/')
 })
 
 test('T2 指纹确定性 + 四类内容变化各自失效', () => {

@@ -59,14 +59,19 @@ export default function SsoLoginPage() {
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get('redirect') || '/'
   const clientId = searchParams.get('client_id') || 'web'
+  const rawRedirect = searchParams.get('redirect')
+  // 「本站自己人」判据 = web 客户端 **且** URL 没带显式 redirect。
+  // 带 redirect 的是子项目/桌面深链跳来的授权页,「授权」口径本身就是它回跳契约的一部分;
+  // 不带 redirect 的 web 访问就是用户自己要进站 —— 对他说「正在为 web 授权」「授权并跳转」
+  // 是把内部机制当人话讲(旧 /login→/sso/login 重定向期间的用户投诉即此,2026-10-22 机主反馈)。
+  const isOwnSiteVisitor = clientId === SSO_CLIENT_IDS.WEB && !rawRedirect
 
   // 登录完成后的默认落点:带显式 redirect(子项目/桌面深链跳来的授权页)时原样返回该目标,
   // 否则对 admin 账号落到生产在线监控大屏(与主站 LoginDialog 共用同一判据)。取 raw 参数
   // (而非上面 `|| '/'` 的默认值),以免把"没带 redirect"误当成"显式要首页"。
   const resolveLoginTarget = React.useCallback(
-    () =>
-      resolvePostLoginLanding(useAuthStore.getState().user, searchParams.get('redirect')) ?? '/',
-    [searchParams],
+    () => resolvePostLoginLanding(useAuthStore.getState().user, rawRedirect) ?? '/',
+    [rawRedirect],
   )
 
   const { token, user } = useAuthStore()
@@ -256,7 +261,9 @@ export default function SsoLoginPage() {
       <AuthShellPage onClose={handleClose}>
         <AuthShell
           title={tSso('alreadyLoggedIn')}
-          subtitle={tSso('authorizing', { clientId })}
+          subtitle={
+            isOwnSiteVisitor ? tAuth('loggedInContinue') : tSso('authorizing', { clientId })
+          }
           onClose={handleClose}
         >
           <Button
@@ -270,7 +277,7 @@ export default function SsoLoginPage() {
             ) : (
               <ArrowRight className="mr-2 h-4 w-4" />
             )}
-            {tSso('authorizeAndRedirect')}
+            {isOwnSiteVisitor ? tAuth('continueToSite') : tSso('authorizeAndRedirect')}
           </Button>
         </AuthShell>
       </AuthShellPage>
@@ -282,11 +289,14 @@ export default function SsoLoginPage() {
   // (点击竞态:点 tab 实际命中替换后的授权按钮 → 意外跳转,感知为按钮全部失灵)。
   // bootstrap 就绪前渲染 loading 骨架,杜绝表单闪现与点击错位。
   if (!ready) {
+    // 这一帧是用户在 SSR/hydration 期间**第一眼**看到的:2026-10-22 线上实测
+    // www.aizhs.top/sso/login 此处仍写死 sso:title/sso.subtitle,于是自己进站的用户首屏就读到
+    // 「统一登录 / 登录后将为 web 授权并跳转」——分档必须同批覆盖骨架,否则改了等于没改。
     return (
       <AuthShellPage onClose={handleClose}>
         <AuthShell
-          title={tSso('title')}
-          subtitle={tSso('subtitle', { clientId })}
+          title={isOwnSiteVisitor ? tAuth('loginTitle') : tSso('title')}
+          subtitle={isOwnSiteVisitor ? tAuth('loginSubtitle') : tSso('subtitle', { clientId })}
           onClose={handleClose}
         >
           <div className="flex items-center justify-center py-12">
@@ -297,15 +307,25 @@ export default function SsoLoginPage() {
     )
   }
 
-  // 未登录分支:根据 mode 切换 login/register/forgot(复用主站 LoginFormContent 等)
-  const title =
-    mode === 'login'
-      ? tSso('title')
-      : mode === 'register'
-        ? tSso('registerTitle')
-        : tAuth('forgotPassword')
-  const subtitle = mode === 'forgot' ? tAuth('forgotSubtitle') : tSso('subtitle', { clientId })
-  const footer = mode === 'login' ? tSso('footerHint') : undefined
+  // 未登录分支:根据 mode 切换 login/register/forgot(复用主站 LoginFormContent 等)。
+  // forgot 两档共用主站文案;login/register 才分「自己人 / 授权页」两套口径。
+  const copy =
+    mode === 'forgot'
+      ? { title: tAuth('forgotPassword'), subtitle: tAuth('forgotSubtitle'), footer: undefined }
+      : isOwnSiteVisitor
+        ? mode === 'register'
+          ? {
+              title: tAuth('registerTitle'),
+              subtitle: tAuth('registerSubtitle'),
+              footer: undefined,
+            }
+          : { title: tAuth('loginTitle'), subtitle: tAuth('loginSubtitle'), footer: undefined }
+        : {
+            title: mode === 'register' ? tSso('registerTitle') : tSso('title'),
+            subtitle: tSso('subtitle', { clientId }),
+            footer: mode === 'login' ? tSso('footerHint') : undefined,
+          }
+  const { title, subtitle, footer } = copy
 
   return (
     <AuthShellPage onClose={handleClose}>

@@ -115,11 +115,11 @@ else
     exit 75
   fi
   if [ "$_gate_rc" -ne 0 ]; then
-    tail -40 .workbuddy/hook-logs/pre-push-gate.log >&2 || true
-    printf '%s\n' "❌ push 门校验失败,推送已阻止(完整日志: .workbuddy/hook-logs/pre-push-gate.log)" >&2
+    tail -40 .ihui-agent/state/hook-logs/pre-push-gate.log >&2 || true
+    printf '%s\n' "❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)" >&2
     exit 1
   fi
-  tail -3 .workbuddy/hook-logs/pre-push-gate.log >&2 || true
+  tail -3 .ihui-agent/state/hook-logs/pre-push-gate.log >&2 || true
   printf '%s\n' "✅ push 门校验通过(push-scope/staged-scope 降级已启用)" >&2
 fi
 
@@ -128,4 +128,4 @@ fi
 # 仅打印末尾 3 行摘要,exit 1 由 || true 吞掉,不阻塞 push(对应 CI 阻塞).
 # 跳过方法:HUSKY_SKIP_I18N_AUDIT=1(不推荐,CI 仍会阻塞).
 wscript //nologo scripts/hook-run-hidden.vbs pre-push-i18n scripts/scan-dead-i18n-keys.mjs --dry-run || true
-tail -3 .workbuddy/hook-logs/pre-push-i18n.log >&2 || true
+tail -3 .ihui-agent/state/hook-logs/pre-push-i18n.log >&2 || true

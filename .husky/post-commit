@@ -4,7 +4,7 @@
 # PATH 里没有 node 就整层静默死 —— Git for Windows 回落用 sh 解释本文件,第 2 行
 # JS 注释即报 syntax error,而 post-commit 不拦提交 ⇒ safe-commit 照样打
 # "✅ post-commit hook 将自动调用 git-push-guard 推送",自动推送/自愈整段无声没跑
-# (.workbuddy/hook-logs/post-commit-*.log 零新增可证,随触发方 env 浮动、间歇性)。
+# (.ihui-agent/state/hook-logs/post-commit-*.log 零新增可证,随触发方 env 浮动、间歇性)。
 # 2026-10-19 复位立因:本薄壳在 00eab50bc96(一枚只动 apps/cli 的 ws 取档的提交)里被
 # 并发的旧基线索引整份写回成 node 正文,同日实测间歇死重现 —— 07:19:20 那枚提交三条腿
 # 日志都动了(07:19:21/24/34),07:31:17 那枚一条没动。防复发闸见
@@ -19,17 +19,17 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OB
 # ─── 后台执行(2026-10-21,机主要求"提交整体 ≤1 分钟")────────────────────────────
 # 本钩子的语义本来就是"失败不阻断提交"(commit 已落地),但它此前**同步**跑完整条链
 # (push-guard / pollution / tag-sync / plan-heal),实测 64s 全部计入用户的提交等待时间。
-# 改为 `&` 后台派发:提交命令立即返回,各段结果照旧落 .workbuddy/hook-logs/*.log。
+# 改为 `&` 后台派发:提交命令立即返回,各段结果照旧落 .ihui-agent/state/hook-logs/*.log。
 # 代价:这里不再能回显失败摘要 —— 失败看日志(post-commit*.log),或跑
 # `node scripts/lib/post-commit-hook.js` 手动复跑。要恢复同步:HUSKY_POST_COMMIT_SYNC=1。
 if [ "$HUSKY_POST_COMMIT_SYNC" = "1" ]; then
   wscript //nologo scripts/hook-run-hidden.vbs post-commit scripts/lib/post-commit-hook.js "$@" || {
     printf '%s\n' "❌ post-commit 链失败(commit 已落地;推送/自愈段未完成)—— 日志末 40 行:" >&2
-    tail -40 .workbuddy/hook-logs/post-commit.log >&2 || true
+    tail -40 .ihui-agent/state/hook-logs/post-commit.log >&2 || true
     printf '%s\n' "   手动复跑:node scripts/lib/post-commit-hook.js;推送核验:node scripts/git-push-converge.mjs" >&2
     exit 1
   }
 else
   wscript //nologo scripts/hook-run-hidden.vbs post-commit scripts/lib/post-commit-hook.js "$@" >/dev/null 2>&1 &
-  printf '%s\n' "⏱  post-commit 已转入后台(push-guard / tag-sync / plan-heal);日志 .workbuddy/hook-logs/post-commit*.log"
+  printf '%s\n' "⏱  post-commit 已转入后台(push-guard / tag-sync / plan-heal);日志 .ihui-agent/state/hook-logs/post-commit*.log"
 fi

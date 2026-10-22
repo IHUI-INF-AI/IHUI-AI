@@ -190,7 +190,7 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
         <p className="text-xs text-muted-foreground">{errorMsg}</p>
       </div>
       <Link
-        href="/sso/login"
+        href="/login"
         className="inline-block rounded-md bg-cta px-4 py-2 text-sm font-medium text-cta-foreground hover:bg-cta/90"
       >
         {t('backToLogin')}

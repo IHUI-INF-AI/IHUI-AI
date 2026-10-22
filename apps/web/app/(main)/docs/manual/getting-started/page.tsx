@@ -74,7 +74,7 @@ export default function ManualGettingStartedPage() {
         <h2 className="text-xl font-bold">1.2 登录</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3 text-sm">
           <ol className="ml-4 list-decimal space-y-2 text-muted-foreground">
-            <li>访问 <a href="https://aizhs.top/sso/login" className="text-primary underline">https://aizhs.top/sso/login</a></li>
+            <li>访问 <a href="https://aizhs.top/login" className="text-primary underline">https://aizhs.top/login</a></li>
             <li>输入邮箱 + 密码,或选择 GitHub / Google / 微信 登录</li>
             <li>勾选"记住我"可免重复登录(7 天有效)</li>
             <li>点击"登录"按钮,跳转到主页</li>

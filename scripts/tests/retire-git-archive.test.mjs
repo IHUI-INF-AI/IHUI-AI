@@ -185,7 +185,7 @@ test('T3 形状锁 + 行为锁:默认档零删除', async () => {
     lines.some((l) => /dry-run/.test(l)),
     '缺省档必须自报"未发起删除"',
   )
-  assert.ok(!existsSync(join(b, '.workbuddy')), '零删除时不得创建留痕文件')
+  assert.ok(!existsSync(join(b, '.ihui-agent', 'state')), '零删除时不得创建留痕文件')
 })
 
 test('T4 形状锁:§5b 名单与重解析点永不出现在删除路径参数里(阳性对照:注入指向活 gitdir 的 junction)', (t) => {

@@ -806,7 +806,7 @@ export function shouldCool(row) {
   return Boolean(row) && row.ok === false
 }
 export function cooldownPath(root) {
-  return join(root, '.workbuddy', 'home-junctions-cooldown.json')
+  return join(root, '.ihui-agent', 'state', 'home-junctions-cooldown.json')
 }
 export function readCooldown(p) {
   try {

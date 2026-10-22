@@ -45,6 +45,10 @@ import {
 // 要在**代码面**上找 `const X =` 声明与 import 绑定 —— 按原文找会把注释里的示例声明当真声明
 // (守门 70 的 URL 假注释态同型),而 code-mask 等长遮罩保证行/列号不漂。
 import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
+// O87g(2026-10-22):后端注册面的**精确挂载图**提取式(Fastify 挂载图 + 工厂/模板/内联别名)。
+// 立门因由与提取式覆盖宽度见该文件头注;本门只在 `server.ts` 在面时用它当判据,
+// 不在面时退回旧的「前缀假设」拼接档(见 `buildCompositePrefixes` 调用点)。
+import { extractApiRegistrations, VERBS as BACKEND_VERBS } from './lib/route-registration-extract.mjs'
 
 /**
  * ROOT 由脚本自身位置推导(§15)。此前是 `process.cwd()` —— "扫哪棵树"由调用者站哪决定,
@@ -3040,7 +3044,11 @@ function runGateIn(cwd, extraArgs = []) {
 /** 端到端夹具:后端只有"模板串 + 矩阵"注册,前端调用路径由参数决定 */
 function selfTestRoot(calledPath) {
   return makeSelfTestRoot({
-    'apps/api/src/server.ts': "server.register(aiVendorRoutes, { prefix: '/api/ai' })\n",
+    // O87g:夹具必须是**真实形态**(§22c)—— import + 注册符号与导出名一致,
+    // 精确挂载图才解得到这条边(旧笛卡尔档不需要解边,所以早期夹具写成不存在的
+    // aiVendorRoutes 也"绿");解不到边时 /api/ai 会落不透明前缀,矩阵哨兵就判不红了。
+    'apps/api/src/server.ts':
+      "import { vendorRoutes } from './routes/ai-vendors'\nserver.register(vendorRoutes, { prefix: '/api/ai' })\n",
     'apps/api/src/routes/ai-vendors.ts': SELF_MATRIX_FIXTURE,
     'apps/web/call.ts': `fetchApi('${calledPath}', { method: 'POST' })\n`,
   })
@@ -4266,6 +4274,43 @@ const cliImportInfo = new Map()
 }
 
 const { routes: backendRoutes, prefixes } = extractBackendRoutes()
+
+/* ============================================================================
+ * ===== O87g(2026-10-22):后端注册面判据 = 精确挂载图;笛卡尔 composite 降为「无入口」兜底档 =====
+ * 票面点名的假绿成因:`buildCompositePrefixes` 把**任一 localPath × 任一绝对前缀**笛卡尔拼接,
+ * `routes/ranking.ts` 挂在 `/api/ranking` 下的 `server.get('/courses')` 会组合出结构上不存在的
+ * `/api/courses` —— 前端真打它是 404,门却报「新增 0 处死调用」。
+ * 票面先决「先扩提取式」已由 `scripts/lib/route-registration-extract.mjs` 完成(工厂注册按实参
+ * 解析、模板矩阵、内联别名、同文件多插件按各自前缀归因),本段把判据换成它的挂载图产出。
+ * 档位纪律:
+ *  · **精确档**:`SERVER_FILE` 在面 ⇒ 挂载图是唯一注册面来源(FastAPI 面除外,见下)。
+ *  · **兜底档**:`SERVER_FILE` 不在面(夹具/半截搬家)⇒ 挂载图无起点,退回旧 composite 并**大声点名**
+ *    —— 退回是有假绿的,所以结论必须喊出来,绝不静默(§12e 反向:也不拿它冒充精确档)。
+ *  · FastAPI 面**保留旧提取式**取条目:它的 prefix+localPath 拼接本就是精确的(不是笛卡尔),
+ *    且空路径 `@router.get("")` 与别名 include_router 两型判据被兄弟镜像 S1/② 源码锁钉在旧侧,
+ *    库的 py 面比旧侧窄 ⇒ py 条目从旧提取式来,两档同此一条(不各写一份)。
+ * ========================================================================== */
+const backendTsFiles = new Map()
+for (const rel of new Set([
+  SERVER_FILE,
+  ...listFace(API_ROUTES_DIR, ['.ts']),
+  ...listFace(API_PLUGINS_DIR, ['.ts']),
+])) {
+  if (!rel.endsWith('.ts') || rel.endsWith('.d.ts')) continue
+  const src = readSource(rel)
+  if (typeof src === 'string') backendTsFiles.set(rel, src)
+}
+// 精确档的**先决**不只是"server.ts 在面",而是"面上有可走的挂载起点":
+// 兄弟夹具(枚 alias-literal-adjudication T3)会铺一份只为喂旧前缀采集器的假 server.ts
+// (`void register({ prefix })`,一条 `X.register(` 边都没有)—— 那种面上挂载图必然空转,
+// 判据该如实退回兜底档并点名,而不是拿"图走不到"冒充精确档把在册读数吞成未判定。
+const GRAPH_AVAILABLE =
+  backendTsFiles.has(SERVER_FILE) && /\.register\s*\(/.test(backendTsFiles.get(SERVER_FILE))
+const regGraph = GRAPH_AVAILABLE
+  ? extractApiRegistrations(backendTsFiles, { entryTs: SERVER_FILE })
+  : null
+/** FastAPI 条目(旧提取式,localPath 已是完整路径);两档共用 */
+const pyBackendRoutes = backendRoutes.filter((r) => r.file.endsWith('.py'))
 const compositePrefixes = buildCompositePrefixes(prefixes)
 
 /**
@@ -4321,12 +4366,23 @@ if (backendDumpPath) {
   writeFileSync(
     backendDumpPath,
     JSON.stringify(
-      backendRoutes.map((r) => {
-        const fullPaths = compositePrefixes.map(
-          (p) => `${r.method} ${normalizePath(p, r.localPath)}`,
-        )
-        return { ...r, fullPaths }
-      }),
+      GRAPH_AVAILABLE
+        ? [
+            ...regGraph.entries,
+            ...pyBackendRoutes.map((r) => ({
+              method: r.method,
+              path: r.localPath,
+              file: r.file,
+              line: 0,
+              via: 'py',
+            })),
+          ]
+        : backendRoutes.map((r) => {
+            const fullPaths = compositePrefixes.map(
+              (p) => `${r.method} ${normalizePath(p, r.localPath)}`,
+            )
+            return { ...r, fullPaths }
+          }),
       null,
       2,
     ),
@@ -4334,21 +4390,77 @@ if (backendDumpPath) {
   )
 }
 
-// 构建后端完整路径集合
-const backendPathSet = new Set()
+/**
+ * 「前缀假设」面(旧笛卡尔拼接,单一构造点):
+ *  · 兜底档(server.ts 不在面)拿它**当绿档** —— 形状与换票前逐字节相同;
+ *  · 精确档只拿它做**降级判据**:挂载图走不到、但笛卡尔拼得出的调用,落
+ *    「未判定(前缀假设命中)」逐条报名 —— 图未追到的真挂载链(re-export barrel
+ *    等,库暂不跟)与 O87g 点名的 /api/courses 型假路径在这一格里**结构上不可分辨**,
+ *    所以既不冒红(§12e)也**绝不记绿**(票面核心)。命中它 ≠ 在册。
+ */
+const assumptionPathSet = new Set()
 for (const r of backendRoutes) {
   // 对每个路由，尝试所有可能的 prefix 组合（含两层拼接的 composite prefix）
   for (const p of compositePrefixes) {
     const full = normalizePath(p, r.localPath)
-    backendPathSet.add(`${r.method} ${full}`)
+    assumptionPathSet.add(`${r.method} ${full}`)
   }
   // 也添加不带 prefix 的（plugin 内部可能没有 prefix）
-  backendPathSet.add(`${r.method} ${r.localPath}`)
+  assumptionPathSet.add(`${r.method} ${r.localPath}`)
+}
+const backendPathSet = new Set()
+if (GRAPH_AVAILABLE) {
+  for (const e of regGraph.entries) {
+    if (e.file.endsWith('.py')) continue // py 条目从旧提取式来(判据窄度不同,见接线块头注)
+    if (e.method === 'ANY') {
+      for (const v of BACKEND_VERBS) backendPathSet.add(`${v.toUpperCase()} ${e.path}`)
+      continue
+    }
+    backendPathSet.add(`${e.method} ${e.path}`)
+  }
+  for (const r of pyBackendRoutes) backendPathSet.add(`${r.method} ${r.localPath}`)
+} else {
+  for (const e of assumptionPathSet) backendPathSet.add(e)
 }
 
-console.log(
-  `${C.dim}[API 路由比对] 后端注册路由: ${backendRoutes.length} 条（含 ${compositePrefixes.length} 个组合前缀）${C.reset}`,
-)
+/** `--dump-undetermined` 的落盘点在主对账之后(要等「前缀假设命中」桶成形才写,见报名块) */
+const undeterminedDumpPath = dumpFlagValue('--dump-undetermined')
+if (GRAPH_AVAILABLE) {
+  console.log(
+    `${C.dim}[API 路由比对] 后端注册路由: 精确挂载图 ${backendPathSet.size} 条（图 ${regGraph.entries.length} + FastAPI ${pyBackendRoutes.length};TS ${regGraph.stats.tsFilesAnalyzed} 文件 / 工厂 ${regGraph.stats.factories} 个 / 走到节点 ${regGraph.stats.touchedNodes} 个）${C.reset}`,
+  )
+  /**
+   * 报数必须报名(票面③):图产出里的三格盲区逐条点名,默认档各截前 20 条,
+   * 全量走 `--dump-undetermined`。这些格子**不判红也不记绿** —— 判据看不见 ≠ 没有。
+   */
+  const GRAPH_SITE_PRINT_CAP = 20
+  const graphBlindRows = (label, rows) => {
+    if (!rows.length) return
+    for (const r of rows.slice(0, GRAPH_SITE_PRINT_CAP)) {
+      console.log(
+        `${C.yellow}  · ${label}: ${r.file ?? '-'}:${r.line ?? 0} [${r.kind ?? 'opaque'}] ${r.detail ?? r.evidence ?? ''}${C.reset}`,
+      )
+    }
+    if (rows.length > GRAPH_SITE_PRINT_CAP) {
+      console.log(
+        `${C.yellow}  · ${label}:其余 ${rows.length - GRAPH_SITE_PRINT_CAP} 条见 --dump-undetermined${C.reset}`,
+      )
+    }
+  }
+  graphBlindRows('后端未判定', regGraph.undetermined)
+  graphBlindRows(
+    '后端图未走到(按本文件自身前缀兜底产出)',
+    regGraph.unreached.map((u) => ({ file: u, line: 0, kind: 'unreached', detail: '' })),
+  )
+  graphBlindRows(
+    '不透明挂载前缀(其下调用落「未判定」出口,不判红)',
+    regGraph.opaque.map((o) => ({ file: o.prefix, line: 0, kind: 'opaque', detail: o.evidence })),
+  )
+} else {
+  console.log(
+    `${C.yellow}[API 路由比对] ⚠️ 兜底档:${backendTsFiles.has(SERVER_FILE) ? `${SERVER_FILE} 在面但没有一条 \`X.register(\` 挂载边` : `${SERVER_FILE} 不在 ${FACE} 面`} ⇒ 挂载图无起点,本轮后端注册面退回旧「前缀假设」笛卡尔拼接(${backendRoutes.length} 条 × ${compositePrefixes.length} 个组合前缀)—— 这一档能拼出结构上不存在的 /api/courses 型假路径(票 O87g 点名的假绿成因),「死调用 0 处」在本档**不得读成对账通过**${C.reset}`,
+  )
+}
 
 // 提取前端调用
 // 2026-08-31:staged-scope 时仅收集位于暂存文件列表内的前端文件(改动原因见 getStagedFiles 上方注释);
@@ -4555,30 +4667,36 @@ for (const e of ACTIVE_ENDS) {
 //   starEntries — 含 '*' 段的条目(catch-all),量小,按原通配分支逐条判。
 // ANY(动态 method)调用遍历该段数下所有 method 桶 + 全部 star 条目,与原「任意 method 匹配即算」一致。
 // 刻意复刻原 `bp.split(' ')` 解构语义:后端条目字符串若含第二个空格,path 部分同样被截断。
-const exactKeys = new Set()
-const segBuckets = new Map() // segCount -> Map(method -> parts[])
-const starEntries = [] // { method, parts }
-for (const bp of backendPathSet) {
-  const [bm, bp2] = bp.split(' ')
-  const b = bp2.replace(/\/$/, '')
-  const parts = b.split('/')
-  if (parts.indexOf('*') !== -1) {
-    starEntries.push({ method: bm, parts })
-    continue
+function buildRouteIndex(pathSet) {
+  const exactKeys = new Set()
+  const segBuckets = new Map() // segCount -> Map(method -> parts[])
+  const starEntries = [] // { method, parts }
+  for (const bp of pathSet) {
+    const [bm, bp2] = bp.split(' ')
+    const b = bp2.replace(/\/$/, '')
+    const parts = b.split('/')
+    if (parts.indexOf('*') !== -1) {
+      starEntries.push({ method: bm, parts })
+      continue
+    }
+    exactKeys.add(`${bm} ${b}`)
+    let byMethod = segBuckets.get(parts.length)
+    if (!byMethod) {
+      byMethod = new Map()
+      segBuckets.set(parts.length, byMethod)
+    }
+    let arr = byMethod.get(bm)
+    if (!arr) {
+      arr = []
+      byMethod.set(bm, arr)
+    }
+    arr.push(parts)
   }
-  exactKeys.add(`${bm} ${b}`)
-  let byMethod = segBuckets.get(parts.length)
-  if (!byMethod) {
-    byMethod = new Map()
-    segBuckets.set(parts.length, byMethod)
-  }
-  let arr = byMethod.get(bm)
-  if (!arr) {
-    arr = []
-    byMethod.set(bm, arr)
-  }
-  arr.push(parts)
+  return { exactKeys, segBuckets, starEntries }
 }
+const { exactKeys, segBuckets, starEntries } = buildRouteIndex(backendPathSet)
+/** 精确档专用:「前缀假设」面的同型索引(兜底档它已是绿档本身,不需要第二份) */
+const assumptionIndex = GRAPH_AVAILABLE ? buildRouteIndex(assumptionPathSet) : null
 /**
  * 原 pathMatches 非通配分支逐行搬移(段数校验保留,防分桶外误用)
  *
@@ -4663,6 +4781,19 @@ for (const bp of backendPathSet) {
  * 覆盖缺口提示与 `scripts/tests/check-api-routes-wildcard-gap.test.mjs`(G1–G6)继续钉住
  * "缺口必须报、不得记绿"。下一步仍是 **② S1+S2 减量 → ③ 逐条裁决那批真错
  * → ④ 才谈判红起点**。
+ *
+ * ## O87g(2026-10-22)判据分档:上面这副笛卡尔面降为「无入口」兜底档
+ *  · `server.ts` 在面 ⇒ 后端注册面 = `scripts/lib/route-registration-extract.mjs` 的**精确挂载图**
+ *    (前缀沿 `register` 的边逐层累加,`/api/courses` 那一型假路径在图里**拼不出来**——
+ *    阳性对照见 `scripts/tests/check-api-routes.test.mjs` P 组)。匹配器(`matchSegs/matchStar`)
+ *    一字未动;三档索引构造收口成一份 `buildRouteIndex`(主面与「前缀假设」面同型,不抄第二遍)。
+ *  · 精确档的**三态判序**:图命中 ⇒ 绿;图走不到但在不透明前缀下 ⇒ 未判定(不透明挂载);
+ *    图走不到、旧笛卡尔「前缀假设」拼得出 ⇒ 未判定(前缀假设命中,逐条报名 + 进
+ *    `--dump-undetermined`)—— 库暂不跟 re-export barrel,图未追到的**真挂载链**与 O87g 点名的
+ *    **假路径**在这一格结构上不可分辨,所以既不冒红(§12e)也**绝不记绿**(票面核心);
+ *    两头都不命中 ⇒ 死调用判红。兜底档里前缀假设**就是**绿档,不存在降级。
+ *  · `server.ts` 不在面 ⇒ 挂载图无起点,退回本节旧笛卡尔档(本段所述假绿**仍在**),
+ *    结论行大声点名,不冒充精确档。
  */
 function matchSegs(fParts, bParts) {
   if (fParts.length !== bParts.length) return false
@@ -4708,6 +4839,30 @@ function backendHasRoute(method, callPath) {
   return false
 }
 /**
+ * 「这条路径只在『前缀假设』面里命中吗」—— 精确档降级判据专用(O87g)。
+ * 匹配器与主判据同一份(matchSegs/matchStar),只是索引换成笛卡尔面;
+ * 兜底档恒 false(那一档笛卡尔面**就是**绿档,不存在降级)。
+ */
+function assumptionHasRoute(method, callPath) {
+  if (!assumptionIndex) return false
+  const f = callPath.replace(/\/$/, '')
+  const fParts = f.split('/')
+  if (assumptionIndex.exactKeys.has(`${method} ${f}`)) return true
+  const byMethodMap = assumptionIndex.segBuckets.get(fParts.length)
+  if (byMethodMap) {
+    const buckets =
+      method === 'ANY' ? [...byMethodMap.values()] : [byMethodMap.get(method)].filter(Boolean)
+    for (const arr of buckets) {
+      for (const bParts of arr) if (matchSegs(fParts, bParts)) return true
+    }
+  }
+  for (const e of assumptionIndex.starEntries) {
+    const methodOk = method === 'ANY' || e.method === method
+    if (methodOk && matchStar(fParts, e.parts)) return true
+  }
+  return false
+}
+/**
  * 不透明挂载前缀 —— ai-service 的 MCP 导出面用 `mount_to_app(app)` 挂载,不是装饰器注册
  * (实测 `apps/ai-service/app/main.py:921-924` + `app/services/mcp_export.py:1050` 自行裁前缀),
  * 本门的静态注册面**结构上看不见**这些路径。与守门 127「不透明前缀下的未判定」同一口径:
@@ -4724,7 +4879,24 @@ const OPAQUE_MOUNT_PREFIXES = [
       "apps/api/src/routes/admin-saas-proxy.ts:88 `server.route({method:[GET/POST/PATCH/PUT/DELETE/HEAD/OPTIONS],url:'/*'})` 通配代理(透传 admin-api,注册面结构上看不见具体子路径)",
   },
 ]
+/**
+ * 精确档下再并入挂载图自己报出的不透明前缀(票面②「必须保留不透明前缀的未判定出口」):
+ * `register(符号, { prefix })` 解不到目标(第三方插件/动态符号)时,该前缀下的调用
+ * 落「未判定」而非 missing —— 既不冒红也不记绿。库给的前缀无尾斜杠,补 `/` 做段边界,
+ * 免得 `/api/foo` 把 `/api-foobar` 也吞进射程。
+ */
+const EFFECTIVE_OPAQUE = [
+  ...OPAQUE_MOUNT_PREFIXES,
+  ...(regGraph
+    ? regGraph.opaque.map((o) => ({
+        prefix: o.prefix.endsWith('/') ? o.prefix : `${o.prefix}/`,
+        evidence: o.evidence,
+      }))
+    : []),
+]
 const opaqueUndetermined = []
+/** 精确档:图走不到、但「前缀假设」笛卡尔面拼得出的调用 —— 不记绿也不判红,逐条报名 */
+const assumptionUndetermined = []
 const missing = []
 const seen = new Set()
 for (const call of allCalls) {
@@ -4765,11 +4937,17 @@ for (const call of allCalls) {
     }
   }
   if (!found) {
-    const op = OPAQUE_MOUNT_PREFIXES.find((o) => f.startsWith(o.prefix))
+    const op = EFFECTIVE_OPAQUE.find((o) => f.startsWith(o.prefix))
     if (op) {
       // 判不出 ≠ 没有:与守门 127「不透明前缀下的未判定」同一口径,单独计数并点名,
       // 既不冒红(把别人的正确实现钉成死调用),也绝不静默成"看起来全绿"。
       opaqueUndetermined.push({ ...call, evidence: op.evidence })
+      continue
+    }
+    if (assumptionHasRoute(call.method, call.path)) {
+      // 命中旧笛卡尔面 ≠ 在册:可能是图未追到的真挂载链,也可能是 O87g 点名的假路径。
+      // 两型在静态判据里不可分辨 ⇒ 既不冒红也不记绿,落未判定并逐条报名(票面③)。
+      assumptionUndetermined.push(call)
       continue
     }
     missing.push(call)
@@ -4869,15 +5047,21 @@ const bareRegistered = []
 const bareMissing = []
 const bareIgnored = []
 const bareOpaque = []
+/** BP 腿与主腿同一降级判据(§0.6 不另发明):图走不到但前缀假设拼得出 ⇒ 未判定,不判红 */
+const bareAssumption = []
 for (const c of bareUnique) {
   if (backendHasRoute(c.method, c.path)) {
     bareRegistered.push(c)
     continue
   }
   const f = c.path.replace(/\/$/, '')
-  const op = OPAQUE_MOUNT_PREFIXES.find((o) => f.startsWith(o.prefix))
+  const op = EFFECTIVE_OPAQUE.find((o) => f.startsWith(o.prefix))
   if (op) {
     bareOpaque.push({ ...c, evidence: op.evidence })
+    continue
+  }
+  if (assumptionHasRoute(c.method, c.path)) {
+    bareAssumption.push(c)
     continue
   }
   if (matchesIgnore(c)) {
@@ -5350,6 +5534,37 @@ if (opaqueUndetermined.length > 0) {
     )
   }
 }
+if (GRAPH_AVAILABLE && assumptionUndetermined.length > 0) {
+  console.log(
+    `${C.yellow}[API 路由比对] ⚠️ 未判定(前缀假设命中)${assumptionUndetermined.length} 处调用:挂载图走不到,但旧笛卡尔「前缀假设」拼得出 —— 可能是图未追到的真挂载链(re-export barrel 等),也可能是票 O87g 点名的 /api/courses 型假路径;两型静态不可分辨 ⇒ 不记绿也不判红,逐条报名:${C.reset}`,
+  )
+  for (const c of assumptionUndetermined.slice(0, 20)) {
+    console.log(`${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}${C.reset}`)
+  }
+  if (assumptionUndetermined.length > 20) {
+    console.log(
+      `${C.dim}    ... 其余 ${assumptionUndetermined.length - 20} 条见 --dump-undetermined${C.reset}`,
+    )
+  }
+}
+if (GRAPH_AVAILABLE && undeterminedDumpPath) {
+  writeFileSync(
+    undeterminedDumpPath,
+    JSON.stringify(
+      {
+        undetermined: regGraph.undetermined,
+        unreached: regGraph.unreached,
+        opaque: regGraph.opaque,
+        assumptionUndetermined,
+        bareAssumptionUndetermined: bareAssumption,
+        stats: regGraph.stats,
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  )
+}
 
 /**
  * next rewrites 转发面这一格的判据来源(2026-10-04)。
@@ -5452,7 +5667,7 @@ if (bareLegVerdict.state !== 'ok') {
   if (bareLegVerdict.state === 'inconsistent' || FACE !== 'worktree') process.exit(2)
 }
 console.log(
-  `${C.dim}  · BP 桶明细:可判 ${bareCensus.get('api') || 0} / 已在册 ${bareRegistered.length} / 死调用 ${bareMissing.length}(无锚点 ${bareNoAnchor.reduce((a, s) => a + s.count, 0)} + 存量 ${bareStock.reduce((a, s) => a + s.count, 0)} + 新增 ${bareNew.reduce((a, s) => a + (s.count - s.allowed), 0)}) / 已豁免 ${bareIgnored.length} / 不透明挂载 ${bareOpaque.length}${C.reset}`,
+  `${C.dim}  · BP 桶明细:可判 ${bareCensus.get('api') || 0} / 已在册 ${bareRegistered.length} / 死调用 ${bareMissing.length}(无锚点 ${bareNoAnchor.reduce((a, s) => a + s.count, 0)} + 存量 ${bareStock.reduce((a, s) => a + s.count, 0)} + 新增 ${bareNew.reduce((a, s) => a + (s.count - s.allowed), 0)}) / 已豁免 ${bareIgnored.length} / 不透明挂载 ${bareOpaque.length} / 前缀假设未判定 ${bareAssumption.length}${C.reset}`,
 )
 console.log(
   `${C.dim}  · BP 不判的桶(逐桶报名,不静默丢):已是 /api/(主腿射程)${bareCensus.get('alreadyApi') || 0} / 透传档原样返回 ${bareCensus.get('passthrough') || 0} / 改写档那一族(判权在 CE 与③')${bareCensus.get('aliasRewriteFamily') || 0} / \`:param\` 假影 ${bareCensus.get('interpPhantom') || 0} / 字面量读不出 ${bareCensus.get('literalUnparsed') || 0} / 字面量未闭合 ${bareCensus.get('literalUnclosed') || 0} / 转发面豁免 ${bareCensus.get('rewriteForwarded') || 0} / 事实源读不出 ${bareCensus.get('factSourceUnread') || 0} / 归一未读到 ${bareCensus.get('barePrefixUnread') || 0} / 两口径不同形 ${bareCensus.get('normalizationMismatch') || 0}${C.reset}`,
@@ -5491,6 +5706,19 @@ if (bareOpaque.length > 0) {
   for (const c of bareOpaque.slice(0, 10)) {
     console.log(
       `${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line} —— 依据:${c.evidence}${C.reset}`,
+    )
+  }
+}
+if (GRAPH_AVAILABLE && bareAssumption.length > 0) {
+  console.log(
+    `${C.yellow}  (未判定)BP 腿 ${bareAssumption.length} 处只命中「前缀假设」面(图走不到,笛卡尔拼得出),不判红也不计通过:${C.reset}`,
+  )
+  for (const c of bareAssumption.slice(0, 10)) {
+    console.log(`${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}${C.reset}`)
+  }
+  if (bareAssumption.length > 10) {
+    console.log(
+      `${C.dim}    ... 其余 ${bareAssumption.length - 10} 处见 --dump-undetermined${C.reset}`,
     )
   }
 }

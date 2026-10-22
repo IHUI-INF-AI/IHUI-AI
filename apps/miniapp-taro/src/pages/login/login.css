@@ -423,35 +423,6 @@
   margin: 0 20rpx;
 }
 
-/* 图标网格(对齐 RN thirdPartyGrid:flexWrap 居中) */
-.login-oauth-grid {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 20rpx;
-}
-
-.login-oauth-btn {
-  width: 100rpx;
-  height: 100rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.login-oauth-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: var(--radius-md);
-}
-
-.login-oauth-label {
-  margin-top: 8rpx;
-  font-size: 20rpx;
-  color: var(--color-muted-foreground);
-}
-
 /* ===== SSO 按钮(弱化轮廓,对齐 RN ssoBtn:slim 38) ===== */
 .login-sso-btn {
   height: 68rpx;

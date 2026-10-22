@@ -15,7 +15,7 @@ import { createHash } from 'node:crypto'
 import { gitRaw } from './face-reader.mjs'
 
 const PUSHGATE_CACHE_TTL_MS = 60 * 60 * 1000 // 2026-10-22 提速:指纹未变即复用,10→60 分钟(改代码才会变指纹)
-const pushGateCacheFile = resolve(process.cwd(), '.workbuddy/push-gate-cache.json')
+const pushGateCacheFile = resolve(process.cwd(), '.ihui-agent/state/push-gate-cache.json')
 
 function readPushGateCache() {
   try {
@@ -86,7 +86,7 @@ export function pushGateCacheEarlyExit({ pushGate, cliArgs, C }) {
 export function writePushGateCache({ C, failed, pushGate }) {
   if (pushGate && failed === 0) {
     try {
-      mkdirSync(resolve(process.cwd(), '.workbuddy'), { recursive: true })
+      mkdirSync(resolve(process.cwd(), '.ihui-agent', 'state'), { recursive: true })
       writeFileSync(
         pushGateCacheFile,
         JSON.stringify({ fp: computeGateFingerprint(), passed: true, ts: Date.now() }),

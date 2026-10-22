@@ -469,6 +469,8 @@
     "resetPassword": "Reset password",
     "resetSuccess": "Password reset successful, please log in again",
     "sendCode": "Get verification code",
+    "ssoLogin": "Sign in on the website",
+    "ssoLoginLoading": "Signing in on the website...",
     "termsOfService": "Terms of Service",
     "thirdPartyLogin": "Third-party login",
     "toLogin": "Go to login",
@@ -1455,7 +1457,6 @@
     "password": "Password",
     "passwordPlaceholder": "Enter password",
     "loginBtn": "Login",
-    "ssoLogin": "SSO Login",
     "loading": "Logging in...",
     "error": "Login failed"
   },

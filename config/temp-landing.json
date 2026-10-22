@@ -50,7 +50,7 @@
     "maxNamesReported": 10,
     "maxEntriesPerRoot": 20000,
     "why": "回潮的**行为证据**不是注册表值而是'旧落点还在被写'。注册表可以已改对而活进程照旧(2026-10-05 就是这个状态);只看注册表会把'还在往 D:\\tmp 写'读成'已修好'。窗口取 1 小时(与巡检 30 分钟一趟错开,一轮里不会两次都空)。",
-    "action": "report-only —— 只点名、只计数,不删任何东西。删除归既有清扫器 `scripts/scrub-temp-fixtures.mjs`(2026-10-05 实测已由 git-guardian 的 scrubTempFixtures() 以 24h 档调度,戳 = `.workbuddy/temp-scrub-tick.iso`)。"
+    "action": "report-only —— 只点名、只计数,不删任何东西。删除归既有清扫器 `scripts/scrub-temp-fixtures.mjs`(2026-10-05 实测已由 git-guardian 的 scrubTempFixtures() 以 24h 档调度,戳 = `.ihui-agent/state/temp-scrub-tick.iso`)。"
   },
   "grading": {
     "tier": "warn / 告警档",

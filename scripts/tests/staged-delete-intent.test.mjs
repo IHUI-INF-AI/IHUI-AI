@@ -250,9 +250,9 @@ test('存续自愈:账里点名的路径不再被当成"外部删除"恢复,而�
   // 写账(形态与 safe-commit 的 recordClearedStagedDeletions 一致)
   const verdict = judgeStagedDeleteIntent({ before: snap.before, after: readCachedNameStatus({ root: dir }), ownPaths: ['mine.txt'] })
   assert.equal(verdict.kind, 'intent-lost')
-  mkdirSync(join(dir, '.workbuddy'), { recursive: true })
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
   writeFileSync(
-    join(dir, '.workbuddy', 'staged-delete-intent-ledger.jsonl'),
+    join(dir, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
     JSON.stringify({
       ts: new Date().toISOString(),
       event: 'index-purge-cleared-staged-deletions',
@@ -279,9 +279,9 @@ test('存续自愈:账里点名的路径不再被当成"外部删除"恢复,而�
 
 test('存续自愈:账坏/半截行 ⇒ 读账吞掉并按空集合走,不让每2 分钟一轮的守护崩掉', (t) => {
   const dir = scratchRepo(t)
-  mkdirSync(join(dir, '.workbuddy'), { recursive: true })
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
   writeFileSync(
-    join(dir, '.workbuddy', 'staged-delete-intent-ledger.jsonl'),
+    join(dir, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
     '{"event":"index-purge-cleared-staged-deletions","actionTaken":"report-only","clearedIntentLost":["ok.txt"]}\n{"broken":\n',
   )
   assert.deepEqual(
@@ -291,7 +291,7 @@ test('存续自愈:账坏/半截行 ⇒ 读账吞掉并按空集合走,不让每
   )
   // actionTaken 不是 report-only 的条目必须被忽略(防止账被改成"已恢复"而本层跟着信)
   writeFileSync(
-    join(dir, '.workbuddy', 'staged-delete-intent-ledger.jsonl'),
+    join(dir, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
     JSON.stringify({ actionTaken: 'restored', clearedIntentLost: ['sneaky.txt'] }) + '\n',
   )
   assert.deepEqual([...recentlyClearedStagedIntent(dir)], [], '非 report-only 的条目不得被采信')
