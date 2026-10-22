@@ -18,6 +18,7 @@ import {
 } from '../services/reconciliation-service.js'
 import { DistributedLock } from '../utils/distributed-lock.js'
 import { aggregateHeatStats } from '../services/heat-stats-service.js'
+import { refreshTrafficGauges } from '../services/traffic-stats-service.js'
 import { checkDailyAlerts } from '../services/alert-check-service.js'
 import { archiveDailyData } from '../services/data-archive-service.js'
 import { startExpirationMonitor } from '../services/expiration-monitor-service.js'
@@ -990,6 +991,34 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               /* 指标采集失败不影响业务 */
             }
             return { tenants: rows.length }
+          }
+          case 'traffic-stats-hourly': {
+            // ihui_traffic_page_views / _unique_visitors / _family_* / _aggregation_*(Gauge):
+            // 滚动窗口聚合。UV 是开放集 ⇒ 只发聚合后的单值,IP/session 原文不入标签;
+            // 单格查询失败不落 0(那会把"没测到"读成"没人来"),只计入 failures。
+            const result = await refreshTrafficGauges()
+            server.log.info(
+              {
+                cells: result.cells,
+                refreshed: result.refreshed.length,
+                failed: result.failures.length,
+                truncated: result.refreshed.filter((r) => r.truncated).length,
+              },
+              'traffic PV/UV gauge refreshed',
+            )
+            if (result.failures.length > 0) {
+              server.log.warn({ failures: result.failures }, 'traffic aggregation cells skipped')
+            }
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return {
+              refreshed: result.refreshed.length,
+              failed: result.failures.length,
+              cells: result.cells,
+            }
           }
           default:
             server.log.warn({ jobName: name }, 'unknown scheduled job')

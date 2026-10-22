@@ -70,6 +70,15 @@ import {
  *     - business_ttft_total{model,result} (counter)
  *     - business_ttft_p50_seconds / p95_seconds / p99_seconds (gauge)
  *     - business_ttft_alerts_total (counter)
+ * 13. 访客 PV/UV 聚合(gauge,由 scheduler 的 traffic-stats-hourly 刷新,见
+ *     `services/traffic-stats-service.ts`;UV 是按 IP/session 去重的开放集,
+ *     **聚合后**才成指标,IP/session 原文永不入标签)：
+ *     - ihui_traffic_page_views{window,source}
+ *     - ihui_traffic_unique_visitors{window,source}
+ *     - ihui_traffic_family_page_views{window,source,client_family}
+ *     - ihui_traffic_family_unique_visitors{window,source,client_family}
+ *     - ihui_traffic_family_breakdown_truncated{window,source}  (1 = 族分解只是下界)
+ *     - ihui_traffic_aggregation_last_success_timestamp_seconds  (0 = 本进程从未聚合成功)
  *
  * 路由通过 server.recordFunnel / recordApiCall / recordOrder / recordPayment / recordAiCall
  * 及新增的 record* 系列装饰器上报。
@@ -580,6 +589,49 @@ function ossErrorTypeFor(statusCode: number): string {
 export const AUTH_LOGIN_ANOMALY_REASONS = ['deny', 'challenge', 'review', 'lockout'] as const
 export type AuthLoginAnomalyReason = (typeof AUTH_LOGIN_ANOMALY_REASONS)[number]
 
+/**
+ * PV/UV 聚合窗口的封闭枚举(2026-10-23 立)。有界 ⇒ 可以做标签。
+ * 数组次序即基线次序;新增窗口必须同时给 `TRAFFIC_WINDOWS` 里这个值一个 SQL 侧
+ * 的小时数(见 services/traffic-stats-service.ts 的 `TRAFFIC_WINDOW_HOURS`),
+ * 否则新窗口只会有 0 基线、永远不会被刷新。
+ */
+export const TRAFFIC_WINDOWS = ['1h', '24h'] as const
+export type TrafficWindow = (typeof TRAFFIC_WINDOWS)[number]
+
+/**
+ * PV/UV 聚合来源表。同样是**有界**维度(表名不会由请求决定)。
+ * 两表的 UV 口径不同,看盘别混着比:
+ *  - `api_logs`:UV = 去重来源 IP(每个 /api 请求都算一次 PV,含机器人与探测);
+ *  - `visit_logs`:UV = 去重 coalesce(session_id, ip)(只有前端埋点上报的页面访问)。
+ * 口径写在这条注释与渲染侧的 `# HELP` 里,单一真相源 = `TRAFFIC_SOURCE_UV_LABEL`。
+ */
+export const TRAFFIC_SOURCES = ['api_logs', 'visit_logs'] as const
+export type TrafficSource = (typeof TRAFFIC_SOURCES)[number]
+
+/**
+ * 各来源表的 UV 口径(渲染侧 `# HELP` 与面板描述都引这一份,不在两处各抄一遍)。
+ * 键集必须与 `TRAFFIC_SOURCES` 逐字相同 —— 由 `services/traffic-stats-service.ts`
+ * 的用例 G3 用 `Object.keys` 对账锁住。
+ */
+export const TRAFFIC_SOURCE_UV_LABEL: Record<TrafficSource, string> = {
+  api_logs: 'UV = distinct server-observed ip over /api requests (includes bots and probes)',
+  visit_logs: 'UV = distinct coalesce(session_id, ip) over reported page visits',
+}
+
+/** 一次聚合样本(族维用 `Partial`,缺省族 = 该窗口内该族一次也没出现)。 */
+export interface TrafficGaugeSample {
+  window: TrafficWindow
+  source: TrafficSource
+  pageViews: number
+  uniqueVisitors: number
+  familyPageViews?: Partial<Record<ClientFamily, number>>
+  familyUniqueVisitors?: Partial<Record<ClientFamily, number>>
+  /** true = 族分解因 UA 种类数超预算而被截断 ⇒ 族值只是下界(不许悄悄少报) */
+  familyBreakdownTruncated?: boolean
+  /** 本次聚合成功完成的时刻(ms);传 0/不传 = 不推进新鲜度戳 */
+  aggregatedAtMs?: number
+}
+
 const ihuiState = {
   // ---- auth 7 ----
   authLoginAttemptTotal: 0,
@@ -658,6 +710,25 @@ const ihuiState = {
   trafficRequestsTotal: new Map<string, number>(),
   /** key: scan_kind|client_family —— 两维同样封闭(SCAN_PROBE_KINDS / CLIENT_FAMILIES) */
   trafficScanHitsTotal: new Map<string, number>(),
+  // ---- traffic 3(PV/UV 聚合 Gauge,2026-10-23 立) ----
+  // UV 是**开放集**(IP / session 无限),所以它从来不许当标签:聚合在服务端做完,
+  // 只把"一个窗口里有多少个"发成单值 gauge;标签只留有界维度(window / source / family)。
+  // 状态只活在进程内存里 ⇒ **重启归零**:本次刻意接受这个代价,后果是面板在大屏上
+  // 只能看"本进程起来之后"的滚动窗口,历史 PV/UV 要回 `api_logs` / `visit_logs` 查。
+  // 之所以不建预聚合表:另一路会话在飞,建表要出 drizzle 迁移、编号会撞(禁改清单内)。
+  // 刷新方 = scheduler 的 `traffic-stats-hourly`(小时级),**不在 scrape 路径、也不在请求路径**。
+  /** key: window|source */
+  trafficPageViews: new Map<string, number>(),
+  /** key: window|source */
+  trafficUniqueVisitors: new Map<string, number>(),
+  /** key: window|source|client_family —— family 取自 classifyClientFamily(封闭集) */
+  trafficFamilyPageViews: new Map<string, number>(),
+  /** key: window|source|client_family —— 上界口径:同一 IP 跨两把 UA 会重复计 */
+  trafficFamilyUniqueVisitors: new Map<string, number>(),
+  /** key: window|source —— 1 = 族分解被 UA 种类预算截断(族值只剩下界,必须显式可见) */
+  trafficFamilyBreakdownTruncated: new Map<string, number>(),
+  /** 上次聚合成功完成的 unix 秒。0 = 本进程从未跑成过(与"这段时间真没访客"不同形) */
+  trafficAggregatedAtSeconds: 0,
   // ---- 横切:基数上限丢弃计数(单族超 512 条序列后每次新序列写入 +1) ----
   seriesDroppedTotal: 0,
 }
@@ -718,6 +789,21 @@ function seedIhuiClosedEnumBaseline(): void {
     }
     for (const kind of SCAN_PROBE_KINDS) {
       ihuiCounterInc(ihuiState.trafficScanHitsTotal, `${kind}|${family}`, 0)
+    }
+  }
+  // traffic 3(PV/UV 聚合 Gauge):窗口 × 来源 × (族) 全组合预先开线。
+  // **只开 0,不开任何"看起来像数据"的值** —— gauge 的 0 在这里表示"还没测到/确实为 0",
+  // 而"从来没测过"另有出口(`ihui_traffic_aggregation_last_success_timestamp_seconds` = 0)。
+  for (const window of TRAFFIC_WINDOWS) {
+    for (const source of TRAFFIC_SOURCES) {
+      const key = `${window}|${source}`
+      ihuiState.trafficPageViews.set(key, 0)
+      ihuiState.trafficUniqueVisitors.set(key, 0)
+      ihuiState.trafficFamilyBreakdownTruncated.set(key, 0)
+      for (const family of CLIENT_FAMILIES) {
+        ihuiState.trafficFamilyPageViews.set(`${key}|${family}`, 0)
+        ihuiState.trafficFamilyUniqueVisitors.set(`${key}|${family}`, 0)
+      }
     }
   }
 }
@@ -975,6 +1061,70 @@ export function recordTrafficScanHit(kind: ScanProbeKind, family: ClientFamily):
   })
 }
 
+/**
+ * Gauge:写入一次"窗口 × 来源"的 PV/UV 聚合结果(set 语义,不是累加)。
+ *
+ * 为什么是 gauge 而不是 counter:UV 按定义不可累加(同一 IP 两个窗口都算一个人),
+ * 而"滚动窗口里的当前值"正是 gauge 的形状 —— 面板直接读瞬时值,不做 rate/increase。
+ *
+ * 基数纪律(与本文件那条"开放集不入标签"同源):
+ * - `window` / `source` 只接受 `TRAFFIC_WINDOWS` / `TRAFFIC_SOURCES` 里的字面值,
+ *   `client_family` 只接受 `CLIENT_FAMILIES` 里的字面值(= `classifyClientFamily` 的值域);
+ *   枚举外的键**直接丢弃**,所以这三张图的结构键数恒定 = 2×2(×12),不会被打爆;
+ * - IP / session / UA 原文一律不进这里(调用方传不进来:入参只有数字)。
+ *
+ * 缺省族必须归 0:否则上一小时的族值会一直挂在面板上,把"这一小时没人来"读成"还有人"。
+ */
+export function setTrafficGaugeSample(sample: TrafficGaugeSample): void {
+  safeRecord('setTrafficGaugeSample', () => {
+    if (!isTrafficWindow(sample.window) || !isTrafficSource(sample.source)) return
+    const key = `${sample.window}|${sample.source}`
+    ihuiState.trafficPageViews.set(key, trafficGaugeInt(sample.pageViews))
+    ihuiState.trafficUniqueVisitors.set(key, trafficGaugeInt(sample.uniqueVisitors))
+    ihuiState.trafficFamilyBreakdownTruncated.set(key, sample.familyBreakdownTruncated ? 1 : 0)
+    for (const family of CLIENT_FAMILIES) {
+      ihuiState.trafficFamilyPageViews.set(`${key}|${family}`, 0)
+      ihuiState.trafficFamilyUniqueVisitors.set(`${key}|${family}`, 0)
+    }
+    if (sample.familyPageViews) {
+      for (const [family, value] of Object.entries(sample.familyPageViews)) {
+        if (!isClientFamily(family)) continue
+        ihuiState.trafficFamilyPageViews.set(`${key}|${family}`, trafficGaugeInt(value))
+      }
+    }
+    if (sample.familyUniqueVisitors) {
+      for (const [family, value] of Object.entries(sample.familyUniqueVisitors)) {
+        if (!isClientFamily(family)) continue
+        ihuiState.trafficFamilyUniqueVisitors.set(`${key}|${family}`, trafficGaugeInt(value))
+      }
+    }
+    const at = sample.aggregatedAtMs
+    if (typeof at === 'number' && Number.isFinite(at) && at > 0) {
+      ihuiState.trafficAggregatedAtSeconds = Math.floor(at / 1000)
+    }
+  })
+}
+
+/** 非负整数(浮点向下取整;NaN/负数归 0)。 */
+function trafficGaugeInt(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return 0
+  return Math.floor(value)
+}
+
+// 三个"是不是枚举成员"的判定写成值域检查而非类型断言:运行期输入来自 service 层,
+// 而 service 层的值又来自 SQL —— 编译期形状守不住脏数据,标签基数只能在这里收口。
+function isTrafficWindow(value: string): value is TrafficWindow {
+  return (TRAFFIC_WINDOWS as readonly string[]).includes(value)
+}
+
+function isTrafficSource(value: string): value is TrafficSource {
+  return (TRAFFIC_SOURCES as readonly string[]).includes(value)
+}
+
+function isClientFamily(value: string): value is ClientFamily {
+  return (CLIENT_FAMILIES as readonly string[]).includes(value)
+}
+
 /** Gauge:一次扫描 set 两个(存储字节 + 文件数)。scheduler 定时刷新。 */
 export function setOssStorageStats(totalBytes: number, totalFiles: number): void {
   safeRecord('setOssStorageStats', () => {
@@ -1129,6 +1279,12 @@ export function resetIhuiState(): void {
   ihuiState.tenantResourceQuota.clear()
   ihuiState.trafficRequestsTotal.clear()
   ihuiState.trafficScanHitsTotal.clear()
+  ihuiState.trafficPageViews.clear()
+  ihuiState.trafficUniqueVisitors.clear()
+  ihuiState.trafficFamilyPageViews.clear()
+  ihuiState.trafficFamilyUniqueVisitors.clear()
+  ihuiState.trafficFamilyBreakdownTruncated.clear()
+  ihuiState.trafficAggregatedAtSeconds = 0
   ihuiState.seriesDroppedTotal = 0
   // 清零后必须把封闭枚举的 0 基线重新开回去,否则一次 admin reset / onClose 就把
   // 面板打回 "No data"(与本次要根治的形态同形)。
@@ -2161,6 +2317,72 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
       lines.push(`ihui_traffic_scan_hits_total{kind="${kind}",client_family="${family}"} ${v}`)
     }
 
+    // traffic 3:PV/UV 聚合(gauge)。UV 是开放集 ⇒ 只在服务端聚合完再发**单值**,
+    // 标签只留有界的 窗口 / 来源表 / 客户端族。数值来源 = scheduler 的
+    // `traffic-stats-hourly`(限窗 + 带预算的聚合查询),**不在每次 scrape、也不在请求路径上**。
+    // 读 0 的两种含义要分清:看 `ihui_traffic_aggregation_last_success_timestamp_seconds`
+    // —— 它是 0 表示"这个进程还没成功聚合过一次",不是"真没有一个访客"。
+    lines.push(
+      '# HELP ihui_traffic_page_views Rolling-window page/request views (gauge, refreshed by traffic-stats-hourly)',
+    )
+    lines.push('# TYPE ihui_traffic_page_views gauge')
+    for (const [k, v] of ihuiState.trafficPageViews) {
+      const [window, source] = k.split('|')
+      lines.push(`ihui_traffic_page_views{window="${window}",source="${source}"} ${v}`)
+    }
+
+    lines.push(
+      `# HELP ihui_traffic_unique_visitors Rolling-window unique visitors per source (${TRAFFIC_SOURCE_UV_LABEL.api_logs} / ${TRAFFIC_SOURCE_UV_LABEL.visit_logs})`,
+    )
+    lines.push('# TYPE ihui_traffic_unique_visitors gauge')
+    for (const [k, v] of ihuiState.trafficUniqueVisitors) {
+      const [window, source] = k.split('|')
+      lines.push(`ihui_traffic_unique_visitors{window="${window}",source="${source}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_traffic_family_page_views Rolling-window page views split by self-declared client family',
+    )
+    lines.push('# TYPE ihui_traffic_family_page_views gauge')
+    for (const [k, v] of ihuiState.trafficFamilyPageViews) {
+      const [window, source, family] = k.split('|')
+      lines.push(
+        `ihui_traffic_family_page_views{window="${window}",source="${source}",client_family="${family}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_traffic_family_unique_visitors Upper-bound rolling-window visitors per client family (an ip seen under two user agents of one family counts twice)',
+    )
+    lines.push('# TYPE ihui_traffic_family_unique_visitors gauge')
+    for (const [k, v] of ihuiState.trafficFamilyUniqueVisitors) {
+      const [window, source, family] = k.split('|')
+      lines.push(
+        `ihui_traffic_family_unique_visitors{window="${window}",source="${source}",client_family="${family}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_traffic_family_breakdown_truncated 1 when the family split hit the user-agent kind budget and only reports a lower bound',
+    )
+    lines.push('# TYPE ihui_traffic_family_breakdown_truncated gauge')
+    for (const [k, v] of ihuiState.trafficFamilyBreakdownTruncated) {
+      const [window, source] = k.split('|')
+      lines.push(
+        `ihui_traffic_family_breakdown_truncated{window="${window}",source="${source}"} ${v}`,
+      )
+    }
+
+    // 每个来源表的 UV 口径就一句,取自 TRAFFIC_SOURCE_UV_LABEL 这份唯一清单(不在 HELP
+    // 与面板里各抄一遍);这里只挑 api_logs 那条,另一条在 /visit-tracking 管理页看。
+    lines.push(
+      '# HELP ihui_traffic_aggregation_last_success_timestamp_seconds Last successful traffic aggregation (unix seconds); 0 means this process never completed one — it does NOT mean there were no visitors',
+    )
+    lines.push('# TYPE ihui_traffic_aggregation_last_success_timestamp_seconds gauge')
+    lines.push(
+      `ihui_traffic_aggregation_last_success_timestamp_seconds ${ihuiState.trafficAggregatedAtSeconds}`,
+    )
+
     // 横切:基数上限丢弃计数
     lines.push(
       '# HELP ihui_series_dropped_total ihui_* metric series writes dropped at the label cardinality cap',
@@ -2211,6 +2433,11 @@ export const __test__ = {
   SCAN_PROBE_KINDS,
   recordTrafficRequest,
   recordTrafficScanHit,
+  // PV/UV 聚合族:窗口与来源表的有界清单 + 写入出口,一律由测试从源文件取
+  TRAFFIC_WINDOWS,
+  TRAFFIC_SOURCES,
+  TRAFFIC_SOURCE_UV_LABEL,
+  setTrafficGaugeSample,
 }
 
 declare module 'fastify' {
