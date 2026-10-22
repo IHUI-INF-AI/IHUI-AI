@@ -28878,7 +28878,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 
 
-- [ ] G-929 **旁路落地器的镜像套件红 26 例：暖色描边涉事判据（门 231）在测试通道换仓时必然「未判定」而被落地器当拒绝**〔登记@2026-10-21/工程执行席〕:成因现读复现 = `node scripts/tests/object-space-land.test.mjs` 得 `tests 66 / pass 40 / fail 26`,首条失败自述「❌ 暖色描边涉事判据未判定(rc=2),拒绝落盘 … git ls-tree 失败: fatal: not a tree object」;根因是门 231 的 `--rev <tree>` 档**按门体自身仓根**解析树 oid(`scripts/check-no-warm-border.mjs` 头注自写"门体按仓库根自推导,不跟 LAND_ROOT 走"),而镜像用例把落地器指 〔压缩@2026-10-22〕
+- [x] ✅(2026-10-23) G-929 **旁路落地器的镜像套件红 26 例：暖色描边涉事判据（门 231）在测试通道换仓时必然「未判定」而被落地器当拒绝**〔登记@2026-10-21/工程执行席〕:成因现读复现 = `node scripts/tests/object-space-land.test.mjs` 得 `tests 66 / pass 40 / fail 26`,首条失败自述「❌ 暖色描边涉事判据未判定(rc=2),拒绝落盘 … git ls-tree 失败: fatal: not a tree object」;根因是门 231 的 `--rev <tree>` 档**按门体自身仓根**解析树 oid(`scripts/check-no-warm-border.mjs` 头注自写"门体按仓库根自推导,不跟 LAND_ROOT 走"),而镜像用例把落地器指 〔压缩@2026-10-22〕〔结清@2026-10-23/工单席复跑:26 例红已在库消失(现读非票面 66/40/26)——链为 ad02ccba7d(门 231 增 --root 显式被审仓根+落地器透传)→ 47702b62b6(钉 --root/--rev/--only 三态)→ 1724a86a40(撤掉门 231 的全局测试桩,60+ 端到端例跑真门);rc=2 仍是 fail-closed 拒绝(T-WB3/T-DG3 钉死),未判定没被读成绿,判据强度未削。复跑四把尺子:object-space-land 镜像 76/76、check-no-warm-border 镜像 17/17(含 --root 三态 M16)、门 231 self-test OK、落地器 self-test 7/7、门全量 HEAD 面射程 5348/命中 0/未判定 0 rc=0。残段如实:门 98 check-dangling-local-imports 仍是同型隐患(ROOT 按脚本位置自推导、runDanglingGate 不传 --root、镜像靠逐例 writeGateStub)——另席处置中〕
 
 
 - [ ] G-939 **已推送的提交会被并发合并吞掉，而拦这一型的门当场没响（现读一例）**〔登记@2026-10-21/工程执行席〕：枚 `12898ccd9bcb2b8e094e0057d94e0fab0380293a`（票60 第三批，11 枚文件）现读**不在 HEAD 祖先链、`origin/main` 上亦无**（`git merge-base --is-ancestor` 两问皆否），它改的内容在盘上退回未提交态、只能重落（重落枚 `d3541dc2670cec8634a57d04bcfbe5ff2b47c093`；原枚已按 §22 先 `git tag lost-commit/12898ccd9bcb2b8e094e0057d94e0fab0380293a` 保全再重落）。要查的是判据那一格：守门 100（合并吞掉对侧新增）与 168 〔压缩@2026-10-22〕
