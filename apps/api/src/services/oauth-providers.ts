@@ -84,6 +84,39 @@ export async function verifyGoogleIdToken(idToken: string): Promise<GoogleUserIn
 // 微信小程序
 // ============================================================================
 
+/**
+ * 微信系接口的失败形态:**HTTP 200 + body.errcode**(与阿里云 SendSms 的
+ * `200 + body.Code=isv.*` 完全同族)。本文件此前只判 `resp.ok`,于是"被拒"被读成
+ * "成功但字段是 undefined" —— 而这条腿住在**认证路径**上,不是发信路径。
+ *
+ * 实测(2026-10-22,假 code 直打线上):`GET /api/auth/wechat/mini/login` 回 500「服务器错误」。
+ * 顺着看才发现真正的危险那一格不在 500,而在"它居然可能不 500":
+ * `jscode2session` 返回 `{openId: undefined}` 后,`findThirdPartyAccount(platform, undefined)`
+ * 一旦没抛,下面就是 `needPhone:true, openId:undefined` 一路往下 ⇒
+ * 一枚 `open_id` 为空的绑定/用户可以被凭空造出来(§5「认证不等于授权」:身份不得住在可缺省字段里)。
+ *
+ * 所以这里把两件事一起判:**errcode 非零是失败**,**关键字段为空也是失败**。
+ */
+export class WechatApiError extends Error {
+  readonly errcode: number
+  constructor(what: string, errcode: number, detail: string) {
+    super(`${what} 被微信侧拒绝:errcode=${errcode}${detail ? ` ${detail.slice(0, 60)}` : ''}`)
+    this.name = 'WechatApiError'
+    this.errcode = errcode
+  }
+}
+
+/** 读微信 JSON:先验 errcode,再验"这个字段必须是非空字符串"。返回该字段值。 */
+function requireWechatField(what: string, body: Record<string, unknown>, field: string): string {
+  const errcode = Number(body.errcode ?? 0)
+  if (errcode !== 0) throw new WechatApiError(what, errcode, String(body.errmsg ?? ''))
+  const value = body[field]
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new WechatApiError(what, -1, `响应里 ${field} 不是非空字符串`)
+  }
+  return value
+}
+
 export interface WechatMiniSession {
   openId: string
   unionId: string
@@ -99,8 +132,12 @@ export async function jscode2session(code: string): Promise<WechatMiniSession> {
   const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${env.WX_MINI_APPID}&secret=${env.WX_MINI_SECRET}&js_code=${code}&grant_type=authorization_code`
   const resp = await fetch(url)
   if (!resp.ok) throw new Error(`Wechat jscode2session failed: ${resp.status}`)
-  const data = (await resp.json()) as { openid: string; unionid: string; session_key: string }
-  return { openId: data.openid, unionId: data.unionid, sessionKey: data.session_key }
+  const data = (await resp.json()) as Record<string, unknown>
+  return {
+    openId: requireWechatField('jscode2session', data, 'openid'),
+    unionId: typeof data.unionid === 'string' ? data.unionid : '',
+    sessionKey: typeof data.session_key === 'string' ? data.session_key : '',
+  }
 }
 
 /** 获取手机号（getuserphonenumber） */
@@ -115,8 +152,17 @@ export async function getPhoneNumber(code: string): Promise<string> {
     },
   )
   if (!resp.ok) throw new Error(`Wechat getuserphonenumber failed: ${resp.status}`)
-  const data = (await resp.json()) as { phone_info: { phoneNumber: string } }
-  return data.phone_info.phoneNumber
+  const data = (await resp.json()) as Record<string, unknown>
+  if (Number(data.errcode ?? 0) !== 0) {
+    throw new WechatApiError('getuserphonenumber', Number(data.errcode), String(data.errmsg ?? ''))
+  }
+  const info = data.phone_info as Record<string, unknown> | undefined
+  const phoneNumber = requireWechatField(
+    'getuserphonenumber(phone_info)',
+    info ?? {},
+    'phoneNumber',
+  )
+  return phoneNumber
 }
 
 // ============================================================================
@@ -193,12 +239,13 @@ export async function getAccessToken(): Promise<string> {
   const url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${env.WX_MINI_APPID}&secret=${env.WX_MINI_SECRET}`
   const resp = await fetch(url)
   if (!resp.ok) throw new Error(`Wechat gettoken failed: ${resp.status}`)
-  const data = (await resp.json()) as { access_token: string; expires_in: number }
+  const data = (await resp.json()) as Record<string, unknown>
+  const token = requireWechatField('cgi-bin/token', data, 'access_token')
   cachedAccessToken = {
-    token: data.access_token,
-    expiresAt: now + (data.expires_in - 200) * 1000,
+    token,
+    expiresAt: now + (Number(data.expires_in ?? 7200) - 200) * 1000,
   }
-  return data.access_token
+  return token
 }
 
 /** 生成小程序无限码 */
