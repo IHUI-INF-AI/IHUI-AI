@@ -1490,4 +1490,180 @@ test('形状锁:盲区点名共用 TRANSPORT_RE,且登记与计数同一分支(�
   assert.match(fnCode, /TRANSPORT_RE_G/, '点名必须走派生的那份正则')
   assert.match(src, /maskComments\(src\)\.split\('\\n'\)/, '注释态标签必须引 lib 的遮罩(不得自造)')
 })
+
+// ═══════════════════════════════════════════════════════════
+// 38–40. O87g 阳性对照(2026-10-22):笛卡尔拼接的假绿**必须被抓出**
+//   票面点名的缺陷型:`routes/ranking.ts` 挂在 `/api/ranking` 下的 `server.get('/courses')`,
+//   旧 `buildCompositePrefixes` 把这条 localPath 与绝对前缀 `/api` 笛卡尔拼接,凭空造出
+//   结构上不存在的 `GET /api/courses` ⇒ 前端真打 `/api/courses`(实际 404)被门读成「在册」。
+//   验收判据(票面原话):**绝不可用 RC=0 当结清证据** —— 本组钉的是「假绿那一型被抓出」
+//   (P1 判红 + P2 真路径仍绿防过度收紧 + P3 兜底档必须大声点名),不是整门绿灯。
+// ═══════════════════════════════════════════════════════════
+
+/** P 组共用夹具:server.ts 在面 ⇒ 判据走 `scripts/lib/route-registration-extract.mjs` 的精确挂载图 */
+function mountGraphFixture(dir) {
+  writeFile(
+    dir,
+    'apps/api/src/server.ts',
+    [
+      "import Fastify from 'fastify'",
+      "import { rankingRoutes } from './routes/ranking'",
+      'export function buildServer() {',
+      '  const server = Fastify()',
+      "  server.register(rankingRoutes, { prefix: '/api/ranking' })",
+      '  return server',
+      '}',
+      '',
+    ].join('\n'),
+  )
+  writeFile(
+    dir,
+    'apps/api/src/routes/ranking.ts',
+    [
+      'export async function rankingRoutes(server) {',
+      '  server.get(',
+      "    '/courses',",
+      '    async () => ({ items: [] }),',
+      '  )',
+      '}',
+      '',
+    ].join('\n'),
+  )
+}
+
+// ─── 38. P1 阳性对照:笛卡尔假绿必须被抓出 —— /api/courses 是拼出来的,不是注册的 ──
+test('O87g P1 阳性对照:挂载图下 /api/ranking 的 /courses 不得拼成 /api/courses,前端真打它必须判红', () => {
+  const dir = createTempRoot()
+  try {
+    mountGraphFixture(dir)
+    writeFile(dir, 'apps/web/api.ts', `fetchApi('/api/courses')`)
+    const r = runScript(dir)
+    assert.equal(
+      r.status,
+      1,
+      `/api/courses 结构上不存在,精确档必须判红(旧笛卡尔档在这里报"在册"= 本票点名的假绿)\nstdout: ${r.out}`,
+    )
+    assert.match(r.out, /GET \/api\/courses/, '必须点名这条死调用')
+    assert.doesNotMatch(r.out, /兜底档/, 'server.ts 在面 ⇒ 必须走精确档,不得静默退回笛卡尔拼接')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── 39. P2 防过度收紧:图里走得通的真实路径必须仍在册 ──
+// 精确判据的失败方向是"漏读造恒红"(§12e),所以阳性对照必须成对:同夹具改打真路径 ⇒ exit 0。
+test('O87g P2 防过度收紧:/api/ranking/courses(图里走得通)必须命中在册 → exit 0', () => {
+  const dir = createTempRoot()
+  try {
+    mountGraphFixture(dir)
+    writeFile(dir, 'apps/web/api.ts', `fetchApi('/api/ranking/courses')`)
+    const r = runScript(dir)
+    assert.equal(
+      r.status,
+      0,
+      `真实挂载路径不得被精确档吞掉(漏读=恒红门)\nstdout: ${r.out}\nstderr: ${r.stderr}`,
+    )
+    assert.match(r.out, /通过/)
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── 41. P4 三态口径:笛卡尔拼得出、图走不到的调用 ⇒ 未判定报名,**不记绿也不判红** ──
+// 这一例钉的是票面核心那一型的**另一半**:P1 抓的是"凭空假路径"(两头都不命中 ⇒ 红);
+// 本例的 /api/courses 是**旧门真绿过**的那一型(前缀 `/api` 与 localPath `/courses` 分家
+// 在两个插件下,笛卡尔恰好拼出)—— 库现已追 re-export barrel(2026-10-22 O87g),真挂载链大多能
+// 被图走到;但这一型(prefix 与 localPath 分家两插件)仍与假路径静态不可分辨 ⇒ 判据只能落
+// 「未判定(前缀假设命中)」并逐条报名。
+// 双向都有牙:有人把笛卡尔放回绿档 ⇒ 报名行消失 ⇒ 本例红;有人收紧成直接判红 ⇒
+// status=1 ⇒ 本例红(§12e 恒红防线)。
+test('O87g P4 三态口径:只命中「前缀假设」笛卡尔面的调用落未判定并报名,不记绿也不判红', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(
+      dir,
+      'apps/api/src/server.ts',
+      [
+        "import Fastify from 'fastify'",
+        "import { otherRoutes } from './routes/other'",
+        "import { topRoutes } from './routes/top'",
+        'export function buildServer() {',
+        '  const server = Fastify()',
+        "  server.register(otherRoutes, { prefix: '/api/other' })",
+        "  server.register(topRoutes, { prefix: '/api' })",
+        '  return server',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    writeFile(
+      dir,
+      'apps/api/src/routes/other.ts',
+      "export async function otherRoutes(server) {\n  server.get('/courses', async () => ({}))\n}\n",
+    )
+    writeFile(
+      dir,
+      'apps/api/src/routes/top.ts',
+      "export async function topRoutes(server) {\n  server.get('/ping', async () => ({}))\n}\n",
+    )
+    writeFile(dir, 'apps/web/api.ts', `fetchApi('/api/courses')`)
+    const r = runScript(dir)
+    assert.doesNotMatch(
+      r.out,
+      /兜底档/,
+      `server.ts 在面 ⇒ 必须走精确档\nstdout: ${r.out}`,
+    )
+    assert.match(
+      r.out,
+      /未判定\(前缀假设命中\)/,
+      `笛卡尔拼得出而图走不到的调用必须落「未判定(前缀假设命中)」—— 放回绿档(假绿复发)或判红(过度收紧)都该让本例红\nstdout: ${r.out}`,
+    )
+    assert.match(r.out, /GET \/api\/courses/, '这一格必须逐条报名(票面③:报数必须报名)')
+    assert.equal(
+      r.status,
+      0,
+      `不可分辨的一型不得冒红(§12e),也不得静默成绿\nstdout: ${r.out}\nstderr: ${r.stderr}`,
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── 40. P3 兜底档点名:server.ts 不在面时退回笛卡尔拼接,必须大声喊出来,不得冒充精确档 ──
+// 夹具形状:相对注册 `/courses` + 绝对前缀 `/api` —— 兜底档**会**拼出 /api/courses(假绿仍在),
+// 钉的是"退回必须点名",让拿到读数的人知道这一档的 0 不可读成对账通过。
+test('O87g P3 兜底档:server.ts 不在面 ⇒ 退回旧拼接并大声点名(不静默)', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(
+      dir,
+      'apps/api/src/routes/ranking.ts',
+      [
+        'export async function rankingRoutes(server) {',
+        '  server.register(',
+        '    async (child) => {',
+        "      child.get('/courses', async () => ({}))",
+        '    },',
+        "    { prefix: '/api' },",
+        '  )',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    writeFile(dir, 'apps/web/api.ts', `fetchApi('/api/courses')`)
+    const r = runScript(dir)
+    assert.match(
+      r.out,
+      /兜底档.*笛卡尔/,
+      `退回旧判据必须点名"笛卡尔/前缀假设"\nstdout: ${r.out}`,
+    )
+    assert.match(
+      r.out,
+      /不得读成对账通过/,
+      '兜底档的结论必须明说这一档的死调用 0 不可读成对账通过',
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
