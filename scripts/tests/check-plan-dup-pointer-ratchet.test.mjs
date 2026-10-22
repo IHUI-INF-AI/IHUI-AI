@@ -249,8 +249,10 @@ test('P8 A5 仍有牙:未勾选行数不变而重复度上升 ⇒ 必红(不许�
 
 test('P9 维③叠注重数:同一行同一注记多出来的份数只拦变多;识别集不并入 DUP_POINTER_RE', () => {
   const one = '- [ ] G-9 做点啥 〔同题原号 G-191〕\n'
+  const two = '- [ ] G-9 做点啥 〔同题原号 G-191〕〔同题原号 G-191〕\n'
   const three = '- [ ] G-9 做点啥 〔同题原号 G-191〕〔同题原号 G-191〕〔同题原号 G-191〕\n'
   if (redundantNoteCount(one) !== 0) throw new Error('单份留痕不该计重叠(阳性对照失败)')
+  if (redundantNoteCount(two) !== 1) throw new Error('同一行叠同一注记 2 份应被识别(计 1 份多余)')
   if (redundantNoteCount(three) !== 2) throw new Error('三份同注记应计 2 份多余')
   if (redundantNoteCountInLine('') !== 0) throw new Error('空行必须读成 0')
   const prose = '随便一句正文 〔同题原号 G-191〕〔同题原号 G-191〕\n'
@@ -299,4 +301,26 @@ test('P10 维④前缀型副本对:只数严格前缀,逐字相同归 fold-ident
   const grew = prefixTwinVerdict(A, A + B)
   if (!grew.grew || grew.before !== 0 || grew.after !== 1) throw new Error('新增副本对必须判红')
   if (prefixTwinVerdict(A + B, A).grew) throw new Error('折并后不得判红')
+})
+
+test('P11 维③字族补入(2026-10-22 票面修法①):〔同题原号 …〕与〔改号(…):原…〕超窗形态可识别,单份不红', () => {
+  const row = (notes) => `- [ ] G-9 做点啥 ${notes}\n`
+  // 7 位原号的改号留痕内文 25 字,超通用窗上界(HEAD 面实测 16 个这种 token / 15 行)
+  const renum = '〔改号(2026-10-22):原G-1058619〕'
+  if (redundantNoteCount(row(renum)) !== 0) throw new Error('单份改号留痕不得计重叠(阳性对照)')
+  if (redundantNoteCount(row(renum + renum)) !== 1)
+    throw new Error('同一行叠两份 25 字超窗改号留痕必须被识别(票面点名形态)')
+  // 省略号形同题原号内文 6 字,低于通用窗下界(HEAD 面实测存在此形态)
+  const ell = '〔同题原号 …〕'
+  if (redundantNoteCount(row(ell + ell)) !== 1)
+    throw new Error('同一行叠两份 6 字低于窗形的同题原号必须被识别')
+  if (redundantNoteCount(row(ell)) !== 0) throw new Error('单份省略号形不得计重叠')
+  // 差值方向:叠两份即红 / 折并归零判绿
+  const grew = noteRedundancyVerdict(row(renum), row(renum + renum))
+  if (!grew.grew || grew.before !== 0 || grew.after !== 1) throw new Error('超窗字族叠两份必须判红')
+  if (noteRedundancyVerdict(row(renum + renum), row(renum)).grew)
+    throw new Error('折并回单份不得判红')
+  // 形状锁:补字族只进维③自带识别集,DUP_POINTER_RE 仍只有原字面(维①/T3 不担责)
+  if (DUP_POINTER_RE.source.includes('同题原号') || DUP_POINTER_RE.source.includes('改号'))
+    throw new Error('DUP_POINTER_RE 被扩大 ⇒ 合法改号留痕会被维①/T3 算成存量判红(§12e)')
 })
