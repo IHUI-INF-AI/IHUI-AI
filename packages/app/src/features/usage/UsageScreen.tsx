@@ -164,7 +164,7 @@ export function UsageScreen({
                     {
                       width: usageBarWidth(quota?.usage_percent ?? 0, 100),
                       backgroundColor:
-                        (quota?.usage_percent ?? 0) > 80 ? tk.danger.DEFAULT : tk.brand.DEFAULT,
+                        (quota?.usage_percent ?? 0) > 80 ? tk.danger.DEFAULT : tk.brandAccent.deep,
                     },
                   ]}
                 />
@@ -316,7 +316,7 @@ function createStyles(tk: AppThemeTokens) {
     barFill: {
       height: '100%',
       borderRadius: rnRadius.xs,
-      backgroundColor: tk.brand.DEFAULT, // r9-literal-exempt: 进度条填充条无文字前景,不承载可读文本(非 CTA)
+      backgroundColor: tk.brandAccent.deep,
     },
     barValue: { width: 116, textAlign: 'right', fontSize: 11, color: tk.text.secondary },
     modelRow: { gap: 3 },

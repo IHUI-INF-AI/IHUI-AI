@@ -154,9 +154,20 @@ const miniprogramRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
 
     if (existing) {
+      const changed = Object.fromEntries(
+        Object.entries(parsed.data).filter(([key, value]) => {
+          if (value === undefined) return false
+          const current = (existing as unknown as Record<string, unknown>)[key]
+          // config 是 JSONB,按引用比永远"变了" ⇒ 对象档按键序无关的序列化值比
+          return typeof value === 'object'
+            ? JSON.stringify(current) !== JSON.stringify(value)
+            : current !== value
+        }),
+      )
+      if (Object.keys(changed).length === 0) return reply.send(success({ config: existing }))
       const [updated] = await db
         .update(miniprogramConfigs)
-        .set({ ...parsed.data, updatedAt: new Date() })
+        .set({ ...changed, updatedAt: new Date() })
         .where(eq(miniprogramConfigs.appId, body.appId))
         .returning()
       return reply.send(success({ config: updated }))
