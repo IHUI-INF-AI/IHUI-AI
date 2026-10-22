@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
+import { goToLogin } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -108,7 +109,7 @@ export default function Settings() {
           // (下一页/下一个请求还带着它)—— 两处都不该由一次登出造成。
           clearAuth()
           Taro.showToast({ title: tt('user.loggedOut', '已退出登录'), icon: 'success' })
-          setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
+          setTimeout(goToLogin, 800)
         }
       },
     })
@@ -200,11 +201,7 @@ export default function Settings() {
                 {tt('setting.notificationEntry', '消息通知')}
               </Text>
 
-              <Switch
-                checked={notifEnabled}
-                color={switchAccentDeep}
-                onChange={onNotifChange}
-              />
+              <Switch checked={notifEnabled} color={switchAccentDeep} onChange={onNotifChange} />
             </View>
             <View
               className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"

@@ -52,7 +52,6 @@ const ADOPTED: readonly string[] = [
 
 /** 凭据/账号类屏:一个登记点都不许有(改到这里必须先想清楚不可逆代价) */
 const NEVER_ADOPTED: readonly string[] = [
-  'pages/login/login.tsx',
   'pages/register/index.tsx',
   'pages/forgot-password/index.tsx',
   'pkg-user/user/password.tsx',

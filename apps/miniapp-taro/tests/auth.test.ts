@@ -4,9 +4,11 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { taroStorage, mockReLaunch } = vi.hoisted(() => ({
+const { taroStorage, mockReLaunch, mockSwitchTab, mockGetCurrentPages } = vi.hoisted(() => ({
   taroStorage: {} as Record<string, unknown>,
   mockReLaunch: vi.fn(),
+  mockSwitchTab: vi.fn(),
+  mockGetCurrentPages: vi.fn((): unknown[] => []),
 }))
 
 vi.mock('@tarojs/taro', () => ({
@@ -18,6 +20,9 @@ vi.mock('@tarojs/taro', () => ({
     delete taroStorage[key]
   },
   reLaunch: (opts: { url: string }) => mockReLaunch(opts),
+  // 登录页已删(2026-10-23)⇒ 去登录界面改用 switchTab 到「我的」tab,并要读页栈判"是否已在"
+  switchTab: (opts: { url: string }) => mockSwitchTab(opts),
+  getCurrentPages: () => mockGetCurrentPages(),
   default: {
     getStorageSync: (key: string) => taroStorage[key] ?? '',
     setStorageSync: (key: string, val: unknown) => {
@@ -27,6 +32,8 @@ vi.mock('@tarojs/taro', () => ({
       delete taroStorage[key]
     },
     reLaunch: (opts: { url: string }) => mockReLaunch(opts),
+    switchTab: (opts: { url: string }) => mockSwitchTab(opts),
+    getCurrentPages: () => mockGetCurrentPages(),
   },
 }))
 
@@ -144,7 +151,7 @@ describe('miniapp-taro 认证工具函数', () => {
     it('未登录 redirect=true 跳转登录页', () => {
       const result = checkLoginStatus(true)
       expect(result).toBe(false)
-      expect(mockReLaunch).toHaveBeenCalledWith({ url: '/pages/login/login' })
+      expect(mockSwitchTab).toHaveBeenCalledWith({ url: '/pages/user/index' })
     })
 
     it('默认参数不跳转', () => {

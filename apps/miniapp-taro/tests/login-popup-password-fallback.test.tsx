@@ -51,6 +51,7 @@ vi.mock('@/components/FocusField', () => {
 })
 
 import LoginPopUp from '../src/components/LoginPopUp'
+import { maskComments } from '../../../scripts/lib/code-mask.mjs'
 
 const FIELD_CLASSES = ['.login-field', '.login-label', '.login-input'] as const
 
@@ -87,10 +88,6 @@ describe('LoginPopUp 的账号密码兜底', () => {
 
 describe('登录字段样式全仓只住一份', () => {
   const appCss = readFileSync(resolve(__dirname, '../src/app.css'), 'utf8') as unknown as string
-  const pageCss = readFileSync(
-    resolve(__dirname, '../src/pages/login/login.css'),
-    'utf8',
-  ) as unknown as string
 
   it('app.css 里确实定义了这三个类(正例:没有"两处都没有"的假绿)', () => {
     for (const cls of FIELD_CLASSES) {
@@ -98,10 +95,54 @@ describe('登录字段样式全仓只住一份', () => {
     }
   })
 
-  it.each(FIELD_CLASSES)('%s 不得在登录页私有表里再定义一份', (cls) => {
-    // 页面里 `.login-phone-row .login-input` 这类**复合**选择器是覆盖,不算第二份定义
-    const ownDefinition = new RegExp(`\\n\\${cls.replace('.', '\\.')} \\{`).test(pageCss)
-    expect(ownDefinition).toBe(false)
+  // 注:这里不再写"登录页私有表必须不存在"那种断言 —— 对被删文件的任何路径指认
+  // 本身就是一条引用(守门 99 会当场判"被删文件仍有人引用"),而它想保的性质已由
+  // 下面「7 个调用点都不许再出现那条路由串」+「app.config 未注册它」两锁覆盖,更强。
+})
+
+/**
+ * 原锁住在 `tests/login-thirdparty-entries.test.tsx`(对着已删除的登录页)。
+ * 页面没了,但**性质不能跟着没**:登录界面不许挂"点了拿不回登录态"的假入口。
+ * 2026-10-23 随宿主迁到弹窗侧,并补一条"登录页不许回来"的锁。
+ */
+describe('登录界面不许挂假入口,登录页也不许回来', () => {
+  it('弹窗不渲染 oauth 图标格,也不引 Google 素材', () => {
+    const html = render({
+      onOneClickLogin: async () => {},
+      onPasswordLogin: async () => {},
+    })
+    expect(html).not.toContain('login-oauth-btn')
+    expect(html.toLowerCase()).not.toContain('google')
+  })
+
+  it('弹窗源码不往 webview 那条死路导航(那条路从没有一方接管回传)', () => {
+    const src = readFileSync(resolve(__dirname, '../src/components/LoginPopUp.tsx'), 'utf8')
+    expect(src).not.toContain('/pages/webview')
+  })
+
+  it('硬编码登录页路由的调用点必须归零,app.config 也不许再注册它', () => {
+    // 不写"被删文件必须不存在"那种断言:对被删路径的任何指认本身就是一条引用(守门 99 会判
+    // "被删文件仍有人引用"),而它要保的性质已由下面两锁覆盖,且不留悬空路径。
+    // 只判**代码位**:历史注记里提到过这个 root 是交代成因,不是把它注册回来了
+    // (判据读注释会把"讲过这件事"误判成"还在做这件事",那会让人学会去删注释而不是删代码)
+    const cfg = maskComments(
+      readFileSync(resolve(__dirname, '../src/app.config.ts'), 'utf8'),
+    ) as unknown as string
+    expect(cfg).not.toContain("root: 'pages/login'")
+    // 路由串只剩这一处锁自己 —— 任何一处再把它硬编码回去,这里就红
+    const grepTargets = [
+      '../src/utils/api-bridge.ts',
+      '../src/utils/auth.ts',
+      '../src/pages/register/index.tsx',
+      '../src/pages/forgot-password/index.tsx',
+      '../src/pages/setting/index.tsx',
+      '../src/pkg-user/account-cancel/index.tsx',
+      '../src/pkg-user/user/settings.tsx',
+    ]
+    for (const rel of grepTargets) {
+      const face = maskComments(readFileSync(resolve(__dirname, rel), 'utf8')) as unknown as string
+      expect(face).not.toContain('/pages/login/login')
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
