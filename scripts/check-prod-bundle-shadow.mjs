@@ -135,6 +135,11 @@ export const PAIRS = [
     runner: 'deploy/prod-bundle/ai-diagnose.mjs',
     why: '部署失败时的 AI 诊断调用器(同上,与 deploy-diagnose.sh 同批接线)',
   },
+  {
+    tracked: 'deploy/scripts/deploy-diagnose.ps1',
+    runner: 'deploy/prod-bundle/deploy-diagnose.ps1',
+    why: 'P2-13③ 残段①:deploy-diagnose.sh 的 PowerShell 姊妹形态,被 bundle deploy.ps1 dot-source;同批接线,漏登记即 E1 未登记态',
+  },
   // 三个 nssm 服务的实际执行体(AppParameters 指向 deploy/prod-bundle/svc/run-*.ps1)。
   // 2026-09-26 实测 `git ls-files deploy/prod-bundle/svc/` = 0 行 ⇒ 在服务却在跑、日志在写,
   // 而全仓 grep 对它零覆盖 —— 正是 §5e 那句"等于写进盲区"的原始形态。入库源按本文件
