@@ -13,10 +13,11 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { tmpdir } from 'node:os'
+// 夹具落点 = §15b/§26 唯一出口(不钉 os.tmpdir:活进程 TEMP 可能仍落 C 盘,也不落仓库树内)
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ as strip, planSweep, sweepStaleClaimMarks } from '../strip-stale-claim-marks.mjs'
 import { claimMarkOf } from '../lib/plan-task-index.mjs'
 
@@ -213,14 +214,14 @@ test('护栏③:本批旧形态行仍逐字在场(别席纯滞后)⇒ 不得让�
 })
 
 test('护栏③:工作树副本读不到 ⇒ 让路(未判定不猜,§0.3)', () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'claim-guard-'))
+  const dir = mkScratch('claim-guard-')
   try {
     // 夹具目录里没有 PROJECT_PLAN.md ⇒ readFileSync 抛 ⇒ 必须让路而不是放行
     const r = strip.planFaceBlockedBy([{ line: 1, raw: '- [ ]（进行中） x' }], { root: dir })
     assert.equal(r.blocked, true, '取不到工作树副本 = 判不出 ⇒ 让路(原护栏的失效方向)')
     assert.ok(r.byWorktree.length > 0, '让路必须点名,不得静默')
   } finally {
-    rmSync(dir, { recursive: true, force: true })
+    rmScratch(dir)
   }
 })
 
