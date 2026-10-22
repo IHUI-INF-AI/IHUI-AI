@@ -13,12 +13,19 @@
  * 5. POST   /admin/relay/accounts/:id/toggle — 启用/禁用切换
  * 6. POST   /admin/relay/accounts/:id/health — 触发健康检查(走平台适配器真实探测)
  * 7. DELETE /admin/relay/accounts/:id      — 删除账号
+ * 8. POST   /admin/relay/account-pool/sweep — 手动触发调度巡检(透传 scheduler 结果)
+ * 9. GET    /admin/relay/account-pool/usage/:id?days=7 — 单账号用量(24h 汇总 + 明细)
+ * 10. POST  /admin/relay/accounts/:id/claim  — 认领账号(他人已认领 409)
+ * 11. POST  /admin/relay/accounts/:id/release — 释放认领
+ * 12. GET   /admin/relay/model-catalog       — 模型别名目录列表
+ * 13. POST  /admin/relay/model-catalog       — 新建别名映射(冲突 400)
+ * 14. DELETE /admin/relay/model-catalog/:id  — 删除别名映射(不存在 404)
  *
  * 加密:token/refreshToken/cookies 走 encryptField(AES-256-GCM),响应面永不回传密文/明文。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, ilike, or, sql, type SQL } from 'drizzle-orm'
+import { eq, and, or, ilike, lt, gte, isNull, isNotNull, sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import { aiRelayAccountPool } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
@@ -32,6 +39,13 @@ import {
   type ImportAccountInput,
 } from '../../services/relay-account-pool-service.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
+import { sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
+import { getAccountUsage, getAccountUsageSummaries } from '../../services/relay-account-usage.js'
+import {
+  listModelCatalog,
+  createModelCatalog,
+  deleteModelCatalog,
+} from '../../services/relay-model-catalog.js'
 
 const importBodySchema = z.object({
   providerCode: z.enum(RELAY_PROVIDERS),
@@ -70,6 +84,35 @@ const updateBodySchema = z.object({
   proxyUrl: z.string().max(512).nullable().optional(),
 })
 
+/** token 距到期小于该窗口视为"即将过期"(list.expiresSoon) */
+const EXPIRES_SOON_MS = 15 * 60 * 1000
+/** 连续刷新失败达到该次数且被摘除 → 展示刷新熔断原因(与 scheduler 摘除阈值对齐) */
+const REFRESH_FAILURE_LIMIT = 3
+/** 连续转发失败达到该次数 → 展示转发熔断冷却原因(展示层推导阈值) */
+const FORWARD_FAILURE_BREAK = 5
+/** 可用账号数低于该值提示补池(poolHealth.needRefill) */
+const POOL_REFILL_MIN_AVAILABLE = 2
+
+/** 从投影行推导熔断/摘除原因(纯展示字段,不参与调度判定) */
+function deriveCircuitBreakReason(row: {
+  tempUnschedulable: boolean | null
+  refreshFailureCount: number | null
+  consecutiveFailures: number | null
+  healthStatus: string | null
+  lastErrorMessage: string | null
+}): string | null {
+  if (row.tempUnschedulable === true && (row.refreshFailureCount ?? 0) >= REFRESH_FAILURE_LIMIT) {
+    return `连续 ${row.refreshFailureCount} 次 token 刷新失败,已自动摘除`
+  }
+  if ((row.consecutiveFailures ?? 0) >= FORWARD_FAILURE_BREAK) {
+    return `连续 ${row.consecutiveFailures} 次转发失败,熔断冷却中`
+  }
+  if (row.healthStatus === 'down') {
+    return row.lastErrorMessage ?? '健康检查失败,已标记 down'
+  }
+  return null
+}
+
 /** 列表/详情统一脱敏投影(绝不 SELECT *Enc 字段) */
 const safeProjection = {
   id: aiRelayAccountPool.id,
@@ -96,6 +139,10 @@ const safeProjection = {
       'has_proxy',
     ),
   totalCalls: aiRelayAccountPool.totalCalls,
+  claimStatus: aiRelayAccountPool.claimStatus,
+  claimedBy: aiRelayAccountPool.claimedBy,
+  claimedAt: aiRelayAccountPool.claimedAt,
+  claimNote: aiRelayAccountPool.claimNote,
   extraMetadata: aiRelayAccountPool.extraMetadata,
   createdAt: aiRelayAccountPool.createdAt,
   updatedAt: aiRelayAccountPool.updatedAt,
@@ -154,7 +201,9 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const finalWhere = searchCond && where ? and(where, searchCond) : (where ?? searchCond)
 
     try {
-      const [list, totalRows] = await Promise.all([
+      const now = new Date()
+      // 查询顺序固定:list → total → expired → available(用量聚合在其后,便于测试桩按序供数)
+      const [list, totalRows, expiredRows, availableRows] = await Promise.all([
         dbRead
           .select(safeProjection)
           .from(aiRelayAccountPool)
@@ -170,8 +219,53 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .select({ c: sql<number>`count(*)::int` })
           .from(aiRelayAccountPool)
           .where(finalWhere),
+        dbRead
+          .select({ c: sql<number>`count(*)::int` })
+          .from(aiRelayAccountPool)
+          .where(
+            and(
+              isNotNull(aiRelayAccountPool.tokenExpiresAt),
+              lt(aiRelayAccountPool.tokenExpiresAt, now),
+            ),
+          ),
+        dbRead
+          .select({ c: sql<number>`count(*)::int` })
+          .from(aiRelayAccountPool)
+          .where(
+            and(
+              eq(aiRelayAccountPool.isEnabled, true),
+              eq(aiRelayAccountPool.tempUnschedulable, false),
+              or(
+                isNull(aiRelayAccountPool.tokenExpiresAt),
+                gte(aiRelayAccountPool.tokenExpiresAt, now),
+              ),
+            ),
+          ),
       ])
-      return reply.send(success({ list, total: totalRows[0]?.c ?? 0, page, pageSize }))
+      const summaries = await getAccountUsageSummaries(list.map((r) => r.id))
+      const enriched = list.map((row) => ({
+        ...row,
+        expiresSoon:
+          row.tokenExpiresAt !== null &&
+          row.tokenExpiresAt.getTime() > now.getTime() &&
+          row.tokenExpiresAt.getTime() - now.getTime() <= EXPIRES_SOON_MS,
+        circuitBreakReason: deriveCircuitBreakReason(row),
+        usageSummary: summaries.get(row.id) ?? { calls24h: 0, tokens24h: 0, failRate24h: 0 },
+      }))
+      const availableCount = availableRows[0]?.c ?? 0
+      return reply.send(
+        success({
+          list: enriched,
+          total: totalRows[0]?.c ?? 0,
+          page,
+          pageSize,
+          poolHealth: {
+            expiredCount: expiredRows[0]?.c ?? 0,
+            availableCount,
+            needRefill: availableCount < POOL_REFILL_MIN_AVAILABLE,
+          },
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询账号池列表失败'))
@@ -295,6 +389,179 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除账号失败'))
+    }
+  })
+
+  // ===== 8. POST /admin/relay/account-pool/sweep — 手动触发调度巡检 =====
+  // 注:scheduler 签名 sweepAccountPool() 无参(整池单轮),body.ids 为管理面形状预留(当前整池执行)。
+  const sweepBodySchema = z.object({
+    ids: z.array(z.string().min(1)).max(500).optional(),
+  })
+  server.post('/admin/relay/account-pool/sweep', async (request, reply) => {
+    const b = sweepBodySchema.safeParse(request.body ?? {})
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const result = await sweepAccountPool()
+      return reply.send(success(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '账号池巡检执行失败'))
+    }
+  })
+
+  // ===== 9. GET /admin/relay/account-pool/usage/:id?days=7 — 单账号用量 =====
+  const usageQuerySchema = z.object({
+    days: z.coerce.number().int().min(1).max(90).default(7),
+  })
+  server.get('/admin/relay/account-pool/usage/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const q = usageQuerySchema.safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const result = await getAccountUsage(p.data.id, q.data.days)
+      return reply.send(success(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询账号用量失败'))
+    }
+  })
+
+  // ===== 10. POST /admin/relay/accounts/:id/claim — 认领账号 =====
+  const claimBodySchema = z.object({ note: z.string().max(500).optional() })
+  server.post('/admin/relay/accounts/:id/claim', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const b = claimBodySchema.safeParse(request.body ?? {})
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const [row] = await dbRead
+        .select({
+          claimStatus: aiRelayAccountPool.claimStatus,
+          claimedBy: aiRelayAccountPool.claimedBy,
+        })
+        .from(aiRelayAccountPool)
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, '账号不存在'))
+      const userId = request.jwtPayload?.userId ?? null
+      if (row.claimStatus === 'claimed' && row.claimedBy !== userId) {
+        return reply
+          .status(409)
+          .send(error(409, `该账号已被认领(认领人: ${row.claimedBy ?? '未知'})`))
+      }
+      const now = new Date()
+      const updated = await db
+        .update(aiRelayAccountPool)
+        .set({
+          claimStatus: 'claimed',
+          claimedBy: userId,
+          claimedAt: now,
+          claimNote: b.data.note ?? null,
+          updatedAt: now,
+        })
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .returning({
+          id: aiRelayAccountPool.id,
+          claimStatus: aiRelayAccountPool.claimStatus,
+          claimedBy: aiRelayAccountPool.claimedBy,
+          claimedAt: aiRelayAccountPool.claimedAt,
+          claimNote: aiRelayAccountPool.claimNote,
+        })
+      if (updated.length === 0) return reply.status(404).send(error(404, '账号不存在'))
+      return reply.send(success(updated[0]))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '认领账号失败'))
+    }
+  })
+
+  // ===== 11. POST /admin/relay/accounts/:id/release — 释放认领 =====
+  server.post('/admin/relay/accounts/:id/release', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const now = new Date()
+      const updated = await db
+        .update(aiRelayAccountPool)
+        .set({
+          claimStatus: 'unclaimed',
+          claimedBy: null,
+          claimedAt: null,
+          claimNote: null,
+          updatedAt: now,
+        })
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .returning({
+          id: aiRelayAccountPool.id,
+          claimStatus: aiRelayAccountPool.claimStatus,
+          claimedBy: aiRelayAccountPool.claimedBy,
+          claimedAt: aiRelayAccountPool.claimedAt,
+          claimNote: aiRelayAccountPool.claimNote,
+        })
+      if (updated.length === 0) return reply.status(404).send(error(404, '账号不存在'))
+      return reply.send(success(updated[0]))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '释放认领失败'))
+    }
+  })
+
+  // ===== 12. GET /admin/relay/model-catalog — 模型目录/别名列表 =====
+  const catalogListQuerySchema = z.object({
+    provider: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
+  })
+  server.get('/admin/relay/model-catalog', async (request, reply) => {
+    const q = catalogListQuerySchema.safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const list = await listModelCatalog(q.data.provider)
+      return reply.send(success({ list, total: list.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询模型目录失败'))
+    }
+  })
+
+  // ===== 13. POST /admin/relay/model-catalog — 新建别名映射 =====
+  const createCatalogBodySchema = z.object({
+    providerCode: z.string().min(1).max(64),
+    upstreamModel: z.string().min(1).max(128),
+    alias: z.string().min(1).max(128),
+    displayName: z.string().max(256).nullable().optional(),
+    enabled: z.boolean().optional(),
+  })
+  server.post('/admin/relay/model-catalog', async (request, reply) => {
+    const b = createCatalogBodySchema.safeParse(request.body)
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    try {
+      const row = await createModelCatalog(b.data)
+      return reply.status(201).send(success(row))
+    } catch (e) {
+      if ((e as { code?: string })?.code === '23505') {
+        return reply.status(400).send(error(400, '该 provider 下别名已存在'))
+      }
+      request.log.error(e)
+      return reply.status(500).send(error(500, '创建模型目录条目失败'))
+    }
+  })
+
+  // ===== 14. DELETE /admin/relay/model-catalog/:id =====
+  server.delete('/admin/relay/model-catalog/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const deleted = await deleteModelCatalog(p.data.id)
+      if (!deleted) return reply.status(404).send(error(404, '模型目录条目不存在'))
+      return reply.send(success({ id: p.data.id, deleted: true }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '删除模型目录条目失败'))
     }
   })
 }

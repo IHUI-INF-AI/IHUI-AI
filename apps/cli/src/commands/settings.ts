@@ -29,10 +29,11 @@ import {
   type CredentialKindDeclaration,
   type ServeSettingsConfig,
 } from '../config/credentials.js';
+import { DEFAULT_SANDBOX_PROFILE, type SandboxProfile } from '../config/sandbox-profile.js';
 
 export interface SandboxSettings {
   /** 沙盒预设 profile,优先级低于显式配置的字段 */
-  profile?: 'readonly' | 'limited' | 'trusted' | 'open' | 'full';
+  profile?: SandboxProfile;
   /** 额外允许的路径白名单(cwd 始终允许) */
   allowedPaths?: string[];
   /** 命令白名单三态:null = 禁止一切命令;非空数组 = 仅允许列表内;
@@ -418,7 +419,7 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     planFirst: false,
     autoApprovePlan: false,
     enableMcp: false,
-    sandbox: { profile: 'trusted' },
+    sandbox: { profile: DEFAULT_SANDBOX_PROFILE },
     sampler: {
       temperature: 0.7,
       maxTokens: 4096,

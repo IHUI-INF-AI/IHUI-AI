@@ -7045,3 +7045,477 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - 📚 文档:结清 G-928(ui-routes 产物重钉,门105 head面转绿) (12cfc1283e)
 - ♻️ 重构:把我侧那枚 Cloudflare token 票让号重登(改走正牌取号令牌现算空闲号) (35e89acfc6)
 - 🐞 修复:G-928 重钉 ui-routes.generated 自述块 [goal-20261022] (9387ee71f0)
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+| 数据库表 | 603 | `dbTables` |
+| API 路由 | 4468 | `apiRoutes` |
+| 路由文件 | 612 | `apiRouteFiles` |
+| 测试文件 | 3063 | `testFiles` |
+| 工程守门 | 270 | `guardianGates` |
+| — blocking | 247 | `guardianBlocking` |
+| 跟踪文件 | 15842 | `trackedFiles` |
+> ⚠️ 未判定 1 项:`apiSrc`(apps/api/src 有 1 个 .ts 在面上取不到内容)
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4468 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4468 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 测试覆盖            | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 603 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4468 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+  118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  | **代码规模** | 8 端代码 / 205 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+  | **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression |
+  → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+  → **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+  核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+  技术护城河 │ • 8 端 / 542 表 / drizzle-kit push / 4468 API 路由 │
+  | **代码规模** | 8 端代码 / 205 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
+  | | API | Fastify 5 / **4468 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
+  | | 测试覆盖 | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失 | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
+- 603 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4468 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+> **8 端代码 · 603 张数据库表 · 4451 个 API 路由。**
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14839+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14839+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4468 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4468 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 测试覆盖            | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 603 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4468 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14839+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14839+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4468 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4468 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 测试覆盖            | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 603 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4468 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+> **8 端代码 · 603 张数据库表 · 4451 个 API 路由。**
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4468 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4468 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 测试覆盖            | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- **API(Fastify 5)**:4468 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+  118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  | **代码规模** | 8 端代码 / 205 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+  | **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression |
+  → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+  → **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+  核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+  技术护城河 │ • 8 端 / 542 表 / drizzle-kit push / 4468 API 路由 │
+  | **代码规模** | 8 端代码 / 205 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
+  | | API | Fastify 5 / **4468 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
+  | | 测试覆盖 | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失 | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
+- **API(Fastify 5)**:4468 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+- 🐞 修复:Button 门本地直调不受专项档跳过——索引面 0 候选直接绿,执行点真装车 (9a96efd75e)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0e4621c90a)
+- 🐞 修复:反代号池领取按钮改用 xs 档——移除 h-7 覆盖,守住门 235 的 HEAD 零存量 (457bec27c7)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (452d031ea7)
+- ♻️ 重构:G-965 投影第二批 29 枚——放宽存量长行、侧车 owner/等待条件复算后可投影 (c02c02763d)
+- 🔧 工程/其他:gate-scope 注释经 prettier 归一(前枚应急路径跳过 lint-staged 的补账) (b27c490866)
+- 🔧 工程/其他:侧车记录复算——修 10 枚截断 owner、补 9 枚等待条件(桶零漂,19 枚) (8f7d21bcf7)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4db1f2ea1c)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (95168bb1a5)
+- 📚 文档:消 F9 撞号——G-926 后来者(生产 web 部署承载者,10-22 登记)去掉复用编号,G-926 仍归 lint-staged 那条;G-312 不得批量改号,本处只改后来者一条 (7195c3e181)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (08604e1db1)
+- 🐞 修复:解绑后重新扫码不得登进旧账号 —— 绑定表读出口径统一并加族级锁 (ff588871cc)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (76cce23bb7)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4777c3cd32)
+- 🐞 修复:登录方式实测收口 —— 认证端点不得冒充成功,第三方按钮改按服务器真值启用 (f4693c3d0d)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c643fb6d4e)
+- 🔧 工程/其他:refactor(scripts)+test(scripts): Button 门改三面取材并接入 guardian 全量档(235);本地保留单门索引面直调 (b99b5f2cdf)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (58fa79259a)
+- 📚 文档:结清 L28924 部署承载者——本机复核 IHUI-DEPLOYLOOP 服务不存在/IHUI-WEB Stopped/8801 是 dev-stack 子进程(本机不是承载面);远端实证见 cba0a36dee(生产 DEPLOYLOOP Running+deploy-loop.log 14:45 HEAD=c9d2cbc1d5)⇒票面三件是取证面取错 (b760ea6b15)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2a0cba0619)
+- 📚 文档:结清 L7191 api<T> 壳迁移——票面口径现读 0 命中(function api</const api=async 等四种模式均0,仅 api.ts 注释与一处测试正则);apiOrThrow 消费者 378;web typecheck RC=0 (6040fedd92)
+- 🐞 修复:守门 134 后续批①——9 处 updated/created 布尔 ACK 改真库确认(RETURNING 行数/委托返回 id),B1 六处+B2 三处清零;门 134 候选3违规0未判定0 RC=0,typecheck 绿,7 文件 113 用例全过 (1c56e797c6)
+- ♻️ 重构:G-343 psql 定位收敛到 lib 唯一出口(pgBinDir/backupPgDir 私有副本 5→0,audit/drill/app-reads 三臂自证绿);三脚本 --self-test 夹具迁 mkScratch(33/61/85 例);G-926 补 lint-staged 已跟踪被忽略三臂 E2E(19/19) (852c9409a5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (53c841a721)
+- 📚 文档:G-107 挂进行中@goal-r53(补派席位在飞,scratch-dir 席收口后空位顶替) (fe8f26d29c)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (785ee61b80)
+- 🔧 工程/其他:chore(scripts)+docs(plan): scratch-dir 同族残余清偿——plan-fields-project.test.mjs 两处夹具迁 mkScratch/rmScratch(门91 --worktree clean RC=0,16/16 绿);G-343 僵尸副本与票B 按现读证据结清(四脚本+12 枚名单全部已在 HEAD,席位逐格复核) (fd0593c52c)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f48d8e0395)
+- 📚 文档:复翻 G-964/G-965——并发重复登记清偿回退,补摘除声明后重落结清 (3c3e73ac26)
+- 🚀 新功能/改进:Button 高度档位门接入 guardian 全量档(三面取材:HEAD/索引/工作区) (239fb861e7)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d9f7105728)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (23556f6ba6)
+- 📚 文档:结清 G-927 与 G-939——镜像棘轮现读 72/基线 72 零新增(face-reader.test 31/31);taken 提交吞掉型已由 CAS 祖先三态守卫+git-sync-converge 复量收口(五测试 45/45,艘 feb0cd072d/402f347edc/bf25ee60e2) (642958fb19)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (030595989c)
+- 📚 文档:6 票挂进行中@goal-r53——五席满编在飞(守门134后续批①9处清偿/zcode第三批/G-14取号器查重/scratch-dir同族(G-343四处+7脚本tmpdir)/G-874 Passkey) (8677b58c27)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (fc0fcd1057)
+- 📚 文档:结清 G-14 与 G-874——取号器改全文件号集扫描(scanFamilyIds 唯一实现,两取号出口共用,枚 2321b81343aa1dcea5a514dcb5500abc006c313b);Passkey 登录首屏接线(login-form options→verify 闭环 + web 两端点注入 + @simplewebauthn/browser,同枚) (5be63cbe29)
+- 🚀 新功能/改进:G-874 Passkey 登录入口接线(login-form options->verify 闭环+web 两端点注入+@simplewebauthn/browser);D222 回退不可用显式声明工作区未变化+五语三键;G-14 取号器全文件号集扫描(scanFamilyIds 唯一实现,两取号出口共用) (2321b81343)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2ffe97f3f5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (357bb9fc36)
+- 📚 文档:结清 G-927/G-929/G-934/锁四票——927 型B基线9→3收紧(fadc7b91a3)且棘轮绿;929 object-space-land 66例全绿;934 scroll-session-restore 生产消费者在位+32/32;锁 lock-atomic-init 已收口(50/50) (56cc4a66f4)
+- 🔧 工程/其他:G-927 型B 基线 9→3 收紧(现读 3 枚),裸 git 棘轮复跑仍绿 (fadc7b91a3)
+- 🔧 工程/其他:ui-routes 生成件钉自愈——G-957 接收腿入库后 inputsSha256 0d5dd914→70076f30(门105 G5 miniapp 腿 stale→matched);web 腿 stale 归他席在飞输入(admin configs/developer/learn 三页),不代落 (ac032619b3)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5e7b63cc6c)
+- 📚 文档:结清 G-963——f9 夹具闭包已收同级 ./ 并递归到不动点(HEAD 注释即本票),node --test 该文件 10/10 绿 (25bd11dc3d)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d64c1288f8)
+- 📚 文档:结清 D222 与门39六屏票——D222 五态键五语言齐+验收 13/13 绿;门39六屏(ConnectedAccounts/ImageGenGallery/Usage/Points/WrongQuestions/ImageGenTemplates)全部下沉,白名单清零(30513b904f/3ffe7d9b5a) (486624f223)
+- 🚀 新功能/改进:门39 六屏共享化收官——ImageGenTemplates 下沉 @ihui/rn-app,端内留 wrapper;门39白名单摘第三枚(六屏全清) (3ffe7d9b5a)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (310e88d35c)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4d1bc0cf67)
+- 📚 文档:结清 L7283 同一契约两份声明——UseSearchHistoryResult 等 4 组已在 HEAD;GenResult 本轮收单源 @ihui/types(3e609d3249),端点已修(503 明确报未接通);门193 RC=0 (c1fd90155b)
+- 🚀 新功能/改进:门39 六屏共享化收官——ImageGenTemplates 下沉 @ihui/rn-app,端内留 wrapper;门39白名单摘第三枚(六屏全清) (3ffe7d9b5a)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (310e88d35c)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4d1bc0cf67)
+- 📚 文档:结清 L7283 同一契约两份声明——UseSearchHistoryResult 等 4 组已在 HEAD;GenResult 本轮收单源 @ihui/types(3e609d3249),端点已修(503 明确报未接通);门193 RC=0 (c1fd90155b)
+- ♻️ 重构:L7283 GenResult 收单源——web/RN 同读 @ihui/types 的 ImageGenResult;端点已修(503 明确报未接通,不伪造 imageUrl) (3e609d3249)
+- 🔧 工程/其他:fix(scripts)+test(scripts): git 候选解析改为系统 Git 优先,并修 Button 门提交链取材面(漏 --staged) (71ab80ad79)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3596769881)
+- 📚 文档:结清 7 票已落地项——G-924 十死键已删/G-958 H5 如实提示/G-959 取键(用户可见中文0)/G-53(b00e5766c5)/G-932(12文件在HEAD,111测试)/L6977(4f33a3c71b)/票60(5e8a44a71f,641/642) (4d868a3f9d)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (85a074df8c)
+- 🔧 工程/其他:feat(miniapp)+chore(zcode)+docs(plan): G-957 接收腿落库(14 测+全量 1000 绿)+zcode 二批回填 24 份+守门134 裁定B结清并立后续批 (1829916446)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0ee6b4b6b9)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d6de0ba0a3)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (10334c804b)
+- 🔧 工程/其他:test(dom-actions)+docs(plan): WP-7 结清——包镜像测试面补齐(18 例+消费端 33 例含真机 cdp),实现层系 09-25 已入库的陈旧双记 (53e6a1b4d1)
+- 🐞 修复:监控大屏适配工作区容器(高度链贯通 + 容器查询网格 + 顶栏/侧栏重排) (db7c9659b8)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (79769a1eac)
+- 🔧 工程/其他:feat(web+api)+test+docs(plan): 票59 消息级版本切换结清——regenerate 前端去截断改 sibling 占位+坐标通道四段接线+行为测5例与静态对账10例 (5bee0d6223)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (24f449d114)
+- ♻️ 重构:G-965 投影残批——加行内标头并删逐字等价归属句(21 枚) (86e2288edb)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c56ae845bb)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0a04506656)
+- 📚 文档:结清 G-274/G-107/G-865 三票——水位协议与 fail-closed 闸门承载测试 42/42 + parity 14/14 + 门233 自检 15/15;G-865 死键代码引用 0(仅 4 处历史注释) (78778d8af5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (860236457a)
+- 🐞 修复:复翻 G-965——重复登记清偿误并回未勾态,同日结清证据复原 (f1920fbb6f)
+- 🚀 新功能/改进:门39 六屏共享化第二批——Points/WrongQuestions 两屏 UI 下沉 @ihui/rn-app,端内留 wrapper;门39白名单摘两枚 (30513b904f)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f0b285786b)
+- 🐞 修复:结清批2c——G-706/G-819/G-11三票翻勾+摘3条滞留已勾行 (9e04f7cf0e)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (236e30de22)
+- 📚 文档:票60 真并行多窗格取证结清——步序二~六全部已在 HEAD(零代码改动,窗格化套件 641/642,tsc 0 错) (5e8a44a71f)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e6e29b2f67)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (59c6684b64)
+- 📚 文档:结清 G-964(P1 验收全绿)+G-965(投影器物/强制档/写盘闸三件齐) (3ba1de3712)
+- 🚀 新功能/改进:G-965 写盘闸接三维守恒(仅 open→open 断言,翻勾/删行豁免并出声;镜像 G965-1..5) (9fdef2e898)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (617fd1c5d7)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c6544030e)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0e5fd7fd27)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5d639c6138)
+- 📚 文档:G-873 就地改写当前状态 —— 前后端接线已入库,只剩微信开发者工具真机验一次 (07aeb13426)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cfeb0b85c8)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dc57e24388)
+- 🐞 修复:本地未推面让号 G-928 → G-1142551,解 union-converge F9 归并新增撞号组 (dfab38cfa1)
+- 🐞 修复:小程序手机号一键登录接线落地 —— 消费点改打 one-tap-login,响应随 token 回 user (ec9853d2e1)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (52f584d238)
+- 📚 文档:登记一键登录小程序接线与 web Passkey 提首屏两票(后端均已就绪,缺前端接线) (2eed653ccb)
+- 🐞 修复:微信手机号一键登录此前是结构性死路 —— 补免鉴权端点 /auth/wechat/mini/one-tap-login (40fa6eef9c)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3a5f626116)
+- 📚 文档:更新 G-871 腾讯云第二通道剩余卡点(应用与密钥归属已核实,只剩实名资质 0 条待报) (8f6360855d)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ef069e6d93)
+- 📚 文档:登记腾讯云短信第二通道的剩余动作(建应用取 SmsSdkAppId + 签名/模板报审,现读均空集) (184f0d17aa)
+- 🚀 新功能/改进:接入腾讯云短信作为第二通道 —— 通道可切换,但缺配置一律如实报未配置 (43e040bdb8)
+- 🔧 工程/其他:全量回归 10408 例归零——auth 码位串扰/course 漂移对账/o6 判据词锚/parity 与重路由 hook 超时/gate8 钉 admin 真面 (f6befe10b8)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (82a1078618)
+- 🔧 工程/其他:fix(scripts)+test(scripts)+docs(plan): L7272 守门8假绿灯结清——TRANSPORT_RE 派生化补泛型未判定腿+FG-4 正反例;O65 追加复验注(18 枚干净面红全闭 290/290) (01b83b3188)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d2e4d133b3)
+- 🔧 工程/其他:feat(cli)+test(cli)+docs(plan): L6977 工具钩取消腿结清——票域 ~90 处 runPre/PostToolCall 全接 ctx.signal+生产链真子进程判别测(abort→Cancelled) (4f33a3c71b)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a612f4dded)
+- 🐞 修复:结清批2b——G-40/G-27/G-41/G-593/G-956/分叉票六票翻勾+摘1条滞留已勾行 (aff198f5cb)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0d8bc2615e)
+- 🔧 工程/其他:fix(api)+test(api)+docs(plan): O64 宽限定时器接线结清——断连信号源 request.raw→reply.raw 三处换源+生产接线判别测(真断连武装/接管重武装,零直调) (5a83c26d65)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6d154a80a3)
+- 🚀 新功能/改进:G-965 投影器物补"删等价归属句"同批改造(16例镜像)+门234升blocking只挂差值维 (2bcbe59144)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ad1a65977d)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f3753c6f1b)
+- 🔧 工程/其他:test(ai-service)+docs(plan): O65 登记并结清——21 枚新红清零(多根桩契约测+工厂注入+_mode_policy 夹具,零改生产) (42fd7dab20)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f89d2d4766)
+- 🔧 工程/其他:docs(desktop)+docs(plan): L7170 僵尸实例结清(方向a/c已在HEAD+复现前置静态取证收口+startup_guard 头注取证入库) (ec0a39cde4)
+- 🔧 工程/其他:只为止损看拒绝原因 (0c0200f3f6)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8445d76a1c)
+- 🔧 工程/其他:fix(deploy)+test(database)+docs(plan): G-921 结清(seed 执行环接线 --only=13,14+870 守恒复证+7用例测试入库) (0c637dbe97)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ff56ae5a39)
+- 📚 文档:结清批2a——G-858/G-21/G-245/G-928/G-943/G-34/G-10 七票(实现票2+陈旧票现读关闭5)+摘HEAD滞留已勾行 (f6d8c66ce0)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6bc296c463)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (aa5970900b)
+- 🔧 工程/其他:refactor(web)+docs(plan): L7217 二批 api壳清零(asks/plaza helpers 迁 apiOrThrow+两测试随迁,手抄壳全仓归零)结清+六票进行中认领(O64/工具钩取消腿/守门8假绿灯/59/60/WP-7) (1f3af973f1)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (253caa5c07)
+- 🔧 工程/其他:docs(plan)+test(web): 结清 G-424(现读=已在库,残段移交未取号新行)/活动时钟(陈旧票,G-820/G-821在库)/L5881 元认知真冲突判据(枚 40801f217b)/G-941 账本chain(枚 40801f217b)/G-13 守门98 D6(枚 40801f217b)/桌面日志P1残余②(陈旧票,勾版已在)/G-863(实现 f9fe720fc6+本枚3例钉测试);G-925 进展注记(dead-class清零,真机观感留口);同枚摘HEAD滞留已勾行 (64a1113316)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5360c7ae29)
+- 📚 文档:G-274/G-79 零改动结清+G-962/重放触发面结清(产出已随 d425670f26 入库)+api壳首批进展注+G-957 两格闭合进展注+另立 O64(宽限定时器实盘不武装接线缺口) (66e0a642f1)
+- 🐞 修复:G-13 守门98 D6错名影子判据维(覆盖面0不新增恒红,self-test改前后逐字同)/G-941 成本账本生产者chain接线(main×2+subagent×1,端到端基线不互吞锁)/L5881 元认知真冲突判据三型拦截+写前带幂等证;子席定向 120/68+90/24+195 全绿 (40801f217b)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (65f8ea94a5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6d6d21aeae)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (31be3e642f)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d45134fb73)
+- 🔧 工程/其他:fix(scripts)+docs(plan): G-952 可发现性落地(--merge-drifted 出口点名+钉锁测)+G-952 结清+L7231 出口注+D18 纠偏注 (3ce56ca283)
+- 📚 文档:结清 O87g(守门8前缀假设扩提取式已随机制⑥入库)+G-962 进展注记+离线包自述钉(登记即结清);同枚按完成即删摘除全部跨枚滞留已勾行(结清凭据在各枚入库提交) [live-doc-skip=有意摘行留痕] (b04eeb3134)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (aa3ae15340)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2f7de8e0d0)
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14839+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 231 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+> 我们把一个完整的 AI 应用基础设施——从 8 端框架、118 模型接入、工作流编排、企业级权限、计费订阅、内容发布、AI 教育、可观测性,到 270 道工程守门脚本 + 56+10 pre-commit 项——以 Apache 2.0 协议全部开源出来。
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14839+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+- **运维**:Prometheus + 大屏 · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + 大屏 · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+   技术护城河    │  • 8 端 / 598 表 / drizzle-kit push / 4468 API 路由    │
+                 │  • 16 共享包 / 270 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n   │
+| **代码规模** | 8 端代码 / 231 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 270 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+8. **270 守门脚本 + 56+10 pre-commit 项 + drizzle-kit push 模式 + post-commit 自动 push**:从机制上减少协作事故 — 开源 AI 项目中较为少见的把工程守门做到机制级(Dify/FastGPT 仅有基础 lint)
+|                   | API                 | Fastify 5 / **4468 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 浏览器扩展          | WXT 0.19 + Chrome MV3 / **30 个 Side Panel 页面**(Glob 实测,AIApps/AiNews/AiSkills/Announcements/Articles/Asks/ChatFavorites/ChatHistory/Chat/ChatTemplates/Circles/ComingSoon/ContentApps/Course/Dashboard/Favorites/ImageGen/Login/MeApps/Memory/Messages/Models/News/Notifications/Order/Plaza/Profile/Search/Settings/Topics/Vocabulary/Wallet)/ 上下文菜单 / 侧边栏 / Chrome + Edge + Firefox / IndexedDB 词汇库 / 3063 测试文件                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **工程守门**       | **270 守门脚本 + drizzle-kit push 模式 + 自动 push**              | -              | 基础        | 基础             | 基础       | -              | 无          | 无          | 无             | -              | -             |
+| **桌面**    | `apps/desktop/`      | 🟡 核心场景级 | Tauri 2 + Rust(纯 shell)      | Rust 工具链待装      | **A 套壳架构:WebView 加载 Web `output: 'export'` 静态导出** + 原生能力(窗口管理 8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆 + F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘国际化 + 多显示器校验 + 单实例 + 自动更新签名)。UI 功能由 Web 静态产物提供,Desktop 仅 Rust shell(2026-07-24 收敛:删除 13 冗余 React 页面 + 3063 测试文件,仅保留 Tauri 配置 + Rust) |
+| **edu-full schema** | 603 张表(最大 schema),覆盖课程/章节/课时/笔记/问答/作业/批改/学习记录/班级/讲师/学员/认证    |
+PostgreSQL 603 张表(`packages/database/src/schema/im-adapters.ts`):
+8. **270 守门脚本 + drizzle-kit push 模式 + 9 PowerShell + post-commit 自动 push**(在开源 AI 项目中较为少见)
+598 表分布在 205 个 schema 文件,覆盖 30+ 业务域,每域平均 603 张表,密度合理。本项目是商业化生产级 AI 平台(智汇 AI 集团主平台),不是 demo,因此表结构按真实业务复杂度设计。如果你只用其中一部分功能(如仅 AI 对话),只需关注 chat / users / billing 三个 schema,其他表不影响运行。
+- 270 守门脚本 + 56+10 pre-commit 项 + post-commit 自动 push + drizzle-kit push 模式 + 9 PowerShell 启动
+  - P0 测试覆盖:3063 测试文件 51 用例全绿(路由 25 + Worker 12 + DB 8 + sanity 6),覆盖 webhook 签名正负向 + 12 端点权限 + 批量 upsert 幂等 + sync_log 聚合 + DB 查询分支
+- **API(Fastify 5)**:4468 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **Extension(WXT 0.19)**:30 个 Side Panel 页面 + Chrome MV3 + IndexedDB 词汇库 + 3063 测试文件
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14839+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 231 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14839+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+- **运维**:Prometheus + 大屏 · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+   技术护城河    │  • 8 端 / 598 表 / drizzle-kit push / 4468 API 路由    │
+| **代码规模** | 8 端代码 / 231 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 270 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4468 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **API(Fastify 5)**:4468 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+> **8 端代码 · 603 张数据库表 · 4451 个 API 路由。**
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 231 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+- **运维**:Prometheus + 大屏 · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + 大屏 · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+   技术护城河    │  • 8 端 / 598 表 / drizzle-kit push / 4468 API 路由    │
+| **代码规模** | 8 端代码 / 231 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 270 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4468 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **API(Fastify 5)**:4468 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  | **代码规模** | 8 端代码 / 231 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+  → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+  → **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+  核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+- **运维**:Prometheus + 大屏 · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+  技术护城河 │ • 8 端 / 598 表 / drizzle-kit push / 4468 API 路由 │
+  | **代码规模** | 8 端代码 / 231 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 270 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
+  | | API | Fastify 5 / **4468 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
+- **API(Fastify 5)**:4468 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+> **8 端代码 · 603 张数据库表 · 4451 个 API 路由。**
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 231 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 598 表 / drizzle-kit push / 4468 API 路由    │
+| **代码规模** | 8 端代码 / 231 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 270 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4468 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **API(Fastify 5)**:4468 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4468 API 路由 · 25 个 WebSocket 端点 ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  | **代码规模** | 8 端代码 / 231 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4468 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+  → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+  → **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+  核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+  技术护城河 │ • 8 端 / 598 表 / drizzle-kit push / 4468 API 路由 │
+  | **代码规模** | 8 端代码 / 231 schema 文件 / 603 数据库表 / drizzle-kit push / 4468 API 路由 / 250+ Web 页面 / 16 共享包 / 270 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity |
+  | | API | Fastify 5 / **4468 API 路由跨 604 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **604 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI |
+- **API(Fastify 5)**:4468 API 路由跨 604 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+- **规模**:603 张表 · 4468 API 路由 · 3063 测试文件 · ~14839 测试用例
+- **质量**:270 道工程守门（244 blocking）· 50 CI workflows · 删水印即 CI 失败
+- **运维**:Prometheus + Grafana · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + Grafana · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+- **运维**:Prometheus + Grafana · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+- **运维**:Prometheus + Grafana · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + Grafana · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+- **运维**:Prometheus + Grafana · 50 CI workflows · 270 守门脚本 · 蓝绿部署
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+|                   | 测试覆盖            | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  | **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression |
+  → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+  → **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+  核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+  | | 测试覆盖 | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失 | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14839+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14839+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+|                   | 测试覆盖            | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14839+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14839+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+|                   | 测试覆盖            | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+|                   | 测试覆盖            | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  118 入库模型 · 38 平台自动发布 · 3063 测试文件 · 270 道工程守门 · 50 CI workflows ·
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  | **测试覆盖** | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression |
+  → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+  → **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+  核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+  | | 测试覆盖 | **3063 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression |
+### 通病 ② 边界条件处理不足 → 实际:3063 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失 | 3063 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式 |
+- **3063 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14839+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14839+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+|                   | 浏览器扩展          | WXT 0.19 + Chrome MV3 / **30 个 Side Panel 页面**(Glob 实测,AIApps/AiNews/AiSkills/Announcements/Articles/Asks/ChatFavorites/ChatHistory/Chat/ChatTemplates/Circles/ComingSoon/ContentApps/Course/Dashboard/Favorites/ImageGen/Login/MeApps/Memory/Messages/Models/News/Notifications/Order/Plaza/Profile/Search/Settings/Topics/Vocabulary/Wallet)/ 上下文菜单 / 侧边栏 / Chrome + Edge + Firefox / IndexedDB 词汇库 / 3063 测试文件                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **桌面**    | `apps/desktop/`      | 🟡 核心场景级 | Tauri 2 + Rust(纯 shell)      | Rust 工具链待装      | **A 套壳架构:WebView 加载 Web `output: 'export'` 静态导出** + 原生能力(窗口管理 8 方向 Resize + 最大化监听 + 系统主题跟随 + 窗口位置记忆 + F11 全屏 + alwaysOnTop 置顶 + 最小尺寸约束 + 系统托盘国际化 + 多显示器校验 + 单实例 + 自动更新签名)。UI 功能由 Web 静态产物提供,Desktop 仅 Rust shell(2026-07-24 收敛:删除 13 冗余 React 页面 + 3063 测试文件,仅保留 Tauri 配置 + Rust) |
+  - P0 测试覆盖:3063 测试文件 51 用例全绿(路由 25 + Worker 12 + DB 8 + sanity 6),覆盖 webhook 签名正负向 + 12 端点权限 + 批量 upsert 幂等 + sync_log 聚合 + DB 查询分支
+- **Extension(WXT 0.19)**:30 个 Side Panel 页面 + Chrome MV3 + IndexedDB 词汇库 + 3063 测试文件
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14839+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14839+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+  → **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+  核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+  <strong>603 张表 · 4468 API 路由 · 25 WebSocket 通道 · 270 守门脚本 · 56+ pre-commit 项 · 3063 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  → **IHUI-AI(智汇 AI)**。Apache 2.0 开源,118 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),599 张表 / 4468 API 路由 / 3063 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+  → **IHUI-AI 工程守门**:260 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3063 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+  核心数字: 8 端 / 118 模型 / 598 表 / 4443 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 270 守门脚本 / 3063 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+- **规模**:603 张表 · 4468 API 路由 · 3063 测试文件 · ~14839 测试用例
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3063 test files / 67 e2e spec / 4468 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。

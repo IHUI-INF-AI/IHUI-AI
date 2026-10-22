@@ -17,6 +17,7 @@
     "prebuild": "rimraf dist && tsc",
     "build": "tsc",
     "lint": "eslint src/",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "clean": "rimraf dist .turbo node_modules"
   },
@@ -46,8 +47,10 @@
     "@types/react-dom": "19.2.4",
     "typescript": "catalog:",
     "eslint": "catalog:",
+    "happy-dom": "^20.11.1",
     "rimraf": "catalog:",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "vitest": "catalog:"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "homepage": "https://aizhs.top"

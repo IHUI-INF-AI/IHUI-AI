@@ -1031,9 +1031,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (bioSafe !== undefined) updates.bio = bioSafe
       if (birthday !== undefined) updates.birthday = birthday ? new Date(birthday) : null
       if (gender !== undefined) updates.gender = gender
-      if (Object.keys(updates).length > 0) {
-        await db.update(users).set(updates).where(eq(users.id, request.userId!))
-      }
+      // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+      const updatedRows =
+        Object.keys(updates).length > 0
+          ? await db
+              .update(users)
+              .set(updates)
+              .where(eq(users.id, request.userId!))
+              .returning({ id: users.id })
+          : []
       // 拉取最新用户信息
       const fresh = await findUserById(request.userId!)
       return reply.send(
@@ -1045,7 +1051,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           bio: fresh?.bio ?? bio ?? null,
           gender: fresh?.gender ?? gender ?? null,
           birthday: fresh?.birthday ?? (birthday ? new Date(birthday).toISOString() : null),
-          updated: true,
+          updated: updatedRows.length > 0,
         }),
       )
     },

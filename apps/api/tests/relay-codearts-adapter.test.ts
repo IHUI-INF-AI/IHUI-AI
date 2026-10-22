@@ -17,7 +17,10 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { AdapterAccountContext, StreamState } from '../src/services/relay-upstream-adapters.js'
-import { codeartsAdapter } from '../src/services/upstream-adapters/codearts-adapter.js'
+import {
+  codeartsAdapter,
+  CodeArtsRefreshError,
+} from '../src/services/upstream-adapters/codearts-adapter.js'
 import { generateDpopKeyJwk } from '../src/services/upstream-adapters/codearts-signer.js'
 
 const mockFetch = vi.fn()
@@ -203,7 +206,11 @@ describe('codearts buildChatRequest', () => {
 })
 
 describe('codearts refreshToken(打桩 fetch)', () => {
-  beforeEach(() => mockFetch.mockReset())
+  // Vitest 4:hook 回调不得隐式返回 mock 函数(会被当作 cleanup 在测后调用,
+  // 产生归属本用例的 unhandled rejection),必须块体无返回值。
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
 
   it('成功:form + DPoP 头,整套 STS 凭据进返回值', async () => {
     mockFetch.mockResolvedValue({
@@ -266,7 +273,11 @@ describe('codearts refreshToken(打桩 fetch)', () => {
 })
 
 describe('codearts checkHealth / listModels(打桩 fetch)', () => {
-  beforeEach(() => mockFetch.mockReset())
+  // Vitest 4:hook 回调不得隐式返回 mock 函数(会被当作 cleanup 在测后调用,
+  // 产生归属本用例的 unhandled rejection),必须块体无返回值。
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
 
   it('builtinModels 正常 → ok 且模型 id 列表(剔除 enable:false)', async () => {
     mockFetch.mockResolvedValue({
@@ -371,6 +382,149 @@ describe('codearts classifyUpstreamFailure', () => {
     expect(classify(429, 'too many').kind).toBe('rate')
     expect(classify(502, 'bad gateway').kind).toBe('server')
     expect(classify(400, 'bad request').kind).toBe('client')
+  })
+
+  it('扩展:402→credit;invalid_grant→session_dead;HTML 登录墙→auth;403+Insufficient privileges→auth(不误判 credit)', () => {
+    expect(classify(402, 'payment required').kind).toBe('credit')
+    expect(classify(400, '{"error":"invalid_grant"}').kind).toBe('session_dead')
+    expect(classify(200, '<!DOCTYPE html><html><body>Please Login</body></html>').kind).toBe('auth')
+    expect(classify(403, '{"error_msg":"Insufficient privileges"}').kind).toBe('auth')
+  })
+})
+
+describe('codearts isAuthFailure 常见上游错误形态', () => {
+  it('JSON error 体 / SSE 中途断流帧 / HTML 登录墙 / security token 文案 → true', () => {
+    expect(codeartsAdapter.isAuthFailure(200, '{"error":{"code":"unauthorized"}}')).toBe(true)
+    expect(
+      codeartsAdapter.isAuthFailure(
+        200,
+        'data: {"error":{"message":"The security token has expired"}}',
+      ),
+    ).toBe(true)
+    expect(codeartsAdapter.isAuthFailure(200, '<html><head>登录</head></html>')).toBe(true)
+    expect(codeartsAdapter.isAuthFailure(200, 'security token is expired')).toBe(true)
+  })
+  it('普通 400 请求错误 / 并发超限 → false(不误触 401 自愈)', () => {
+    expect(codeartsAdapter.isAuthFailure(400, '{"error_msg":"prompt is too long"}')).toBe(false)
+    expect(codeartsAdapter.isAuthFailure(429, 'Too Many Requests')).toBe(false)
+  })
+})
+
+describe('codearts isAuthError', () => {
+  const isAuthError = codeartsAdapter.isAuthError!
+  it('结构化刷新错误:auth→true,其余 kind→false', () => {
+    expect(isAuthError(new CodeArtsRefreshError('auth', 401, 'x'))).toBe(true)
+    expect(isAuthError(new CodeArtsRefreshError('rate', 429, 'x'))).toBe(false)
+    expect(isAuthError(new CodeArtsRefreshError('session_dead', 400, 'x'))).toBe(false)
+  })
+  it('普通 Error:message 里的 HTTP 状态码还原判定', () => {
+    expect(isAuthError(new Error('CodeArts 续期失败 HTTP 401: expired'))).toBe(true)
+    expect(isAuthError(new Error('CodeArts 续期失败 HTTP 403: x'))).toBe(true)
+    expect(isAuthError(new Error('CodeArts 续期失败 HTTP 429: x'))).toBe(false)
+    expect(isAuthError(new Error('socket hang up'))).toBe(false)
+  })
+})
+
+describe('codearts refreshToken 失败分类与回退重试(打桩 fetch)', () => {
+  // Vitest 4:hook 回调不得隐式返回 mock 函数(会被当作 cleanup 在测后调用,
+  // 产生归属本用例的 unhandled rejection),必须块体无返回值。
+  beforeEach(() => {
+    mockFetch.mockReset()
+  })
+
+  const refreshSuccessBody = {
+    refresh_token: 'rt-rotated',
+    credentials: {
+      access_key_id: 'HSTAKnew',
+      secret_access_key: 'sknew',
+      security_token: 'sts-new',
+      expiration: '2027-01-01T00:00:00Z',
+    },
+  }
+  const resp = (status: number, body: unknown) => ({
+    status,
+    ok: status >= 200 && status < 300,
+    text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
+  })
+
+  it('401 → auth,不重试(恰 1 次),message 不带凭证', async () => {
+    mockFetch.mockResolvedValue(
+      resp(401, { error: 'unauthorized', error_description: 'SecurityToken has expired' }),
+    )
+    const err = await codeartsAdapter.refreshToken!(makeCtx()).catch((e) => e)
+    expect(err).toBeInstanceOf(CodeArtsRefreshError)
+    expect(err).toMatchObject({
+      name: 'CodeArtsRefreshError',
+      failureKind: 'auth',
+      statusCode: 401,
+    })
+    expect(err.message).not.toContain('rt-old')
+    expect(err.message).not.toContain('sktestsecret')
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('429 → rate,回退重试一次(恰 2 次,每次全新 DPoP)', async () => {
+    mockFetch.mockResolvedValue(resp(429, { error: 'too many requests' }))
+    const err = await codeartsAdapter.refreshToken!(makeCtx()).catch((e) => e)
+    expect(err).toMatchObject({ failureKind: 'rate', statusCode: 429 })
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+    const proof1 = (mockFetch.mock.calls[0] as [string, RequestInit])[1].headers as Record<
+      string,
+      string
+    >
+    const proof2 = (mockFetch.mock.calls[1] as [string, RequestInit])[1].headers as Record<
+      string,
+      string
+    >
+    expect(proof1['DPoP']).toMatch(/^[A-Za-z0-9_-]+\./)
+    expect(proof2['DPoP']).toMatch(/^[A-Za-z0-9_-]+\./)
+    expect(proof1['DPoP']).not.toBe(proof2['DPoP'])
+  })
+
+  it('429 后转 200 → 成功返回轮转凭据(2 次调用)', async () => {
+    mockFetch
+      .mockResolvedValueOnce(resp(429, { error: 'too many requests' }))
+      .mockResolvedValueOnce(resp(200, refreshSuccessBody))
+    const result = await codeartsAdapter.refreshToken!(makeCtx())
+    expect(result?.token).toBe('sts-new')
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('5xx → server,重试一次', async () => {
+    mockFetch.mockResolvedValue(resp(503, 'Service Unavailable'))
+    const err = await codeartsAdapter.refreshToken!(makeCtx()).catch((e) => e)
+    expect(err).toMatchObject({ failureKind: 'server', statusCode: 503 })
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('网络异常 → server(可重试),message 只带异常名', async () => {
+    mockFetch.mockRejectedValue(new Error('socket hang up'))
+    const err = await codeartsAdapter.refreshToken!(makeCtx()).catch((e) => e)
+    expect(err).toMatchObject({ failureKind: 'server', statusCode: 0 })
+    expect(err.message).toMatch(/网络异常/)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('invalid_grant → session_dead,不重试', async () => {
+    mockFetch.mockResolvedValue(resp(400, { error: 'invalid_grant' }))
+    const err = await codeartsAdapter.refreshToken!(makeCtx()).catch((e) => e)
+    expect(err).toMatchObject({ failureKind: 'session_dead' })
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('额度文案 → credit,不重试', async () => {
+    mockFetch.mockResolvedValue(resp(400, { error_description: '积分已用尽' }))
+    const err = await codeartsAdapter.refreshToken!(makeCtx()).catch((e) => e)
+    expect(err).toMatchObject({ failureKind: 'credit' })
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('HTML 登录墙(200 非 JSON)→ auth,解析失败不回落原文', async () => {
+    mockFetch.mockResolvedValue(resp(200, '<!DOCTYPE html><html>Login</html>'))
+    const err = await codeartsAdapter.refreshToken!(makeCtx()).catch((e) => e)
+    expect(err).toMatchObject({ failureKind: 'auth', statusCode: 200 })
+    expect(err.message).toMatch(/解析失败 HTTP 200/)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

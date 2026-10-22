@@ -61,7 +61,48 @@ vi.mock('../src/utils/crypto.js', () => ({
   decryptField: (v: string) => (v.startsWith('enc:') ? v.slice(4) : v),
 }))
 
+// shared-state 强制「内存兜底」档(与 auth 测试先例同口径:REDIS_URL 指死端口,
+// 命令即刻失败即刻降级,绝不与并行套件共享真实 Redis 的 relay:pool:* 键)
+vi.mock('../src/config/index.js', () => ({
+  config: { REDIS_URL: 'redis://127.0.0.1:1/0' },
+}))
+
+// 台账/代理池/模型目录三服务打桩:转发主链路整合点(埋点/取代理/别名)的断言面,
+// 默认全 no-op(不触 db mock 链,防 updateCalls 被代理池 lastPickedAt 写污染)
+const mockRecordAccountUsage = vi.fn(async () => {})
+const mockPickProxy = vi.fn(async (_account: unknown) => null as string | null)
+const mockReportProxyFailure = vi.fn(async () => {})
+const mockReportProxySuccess = vi.fn(async () => {})
+const mockResolveAlias = vi.fn(async (_p: string, _m: string) => null)
+vi.mock('../src/services/relay-account-usage.js', () => ({
+  recordAccountUsage: (...a: unknown[]) => mockRecordAccountUsage(...(a as [never])),
+}))
+vi.mock('../src/services/relay-proxy-pool.js', () => ({
+  pickProxyForAccount: (account: { id: string; proxyUrl: string | null }) => mockPickProxy(account),
+  reportProxyFailure: (u: string) => mockReportProxyFailure(u),
+  reportProxySuccess: (u: string) => mockReportProxySuccess(u),
+}))
+vi.mock('../src/services/relay-model-catalog.js', () => ({
+  resolveModelAlias: (p: string, m: string) => mockResolveAlias(p, m),
+}))
+
+// undici 打桩:代理路径(poolFetch 有 proxy 时走 undiciFetch)不发真实网络
+const mockUndiciFetch = vi.fn()
+vi.mock('undici', () => ({
+  ProxyAgent: class {
+    close(): void {}
+  },
+  fetch: (...args: unknown[]) => mockUndiciFetch(...args),
+}))
+
 import { forwardToAccountPool } from '../src/services/relay-account-forwarder.js'
+import {
+  __test__ as sharedState,
+  clearAccountCooldown,
+  getAccountsInCooldown,
+  getSessionAffinity,
+  setSessionAffinity,
+} from '../src/services/relay-account-shared-state.js'
 import { registerRelayAdapter } from '../src/services/relay-upstream-adapters.js'
 import type {
   AdapterAccountContext,
@@ -142,12 +183,29 @@ function fakeAdapter(
   return { ...base, ...overrides }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   providerRows = []
   accountRows = []
   updateCalls.length = 0
   vi.unstubAllGlobals()
+  await sharedState.reset()
+  mockRecordAccountUsage.mockReset().mockResolvedValue(undefined)
+  mockPickProxy.mockReset().mockResolvedValue(null)
+  mockReportProxyFailure.mockReset().mockResolvedValue(undefined)
+  mockReportProxySuccess.mockReset().mockResolvedValue(undefined)
+  mockResolveAlias.mockReset().mockResolvedValue(null)
+  mockUndiciFetch.mockReset()
 })
+
+/** 多轮完整上下文(锁定 failover 全量回放不变量的夹具) */
+function multiTurnMessages() {
+  return [
+    { role: 'system', content: '你是 IHUI 助手。' },
+    { role: 'user', content: '第一轮提问' },
+    { role: 'assistant', content: '第一轮回答' },
+    { role: 'user', content: '第二轮提问,这段最长的上下文绝不能被截断' },
+  ]
+}
 
 describe('forwardToAccountPool', () => {
   it('模型无账号池平台映射 → null(回退 ai-service)', async () => {
@@ -318,6 +376,343 @@ describe('forwardToAccountPool', () => {
     const res = await forwardToAccountPool(baseReq('fail-model-1'), 'fail-model-1')
     expect(res && res.ok).toBe(true)
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  // ── 多实例共享态 + failover 全量上下文回放(2026-10-22 改造锁定)──
+
+  it('failover 全量回放(非流式):换号后新号收到完整 messages 数组,不截断', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    const rowA = accountRow('acct-rp-a') as { id: string }
+    const rowB = accountRow('acct-rp-b') as { id: string }
+    accountRows = [rowA, rowB]
+    const full = multiTurnMessages()
+    const seen: Array<{ rowId: string; messages: Array<{ content?: unknown }> }> = []
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        buildChatRequest: (ctx: AdapterAccountContext, norm) => {
+          seen.push({ rowId: ctx.row.id, messages: norm.messages })
+          return { url: 'https://upstream.test/v', method: 'POST', headers: {}, body: {} }
+        },
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ id: 'cm-rp', object: 'chat.completion', choices: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        ),
+    )
+    const req = { ...baseReq('replay-model-1'), stream: false, messages: full }
+    const res = await forwardToAccountPool(req, 'replay-model-1')
+    expect(res && res.ok).toBe(true)
+    // 首号 401(无 refreshToken 不自愈)→ 次号成功:两次尝试都拿到全量上下文
+    expect(seen.length).toBe(2)
+    expect(seen[0]?.rowId).toBe(rowA.id)
+    expect(seen[1]?.rowId).toBe(rowB.id)
+    for (const s of seen) {
+      expect(s.messages.length).toBe(full.length)
+      expect(s.messages.map((m) => m.content)).toEqual(full.map((m) => m.content))
+    }
+  })
+
+  it('401 自愈全量回放:刷新后同号重试仍带完整 messages', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-rp401', { refreshTokenEnc: 'enc:rt-9' })]
+    const full = multiTurnMessages()
+    const seen: Array<Array<{ content?: unknown }>> = []
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        refreshToken: vi.fn(async () => ({ token: 'jwt-fresh', expiresAt: FUTURE })),
+        buildChatRequest: (_c: AdapterAccountContext, norm) => {
+          seen.push(norm.messages)
+          return { url: 'https://upstream.test/v', method: 'POST', headers: {}, body: {} }
+        },
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ id: 'cm-rp2', object: 'chat.completion', choices: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        ),
+    )
+    const req = { ...baseReq('replay401-model-1'), stream: false, messages: full }
+    const res = await forwardToAccountPool(req, 'replay401-model-1')
+    expect(res && res.ok).toBe(true)
+    expect(seen.length).toBe(2)
+    for (const msgs of seen) {
+      expect(msgs.length).toBe(full.length)
+      expect(msgs.map((m) => m.content)).toEqual(full.map((m) => m.content))
+    }
+  })
+
+  it('failover 全量回放(流式):新号 SSE 从头开始不断流,首号零字节泄漏', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    const rowA = accountRow('acct-sse-a') as { id: string }
+    const rowB = accountRow('acct-sse-b') as { id: string }
+    accountRows = [rowA, rowB]
+    const full = multiTurnMessages()
+    const seen: Array<{ rowId: string; n: number }> = []
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        buildChatRequest: (ctx: AdapterAccountContext, norm) => {
+          seen.push({ rowId: ctx.row.id, n: norm.messages.length })
+          return { url: 'https://upstream.test/v', method: 'POST', headers: {}, body: {} }
+        },
+      }),
+    )
+    const sse =
+      'data: {"choices":[{"delta":{"content":"AAA"}}]}\n\n' +
+      'data: {"choices":[{"delta":{"content":"BBB"},"finish_reason":"stop"}]}\n\n' +
+      'data: [DONE]\n\n'
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockRejectedValueOnce(new Error('ECONNRESET'))
+        .mockResolvedValueOnce(
+          new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+        ),
+    )
+    const req = { ...baseReq('sse-replay-model-1'), stream: true, messages: full }
+    const res = await forwardToAccountPool(req, 'sse-replay-model-1')
+    expect(res && res.ok).toBe(true)
+    if (!res || !res.ok) return
+    expect(res.response.headers.get('content-type')).toContain('text/event-stream')
+    const text = await res.response.text()
+    // 重放从头开始:首 chunk 在最前,完整到 [DONE],没有失败号的残留
+    expect(text.indexOf('"content":"AAA"')).toBeGreaterThanOrEqual(0)
+    expect(text.indexOf('"content":"AAA"')).toBeLessThan(text.indexOf('"content":"BBB"'))
+    expect(text.trimEnd().endsWith('data: [DONE]')).toBe(true)
+    expect(seen).toEqual([
+      { rowId: rowA.id, n: full.length },
+      { rowId: rowB.id, n: full.length },
+    ])
+  })
+
+  it('冷却跨实例共享(内存兜底档):连续 3 败后该号被跳过,单号池直接判空', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    const row = accountRow('acct-cool') as { id: string }
+    accountRows = [row]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('ECONNRESET')
+      }),
+    )
+    const req = { ...baseReq('cool-model-1'), stream: false }
+    for (let i = 0; i < 3; i++) {
+      const r = await forwardToAccountPool(req, 'cool-model-1')
+      expect(r && r.ok).toBe(false)
+    }
+    // 第 3 败触发 60s 冷却,写入 shared-state(内存兜底档)
+    expect((await getAccountsInCooldown([row.id])).has(row.id)).toBe(true)
+    // 唯一候选在冷却 ⇒ 无候选 ⇒ null(调用方回退 ai-service),不再打该号
+    expect(await forwardToAccountPool(req, 'cool-model-1')).toBeNull()
+    // 解除冷却后恢复可选
+    await clearAccountCooldown(row.id)
+    const r5 = await forwardToAccountPool(req, 'cool-model-1')
+    expect(r5 && r5.ok).toBe(false) // 又打了一次(失败),但确实被选中
+  })
+
+  it('会话亲和跨实例共享(内存兜底档):命中号置顶覆盖排序,成功后回写', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    const rowA = accountRow('acct-aff-a') as { id: string }
+    const rowB = accountRow('acct-aff-b') as { id: string }
+    accountRows = [rowA, rowB]
+    await setSessionAffinity(`key-1|affinity-model-1`, rowB.id, 60_000)
+    const usedRows: string[] = []
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        buildChatRequest: (ctx: AdapterAccountContext) => {
+          usedRows.push(ctx.row.id)
+          return { url: 'https://upstream.test/v', method: 'POST', headers: {}, body: {} }
+        },
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ id: 'cm-aff', object: 'chat.completion', choices: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    )
+    const req = { ...baseReq('affinity-model-1'), stream: false }
+    const res = await forwardToAccountPool(req, 'affinity-model-1')
+    expect(res && res.ok).toBe(true)
+    // 亲和命中(B)压过默认排序(A 在前)
+    expect(usedRows[0]).toBe(rowB.id)
+    // 成功回写:亲和续期仍指向 B
+    expect(await getSessionAffinity(`key-1|affinity-model-1`)).toBe(rowB.id)
+  })
+
+  // ── 用量台账 / 模型别名 / 代理池 整合面(2026-10-22 主会话接线) ──
+
+  it('SSE 流含 usage 帧 → tap 提取并记台账(ok:true,tokens 取末帧)', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-usage-sse')]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    const sse =
+      'data: {"choices":[{"delta":{"content":"AAA"}}]}\n\n' +
+      'data: {"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":7}}\n\n' +
+      'data: [DONE]\n\n'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+      ),
+    )
+    const res = await forwardToAccountPool(baseReq('usage-sse-model-1'), 'usage-sse-model-1')
+    expect(res && res.ok).toBe(true)
+    if (!res || !res.ok) return
+    const text = await res.response.text()
+    expect(text).toContain('"content":"AAA"')
+    await vi.waitFor(() =>
+      expect(mockRecordAccountUsage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          providerCode: 'trae',
+          model: 'usage-sse-model-1',
+          promptTokens: 11,
+          completionTokens: 7,
+          ok: true,
+        }),
+      ),
+    )
+  })
+
+  it('非流式 JSON 含 usage → 记台账;无 usage 记 0/0 且响应原样透传', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-usage-json')]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              id: 'cm-u1',
+              object: 'chat.completion',
+              choices: [],
+              usage: { prompt_tokens: 3, completion_tokens: 2 },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    )
+    const req = { ...baseReq('usage-json-model-1'), stream: false }
+    const res = await forwardToAccountPool(req, 'usage-json-model-1')
+    expect(res && res.ok).toBe(true)
+    if (!res || !res.ok) return
+    const body = await res.response.json()
+    expect(body.id).toBe('cm-u1') // clone 读取不影响主路径透传
+    await vi.waitFor(() =>
+      expect(mockRecordAccountUsage).toHaveBeenCalledWith(
+        expect.objectContaining({ promptTokens: 3, completionTokens: 2, ok: true }),
+      ),
+    )
+  })
+
+  it('候选全失败 → 每号记一条 ok:false 台账(客户端断开除外)', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    const row = accountRow('acct-usage-fail') as { id: string }
+    accountRows = [row]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('boom', { status: 500 })),
+    )
+    const req = { ...baseReq('usage-fail-model-1'), stream: false }
+    const res = await forwardToAccountPool(req, 'usage-fail-model-1')
+    expect(res && res.ok).toBe(false)
+    expect(mockRecordAccountUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: row.id, ok: false }),
+    )
+  })
+
+  it('模型别名映射命中 → 上游请求用 upstreamModel(对外语义不变)', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-alias')]
+    mockResolveAlias.mockResolvedValue({ upstreamModel: 'kimi-k2-upstream', displayName: 'K' })
+    let seenModel = ''
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        buildChatRequest: (_ctx: AdapterAccountContext, norm) => {
+          seenModel = norm.model
+          return { url: 'https://upstream.test/v', method: 'POST', headers: {}, body: {} }
+        },
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ id: 'cm-a1', choices: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    )
+    const req = { ...baseReq('alias-model-1'), stream: false }
+    const res = await forwardToAccountPool(req, 'alias-model-1')
+    expect(res && res.ok).toBe(true)
+    expect(seenModel).toBe('kimi-k2-upstream')
+    expect(mockResolveAlias).toHaveBeenCalledWith('trae', 'alias-model-1')
+  })
+
+  it('代理池命中 → undici 带 dispatcher 请求 + 成功上报;网络失败上报 failure', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-proxy-pool')]
+    mockPickProxy.mockResolvedValue('http://proxy.test:8080')
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    mockUndiciFetch.mockResolvedValue(
+      new Response('data: [DONE]\n\n', {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
+    )
+    const res = await forwardToAccountPool(baseReq('proxy-model-1'), 'proxy-model-1')
+    expect(res && res.ok).toBe(true)
+    expect(mockPickProxy).toHaveBeenCalledWith({
+      id: (accountRows[0] as { id: string }).id,
+      proxyUrl: null,
+    })
+    expect(mockUndiciFetch).toHaveBeenCalled()
+    const init = mockUndiciFetch.mock.calls[0][1] as Record<string, unknown>
+    expect(init.dispatcher).toBeDefined() // 走代理 dispatcher 而非直连
+    await vi.waitFor(() =>
+      expect(mockReportProxySuccess).toHaveBeenCalledWith('http://proxy.test:8080'),
+    )
+
+    // 网络失败 → reportProxyFailure(代理级),server 类失败同样计代理
+    mockUndiciFetch.mockRejectedValue(new Error('proxy down'))
+    const row2 = accountRow('acct-proxy-pool-2') as { id: string }
+    accountRows = [row2]
+    const req2 = { ...baseReq('proxy-model-2'), stream: false }
+    const res2 = await forwardToAccountPool(req2, 'proxy-model-2')
+    expect(res2 && res2.ok).toBe(false)
+    await vi.waitFor(() =>
+      expect(mockReportProxyFailure).toHaveBeenCalledWith('http://proxy.test:8080'),
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
