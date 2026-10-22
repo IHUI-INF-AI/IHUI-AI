@@ -3,303 +3,273 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * 原生弹窗守门 — 禁止 alert() / confirm() / prompt() 原生浏览器弹窗。
  *
- * 依据 AGENTS.md 第 4 节"禁用原生提示窗(强制)":
- *   禁止 alert() / confirm() / prompt() 原生浏览器弹窗,
- *   必须使用项目自有的 Tooltip / Dialog 组件统一交互样式。
+ * 依据 AGENTS.md 第 4 节"禁用原生提示窗(强制)":必须用项目自有的 Tooltip / Dialog 统一交互。
  *
- * 检测逻辑:
- *   - 在 .ts/.tsx/.js/.jsx 源码中查找函数调用形式的 alert( / confirm( / prompt(
- *   - 排除:注释行、行内 // 注释之后的片段、以及字符串字面量中出现的内容
- *     (如文档/示例字符串 "...use confirm() to..." 不算违规)
- *   - 判定用"去注释 + 去字符串"后的剩余代码文本,避免误报
+ * 2026-10-23 重写。旧门判**反**了:全量档报的 16 处"违规"16 处全是假阳(8 处是项目自己的
+ * `useConfirm()` / `confirmDialog()` 合法出口,8 处是 `apps/web/public/vs/**` 里 Monaco 打包
+ * 产物内的 TS 声明),而真原生弹窗 12 处一处没看见 —— 成员式 `window.confirm(...)` 被它自己的
+ * `(?<!\.)` 前导守卫排除,箭头体 `() => confirm(...)` 被它 lookbehind 里的 `>` 排除。
+ * 两道"防误伤"的守卫同时把真阳杀干净,而门挂 blocking、全量档恒 exit 0 ⇒ 静默了不知多久。
+ *
+ * 判据(实现在 `./lib/native-dialog-judge.mjs`,本文件只管取材/棘轮/报告):
+ *   · member —— `window|globalThis|self|top|parent . alert|confirm|prompt (` ⇒ 无条件违规;
+ *   · bare   —— 裸 `alert(|confirm(|prompt (` ⇒ 本文件内**没有**该名字本地绑定时才违规
+ *               (有绑定 = 走的是项目自有出口)。绑定识别一律限在单行/单条 import 语句内 ——
+ *               跨语句的宽松匹配会把 JSX 里那句真弹窗读成"有绑定",第一版就是这么漏的。
+ *
+ * 取材面纪律(§0.4):全量判 HEAD blob、`--staged` 判索引 blob、`--worktree` 人工逃生舱;
+ * 清单与内容同面同轮,共用 `./lib/face-scan.mjs`。`public/` 下的第三方打包产物按面排除
+ * (那是 vendored 资产,不是我们写的界面代码 —— 旧门把它当违规,是纯粹的假阳来源)。
+ * 族本身走**差值棘轮**(锚点 = 该文件 HEAD 面自身命中数):存量还没清完,挂绝对红就是 §12e
+ * 恒红门;存量归零后再谈升绝对档。
  *
  * 用法:
- *   node scripts/check-no-native-dialog.mjs --staged   (pre-commit, 新增违规则 exit 1)
- *   node scripts/check-no-native-dialog.mjs             (全量扫描报告, exit 0)
- *   node scripts/check-no-native-dialog.mjs --help
+ *   node scripts/check-no-native-dialog.mjs --staged     pre-commit(新增即拦)
+ *   node scripts/check-no-native-dialog.mjs              全量报告(存量只报数, exit 0)
+ *   node scripts/check-no-native-dialog.mjs --worktree   人工逃生舱:量盘上清偿进度
+ *   node scripts/check-no-native-dialog.mjs --self-test  判据自检
  *
  * 跳过方法(紧急):HUSKY_SKIP_NATIVE_DIALOG=1 git commit ...
  */
-import { execSync } from 'node:child_process'
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
-import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { relative } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { COLORS as C } from './lib/logger.mjs'
+import { isExcludedDirName } from './lib/exclude-dirs.mjs'
+import { Undetermined, assertRepoRoot, selectFace } from './lib/face-reader.mjs'
+import { addedLineNumbers, headAnchors, readSources, sourceCandidates } from './lib/face-scan.mjs'
+import { countNativeCalls, hasLocalBinding, scanNativeCalls } from './lib/native-dialog-judge.mjs'
 
 const ROOT = process.cwd()
 const argv = process.argv.slice(2)
 const isStaged = argv.includes('--staged')
+const isWorktree = argv.includes('--worktree')
+const isSelfTest = argv.includes('--self-test')
 const isHelp = argv.includes('--help') || argv.includes('-h')
 
-// 跳过方法(紧急):HUSKY_SKIP_NATIVE_DIALOG=1 git commit ...
-if (process.env.HUSKY_SKIP_NATIVE_DIALOG === '1') {
+const SCAN_GLOBS = ['*.ts', '*.tsx', '*.js', '*.jsx']
+const PREFILTER_RE = '(alert|confirm|prompt)[[:space:]]*\\('
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun && process.env.HUSKY_SKIP_NATIVE_DIALOG === '1') {
   console.log('⏭  原生弹窗守门(HUSKY_SKIP_NATIVE_DIALOG=1, 跳过)')
   process.exit(0)
 }
 
-if (isHelp) {
+if (isDirectRun && isHelp) {
   console.log(`
-check-no-native-dialog.mjs — 原生弹窗守门(alert/confirm/prompt)
+check-no-native-dialog.mjs — 原生弹窗守门(alert / confirm / prompt)
 
-用法:
-  node scripts/check-no-native-dialog.mjs --staged   pre-commit 模式(新增违规则 exit 1)
-  node scripts/check-no-native-dialog.mjs             全量扫描报告(exit 0)
-  node scripts/check-no-native-dialog.mjs --help      显示本帮助
+  --staged      pre-commit 档(判索引 blob;超出该文件 HEAD 基线即拦提交)
+  --worktree    人工逃生舱:量盘上清偿进度(读磁盘,恒 exit 0,不作提交门禁)
+  --self-test   判据自检
+  不带参数      全量档(判 HEAD blob,存量只报数, exit 0)
 
-判定:代码中实际调用 alert()/confirm()/prompt()(注释行与字符串字面量豁免)即违规。
+判定:
+  - window./globalThis./self./top./parent. + alert|confirm|prompt(  ⇒ 违规(无条件)
+  - 裸 alert(/confirm(/prompt( 且本文件内没有该名字的本地绑定        ⇒ 违规
+    (有本地绑定 = 项目自有出口,如 const { confirm } = useConfirm())
+  - 注释、字符串字面量、类型签名位、public/ 下的第三方打包产物 ⇒ 不判
 `)
   process.exit(0)
 }
 
-const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
-
-/**
- * 原生弹窗调用模式:alert( / confirm( / prompt(
- * 守门只针对浏览器裸调用 alert()/confirm()/prompt(),需排除:
- *   1) 成员访问(.alert,如 React Native 的 Alert.alert)由 (?<!\.) 排除
- *   2) 函数/方法定义(async prompt( / function alert( / const x = prompt( / await prompt( 等),
- *      避免误伤 LLM prompt 助手等用户自定义同名函数
- *   3) 行首为注释(JSDoc ` *`/ `//` / `/*`)的行在循环内直接跳过
- * 仅判定"裸调用"上下文,真实浏览器调用几乎都出现在语句起始或 ; / { / return / 运算符之后,
- * 不会被下列定义/参数/await/yield 上下文的前导词排除。
- */
-const CALL_RE =
-  /(?<!\.)(?<!(async\s+|function\s+|const\s+|let\s+|var\s+|await\s+|yield\s+|=|>|:|,|&|\||\?|\()\s*)(alert|confirm|prompt)\s*\(/
-
-/**
- * 去除行内注释与字符串字面量内容,返回"裸代码"用于判定。
- * 这样可同时排除:注释中的说明、字符串字面量里出现的 "alert(" 文本。
- * 注:跨行块注释逐行处理不完美,但 guardian 场景下单行误报风险极低。
- */
-function stripStringsAndComments(line) {
-  let out = ''
-  const n = line.length
-  let i = 0
-  while (i < n) {
-    const c = line[i]
-    const c2 = line[i + 1]
-    if (c === '/' && c2 === '/') break // 行注释:余下全部跳过
-    if (c === '/' && c2 === '*') {
-      // 块注释:跳到 */
-      i += 2
-      while (i < n && !(line[i] === '*' && line[i + 1] === '/')) i++
-      i += 2
-      continue
-    }
-    if (c === '"' || c === "'" || c === '`') {
-      const quote = c
-      i++
-      while (i < n) {
-        if (line[i] === '\\') {
-          i += 2
-          continue
-        }
-        if (line[i] === quote) {
-          i++
-          break
-        }
-        i++
-      }
-      out += ' ' // 字符串整体替换为空格,保留长度无关,仅判存在性
-      continue
-    }
-    out += c
-    i++
+export async function run({ staged, worktree }) {
+  const top = assertRepoRoot(ROOT, '原生弹窗守门')
+  const picked = selectFace({ staged, worktree, def: 'head' })
+  if (picked.error) {
+    console.log(`${C.red}❌ ${picked.error}${C.reset}`)
+    return 2
   }
-  return out
-}
+  const face = picked.face
 
-function collectFiles(dir, result = []) {
-  if (!existsSync(dir)) return result
-  for (const entry of readdirSync(dir)) {
-    if (isExcludedDirName(entry)) continue
-    const full = join(dir, entry)
-    const st = statSync(full)
-    if (st.isDirectory()) {
-      collectFiles(full, result)
-    } else if (SCAN_EXTS.some((e) => entry.endsWith(e))) {
-      result.push(full)
-    }
-  }
-  return result
-}
+  console.log(`${C.cyan}${C.bold}[原生弹窗守门] 扫描 alert / confirm / prompt 调用...${C.reset}`)
+  console.log(
+    `${C.dim}规则: AGENTS.md 第 4 节 — 禁原生弹窗,必须走项目自有 Tooltip / Dialog(useConfirm / confirmDialog)${C.reset}`,
+  )
+  console.log(
+    `${C.dim}取材面: ${face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树(人工逃生舱,不作提交门禁)' : 'HEAD blob'};按「该文件 HEAD 自身命中数」做差值棘轮${C.reset}`,
+  )
+  console.log('')
 
-function getStagedAddedLines() {
-  const result = new Map()
-  let output
-  try {
-    output = execSync('git diff --cached -U0 --diff-filter=ACM --no-color', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      maxBuffer: 50 * 1024 * 1024,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-  } catch {
-    return result
-  }
-  if (!output) return result
-
-  let curFile = null
-  let curLine = 0
-  for (const raw of output.split('\n')) {
-    if (raw.startsWith('+++ b/')) {
-      const m = raw.match(/^\+\+\+\s+b\/(.+)$/)
-      curFile = m ? join(ROOT, m[1]) : null
-      curLine = 0
-      continue
-    }
-    if (raw.startsWith('diff --git')) {
-      curFile = null
-      curLine = 0
-      continue
-    }
-    if (raw.startsWith('@@')) {
-      const m = raw.match(/@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/)
-      curLine = m ? parseInt(m[1], 10) : 0
-      continue
-    }
-    if (curFile && curLine > 0) {
-      if (raw.startsWith('+') && !raw.startsWith('+++')) {
-        if (!result.has(curFile)) result.set(curFile, new Set())
-        result.get(curFile).add(curLine)
-        curLine++
-      } else if (raw.startsWith('-') && !raw.startsWith('---')) {
-        // 删除行,不推进
-      } else {
-        curLine++
-      }
-    }
-  }
-  return result
-}
-
-function getStagedFiles() {
-  try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-    return output
-      .split('\n')
-      .filter(Boolean)
-      .filter((f) => SCAN_EXTS.some((e) => f.endsWith(e)))
-      .filter((f) => !isExcludedDirName(f.split('/')[0]))
-      .map((f) => join(ROOT, f))
-      .filter((f) => existsSync(f))
-  } catch {
-    return []
-  }
-}
-
-console.log(
-  `${C.cyan}${C.bold}[原生弹窗守门] 扫描 alert/confirm/prompt 调用...${C.reset}`,
-)
-console.log(
-  `${C.dim}规则: AGENTS.md 第 4 节 — 禁止原生 alert/confirm/prompt,改用项目自有 Dialog/Tooltip${C.reset}`,
-)
-console.log(
-  `${C.dim}模式: ${isStaged ? 'staged (新增违规阻塞 commit)' : '全量 (warn-only, exit 0)'}${C.reset}`,
-)
-console.log('')
-
-let files = []
-let addedLinesMap = new Map()
-
-if (isStaged) {
-  addedLinesMap = getStagedAddedLines()
-  files = getStagedFiles().filter((f) => addedLinesMap.has(f))
-  if (files.length === 0) {
-    console.log(`${C.green}✅ 暂存区无 .ts/.tsx/.js/.jsx 变更,跳过${C.reset}`)
-    process.exit(0)
-  }
-} else {
-  for (const sub of ['apps', 'packages']) {
-    files = files.concat(collectFiles(join(ROOT, sub)))
-  }
-}
-
-let totalViolations = 0
-const fileReports = []
-
-for (const file of files) {
-  const src = readFileSync(file, 'utf8')
-  // 去除块注释内容(替换为空格,保留换行与行号),避免 /* ... alert( ... */ 等多行注释误报;
-  // 行内 // 注释与字符串字面量由下方 stripStringsAndComments 处理。
-  const srcNoBlock = src.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
-  const lines = srcNoBlock.split('\n')
-  const findings = []
-
-  lines.forEach((line, idx) => {
-    const lineNumber = idx + 1
-    if (isStaged) {
-      const allowed = addedLinesMap.get(file)
-      if (!allowed || !allowed.has(lineNumber)) return
-    }
-    // 跳过整行注释(JSDoc ` *`/ `//` / `/*`),避免注释中的说明性文字误报
-    if (/^\s*(\/\/|\/\*|\*)/.test(line)) return
-    // 跳过 markdown 列表项(文档/说明字符串中的 "prompt(" 等英文词误报)
-    if (/^\s*-\s/.test(line)) return
-    const code = stripStringsAndComments(line)
-    const m = CALL_RE.exec(code)
-    if (m) {
-      findings.push({
-        line: lineNumber,
-        col: m.index + 1,
-        label: m[1],
-        snippet: line.trim().slice(0, 140),
-      })
-    }
+  const addedLines = staged ? addedLineNumbers(top) : null
+  const listed = sourceCandidates(top, face, {
+    prefilterRe: PREFILTER_RE,
+    pathspecs: SCAN_GLOBS,
+    skipSegmentTest: isExcludedDirName,
+    excludePublic: true,
   })
-
-  if (findings.length > 0) {
-    totalViolations += findings.length
-    fileReports.push({ file: relative(ROOT, file), findings })
-  }
-}
-
-console.log(`${C.bold}扫描结果:${C.reset}`)
-console.log(`  扫描文件: ${files.length} 个`)
-console.log(`  违规数:   ${totalViolations} 处`)
-console.log('')
-
-if (totalViolations === 0) {
-  console.log(`${C.green}${C.bold}✅ 原生弹窗守门通过${C.reset}`)
-  process.exit(0)
-}
-
-console.log(`${C.red}${C.bold}❌ 发现 ${totalViolations} 处违规:${C.reset}`)
-console.log('')
-for (const { file, findings } of fileReports) {
-  console.log(`${C.red}${file}${C.reset}`)
-  for (const f of findings) {
+  const candidates0 = staged ? listed.filter((rel) => addedLines.has(rel)) : listed
+  if (candidates0.length === 0) {
     console.log(
-      `  ${C.dim}行 ${f.line}:${f.col}${C.reset} ${C.red}[${f.label}()]${C.reset} ${f.snippet}`,
+      `${C.green}✅ ${staged ? '暂存区无含 alert/confirm/prompt 调用的源码变更,跳过' : '被审面无含 alert/confirm/prompt 调用的源码文件,跳过'}${C.reset}`,
+    )
+    return 0
+  }
+  const { texts: contents } = readSources(top, face, candidates0)
+  const candidates = candidates0.filter((rel) => contents.has(rel))
+  const anchor = staged
+    ? headAnchors(top, candidates, (rel, src) => countNativeCalls(src))
+    : new Map()
+
+  let newHits = 0
+  let stock = 0
+  const reports = []
+  for (const rel of candidates) {
+    const hits = scanNativeCalls(contents.get(rel))
+    const base = staged ? (anchor.get(rel) ?? 0) : hits.length
+    const over = Math.max(0, hits.length - base)
+    newHits += over
+    stock += hits.length - over
+    if (hits.length === 0) continue
+    reports.push({
+      file: relative(top, rel).split('\\').join('/'),
+      over,
+      base,
+      items: hits.map((h) => ({ ...h, level: over > 0 ? 'blocking' : 'stock' })),
+    })
+  }
+
+  console.log(`${C.bold}扫描结果:${C.reset}`)
+  console.log(`  扫描文件: ${candidates.length} 个`)
+  console.log(`  拦截数:   ${newHits} 处 (BLOCKING,超出该文件 HEAD 基线)`)
+  console.log(`  存量:     ${stock} 处 (只报数,§12e 恒红门禁令)`)
+  console.log('')
+
+  if (reports.length === 0) {
+    console.log(`${C.green}${C.bold}✅ 原生弹窗守门通过${C.reset}`)
+    return 0
+  }
+  if (newHits > 0) {
+    console.log(`${C.red}${C.bold}❌ 发现 ${newHits} 处新增原生弹窗:${C.reset}\n`)
+  } else {
+    console.log(
+      `${C.yellow}${C.bold}⚠️  本次提交无新增;下列 ${stock} 处存量待清偿(出路见每行下方)${C.reset}\n`,
     )
   }
+  for (const r of reports) {
+    console.log(`${r.over > 0 ? C.red : C.yellow}${r.file}${C.reset}  ${r.over > 0 ? `超出 HEAD 基线 ${r.base}` : `存量 ${r.items.length}`}`)
+    for (const h of r.items) {
+      console.log(
+        `  ${C.dim}行 ${h.line}:${h.col}${C.reset} ${h.level === 'blocking' ? C.red : C.dim}[${h.level === 'blocking' ? 'BLOCKING' : '存量'}] [${h.form}:${h.name}]${C.reset} ${h.snippet}`,
+      )
+    }
+    console.log('')
+  }
+  console.log(`${C.dim}修复方法:${C.reset}`)
+  console.log(`  1. 确认框:web 用 useConfirm() 的 confirm({title, description, variant}) 或 confirmDialog();`)
+  console.log(`     小程序/RN 用项目自有 Dialog 组件,不得引 window.confirm。`)
+  console.log(`  2. 输入框:用自有 Dialog + TextField;提示用 Tooltip(§4 同时禁 title 原生提示)。`)
+  console.log(`  3. 详细规则见 AGENTS.md 第 4 节"禁用原生提示窗(强制)"。`)
   console.log('')
-}
-console.log(`${C.dim}修复方法:${C.reset}`)
-console.log(`  1. 确认类交互改用项目自有 Dialog/confirm-dialog 组件`)
-console.log(`  2. 提示类改用 Tooltip 组件(@/components/feedback)`)
-console.log(`  3. 注释行 / 字符串字面量中的文字说明已自动豁免`)
-console.log('')
 
-if (isStaged) {
-  console.log(`${C.red}${C.bold}❌ 原生弹窗守门失败 — 提交已阻止${C.reset}`)
-  console.log(`${C.dim}跳过方法:HUSKY_SKIP_NATIVE_DIALOG=1 git commit ...${C.reset}`)
-  process.exit(1)
-} else {
-  console.log(`${C.yellow}${C.bold}⚠️  全量模式仅警告(exit 0)${C.reset}`)
-  process.exit(0)
+  if (staged && newHits > 0) {
+    console.log(`${C.red}${C.bold}❌ 原生弹窗守门失败 — 提交已阻止${C.reset}`)
+    console.log(`${C.dim}跳过方法:HUSKY_SKIP_NATIVE_DIALOG=1 git commit ...(会留痕)${C.reset}`)
+    return 1
+  }
+  if (!staged) {
+    console.log(
+      `${C.yellow}${C.bold}⚠️  ${face === 'worktree' ? '工作树档只供人工量进度(exit 0)' : '全量模式仅报数(exit 0)'}${C.reset}`,
+    )
+  }
+  return 0
 }
+
+function ok(cond, msg) {
+  if (!cond) throw new Error(msg || '断言不成立')
+}
+
+/**
+ * 判据自检。每一型"放过"都必须配一型"照判"——旧门的病就是防误伤的守卫把真阳也防掉了,
+ * 只测不误伤会测出一道永远绿的空门。
+ */
+export function selfTest() {
+  const cases = []
+  const t = (name, fn) => cases.push({ name, fn })
+  const linesOf = (text) => scanNativeCalls(text).map((h) => `${h.form}:${h.name}@${h.line}`)
+
+  t('N01 window.confirm / window.prompt ⇒ member 违规', () => {
+    const src = `export function P() {\n  if (!window.confirm('删?')) return\n  const x = window.prompt('备注')\n  return x\n}\n`
+    const got = linesOf(src)
+    ok(got.length === 2 && got.every((g) => g.startsWith('member:')), JSON.stringify(got))
+  })
+  t('N02 箭头体裸 confirm 且文件无绑定 ⇒ 违规(旧门正是漏在这一型)', () => {
+    const src = `export function T() {\n  return <button onClick={() => confirm('确认删除?') && del()} />\n}\n`
+    ok(linesOf(src).includes('bare:confirm@2'), JSON.stringify(linesOf(src)))
+  })
+  t('N03 本地绑定(useConfirm 解构)⇒ 放过,且**不跨语句**误认绑定', () => {
+    const bound = `import { useConfirm } from '@/hooks/use-confirm'\nexport function P() {\n  const { confirm, ConfirmDialogRenderer } = useConfirm()\n  return <button onClick={() => { void confirm({ title: 'x' }) }}>{ConfirmDialogRenderer}</button>\n}\n`
+    ok(linesOf(bound).length === 0, JSON.stringify(linesOf(bound)))
+    // 关键反例:文件里只有 JSX 的 `() => confirm(...)`,没有任何绑定 ⇒ 必须判红
+    const unbound = `import { Button } from '@ihui/ui-react'\nexport function P() {\n  return <button onClick={() => confirm('x')} />\n}\n`
+    ok(linesOf(unbound).length === 1, JSON.stringify(linesOf(unbound)))
+  })
+  t('N04 形参绑定 ⇒ 放过(CLI 测试里的 confirm 是注入的假函数)', () => {
+    const src = `function makeCtx(confirm: (a: unknown) => Promise<boolean>) {\n  return { run: async (args: unknown) => confirm(args) }\n}\n`
+    ok(linesOf(src).length === 0, JSON.stringify(linesOf(src)))
+  })
+  t('N05 注释与字符串 ⇒ 放过', () => {
+    const src = `// 这里曾写 window.confirm(...)\nconst doc = '用 confirm() 确认'\nexport const z = 1\n`
+    ok(linesOf(src).length === 0, JSON.stringify(linesOf(src)))
+  })
+  t('N06 类型签名位不算调用', () => {
+    const src = `interface S {\n  confirm(opts: { title: string }): Promise<boolean>\n}\nexport type Q = S\n`
+    ok(linesOf(src).length === 0, JSON.stringify(linesOf(src)))
+  })
+  t('N07 成员式优先于裸调用(同一处不重复计)', () => {
+    const src = `export function P() {\n  window.alert('hi')\n}\n`
+    const got = linesOf(src)
+    ok(got.length === 1 && got[0].startsWith('member:alert'), JSON.stringify(got))
+  })
+  t('N08 计数口径与命中清单同尺(棘轮锚点用的就是它)', () => {
+    const src = `export function P() {\n  if (!window.confirm('a')) return\n  if (!window.confirm('b')) return\n}\n`
+    ok(countNativeCalls(src) === scanNativeCalls(src).length && countNativeCalls(src) === 2)
+  })
+  t('N09 形状锁:import 别名不构成本地绑定(改名救不了红)', () => {
+    const src = `import { confirm as myConfirm } from '@/lib/x'\nexport function P() {\n  return myConfirm('a') || confirm('b')\n}\n`
+    ok(hasLocalBinding(src, 'myConfirm'), '别名应算 myConfirm 的绑定')
+    ok(!hasLocalBinding(src, 'confirm'), '`confirm as x` 之后 confirm 不是本地名')
+    ok(linesOf(src).length === 1, JSON.stringify(linesOf(src)))
+  })
+
+  let pass = 0
+  const out = []
+  for (const c of cases) {
+    try {
+      c.fn()
+      pass++
+      out.push(`  ✅ ${c.name}`)
+    } catch (e) {
+      out.push(`  ❌ ${c.name} — ${e?.message ?? e}`)
+    }
+  }
+  console.log(out.join('\n'))
+  console.log(`\n原生弹窗守门自检: ${pass}/${cases.length} 通过`)
+  if (pass !== cases.length) {
+    console.log(`${C.red}❌ 自检未过 — 判据本身坏了${C.reset}`)
+    return 1
+  }
+  console.log(`${C.green}✅ 原生弹窗守门自检通过${C.reset}`)
+  return 0
+}
+
+if (isDirectRun) {
+  try {
+    const code = isSelfTest ? selfTest() : await run({ staged: isStaged, worktree: isWorktree })
+    process.exit(code)
+  } catch (e) {
+    const undetermined = e instanceof Undetermined
+    console.log(
+      `${undetermined ? C.yellow : C.red}${undetermined ? '⚠️  无法判定(取材失败,既不记绿也不冒红)' : '❌ 原生弹窗守门异常'}: ${e?.message ?? e}${C.reset}`,
+    )
+    process.exit(2)
+  }
+}
+
+export const __test__ = { scanNativeCalls, countNativeCalls, hasLocalBinding, selfTest, PREFILTER_RE }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

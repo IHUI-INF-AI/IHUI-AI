@@ -844,7 +844,7 @@ export default function AttendancePage() {
                     </thead>
                     <tbody>
                       {records.map((r) => (
-                        <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={r.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-mono">
                             {r.studentId.slice(0, 8)}...
                           </td>
@@ -1094,10 +1094,7 @@ export default function AttendancePage() {
                               [],
                             )
                             .map((group) => (
-                              <tr
-                                key={group.period}
-                                className="border-b last:border-0 hover:bg-muted/30"
-                              >
+                              <tr key={group.period} className="hover:bg-muted/30">
                                 <td className="px-3 py-2 text-xs font-medium">{group.period}</td>
                                 {ATTENDANCE_STATUS.map((s) => (
                                   <td key={s.value} className="px-3 py-2 text-right text-xs">
@@ -1222,7 +1219,7 @@ export default function AttendancePage() {
                     </thead>
                     <tbody>
                       {leaves.map((l) => (
-                        <tr key={l.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={l.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-mono">
                             {l.studentId.slice(0, 8)}...
                           </td>
