@@ -17,8 +17,10 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { test } from 'node:test'
+import assert from 'node:assert/strict'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
+import { maskComments } from '../lib/outbound-route-facts.mjs'
 
 import { GIT_BIN, runGate, writeRepo } from './helpers/outbound-routes-fixtures.mjs'
 
@@ -225,5 +227,15 @@ test('T11 (e) 源码级反向锁:--files 不得再是裸 argv[indexOf()+1],且�
   // 空声明集判据必须**只在显式 --files 时**触发 —— 去掉这个条件就是把 (d) 那一态判红
   if (!/opts\.onlyFilesGiven && candidates\.length === 0/.test(src))
     throw new Error('缺"显式 --files 收窄到 0 条声明 ⇒ 未判定"那一支(或它不再区分 given,两态已被合并)')
+})
+
+// ─── maskComments 嵌套模板插值(G-962 实证,workspace-ai.ts:445 形态)───
+test('maskComments 认插值内嵌套模板:内层反引号/带引号正则不得打乱引号态', () => {
+  const line =
+    '  return `git ${args.map((a) => (a.includes(\' \') ? `"${a.replace(/"/g, \'\\\\"\')}"` : a)).join(\' \')}`'
+  const src = [line, '  // TRAILING_MARKER', "  server.get('/after', async () => null)", ''].join('\n')
+  const masked = maskComments(src, 'ts')
+  assert.ok(!masked.includes('TRAILING_MARKER'), '尾行注释必须被遮 ⇒ 模板在真尾反引号处结束,引号态未漂移')
+  assert.ok(masked.includes("server.get('/after'"), '模板后的注册行必须原样保留(旧式引号态错位会把它当字符串吞进串里)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

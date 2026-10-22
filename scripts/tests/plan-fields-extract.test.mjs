@@ -88,12 +88,33 @@ describe('侧车抽取:写盘', () => {
       assert.equal(second.appended, 0)
       assert.equal(second.dupSkipped, 1)
       assert.equal(X.readBackCount(dir), 1)
-      // 同键新值 ⇒ 追加(最新者胜由 `loadFields` 判,抽取器不就地改历史行)
+      // **只有时间戳变了**也算同一条:抽取器每次跑的 `updatedAt` 都是"当下",
+      // 若按整行逐字节去重,每重跑一次就多叠一条同键记录 ⇒ 侧车被自己喂成孤儿堆,
+      // 而 `--check` 会永远报"还有 N 条可搬"(虚增待办 = 本仓最忌的那一型)。
+      const movedClock = X.writeRecords(dir, [{ ...rec, updatedAt: '2026-10-23T09:00:00.000Z' }])
+      assert.equal(movedClock.appended, 0)
+      assert.equal(X.readBackCount(dir), 1)
+      // 同键而语义字段(owner)真变了 ⇒ 必须追加,最新者胜由 `loadFields` 判
       assert.equal(X.writeRecords(dir, [{ ...rec, owner: '乙' }]).appended, 1)
       assert.equal(X.readBackCount(dir), 2)
     } finally {
       rmScratch(dir)
     }
+  })
+
+  it('plan() 把"已在侧车"与"待追加"分开报 —— 全搬完就是 ready,不是 changed', () => {
+    const line = '- [ ] G-5 标题 —— 归属:门 130 持有人'
+    const rec = X.extractFromLine(line)
+    const empty = X.planFromRows([line], new Map())
+    assert.equal(empty.pending, 1, '侧车为空时这条应当算待追加')
+    const filled = X.planFromRows(
+      [line],
+      new Map([[rec.key, { ...rec, updatedAt: '2026-10-21T00:00:00.000Z' }]]),
+    )
+    assert.equal(filled.extractable, 1)
+    assert.equal(filled.pending, 0, '同键同语义已在位 ⇒ 不得再报"有活"')
+    const changed = X.planFromRows([line], new Map([[rec.key, { ...rec, owner: '换人' }]]))
+    assert.equal(changed.pending, 1, 'owner 漂了必须重新算待追加')
   })
 
   it('写坏不污染侧车:临时件写失败时目标文件保持原样', () => {

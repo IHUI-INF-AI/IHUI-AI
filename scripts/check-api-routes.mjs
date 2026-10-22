@@ -1892,6 +1892,8 @@ function parseNextRewriteForwardFaces(src) {
     selfFacePrefixes: [],
     otherRules: [],
     unknownSource: 0,
+    /** ai 面里**改前缀**的规则对(source 路径 ≠ destination 路径),供派生面消费 */
+    pathMaps: [],
   }
   if (src === null || src === undefined) return out
   out.read = true
@@ -1919,11 +1921,67 @@ function parseNextRewriteForwardFaces(src) {
       // 未知形态计数放在这里而不是匹配处:分面已定,剩下的只是"这条 source 认不认得"
       if (rewriteSourceSegments(source).some((seg) => seg === '')) out.unknownSource++
       out.forwardedPrefixes.push(source)
+      // 摘出 destination 的路径部分(template 的 `${IHUI_AI_PROXY_TARGET}` 前缀丢掉)。
+      // 只有**字面 /api/ 开头**的才算;认不出形态 ⇒ 不派生(保守方向)。
+      const dp = dest.match(/\/api\/[^`'"\s]*/)
+      if (dp) out.pathMaps.push({ source, destPath: dp[0] })
     } else {
       out.otherRules.push({ source, destination: dest })
     }
   }
   return out
+}
+
+/**
+ * 「边缘改写派生面」(G-962 收尾,2026-10-22):next rewrites 里**改前缀**的规则
+ * (`/api/lsp/:path* → ai-service /api/v1/lsp/:path*` 等,owner 拍板的反代白名单)
+ * 让"看着前缀错位"的前端调用在生产真实可达。本门旧判据只拿 rewrite 做**豁免**
+ * (REWRITE_EXEMPTION_CLAIMS 两条),没拿它做**派生** ⇒ py 前缀拼接修好后,
+ * lsp 4 条 + self-healing 1 条从「前缀假设未判定」浮成假红(实测:它们不是死调用,
+ * 生产经 next rewrite 打到 ai-service /api/v1/*)。
+ * 判据:对每条 (source,destPath) 且前缀不同者,把注册面里以 destPath 为段前缀的
+ * 条目映射成 source 前缀的外部路径。**窄口径**:source/dest 的公共前缀段必须全是
+ * 字面段(参数段对齐不做,保守不派生);`:path*` 尾 ⇒ 任意后缀;`:x` 裸参数尾 ⇒ 单段。
+ * 派生条目逐条报名(报数必须报名,票面③),via='edge-rewrite'。
+ * @returns {Array<{method:string,path:string,file:string,rule:string}>}
+ */
+function deriveEdgeRewriteEntries(backendEntries, pathMaps) {
+  const derived = []
+  for (const { source, destPath } of pathMaps) {
+    const sSegs = rewriteSourceSegments(source)
+    const dSegs = rewriteSourceSegments(destPath)
+    if (sSegs.length === 0 || dSegs.length === 0) continue
+    if (sSegs.join('/') === dSegs.join('/')) continue // 同前缀透明转发:注册面已是终形,不派生
+    // 定尾长:两侧都到 :path* 为止的"固定段"数;超过部分不做(保守)
+    const sWild = sSegs[sSegs.length - 1] === ':path*' ? 1 : 0
+    const dWild = dSegs[dSegs.length - 1] === ':path*' ? 1 : 0
+    const sFixed = sSegs.slice(0, sSegs.length - sWild)
+    const dFixed = dSegs.slice(0, dSegs.length - dWild)
+    // 通配对齐纪律:source 与 dest 的 `:path*` 尾必须**同有或同无**。
+    // 同有 ⇒ 前缀映射(改前缀规则的段数差正是改写本身,不做长度相等约束);
+    // 一有一无 ⇒ 形态不对齐,保守不派生;同无 ⇒ 精确一对一。
+    if (sWild !== dWild) continue
+    if (dFixed.some((seg) => seg.startsWith(':'))) continue // 目标含参数段 ⇒ 对齐不可判,不派生
+    const prefixFrom = '/' + dFixed.join('/')
+    const prefixTo = '/' + sFixed.join('/')
+    const singleSegment = sWild === 0 && dWild === 0
+    for (const e of backendEntries) {
+      const p = e.path
+      if (singleSegment) {
+        if (p === prefixFrom) derived.push({ method: e.method, path: prefixTo, file: e.file, rule: `${source} → ${destPath}` })
+        continue
+      }
+      if (p === prefixFrom || p.startsWith(prefixFrom + '/')) {
+        derived.push({
+          method: e.method,
+          path: prefixTo + p.slice(prefixFrom.length),
+          file: e.file,
+          rule: `${source} → ${destPath}`,
+        })
+      }
+    }
+  }
+  return derived
 }
 
 /**
@@ -2058,6 +2116,8 @@ function nextRewriteExemption() {
     selfFace: [],
     otherRules: [],
     unknownSource: 0,
+    // 降级档 = 不派生(保守方向:看不见改写面 ⇒ 派生面为空,绝不凭空造绿)
+    pathMaps: [],
   }
   let src = null
   try {
@@ -2090,6 +2150,7 @@ function nextRewriteExemption() {
     selfFace: faces.selfFacePrefixes,
     otherRules: faces.otherRules,
     unknownSource: faces.unknownSource,
+    pathMaps: faces.pathMaps,
   }
 }
 
@@ -4313,6 +4374,35 @@ const pyBackendRoutes = backendRoutes.filter((r) => r.file.endsWith('.py'))
 const compositePrefixes = buildCompositePrefixes(prefixes)
 
 /**
+ * 「边缘改写派生面」接线(G-962 收尾,2026-10-22):next.config.ts 里**改前缀**的
+ * ai 面 rewrite(lsp / self-healing / knowledge-graph 三条,owner 拍板反代白名单)
+ * 让"前缀错位"的前端调用在生产真实可达。py 前缀拼接修好后这批调用从「前缀假设
+ * 未判定」浮进精确对账 ⇒ 假红 5 条(lsp×4 + self-healing×1)—— 实测它们经 rewrite
+ * 打到 ai-service /api/v1/*,不是死调用。判据本体见 `deriveEdgeRewriteEntries`。
+ * 派生源 = 精确档两腿合并(TS 挂载图 + FastAPI 旧提取式);兜底档不接(形状与
+ * 换票前逐字节相同的老纪律)。降级档 pathMaps=[] ⇒ 派生面为空,保守不造绿。
+ */
+const edgeRewriteDerived = GRAPH_AVAILABLE
+  ? deriveEdgeRewriteEntries(
+      [
+        ...regGraph.entries.flatMap((e) => {
+          if (e.file.endsWith('.py')) return []
+          if (e.method === 'ANY') {
+            return BACKEND_VERBS.map((v) => ({
+              method: String(v).toUpperCase(),
+              path: e.path,
+              file: e.file,
+            }))
+          }
+          return [{ method: e.method, path: e.path, file: e.file }]
+        }),
+        ...pyBackendRoutes.map((r) => ({ method: r.method, path: r.localPath, file: r.file })),
+      ],
+      rewriteExemption.pathMaps,
+    )
+  : []
+
+/**
  * 带值旗标的取值(2026-09-28 修 `--dump-* --staged` 这一型;口径照抄枚 `380431ffc`,不另发明):
  * **紧邻的下一个 token 必须存在且不以 `-` 开头**才算该旗标的值,否则视为"没带值"。
  * `scripts/guardian-runner.mjs` 会给每道门追加 `--staged`,而旧写法是**无条件**的
@@ -4375,6 +4465,7 @@ if (backendDumpPath) {
               line: 0,
               via: 'py',
             })),
+            ...edgeRewriteDerived.map((d) => ({ ...d, line: 0, via: 'edge-rewrite' })),
           ]
         : backendRoutes.map((r) => {
             const fullPaths = compositePrefixes.map(
@@ -4418,6 +4509,7 @@ if (GRAPH_AVAILABLE) {
     backendPathSet.add(`${e.method} ${e.path}`)
   }
   for (const r of pyBackendRoutes) backendPathSet.add(`${r.method} ${r.localPath}`)
+  for (const d of edgeRewriteDerived) backendPathSet.add(`${d.method} ${d.path}`)
 } else {
   for (const e of assumptionPathSet) backendPathSet.add(e)
 }
@@ -4426,7 +4518,7 @@ if (GRAPH_AVAILABLE) {
 const undeterminedDumpPath = dumpFlagValue('--dump-undetermined')
 if (GRAPH_AVAILABLE) {
   console.log(
-    `${C.dim}[API 路由比对] 后端注册路由: 精确挂载图 ${backendPathSet.size} 条（图 ${regGraph.entries.length} + FastAPI ${pyBackendRoutes.length};TS ${regGraph.stats.tsFilesAnalyzed} 文件 / 工厂 ${regGraph.stats.factories} 个 / 走到节点 ${regGraph.stats.touchedNodes} 个）${C.reset}`,
+    `${C.dim}[API 路由比对] 后端注册路由: 精确挂载图 ${backendPathSet.size} 条（图 ${regGraph.entries.length} + FastAPI ${pyBackendRoutes.length} + 边缘改写派生 ${edgeRewriteDerived.length};TS ${regGraph.stats.tsFilesAnalyzed} 文件 / 工厂 ${regGraph.stats.factories} 个 / 走到节点 ${regGraph.stats.touchedNodes} 个）${C.reset}`,
   )
   /**
    * 报数必须报名(票面③):图产出里的三格盲区逐条点名,默认档各截前 20 条,
@@ -4455,6 +4547,20 @@ if (GRAPH_AVAILABLE) {
     '不透明挂载前缀(其下调用落「未判定」出口,不判红)',
     regGraph.opaque.map((o) => ({ file: o.prefix, line: 0, kind: 'opaque', detail: o.evidence })),
   )
+  // 派生面**逐条报名**(票面③"报数必须报名"):每条派生绿都带改写规则原文与源文件,
+  // 全量另见 --dump-backend(via='edge-rewrite')。
+  if (edgeRewriteDerived.length) {
+    for (const d of edgeRewriteDerived.slice(0, GRAPH_SITE_PRINT_CAP)) {
+      console.log(
+        `${C.dim}  · 边缘改写派生: ${d.method} ${d.path} ⇐ ${d.rule} @ ${d.file}${C.reset}`,
+      )
+    }
+    if (edgeRewriteDerived.length > GRAPH_SITE_PRINT_CAP) {
+      console.log(
+        `${C.dim}  · 边缘改写派生:其余 ${edgeRewriteDerived.length - GRAPH_SITE_PRINT_CAP} 条见 --dump-backend via=edge-rewrite${C.reset}`,
+      )
+    }
+  }
 } else {
   console.log(
     `${C.yellow}[API 路由比对] ⚠️ 兜底档:${backendTsFiles.has(SERVER_FILE) ? `${SERVER_FILE} 在面但没有一条 \`X.register(\` 挂载边` : `${SERVER_FILE} 不在 ${FACE} 面`} ⇒ 挂载图无起点,本轮后端注册面退回旧「前缀假设」笛卡尔拼接(${backendRoutes.length} 条 × ${compositePrefixes.length} 个组合前缀)—— 这一档能拼出结构上不存在的 /api/courses 型假路径(票 O87g 点名的假绿成因),「死调用 0 处」在本档**不得读成对账通过**${C.reset}`,
