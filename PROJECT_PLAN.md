@@ -29024,3 +29024,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-952 **无编号 P1 视觉票"正文漂开的副本"没有归并出口 ⇒ 三条真机票的进展本轮无处可写** —— 现读(2026-10-04,`git show HEAD:PROJECT_PLAN.md` 按前缀枚举):`- [ ] P1 **区段头「更多」与箭头折成两行**` / `- [ ] P1 **首页「独家开发 AI Agent 应用」宫格…` / `- [ ] P1 **广场(AI需求广场)首屏直接进错误态**` 三条**各有 2 份**,且**两份都不带 〔压缩@2026-10-22〕
 - [x] ✅(2026-10-23)  G-877 分割线存量逐页清偿(门 11d 已补族 4「单边不透明描边」差值棘轮 ⇒ 新增即红,存量只报数):现读 HEAD 面 225 处 = web 148 / extension 49 / packages/ui-react 14 / mobile-rn 7 / miniapp-taro 6 / api 1,另低透明度 16 处 WARN、divide/`<hr>` 3 处;出路 = 逐页改 `space-y-*` 间距或背景对比(整圈 `border border-border` 也算合规),每清一页复跑 `node scripts/check-no-divider.mjs` 看存量递减,禁止为消红放宽判据
 
+
