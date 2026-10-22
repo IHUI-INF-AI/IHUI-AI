@@ -333,4 +333,36 @@ test('D16 两面旗同给 ⇒ exit 2(取哪一面都会让另一面成为假绿)
     rmScratch(dir)
   }
 })
+
+test('D17 缩进轨(引用块左条 / 树形导引线)不算分隔线 —— §4 明文允许', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return <div className="ml-4 border-l border-border pl-2">子层</div>\n}\n',
+  })
+  try {
+    const r = runHead(dir)
+    assert.equal(r.status, 0)
+    assert.ok(r.stdout.includes('✅'), `缩进轨不该进射程\n${r.stdout}`)
+    assert.equal(
+      gate.classifyDividerLine('<div className="ml-4 border-l border-border" />')?.level,
+      'blocking',
+      '缺 pl 一半就不该豁免',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D18 横边不享受缩进轨出口(mt-3 border-t pt-2 这一族照判)', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return <div className="mt-3 border-t border-border pt-2">横线</div>\n}\n',
+  })
+  try {
+    const r = runHead(dir)
+    assert.match(r.stdout, /\[single-side divider\]/, `横边必须仍被点名\n${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
