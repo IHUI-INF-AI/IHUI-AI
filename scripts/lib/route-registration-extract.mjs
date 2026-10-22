@@ -662,17 +662,23 @@ export function analyzeTsFile(rel, raw) {
     const shaped =
       (arg.kind === 'literal' || arg.kind === 'template') &&
       (arg.value.startsWith('/') || arg.value === '')
+    // 以插值开头的模板(`server.get(`${basePath}/:id`)`)此前被 shaped 静默丢弃 ⇒
+    // registerCrud 那族工厂的 :id 腿(GET/PUT/DELETE 三条)整族隐身(实测 15 调用点×3=45 条)。
+    // 它不是"不合法",是"此处不可解、延后解":工厂调用点按实参代入,普通节点交
+    // expandTemplatePath,两边都解不出 ⇒ emitRegs 落 undetermined 报名 —— 静默丢=判据看不见
+    // 却当没有(§12e 恒红门的镜像:恒漏尺),报名才是三态纪律(2026-10-22 O87g 先决①收尾)。
+    const deferredTemplate = arg.kind === 'template' && !arg.value.startsWith('/')
     // 实例过滤:不是 Fastify 实例的接收者(`db.delete(table)` / `cache.get('/api/x')`)不是注册
     if (!instanceNames.has(m[1])) {
       verbRe.lastIndex = openIdx
       continue
     }
     // 注册至少两参(url + handler/schema);单参的 `x.get('/key')` 是取值不是注册
-    if (shaped && args.length < 2) {
+    if ((shaped || deferredTemplate) && args.length < 2) {
       verbRe.lastIndex = openIdx
       continue
     }
-    if (shaped || arg.kind === 'bare' || arg.kind === 'opaque')
+    if (shaped || deferredTemplate || arg.kind === 'bare' || arg.kind === 'opaque')
       pushReg(m[1], m[2].toUpperCase(), arg, m.index)
     verbRe.lastIndex = openIdx
   }

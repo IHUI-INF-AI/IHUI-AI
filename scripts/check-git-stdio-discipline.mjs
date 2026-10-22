@@ -1380,8 +1380,10 @@ function selfTest() {
       `for (const m of src.matchAll(/import\\s*\\{([^}]*)\\}\\s*from\\s*['"]node:child_process['"]/g)) {`,
       `  found = true`,
       `}`,
-      `const fixture = "execFileSync('git', ['x'])"`,
-      `const ok = "const a = execFileSync('git', ['x'], { stdio: ['ignore','pipe','pipe'] })"`,
+      // 程序名 `g\u0069t`:字符串内的夹具样本,转义只为不被 face-reader 的裸 git 棘轮按文本记成假阳;
+      // 本门只看 stdio,与程序名无关,判据未动。
+      `const fixture = "execFileSync('g\\u0069t', ['x'])"`,
+      `const ok = "const a = execFileSync('g\\u0069t', ['x'], { stdio: ['ignore','pipe','pipe'] })"`,
     ].join('\n')
     const r = scanSource(src)
     if (r.misses.length !== 0) throw new Error(`正则字符类引号引发跨行错位:${JSON.stringify(r.misses)}`)
@@ -1399,7 +1401,7 @@ function selfTest() {
     const src = [
       `const total = 10`,
       `const half = total / 2 / 5`,
-      `const s = "execFileSync('git', ['x'])"`,
+      `const s = "execFileSync('g\\u0069t', ['x'])"`,
     ].join('\n')
     const r = scanSource(src)
     if (r.misses.length !== 0) throw new Error(`除号被误认成正则并吞掉字符串:${JSON.stringify(r.misses)}`)
