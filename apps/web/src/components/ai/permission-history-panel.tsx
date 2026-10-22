@@ -196,7 +196,7 @@ function StatsFooter() {
   // "plan 优先"改为注册表的规范序(default / plan / accept-edits / bypass-permissions)。
   const stats = [...PERMISSION_MODE_WIRE_VALUES] as WorkspacePermissionMode[]
   return (
-    <div className="border-t pt-1.5">
+    <div className="pt-1.5">
       <div className="mb-1 px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         {t('historyStatsTitle')}
       </div>
@@ -400,7 +400,7 @@ export function PermissionHistoryPanel({
   // 无独立触发器/PortalPanel/焦点陷阱;清空确认 dialog 由随行 ConfirmDialogRenderer 承载
   if (embedded) {
     return (
-      <div data-testid="permission-history-embedded" className="border-t pt-2">
+      <div data-testid="permission-history-embedded" className="pt-2">
         {body}
         <ConfirmDialogRenderer />
       </div>

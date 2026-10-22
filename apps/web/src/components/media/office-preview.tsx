@@ -333,7 +333,7 @@ function XlsxGrid({ data, maxRows }: { data: ArrayBuffer; maxRows: number }) {
 
   return (
     <div className="max-h-[420px] overflow-auto" data-testid="xlsx-grid">
-      <div className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/30 px-2 py-1">
+      <div className="flex flex-wrap items-center gap-1 bg-muted/30 px-2 py-1">
         {state.book.SheetNames.map((name) => (
           <button
             key={name}

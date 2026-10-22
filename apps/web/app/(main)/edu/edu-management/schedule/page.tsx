@@ -1080,7 +1080,7 @@ export default function SchedulePage() {
                 {/* Time slots */}
                 {TIME_SLOTS.map((time) => (
                   <React.Fragment key={time}>
-                    <div className="sticky left-0 flex items-start justify-end border-b bg-background pr-2 pt-2 text-xs text-muted-foreground">
+                    <div className="sticky left-0 flex items-start justify-end bg-background pr-2 pt-2 text-xs text-muted-foreground">
                       {time}
                     </div>
                     {WEEKDAY_KEYS.map((_, wi) => {

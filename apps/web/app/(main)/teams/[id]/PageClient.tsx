@@ -189,7 +189,7 @@ export default function TeamDetailPage() {
 
       <TeamInfoCard team={team} />
 
-      <div className="flex items-center justify-between border-b">
+      <div className="flex items-center justify-between">
         <nav className="flex gap-1">
           {tabs.map((tb) => (
             <button

@@ -106,8 +106,12 @@ export function WebViewScreen() {
 
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
-      <View className="flex-row items-center justify-between border-b border-gray-200 px-4 pb-2 pt-3 dark:border-neutral-700">
-        <BackChevron onPress={() => navigation.goBack()} label={t('common.back')} colorScheme={resolvedTheme} />
+      <View className="flex-row items-center justify-between px-4 pb-2 pt-3">
+        <BackChevron
+          onPress={() => navigation.goBack()}
+          label={t('common.back')}
+          colorScheme={resolvedTheme}
+        />
         <Text className="max-w-[60%] truncate text-base font-medium">{headerTitle}</Text>
         <View className="w-10" />
       </View>

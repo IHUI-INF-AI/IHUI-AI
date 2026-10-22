@@ -391,7 +391,7 @@ export default function KnowledgeRagPage() {
           </div>
         )}
         {searchMut.isError && (
-          <div className="border-t p-3">
+          <div className="p-3">
             <Alert
               variant="danger"
               title="检索失败"

@@ -173,7 +173,7 @@ export default function DataManagementPage() {
               </tr>
             ) : (
               tables.map((row) => (
-                <tr key={row.table} className="border-t border-border">
+                <tr key={row.table}>
                   <td className="px-3 py-2 font-mono">{row.table}</td>
                   <td className="px-3 py-2">{row.desc}</td>
                   <td className="px-3 py-2 tabular-nums">

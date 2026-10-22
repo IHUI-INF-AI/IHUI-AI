@@ -17,11 +17,11 @@ export default function NotificationPanel() {
     <>
       <div className="fixed inset-0 bg-black/20 z-[90]" onClick={() => setVisible(false)} />
       <div
-        className="fixed top-0 right-0 bottom-0 w-[300px] max-w-[90vw] bg-card border-l border-border shadow-[-4px_0_16px_rgba(0,0,0,0.08)] z-[100] flex flex-col"
+        className="fixed top-0 right-0 bottom-0 w-[300px] max-w-[90vw] bg-card shadow-[-4px_0_16px_rgba(0,0,0,0.08)] z-[100] flex flex-col"
         role="dialog"
         aria-label={t('notification.title')}
       >
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-3 py-2.5 shrink-0">
           <span className="font-semibold text-[13px]">{t('notification.title')}</span>
           <div className="flex items-center gap-1.5">
             <button

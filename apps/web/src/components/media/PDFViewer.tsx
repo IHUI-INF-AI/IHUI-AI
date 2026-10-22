@@ -164,7 +164,7 @@ export function PDFViewer({ url, className, initialScale = 1.2 }: PDFViewerProps
 
   return (
     <div className={cn('flex flex-col bg-muted/30', className)}>
-      <div className="flex items-center justify-between border-b bg-background px-3 py-1.5">
+      <div className="flex items-center justify-between bg-background px-3 py-1.5">
         <div className="flex items-center gap-2">
           <Tooltip content={t('prevPage')}>
             <button

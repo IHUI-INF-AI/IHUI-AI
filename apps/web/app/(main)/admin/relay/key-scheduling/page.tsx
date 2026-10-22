@@ -195,7 +195,7 @@ export default function KeySchedulingPage() {
                 const draft = drafts[row.id] ?? { rateMultiplier: '', rpmOverride: '' }
                 const down = row.healthStatus === 'down'
                 return (
-                  <tr key={row.id} className="border-t border-border">
+                  <tr key={row.id}>
                     <td className="px-3 py-2 font-medium">{row.providerCode}</td>
                     <td className="px-3 py-2 font-mono text-muted-foreground">
                       {row.keyPrefix ?? '—'}

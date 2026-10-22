@@ -100,7 +100,7 @@ export function AgentSwarmMonitor({
               aria-label={tAria('topologyViewAriaLabel')}
               aria-pressed={viewMode === 'topology'}
               className={cn(
-                'flex h-7 items-center gap-1 px-2 text-xs transition-colors border-l border-border',
+                'flex h-7 items-center gap-1 px-2 text-xs transition-colors',
                 viewMode === 'topology'
                   ? 'bg-cta text-cta-foreground'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80',

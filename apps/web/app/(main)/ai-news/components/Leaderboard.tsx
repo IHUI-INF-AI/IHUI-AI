@@ -466,7 +466,7 @@ export function Leaderboard({ entries }: Props) {
       </div>
 
       {/* 分类 Tab */}
-      <div className="flex flex-wrap items-center gap-1 border-b bg-muted/20 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-1 bg-muted/20 px-3 py-2">
         {CATEGORY_TABS.map((tab) => (
           <button
             key={tab.key}
@@ -508,7 +508,7 @@ export function Leaderboard({ entries }: Props) {
       ) : null}
 
       {/* 搜索 + 厂商筛选 */}
-      <div className="space-y-2 border-b bg-muted/10 px-3 py-2">
+      <div className="space-y-2 bg-muted/10 px-3 py-2">
         <SearchInput
           size="sm"
           clearable
@@ -695,7 +695,7 @@ export function Leaderboard({ entries }: Props) {
                     key={entry.id}
                     id={`leaderboard-row-${entry.modelId}`}
                     onClick={() => setSelectedEntry(entry)}
-                    className={`cursor-pointer border-b border-muted/30 transition-colors hover:bg-accent/30 ${
+                    className={`cursor-pointer transition-colors hover:bg-accent/30 ${
                       highlightedModelId === entry.modelId
                         ? 'bg-amber-100 dark:bg-amber-950/40'
                         : ''

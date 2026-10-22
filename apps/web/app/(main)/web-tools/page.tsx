@@ -320,7 +320,7 @@ export default function WebToolsPage() {
                 </thead>
                 <tbody>
                   {Object.entries(result.fields).map(([k, v]) => (
-                    <tr key={k} className="border-t border-border/60">
+                    <tr key={k}>
                       <td className="px-3 py-1.5 font-medium">{k}</td>
                       <td className="px-3 py-1.5 break-all">{String(v)}</td>
                       <td className="px-3 py-1.5 text-muted-foreground">

@@ -336,7 +336,7 @@ export default function AgentPlanProgressPage() {
             </div>
           )}
           {versionsData && versionsData.versions.length > 0 && (
-            <div className="mt-3 border-t pt-2 text-xs">
+            <div className="mt-3 pt-2 text-xs">
               <p className="mb-1 text-muted-foreground">
                 当前查看 v{selectedVersion} 与 v1 的差异
                 {selectedVersion === 1 ? '(与自身比较, 无差异)' : ''}:
@@ -357,7 +357,7 @@ export default function AgentPlanProgressPage() {
             </div>
           )}
           {versionsData && (
-            <ul className="mt-3 space-y-1 border-t pt-2 text-xs text-muted-foreground">
+            <ul className="mt-3 space-y-1 pt-2 text-xs text-muted-foreground">
               {versionsData.versions.map((v) => (
                 <li key={v.version}>
                   v{v.version} · {v.channel} · {v.reason || '-'} · {v.created_at}

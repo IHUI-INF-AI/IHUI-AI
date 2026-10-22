@@ -119,7 +119,7 @@ export function AgreementDialog({
               <CardTitle className="text-base">{data.title}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b pb-3 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-3 text-xs text-muted-foreground">
                 {data.version && (
                   <span className="inline-flex items-center gap-1">
                     <Tag className="h-3.5 w-3.5" />

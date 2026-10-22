@@ -112,7 +112,7 @@ function renderDetailRows(fields: GenField[]): string {
   return fields
     .map((f) => {
       const label = f.label ?? defaultLabel(f.name)
-      return `              <div className="flex justify-between border-b py-2">\n                <span className="text-muted-foreground">${label}</span>\n                <span>{item.${f.name}}</span>\n              </div>`
+      return `              <div className="flex justify-between py-2">\n                <span className="text-muted-foreground">${label}</span>\n                <span>{item.${f.name}}</span>\n              </div>`
     })
     .join('\n')
 }

@@ -350,7 +350,7 @@ export function BackgroundAgentsPanel({
       )}
 
       {agents.length > 0 && (
-        <div className="flex items-center gap-3 border-t px-3 py-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-3 px-3 py-1.5 text-xs text-muted-foreground">
           <span>{t('total', { count: agents.length })}</span>
           {stats.completed > 0 && <span>{t('completedCount', { count: stats.completed })}</span>}
           {stats.failed > 0 && <span>{t('failedCount', { count: stats.failed })}</span>}

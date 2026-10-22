@@ -24,7 +24,7 @@ const NAV_ITEMS = [
 export function FeatureCenterNav() {
   const pathname = usePathname()
   return (
-    <nav className="flex flex-wrap gap-1 border-b">
+    <nav className="flex flex-wrap gap-1">
       {NAV_ITEMS.map((item) => {
         const Icon = item.icon
         const isActive =

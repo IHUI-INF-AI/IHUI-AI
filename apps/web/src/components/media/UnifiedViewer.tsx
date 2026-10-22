@@ -75,7 +75,7 @@ export function UnifiedViewer({ url, fileName, className }: UnifiedViewerProps) 
       ref={containerRef}
       className={cn('flex h-full w-full flex-col rounded-lg border', className)}
     >
-      <div className="flex items-center justify-between border-b bg-muted/50 px-3 py-1.5">
+      <div className="flex items-center justify-between bg-muted/50 px-3 py-1.5">
         <span className="flex items-center gap-1.5 truncate text-sm font-medium">
           <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="truncate">{fileName}</span>
