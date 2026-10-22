@@ -123,13 +123,13 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3035 | `testFiles` |
+| 测试文件 | 3032 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 269 | `guardianGates` |
+| 工程守门 | 268 | `guardianGates` |
 | — blocking | 245 | `guardianBlocking` |
-| — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15701 | `trackedFiles` |
+| — warn | 26 | `guardianWarn` |
+| 跟踪文件 | 15685 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,42 +6125,6 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a4efee57ef)
-- 📚 文档:重落被旧基座吞回的 G-107 结清+D690 认领(拍板A)，结清 G-923(端到复量全绿) (c28c3b8287)
-- 📚 文档:结清 D195(实现已入库,验收实证全绿) (5f24b4f106)
-
-**2026-10-22**
-- 📚 文档:CF 穷举席翻勾 G-870/G-929(令牌轮换)/G-865/G-866/desktop-feed 五行,附控制台与实测证据 (c968894ac8)
-
-**2026-10-22**
-- 📚 文档:结清 G-107(接线已入库实证)+认领 G-923/D690(拍板A) (617f9cf618)
-- 📚 文档:认领 D195(通知中心隐藏归档恢复流+十键五语言;§24 范围由机主授权代拍板按票面十键执行) (56a94e5400)
-- 📚 文档:结清 G-932(待落内容已由 10-15 批入库,HEAD 复验) (47fd04b352)
-- 📚 文档:认领 G-107(recovery 闸门接线到帧路由) (96f5416d47)
-- 📚 文档:结清"生产 web 的部署承载者没查清"(承载者已实证,不是查不到而是取错了面) (cba0a36dee)
-- 🐞 修复:修 Start-CleanBuildAsyncDelete 顺序铁律——purger 先建 args 后赋值,-File 槽捕获 null 致后台删成死进程 (64f9f36f97)
-- 🔧 工程/其他:收尾 scripts/tests 第四批清冗余 + 两处测试判据钉死 (8527b2c007)
-- ♻️ 重构:验证码链上 5 处进程内状态全部迁到共享存储 —— 一次部署不再清零限速与在飞验证码 (18be871c22)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7a3c6c0ad3)
-- 🐞 修复:净面回收补两处生产实测缺口(改名失败走后台删 + 删不动项重试等句柄) (dcec5dc7cb)
-
-**2026-10-22**
-- 🐞 修复:健康门禁与 AI 诊断的公网基址从 apex 换成真入口 www(探测腿此前恒瞎) (72357a8456)
-- 📚 文档:认领 G-865(摘 DEFAULT_AVATAR_URL 死键+同批改两处 RN 测试) (6d135d16ea)
-- 📚 文档:结清 G-960/G-922/G-959/G-924(登录屏i18n票) 四票 (279794970d)
-- 🔧 工程/其他:G-960 探活镜像⑭⑮⑯ + G-922 守门39反向锁T7-T10 [goal-20261022] (575cc13efb)
-- 📚 文档:认领 G-343(残余三处盘根替换+落点断言) (0751c0694f)
-- 📚 文档:结清 G-928(ui-routes 产物重钉,门105 head面转绿) (12cfc1283e)
-- ♻️ 重构:把我侧那枚 Cloudflare token 票让号重登(改走正牌取号令牌现算空闲号) (35e89acfc6)
-- 🐞 修复:G-928 重钉 ui-routes.generated 自述块 [goal-20261022] (9387ee71f0)
-
-**2026-10-22**
-- 📚 文档:认领 G-343(残余三处盘根替换+落点断言) (0751c0694f)
-- 📚 文档:结清 G-928(ui-routes 产物重钉,门105 head面转绿) (12cfc1283e)
-- ♻️ 重构:把我侧那枚 Cloudflare token 票让号重登(改走正牌取号令牌现算空闲号) (35e89acfc6)
-- 🐞 修复:G-928 重钉 ui-routes.generated 自述块 [goal-20261022] (9387ee71f0)
-
-**2026-10-22**
 - 📚 文档:另立 f9 夹具二跳闭包过期票(G-955 复跑取证) (6e40140c9e)
 - 📚 文档:补认领 G-922(标记被归并批冲掉) (61bc27922f)
 - 📚 文档:结清 G-955(--check RC=0 主会话复跑实证)+认领 G-960/G-928 满载5席 (75682d367d)
@@ -6199,6 +6163,35 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 **2026-10-22**
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (29180d0b38)
 - 📚 文档:登记取号器把已占号当空闲发出的缺陷(G-14),并列存量 3 组同号多题的让号出口 (2198a4f2ed)
+
+**2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8c92a7f467)
+- 🐞 修复:本席三票让号(原 G-924/G-926/G-929 全部撞上别席已占号) (bd758ca8f8)
+
+**2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3a75fa10a2)
+
+**2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2526330525)
+
+**2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ccd7ce10f5)
+- 🐞 修复:净面去 git 化(read-tree+checkout-index),根治 worktree 登记四类故障 (5038b8b0ca)
+- 🚀 新功能/改进:验证码按场景分模板 —— 注册/登录/找回密码/改绑各走自己已过审的模板 (765d4621e6)
+- 🔧 工程/其他:清 tests/ 第三批 8 处模块内死代码 + 级联的 2 处 import(删 HERE 后 dirname/fileURLToPath 随之无用) —— 只删 eslint 点名且确认零引用的绑定;8 个文件 lint 0 error、测试全过(注:check-redundant 的 T12 是存量红,HEAD 原版同样失败,与本批无关) (6cc7f536b4)
+- 🐞 修复:阿里云验证码这条腿从入库那天起就没通过 —— 修构造函数互操作 + 补响应体业务码判定 + 接通两条发码端点 (d2c3ba781a)
+- 🔧 工程/其他:清 tests/ 第二批 10 处 unused(多具名 import 删单符号 4 处 + 形参加 _ 前缀 6 处)—— 只动 eslint 点名的那一个符号,同行其余绑定与调用方一律不碰;5 个文件 100 个测试全过。scripts/tests/ error 35 → 17 (e8f8389fc6)
+- 🔧 工程/其他:清 tests/ 首批 8 处未使用 import(整体行 5 处 + 多具名里的 rmScratch 3 处)—— 只删 eslint 点名的那一个符号,保留同行其余绑定;改后 5 个文件 lint 0 error、58 个测试全过 (d9f6746207)
+- 🔧 工程/其他:清 scripts/lib/ 最后 3 处存量 lint error —— plan-tasks-merge-selftest 删未使用的 titleOf 导入与 rewritePointer 解构绑定;stale-lock-claim 的 observedAt 参数加 _ 前缀。eslint scripts/lib/ 现为 0 error (e3e940a046)
+- 📚 文档:readme-06 守门结构描述与实现对齐 —— "56+10 pre-commit 项"改为 269 道 runner 门 + 本地元门档 27 道 + 全量归 CI;两处"pre-commit 第 N 项"改为 guardian-runner 注册门 (ba6898c15d)
+- 🐞 修复:node-version 与根 package.json engines 对齐(>=22.13.0)—— 写死 '22' 可能装到 22.0.0,而本仓用了 22.13 之后的特性 (17e6aaf4c1)
+- 📚 文档:收口三处 —— ① AGENTS.md 那句"guardian 每 30 分钟派发"与实现不符(guardian 对该脚本 0 引用),按实录改为"派发层已补建";② JUDGEMENT_LIBS 从两份重复定义合并为单一真相源 scripts/lib/judgement-libs.json(CJS/ESM 共读);③ 补收 14 个漏册高频公共库(flag-value 59 门/code-mask 47 门/selftest-registrant 36 门等),改错会让几十道门静默失效 (d61206d615)
+- 🐞 修复:补建缺失的派发层 sweepStaleClaimMarks + 清两条存量 lint error(tmpdir/DAY_MS 未使用)—— 门 98 的悬空导入(测试引用了从未实现的函数);按测试断言实现:30 分钟节流闸 + 注入式 runner + 结论行解析,拿不到结论行落 undetermined 不记绿 (fd1aaa8ee8)
+- 🐞 修复:补 workflow 溯源水印头 —— 门 47 检出的 HEAD 面欠账(inject 已写工作区,本次提交销账) (52d59c3a62)
+- 🔧 工程/其他:全量守门 workflow 开自动触发(push/PR),先以记录模式跑(continue-on-error) —— 本地无法可靠预测 CI 结果,存量修完后再转拦截模式 (54190217ce)
+
+**2026-10-22**
+- 📚 文档:G-960 公网入口断流旧副本转注释归并(正主为已撤回误判的修订版),清 F4 同题两版以过收敛落地闸 (004f9b4e4d)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
@@ -7022,3 +7015,33 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 > A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+| 测试文件 | 3035 | `testFiles` |
+| 工程守门 | 269 | `guardianGates` |
+| — warn | 27 | `guardianWarn` |
+| 跟踪文件 | 15701 | `trackedFiles` |
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a4efee57ef)
+- 📚 文档:重落被旧基座吞回的 G-107 结清+D690 认领(拍板A)，结清 G-923(端到复量全绿) (c28c3b8287)
+- 📚 文档:结清 D195(实现已入库,验收实证全绿) (5f24b4f106)
+- 📚 文档:CF 穷举席翻勾 G-870/G-929(令牌轮换)/G-865/G-866/desktop-feed 五行,附控制台与实测证据 (c968894ac8)
+- 📚 文档:结清 G-107(接线已入库实证)+认领 G-923/D690(拍板A) (617f9cf618)
+- 📚 文档:认领 D195(通知中心隐藏归档恢复流+十键五语言;§24 范围由机主授权代拍板按票面十键执行) (56a94e5400)
+- 📚 文档:结清 G-932(待落内容已由 10-15 批入库,HEAD 复验) (47fd04b352)
+- 📚 文档:认领 G-107(recovery 闸门接线到帧路由) (96f5416d47)
+- 📚 文档:结清"生产 web 的部署承载者没查清"(承载者已实证,不是查不到而是取错了面) (cba0a36dee)
+- 🐞 修复:修 Start-CleanBuildAsyncDelete 顺序铁律——purger 先建 args 后赋值,-File 槽捕获 null 致后台删成死进程 (64f9f36f97)
+- 🔧 工程/其他:收尾 scripts/tests 第四批清冗余 + 两处测试判据钉死 (8527b2c007)
+- ♻️ 重构:验证码链上 5 处进程内状态全部迁到共享存储 —— 一次部署不再清零限速与在飞验证码 (18be871c22)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7a3c6c0ad3)
+- 🐞 修复:净面回收补两处生产实测缺口(改名失败走后台删 + 删不动项重试等句柄) (dcec5dc7cb)
+- 🐞 修复:健康门禁与 AI 诊断的公网基址从 apex 换成真入口 www(探测腿此前恒瞎) (72357a8456)
+- 📚 文档:认领 G-865(摘 DEFAULT_AVATAR_URL 死键+同批改两处 RN 测试) (6d135d16ea)
+- 📚 文档:结清 G-960/G-922/G-959/G-924(登录屏i18n票) 四票 (279794970d)
+- 🔧 工程/其他:G-960 探活镜像⑭⑮⑯ + G-922 守门39反向锁T7-T10 [goal-20261022] (575cc13efb)
+- 📚 文档:认领 G-343(残余三处盘根替换+落点断言) (0751c0694f)
+- 📚 文档:结清 G-928(ui-routes 产物重钉,门105 head面转绿) (12cfc1283e)
+- ♻️ 重构:把我侧那枚 Cloudflare token 票让号重登(改走正牌取号令牌现算空闲号) (35e89acfc6)
+- 🐞 修复:G-928 重钉 ui-routes.generated 自述块 [goal-20261022] (9387ee71f0)
+- 📚 文档:认领 G-343(残余三处盘根替换+落点断言) (0751c0694f)
+- 📚 文档:结清 G-928(ui-routes 产物重钉,门105 head面转绿) (12cfc1283e)
+- ♻️ 重构:把我侧那枚 Cloudflare token 票让号重登(改走正牌取号令牌现算空闲号) (35e89acfc6)
+- 🐞 修复:G-928 重钉 ui-routes.generated 自述块 [goal-20261022] (9387ee71f0)
