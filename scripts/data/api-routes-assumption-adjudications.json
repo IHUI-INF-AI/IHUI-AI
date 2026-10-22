@@ -448,18 +448,6 @@
     {
       "leg": "main",
       "method": "GET",
-      "path": "/api/sign-ups",
-      "file": "apps/web/app/(main)/user/sign-up/page.tsx",
-      "site": "apps/web/app/(main)/user/sign-up/page.tsx:38",
-      "verdict": "dead",
-      "evidence": "真值面近邻:zero:sign-ups",
-      "reason": "真值面重建(apps/api/src/routes/index.ts 注册表 symbol→file→prefix × 路由文件 export 块归属,3567 条全路径)现读无此 method+path,且该族在注册面零注册 ⇒ 该调用运行期必 404,判死。出路:删调用或补后端路由;到期未了结,AJ2 会把它打回未判定桶重新报名。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "GET",
       "path": "/api/browser/ws",
       "file": "apps/web/e2e/annotation-flow.spec.ts",
       "site": "apps/web/e2e/annotation-flow.spec.ts:54",
