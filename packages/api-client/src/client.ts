@@ -28,6 +28,9 @@ import {
   applyTraceparentToHeaders,
   getTransport,
   recordTraceIdFromResponse,
+  requireAbortSignal,
+  runtimeSupportsAbort,
+  startTimeoutWatchdog,
   type TransportInit,
 } from './transport.js'
 // D138(承 V4 #96):流式传输注入口(streamChat 的 fetch 腿改经此,小程序注入 Taro adapter)
@@ -123,6 +126,13 @@ const REFRESH_FAIL_COOLDOWN_MS = 5000
 // 冷却期内共享的失败结果 promise(避免多个等待方各拿一份 null 后立即重试)
 let refreshFailCooldown: Promise<string | null> | null = null
 let refreshFailCooldownTimer: ReturnType<typeof setTimeout> | null = null
+// 请求超时的默认档：**全仓只住这一枚常量**(2026-08-06 各腿各自硬写 30_000,四处同值漂移过一次)。
+// 缺省口径住在 client 层而不是 transport 层 —— transport.ts 第 83 行注自述"不设默认值"。
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000
+/** 调用方给的超时值取用规则:正数才生效,否则落默认档。 */
+function resolveRequestTimeoutMs(requested: number | undefined): number {
+  return requested && requested > 0 ? requested : DEFAULT_REQUEST_TIMEOUT_MS
+}
 // 2026-08-02 设备维度风控:默认空采集器,各端启动时注入实现
 let deviceFingerprintProvider: DeviceFingerprintProvider = nullDeviceFingerprintCollector
 let baseUrl: string = ''
@@ -738,7 +748,7 @@ export function validateEnvelopeInbound(raw: unknown): EnvelopeInboundResult {
  */
 async function fetchOnce<T>(
   normalizedUrl: string,
-  options: RequestInit,
+  options: RequestInit & { timeoutMs?: number },
   headers: Record<string, string>,
 ): Promise<ApiResult<T>> {
   // 2026-08-17 修复:移除 signal?.aborted 早返回,改为让 fetch 真实被调用。
@@ -749,6 +759,8 @@ async function fetchOnce<T>(
     headers,
     body: resolveBody(options.body),
     signal: options.signal ?? undefined,
+    // 没有中止能力的运行时(微信小程序)靠这一档把超时交给介质(Taro.request 的 timeout)
+    timeoutMs: options.timeoutMs,
   })
 
   if (!response.ok) {
@@ -925,14 +937,23 @@ export async function fetchApi<T>(
   // 2026-07-22 P0 Round 4 鲁棒性加固:默认 30s 超时,防止请求无限挂起
   // 调用方传入的 signal 与超时 signal 合并(AbortSignal.any),任一触发都中止
   // streamChat SSE 流场景不经过 fetchApi(走独立 streamText),不受此超时影响
-  const DEFAULT_TIMEOUT_MS = options.timeoutMs && options.timeoutMs > 0 ? options.timeoutMs : 30_000
-  const timeoutController = new AbortController()
-  const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS)
+  const DEFAULT_TIMEOUT_MS = resolveRequestTimeoutMs(options.timeoutMs)
+  // 2026-10-23 根治:看门狗只住 transport.ts 一处(本层原先四条腿各自 new AbortController(),
+  // 在没有 AbortController 的运行时里当场抛 ReferenceError,请求根本没发出去)。
+  // 拿不到中止能力时不假装超时还在 —— timeoutMs 一起透给介质,由那一端用自己的机制掐。
+  const watchdog = startTimeoutWatchdog(DEFAULT_TIMEOUT_MS)
   const userSignal = restOptions.signal
-  const mergedSignal = userSignal
-    ? mergeAbortSignals([userSignal, timeoutController.signal])
-    : timeoutController.signal
-  const optionsWithTimeout = { ...restOptions, signal: mergedSignal }
+  const mergedSignal =
+    runtimeSupportsAbort() && watchdog.signal
+      ? userSignal
+        ? mergeAbortSignals([userSignal, watchdog.signal])
+        : watchdog.signal
+      : (userSignal ?? undefined)
+  const optionsWithTimeout = {
+    ...restOptions,
+    signal: mergedSignal,
+    timeoutMs: DEFAULT_TIMEOUT_MS,
+  }
 
   try {
     // 无 breaker:保留原始重试策略(maxRetries=1)
@@ -973,12 +994,12 @@ export async function fetchApi<T>(
         } catch (err) {
           // AbortError:用户主动取消或超时,直接返回,不重试
           if (isAbortError(err)) {
-            // 区分用户取消 vs 超时:timeoutController 已 abort 说明是超时
+            // 区分用户取消 vs 超时:看门狗 fired 说明是超时
             // 文案按**实际**超时值生成(默认 30s,调用方传 timeoutMs 时随之变化)——
             // 硬编码 '30s' 会对自定义超时的调用方说谎(2026-10-12 去硬编码)。
             return {
               success: false,
-              error: timeoutController.signal.aborted
+              error: watchdog.fired()
                 ? `请求超时(${Math.round(DEFAULT_TIMEOUT_MS / 1000)}s)`
                 : '请求已取消',
             }
@@ -1031,7 +1052,7 @@ export async function fetchApi<T>(
         // 同无熔断分支:超时文案按实际超时值生成,不硬编码 '30s'(2026-10-12)
         return {
           success: false,
-          error: timeoutController.signal.aborted
+          error: watchdog.fired()
             ? `请求超时(${Math.round(DEFAULT_TIMEOUT_MS / 1000)}s)`
             : '请求已取消',
         }
@@ -1039,7 +1060,7 @@ export async function fetchApi<T>(
       return normalizeErrorToResult(err) as ApiResult<T>
     }
   } finally {
-    clearTimeout(timeoutId)
+    watchdog.clear()
   }
 }
 
@@ -1092,14 +1113,15 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
   await injectDeviceFingerprintHeader(headers, options.signal)
   // 2026-08-06 修复:补充请求超时(30s),原实现无超时,网络挂起时调用方永久等待。
   // 调用方已传 signal 时不覆盖(尊重外部取消)。
-  const timeoutController = new AbortController()
-  const timeoutId = setTimeout(() => timeoutController.abort(), 30_000)
+  // 2026-10-23:看门狗收进 transport.ts 单源;本运行时没有中止能力时,把 timeoutMs 透给介质。
+  const watchdog = startTimeoutWatchdog(DEFAULT_REQUEST_TIMEOUT_MS)
   try {
     const response = await getTransport()(normalizedUrl, {
       method: options.method,
       headers,
       body: resolveBody(options.body),
-      signal: options.signal ?? timeoutController.signal,
+      signal: options.signal ?? watchdog.signal ?? undefined,
+      timeoutMs: DEFAULT_REQUEST_TIMEOUT_MS,
     })
     if (!response.ok) {
       const text = await response.text().catch(() => '')
@@ -1107,7 +1129,7 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
     }
     return response.text()
   } finally {
-    clearTimeout(timeoutId)
+    watchdog.clear()
   }
 }
 
@@ -1177,13 +1199,17 @@ export async function fetchAiServiceJson<T>(
     // 指纹采集失败(非 abort):静默降级继续
   }
 
-  const DEFAULT_TIMEOUT_MS = options.timeoutMs && options.timeoutMs > 0 ? options.timeoutMs : 30_000
-  const timeoutController = new AbortController()
-  const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS)
+  const DEFAULT_TIMEOUT_MS = resolveRequestTimeoutMs(options.timeoutMs)
+  // 2026-10-23:与 fetchApi 同一条出口——看门狗只住 transport.ts,没有中止能力的运行时
+  // 不假装超时还在,把 timeoutMs 透给介质兑现。
+  const watchdog = startTimeoutWatchdog(DEFAULT_TIMEOUT_MS)
   const userSignal = restOptions.signal
-  const mergedSignal = userSignal
-    ? mergeAbortSignals([userSignal, timeoutController.signal])
-    : timeoutController.signal
+  const mergedSignal =
+    runtimeSupportsAbort() && watchdog.signal
+      ? userSignal
+        ? mergeAbortSignals([userSignal, watchdog.signal])
+        : watchdog.signal
+      : (userSignal ?? undefined)
 
   try {
     const response = await getTransport()(normalizedUrl, {
@@ -1191,6 +1217,7 @@ export async function fetchAiServiceJson<T>(
       headers,
       body: resolveBody(restOptions.body),
       signal: mergedSignal,
+      timeoutMs: DEFAULT_TIMEOUT_MS,
     })
 
     if (!response.ok) {
@@ -1213,14 +1240,14 @@ export async function fetchAiServiceJson<T>(
       // 超时文案按实际超时值生成(默认 30s,timeoutMs 自定义时随之变化),不硬编码(2026-10-12)
       return {
         success: false,
-        error: timeoutController.signal.aborted
+        error: watchdog.fired()
           ? `请求超时(${Math.round(DEFAULT_TIMEOUT_MS / 1000)}s)`
           : '请求已取消',
       }
     }
     return normalizeErrorToResult(err) as ApiResult<T>
   } finally {
-    clearTimeout(timeoutId)
+    watchdog.clear()
   }
 }
 
@@ -1238,14 +1265,16 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
   // 2026-08-02 设备维度风控
   await injectDeviceFingerprintHeader(headers)
   // 2026-08-06 修复:补充请求超时(30s),原实现无超时,网络挂起时调用方永久等待。
-  const timeoutController = new AbortController()
-  const timeoutId = setTimeout(() => timeoutController.abort(), 30_000)
+  // 2026-10-23 本腿没有别的超时手段(要读二进制,transport 的 timeoutMs 只对支持的介质成立)
+  // ⇒ 拿不到中止能力时**当场喊响**,不能把"30s 超时"这一保护悄悄丢掉:静默丢掉等于永久挂起。
+  const watchdog = startTimeoutWatchdog(DEFAULT_REQUEST_TIMEOUT_MS)
+  const signal = requireAbortSignal(options.signal ?? watchdog.signal, 'fetchRaw')
   try {
     const response = await getTransport()(normalizedUrl, {
       method: options.method,
       headers,
       body: resolveBody(options.body),
-      signal: options.signal ?? timeoutController.signal,
+      signal,
     })
     if (!response.ok) {
       const text = await response.text().catch(() => '')
@@ -1256,7 +1285,7 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
     }
     return response.blob()
   } finally {
-    clearTimeout(timeoutId)
+    watchdog.clear()
   }
 }
 
