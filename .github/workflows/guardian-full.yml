@@ -1,0 +1,60 @@
+name: Guardian Full
+
+# 全量守门 CI(2026-10-22 立,机主要求"业务代码提交也要快,但不能漏判")。
+#
+# 背景:本地 pre-commit 只跑**元门档**(27 道,实测约 49s)—— 判据见 scripts/lib/gate-scope.mjs。
+# 全量 269 道门在本机 12 物理核上要约 400s,那是算力下限,不是代码问题。
+# 分工:**本地求快**(元门档,覆盖"本次改动直接相关的工具/仓库状态"判据),
+#       **CI 求全**(269 道,400s 由 CI 机器承担)。
+#
+# 触发:**当前只开手动**(workflow_dispatch)。
+#
+# 为什么先不开 push / pull_request 自动触发(2026-10-22,机主要求"不能出任何 bug"):
+# 本地全量实测 269 门有 7 道红,其中 6 道是门 168 判"未入 origin/main 的合并复活" ——
+# 那些复活文件其实**已在 origin/main 里**(本地只领先 1 枚),CI 的 HEAD 就是 origin/main,
+# 按门自己的判据(只判未入 origin 的合并)CI 应当不判它们。但"应当"不是"验证过":
+# 在真跑过一次并确认全绿之前,不开放自动触发 —— 否则第一次 push 就是一道无意义的红。
+#
+# 手动验证通过后,把下面 on: 里的 push / pull_request 两段取消注释即可。
+on:
+  workflow_dispatch:
+
+# 同一分支新推送就取消上一轮(省额度,也避免旧结论盖住新结论)
+# concurrency:
+#   group: guardian-full-${{ github.ref }}
+#   cancel-in-progress: true
+
+jobs:
+  guardian-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 —— 守门要读历史(reflog / lost-commit tag / git log 派生),
+          # 浅克隆会让 30a(commit 丢失防护)这类门读不到真历史。
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 全量守门(269 道)
+        # 刻意**不传** --staged:CI 的 checkout 是干净工作树,没有暂存区概念,
+        # 门的判据面回落到"磁盘全量";同时本地那套元门档裁剪也不生效
+        # (passStaged=false ⇒ 不裁剪),这正是我们要的全量。
+        run: node scripts/guardian-runner.mjs --timing
+
+      - name: 失败时给出下一步
+        if: failure()
+        run: |
+          {
+            echo "::error::全量守门有红。本地复跑:node scripts/guardian-runner.mjs"
+            echo "::error::确认与本次改动无关再逃生:HUSKY_SKIP_<NAME>=1(见 AGENTS.md §12e,须在报告留痕)"
+          }
