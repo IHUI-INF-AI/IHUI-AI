@@ -29010,3 +29010,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - ssh 应用(ssh.aizhs.top)加 Google 登录:GCP OAuth 客户端建成(项目实测无任何结算账号绑定,物理不可能扣费——机主此前扣费顾虑当场排除);CF Access Google IdP `38c3f57d-fdfe-4e1f-ac3a-5d54eda952d9` 配置并 test-idp 通过;应用 `allowed_idps` 本为空(全账户 IdP 可用)、登录策略按 email 条件匹配 ⇒ 无需改策略,公网实测登录页出现 Google+Email 两个选项、点 Google 认证成功回到 ssh.aizhs.top。任务期临时令牌 `ihui-cf-access-policy-20261022` 已删除。
 
 
+
