@@ -1046,6 +1046,9 @@
         "builtin": "內建",
         "plugin": "外掛",
         "mcp": "MCP"
+      },
+      "subagent": {
+        "title": "子任務"
       }
     }
   },
@@ -4497,7 +4500,8 @@
   },
   "webViewPortal": {
     "knowledgeBase": "知識庫",
-    "settingsBilling": "賬單管理",    "title": "Web 功能入口",
+    "settingsBilling": "賬單管理",
+    "title": "Web 功能入口",
     "hint": "以下為網頁版功能入口，將於內建瀏覽器開啟",
     "sections": {
       "eduAi": "教育 AI",
