@@ -10,7 +10,7 @@
  * W 段是"摘掉新增判据即翻红"的变异对照(接线锁 + 判据同源锁)。
  */
 import { describe, it, expect } from 'vitest'
-import { NextRequest } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { isPrivateOrReservedIp, parseIpAddress } from '@ihui/shared/utils/ssrf-guard'
 import { evaluateOriginHostGuard } from '../origin-direct-host-guard'
 import { config, proxy } from '../../../proxy'

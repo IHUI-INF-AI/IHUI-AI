@@ -129,6 +129,7 @@ export default function CourseDetailPage() {
         <div className="min-w-0 flex-1 space-y-4">
           <div className="space-y-3">
             {activeSection?.videoUrl ? (
+              /* eslint-disable-next-line jsx-a11y/media-has-caption -- 课程视频源现读只有 `videoUrl` 一个字段(无字幕轨数据),补 `<track>` 等于挂一条指向不存在资源的空轨;真出口是给课程数据加字幕轨,不是在这里凑一条 */
               <video
                 key={activeSection.id}
                 src={activeSection.videoUrl}
@@ -227,9 +228,7 @@ export default function CourseDetailPage() {
         <aside className="w-full shrink-0 min-[1024px]:w-72">
           <Card className={cn('sticky top-4 z-10')}>
             <CardHeader>
-              <CardTitle className="text-2xl">
-                {price > 0 ? formatCNY(price) : t('free')}
-              </CardTitle>
+              <CardTitle className="text-2xl">{price > 0 ? formatCNY(price) : t('free')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2 text-sm text-muted-foreground">
