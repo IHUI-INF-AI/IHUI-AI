@@ -206,14 +206,38 @@ describe('G-924 ①:整屏矩阵的墨迹与读屏标签里不得有写死中文
   for (const m of MATRIX) {
     it(`${m.name}:DOM 文本与 aria-label 合面零汉字`, () => {
       const { said } = renderScreen(m.props)
-      const { all, text, labels } = said()
-      // 先自证量到了东西:空 DOM 会让"没有中文"空过(§0.3 没判不得写成判过)
+      const { all, text } = said()
+      // 先自证量到了东西:空 DOM 会让"没有中文"空过(§0.3 没判不得写成判过)。
+      // 取"至少端出一枚键标记"这条 —— 有些分支(QR 降级单平台)结构上没有可标注的控件,
+      // 硬要求 aria-label 存在会把夹具的形态当成被测对象的缺陷。
       expect(all.length).toBeGreaterThan(0)
       expect(text.trim().length).toBeGreaterThan(0)
-      expect(labels.length).toBeGreaterThan(0)
+      expect(all).toContain('«')
       expect(all).not.toMatch(CJK)
     })
   }
+
+  it('QR 状态族逐档对号入座(全取键但仍可能错档,故逐档点名)', () => {
+    const perStatus: [string, string][] = [
+      ['loading', 'auth.qrLoading'],
+      ['waiting', 'auth.qrScanTip'],
+      ['scanned', 'auth.qrScanned'],
+      ['expired', 'auth.qrExpired'],
+      ['error', 'auth.qrLoadFailed'],
+      ['idle', 'auth.qrScanTip'],
+    ]
+    for (const [status, key] of perStatus) {
+      const { said } = renderScreen({ tabs: ['qr'], qrConfig: { status, onRefresh: () => {} } })
+      expect(said().text, `status=${status}`).toContain(MARKED(key))
+    }
+    // error 档例外:宿主给了 errorText 就用宿主的(那是数据不是本屏文案)
+    const host = renderScreen({
+      tabs: ['qr'],
+      qrConfig: { status: 'error', errorText: 'Boom', onRefresh: () => {} },
+    })
+    expect(host.said().text).toContain('Boom')
+    expect(host.said().text).not.toContain(MARKED('auth.qrLoadFailed'))
+  })
 
   it('协议行的复选框/条款/隐私 a11y label 走键,条款与隐私复用可见文案那两枚既键', () => {
     const { byLabel } = renderScreen()
@@ -235,7 +259,10 @@ describe('G-924 ①:整屏矩阵的墨迹与读屏标签里不得有写死中文
     const p = renderScreen({
       onRegister: () => {},
       onForgotPassword: () => {},
-      thirdPartyOptions: [{ platform: 'wechat', label: 'WeChat', enabled: true }],
+      thirdPartyOptions: [
+        { platform: 'wechat', label: 'WeChat', enabled: true },
+        { platform: 'alipay', label: 'Alipay', enabled: true },
+      ],
     })
     expect(p.byLabel(MARKED('auth.wechatLoginBtn'))).toBe(1)
     expect(p.byLabel(MARKED('auth.registerNow'))).toBe(1)
