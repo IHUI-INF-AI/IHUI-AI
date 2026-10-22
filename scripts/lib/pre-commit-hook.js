@@ -1306,10 +1306,11 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
 }
 
 // 📏 Button 高度/宽度覆盖守门(2026-09-07 立,blocking;2026-10-22 起三面取材)
-// 本地保留这一格索引面直调:单门只读暂存文件(<1s),不属于"269 门全量 400s"那一档;
-// 全量档由 guardian-runner id 235(HEAD 面)承担 —— CI 自动触发启用前,它是唯一的本地执行点。
+// 本地保留这一格索引面直调,且**不受 TOOL_ONLY 专项档跳过**:单门只读暂存文件(<1s),
+// 工具/文档提交的索引里没有 tsx ⇒ 0 候选直接绿,不拖慢那 27 道元门。全量档由
+// guardian-runner id 235(HEAD 面)承担 —— CI 自动触发启用前,这是它唯一的本地自动执行点。
 // 跳过方法(紧急):HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1 git commit ...
-if (!TOOL_ONLY && process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
+if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
   if (
     !run(
       '📏 Button 高度/宽度覆盖守门(必须走 size 档位, 2026-09-07 立)...',
