@@ -19,13 +19,28 @@ export type { Page, APIRequestContext }
  * - JWT payload 含 userId / roleId / role / exp；admin 判定：roleId >= 1
  *
  * 账号来源：
- * - 普通用户（test@aizhs.top / Test@123456）由 seed 脚本保证
- * - admin（admin / admin123）是真正的 system admin，由 packages/database/drizzle/0067_system_admin.sql + 0071_restore_admin_immutability.sql 迁移保证；
- *   由于 0067 触发器让 system admin 不可变，本 fixtures 不再 seed 冗余的 admin@aizhs.top 账号
+ * - 普通用户（test@aizhs.top）由 seed 脚本保证
+ * - e2e 管理员是测试专用账号，由 seed 脚本按 E2E_ADMIN_PASSWORD 写入
+ *   （仅隔离 test/CI 库；生产 system admin 不参与 e2e）
  *
  * 现有 34 个 spec 文件直接 `import { test } from '@playwright/test'`，不受本文件影响；
  * 需要登录态的新测试可 `import { test, expect } from './fixtures'` 并使用 authenticatedPage / adminPage。
  */
+
+/**
+ * e2e 口令一律由环境变量注入：仓库内不保存任何可登录口令的默认值。
+ * 缺失即失败，避免"仓内公开口令 = 某环境真实口令"。
+ */
+function requireEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(
+      `[e2e] 缺少环境变量 ${name}：e2e 口令只从环境变量读取，仓库内不提供默认值。` +
+        '请设置测试专用口令（严禁复用生产口令）后重跑。',
+    )
+  }
+  return value
+}
 
 // 测试用户凭据（从环境变量读取，提供默认值，不硬编码敏感信息）
 const TEST_USER = {
@@ -34,8 +49,8 @@ const TEST_USER = {
 }
 
 const ADMIN_USER = {
-  account: process.env.E2E_ADMIN_ACCOUNT ?? 'admin',
-  password: process.env.E2E_ADMIN_PASSWORD ?? 'admin123',
+  account: process.env.E2E_ADMIN_ACCOUNT ?? 'e2e_admin',
+  password: requireEnv('E2E_ADMIN_PASSWORD'),
 }
 
 // storageState 文件路径

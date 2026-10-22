@@ -47,6 +47,13 @@ export interface NormalizedChatRequest {
   responseFormat?: unknown
   /** 采样确定性种子 */
   seed?: number
+  /**
+   * reasoning_effort 原样透传(OpenAI 语义 low/medium/high 等)。
+   * Trae 落 `custom_model.reasoning_effort_level`,其余平台按原生字段透传。
+   */
+  reasoningEffort?: string | number
+  /** stop 序列(协议无此字段的平台由适配器本地截断) */
+  stop?: string[]
 }
 
 /** 适配器构造出的上游 HTTP 请求(转发层负责真正发出 + 代理出口) */
@@ -159,6 +166,16 @@ export interface RelayUpstreamAdapter {
 /** 流式翻译的跨帧状态(每请求一个实例,由转发层创建持有) */
 export interface StreamState {
   [k: string]: unknown
+}
+
+/**
+ * stop 参数归一化(OpenAI 允许 string 或 string[])。
+ * 空串/非字符串项剔除;归一后为空 → undefined(视同未传)。
+ */
+export function normalizeStopSequences(stop: unknown): string[] | undefined {
+  const raw = Array.isArray(stop) ? stop : typeof stop === 'string' ? [stop] : []
+  const seqs = raw.filter((s): s is string => typeof s === 'string' && s !== '')
+  return seqs.length > 0 ? seqs : undefined
 }
 
 // =============================================================================

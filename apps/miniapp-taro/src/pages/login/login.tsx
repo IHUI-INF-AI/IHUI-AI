@@ -8,7 +8,6 @@ import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { useUserStore } from '@/stores/user'
 import { sendSmsCode, loginBySms, loginByPassword, sendEmailCode, loginByEmailCode } from '@/api'
-import { getSsoLoginUrl } from '@/utils/sso'
 import { useLoginForm, type LoginApiResult, type LoginUser } from '@ihui/shared/hooks'
 import { credentialStorage } from '@/lib/credential-storage'
 import type { UserInfo } from '@/utils/auth'
@@ -311,10 +310,17 @@ export default function Login() {
   }
 
   function handleSsoLogin() {
-    const redirectUri = 'ihui-miniapp://sso/callback'
-    const ssoUrl = getSsoLoginUrl(redirectUri)
-    const encoded = encodeURIComponent(ssoUrl)
-    Taro.navigateTo({ url: `/pages/webview/index?url=${encoded}` })
+    // G-957:接收腿已就位(pages/webview onMessage → consumeSsoCode → 落 token → reLaunch),
+    // 但 web 侧发送腿(wx.miniProgram.postMessage,需 jweixin)与小程序后台业务域名白名单
+    // 都未落地;webview 内把 redirect 指向 ihui-miniapp://sso/callback 没有 OS 深链
+    // 处理器接管,点进去必然停在 web 页拿不回登录态。故这里不再导航到那条死路,
+    // 改为显式可见的暂不支持提示,并把用户引到本页可用的替代入口。
+    void Taro.showModal({
+      title: tt('login.ssoLoginTitle', '智汇AI网页授权登录'),
+      content: t('login.ssoUnavailable'),
+      showCancel: false,
+      confirmText: t('common.confirm'),
+    })
   }
 
   // phone/email 输入框:password 模式绑定 form.account(phone/email 模式的
