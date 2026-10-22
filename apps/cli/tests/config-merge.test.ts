@@ -521,7 +521,7 @@ describe('loadConfig', () => {
     expect(DEFAULT_SETTINGS.maxIterations).toBe(25)
     expect(DEFAULT_SETTINGS.auditEnabled).toBe(true)
     expect(DEFAULT_SETTINGS.allowDangerous).toBe(false)
-    expect(DEFAULT_SETTINGS.sandbox?.profile).toBe('trusted')
+    expect(DEFAULT_SETTINGS.sandbox?.profile).toBe('limited')
     expect(DEFAULT_SETTINGS.sampler?.temperature).toBe(0.7)
     expect(DEFAULT_SETTINGS.sampler?.maxTokens).toBe(4096)
     expect(DEFAULT_SETTINGS.locale).toBe('zh-CN')

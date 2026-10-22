@@ -17,9 +17,10 @@
  * 会静默退化成最宽行为,而配置层此前的 `type: 'string'` 让任何字符串都能穿过去。
  * 本层只做“不认识就不采用”,失效方向是保持默认档,不是放行。
  *
- * 现状(2026-10-22 现读):默认档仍是 `'trusted'`。**“默认严档”是行为变更,须机主拍板**,
- * 本切片不切换;真要切换只改本文件的 `DEFAULT_SANDBOX_PROFILE` 一处,并同笔复跑
- * `apps/cli/tests/config-merge.test.ts` 与 `apps/cli/tests/sandbox-profile-single-source.test.ts`。
+ * 现状(2026-10-22 机主拍板):默认档已切换为严档 `'limited'`(G-212 台账票,机主明确
+ * 批准“沙箱默认严档落地”)。切换纪律不变:真要再切换只改本文件的
+ * `DEFAULT_SANDBOX_PROFILE` 一处,并同笔复跑 `apps/cli/tests/config-merge.test.ts`
+ * 与 `apps/cli/tests/sandbox-profile-single-source.test.ts`。
  */
 
 /** 五档 profile 的唯一枚举表(由严到宽;增删档必须同笔改本表与 sandbox/index.ts 的类型)。 */
@@ -29,10 +30,10 @@ export const SANDBOX_PROFILE_IDS = ['readonly', 'limited', 'trusted', 'open', 'f
 export type SandboxProfile = (typeof SANDBOX_PROFILE_IDS)[number];
 
 /**
- * 默认档位 = `'trusted'`(限工作区路径 + 命令白名单 + 屏蔽凭据 env)。
- * 严档(`'readonly'`/`'limited'`)的默认化属拍板事项,见文件头注。
+ * 默认档位 = `'limited'`(严档:仅白名单命令 + 屏蔽凭据 env)。
+ * 严档(`'readonly'`/`'limited'`)的默认化已由机主 2026-10-22 拍板切换,见文件头注。
  */
-export const DEFAULT_SANDBOX_PROFILE: SandboxProfile = 'trusted';
+export const DEFAULT_SANDBOX_PROFILE: SandboxProfile = 'limited';
 
 const SANDBOX_PROFILE_SET: ReadonlySet<string> = new Set(SANDBOX_PROFILE_IDS);
 
