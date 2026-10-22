@@ -14,13 +14,30 @@ import Taro from '@tarojs/taro'
 import type { ApiResult } from '@ihui/types'
 import { fetchApi, type FetchApiOptions } from '@ihui/api-client'
 import { isTokenExpired } from '@ihui/shared/constants'
-import { expireAuth } from './auth'
+import { expireAuth, getToken } from './auth'
 
-/** 解包 ApiResult,失败时 toast + throw(行为与原 request.ts 一致) */
+/**
+ * 解包 ApiResult,失败时 toast + throw(行为与原 request.ts 一致)。
+ *
+ * ⚠️ 401 分两型,此前被当成一型,那正是"小程序未登录就被踢到登录页"的闸口:
+ *  - **有凭据却被打回 401** = 会话真过期/被撤 ⇒ 清凭据 + 提示 + 去登录页(原行为,保留)。
+ *  - **压根没凭据** = 游客打到了鉴权端点 ⇒ 没有任何会话可过期,清凭据是空操作,
+ *    而 `reLaunch` 到登录页就是机主要拆的那道"登录墙"(2026-10-23 实测:未登录停在
+ *    「我的」页,端内仍发 `GET /api/ai/history` → 401 → 800ms 后被弹回登录页,
+ *    于是页面里那个"该由用户主动点开的登录弹窗"永远走不到)。
+ *
+ * 凭据有没有,必须在 **await 之前**读:`expireAuth()` 与刷新失败都会清掉本地票,
+ * 晚一步读就把"真过期"读成"游客",那一型恰恰必须跳登录页。
+ */
 export async function unwrapApi<T>(p: Promise<ApiResult<T>>): Promise<T> {
+  const hadCredential = getToken().length > 0
   const r = await p
   if (!r.success) {
     if (isTokenExpired(r.status ?? 0)) {
+      if (!hadCredential) {
+        // 不 toast、不跳转:页面自己渲染未登录空态/引导。抛错保留原契约(调用方按失败处理)。
+        throw new Error(r.error || '未登录')
+      }
       expireAuth()
       Taro.showToast({ title: t('auth.expired'), icon: 'none' })
       setTimeout(() => Taro.reLaunch({ url: '/pages/login/login' }), 800)
