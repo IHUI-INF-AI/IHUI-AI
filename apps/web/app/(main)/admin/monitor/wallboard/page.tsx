@@ -1904,7 +1904,11 @@ const WALLBOARD_CSS = `
  * 面板一浮起就会"变平"(辉光消失)。浮起只换**外阴影**那一层。 */
 .wb-panel {
   --wb-inset: inset 0 0 24px color-mix(in srgb, var(--color-info) 6%, transparent);
-  box-shadow: var(--wb-inset), 0 8px 26px var(--color-black-20);
+  /* 静止档收回到规范淡影(= --shadow-premium 的 0 2px 8px / black-6)。
+     原先这里写的是 0 8px 26px / black-20(2026-10-18 HUD 改版自创,超规范三倍),
+     结果是**不 hover 也带着大投影**,而 hover 的 lift 影只比它大 4px —— 差值读不出来,
+     机主两轮"没区别/没立体感"的真正根因就在这条静止影上。投影只该属于浮起态。 */
+  box-shadow: var(--wb-inset), 0 2px 8px var(--color-black-6);
 }
 .wb-panel.ui-lift:hover {
   box-shadow: var(--wb-inset), var(--lift-shadow);
