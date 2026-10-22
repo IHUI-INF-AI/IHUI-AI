@@ -182,6 +182,17 @@ describe('workbuddyAdapter.buildChatRequest', () => {
     expect(body['temperature']).toBe(0.2)
     expect(body['stream_options']).toEqual({ include_usage: true })
   })
+
+  it('body:reasoningEffort → reasoning_effort 原样透传;未给则不带', () => {
+    const withEffort = workbuddyAdapter.buildChatRequest(makeCtx(), {
+      ...baseReq,
+      reasoningEffort: 'low',
+    })
+    expect((withEffort.body as Record<string, unknown>)['reasoning_effort']).toBe('low')
+
+    const without = workbuddyAdapter.buildChatRequest(makeCtx(), baseReq)
+    expect((without.body as Record<string, unknown>)['reasoning_effort']).toBeUndefined()
+  })
 })
 
 // =============================================================================
