@@ -21,6 +21,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 import type { Redis } from 'ioredis'
+import type * as LlmProviderHealthModuleForMock from '../../lib/llm-provider-health.js'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
@@ -118,7 +119,7 @@ vi.mock('../../services/agent-service.js', () => ({
 
 // ai-service 健康探测不发真实网络请求(市场列表会按健康度剔除不可用模型,与缓存头无关)
 vi.mock('../../lib/llm-provider-health.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../lib/llm-provider-health.js')>()
+  const actual = await importOriginal<typeof LlmProviderHealthModuleForMock>()
   return {
     ...actual,
     fetchProviderHealth: vi.fn().mockResolvedValue({ known: false, providers: {} }),

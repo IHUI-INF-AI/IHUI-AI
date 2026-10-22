@@ -4,8 +4,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
 
@@ -91,9 +90,9 @@ describe('GET/POST/DELETE /api/user/ip-whitelist', () => {
     expect((await putIp('2001:db8::1')).json().data).toEqual(['203.0.113.9', '2001:db8::1'])
     expect((await getIps()).json().data).toEqual(['203.0.113.9', '2001:db8::1'])
     // 自救锚点行随每次写面刷新(ipWhitelistTrustedIp),这里只盯列表行本身
-    expect(
-      [...store.keys()].filter((k) => k.endsWith('|ipWhitelist')),
-    ).toEqual([rowKey(AUTH_USER_ID, 'security', 'ipWhitelist')])
+    expect([...store.keys()].filter((k) => k.endsWith('|ipWhitelist'))).toEqual([
+      rowKey(AUTH_USER_ID, 'security', 'ipWhitelist'),
+    ])
   })
 
   it('DELETE 摘一条;摘到空时删行而不是留 "[]"', async () => {
@@ -261,8 +260,6 @@ describe('GET/PUT /api/agent/security-config', () => {
 })
 
 describe('注册即装车 + 调用点契约对账(造好没接线是本仓最高频失效型)', () => {
-  const HERE = dirname(fileURLToPath(import.meta.url))
-  const apiRoot = resolve(HERE, '..')
   const repoRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
