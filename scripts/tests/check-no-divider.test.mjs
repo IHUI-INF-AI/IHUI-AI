@@ -272,4 +272,65 @@ test('D12 全量档:整圈描边 + 单边 override 判绿(结构性出口,摘掉
     rmScratch(dir)
   }
 })
+
+test('D13 全量档:网格收口(同格横边+竖边)不算分隔线 —— 课程表/考勤矩阵的格线', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return <div className="min-h-[60px] border-b border-r p-1">格</div>\n}\n',
+  })
+  try {
+    const r = runHead(dir)
+    assert.equal(r.status, 0)
+    assert.ok(r.stdout.includes('✅'), `格线不该进射程\n${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D14 全量档:同向两条边(上+下)仍判分隔线 —— 网格档不许被拿来遮两条线', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return <div className="border-t border-b px-3 py-2">条</div>\n}\n',
+  })
+  try {
+    const r = runHead(dir)
+    assert.equal(r.status, 0, '全量档只报数')
+    assert.match(r.stdout, /\[single-side divider\]/, `同向两条边必须仍被点名\n${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D15 工作树档:只量盘上进度,恒 exit 0(不作提交门禁)', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return <div className="border-b border-border">a</div>\n}\n',
+  })
+  try {
+    // 盘上把它清掉 ⇒ 工作树档应报 0 条,而 HEAD 档仍报存量(三面各量各的)
+    writeRepoFile(
+      dir,
+      'apps/web/app/x/page.tsx',
+      'export function P() {\n  return <div className="p-3">a</div>\n}\n',
+    )
+    const wt = runScript(dir, ['--worktree'])
+    assert.equal(wt.status, 0, `工作树档不拦\n${wt.stdout}`)
+    assert.match(wt.stdout, /工作树/)
+    const head = runHead(dir)
+    assert.match(head.stdout, /\[single-side divider\]/, 'HEAD 档仍按已入库那一份报数')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D16 两面旗同给 ⇒ exit 2(取哪一面都会让另一面成为假绿)', () => {
+  const dir = createRepo({ 'apps/web/app/x/page.tsx': 'export const z = 1\n' })
+  try {
+    const r = runScript(dir, ['--staged', '--worktree'])
+    assert.equal(r.status, 2, `应落未判定\n${r.stdout}`)
+    assert.match(r.stdout, /不得同用/)
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
