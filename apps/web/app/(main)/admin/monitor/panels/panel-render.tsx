@@ -228,7 +228,7 @@ function PanelCard({
   return (
     <div
       className={cn(
-        'flex flex-col rounded-lg border border-border/80 bg-card p-3 transition-colors hover:border-border',
+        'ui-lift flex flex-col rounded-lg border border-border/80 bg-card p-3 transition-colors hover:border-border',
         panel.span === 'full' && 'pn-span-full',
       )}
     >
