@@ -18,7 +18,12 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
   createWorktree as createWorktreeCoW,
+  isWorktreeMarkerComplete,
+  worktreeMarkerPath,
+  worktreeMarkerSource,
+  WorktreeLandUnprovableError,
 } from '../worktree.js';
+import { readSubagentState } from './state-store.js';
 
 export interface WorktreeInfo {
   path: string;
@@ -221,12 +226,162 @@ export function pruneWorktrees(sourcePath: string): number {
 }
 
 /**
+ * 回收落盘 marker(G-706: createSession 提交后立刻解除清理武装)。
+ * marker 是"自有且待对账"的判据本体 —— 会话一旦提交,就把它撤下,
+ * 此后任何后置小失败/启动对账都不再把这个目录当作可删的自有半成品。
+ *
+ * @returns 是否实际删除了 marker(不存在返回 false,不抛错)
+ */
+export function reclaimWorktreeMarker(wtPath: string): boolean {
+  try {
+    const marker = worktreeMarkerPath(wtPath);
+    if (!fs.existsSync(marker)) return false;
+    fs.rmSync(marker, { force: true });
+    return true;
+  } catch {
+    // 回收失败不抛:marker 仍在 ⇒ 启动对账按"session 在 ⇒ 重建记录"臂处置,不会误删
+    return false;
+  }
+}
+
+export type WorktreeReconcileAction = 'recovered' | 'removed-own' | 'kept-unprovable';
+
+export interface WorktreeReconcileEntry {
+  subagentId: string;
+  path: string;
+  action: WorktreeReconcileAction;
+  detail?: string;
+}
+
+function normalizeLandingPath(p: string): string {
+  const abs = path.resolve(p).replace(/[\\/]+$/, '');
+  return process.platform === 'win32' ? abs.toLowerCase() : abs;
+}
+
+/**
+ * G-706 启动对账三态 —— 扫描 worktree 根,处置上一轮崩溃的残留:
+ *   · marker 齐备 + session 行在 ⇒ 重建记录(目录归属既有会话,保留;回收 marker)
+ *   · marker 齐备 + session 行确实没有 ⇒ 只删自有子目录(marker 指向本仓 = own 证明)
+ *   · marker 不齐 / 指向他源 / session 行判不出 ⇒ 证明不了 ⇒ 保留,
+ *     禁止把暂时性错误(读不出、枚举失败)升级成删除。
+ *
+ * @param sourcePath 源仓库路径(own 判定的锚点)
+ * @param opts.excludeSubagentIds 本次创建流程正持有的目录,对账不得触碰(交由互斥/复用臂)
+ */
+export function reconcileWorktreeArtifacts(
+  sourcePath: string,
+  opts?: { excludeSubagentIds?: Set<string> },
+): WorktreeReconcileEntry[] {
+  const actions: WorktreeReconcileEntry[] = [];
+  let root: string;
+  try {
+    root = getDefaultWorktreeRoot(sourcePath);
+  } catch {
+    return actions;
+  }
+  let names: string[];
+  try {
+    if (!fs.existsSync(root)) return actions;
+    names = fs.readdirSync(root);
+  } catch {
+    // 枚举判不出 ⇒ 证明不了 ⇒ 整根不动(暂时性错误不升级成删除)
+    return actions;
+  }
+  const sourceNorm = normalizeLandingPath(sourcePath);
+  for (const name of names) {
+    if (opts?.excludeSubagentIds?.has(name)) continue;
+    const dir = path.join(root, name);
+    try {
+      if (!fs.statSync(dir).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    const markerSrc = worktreeMarkerSource(dir);
+    if (markerSrc === undefined) {
+      actions.push({
+        subagentId: name,
+        path: dir,
+        action: 'kept-unprovable',
+        detail: 'marker 不齐备(落盘半成品或非 CoW 目录),保留不删',
+      });
+      continue;
+    }
+    if (normalizeLandingPath(markerSrc) !== sourceNorm) {
+      actions.push({
+        subagentId: name,
+        path: dir,
+        action: 'kept-unprovable',
+        detail: 'marker 指向他源,非本仓自有子目录,保留不删',
+      });
+      continue;
+    }
+    const read = readSubagentState(name);
+    if (!read.stateKnown) {
+      actions.push({
+        subagentId: name,
+        path: dir,
+        action: 'kept-unprovable',
+        detail: `session 行判不出(${read.reason}),暂时性错误不升级成删除`,
+      });
+      continue;
+    }
+    if (read.state) {
+      // session 在 ⇒ 重建记录:目录归属既有会话行,保留;marker 使命已尽 ⇒ 回收
+      reclaimWorktreeMarker(dir);
+      actions.push({ subagentId: name, path: dir, action: 'recovered' });
+      continue;
+    }
+    // session 确实不在 ⇒ 只删自有子目录(marker 已证明 own)
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+      actions.push({ subagentId: name, path: dir, action: 'removed-own' });
+    } catch (e) {
+      actions.push({
+        subagentId: name,
+        path: dir,
+        action: 'kept-unprovable',
+        detail: `删除失败保留:${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
+  }
+  if (actions.length > 0) {
+    process.stderr.write(
+      `[worktree-reconcile] ${sourcePath}: ${actions
+        .map((a) => `${a.subagentId}=${a.action}`)
+        .join(', ')}\n`,
+    );
+  }
+  return actions;
+}
+
+/** G-706: 启动对账每进程按源仓库只跑一次(与 G-687 首次落库懒收敛同型接线)。 */
+const reconciledRoots = new Set<string>();
+
+function reconcileWorktreeArtifactsOnce(sourcePath: string, excludeSubagentId: string): void {
+  const key = normalizeLandingPath(sourcePath);
+  if (reconciledRoots.has(key)) return;
+  reconciledRoots.add(key);
+  try {
+    reconcileWorktreeArtifacts(sourcePath, { excludeSubagentIds: new Set([excludeSubagentId]) });
+  } catch {
+    // 对账自身失败绝不阻断创建流程(它只做"证明得了"的处置)
+  }
+}
+
+/**
  * 创建 worktree(快路径优先,失败 fallback 到原 git worktree add)。
  *
  * 策略(P1-8 Fast Worktree CoW 集成):
  *   - useFastPath=false(默认):直接调原 createWorktree(git worktree add -b),零回归
  *   - useFastPath=true:先尝试 CoW 复制 + git checkout -b 建分支,失败则清理半成品目录后
  *     fallback 到原 createWorktree,保证最终一致
+ *
+ * G-706 失败半径纪律(快路径):
+ *   - mkdir EEXIST 当原子互斥、marker 齐备即 reused:true 不重下载(在 createWorktreeCoW 内);
+ *   - 抢锁失败且 marker 不齐 ⇒ 抛 WorktreeLandUnprovableError ⇒ 保留不删,退回原 git worktree add
+ *     抛统一的"路径已存在"错误(旧形态不变);
+ *   - 清理武装只在"会话提交前"对"自有目录"生效(own 由 marker 齐备或本进程刚 mkdir 证明);
+ *   - 入口先跑启动对账(每进程一次,排除本次正持有的 id)。
  *
  * CoW 路径与原路径语义对齐:都生成 subagent/<id> 分支、相同的 destination 路径、
  * 相同的 .gitignore 注入。区别仅在于 .git 是独立拷贝(非 linked worktree),
@@ -236,14 +391,14 @@ export function pruneWorktrees(sourcePath: string): number {
  * @param subagentId subagent ID
  * @param sourcePath 源仓库路径
  * @param useFastPath 是否启用 CoW 快路径(feature flag,默认 false)
- * @returns WorktreeInfo + usedFastPath 标记 + cowKind(仅快路径成功时有值)
+ * @returns WorktreeInfo + usedFastPath 标记 + cowKind(仅快路径成功时有值) + reused(G-706)
  */
 export async function createWorktreeWithFallback(
   parentId: string,
   subagentId: string,
   sourcePath: string,
   useFastPath: boolean = false,
-): Promise<WorktreeInfo & { usedFastPath: boolean; cowKind?: string }> {
+): Promise<WorktreeInfo & { usedFastPath: boolean; cowKind?: string; reused: boolean }> {
   if (useFastPath) {
     const root = getDefaultWorktreeRoot(sourcePath);
     if (!fs.existsSync(root)) {
@@ -253,37 +408,46 @@ export async function createWorktreeWithFallback(
     const destination = path.join(root, subagentId);
     const branch = worktreeBranchName(subagentId);
 
-    // 路径已存在时跳过 CoW(交给原函数抛出统一的“路径已存在”错误)
-    if (!fs.existsSync(destination)) {
-      try {
-        // CoW 复制源工作树(含 .git),preserveWorkingTree=false 会 reset --hard
-        const result = await createWorktreeCoW({
-          source: sourcePath,
-          destination,
-          preserveWorkingTree: false,
-        });
+    // G-706 启动对账(每进程一次):处置上一轮崩溃的残留,本次持有的 id 除外
+    reconcileWorktreeArtifactsOnce(sourcePath, subagentId);
 
-        // CoW 复制后 HEAD 与源一致,需创建 subagent/<id> 分支(等价 git worktree add -b)
-        const checkout = runGit(['checkout', '-b', branch], destination);
-        if (!checkout.ok) {
-          throw new Error(
-            `git checkout -b ${branch} 失败: ${checkout.stderr || checkout.stdout}`,
-          );
-        }
+    try {
+      // CoW 复制源工作树(含 .git),preserveWorkingTree=false 会 reset --hard;
+      // G-706: 目录已存在时由 mkdir EEXIST 原子互斥裁决 —— marker 齐备 ⇒ reused:true 不重下载
+      const result = await createWorktreeCoW({
+        source: sourcePath,
+        destination,
+        preserveWorkingTree: false,
+      });
 
-        return {
-          path: result.destination,
-          branch,
-          parentId,
-          subagentId,
-          createdAt: new Date().toISOString(),
-          usedFastPath: true,
-          cowKind: result.cowKind,
-        };
-      } catch {
-        // CoW 失败 → 清理半成品目录后 fallback 到原 git worktree add
+      // CoW 复制后 HEAD 与源一致,需创建 subagent/<id> 分支(等价 git worktree add -b)
+      const checkout = runGit(['checkout', '-b', branch], destination);
+      if (!checkout.ok) {
+        throw new Error(
+          `git checkout -b ${branch} 失败: ${checkout.stderr || checkout.stdout}`,
+        );
+      }
+
+      return {
+        path: result.destination,
+        branch,
+        parentId,
+        subagentId,
+        createdAt: new Date().toISOString(),
+        usedFastPath: true,
+        cowKind: result.cowKind,
+        reused: result.reused,
+      };
+    } catch (err) {
+      if (err instanceof WorktreeLandUnprovableError) {
+        // G-706: 证明不了 ⇒ 保留,绝不 rm -rf 他人/未知目录;
+        // 退回原 git worktree add,由它抛统一的"路径已存在"错误(与旧行为同形)
+      } else {
+        // 会话提交前清理武装仍上膛,但只许删"自有"目录:
+        // 半成品落盘已由 createWorktreeCoW 自清(own 由刚 mkdir 证明),
+        // 这里兜底处理"落盘已完成(marker 齐备)但后置小失败"的自有目录
         try {
-          if (fs.existsSync(destination)) {
+          if (fs.existsSync(destination) && isWorktreeMarkerComplete(destination)) {
             fs.rmSync(destination, { recursive: true, force: true });
           }
         } catch {
@@ -295,6 +459,6 @@ export async function createWorktreeWithFallback(
 
   // 原有逻辑:git worktree add -b <branch> <path> <startPoint>
   const wt = createWorktree(parentId, subagentId, sourcePath);
-  return { ...wt, usedFastPath: false };
+  return { ...wt, usedFastPath: false, reused: false };
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
