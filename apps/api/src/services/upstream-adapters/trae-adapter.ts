@@ -47,6 +47,7 @@ import {
   extractErrorInfo,
   extractReasoningDelta,
   extractTextDelta,
+  extractThoughtSnapshot,
   extractTokenPayload,
   extractUsage,
   flattenQuery,
@@ -420,6 +421,11 @@ async function* translateUpstreamEvents(
   stops?: readonly string[],
 ): AsyncGenerator<Record<string, unknown>> {
   const stopFilter = createStopSequenceFilter(stops)
+  // 线上实证(2026-10-23 真号抓帧):reasoning_content 与 thought 都是**累积快照**——
+  // 每帧携带当前全文并随事件重发,不能当增量 append。记录已发长度,只放差量;
+  // 快照回退(变短)按全量重发兜底。
+  let lastThought = ''
+  let lastReasoning = ''
 
   for await (const ev of iterateSseEvents(body)) {
     const name = normalizeEventName(ev.event)
@@ -458,14 +464,35 @@ async function* translateUpstreamEvents(
       continue
     }
 
-    const reasoning = extractReasoningDelta(obj)
-    if (reasoning !== null) {
-      yield {
-        ...chunkBase(meta),
-        choices: [{ index: 0, delta: { reasoning_content: reasoning }, finish_reason: null }],
+    const reasoningSnap = extractReasoningDelta(obj)
+    if (reasoningSnap !== null) {
+      const inc = reasoningSnap.startsWith(lastReasoning)
+        ? reasoningSnap.slice(lastReasoning.length)
+        : reasoningSnap
+      if (inc !== '') {
+        yield {
+          ...chunkBase(meta),
+          choices: [{ index: 0, delta: { reasoning_content: inc }, finish_reason: null }],
+        }
       }
-      continue
+      lastReasoning = reasoningSnap
     }
+    const thought = extractThoughtSnapshot(obj)
+    if (thought !== null) {
+      const inc = thought.startsWith(lastThought) ? thought.slice(lastThought.length) : thought
+      if (inc !== '') {
+        const filtered = stopFilter ? stopFilter.feed(inc) : { emit: inc, hit: false }
+        if (filtered.emit !== '') {
+          yield {
+            ...chunkBase(meta),
+            choices: [{ index: 0, delta: { content: filtered.emit }, finish_reason: null }],
+          }
+        }
+        if (filtered.hit) break
+      }
+      lastThought = thought
+    }
+    if (reasoningSnap !== null || thought !== null) continue
     const text = extractTextDelta(obj)
     if (text !== null) {
       const filtered = stopFilter ? stopFilter.feed(text) : { emit: text, hit: false }
