@@ -1221,6 +1221,56 @@ iframe::-webkit-scrollbar {
   }
 }
 
+/* ============================================================
+ * 容器 hover 浮起(2026-10-22 机主定档:全站卡片统一「稍微放大 + 浮起」)
+ *
+ * 单一源头:数值只写这一处。Card 基座默认带 .ui-lift,自定义卡片族显式引用同一个类;
+ * 端内不得再各写 hover:scale-105 / hover:shadow-xl / hover:-translate-y-*(全仓曾散着
+ * 72 处不同数值的浮起写法,那正是"不统一"的成因)。
+ *
+ * 用独立 scale / translate 属性而不是 transform —— 与下面那条 2026-08-28
+ * 「transform → translate」架构修复同口径:不覆盖消费方写在 transform 上的居中/旋转。
+ *
+ * 两条边界:① 嵌套卡片只让最外层浮(内外双层同时浮起读起来像抖动);
+ * ② prefers-reduced-motion 下整体关掉 —— 位移类反馈必须尊重系统减动效设置。
+ * ============================================================ */
+:root {
+  --lift-scale: 1.012;
+  --lift-offset: -2px;
+  --lift-shadow: 0 10px 24px -8px var(--color-black-20);
+  --lift-shadow-dark: 0 10px 24px -8px var(--color-black-60);
+  --duration-lift: 180ms;
+}
+.ui-lift {
+  transition:
+    scale var(--duration-lift) var(--ease-unified),
+    translate var(--duration-lift) var(--ease-unified),
+    box-shadow var(--duration-lift) var(--ease-unified);
+}
+.ui-lift:hover {
+  scale: var(--lift-scale);
+  translate: 0 var(--lift-offset);
+  box-shadow: var(--lift-shadow);
+}
+/* 暗档下 black-20 落在深底上几乎量不出来,浮起必须看得见 */
+.dark .ui-lift:hover {
+  box-shadow: var(--lift-shadow-dark);
+}
+/* 嵌套卡片:内层不跟着位移(内外双层同时挪读起来像抖动),阴影叠加不明显故不管 */
+.ui-lift .ui-lift:hover {
+  scale: none;
+  translate: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-lift {
+    transition: none;
+  }
+  .ui-lift:hover {
+    scale: none;
+    translate: none;
+  }
+}
+
 .account-card .account-card-actions {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
