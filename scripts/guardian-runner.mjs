@@ -5261,6 +5261,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 计划/台账(1 项,warn)---
+  {
+    id: '234',
+    label:
+      '计划台账侧车字段一致性(新增行有侧车 ∧ 标头==侧车投影)',
+    script: 'check-plan-fields.mjs',
+    args: [],
+    mode: 'warn',
+    skipEnv: 'HUSKY_SKIP_PLAN_FIELDS',
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    onFailHint: [
+      '',
+      '读数:node scripts/check-plan-fields.mjs;结清存量:node scripts/plan-fields-extract.mjs --apply(只搬说辞不改台账行)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
