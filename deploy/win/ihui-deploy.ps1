@@ -1220,6 +1220,16 @@ function Start-CleanBuildAsyncDelete {
         $renamed = $false
         Log "[CLEAN-BUILD] 改名失败($_)⇒ 原路交后台进程直接删(改名要整树无句柄,删单文件只要该文件无锁,后台删照样不阻塞收尾)"
     }
+    # $PSScriptRoot 兜底:本文件由部署环以 -File 启动时它等于 deploy\win;若哪天被 -Command
+    # 内联或 dot-source 调用,它是空串,Join-Path 会抛"不能绑定到 Path"——
+    # 那时退回 $Root\deploy\win(本脚本在生产/开发仓里的固定位置)。
+    # ⚠️ 顺序铁律:$purger/$pwsh 必须在 $purgeArgs 之前解析 —— 2026-10-22 14:47 实测,
+    #    先建 args 后赋值会让 $purgeArgs 的 -File 槽捕获 $null(pwsh 探针实证:
+    #    fileSlot=<NULL>),Start-Process 起一个 -File 空的 pwsh 瞬间死掉,而下一行日志
+    #    用的是已赋值的 $purger ⇒ 谎报"后台删除进程已启动",目录永远不删。
+    $purger = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'clean-build-purge.ps1' } else { Join-Path $Root 'deploy\win\clean-build-purge.ps1' }
+    $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+    if (-not $pwsh) { $pwsh = (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe') }
     if ($renamed) {
         # 改名成功 ⇒ 后台删回收站目录
         $purgeArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $purger, '-Path', $trash, '-DelaySeconds', '3')
@@ -1227,12 +1237,6 @@ function Start-CleanBuildAsyncDelete {
         # 改名失败 ⇒ 后台删原路径(原路径仍是被占用的 clean-build-wt,不是 .trash-*,要 -AllowPlain 放行)
         $purgeArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $purger, '-Path', $Path, '-DelaySeconds', '5', '-AllowPlain')
     }
-    # $PSScriptRoot 兜底:本文件由部署环以 -File 启动时它等于 deploy\win;若哪天被 -Command
-    # 内联或 dot-source 调用,它是空串,Join-Path 会抛"不能绑定到 Path"——
-    # 那时退回 $Root\deploy\win(本脚本在生产/开发仓里的固定位置)。
-    $purger = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'clean-build-purge.ps1' } else { Join-Path $Root 'deploy\win\clean-build-purge.ps1' }
-    $pwsh = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
-    if (-not $pwsh) { $pwsh = (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe') }
     if (-not ((Test-Path -LiteralPath $purger) -and (Test-Path -LiteralPath $pwsh))) {
         Log "[CLEAN-BUILD] WARN 后台删除器不在位($purger),收尾只能同步删(可能耗时数分钟)"
         Remove-DirLongPath -Path $(if ($renamed) { $trash } else { $Path })
