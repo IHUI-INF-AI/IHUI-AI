@@ -7,36 +7,39 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { mockSelectResult, mockWriteResult, sinks, rearmDbMockDefaults } = vi.hoisted(() => {
-  type Armed = { mockResolvedValue(value: unknown): unknown; mockReset(): unknown }
-  const rearmers: Array<() => void> = []
-  function armed<F extends Armed>(fn: F, value: unknown): F {
-    fn.mockResolvedValue(value)
-    rearmers.push(() => {
-      fn.mockReset()
+const { mockSelectResult, mockWriteResult, mockExecuteResult, sinks, rearmDbMockDefaults } =
+  vi.hoisted(() => {
+    type Armed = { mockResolvedValue(value: unknown): unknown; mockReset(): unknown }
+    const rearmers: Array<() => void> = []
+    function armed<F extends Armed>(fn: F, value: unknown): F {
       fn.mockResolvedValue(value)
-    })
-    return fn
-  }
-  const mockSelectResult = armed(vi.fn(), [])
-  const mockWriteResult = armed(vi.fn(), [])
-  const sinks = {
-    insert: { value: undefined as unknown },
-    update: { value: undefined as unknown },
-    delete: { value: undefined as unknown },
-  }
-  return {
-    mockSelectResult,
-    mockWriteResult,
-    sinks,
-    rearmDbMockDefaults: () => {
-      rearmers.forEach((rearm) => rearm())
-      sinks.insert.value = undefined
-      sinks.update.value = undefined
-      sinks.delete.value = undefined
-    },
-  }
-})
+      rearmers.push(() => {
+        fn.mockReset()
+        fn.mockResolvedValue(value)
+      })
+      return fn
+    }
+    const mockSelectResult = armed(vi.fn(), [])
+    const mockWriteResult = armed(vi.fn(), [])
+    const mockExecuteResult = armed(vi.fn(), [])
+    const sinks = {
+      insert: { value: undefined as unknown },
+      update: { value: undefined as unknown },
+      delete: { value: undefined as unknown },
+    }
+    return {
+      mockSelectResult,
+      mockWriteResult,
+      mockExecuteResult,
+      sinks,
+      rearmDbMockDefaults: () => {
+        rearmers.forEach((rearm) => rearm())
+        sinks.insert.value = undefined
+        sinks.update.value = undefined
+        sinks.delete.value = undefined
+      },
+    }
+  })
 
 vi.mock('../src/db/index.js', () => {
   function selectChain(): unknown {
@@ -75,7 +78,7 @@ vi.mock('../src/db/index.js', () => {
       insert: () => writeChain(sinks.insert),
       update: () => writeChain(sinks.update),
       delete: () => writeChain(sinks.delete),
-      execute: vi.fn(async () => []),
+      execute: (..._args: unknown[]) => mockExecuteResult(),
     },
     dbRead: { select: () => selectChain() },
     dbClient: {},
@@ -87,6 +90,11 @@ import {
   reportProxyFailure,
   reportProxySuccess,
   markProxyChecked,
+  listProxies,
+  createProxy,
+  updateProxy,
+  deleteProxy,
+  getProxyById,
 } from '../src/services/relay-proxy-pool.js'
 
 describe('relay-proxy-pool', () => {
@@ -95,31 +103,33 @@ describe('relay-proxy-pool', () => {
   })
 
   describe('pickProxyForAccount', () => {
-    it('账号自带 proxyUrl → 直接返回,不查池', async () => {
+    it('账号自带 proxyUrl → 直接返回,不查池/不发 SQL', async () => {
       const url = await pickProxyForAccount({
         id: 'acc-1',
         proxyUrl: 'http://user:pass@10.0.0.1:8080',
       })
       expect(url).toBe('http://user:pass@10.0.0.1:8080')
       expect(mockSelectResult).not.toHaveBeenCalled()
+      expect(mockExecuteResult).not.toHaveBeenCalled()
     })
 
-    it('池内有 active 代理 → 返回并回写轮换游标 lastPickedAt', async () => {
-      mockSelectResult.mockResolvedValueOnce([{ id: 'p1', proxyUrl: 'http://10.0.0.2:8080' }])
+    it('池内有 active 代理 → 单条 UPDATE 原子取用并返回 proxy_url', async () => {
+      mockExecuteResult.mockResolvedValueOnce([{ proxy_url: 'http://10.0.0.2:8080' }])
       const url = await pickProxyForAccount({ id: 'acc-1', proxyUrl: null })
       expect(url).toBe('http://10.0.0.2:8080')
-      const set = sinks.update.value as Record<string, unknown>
-      expect(set.lastPickedAt).toBeInstanceOf(Date)
-    })
-
-    it('池空 → null(直连)', async () => {
-      mockSelectResult.mockResolvedValueOnce([])
-      await expect(pickProxyForAccount({ id: 'acc-1', proxyUrl: null })).resolves.toBeNull()
+      expect(mockExecuteResult).toHaveBeenCalledTimes(1)
+      // 原子语句自带 SET/WHERE,不再有独立的 UPDATE 回写
+      expect(mockWriteResult).not.toHaveBeenCalled()
       expect(sinks.update.value).toBeUndefined()
     })
 
+    it('池空(UPDATE 0 行)→ null(直连)', async () => {
+      mockExecuteResult.mockResolvedValueOnce([])
+      await expect(pickProxyForAccount({ id: 'acc-1', proxyUrl: null })).resolves.toBeNull()
+    })
+
     it('查询异常 → null(降级直连,永不抛)', async () => {
-      mockSelectResult.mockRejectedValueOnce(new Error('db down'))
+      mockExecuteResult.mockRejectedValueOnce(new Error('db down'))
       await expect(pickProxyForAccount({ id: 'acc-1', proxyUrl: null })).resolves.toBeNull()
     })
   })
@@ -184,6 +194,86 @@ describe('relay-proxy-pool', () => {
       const set = sinks.update.value as Record<string, unknown>
       expect(set.status).toBe('dead')
       expect(set.failCount).toBeUndefined()
+    })
+  })
+
+  // 2026-10-22 补:此前代理池无写入入口,管理面 CRUD 服务需可判别结果
+  describe('管理面 CRUD', () => {
+    const proxyRow = {
+      id: '00000000-0000-4000-8000-0000000000p1',
+      proxyUrl: 'http://user:pass@10.0.0.9:8080',
+      providerCode: 'trae',
+      status: 'active',
+      failCount: 0,
+      lastCheckedAt: null,
+      boundAccountId: null,
+      lastPickedAt: null,
+      createdAt: new Date('2026-10-22T00:00:00Z'),
+      updatedAt: new Date('2026-10-22T00:00:00Z'),
+    }
+
+    it('listProxies 返回 list + total,proxyUrl 原样(不脱敏)', async () => {
+      mockSelectResult.mockResolvedValueOnce([proxyRow]).mockResolvedValueOnce([{ c: 1 }])
+      const r = await listProxies({ page: 1, pageSize: 20, status: 'active' })
+      expect(r.ok).toBe(true)
+      if (!r.ok) return
+      expect(r.total).toBe(1)
+      expect(r.list[0]?.proxyUrl).toBe('http://user:pass@10.0.0.9:8080')
+    })
+
+    it('createProxy 正常插入', async () => {
+      mockWriteResult.mockResolvedValueOnce([proxyRow])
+      const r = await createProxy({
+        proxyUrl: proxyRow.proxyUrl,
+        providerCode: 'trae',
+      })
+      expect(r.ok).toBe(true)
+      expect((sinks.insert.value as Record<string, unknown>).proxyUrl).toBe(proxyRow.proxyUrl)
+      expect((sinks.insert.value as Record<string, unknown>).boundAccountId).toBeNull()
+    })
+
+    it('createProxy 唯一冲突(23505)→ reason=duplicate(路由映射 409)', async () => {
+      mockWriteResult.mockRejectedValueOnce(Object.assign(new Error('dup'), { code: '23505' }))
+      const r = await createProxy({ proxyUrl: proxyRow.proxyUrl })
+      expect(r).toEqual({ ok: false, reason: 'duplicate' })
+    })
+
+    it('createProxy 其他异常 → reason=error,不抛', async () => {
+      mockWriteResult.mockRejectedValueOnce(new Error('db down'))
+      await expect(createProxy({ proxyUrl: proxyRow.proxyUrl })).resolves.toEqual({
+        ok: false,
+        reason: 'error',
+      })
+    })
+
+    it('updateProxy 命中行 → 回写 updatedAt 并返回行', async () => {
+      mockWriteResult.mockResolvedValueOnce([{ ...proxyRow, status: 'dead' }])
+      const r = await updateProxy(proxyRow.id, { status: 'dead' })
+      expect(r.ok).toBe(true)
+      const set = sinks.update.value as Record<string, unknown>
+      expect(set.status).toBe('dead')
+      expect(set.updatedAt).toBeInstanceOf(Date)
+    })
+
+    it('updateProxy 0 行 → not_found', async () => {
+      mockWriteResult.mockResolvedValueOnce([])
+      await expect(updateProxy(proxyRow.id, { status: 'active' })).resolves.toEqual({
+        ok: false,
+        reason: 'not_found',
+      })
+    })
+
+    it('deleteProxy 0 行 → deleted=false', async () => {
+      mockWriteResult.mockResolvedValueOnce([])
+      await expect(deleteProxy(proxyRow.id)).resolves.toEqual({ ok: true, deleted: false })
+    })
+
+    it('getProxyById 未命中 → not_found', async () => {
+      mockSelectResult.mockResolvedValueOnce([])
+      await expect(getProxyById(proxyRow.id)).resolves.toEqual({
+        ok: false,
+        reason: 'not_found',
+      })
     })
   })
 })
