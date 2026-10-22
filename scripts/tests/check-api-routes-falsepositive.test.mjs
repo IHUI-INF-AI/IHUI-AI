@@ -80,13 +80,6 @@ function deadCalls(out, end) {
   return m ? Number(m[1]) : 0
 }
 /** 某一端「未判定(有传输口却抽不出路径)」计数 */
-function shapeUnknown(out, end) {
-  const m = out.match(
-    new RegExp(`· ${end}:文件 \\d+ / 调用(?:点)? \\d+ / [^\\n]*?未判定\\(有传输口却抽不出路径\\)(\\d+)`),
-  )
-  if (!m) throw new Error(`输出里没有 ${end} 的未判定计数\n${out}`)
-  return Number(m[1])
-}
 
 // ─────────────────────────────────────────────────────────────────────────
 // 机制 ①`params` 词条过宽(Next.js 路由参数被当查询串丢弃)

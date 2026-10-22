@@ -64,7 +64,6 @@ function headLine(rel, anchor) {
 
 const DYNAMIC_LINE = headLine(TERMINAL_REL, 'fullOutput.slice(-')
 const PATH_LINE = headLine(CHANGES_REL, 'parts.slice(-')
-const TEXT_LINE = headLine(THINKING_REL, 'trimmed.slice(-')
 const BARE_LINE = headLine(RECEIVER_REL, 'arr.slice(-')
 const OMITTED_LINE = headLine(TERMINAL_REL, 'omittedCount } = tailWithOmittedCount(')
 
