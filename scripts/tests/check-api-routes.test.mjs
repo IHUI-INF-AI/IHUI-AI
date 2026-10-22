@@ -1277,6 +1277,68 @@ test('FG-3 反向对照:合法 /api/cache/… 已注册 ⇒ 盲区清单为 0 �
   }
 })
 
+// ─── FG-4 阳性对照(票面产生路径①的**另一条腿**,2026-10-22)───
+// 票面问:"抽取器是否漏 `fetchApi<Gen>(...)` 泛型形态(门内 `directFetchRe` 认 `<[^>]*>?`、
+// `TRANSPORT_RE` 不认 ⇒ 同一文件在两个判据里形态不同)"。调用集那一半 FG-1/FG-2 已钉;
+// 这一对钉的是**未判定腿**:桶判据是 `calls.length===0 && TRANSPORT_RE.test(src)`,
+// 旧 TRANSPORT_RE 是手抄的第二张式、不认泛型 ⇒ 唯一载波是 `fetchApi<Gen>(变量)` 的文件
+// 两支都假,连「未判定(有传输口却抽不出路径)」都不进、盲区点名也点不到 —— 整档静默,
+// 这正是"扩面只是账面变大"的假绿灯产生路径之一(HEAD 面实测 34 个文件落这格,含 api-client 13)。
+// 修复 = TRANSPORT_RE 由唯一实现 LINE_TRANSPORT_RE 派生 + import 支;本例修复前红(计数 0)、修复后绿(1+点名)。
+test('FG-4 阳性对照:fetchApi<Gen>(变量) 抽不出路径 ⇒ 必须落进「未判定(有传输口却抽不出路径)」并被点名', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(dir, 'apps/api/src/routes/x.ts', "server.get('/api/nothing', async () => ({}))\n")
+    writeFile(dir, 'scripts/api-routes-baseline.json', baselineWith({}))
+    writeFile(
+      dir,
+      'packages/api-client/src/endpoints/ghost.ts',
+      [
+        'export async function getGhost(): Promise<ApiResult<Ghost>> {',
+        '  return fetchApi<Ghost>(buildGhostUrl())',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `未判定腿只报名、不判红(看不清≠有问题;判红=恒红门)\n${r.out}`)
+    assert.match(
+      r.out,
+      /api-client:文件 \d+ \/ 调用 0 \/ 取不到内容 0 \/ 未判定\(有传输口却抽不出路径\)1/,
+      '泛型形态必须进未判定桶 —— 读到 0 就是整档静默(票面路径①的现存形态)',
+    )
+    assert.match(r.out, /未判定调用形态 1 个文件/, '总数与每端计数必须同形(报数报名共用同一份判据)')
+    assert.match(r.out, /endpoints\/ghost\.ts:\d+/, '报数必须报名:盲区点名必须点到 文件:行')
+    assert.match(r.out, /fetchApi<Ghost>\(/, '传输口形态 tally 必须给出泛型载波本体')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+// ─── FG-4b 反例(票面处置要求的"正常调用反例"):载波变宽不得把正常调用挤进未判定档 ───
+test('FG-4 反例:fetchApi<Gen>(已注册 /api/ 字面量) ⇒ 调用 1 / 未判定 0,正常调用不得被误登进盲区名单', () => {
+  const dir = createTempRoot()
+  try {
+    writeFile(dir, 'apps/api/src/routes/x.ts', "server.get('/api/real/thing', async () => ({}))\n")
+    writeFile(dir, 'scripts/api-routes-baseline.json', baselineWith({}))
+    writeFile(
+      dir,
+      'packages/api-client/src/endpoints/real.ts',
+      "export async function getReal(): Promise<ApiResult<Real>> {\n  return fetchApi<Real>('/api/real/thing')\n}\n",
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `已注册的泛型调用不得判红\n${r.out}`)
+    assert.match(
+      r.out,
+      /api-client:文件 \d+ \/ 调用 1 \/ 取不到内容 0 \/ 未判定\(有传输口却抽不出路径\)0/,
+      '正常泛型调用进调用集(调用 1)且未判定桶为 0 —— 两头都要钉,缺一头就是放宽/收紧判据的漂移',
+    )
+    assert.doesNotMatch(r.out, /endpoints\/real\.ts:\d+/, '已判过的文件不得被登进盲区点名')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
 // ─── FG-LOCK 反向锁:三条阳性对照确实各命中一次 + 盲区档必须装车 ───
 // 为什么必须有它:删掉一条用例时,`node --test` 的账面照样"全绿"(只是少一例),
 // 于是"门声称看得见"重新回到无人喂input 的状态 —— 正是本票立项那一型的再生产。
