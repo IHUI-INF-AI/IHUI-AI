@@ -60,7 +60,7 @@ const selectClass =
 const textareaClass =
   'flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono text-xs'
 
-const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts'] as const
+const PROVIDER_OPTIONS = ['trae', 'workbuddy', 'codearts', 'qoder'] as const
 type ProviderCode = (typeof PROVIDER_OPTIONS)[number]
 
 // 24h 用量摘要。后端契约字段均为 number,但后端尚未合并时可能整体缺失,

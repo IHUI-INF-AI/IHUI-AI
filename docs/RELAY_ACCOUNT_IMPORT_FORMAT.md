@@ -52,7 +52,7 @@
 }
 ```
 
-`providerCode` 取值:`trae` | `workbuddy` | `codearts`。
+`providerCode` 取值:`trae` | `workbuddy` | `codearts` | `qoder`。
 `accounts` 单批最多 **500** 条。
 
 ## 2. 账号字段
@@ -60,16 +60,36 @@
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `name` | string ≤128 | 否 | 展示名;缺省用 `#序号` |
-| `token` | string | trae/workbuddy 必填 | JWT access token;codearts 见 §3 |
+| `token` | string | trae/workbuddy/qoder 必填 | JWT access token(trae/workbuddy)或 Qoder opaque 串(dt- 前缀);codearts 见 §3 |
 | `refreshToken` | string ≤128 | 否 | 缺失时过期号入库即摘除 |
 | `deviceId` | string ≤128 | 否 | 设备指纹;web 聊天链路不强制 |
-| `machineId` | string ≤128 | 否 | 同上 |
+| `machineId` | string ≤128 | 否 | 同上;Qoder 侧同时进 Cosy-MachineId 请求头 |
 | `enabled` | boolean | 否 | 默认 `true`;必须是布尔值 |
 | `cookies` | array | 否 | Chrome 导出格式,见 §4 |
 | `proxyUrl` | string ≤512 | 否 | 账号级出口代理,`http(s)://` 或 `socks5://` |
 | 其他字段 | any | 否 | 原样透传进 `extraMetadata`(平台扩展用) |
 
-## 3. CodeArts 专用字段
+## 3. 非 JWT 平台专用字段
+
+以下两族的凭证都不是三段式 JWT,uid/过期时刻必须显式传入(缺省退化为哈希 uid + 无过期时间)。
+
+### 3.1 Qoder(2026-10-23 立)
+
+Qoder 桌面端(`com.qodercn.app.*`/`com.qoder.app.*`)登录态:token 是 27 字符 **opaque 单段串**(`dt-` 前缀,真机实证),uid 真源是会话 JSON 的 `user.id`(桌面端 `checkin_capture.rs` 从 `auth.v1.dat` 解密提取)。导入条目认以下字段:
+
+| 字段 | 必填 | 说明 |
+| --- | --- | --- |
+| `token` | 是 | `dt-…` access token(auth.v1.dat 的 `token`) |
+| `refreshToken` | 否 | `drt-…`(auth.v1.dat 的 `refreshToken`);有它调度器才能自刷新 |
+| `uid` | 否* | 账号唯一 id(auth.v1.dat 的 `user.id`);缺省时按 token 哈希去重 |
+| `expiresAt` | 否* | access token 到期:ISO 8601 字符串(如 `2026-11-21T11:38:26Z`)或 epoch 秒;缺省则无过期时间、不临期刷新 |
+| `refreshTokenExpiresAt` | 否 | refreshToken 到期(ISO/epoch),落 `extraMetadata.refreshTokenExpiresAt` |
+| `nickname` / `phone` | 否 | `name` 缺省时的展示名兜底(手机号优先) |
+| `machineToken` / `machineCode` / `machineType` / `version` | 否 | Cosy-* 设备头族(客户端 `runtime-info.exe` 产出),落 `extraMetadata.cosy`,刷新/健康检查时带上 |
+
+\* 不填不阻塞导入,但 uid 退化为 `auto:sha256(token)[:32]`、无过期时刻——桌面端捕获的会话应尽量带全。
+
+### 3.2 CodeArts
 
 CodeArts 不是 JWT,凭证按 STS 凭据包导入。以下三种写法任选其一,但三组信息必须齐全:
 
@@ -114,7 +134,7 @@ Unix 毫秒 = floor(expires_utc / 1000) - 11644473600000
 导入入口:`POST /api/admin/relay/accounts/import`(管理员 access token)。
 
 1. **去重键** = `(providerCode, uid)`。uid 取 JWT 的 `data.id` → `sub` → `uid` → `data.user_id`;
-   全失败时用 `auto:sha256(token)[:32]`。同 uid 再导入 = 覆盖凭证并重置健康状态。
+   Qoder 取显式 `uid`(→ `user.id`,兜底哈希);全失败时用 `auto:sha256(token)[:32]`。同 uid 再导入 = 覆盖凭证并重置健康状态。
 2. **批内重复** uid:保留首条,后续标记 `skipped`(不计失败)。
 3. **加密落库**:`token` / `refreshToken` / `cookies` / CodeArts secrets 全部 AES-256-GCM
    (`encryptField`),管理端响应永不回传明文或密文。
