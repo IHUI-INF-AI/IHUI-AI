@@ -20,6 +20,9 @@ rule_files:
   - 'alerts.yml'
   # AI 链路组(2026-10-17):每条都过 §5e-1 可整改性准入,低流量保护靠"宽窗口 + and on() 样本量门槛"
   - 'alerts-ai.yml'
+  # 入口探测/伪装爬虫组(2026-10-23):阈值不是拍的,是按 api_logs 6 天现读的
+  # 15 分钟档峰值线定的(见该文件头注的量表);此前这类命中只 logger.warn,零到人出口
+  - 'alerts-security.yml'
 
 # Prometheus → Alertmanager 告警路由通知
 # Alertmanager 负责分组/抑制/路由,出口唯一:webhook → 本机 alert-webhook-bridge(9096) → 品牌邮件
