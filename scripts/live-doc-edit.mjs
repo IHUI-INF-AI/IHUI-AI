@@ -179,7 +179,7 @@ import { collectIdFace } from './lib/plan-id-face.mjs'
 // 守门 194 同题查重(2026-10-13):指纹判据只此一份,取号器不另写"什么算同题"
 import { extractTaskFingerprint, findSameFingerprint } from './check-plan-task-duplicates.mjs'
 // 复合主键判据的唯一实现(台账层与归并器共用同一份;本器不得再抄一份 —— 两处算同一个键必漂移)。
-import { compositeKeyOf } from './lib/plan-task-index.mjs'
+import { compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
 // G-1079146(2026-10-08):git 派生的唯一 transport(绝对路径 + 显式 stdio + windowsHide + 数字 timeout
@@ -1390,6 +1390,56 @@ export function parseDupAllow(raw = '') {
  *  与主键维同一条差值语义:只判本次带进来的行,别人历史留下的存量副本不替本次担账。
  *  放过面与主键维一致:作者自认副本(DUP_ACK_RE)、就地改写额度、逐键声明,三者都对指纹维生效。
  */
+/**
+ * 「同号不同题」闸(2026-10-22 立)。
+ *
+ * 立案现场:一席走本器正牌入口 `{{NEXT_ID:G}}` 连登三票,拿到的 G-924 / G-926 / G-929
+ * **每一个都已有别席的既存题**(那些行标着〔登记@2026-10-21〕)。号在活文档里反复进出
+ * (归并、清扫、auto-commit 收编滞后副本),所以"取号那一刻空闲"不等于"落地那一刻还空闲",
+ * 而本器过去只在取号时查重、落地前不复核。
+ *
+ * 为什么既有两道闸都看不见这一型:
+ *   · F1 复合主键 = 编号 + 标题前缀**逐字等值** ⇒ 同号不同题主键不同,不落 F1;
+ *   · 守门 194 判的是"同题多号",方向相反。
+ * ⇒ 后果是两席按同一个号各领一张票:派单面虚高,正是"打架重复做"的机器成因。
+ *
+ * 只拦**本次真新增**:额度 = 被本次操作换掉的同号行数(就地改写与让号都是"删一条加一条",
+ * 那是 §1 建议的正当修法,不抵扣就会与取号器互搏)。存量(父提交里已撞)只报数不拦 ——
+ * 拿别人留下的账钉红每一次落地,结局是逼人绕开本器改用 pathspec 硬交(§12e 恒红门同一条)。
+ * 已勾行不占派单面(清扫器会摘),故不进射程;同号且同题也不归本闸(F1/194 负责)。
+ */
+export function judgeNewIdCollisions({ baseLines = [], newLines = [], removedLines = [] } = {}) {
+  // 两面都空 ⇒ 判据没读到输入,不记绿也不冒红(§0.3)
+  if (baseLines.length === 0 && newLines.length === 0)
+    return { blocked: [], preexisting: [], undetermined: true }
+
+  // 号 ⇒ 该号下的未勾登记行。行解析复用 parseTaskRows(台账层与归并器同一份),不另写 checkbox 语法。
+  const openRowsByKey = (lines) => {
+    const m = new Map()
+    for (const r of parseTaskRows(lines.join('\n'))) {
+      if (r.state !== 'open' || !r.key) continue
+      if (!m.has(r.key)) m.set(r.key, [])
+      m.get(r.key).push(r.raw)
+    }
+    return m
+  }
+  const base = openRowsByKey(baseLines)
+  const next = openRowsByKey(newLines)
+  const quota = openRowsByKey(removedLines)
+
+  const blocked = []
+  const preexisting = []
+  for (const [id, rows] of next) {
+    if (rows.length < 2) continue
+    // 同题同号是"同一件事被抄了两遍",归 F1/守门 194,本闸不抢它的活
+    if (new Set(rows.map((r) => extractTaskFingerprint(r) ?? r)).size < 2) continue
+    const added = rows.length - (base.get(id)?.length ?? 0) - (quota.get(id)?.length ?? 0)
+    if (added > 0) blocked.push({ id, rows })
+    else preexisting.push({ id, rows })
+  }
+  return { blocked, preexisting, undetermined: false }
+}
+
 export function judgeNewLineDupes({ baseLines = [], newLines = [], removedLines = [], allow = new Map() } = {}) {
   const existing = new Map()
   let openBase = 0
@@ -1767,6 +1817,40 @@ async function main() {
           `ℹ 台账存量畸形编号 ${mal.preexisting.length} 行(父提交里已在 ⇒ 只报数不拦,与本次落地无关;逐条清偿另计批)`,
         )
     }
+    // 同号不同题闸(2026-10-22 立,判据与理由见函数定义处注释)。为什么必须在 writeBlob 之前:
+    // 与上面畸形号守卫同一条理由 —— 内容一旦 commit,再 exit 1 就是把"已入库"谎报成"没落地"。
+    {
+      const col = judgeNewIdCollisions({
+        baseLines: baseContent.split('\n'),
+        newLines: nextLines,
+        removedLines: effReplacements ? effReplacements.map((p) => p.before) : [],
+      })
+      if (col.undetermined) {
+        console.error('❌ 同号唯一性复验取不到输入(底稿与新内容都空)⇒ 未判定,拒绝落地(§0.3)')
+        process.exit(2)
+      }
+      if (col.blocked.length > 0) {
+        console.error(
+          `❌ 落地前复验:本次要写入的内容里有 ${col.blocked.length} 组**同一编号挂着不同的题**⇒ 拒绝落地:`,
+        )
+        for (const g of col.blocked.slice(0, 4)) {
+          console.error(`   · ${g.id} 共 ${g.rows.length} 题`)
+          for (const r of g.rows.slice(0, 3))
+            console.error(`       ${r.replace(/\s+/g, ' ').slice(0, 72)}`)
+        }
+        console.error(
+          '   成因:号会随归并/清扫/收编滞后副本在活文档里进出,"取号那一刻空闲"不等于"落地那一刻还空闲";' +
+            '而 F1(编号+标题逐字等值)与守门 194(同题多号)都看不见这一型 ⇒ 两席按同一个号各领一张票。\n' +
+            '   出路二选一:①重跑本器(会重新取号,本闸保证不会再交出一个已占号);' +
+            '②把这一项并进已占那题的同一行(§1 就地改写,不另起一行)。',
+        )
+        process.exit(1)
+      }
+      if (col.preexisting.length > 0)
+        console.log(
+          `ℹ 台账存量同号不同题 ${col.preexisting.length} 组(父提交里已在 ⇒ 只报数不拦;派单前请用"号 + 标题"双条件定位)`,
+        )
+    }
     // ── G-1079146 登记入口取值(票面「优先做的不是新门,是掐住成因」)──
     // 只吃**本次新增的行**:插入档 = 本块每一行(含令牌展开后的形态);整行改写档 = `after` 相对
     // `before` 多出的那一段。为什么不回扫全文:把存量里本来就带着的旧 sha 再判一次,等于拿别人三周
@@ -1943,6 +2027,7 @@ export const __test__ = {
   linesIntroducedBy,
   parseDupAllow,
   judgeNewLineDupes,
+  judgeNewIdCollisions,
   dupGateReport,
   // 同题指纹维:判据从权威门(check-plan-task-duplicates.mjs)经本器 import 后转出,
   // 镜像测试据此断言"两处算同一件事必漂移"的禁令(§22c),不得自抄第二份。
