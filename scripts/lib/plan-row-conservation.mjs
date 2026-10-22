@@ -14,20 +14,14 @@
  * 否则"把信息从散文搬进侧车"这一步自己就会改判,那正是本断言要拦的事。
  * 调用方一律 import 本件,不得各写一份(§0.6;同类漂移本仓已记过多次)。
  */
-import { claimMarkOf, dispositionOf, keyOfRow } from './plan-task-index.mjs'
+import { bucketFromFields, claimMarkOf, dispositionOf, keyOfRow } from './plan-task-index.mjs'
 
 const OPEN_RE = /^\s*- \[ \]/
 const DONE_RE = /^\s*- \[[xX]\]/
 
-/** 侧车命中 ⇒ 按侧车判;没命中 ⇒ 回落 `plan-task-index` 那份散文判据(本件零复算)。 */
+/** 侧车命中 ⇒ 用判据层的**单源映射**(顺序必须与散文同序,否则迁移即改判);没命中 ⇒ 回落散文。 */
 export function bucketOf(line, rec) {
-  if (rec) {
-    if (String(rec.owner ?? '').trim()) return 'owned-elsewhere'
-    if (rec.waiting === 'human') return 'waiting-human'
-    if (rec.waiting === 'env') return 'waiting-env'
-    return 'actionable'
-  }
-  return dispositionOf(line)
+  return rec ? bucketFromFields(rec) : dispositionOf(line)
 }
 
 /**

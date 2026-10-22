@@ -84,13 +84,13 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3030 | `testFiles` |
+| 测试文件 | 3031 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 268 | `guardianGates` |
 | — blocking | 245 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15680 | `trackedFiles` |
+| 跟踪文件 | 15681 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -101,6 +101,12 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- 🚀 Feature/Improvement:把"改写整行须断言三维不变"做成共享器物,AGENTS §1 那条不再是话 (a4ba22a7ac)
+- 🚀 Feature/Improvement:标头投影层:渲染与解析同一份实现,超预算只截 owner 不牺牲等段 (c362cda2d8)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (58d84b4527)
+- 🔧 Chore/Other:撤回"部署承载者没查清"那票——前提是本席自己的误判(已按现号处理) (bb0e9a835a)
+
 **2026-10-22**
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (29180d0b38)
 - 📚 Docs:登记取号器把已占号当空闲发出的缺陷(G-14),并列存量 3 组同号多题的让号出口 (2198a4f2ed)
@@ -181,10 +187,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 **2026-10-22**
 - 🐞 Fix:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (97d022cc3d)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c45ca90a55)
-- 📚 Docs:G-957 出路补两条实测接手事实(已有 mobile-auth 闭环先例 / 其 clientId 写死 / 域名白名单阻塞) (2a4d89d698)
-- 🐞 Fix:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (02a714b81c)
-
-**2026-10-22**
 - 📚 Docs:G-957 出路补两条实测接手事实(已有 mobile-auth 闭环先例 / 其 clientId 写死 / 域名白名单阻塞) (2a4d89d698)
 - 🐞 Fix:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (02a714b81c)
 <!-- END RECENT UPDATES -->
