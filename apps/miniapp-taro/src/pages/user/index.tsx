@@ -13,6 +13,7 @@ import {
   getUserInfo,
   clearAuth,
   setToken,
+  setRefreshToken,
   setUserInfo as persistUserInfo,
   type UserInfo,
 } from '@/utils/auth'
@@ -940,57 +941,30 @@ export default function UserIndex() {
           onUpgrade={goVipDetail}
           onOneClickLogin={async ({ loginCode, phoneCode }) => {
             try {
-              // 1. 获取 openId(对齐原项目 api.openId(loginCode) → GET /auth/wechat/mini/login)
-              const openIdRes = (await api.openId(loginCode)) as {
-                openId?: string
-                unionId?: string
-                needPhone?: boolean
-                token?: string
-              }
-
-              // 已绑定用户:openId 接口直接返回 token,登录成功
-              if (openIdRes?.token) {
-                setToken(openIdRes.token)
-                // 拉取用户信息并持久化到 storage(refresh 读取 storage,需先写入)
-                try {
-                  const profile = await api.getProfile()
-                  persistUserInfo(profile)
-                } catch {
-                  // getProfile 失败不阻塞登录态(token 已保存)
-                }
-                setShowLoginPopup(false)
-                refresh()
-                Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
-                return
-              }
-
-              // 2. 未绑定用户:用手机号登录(对齐原项目 api.getPhoneNumber → POST /auth/wechat/mini/phone)
-              const phoneRes = (await api.getPhoneNumber({
-                code: phoneCode,
-                phoneCode: loginCode,
-              })) as {
-                userId?: string
-                phone?: string
-                token?: string
-              }
-
-              if (phoneRes?.token) {
-                setToken(phoneRes.token)
-                try {
-                  const profile = await api.getProfile()
-                  persistUserInfo(profile)
-                } catch {
-                  // getProfile 失败不阻塞登录态
-                }
-                setShowLoginPopup(false)
-                refresh()
-                Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
-              } else {
+              // 一键登录:两个 code 一次交给后端,手机号由微信侧验证后换回(客户端不自报字段)。
+              //
+              // 旧写法在这里做了两跳,而**两跳都是死的**:
+              //  ① `api.openId(loginCode)` 后读 `openIdRes.token` —— 但 GET /auth/wechat/mini/login
+              //     的响应里从来没有 `token` 这个字段(它回的是 accessToken),所以恒 undefined;
+              //  ② 兜底那跳 `api.getPhoneNumber({code: phoneCode, phoneCode: loginCode})`
+              //     把两个 code **传反**了,而后端 /mini/phone 从 query 取 code(客户端发的是 body)、
+              //     还要求已登录、也不回 token。
+              // 三重断裂叠在一起,这个按钮从上线起就没成功登录过任何人。
+              const res = await api.oneTapLogin({ loginCode, phoneCode })
+              if (!res?.accessToken) {
                 Taro.showToast({
                   title: tf('login.noToken', '登录失败,未获取到 token'),
                   icon: 'none',
                 })
+                return
               }
+              setToken(res.accessToken)
+              if (res.refreshToken) setRefreshToken(res.refreshToken)
+              // 后端已随 token 一起回 user(形状对齐 /auth/login/sms),不必再打一次 profile
+              if (res.user) persistUserInfo(res.user)
+              setShowLoginPopup(false)
+              refresh()
+              Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
             } catch {
               Taro.showToast({ title: tf('login.loginFailed', '登录失败,请重试'), icon: 'none' })
             }
