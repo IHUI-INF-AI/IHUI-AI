@@ -2051,15 +2051,51 @@ test('DU-10 净新增仍有牙:同一枚提交里既改写已有行、又多抄�
 
 test('DU-8 接线锁:主键判据只认 lib 那一份,且闸必须真挂在写盘之前', () => {
   const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
+  // 2026-10-22 放宽的是**同一条 import 里能否并列别的说明符**(G-956 落地闸要并列 import
+  // `auditPlan`/`f9GroupLine`,它们同属台账层那一份,不构成第二把尺);
+  // 真正有牙的两条一条没减:compositeKeyOf 必须来自 lib,且本器不得自己 `function compositeKeyOf`。
   assert.match(
     src,
-    /import\s*\{\s*compositeKeyOf\s*\}\s*from '\.\/lib\/plan-task-index\.mjs'/,
+    /import\s*\{[^}]*\bcompositeKeyOf\b[^}]*\}\s*from '\.\/lib\/plan-task-index\.mjs'/,
     '必须复用台账层那一份主键(两处算同一个键必漂移)',
   )
+  assert.doesNotMatch(src, /function compositeKeyOf\s*\(/, '本器不得再定义一份主键实现')
   const at = src.indexOf('judgeNewLineDupes({')
   assert.ok(at > 0, 'main 里必须真的调用本闸(函数在而无人调 = 提交链上一路绿灯)')
   const blob = src.indexOf('writeBlob(nextLines')
   assert.ok(blob > at, '闸必须在 writeBlob 之前:内容一旦 commit,再 exit 1 就是把已入库谎报成没落地')
+})
+
+// ── IC 族:「同号不同题」落地闸的装车证明(2026-10-22 立)──────────────────────────
+// 单元档住在 `live-doc-edit-id-collision.test.mjs`;这一条只回答"闸真挂在 CLI 上、拦下来的确实
+// 是这一型"。夹具刻意与 DU-7 相反:两行标题在**第一个分界符之前就已不同** ⇒ F1 主键不相等 ⇒
+// 只有本闸看得见它。文案断言取 `f9GroupLine` 那一份(本器不许自立第二套点名措辞)。
+const IC_ROW_A = '- [ ] G-900800 甲题的完整标题. 底稿里已有的一行'
+const IC_ROW_B = '- [ ] G-900800 乙题的完整标题. 第二席按同一个号又登一票'
+const IC_ROW_FRESH = '- [ ] G-900801 丙题的完整标题. 全新登记'
+
+test('IC-E2E 装车证明:同号不同题必 rc=1 且点名为 F9 那句 / 换新号必 rc=0', (t) => {
+  const { dir, inputs } = makeDocRepo(t, ['# 标题', '', IC_ROW_A, '', '段落', ''].join('\n'))
+  const docAtHead = () => {
+    const r = git(['show', 'HEAD:DOC.md'], { root: dir, allowFail: true })
+    return r === null ? '' : String(r)
+  }
+  const bf = join(inputs, 'b.txt')
+  const af = join(inputs, 'a.txt')
+  writeFileSync(af, '段落\n')
+  writeFileSync(bf, IC_ROW_B + '\n')
+  const hit = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(hit.status, 1, `同号第二次不同题登记必须拦住,rc=${hit.status} out=${String(hit.stdout + hit.stderr).slice(0, 260)}`)
+  assert.match(
+    `${hit.stdout}${hit.stderr}`,
+    /编号 G-900800 被 2 个不同标题共用/,
+    '拒绝理由必须用台账层那句点名(措辞分叉 = 两处各写一份文案)',
+  )
+  assert.equal(docAtHead().includes('乙题的完整标题'), false, '拦下后一行都不许落')
+  writeFileSync(bf, IC_ROW_FRESH + '\n')
+  const ok = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(ok.status, 0, `全新号必须放行(阳性对照:闸不得把正常登记一起拦掉),rc=${ok.status} out=${String(ok.stdout + ok.stderr).slice(0, 260)}`)
+  assert.equal(docAtHead().includes('丙题的完整标题'), true)
 })
 
 // ── 指纹维(2026-10-13 立):同题不同号。主键 = 编号+题面前缀,换个编号即通过 —— 这正是台账
