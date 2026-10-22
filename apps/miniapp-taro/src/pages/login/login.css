@@ -145,44 +145,10 @@
   flex-direction: column;
 }
 
-/* ===== 字段(对齐 RN field:label 在上) ===== */
-.login-field {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 28rpx;
-  position: relative;
-}
-
-.login-label-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8rpx;
-}
-
-.login-label {
-  font-size: 28rpx;
-  font-weight: 500;
-  color: var(--color-foreground);
-  margin-bottom: 8rpx;
-}
-
-.login-label-row .login-label {
-  margin-bottom: 0;
-}
-
-/* ===== 输入框(对齐 RN input:高 40 / 边框;圆角按角色档 control→sm) ===== */
-.login-input {
-  height: 80rpx;
-  border: 1rpx solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 0 24rpx;
-  font-size: 28rpx;
-  color: var(--color-foreground);
-  background-color: transparent;
-  box-sizing: border-box;
-}
+/* ===== 字段与输入框样式已提到全局(src/app.css 的「登录字段」块)=====
+   登录页与「我的」登录弹窗的账号密码兜底共用同一份,不在此重复一份视觉(§0.6)。
+   本页仍保留的 .login-phone-row .login-input 等复合选择器照常生效(app.wxss 先、page.wxss 后,
+   同特异度下页面后写者胜;复合选择器特异度更高,与本条顺序无关)。 */
 
 /* ===== 区号拼合行(对齐 RN phoneRow:容器统一画框) ===== */
 .login-phone-row {

@@ -228,7 +228,7 @@ function PanelCard({
   return (
     <div
       className={cn(
-        'ui-lift flex flex-col rounded-lg border border-border/80 bg-card p-3 transition-colors hover:border-border',
+        'ui-lift flex flex-col rounded-lg border border-border bg-card p-3',
         panel.span === 'full' && 'pn-span-full',
       )}
     >
@@ -576,10 +576,7 @@ function TableBody({
         </thead>
         <tbody className="font-mono">
           {rows.slice(0, 40).map((r, i) => (
-            <tr
-              key={i}
-              className="border-t border-border text-foreground transition-colors hover:bg-muted/40"
-            >
+            <tr key={i} className="text-foreground transition-colors hover:bg-muted/40">
               <td className="max-w-[280px] truncate px-2 py-1">{r.name}</td>
               <td className="px-2 py-1 text-right tabular-nums text-info-text">{r.value}</td>
             </tr>
