@@ -2511,8 +2511,12 @@ static STARTUP_START_HIDDEN: std::sync::atomic::AtomicBool =
 static MAIN_PAGE_READY: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
-/// 读主文档加载完成标记(健康门唯一的输入)。
-fn main_page_ready() -> bool {
+/// 读主文档加载完成标记(启动健康门与 `auto_refresh` 常驻循环准入共用的唯一输入)。
+///
+/// 2026-10-22(票 P1 僵尸实例):`auto_refresh::start` 的常驻循环准入也读这一枚 ——
+/// 它是全仓唯一能区分"窗口注册了"与"渲染端真的活了"的判据(见 `MAIN_PAGE_READY` 头注),
+/// 常驻循环若另立一份判据,两者必然在"创建失败"这一型上给出相反结论。
+pub(crate) fn main_page_ready() -> bool {
     MAIN_PAGE_READY.load(std::sync::atomic::Ordering::SeqCst)
 }
 
