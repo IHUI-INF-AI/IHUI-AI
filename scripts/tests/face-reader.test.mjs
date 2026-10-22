@@ -468,7 +468,19 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 提示);棘轮判 HEAD blob,本枚工作树改动不进分母 ⇒ 提交前现读仍 9,9 ≤ 9 判得过;入库后现读 8,
 // 8 ≤ 9 仍判得过(打降档提示)。故本轮 10 → 9(紧贴现读,不留余量=不容忍新增;也不挖坑恒红)。
 // 提交者入库后复核:若打出 `◽ 型 B 存量已降到 8(基线 9)`,可将基线一并降到 8。
-const BARE_GIT_BASELINE = 76
+// 2026-10-22 G-927 复核降钉:基线 76 → 72,紧贴现读。账目:本票开单时(35be733128 入库后)
+// HEAD 面现读 85,相对基线提交 14a04f013f 的新增者逐枚挂在各自票内;至本票开工时**全部已
+// 由他席迁移入库**——判据求差(git diff 14a04f013f..HEAD 两面各跑一次 headDerivationScan)
+// 新增=0,票面 9 枚(实测名单 12 枚,含 auto-update-readme-recent、branch-delete-with-backup、
+// check-alertmanager-live-config、check-board-name-legacy、check-disk-root-write、
+// check-format-changed、check-git-stdio-discipline、check-plan-claims-vs-head、
+// lib/guardian-pushgate-cache、lib/post-commit-hook、restore-deploy-generated、
+// sync-readme-numbers)已逐枚 import face-reader 且判据脱名。故本票无生产脚本可迁,
+// 只剩钉数复核:现读 72(测试打 `◽ 裸 git 存量已降到 72(基线 76)`),迁移已全部入库
+// ⇒ 72 ≤ 72 提交前后同判得过,不触发"一次只降 1"护栏(2026-10-06 同型账)。
+// 同轮另有 `◽ 型 B 存量已降到 3(基线 9)` 提示 —— 型 B 的下降归属他席迁移面(型 B),
+// 按 2026-10-06 先例**本票不动 PATH_BOUND_GIT_BASELINE**。
+const BARE_GIT_BASELINE = 72
 // 2026-10-08 10 → 9:紧贴现读,不留余量=不容忍新增(账见上方 440-456 行)。
 // 行尾注记形态系落地守门"复活行"判别所需(本行`= 9`与祖先 0c6198cc44 逐字相同会误判复活),行为零变化。
 const PATH_BOUND_GIT_BASELINE = 9 // 紧贴现读
