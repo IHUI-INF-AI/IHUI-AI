@@ -52,9 +52,13 @@ import type {
  *   - 第三方登录区:3 列 flexWrap,40×40 圆形按钮
  *   - QR tab:200×200 二维码占位 + 状态文案 + 刷新按钮
  *
- * i18n:SSO 按钮走 t('auth.ssoLogin') / t('auth.ssoLoginLoading')(G-959:此前写死简体中文,
- * 而宿主传的 t 是非中文档案 ⇒ 其他语言直接看到简体字);键住 messages/shared 五语言。
- * QR 状态文案 / a11y label 仍是硬编码中文(本票射程外,未收口)。
+ * i18n:本屏全部用户可感知文案(含 accessibilityLabel)一律经 t() 取键,不再有写死中文。
+ *   - SSO 按钮走 t('auth.ssoLogin') / t('auth.ssoLoginLoading')(G-959)
+ *   - QR 状态族 / 或分隔 / 微信大按钮 / 自动登录 / 登录进行中 / 一批 a11y label 走 t('auth.*'),
+ *     眼睛按钮两态复用既有的 t('a11y.hidePassword') / t('a11y.showPassword'),条款与隐私的 a11y
+ *     label 与相邻可见文案同键(G-924:此前写死简体中文,而宿主传的 t 是非中文档案 ⇒ 其他语言
+ *     直接看到简体字,读屏端无论哪档语言都念中文);键住 messages/shared 五语言。
+ *   - 宿主注入的数据(platform label、nation title、qrConfig.errorText)不是本屏文案,不取键。
  * 所有新增 props 可选,旧调用方只传 account/password 仍可工作(渲染为单一 password tab)。
  */
 export type { LoginScreenProps }
@@ -114,23 +118,26 @@ function tabLabelKey(tab: LoginTab): string {
   }
 }
 
-/** QR 状态文案(硬编码中文,避免新增 i18n key 触发 parity 守门) */
-function qrStatusText(status: QrLoginStatus, qrConfig?: QrLoginConfig): string {
+/** QR 状态文案 — 全部经 t() 取键(G-924:此前写死中文,而非中文语种的宿主 t 会原样端出简体)
+ * 降级单平台分支没有平台对象可问 ⇒ 平台名取既键 auth.wechatLogin 的译文(中文档即"微信",
+ * en/ja/ko 档即 "WeChat"),整句仍走带 {platform} 的 auth.qrScanTip,与平台切换分支同一条模板。 */
+function qrStatusText(status: QrLoginStatus, t: TFunction, qrConfig?: QrLoginConfig): string {
+  const scanTip = () => t('auth.qrScanTip', { platform: t('auth.wechatLogin') })
   switch (status) {
     case 'loading':
-      return '二维码加载中...'
+      return t('auth.qrLoading')
     case 'waiting':
-      return '请使用微信扫码登录'
+      return scanTip()
     case 'scanned':
-      return '扫码成功,请在手机上确认'
+      return t('auth.qrScanned')
     case 'expired':
-      return '二维码已过期'
+      return t('auth.qrExpired')
     case 'error':
-      return qrConfig?.errorText ?? '二维码加载失败'
+      return qrConfig?.errorText ?? t('auth.qrLoadFailed')
     case 'idle':
-      return '请使用微信扫码登录'
+      return scanTip()
     default:
-      return '请使用微信扫码登录'
+      return scanTip()
   }
 }
 
@@ -229,6 +236,7 @@ interface PasswordTabContentProps extends TabContentBaseProps {
 }
 
 interface QrTabContentProps {
+  t: TFunction
   styles: StyleSet
   tk: AppThemeTokens
   qrConfig?: QrLoginConfig
@@ -259,6 +267,7 @@ interface PrimaryLoginButtonProps {
 }
 
 interface ThirdPartyLoginAreaProps {
+  t: TFunction
   styles: StyleSet
   tk: AppThemeTokens
   options: ThirdPartyLoginOption[]
@@ -292,7 +301,7 @@ function AgreementRow({
           activeOpacity={0.7}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: agreed }}
-          accessibilityLabel="同意协议复选框"
+          accessibilityLabel={t('auth.agreeTermsCheckbox')}
         >
           {agreed ? <Check size={rnGeometry.controlGlyph} color={styles.checkmark.color} /> : null}
         </TouchableOpacity>
@@ -302,7 +311,7 @@ function AgreementRow({
             style={styles.agreementLink}
             onPress={onOpenTerms}
             accessibilityRole="link"
-            accessibilityLabel="服务条款"
+            accessibilityLabel={t('auth.termsOfService')}
           >
             {t('auth.termsOfService')}
           </Text>
@@ -311,7 +320,7 @@ function AgreementRow({
             style={styles.agreementLink}
             onPress={onOpenPrivacy}
             accessibilityRole="link"
-            accessibilityLabel="隐私政策"
+            accessibilityLabel={t('auth.privacyPolicy')}
           >
             {t('auth.privacyPolicy')}
           </Text>
@@ -335,7 +344,9 @@ function PrimaryLoginButton({ t, styles, loading, onPress }: PrimaryLoginButtonP
       activeOpacity={0.8}
       accessibilityRole="button"
     >
-      <Text style={styles.loginBtnText}>{loading ? '登录中...' : t('auth.loginBtn')}</Text>
+      <Text style={styles.loginBtnText}>
+        {loading ? t('auth.loginBtnLoading') : t('auth.loginBtn')}
+      </Text>
     </TouchableOpacity>
   )
 }
@@ -345,6 +356,7 @@ function PrimaryLoginButton({ t, styles, loading, onPress }: PrimaryLoginButtonP
  * 图标从 44×44 圆形(borderRadius 22,违反圆角守门)改为 28×28 圆角(borderRadius 6,rounded-md);
  * 网格从固定 4 列百分比改为居中 flexWrap,适配不同平台登录方式数量(2/4/5 个)。 */
 function ThirdPartyLoginArea({
+  t,
   styles,
   tk,
   options,
@@ -399,6 +411,7 @@ function ThirdPartyLoginArea({
     <View style={styles.thirdPartyArea}>
       {wechatOpt ? (
         <WeChatLoginButton
+          t={t}
           styles={styles}
           tk={tk}
           opt={wechatOpt}
@@ -411,7 +424,7 @@ function ThirdPartyLoginArea({
           {/* 分隔线:"或"居中(对齐 web 端 or-divider) */}
           <View style={styles.thirdPartyDivider}>
             <View style={styles.thirdPartyDividerLine} />
-            <Text style={styles.thirdPartyDividerText}>{'或'}</Text>
+            <Text style={styles.thirdPartyDividerText}>{t('auth.or')}</Text>
             <View style={styles.thirdPartyDividerLine} />
           </View>
           <View style={styles.thirdPartyGrid}>
@@ -440,14 +453,16 @@ function ThirdPartyLoginArea({
 }
 
 /** 微信主推登录按钮 — 规格对齐主登录按钮(高 50 / 圆角 15 / 微信品牌绿 #07C160),
- *  图标 + "微信登录"文字,让用户明确微信为主要登录方式(2026-09-04 用户需求) */
+ *  图标 + 登录文案(取 auth.wechatLoginBtn),让用户明确微信为主要登录方式(2026-09-04 用户需求) */
 function WeChatLoginButton({
+  t,
   styles,
   tk,
   opt,
   loading,
   onPress,
 }: {
+  t: TFunction
   styles: StyleSet
   tk: AppThemeTokens
   opt: ThirdPartyLoginOption
@@ -462,7 +477,7 @@ function WeChatLoginButton({
       disabled={disabled}
       activeOpacity={0.8}
       accessibilityRole="button"
-      accessibilityLabel="微信登录"
+      accessibilityLabel={t('auth.wechatLoginBtn')}
     >
       {loading ? (
         <ActivityIndicator size="small" color={tk.surface.light} />
@@ -477,7 +492,7 @@ function WeChatLoginButton({
               resizeMode="contain"
             />
           ) : null}
-          <Text style={styles.wechatLoginBtnText}>{'微信登录'}</Text>
+          <Text style={styles.wechatLoginBtnText}>{t('auth.wechatLoginBtn')}</Text>
         </>
       )}
     </TouchableOpacity>
@@ -518,7 +533,7 @@ function HistoryDropdown({
             }}
             activeOpacity={0.6}
             accessibilityRole="button"
-            accessibilityLabel={`选择历史账号 ${acc}`}
+            accessibilityLabel={t('auth.selectHistoryAccount', { account: acc })}
           >
             <Text style={styles.historyItemText} numberOfLines={1}>
               {acc}
@@ -643,7 +658,7 @@ function EmailTabContent({
             disabled={sendDisabled}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="获取验证码"
+            accessibilityLabel={t('auth.getVerificationCode')}
           >
             {sending ? (
               <ActivityIndicator size="small" color={tk.text.primary} />
@@ -720,7 +735,7 @@ function PhoneTabContent({
           {/* 分隔线:与下方验证码登录表单区分主次(复用第三方登录区"或"分隔样式) */}
           <View style={styles.thirdPartyDivider}>
             <View style={styles.thirdPartyDividerLine} />
-            <Text style={styles.thirdPartyDividerText}>{'或'}</Text>
+            <Text style={styles.thirdPartyDividerText}>{t('auth.or')}</Text>
             <View style={styles.thirdPartyDividerLine} />
           </View>
         </>
@@ -734,7 +749,7 @@ function PhoneTabContent({
                 style={styles.areaBox}
                 onPress={onToggleNationShow}
                 accessibilityRole="button"
-                accessibilityLabel="选择区号"
+                accessibilityLabel={t('auth.selectAreaCode')}
               >
                 <Text style={styles.areaText}>{phoneHead}</Text>
                 <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: 6 }} />
@@ -843,7 +858,7 @@ function PhoneTabContent({
             disabled={sendDisabled}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="获取验证码"
+            accessibilityLabel={t('auth.getVerificationCode')}
           >
             {sending ? (
               <ActivityIndicator size="small" color={tk.text.primary} />
@@ -945,7 +960,7 @@ function PasswordTabContent({
               onPress={onForgotPassword}
               activeOpacity={0.7}
               accessibilityRole="link"
-              accessibilityLabel="忘记密码"
+              accessibilityLabel={t('auth.forgotPassword')}
             >
               <Text style={styles.forgotLink}>{t('auth.forgotPassword')}</Text>
             </TouchableOpacity>
@@ -970,7 +985,7 @@ function PasswordTabContent({
             onPress={onToggleShowPassword}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={showPassword ? '隐藏密码' : '显示密码'}
+            accessibilityLabel={t(showPassword ? 'a11y.hidePassword' : 'a11y.showPassword')}
           >
             {eyeIconShow || eyeIconHide ? (
               showPassword ? (
@@ -1003,7 +1018,7 @@ function PasswordTabContent({
             activeOpacity={0.7}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: autoLogin }}
-            accessibilityLabel="自动登录"
+            accessibilityLabel={t('auth.autoLogin')}
           >
             <View
               style={[
@@ -1015,7 +1030,7 @@ function PasswordTabContent({
                 <Check size={rnGeometry.controlGlyph} color={styles.checkmark.color} />
               ) : null}
             </View>
-            <Text style={styles.autoLoginText}>{'自动登录'}</Text>
+            <Text style={styles.autoLoginText}>{t('auth.autoLogin')}</Text>
           </TouchableOpacity>
         }
       />
@@ -1030,7 +1045,7 @@ function PasswordTabContent({
  * - 每个平台显示二维码占位(图标 + "请使用XX扫码登录"文案)
  * - "打开网页"按钮(跳到 web 端完成扫码,RN 端无法直接加载 SDK)
  * - 未传 qrPlatforms:降级为单平台占位(旧行为) */
-function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTabContentProps) {
+function QrTabContent({ t, styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTabContentProps) {
   const [activePlatform, setActivePlatform] = useState<ThirdPartyPlatform | null>(
     qrPlatforms?.[0]?.key ?? null,
   )
@@ -1043,10 +1058,10 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
   const isLoading = status === 'loading'
   const qrSource = qrConfig?.qrSource ?? null
 
-  // 有平台列表时用平台名,否则用默认文案
+  // 有平台列表时用平台名(label 是宿主注入的数据),否则走 QR 状态族文案
   const statusText = currentPlatform
-    ? `请使用${currentPlatform.label}扫码登录`
-    : qrStatusText(status, qrConfig)
+    ? t('auth.qrScanTip', { platform: currentPlatform.label })
+    : qrStatusText(status, t, qrConfig)
 
   // 平台切换 tab 等宽:用 flex: 1 + flexBasis: 0 + minWidth: 0
   // minWidth: 0 是关键 — RN-web/CSS flexbox 默认 min-width: auto,会被内容撑宽,
@@ -1154,9 +1169,9 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
               }}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="刷新二维码"
+              accessibilityLabel={t('auth.qrRefresh')}
             >
-              <Text style={styles.qrRefreshText}>{'刷新二维码'}</Text>
+              <Text style={styles.qrRefreshText}>{t('auth.qrRefresh')}</Text>
             </TouchableOpacity>
           ) : null}
           {currentPlatform?.webUrl ? (
@@ -1165,9 +1180,9 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
               onPress={handleOpenWeb}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="打开网页扫码"
+              accessibilityLabel={t('auth.qrOpenWeb')}
             >
-              <Text style={styles.qrOpenWebText}>{'打开网页扫码'}</Text>
+              <Text style={styles.qrOpenWebText}>{t('auth.qrOpenWeb')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -1184,19 +1199,19 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
         ) : qrSource ? (
           <Image source={qrSource} style={imageStyles.qrImage} resizeMode="contain" />
         ) : (
-          <Text style={styles.qrPlaceholderText}>二维码加载中...</Text>
+          <Text style={styles.qrPlaceholderText}>{t('auth.qrLoading')}</Text>
         )}
       </View>
-      <Text style={styles.qrStatusText}>{qrStatusText(status, qrConfig)}</Text>
+      <Text style={styles.qrStatusText}>{qrStatusText(status, t, qrConfig)}</Text>
       {showRefresh && qrConfig?.onRefresh ? (
         <TouchableOpacity
           style={styles.qrRefreshBtn}
           onPress={qrConfig.onRefresh}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="刷新二维码"
+          accessibilityLabel={t('auth.qrRefresh')}
         >
-          <Text style={styles.qrRefreshText}>{'刷新二维码'}</Text>
+          <Text style={styles.qrRefreshText}>{t('auth.qrRefresh')}</Text>
         </TouchableOpacity>
       ) : null}
     </View>
@@ -1473,6 +1488,7 @@ export function LoginScreen(props: LoginScreenProps) {
 
         {activeTab === 'qr' ? (
           <QrTabContent
+            t={t}
             styles={styles}
             tk={tk}
             qrConfig={qrConfig}
@@ -1484,6 +1500,7 @@ export function LoginScreen(props: LoginScreenProps) {
         {/* 第三方登录区(qr tab 不重复显示) */}
         {!isQrTab && thirdPartyOptions && thirdPartyOptions.length > 0 ? (
           <ThirdPartyLoginArea
+            t={t}
             styles={styles}
             tk={tk}
             options={thirdPartyOptions}
@@ -1513,7 +1530,7 @@ export function LoginScreen(props: LoginScreenProps) {
               onPress={onRegister}
               activeOpacity={0.7}
               accessibilityRole="link"
-              accessibilityLabel="立即注册"
+              accessibilityLabel={t('auth.registerNow')}
             >
               <Text style={styles.registerLink}>{t('auth.registerNow')}</Text>
             </TouchableOpacity>

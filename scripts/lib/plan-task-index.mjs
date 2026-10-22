@@ -27,6 +27,14 @@
  */
 
 import { TASK_ID_PATTERN } from '../check-plan-line-loss.mjs'
+/**
+ * ⚠ 这一行构成 `plan-task-index ⇄ plan-fields` 的**有意成环**:侧车层要 `compositeKeyOf` 认键,
+ * 判定层要 `fieldsFor` 查记录。两边导出的都是函数声明(ESM 在实例化期即绑定,不在求值期互调),
+ * 所以环是安全的 —— 别把它当 bug "修"掉:要么判定层自己抄一份取键逻辑(=§0.6 明令禁止的第二份真相),
+ * 要么把侧车搬回本层(那侧车校验与读取就得连文件 IO 一起拖进判据层)。
+ * 同型先例:本文件与 `check-plan-line-loss.mjs`(门 71)互为 import,已在生产跑通。
+ */
+import { fieldsFor } from './plan-fields.mjs'
 
 /** 认领标记体(旧裸形 `（进行中）` 与新租约形 `（进行中@YYYY-MM-DD/持有者）`)。
  *  ⚠ 与 `check-task-claims.mjs` 的 `CLAIM_MARKER_SRC` 同义 —— 接线完成后那边必须改为 import
@@ -1501,7 +1509,10 @@ const DISPOSITION_RULES = [
   ],
   [
     'waiting-env',
-    /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)/,
+    // `不可执行|排后` 是 2026-10-22 补的洞:这两词在台账里真把"等条件"说清楚,但原族一条都不命中,
+    // 于是那几行被派单面读成"现在可做"。补洞前先量命中集(未勾行现读):
+    //   `不可执行`=1、`排后`=1 ⇒ 收进词族;`等静默窗口`=0 ⇒ **不加**(命中 0 就造出一把永不发声的判据)。
+    /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)|不可执行|排后/,
   ],
 ]
 /**
@@ -1803,6 +1814,39 @@ export function dispositionOf(line) {
   return 'actionable'
 }
 
+/**
+ * 侧车记录 → 归属桶。**优先级与 `DISPOSITION_RULES` 逐字同序**(先归属、再等人、再等环境)。
+ * 这不是风格问题:若把 waiting 排在 owner 前面,"把信息从散文搬进侧车"这一步自己就会改判,
+ * 而那正是三维守恒(`lib/plan-row-conservation.mjs`)要拦的事。映射只此一份,器物一律 import。
+ */
+export function bucketFromFields(rec) {
+  if (String(rec?.owner ?? '').trim()) return 'owned-elsewhere'
+  if (rec?.waiting === 'human') return 'waiting-human'
+  if (rec?.waiting === 'env') return 'waiting-env'
+  return 'actionable'
+}
+
+/**
+ * 归属判定 v2(2026-10-22,规格 §2):侧车命中 ⇒ 以侧车为准;没命中 ⇒ 回落散文。
+ * 无论走哪条都**自报 `source`** —— `prose` 的枚数就是迁移进度尺,也是"这次改动会不会改掉判定"的分母。
+ * 两侧不一致 ⇒ 以侧车为准并置 `conflict`(交给门报数,绝不静默);取不到侧车面 ⇒ `undetermined`
+ * 透传,不得当成"没字段所以都 actionable"(§0.3)。`rowhash` 兜底键不充当权威(行一重写键就换人)。
+ */
+export function dispositionOfV2({ line, fields }) {
+  const proseBucket = dispositionOf(line)
+  const fallback = (keyKind) => ({ bucket: proseBucket, source: 'prose', conflict: false, keyKind, undetermined: !!fields?.undetermined })
+  if (fields?.undetermined) return fallback('unknown')
+  const f = fieldsFor({ line, map: fields?.map })
+  if (!f.rec || f.keyKind !== 'id') return fallback(f.keyKind)
+  const bucket = bucketFromFields(f.rec)
+  /**
+   * `conflict` 只在**散文自己也表了态**且与侧车不一致时为真。
+   * `actionable` 是散文的兜底值(等于"没说"),拿它去比就等于把"侧车补上了散文没说的信息"
+   * 判成矛盾 —— 那样每一次正常迁移都会被门喊成冲突,门一吵人们就会把它当噪声跳过(§12e 同型)。
+   */
+  return { bucket, source: 'fields', conflict: proseBucket !== 'actionable' && bucket !== proseBucket, keyKind: f.keyKind, undetermined: false }
+}
+
 /** 行内最后一个日期。取**最后**而不是第一个:进展注记按本仓写法追加在行尾,
  *  而括号里的引用日期(`(2026-09-21 逐条实测)`)可能是旧读数。 */
 const DATE_RE = /20\d{2}-\d{2}-\d{2}/g
@@ -1841,6 +1885,9 @@ export function ageAnchorOf(line) {
  */
 export function hasDisposition(row) {
   if (row.claim) return true
+  // 第五出口(2026-10-22,规格 §2):侧车在位就是交代 —— 迁移期不该靠"行尾有个日期"蒙过 F8。
+  // 只认调用方显式传入的 fieldsRec,不在此处读盘:判据层不做 IO,否则 --staged 与全量档会读成两个面。
+  if (row.fieldsRec) return true
   // 指针不是待办,不占"无交代的活待办"这个量纲(见头注:这是接线补齐,不是新判据)
   if (isClaimExcludedPointer(row.raw)) return true
   if (dispositionOf(row.raw) !== 'actionable') return true
