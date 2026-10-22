@@ -41,6 +41,7 @@ import {
   vipLevels,
   developerPricing,
   orders as ordersTable,
+  zhsOrder,
 } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { completeOrderWithSaga } from '../services/order-service.js'
@@ -214,6 +215,16 @@ const batchCancelSchema = z.object({
   ids: z.array(z.uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
 })
 
+// G-962 批7:POST /admin/orders 手工建单(zhs_order),payload 形状对齐 OrdersTab.tsx 表单
+const createZhsOrderBody = z.object({
+  userId: z.string().min(1).max(64),
+  outTradeNo: z.string().min(1).max(64),
+  openId: z.string().max(100).optional(),
+  amount: z.number().min(0),
+  productId: z.string().max(64).optional(),
+  refundReason: z.string().max(255).optional(),
+})
+
 // =============================================================================
 // 响应 schema 片段（data 字段统一 additionalProperties: true 防 fast-json-stringify 剥离）
 // =============================================================================
@@ -357,6 +368,95 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       }
       const result = await findOrders({ ...parsed.data, userId: request.userId! })
       return reply.send(success(result))
+    },
+  )
+
+  // GET /order-log - 订单操作日志(G-962 B8;mobile-rn OrderLogScreen 消费 data 数组)
+  // 数据源:orders 生命周期时间戳(创建/支付/取消/退款);库内无独立订单日志表,不做物流伪造。
+  server.get(
+    '/order-log',
+    { schema: { summary: '订单操作日志', tags: ['order'], response: okResponse } },
+    async (request, reply) => {
+      const rows = await db
+        .select()
+        .from(ordersTable)
+        .where(eq(ordersTable.userId, request.userId!))
+        .orderBy(desc(ordersTable.createdAt))
+        .limit(100)
+      const list: Array<{
+        id: string
+        action: string
+        operator: string
+        time: string
+        note: string
+      }> = []
+      for (const o of rows) {
+        const note = o.targetTitle ? `${o.orderNo} ${o.targetTitle}` : o.orderNo
+        list.push({
+          id: `${o.id}-created`,
+          action: '创建订单',
+          operator: '用户',
+          time: o.createdAt.toISOString(),
+          note,
+        })
+        if (o.paidAt)
+          list.push({
+            id: `${o.id}-paid`,
+            action: '支付成功',
+            operator: '系统',
+            time: o.paidAt.toISOString(),
+            note,
+          })
+        if (o.cancelTime)
+          list.push({
+            id: `${o.id}-cancelled`,
+            action: '取消订单',
+            operator: '用户',
+            time: o.cancelTime.toISOString(),
+            note,
+          })
+        if (o.refundTime)
+          list.push({
+            id: `${o.id}-refunded`,
+            action: '订单退款',
+            operator: '系统',
+            time: o.refundTime.toISOString(),
+            note,
+          })
+      }
+      list.sort((a, b) => b.time.localeCompare(a.time))
+      return reply.send(success(list))
+    },
+  )
+
+  // GET /order-track - 订单跟踪(G-962 B8;mobile-rn OrderTrackScreen 消费 data 数组)
+  // 数据源:orders 当前履约状态;库内无物流轨迹表,location 留空,不伪造中转地。
+  server.get(
+    '/order-track',
+    { schema: { summary: '订单跟踪', tags: ['order'], response: okResponse } },
+    async (request, reply) => {
+      const rows = await db
+        .select()
+        .from(ordersTable)
+        .where(eq(ordersTable.userId, request.userId!))
+        .orderBy(desc(ordersTable.createdAt))
+        .limit(100)
+      const statusLabel: Record<string, string> = {
+        pending: '待支付',
+        paid: '已支付',
+        completed: '已完成',
+        cancelled: '已取消',
+        refunded: '已退款',
+        failed: '失败',
+      }
+      const list = rows.map((o) => ({
+        id: o.id,
+        status: statusLabel[o.status] ?? o.status,
+        time: (o.updatedAt ?? o.createdAt).toISOString(),
+        location: '',
+        desc: o.targetTitle ? `${o.orderNo} ${o.targetTitle}` : o.orderNo,
+      }))
+      return reply.send(success(list))
     },
   )
 
@@ -836,6 +936,36 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
         authorAvatar: userMap.get(o.userId)?.avatar ?? null,
       }))
       return reply.send(success({ ...result, list }))
+    },
+  )
+
+  // POST /admin/orders - 手工创建订单(G-962 批7 补后端,写 zhs_order)
+  server.post(
+    '/orders',
+    {
+      schema: {
+        summary: '手工创建订单',
+        tags: ['order'],
+        response: okResponse,
+      },
+    },
+    async (request, reply) => {
+      const parsed = createZhsOrderBody.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const [order] = await db
+        .insert(zhsOrder)
+        .values({
+          userId: parsed.data.userId,
+          outTradeNo: parsed.data.outTradeNo,
+          openId: parsed.data.openId || null,
+          amount: parsed.data.amount,
+          productId: parsed.data.productId || null,
+          refundReason: parsed.data.refundReason || null,
+        })
+        .returning()
+      return reply.send(success({ order }))
     },
   )
 

@@ -10,14 +10,14 @@ export async function fetchIpReputation(ip: string): Promise<IpReputation> {
 }
 
 export async function blockIp(req: BlockIpRequest): Promise<BlockIpResponse> {
-  return apiOrThrow<BlockIpResponse>('/api/block-ip', {
+  return apiOrThrow<BlockIpResponse>('/api/security/block-ip', {
     method: 'POST',
     body: JSON.stringify(req),
   })
 }
 
 export async function unblockIp(ip: string): Promise<UnblockIpResponse> {
-  return apiOrThrow<UnblockIpResponse>(`/api/block-ip/${encodeURIComponent(ip)}`, {
+  return apiOrThrow<UnblockIpResponse>(`/api/security/block-ip/${encodeURIComponent(ip)}`, {
     method: 'DELETE',
   })
 }

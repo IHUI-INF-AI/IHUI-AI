@@ -35,6 +35,10 @@ export interface AgentTask {
 // - BaseToolCall:基础工具调用接口(各端继承后扩展端独占字段)
 
 /** 工具调用来源(2026-07-31 立,AI 对话可视化深度接入) */
+/** Provider 健康四档唯一真相源（前端徽章、后端 zod、REST 契约共用；2026-10-23 自 web types-v2 上收）。 */
+export const PROVIDER_HEALTH_STATUSES = ['unknown', 'healthy', 'degraded', 'down'] as const
+export type ProviderHealthStatus = (typeof PROVIDER_HEALTH_STATUSES)[number]
+
 export type ToolCallSource = 'builtin' | 'plugin' | 'mcp'
 
 // ==================== 工具调用审批流(2026-08-30 立,对标 Codex/Claude Auto mode) ====================

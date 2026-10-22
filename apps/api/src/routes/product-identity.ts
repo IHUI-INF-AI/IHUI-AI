@@ -39,6 +39,14 @@ const updateIdentitySchema = z.object({
   status: z.enum(['active', 'disabled']).optional(),
 })
 
+// G-962 #97: 消费方 packages/api-client verifyProductIdentity(POST /api/product-identity/verify)
+// 字段 productId/identityType/identityValue ↔ 表列 code/type/value
+const verifyIdentitySchema = z.object({
+  productId: z.string().min(1).max(64),
+  identityType: z.string().min(1).max(32),
+  identityValue: z.string().min(1).max(255),
+})
+
 // =============================================================================
 // 路由
 // =============================================================================
@@ -86,6 +94,28 @@ const productIdentityRoutes: FastifyPluginAsync = async (server) => {
       .values({ ...parsed.data, status: parsed.data.status ?? 'active' })
       .returning()
     return reply.status(201).send(success({ identity }))
+  })
+
+  // POST /verify — 验证产品身份标识（公开，G-962 #97）
+  server.post('/verify', async (request, reply) => {
+    const parsed = verifyIdentitySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [identity] = await db
+      .select()
+      .from(productIdentities)
+      .where(
+        and(
+          eq(productIdentities.code, parsed.data.productId),
+          eq(productIdentities.type, parsed.data.identityType),
+          eq(productIdentities.value, parsed.data.identityValue),
+          eq(productIdentities.status, 'active'),
+        ),
+      )
+      .limit(1)
+    if (!identity) return reply.send(success({ verified: false }))
+    return reply.send(success({ verified: true, product: identity }))
   })
 
   // PATCH /:id — 更新产品标识（admin）

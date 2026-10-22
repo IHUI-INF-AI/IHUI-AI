@@ -4,9 +4,9 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, desc } from 'drizzle-orm'
+import { and, eq, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { traders } from '@ihui/database'
+import { traders, userFollows } from '@ihui/database'
 import { requireAuth, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 
@@ -128,6 +128,46 @@ const traderRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(traders.id, idParsed.data.id))
       .returning()
     return reply.send(success({ trader: updated }))
+  })
+
+  // POST /:id/follow — 关注交易员(G-962 #94: 消费方 business.ts:311,同型 teacher.ts:233,复用 userFollows)
+  server.post('/:id/follow', { preHandler: requireAuth }, async (request, reply) => {
+    const userId = request.userId!
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [trader] = await db
+      .select({ userId: traders.userId })
+      .from(traders)
+      .where(eq(traders.id, parsed.data.id))
+      .limit(1)
+    if (!trader) return reply.status(404).send(error(404, '交易员不存在'))
+    if (trader.userId === userId) return reply.status(400).send(error(400, '不能关注自己'))
+    await db
+      .insert(userFollows)
+      .values({ followerId: userId, followingId: trader.userId })
+      .onConflictDoNothing()
+    return reply.send(success({ success: true }))
+  })
+
+  // POST /:id/unfollow — 取消关注交易员(G-962 #95: 消费方 business.ts:316)
+  server.post('/:id/unfollow', { preHandler: requireAuth }, async (request, reply) => {
+    const userId = request.userId!
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [trader] = await db
+      .select({ userId: traders.userId })
+      .from(traders)
+      .where(eq(traders.id, parsed.data.id))
+      .limit(1)
+    if (!trader) return reply.status(404).send(error(404, '交易员不存在'))
+    await db
+      .delete(userFollows)
+      .where(and(eq(userFollows.followerId, userId), eq(userFollows.followingId, trader.userId)))
+    return reply.send(success({ success: true }))
   })
 }
 

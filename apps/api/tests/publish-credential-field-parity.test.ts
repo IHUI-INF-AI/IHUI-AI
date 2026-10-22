@@ -39,7 +39,10 @@ const ADAPTER_DIR = 'apps/ai-service/app/services/publish/adapters'
 // 本测试的 cwd 是 apps/api，而两侧路径都要从**仓库根**算：不加 `-C` 时 git 按 cwd 解析这些
 // 前缀路径 ⇒ 恒"扫到 0 条"，而 0 在这类尺子里表现成一切正常（本仓最高频的失效型）。
 // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-const REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+const REPO_ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+  encoding: 'utf8',
+  stdio: ['ignore', 'pipe', 'pipe'],
+}).trim()
 
 function git(argList: string[]): string {
   return execFileSync('git', ['-C', REPO_ROOT, ...argList], {
@@ -294,26 +297,33 @@ describe('凭据字段清单跨语言对账', () => {
     expect(ghosts, `注册表展示了适配器里没有的平台: ${ghosts.join(', ')}`).toEqual([])
   })
 
-  it('P4 声明清单 vs 实际读取键：两个方向现读并报数（strict 才判红）', () => {
-    const pairs = readAdapterKeyPairs('HEAD')
-    expect(pairs.size, '适配器面枚举到 0 个 (判据失明,不算通过)').toBeGreaterThanOrEqual(30)
-    const declaredNotRead: string[] = []
-    const readNotDeclared: string[] = []
-    for (const [pid, { declared, read }] of pairs) {
-      const d = diffDeclaredVsRead(declared, read)
-      for (const k of d.declaredNotRead) declaredNotRead.push(`${pid}.${k}`)
-      for (const k of d.readNotDeclared) readNotDeclared.push(`${pid}.${k}`)
-    }
-    // 报数面必须出声：这两型都表现为"能发出去、表单填了、typecheck 全绿"，只有这一行会喊
-    console.warn(
-      `[P4 报数] 声明却从不读 ${declaredNotRead.length} 处: ${declaredNotRead.join(', ') || '无'}\n` +
-        `[P4 报数] 读了却未声明 ${readNotDeclared.length} 处: ${readNotDeclared.join(', ') || '无'}`,
-    )
-    if (process.env.IHUI_CRED_READ_STRICT === '1') {
-      expect(declaredNotRead, '声明必填却零读取点 = 让用户填一个代码根本不用的字段').toEqual([])
-      expect(readNotDeclared, '实际读取却未声明 = 用户按表单填不出必需项').toEqual([])
-    }
-  })
+  it(
+    'P4 声明清单 vs 实际读取键：两个方向现读并报数（strict 才判红）',
+    // 显式超时:本用例逐适配器派生 ~38 次 git show 子进程,单跑实测 ~23s,
+    // 全量套件并发下必超默认 15s(2026-10-22 全量回归即因此红一次)。
+    // 注:Vitest 4 起 options 只能作第二参,第三参签名已移除。
+    { timeout: 120_000 },
+    () => {
+      const pairs = readAdapterKeyPairs('HEAD')
+      expect(pairs.size, '适配器面枚举到 0 个 (判据失明,不算通过)').toBeGreaterThanOrEqual(30)
+      const declaredNotRead: string[] = []
+      const readNotDeclared: string[] = []
+      for (const [pid, { declared, read }] of pairs) {
+        const d = diffDeclaredVsRead(declared, read)
+        for (const k of d.declaredNotRead) declaredNotRead.push(`${pid}.${k}`)
+        for (const k of d.readNotDeclared) readNotDeclared.push(`${pid}.${k}`)
+      }
+      // 报数面必须出声：这两型都表现为"能发出去、表单填了、typecheck 全绿"，只有这一行会喊
+      console.warn(
+        `[P4 报数] 声明却从不读 ${declaredNotRead.length} 处: ${declaredNotRead.join(', ') || '无'}\n` +
+          `[P4 报数] 读了却未声明 ${readNotDeclared.length} 处: ${readNotDeclared.join(', ') || '无'}`,
+      )
+      if (process.env.IHUI_CRED_READ_STRICT === '1') {
+        expect(declaredNotRead, '声明必填却零读取点 = 让用户填一个代码根本不用的字段').toEqual([])
+        expect(readNotDeclared, '实际读取却未声明 = 用户按表单填不出必需项').toEqual([])
+      }
+    },
+  )
 
   it('判据有牙：P4 构造面正反对照 + 只认 credentials 前缀', () => {
     const d = diffDeclaredVsRead(['sessionid', 'signatureId'], ['sessionid', 'publication_id'])

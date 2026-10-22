@@ -252,11 +252,13 @@ async function expectBadgeAria(page: Page, badge: ReturnType<Page['locator']>, e
   } catch (firstError) {
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 45_000 })
     await page.waitForSelector('[data-testid="agent-progress-trigger"]', { timeout: 10_000 })
-    await expect(badge).toHaveAttribute('aria-label', expected, {
-      timeout: 15_000,
-      // 重试仍失败时把首轮错误一起带进报告,保留"首轮卡在哪个值"的证据
-      message: `aria-label 重试(含一次 reload)后仍不匹配;首轮错误:${String(firstError)}`,
-    })
+    // 自定义失败信息走 expect(actual, message) 第二参(Playwright 真实 API);
+    // toHaveAttribute 选项类型无 message 键,重试仍失败时把首轮错误一起带进报告,
+    // 保留"首轮卡在哪个值"的证据
+    await expect(
+      badge,
+      `aria-label 重试(含一次 reload)后仍不匹配;首轮错误:${String(firstError)}`,
+    ).toHaveAttribute('aria-label', expected, { timeout: 15_000 })
   }
 }
 

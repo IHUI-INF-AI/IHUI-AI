@@ -10,7 +10,7 @@
 // AGENT_TURN_STOP_REASONS / AgentSSEEvent / CONNECTION_CAPABILITY_FIELDS)仍实体留在 agent-runtime.ts。
 export type CapabilityMode = 'read-only' | 'read-write' | 'execute' | 'all'
 
-export type IsolationMode = 'none' | 'worktree'
+export type IsolationMode = 'none' | 'worktree' | 'subprocess'
 
 export interface SkillFrontmatter {
   name?: string

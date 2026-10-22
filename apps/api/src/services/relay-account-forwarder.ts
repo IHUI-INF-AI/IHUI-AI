@@ -47,11 +47,8 @@ import {
 import { db, dbRead } from '../db/index.js'
 import { encryptField } from '../utils/crypto.js'
 import { startStopwatch } from '../utils/elapsed-ms.js'
-import {
-  decryptAccountCredentials,
-  isRelayProviderCode,
-  type RelayProviderCode,
-} from './relay-account-pool-service.js'
+import { decryptAccountCredentials } from './relay-account-pool-service.js'
+import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
 import {
   clearAccountCooldown,
   getAccountsInCooldown,

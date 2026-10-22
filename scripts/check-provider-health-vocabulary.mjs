@@ -101,7 +101,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 /** PV1 锚点:唯一真相源的路径与两个符号名。改名必须与被审面**同笔**,否则判未判定而不是静默绿。 */
 export const CANON = {
-  rel: 'apps/web/app/(main)/settings/llm/types-v2.ts',
+  rel: 'packages/types/src/ai.ts',
   arraySymbol: 'PROVIDER_HEALTH_STATUSES',
   typeSymbol: 'ProviderHealthStatus',
 }

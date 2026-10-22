@@ -80,6 +80,7 @@ import { vipRoutes, adminVipRoutes } from './vip.js'
 import aiPricingRoutes from './ai-pricing.js'
 import { developerPortalRoutes } from './developer-portal.js'
 import { agentsRoutes } from './agents.js'
+import { goodsRoutes } from './goods.js'
 import { agentsKanbanRoutes } from './agents-kanban.js'
 import { taskMessagesRoutes } from './task-messages.js'
 import { oauthKeysRoutes } from './oauth-keys.js'
@@ -675,6 +676,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(dictPublicRoutes, { prefix: '/api/dict' })
   // 代理 / 广场 / Coze 变量 / Agent 服务
   server.register(agentsRoutes, { prefix: '/api' })
+  // 商品目录:G-962 B8 /api/goods/select(购物车,公开在架商品)
+  server.register(goodsRoutes, { prefix: '/api' })
   server.register(agentsKanbanRoutes, { prefix: '/api' })
   // D25 统一任务看板:任务消息(@任务引用跨任务发消息)
   server.register(taskMessagesRoutes, { prefix: '/api' })

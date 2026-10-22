@@ -41,7 +41,7 @@ vi.mock('../src/tools/fetch-url-egress.js', async (importOriginal) => {
   };
 });
 
-import { FETCH_TOOLS, fetch_url } from '../src/tools/fetch-url.js';
+import { FETCH_TOOLS, MAX_FETCH_RESPONSE_BYTES, fetch_url } from '../src/tools/fetch-url.js';
 
 describe('FETCH_TOOLS 注册', () => {
   it('注册 1 个 fetch_url 工具,危险级别 read', () => {
@@ -156,6 +156,78 @@ describe('fetch_url 本地 HTTP 服务', () => {
     expect(r.success).toBe(true);
     expect(r.output).toMatch(/^\[200\]/);
     expect(r.output).toContain(baseUrl);
+  });
+});
+
+/**
+ * 响应体字节上限(G3,对齐上游 webfetch maxResponseBytes=10MiB)。
+ *
+ * 两条判据必须分开测:声明值早拒(省下载)与逐块计数(声明值可以撒谎),
+ * 只测其中一条时,另一条的实现被删掉也不会有任何信号。
+ */
+describe('fetch_url 响应体字节上限', () => {
+  let server: http.Server;
+  let baseUrl: string;
+  let origHooksConfig: string | undefined;
+
+  beforeEach(async () => {
+    origHooksConfig = process.env.IHUI_HOOKS_CONFIG;
+    process.env.IHUI_HOOKS_CONFIG = path.join(os.tmpdir(), 'ihui-no-hooks-fetch.json');
+    server = http.createServer((req, res) => {
+      // 客户端超限后会 cancel 掉流,服务端继续写会撞 EPIPE —— 挂空处理器,
+      // 否则未处理的 'error' 事件会把测试进程打挂(被测行为本身不该被它掩盖)。
+      res.on('error', () => {});
+      if (req.url === '/declared') {
+        // 声明值超限 + 只写 1 字节:下载若真跑完,这条用例会挂在超时上
+        res.writeHead(200, {
+          'content-type': 'text/plain',
+          'content-length': String(MAX_FETCH_RESPONSE_BYTES + 1024),
+        });
+        res.write('x');
+        return;
+      }
+      // 无 Content-Length(chunked):真实发送 11 MiB,验证逐块计数这条腿
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      const chunk = Buffer.alloc(1024 * 1024, 0x41);
+      let sent = 0;
+      const pump = (): void => {
+        while (sent <= MAX_FETCH_RESPONSE_BYTES) {
+          sent += chunk.length;
+          if (!res.write(chunk)) {
+            res.once('drain', pump);
+            return;
+          }
+        }
+        res.end();
+      };
+      pump();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const addr = server.address() as AddressInfo;
+    baseUrl = `http://127.0.0.1:${addr.port}`;
+  });
+
+  afterEach(() => {
+    if (origHooksConfig === undefined) delete process.env.IHUI_HOOKS_CONFIG;
+    else process.env.IHUI_HOOKS_CONFIG = origHooksConfig;
+    server.closeAllConnections?.();
+    server.close();
+  });
+
+  it('chunked 响应体超限 ⇒ 明确失败(response_too_large),不返回被截断的正文', async () => {
+    const r = await fetch_url.execute({ url: `${baseUrl}/stream` }, { workspacePath: '.' });
+    expect(r.success).toBe(false);
+    expect(r.errorType).toBe('response_too_large');
+    expect(r.error).toContain('10 MiB');
+    expect(r.output).toBe('');
+  });
+
+  it('Content-Length 声明超限 ⇒ 不等下载完就拒绝,并点名声明值', async () => {
+    const r = await fetch_url.execute({ url: `${baseUrl}/declared` }, { workspacePath: '.' });
+    expect(r.success).toBe(false);
+    expect(r.errorType).toBe('response_too_large');
+    expect(r.error).toContain('10 MiB');
+    expect(r.error).toContain(String(MAX_FETCH_RESPONSE_BYTES + 1024));
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

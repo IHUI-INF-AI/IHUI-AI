@@ -62,7 +62,11 @@ describe('O6 部署脚本静态判据(deploy/win/ihui-deploy.ps1)', () => {
     // 整份源码逐一比对:连注释里都不许出现这些字面量 —— 注释一旦写下这些命令,下一步就是有人复制执行。
     const forbidden: Array<[string, RegExp]> = [
       ['reset --hard(会连带回滚他人未提交改动)', /\breset\b[^\n]*--hard/],
-      ['clean -f*(删除未跟踪文件)', /\bclean\b[^\n]*\s-[^\s]*f/],
+      // 必须带 git 词锚:本脚本里 Log ("…{0}…" -f …) 的 PowerShell 格式化操作符 -f 会被裸
+      // "clean … -f" 形态误判成 git clean -f(实测 [clean-out]/[clean-recycle]/[clean-install]
+      // 三组标签共 4 行纯日志被误伤)。要求 git 在前仍钉死全部真实危险形态:git clean -f/-fd/-fxd、
+      // git -C x clean -f,乃至注释里写 `git clean -f` 照样红 —— 只排除了"不是 git 命令"的文本。
+      ['clean -f*(删除未跟踪文件)', /\bgit\b[^\n]*\bclean\b[^\n]*\s-[^\s]*f/],
       ['checkout . (全树检出覆盖工作区)', /\bcheckout\b[^\n]*\s(\.|--\s*\.)(\s|$)/],
       ['restore . (全树检出覆盖工作区)', /\brestore\b[^\n]*\s(\.|--\s*\.)(\s|$)/],
     ]

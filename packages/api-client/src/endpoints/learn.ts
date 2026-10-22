@@ -227,27 +227,16 @@ export async function getMyLearnCourses(
 export async function createLearnCourse(
   input: Partial<LearnCourse>,
 ): Promise<ApiResult<LearnCourse>> {
-  return fetchApi<LearnCourse>('/api/learn/lessons', {
+  return fetchApi<LearnCourse>('/api/admin/learn/lessons', {
     method: 'POST',
     body: JSON.stringify(input),
   })
 }
 
-/** 更新学习课程 */
-export async function updateLearnCourse(
-  id: string,
-  input: Partial<LearnCourse>,
-): Promise<ApiResult<LearnCourse>> {
-  return fetchApi<LearnCourse>(`/api/learn/lessons/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(input),
-  })
-}
-
-/** 删除学习课程 */
-export async function deleteLearnCourse(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/learn/lessons/${id}`, { method: 'DELETE' })
-}
+// 更新/删除学习课程:死调用清账(G-962 D 组 110/111,批 5 移交,2026-10-22):
+// PUT·DELETE /api/learn/lessons/:id 在 learnRoutes 段从未注册(该族后端已废弃,
+// admin-extended/deprecated-routes.ts 对 PUT /admin/learn/lessons 判 410 gone),全仓零消费方。
+// 要恢复先对齐 adminLearnRoutes 真形态(apps/api learn.ts:1221/1239)并补路由测试,不要加回假可用。
 
 /** 推荐课程(按报名数降序) */
 export async function getRecommendLearnCourses(limit = 10): Promise<ApiResult<LearnCourse[]>> {
@@ -412,19 +401,19 @@ export async function getMembers(
 
 /** 获取会员等级列表 */
 export async function getMemberLevels(): Promise<ApiResult<MemberLevel[]>> {
-  return fetchApi<MemberLevel[]>('/api/members/levels')
+  return fetchApi<MemberLevel[]>('/api/admin/members/levels')
 }
 
 /** 获取会员等级详情 */
 export async function getMemberLevelDetail(id: string): Promise<ApiResult<MemberLevel>> {
-  return fetchApi<MemberLevel>(`/api/members/levels/${id}`)
+  return fetchApi<MemberLevel>(`/api/admin/members/levels/${id}`)
 }
 
 /** 创建会员等级 */
 export async function createMemberLevel(
   input: Partial<MemberLevel>,
 ): Promise<ApiResult<MemberLevel>> {
-  return fetchApi<MemberLevel>('/api/members/levels', {
+  return fetchApi<MemberLevel>('/api/admin/members/levels', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -437,7 +426,7 @@ export async function updateMemberLevel(
   id: string,
   input: Partial<MemberLevel>,
 ): Promise<ApiResult<MemberLevel>> {
-  return fetchApi<MemberLevel>('/api/members/levels', {
+  return fetchApi<MemberLevel>('/api/admin/members/levels', {
     method: 'PUT',
     body: JSON.stringify({ id, ...input }),
   })
@@ -447,7 +436,7 @@ export async function updateMemberLevel(
  * 门 8 死调用清账(2026-09-28):后端 DELETE /members/levels 的 id 走 **query**
  * (member.ts:760 byIdQuery=request.query),上一版 DELETE /members/levels/${id} 从未注册。 */
 export async function deleteMemberLevel(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/members/levels${buildQs({ id })}`, {
+  return fetchApi<{ success: boolean }>(`/api/admin/members/levels${buildQs({ id })}`, {
     method: 'DELETE',
   })
 }

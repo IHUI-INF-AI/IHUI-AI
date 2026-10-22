@@ -156,45 +156,16 @@ async function installCheckinMocks(page: import('@playwright/test').Page): Promi
 let storageStatePath = ''
 
 test.describe.serial('签到助手 · 登录态全流程', () => {
-  let apiContext: import('@playwright/test').APIRequestContext
-
-  test.beforeAll(async ({ playwright, baseURL }) => {
+  // G-962 D组#106(批5,2026-10-22):原 beforeAll 登录建 API 上下文 + afterAll 列表后逐号删除的
+  // 幂等清理腿已摘除 —— 后端 checkin 账号族只注册 GET/POST accounts,DELETE 单号零注册,
+  // 清理预期是错的;且 2026-10-21 起数据面整栈桩为内存仓,真后端从未落账号,该腿整体是死代码。
+  test.beforeAll(() => {
     // 仓复位:重试/复跑时七个用例的跨用例状态从"空表"重新起算(模块级仓在同 worker 内不重置)
     mockStore.accounts = []
     mockStore.nextId = 1
-    // fixture 的 storageState 由 authenticatedPage 惰性建立;这里直接用同一凭据做 API 上下文,
-    // 供走查后删除测试账号(幂等清理,不依赖 UI 删除成功)。
-    const account = process.env.E2E_USER_ACCOUNT ?? 'test@aizhs.top'
-    const password = process.env.E2E_USER_PASSWORD ?? 'Test@123456'
-    apiContext = await playwright.request.newContext({ baseURL })
-    const login = await apiContext.post('/api/auth/login', {
-      data: { account, password },
-    })
-    const body = await login.json().catch(() => null)
-    const token = body?.data?.accessToken as string | undefined
-    if (token) {
-      await apiContext.dispose()
-      apiContext = await playwright.request.newContext({
-        baseURL,
-        extraHTTPHeaders: { Authorization: `Bearer ${token}` },
-      })
-    }
   })
 
-  test.afterAll(async () => {
-    // 幂等清理:按名称找到账号并删除(UI 删除失败也不留脏数据)
-    try {
-      const list = await apiContext.get('/api/checkin/accounts')
-      const body = await list.json().catch(() => null)
-      for (const acc of body?.accounts ?? []) {
-        if (String(acc.name).startsWith('E2E走查号-')) {
-          await apiContext.delete(`/api/checkin/accounts/${acc.id}`)
-        }
-      }
-    } catch {
-      /* 上下文不可用时静默:afterAll 不应炸 */
-    }
-    await apiContext.dispose()
+  test.afterAll(() => {
     if (storageStatePath && fs.existsSync(storageStatePath)) {
       try {
         fs.rmSync(path.dirname(storageStatePath), { recursive: true, force: true })

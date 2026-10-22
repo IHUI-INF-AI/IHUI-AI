@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 352590c2189a41d30b832d19eed557a37892c105
-// inputsSha256: 7b60f6badfd62067775e4f01d7c7a0c60bf423334e8edfb43378adb605b2cc90
+// sourceCommit: e5e01735b98ede8cd4103c139d71c809add6476e
+// inputsSha256: 5d64953dc3c4a494a910ea9395d284b5c458d61b91d1286b78eef90e7f2aca74
 // input: apps/miniapp-taro/src/api/index.ts a874798bd9c7209041fd7cbb203ac9089eacf6901c697fd0f8493688afe40cf5
 // input: apps/miniapp-taro/src/api/social.ts 6fd0f50805af0b076929ce380009d01c6856fa63994bce8367577161e968a160
 // input: apps/miniapp-taro/src/app.config.ts 782c5e8315c502161d00aaeedd892bdcd7c88621621279d8e3e2e9fd5f6752fe
@@ -184,7 +184,7 @@
 // input: apps/miniapp-taro/src/pages/index/index.config.ts 212bcaf54e2f39eaa0ccf2a67cd19aa963063a9fe3fcd7f25ce14423a741e745
 // input: apps/miniapp-taro/src/pages/index/index.tsx 1f684a8b8d5c3ee8103ed6bff79863e35bf8cd559cc764e3ef9300a88e6df24c
 // input: apps/miniapp-taro/src/pages/login/login.config.ts c1c98295d9dbe92b908a9394f2e49c4012c2e8949b0d7ea265e36bb558869dd1
-// input: apps/miniapp-taro/src/pages/login/login.tsx 6fe69cb94eb5ab22c73124adb0da1daad0b8bc1c96bb9aacaf22ce1973b29ce2
+// input: apps/miniapp-taro/src/pages/login/login.tsx a2149af0f6385ce397de7eb7f0896cedcba3fd18dc1bced18800d57bfbe9908f
 // input: apps/miniapp-taro/src/pages/member/benefits.config.ts 21772f3458cc8c18ffd7094f9ca60118822aa834d34fddb46c50057512ed4264
 // input: apps/miniapp-taro/src/pages/member/benefits.tsx d8c0d4ba70568591c30f4329c1297fbd92fb269632cc5c3949f88ed5b432f07f
 // input: apps/miniapp-taro/src/pages/member/coupon-list.config.ts 3d62f57c5f97dd6132e69f6aa627a1098c92589f6b88a7fbf705944d3db01bbd
@@ -465,8 +465,7 @@
 // input: apps/miniapp-taro/src/utils/index.ts 0ed66faca31ae371561760c08e1bad7757e598f1fe54d87d105354a8720f29d0
 // input: apps/miniapp-taro/src/utils/keyboard-height.ts 0308b4c36aaca11016dc137db6a2e8de3eefcaa1050fe00b5a1cd432e230a7c8
 // input: apps/miniapp-taro/src/utils/logger.ts ee4b78f68eaf3586085b973f68e3a1c4e0fd44167226ec7d1392ea95e66430a2
-// input: apps/miniapp-taro/src/utils/login-session.ts 1125ec373c1bd262245928faf2724f859552119438b09833bb3ec2ab41b48aaf
-// input: apps/miniapp-taro/src/utils/miniapp-login.ts dead5344c69949c82fe5aea42be55d58adf024731c31eb04b9eac2ff969ea311
+// input: apps/miniapp-taro/src/utils/miniapp-login.ts 54e544f7a53cabf2d2361191152a9df0f935dfd71383ea65db4a6d90e6b7563f
 // input: apps/miniapp-taro/src/utils/model-catalog.ts edf7dd0594015735f33832e0366aec6bf5d31d1127aac017fc2577e3f68be1b1
 // input: apps/miniapp-taro/src/utils/pay.ts 7a918f55b6cd7a0e95e8f27ec17e1ca9c6b545df8e934a954966c0cc5f6916d0
 // input: apps/miniapp-taro/src/utils/privacy.ts 63f957a2eece62eb384f5acb5f279a9811394cf332540e94ba045296370c92bb
@@ -484,10 +483,10 @@
 // input: apps/miniapp-taro/src/utils/time.ts 5820ab3f85a0f00db5a08dd15b12ce9b70480ed9a29817a823515b0516bfff47
 // input: apps/miniapp-taro/src/utils/upload-image.ts 595d36c6d76e3d4e2673cb66c66942bb4b052f4075a1ae50c8a7ccea1ab796d3
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts 2ea58f7273c643f6e032640c175c2878516be0bf35bba8420e3f847b1218aad7
-// input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
-// scanned: 354 source files(navigateTo url 参数探测,requiresParams 的依据)
+// input: apps/miniapp-taro/src/utils/wechat-login.ts 4959a62f1cb83c3b0a280a446f001ac92ed3163cb539a812bc6ec4608924dcc3
+// scanned: 353 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=36(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-22T15:47:01.797Z
+// generatedAt: 2026-10-22T15:43:58.972Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */

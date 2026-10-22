@@ -194,8 +194,14 @@ describe('注册即装车(造好没接线是本仓最高频失效型)', () => {
   const apiRoot = resolve(HERE, '..')
   const indexSrc = readFileSync(join(apiRoot, 'src/routes/index.ts'), 'utf8')
   const routeSrc = readFileSync(join(apiRoot, 'src/routes/course-mobile-routes.ts'), 'utf8')
-  /** 三条调用点:RN 屏里的字面量(插值段折成 :id 再比) */
+  /** 三条调用点:RN 屏已换源经 @ihui/api-client 取数(见提交 a48f62d5de),不再持有 /api/courses/* 直调字面量 */
   const clientFiles = ['CourseCatalogScreen', 'CourseChapterScreen', 'CourseCommentScreen'] as const
+  /** 每屏当前实际调用的 api-client 出口(course.ts 打已注册的 /api/learn/lessons/:id 与 /api/learn/lessons/:lessonId/rates) */
+  const clientCallOf: Record<(typeof clientFiles)[number], string> = {
+    CourseCatalogScreen: 'getCourseCatalog',
+    CourseChapterScreen: 'getCourseCatalog',
+    CourseCommentScreen: 'getCourseComments',
+  }
 
   it('routes/index.ts 必须 import 且以 prefix /api 注册 courseMobileRoutes', () => {
     expect(indexSrc).toMatch(
@@ -208,19 +214,30 @@ describe('注册即装车(造好没接线是本仓最高频失效型)', () => {
     ).toBe(true)
   })
 
-  it('路由文件内的字面量与注册 prefix 合成后,逐条等于三个调用点(漂移即红)', () => {
+  it('注册面恰为三条 /api/courses/:id/*;三屏经 api-client 接线且旧直调字面量不回潮(漂移即红)', () => {
     const inner = new Set(
       [...routeSrc.matchAll(/server\.get\(\s*'([^']*)'/gu)].map((m) => `/api${m[1]}`),
     )
+    expect([...inner].sort(), 'courseMobileRoutes 在册读面应恰为三条').toEqual([
+      '/api/courses/:id/catalog',
+      '/api/courses/:id/chapters',
+      '/api/courses/:id/comments',
+    ])
     for (const name of clientFiles) {
       const src = readFileSync(join(apiRoot, '../mobile-rn/src/screens', `${name}.tsx`), 'utf8')
-      const called = [...src.matchAll(/[`'"](\/api\/courses\/[^`'"\n]*)[`'"]/gu)]
+      const stale = [...src.matchAll(/[`'"](\/api\/courses\/[^`'"\n]*)[`'"]/gu)]
         .map((m) => m[1].replace(/\$\{[^}]*\}/gu, ':id'))
         .filter((p) => /\/(catalog|chapters|comments)$/u.test(p))
-      expect(called.length, `${name} 应有一处指向 /api/courses/:id/* 的调用`).toBeGreaterThan(0)
-      for (const p of called) expect(inner.has(p), `${p} 未在册`).toBe(true)
+      expect(
+        stale,
+        `${name} 不应残留旧 /api/courses/:id/* 直调字面量(已换源 @ihui/api-client)`,
+      ).toEqual([])
+      expect(src, `${name} 应经 @ihui/api-client 调用 ${clientCallOf[name]}`).toMatch(
+        new RegExp(
+          `import\\s*\\{[^}]*\\b${clientCallOf[name]}\\b[^}]*\\}\\s*from\\s*'@ihui/api-client'`,
+        ),
+      )
     }
-    expect(inner.size).toBe(3)
   })
 })
 

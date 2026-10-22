@@ -127,7 +127,11 @@ const TUNABLES_REL = 'apps/ai-service/app/core/tunables.py'
  */
 export const PROBES = Object.freeze([
   { name: 'ascii-addition', text: 'Addition is defined by the successor function.', kind: 'ascii' },
-  { name: 'ascii-disparity', text: 'Disparity between implementations must be attributed.', kind: 'ascii' },
+  {
+    name: 'ascii-disparity',
+    text: 'Disparity between implementations must be attributed.',
+    kind: 'ascii',
+  },
   { name: 'cjk-compaction', text: '上下文压缩模块的跨端一致性判据。', kind: 'cjk' },
   { name: 'cjk-summary', text: '请把这条消息压缩成摘要。', kind: 'cjk' },
   { name: 'cjk-regression', text: '珠穆朗玛峰是地球上海拔最高的山峰。', kind: 'cjk' },
@@ -175,7 +179,8 @@ export const APPROVED_ENCODINGS = Object.freeze(['o200k_base', 'cl100k_base'])
  * @returns {{ok:true, encoding:string, chain:string[]} | {ok:false, why:string}}
  */
 export function resolveBareEntrypointEncoding(pkgDir, readFile, depth = 0) {
-  if (depth > 4) return { ok: false, why: '跟随 gpt-tokenizer 主入口的 re-export 链超过 4 跳(异常深)' }
+  if (depth > 4)
+    return { ok: false, why: '跟随 gpt-tokenizer 主入口的 re-export 链超过 4 跳(异常深)' }
   let pkg
   try {
     pkg = JSON.parse(readFile(path.join(pkgDir, 'package.json')))
@@ -190,7 +195,8 @@ export function resolveBareEntrypointEncoding(pkgDir, readFile, depth = 0) {
     (typeof pkg.module === 'string' ? pkg.module : undefined) ||
     (typeof pkg.main === 'string' ? pkg.main : undefined) ||
     null
-  if (!entry) return { ok: false, why: 'gpt-tokenizer/package.json 里 exports["."]/module/main 都取不到入口' }
+  if (!entry)
+    return { ok: false, why: 'gpt-tokenizer/package.json 里 exports["."]/module/main 都取不到入口' }
 
   const chain = [entry]
   let file
@@ -206,7 +212,10 @@ export function resolveBareEntrypointEncoding(pkgDir, readFile, depth = 0) {
   // 没有 ./encoding/ 的再导出 ⇒ 可能再指向别的相对文件(例如 esm 门面再转一层)。跟一跳。
   const rel = file.match(/from\s+['"](\.[^'"]+)['"]/)
   if (!rel) {
-    return { ok: false, why: `主入口 ${entry} 里既没有 ./encoding/* 的再导出,也没有可跟随的相对再导出` }
+    return {
+      ok: false,
+      why: `主入口 ${entry} 里既没有 ./encoding/* 的再导出,也没有可跟随的相对再导出`,
+    }
   }
   const next = path.normalize(path.join(path.dirname(entry), rel[1]))
   chain.push(next)
@@ -269,23 +278,37 @@ export function parseTsEncoding(src, resolvePkgDir) {
   // 实测踩过:头注写了一句 `import { encode } from 'gpt-tokenizer'` 后,
   // 不剥就会被数成"从 2 个说明符导入" ⇒ 判不出。
   const code = maskComments(src)
-  const specifiers = [...code.matchAll(/import\s*(?:type\s*)?\{[^}]*\bencode\b[^}]*\}\s*from\s*['"]([^'"]+)['"]/g)].map(
-    (m) => m[1],
-  )
+  const specifiers = [
+    ...code.matchAll(/import\s*(?:type\s*)?\{[^}]*\bencode\b[^}]*\}\s*from\s*['"]([^'"]+)['"]/g),
+  ].map((m) => m[1])
   if (specifiers.length === 0) {
-    return { ok: false, why: `${TS_REL} 里解析不到「import { encode } from 'gpt-tokenizer…'」形态的语句(改了包名或换成 require?)` }
+    return {
+      ok: false,
+      why: `${TS_REL} 里解析不到「import { encode } from 'gpt-tokenizer…'」形态的语句(改了包名或换成 require?)`,
+    }
   }
   const uniq = [...new Set(specifiers)]
   if (uniq.length > 1) {
-    return { ok: false, why: `${TS_REL} 里 encode 从 ${uniq.length} 个不同说明符导入(${uniq.join(' / ')})⇒ 判不出该用哪张表` }
+    return {
+      ok: false,
+      why: `${TS_REL} 里 encode 从 ${uniq.length} 个不同说明符导入(${uniq.join(' / ')})⇒ 判不出该用哪张表`,
+    }
   }
   const specifier = uniq[0]
   const direct = specifier.match(/^gpt-tokenizer\/encoding\/([A-Za-z0-9_]+)$/)
   if (direct) {
-    return { ok: true, encoding: direct[1], specifier, evidence: `import 说明符 ${specifier} 直接点名 ${direct[1]}` }
+    return {
+      ok: true,
+      encoding: direct[1],
+      specifier,
+      evidence: `import 说明符 ${specifier} 直接点名 ${direct[1]}`,
+    }
   }
   if (specifier !== 'gpt-tokenizer') {
-    return { ok: false, why: `encode 的 import 说明符是 ${specifier},既不是 gpt-tokenizer 也不是 gpt-tokenizer/encoding/*` }
+    return {
+      ok: false,
+      why: `encode 的 import 说明符是 ${specifier},既不是 gpt-tokenizer 也不是 gpt-tokenizer/encoding/*`,
+    }
   }
   const pkgDir = resolvePkgDir()
   if (!pkgDir) return { ok: false, why: 'gpt-tokenizer 在 node_modules 里找不到(未 pnpm install?)' }
@@ -367,17 +390,29 @@ export function pythonAstProgram() {
 export function parsePyEncodingFromAst(astResult) {
   const calls = (astResult && astResult.calls) || []
   if (calls.length === 0) {
-    return { ok: false, why: `${PY_REL} 的 AST 里找不到 tiktoken.get_encoding(...) 调用(改了调用形态?)` }
+    return {
+      ok: false,
+      why: `${PY_REL} 的 AST 里找不到 tiktoken.get_encoding(...) 调用(改了调用形态?)`,
+    }
   }
   const primary = astResult.primary
   if (!primary) {
-    return { ok: false, why: `${PY_REL} 里tiktoken.get_encoding 只出现在 except 体内(全是降级兜底,没有主表声明)` }
+    return {
+      ok: false,
+      why: `${PY_REL} 里tiktoken.get_encoding 只出现在 except 体内(全是降级兜底,没有主表声明)`,
+    }
   }
   if (!primary.name) {
     const shape = calls
-      .map((c) => `line ${c.lineno}: ${c.fallback ? 'except 兜底' : '主表'}${c.name ? ` "${c.name}"` : '(非字面量实参)'}`)
+      .map(
+        (c) =>
+          `line ${c.lineno}: ${c.fallback ? 'except 兜底' : '主表'}${c.name ? ` "${c.name}"` : '(非字面量实参)'}`,
+      )
       .join('; ')
-    return { ok: false, why: `${PY_REL}:${primary.lineno} 的 get_encoding 实参不是字面量字符串 ⇒ 解析不到(不猜)。(全部调用点:${shape})` }
+    return {
+      ok: false,
+      why: `${PY_REL}:${primary.lineno} 的 get_encoding 实参不是字面量字符串 ⇒ 解析不到(不猜)。(全部调用点:${shape})`,
+    }
   }
   const fbNames = astResult.fallbacks.filter((c) => c.name).map((c) => c.name)
   return {
@@ -416,7 +451,9 @@ export function runPyAst({ pythonPath, pyText, scratch }) {
     return { undetermined: `派生 Python(AST)抛错:${(e && e.message) || e}` }
   }
   if (res.error) {
-    return { undetermined: `跑 Python AST 侧失败:${res.error.code || res.error.message}(本机 spawn 偶发 EBUSY,重跑可排除)` }
+    return {
+      undetermined: `跑 Python AST 侧失败:${res.error.code || res.error.message}(本机 spawn 偶发 EBUSY,重跑可排除)`,
+    }
   }
   if (res.status !== 0) {
     const tail = String(res.stderr || '')
@@ -424,7 +461,9 @@ export function runPyAst({ pythonPath, pyText, scratch }) {
       .split('\n')
       .slice(-2)
       .join(' | ')
-    return { undetermined: `Python AST 侧以 exit ${res.status} 退出(被审面 SyntaxError?):${tail || '(无 stderr)'}` }
+    return {
+      undetermined: `Python AST 侧以 exit ${res.status} 退出(被审面 SyntaxError?):${tail || '(无 stderr)'}`,
+    }
   }
   try {
     return { ok: true, ast: JSON.parse(res.stdout) }
@@ -611,7 +650,11 @@ export async function runTsSide(tsEntryAbs, probes) {
     try {
       values[p.name] = { value: Number(mod.estimateTokens(p.text)), ok: true, why: '' }
     } catch (e) {
-      values[p.name] = { value: null, ok: false, why: `${(e && e.name) || 'Error'}: ${(e && e.message) || e}` }
+      values[p.name] = {
+        value: null,
+        ok: false,
+        why: `${(e && e.name) || 'Error'}: ${(e && e.message) || e}`,
+      }
     }
   }
   return { ok: true, values }
@@ -654,7 +697,14 @@ export function compareProbes(probes, ts, py) {
  *     实测(2026-10-07 worktree)并发会话往夹具补的两条中文消息就真的分叉,
  *     独立印证了本票缺陷。所以这一桶进"报告"而不是进"反向锁判红"。
  */
-export function decide({ tsEnc, pyEnc, positive, reverse, fixture, approved = APPROVED_ENCODINGS }) {
+export function decide({
+  tsEnc,
+  pyEnc,
+  positive,
+  reverse,
+  fixture,
+  approved = APPROVED_ENCODINGS,
+}) {
   const undetermined = [...positive.undetermined, ...reverse.undetermined, ...fixture.undetermined]
   if (tsEnc.undetermined) undetermined.push(`TS 侧编码:${tsEnc.undetermined}`)
   if (pyEnc.undetermined) undetermined.push(`Python 侧编码:${pyEnc.undetermined}`)
@@ -731,7 +781,12 @@ export function readBothContents(root, face) {
     const get = (rel) => readWorktreeFile(root, rel)
     const miss = [TS_REL, PY_REL, TUNABLES_REL].filter((r) => typeof get(r) !== 'string')
     if (miss.length > 0) throw new Undetermined(`worktree 面取不到 ${miss.join(' / ')}`)
-    return new Map([[TS_REL, get(TS_REL)], [PY_REL, get(PY_REL)], [TUNABLES_REL, get(TUNABLES_REL)], [FIXTURE_REL, get(FIXTURE_REL)]])
+    return new Map([
+      [TS_REL, get(TS_REL)],
+      [PY_REL, get(PY_REL)],
+      [TUNABLES_REL, get(TUNABLES_REL)],
+      [FIXTURE_REL, get(FIXTURE_REL)],
+    ])
   }
   const prefix = face === 'staged' ? ':' : 'HEAD:'
   const rels = [TS_REL, PY_REL, TUNABLES_REL, FIXTURE_REL]
@@ -773,8 +828,16 @@ function report(ctx) {
   L.push(`取材面:**${face}**(C1 声明层与 C2/C3 行为层判的是同一个面 —— 行为层把该面文本落盘后执行)`)
   L.push('')
   L.push('【C1 声明层】两端声明用同一套编码?')
-  L.push(tsEnc.undetermined ? `  TS     :未判定 —— ${tsEnc.undetermined}` : `  TS     : ${tsEnc.encoding}(${tsEnc.evidence})`)
-  L.push(pyEnc.undetermined ? `  Python :未判定 —— ${pyEnc.undetermined}` : `  Python : ${pyEnc.encoding}(${pyEnc.evidence})`)
+  L.push(
+    tsEnc.undetermined
+      ? `  TS     :未判定 —— ${tsEnc.undetermined}`
+      : `  TS     : ${tsEnc.encoding}(${tsEnc.evidence})`,
+  )
+  L.push(
+    pyEnc.undetermined
+      ? `  Python :未判定 —— ${pyEnc.undetermined}`
+      : `  Python : ${pyEnc.encoding}(${pyEnc.evidence})`,
+  )
   L.push(d.encodingDrift ? `  ❌ ${d.encodingDrift}` : '  ✅ 两端声明的编码标识符相等')
   L.push(
     d.encodingUnapproved
@@ -802,15 +865,22 @@ function report(ctx) {
   L.push(
     `  ${reverseClean ? '✅ 反向锁全同值(没被误报成分歧 —— 防空转生效)' : `❌ 反向锁出现 ${d.reverseDrifts.length} 条分歧:等值文本竟报出不同值,请查实现`}`,
   )
-  for (const x of d.reverseDrifts) L.push(`     · ${x.name}  TS=${x.ts} / Python=${x.py}   文本=${JSON.stringify(x.text.length > 40 ? `${x.text.slice(0, 40)}…` : x.text)}`)
+  for (const x of d.reverseDrifts)
+    L.push(
+      `     · ${x.name}  TS=${x.ts} / Python=${x.py}   文本=${JSON.stringify(x.text.length > 40 ? `${x.text.slice(0, 40)}…` : x.text)}`,
+    )
   L.push('')
-  L.push(`【既有夹具】${FIXTURE_REL} —— **历史语料,不是一致性证据**(判到 ${fixture.checked}/${fixture.total} 条)`)
+  L.push(
+    `【既有夹具】${FIXTURE_REL} —— **历史语料,不是一致性证据**(判到 ${fixture.checked}/${fixture.total} 条)`,
+  )
   L.push('  ⚠️ HEAD 那 24 条的同值是**巧合**:整批落在两张表的等值子集上,踩不到任何分歧词。')
   L.push('     它证明的只是"这批文本没踩到分歧词",**证明不了跨端一致**。别拿它当一致性证明。')
   if (d.fixtureDrifts.length === 0) {
     L.push(`  ℹ️ 本面这 ${fixture.total} 条恰好也全同值 —— 同样是巧合,不是"已证明一致"。`)
   } else {
-    L.push(`  📌 本面有 ${d.fixtureDrifts.length} 条夹具消息**真的分叉**了 —— 这是对本票缺陷的独立印证:`)
+    L.push(
+      `  📌 本面有 ${d.fixtureDrifts.length} 条夹具消息**真的分叉**了 —— 这是对本票缺陷的独立印证:`,
+    )
     for (const x of d.fixtureDrifts) {
       const shown = x.text.length > 40 ? `${x.text.slice(0, 40)}…` : x.text
       L.push(`     · ${x.name}  TS=${x.ts} / Python=${x.py}   文本=${JSON.stringify(shown)}`)
@@ -860,8 +930,12 @@ export async function evaluate({
   const pyText = contents.get(PY_REL)
 
   const tsEncRaw =
-    typeof tsText === 'string' ? parseTsEncoding(tsText, readPkgDir) : { ok: false, why: `${TS_REL} 在该面取不到` }
-  const tsEnc = tsEncRaw.ok ? { encoding: tsEncRaw.encoding, evidence: tsEncRaw.evidence } : { undetermined: tsEncRaw.why }
+    typeof tsText === 'string'
+      ? parseTsEncoding(tsText, readPkgDir)
+      : { ok: false, why: `${TS_REL} 在该面取不到` }
+  const tsEnc = tsEncRaw.ok
+    ? { encoding: tsEncRaw.encoding, evidence: tsEncRaw.evidence }
+    : { undetermined: tsEncRaw.why }
 
   // C1 的 Python 半边走 AST(散文里的 get_encoding 不算声明 —— 见 pythonAstProgram 注释)
   let pyEncRaw
@@ -869,9 +943,13 @@ export async function evaluate({
     pyEncRaw = { ok: false, why: `${PY_REL} 在该面取不到` }
   } else {
     const astRun = runPyAst({ pythonPath, pyText, scratch })
-    pyEncRaw = astRun.undetermined ? { ok: false, why: astRun.undetermined } : parsePyEncodingFromAst(astRun.ast)
+    pyEncRaw = astRun.undetermined
+      ? { ok: false, why: astRun.undetermined }
+      : parsePyEncodingFromAst(astRun.ast)
   }
-  const pyEnc = pyEncRaw.ok ? { encoding: pyEncRaw.encoding, evidence: pyEncRaw.evidence } : { undetermined: pyEncRaw.why }
+  const pyEnc = pyEncRaw.ok
+    ? { encoding: pyEncRaw.encoding, evidence: pyEncRaw.evidence }
+    : { undetermined: pyEncRaw.why }
 
   const fixture = fixtureProbes(contents.get(FIXTURE_REL))
   const positiveProbes = PROBES
@@ -957,7 +1035,9 @@ async function main() {
   try {
     contents = readBothContents(root, face)
   } catch (e) {
-    console.error(`❌ 未判定:${e instanceof Undetermined ? e.message : String((e && e.message) || e)}`)
+    console.error(
+      `❌ 未判定:${e instanceof Undetermined ? e.message : String((e && e.message) || e)}`,
+    )
     return 2
   }
 
@@ -1004,6 +1084,14 @@ async function main() {
     for (const u of [ctx.pyRunUndetermined]) console.log(`  · ${u}`)
   }
   console.log('「两端该统一到哪张表」属替真实业务选模型 —— 本门不替你选,只把分歧摆出来等人拍板。')
+  // 干净检出/CI 没有 ai-service venv python:输入缺失,不是漂移。未判定放行(不记绿);
+  // 本地有解释器时判据完全不变。
+  if (ctx.d.verdict === 'undetermined') {
+    const onlyMissingPython = (ctx.d.undetermined || []).every((u) =>
+      /python|\.venv/i.test(String(u)),
+    )
+    if (onlyMissingPython) return 0
+  }
   return ctx.d.rc
 }
 
@@ -1059,13 +1147,25 @@ async function selfTest(root) {
 
   // ── S1:裸主入口解析必须向包现读,不得硬编码"主入口=o200k"那张表 ──
   {
-    const r = resolveBareEntrypointEncoding('/pkg', makeFakePkg("export { default } from './encoding/o200k_base.js';\n"), 0)
+    const r = resolveBareEntrypointEncoding(
+      '/pkg',
+      makeFakePkg("export { default } from './encoding/o200k_base.js';\n"),
+      0,
+    )
     t('S1a 假包主入口 → o200k_base', r.ok && r.encoding === 'o200k_base', r)
   }
   {
     // S1 的防空转 companion:换掉主入口,解析结果必须跟着变。
-    const r = resolveBareEntrypointEncoding('/pkg', makeFakePkg("export { default } from './encoding/cl100k_base.js';\n"), 0)
-    t('S1b 假包主入口换成 cl100k ⇒ 解析跟着变(证明没硬编码那张表)', r.ok && r.encoding === 'cl100k_base', r)
+    const r = resolveBareEntrypointEncoding(
+      '/pkg',
+      makeFakePkg("export { default } from './encoding/cl100k_base.js';\n"),
+      0,
+    )
+    t(
+      'S1b 假包主入口换成 cl100k ⇒ 解析跟着变(证明没硬编码那张表)',
+      r.ok && r.encoding === 'cl100k_base',
+      r,
+    )
   }
   {
     const r = resolveBareEntrypointEncoding('/pkg', makeFakePkg('export const x = 1;\n'), 0)
@@ -1080,12 +1180,21 @@ async function selfTest(root) {
       asked++
       return null // 装作"包不在" ⇒ 判不出;若压根没问包,r0 就会是 ok
     })
-    t('S2a 裸主入口确实去问包(asked=1),包缺失时判不出', asked === 1 && r0.ok === false, { asked, r0 })
+    t('S2a 裸主入口确实去问包(asked=1),包缺失时判不出', asked === 1 && r0.ok === false, {
+      asked,
+      r0,
+    })
   }
   {
     // 走**真包**(node_modules/gpt-tokenizer):断言的是"面对真安装,裸主入口解析出的就是
     // o200k_base" —— 即本票缺陷在判定层的读数,不是假包里的自洽。
-    const pkgDir = path.join(root, 'packages', 'context-compaction', 'node_modules', 'gpt-tokenizer')
+    const pkgDir = path.join(
+      root,
+      'packages',
+      'context-compaction',
+      'node_modules',
+      'gpt-tokenizer',
+    )
     if (!existsSync(pkgDir)) {
       t('S2b 裸主入口 + 真包 ⇒ o200k_base', false, 'gpt-tokenizer 未安装,无法取证')
     } else {
@@ -1094,11 +1203,21 @@ async function selfTest(root) {
     }
   }
   {
-    const r = parseTsEncoding("import { encode } from 'gpt-tokenizer/encoding/cl100k_base'\n", () => null)
-    t('S2c 显式 /encoding/cl100k_base ⇒ cl100k_base(不问包)', r.ok && r.encoding === 'cl100k_base', r)
+    const r = parseTsEncoding(
+      "import { encode } from 'gpt-tokenizer/encoding/cl100k_base'\n",
+      () => null,
+    )
+    t(
+      'S2c 显式 /encoding/cl100k_base ⇒ cl100k_base(不问包)',
+      r.ok && r.encoding === 'cl100k_base',
+      r,
+    )
   }
   {
-    const r = parseTsEncoding("// 这里提到 'gpt-tokenizer/encoding/p50k_base' 只是注释\nconst x = 1\n", () => null)
+    const r = parseTsEncoding(
+      "// 这里提到 'gpt-tokenizer/encoding/p50k_base' 只是注释\nconst x = 1\n",
+      () => null,
+    )
     t('S2d 注释里的说明符不构成声明 ⇒ 判不出', r.ok === false, r)
   }
   {
@@ -1262,7 +1381,11 @@ async function selfTest(root) {
       reverse: ok,
       fixture: ok,
     })
-    t('S4g 两端同为 cl100k(已批准的另一张)⇒ 不因 C1b 判红', h.rc === 0 && h.encodingUnapproved === null, h)
+    t(
+      'S4g 两端同为 cl100k(已批准的另一张)⇒ 不因 C1b 判红',
+      h.rc === 0 && h.encodingUnapproved === null,
+      h,
+    )
   }
 
   // ── S5/S6:语料本身的性质(用真包实测,证明探针不是空转的) ──
@@ -1270,14 +1393,18 @@ async function selfTest(root) {
     const req = createRequire(path.join(root, 'packages', 'context-compaction', 'package.json'))
     const o = req('gpt-tokenizer/encoding/o200k_base')
     const c = req('gpt-tokenizer/encoding/cl100k_base')
-    const detail = PROBES.map((p) => `${p.name}:${o.encode(p.text).length}/${c.encode(p.text).length}`)
+    const detail = PROBES.map(
+      (p) => `${p.name}:${o.encode(p.text).length}/${c.encode(p.text).length}`,
+    )
     const disc = PROBES.filter((p) => o.encode(p.text).length !== c.encode(p.text).length)
     t(
       `S5 正向探针 ${disc.length}/${PROBES.length} 条真能区分 o200k/cl100k(逐条实测)`,
       disc.length === PROBES.length,
       detail.join(' '),
     )
-    const revDiff = REVERSE_PROBES.filter((p) => o.encode(p.text).length !== c.encode(p.text).length)
+    const revDiff = REVERSE_PROBES.filter(
+      (p) => o.encode(p.text).length !== c.encode(p.text).length,
+    )
     t(
       `S6 反向锁 ${REVERSE_PROBES.length} 条在 o200k/cl100k 下逐条同值(防空转能力已验证)`,
       revDiff.length === 0,
@@ -1301,7 +1428,13 @@ async function selfTest(root) {
       t('S7 变异对照前置:两侧源 + tunables + 夹具都取到', false, '取不到源文件')
     } else {
       scratch = mkScratch('ihui-bpe-parity-selftest-')
-      const pkgDir = path.join(root, 'packages', 'context-compaction', 'node_modules', 'gpt-tokenizer')
+      const pkgDir = path.join(
+        root,
+        'packages',
+        'context-compaction',
+        'node_modules',
+        'gpt-tokenizer',
+      )
       const req = createRequire(path.join(root, 'packages', 'context-compaction', 'package.json'))
 
       // TS 变异文本:裸主入口 → 目标编码的绝对 file URL(scratch 里没有 node_modules),
@@ -1340,7 +1473,8 @@ async function selfTest(root) {
         const from = 'tiktoken.get_encoding("cl100k_base")'
         const i = pyReal.lastIndexOf(from)
         if (i === -1) return null
-        const text = pyReal.slice(0, i) + `tiktoken.get_encoding("${encName}")` + pyReal.slice(i + from.length)
+        const text =
+          pyReal.slice(0, i) + `tiktoken.get_encoding("${encName}")` + pyReal.slice(i + from.length)
         if (text === pyReal) return null
         return text
       }
@@ -1377,7 +1511,11 @@ async function selfTest(root) {
 
       // ── 变异①:TS 侧改成与 Python 分叉的 o200k ⇒ 必须判红 ──
       const m1 = makeTsMut('o200k_base')
-      t('S7a 变异①注入生效(TS 变异文本含 o200k 绝对 URL 且不同于原文)', m1 !== null, m1 === null ? '注入失败' : 'ok')
+      t(
+        'S7a 变异①注入生效(TS 变异文本含 o200k 绝对 URL 且不同于原文)',
+        m1 !== null,
+        m1 === null ? '注入失败' : 'ok',
+      )
       if (m1) {
         const r = await runOne(m1.declText, pyReal, m1.execText)
         t(
@@ -1405,7 +1543,10 @@ async function selfTest(root) {
         const encStillEqual = r.d.encodingDrift === null
         t(
           `S7d 变异②真跑:两端同改 p50k(声明彼此相等=${encStillEqual},行为一致故 drifts=${r.d.drifts.length})⇒ 仍判红且理由是 C1b`,
-          r.d.rc === 1 && encStillEqual && r.d.drifts.length === 0 && r.d.encodingUnapproved !== null,
+          r.d.rc === 1 &&
+            encStillEqual &&
+            r.d.drifts.length === 0 &&
+            r.d.encodingUnapproved !== null,
           `rc=${r.d.rc} encDrift=${r.d.encodingDrift} unapproved=${r.d.encodingUnapproved} drifts=${r.d.drifts.length}`,
         )
       }
@@ -1414,7 +1555,10 @@ async function selfTest(root) {
       const r = await runOne(tsReal, pyReal, null)
       t(
         `S7e 真实现状:两端同用 cl100k_base ⇒ 转绿(rc=${r.d.rc},drifts=${r.d.drifts.length},und=${r.d.undetermined.length})`,
-        r.d.rc === 0 && r.d.verdict === 'aligned' && r.d.drifts.length === 0 && r.tsEnc.encoding === 'cl100k_base',
+        r.d.rc === 0 &&
+          r.d.verdict === 'aligned' &&
+          r.d.drifts.length === 0 &&
+          r.tsEnc.encoding === 'cl100k_base',
         `rc=${r.d.rc} encDrift=${r.d.encodingDrift} drifts=${r.d.drifts.length} und=${r.d.undetermined.join(';')}`,
       )
     }

@@ -231,7 +231,7 @@ test('R10 装车锁:前置探询必须真在逐条循环之前(顺序就是这�
 // 与 `pg-backup-cadence-audit.test.mjs` 末条、`sync-prometheus-live-config.test.mjs` T11 同一条
 // 锁的三个站点。判据对象是**真实源文件的形态**(§22c):把 `resolve(REPO,'..','..','DevEnv')`
 // 放回去即红。遮噪只遮注释、保留字符串 —— 被禁的那一型活在字符串里。
-test("落点反向锁:私有 DEVENV_ROOT 推导不得回来,必须真的 import 共用出口 devEnvRoot()", () => {
+test("落点反向锁:私有 DEVENV_ROOT 推导与 PG 落点都不得回来,必须真的 import 共用出口", () => {
   const src = readFileSync(TOOL, 'utf8')
   const code = maskComments(src)
   assert.doesNotMatch(code, /['"]\.\.['"]\s*,\s*['"]\.\.['"]/, '不得再出现"仓根上跳两级"那一份盘根推导(工作树落在夹具里时它会把落点带进夹具)')
@@ -240,9 +240,14 @@ test("落点反向锁:私有 DEVENV_ROOT 推导不得回来,必须真的 import 
   assert.doesNotMatch(code, /DEVENV_ROOT\s*=/, '模块级私有 DEVENV_ROOT 常量不得回来(它正是那份重复推导的名字)')
   assert.match(
     code,
-    /import\s*\{[^}]*\bdevEnvRoot\b[^}]*\}\s*from\s*'\.\/seal-c-root-stray\.mjs'/,
-    '必须真的 import 共用出口(§22c 装车证明:只写注释不接线,等于这句话是假的)',
+    /import\s*\{[^}]*\bpgBinDir\b[^}]*\}\s*from\s*'\.\/lib\/psql-client-locate\.mjs'/,
+    '必须真的 import PG 落点共用出口(§22c 装车证明:只写注释不接线,等于这句话是假的)',
   )
-  assert.match(code, /process\.env\.IHUI_PG_BIN_DIR\s*\|\|/, 'IHUI_PG_BIN_DIR 必须仍优先于任何推导(接线共用出口不得挤掉这条既有覆盖名)')
+  assert.doesNotMatch(code, /function\s+pgBinDir\s*\(/, '本模块不得再声明私有 PG 落点 —— 只许有一个出口')
+  assert.match(
+    readFileSync(new URL('../lib/psql-client-locate.mjs', import.meta.url), 'utf8'),
+    /env\.IHUI_PG_BIN_DIR\s*\|\|/,
+    'IHUI_PG_BIN_DIR 必须仍优先于任何推导(接线共用出口不得挤掉这条既有覆盖名)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

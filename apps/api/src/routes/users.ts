@@ -6,7 +6,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { desc, eq } from 'drizzle-orm'
-import { userDevices } from '@ihui/database'
+import { userDevices, userFollows, users } from '@ihui/database'
 import { createWriteStream, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { pipeline } from 'node:stream/promises'
@@ -156,6 +156,34 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
         stats: { followingCount, followersCount, favoritesCount },
       }),
     )
+  })
+
+  // GET /api/users/:id/follows - 指定用户的关注列表(G-962 #71: social.ts 仅本人维度 /follows/following)
+  // 消费方 user/follow/page.tsx 以列表项 id 直接作 DELETE /api/follows/:userId 目标,故 id=被关注用户 ID。
+  server.get('/:id/follows', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      const message = (e as Error).message || '操作失败,请稍后重试'
+      return reply.status(statusCode).send(error(statusCode, message))
+    }
+
+    const { id } = z.object({ id: z.string() }).parse(request.params)
+    const list = await db
+      .select({
+        id: userFollows.followingId,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        bio: users.bio,
+        createdAt: userFollows.createdAt,
+      })
+      .from(userFollows)
+      .innerJoin(users, eq(users.id, userFollows.followingId))
+      .where(eq(userFollows.followerId, id))
+      .orderBy(desc(userFollows.createdAt))
+      .limit(200)
+    return reply.send(success({ list }))
   })
 
   // PATCH /api/users/:id - 更新用户信息（nickname、avatar、email、bio）

@@ -307,9 +307,20 @@ export async function copyTree(
   const skip = opts?.skip ?? new Set<string>()
   const followSymlinks = opts?.followSymlinks ?? false
 
-  await copyTreeRecursive(src, dst, skip, followSymlinks, stats)
+  await copyTreeRecursive(src, dst, skip, followSymlinks, stats, path.resolve(dst))
   stats.elapsedMs = Date.now() - start
   return stats
+}
+
+/** G-706: ancestor-or-self 判定(Windows 盘符大小写不敏感,一律归一小写化)。 */
+function isAncestorOrSelf(maybeAncestor: string, p: string): boolean {
+  const norm = (s: string): string => {
+    const abs = path.resolve(s).replace(/[\\/]+$/, '').replace(/\\/g, '/')
+    return process.platform === 'win32' ? abs.toLowerCase() : abs
+  }
+  const a = norm(maybeAncestor)
+  const b = norm(p)
+  return b === a || b.startsWith(`${a}/`)
 }
 
 async function copyTreeRecursive(
@@ -318,6 +329,7 @@ async function copyTreeRecursive(
   skip: Set<string>,
   followSymlinks: boolean,
   stats: CopyStats,
+  destAbs?: string,
 ): Promise<void> {
   await fs.promises.mkdir(dst, { recursive: true })
   stats.dirs++
@@ -331,9 +343,14 @@ async function copyTreeRecursive(
     const dstPath = path.join(dst, name)
 
     if (entry.isSymbolicLink() && !followSymlinks) {
-      await handleSymlink(srcPath, dstPath, stats)
+      await handleSymlink(srcPath, dstPath, stats, destAbs)
     } else if (entry.isDirectory()) {
-      await copyTreeRecursive(srcPath, dstPath, skip, followSymlinks, stats)
+      // G-706: destination 嵌套在 source 内(worktree 默认落点 <src>/.worktrees/<id>)时,
+      // 源侧"包含 destination 的子树"绝不能复制进目标 —— 否则把目标目录复制进它自己,
+      // 形成自嵌套失控链(逐层 mkdir/readdir 递归到路径长度上限)。整棵祖先子树跳过,
+      // 其中的兄弟 worktree 目录也一并排除(新工作树本就不该携带其他检出)。
+      if (destAbs !== undefined && isAncestorOrSelf(srcPath, destAbs)) continue
+      await copyTreeRecursive(srcPath, dstPath, skip, followSymlinks, stats, destAbs)
     } else if (entry.isFile()) {
       copyFileCoW(srcPath, dstPath)
       stats.files++
@@ -347,7 +364,12 @@ async function copyTreeRecursive(
   }
 }
 
-async function handleSymlink(srcPath: string, dstPath: string, stats: CopyStats): Promise<void> {
+async function handleSymlink(
+  srcPath: string,
+  dstPath: string,
+  stats: CopyStats,
+  destAbs?: string,
+): Promise<void> {
   if (process.platform === 'win32') {
     // Windows: 复制目标文件(避免 symlink 权限问题)
     try {
@@ -355,7 +377,7 @@ async function handleSymlink(srcPath: string, dstPath: string, stats: CopyStats)
       const targetStat = await fs.promises.stat(target)
       if (targetStat.isDirectory()) {
         // 目标是目录:递归复制(用空 skip 避免误跳过)
-        await copyTreeRecursive(srcPath, dstPath, new Set<string>(), false, stats)
+        await copyTreeRecursive(srcPath, dstPath, new Set<string>(), false, stats, destAbs)
       } else {
         copyFileCoW(target, dstPath)
         stats.files++

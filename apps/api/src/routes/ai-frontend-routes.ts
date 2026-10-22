@@ -305,6 +305,57 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     return proxyToAiService('/api/mcp/tools/call', request, reply, parsed.data)
   })
 
+  // GET /ai/mcp/resources — MCP 资源列表(G-962 #73)
+  // 消费方 mcp-projects/PageClient.tsx:87 期望 data 为 McpResource[] 数组;
+  // 真形态在 ai-service GET /api/mcp/resources(mcp.py:152,返回 {resources,count}) ⇒ 代理并拆壳。
+  server.get('/ai/mcp/resources', async (request, reply) => {
+    try {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/resources`, {
+        headers: { Authorization: request.headers.authorization ?? '' },
+      })
+      if (!resp.ok) {
+        return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
+      }
+      const data = (await resp.json().catch(() => ({ resources: [] }))) as {
+        resources?: Array<Record<string, unknown>>
+      }
+      return reply.send(success(data.resources ?? []))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, `ai-service 调用异常: ${toUserFriendlyMessage(e)}`))
+    }
+  })
+
+  // GET /ai/mcp/prompts — MCP 提示词列表(G-962 #74)
+  // 消费方 components/mcp/mcp-prompt-manager.tsx:59 期望 data 为 McpPrompt[] 数组;
+  // 真形态在 ai-service GET /api/mcp/prompts(mcp.py:171,返回 {prompts,count}) ⇒ 代理并拆壳。
+  server.get('/ai/mcp/prompts', async (request, reply) => {
+    try {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/prompts`, {
+        headers: { Authorization: request.headers.authorization ?? '' },
+      })
+      if (!resp.ok) {
+        return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
+      }
+      const data = (await resp.json().catch(() => ({ prompts: [] }))) as {
+        prompts?: Array<Record<string, unknown>>
+      }
+      return reply.send(success(data.prompts ?? []))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, `ai-service 调用异常: ${toUserFriendlyMessage(e)}`))
+    }
+  })
+
+  // GET /ai/mcp/usage — MCP 用量统计(G-962 #75)
+  // 消费方 components/mcp/mcp-use-manager.tsx:126 期望 UsageStats
+  // { totalCalls, successRate, avgDuration, byServer[] }。全仓(含 ai-service)无 MCP 调用日志表,
+  // 给最小真实空聚合(零调用=真实状态),禁硬编码假数据;补齐需新表 mcp_call_logs + tools/call 腿
+  // 埋点(迁移归 drizzle 线),已在裁决台账登记为残段。
+  server.get('/ai/mcp/usage', async (_request, reply) => {
+    return reply.send(success({ totalCalls: 0, successRate: 0, avgDuration: 0, byServer: [] }))
+  })
+
   // ==========================================================================
   // AI 能力调用代理(代理到 ai-service)
   // ==========================================================================

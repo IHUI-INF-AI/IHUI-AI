@@ -13,7 +13,8 @@ import { test, expect, type Page } from './fixtures'
  * 2. 带文本 chip 发送 → 请求 body 的 content 含全文(fenced code block,
  *    修复此前 text 类型只发 label 前 30 字符的断链)
  * 3. file input 添加 1x1 png → chip 展示上传态(Loader2 转圈)→ 上传完成后发送
- *    → 请求 content 含 ![x.png](/api/files/f-1)(serverUrl 替代 blob: objectURL)
+ *    → 请求 content 含 ![x.png](/uploads/f-1)(serverUrl 替代 blob: objectURL;
+ *    /uploads/<id> 即后端 resolvePublicUrl 真形,files.ts:42-45,G-962 D组#107 对账夹具)
  *
  * mock 说明:
  * - /api/files/upload/form 按任务契约返回 { success: true, data: { file } } 裸包装
@@ -101,7 +102,7 @@ async function setupChatMocks(
             name: 'x.png',
             size: 1,
             mimeType: 'image/png',
-            path: '/api/files/f-1',
+            path: '/uploads/f-1',
           },
         },
       }),
@@ -213,7 +214,7 @@ test.describe('矩阵 A #19 附件 chip 与超长粘贴', () => {
 
     await expect.poll(() => chatBody, { timeout: 20000 }).not.toBeNull()
     const raw = JSON.stringify(chatBody)
-    expect(raw).toContain('![x.png](/api/files/f-1)')
+    expect(raw).toContain('![x.png](/uploads/f-1)')
     expect(raw).not.toContain('blob:')
   })
 })

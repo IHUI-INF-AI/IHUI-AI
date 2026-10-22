@@ -45,6 +45,19 @@ const certificatesQuerySchema = z.object({
   status: z.coerce.number().int().min(0).max(1).optional(),
 })
 
+// 用户侧列表只接受分页参数;过滤项(userId/search 等)属 admin 腿,不向普通用户开放。
+const userCertificatesQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+})
+
+// G-962 B8:POST /certificates 用户侧证书申请(mobile-rn CertApplyScreen 提交 {name,idCard})。
+// idCard 仅用于校验,不落库(certificates 无该列,且身份证号属敏感信息)。
+const userApplyCertificateSchema = z.object({
+  name: z.string().trim().min(1, 'name 为必填项').max(100),
+  idCard: z.string().trim().min(6, 'idCard 格式不正确').max(32),
+})
+
 const createTemplateSchema = z.object({
   name: z.string().min(1).max(200),
   description: z.string().nullable().optional(),
@@ -117,6 +130,34 @@ export const certificateRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     const result = await findCertificates({ page: 1, pageSize: 100, userId })
     return reply.send(success(result))
+  })
+
+  // GET /certificates - 用户侧证书列表(G-962 批 4a #102;mobile-rn CertificateScreen 消费 data.list)
+  // 与 /certificates/my 同源但支持分页;userId 强制为当前登录用户。
+  server.get('/certificates', async (request, reply) => {
+    const parsed = userCertificatesQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await findCertificates({ ...parsed.data, userId: request.userId! })
+    return reply.send(success(result))
+  })
+
+  // POST /certificates - 用户侧证书申请(G-962 B8;mobile-rn CertApplyScreen 提交 {name,idCard})
+  // 落一条本人证书记录(编号由 CSPRNG 生成),idCard 不落库。
+  server.post('/certificates', async (request, reply) => {
+    const parsed = userApplyCertificateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const certificate = await createCertificate({
+      userId: request.userId!,
+      certificateNo: generateCertificateNo(),
+      title: '证书申请',
+      recipientName: parsed.data.name,
+      source: 'manual',
+    })
+    return reply.status(201).send(success({ certificate }))
   })
 
   // POST /certificates/:id/download - 下载证书 PDF

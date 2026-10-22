@@ -1081,6 +1081,25 @@ export function walkFastifyGraph(tsInfos, opts = {}) {
         }
         continue
       }
+      // bare 标识符注册(`server.get(HEALTH_PATH, …)` —— github-app.ts:266/277/302 三条真挂载链
+      // 实证,2026-10-22 G-962):先查同文件路径常量(与模板串展开同一份 pathConsts),解不到再退
+      // 工厂调用点同款绑定正则(1113 一线,认双引号/反引号/类型注记)。解到 ⇒ 按 literal 同守卫
+      // (1079 一线)产出;解不到 ⇒ 仍落 identifier-path 逐条报名,不静默丢也不冒判 —— 运行时变量
+      // (`ws-ai.ts` 的 `server.get(path)`)、成员表达式与带括号实参(`kv.get(indexKey(x))`)、
+      // 函数调用取值的 `redis.get(key)` 全走这条报名出口,实测 11 条一条不吞。
+      if (r.arg.kind === 'bare' && /^[A-Za-z_$][\w$]*$/.test(r.arg.expr)) {
+        let v = info.pathConsts.get(r.arg.expr)
+        if (v === undefined) {
+          const bound = new RegExp(
+            `(?:const|let|var)\\s+${r.arg.expr}\\s*(?::[^=]+)?=\\s*['"\`]([^'"\`]*)['"\`]`,
+          ).exec(info.src)
+          if (bound && bound[1]) v = bound[1]
+        }
+        if (v !== undefined && v.startsWith('/')) {
+          entries.push({ method: r.method, path: fullPathOf(base, v), file: info.rel, line: r.line, via })
+          continue
+        }
+      }
       undetermined.push({
         file: info.rel,
         line: r.line,

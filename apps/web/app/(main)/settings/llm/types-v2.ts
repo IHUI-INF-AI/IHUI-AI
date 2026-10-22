@@ -13,8 +13,10 @@
  * 既有 v1 类型(UserLlmConfig / FormState)仍存在,新代码推荐用 v2 类型。
  */
 import type { PlatformTemplate, TestResult, UpstreamModel } from './types'
+import { PROVIDER_HEALTH_STATUSES, type ProviderHealthStatus } from '@ihui/types'
 
 export type { PlatformTemplate, TestResult, UpstreamModel }
+export { PROVIDER_HEALTH_STATUSES, type ProviderHealthStatus }
 
 /**
  * provider / model 健康档封闭联合(G-716 立,2026-09-29)。
@@ -43,9 +45,7 @@ export type { PlatformTemplate, TestResult, UpstreamModel }
  * 那是 MCP 能力市场的档位(`unhealthy` 与本域的 `down` 不同名同不同义,`degraded` 在那里
  * 译成"需网络"是能力市场专属语义),把两张表并成一张会同时改坏两个域的文案。
  */
-export const PROVIDER_HEALTH_STATUSES = ['unknown', 'healthy', 'degraded', 'down'] as const
-
-export type ProviderHealthStatus = (typeof PROVIDER_HEALTH_STATUSES)[number]
+/** 四档值域已上收 `@ihui/types` 的 PROVIDER_HEALTH_STATUSES（单一真相源，见 ai.ts）。 */
 
 /**
  * 把接口来的原始字符串收敛成封闭档位。

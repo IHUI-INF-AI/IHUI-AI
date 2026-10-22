@@ -384,7 +384,7 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
                             type="button"
                             onClick={() => switchDashboard(d.uid)}
                             className={cn(
-                              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors',
+                              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors',
                               active
                                 ? 'bg-info/15 font-medium text-info-text'
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',

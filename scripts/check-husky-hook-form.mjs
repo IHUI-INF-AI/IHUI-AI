@@ -89,7 +89,14 @@ const GIT_HOOK_NAMES = new Set([
 ])
 
 /** 只认 sh 一族解释器:git 自带 sh,不随触发方 PATH 浮动。 */
-const SH_SHEBANGS = ['#!/bin/sh', '#!/usr/bin/sh', '#!/usr/bin/env sh', '#!/bin/bash', '#!/usr/bin/bash', '#!/usr/bin/env bash']
+const SH_SHEBANGS = [
+  '#!/bin/sh',
+  '#!/usr/bin/sh',
+  '#!/usr/bin/env sh',
+  '#!/bin/bash',
+  '#!/usr/bin/bash',
+  '#!/usr/bin/env bash',
+]
 
 function specOf(face, p) {
   return face === 'head' ? `HEAD:${p}` : face === 'staged' ? `:${p}` : p
@@ -137,7 +144,10 @@ function judgeDispatchRefs(text, facePaths) {
     for (const ref of [m[1], m[3]]) {
       const rel = ref.replace(/\\/g, '/')
       if (!facePaths.has(rel)) {
-        hits.push({ rule: 'H2', detail: `薄壳引用的「${rel}」在判定面上不存在 ⇒ 每次触发都只会报"找不到文件",链子等于没接(§0.8 不许写跑不通的出路)` })
+        hits.push({
+          rule: 'H2',
+          detail: `薄壳引用的「${rel}」在判定面上不存在 ⇒ 每次触发都只会报"找不到文件",链子等于没接(§0.8 不许写跑不通的出路)`,
+        })
       }
     }
   }
@@ -174,7 +184,9 @@ function listFace(root, face) {
   )
   const hooks = filterHookPaths(listing)
   if (hooks.length === 0) {
-    throw new Undetermined(`判定面(${face})在 ${HOOK_DIR}/ 直属枚举到 0 枚 git 钩子 —— 清单本身可疑,不判"没问题"`)
+    throw new Undetermined(
+      `判定面(${face})在 ${HOOK_DIR}/ 直属枚举到 0 枚 git 钩子 —— 清单本身可疑,不判"没问题"`,
+    )
   }
   return { hooks, all }
 }
@@ -189,7 +201,10 @@ function readHooks(root, face, paths) {
       if (t === null) missing.push(p)
       else texts.set(p, t)
     }
-    if (missing.length) throw new Undetermined(`worktree 面 ${missing.length} 枚钩子读不到(如 ${missing[0]})——不回落另一个面`)
+    if (missing.length)
+      throw new Undetermined(
+        `worktree 面 ${missing.length} 枚钩子读不到(如 ${missing[0]})——不回落另一个面`,
+      )
     return texts
   }
   const specs = paths.map((p) => specOf(face, p))
@@ -201,7 +216,9 @@ function readHooks(root, face, paths) {
     else texts.set(paths[i], t)
   }
   if (missing.length) {
-    throw new Undetermined(`${face} 面 ${missing.length}/${paths.length} 枚钩子 blob 取不到(如 ${missing[0]})⇒ 未判定,绝不按"剩下的"记绿`)
+    throw new Undetermined(
+      `${face} 面 ${missing.length}/${paths.length} 枚钩子 blob 取不到(如 ${missing[0]})⇒ 未判定,绝不按"剩下的"记绿`,
+    )
   }
   return texts
 }
@@ -235,6 +252,16 @@ function judgeHooksInstall(root, { configValue, exists = existsSync } = {}) {
       val = '' // 未设置:git 回落到 .git/hooks(本仓默认无钩子 ⇒ 下面按缺件判红)
     }
   }
+  // 干净检出/CI 未安装 husky：hooksPath 未设置且 .husky/_ 不存在 ⇒ 装载面本身不存在,
+  // 判 H3 红是拿"没装"当"装错了"(结构上不可能满足,恒红)。按未判定放行,不记绿。
+  if (!val && !exists(join(root, '.husky', '_'))) {
+    return {
+      rule: 'H3',
+      path: 'core.hooksPath',
+      undetermined:
+        '未安装 husky(core.hooksPath 未设置且 .husky/_ 不存在) ⇒ 钩子装载面不存在,不判 H3',
+    }
+  }
   const dir = val ? (isAbsolute(val) ? val : resolve(root, val)) : resolve(root, '.git', 'hooks')
   const missing = ['pre-commit', 'post-commit'].filter((h) => !exists(join(dir, h)))
   if (missing.length === 0) return null
@@ -257,7 +284,10 @@ function runAudit({ root = ROOT, face = 'head', json = false } = {}) {
     )
     // H3:钩子写得再对,没被装载也等于没有(2026-10-21 core.hooksPath=.git/no-hooks 事故)
     const install = judgeHooksInstall(root)
-    if (install) violations.push(install)
+    if (install) {
+      if (install.undetermined) lines.push(`⚪ 未判定:${install.undetermined}(不记绿也不冒红)`)
+      else violations.push(install)
+    }
     if (json) {
       return {
         status: violations.length > 0 ? 1 : 0,
@@ -271,7 +301,9 @@ function runAudit({ root = ROOT, face = 'head', json = false } = {}) {
       )
       return { status: 1, lines }
     }
-    lines.push(`✅ 钩子形态对账(${face} 面):${scanned} 枚钩子全部 sh 薄壳、且薄壳引用的包装/正文在同面在位`)
+    lines.push(
+      `✅ 钩子形态对账(${face} 面):${scanned} 枚钩子全部 sh 薄壳、且薄壳引用的包装/正文在同面在位`,
+    )
     return { status: 0, lines }
   } catch (e) {
     if (e instanceof Undetermined) {
@@ -306,7 +338,10 @@ if (isDirectRun) {
   }
   let face = 'head'
   try {
-    const sel = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree') })
+    const sel = selectFace({
+      staged: argv.includes('--staged'),
+      worktree: argv.includes('--worktree'),
+    })
     face = sel.face
   } catch (e) {
     console.log(`⚪ 未判定:${e.message}`)
@@ -320,43 +355,62 @@ if (isDirectRun) {
 function selfTest() {
   const cases = []
   const t = (name, fn) => cases.push({ name, fn })
-  const NODE_BODY = '#!/usr/bin/env node\n// ─── post-commit(跨平台 Node 钩子) ───\nconst { execSync } = require("child_process")\n'
+  const NODE_BODY =
+    '#!/usr/bin/env node\n// ─── post-commit(跨平台 Node 钩子) ───\nconst { execSync } = require("child_process")\n'
   const SH_SHELL =
     '#!/bin/sh\nunset GIT_DIR\nwscript //nologo scripts/hook-run-hidden.vbs post-commit scripts/lib/post-commit-hook.js "$@" || exit 1\n'
 
   t('T1 事故原形:node shebang 钩子必判 H1 红', () => {
     const v = judgeShebang(NODE_BODY, '.husky/post-commit')
-    if (!v || v.rule !== 'H1') throw new Error('node 正文钩子未被判红(这正是 10-18 被并席写回的那份)')
+    if (!v || v.rule !== 'H1')
+      throw new Error('node 正文钩子未被判红(这正是 10-18 被并席写回的那份)')
   })
   t('T2 正控:sh 薄壳不报;bash/env sh 也算 sh 族', () => {
     if (judgeShebang(SH_SHELL, '.husky/post-commit') !== null) throw new Error('sh 薄壳被误判')
     for (const s of ['#!/bin/sh\nx\n', '#!/bin/bash\nx\n', '#!/usr/bin/env sh\nx\n']) {
-      if (judgeShebang(s, '.husky/pre-commit') !== null) throw new Error(`sh 族被误判:${s.split('\n')[0]}`)
+      if (judgeShebang(s, '.husky/pre-commit') !== null)
+        throw new Error(`sh 族被误判:${s.split('\n')[0]}`)
     }
   })
   t('T3 反控:无 shebang / python 解释器同样判红(静默死法同型)', () => {
-    if (!judgeShebang('node scripts/x.mjs\n', '.husky/commit-msg')) throw new Error('无 shebang 被放过')
-    if (!judgeShebang('#!/usr/bin/env python3\nprint(1)\n', '.husky/pre-push')) throw new Error('python 钩子被放过')
+    if (!judgeShebang('node scripts/x.mjs\n', '.husky/commit-msg'))
+      throw new Error('无 shebang 被放过')
+    if (!judgeShebang('#!/usr/bin/env python3\nprint(1)\n', '.husky/pre-push'))
+      throw new Error('python 钩子被放过')
     if (!judgeShebang('', '.husky/post-merge')) throw new Error('空钩子被放过')
   })
   t('T4 H2:薄壳引用的正文不在位 ⇒ 判红(死链拦在提交口)', () => {
     const facePaths = new Set(['.husky/post-commit', 'scripts/hook-run-hidden.vbs'])
     const hits = judgeDispatchRefs(SH_SHELL, facePaths)
-    if (hits.length !== 1 || !/post-commit-hook\.js/.test(hits[0].detail)) throw new Error(`正文丢失未被点名:${JSON.stringify(hits)}`)
+    if (hits.length !== 1 || !/post-commit-hook\.js/.test(hits[0].detail))
+      throw new Error(`正文丢失未被点名:${JSON.stringify(hits)}`)
   })
   t('T5 H2:包装与正文都在位 ⇒ 不报', () => {
-    const facePaths = new Set(['.husky/post-commit', 'scripts/hook-run-hidden.vbs', 'scripts/lib/post-commit-hook.js'])
+    const facePaths = new Set([
+      '.husky/post-commit',
+      'scripts/hook-run-hidden.vbs',
+      'scripts/lib/post-commit-hook.js',
+    ])
     if (judgeDispatchRefs(SH_SHELL, facePaths).length !== 0) throw new Error('齐备薄壳被误判')
   })
   t('T5b H2:注释里的示例形态不是出路,不得判成死链(自造恒红反例)', () => {
-    const commented = '#!/bin/sh\n#   wscript //nologo scripts/hook-run-hidden.vbs(GUI 子系统)\nprintf x\n'
+    const commented =
+      '#!/bin/sh\n#   wscript //nologo scripts/hook-run-hidden.vbs(GUI 子系统)\nprintf x\n'
     const hits = judgeDispatchRefs(commented, new Set(['.husky/x']))
     if (hits.length !== 0) throw new Error(`注释被当成引用去判在位性:${JSON.stringify(hits)}`)
   })
   t('T6 清单过滤:直属钩子名收,README/子目录/非钩子名一律不收', () => {
-    const list = ['.husky/post-commit', '.husky/README.md', '.husky/_/h', '.husky/pre-commit.sample', '.husky/commit-msg', 'scripts/post-commit'].join('\0')
+    const list = [
+      '.husky/post-commit',
+      '.husky/README.md',
+      '.husky/_/h',
+      '.husky/pre-commit.sample',
+      '.husky/commit-msg',
+      'scripts/post-commit',
+    ].join('\0')
     const got = filterHookPaths(list)
-    if (got.join(',') !== '.husky/commit-msg,.husky/post-commit') throw new Error(`清单错位:${JSON.stringify(got)}`)
+    if (got.join(',') !== '.husky/commit-msg,.husky/post-commit')
+      throw new Error(`清单错位:${JSON.stringify(got)}`)
   })
   t('T7 覆盖面:枚举 0 枚 ⇒ 判死(不记绿)', () => {
     const dir = mkScratch('hook-form-nogit')
@@ -374,24 +428,39 @@ function selfTest() {
   })
   t('T8 真仓取材:HEAD 面枚举到 ≥5 枚钩子、逐枚取得到内容,且 H2 不误咬真仓薄壳', () => {
     const listed = listFace(ROOT, 'head')
-    if (listed.hooks.length < 5) throw new Error(`真仓 HEAD 面只枚举到 ${listed.hooks.length} 枚 —— 覆盖面可疑,判据可能空转`)
+    if (listed.hooks.length < 5)
+      throw new Error(`真仓 HEAD 面只枚举到 ${listed.hooks.length} 枚 —— 覆盖面可疑,判据可能空转`)
     const texts = readHooks(ROOT, 'head', listed.hooks)
-    if (texts.size !== listed.hooks.length) throw new Error(`取到 ${texts.size} 枚 ≠ 清单 ${listed.hooks.length} 枚`)
-    const r = auditHookTexts(listed.hooks.map((p) => ({ p, s: texts.get(p) })), listed.all)
+    if (texts.size !== listed.hooks.length)
+      throw new Error(`取到 ${texts.size} 枚 ≠ 清单 ${listed.hooks.length} 枚`)
+    const r = auditHookTexts(
+      listed.hooks.map((p) => ({ p, s: texts.get(p) })),
+      listed.all,
+    )
     const h2 = r.violations.filter((v) => v.rule === 'H2')
     if (h2.length > 0) {
-      throw new Error(`真仓薄壳的包装/正文引用被判成死链(整面路径集没传对?):${h2.map((v) => `${v.path} ${v.detail}`).join(' | ')}`)
+      throw new Error(
+        `真仓薄壳的包装/正文引用被判成死链(整面路径集没传对?):${h2.map((v) => `${v.path} ${v.detail}`).join(' | ')}`,
+      )
     }
   })
   t('T9 变异成对锁:事故原形判 1 处 H1、薄壳零违规、摘掉正文引用即翻 H2 红', () => {
-    const all = new Set(['.husky/post-commit', 'scripts/hook-run-hidden.vbs', 'scripts/lib/post-commit-hook.js'])
+    const all = new Set([
+      '.husky/post-commit',
+      'scripts/hook-run-hidden.vbs',
+      'scripts/lib/post-commit-hook.js',
+    ])
     const bad = auditHookTexts([{ p: '.husky/post-commit', s: NODE_BODY }], all)
     if (bad.violations.length !== 1 || bad.violations[0].rule !== 'H1') {
       throw new Error(`事故原形应恰好 1 处 H1,实得 ${JSON.stringify(bad.violations)}`)
     }
     const good = auditHookTexts([{ p: '.husky/post-commit', s: SH_SHELL }], all)
-    if (good.violations.length !== 0) throw new Error(`合规薄壳被误判:${JSON.stringify(good.violations)}`)
-    const broken = auditHookTexts([{ p: '.husky/post-commit', s: SH_SHELL }], new Set(['.husky/post-commit', 'scripts/hook-run-hidden.vbs']))
+    if (good.violations.length !== 0)
+      throw new Error(`合规薄壳被误判:${JSON.stringify(good.violations)}`)
+    const broken = auditHookTexts(
+      [{ p: '.husky/post-commit', s: SH_SHELL }],
+      new Set(['.husky/post-commit', 'scripts/hook-run-hidden.vbs']),
+    )
     if (broken.violations.length !== 1 || broken.violations[0].rule !== 'H2') {
       throw new Error(`正文从面上消失应判 1 处 H2,实得 ${JSON.stringify(broken.violations)}`)
     }
@@ -409,7 +478,8 @@ function selfTest() {
 
   t('T12 H3 装载位:事故原形(.git/no-hooks 不存在)判红,`.husky` 齐备判绿', () => {
     const red = judgeHooksInstall(ROOT, { configValue: '.git/no-hooks', exists: existsSync })
-    if (!red || red.rule !== 'H3') throw new Error('core.hooksPath 指向不存在目录未被判红(10-21 事故原形)')
+    if (!red || red.rule !== 'H3')
+      throw new Error('core.hooksPath 指向不存在目录未被判红(10-21 事故原形)')
     const green = judgeHooksInstall(ROOT, { configValue: '.husky', exists: existsSync })
     if (green !== null) throw new Error(`真仓 .husky 被误判:${JSON.stringify(green)}`)
   })
@@ -425,7 +495,9 @@ function selfTest() {
     }
   }
   for (const f of fails) console.log(`  ❌ ${f}`)
-  console.log(`\n自检 ${pass}/${cases.length} 通过${fails.length ? `,失败 ${fails.length} 条` : ''}`)
+  console.log(
+    `\n自检 ${pass}/${cases.length} 通过${fails.length ? `,失败 ${fails.length} 条` : ''}`,
+  )
   return fails.length ? 1 : 0
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
