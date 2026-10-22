@@ -2,7 +2,7 @@
   "annotations": {
     "list": []
   },
-  "description": "访客与机器人流量(2026-10-23 立)。立因:这台机的大屏此前没有任何一格回答\"有没有除机主以外的人或 AI 在访问\"——数据其实一直在录(`api_logs` 每条请求都带服务端 ip + user-agent,现读近 6 天 186231 行),但 `monitoring/` 全目录对 UA/bot/crawler/visitor 零判据,而这个维度从来没被发射成指标。本盘读 api 手拼 /business-metrics 的 ihui_traffic_requests_total{client_family,status_class} 与 ihui_traffic_scan_hits_total{kind,client_family}:两维都是源码里的封闭枚举并逐值开 0 基线,所以**看到 0 是\"这段时间真没发生过\",不是埋点没接**(这与旧 nginx.json 那 9 块面板查一个零 exporter 的死指标不同形)。口径三条,别误读:① client_family 是**自述**——2026-10-23 实测有一批腾讯云海外段来源成批伪装 Googlebot/GrokBot/Claude-User 打 path-traversal 与 /api/.env,族面如实记它自称什么,真伪不在这张盘上判(判真伪要把 UA 与来源归属交叉核,那是另一件事);② human-browser 只代表\"UA 长成真实浏览器形态\",HeadlessChrome/QoderCN/TraeCN 已被更前的族收走,不会冒充真人;③ UA 原文与 IP 一律不入标签(开放集),要看具体某把 UA/某个来源 IP 请回 `api_logs` 与 admin「访客追踪」页。本盘不做 UV/PV:UV 是按 IP 与 session 去重的开放集,只能落预聚合表,不能塞进 Prometheus 标签。",
+  "description": "访客与机器人流量(2026-10-23 立)。立因:这台机的大屏此前没有任何一格回答\"有没有除机主以外的人或 AI 在访问\"——数据其实一直在录(`api_logs` 每条请求都带服务端 ip + user-agent,现读近 6 天 186231 行),但 `monitoring/` 全目录对 UA/bot/crawler/visitor 零判据,而这个维度从来没被发射成指标。本盘读 api 手拼 /business-metrics 的 ihui_traffic_requests_total{client_family,status_class} 与 ihui_traffic_scan_hits_total{kind,client_family}:两维都是源码里的封闭枚举并逐值开 0 基线,所以**看到 0 是\"这段时间真没发生过\",不是埋点没接**(这与旧 nginx.json 那 9 块面板查一个零 exporter 的死指标不同形)。口径三条,别误读:① client_family 是**自述**——2026-10-23 实测有一批腾讯云海外段来源成批伪装 Googlebot/GrokBot/Claude-User 打 path-traversal 与 /api/.env,族面如实记它自称什么,真伪不在这张盘上判(判真伪要把 UA 与来源归属交叉核,那是另一件事);② human-browser 只代表\"UA 长成真实浏览器形态\",HeadlessChrome/QoderCN/TraeCN 已被更前的族收走,不会冒充真人;③ UA 原文与 IP 一律不入标签(开放集),要看具体某把 UA/某个来源 IP 请回 `api_logs` 与 admin「访客追踪」页。本盘的 UV/PV(盘 7-10,2026-10-23 补):UV 按定义是「按 IP/session 去重」的开放集,所以先把开放集在服务端**聚合成一个数**再发单值 gauge(`ihui_traffic_page_views`/`ihui_traffic_unique_visitors`/`ihui_traffic_family_*`),标签只留有界的 窗口/来源表/客户端族,IP 与 session 原文仍一个也不入标签。这两族数由 scheduler 的 `traffic-stats-hourly` 每小时刷一次,且只活在 api 进程内存里(不建预聚合表)⇒ **api 重启即归零重算**,要看历史请回 `api_logs`/`visit_logs`。分辨「没测到」与「真没人来」:`ihui_traffic_aggregation_last_success_timestamp_seconds` 为 0 = 本进程从未成功聚合过,不等于零访客;`ihui_traffic_family_breakdown_truncated` 为 1 = 族分解被 UA 种类预算截断,族值只是下界。还有一条盲区登记在此:请求计数与探测计数都在 `url.startsWith('/api/')` 之后才记 ⇒ 打在 /api 之外的探针(例如根路径的 `/.env`)两块计数器都不记,这类「探测了但观测面根本没看见」的量目前只能回网关/nginx 日志查。",
   "editable": true,
   "graphTooltip": 1,
   "id": null,
@@ -197,6 +197,189 @@
         "overrides": []
       },
       "id": 6
+    },
+    {
+      "title": "PV / UV(滚动窗口聚合值,小时级刷新)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "description": "开放集(IP / session)在服务端聚合后的单值 gauge,标签只有 窗口 与 来源表。UV 口径两表不同:`api_logs` = 去重来源 IP(含机器人与探测),`visit_logs` = 去重 coalesce(session_id, ip)(只有前端埋点报上来的页面访问)⇒ 两条曲线不可直接互比。api 重启后这两族归零重算。",
+      "targets": [
+        {
+          "expr": "max by (window, source) (ihui_traffic_page_views{instance=~\"$instance\"})",
+          "legendFormat": "PV {{source}}/{{window}}",
+          "refId": "A"
+        },
+        {
+          "expr": "max by (window, source) (ihui_traffic_unique_visitors{instance=~\"$instance\"})",
+          "legendFormat": "UV {{source}}/{{window}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "stepsNow",
+            "lineInterpolation": "linear",
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": ["lastNotNull", "max"]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 7
+    },
+    {
+      "title": "真人 vs 自动化占比(近 24h 聚合 PV,按自述族)",
+      "type": "piechart",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "description": "族判定复用 `classifyClientFamily` 那一把尺子(与入口请求计数器、告警面同源)。这张盘切的是 `api_logs` 的聚合 PV:human-browser 只代表 UA 长成真实浏览器形态,HeadlessChrome / QoderCN / TraeCN 已被更前的族收走。`> 0` 只为把 0 基线里那些没出现过的族从饼图里摘掉,不参与任何计数。",
+      "targets": [
+        {
+          "expr": "sum by (client_family) (ihui_traffic_family_page_views{window=\"24h\",source=\"api_logs\",instance=~\"$instance\"} > 0)",
+          "legendFormat": "{{client_family}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "pieType": "donut",
+        "displayLabels": ["percent"],
+        "legend": {
+          "showLegend": true,
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "showColorScale": false,
+          "mode": "single"
+        }
+      },
+      "id": 8
+    },
+    {
+      "title": "聚合器新鲜度(多久没成功刷过 PV/UV)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "description": "`time() - last_success`:小时级任务正常应当 \u003c= 1h 多一点。值特别大(约等于当前 unix 秒)就是那个 0 —— 本进程从未成功聚合过,而不是「这小时没人来」;查询失败的那一格不落 0,所以数会一直挂在旧值上,靠这块盘自证。",
+      "targets": [
+        {
+          "expr": "time() - max(ihui_traffic_aggregation_last_success_timestamp_seconds{instance=~\"$instance\"})",
+          "legendFormat": "距今",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 7200
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 9
+    },
+    {
+      "title": "族分解是否被 UA 种类预算截断(1 = 族值只是下界)",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "description": "族分解走 `GROUP BY user_agent` 且输出行数钉在预算内(UA 是开放集)。命中预算就只折 PV 最高的那批并显式置 1 —— 宁可少算且写明,不悄悄把下界当总数。PV/UV 那两格不受影响(不带分组,是精确值)。",
+      "targets": [
+        {
+          "expr": "max by (window, source) (ihui_traffic_family_breakdown_truncated{instance=~\"$instance\"})",
+          "legendFormat": "{{window}}/{{source}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 10
     }
   ],
   "refresh": "30s",
