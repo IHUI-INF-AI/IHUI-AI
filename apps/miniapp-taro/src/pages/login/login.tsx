@@ -300,9 +300,12 @@ export default function Login() {
     } else {
       // 非微信/支付宝容器(含 H5):这里不跳转,只如实说明 + 给出同页就有的下一步。
       // 立因:原先这条 else 导到 handleSsoLogin(),而 web-view 里没有任何一方接管
-      // ihui-miniapp://sso/callback(pages/webview/index.tsx 的 onMessage 只有 logger.info),
-      // 跳过去必然拿不回登录态 = 死路;而手机号/邮箱验证码/密码三条在本页就是通的。
-      // 网页授权闭环(业务域名白名单 + 回跳接管)属另一票,本处不为它背书。
+      // ihui-miniapp://sso/callback,跳过去必然拿不回登录态 = 死路;而手机号/邮箱
+      // 验证码/密码三条在本页就是通的。
+      // 现状(2026-10-22/G-957 代码腿):小程序接收腿已就位 —— pages/webview 的 onMessage
+      // 接管 sso_code 回传并走 consumeSsoCode 换登录态;但 web 侧发送腿
+      // (wx.miniProgram.postMessage)与小程序后台业务域名白名单仍未落地,整条闭环
+      // 未通,本分支维持不导过去。
       Taro.showToast({ title: t('login.wechatUnavailable'), icon: 'none' })
     }
   }

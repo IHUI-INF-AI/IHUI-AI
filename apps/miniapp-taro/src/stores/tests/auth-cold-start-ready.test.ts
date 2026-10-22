@@ -46,7 +46,7 @@ const {
   launchCallbacks: [] as Array<(options?: { query?: Record<string, unknown> }) => void>,
   miniAppLoginMock: vi.fn(),
   isMiniAppEnvironmentMock: vi.fn((): boolean => true),
-  exchangeSsoCodeMock: vi.fn(async (): Promise<null> => null),
+  exchangeSsoCodeMock: vi.fn(async (_code?: string): Promise<null> => null),
   showToastMock: vi.fn(),
   fetchApiMock: vi.fn(async (): Promise<{ success: boolean }> => ({ success: false })),
 }))
@@ -81,7 +81,15 @@ vi.mock('@/utils/miniapp-login', () => ({
   isMiniAppEnvironment: isMiniAppEnvironmentMock,
 }))
 vi.mock('@/utils/wechat-login', () => ({ wechatLogin: vi.fn(async () => ({ success: true })) }))
-vi.mock('@/utils/sso', () => ({ exchangeSsoCode: exchangeSsoCodeMock }))
+// G-957 回传腿后 app.tsx 启动腿委托 consumeSsoCode;桩按真实链在 exchangeSsoCodeMock 上实现,
+// 保持"带 sso_code 启动 ⇒ 恰好一次换票"的判据原样可测。
+vi.mock('@/utils/sso', () => ({
+  exchangeSsoCode: exchangeSsoCodeMock,
+  consumeSsoCode: async (code: string) => {
+    if (!code) return false
+    return (await exchangeSsoCodeMock(code)) !== null
+  },
+}))
 vi.mock('@/api', () => ({
   getProfile: vi.fn(async () => null),
   loginByWechat: vi.fn(async () => null),

@@ -4,10 +4,11 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, WebView } from '@tarojs/components'
-import { navigateTo, useRouter, setNavigationBarTitle, getStorageSync } from '@tarojs/taro'
+import { navigateTo, useRouter, setNavigationBarTitle, getStorageSync, reLaunch } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
 import { logger } from '@/utils/logger'
+import { consumeSsoCode, extractSsoCodeFromWebviewMessages } from '@/utils/sso'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** 导航到 webview 页面并加载指定 URL(title 可选:带上后导航栏显示功能名而非空白) */
@@ -71,9 +72,31 @@ export default function WebviewIndex() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次,load 依赖 t/setState 但无需重跑
   }, [])
 
-  // 接收 H5 页面 postMessage 的消息(对标原项目 handleWebviewMessage)
+  // SSO 回传腿接管(G-957):H5 页登录完成后用 wx.miniProgram.postMessage 回传
+  // sso_code,微信在「后退/组件销毁/分享」时机把消息投给 bindmessage。
+  // 收到即走 consumeSsoCode 换登录态(与 app.tsx 启动腿同一出口),成功后 600ms reLaunch
+  // 首页(与登录页微信登录成功路径同形)。ref 防重:消息数组在销毁时机可能整批重投。
+  const ssoReturnInflightRef = useRef(false)
   const handleWebviewMessage = (e: unknown) => {
     logger.info('webview', 'message', String(e))
+    if (ssoReturnInflightRef.current) return
+    const detail = (e as { detail?: { data?: unknown } })?.detail
+    const code = extractSsoCodeFromWebviewMessages(detail?.data)
+    if (!code) return
+    ssoReturnInflightRef.current = true
+    void consumeSsoCode(code, () => t('login.loginSuccess'))
+      .then((ok) => {
+        if (ok) {
+          setTimeout(() => reLaunch({ url: '/pages/index/index' }), 600)
+        } else {
+          // 换票失败(code 过期/网络异常):释放防重锁,允许用户重试回传
+          ssoReturnInflightRef.current = false
+        }
+      })
+      .catch((err: unknown) => {
+        logger.warn('webview', 'sso 回传消费异常', String(err))
+        ssoReturnInflightRef.current = false
+      })
   }
 
   // web-view 加载完成回调(对标原项目 onWebviewLoad)
