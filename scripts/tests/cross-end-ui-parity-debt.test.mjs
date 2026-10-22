@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ as L } from '../cross-end-ui-parity-debt.mjs'
 
-const { debtOf, langMismatch, buildRows, diffAgainst, uncoveredDimensions } = L
+const { debtOf, langMismatch, buildRows, diffAgainst, uncoveredDimensions, waiverState } = L
 const HERE = dirname(fileURLToPath(import.meta.url))
 
 const fam = (name, o = {}) => ({
@@ -126,8 +126,54 @@ describe('uncoveredDimensions:门加维必须喊出来', () => {
   })
 })
 
-describe('在册快照与源脚本口径一致', () => {
-  const snapshot = () =>
+describe('waiverState:已裁决 ≠ 待修,但"验过才免"且会到期(§0.7)', () => {
+  const today = '2026-10-23'
+  const w = (o) => ({ X: o })
+
+  it('W1 有原因 + 未过期 ⇒ 已裁决,不得计进待修', () => {
+    const s = waiverState('X', w({ reason: '一端多元素', until: '2027-03-27' }), today)
+    assert.equal(s.waived, true)
+    assert.equal(s.until, '2027-03-27')
+  })
+
+  it('W2 豁免到期 ⇒ 自动回到待修(不是"登记过就永远免")', () => {
+    const s = waiverState('X', w({ reason: '一端多元素', until: '2026-10-22' }), today)
+    assert.equal(s.waived, false)
+    assert.equal(s.expired, true)
+  })
+
+  it('W3 没有终态的豁免不算豁免(无期限豁免是本仓记过最多次的死角)', () => {
+    const s = waiverState('X', w({ reason: '一端多元素' }), today)
+    assert.equal(s.waived, false)
+    assert.equal(s.noExpiry, true)
+  })
+
+  it('W4 没登记、或登记了空原因 ⇒ 一律未裁决', () => {
+    assert.equal(waiverState('X', {}, today).waived, false)
+    assert.equal(waiverState('X', w({ reason: '   ', until: '2027-03-27' }), today).waived, false)
+  })
+
+  it('W5 buildRows 把豁免投影进每一行,待修/已裁决两个数分得开', () => {
+    const json = {
+      findings: [fam('Waived', { geometry: 9 }), fam('Open', { geometry: 4 })],
+    }
+    const waivers = {
+      Waived: { reason: '机制差异', until: '2027-03-27' },
+      Open: { reason: '机制差异', until: '2020-01-01' },
+    }
+    const rows = buildRows(json, waivers, today)
+    const by = Object.fromEntries(rows.map((r) => [r.name, r]))
+    assert.equal(by.Waived.waived, true)
+    assert.equal(by.Open.waived, false)
+    assert.equal(by.Open.waiverExpired, true)
+    const total = rows.reduce((acc, r) => acc + r.debt, 0)
+    const waivedTotal = rows.filter((r) => r.waived).reduce((acc, r) => acc + r.debt, 0)
+    assert.equal(total, 13)
+    assert.equal(total - waivedTotal, 4)
+  })
+})
+
+describe('在册快照与源脚本口径一致', () => {  const snapshot = () =>
     JSON.parse(readFileSync(resolve(HERE, '../cross-end-ui-parity-debt.json'), 'utf8'))
 
   it('T12 快照声明的 dimensions 与源脚本 DIMENSIONS 同集(改维必须同批改档)', () => {
