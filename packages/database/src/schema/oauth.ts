@@ -12,8 +12,10 @@ import {
   boolean,
   jsonb,
   index,
+  uniqueIndex,
   unique,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { users } from './users.js'
 
 /**
@@ -177,6 +179,11 @@ export const userThirdPartyAccounts = pgTable(
   (t) => ({
     userIdx: index('user_third_party_user_idx').on(t.userId),
     platformIdx: index('user_third_party_platform_idx').on(t.platform, t.openId),
+    // 一次微信只能有一条活绑定(并发双扫会插两行,之后 limit(1) 命中哪条由库决定)。
+    // 部分索引:软删行要留痕、空/NULL open_id 由代码层判据堵,见迁移正文。
+    platformOpenidLiveUniq: uniqueIndex('user_third_party_platform_openid_live_uidx')
+      .on(t.platform, t.openId)
+      .where(sql`${t.deletedAt} IS NULL AND ${t.openId} IS NOT NULL AND ${t.openId} <> ''`),
   }),
 )
 
