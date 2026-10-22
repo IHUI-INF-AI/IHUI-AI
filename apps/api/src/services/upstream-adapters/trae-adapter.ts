@@ -71,14 +71,27 @@ const TRAE_MODEL_LIST_URL = 'https://trae-api-cn.mchost.guru/api/ide/v1/model_li
 const WEB_ORIGIN = 'https://solo.trae.cn'
 const WEB_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36'
+/** 线上 web 客户端版本(index.html 的 window.gfdatav1.ver;bundle 展示层从未硬编码) */
+const WEB_APP_VERSION = process.env.TRAE_WEB_APP_VERSION?.trim() || '1.0.0.315'
+/** web 客户端上报的浏览器时区(Intl 结果;容器无 tzdata 时回落 CN 默认值) */
+const WEB_TIMEZONE =
+  process.env.TRAE_USER_TIMEZONE?.trim() ||
+  Intl.DateTimeFormat().resolvedOptions().timeZone ||
+  'Asia/Shanghai'
 
-/** web 渠道请求头(全部必需;accept='sse' 时 events 请求用 Accept 替代 Content-Type) */
+/**
+ * web 渠道请求头(线上实证:solo.trae.cn main bundle 858726/857014)。
+ * - CN 配置 `includeUserRegionHeader:false` ⇒ 不发 `x-user-region`(多发即指纹偏差)
+ * - `X-Trae-User-Timezone` 是浏览器 Intl 实时值,固定为 Asia/Shanghai 属可接受近似
+ * - `X-Trae-Authorized-Services` 只在账号有 LINKED provider 时发送;本网关无此概念 ⇒ 不发
+ * - 全链路无签名/nonce/hmac,设备头只出现在企业 frontier 链路,web chat 零 device-id
+ */
 function buildWebHeaders(jwt: string, accept: 'json' | 'sse'): Record<string, string> {
   const headers: Record<string, string> = {
     Authorization: `Cloud-IDE-JWT ${jwt}`,
     'X-Trae-Client-Type': 'web',
     'X-Preferenced-Language': 'zh-CN',
-    'x-user-region': 'CN',
+    'X-Trae-User-Timezone': WEB_TIMEZONE,
     Origin: WEB_ORIGIN,
     Referer: `${WEB_ORIGIN}/`,
     'User-Agent': WEB_USER_AGENT,
@@ -159,21 +172,30 @@ function buildCreatePayload(
   const model = req.model ?? ''
   const isWork = model.endsWith('-work')
   const isAuto = model === 'auto'
-  const commonParams = {
+  // 登录态标识:uid 由导入时从 JWT `data.id` 解析;`auto:` 前缀 = 解不出(未登录形态)⇒ 不发
+  const userId = accountId.startsWith('auto:') ? '' : accountId
+  const commonParams: Record<string, unknown> = {
     language: 'zh-cn',
-    app_language: 'zh-CN',
+    app_language: 'zh-cn',
     quality: 'stable',
-    app_version: '1.0.0.1229',
+    app_version: WEB_APP_VERSION,
     user_identity: 'Free',
     is_freshman: '0',
-    scope: 'marscode-cn',
+    // CN 配置 teaScope/teaTenant 均为 marscode(8974:22591);旧值 marscode-cn 不存在于 bundle
+    scope: 'marscode',
     tenant: 'marscode',
     region: 'cn',
     aiRegion: 'CN',
     is_privacy_mode: 0,
     privacy_mode: 'off',
-    solo_chat_mode: 'code',
+    // 线上 `solo_chat_mode:(t=d.mode)?t:""` —— 跟随 code/work,不是固定 code
+    solo_chat_mode: isWork ? 'work' : 'code',
     biz_session_id: deriveBizSessionId(accountId, model),
+  }
+  if (userId) {
+    // 登录用户上下文(main bundle 890993):biz_user_id / user_unique_id 同源 userId
+    commonParams.biz_user_id = userId
+    commonParams.user_unique_id = userId
   }
 
   // response_format 兜底:上游无此字段。json_schema 已由网关注入过同文案提示,
@@ -547,7 +569,9 @@ export const traeAdapter: RelayUpstreamAdapter = {
       await fetchImpl(stopUrl, {
         method: 'POST',
         headers: buildWebHeaders(jwt, 'json'),
-        body: '{}',
+        // 线上 stopSession({chat_session_id, user_message_id})(8974:1005545);
+        // 缺 user_message_id 时上游只返回 code -1(找不到最后一条用户消息)
+        body: JSON.stringify({ chat_session_id: chatSessionId, user_message_id: messageId }),
       }).then(async (r) => {
         await r.body?.cancel()
       })
@@ -711,6 +735,7 @@ export type FailureKind =
   | 'auth'
   | 'credit'
   | 'session_dead'
+  | 'risk'
   | 'rate'
   | 'not_found'
   | 'request'
@@ -761,17 +786,73 @@ const REQUEST_HINTS = [
   '审核',
   '敏感',
 ] as const
+/** 风控类提示词:文本面兜底(错误码解析不到时才看它) */
+const RISK_HINTS = [
+  '风险',
+  '风控',
+  '账号异常',
+  '设备异常',
+  '环境异常',
+  'risk control',
+  'risk_control',
+  'account risk',
+  'banned',
+] as const
+
+/**
+ * 官方/社区实证的风控业务码(Trae 错误体形如 {code:4015,message:...})。
+ * - 4015 账号或 IP 风险 / 4010 风险账号自动登出 / 4013 IP 地区禁用 / 4019 设备或签到风险
+ * - 3004 / 4007 限流;4008 额度耗尽;4011 / 4021 日上限
+ */
+const RISK_CODES = new Set([4010, 4013, 4015, 4019])
+const RATE_CODES = new Set([3004, 4007])
+const CREDIT_CODES = new Set([4008, 4011, 4021])
+
+function pickUpstreamCode(body: unknown, depth = 0): number | null {
+  if (body === null || typeof body !== 'object' || depth > 3) return null
+  const o = body as Record<string, unknown>
+  for (const key of ['code', 'error_code', 'status_code']) {
+    const v = o[key]
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string' && /^-?\d{3,7}$/.test(v)) return Number(v)
+  }
+  for (const key of ['error', 'data', 'response', 'result']) {
+    const nested = pickUpstreamCode(o[key], depth + 1)
+    if (nested !== null) return nested
+  }
+  return null
+}
+
+/** 从错误体提取 Trae 业务码:优先 JSON,兜底 `code:4015` 文本扫描(抛出异常时只剩 message) */
+export function extractUpstreamCode(bodyText: string): number | null {
+  try {
+    const parsed: unknown = JSON.parse(bodyText)
+    const code = pickUpstreamCode(parsed)
+    if (code !== null) return code
+  } catch {
+    /* 非 JSON 体走文本扫描 */
+  }
+  const m = /"?code"?\s*[:=]\s*"?(-?\d{3,7})\b/i.exec(bodyText)
+  return m && m[1] !== undefined ? Number(m[1]) : null
+}
 
 function hitsAny(lowerText: string, hints: readonly string[]): boolean {
   return hints.some((h) => lowerText.includes(h))
 }
 
 /**
- * 上游失败分类:先按文本判 credit/session_dead(避免被 400 等状态掩盖),再按状态码。
+ * 上游失败分类:先看业务错误码(4015/4019/4010/4013 等),再看文本与 HTTP 状态。
  * 0 状态且文本无命中 → network;其余未知 → client。
  */
 export function classifyUpstreamFailure(status: number, bodyText: string): FailureKind {
   const lower = bodyText.toLowerCase()
+  const code = extractUpstreamCode(bodyText)
+  if (code !== null) {
+    if (RISK_CODES.has(code)) return 'risk'
+    if (RATE_CODES.has(code)) return 'rate'
+    if (CREDIT_CODES.has(code)) return 'credit'
+  }
+  if (hitsAny(lower, RISK_HINTS)) return 'risk'
   if (hitsAny(lower, CREDIT_HINTS)) return 'credit'
   if (hitsAny(lower, SESSION_DEAD_HINTS)) return 'session_dead'
 
