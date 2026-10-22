@@ -2209,13 +2209,18 @@ function extractFrontendCalls(src, file, opts) {
   // 直接看原文会栽在两处:① 注释里写 `// 见 fetch('/api/x')` 的行;② 字符串里嵌 `'/api/a2a/'` 字样。
   // `maskComments` 保留字符串、整段删行注释、块注释等长换空白 ⇒ 行号/列位不漂,可安全按行取。
   const maskedLines = maskComments(src).split('\n')
+  // G-962 机制⑥补刀:e2e 源码锁断言 `expect(s).toContain("'/api/…'")` 同型 —— 谓词名单
+  // 缺 toContain、且实参是「双引号包单引号」的两层引号,旧式 `['"`]\/api\/` 贴不住。
   const STRING_PREDICATE_RE =
-    /\.\s*(?:includes|startsWith|endsWith|contains|match|replace|split|indexOf|search)\s*\(\s*['"`]\/api\//
+    /\.\s*(?:includes|startsWith|endsWith|contains|toContain|match|replace|split|indexOf|search)\s*\(\s*['"`]{1,2}\/api\//
   lines.forEach((line, idx) => {
     const maskedLine = maskedLines[idx] ?? ''
     let m
     pathRe.lastIndex = 0
-    while ((m = pathRe.exec(line)) !== null) {
+    // G-962 机制⑥:扫描面必须是**遮罩行**。旧式跑原文 ⇒ 注释里的 `fetchApi('/api/x')`
+    // 照样进调用集(use-auth.ts:64「原实现裸调」说明、feedback-survey-card.tsx:16 端点
+    // 说明、mobile-rn config.ts:32 JSDoc 实证)。maskComments 等长换空白,列位不漂。
+    while ((m = pathRe.exec(maskedLine)) !== null) {
       const rawPath = m[1]
       // 跳过非 API 路径（如 /api/health 这种纯字面量但被误捕）
       if (!rawPath.startsWith('/api/')) continue
@@ -2268,7 +2273,7 @@ function extractFrontendCalls(src, file, opts) {
       //   ⇒ cli 端行为逐字不变(纯增益、零新增假阳)。
       const isPathConstDecl =
         /^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z0-9_$]+\s*=\s*['"`]\/api\/[^'"`]+['"`];?\s*$/.test(
-          line,
+          maskedLine,
         )
       const positional = cliShapes ? cliPositionalMethod(lines, idx) : null
       const method = positional || (isPathConstDecl ? 'ANY' : inferMethodAtLine(lines, idx))
@@ -2961,7 +2966,7 @@ function extractBackendRoutes() {
       srcCache.set(rel, s)
       pyFace.set(rel, s)
     }
-    const { byModule, byFile } = buildPyIncludeMaps(pyFace, AI_SERVICE_MAIN_FILE)
+    const { byModule, byFile } = buildPyIncludeMaps(pyFace)
     for (const rel of routerFiles) {
       const src = srcCache.get(rel)
       if (src === undefined) continue
@@ -4655,7 +4660,15 @@ function collectShapeUnknownSites(rel, end, src) {
     else if (importOnly) note = 'import/export 语句(路径住在被引模块内)'
     else note = '传输口在代码里、路径抽不出(形态见原文)'
     if (maskedHits > 0 && !importOnly) callLike = true
-    sites.push({ line: i + 1, text: lines[i].trim().slice(0, 110), note })
+    // 注释态站点不引原文(G-962 机制⑥镜像锁:注释里的路径不得出现在任何报名里 ——
+    // 报名 = file:line + 形态 + 标签,证据文字不是点名的必要条件;引原文会把
+    // `fetchApi('/api/ghost/…')` 型说明注释的路径 echo 进报告,读报告的人无从
+    // 区分"这是盲区标签"还是"这是被点名的调用"。计数口径一字未动,只改打印面。)
+    sites.push({
+      line: i + 1,
+      text: maskedHits === 0 ? '〔注释行,原文不引(防路径进报名)〕' : lines[i].trim().slice(0, 110),
+      note,
+    })
   }
   return {
     end,
