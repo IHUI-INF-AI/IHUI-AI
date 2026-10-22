@@ -124,11 +124,15 @@ export function planRow(line, rec, { maxLen = MAX_LEN } = {}) {
   // 删散文会挪复合主键时由下面守恒断言拒绝 —— 那是"不许删"的闸,不是注释里的承诺。
   const cut = span ? cutOwnerProse(rest, owner) : null
   if (cut) rest = cut.line
+  // **预算只拦"新增长行"**,不是"候选超预算就拦":门 63(`scripts/check-plan-row-length.mjs`)的
+  // 违规身份是 `violationKey` = 复合主键(编号 + 题面前缀),存量长行被改写时仍按同一主键认作存量。
+  // 所以"原行本就 >maxLen、候选也 >maxLen"不是新增,拦它只会让存量长行永远投不了影;
+  // 只有"原行 ≤maxLen 而候选 >maxLen"才会让门 63 读到一条新的超长主键。
   const candidate = prefix[0] + want + ' ' + rest
-  if (candidate.length > maxLen)
+  if (candidate.length > maxLen && line.length <= maxLen)
     return {
       action: 'skip',
-      reason: `投影后 ${candidate.length} 字 > 预算 ${maxLen}(差值棘轮会把这算成我新增的违规)`,
+      reason: `投影后 ${candidate.length} 字 > 预算 ${maxLen},而原行 ${line.length} 字本就在预算内 ⇒ 会新增一条长行(门 63 按复合主键认领存量,改写存量长行不算新增)`,
       len: candidate.length,
     }
 
@@ -311,8 +315,17 @@ function selfTest() {
     'T4 不等价就不动',
     planRow(mismatch, { ...rec, key: compositeKeyOf(mismatch) }).action === 'skip',
   )
-  const long = '- [ ] **G-3 丙题** 归属:门 130 持有人 ' + '细'.repeat(397)
-  ok('T5 顶预算不动', planRow(long, { ...rec, key: compositeKeyOf(long) }).action === 'skip')
+  const near = '- [ ] **G-3 丙题说明** 不归本线 ' + '细'.repeat(373)
+  const pNear = planRow(near, {
+    ...rec,
+    key: compositeKeyOf(near),
+    waiting: 'env',
+    blocking: '细'.repeat(33),
+  })
+  ok(
+    'T5 原行在预算内被顶过预算 ⇒ 不动(只有这一档才会新增长行)',
+    near.length <= 400 && pNear.action === 'skip' && /原行/.test(pNear.reason ?? ''),
+  )
   ok(
     'T6 无信息记录不造空标头',
     planRow('- [ ] **G-4 丁题** x', {
