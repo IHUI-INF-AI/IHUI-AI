@@ -14650,7 +14650,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 <!-- 已归档(2026-10-15:✅(2026-10-15)  G-100 **分支代 fencing:rewind/fork 之后旧生命的唤醒必须被代戳,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-15:✅(2026-10-15)  G-101 **权限授权两阶段提交:receipt 幂等 + 范围快照钉死 + 崩溃后重放,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-15:✅(2026-10-15)  G-102 **内容失败与传输失败分档,且"有内容失败"不得被后续瞬态失败洗白**(上游 ,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
-- [ ] G-107 **解 fail-closed 闸门只认权威信封字段,不认 RPC 时序;判"要不要重订阅"只认封闭 reason-code 集**(上游实测锚点:`packages/ui/src/v4/topicWireDecoder.ts:80-92`(区间含 `recovery`:route 已 fail-closed 时 `if (wire.deliveryKind !== "recovery") return;`,注释写明"deliveryKind 是 publisher 权威信封事实,因此只有 exact recovery 可原子解 gate,绝不按 RPC 时序猜测")、`:93-100`(`recover()` 只解门、保留 assembler settled ordinal ⇒ 迟到旧片仍静默丢) 〔压缩@2026-10-22〕
+- [ ]（进行中@2026-10-22/goal-20261022） G-107 **解 fail-closed 闸门只认权威信封字段,不认 RPC 时序;判"要不要重订阅"只认封闭 reason-code 集**(上游实测锚点:`packages/ui/src/v4/topicWireDecoder.ts:80-92`(区间含 `recovery`:route 已 fail-closed 时 `if (wire.deliveryKind !== "recovery") return;`,注释写明"deliveryKind 是 publisher 权威信封事实,因此只有 exact recovery 可原子解 gate,绝不按 RPC 时序猜测")、`:93-100`(`recover()` 只解门、保留 assembler settled ordinal ⇒ 迟到旧片仍静默丢) 〔压缩@2026-10-22〕
 <!-- 已归档(2026-10-15:✅(2026-10-15)  G-108 **列表稳定化不得按 `JSON.stringify` 键序判等;派生列表的版,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-15:✅(2026-10-15)  G-114 **hook 只能"拦"不能"答"是我方审批链缺的半边:modify + Pe,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
 <!-- 已归档(2026-10-15:✅(2026-10-15)  **G-117 台账脏号的真实边界:232 行畸形号一行都不能机械修、112 组撞号两侧都,完整内容在 .ihui-agent/archive/PROJECT_PLAN_ARCHIVE.md -->
