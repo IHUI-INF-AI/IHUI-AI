@@ -610,6 +610,11 @@ async def _new_v2_loop(
         compaction_context_limit=resolve_with_env_priority(model),
         # V3 #84 生产者侧:耐久视野声明透传(唯一构造入口,三处调用点共用这一份)。
         durable_horizon_seconds=durable_horizon_seconds,
+        # G-941(2026-10-22):链标签落生产者侧 —— 本构造点是主执行链,标 "main"。
+        # 账本增量基线按 (chain, tool_name) 分桶(G-816021),此前生产无传参点导致
+        # 条目 chain 恒空、子代理与主链共用 llm 桶而少计。run_id 不可作判别维度:
+        # recorder 的 run 键回退 session_id,子代理经编排共享父会话 ⇒ 同键不可分。
+        chain="main",
     )
 
 

@@ -13,6 +13,9 @@
  *     有牙,等于没有牙(§22c 那条"镜像测试只复读实现就是复读机"讲的就是这一格)。
  *  5. (2026-10-19 补)D5「barrel 同名导出重复」四格成对 + 真仓历史 blob(2225fccfdb8)阳性对照 ——
  *     这枚重复四次复发、最近一次正是 union 合并两侧都收,防回灌必须钉在提交口与审面两道。
+ *  6. (2026-10-22 补,票面 G-13)D6「错名 .js 影子架空 .ts 说明符映射」夹具正反成对 + 端到端计数行 ——
+ *     同名并存对必报(不管有没有人指向),而 ./x.js→x.ts 的正常约定拼法、JS 侧字面导入与 .d.ts 声明
+ *     同伴三型不得误报(误报 = 恒红门,§12e)。
  */
 import { execFileSync } from 'node:child_process'
 import { test } from 'node:test'
@@ -39,6 +42,7 @@ import {
   auditTree,
   auditDuplicateBarrelExports,
   D5_BARREL_RE,
+  __test__ as D6KIT,
   SELF_SKIP as GATE_SKIP_ENV,
 } from '../check-dangling-local-imports.mjs'
 
@@ -596,5 +600,74 @@ test('--rev 接线形状锁:revMain 不得被摘,SELF_SKIP 忽略必须有注释
   assert.match(src, /requireFlagValue\(argv, '--rev'/, "--rev 必须仍走 flag-value 共享出口(坏值不猜默认面)")
   assert.match(src, /if \(REV\) return revMain\(REV, ANCHOR_OPT/, '取值必须直连 revMain(接线不被摘)')
   assert.match(src, /SELF_SKIP.*在这一档不吃|在这一档不吃.*SELF_SKIP/)
+})
+
+/**
+ * D6「错名 .js 影子架空 .ts 说明符映射」(票面 G-13,2026-10-22 立)的夹具正反成对。
+ *
+ * 钉的是票面点名的两格:同名并存对**必报**(不管有没有人指向 —— D4 把"无人指向"留作只报数,
+ * 而把影子放进 HEAD 的那一刻陷阱已经成立),而 `./x.js`→`x.ts` 的正常约定拼法**不得误报**
+ * (本仓 1856 个 `.js` 落点的绝大多数是这一型,误报 = 恒红门 = 逼人 --no-verify,§12e)。
+ * 三型反例同样不可省:`.js` 侧消费方的字面导入(eslint-config 族真例 6 枚)、`x.js` + `x.d.ts`
+ * 单源形态(design-tokens 真例 2 枚)、`.jsx` 同伴(门体现有口径不算)—— 它们与 D4 头注里
+ * "把 2 处真合规判成红"记的是同一批边界。
+ */
+test('D6 夹具正反成对:同名并存必报,./x.js→x.ts 正常解析与 JS 侧字面导入不得误报', () => {
+  const { auditWrongNameShadow, mergeWrongName } = D6KIT
+  // ① 正例(判据 a):同名对入库、无人经 `.js` 说明符指向 ⇒ 仍报 —— 与 D4 的 deadPairs 恰成对照
+  const pair = auditWrongNameShadow([], new Set(['q/x.js', 'q/x.ts', 'q/i.ts']))
+  assert.deepEqual(pair.coexist, ['q/x.js'], '同名并存对必须进形态清单')
+  assert.equal(pair.byFile.size, 1, '同名并存必须判红 1 处(不管有没有人指向)')
+  assert.equal(pair.byFile.get('q/x.js')[0].rule, 'D6')
+  // ①' 同伴口径 = 门体现有口径:`.tsx` 算,`.jsx`/`.d.ts` 不算
+  assert.equal(auditWrongNameShadow([], new Set(['t/x.js', 't/x.tsx'])).byFile.size, 1, '.tsx 同伴算并存')
+  assert.equal(auditWrongNameShadow([], new Set(['d/x.js', 'd/x.d.ts'])).byFile.size, 0, 'x.js + x.d.ts 是已发布包正常形态,不得误判')
+  assert.equal(auditWrongNameShadow([], new Set(['j/x.js', 'j/x.jsx'])).byFile.size, 0, '.jsx 不是门体现有口径的同伴,不得误判')
+  // ② 反例(票面点名的正常格):库里只有 x.ts,TS 侧写 `./x.js` ⇒ 解析改写成 .ts,不误报
+  const normal = auditWrongNameShadow([{ target: 'n/x.js', by: 'n/i.ts', line: 1, spec: './x.js' }], new Set(['n/x.ts', 'n/i.ts']))
+  assert.equal(normal.byFile.size, 0, '正常 ./x.js→x.ts 解析不得误报(本仓绝大多数落点是这一型)')
+  assert.deepEqual(normal.literalWin, [])
+  assert.deepEqual(normal.coexist, [], 'x.js 未入库 ⇒ 不存在并存对(有向存在性判据,与 D4 同口径)')
+  // ③ 正例(判据 b):TS 侧 `./x.js` 解析目标就是入库 .js 自身(无同 stem .ts/.tsx/.d.ts)⇒ 报
+  const bare = auditWrongNameShadow([{ target: 'b/x.js', by: 'b/i.ts', line: 3, spec: './x.js' }], new Set(['b/x.js', 'b/i.ts']))
+  assert.equal(bare.byFile.size, 1, '错名落点必须判红')
+  assert.deepEqual(bare.literalWin, ['b/x.js'])
+  assert.match(bare.byFile.get('b/x.js')[0].hint, /b\/i\.ts:3/, '必须点名消费方,否则无人能就地修')
+  // ④ 反例(JS 侧消费方):eslint-config 族 —— JS 导 JS 是字面导入,没有 .ts 映射可被架空
+  const jsSide = auditWrongNameShadow([{ target: 'e/x.js', by: 'e/i.js', line: 1, spec: './x.js' }], new Set(['e/x.js', 'e/i.js']))
+  assert.equal(jsSide.byFile.size, 0, 'JS 侧字面导入不得误报(真仓 8 枚合规命中里 6 枚是这一型)')
+  // ⑤ 反例(.d.ts 同伴):解析落在声明文件 ⇒ 约定映射仍在岗(真仓 radius/geometry 的形状)
+  const decl = auditWrongNameShadow([{ target: 'r/x.js', by: 'r/i.ts', line: 1, spec: './x.js' }], new Set(['r/x.js', 'r/x.d.ts', 'r/i.ts']))
+  assert.equal(decl.byFile.size, 0, '.d.ts 声明同伴是本门既有口径的正常形态')
+  // ⑥ 判据与形态清单只许走 __test__ 这一份实现(§22c),且违规并进同一张表(锚点/打印/退出码一套语义)
+  assert.deepEqual(D6KIT.SHADOW_PARTNERS, ['.ts', '.tsx'], '同伴清单必须从门体取,镜像不得另抄一份')
+  const byFile = new Map([['q/x.js', [{ rule: 'D1' }]]])
+  mergeWrongName(byFile, pair)
+  assert.deepEqual(byFile.get('q/x.js').map((v) => v.rule), ['D1', 'D6'], 'D6 与 D1..D5 同表追加,不顶掉既有违规')
+})
+
+/**
+ * D6 的端到端计数行(与 D4/D5 同取向):**覆盖面为 0 必须如实报 0,而不是缺行**。
+ * 票面现读(2026-10-22):同名并存对 0、TS 侧说明符解析到入库 .js 自身 0 ⇒ 扩这一维不新增恒红面,
+ * HEAD 面整门仍 exit 0。缺行 = 这一维没上岗,"判红候选 0"就成了空话(本门别名表那段记的同一型)。
+ */
+test('D6 端到端计数行:HEAD 面两判据均 0 且整门 exit 0(覆盖面 0 不变红)', () => {
+  const { rc, out } = runGuard()
+  assert.equal(rc, 0, `HEAD 面整门应 exit 0,实得 rc=${rc}:${out.slice(-600)}`)
+  const m =
+    /D6 错名影子:同名并存 \.js \+ \.ts\/\.tsx (\d+) 对 \| TS 侧 '\.js' 说明符解析到入库 \.js 自身 (\d+) 处 \| 判红候选 (\d+) 处/.exec(
+    out,
+  )
+  assert.ok(m, `报告缺 D6 计数行 ⇒ 这一维没上岗:${out.slice(0, 400)}`)
+  assert.equal(Number(m[1]), 0, `HEAD 面出现 ${m[1]} 对同名并存 ⇒ 影子 .js 又进了库(票面现读为 0,零容忍)`)
+  assert.equal(Number(m[2]), 0, `HEAD 面出现 ${m[2]} 处 TS 侧说明符解析到入库 .js 自身 ⇒ 错名映射已被架空`)
+  assert.equal(Number(m[3]), 0, '判红候选必须为 0(非零时门已 exit 1,走到这里说明口径分叉)')
+  // 接线形状锁:D6 必须并进全量/staged/files/--rev 四张同一通道,且 __test__ 出口在入口守卫之后(§22d)
+  const src = readFileSync(GUARD, 'utf8')
+  assert.match(src, /mergeWrongName\(byPending, wnPending\)/, 'D6 必须并进同一张违规表(锚点/打印/退出码只一套)')
+  assert.match(src, /mergeWrongName\(byFile, wrongName\)/, '--rev 两面共用 auditOneFace,D6 必须同表接进去')
+  const guardPos = src.search(/if \(isDirectRun\)/)
+  const kitPos = src.search(/export const __test__ = \{/)
+  assert.ok(guardPos >= 0 && kitPos > guardPos, '§22d:__test__ 的 export 必须在入口守卫之后(位置本身是判据)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
