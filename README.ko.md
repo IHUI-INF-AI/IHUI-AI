@@ -2176,6 +2176,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 📚 문서:翻勾守门104 cloudflared存量红收尾条目(记录pg-backup影子漂移同步)+归并活文档重复登记+README测试文件数对齐现算3029 (6299c2911a)
+
+**2026-10-22**
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (56a54d2fd0)
 - 📚 문서:登记 Cloudflare service token 明文本机暴露(6 处副本)待轮换 (915b16d2d2)
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f813b056a8)
@@ -2265,9 +2268,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 - 🔧 기타:D22046 回池——超池声明换池内号并留原号尾注 (d5b1b50728)
 - ♻️ 리팩터:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0006121770)
 - 🔧 기타:goal-20261022 结清 tmpdir7/G-922 + 认领批次②12 票 (576ee30ee5)
-
-**2026-10-22**
-- ♻️ 리팩터:四枚裸 git 派生生产文件改走 face-reader gitRaw(G-927 棘轮降档第一批) (c9462d236d)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
