@@ -29,6 +29,18 @@ test.describe('冒烟测试', () => {
     })
   })
 
+  test('登录入口 /login 走弹窗形态,不整页落到 SSO 授权页也不白屏', async ({ page }) => {
+    // 2026-10-22 摘掉 /login→/sso/login 的 308 后,/login 是软路由:开全局登录弹窗 + 回前一页
+    // (新标签直链无来路时降级首页)。这条只在 CI 的 build+start 面有意义(本机常驻 dev 仍持旧配置):
+    // ① 没有整页落到授权页 ② 不是白屏(有可见输入框) ③ 弹窗里的表单确实可达。
+    await page.goto('/login')
+    await page.waitForLoadState('domcontentloaded')
+    expect(page.url()).not.toContain('/sso/login')
+    await expect(page.locator('input:not([type="file"]):visible').first()).toBeVisible({
+      timeout: 15000,
+    })
+  })
+
   test('注册页可访问', async ({ page }) => {
     await page.goto('/register')
     await expect(page.locator('input:not([type="file"]):visible').first()).toBeVisible({
