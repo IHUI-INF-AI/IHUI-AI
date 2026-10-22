@@ -24,6 +24,7 @@
     "build": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.build.json",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "node ../../scripts/lib/atomic-build.mjs -p tsconfig.build.json && node --test tests/page-snapshot-contract.test.mjs",
     "prepack": "pnpm run build",
     "clean": "rimraf dist .turbo node_modules"
   },
