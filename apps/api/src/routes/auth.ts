@@ -56,6 +56,7 @@ import {
   consumeSendQuota,
   sendCodePreSerialization,
 } from '../utils/code-echo-guard.js'
+import { deliverSmsCode } from '../services/sms.js'
 import {
   evaluateLoginRisk,
   evaluateRisk,
@@ -366,6 +367,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
           },
+          502: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
       config: {
@@ -400,8 +405,13 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const code = generateCode()
       codeStore.set(phone, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
 
-      // 生产环境应接入短信服务商;当前开发模式记录日志
-      request.log.info({ phone, scene: parsed.data.scene }, '验证码已生成')
+      // 2026-10-22 根治:这里过去只写一行"验证码已生成"的日志,从不投递 ——
+      // 响应却回"已发送",于是用户永远在等那条根本不会来的短信。现在真发,且发不出去就如实报错。
+      const delivery = await deliverSmsCode(phone, code)
+      if (!delivery.sent) {
+        request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
+        return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
+      }
 
       // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
       return reply.send(success(buildSendCodePayload(request, code, CODE_TTL_MS / 1000)))
@@ -1474,7 +1484,12 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const code = generateCode()
       codeStore.set(phone, { code, expiresAt: now + CODE_TTL_MS, sentAt: now })
-      request.log.info({ phone, scene: parsed.data.scene }, '验证码已生成')
+      // 与 /send-code 同口径:真投递,失败如实报错(这支是小程序登录实际在打的端点)
+      const delivery = await deliverSmsCode(phone, code)
+      if (!delivery.sent) {
+        request.log.warn({ reason: delivery.reason, scene: parsed.data.scene }, '验证码投递失败')
+        return reply.status(502).send(error(502, '验证码发送失败,请稍后重试'))
+      }
       // G-192:默认不回显验证码;仅显式调试开关 + development 档 + loopback/内网三条件同时成立才回显
       return reply.send(success(buildSendCodePayload(request, code, CODE_TTL_MS / 1000)))
     },
