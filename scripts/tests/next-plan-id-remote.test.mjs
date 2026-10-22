@@ -17,6 +17,12 @@
  *  T3  --check 不发号 ⇒ 源码形状上它必须在远端读取之前分岔(不问远端,stdout/stderr 契约不变)。
  *  T4  真仓只读冒烟:--next-only 恒一行号且 exit 0;完整报告 exit 0(不断言具体号 —— 号是现读的,
  *      把它断死等于给并发会话造一台恒红)。
+ *  T7  G-955(2026-10-22):--check 对台账存量重号**点名报告但不顶死入口**(exit 0),两档读数
+ *      (逐字孪生 / 纯系列小节)措辞在场。
+ *  T8  G-14(2026-10-22)「同号占用不发」:发号路径必须吃全文件正则扫出的号集(FULLSCAN 形状锁 +
+ *      夹具单元 + 真仓端到端:--next-only 给的号在 HEAD 台账 ⊕ 工作树副本上必须零命中)。
+ *  T9  G-955「新增撞号仍须红」:登记行声明位同号多行 ⇒ judgeRowIdDuplicates 判红,且 --check 分支
+ *      以 exit 1 收场;括注内被引号(指针行)不算声明(G-955 病根的反证)。
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -24,6 +30,10 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+
+import { judgeRowIdDuplicates } from '../lib/plan-id-duplicates.mjs'
+import { smallestFreeId } from '../lib/plan-id-lease.mjs'
+import { git } from '../lib/bypass-git.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
@@ -113,5 +123,118 @@ test('T6 数字段提取必须走 key 而不是整串:带后缀的 key 不得把
   const numSrc = /const headingNum = \(key\) => Number\(\/\^O\(\\d\+\)\/\.exec\(key\)\[1\]\)/.test(TOOL_SRC)
   assert.ok(numSrc, 'headingNum 的实现必须是"取 ^O(\\d+) 的数字段"这一份(改成整串 Number 必得 NaN)')
   assert.equal(Number(/^O(\d+)/.exec(withSuffix)[1]), 62, `数字段提取实得 ${withSuffix} → ${Number(/^O(\d+)/.exec(withSuffix)[1])}`)
+})
+
+/**
+ * T7 —— G-955(2026-10-22)票面出路②③:台账存量重号(现读 7 组 O 族标题同 id)必须
+ * **点名报告但不以 exit 1 顶死独立取号入口**。断言只锁行为契约,不锁组数/组名 ——
+ * 存量归并线随时可能折掉某组,把它断死等于给并发会话造一台恒红(T4 同一条纪律)。
+ */
+test('T7 --check 对存量重号点名不顶死:exit 0 + 两档读数措辞在场(G-955)', () => {
+  const r = spawnSync(process.execPath, [CLI, '--check'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180_000,
+  })
+  assert.equal(r.status, 0, `--check 不得被存量重号顶死(独立取号入口必须可用):\n${r.stdout}\n${r.stderr}`)
+  assert.match(String(r.stdout), /无登记行重号/, '绿行必须说清判的是登记行声明位')
+  const m = /历史小节标题同 id (\d+) 组/.exec(String(r.stdout))
+  if (m) {
+    // 存量组在场时:必须点名(组列表非空)且写明两档处置口径
+    assert.match(String(r.stdout), /含逐字孪生副本 \d+ 组\((?!无)[^)]*\)/, '逐字孪生副本组必须点名,不得只报数')
+    assert.match(String(r.stdout), /纯系列小节 \d+ 组/, '纯系列小节一档必须在场')
+    assert.match(String(r.stdout), /两档只报数不判红/, '存量重号不得冒充判红')
+  }
+})
+
+/**
+ * T8 —— G-14(2026-10-22)「同号占用不发」回归。FULLSCAN 的字面量形状承重:从源码原样抽出复用
+ * (与 T5/T6 对 HEADING 同一手法),不在测试里抄第二份判据。
+ *  a) 形状锁:发号路径必须吃 liveUsed(标题 ∪ 行声明 ∪ 全文件扫描 HEAD 宽面 ∪ 工作树副本),
+ *     且建议号算术不得再按旧窄面给号;
+ *  b) 夹具单元:只活在正文引用里的号(`见 O777`)与行声明号 O778 都必须被扫描顶掉;
+ *  c) 真仓端到端:--next-only 发出的号,在 HEAD 台账 ⊕ 工作树副本上必须**零命中**(撞号正病的直接反证)。
+ */
+function fullScanReFromSource() {
+  const m = /^const FULLSCAN = (\/.*\/g)$/m.exec(TOOL_SRC)
+  assert.ok(m, 'FULLSCAN 必须是源码里那一条 /…/g 单行字面量(被折行/拆走 ⇒ 镜像测试失去意义)')
+  return new RegExp(m[1].slice(1, m[1].lastIndexOf('/')), 'g')
+}
+
+test('T8a 发号路径必须吃全文件扫描的实时占用面(G-14 形状锁)', () => {
+  const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
+  const fsDecl = TOOL_SRC.indexOf('const FULLSCAN = ')
+  assert.ok(fsDecl > checkBranch, '全文件扫描档必须在 --check 分岔之后(发号路径专属,G-955 契约不变)')
+  assert.match(TOOL_SRC, /const liveUsed = \[\.\.\.new Set\(\[\.\.\.poolUsed, \.\.\.scanHead, \.\.\.scanWork\]\)\]/, '占用集必须是 旧口径 ∪ HEAD 宽面扫描 ∪ 工作树扫描 的并集')
+  assert.match(TOOL_SRC, /smallestFreeId\(\{ usedNumbers: liveUsed/, '建议号必须按实时占用面算(还按 poolUsed 算就是没装车)')
+  assert.match(TOOL_SRC, /poolFreeList\(\{ usedNumbers: liveUsed/, '空闲表必须与发号同一把尺')
+  assert.match(TOOL_SRC, /readFileSync\(resolve\(ROOT, PLAN_PATH\)/, '实时面必须含工作树副本(他席未提交的登记活在右侧)')
+  assert.match(TOOL_SRC, /skippedByScan/, '命中换号被顶掉的号必须点名(出路①"把跳过的号点名打印")')
+})
+
+test('T8b 夹具单元:正文引用与行声明的号都必须顶掉建议号(G-14 同号占用不发)', () => {
+  const re = fullScanReFromSource()
+  const fixture = [
+    '- [ ] O778 行声明位的真号',
+    '正文里顺带引用了一句 见 O777 那条(旧口径看不见这一型 ⇒ 撞号正病)',
+    '<!-- 已归档:O779 副本在注释里(同样算已占) -->',
+    'QODER-O81 这种跨命名空间被引号也宁顶号不空段',
+    'OO776 不是号(前一个字符是字母 ⇒ 不顶)',
+  ].join('\n')
+  const hit = new Set([...fixture.matchAll(re)].map((m) => Number(m[1])))
+  for (const n of [778, 777, 779, 81]) assert.ok(hit.has(n), `O${n} 必须被全文件扫成已占`)
+  assert.ok(!hit.has(776), 'OO776 不得被误扫成 O776(形状收窄,不放宽成任意子串)')
+  const next = smallestFreeId({ usedNumbers: [...hit] })
+  assert.ok(!hit.has(next), `建议号 ${next} 自身必须不在占用集里(占用不发)`)
+})
+
+test('T8c 真仓端到端:--next-only 发出的号在实时面上零命中(G-14 正病反证)', () => {
+  const r = spawnSync(process.execPath, [CLI, '--next-only'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 180_000,
+  })
+  assert.equal(r.status, 0, `--next-only 必须 exit 0:\n${r.stderr}`)
+  const line = String(r.stdout).trim()
+  assert.match(line, /^O\d+$/, `stdout 恒一行号,实得:${JSON.stringify(r.stdout)}`)
+  const n = Number(/^O(\d+)$/.exec(line)[1])
+  const re = fullScanReFromSource()
+  const wt = readFileSync(resolve(ROOT, 'PROJECT_PLAN.md'), 'utf8')
+  const head = git(['show', 'HEAD:PROJECT_PLAN.md'], { root: ROOT, raw: true, timeout: 120_000 })
+  assert.equal(typeof head, 'string', 'HEAD 台账取不到(占用面判不出 ⇒ 这一轮端到端不成立)')
+  const occupied = new Set([...`${head}\n${wt}`.matchAll(re)].map((m) => Number(m[1])))
+  assert.ok(
+    !occupied.has(n),
+    `${line} 在 HEAD 台账 ⊕ 工作树副本上并非零命中(全文件扫描可见 ${occupied.size} 号)⇒ 取号器又把已占号当空闲发了(G-14 正病复发)`,
+  )
+})
+
+/**
+ * T9 —— G-955 的另一半:「新增撞号仍须红」。判红通道 = 登记行编号声明位同号多行
+ * (lib/plan-id-duplicates.mjs 一份尺);台账存量(标题口径)只报数。两型必须在同一份判据上
+ * 给出相反结论,否则"不顶死"就被读成"不判红"。
+ */
+test('T9 新增撞号仍判红、指针被引号不算声明(G-955 判红维正反例)', () => {
+  const red = judgeRowIdDuplicates({
+    ledgerText: ['- [ ] O123 甲题(别席已登记)', '- [ ] O123 乙题(本席新增撞号)'].join('\n'),
+    family: 'O',
+  })
+  assert.ok(red.ok && red.rowDups.length === 1 && red.rowDups[0][0] === 'O123' && red.rowDups[0][1] === 2, `同号多行必须判红,实得 ${JSON.stringify(red.rowDups)}`)
+  const ptr = judgeRowIdDuplicates({
+    ledgerText: [
+      '- [ ] （待派/QODER-O81） **顺带登记一条归属纪律**',
+      '- [ ] O81 跨端 UI 单一源',
+    ].join('\n'),
+    family: 'O',
+  })
+  assert.deepEqual(ptr.rowDups, [], '括注内被引号不得顶死判红维(G-955 病根:一行指针顶死整个入口)')
+  assert.equal(ptr.rowDecls, 1, '声明位读数必须只数真声明')
+  // CLI 接线锁:--check 分支必须真的以 exit 1 收场(判据在场 ≠ 装车)
+  const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
+  const branch = TOOL_SRC.slice(checkBranch, TOOL_SRC.indexOf('const headingNote', checkBranch))
+  assert.match(branch, /dup\.rowDups\.length/, '--check 必须吃 rowDups 判红')
+  assert.match(branch, /process\.exit\(1\)/, '新增撞号必须以 exit 1 收场(存量不顶死 ≠ 新增不红)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -66,7 +66,16 @@
  * **含逐字孪生副本**(该折,归并线出口处置)与**纯系列小节**(附①~⑬ 那一族,正当复用)——
  * 旧措辞把 7 组一律写成"系列小节",把票面点名的「O86附⑧/O86附⑨ 逐字孪生」洗成了正当,现读数见 --check 绿行。
  * 现读 HEAD 面(本档落地后):登记行 O 族声明位 3 处、同号多行 0 ⇒ `--check` 绿。
+ * 〔G-14@2026-10-22〕发号查重口径换尺(票面出路①):旧占用口径只吃「条目标题 ∪ 登记行声明位」
+ * 两档,并发共享工作树下 HEAD blob 滞后于他席登记 ⇒ 把别席已占号当空闲发出(实测连发三个撞号,
+ * 复合主键门 F1 要求"编号+标题逐字等值",同号不同题门看不见)。现在发号前核对**实时占用面**:
+ * ① 占用集 = 全文件正则扫出的号集(`O<数字>` 任何一次出现都算已占:标题、行声明、正文引用、HTML
+ *    注释,宁顶号不空段),扫在 HEAD 宽面(台账⊕归档件)⊕ **工作树副本**(他席未提交的登记在这一侧);
+ * ② 命中即换号,并把被旧口径放行、被扫描顶掉的号**点名打印**;工作树副本读不到 ⇒ 大声警告并退回
+ *    HEAD 宽面(新增维度缺席不得比改前更堵,失效方向=旧面+警告,不是新硬闸)。
+ * `--check` 不发号 ⇒ 本档只作用于发号路径,G-955 的 --check 契约逐字不变。
  */
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
@@ -253,8 +262,53 @@ const rowNums = (rowUsedWide?.ids ?? [])
   .map((l) => Number(/(\d+)$/.exec(String(l))?.[1] ?? Number.NaN))
   .filter(Number.isFinite)
 const poolUsed = [...new Set([...nums, ...rowNums])]
-const { lowMax: poolLowMax } = poolBlocked({ usedNumbers: poolUsed, baseMax: remoteWide })
-const next = smallestFreeId({ usedNumbers: poolUsed, baseMax: remoteWide })
+// ── G-14(2026-10-22,票面出路①):发号前核对实时占用面 = 全文件正则扫出的号集 ────────────
+// 旧口径(条目标题 ∪ 登记行声明位)在并发共享工作树下把别席已占号当空闲发出(HEAD blob 滞后、
+// 同号不同题过不了复合主键门 ⇒ 门与取号器都看不见)。现在:`O<数字>` 在全文件任何一次出现
+// (标题、行声明、正文引用、HTML 注释)都算已占 —— 宁顶号不空段;面 = HEAD 宽面 ⊕ 工作树副本
+// (他席未提交的登记活在后者)。命中即换号,被顶掉的号点名打印。`--check` 不发号、不走这一档。
+// 这条正则的**字面量形状是承重的**:镜像测试(scripts/tests/next-plan-id-remote.test.mjs T8)
+// 要从源码里把这颗 `/…/g` 字面量原样抽出来复用,不得交给格式化工具折行。
+// prettier-ignore
+const FULLSCAN = /(?<![A-Za-z0-9])O[-_ ]?(\d+)/g
+const scanNums = (t) => {
+  const s = new Set()
+  for (const m of String(t).matchAll(FULLSCAN)) {
+    const n = Number(m[1])
+    if (Number.isFinite(n)) s.add(n)
+  }
+  return s
+}
+const scanHead = scanNums(wideText)
+// 工作树副本读不到 ⇒ 大声警告并退回 HEAD 宽面:这一维是新增的,它的缺席不得把发号入口
+// 堵得比改前更死(失效方向 = 旧面 + 警告,不是新硬闸)。
+let worktreeText = ''
+try {
+  worktreeText = readFileSync(resolve(ROOT, PLAN_PATH), 'utf8')
+} catch (e) {
+  console.error(
+    `⚠️ 工作树副本 ${PLAN_PATH} 读不到(${String(e?.message ?? e).split(/\r?\n/)[0].slice(0, 120)}) ⇒ ` +
+      `本轮实时占用面退回 HEAD 宽面,他席未提交的登记不在这一轮尺子里`,
+  )
+}
+const scanWork = scanNums(worktreeText)
+const liveUsed = [...new Set([...poolUsed, ...scanHead, ...scanWork])]
+const nextNarrow = smallestFreeId({ usedNumbers: poolUsed, baseMax: remoteWide })
+const next = smallestFreeId({ usedNumbers: liveUsed, baseMax: remoteWide })
+// 「命中即换号」里被扫描顶掉的号:旧口径判空闲、全文件扫描判已占(撞号正病;走 stderr,
+// --next-only 的 stdout 仍恒一行号)。
+const skippedByScan =
+  next === null || nextNarrow === null
+    ? []
+    : [...new Set([...scanHead, ...scanWork])]
+        .filter((n) => n >= nextNarrow && n < next)
+        .sort((a, b) => a - b)
+if (skippedByScan.length)
+  console.error(
+    `ℹ G-14 全文件扫描顶掉 ${skippedByScan.length} 个旧口径"空闲"号(实为已占,点名):` +
+      skippedByScan.map((n) => `O${n}`).join(', '),
+  )
+const { lowMax: poolLowMax } = poolBlocked({ usedNumbers: liveUsed, baseMax: remoteWide })
 if (next === null) {
   console.error(
     `❌ ${FAMILY} 族号池 1..${LEASE_POOL_MAX} 已满(池式硬上限,2026-10-14 立)⇒ 拒绝发号。` +
@@ -262,7 +316,7 @@ if (next === null) {
   )
   process.exit(1)
 }
-const freeList = poolFreeList({ usedNumbers: poolUsed, baseMax: remoteWide })
+const freeList = poolFreeList({ usedNumbers: liveUsed, baseMax: remoteWide })
 
 // 两面(标题口径 + 登记行口径)与两文件(台账 + 归档件)都读不到任何 O 记录 ⇒ maxWide = -Infinity。
 // 池式下这不影响发号(真空池 ⇒ 从 O1 起),但必须喊出来:整族在用却"面全空"通常意味着
@@ -284,6 +338,12 @@ console.log(
   `权威口径 = git show ${SOURCE}:${PLAN_PATH} ⊕ ${face.archiveFiles.length} 份归档件(台账条目标题 ${seen.length} 行 / 去重 ${count.size} 个号)`,
 )
 console.log(`已占用的最大号 = ${fmt(maxWide)}   下一个号 = O${next}(池内最小空闲)`)
+console.log(
+  `  G-14 实时占用面:全文件扫描 HEAD 宽面 ${scanHead.size} 号 ⊕ 工作树副本 ${scanWork.size} 号 ⇒ ` +
+    `池内占用 ${liveUsed.filter((n) => n >= 1 && n <= LEASE_POOL_MAX).length} 号(旧口径 ${poolUsed.length});` +
+    `本轮顶掉 ${skippedByScan.length} 个旧口径假空闲号` +
+    `${skippedByScan.length ? `(${skippedByScan.map((n) => `O${n}`).join(', ')})` : ''}`,
+)
 console.log(
   `  取号口径:池式 1..${LEASE_POOL_MAX}(2026-10-14 硬上限)⇒ 池内空闲 ${freeList.length} 号,池满 ⇒ 拒绝发号(绝不发 1000+;>999 的归档大号不占池)`,
 )
