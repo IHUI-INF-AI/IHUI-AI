@@ -6839,7 +6839,6 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
-- [x] O751 〔千段租约〕 本机=lichunchuan-a90f9efe 段=O702~O751(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
 
 
@@ -29023,5 +29022,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] （进行中@2026-10-23/qoder-agent;未取号:同上,G 族号池已满)**AI 号池可观测三档:面板交叉补齐 / 每腿健康指标化 / 网关逐条落库可回溯** —— 立因(2026-10-23 现读):`combo_router._health` 是纯进程内存 dict(重启归零、零指标),"哪家挂了/在冷却"在大屏上不可见;`ihui_llm_active_sessions` 生产零调用 ⇒ 两张面板恒 0 且账面看着健康;`llm_call_logs` 全仓仅 85 行而 ai-service 网关调用根本不写它 ⇒ "这次请求给了哪个 provider、走哪条腿、用了号池哪把 key"无处可查。等:本席在做。前置三件:`key_pool_id` 与 `_pool_retry` 今天不在 `record_llm_outcome` 签名里,要改埋点契约才有 key 级用量;`user_id` NOT NULL+FK 且网关的 `owner_uuid` 语义是"配置归属者"≠鉴权主体,须由承载层显式下传(§5 禁自报/禁从记录反推),越权用例要断言"副作用没发生";新列走 idx 334 新迁移(§"迁移正文不可变",且 journal 里 5 枚 20261022* 文件工作树被删是他席在飞,不碰不复用其编号)。验收:`pnpm check:pytest`、`curl` ai-service `/metrics` 见新指标、真实调用一次后 `llm_call_logs` 行数与命中腿字段可查 〔状态@2026-10-23/qoder-agent:未动工。前置已量清:ai-service 已有 asyncpg 池可直写;三条阻塞点写在票面余下那段〕 〔进展2@2026-10-23/qoder-agent:三档都有码入库(每腿冷却/成功率/欠费 gauge、网关逐条落库带 key_pool_id 与命中腿)。残余三格:fusion judge 腿无主体不写行、config_id 列未取、active_sessions 死 gauge 待摘〕
 - [ ] G-952 **无编号 P1 视觉票"正文漂开的副本"没有归并出口 ⇒ 三条真机票的进展本轮无处可写** —— 现读(2026-10-04,`git show HEAD:PROJECT_PLAN.md` 按前缀枚举):`- [ ] P1 **区段头「更多」与箭头折成两行**` / `- [ ] P1 **首页「独家开发 AI Agent 应用」宫格…` / `- [ ] P1 **广场(AI需求广场)首屏直接进错误态**` 三条**各有 2 份**,且**两份都不带 〔压缩@2026-10-22〕
 
-- [x] ✅(2026-10-23) **号池接入 Qoder provider(导入映射 + 适配器 + 管理端放行)** —— `O702` 本机 Qoder 登录账号(uid 01a16367-b9e2-7ac3-9943-8974fb16ca2d / 15330637579)已导入 `ai_relay_account_pool`(凭证加密、双到期、设备指纹齐全);`RELAY_PROVIDERS` 增列 qoder,`importAccounts` 增 Qoder 映射(uid→user.id→哈希兜底,expiresAt 收 ISO/epoch),新增 `qoder-adapter`(refresh 走实证端点 `/api/v1/deviceToken/refresh` 双 base 回退、健康检查走 `/api/v2/quota/usage`;**chat 契约未实证,单段式三件套明确抛错不冒充可用,反代上线待实证**);单测 7 例。commit `eedcca814b`。
 
