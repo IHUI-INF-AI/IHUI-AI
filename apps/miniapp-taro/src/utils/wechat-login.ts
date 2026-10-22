@@ -23,6 +23,7 @@ import { loginByWechat } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo } from './auth'
 import { useUserStore } from '../stores/user'
 import { LOCALE_KEY } from '@/constants/storage'
+import { requireLoginSession, type LoginSessionReply } from './login-session'
 import type { Messages } from '@ihui/i18n/types'
 
 /**
@@ -147,6 +148,12 @@ export async function wechatLogin(
 
   // 3. 调后端换 token
   const result = await loginByWechat(code)
+  // 未绑定 openid 回的是 {needPhone:true, openId} 且没有 user —— 必须在解构之前判掉,
+  // 否则下面读 user.nickname 直接 TypeError,被上层糊成一句"微信登录失败"。
+  requireLoginSession(result as LoginSessionReply, {
+    notBound: t('login.wechatNotBound'),
+    noSession: t('login.wechatFailed'),
+  })
   const { accessToken, refreshToken, user } = result
   const profileNick = profile?.userInfo?.nickName
   const profileAvatar = profile?.userInfo?.avatarUrl
