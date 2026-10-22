@@ -6125,6 +6125,16 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 📚 文档:结清 G-955(取号器声明位两档,--check RC=0 主会话复跑实证) (3cd980434f)
+- 📚 文档:守门134①复验释放(hops=18命中0,未达即不做)+认领 G-922 (f70fc1ef78)
+
+**2026-10-22**
+- 📚 文档:结清 G-956(重落)/G-958(引导拆除已在 HEAD)/G-420 翻勾补正 (b363b35626)
+
+**2026-10-22**
+- 📚 文档:结清 G-420/G-24(接线已入 HEAD 枚 5e42fb5139+9e5d56cf20,镜像 56/56)+释放 G-957(剩余面留人工窗口) (c387a9b98e)
+
+**2026-10-22**
 - 📚 文档:结清 G-956(影子件删除三面实证,防复发归 G-32) (ef6f3f7e27)
 
 **2026-10-22**
@@ -6180,24 +6190,6 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 
 **2026-10-22**
 - 📚 文档:翻勾守门104 cloudflared存量红收尾条目(记录pg-backup影子漂移同步)+归并活文档重复登记+README测试文件数对齐现算3029 (6299c2911a)
-
-**2026-10-22**
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (56a54d2fd0)
-- 📚 文档:登记 Cloudflare service token 明文本机暴露(6 处副本)待轮换 (915b16d2d2)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f813b056a8)
-
-**2026-10-22**
-- 🐞 修复:ihui-pg-backup 未送达留痕改投运行态新址 .ihui-agent/state(迁移漏网件;旧址已不存在且读方 ops-watch 只扫新址,不改=备份告警静默丢) (85062fbeba)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b670fc84c5)
-- 📚 文档:登记"生产 web 的真部署承载者未查明"(被指认的 DEPLOYLOOP 13h 零日志、其工作目录从未创建) (d986561468)
-- 🐞 修复:/login 的"有没有前一页可回"改判 history.length>2,撤掉我在生产上恒空的 referrer 条件 (ae71232df9)
-
-**2026-10-22**
-- 📚 文档:undelivered-debt-acks 阅读提示改指运行态新址 .ihui-agent/state(留迁移注记) (7d2f419cc4)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (982e344432)
-- 🔧 工程/其他:结清 G-960(探活尺子已换到真入口并加零信息自曝) (2ea8a2c611)
-- 🐞 修复:模式徽章的 aria-label 不再中英混血,并卡住那条"赌时长"的 e2e 竞态(收掉 CI 唯一剩余红) (56a8b050c8)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3a4c4fef92)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.

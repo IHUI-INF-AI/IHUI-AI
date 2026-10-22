@@ -290,7 +290,16 @@ export const REMOTE_ID_TRANSPORT = {
  */
 export function readRemoteIdBasis({ root, doc, families, transport = REMOTE_ID_TRANSPORT } = {}) {
   const { remote, ref } = remoteTarget()
-  const out = { max: {}, ids: {}, notes: [], info: [], tipSha: '', remote, ref, remoteAheadUnfetched: false }
+  const out = {
+    max: {},
+    ids: {},
+    notes: [],
+    info: [],
+    tipSha: '',
+    remote,
+    ref,
+    remoteAheadUnfetched: false,
+  }
   if (!Array.isArray(families) || families.length === 0) return out
   let tip
   try {
@@ -321,7 +330,9 @@ export function readRemoteIdBasis({ root, doc, families, transport = REMOTE_ID_T
     try {
       transport.hydrate({ root, remote, ref })
     } catch (e2) {
-      out.notes.push(`对象不在本地,自补救 fetch 失败,原因:${oneLine(e2)}(首次缺失:${missingReason})`)
+      out.notes.push(
+        `对象不在本地,自补救 fetch 失败,原因:${oneLine(e2)}(首次缺失:${missingReason})`,
+      )
       out.remoteAheadUnfetched = true
       return out
     }
@@ -473,7 +484,9 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     const chosenMax = remoteMax !== null && remoteMax > used.max ? remoteMax : used.max
     // G-454 ②「返回前逐面复查空闲」:本地空闲 ≠ 全局空闲。远端那一份的**已用号集合**要一起从
     // 空闲清单里扣掉 —— 池式取号复用本地让空的洞,而对侧可能仍占着同一枚号(2026-10-16 实测撞号)。
-    const remoteNums = (Array.isArray(remote?.ids?.[f]) ? remote.ids[f] : []).map(numOf).filter(Number.isFinite)
+    const remoteNums = (Array.isArray(remote?.ids?.[f]) ? remote.ids[f] : [])
+      .map(numOf)
+      .filter(Number.isFinite)
     const usedNums = [...(used.ids ?? []).map(numOf).filter(Number.isFinite), ...remoteNums]
     let freeList
     if (machineId) {
@@ -621,8 +634,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
  * "携带"放过,只拦 `after` 新引入的 —— 否则每一次对存量行的正当结清动作都被他人欠的账钉红(§12e),
  * 而存量 56 条的清偿是格②,另有票。
  */
-const RESIDUAL_ID_TOKEN_RE =
-  /(?:\{\{NEXT_ID\}\}|｛｛NEXT_ID(?::[A-Za-z]+|：[A-Za-z]+)?｝｝)/
+const RESIDUAL_ID_TOKEN_RE = /(?:\{\{NEXT_ID\}\}|｛｛NEXT_ID(?::[A-Za-z]+|：[A-Za-z]+)?｝｝)/
 
 const RESIDUAL_ID_TOKEN_RE_G = new RegExp(RESIDUAL_ID_TOKEN_RE.source, 'g')
 
@@ -694,8 +706,7 @@ export function judgeResidualIdTokens(entries) {
     return res
   }
   for (const [i, e] of entries.entries()) {
-    const after =
-      typeof e?.after === 'string' ? e.after : typeof e === 'string' ? e : null
+    const after = typeof e?.after === 'string' ? e.after : typeof e === 'string' ? e : null
     if (after === null) {
       res.undetermined.push(`第 ${i + 1} 条取不到 after 字符串 ⇒ 该行未经本闸判定`)
       continue
@@ -739,7 +750,10 @@ export function residualIdTokenReport(v) {
   if (v.violations.length > 0) {
     lines.unshift({
       kind: 'error',
-      text: '❌ 本次要写的内容里有 ' + v.violations.length + ' 处**消费不掉的取号令牌字面量**(裸写不带族 / 全角形态)⇒ 用法错,拒绝落地(G-15107 格①)。本器只消费带族的 `{{NEXT_ID:族}}`,其余字面量会原样进 HEAD 并被后续会话照抄。',
+      text:
+        '❌ 本次要写的内容里有 ' +
+        v.violations.length +
+        ' 处**消费不掉的取号令牌字面量**(裸写不带族 / 全角形态)⇒ 用法错,拒绝落地(G-15107 格①)。本器只消费带族的 `{{NEXT_ID:族}}`,其余字面量会原样进 HEAD 并被后续会话照抄。',
     })
     lines.push({
       kind: 'error',
@@ -747,7 +761,10 @@ export function residualIdTokenReport(v) {
     })
   }
   for (const u of v.undetermined)
-    lines.push({ kind: 'error', text: `❌ 残留取号令牌字面量闸:取不到判定输入 ⇒ 未判定,拒绝落地(§0.3:不记绿也不冒红):${u}` })
+    lines.push({
+      kind: 'error',
+      text: `❌ 残留取号令牌字面量闸:取不到判定输入 ⇒ 未判定,拒绝落地(§0.3:不记绿也不冒红):${u}`,
+    })
   if (v.violations.length === 0 && v.undetermined.length === 0 && v.carriedOver.length > 0)
     lines.push({
       kind: 'warn',
@@ -793,7 +810,9 @@ export function readInputs(env = process.env) {
       if (p.before === p.after)
         return { error: `第 ${i + 1} 项 before == after ⇒ 无事可做,剔除后再跑` }
       if ('all' in p && p.all !== true)
-        return { error: `第 ${i + 1} 项的 all 只允许写 true(缺省=恰好命中 1 次;放宽成任意真值就等于没有这条锁)` }
+        return {
+          error: `第 ${i + 1} 项的 all 只允许写 true(缺省=恰好命中 1 次;放宽成任意真值就等于没有这条锁)`,
+        }
     }
     if (!resolveHeadRef({ root }))
       return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
@@ -901,7 +920,14 @@ export function blockInPlaceCheck({ baseLines, anchorLines, matchers }) {
   const at = idx + anchorLines.length
   const seen = baseLines.slice(at, at + n)
   if (seen.length < n)
-    return { inPlace: false, verdict: 'too-short', need: n, got: seen.length, at, anchorAt: idx + 1 }
+    return {
+      inPlace: false,
+      verdict: 'too-short',
+      need: n,
+      got: seen.length,
+      at,
+      anchorAt: idx + 1,
+    }
   for (let i = 0; i < n; i++)
     if (!matchers[i].test(seen[i]))
       return {
@@ -992,7 +1018,10 @@ export function alignOutcome({ landedSha = '', doc = '', align = {}, detail = ''
   const already = align.already?.length ?? 0
   return {
     code: 0,
-    lines: [`✅ 主索引已对齐 ${moved + already}/1 路径(移动 ${moved} / 已就位 ${already})`, ...tail],
+    lines: [
+      `✅ 主索引已对齐 ${moved + already}/1 路径(移动 ${moved} / 已就位 ${already})`,
+      ...tail,
+    ],
   }
 }
 
@@ -1037,7 +1066,8 @@ export function applyReplacements(baseLines, pairs) {
   for (const [i, p] of pairs.entries()) {
     for (const [j, q] of pairs.entries()) {
       if (i === j) continue
-      if (p.before === q.after) return { ok: false, reason: `chain-hit#${i + 1}<-${j + 1}`, next: null }
+      if (p.before === q.after)
+        return { ok: false, reason: `chain-hit#${i + 1}<-${j + 1}`, next: null }
     }
   }
   const multi = []
@@ -1099,7 +1129,11 @@ export function shaProbeCommand(token) {
  * rc 是从 `gitRaw` 抛上来的 `e.status`(Node 直接给的机器事实)取的,**不是** parse 错误文本
  * —— 拿异常消息字符串当判据,消息一改整档就静默改判。
  */
-export function makeShaProber({ root, transport = SHA_PROBE_TRANSPORT, timeout = SHA_PROBE_TIMEOUT_MS } = {}) {
+export function makeShaProber({
+  root,
+  transport = SHA_PROBE_TRANSPORT,
+  timeout = SHA_PROBE_TIMEOUT_MS,
+} = {}) {
   const cache = new Map()
   let preflight = null
   const ask = (args) => transport.ask(args, root, { timeout, maxBuffer: SHA_PROBE_MAX_BUFFER })
@@ -1112,7 +1146,10 @@ export function makeShaProber({ root, transport = SHA_PROBE_TRANSPORT, timeout =
       } catch (e) {
         preflight = false
         // pre-flight 失败原因留着报出去,别让它读成"什么都没发生"
-        cache.set('__preflight__', { state: 'undetermined', why: `仓库/git 不可问:${e?.message ?? e}` })
+        cache.set('__preflight__', {
+          state: 'undetermined',
+          why: `仓库/git 不可问:${e?.message ?? e}`,
+        })
       }
     }
     let r
@@ -1150,8 +1187,7 @@ export function makeShaProber({ root, transport = SHA_PROBE_TRANSPORT, timeout =
 export const SHA_PASS_CONFIG_PREFIX_RE =
   /(?:integrity|content-?hash|digest|checksum|md5|sha\d+|revision|serial(?:no|number)?|keyid|kid|version|ver|build-id|buildid)[\s"'`:=_./-]{0,6}$/i
 export const SHA_PASS_FILE_EXT_RE = /^\.[A-Za-z0-9]{1,8}/
-export const SHA_PASS_REF_PATH_RE =
-  /(?:^|[\s"'`(])((?:refs|remotes|heads|tags|origin|upstream)\/)/i
+export const SHA_PASS_REF_PATH_RE = /(?:^|[\s"'`(])((?:refs|remotes|heads|tags|origin|upstream)\/)/i
 export const SHA_PASS_ATTACHED_RE = /[-.]$/
 
 export function shaPassReason({ before = '', after = '' } = {}) {
@@ -1223,7 +1259,10 @@ export function parseShaAllow(raw) {
  * @returns {{blocked:Array,allowed:Array,undetermined:Array,exempt:Array,resolved:Array,overCap:Array,probed:number}}
  *  `blocked` 非空 ⇒ 调用方 exit 1;`undetermined` / `overCap` 永不参与判红(失效方向是放行 + 报名)。
  */
-export function judgeNewLineShas(entries, { probe, allow = new Map(), maxProbes = SHA_PROBE_MAX } = {}) {
+export function judgeNewLineShas(
+  entries,
+  { probe, allow = new Map(), maxProbes = SHA_PROBE_MAX } = {},
+) {
   const out = {
     blocked: [],
     allowed: [],
@@ -1244,9 +1283,7 @@ export function judgeNewLineShas(entries, { probe, allow = new Map(), maxProbes 
     for (const c of extractFromLine(text, ei + 1)) {
       const shape = classifyShape(c.token)
       if (shape.kind !== 'candidate') continue
-      const spots = tokenOffsets(text, c.token).filter(
-        (i) => i >= from && i + c.token.length <= to,
-      )
+      const spots = tokenOffsets(text, c.token).filter((i) => i >= from && i + c.token.length <= to)
       if (spots.length === 0) continue // 只出现在存量段 ⇒ 不回判
       if (e.skip && e.skip.has(c.token)) {
         // 整行改写档:before 里就有这枚 token ⇒ 它是被这次改写"携带"过来的存量,不是新写的指针
@@ -1295,7 +1332,10 @@ export function judgeNewLineShas(entries, { probe, allow = new Map(), maxProbes 
 export function shaGateReport(v) {
   const lines = []
   for (const a of v.allowed)
-    lines.push({ kind: 'info', text: `ℹ 取值放行留痕(G-1079146 应急通道 LIVE_SHA_ALLOW):${a.token} ⇒ 原因:${a.reason}` })
+    lines.push({
+      kind: 'info',
+      text: `ℹ 取值放行留痕(G-1079146 应急通道 LIVE_SHA_ALLOW):${a.token} ⇒ 原因:${a.reason}`,
+    })
   for (const u of v.undetermined)
     lines.push({
       kind: 'warn',
@@ -1371,7 +1411,10 @@ export function linesIntroducedBy(baseLines, nextLines) {
 /** 应急出口只有这一条:`LIVE_LEDGER_DUP_OK=<复合主键>=<一句话原因>`(; 分隔多条)。无原因的声明不算。 */
 export function parseDupAllow(raw = '') {
   const m = new Map()
-  for (const part of String(raw).split(';').map((s) => s.trim()).filter(Boolean)) {
+  for (const part of String(raw)
+    .split(';')
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     const i = part.indexOf('=')
     if (i <= 0) continue
     const key = part.slice(0, i).trim()
@@ -1432,7 +1475,12 @@ export function judgeNewIdCollisions({ baseText, nextText } = {}) {
   return { blocked, preexisting, undetermined: false }
 }
 
-export function judgeNewLineDupes({ baseLines = [], newLines = [], removedLines = [], allow = new Map() } = {}) {
+export function judgeNewLineDupes({
+  baseLines = [],
+  newLines = [],
+  removedLines = [],
+  allow = new Map(),
+} = {}) {
   const existing = new Map()
   let openBase = 0
   for (const l of baseLines) {
@@ -1550,7 +1598,10 @@ export function dupGateReport(v) {
       text: `ℹ 作者自认副本(带归并指针)${v.acknowledged.length} 行:放过,但它们是账面噪声的主要来源(本器不删别人的行)`,
     })
   if (v.blocked.length === 0 && v.passed > 0)
-    lines.push({ kind: 'info', text: `✅ 新登记主键唯一性:${v.passed} 行无一与已有待办撞同题(存量待办 ${v.openBase} 行不担)` })
+    lines.push({
+      kind: 'info',
+      text: `✅ 新登记主键唯一性:${v.passed} 行无一与已有待办撞同题(存量待办 ${v.openBase} 行不担)`,
+    })
   if (v.blocked.length > 0) {
     const sameTitleN = v.blocked.filter((b) => b.sameTitle).length
     const sameKeyN = v.blocked.length - sameTitleN
@@ -1573,7 +1624,10 @@ export function dupGateReport(v) {
       kind: 'error',
       text: `   出路只有四条:① 用整行改写档(LIVE_REPLACE_FILE)就地更新**已有那一行**,不要再抄第二份;② 确属另一件事 ⇒ 把题面写到取不出同一个指纹/前缀(不是换个编号就算);③ 让号重登必须**旧行同批删掉**(本闸给让号留了额度,删旧换新不算第二次登记),只增不删就是重复登记;④ 应急逐键声明 LIVE_LEDGER_DUP_OK=<主键>=<一句话原因>(无原因不算,且必须逐键,不给整片放行)。`,
     })
-    lines.push({ kind: 'error', text: `   **禁止**为了变绿去改本闸的判据、把主键判据换成"只看编号"、或摘掉同题指纹维 —— 那会把不同议题并成一件事(或让同题多号继续灌水派单口径),归并器就敢把别人的未完成任务翻成已完成。` })
+    lines.push({
+      kind: 'error',
+      text: `   **禁止**为了变绿去改本闸的判据、把主键判据换成"只看编号"、或摘掉同题指纹维 —— 那会把不同议题并成一件事(或让同题多号继续灌水派单口径),归并器就敢把别人的未完成任务翻成已完成。`,
+    })
   }
   return lines
 }
@@ -1769,14 +1823,14 @@ async function main() {
             ? `❌ 第 ${String(built.reason).replace('chain-hit#', '').split('<')[0]} 项的 before 等于另一项的 after ⇒ 逐项顺序替换会把前一项刚改出的行再改一遍,而声明里没有这件事,拒绝写盘(${built.reason})`
             : String(built.reason || '').startsWith('replace-not-found')
               ? `❌ 第 ${String(built.reason).replace('replace-not-found#', '')} 项的 before 在 HEAD 版里找不到(该行已被别人改写或本来不逐字等值)⇒ 不猜,拒绝写盘`
-            : String(built.reason || '').startsWith('replace-multi-hit')
-              ? `❌ 第 ${String(built.reason).replace('replace-multi-hit#', '').replace(/:.*/, '')} 项的 before 命中 ${String(built.reason).split(':').pop()} 次 ⇒ 无法确定改哪一行,交人工`
-              : String(built.reason || '').startsWith('untouched-line-drift') ||
-                  built.reason === 'line-count-changed'
-                ? `❌ 改写动了声明之外的行(或改变了总行数)⇒ 这不是"整行替换",拒绝写盘`
-                : String(built.reason || '').startsWith('multi-hit')
-                  ? `❌ 锚点在 HEAD 版里命中 ${String(built.reason).slice(10)} 处 ⇒ 不猜,拒绝写盘`
-                  : `❌ 新内容不等于"HEAD ⊕ 本块插入/追加"⇒ 拒绝写盘`,
+              : String(built.reason || '').startsWith('replace-multi-hit')
+                ? `❌ 第 ${String(built.reason).replace('replace-multi-hit#', '').replace(/:.*/, '')} 项的 before 命中 ${String(built.reason).split(':').pop()} 次 ⇒ 无法确定改哪一行,交人工`
+                : String(built.reason || '').startsWith('untouched-line-drift') ||
+                    built.reason === 'line-count-changed'
+                  ? `❌ 改写动了声明之外的行(或改变了总行数)⇒ 这不是"整行替换",拒绝写盘`
+                  : String(built.reason || '').startsWith('multi-hit')
+                    ? `❌ 锚点在 HEAD 版里命中 ${String(built.reason).slice(10)} 处 ⇒ 不猜,拒绝写盘`
+                    : `❌ 新内容不等于"HEAD ⊕ 本块插入/追加"⇒ 拒绝写盘`,
       )
       process.exit(1)
     }
@@ -1785,7 +1839,10 @@ async function main() {
     // next,让同一批写前守卫看到的就是将要提交的内容;CAS 失败重试时随底稿整批重算,无残留。
     const nextLines =
       tok.leaseClaims && tok.leaseClaims.length
-        ? appendLeaseRows(built.next, tok.leaseClaims.map((c) => buildLeaseRow({ ...c, machineId })))
+        ? appendLeaseRows(
+            built.next,
+            tok.leaseClaims.map((c) => buildLeaseRow({ ...c, machineId })),
+          )
         : built.next
     nextCount = nextLines.length
     // 畸形登记编号防线(2026-09-28 立;同一行 D128↔DD128 第四次来回逼出)。
@@ -1796,7 +1853,9 @@ async function main() {
     {
       const mal = newMalformed(baseContent, nextLines.join('\n'))
       if (mal.added.length > 0) {
-        console.error(`❌ 本次要写入的内容里有 ${mal.added.length} 行畸形登记编号(族名在编号段出现两次)⇒ 拒绝落地:`)
+        console.error(
+          `❌ 本次要写入的内容里有 ${mal.added.length} 行畸形登记编号(族名在编号段出现两次)⇒ 拒绝落地:`,
+        )
         for (const x of mal.added.slice(0, 4)) console.error(`   · ${malformedLine(x)}`)
         console.error(
           `   成因固定:取号令牌 {{NEXT_ID:X}} 展开值**本身已含族名**,正文再手写一个字面 X 就产出 XX123` +
@@ -2062,9 +2121,11 @@ function selfTest() {
     'S2 同一形状而 probe=ok ⇒ 不拦,并带回全量 40 位',
     (() => {
       const v = judgeNewLineShas([{ text: '登记:提交 `deadcafe12` 那枚' }], {
-        probe: probeBy({ 'deadcafe12': { state: 'ok', sha: '0'.repeat(40) } }),
+        probe: probeBy({ deadcafe12: { state: 'ok', sha: '0'.repeat(40) } }),
       })
-      return v.blocked.length === 0 && v.resolved.length === 1 && v.resolved[0].sha === '0'.repeat(40)
+      return (
+        v.blocked.length === 0 && v.resolved.length === 1 && v.resolved[0].sha === '0'.repeat(40)
+      )
     })(),
   )
   // 3) 保命分支:git 问不到(无 status)⇒ **放行并报名**,绝不得判红
@@ -2088,7 +2149,11 @@ function selfTest() {
   )
   // 5-7) 三条放过:票面实测的三型改写,任何一种都不得误伤(每条各自一条反例)
   for (const [name, text, want] of [
-    ['S5 文件名形态 dist/<hex>.chunk.mjs', '产物 apps/web/dist/6f7a8b9c.chunk.mjs 已重建', 'file-name'],
+    [
+      'S5 文件名形态 dist/<hex>.chunk.mjs',
+      '产物 apps/web/dist/6f7a8b9c.chunk.mjs 已重建',
+      'file-name',
+    ],
     ['S5b 路径分隔左侧', '见 origin/6f7a8b9c 那一支', 'ref-segment'],
     ['S6 ref/分支连字符非独立 token', '分支 workbuddy/main-6f7a8b9c 已并', 'attached'],
     ['S7 配置/声明表键值位', '设备 serial=d1f8e3a7b9 的读数', 'config-prefix'],
@@ -2104,10 +2169,9 @@ function selfTest() {
   ok(
     'S8 dist/273.x.mjs 与 workbuddy/main-x 无 hex 候选 ⇒ 空判定(不回扫、不报错)',
     (() => {
-      const v = judgeNewLineShas(
-        [{ text: '跑 dist/273.x.mjs 与 workbuddy/main-x 两条' }],
-        { probe: probeBy({}) },
-      )
+      const v = judgeNewLineShas([{ text: '跑 dist/273.x.mjs 与 workbuddy/main-x 两条' }], {
+        probe: probeBy({}),
+      })
       return v.blocked.length === 0 && v.probed === 0
     })(),
   )
@@ -2245,7 +2309,11 @@ function selfTest() {
         },
       })
       const v = judgeNewLineShas([{ text: '提交 `deadcafe12`' }], { probe: pr })
-      return v.blocked.length === 0 && v.undetermined.length === 1 && pr('deadcafe12').state === 'undetermined'
+      return (
+        v.blocked.length === 0 &&
+        v.undetermined.length === 1 &&
+        pr('deadcafe12').state === 'undetermined'
+      )
     })(),
   )
   // 16) 空/无候选的常规落地:一行话都不必多打(每次台账落地都不该被这一步刷屏)
@@ -2262,11 +2330,12 @@ function selfTest() {
   ok(
     'S17 32 位 hex ⇒ 权威门 ambiguous ⇒ 本器不探(不抄第二条形状判据)',
     (() => {
-      const v = judgeNewLineShas(
-        [{ text: '摘要 97fef424f841ab997b161bc4ead93cbe' }],
-        { probe: () => ({ state: 'bad', status: 128 }) },
+      const v = judgeNewLineShas([{ text: '摘要 97fef424f841ab997b161bc4ead93cbe' }], {
+        probe: () => ({ state: 'bad', status: 128 }),
+      })
+      return (
+        v.probed === 0 && classifyShape('97fef424f841ab997b161bc4ead93cbe').kind === 'ambiguous'
       )
-      return v.probed === 0 && classifyShape('97fef424f841ab997b161bc4ead93cbe').kind === 'ambiguous'
     })(),
   )
   // ── R 族:残留取号令牌字面量闸(G-15107 格①,2026-10-19 立)──
@@ -2384,9 +2453,7 @@ function selfTest() {
       const a = inlineCodeSpansOf('x `y` z')
       const b = inlineCodeSpansOf('x `y z')
       const c = inlineCodeSpansOf('x ``y`` z')
-      return (
-        a.length === 1 && a[0][0] === 3 && b.length === 1 && c.length === 1 && c[0][0] === 4
-      )
+      return a.length === 1 && a[0][0] === 3 && b.length === 1 && c.length === 1 && c[0][0] === 4
     })(),
   )
   let fail = 0
@@ -2400,5 +2467,4 @@ function selfTest() {
   console.log(`自检 ${got.length - fail}/${got.length} 通过 · 失败 ${fail} · 零 git 零写盘`)
   return fail === 0 ? 0 : 1
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
