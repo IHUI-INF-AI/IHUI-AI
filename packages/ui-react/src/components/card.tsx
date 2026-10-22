@@ -5,11 +5,14 @@
 import * as React from 'react'
 import { cn } from '../lib/utils'
 
+// 静止不带 shadow(机主 2026-10-23 定档:全站容器"静止无影、hover 才有影"):
+// 原先这里的 Tailwind `shadow` 与 hover 的三层浮起影叠在一起,静止与悬停差值读不出来。
+// 边界感由 border 承担。控件(button/input 的 shadow-sm)与浮层(dialog 的 shadow-lg)不在此列。
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('ui-lift rounded-lg border bg-card text-card-foreground shadow', className)}
+      className={cn('ui-lift rounded-lg border bg-card text-card-foreground', className)}
       {...props}
     />
   ),
