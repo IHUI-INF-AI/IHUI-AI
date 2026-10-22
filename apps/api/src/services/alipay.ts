@@ -37,8 +37,34 @@ const CERTS_DIR =
     ? join(process.cwd(), 'certs')
     : join(process.cwd(), 'apps', 'api', 'certs'))
 
+/**
+ * 支付宝私钥到底取不取得到 —— **"配了键名"不等于"配好了"**(§0.7 验过才免)。
+ *
+ * 立因(2026-10-22 实测):`isAlipayConfigured()` 旧写法只看 `ALIPAY_PRIVATE_KEY_PATH`
+ * **这个字符串非空**,而本机那份 `.env` 里该键指向的文件根本不在位(工作区与生产签出两面都
+ * 不在)⇒ `GET /api/auth/oauth-status` 报 `alipay:true`,前端据此把支付宝按钮点亮,用户真点下去
+ * 时 `readFileSync` 抛 ENOENT ⇒ 500。账面"已配置"与线上"一调就挂"同时成立,就是这一格。
+ *
+ * 所以取钥这件事抽成一个出口,判据与调用方共用它:判据问的是"能不能拿到",
+ * 不是"有没有写"。拿不到 ⇒ 未配置(状态报 false、按钮不亮),而不是等用户去撞那个 500。
+ */
+export function resolveAlipayPrivateKey(): { key: string; reason?: string } {
+  const inline = env.ALIPAY_PRIVATE_KEY
+  if (inline) return { key: inline }
+  const p = env.ALIPAY_PRIVATE_KEY_PATH
+  if (!p) return { key: '', reason: 'ALIPAY_PRIVATE_KEY 与 ALIPAY_PRIVATE_KEY_PATH 两把皆未设' }
+  if (!existsSync(p)) return { key: '', reason: `ALIPAY_PRIVATE_KEY_PATH 指向的文件不在位` }
+  try {
+    const read = readFileSync(p, 'utf-8').trim()
+    if (!read) return { key: '', reason: '私钥文件存在但内容为空' }
+    return { key: read }
+  } catch (e) {
+    return { key: '', reason: `私钥文件读不到:${String((e as Error).message).slice(0, 60)}` }
+  }
+}
+
 export function isAlipayConfigured(): boolean {
-  return Boolean(env.ALIPAY_APP_ID && (env.ALIPAY_PRIVATE_KEY || env.ALIPAY_PRIVATE_KEY_PATH))
+  return Boolean(env.ALIPAY_APP_ID) && resolveAlipayPrivateKey().key.length > 0
 }
 
 /** 证书模式判断 */
