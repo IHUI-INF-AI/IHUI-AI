@@ -50,7 +50,9 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          # 与根 package.json 的 engines 对齐(>=22.13.0)。写死 '22' 有可能装到 22.0.0,
+          # 而本仓用了 22.13 之后的特性 ⇒ 用 range 让 setup-node 自己取满足条件的最新 22.x。
+          node-version: '>=22.13.0'
           cache: pnpm
 
       - name: 安装依赖
