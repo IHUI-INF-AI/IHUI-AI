@@ -63,7 +63,7 @@ the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **599 tables · 4,451 API routes ·
 25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,019 test files ·
-268 engineering gates · 49 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+268 engineering gates · 50 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
@@ -85,14 +85,14 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
 | 测试文件 | 3019 | `testFiles` |
-| CI 工作流 | 49 | `ciWorkflows` |
+| CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 268 | `guardianGates` |
 | — blocking | 244 | `guardianBlocking` |
 | — warn | 27 | `guardianWarn` |
-| 跟踪文件 | 15618 | `trackedFiles` |
+| 跟踪文件 | 15621 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-21。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
@@ -101,6 +101,11 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- ⚡ Perf:门8延后post-commit + 去掉跳过分支无效屏障 + 纯内容缓存接线补全 (5164d81bf0)
+- 🐞 Fix:净面 worktree remove 三次败在 Windows 长路径 —— 补 core.longpaths + .NET 递归兜底 (a5bc756e0f)
+- ⚡ Perf:守护提交窗口期静默 —— 检测到 git 写锁即跳过本轮巡检,把 CPU 与索引锁全让给提交链(消除 40~170s 波动的干扰源) (3697e5dc4f)
+
 **2026-10-22**
 - 📚 Docs:守门总数与 blocking 数对齐现算(268/244),消除门173散文滞后 (cd3ec0633f)
 
@@ -156,11 +161,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 **2026-10-22**
 - 🔧 Chore/Other:收口四语 README 最近更新与跟踪文件计数(15610) —— 派生区按 MAX_GROUPS 封顶主动裁旧属设计,块外仅 trackedFiles 一行变更,已按文档口径 IHUI_SKIP_LIVE_DOC_CHECK=1 留痕 (16c2dc4f56)
-
-**2026-10-22**
-- 🔧 Chore/Other:收编停留≥3分钟的未提交改动 (0165022242)
-- ⚡ Perf:按改动性质分档(元门档 31 门)+ README 自动同步移出 pre-commit(消除 O43 窗口冲突) (c930087e84)
-- 🐞 Fix:storeDir 指向已不存在的 G 盘 —— 全仓 install 恒失败(净面/主仓同因),改 D 盘 (8d81ef1995)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
