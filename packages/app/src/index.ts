@@ -196,16 +196,10 @@ export { PaymentScreen } from './features/payment/PaymentScreen'
 export { DomainHubScreen } from './features/domain-hub/DomainHubScreen'
 /** G-921(2026-10-21)屏级共享第二批:连接器管理屏(RN 端 ConnectorsScreen 的 UI 下沉)。
  *  `canSyncConnector` 是"未配置不允许同步"的共享判据,随屏一起导出 —— 两端共用一枚,不各写一份。 */
-export {
-  ConnectorsScreen,
-  canSyncConnector,
-} from './features/connectors/ConnectorsScreen'
+export { ConnectorsScreen, canSyncConnector } from './features/connectors/ConnectorsScreen'
 /** G-921(2026-10-21)屏级共享第三批:MCP 商店屏(RN 端 McpStoreScreen 的 UI 下沉)。
  *  `mcpInstallBlockedKey` 是"审核被拒不许安装"的共享判据(返回文案键,两端说同一句话)。 */
-export {
-  McpStoreScreen,
-  mcpInstallBlockedKey,
-} from './features/mcp-store/McpStoreScreen'
+export { McpStoreScreen, mcpInstallBlockedKey } from './features/mcp-store/McpStoreScreen'
 export { VipTraderScreen } from './features/vip-trader/VipTraderScreen'
 /** 2026-09-14:IM 聊天室(迁移自 mobile-rn AssistantScreen,历史 Uniapp pagesA/assistant) */
 export { ChatRoomScreen, detectChatRoomMediaType } from './features/chat-room/ChatRoomScreen'
@@ -716,14 +710,8 @@ export type {
   PaymentOrderItem,
   PaymentScreenProps,
 } from './features/payment/PaymentScreen'
-export type {
-  DomainHubItem,
-  DomainHubScreenProps,
-} from './features/domain-hub/DomainHubScreen'
-export type {
-  ConnectorItem,
-  ConnectorsScreenProps,
-} from './features/connectors/ConnectorsScreen'
+export type { DomainHubItem, DomainHubScreenProps } from './features/domain-hub/DomainHubScreen'
+export type { ConnectorItem, ConnectorsScreenProps } from './features/connectors/ConnectorsScreen'
 export type {
   McpStoreFilterKey,
   McpStoreItem,
@@ -863,4 +851,31 @@ export type {
   ImageGenHistoryTab,
   ImageGenHistoryScreenProps,
 } from './features/image-gen-history/ImageGenHistoryScreen'
+/** 门 39 六屏共享化第一批(2026-10-22):用量统计/已连接账户/公开图库三屏的 UI 下沉。
+ *  RN 端 UsageScreen / ConnectedAccountsScreen / ImageGenGalleryScreen 改为 wrapper,
+ *  平台只注入数据、回调、i18n 与主题(判据 = `check-rn-app-migration.mjs` 的屏级共享维)。 */
+export { UsageScreen, formatTokens, usageBarWidth } from './features/usage/UsageScreen'
+export type {
+  UsageBreakdownRow,
+  UsageQuota,
+  UsageStats,
+  UsageScreenProps,
+} from './features/usage/UsageScreen'
+export {
+  ConnectedAccountsScreen,
+  KNOWN_ACCOUNT_PLATFORMS,
+  accountPlatformLabel,
+} from './features/connected-accounts/ConnectedAccountsScreen'
+export type {
+  ConnectedAccountBinding,
+  ConnectedAccountsScreenProps,
+} from './features/connected-accounts/ConnectedAccountsScreen'
+export {
+  ImageGenGalleryScreen,
+  previewableGalleryImages,
+} from './features/image-gen-gallery/ImageGenGalleryScreen'
+export type {
+  GalleryImageItem,
+  ImageGenGalleryScreenProps,
+} from './features/image-gen-gallery/ImageGenGalleryScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

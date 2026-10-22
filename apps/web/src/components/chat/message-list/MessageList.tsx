@@ -27,7 +27,9 @@ import { applyConversationDetailMode } from './detail-mode-filter'
 import { usePaneConversationDetailModeStore } from '@/stores/conversation-detail-mode'
 // 票64(2026-10-18 立):版本族读投影 —— regenerate/edit 的多版本 sibling
 // 只渲染激活版本,否则"点一次编辑出两个气泡"(纯函数在 @/lib/message-version-family)。
-import { projectActiveMessages } from '@/lib/message-version-family'
+// 票59 2/3(2026-10-22):投影吃用户手动切换态(activeVersionByRoot),并给出每条
+// 消息的版本位置(versionFamilyPosition)供气泡上的版本菜单渲染。
+import { projectActiveMessages, versionFamilyPosition } from '@/lib/message-version-family'
 import { useFocusArtifactScroll } from '@/components/media/artifact-turn-badge'
 import { AmbientSuggestions } from '@/components/ai/ambient-suggestions'
 import { CanvasOverlay } from '@/components/chat/canvas-overlay'
@@ -140,9 +142,48 @@ export function MessageList({
   // 票60 普查批:按窗格寻址 —— 非根窗格读本窗格实例,不再把根窗格的档位一起改掉。
   const detailStore = usePaneConversationDetailModeStore()
   const detailMode = detailStore((s) => s.mode)
+  // 票59 2/3:版本族手动切换态(按窗格寻址 —— 两窗格各看各的选择)
+  const activeVersionByRoot = chatStore((s) => s.activeVersionByRoot)
   const visibleMessages = React.useMemo(
-    () => applyConversationDetailMode(projectActiveMessages(messages), detailMode),
-    [messages, detailMode],
+    () =>
+      applyConversationDetailMode(projectActiveMessages(messages, activeVersionByRoot), detailMode),
+    [messages, activeVersionByRoot, detailMode],
+  )
+
+  // 票59 2/3:每条带族坐标消息的版本位置(一次渲染算一遍)。
+  // Map 的 value 引用在 messages 不变时保持稳定 ⇒ React.memo 的消息行不乱重渲染。
+  const versionInfoByMessageId = React.useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        rootId: string
+        index: number
+        total: number
+        entries: { id: string; ordinal: number; summary: string }[]
+      }
+    >()
+    for (const m of messages) {
+      const pos = versionFamilyPosition(messages, m.id)
+      if (!pos) continue
+      map.set(m.id, {
+        rootId: pos.rootId,
+        index: pos.index,
+        total: pos.total,
+        entries: pos.members.map((member, i) => ({
+          id: member.id,
+          ordinal: i + 1,
+          summary: typeof member.content === 'string' ? member.content.slice(0, 60) : '',
+        })),
+      })
+    }
+    return map
+  }, [messages])
+
+  // 切换只改读投影的激活版本,不写库、不发请求(判族口径在 lib/message-version-family.ts)
+  const onSelectMessageVersion = React.useCallback(
+    (rootId: string, messageId: string) =>
+      chatStore.getState().setActiveMessageVersion(rootId, messageId),
+    [chatStore],
   )
 
   const scroll = useMessageListScroll({
@@ -515,6 +556,8 @@ export function MessageList({
                     contextMenu.contextMenuHandlers.onContextMenu(e)
                   }}
                   codeCollapseLines={codeCollapseLines}
+                  versionInfo={versionInfoByMessageId.get(m.id)}
+                  onSelectMessageVersion={onSelectMessageVersion}
                 />
                 {/* V3 #63(2026-09-27 立):该条 assistant 消息上的 form_request 宿主。
                     BusinessFormSection 内部无请求即整段返回 null(不占位),所以这里
