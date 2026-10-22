@@ -14,6 +14,7 @@
 // 绝不碰真实 `.git/ihui-git-write.lock`;归档落点也指进夹具(否则测试往 gitArchiveDir() 堆现场)。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -25,12 +26,14 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { auditClaimStaleLockSource, createLockInstanceObserver } from '../lib/stale-lock-claim.mjs'
 import { __test__ as gl, tryAcquireSingleInstance } from '../git-lock.mjs'
 
 const DEAD_PID = 999000 // 实测不存在的 pid;下面第 0 条先把它自己验一遍,不靠假设
 const LOCK_NAME = 'ihui-git-write.lock'
+const GITLOCK_ABS = fileURLToPath(new URL('../git-lock.mjs', import.meta.url))
 
 function mkFixture(t) {
   const scratch = mkScratch('git-lock-stale-steal')
@@ -191,6 +194,72 @@ test('⑤源码反向锁:acquire/clean 的抢占分支只能走 claimStaleLock,�
   assert.ok(
     codeOnly.includes('claimStaleLock(dir, null,'),
     'clean 的"无 meta.json 残留锁"一支也必须走改名抢占(旧写法是直接删)',
+  )
+  // ── G-57(2026-10-23)形状锁升级:形状 ⇒ 形状 + 负龄行为 ──────────────────────
+  // 原四条断言钉的是"抢占分支仍在 ∧ 只走原子改名"(防绕回直接删);G-57 收口剩余两格后,
+  // 同一判据行的**上游**新接了 judgeLockAge 负龄点名。这里把"形状"升级为
+  // "形状 + 负龄行为",原断言一条不删、一句不放宽,只是同一把锁多钉一格:
+  //   · 原判据行逐字仍在(防"顺手统一"/顺手改严改松);
+  //   · 负龄经单一真相源 judgeLockAge 点名(防回到"永不判死且零输出"的改前形态)。
+  assert.ok(
+    src.includes('else if (!holderAlive || age > hardStaleMs || age > staleMs) {'),
+    'acquire 既有判据行必须逐字仍在(G-57 只在其上游新增点名,判据本身不动)',
+  )
+  const acquireBlock = src.slice(
+    src.indexOf('async function acquire('),
+    src.indexOf('else if (!holderAlive || age > hardStaleMs'),
+  )
+  assert.ok(acquireBlock.length > 0, 'acquire 函数体定位失败')
+  assert.match(
+    acquireBlock,
+    /judgeLockAge\(age\)/,
+    'acquire 的负龄点名接线被摘了(G-57 收口回潮 ⇒ 未来 ts 又变"永不判死且零输出")',
+  )
+  assert.match(
+    acquireBlock,
+    /锁龄不可判定:\$\{dir\}/,
+    'acquire 负龄点名必须经 log 落"锁龄不可判定"措辞(写在注释里不算,写成"不判死/未超"就是把没判写成判过)',
+  )
+  // clean CLI 同型:原判据行的**条件部分一字不动**(只是前面多了点名块,if 变 else if),
+  // 且负龄点名排在其前、进"未判定"汇总
+  assert.ok(
+    src.includes('} else if (!holderAlive || age > 1_800_000 || identityAuthorizesClaim(identity)) {'),
+    'clean CLI 既有判据被改了(G-57 只允许在其上游新增点名)',
+  )
+  const cleanJudgeAt = src.indexOf('const ageV = judgeLockAge(age)')
+  const cleanCondAt = src.indexOf('} else if (!holderAlive || age > 1_800_000')
+  assert.ok(
+    cleanJudgeAt > 0 && cleanCondAt > cleanJudgeAt,
+    'clean CLI:负龄点名必须排在原判据之前(顺序反了 = 先判后问,点名永远走不到)',
+  )
+  assert.ok(src.includes('ageNotes.push('), 'clean CLI 负龄点名必须进"未判定"汇总(只 log 不汇总 ⇒ "✅ 无 stale 锁"误报回潮)')
+  assert.ok(
+    src.includes('clean 未判定:${dir}'),
+    'clean CLI 负龄点名必须经 ageNotes 落"未判定"措辞(写在注释里不算)',
+  )
+  assert.ok(
+    src.includes('indexNotes.length === 0 && ageNotes.length === 0'),
+    'clean 汇总的"✅ 无 stale 锁"必须把负龄未判定计入(漏计 = 没判写成没有)',
+  )
+  assert.ok(
+    src.includes('${indexNotes.length + ageNotes.length} 把锁因锁龄判不出来'),
+    'clean 未判定汇总行必须把两族锁合起来报(只报 index.lock ⇒ ihui-git-write.lock 的未判定被吞)',
+  )
+  // 变异对照(防恒绿):把 acquire 接线块整体摘掉(模拟改前形态)⇒ 上面两条新断言必须翻红;
+  // 同时证伪"判据行被顺手改了吗"——变异只摘接线,判据行原样。
+  const beforeFix = src.replace(/if \(holderAlive && !ageUndeterminedNoted\) \{[\s\S]*?\n        \}\n/, '')
+  assert.ok(
+    beforeFix.includes('else if (!holderAlive || age > hardStaleMs || age > staleMs) {'),
+    '变异对照必须只摘接线块、不动判据行,否则测的不是同一件事',
+  )
+  const beforeAcquireBlock = beforeFix.slice(
+    beforeFix.indexOf('async function acquire('),
+    beforeFix.indexOf('else if (!holderAlive || age > hardStaleMs'),
+  )
+  assert.doesNotMatch(
+    beforeAcquireBlock,
+    /judgeLockAge\(age\)/,
+    '变异对照失灵:回到改前形态时新断言没红 = 这条形状锁在替缺陷背书',
   )
 })
 
@@ -569,6 +638,203 @@ test('⑩c反向对照:过去 mtime/ts 的既有回收语义一字不变(超龄 
     `回收理由仍须逐字沿用既有措辞:${JSON.stringify(logs2)}`,
   )
   if (r2.release) r2.release()
+})
+
+// ── 9. G-57 收口剩余两格:acquire 与 clean CLI 的负龄点名 ────────────────────
+// 别席 6d9be2907d 已收口 cleanStaleIndexLocks / tryAcquireSingleInstance(⑧-⑩);
+// 本票收口 acquire(判读块)与 clean CLI(main())最后两格。病型同族:未来 ts ⇒ age 为负
+// ⇒ 原判据的两个 age 比较恒假 ⇒ "pid 名义存活 + 未来 ts"永不判死。改前实测:
+// acquire 静默轮询到超时(age=-3600s,零负龄输出);clean CLI 静默落"保留"支,
+// 还跟着报"✅ 无 stale 锁需清理" —— 把"没判"写成"判过了,没有"。
+/** 造一把持有者为 sleeper(真活进程)的锁,返回 {wt, lockDir, sleeper} */
+function makeCleanFixture(t, { pid, ts }) {
+  const { scratch } = mkFixture(t)
+  const wt = join(scratch, 'wt')
+  mkdirSync(wt, { recursive: true })
+  execFileSync('git', ['init', '-q', '-b', 'main'], {
+    cwd: wt,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const lockDir = join(wt, '.git', LOCK_NAME)
+  mkdirSync(lockDir, { recursive: true })
+  writeFileSync(
+    join(lockDir, 'meta.json'),
+    JSON.stringify({ unitId: 'g57-clean', pid, ts }),
+    'utf8',
+  )
+  return { wt, lockDir }
+}
+/** 在夹具 git 仓里跑一次真 `git-lock.mjs clean` 子进程 */
+function runClean(wt) {
+  return spawnSync(process.execPath, [GITLOCK_ABS, 'clean'], {
+    cwd: wt,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+}
+
+test('⑪acquire:未来 ts + pid 名义存活 ⇒ 点名"锁龄不可判定"、零抢占、一次只喊一遍(改前是静默等超时)', async (t) => {
+  const { dir, archive } = mkFixture(t)
+  mkdirSync(dir, { recursive: true })
+  const futureTs = Date.now() + FUTURE_SHIFT_MS
+  writeFileSync(
+    join(dir, 'meta.json'),
+    JSON.stringify({ unitId: 'unit-甲', pid: process.pid, ts: futureTs }),
+    'utf8',
+  )
+  assert.ok(Date.now() - futureTs < 0, '夹具没造出负龄')
+  const logs = []
+  let threw = null
+  try {
+    await gl.acquire({
+      unitId: 'g57-waiter',
+      timeoutMs: 1500,
+      staleMs: 50, // 真实时间线上"未来 1h"早该双双超龄 ⇒ 负龄让两个 age 比较恒假
+      hardStaleMs: 100,
+      dir,
+      cleanIndexLocks: false,
+      claimArchiveRoot: archive,
+      log: (m) => logs.push(m),
+    })
+  } catch (e) {
+    threw = e
+  }
+  assert.ok(threw, '负龄 ⇒ 不可判定 ⇒ 不抢占 ⇒ 只能等超时抛错(失效方向不是双写)')
+  // 点名:负龄原值 + "不可判定"措辞,且一次 acquire 只喊一遍(300ms 轮询不刷屏)
+  const ageNotes = logs.filter((l) => /锁龄不可判定/.test(l))
+  assert.equal(ageNotes.length, 1, `负龄点名必须恰一条(只喊一遍),实得 ${JSON.stringify(logs)}`)
+  assert.match(ageNotes[0], /锁龄为负 -/, '点名必须带负龄原值(夹逼成 0 就再也看不出有过负龄)')
+  assert.match(ageNotes[0], /时钟偏移容差/, '点名必须点名"时钟偏移"这个成因')
+  assert.doesNotMatch(
+    ageNotes[0],
+    /⇒ 不判死|未超 .*s/,
+    `未判定不得借用"判过了是新鲜"的措辞:${ageNotes[0]}`,
+  )
+  // 零抢占:锁一字未动、零归档现场
+  assert.equal(gl.readMeta(dir)?.unitId, 'unit-甲', '未判定 ⇒ 不得抢占')
+  assert.equal(existsSync(archive), false, '未判定 ⇒ 零归档现场')
+  assert.equal(leftoverStale(dir), 0)
+})
+
+test('⑪b回归锁:acquire 过去 ts 的两格(死 pid ⇒ 立即抢占;活 pid 未超龄 ⇒ 不抢且零负龄点名)逐字不变', async (t) => {
+  // ① 死 pid + 过去 2s(默认 staleMs=300s 都没到)⇒ 照旧**立即**抢占(2026-09-19 语义)
+  const f1 = mkFixture(t)
+  putLock(f1.dir, { unitId: 'unit-甲', pid: DEAD_PID, ts: Date.now() - 2_000 })
+  const logs1 = []
+  const got1 = await gl.acquire({
+    unitId: 'g57-waiter',
+    timeoutMs: 2000,
+    dir: f1.dir,
+    cleanIndexLocks: false,
+    claimArchiveRoot: f1.archive,
+    log: (m) => logs1.push(m),
+  })
+  assert.equal(got1, true, '死 pid ⇒ 立即抢占的既有语义不得被本票改形')
+  assert.equal(gl.readMeta(f1.dir)?.unitId, 'g57-waiter', '抢占后锁应易主到等待者')
+  assert.ok(!logs1.some((l) => /不可判定/.test(l)), '过去 ts 不得被点名成未判定')
+
+  // ② 活 pid + 过去 10s + 默认 staleMs=300s(未超龄)⇒ 照旧不抢、等超时;零负龄点名
+  const f2 = mkFixture(t)
+  putLock(f2.dir, { unitId: 'unit-乙', pid: process.pid, ts: Date.now() - 10_000 })
+  const logs2 = []
+  let threw2 = null
+  try {
+    await gl.acquire({
+      unitId: 'g57-waiter',
+      timeoutMs: 1200,
+      dir: f2.dir,
+      cleanIndexLocks: false,
+      claimArchiveRoot: f2.archive,
+      log: (m) => logs2.push(m),
+    })
+  } catch (e) {
+    threw2 = e
+  }
+  assert.ok(threw2, '活 pid 未超龄 ⇒ 照旧等超时(本票不改这一格)')
+  assert.ok(
+    !logs2.some((l) => /锁龄不可判定/.test(l)),
+    `正常过去 ts 不得触发负龄点名:${JSON.stringify(logs2)}`,
+  )
+  assert.equal(gl.readMeta(f2.dir)?.unitId, 'unit-乙', '未超龄 ⇒ 锁不被抢')
+  assert.equal(existsSync(f2.archive), false, '未超龄 ⇒ 零归档现场')
+})
+
+test('⑪b2负龄不碰"不依赖锁龄"的支:死 pid + 未来 ts ⇒ acquire 照旧立即抢占(!holderAlive 短路)', async (t) => {
+  const { dir, archive } = mkFixture(t)
+  putLock(dir, { unitId: 'unit-甲', pid: DEAD_PID, ts: Date.now() + FUTURE_SHIFT_MS })
+  const logs = []
+  const got = await gl.acquire({
+    unitId: 'g57-waiter',
+    timeoutMs: 2000,
+    dir,
+    cleanIndexLocks: false,
+    claimArchiveRoot: archive,
+    log: (m) => logs.push(m),
+  })
+  assert.equal(got, true, '死 pid 这一支不依赖锁龄 ⇒ 负龄也不许拦它(与已修三格同口径)')
+  assert.equal(gl.readMeta(dir)?.unitId, 'g57-waiter')
+  assert.ok(
+    !logs.some((l) => /锁龄不可判定/.test(l)),
+    `不依赖锁龄的支不该为负龄点名:${JSON.stringify(logs)}`,
+  )
+})
+
+test('⑪cclean CLI:未来 ts + pid 名义存活 ⇒ 子进程报"未判定",不再打"保留"与"✅ 无 stale 锁"', (t) => {
+  const sleeper = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60_000)'], {
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  t.after(() => {
+    try {
+      sleeper.kill()
+    } catch {
+      /* 已退出 */
+    }
+  })
+  const { wt, lockDir } = makeCleanFixture(t, {
+    pid: sleeper.pid,
+    ts: Date.now() + FUTURE_SHIFT_MS,
+  })
+  const r = runClean(wt)
+  assert.equal(r.status, 0, `clean 子进程异常:${r.stderr}`)
+  assert.match(r.stdout, /clean 未判定/, `必须点名未判定:${r.stdout}`)
+  assert.match(r.stdout, /锁龄为负 -/, '点名必须带负龄原值(改前打印 age=-3600s 却无人点名)')
+  assert.match(r.stdout, /⚠️ 未判定:1 把锁/, '未判定必须进汇总行(改前报的是"✅ 无 stale 锁需清理")')
+  assert.doesNotMatch(r.stdout, /保留 ihui-git-write\.lock/, '未判定不得套用"保留"措辞(那是"判过了是新鲜")')
+  assert.doesNotMatch(r.stdout, /✅ 无 stale 锁需清理/, '"没判出来"绝不许报成"没有 stale 锁"(§0.3)')
+  assert.ok(existsSync(lockDir), '未判定 ⇒ 锁保持原样')
+})
+
+test('⑪d回归锁:clean CLI 活 pid + 过去 ts 未超硬上限 ⇒ 照旧"保留"且汇总照旧(逐字不变)', (t) => {
+  const sleeper = spawn(process.execPath, ['-e', 'setTimeout(()=>{},60_000)'], {
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  t.after(() => {
+    try {
+      sleeper.kill()
+    } catch {
+      /* 已退出 */
+    }
+  })
+  const { wt, lockDir } = makeCleanFixture(t, {
+    pid: sleeper.pid,
+    ts: Date.now() - 10_000, // 过去 10s,远小于 1800s 硬上限
+  })
+  const r = runClean(wt)
+  assert.equal(r.status, 0, r.stderr)
+  assert.match(
+    r.stdout,
+    /保留 ihui-git-write\.lock\(持有者 pid=\d+ 仍存活,age=10s/,
+    `活 pid 未超硬上限照旧保留:${r.stdout}`,
+  )
+  assert.match(r.stdout, /✅ 无 stale 锁需清理/, '保留态汇总照旧(本票不改这一格)')
+  assert.doesNotMatch(r.stdout, /未判定/, '过去 ts 不得点名未判定')
+  assert.ok(existsSync(lockDir), '保留 ⇒ 不动锁')
 })
 
 // ── 工具 ───────────────────────────────────────────────────────────────────
