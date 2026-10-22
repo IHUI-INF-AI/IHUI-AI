@@ -68,7 +68,14 @@ function makeDocRepo(t, docText) {
 
 function runLive(
   dir,
-  { doc = 'DOC.md', anchorFile, blockFile, replaceFile, msg = 'docs: e2e register', extraEnv = {} } = {},
+  {
+    doc = 'DOC.md',
+    anchorFile,
+    blockFile,
+    replaceFile,
+    msg = 'docs: e2e register',
+    extraEnv = {},
+  } = {},
 ) {
   const env = { ...process.env, LIVE_ROOT: dir, LIVE_DOC: doc, LIVE_MSG: msg, ...extraEnv }
   if (replaceFile) {
@@ -109,7 +116,10 @@ const ID_TOKEN_SHAPE = /^[A-Z]+-?\d+$/
 /** 从 `G-299` / `O4` 这类号里取出数字部分;取不出就是报告形状漂了,不当"没超标"放过。 */
 function idNum(id, where = '取号读数') {
   const s = String(id)
-  assert.ok(ID_TOKEN_SHAPE.test(s), `${where}:号的外形读不出数字(${JSON.stringify(s)})⇒ 族书写形状或报告版式漂了`)
+  assert.ok(
+    ID_TOKEN_SHAPE.test(s),
+    `${where}:号的外形读不出数字(${JSON.stringify(s)})⇒ 族书写形状或报告版式漂了`,
+  )
   return Number(s.match(/(\d+)$/)[1])
 }
 
@@ -381,7 +391,11 @@ test('T10b 同文孪生档(all:true):N 份副本一起改,其余行逐字原位;
   const r = __test__.applyReplacements(lines, [{ before: twin, after: bare, all: true }])
   assert.equal(r.ok, true, '同文三份 + all ⇒ 必须落地,否则半新半旧比不改更糟')
   assert.deepEqual(r.next, ['# 标题', bare, '段落一', bare, '段落二', bare])
-  assert.equal(r.hits.length, 3, '三条命中都要记账,否则 untouched-line-drift 会把它们漏判成"不该动"')
+  assert.equal(
+    r.hits.length,
+    3,
+    '三条命中都要记账,否则 untouched-line-drift 会把它们漏判成"不该动"',
+  )
   assert.equal(r.multi.length, 1, '同文全改必须回报,让成功行里能打印命中数')
   assert.equal(r.multi[0].count, 3)
   // 反向锁:放宽只发生在显式声明 all 的项上
@@ -392,8 +406,7 @@ test('T10b 同文孪生档(all:true):N 份副本一起改,其余行逐字原位;
   )
   // 0 命中即使带 all 也拒(放宽的是"哪一份",不是"有没有这一份")
   assert.equal(
-    __test__.applyReplacements(lines, [{ before: '- [ ] 没有这行', after: 'X', all: true }])
-      .reason,
+    __test__.applyReplacements(lines, [{ before: '- [ ] 没有这行', after: 'X', all: true }]).reason,
     'replace-not-found#1',
   )
 })
@@ -425,11 +438,7 @@ test('T11 端到端·整行改写:落地后旧形态逐条为零、其余行逐�
   assert.equal(r.status, 0, `应成功:${r.stdout}|${r.stderr}`)
   assert.match(r.stdout, /旧形态整行归零/)
   const now = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true })).split('\n')
-  assert.deepEqual(
-    now,
-    ['# 标题', '段落一', after, '段落二', ''],
-    '除声明行外不得有任何位移',
-  )
+  assert.deepEqual(now, ['# 标题', '段落一', after, '段落二', ''], '除声明行外不得有任何位移')
   assert.equal(indexBlobOf('DOC.md', { root: dir }), headBlobOf('HEAD', 'DOC.md', { root: dir }))
 })
 
@@ -542,24 +551,43 @@ test('T14 resolveIdTokens:号来自底稿、取不到即拒绝、无令牌不误
  * 台账上某号已被自己让空(池内最小空闲正好是它),而远端那一份还在用同一枚号。
  */
 test('T14d 令牌不得交回本次被让位的旧号(① 当场拒发)', () => {
-  const ledgerWith = '- [ ] **G-1 甲**:a\n- [ ] **G-2 乙**:b\n- [ ] **G-3 丙**:c\n- [ ] **G-4 丁**:d\n- [ ] **G-5 戊**:e\n- [ ] **G-6 己**:f\n- [ ] **G-7 庚**:g\n'
+  const ledgerWith =
+    '- [ ] **G-1 甲**:a\n- [ ] **G-2 乙**:b\n- [ ] **G-3 丙**:c\n- [ ] **G-4 丁**:d\n- [ ] **G-5 戊**:e\n- [ ] **G-6 己**:f\n- [ ] **G-7 庚**:g\n'
   // 让号的第一步已把 G-7 那行的声明位剥掉 ⇒ 池内最小空闲 = 7(正是本次让出的号)
-  const afterVacate = '- [ ] **G-1 甲**:a\n- [ ] **G-2 乙**:b\n- [ ] **G-3 丙**:c\n- [ ] **G-4 丁**:d\n- [ ] **G-5 戊**:e\n- [ ] **G-6 己**:f\n- [ ] 庚:g\n'
-  const reps = [{ before: '- [ ] **G-7 庚**:g', after: '- [ ] {{NEXT_ID:G}} 庚:g 〔改派为新号,原登记 G-7〕' }]
+  const afterVacate =
+    '- [ ] **G-1 甲**:a\n- [ ] **G-2 乙**:b\n- [ ] **G-3 丙**:c\n- [ ] **G-4 丁**:d\n- [ ] **G-5 戊**:e\n- [ ] **G-6 己**:f\n- [ ] 庚:g\n'
+  const reps = [
+    { before: '- [ ] **G-7 庚**:g', after: '- [ ] {{NEXT_ID:G}} 庚:g 〔改派为新号,原登记 G-7〕' },
+  ]
   const vac = __test__.vacatedIdsOf(reps, ledgerWith, ['G'])
   assert.deepEqual(vac, ['G-7'], `让位集应取到被替换行的声明位号,实得 ${JSON.stringify(vac)}`)
   // 不带让位集时确实会把 G-7 再发一次 —— 这一支是"缺陷真实存在"的正向证据,不是空转夹具
-  const naive = __test__.resolveIdTokens(reps.map((r) => r.after), afterVacate, null, {})
+  const naive = __test__.resolveIdTokens(
+    reps.map((r) => r.after),
+    afterVacate,
+    null,
+    {},
+  )
   assert.equal(naive.ok, true)
-  assert.equal(naive.assigned, 'G-7', `复现前提:池内最小空闲就是被让出的 G-7,实得 ${naive.assigned}`)
-  const refused = __test__.resolveIdTokens(reps.map((r) => r.after), afterVacate, null, { vacating: vac })
+  assert.equal(
+    naive.assigned,
+    'G-7',
+    `复现前提:池内最小空闲就是被让出的 G-7,实得 ${naive.assigned}`,
+  )
+  const refused = __test__.resolveIdTokens(
+    reps.map((r) => r.after),
+    afterVacate,
+    null,
+    { vacating: vac },
+  )
   assert.equal(refused.ok, false, '令牌交回本次正被让位的旧号 ⇒ 必须拒发,不得安静交出同一个号')
   assert.equal(refused.reason, 'token-returned-vacated-id')
   assert.equal(refused.vacatedIds, 'G-7')
 })
 
 test('T14e 改派后行首编号必须与旧号不同(② 远端占位时逐面复查空闲,发下一个号)', () => {
-  const afterVacate = '- [ ] **G-1 甲**:a\n- [ ] **G-2 乙**:b\n- [ ] **G-3 丙**:c\n- [ ] **G-4 丁**:d\n- [ ] **G-5 戊**:e\n- [ ] **G-6 己**:f\n- [ ] 庚:g\n'
+  const afterVacate =
+    '- [ ] **G-1 甲**:a\n- [ ] **G-2 乙**:b\n- [ ] **G-3 丙**:c\n- [ ] **G-4 丁**:d\n- [ ] **G-5 戊**:e\n- [ ] **G-6 己**:f\n- [ ] 庚:g\n'
   const target = '- [ ] {{NEXT_ID:G}} 庚:g 〔改派为新号,原登记 G-7〕'
   // 远端那一份仍占着 G-7(本机 2026-10-16 的实况):max 相同与否都不是重点,重点是**已用集合**要参与
   const remote = { max: { G: 7 }, ids: { G: ['G-7'] }, notes: [], info: [], tipSha: 'f'.repeat(40) }
@@ -568,8 +596,17 @@ test('T14e 改派后行首编号必须与旧号不同(② 远端占位时逐面�
   assert.equal(r.assigned, 'G-8', `不得把远端仍在用的 G-7 再发一次,实得 ${r.assigned}`)
   assert.match(r.lines[0], /^- \[ \] G-8 庚/, `落地行的声明位必须是新号,实得:${r.lines[0]}`)
   // 反向对照:同一底稿、远端**没**占 7 ⇒ 池式口径就该回填 7(不得为了躲它而跳号)
-  const backfill = __test__.resolveIdTokens([target], afterVacate, { max: { G: 6 }, ids: { G: [] } }, {})
-  assert.equal(backfill.assigned, 'G-7', '远端未占用的空洞仍应优先回填,否则本条把池式口径改成了只追 max')
+  const backfill = __test__.resolveIdTokens(
+    [target],
+    afterVacate,
+    { max: { G: 6 }, ids: { G: [] } },
+    {},
+  )
+  assert.equal(
+    backfill.assigned,
+    'G-7',
+    '远端未占用的空洞仍应优先回填,否则本条把池式口径改成了只追 max',
+  )
 })
 
 /**
@@ -897,7 +934,7 @@ test('N3b 自补救 fetch(2026-09-30 契约升级):补成功 ⇒ 远端面读齐
     transport: fakeTransport({
       hasCommit: () => {
         hasCommitCalls += 1
-        if (hasCommitCalls === 1) throw new Error("fatal: Not a valid object name ffffffff")
+        if (hasCommitCalls === 1) throw new Error('fatal: Not a valid object name ffffffff')
         return true
       },
       hydrate: () => true,
@@ -972,7 +1009,11 @@ test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):自补救 
 
   // ── 阶段一:B 从未见过 A 那枚 commit ⇒ 自补救 fetch 后读齐远端面 ⇒ 号必须跳过远端那段 ──
   const r1 = runLive(dir, { blockFile })
-  assert.equal(r1.status, 0, `自补救 fetch 后必须落得了地,实得 ${r1.status}\n${r1.stdout}\n${r1.stderr}`)
+  assert.equal(
+    r1.status,
+    0,
+    `自补救 fetch 后必须落得了地,实得 ${r1.status}\n${r1.stdout}\n${r1.stderr}`,
+  )
   assert.ok(r1.stdout.includes('已自补救一次 fetch'), `过程注记必须在场:\n${r1.stdout}`)
   assert.ok(
     !r1.stdout.includes('未与远端对齐'),
@@ -999,13 +1040,21 @@ test('N4 端到端·真实 ls-remote(夹具 origin,file:// 零网络):自补救 
   )
   assert.equal(run1.lease.mode, 'claim', `B 从未见过 A 那枚 commit,不可能有自有段:\n${r1.stdout}`)
   assert.equal(run1.basis.localMax, 3, `本地底稿应只有 G-3:\n${r1.stdout}`)
-  assert.equal(run1.basis.remoteMax, 9, `远端那一份没参与本次取号 ⇒ 抬号支测的是别的事:\n${r1.stdout}`)
+  assert.equal(
+    run1.basis.remoteMax,
+    9,
+    `远端那一份没参与本次取号 ⇒ 抬号支测的是别的事:\n${r1.stdout}`,
+  )
   assert.ok(
     idNum(run1.id, 'N4·抬号支') > run1.basis.remoteMax,
     `远端已占 4..9 ⇒ 本次号必须严格大于远端 max(9),实得 ${run1.id}`,
   )
   const docNow = norm(git(['show', 'HEAD:DOC.md'], { root: dir, raw: true }))
-  assert.match(docNow, idRowRe(run1.id, '新条目'), `HEAD 里必须是同一次运行算出的那个号:\n${docNow}`)
+  assert.match(
+    docNow,
+    idRowRe(run1.id, '新条目'),
+    `HEAD 里必须是同一次运行算出的那个号:\n${docNow}`,
+  )
   assert.doesNotMatch(
     docNow,
     /\*\*G-4 新条目\*\*/,
@@ -1074,9 +1123,7 @@ test('N5 反向锁:号段基准(含远端那一份)必须在 CAS 循环体内重
     'CAS 循环内必须重取 HEAD',
   )
   assert.ok(
-    TOOL_SRC.slice(loopStart, loopEnd).includes(
-      'resolveIdTokens(targetLines, baseContent, remote',
-    ),
+    TOOL_SRC.slice(loopStart, loopEnd).includes('resolveIdTokens(targetLines, baseContent, remote'),
     '取号必须吃到本轮的远端基准,而不是上一轮的(前缀锁:第三位必须是本轮 remote;第四位的 machineId 参数属池式租约取号,不得挪出循环)',
   )
 })
@@ -1088,7 +1135,11 @@ test('N6 形状锁:远端四次派生各自带数字 timeout、fetch 只许住�
   const transportSrc = TOOL_SRC.slice(tStart, tEnd)
   const gitCalls = (transportSrc.match(/\bgit\(\[/g) || []).length
   const timeouts = (transportSrc.match(/timeout:/g) || []).length
-  assert.equal(gitCalls, 4, `远端派生恰好四次(ls-remote / cat-file -e / fetch / show),实得 ${gitCalls}`)
+  assert.equal(
+    gitCalls,
+    4,
+    `远端派生恰好四次(ls-remote / cat-file -e / fetch / show),实得 ${gitCalls}`,
+  )
   assert.equal(
     timeouts,
     gitCalls,
@@ -1184,7 +1235,11 @@ test('I1 compileBlockMatchers 纯函数:无令牌 ⇒ 纯字面匹配;有令牌 
   assert.ok(!o.matchers[0].test('- [ ] **O-7 甲件**:x'), 'O 族现读形状是 `O%d`,不该长得像 G 族')
   const nofam = __test__.compileBlockMatchers(['{{NEXT_ID:Z}} 条目'], base)
   assert.equal(nofam.ok, false)
-  assert.match(String(nofam.reason), /family-shape-unreadable:Z/, '该族一条没有 ⇒ 判不出,不退化成"逐字等值再判一次"')
+  assert.match(
+    String(nofam.reason),
+    /family-shape-unreadable:Z/,
+    '该族一条没有 ⇒ 判不出,不退化成"逐字等值再判一次"',
+  )
 })
 
 test('I2 blockInPlaceCheck 纯函数:在位/不等/太短各归一态;锚点 0 或 2 命中一律不表态;EOF 档明确不判', () => {
@@ -1196,7 +1251,11 @@ test('I2 blockInPlaceCheck 纯函数:在位/不等/太短各归一态;锚点 0 �
     matchers: mk(['X1', 'X2']),
   })
   assert.equal(inPlace.inPlace, true)
-  assert.deepEqual([inPlace.at, inPlace.lines, inPlace.anchorAt], [2, 2, 2], '落点与锚点行号都要交出去(报告要点名)')
+  assert.deepEqual(
+    [inPlace.at, inPlace.lines, inPlace.anchorAt],
+    [2, 2, 2],
+    '落点与锚点行号都要交出去(报告要点名)',
+  )
 
   const differs = __test__.blockInPlaceCheck({
     baseLines: doc,
@@ -1209,8 +1268,11 @@ test('I2 blockInPlaceCheck 纯函数:在位/不等/太短各归一态;锚点 0 �
   assert.equal(differs.actual, 'X2')
 
   assert.equal(
-    __test__.blockInPlaceCheck({ baseLines: doc, anchorLines: ['@M@'], matchers: mk(['X1', 'X2', 'X3', 'X4']) })
-      .verdict,
+    __test__.blockInPlaceCheck({
+      baseLines: doc,
+      anchorLines: ['@M@'],
+      matchers: mk(['X1', 'X2', 'X3', 'X4']),
+    }).verdict,
     'too-short',
     '锚点后面不足 N 行 ⇒ 显然没在位(不得拿"截到的部分"当等值)',
   )
@@ -1219,7 +1281,11 @@ test('I2 blockInPlaceCheck 纯函数:在位/不等/太短各归一态;锚点 0 �
     [doc, ['@NOPE@'], 0],
     [[...doc, '@M@'], ['@M@'], 2],
   ]) {
-    const r = __test__.blockInPlaceCheck({ baseLines: lines, anchorLines: anchor, matchers: mk(['X1']) })
+    const r = __test__.blockInPlaceCheck({
+      baseLines: lines,
+      anchorLines: anchor,
+      matchers: mk(['X1']),
+    })
     assert.equal(r.inPlace, false)
     assert.equal(r.verdict, 'anchor-not-unique')
     assert.equal(r.hits, hits, '命中数要如实交出去,报告才知道是"漂了"还是"有歧义"')
@@ -1358,9 +1424,7 @@ test('I6 端到端·带取号令牌的块第二次跑:展开后的号不同 ⇒ 
   assert.match(doc, idRowRe(run1.id, '幂等落地'), `在位的那一份必须是第一次落地的那一枚号:\n${doc}`)
   // 旧断言 `doesNotMatch(doc, /G-5/)` 只排除"下一枚恰好叫 G-5"这一种;按号钉之后**任何**一枚不同
   // 的号都被排除(租约之后下一枚根本不叫 G-5,旧字面量会把真事故读成通过)。
-  const foreign = doc
-    .split('\n')
-    .filter((l) => l.includes('幂等落地') && !l.includes(run1.id))
+  const foreign = doc.split('\n').filter((l) => l.includes('幂等落地') && !l.includes(run1.id))
   assert.deepEqual(
     foreign,
     [],
@@ -1410,13 +1474,23 @@ test('I8 反向·内容没落地时同一把 stale 锁不得把失败洗成 0(�
 test('I9 alignOutcome 纯函数三方向:未落地 ⇒ 1 / 已入库未对齐 ⇒ 0 且点名 / 已对齐 ⇒ 旧措辞逐字不变', () => {
   const fail = __test__.alignOutcome({ landedSha: '', doc: 'DOC.md', detail: '12 次均未抢到 CAS' })
   assert.equal(fail.code, 1, '没落地绝不能被 ② 那一档顺手洗绿')
-  assert.ok(fail.lines[0].startsWith('❌') && fail.lines[0].includes('12 次均未抢到 CAS'), fail.lines[0])
+  assert.ok(
+    fail.lines[0].startsWith('❌') && fail.lines[0].includes('12 次均未抢到 CAS'),
+    fail.lines[0],
+  )
 
   const sha = 'a'.repeat(40)
   const unaligned = __test__.alignOutcome({
     landedSha: sha,
     doc: 'DOC.md',
-    align: { moved: 0, already: 0, skipped: [], undetermined: [], lockAbandoned: true, failed: false },
+    align: {
+      moved: 0,
+      already: 0,
+      skipped: [],
+      undetermined: [],
+      lockAbandoned: true,
+      failed: false,
+    },
   })
   assert.equal(unaligned.code, 0)
   const txt = unaligned.lines.join('\n')
@@ -1438,12 +1512,22 @@ test('I9 alignOutcome 纯函数三方向:未落地 ⇒ 1 / 已入库未对齐 �
   })
   assert.equal(rounds.code, 0)
   assert.ok(rounds.lines.join('\n').includes('轮次耗尽'), 'failed 那一支的原因也要点名')
-  assert.ok(rounds.lines.some((l) => l.startsWith('⚠️ 未动(归属他人):D')), '归属他人的条目不得被静默吞掉')
+  assert.ok(
+    rounds.lines.some((l) => l.startsWith('⚠️ 未动(归属他人):D')),
+    '归属他人的条目不得被静默吞掉',
+  )
 
   const ok = __test__.alignOutcome({
     landedSha: sha,
     doc: 'DOC.md',
-    align: { moved: ['DOC.md'], already: [], skipped: [], undetermined: [], lockAbandoned: false, failed: false },
+    align: {
+      moved: ['DOC.md'],
+      already: [],
+      skipped: [],
+      undetermined: [],
+      lockAbandoned: false,
+      failed: false,
+    },
   })
   assert.equal(ok.code, 0)
   assert.equal(
@@ -1461,8 +1545,14 @@ test('I10 反向锁:幂等判据必须在 CAS 循环体内、且在拼块之前�
   // 刻意不用 `assert.match(\n …)` 的换行形态:那样第一条行恰好是 `  assert.match(`,而它在
   // 祖先 5f58242ab 里存在过 ⇒ 陈旧落地守卫会把它读成"把基线已删的行搬回来"而拒落(本仓第二次
   // 撞到同一形状,上一轮也是改写成不产生碎片的形态才落地的)。语义不变,只换写法。
-  assert.ok(/blockInPlaceCheck\(\s*\{/.test(body), '幂等判据没接进 CAS 循环 = 一次也不会跑(守门 64/70/76/81/115 同型:函数在、判据对、无人调度)')
-  assert.ok(/compileBlockMatchers\(block,\s*baseContent\)/.test(body), '匹配式必须由**本轮底稿**编译:烘到循环外就在别人推进 HEAD 的瞬间产出自洽却错位的尺子')
+  assert.ok(
+    /blockInPlaceCheck\(\s*\{/.test(body),
+    '幂等判据没接进 CAS 循环 = 一次也不会跑(守门 64/70/76/81/115 同型:函数在、判据对、无人调度)',
+  )
+  assert.ok(
+    /compileBlockMatchers\(block,\s*baseContent\)/.test(body),
+    '匹配式必须由**本轮底稿**编译:烘到循环外就在别人推进 HEAD 的瞬间产出自洽却错位的尺子',
+  )
   const at = body.indexOf('blockInPlaceCheck(')
   const asm = body.indexOf('assemble(baseLines, effBlock, anchorLines)')
   assert.ok(at > 0 && asm > at, '票面 ① 要求"拼块之前"判;放到 assemble 之后就已经晚了')
@@ -1475,7 +1565,10 @@ test('I10 反向锁:幂等判据必须在 CAS 循环体内、且在拼块之前�
 
 test('I11 畸形登记号必须被拒,且必须发生在写 blob 之前(2026-09-28 立)', () => {
   const { newMalformed, MALFORMED_ID_RE } = __test__
-  assert.ok(typeof newMalformed === 'function' && MALFORMED_ID_RE, '判据未导出 = 镜像测不到它,等同于没有')
+  assert.ok(
+    typeof newMalformed === 'function' && MALFORMED_ID_RE,
+    '判据未导出 = 镜像测不到它,等同于没有',
+  )
   // 真事故形态:令牌展开值已含族名,正文又手写了一个 D ⇒ DD128
   const bad = '- [ ] **DD128 AI 对话链路四竞品对标 V4 收口线 —— 唯一入口 x.md'
   assert.ok(MALFORMED_ID_RE.test(bad), '本仓真实产出过的形态判不出 ⇒ 尺子对自家形态失明')
@@ -1495,7 +1588,10 @@ test('I11 畸形登记号必须被拒,且必须发生在写 blob 之前(2026-09-
   assert.equal(hit(decOk), 0, '带装饰的正当行必须放过,否则翻勾一次就被自己的判据拦住')
   assert.equal(hit(claimOk), 0, '带租约的正当行必须放过')
   const BR = __test__.MALFORMED_BODY_RE
-  assert.ok(BR instanceof RegExp, '装饰档判据必须导出(否则镜像只能重抄一份判据,§22c 的复读机那一型)')
+  assert.ok(
+    BR instanceof RegExp,
+    '装饰档判据必须导出(否则镜像只能重抄一份判据,§22c 的复读机那一型)',
+  )
   assert.ok(BR.test('GG-600 剥完装饰的正文'), '判据本体必须判得动剥装饰后的正文')
   assert.ok(!BR.test('G-600 剥完装饰的正文'), '正当号形不得被本体误判')
   const r = newMalformed('', bad + '\n' + ok1)
@@ -1516,16 +1612,26 @@ test('I13 结构锁:判据必须在 CAS 循环内、writeBlob 之前(落地后�
   const loopStart = TOOL_SRC.indexOf('for (let attempt = 1')
   const loopEnd = TOOL_SRC.indexOf("if (landed === '')")
   const body = TOOL_SRC.slice(loopStart, loopEnd)
-  assert.ok(/newMalformed\(\s*baseContent\s*,/.test(body), '未接入 CAS 循环 = 一次也不会跑(守门 64/70/76/81/115 同型)')
+  assert.ok(
+    /newMalformed\(\s*baseContent\s*,/.test(body),
+    '未接入 CAS 循环 = 一次也不会跑(守门 64/70/76/81/115 同型)',
+  )
   const at = body.indexOf('newMalformed(')
   const wb = body.indexOf('writeBlob(')
-  assert.ok(at > 0 && wb > at, '必须在写 blob 之前判:内容入库后再 exit 1 会诱导重跑,而重跑正是 G-321 要消灭的那一步')
+  assert.ok(
+    at > 0 && wb > at,
+    '必须在写 blob 之前判:内容入库后再 exit 1 会诱导重跑,而重跑正是 G-321 要消灭的那一步',
+  )
   assert.match(body, /process\.exit\(1\)/, '拦下来必须是拒绝落地,不能只打印')
 })
 
 test('I14 取号前的远端对齐闸门:两种降级分档,只有"能补救的那一档"才拦(2026-09-29 立)', () => {
   const { idBasisGate } = __test__
-  assert.equal(typeof idBasisGate, 'function', '判据未导出 ⇒ 镜像只能重抄一份,抄的那份会跟着漂绿(§22c)')
+  assert.equal(
+    typeof idBasisGate,
+    'function',
+    '判据未导出 ⇒ 镜像只能重抄一份,抄的那份会跟着漂绿(§22c)',
+  )
   // 一手事故:本器发出 G-592/G-593 时,远端 09-28 已占下这两个号(其一已勾)。当时那版只打一行
   // "未与远端对齐"就照落,并集收敛后当场撞出 2 组 F9,须再让一次号 —— 本条就是把那次代价钉住。
   const ahead = { remoteAheadUnfetched: true, tipSha: 'd7a9376aa9c11222de66c9a43565cd7f09257c17' }
@@ -1538,23 +1644,35 @@ test('I14 取号前的远端对齐闸门:两种降级分档,只有"能补救的�
     false,
     '应急档必须真能放行,否则各会话会绕过本器改用 pathspec 硬交',
   )
-  assert.match(idBasisGate({ families: ['G'], remote: ahead, allowUnaligned: true }).note, /未与远端对齐/, '放行也不得静默:报告里必须仍写着没对齐')
+  assert.match(
+    idBasisGate({ families: ['G'], remote: ahead, allowUnaligned: true }).note,
+    /未与远端对齐/,
+    '放行也不得静默:报告里必须仍写着没对齐',
+  )
   assert.equal(
     idBasisGate({ families: [], remote: ahead }).block,
     false,
     '本次不取号 ⇒ 纯改写落地绝不能被这条拦住',
   )
   assert.equal(
-    idBasisGate({ families: ['G'], remote: { remoteAheadUnfetched: false, tipSha: 'a'.repeat(40) } }).block,
+    idBasisGate({
+      families: ['G'],
+      remote: { remoteAheadUnfetched: false, tipSha: 'a'.repeat(40) },
+    }).block,
     false,
     '远端已参与(对象在本地)⇒ 与改动前逐字同形,不得新增拦阻',
   )
   assert.equal(
-    idBasisGate({ families: ['G'], remote: { remoteAheadUnfetched: false, notes: ['远端不可问'] } }).block,
+    idBasisGate({ families: ['G'], remote: { remoteAheadUnfetched: false, notes: ['远端不可问'] } })
+      .block,
     false,
     '真离线(ls-remote 问不到)那一档保持放行:这里没有便宜的补救动作',
   )
-  assert.equal(idBasisGate({ families: ['G'], remote: null }).block, false, '没传远端读数时不得凭空拦')
+  assert.equal(
+    idBasisGate({ families: ['G'], remote: null }).block,
+    false,
+    '没传远端读数时不得凭空拦',
+  )
 })
 
 test('I15 装车锁:I14 那条判据必须接在 CAS 循环内、writeBlob 之前(判据在而无人调 = 提交链上一路绿灯)', () => {
@@ -1562,7 +1680,10 @@ test('I15 装车锁:I14 那条判据必须接在 CAS 循环内、writeBlob 之�
   const loopEnd = TOOL_SRC.indexOf("if (landed === '')")
   assert.ok(loopStart > 0 && loopEnd > loopStart, '找不到 CAS 循环边界 ⇒ 本锁对着空气判绿')
   const body = TOOL_SRC.slice(loopStart, loopEnd)
-  assert.ok(/idBasisGate\(\s*\{/.test(body), '闸门未接进 CAS 循环 ⇒ 一次也不会跑(守门 64/70/76/81/115 同型)')
+  assert.ok(
+    /idBasisGate\(\s*\{/.test(body),
+    '闸门未接进 CAS 循环 ⇒ 一次也不会跑(守门 64/70/76/81/115 同型)',
+  )
   const at = body.indexOf('idBasisGate(')
   const wb = body.indexOf('writeBlob(')
   assert.ok(at > 0 && wb > at, '必须在写 blob 之前判:落地后再 exit 1 会诱导重跑,而重跑会再发一次号')
@@ -1583,14 +1704,20 @@ test('T14b 装饰括注行必须顶起号段基准(本票病根);行文引用不
   ].join('\n')
   const r = __test__.resolveIdTokens(['- [ ] {{NEXT_ID:G}} **新事** —— 题面。'], maskedBase)
   assert.equal(r.ok, true, `取号必须成功,实测 ${JSON.stringify(r)}`)
-  assert.equal(r.basis[0].localMax, 777, `号段基准必须把装饰行顶进来(旧尺子只给 700 ⇒ 重发 777),实测 ${r.basis[0].localMax}`)
+  assert.equal(
+    r.basis[0].localMax,
+    777,
+    `号段基准必须把装饰行顶进来(旧尺子只给 700 ⇒ 重发 777),实测 ${r.basis[0].localMax}`,
+  )
   // 池式口径(2026-10-14):号 = 池内最小空闲。700/777 已占 ⇒ 空洞 1 回填 G-1(当然也不得重发 777)
   assert.equal(r.assigned, 'G-1', `不得重发 777,实测 ${r.assigned}`)
   // 反向:纯行文引用(落在 48 字窗口之外)不得顶高基准 —— 否则"漏算"被掩盖成"虚涨跳号",
   // 两个方向的错在账面上都是"号变大了",只有这一对照能把它们分开。
   const proseBase = [
     '- [ ] **G-700 基准行**:唯一的已用号。',
-    '- [ ] ' + '无编号题面的中文垫子'.repeat(8) + ',后文才提到 G-900 —— 只是行文引用,不得顶高开号(垫子保证引用起点 >48 字)',
+    '- [ ] ' +
+      '无编号题面的中文垫子'.repeat(8) +
+      ',后文才提到 G-900 —— 只是行文引用,不得顶高开号(垫子保证引用起点 >48 字)',
   ].join('\n')
   const p = __test__.resolveIdTokens(['- [ ] {{NEXT_ID:G}} **新事** —— 题面。'], proseBase)
   assert.equal(p.ok, true)
@@ -1598,7 +1725,6 @@ test('T14b 装饰括注行必须顶起号段基准(本票病根);行文引用不
   // 池式口径:700 已占 ⇒ 池内最小空闲是 1(不是"紧接基准"的 701 —— 那是旧 max+1 口径的形状)
   assert.equal(p.assigned, 'G-1', `应发池内最小空闲号,实测 ${p.assigned}`)
 })
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // G-816708(2026-10-05):旁路落地台账的那一刻,守门 71 的自愈必须真的被跑到。
@@ -1614,7 +1740,8 @@ const LDFILL = [1, 2, 3, 4].map(
   (i) => `  - **G-9001${i}0 填充行(夹具)**:与本轮判定无关、三面都在的登记行,只为把基线垫过规模闸。`,
 )
 const LD_A = '  - **G-900001 甲行(夹具)**:三面都在的无关登记行,用来确认现场里只有乙行被动过。'
-const LD_B = '  - **G-900002 乙行(夹具)**:这一行本来在 HEAD 里,本轮整行改写把编号从行上摘掉了 ⇒ 必须被点名。'
+const LD_B =
+  '  - **G-900002 乙行(夹具)**:这一行本来在 HEAD 里,本轮整行改写把编号从行上摘掉了 ⇒ 必须被点名。'
 // 改写后的形态:复选框 + 日期都在,但**行上不再有编号** —— 台账结清时最容易顺手做出的那一型丢失
 const LD_B_DONE =
   '  - [x] ✅(2026-10-05) 乙行收尾:编号在这次改写里被摘掉了(这正是本器会造成的那一型丢失),正文足够长以入选登记行基线。'
@@ -1664,16 +1791,24 @@ test('H1 G-816708 正向(行为断言):落地台账的同一轮里补跑真门,�
   const r = runLive(dir, { doc: 'PROJECT_PLAN.md', replaceFile: rep })
   const out = `${r.stdout}\n${r.stderr}`
   assert.equal(r.status, 0, `改写应成功落地,实得 ${r.status}:\n${out}`)
-  assert.match(out, /\[G-816708\][\s\S]{0,120}就地补跑守门 71/, '本器必须报名"这一跑是 post-commit 的替身"')
+  assert.match(
+    out,
+    /\[G-816708\][\s\S]{0,120}就地补跑守门 71/,
+    '本器必须报名"这一跑是 post-commit 的替身"',
+  )
   assert.match(out, /\[分档\] 历史登记行 \d+ 条/, '补跑要的是真门,不是桩:它的读数必须可见')
-  assert.match(out, /\[点名\/HEAD\][^\n]*G-900002 乙行/, '被摘掉编号的那一行必须**点名**到行,不得只报数')
+  assert.match(
+    out,
+    /\[点名\/HEAD\][^\n]*G-900002 乙行/,
+    '被摘掉编号的那一行必须**点名**到行,不得只报数',
+  )
   // 仓库状态是**最硬的回读**:本器一枚 + 就地恢复一枚,恰好两枚,后者父是前者
   assert.equal(
     Number(git(['rev-list', '--count', `${before}..HEAD`], { root: dir })),
     2,
     `应为"改写落地一枚 + 补跑恢复一枚",实得:\n${out}`,
   )
-  const landedText = git(['show', "HEAD^:PROJECT_PLAN.md"], { root: dir, raw: true })
+  const landedText = git(['show', 'HEAD^:PROJECT_PLAN.md'], { root: dir, raw: true })
   assert.match(landedText, /乙行收尾/, '本次改写确实落进了 HEAD(现场成立)')
   assert.doesNotMatch(landedText, /G-900002 乙行/, '本次改写确实把那一条登记行摘没了(现场成立)')
   assert.match(
@@ -1710,7 +1845,11 @@ test('H3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但�
   const r = runLive(dir, { doc: 'PROJECT_PLAN.md', replaceFile: rep })
   const out = `${r.stdout}\n${r.stderr}`
   assert.ok(existsSync(healSentinel(dir)), '摘掉补跑调用 ⇒ 这一条先红(没人写哨兵)')
-  assert.equal(JSON.parse(readFileSync(healSentinel(dir), 'utf8')).join(' '), '--heal --commit', '补跑必须是提交档(与 post-commit 第 6 节同形)')
+  assert.equal(
+    JSON.parse(readFileSync(healSentinel(dir), 'utf8')).join(' '),
+    '--heal --commit',
+    '补跑必须是提交档(与 post-commit 第 6 节同形)',
+  )
   assert.equal(r.status, 0, `替身没跑成不该把已入库的落地判红,实得 ${r.status}:\n${out}`)
   assert.match(out, /跑而未成|未派生成功/, '失败必须点名是哪一档(跑而未成 / 根本没派生)')
   assert.doesNotMatch(out, /无缺失,无需回捞/, '补跑没跑成时,"无缺失"这句话不得由任何人替它说')
@@ -1736,7 +1875,14 @@ function landLine(t, line, extraEnv = {}, anchorText = `${G321_ANCHOR}\n`) {
   const { dir, inputs } = makeDocRepo(t, G321_BASE.join('\n'))
   writeFileSync(join(inputs, 'anchor.txt'), anchorText)
   writeFileSync(join(inputs, 'block.txt'), `${line}\n`)
-  return { dir, r: runLive(dir, { anchorFile: join(inputs, 'anchor.txt'), blockFile: join(inputs, 'block.txt'), extraEnv }) }
+  return {
+    dir,
+    r: runLive(dir, {
+      anchorFile: join(inputs, 'anchor.txt'),
+      blockFile: join(inputs, 'block.txt'),
+      extraEnv,
+    }),
+  }
 }
 
 test('SH1 §22c 导出面:取值判据必须从 __test__ 出去(测试不得抄第二份判据)', () => {
@@ -1819,7 +1965,9 @@ test('SH7 只吃新行:整行改写携带的存量 sha 不重判(否则三周前
   const rep = join(inputs, 'replace.json')
   writeFileSync(
     rep,
-    JSON.stringify([{ before: base, after: `- [x] ✅(2026-10-08) G-90 落地 ${SHA_BAD} 已完成(补 deadbeef99)` }]),
+    JSON.stringify([
+      { before: base, after: `- [x] ✅(2026-10-08) G-90 落地 ${SHA_BAD} 已完成(补 deadbeef99)` },
+    ]),
     'utf8',
   )
   const r = runLive(dir, { doc: 'DOC.md', replaceFile: rep })
@@ -1851,7 +1999,13 @@ test('SH9 保命分支:未判定 ⇒ 放行(这一条是"恒挡台账"的最后�
   const v = __test__.judgeNewLineShas([{ text: `- 落地 ${SHA_BAD}` }], { probe })
   assert.equal(v.blocked.length, 0, '把"没判"折成"坏" = 挡死全队台账写入')
   assert.equal(v.undetermined.length, 1, '未判定必须逐条点名')
-  assert.match(__test__.shaGateReport(v).map((l) => l.text).join('\n'), /未判定.*放行/s)
+  assert.match(
+    __test__
+      .shaGateReport(v)
+      .map((l) => l.text)
+      .join('\n'),
+    /未判定.*放行/s,
+  )
 })
 
 test('SH10 真 git 档的未判定:root 不是仓库 ⇒ pre-flight 不过,整档放行而非全判坏', () => {
@@ -1957,7 +2111,10 @@ test('DU-3 作者自认副本(带归并指针)⇒ 放过并计数', () => {
 test('DU-4 应急出口必须逐键带原因;无原因不算', () => {
   const key = KEY(ROW_700)
   assert.equal(LED.parseDupAllow(`${key}`).size, 0, '无原因的声明不放行')
-  assert.equal(LED.parseDupAllow(`${key}=确实是另一轮取证留下的第二议题`).get(key), '确实是另一轮取证留下的第二议题')
+  assert.equal(
+    LED.parseDupAllow(`${key}=确实是另一轮取证留下的第二议题`).get(key),
+    '确实是另一轮取证留下的第二议题',
+  )
   const v = LED.judgeNewLineDupes({
     baseLines: [ROW_700],
     newLines: [ROW_700_DUP],
@@ -1965,7 +2122,10 @@ test('DU-4 应急出口必须逐键带原因;无原因不算', () => {
   })
   assert.equal(v.blocked.length, 0)
   assert.equal(v.allowed.length, 1)
-  assert.ok(LED.dupGateReport(v).some((l) => /放行/.test(l.text) && /逐键理由/.test(l.text)), '放行必须打印留痕,不得静默')
+  assert.ok(
+    LED.dupGateReport(v).some((l) => /放行/.test(l.text) && /逐键理由/.test(l.text)),
+    '放行必须打印留痕,不得静默',
+  )
 })
 
 test('DU-5 取不出主键 ⇒ 未判定并放行(把看不清判成重复会钉红正当新登记)', () => {
@@ -1978,14 +2138,21 @@ test('DU-5 取不出主键 ⇒ 未判定并放行(把看不清判成重复会钉
 test('DU-6 只判多重集差:存量副本不替本次担账', () => {
   const base = [ROW_700, ROW_700, ROW_701]
   const next = [ROW_700, ROW_700, ROW_701, ROW_700]
-  assert.deepEqual(LED.linesIntroducedBy(base, next), [ROW_700], '三条同文本 ⇒ 只有多出来的那一条算新增')
+  assert.deepEqual(
+    LED.linesIntroducedBy(base, next),
+    [ROW_700],
+    '三条同文本 ⇒ 只有多出来的那一条算新增',
+  )
   const v = LED.judgeNewLineDupes({ baseLines: base, newLines: [ROW_700_DUP] })
   assert.equal(v.blocked.length, 1, '新增这一条确实撞已有待办 ⇒ 拦(存量那两条另计人工)')
   assert.equal(v.openBase, 3)
 })
 
 test('DU-7 端到端四臂(装车证明):同题插入必 rc=1 / 新题必 rc=0 / 无旗必 rc=1 / 带原因放行 rc=0', (t) => {
-  const { dir, inputs } = makeDocRepo(t, ['# 标题', '', ROW_700, '', ROW_701, '', '段落', ''].join('\n'))
+  const { dir, inputs } = makeDocRepo(
+    t,
+    ['# 标题', '', ROW_700, '', ROW_701, '', '段落', ''].join('\n'),
+  )
   // headBlobOf 返回的是 oid,不是正文 —— 要判"哪一行落没落"必须取 blob 内容,别拿 oid 做 includes
   // (那会恒不等,把"没拦住"读成"拦住了"。)
   const docAtHead = () => {
@@ -1997,17 +2164,29 @@ test('DU-7 端到端四臂(装车证明):同题插入必 rc=1 / 新题必 rc=0 /
   writeFileSync(af, '段落\n')
   writeFileSync(bf, ROW_700_DUP + '\n')
   const dup = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(dup.status, 1, `同主键第二次登记必须拦住,rc=${dup.status} out=${String(dup.stdout + dup.stderr).slice(0, 260)}`)
+  assert.equal(
+    dup.status,
+    1,
+    `同主键第二次登记必须拦住,rc=${dup.status} out=${String(dup.stdout + dup.stderr).slice(0, 260)}`,
+  )
   assert.match(`${dup.stdout}${dup.stderr}`, /第二次登记/, '拒绝理由必须点名这一型')
   assert.equal(docAtHead().includes('被第二席又抄了一份'), false, '拦下后一行都不许落')
   writeFileSync(bf, ROW_702 + '\n')
   const fresh = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(fresh.status, 0, `全新题面必须放行,rc=${fresh.status} out=${String(fresh.stdout + fresh.stderr).slice(0, 260)}`)
+  assert.equal(
+    fresh.status,
+    0,
+    `全新题面必须放行,rc=${fresh.status} out=${String(fresh.stdout + fresh.stderr).slice(0, 260)}`,
+  )
   assert.equal((docAtHead().match(/G-900702/g) || []).length, 1)
   // 逐字重复同一块 = G-321 的幂等档(不算新增,原样 no-op)。它与本闸互补:同一行不会因重跑而放大,
   // 所以这里断言的是"仍只有一份",而不是 rc=1 —— 拿 rc=1 当期望就是把幂等档当缺陷。
   const rerun = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(rerun.status, 0, `同内容重跑必须幂等放行,rc=${rerun.status} out=${String(rerun.stdout + rerun.stderr).slice(0, 260)}`)
+  assert.equal(
+    rerun.status,
+    0,
+    `同内容重跑必须幂等放行,rc=${rerun.status} out=${String(rerun.stdout + rerun.stderr).slice(0, 260)}`,
+  )
   assert.equal((docAtHead().match(/G-900702/g) || []).length, 1, '幂等档不得把同一行插第二遍')
   writeFileSync(bf, ROW_702_DUP + '\n')
   const again = runLive(dir, { blockFile: bf, anchorFile: af })
@@ -2018,9 +2197,17 @@ test('DU-7 端到端四臂(装车证明):同题插入必 rc=1 / 新题必 rc=0 /
     anchorFile: af,
     extraEnv: { LIVE_LEDGER_DUP_OK: `${KEY(ROW_702)}=本轮确属第二次取证` },
   })
-  assert.equal(allowed.status, 0, `逐键带原因必须放行,rc=${allowed.status} out=${String(allowed.stdout + allowed.stderr).slice(0, 260)}`)
+  assert.equal(
+    allowed.status,
+    0,
+    `逐键带原因必须放行,rc=${allowed.status} out=${String(allowed.stdout + allowed.stderr).slice(0, 260)}`,
+  )
   assert.match(`${allowed.stdout}${allowed.stderr}`, /放行留痕|声明放行/, '放行要留痕,不得静默')
-  assert.equal((docAtHead().match(/G-900702/g) || []).length, 2, '放行后两份都在(本闸只拦未声明的新增,不删存量)')
+  assert.equal(
+    (docAtHead().match(/G-900702/g) || []).length,
+    2,
+    '放行后两份都在(本闸只拦未声明的新增,不删存量)',
+  )
 })
 
 test('DU-9 追加注记型改写(同键)不算第二次登记 —— §1 的正解不得被本闸判红', () => {
@@ -2031,7 +2218,11 @@ test('DU-9 追加注记型改写(同键)不算第二次登记 —— §1 的正�
     newLines: LED.linesIntroducedBy([before], [after]),
     removedLines: LED.linesIntroducedBy([after], [before]),
   })
-  assert.equal(v.blocked.length, 0, `就地改写被判成重复登记了:净新增才是写放大(实得 ${v.blocked.length})`)
+  assert.equal(
+    v.blocked.length,
+    0,
+    `就地改写被判成重复登记了:净新增才是写放大(实得 ${v.blocked.length})`,
+  )
   assert.equal(v.rewritten.length, 1)
   assert.ok(LED.dupGateReport(v).some((l) => /就地改写/.test(l.text)))
 })
@@ -2051,7 +2242,7 @@ test('DU-10 净新增仍有牙:同一枚提交里既改写已有行、又多抄�
 
 test('DU-8 接线锁:主键判据只认 lib 那一份,且闸必须真挂在写盘之前', () => {
   const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
-  // 2026-10-22 放宽的是**同一条 import 里能否并列别的说明符**(G-956 落地闸要并列 import
+  // 2026-10-22 放宽的只是**同一条 import 里能否并列别的说明符**(落地闸要并列 import
   // `auditPlan`/`f9GroupLine`,它们同属台账层那一份,不构成第二把尺);
   // 真正有牙的两条一条没减:compositeKeyOf 必须来自 lib,且本器不得自己 `function compositeKeyOf`。
   assert.match(
@@ -2085,7 +2276,11 @@ test('IC-E2E 装车证明:同号不同题必 rc=1 且点名为 F9 那句 / 换�
   writeFileSync(af, '段落\n')
   writeFileSync(bf, IC_ROW_B + '\n')
   const hit = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(hit.status, 1, `同号第二次不同题登记必须拦住,rc=${hit.status} out=${String(hit.stdout + hit.stderr).slice(0, 260)}`)
+  assert.equal(
+    hit.status,
+    1,
+    `同号第二次不同题登记必须拦住,rc=${hit.status} out=${String(hit.stdout + hit.stderr).slice(0, 260)}`,
+  )
   assert.match(
     `${hit.stdout}${hit.stderr}`,
     /编号 G-900800 被 2 个不同标题共用/,
@@ -2094,7 +2289,11 @@ test('IC-E2E 装车证明:同号不同题必 rc=1 且点名为 F9 那句 / 换�
   assert.equal(docAtHead().includes('乙题的完整标题'), false, '拦下后一行都不许落')
   writeFileSync(bf, IC_ROW_FRESH + '\n')
   const ok = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(ok.status, 0, `全新号必须放行(阳性对照:闸不得把正常登记一起拦掉),rc=${ok.status} out=${String(ok.stdout + ok.stderr).slice(0, 260)}`)
+  assert.equal(
+    ok.status,
+    0,
+    `全新号必须放行(阳性对照:闸不得把正常登记一起拦掉),rc=${ok.status} out=${String(ok.stdout + ok.stderr).slice(0, 260)}`,
+  )
   assert.equal(docAtHead().includes('丙题的完整标题'), true)
 })
 
@@ -2124,8 +2323,14 @@ test('DU-12 同题不同号必判 blocked + 报告点名「同题不同号」(�
   assert.equal(v.blocked[0].sameTitle, true, '必须带同题标志(报告要与主键撞区分措辞)')
   assert.match(v.blocked[0].existingText, /G-900700/, '必须点名已有那一行(内容锚点)')
   const rep = LED.dupGateReport(v)
-  assert.ok(rep.some((l) => l.kind === 'error' && /同题不同号/.test(l.text)), '报告必须点名这一型')
-  assert.ok(rep.some((l) => /同题指纹撞/.test(l.text)), '逐条必须标出撞的是指纹维')
+  assert.ok(
+    rep.some((l) => l.kind === 'error' && /同题不同号/.test(l.text)),
+    '报告必须点名这一型',
+  )
+  assert.ok(
+    rep.some((l) => /同题指纹撞/.test(l.text)),
+    '逐条必须标出撞的是指纹维',
+  )
 })
 
 test('DU-13 让号额度:旧行同批删掉、新行同题换号 ⇒ 不算第二次登记(闸不得与取号器互搏)', () => {
@@ -2154,7 +2359,11 @@ test('DU-14 指纹维的三档放过面与主键维一致:自认副本/逐键声
   })
   assert.equal(allowed.blocked.length, 0)
   assert.equal(allowed.allowed.length, 1)
-  assert.ok(LED.dupGateReport(allowed).some((l) => /声明放行/.test(l.text) && /同题但确属另一轮取证/.test(l.text)))
+  assert.ok(
+    LED.dupGateReport(allowed).some(
+      (l) => /声明放行/.test(l.text) && /同题但确属另一轮取证/.test(l.text),
+    ),
+  )
 })
 
 test('DU-15 过短指纹不参与:同短题不同号 ⇒ 放过(看不清不等于重复)', () => {
@@ -2173,7 +2382,10 @@ test('DU-16 本批自己抄自己也认得出:同题两行一次带进来 ⇒ �
 test('DU-17 存量差值语义在指纹维同样成立:底稿里已有的同题副本不替本次担账', () => {
   // 底稿本来就有两条同题副本(历史存量),本次又换号登记第三条 ⇒ 拦的是本次带进来的那一条:
   // 存量两条不替本次担账(不因"已经重复"就把本次放过去),也不把存量判进本次的账。
-  const v = LED.judgeNewLineDupes({ baseLines: [ROW_700, ROW_703_RENUM], newLines: [ROW_706_THIRD] })
+  const v = LED.judgeNewLineDupes({
+    baseLines: [ROW_700, ROW_703_RENUM],
+    newLines: [ROW_706_THIRD],
+  })
   assert.equal(v.blocked.length, 1, '本次新增这条必须拦')
   assert.equal(v.blocked[0].sameTitle, true, '拦的理由是同题,不是主键撞')
   assert.equal(v.openBase, 2, '存量两条照旧计数,不替本次担账也不被放过')
@@ -2190,14 +2402,22 @@ test('DU-18 端到端装车证明:同题换号插账必 rc=1 且一行不落;让
   writeFileSync(af, '段落\n')
   writeFileSync(bf, ROW_703_RENUM + '\n')
   const dup = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(dup.status, 1, `同题换号必须拦住,rc=${dup.status} out=${String(dup.stdout + dup.stderr).slice(0, 300)}`)
+  assert.equal(
+    dup.status,
+    1,
+    `同题换号必须拦住,rc=${dup.status} out=${String(dup.stdout + dup.stderr).slice(0, 300)}`,
+  )
   assert.match(`${dup.stdout}${dup.stderr}`, /同题不同号/, '拒绝理由必须点名这一型')
   assert.equal(docAtHead().includes('G-900703'), false, '拦下后一行都不许落')
   // 让号 = 整行改写档(旧行删掉、新行同题换号)⇒ 放行,证明 fpQuota 那一档真接在写盘链上。
   const rep = join(inputs, 'rep-renum.json')
   writeFileSync(rep, JSON.stringify([{ before: ROW_700, after: ROW_703_RENUM }]), 'utf8')
   const renum = runLive(dir, { replaceFile: rep })
-  assert.equal(renum.status, 0, `让号必须放行,rc=${renum.status} out=${String(renum.stdout + renum.stderr).slice(0, 300)}`)
+  assert.equal(
+    renum.status,
+    0,
+    `让号必须放行,rc=${renum.status} out=${String(renum.stdout + renum.stderr).slice(0, 300)}`,
+  )
   assert.equal((docAtHead().match(/G-900703/g) || []).length, 1, '让号后新号那一条必须真落地')
   assert.equal(docAtHead().includes('G-900700'), false, '旧号那一条必须同批消失')
 })
@@ -2209,7 +2429,10 @@ test('DU-19 源码锁:同题判据必须 import 权威那份,本器不得再抄�
     /import\s*\{\s*extractTaskFingerprint[^}]*\}\s*from '\.\/check-plan-task-duplicates\.mjs'/,
     '必须复用权威门的指纹判据(两处算同一件事必漂移 —— 本仓记过最多次的失效型)',
   )
-  const body = src.slice(src.indexOf('export function judgeNewLineDupes'), src.indexOf('export function dupGateReport'))
+  const body = src.slice(
+    src.indexOf('export function judgeNewLineDupes'),
+    src.indexOf('export function dupGateReport'),
+  )
   assert.ok(!/weight\s*<\s*16/.test(body), '指纹实现(权重门槛等)不得在本器里再抄一份')
 })
 
@@ -2224,7 +2447,12 @@ test('DU-19 源码锁:同题判据必须 import 权威那份,本器不得再抄�
 const RS = __test__
 
 test('RS1 §22c 导出面:残留令牌闸的四个出口必须在 __test__ 里(否则测试只能重抄判据)', () => {
-  for (const k of ['judgeResidualIdTokens', 'residualIdTokenReport', 'inlineCodeSpansOf', 'RESIDUAL_ID_TOKEN_RE'])
+  for (const k of [
+    'judgeResidualIdTokens',
+    'residualIdTokenReport',
+    'inlineCodeSpansOf',
+    'RESIDUAL_ID_TOKEN_RE',
+  ])
     assert.ok(RS[k], `__test__.${k} 缺失`)
 })
 
@@ -2236,7 +2464,9 @@ test('RS2 正控·单元:裸写与全角在代码段外 ⇒ violation,且点名�
   const wide = RS.judgeResidualIdTokens([{ after: '正文里 ｛｛NEXT_ID｝｝ 是全角裸写' }])
   assert.equal(wide.status, 'violation')
   assert.equal(wide.violations[0].literal, '｛｛NEXT_ID｝｝')
-  const rep = RS.residualIdTokenReport(bare).map((l) => l.text).join('\n')
+  const rep = RS.residualIdTokenReport(bare)
+    .map((l) => l.text)
+    .join('\n')
   assert.match(rep, /G-15107/, '拒绝必须点名票号(可归因)')
   assert.match(rep, /声明内容第 1 行/, '必须点名所在行')
 })
@@ -2247,11 +2477,17 @@ test('RS3 反证·单元:反引号引述(ASCII 与全角)与合法带族令牌�
     { after: '- [ ] {{NEXT_ID:G}} 这是会被 resolveIdTokens 消费的合法形状' },
     { after: '令牌 `｛｛NEXT_ID:G｝｝` 的头注引述' },
   ])
-  assert.equal(v.status, 'ok', `正当引述/合法令牌被拦了(实得 ${v.violations.length} 处):${JSON.stringify(v.violations)}`)
+  assert.equal(
+    v.status,
+    'ok',
+    `正当引述/合法令牌被拦了(实得 ${v.violations.length} 处):${JSON.stringify(v.violations)}`,
+  )
 })
 
 test('RS4 窄档③:登记行编号声明位内即便带反引号仍判(封"补一枚反引号绕过放过"的通道)', () => {
-  const v = RS.judgeResidualIdTokens([{ after: '- [ ] `{{NEXT_ID}}` 试图用反引号洗成活占位符的豁免' }])
+  const v = RS.judgeResidualIdTokens([
+    { after: '- [ ] `{{NEXT_ID}}` 试图用反引号洗成活占位符的豁免' },
+  ])
   assert.equal(v.status, 'violation')
   assert.equal(v.violations[0].inSlot, true)
 })
@@ -2261,7 +2497,9 @@ test('RS5 差值语义:存量行携带的裸令牌不担账(格②的事),after 
   const carry = RS.judgeResidualIdTokens([{ before, after: before + ' 〔补注记〕' }])
   assert.equal(carry.status, 'ok', '携带存量被拒 ⇒ 每一次对存量行的正当结清都被钉红(§12e)')
   assert.equal(carry.carriedOver.length, 1)
-  const introduced = RS.judgeResidualIdTokens([{ before: '- [ ] G-123 干净行', after: '- [ ] G-123 干净行 承 {{NEXT_ID}}' }])
+  const introduced = RS.judgeResidualIdTokens([
+    { before: '- [ ] G-123 干净行', after: '- [ ] G-123 干净行 承 {{NEXT_ID}}' },
+  ])
   assert.equal(introduced.status, 'violation', 'after 新引入裸令牌必须拦住')
 })
 
@@ -2271,7 +2509,10 @@ test('RS6 三态纪律:取不到判定输入 ⇒ undetermined(不记绿也不冒
   assert.equal(a.status, 'undetermined')
   assert.equal(b.status, 'undetermined')
   assert.equal(b.violations.length, 0, '未判定不得冒红')
-  assert.ok(RS.residualIdTokenReport(b).some((l) => /未判定/.test(l.text)), '未判定必须点名')
+  assert.ok(
+    RS.residualIdTokenReport(b).some((l) => /未判定/.test(l.text)),
+    '未判定必须点名',
+  )
 })
 
 test('RS7 端到端·插入档两臂:裸写/全角 ⇒ rc=2 且点名行、HEAD 一枚不长;反引号引述 ⇒ rc=0 正常落地', (t) => {
@@ -2287,7 +2528,11 @@ test('RS7 端到端·插入档两臂:裸写/全角 ⇒ rc=2 且点名行、HEAD 
   ]) {
     writeFileSync(bf, line + '\n')
     const r = runLive(dir, { blockFile: bf, anchorFile: af })
-    assert.equal(r.status, 2, `${name}:残留令牌必须是用法错 exit 2,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 300)}`)
+    assert.equal(
+      r.status,
+      2,
+      `${name}:残留令牌必须是用法错 exit 2,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 300)}`,
+    )
     assert.match(`${r.stdout}${r.stderr}`, /G-15107/, `${name}:必须点名这一格`)
     assert.match(`${r.stdout}${r.stderr}`, /声明内容第 1 行/, `${name}:必须点名所在行`)
     assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, `${name}:拦下后 HEAD 不许前进`)
@@ -2296,24 +2541,51 @@ test('RS7 端到端·插入档两臂:裸写/全角 ⇒ rc=2 且点名行、HEAD 
   const quoted = '说明句:`{{NEXT_ID}}` 与 `｛｛NEXT_ID｝｝` 都是被反引号包起的引述,必须放过'
   writeFileSync(bf, quoted + '\n')
   const okRun = runLive(dir, { blockFile: bf, anchorFile: af })
-  assert.equal(okRun.status, 0, `引述行被拦 = 恒红工具(§12e),rc=${okRun.status} out=${String(okRun.stdout + okRun.stderr).slice(0, 300)}`)
+  assert.equal(
+    okRun.status,
+    0,
+    `引述行被拦 = 恒红工具(§12e),rc=${okRun.status} out=${String(okRun.stdout + okRun.stderr).slice(0, 300)}`,
+  )
   assert.equal(docAtHead().includes('都是被反引号包起的引述'), true, '引述行必须真落地')
-  assert.notEqual(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '落地后 HEAD 必须前进(正向对照)')
+  assert.notEqual(
+    runGit(dir, ['rev-parse', 'HEAD']).trim(),
+    head0,
+    '落地后 HEAD 必须前进(正向对照)',
+  )
 })
 
 test('RS8 端到端·改写档两臂:before 干净而 after 带裸令牌 ⇒ rc=2;携带存量改写 ⇒ rc=0(存量不担)', (t) => {
   const LEDGER = '- [ ] {{NEXT_ID}} 存量行(实测 HEAD 面有此形态)'
-  const { dir, inputs } = makeDocRepo(t, ['# 标题', '段落一', '@@ANCHOR@@', '段落二', '', LEDGER, ''].join('\n'))
+  const { dir, inputs } = makeDocRepo(
+    t,
+    ['# 标题', '段落一', '@@ANCHOR@@', '段落二', '', LEDGER, ''].join('\n'),
+  )
   const head0 = runGit(dir, ['rev-parse', 'HEAD']).trim()
   const rp1 = join(inputs, 'r1.json')
-  writeFileSync(rp1, JSON.stringify([{ before: '段落二', after: '段落二 承 {{NEXT_ID}} 新引入裸令牌' }]), 'utf8')
+  writeFileSync(
+    rp1,
+    JSON.stringify([{ before: '段落二', after: '段落二 承 {{NEXT_ID}} 新引入裸令牌' }]),
+    'utf8',
+  )
   const rej = runLive(dir, { replaceFile: rp1 })
-  assert.equal(rej.status, 2, `改写档新引入必须拒,rc=${rej.status} out=${String(rej.stdout + rej.stderr).slice(0, 300)}`)
+  assert.equal(
+    rej.status,
+    2,
+    `改写档新引入必须拒,rc=${rej.status} out=${String(rej.stdout + rej.stderr).slice(0, 300)}`,
+  )
   assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head0, '拦下后 HEAD 不许前进')
   const rp2 = join(inputs, 'r2.json')
-  writeFileSync(rp2, JSON.stringify([{ before: LEDGER, after: LEDGER + ' 〔补注记,令牌仍原样携带(格②另票)〕' }]), 'utf8')
+  writeFileSync(
+    rp2,
+    JSON.stringify([{ before: LEDGER, after: LEDGER + ' 〔补注记,令牌仍原样携带(格②另票)〕' }]),
+    'utf8',
+  )
   const acc = runLive(dir, { replaceFile: rp2 })
-  assert.equal(acc.status, 0, `携带存量行改写被拒 ⇒ 存量行的每次正当结清被钉红(§12e),rc=${acc.status} out=${String(acc.stdout + acc.stderr).slice(0, 300)}`)
+  assert.equal(
+    acc.status,
+    0,
+    `携带存量行改写被拒 ⇒ 存量行的每次正当结清被钉红(§12e),rc=${acc.status} out=${String(acc.stdout + acc.stderr).slice(0, 300)}`,
+  )
   assert.match(`${acc.stdout}${acc.stderr}`, /携带存量/, '放过必须喊出来,不得静默')
 })
 
@@ -2328,7 +2600,8 @@ test('RS9 接线锁 + 单一实现锁:闸必须真挂在 CAS 循环之前,匹配
   // 本测试文件自身也不得抄判据:夹具是字符串,不是第二条正则(§22c / 守门 191 所盯之型)。
   const self = readFileSync(join(HERE, 'live-doc-edit.test.mjs'), 'utf8')
   const rsSection = self.slice(self.indexOf('// ── RS 族'))
-  assert.ok(!/new RegExp\(/.test(rsSection), 'RS 段自造 new RegExp = 在本文件里写第二份匹配式(判据复制)')
+  assert.ok(
+    !/new RegExp\(/.test(rsSection),
+    'RS 段自造 new RegExp = 在本文件里写第二份匹配式(判据复制)',
+  )
 })
-
-
