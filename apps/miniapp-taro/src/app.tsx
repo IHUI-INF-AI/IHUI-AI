@@ -8,15 +8,12 @@ import Taro, { useLaunch } from '@tarojs/taro'
 import {
   checkLoginStatus,
   getToken,
-  setToken,
-  setRefreshToken,
-  setUserInfo,
   tokenStore,
   refreshAccessToken,
   onUnrecoverableUnauthorized,
   isSessionLoggedOut,
 } from './utils/auth'
-import { exchangeSsoCode } from './utils/sso'
+import { consumeSsoCode } from './utils/sso'
 import { initPrivacyGuard } from './utils/privacy'
 import { initPushSubscription } from './utils/push-init'
 import { isMiniAppEnvironment } from './utils/miniapp-login'
@@ -268,27 +265,9 @@ async function consumeSsoCodeFromLaunch(
   query: Record<string, unknown>,
   successMsg: () => string,
 ): Promise<void> {
+  // 消费出口与 webview 回传腿共用(G-957:判据不另抄一份,见 utils/sso.consumeSsoCode)
   const code = typeof query.sso_code === 'string' ? query.sso_code : ''
-  if (!code) return
-  try {
-    const data = await exchangeSsoCode(code)
-    if (!data) return
-    setToken(data.accessToken)
-    setRefreshToken(data.refreshToken)
-    setUserInfo({
-      id: data.user.id,
-      uuid: data.user.id, // WebSocket 连接判断用 userInfo.uuid,SsoTokenData.user.id 对齐
-      nickname: data.user.nickname,
-      avatar: data.user.avatar,
-      phone: data.user.phone,
-      email: data.user.email,
-      roleId: data.user.roleId,
-      status: data.user.status,
-    })
-    Taro.showToast({ title: successMsg(), icon: 'success' })
-  } catch {
-    // SSO code 失效或网络异常,静默忽略
-  }
+  await consumeSsoCode(code, successMsg)
 }
 
 /**

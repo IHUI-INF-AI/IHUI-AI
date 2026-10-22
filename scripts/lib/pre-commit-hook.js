@@ -1315,7 +1315,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
   if (
     !run(
       '📏 Button 高度/宽度覆盖守门(必须走 size 档位, 2026-09-07 立)...',
-      'node scripts/check-button-height.mjs',
+      'node scripts/check-button-height.mjs --staged',
     )
   ) {
     console.error('❌ Button 高度/宽度覆盖守门失败,提交已阻止')
