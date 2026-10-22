@@ -59,6 +59,29 @@ export interface ChatPaneBodyProps {
   conversationId: string
 }
 
+/**
+ * 窗格侧 recentMessages 预填充判据(G-935 缺口B,与根主体 ai-side-panel.tsx:803-814 同口径)。
+ * - 缓存命中不得覆盖(内存 LRU 比持久快照新);
+ * - 仅 messages 为空时填,避免抹掉同会话重挂载保留的本地半截流;
+ * - recentMessages 必须属于当前会话且 messages 是数组。
+ */
+export function shouldPrefillRecentMessages(
+  state: {
+    readonly messages: readonly unknown[]
+    readonly recentMessages: { conversationId: string; messages: readonly unknown[] } | null
+  },
+  conversationId: string,
+  cacheHit: boolean,
+): boolean {
+  return (
+    !cacheHit &&
+    state.messages.length === 0 &&
+    state.recentMessages !== null &&
+    state.recentMessages.conversationId === conversationId &&
+    Array.isArray(state.recentMessages.messages)
+  )
+}
+
 export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
   const t = useTranslations('chat')
   const tcommon = useTranslations('common')
@@ -124,6 +147,16 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
     setImportProvenance(null)
     resetPager(cached ? cached.oldestCursor : null, cached ? cached.hasMore : false)
     setLoadingHistory(cached === null)
+    // G-935 缺口B:窗格 store 的 recentMessages(半截流快照)先回填,再捕获续接候选。
+    // 根主体同口径(ai-side-panel.tsx:803-814);缓存命中不覆盖(内存 LRU 更新)。
+    const currentStore = chatStore.getState()
+    const recent = currentStore.recentMessages
+    if (recent && shouldPrefillRecentMessages(currentStore, conversationId, cached !== null)) {
+      chatStore.setState({
+        messages: recent.messages,
+        error: null,
+      })
+    }
     const localBefore = chatStore.getState().messages
     // 续接候选在远端快照覆盖 messages 之前捕获(未落库的本地助手消息不在快照里)
     resume.capture(conversationId)
@@ -171,6 +204,13 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
       resume.abort()
     }
   }, [conversationId, chatStore, readCache, writeCache, resetPager, resume])
+
+  // #11 LRU 缓存同步(G-935 缺口B,与根主体 ai-side-panel.tsx:882-885 同一口径):
+  // messages 变化(流式增量/新消息/续接回写)时同步回写本窗格缓存桶,
+  // 切回或 reload(快照落盘后)拿到的是现值而不是历史基线。
+  React.useEffect(() => {
+    patchCache(conversationId, chatStore.getState().messages)
+  }, [conversationId, messages, hasMoreHistory, patchCache, chatStore])
 
   const handleLoadMoreHistory = React.useCallback(async () => {
     const cursor = oldestCursorRef.current
