@@ -1246,37 +1246,39 @@ iframe::-webkit-scrollbar {
   --lift-shadow-dark: 0 8px 20px -8px var(--color-black-45);
   --duration-lift: 160ms;
 }
-@layer components {
-  .ui-lift,
-  main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off) {
-    transition:
-      scale var(--duration-lift) var(--ease-premium-out),
-      translate var(--duration-lift) var(--ease-premium-out),
-      box-shadow var(--duration-lift) var(--ease-premium-out);
-  }
-  /* z-index 对 grid/flex 子项**不需要 position** 就生效(卡片全是网格/弹性子项)。
-     少了这一格,放大后的卡片会压到邻居边框上、被邻居裁掉一角 —— 读起来像"错位"而不是
-     "浮起来"(1.012 那版的观感事故即此)。 */
-  .ui-lift:hover,
-  main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):hover {
-    z-index: 1;
-    scale: var(--lift-scale);
-    translate: 0 var(--lift-offset);
-    box-shadow: var(--lift-shadow);
-  }
-  /* 暗档下 black-15 落在深底上几乎量不出来,浮起必须看得见 */
-  .dark .ui-lift:hover,
-  .dark main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):hover {
-    box-shadow: var(--lift-shadow-dark);
-  }
-  /* 嵌套卡片:内层不跟着位移(内外双层同时挪读起来像抖动),阴影叠加不明显故不管 */
-  .ui-lift .ui-lift:hover,
-  main
-    :is(div, section, article)[class*='bg-card']
-    :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):hover {
-    scale: none;
-    translate: none;
-  }
+/* 刻意**不分层**:Tailwind 的 shadow / hover:shadow-* 住在 utilities 层,
+   一旦本规则被放进 @layer components,就会被元素自带的 utility 阴影盖掉
+   —— 实测走 Card 基座的卡片浮起时只有位移、阴影纹丝不动(线上量到 rgba(0,0,0,0) 那条
+   Tailwind 占位阴影仍在生效)。不分层才压得住,也才谈得上"统一"。 */
+.ui-lift,
+main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off) {
+  transition:
+    scale var(--duration-lift) var(--ease-premium-out),
+    translate var(--duration-lift) var(--ease-premium-out),
+    box-shadow var(--duration-lift) var(--ease-premium-out);
+}
+/* z-index 对 grid/flex 子项**不需要 position** 就生效(卡片全是网格/弹性子项)。
+   少了这一格,放大后的卡片会压到邻居边框上、被邻居裁掉一角 —— 读起来像"错位"而不是
+   "浮起来"(1.012 那版的观感事故即此)。 */
+.ui-lift:hover,
+main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):hover {
+  z-index: 1;
+  scale: var(--lift-scale);
+  translate: 0 var(--lift-offset);
+  box-shadow: var(--lift-shadow);
+}
+/* 暗档下 black-15 落在深底上几乎量不出来,浮起必须看得见 */
+.dark .ui-lift:hover,
+.dark main :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):hover {
+  box-shadow: var(--lift-shadow-dark);
+}
+/* 嵌套卡片:内层不跟着位移(内外双层同时挪读起来像抖动),阴影叠加不明显故不管 */
+.ui-lift .ui-lift:hover,
+main
+  :is(div, section, article)[class*='bg-card']
+  :is(div, section, article)[class*='bg-card']:not(.ui-lift-off):hover {
+  scale: none;
+  translate: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .ui-lift,
