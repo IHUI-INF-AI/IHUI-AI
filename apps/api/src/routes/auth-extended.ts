@@ -664,6 +664,12 @@ const bindingRemoveSchema = z.object({
 })
 
 const codeQuery = z.object({ code: z.string() })
+/** 微信手机号一键登录入参。strictObject:多带字段一律拒,不接受客户端夹带的自报手机号/身份
+ *  (§5「认证不等于授权」—— 手机号只能由 phoneCode 经微信侧换回,不能从 body 读)。 */
+const oneTapLoginSchema = z.strictObject({
+  loginCode: z.string().min(1).max(256),
+  phoneCode: z.string().min(1).max(256),
+})
 const pageLimitQuery = z.object({
   // P1 修复(2026-08-06): 分页 limit 补上限
   page: z.coerce.number().int().min(1).optional().default(1),
@@ -1137,6 +1143,74 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const { accessToken, refreshToken } = await buildTokenPair(user, reply)
     return reply.send(success({ userId: user.id, accessToken, refreshToken }))
   })
+
+  // POST /api/auth/wechat/mini/one-tap-login — 微信手机号一键登录(免鉴权)
+  //
+  // 为什么要新开端点,而不是复用下面的 /auth/wechat/mini/phone:
+  // 那支第 1145 行 `await authenticate(request)` 要求**已登录**,而上面的 /mini/login 对新用户
+  // 只回 `{needPhone:true, openId}` 且**不发 token** ⇒ 新用户拿着一键验证按钮走进 /mini/phone
+  // 是结构性死路;而且 /mini/phone 既不绑 openId 也不回 token,端内 pages/user/index.tsx 读
+  // `phoneRes.token` 恒为空。这条链从来没通过。
+  //
+  // 安全依据:手机号不是客户端自报的,而是用微信侧签发的一次性 code 经 getuserphonenumber
+  // 换回来的(§5「不得信客户端自报」)。两个 code 都是一次性、由微信服务端校验,不可伪造重放。
+  server.post(
+    '/auth/wechat/mini/one-tap-login',
+    { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
+    async (request, reply) => {
+      const parsed = oneTapLoginSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      // 未配置时不得像 /mini/login 那样回 `success({mock:true})` —— 那等于把"没接通"
+      // 伪装成登录成功,前端拿着一个不存在的会话跳首页。
+      if (!isWechatMiniConfigured())
+        return reply.status(503).send(error(503, '微信小程序未配置,暂不支持一键登录'))
+
+      let phone: string
+      let session: Awaited<ReturnType<typeof jscode2session>>
+      try {
+        phone = await getPhoneNumber(parsed.data.phoneCode)
+        session = await jscode2session(parsed.data.loginCode)
+      } catch (e) {
+        // 微信原文不进对外 message 也不进日志(守门 67);只留 HTTP 状态码这一个机器可读量
+        request.log.warn(
+          { status: (e as { cause?: { status?: number } })?.cause?.status ?? 'unknown' },
+          '微信一键登录换码失败',
+        )
+        return reply.status(401).send(error(401, '微信授权已失效,请重新尝试'))
+      }
+
+      let user = await findUserByPhone(phone)
+      if (!user) {
+        user = await createUser({
+          phone,
+          nickname: `用户${phone.slice(-4)}`,
+          roleId: 0,
+          status: 1,
+        })
+      }
+      if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+
+      // openId 已绑到**另一个**用户 ⇒ 409,不得静默改绑(与 /mini/rebind 同口径)
+      const binding = await findThirdPartyAccount('wechat', session.openId)
+      if (binding && binding.userId !== user.id) {
+        return reply.status(409).send(error(409, '该微信已绑定其他账号'))
+      }
+      if (!binding) {
+        await createThirdPartyBinding({
+          userId: user.id,
+          openId: session.openId,
+          unionId: session.unionId,
+          platform: 'wechat',
+        })
+      }
+
+      const gate = await gateLoginIpWhitelist(request, reply, user.id)
+      if (!gate.allowed) return gate.reply
+      const { accessToken, refreshToken } = await buildTokenPair(user, reply)
+      return reply.send(success({ userId: user.id, accessToken, refreshToken }))
+    },
+  )
 
   server.post(
     '/auth/wechat/mini/phone',
