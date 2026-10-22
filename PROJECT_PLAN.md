@@ -29000,3 +29000,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-873 小程序登录页接微信手机号一键验证:后端已入库(带 10 例锁),缺 login.tsx 挂载 LoginPopUp 时补传 onOneClickLogin + api/index.ts 加 oneTapLogin 方法(前端逻辑 LoginPopUp.tsx 那套取 phoneCode→Taro.login 取 loginCode 本就正确,参数形状与端点逐字一致)—— 必须在微信开发者工具真机验一次才算完成,本机无小程序运行时
 
 - [ ] G-874 web 登录首屏接入 Passkey:后端 auth/options 与 auth/verify 已实现但零前端调用方(注册侧只有设置页在用),缺 @simplewebauthn/browser 依赖与 packages/ui-react login-form 的 tab;动 login-form 连带 8 个既有测试,小程序无 WebAuthn 须按 §9 显式标注平台豁免
+
