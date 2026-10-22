@@ -219,6 +219,8 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
     }
     if (typeof req.temperature === 'number') raw['temperature'] = req.temperature
     if (typeof req.maxTokens === 'number') raw['max_tokens'] = req.maxTokens
+    // reasoning_effort 原样透传(上游接受 OpenAI 语义 low/medium/high;不做本地值域裁剪)
+    if (req.reasoningEffort !== undefined) raw['reasoning_effort'] = req.reasoningEffort
     // function-calling 透传:prepareChatBody 内 normalizeToolChoice 会做上游 string 形态归一
     if (req.tools !== undefined) raw['tools'] = req.tools
     if (req.toolChoice !== undefined) raw['tool_choice'] = req.toolChoice

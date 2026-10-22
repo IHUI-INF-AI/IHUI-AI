@@ -35,6 +35,16 @@ export interface RecordAccountUsageInput {
 /**
  * 落一行用量台账。**永不抛**(内部全量吞异常只记 warn),调用方可安全 await 或即发即忘。
  */
+/**
+ * latency_ms 是 integer 列,而转发层给的是浮点耗时(如 761.6792)——
+ * 直接写会让 PostgreSQL 整行拒收,台账静默丢空。落库前统一归一为整数毫秒。
+ */
+export function normalizeLedgerLatencyMs(value: number): number {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return 0
+  return Math.round(n)
+}
+
 export async function recordAccountUsage(input: RecordAccountUsageInput): Promise<void> {
   try {
     await db.insert(aiRelayAccountUsageLedger).values({
@@ -44,8 +54,7 @@ export async function recordAccountUsage(input: RecordAccountUsageInput): Promis
       promptTokens: input.promptTokens,
       completionTokens: input.completionTokens,
       ok: input.ok,
-      // latency_ms 是 integer 列:上游计时是 float(如 1636.917),不取整每次真实转发都写失败
-      latencyMs: Math.round(input.latencyMs),
+      latencyMs: normalizeLedgerLatencyMs(input.latencyMs),
       ts: input.ts ?? new Date(),
     })
   } catch (e) {
