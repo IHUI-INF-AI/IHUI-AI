@@ -435,7 +435,7 @@ function Test-AlertQuietWindow {
     return @{ InWindow = $in; Note = "静默窗=$AlertQuietStart-$AlertQuietEnd 当前=$($t.ToString('hh\:mm'))" }
 }
 function Invoke-FailNotify {
-    param([string]$m, [string]$Detail = '', [switch]$Stall, [string]$Severity = 'critical')
+    param([string]$m, [string]$Detail = '', [switch]$Stall, [string]$Severity = 'critical', [string]$Reason = '')
     # 去重逻辑住在共享模块 deploy/win/alert-dedup.ps1(**按签名分槽**持久),本函数只负责发送。
     # 2026-09-28 之前的这里是"单槽"实现:状态文件只存最后一条签名,于是同一故障的两条措辞
     # ("远端分叉需人工收敛" / "有未提交文件挡住 ff")随现场交替出现时,每次交替都①被当成
@@ -448,8 +448,16 @@ function Invoke-FailNotify {
     # 48h/47 封的失效型原地复活。明细的价值是让收信人**当场能判断下一步**(是哪条路径挡的、
     # 用什么命令分辨幻影漂移与真在飞的活儿),而这与"这是不是同一件事"是两个问题。
     $sig = ($m -replace '\s+', ' ').Trim()
+    # G-21(2026-10-22):身份还必须含**本轮原因**。通用文案("构建失败 → 保持当前在线版本…")不含
+    # 病因,病因换了照样落进旧槽位、被 4h 重发窗静默压住(票面实测:04:37 那轮压在 1.9h 前的同名槽上,
+    # 日志只见 `ALERT 同身份失败告警本轮跳过`)。$Reason 是调用方给的**结构化病因**(稳定类别/报错
+    # 指纹),与 $Detail 的分工是同一禁令的两半:漂移明细只进正文,身份至少吃"这是哪一因"。
+    # 空 $Reason ⇒ Get-AlertIdentitySig 返回与改动前逐字同形的消息身份(存量槽位不失效)。
+    $dedupSig = Get-AlertIdentitySig -Message $m -Reason $Reason
     # 切流受阻类先过"持续够一个可发布周期才算停摆"的宽限窗(阈值出处见 $StallAlertGraceMinutes)。
     # 窗内只在日志留一行并写明"还差多久升级",绝不静默丢弃;超窗或判不出都照常往下走并发信。
+    # 锚点吃**消息面** $sig 而不吃 $dedupSig(G-21 的反向风险):窗回答"这一类停摆持续够久没有",
+    # 若锚点随病因漂移,每轮换病因就重新起锚 ⇒ escalated 结构上到不了 ⇒ 换病因反而永久静默。
     if ($Stall) {
         $grace = Test-AlertSuppressionGrace -Sig $sig -StateFile $AlertNotifyStateFile -GraceMinutes $StallAlertGraceMinutes -Stall
         if ($grace.Suppressed) {
@@ -465,14 +473,14 @@ function Invoke-FailNotify {
         $quiet = Test-AlertQuietWindow
         if ($quiet.InWindow) {
             try {
-                $rec = @{ ts = (Get-Date).ToString('o'); sig = $sig; severity = $Severity; note = '夜间静默窗内压下,未寄信' }
+                $rec = @{ ts = (Get-Date).ToString('o'); sig = $dedupSig; severity = $Severity; note = '夜间静默窗内压下,未寄信' }
                 [System.IO.File]::AppendAllText($AlertQuietLedgerFile, (($rec | ConvertTo-Json -Compress) + "`r`n"), [System.Text.UTF8Encoding]::new($false))
             } catch { Log "ALERT 夜间静默窗台账写入失败(本条告警仍被压下,按台账缺失人工核查):$_" }
-            Log "ALERT 夜间静默窗内已记台账不寄($AlertQuietEnd 后可人工核查) | 身份=$($sig)"
+            Log "ALERT 夜间静默窗内已记台账不寄($AlertQuietEnd 后可人工核查) | 身份=$($dedupSig)"
             return
         }
     }
-    $due = Test-AlertDueByIdentity -Sig $sig -StateFile $AlertNotifyStateFile -RepeatHours $FailAlertRepeatHours -Stall:$Stall
+    $due = Test-AlertDueByIdentity -Sig $dedupSig -StateFile $AlertNotifyStateFile -RepeatHours $FailAlertRepeatHours -Stall:$Stall
     if (-not $due.Due) {
         Log "ALERT 同身份失败告警本轮跳过:$($due.Note)"
         return
@@ -492,15 +500,18 @@ function Invoke-FailNotify {
     $detailText = ($Detail -replace "`r?`n", ' | ').Trim()
     if ($detailText.Length -gt 1200) { $detailText = $detailText.Substring(0, 1200) + ' …(明细过长,已截断;完整清单见 deploy-loop.log 的 BLOCKED-WIP 行)' }
     $detailBlock = if ($detailText) { "`n挡路明细: $detailText" } else { '' }
+    $reasonText = ($Reason -replace '\s+', ' ').Trim()
+    if ($reasonText.Length -gt 160) { $reasonText = $reasonText.Substring(0, 160) + '…' }
+    $reasonBlock = if ($reasonText) { "`n本轮病因: $reasonText" } else { '' }
     try {
         $mailOk = Send-EmailNotify -subject "【生产环境】部署失败" `
-            -text "IHUI-AI 生产部署失败(运维邮件告警)`n`n原因: $m$repeatNote$detailBlock`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
+            -text "IHUI-AI 生产部署失败(运维邮件告警)`n`n原因: $m$reasonBlock$repeatNote$detailBlock`n时间: $nowTxt`n处置: 已自动回滚或保持当前在线版本`n排查: 服务 IHUI-DEPLOYLOOP / NSSM 日志,或 ssh 后执行 deploy\win\ihui-deploy.ps1 -diagnose"
     } catch { $mailOk = $false }
     if ($mailOk) {
         try { Remove-Item -LiteralPath $AlertUndelFile -Force -ErrorAction SilentlyContinue } catch {}
     } else {
         try {
-            @{ ts = (Get-Date).ToString('o'); sig = $sig; why = '品牌模板与 --plain 降级两条邮件通道均未送达(细节见部署日志 MAIL 行)' } | ConvertTo-Json |
+            @{ ts = (Get-Date).ToString('o'); sig = $dedupSig; why = '品牌模板与 --plain 降级两条邮件通道均未送达(细节见部署日志 MAIL 行)' } | ConvertTo-Json |
                 Set-Content -Path $AlertUndelFile -NoNewline
             Log "ALERT 邮件未送达,已写标记 $AlertUndelFile(下一次成功投递自动清除)"
         } catch {
@@ -509,11 +520,12 @@ function Invoke-FailNotify {
     }
 }
 function Fail {
-    param([string]$m, [string]$Detail = '')
+    param([string]$m, [string]$Detail = '', [string]$Reason = '')
     Log "FAIL  $m"
     # Fail == 本轮以未切流收场 ⇒ 全部走"切流受阻"类(宽限窗 + 成功切流即清偿)。
-    # $Detail 只落到邮件正文(见 Invoke-FailNotify 里那条"明细绝不进签名"的理由)。
-    try { Invoke-FailNotify -m $m -Detail $Detail -Stall } catch {}
+    # $Detail 只落到邮件正文(见 Invoke-FailNotify 里那条"明细绝不进签名"的理由);
+    # $Reason 进身份但不进明细位(G-21):消息不含病因的调用点必须带它,换病因才不会被旧槽压住。
+    try { Invoke-FailNotify -m $m -Detail $Detail -Reason $Reason -Stall } catch {}
     # 失败轮同样回收净面(2026-10-21):构建失败 / merge 失败是"半截净面"最高发的一型,
     # 旧写法只 Log + exit 1 ⇒ 净面留在盘上,下一轮 add 撞 already registered。
     # **必须在释放锁之前**:放锁后再回收,下一轮可能已经起来并重建了净面,这条会把它删掉。
@@ -782,6 +794,8 @@ function Test-HealthGate {
     $rounds = @()
     $script:HealthGateProven = $false
     $script:HealthGateUnproven = $false
+    $script:HealthGateFailDims = ''
+    $script:HealthGateUnknownDims = ''
     for ($i = 1; $i -le $Tries; $i++) {
         Update-DeployLockHeartbeat   # 门禁每轮续心跳(8 轮 × 12s + 探测超时,最长约 9.6 分钟)
         $iterStart = Get-Date       # 本轮起点(含 12s 退避),用于 GATE-ITER elapsed 与预算判定
@@ -833,6 +847,10 @@ function Test-HealthGate {
     $script:HealthGateProven = [bool]$v.Proven
     $script:HealthGateUnproven = ($v.Decision -eq 'pass-unproven')
     $script:HealthGateEntryBroken = ($v.Decision -eq 'entry-broken')
+    # G-21:门禁告警的病因 = 红项/未知的**维度名集合**(排序去重的状态量,不含计数与 HTTP 码 ——
+    # 计数逐轮漂移,见门 224 与 GATE-UNPROVEN 行注)。web 红与 api 红是两件事,不得共用一个槽位。
+    $script:HealthGateFailDims = (((@(@($v.LastFails) | ForEach-Object { ("" + $_) -replace '\(.*$', '' })) | Sort-Object -Unique) -join '+')
+    $script:HealthGateUnknownDims = (((@(@($v.LastUnknown))) | Sort-Object -Unique) -join '+')
     foreach ($mk in @($v.Markers)) { if ("$mk".Trim()) { Log "$mk" } }
     if ($v.Decision -eq 'fail') {
         Log "健康门禁 ${Tries} 轮未全绿,最后一轮存在明确失败项且源站直探也不应答:[$($v.LastFails -join ' ')] → 判定失败"
@@ -1562,6 +1580,7 @@ function Build-Web {
     $env:NEXT_TELEMETRY_DISABLED = '1'
     $prevNodeOptions = $env:NODE_OPTIONS
     $env:NODE_OPTIONS = "--max-old-space-size=8192$(if ($prevNodeOptions -and $prevNodeOptions -notmatch 'max-old-space-size') { ' ' + $prevNodeOptions })"
+    $lastErrFp = ''   # G-21:末轮报错指纹,进连败 throw ⇒ 让"构建失败"这类通用文案的告警身份带上病因
     try {
         for ($try = 1; $try -le $MaxTries; $try++) {
             Log "构建尝试 $try/$MaxTries -> .next-$DistDir (源码面=$(if ($SrcWebDir) { '净面:' + $CleanBuildWt } else { '共享工作树' }))"
@@ -1592,8 +1611,18 @@ function Build-Web {
                 & 'D:\DevEnv\tools\npm-global\pnpm.cmd' build
                 $exitCode = $LASTEXITCODE
             }
-            foreach ($l in (Get-Content $bldErr -Tail 8 -ErrorAction SilentlyContinue)) { Log "[build-err] $l" }
-            foreach ($l in (Get-Content $bldOut -Tail 12 -ErrorAction SilentlyContinue)) { Log "[build-out] $l" }
+            $errTail = @(Get-Content $bldErr -Tail 8 -ErrorAction SilentlyContinue)
+            $outTail = @(Get-Content $bldOut -Tail 12 -ErrorAction SilentlyContinue)
+            foreach ($l in $errTail) { Log "[build-err] $l" }
+            foreach ($l in $outTail) { Log "[build-out] $l" }
+            # G-21:取"末次报错指纹" —— 同一份坏源码每轮复现同一行 ⇒ 病因身份稳定(同因照旧去重);
+            # 换源码/换病因 ⇒ 指纹变 ⇒ 新槽位喊出。排除恒定汇总行(ELIFECYCLE/Command failed,不含病因)。
+            $fpCand = @(($errTail + $outTail) | Where-Object { "$_" -match '(?i)(error|failed to compile|module not found|cannot find|unexpected token|out of memory|does not provide|heap)' -and "$_" -notmatch '(?i)ELIFECYCLE|Command failed' })
+            if ($fpCand.Count -gt 0) {
+                $fp = ("" + $fpCand[0] -replace '\s+', ' ').Trim()
+                if ($fp.Length -gt 200) { $fp = $fp.Substring(0, 200) }
+                $lastErrFp = $fp
+            }
             # 用完即删。这两个文件是 Start-Process 的重定向落点,服务身份(IHUI-DEPLOYLOOP 跑在
             # LocalSystem 下)的 `$env:TEMP` = `C:\Windows\Temp` —— HKCU 把 TEMP 迁到 D 盘对它无效,
             # 所以每次构建 try 都在 **C 盘系统临时目录**留 2 个文件且此前无人清:2026-09-24 实测
@@ -1643,7 +1672,7 @@ function Build-Web {
             }
             Log "第 $try 次失败(exit=$exitCode),清缓存重试"
         }
-        throw "next build 连续 $MaxTries 次失败,保持当前在线版本"
+        throw "next build 连续 $MaxTries 次失败,保持当前在线版本$(if ($lastErrFp) { "(末次报错: $lastErrFp)" } else { "(末轮报错行不可读,exit=$exitCode)" })"
     } finally {
         Remove-Item Env:\IHUI_BUILD_DIST -ErrorAction SilentlyContinue
         Remove-Item Env:\NEXT_TELEMETRY_DISABLED -ErrorAction SilentlyContinue
@@ -1656,13 +1685,14 @@ function Start-Web {
     try { sc.exe start IHUI-WEB | Out-Null } catch { throw "启动 IHUI-WEB 失败: $_" }
 }
 function Stop-Web {
-    # 原文(sc.exe 的错误号随现场变:1056/1062/1073…)交 -Detail 进正文,身份只留固定类别
-    try { sc.exe stop IHUI-WEB | Out-Null } catch { Fail "停止 IHUI-WEB 失败" -Detail "原始报错:$_" }
+    # 原文(sc.exe 的错误号随现场变:1056/1062/1073…)交 -Detail 进正文,消息身份只留固定类别;
+    # 病因身份吃报错指纹(G-21):错误号换型 = 换病因,另开槽位喊出,不得被旧槽静默压住。
+    try { sc.exe stop IHUI-WEB | Out-Null } catch { Fail "停止 IHUI-WEB 失败" -Detail "原始报错:$_" -Reason "$_" }
 }
 function Restart-Web {
     try { sc.exe stop IHUI-WEB | Out-Null } catch {}
     Start-Sleep -Seconds 2
-    try { sc.exe start IHUI-WEB | Out-Null } catch { Fail "启动 IHUI-WEB 失败" -Detail "原始报错:$_" }
+    try { sc.exe start IHUI-WEB | Out-Null } catch { Fail "启动 IHUI-WEB 失败" -Detail "原始报错:$_" -Reason "$_" }
     Start-Sleep -Seconds 8
 }
 
@@ -2210,10 +2240,13 @@ Update-DeployLockHeartbeat   # 心跳(阶段边界):锁的 writtenAt 之后到�
 # 才不会出现"合法持有者静默 45 分钟 ⇒ 被判陈旧 ⇒ 手工部署抢锁并发构建"。
 if (-not $dryrun) { Invoke-DbMigrate }
 
-# ── DB seed(2026-09-13 加):仅跑 13 号中转站定价步骤,幂等可重复 ──
+# ── DB seed(2026-09-13 加):跑 13 号中转站定价 + 14 号历史存档课程视频草稿(G-921),幂等可重复 ──
+# 14 号只建 lessons/chapters/sections 草稿行(isPublished=false,公开列表按 isPublished 过滤,
+# 不上架不可见),重跑按 title/video_url 查重复用 ⇒ 零重复。此前只跑 --only=13,步骤 14 从未被
+# 执行环触发,这就是"870 枚在桶里、库里零行"的断点。
 # 与 Invoke-DbMigrate 共用 apps/api/.env 的 DATABASE_URL(进程级 env 已设置,这里再兜底一次)
-function Invoke-DbSeedRelayPricing {
-    Log "DB seed(packages/database 中转站定价,--only=13)"
+function Invoke-DbSeedSteps {
+    Log "DB seed(packages/database 中转站定价+历史课程视频草稿,--only=13,14)"
     $apiEnv = "$Root\apps\api\.env"
     if (Test-Path $apiEnv) {
         Get-Content $apiEnv | ForEach-Object {
@@ -2222,7 +2255,7 @@ function Invoke-DbSeedRelayPricing {
     }
     Push-Location "$Root\packages\database"
     try {
-        $seedOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13 2>&1 | Out-String
+        $seedOut = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13,14 2>&1 | Out-String
         $seedOut | Write-Host
         if ($LASTEXITCODE -eq 0) {
             Ok "seed 完成(exit 0)"
@@ -2232,7 +2265,7 @@ function Invoke-DbSeedRelayPricing {
             $seedExit1 = $LASTEXITCODE
             Log "WARN  seed 失败(exit $seedExit1),60 秒后同轮重试 1 次(独立一次新执行,疑似 PG 重启/备份窗口)"
             Start-Sleep -Seconds 60
-            $seedOut2 = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13 2>&1 | Out-String
+            $seedOut2 = & "D:\DevEnv\tools\npm-global\pnpm.cmd" exec tsx seed/index.ts --only=13,14 2>&1 | Out-String
             $seedOut2 | Write-Host
             $seedExit2 = $LASTEXITCODE
             if ($seedExit2 -eq 0) { Log "OK    seed 瞬时失败已重试成功,疑似 PG 重启/备份窗口" }
@@ -2240,7 +2273,7 @@ function Invoke-DbSeedRelayPricing {
         }
     } finally { Pop-Location }
 }
-if (-not $dryrun) { Invoke-DbSeedRelayPricing }
+if (-not $dryrun) { Invoke-DbSeedSteps }
 
 # ── 代理解析(2026-09-13 修复,实测):GitHub 直连在本机被墙,系统/SYSTEM 上下文
 #    没有 http_proxy 环境变量 → `git fetch` 报 "Failed to connect to github.com:443"
@@ -2444,7 +2477,10 @@ if ($behind -gt 0) {
                 Log "WARN  merge 失败成因未归类(git 输出不含上述两种指纹);脏文件 $($stillDirty.Count) 个但与本次更新不重叠。git 原文尾 5 行:"
                 @($mergeOut -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 5) | ForEach-Object { Log "  [git] $_" }
             }
-            Fail "git merge --ff-only 失败(成因见紧邻上一行),已停止,未切流"
+            # G-21:文案说"成因见紧邻上一行"而身份只吃文案 ⇒ 换成因照样被旧槽压住。病因身份取 git 原文
+            # 第一条 error:/fatal: 行(同一卡点每轮复现同一行 ⇒ 身份稳定;换卡点 ⇒ 新槽位喊出)。
+            $ffErrFp = ((@($mergeOut -split "`r?`n" | Where-Object { "$_" -match '^\s*(error|fatal)[: ]' } | Select-Object -First 1)) -join ' ' -replace '\s+', ' ').Trim()
+            Fail "git merge --ff-only 失败(成因见紧邻上一行),已停止,未切流" -Reason $ffErrFp
         }
     }
     # ── "merge 成功"必须由内容证明,不得由退出码证明(2026-09-28 竞态的第三刀)──────────
@@ -2503,7 +2539,10 @@ try {
         # 那一型同一条。现把原文交给 -Detail(只进正文),$m 恒为固定类别措辞,4h 分槽才真的生效。
         # 原句逐字留档只作改判留痕:"消息体只含 $_ 的固定措辞("next build 连续 N 次失败…"),不含时间戳/轮次号"。
         # 所以按身份去重(4h)生效,不会每轮另发一封(:1381/:1453 那两条同型教训)。
-        Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_"
+        # G-21(2026-10-22):但身份从此不含任何病因 ⇒ 换病因落进旧槽被静默压住(票面 04:37 实测,
+        # 1.9h 前的同名槽位把新一轮压成一行"本轮跳过")。现补 -Reason:$_ 是 catch 到的 throw 原文,
+        # 而 Build-Web 连败 throw 已带"末次报错指纹"(同因每轮同串、换因换串),正是结构化病因。
+        Fail "构建失败 → 保持当前在线版本,不动 web,已记冷却(30 分钟后自动重试)" -Detail "原始报错:$_" -Reason "$_"
     }
 
 # 3) 秒级交换:停 web → 用新构建替换 .next → 起 web
@@ -2621,7 +2660,7 @@ if (-not (Test-HealthGate)) {
         # (外壳按退出码记账,换码会改"门禁失败轮"在流水里的形态)。这里只补发信那一件事,
         # 收口路径与退出码逐字不动 —— 只加响,不改流。
         # 签名稳定性同 :1380 那条:文案不含 sha/时间戳/轮次,按身份去重(4h)才会真命中。
-        try { Invoke-FailNotify -Stall -m "健康门禁未过,新构建已回滚:旧版本仍在线(30 分钟后自动重试;构建本身成功,是 web/api/llm 门禁判不过)" } catch { Log "ALERT 门禁失败告警发信异常(不影响回滚已成立):$_" }
+        try { Invoke-FailNotify -Stall -m "健康门禁未过,新构建已回滚:旧版本仍在线(30 分钟后自动重试;构建本身成功,是 web/api/llm 门禁判不过)" -Reason $(if ($script:HealthGateFailDims) { "红项维度=$script:HealthGateFailDims" }) } catch { Log "ALERT 门禁失败告警发信异常(不影响回滚已成立):$_" }
         # 回滚轮同样收尾:失败路径最容易留下半截净面,不清就等下一轮 add 撞 already registered。
         # 顺序与正常收尾一致 —— 先回收再放锁,避免放锁后新起的一轮重建的净面被这条删掉。
         Invoke-CleanBuildWorktreeSweep
@@ -2637,10 +2676,10 @@ if (-not (Test-HealthGate)) {
     #  隧道一抖就好发布也会被读成 502;要收那一格得先加一条不经隧道的源站直探,那是另一张票)。
     if ($script:HealthGateUnproven) {
         Log "WARN  本轮已切流但健康未经证明:没有任何一轮拿到三项全绿(见上方 GATE-UNPROVEN)⇒ 此处不打印「部署成功」"
-        try { Invoke-FailNotify -Severity warning -m "健康门禁未取得全绿证明:本轮发布已放行,但线上是否活着无人证明(需人工核查 deploy\win\ihui-deploy.ps1 -diagnose)" -Detail "逐维 pass/fail/unknown 计数见部署日志的 GATE-UNPROVEN 行(计数不进身份,理由见门 224)" } catch { Log "ALERT 未证明告警发信异常(不影响已切流):$_" }
+        try { Invoke-FailNotify -Severity warning -m "健康门禁未取得全绿证明:本轮发布已放行,但线上是否活着无人证明(需人工核查 deploy\win\ihui-deploy.ps1 -diagnose)" -Detail "逐维 pass/fail/unknown 计数见部署日志的 GATE-UNPROVEN 行(计数不进身份,理由见门 224)" -Reason $(if ($script:HealthGateUnknownDims) { "未证明维度=$script:HealthGateUnknownDims" }) } catch { Log "ALERT 未证明告警发信异常(不影响已切流):$_" }
     } elseif ($script:HealthGateEntryBroken) {
         Log "WARN  本轮已切流但公网入口读不到(源站直探正常)⇒ 判为入口故障,不回滚好构建;此处不打印「部署成功」"
-        try { Invoke-FailNotify -Severity warning -m "公网入口不可达而源站健康:本轮发布未回滚(回滚只会延长访客侧故障),需人工核查 Cloudflared 隧道腿与 DNS" -Detail "逐维 pass/fail/unknown 计数见部署日志的 GATE-ENTRY-BROKEN 行(计数不进身份,理由见门 224)" } catch { Log "ALERT 入口故障告警发信异常(不影响已切流):$_" }
+        try { Invoke-FailNotify -Severity warning -m "公网入口不可达而源站健康:本轮发布未回滚(回滚只会延长访客侧故障),需人工核查 Cloudflared 隧道腿与 DNS" -Detail "逐维 pass/fail/unknown 计数见部署日志的 GATE-ENTRY-BROKEN 行(计数不进身份,理由见门 224)" -Reason $(if ($script:HealthGateFailDims) { "入口不可达维度=$script:HealthGateFailDims" }) } catch { Log "ALERT 入口故障告警发信异常(不影响已切流):$_" }
     } else {
         Ok "健康门禁通过,部署成功"
     }
