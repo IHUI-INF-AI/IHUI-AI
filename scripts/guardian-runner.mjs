@@ -5264,14 +5264,17 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 计划/台账(1 项,warn)---
+  // 档位依据(G-965):红线只由**差值维**触发 —— A1 只数相对 HEAD 基准面本次新带入的未勾行,
+  // A2 只数被审面上标头与侧车不一致的枚数;存量缺侧车(现读 109 枚)只在结论行报数、不进 verdict,
+  // 否则就是与提交内容无关的恒红门(§12e)。存量是否清零由门自己打印,人不复述。
+  // --- 计划/台账(1 项,blocking)---
   {
     id: '234',
     label:
       '计划台账侧车字段一致性(新增行有侧车 ∧ 标头==侧车投影)',
     script: 'check-plan-fields.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_PLAN_FIELDS',
     stagedTriggers: ['PROJECT_PLAN.md'],
     onFailHint: [

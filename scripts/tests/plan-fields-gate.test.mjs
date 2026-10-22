@@ -15,8 +15,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import { __test__ as G, judge, verdict } from '../check-plan-fields.mjs'
 import { buildEntry } from '../gate-registry-insert.mjs'
@@ -24,26 +22,25 @@ import { findDuplicateIds, idsOfRegistry } from '../check-gate-wiring.mjs'
 import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 import { renderHeader } from '../lib/plan-field-line.mjs'
 import { FIELDS_REL } from '../lib/plan-fields.mjs'
-import { gitRaw } from '../lib/face-reader.mjs'
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const GATE_ID = '234'
 const GATE_SCRIPT = 'check-plan-fields.mjs'
 const GATE_SKIP_ENV = 'HUSKY_SKIP_PLAN_FIELDS'
 const GATE_LABEL = '计划台账侧车字段一致性(新增行有侧车 ∧ 标头==侧车投影)'
 const GATE_TRIGGERS = ['PROJECT_PLAN.md']
+const GATE_MODE = 'blocking'
 const GATE_HINT = [
   '读数:node scripts/check-plan-fields.mjs;结清存量:node scripts/plan-fields-extract.mjs --apply(只搬说辞不改台账行)',
 ]
 
-// 装车证明读 **HEAD 面**的 runner(与既有镜像测试同口径):旁路落地只推进 HEAD、不写工作树,
-// 读盘会拿到滞后副本,于是"注册在位"这件事永远证不了(本仓记过的那一型:证据面与断言面不同形)。
-const runnerText = () =>
-  gitRaw(['show', 'HEAD:scripts/guardian-runner.mjs'], ROOT, { timeout: 60000 })
+// 注册面取材 = **工作树**的 runner:本票 G-965 正是在同一枚提交里把该块从 warn 改成 blocking,
+// 提交前 HEAD 必然还是旧档位 —— 拿 HEAD 判等于要求用例在落地前先红。真仓注册面的权威复核在提交链上
+// (门 89 按 HEAD ∪ 索引判 R5/R13),本文件只锁"将要入库的这一版逐字是什么"。
+const runnerText = () => readFileSync(new URL('../guardian-runner.mjs', import.meta.url), 'utf8')
 const mk = (raw, line = 1) => ({ line, state: 'open', raw, key: compositeKeyOf(raw) })
 
 describe('守门装车证明(§22c)', () => {
-  it('① 注册条目由装件器同一份文本生成:warn 档且 skipEnv 成套', () => {
+  it('① 注册条目由装件器同一份文本生成:blocking 档(不再是 warn)且 skipEnv 成套', () => {
     const want = buildEntry({
       id: GATE_ID,
       section: '计划/台账',
@@ -52,11 +49,20 @@ describe('守门装车证明(§22c)', () => {
       skipEnv: GATE_SKIP_ENV,
       triggers: GATE_TRIGGERS,
       hint: GATE_HINT,
-      mode: 'warn',
+      mode: GATE_MODE,
     }).join('\n')
     assert.ok(
       runnerText().includes(want),
-      `runner 里没有逐字一致的注册项(warn 档 + skipEnv 成套)。期望:\n${want}`,
+      `runner 里没有逐字一致的注册项(blocking 档 + skipEnv 成套)。期望:\n${want}`,
+    )
+    assert.notEqual(GATE_MODE, 'warn', '档位必须已从 warn 升出,否则差值强制不生效')
+    assert.ok(
+      runnerText().includes(`    script: '${GATE_SCRIPT}',`) &&
+        runnerText().includes(
+          `    stagedTriggers: [${GATE_TRIGGERS.map((t) => `'${t}'`).join(', ')}],`,
+        ) &&
+        runnerText().includes('    args: [],'),
+      'script / args / stagedTriggers 不得漂(漂了就是另一道门的射程)',
     )
   })
 
@@ -76,10 +82,13 @@ describe('守门装车证明(§22c)', () => {
 })
 
 describe('判据在构造面上的行为(与门体自检同一份实现)', () => {
-  it('新行无租约无侧车 ⇒ A1 点名到枚', () => {
+  it('新行无租约无侧车 ⇒ A1 点名到枚,且 verdict 红并 exit 1', () => {
     const v = judge([mk('- [ ] G-1 甲 细节')], { baseRowTexts: new Set(), map: new Map() })
     assert.equal(v.a1, 1)
     assert.match(v.a1List[0], /G-1/, '点名必须带得出编号,否则人无法复跑')
+    const r = verdict(v, 'staged')
+    assert.equal(r.state, 'red')
+    assert.equal(r.code, 1, '新增违规必须冒红(升 blocking 后这是唯一的拦截面)')
   })
 
   it('全量档无基准 ⇒ a1 报 NA 且不当 red(§0.3 没判不写成判过)', () => {
@@ -87,7 +96,17 @@ describe('判据在构造面上的行为(与门体自检同一份实现)', () =>
     assert.equal(v.hasBase, false)
     const r = verdict(v, 'head')
     assert.match(r.line, /a1=NA/)
-    assert.equal(r.code, 0, '只有存量 ⇒ warn 档不得冒红(§12e)')
+    assert.equal(r.code, 0, '只有存量 ⇒ 不得冒红(§12e)')
+  })
+
+  it('只有存量(行已在基准面且缺侧车)⇒ 只报数,staged 面也 exit 0(零误拦)', () => {
+    const row = '- [ ] G-1 甲 细节'
+    const v = judge([mk(row)], { baseRowTexts: new Set([row]), map: new Map() })
+    assert.equal(v.a1, 0)
+    assert.equal(v.stock, 1)
+    const r = verdict(v, 'staged')
+    assert.equal(r.state, 'warn')
+    assert.equal(r.code, 0, '存量缺侧车不得拦提交')
   })
 
   it('标头 ⇄ 侧车逐字不一致 ⇒ A2 red;一致 ⇒ 不报', () => {
@@ -102,7 +121,9 @@ describe('判据在构造面上的行为(与门体自检同一份实现)', () =>
     const bad = mk('- [ ] 〔归:换了一个人〕 G-1 甲 细节')
     assert.equal(judge([good], { map }).a2, 0)
     assert.equal(judge([bad], { map }).a2, 1)
-    assert.equal(verdict(judge([bad], { map }), 'staged').code, 1)
+    const r = verdict(judge([bad], { map }), 'staged')
+    assert.equal(r.state, 'red')
+    assert.equal(r.code, 1)
   })
 
   it('完整租约算交代 ⇒ 不逼侧车重复登记', () => {
