@@ -281,7 +281,10 @@ describe('前提锁 —— 本文件镜像的是生产映射，不是自造判�
     const loadBearing: Array<{ label: string; frag: string }> = [
       { label: 'ZodError 判定', frag: `error.name === 'ZodError' && Array.isArray(` },
       { label: 'ZodError ⇒ 400', frag: `const statusCode = isZodErr ? 400 : error.statusCode` },
-      { label: 'ZodError ⇒ VALIDATION_FAILED', frag: `: isZodErr ? 'VALIDATION_FAILED' : undefined` },
+      {
+        label: 'ZodError ⇒ VALIDATION_FAILED',
+        frag: `: isZodErr ? 'VALIDATION_FAILED' : undefined`,
+      },
       {
         label: '英文 issue 兜底中文',
         frag: `isMostlyEnglish(zodMsg) ? '参数错误' : (zodMsg ?? '参数错误')`,
@@ -293,14 +296,29 @@ describe('前提锁 —— 本文件镜像的是生产映射，不是自造判�
     }
   })
 
+  /**
+   * create 支路的取材窗口：从 `server.post('/agents/create'` 起，到**紧随其后的同级路由注册**
+   * （`server.(post|put|get|delete|patch)(`）为止 —— 即只截 create 处理器自己的函数体。
+   * 旧判据截到"下一个 server.put"，会把 G-962 批7 的 `POST /agents`（合法使用
+   * `.safeParse(request.body)` 的兄弟支路）整段扫进窗口而误伤；新判据在同级注册处收口，
+   * 兄弟支路落在窗口之外。找不到后续注册时兜底切到文件末尾：宁可误红逼人来看，
+   * 绝不静默放过（§0.10 失效方向禁令）。
+   */
+  const createWindowOf = (flat: string): string => {
+    const start = flat.indexOf(`server.post('/agents/create'`)
+    if (start < 0) return ''
+    const reg = /server\.(?:post|put|get|delete|patch)\(/g
+    reg.lastIndex = start + `server.post(`.length
+    const next = reg.exec(flat)
+    return next === null ? flat.slice(start) : flat.slice(start, next.index)
+  }
+
   it('create 支路确实仍靠全局兜底（它不是 safeParse 型，所以本文件不能沿用无 handler 夹具）', () => {
     const src = readFileSync(join(REPO, 'apps/api/src/routes/agents.ts'), 'utf8')
     const flat = norm(src)
-    // 取 create 那一支的窗口：从 server.post('/agents/create' 到下一个 server.put 之前
     const start = flat.indexOf(`server.post('/agents/create'`)
     expect(start, 'create 支路改名或搬走了 —— 本票的靶子需要重新定位').toBeGreaterThan(-1)
-    const end = flat.indexOf('server.put(', start)
-    const window = end > start ? flat.slice(start, end) : flat.slice(start)
+    const window = createWindowOf(flat)
     expect(window, 'create 支路不再走 .parse(request.body) ⇒ 本文件的全局兜底前提失效').toContain(
       norm('.parse(request.body)'),
     )
@@ -308,6 +326,31 @@ describe('前提锁 —— 本文件镜像的是生产映射，不是自造判�
       window,
       'create 支路若改成 safeParse，应把本用例并入 test/agents.test.ts 的写法而非留两份',
     ).not.toContain(norm('.safeParse(request.body)'))
+  })
+
+  it('窗口判据的变异自证（内存夹具，不碰生产源码）：兄弟支路的 safeParse 不得入窗，create 支路自己换成 safeParse 必须被抓', () => {
+    const fixture = (createValidator: string, siblingValidator: string) =>
+      norm(`
+        server.get('/agents/:agentId', async (request, reply) => { /* 前置支路，不在靶内 */ })
+        server.post('/agents/create', async (request, reply) => {
+          const body = z.object({ name: z.string().optional() })${createValidator}
+          return reply.send(success(body))
+        })
+        server.post('/agents', async (request, reply) => {
+          const parsed = z.object({ name: z.string() })${siblingValidator}
+          return reply.send(success(parsed))
+        })
+        server.put('/agents/:agentId', async (request, reply) => { /* 后一支路 */ })
+      `)
+    // ① 现行形态：create 用 .parse、批7 兄弟用 .safeParse ⇒ 窗口必须含前者、不含后者
+    //（旧"截到下一个 server.put"的窗口会把后者扫进来 ⇒ 这一臂同时是防误伤回归锁）
+    const healthy = createWindowOf(fixture('.parse(request.body)', '.safeParse(request.body)'))
+    expect(healthy).toContain(norm('.parse(request.body)'))
+    expect(healthy).not.toContain(norm('.safeParse(request.body)'))
+    // ② 变异臂：create 支路换成 .safeParse ⇒ 该形态必须落在窗口内（前提锁的 .not.toContain
+    // 据此翻红 —— 牙还在；下面两句核的是"检测面"，不是复制生产判据）
+    const mutated = createWindowOf(fixture('.safeParse(request.body)', '.safeParse(request.body)'))
+    expect(mutated).toContain(norm('.safeParse(request.body)'))
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
