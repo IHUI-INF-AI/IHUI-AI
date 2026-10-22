@@ -24,7 +24,7 @@ function CompareRow({ label, before, after }: { label: string; before: unknown; 
   const a = after === null || after === undefined || after === '' ? '-' : String(after)
   const diff = b !== a
   return (
-    <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 border-b border-muted/40 py-1.5 text-sm">
+    <div className="grid grid-cols-2 min-[640px]:grid-cols-3 gap-2 py-1.5 text-sm">
       <div className="font-medium text-muted-foreground">{label}</div>
       <div
         className={cn(

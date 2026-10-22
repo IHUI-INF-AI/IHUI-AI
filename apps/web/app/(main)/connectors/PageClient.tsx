@@ -377,11 +377,13 @@ export default function ConnectorsPageClient() {
       {/* 登录态门 + 加载态 */}
       {!allow ? (
         <AuthGatePrompt message={tGate('loginRequired')} />
-      ) : isLoading && (
-        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>{t('loading')}</span>
-        </div>
+      ) : (
+        isLoading && (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>{t('loading')}</span>
+          </div>
+        )
       )}
 
       {/* 错误态 */}
@@ -682,7 +684,7 @@ function ConnectorCard({
 
       {/* 同步得到的文档列表 */}
       {items.length > 0 && (
-        <div className="space-y-1.5 border-t pt-2">
+        <div className="space-y-1.5 pt-2">
           <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
             <FileText className="h-3 w-3" />
             {t('docList')}

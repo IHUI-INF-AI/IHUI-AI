@@ -398,7 +398,7 @@ export default function ModelConfigDialog({
               </View>
             )}
             {showVideo && (
-              <View className="mt-2 pt-2 border-t border-border">
+              <View className="mt-2 pt-2">
                 <Text className="block text-xs text-muted-foreground mb-2">
                   {tt('ModelConfigDialog.settings4', '视频设置')}
                 </Text>
@@ -823,7 +823,7 @@ export default function ModelConfigDialog({
 
           {/* 视频模型额外配置(对齐原项目固定项) */}
           {isVideoModel && (
-            <View className="mt-3 pt-2 border-t border-border">
+            <View className="mt-3 pt-2">
               <Text className="block text-xs text-muted-foreground mb-2">
                 {tt('ModelConfigDialog.settings4', '视频设置')}
               </Text>

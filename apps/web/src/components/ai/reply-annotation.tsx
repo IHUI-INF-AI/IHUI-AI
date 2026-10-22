@@ -32,8 +32,7 @@ interface ReplyAnnotationLayerProps {
 function selectRange(container: HTMLElement, from: number, to: number): void {
   const { spans } = readContainerText(container)
   const startSpan =
-    spans.find((s) => from >= s.start && from <= s.end) ??
-    spans.find((s) => from <= s.end)
+    spans.find((s) => from >= s.start && from <= s.end) ?? spans.find((s) => from <= s.end)
   const endSpan =
     spans.find((s) => to >= s.start && to <= s.end) ?? spans.find((s) => to >= s.start)
   if (!startSpan || !endSpan) return
@@ -55,7 +54,11 @@ function selectRange(container: HTMLElement, from: number, to: number): void {
 }
 
 /** 边栏标记文案:单行 `注释 {n}:{选区段落}`,多行 `注释 {n}:{首行}…, {lineCount} 行`。 */
-function annotationLabel(ann: Annotation, index: number, t: (key: string, p?: { n: number }) => string): string {
+function annotationLabel(
+  ann: Annotation,
+  index: number,
+  t: (key: string, p?: { n: number }) => string,
+): string {
   const badge = t('badge')
   const firstLine = (ann.anchorText.split('\n')[0] ?? '').trim()
   if (ann.lineCount > 1) {
@@ -90,7 +93,11 @@ export function ReplyAnnotationLayer({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [annotations, setAnnotations] = React.useState<Annotation[]>([])
   const [states, setStates] = React.useState<Record<string, AnnotationState>>({})
-  const [popover, setPopover] = React.useState<{ x: number; y: number; anchor: ReturnType<typeof selectionToAnchor> } | null>(null)
+  const [popover, setPopover] = React.useState<{
+    x: number
+    y: number
+    anchor: ReturnType<typeof selectionToAnchor>
+  } | null>(null)
   const [draft, setDraft] = React.useState('')
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [editDraft, setEditDraft] = React.useState('')
@@ -196,7 +203,11 @@ export function ReplyAnnotationLayer({
       {popover && popover.anchor && (
         <div
           className="absolute z-20 rounded-md border border-border/60 bg-popover p-2 shadow-md"
-          style={{ left: popover.x, top: Math.max(popover.y - 8, 8), transform: 'translate(-50%, -100%)' }}
+          style={{
+            left: popover.x,
+            top: Math.max(popover.y - 8, 8),
+            transform: 'translate(-50%, -100%)',
+          }}
           data-testid="annotation-popover"
         >
           <textarea
@@ -244,7 +255,7 @@ export function ReplyAnnotationLayer({
 
       {/* 批注边栏(注释 {n} 标记 + valid/invalid 失效态 + 编辑/删除) */}
       {annotations.length > 0 && (
-        <div className="mt-2 space-y-1 border-t border-border/40 pt-2" data-testid="annotation-rail">
+        <div className="mt-2 space-y-1 pt-2" data-testid="annotation-rail">
           <div className="text-[10px] font-medium text-muted-foreground">
             {t('countSummary', { n: annotations.length })}
           </div>
@@ -299,7 +310,10 @@ export function ReplyAnnotationLayer({
                   </div>
 
                   {isInvalid && (
-                    <div className="mt-0.5 text-[10px] text-muted-foreground/70" data-testid={`annotation-invalid-${ann.id}`}>
+                    <div
+                      className="mt-0.5 text-[10px] text-muted-foreground/70"
+                      data-testid={`annotation-invalid-${ann.id}`}
+                    >
                       {t('invalid')}
                     </div>
                   )}

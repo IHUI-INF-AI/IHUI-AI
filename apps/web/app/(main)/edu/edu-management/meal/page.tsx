@@ -567,7 +567,7 @@ function TemplateDialog({
                 <div className="grid grid-cols-[60px_repeat(7,1fr)] gap-0">
                   <div className="p-1.5 text-xs font-medium text-muted-foreground" />
                   {WEEKDAY_KEYS.map((key) => (
-                    <div key={key} className="border-b p-1.5 text-center text-xs font-medium">
+                    <div key={key} className="bg-muted/40 p-1.5 text-center text-xs font-medium">
                       {t(key)}
                     </div>
                   ))}
@@ -576,7 +576,7 @@ function TemplateDialog({
                 {/* Meal type rows */}
                 {MEAL_TYPES.map((mt) => (
                   <div key={mt.value} className="grid grid-cols-[60px_repeat(7,1fr)] gap-0">
-                    <div className="flex items-center gap-1 border-b p-1.5 text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center gap-1 bg-muted/40 p-1.5 text-xs font-medium text-muted-foreground">
                       {t(mt.labelKey)}
                     </div>
                     {Array.from({ length: 7 }, (_, i) => {
@@ -1260,7 +1260,7 @@ export default function MealPage() {
                     const Icon = MEAL_ICONS[mt.value]
                     return (
                       <div key={mt.value} className="grid grid-cols-[60px_repeat(7,1fr)]">
-                        <div className="flex items-center gap-1 border-b bg-background p-2 text-xs font-medium text-muted-foreground">
+                        <div className="flex items-center gap-1 bg-background p-2 text-xs font-medium text-muted-foreground">
                           {Icon && <Icon className="h-3 w-3" />}
                           <span>{t(mt.labelKey)}</span>
                         </div>

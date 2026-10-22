@@ -33,7 +33,7 @@ export function OfficeViewer({ url, fileName, className }: OfficeViewerProps) {
 
   return (
     <div className={cn('relative flex h-full w-full flex-col', className)}>
-      <div className="flex items-center justify-between border-b bg-muted/50 px-3 py-1.5">
+      <div className="flex items-center justify-between bg-muted/50 px-3 py-1.5">
         <span className="text-xs text-muted-foreground">{t('officePreviewLabel')}</span>
         <a
           href={url}

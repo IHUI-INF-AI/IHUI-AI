@@ -103,11 +103,7 @@ export function TaskMonitorZonesView({
         // 含激活 Tab 的区始终展开,保证当前内容可见
         const expanded = containsActive || !collapsed.has(zone)
         return (
-          <div
-            key={zone}
-            data-testid={`task-monitor-zone-${zone}`}
-            className="border-b last:border-b-0"
-          >
+          <div key={zone} data-testid={`task-monitor-zone-${zone}`}>
             <button
               type="button"
               aria-expanded={expanded}

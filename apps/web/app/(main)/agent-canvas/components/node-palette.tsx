@@ -33,8 +33,8 @@ export function NodePalette({ onAdd }: NodePaletteProps) {
   }
 
   return (
-    <div className="flex w-52 shrink-0 flex-col border-r bg-card">
-      <div className="border-b px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <div className="flex w-52 shrink-0 flex-col bg-card">
+      <div className="bg-muted/40 px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {t('paletteTitle')}
       </div>
       <div className="flex flex-col gap-2 p-3">

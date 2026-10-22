@@ -743,14 +743,14 @@ export function AiSidePanelTools() {
   }
 
   return (
-    <div data-testid="ai-side-panel-tools" className={open ? 'border-t' : 'hidden'}>
+    <div data-testid="ai-side-panel-tools" className={open ? undefined : 'hidden'}>
       {/* 派发子代理对话框(agents tab 触发) */}
       <DispatchSubagentDialog open={dispatchOpen} onOpenChange={setDispatchOpen} />
 
       {open && (
         <>
           {/* 展示方式切换器(D52):紧凑胶囊,sections 分区视图(默认)/ tabs 平铺旧行为 */}
-          <div className="flex items-center gap-2 border-b px-2 py-1.5">
+          <div className="flex items-center gap-2 bg-muted/40 px-2 py-1.5">
             <span className="text-[10px] text-muted-foreground">{tm('displayMode')}</span>
             <div
               role="group"
@@ -790,7 +790,7 @@ export function AiSidePanelTools() {
               <div
                 role="tablist"
                 aria-label={t('title')}
-                className="flex gap-1 overflow-x-auto border-b px-2 pb-1.5"
+                className="flex gap-1 overflow-x-auto px-2 pb-1.5"
               >
                 {TAB_KEYS.map((key) => (
                   <button

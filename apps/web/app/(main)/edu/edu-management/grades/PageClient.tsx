@@ -301,7 +301,7 @@ function BatchScoreEntry({
       <div className="overflow-x-auto rounded-md border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/50">
+            <tr className="bg-muted/50">
               <th className="px-3 py-2 text-left font-medium">{t('student')}</th>
               {subjects.map((s) => (
                 <th key={s} className="px-3 py-2 text-left font-medium">
@@ -741,7 +741,7 @@ export default function GradesPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b bg-muted/50">
+                    <tr className="bg-muted/50">
                       <th className="px-3 py-2 text-left font-medium">{t('student')}</th>
                       <th className="px-3 py-2 text-left font-medium">{t('subject')}</th>
                       <th className="px-3 py-2 text-left font-medium">{t('examName')}</th>
@@ -847,7 +847,7 @@ export default function GradesPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b bg-muted/50">
+                    <tr className="bg-muted/50">
                       <th className="px-3 py-2 text-left font-medium">{t('ranking')}</th>
                       <th className="px-3 py-2 text-left font-medium">{t('student')}</th>
                       <th className="px-3 py-2 text-left font-medium">{t('totalScore')}</th>

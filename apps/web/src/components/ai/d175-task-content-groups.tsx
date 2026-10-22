@@ -62,19 +62,16 @@ function ContentRow({ item }: { item: TaskContentItem }): React.JSX.Element {
  * 三组恒在(空态也是内容的一部分,竞品空列表照样给「暂无…数据 :)」);
  * 三组全空时补一条总空态与汇总描述(empty / emptyDescription)。
  */
-export function TaskContentGroupsView({
-  messages,
-}: TaskContentGroupsViewProps): React.JSX.Element {
+export function TaskContentGroupsView({ messages }: TaskContentGroupsViewProps): React.JSX.Element {
   const tm = useTranslations('taskMonitor')
   const groups = React.useMemo(() => aggregateTaskContent(messages), [messages])
-  const totalCount =
-    groups.artifact.length + groups.browser.length + groups.source.length
+  const totalCount = groups.artifact.length + groups.browser.length + groups.source.length
 
   return (
     <section
       data-testid="task-content-groups"
       aria-label={tm('sections.results')}
-      className="border-b px-3 pb-2 pt-1.5"
+      className="px-3 pb-2 pt-1.5"
     >
       {totalCount === 0 && (
         <div data-testid="task-content-empty" className="pb-1.5">

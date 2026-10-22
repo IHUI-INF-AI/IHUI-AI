@@ -109,7 +109,7 @@ export default function PointsPage() {
         levelLoading={levelQ.isLoading}
       />
 
-      <div className="flex flex-nowrap gap-1 overflow-x-auto border-b">
+      <div className="flex flex-nowrap gap-1 overflow-x-auto">
         {(['tx', 'lb', 'redeem'] as const).map((k) => (
           <button
             key={k}

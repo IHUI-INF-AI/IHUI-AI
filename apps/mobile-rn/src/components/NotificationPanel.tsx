@@ -52,7 +52,7 @@ export default function NotificationPanel() {
           activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
         >
-          <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-neutral-700">
+          <View className="flex-row items-center justify-between px-4 py-3">
             <Text className="text-[15px] font-semibold text-gray-900 dark:text-neutral-100">
               通知
             </Text>

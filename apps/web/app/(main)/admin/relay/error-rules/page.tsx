@@ -234,7 +234,7 @@ export default function ErrorRulesPage() {
               </tr>
             ) : (
               (rulesQ.data ?? []).map((rule) => (
-                <tr key={rule.id} className="border-t border-border">
+                <tr key={rule.id}>
                   <td className="px-3 py-2 tabular-nums">
                     <span className="flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3 text-amber-600" aria-hidden />
