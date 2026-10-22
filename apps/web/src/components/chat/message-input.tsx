@@ -1343,7 +1343,9 @@ export function MessageInput({
                 tabIndex={-1}
               />
               {/* ── 右簇:权限 + 模式 + 上下文 + 模型 + 语音 + 发送 ─────────────── */}
-              <div className="ml-auto flex min-w-0 items-center justify-end gap-1">
+              {/* ai-input-toolbar-right:窄档(C≤335)由 globals.css @container 换行避让(缺口C),
+                  右簇内容不再左溢越出窗格边界拦截相邻窗格控件的鼠标点击 */}
+              <div className="ai-input-toolbar-right ml-auto flex min-w-0 items-center justify-end gap-1">
                 {/* 权限模式(2026-09-30 icon-only 化):盾/手/罗盘/警盾图标 + 档位色语义,
                     档名走 Tooltip;弹层内含模式卡片 + 高危说明 ⓘ + 历史内嵌段 */}
                 <PermissionModePopover

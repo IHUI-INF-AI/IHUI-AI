@@ -14,11 +14,8 @@
  * 上游协议细节(端点/头/请求体/SSE 帧)全部封装在各平台实现内,链路层不感知。
  */
 import { type AiRelayAccountPool } from '@ihui/database'
-import {
-  isRelayProviderCode,
-  type RelayProviderCode,
-  type AccountCredentials,
-} from './relay-account-pool-service.js'
+import type { AccountCredentials } from './relay-account-pool-service.js'
+import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
 
 // =============================================================================
 // 类型
@@ -159,7 +156,15 @@ export interface RelayUpstreamAdapter {
     bodyText: string,
   ): {
     kind:
-      'auth' | 'credit' | 'session_dead' | 'rate' | 'not_found' | 'request' | 'server' | 'client'
+      | 'auth'
+      | 'credit'
+      | 'session_dead'
+      | 'risk'
+      | 'rate'
+      | 'not_found'
+      | 'request'
+      | 'server'
+      | 'client'
   }
 }
 

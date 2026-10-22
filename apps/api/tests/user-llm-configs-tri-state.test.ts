@@ -11,24 +11,46 @@ import Fastify from 'fastify'
  * 且存量 extraConfig 为坏 JSON 时**点名 500 拒绝**,不得静默 ignore 后整体覆写。
  */
 
-const selectChain = { from: () => selectChain, where: () => selectChain, limit: () => selectChain, orderBy: () => selectChain }
+const selectChain = {
+  from: () => selectChain,
+  where: () => selectChain,
+  limit: () => selectChain,
+  orderBy: () => selectChain,
+}
 const updateCaptured: { set: Record<string, unknown>; where: unknown }[] = []
-const updateChain = { set: (s: Record<string, unknown>) => { updateCaptured.push({ set: s, where: null }); return updateChain }, where: () => updateChain }
+const updateChain = {
+  set: (s: Record<string, unknown>) => {
+    updateCaptured.push({ set: s, where: null })
+    return updateChain
+  },
+  where: () => updateChain,
+  returning: () => [{ id: 1 }],
+}
 const insertChain = { values: () => insertChain, returning: () => [{ id: 1 }] }
 
 let existingRow: Record<string, unknown> | null = null
 
 vi.mock('../src/db/index.js', () => ({
   db: {
-    select: () => ({ ...selectChain, from: () => ({ ...selectChain, where: () => ({ ...selectChain, limit: () => (existingRow ? [existingRow] : []) }) }) }),
+    select: () => ({
+      ...selectChain,
+      from: () => ({
+        ...selectChain,
+        where: () => ({ ...selectChain, limit: () => (existingRow ? [existingRow] : []) }),
+      }),
+    }),
     update: () => ({ ...updateChain }),
     insert: () => ({ ...insertChain }),
   },
 }))
 vi.mock('../src/plugins/auth.js', () => ({
-  authenticate: async (request: { userId?: string }) => { request.userId = 'user-1' },
+  authenticate: async (request: { userId?: string }) => {
+    request.userId = 'user-1'
+  },
 }))
-vi.mock('../src/utils/ai-service-fetch.js', () => ({ aiServiceSystemFetch: async () => ({ ok: true }) }))
+vi.mock('../src/utils/ai-service-fetch.js', () => ({
+  aiServiceSystemFetch: async () => ({ ok: true }),
+}))
 
 const { userLlmConfigRoutes } = await import('../src/routes/user-llm-configs.js')
 
@@ -38,7 +60,9 @@ describe('G-644 PUT /llm-configs/:id 三态补丁', () => {
     await server.register(userLlmConfigRoutes, { prefix: '/api/user' })
     await server.ready()
   })
-  afterAll(async () => { await server.close() })
+  afterAll(async () => {
+    await server.close()
+  })
 
   const put = (body: unknown) =>
     server.inject({ method: 'PUT', url: '/api/user/llm-configs/1', payload: body })
@@ -89,7 +113,12 @@ describe('G-644 PUT /llm-configs/:id 三态补丁', () => {
 
   it('存量 extraConfig 合法 ⇒ 正常合并 contextLength 后写入', async () => {
     updateCaptured.length = 0
-    existingRow = { id: 1, ownerUuid: 'user-1', apiKeyEnc: 'enc-old', extraConfig: '{"foo":"keep-me"}' }
+    existingRow = {
+      id: 1,
+      ownerUuid: 'user-1',
+      apiKeyEnc: 'enc-old',
+      extraConfig: '{"foo":"keep-me"}',
+    }
     const r = await put({ contextLength: 8192 })
     expect(r.statusCode).toBe(200)
     const extra = JSON.parse(String(updateCaptured[0].set.extraConfig))

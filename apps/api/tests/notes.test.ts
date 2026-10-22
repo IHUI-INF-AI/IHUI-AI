@@ -156,7 +156,8 @@ describe('notes routes — PUT /api/notes/:id', () => {
 
   it('所有者更新 → 200 + updated:true', async () => {
     mockAuthed(USER_ID)
-    enqueue([{ id: NOTE_ID, userId: USER_ID }])
+    // 第二份回报 = UPDATE … RETURNING 的库侧命中集(updated 由它派生,守门 134)
+    enqueue([{ id: NOTE_ID, userId: USER_ID }], [{ id: NOTE_ID }])
     const res = await server.inject({
       method: 'PUT',
       url: `${PREFIX}/notes/${NOTE_ID}`,

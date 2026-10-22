@@ -1927,8 +1927,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     await authenticate(request)
     const { skId } = skIdParam.parse(request.params)
     const { status } = z.object({ status: z.number() }).parse(request.body)
-    await updateUserSk(skId, request.userId!, status)
-    return reply.send(success({ updated: true }))
+    const rows = await updateUserSk(skId, request.userId!, status)
+    return reply.send(success({ updated: rows.length > 0 }))
   })
 
   server.delete('/auth/user-sk/:skId', async (request, reply) => {

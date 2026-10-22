@@ -78,7 +78,9 @@ export default defineConfig({
   webServer: {
     // 本地用 dev(CI 用 build+start 更接近生产)
     command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
-    url: 'http://localhost:8801',
+    // 探活 url 跟随 PLAYWRIGHT_BASE_URL(默认 8801 不变)。并发隔离第二台 web 时
+    // 设 IHUI_DEV_PORT + PLAYWRIGHT_BASE_URL,webServer 就不会拿 8801 判就绪。
+    url: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8801',
     // 本地默认复用已运行的 dev server,避免开发时反复重启;CI 模式下显式设置 PLAYWRIGHT_REUSE_SERVER=1 也可复用
     reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER
       ? process.env.PLAYWRIGHT_REUSE_SERVER !== '0'

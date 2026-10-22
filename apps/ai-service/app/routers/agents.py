@@ -1540,9 +1540,17 @@ async def execute_agent_stream(
             # 同形 tool-approval 帧重发给本连接(replay:true 标记,前端按 approvalId
             # 幂等渲染)。已决条目不重放(二次弹窗=副作用);旧 run 已死/已超时 ⇒ 条目
             # 已被 finally pop,天然缺席;session_id 缺省的连接无可过滤键,不重放。
-            # 主对话流(llm.py::_approval_sessions)那一半有僵尸 run 问题(重放答复会
-            # 驱动孤儿生成器继续执行),须与 sse_contract 同批,不在本笔夹带。
-            if last_event_id and req.session_id:
+            # D690(方案 A,2026-10-22)收两笔:
+            # ① 闸从"带续传游标"放宽到"有会话键"——游标是客户端内存变量(刷新即失),
+            #    而待决条目活过页面刷新;原闸把"刷新后恢复会话"这一形态挡在门外,弹窗
+            #    照样丢。放宽不扩权:取数侧仍是 session_id 精确相等 ∧ 属主精确相等 ∧
+            #    仍待决三道 fail-closed 闸,纯只读 ⇒ 每次订阅至多一帧、前端按
+            #    approvalId 幂等渲染,重连 N 次不新增条目也不产生第二次执行。
+            # ② 主对话流(llm.py::_approval_sessions)那一半**已落地**(同票:
+            #    `_approval_replay_frames`);它的僵尸 run 顾虑由网关"等新生流首字节
+            #    到达再 abort 原上游"解掉(见 apps/api/src/routes/ai-chat-stream.ts 的
+            #    会话复用臂),故本条不再写"须与 sse_contract 同批"的旧出路。
+            if req.session_id:
                 from ..services.agent_loop_v2 import pending_approval_replays
 
                 for _replay in pending_approval_replays(

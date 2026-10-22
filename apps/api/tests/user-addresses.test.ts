@@ -34,7 +34,8 @@ function txChainable() {
   const make = (): Record<string, unknown> => {
     const proxy = new Proxy({} as Record<string, unknown>, {
       get(_target, prop: string) {
-        if (prop === 'then') return (resolve: (v: unknown) => void) => resolve([])
+        // tx 链 await 回报"库侧命中集":设为默认的目标行存在(已由 select 预读证实)
+        if (prop === 'then') return (resolve: (v: unknown) => void) => resolve([{ id: ADDRESS_ID }])
         return vi.fn().mockReturnValue(make())
       },
     })
@@ -129,7 +130,8 @@ describe('user-addresses routes — /api/addresses/*', () => {
     mockAuthenticate.mockReset()
     mockTransaction.mockReset()
     mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
-      await cb({ update: mockTxUpdate })
+      // 真 db.transaction 把回调返回值透传给 await 侧(路由用 RETURNING 命中集派生 updated)
+      return await cb({ update: mockTxUpdate })
     })
     mockTxUpdate.mockReset()
     mockTxUpdate.mockReturnValue(txChainable())

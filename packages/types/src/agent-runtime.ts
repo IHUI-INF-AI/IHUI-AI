@@ -950,7 +950,7 @@ export interface SubagentSpawnRequest {
   model?: string
   /** 能力模式(默认 read-write) */
   capability?: CapabilityMode
-  /** 隔离模式(默认 none,可选 worktree) */
+  /** 隔离模式(默认 none,可选 worktree/subprocess) */
   isolation?: IsolationMode
   /** 最大迭代次数(默认 25) */
   maxIterations?: number

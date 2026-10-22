@@ -157,6 +157,9 @@ if (process.env.HUSKY_SKIP_ROOT_DIR_GUARD === '1') {
 const ALLOWED_FILES = new Set([
   // 项目强制文档
   'AGENTS.md',
+  // 机主强制指令(apps/web/src/hooks/use-agent-md-reference.ts 与
+  // packages/shared/src/chat/workspace-context-loader.ts 按名读取)
+  'agent.md',
   'PROJECT_PLAN.md',
   // /goal 模式运行时文件(AGENTS.md §1 唯一例外条款:goal-runtime 状态与运行日志)
   'STATE.md',

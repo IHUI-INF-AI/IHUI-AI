@@ -228,21 +228,23 @@ export async function verifyCertificate(
 export async function getCertificateTemplates(
   query: PageQuery = {},
 ): Promise<ApiResult<PageData<CertificateTemplate>>> {
-  return fetchApi<PageData<CertificateTemplate>>(`/api/certificates/templates${buildQs(query)}`)
+  return fetchApi<PageData<CertificateTemplate>>(
+    `/api/admin/certificates/templates${buildQs(query)}`,
+  )
 }
 
 /** 获取证书模板详情 */
 export async function getCertificateTemplateDetail(
   id: string,
 ): Promise<ApiResult<CertificateTemplate>> {
-  return fetchApi<CertificateTemplate>(`/api/certificates/templates/${id}`)
+  return fetchApi<CertificateTemplate>(`/api/admin/certificates/templates/${id}`)
 }
 
 /** 创建证书模板 */
 export async function createCertificateTemplate(
   input: Partial<CertificateTemplate>,
 ): Promise<ApiResult<CertificateTemplate>> {
-  return fetchApi<CertificateTemplate>('/api/certificates/templates', {
+  return fetchApi<CertificateTemplate>('/api/admin/certificates/templates', {
     method: 'POST',
     body: JSON.stringify(input),
   })
@@ -253,7 +255,7 @@ export async function updateCertificateTemplate(
   id: string,
   input: Partial<CertificateTemplate>,
 ): Promise<ApiResult<CertificateTemplate>> {
-  return fetchApi<CertificateTemplate>(`/api/certificates/templates/${id}`, {
+  return fetchApi<CertificateTemplate>(`/api/admin/certificates/templates/${id}`, {
     method: 'PUT',
     body: JSON.stringify(input),
   })
@@ -263,7 +265,9 @@ export async function updateCertificateTemplate(
 export async function deleteCertificateTemplate(
   id: string,
 ): Promise<ApiResult<{ success: boolean }>> {
-  return fetchApi<{ success: boolean }>(`/api/certificates/templates/${id}`, { method: 'DELETE' })
+  return fetchApi<{ success: boolean }>(`/api/admin/certificates/templates/${id}`, {
+    method: 'DELETE',
+  })
 }
 
 // ===================== knowledge（知识库）=====================

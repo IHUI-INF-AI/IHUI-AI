@@ -1905,3 +1905,44 @@ test('T39 G-246 全部旁路落地站点(现读 8 站)必须各自就地补跑�
   if (!v4.bad.some((b) => /排在共享索引写回之后/.test(b)))
     throw new Error(`heal 挪到索引写回之后必须点名次序违规,实测:${names(v4).slice(0, 3).join(' | ') || '(无违规)'}`)
 })
+
+/**
+ * T40 G-14 ②(2026-10-22)—— 存量同号多题的两条出口必须分开:
+ *  ① **同号同题**副本(复合主键 = 编号 + 标题前缀逐字等值)⇒ F4 只给副本加指针,**不翻勾、不删行**;
+ *  ② **同号不同题**(如 G-1113918×3 三件不同的事共用一个长号)⇒ F1/F4 按复合主键结构上命中不了,
+ *     自动归并一律不碰;F9 声明位撞号照数报出,让号必须人工逐题做(自动加指针会把真活藏掉)。
+ * 票面明写"同一编号只允许一行当前状态"的主键口径 —— 本用例同时钉住"不得退化成按编号分组"。
+ */
+test('T40 G-14 ②:同号同题走 F4 只加指针不动勾;同号不同题不自动归并(交人工让号)', () => {
+  const sameTopic = [
+    '- [ ] G-351 **同一件事**:甲份正文,长度足够长。',
+    '- [ ] G-351 **同一件事**:乙份正文,长度足够长。',
+    '- [ ] G-352 **别的事**:丙。',
+  ].join('\n')
+  const a0 = auditPlan(sameTopic).counts
+  if (a0.dupOpenCopies !== 1) throw new Error(`同号同题必须落 F4(实测 ${a0.dupOpenCopies})`)
+  const r = buildMerge(sameTopic, '2026-10-22')
+  if (r.changed.length !== 1) throw new Error(`同号同题应恰好加 1 枚指针,实测 ${r.changed.length}`)
+  const lines = r.text.split('\n')
+  if (!/^- \[ \] G-351 /.test(lines[0]) || lines[0].includes('【归并】'))
+    throw new Error('持有行不得被加指针(出口自己留一行终端代表)')
+  if (!/^- \[ \] G-351 /.test(lines[1]) || !lines[1].includes('【归并】重复登记副本'))
+    throw new Error(`副本行必须只加指针且不翻勾:${lines[1].slice(0, 80)}`)
+  const again = buildMerge(r.text, '2026-10-22')
+  if (again.changed.length !== 0 || again.text !== r.text) throw new Error('F4 指针必须幂等(第二遍零改动)')
+
+  // 同号不同题:G-1113918×3 —— 声明位撞号 F9 看得见,复合主键维(F1/F4)结构上看不见。
+  const diffTopic = [
+    '- [ ] G-1113918 **甲事**:甲份正文足够长。',
+    '- [ ] G-1113918 **乙事**:乙份正文足够长。',
+    '- [ ] G-1113918 **丙事**:丙份正文足够长。',
+  ].join('\n')
+  const a1 = auditPlan(diffTopic).counts
+  if (a1.f9DeclaredGroups !== 1)
+    throw new Error(`同号不同题必须被 F9 报数(实测 ${a1.f9DeclaredGroups})`)
+  if (a1.dupOpenCopies !== 0)
+    throw new Error('同号不同题不得被 F4 命中(按编号分组就是退回缺陷口径)')
+  const rd = buildMerge(diffTopic, '2026-10-22')
+  if (rd.changed.length !== 0 || rd.text !== diffTopic)
+    throw new Error('同号不同题一行都不许自动改写(加指针会把真活藏掉,必须人工让号)')
+})

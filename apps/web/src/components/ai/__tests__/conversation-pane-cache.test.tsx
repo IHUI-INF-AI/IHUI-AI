@@ -14,9 +14,12 @@ import { act, renderHook } from '@testing-library/react'
 import { ROOT_PANE_ID } from '@ihui/shared/chat/multi-pane'
 import {
   CONVERSATION_CACHE_LIMIT,
+  CONVERSATION_PANE_CACHE_PERSIST_KEY,
   conversationCacheKey,
+  readConversationCache,
   resetConversationCache,
   useConversationPaneCache,
+  writeConversationCache,
 } from '@/hooks/use-conversation-pane-cache'
 import { ChatPaneProvider } from '@/stores/chat-pane-context'
 import type { ChatMessage } from '@/stores/chat'
@@ -222,6 +225,48 @@ describe('会话缓存按窗格隔离(片 A 反证)', () => {
     expect(conversationCacheKey(PANE_ID, 'conv-1')).not.toBe(
       conversationCacheKey(PANE_ID, 'conv-2'),
     )
+  })
+})
+
+describe('G-935 缺口B 快照落盘 / 惰性装载', () => {
+  it('write 后落盘键出现,含窗格化桶键与消息引用', async () => {
+    writeConversationCache(PANE_ID, CONVERSATION_ID, {
+      messages: [message('disk-me')],
+      hasMore: true,
+      oldestCursor: 'cursor-disk',
+    })
+    // 落盘是 200ms 合批,等它过一遍再验
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    const raw = window.localStorage.getItem(CONVERSATION_PANE_CACHE_PERSIST_KEY)
+    expect(raw).toBeTruthy()
+    const blob = JSON.parse(raw as string) as {
+      entries: Array<[string, { messages: Array<{ content: string }> }]>
+    }
+    const hit = blob.entries.find(([key]) => key === conversationCacheKey(PANE_ID, CONVERSATION_ID))
+    expect(hit?.[1].messages[0]?.content).toBe('disk-me')
+  })
+
+  it('惰性装载:上个会话留下的合法快照在首个读触点灌回内存;不合法条目按条丢弃', () => {
+    const goodKey = conversationCacheKey(PANE_ID, 'conv-good')
+    const badKey = conversationCacheKey(PANE_ID, 'conv-bad')
+    window.localStorage.setItem(
+      CONVERSATION_PANE_CACHE_PERSIST_KEY,
+      JSON.stringify({
+        entries: [
+          [goodKey, { messages: [message('hydrated-ok')], hasMore: false, oldestCursor: null }],
+          [badKey, { messages: 'not-an-array', hasMore: false, oldestCursor: null }],
+        ],
+      }),
+    )
+    // 首个读触点即触发装载(同步),必须拿回合法那条
+    expect(readConversationCache(PANE_ID, 'conv-good')?.messages[0]?.content).toBe('hydrated-ok')
+    expect(readConversationCache(PANE_ID, 'conv-bad')).toBeNull()
+  })
+
+  it('坏 blob(非法 JSON)⇒ 清键回落空表,不炸首个触点', () => {
+    window.localStorage.setItem(CONVERSATION_PANE_CACHE_PERSIST_KEY, '{not-json')
+    expect(readConversationCache(PANE_ID, CONVERSATION_ID)).toBeNull()
+    expect(window.localStorage.getItem(CONVERSATION_PANE_CACHE_PERSIST_KEY)).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

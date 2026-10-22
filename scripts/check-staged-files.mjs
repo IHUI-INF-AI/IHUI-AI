@@ -9,17 +9,17 @@
  * commit 前最后看一眼 staged 清单,杜绝"混入其他 agent 改动"污染事故。
  * 与第 19 项 check-staged-pollution 互补:19 是跨端超阈值 warn,23 是无条件打印清单。
  * 始终 exit 0,不影响其他守门。
+ *
+ * 2026-10-22(G-54 批):git 派生由裸 `execSync('git', …)` 迁到取材层
+ * `scripts/lib/face-reader.mjs` 的 `gitRaw`(绝对 git + stdio 接管 + timeout,存量债只减不增)。
+ * root 仍取**当次 cwd**:本门在 pre-commit 钩子里跑,staged 路径本就相对调用者仓库根,
+ * 镜像测试也按 cwd 注入夹具仓 —— 换成脚本位置推导会改掉这条语义。
  */
-import { execSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 
 let staged = []
 try {
-  const out = execSync('git diff --cached --name-only', {
-    encoding: 'utf8',
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const out = gitRaw(['diff', '--cached', '--name-only'], process.cwd())
   staged = out.split('\n').filter(Boolean)
 } catch {
   // git 命令失败不阻塞 commit

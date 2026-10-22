@@ -48,12 +48,21 @@ export function VideoGenKling() {
       resolution: string
       image?: string
     }) => {
-      const res = await fetchApi<{ taskId: string; status: string }>(
-        '/api/ai/kling/video/generate',
-        { method: 'POST', body: JSON.stringify(payload) },
+      // 真生成腿(chat-models.ts klingVideoSchema/klingI2VSchema,prefix /api/chat):
+      // 有 image → 图生视频腿;无 image → 文生视频腿。
+      // resolution 不在后端 schema 在册字段,按 zod strip 语义不发送。
+      const hasImage = !!payload.image
+      const body = hasImage
+        ? { image: payload.image, prompt: payload.prompt, duration: payload.duration }
+        : { prompt: payload.prompt, duration: payload.duration }
+      const res = await fetchApi<{ task_id?: string; task_status?: string }>(
+        hasImage ? '/api/chat/kling/video/image-to-video' : '/api/chat/kling/video/generate',
+        { method: 'POST', body: JSON.stringify(body) },
       )
       if (!res.success) throw new Error(res.error)
-      return res.data
+      const taskId = res.data?.task_id
+      if (!taskId) throw new Error('生成任务未返回 task_id')
+      return { taskId }
     },
     onSuccess: (data) => {
       setTaskId(data.taskId)

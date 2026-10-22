@@ -12,7 +12,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import { todo_write, readTodoList } from '../src/tools/todo-write.js'
+import { todo_read, todo_write, readTodoList } from '../src/tools/todo-write.js'
 import type { ToolContext } from '../src/tools/index.js'
 
 function makeCtx(tmp: string): ToolContext {
@@ -175,6 +175,63 @@ describe('todo_write 工具', () => {
     )
     expect(result.success).toBe(true)
     expect(result.output).toContain('JWT 鉴权完成')
+  })
+})
+
+describe('todo_read 工具', () => {
+  let tmp: string
+  let ctx: ToolContext
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-todoread-'))
+    ctx = makeCtx(tmp)
+  })
+
+  afterEach(() => {
+    try {
+      fs.rmSync(tmp, { recursive: true, force: true })
+    } catch {
+      // ignore
+    }
+  })
+
+  it('空清单返回 (无 todo),不创建持久化文件', async () => {
+    const result = await todo_read.execute({}, ctx)
+    expect(result.success).toBe(true)
+    expect(result.output).toContain('(无 todo)')
+    expect(fs.existsSync(path.join(tmp, '.ihui', 'todos.json'))).toBe(false)
+  })
+
+  it('回读 todo_write 写入的清单(含条数与各字段)', async () => {
+    await todo_write.execute(
+      {
+        todos: [
+          { id: 't1', content: '调研', status: 'pending', priority: 'high' },
+          { id: 't2', content: '实现', status: 'in_progress', priority: 'medium' },
+        ],
+      },
+      ctx,
+    )
+    const result = await todo_read.execute({}, ctx)
+    expect(result.success).toBe(true)
+    expect(result.output).toContain('当前 2 个 todo')
+    expect(result.output).toContain('[t1] 调研')
+    expect(result.output).toContain('[t2] 实现')
+  })
+
+  it('只读:回读前后持久化文件逐字节不变', async () => {
+    await todo_write.execute(
+      { todos: [{ id: 't1', content: 'A', status: 'pending', priority: 'low' }] },
+      ctx,
+    )
+    const p = path.join(tmp, '.ihui', 'todos.json')
+    const before = fs.readFileSync(p, 'utf-8')
+    await todo_read.execute({}, ctx)
+    expect(fs.readFileSync(p, 'utf-8')).toBe(before)
+  })
+
+  it('危险级别为 read(不触发危险确认)', () => {
+    expect(todo_read.dangerLevel).toBe('read')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

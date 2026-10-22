@@ -39,12 +39,19 @@
  *
  * **布尔档的键族(2026-09-27 第二十九批扩面)**:判据此前只认 `deleted` 一个键,于是"同一形状换个
  * 键名"整型隐身 —— 第二十八批(`9155c57ed06`)逐体清掉的 15 处里,10 处改真的键是 removed/restored/
- * revoked/cleared,判据一处也看不见,下一次同样写法照样进 HEAD 而门一路报绿。现键族 =
+ * revoked/cleared,判据一处也看不见,下一次同样写法照样进 HEAD 而门一路报绿。当时键族 =
  * `deleted | removed | restored | revoked | cleared`(BOOL_ACK_KEYS 一份真相:判据正则、按键分组的
  * 报表、结论行逐键点名三处都从它派生;自检 K0 另备一份**独立写死**的期望表对账它有没有被削短)。
+ * **2026-10-22 扩面(本批)**:全仓普查成功信封里的布尔 ack,五键之外还有 `updated` 13 处、
+ * `created` 10 处,都是"写结果 ack"(UPDATE/INSERT 之后承诺"改/建成了一行"),与五键**同一形状、
+ * 同一语义类别**;不纳入就继续整型隐身。故键族现为 **七键**,`updated` / `created` 一并纳入
+ * `BOOL_ACK_KEYS`。其余信封键(`success` / `ok` / `received` / `accepted` / `notAvailable` 等)是
+ * 业务状态或通用包裹标志,不是写结果 ack,**不进键族**;`success: true` 尤其只是一层通用包裹
+ * (信封内 37 处,与"到底写了哪一行"无关),纳进来只会把整型的读数稀释。扩面后 HEAD 存量按既有
+ * 棘轮只报数,**不写基线、不写白名单**。
  * **不与 COUNT_KEYS 复用同一个常量**:那张表问的是"自算的计数值",这张表问的是"布尔档承诺了什么",
  * 且键集并不相同(前者有 affected/count 无 revoked/cleared,后者反之)—— 合并就是混计。
- * 报表**按键分组**(`booleanAckByKey`,五键恒在位含 0),因为扩面后"合计 17 处"这句话分不清
+ * 报表**按键分组**(`booleanAckByKey`,键族恒在位含 0),因为扩面后"合计 17 处"这句话分不清
  * "新那一族一处没有"与"新那一族全是" —— 而这两种情况的下一步动作完全不同。
  *
  * 四类"证据在别处"的放过通道(2026-09-27,第二十九批:扩键族必须同时扩**认证据**的能力,否则
@@ -78,8 +85,8 @@
  *       现由 `measureB2RawSqlTrigger` 在 HEAD 面**可复跑**地普查(镜像 M24 带阳性/阴性对照钉它不是
  *       瞎眼量出来的 0)。2026-09-28 复跑:一跳 15 条、命中 0 ⇒ 判据不动。出现该形状的那天 M24 当场红,
  *       接维时读 `indexExportedFns` 的 rawBodyText("保留字符串"那一档已随测量收进,索引不用再改)。
- *     ② ack 键在 `BOOL_ACK_KEYS` 五键**之外**的同一形状(实测两处病灶的回的是 `updated:true`)——
- *       加键属全 API 语义决策(见上"布尔档的键族"一段),不是这道门能顺手扩的;两处病灶已改真。
+ *     ② ack 键在 `BOOL_ACK_KEYS` 五键**之外**的同一形状 —— **2026-10-22 已扩面关闭**:
+ *       `updated` / `created` 经全仓普查后已纳入键族(普查数据与语义理由见上"布尔档的键族"一段)。
  *
  * B1(2026-09-27 立):布尔 ack 里**可判的那一部分**从"只报数"升级成棘轮判据。用户已拍板把
  * `deleted: true` 改成真实语义(= 库里真删了一行,6 路并行改造在跑),所以"函数里真发了 delete/update,
@@ -271,7 +278,8 @@
  *      **一律不混进这一计数**。
  *      **2026-09-27 语义变化(必须如实说)**:这两个数的口径从"`deleted` 一族"扩大为"五键全集",
  *      所以同一份 HEAD 在扩面前后读数不同(现读 12 → 17)—— 不是判据变松,是**看得见多了四族**。
- *      要问"哪一族多少处"读 `booleanAckByKey`(五键恒在位,含 0),不要读那两个合计。
+ *      2026-10-22 再扩到七键(updated/created),同一份 HEAD 的 V1 读数再次变大,理由同上一句。
+ *      要问"哪一族多少处"读 `booleanAckByKey`(键族恒在位,含 0),不要读那两个合计。
  *      **V1 仍是全形态的"现读可见性"数,自身依旧不参与任何退出码**;但自 2026-09-27 起它是 B1 的
  *      超集 —— 其中"同函数体有写链且无库确认"的那一子集被 B1 判据问责(走 `b1*` 自己的键,
  *      V1 的读数一字不动)。"布尔 ack 惯例不计红"这句现在只对**无写链**的那一半成立。
@@ -814,8 +822,20 @@ function* sendSuccessObjects(code) {
  *  那个常量**:两处语义不同(那一张是"自算计数的值",这一张是"布尔 ack 的承诺"),而且键集并不相同
  *  (计数面有 affected/count 而无 revoked/cleared;布尔面无这两键而有三个新键),合并就等于混计。
  *  **单一真相**:判据正则、按键分组的报表、结论行的逐键点名三处都由这一个数组派生 —— 下游再抄一份
- *  硬编码名单就是第二真相,自检 K0 用一份**独立写死的**期望表对账它(名单被削短 ⇒ 当场红)。 */
-export const BOOL_ACK_KEYS = Object.freeze(['deleted', 'removed', 'restored', 'revoked', 'cleared'])
+ *  硬编码名单就是第二真相,自检 K0 用一份**独立写死的**期望表对账它(名单被削短 ⇒ 当场红)。
+ *  2026-10-22 扩面:`updated`(UPDATE 后的写结果 ack)与 `created`(INSERT 后的写结果 ack)与五键
+ *  同形状同语义类别,一并纳入(成功信封内普查 13 / 10 处,见文件头注)。*/
+export const BOOL_ACK_KEYS = Object.freeze([
+  'deleted',
+  'removed',
+  'restored',
+  'revoked',
+  'cleared',
+  // 2026-10-22 扩面:写结果 ack 的同一形状、不同键名(UPDATE 后 `updated:true` / INSERT 后
+  // `created:true`)。普查数据与语义理由见文件头注"布尔档的键族"一段。
+  'updated',
+  'created',
+])
 /** 每个键**可能**由哪一种写动词应答(只给 B2 的被调体用:B2 的 ack 由**另一个函数**答复,而被调体
  *  可以同时做两件写事 —— 实测 `detachTag` 先 `delete … .returning()` 再 `update`(计数递减),按旧口径
  *  "任一链缺 returning 即违规"会把这一处**已诚实**的委托判红(恒红门的唯一结局是逼人 --no-verify,§12e)。
@@ -827,6 +847,9 @@ export const BOOL_ACK_KEY_VERBS = Object.freeze({
   cleared: Object.freeze(['delete']),
   restored: Object.freeze(['update']),
   revoked: Object.freeze(['update', 'delete']),
+  // 2026-10-22 扩面:`updated` 由 update 应答。`created` 由 insert 应答,而 findWriteChains 的动词锚
+  // 只有 delete/update(insert 不入面)⇒ 本表**故意不登记 created**,退回"不筛选"的旧口径。
+  updated: Object.freeze(['update']),
 })
 const BOOL_ACK_RE = new RegExp(`[{,]\\s*(${BOOL_ACK_KEYS.join('|')})\\s*:\\s*true\\s*(?=[,}])`, 'g')
 export function findBooleanAckSends(code) {
@@ -2113,7 +2136,7 @@ export function scanFileText(relPath, text, opts = {}) {
     value: b.value,
   }))
   // 按键分组(2026-09-27 第二十九批):扩键族后只报一个合计,读报告的人就分不清"这一族没扫过"
-  // 与"扫了是 0"—— 与结论行逐键点名同一条理由。表由 BOOL_ACK_KEYS 派生,五键恒在位(含 0)。
+  // 与"扫了是 0"—— 与结论行逐键点名同一条理由。表由 BOOL_ACK_KEYS 派生,键族恒在位(含 0)。
   res.booleanAckByKey = Object.fromEntries(BOOL_ACK_KEYS.map((k) => [k, 0]))
   for (const b of res.booleanAck) res.booleanAckByKey[b.key] = (res.booleanAckByKey[b.key] || 0) + 1
   const allChains = findWriteChains(code)
@@ -2403,8 +2426,8 @@ export function analyze(root, face, opts = {}) {
     b7Candidates: per.reduce((a, r) => a + r.b7.candidates.length, 0),
     b7Violations: b7Violations.length,
     b7Files: new Set(b7Violations.map((v) => v.file)).size,
-    // 2026-09-27 追加在**最末尾**:布尔 ack 按键分组的现读数(五键恒在位,含 0)。
-    // 语义变化必须如实说:`booleanAckSites` / `booleanAckFiles` 自本批改用**键族五键**计数,
+    // 2026-09-27 追加在**最末尾**:布尔 ack 按键分组的现读数(键族恒在位,含 0)。
+    // 语义变化必须如实说:`booleanAckSites` / `booleanAckFiles` 自本批改用**键族全集**计数,
     // 所以这两个数的口径比扩面前宽(扩面前只有 `deleted`)—— 它们仍**不参与任何退出码**(X1/R7/R8/M13
     // 那几把锁一字未动);要知道每一族各多少处,读这一张表,不要读那两个合计。
     booleanAckByKey: per.reduce(
@@ -2948,7 +2971,7 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
     时间列词法不可知,不进面;insert 链不进本维(findWriteChains 动词锚只有 .delete/.update,扩动词
     会同时改 B1/B3/B4 的面,登记不装看不见)
     **head 面(含 --strict)只报数不判红**(decide 签名刻意不收 b7Violations);staged 差值棘轮净新增即红
-  只报数不判红(现读惯例存量,写在结论行):布尔 ack(五键按键分组现读,无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
+  只报数不判红(现读惯例存量,写在结论行):布尔 ack(键族按键分组现读,无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
   八条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
   提交链档与 --strict 才问责(B4/B5/B6/B7 例外:全量档含 --strict 都只报数,只拦新增)。
   紧急跳过:${SELF_SKIP}=1`
@@ -3590,7 +3613,16 @@ const FIX = {
  * K0 这一支必读红 —— 那正是"预筛/键表漏一个键 ⇒ 门对整型静默失明而账面照报绿"的形态(门 102 的
  * 预筛超集对账同一条理由、同一写法)。
  */
-const FAMILY_KEYS_EXPECTED = ['deleted', 'removed', 'restored', 'revoked', 'cleared']
+const FAMILY_KEYS_EXPECTED = [
+  'deleted',
+  'removed',
+  'restored',
+  'revoked',
+  'cleared',
+  // 2026-10-22 扩面:与 BOOL_ACK_KEYS 同轮加两键(本表刻意独立写死,不同步就由 K0 当场判红)。
+  'updated',
+  'created',
+]
 /** 逐键"命中"正例:每键一枚 handler,体内真发 delete、无库确认、无载体 ⇒ 键键都该被 B1 判违规。 */
 const FAMILY_HIT = h(
   ...FAMILY_KEYS_EXPECTED.map((k) => [
@@ -3627,9 +3659,10 @@ const HONEST_RAW_SQL_NO_RETURNING = HONEST_RAW_SQL_WITH_CHAIN.replace(' RETURNIN
  * 立门前的事实:HEAD 面 `apps/api/src` 的 raw-SQL 写 90 处,其中两处被逐体读成病灶
  * (user-llm-configs-v2.ts 的 UPDATE 不带 RETURNING 而回 `updated:true`、
  *  ai-extended.ts 的 RETURNING 命中集为空时走 `?? { updated: true }` 兜底)。
- * 这两处的 ack 键是 `updated` —— **不在** BOOL_ACK_KEYS 五键族内(加键属全 API 语义决策,须逐键
- * 拍板并先清偿存量,不是这道门能顺手扩的),所以本维对它们的覆盖方式是:**换同族键即红**由 RAW_WRITE_*
- * 钉死(把 `updated` 换成 `deleted` 就是 HEAD 面已判红的那一型),而不是把这两个键塞进键表凑数。 */
+ * 这两处的 ack 键是 `updated` —— 2026-09-27 时**不在** BOOL_ACK_KEYS 五键族内,所以本维当时
+ * 只能靠"换同族键即红"由 RAW_WRITE_* 钉死(把 `updated` 换成 `deleted` 就是 HEAD 面已判红的那一型)。
+ * 2026-10-22 键族扩面后 `updated` / `created` 已是键族成员,这两处形状直接落进 B1/RawSQL 的账;
+ * RAW_WRITE_* 继续保留(它们钉的是"裸 SQL 无 RETURNING"这一维本身,与键族无关)。 */
 /** 正例(必红):写住在 `db.execute(sql`DELETE FROM …`)` 里、**没有 RETURNING**,响应回布尔字面量。 */
 const RAW_WRITE_LIE = h([
   '  await db.execute(',
@@ -4297,20 +4330,20 @@ function selfTest(argv) {
     [FAMILY_KEYS_EXPECTED.slice().sort().join(','), FAMILY_KEYS_EXPECTED.slice().sort().join(',')],
   )
   eq(
-    'K0b 逐键都能被扫到:五键各一枚站点 ⇒ 合计 5 且按键分组每族恰 1(混计/漏族当场红)',
+    'K0b 逐键都能被扫到:键族各一枚站点 ⇒ 合计 7 且按键分组每族恰 1(混计/漏族当场红)',
     ackOf(FAMILY_HIT),
-    [5, 1, 1, 1, 1, 1],
+    [7, 1, 1, 1, 1, 1, 1, 1],
   )
-  eq('K0c 同五枚站点在 B1 里也是五枚候选五枚违规(扩键不是只扩报表)', b1Of(FAMILY_HIT), [5, 5, 0, 0])
+  eq('K0c 同七枚站点在 B1 里也是七枚候选七枚违规(扩键不是只扩报表)', b1Of(FAMILY_HIT), [7, 7, 0, 0])
   eq(
-    'K0d 逐键"该放过"反体:体内无写链 ⇒ 五键全部只进惯例面、B1 六数不涨',
+    'K0d 逐键"该放过"反体:体内无写链 ⇒ 键族全部只进惯例面、B1 六数不涨',
     b1Of(FAMILY_LETGO),
     [0, 0, 0, 0],
   )
   eq(
-    'K0e 放过反体的按键读数仍是 5(报表不得跟着判据一起漏)',
+    'K0e 放过反体的按键读数仍是 7(报表不得跟着判据一起漏)',
     ackOf(FAMILY_LETGO),
-    [5, 1, 1, 1, 1, 1],
+    [7, 1, 1, 1, 1, 1, 1, 1],
   )
   eq(
     'K1 每一族单独构造都能命中(不从 BOOL_ACK_KEYS 派生的构造文本 ⇒ 判据漏一族当场红)',
@@ -4334,6 +4367,8 @@ function selfTest(argv) {
       [1, 'restored'],
       [1, 'revoked'],
       [1, 'cleared'],
+      [1, 'updated'],
+      [1, 'created'],
     ],
   )
   // ---- "证据在别处"四型:每一型一条正例 + 一条"把证据拿掉就必须红"的反例(有牙证明)。----
@@ -4343,7 +4378,7 @@ function selfTest(argv) {
     [b1Of(HONEST_RAW_SQL), ackOf(HONEST_RAW_SQL)],
     [
       [0, 0, 0, 0],
-      [1, 0, 1, 0, 0, 0],
+      [1, 0, 1, 0, 0, 0, 0, 0],
     ],
   )
   eq(
@@ -4408,7 +4443,7 @@ function selfTest(argv) {
     [b1Of(HONEST_MEMORY_MAP_DELETE), ackOf(HONEST_MEMORY_MAP_DELETE)],
     [
       [0, 0, 0, 0],
-      [1, 0, 1, 0, 0, 0],
+      [1, 0, 1, 0, 0, 0, 0, 0],
     ],
   )
   eq(
@@ -4416,7 +4451,7 @@ function selfTest(argv) {
     [b1Of(HONEST_MEMORY_STORE_RESET), ackOf(HONEST_MEMORY_STORE_RESET)],
     [
       [0, 0, 0, 0],
-      [1, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 1, 0, 0],
     ],
   )
   eq(
@@ -4424,7 +4459,7 @@ function selfTest(argv) {
     [b1Of(HONEST_SIBLING_CARRIER), ackOf(HONEST_SIBLING_CARRIER)],
     [
       [0, 0, 0, 0],
-      [1, 0, 0, 0, 0, 1],
+      [1, 0, 0, 0, 0, 1, 0, 0],
     ],
   )
   eq(

@@ -101,6 +101,150 @@ class SandboxError(Exception):
     """沙箱安全异常(灾难性命令拦截,2026-07-22 立)。"""
 
 
+# ===========================================================================
+# G-212 第十一批(2026-10-22):沙箱默认严档(safe by default)
+# ---------------------------------------------------------------------------
+# 立项依据(改动前现读):本模块 ``execute()`` 的缺省值是「local + timeout=60
+# + workdir="." + 继承整份 os.environ」,且没有档位名、没有超时上限、没有网络
+# 开关;``_execute_local`` 只要首 token 在白名单内就会把宿主环境原样交给子进程。
+# 于是"未配置"等于"最宽松":网络可达(白名单里的 python/node/pytest 都能发请求)、
+# 写路径等于调用方给的任意 workdir、子进程能读到宿主全部密钥。
+#
+# 严档语义(缺省即此档,不需要任何配置):
+#   - network: 拒绝;显式请求 allow_network=True 在严档下直接拒绝执行;
+#   - timeout: 必须是正整数秒,且被压到 60s 上限(超出部分截断并留审计日志);
+#   - workdir: 必须落在服务端工作区根(MCP_WORKSPACE_ROOTS,缺省=进程 cwd)内;
+#   - env: 只给系统运行时必需的少量变量 + 调用方显式传入的 env,不再整份继承;
+#   - 命令: 沿用下方 _ALLOWED_PREFIXES 白名单与 _DANGEROUS_PATTERNS 黑名单。
+#
+# 放宽通道(必须显式 opt-in):环境变量 ``SANDBOX_EXEC_TIER=relaxed``。选了
+# relaxed 会打印一条 WARNING 审计日志(含档位名);档位值拼错/未知一律
+# fail-closed 抛 SandboxError,**不回退**到严档、也不猜。
+# ===========================================================================
+
+SANDBOX_TIER_STRICT = "strict"
+SANDBOX_TIER_RELAXED = "relaxed"
+DEFAULT_SANDBOX_TIER = SANDBOX_TIER_STRICT
+#: 唯一的放宽开关名(取值: strict / relaxed;空/未设置 = strict)
+SANDBOX_TIER_ENV = "SANDBOX_EXEC_TIER"
+#: 严档超时上限(秒)。既有调用方缺省 timeout=60,故取 60 不改变既有基线。
+STRICT_TIMEOUT_CEILING_S = 60
+#: 放宽档超时上限(秒),仍须显式 opt-in 才生效。
+RELAXED_TIMEOUT_CEILING_S = 3600
+
+
+@dataclass(frozen=True)
+class SandboxExecutionProfile:
+    """执行档位:只由服务端配置决定,调用方参数只能在档位内收窄。"""
+
+    tier: str
+    allow_network: bool
+    full_env: bool
+    allow_unconfined_workdir: bool
+    timeout_ceiling_s: int
+
+
+#: 档位登记表(唯一真源)。新增档位必须同时补 tests/test_g212_sandbox_strict_default.py。
+SANDBOX_EXECUTION_PROFILES: dict[str, SandboxExecutionProfile] = {
+    SANDBOX_TIER_STRICT: SandboxExecutionProfile(
+        tier=SANDBOX_TIER_STRICT,
+        allow_network=False,
+        full_env=False,
+        allow_unconfined_workdir=False,
+        timeout_ceiling_s=STRICT_TIMEOUT_CEILING_S,
+    ),
+    SANDBOX_TIER_RELAXED: SandboxExecutionProfile(
+        tier=SANDBOX_TIER_RELAXED,
+        allow_network=True,
+        full_env=True,
+        allow_unconfined_workdir=True,
+        timeout_ceiling_s=RELAXED_TIMEOUT_CEILING_S,
+    ),
+}
+
+#: 严档下允许继承的宿主环境变量:只放系统运行时必需项,不放任何密钥类键。
+_STRICT_ENV_ALLOWLIST: tuple[str, ...] = (
+    "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT",
+    "PATH", "TEMP", "TMP", "HOME", "USERPROFILE", "LANG", "LC_ALL", "TZ",
+    "PYTHONPATH", "PYTHONHOME", "PYTHONIOENCODING", "VIRTUAL_ENV",
+)
+
+
+def resolve_execution_profile(raw: str | None = None) -> SandboxExecutionProfile:
+    """档位名 → 档位条目。缺省/空串 = strict;未知值 → SandboxError(fail-closed)。"""
+    value = os.environ.get(SANDBOX_TIER_ENV, "") if raw is None else raw
+    key = value.strip().lower() if isinstance(value, str) else ""
+    if not key:
+        return SANDBOX_EXECUTION_PROFILES[DEFAULT_SANDBOX_TIER]
+    profile = SANDBOX_EXECUTION_PROFILES.get(key)
+    if profile is None:
+        raise SandboxError(
+            f"未知沙箱执行档位: {value!r};可用档位: "
+            f"{sorted(SANDBOX_EXECUTION_PROFILES)} (设置 {SANDBOX_TIER_ENV}=relaxed 才放宽)"
+        )
+    return profile
+
+
+def _workspace_roots() -> list[str]:
+    """服务端工作区根:与 mcp_server._get_workspace_roots 同一配置键与解析口径。
+
+    空值(本仓 .env.example 即 ``MCP_WORKSPACE_ROOTS=``)按 config.py 的契约
+    "空=用当前工作目录"回落到进程 cwd —— 回落目标仍是服务端自身工作区的有界
+    根,不是"放行任意路径";只有显式配置了根目录才按配置收敛。
+    """
+    raw = os.environ.get("MCP_WORKSPACE_ROOTS", "") or ""
+    roots = [os.path.abspath(root) for root in raw.split(os.pathsep) if root.strip()]
+    return roots or [os.path.abspath(os.getcwd())]
+
+
+def _path_within(path: str, root: str) -> bool:
+    """组件级前缀判断(不做字符串 startsWith,防 /work 命中 /workspace-evil)。"""
+    path_norm = os.path.normcase(os.path.abspath(path))
+    root_norm = os.path.normcase(os.path.abspath(root))
+    try:
+        relative = os.path.relpath(path_norm, root_norm)
+    except ValueError:
+        return False
+    return relative == "." or (
+        not relative.startswith("..") and not os.path.isabs(relative)
+    )
+
+
+def _resolve_workdir(profile: SandboxExecutionProfile, workdir: str | None) -> str:
+    """workdir 收敛:严档必须落在工作区根内;放宽档才允许越界(并留审计)。"""
+    candidate = os.path.abspath(workdir or ".")
+    if profile.allow_unconfined_workdir:
+        return candidate
+    roots = _workspace_roots()
+    if not any(_path_within(candidate, root) for root in roots):
+        raise SandboxError(
+            f"workdir 越出服务端工作区根(MCP_WORKSPACE_ROOTS): {candidate};"
+            f"根集合: {roots}"
+        )
+    return candidate
+
+
+def _resolve_timeout(profile: SandboxExecutionProfile, timeout: int) -> int:
+    """超时收敛:非法值拒绝执行;超出档位上限时截断并留审计日志。"""
+    if isinstance(timeout, bool) or not isinstance(timeout, int) or timeout <= 0:
+        raise SandboxError(f"timeout 必须为正整数秒,得到 {timeout!r}")
+    if timeout > profile.timeout_ceiling_s:
+        logger.warning(
+            "sandbox timeout 超出档位上限,已截断 tier=%s ceiling=%ss requested=%ss",
+            profile.tier, profile.timeout_ceiling_s, timeout,
+        )
+        return profile.timeout_ceiling_s
+    return timeout
+
+
+def _strict_child_env(extra: dict[str, str] | None) -> dict[str, str]:
+    """严档子进程环境:系统必需变量白名单 + 调用方显式传入的键。"""
+    child = {key: os.environ[key] for key in _STRICT_ENV_ALLOWLIST if key in os.environ}
+    if extra:
+        child.update(extra)
+    return child
+
+
 @dataclass
 class SandboxResult:
     """沙箱执行结果。"""
@@ -181,25 +325,53 @@ class SandboxExecutor:
         env: dict[str, str] | None = None,
         image: str = "",
         resource_limits: dict[str, str | int] | None = None,
+        allow_network: bool = False,
     ) -> SandboxResult:
-        """执行命令。
+        """执行命令(默认严档:网络拒绝 / 超时上限 / workdir 收敛 / env 白名单)。
 
         Args:
             command: 要执行的命令
             backend: local/docker/ssh/modal/daytona/singularity
-            timeout: 超时秒数
-            workdir: 工作目录
+            timeout: 超时秒数(严档上限 STRICT_TIMEOUT_CEILING_S)
+            workdir: 工作目录(严档必须落在工作区根内)
             docker_image: Docker 镜像(backend=docker 时,兼容旧字段)
             ssh_host: SSH 主机(backend=ssh 时)
             ssh_user: SSH 用户名
-            env: 环境变量
+            env: 环境变量(严档只合并白名单 + 这些显式键)
             image: 镜像/函数标识(backend=modal/daytona/singularity 时优先使用,缺省回退 docker_image)
             resource_limits: 资源限制(cpu/memory/gpu 等,透传到后端)
+            allow_network: 显式请求网络;严档下拒绝执行,仅 relaxed 档放行
         """
+        profile = resolve_execution_profile()
+        timeout = _resolve_timeout(profile, timeout)
+        workdir = _resolve_workdir(profile, workdir)
+        if allow_network and not profile.allow_network:
+            logger.warning(
+                "sandbox 网络访问被严档拒绝 tier=%s backend=%s cmd=%r "
+                "(显式放宽: %s=relaxed)",
+                profile.tier, backend, command[:200], SANDBOX_TIER_ENV,
+            )
+            return SandboxResult(
+                exit_code=-1, stdout="",
+                stderr=(
+                    f"网络访问默认拒绝(tier={profile.tier});"
+                    f"如确需网络,显式设置 {SANDBOX_TIER_ENV}=relaxed 后重试"
+                ),
+                duration_ms=0, backend=backend, timed_out=False,
+            )
+        if profile.tier != SANDBOX_TIER_STRICT:
+            logger.warning(
+                "sandbox 放宽档生效 tier=%s backend=%s timeout=%ss workdir=%s "
+                "network=%s env=%s",
+                profile.tier, backend, timeout, workdir,
+                allow_network, "full" if profile.full_env else "allowlist",
+            )
         if backend == "local":
-            return await self._execute_local(command, timeout, workdir, env)
+            return await self._execute_local(command, timeout, workdir, env, profile)
         if backend == "docker":
-            return await self._execute_docker(command, timeout, workdir, docker_image, env)
+            return await self._execute_docker(
+                command, timeout, workdir, docker_image, env, allow_network, profile,
+            )
         if backend == "ssh":
             if not ssh_host:
                 return SandboxResult(
@@ -225,11 +397,17 @@ class SandboxExecutor:
         )
 
     @staticmethod
-    def _log_exec(backend: str, command: str, exit_code: int, duration_ms: float) -> None:
-        """记录单次执行日志(命令截断 200 字符)。"""
+    def _log_exec(
+        backend: str,
+        command: str,
+        exit_code: int,
+        duration_ms: float,
+        tier: str = "",
+    ) -> None:
+        """记录单次执行日志(命令截断 200 字符,含执行档位名)。"""
         logger.info(
-            "sandbox exec backend=%s cmd=%r exit=%d duration_ms=%.1f",
-            backend, command[:200], exit_code, duration_ms,
+            "sandbox exec backend=%s tier=%s cmd=%r exit=%d duration_ms=%.1f",
+            backend, tier or DEFAULT_SANDBOX_TIER, command[:200], exit_code, duration_ms,
         )
 
     @staticmethod
@@ -254,12 +432,18 @@ class SandboxExecutor:
         timeout: int,
         workdir: str,
         env: dict[str, str] | None,
+        profile: SandboxExecutionProfile | None = None,
     ) -> SandboxResult:
-        """本地执行(白黑名单 + subprocess)。
+        """本地执行(白黑名单 + subprocess),默认按严档收敛限制。
 
-        Local backend 无法隔离网络(无容器边界),仅靠黑名单 + 危险模式拦截防护。
+        Local backend 无法在内核层隔离网络(无容器边界),严档因此**默认拒绝**
+        网络请求:调用方若在网络相关命令上需要放行,必须显式设置
+        ``SANDBOX_EXEC_TIER=relaxed``;本地执行仍受白名单/黑名单/超时约束。
         如需网络隔离,请使用 docker backend(--network=none)。
         """
+        profile = profile or resolve_execution_profile()
+        timeout = _resolve_timeout(profile, timeout)
+        workdir = _resolve_workdir(profile, workdir)
         start = time.monotonic()
         # 0. 灾难性命令拦截(补充黑名单,防止 python -c 等绕过,2026-07-22 立)
         destructive = self._check_dangerous_patterns(command)
@@ -283,9 +467,20 @@ class SandboxExecutor:
                 stderr=f"command '{cmd_name}' not in whitelist (allowed: {', '.join(sorted(_ALLOWED_PREFIXES))})",
                 duration_ms=0, backend="local", timed_out=False,
             )
-        # 3. 执行(asyncio subprocess + 超时)
+        # 3. 执行(asyncio subprocess + 超时);严档只继承白名单环境变量
         try:
-            full_env = {**os.environ, **env} if env else None
+            if profile.full_env:
+                full_env = {**os.environ, **env} if env else None
+            else:
+                full_env = _strict_child_env(env)
+            logger.info(
+                "sandbox exec start backend=local tier=%s timeout=%ss workdir=%s "
+                "network=%s env=%s",
+                profile.tier, timeout, workdir,
+                "allow" if profile.allow_network else "deny",
+                "full" if profile.full_env else "allowlist",
+            )
+
             if sys.platform == "win32":
                 # Windows: shell 内置命令需用 shell 执行
                 # 批 58:EXEC_SHELL_DETECT_ENABLED on 时经 shell_detect 派生 argv(cmd.exe /c),
@@ -366,15 +561,42 @@ class SandboxExecutor:
         workdir: str,
         image: str,
         env: dict[str, str] | None,
+        allow_network: bool = False,
+        profile: SandboxExecutionProfile | None = None,
     ) -> SandboxResult:
         """Docker 容器执行(通过 docker run CLI)。
 
-        构造:docker run --rm --network=none -w <workdir> [-e KEY=VAL...] <image> sh -c "<command>"
+        构造:docker run --rm --network=none --cap-drop=ALL
+        --security-opt=no-new-privileges --pids-limit 64 --memory 512m --cpus 1
+        -w <workdir> [-e KEY=VAL...] <image> sh -c "<command>"
         不挂载宿主机文件系统(安全隔离),如需文件传递用 stdin。
-        --network=none:完全禁止容器网络访问,防止 agent 泄露数据或被 SSRF 攻击(2026-07-22 立)
+        --network=none:默认禁止容器网络;只有显式 allow_network=True 且档位为
+        relaxed 时才切到 bridge(请求仍会留审计日志)。
         """
+        profile = profile or resolve_execution_profile()
+        timeout = _resolve_timeout(profile, timeout)
+        if allow_network and not profile.allow_network:
+            return SandboxResult(
+                exit_code=-1, stdout="",
+                stderr=(
+                    f"网络访问默认拒绝(tier={profile.tier});"
+                    f"如确需网络,显式设置 {SANDBOX_TIER_ENV}=relaxed 后重试"
+                ),
+                duration_ms=0, backend="docker", timed_out=False,
+            )
+        network_mode = "bridge" if allow_network else "none"
         start = time.monotonic()
-        args: list[str] = ["docker", "run", "--rm", "--network=none", "-w", workdir]
+        args: list[str] = [
+            "docker", "run", "--rm", f"--network={network_mode}",
+            "--cap-drop=ALL", "--security-opt=no-new-privileges",
+            "--pids-limit", "64", "--memory", "512m", "--cpus", "1",
+            "-w", workdir,
+        ]
+        logger.info(
+            "sandbox exec start backend=docker tier=%s timeout=%ss workdir=%s "
+            "network=%s",
+            profile.tier, timeout, workdir, network_mode,
+        )
         if env:
             for k, v in env.items():
                 args.extend(["-e", f"{k}={v}"])

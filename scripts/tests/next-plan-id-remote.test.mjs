@@ -19,7 +19,7 @@
  *      把它断死等于给并发会话造一台恒红)。
  *  T7  G-955(2026-10-22):--check 对台账存量重号**点名报告但不顶死入口**(exit 0),两档读数
  *      (逐字孪生 / 纯系列小节)措辞在场。
- *  T8  G-14(2026-10-22)「同号占用不发」:发号路径必须吃全文件正则扫出的号集(FULLSCAN 形状锁 +
+ *  T8  G-14(2026-10-22)「同号占用不发」:发号路径必须吃全文件正则扫出的号集(scanFamilyIds 单一实现形状锁 +
  *      夹具单元 + 真仓端到端:--next-only 给的号在 HEAD 台账 ⊕ 工作树副本上必须零命中)。
  *  T9  G-955「新增撞号仍须红」:登记行声明位同号多行 ⇒ judgeRowIdDuplicates 判红,且 --check 分支
  *      以 exit 1 收场;括注内被引号(指针行)不算声明(G-955 病根的反证)。
@@ -33,6 +33,7 @@ import test from 'node:test'
 
 import { judgeRowIdDuplicates } from '../lib/plan-id-duplicates.mjs'
 import { smallestFreeId } from '../lib/plan-id-lease.mjs'
+import { scanFamilyIds } from '../lib/plan-id-face.mjs'
 import { git } from '../lib/bypass-git.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -149,23 +150,29 @@ test('T7 --check 对存量重号点名不顶死:exit 0 + 两档读数措辞在�
 })
 
 /**
- * T8 —— G-14(2026-10-22)「同号占用不发」回归。FULLSCAN 的字面量形状承重:从源码原样抽出复用
- * (与 T5/T6 对 HEADING 同一手法),不在测试里抄第二份判据。
+ * T8 —— G-14(2026-10-22)「同号占用不发」回归。扫描那把尺只有一份实现
+ * (`lib/plan-id-face.mjs` 的 `scanFamilyIds`,与 live-doc-edit 的令牌展开共用)⇒ 本测试直接 import
+ * 它,不在测试里抄第二份判据(§22c)。
  *  a) 形状锁:发号路径必须吃 liveUsed(标题 ∪ 行声明 ∪ 全文件扫描 HEAD 宽面 ∪ 工作树副本),
- *     且建议号算术不得再按旧窄面给号;
+ *     且建议号算术不得再按旧窄面给号;本器源码里不得再出现第二份扫描正则;
  *  b) 夹具单元:只活在正文引用里的号(`见 O777`)与行声明号 O778 都必须被扫描顶掉;
  *  c) 真仓端到端:--next-only 发出的号,在 HEAD 台账 ⊕ 工作树副本上必须**零命中**(撞号正病的直接反证)。
  */
-function fullScanReFromSource() {
-  const m = /^const FULLSCAN = (\/.*\/g)$/m.exec(TOOL_SRC)
-  assert.ok(m, 'FULLSCAN 必须是源码里那一条 /…/g 单行字面量(被折行/拆走 ⇒ 镜像测试失去意义)')
-  return new RegExp(m[1].slice(1, m[1].lastIndexOf('/')), 'g')
+function fullScanIds(text) {
+  return scanFamilyIds(text, 'O')
 }
 
 test('T8a 发号路径必须吃全文件扫描的实时占用面(G-14 形状锁)', () => {
   const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
-  const fsDecl = TOOL_SRC.indexOf('const FULLSCAN = ')
-  assert.ok(fsDecl > checkBranch, '全文件扫描档必须在 --check 分岔之后(发号路径专属,G-955 契约不变)')
+  const scanDecl = TOOL_SRC.indexOf('const scanHead = scanFamilyIds(')
+  assert.ok(scanDecl > checkBranch, '全文件扫描档必须在 --check 分岔之后(发号路径专属,G-955 契约不变)')
+  assert.match(
+    TOOL_SRC,
+    /import\s*\{\s*collectIdFace,\s*scanFamilyIds\s*\}\s*from\s*'\.\/lib\/plan-id-face\.mjs'/,
+    '扫描必须 import 那份唯一实现(自抄一条正则就是第二份尺子)',
+  )
+  assert.doesNotMatch(TOOL_SRC, /const FULLSCAN/, '本器不得自带第二份全文件扫描正则')
+  assert.match(TOOL_SRC, /const scanWork = scanFamilyIds\(worktreeText, FAMILY\)/, '工作树副本也必须走同一把尺')
   assert.match(TOOL_SRC, /const liveUsed = \[\.\.\.new Set\(\[\.\.\.poolUsed, \.\.\.scanHead, \.\.\.scanWork\]\)\]/, '占用集必须是 旧口径 ∪ HEAD 宽面扫描 ∪ 工作树扫描 的并集')
   assert.match(TOOL_SRC, /smallestFreeId\(\{ usedNumbers: liveUsed/, '建议号必须按实时占用面算(还按 poolUsed 算就是没装车)')
   assert.match(TOOL_SRC, /poolFreeList\(\{ usedNumbers: liveUsed/, '空闲表必须与发号同一把尺')
@@ -174,7 +181,6 @@ test('T8a 发号路径必须吃全文件扫描的实时占用面(G-14 形状锁)
 })
 
 test('T8b 夹具单元:正文引用与行声明的号都必须顶掉建议号(G-14 同号占用不发)', () => {
-  const re = fullScanReFromSource()
   const fixture = [
     '- [ ] O778 行声明位的真号',
     '正文里顺带引用了一句 见 O777 那条(旧口径看不见这一型 ⇒ 撞号正病)',
@@ -182,7 +188,7 @@ test('T8b 夹具单元:正文引用与行声明的号都必须顶掉建议号(G-
     'QODER-O81 这种跨命名空间被引号也宁顶号不空段',
     'OO776 不是号(前一个字符是字母 ⇒ 不顶)',
   ].join('\n')
-  const hit = new Set([...fixture.matchAll(re)].map((m) => Number(m[1])))
+  const hit = fullScanIds(fixture)
   for (const n of [778, 777, 779, 81]) assert.ok(hit.has(n), `O${n} 必须被全文件扫成已占`)
   assert.ok(!hit.has(776), 'OO776 不得被误扫成 O776(形状收窄,不放宽成任意子串)')
   const next = smallestFreeId({ usedNumbers: [...hit] })
@@ -200,11 +206,10 @@ test('T8c 真仓端到端:--next-only 发出的号在实时面上零命中(G-14 
   const line = String(r.stdout).trim()
   assert.match(line, /^O\d+$/, `stdout 恒一行号,实得:${JSON.stringify(r.stdout)}`)
   const n = Number(/^O(\d+)$/.exec(line)[1])
-  const re = fullScanReFromSource()
   const wt = readFileSync(resolve(ROOT, 'PROJECT_PLAN.md'), 'utf8')
   const head = git(['show', 'HEAD:PROJECT_PLAN.md'], { root: ROOT, raw: true, timeout: 120_000 })
   assert.equal(typeof head, 'string', 'HEAD 台账取不到(占用面判不出 ⇒ 这一轮端到端不成立)')
-  const occupied = new Set([...`${head}\n${wt}`.matchAll(re)].map((m) => Number(m[1])))
+  const occupied = fullScanIds(`${head}\n${wt}`)
   assert.ok(
     !occupied.has(n),
     `${line} 在 HEAD 台账 ⊕ 工作树副本上并非零命中(全文件扫描可见 ${occupied.size} 号)⇒ 取号器又把已占号当空闲发了(G-14 正病复发)`,

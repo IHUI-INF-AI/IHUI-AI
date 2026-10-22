@@ -177,7 +177,6 @@ export function ResourceForm({
           <ImageUpload
             value={image || undefined}
             onChange={(v) => setImage(typeof v === 'string' ? v : (v[0] ?? ''))}
-            uploadUrl="/api/files/upload"
             placeholder={t('fields.image.placeholder')}
           />
         </div>

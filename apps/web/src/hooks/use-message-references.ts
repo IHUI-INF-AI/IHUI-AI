@@ -261,10 +261,16 @@ export function useMessageReferences(): {
     })()
   }, [])
 
+  /** G-863(2026-10-23):"已提交但 refsRef 尚未反映"的未落账量 —— 预筛与批量共用,
+   *  渲染后 effect 清零。声明置于 commit 之前:commit(语音/单文件入口)也要计数,
+   *  否则同帧"拖入 30 + 语音 1"的预筛按 0 起算 ⇒ 静默超容 +1。 */
+  const pendingCommitRef = React.useRef(0)
+
   /** G-833:提交已过三档校验的文件 —— 原 addFileReference 主体,类型/大小/数量判据
    *  已上移到 screenAttachmentFiles,此处不再静默 return */
   const commitFileReference = React.useCallback(
     (file: File) => {
+      pendingCommitRef.current += 1
       const isImage = file.type.startsWith('image/')
       const isVideo = file.type.startsWith('video/')
       const objectUrl = URL.createObjectURL(file)
@@ -309,9 +315,10 @@ export function useMessageReferences(): {
     [uploadRef],
   )
 
-  /** G-833:入口预筛 —— 容量按当前 references 数(refsRef 恒为最新渲染值) */
+  /** G-833/G-863:入口预筛 —— 容量 = 已渲染 references + 同帧已提交未落账量 */
   const screenAttachments = React.useCallback(
-    (files: readonly File[]) => screenAttachmentFiles(files, refsRef.current.length),
+    (files: readonly File[]) =>
+      screenAttachmentFiles(files, refsRef.current.length + pendingCommitRef.current),
     [],
   )
 
@@ -321,14 +328,13 @@ export function useMessageReferences(): {
    *  "React 重渲染前"留有空窗(refsRef 仍是旧快照),同帧跨批(批间隔一个 await)
    *  各 25 个会双收 50>30;pendingCommitRef 语义为"已提交但 refsRef 尚未反映"的
    *  未落账量,effect 在 refsRef 同步为真实计数后才清账,空窗闭合。 */
-  const pendingCommitRef = React.useRef(0)
   const addFileReferences = React.useCallback(
     (files: readonly File[]): AttachmentRejection[] => {
       const { accepted, rejections } = screenAttachmentFiles(
         files,
         refsRef.current.length + pendingCommitRef.current,
       )
-      pendingCommitRef.current += accepted.length
+      // 计数由 commitFileReference 逐文件自增(单文件入口走同一条),此处不再重复加
       accepted.forEach((f) => commitFileReference(f))
       return rejections
     },
@@ -394,6 +400,7 @@ export function useMessageReferences(): {
       return []
     })
     pendingFiles.current.clear()
+    pendingCommitRef.current = 0
   }, [])
 
   // 2026-08-02 修复 P1 内存泄露:组件卸载时释放 references 中所有 objectURL。
