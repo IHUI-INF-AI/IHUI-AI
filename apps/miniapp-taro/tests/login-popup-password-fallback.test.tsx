@@ -11,7 +11,7 @@
  *  ② 样式面:字段样式全仓只住 app.css 一份,登录页私有表里不得再有第二份定义。
  */
 import { describe, it, expect, vi } from 'vitest'
-import { createElement } from 'react'
+import { createElement, type ReactNode } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -23,7 +23,7 @@ import { resolve } from 'node:path'
  */
 vi.mock('@tarojs/components', () => {
   const make = (tag: string) => {
-    const Stub = (props: Record<string, unknown>) =>
+    const Stub = (props: { children?: ReactNode; [k: string]: unknown }) =>
       createElement(tag, { 'data-props': JSON.stringify(Object.keys(props)) }, props.children)
     Stub.displayName = `Taro${tag}`
     return Stub
