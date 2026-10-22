@@ -236,7 +236,6 @@ test('T6 三处排除都是刻意的,且都没扩大到全仓豁免', () => {
     'apps/mobile-cap/www/_next/static/chunks/0wpefw_8z_ntr.js',
   ]
   for (const rel of artifacts) {
-    const p = join(REPO_ROOT, rel)
     let ignored = false
     try {
       const r = spawnSync('git', ['-c', 'safe.directory=*', 'check-ignore', '-q', rel], {
