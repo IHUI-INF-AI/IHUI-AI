@@ -29020,3 +29020,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-880 另三道禁令门仍取磁盘面(§0.4 同型):`check-no-mask-image` / `check-no-emoji-icons` / `check-shared-layer-duplication` 全量与 `--staged` 两档都 `readFileSync` 工作树 ⇒ "盘上改好但没提交"照样报绿(§5c 2026-10-15 记过那一型)。共用层 `scripts/lib/face-scan.mjs` 已就位(2026-10-23 为 divider + native-dialog 抽出的那份),每道门剩"换 import + 传自己的 judge 闭包 + 配成对自检"三步;附带各自判据加固:mask 不判驼峰 `maskImage:` 与 `mask:` 简写、emoji 不扫 `.svg/.css/.json`、shared-layer 只认 `use[A-Z]` 且名逐字相等(`formatDate` 三处重实现看不见)、白名单 7 条无到期
 
 
+
