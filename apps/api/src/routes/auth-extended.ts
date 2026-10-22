@@ -664,6 +664,27 @@ const bindingRemoveSchema = z.object({
 })
 
 const codeQuery = z.object({ code: z.string() })
+
+/**
+ * 第三方通道未配置时认证类端点的**唯一**合法答复:503 + 点名缺哪几个键。
+ *
+ * 旧写法回 `success({ mock: true, msg: '…未配置' })` —— HTTP 200、信封与真登录完全同形,
+ * 消费方(小程序 `api.openId`、web `third-party-config`、RN)看不出失败:`openid` 是 undefined,
+ * 而 `code:0` 让它按"成功"往下走 ⇒ "没接通"被读成"登录过了"。
+ * 本文件 1164 行那条注释已经认过这一次(一键登录就是按 503 写的),
+ * 但同一族剩下 9 处一直留着 —— 2026-10-22 把支付宝的"配置"判据修诚实(私钥文件真读得到才算配好)
+ * 之后,支付宝当场掉进这一支,等于把 500 换成假成功登录。**判据变严必须同时收口兜底分支**,
+ * 否则修的是账面、放开的是鉴权(§0.10:失效方向只能是多要一次说明,不能是多放一次成功)。
+ */
+function thirdPartyUnavailable(reply: FastifyReply, platform: string, missingKeys: string[]) {
+  return reply
+    .status(503)
+    .send(error(503, `${platform} 未配置:缺 ${missingKeys.join(' / ')} ⇒ 该登录方式当前不可用`))
+}
+
+/** 厂商换码失败的可诊断答复:一次性 code 过期/用错是用户侧必然事件,不许冒成服务器故障。 */
+const vendorCodeRejected = (platform: string) =>
+  error(401, `${platform}授权已失效,请重新发起(一次性 code 过期或已被使用)`)
 /** 微信手机号一键登录入参。strictObject:多带字段一律拒,不接受客户端夹带的自报手机号/身份
  *  (§5「认证不等于授权」—— 手机号只能由 phoneCode 经微信侧换回,不能从 body 读)。 */
 const oneTapLoginSchema = z.strictObject({
@@ -1080,7 +1101,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth/google/pc/wxCode', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
     if (!isGoogleConfigured())
-      return reply.send(success({ mock: true, msg: 'Google OAuth 未配置' }))
+      return thirdPartyUnavailable(reply, 'Google OAuth', ['GOOGLE_APP_ID', 'GOOGLE_SECRET'])
     const info = await exchangeGoogleCode(code)
     return reply.send(success(info))
   })
@@ -1088,7 +1109,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth/google/android/wxCode', async (request, reply) => {
     const { id_token } = z.object({ id_token: z.string() }).parse(request.query)
     if (!isGoogleConfigured())
-      return reply.send(success({ mock: true, msg: 'Google OAuth 未配置' }))
+      return thirdPartyUnavailable(reply, 'Google OAuth', ['GOOGLE_APP_ID', 'GOOGLE_SECRET'])
     const info = await verifyGoogleIdToken(id_token)
     return reply.send(success(info))
   })
@@ -1098,7 +1119,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth/alipay/pc/wxCode', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
     if (!isAlipayLoginConfigured())
-      return reply.send(success({ mock: true, msg: 'Alipay OAuth 未配置' }))
+      return thirdPartyUnavailable(reply, 'Alipay OAuth', [
+        'ALIPAY_APP_ID',
+        'ALIPAY_PRIVATE_KEY(或 ALIPAY_PRIVATE_KEY_PATH 指向的私钥文件必须真读得到)',
+      ])
     const token = await exchangeAlipayCode(code)
     let info: { nick: string; avatar: string } = { nick: '', avatar: '' }
     try {
@@ -1127,8 +1151,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth/wechat/mini/login', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
     if (!isWechatMiniConfigured())
-      return reply.send(success({ mock: true, msg: '微信小程序未配置' }))
-    const session = await jscode2session(code)
+      return thirdPartyUnavailable(reply, '微信小程序', ['WX_MINI_APPID', 'WX_MINI_SECRET'])
+    // 同钉钉那一格:一次性 code 过期是常规事件,不许冒成 500「服务器错误」。
+    let session: Awaited<ReturnType<typeof jscode2session>>
+    try {
+      session = await jscode2session(code)
+    } catch (e) {
+      request.log.warn({ err: (e as Error).message }, '小程序 jscode2session 失败')
+      return reply.status(401).send(vendorCodeRejected('微信'))
+    }
     const binding = await findThirdPartyAccount('wechat', session.openId)
     if (!binding) {
       return reply.send(
@@ -1221,7 +1252,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       await authenticate(request)
       const { code } = codeQuery.parse(request.query)
-      if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
+      if (!isWechatMiniConfigured())
+        return thirdPartyUnavailable(reply, '微信小程序', ['WX_MINI_APPID', 'WX_MINI_SECRET'])
       const phone = await getPhoneNumber(code)
       let user = await findUserByPhone(phone)
       if (!user) {
@@ -1242,7 +1274,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       await authenticate(request)
       const { code } = codeQuery.parse(request.query)
-      if (!isWechatMiniConfigured()) return reply.send(success({ mock: true }))
+      if (!isWechatMiniConfigured())
+        return thirdPartyUnavailable(reply, '微信小程序', ['WX_MINI_APPID', 'WX_MINI_SECRET'])
       const session = await jscode2session(code)
       const existing = await findThirdPartyAccount('wechat', session.openId)
       if (existing && existing.userId !== request.userId) {
@@ -1305,7 +1338,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth/login/enterprise/pc/wxCode', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
     if (!isWecomConfigured() && !isWecomSuiteConfigured())
-      return reply.send(success({ mock: true, msg: '企业微信未配置' }))
+      return thirdPartyUnavailable(reply, '企业微信', [
+        'WECOM_CORP_ID/WECOM_SECRET/WECOM_AGENT_ID',
+        '或套件三件套 WECOM_SECRET+WECOM_SUITE_ID+WECOM_SUITE_TICKET',
+      ])
     try {
       const session = isWecomConfigured()
         ? await wecomPcCode2session(code)
@@ -1367,7 +1403,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 钉钉扫码登录 — 授权 URL
   server.get('/auth/dingtalk/auth-url', async (_request, reply) => {
     if (!isDingtalkConfigured())
-      return reply.send(success({ mock: true, msg: '钉钉 OAuth 未配置' }))
+      return thirdPartyUnavailable(reply, '钉钉 OAuth', [
+        'DINGTALK_APP_KEY',
+        'DINGTALK_APP_SECRET',
+        'DINGTALK_REDIRECT_URI',
+      ])
     const state = generateState()
     const authUrl = buildDingtalkAuthUrl(state)
     return reply.send(success({ authUrl, state }))
@@ -1377,9 +1417,25 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   server.get('/auth/dingtalk/login', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
     if (!isDingtalkConfigured())
-      return reply.send(success({ mock: true, msg: '钉钉 OAuth 未配置' }))
-    const dingtalkToken = await exchangeDingtalkCode(code)
-    const info = await getDingtalkUserInfo(dingtalkToken)
+      return thirdPartyUnavailable(reply, '钉钉 OAuth', [
+        'DINGTALK_APP_KEY',
+        'DINGTALK_APP_SECRET',
+        'DINGTALK_REDIRECT_URI',
+      ])
+    // 一次性 code 用错/过期是扫码流程里的**常规事件**(用户在手机上多等了一会儿),
+    // 旧写法让它一路冒成 500「服务器错误」⇒ 前端与客服都无从判断该重试还是该报修。
+    let dingtalkToken: string
+    let info: Awaited<ReturnType<typeof getDingtalkUserInfo>>
+    try {
+      dingtalkToken = await exchangeDingtalkCode(code)
+      info = await getDingtalkUserInfo(dingtalkToken)
+    } catch (e) {
+      request.log.warn(
+        { err: (e as Error).message },
+        '钉钉换码失败(一次性 code 过期/已用/凭据不对)',
+      )
+      return reply.status(401).send(vendorCodeRejected('钉钉'))
+    }
     const binding = await findThirdPartyAccount('dingtalk', info.openId)
     if (!binding) {
       return reply.send(

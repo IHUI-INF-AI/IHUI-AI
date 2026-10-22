@@ -420,8 +420,7 @@ export async function getDingtalkUserInfo(accessToken: string): Promise<Dingtalk
 // ============================================================================
 
 import { createSign } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { isAlipayConfigured as isAlipayPayConfigured } from './alipay.js'
+import { isAlipayConfigured as isAlipayPayConfigured, resolveAlipayPrivateKey } from './alipay.js'
 
 export interface AlipayUserInfo {
   openId: string
@@ -435,10 +434,12 @@ export function isAlipayLoginConfigured(): boolean {
   return isAlipayPayConfigured()
 }
 
+/** 取私钥一律走 alipay.js 那一份出口(§0.6 单一真相源):
+ *  这里曾自己写过一份"键名非空就读",于是判据说配置好了、签名这一步才 ENOENT 炸成 500。 */
 function getPrivateKey(): string {
-  if (env.ALIPAY_PRIVATE_KEY) return env.ALIPAY_PRIVATE_KEY
-  if (env.ALIPAY_PRIVATE_KEY_PATH) return readFileSync(env.ALIPAY_PRIVATE_KEY_PATH, 'utf-8')
-  return ''
+  const { key, reason } = resolveAlipayPrivateKey()
+  if (!key) throw new Error(`支付宝应用私钥不可用:${reason}`)
+  return key
 }
 
 /** 用 auth_code 调 alipay.system.oauth.token 换 access_token + user_id */
