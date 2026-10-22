@@ -171,7 +171,7 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
               </button>
 
               {isOpen && (
-                <div className="space-y-3 border-t px-4 py-3">
+                <div className="space-y-3 px-4 py-3">
                   {/* 推理内容 */}
                   {it.reasoning && (
                     <div>

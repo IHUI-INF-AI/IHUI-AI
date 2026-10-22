@@ -85,7 +85,7 @@ export default function ArticlesPage() {
 
   return (
     <div className="p-3 md:p-4 flex flex-col gap-2.5">
-      <div className="flex items-center justify-between pb-2 border-b border-border">
+      <div className="flex items-center justify-between pb-2">
         <h3 className="m-0 text-sm font-semibold">{t('apps.articles')}</h3>
       </div>
       {articles.length === 0 ? (

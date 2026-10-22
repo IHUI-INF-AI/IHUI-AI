@@ -239,7 +239,7 @@ export default function EduAiCertificationPage() {
                     {item.issuingAuthority}
                   </p>
                 </div>
-                <div className="mt-auto space-y-1 border-t pt-2 text-xs text-muted-foreground">
+                <div className="mt-auto space-y-1 pt-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5 shrink-0" />
                     <span className="min-w-0 truncate">{item.targetTeachers || '-'}</span>

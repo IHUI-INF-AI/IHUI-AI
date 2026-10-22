@@ -244,7 +244,7 @@ function SidepanelInner() {
 
   return (
     <div className="flex flex-col h-screen w-full">
-      <header className="flex items-center gap-1.5 px-3 py-2.5 border-b border-border bg-card shrink-0">
+      <header className="flex items-center gap-1.5 px-3 py-2.5 bg-card shrink-0">
         <span className="font-semibold text-sm mr-auto">IHUI AI</span>
         <TooltipProvider>
           <Tooltip>
@@ -286,10 +286,7 @@ function SidepanelInner() {
         </span>
       </header>
       <div className="flex flex-1 min-h-0">
-        <nav
-          className="flex flex-col shrink-0 w-16 md:w-20 bg-card border-r border-border py-1"
-          aria-label="导航"
-        >
+        <nav className="flex flex-col shrink-0 w-16 md:w-20 bg-card py-1" aria-label="导航">
           {TABS.map((tab) => (
             <NavLink
               key={tab.to}

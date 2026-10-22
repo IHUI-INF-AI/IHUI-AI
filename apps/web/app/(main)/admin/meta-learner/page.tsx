@@ -325,7 +325,7 @@ export default function MetaLearnerPage() {
                         </thead>
                         <tbody>
                           {f.recent.map((r, i) => (
-                            <tr key={`${i}-${r.time}`} className="border-t">
+                            <tr key={`${i}-${r.time}`}>
                               <td className="px-3 py-2">
                                 <Badge className={typeBadge[r.errorType] ?? typeBadge.unknown}>
                                   {r.errorType}
@@ -376,7 +376,7 @@ export default function MetaLearnerPage() {
               </thead>
               <tbody>
                 {lessons.map((lesson) => (
-                  <tr key={lesson.lessonId} className="border-t">
+                  <tr key={lesson.lessonId}>
                     <td className="px-3 py-2">
                       <Badge className={LESSON_BADGE[lesson.lessonType]}>
                         {t(LESSON_I18N[lesson.lessonType])}

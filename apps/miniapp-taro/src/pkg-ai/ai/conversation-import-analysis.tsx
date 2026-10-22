@@ -284,7 +284,7 @@ export function ImportAnalysisPanel({
 
         {/* ③ 发起 */}
         {catalog.phase === 'ready' && (
-          <View className="mt-[20rpx] pt-[20rpx] border-t border-border">
+          <View className="mt-[20rpx] pt-[20rpx]">
             <Text className="block text-[length:22rpx] text-muted-foreground mb-[16rpx]">
               {selected
                 ? tt(

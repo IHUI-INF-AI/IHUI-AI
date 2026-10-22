@@ -436,7 +436,7 @@ export default function HomeworkPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b">
+                  <tr className="bg-muted/40">
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                       {t('thStudentName')}
                     </th>

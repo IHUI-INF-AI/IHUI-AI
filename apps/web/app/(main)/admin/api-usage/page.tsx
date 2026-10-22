@@ -170,7 +170,7 @@ export default function ApiUsagePage() {
                   </thead>
                   <tbody>
                     {dayUsageList.map((d) => (
-                      <tr key={d.date} className="border-t">
+                      <tr key={d.date}>
                         <td className="px-3 py-2 text-muted-foreground">{d.date}</td>
                         <td className="px-3 py-2 font-medium">{formatNumber(d.calls)}</td>
                         <td className="px-3 py-2">

@@ -144,7 +144,7 @@ export default function ModelPricingPage() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.model} className="border-t hover:bg-muted/30">
+                  <tr key={row.model} className="hover:bg-muted/30">
                     <td className="px-4 py-2 font-mono text-xs">{row.model}</td>
                     <td className="px-4 py-2 text-right">{fmtPrice(row.input)}</td>
                     <td className="px-4 py-2 text-right">{fmtPrice(row.output)}</td>

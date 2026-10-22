@@ -50,7 +50,7 @@ export function McpQualityDashboard() {
       <div className="overflow-x-auto rounded-lg border bg-card">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b bg-muted/50 text-left text-muted-foreground">
+            <tr className="bg-muted/50 text-left text-muted-foreground">
               <th className="px-3 py-2 font-medium">{t('dashboardServer')}</th>
               <th className="px-3 py-2 font-medium">{t('dashboardScoring')}</th>
               <th className="px-3 py-2 font-medium">{t('dashboardCalls')}</th>
@@ -60,7 +60,7 @@ export function McpQualityDashboard() {
           </thead>
           <tbody>
             {data.servers.map((srv) => (
-              <tr key={srv.key} className="border-b last:border-b-0">
+              <tr key={srv.key}>
                 <td className="px-3 py-2 font-medium text-foreground">{srv.name}</td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-1">

@@ -377,7 +377,7 @@ export default function AiAssistantPage() {
       ) : null}
 
       {/* 对齐 RN quickWrap:root 背景 + 上边框 / 内容 px24 py16 rpx gap16rpx;chip px24 py12 rpx / 16dp=32rpx 圆角 / card 底描边 / 12dp=24rpx 次级字 */}
-      <View className="bg-background border-t border-border">
+      <View className="bg-background">
         <ScrollView scrollX>
           <View className="flex flex-row gap-[16rpx] px-[24rpx] py-[16rpx]">
             {SUGGESTED.map((q) => (
@@ -399,7 +399,7 @@ export default function AiAssistantPage() {
         </ScrollView>
       </View>
       {/* 对齐 RN InputArea:row 底对齐 / px12 py8 dp=24/16 rpx / card 底 + 上边框;输入框 minHeight 48dp=96rpx / 12dp=24rpx 圆角 / root 底描边;发送钮 44dp=88rpx brand 底 */}
-      <View className="flex flex-row items-end bg-card border-t border-border px-[24rpx] py-[16rpx]">
+      <View className="flex flex-row items-end bg-card px-[24rpx] py-[16rpx]">
         <FocusInput
           className="flex-1 h-[96rpx] px-[24rpx] bg-background border border-border rounded-sm text-[length:28rpx] text-foreground"
           placeholder={tt('tail.9', '请输入描述')}
