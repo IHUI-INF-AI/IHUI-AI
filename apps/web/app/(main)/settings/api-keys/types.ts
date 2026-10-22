@@ -9,21 +9,10 @@
  * - ApiKeyInfo:密钥脱敏信息(不含 secret)
  * - ApiKeyPermission:权限点联合类型
  * - CreateApiKeyRequest:创建请求体
- * - ApiKeyQuotaInfo:配额信息
  */
-export type {
-  ApiKeyInfo,
-  ApiKeyPermission,
-  CreateApiKeyRequest,
-  ApiKeyQuotaInfo,
-} from '@ihui/types'
+export type { ApiKeyInfo, ApiKeyPermission, CreateApiKeyRequest } from '@ihui/types'
 
-import type { ApiKeyInfo, ApiKeyQuotaInfo, ApiKeyPermission } from '@ihui/types'
-
-/** 列表项附带用量信息(展开时按需加载)。 */
-export interface ApiKeyWithUsage extends ApiKeyInfo {
-  usage?: ApiKeyQuotaInfo
-}
+import type { ApiKeyPermission } from '@ihui/types'
 
 /** 弹窗状态机:idle / create 创建 / secret-display 展示一次性 secret / rotate 轮换确认。 */
 export type DialogState = 'idle' | 'create' | 'secret-display' | 'rotate'
