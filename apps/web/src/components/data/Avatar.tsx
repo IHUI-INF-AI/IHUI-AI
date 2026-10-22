@@ -7,9 +7,13 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import type { AvatarShape, AvatarSize } from '@ihui/shared/ui/avatar-spec'
 
-type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
-type AvatarShape = 'circle' | 'square'
+/**
+ * 档位名与数值取自跨端唯一表 `@ihui/shared/ui/avatar-spec`(`AvatarSize` 就是那张表的键集);
+ * 类名留在本文件是 Tailwind 扫描面的要求,对应关系由
+ * `packages/shared/src/ui/__tests__/avatar-spec-wiring.test.ts` 与 `AVATAR_PX` 逐档对账钉住。
+ */
 
 interface AvatarProps {
   src?: string
