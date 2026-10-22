@@ -65,7 +65,6 @@ const T = (await import('../check-batch-write-count-honesty.mjs')).__test__
 
 const DB_REL = 'apps/api/src/db/g815-fixture.ts'
 const B3_REL = 'apps/api/src/db/backfill-g815953.ts'
-const B3_MORE_REL = 'apps/api/src/db/backfill-g815953-more.ts'
 const B4_REL = 'apps/api/src/db/status-g815956.ts'
 const B4_NEW_REL = 'apps/api/src/db/status-g815956-more.ts'
 // G-815955(B5):追加在本文件的第三张关联票(见头注),夹具落点与 B3/B4 同面。
