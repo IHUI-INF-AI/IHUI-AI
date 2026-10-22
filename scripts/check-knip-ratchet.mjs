@@ -138,18 +138,34 @@ function dirtyPathCount() {
   try {
     gitRaw(['rev-parse', '--is-inside-work-tree'], ROOT, { timeout: 30_000 })
   } catch {
-    return { insideRepo: false, dirty: 0 }
+    return { insideRepo: false, dirty: 0, paths: [] }
   }
   try {
     // gitRaw 已自带 `-c safe.directory=*` 与 `-C <root>`,此处不再重复传
     const out = gitRaw(['status', '--porcelain'], ROOT, { timeout: 60_000 })
-    return { insideRepo: true, dirty: out.split('\n').filter((l) => l.trim() !== '').length }
+    const paths = out.split('\n').filter((l) => l.trim() !== '')
+    return { insideRepo: true, dirty: paths.length, paths }
   } catch {
-    return { insideRepo: true, dirty: null } // 问不到条数 ⇒ 判"无法判定",不猜可比
+    return { insideRepo: true, dirty: null, paths: [] } // 问不到条数 ⇒ 判"无法判定",不猜可比
   }
 }
 
-const { insideRepo, dirty } = dirtyPathCount()
+/**
+ * 脏路径点名(2026-10-23 立):判据只报"有 N 个未提交改动"时,"那 N 个到底是什么"
+ * 要人去做一次考古 —— 实测 CI 那条 "1 个未提交改动" 的真凶是 pnpm 在 Linux 上把
+ * storeDir 的 Windows 绝对路径当相对路径,在检出里造出 `D:/` 目录;从条数本身看不出来。
+ * 这里只加取证、不改判定:判定仍由 classifyFace 出,退出码一字不动。
+ */
+function printDirtyPaths(paths, limit = 15) {
+  if (!Array.isArray(paths) || paths.length === 0) return
+  console.error(`[knip-ratchet]    脏面取证(git status --porcelain,共 ${paths.length} 行,前 ${Math.min(limit, paths.length)} 行):`)
+  for (const line of paths.slice(0, limit)) console.error(`[knip-ratchet]      ${line}`)
+  if (paths.length > limit) {
+    console.error(`[knip-ratchet]      …另有 ${paths.length - limit} 行未打印(完整清单:git status --porcelain)`)
+  }
+}
+
+const { insideRepo, dirty, paths: dirtyPaths } = dirtyPathCount()
 const isolated = insideRepo === false
 const face = classifyFace({
   ci: process.env.CI === 'true' || process.env.CI === '1',
@@ -159,6 +175,7 @@ const face = classifyFace({
 const forced = args.has('--allow-dirty')
 if (face.verdict !== 'comparable' && !forced && !args.has('--print')) {
   console.error(`[knip-ratchet] ❌ 口径不可比(${face.verdict}):${face.reason}`)
+  printDirtyPaths(dirtyPaths)
   console.error('[knip-ratchet]    问责面是 CI 的干净检出;本机只想看数请跑 --print(不判、不写基线)。')
   console.error('[knip-ratchet]    确需在当前状态下写基线:`--update --allow-dirty`(会把 DIRTY 出处写进基线的 recordedFrom,不静默)。')
   process.exit(2)
