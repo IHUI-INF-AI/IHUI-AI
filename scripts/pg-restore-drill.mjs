@@ -50,7 +50,8 @@ import { keyFile } from './lib/key-dir.mjs'
 //   它会教下一个人照旧写法抄;② 共用出口多认一条 `IHUI_DEVENV_ROOT`(§15b 换机逃生舱,
 //   `deploy/win/ihui-pg-backup.ps1` 的 `$DevEnvRoot` 与之同语义)。未设该环境变量时**两者逐字同值**
 //   (本机同为 `G:\DevEnv`),逐字核对由 scripts/tests/pg-restore-drill.test.mjs 的 P-落点1/2/3 做。
-import { devEnvRoot } from './seal-c-root-stray.mjs'
+// PG 落点(env 覆盖名 > devEnvRoot)的唯一实现(G-343);本文件不再另抄一份。
+import { pgBinDir, backupPgDir } from './lib/psql-client-locate.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -245,13 +246,7 @@ export function runPlan(plan, { allowWrites, exec, check }) {
 
 // ────────────────────────────── IO 层(默认实现;main 使用) ──────────────────────────────
 
-/** 落点推导一律经文件头那条共用出口;此处只负责"该用途下 DevEnv 里的哪一层目录"。 */
-function pgBinDir() {
-  return process.env.IHUI_PG_BIN_DIR || join(devEnvRoot(), 'runtimes', 'pgsql', 'bin')
-}
-function backupPgDir() {
-  return process.env.IHUI_BACKUP_PG_DIR || join(devEnvRoot(), 'backups', 'pg')
-}
+// 落点推导一律经共用出口(见 import);本层不再声明私有实现。
 
 function readRootEnvKey(key) {
   try {

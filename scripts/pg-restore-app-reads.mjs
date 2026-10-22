@@ -58,13 +58,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { DRILL_NAME_RE, resolveCredential, todayYmd } from './pg-restore-drill.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-// §15b 外置根唯一出口 —— 与 pg-restore-drill / seal-c-root-stray 同源,不再自己数层推盘根。
-import { devEnvRoot } from './seal-c-root-stray.mjs'
+// §15b 外置根与 PG 落点的唯一出口(G-343)—— 与 pg-restore-drill / seal-c-root-stray 同源。
+import { pgBinDir } from './lib/psql-client-locate.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..')
 const DEFAULT_FIXTURE = join(REPO, 'scripts', 'data', 'restore-read-queries.json')
-const PG_BIN = process.env.IHUI_PG_BIN_DIR || join(devEnvRoot(), 'runtimes', 'pgsql', 'bin')
+const PG_BIN = pgBinDir()
 
 // 只读判据:命中即**拒跑该条**(不是"警告后照跑")。宁可漏判成未判定,绝不为跑通而放宽。
 const FORBIDDEN_RE =
