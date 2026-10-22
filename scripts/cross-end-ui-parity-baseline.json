@@ -132,6 +132,10 @@
     }
   },
   "webWaivers": {
+    "ConfirmDialog": {
+      "reason": "两端盒档同值,只是住在不同文件:web 弹窗壳 = `git show HEAD:packages/ui-react/src/components/dialog.tsx` :98 `min-[640px]:rounded-xl`(panel→xl=12),小程序壳 = apps/miniapp-taro/src/components/ConfirmDialog.tsx:35 `borderRadius: rnRadiusFor.panel`(RADIUS_ROLES 现读 panel→xl=12,同值);按钮档 web 走 <Button> 基座 rounded-sm(packages/ui-react/src/components/button.tsx:30),小程序 :49/:57 自写 rounded-sm,两端同取 control→sm=4。本腿不跟 .tsx 的包 import ⇒ 把\"没读到\"读成\"该侧无档\",即 G-16 登记的 SL 维第二格,扩一跳即抵掉;禁止为凑集合给 web 壳再补一层圆角。",
+      "until": "2027-03-30"
+    },
     "AgentRuntimePanel": {
       "reason": "web 面板本体刻意无壳:卡片圆角由消费页外包,现读 `git grep -n \"rounded-lg\" HEAD:\"apps/web/app/(main)/agents/[id]/PageClient.tsx\"` 命中 :375(=8,与小程序根容器 :28 ui-card rounded-lg 同档),而组件文件自身 rounded 计数 小程序 1 / web 0 ⇒ 差的是档值住在哪个文件,不是取值分叉。禁止为凑集合给 web 组件根补圆角(会和消费页壳叠两层)。",
       "until": "2027-03-30"

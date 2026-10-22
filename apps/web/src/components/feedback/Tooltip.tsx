@@ -52,7 +52,7 @@ export function Tooltip({
           align={align}
           sideOffset={4}
           className={cn(
-            'z-popover overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-md',
+            'z-popover overflow-hidden rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md',
             'data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 duration-(--duration-unified) ease-unified',
             className,
           )}
