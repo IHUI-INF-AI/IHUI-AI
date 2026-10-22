@@ -29011,3 +29011,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [x] ✅(2026-10-22)  G-107 **解 fail-closed 闸门只认权威信封字段,不认 RPC 时序;判"要不要重订阅"只认封闭 reason-code 集**(上游实测锚点:`packages/ui/src/v4/topicWireDecoder.ts:80-92`(区间含 `recovery`:route 已 fail-closed 时 `if (wire.deliveryKind !== "recovery") return;`,注释写明"deliveryKind 是 publisher 权威信封事实,因此只有 exact recovery 可原子解 gate,绝不按 RPC 时序猜测")、`:93-100`(`recover()` 只解门、保留 assembler settled ordinal ⇒ 迟到旧片仍静默丢) 〔压缩@2026-10-22〕〔结清@2026-10-22/goal-r53:全射程普查零缺口——票面三条验收全部在 HEAD 面在位:packages/shared/src/sse/recovery-gate.ts 唯一判据源(applyAuthority 只读 deliveryKind 仅 recovery 解门、封闭 5 码精确等值查表、解门保留 settledOrdinal 迟到片仍静默丢)、api-client 同形移植件+parity 通路锁、client.ts 生产消费点已接、barrel 缺口已由 10-20 接线批补、全仓模糊匹配 0 命中;阳性对照 A2/A5/B3/B6/C4/W1-W4 在位;复验 recovery-gate 30/30+parity 14/14+shared 2207/2207+api-client 471/471+双 typecheck RC=0。注:票面上游参照 packages/ui/src/v4 非本仓路径,落点以票面全文 packages/shared/src/sse 为准〕〔进行中@2026-10-22/goal-r53:席位在飞(缺口普查+判别测)〕
 
 
+
