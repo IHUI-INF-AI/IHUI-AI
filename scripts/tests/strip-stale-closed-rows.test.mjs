@@ -236,6 +236,32 @@ test('M9 身份出口同形:被跳过的已勾行,门 71 自己认得它的 mark
   assert.equal(closedRegistrationOf(P_OPEN_A), null, '未勾行不属于"已勾形态"这一档')
 })
 
+test('M12 H3 复量自洽(G-928/G-960 型,2026-10-22 根治):同号未勾+同主键两枚滞留已勾拷贝 ⇒ 一次全检出、摘后复量==跳过集', () => {
+  const DUP_OPEN = '- [ ] G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
+  const DUP_R1 = '- [x] ✅(2026-10-20/甲) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性'
+  const DUP_R2 = '- [x] ✅(2026-10-20/乙) G-7004 待办夹具:这一组用来钉住同主键滞留拷贝必须逐枚全报的 H3 自洽性〔第二枚拷贝〕'
+  const face = [DUP_OPEN, DUP_R1, DUP_R2].join('\n')
+  const v = staleClosedVerdict(face, face)
+  assert.equal(v.stale.length, 2, `两枚滞留拷贝须一次全检出(判据只报首枚就会摘完冒出"新"滞留、H3 恒拒),实得 ${v.stale.length}`)
+  const part = S.partitionStaleByProtection(face, v.stale, () => [])
+  assert.equal(part.ok, true, `应判可摘,实得 why=${part.why}`)
+  assert.equal(part.strippable.length, 2)
+  assert.equal(part.held.length, 0)
+  assert.equal(part.removed, 2)
+  // main 里 H3 的同一算式:摘后复量滞留集必须**恰好等于**跳过集(逐字),不得多出没人负责的一条
+  const after = staleClosedVerdict(part.text, face)
+  assert.equal(after.undetermined, false)
+  assert.equal(after.stale.length, part.held.length, `H3 复量:摘后滞留数(${after.stale.length})必须==跳过数(${part.held.length})`)
+  assert.equal(
+    after.stale.map((r) => r.raw).sort().join('\n'),
+    [...part.held].map((h) => h.row.raw).sort().join('\n'),
+    'H3 复量:摘后滞留集必须==跳过集(逐字)',
+  )
+  assert.equal(S.sweepOutcome(part, { apply: true }).state, 'stripped', '两枚全摘后应落 stripped 档而非 H3 拒')
+  // H1 侧证:同号未勾行在摘后面上逐字节原样
+  assert.ok(part.text.includes(DUP_OPEN), '未勾行必须原样保留(未勾副本不遮蔽已勾拷贝,也不被误摘)')
+})
+
 test('M11 H3 基线口径:摘完后"刚翻勾的宽现行"不得被读成滞留(否则 H3 是假红,批次永远落不了)', () => {
   const dir = fixtureRepo(CLOSED_A_PAIRED)
   try {
