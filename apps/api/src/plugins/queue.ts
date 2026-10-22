@@ -60,6 +60,12 @@ export interface AICallbackJobData {
   completionTokens?: number
   idempotencyKey?: string // 幂等键,防 BullMQ 重试重复扣费
   metadata?: Record<string, unknown>
+  // 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
+  // 走 payload **顶层键**而不是 metadata —— metadata 在回调端点被逐字段重建
+  // (G-94 显式列举纪律),且坐标是 chat_messages 的**列**不是 jsonb 内容;
+  // 缺省 = 普通回复(与存量落库行为逐字一致)。
+  parentMessageId?: string
+  siblingIndex?: number
 }
 
 /**

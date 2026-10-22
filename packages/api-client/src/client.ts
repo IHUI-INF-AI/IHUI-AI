@@ -1492,7 +1492,16 @@ export interface StreamChatOptions {
   }) => void
   /** P4-2: 后端 fallback 触发回调(主模型失败 + 切换到备用模型时触发,前端展示横幅提示) */
   onFallback?: (event: FallbackEvent) => void
-  metadata?: { conversationId?: string; userId?: string; messageId?: string }
+  metadata?: {
+    conversationId?: string
+    userId?: string
+    messageId?: string
+    /** 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
+     *  网关 schema 声明后透传上游,ai-callback 回显落 chat_messages 两列;
+     *  缺省 = 普通回复,请求体零变化(L3273 整包写入,undefined 键被 JSON 省略)。 */
+    parentMessageId?: string
+    siblingIndex?: number
+  }
   temperature?: number
   topP?: number
   topK?: number

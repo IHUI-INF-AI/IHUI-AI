@@ -22,9 +22,16 @@
  */
 
 import type { ChatActionContext } from './types'
+// 票59(3/3,2026-10-22):opts 形状改引 SendMessageOptions —— 原内联 { regenerate? } 是
+// SendMessageOptions 的手抄副本,version 坐标加进 Options 后这里编译面断裂(regenerateMessage
+// 经 runtime.sendInstance 调用,签名必须同源)。type-only 回环,运行期零依赖。
+import type { SendMessageOptions } from './send-message'
 
 /** CustomEvent 触发面注册的发送函数(send-message.ts createSendMessage 产物) */
-export type SendMessageFn = (content: string, opts?: { regenerate?: boolean }) => Promise<boolean>
+export type SendMessageFn = (
+  content: string,
+  opts?: SendMessageOptions,
+) => Promise<boolean>
 
 /** 按 store 实例隔离的流式运行时记录(非响应式,不入 zustand 状态) */
 export interface ChatStreamRuntime {
