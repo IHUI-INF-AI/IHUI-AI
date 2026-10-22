@@ -174,7 +174,13 @@ $AdminPwdFile = if ($env:IHUI_ADMIN_PASSWORD_FILE) { $env:IHUI_ADMIN_PASSWORD_FI
 # 现在两处不一致会在 BackendLogin-Token 里记一条 WARN(只记指纹,不记口令)。
 . (Join-Path $PSScriptRoot 'admin-credential.ps1')
 $ActiveFile = "$Root\deploy\win\active-env"   # active-env 标记,当前恒 'win'
-$PublicWeb  = 'https://aizhs.top'
+# 必须是**真入口** www.aizhs.top,不得写 apex:apex 对任何路径回 301,而 `Invoke-RestMethod` 追 301
+# 时把 POST 降级成 GET ⇒ 打到只认 POST 的 `/auth/login/username` 就是 404,探测令牌一枚也取不到,
+# 公网 llm 那一路因此恒 unknown(而头注声称的"明确故障仍由公网 providers/health 的 fail 分支捕获"
+# 在结构上永远打不到)。2026-10-22 现读两份:① 生产日志 07:54→14:45 之间 9 轮部署**每轮**记
+# "HEALTH 登录取探测令牌失败(HTTP 404)";② 同一条空 body POST 打 apex 得 404、打 www 得 400
+# —— 400 才是"路由在、参数不对"的形态。回滚判据不因此变严:公网 fail 仍要源站也不应答才回滚。
+$PublicWeb  = 'https://www.aizhs.top'
 $ApiHealth  = "$PublicWeb/api/health"
 # 源站直探端点(不经 Cloudflare)。加这一条腿的理由见 health-gate-verdict.ps1 头注:
 # 公网那一路把"新构建坏了"和"入口(隧道/边缘)坏了"读成同一个 fail,于是前者该回滚时

@@ -13,7 +13,7 @@
 //
 // 环境变量:
 //   IHUI_AI_KEY        必填。LLM 网关 API Key;未设置时本脚本拒绝运行(绝不编造诊断)。
-//   IHUI_AI_BASE       选填。OpenAI 兼容网关基址,默认 https://aizhs.top/v1
+//   IHUI_AI_BASE       选填。OpenAI 兼容网关基址,默认 https://www.aizhs.top/v1
 //   IHUI_AI_MODEL      选填。默认 glm-5.3-flash
 //   IHUI_AI_TIMEOUT_MS 选填。请求超时,默认 90000
 //
@@ -28,7 +28,10 @@
 //
 // 平台特有:依赖 Node fetch/DOM 编码,作为部署机独立工具,不适合进 packages/。
 
-const DEFAULT_BASE = 'https://aizhs.top/v1'
+// 必须走真入口 www:apex 对任何路径回 301,而 fetch 追 301 时把 POST 降级成 GET ⇒ 只认 POST 的
+// 网关端点回 404(2026-10-22 实测两发:同一条空 body POST 打 apex 得 404、打 www 得 403=够着网关
+// 只是没带 key)。写 apex 时本工具在默认基址下**每次**都以"API 失败"收场,诊断腿等于没有。
+const DEFAULT_BASE = 'https://www.aizhs.top/v1'
 const DEFAULT_MODEL = 'glm-5.3-flash'
 const DEFAULT_TAIL = 400
 const MAX_CHARS = 24000
