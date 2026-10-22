@@ -28941,7 +28941,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 ## 2026-10-22 台账字段结构化 P1(判定改造 + 侧车 + 守恒器物 + 新门 warn 档)
 
-- [ ] G-871 腾讯云短信第二通道已接线、处于未配置态:应用与凭据均已核实并填入 apps/api/.env(SmsSdkAppId=1401196354 是该企业主账号下真实应用,密钥归属由真假 appid 对照判死:真报 FailedOperation.TemplateUnapprovedOrNotExist、假报 UnauthorizedOperation.SmsSdkAppIdVerifyFail);剩余唯一卡点=实名资质 0 条,新增资质表单要求 营业执照盖红章 + 法定代表人身份证正反面复印件盖公章 + 短信业务管理员身份证正反面及手持照 + 安全合规使用承诺书,属真人身份材料不可代传;资质过审(约 2h)后再报签名与四枚场景模板,填 TENCENT_SMS_TEMPLATE_CODE* 并把 SMS_PROVIDER 改 tencent(资质通过后仍须报备运营商,页面原文 7~10 个工作日或更长;企业认证首次开通赠 200 条 3 个月,以控制台实际为准)
+- [ ] G-871 腾讯云短信第二通道已接线、处于未配置态:应用与凭据均已核实并填入 apps/api/.env(SmsSdkAppId=1401196354 是该企业主账号下真实应用,密钥归属由真假 appid 对照判死:真报 FailedOperation.TemplateUnapprovedOrNotExist、假报 UnauthorizedOperation.SmsSdkAppIdVerifyFail);剩余唯一卡点=实名资质 0 条,新增资质表单要求 营业执照盖红章 + 法定代表人身份证正反面复印件盖公章 + 短信业务管理员身份证正反面及手持照 + 安全合规使用承诺书,属真人身份材料不可代传;资质过审(约 2h)后再报签名与四枚场景模板,填 TENCENT_SMS_TEMPLATE_CODE* 并把 SMS_PROVIDER 改 tencent(资质通过后仍须报备运营商,页面原文 7~10 个工作日或更长;企业认证首次开通赠 200 条 3 个月,以控制台实际为准) 〔现读@2026-10-22/E8:apps/api/.env 14 键中 SMS_PROVIDER/TENCENT_SMS_* 全 ABSENT(非空值),票面前提不成立;auto 档位表仅 aliyun/proxy⇒纯腾讯配置永不参与;需资质+4键+重启 API〕
 
 - [ ] G-873 小程序登录页接微信手机号一键验证:两端接线已全部入库(全量 sha ec9853d2e1b9f343282b3cec02f0aa1e20ff02ce —— 后端 one-tap-login 端点带 10 例锁、api/index.ts 加 oneTapLogin、pages/user 的 onOneClickLogin 单跳落 access/refresh/user 三件套、端内接线锁 10 例),LoginPopUp 那套取 phoneCode→Taro.login 取 loginCode 本就正确 —— 唯一未收口项:必须在微信开发者工具真机验一次才算完成,本机无小程序运行时(§17 UI 改动禁止只凭代码审查声明完成)
 
