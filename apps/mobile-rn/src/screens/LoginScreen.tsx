@@ -1065,7 +1065,9 @@ export function LoginScreen() {
           onAccountChange={form.setAccount}
           onPasswordChange={form.setPassword}
           onLogin={handlePasswordLogin}
-          onSsoLogin={form.ssoLoginAction}
+          // G-958:web 预览无系统浏览器授权会话/deep link 回跳通道,不渲染"打开网页登录"按钮
+          // (点下去必被本文件 ssoLogin 的 web 分支拒绝);原生端保持现有 SSO 链路。
+          onSsoLogin={Platform.OS === 'web' ? undefined : form.ssoLoginAction}
           colorScheme={resolvedTheme}
           logoNode={LOGO_NODE}
           // welcome 品牌文字图(对齐 web AuthShell,替代纯文字 "IHUI AI")
