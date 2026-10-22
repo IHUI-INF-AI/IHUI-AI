@@ -381,11 +381,13 @@ export const userLlmConfigRoutes: FastifyPluginAsync = async (server) => {
       update.extraConfig = JSON.stringify(extra)
     }
 
-    await db
+    // updated 由库侧 RETURNING 派生(守门 134):旧形态无条件回 true,零命中与真改一行同形。
+    const updatedRows = await db
       .update(aiModelConfig)
       .set(update as never)
       .where(and(eq(aiModelConfig.id, id), eq(aiModelConfig.ownerUuid, userId)))
-    return reply.send(success({ id, updated: true }))
+      .returning({ id: aiModelConfig.id })
+    return reply.send(success({ id, updated: updatedRows.length > 0 }))
   })
 
   // -----------------------------------------------------------------
