@@ -402,6 +402,69 @@ _APPROVAL_KEEPALIVE_INTERVAL = 15  # 秒:等待期间发 SSE 注释行,防前端
 _approval_sessions: dict[str, dict[str, dict[str, Any]]] = {}
 
 
+def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str]:
+    """D690(方案 A,2026-10-22;承 D131 取证、D1047 diff②)重连重放的组帧出口。
+
+    断线窗口里"审批已下发但用户还没点"的条目,在调用方**复用同一 streamSessionId**
+    重连时以同形 tool-approval 帧(+`replay: true` 标记)重放进恢复流。判据三道闸,
+    全部 fail-closed:
+
+    ① 仍待决 ∧ 属主精确相等 ∧ 展示字段齐备 —— 取数侧
+       `app/core/approval_replay.py::chat_pending_approval_replays`(2026-10-18 落库,
+       本票是它的第一任生产接线方;已决/已唤醒条目重放 = 二次弹窗 = 副作用,不重放);
+    ② 未过期 —— created_at 缺失/不可解析/已老过 `_APPROVAL_TIMEOUT`(人工决策窗口,
+       与等待循环同一口径)不重放。等待循环超时本会自行 pop,这一闸是时钟边角与
+       残条兜底;
+    ③ 可兑现 —— 原生成器被断线取消时条目已被等待方 finally 摘除(D1047 diff② 的
+       T7 现读量出的生命周期形状),故表里剩的**必然**是有活等待者的条目:应答经
+       既有 approval-response 端点唤醒原等待、工具在原流执行、结果沿原连接(网关
+       接管重放缓冲)回流。把无等待者的条目 detach 留存再重放,会造出"批了却没执行"
+       的空头支票(僵尸 run,D1047 头注点名的病灶),刻意不做。
+
+    帧形 = 正常审批帧同字段 + replay 标记(键名取 sse_contract 单一事实源,与
+    agents.py 任务流重放帧同形,前端按 approval_id 幂等渲染)。D159 的 env/network
+    区块**不重算** —— 重放要显示的是"发帧那一刻显示过的事实",重算即分叉
+    (与 net_fact 存发帧时取值同一条纪律)。纯只读,不改登记表、不取结算名额。
+    """
+    from app.core.approval_replay import chat_pending_approval_replays
+    from app.core.sse_contract import (  # 运行时 import 点(见 sse_contract 头注的 SSE-CONTRACT-IMPORT-SITES)
+        SSE_APPROVAL_REPLAY_PAYLOAD_KEY,
+    )
+
+    payloads = chat_pending_approval_replays(_approval_sessions.get(session_id), owner_uuid)
+    if not payloads:
+        return []
+    now = datetime.now(UTC)
+    frames: list[str] = []
+    for _p in payloads:
+        _created_at = _p.get("created_at")
+        if not isinstance(_created_at, str):
+            # 判不了新鲜度 ⇒ 不重放(②,fail-closed)
+            continue
+        try:
+            _age_s = (now - datetime.fromisoformat(_created_at)).total_seconds()
+        except ValueError:
+            continue
+        if _age_s >= _APPROVAL_TIMEOUT:
+            continue
+        frames.append(
+            _sse(
+                _SSE_TOOL_APPROVAL,
+                {
+                    "type": _SSE_TOOL_APPROVAL,
+                    "approval_id": _p["approval_id"],
+                    "tool_name": _p["tool_name"],
+                    "tool_call_id": _p["tool_call_id"],
+                    "args_preview": _p["args_preview"],
+                    "danger_level": _p["danger_level"],
+                    "session_id": session_id,
+                    SSE_APPROVAL_REPLAY_PAYLOAD_KEY: True,
+                },
+            )
+        )
+    return frames
+
+
 def _scoped_exec_prefix_key(owner_uuid: str | None, prefix_tokens: list[str]) -> str | None:
     """D158 owner-binding(2026-09-29):exec_prefix 放行规则 cache_key 的**唯一**算键出口。
 
@@ -2273,6 +2336,8 @@ class LLMCompleteRequest(BaseModel):
     # 网关把它同时存进 StreamSession.upstreamSessionId,用户中途引导时凭
     # conversationId/messageId 找回并转发到 /llm/complete/stream/{session_id}/steer。
     # 优先级高于 workspace_context 模式的自生成 id(两者同为每流唯一 uuid)。
+    # D690(2026-10-22)第二任消费者:调用方**复用此 id 重连**时,gen() 据此查
+    # _approval_sessions 重放仍待决的审批帧(判据见 _approval_replay_frames 头注)。
     streamSessionId: str | None = Field(
         None, description="调用方预生成的流会话 ID,steer(中途引导)入队寻址用"
     )
@@ -3300,6 +3365,17 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         # steer 端点据此区分 200(流活跃,入队)/404(流不存在或已结束)。
         if session_id:
             _steer_sessions[session_id] = []
+        # D690(方案 A,2026-10-22 机主授权代拍板;承 D131 取证、D1047 diff②):断线重连
+        # 时重放仍待决的审批弹窗。只在调用方**复用上一流会话 id**(streamSessionId)重连
+        # 时查待决表 —— 每轮新生成的 id 表必空,这一查对非重连流恒零帧。重放出的条目
+        # 必然带活等待者(原生成器被断线取消时条目已被等待方 finally 摘除,判据见
+        # _approval_replay_frames 头注③),应答经既有 approval-response 端点唤醒原等待、
+        # 工具在原流执行、结果沿原连接回流 —— 本流不接管执行,不造"批了没执行"的僵尸 run。
+        # 主对话流帧不带 id:(B 档未选),故本重放不依赖续传锚点、按 approval_id 幂等。
+        # 位置在 D34 注入交代帧之后、goal 流首帧之前(不破坏"注入帧=最早业务帧"约束)。
+        if req.streamSessionId and session_id:
+            for _approval_replay_frame in _approval_replay_frames(session_id, owner_uuid):
+                yield _approval_replay_frame
 
         def _grants_bucket() -> str:
             """本轮审批授权的落点桶(见 `_grant_bucket_key` 头注)。

@@ -1,0 +1,186 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * 账号池调度服务(2026-10-22 立):token 临期刷新 + 健康巡检 + 熔断自愈。
+ *
+ * 由 relay-account-pool-worker(BullMQ,每 5 分钟)驱动,单轮三件事:
+ * 1. refreshExpiring:access token 距过期 < 15 分钟且有 refreshToken → 调适配器刷新回写
+ *    (对标 trae-cn-proxy-rs 的 15 分钟临期检测 + ExchangeToken 续期)
+ * 2. sweepUnknown:healthStatus=unknown 的账号 → 适配器 checkHealth 定级 healthy/down
+ * 3. recoverDown:down 且有 refreshToken 且刷新失败次数未超限 → 再试一次刷新,成功则回 unknown
+ *    等下轮复检(对标 workbuddy-manager 的验活摘除 + 恢复)
+ *
+ * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
+ * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
+ */
+import { and, eq, isNotNull, lte, or, inArray } from 'drizzle-orm'
+import { db, dbRead } from '../db/index.js'
+import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
+import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
+import { encryptField } from '../utils/crypto.js'
+import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
+
+/** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
+const REFRESH_AHEAD_MS = 15 * 60 * 1000
+/** 连续刷新失败摘除阈值 */
+const REFRESH_FAILURE_LIMIT = 3
+/** 单轮最多处理的账号数(防刷新风暴打爆上游) */
+const BATCH_LIMIT = 50
+
+export interface AccountPoolSweepResult {
+  refreshed: number
+  refreshFailed: number
+  refreshSkipped: number
+  healthChecked: number
+  healthRecovered: number
+}
+
+function ctxOf(row: AiRelayAccountPool, credentials: AccountCredentials): AdapterAccountContext {
+  return { row, credentials }
+}
+
+/** 刷新单账号;成功回写凭证,失败累计摘除。返回 true = 刷新成功 */
+async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
+  const adapter = getRelayAdapter(row.providerCode)
+  if (!adapter?.refreshToken) return false
+  const credentials = decryptAccountCredentials(row)
+  try {
+    const result = await adapter.refreshToken(ctxOf(row, credentials), { proxyUrl: row.proxyUrl })
+    if (!result) return false
+    const now = new Date()
+    await db
+      .update(aiRelayAccountPool)
+      .set({
+        tokenEnc: encryptField(result.token),
+        refreshTokenEnc:
+          result.refreshToken !== undefined && result.refreshToken !== null
+            ? encryptField(result.refreshToken)
+            : row.refreshTokenEnc,
+        // 平台扩展凭据整包回写(CodeArts 刷新轮转整套 STS 凭据;无 secrets 的平台保持原值)
+        ...(result.secrets && Object.keys(result.secrets).length > 0
+          ? { secretsEnc: encryptField(JSON.stringify(result.secrets)) }
+          : {}),
+        tokenExpiresAt: result.expiresAt,
+        lastRefreshAt: now,
+        refreshFailureCount: 0,
+        // 刷新成功即解除「凭证失效」型摘除;健康状态回 unknown 等巡检定级
+        tempUnschedulable: false,
+        healthStatus: row.healthStatus === 'down' ? 'unknown' : row.healthStatus,
+        lastErrorMessage: null,
+        updatedAt: now,
+      })
+      .where(eq(aiRelayAccountPool.id, row.id))
+    return true
+  } catch {
+    const failures = row.refreshFailureCount + 1
+    const shouldRemove = failures >= REFRESH_FAILURE_LIMIT
+    await db
+      .update(aiRelayAccountPool)
+      .set({
+        refreshFailureCount: failures,
+        tempUnschedulable: shouldRemove ? true : row.tempUnschedulable,
+        healthStatus: shouldRemove ? 'down' : row.healthStatus,
+        lastErrorMessage: shouldRemove
+          ? `连续 ${failures} 次 token 刷新失败,已自动摘除`
+          : row.lastErrorMessage,
+        updatedAt: new Date(),
+      })
+      .where(eq(aiRelayAccountPool.id, row.id))
+    return false
+  }
+}
+
+export async function sweepAccountPool(): Promise<AccountPoolSweepResult> {
+  const out: AccountPoolSweepResult = {
+    refreshed: 0,
+    refreshFailed: 0,
+    refreshSkipped: 0,
+    healthChecked: 0,
+    healthRecovered: 0,
+  }
+  const now = new Date()
+  const deadline = new Date(now.getTime() + REFRESH_AHEAD_MS)
+
+  // ── 1. 临期刷新 ──
+  const expiring = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(
+      and(
+        eq(aiRelayAccountPool.isEnabled, true),
+        isNotNull(aiRelayAccountPool.refreshTokenEnc),
+        lte(aiRelayAccountPool.tokenExpiresAt, deadline),
+      ),
+    )
+    .limit(BATCH_LIMIT)
+  for (const row of expiring) {
+    const adapter = getRelayAdapter(row.providerCode)
+    if (!adapter?.refreshToken) {
+      out.refreshSkipped++
+      continue
+    }
+    if (await refreshOne(row)) out.refreshed++
+    else out.refreshFailed++
+  }
+
+  // ── 2. unknown 健康定级 ──
+  const unknowns = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(
+      and(
+        eq(aiRelayAccountPool.isEnabled, true),
+        eq(aiRelayAccountPool.healthStatus, 'unknown'),
+        or(
+          // 未摘除的,或摘除但已重新启用的
+          eq(aiRelayAccountPool.tempUnschedulable, false),
+        ),
+      ),
+    )
+    .limit(BATCH_LIMIT)
+  for (const row of unknowns) {
+    const adapter = getRelayAdapter(row.providerCode)
+    if (!adapter) continue
+    try {
+      const outcome = await adapter.checkHealth(ctxOf(row, decryptAccountCredentials(row)), {
+        proxyUrl: row.proxyUrl,
+      })
+      out.healthChecked++
+      await db
+        .update(aiRelayAccountPool)
+        .set({
+          healthStatus: outcome.ok ? 'healthy' : 'down',
+          healthCheckedAt: new Date(),
+          lastErrorMessage: outcome.ok ? null : (outcome.error ?? '健康检查失败').slice(0, 500),
+          updatedAt: new Date(),
+        })
+        .where(eq(aiRelayAccountPool.id, row.id))
+    } catch {
+      /* 单账号检查异常不中断整轮 */
+    }
+  }
+
+  // ── 3. down 账号恢复尝试(有 refreshToken 且未超失败阈值) ──
+  const downs = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(
+      and(
+        eq(aiRelayAccountPool.isEnabled, true),
+        inArray(aiRelayAccountPool.healthStatus, ['down', 'degraded']),
+        isNotNull(aiRelayAccountPool.refreshTokenEnc),
+      ),
+    )
+    .limit(10)
+  for (const row of downs) {
+    if (row.refreshFailureCount >= REFRESH_FAILURE_LIMIT) continue
+    const adapter = getRelayAdapter(row.providerCode)
+    if (!adapter?.refreshToken) continue
+    if (await refreshOne(row)) out.healthRecovered++
+  }
+
+  return out
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

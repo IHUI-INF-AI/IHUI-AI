@@ -430,6 +430,7 @@ import agentCreationRoutes from './agent-creation.js'
 // P0-5 模型 API 中转站(2026-07-29 立,4 个 admin 路由 + 1 个公开路由 + 1 个 developer 路由)
 import relayModelsRoutes from './admin/relay-models.js'
 import relayKeyPoolRoutes from './admin/relay-key-pool.js'
+import relayAccountPoolRoutes from './admin/relay-account-pool.js'
 import relayDiscoveryRoutes from './admin/relay-discovery.js'
 import relayLogsRoutes from './admin/relay-logs.js'
 import adminRelayStatsRoutes from './admin/relay-stats.js'
@@ -1255,6 +1256,8 @@ export function registerRoutes(server: FastifyInstance) {
   // admin 管理后台:模型上下架/Key 池/动态发现/调用日志(4 个路由文件,绝对路径字面量注册)
   server.register(relayModelsRoutes, { prefix: '/api' })
   server.register(relayKeyPoolRoutes, { prefix: '/api' })
+  // 第三方 AI IDE 账号池 + 反代(2026-10-22 立,对标码道网关)
+  server.register(relayAccountPoolRoutes, { prefix: '/api' })
   server.register(relayDiscoveryRoutes, { prefix: '/api' })
   server.register(relayLogsRoutes, { prefix: '/api' })
   // P0-7 admin 侧 API Key 安全粒度管理(列表/创建/详情/按租户统计/强制更新,含过期/IP白名单/模型白名单/token上限)

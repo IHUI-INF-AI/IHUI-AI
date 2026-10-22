@@ -191,8 +191,10 @@ export type SendReliabilityStatus =
  * (web 端在其他位置如 lib/video-tools/chat-image-drawer.ts 也有同名 ChatMessage,但属于不同业务上下文,
  *  各自文件内独立,无 import 交叉)。
  */
-export interface ChatMessage
-  extends Omit<BaseChatMessage, 'createdAt' | 'toolCalls' | 'parentMessageId' | 'siblingIndex'> {
+export interface ChatMessage extends Omit<
+  BaseChatMessage,
+  'createdAt' | 'toolCalls' | 'parentMessageId' | 'siblingIndex'
+> {
   /** Web 端 createdAt 必填(写入时 Date.now()) */
   createdAt: number
   /** Web 端 toolCalls 用本地 ToolCall 类型(含 InlineDiff/ApplyStatus) */
@@ -284,6 +286,12 @@ export interface TerminalInteractionState {
 /** 票60 第一切片:状态形状导出,供 chat-panes 注册表与多实例消费面取型 */
 export interface ChatState {
   messages: ChatMessage[]
+  /** 票59(2026-10-22 立,2/3 切片):版本族的手动切换态 —— rootId → 激活消息 id。
+   *  无键 = 显示最新 sibling(读投影的默认判据);有键且命中本族成员 = 显示该版;
+   *  指向已不存在的消息时投影层回落默认(失效方向是"回到最新",不是渲染成空)。
+   *  刻意**不持久化**:消息 id 是会话局部坐标,刷新后服务端重新水合,旧 id 必悬空;
+   *  把它写进 localStorage 只会把上一会话的选择带进下一会话。 */
+  activeVersionByRoot: Record<string, string>
   currentModel: string
   isStreaming: boolean
   error: string | null
@@ -627,6 +635,11 @@ export interface ChatState {
    *  新行按族尾插入而不是追加到数组末尾:读投影保持原数组顺序,追加会让新版本
    *  跑到整段对话最下面(位置跳走),而它本该出现在原回复的位置。 */
   mergeVersionMessage: (message: ChatMessage, rootId: string, siblingIndex: number) => void
+  /** 票59(2026-10-22 立,2/3 切片):切换某版本族的激活版本。
+   *  rootId / messageId 由 `versionFamilyPosition` 给出 —— 判族口径只许有一份
+   *  (lib/message-version-family.ts),这里不做二次判族、不校验成员关系;
+   *  坏指针在投影层被当"没选过"回落,不会被静默渲染成空。 */
+  setActiveMessageVersion: (rootId: string, messageId: string) => void
   /** #21 中断后追加指令继续(2026-09-13 立):被用户主动 Stop 中断的 assistant 消息 ID。
    *  null = 无中断;非 null = 输入框上方显示「追加指令继续」提示条 + 一键继续按钮。
    *  用户发送新消息或点击继续后由 send-message.ts 清空。 */
@@ -699,1041 +712,1045 @@ function genId(): string {
 type ChatStateCreator = StateCreator<ChatState, [['zustand/persist', unknown]], []>
 
 const buildChatState: ChatStateCreator = (set, get) => ({
-    messages: [],
-      // 2026-08-06 立:默认值改为 'auto',与 model-selector.tsx 的 AUTO_OPTION 一致,
-      // 体现"零配置即可用"理念,后端 llm_gateway 会自动选最优模型。
-      // 历史:step-router-v1 是 Step 厂家路由(仅 Step 内部),违背"自动切换所有可用模型"语义。
-      currentModel: 'auto',
-      isStreaming: false,
-      error: null,
-      conversationId: null,
-      userScrolledUp: false,
-      draftInput: null,
-      draftAutoSend: false,
-      pendingQuestion: null,
-      subAgentActivities: [],
-      selectedTools: [],
-      recentMessages: null,
-      compactionStatus: null,
-      // P1 #27 记忆更新可视化(2026-09-16 立)
-      memoryUpdateNotices: [],
-      // D130(2026-09-30 立):本轮没有钉档回落 = null(运行态,不持久化)
-      reasoningEffortNotice: null,
-      // Runtime 插话能力:null = 未声明(运行态,不持久化)—— 生产者缺席时回落 false
-      runtimeInterjection: null,
-      pendingDiffComments: [],
-      // 2026-09-18 终端实时输出缓冲(执行期瞬时态,不持久化)
-      terminalOutputs: {},
-      // D151 终端"等待输入"态 + 本轮上行寻址凭据(执行期瞬时态,不持久化)
-      terminalInteractions: {},
-      aiStreamSessionId: null,
-      // D1 消息级计量(执行期瞬时态,不持久化)
-      usageByMessageId: {},
-      // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
-      steerNoticesByMessageId: {},
-      streamingAssistantId: null,
-      // D22 引用回复(执行期瞬时态,不持久化)
-      quotedMessage: null,
-      // D22 网页搜索开关:SSR 安全惰性读取(服务端恒 false;客户端 store 创建早于组件 hydration,
-      // 首渲染即恢复用户偏好,与 partialize 持久化路径互为双保险)
-      webSearchEnabled:
-        typeof window !== 'undefined' && localStorage.getItem('ihui_web_search_enabled') === '1',
-      // #21 中断后追加指令继续(2026-09-13 立)
-      interruptedMessageId: null,
-      // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
-      inputHistory: [],
-      // D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列(持久化,见 partialize)
-      sideQueueByConversation: {},
-      // D38 队列交互模式偏好(2026-09-24 立):默认排队优先;steer 在 Runtime 不支持插话时
-      // 由渲染层 effectiveMode 降级为 queue 执行,偏好保留(持久化,见 partialize)
-      followUpQueueMode: 'queue',
-      // D60 发送可靠性草稿保全(2026-09-23 立):失败保留草稿(执行期 + 持久化,见 partialize)
-      failedDraft: null,
-      failedDraftStatus: null,
+  messages: [],
+  // 票59 2/3:手动切换态默认空 = 各族显示最新 sibling(投影默认判据)
+  activeVersionByRoot: {},
+  // 2026-08-06 立:默认值改为 'auto',与 model-selector.tsx 的 AUTO_OPTION 一致,
+  // 体现"零配置即可用"理念,后端 llm_gateway 会自动选最优模型。
+  // 历史:step-router-v1 是 Step 厂家路由(仅 Step 内部),违背"自动切换所有可用模型"语义。
+  currentModel: 'auto',
+  isStreaming: false,
+  error: null,
+  conversationId: null,
+  userScrolledUp: false,
+  draftInput: null,
+  draftAutoSend: false,
+  pendingQuestion: null,
+  subAgentActivities: [],
+  selectedTools: [],
+  recentMessages: null,
+  compactionStatus: null,
+  // P1 #27 记忆更新可视化(2026-09-16 立)
+  memoryUpdateNotices: [],
+  // D130(2026-09-30 立):本轮没有钉档回落 = null(运行态,不持久化)
+  reasoningEffortNotice: null,
+  // Runtime 插话能力:null = 未声明(运行态,不持久化)—— 生产者缺席时回落 false
+  runtimeInterjection: null,
+  pendingDiffComments: [],
+  // 2026-09-18 终端实时输出缓冲(执行期瞬时态,不持久化)
+  terminalOutputs: {},
+  // D151 终端"等待输入"态 + 本轮上行寻址凭据(执行期瞬时态,不持久化)
+  terminalInteractions: {},
+  aiStreamSessionId: null,
+  // D1 消息级计量(执行期瞬时态,不持久化)
+  usageByMessageId: {},
+  // Steer(中途引导)注入确认 + 当前流式 assistant 消息 ID(执行期瞬时态,不持久化)
+  steerNoticesByMessageId: {},
+  streamingAssistantId: null,
+  // D22 引用回复(执行期瞬时态,不持久化)
+  quotedMessage: null,
+  // D22 网页搜索开关:SSR 安全惰性读取(服务端恒 false;客户端 store 创建早于组件 hydration,
+  // 首渲染即恢复用户偏好,与 partialize 持久化路径互为双保险)
+  webSearchEnabled:
+    typeof window !== 'undefined' && localStorage.getItem('ihui_web_search_enabled') === '1',
+  // #21 中断后追加指令继续(2026-09-13 立)
+  interruptedMessageId: null,
+  // W27 输入历史(2026-09-14 立):Esc+Esc 历史导航数据源
+  inputHistory: [],
+  // D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列(持久化,见 partialize)
+  sideQueueByConversation: {},
+  // D38 队列交互模式偏好(2026-09-24 立):默认排队优先;steer 在 Runtime 不支持插话时
+  // 由渲染层 effectiveMode 降级为 queue 执行,偏好保留(持久化,见 partialize)
+  followUpQueueMode: 'queue',
+  // D60 发送可靠性草稿保全(2026-09-23 立):失败保留草稿(执行期 + 持久化,见 partialize)
+  failedDraft: null,
+  failedDraftStatus: null,
 
-      // 2026-08-06 立:Auto 模式真正跨厂商路由(用户反馈"应该是自动切换所有可使用的模型")
-      // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
-      // 修复:把 'auto' 原样透传到 ai-service,由后端 /llm/complete 解析为
-      //       model_availability 返回的「全厂商最优模型」(见 apps/ai-service/llm_gateway.py)。
-      setModel: (model) => set({ currentModel: model }),
-      addSelectedTool: (pluginId) =>
-        set((s) =>
-          s.selectedTools.includes(pluginId)
-            ? s
-            : { selectedTools: [...s.selectedTools, pluginId] },
+  // 2026-08-06 立:Auto 模式真正跨厂商路由(用户反馈"应该是自动切换所有可使用的模型")
+  // 历史:之前静默转 'auto' → 'stepfun/step-router-v1',导致 Auto 永远绑死 Step 厂家路由。
+  // 修复:把 'auto' 原样透传到 ai-service,由后端 /llm/complete 解析为
+  //       model_availability 返回的「全厂商最优模型」(见 apps/ai-service/llm_gateway.py)。
+  setModel: (model) => set({ currentModel: model }),
+  addSelectedTool: (pluginId) =>
+    set((s) =>
+      s.selectedTools.includes(pluginId) ? s : { selectedTools: [...s.selectedTools, pluginId] },
+    ),
+  removeSelectedTool: (pluginId) =>
+    set((s) => ({ selectedTools: s.selectedTools.filter((id) => id !== pluginId) })),
+  clearSelectedTools: () => set({ selectedTools: [] }),
+
+  addMessage: (msg) => {
+    const id = genId()
+    const message: ChatMessage = {
+      id,
+      role: msg.role,
+      content: msg.content,
+      createdAt: Date.now(),
+      model: msg.model,
+      // 透传权限模式(2026-07-25 深化,深度对标 Codex 透明性):
+      // 用户消息不传(无模式),AI 消息由调用方传入当前工作区模式
+      permissionMode: msg.permissionMode,
+      // W24(2026-09-14):透传附加元数据(/btw 侧聊标记 meta.sidechat 等)
+      meta: msg.meta,
+    }
+    set((s) => {
+      // W16(2026-09-13):消息树地基 —— 新消息自动指向前一条消息(parentMessageId)。
+      // 截断重跑(regenerate/edit-rerun)场景下截断后末尾即触发消息,天然形成正确父子链,
+      // 为 W17 Fork 与编辑历史追溯提供数据结构支撑。
+      const prev = s.messages[s.messages.length - 1]
+      const full: ChatMessage = { ...message, parentMessageId: prev?.id }
+      const messages = s.messages.concat(full)
+      // P1-1 修复:超过上限时丢弃最旧消息(滑动窗口),防止长会话内存爆炸
+      if (messages.length > MAX_MESSAGES) {
+        messages.splice(0, messages.length - MAX_MESSAGES)
+      }
+      return { messages }
+    })
+    return id
+  },
+
+  // P0 流式性能优化(2026-07-23):用 findIndex 替代 map,
+  // 只更新目标消息引用,其他消息引用不变 → 配合 React.memo 避免全量重渲染
+  appendToMessage: (id, delta) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === id)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = { ...target, content: target.content + delta }
+      return { messages: next }
+    }),
+
+  appendReasoningToMessage: (id, delta) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === id)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = { ...target, reasoning: (target.reasoning || '') + delta }
+      return { messages: next }
+    }),
+
+  setMessageError: (id, error, errorCode) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === id)
+      if (idx === -1) return { error }
+      const target = s.messages[idx]
+      if (!target) return { error }
+      const next = s.messages.slice()
+      // D92:把后端 errorCode 一并落到消息上,渲染侧才能走统一分类表取词
+      next[idx] = markStreamError(target, error, errorCode)
+      return { messages: next, error }
+    }),
+
+  /** 标记助手消息的流完成态(P1-6 断点续传,2026-09-13 立):
+   *  流开始时置 false(中断/刷新后据此判定可续接),正常收尾或错误收尾时置 true。 */
+  setMessageStreamCompleted: (messageId, completed) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = { ...target, streamCompleted: completed }
+      return { messages: next }
+    }),
+
+  /** 票64(2026-10-18 立):写入消息级钉选/收藏时刻(服务端盖章值)。
+   *  找不到那条消息就整轮原样返回 —— 把"消息不在这屏"写成一次清空标记是反向失真。 */
+  patchMessageFlags: (messageId, flags) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = {
+        ...target,
+        pinnedAt: flags.pinnedAt,
+        bookmarkedAt: flags.bookmarkedAt,
+      }
+      return { messages: next }
+    }),
+
+  /** 票64(2026-10-18 立):并入 AI 消息编辑产生的新 sibling 行(详见接口注释)。 */
+  mergeVersionMessage: (message, rootId, siblingIndex) =>
+    set((s) => {
+      // 同一条新版本被重复并入(双击保存/重放)时不产生第二行
+      if (s.messages.some((m) => m.id === message.id)) return s
+      // 族根坐标补全:服务端已把库里那行补成 siblingIndex=0,内存里这条还没有
+      const next = s.messages.map((m) =>
+        m.id === rootId && (m.siblingIndex === null || m.siblingIndex === undefined)
+          ? { ...m, parentMessageId: null, siblingIndex: 0 }
+          : m,
+      )
+      const row: ChatMessage = { ...message, parentMessageId: rootId, siblingIndex }
+      // 按族尾插入(族根 + 已有 sibling),让激活版本落在原回复的位置
+      let lastFamilyIdx = -1
+      for (let i = 0; i < next.length; i++) {
+        const m = next[i]!
+        const inFamily =
+          m.id === rootId ||
+          (m.parentMessageId === rootId && m.siblingIndex !== null && m.siblingIndex !== undefined)
+        if (inFamily) lastFamilyIdx = i
+      }
+      next.splice(lastFamilyIdx === -1 ? next.length : lastFamilyIdx + 1, 0, row)
+      if (next.length > MAX_MESSAGES) next.splice(0, next.length - MAX_MESSAGES)
+      // 票59 2/3:新 sibling 入族 ⇒ 该族回默认(显示最新)。否则用户停在第 1 版时
+      // 点一次「重新生成」看不到新回复,表现成"点了没反应"。
+      const versionState =
+        rootId in s.activeVersionByRoot
+          ? Object.fromEntries(Object.entries(s.activeVersionByRoot).filter(([k]) => k !== rootId))
+          : s.activeVersionByRoot
+      return { messages: next, activeVersionByRoot: versionState }
+    }),
+
+  /** 票59 2/3:切换版本族激活版本(判族与成员校验在 lib/message-version-family.ts)。 */
+  setActiveMessageVersion: (rootId, messageId) =>
+    set((s) =>
+      s.activeVersionByRoot[rootId] === messageId
+        ? s
+        : { activeVersionByRoot: { ...s.activeVersionByRoot, [rootId]: messageId } },
+    ),
+
+  // #21 中断后追加指令继续(2026-09-13 立)
+  setInterruptedMessage: (id) => set({ interruptedMessageId: id }),
+
+  // #23 撤回未执行工具卡(2026-09-13 立)
+  revokePendingToolCalls: (messageId) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const pending = target.toolCalls?.filter((tc) => tc.status === 'running') ?? []
+      if (pending.length === 0) return s
+      const revokedIds = new Set(pending.map((tc) => tc.id))
+      const next = s.messages.slice()
+      next[idx] = {
+        ...target,
+        toolCalls: target.toolCalls?.map((tc) =>
+          revokedIds.has(tc.id) ? { ...tc, status: 'cancelled' as const } : tc,
         ),
-      removeSelectedTool: (pluginId) =>
-        set((s) => ({ selectedTools: s.selectedTools.filter((id) => id !== pluginId) })),
-      clearSelectedTools: () => set({ selectedTools: [] }),
+      }
+      return { messages: next }
+    }),
 
-      addMessage: (msg) => {
-        const id = genId()
-        const message: ChatMessage = {
-          id,
-          role: msg.role,
-          content: msg.content,
-          createdAt: Date.now(),
-          model: msg.model,
-          // 透传权限模式(2026-07-25 深化,深度对标 Codex 透明性):
-          // 用户消息不传(无模式),AI 消息由调用方传入当前工作区模式
-          permissionMode: msg.permissionMode,
-          // W24(2026-09-14):透传附加元数据(/btw 侧聊标记 meta.sidechat 等)
-          meta: msg.meta,
+  clearMessages: () =>
+    set({
+      // G-703(2026-09-29 立):运行域三键(isStreaming / streamingAssistantId /
+      // aiStreamSessionId)走**同一份**清单复位,不在这里各抄一行 —— 抄第二份就是第二个真相。
+      ...RUN_SCOPED_RESET,
+      messages: [],
+      error: null,
+      memoryUpdateNotices: [],
+      // D130:上一轮的钉档回落属那一轮的运行态,新建对话必须一起清 ——
+      // 留着的表现是"新会话第一件事就告诉用户档位被改了",而本轮根本没选过档。
+      reasoningEffortNotice: null,
+      // Runtime 插话能力同属那一轮的运行态:上一轮声明的"支持插话"挂到新会话上,
+      // 而新会话根本还没跟 Runtime 说过话 ⇒ 回落到"未声明"(消费侧读 false)。
+      runtimeInterjection: null,
+      // P3 #30:新建对话时 diff 卡片随消息消失,待发送评论一并清空避免悬空
+      pendingDiffComments: [],
+      // 2026-09-18:终端实时输出属消息级瞬时态,新建对话一并清空
+      terminalOutputs: {},
+      // D151:同理必须**并列**清空 —— 上一轮残留的"等待输入"挂到下一轮的卡上,
+      // 用户会把一行字送进一个已经结束的命令(而界面看不出来)。
+      terminalInteractions: {},
+      // D1 消息级计量:新建对话一并清空
+      usageByMessageId: {},
+      // Steer(中途引导):提示条一并清空;流式目标消息 ID 已随上面 RUN_SCOPED_RESET 失效
+      steerNoticesByMessageId: {},
+      // 票59 2/3:版本切换态是会话局部坐标(消息 id),新建对话必须一起清
+      activeVersionByRoot: {},
+    }),
+  /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
+  setMessages: (messages: ChatMessage[]) => set({ messages }),
+  /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):
+   *  只更新目标消息 content,引用替换配合 React.memo 精准重渲染。 */
+  editMessageContent: (messageId, content) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = { ...target, content }
+      return { messages: next }
+    }),
+  /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用)
+   *  2026-08-30 立,与后端 /regenerate 端点配套:
+   *  后端已删除 DB 中该消息及之后的内容,前端同步删除内存中的对应消息,
+   *  保留该消息之前的历史,然后复用 sendMessage 重新发送前一条用户问题。 */
+  truncateMessagesFrom: (messageId) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      return { messages: s.messages.slice(0, idx) }
+    }),
+  /** 保留指定消息,删除其之后的所有消息(2026-09-12 立,编辑重跑用):
+   *  编辑重跑时后端已更新目标用户消息内容并删除其后消息,
+   *  前端保留该用户消息(内容已由 editMessageContent 更新),截掉其后的 AI 回复。 */
+  truncateMessagesFromAfter: (messageId) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      return { messages: s.messages.slice(0, idx + 1) }
+    }),
+  setCompactionStatus: (status) => set({ compactionStatus: status }),
+  /** D130(2026-09-30 立):推理强度回落通知的唯一写入口。
+   *  值等价即不写(与 G-704 同一取向):done 帧重放/续接时同一份回落会被再送一次,
+   *  无条件重建会让订阅侧收到"变了"并白刷一轮轴。 */
+  setReasoningEffortNotice: (notice) =>
+    set((s) => {
+      const same =
+        (s.reasoningEffortNotice === null && notice === null) ||
+        (s.reasoningEffortNotice !== null &&
+          notice !== null &&
+          s.reasoningEffortNotice.fallback === notice.fallback &&
+          s.reasoningEffortNotice.requested === notice.requested &&
+          s.reasoningEffortNotice.effective === notice.effective &&
+          s.reasoningEffortNotice.reason === notice.reason)
+      if (same) return s
+      return { reasoningEffortNotice: notice }
+    }),
+  setRuntimeInterjection: (declared) =>
+    set((s) => (s.runtimeInterjection === declared ? s : { runtimeInterjection: declared })),
+  /** G-703:false 侧不再裸写单键 —— "本轮不再在跑"这一件事必然同时意味着"上一轮的寻址凭据
+   *  作废",所以它只能是一次 RUN_SCOPED_RESET 写入。true 侧保持只置运行标志,
+   *  不得顺手清凭据(本轮的 sessionId 是在 setStreaming(true) **之后**由同源帧观察登记的)。 */
+  setStreaming: (v) => set(v ? { isStreaming: true } : RUN_SCOPED_RESET),
+  /** G-703:运行域凭据的唯一回收出口(清单与"为什么是这三键"见 RUN_SCOPED_RESET 注释)。 */
+  clearRunScopedState: () => set(RUN_SCOPED_RESET),
+
+  setError: (e) => set({ error: e }),
+
+  setConversationId: (id) => set({ conversationId: id }),
+
+  setUserScrolledUp: (v) => set({ userScrolledUp: v }),
+
+  clearDraftInput: () => set({ draftInput: null }),
+
+  clearDraftAutoSend: () => set({ draftAutoSend: false }),
+
+  // D22 引用回复:写入/清除引用目标(输入区 chip 由 MessageInput 订阅渲染)
+  setQuotedMessage: (q) => set({ quotedMessage: q }),
+
+  // D22 网页搜索开关:同步 localStorage(初始 state 惰性读取的回写路径)
+  setWebSearchEnabled: (v) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ihui_web_search_enabled', v ? '1' : '0')
+    }
+    set({ webSearchEnabled: v })
+  },
+
+  setPendingQuestion: (q) => set({ pendingQuestion: q }),
+
+  clearPendingQuestion: () => set({ pendingQuestion: null }),
+
+  appendToAgentStream: (agentId, delta, name) =>
+    set((s) => {
+      const existing = s.subAgentActivities.find((a) => a.agentId === agentId)
+      if (existing) {
+        return {
+          subAgentActivities: s.subAgentActivities.map((a) =>
+            a.agentId === agentId
+              ? {
+                  ...a,
+                  streamingContent: (a.streamingContent || '') + delta,
+                  streamingDone: false,
+                }
+              : a,
+          ),
         }
-        set((s) => {
-          // W16(2026-09-13):消息树地基 —— 新消息自动指向前一条消息(parentMessageId)。
-          // 截断重跑(regenerate/edit-rerun)场景下截断后末尾即触发消息,天然形成正确父子链,
-          // 为 W17 Fork 与编辑历史追溯提供数据结构支撑。
-          const prev = s.messages[s.messages.length - 1]
-          const full: ChatMessage = { ...message, parentMessageId: prev?.id }
-          const messages = s.messages.concat(full)
-          // P1-1 修复:超过上限时丢弃最旧消息(滑动窗口),防止长会话内存爆炸
-          if (messages.length > MAX_MESSAGES) {
-            messages.splice(0, messages.length - MAX_MESSAGES)
-          }
-          return { messages }
-        })
-        return id
-      },
+      }
+      const newActivity: SubAgentActivity = {
+        agentId,
+        name: name || `Agent ${agentId.slice(0, 8)}`,
+        type: 'worker',
+        status: 'running',
+        currentStep: 'Generating…',
+        completedSteps: [],
+        streamingContent: delta,
+        streamingDone: false,
+      }
+      return { subAgentActivities: [...s.subAgentActivities, newActivity] }
+    }),
 
-      // P0 流式性能优化(2026-07-23):用 findIndex 替代 map,
+  markAllAgentStreamsDone: () =>
+    set((s) => ({
+      subAgentActivities: s.subAgentActivities.map((a) => ({
+        ...a,
+        streamingDone: true,
+        status: a.status === 'running' || a.status === 'thinking' ? 'completed' : a.status,
+        currentStep: a.status === 'running' || a.status === 'thinking' ? '' : a.currentStep,
+      })),
+    })),
+
+  resetSubAgentActivities: () => set({ subAgentActivities: [] }),
+
+  // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
+  // - addSubagentSpawn: 后端 subagent_spawn SSE 事件触发,追加新 SubAgentActivity(status='running')
+  // - markSubagentEnd: 后端 subagent_end SSE 事件触发,更新现有条目状态为 completed/failed
+  // 与 appendToAgentStream 的区别:appendToAgentStream 用于多 agent 多路复用的 token 流分流,
+  // 而 addSubagentSpawn/markSubagentEnd 用于 dispatch_subagent 工具调用的生命周期展示。
+  // 两者写入同一 subAgentActivities 数组,UI 统一通过 SubAgentActivityFeed 渲染。
+  // 2026-08-01 Phase 4a:若 event.messageId 存在,同步写入 message.subagentActivities,
+  // 供消息气泡内 inline SubagentSection 实时刷新(对标 AI 工作台/Codex 消息级透明性)。
+  addSubagentSpawn: (event) =>
+    set((s) => {
+      const globalExists = s.subAgentActivities.some((a) => a.agentId === event.id)
+      const newActivity: SubAgentActivity = {
+        agentId: event.id,
+        name: event.role || `Subagent ${event.id.slice(-6)}`,
+        type: 'worker',
+        status: 'running',
+        currentStep: event.task || '执行中…',
+        completedSteps: [],
+      }
+      // 消息级同步:按 event.messageId upsert 到对应 message.subagentActivities
+      let messages = s.messages
+      if (event.messageId) {
+        const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
+        if (mIdx !== -1) {
+          const target = s.messages[mIdx]
+          if (target && !(target.subagentActivities ?? []).some((a) => a.agentId === event.id)) {
+            messages = s.messages.slice()
+            messages[mIdx] = {
+              ...target,
+              subagentActivities: [...(target.subagentActivities ?? []), newActivity],
+            }
+          }
+        }
+      }
+      if (globalExists) return messages === s.messages ? s : { messages }
+      return { subAgentActivities: [...s.subAgentActivities, newActivity], messages }
+    }),
+
+  markSubagentEnd: (event) =>
+    set((s) => {
+      const applyEnd = (a: SubAgentActivity): SubAgentActivity => {
+        if (a.agentId !== event.id) return a
+        const nextStatus: SubAgentActivity['status'] =
+          event.status === 'failed' ? 'failed' : 'completed'
+        return {
+          ...a,
+          status: nextStatus,
+          // 完成时把 currentStep 推入 completedSteps,再清空 currentStep;
+          // 失败时 currentStep 改为错误摘要,保留 step 上下文供用户排查
+          ...(event.status === 'failed'
+            ? {
+                currentStep: event.failureReason
+                  ? `失败:${event.failureReason.slice(0, 200)}`
+                  : '执行失败',
+              }
+            : {
+                completedSteps: [
+                  ...a.completedSteps,
+                  ...(a.currentStep
+                    ? [
+                        {
+                          stepAction: a.currentStep,
+                          createdAt: event.timestamp,
+                          status: 'completed' as const,
+                        },
+                      ]
+                    : []),
+                ],
+                currentStep: '',
+              }),
+          streamingDone: true,
+        }
+      }
+      const subAgentActivities = s.subAgentActivities.map(applyEnd)
+      // 2026-08-01 Phase 4a:同步更新消息级
+      let messages = s.messages
+      if (event.messageId) {
+        const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
+        if (mIdx !== -1) {
+          const target = s.messages[mIdx]
+          if (target?.subagentActivities?.some((a) => a.agentId === event.id)) {
+            messages = s.messages.slice()
+            messages[mIdx] = {
+              ...target,
+              subagentActivities: target.subagentActivities.map(applyEnd),
+            }
+          }
+        }
+      }
+      return { subAgentActivities, messages }
+    }),
+
+  updateSubagentProgress: (event) =>
+    set((s) => {
+      const applyProgress = (a: SubAgentActivity): SubAgentActivity => {
+        if (a.agentId !== event.id) return a
+        // 根据 phase 构造人类可读的 currentStep 文本
+        let stepText = a.currentStep
+        const iter = event.iteration ? ` (轮次 ${event.iteration})` : ''
+        switch (event.phase) {
+          case 'thinking':
+            stepText = `思考中…${iter}`
+            break
+          case 'tool_call':
+            stepText = `调用工具: ${event.tool ?? 'unknown'}${iter}`
+            break
+          case 'tool_result':
+            stepText = `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}${iter}`
+            break
+          case 'output_ready':
+            stepText = '输出就绪'
+            break
+        }
+        // tool_result 时把 tool_call 的 stepText 推入 completedSteps
+        const completedSteps =
+          event.phase === 'tool_result'
+            ? [
+                ...a.completedSteps,
+                {
+                  stepAction: `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}`,
+                  createdAt: event.timestamp,
+                  status: (event.ok ? 'completed' : 'failed') as 'completed' | 'failed',
+                },
+              ]
+            : a.completedSteps
+        const toolCallsCount =
+          event.phase === 'tool_result' ? (a.toolCallsCount ?? 0) + 1 : (a.toolCallsCount ?? 0)
+        return {
+          ...a,
+          currentStep: stepText,
+          progressPhase: event.phase,
+          progressIteration: event.iteration ?? a.progressIteration,
+          progressTool: event.tool ?? a.progressTool,
+          toolCallsCount,
+          completedSteps,
+          outputPreview: event.outputPreview ?? a.outputPreview,
+        }
+      }
+      const subAgentActivities = s.subAgentActivities.map(applyProgress)
+      // 2026-08-01 Phase 4a:同步更新消息级
+      let messages = s.messages
+      if (event.messageId) {
+        const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
+        if (mIdx !== -1) {
+          const target = s.messages[mIdx]
+          if (target?.subagentActivities?.some((a) => a.agentId === event.id)) {
+            messages = s.messages.slice()
+            messages[mIdx] = {
+              ...target,
+              subagentActivities: target.subagentActivities.map(applyProgress),
+            }
+          }
+        }
+      }
+      return { subAgentActivities, messages }
+    }),
+
+  addToolCall: (messageId, toolCall) =>
+    set((s) => {
+      // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历,
       // 只更新目标消息引用,其他消息引用不变 → 配合 React.memo 避免全量重渲染
-      appendToMessage: (id, delta) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === id)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, content: target.content + delta }
-          return { messages: next }
-        }),
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const fullCall: ToolCall = {
+        ...toolCall,
+        status: toolCall.status ?? 'running',
+      }
+      // 已存在同 id 的 toolCall 不重复添加(与原 map 实现语义一致)
+      const exists = target.toolCalls?.some((tc) => tc.id === fullCall.id)
+      if (exists) return s
+      const next = s.messages.slice()
+      next[idx] = {
+        ...target,
+        toolCalls: [...(target.toolCalls ?? []), fullCall],
+      }
+      return { messages: next }
+    }),
 
-      appendReasoningToMessage: (id, delta) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === id)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, reasoning: (target.reasoning || '') + delta }
-          return { messages: next }
-        }),
+  updateToolCall: (messageId, toolCallId, updates) =>
+    set((s) => {
+      // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target || !target.toolCalls) return s
+      const tcIdx = target.toolCalls.findIndex((tc) => tc.id === toolCallId)
+      if (tcIdx === -1) return s
+      const oldTc = target.toolCalls[tcIdx]
+      if (!oldTc) return s // 类型收窄:确保 oldTc 是 ToolCall(noUncheckedIndexedAccess)
+      const next = s.messages.slice()
+      const newToolCalls = target.toolCalls.slice()
+      newToolCalls[tcIdx] = { ...oldTc, ...updates }
+      next[idx] = { ...target, toolCalls: newToolCalls }
+      return { messages: next }
+    }),
 
-      setMessageError: (id, error, errorCode) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === id)
-          if (idx === -1) return { error }
-          const target = s.messages[idx]
-          if (!target) return { error }
-          const next = s.messages.slice()
-          // D92:把后端 errorCode 一并落到消息上,渲染侧才能走统一分类表取词
-          next[idx] = markStreamError(target, error, errorCode)
-          return { messages: next, error }
-        }),
+  setToolCallApplyStatus: (messageId, toolCallId, status, errorMessage) =>
+    set((s) => {
+      // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target || !target.toolCalls) return s
+      const tcIdx = target.toolCalls.findIndex((tc) => tc.id === toolCallId)
+      if (tcIdx === -1) return s
+      const oldTc = target.toolCalls[tcIdx]
+      if (!oldTc) return s // 类型收窄:确保 oldTc 是 ToolCall(noUncheckedIndexedAccess)
+      const next = s.messages.slice()
+      const newToolCalls = target.toolCalls.slice()
+      newToolCalls[tcIdx] = {
+        ...oldTc,
+        applyStatus: status,
+        applyError: status === 'error' ? errorMessage : undefined,
+      }
+      next[idx] = { ...target, toolCalls: newToolCalls }
+      return { messages: next }
+    }),
 
-      /** 标记助手消息的流完成态(P1-6 断点续传,2026-09-13 立):
-       *  流开始时置 false(中断/刷新后据此判定可续接),正常收尾或错误收尾时置 true。 */
-      setMessageStreamCompleted: (messageId, completed) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, streamCompleted: completed }
-          return { messages: next }
-        }),
+  /** #14 Diff 文件级批量状态(2026-09-13 立,对标 Qoder/WorkBuddy 逐项+文件级):
+   *  把消息内所有 diff 工具卡(edit_file/write_file,applyStatus 处于非终态)整体置为 status。
+   *  终态(applied/rejected)与 applying 中的卡片跳过,避免覆盖已决结果。 */
+  setAllDiffApplyStatus: (messageId, status) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target?.toolCalls) return s
+      const hasDiffCard = (tc: ToolCall) =>
+        !!tc.diffInfo || (tc.applyStatus !== undefined && tc.applyStatus !== null)
+      const next = s.messages.slice()
+      next[idx] = {
+        ...target,
+        toolCalls: target.toolCalls.map((tc) =>
+          hasDiffCard(tc) &&
+          tc.applyStatus !== 'applied' &&
+          tc.applyStatus !== 'rejected' &&
+          tc.applyStatus !== 'applying'
+            ? { ...tc, applyStatus: status, applyError: undefined }
+            : tc,
+        ),
+      }
+      return { messages: next }
+    }),
 
-      /** 票64(2026-10-18 立):写入消息级钉选/收藏时刻(服务端盖章值)。
-       *  找不到那条消息就整轮原样返回 —— 把"消息不在这屏"写成一次清空标记是反向失真。 */
-      patchMessageFlags: (messageId, flags) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = {
-            ...target,
-            pinnedAt: flags.pinnedAt,
-            bookmarkedAt: flags.bookmarkedAt,
-          }
-          return { messages: next }
-        }),
+  // 2026-07-31 立,AI 对话可视化深度接入:SSE tool-summary 事件落地
+  setMessageToolSummary: (messageId, summary) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = {
+        ...target,
+        toolCallSummary: summary,
+        totalDurationMs: summary.totalDurationMs ?? target.totalDurationMs,
+      }
+      return { messages: next }
+    }),
 
-      /** 票64(2026-10-18 立):并入 AI 消息编辑产生的新 sibling 行(详见接口注释)。 */
-      mergeVersionMessage: (message, rootId, siblingIndex) =>
-        set((s) => {
-          // 同一条新版本被重复并入(双击保存/重放)时不产生第二行
-          if (s.messages.some((m) => m.id === message.id)) return s
-          // 族根坐标补全:服务端已把库里那行补成 siblingIndex=0,内存里这条还没有
-          const next = s.messages.map((m) =>
-            m.id === rootId && (m.siblingIndex === null || m.siblingIndex === undefined)
-              ? { ...m, parentMessageId: null, siblingIndex: 0 }
-              : m,
-          )
-          const row: ChatMessage = { ...message, parentMessageId: rootId, siblingIndex }
-          // 按族尾插入(族根 + 已有 sibling),让激活版本落在原回复的位置
-          let lastFamilyIdx = -1
-          for (let i = 0; i < next.length; i++) {
-            const m = next[i]!
-            const inFamily =
-              m.id === rootId ||
-              (m.parentMessageId === rootId &&
-                m.siblingIndex !== null &&
-                m.siblingIndex !== undefined)
-            if (inFamily) lastFamilyIdx = i
-          }
-          next.splice(lastFamilyIdx === -1 ? next.length : lastFamilyIdx + 1, 0, row)
-          if (next.length > MAX_MESSAGES) next.splice(0, next.length - MAX_MESSAGES)
-          return { messages: next }
-        }),
+  // 2026-08-01 Phase 4a:消息级 plan steps(整体替换,plan 事件为权威快照)
+  setMessagePlanSteps: (messageId, steps) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = { ...target, planSteps: steps }
+      return { messages: next }
+    }),
 
-      // #21 中断后追加指令继续(2026-09-13 立)
-      setInterruptedMessage: (id) => set({ interruptedMessageId: id }),
+  // #11 Citations 全链路(2026-09-13 立):写入消息级引用溯源(SSE citations 事件,整体替换)
+  setMessageCitations: (messageId, citations) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = { ...target, citations }
+      return { messages: next }
+    }),
 
-      // #23 撤回未执行工具卡(2026-09-13 立)
-      revokePendingToolCalls: (messageId) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const pending = target.toolCalls?.filter((tc) => tc.status === 'running') ?? []
-          if (pending.length === 0) return s
-          const revokedIds = new Set(pending.map((tc) => tc.id))
-          const next = s.messages.slice()
-          next[idx] = {
-            ...target,
-            toolCalls: target.toolCalls?.map((tc) =>
-              revokedIds.has(tc.id) ? { ...tc, status: 'cancelled' as const } : tc,
-            ),
-          }
-          return { messages: next }
-        }),
+  appendMessageInjection: (messageId, injection) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const existing = target.injections ?? []
+      // 同 kind + 同标签视为同一条(补发/重连幂等)
+      if (existing.some((x) => x.kind === injection.kind && x.collapsed === injection.collapsed)) {
+        return s
+      }
+      const next = s.messages.slice()
+      next[idx] = { ...target, injections: [...existing, injection] }
+      return { messages: next }
+    }),
 
-      clearMessages: () =>
-        set({
-          // G-703(2026-09-29 立):运行域三键(isStreaming / streamingAssistantId /
-          // aiStreamSessionId)走**同一份**清单复位,不在这里各抄一行 —— 抄第二份就是第二个真相。
-          ...RUN_SCOPED_RESET,
-          messages: [],
-          error: null,
-          memoryUpdateNotices: [],
-          // D130:上一轮的钉档回落属那一轮的运行态,新建对话必须一起清 ——
-          // 留着的表现是"新会话第一件事就告诉用户档位被改了",而本轮根本没选过档。
-          reasoningEffortNotice: null,
-          // Runtime 插话能力同属那一轮的运行态:上一轮声明的"支持插话"挂到新会话上,
-          // 而新会话根本还没跟 Runtime 说过话 ⇒ 回落到"未声明"(消费侧读 false)。
-          runtimeInterjection: null,
-          // P3 #30:新建对话时 diff 卡片随消息消失,待发送评论一并清空避免悬空
-          pendingDiffComments: [],
-          // 2026-09-18:终端实时输出属消息级瞬时态,新建对话一并清空
-          terminalOutputs: {},
-          // D151:同理必须**并列**清空 —— 上一轮残留的"等待输入"挂到下一轮的卡上,
-          // 用户会把一行字送进一个已经结束的命令(而界面看不出来)。
-          terminalInteractions: {},
-          // D1 消息级计量:新建对话一并清空
-          usageByMessageId: {},
-          // Steer(中途引导):提示条一并清空;流式目标消息 ID 已随上面 RUN_SCOPED_RESET 失效
-          steerNoticesByMessageId: {},
-        }),
-      /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
-      setMessages: (messages: ChatMessage[]) => set({ messages }),
-      /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):
-       *  只更新目标消息 content,引用替换配合 React.memo 精准重渲染。 */
-      editMessageContent: (messageId, content) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, content }
-          return { messages: next }
-        }),
-      /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用)
-       *  2026-08-30 立,与后端 /regenerate 端点配套:
-       *  后端已删除 DB 中该消息及之后的内容,前端同步删除内存中的对应消息,
-       *  保留该消息之前的历史,然后复用 sendMessage 重新发送前一条用户问题。 */
-      truncateMessagesFrom: (messageId) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          return { messages: s.messages.slice(0, idx) }
-        }),
-      /** 保留指定消息,删除其之后的所有消息(2026-09-12 立,编辑重跑用):
-       *  编辑重跑时后端已更新目标用户消息内容并删除其后消息,
-       *  前端保留该用户消息(内容已由 editMessageContent 更新),截掉其后的 AI 回复。 */
-      truncateMessagesFromAfter: (messageId) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          return { messages: s.messages.slice(0, idx + 1) }
-        }),
-      setCompactionStatus: (status) => set({ compactionStatus: status }),
-      /** D130(2026-09-30 立):推理强度回落通知的唯一写入口。
-       *  值等价即不写(与 G-704 同一取向):done 帧重放/续接时同一份回落会被再送一次,
-       *  无条件重建会让订阅侧收到"变了"并白刷一轮轴。 */
-      setReasoningEffortNotice: (notice) =>
-        set((s) => {
-          const same =
-            (s.reasoningEffortNotice === null && notice === null) ||
-            (s.reasoningEffortNotice !== null &&
-              notice !== null &&
-              s.reasoningEffortNotice.fallback === notice.fallback &&
-              s.reasoningEffortNotice.requested === notice.requested &&
-              s.reasoningEffortNotice.effective === notice.effective &&
-              s.reasoningEffortNotice.reason === notice.reason)
-          if (same) return s
-          return { reasoningEffortNotice: notice }
-        }),
-      setRuntimeInterjection: (declared) =>
-        set((s) => (s.runtimeInterjection === declared ? s : { runtimeInterjection: declared })),
-      /** G-703:false 侧不再裸写单键 —— "本轮不再在跑"这一件事必然同时意味着"上一轮的寻址凭据
-       *  作废",所以它只能是一次 RUN_SCOPED_RESET 写入。true 侧保持只置运行标志,
-       *  不得顺手清凭据(本轮的 sessionId 是在 setStreaming(true) **之后**由同源帧观察登记的)。 */
-      setStreaming: (v) => set(v ? { isStreaming: true } : RUN_SCOPED_RESET),
-      /** G-703:运行域凭据的唯一回收出口(清单与"为什么是这三键"见 RUN_SCOPED_RESET 注释)。 */
-      clearRunScopedState: () => set(RUN_SCOPED_RESET),
+  setMessageRetryNotice: (messageId, notice) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = { ...target, retryNotice: notice }
+      return { messages: next }
+    }),
 
-      setError: (e) => set({ error: e }),
+  // 2026-09-19 立:写入消息级上下文压缩统计(compaction 命名帧 → onCompaction
+  // 回调 → send-message 映射为 MessageCompaction),整体替换;MessageItem 在
+  // 消息内容区顶部渲染 CompressionDivider。
+  setMessageCompaction: (messageId, compaction) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const next = s.messages.slice()
+      next[idx] = { ...target, compaction }
+      return { messages: next }
+    }),
 
-      setConversationId: (id) => set({ conversationId: id }),
+  // P1 #27 记忆更新可视化(2026-09-16 立):done 事件 memoryUpdates 落地。
+  // 按 messageId 写入/追加到 memoryUpdateNotices;同 messageId 已存在则合并 items(去重)。
+  // 每条助手消息限一条提示条(本轮),故以 messageId 为键整体替换而非堆叠多个。
+  appendMemoryNotice: (messageId, items) =>
+    set((s) => {
+      if (!items?.length) return s
+      const notices = s.memoryUpdateNotices.slice()
+      const existingIdx = notices.findIndex((n) => n.messageId === messageId)
+      if (existingIdx === -1) {
+        notices.push({ messageId, items: items.slice() })
+      } else {
+        const existing = notices[existingIdx]!
+        const mergedItems = Array.from(new Set([...existing.items, ...items])).filter(
+          (v) => v.length > 0,
+        )
+        const merged = { messageId, items: mergedItems }
+        // G-704(2026-09-29 立)值等价即不写:done 事件重放 / 历史加载与 done 先后到齐时,
+        // 同一批 items 会被再送一次。原先无条件重建 notices[existingIdx] 与整个数组引用
+        // ⇒ 订阅侧收到"变了"。等价时**原样返回 s**(一个对象都不重建)。
+        if (areRecordValuesEqual(existing, merged)) return s
+        notices[existingIdx] = merged
+      }
+      return { memoryUpdateNotices: notices }
+    }),
 
-      setUserScrolledUp: (v) => set({ userScrolledUp: v }),
+  // P3 #30 diff 评论驱动返工(2026-09-16 立):待发送评审意见队列三 action。
+  // 队列由 send-message 在下一轮发送时消费(注入 <diff_review> 块后 clearDiffComments)。
+  addDiffComment: (input) =>
+    set((s) => {
+      const text = input.comment.trim()
+      if (!text) return s
+      // 完全重复(同文件 + 同行 + 同正文)时忽略,防重复点击提交
+      const dup = s.pendingDiffComments.some(
+        (c) => c.filePath === input.filePath && c.line === input.line && c.comment === text,
+      )
+      if (dup) return s
+      const entry: DiffComment = {
+        ...input,
+        comment: text,
+        id: `dc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: Date.now(),
+      }
+      return { pendingDiffComments: [...s.pendingDiffComments, entry] }
+    }),
 
-      clearDraftInput: () => set({ draftInput: null }),
+  removeDiffComment: (id) =>
+    set((s) => ({
+      pendingDiffComments: s.pendingDiffComments.filter((c) => c.id !== id),
+    })),
 
-      clearDraftAutoSend: () => set({ draftAutoSend: false }),
+  clearDiffComments: () => set({ pendingDiffComments: [] }),
 
-      // D22 引用回复:写入/清除引用目标(输入区 chip 由 MessageInput 订阅渲染)
-      setQuotedMessage: (q) => set({ quotedMessage: q }),
+  // D28 快速侧问(2026-09-20 立):按会话分桶的侧问队列三 action。
+  // 流式期间 submit 把 /side 问题入队当前会话桶;流结束后 message-input.tsx
+  // effect 出队逐条补答(answerSideQuestion 直调 REST,回答不入主线历史)。
+  enqueueSideQuestion: (conversationId, text) =>
+    set((s) => {
+      const trimmed = text.trim()
+      if (!conversationId || !trimmed) return s
+      const entry: SideQueueItem = {
+        id: genId(),
+        text: trimmed,
+        createdAt: Date.now(),
+      }
+      const bucket = s.sideQueueByConversation[conversationId] ?? []
+      return {
+        sideQueueByConversation: {
+          ...s.sideQueueByConversation,
+          [conversationId]: [...bucket, entry],
+        },
+      }
+    }),
 
-      // D22 网页搜索开关:同步 localStorage(初始 state 惰性读取的回写路径)
-      setWebSearchEnabled: (v) => {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('ihui_web_search_enabled', v ? '1' : '0')
+  removeSideQuestion: (conversationId, id) =>
+    set((s) => {
+      const bucket = s.sideQueueByConversation[conversationId]
+      if (!bucket?.some((q) => q.id === id)) return s
+      const next = bucket.filter((q) => q.id !== id)
+      const nextMap = { ...s.sideQueueByConversation }
+      if (next.length > 0) nextMap[conversationId] = next
+      else delete nextMap[conversationId]
+      return { sideQueueByConversation: nextMap }
+    }),
+
+  shiftSideQuestion: (conversationId) => {
+    const head = get().sideQueueByConversation[conversationId]?.[0]
+    if (!head) return null
+    set((s) => {
+      const next = (s.sideQueueByConversation[conversationId] ?? []).slice(1)
+      const nextMap = { ...s.sideQueueByConversation }
+      if (next.length > 0) nextMap[conversationId] = next
+      else delete nextMap[conversationId]
+      return { sideQueueByConversation: nextMap }
+    })
+    return head
+  },
+
+  // D38 队列语义完整交互(2026-09-24 立):重排/移除/编辑/打断预备四动作。
+  // 许可判定复用 @ihui/shared/chat/queue-interactions 的 interactionAllowed(渲染层调用);
+  // 这里只做幂等状态变更 —— 越界/同位/找不到/空文本一律 no-op 返回原状态。
+  // **禁改区声明**:上方 enqueue/remove/shift 三 action 与下方消费点均未触碰。
+  requeue: (conversationId, fromIndex, toIndex) =>
+    set((s) => {
+      const bucket = s.sideQueueByConversation[conversationId]
+      if (!bucket || fromIndex === toIndex) return s
+      if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return s
+      if (fromIndex < 0 || fromIndex >= bucket.length || toIndex < 0 || toIndex >= bucket.length)
+        return s
+      const next = bucket.slice()
+      const [moved] = next.splice(fromIndex, 1)
+      if (!moved) return s
+      next.splice(toIndex, 0, moved)
+      return {
+        sideQueueByConversation: { ...s.sideQueueByConversation, [conversationId]: next },
+      }
+    }),
+
+  removeQueued: (conversationId, id) =>
+    set((s) => {
+      const bucket = s.sideQueueByConversation[conversationId]
+      if (!bucket?.some((q) => q.id === id)) return s
+      const next = bucket.filter((q) => q.id !== id)
+      const nextMap = { ...s.sideQueueByConversation }
+      if (next.length > 0) nextMap[conversationId] = next
+      else delete nextMap[conversationId]
+      return { sideQueueByConversation: nextMap }
+    }),
+
+  editQueued: (conversationId, id, text) =>
+    set((s) => {
+      const trimmed = text.trim()
+      if (!trimmed) return s
+      const bucket = s.sideQueueByConversation[conversationId]
+      if (!bucket) return s
+      const idx = bucket.findIndex((q) => q.id === id)
+      if (idx === -1) return s
+      const target = bucket[idx]
+      if (!target) return s
+      const next = bucket.slice()
+      next[idx] = { ...target, text: trimmed }
+      return {
+        sideQueueByConversation: { ...s.sideQueueByConversation, [conversationId]: next },
+      }
+    }),
+
+  interruptAndRun: (conversationId) => {
+    const head = get().sideQueueByConversation[conversationId]?.[0]
+    if (!head) return null
+    set((s) => {
+      const next = (s.sideQueueByConversation[conversationId] ?? []).slice(1)
+      const nextMap = { ...s.sideQueueByConversation }
+      if (next.length > 0) nextMap[conversationId] = next
+      else delete nextMap[conversationId]
+      return { sideQueueByConversation: nextMap }
+    })
+    return head
+  },
+
+  // D38 setMode 落点:模式偏好恒可切(许可门只管 interject 能力,不管用户想不想 steer);
+  // steer 能否真正生效由渲染层 effectiveMode 判定(Runtime 不支持则降级 queue 并显式提示)。
+  // 同值 no-op(不产生新状态引用,渲染层可跳过重渲染)。
+  setFollowUpQueueMode: (mode) =>
+    set((s) => (s.followUpQueueMode === mode ? s : { followUpQueueMode: mode })),
+
+  // D60 发送可靠性草稿保全(2026-09-23 立):失败时保留正文 + 状态,供输入框回填/重发。
+  // 空正文(trim 后为空)不保留(避免把空串当草稿覆盖有效内容);draft null = 显式清空。
+  setFailedDraft: (draft, status) =>
+    set(() => {
+      if (draft === null) return { failedDraft: null, failedDraftStatus: null }
+      if (!draft.trim()) return { failedDraft: null, failedDraftStatus: null }
+      return { failedDraft: draft, failedDraftStatus: status ?? null }
+    }),
+
+  clearFailedDraft: () => set({ failedDraft: null, failedDraftStatus: null }),
+
+  // 2026-09-18 终端实时输出(对标 Codex bash 实时回显):
+  // 命令执行期间逐块追加,terminal_end 后保留供终态渲染取更完整文本。
+  // 双重封顶防内存膨胀:单键 2 万字符(保留尾部) + 最多 20 个终端键(插入序淘汰最旧)。
+  appendTerminalOutput: (terminalId, text) =>
+    set((s) => {
+      if (!terminalId || !text) return s
+      const prev = s.terminalOutputs[terminalId] ?? ''
+      const merged = prev + text
+      // 单键上限 20000 字符(保留尾部):长命令输出不撑爆内存与渲染
+      const capped = merged.length > 20000 ? merged.slice(-20000) : merged
+      const next: Record<string, string> = { ...s.terminalOutputs, [terminalId]: capped }
+      // 键数上限 20:对象字符串键保持插入序,超出即删最旧键(长会话不累积)
+      const keys = Object.keys(next)
+      if (keys.length > TERMINAL_OUTPUT_MAX_KEYS) {
+        for (const stale of keys.slice(0, keys.length - TERMINAL_OUTPUT_MAX_KEYS)) {
+          delete next[stale]
         }
-        set({ webSearchEnabled: v })
-      },
+      }
+      return { terminalOutputs: next }
+    }),
 
-      setPendingQuestion: (q) => set({ pendingQuestion: q }),
+  clearTerminalOutput: (terminalId) =>
+    set((s) => {
+      if (!(terminalId in s.terminalOutputs)) return s
+      const next = { ...s.terminalOutputs }
+      delete next[terminalId]
+      return { terminalOutputs: next }
+    }),
 
-      clearPendingQuestion: () => set({ pendingQuestion: null }),
+  // D151(2026-09-29 立)终端"等待输入"态。与 terminalOutputs 并列而不复用那份:
+  // 后者是"它在输出",本切片是"它停住了、在等你敲一行",两态可以同时为真。
+  // patch 语义 = 逐字段覆盖合并(提交前后只动 submitting/failed,不必回带原文)。
+  setTerminalInteraction: (terminalId, patch) =>
+    set((s) => {
+      if (!terminalId) return s
+      const prev = s.terminalInteractions[terminalId]
+      const merged: TerminalInteractionState = {
+        promptTail: '',
+        waitingSinceMs: 0,
+        maxInputChars: 0,
+        submitting: false,
+        failed: false,
+        ...prev,
+        ...patch,
+      }
+      const next: Record<string, TerminalInteractionState> = {
+        ...s.terminalInteractions,
+        [terminalId]: merged,
+      }
+      // 键数封顶复用 terminalOutputs 那一档(同一轮终端数同一量级):
+      // 对象字符串键保持插入序,超出淘汰最旧,长会话不累积空把手。
+      const keys = Object.keys(next)
+      if (keys.length > TERMINAL_OUTPUT_MAX_KEYS) {
+        for (const stale of keys.slice(0, keys.length - TERMINAL_OUTPUT_MAX_KEYS)) {
+          delete next[stale]
+        }
+      }
+      return { terminalInteractions: next }
+    }),
 
-      appendToAgentStream: (agentId, delta, name) =>
-        set((s) => {
-          const existing = s.subAgentActivities.find((a) => a.agentId === agentId)
-          if (existing) {
-            return {
-              subAgentActivities: s.subAgentActivities.map((a) =>
-                a.agentId === agentId
-                  ? {
-                      ...a,
-                      streamingContent: (a.streamingContent || '') + delta,
-                      streamingDone: false,
-                    }
-                  : a,
-              ),
-            }
-          }
-          const newActivity: SubAgentActivity = {
-            agentId,
-            name: name || `Agent ${agentId.slice(0, 8)}`,
-            type: 'worker',
-            status: 'running',
-            currentStep: 'Generating…',
-            completedSteps: [],
-            streamingContent: delta,
-            streamingDone: false,
-          }
-          return { subAgentActivities: [...s.subAgentActivities, newActivity] }
-        }),
+  clearTerminalInteraction: (terminalId) =>
+    set((s) => {
+      if (!(terminalId in s.terminalInteractions)) return s
+      const next = { ...s.terminalInteractions }
+      delete next[terminalId]
+      return { terminalInteractions: next }
+    }),
 
-      markAllAgentStreamsDone: () =>
-        set((s) => ({
-          subAgentActivities: s.subAgentActivities.map((a) => ({
-            ...a,
-            streamingDone: true,
-            status: a.status === 'running' || a.status === 'thinking' ? 'completed' : a.status,
-            currentStep: a.status === 'running' || a.status === 'thinking' ? '' : a.currentStep,
-          })),
-        })),
+  noteStreamSessionId: (sessionId) => set({ aiStreamSessionId: sessionId }),
 
-      resetSubAgentActivities: () => set({ subAgentActivities: [] }),
+  // D1 消息级计量(2026-09-19 立):onUsage 回调写入,按 messageId 索引(同名覆盖)。
+  setMessageUsage: (messageId, usage) =>
+    set((s) => ({
+      usageByMessageId: { ...s.usageByMessageId, [messageId]: usage },
+    })),
 
-      // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
-      // - addSubagentSpawn: 后端 subagent_spawn SSE 事件触发,追加新 SubAgentActivity(status='running')
-      // - markSubagentEnd: 后端 subagent_end SSE 事件触发,更新现有条目状态为 completed/failed
-      // 与 appendToAgentStream 的区别:appendToAgentStream 用于多 agent 多路复用的 token 流分流,
-      // 而 addSubagentSpawn/markSubagentEnd 用于 dispatch_subagent 工具调用的生命周期展示。
-      // 两者写入同一 subAgentActivities 数组,UI 统一通过 SubAgentActivityFeed 渲染。
-      // 2026-08-01 Phase 4a:若 event.messageId 存在,同步写入 message.subagentActivities,
-      // 供消息气泡内 inline SubagentSection 实时刷新(对标 AI 工作台/Codex 消息级透明性)。
-      addSubagentSpawn: (event) =>
-        set((s) => {
-          const globalExists = s.subAgentActivities.some((a) => a.agentId === event.id)
-          const newActivity: SubAgentActivity = {
-            agentId: event.id,
-            name: event.role || `Subagent ${event.id.slice(-6)}`,
-            type: 'worker',
-            status: 'running',
-            currentStep: event.task || '执行中…',
-            completedSteps: [],
-          }
-          // 消息级同步:按 event.messageId upsert 到对应 message.subagentActivities
-          let messages = s.messages
-          if (event.messageId) {
-            const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
-            if (mIdx !== -1) {
-              const target = s.messages[mIdx]
-              if (
-                target &&
-                !(target.subagentActivities ?? []).some((a) => a.agentId === event.id)
-              ) {
-                messages = s.messages.slice()
-                messages[mIdx] = {
-                  ...target,
-                  subagentActivities: [...(target.subagentActivities ?? []), newActivity],
-                }
-              }
-            }
-          }
-          if (globalExists) return messages === s.messages ? s : { messages }
-          return { subAgentActivities: [...s.subAgentActivities, newActivity], messages }
-        }),
+  // Steer(中途引导,2026-09-19 立):SSE steer 事件确认注入后按 messageId 累积。
+  // 单消息上限 8 条对齐后端 _STEER_QUEUE_LIMIT(超限后端已拒绝入队,双保险),
+  // 引导未生效或空文本由调用方(onSteer 回调)过滤,此处只管落库。
+  appendSteerNotice: (messageId, notice) =>
+    set((s) => {
+      if (!messageId || !notice?.text) return s
+      const existing = s.steerNoticesByMessageId[messageId] ?? []
+      if (existing.length >= STEER_NOTICE_MAX_PER_MESSAGE) return s
+      return {
+        steerNoticesByMessageId: {
+          ...s.steerNoticesByMessageId,
+          [messageId]: [...existing, notice],
+        },
+      }
+    }),
 
-      markSubagentEnd: (event) =>
-        set((s) => {
-          const applyEnd = (a: SubAgentActivity): SubAgentActivity => {
-            if (a.agentId !== event.id) return a
-            const nextStatus: SubAgentActivity['status'] =
-              event.status === 'failed' ? 'failed' : 'completed'
-            return {
-              ...a,
-              status: nextStatus,
-              // 完成时把 currentStep 推入 completedSteps,再清空 currentStep;
-              // 失败时 currentStep 改为错误摘要,保留 step 上下文供用户排查
-              ...(event.status === 'failed'
-                ? {
-                    currentStep: event.failureReason
-                      ? `失败:${event.failureReason.slice(0, 200)}`
-                      : '执行失败',
-                  }
-                : {
-                    completedSteps: [
-                      ...a.completedSteps,
-                      ...(a.currentStep
-                        ? [
-                            {
-                              stepAction: a.currentStep,
-                              createdAt: event.timestamp,
-                              status: 'completed' as const,
-                            },
-                          ]
-                        : []),
-                    ],
-                    currentStep: '',
-                  }),
-              streamingDone: true,
-            }
-          }
-          const subAgentActivities = s.subAgentActivities.map(applyEnd)
-          // 2026-08-01 Phase 4a:同步更新消息级
-          let messages = s.messages
-          if (event.messageId) {
-            const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
-            if (mIdx !== -1) {
-              const target = s.messages[mIdx]
-              if (target?.subagentActivities?.some((a) => a.agentId === event.id)) {
-                messages = s.messages.slice()
-                messages[mIdx] = {
-                  ...target,
-                  subagentActivities: target.subagentActivities.map(applyEnd),
-                }
-              }
-            }
-          }
-          return { subAgentActivities, messages }
-        }),
+  // Steer:登记/清空当前流式 assistant 消息 ID(闪电按钮 steer 端点的定位键)
+  setStreamingAssistantId: (id) => set({ streamingAssistantId: id }),
 
-      updateSubagentProgress: (event) =>
-        set((s) => {
-          const applyProgress = (a: SubAgentActivity): SubAgentActivity => {
-            if (a.agentId !== event.id) return a
-            // 根据 phase 构造人类可读的 currentStep 文本
-            let stepText = a.currentStep
-            const iter = event.iteration ? ` (轮次 ${event.iteration})` : ''
-            switch (event.phase) {
-              case 'thinking':
-                stepText = `思考中…${iter}`
-                break
-              case 'tool_call':
-                stepText = `调用工具: ${event.tool ?? 'unknown'}${iter}`
-                break
-              case 'tool_result':
-                stepText = `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}${iter}`
-                break
-              case 'output_ready':
-                stepText = '输出就绪'
-                break
-            }
-            // tool_result 时把 tool_call 的 stepText 推入 completedSteps
-            const completedSteps =
-              event.phase === 'tool_result'
-                ? [
-                    ...a.completedSteps,
-                    {
-                      stepAction: `${event.tool ?? 'unknown'} ${event.ok ? '✓' : '✗'}`,
-                      createdAt: event.timestamp,
-                      status: (event.ok ? 'completed' : 'failed') as 'completed' | 'failed',
-                    },
-                  ]
-                : a.completedSteps
-            const toolCallsCount =
-              event.phase === 'tool_result' ? (a.toolCallsCount ?? 0) + 1 : (a.toolCallsCount ?? 0)
-            return {
-              ...a,
-              currentStep: stepText,
-              progressPhase: event.phase,
-              progressIteration: event.iteration ?? a.progressIteration,
-              progressTool: event.tool ?? a.progressTool,
-              toolCallsCount,
-              completedSteps,
-              outputPreview: event.outputPreview ?? a.outputPreview,
-            }
-          }
-          const subAgentActivities = s.subAgentActivities.map(applyProgress)
-          // 2026-08-01 Phase 4a:同步更新消息级
-          let messages = s.messages
-          if (event.messageId) {
-            const mIdx = s.messages.findIndex((m) => m.id === event.messageId)
-            if (mIdx !== -1) {
-              const target = s.messages[mIdx]
-              if (target?.subagentActivities?.some((a) => a.agentId === event.id)) {
-                messages = s.messages.slice()
-                messages[mIdx] = {
-                  ...target,
-                  subagentActivities: target.subagentActivities.map(applyProgress),
-                }
-              }
-            }
-          }
-          return { subAgentActivities, messages }
-        }),
+  // 2026-08-01 Phase 4a:消息级 terminal task append(terminal_start 事件)
+  appendMessageTerminalTask: (messageId, task) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      // 同 id 已存在则跳过(防止重复)
+      if ((target.terminalTasks ?? []).some((t) => t.id === task.id)) return s
+      const next = s.messages.slice()
+      next[idx] = {
+        ...target,
+        terminalTasks: [...(target.terminalTasks ?? []), task],
+      }
+      return { messages: next }
+    }),
 
-      addToolCall: (messageId, toolCall) =>
-        set((s) => {
-          // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历,
-          // 只更新目标消息引用,其他消息引用不变 → 配合 React.memo 避免全量重渲染
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const fullCall: ToolCall = {
-            ...toolCall,
-            status: toolCall.status ?? 'running',
-          }
-          // 已存在同 id 的 toolCall 不重复添加(与原 map 实现语义一致)
-          const exists = target.toolCalls?.some((tc) => tc.id === fullCall.id)
-          if (exists) return s
-          const next = s.messages.slice()
-          next[idx] = {
-            ...target,
-            toolCalls: [...(target.toolCalls ?? []), fullCall],
-          }
-          return { messages: next }
-        }),
+  // 2026-08-01 Phase 4a:消息级 terminal task 更新(terminal_end 事件)
+  updateMessageTerminalTask: (messageId, terminalId, updates) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target || !target.terminalTasks) return s
+      const tIdx = target.terminalTasks.findIndex((t) => t.id === terminalId)
+      if (tIdx === -1) return s
+      const oldTask = target.terminalTasks[tIdx]
+      if (!oldTask) return s
+      const next = s.messages.slice()
+      const newTasks = target.terminalTasks.slice()
+      newTasks[tIdx] = { ...oldTask, ...updates }
+      next[idx] = { ...target, terminalTasks: newTasks }
+      return { messages: next }
+    }),
 
-      updateToolCall: (messageId, toolCallId, updates) =>
-        set((s) => {
-          // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target || !target.toolCalls) return s
-          const tcIdx = target.toolCalls.findIndex((tc) => tc.id === toolCallId)
-          if (tcIdx === -1) return s
-          const oldTc = target.toolCalls[tcIdx]
-          if (!oldTc) return s // 类型收窄:确保 oldTc 是 ToolCall(noUncheckedIndexedAccess)
-          const next = s.messages.slice()
-          const newToolCalls = target.toolCalls.slice()
-          newToolCalls[tcIdx] = { ...oldTc, ...updates }
-          next[idx] = { ...target, toolCalls: newToolCalls }
-          return { messages: next }
-        }),
+  // P1 token 用量写入消息级 meta(2026-08-15 立):后端 SSE onUsage 回调写入 meta.usage
+  updateMessageMeta: (messageId, meta) =>
+    set((s) => {
+      const idx = s.messages.findIndex((m) => m.id === messageId)
+      if (idx === -1) return s
+      const target = s.messages[idx]
+      if (!target) return s
+      const mergedMeta: Record<string, unknown> = { ...(target.meta ?? {}), ...meta }
+      // G-704(2026-09-29 立)值等价即不写:高频 SSE 写入位(send-message 每 800ms 的
+      // meta.usage 估算)每帧都新造一个对象,而值常常一个字节都没变。原先无条件
+      // 重建消息对象 + 整个 messages 数组 ⇒ 订阅方每次拿到新引用 ⇒ store→effect→set 自环
+      // 与整列表重渲染。比较必须**等深**(usage 是嵌在 meta 下的对象,只比顶层键等于没比)。
+      // 等价时原样返回 s:连对象都不重建,这样引用相等断言才判得出"确实没写"。
+      if (areRecordValuesEqual(target.meta ?? {}, mergedMeta)) return s
+      const next = s.messages.slice()
+      next[idx] = { ...target, meta: mergedMeta }
+      return { messages: next }
+    }),
 
-      setToolCallApplyStatus: (messageId, toolCallId, status, errorMessage) =>
-        set((s) => {
-          // P1-1 修复:用 findIndex + 局部替换替代 map 全量遍历
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target || !target.toolCalls) return s
-          const tcIdx = target.toolCalls.findIndex((tc) => tc.id === toolCallId)
-          if (tcIdx === -1) return s
-          const oldTc = target.toolCalls[tcIdx]
-          if (!oldTc) return s // 类型收窄:确保 oldTc 是 ToolCall(noUncheckedIndexedAccess)
-          const next = s.messages.slice()
-          const newToolCalls = target.toolCalls.slice()
-          newToolCalls[tcIdx] = {
-            ...oldTc,
-            applyStatus: status,
-            applyError: status === 'error' ? errorMessage : undefined,
-          }
-          next[idx] = { ...target, toolCalls: newToolCalls }
-          return { messages: next }
-        }),
-
-      /** #14 Diff 文件级批量状态(2026-09-13 立,对标 Qoder/WorkBuddy 逐项+文件级):
-       *  把消息内所有 diff 工具卡(edit_file/write_file,applyStatus 处于非终态)整体置为 status。
-       *  终态(applied/rejected)与 applying 中的卡片跳过,避免覆盖已决结果。 */
-      setAllDiffApplyStatus: (messageId, status) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target?.toolCalls) return s
-          const hasDiffCard = (tc: ToolCall) =>
-            !!tc.diffInfo || (tc.applyStatus !== undefined && tc.applyStatus !== null)
-          const next = s.messages.slice()
-          next[idx] = {
-            ...target,
-            toolCalls: target.toolCalls.map((tc) =>
-              hasDiffCard(tc) &&
-              tc.applyStatus !== 'applied' &&
-              tc.applyStatus !== 'rejected' &&
-              tc.applyStatus !== 'applying'
-                ? { ...tc, applyStatus: status, applyError: undefined }
-                : tc,
-            ),
-          }
-          return { messages: next }
-        }),
-
-      // 2026-07-31 立,AI 对话可视化深度接入:SSE tool-summary 事件落地
-      setMessageToolSummary: (messageId, summary) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = {
-            ...target,
-            toolCallSummary: summary,
-            totalDurationMs: summary.totalDurationMs ?? target.totalDurationMs,
-          }
-          return { messages: next }
-        }),
-
-      // 2026-08-01 Phase 4a:消息级 plan steps(整体替换,plan 事件为权威快照)
-      setMessagePlanSteps: (messageId, steps) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, planSteps: steps }
-          return { messages: next }
-        }),
-
-      // #11 Citations 全链路(2026-09-13 立):写入消息级引用溯源(SSE citations 事件,整体替换)
-      setMessageCitations: (messageId, citations) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, citations }
-          return { messages: next }
-        }),
-
-      appendMessageInjection: (messageId, injection) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const existing = target.injections ?? []
-          // 同 kind + 同标签视为同一条(补发/重连幂等)
-          if (
-            existing.some((x) => x.kind === injection.kind && x.collapsed === injection.collapsed)
-          ) {
-            return s
-          }
-          const next = s.messages.slice()
-          next[idx] = { ...target, injections: [...existing, injection] }
-          return { messages: next }
-        }),
-
-      setMessageRetryNotice: (messageId, notice) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, retryNotice: notice }
-          return { messages: next }
-        }),
-
-      // 2026-09-19 立:写入消息级上下文压缩统计(compaction 命名帧 → onCompaction
-      // 回调 → send-message 映射为 MessageCompaction),整体替换;MessageItem 在
-      // 消息内容区顶部渲染 CompressionDivider。
-      setMessageCompaction: (messageId, compaction) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, compaction }
-          return { messages: next }
-        }),
-
-      // P1 #27 记忆更新可视化(2026-09-16 立):done 事件 memoryUpdates 落地。
-      // 按 messageId 写入/追加到 memoryUpdateNotices;同 messageId 已存在则合并 items(去重)。
-      // 每条助手消息限一条提示条(本轮),故以 messageId 为键整体替换而非堆叠多个。
-      appendMemoryNotice: (messageId, items) =>
-        set((s) => {
-          if (!items?.length) return s
-          const notices = s.memoryUpdateNotices.slice()
-          const existingIdx = notices.findIndex((n) => n.messageId === messageId)
-          if (existingIdx === -1) {
-            notices.push({ messageId, items: items.slice() })
-          } else {
-            const existing = notices[existingIdx]!
-            const mergedItems = Array.from(new Set([...existing.items, ...items])).filter(
-              (v) => v.length > 0,
-            )
-            const merged = { messageId, items: mergedItems }
-            // G-704(2026-09-29 立)值等价即不写:done 事件重放 / 历史加载与 done 先后到齐时,
-            // 同一批 items 会被再送一次。原先无条件重建 notices[existingIdx] 与整个数组引用
-            // ⇒ 订阅侧收到"变了"。等价时**原样返回 s**(一个对象都不重建)。
-            if (areRecordValuesEqual(existing, merged)) return s
-            notices[existingIdx] = merged
-          }
-          return { memoryUpdateNotices: notices }
-        }),
-
-      // P3 #30 diff 评论驱动返工(2026-09-16 立):待发送评审意见队列三 action。
-      // 队列由 send-message 在下一轮发送时消费(注入 <diff_review> 块后 clearDiffComments)。
-      addDiffComment: (input) =>
-        set((s) => {
-          const text = input.comment.trim()
-          if (!text) return s
-          // 完全重复(同文件 + 同行 + 同正文)时忽略,防重复点击提交
-          const dup = s.pendingDiffComments.some(
-            (c) => c.filePath === input.filePath && c.line === input.line && c.comment === text,
-          )
-          if (dup) return s
-          const entry: DiffComment = {
-            ...input,
-            comment: text,
-            id: `dc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            createdAt: Date.now(),
-          }
-          return { pendingDiffComments: [...s.pendingDiffComments, entry] }
-        }),
-
-      removeDiffComment: (id) =>
-        set((s) => ({
-          pendingDiffComments: s.pendingDiffComments.filter((c) => c.id !== id),
-        })),
-
-      clearDiffComments: () => set({ pendingDiffComments: [] }),
-
-      // D28 快速侧问(2026-09-20 立):按会话分桶的侧问队列三 action。
-      // 流式期间 submit 把 /side 问题入队当前会话桶;流结束后 message-input.tsx
-      // effect 出队逐条补答(answerSideQuestion 直调 REST,回答不入主线历史)。
-      enqueueSideQuestion: (conversationId, text) =>
-        set((s) => {
-          const trimmed = text.trim()
-          if (!conversationId || !trimmed) return s
-          const entry: SideQueueItem = {
-            id: genId(),
-            text: trimmed,
-            createdAt: Date.now(),
-          }
-          const bucket = s.sideQueueByConversation[conversationId] ?? []
-          return {
-            sideQueueByConversation: {
-              ...s.sideQueueByConversation,
-              [conversationId]: [...bucket, entry],
-            },
-          }
-        }),
-
-      removeSideQuestion: (conversationId, id) =>
-        set((s) => {
-          const bucket = s.sideQueueByConversation[conversationId]
-          if (!bucket?.some((q) => q.id === id)) return s
-          const next = bucket.filter((q) => q.id !== id)
-          const nextMap = { ...s.sideQueueByConversation }
-          if (next.length > 0) nextMap[conversationId] = next
-          else delete nextMap[conversationId]
-          return { sideQueueByConversation: nextMap }
-        }),
-
-      shiftSideQuestion: (conversationId) => {
-        const head = get().sideQueueByConversation[conversationId]?.[0]
-        if (!head) return null
-        set((s) => {
-          const next = (s.sideQueueByConversation[conversationId] ?? []).slice(1)
-          const nextMap = { ...s.sideQueueByConversation }
-          if (next.length > 0) nextMap[conversationId] = next
-          else delete nextMap[conversationId]
-          return { sideQueueByConversation: nextMap }
-        })
-        return head
-      },
-
-      // D38 队列语义完整交互(2026-09-24 立):重排/移除/编辑/打断预备四动作。
-      // 许可判定复用 @ihui/shared/chat/queue-interactions 的 interactionAllowed(渲染层调用);
-      // 这里只做幂等状态变更 —— 越界/同位/找不到/空文本一律 no-op 返回原状态。
-      // **禁改区声明**:上方 enqueue/remove/shift 三 action 与下方消费点均未触碰。
-      requeue: (conversationId, fromIndex, toIndex) =>
-        set((s) => {
-          const bucket = s.sideQueueByConversation[conversationId]
-          if (!bucket || fromIndex === toIndex) return s
-          if (!Number.isInteger(fromIndex) || !Number.isInteger(toIndex)) return s
-          if (
-            fromIndex < 0 ||
-            fromIndex >= bucket.length ||
-            toIndex < 0 ||
-            toIndex >= bucket.length
-          )
-            return s
-          const next = bucket.slice()
-          const [moved] = next.splice(fromIndex, 1)
-          if (!moved) return s
-          next.splice(toIndex, 0, moved)
-          return {
-            sideQueueByConversation: { ...s.sideQueueByConversation, [conversationId]: next },
-          }
-        }),
-
-      removeQueued: (conversationId, id) =>
-        set((s) => {
-          const bucket = s.sideQueueByConversation[conversationId]
-          if (!bucket?.some((q) => q.id === id)) return s
-          const next = bucket.filter((q) => q.id !== id)
-          const nextMap = { ...s.sideQueueByConversation }
-          if (next.length > 0) nextMap[conversationId] = next
-          else delete nextMap[conversationId]
-          return { sideQueueByConversation: nextMap }
-        }),
-
-      editQueued: (conversationId, id, text) =>
-        set((s) => {
-          const trimmed = text.trim()
-          if (!trimmed) return s
-          const bucket = s.sideQueueByConversation[conversationId]
-          if (!bucket) return s
-          const idx = bucket.findIndex((q) => q.id === id)
-          if (idx === -1) return s
-          const target = bucket[idx]
-          if (!target) return s
-          const next = bucket.slice()
-          next[idx] = { ...target, text: trimmed }
-          return {
-            sideQueueByConversation: { ...s.sideQueueByConversation, [conversationId]: next },
-          }
-        }),
-
-      interruptAndRun: (conversationId) => {
-        const head = get().sideQueueByConversation[conversationId]?.[0]
-        if (!head) return null
-        set((s) => {
-          const next = (s.sideQueueByConversation[conversationId] ?? []).slice(1)
-          const nextMap = { ...s.sideQueueByConversation }
-          if (next.length > 0) nextMap[conversationId] = next
-          else delete nextMap[conversationId]
-          return { sideQueueByConversation: nextMap }
-        })
-        return head
-      },
-
-      // D38 setMode 落点:模式偏好恒可切(许可门只管 interject 能力,不管用户想不想 steer);
-      // steer 能否真正生效由渲染层 effectiveMode 判定(Runtime 不支持则降级 queue 并显式提示)。
-      // 同值 no-op(不产生新状态引用,渲染层可跳过重渲染)。
-      setFollowUpQueueMode: (mode) =>
-        set((s) => (s.followUpQueueMode === mode ? s : { followUpQueueMode: mode })),
-
-      // D60 发送可靠性草稿保全(2026-09-23 立):失败时保留正文 + 状态,供输入框回填/重发。
-      // 空正文(trim 后为空)不保留(避免把空串当草稿覆盖有效内容);draft null = 显式清空。
-      setFailedDraft: (draft, status) =>
-        set(() => {
-          if (draft === null) return { failedDraft: null, failedDraftStatus: null }
-          if (!draft.trim()) return { failedDraft: null, failedDraftStatus: null }
-          return { failedDraft: draft, failedDraftStatus: status ?? null }
-        }),
-
-      clearFailedDraft: () => set({ failedDraft: null, failedDraftStatus: null }),
-
-      // 2026-09-18 终端实时输出(对标 Codex bash 实时回显):
-      // 命令执行期间逐块追加,terminal_end 后保留供终态渲染取更完整文本。
-      // 双重封顶防内存膨胀:单键 2 万字符(保留尾部) + 最多 20 个终端键(插入序淘汰最旧)。
-      appendTerminalOutput: (terminalId, text) =>
-        set((s) => {
-          if (!terminalId || !text) return s
-          const prev = s.terminalOutputs[terminalId] ?? ''
-          const merged = prev + text
-          // 单键上限 20000 字符(保留尾部):长命令输出不撑爆内存与渲染
-          const capped = merged.length > 20000 ? merged.slice(-20000) : merged
-          const next: Record<string, string> = { ...s.terminalOutputs, [terminalId]: capped }
-          // 键数上限 20:对象字符串键保持插入序,超出即删最旧键(长会话不累积)
-          const keys = Object.keys(next)
-          if (keys.length > TERMINAL_OUTPUT_MAX_KEYS) {
-            for (const stale of keys.slice(0, keys.length - TERMINAL_OUTPUT_MAX_KEYS)) {
-              delete next[stale]
-            }
-          }
-          return { terminalOutputs: next }
-        }),
-
-      clearTerminalOutput: (terminalId) =>
-        set((s) => {
-          if (!(terminalId in s.terminalOutputs)) return s
-          const next = { ...s.terminalOutputs }
-          delete next[terminalId]
-          return { terminalOutputs: next }
-        }),
-
-      // D151(2026-09-29 立)终端"等待输入"态。与 terminalOutputs 并列而不复用那份:
-      // 后者是"它在输出",本切片是"它停住了、在等你敲一行",两态可以同时为真。
-      // patch 语义 = 逐字段覆盖合并(提交前后只动 submitting/failed,不必回带原文)。
-      setTerminalInteraction: (terminalId, patch) =>
-        set((s) => {
-          if (!terminalId) return s
-          const prev = s.terminalInteractions[terminalId]
-          const merged: TerminalInteractionState = {
-            promptTail: '',
-            waitingSinceMs: 0,
-            maxInputChars: 0,
-            submitting: false,
-            failed: false,
-            ...prev,
-            ...patch,
-          }
-          const next: Record<string, TerminalInteractionState> = {
-            ...s.terminalInteractions,
-            [terminalId]: merged,
-          }
-          // 键数封顶复用 terminalOutputs 那一档(同一轮终端数同一量级):
-          // 对象字符串键保持插入序,超出淘汰最旧,长会话不累积空把手。
-          const keys = Object.keys(next)
-          if (keys.length > TERMINAL_OUTPUT_MAX_KEYS) {
-            for (const stale of keys.slice(0, keys.length - TERMINAL_OUTPUT_MAX_KEYS)) {
-              delete next[stale]
-            }
-          }
-          return { terminalInteractions: next }
-        }),
-
-      clearTerminalInteraction: (terminalId) =>
-        set((s) => {
-          if (!(terminalId in s.terminalInteractions)) return s
-          const next = { ...s.terminalInteractions }
-          delete next[terminalId]
-          return { terminalInteractions: next }
-        }),
-
-      noteStreamSessionId: (sessionId) => set({ aiStreamSessionId: sessionId }),
-
-      // D1 消息级计量(2026-09-19 立):onUsage 回调写入,按 messageId 索引(同名覆盖)。
-      setMessageUsage: (messageId, usage) =>
-        set((s) => ({
-          usageByMessageId: { ...s.usageByMessageId, [messageId]: usage },
-        })),
-
-      // Steer(中途引导,2026-09-19 立):SSE steer 事件确认注入后按 messageId 累积。
-      // 单消息上限 8 条对齐后端 _STEER_QUEUE_LIMIT(超限后端已拒绝入队,双保险),
-      // 引导未生效或空文本由调用方(onSteer 回调)过滤,此处只管落库。
-      appendSteerNotice: (messageId, notice) =>
-        set((s) => {
-          if (!messageId || !notice?.text) return s
-          const existing = s.steerNoticesByMessageId[messageId] ?? []
-          if (existing.length >= STEER_NOTICE_MAX_PER_MESSAGE) return s
-          return {
-            steerNoticesByMessageId: {
-              ...s.steerNoticesByMessageId,
-              [messageId]: [...existing, notice],
-            },
-          }
-        }),
-
-      // Steer:登记/清空当前流式 assistant 消息 ID(闪电按钮 steer 端点的定位键)
-      setStreamingAssistantId: (id) => set({ streamingAssistantId: id }),
-
-      // 2026-08-01 Phase 4a:消息级 terminal task append(terminal_start 事件)
-      appendMessageTerminalTask: (messageId, task) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          // 同 id 已存在则跳过(防止重复)
-          if ((target.terminalTasks ?? []).some((t) => t.id === task.id)) return s
-          const next = s.messages.slice()
-          next[idx] = {
-            ...target,
-            terminalTasks: [...(target.terminalTasks ?? []), task],
-          }
-          return { messages: next }
-        }),
-
-      // 2026-08-01 Phase 4a:消息级 terminal task 更新(terminal_end 事件)
-      updateMessageTerminalTask: (messageId, terminalId, updates) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target || !target.terminalTasks) return s
-          const tIdx = target.terminalTasks.findIndex((t) => t.id === terminalId)
-          if (tIdx === -1) return s
-          const oldTask = target.terminalTasks[tIdx]
-          if (!oldTask) return s
-          const next = s.messages.slice()
-          const newTasks = target.terminalTasks.slice()
-          newTasks[tIdx] = { ...oldTask, ...updates }
-          next[idx] = { ...target, terminalTasks: newTasks }
-          return { messages: next }
-        }),
-
-      // P1 token 用量写入消息级 meta(2026-08-15 立):后端 SSE onUsage 回调写入 meta.usage
-      updateMessageMeta: (messageId, meta) =>
-        set((s) => {
-          const idx = s.messages.findIndex((m) => m.id === messageId)
-          if (idx === -1) return s
-          const target = s.messages[idx]
-          if (!target) return s
-          const mergedMeta: Record<string, unknown> = { ...(target.meta ?? {}), ...meta }
-          // G-704(2026-09-29 立)值等价即不写:高频 SSE 写入位(send-message 每 800ms 的
-          // meta.usage 估算)每帧都新造一个对象,而值常常一个字节都没变。原先无条件
-          // 重建消息对象 + 整个 messages 数组 ⇒ 订阅方每次拿到新引用 ⇒ store→effect→set 自环
-          // 与整列表重渲染。比较必须**等深**(usage 是嵌在 meta 下的对象,只比顶层键等于没比)。
-          // 等价时原样返回 s:连对象都不重建,这样引用相等断言才判得出"确实没写"。
-          if (areRecordValuesEqual(target.meta ?? {}, mergedMeta)) return s
-          const next = s.messages.slice()
-          next[idx] = { ...target, meta: mergedMeta }
-          return { messages: next }
-        }),
-
-      // W27 输入历史(2026-09-14 立):去重 + 最新在后 + 上限 50(与 recentMessages 同量级)
-      pushInputHistory: (text) =>
-        set((s) => {
-          const trimmed = text.trim()
-          if (!trimmed) return s
-          const deduped = s.inputHistory.filter((h) => h !== trimmed)
-          deduped.push(trimmed)
-          return { inputHistory: deduped.slice(-50) }
-        }),
+  // W27 输入历史(2026-09-14 立):去重 + 最新在后 + 上限 50(与 recentMessages 同量级)
+  pushInputHistory: (text) =>
+    set((s) => {
+      const trimmed = text.trim()
+      if (!trimmed) return s
+      const deduped = s.inputHistory.filter((h) => h !== trimmed)
+      deduped.push(trimmed)
+      return { inputHistory: deduped.slice(-50) }
+    }),
 })
 
 /**

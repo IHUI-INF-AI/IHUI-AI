@@ -724,5 +724,72 @@ describe('scan-hardcoded-zh.mjs 集成测试', () => {
     assert.match(code, /if \(JSON_OUT \|\| JSON_STDOUT\) \{[\s\S]{0,400}fs\.writeFileSync\(JSON_OUT, payload/, '文件档必须真的还在写盘')
   })
 
+  // ─── G-966(2026-10-22):packages/app/src(共享登录屏层)并入射程 ───
+  // 立项因由:该层此前完全不在 TARGETS 射程(HEAD 面存量写死中文对门 70 隐身),
+  // 照 2026-09-24 补三端的先例:存量按 **HEAD blob 面**逐文件入账(不走工作树磁盘,
+  // 五席并发时 --update-baseline 缺省面会把他席在飞态钉进额度),再把该根并进 TARGETS。
+  // 三条臂各钉一件事:① 射程生效(新根的中文看得见、兄弟目录不扫);
+  // ② 入账守恒(该根既有中文不判新增,加一行必红 —— 正反成对,同 HEAD 锚点那一档);
+  // ③ 形状锁(射程与基线入账必须**同面在场**,防 cd505a4374"扩了射程没入账"复发型)。
+  test('范围: packages/app/src 并入射程后写死中文可见;兄弟目录 packages/app/lib 不在射程', () => {
+    const root = createTempProject()
+    try {
+      writeFile(root, 'packages/app/src/features/login/LoginScreen.tsx', [
+        "export default function LoginScreen() {",
+        "  return <div>欢迎登录</div>",
+        "}",
+      ].join('\n'))
+      writeFile(root, 'packages/app/lib/helper.ts', "const msg = '这里不应被扫描'")
+      const r = runScript([], { cwd: root })
+      assert.equal(r.status, 0)
+      assert.match(r.stdout, /含硬编码中文的文件: 1/, 'packages/app/src 在 TARGETS 内,中文必须可见')
+      assert.match(r.stdout, /硬编码中文行数: 1/)
+      assert.match(r.stdout, /欢迎登录/)
+      assert.doesNotMatch(r.stdout, /这里不应被扫描/, 'packages/app/lib 不在射程,不得被扫')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('G-966 入账守恒: packages/app/src 既有中文不判新增、再加一行必红(正反成对)', () => {
+    const { root, git } = createGitProject()
+    try {
+      const rel = 'packages/app/src/features/login/LoginScreen.tsx'
+      mkdirSync(join(root, 'packages/app/src/features/login'), { recursive: true })
+      const base = `export const A = '登录'\nexport const B = '忘记密码'\nexport const C = '注册'\n`
+      writeFileSync(join(root, rel), base, 'utf8')
+      git(['add', '-A'])
+      git(['commit', '-q', '-m', 'init'])
+      // 反向对照:HEAD 里本来就有 3 处中文,一字未动 ⇒ 不得判红(该根并入射程不得把这层判成恒红)
+      let r = runScript(['--exit', '1'], { cwd: root })
+      assert.equal(r.status, 0, `未改动却被判红(新根没入账/没锚点):\n${r.stdout}\n${r.stderr}`)
+      // 正向对照:真加一条 ⇒ 必红;额度 3 来自 HEAD 那一维(夹具无基线文件)
+      writeFileSync(join(root, rel), `${base}export const D = '新增文案'\n`, 'utf8')
+      r = runScript(['--exit', '1'], { cwd: root })
+      const both = `${r.stdout}\n${r.stderr}`
+      assert.notEqual(r.status, 0, '新增一条硬编码中文必须判红 —— 入账不得把门做成没牙')
+      assert.match(both, /LoginScreen\.tsx: 4 处 > 基线 3 处\(新增 1\)/)
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  test('形状锁: packages/app/src 的射程与基线入账必须同面在场(cd505a4374 复发型锁)', () => {
+    const code = readFileSync(SCRIPT_PATH, 'utf8')
+    assert.match(code, /path\.join\(ROOT,\s*'packages\/app\/src'\)/, 'TARGETS 必须含 packages/app/src')
+    const baseline = JSON.parse(readFileSync(join(__dirname, '..', 'hardcoded-zh-baseline.json'), 'utf8'))
+    assert.ok(baseline.targets.includes('packages/app/src'), '基线 targets 声明必须同步含该根')
+    const keys = Object.keys(baseline.files).filter((k) => k.startsWith('packages/app/src/'))
+    assert.ok(keys.length > 0, '该根存量必须已逐文件入账;只有 targets 没有条目 = cd505a4374 那一型(该层每文件额度 0,谁碰谁红)')
+    for (const k of keys) {
+      assert.ok(Number.isInteger(baseline.files[k]) && baseline.files[k] >= 1, `${k} 入账额度必须是 ≥1 的整数`)
+    }
+    // 守恒:入账只新增条目 —— 其他根的既有额度必须仍在
+    assert.ok(keys.length < Object.keys(baseline.files).length, '不得只留新根条目')
+    for (const keep of ['apps/web/app/', 'apps/cli/src/', 'apps/mobile-rn/src/']) {
+      assert.ok(Object.keys(baseline.files).some((k) => k.startsWith(keep)), `既有根 ${keep} 的条目必须仍在`)
+    }
+  })
+
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

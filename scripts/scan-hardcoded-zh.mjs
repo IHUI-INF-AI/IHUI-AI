@@ -74,6 +74,12 @@ const TARGETS = [
   path.join(ROOT, 'apps/web/src/hooks'),
   path.join(ROOT, 'packages/ui-react/src'),
   path.join(ROOT, 'packages/shared/src'),
+  // 2026-10-22 G-966 补共享登录屏层:packages/app/src 此前**完全不在本棘轮射程**(2026-10-22 现读
+  // HEAD 面 32 枚文件 / 174 行含中文,门照样报绿),该层写死中文对守门 70 隐身。出路照上档 2026-09-24
+  // 先例:存量按 **HEAD blob 面**逐文件首次入账(--update-baseline 缺省读工作树磁盘,五席并发时会把
+  // 他席在飞态一并钉进额度,故入账不得走磁盘面),不改任何既有额度、只新增条目;
+  // 之后与其他端同规则:只拦"比基线更多",清理后下调。
+  path.join(ROOT, 'packages/app/src'),
   // 2026-09-24 补三端覆盖:这三处此前**完全不在本棘轮视野内**,于是"新增写死中文"不会红,
   // 而 §4/§9 的跨端一致要求照样适用。直接触发实例:RN 端内 PayButton 的 TYPE_META 四档文案
   // 与 PaymentScreen 的 label="去充值" 全是字面量中文,没有任何一道门看得见(修于 a8da2c2a413,

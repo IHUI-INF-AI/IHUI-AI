@@ -31,12 +31,11 @@
 //
 // 口径同 70/77/118:静态启发式守门,undetermined 不冒红也不记绿。
 
-import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { mkScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')

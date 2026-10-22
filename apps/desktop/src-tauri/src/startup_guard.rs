@@ -64,6 +64,17 @@
 //!    `log_retention::ACTIVE_LOG_STEM`,与插件 LogDir 同一根,不新造落点根)。
 //!    ⚠️ 健康路径(插件唤醒对方)刻意**不**落盘:每一次"应用已在运行时再双击一次"都走
 //!    那条出口,落盘等于用正常操作把 40KB 的日志刷满。
+//! 8. 2026-10-22 立(票 L7170,复现前置的**静态取证**):票面"尚未取证'主实例处于隐藏态时
+//!    siw 窗口是否仍在'"由读插件源码收口 —— `tauri-plugin-single-instance-2.4.3`
+//!    `src/platform_impl/windows.rs` 里 `{id}-siw` 只在插件 setup 的首实例分支创建一次
+//!    (L105 `create_event_target_window`),唯一销毁点是 `RunEvent::Exit → destroy() →
+//!    DestroyWindow`(L111-115/L126-128);全文件对主窗口可见性零引用,siw 的 HWND 也不
+//!    暴露给应用侧 ⇒ **主窗口 hide/show 不触及 siw,"隐藏态"不构成第二实例的放行路径**。
+//!    放行路径只剩三型:对方启动相位(第 6 条,只等不杀)/级联僵尸(第 4 条,已修)/
+//!    对方事件循环挂死(siw 在而 2s 不应答,第 1a 条 ⇒ `KillStaleThenContinue`)。
+//!    这三型连同"隐藏态 ∧ siw 在 ∧ 应答 ⇒ 移交不杀"一起由 `decide` 的成对用例钉住
+//!    (见测试「健康实例存在时移交插件唤醒」)。活体读数格:自下一次真实启动起由第 7 条
+//!    的落账行(`启动守护预检落账 … siw_found=…`)自动产出,无需专设复现窗。
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -808,6 +819,8 @@ mod tests {
     #[test]
     fn 健康实例存在时移交插件唤醒() {
         // 探测链完好 ⇒ 即便存在可清理对象也绝不杀(交给插件唤醒 + 结束本进程)。
+        // 这一例同时是票 L7170 复现前置("主实例隐藏态时 siw 是否仍在",判据侧)的钉:
+        // 第 5 参 false = 主实例隐藏;事实侧(siw 不随可见性消失)见模块头注第 8 条。
         assert_eq!(
             decide(true, true, true, PresentWithCleanableTarget, false, false),
             PreflightAction::HandoffToExisting

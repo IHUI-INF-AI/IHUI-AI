@@ -37,10 +37,12 @@
  * (这行有没有注记)、维②算整行副本折并,两维都看不见"同一行同一注记叠了几份"。
  * 读数 = Σ(登记行内每种注记的出现次数 − 1);`--staged` 面 vs HEAD 面**只拦变多**,
  * 全量档默认只报数、`--strict` 才问责存量(存量正被并发写带回时当场判红 = §12e 恒红门)。
- * 识别集是本维自带的 `〔…〕`(长度 8–24),**刻意不并入 `DUP_POINTER_RE`**:那个字面一旦扩到
- * 通用括注族,维①与 T3 会把台账里合法的改号留痕(`〔改号(…):原…〕` 一族)整体算成存量并判红。
- * 取证:镜像测试 P9(单份⇒0 为阳性对照、三份⇒2、非登记行不计数、变多判红、折并归零判绿,
- * 外加一条形状锁断言 `DUP_POINTER_RE` 未被扩大)。
+ * 识别集是本维自带的 `〔…〕`(长度 8–24,另加 2026-10-22 票面修法①点名的 `〔同题原号 …〕` 与
+ * `〔改号(…):原…〕` 两字族不限长),**刻意不并入 `DUP_POINTER_RE`**:那个字面一旦扩到
+ * 通用括注族,维①与 T3 会把台账里合法的改号留痕(`〔改号(…):原…〕` 一族)整体算成存量判红。
+ * 取证:`--self-test` 成对反证(叠两份即红 / 只有一份不红)+ 镜像测试 P9(单份⇒0 为阳性对照、
+ * 三份⇒2、非登记行不计数、变多判红、折并归零判绿,外加一条形状锁断言 `DUP_POINTER_RE` 未被
+ * 扩大)与 P11(两字族超窗形态:叠两份⇒计 1、单份⇒0)。
  *
  * 维④(2026-10-20 立)「严格前缀型副本对」差值棘轮:
  * 两条未勾登记行,短行**逐字**是长行的前缀 ⇒ 短行不承载独有内容,它只是同一件事被抄了一份
@@ -62,6 +64,7 @@
  *   node scripts/check-plan-dup-pointer-ratchet.mjs --staged  (pre-commit, 阻塞)
  *   node scripts/check-plan-dup-pointer-ratchet.mjs           (全量审计,exit 0/1)
  *   node scripts/check-plan-dup-pointer-ratchet.mjs --audit-pointers [--json]  (只读报数,exit 0)
+ *   node scripts/check-plan-dup-pointer-ratchet.mjs --self-test [--json]       (维③成对反证夹具,exit 0/1)
  */
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -134,8 +137,14 @@ export function twinRatchetVerdict(headText, newText) {
  * 会把台账里大量合法的改号留痕(`〔改号(2026-10-14):原G-815424〕` 等)一起算成存量,
  * 全量档当场判红 —— 而那红与任何人的本次动作无关,正是 §12e 禁的恒红门。
  * 所以本维自带识别集,只管"同一行内逐字相同的注记多出来的份数"。
+ *
+ * 2026-10-22 票面修法①补字族:通用窗(内文 8–24 字)对票面点名的两族有实测漏网 ——
+ * 7 位原号的 `〔改号(2026-10-22):原G-1058619〕` 内文 25 字超上界、省略号形 `〔同题原号 …〕`
+ * 内文 6 字低于下界(HEAD 面现读:超窗 token 28 个 / 15 行,族内叠重窗漏 12 份)。
+ * 两族按票面以**不限长子模式**并入本维自带识别集;这不造恒红 —— 本维只数"逐字相同的注记
+ * 多出来的份数",合法单份留痕读数恒为 0,维①与 T3 的 `DUP_POINTER_RE` 一字未动(形状锁在镜像 P9)。
  */
-const NOTE_TOKEN_SRC = '〔[^〔〕]{8,24}〕'
+const NOTE_TOKEN_SRC = '〔(?:[^〔〕]{8,24}|同题原号[^〔〕]*|改号\\([^〔〕]*\\):原[^〔〕]*)〕'
 
 /** 一行内每种注记多出来的份数之和(0 = 该行无重复叠注)。 */
 export function redundantNoteCountInLine(line) {
@@ -230,6 +239,43 @@ export function prefixTwinVerdict(headText, newText) {
   const before = prefixTwinPairs(headText)
   const after = prefixTwinPairs(newText)
   return { before, after, grew: after > before }
+}
+
+/**
+ * 维③ `--self-test` 成对反证(2026-10-22 票面取证要求:叠两份即红 / 只有一份不红)。
+ * 与主判定共用 redundantNoteCount / noteRedundancyVerdict,不在夹具里复写判据。
+ */
+export function selfTestRun(asJson) {
+  const row = (notes) => `- [ ] G-9 做点啥 ${notes}\n`
+  const cases = [
+    { name: '单份同题原号 ⇒ 不红(阳性对照)', text: row('〔同题原号 G-191〕'), want: 0 },
+    { name: '同一行叠两份同题原号 ⇒ 计 1(叠两份即红)', text: row('〔同题原号 G-191〕〔同题原号 G-191〕'), want: 1 },
+    { name: '单份改号 7 位原号(25 字超窗形态) ⇒ 不红', text: row('〔改号(2026-10-22):原G-1058619〕'), want: 0 },
+    { name: '同一行叠两份改号 7 位原号 ⇒ 计 1(字族补入后超窗形态可识别)', text: row('〔改号(2026-10-22):原G-1058619〕〔改号(2026-10-22):原G-1058619〕'), want: 1 },
+    { name: '同一行叠两份省略号形同题原号(6 字低于窗形) ⇒ 计 1', text: row('〔同题原号 …〕〔同题原号 …〕'), want: 1 },
+    { name: '非登记行(散文)叠两份 ⇒ 不计', text: '随便一句正文 〔同题原号 G-191〕〔同题原号 G-191〕\n', want: 0 },
+  ]
+  let fail = 0
+  for (const c of cases) {
+    const got = redundantNoteCount(c.text)
+    const ok = got === c.want
+    if (!ok) fail++
+    if (!asJson) console.log(`${ok ? '✅' : '❌'} ${c.name}:期望 ${c.want},实测 ${got}`)
+  }
+  const one = row('〔同题原号 G-191〕')
+  const two = row('〔同题原号 G-191〕〔同题原号 G-191〕')
+  const grew = noteRedundancyVerdict(one, two)
+  const okGrew = grew.grew && grew.before === 0 && grew.after === 1
+  if (!okGrew) fail++
+  if (!asJson) console.log(`${okGrew ? '✅' : '❌'} 差值方向:单份面⇒叠两份面 grew=true(0→1)`)
+  const shrank = noteRedundancyVerdict(two, one)
+  const okShrank = !shrank.grew && shrank.after === 0
+  if (!okShrank) fail++
+  if (!asJson) console.log(`${okShrank ? '✅' : '❌'} 差值方向:折并回单份 grew=false(判绿)`)
+  const total = cases.length + 2
+  if (!asJson) console.log(`${fail ? '❌' : '✅'} 维③自检:pass ${total - fail} / fail ${fail}`)
+  else console.log(JSON.stringify({ pass: total - fail, fail }))
+  return fail ? 1 : 0
 }
 
 /**
@@ -429,12 +475,16 @@ const isDirectRun =
   process.argv[1] && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href
 if (isDirectRun) {
   const argv = process.argv.slice(2)
-  const { error } = selectFace({ staged: argv.includes('--staged'), def: 'worktree' })
-  if (error && !argv.includes('--audit-pointers')) {
-    console.error(`❌ 无法判定: ${error}`)
-    process.exitCode = 2
+  if (argv.includes('--self-test')) {
+    process.exitCode = selfTestRun(argv.includes('--json'))
   } else {
-    process.exitCode = main(argv)
+    const { error } = selectFace({ staged: argv.includes('--staged'), def: 'worktree' })
+    if (error && !argv.includes('--audit-pointers')) {
+      console.error(`❌ 无法判定: ${error}`)
+      process.exitCode = 2
+    } else {
+      process.exitCode = main(argv)
+    }
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

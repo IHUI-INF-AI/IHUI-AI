@@ -433,7 +433,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             // 新连接断开同样走宽限 detach(重复断线/重连安全)
             // G-998166:迟到清理带对象身份复核 —— 只有注册表里仍是本 session 才 detach;
             // 旧 session 的迟到 close 不得对同 key 已换代的新 session 触发宽限/释放
-            request.raw.on('close', () => {
+            // O64(2026-10-22):信号源改本连接 reply.raw —— request.raw 的 'close' 在 Node≥16
+            // 请求体收全即触发且真断连不再二次触发,挂 req 侧接管后断连全漏,宽限定时器从不武装。
+            raw.on('close', () => {
               if (findSession(replayKey) === liveSession) detachOnClose(liveSession)
             })
             request.log.warn(
@@ -483,7 +485,33 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     // 字段)。POST /chat/steer 凭 replayKey = `conversationId:messageId` 找回 session,
     // 取此 ID 拼 ai-service `/llm/complete/stream/{session_id}/steer` 转发地址。
     // 降级流(缺 metadata)不启用:steer 端点无法寻址,注册队列无意义。
-    const upstreamSessionId = replayKey ? randomUUID() : null
+    // D690 触发面对位(2026-10-22 立,承网关侧票):断线重连落回再生路径(无 Last-Event-ID /
+    // 窗口有洞 / 已过期)时,复用原流的 upstreamSessionId 重 POST —— ai-service 侧
+    // `_approval_replay_frames` 只在调用方复用同一 streamSessionId 时才查待决审批表
+    // (三闸:取数双闸∧新鲜度∧可兑现,全部 fail-closed 由上游判定;本侧只造出
+    // 「复用同一 streamSessionId 重连」的请求形态,不代判闸)。
+    // 复用前提 = 原会话在档 ∧ 未结束 ∧ 上游未 abort —— 闸③可兑现的「活等待者」只可能
+    // 在此态成立;原流已结束/已 abort ⇒ 取消 finally 已摘除待决条目、表必空,新 uuid
+    // 才是正确形态(复用死 id 徒扰 _steer_sessions 注册,且重放恒零帧)。
+    // 复用即退役原会话:finished 置位(防 createSession 的同 key 旧会话分支提前 abort 原上游)
+    // + replayKey 摘除(原转发循环后续帧不再编号/进缓冲,避免双计数器污染新会话窗口)
+    // + 撤销宽限定时器(其迟到 releaseStream 会杀掉新会话同 key 缓冲)。但**不**立即 abort
+    // 原上游:等新生流首字节到达(重放臂此刻已读完表)再取消 —— 先 abort 会让取消 finally
+    // 抢在重放读表前摘掉条目,触发面从确定性退化成竞态。
+    const previousSession = replayKey ? findSession(replayKey) : undefined
+    const livePrevious =
+      previousSession && !previousSession.finished && !previousSession.controller.signal.aborted
+        ? previousSession
+        : null
+    const upstreamSessionId = replayKey ? (livePrevious?.upstreamSessionId ?? randomUUID()) : null
+    if (livePrevious) {
+      if (livePrevious.graceTimer) {
+        clearTimeout(livePrevious.graceTimer)
+        livePrevious.graceTimer = null
+      }
+      livePrevious.replayKey = null
+      livePrevious.finished = true
+    }
     const session = createSession(raw, new AbortController(), replayKey, upstreamSessionId)
 
     // 首事件:压缩通知等
@@ -521,8 +549,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       controller.abort()
     }, 5 * 60_000)
     // 断线不再立即 abort 上游(#22):进 15s 宽限期等重连接管,超时才 abort
+    // O64(2026-10-22):信号源 = reply.raw。request.raw(IncomingMessage,Readable autoDestroy)
+    // 的 'close' 在 Node≥16 请求体收全即触发(进 handler 前 Fastify 已收完体),真断连不再二次
+    // 触发 —— 挂 req 侧则宽限定时器生产形态从不武装。reply.raw 的 'close' 只在断连/完成时触发,
+    // 完成路径由下方 finally 先行摘除,且 detachOnClose 自带 finished 守卫(双保险)。
     const onClose = () => detachOnClose(session)
-    request.raw.on('close', onClose)
+    raw.on('close', onClose)
 
     try {
       const mergedMetadata = {
@@ -699,6 +731,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             storageSample,
             coldStart,
           })
+          // D690 触发面对位:新生流首字节已到(重放臂此刻已读完待决表、重放帧已在途),
+          // 原上游此刻取消不再抢跑重放读表(单消费者不变量在此收口,交接窗口有界)。
+          if (livePrevious && !livePrevious.controller.signal.aborted)
+            livePrevious.controller.abort()
         }
         if (done) break
         streamBuffer += decoder.decode(value, { stream: true })
@@ -836,8 +872,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       if (opts.agentId) errChunk.agentId = opts.agentId
       emitEvent(session, JSON.stringify(errChunk))
     } finally {
-      request.raw.off('close', onClose)
+      raw.off('close', onClose)
       clearTimeout(serverTimeout)
+      // D690 触发面对位:新生流没走到首字节(建连失败/错误/提前中止)时,被复用退役的
+      // 原上游不得悬空 —— 其宽限定时器已在退役时撤销,此处是唯一收口点。
+      if (livePrevious && !livePrevious.controller.signal.aborted) livePrevious.controller.abort()
       finishSession(session)
       ;(session.raw ?? raw).end()
     }

@@ -41,13 +41,65 @@ export function versionFamilyRootId(m: VersionFamilyMessage): string {
 }
 
 /**
+ * 族成员枚举(票59 2/3 切片,2026-10-22):族根 + 全部带坐标的 sibling,
+ * 按 siblingIndex 升序(平局取输入序)。版本切换器、`n/N` 位置读数与投影
+ * 的"激活"判定共用这一份枚举 —— 第二份枚举必然漂移。
+ *
+ * 判族口径与 projectActiveMessages 完全同源(hasVersionFamilyCoords +
+ * versionFamilyRootId),不在这里另立规则。
+ */
+export function versionFamilyMembers<M extends VersionFamilyMessage>(
+  messages: readonly M[],
+  rootId: string,
+): M[] {
+  const candidates: { member: M; index: number }[] = []
+  for (let i = 0; i < messages.length; i++) {
+    const m = messages[i]!
+    if (!hasVersionFamilyCoords(m) || versionFamilyRootId(m) !== rootId) continue
+    candidates.push({ member: m, index: i })
+  }
+  candidates.sort((a, b) => {
+    const d = (a.member.siblingIndex ?? 0) - (b.member.siblingIndex ?? 0)
+    return d !== 0 ? d : a.index - b.index
+  })
+  return candidates.map((c) => c.member)
+}
+
+/**
+ * 版本切换位置的读投影(票59 2/3):某条消息在它自己版本族里的序号与总数。
+ *
+ * 返回 null 的三种情形都意味着"不渲染切换器":消息不在集合 / 不带族坐标 /
+ * 族内只有一条(= 没有可切的东西,画一个 1/1 只会骗用户去点)。
+ * `members` 随结果一起给出,让调用方按同一份枚举算相邻版本,不必二次判族。
+ */
+export function versionFamilyPosition<M extends VersionFamilyMessage>(
+  messages: readonly M[],
+  messageId: string,
+): { rootId: string; index: number; total: number; members: M[] } | null {
+  const target = messages.find((m) => m.id === messageId)
+  if (!target || !hasVersionFamilyCoords(target)) return null
+  const rootId = versionFamilyRootId(target)
+  const members = versionFamilyMembers(messages, rootId)
+  if (members.length < 2) return null
+  const index = members.findIndex((m) => m.id === messageId)
+  if (index < 0) return null
+  return { rootId, index, total: members.length, members }
+}
+
+/**
  * 版本族投影:输入按时间线排列的消息,输出同序但族内只保留激活版本。
  *
  * 排序判据:同族内 siblingIndex 大者激活;siblingIndex 相同(不应出现,防御)
  * 取数组中靠后者(= 时间线更晚)。非族消息与整族无坐标的消息原样保留。
+ *
+ * `activeVersionByRoot`(票59 2/3):用户手动切换的激活版本(rootId → 消息 id)。
+ * 只有它真的指向本族成员时才覆盖默认判据 —— 指向已不存在的消息(切会话/服务端
+ * 删除/持久化残影)一律回落默认。失效方向必须是"回到最新版本",绝不能因为一个
+ * 坏指针把整族渲染成空。
  */
 export function projectActiveMessages<M extends VersionFamilyMessage>(
   messages: readonly M[],
+  activeVersionByRoot?: Readonly<Record<string, string>>,
 ): M[] {
   // 先收集各族成员(带输入序,保序输出用)
   const familyOf = new Map<string, { member: M; index: number }[]>()
@@ -64,16 +116,20 @@ export function projectActiveMessages<M extends VersionFamilyMessage>(
   const suppressed = new Set<number>()
   for (const [root, members] of familyOf) {
     // 防御:族根不在集合 ⇒ 无法判定族完整性,整族保留(见头注)
-    const rootInSet = root === members[0]!.member.id
-      ? true
-      : messages.some((m) => m.id === root)
+    const rootInSet = root === members[0]!.member.id ? true : messages.some((m) => m.id === root)
     if (!rootInSet) continue
     // 激活 = siblingIndex 最大(平局取时间线靠后)
     let active = members[0]!
     for (const m of members) {
-      const a = (active.member.siblingIndex ?? 0)
-      const b = (m.member.siblingIndex ?? 0)
+      const a = active.member.siblingIndex ?? 0
+      const b = m.member.siblingIndex ?? 0
       if (b > a || (b === a && m.index > active.index)) active = m
+    }
+    // 手动切换态覆盖默认:指针必须命中本族成员,否则回落上面的默认(见头注)
+    const pinnedId = activeVersionByRoot?.[root]
+    if (pinnedId) {
+      const pinned = members.find((m) => m.member.id === pinnedId)
+      if (pinned) active = pinned
     }
     for (const m of members) {
       if (m.index !== active.index) suppressed.add(m.index)

@@ -495,6 +495,10 @@ def _isolate_vector_memory(monkeypatch):
     """
     from app.services.vector_memory import vector_memory
 
+    # D8 pgvector 镜像/检索是跨进程持久层:只清内存单例挡不住 pg 里历史运行
+    # 累积的条目回流(search() 优先走 pg)。用官方开关补全"强制内存模式"的隔离。
+    monkeypatch.setenv("IHUI_PGVECTOR_DISABLE", "1")
+
     def _force_memory_mode():
         vector_memory._use_redis = False
         vector_memory._redis = None
