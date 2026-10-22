@@ -2176,6 +2176,22 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 🐞 修正:健康门禁与 AI 诊断的公网基址从 apex 换成真入口 www(探测腿此前恒瞎) (72357a8456)
+- 📚 ドキュメント:认领 G-865(摘 DEFAULT_AVATAR_URL 死键+同批改两处 RN 测试) (6d135d16ea)
+- 📚 ドキュメント:结清 G-960/G-922/G-959/G-924(登录屏i18n票) 四票 (279794970d)
+- 🔧 その他:G-960 探活镜像⑭⑮⑯ + G-922 守门39反向锁T7-T10 [goal-20261022] (575cc13efb)
+- 📚 ドキュメント:认领 G-343(残余三处盘根替换+落点断言) (0751c0694f)
+- 📚 ドキュメント:结清 G-928(ui-routes 产物重钉,门105 head面转绿) (12cfc1283e)
+- ♻️ リファクタ:把我侧那枚 Cloudflare token 票让号重登(改走正牌取号令牌现算空闲号) (35e89acfc6)
+- 🐞 修正:G-928 重钉 ui-routes.generated 自述块 [goal-20261022] (9387ee71f0)
+
+**2026-10-22**
+- 📚 ドキュメント:认领 G-343(残余三处盘根替换+落点断言) (0751c0694f)
+- 📚 ドキュメント:结清 G-928(ui-routes 产物重钉,门105 head面转绿) (12cfc1283e)
+- ♻️ リファクタ:把我侧那枚 Cloudflare token 票让号重登(改走正牌取号令牌现算空闲号) (35e89acfc6)
+- 🐞 修正:G-928 重钉 ui-routes.generated 自述块 [goal-20261022] (9387ee71f0)
+
+**2026-10-22**
 - 📚 ドキュメント:另立 f9 夹具二跳闭包过期票(G-955 复跑取证) (6e40140c9e)
 - 📚 ドキュメント:补认领 G-922(标记被归并批冲掉) (61bc27922f)
 - 📚 ドキュメント:结清 G-955(--check RC=0 主会话复跑实证)+认领 G-960/G-928 满载5席 (75682d367d)
@@ -2224,25 +2240,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-10-22**
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2526330525)
-
-**2026-10-22**
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ccd7ce10f5)
-- 🐞 修正:净面去 git 化(read-tree+checkout-index),根治 worktree 登记四类故障 (5038b8b0ca)
-- 🚀 機能/改善:验证码按场景分模板 —— 注册/登录/找回密码/改绑各走自己已过审的模板 (765d4621e6)
-- 🔧 その他:清 tests/ 第三批 8 处模块内死代码 + 级联的 2 处 import(删 HERE 后 dirname/fileURLToPath 随之无用) —— 只删 eslint 点名且确认零引用的绑定;8 个文件 lint 0 error、测试全过(注:check-redundant 的 T12 是存量红,HEAD 原版同样失败,与本批无关) (6cc7f536b4)
-- 🐞 修正:阿里云验证码这条腿从入库那天起就没通过 —— 修构造函数互操作 + 补响应体业务码判定 + 接通两条发码端点 (d2c3ba781a)
-- 🔧 その他:清 tests/ 第二批 10 处 unused(多具名 import 删单符号 4 处 + 形参加 _ 前缀 6 处)—— 只动 eslint 点名的那一个符号,同行其余绑定与调用方一律不碰;5 个文件 100 个测试全过。scripts/tests/ error 35 → 17 (e8f8389fc6)
-- 🔧 その他:清 tests/ 首批 8 处未使用 import(整体行 5 处 + 多具名里的 rmScratch 3 处)—— 只删 eslint 点名的那一个符号,保留同行其余绑定;改后 5 个文件 lint 0 error、58 个测试全过 (d9f6746207)
-- 🔧 その他:清 scripts/lib/ 最后 3 处存量 lint error —— plan-tasks-merge-selftest 删未使用的 titleOf 导入与 rewritePointer 解构绑定;stale-lock-claim 的 observedAt 参数加 _ 前缀。eslint scripts/lib/ 现为 0 error (e3e940a046)
-- 📚 ドキュメント:readme-06 守门结构描述与实现对齐 —— "56+10 pre-commit 项"改为 269 道 runner 门 + 本地元门档 27 道 + 全量归 CI;两处"pre-commit 第 N 项"改为 guardian-runner 注册门 (ba6898c15d)
-- 🐞 修正:node-version 与根 package.json engines 对齐(>=22.13.0)—— 写死 '22' 可能装到 22.0.0,而本仓用了 22.13 之后的特性 (17e6aaf4c1)
-- 📚 ドキュメント:收口三处 —— ① AGENTS.md 那句"guardian 每 30 分钟派发"与实现不符(guardian 对该脚本 0 引用),按实录改为"派发层已补建";② JUDGEMENT_LIBS 从两份重复定义合并为单一真相源 scripts/lib/judgement-libs.json(CJS/ESM 共读);③ 补收 14 个漏册高频公共库(flag-value 59 门/code-mask 47 门/selftest-registrant 36 门等),改错会让几十道门静默失效 (d61206d615)
-- 🐞 修正:补建缺失的派发层 sweepStaleClaimMarks + 清两条存量 lint error(tmpdir/DAY_MS 未使用)—— 门 98 的悬空导入(测试引用了从未实现的函数);按测试断言实现:30 分钟节流闸 + 注入式 runner + 结论行解析,拿不到结论行落 undetermined 不记绿 (fd1aaa8ee8)
-- 🐞 修正:补 workflow 溯源水印头 —— 门 47 检出的 HEAD 面欠账(inject 已写工作区,本次提交销账) (52d59c3a62)
-- 🔧 その他:全量守门 workflow 开自动触发(push/PR),先以记录模式跑(continue-on-error) —— 本地无法可靠预测 CI 结果,存量修完后再转拦截模式 (54190217ce)
-
-**2026-10-22**
-- 📚 ドキュメント:G-960 公网入口断流旧副本转注释归并(正主为已撤回误判的修订版),清 F4 同题两版以过收敛落地闸 (004f9b4e4d)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
