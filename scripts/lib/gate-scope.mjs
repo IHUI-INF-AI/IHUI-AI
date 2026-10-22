@@ -146,6 +146,9 @@ export function resolveGateScope(stagedPaths) {
   // 代价(必须知道):本地 pre-commit **不再拦业务代码错误**(UI 样式/组件规范/API 路由等),
   // 那些判据只在 CI 跑。提交会先落地,CI 红了你再修 —— 这是"本地快 + CI 全"的既定分工,
   // 不是漏判。要本地也全量(发版前/排障):IHUI_GATE_SCOPE=full。
+  // 唯一例外:Button 高度档位门保留 pre-commit 索引面直调(单门只读暂存文件,<1s;
+  // 见 scripts/lib/pre-commit-hook.js 同名段)——它是 UI 规范门里成本最低的一格,
+  // 且在 .github/workflows/guardian-full.yml 的自动触发启用前,这是它唯一的本地执行点。
   //
   // 仍然强制 full 的只剩**判据库**:那些文件被大量门 import,改错会让门静默失效,
   // 而 CI 是延迟发现 ⇒ 本地必须当场验。

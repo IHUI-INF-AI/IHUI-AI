@@ -17,8 +17,22 @@ const SELF = bt.SELF
 
 // ── 装车证明(§22c):源脚本必须 export __test__ 且暴露判据核心,缺一个锚点即红 ──
 test('源脚本 __test__ 导出锚点齐全(镜像漂移防线)', () => {
-  for (const k of ['resolveRoot', 'loadValidSizes', 'maskComments', 'extractTag', 'extractClasses',
-    'extractSize', 'isScannedFile', 'collectViolationsInSource', 'scanTree', 'FALLBACK_SIZES', 'SELF']) {
+  for (const k of [
+    'resolveRoot',
+    'parseValidSizes',
+    'loadValidSizes',
+    'maskComments',
+    'extractTag',
+    'extractClasses',
+    'extractSize',
+    'isScannedFile',
+    'collectViolationsInSource',
+    'scanTree',
+    'scanFace',
+    'emptyFaceVerdict',
+    'FALLBACK_SIZES',
+    'SELF',
+  ]) {
     assert.ok(k in bt, `__test__ 缺少导出键 ${k}`)
   }
   // import 本文件不触发 main():若触发了,上面 import 阶段就会 exit/刷扫描输出,到不了这里
@@ -34,7 +48,13 @@ function independentParseSizes(root) {
   let blockEnd = -1
   for (; i < src.length; i++) {
     if (src[i] === '{') depth++
-    else if (src[i] === '}') { depth--; if (depth === 0) { blockEnd = i; break } }
+    else if (src[i] === '}') {
+      depth--
+      if (depth === 0) {
+        blockEnd = i
+        break
+      }
+    }
   }
   assert.ok(blockEnd > start, 'size 块花括号不配平')
   const block = src.slice(start + 'size:'.length + 1, blockEnd)
@@ -42,8 +62,14 @@ function independentParseSizes(root) {
   let inBlockComment = false
   for (const line of block.split('\n')) {
     const t = line.trim()
-    if (inBlockComment) { if (t.endsWith('*/')) inBlockComment = false; continue }
-    if (t.startsWith('/*') && !t.endsWith('*/')) { inBlockComment = true; continue }
+    if (inBlockComment) {
+      if (t.endsWith('*/')) inBlockComment = false
+      continue
+    }
+    if (t.startsWith('/*') && !t.endsWith('*/')) {
+      inBlockComment = true
+      continue
+    }
     if (t.startsWith('//') || t.startsWith('/*')) continue
     const m = /^(['"]?)([A-Za-z][A-Za-z0-9_-]*)\1\s*:/.exec(t)
     if (m) keys.push(m[2])
@@ -55,7 +81,10 @@ test('档位清单 = 真仓 button.tsx 独立解析结果(动态解析真实生�
   const fromProbe = independentParseSizes(bt.SCRIPT_REPO_ROOT)
   assert.ok(fromGate.size >= 8, `档位集异常小:${[...fromGate]}`)
   assert.deepEqual([...fromGate].sort(), [...fromProbe].sort())
-  assert.ok(fromGate.has('icon-2xs'), 'AGENTS §4 明载的 icon-2xs 必须在档(硬编码兜底被移除的回归锚)')
+  assert.ok(
+    fromGate.has('icon-2xs'),
+    'AGENTS §4 明载的 icon-2xs 必须在档(硬编码兜底被移除的回归锚)',
+  )
 })
 
 // ── 正反成对核心判据(纯函数面,无 fs / 无 git / 不触真仓) ──
@@ -64,7 +93,10 @@ test('h-7 w-7 覆盖必红;档位内 size 必绿;非法 size 必红', () => {
   const red = bt.collectViolationsInSource(`const a = <Button className="h-7 w-7" />`, SIZES)
   assert.equal(red.length, 1)
   assert.deepEqual(red[0].bad, ['h-7', 'w-7'])
-  assert.equal(bt.collectViolationsInSource(`const a = <Button size="icon-2xs" />`, SIZES).length, 0)
+  assert.equal(
+    bt.collectViolationsInSource(`const a = <Button size="icon-2xs" />`, SIZES).length,
+    0,
+  )
   assert.equal(bt.collectViolationsInSource(`const a = <Button size="sm" />`, SIZES).length, 0)
   const badSize = bt.collectViolationsInSource(`const a = <Button size="xl2" />`, SIZES)
   assert.equal(badSize.length, 1)
@@ -90,14 +122,31 @@ test('非 Button 元素 h-9 不误伤(Input/div/原生 button/相似组件名)',
   assert.equal(bt.collectViolationsInSource(src, SIZES).length, 0)
 })
 test('JSX 边界:多行属性/{...props}/三元 className 判红;注释内 h-7 一律不判红', () => {
-  assert.equal(bt.collectViolationsInSource(
-    `<Button\n  variant="ghost"\n  {...props}\n  className="h-9"\n/>`, SIZES).length, 1)
-  assert.equal(bt.collectViolationsInSource(
-    `<Button className={open ? 'h-7 w-7' : 'px-2'} />`, SIZES).length, 1)
-  assert.equal(bt.collectViolationsInSource(
-    `// <Button className="h-7" /> 注释示例\nconst x = 1\n/* <Button size="nope" /> */`, SIZES).length, 0)
-  assert.equal(bt.collectViolationsInSource(
-    `const x = <p>{"含 <Button className=\\"h-7\\" 的文案"}</p>`, SIZES).length, 0)
+  assert.equal(
+    bt.collectViolationsInSource(
+      `<Button\n  variant="ghost"\n  {...props}\n  className="h-9"\n/>`,
+      SIZES,
+    ).length,
+    1,
+  )
+  assert.equal(
+    bt.collectViolationsInSource(`<Button className={open ? 'h-7 w-7' : 'px-2'} />`, SIZES).length,
+    1,
+  )
+  assert.equal(
+    bt.collectViolationsInSource(
+      `// <Button className="h-7" /> 注释示例\nconst x = 1\n/* <Button size="nope" /> */`,
+      SIZES,
+    ).length,
+    0,
+  )
+  assert.equal(
+    bt.collectViolationsInSource(
+      `const x = <p>{"含 <Button className=\\"h-7\\" 的文案"}</p>`,
+      SIZES,
+    ).length,
+    0,
+  )
 })
 test('isScannedFile:button.tsx 本体与测试路径豁免,普通端内文件在扫描面', () => {
   assert.equal(bt.isScannedFile('packages/ui-react/src/components/button.tsx'), false)
@@ -125,21 +174,32 @@ test('maskComments 保长保行,字符串不被误伤', () => {
 
 // ── CLI 端到端装车证明(--self-test 夹具全量 + 根注入退出码) ──
 // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
-const cli = (args, env) => spawnSync(process.execPath, [SELF, ...args], {
-  stdio: ['ignore', 'pipe', 'pipe'],
-  encoding: 'utf8', windowsHide: true, timeout: 180000, maxBuffer: 32 * 1024 * 1024,
-  env: env ? { ...process.env, ...env } : process.env,
-})
+const cli = (args, env) =>
+  spawnSync(process.execPath, [SELF, ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 180000,
+    maxBuffer: 32 * 1024 * 1024,
+    env: env ? { ...process.env, ...env } : process.env,
+  })
 test('CLI --self-test → exit 0(判据在独立夹具里真的能红/能绿)', () => {
   const r = cli(['--self-test'])
   assert.equal(r.status, 0, r.stdout + r.stderr)
   assert.match(r.stdout, /self-test 全部通过/)
 })
 test('CLI 根注入退出码:不存在目录/等号形态/staged 冲突 → 2(绝不静默 0)', () => {
-  const missing = path.join(bt.SCRIPT_REPO_ROOT, '.ihui-agent', 'tmp', 'button-height', 'nope-must-not-exist')
+  const missing = path.join(
+    bt.SCRIPT_REPO_ROOT,
+    '.ihui-agent',
+    'tmp',
+    'button-height',
+    'nope-must-not-exist',
+  )
   assert.equal(cli(['--root', missing]).status, 2)
   assert.equal(cli([`--root=${missing}`]).status, 2)
   assert.equal(cli(['--staged', '--root', bt.SCRIPT_REPO_ROOT]).status, 2)
+  assert.equal(cli(['--staged', '--worktree']).status, 2)
 })
 test('CLI 真仓默认根全量 → exit 0(全仓现绿;此门恒红=全队 --no-verify,必须先消红)', () => {
   const r = cli([])
