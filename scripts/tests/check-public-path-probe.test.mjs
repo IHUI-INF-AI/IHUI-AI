@@ -371,4 +371,86 @@ test('⑬ 投影到派发契约后,严重度档必须仍然算得出来(实测�
   // ⑤ A 序列本来就带 stat(:1258)—— 旧投影把它丢掉过,所以这里连 A 一起钉。
   assert.ok(probe.projectVerdictForDispatch({ key: 'A/公网', verdict: 'breach', reasons: [], numbers: 'x', stat: broke }).stat !== undefined, 'A 序列的 stat 也不许在投影里丢')
 })
+
+// ───────────── 2026-10-22 新增(票 G-960):换靶真入口 + 3xx"零信息"语义 ─────────────
+
+test('⑭ G-960 靶形状锁(与 env 无关):默认字面量必须是 www 真入口,裸域旧靶只作夹具', () => {
+  const host = (u) => {
+    try {
+      return new URL(u).host
+    } catch {
+      return ''
+    }
+  }
+  // 立案现场:靶钉裸域 ⇒ 公网腿恒拿 Cloudflare 边缘 301,入口 522/530 断流结构上量不到。
+  // 定档数据(2026-10-22 成组对照,各 20 次):www/sso/login 20×200;裸域/sso/login 20×301。
+  assert.ok(host(probe.ENTRY_URL_DEFAULT).startsWith('www.'), `默认靶离开了真入口:${probe.ENTRY_URL_DEFAULT}`)
+  assert.equal(host(probe.ZERO_INFO_LEGACY_URL), 'aizhs.top', '裸域旧靶必须保留具名(留名是为了"换回去"也得在代码里留下理由)')
+  assert.notEqual(probe.ENTRY_URL_DEFAULT, probe.ZERO_INFO_LEGACY_URL, '默认靶若换回恒 301 的旧靶 = 重造立案现场,本断言当场翻红')
+})
+
+test('⑮ G-960 classifySample:单条 3xx 不算坏,但 note 必须自曝"不证明回源健康"(不得冒认终态)', () => {
+  for (const s of [301, 302, 307, 399]) {
+    const c = probe.classifySample({ status: s, ms: 668 })
+    assert.equal(c.bucket, 'redirected', `HTTP ${s} 必须落 redirected`)
+    assert.equal(c.stage, 'http')
+    assert.equal(c.unavailable, false, '单条 3xx 不算对端失败(混合腿照旧出合格证)—— 但整轮全 3xx 由 ⑯ 剥夺资格')
+    assert.match(c.note, /不证明回源健康/, '3xx 只证明"到得了答 3xx 的那一跳",归类注记必须写明这条边界(§0.3)')
+  }
+  // 邻界变异:终态/4xx/5xx 各归各桶,"不跟重定向"不许把读数漏进隔壁
+  assert.equal(probe.classifySample({ status: 200, ms: 400 }).bucket, 'ok')
+  assert.equal(probe.classifySample({ status: 404, ms: 400 }).unavailable, false)
+  assert.equal(probe.classifySample({ status: 522, ms: 400 }).unavailable, true, '522(CF 回源超时)是对端可归因失败 —— 入口断流时这把尺子必须看得见这一型')
+})
+
+test('⑯ G-960 三态:整轮全 3xx ⇒ 未判定并点名换靶出路 / 混合照旧出证 / 3xx+5xx 断流优先', () => {
+  // 复现立案现场:10/10 停 redirected(裸域恒 301),旧账面写 ok ⇒ 现在必须自曝零信息
+  const bare = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mkSample({ status: 301, ms: 668 }, i)), { slowMs: 8000 })
+  const jb = probe.judgeSequence('B/公网·常态', bare, { rule: 'ratio', slowMs: 8000 })
+  assert.equal(bare.buckets.redirected, 10)
+  assert.equal(bare.unavailable, 0)
+  assert.equal(jb.verdict, 'unjudged', '零信息腿不得出"入口健康"的合格证')
+  const why = jb.reasons.join(' ')
+  assert.match(why, /全部停在 3xx/)
+  assert.ok(why.includes(probe.ENTRY_URL_DEFAULT), `出路必须当场给出可执行的下一步(§5e-1 出口①),含现读默认靶:${why}`)
+  // 身份面:未判定不得携带严重度("量不到"不许冒充档位)
+  assert.equal(probe.classifyAlertIdentity('B/公网·常态', bare, { nowMs: T0 }).sevTier, 0)
+  // 混合(5×301+5×200):3xx 仍不算坏、该腿照旧出合格证 —— 不许把"有重定向"读成失明
+  const mix = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mkSample({ status: i % 2 ? 301 : 200, ms: 400 }, i)), { slowMs: 8000 })
+  const jm = probe.judgeSequence('B/公网·常态', mix, { rule: 'ratio', slowMs: 8000 })
+  assert.equal(jm.verdict, 'ok')
+  assert.equal(jm.reasons.length, 0, '混合轮的 3xx 不许混进判红或附项(既有语义不动)')
+  // 反向锁:整轮没有 2xx 但**确有**对端可归因失败(3xx+5xx)⇒ 断流优先,不得被零信息支洗成未判定
+  const out = probe.summarizeSequence(Array.from({ length: 8 }, (_, i) => mkSample({ status: i < 6 ? 301 : 502, ms: 700 }, i)), { slowMs: 8000 })
+  assert.equal(out.unavailable, 2)
+  assert.equal(probe.judgeSequence('B/公网·常态', out, { rule: 'ratio', slowMs: 8000 }).verdict, 'breach', '断流必须红,"掺了 3xx"不是豁免')
+  // 变异对照:全 200(www 腿现测形状)不得被误报未判定
+  const healthy = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mkSample({ status: 200, ms: 185 }, i)), { slowMs: 8000 })
+  assert.equal(probe.judgeSequence('B/公网·常态', healthy, { rule: 'ratio', slowMs: 8000 }).verdict, 'ok')
+})
+
+test('⑰ G-960 classifyPublicLeg:快速 5xx 断流必须归"入口段",不得被旧判序指到本机出口段(正反双向变异对照)', () => {
+  // 立案现场的第二型:断流不是"慢"——CF 的 522/530 几百毫秒就答。旧判序(慢样本→入口段/否则→本机出口段)
+  // 会把整轮 5xx 写成"只关于本机出口、真实访客不经此路",把最该喊人的那一型指到健康的组件上(§5e-1)。
+  const stg = (over) => ({ stageReached: over.status ? 'body' : 'tcp', stages: { dns: 2, tcp: 260, tls: 520, head: over.status ? 700 : null, body: over.status ? 900 : null }, ...over })
+  const mk2 = (raw, atSec) => ({ at: iso(atSec), ...raw, ...probe.classifySample(raw) })
+  const pub530 = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mk2(stg({ status: 530, ms: 300 }), i)), { slowMs: 8000 })
+  const localFast = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mk2(stg({ status: 200, ms: 20 }), 100 + i)), { slowMs: 8000 })
+  // 牙齿自证:这一读数在**旧判序**的落点条件上确实成立(httpSlow+postTlsStall=0)⇒ 本断言不是空转
+  assert.equal(pub530.httpSlow + pub530.postTlsStall, 0, '前提破:读数不是"快 5xx"那一型')
+  assert.equal(pub530.unavailable, 10)
+  const g = probe.classifyPublicLeg(pub530, localFast)
+  assert.equal(g.leg, 'entry', '对端可归因失败必须归访客同经的入口段,不得落本机出口段')
+  assert.equal(g.tag, '入口段')
+  assert.match(g.note, /对端可归因失败/, '定位正文必须点名失败形态(收信人据此查 cloudflared/回源,不是查本机网络)')
+  assert.match(g.note, /5xx 10/)
+  // 双向对照①:对照组同轮也越阈 ⇒ 既有"服务段"判定不得被新支吞掉
+  const localBad = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mk2(stg({ status: 500, ms: 20 }), 200 + i)), { slowMs: 8000 })
+  assert.equal(probe.classifyPublicLeg(pub530, localBad).tag, '服务段')
+  // 双向对照②:无对端可归因失败、坏点全停在握手中 ⇒ 仍归"本机出口段"(新支不得把本机出口的账抢进入口)
+  // 夹具必须真"停在握手中"(stages.tls=null):带 tls 读数会被读成握手完成后才停 ⇒ 归口本就该是入口段
+  const stall = probe.summarizeSequence(Array.from({ length: 10 }, (_, i) => mk2({ status: null, ms: 10_700, aborted: true, causeCode: 'PROBE_INACTIVITY,Socket', stageReached: 'tcp', stages: { dns: 2, tcp: 300, tls: null, head: null, body: null } }, 300 + i)), { slowMs: 8000 })
+  assert.equal(stall.unavailable, 0)
+  assert.equal(probe.classifyPublicLeg(stall, localFast).tag, '本机出口段')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
