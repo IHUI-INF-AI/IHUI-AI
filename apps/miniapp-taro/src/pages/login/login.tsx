@@ -292,8 +292,11 @@ export default function Login() {
           Taro.showToast({ title: t('login.loginSuccess'), icon: 'success' })
           setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
         })
-        .catch(() => {
-          Taro.showToast({ title: t('login.wechatFailed'), icon: 'none' })
+        .catch((e: unknown) => {
+          // 判据已经把"未绑定 openid"和"答复不对"分成两条错误抛上来,
+          // 这里必须把原因原样递到人眼前 —— 糊成一句"微信登录失败"就是让人原地重试一个走不通的分支。
+          const reason = e instanceof Error ? e.message : ''
+          Taro.showToast({ title: reason || t('login.wechatFailed'), icon: 'none' })
         })
         .finally(() => setIsSmsLogging(false))
     } else {
