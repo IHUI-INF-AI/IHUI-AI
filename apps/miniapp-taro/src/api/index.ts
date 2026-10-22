@@ -93,7 +93,6 @@ import {
   cancelRecurringContract as _cancelRecurringContract,
   getSubscriptionStatus as _getSubscriptionStatus,
   loginBySms as _loginBySms,
-  loginByWechat as _loginByWechat,
   loginByPhone as _loginByPhone,
   loginByEmailCode as _loginByEmailCode,
   sendEmailCode as _sendEmailCode,
@@ -174,9 +173,16 @@ export const loginByEmailCode = (email: string, code: string) =>
 export const loginByPassword = (phone: string, password: string) =>
   unwrapApi(_loginByPhone(phone, password)) as Promise<LoginResult>
 
-/** 微信登录 — POST /auth/login/wechat */
-export const loginByWechat = (code: string) =>
-  unwrapApi(_loginByWechat(code)) as Promise<LoginResult>
+/**
+ * 微信登录 —— 小程序端只可能是"小程序登录"这一条腿。
+ *
+ * 2026-10-23 真机实测(微信开发者工具 Stable 2.02.2608080):这里原先转调的是共享客户端的
+ * `loginByWechat`,而它打的是 `POST /auth/login/wechat` —— 那是 **react-native-wechat-lib
+ * 的移动应用授权**端点(本机未配置 WECHAT_MOBILE_*,它如实回 501「微信移动应用登录未配置」),
+ * 与小程序的 jscode2session 完全不是一回事。这条错配一直被"请求根本发不出去"挡着看不见,
+ * 传输层修好后才露出来。URL 的唯一出口 = 下面的 `openId()`。
+ */
+export const loginByWechat = (code: string) => openId(code) as Promise<LoginResult>
 
 /**
  * 退出登录 — POST /auth/logout(本地实现)
