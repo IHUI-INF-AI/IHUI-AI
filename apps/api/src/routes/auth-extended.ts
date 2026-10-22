@@ -1177,8 +1177,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
     const gate = await gateLoginIpWhitelist(request, reply, user.id)
     if (!gate.allowed) return gate.reply
-    const { accessToken, refreshToken } = await buildTokenPair(user, reply)
-    return reply.send(success({ userId: user.id, accessToken, refreshToken }))
+    const tokens = await buildTokenPair(user, reply)
+    // 响应形状与 /auth/wechat/mini/one-tap-login、/auth/login/sms 对齐({...tokens, user: publicUser(...)}):
+    // 只回 userId 的话,端内 miniAppLogin 会去读 result.user.nickname 当场 TypeError ——
+    // 2026-10-23 真机实测:传输层修好之后,这一腿才第一次真正走到"已绑定用户拿 token"这一步。
+    const permissions = await resolveUserPermissions(user.id, user.roleId)
+    return reply.send(success({ ...tokens, user: publicUser(user, permissions) }))
   })
 
   // POST /api/auth/wechat/mini/one-tap-login — 微信手机号一键登录(免鉴权)
