@@ -117,6 +117,7 @@
     "loginSuccess": "登录成功",
     "wechatFailed": "微信登录失败",
     "wechatUnavailable": "当前环境不支持微信登录,请改用手机号、邮箱验证码或密码登录",
+    "wechatNotBound": "该微信尚未绑定账号,请用手机号验证码登录",
     "login": "登录",
     "logging": "登录中…",
     "brand": "智汇 AI",
