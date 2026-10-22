@@ -65,6 +65,12 @@ export interface LoginPopUpProps {
   /** 一键登录回调(微信手机号登录,对齐原项目 getPhoneNumber L577-712)。
    *  传入 loginCode(Taro.login code)+ phoneCode(onGetPhoneNumber e.detail.code)。 */
   onOneClickLogin?: (result: { loginCode: string; phoneCode: string }) => Promise<void>
+  /**
+   * 账号密码兜底回调 —— 只在微信手机号一键验证拿不到时给退路用(未配置手机号权限、
+   * 用户拒授权、或压根没开该能力的 appid)。传入才渲染「密码登录」这一格,不传弹窗里
+   * 一行都不多 —— 与 `onOneClickLogin` 同一条"传入才渲染"的规矩。
+   */
+  onPasswordLogin?: (account: string, password: string) => Promise<void>
 }
 
 const DEFAULT_AVATAR = '/static/default-avatar.png'
@@ -81,11 +87,17 @@ export default function LoginPopUp({
   onNicknameChange,
   onUpgrade,
   onOneClickLogin,
+  onPasswordLogin,
 }: LoginPopUpProps) {
   const tt = useTt()
 
   const [nickname, setNickname] = useState<string>(userInfo?.nickname ?? '')
   const [avatar, setAvatar] = useState<string>(userInfo?.avatar ?? '')
+  /** 账号密码兜底默认收起:它是退路,不是主路径,不该跟一键登录抢第一眼。 */
+  const [pwdOpen, setPwdOpen] = useState(false)
+  const [pwdAccount, setPwdAccount] = useState('')
+  const [pwdValue, setPwdValue] = useState('')
+  const [pwdSubmitting, setPwdSubmitting] = useState(false)
 
   if (!visible) return null
 
@@ -290,6 +302,100 @@ export default function LoginPopUp({
               {tt('login.wechatOneClick', '微信一键登录')}
             </Text>
           </Button>
+        ) : null}
+
+        {/* 账号密码兜底(2026-10-23 机主定档:小程序不该有登录页,这条是"微信手机号一键验证
+            拿不到"时的退路 —— 权限没开通、用户拒授权、或 appid 压根没该能力)。
+            默认收起成一行文字入口,点开才出字段:它是退路,不该跟一键登录抢第一眼。
+            样式全部走全局那一份(app.css 的「登录字段」块)+ Tailwind 全局 utility,
+            不在这里再写一套输入框视觉。 */}
+        {onPasswordLogin ? (
+          <View className="w-full" style={{ marginBottom: toUnit(LOGIN_POPUP_SECTION_GAP_PX) }}>
+            {pwdOpen ? (
+              <>
+                <View className="login-field">
+                  <Text className="login-label">{tt('login.account', '账号')}</Text>
+                  <FocusInput
+                    className="login-input"
+                    type="text"
+                    placeholder={tt('login.accountPlaceholder', '手机号 / 邮箱 / 账号')}
+                    placeholderStyle="color: var(--color-muted-foreground);font-size: 28rpx;font-weight: normal;"
+                    value={pwdAccount}
+                    onInput={(e) => setPwdAccount(e.detail.value)}
+                  />
+                </View>
+                <View className="login-field">
+                  <View className="login-label-row">
+                    <Text className="login-label">{tt('login.password', '密码')}</Text>
+                    <Text
+                      className="text-xs text-muted-foreground"
+                      onClick={() => Taro.navigateTo({ url: '/pages/forgot-password/index' })}
+                    >
+                      {tt('login.forgotPassword', '忘记密码')}
+                    </Text>
+                  </View>
+                  <FocusInput
+                    className="login-input"
+                    password
+                    type="text"
+                    placeholder={tt('login.passwordPlaceholder', '请输入密码')}
+                    placeholderStyle="color: var(--color-muted-foreground);font-size: 28rpx;font-weight: normal;"
+                    value={pwdValue}
+                    onInput={(e) => setPwdValue(e.detail.value)}
+                  />
+                </View>
+                <Button
+                  className="w-full !py-0 !px-4 rounded-sm !border-none text-center"
+                  style={{
+                    height: toUnit(LOGIN_POPUP_BUTTON_HEIGHT_PX),
+                    background: 'var(--color-primary)',
+                  }}
+                  hoverClass="opacity-60"
+                  onClick={async () => {
+                    if (pwdSubmitting) return
+                    const account = pwdAccount.trim()
+                    const password = pwdValue
+                    if (!account || !password) {
+                      Taro.showToast({
+                        title: tt('login.accountPlaceholder', '手机号 / 邮箱 / 账号'),
+                        icon: 'none',
+                      })
+                      return
+                    }
+                    setPwdSubmitting(true)
+                    try {
+                      await onPasswordLogin(account, password)
+                    } catch (e) {
+                      Taro.showToast({
+                        title:
+                          e instanceof Error && e.message
+                            ? e.message
+                            : tt('login.loginFailed', '登录失败,请重试'),
+                        icon: 'none',
+                      })
+                    } finally {
+                      setPwdSubmitting(false)
+                    }
+                  }}
+                >
+                  <Text
+                    className="text-primary-foreground font-medium"
+                    style={{ fontSize: toUnit(LOGIN_POPUP_BUTTON_FONT_PX) }}
+                  >
+                    {pwdSubmitting ? tt('login.logging', '登录中…') : tt('login.login', '登录')}
+                  </Text>
+                </Button>
+              </>
+            ) : (
+              <Text
+                className="text-xs text-muted-foreground"
+                style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
+                onClick={() => setPwdOpen(true)}
+              >
+                {tt('login.passwordLogin', '密码登录')}
+              </Text>
+            )}
+          </View>
         ) : null}
 
         {/* 关闭按钮 */}
