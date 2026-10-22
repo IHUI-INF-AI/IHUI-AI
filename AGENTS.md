@@ -166,6 +166,8 @@ pnpm check:pytest                             # Python 用例唯一入口(透传
 pnpm dev                                      # 启动所有服务(端口见 docs/port-management.md)
 ```
 
+- `pnpm check:all` = `scripts/all-checks-runner.mjs`(27 条子步骤,跑完再汇总、不短路)+ `pnpm check:dep-links:strict`;末条(第 27 条)是 `check:benchmark-delivery`(票 G-217 补接,此前造好未装车 = 没有)。**它的牙只有两态**:`--strict` 下"判不出"或"台账腐烂(docAnchor 找不到/重复登记)"⇒ exit 2 并把 `check:all` 顶红;而"仍存在(文档与代码脱节)"只打印、**不顶红** ⇒ 它不是文档↔代码一致性的合格证,别那么读。
+
 ## 7. 删除/重构安全规则(强制)
 
 删除任何 git 对象(分支/stash/commit/文件)前必答三问:①承载什么功能?②有无等价实现?③无 ⇒ 不可删,先迁移/开发替代。禁止基于"路径不兼容""看起来是垃圾"擅自 drop;stash drop / branch -D 同样适用。
