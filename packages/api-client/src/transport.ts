@@ -74,6 +74,15 @@ export interface TransportInit {
    *   运行时行为完全一致。
    */
   credentials?: 'include' | 'omit' | 'same-origin'
+  /**
+   * 这次请求最多等多久(毫秒)。**超时是传输介质的职责,不是调用方的职责**:
+   * - web/desktop/extension/mobile-rn:由 `startTimeoutWatchdog` 起的 `signal` 中止(见下),
+   *   本字段同时透传下来,便于适配器自行决定怎么掐;
+   * - 小程序运行时**没有 `AbortController` 也没有 `fetch`**,`signal` 只能为 null,
+   *   那一端的超时必须由适配器原生实现(`Taro.request` 自带 `timeout`)。
+   * 不设默认值:缺省 30s 的口径住在 client.ts 的那一处,不在这里重复一份(§0.6)。
+   */
+  timeoutMs?: number
 }
 
 /** 传输函数类型 — 替代 native fetch */
@@ -88,10 +97,15 @@ const defaultTransport: Transport = async (url, init) => {
   // `localhost:8801 -> 127.0.0.1:8802/8803`,跨站 ⇒ Lax cookie 不发(见上面 TransportInit
   // 的 credentials 说明)。那条路上主路径只有 Authorization: Bearer;此处保留 'include'
   // 对跨站腿无害但不构成鉴权依据。
-  const { body, ...rest } = init
+  // 发给 fetch 的入参**逐项显式列举**,不用 `...rest` 摊平:TransportInit 是跨端契约,
+  // 里面有些键(如 timeoutMs)是"给适配器用的约定",不是 RequestInit 的成员 —— 摊平会让
+  // 以后新增的跨端字段被悄悄塞进 fetch,看着像"被 honored",实际被静默忽略。
+  // 本端的超时由 client.ts 的看门狗经 signal 兑现(有 AbortController 的运行时它一定给得出)。
   const response = await fetch(url, {
-    ...rest,
-    body: body as RequestInit['body'] | undefined,
+    method: init.method,
+    headers: init.headers,
+    signal: init.signal,
+    body: init.body as RequestInit['body'] | undefined,
     credentials: init.credentials ?? 'include',
   })
   return {
@@ -163,5 +177,61 @@ export function getLastTraceId(): string | null {
 /** 读取当前 transport(测试/诊断用) */
 export function getTransport(): Transport {
   return transport
+}
+
+/** 一次"到点就中止"的看门狗。 */
+export interface TimeoutWatchdog {
+  /** 能中止时给 signal;本运行时没有 AbortController(微信小程序)时给 null。 */
+  signal: AbortSignal | null
+  /** 请求结束时清定时器(必须放在 finally,否则每次请求漏一个 timer)。 */
+  clear: () => void
+  /** 到点有没有真的掐过 —— 用来把"超时"和"用户主动取消"分开报,不撒谎。 */
+  fired: () => boolean
+}
+
+/**
+ * 起一个超时看门狗。**这是全仓唯一一处**决定"这次请求能不能被客户端主动中止"。
+ *
+ * 立因(2026-10-23 微信开发者工具 Stable 2.02.2608080 实测):小程序运行时既没有 `fetch`
+ * 也没有 `AbortController`,而 client.ts 的四条请求腿都在进 transport **之前**无条件
+ * `new AbortController()` ⇒ 端内每一次 API 调用当场抛 `AbortController is not defined`,
+ * 请求根本没发出去(点登录页「微信登录」弹的就是这一句)。传输适配器早就注入了
+ * (`setTransport(createTaroTransport())`),坏的是它上游那一步假设了 Web API 存在。
+ *
+ * 拿不到中止能力时**不假装超时还在**:把 `timeoutMs` 透给 transport,由那一端用自己的机制掐
+ * (`Taro.request` 的 `timeout`),所以"请求不会永久挂起"这一性质在两端都成立,只是实现不同。
+ */
+export function startTimeoutWatchdog(ms: number): TimeoutWatchdog {
+  if (typeof AbortController === 'undefined') {
+    return { signal: null, clear: () => {}, fired: () => false }
+  }
+  const controller = new AbortController()
+  let didFire = false
+  const id = setTimeout(() => {
+    didFire = true
+    controller.abort()
+  }, ms)
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(id),
+    fired: () => didFire,
+  }
+}
+
+/** 本运行时能不能主动中止一次请求(判据单源,端内与测试都问它,不各自 `typeof` 一遍)。 */
+export function runtimeSupportsAbort(): boolean {
+  return typeof AbortController !== 'undefined'
+}
+
+/**
+ * 有些请求腿**没有别的超时手段**(例如要读二进制的 fetchRaw —— transport 的 `timeoutMs`
+ * 只对支持它的介质成立)。这类腿在不能中止的运行时上必须当场喊响,不能静默把"30s 超时"
+ * 这一保护悄悄丢掉 —— 丢保护的请求挂起来是永久挂起,比报错贵得多。
+ */
+export function requireAbortSignal(signal: AbortSignal | null, leg: string): AbortSignal {
+  if (!signal) {
+    throw new Error(`${leg} 需要可中止的请求(本运行时没有 AbortController),改走该端原生下载通道`)
+  }
+  return signal
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
