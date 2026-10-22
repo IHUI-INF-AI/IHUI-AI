@@ -18,8 +18,13 @@
  * 10. POST  /admin/relay/accounts/:id/claim  — 认领账号(他人已认领 409)
  * 11. POST  /admin/relay/accounts/:id/release — 释放认领
  * 12. GET   /admin/relay/model-catalog       — 模型别名目录列表
- * 13. POST  /admin/relay/model-catalog       — 新建别名映射(冲突 400)
+ * 13. POST   /admin/relay/model-catalog       — 新建别名映射(冲突 400)
  * 14. DELETE /admin/relay/model-catalog/:id  — 删除别名映射(不存在 404)
+ * 15. GET    /admin/relay/proxy-pool         — 出口代理池列表(分页 + status 过滤)
+ * 16. POST   /admin/relay/proxy-pool         — 新增代理(proxyUrl 重复 409)
+ * 17. PATCH  /admin/relay/proxy-pool/:id     — 更新代理(status/boundAccountId/proxyUrl)
+ * 18. DELETE /admin/relay/proxy-pool/:id     — 删除代理(不存在 404)
+ * 19. POST   /admin/relay/proxy-pool/:id/check — 人工标记活性(调 markProxyChecked)
  *
  * 加密:token/refreshToken/cookies 走 encryptField(AES-256-GCM),响应面永不回传密文/明文。
  */
@@ -41,6 +46,15 @@ import {
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
 import { sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
 import { getAccountUsage, getAccountUsageSummaries } from '../../services/relay-account-usage.js'
+import {
+  listProxies,
+  createProxy,
+  updateProxy,
+  deleteProxy,
+  getProxyById,
+  markProxyChecked,
+  type UpdateProxyPatch,
+} from '../../services/relay-proxy-pool.js'
 import {
   listModelCatalog,
   createModelCatalog,
@@ -83,6 +97,43 @@ const updateBodySchema = z.object({
   tempUnschedulable: z.boolean().optional(),
   proxyUrl: z.string().max(512).nullable().optional(),
 })
+
+// --- 出口代理池(2026-10-22 补写入入口;管理员可见 proxyUrl 原样,含内嵌账密) ---
+const PROXY_URL_PROTOCOLS = new Set(['http:', 'https:', 'socks5:'])
+
+function isSupportedProxyUrl(v: string): boolean {
+  try {
+    return PROXY_URL_PROTOCOLS.has(new URL(v).protocol)
+  } catch {
+    return false
+  }
+}
+
+const proxyUrlSchema = z
+  .string()
+  .min(1)
+  .max(512)
+  .refine(isSupportedProxyUrl, '代理地址必须是 http(s)/socks5 协议')
+
+const proxyPoolListQuerySchema = paginationSchema.extend({
+  status: z.transform(emptyToUndefined).pipe(z.enum(['active', 'dead', 'exhausted']).optional()),
+})
+
+const createProxyBodySchema = z.object({
+  proxyUrl: proxyUrlSchema,
+  providerCode: z.string().min(1).max(64).optional(),
+  boundAccountId: z.uuid().optional(),
+})
+
+const updateProxyBodySchema = z
+  .object({
+    status: z.enum(['active', 'dead', 'exhausted']).optional(),
+    boundAccountId: z.uuid().nullable().optional(),
+    proxyUrl: proxyUrlSchema.optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: '至少提供一个待更新字段' })
+
+const checkProxyBodySchema = z.object({ alive: z.boolean() })
 
 /** token 距到期小于该窗口视为"即将过期"(list.expiresSoon) */
 const EXPIRES_SOON_MS = 15 * 60 * 1000
@@ -411,8 +462,11 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 9. GET /admin/relay/account-pool/usage/:id?days=7 — 单账号用量 =====
+  // limit 默认 500、服务层 clamp 上限 1000;offset >= 0。返回 detail + detailTotal。
   const usageQuerySchema = z.object({
     days: z.coerce.number().int().min(1).max(90).default(7),
+    limit: z.coerce.number().int().min(1).default(500),
+    offset: z.coerce.number().int().min(0).default(0),
   })
   server.get('/admin/relay/account-pool/usage/:id', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
@@ -421,7 +475,10 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     if (!q.success)
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     try {
-      const result = await getAccountUsage(p.data.id, q.data.days)
+      const result = await getAccountUsage(p.data.id, q.data.days, {
+        limit: q.data.limit,
+        offset: q.data.offset,
+      })
       return reply.send(success(result))
     } catch (e) {
       request.log.error(e)
@@ -437,23 +494,12 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const b = claimBodySchema.safeParse(request.body ?? {})
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.jwtPayload?.userId
+    // 绝不允许写入 claimedBy=null:否则该号「已认领但无人能认领」永久卡死
+    if (!userId) return reply.status(400).send(error(400, '无法识别操作者,不能认领账号'))
     try {
-      const [row] = await dbRead
-        .select({
-          claimStatus: aiRelayAccountPool.claimStatus,
-          claimedBy: aiRelayAccountPool.claimedBy,
-        })
-        .from(aiRelayAccountPool)
-        .where(eq(aiRelayAccountPool.id, p.data.id))
-        .limit(1)
-      if (!row) return reply.status(404).send(error(404, '账号不存在'))
-      const userId = request.jwtPayload?.userId ?? null
-      if (row.claimStatus === 'claimed' && row.claimedBy !== userId) {
-        return reply
-          .status(409)
-          .send(error(409, `该账号已被认领(认领人: ${row.claimedBy ?? '未知'})`))
-      }
       const now = new Date()
+      // 原子认领:条件写 + RETURNING,杜绝「先读后判断再写」被并发穿透
       const updated = await db
         .update(aiRelayAccountPool)
         .set({
@@ -463,7 +509,12 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           claimNote: b.data.note ?? null,
           updatedAt: now,
         })
-        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .where(
+          and(
+            eq(aiRelayAccountPool.id, p.data.id),
+            or(isNull(aiRelayAccountPool.claimedBy), eq(aiRelayAccountPool.claimedBy, userId)),
+          ),
+        )
         .returning({
           id: aiRelayAccountPool.id,
           claimStatus: aiRelayAccountPool.claimStatus,
@@ -471,7 +522,18 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           claimedAt: aiRelayAccountPool.claimedAt,
           claimNote: aiRelayAccountPool.claimNote,
         })
-      if (updated.length === 0) return reply.status(404).send(error(404, '账号不存在'))
+      if (updated.length === 0) {
+        // 0 行:再查存在性区分 404(不存在)与 409(已被他人认领)
+        const [row] = await dbRead
+          .select({ claimedBy: aiRelayAccountPool.claimedBy })
+          .from(aiRelayAccountPool)
+          .where(eq(aiRelayAccountPool.id, p.data.id))
+          .limit(1)
+        if (!row) return reply.status(404).send(error(404, '账号不存在'))
+        return reply
+          .status(409)
+          .send(error(409, `该账号已被认领(认领人: ${row.claimedBy ?? '未知'})`))
+      }
       return reply.send(success(updated[0]))
     } catch (e) {
       request.log.error(e)
@@ -480,9 +542,17 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===== 11. POST /admin/relay/accounts/:id/release — 释放认领 =====
+  // 默认只能本人释放(非本人 409);force=true 供运维强制释放并留 warn 记录。
+  const releaseBodySchema = z.object({ force: z.boolean().optional() })
   server.post('/admin/relay/accounts/:id/release', async (request, reply) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const b = releaseBodySchema.safeParse(request.body ?? {})
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    const userId = request.jwtPayload?.userId
+    if (!userId) return reply.status(400).send(error(400, '无法识别操作者,不能释放认领'))
+    const force = b.data.force === true
     try {
       const now = new Date()
       const updated = await db
@@ -494,7 +564,14 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           claimNote: null,
           updatedAt: now,
         })
-        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .where(
+          force
+            ? eq(aiRelayAccountPool.id, p.data.id)
+            : and(
+                eq(aiRelayAccountPool.id, p.data.id),
+                or(isNull(aiRelayAccountPool.claimedBy), eq(aiRelayAccountPool.claimedBy, userId)),
+              ),
+        )
         .returning({
           id: aiRelayAccountPool.id,
           claimStatus: aiRelayAccountPool.claimStatus,
@@ -502,7 +579,23 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           claimedAt: aiRelayAccountPool.claimedAt,
           claimNote: aiRelayAccountPool.claimNote,
         })
-      if (updated.length === 0) return reply.status(404).send(error(404, '账号不存在'))
+      if (updated.length === 0) {
+        const [row] = await dbRead
+          .select({ claimedBy: aiRelayAccountPool.claimedBy })
+          .from(aiRelayAccountPool)
+          .where(eq(aiRelayAccountPool.id, p.data.id))
+          .limit(1)
+        if (!row) return reply.status(404).send(error(404, '账号不存在'))
+        return reply
+          .status(409)
+          .send(error(409, `该账号由 ${row.claimedBy ?? '他人'} 认领,只能本人释放`))
+      }
+      if (force) {
+        request.log.warn(
+          { accountId: p.data.id, operator: userId },
+          '[relay-account-pool] 管理员强制释放认领(force=true)',
+        )
+      }
       return reply.send(success(updated[0]))
     } catch (e) {
       request.log.error(e)
@@ -563,6 +656,85 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除模型目录条目失败'))
     }
+  })
+
+  // ===== 15. GET /admin/relay/proxy-pool — 代理池列表 =====
+  server.get('/admin/relay/proxy-pool', async (request, reply) => {
+    const q = proxyPoolListQuerySchema.safeParse(request.query)
+    if (!q.success)
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    const result = await listProxies(q.data)
+    if (!result.ok) return reply.status(500).send(error(500, '查询代理池失败'))
+    return reply.send(
+      success({
+        list: result.list,
+        total: result.total,
+        page: q.data.page,
+        pageSize: q.data.pageSize,
+      }),
+    )
+  })
+
+  // ===== 16. POST /admin/relay/proxy-pool — 新增代理 =====
+  server.post('/admin/relay/proxy-pool', async (request, reply) => {
+    const b = createProxyBodySchema.safeParse(request.body)
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    const result = await createProxy(b.data)
+    if (!result.ok) {
+      if (result.reason === 'duplicate') {
+        return reply.status(409).send(error(409, '该代理地址已存在'))
+      }
+      return reply.status(500).send(error(500, '新增代理失败'))
+    }
+    return reply.status(201).send(success(result.row))
+  })
+
+  // ===== 17. PATCH /admin/relay/proxy-pool/:id — 更新代理 =====
+  server.patch('/admin/relay/proxy-pool/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const b = updateProxyBodySchema.safeParse(request.body)
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    const patch: UpdateProxyPatch = {}
+    if (b.data.status !== undefined) patch.status = b.data.status
+    if (b.data.boundAccountId !== undefined) patch.boundAccountId = b.data.boundAccountId
+    if (b.data.proxyUrl !== undefined) patch.proxyUrl = b.data.proxyUrl
+    const result = await updateProxy(p.data.id, patch)
+    if (!result.ok) {
+      if (result.reason === 'not_found') return reply.status(404).send(error(404, '代理不存在'))
+      if (result.reason === 'duplicate')
+        return reply.status(409).send(error(409, '该代理地址已存在'))
+      return reply.status(500).send(error(500, '更新代理失败'))
+    }
+    return reply.send(success(result.row))
+  })
+
+  // ===== 18. DELETE /admin/relay/proxy-pool/:id — 删除代理 =====
+  server.delete('/admin/relay/proxy-pool/:id', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const result = await deleteProxy(p.data.id)
+    if (!result.ok) return reply.status(500).send(error(500, '删除代理失败'))
+    if (!result.deleted) return reply.status(404).send(error(404, '代理不存在'))
+    return reply.send(success({ id: p.data.id, deleted: true }))
+  })
+
+  // ===== 19. POST /admin/relay/proxy-pool/:id/check — 人工标记活性 =====
+  server.post('/admin/relay/proxy-pool/:id/check', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const b = checkProxyBodySchema.safeParse(request.body)
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    const found = await getProxyById(p.data.id)
+    if (!found.ok) {
+      if (found.reason === 'not_found') return reply.status(404).send(error(404, '代理不存在'))
+      return reply.status(500).send(error(500, '查询代理失败'))
+    }
+    await markProxyChecked(found.row.proxyUrl, b.data.alive)
+    return reply.send(success({ id: found.row.id, alive: b.data.alive }))
   })
 }
 
