@@ -246,7 +246,9 @@ describe('relay-proxy-pool', () => {
       })
     })
 
-    it('updateProxy 命中行 → 回写 updatedAt 并返回行', async () => {
+    it('updateProxy 命中行 → 只写变化字段并回写 updatedAt', async () => {
+      // 2026-10-23:updateProxy 先按 id 预读现行,再只把与现值不同的字段进 UPDATE
+      mockSelectResult.mockResolvedValueOnce([proxyRow])
       mockWriteResult.mockResolvedValueOnce([{ ...proxyRow, status: 'dead' }])
       const r = await updateProxy(proxyRow.id, { status: 'dead' })
       expect(r.ok).toBe(true)
@@ -255,12 +257,20 @@ describe('relay-proxy-pool', () => {
       expect(set.updatedAt).toBeInstanceOf(Date)
     })
 
-    it('updateProxy 0 行 → not_found', async () => {
-      mockWriteResult.mockResolvedValueOnce([])
+    it('updateProxy 预读未命中 → not_found,且不发 UPDATE', async () => {
+      mockSelectResult.mockResolvedValueOnce([])
       await expect(updateProxy(proxyRow.id, { status: 'active' })).resolves.toEqual({
         ok: false,
         reason: 'not_found',
       })
+      expect(sinks.update.value).toBeUndefined()
+    })
+
+    it('updateProxy patch 与现值全同 → 原行返回,不发 UPDATE(空写回潮锁)', async () => {
+      mockSelectResult.mockResolvedValueOnce([proxyRow])
+      const r = await updateProxy(proxyRow.id, { status: 'active' })
+      expect(r).toEqual({ ok: true, row: proxyRow })
+      expect(sinks.update.value).toBeUndefined()
     })
 
     it('deleteProxy 0 行 → deleted=false', async () => {

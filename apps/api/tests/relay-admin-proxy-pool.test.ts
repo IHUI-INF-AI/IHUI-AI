@@ -269,6 +269,8 @@ describe('relay-admin-proxy-pool', () => {
   describe('PATCH /api/admin/relay/proxy-pool/:id', () => {
     it('更新 status/boundAccountId → 200', async () => {
       mockAdmin()
+      // 预读现行须与被改字段不同,否则 updateProxy 的无变化短路会把 UPDATE 整条省掉
+      mockSelectResult.mockResolvedValueOnce([proxyRow({ boundAccountId: 'acc-old' })])
       mockUpdateResult.mockResolvedValueOnce([proxyRow({ status: 'dead', boundAccountId: null })])
       const res = await server.inject({
         method: 'PATCH',
@@ -285,7 +287,7 @@ describe('relay-admin-proxy-pool', () => {
 
     it('0 行 → 404', async () => {
       mockAdmin()
-      mockUpdateResult.mockResolvedValueOnce([])
+      mockSelectResult.mockResolvedValueOnce([])
       const res = await server.inject({
         method: 'PATCH',
         url: `/api/admin/relay/proxy-pool/${PROXY_ID}`,
@@ -293,6 +295,7 @@ describe('relay-admin-proxy-pool', () => {
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(404)
+      expect(sinks.update.value).toBeUndefined()
     })
 
     it('空 body → 400(至少一个字段)', async () => {
