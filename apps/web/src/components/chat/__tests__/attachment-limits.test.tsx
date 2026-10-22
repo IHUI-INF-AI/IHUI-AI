@@ -6,6 +6,9 @@
 // 判据唯一源:apps/web/src/hooks/use-message-references.ts(screenAttachmentFiles /
 // CHAT_ATTACHMENT_MAX_SIZE_BYTES / CHAT_ATTACHMENT_MAX_FILES)。
 // 票面验收:"31 个附件 ⇒ 收到前 30 个并回报被拒 1 个";一次操作多文件被拒只弹**一条**汇总。
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { act, renderHook } from '@testing-library/react'
 import type * as React from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -185,30 +188,31 @@ describe('useMessageReferences.addFileReferences(批量入口结构化回报)', 
   })
 })
 
-describe('选/拖/贴三入口:拒绝聚合为一条提示(先聚合再报)', () => {
-  function wire() {
-    return renderHook(() => {
-      const refs = useMessageReferences()
-      const send = useMessageSend({
-        value: '',
-        setValue: () => {},
-        isStreaming: false,
-        isHighRisk: false,
-        references: refs.references,
-        resetReferences: refs.resetReferences,
-        addFileReference: refs.addFileReference as unknown as (file: File) => void,
-        addFileReferences: refs.addFileReferences,
-        screenAttachments: refs.screenAttachments,
-        commitFileReference: refs.commitFileReference,
-        addTextReference: refs.addTextReference,
-        onSend: () => true,
-        inputCoreRef: { current: null },
-        draftKey: 'g833-test',
-      })
-      return { refs, send }
+/** 真实 hook 接线:useMessageReferences + useMessageSend 同挂,供三入口与语音入口复用 */
+function wire() {
+  return renderHook(() => {
+    const refs = useMessageReferences()
+    const send = useMessageSend({
+      value: '',
+      setValue: () => {},
+      isStreaming: false,
+      isHighRisk: false,
+      references: refs.references,
+      resetReferences: refs.resetReferences,
+      addFileReference: refs.addFileReference as unknown as (file: File) => void,
+      addFileReferences: refs.addFileReferences,
+      screenAttachments: refs.screenAttachments,
+      commitFileReference: refs.commitFileReference,
+      addTextReference: refs.addTextReference,
+      onSend: () => true,
+      inputCoreRef: { current: null },
+      draftKey: 'g833-test',
     })
-  }
+    return { refs, send }
+  })
+}
 
+describe('选/拖/贴三入口:拒绝聚合为一条提示(先聚合再报)', () => {
   it('选择入口(change):31 png + 2 exe ⇒ toast.warning 恰一条(含两档 code),收 30 个', () => {
     const { result } = wire()
     act(() => {
@@ -285,6 +289,70 @@ describe('选/拖/贴三入口:拒绝聚合为一条提示(先聚合再报)', ()
     })
     expect(toast.warning).not.toHaveBeenCalled()
     expect(result.current.refs.references).toHaveLength(2)
+  })
+})
+
+// G-863 语音入口:webm 恒过扩展名白名单(UPLOADABLE_EXTENSIONS 含 webm),三档里只剩数量档能拦;
+// 原实现忽略 addFileReference 返回值 ⇒ 容量满静默失败还 toast"已添加"。
+// MessageInput 体量大不整体挂载(仓内惯例,同 d184 消费者测试):行为层用真实 hook 复刻
+// 语音回调语义,锚点层静态钉 message-input.tsx 的接线在位且顺序正确(先 guard 后报成功)。
+describe('G-863 语音入口:拒绝接同一汇总出口(不再静默)', () => {
+  it('行为层:容量满(30/30)再投语音 webm ⇒ addFileReference 返回 max_files,reportAttachmentRejections 弹恰一条 attachRejectCount', () => {
+    const { result } = wire()
+    act(() => {
+      result.current.refs.addFileReferences(
+        Array.from({ length: CHAT_ATTACHMENT_MAX_FILES }, (_, i) =>
+          mkFile(`v${i}.png`, 'image/png'),
+        ),
+      )
+    })
+    expect(result.current.refs.references).toHaveLength(CHAT_ATTACHMENT_MAX_FILES)
+    let rejections: ReturnType<typeof screenAttachmentFiles>['rejections'] = []
+    act(() => {
+      // 复刻语音回调体:Blob 转 File 走统一附件链路,audio/webm 过 accept 档、不过 size 档
+      const voiceFile = new File([new Uint8Array(1024)], 'voice-1700000000000.webm', {
+        type: 'audio/webm',
+      })
+      rejections = result.current.refs.addFileReference(voiceFile)
+    })
+    expect(rejections).toHaveLength(1)
+    expect(rejections[0]!.code).toBe('max_files')
+    act(() => {
+      result.current.send.reportAttachmentRejections(rejections)
+    })
+    expect(toast.warning).toHaveBeenCalledTimes(1)
+    expect(String(vi.mocked(toast.warning).mock.calls[0]![0])).toContain('attachRejectCount')
+    expect(result.current.refs.references).toHaveLength(CHAT_ATTACHMENT_MAX_FILES)
+  })
+
+  it('行为层反例:未满容量语音文件正常接收 ⇒ 零拒绝零汇总提示(不得反噬成功路径)', () => {
+    const { result } = wire()
+    let rejections: ReturnType<typeof screenAttachmentFiles>['rejections'] = []
+    act(() => {
+      rejections = result.current.refs.addFileReference(
+        new File([new Uint8Array(1024)], 'voice-ok.webm', { type: 'audio/webm' }),
+      )
+    })
+    expect(rejections).toHaveLength(0)
+    expect(result.current.refs.references).toHaveLength(1)
+    act(() => {
+      result.current.send.reportAttachmentRejections(rejections)
+    })
+    expect(toast.warning).not.toHaveBeenCalled()
+  })
+
+  it('锚点层:message-input.tsx 语音回调接住返回值走 reportAttachmentRejections,成功才 toast voiceRecord.added', () => {
+    const host = readFileSync(
+      resolve(process.cwd(), 'src/components/chat/message-input.tsx'),
+      'utf-8',
+    )
+    expect(host).toContain('const rejections = addFileReference(file)')
+    expect(host).toContain('reportAttachmentRejections(rejections)')
+    // 顺序牙齿:拒绝 guard 必须在"已添加"提示之前 —— 摘掉 return 即 added 抢跑回到静默老形态
+    const guardIdx = host.indexOf('if (rejections.length > 0)')
+    const addedIdx = host.indexOf("toast(t('voiceRecord.added'))")
+    expect(guardIdx).toBeGreaterThan(-1)
+    expect(addedIdx).toBeGreaterThan(guardIdx)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
