@@ -1082,12 +1082,37 @@ function Test-CleanBuildInstallNeeded {
 #   ② 目录还在、`.git` 被啃掉 ⇒ git 仍判它"在用",prune 清不掉,下一轮 add 直接撞
 #      "already registered by working tree at …" ⇒ 净面永久不可用,而这一型不会自己好。
 # 因此把回收收敛成**唯一出口**两个函数:Reset(回收单个失效净面,add 前用)、Sweep(收尾清孤儿)。
+function Remove-DirLongPath {
+    <#
+      Windows 长路径兜底删除(2026-10-22 立,三次实测失败后):
+      净面 node_modules\.pnpm\<pkg>@<hash>_<deps>\node_modules\... 远超 260 字符,
+      于是 `git worktree remove` 报 `Filename too long`、`Remove-Item -Recurse -Force`
+      **同样删不净**(07:51 实测两者都没删净,净面整份留在盘上,下一轮重建还要再撞一次)。
+      改用 .NET Directory.Delete:它走 `\\?\` 前缀,能处理长路径。但**必须跳过
+      reparse point/junction** —— pnpm 的 @expo\metro-config junction 指向自身,
+      无脑递归会抛「参数错误」而整棵树一棵没删。
+    #>
+    param([string]$Path)
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return }
+    foreach ($it in @(Get-ChildItem -LiteralPath $Path -Force -ErrorAction SilentlyContinue)) {
+        $isLink = ($it.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+        if ($isLink) {
+            try { [System.IO.Directory]::Delete($it.FullName, $false) } catch { try { [System.IO.File]::Delete($it.FullName) } catch {} }
+        } elseif ($it.PSIsContainer) {
+            Remove-DirLongPath $it.FullName
+        } else {
+            try { [System.IO.File]::Delete($it.FullName) } catch {}
+        }
+    }
+    try { [System.IO.Directory]::Delete($Path, $false) } catch {}
+}
+
 function Reset-CleanBuildWorktree {
     <#
       顺序是硬约束,四步都不可省:
         ① prune —— 先清"目录已不存在"的登记(零风险,不动在用的工作树);
-        ② 登记仍在 ⇒ `worktree remove --force` —— 一步同时注销登记并删目录(长路径交给 git);
-        ③ 目录仍残 ⇒ `Remove-Item -Recurse -Force` 兜底(无登记的半截残留只能走这条);
+        ② 登记仍在 ⇒ `worktree remove --force` —— 一步同时注销登记并删目录;
+        ③ 目录仍残 ⇒ .NET 递归删(Remove-DirLongPath,无登记的半截残留只能走这条);
         ④ 再 prune —— 兜住 ② 失败留下的登记,绝不让它活到下一轮 add。
       返回 $true = 调用结束时净面路径不存在或已空(可以 add);$false = 仍有残留(调用方拒绝 add)。
     #>
@@ -1101,11 +1126,14 @@ function Reset-CleanBuildWorktree {
             ForEach-Object { (($_ -replace '^worktree\s+', '').Trim() -replace '\\', '/').TrimEnd('/') })
         if ($listed -contains $norm) {
             Log "[CLEAN-BUILD] 净面仍在 worktree 登记表内 ⇒ git worktree remove --force 回收:$Path"
-            git @gitFace -C $Root worktree remove --force $Path 2>&1 | ForEach-Object { if ("$_".Trim()) { Log "[clean-recycle] remove: $_" } }
+            # core.longpaths=true 是 git 官方的长路径开关:净面 .pnpm 虚拟仓路径远超 260 字符,
+            # 不带它 git 删到一半报 `Filename too long`(2026-10-22 02:55/07:51 两次实测),
+            # 登记注销了、目录留一地,下一轮 add 还要再撞。
+            git @gitFace -C $Root -c core.longpaths=true worktree remove --force $Path 2>&1 | ForEach-Object { if ("$_".Trim()) { Log "[clean-recycle] remove: $_" } }
         }
         if (Test-Path -LiteralPath $Path) {
-            Log "[CLEAN-BUILD] 净面目录残留(无登记或 remove 未删净)⇒ 递归删除:$Path"
-            Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue
+            Log "[CLEAN-BUILD] 净面目录残留(无登记或 remove 未删净)⇒ 长路径递归删除:$Path"
+            Remove-DirLongPath -Path $Path
         }
     }
     git @gitFace -C $Root worktree prune 2>&1 | ForEach-Object { if ("$_".Trim()) { Log "[clean-recycle] prune2: $_" } }
