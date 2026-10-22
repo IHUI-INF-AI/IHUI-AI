@@ -60,6 +60,7 @@ import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './r
 import { resolveModelAlias } from './relay-model-catalog.js'
 import {
   getRelayAdapter,
+  normalizeStopSequences,
   type AdapterAccountContext,
   type NormalizedChatRequest,
   type RelayUpstreamAdapter,
@@ -752,6 +753,10 @@ function toNormalized(req: UpstreamForwardRequest, rawModel: string): Normalized
   // OpenAI 兼容面:JSON mode 与 seed 必须透传,否则账号池路径语义弱于渠道路径
   if (req.responseFormat !== undefined) norm.responseFormat = req.responseFormat
   if (req.seed !== undefined) norm.seed = req.seed
+  // reasoning_effort / stop(2026-10-22 协议补全):Trae 落 custom_model,stop 走本地截断
+  if (req.reasoningEffort !== undefined) norm.reasoningEffort = req.reasoningEffort
+  const stops = normalizeStopSequences(req.stop)
+  if (stops !== undefined) norm.stop = stops
   if (req.affinityKey) norm.conversationId = req.affinityKey
   return norm
 }

@@ -145,6 +145,7 @@
     "autoLogin": "Auto login",
     "or": "or",
     "ssoLoginTitle": "IHUI AI Web Authorization Login",
+    "ssoUnavailable": "Web authorization login isn't available yet, please use WeChat login, phone, or email verification code instead",
     "noAccount": "Don't have an account?",
     "registerNow": "Register now",
     "agreePrefix": "I have read and agree to",
@@ -1045,6 +1046,9 @@
         "builtin": "Builtin",
         "plugin": "Plugin",
         "mcp": "MCP"
+      },
+      "subagent": {
+        "title": "Subtask"
       }
     }
   },
@@ -4496,7 +4500,8 @@
   },
   "webViewPortal": {
     "knowledgeBase": "Knowledge Base",
-    "settingsBilling": "Billing Management",    "title": "Web Feature Portal",
+    "settingsBilling": "Billing Management",
+    "title": "Web Feature Portal",
     "hint": "Open web features in the built-in browser",
     "sections": {
       "eduAi": "AI Education",

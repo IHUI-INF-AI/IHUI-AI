@@ -754,7 +754,13 @@ export function useMessageListScroll({
     if (!el) return
     const prev = sessionSwitchRef.current
     sessionSwitchRef.current = { key: sessionKey, messages }
-    if (!prev) return // 首帧:没有"上一段现场"可落账
+    if (!prev) {
+      // 首帧(含重挂载):没有"上一段现场"可落账,但账目单例跨实例存活 ——
+      // 路由往返 / 列表整块重建后回到同一会话时,能恢复的凭据只有它。
+      const saved = sessionKey === null ? undefined : sessionScrollStore.lookup(sessionKey)
+      if (saved) applyRestoredState(el, saved)
+      return
+    }
     const now = Date.now()
     if (prev.key !== sessionKey) {
       if (prev.key !== null) {
@@ -799,8 +805,27 @@ export function useMessageListScroll({
     )
   }, [sessionKey, messages, applyRestoredState, clearRestoreFlight])
 
-  // 恢复的第二段是定时器,卸载必须收(否则 cleanup 之后还会去写一枚已经没人看的 DOM)
-  React.useEffect(() => clearRestoreFlight, [clearRestoreFlight])
+  // 恢复的第二段是定时器,卸载必须收(否则 cleanup 之后还会去写一枚已经没人看的 DOM)。
+  // 同时把当前会话现场落账 —— 重挂载的首帧没有 prev,上面那条首帧恢复只能读这一份。
+  // 几何读 observedScrollTopRef:子节点先于本 hook 卸载,DOM ref 此时可能已置空。
+  React.useEffect(
+    () => () => {
+      const key = sessionSwitchRef.current?.key ?? null
+      if (key !== null) {
+        const domTop = containerRef.current?.scrollTop
+        sessionScrollStore.save(
+          key,
+          Math.max(
+            typeof domTop === 'number' && Number.isFinite(domTop) ? domTop : 0,
+            observedScrollTopRef.current,
+          ),
+          authorityRef.current.following,
+        )
+      }
+      clearRestoreFlight()
+    },
+    [clearRestoreFlight],
+  )
 
   // 前插历史的位置恢复(2026-09-27 立,取代原先的 rAF 轮询 scrollHeight)。
   // 用 useLayoutEffect:补偿必须发生在这一帧画出来之前,否则用户先看到跳一下。

@@ -145,6 +145,7 @@
     "autoLogin": "자동 로그인",
     "or": "또는",
     "ssoLoginTitle": "IHUI AI 웹 승인 로그인",
+    "ssoUnavailable": "웹 승인 로그인은 아직 지원되지 않습니다. WeChat 로그인, 휴대폰 또는 이메일 인증번호로 로그인해 주세요",
     "noAccount": "계정이 없으신가요?",
     "registerNow": "지금 회원가입",
     "agreePrefix": "읽고 동의합니다",
@@ -1045,6 +1046,9 @@
         "builtin": "내장",
         "plugin": "플러그인",
         "mcp": "MCP"
+      },
+      "subagent": {
+        "title": "하위 작업"
       }
     }
   },
@@ -4496,7 +4500,8 @@
   },
   "webViewPortal": {
     "knowledgeBase": "지식 베이스",
-    "settingsBilling": "청구 관리",    "title": "웹 기능 포털",
+    "settingsBilling": "청구 관리",
+    "title": "웹 기능 포털",
     "hint": "아래는 웹 버전 기능 진입점입니다. 내장 브라우저에서 열립니다",
     "sections": {
       "eduAi": "교육 AI",

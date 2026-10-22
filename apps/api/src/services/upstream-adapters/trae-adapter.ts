@@ -16,6 +16,14 @@
  *
  * 401/403 自愈:创建/拉流任一请求命中鉴权失败 → 抛 TraeAuthFailureError,
  * 由转发层触发 refreshToken 后重试;适配器内部不循环重试。
+ *
+ * 协议字段实证(2026-10-22,反解 solo.trae.cn 线上 bundle `8974.b76c7073.js`):
+ * - 创建体含 `custom_model` 描述符与 `query: JSON.stringify(块数组)`,见 buildCreatePayload
+ * - 采样参数 `temperature/top_p/presence_penalty/frequency_penalty/seed/stop/
+ *   response_format/max_output_tokens` 在整份 web bundle 中零出现 → 服务端固定,
+ *   协议层无可发字段;其中 json mode 与 stop 由网关侧模拟(提示词 / 流式截断)
+ * - `reasoning_effort_level` 是协议内真实字段,落在 `custom_model` 上,
+ *   合法枚举由 model_list 的 `reasoning_effort_config.options` 给出
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import type {
@@ -32,6 +40,9 @@ import type {
 } from '../relay-upstream-adapters.js'
 import {
   buildExchangeTokenBody,
+  buildQueryBlocks,
+  buildTraeCustomModel,
+  createStopSequenceFilter,
   deriveBizSessionId,
   extractErrorInfo,
   extractReasoningDelta,
@@ -41,6 +52,7 @@ import {
   flattenQuery,
   iterateSseEvents,
   normalizeEventName,
+  responseFormatHint,
   TERMINAL_EVENT_NAMES,
   type OpenAiUsage,
 } from './trae-protocol.js'
@@ -132,14 +144,17 @@ function resolveFetchImpl(opts: ChatExecuteOptions): typeof fetch {
 // =============================================================================
 
 /**
- * 组装 chat_sessions 创建请求体。
- * - model="auto" → model_selection_strategy:"auto" 且 model_name 留空
+ * 组装 chat_sessions 创建请求体(字段面对齐线上 web 客户端 `buildSendMessageRequest`)。
+ * - model="auto" → model_selection_strategy:"auto" 且 model_name 留空、不带 custom_model
+ * - 手动选模 → 附 `custom_model` 描述符(reasoning_effort_level / prompt_max_tokens 的载体)
  * - model 以 "-work" 结尾 → solo_work_remote 智能体 + mode:"work"
+ * - query 用 JSON.stringify(块数组) 而非裸文本(线上实证形状)
  * - biz_session_id 用账号+模型恒定派生值(上游按会话做风控/配额,严禁随机)
  */
 function buildCreatePayload(
   accountId: string,
   req: NormalizedChatRequest,
+  modelConfig?: Record<string, unknown> | null,
 ): Record<string, unknown> {
   const model = req.model ?? ''
   const isWork = model.endsWith('-work')
@@ -160,23 +175,130 @@ function buildCreatePayload(
     solo_chat_mode: 'code',
     biz_session_id: deriveBizSessionId(accountId, model),
   }
+
+  // response_format 兜底:上游无此字段。json_schema 已由网关注入过同文案提示,
+  // 这里用 includes 去重,避免同一 schema 提示出现两次;json_object 在此首次注入。
+  const baseQuery = flattenQuery(req.messages)
+  const hint = responseFormatHint(req.responseFormat)
+  const queryText =
+    hint === null || baseQuery.includes(hint)
+      ? baseQuery
+      : baseQuery === ''
+        ? `[System Instructions]\n${hint}`
+        : `[System Instructions]\n${hint}\n\n${baseQuery}`
+
+  const initialMessage: Record<string, unknown> = {
+    chat_session_id: '',
+    content: [],
+    query: JSON.stringify(buildQueryBlocks(queryText)),
+    model_name: isAuto ? '' : model,
+    agent_type: isWork ? 'solo_work_remote' : 'solo_agent_remote',
+    agent_id: isWork ? 'solo_work_remote' : 'solo_agent_remote',
+    model_selection_strategy: isAuto ? 'auto' : 'manual',
+    common_params: JSON.stringify(commonParams),
+  }
+
+  const customModel = buildTraeCustomModel(model, modelConfig, req.reasoningEffort)
+  if (customModel) initialMessage.custom_model = customModel
+
   return {
     mode: isWork ? 'work' : 'code',
     environment_id: 'default',
     env: 'remote',
     auto_create_project: false,
     origin: 'web',
-    initial_message: {
-      chat_session_id: '',
-      content: [],
-      query: flattenQuery(req.messages),
-      model_name: isAuto ? '' : model,
-      agent_type: isWork ? 'solo_work_remote' : 'solo_agent_remote',
-      agent_id: isWork ? 'solo_work_remote' : 'solo_agent_remote',
-      model_selection_strategy: isAuto ? 'auto' : 'manual',
-      common_params: JSON.stringify(commonParams),
-    },
+    initial_message: initialMessage,
   }
+}
+
+// =============================================================================
+// model_list 模型元数据缓存(custom_model / reasoning 枚举的权威来源)
+// =============================================================================
+
+type TraeModelConfig = Record<string, unknown>
+
+const MODEL_CONFIG_TTL_MS = 5 * 60_000
+const modelConfigCache = new Map<string, { at: number; configs: TraeModelConfig[] }>()
+
+/** 缓存键 = 账号 uid + token(换 token 即失效,避免跨账号串数据) */
+function modelConfigCacheKey(ctx: AdapterAccountContext): string {
+  return `${ctx.row.uid}\x1f${ctx.credentials.token}`
+}
+
+/** 宽松取 model_configs(兼容顶层与 data 包裹) */
+function extractModelConfigs(body: unknown): TraeModelConfig[] | null {
+  if (body === null || typeof body !== 'object') return null
+  const top = body as Record<string, unknown>
+  const candidates: unknown[] = [top.model_configs]
+  if (top.data !== null && typeof top.data === 'object') {
+    candidates.push((top.data as Record<string, unknown>).model_configs)
+  }
+  for (const c of candidates) {
+    if (Array.isArray(c)) return c as TraeModelConfig[]
+  }
+  return null
+}
+
+/** 命中缓存(不论是否过期都返回,过期标记供调用方决定是否刷新) */
+function readModelConfigCache(
+  ctx: AdapterAccountContext,
+): { fresh: boolean; configs: TraeModelConfig[] } | null {
+  const entry = modelConfigCache.get(modelConfigCacheKey(ctx))
+  if (!entry) return null
+  return { fresh: Date.now() - entry.at <= MODEL_CONFIG_TTL_MS, configs: entry.configs }
+}
+
+function rememberModelConfigs(ctx: AdapterAccountContext, configs: TraeModelConfig[]): void {
+  modelConfigCache.set(modelConfigCacheKey(ctx), { at: Date.now(), configs })
+}
+
+/** 拉取 model_list;失败抛错(调用方降级为无元数据,绝不阻断 chat) */
+async function fetchModelConfigs(
+  fetchImpl: typeof fetch,
+  jwt: string,
+  signal?: AbortSignal,
+): Promise<TraeModelConfig[]> {
+  const res = await fetchImpl(TRAE_MODEL_LIST_URL, {
+    method: 'GET',
+    headers: { Authorization: `Cloud-IDE-JWT ${jwt}`, Accept: 'application/json' },
+    signal,
+  })
+  if (!res.ok) {
+    await res.body?.cancel().catch(() => {})
+    throw new Error(`model_list HTTP ${res.status}`)
+  }
+  return extractModelConfigs(await res.json().catch(() => null)) ?? []
+}
+
+/**
+ * 取模型元数据:新鲜缓存 → 直用;否则刷新,失败回退过期缓存(可用性优先)。
+ * 典型场景:首个 chat 请求触发一次 model_list(轻量不耗配额),之后 5 分钟内复用。
+ */
+async function ensureModelConfigs(
+  ctx: AdapterAccountContext,
+  fetchImpl: typeof fetch,
+  jwt: string,
+  signal?: AbortSignal,
+): Promise<TraeModelConfig[]> {
+  const cached = readModelConfigCache(ctx)
+  if (cached?.fresh) return cached.configs
+  try {
+    const configs = await fetchModelConfigs(fetchImpl, jwt, signal)
+    rememberModelConfigs(ctx, configs)
+    return configs
+  } catch {
+    return cached?.configs ?? []
+  }
+}
+
+/** 按模型名挑 model_config(兼容 name / config_name;`-work` 后缀剥离) */
+function pickModelConfig(configs: TraeModelConfig[], model: string): TraeModelConfig | null {
+  const name = (model.endsWith('-work') ? model.slice(0, -5) : model).toLowerCase()
+  for (const c of configs) {
+    const candidates = [c.name, c.config_name]
+    if (candidates.some((v) => typeof v === 'string' && v.toLowerCase() === name)) return c
+  }
+  return null
 }
 
 // =============================================================================
@@ -243,6 +365,7 @@ function chunkBase(meta: ChunkMeta): Record<string, unknown> {
  * Trae SSE 事件 → OpenAI chunk 异步序列。
  *
  * - 文本/推理增量 → delta 帧
+ * - stop 序列:上游无 stop 字段,用流式安全过滤器截断文本(命中即终止)
  * - token_usage 帧 → usage 终帧(choices:[] + usage)
  * - error 帧(event:error 或 code/error/detail 形状)→ 终止并抛错(带 code)
  * - [DONE]/done/response_done/stream_done → 终止
@@ -251,7 +374,10 @@ function chunkBase(meta: ChunkMeta): Record<string, unknown> {
 async function* translateUpstreamEvents(
   body: ReadableStream<Uint8Array>,
   meta: ChunkMeta,
+  stops?: readonly string[],
 ): AsyncGenerator<Record<string, unknown>> {
+  const stopFilter = createStopSequenceFilter(stops)
+
   for await (const ev of iterateSseEvents(body)) {
     const name = normalizeEventName(ev.event)
     const data = ev.data.trim()
@@ -299,12 +425,29 @@ async function* translateUpstreamEvents(
     }
     const text = extractTextDelta(obj)
     if (text !== null) {
-      yield {
-        ...chunkBase(meta),
-        choices: [{ index: 0, delta: { content: text }, finish_reason: null }],
+      const filtered = stopFilter ? stopFilter.feed(text) : { emit: text, hit: false }
+      if (filtered.emit !== '') {
+        yield {
+          ...chunkBase(meta),
+          choices: [{ index: 0, delta: { content: filtered.emit }, finish_reason: null }],
+        }
+      }
+      if (filtered.hit) {
+        break // 命中 stop:取消上游流(见 iterateSseEvents finally)+ 收尾 stop
       }
     }
     // 其余事件(request_wait_in_queue / model_config 无增量等)忽略,不中断流
+  }
+
+  // 正常结束时放出被扣住的尾部余量(命中 stop 时为空串)
+  if (stopFilter) {
+    const tail = stopFilter.flush()
+    if (tail !== '') {
+      yield {
+        ...chunkBase(meta),
+        choices: [{ index: 0, delta: { content: tail }, finish_reason: null }],
+      }
+    }
   }
 
   // 兜底/收尾:无论正常 done 还是流提前断开,都补 finish_reason stop 帧
@@ -370,11 +513,16 @@ export const traeAdapter: RelayUpstreamAdapter = {
       created: Math.floor(Date.now() / 1000),
     }
 
+    // 模型元数据(5 分钟缓存):custom_model / reasoning_effort 合法枚举 / 上下文窗口的来源。
+    // 拉取失败不阻断 chat —— 降级为仅模型名的 preset 描述符。
+    const modelConfigs = await ensureModelConfigs(ctx, fetchImpl, jwt, opts.signal)
+    const modelConfig = pickModelConfig(modelConfigs, req.model ?? '')
+
     // 第 1 步:创建回合
     const createRes = await fetchImpl(`${TRAE_REMOTE_BASE}/chat_sessions`, {
       method: 'POST',
       headers: buildWebHeaders(jwt, 'json'),
-      body: JSON.stringify(buildCreatePayload(ctx.row.uid, req)),
+      body: JSON.stringify(buildCreatePayload(ctx.row.uid, req, modelConfig)),
       signal: opts.signal,
     })
     await failIfNotOk(createRes, '创建会话')
@@ -406,7 +554,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
     }
 
     const chunkStream = withStopCleanup(
-      translateUpstreamEvents(streamBody as ReadableStream<Uint8Array>, meta),
+      translateUpstreamEvents(streamBody as ReadableStream<Uint8Array>, meta, req.stop),
       stop,
     )
 
@@ -505,6 +653,8 @@ export const traeAdapter: RelayUpstreamAdapter = {
       }
       const configs = extractModelConfigs(await res.json().catch(() => null))
       if (!configs) return { ok: false, error: 'model_list 响应缺少 model_configs' }
+      // 健康检查顺带暖缓存:后续 chat 的 custom_model 直接复用
+      rememberModelConfigs(ctx, configs)
       return { ok: true }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
@@ -528,6 +678,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
       )
     }
     const configs = extractModelConfigs(await res.json().catch(() => null)) ?? []
+    if (configs.length > 0) rememberModelConfigs(ctx, configs)
     return configs
       .map((c) => (typeof c?.name === 'string' ? c.name : null))
       .filter((n): n is string => n !== null && n !== '')
@@ -549,20 +700,6 @@ export const traeAdapter: RelayUpstreamAdapter = {
     const kind = classifyUpstreamFailure(statusCode, bodyText)
     return { kind: kind === 'network' ? ('client' as const) : kind }
   },
-}
-
-/** 宽松取 model_configs(兼容顶层与 data 包裹) */
-function extractModelConfigs(body: unknown): Array<Record<string, unknown>> | null {
-  if (body === null || typeof body !== 'object') return null
-  const top = body as Record<string, unknown>
-  const candidates: unknown[] = [top.model_configs]
-  if (top.data !== null && typeof top.data === 'object') {
-    candidates.push((top.data as Record<string, unknown>).model_configs)
-  }
-  for (const c of candidates) {
-    if (Array.isArray(c)) return c as Array<Record<string, unknown>>
-  }
-  return null
 }
 
 // =============================================================================
