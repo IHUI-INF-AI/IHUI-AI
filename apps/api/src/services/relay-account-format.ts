@@ -267,8 +267,21 @@ export function validateAccountExport(raw: unknown, opts: ValidateOptions): Impo
     if (acc['enabled'] !== undefined && typeof acc['enabled'] !== 'boolean') {
       issues.push(issue('error', 'enabled-invalid', 'enabled 必须是布尔值'))
     }
+    // refreshToken 不是短指纹:WorkBuddy 实测 700 字符(Trae 更短),128 会把合法号判死
+    const refreshTokenMax = 4096
+    if (
+      acc['refreshToken'] !== undefined &&
+      (typeof acc['refreshToken'] !== 'string' || acc['refreshToken'].length > refreshTokenMax)
+    ) {
+      issues.push(
+        issue(
+          'error',
+          'refreshToken-invalid',
+          `refreshToken 必须是不超过 ${refreshTokenMax} 字符的字符串`,
+        ),
+      )
+    }
     for (const [key, label] of [
-      ['refreshToken', 'refreshToken'],
       ['deviceId', 'deviceId'],
       ['machineId', 'machineId'],
     ] as const) {
