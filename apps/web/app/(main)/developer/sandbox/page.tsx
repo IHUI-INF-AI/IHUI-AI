@@ -117,12 +117,8 @@ export default function SandboxPage() {
                 </option>
               ))}
             </select>
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="/api/developer/sandbox"
-              className="flex-1"
-            />
+            {/* G-962 批5:placeholder 的假路径串会被守门 8 提取式按引号紧邻误采成调用点,已删(真调用点是 url state 初值) */}
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} className="flex-1" />
             <Button size="sm" onClick={sendRequest} disabled={loading || !url.trim()}>
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
