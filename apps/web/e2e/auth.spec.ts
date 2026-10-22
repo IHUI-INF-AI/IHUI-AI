@@ -23,7 +23,10 @@ async function openSsoLogin(page: import('@playwright/test').Page) {
   // 直连 /sso/login(旧路径 /login 的 308 已于 2026-10-22 摘除,它现在是弹窗软路由)
   await page.goto('/sso/login')
   await expect(page).toHaveURL(/\/sso\/login/)
-  const heading = page.getByRole('heading', { name: /统一登录/ })
+  // 判据认"登录卡片到位"这件事,不认话术档位:/sso/login 无显式 redirect 时是普通登录口径
+  // (「登录」),带 redirect 的子项目回跳仍是「统一登录」。此前只认后者,靠的是 bootstrap
+  // 未就绪那一瞬骨架期仍渲染 sso:title —— 竞态绿灯,不是证据。
+  const heading = page.getByRole('heading', { name: /登录/ })
   await expect(heading).toBeVisible({ timeout: 15000 })
   return page
 }
@@ -85,8 +88,10 @@ test.describe('认证流程', () => {
     await expect(registerBtn).toBeVisible()
     await registerBtn.click()
 
-    // 切换到注册模式:标题变"统一注册" + 出现"手机注册/邮箱注册" Tabs
-    await expect(page.getByRole('heading', { name: /统一注册/ })).toBeVisible()
+    // 切换到注册模式:标题含「注册」+ 出现「手机注册/邮箱注册」Tabs。
+    // 2026-10-22:/sso/login 无显式 redirect 时按「本站自己人」出普通文案(「注册」),
+    // 带 redirect 的子项目回跳仍是「统一注册」⇒ 判据认"切到注册态"这件事,不认话术档位。
+    await expect(page.getByRole('heading', { name: /注册/ })).toBeVisible()
     await expect(page.getByRole('tab', { name: /手机注册/ })).toBeVisible()
     await expect(page.getByRole('tab', { name: /邮箱注册/ })).toBeVisible()
   })
