@@ -659,7 +659,7 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
     "panels": [
       {
         "id": "stat-0",
-        "title": "活跃 LLM 会话",
+        "title": "号池冷却中的腿数",
         "kind": "stat",
         "backend": "prometheus",
         "unit": "short",
@@ -667,8 +667,8 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "targets": [
           {
             "ref": "A",
-            "expr": "ihui_llm_active_sessions",
-            "legend": "会话"
+            "expr": "sum(ihui_llm_pool_leg_in_cooldown)",
+            "legend": "冷却中的腿"
           }
         ]
       },
@@ -3401,7 +3401,7 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
       },
       {
         "id": "9",
-        "title": "活跃 LLM 会话",
+        "title": "号池冷却中的腿数",
         "kind": "stat",
         "backend": "prometheus",
         "thresholds": [
@@ -3414,8 +3414,8 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
         "targets": [
           {
             "ref": "A",
-            "expr": "max(ihui_llm_active_sessions{job=\"ai-service\"})",
-            "legend": "sessions"
+            "expr": "sum(ihui_llm_pool_leg_in_cooldown{job=\"ai-service\"})",
+            "legend": "cooling legs"
           }
         ]
       },
