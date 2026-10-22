@@ -1,16 +1,10 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # 守门体系参考文档（自动生成）
 
 > 本文档由 `scripts/generate-guardian-docs.mjs` 从 `scripts/guardian-runner.mjs` 动态提取生成。
 > 修改 guardian-runner.mjs 后请运行 `pnpm guardian:docs` 重新生成。
 > **禁止手工编辑**——下次生成会覆盖。
 >
-> 最后生成：2026-10-15（共 252 项：blocking 225 / warn 26 / info 1）
+> 最后生成：2026-10-22（共 269 项：blocking 242 / warn 26 / info 1）
 
 ## 目录
 
@@ -25,7 +19,7 @@
 
 按 mode 分组，每组按 guardian-runner.mjs 中的出现顺序排列。
 
-### 1.1 blocking 项（225 项）
+### 1.1 blocking 项（242 项）
 
 | ID | Label | Script | Args | onFailHint |
 |----|-------|--------|------|------------|
@@ -53,7 +47,6 @@
 | 11f | 🚫 原生 alert/confirm/prompt 弹窗 | check-no-native-dialog.mjs | — | — |
 | 11g | 🚫 mask-image 渐变遮罩 | check-no-mask-image.mjs | — | — |
 | 12 | 📋 交付报告一致性 | check-delivery-report-consistency.mjs | — | — |
-| 13c | 🗂️  PROJECT_PLAN.md 已完成任务防误删 | check-project-plan-archive.mjs | — | — |
 | 15 | 📊 迁移完整性(7 大类 29 子项) | check-api-migration-completeness.mjs | — | — |
 | 17 | 🎨 CSS 颜色 token 嵌套 | check-input-border-var.mjs | — | — |
 | 18 | 🖱️  原生 title tooltip 违规 | check-native-title-tooltip.mjs | — | — |
@@ -163,7 +156,7 @@
 | 106 | 🧩 extension 注入层色值同源(blocking,可派生档逐位等值 + 分歧必须登记且不得腐烂) | sync-extension-tokens.mjs | --check --staged | 有 |
 | 107 | 🧾 第三方来源台账对账(blocking,嵌入/复制/覆盖三本账 + 机制来源账:roots 必须真实存在、盘上 vendored 件必须有条目、许可原文必须能自证) | provenance-ledger.mjs | — | 有 |
 | 108 | ⏳ 豁免到期账(blocking,12 类行内豁免必须带到期日;到期未销账即红,存量进基线只报数) | check-exemption-expiry.mjs | — | 有 |
-| 109 | 🔒 任务认领租约对账(blocking,（进行中）必须带日期与持有者;过期未清账即红,存量裸标记只报数) | check-task-claims.mjs | --check-gate | 有 |
+| 109 | 🔒 任务认领租约对账(blocking,CL1 过期租约/CL2 缺持有者/CL3 翻勾未摘牌/CL4 新增裸「（进行中）」;四档同用 HEAD 存量棘轮,只拦本次带进来的) | check-task-claims.mjs | --check-gate | 有 |
 | 111 | 🧬 工具契约声明对账(blocking,注册进工具面却没有契约声明即红;棘轮锚点=该文件 HEAD 自身违规数) | check-tool-contract-declared.mjs | — | 有 |
 | 112 | 📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮) | check-compaction-denominator.mjs | — | 有 |
 | 113 | 🪪 路由身份键对账(blocking,路由身份不得进模型可见 schema;键清单唯一源在 @ihui/types) | check-tool-arg-routing-identity.mjs | — | 有 |
@@ -244,10 +237,26 @@
 | 206 | 🔢 错误码不得按文本判(blocking,新增分支按 err.message/includes(\ | check-error-code-not-text-matching.mjs | — | 有 |
 | 207 | 📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注) | check-agents-doc-size.mjs | — | — |
 | 208 | 🪆 工作区嵌套 git 仓零容忍(blocking,0 存量棘轮;演练/夹具仓被 IDE 源代码管理扫成「暂存的更改 10000+ 全 D」幻影) | check-no-nested-git.mjs | — | 有 |
+| 211 | 🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名) | check-plan-id-pool.mjs | — | 有 |
 | 212 | 🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注) | check-input-focus-feedback.mjs | — | — |
 | 213 | 🛡️  盘根写入回归锁(代码里别再产新的盘根外流;差值棘轮只拦新增) | check-disk-root-write.mjs | — | — |
-| 214 | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs | — | — |
-| 215 | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs | — | 有 |
+| 214 | ApiKeyPermission 三面对账(union ↔ web 两处标签表 ↔ 五语言 apiKeyPerms;2026-10-16 CI e2e 因缺 voice:stt 标签恒红那格的防回潮) | check-api-key-permission-labels.mjs | — | 有 |
+| 215 | CI 失败自述覆盖面与自洽性对账(blocking,W2/W3 硬拦;W1 覆盖面走差值棘轮只拦新增,存量只报数) | check-ci-failure-triage-wiring.mjs | — | 有 |
+| 217 | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs | — | — |
+| 218 | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs | — | 有 |
+| 219 | 🧬 端内共享类型重声明对账(共享对外类型名不得在端内再写一份;差值棘轮锚点=该文件 HEAD 自身违规数,存量只报数) | check-shared-type-not-redeclared.mjs | — | 有 |
+| 220 | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-grafana-metric-exists.mjs | — | 有 |
+| 222 | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-grafana-datasource-wiring.mjs | — | 有 |
+| 221 | 🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注) | check-mjs-syntax.mjs | — | 有 |
+| 223 | 桌面端(Tauri)事件链路三层接线守门:Rust emit→use-desktop listen/case→CustomEvent→web addEventListener 消费方闭环;含 G8 整页导航先复位深链闸门、G9 整页导航发起点必须先触发存草稿(desktop-before-close) | check-desktop-event-wiring.mjs | — | 有 |
+| 224 | 告警身份抖动对账(到人邮件的去重身份不得含逐轮抖动的 sha/时刻/原始计数/异常原文;差值棘轮:只拦本次加回来的) | check-alert-identity-volatility.mjs | — | 有 |
+| 226 | 钩子装载形态对账(.husky 钩子必须 sh 薄壳,node 正文只能在 scripts/lib) | check-husky-hook-form.mjs | — | 有 |
+| 227 | 🎨 小程序 design-token 副本逐位同值(blocking,判 app.css 首块已有键 × 7 类 token,含提交链唯一覆盖的 --chart-* 档) | check-miniapp-taro-design-tokens.mjs | — | 有 |
+| 228 | 跨端 BPE 词表对账(blocking;C1 声明 + C2 行为 + C3 反向锁) | check-bpe-encoding-parity.mjs | — | 有 |
+| 230 | 会话 Cookie 域作用域对账(blocking):Domain= 只许经 auth-cookies 的 resolveCookieDomain 单源按请求 host 下发,Host 取样必须走代理感知出口 request.hostname —— 2026-10-20 本机臂(127.0.0.1 无条件挂域,浏览器安静拒收,Cookie 从未落地)与公网臂(裸 headers.host 把反代后面的域内访客降级成 host-only,跨子域共享登录被打断)两连安静失效后立 | check-auth-cookie-domain-scope.mjs | — | 有 |
+| 231 | 🚫 暖色描边禁令(W1 聚焦态描边取暖色 / W2 原生 EditText 背景引用 textfield_* 9-patch / W3 AppTheme 未钉强调色 / W4 plugins 被 .gitignore 吞掉) | check-no-warm-border.mjs | — | 有 |
+| 232 | 🧾 嵌套仓豁免台账耐久性(HEAD 面已登记未到期行被洗掉即红;载体=行式 no-nested-git-sites.jsonl + 旧 JSON 台账;现场存续仍由门 208 现算,本门只守行存续) | check-no-nested-git-sites-durability.mjs | — | 有 |
+| 233 | 🧬 SSE 全量帧盲合并(全量帧 snapshot/initial 分支里铺开本地旧状态即红;未判定逐条点名,--strict 下 exit 2) | check-sse-no-blind-merge.mjs | — | 有 |
 | 150 | 角色档合规对账(元素类别→档位,77 不判的那一型) | check-radius-role-conformance.mjs | — | 有 |
 | 170 | 🛰 旁路落地声明面对账(blocking,留痕声明面 ⊉ 实际面 ∧ 射程外路径写回旧 blob ⇒ 红并点名;增量台账每枚判一次) | check-bypass-landing-scope.mjs | — | 有 |
 | 172 | 🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增) | check-skip-env-promise.mjs | — | 有 |
@@ -255,6 +264,8 @@
 | 188 | 🔐 授权判据列隔离(blocking,拦「归属判据所在的 SELECT 顺带取了展示列」—— 展示字段损坏会把授权查询拖成 500 而不是 403/404;判据本体单份住在 check-authorization-column-isolation.mjs,门内零自行判定) | check-authorization-column-isolation.mjs | — | 有 |
 | 198 | ⏱️  DB 盲写 updatedAt 棘轮(blocking,拦「.set({ ...data, updatedAt: new Date() })」无条件覆盖形态回潮 —— 它把增量读的 updatedAt 消费源污染成假变化) | check-db-blind-updatedat-set.mjs | — | 有 |
 | 13d | 🚫 PROJECT_PLAN.md 重复登记副本指针棘轮 | check-plan-dup-pointer-ratchet.mjs | — | — |
+| 229 | 🧹 PROJECT_PLAN.md 完成即删守门(拦跨枚滞留的已勾登记行;全量档只报数) | check-plan-closed-stock.mjs | — | — |
+| 70b | 🌐 i18n 死 key 扫描(blocking,判定面=索引 blob;2026-10-22 从 pre-commit 移入并行池) | scan-dead-i18n-keys.mjs | --exit 1 | — |
 
 ### 1.2 warn 项（26 项）
 
@@ -282,7 +293,7 @@
 | 190 | 枚举/映射取不到时的兜底分支不得落到更宽的权限或能力档(票 G-816027):宽档集合由被审面的两份注册表(TS POLICY_BY_MODE / PY skips_approval_permission_mode)现读推导,推导失败或槽位撞名一律未判定;与"凭据在场即豁免"那道门(157)不重叠计账 | check-enum-default-widening.mjs | — | 有 |
 | 191 | 测试判据复制对账(§22c 跨门尺子;门体与镜像测试各写一份形态清单/正则即点名,存量 27 处只报数 ⇒ warn,升 blocking 前置 = 命中归零) | check-test-judge-not-replicated.mjs | — | 有 |
 | 210 | 📐 TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格) | check-line-split-parity.mjs | — | 有 |
-| 211 | 🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名,warn) | check-plan-id-pool.mjs | — | 有 |
+| 225 | 生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC) | check-generator-resource-release.mjs | — | — |
 | 186 | loadState 四档投影防漂移对账(LV1 四档字面量零散落 + LV2 五族 get_status 的 loadState 键与共享出口来源;warn 起步) | check-load-state-projection-parity.mjs | — | 有 |
 | 196 | 📎 PROJECT_PLAN.md 短 sha 出处指针防回潮(新增行裸短 sha 须走台账/声明前缀/文件名通道,warn) | check-plan-sha-form.mjs | — | 有 |
 | 197 | 📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,warn) | check-truncation-accounting.mjs | — | 有 |
@@ -295,7 +306,7 @@
 
 ### 1.4 失败提示详情（onFailHint）
 
-仅展示有 onFailHint 的守门项（共 172 项），按 guardian-runner.mjs 出现顺序排列。
+仅展示有 onFailHint 的守门项（共 187 项），按 guardian-runner.mjs 出现顺序排列。
 
 #### [2e-dupns] 🧬 i18n 重复命名空间/重复键(blocking,防 JSON last-wins 静默遮蔽)
 
@@ -1469,7 +1480,7 @@
      行内豁免:glyph-arrow-exempt: <一句话原因>(须带原因,逐行生效)。
      单独复验:node scripts/check-glyph-arrow-icon.mjs --staged
      自检:node scripts/check-glyph-arrow-icon.mjs --self-test(例数以其末行现读为准,不在本文钉数;含阳性对照与棘轮四向)
-     镜像测试:node --test scripts/tests/check-glyph-arrow-icon.test.mjs(13 例,含装车证明)
+     镜像测试:node --test scripts/tests/check-glyph-arrow-icon.test.mjs(例数以其末行现读为准,不在本文钉数;含装车证明)
      紧急跳过(不推荐):HUSKY_SKIP_GLYPH_ARROW_ICON=1 git commit ...
 
 ```
@@ -1603,7 +1614,7 @@
 
 ```
 
-#### [109] 🔒 任务认领租约对账(blocking,（进行中）必须带日期与持有者;过期未清账即红,存量裸标记只报数)
+#### [109] 🔒 任务认领租约对账(blocking,CL1 过期租约/CL2 缺持有者/CL3 翻勾未摘牌/CL4 新增裸「（进行中）」;四档同用 HEAD 存量棘轮,只拦本次带进来的)
 
 ```
 
@@ -2270,7 +2281,7 @@ T-B 半截行与孤立 2 竖线行只报数不判红(要逐案判语义,不归�
      存在一笔非合并提交删掉了它」—— 对侧独有新增拿不出删除出处 ⇒ 不判(那是守门 100 的地盘)。
      同一路径两条取证只计一条(两份基线互相顶掉,真值就读不出)。正当豁免:删除提交信息含
      intentional-delete:,或 scripts/data/deletion-survival-allowlist.json 带 path+reason+reviewBy 且未过期。
-     增量台账 .workbuddy/merge-deletion-resurrection-audited.json 让每枚合并只判一次(判红不许反复红)。
+     增量台账 .ihui-agent/state/merge-deletion-resurrection-audited.json 让每枚合并只判一次(判红不许反复红)。
      自检:node scripts/check-merge-deletion-resurrection.mjs --self-test(43 例);
      镜像:node --test scripts/tests/check-merge-deletion-resurrection.test.mjs(11 例,含 T1 方向锁)。
 ```
@@ -2537,7 +2548,7 @@ HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI
      ① 让号/重登必须**旧行同批**加〔【归并】同题多号收拢〕指针或删掉 —— 只增不删就是重复登记;
      ② 确属另一件事 ⇒ 把题面写到取不出同一个指纹(换编号不算改题);
      ③ 登记一律走 live-doc-edit 的 {{NEXT_ID}} 令牌(发号前已查同题,命中拒发),别手填号。
-  📖 单复验:node scripts/check-plan-task-duplicates.mjs --self-test(18 例) / --ratchet(索引面 vs HEAD 面) / --staged --ratchet;默认档只报数,--strict 问责。
+  📖 单复验:node scripts/check-plan-task-duplicates.mjs --self-test(30 例) / --ratchet(索引面 vs HEAD 面) / --staged --ratchet;默认档只报数,--strict 问责。
   ⚠️ 应急跳过:HUSKY_SKIP_PLAN_DUP_TITLE=1(跳过即放弃「同一件事只有一行当前状态」这条不变量,须在提交信息写明理由与清偿票)
 
 ```
@@ -2624,7 +2635,7 @@ HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI
 
 ```
 
-#### [211] 🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名,warn)
+#### [211] 🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名)
 
 ```
 
@@ -2637,7 +2648,27 @@ HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI
 
 ```
 
-#### [215] 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增)
+#### [214] ApiKeyPermission 三面对账(union ↔ web 两处标签表 ↔ 五语言 apiKeyPerms;2026-10-16 CI e2e 因缺 voice:stt 标签恒红那格的防回潮)
+
+```
+
+红线:不得为变绿把表改成 Partial<Record<...>> 或加 ! 断言 —— 那等于废掉编译期那把尺(镜像测试第 4 臂钉住)。
+出路:同一笔提交把 union 新成员在 DeveloperKeyDialog.PERMISSION_LABELS 与 PermissionSelector.PERM_LABELS 两处补齐,并同批补五语言 packages/i18n/messages/web/*.json 的 apiKeyPerms.<leaf>(§19)。
+取证:node scripts/check-api-key-permission-labels.mjs --self-test(8 臂) + 镜像 scripts/tests/check-api-key-permission-labels.test.mjs;定级前置 = 落地当刻 HEAD 面 RC=0(§12e)。
+
+```
+
+#### [215] CI 失败自述覆盖面与自洽性对账(blocking,W2/W3 硬拦;W1 覆盖面走差值棘轮只拦新增,存量只报数)
+
+```
+
+红线:不得为变绿去放宽 TRIAGE_IDS 匹配或删掉豁免台账条目;W1 覆盖面存量归各工作流持有人,判据只拦新增(§12e)。
+修复出口:给该作业每个带 id 的步骤补 TRIAGE_IDS 与同名 O_ 注入,TRIAGE_WORKFLOW_FILE 写本文件自身,命令单行 bash scripts/ci-failure-triage.sh;确属例外往 scripts/data/ci-triage-exempt-jobs.json 具名登记并写 reason。
+备注:本条注册曾被他席整文件回写洗掉一次(枚 dc57b333a9 落过 id 213),现重新注册;回潮即说明共享注册表必须逐块核对 diff(§26)。
+
+```
+
+#### [218] 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增)
 
 ```
 
@@ -2645,6 +2676,141 @@ HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI
   存量治理后可运行 node scripts/check-mobile-rn-style-parity.mjs --update-baseline 收紧基线(全量档,不得与 --staged 同用)。
   取材口径:全量=HEAD blob、--staged=索引 blob、--worktree=人工排查;取不到 ⇒ exit 2 无法判定。
   自检:node scripts/check-mobile-rn-style-parity.mjs --self-test
+
+```
+
+#### [219] 🧬 端内共享类型重声明对账(共享对外类型名不得在端内再写一份;差值棘轮锚点=该文件 HEAD 自身违规数,存量只报数)
+
+```
+
+① 看是哪一条:node scripts/check-shared-type-not-redeclared.mjs --staged --json 里 detail 逐条点名 文件/类型名/sameShape(yes|no|undetermined)/reachable;\n② sameShape=yes 且 reachable=true 的才是一条命令能收的:删本地声明,改 import 自 @ihui/types(原本导出的另起一行 export type { X } 保住上游 import 面);\n③ sameShape=no 是"跨层同名不同物",不许并 —— 并了就是把两件不同的东西并成一件(改档前必须先读完两侧字段);\n④ sameShape=undetermined 要人工读两侧声明(门刻意不猜,判不出理由写在 shapeWhy);\n⑤ 禁止用改阈值/加豁免/把命中集缩小消红;唯一出口是改 import 共享出口(AGENTS §3 共享层优先)。
+
+```
+
+#### [220] 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)
+
+```
+
+
+```
+
+#### [222] 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态)
+
+```
+面板引用的数据源 uid 不在 monitoring/panel-defs/provisioning/datasources/datasources.yml 里 ——
+这样的面板只会静静显示 "Datasource not found",和"这业务本来没流量"长得一模一样。
+要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-grafana-live-provisioning.mjs 派生到线上副本)。
+```
+
+#### [221] 🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注)
+
+```
+
+  修法:对点名文件跑 node --check <file> 看行(事故型 = 块注释/字符串被劈成孤残行),修完复跑 node scripts/check-mjs-syntax.mjs --staged 确认转绿。
+  存量报数(不拦提交)= node scripts/check-mjs-syntax.mjs;清偿后要问责存量加 --strict;禁止为消红改判据。
+  自检:node scripts/check-mjs-syntax.mjs --self-test(11 例,含哨兵反证"绝不执行顶层代码");镜像:node --test scripts/tests/check-mjs-syntax.test.mjs
+  应急跳过(不推荐):HUSKY_SKIP_MJS_SYNTAX=1 git commit ...(须在提交信息写明理由)
+
+```
+
+#### [223] 桌面端(Tauri)事件链路三层接线守门:Rust emit→use-desktop listen/case→CustomEvent→web addEventListener 消费方闭环;含 G8 整页导航先复位深链闸门、G9 整页导航发起点必须先触发存草稿(desktop-before-close)
+
+```
+
+① 看清单:node scripts/check-desktop-event-wiring.mjs
+② 自检:node scripts/check-desktop-event-wiring.mjs --self-test
+③ 修:Rust emit 的事件须在 apps/web/src/hooks/use-desktop.ts 有 listen+case;dispatch 的 CustomEvent 须有 addEventListener 消费方;auto_refresh.rs 整页导航发起点须先 emit desktop-before-close(存草稿)
+紧急跳过:HUSKY_SKIP_DESKTOP_EVENT_WIRING=1
+
+```
+
+#### [224] 告警身份抖动对账(到人邮件的去重身份不得含逐轮抖动的 sha/时刻/原始计数/异常原文;差值棘轮:只拦本次加回来的)
+
+```
+
+  💡 判的是"到人邮件的去重身份里塞了每轮都变的量"(sha / 时刻 / 原始计数 / 异常原文)。
+     身份只留「类别 × 折档」—— 折档只用这几把通用尺子:alertCountTier / alertHeldTier /
+     classifyAlertIdentity(js) 或 Get-*Tier(ps1);实时读数一律只进邮件正文,不进身份。
+     单独复现:node scripts/check-alert-identity-volatility.mjs --staged
+     自检:node scripts/check-alert-identity-volatility.mjs --self-test(15 例,含成对反证)
+     确属稳定语义主键(如同一枚 commit 的 intake)⇒ 只认具名到期台账:
+     scripts/data/alert-identity-exemptions.json(每条带 reason/ticket/until,无行内豁免)。
+     发信面总账:scripts/data/alert-mail-faces.json(V3 射程声明 / V4 发现集都读它)。
+     紧急跳过:HUSKY_SKIP_ALERT_IDENTITY=1 git commit …(不推荐:这一维直接决定信箱会不会被刷屏)
+
+```
+
+#### [226] 钩子装载形态对账(.husky 钩子必须 sh 薄壳,node 正文只能在 scripts/lib)
+
+```
+
+node 正文搬进 scripts/lib/<hook>-hook.js,钩子文件只留 sh 薄壳(样板 .husky/pre-commit);薄壳引用的包装与正文必须在同一判定面在位
+
+```
+
+#### [227] 🎨 小程序 design-token 副本逐位同值(blocking,判 app.css 首块已有键 × 7 类 token,含提交链唯一覆盖的 --chart-* 档)
+
+```
+
+  💡 app.css 首块的 design-token 档与 packages/design-tokens/src/styles/tokens.css 不同值。
+     正解只有一条:改源头 tokens.css,再跑派生写回(node scripts/sync-miniapp-tokens.mjs 或 TOKEN_SYNC_TARGETS 那条入口),
+     禁止手改 app.css 受管块(那是派生态,下一次 sync 就把它洗掉)。
+     缺档(源头有、副本没有)不归本门,那是守门 36 的判据。
+
+```
+
+#### [228] 跨端 BPE 词表对账(blocking;C1 声明 + C2 行为 + C3 反向锁)
+
+```
+
+  💡 两端 BPE 表必须同是已批准的 cl100k_base;改 token-estimate.ts 或 context_compaction.py 后
+     先跑 node scripts/check-bpe-encoding-parity.mjs --worktree 取读数,再提交。
+     紧急跳过:HUSKY_SKIP_BPE_ENCODING_PARITY=1(仅限红确属他人文件时)。
+
+```
+
+#### [230] 会话 Cookie 域作用域对账(blocking):Domain= 只许经 auth-cookies 的 resolveCookieDomain 单源按请求 host 下发,Host 取样必须走代理感知出口 request.hostname —— 2026-10-20 本机臂(127.0.0.1 无条件挂域,浏览器安静拒收,Cookie 从未落地)与公网臂(裸 headers.host 把反代后面的域内访客降级成 host-only,跨子域共享登录被打断)两连安静失效后立
+
+```
+
+
+```
+
+#### [231] 🚫 暖色描边禁令(W1 聚焦态描边取暖色 / W2 原生 EditText 背景引用 textfield_* 9-patch / W3 AppTheme 未钉强调色 / W4 plugins 被 .gitignore 吞掉)
+
+```
+
+
+```
+
+#### [232] 🧾 嵌套仓豁免台账耐久性(HEAD 面已登记未到期行被洗掉即红;载体=行式 no-nested-git-sites.jsonl + 旧 JSON 台账;现场存续仍由门 208 现算,本门只守行存续)
+
+```
+
+  💡 门 208 的两把豁免台账(行式 scripts/data/no-nested-git-sites.jsonl + 旧 JSON
+     scripts/data/no-nested-git-exemptions.json)里,HEAD 面上**未到期**的登记行在被审面上不见了。
+     两把台账是数据文件 —— 整文件覆盖就是整文件覆盖,一次拿滞后副本提交就会把别人的登记行整批洗掉
+     (本门正是为此而设:洗掉那一刻没有任何东西报警)。
+     修复(二选一,都走一次提交,不靠跳门):
+       A. 无意洗掉 ⇒ 把 HEAD 面的登记行原样带回再提交(行式按 rel 逐字;JSON 按条目);
+       B. 有意摘除(现场真消失 / 已到期 / 换载体)⇒ 在本枚提交里写明摘的是哪一条、为什么,
+          行式台账改删那一行、JSON 台账改删那一条目,让"少了一行"这件事本身出现在 diff 里。
+     现读命令: node scripts/check-no-nested-git-sites-durability.mjs [--staged]
+     (现场在不在由门 208 判红那一刻现算,本门只守"已登记未到期的行不许静默消失")
+
+```
+
+#### [233] 🧬 SSE 全量帧盲合并(全量帧 snapshot/initial 分支里铺开本地旧状态即红;未判定逐条点名,--strict 下 exit 2)
+
+```
+
+  💡 全量帧的语义是"这就是完整状态",写成 `{ ...prev, ... }` 会让 initial 丢失后的
+     新代次第一帧拼在旧投影上,产出一段自洽但根本不存在的对话(日志零痕迹)。
+     唯一正解:全量帧整体替换投影;能不能拼交给 packages/shared/src/chat/projection-watermark.ts
+     (基线代次 + 序号单调 + 断档只重订阅),不得在分支里就地补偿。
+  单独复验:node scripts/check-sse-no-blind-merge.mjs [--staged|--strict|--json]
+     自检:node scripts/check-sse-no-blind-merge.mjs --self-test(15 例)
+  紧急跳过(不推荐):HUSKY_SKIP_SSE_NO_BLIND_MERGE=1 git commit ...
 
 ```
 
@@ -2670,7 +2836,7 @@ HEAD 里有人 import 一个从未入库的 Python 模块 ⇒ 干净检出与 CI
      **声明路径之外**的路径按旧副本整文件写回,吞掉别人已入库的内容 —— 提交链三道门(84 R1 /
      100 / 30c)都跑在钩子里,拦不到结构上不跑钩子的旁路通道;本门按留痕日志事后逐枚复量。
      修复只有前向回补(§22 不重写历史):按被吞内容的原 blob 重新落地,参照 cfabf3128a 的形态;
-     判红已记入增量台账(.workbuddy/bypass-landing-scope-audited.json),不会反复红,但内容必须修。
+     判红已记入增量台账(.ihui-agent/state/bypass-landing-scope-audited.json),不会反复红,但内容必须修。
      单独复验:node scripts/check-bypass-landing-scope.mjs
 ```
 
@@ -2867,7 +3033,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 190 | 枚举/映射取不到时的兜底分支不得落到更宽的权限或能力档(票 G-816027):宽档集合由被审面的两份注册表(TS POLICY_BY_MODE / PY skips_approval_permission_mode)现读推导,推导失败或槽位撞名一律未判定;与"凭据在场即豁免"那道门(157)不重叠计账 | check-enum-default-widening.mjs |
 | 191 | 测试判据复制对账(§22c 跨门尺子;门体与镜像测试各写一份形态清单/正则即点名,存量 27 处只报数 ⇒ warn,升 blocking 前置 = 命中归零) | check-test-judge-not-replicated.mjs |
 | 210 | 📐 TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格) | check-line-split-parity.mjs |
-| 211 | 🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名,warn) | check-plan-id-pool.mjs |
+| 225 | 生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC) | check-generator-resource-release.mjs |
 | 186 | loadState 四档投影防漂移对账(LV1 四档字面量零散落 + LV2 五族 get_status 的 loadState 键与共享出口来源;warn 起步) | check-load-state-projection-parity.mjs |
 | 196 | 📎 PROJECT_PLAN.md 短 sha 出处指针防回潮(新增行裸短 sha 须走台账/声明前缀/文件名通道,warn) | check-plan-sha-form.mjs |
 | 197 | 📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,warn) | check-truncation-accounting.mjs |
@@ -2931,7 +3097,6 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 11f | `—（待补充）` | 🚫 原生 alert/confirm/prompt 弹窗 | check-no-native-dialog.mjs |
 | 11g | `—（待补充）` | 🚫 mask-image 渐变遮罩 | check-no-mask-image.mjs |
 | 12 | `engineering/delivery-report` | 📋 交付报告一致性 | check-delivery-report-consistency.mjs |
-| 13c | `engineering/project-plan-archive` | 🗂️  PROJECT_PLAN.md 已完成任务防误删 | check-project-plan-archive.mjs |
 | 15 | `engineering/migration-completeness` | 📊 迁移完整性(7 大类 29 子项) | check-api-migration-completeness.mjs |
 | 17 | `ui/css-token-nesting` | 🎨 CSS 颜色 token 嵌套 | check-input-border-var.mjs |
 | 18 | `ui/native-title-tooltip` | 🖱️  原生 title tooltip 违规 | check-native-title-tooltip.mjs |
@@ -3053,7 +3218,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 106 | `—（待补充）` | 🧩 extension 注入层色值同源(blocking,可派生档逐位等值 + 分歧必须登记且不得腐烂) | sync-extension-tokens.mjs |
 | 107 | `—（待补充）` | 🧾 第三方来源台账对账(blocking,嵌入/复制/覆盖三本账 + 机制来源账:roots 必须真实存在、盘上 vendored 件必须有条目、许可原文必须能自证) | provenance-ledger.mjs |
 | 108 | `—（待补充）` | ⏳ 豁免到期账(blocking,12 类行内豁免必须带到期日;到期未销账即红,存量进基线只报数) | check-exemption-expiry.mjs |
-| 109 | `—（待补充）` | 🔒 任务认领租约对账(blocking,（进行中）必须带日期与持有者;过期未清账即红,存量裸标记只报数) | check-task-claims.mjs |
+| 109 | `—（待补充）` | 🔒 任务认领租约对账(blocking,CL1 过期租约/CL2 缺持有者/CL3 翻勾未摘牌/CL4 新增裸「（进行中）」;四档同用 HEAD 存量棘轮,只拦本次带进来的) | check-task-claims.mjs |
 | 110 | `—（待补充）` | 📦 产物预算对账(warn,交付出去的产物第一次有上限表:主包口径 / 悬空 sourceMappingURL 引用) | check-artifact-budget.mjs |
 | 111 | `—（待补充）` | 🧬 工具契约声明对账(blocking,注册进工具面却没有契约声明即红;棘轮锚点=该文件 HEAD 自身违规数) | check-tool-contract-declared.mjs |
 | 112 | `—（待补充）` | 📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮) | check-compaction-denominator.mjs |
@@ -3143,11 +3308,27 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 207 | `—（待补充）` | 📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注) | check-agents-doc-size.mjs |
 | 208 | `—（待补充）` | 🪆 工作区嵌套 git 仓零容忍(blocking,0 存量棘轮;演练/夹具仓被 IDE 源代码管理扫成「暂存的更改 10000+ 全 D」幻影) | check-no-nested-git.mjs |
 | 210 | `—（待补充）` | 📐 TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格) | check-line-split-parity.mjs |
-| 211 | `—（待补充）` | 🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名,warn) | check-plan-id-pool.mjs |
+| 211 | `—（待补充）` | 🧮 PROJECT_PLAN 号池对账(声明位号 >999 按重数差值棘轮;R2 发号路径点名) | check-plan-id-pool.mjs |
 | 212 | `—（待补充）` | 🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注) | check-input-focus-feedback.mjs |
 | 213 | `—（待补充）` | 🛡️  盘根写入回归锁(代码里别再产新的盘根外流;差值棘轮只拦新增) | check-disk-root-write.mjs |
-| 214 | `—（待补充）` | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs |
-| 215 | `—（待补充）` | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs |
+| 214 | `—（待补充）` | ApiKeyPermission 三面对账(union ↔ web 两处标签表 ↔ 五语言 apiKeyPerms;2026-10-16 CI e2e 因缺 voice:stt 标签恒红那格的防回潮) | check-api-key-permission-labels.mjs |
+| 215 | `—（待补充）` | CI 失败自述覆盖面与自洽性对账(blocking,W2/W3 硬拦;W1 覆盖面走差值棘轮只拦新增,存量只报数) | check-ci-failure-triage-wiring.mjs |
+| 217 | `—（待补充）` | 📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁) | check-sheet-flex-contract.mjs |
+| 218 | `—（待补充）` | 🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增) | check-mobile-rn-style-parity.mjs |
+| 219 | `—（待补充）` | 🧬 端内共享类型重声明对账(共享对外类型名不得在端内再写一份;差值棘轮锚点=该文件 HEAD 自身违规数,存量只报数) | check-shared-type-not-redeclared.mjs |
+| 220 | `—（待补充）` | 监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记) | check-grafana-metric-exists.mjs |
+| 222 | `—（待补充）` | 监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态) | check-grafana-datasource-wiring.mjs |
+| 221 | `—（待补充）` | 🧾 .mjs 语法对账(被审面全量纯解析,只解析不执行;--staged 差值棘轮只拦本次带进来的,存量只报数——上线当刻 HEAD 面实测 1 枚存量,定级与清偿见门体头注) | check-mjs-syntax.mjs |
+| 223 | `—（待补充）` | 桌面端(Tauri)事件链路三层接线守门:Rust emit→use-desktop listen/case→CustomEvent→web addEventListener 消费方闭环;含 G8 整页导航先复位深链闸门、G9 整页导航发起点必须先触发存草稿(desktop-before-close) | check-desktop-event-wiring.mjs |
+| 225 | `—（待补充）` | 生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC) | check-generator-resource-release.mjs |
+| 224 | `—（待补充）` | 告警身份抖动对账(到人邮件的去重身份不得含逐轮抖动的 sha/时刻/原始计数/异常原文;差值棘轮:只拦本次加回来的) | check-alert-identity-volatility.mjs |
+| 226 | `—（待补充）` | 钩子装载形态对账(.husky 钩子必须 sh 薄壳,node 正文只能在 scripts/lib) | check-husky-hook-form.mjs |
+| 227 | `—（待补充）` | 🎨 小程序 design-token 副本逐位同值(blocking,判 app.css 首块已有键 × 7 类 token,含提交链唯一覆盖的 --chart-* 档) | check-miniapp-taro-design-tokens.mjs |
+| 228 | `—（待补充）` | 跨端 BPE 词表对账(blocking;C1 声明 + C2 行为 + C3 反向锁) | check-bpe-encoding-parity.mjs |
+| 230 | `—（待补充）` | 会话 Cookie 域作用域对账(blocking):Domain= 只许经 auth-cookies 的 resolveCookieDomain 单源按请求 host 下发,Host 取样必须走代理感知出口 request.hostname —— 2026-10-20 本机臂(127.0.0.1 无条件挂域,浏览器安静拒收,Cookie 从未落地)与公网臂(裸 headers.host 把反代后面的域内访客降级成 host-only,跨子域共享登录被打断)两连安静失效后立 | check-auth-cookie-domain-scope.mjs |
+| 231 | `—（待补充）` | 🚫 暖色描边禁令(W1 聚焦态描边取暖色 / W2 原生 EditText 背景引用 textfield_* 9-patch / W3 AppTheme 未钉强调色 / W4 plugins 被 .gitignore 吞掉) | check-no-warm-border.mjs |
+| 232 | `—（待补充）` | 🧾 嵌套仓豁免台账耐久性(HEAD 面已登记未到期行被洗掉即红;载体=行式 no-nested-git-sites.jsonl + 旧 JSON 台账;现场存续仍由门 208 现算,本门只守行存续) | check-no-nested-git-sites-durability.mjs |
+| 233 | `—（待补充）` | 🧬 SSE 全量帧盲合并(全量帧 snapshot/initial 分支里铺开本地旧状态即红;未判定逐条点名,--strict 下 exit 2) | check-sse-no-blind-merge.mjs |
 | 23 | `engineering/staged-files-info` | 📋 staged 文件清单(info) | check-staged-files.mjs |
 | 150 | `—（待补充）` | 角色档合规对账(元素类别→档位,77 不判的那一型) | check-radius-role-conformance.mjs |
 | 170 | `—（待补充）` | 🛰 旁路落地声明面对账(blocking,留痕声明面 ⊉ 实际面 ∧ 射程外路径写回旧 blob ⇒ 红并点名;增量台账每枚判一次) | check-bypass-landing-scope.mjs |
@@ -3159,6 +3340,8 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 197 | `—（待补充）` | 📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,warn) | check-truncation-accounting.mjs |
 | 198 | `—（待补充）` | ⏱️  DB 盲写 updatedAt 棘轮(blocking,拦「.set({ ...data, updatedAt: new Date() })」无条件覆盖形态回潮 —— 它把增量读的 updatedAt 消费源污染成假变化) | check-db-blind-updatedat-set.mjs |
 | 13d | `—（待补充）` | 🚫 PROJECT_PLAN.md 重复登记副本指针棘轮 | check-plan-dup-pointer-ratchet.mjs |
+| 229 | `—（待补充）` | 🧹 PROJECT_PLAN.md 完成即删守门(拦跨枚滞留的已勾登记行;全量档只报数) | check-plan-closed-stock.mjs |
+| 70b | `—（待补充）` | 🌐 i18n 死 key 扫描(blocking,判定面=索引 blob;2026-10-22 从 pre-commit 移入并行池) | scan-dead-i18n-keys.mjs |
 
 ### 3.4 迁移建议
 
@@ -3230,4 +3413,3 @@ node scripts/generate-guardian-docs.mjs --help
 ---
 
 *本文档由 `scripts/generate-guardian-docs.mjs` 自动生成，禁止手工编辑。*
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

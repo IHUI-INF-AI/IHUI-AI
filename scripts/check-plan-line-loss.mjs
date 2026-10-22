@@ -510,7 +510,14 @@ function declaredRowSet() {
   return _declaredRowsCache
 }
 
-export function resolveRegistrationLoss(entries, targetSrc, declared = declaredRowSet()) {
+/** 改号行正文归一化:去空白、剥尾部压缩注记、编号统一为占位符(改号本身只动编号)。 */
+const normalizeRenumberBody = (s) =>
+  String(s)
+    .replace(/〔压缩@[^〕]*〕/g, '')
+    .replace(/\s+/g, '')
+    .replace(/[A-Za-z]{1,8}-?\d+/g, '<ID>')
+
+export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()) {
   const groups = new Map()
   const textOnly = []
   for (const e of entries) {
@@ -545,10 +552,31 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = declaredR
   // 不判丢、不回捞。方向从严:只认整行逐字相等,不做指纹/相似度;台账取不到 ⇒ declared 为空,
   // 一切照旧(不误免)。与 pointerExempt 并存:两条通道互不替代。
   const declaredExempt = (e) => typeof e.line === 'string' && declared.has(e.line)
+  // 改号全文豁免(2026-10-22 审计加固):摘号通道的 20 字指纹会漏判"第 21 字起被改写";
+  // 改号通道只允许**全文归一化后逐字相等**(去空白、剥压缩注记、编号归一为占位符),
+  // 因为改号本身只动编号位,正文必须逐字保留。基线旧行正文里的旧号自引用与目标行新号
+  // 在归一化后相等,不会被误判为丢失。
+  const renumberCorpus = new Set()
+  for (const l of targetSrc.split(/\r?\n/)) {
+    const cb = checkboxBody(l)
+    if (cb === null || !RENUMBER_TAIL_RE.test(cb)) continue
+    const body = cb
+      .replace(RENUMBER_TAIL_RE, '')
+      .replace(/^\*{0,2}[A-Za-z]{1,3}-?\d+[A-Za-z]?\*{0,2}\s*/, '')
+    renumberCorpus.add(normalizeRenumberBody(body))
+  }
+  const renumberExempt = (e) => {
+    if (!e.line) return false
+    const cb = checkboxBody(e.line)
+    if (cb === null) return false
+    const body = cb.replace(/^\*{0,2}[A-Za-z]{1,3}-?\d+[A-Za-z]?\*{0,2}\s*/, '')
+    return renumberCorpus.has(normalizeRenumberBody(body))
+  }
   // textOnly 档同样要豁免:批⑤的四行真实形态(`- [ ] **G-580 …` 粗体头带空格)headIdOf 给 null,
   // 全走 textOnly —— 只豁免带 id 的组循环等于对这批真实事故行不生效(2026-10-09 端到端探针实证)。
   for (const e of textOnly)
-    if (!targetSrc.includes(e.marker) && !pointerExempt(e) && !declaredExempt(e)) lost.add(e.marker)
+    if (!targetSrc.includes(e.marker) && !pointerExempt(e) && !renumberExempt(e) && !declaredExempt(e))
+      lost.add(e.marker)
   const slots = registrationSlots(targetSrc)
   for (const [key, group] of groups) {
     const slot = slots.get(key)
@@ -558,12 +586,15 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = declaredR
     let present = 0
     for (const { e } of group) {
       if (head.has(e.marker)) present += 1
-      else if (pointerExempt(e) || declaredExempt(e)) continue // 合法摘号/已声明摘除 ⇒ 不判丢、不点名、不回捞
-      else absent.push(e)
+      else if (pointerExempt(e) || renumberExempt(e)) continue // 合法摘号/改号 ⇒ 不判丢、不点名、不回捞
+      // 已声明摘除**不在这里 continue**:它必须占住 absent 的位置但不消耗 slack,
+      // 否则同组后面那条真删行会被 slack 吞掉(2026-10-22 审计实测:台账空报 1、有台账报 0)。
+      else absent.push(declaredExempt(e) ? { ...e, declared: true } : e)
     }
     // 名额优先解释"组内靠前的"缺席条目(它们来自较新的历史版本,更可能是被改写而不是被吞)
     const slack = Math.max(0, capacity - present)
-    for (const e of absent.slice(slack)) lost.add(e.marker)
+    const undecided = absent.filter((e) => !e.declared)
+    for (const e of undecided.slice(slack)) lost.add(e.marker)
     /**
      * `multiSlot` = 判丢时该编号**在目标面仍占着行首名额**(capacity > 0)。
      * 这一类的含义不是"这个任务没人登记了",而是"同一编号原本有几行、现在少了一行" —— 少的那行
@@ -571,11 +602,13 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = declaredR
      * 所以它只许**点名交人工**,绝不允许进自动回捞:真仓现读的两条此类样本(G-300 / G-301)
      * 都是"同编号被两件事共用"的台账撞号,自动插回去就是替台账长出一份重复登记(§1 红线)。
      */
-    if (capacity > 0) for (const e of absent.slice(slack)) multiSlot.add(e.marker)
+    if (capacity > 0) for (const e of undecided.slice(slack)) multiSlot.add(e.marker)
   }
   // 返回顺序 = 输入顺序:判据语义与旧实现一致,也免得回捞插入顺序被分组打乱
   return entries
-    .filter((e) => e && e.marker && lost.has(e.marker))
+    // 已声明摘除的条目不得随同 marker 被带进回捞集(同号多行时 lost 是 marker 级集合,
+    // 不过滤就会把已声明的行一起插回去 —— 2026-10-22 审计指出的同组吞行面)。
+    .filter((e) => e && e.marker && lost.has(e.marker) && !declaredExempt(e))
     .map((e) => (multiSlot.has(e.marker) ? { ...e, multiSlot: true } : e))
 }
 
@@ -637,7 +670,10 @@ export function registeredLines(src) {
 }
 
 /** 基线里存在、待提交内容里彻底消失的登记行 */
-export function lostMarkers(baselineSrc, candidateSrc, declared = declaredRowSet()) {
+// 默认 declared = 空集(**刻意**):lostMarkers 是提交链 `--staged` 档的尺子,不得依赖仓外
+// 的摘除台账 —— 否则一份被读/写到的 gitignored jsonl 就能让任意登记行在提交链上被误免。
+// 本机自愈走 missingFrom(它显式读台账),CI/净检出无台账时照旧判丢(不回捞)。
+export function lostMarkers(baselineSrc, candidateSrc, declared = new Set()) {
   // 判活只有一份实现(见 resolveRegistrationLoss);`multiSlot` 必须随条目一起传出 ——
   // 报告里"只点名不回捞"那句话与回捞侧的刹车都靠它,在这里 map 成新对象把它抹掉,
   // 等于让提交链那一档退化成"照常自动插回"(镜像用例端到端抓出来的正是这一格)。
@@ -1183,9 +1219,9 @@ export function historyMarkers(depth = historyDepth(), root = ROOT) {
 }
 
 /** 历史登记行里在 targetSrc 中缺席的那些(归档过的正当移除自动排除) */
-export function missingFrom(seen, targetSrc, archived = archivedCopy) {
+export function missingFrom(seen, targetSrc, archived = archivedCopy, declared = declaredRowSet()) {
   // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"
-  const lost = resolveRegistrationLoss([...seen.values()], targetSrc)
+  const lost = resolveRegistrationLoss([...seen.values()], targetSrc, declared)
   return lost.filter((v) => !(archived(v.marker) || (v.id && archived(v.id))))
 }
 

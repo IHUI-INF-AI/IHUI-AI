@@ -1084,6 +1084,45 @@ test('反向锁(摘除声明):只差一个字符就不免 —— 声明豁免不
   assert.equal(G.lostMarkers(base.join('\n'), '- [ ] G-69 同题持有行', declared).length, 1)
 })
 
+test('反向锁(摘除声明):同组一行已声明、另一行真删 ⇒ 真删仍必须报(不被 slack 吞掉)', () => {
+  const a = '- [ ] **G-56 第一份副本正文足够长以成行** —— 正文甲,足够长。'
+  const b = '- [ ] **G-56 第二份副本正文足够长以成行** —— 正文乙,足够长。'
+  const lost = G.lostMarkers([a, b].join('\n'), '- [ ] G-999 别的票', new Set([a]))
+  assert.equal(lost.length, 1, `真删行被吞或已声明行被带回:${lost.length} 条`)
+  assert.equal(lost[0].line, b)
+})
+
+test('反向锁(改号):正文第 21 字起被改写 ⇒ 全文比较必须判丢(20 字指纹的漏判面)', () => {
+  const base = [
+    '- [ ] **G-1018282 生产备份链日志的写入侧编码要改成 UTF-8 并补一个很长的尾巴用于越过二十字阈值** 正文甲。',
+  ]
+  const target = [
+    '- [ ] **G-940 生产备份链日志的写入侧编码要改成 GBK 并补一个很长的尾巴用于越过二十字阈值** 正文甲。 〔改号(2026-10-22):原G-1018282〕',
+  ]
+  assert.equal(G.lostMarkers(base.join('\n'), target.join('\n')).length, 1)
+})
+
+test('提交链档默认不读仓外摘除台账(否则一行 jsonl 可免任意登记行)', () => {
+  const p = join(REPO, '.ihui-agent/state/plan-row-drop.jsonl')
+  if (!existsSync(p)) return
+  const row = readFileSync(p, 'utf8')
+    .split('\n')
+    .map((l) => {
+      try {
+        return JSON.parse(l).rowBefore
+      } catch {
+        return null
+      }
+    })
+    .find((x) => typeof x === 'string' && /^\s*- \[ \]/.test(x))
+  if (!row) return
+  assert.equal(
+    G.lostMarkers(row, '- [ ] G-999 别的票').length,
+    1,
+    '默认调用读了仓外台账 ⇒ 提交链可被伪造豁免',
+  )
+})
+
 test('形状锁(摘号指纹):D 族无连字符编号(D173)必须被剥掉 —— 剥不掉指纹带编号,豁免对 D 族整族失效', () => {
   const fp = G.lossFingerprintOf('- [ ]**D173 断线窗口待决审批的重放(承 D131 取证)**')
   assert.ok(!fp.startsWith('D173'), `指纹不得带编号,实测 ${fp}`)
