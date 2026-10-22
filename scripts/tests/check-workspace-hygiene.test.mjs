@@ -431,10 +431,6 @@ test('面·行为锁:在册源文件与 tmp 落点都在面内,被忽略的第�
       `盘上有 ${onDisk.length} 个临时脚本,面里一条都没有 ⇒ 并入实际失效`,
     )
   }
-  const stray = join(
-    '.DevEnv',
-    'cache/userhome/.codex/plugins/cache/openai-bundled/browser/26.1007.21434/scripts/browser-service.mjs',
-  )
   // 2026-10-21:这条缓存文件住在 `.DevEnv/`(被 .gitignore 忽略)⇒ **任何干净检出上都不存在**,
   // 原来那句 existsSync「夹具前提」在 CI 上必红。要锁的判据是"被忽略的他人工具缓存不得进面",
   // 与那个具体文件在不在盘上无关 —— 改成恒真锁(面里一旦出现 .DevEnv/ 前缀就红)。

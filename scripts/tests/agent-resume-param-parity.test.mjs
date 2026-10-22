@@ -153,7 +153,6 @@ function judge(source) {
     }
   }
 
-  const resumeSite = byHost.get("resume");
   const hasInheritNote = /#\s*resume-inherits:\s*\S+/.test(source);
   for (const key of PERMISSION_KEYS) {
     if (!formal.includes(key)) continue;
