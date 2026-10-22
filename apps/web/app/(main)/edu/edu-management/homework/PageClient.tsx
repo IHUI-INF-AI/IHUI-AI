@@ -462,7 +462,7 @@ export default function HomeworkPage() {
                 </thead>
                 <tbody>
                   {submissions.map((s) => (
-                    <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <tr key={s.id} className="hover:bg-muted/30">
                       <td className="px-4 py-3 text-xs font-medium">{s.studentName}</td>
                       <td className="px-4 py-3 text-xs">
                         <TruncatedText value={s.content} className="max-w-[200px]" />

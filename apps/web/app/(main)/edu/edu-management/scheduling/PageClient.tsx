@@ -899,7 +899,7 @@ export default function SchedulingPage() {
                     </thead>
                     <tbody>
                       {rules.map((r) => (
-                        <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={r.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs">
                             {classMap.get(r.classId) ?? r.classId}
                           </td>
@@ -1007,7 +1007,7 @@ export default function SchedulingPage() {
                     </thead>
                     <tbody>
                       {teacherSchedules.map((s) => (
-                        <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={s.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">
                             {teacherMap.get(s.teacherId) ?? s.teacherId}
                           </td>
@@ -1106,7 +1106,7 @@ export default function SchedulingPage() {
                     </thead>
                     <tbody>
                       {changes.map((c) => (
-                        <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={c.id} className="hover:bg-muted/30">
                           <td className="px-4 py-3 text-xs font-medium">{c.subject}</td>
                           <td className="px-4 py-3 text-xs">
                             {fmtTime(c.originalWeekday, c.originalStartTime, c.originalEndTime)}

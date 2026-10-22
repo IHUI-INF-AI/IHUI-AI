@@ -153,7 +153,7 @@ export default function FundDataPage() {
                 </thead>
                 <tbody>
                   {funds.map((fund) => (
-                    <tr key={fund.id} className="border-b last:border-0">
+                    <tr key={fund.id}>
                       <td className="py-2.5 pr-4 font-mono text-xs">{fund.code}</td>
                       <td className="py-2.5 pr-4">{fund.name}</td>
                       <td className="py-2.5 pr-4">
@@ -230,7 +230,7 @@ export default function FundDataPage() {
                 </thead>
                 <tbody>
                   {history.map((nv) => (
-                    <tr key={nv.id} className="border-b last:border-0">
+                    <tr key={nv.id}>
                       <td className="py-2 pr-4 font-mono text-xs">{nv.date}</td>
                       <td className="py-2 text-right font-mono tabular-nums">
                         {formatValue(nv.value)}
