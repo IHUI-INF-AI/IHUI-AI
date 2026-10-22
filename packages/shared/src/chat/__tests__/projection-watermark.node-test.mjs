@@ -26,9 +26,16 @@ import {
   acknowledge,
   applyFrame,
   createWatermarkState,
+  isApplyReason,
   isBaselineUsable,
+  isDropReason,
+  isRejectReason,
+  isWatermarkReason,
   judgeFrame,
   noteBaselineReceived,
+  PROJECTION_WATERMARK_APPLY_REASONS,
+  PROJECTION_WATERMARK_DROP_REASONS,
+  PROJECTION_WATERMARK_REASONS,
   PROJECTION_WATERMARK_REJECT_REASONS,
   requestResync,
 } from '../projection-watermark.ts'
@@ -252,5 +259,68 @@ test('判决的 reason 全部落在登记的枚举里(防止判据长出未登�
     else assert.ok(true, `${v.action}:${v.reason}`)
   }
   assert.equal(all.length, 7)
+})
+
+// ── G-274 票面四臂(表驱动,一处可读)────────────────────────────────────────
+test('G-274 四臂:initial 丢失/连续/迟到/重复 各归其位(拒档臂与放行臂成对)', () => {
+  // ① initial 丢失,手上留着一份水位 10 的旧投影;新代次首帧 fromSeq 恰好 = 旧水位 + 1。
+  // 数值上"完全接得上"正是诱惑面,协议必须只给 resync,不得把新 delta 拼到旧状态。
+  const oldProjectionSeq = 10
+  const lostBaseline = applyFrame(createWatermarkState(), {
+    kind: 'delta',
+    fromSeq: oldProjectionSeq + 1,
+    toSeq: oldProjectionSeq + 1,
+  })
+  assert.equal(lostBaseline.verdict.action, 'resync', '① 数值对得上也必须拒')
+  assert.equal(lostBaseline.verdict.reason, 'no-baseline')
+
+  // ② 正常连续:同一代次、fromSeq = 水位 + 1 ⇒ apply。
+  const contiguous = applyFrame(seeded(), { kind: 'delta', baseId: 'A', fromSeq: 11, toSeq: 11 })
+  assert.equal(contiguous.verdict.action, 'apply', '② 正常衔接不得误判成断档')
+  assert.equal(contiguous.verdict.reason, 'contiguous')
+
+  // ③ 迟到旧帧:整段落在水位之前 ⇒ 静默丢弃,且不得把基线打成不可用。
+  const late = applyFrame(seeded(), { kind: 'delta', baseId: 'A', fromSeq: 4, toSeq: 7 })
+  assert.equal(late.verdict.action, 'drop')
+  assert.equal(late.verdict.reason, 'late')
+  assert.equal(late.state.appliedSeq, 10)
+  assert.equal(isBaselineUsable(late.state), true)
+
+  // ④ 重复帧:整段恰在水位上 ⇒ 幂等丢弃(水位不动、不触发重订阅)。
+  const duplicate = applyFrame(seeded(), { kind: 'delta', baseId: 'A', fromSeq: 10, toSeq: 10 })
+  assert.equal(duplicate.verdict.action, 'drop')
+  assert.equal(duplicate.verdict.reason, 'duplicate')
+  assert.equal(duplicate.state.appliedSeq, 10)
+  assert.equal(duplicate.state.awaitingBase, false, '④ 重复帧不得触发重订阅')
+})
+
+// ── reason 封闭集:常量数组 ⇄ 类型守卫同源 ─────────────────────────────────
+test('reason-code 封闭集:登记值反查为真,动作外取值与非法入参反查为假', () => {
+  for (const reason of PROJECTION_WATERMARK_APPLY_REASONS) {
+    assert.equal(isApplyReason(reason), true, `apply:${reason}`)
+    assert.equal(isWatermarkReason(reason), true, `all:${reason}`)
+    assert.equal(isDropReason(reason), false, '动作外取值不得混进 drop 集')
+    assert.equal(isRejectReason(reason), false, '动作外取值不得混进 reject 集')
+  }
+  for (const reason of PROJECTION_WATERMARK_DROP_REASONS) {
+    assert.equal(isDropReason(reason), true, `drop:${reason}`)
+    assert.equal(isWatermarkReason(reason), true, `all:${reason}`)
+    assert.equal(isApplyReason(reason), false)
+    assert.equal(isRejectReason(reason), false)
+  }
+  for (const reason of PROJECTION_WATERMARK_REJECT_REASONS) {
+    assert.equal(isRejectReason(reason), true, `resync:${reason}`)
+    assert.equal(isWatermarkReason(reason), true, `all:${reason}`)
+    assert.equal(isApplyReason(reason), false)
+    assert.equal(isDropReason(reason), false)
+  }
+  // 合并集必须恰好是三份常量之和:多一个 / 少一个都说明登记表漂移。
+  assert.deepEqual(
+    [...PROJECTION_WATERMARK_REASONS].sort(),
+    [...PROJECTION_WATERMARK_APPLY_REASONS, ...PROJECTION_WATERMARK_DROP_REASONS, ...PROJECTION_WATERMARK_REJECT_REASONS].sort(),
+  )
+  for (const bogus of ['', 'apply', 'applied', 'no_baseline', 'gap ', 0, null, undefined, {}, []]) {
+    assert.equal(isWatermarkReason(bogus), false, `非法值不得被判成 reason:${String(bogus)}`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
