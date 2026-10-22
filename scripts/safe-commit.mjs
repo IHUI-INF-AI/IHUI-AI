@@ -39,6 +39,7 @@ import { execFileSync, execSync, spawn, spawnSync } from 'node:child_process'
 import {
   appendFileSync,
   closeSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   openSync,
@@ -1273,6 +1274,156 @@ if (hookFailed && commitResult.status !== 0) {
     }
   }
   /**
+   * **他人面(同一份索引内容减去本枚声明路径)**的同一道门读数 —— 差分基线优先取这一面
+   * (2026-10-22 立,票 G-24 修法口径①;回落契约与轮次绑定守卫都在归因层,见
+   * commit-gate-attribution.mjs 的 classifyHookFailure @param runGateForeignFace)。
+   * 载体构造三步(全程隔离面,共享索引/工作树零写,§12d):
+   *  ① `git worktree add --detach <scratch>/face <beforeSha>` —— 与基线面同族:磁盘型门读到
+   *     这一面的真实字节;派生时**剥掉 GIT_INDEX_FILE**,否则新树的检出状态可能写进父进程
+   *     的生效索引(与基线面复跑处同一条病,见 runGateBaseline 的 env 注);
+   *  ② 拷**生效索引**(`rev-parse --git-path index`,实测随 GIT_INDEX_FILE 走)到 scratch,
+   *     再 `GIT_INDEX_FILE=<拷贝> git -C <face> reset -q -- <声明集>` —— 文件形态的 reset 只动
+   *     拷贝:声明路径折回 HEAD 条目,HEAD 里没有的新增件被摘除(一次性 scratch 仓实测);
+   *  ③ `GIT_INDEX_FILE=<拷贝> git -C <face> checkout-index -a -f` —— 磁盘 = 索引减去声明集。
+   * 门复跑用**同一门体**(scripts/<script> --staged),GIT_INDEX_FILE 指向减后拷贝:
+   * `diff --cached` 只剩他人的暂存改动,磁盘是他人 blob + 声明路径的 HEAD 字节 ——
+   * "这一面仍红"才算别人的红(⇒ not-ours);这一面绿而我的面红 ⇒ introduced(仍须过
+   * externalsDiffUsable)。任一步建不起来 ⇒ 记 foreignWhy,后续调用照实返回 ran:false,
+   * 由归因层按契约回落基线面(HEAD)差分 —— **绝不臆造一个绿面**。
+   * 惰性创建、整轮至多一次、用完立刻 remove + prune(与基线面同纪律)。
+   */
+  let foreignTree = null
+  let foreignWhy = null
+  const disposeForeignTree = () => {
+    if (!foreignTree) return
+    const { dir, scratch } = foreignTree
+    gitStep(['worktree', 'remove', '--force', dir], 'git worktree remove(他人面)')
+    gitStep(['worktree', 'prune'], 'git worktree prune(他人面)')
+    try {
+      rmScratch(scratch)
+    } catch {
+      /* 残留由 §26 的每日 Temp 体检兜;不因此改判据 */
+    }
+    foreignTree = null
+  }
+  const ensureForeignTree = () => {
+    if (foreignTree) return foreignTree
+    if (foreignWhy) return null
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BASELINE_TIMEOUT_MS || 600000)
+    let scratch = null
+    try {
+      scratch = mkScratch('gate-foreign-')
+    } catch (e) {
+      foreignWhy = `临时落点不可用:${e?.message ?? e}`
+      return null
+    }
+    const fail = (why) => {
+      foreignWhy = why
+      gitStep(['worktree', 'prune'], 'git worktree prune(他人面建失败回收)')
+      try {
+        rmScratch(scratch)
+      } catch {
+        /* 清理再失败只是噪音 */
+      }
+      return null
+    }
+    const dir = join(scratch, 'face')
+    const a = spawnSync('git', ['worktree', 'add', '--detach', dir, beforeSha], {
+      encoding: 'utf8',
+      cwd: repoRoot,
+      env: (() => {
+        const e = { ...process.env }
+        delete e.GIT_INDEX_FILE
+        return e
+      })(),
+      windowsHide: true,
+      timeout: timeoutMs,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (a.error || a.status !== 0)
+      return fail(
+        `建他人面工作树失败:${a.error?.code || a.error?.message || (a.stderr || a.stdout || '').slice(0, 200) || `exit ${a.status}`}`,
+      )
+    // 索引拷贝的源面 = runGate("我的面")读的同一份生效索引;取不到就照实回落,不猜路径。
+    let idxSrc = null
+    try {
+      const p = String(gitRaw(['rev-parse', '--git-path', 'index'], repoRoot) ?? '').trim()
+      if (p) idxSrc = resolve(repoRoot, p)
+    } catch {
+      /* 取不到 ⇒ 下面统一报"生效索引路径不可达" */
+    }
+    if (!idxSrc) return fail('生效索引路径不可达(rev-parse --git-path index 无输出)')
+    const idx = join(scratch, 'foreign.idx')
+    try {
+      copyFileSync(idxSrc, idx)
+    } catch (e) {
+      return fail(`拷贝生效索引失败:${e?.message ?? e}`)
+    }
+    const gitFace = (args, label) => {
+      const r = spawnSync('git', ['-C', dir, ...args], {
+        encoding: 'utf8',
+        env: { ...process.env, GIT_INDEX_FILE: idx },
+        windowsHide: true,
+        timeout: timeoutMs,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      if (r.error || r.status !== 0)
+        return `${label}失败:${r.error?.code || r.error?.message || (String(r.stderr || '').split(/\r?\n/)[0] || `exit ${r.status}`).slice(0, 200)}`
+      return null
+    }
+    // 声明集为空 ⇒ 不做整索引 reset(那会把**全部**条目折回 HEAD,面就不是"减去声明"了)
+    const reduce =
+      expectedFiles.length > 0
+        ? gitFace(['reset', '-q', '--', ...expectedFiles], '他人面索引摘除声明集')
+        : null
+    if (reduce) return fail(reduce)
+    const lay = gitFace(['checkout-index', '-a', '-f'], '他人面落盘')
+    if (lay) return fail(lay)
+    foreignTree = { dir, idx, scratch }
+    process.on('exit', disposeForeignTree)
+    return foreignTree
+  }
+  const runGateForeignFace = (script) => {
+    const tree = ensureForeignTree()
+    if (!tree)
+      return { ran: false, status: null, output: '', why: foreignWhy || '他人面不可用' }
+    const gatePath = join(tree.dir, 'scripts', script)
+    if (!existsSync(gatePath))
+      return { ran: false, status: null, output: '', why: `他人面里没有该门脚本:${script}` }
+    const timeoutMs = Number(process.env.IHUI_SAFE_COMMIT_BASELINE_TIMEOUT_MS || 600000)
+    // 外部状态快照同样前后各读一次(他人面那一跑的两侧;introduced 一支须过 externalsDiffUsable)。
+    const externalsBefore = readGateExternals()
+    const g = spawnSync(process.execPath, [gatePath, '--staged'], {
+      encoding: 'utf8',
+      cwd: tree.dir,
+      // GIT_INDEX_FILE 必须指向减后拷贝:继承父进程的生效索引会把声明集读回来,
+      // 他人面就整个变成我的面,差分失去意义。
+      env: { ...process.env, GIT_INDEX_FILE: tree.idx },
+      windowsHide: true,
+      timeout: timeoutMs,
+      maxBuffer: 32 << 20,
+      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    if (g.error)
+      return {
+        ran: false,
+        status: null,
+        output: '',
+        why: `他人面派生失败 ${g.error.code || g.error.message}`,
+      }
+    if (g.status === null)
+      return { ran: false, status: null, output: '', why: `他人面被中断或超时(${timeoutMs}ms)` }
+    return {
+      ran: true,
+      status: g.status ?? 1,
+      output: `${g.stdout || ''}${g.stderr || ''}`,
+      why: null,
+      externals: externalsOf(externalsBefore, readGateExternals()),
+    }
+  }
+  /**
    * 共享索引 / 工作树里"别人挂着的东西"(2026-09-27,G-268 的两面翻版)。
    * 判"红是不是本枚引入"时,这一步是必须的:本仓的提交一律带 pathspec(只交 expectedFiles),
    * 而 71/84 这类门按**索引**判、49/85/26 这类门按**工作树**判 —— 索引里常年挂着并发会话 staged
@@ -1331,6 +1482,11 @@ if (hookFailed && commitResult.status !== 0) {
     // 归因层读这份源码把它们的失败判「未差分」—— 红是同步态读数,不归责提交内容。
     // 读的是本仓 scripts/ 面(标记跟着门源走);读不到 = 无标记 = 旧口径,不造第二份清单。
     readGateSource,
+    // G-24 口径① / G-420①(2026-10-22 接线):差分基线优先取他人面;
+    // myFaceStaged 取三路现读里同一条索引面通道(stagedNow = gitStagedPaths 的 -z 出口),
+    // 即"复跑我的面那一刻索引里全部暂存路径" —— 未注入/空清单 ⇒ 守卫不触发,不得臆造。
+    runGateForeignFace,
+    myFaceStaged: stagedNow,
   })
   /**
    * 批没跑完 ⇒ 由本脚本自己把守门批跑一遍取证(2026-09-26 立)。
@@ -1388,10 +1544,16 @@ if (hookFailed && commitResult.status !== 0) {
     hookText: hookOutput,
     foreignStaged,
     readGateSource,
+    // 同一把铰链(守门 70/76/81/102 同型):自跑那一轮读的是**同一个**还原后的共享索引,
+    // 两个新注入口必须与首轮同一份实现/同一份清单原样透传,否则"钩子里判未判定、
+    // 自跑里被钉成本枚引入"就留下第二份口径(票 G-24/G-420①)。
+    runGateForeignFace,
+    myFaceStaged: stagedNow,
   })
   // 差分取证已经结束 ⇒ 立刻回收隔离工作树(它挂在 `.git/worktrees` 下,这台机的 .git 存续
   // 治理等不起一个长期挂着的 worktree 登记);mine 分支随后 process.exit 也有 process.on('exit') 兜底。
   disposeBaselineTree()
+  disposeForeignTree()
   log('warn', `首次 commit 失败(exit ${commitResult.status})—— 开始逐道复跑失败门以计算归因`)
   for (const line of verdict.detail) log('info', `  · ${line}`)
   log(verdict.kind === 'mine' ? 'err' : 'info', verdictLine(verdict))

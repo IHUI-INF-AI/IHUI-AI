@@ -129,7 +129,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 268 | `guardianGates` |
 | — blocking | 245 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15683 | `trackedFiles` |
+| 跟踪文件 | 15684 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6125,6 +6125,18 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- 📚 文档:补认领 G-962/G-957/G-958/G-959/G-924(登录屏批次) 加发4席 (56002665ad)
+
+**2026-10-22**
+- 📚 文档:G-734 复验注记+释放认领(51/51 绿,A/E 保持开放)+结清 G-934(接线与 e2e 已在 HEAD 闭环) (c64335e857)
+- 📚 文档:补认领 G-24(归因层注入口已落待接线,与 G-420 同批) (d2b5793c10)
+
+**2026-10-22**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (28c0230be9)
+- 📚 文档:另立门 8 未判定桶 237 条裁决票(O87g 结清遗留,禁消音) (cca1767d1a)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6914bc3c31)
+
+**2026-10-22**
 - 🚀 新功能/改进:把"改写整行须断言三维不变"做成共享器物,AGENTS §1 那条不再是话 (a4ba22a7ac)
 - 🚀 新功能/改进:标头投影层:渲染与解析同一份实现,超预算只截 owner 不牺牲等段 (c362cda2d8)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (58d84b4527)
@@ -6197,21 +6209,6 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 - 🐞 修复:共享登录屏两处硬编码中文取键(票 G-959),并删掉零消费的 shared.login.ssoLogin 死键 (b57d497658)
 - 🚀 新功能/改进:mobile-auth 的 clientId 改为可配(缺省仍 mobile-rn)——为票 G-957 拆掉第一块砖 (20ac42245c)
 - 🐞 修复:探活尺子的靶换成真入口,并把"整轮全 3xx"从冒认 ok 改成未判定(票 G-960) (6e2e2a1c0b)
-
-**2026-10-22**
-- 🔧 工程/其他:项目运行态自 .workbuddy 迁至 .ihui-agent/state,清理 IDE 残留目录 (c4012eacc3)
-- 📚 文档:守卫参考文档补溯源水印(生成器输出后注入) (f1b0d8e799)
-- 🐞 修复:头像 shape 接上实现(演示页的 square 此前渲染成圆),并给门 128 的 VoiceInput 登记带理由豁免 (b85a07a11e)
-
-**2026-10-22**
-- 📚 文档:守卫参考文档补溯源水印(生成器输出后注入) (f1b0d8e799)
-- 🐞 修复:头像 shape 接上实现(演示页的 square 此前渲染成圆),并给门 128 的 VoiceInput 登记带理由豁免 (b85a07a11e)
-
-**2026-10-22**
-- 🐞 修复:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (97d022cc3d)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c45ca90a55)
-- 📚 文档:G-957 出路补两条实测接手事实(已有 mobile-auth 闭环先例 / 其 clientId 写死 / 域名白名单阻塞) (2a4d89d698)
-- 🐞 修复:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (02a714b81c)
 <!-- END RECENT UPDATES -->
     <code>4443</code> API 路由 · <code>598</code> 张表 · <code>8</code> 端全覆盖 · <code>118</code> 模型 · <code>25</code> 平台发布 · <code>2955</code> 测试文件 · <code>undefined</code> 守门脚本 · <code>109 万</code>行代码
 > **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 118 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 8 platforms (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / CLI) from a single monorepo, Apache 2.0 licensed.
