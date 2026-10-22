@@ -102,6 +102,9 @@ Headline claims (same source as the table below, all live-computed): **599 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-22**
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2526330525)
+
+**2026-10-22**
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ccd7ce10f5)
 - 🐞 Fix:净面去 git 化(read-tree+checkout-index),根治 worktree 登记四类故障 (5038b8b0ca)
 - 🚀 Feature/Improvement:验证码按场景分模板 —— 注册/登录/找回密码/改绑各走自己已过审的模板 (765d4621e6)
@@ -187,10 +190,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - 🐞 Fix:把话术分档补到 !ready 骨架分支——生产首屏实测打出来的漏网格 (7508b306ae)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1cdb4def64)
 - 📚 Docs:G-929 复验收口结清(落地器镜像 66/66 现跑转绿,修复已在仓) (a24a4195ba)
-
-**2026-10-22**
-- 🐞 Fix:待摘点名行不再给裸标记印 null,并加单源形状锁 (f3d73ae733)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (596561589d)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
