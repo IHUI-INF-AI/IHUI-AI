@@ -1985,7 +1985,10 @@ const WALLBOARD_CSS = `
   .wb-header { flex-wrap: wrap; }
   .wb-hdr-status { width: 100%; justify-content: flex-end; }
 }
-.wb-rise { animation: wb-rise 0.55s ease-out both; }
+/* fill-mode 用 backwards 而不是 both:both 会在动画结束后**永久占住 transform**
+ * (动画优先级高于普通作者声明),把 hover 浮起的 transform 整个吃掉 —— 实测这些卡片
+ * 内联 !important 都改不动 scale/transform。backwards 只在延迟期套首帧,结束即交还。 */
+.wb-rise { animation: wb-rise 0.55s ease-out backwards; }
 @keyframes wb-rise {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
