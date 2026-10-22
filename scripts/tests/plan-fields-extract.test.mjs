@@ -1,0 +1,125 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/**
+ * `plan-fields-extract.mjs` 镜像测试(§22c)—— 从**外部** import 生产出口 `__test__`,
+ * 判据一律用 `compositeKeyOf` 现算(手写键会把"侧车接不上"误测成"抽取器判错")。
+ *
+ * 三条承重:① 抽不出值就不造记录(宁缺勿猜);② 抽取前后每行的桶必须零变化;
+ * ③ 写盘幂等且走临时件(侧车只增不删,重跑不得造重复行)。
+ */
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+
+import { __test__ as X } from '../plan-fields-extract.mjs'
+import { compositeKeyOf } from '../lib/plan-task-index.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+
+describe('侧车抽取:逐行取值', () => {
+  it('抽出归属值,等待档由散文桶推得(不新造判据)', () => {
+    const r = X.extractFromLine('- [ ] G-5 标题 —— 归属:门 130 持有人,等容器运行时,细节')
+    assert.ok(r, '带 `归属:` 的行必须抽出记录')
+    assert.equal(r.owner, '门 130 持有人')
+    assert.equal(r.waiting, 'none')
+    assert.equal(r.key, compositeKeyOf('- [ ] G-5 标题 —— 归属:门 130 持有人,等容器运行时,细节'))
+  })
+
+  it('等环境 / 等人拍板各落自己的等待档', () => {
+    const env = X.extractFromLine('- [ ] G-8 乙 需真机复跑')
+    assert.equal(env?.waiting, 'env')
+    const human = X.extractFromLine('- [ ] G-7 丙 需用户拍板')
+    assert.equal(human?.waiting, 'human')
+    assert.equal(human.owner, undefined, '没有归属表态就不该凭空造 owner')
+  })
+
+  it('抽不出值的行一律不造记录(宁缺:侧车留空由散文报名)', () => {
+    assert.equal(X.extractFromLine('- [ ] G-6 纯标题可做'), null)
+    // `不代做` 命中 owned-elsewhere 词族,但没有可搬的归属值 ⇒ 搬不动就不搬
+    assert.equal(X.extractFromLine('- [ ] G-9 丁 不代做'), null)
+    // 无编号 ⇒ 没有复合主键 ⇒ 记录不可寻址(rowhash 兜底键不充当归属权威)
+    assert.equal(X.extractFromLine('- [ ] 没有编号的叙述行 归属:甲'), null)
+  })
+})
+
+describe('侧车抽取:整批桶零变化才放行', () => {
+  it('忠实记录不搬动任何一行;判据造出的错记录必须被点名', () => {
+    const owned = '- [ ] G-5 标题 —— 归属:门 130 持有人'
+    const plain = '- [ ] G-6 纯标题'
+    const good = X.extractFromLine(owned)
+    assert.equal(X.batchBucketDrift([owned, plain], new Map([[good.key, good]])).length, 0)
+
+    // 手写一条"waiting=none 且无 owner"的记录 ⇒ 侧车判"可做"而散文判"归他人"
+    const bad = {
+      key: compositeKeyOf(owned),
+      waiting: 'none',
+      updatedAt: '2026-10-22T00:00:00.000Z',
+    }
+    const drift = X.batchBucketDrift([owned, plain], new Map([[bad.key, bad]]))
+    assert.equal(drift.length, 1)
+    assert.match(drift[0], /G-5/)
+    assert.match(drift[0], /owned-elsewhere/, '点名必须把两侧读数都摆出来')
+    assert.match(drift[0], /actionable/)
+  })
+
+  it('空侧车不可能有漂移(侧车还没建时抽取器的守恒基线)', () => {
+    assert.deepEqual(X.batchBucketDrift(['- [ ] G-5 标题 —— 归属:甲'], new Map()), [])
+  })
+})
+
+describe('侧车抽取:写盘', () => {
+  it('幂等追加 + 回读计数一致(夹具落仓外 scratch,§15b)', () => {
+    const dir = mkScratch('pf-extract')
+    try {
+      const rec = {
+        key: 'G-5#x',
+        owner: '甲',
+        waiting: 'none',
+        updatedAt: '2026-10-22T00:00:00.000Z',
+        updatedBy: 't',
+      }
+      const first = X.writeRecords(dir, [rec])
+      assert.equal(first.appended, 1)
+      assert.equal(X.readBackCount(dir), 1)
+      // 同一条再跑一次 ⇒ 一条也不追加(侧车只增不删,重复行会把 loadFields 读成 orphans)
+      const second = X.writeRecords(dir, [rec])
+      assert.equal(second.appended, 0)
+      assert.equal(second.dupSkipped, 1)
+      assert.equal(X.readBackCount(dir), 1)
+      // 同键新值 ⇒ 追加(最新者胜由 `loadFields` 判,抽取器不就地改历史行)
+      assert.equal(X.writeRecords(dir, [{ ...rec, owner: '乙' }]).appended, 1)
+      assert.equal(X.readBackCount(dir), 2)
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('写坏不污染侧车:临时件写失败时目标文件保持原样', () => {
+    const dir = mkScratch('pf-extract')
+    try {
+      const rel = path.join('scripts', 'data', 'plan-fields.jsonl')
+      const abs = path.join(dir, rel)
+      X.writeRecords(dir, [{ key: 'K#1', waiting: 'none', updatedAt: '2026-10-22T00:00:00.000Z' }])
+      const before = readFileSync(abs, 'utf8')
+      // 记录缺 updatedAt ⇒ normalizeRecord 拒收 ⇒ 一条都不写
+      const r = X.writeRecords(dir, [{ key: 'K#2', waiting: 'none' }])
+      assert.equal(r.appended, 0)
+      assert.equal(r.rejected, 1)
+      assert.equal(readFileSync(abs, 'utf8'), before, '被拒的批次不得留下半个字节')
+    } finally {
+      rmScratch(dir)
+    }
+  })
+})
+
+describe('侧车抽取:不复制判据(§0.6/§22c)', () => {
+  it('词表必须 import,不得在抽取器里出现第二份', () => {
+    const src = readFileSync(new URL('../plan-fields-extract.mjs', import.meta.url), 'utf8')
+    assert.match(src, /ownedElsewhereRe/, '必须问 plan-task-index 要那份词表')
+    for (const lit of ['本票不认领', '不代裁', '他人账', '不归本机'])
+      assert.ok(!src.includes(lit), `抽取器里出现 "${lit}" = 抄了第二把尺子`)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
