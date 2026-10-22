@@ -326,4 +326,66 @@ describe('G-962 裁决批次(2026-10-22):真值面对齐后的防回潮源锁', 
     expect(fileUtils).not.toContain('/files/share/')
   })
 })
+
+// G-962 批6(2026-10-22):HEAD 面 10 条 AJ3 清单腐烂逐条了结的源锁。
+// 只锚本批了结的客户端文件与裁决台账,不锚 apps/api/src/routes/**(路由存在性由守门 8 现判)。
+describe('G-962 批6 台账 AJ3 十条了结 + 客户端真路径不回潮', () => {
+  const ledger = JSON.parse(
+    read('../../../scripts/data/api-routes-assumption-adjudications.json'),
+  ) as { items: Array<{ leg: string; method: string; path: string }> }
+  const keys = ledger.items.map((i) => `${i.leg}|${i.method}|${i.path}`)
+  const adminBusiness = stripComments(
+    read('../../../packages/api-client/src/endpoints/admin-business.ts'),
+  )
+  const adminSystem = stripComments(
+    read('../../../packages/api-client/src/endpoints/admin-system.ts'),
+  )
+  const business = stripComments(read('../../../packages/api-client/src/endpoints/business.ts'))
+  const developer = stripComments(
+    read('../../../packages/api-client/src/endpoints/developer.ts'),
+  )
+  const system = stripComments(read('../../../packages/api-client/src/endpoints/system.ts'))
+
+  it('10 条 AJ3 旧键已从台账了结', () => {
+    for (const stale of [
+      'main|GET|/api/admin/members/by-id',
+      'main|GET|/api/admin/live/statistics',
+      'main|POST|/api/users/avatar',
+      'main|PUT|/api/tools/:param',
+      'main|POST|/api/groups/:param/join',
+      'main|POST|/api/groups/:param/leave',
+      'main|DELETE|/api/product-identity/:param',
+      'main|DELETE|/api/sdks/:param',
+      'main|DELETE|/api/packages/:param',
+      'main|GET|/api/monitor/services',
+    ]) {
+      expect(keys).not.toContain(stale)
+    }
+  })
+
+  it('客户端真路径在位且旧路径不回潮', () => {
+    expect(adminBusiness).toContain('/api/members/by-id')
+    expect(adminBusiness).not.toContain('/api/admin/members/by-id')
+    expect(adminBusiness).toContain('/api/live/statistics')
+    expect(adminBusiness).not.toContain('/api/admin/live/statistics')
+    expect(adminSystem).toContain('/api/users/${userId}/avatar')
+    expect(adminSystem).not.toContain('/api/users/avatar')
+    expect(business).toContain('/api/groups/${id}/members')
+    expect(business).not.toContain('/join')
+    expect(business).not.toContain('/leave')
+    expect(business).toContain("status: 'disabled'")
+    const updateTool = business.slice(business.indexOf('export async function updateTool'))
+    expect(updateTool.slice(0, updateTool.indexOf('\n}'))).toContain("method: 'PATCH'")
+    const deleteSdk = developer.slice(developer.indexOf('export async function deleteSdk'))
+    const deleteSdkBody = deleteSdk.slice(0, deleteSdk.indexOf('\n}'))
+    expect(deleteSdkBody).toContain("status: 'deprecated'")
+    expect(deleteSdkBody).not.toContain("'DELETE'")
+    const deletePackage = developer.slice(developer.indexOf('export async function deletePackage'))
+    const deletePackageBody = deletePackage.slice(0, deletePackage.indexOf('\n}'))
+    expect(deletePackageBody).toContain('isActive: false')
+    expect(deletePackageBody).not.toContain("'DELETE'")
+    expect(system).toContain("'/api/admin/monitor/services'")
+    expect(system).not.toContain("'/api/monitor/services'")
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
