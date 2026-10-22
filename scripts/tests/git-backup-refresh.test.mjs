@@ -233,7 +233,7 @@ test('T8 行为面:合法 sha 的 ref 绝不被清除,全 NUL 的才归档后清
 
 // ── G-262 单实例守卫 ────────────────────────────────────────────────────────────
 
-test('T9 接线锁:守卫挂在被调方 main() 且只包 apply 路径;git-lock 既有判据一字未动', () => {
+test('T9 接线锁:守卫挂在被调方 main() 且只包 apply 路径;git-lock 既有判据一字未动(G-57 升级:判据仍在 ∧ 负龄接线在位)', () => {
   assert.match(
     SOURCE,
     /import \{ tryAcquireSingleInstance \} from '\.\/git-lock\.mjs'/,
@@ -265,6 +265,44 @@ test('T9 接线锁:守卫挂在被调方 main() 且只包 apply 路径;git-lock 
     (GITLOCK_SOURCE.match(/export function tryAcquireSingleInstance\(/g) || []).length,
     1,
     'tryAcquireSingleInstance 必须恰好定义一次',
+  )
+  // ── G-57(2026-10-23 收口)升级:纯形状 ⇒ 形状 + 负龄行为 ────────────────────
+  // 上面那条"一字未动"断言的原覆盖:G-262 只允许向 git-lock 新增导出,acquire 的
+  // 抢占判据行不被顺手改。G-57 收口剩余两格后,同一判据行的**上游**接了
+  // judgeLockAge 负龄点名(单一真相源,§0.6;别席 6d9be2907d 已修其余三格)。
+  // 这里把"形状"升级成"形状 + 负龄行为"——原断言一条不删、一句不放宽,
+  // 只是同一把锁多钉一格:判据行逐字仍在 ∧ 负龄经 judgeLockAge 点名 ∧ clean 同型。
+  const acquireBlock = GITLOCK_SOURCE.slice(
+    GITLOCK_SOURCE.indexOf('async function acquire('),
+    GITLOCK_SOURCE.indexOf('else if (!holderAlive || age > hardStaleMs || age > staleMs) {'),
+  )
+  assert.ok(acquireBlock.length > 0, 'acquire 函数体定位失败')
+  assert.match(
+    acquireBlock,
+    /judgeLockAge\(age\)/,
+    'acquire 的负龄点名接线被摘了(G-57 收口回潮 ⇒ 未来 ts 又变"永不判死且零输出")',
+  )
+  assert.match(
+    acquireBlock,
+    /锁龄不可判定:\$\{dir\}/,
+    'acquire 负龄点名必须经 log 落"锁龄不可判定"措辞(写在注释里不算,§0.3)',
+  )
+  // clean CLI 同型:原判据行的条件部分一字不动(只是前面多了点名块,if 变 else if)
+  assert.ok(
+    GITLOCK_SOURCE.includes(
+      '} else if (!holderAlive || age > 1_800_000 || identityAuthorizesClaim(identity)) {',
+    ),
+    'clean CLI 既有判据被改了(G-57 只允许在其上游新增点名)',
+  )
+  assert.ok(
+    GITLOCK_SOURCE.includes('const ageV = judgeLockAge(age)') &&
+      GITLOCK_SOURCE.indexOf('const ageV = judgeLockAge(age)') <
+        GITLOCK_SOURCE.indexOf('} else if (!holderAlive || age > 1_800_000'),
+    'clean CLI:负龄点名必须接在原判据之前(顺序反了 = 先判后问,点名永远走不到)',
+  )
+  assert.ok(
+    GITLOCK_SOURCE.includes('${indexNotes.length + ageNotes.length} 把锁因锁龄判不出来'),
+    'clean 未判定汇总必须把两族锁合起来报(只报 index.lock ⇒ write-lock 的未判定被吞,回到"✅ 无 stale 锁"误报)',
   )
 })
 
