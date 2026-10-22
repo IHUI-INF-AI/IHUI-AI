@@ -59,8 +59,14 @@ from ..middleware.llm_metrics import (
     LLM_FUSION_JUDGE_CALLED,
     LLM_FUSION_PROPOSERS_CALLED,
     LLM_FUSION_SUCCESS,
+    POOL_QUOTA_STATE_NO_EVIDENCE,
+    POOL_QUOTA_STATE_OK,
+    POOL_QUOTA_STATE_SUSPECT,
+    PoolLegHealth,
     classify_fallback_reason,
+    is_quota_exhaustion_error,
     set_combo_strategy_configs,
+    set_pool_leg_health,
 )
 
 logger = logging.getLogger(__name__)
@@ -118,12 +124,18 @@ class ProviderHealthState:
     """provider 健康状态(配额感知)。
 
     429 触发后,该 provider 在 cooldown_seconds 内被跳过(避免无谓重试)。
+
+    2026-10-27 补额度档:quota_suspect 只在命中 llm_metrics 封闭额度判据时
+    置真(厂商原文不进任何标签),mark_success 清零;对外呈现走
+    ComboRouter.publish_health_metric → ihui_llm_pool_leg_quota_state。
     """
 
     provider: str
     last_429_at: float = 0.0
     cooldown_seconds: float = 60.0  # 默认冷却 60 秒
     consecutive_failures: int = 0
+    quota_suspect: bool = False
+    last_success_at: float = 0.0  # 仅观测档用(区分"从未试过"与"试成功过")
 
     def is_in_cooldown(self, now: float | None = None) -> bool:
         """是否在冷却期内。"""
@@ -131,6 +143,12 @@ class ProviderHealthState:
             return False
         current = now if now is not None else time.time()
         return (current - self.last_429_at) < self.cooldown_seconds
+
+    def cooldown_remaining_seconds(self, now: float) -> float:
+        """本次冷却还剩几秒(不在冷却期返回 0;供健康 gauge 快照取数)。"""
+        if self.last_429_at == 0.0:
+            return 0.0
+        return max(0.0, self.cooldown_seconds - (now - self.last_429_at))
 
     def mark_429(self) -> None:
         """标记 429(配额耗尽)。"""
@@ -144,6 +162,8 @@ class ProviderHealthState:
         self.last_429_at = 0.0
         self.consecutive_failures = 0
         self.cooldown_seconds = 60.0
+        self.quota_suspect = False
+        self.last_success_at = time.time()
 
 
 class ComboRouter:
@@ -422,8 +442,8 @@ class ComboRouter:
                     messages, model=provider, _skip_fallback=True, **kwargs
                 )
                 if not result.get("error"):
-                    # 成功:标记 provider 健康 + 记录 metric
-                    self._get_health(provider).mark_success()
+                    # 成功:标记 provider 健康 + 刷新健康快照 + 记录 metric
+                    self._mark_leg_ok(provider)
                     if i > 0:  # i=0 是 primary 成功,不算 fallback
                         self._record_fallback(
                             primary_model=primary or chain[0],
@@ -436,11 +456,11 @@ class ComboRouter:
                 last_error = result.get("error_message") or result.get("error")
                 # 检查是否 429(配额耗尽)
                 if self._is_rate_limit_error(result):
-                    self._get_health(provider).mark_429()
+                    self._mark_leg_429(provider, error_text=str(last_error or ""))
             except Exception as e:
                 last_error = str(e)
                 if self._is_rate_limit_exception(e):
-                    self._get_health(provider).mark_429()
+                    self._mark_leg_429(provider, exc=e)
                 # 记录 fallback 触发
                 if i > 0 or primary:
                     self._record_fallback(
@@ -872,6 +892,70 @@ class ComboRouter:
     def get_fallback_history(self, limit: int = 100) -> list[ComboFallbackRecord]:
         """获取最近的 fallback 历史(供 Dashboard 展示)。"""
         return self._fallback_history[-limit:]
+
+    def _mark_leg_ok(self, provider: str) -> None:
+        """成功变更点:清计数 + 立即整体刷新健康 gauge 快照(纯观测,不改路由)。"""
+        self._get_health(provider).mark_success()
+        self.publish_health_metric()
+
+    def _mark_leg_429(
+        self,
+        provider: str,
+        *,
+        exc: BaseException | None = None,
+        error_text: str | None = None,
+    ) -> None:
+        """429 变更点:退避计数 + 额度封闭档判定 + 立即刷新健康 gauge 快照。
+
+        额度判定只走 llm_metrics 的封闭判据清单(is_quota_exhaustion_error),
+        厂商原文/异常文本一律不进指标标签;判不出维持"无证据"档。
+        """
+        state = self._get_health(provider)
+        state.mark_429()
+        probe: BaseException | str | None = exc if exc is not None else error_text
+        if probe is not None and is_quota_exhaustion_error(probe):
+            state.quota_suspect = True
+        self.publish_health_metric()
+
+    def publish_health_metric(self, now: float | None = None) -> None:
+        """把 `_health` 内存态整体置值到 ihui_llm_pool_leg_* gauge 族。
+
+        全集 = 配置链全部腿 ∪ 有健康记录的腿(与 _health 同生共死,重启归零
+        由指标层的"序列缺失"如实呈现)。置值纪律与 llm_combo_strategy_configs
+        同款:每次重算全集,不是累加;腿消失则序列摘除,冷却幽灵不滞留。
+        """
+        current = time.time() if now is None else now
+        legs: dict[str, PoolLegHealth] = {}
+        for model in self._known_leg_names():
+            state = self._health.get(model)
+            if state is None:
+                legs[model] = PoolLegHealth(
+                    in_cooldown=False,
+                    cooldown_remaining_seconds=0.0,
+                    consecutive_failures=0,
+                    quota_state=POOL_QUOTA_STATE_NO_EVIDENCE,
+                )
+                continue
+            if state.quota_suspect:
+                quota_state = POOL_QUOTA_STATE_SUSPECT
+            elif state.last_success_at > 0.0:
+                quota_state = POOL_QUOTA_STATE_OK
+            else:
+                quota_state = POOL_QUOTA_STATE_NO_EVIDENCE
+            legs[model] = PoolLegHealth(
+                in_cooldown=state.is_in_cooldown(current),
+                cooldown_remaining_seconds=state.cooldown_remaining_seconds(current),
+                consecutive_failures=state.consecutive_failures,
+                quota_state=quota_state,
+            )
+        set_pool_leg_health(legs)
+
+    def _known_leg_names(self) -> set[str]:
+        """配置链腿 ∪ 健康记录腿(发布全集的取集实现,单点)。"""
+        names: set[str] = set(self._health.keys())
+        for combo in self._combos.values():
+            names.update(combo.chain)
+        return names
 
     def get_provider_health(self) -> dict[str, dict[str, Any]]:
         """获取所有 provider 健康状态(供 Dashboard 展示)。"""
