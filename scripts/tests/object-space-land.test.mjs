@@ -1247,6 +1247,110 @@ test('T-BANNER-R 形状锁:零宽族的剥离只许有一份实现,且载荷完�
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 器物盲区G(2026-10-23):UTF-8 BOM 被误判成"改写横幅文字"。
+// 立因:AGENTS §27 明文要求 `.ps1` 用 UTF-8 with BOM 写 ⇒ "给 .ps1 补 BOM"是**规范强制**
+// 的合法动作;而 `decideBanner` 拿 `dropZeroWidth` 剥完零宽族再逐字比前三行,该出口只剥
+// U+2060/200B/200C/200D、剥不掉 U+FEFF ⇒ 首行前插 BOM 被读成"改写横幅文字"硬拒
+// (实测 blob 模式 exit 1;`IHUI_LAND_SKIP_WATERMARK` 只管工作树模式的预检、管不到
+// blobBannerPreserved 这一支 ⇒ 那一类动作整体没有合法出口,而 §0.10 不许用加跳门来解)。
+// 修法 = 比较前三行之前先剥**开头**那一个 BOM(BOM 只在字节流首位才是编码标记)。
+// 三格各自钉死:① 仅前插 BOM ⇒ 放行;② 真改横幅文字 ⇒ 仍拒;③ 带 BOM + 真改横幅 ⇒ 仍拒
+// (防"先补个 BOM 就能把改写洗白");④ 钉住被放宽的那一臂本身仍有牙。
+// ─────────────────────────────────────────────────────────────────────────────
+const BOM = String.fromCodePoint(0xfeff) // U+FEFF:UTF-8 BOM / 零宽不断空格,写码点而非字面量(字面量在源码里不可见)
+const PS1_BANNER = [
+  '# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
+  '# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
+  '# [IHUI-AI-PROVENANCE]:' + String.fromCodePoint(0x200b, 0x200d, 0x2060),
+  'Write-Output "hi"',
+  '',
+].join('\n')
+
+/** 带规范横幅的 `.ps1` 已入库(无 BOM)—— 器物盲区G 的事故现场:基线有横幅、本次只补 BOM。 */
+function makePs1Repo(t) {
+  const dir = makeRepo(t)
+  mkdirSync(join(dir, 'scripts'), { recursive: true })
+  writeFileSync(join(dir, 'scripts', 'x.ps1'), PS1_BANNER, 'utf8')
+  runGit(dir, ['add', '--', 'scripts/x.ps1'])
+  runGit(dir, ['commit', '-q', '-m', 'A: 带规范横幅的 ps1(无 BOM)'])
+  return dir
+}
+
+test('T-BANNER-BOM1 正向:仅前插 BOM ⇒ 判"横幅保持"(BOM 是编码标记,不是文本内容)', () => {
+  const r = decideBanner({ baseText: PS1_BANNER, newText: BOM + PS1_BANNER })
+  assert.equal(r.verdict, 'kept', `补 BOM 必须放行,实得 ${r.verdict}:${r.why}`)
+  assert.match(r.why, /BOM/, '放行理由必须点名"只差在 BOM",不得读成"逐字未动"')
+})
+
+test('T-BANNER-BOM2 反向:真改横幅文字(只改一个字)⇒ 仍必须拒', () => {
+  const r = decideBanner({
+    baseText: PS1_BANNER,
+    newText: PS1_BANNER.replace('2026 IHUI AI', '2027 IHUI AI'),
+  })
+  assert.equal(r.verdict, 'broken', `改横幅必须拦,实得 ${r.verdict}:${r.why}`)
+  assert.notEqual(r.needsPayloadCheck, true, '真改写不得带"待复核"旗 —— 带了就是给改写开第二次机会')
+})
+
+test('T-BANNER-BOM3 复合:带 BOM 且真改横幅 ⇒ 仍必须拒(补 BOM 不是洗白通道)', () => {
+  const r = decideBanner({
+    baseText: PS1_BANNER,
+    newText: (BOM + PS1_BANNER).replace('2026 IHUI AI', '2027 IHUI AI'),
+  })
+  assert.equal(r.verdict, 'broken', `BOM 不得洗白改写,实得 ${r.verdict}:${r.why}`)
+})
+
+test('T-BANNER-BOM4 被放宽那一臂仍有牙:两边都规范 + 带 BOM + 前三行多一个可见字符 ⇒ 拒', () => {
+  const base = PS1_BANNER
+  const tampered = BOM + base.replace('[IHUI-AI-PROVENANCE]:', '[IHUI-AI-PROVENANCE]:x')
+  const r = decideBanner({ baseText: base, newText: tampered })
+  assert.equal(r.verdict, 'broken', `剥 BOM 不得把可见文案的改动一起剥掉,实得 ${r.verdict}:${r.why}`)
+  assert.match(r.why, /前三行仍被换掉/, '必须落在"改写横幅文字"那一支,而不是被别的分支接走')
+})
+
+/** 端到端(blob 模式):这才是"补 BOM 真的落得下去"的证明 —— 纯函数格再绿也不等于有出口。 */
+test('T-BANNER-BOM-E2E 端到端:blob 模式仅前插 BOM ⇒ 落地成功、HEAD 前进、入树内容真带 BOM', (t) => {
+  const dir = makePs1Repo(t)
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  const want = writeBlob(BOM + PS1_BANNER, { root: dir })
+  const r = runLand(dir, {
+    paths: 'scripts/x.ps1',
+    blobs: [{ path: 'scripts/x.ps1', blob: want }],
+    proof: '构造内容 = 基线正文逐字节 + 首行前插一个 U+FEFF,其余零改动',
+  })
+  assert.equal(r.status, 0, `补 BOM 必须能落地,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.match(r.stdout, /水印横幅保持 1\/1 路径/)
+  const head = git(['rev-parse', 'HEAD'], { root: dir })
+  assert.notEqual(head, before, 'HEAD 必须前进')
+  assert.equal(headBlobOf(head, 'scripts/x.ps1', { root: dir }), want, '入树内容必须带 BOM(不能是剥掉 BOM 的版本)')
+})
+
+test('T-BANNER-BOM-E2E-REV 端到端反向:带 BOM 且改了横幅 ⇒ 拒绝落地,HEAD 未动', (t) => {
+  const dir = makePs1Repo(t)
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  const tampered = (BOM + PS1_BANNER).replace('2026 IHUI AI', '2027 IHUI AI')
+  const r = runLand(dir, {
+    paths: 'scripts/x.ps1',
+    blobs: [{ path: 'scripts/x.ps1', blob: writeBlob(tampered, { root: dir }) }],
+    proof: '构造内容 = 基线正文 + 前插 BOM + 版权行改一个字',
+  })
+  assert.equal(r.status, 1, `带 BOM 的改写必须拦,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  assert.match(r.stderr, /水印横幅未保持/, '拒绝原因必须点名横幅闸')
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '被拒时 HEAD 不得前进')
+})
+
+/** 端到端(工作树模式)对照:补不含 BOM 的文件行为不变 —— 这一格就是"生产面不受影响"的读数。 */
+test('T-BANNER-BOM-CTRL 对照:不带 BOM 的普通改动(工作树模式)行为与改前逐字同形', (t) => {
+  const dir = makePs1Repo(t)
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
+  writeFileSync(join(dir, 'scripts', 'x.ps1'), PS1_BANNER.replace('Write-Output "hi"', 'Write-Output "bye"'), 'utf8')
+  const r = runLand(dir, { paths: 'scripts/x.ps1', msg: 'chore: 改正文一行(无 BOM)' })
+  assert.equal(r.status, 0, `无 BOM 的普通改动必须照常落地:${r.stdout}|${r.stderr}`)
+  const head = git(['rev-parse', 'HEAD'], { root: dir })
+  assert.notEqual(head, before, 'HEAD 必须前进')
+  assert.equal(headBlobOf(head, 'scripts/x.ps1', { root: dir }), writeBlob(PS1_BANNER.replace('Write-Output "hi"', 'Write-Output "bye"'), { root: dir }))
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // G-815985 涉事判据:声明面含源码时,在 commit-tree 之前对 onTree 那棵树跑守门 98。
 // 桩只仿"退出码 0/1/2"的传输,不仿判据本身(判据的有牙由门体自检 39 例 + 镜像阳性对照证明)。
 // 既有源码落地下沉(T-IMP-1/2/3/4/5/8、T-NEWFILE-blobmode)用桩,是因为它们的题面是相对引用
