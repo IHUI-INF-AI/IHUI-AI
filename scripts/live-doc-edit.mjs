@@ -182,7 +182,11 @@ import { extractTaskFingerprint, findSameFingerprint } from './check-plan-task-d
 // F9「同号不同题」同一条:成组口径取 `auditPlan().f9Declared`(台账层),全已勾降档取 `narrowF9Face`
 // (CLI 层,与合并落地闸/`--gate` 同一份),点名文案取 `f9GroupLine`(三处共用的唯一出口)。
 import { compositeKeyOf, auditPlan, f9GroupLine } from './lib/plan-task-index.mjs'
-import { narrowF9Face } from './plan-tasks.mjs'
+import { narrowF9Face, readFieldsFace } from './plan-tasks.mjs'
+// G-965 写盘闸改造(2026-10-22):改写整行时的三维守恒断言**只有这一份实现**(规格 §2),
+// 本器只做接线;翻勾/删行是活文档编辑器的合法动作,断言刻意拒绝它们(故只在 open→open 时施加)。
+import { assertRowRewriteConservation } from './lib/plan-row-conservation.mjs'
+import { fieldsFor } from './lib/plan-fields.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
 // G-1079146(2026-10-08):git 派生的唯一 transport(绝对路径 + 显式 stdio + windowsHide + 数字 timeout
@@ -1091,6 +1095,63 @@ export function applyReplacements(baseLines, pairs) {
   return { ok: true, next, hits: [...hits], multi }
 }
 
+/**
+ * G-965 写盘闸改造(2026-10-22 立):整行改写档的三维守恒接线。
+ *
+ * 规格 §2 的 `assertRowRewriteConservation` 是**唯一实现**,且它刻意对翻勾/删行返回"请走对应器物"
+ * (旧行 open、新行 done/非登记行时它无从守恒)。所以本器必须条件化施加:
+ *  - open→open ⇒ 逐项调用断言,任一违规整批拒写(exit 1,与结构等值/畸形号/同号不同题同一档);
+ *  - open→done ⇒ **跳过**并打印原因:翻勾是活文档编辑器的正当动作,走原有翻勾路径;
+ *  - open→非登记行 ⇒ **跳过**并打印原因:删行/改形态走对应器物。
+ *  - 同题让号(旧行/新行指纹逐字相同、只换编号)⇒ 主键维按既有让号额度放行(DU-18 那条正当动作),
+ *    但租约/归属维照判;放行必须打印原因。指纹判据复用守门 194 那一份,不在此另写"什么算同题"。
+ * 跳过一律出声,不许静默 —— 静默跳过的判据在账面上与"判过了"同形(本仓最高频失效型)。
+ * 侧车记录按同一面(HEAD)读取;取不到面时回落散文口径,但必须打印一行"未含侧车"。
+ * `baseLines` 只用来给违规点名行号;不改动任何判据输入。
+ */
+export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields = null } = {}) {
+  const openRe = /^\s*- \[ \]/
+  const doneRe = /^\s*- \[[xX]\]/
+  const violations = []
+  const notes = []
+  let checked = 0
+  for (const [i, p] of pairs.entries()) {
+    const oldLine = String(p.before ?? '')
+    const newLine = String(p.after ?? '')
+    // 旧行不是未勾登记行 ⇒ 本断言射程外(段落改写等),既不断言也不冒"跳过"的名义。
+    if (!openRe.test(oldLine)) continue
+    if (!openRe.test(newLine)) {
+      notes.push(
+        `ℹ 三维守恒跳过第 ${i + 1} 项:` +
+          (doneRe.test(newLine)
+            ? 'open→done 翻勾走原有翻勾路径,不施加守恒断言(断言本身会拒绝翻勾)'
+            : '新行不是未勾登记行(删行/改形态)⇒ 走对应器物,不施加守恒断言'),
+      )
+      continue
+    }
+    checked++
+    const oldRec = fields ? fieldsFor({ line: oldLine, map: fields.map }).rec : null
+    const newRec = fields ? fieldsFor({ line: newLine, map: fields.map }).rec : null
+    let bad = assertRowRewriteConservation({ oldLine, newLine, oldRec, newRec })
+    const fp0 = extractTaskFingerprint(oldLine)
+    if (fp0 && fp0 === extractTaskFingerprint(newLine)) {
+      // 让号重登是既有正当动作(DU-18):指纹逐字相同 ⇒ 不是"换了另一件事",由同题换号额度管。
+      // 只放行主键维;租约/归属维的违规照旧拦下(它们才是"代摘牌/账面虚增"那一型)。
+      const drift = bad.filter((b) => b.startsWith('主键漂了:'))
+      if (drift.length)
+        notes.push(
+          `ℹ 三维守恒第 ${i + 1} 项:${drift[0]} ⇒ 同题让号重登(指纹逐字相同),主键维按既有让号额度放行;租约/归属维照判`,
+        )
+      bad = bad.filter((b) => !b.startsWith('主键漂了:'))
+    }
+    if (bad.length === 0) continue
+    const at = []
+    for (let k = 0; k < baseLines.length; k++) if (baseLines[k] === oldLine) at.push(k + 1)
+    violations.push({ item: i + 1, at, bad })
+  }
+  return { ok: violations.length === 0, checked, violations, notes }
+}
+
 // ---------------------------------------------------------------------------
 // G-1079146 登记入口取值(2026-10-08):新行里的 sha 形态指针,落库前当场问一次
 // ---------------------------------------------------------------------------
@@ -1834,6 +1895,47 @@ async function main() {
       )
       process.exit(1)
     }
+    // ── G-965 写盘闸改造(2026-10-22):整行改写先过三维守恒 ──
+    // 位置必须在 `built` 算完之后(此时 after 已是本轮的确定文本)、任何写盘/CAS 之前:
+    // 内容一旦 commit,再 exit 1 就是把"已入库"谎报成"没落地"(与本文件其余写前守卫同一条)。
+    // 只对 open→open 施加:翻勾/删行是活文档编辑器的合法动作,断言本身刻意拒绝它们。
+    {
+      const openRe = /^\s*- \[ \]/
+      const needsSidecar = effReplacements
+        ? effReplacements.some((p) => openRe.test(String(p.before)) && openRe.test(String(p.after)))
+        : false
+      const fields = needsSidecar ? readFieldsFace(root, 'head') : null
+      if (fields?.undetermined)
+        console.log(
+          `ℹ 三维守恒:侧车面取不到(${fields.why ?? '未判定'})⇒ 归属桶回落散文口径(与迁移前同口径)`,
+        )
+      const cons = judgeRowRewriteConservation({
+        baseLines,
+        pairs: effReplacements ?? [],
+        fields: fields?.undetermined ? null : fields,
+      })
+      for (const n of cons.notes) console.log(n)
+      if (!cons.ok) {
+        console.error(
+          `❌ 改写未过三维守恒(主键/租约/归属桶任一不得变)⇒ 拒绝写盘(${cons.violations.length} 项违规):`,
+        )
+        for (const v of cons.violations) {
+          console.error(
+            `   · 第 ${v.item} 项${v.at.length ? `(命中行 ${v.at.join('/')})` : ''}:`,
+          )
+          for (const b of v.bad) console.error(`     - ${b}`)
+        }
+        console.error(
+          '   出路:整行压缩/投影时保留主键、`（进行中@…）` 租约与"归属:"类判据句;' +
+            '确属翻勾或删行走对应器物(断言刻意拒绝在整行改写里做这两件事)。',
+        )
+        process.exit(1)
+      }
+      if (cons.checked > 0)
+        console.log(
+          `✅ 三维守恒:${cons.checked} 项 open→open 改写已过断言(主键/租约/归属桶不变)`,
+        )
+    }
     // 千段租约落账:本块若新占了段,租约行(done 形态,主键=段尾号)必须随本块**同一次提交**进面 ——
     // 分两次提交会在两枚 commit 之间留下"号已实占而段未登记"的窗口。它必须在畸形判据之前并进
     // next,让同一批写前守卫看到的就是将要提交的内容;CAS 失败重试时随底稿整批重算,无残留。
@@ -2050,6 +2152,7 @@ export const __test__ = {
   locateAnchor,
   assemble,
   applyReplacements,
+  judgeRowRewriteConservation,
   resolveIdTokens,
   readRemoteIdBasis,
   vacatedIdsOf,
