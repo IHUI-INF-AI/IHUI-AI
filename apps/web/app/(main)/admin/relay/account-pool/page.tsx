@@ -10,6 +10,7 @@ import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
 import {
+  Badge,
   Button,
   Checkbox,
   ChevronLeft,
@@ -41,6 +42,10 @@ import {
   ShieldAlert,
   Switch,
   Plus,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Trash2,
   TriangleAlert,
   Users,
@@ -78,7 +83,7 @@ interface UsageData {
   details?: UsageDetailRow[] | null
 }
 interface AccountRow {
-  id: number
+  id: string
   providerCode: string
   uid: string | null
   name: string
@@ -117,6 +122,32 @@ interface ListData {
   pageSize: number
   poolHealth?: PoolHealth | null
 }
+interface ListEnvelope<T> {
+  list?: T[] | null
+  total?: number | null
+}
+type ProxyStatus = 'active' | 'dead' | 'exhausted'
+interface ProxyPoolRow {
+  id: string
+  proxyUrl?: string | null
+  providerCode?: string | null
+  boundAccountId?: string | null
+  status?: string | null
+  failCount?: number | null
+  lastPickedAt?: string | null
+  lastCheckedAt?: string | null
+}
+interface ModelCatalogRow {
+  id: string
+  providerCode?: string | null
+  alias?: string | null
+  upstreamModel?: string | null
+  displayName?: string | null
+  enabled?: boolean | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+type PoolTab = 'accounts' | 'proxy' | 'catalog'
 interface ImportItem {
   index: number
   name: string | null
@@ -152,6 +183,31 @@ const IMPORT_STATUS_LABEL: Record<string, string> = {
   updated: '更新',
   skipped: '跳过',
   failed: '失败',
+}
+
+const PROXY_STATUS_LABEL: Record<ProxyStatus, string> = {
+  active: '可用',
+  dead: '失效',
+  exhausted: '耗尽',
+}
+const PROXY_STATUS_CLASS: Record<ProxyStatus, string> = {
+  active: 'border-transparent bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  dead: 'border-transparent bg-red-500/10 text-red-600 dark:text-red-400',
+  exhausted: 'border-transparent bg-amber-500/10 text-amber-600 dark:text-amber-400',
+}
+
+function toProxyStatus(v: string | null | undefined): ProxyStatus {
+  return v === 'dead' || v === 'exhausted' ? v : 'active'
+}
+
+function pickList<T>(data: T[] | ListEnvelope<T> | null | undefined): T[] {
+  if (!data) return []
+  return Array.isArray(data) ? data : (data.list ?? [])
+}
+
+function pickTotal<T>(data: T[] | ListEnvelope<T> | null | undefined): number {
+  if (!data) return 0
+  return Array.isArray(data) ? data.length : (data.total ?? data.list?.length ?? 0)
 }
 
 const EXAMPLE_JSON = `[
@@ -212,8 +268,9 @@ export default function AdminRelayAccountPoolPage() {
     tempUnschedulable: false,
     proxyUrl: '',
   })
-  const [selectedIds, setSelectedIds] = React.useState<number[]>([])
-  const [usageAccountId, setUsageAccountId] = React.useState<number | null>(null)
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([])
+  const [usageAccountId, setUsageAccountId] = React.useState<string | null>(null)
+  const [tab, setTab] = React.useState<PoolTab>('accounts')
 
   const qs = React.useMemo(() => {
     const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
@@ -272,7 +329,7 @@ export default function AdminRelayAccountPoolPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'relay', 'account-pool'] })
 
-  const toggleSelect = (id: number) =>
+  const toggleSelect = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   const allOnPageSelected = list.length > 0 && list.every((k) => selectedIds.includes(k.id))
   const toggleSelectAllOnPage = () =>
@@ -283,8 +340,8 @@ export default function AdminRelayAccountPoolPage() {
     )
 
   const toggleMut = useMutation({
-    mutationFn: async (id: number) => {
-      const r = await fetchApi<{ id: number; isEnabled: boolean }>(
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<{ id: string; isEnabled: boolean }>(
         `/api/admin/relay/accounts/${id}/toggle`,
         { method: 'POST' },
       )
@@ -299,8 +356,8 @@ export default function AdminRelayAccountPoolPage() {
   })
 
   const healthMut = useMutation({
-    mutationFn: async (id: number) => {
-      const r = await fetchApi<{ id: number; ok: boolean; error: string | null }>(
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<{ id: string; ok: boolean; error: string | null }>(
         `/api/admin/relay/accounts/${id}/health`,
         { method: 'POST' },
       )
@@ -316,8 +373,8 @@ export default function AdminRelayAccountPoolPage() {
   })
 
   const deleteMut = useMutation({
-    mutationFn: async (id: number) => {
-      const r = await fetchApi<{ id: number }>(`/api/admin/relay/accounts/${id}`, {
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<{ id: string }>(`/api/admin/relay/accounts/${id}`, {
         method: 'DELETE',
       })
       if (!r.success) throw new Error(r.error)
@@ -331,8 +388,8 @@ export default function AdminRelayAccountPoolPage() {
   })
 
   const editMut = useMutation({
-    mutationFn: async (vars: { id: number; body: Record<string, unknown> }) => {
-      const r = await fetchApi<{ id: number }>(`/api/admin/relay/accounts/${vars.id}`, {
+    mutationFn: async (vars: { id: string; body: Record<string, unknown> }) => {
+      const r = await fetchApi<{ id: string }>(`/api/admin/relay/accounts/${vars.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(vars.body),
@@ -369,11 +426,11 @@ export default function AdminRelayAccountPoolPage() {
   })
 
   const sweepMut = useMutation({
-    mutationFn: async (ids: number[]) => {
+    mutationFn: async (ids: string[]) => {
       const r = await fetchApi<unknown>('/api/admin/relay/account-pool/sweep', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: ids.map(String) }),
+        body: JSON.stringify({ ids }),
       })
       if (!r.success) throw new Error(r.error)
       return r.data
@@ -387,10 +444,10 @@ export default function AdminRelayAccountPoolPage() {
   })
 
   const claimMut = useMutation({
-    mutationFn: async (vars: { ids: number[]; action: 'claim' | 'release' }) => {
+    mutationFn: async (vars: { ids: string[]; action: 'claim' | 'release' }) => {
       const results = await Promise.allSettled(
         vars.ids.map(async (id) => {
-          const r = await fetchApi<unknown>(`/api/admin/relay/account-pool/${id}/${vars.action}`, {
+          const r = await fetchApi<unknown>(`/api/admin/relay/accounts/${id}/${vars.action}`, {
             method: 'POST',
           })
           if (!r.success) throw new Error(r.error)
@@ -518,451 +575,475 @@ export default function AdminRelayAccountPoolPage() {
         </div>
       </div>
 
-      {showRefillBanner && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
-          <TriangleAlert className="h-4 w-4 shrink-0" />
-          <span>
-            已过期 {poolHealth?.expiredCount ?? 0} 个,可用 {poolHealth?.availableCount ?? 0}{' '}
-            个,建议补池
-          </span>
-        </div>
-      )}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as PoolTab)}>
+        <TabsList>
+          <TabsTrigger value="accounts">账号池</TabsTrigger>
+          <TabsTrigger value="proxy">代理池</TabsTrigger>
+          <TabsTrigger value="catalog">模型目录</TabsTrigger>
+        </TabsList>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchInput
-          value={search}
-          onChange={(e) => {
-            setPage(1)
-            setSearch(e.target.value)
-          }}
-          placeholder="搜索 name / uid / deviceId"
-          wrapperClassName="max-w-xs flex-1"
-        />
-        <Select
-          value={provider || 'all'}
-          onValueChange={(v) => {
-            setPage(1)
-            setProvider(v === 'all' ? '' : v)
-          }}
-        >
-          <SelectTrigger className={selectClass} aria-label="平台">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部平台</SelectItem>
-            {PROVIDER_OPTIONS.map((p) => (
-              <SelectItem key={p} value={p}>
-                {p}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={enabled}
-          onValueChange={(v) => {
-            setPage(1)
-            setEnabled(v as 'all' | 'true' | 'false')
-          }}
-        >
-          <SelectTrigger className={selectClass} aria-label="启用状态">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部</SelectItem>
-            <SelectItem value="true">已启用</SelectItem>
-            <SelectItem value="false">已禁用</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={health}
-          onValueChange={(v) => {
-            setPage(1)
-            setHealth(v as typeof health)
-          }}
-        >
-          <SelectTrigger className={selectClass} aria-label="健康状态">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">全部健康</SelectItem>
-            <SelectItem value="unknown">未知</SelectItem>
-            <SelectItem value="healthy">健康</SelectItem>
-            <SelectItem value="degraded">降级</SelectItem>
-            <SelectItem value="down">异常</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <TabsContent value="accounts" className="space-y-4">
+          {showRefillBanner && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+              <TriangleAlert className="h-4 w-4 shrink-0" />
+              <span>
+                已过期 {poolHealth?.expiredCount ?? 0} 个,可用 {poolHealth?.availableCount ?? 0}{' '}
+                个,建议补池
+              </span>
+            </div>
+          )}
 
-      {selectedIds.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-          <span className="text-muted-foreground">已选 {selectedIds.length} 项</span>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={sweepMut.isPending}
-            onClick={() => sweepMut.mutate(selectedIds)}
-          >
-            {sweepMut.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ShieldAlert className="h-4 w-4" />
-            )}
-            批量巡检
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={claimMut.isPending}
-            onClick={() => claimMut.mutate({ ids: selectedIds, action: 'claim' })}
-          >
-            批量认领
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={claimMut.isPending}
-            onClick={() => claimMut.mutate({ ids: selectedIds, action: 'release' })}
-          >
-            批量释放
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>
-            取消选择
-          </Button>
-        </div>
-      )}
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchInput
+              value={search}
+              onChange={(e) => {
+                setPage(1)
+                setSearch(e.target.value)
+              }}
+              placeholder="搜索 name / uid / deviceId"
+              wrapperClassName="max-w-xs flex-1"
+            />
+            <Select
+              value={provider || 'all'}
+              onValueChange={(v) => {
+                setPage(1)
+                setProvider(v === 'all' ? '' : v)
+              }}
+            >
+              <SelectTrigger className={selectClass} aria-label="平台">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部平台</SelectItem>
+                {PROVIDER_OPTIONS.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={enabled}
+              onValueChange={(v) => {
+                setPage(1)
+                setEnabled(v as 'all' | 'true' | 'false')
+              }}
+            >
+              <SelectTrigger className={selectClass} aria-label="启用状态">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部</SelectItem>
+                <SelectItem value="true">已启用</SelectItem>
+                <SelectItem value="false">已禁用</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={health}
+              onValueChange={(v) => {
+                setPage(1)
+                setHealth(v as typeof health)
+              }}
+            >
+              <SelectTrigger className={selectClass} aria-label="健康状态">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部健康</SelectItem>
+                <SelectItem value="unknown">未知</SelectItem>
+                <SelectItem value="healthy">健康</SelectItem>
+                <SelectItem value="degraded">降级</SelectItem>
+                <SelectItem value="down">异常</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      <div className="rounded-lg border border-border bg-card">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
-              <tr>
-                <th className="px-3 py-2 text-left">
-                  <Checkbox
-                    checked={allOnPageSelected}
-                    onCheckedChange={toggleSelectAllOnPage}
-                    aria-label="全选本页"
-                  />
-                </th>
-                <th className="px-3 py-2 text-left">名称</th>
-                <th className="px-3 py-2 text-left">平台</th>
-                <th className="px-3 py-2 text-left">uid</th>
-                <th className="px-3 py-2 text-left">健康</th>
-                <th className="px-3 py-2 text-left">熔断</th>
-                <th className="px-3 py-2 text-right">24h 用量</th>
-                <th className="px-3 py-2 text-left">token 到期</th>
-                <th className="px-3 py-2 text-right">优先级</th>
-                <th className="px-3 py-2 text-right">权重</th>
-                <th className="px-3 py-2 text-right">累计调用</th>
-                <th className="px-3 py-2 text-right">连续失败</th>
-                <th className="px-3 py-2 text-right">刷新失败</th>
-                <th className="px-3 py-2 text-left">代理</th>
-                <th className="px-3 py-2 text-left">最近使用</th>
-                <th className="px-3 py-2 text-left">认领</th>
-                <th className="px-3 py-2 text-left">启用</th>
-                <th className="px-3 py-2 text-left">摘除</th>
-                <th className="px-3 py-2 text-right">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={`sk-${i}`}>
-                    <td colSpan={19} className="px-3 py-2">
-                      <Skeleton className="h-6 w-full" />
-                    </td>
+          {selectedIds.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+              <span className="text-muted-foreground">已选 {selectedIds.length} 项</span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={sweepMut.isPending}
+                onClick={() => sweepMut.mutate(selectedIds)}
+              >
+                {sweepMut.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ShieldAlert className="h-4 w-4" />
+                )}
+                批量巡检
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={claimMut.isPending}
+                onClick={() => claimMut.mutate({ ids: selectedIds, action: 'claim' })}
+              >
+                批量认领
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={claimMut.isPending}
+                onClick={() => claimMut.mutate({ ids: selectedIds, action: 'release' })}
+              >
+                批量释放
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIds([])}>
+                取消选择
+              </Button>
+            </div>
+          )}
+
+          <div className="rounded-lg border border-border bg-card">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+                  <tr>
+                    <th className="px-3 py-2 text-left">
+                      <Checkbox
+                        checked={allOnPageSelected}
+                        onCheckedChange={toggleSelectAllOnPage}
+                        aria-label="全选本页"
+                      />
+                    </th>
+                    <th className="px-3 py-2 text-left">名称</th>
+                    <th className="px-3 py-2 text-left">平台</th>
+                    <th className="px-3 py-2 text-left">uid</th>
+                    <th className="px-3 py-2 text-left">健康</th>
+                    <th className="px-3 py-2 text-left">熔断</th>
+                    <th className="px-3 py-2 text-right">24h 用量</th>
+                    <th className="px-3 py-2 text-left">token 到期</th>
+                    <th className="px-3 py-2 text-right">优先级</th>
+                    <th className="px-3 py-2 text-right">权重</th>
+                    <th className="px-3 py-2 text-right">累计调用</th>
+                    <th className="px-3 py-2 text-right">连续失败</th>
+                    <th className="px-3 py-2 text-right">刷新失败</th>
+                    <th className="px-3 py-2 text-left">代理</th>
+                    <th className="px-3 py-2 text-left">最近使用</th>
+                    <th className="px-3 py-2 text-left">认领</th>
+                    <th className="px-3 py-2 text-left">启用</th>
+                    <th className="px-3 py-2 text-left">摘除</th>
+                    <th className="px-3 py-2 text-right">操作</th>
                   </tr>
-                ))
-              ) : isError ? (
-                <tr>
-                  <td colSpan={19} className="px-3 py-8 text-center text-red-500">
-                    加载失败:{error instanceof Error ? error.message : '未知错误'}
-                  </td>
-                </tr>
-              ) : list.length === 0 ? (
-                <tr>
-                  <td colSpan={19} className="px-3 py-8 text-center text-muted-foreground">
-                    暂无数据
-                  </td>
-                </tr>
-              ) : (
-                list.map((k) => {
-                  const expMs = k.tokenExpiresAt ? new Date(k.tokenExpiresAt).getTime() : null
-                  const now = Date.now()
-                  const expiringSoon = expMs !== null && expMs - now < 24 * 3600 * 1000
-                  const expired = expMs !== null && expMs <= now
-                  const soon = k.expiresSoon === true || expiringSoon
-                  const claimed = k.claimStatus === 'claimed'
-                  const failPct = failRatePct(k.usageSummary?.failRate24h)
-                  return (
-                    <tr key={k.id} className={soon ? 'bg-amber-500/5' : undefined}>
-                      <td className="px-3 py-2">
-                        <Checkbox
-                          checked={selectedIds.includes(k.id)}
-                          onCheckedChange={() => toggleSelect(k.id)}
-                          aria-label={`选择 ${k.name}`}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap items-center gap-1 font-medium">
-                          {k.name}
-                          {k.expiresSoon === true && (
-                            <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
-                              即将过期
-                            </span>
-                          )}
-                        </div>
-                        {k.lastErrorMessage && (
-                          <div
-                            className="max-w-[16rem] truncate text-xs text-red-500"
-                            title={k.lastErrorMessage}
-                          >
-                            {k.lastErrorMessage}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-xs">{k.providerCode}</td>
-                      <td className="px-3 py-2">
-                        {k.uid ? (
-                          <div className="flex items-center gap-1">
-                            <span className="font-mono text-xs" title={k.uid}>
-                              {k.uid.length > 12 ? `${k.uid.slice(0, 8)}…` : k.uid}
-                            </span>
-                            <Tooltip content="复制 uid">
-                              <span className="inline-flex">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => copyUid(k.uid!)}
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              </span>
-                            </Tooltip>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span
-                          className={`rounded-md px-2 py-0.5 text-xs ${
-                            HEALTH_CLASS[k.healthStatus] ?? HEALTH_CLASS.unknown
-                          }`}
-                        >
-                          {HEALTH_LABEL[k.healthStatus] ?? k.healthStatus}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        {k.circuitBreakReason ? (
-                          <Tooltip content={k.circuitBreakReason}>
-                            <span className="inline-flex">
-                              <span className="flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-600 dark:text-red-400">
-                                <ShieldAlert className="h-3 w-3" />
-                                熔断
-                              </span>
-                            </span>
-                          </Tooltip>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {k.usageSummary ? (
-                          <div className="flex flex-col items-end gap-0.5 text-xs tabular-nums">
-                            <span>{fmtNum(k.usageSummary.calls24h)} 次</span>
-                            <span className="text-muted-foreground">
-                              {fmtNum(k.usageSummary.tokens24h)} tok
-                            </span>
-                            <span
-                              className={
-                                failPct !== null && failPct > 30
-                                  ? 'font-medium text-red-600 dark:text-red-400'
-                                  : 'text-muted-foreground'
-                              }
-                            >
-                              {failPct === null ? '-' : `${failPct.toFixed(1)}%`}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="block text-right text-xs text-muted-foreground">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-xs">
-                        {expMs !== null ? (
-                          <span
-                            className={
-                              expired
-                                ? 'font-medium text-red-600 dark:text-red-400'
-                                : expiringSoon
-                                  ? 'font-medium text-amber-600 dark:text-amber-400'
-                                  : 'text-muted-foreground'
-                            }
-                          >
-                            {fmt.format(new Date(k.tokenExpiresAt!))}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">{k.priority}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{k.weight}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{k.totalCalls}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{k.consecutiveFailures}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{k.refreshFailureCount}</td>
-                      <td className="px-3 py-2 text-xs">{k.hasProxy ? '是' : '否'}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
-                      </td>
-                      <td className="px-3 py-2">
-                        {claimed ? (
-                          <Tooltip
-                            content={`认领人:${k.claimedBy ?? '-'} 时间:${
-                              k.claimedAt ? fmt.format(new Date(k.claimedAt)) : '-'
-                            } 备注:${k.claimNote ?? '-'}`}
-                          >
-                            <span className="inline-flex">
-                              <span className="max-w-[10rem] truncate rounded-md bg-blue-500/10 px-2 py-0.5 text-xs text-blue-600 dark:text-blue-400">
-                                已认领{k.claimedBy ? ` · ${k.claimedBy}` : ''}
-                              </span>
-                            </span>
-                          </Tooltip>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Switch
-                          checked={k.isEnabled}
-                          disabled={toggleMut.isPending}
-                          onCheckedChange={() => toggleMut.mutate(k.id)}
-                          aria-label={`${k.name} 启用开关`}
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        {k.tempUnschedulable ? (
-                          <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
-                            已摘除
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center justify-end gap-1">
-                          <Tooltip content="健康检查">
-                            <span className="inline-flex">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={healthMut.isPending}
-                                onClick={() => healthMut.mutate(k.id)}
-                              >
-                                {healthMut.isPending && healthMut.variables === k.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <RefreshCw className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </span>
-                          </Tooltip>
-                          <Tooltip content="调用日志">
-                            <span className="inline-flex">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setUsageAccountId(k.id)}
-                              >
-                                <FileText className="h-4 w-4" />
-                              </Button>
-                            </span>
-                          </Tooltip>
-                          <Tooltip content="切换启用">
-                            <span className="inline-flex">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={toggleMut.isPending}
-                                onClick={() => toggleMut.mutate(k.id)}
-                              >
-                                <Power className="h-4 w-4" />
-                              </Button>
-                            </span>
-                          </Tooltip>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            className="px-2 text-xs"
-                            disabled={claimMut.isPending}
-                            onClick={() =>
-                              claimMut.mutate({
-                                ids: [k.id],
-                                action: claimed ? 'release' : 'claim',
-                              })
-                            }
-                          >
-                            {claimed ? '释放' : '认领'}
-                          </Button>
-                          <Tooltip content="编辑">
-                            <span className="inline-flex">
-                              <Button size="sm" variant="ghost" onClick={() => openEdit(k)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </span>
-                          </Tooltip>
-                          <Tooltip content="删除">
-                            <span className="inline-flex">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                disabled={deleteMut.isPending}
-                                onClick={() => {
-                                  if (confirm(`删除账号 "${k.name}"?`)) {
-                                    deleteMut.mutate(k.id)
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </span>
-                          </Tooltip>
-                        </div>
+                </thead>
+                <tbody>
+                  {isLoading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                      <tr key={`sk-${i}`}>
+                        <td colSpan={19} className="px-3 py-2">
+                          <Skeleton className="h-6 w-full" />
+                        </td>
+                      </tr>
+                    ))
+                  ) : isError ? (
+                    <tr>
+                      <td colSpan={19} className="px-3 py-8 text-center text-red-500">
+                        加载失败:{error instanceof Error ? error.message : '未知错误'}
                       </td>
                     </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  ) : list.length === 0 ? (
+                    <tr>
+                      <td colSpan={19} className="px-3 py-8 text-center text-muted-foreground">
+                        暂无数据
+                      </td>
+                    </tr>
+                  ) : (
+                    list.map((k) => {
+                      const expMs = k.tokenExpiresAt ? new Date(k.tokenExpiresAt).getTime() : null
+                      const now = Date.now()
+                      const expiringSoon = expMs !== null && expMs - now < 24 * 3600 * 1000
+                      const expired = expMs !== null && expMs <= now
+                      const soon = k.expiresSoon === true || expiringSoon
+                      const claimed = k.claimStatus === 'claimed'
+                      const failPct = failRatePct(k.usageSummary?.failRate24h)
+                      return (
+                        <tr key={k.id} className={soon ? 'bg-amber-500/5' : undefined}>
+                          <td className="px-3 py-2">
+                            <Checkbox
+                              checked={selectedIds.includes(k.id)}
+                              onCheckedChange={() => toggleSelect(k.id)}
+                              aria-label={`选择 ${k.name}`}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap items-center gap-1 font-medium">
+                              {k.name}
+                              {k.expiresSoon === true && (
+                                <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-xs font-normal text-amber-600 dark:text-amber-400">
+                                  即将过期
+                                </span>
+                              )}
+                            </div>
+                            {k.lastErrorMessage && (
+                              <div
+                                className="max-w-[16rem] truncate text-xs text-red-500"
+                                title={k.lastErrorMessage}
+                              >
+                                {k.lastErrorMessage}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-xs">{k.providerCode}</td>
+                          <td className="px-3 py-2">
+                            {k.uid ? (
+                              <div className="flex items-center gap-1">
+                                <span className="font-mono text-xs" title={k.uid}>
+                                  {k.uid.length > 12 ? `${k.uid.slice(0, 8)}…` : k.uid}
+                                </span>
+                                <Tooltip content="复制 uid">
+                                  <span className="inline-flex">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 w-6 p-0"
+                                      onClick={() => copyUid(k.uid!)}
+                                    >
+                                      <Copy className="h-3 w-3" />
+                                    </Button>
+                                  </span>
+                                </Tooltip>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span
+                              className={`rounded-md px-2 py-0.5 text-xs ${
+                                HEALTH_CLASS[k.healthStatus] ?? HEALTH_CLASS.unknown
+                              }`}
+                            >
+                              {HEALTH_LABEL[k.healthStatus] ?? k.healthStatus}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            {k.circuitBreakReason ? (
+                              <Tooltip content={k.circuitBreakReason}>
+                                <span className="inline-flex">
+                                  <span className="flex items-center gap-1 rounded-md bg-red-500/10 px-2 py-0.5 text-xs text-red-600 dark:text-red-400">
+                                    <ShieldAlert className="h-3 w-3" />
+                                    熔断
+                                  </span>
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {k.usageSummary ? (
+                              <div className="flex flex-col items-end gap-0.5 text-xs tabular-nums">
+                                <span>{fmtNum(k.usageSummary.calls24h)} 次</span>
+                                <span className="text-muted-foreground">
+                                  {fmtNum(k.usageSummary.tokens24h)} tok
+                                </span>
+                                <span
+                                  className={
+                                    failPct !== null && failPct > 30
+                                      ? 'font-medium text-red-600 dark:text-red-400'
+                                      : 'text-muted-foreground'
+                                  }
+                                >
+                                  {failPct === null ? '-' : `${failPct.toFixed(1)}%`}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="block text-right text-xs text-muted-foreground">
+                                -
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-xs">
+                            {expMs !== null ? (
+                              <span
+                                className={
+                                  expired
+                                    ? 'font-medium text-red-600 dark:text-red-400'
+                                    : expiringSoon
+                                      ? 'font-medium text-amber-600 dark:text-amber-400'
+                                      : 'text-muted-foreground'
+                                }
+                              >
+                                {fmt.format(new Date(k.tokenExpiresAt!))}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">{k.priority}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{k.weight}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{k.totalCalls}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {k.consecutiveFailures}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {k.refreshFailureCount}
+                          </td>
+                          <td className="px-3 py-2 text-xs">{k.hasProxy ? '是' : '否'}</td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">
+                            {k.lastUsedAt ? fmt.format(new Date(k.lastUsedAt)) : '-'}
+                          </td>
+                          <td className="px-3 py-2">
+                            {claimed ? (
+                              <Tooltip
+                                content={`认领人:${k.claimedBy ?? '-'} 时间:${
+                                  k.claimedAt ? fmt.format(new Date(k.claimedAt)) : '-'
+                                } 备注:${k.claimNote ?? '-'}`}
+                              >
+                                <span className="inline-flex">
+                                  <span className="max-w-[10rem] truncate rounded-md bg-blue-500/10 px-2 py-0.5 text-xs text-blue-600 dark:text-blue-400">
+                                    已认领{k.claimedBy ? ` · ${k.claimedBy}` : ''}
+                                  </span>
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Switch
+                              checked={k.isEnabled}
+                              disabled={toggleMut.isPending}
+                              onCheckedChange={() => toggleMut.mutate(k.id)}
+                              aria-label={`${k.name} 启用开关`}
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            {k.tempUnschedulable ? (
+                              <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
+                                已摘除
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center justify-end gap-1">
+                              <Tooltip content="健康检查">
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={healthMut.isPending}
+                                    onClick={() => healthMut.mutate(k.id)}
+                                  >
+                                    {healthMut.isPending && healthMut.variables === k.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                              <Tooltip content="调用日志">
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setUsageAccountId(k.id)}
+                                  >
+                                    <FileText className="h-4 w-4" />
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                              <Tooltip content="切换启用">
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={toggleMut.isPending}
+                                    onClick={() => toggleMut.mutate(k.id)}
+                                  >
+                                    <Power className="h-4 w-4" />
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                className="px-2 text-xs"
+                                disabled={claimMut.isPending}
+                                onClick={() =>
+                                  claimMut.mutate({
+                                    ids: [k.id],
+                                    action: claimed ? 'release' : 'claim',
+                                  })
+                                }
+                              >
+                                {claimed ? '释放' : '认领'}
+                              </Button>
+                              <Tooltip content="编辑">
+                                <span className="inline-flex">
+                                  <Button size="sm" variant="ghost" onClick={() => openEdit(k)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                              <Tooltip content="删除">
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={deleteMut.isPending}
+                                    onClick={() => {
+                                      if (confirm(`删除账号 "${k.name}"?`)) {
+                                        deleteMut.mutate(k.id)
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">共 {total} 条</span>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-            上一页
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            {page} / {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page >= totalPages}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            下一页
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">共 {total} 条</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                上一页
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {page} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                下一页
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="proxy" className="space-y-4">
+          <ProxyPoolPanel />
+        </TabsContent>
+
+        <TabsContent value="catalog" className="space-y-4">
+          <ModelCatalogPanel />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
@@ -1228,6 +1309,663 @@ export default function AdminRelayAccountPoolPage() {
         </SheetContent>
       </Sheet>
     </div>
+  )
+}
+
+function ProxyPoolPanel() {
+  const locale = useLocale()
+  const qc = useQueryClient()
+  const [page, setPage] = React.useState(1)
+  const [status, setStatus] = React.useState<'all' | ProxyStatus>('all')
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [form, setForm] = React.useState({ proxyUrl: '', providerCode: '', boundAccountId: '' })
+
+  const qs = React.useMemo(() => {
+    const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
+    if (status !== 'all') p.set('status', status)
+    return p.toString()
+  }, [page, status])
+
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['admin', 'relay', 'proxy-pool', qs],
+    queryFn: async () => {
+      const r = await fetchApi<ListEnvelope<ProxyPoolRow> | ProxyPoolRow[]>(
+        `/api/admin/relay/proxy-pool?${qs}`,
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+  })
+
+  React.useEffect(() => {
+    if (isError && error) {
+      toast.error(`代理池加载失败:${error instanceof Error ? error.message : '未知错误'}`)
+    }
+  }, [isError, error])
+
+  const rows = pickList(data)
+  const total = pickTotal(data)
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const fmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'relay', 'proxy-pool'] })
+
+  const createMut = useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const r = await fetchApi<ProxyPoolRow>('/api/admin/relay/proxy-pool', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: () => {
+      toast.success('已新增代理')
+      setCreateOpen(false)
+      setForm({ proxyUrl: '', providerCode: '', boundAccountId: '' })
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '新增代理失败'),
+  })
+
+  const statusMut = useMutation({
+    mutationFn: async (vars: { id: string; status: ProxyStatus }) => {
+      const r = await fetchApi<unknown>(`/api/admin/relay/proxy-pool/${vars.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: vars.status }),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: () => {
+      toast.success('代理状态已更新')
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '更新代理状态失败'),
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<unknown>(`/api/admin/relay/proxy-pool/${id}`, { method: 'DELETE' })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: () => {
+      toast.success('代理已删除')
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '删除代理失败'),
+  })
+
+  const checkMut = useMutation({
+    mutationFn: async (vars: { id: string; alive: boolean }) => {
+      const r = await fetchApi<unknown>(`/api/admin/relay/proxy-pool/${vars.id}/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alive: vars.alive }),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (_d, vars) => {
+      toast.success(vars.alive ? '已标记为存活' : '已标记为失效')
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '活性标记失败'),
+  })
+
+  const submitCreate = (e: React.FormEvent) => {
+    e.preventDefault()
+    const proxyUrl = form.proxyUrl.trim()
+    if (!proxyUrl) {
+      toast.error('代理地址必填')
+      return
+    }
+    const body: Record<string, unknown> = { proxyUrl }
+    if (form.providerCode) body.providerCode = form.providerCode
+    const boundAccountId = form.boundAccountId.trim()
+    if (boundAccountId) body.boundAccountId = boundAccountId
+    createMut.mutate(body)
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          value={status}
+          onValueChange={(v) => {
+            setPage(1)
+            setStatus(v as 'all' | ProxyStatus)
+          }}
+        >
+          <SelectTrigger className={selectClass} aria-label="代理状态">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部状态</SelectItem>
+            <SelectItem value="active">可用</SelectItem>
+            <SelectItem value="dead">失效</SelectItem>
+            <SelectItem value="exhausted">耗尽</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          刷新
+        </Button>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4" />
+          新增代理
+        </Button>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+              <tr>
+                <th className="px-3 py-2 text-left">代理地址</th>
+                <th className="px-3 py-2 text-left">平台</th>
+                <th className="px-3 py-2 text-left">绑定账号</th>
+                <th className="px-3 py-2 text-left">状态</th>
+                <th className="px-3 py-2 text-right">失败次数</th>
+                <th className="px-3 py-2 text-left">最近取用</th>
+                <th className="px-3 py-2 text-left">最近检测</th>
+                <th className="px-3 py-2 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={`proxy-sk-${i}`}>
+                    <td colSpan={8} className="px-3 py-2">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : isError ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-8 text-center text-red-500">
+                    加载失败:{error instanceof Error ? error.message : '未知错误'}
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                    暂无代理
+                  </td>
+                </tr>
+              ) : (
+                rows.map((p) => {
+                  const rowStatus = toProxyStatus(p.status)
+                  return (
+                    <tr key={p.id} className="border-t border-border">
+                      <td
+                        className="max-w-[18rem] truncate px-3 py-2 font-mono text-xs"
+                        title={p.proxyUrl ?? undefined}
+                      >
+                        {p.proxyUrl ?? '-'}
+                      </td>
+                      <td className="px-3 py-2 text-xs">{p.providerCode ?? '-'}</td>
+                      <td
+                        className="max-w-[12rem] truncate px-3 py-2 font-mono text-xs"
+                        title={p.boundAccountId ?? undefined}
+                      >
+                        {p.boundAccountId ?? '-'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge variant="outline" className={PROXY_STATUS_CLASS[rowStatus]}>
+                          {PROXY_STATUS_LABEL[rowStatus]}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{p.failCount ?? 0}</td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {p.lastPickedAt ? fmt.format(new Date(p.lastPickedAt)) : '-'}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-muted-foreground">
+                        {p.lastCheckedAt ? fmt.format(new Date(p.lastCheckedAt)) : '-'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap items-center justify-end gap-1">
+                          <Select
+                            value={rowStatus}
+                            onValueChange={(v) =>
+                              statusMut.mutate({ id: p.id, status: v as ProxyStatus })
+                            }
+                          >
+                            <SelectTrigger className={selectClass} aria-label="修改代理状态">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="active">可用</SelectItem>
+                              <SelectItem value="dead">失效</SelectItem>
+                              <SelectItem value="exhausted">耗尽</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="px-2 text-xs"
+                            disabled={checkMut.isPending}
+                            onClick={() => checkMut.mutate({ id: p.id, alive: true })}
+                          >
+                            有效
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="px-2 text-xs"
+                            disabled={checkMut.isPending}
+                            onClick={() => checkMut.mutate({ id: p.id, alive: false })}
+                          >
+                            失效
+                          </Button>
+                          <Tooltip content="删除代理">
+                            <span className="inline-flex">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={deleteMut.isPending}
+                                onClick={() => {
+                                  if (confirm(`删除代理 "${p.proxyUrl ?? p.id}"?`)) {
+                                    deleteMut.mutate(p.id)
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">共 {total} 条</span>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            上一页
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            下一页
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={createOpen} onOpenChange={(o) => !o && setCreateOpen(false)}>
+        <DialogContent>
+          <form onSubmit={submitCreate} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>新增代理</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="p-url">代理地址</Label>
+              <Input
+                id="p-url"
+                value={form.proxyUrl}
+                onChange={(e) => setForm({ ...form, proxyUrl: e.target.value })}
+                placeholder="http://127.0.0.1:7890"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="p-provider">平台(可选)</Label>
+              <Select
+                value={form.providerCode || 'none'}
+                onValueChange={(v) => setForm({ ...form, providerCode: v === 'none' ? '' : v })}
+              >
+                <SelectTrigger id="p-provider" aria-label="代理平台">
+                  <SelectValue placeholder="不限平台" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">不限平台</SelectItem>
+                  {PROVIDER_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="p-bound">绑定账号 id(可选)</Label>
+              <Input
+                id="p-bound"
+                value={form.boundAccountId}
+                onChange={(e) => setForm({ ...form, boundAccountId: e.target.value })}
+                placeholder="留空则作为共享代理轮换"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                取消
+              </Button>
+              <Button type="submit" disabled={createMut.isPending}>
+                {createMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+function ModelCatalogPanel() {
+  const locale = useLocale()
+  const qc = useQueryClient()
+  const [provider, setProvider] = React.useState('')
+  const [createOpen, setCreateOpen] = React.useState(false)
+  const [form, setForm] = React.useState({
+    providerCode: '',
+    alias: '',
+    upstreamModel: '',
+    displayName: '',
+  })
+
+  const qs = React.useMemo(() => {
+    const p = new URLSearchParams()
+    if (provider) p.set('provider', provider)
+    return p.toString()
+  }, [provider])
+
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['admin', 'relay', 'model-catalog', qs],
+    queryFn: async () => {
+      const r = await fetchApi<ListEnvelope<ModelCatalogRow> | ModelCatalogRow[]>(
+        `/api/admin/relay/model-catalog${qs ? `?${qs}` : ''}`,
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+  })
+
+  React.useEffect(() => {
+    if (isError && error) {
+      toast.error(`模型目录加载失败:${error instanceof Error ? error.message : '未知错误'}`)
+    }
+  }, [isError, error])
+
+  const rows = pickList(data)
+  const fmt = new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' })
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'relay', 'model-catalog'] })
+
+  const createMut = useMutation({
+    mutationFn: async (body: Record<string, unknown>) => {
+      const r = await fetchApi<ModelCatalogRow>('/api/admin/relay/model-catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: () => {
+      toast.success('已新增模型别名')
+      setCreateOpen(false)
+      setForm({ providerCode: '', alias: '', upstreamModel: '', displayName: '' })
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '新增模型别名失败'),
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<unknown>(`/api/admin/relay/model-catalog/${id}`, {
+        method: 'DELETE',
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: () => {
+      toast.success('已删除模型别名')
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '删除模型别名失败'),
+  })
+
+  const submitCreate = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.providerCode) {
+      toast.error('请选择平台')
+      return
+    }
+    const alias = form.alias.trim()
+    const upstreamModel = form.upstreamModel.trim()
+    if (!alias || !upstreamModel) {
+      toast.error('别名与上游模型必填')
+      return
+    }
+    const body: Record<string, unknown> = {
+      providerCode: form.providerCode,
+      alias,
+      upstreamModel,
+    }
+    const displayName = form.displayName.trim()
+    if (displayName) body.displayName = displayName
+    createMut.mutate(body)
+  }
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={provider || 'all'} onValueChange={(v) => setProvider(v === 'all' ? '' : v)}>
+          <SelectTrigger className={selectClass} aria-label="平台">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部平台</SelectItem>
+            {PROVIDER_OPTIONS.map((p) => (
+              <SelectItem key={p} value={p}>
+                {p}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          刷新
+        </Button>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4" />
+          新增别名
+        </Button>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground [&>tr>th]:whitespace-nowrap">
+              <tr>
+                <th className="px-3 py-2 text-left">平台</th>
+                <th className="px-3 py-2 text-left">别名</th>
+                <th className="px-3 py-2 text-left">上游模型</th>
+                <th className="px-3 py-2 text-left">显示名</th>
+                <th className="px-3 py-2 text-left">启用</th>
+                <th className="px-3 py-2 text-left">创建时间</th>
+                <th className="px-3 py-2 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={`catalog-sk-${i}`}>
+                    <td colSpan={7} className="px-3 py-2">
+                      <Skeleton className="h-6 w-full" />
+                    </td>
+                  </tr>
+                ))
+              ) : isError ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-red-500">
+                    加载失败:{error instanceof Error ? error.message : '未知错误'}
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">
+                    暂无模型别名
+                  </td>
+                </tr>
+              ) : (
+                rows.map((m) => (
+                  <tr key={m.id} className="border-t border-border">
+                    <td className="px-3 py-2 text-xs">{m.providerCode ?? '-'}</td>
+                    <td
+                      className="max-w-[14rem] truncate px-3 py-2 font-mono text-xs"
+                      title={m.alias ?? undefined}
+                    >
+                      {m.alias ?? '-'}
+                    </td>
+                    <td
+                      className="max-w-[16rem] truncate px-3 py-2 font-mono text-xs"
+                      title={m.upstreamModel ?? undefined}
+                    >
+                      {m.upstreamModel ?? '-'}
+                    </td>
+                    <td
+                      className="max-w-[14rem] truncate px-3 py-2 text-xs"
+                      title={m.displayName ?? undefined}
+                    >
+                      {m.displayName ?? '-'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge
+                        variant="outline"
+                        className={
+                          m.enabled === false
+                            ? 'border-transparent bg-muted text-muted-foreground'
+                            : 'border-transparent bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        }
+                      >
+                        {m.enabled === false ? '已停用' : '已启用'}
+                      </Badge>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {m.createdAt ? fmt.format(new Date(m.createdAt)) : '-'}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-1">
+                        <Tooltip content="删除别名">
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={deleteMut.isPending}
+                              onClick={() => {
+                                if (confirm(`删除别名 "${m.alias ?? m.id}"?`)) {
+                                  deleteMut.mutate(m.id)
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Dialog open={createOpen} onOpenChange={(o) => !o && setCreateOpen(false)}>
+        <DialogContent>
+          <form onSubmit={submitCreate} className="space-y-4">
+            <DialogHeader>
+              <DialogTitle>新增模型别名</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label>平台</Label>
+              <Select
+                value={form.providerCode || 'none'}
+                onValueChange={(v) => v !== 'none' && setForm({ ...form, providerCode: v })}
+              >
+                <SelectTrigger aria-label="模型平台">
+                  <SelectValue placeholder="选择平台" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none" disabled>
+                    选择平台
+                  </SelectItem>
+                  {PROVIDER_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="m-alias">对外别名</Label>
+                <Input
+                  id="m-alias"
+                  value={form.alias}
+                  onChange={(e) => setForm({ ...form, alias: e.target.value })}
+                  placeholder="如 kimi-k2"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="m-upstream">上游模型</Label>
+                <Input
+                  id="m-upstream"
+                  value={form.upstreamModel}
+                  onChange={(e) => setForm({ ...form, upstreamModel: e.target.value })}
+                  placeholder="如 kimi-k2-0905-preview"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="m-display">显示名(可选)</Label>
+              <Input
+                id="m-display"
+                value={form.displayName}
+                onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+                placeholder="管理面/目录回显名称"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                取消
+              </Button>
+              <Button type="submit" disabled={createMut.isPending}>
+                {createMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                保存
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

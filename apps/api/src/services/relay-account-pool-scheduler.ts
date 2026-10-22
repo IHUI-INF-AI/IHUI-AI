@@ -23,6 +23,7 @@ import { tryAcquireSharedLock } from './relay-account-shared-state.js'
 import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
+import { purgeAccountUsage } from './relay-account-usage.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
@@ -30,9 +31,14 @@ const REFRESH_AHEAD_MS = 15 * 60 * 1000
 const REFRESH_FAILURE_LIMIT = 3
 /** 单轮最多处理的账号数(防刷新风暴打爆上游) */
 const BATCH_LIMIT = 50
-/** 巡检分布式锁:锁名 + 租约 TTL(4 分钟 < 5 分钟巡检间隔;进程崩溃锁自愈,不阻塞下轮) */
+/** 单轮刷新/健康检查的并发上限(手写 worker pool,不引依赖) */
+const SWEEP_CONCURRENCY = 5
+/** 台账清理节流:两次 delete 至少间隔 24h(sweep 每 5 分钟一轮,不加节流会每分钟删) */
+const USAGE_PURGE_INTERVAL_MS = 24 * 60 * 60 * 1000
+let lastUsagePurgeAt = 0
+/** 巡检分布式锁:锁名 + 租约 TTL(10 分钟 ≥ 单轮最坏耗时;进程崩溃锁自愈,不阻塞下轮) */
 export const SWEEP_LOCK_NAME = 'relay-account-pool-sweep'
-const SWEEP_LOCK_TTL_MS = 4 * 60 * 1000
+const SWEEP_LOCK_TTL_MS = 10 * 60 * 1000
 
 export interface AccountPoolSweepResult {
   refreshed: number
@@ -46,6 +52,41 @@ export interface AccountPoolSweepResult {
 
 function ctxOf(row: AiRelayAccountPool, credentials: AccountCredentials): AdapterAccountContext {
   return { row, credentials }
+}
+
+/** 简单 worker pool:最多 limit 个 worker 并行消费 items(保持结果不确定但计数一致)。 */
+async function runWithConcurrency<T>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  let next = 0
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const idx = next++
+      const item = items[idx]
+      if (item !== undefined) await worker(item)
+    }
+  })
+  await Promise.all(runners)
+}
+
+/** 台账过期清理(24h 节流;失败由 purgeAccountUsage 内部吞掉)。 */
+async function maybePurgeUsageLedger(): Promise<void> {
+  const now = Date.now()
+  if (lastUsagePurgeAt > 0 && now - lastUsagePurgeAt < USAGE_PURGE_INTERVAL_MS) return
+  lastUsagePurgeAt = now
+  const deleted = await purgeAccountUsage()
+  if (deleted > 0) {
+    logger.info('[relay-account-pool] 过期用量台账已清理', { deleted })
+  }
+}
+
+/** 单测用:重置 24h 清理节流(模块级状态,避免跨用例互相影响)。 */
+export const __test__ = {
+  resetUsagePurgeThrottle(): void {
+    lastUsagePurgeAt = 0
+  },
 }
 
 /** 刷新单账号;成功回写凭证,失败累计摘除。返回 true = 刷新成功 */
@@ -101,7 +142,7 @@ async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
 
 /**
  * 巡检入口(多实例安全):先抢分布式锁(SET NX PX),锁被其他实例持有 ⇒ 本轮跳过。
- * 锁在 finally 释放;进程崩溃未释放时靠租约 TTL(4 分钟)自愈。
+ * 锁在 finally 释放;进程崩溃未释放时靠租约 TTL(10 分钟)自愈。
  */
 export async function sweepAccountPool(): Promise<AccountPoolSweepResult> {
   const lock = await tryAcquireSharedLock(SWEEP_LOCK_NAME, SWEEP_LOCK_TTL_MS)
@@ -135,7 +176,10 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   const now = new Date()
   const deadline = new Date(now.getTime() + REFRESH_AHEAD_MS)
 
-  // ── 1. 临期刷新 ──
+  // ── 0. 台账保留期清理(24h 节流;每 5 分钟一轮 sweep 但不会每轮 delete) ──
+  await maybePurgeUsageLedger()
+
+  // ── 1. 临期刷新(并发上限 SWEEP_CONCURRENCY) ──
   const expiring = await dbRead
     .select()
     .from(aiRelayAccountPool)
@@ -147,17 +191,17 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       ),
     )
     .limit(BATCH_LIMIT)
-  for (const row of expiring) {
+  await runWithConcurrency(expiring, SWEEP_CONCURRENCY, async (row) => {
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) {
       out.refreshSkipped++
-      continue
+      return
     }
     if (await refreshOne(row)) out.refreshed++
     else out.refreshFailed++
-  }
+  })
 
-  // ── 2. unknown 健康定级 ──
+  // ── 2. unknown 健康定级(并发上限 SWEEP_CONCURRENCY) ──
   const unknowns = await dbRead
     .select()
     .from(aiRelayAccountPool)
@@ -172,9 +216,9 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       ),
     )
     .limit(BATCH_LIMIT)
-  for (const row of unknowns) {
+  await runWithConcurrency(unknowns, SWEEP_CONCURRENCY, async (row) => {
     const adapter = getRelayAdapter(row.providerCode)
-    if (!adapter) continue
+    if (!adapter) return
     try {
       const outcome = await adapter.checkHealth(ctxOf(row, decryptAccountCredentials(row)), {
         proxyUrl: row.proxyUrl,
@@ -192,7 +236,7 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     } catch {
       /* 单账号检查异常不中断整轮 */
     }
-  }
+  })
 
   // ── 3. down 账号恢复尝试(有 refreshToken 且未超失败阈值) ──
   const downs = await dbRead

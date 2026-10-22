@@ -183,14 +183,17 @@ function buildCreatePayload(
 // 响应辅助
 // =============================================================================
 
-/** 非 2xx 统一处理:读 body 文本 → 401/403 抛鉴权错,其余抛带状态码与截断 body 的普通错 */
+/** 非 2xx 统一处理:读 body 文本 → 401/403 抛鉴权错,其余抛带状态码与截断 body 的富分类错 */
 async function failIfNotOk(res: Response, action: string): Promise<void> {
   if (res.ok) return
   const text = await res.text().catch(() => '')
   if (res.status === 401 || res.status === 403) {
     throw new TraeAuthFailureError(res.status, text)
   }
-  throw new Error(`Trae ${action} 失败(HTTP ${res.status})${text ? `: ${text.slice(0, 500)}` : ''}`)
+  throw new TraeUpstreamError(
+    res.status,
+    `Trae ${action} 失败(HTTP ${res.status})${text ? `: ${text.slice(0, 500)}` : ''}`,
+  )
 }
 
 /** 从创建响应里宽松取 chat_session_id / message_id(兼容 data 包裹与顶层) */
@@ -269,11 +272,15 @@ async function* translateUpstreamEvents(
 
     if (name === 'error') {
       const code = obj.code !== undefined && obj.code !== null ? String(obj.code) : 'unknown'
-      throw new Error(`Trae 上游错误帧(code=${code}): ${data.slice(0, 500)}`)
+      throw new TraeUpstreamError(0, `Trae 上游错误帧(code=${code}): ${data.slice(0, 500)}`, code)
     }
     const err = extractErrorInfo(obj)
     if (err) {
-      throw new Error(`Trae 上游错误帧(code=${err.code}): ${err.message || '未知错误'}`)
+      throw new TraeUpstreamError(
+        0,
+        `Trae 上游错误帧(code=${err.code}): ${err.message || '未知错误'}`,
+        err.code,
+      )
     }
 
     const usage = extractUsage(obj, name)
@@ -460,7 +467,8 @@ export const traeAdapter: RelayUpstreamAdapter = {
     })
     if (!res.ok) {
       const text = await res.text().catch(() => '')
-      throw new Error(
+      throw new TraeUpstreamError(
+        res.status,
         `Trae ExchangeToken 失败(HTTP ${res.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
       )
     }
@@ -514,7 +522,8 @@ export const traeAdapter: RelayUpstreamAdapter = {
     })
     if (!res.ok) {
       const text = await res.text().catch(() => '')
-      throw new Error(
+      throw new TraeUpstreamError(
+        res.status,
         `Trae model_list 失败(HTTP ${res.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
       )
     }
@@ -534,6 +543,12 @@ export const traeAdapter: RelayUpstreamAdapter = {
   isAuthError(err: unknown): boolean {
     return isTraeAuthFailure(err)
   },
+
+  /** 富分类:与独立导出函数同源;network 归入 client(接口只接受 8 类) */
+  classifyUpstreamFailure(statusCode: number, bodyText: string) {
+    const kind = classifyUpstreamFailure(statusCode, bodyText)
+    return { kind: kind === 'network' ? ('client' as const) : kind }
+  },
 }
 
 /** 宽松取 model_configs(兼容顶层与 data 包裹) */
@@ -548,5 +563,89 @@ function extractModelConfigs(body: unknown): Array<Record<string, unknown>> | nu
     if (Array.isArray(c)) return c as Array<Record<string, unknown>>
   }
   return null
+}
+
+// =============================================================================
+// 上游失败富分类(供转发层按语义冷却/摘除,不再一律归为 network)
+// =============================================================================
+
+/** 与 relay-account-forwarder.ts 的 FailureKind 保持一致 */
+export type FailureKind =
+  | 'auth'
+  | 'credit'
+  | 'session_dead'
+  | 'rate'
+  | 'not_found'
+  | 'request'
+  | 'server'
+  | 'client'
+  | 'network'
+
+/** 消息摘要里的敏感值打码(token/cookie 等键值);正文只保留可读片段 */
+function redactUpstreamSummary(text: string): string {
+  return text.replace(
+    /("?(?:access_token|refresh_token|token|cookie|authorization)"?\s*[:=]\s*"?)([^"\s,;}]+)/gi,
+    '$1***',
+  )
+}
+
+/**
+ * Trae 上游非鉴权失败(带 HTTP 状态码与可选上游业务码)。
+ * 无 HTTP 状态时 statusCode=0(典型:SSE error 帧);消息截断 500 字防泄漏/防日志膨胀。
+ */
+export class TraeUpstreamError extends Error {
+  readonly statusCode: number
+  readonly upstreamCode?: number | string
+
+  constructor(statusCode: number, message: string, upstreamCode?: number | string) {
+    super(redactUpstreamSummary(message).slice(0, 500))
+    this.name = 'TraeUpstreamError'
+    this.statusCode = statusCode
+    this.upstreamCode = upstreamCode
+  }
+}
+
+const CREDIT_HINTS = ['额度', '积分', 'quota', 'insufficient', 'balance'] as const
+const SESSION_DEAD_HINTS = [
+  '登录失效',
+  '请重新登录',
+  'login required',
+  'session expired',
+  'token expired',
+  '未授权',
+  '会话过期',
+] as const
+const REQUEST_HINTS = [
+  '参数',
+  '长度',
+  'context length',
+  'invalid',
+  'unsupported',
+  '审核',
+  '敏感',
+] as const
+
+function hitsAny(lowerText: string, hints: readonly string[]): boolean {
+  return hints.some((h) => lowerText.includes(h))
+}
+
+/**
+ * 上游失败分类:先按文本判 credit/session_dead(避免被 400 等状态掩盖),再按状态码。
+ * 0 状态且文本无命中 → network;其余未知 → client。
+ */
+export function classifyUpstreamFailure(status: number, bodyText: string): FailureKind {
+  const lower = bodyText.toLowerCase()
+  if (hitsAny(lower, CREDIT_HINTS)) return 'credit'
+  if (hitsAny(lower, SESSION_DEAD_HINTS)) return 'session_dead'
+
+  if (status === 401 || status === 403) return 'auth'
+  if (status === 429) return 'rate'
+  if (status === 404) return 'not_found'
+  if (status === 402) return 'credit'
+  if (status >= 500 && status <= 599) return 'server'
+  if (status === 400 || status === 413 || status === 422) return 'request'
+  if (hitsAny(lower, REQUEST_HINTS)) return 'request'
+  if (status === 0) return 'network'
+  return 'client'
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

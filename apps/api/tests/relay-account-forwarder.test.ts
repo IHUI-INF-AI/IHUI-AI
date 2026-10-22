@@ -714,5 +714,153 @@ describe('forwardToAccountPool', () => {
       expect(mockReportProxyFailure).toHaveBeenCalledWith('http://proxy.test:8080'),
     )
   })
+
+  // ── 审计修复回归(2026-10-22 P0/P1)──
+
+  it('response_format / seed 透传到账号池归一请求(JSON mode 不再丢失)', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-json-mode')]
+    let seen: { responseFormat?: unknown; seed?: number } = {}
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        buildChatRequest: (_ctx: AdapterAccountContext, norm) => {
+          seen = { responseFormat: norm.responseFormat, seed: norm.seed }
+          return { url: 'https://upstream.test/v', method: 'POST', headers: {}, body: {} }
+        },
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ id: 'cm-jm', choices: [] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    )
+    const req = {
+      ...baseReq('json-mode-model-1'),
+      stream: false,
+      responseFormat: { type: 'json_object' },
+      seed: 42,
+    }
+    const res = await forwardToAccountPool(req, 'json-mode-model-1')
+    expect(res && res.ok).toBe(true)
+    expect(seen.responseFormat).toEqual({ type: 'json_object' })
+    expect(seen.seed).toBe(42)
+  })
+
+  it('上游 400 归 request 级:不罚号、不冷却', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    const row = accountRow('acct-400') as { id: string }
+    accountRows = [row]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{"error":"invalid messages"}', { status: 400 })),
+    )
+    const req = { ...baseReq('bad-param-model-1'), stream: false }
+    const res = await forwardToAccountPool(req, 'bad-param-model-1')
+    expect(res && res.ok).toBe(false)
+    expect((await getAccountsInCooldown([row.id])).has(row.id)).toBe(false)
+    expect(updateCalls.some((s) => 'consecutiveFailures' in s)).toBe(false)
+  })
+
+  it('SSE 内容含 "[DONE]" 字样不会截断流', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-done-word')]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    const sse =
+      'data: {"choices":[{"delta":{"content":"a [DONE] b"}}]}\n\n' +
+      'data: {"choices":[{"delta":{"content":"TAIL"}}]}\n\n' +
+      'data: [DONE]\n\n'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+      ),
+    )
+    const res = await forwardToAccountPool(baseReq('done-word-model-1'), 'done-word-model-1')
+    expect(res && res.ok).toBe(true)
+    if (!res || !res.ok) return
+    const text = await res.response.text()
+    expect(text).toContain('a [DONE] b')
+    expect(text).toContain('TAIL')
+  })
+
+  it('2xx 但响应不可解析 → 按 server 罚号并记失败台账', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    accountRows = [accountRow('acct-bad-json')]
+    registerRelayAdapter(fakeAdapter({ providerCode: 'trae' }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('not-json', {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    )
+    const req = { ...baseReq('bad-json-model-1'), stream: false }
+    const res = await forwardToAccountPool(req, 'bad-json-model-1')
+    expect(res && res.ok).toBe(false)
+    await vi.waitFor(() => expect(updateCalls.some((s) => 'consecutiveFailures' in s)).toBe(true))
+    expect(mockRecordAccountUsage).toHaveBeenCalledWith(
+      expect.objectContaining({ ok: false, promptTokens: 0, completionTokens: 0 }),
+    )
+  })
+
+  it('并发 401 只触发一次 refresh(single-flight,防 refresh token 互相覆盖)', async () => {
+    providerRows = [{ providerCode: 'trae', configId: 7 }]
+    const row = accountRow('acct-sf') as { id: string }
+    accountRows = [row]
+    let resolveRefresh: ((v: { token: string; expiresAt: Date }) => void) | null = null
+    const refreshToken = vi.fn(
+      () =>
+        new Promise<{ token: string; expiresAt: Date }>((resolve) => {
+          resolveRefresh = resolve
+        }),
+    )
+    registerRelayAdapter(
+      fakeAdapter({
+        providerCode: 'trae',
+        refreshToken,
+        buildChatRequest: () => ({
+          url: 'https://upstream.test/v',
+          method: 'POST',
+          headers: {},
+          body: { x: 1 },
+        }),
+      }),
+    )
+    // 两道 401 闸门同时放行,确保两个请求同 tick 进入刷新竞争(结果确定,不靠时序运气)
+    let gated = true
+    const pending: Array<() => void> = []
+    const fetchMock = vi.fn(() => {
+      if (!gated) return Promise.resolve(new Response('unauthorized', { status: 401 }))
+      return new Promise<Response>((resolve) => {
+        pending.push(() => resolve(new Response('unauthorized', { status: 401 })))
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const reqA = { ...baseReq('sf-model-1'), userId: 'user-a', stream: false }
+    const reqB = { ...baseReq('sf-model-1'), userId: 'user-b', stream: false }
+    const p1 = forwardToAccountPool(reqA, 'sf-model-1')
+    const p2 = forwardToAccountPool(reqB, 'sf-model-1')
+    await vi.waitFor(() => expect(pending.length).toBe(2))
+    gated = false
+    for (const release of pending) release()
+    await vi.waitFor(() => expect(refreshToken).toHaveBeenCalled())
+    expect(resolveRefresh).not.toBeNull()
+    resolveRefresh!({ token: 'jwt-new', expiresAt: FUTURE })
+    const [r1, r2] = await Promise.all([p1, p2])
+    expect(refreshToken).toHaveBeenCalledTimes(1)
+    expect(r1 && r1.ok).toBe(false)
+    expect(r2 && r2.ok).toBe(false)
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

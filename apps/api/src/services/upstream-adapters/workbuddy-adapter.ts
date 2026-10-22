@@ -222,6 +222,9 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
     // function-calling 透传:prepareChatBody 内 normalizeToolChoice 会做上游 string 形态归一
     if (req.tools !== undefined) raw['tools'] = req.tools
     if (req.toolChoice !== undefined) raw['tool_choice'] = req.toolChoice
+    // OpenAI 兼容面透传:JSON mode / 确定性采样
+    if (req.responseFormat !== undefined) raw['response_format'] = req.responseFormat
+    if (req.seed !== undefined) raw['seed'] = req.seed
     return {
       url: `${chatBaseUrl(realm)}/v2/chat/completions`,
       method: 'POST',
