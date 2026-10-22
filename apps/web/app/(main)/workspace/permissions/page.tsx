@@ -24,6 +24,7 @@ import {
   useDeleteWorkspacePermission,
 } from '@/hooks/use-workspace-permissions'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
+import { useConfirm } from '@/hooks/use-confirm'
 import type {
   WorkspacePermission,
   WorkspacePermissionMode,
@@ -31,7 +32,6 @@ import type {
 import { cn } from '@/lib/utils'
 import { permissionTierText } from '@/lib/permission-tier-text'
 // 权限档取词(G-166):档位归一与词表键的共享真相源,见 packages/shared/src/chat/permission-tier.ts
-
 
 // G-164:补 plan 档 —— 本表键类型就是 WorkspacePermissionMode 本身,少一档就编译不过
 // (上一版正是这样让 plan "类型里有、界面上永远没有")。
@@ -45,6 +45,7 @@ const MODE_LABEL: Record<WorkspacePermissionMode, { icon: LucideIcon; color: str
 
 export default function WorkspacePermissionsPage() {
   const t = useTranslations('workspace.permissionsPage')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   // G-166:档位名走跨端共享词表(permissionTier),不再用 workspace.permission.mode.*
   const tTier = useTranslations()
   const { data: permissions, isLoading } = useAllWorkspacePermissions()
@@ -52,9 +53,11 @@ export default function WorkspacePermissionsPage() {
   const [editing, setEditing] = React.useState<WorkspacePermission | null>(null)
 
   const handleDelete = (path: string) => {
-    if (confirm(t('confirmDelete'))) {
-      deleteMutation.mutate(path)
-    }
+    void confirm({ title: t('confirmDelete'), variant: 'destructive' }).then((ok) => {
+      if (ok) {
+        deleteMutation.mutate(path)
+      }
+    })
   }
 
   return (
@@ -154,6 +157,8 @@ export default function WorkspacePermissionsPage() {
           existingPermission={editing}
         />
       )}
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }
