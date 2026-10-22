@@ -122,7 +122,7 @@ def test_t5_旧形态条目_摘掉任一格重放字段即回到惰性闸() -> N
     assert chat_pending_approval_replays({'a': without_owner}, 'user-A') == []
 
 
-def test_t6_接线格已落地_取数侧唯一生产调用点是llm.py() -> None:
+def test_t6_接线格已落地_取数侧唯一生产调用点是llm() -> None:
     """D690(方案 A,2026-10-22)落地登记:取数侧被 routers/llm.py 接线。
 
     本条原为 diff① 的"零行为"登记锁(断言无生产调用点,票面写明会随 diff②

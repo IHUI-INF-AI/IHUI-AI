@@ -943,3 +943,92 @@ test('J4 防过度收紧:文件内 prefix 已含 /api 且被 include /api ⇒ �
     rmScratch(dir)
   }
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// 机制⑥(G-962,2026-10-22):pathRe 扫描面必须是**遮罩行**
+// 病根:extractFrontendCalls 的逐行扫描旧式跑 `line`(原文),注释里的
+// `fetchApi('/api/auth/refresh')`(use-auth.ts:64「原实现裸调」说明、
+// feedback-survey-card.tsx:16 端点说明、mobile-rn config.ts:32 JSDoc)照样进调用集。
+// ─────────────────────────────────────────────────────────────────────────
+test('⑥ 注释里的 fetchApi 路径不得进调用集(修前会被当 GET 调用点报名)', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(
+      dir,
+      'apps/web/src/hooks/use-auth.ts',
+      [
+        'const refreshToken = React.useCallback(async (): Promise<boolean> => {',
+        "  // 2026-09-04 根治刷新风暴。原实现裸调 fetchApi('/api/ghost/incomment')",
+        '  const newToken = await refreshAccessTokenOnce()',
+        '  return Boolean(newToken)',
+        '})',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.equal(calls(r.out, 'web'), 0, `注释行不得产出调用点\n${r.out}`)
+    assert.deepEqual(missing, [], `注释里的路径不得进死调用清单\n${JSON.stringify(missing, null, 1)}`)
+    assert.doesNotMatch(r.out, /ghost\/incomment/, `注释路径不得出现在任何报名里\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// 防过度收紧:同文件里注释那行被剔,**代码行**的真调用必须仍在。
+test('⑥ 防过度收紧:同文件注释路径被剔、代码行真调用仍在', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/real.ts', "server.post('/api/real/keep', async () => ({}))\n")
+    put(
+      dir,
+      'apps/web/src/hooks/keep.ts',
+      [
+        "import { fetchApi } from '@/lib/api'",
+        "// 旧写法 fetchApi('/api/ghost/old') 已废弃",
+        "export const go = () => fetchApi('/api/real/keep', { method: 'POST' })",
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.equal(calls(r.out, 'web'), 1, `代码行真调用必须仍计数\n${r.out}`)
+    assert.deepEqual(missing, [], `在册真调用不得判死\n${JSON.stringify(missing, null, 1)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// 机制⑥补刀(G-962):e2e 源码锁 `expect(s).toContain("'/api/…'")` —— 谓词名单缺
+// toContain、且实参是双层引号(双引号包单引号),旧式机制⑤的谓词正则贴不住
+// (apps/web/e2e/edu-finance-arrears.spec.ts:260 实证:源码锁字符串被当 GET 调用)。
+// ─────────────────────────────────────────────────────────────────────────
+test('⑥b e2e 源码锁 toContain("\'/api/…\'") 不是调用点(双层引号+谓词名单补 toContain)', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(
+      dir,
+      'apps/web/e2e/src-lock.spec.ts',
+      [
+        "test('源码锁', () => {",
+        '  const s = src.finance()',
+        `  expect(s).toContain("'/api/ghost/sourcelock'")`,
+        '})',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.equal(calls(r.out, 'web'), 0, `源码锁字符串不是调用点\n${r.out}`)
+    assert.deepEqual(missing, [], `源码锁不得进死调用清单\n${JSON.stringify(missing, null, 1)}`)
+    assert.doesNotMatch(r.out, /ghost\/sourcelock/, `源码锁路径不得出现在任何报名里\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
