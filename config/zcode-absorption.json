@@ -2199,8 +2199,8 @@
     {
       "path": "apps/zcode-cli/packages/core/src",
       "status": "windowed",
-      "files": 500,
-      "read": 500,
+      "files": 299,
+      "read": 248,
       "notes": "W5 四路按互斥目录读到体:tool 176/72(根17+executor22+handlers33;窗口6:call-runner/permission-flow/result-serialization/read/edit/bash;仅结构1:generated/bash-command-registry.ts 系 1.8MB ISC 数据块)、runtime 164/25(窗口2:events/streaming-tool-coordinator)、workflow+subagent+context+agent+memory 89/85(subagent/runner.ts 与 agent/ 三件仅窗口读,不计 read)、小而密长尾 71/66(hooks19/19、permission6/6、compact6/6、runtime-task5/5、plugin-reference4/4、session-context4/4、mcp3/3、system-reminder3/3、embedded-search2/2、errors·model·telemetry 各1/1、顶层散件4/4、browser-client7/3、repl5/4)。⚠️ read=248 是【下界】不是相加值:W3 旧登记的 44 个按 notes 判定全部落在上述目录内(tool/handlers 4、runtime/methods 14、runtime/helpers+subagent+system-reminder 11、a-m/n-z 15),父子相加会双计;真实区间 [248,292]。⚠️ 刻意不新增子切片条目:M1 只判覆盖不判互斥,而头条按切片求和 ⇒ 父子并存等于给覆盖数发合格证;目录明细只写在本字段。W5-A 报的『审批等待吃掉执行预算』已三面证伪(runToolInner/requestToolApproval 全仓零命中),不得重新提出。 ｜09-29 第五十九批:core 竞窗与权限三簇 +11 枚具名整读到体(runtime-task/registry 296、tool/executor/background-task-registry 289、background-tasks 1198、runtime/methods/background 484、background-notifications 246、runtime-command-queue 476、command-queue 241、permission/service 687、broker 166、permission-responder-race 93、helpers/permission-broker 25)。少报(代理自报只读到区间,不计整读):permission-flow.ts(431,只 100-236)、headless-workflow.ts(379,只 1-60/290-355)、prompt-command.ts(642,只 295-340)。;W6-67(2026-09-29)两路只读取证:core 余量 45 份/8,935 行、ui 行为核心 5 份/2,439 行,去重后入账 42 份(core 42/ui 5),3 份与既有清单同路径已按\"下界\"少报(interaction-auto-resolution / permission-grant-recovery / permission-grant-resume);W6-68(2026-09-29)只读取证 13 份,去重后可入账 13 份,行数逐条 wc 复核、锚点逐条 awk 回读;W6-69(2026-09-29)只读取证并入账 4 份(逐条 wc 复核,誊写不符者已排除并报名);批次73(2026-09-29)四路只读取证入账:A/B/C 三路(bash 族 + handlers 前后半),代理报 136 份,逐条对克隆 29628c9 blob 现量核行,去重后入账 +121 份(readFiles 逐条 {p,lines}),排除 15 份已逐条报名,票候选见台账第六十四批;read 现值压到 500(M8 上限:386+121=507 超切片现量,与 legacy 自报重叠不可枚举,按下界计不冒进;故头条 1622→1799 而非 1806)",
       "remaining": "约 251 未读。tool 余 97:background-tasks.ts 1198、result-display 461、read-session-context 440、edit-matchers/node-repl/create-workflow 411、store/read-pdf/cron/bash-command-permission-policy 38x。runtime 余 137:session-fork 1487、steering 1403、types 924、subagent 915、turn 872、turn-model-step 803、rewind-message 740、compact-active 725、file-rewind 717、agent-runtime 664、turn-tools 527、model 518。窗口读过的 events.ts / streaming-tool-coordinator.ts / subagent/runner.ts / agent 三件需回读补体。 ｜09-29 第六十四批复量回填:主会话 wc -l 逐份现量后具名整读到体 +13(代理报 14 枚候选,跳过 1 枚重叠/取不到);新立票 9 枚(G-815969…G-815977),每票的我方侧命中数由主会话在 HEAD 面重跑。 ｜09-29 第六十五批复量回填:代理报 9 份而逐名去重后计 +5(其余已在历史 notes 点过名,重叠不可计算);新证据 8 条按 b≤wc -l 兑现;新票 3 枚(G-815980…G-815981…G-815982)。 | W6-67 后本区余量:core 约 155-165 份未读(下一刀 subagent.ts+background-tasks.ts+task-output*/task-stop,再 compact.ts+compact-selection+context-usage+media-budget,后转 mcp/memory/workflow 整域);ui 约 1545 份/324,983 行未读(下一刀 packages/ui/src/v4 下 *.ts 非 .tsx:实测 60 份/约 9,100 行) | W6-68 后 core 同族还差 2 份/326 行(workflow-published-artifacts.ts 余 71-234、result-persistence-format.ts 未读);下一刀 tool/executor 的结果出口三件 result-display.ts 461 + result-serialization.ts 395 + permission-flow.ts 431(约 1,287 行),再 call-runner.ts 703 与 handlers/bash.ts 569(为 G-816026 的\"谁发的 SIGTERM\"落点写实)",
       "evidence": [
@@ -12744,9 +12744,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/bash-shell-snapshot.ts:1-213"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/bash-shell-snapshot.ts:1-213"],
       "tickets": [],
       "readFiles": [
         {
@@ -12798,9 +12796,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/compact-active.ts:1-725"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/compact-active.ts:1-725"],
       "tickets": [],
       "readFiles": [
         {
@@ -12816,9 +12812,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/compact-log-context.ts:1-23"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/compact-log-context.ts:1-23"],
       "tickets": [],
       "readFiles": [
         {
@@ -12852,9 +12846,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/compact.ts:1-462"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/compact.ts:1-462"],
       "tickets": [],
       "readFiles": [
         {
@@ -12870,9 +12862,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/config.ts:1-274"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/config.ts:1-274"],
       "tickets": [],
       "readFiles": [
         {
@@ -12906,9 +12896,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/context-refresh.ts:1-50"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/context-refresh.ts:1-50"],
       "tickets": [],
       "readFiles": [
         {
@@ -12942,9 +12930,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/context-usage.ts:1-421"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/context-usage.ts:1-421"],
       "tickets": [],
       "readFiles": [
         {
@@ -12960,9 +12946,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/context.ts:1-347"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/context.ts:1-347"],
       "tickets": [],
       "readFiles": [
         {
@@ -13086,9 +13070,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/events.ts:1-660"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/events.ts:1-660"],
       "tickets": [],
       "readFiles": [
         {
@@ -13104,9 +13086,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/file-rewind.ts:1-717"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/file-rewind.ts:1-717"],
       "tickets": [],
       "readFiles": [
         {
@@ -13122,9 +13102,7 @@
       "files": 1,
       "read": 1,
       "verified": "agent",
-      "evidence": [
-        "apps/zcode-cli/packages/core/src/runtime/methods/goal-state-reminder.ts:1-79"
-      ],
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/goal-state-reminder.ts:1-79"],
       "tickets": [],
       "readFiles": [
         {
@@ -13133,6 +13111,3040 @@
         }
       ],
       "notes": "Stop 先暂停 goal 再 abort 在飞工具,reminder 若立即写 history 会落在 tool_use 与 cancelled tool_result 之间违反 provider grammar→回合内开 deferral 窗口暂存 pending,close 先同步关闸(activeTurn 存活到 terminal/accounting 结束,不能拿它的存在判断 pending 所有权)再单次物化;物化失败只 warn 不阻断 Stop turn 的 terminal event(权威 target 已先落库),刻意不引入 retry/cursor/额外持久化状态机。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/goal-summary-title.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/goal-summary-title.ts:1-296"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/goal-summary-title.ts",
+          "lines": 296
+        }
+      ],
+      "notes": "目标摘要标题是后台 sidecar:不合格(标题生成关闭/子会话/非 interactive)也要写目标语义兜底(objective 截 100 字符加省略号),否则 UI 退回『第 1 次迭代』像 summaryTitle 丢失;后台任务在入队时 captureCausation 冻结触发 Span,不依赖 AsyncLocalStorage 之后仍保留原 Context;每次落库前重读 target 验 targetID 一致(stale 不写)、title 未变不写、写后回读比对不符即放弃,全过才发 recordTargetChanged。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/index.ts:1-390"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/index.ts",
+          "lines": 390
+        }
+      ],
+      "notes": "installAgentRuntimeMethods 把约 190 个模块级函数一次性挂到 AgentRuntime 原型:方法按域拆文件(config/steering/target/tools/model/…),index 是唯一装配点,runtime 类本体不实现逻辑;挂载清单即该包全部运行时能力的目录。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/mcp.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/mcp.ts:1-168"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/mcp.ts",
+          "lines": 168
+        }
+      ],
+      "notes": "MCP 启动三段幂等闸(mcpInitialized/mcpStartupPromise/mcpToolsRegistered);session 启动对 authorization_code OAuth 只等 15s(默认 5 分钟会拖迟模型请求,授权入口交给设置页);失败降级空快照 {statuses:{},tools:[]} 不阻塞;官方 CUA 信任=plugin id+本进程私有 authority 双验,server 名/tool 名/manifest env 均可被第三方仿造,不能单独作信任依据。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/model-request-session-type.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/model-request-session-type.ts:1-28"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/model-request-session-type.ts",
+          "lines": 28
+        }
+      ],
+      "notes": "模型请求按 taskType 粗分类(subagent_child→Subagent,workflow_child/nested_workflow_child→Other,其余 Main);workflow actor 拿无上限重试预算——模型错误绝不是 workflow 错误,由 runner 最大努力恢复。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/model-runtime-headers.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/model-runtime-headers.ts:1-67"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/model-runtime-headers.ts",
+          "lines": 67
+        }
+      ],
+      "notes": "Start Plan 账号鉴权材料按每个真实请求 attempt 发送前刷新(adapter 内部 retry、WebSearch/native tool、标题/compact 的单独模型请求都是),不得复用进入 adapter 前的旧材料;headersApplied=false 直接抛;child runtime 的端口由父 runtime 派生并改写 sessionId 为客户端认识的根会话。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/model-status.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/model-status.ts:1-140"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/model-status.ts",
+          "lines": 140
+        }
+      ],
+      "notes": "模型网络状态 sink 三路并行:回调 onStatus+分级日志+SessionEvent 落库并 push events 数组;七态(queued/admitted/started/completed/failed/retry_scheduled/stream_stalled)各定 event 名与级别,failed 里 reason=cancelled 折成 cancelled 态;streamRecovery 字段随状态透传。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/model-streaming-event-queue.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/model-streaming-event-queue.ts:1-69"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/model-streaming-event-queue.ts",
+          "lines": 69
+        }
+      ],
+      "notes": "逐 token 同步 append 会卡住 provider SSE reader,故把 append 串成有序写队列(tail promise 链)、读取侧继续 drain;高水位 128 触发背压;写失败粘滞(writeFailure ??= error 保留首个),后续 enqueue/drain 重放同一错误;finish/error/tool_call 边界显式 drain 保持顺序语义。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/model-streaming-event.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/model-streaming-event.ts:1-14"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/model-streaming-event.ts",
+          "lines": 14
+        }
+      ],
+      "notes": "单条流事件出口=createEvent+appendEvent+push events,无额外逻辑;与写队列件分离便于测。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/model.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/model.ts:1-518"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/model.ts",
+          "lines": 518
+        }
+      ],
+      "notes": "runModelTextRequest 模型请求唯一入口:媒体路径→inputFormat→媒体预算三级投影逐级留诊断;turn 快照存在时整体采用不用 ?? 逐字段回退(防 provider options 与本轮模型分叉);tool_input_delta 遇真实/转义换行或超 4096 字符即 flush(Write/Edit 行数体验),同 id 重复 final tool_call 按 id 去重;contextExceeded 不提前抛流异常(会被通用断流恢复接管、绕过 turn 层 Reactive Compact),保留原始结果;HTTP200 空 SSE 的可疑空完成在抛错前打 finishReason/providerMetadata 摘要。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/plugin-reference.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/plugin-reference.ts:1-150"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/plugin-reference.ts",
+          "lines": 150
+        }
+      ],
+      "notes": "turn-start 插件引用 reminder:无引用是绝对主路径零开销;provider-visible=启动快照过 session 全局 allow/disallow 再过本轮 toolDisallowlist(只看 registry 会把『本轮隐藏、全局仍注册』的 MCP tool 误算可见);引用绝不触发 connect/reconnect/OAuth 只读现状;对话 fail open(生成失败不阻塞本轮)、能力注入 fail closed(异常不写兜底);reminder 必须同步落 model-only notice,否则热会话保留而 cold resume 丢失、历史序列错位破坏 provider 前缀缓存。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/projection-anchor.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/projection-anchor.ts:1-39"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/projection-anchor.ts",
+          "lines": 39
+        }
+      ],
+      "notes": "v4 transcript 锚点是 additive JSON 可选字段,旧数据读侧宽容降级;turnId/origin/sourceCommandId 全缺时返回 undefined 不写空锚;旧 SyntheticUserMessageSource→新 origin 词表只做只读映射(background_task/subagent→backgroundResult,goal-continuation→goalContinuation,其余 synthetic)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/prompt-admission.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/prompt-admission.ts:1-133"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/prompt-admission.ts",
+          "lines": 133
+        }
+      ],
+      "notes": "每个 runtime 自己完成 prompt admission(查 busy→reserveTurnStart→入本 runtime FIFO),Bootstrap 拆开则 reservation 前的异步窗口会让同一 session 产生第二条 turn;promotionLeaseOnly 例外:仅持 promotion lease 且无活跃执行/队列/turn 时 requireIdle 仍放行;busy 且 steerable 且无附件→steerTurn,否则 enqueueDeferredInput(guide/queue 两档);admission 完成后 completion 吞掉 catch,执行失败由 turn 事件消费不造 unhandled rejection。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/reasoning-stream.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/reasoning-stream.ts:1-28"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/reasoning-stream.ts",
+          "lines": 28
+        }
+      ],
+      "notes": "Anthropic 兼容 provider 可能无 start 事件直接发 thinking delta:getOrCreate 按 id(缺省 __zcode_default_reasoning__)惰性建块并保留,后续 tool_result 请求才能把 assistant thinking 与 tool_use 一起回放。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/residency.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/residency.ts:1-28"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/residency.ts",
+          "lines": 28
+        }
+      ],
+      "notes": "登记越过同步调用栈的 runtime-owned detached work(title/MCP startup/ledger write):计数必须在 Promise 启动的同一同步片 +1、只在 finally 释放,否则常驻池把仍在读写 runtime 的会话当 idle 关闭;常驻池只消费 hasResidencyBlockingWork 这一个口径,新增 sidecar 不再修改 bootstrap 的猜测列表。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/configured-runner.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/configured-runner.ts:1-191"],
+      "notes": "按 config.events 与 workspace hook 声明生成 HookRegistration 并构造 InMemoryHookRunner；无 hook 时返回 undefined。导出 createConfiguredHookRunner。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/configured-runner.ts",
+          "lines": 191
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/configured-runner-callback.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/configured-runner-callback.ts:1-245"],
+      "notes": "按 hook 类型构造回调：command 走兼容 stdin+插件变量/环境 overlay，process 直接派生进程，统一套超时、输出上限与错误归一。导出 createConfiguredHookCallback。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/configured-runner-callback.ts",
+          "lines": 245
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/configured-runner-input.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/configured-runner-input.ts:1-159"],
+      "notes": "为 hook 生成兼容 stdin（camelCase↔snake_case 别名与临时 transcript），并解析超时、插件变量展开与环境 overlay。导出 createCompatibleHookStdin/resolveHookTimeoutMs/createPluginEnvOverlay/expandPluginVariables。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/configured-runner-input.ts",
+          "lines": 159
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/display-metadata.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/display-metadata.ts:1-71"],
+      "notes": "生成可展示的 hook 执行描述（命令/来源/前台或后台）并对 token、password 等敏感值脱敏。导出 createHookExecutionDescriptor/sanitizeHookDisplayText。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/display-metadata.ts",
+          "lines": 71
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/index.ts:1-21"],
+      "notes": "hooks 公共导出口：configured runner、display metadata、内存 runner、session mailbox 与 workspace hook 信任域。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/index.ts",
+          "lines": 21
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/output.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/output.ts:1-160"],
+      "notes": "把 hook JSON 输出归一成 HookRunResult：continue=false 落 block/stop、权限事件落 deny、Stop 事件特判、附加 context 合并。导出 processHookOutput/mergeHookRunResult/matchesHookMatcher。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/output.ts",
+          "lines": 160
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/runner-helpers.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/runner-helpers.ts:1-108"],
+      "notes": "hook 执行辅助：准入闸异常即失败关闭、超时/取消错误与 outcome 归一、matcher 匹配与执行 descriptor 解析。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/runner-helpers.ts",
+          "lines": 108
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/runner.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/runner.ts:1-462"],
+      "notes": "InMemoryHookRunner：按事件与 matcher 串行执行注册 hook，链接 abort/timeout、聚合 additionalContexts、把失败落成 session 事件。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/runner.ts",
+          "lines": 462
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/session-mailbox.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/session-mailbox.ts:1-79"],
+      "notes": "把会话邮箱未读消息在 hook 时机 drain（限 20 条），PostToolUse 时转投为 pending 输入。导出 createSessionMailboxHookRegistrations。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/session-mailbox.ts",
+          "lines": 79
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/types.ts:1-103"],
+      "notes": "hook 回调、注册、运行结果、准入决策与 runner 选项的类型契约。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/types.ts",
+          "lines": 103
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-policy.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/workspace-hook-policy.ts:1-63"],
+      "notes": "workspace hook 策略（默认 user_decides）的读取、订阅与内存实现。导出 InMemoryWorkspaceHookPolicyProvider。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-policy.ts",
+          "lines": 63
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-review-flow.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/workspace-hook-review-flow.ts:1-315"],
+      "notes": "workspace hook 复核流程：按 session/task/run/generation 生成复核请求并接受/拒绝决策，处理 superseded 与 snapshot mismatch。导出 WorkspaceHookReviewFlowRegistry。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-review-flow.ts",
+          "lines": 315
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-runtime-admission.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/hooks/workspace-hook-runtime-admission.ts:1-330"
+      ],
+      "notes": "workspace hook 运行时准入：按 activationSource、声明摘要与复核项判定 allowed/reasonCode，并向投影层上报 pending 状态与遥测。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-runtime-admission.ts",
+          "lines": 330
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-telemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/workspace-hook-telemetry.ts:1-101"],
+      "notes": "workspace hook 遥测事件枚举与 emit，另含 digest 与 workspace 身份摘要脱敏。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-telemetry.ts",
+          "lines": 101
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-coordinator.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-coordinator.ts:1-197"
+      ],
+      "notes": "workspace hook 信任协调器：维护策略修订、持久信任记录与撤销集，产出快照评估。导出 WorkspaceHookTrustCoordinator。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-coordinator.ts",
+          "lines": 197
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-domain.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-domain.ts:1-4"],
+      "notes": "信任域桶导出：policy/coordinator/records/types 四件。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-domain.ts",
+          "lines": 4
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-evaluation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-evaluation.ts:1-99"
+      ],
+      "notes": "按策略模式、store 状态与持久记录/撤销键计算单条 hook 的 effective trustState。导出 evaluateWorkspaceHookEntry/trustKey。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-evaluation.ts",
+          "lines": 99
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-records.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-records.ts:1-38"],
+      "notes": "把复核通过的 reviewItemId 生成带授权现场（摘要、来源、matcher）的信任记录。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-records.ts",
+          "lines": 38
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-types.ts:1-23"],
+      "notes": "信任存储状态（missing/ok/corrupt）、快照评估与 items 的类型定义。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/hooks/workspace-hook-trust-types.ts",
+          "lines": 23
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/builder.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/builder.ts:1-372"],
+      "notes": "ContextBuilder：按配置装配 identity/env/skills/memory/desktop 等 section、估算 token，产出 system 与 meta_user 双注入面的 ContextBuildResult。导出 ContextBuilder/createContextBuilder。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/builder.ts",
+          "lines": 372
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/dynamic-sections.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/dynamic-sections.ts:1-125"],
+      "notes": "动态提示段：会话指引、默认行为与沟通约束、output style、上下文压缩说明。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/dynamic-sections.ts",
+          "lines": 125
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/index.ts:1-17"],
+      "notes": "context 公共导出口：types/builder/utils 与各 section builder。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/index.ts",
+          "lines": 17
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/sections/cli-prefix.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/sections/cli-prefix.ts:1-23"],
+      "notes": "CLI 前缀段：声明终端交互与工具呈现方式。导出 buildCliPrefixSection。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/sections/cli-prefix.ts",
+          "lines": 23
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/sections/current-date.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/sections/current-date.ts:1-25"],
+      "notes": "当前日期段；输入为空时返回 null。导出 buildCurrentDateSection。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/sections/current-date.ts",
+          "lines": 25
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/sections/desktop.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/sections/desktop.ts:1-43"],
+      "notes": "ZCode Desktop 专属上下文：本地 URL/文件引用格式与 ::code-comment 指令约束。导出 buildDesktopContextSection。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/sections/desktop.ts",
+          "lines": 43
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/sections/env-info.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/sections/env-info.ts:1-129"],
+      "notes": "环境信息段（工作目录/平台/git 仓库状态），并单独生成 git system context。导出 buildEnvInfoSection/buildGitSystemContextSection/isEnvInfoGitRepository。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/sections/env-info.ts",
+          "lines": 129
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/sections/identity.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/sections/identity.ts:1-55"],
+      "notes": "身份段：安全声明、Harness 稳定约束与 output style 组装；安全与 Harness 文本被 workflow 子代理逐字复用。导出 buildSecurityNotice/buildHarnessBlock/buildIdentitySection。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/sections/identity.ts",
+          "lines": 55
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/sections/memory.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/sections/memory.ts:1-50"],
+      "notes": "记忆段：把 memoryRoot 与索引内容注入请求上下文；无根目录返回 null。导出 buildMemorySection。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/sections/memory.ts",
+          "lines": 50
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/sections/request-user-context.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/context/sections/request-user-context.ts:1-134"
+      ],
+      "notes": "把用户指令与记忆索引拼成 request_user_context 动态段。导出 buildRequestUserContextSection。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/sections/request-user-context.ts",
+          "lines": 134
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/sections/skills.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/sections/skills.ts:1-79"],
+      "notes": "技能列表段：按 metadata 预算（默认 20k）与描述截断（250 字）渲染可用技能；空列表返回 null。导出 buildSkillsSection。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/sections/skills.ts",
+          "lines": 79
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/sections/workflow-actor.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/sections/workflow-actor.ts:1-82"],
+      "notes": "动态工作流子代理的身份段（actor 名称/职责），与交互式身份共用安全与 Harness 文本。导出 buildWorkflowActorIdentitySection。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/sections/workflow-actor.ts",
+          "lines": 82
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/types.ts:1-139"],
+      "notes": "ContextSection、注入面、缓存提示、构建配置与 workflow actor 的类型定义。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/types.ts",
+          "lines": 139
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/context/utils.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/context/utils.ts:1-18"],
+      "notes": "token 估算工具（字符启发式）。导出 estimateTokens。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/context/utils.ts",
+          "lines": 18
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/directory.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/directory.ts:1-26"],
+      "notes": "确保记忆目录存在；创建失败只 debug 记录，不阻断 Write/Edit 的原始错误。导出 ensureMemoryDirectoryExists。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/directory.ts",
+          "lines": 26
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/extraction.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/extraction.ts:1-301"],
+      "notes": "记忆抽取调度：游标推进，判定 run 或 skip（直接写记忆/无用户散文），执行后归为 success/no-op/error/aborted。导出 createMemoryExtractionScheduler/buildMemoryExtractionPrompt。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/extraction.ts",
+          "lines": 301
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/index-content.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/index-content.ts:1-67"],
+      "notes": "记忆索引内容格式化：去 frontmatter 与 HTML 注释，按 200 行/25k 字符截断并附截断说明。导出 formatProjectMemoryIndexContent/formatMemoryIndexContent。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/index-content.ts",
+          "lines": 67
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/memory-agent-loop.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/memory-agent-loop.ts:1-292"],
+      "notes": "记忆子代理循环：只允许 Read/Grep/Glob 只读工具，bash 走权限安全判定，按模型 tool call 迭代直到结束。导出 runMemoryAgentLoop。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/memory-agent-loop.ts",
+          "lines": 292
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/memory-file-path.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/memory-file-path.ts:1-83"],
+      "notes": "记忆文件路径安全解析：限制在 memoryRoot 内、拒绝 .git/hooks/node_modules 等敏感段，并提供相对路径。导出 resolveContainedMemoryFilePath/resolveSafeMemoryFilePath/memoryFileRelativePath。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/memory-file-path.ts",
+          "lines": 83
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/origin-session.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/origin-session.ts:1-51"],
+      "notes": "在记忆 Markdown 的 frontmatter metadata 里盖 origin sessionId；仅限 memoryRoot 内的 .md，解析失败原样返回。导出 stampMemoryOriginSessionId。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/origin-session.ts",
+          "lines": 51
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/project-root.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/project-root.ts:1-33"],
+      "notes": "按 workspaceIdentity 或规范化路径 sha256 前 16 位生成项目记忆根 memories/projects/<slug>-<hash>/memory。导出 resolveProjectMemoryRoot。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/project-root.ts",
+          "lines": 33
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/recall/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/recall/index.ts:1-2"],
+      "notes": "记忆召回桶导出：manifest 与 types。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/recall/index.ts",
+          "lines": 2
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/recall/manifest.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/recall/manifest.ts:1-137"],
+      "notes": "扫描记忆目录生成 manifest（最多 200 个文件、预览 30 行，按 mtime 倒序），并格式化为提示文本。导出 scanMemoryManifest/formatMemoryManifest。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/recall/manifest.ts",
+          "lines": 137
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/memory/recall/types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/memory/recall/types.ts:1-11"],
+      "notes": "记忆召回类型（user/feedback/project/reference）与 manifest 条目契约。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/memory/recall/types.ts",
+          "lines": 11
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/browser-client/documentation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/browser-client/documentation.ts:1-239"],
+      "notes": "加载浏览器文档 manifest，并按浏览器类型与 API/能力条件过滤适用文档。导出 loadBrowserDocumentation。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/browser-client/documentation.ts",
+          "lines": 239
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/browser-client/facade.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/browser-client/facade.ts:1-1166"],
+      "notes": "Browser/Tabs/Recording facade：共享 selection、transport 与对象 identity 的浏览器连接状态机。导出 BrowsersFacade/Browser/BrowserTabs/BrowserRecordingAPI 等。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/browser-client/facade.ts",
+          "lines": 1166
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/browser-client/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/browser-client/index.ts:1-72"],
+      "notes": "browser-client 公共导出口与 setupBrowserRuntime 装配。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/browser-client/index.ts",
+          "lines": 72
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/browser-client/manifest.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/browser-client/manifest.ts:1-595"],
+      "notes": "浏览器 API manifest：成员类型/对象图、动态裁剪策略与 Proxy 合同。导出 loadBrowserApiManifest/BrowserApiPolicy/createBrowserApiProxy。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/browser-client/manifest.ts",
+          "lines": 595
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/browser-client/playwright.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/browser-client/playwright.ts:1-789"],
+      "notes": "Playwright API 对象图：locator/frame/download/filechooser 等与对外契约一一对应。导出 PlaywrightAPI/PlaywrightLocator/PlaywrightFrameLocator 等。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/browser-client/playwright.ts",
+          "lines": 789
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/browser-client/result.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/browser-client/result.ts:1-54"],
+      "notes": "浏览器命令结果判定：BrowserCommandError、base64 转换与 expectOk/expectPayload。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/browser-client/result.ts",
+          "lines": 54
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/browser-client/selection.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/browser-client/selection.ts:1-141"],
+      "notes": "浏览器/tab 选择：默认后端排序（iab > preferred extension > extension），并按 URL 选 tab/browser。导出 selectDefaultBrowser/selectTabForUrl/selectBrowserForUrl。",
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/browser-client/selection.ts",
+          "lines": 141
+        }
+      ],
+      "tickets": []
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/rewind-message.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/rewind-message.ts:1-740"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/rewind-message.ts",
+          "lines": 740
+        }
+      ],
+      "notes": "/rewind 原语与 cascade 封装：scope 分派 Workspace/Both/Conversation；cascade 先完整读取全部 checkpoint artifact 再按创建顺序倒序写文件，可预见失败不发生在 workspace 半回退后；conversation 走 plan/apply 分离（Both 先评估可用性再回退 workspace 最后 apply）；remapAssistantAnchor 仅纯 conversation 开启（v4 edit/retry 用 assistant 锚回溯所属 user prompt），both/cascade 严格 precheck；setRevert 前 cancelRemovedBranchBackgroundTasks fail closed——不能确认旧分支后台任务已停则不提交 branch cut；revert 存 keptMessageIDs/branchGeneration 防旧分支复浮；失败不伪造 RewindTriggered 事件（否则 live projection 裁 UI 而 store 留旧分支）；rebuildConversationDerivedState 全量重置 hydrate/turnNumber/cacheHitAggregate。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-queue.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-queue.ts:1-476"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-command-queue.ts",
+          "lines": 476
+        }
+      ],
+      "notes": "runtime 命令队列：drainActive 重入闸；task-notification 同批合并为一个模型轮、混批抛错；promotion lease 下匹配 command 出队与 lease 消费必须同一同步步（否则 notification B 抢在 promoted command 前）；acquireForegroundPromotionLease 同 leaseId 幂等、异 leaseId conflict、idle-only 需全闲；release 主动恢复 drain 不等下一条 enqueue；beginForegroundExecution 取消域覆盖整条 runtime command（含 goal verifier/continuation 交界）；stopActiveForegroundExecution 校验 expectedForegroundExecutionId、preserveQueueAutoDrainOnCancel 把调用意图钉在当前执行（内部抢占≠用户 Stop）；notification batch inputId 用 uuidv7 新值，防 telemetry 借持久化 msg_* 与普通 turn 归因分叉。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-model.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/runtime-model.ts:1-80"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/runtime-model.ts",
+          "lines": 80
+        }
+      ],
+      "notes": "模型句柄工厂：缺 selection 只在执行入口拒绝（recoverable ConfigurationError），Factory 契约仍严格；runtime 层调用上下文（准入端口+重试预算）回答「谁在调」而非「为什么调」——若只在 turn step 注入，WebSearch/WebFetch/压缩/标题 sidecar 等九处调用点全部绕过闸门（实测治理器看不见 2/3 的 429）；现于句柄工厂绑定一次，withModelInvocationContext 合并顺序本层压过调用层、无逐调用退出口；包装 bind/generateText/streamText 并 Object.freeze。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/session-fork.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/session-fork.ts:1-1487"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/session-fork.ts",
+          "lines": 1487
+        }
+      ],
+      "notes": "会话 fork：V4 stable/compact-edit 走 commitAtomicConversationFork，一次性预分配完整 child-local 身份映射（message/part/turn/productTurn/target/verifierEntry/verification/toolCall+notice），strictLocalReferences 缺映射即抛，杜绝逐条补写窗口；modelSelection 与 executionState entry 同 child bundle 原子提交（冷恢复不回退 workspace 默认 thought）；selection_side_chat 不复制 goal/verifier、剥 inherited 历史 goalBoundary、强制 model-only 可见并注入边界提醒（不自动续父工作、未明说不改 workspace），生成中只保留本轮已提交 real-user input；fork 源消息用 forkSourceMessagesForSession（UI transcript 语义，排除 rewind/edit 旧分支），区别于 activeSessionMessages 的模型恢复语义；compact-covered fork 把 assistant parentID 指向的真实用户输入放回 compact boundary 前防历史气泡丢失；legacy fork 逐条复制并按 copied verification 派生 forked goal 状态（complete 无 passed 验证则降 active）；commit 后父 SessionForked 事件失败仅 warn。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/session-shell-environment.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/session-shell-environment.ts:1-226"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/session-shell-environment.ts",
+          "lines": 226
+        }
+      ],
+      "notes": "会话 shell 环境：Bash shell 是 session-start 快照，各入口只表达当前候选值，runtime 统一在首次真实用户执行前初始化一次（candidate 支持 lazy resolver 避免已有 snapshot 的 session 重复探测 shell）；apply 同步刷新 branch-aware 内建工具与 pre-conversation context；持久化/恢复经 bash-shell-snapshot（restored/fallback 应用但不刷上下文）；resume 后无可用 snapshot 且 auto Git Bash 接管（旧 Windows 会话升级场景）必须补 provider-visible shell 提醒防模型沿用旧 shell 习惯，正常 snapshot 恢复不插以免破坏「shell 变更只对新 session 生效」契约，提醒按内容去重；refreshPreConversationShellContext 仅在 deferred draft 隐藏预热态（纯 context prefix、未落盘）时同步刷新 envInfo/contextSourceSnapshot 并 rebuildContextPrefix。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/session-title.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/session-title.ts:1-407"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/session-title.ts",
+          "lines": 407
+        }
+      ],
+      "notes": "会话标题生成：shouldAttempt 闸门（未尝试过/titleGeneration 配置存在且 enabled/有 sessionStore/非子 session/interactive taskType/turnNumber=0/normalize 后≥10 字符——短首发如 hi 本身是可读标题，防 sidecar 稳定覆盖成泛化 New Coding Session）；/goal 等协议命令复用 seed 且 bypassShortInputGuard、不额外持久化 user message 污染 transcript；需刷新 runtime headers 的 provider 把标题延后到主 turn 之后（两者共享 runtimeModel）；入队时冻结 telemetry causation 防后台 Trace 丢触发 Span Link；写回前重读 session，编辑首条 query（revert target/kept 检测）后旧 query 标题只能记用量不能写回；updateSession 用 expectedTitleSources CAS、custom titleSource 短路；sidecar 失败/空响应必须给 goal summaryTitle 写兜底；成功 persist generated title+SessionTitleUpdated 事件并按需写 goal summaryTitle；setCustomSessionTitle 显式重命名走 custom 源。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/shell-environment.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/shell-environment.ts:1-53"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/shell-environment.ts",
+          "lines": 53
+        }
+      ],
+      "notes": "shell 环境 resume 通知判定：无 selection 或 restoreStatus=restored 不通知；git-bash dialect+auto-detected 判 windows_git_bash_auto_migration；否则仅规范化 display name 有变化才发 display_change；build 输出 The Bash tool shell is X.（迁移场景固定 Git Bash 措辞）。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/steering.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/steering.ts:1-1403"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/steering.ts",
+          "lines": 1403
+        }
+      ],
+      "notes": "turn 引导与队列权威：steerTurn 依次校验（含附件的空输入/UTF-8 尺寸上限/无 active turn/expectedTurnId 不匹配/不可引导）后入队 pendingInputs+TurnSteerQueued；enqueueDeferredInput 无 active turn 也可入队（targetTurnId 退 latestAssistantTurnId/deferred，queueLength 取投影）；guide/queue 双车道——firstInlineGuideIndex 只在 guide 子序列内找最早项且排除 goal/compact 命令，修复先入队普通消息永久挡住后续显式 guide 的缺陷；fallbackPendingGuidesToQueue 在 stop/interrupted 或 FIFO barrier 阻止 inline 时把未消费 guide 原地改投 queue 并发 TurnSteerDeliveryChanged；reservation（sendQueuedNow）锁在 await 后复查再落锁、drain 跳过 reserved 项、release 事件写失败恢复锁防两端重复执行；held 项（active turn 结束后权威在事件日志/投影）走投影反查回落 remove/discard/edit/reorder；删除先写 durable session_input 账本 cancelled 终态再摘内存（防 LRU 淘汰/重启把用户删除误报 inputDiscardedOnRestart）；reorder 同步回写 intent.queuePosition+updateSessionInputs 防 drain 后冷热投影分叉；setQueueAutoDrain 暂停/恢复用 queueExternalDrainActive 闸 guide 消费；drainPendingInput 把 traceContext 切到 steer queryId 防 tool 后续请求归因到上一条用户消息；discardPersistedPendingSteerInputs resume 清扫账本 admitted 残留并发 TurnSteerDiscarded(session_resumed) 留痕；emitModelSelected 从本次创建的 Active Model 读 contextWindow、previousModelSelection=null 显式表达 ∅→X 边界。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/streaming-tool-coordinator.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/streaming-tool-coordinator.ts:1-393"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/streaming-tool-coordinator.ts",
+          "lines": 393
+        }
+      ],
+      "notes": "流式工具提前执行协调器：accept 保留空名原值（正常 finish 走 end-of-stream registry miss、finish 前断流保留 synthetic interrupted error）；providerExecuted/空名/modelStreaming!=on/streamingToolExecution=off/注册表缺失都不提前执行；仅 readOnly+concurrentSafe+非 destructive+免审批+无用户交互+sideEffectScope=none 走 executeDuringStream；declarationIndex 取全部本地声明计数（model admission 已去重、只读工具可能先落盘）；persistPendingToolPart 先写带 metadata 的 durable pending part（绕过则 Stop 在 drain 前冷恢复退化成通用工具卡）；ledger 依次 tool_call_closed/tool_queued/tool_started；abandon 中止+发 tool_cancelled/tool_abandoned+250ms 超时 allSettled drain；recoverFromModelFailure 无 tool call 走 recoverPartialAssistantOutputFailure，有 tool call 则 abort、限时收集已完成结果、其余合成 synthetic result（unknown_execution_state/not_executed）、发合成 assistant entry 同步推进本轮 request history（恢复请求依赖 assistant tool-call 与 tool result 成对）、modelStepCount+1 后走 executeToolCallsForModelStep 并发 retry 事件；提前执行失败 warn 后回落 end-of-stream 执行。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/streaming-tool-synthetic-result.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/streaming-tool-synthetic-result.ts:1-71"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/streaming-tool-synthetic-result.ts",
+          "lines": 71
+        }
+      ],
+      "notes": "流恢复合成工具结果：not_executed 文案引导视为失败勿盲目重试；unknown_execution_state 文案提示副作用未知、先检查当前状态再重试；result success=false/output=null/error type=stream_recovery_interrupted_tool/时长 0；emitSyntheticStreamedToolError 发 ToolCallError 事件并推入本轮 events。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/synthetic-notice-metadata.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/synthetic-notice-metadata.ts:1-93"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/synthetic-notice-metadata.ts",
+          "lines": 93
+        }
+      ],
+      "notes": "synthetic user notice 的 metadata/semantics 铸造：part metadata 保留 runtimeMessage（缺省按 source 推导）并钉 source/visibility；message metadata 反而删除 runtimeMessage（避免 info/part 双写漂移）；semantics 按 visibility=model-only 分 provider-visible（fork/goal/background 等注入对 provider 可见但不算用户 transcript，transcriptVisibility=hidden 防 v4 hydration 误当真实用户 turn）与 UI-visible；syntheticUserNoticeKind 穷举全部 source→kind，subagent_message 漏举会产生 kind=undefined 破坏冷恢复语义等价，workflow_launch 只为穷举完备登记 user_prompt（真实启动轮走 message-persistence 专用路径）。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/target-completion-verification-telemetry.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/target-completion-verification-telemetry.ts:1-37"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/target-completion-verification-telemetry.ts",
+          "lines": 37
+        }
+      ],
+      "notes": "goal 完成验证的 telemetry 包装：detached scope（executionKind=foreground/operation=goal_completion_verification/targetKind=goal/trigger=turn）包裹 execute；成功 setResultType(boolean)+finishCompleted，取消 finishCancelled(abort_signal)，其余 finishFailed(execute,unknown) 后原样抛出。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/target-completion-verification.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/target-completion-verification.ts:1-414"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/target-completion-verification.ts",
+          "lines": 414
+        }
+      ],
+      "notes": "goal 完成验证器：enabled=false/无 sessionStore/target 非 active 直接返回 null；验证开始时冻结模型快照（运行中切模不能让请求/重试/usage 在 provider 返回后重读 Session Selection 归错模型）；provider messages 取完整历史但先剥掉尾部未闭合 assistant tool-call entry，再走 projectMessagesForModelMediaPolicy 统一能力+预算投影（曾绕过媒体策略致聚合超限误进 fail-open）；verifier 继承绑定思考配置、maxOutputTokens 取 optionSpecs.max 不套用辅助调用降档；verificationId=spanId/traceId、goalIteration 由 verifier lifecycle 在 started/completed/failed_closed/cancelled 固定同一编号（UI 与 snapshot 不各自猜）；toolCalls>0 判 fail-open（验证器不该调工具）；Start Plan busy（限 bigmodel/zai start-plan provider）是 admission 瞬时并发，先按 1s/2s 短暂重试再 fail-open，避免可恢复并发被误当完成；用户 Stop 打断发 cancelled 事件+preserveQueueAutoDrainOnCancel 标记并 pauseActiveTargetForCancellation（否则残留 active 会被 resume+sendPrompt 当 goal continuation 继续输出 checkpoint），其余异常 failed_closed fail-open。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/target-continuation-loop.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/target-continuation-loop.ts:1-86"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/target-continuation-loop.ts",
+          "lines": 86
+        }
+      ],
+      "notes": "goal 自动续跑循环：continueActiveTargetLoop 以 target-continuation-loop 模式 priority=next 入可取消 runtime command；runActiveTargetContinuationLoop 每轮 executeTargetContinuationCommand，yieldToPendingCommands 时有排队命令即让位返回 lastResult；task-notification 触发且 verifyBeforeFirstContinue 但验证被禁用则不续；首轮应用本次 Submission 的 intent，后续自动轮次清 intent 读新 Session Selection（允许中间插入的用户 turn 成为新权威）、verifyBeforeContinue 恒转 true。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/target.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/target.ts:1-431"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/target.ts",
+          "lines": 431
+        }
+      ],
+      "notes": "goal 续跑与运行态记账：executeTargetContinuationCommand 先取候选（plan/active turn/未落盘/非 active target 均不续），verifyBeforeContinue 且有后台任务在跑则 defer；verifier passed 跳过、无 nextAction 的失败结果也跳过（否则把内部错误变无限目标迭代）；校验请求可能在 Stop 后才返回，必须重读目标状态（status/targetID 变了不续，防用旧对象续跑）；续跑 prompt 包 target_continuation system reminder、inputSource=goal-continuation/model-only，保留 inputId（否则桌面端 activeInputId 对不上停在 streaming）；accounting 分 start/heartbeat/finish/usage 走 sessionStore（finishTargetRun 优先、回落 accountTargetUsage），targetID 匹配才发 TargetChanged；pauseActiveTargetForCancellation 失败抛 InvalidStateTransition；activatePausedTargetAfterResume 刻意不再自动改回 active——用户 Stop 后冷恢复不得继续 verifier/continuation，须显式 /goal resume。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn-model-step-usage.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/turn-model-step-usage.ts:1-194"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn-model-step-usage.ts",
+          "lines": 194
+        }
+      ],
+      "notes": "主 turn 模型 usage 记录：recordMainTurnModelUsage 只消费 model step 开始时的不可变模型快照（运行中切模会把旧请求 token 归到新模型），querySource 按 taskType 映射 subagent/workflow_child/main_turn；findLatestCommittedAssistantUsage 反向找最近 assistant 的持久 token baseline；mainTurnCacheHitAggregateFromMessages 用 active IDs 只决定分支成员、cache 聚合必须读持久化原始 tokens（Compact preserved usage 可能已清零）；recordMainTurnCacheHitUsage 按 AI SDK v6 口径 Anthropic cache read/write 已并入 inputTokens，命中率分母用 total input 不重复加 cache，latestHitRate/aggregate hitRate 并存；modelUsageInputWindowTokens 三级回退 inputTokens→totalTokens-outputTokens→cache 之和。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn-model.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/turn-model.ts:1-117"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn-model.ts",
+          "lines": 117
+        }
+      ],
+      "notes": "turn 模型与 Submission 执行配置：createTurnModel 在 runtime 层之上再绑逐请求 refreshRuntimeHeadersBeforeAttempt（traceContext 取当前调用上下文缺省 root）；applySubmissionExecutionState 在 Submission 真正开始执行或 guide 被下一次 model step 消费时应用 intent 配置——selection 只决定新创建的 Model，已被其他 Loop 持有的 Model 不被修改；selectionScope!=execution 才写 Session Selection+持久化 entry 并在 sameModelSelection 不等时发 ModelSelected 事件；mode/planEnabled 走 applyRuntimeExecutionState(source=command)；persistRuntimeModelSelection 以 <sessionId>:runtime-model-selection 固定 entry id、touchSession=false、失败仅 warn。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn-nested-model-usage.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/turn-nested-model-usage.ts:1-60"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn-nested-model-usage.ts",
+          "lines": 60
+        }
+      ],
+      "notes": "嵌套模型用量事件：从 tool result output.modelUsage（含 serverToolUse 的 webFetch/webSearch 计数）提取 input/output/total/cache/reasoning tokens，逐条发 ModelComplete 事件（content 空、stopReason=tool_internal、toolCallCount=0）并入本轮 events，让子代理/服务端工具的模型消耗进入同一账本。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn-output-token-continuation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/turn-output-token-continuation.ts:1-150"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn-output-token-continuation.ts",
+          "lines": 150
+        }
+      ],
+      "notes": "输出上限续写：classifyOutputTokenContinuation 有 tool call 不续、finishReason=length 或 raw∈{max_tokens,max_output_tokens,model_context_window_exceeded} 且次数<3 才 continue；model_context_window_exceeded 成功响应有意按 Continue 处理（Anthropic input 未超窗但 input+max_tokens 超窗的截断不同于请求失败，不能抢先 Reactive Compact；先保存 partial 追加续写，回 outer loop 按需压缩，压缩不额外追加也不重置次数）；续写 prompt 固定「直接续、不道歉不复述、拆小工作」并打 queryScope=output_token_continuation 标记，filterOutputTokenContinuationEntries 恢复前剥掉这些标记 entry；preserveCanonicalContextPrefix 只提交转换后的 conversation tail（配置刷新已替换 canonical prefix，整体回写会撤销刷新）；commitTurnRequestEntries 同步 canonical history+turn request（恢复请求依赖 assistant/tool result 成对）；commitAssistantToTurnRequest 的 assistant 归因必须用 Turn 绑定 Model 而非 provider result metadata 报告的模型。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn-step-finish.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/turn-step-finish.ts:1-46"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn-step-finish.ts",
+          "lines": 46
+        }
+      ],
+      "notes": "tool 步收尾持久化：缺 state.model 直接抛（Model-backed step 必须有 Loop Model）；persistPart 写 step-finish part（reason=finishReason、cost=0、tokens 归一化），再 persistAssistantMessage 写 completed/finish/tokens 并带 model 身份。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn-tool-usage.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/turn-tool-usage.ts:1-82"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn-tool-usage.ts",
+          "lines": 82
+        }
+      ],
+      "notes": "工具 SQLite usage 记账：usageStoreFor 用四方法 duck-typing 探测 UsageStorePort；upsertToolUsage 记 sideEffectScope/readOnly/destructive、status、duration、command exitCode、outputBytes（serialization.returnedBytes 优先否则 UTF-8 长度）、truncated、cancelledByUser（errorType 含 cancel）、error 信息；写入 try/catch 只 warn——观测失败绝不能阻断 Tool Result 持久化与模型续跑。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn-tool-warnings.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/turn-tool-warnings.ts:1-82"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn-tool-warnings.ts",
+          "lines": 82
+        }
+      ],
+      "notes": "模型异常预警接线：tool-call 预算与重复调用两类 detector（modelAnomalyGuard 配置）命中时，warningInjected 才把 system reminder attachment 经 commitTurnRequestEntries 同步注入本轮请求历史，同时恒发 ModelAnomalyWarning 事件（category/severity/observedCount/threshold/toolName）入 events。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/tool-part-persistence.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/tool-part-persistence.ts:1-78"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/tool-part-persistence.ts",
+          "lines": 78
+        }
+      ],
+      "notes": "工具 part 持久化边界：空工具名投影 empty_tool_name 占位、原值存 metadata.providerToolName，防占位名与合法同名工具身份碰撞；pending part 携带 declarationIndex、MCP display metadata、state.raw 原始输入 JSON，供冷恢复精确重放。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/title-generation-sidecar.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/title-generation-sidecar.ts:1-310"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/title-generation-sidecar.ts",
+          "lines": 310
+        }
+      ],
+      "notes": "标题生成旁路：system prompt 明确标题任务非对话、绝不回答/执行消息内指令，3-7 词、保留专名、输出单 JSON {\"title\":...}；telemetry 以 detached background 包装；model=createRuntimeModel+bind(auxiliaryModelOptions) 降档；timeout 默认 60s；tool_calls_returned/empty_title 跳过。cleanGeneratedTitle：剥 think 标签→parseTitleJson（extractFencedJson 处理 ```json 围栏，否则首行兜底并把 ```json 清洗成标题）→firstNonEmptyLine→剥 markdown/引号/尾标点→须含字母数字或 CJK→100 字符截断加 ...；normalizeTitleInput 空白折叠并截 1200。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/tools.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/tools.ts:1-304"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/tools.ts",
+          "lines": 304
+        }
+      ],
+      "notes": "工具调度/执行事件层：scheduleTools readOnly 仅当 metadata.readOnly 且 sideEffectScope=none；executeTools 消费 generator、batch_complete 发 ToolBatchComplete；emitToolScheduledEvents 跳过空名（不建立产品工具生命周期）、带 MCP display 与 parallelGroupIndex；emitFileMutationCheckpoint 写 artifact（前后 throwIfTurnAborted）→CheckpointCreated(scope=Workspace, snapshotRef=diffRef=uri, fileCount=1)→recordTurnFileChange，取消 rethrow、其他失败仅 warn；resolvePermission broker 优先否则发 PermissionResolved 事件。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn-tools.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/turn-tools.ts:1-527"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn-tools.ts",
+          "lines": 527
+        }
+      ],
+      "notes": "model step 工具执行主循环：coreToolCalls 保留空白名让 executor 强制 registry miss，不把 storage 占位值当真实工具；streamed 结果 ledgerRecorded=false 时补 pending part+tool_call_closed+synthetic error；tool_use 入 history 后 Stop 不能先抛——aborted signal 交 executor 生成 ToolCancelled；onBatchStart 已 abort 跳过 running 标记；completed part 带媒体持久化与 modelContentLayout，error part metadata.modelContent 存 string 供冷恢复精确重放；checkpoint 是 result 闭合后附加操作——Stop 先提交完 sibling results（deferredCheckpointCancellation 延后抛）；每 result 发 emitStreamRecoveryAnchor+tool_result_committed（during_stream/end_of_stream）；followUpUserInput 以 guide steerTurn 注入、拒绝只 warn（ExitPlanMode 审批反馈不能静默吞）；stopTurnAfterResult：automation_create_limit→text-only 收口 return continue，其他→fallbackPendingGuides+steerable=false+complete→break。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/turn.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/turn.ts:1-872"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/turn.ts",
+          "lines": 872
+        }
+      ],
+      "notes": "Turn 编排主体：任何 await 前冻结 admittedModelSelection/outputStyle，初始化期切模不越 admission 边界；model 创建失败也写 outcome 终态（防线上「已工作 N 秒」无终态）；turnPhase+beginLocalTurnPreparation 阶段打点；后续 model step 按实际持有 Model rebuildContextPrefix，首轮初始化与 rebuild 互斥（同一 Prefix 只构造一次）；TurnStarted 先生成 userMessageId 再发（v4 投影找回 checkpoint）；target accounting start+15s heartbeat(unref)；hook preventContinuation 早收口；model-only 输入（goal-continuation）persistSyntheticUserNoticeForSession 防 UI 气泡；普通输入 persistUserPrompt(displayInput)——模型见展开 input、UI/标题用原始 query——首条持久化后立即启动标题生成（defer 失败→turn 后重试）；plugin reminder 只解析 canonical displayInput；成功先 account 再 persistStableForkCompletionBoundary 后 TurnComplete；memoryExtraction=skip 仅抑制本轮；失败：cancelled→pauseActiveTarget+fallbackGuides(turnInterrupted)，普通 TurnError 保留排队项+queueAutoDrain=false，cancelled 且非 preserve 且 queue>0 同步翻转防与投影分叉；finally 清 heartbeat/releaseTurnStart/finishActiveTurn/browser turnEnded 失败仅 warn。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/usage-observability.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/methods/usage-observability.ts:1-426"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/usage-observability.ts",
+          "lines": 426
+        }
+      ],
+      "notes": "usage 事实写入：recordModelUsageFact——retryCount 数 model_retry_scheduled、firstTokenAt 取首个非空 text/reasoning_delta、logicalRequestId=assistantMessageId??spanId??querySource:startedAt、id=usage_model_..._attemptIndex、contextExceeded 取 isModelContextExceededError 或 failedNetworkEvent.reason、errorInfoFor CoreError 优先；recordTurnUsageFact——事件聚合+tool id 集合去重计 toolCallCount/toolErrorCount；recordToolUsageFromEvent 按事件类型投影 status/approvalStatus/progress/result/error（cancel→cancelled）。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/methods/workspace-generate-text.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/methods/workspace-generate-text.ts:1-277"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/methods/workspace-generate-text.ts",
+          "lines": 277
+        }
+      ],
+      "notes": "workspace 文本生成：testModelConnectivity 绑最低公开档+maxOutputTokens=1、固定最小 prompt、流必须见 finish 事件否则抛；generateWorkspaceText——git_commit_message 走 auxiliaryModelOptions（最低公开档而非扫名关闭），其他 querySource 尊重调用方预算（不再伪造 256 上限）；prompt/messages 皆空即抛；成败两路均 recordModelUsageFact。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-artifacts.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-artifacts.ts:1-110"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-artifacts.ts",
+          "lines": 110
+        }
+      ],
+      "notes": "附件媒体持久化边界：persistAttachmentDataUrl——已有 artifactUri 直接复用；无 artifactStore/sessionId 降级 inline；artifact 写入失败必须在 provider 调用前终止当前轮（吞掉写入失败会落下冷恢复无法重建的成功历史），toolCallId=attachment-N、toolName=attachment:<mediaType>、retention=session。readInlineAttachmentContent——data: 直通、zcode-artifact:// 回读且仅当内容以 data: 开头才采用、失败静默 undefined。safeAttachmentOriginalRef——path 优先，data-url 缩为 inline:data-url 防 base64 正文泄漏进 ref。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-data-url.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/attachment-data-url.ts:1-36"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-data-url.ts",
+          "lines": 36
+        }
+      ],
+      "notes": "data URL 工具：parseDataUrlHeader 解析小写 mediaType；base64PayloadByteLength 不解码估算原始字节数并扣除 padding（避免上限处合法媒体被多算 1-2 字节）；isStrictBase64Payload 校验长度 %4、字符集白名单、= 仅允许在尾部。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-image.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/attachment-image.ts:1-66"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-image.ts",
+          "lines": 66
+        }
+      ],
+      "notes": "图片附件预处理：prepareImageDataUrl——无 imageProcessorPort 时原样直通；有则 prepareForModel（READ_IMAGE_MAX_BASE64_BYTES/MAX_IMAGE_ATTACHMENT_DIMENSION/READ_IMAGE_TARGET_BYTES）输出 resized dataUrl+metadata（原始与实际宽高、resized、transformedSizeBytes）；parseBase64DataUrlPayload 严格正则；inferImageMimeFromPath 扩展名映射、默认 image/png。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-media-resolver.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-media-resolver.ts:1-512"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-media-resolver.ts",
+          "lines": 512
+        }
+      ],
+      "notes": "inline/本地媒体附件解析统一边界。resolveInlineMediaAttachment：image→prepareImageDataUrl（失败→attachment_image_resize_failed/invalid 占位）→persistAttachmentDataUrl；pdf→parseInlinePdfDataUrl+大小校验（0 或超 PDF_INPUT_MAX_BYTES→attachment_pdf_invalid）；video→parseInlineVideoDataUrl，空 payload 曾绕过大小校验被持久化致实时与冷恢复消息形态不一致，现显式拒绝；超 VIDEO_INPUT_MAX_BYTES→path reference(video_too_large)。resolveLocalMediaAttachment：stat 失败→attachment_read_failed、非 file→attachment_not_file；pdf 超限或 readBinaryFile too_large→path reference、isPdfBytes 魔数校验；image 超 INLINE_MEDIA_ATTACHMENT_MAX_BYTES→path reference；video——外层 stat 后文件仍可能增长，以读取端 maxBytes 为最终边界；stat 后文件可能被清空，bytesRead===0 以实际读取结果判定。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-path-reference.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-path-reference.ts:1-104"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-path-reference.ts",
+          "lines": 104
+        }
+      ],
+      "notes": "路径引用降级：resolvedInlineTextAttachment 文本 inline（preview 未截断）；resolvedPathReferenceAttachment 降级为文本 contentBlock 说明按本地路径发送的原因并提示模型用文件读取工具，recoverability=metadata_only、storageKind=local_ref；PathReferenceReason 六类（binary/deferred_clipboard_text/image/pdf/text/video_too_large）；isTextLikePath 扩展名白名单；inferAttachmentMimeFromPath 复用 attachment-video 的 video 扩展名映射唯一事实源，避免两处维护同一张表。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-pdf.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/attachment-pdf.ts:1-40"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-pdf.ts",
+          "lines": 40
+        }
+      ],
+      "notes": "PDF 附件校验：PDF_INPUT_MAX_BYTES=20MB；parseInlinePdfDataUrl 要求 header 为 application/pdf、末段 base64、严格 base64 且 isPdfBytes 魔数 %PDF-；sizeBytes 由 payload 估算。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-placeholder.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-placeholder.ts:1-47"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-placeholder.ts",
+          "lines": 47
+        }
+      ],
+      "notes": "占位降级附件：文本 contentBlock [Attached mime: placeholder]、errorCode 入 metadata、recoverability=metadata_only；无效 media data URL 过去仍通过 file part url 把 base64 正文落入 session——PDF/video 不得把 data URL 写入 part.data，可恢复 artifact URI 仍保留便于诊断与按授权路径重试；storageKind 有 path 为 local_ref 否则 metadata_only。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-video.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/attachment-video.ts:1-43"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/attachment-video.ts",
+          "lines": 43
+        }
+      ],
+      "notes": "video mime 推断与大小校验唯一事实源（Read 工具 read-video.ts 与 attachments.ts 共用，mime 枚举源在 contracts ReadVideoOutput）；六类扩展名映射；parseInlineVideoDataUrl——video inline 过去只检查宽松 data URL header，非 video MIME/非法正文会进入持久化或通用文本分支，现强制 video/ 前缀+严格 base64。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/attachments.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/attachments.ts:1-307"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/attachments.ts",
+          "lines": 307
+        }
+      ],
+      "notes": "turn 附件解析总入口：summarizeTurnAttachmentsForEvent 在 resolve/persist 之前产出轻量展示元信息（TurnStarted 先于 resolveTurnAttachments 发出，故只做无 IO 推断），filename/mime/sizeBytes 优先协议边界透传值，data URL/inline 无稳定引用、path/URL 作展示 ref。resolveTurnAttachment：url→resource_link(remote_ref)；PDF 曾沿用普通 file 的 inline 文本分支，损坏/伪造正文被 UTF-8 解码后送进 provider——现 PDF 只接受 data URL/artifact URI，否则请求前显式降级 attachment_pdf_invalid；本地文件非 file→attachment_not_file；疑似二进制不能误当文本读入 prompt，只交付路径引用(binary_file)；clipboard-text 长粘贴已落临时文件，预读会重新把正文塞进 prompt_attachment 系统提示，只交付引用等模型需要时再读(deferred_clipboard_text)；超大文本 allowPartialFallback+READ_DEFAULT_MAX_LINES 部分读取，truncated→preview_only。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/child-client-ports.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/child-client-ports.ts:1-78"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/child-client-ports.ts",
+          "lines": 78
+        }
+      ],
+      "notes": "child runtime 对外端口派生唯一出口：子有两条身份轴——账本身份 sessionId（事件持久化/transcript/trace 用子的）、路由身份（permission/AskUserQuestion/provider runtime headers 必须用父的直到根会话；客户端只认识根会话，拿子会话去问桌面找不到 session、response 永不发出、子代理挂死）。过去规则散在各装配点（subagent 包两层私有 wrapper、dwf actor 与 legacy workflow child 直接透传 appOptions——两处错一处对），现收敛一处并由父 runtime 调用、parentSessionId 由父自己填=路由身份选不错的机械保证。providerRuntimeHeadersPort 包一层改写 sessionId 为父会话，多层嵌套外层后写最终必为根会话；permissionBroker 同改写 request.sessionId、origin 保留最内层不被外层抹掉。header 刷新时服务层识别请求模型与父会话当前模型不一致只同步 header，不把父会话切到子模型。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/commands.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/commands.ts:1-103"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/commands.ts",
+          "lines": 103
+        }
+      ],
+      "notes": "斜杠命令解析：parseCompactCommand——/compact 返回 undefined 指令、带参返回 instructions、非前缀 null；parseRewindCommand——/fork→fork、/rewind→status、cascade <scope> <id>→cascade-message、scope 映射 conversation|message→Conversation、code|workspace→Workspace、both→Both、latest→apply、其余→apply+targetCheckpointId；parseForkCommandArgs 空/latest→fork 否则带 checkpoint。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/compact-media.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/compact-media.ts:1-120"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/compact-media.ts",
+          "lines": 120
+        }
+      ],
+      "notes": "compact retry 媒体瘦身：projectCompactMediaForRetry 把 image/video/无 text 且有 dataUrl|uri 的 file 块替换为 [image]/[video]/[document] 文本占位；video 与 image/document 同语义——retry 媒体瘦身漏掉 video 会让大体积 base64 原样穿过 retry 请求，违背占位投影目的；officialCuaImageRefIndexesForUnavailableMedia 处理被替换块关联的 CUA raster 引用（置 unavailable 块+清空原 ref 块）；替换时复制 cacheControl/toolCalls，未替换消息保持原引用。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/compact-post-reminders.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/compact-post-reminders.ts:1-122"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/compact-post-reminders.ts",
+          "lines": 122
+        }
+      ],
+      "notes": "compact 后 Read 状态提醒重建：默认 maxFiles=5、单文件 5000 tokens、总量 50000 tokens；候选按 readAt 降序；跳过 /.git/ 路径与 preservedEntries 中已有 Read toolCall 输入的文件（防重复注入）；超预算文件降级为「已读过但太大无法包含，需要时用 Read 工具」参考注记；保留文件重建 Called the Read tool…Result of… 形态并按 offset 起始行加行号；sourceTool 非 Read 的条目不作候选。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/compact-preservation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/compact-preservation.ts:1-59"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/compact-preservation.ts",
+          "lines": 59
+        }
+      ],
+      "notes": "compact 保留段选择：selectPersistedCompactTail 从 SessionStore 活动消息（含 revert branch-cut 过滤）取 isCompactPreservableSessionMessage，按 assistant round 分组取最后 groupsPreserved 组，产出 anchorMessageId=summaryMessageId+head/tail；runtime 与数据库的 user/attachment 数量非一一对应（synthetic 来源改变会错位），复用 compact 的 assistant 分组、数量只统计选定结果。countCompactPreservedRuntimeMessages 无 SessionStore 时仅统计用，不能用于选择持久化区间。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/compact-selection.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/compact-selection.ts:1-419"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/compact-selection.ts",
+          "lines": 419
+        }
+      ],
+      "notes": "compact 条目选择与 prompt-too-long 重试：selectCompactEntries——Auto/Reactive 保留最近组（manual 不保留）、minimumGroupsToPreserve 取大、上限 groups.length-1，context prefix 恒入摘要；selectCompactEntriesAfterPromptTooLong——按 token gap 计算需多保留的组数并校验剩余仍可 compact；selectCompactEntriesForInitialPromptTooLong——初始摘要过长时按 gap 追加保留组（已保留 tokens=末组估算）。truncateCompactSummaryRequestEntriesAfterPromptTooLong——重试达 MAX_COMPACT_PROMPT_TOO_LONG_RETRIES 上限即停，否则按 gap 丢旧 rounds（无 gap 丢 20% 组），切片后首条为 assistant 时插入 COMPACT_PROMPT_TOO_LONG_RETRY_MARKER。getPromptTooLongTokenGap 沿 cause 链（≤6 层、WeakSet 防环）解析「N tokens > M」取差值；isRuntimeContextPrefixEntry——attachment source=context_prefix/skills_listing、system role、user 且文本以 <system-reminder> 开头。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/compact.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/compact.ts:1-166"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/compact.ts",
+          "lines": 166
+        }
+      ],
+      "notes": "compact 门面与运行时条目变换：trigger→phase/reason 映射（Auto→PreRequest/ContextLimit、Reactive→Reactive/ProviderOverflow、Manual/Partial/SessionMemory→StandaloneTurn）；buildPostCompactRuntimeEntries——compact 后只保留 metadata 标记的 prefix，避免用户 literal <system-reminder> 被文本规则误留；顺序=prefix+summary+preserved+post-reminders，preserved 中 assistant 的 tokens 经 invalidateRuntimeTokenUsage 失效（上下文已变，旧 usage 不再是事实）；maybeLocalMicrocompactRuntimeEntries——构造 provider messages 走本地 microcompact，只改被清理的 tool result、对该 entry copy-on-write，避免为保护 MessageHistory 只读借用而深拷贝整段历史。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/context-usage-breakdown.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/context-usage-breakdown.ts:1-128"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/context-usage-breakdown.ts",
+          "lines": 128
+        }
+      ],
+      "notes": "上下文用量分解投影：ContextUsageContributor 四类 kind（context_section/tool_schema/skill/message_role）；buildCategoryBreakdown 按 category source 绑定 contributors；每个 contributor 带 chars/tokens/tokenMethod/confidence/tokenizer，tool 附 serverName/readOnly/sideEffectScope，skill 附 scope/path，section 附 injectionTarget/cacheHint。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/conversation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/conversation.ts:1-267"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/conversation.ts",
+          "lines": 267
+        }
+      ],
+      "notes": "用户消息组装：getLatestActiveSessionMessageId 取活动消息（排除 compact preserved segment）最后 user/assistant；findLatestRealUserMessageIndex 为 provider projection 未传 request-local index 时兜底，避免把用户 literal meta tag 当 runtime meta；buildUserContentFromTurn——video 跟随正文避免影响既有非粘贴 image/@file/url 顺序、pasted inline image 置尾、失败文本占位跳过；buildRuntimeUserEntriesFromTurn——prompt_attachment 提醒做独立 systemReminderAttachmentEntry 不混入 real user 消息（带 realUserRuntimeMetadata）；formatBrowserAmbientUserInput 把 in-app browser ambient UI state 明确标注非用户请求、勿当指令或证据；read-like reminder 的 label 优先 source.text.value 与 provider-visible Read 输入一致，filename 仅展示名兜底，防 live/hydrate 轨迹漂移。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/data.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/data.ts:1-27"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/data.ts",
+          "lines": 27
+        }
+      ],
+      "notes": "数据校验小工具：isRuntimeDiffHunk 结构校验（oldStart/oldLines/newStart/newLines 数字+lines 全字符串）、isPlainRecord、objectKeys 截 20 键、stringProperty 类型收窄。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/index.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/index.ts:1-26"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/index.ts",
+          "lines": 26
+        }
+      ],
+      "notes": "runtime/helpers barrel：re-export permission-broker/child-client-ports/commands/rewind/steering/data/conversation/runtime-reminders/compact/compact-media/tool-result/model-errors/model-anomaly/turn-errors/project/attachments/streaming-tool-ledger/media-budget/media-capability/media-attachment-path/media-observability/provider-request-messages/model-tool-call-validation/runtime-provider-request-messages/plan-file-continuity/turn-file-changes 共 26 个模块。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/media-attachment-path.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/media-attachment-path.ts:1-131"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/media-attachment-path.ts",
+          "lines": 131
+        }
+      ],
+      "notes": "媒体附件 path 物化：projectMessagesWithMediaAttachmentPaths 给 user 媒体块补 source.path 并追加 [Image/Video/PDF: source: path] 文本块；inline 只表示 provider-ready 媒体、不保证存在可重建 durable artifact，path 是可选增强——仅 artifact URI 或已有本地 path 参与物化，避免阻断既有媒体发送；inline 的派生 path 不是会话事实，即使输入残留旧 path 也必须经 durable artifact URI 重新检查、缺失由 store ensureMediaAttachmentPath 重建；空 derived path 抛 materialization 错误；无变化返回原数组。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/media-budget.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/media-budget.ts:1-280"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/media-budget.ts",
+          "lines": 280
+        }
+      ],
+      "notes": "请求媒体统一预算（默认 40MiB）：独立视频预算无法约束请求总量，所有媒体按编码后体积计入、为正文等非媒体预留空间，单文件原始字节限制由附件输入/Read 层负责；projectMessagesForModelMediaPolicy——直接调用 Model 的辅助链路曾只补 capability 漏聚合预算，两阶段必须在同一请求策略边界串联；latest real user 媒体受保护，保护媒体自身超预算抛 InvalidInput 且必须用统一附件码 MEDIA_BUDGET_CURRENT_ATTACHMENT_TOO_LARGE（跨进程只传通用 INVALID_INPUT 丢本地化语义，防 PDF/混合附件误报成图片/视频错误）；历史媒体新→旧保留至预算耗尽，省略块替换为占位文本+预算说明、CUA raster 引用对同步处理；cacheControl 现为 provider cache marker，latest real user 身份由 provider projection 传入 request-local index 承接（-1 明确表示无真实用户），缺失才回退文本启发式。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/media-capability.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/media-capability.ts:1-160"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/media-capability.ts",
+          "lines": 160
+        }
+      ],
+      "notes": "模型输入能力投影：projectMessagesForInputFormat——全支持时直通并计数 provider-visible 媒体；否则把不支持的 image/pdf/video 块替换为 unsupported 文本，分类计数 omittedImage/Pdf/Video/Other；officialCuaImageRefIndexesForUnavailableMedia 同步清空关联 CUA image ref 并置 raster unavailable 块；变更消息浅拷贝 cacheControl/toolCalls，未变更返回原数组。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/media-observability.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/media-observability.ts:1-196"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/media-observability.ts",
+          "lines": 196
+        }
+      ],
+      "notes": "媒体观测日志：turn.attachments.resolved 调试事件——逐附件摘要（contentBlockType/mediaType/storageKind/recoverability/hasArtifact/placeholder/urlKind 分类 artifact|data-url|empty|reference），按类型计数，不记正文；model.request.media_summary——incoming 与 provider 消息媒体块摘要（dataUrlBytes、预览限 12 块+truncated 标记）叠加 budget projection 的 omitted/retained/total 计数。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/model-anomaly.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/model-anomaly.ts:1-127"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/model-anomaly.ts",
+          "lines": 127
+        }
+      ],
+      "notes": "模型异常守卫纯函数：重复工具调用连击检测(streak 只在签名精确相等时+1，命中阈值当刻才观察，避免每步重复告警)+单轮工具调用预算越界检测(只在 previous<threshold<=current 的跨越时刻触发)。anomalyWarningsInjected 共享 maxBudgetWarningsPerTurn(默认3)配额，超配额仍产出 observation 但 warningInjected=false 供遥测。签名用 stableJson 递归排序对象键，防 provider 序列化键序抖动导致漏报。threshold<=0 视为关闭。告警文案为固定英文 reminder body，与 steering reminder 通道复用。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/model-errors.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/model-errors.ts:1-321"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/model-errors.ts",
+          "lines": 321
+        }
+      ],
+      "notes": "模型错误归因族：上下文超限识别(finishReason/rawFinishReason 双通道+7种 marker 集合+message 启发式)、媒体过大识别(4 marker+message 启发式)，两者都沿 cause/lastError/error 链最多下钻6层并用 WeakSet 防环。空 completion 判定=零文本+零工具+非 stop/tool-calls 终态+零 usage(totalTokens 缺失时按五分项求和)；finalize 前先试从 providerMetadata 恢复 zcode-plan 业务错误(如 providerCode 3007)再抛 suspicious empty，context 必带 reason:empty_model_response/source:provider/suspiciousEmpty 三元组供 UI 中文文案与监控聚合。compact 快速回填熔断错误带 reason:compact_rapid_refill_breaker。normalizeStreamError 优先业务错误还原。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/model-tool-call-validation.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/model-tool-call-validation.ts:1-111"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/model-tool-call-validation.ts",
+          "lines": 111
+        }
+      ],
+      "notes": "runtime 侧工具调用名校验：normalizeModelToolCallsForRuntime 逐条 trim 名字，空名时若 providerExecuted!==true 且 toolCallId 非空则原样保留(与 Adapter admission 一致，让 client-executed 空名仍可闭合、不再截断 turn)，否则抛 ModelError(recoverable、retryable=false)。抛错前 logger.warn 结构化日志 event=model.invalid_tool_call，带 model 全名/providerId/source/toolCallIndex/trace 上下文。requireRuntimeToolCallName 供执行边界再校验。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/official-cua-media.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/official-cua-media.ts:1-25"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/official-cua-media.ts",
+          "lines": 25
+        }
+      ],
+      "notes": "官方 CUA 媒体降级：不可用 raster 索引集合中每个 image 块，检查其后一块是否为含 image-ref 凭证文本的 text 块(用 @zcode/zcode-cua/frame-contract 的 containsOfficialCuaImageRefCredentialText 判定)，收集这些 ref 索引以便一并剥离，防止悬空坐标引用。替换文案固定禁止模型发送坐标目标、要求先重新截图。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/plan-file-continuity.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/plan-file-continuity.ts:1-119"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/plan-file-continuity.ts",
+          "lines": 119
+        }
+      ],
+      "notes": "计划文件续接：ExitPlanMode 批准后计划落盘 workspaceRoot/.zcode/plans/plan-<sanitized sessionId>.md(atomic+createParents，空 plan 抛 InvalidInput)；读取侧以 PLAN_FILE_REFERENCE_MAX_BYTES=PLAN_MODE_MAX_PLAN_CHARS*4+1024 限流，not_found 或空白内容返回 undefined 不报错，命中则包成 systemReminderAttachmentEntry(plan_file_reference) 附固定续作提示。sessionId 清洗只留 [A-Za-z0-9._-] 并去首尾连字符，清洗后为空抛不可恢复 InvalidInput，防路径注入。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/project-memory-agent.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/project-memory-agent.ts:1-129"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/project-memory-agent.ts",
+          "lines": 129
+        }
+      ],
+      "notes": "项目记忆 Extraction agent 上下文捕获：model 默认继承会话选择或显式 Turn Model，withModelInvocationContext 注入 metadata.skipTranscript=true(后台链路不写 model-io、不占 rollout 槽、防自反馈)+modelRequestSessionType:other+querySource=operation+每次尝试前刷新 runtime headers。providerEntries 是 borrowReadOnlyRuntimeEntries 浅数组快照——依赖 entry 入史后不可变(只 append/整体 replace/COW)，禁止原地改共享 message/content。tools 逐条 {...tool} 拷贝、readFileState 新建 Map。工具执行器 getMode 恒 yolo 但 permissionBroker=deny、permissionService=default，且必须继承 Main 的 readFileState，否则 provider 说已读而 Edit 边界拒绝，与基线 cloned context 不一致；runtimeScope 固定 main。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/project-memory-extraction.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/project-memory-extraction.ts:1-178"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/project-memory-extraction.ts",
+          "lines": 178
+        }
+      ],
+      "notes": "项目记忆 Extraction 调度：schedule 前置闸门顺序=shuttingDown→extractionEnabled===false(headless 必须在读快照/访问文件前返回，避免后台副作用)→memoryRoot 解析(身份始终用会话 workspaceRoot，Bash cd 不改)→remote workspace→缺 sessionStore/fileSystemPort。快照边界取 latestConversationMessageId，异步 Promise.all 里 selectActiveConversationBranch(处理 revert/rewind 分支)后切到边界索引(含)为止，边界缺失即抛错防错分支提取。scheduler 惰性创建复用 memory/extraction 通用调度。drain：timeoutMs=null 为 benchmark 无限等待；默认 60s 有界取消且 timer unref。执行体挂 detached telemetry(executionKind:background/targetKind:project_memory/trigger:scheduler)，abort 一律归 finishCancelled(abort_signal)，maxTurns=5。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/project-memory.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/project-memory.ts:1-27"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/project-memory.ts",
+          "lines": 27
+        }
+      ],
+      "notes": "项目记忆根解析开关：memory.enabled 为真、use!==false、cliStorageRoot 存在三者齐备，且 taskType 属于主记忆任务集(undefined/interactive/fork/selection_side_chat/workflow_parent)才返回 resolveProjectMemoryRoot；子 agent/workflow 子任务等非主任务型一律 undefined，保证记忆提取只由主会话族触发。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/project.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/project.ts:1-20"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/project.ts",
+          "lines": 20
+        }
+      ],
+      "notes": "会话标题/项目 id 小工具：titleFromInput 折叠空白、空则 Untitled session、超 60 字符截到 57+省略号；slugify 只留 [a-z0-9._-] 去首尾连字符、空回退 session；projectIdFromDirectory 由目录 slug 前 80 字符派生，空回退 default。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/provider-business-error.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/provider-business-error.ts:1-207"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/provider-business-error.ts",
+          "lines": 207
+        }
+      ],
+      "notes": "provider 业务错误还原：findProviderBusinessFailureInMetadata 对 providerMetadata 做 BFS 全深度遍历(WeakSet 防环)，命中 success===false 或非零业务码即返回 {message,providerCode,responseBodySummary}；业务码归一化按 code/providerCode/error_code 及 error/context 子记录 9 路回退，数字取 Math.trunc 字符串化，非数字码视为失败(仅数值 0 为成功)。createCoreErrorFromProviderBusinessLike 识别 isProviderBusinessError===true 或 name=ProviderBusinessError，产出 ModelError(recoverable、retryable=false)。responseBodySummary 只保留标量与全字符串数组字段，防大 payload 进日志。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/provider-entry-origins.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/provider-entry-origins.ts:1-82"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/provider-entry-origins.ts",
+          "lines": 82
+        }
+      ],
+      "notes": "ProviderEntryOrigins：WeakMap 投影映射，只存在于单次请求、绝不写入 canonical history 或 provider payload；set 时把 input 的既有 origins 递归 flatMap 合并，保证多轮投影后仍能追溯真实用户。real user 判定排除 attachment/output_token_continuation/toolCallId/toolName 且 metadata.source=real_user 或缺省。representative 取最后一个真实用户、否则最后一个非 attachment。projectIncomingMessageEntries 按 inputPresentation 格式化 incoming 用户消息：task_notification 在同一投影边界补 system-reminder 标签与转义；mid-turn 呈现改为 kind:attachment(source:incoming_message)，非 mid-turn 仅替换 content 保持 user 身份与原始历史，canonical 不被污染。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/provider-mid-conversation-system.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/provider-mid-conversation-system.ts:1-233"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/provider-mid-conversation-system.ts",
+          "lines": 233
+        }
+      ],
+      "notes": "mid-conversation system(role:system) 投影：pending reminder 只在 assistant/system 边界落点，防插入同组 tool results 中间造成非法顺序；incoming 呈现是因果边界，普通 reminder 不能越过它、也不能越过后续 user。连续 pending 合并进前一个 projected system entry(同时更新 fallbackBody)。anchor 判定对齐 provider-visible role——tool 或 user 均可，model-only user(目标续跑)不因内部 metadata 被误降级。validate 阶段位置非法即降级为 legacy_synthetic user system-reminder，且降级正文必须自行 sanitize+wrap(producer 未处理)。moveLegacySystemRemindersAfterToolResultRun 把夹在 tool_result 串中的 legacy reminder 后移到整串结束后，因 Anthropic 序列化只合并 role 不会自动把 tool_result 排回 text 前。isToolResultUserMessage=有 toolCallId/toolName 的 user 消息。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/provider-request-messages.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/provider-request-messages.ts:1-333"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/provider-request-messages.ts",
+          "lines": 333
+        }
+      ],
+      "notes": "provider 请求消息投影主管线：incoming 投影→attachment 冒泡重排→MCS 投影→legacy 后移→渲染→(可选相邻 user 合并)→cacheControl。相邻 user 合并开关 ENABLE_MCS_ADJACENT_USER_MERGE=false——合并是 Anthropic 序列化责任，projection 保持 provider-neutral。冒泡判定：isMeta+provider_visible 且 channel 非 tool_result/real_user/history_continuity 的 reminder 向后越过 user 冒泡到下一个 system/assistant/tool/tool-result-user 停止位；goal_state_change 列入 NON_BUBBLING 保持因果位置。latestRealUserMessageIndex 必须在剥离 metadata 前用 origins.hasRealUser 记录并经 indexMap 映射，供 media-budget 用；无真实用户但有 presented input 时也要输出索引(省略会让预算按 role 猜)。cacheControl 先清全部非 system 标记再在最新非 system 消息打 ephemeral；skipCacheWrite 时断点前移一条，避免 compact prompt 本身成为 cache write。attachment 渲染强制 source 为已知 reminder 否则抛错；incoming 载荷可能含关闭标签，统一 provider 包装时转义。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/runtime-provider-request-messages.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/runtime-provider-request-messages.ts:1-24"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/runtime-provider-request-messages.ts",
+          "lines": 24
+        }
+      ],
+      "notes": "runtime 层薄封装：useMidConversationSystem = config.midConversationSystem.mode===\"force\" 或 model.properties.supportsMidConversationSystem，再委托 buildProviderRequestMessages；主会话与 memory extraction 等旁路共用同一 MCS 门，保证行为一致。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/runtime-reminders.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/runtime-reminders.ts:1-248"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/runtime-reminders.ts",
+          "lines": 248
+        }
+      ],
+      "notes": "运行时提醒构造：plan 模式提醒按每 5 个 human turn 附加、每第 5 次(full 计数%5==1)发完整 4 阶段 Plan Workflow(Phase1 仅 explore 子代理最多 3 个并行、Phase4 必须以 AskUserQuestion 或 ExitPlanMode 收尾，批准只能走 ExitPlanMode)，其余发 sparse 简版；退出时发固定 Exited Plan Mode。todo 提醒需 TodoWrite 静默≥10 个 assistant turn 且距上次提醒≥10 turn 双条件，倒序扫描跳过 attachment。synthetic source→runtime metadata 映射表：background_task/subagent_message/shared_context 走 legacy，subagent 走 queued_system_notification，其余按同名 reminder source，缺省 rewind_notice。日期变更提醒明确要求不向用户复述。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/runtime-tools.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/runtime-tools.ts:1-291"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/runtime-tools.ts",
+          "lines": 291
+        }
+      ],
+      "notes": "runtime 工具装配：内建工具注册门多为「端口在场即注册」——submit_result/escalate 以 workflowSubmitPort/workflowEscalatePort 为门且刻意不看 taskType(actor 的 runtimeScope 是 main；escalate 不做 opt-in 因最可能撞墙的 actor 恰是作者没标记的)；唯 dynamicWorkflow 反例：十个工具端口任何 CLI 都齐装，灰度必须取 Host 决定，收口在 tool-allowlist.ts 与分支刷新共用推导。node_repl/browser_use 由官方插件推导的 runtimeFeatures 控制，browserControlPort 只是宿主能力不隐式放开高权限 repl。automation/offPeak 对 subagent_child 一律不暴露。hookRunner：deps 注入优先，否则 hooks.enabled 或 workspaceHookSnapshot+executionPort 才建 configured；sessionMailboxPort 存在则兜底 in-memory runner 并注册 mailbox hook，enqueue 走 steerTurn(guide) 且拒入只 warn；stale-branch 事件在 emitEvent 里丢弃。executor 装配教训：pdfDocumentPort 曾在合并删除旧模型连接时漏掉(Read 分页/PDF 页数依赖)；hasLoadedSkill 探针仅在有 skillPort 时给，否则 workflow 技能门成死墙；subagent_child 的 backgroundBashMaxMs 缺省 1h；后台任务通知在 shuttingDown 或 sealed subagent Bash 场景抑制并留结构化日志。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/steering.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/steering.ts:1-337"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/steering.ts",
+          "lines": 337
+        }
+      ],
+      "notes": "steer 输入限制(200KB UTF-8)+fork 克隆族。cloneMessageForFork：copy-by-value+provenance——child 用新 local id 排序/渲染/续写，forkOrigin 只供溯源不参与 UI placement；assistant parentID 不可 remap 且 strictLocalReferences 时抛错，防父 id 泄漏进 child。anchor 内 turnId/productTurnId/orderedMessageIds/boundaryMessageId/goalBoundary(snapshot 时 target 换 child session、清 activeRun 态)全部经 map 重映射。clonePartForFork 分语义：timeline anchor 类引用参与 child 落位，不可 remap 必须清空并降级 originAnchorMessageId/originTurnId(legacy workspace fork 无完整 turn map 时显式降级为 provenance)，不得把父 id 当 child 本地锚点；compaction 内部引用是 provider-context 语义，不可 remap 保留原值不引入破坏性变更，compactBoundary 全字段(含 preservedSegment 三点)递归 remap；tool part 的 callID 与 completed attachments 的 part id/message id/session id 全部换新。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/streaming-tool-ledger.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/streaming-tool-ledger.ts:1-136"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/streaming-tool-ledger.ts",
+          "lines": 136
+        }
+      ],
+      "notes": "流式工具账本事件：attemptId=<assistantMessageId>:end-of-stream(每 assistant 消息一个 attempt)，recoveryAnchorId=<assistant>:<toolCall>:tool-result(每工具结果一个锚点)。ledger update payload 附工具元数据：readOnly 只有 metadata.readOnly 且 sideEffectScope===none 才为 true(权限 sideEffectScope 优先于 metadata)，防有副作用工具被误标只读；executionTiming 缺省 end_of_stream。anchor kind 按 success 分 tool_result/tool_error，committedToolCallIds 单元素记录。事件一律 createEvent+appendEvent 落会话并 push 进本 turn events。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/subagent-selection.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/subagent-selection.ts:1-58"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/subagent-selection.ts",
+          "lines": 58
+        }
+      ],
+      "notes": "子代理模型选择解析：优先级 override(已有执行归属，不再对应账号)>profile 显式(待解析意图，走 resolveSelection)>parent 继承。解析失败/缺选一律抛 ConfigurationError，绝不静默回落父模型(否则悄悄改变用户显式指定的子任务模型)。错误 message 双语+内嵌 [reason=...; selection=provider/model]，因公共错误投影不读结构化字段、后台只保留 message，双消费路径都要能定位；context 同时带 selectionIssue/reason/providerId/modelId。hasConcreteModel=explicit 非空，返回 selection 深拷贝。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/tool-allowlist.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/tool-allowlist.ts:1-123"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/tool-allowlist.ts",
+          "lines": 123
+        }
+      ],
+      "notes": "工具名单收口。workflow_child 结构性禁用五件套根因：child 被强制 yolo 但交互事件只在 subagent 路径镜像到父会话，CreateWorkflow/AmendWorkflow/SaveWorkflow 带 alwaysAsk 会在 child 发出父界面看不到的确认请求挂到权限超时——宁可不注册给干净「工具不可用」错误；ResumeWorkflowRun 免确认仍禁(child 内不得再编排，恢复=重执行整块脚本)；ResolveWorkflowQuestion 守「actor 提问、创建工作流那方作答」不变式，child 互答=判断权退化成 actor 互相说服；与 bootstrap ACTOR_DISALLOWED_TOOLS 刻意双列(一份 driver persona 减法、一份按 taskType 全覆盖不依赖 driver)。名单收在此层因 child 构造点有两个(workflow-facade/script-workflow-child-runtime)，分写必漂移。dynamicWorkflow 缺席即开启(TUI 默认面、headless 显式写、协议由受信 Host)，收在此因注册面有两个入口(首次装配+embedded-search-branch 刷新)，否则刷新会重新注册已关闭工具。explore toolset：allowlist 与 EXPLORE_AGENT_ALLOWED_TOOLS 求交集(先 normalizeToolNameAlias)，subagent_child 最终补回 RespondToCoordinator(Explore 注册前再求交集会削掉 child 控制工具)；workflow child 无 allowlist 收窄不补。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/tool-result-media-persistence.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/runtime/helpers/tool-result-media-persistence.ts:1-121"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/tool-result-media-persistence.ts",
+          "lines": 121
+        }
+      ],
+      "notes": "工具结果媒体落 artifact：仅处理数组 content 且全部块为 text 或 data: 前缀的 image/video/file(data URL)，任何不合规块即整体放弃(返回 undefined 不部分持久化)；已有 zcode-artifact:// URI 复用不重写，否则 writeToolResultArtifact(retention:session、toolCallId 加 -media-<n> 后缀防同调用多媒体撞 id)。缺 artifactStore 但有媒体时抛错而非静默丢。产出 modelContentLayout(text/attachment 索引)供重建 provider content；FilePart metadata 标 recoverability:provider_ready/storageKind:artifact，带 sizeBytes/sha256 可恢复校验，filename 取 file.name 或 placeholder。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/tool-result.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/tool-result.ts:1-114"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/tool-result.ts",
+          "lines": 114
+        }
+      ],
+      "notes": "工具结果规整族：stringifyToolResultOutput 优先级 modelContent>失败 error.message>string output>JSON(空串兜底)。isErrorForToolResult：success=false 即错；output 显式 isError/is_error 布尔优先；Bash 特判 isBashOutputProviderError 为真或 interrupted 为真。parseMcpToolName 按 mcp__server__tool 拆分且 toolName 保留内部 __ 双下划线(join 回)。toTokenUsageInfo 各分项缺省 0、total 透传 undefined 区分未知与零。findParallelGroupIndex 供调度并行组定位。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/runtime/helpers/turn-file-changes.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/runtime/helpers/turn-file-changes.ts:1-95"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/runtime/helpers/turn-file-changes.ts",
+          "lines": 95
+        }
+      ],
+      "notes": "turn 文件变更统计：record 按 path 聚合 writeCount/toolNames 集合/fallback 增删(来自各次 structuredPatch hunks)；afterContent 新值覆盖 undefined 保留。summary 优先用 before/after 全文重算净 diff(structuredPatch 5s 超时防大文件卡死，before 缺省空串=新建)，afterContent 未知才用累计 fallback——多次覆写同文件不重复计数。items 按 path localeCompare 排序，总量=逐项求和。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/borrowed-mcp-port.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/borrowed-mcp-port.ts:1-71"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/borrowed-mcp-port.ts",
+          "lines": 71
+        }
+      ],
+      "notes": "child 借用 parent MCP adapter：快照按 scope∧¬denied 过滤 statuses，tools 只保留在 scope 内且 server 已 connected 的 descriptor；callTool 双门——denied 返回 SUBAGENT_COMPUTER_USE_UNAVAILABLE_MESSAGE，scope 外抛 visible-scope 错误。child 不拥有连接生命周期：connect/disconnect 一律抛错，close 静默不向 parent 传播，防子会话结束杀掉父连接。listTools/status 返回快照拷贝防共享可变。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/computer-use-policy.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/computer-use-policy.ts:1-117"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/computer-use-policy.ts",
+          "lines": 117
+        }
+      ],
+      "notes": "官方 CUA 识别策略：工具名集合=descriptor 精确名+官方 server 的 canonical(mcp__computer-use__)与 alias(mcp__computer_use__)双前缀名；无启动快照时才按 namespace 前缀宽判，一旦收到 descriptor 即收窄为精确集合，防第三方同名工具被误判成官方 CUA。server selector 识别 mcp__<part>__* 选择器，官方含 computer-use/computer_use/规范化名三形态。技能判定：qualifiedName 精确匹配(裸名不在此判，留给 live metadata，防误拒第三方同名技能)；isOfficialSkill 四重门 source=plugin+pluginName+rootPath 在官方插件目录内(relative 不含 .. 且非绝对)+qualified/bare 名命中。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/context-builder.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/context-builder.ts:1-196"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/context-builder.ts",
+          "lines": 196
+        }
+      ],
+      "notes": "子代理 system 组装继承 ContextBuilder 但 override build：段序=CLI prefix→agent prompt(非空才建段，自带单换行左边界，ZCode by design，空 prompt 不能让左边界单独成 system block)→Subagent Notes(双换行左边界,stable)→Environment(dynamic)→request user context→current date→skills；每段 system message 都带 ephemeral cacheControl——不走 main 组装也要保留 provider cache breakpoint。meta_user 段按 source 拆成 skills_listing 与 context_prefix 两个 attachment。setEnvInfo 重建 config 副本。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/explore-tools.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/explore-tools.ts:1-57"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/explore-tools.ts",
+          "lines": 57
+        }
+      ],
+      "notes": "Explore 工具面白名单：direct 分支含 Glob/Grep，embedded search 分支去掉两者由 Bash find/grep 接管；白名单刻意不含任何写工具(Write/Edit/ApplyPatch)，Bash 是唯一副作用入口，只读语义靠 prompt 约束。描述文案按固定优先级(Glob>Grep>Read>Bash>WebFetch>WebSearch>TodoWrite)过滤当前白名单输出，未列优先级工具追加在后。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/explore.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/explore.ts:1-72"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/explore.ts",
+          "lines": 72
+        }
+      ],
+      "notes": "Explore 子代理定义：EXPLORE_AGENT_TYPE=Explore 常量被 runtime-reminders plan workflow 引用。prompt 强调 READ-ONLY：禁创建/修改/删除/移动文件、禁 /tmp 临时文件、禁重定向与 heredoc 写文件；Bash 只读命令清单随 embeddedSearch 增删 find/grep；要求并行工具调用与快速返回，最终报告直接以消息输出不落盘。legacy options 仅透传 embeddedSearchEnabled。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/general-purpose.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/general-purpose.ts:1-24"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/general-purpose.ts",
+          "lines": 24
+        }
+      ],
+      "notes": "general-purpose 子代理静态 prompt：完成即简短报告(调用方转述给用户)、不过度工程也不半途而废、NEVER 主动建文档/README、优先编辑既有文件。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/mcp-config.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/mcp-config.ts:1-37"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/mcp-config.ts",
+          "lines": 37
+        }
+      ],
+      "notes": "profile required MCP server 校验：matchesRequiredMcpServer 用 matchesModelVisibleMcpServerName 做模型可见命名规则归一(plugin:android-emulator:android-emulator→plugin_android-emulator_android-emulator)，否则已连接 plugin MCP 被误判 missing；*=任一 connected。extractRequiredMcpServerNames 从 allowedTools 的 mcp__server__... 提取 server 名，mcp__* 与 mcp 视为通配。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/persistent-memory-prompt.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/persistent-memory-prompt.ts:1-169"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/persistent-memory-prompt.ts",
+          "lines": 169
+        }
+      ],
+      "notes": "持久记忆 prompt 模板：四类型 user/feedback/project/reference，feedback 要同时记录纠正与确认(只存纠正会漂移成过度谨慎)，正文结构=规则+Why+How to apply；project 存相对日期必须转绝对。禁存清单：代码可推导事实、git 史、调试配方、AGENTS.md 已有、临时任务态——用户强求也要追问哪点意外/非显然。两步保存法：记忆文件(frontmatter name/description/metadata.type+[[链接]])+MEMORY.md 单行索引(>200 行截断，索引非记忆)。时效纪律：推荐前按路径/符号 grep 验证当前状态，记忆与现状冲突信现状并清理。scope guidance 三分支 user 通用/project 随 VCS 共享定制/local 项目+机器定制。rootDir 补尾分隔符，空 MEMORY.md 有占位文案。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/persistent-memory.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/persistent-memory.ts:1-110"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/persistent-memory.ts",
+          "lines": 110
+        }
+      ],
+      "notes": "子代理持久记忆装配：根目录按 scope 三分——user 在 storageRoot/agent-memory/<key>，project 在 workspace/.zcode/agent-memory/<key>(随 VCS 共享)，local 在 .zcode/agent-memory-local/<key>；agent key 非字母数字下划线连字符全替换为 -，空为 unknown。启用门=memory.enabled===true∧use!==false∧storageRoot 存在。projectPersistentAgentMemoryTools 给带 memory 的 profile 补 Write/Edit(仅当 profile.tools 显式收窄时；undefined 即全工具面不补)，引用未变则原 config 透传。MEMORY.md 读失败静默回退 empty index 文案。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/profile-frontmatter.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/profile-frontmatter.ts:1-243"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/profile-frontmatter.ts",
+          "lines": 243
+        }
+      ],
+      "notes": "宽松 frontmatter 解析器：splitMarkdownFrontmatter 去 BOM、要求首行 ---、找闭合 ---，无闭合则整篇为 body。tools 为裸值(非列表)时删除 values.tools 防字符串被当列表。mcpServers 三态：undefined=未配置、null=非法(子代理 MCP scope 必须 fail-closed)、数组=有效；块状 mapping 行(缩进续行)与未加引号的 {..} 或 key: value 列表项标记 invalidNestedListKeys——块状 mapping 不是 server-name 列表，不能被空数组吞掉后扩大 child MCP scope。内联列表按顶层逗号切分(跟踪引号/括号/花括号/方括号深度)，支持 mcpServers 内联项走 parseMcpServerListItem(引号解包、null/~→null、布尔、数字)。stripInlineComment 只在引号外且 # 前是空白时截断。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/profile-model-selection.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/profile-model-selection.ts:1-8"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/profile-model-selection.ts",
+          "lines": 8
+        }
+      ],
+      "notes": "profile 模型选择解析单点：Host/Agent 共用 @zcode/shared 正式 Markdown codec(parseSubagentMarkdownSelection)，Provider 迁移必须先在用户存储边界完成，避免两处 codec 漂移。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/profile.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/profile.ts:1-351"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/profile.ts",
+          "lines": 351
+        }
+      ],
+      "notes": "子代理 profile 模型与 Markdown 加载：内置 general-purpose(默认型,tools=[*],injectAgentsMd,color=blue 显式身份色防 UI 名称 hash 显示红色)与 Explore(7 只读工具,injectAgentsMd=false,systemPrompt 空由 context-builder 注入)。isBuiltInExploreAgentProfile 要求 name+source 双命中——用户/项目可同名覆盖内置 Explore，不能只按名字套内置行为。normalizeAgentProfiles 用 Map 按 name 后者覆盖内置。project 级 markdown 的 permissionMode 一律丢弃：仓库输入不能把 child runtime 提升到 bypass/yolo，权限模式只接受用户级或受信插件。mcpServers 解析为 null 即整 profile 报 agent_invalid_mcp_servers 诊断。description 支持 \\n 字面量转义；tools 解析支持 foo(bar) 规格取括号前名、逗号/空白分隔且跟踪括号深度；空数组 tools 保留为 [](与 undefined 全工具面区分)。memory 非法值单独诊断 agent_invalid_memory_scope。prompt 列表渲染：Explore 走 embeddedSearch 感知的工具描述，其余 filterSubagentChildToolNames(tools,disallowedTools)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/subagent/system-prompt.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/subagent/system-prompt.ts:1-40"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/subagent/system-prompt.ts",
+          "lines": 40
+        }
+      ],
+      "notes": "子代理公共注记与环境段：cwd 每次 bash 调用间重置故只用绝对路径；最终回复给绝对路径、只在文本承重时贴代码片段；禁 emoji；工具调用前禁冒号句式；禁止写 .md 报告文件、发现直接作为最终消息返回(父代理读文本不读文件)。环境块输出 working directory/git repo/platform/shell/OS 与模型身份行。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/definition.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/definition.ts:1-129"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/definition.ts",
+          "lines": 129
+        }
+      ],
+      "notes": "内置 expert 工作流定义 v2：8 阶段 clarify→task_analysis→arch_decompose→env_setup→meta_prompt→exec→final_critic→complete，各带 artifacts/NN-*.md 产物路径。arch_decompose 声明 seedGraphFromArtifact(gateAfterPhase:meta_prompt, targetPhase:exec)——分解图在 meta_prompt 之后才放行根节点；meta_prompt 声明 nodePromptsFromArtifact(targetPhase:exec)。exec behavior=scheduled_graph 供 critic-loop 定位重跑，final_critic behavior=critic。策略缺省：clarify 置信 0.8/1-3 轮；executor frontier 目标 3、并发 loop 2、连续错误 3、planner 最多 10 次、draining 1h；finalCritic 3 轮；reactLoop 30 轮。经 WorkflowDefinitionSchema.parse 保证形状合法。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert.ts:1-27"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert.ts",
+          "lines": 27
+        }
+      ],
+      "notes": "expert 工作流对外 barrel：只导出定义工厂/状态格式化/ExpertWorkflowRuntime+WorkflowRuntime 类与全部公开类型，内部 phase-runner/critic-loop 等不外泄。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/critic-loop.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/critic-loop.ts:1-234"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/critic-loop.ts",
+          "lines": 234
+        }
+      ],
+      "notes": "final critic 闭环：每轮 critic_started→runPhase→parseCriticResult；pass 即返回；fail 先 dedupe reopenProposals(按 nodeId 去重)，无提案直接返回(不再重跑)。reopen 走 lifecycle.reopenWorkflowGraphNode(maxReopens=2 硬顶)，拒绝(节点不存在/超限)只记 critic_failed rejected 事件不中断其他提案。每成功 reopen 立即 writeSnapshot+graph op 记录(reopen_node pending)+node_reopened 事件。有任何重开则 exec 与 critic 两阶段 phase 节点/phase 状态全重置 pending、graph 状态 pending，重跑 runScheduledPhase 后进入下一轮。迭代耗尽标 final_critic failed(Final critic iteration limit reached)并发 critic_iteration_limit_reached。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/failures.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/failures.ts:1-158"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/failures.ts",
+          "lines": 158
+        }
+      ],
+      "notes": "工作流失败归因：错误链沿 cause 最多 8 层(WeakSet 防环)，CoreErrorType 精确映射(model_context/rate_limit/timeout/permission/tool/configuration/cancelled)优先，未命中再按 code+type+reason 拼接串关键词(rate/timeout/context/auth/permission/tool/network|proxy|tls/provider|model_request_failed)粗分类，兜底 unknown。recoverable=非 cancelled；retryable 对 auth/cancelled/configuration 强制 false，否则读链上首个显式 retryable 布尔(含 context)，缺省 true。failure 附带 activity 的 activityId/nodeId/phase/sessionId/traceId/turnId 作用域。恢复动作固定三选：retry、retry_with_current_model、cancel(destructive)，均带作用域。latestWorkflowActivity 倒序找 failed/active/当前 phase 的活动。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/formatters.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/formatters.ts:1-35"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/formatters.ts",
+          "lines": 35
+        }
+      ],
+      "notes": "expert 状态文本渲染：[x]/-/> 三态标记+activity/session 标识+error 附注；完成摘要三行(runId+status/task/report 可选)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/graph-artifacts.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/graph-artifacts.ts:1-172"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/graph-artifacts.ts",
+          "lines": 172
+        }
+      ],
+      "notes": "阶段产物→图变更：seedGraphFromPhaseArtifact 解析 arch_decompose 输出的 graph seed(空节点/空集合即跳过)，有 gateAfterPhase 时 gateRootSeedNodes 把根节点挂到 gate phase 节点下(等 meta_prompt 完成才执行)，apply 无变化不写盘；落库顺序=writeSnapshot→逐 node/edge/collection graph record→graph_seeded op→graph_expanded 事件。updateNodePromptsFromPhaseArtifact 同理走 meta_prompt 的 prompt 更新集，写 node_prompts_updated op+graph_updated 事件。两者都透传 abortSignal。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/ids.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/ids.ts:1-29"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/ids.ts",
+          "lines": 29
+        }
+      ],
+      "notes": "图 id 约定：phase 节点=phase:<phase>，边=<from>-><to>；executableNodeIdsForPhase 优先取该 phase(或无 phase 标注)的 task 节点，无 task 时回退 phase 节点本身。safeArtifactName 清洗非 [A-Za-z0-9._-] 为 -，空回退 workflow；safeRunIdSegment 再把点换 - 防 runId 出现相对路径歧义。终态=completed/failed/cancelled。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/critic.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/parsers/critic.ts:1-114"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/critic.ts",
+          "lines": 114
+        }
+      ],
+      "notes": "critic 结果解析：先试当前 WorkflowCriticResultSchema，但检测到 legacy 字段(acceptance_gaps/overallVerdict/passed/reopenNodes/reopen_proposals)时强制走归一化——防旧模型输出被新 schema 意外放行。verdict 三来源(pass/fail、passed 布尔、overallVerdict approved/conditionallyApproved→pass)；reopen 提案兼容 nodeId/node_id/nodeName/node_name+reason/issue，reopenNodes 裸 id 列表用 reasoning 兜底 reason；severity 只接受 critical/major/minor。归一后仍过 schema 校验，失败返回 null→parseCriticResult 抛错(工作流按失败归因而非误判 pass)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/graph-seed.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/parsers/graph-seed.ts:1-189"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/graph-seed.ts",
+          "lines": 189
+        }
+      ],
+      "notes": "graph seed 宽松解析：顶层数组按元素形态整体判成 collections/nodes/edges 裸列表；对象读 nodes|newNodes|new_nodes 等多别名。节点 id 取 id|name|nodeName|node_name，kind 仅 phase 保留否则 task，phase 缺省 defaultPhase；集合 nodeIds 空数组兜底。最终仍过 WorkflowGraphSeedSchema，不过即 null(调用方跳过 seed 而非半途写图)。gateRootSeedNodes：根=无 dependsOn 且无入边，给每个根追加 gate 节点入边与 dependsOn(按 edgeId 去重)，实现 arch_decompose 图在 meta_prompt 后放行。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/json.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/parsers/json.ts:1-89"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/json.ts",
+          "lines": 89
+        }
+      ],
+      "notes": "planner JSON 提取三级回退：裸 { 开头直接 parse→```json 围栏→首 { 尾 } 截取，全失败抛错。readLoose* 系列先精确 key 命中，再按归一化 key(trim+lowercase+去非字母数字)匹配，兼容 camel/snake/大小写漂移；正整数只接受 Number.isInteger 且 >0。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/node-prompts.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/workflow/expert/parsers/node-prompts.ts:1-106"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/node-prompts.ts",
+          "lines": 106
+        }
+      ],
+      "notes": "节点 prompt 更新集解析：先直过 schema(且 nodes 非空)否则走归一化；节点候选=数组形态 nodes|nodePrompts|node_instructions 等 + map 形态(nodePrompts/prompts 对象逐 entry 转 {id,...}，字符串值当 prompt)两路合并。id 六别名、prompt 八别名(metaPrompt/nodePrompt/instructions/rules 等)。归一后仍过 WorkflowNodePromptUpdateSetSchema，失败 null→meta_prompt 阶段静默跳过更新。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/planner-result.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/workflow/expert/parsers/planner-result.ts:1-41"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/parsers/planner-result.ts",
+          "lines": 41
+        }
+      ],
+      "notes": "planner 扩展结果解析：直过 schema 失败则复用 graph-seed 归一化拿 nodes/edges/collections，collectionNodeIds 取四别名数组、缺省回退 seed collections 的 nodeIds 平铺，exhausted 布尔宽松读；仍不过即抛 JSON 错(scheduler 按失败处理)。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/phase-runner.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/phase-runner.ts:1-200"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/phase-runner.ts",
+          "lines": 200
+        }
+      ],
+      "notes": "单 phase agent 执行：activityId 新建，子 trace context 带 workflowRunId/Phase/ActivityId/Kind 属性。先落 active 快照+graph active+phase_started，再跑 agentRunner。onChildSessionStarted 回调把 child sessionId/traceId/turnId/model 回写 phase 与 activity(仅当该 activity 仍 active)并写 workflow_session_linked 事件——运行中即可观测子会话链接。成功=writeArtifact(definition.artifactPath 缺省 artifacts/<phase>.md)→phase completed+activity completed(保留原 startedAt)+addArtifact+graph completed+artifact_written/phase_completed。失败：abortSignal 已触发直接重抛(取消语义)，否则 phase/activity 标 failed 写快照发 phase_failed 后重抛。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/prompts.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/prompts.ts:1-207"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/prompts.ts",
+          "lines": 207
+        }
+      ],
+      "notes": "阶段/节点 prompt 构造：phase prompt 注入 run/cwd/task/完整调度策略数字/目标/已有产物清单，seedGraphFromArtifact 阶段附架构 JSON 契约(示例 schema+id 唯一/引用真实/无环约束)。scheduled 节点 prompt 若 node 是同 phase 的 phase 节点则回退 phase prompt；否则带 Node id/title/description/prompt 与并发/react 约束，要求只执行本节点范围。scheduler summary 汇总该 phase 的 nodes(含 attempts)与 activities。createPhaseGraph 按 phaseOrder 串行链(每节点 dependsOn 前驱)建初始图，缺 phase 定义即抛。updateGraphNodeStatus 只动 kind=phase 的目标节点。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/retry-state.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/retry-state.ts:1-86"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/retry-state.ts",
+          "lines": 86
+        }
+      ],
+      "notes": "retry 快照准备：作用域解析优先级 activityId→(nodeId|phase|failure.phase|currentPhase)；无 nodeId 时按 phase 圈定 failed/active 节点集。先跑 reconcileWorkflowSnapshotForResume 修复中断态，再把作用域内 failed/active 节点与对应 phase 条目重置 pending(清 error/completedAt)，failure/pauseReason/recoveryActions 全清、status=running、sessionLinks 由 activities 重导。nodeChanges 合并修复+重置并 dedupe，供 graph 记录追加。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/run-loop.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/run-loop.ts:1-186"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/run-loop.ts",
+          "lines": 186
+        }
+      ],
+      "notes": "expert 主管线 continueRun：按 phaseOrder 跳过 completed，behavior 分派 agent(runPhase+产物 seed graph+node prompts 两后处理)/scheduled_graph/critic/complete。异常分两支：abort 信号→若 store 最新已 cancelled 直接返回，否则 cancelWorkflowSnapshot 修复+写快照+lifecycle graph changes+run_cancelled；非 abort→pauseRunForFailure(failure 归因+recoveryActions+paused)写快照发 workflow_paused，响应带 Paused 原因。读最新快照时 abort 已触发则不带 signal 读(防取消路径自身再被取消卡死)。completeRun 写 report、标 complete phase、addArtifact、run_completed。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/runtime-context.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/runtime-context.ts:1-374"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/runtime-context.ts",
+          "lines": 374
+        }
+      ],
+      "notes": "ExpertWorkflowRuntimeContext 聚合专家工作流运行依赖（definition 经 WorkflowDefinitionSchema.parse、phaseDefinitions、store、agentRunner、可注入 createActivityId/createRunId/now/onWorkflowEvent）。createInitialSnapshot 固定 schemaVersion:1、phases 按 phaseOrder 全 pending、graph 由 createPhaseGraph 生成；writeInitialGraph 按 meta→node→edge→collection 顺序落 appendGraphRecord，该顺序即日志重放契约不可调换；appendGraphNodeStatus 写 recordType:op/type:update_status，phase 为可选归属维度；upsertActivity 每次重算 deriveWorkflowSessionLinks 保证 sessionLinks 与 activities 一致，addArtifact 按 path 去重后追加；updatePhase 同步 phases 数组与 graph 节点状态双写，防状态漂移；registerRunAbortSignal 建内部 controller 转发外部 signal（含已 aborted 立即转发），dispose 同时移除监听与 map 条目防泄漏；timestamp 统一走注入 now 便于测试；lifecyclePayload 抽取 activityIds/nodeIds/phaseIds，compactWorkflowPayload 过滤 undefined 防事件 payload 污染，dedupeWorkflowNodeChanges 按 nodeId 后写覆盖。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/runtime.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/runtime.ts:1-276"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/runtime.ts",
+          "lines": 276
+        }
+      ],
+      "notes": "ExpertWorkflowRuntime 是指令门面（start/startBackground/resume/status/retry/cancel/list/events），全部状态委托 ctx 与 store。start 顺序：writeSnapshot→writeInitialGraph→run_started 事件→registerRunAbortSignal→continueRun（finally dispose）；startBackground 先把快照置 running 落盘再 void continueRun 后台跑，catch 中 aborted 时不写 run_failed 防误报、finally dispose 防 controller 泄漏；resume 对终态短路直接返回格式化状态，非终态先 reconcileWorkflowSnapshotForResume 修复 stale active，changed 时补 graph_updated 事件带 lifecyclePayload；retry 拒绝 completed/cancelled，prepareSnapshotForRetry 后写 workflow_retry_started 事件且 payload.resetNodeIds 记录被重置节点；cancel 先写快照与图变更、发 run_cancelled 事件，最后才 abort activeRunAbortControllers——事件先于 abort 保证日志完整；events 用 slice(-limit) 取尾部；导出别名 WorkflowRuntime 兼容旧命名。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/scheduled-phase.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/scheduled-phase.ts:1-140"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/scheduled-phase.ts",
+          "lines": 140
+        }
+      ],
+      "notes": "runScheduledPhase 以 WorkflowGraphScheduler 驱动 scheduled 策略单阶段：先 updatePhase 置 active（清 error）写快照+phase_started 事件；scheduler deps 全部适配自 ctx.store/agentRunner，plannerRunner 包装 parseWorkflowPlannerResult 解析响应并透传 model/sessionId/traceId/turnId；executableNodeIds 经 executableNodeIdsForPhase 限定当前阶段图节点防跨阶段调度；artifactDirectory=artifacts/<safeArtifactName(phase)>；scheduler 返回非 completed 直接抛错（paused 视为失败交由上层重试语义）。完成后 buildScheduledPhaseSummary 写阶段产物（definition.artifactPath 优先，默认 artifacts/<phase>.md），取该阶段最后一条 completed activity 回填 activityId/sessionId/traceId/turnId；收尾落盘顺序 writeSnapshot→appendGraphStatus(completed)→artifact_written→phase_completed 为日志契约不可乱序。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/expert/types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/expert/types.ts:1-119"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/expert/types.ts",
+          "lines": 119
+        }
+      ],
+      "notes": "专家工作流类型契约。ExpertWorkflowAgentRunInput 是 agentRunner 边界全参数集（activityId/runId/phase/task/prompt/cwd/parentSessionId/traceContext/workflowKind + onEvent/onChildSessionStarted 回调），onChildSessionStarted 事件携带 model/sessionId/traceId/turnId 决定子会话链接信息回传通道；ExpertWorkflowRuntimeDeps 的 createActivityId/createRunId/now/onWorkflowEvent 全可选，测试依赖注入 fake；options 族（Run/Lookup/Retry/List/Events）统一带 abortSignal，Lookup 以 cwd+definitionId/workflowKind 定位、runId 可选；RetryOptions 继承 Lookup 再加 activityId/nodeId/phase 三级重试粒度；CommandResult 允许无 runId（未找到分支仅 response）；尾部 Workflow* 别名族保持通用命名向后兼容。改字段须同步 scheduler/types.ts 与 @zcode/contracts 快照类型。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/lifecycle.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/lifecycle.ts:1-590"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/lifecycle.ts",
+          "lines": 590
+        }
+      ],
+      "notes": "快照生命周期纯函数库（零 IO）。reconcileWorkflowSnapshotForResume：stale active 节点置 pending 并写 error=reason，phase/activity 修复受 nodeScope 与 resetPhaseIdsFromNodes 双条件约束（无 scope 全修，有 scope 仅修关联 phase/节点），resetActivities/resetPhases 可分别关闭；cancelWorkflowSnapshot：active/pending 集合统一置 cancelled，changed 额外看 snapshot.status/completedAt 保证幂等；reopenWorkflowGraphNode：仅 completed/failed/skipped 可重开，maxReopens 默认 2 超限抛错防 critic 无限循环，reopenAttempts 单调累加；applyWorkflowGraphSeed：先 WorkflowGraphSeedSchema.parse，节点/collection 重复即抛，dependsOn 经 normalizeSeedEdges 补边去重，validateAddedEdges 逐条校验自环/未知端点/重复边/成环（wouldFormCycle 以新边 to 出 BFS 找回到 from 的路径），collection 引用未知节点抛错且隐式并入同 collectionId 新节点；applyWorkflowNodePromptUpdates：拒绝重复 id、跨 phase 更新抛错、无实际字段变化跳过不产 updatedNodes；所有函数 changed 时重算 sessionLinks 且仅 changed 才新建对象，保证引用稳定可测。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/scheduler.ts:1-216"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler.ts",
+          "lines": 216
+        }
+      ],
+      "notes": "WorkflowGraphScheduler 通用图执行器主循环。run 先取 executableNodeIds（缺省全部节点），reconcile 仅对 scope 内 nodeIds 修复且 resetPhases:false 防误重置阶段；maxConcurrent/maxConsecutiveErrors 均 Math.max(1,…) 钳下限。每轮顺序：throwIfAborted→checkCollectionPlanners（plannersRan>0 时重置 frontierKey 强制重发）→emitFrontierChangedIfNeeded（ready/active/blocked 三集合 JSON 键去重）→完成判定 areExecutableNodesComplete(考虑 plannerRunner 有无)+active 空则 executor_completed→错误阈值先 Promise.all 排空 active 再 executor_paused(error_threshold)→派发 orderedReadyExecutableNodes 至并发上限，逐个 await promise.started 取回最新 snapshot 保证快照写序一致→有派发即 continue→否则 Promise.race 收最早完成并更新 consecutiveErrors（成功清零）→无 active 且未完为 deadlock 暂停。派生状态 deriveWorkflow*State 直接 re-export 自 contracts 保持单一实现。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler/collection-events.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/scheduler/collection-events.ts:1-73"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler/collection-events.ts",
+          "lines": 73
+        }
+      ],
+      "notes": "collection planner 事件辅助。emitExpansionEvents：仅当 expansion 实际新增节点或边才发 graph_expanded（payload 含 collectionId/edgeIds/nodeIds），expansion.collection.exhausted 或原 status=exhausted 任一命中即补发 collection_exhausted；exhaustCollection：构造 exhausted:true+status:exhausted 的 collection，updateGraphCollection 落快照后按 writeSnapshot→appendCollectionRecord→collection_exhausted 事件顺序持久化，payload 合并调用方 reason（max_planner_runs/planner_error_threshold）。写序为重放契约：collection 记录必须先于事件，否则重放时状态与事件错位。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler/collection-planner.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/workflow/scheduler/collection-planner.ts:1-393"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler/collection-planner.ts",
+          "lines": 393
+        }
+      ],
+      "notes": "checkCollectionPlanners 每轮扫描当前 phase 内 explorable collection（无 plannerRunner 短路）。unseenCompletions（completed 但未入 analyzedNodeIds）命中即刷新 lastCompletionAt；初始扩展延迟条件 frontier>0 且 plannerRuns=0 且无 analyzed 且无 unseen 完成——仅置 status:active 等待，避免首跑空转；frontier>=frontierTarget（collection 覆盖 strategy 默认）且无新完成同样延迟；plannerRuns>=maxPlannerRuns 或 errorCount>=maxConsecutiveErrors 走 exhaustCollection 带对应 reason。runCollectionPlanner：activity kind=planner_agent、inputArtifactPaths 取快照 artifacts 全量、trace 经 createChildTraceContext 挂 workflow* attributes；plannerRuns 先自增随 activeCollection 落盘；onChildSessionStarted 仅在 activity 仍 active 时更新会话链接并发 workflow_session_linked（payload compact 去 undefined）；成功路径产物写 <artifactDirectory>/planners/<safeName>-<runs>.md，applyPlannerExpansion 后按 writeSnapshot→appendExpansionRecords→planner_completed→emitExpansionEvents 顺序；失败路径 abort 直接上抛不吞，errorCount+1，collection 置 draining 或达阈值 exhausted，failed activity 保留已链接 sessionId/model/turnId（可选展开），发 planner_failed，exhausted 时补 collection_exhausted。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler/collection-runtime.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/workflow/scheduler/collection-runtime.ts:1-10"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler/collection-runtime.ts",
+          "lines": 10
+        }
+      ],
+      "notes": "纯类型文件：WorkflowCollectionPlannerRuntime 聚合 collection planner 所需运行依赖（createActivityId、WorkflowSchedulerEventLog 实例、可选 plannerRunner、writeArtifact、writeSnapshot），由 scheduler.ts 的 collectionPlannerRuntime() 工厂从自身字段构造注入 checkCollectionPlanners/exhaustCollection。防回归：新增 planner 依赖须同步扩展本接口与工厂方法，plannerRunner 保持可选以支持无探索能力的纯执行调度。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler/events.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/scheduler/events.ts:1-142"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler/events.ts",
+          "lines": 142
+        }
+      ],
+      "notes": "WorkflowSchedulerEventLog 封装 appendEvent/appendGraphRecord/now/onWorkflowEvent。timestamp 统一 ISO 串；appendGraphStatus 写 recordType:op/type:update_status（phase 必填，与 expert/runtime-context 的可选 phase 区分）；appendCollectionRecord 写 collection 记录；appendExpansionRecords 严格按 node→edge→collection→op(graph_expanded) 顺序落盘，graph_expanded 记录 payload 携 exhausted/plannerRuns/status 且顶层记 edgeIds/nodeIds/collectionId——该顺序即日志重放契约，collection 更新必须先于展开 op；emitEvent 构造 WorkflowEvent.kind 取 snapshot.kind，先 appendEvent 落盘再回调 onWorkflowEvent，保证外部观察者只见已持久化事件。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler/graph.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/scheduler/graph.ts:1-241"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler/graph.ts",
+          "lines": 241
+        }
+      ],
+      "notes": "图查询/更新纯函数库。ready/blocked 均委托 contracts 的 deriveWorkflowSchedulerState（就绪/阻塞推导单一事实源）再与 executableNodeIds 求交；orderedReadyExecutableNodes 工程节点优先、探索节点按未耗尽 explorable collection 轮转（round-robin 保多 collection 公平，index 递增+splice 空组的实现改动须维持公平性）；areExecutableNodesComplete：可执行节点全部 ∈{cancelled,completed,skipped}，且 waitsForCollections（有 plannerRunner）时要求所有相关 explorable collection 均 exhausted——相关性=collection 有节点，防空 collection 死等；updateGraphNode 仅允许 patch attempts/error/status；updateGraphCollection 经 normalizeCollection 补默认后 merge patch、不存在则追加并刷 updatedAt；upsertActivity 每次重算 sessionLinks；collectionNodeIdsForGraph 并集显式 nodeIds 与按 node.collectionId 反查，保证双向一致；collectionFrontier 计 pending+active；isCollectionInPhase 优先 collection.phase 精确匹配、无 phase 退化为节点交集；edgeId 统一 from->to 格式。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler/node-runner.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/scheduler/node-runner.ts:1-259"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler/node-runner.ts",
+          "lines": 259
+        }
+      ],
+      "notes": "runWorkflowNode 返回 WorkflowSchedulerNodePromise（主 promise + started promise）。started 在 active 快照落盘后 resolve，调度主循环靠 await started 同步共享 snapshot 引用防并发覆盖。流程：createChildTraceContext 挂 workflowNodeId 等 attributes→upsertActivity(kind:agent_session)+updateGraphNode(active、清 error)→writeSnapshot+setSnapshot+appendGraphStatus(active)+node_started→resolveStarted；onChildSessionStarted 从 snapshotAccess.getSnapshot() 取最新快照、仅 activity 仍 active 时更新会话链接并发 workflow_session_linked（payload compact）；prompt 优先 options.buildPrompt 否则 buildDefaultNodePrompt。成功：writeArtifact 到 <artifactDirectory ?? artifacts/exec>/<safeArtifactName(node.id)>.md，基于最新快照 completed（attempts 保留原值），writeSnapshot→appendGraphStatus(completed)→artifact_written→node_completed；失败：abort 直接上抛不吞，attempts+1，attempts<maxAttempts 置 pending（可重试）否则 failed，failed activity 保留已链接 sessionId/model/turnId（条件展开），node_failed payload 携 attempts/retry。所有状态读写走 snapshotAccess 保证并发下不丢他人更新。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler/planner-expansion.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": [
+        "apps/zcode-cli/packages/core/src/workflow/scheduler/planner-expansion.ts:1-178"
+      ],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler/planner-expansion.ts",
+          "lines": 178
+        }
+      ],
+      "notes": "applyPlannerExpansion 先 WorkflowGraphPlannerResultSchema.parse 校验 planner 原始输出。新节点经 workflowNodeFromPlannerNode：status 固定 pending、collectionId 缺省回退当前 collection、kind 缺省 task、phase 不兜底（保留跨阶段可能），id 重复即抛；normalizePlannerEdges 把 dependsOn 隐式边并入并按 edgeId 去重；validateNewEdges 逐条拒自环/未知端点/重复边/成环（从 newEdge.to BFS 找回 from）。collectionNodeIds 并入 result.collectionNodeIds（缺省=全部新节点）。nextStatus 状态机：result.exhausted→exhausted；无图变更且 frontier=0 且无 unseen 完成→draining，且已 draining 则升 exhausted（两段式排空防 frontier 未满时过早终止）；否则 active。lastGraphChangeAt 仅图变更时刷新，analyzedNodeIds 累积 unseenCompletions 去重。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler/prompts.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/scheduler/prompts.ts:1-77"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler/prompts.ts",
+          "lines": 77
+        }
+      ],
+      "notes": "默认提示词构建。buildDefaultNodePrompt 组装 phase/runId/cwd/task/节点 title+description+prompt/既有 artifacts 清单（无则明示 No previous artifacts），尾句约束「仅执行本节点 scope，返回含 changes/validation/residual risk 的简洁 Markdown 产物」；buildDefaultPlannerPrompt 给 collection goal/metric 与既有节点 [status] 列表，强制只返回固定 JSON shape（nodes/edges/collectionNodeIds/exhausted/reasoning 内联示例），并提示 unique id、avoid cycles、exhausted=true 仅当无有价值扩展——与 planner-expansion 的校验互为防线；undefined 行统一 filter 后 join 防提示词空洞。safeArtifactName 将非 [a-zA-Z0-9._-] 替换为 _、截断 100、空结果回退 node，防路径注入与超长文件名。"
+    },
+    {
+      "path": "apps/zcode-cli/packages/core/src/workflow/scheduler/types.ts",
+      "status": "deep",
+      "files": 1,
+      "read": 1,
+      "verified": "agent",
+      "evidence": ["apps/zcode-cli/packages/core/src/workflow/scheduler/types.ts:1-161"],
+      "tickets": [],
+      "readFiles": [
+        {
+          "p": "apps/zcode-cli/packages/core/src/workflow/scheduler/types.ts",
+          "lines": 161
+        }
+      ],
+      "notes": "通用调度器类型契约。ActivityInput 携 node（node-runner 专用），PlannerInput 携 collection+graph+snapshot（planner 专用），两者共享回调 onChildSessionStarted(model/sessionId/traceId/turnId)；PlannerRunResult extends contracts WorkflowGraphPlannerResult 再叠 model/response/sessionId/traceId/turnId；Deps 聚合 IO 端口：appendEvent/appendGraphRecord/writeArtifact/writeSnapshot/now/createActivityId 必填、onWorkflowEvent/plannerRunner 可选、runner 必填；RunOptions 提供 artifactDirectory 与 buildPrompt 注入点、executableNodeIds 限定调度范围；RunResult reason 三值(completed/deadlock/error_threshold)映射 status 二值(completed/paused)；SnapshotAccess get/set 抽象并发主循环共享快照；SchedulerCollection=WorkflowGraphCollection 加必填 analyzedNodeIds/errorCount/exhausted/explorable/nodeIds/plannerRuns/status（对应 graph.normalizeCollection 补默认）；WorkflowSchedulerNodePromise=Promise<NodeRunOutcome>&{started}。改 IO 边界须同步 @zcode/contracts 与 expert/types.ts。"
     }
   ],
   "ticketIndex": {
