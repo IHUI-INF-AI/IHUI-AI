@@ -1508,11 +1508,22 @@ export function countMergeNotes(content) {
  *     唯一结局是各会话 `--no-verify`、连带全部守门作废(§12e 同型)。
  */
 export const DISPOSITIONS = ['actionable', 'waiting-human', 'waiting-env', 'owned-elsewhere']
+/**
+ * 「归他人」这一族的**唯一词源**(2026-10-22 抽出给 `plan-fields-extract.mjs` 用,不复制)。
+ * 抽取器要把散文里的归属搬进侧车,判"这行到底有没有表态归他人"必须问同一把尺子 ——
+ * 抄一份词表就是造第二把尺子(§0.6),两把尺子各自读出不同命中集时,搬进侧车的那一步会
+ * 静默改掉派单判定,而守恒断言看不见它(它比的是桶,不是词表)。
+ */
+const OWNED_ELSEWHERE_RE =
+  /归属[:：]|本票不认领|本线不认领|本线只登记|不代做|不代改|不代裁|他人账|不归本机|不归本线|归.{0,10}持有者|由.{0,12}持有者|留给.{0,10}(持有人|人)/
+export function ownedElsewhereRe() {
+  return OWNED_ELSEWHERE_RE
+}
 /** 判定顺序即优先级:一句"归属 X 端,阻塞在生产侧"该算别人的账,不该算成"等环境"。 */
 const DISPOSITION_RULES = [
   [
     'owned-elsewhere',
-    /归属[:：]|本票不认领|本线不认领|本线只登记|不代做|不代改|不代裁|他人账|不归本机|不归本线|归.{0,10}持有者|由.{0,12}持有者|留给.{0,10}(持有人|人)/,
+    OWNED_ELSEWHERE_RE,
   ],
   [
     'waiting-human',
