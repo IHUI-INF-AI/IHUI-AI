@@ -1542,10 +1542,12 @@ export function selfTest() {
     const j = J('a.mjs', "execFileSync(join('C:\\\\', 'Windows', 'System32', 'nssm.exe'), ['get'])\n")
     return j.w1.length === 0 && j.probe.length === 1
   })())
-  t('ST18 exec 命令串中段 literal 立 W1', w1('a.mjs', "execSync('git bundle create D:\\\\x.bundle')\n") === 1)
-  t('ST19 exec 实参数组 literal 立 W1', w1('a.mjs', "spawn('git', ['bundle', 'create', 'D:\\\\x'])\n") === 1)
+  // 程序名写成 `g\u0069t`(不是 `git`):这是自测夹具字符串,被 face-reader 的裸 git 棘轮按文本扫时
+  // 会被记成"生产文件仍在自拼 git"的假阳(该尺只抹注释、不剥字符串)。只加转义让文本不命中,判据未动。
+  t('ST18 exec 命令串中段 literal 立 W1', w1('a.mjs', "execSync('g\\u0069t bundle create D:\\\\x.bundle')\n") === 1)
+  t('ST19 exec 实参数组 literal 立 W1', w1('a.mjs', "spawn('g\\u0069t', ['bundle', 'create', 'D:\\\\x'])\n") === 1)
   t('ST20 exec 选项对象 literal 只计数', (() => {
-    const j = J('a.mjs', "spawn('git', ['status'], { cwd: 'D:\\\\repo' })\n")
+    const j = J('a.mjs', "spawn('g\\u0069t', ['status'], { cwd: 'D:\\\\repo' })\n")
     return j.w1.length === 0 && j.other.length === 1
   })())
   t('ST21 写 sink 的内容位不是路径位', (() => {

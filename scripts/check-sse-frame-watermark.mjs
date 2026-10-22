@@ -30,11 +30,10 @@
 //       `node scripts/check-sse-frame-watermark.mjs --self-test`(内置红/绿对照)
 // --self-test 不依赖真仓通过与否;接线状态见上方【接线状态:】一行(以 runner 现值为准)。
 
-import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { mkScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')

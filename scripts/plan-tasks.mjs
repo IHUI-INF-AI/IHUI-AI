@@ -427,7 +427,7 @@ export function makeLagJudge(root, { cap = LAG_JUDGE_CAP } = {}) {
 }
 
 /** 只读一条文档。整面取不到 ⇒ 抛 Undetermined(调用方转 exit 2),绝不静默换面。 */
-function readPlan(root, face) {
+export function readPlan(root, face) {
   if (face === 'worktree') {
     const got = readWorktreeFile(root, PLAN_REL)
     if (got === null || got === undefined)

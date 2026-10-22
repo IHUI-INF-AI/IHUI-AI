@@ -57,3 +57,18 @@ def test_output_never_contains_plaintext() -> None:
     secret = "C:/Users/x/secret-token-abc.txt"
     out = _redact_legacy_pattern_tail(_legacy("run_command", secret))
     assert secret not in out
+
+
+def test_double_application_equals_single_application() -> None:
+    """幂等证明(票面判据"跑两次与跑一次结果一致"):带子对自身输出必须原样直通。
+
+    明文尾 → 第一次改写为 redacted-<hex16>;第二次进带必须命中"已安全"直通,
+    不得二次哈希(否则同一入参在 upsert 链上会裂成两个 pattern,唯一约束炸裂)。
+    """
+    for plaintext in ("C:/x/y.py --flag", '{"path":"G:/a","content":"secret"}'):
+        once = _redact_legacy_pattern_tail(_legacy("read_file", plaintext))
+        assert _redact_legacy_pattern_tail(once) == once
+    # 已安全两型(hex64 / redacted-<hex16>)同样两次=一次(直通)
+    for tail in ("a" * 64, "redacted-" + "b" * 16):
+        p = _legacy("read_file", tail)
+        assert _redact_legacy_pattern_tail(_redact_legacy_pattern_tail(p)) == p

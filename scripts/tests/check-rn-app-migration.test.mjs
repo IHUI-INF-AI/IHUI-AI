@@ -31,6 +31,19 @@
  *  T5 V2 棘轮(内存构造):新增无同名共享屏 ⇒ 红;基线同形态 ⇒ 只报数不判红;退化 ⇒ 红。
  *  T6 真仓索引实况档:门体的暂存读数是**别的会话此刻 staged 的东西**,暂存面有 screen 就整条跳过
  *     并写明"这一维此刻不判" —— 跳过不等于通过。
+ *  〔G-922 验收要求:四条反向锁,逐缺陷一条〕
+ *  T7 反向锁①(ROOT 定根):把 CLI 的 cwd 换到仓外 scratch,判的必须仍是真仓(枚数读数与
+ *     真仓 cwd 一致) —— 旧门 `ROOT = process.cwd()` 在这一格会去扫 scratch 的空目录并假绿跳过。
+ *  T8 反向锁②(取材面):门体源码在守门 118 自己的 `classify` 尺下必须判 `face`;同把尺喂
+ *     "readFileSync + 仓库锚点"的旧形状夹具必须判 `loose-fs`(尺有牙,不是走过场)。
+ *  T9 反向锁③(白名单族卫生):每枚 why+expires 齐、缺到期戳按到期处置、死账(DebugScreen/
+ *     SquareScreen)不得回潮,且**登记块现扫不得有重名键**(对象字面量后键静默覆盖前键 =
+ *     名单腐烂的另一形态,2026-10-21 补登批实测咬到三处,已去重)。
+ *  T10 反向锁④(绿数口径):真仓里"有 import 但共享层无同名屏"的存量必须被报数点名,
+ *     输出不得再出现"已迁移 <数字>"型假绿读数;同一样本按新增形态过一遍 ⇒ 必咬 V2 红。
+ *
+ *  T7-T9 用到"门体自身源码"作材料:被测对象就是工作树里被 import 进来的那份 .mjs,
+ *  对它 readFileSync 是**取被测件**,不是取判据输入(判据输入的盘面纪律见 T2/T3,走 catBatch)。
  *
  * 派生一律 `windowsHide: true` + `stdio: ['ignore','pipe','pipe']`(AGENTS.md §12g);
  * 临时目录一律 mkScratch/rmScratch(§26 唯一落点);对真仓 git 严格只读(不写 index、不碰 stash)。
@@ -39,15 +52,19 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { catBatch, gitBinary } from '../lib/face-reader.mjs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { classify } from '../check-gate-face-discipline.mjs'
 import { __test__ as gate } from '../check-rn-app-migration.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '..', '..')
-const GATE_CLI = join(REPO, 'scripts', 'check-rn-app-migration.mjs')
+const GATE_REL = 'scripts/check-rn-app-migration.mjs'
+const GATE_CLI = join(REPO, ...GATE_REL.split('/'))
 const SCREENS_REL = gate.SCREENS_REL
 const APP_REL = gate.APP_REL
 
@@ -285,6 +302,91 @@ describe('check-rn-app-migration · §22c 镜像测试(判据一律走门体导�
       const r = runCli(['--staged'])
       assert.equal(r.rc, 0, `暂存面无 screen 时应 exit 0,实得 ${r.rc} / ${r.out.slice(0, 200)}`)
       assert.ok(/索引 blob 面|索引 blob面/.test(r.out), 'staged 档必须点名判定面是索引 blob(面纪律不是修辞)')
+    },
+  )
+
+  it('T7 反向锁①(ROOT 定根):cwd 换到仓外 scratch,判的仍是真仓、枚数读数不变', () => {
+    // 旧门 `ROOT = process.cwd()` 在这一格的现场是:去扫 scratch 里根本不存在的 screens 目录,
+    // 报"目录为空或不存在,跳过"然后 exit 0 —— 定根跟着进程走,判的就不是被提交的那个仓。
+    const scratch = mkScratch('g922-root-')
+    try {
+      const elsewhere = runCli([], scratch)
+      assert.ok([0, 1].includes(elsewhere.rc), `scratch cwd 直跑应判真仓(0/1),实得 ${elsewhere.rc} / ${elsewhere.out.slice(0, 200)}`)
+      const mElse = elsewhere.out.match(/HEAD blob ?面 (\d+) 枚/)
+      assert.ok(mElse, `scratch cwd 下仍须点名 HEAD blob 面与枚数(不得"跳过"式假绿),实得:${elsewhere.out.slice(0, 200)}`)
+      const here = runCli([], REPO)
+      const mHere = here.out.match(/HEAD blob ?面 (\d+) 枚/)
+      assert.ok(mHere, '真仓 cwd 的枚数读数必须存在(对照锚)')
+      assert.equal(mElse[1], mHere[1], 'ROOT 由脚本位置推导 ⇒ 枚数读数必须与 cwd 无关;不等 = 定根又跟着进程走了')
+    } finally {
+      rmScratch(scratch)
+    }
+  })
+
+  it('T8 反向锁②(取材面):门体源码在守门 118 的 classify 尺下判 face,旧盘判形状必咬 loose-fs', () => {
+    const src = readFileSync(GATE_CLI, 'utf8')
+    const got = classify(GATE_REL, src)
+    assert.equal(got.kind, 'face', `门体取材面必须是 face-reader 通道,实判 ${got.kind}:${got.why}`)
+    // 反证:同一把尺喂"readFileSync + 仓库锚点"的旧形状 ⇒ 必须 loose-fs(尺有牙,锁不是走过场)
+    const oldShape =
+      "import { readFileSync } from 'node:fs'\nimport { join } from 'node:path'\n" +
+      "const ROOT = process.cwd()\nconst DIR = join(ROOT, 'apps', 'mobile-rn', 'src', 'screens')\n" +
+      "export const body = readFileSync(DIR, 'utf8')\n"
+    assert.equal(classify('scripts/_fixture-disk-shape.mjs', oldShape).kind, 'loose-fs', '盘判旧形状在 classify 尺下不咬 = 反向锁空转')
+  })
+
+  it('T9 反向锁③(白名单族卫生):why+expires 齐、缺到期戳按到期、死账不回潮、登记块无重名键', () => {
+    for (const [name, e] of gate.WHITELIST_ENTRIES) {
+      assert.ok(typeof e.why === 'string' && e.why.trim() !== '', `${name} 缺 why(§0.7 豁免必带理由)`)
+      assert.match(String(e.expires ?? ''), /^\d{4}-\d{2}-\d{2}$/, `${name} 的 expires 必须是 ISO 日期(守门 108 口径)`)
+    }
+    assert.equal(gate.isExpired({ why: 'x' }, gate.isoToday()), true, '缺到期戳必须按到期处置(不豁免),缺省即永免 = 到期机制空转')
+    assert.equal(gate.isExpired({ why: 'x', expires: '' }, gate.isoToday()), true, '空 expires 同样按到期')
+    assert.ok(!gate.WHITELIST.has('DebugScreen.tsx') && !gate.WHITELIST.has('SquareScreen.tsx'), 'G-922 摘除的两枚死账不得回潮')
+    // 重名键现扫:对象字面量后键静默覆盖前键,Map.size 看不见重复登记,只能对源码本体下尺
+    const src = readFileSync(GATE_CLI, 'utf8')
+    const from = src.indexOf('export const WHITELIST_ENTRIES')
+    const to = src.indexOf('/** 兼容导出')
+    assert.ok(from >= 0 && to > from, '登记块锚点必须找得到(锚漂开先怀疑尺子)')
+    const keys = [...src.slice(from, to).matchAll(/^\s{4}'([^']+)':\s*\{/gm)].map((m) => m[1])
+    const dup = [...new Set(keys.filter((k, i) => keys.indexOf(k) !== i))]
+    assert.deepEqual(dup, [], `WHITELIST_ENTRIES 登记块重名键(后登静默覆盖前登 = 名单腐烂):${dup.join(', ')}`)
+    assert.equal(keys.length, gate.WHITELIST.size, '字面量登记数必须等于 Set 规模(不等 = 有键被静默吞掉)')
+  })
+
+  it(
+    'T10 反向锁④(绿数口径):存量必被报数点名、输出无"已迁移 N"假绿、同枚按新增形态必咬 V2',
+    { skip: HEAD_SCREENS.ok && HEAD_SHARED.ok ? false : `能力探测未过:${HEAD_SCREENS.reason || HEAD_SHARED.reason}` },
+    () => {
+      const TODAY = gate.isoToday()
+      const screens = HEAD_SCREENS.rels.map((rel) => ({ name: rel.split('/').pop(), text: HEAD_SCREENS.blobs.get(`HEAD:${rel}`) }))
+      const headNames = new Set(screens.map((s) => s.name))
+      const v = gate.verdict({
+        screens,
+        baseline: new Map(screens.map((s) => [s.name, s.text])),
+        sharedNames: HEAD_SHARED.names,
+        baselineSharedNames: HEAD_SHARED.names,
+        headScreenNames: headNames,
+        whitelist: gate.WHITELIST_ENTRIES,
+        today: TODAY,
+        fullAudit: true,
+      })
+      assert.ok(v.soft.length > 0, 'V2 存量为空 = ④ 那一维没咬到真仓任何东西,绿数口径无从谈起')
+      const sample = screens.find((s) => s.name === v.soft[0].name)
+      assert.equal(gate.hasRnAppImport(sample.text), true, '报数样本必须确有共享层 import(否则它根本不属于 ④ 维)')
+      assert.ok(!HEAD_SHARED.names.has(gate.stemOf(sample.name)), '报数样本必须真的无同名共享屏')
+      // 同一样本换两种携带形态过非全量档:存量(基线在 HEAD)⇒ 只报数;新增(基线无)⇒ V2 红
+      const base = { headScreenNames: new Set([sample.name]), whitelist: new Map(), today: TODAY, sharedNames: HEAD_SHARED.names, baselineSharedNames: HEAD_SHARED.names }
+      const stock = gate.verdict({ ...base, screens: [sample], baseline: new Map([[sample.name, sample.text]]) })
+      assert.deepEqual(stock.violations, [], `存量形态不得判红(§0.2),实得:${JSON.stringify(stock.violations)}`)
+      assert.equal(stock.soft.length, 1, '存量必须进报数而不是被静默吞掉')
+      const added = gate.verdict({ ...base, screens: [sample], baseline: new Map() })
+      assert.equal(added.violations.length, 1, '新增形态必须红(只拦"本次把它带进来")')
+      assert.equal(added.violations[0].code, 'V2')
+      // CLI 口径:全量档必须点名存量报数,且不得出现旧门"已迁移 <数字>"型假绿读数
+      const full = runCli([])
+      assert.match(full.out, /存量 \d+ 枚/, `全量档必须打印 V2 存量报数,实得:${full.out.slice(0, 300)}`)
+      assert.ok(!/已迁移\s*\d/.test(full.out), `旧门"已迁移 203"型假绿读数不得复活,实得:${full.out.slice(0, 300)}`)
     },
   )
 })

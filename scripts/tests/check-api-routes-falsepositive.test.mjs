@@ -811,3 +811,224 @@ test('S3 源码锁:dumpFlagValue 的等号分支不得被静默删掉', () => {
     '等号分支被删了 —— 排障出口会再次静默哑火',
   )
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// G-962 py 前缀拼接:include 前缀 ⊕ 文件内自有前缀(FastAPI 真实语义)
+// 旧「二选一」把 connectors/computer-use/cost-ledger 等七族 28 条真挂载链判成
+// "高置信真死候选";挂载面判据收敛到 lib 一份实现(buildPyIncludeMaps)。
+// ─────────────────────────────────────────────────────────────────────────
+
+test('J1 py 拼接:include /api ⊕ 文件内 /computer-use ⇒ /api/computer-use/* 在册(真挂载链不得判死)', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(dir, 'apps/ai-service/app/main.py', 'app.include_router(computer_use.router, prefix="/api")\n')
+    put(
+      dir,
+      'apps/ai-service/app/routers/computer_use.py',
+      [
+        'from fastapi import APIRouter',
+        "router = APIRouter(prefix='/computer-use')",
+        "@router.get('/sessions')",
+        'async def h():',
+        '    return {}',
+        '',
+      ].join('\n'),
+    )
+    put(dir, 'apps/web/src/cu.ts', "export const f = () => api('/api/computer-use/sessions')\n")
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.equal(calls(r.out, 'web'), 1, `调用点必须进调用集\n${r.out}`)
+    assert.deepEqual(missing, [], `拼接路径必须进注册面(旧二选一只有 /computer-use/sessions)\n${JSON.stringify(missing, null, 1)}`)
+    assert.equal(r.status, 0, `真挂载链不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('J2 二级聚合器:include 行写在 killer_extras.py(非 main.py)的族必须参与比对', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(
+      dir,
+      'apps/ai-service/app/main.py',
+      'from .routers import killer_extras\nkiller_extras.register(app)\n',
+    )
+    put(
+      dir,
+      'apps/ai-service/app/routers/killer_extras.py',
+      "from . import cost_ledger\napp.include_router(cost_ledger.router, prefix='/api')\ndef register(app):\n    pass\n",
+    )
+    put(
+      dir,
+      'apps/ai-service/app/routers/cost_ledger.py',
+      [
+        'from fastapi import APIRouter',
+        "router = APIRouter(prefix='/cost-ledger')",
+        "@router.get('/summary')",
+        'async def h():',
+        '    return {}',
+        '',
+      ].join('\n'),
+    )
+    put(dir, 'apps/web/src/cl.ts', "export const f = () => api('/api/cost-ledger/summary')\n")
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.deepEqual(missing, [], `聚合器文件里的 include 行必须进挂载面(旧式只读 main.py 整族失明)\n${JSON.stringify(missing, null, 1)}`)
+    assert.equal(r.status, 0, `在册端点不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('J3 模块别名:include 键 browser_hub_router ≠ 文件名 browser_hub 时仍解到 /api', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(
+      dir,
+      'apps/ai-service/app/main.py',
+      'from app.routers import browser_hub as browser_hub_router\napp.include_router(browser_hub_router.router, prefix="/api")\n',
+    )
+    put(
+      dir,
+      'apps/ai-service/app/routers/browser_hub.py',
+      [
+        'from fastapi import APIRouter',
+        "router = APIRouter(prefix='/browser-hub')",
+        "@router.get('/tools')",
+        'async def h():',
+        '    return {}',
+        '',
+      ].join('\n'),
+    )
+    put(dir, 'apps/web/src/bh.ts', "export const f = () => api('/api/browser-hub/tools')\n")
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.deepEqual(missing, [], `别名 include 必须解到模块文件\n${JSON.stringify(missing, null, 1)}`)
+    assert.equal(r.status, 0, `在册端点不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('J4 防过度收紧:文件内 prefix 已含 /api 且被 include /api ⇒ 只出一份,不叠 /api/api/', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(dir, 'apps/ai-service/app/main.py', 'app.include_router(checkin.router, prefix="/api")\n')
+    put(
+      dir,
+      'apps/ai-service/app/routers/checkin.py',
+      [
+        'from fastapi import APIRouter',
+        "router = APIRouter(prefix='/api/checkin')",
+        "@router.get('/summary')",
+        'async def h():',
+        '    return {}',
+        '',
+      ].join('\n'),
+    )
+    put(dir, 'apps/web/src/ck.ts', "export const f = () => api('/api/checkin/summary')\n")
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.deepEqual(missing, [], `自有前缀已含 /api 时不得叠出双 /api 而丢掉真形态\n${JSON.stringify(missing, null, 1)}`)
+    assert.equal(r.status, 0, `在册端点不得判红\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// 机制⑥(G-962,2026-10-22):pathRe 扫描面必须是**遮罩行**
+// 病根:extractFrontendCalls 的逐行扫描旧式跑 `line`(原文),注释里的
+// `fetchApi('/api/auth/refresh')`(use-auth.ts:64「原实现裸调」说明、
+// feedback-survey-card.tsx:16 端点说明、mobile-rn config.ts:32 JSDoc)照样进调用集。
+// ─────────────────────────────────────────────────────────────────────────
+test('⑥ 注释里的 fetchApi 路径不得进调用集(修前会被当 GET 调用点报名)', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(
+      dir,
+      'apps/web/src/hooks/use-auth.ts',
+      [
+        'const refreshToken = React.useCallback(async (): Promise<boolean> => {',
+        "  // 2026-09-04 根治刷新风暴。原实现裸调 fetchApi('/api/ghost/incomment')",
+        '  const newToken = await refreshAccessTokenOnce()',
+        '  return Boolean(newToken)',
+        '})',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.equal(calls(r.out, 'web'), 0, `注释行不得产出调用点\n${r.out}`)
+    assert.deepEqual(missing, [], `注释里的路径不得进死调用清单\n${JSON.stringify(missing, null, 1)}`)
+    assert.doesNotMatch(r.out, /ghost\/incomment/, `注释路径不得出现在任何报名里\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// 防过度收紧:同文件里注释那行被剔,**代码行**的真调用必须仍在。
+test('⑥ 防过度收紧:同文件注释路径被剔、代码行真调用仍在', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/real.ts', "server.post('/api/real/keep', async () => ({}))\n")
+    put(
+      dir,
+      'apps/web/src/hooks/keep.ts',
+      [
+        "import { fetchApi } from '@/lib/api'",
+        "// 旧写法 fetchApi('/api/ghost/old') 已废弃",
+        "export const go = () => fetchApi('/api/real/keep', { method: 'POST' })",
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.equal(calls(r.out, 'web'), 1, `代码行真调用必须仍计数\n${r.out}`)
+    assert.deepEqual(missing, [], `在册真调用不得判死\n${JSON.stringify(missing, null, 1)}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// 机制⑥补刀(G-962):e2e 源码锁 `expect(s).toContain("'/api/…'")` —— 谓词名单缺
+// toContain、且实参是双层引号(双引号包单引号),旧式机制⑤的谓词正则贴不住
+// (apps/web/e2e/edu-finance-arrears.spec.ts:260 实证:源码锁字符串被当 GET 调用)。
+// ─────────────────────────────────────────────────────────────────────────
+test('⑥b e2e 源码锁 toContain("\'/api/…\'") 不是调用点(双层引号+谓词名单补 toContain)', () => {
+  const dir = root()
+  try {
+    put(dir, 'scripts/api-routes-baseline.json', BASELINE)
+    put(dir, 'apps/api/src/routes/anchor.ts', "server.get('/api/anchor', async () => ({}))\n")
+    put(
+      dir,
+      'apps/web/e2e/src-lock.spec.ts',
+      [
+        "test('源码锁', () => {",
+        '  const s = src.finance()',
+        `  expect(s).toContain("'/api/ghost/sourcelock'")`,
+        '})',
+        '',
+      ].join('\n'),
+    )
+    const r = run(dir, ['--warn-only', '--dump-missing', join(dir, 'missing.json')])
+    const missing = JSON.parse(readFileSync(join(dir, 'missing.json'), 'utf8'))
+    assert.equal(calls(r.out, 'web'), 0, `源码锁字符串不是调用点\n${r.out}`)
+    assert.deepEqual(missing, [], `源码锁不得进死调用清单\n${JSON.stringify(missing, null, 1)}`)
+    assert.doesNotMatch(r.out, /ghost\/sourcelock/, `源码锁路径不得出现在任何报名里\n${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})

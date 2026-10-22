@@ -38,6 +38,7 @@ import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 // D129:用户气泡的正文渲染器(附件拍平形态的止血;详见该文件头注)
 import { UserMessageBody } from './user-message-body'
+import { MessageVersionMenu, type MessageVersionEntry } from './message-version-menu'
 // G-825(2026-09-29 立):消息级 markdown 错误边界 —— 一条消息的渲染异常此前会冒泡到路由级 error(整页挂掉)。
 // 复位语义复用既有 ErrorBoundary 的 resetKeys 档,不写第二份边界实现;键的形状住纯函数层。
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
@@ -165,6 +166,17 @@ interface MessageItemProps {
   isSearchCurrent?: boolean
   /** 代码块默认折叠行数,<=0 表示不折叠 */
   codeCollapseLines?: number
+  /** 票59 2/3(2026-10-22 立):该消息的版本族位置。缺省 = 不在版本族 / 族内单版本
+   *  ⇒ 不渲染版本切换器(1/1 没有可切的东西)。由 MessageList 按
+   *  `versionFamilyPosition` 统一算出后透传,本组件不二次判族。 */
+  versionInfo?: {
+    rootId: string
+    index: number
+    total: number
+    entries: MessageVersionEntry[]
+  }
+  /** 票59 2/3:切换版本族激活版本(rootId + 目标消息 id),由宿主转交 store */
+  onSelectMessageVersion?: (rootId: string, messageId: string) => void
 }
 
 const MessageItem = React.memo(function MessageItem({
@@ -184,6 +196,8 @@ const MessageItem = React.memo(function MessageItem({
   isSearchMatch = false,
   isSearchCurrent = false,
   codeCollapseLines,
+  versionInfo,
+  onSelectMessageVersion,
 }: MessageItemProps) {
   const t = useTranslations('chat')
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
@@ -1404,6 +1418,16 @@ const MessageItem = React.memo(function MessageItem({
             )
           })()}
           <div className="flex items-center gap-1" data-testid={`message-actions-${m.id}`}>
+            {/* 票59 2/3(2026-10-22 立):版本族切换器 —— 交互与 CanvasVersionMenu 同构
+                (History 图标 + 下拉 + 点选)。只有族内 ≥2 个版本才渲染;切换只改读投影的
+                激活版本,不写库、不发请求。 */}
+            {versionInfo && onSelectMessageVersion && (
+              <MessageVersionMenu
+                versions={versionInfo.entries}
+                activeId={m.id}
+                onSelect={(id) => onSelectMessageVersion(versionInfo.rootId, id)}
+              />
+            )}
             {/* AI 消息:Eye/EyeOff(内容可见性切换)— 原项目 toggleAssistantContentVisibility */}
             {!isUser && (
               <Tooltip

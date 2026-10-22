@@ -1508,11 +1508,22 @@ export function countMergeNotes(content) {
  *     唯一结局是各会话 `--no-verify`、连带全部守门作废(§12e 同型)。
  */
 export const DISPOSITIONS = ['actionable', 'waiting-human', 'waiting-env', 'owned-elsewhere']
+/**
+ * 「归他人」这一族的**唯一词源**(2026-10-22 抽出给 `plan-fields-extract.mjs` 用,不复制)。
+ * 抽取器要把散文里的归属搬进侧车,判"这行到底有没有表态归他人"必须问同一把尺子 ——
+ * 抄一份词表就是造第二把尺子(§0.6),两把尺子各自读出不同命中集时,搬进侧车的那一步会
+ * 静默改掉派单判定,而守恒断言看不见它(它比的是桶,不是词表)。
+ */
+const OWNED_ELSEWHERE_RE =
+  /归属[:：]|本票不认领|本线不认领|本线只登记|不代做|不代改|不代裁|他人账|不归本机|不归本线|归.{0,10}持有者|由.{0,12}持有者|留给.{0,10}(持有人|人)/
+export function ownedElsewhereRe() {
+  return OWNED_ELSEWHERE_RE
+}
 /** 判定顺序即优先级:一句"归属 X 端,阻塞在生产侧"该算别人的账,不该算成"等环境"。 */
 const DISPOSITION_RULES = [
   [
     'owned-elsewhere',
-    /归属[:：]|本票不认领|本线不认领|本线只登记|不代做|不代改|不代裁|他人账|不归本机|不归本线|归.{0,10}持有者|由.{0,12}持有者|留给.{0,10}(持有人|人)/,
+    OWNED_ELSEWHERE_RE,
   ],
   [
     'waiting-human',
@@ -1554,12 +1565,55 @@ const DISPOSITION_RULES = [
   ],
   [
     'waiting-env',
-    // `不可执行|排后` 是 2026-10-22 补的洞:这两词在台账里真把"等条件"说清楚,但原族一条都不命中,
-    // 于是那几行被派单面读成"现在可做"。补洞前先量命中集(未勾行现读):
-    //   `不可执行`=1、`排后`=1 ⇒ 收进词族;`等静默窗口`=0 ⇒ **不加**(命中 0 就造出一把永不发声的判据)。
-    /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)|不可执行|排后/,
+    // 词族档(裸判)与自述槽档(带护栏①)的读数取舍:
+    //   `不可执行|排后` 是 2026-10-22 补的洞:这两词在台账里真把"等条件"说清楚,但原族一条都不命中,
+    //   于是那几行被派单面读成"现在可做"。补洞前先量命中集(未勾行现读):
+    //     `不可执行`=1、`排后`=1 ⇒ 收进词族;`等静默窗口`=0 ⇒ **不加**(命中 0 就造出一把永不发声的判据)。
+    //   同日第二处洞 = `在等什么:` 自述槽(现读 `在等什么` 命中 8 行、`在等:` 命中 7 行,其中**判成可做的 2 行**
+    //   是 `G-923 在等什么:等 dev 栈机器级依赖被拉回` 与 `P1-② 在等:P0-① 补齐的触发面…`)。这一档**不能裸判**:
+    //   裸正则会把 `不需要在等:任何人` 这类被否定短语顶成等待(§12f:修红不得顺手削判据),所以它走
+    //   `waitingEnvVerdict` 的语法邻接护栏,复用 waiting-human 那一份①而不是抄第三个词。
+    (line) => waitingEnvVerdict(line) === 'self',
   ],
 ]
+
+/**
+ * 「等环境/等条件」的**词族档**唯一词源(2026-10-22 抽出,给 `plan-fields-extract.mjs` 取 blocking 用)。
+ * 与 `DISPOSITION_RULES` 共享同一份正则,所以"搬进侧车"这一步不可能因为词表分家而静默改判(§0.6)。
+ */
+const WAITING_ENV_BARE_RE =
+  /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)|不可执行|排后/
+/** 作者自述槽:`在等什么:` / `在等:` 后面跟着他写明的等待对象。 */
+const WAITING_ENV_SLOT_RE = /在等(?:什么)?[:：]\s*([^,，。;：:（）()\n]{1,40})/
+export function waitingEnvRe() {
+  return WAITING_ENV_BARE_RE
+}
+export function waitingEnvSlotRe() {
+  return WAITING_ENV_SLOT_RE
+}
+
+/**
+ * 等条件档的两把尺子:词族命中即算(裸判,历史语义不变);自述槽必须过**护栏①**(否定紧邻不算)。
+ * @returns `'self'` | `'negated'`(槽被①否决且词族未命中) | `null`(两处都没说话)
+ */
+export function waitingEnvVerdict(line) {
+  const face = dispositionFace(line)
+  if (WAITING_ENV_BARE_RE.test(face)) return 'self'
+  // 自述槽这一档**不吃指针行**:指针行没有自己的等待,它带着的 `在等:…` 是被折叠掉的**旧题面**
+  // (现读实证:`- [ ] 副本指针(编号 P1-①):本行折叠自旧形态行 **P1-① 扩共享层首批(在等:逐屏清单裁决…)**`)。
+  // 用既有的结构判据 `isClaimExcludedPointer` 让路,而不是再抄一份"旧形态/折叠自"词表 ——
+  // 词表挡不住下一个没写进表的措辞(门89 那一课:`不需要用户拍板` 就是这么漏的)。
+  if (isClaimExcludedPointer(line)) return null
+  const re = new RegExp(WAITING_ENV_SLOT_RE.source, 'g')
+  let saw = false
+  let m
+  while ((m = re.exec(face)) !== null) {
+    saw = true
+    const before = face.slice(Math.max(0, m.index - 26), m.index)
+    if (!WAITING_HUMAN_NEG_GOVERNS_RE.test(before)) return 'self'
+  }
+  return saw ? 'negated' : null
+}
 /**
  * ── waiting-human 的第二把尺子:「本行在等**人**」的语法辖域判据(2026-10-07 落地)──
  *

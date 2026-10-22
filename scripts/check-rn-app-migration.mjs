@@ -21,6 +21,8 @@
  *      到期即不再豁免;登记名在被审面 screens 清单里不存在 = 清单腐烂 ⇒ 红。本轮按现读
  *      摘除 DebugScreen.tsx / SquareScreen.tsx 两枚(两面均已不存在,豁免无的放矢),
  *      **存量归零后才把这一维设成红**(§0.2 恒红门禁令:升 blocking 的前置是存量归零)。
+ *      同轮现扫登记块再摘三处**重名短账**(AgentCategories/PublishAccounts/aboutPageSections
+ *      与后登详账同名 —— 对象字面量后键静默覆盖前键,重名即腐烂的另一形态,镜像 T9 锁死)。
  *   ④ **「1 条 import 就算已迁移」不再算数**:还得看 packages/app 共享层有没有同名的
  *      那个屏(文件同名或 `packages/app/src/index.ts` 导出同名符号),否则"已迁移 N 个"
  *      这个绿数不代表屏级共享。**这一维的存量只报数不判红**(枚数由门体当次运行现读打印),只拦
@@ -132,18 +134,6 @@ export const WHITELIST_ENTRIES = new Map(
       why: '发布分析屏:数据卡片 + 趋势条 + 周期切换,共享层无同名屏,RN 端独占统计视图',
       expires: '2027-06-30',
     },
-    'AgentCategoriesScreen.tsx': {
-      why: '智能体分类屏:分类网格 + 详情入口,对齐 web /agents/categories;共享层无同名屏,RN 端独占导航交互',
-      expires: '2027-06-30',
-    },
-    'PublishAccountsScreen.tsx': {
-      why: '平台账号屏:账号列表 + 绑定状态,对齐 web /publish/accounts;共享层无同名屏,RN 端独占授权流',
-      expires: '2027-06-30',
-    },
-    'aboutPageSections.ts': {
-      why: '数据文件:非 screen 组件,导出 about 页的分区配置数组与图标映射',
-      expires: '2027-06-30',
-    },
     'AiAssistantN8nScreen.tsx': {
       why: 'N8n 工作流 AI 助手:streamChat SSE + VoiceInput + ModelConfigDialog + Drawer 历史对话,RN 端独占流式对话交互(L30 的"复用 @ihui/rn-app Drawer"仅是 doc comment,非 import)',
       expires: '2027-06-30',
@@ -188,7 +178,8 @@ export const WHITELIST_ENTRIES = new Map(
       why: '关于页:2026-09-05 产品定稿恢复历史合规跳转列表(对齐 Uniapp about.vue),7 条目跳转 RN 端合规屏集合;共享层 app-info 卡版 UI 不适用,曾接 SharedAboutScreen 后有意移除',
       expires: '2027-06-30',
     },
-    // ── 2026-10-21 补登(HEAD 面 V1 红 3 条,逐条按现读判"无低成本真迁移") ──
+    // ── 2026-10-21 补登(HEAD 面 V1 红 3 条,逐条按现读判"无低成本真迁移";
+    //     原块上方另有三枚同名的历史短账,重名静默覆盖 = 名单腐烂,已去重只留本份详账)──
     'AgentCategoriesScreen.tsx': {
       why: '智能体分类屏(405 行):本地 NavBar/NavChrome + useNavigation 跳 AgentDetail(第 30-39/265 行),分类详情与分类内智能体收进 Modal 弹层(web /agents/categories 与 /agents/categories/[id] 是两个独立路由);packages/app 现有 agent-market(AgentMarketScreen,搜索列表)与 category-detail(CategoryDetailScreen,按 Tab 的条目流)都不覆盖"分类列表 + 分类内智能体"这一形态,真共享需新写屏并重定 props 契约(>100 行),故 RN 独占',
       expires: '2027-06-30',

@@ -137,10 +137,6 @@ dist.__lock
 **/.env.local
 **/.env.production
 
-# cf-preferred-ip 优选脚本密钥与运行态(含 CF API 令牌,严禁入库)
-deploy/cf-preferred-ip.env
-deploy/cf-preferred-ip.lkg
-
 # 2026-09-25 D48② 桌面端本地保险库(主密钥落点,正常在 app_data_dir;开发机把数据目录指进仓库时
 # 仍有被 git add . 收进来的路径,故结构性排除)。文件名唯一源 apps/web/src/lib/local-vault.ts。
 ihui-vault.json
@@ -210,6 +206,11 @@ backups/
 # 例外:apps/web/app/uploads/ 是 Next.js 路由目录(/uploads route handler,非上传数据目录)
 !apps/web/app/uploads/
 !apps/web/app/uploads/**
+# 例外:同名路由目录被 backups/ 吞掉(G-926 台账 A 档)—— 租户备份页 page.tsx/PageClient.tsx
+# 是 Next.js 真实路由,取消跟踪=干净检出直接 404。注意 [slug] 在 gitignore 通配里是字符类,
+# 必须转义为 \[slug\] 才指向字面目录。
+!apps/web/app/(main)/admin/saas/\[slug\]/backups/
+!apps/web/app/(main)/admin/saas/\[slug\]/backups/**
 
 # ============================================================================
 # 依赖
@@ -267,9 +268,19 @@ monitoring/alertmanager/alertmanager.rendered.yml
 # 连带把全部守门废掉。放例外 = 回到正常跟踪态,不动判据也不摘跟踪。
 !apps/mobile-rn/metro.config.cjs
 !apps/api/ecosystem.config.cjs
+# 同一条 `*.cjs` 还吞着两份已入库的告警桥真相源(G-926 台账 A 档):守门 104
+# (check-prod-bundle-shadow.mjs)PAIRS 表拿 deploy/scripts/prod-bundle 这份做 tracked↔runner
+# 逐字节对账,monitoring/alertbridge 那份是 §5e 邮件单通道 webhook 接收腿的入库源。
+!deploy/scripts/prod-bundle/alert-webhook-bridge.cjs
+!monitoring/alertbridge/alert-webhook-bridge.cjs
 *.html
 # 例外: miniapp-taro H5 模板文件(构建时 webpack 处理,源文件需 git 追踪)
 !apps/miniapp-taro/src/index.html
+# 例外:`*.html` 吞掉的入库文档与 WXT 入口(G-926 台账 A 档):popup/sidepanel 的
+# index.html 是 WXT 规定的入口,缺失即构建失败;docs 那枚是已入库报告。
+!docs/agent-enhancement-report.html
+!apps/extension/entrypoints/popup/index.html
+!apps/extension/entrypoints/sidepanel/index.html
 # 2026-10-07 清理:此处原有 `!apps/assistant/index.html`(为 Tauri 2 那端的 vite 入口放行)。
 # apps/assistant 已由 b825ba3180 退休、盘上残留副本移走,`git ls-files apps/assistant` 实测 0 条,
 # 这条负向规则指向的路径不再可能出现在候选面 ⇒ 留着就是一条会替"目录还在"背书的死档,已摘。
@@ -313,6 +324,10 @@ __*
 !**/__mocks__/**
 # 豁免:__init__.py 是 Python 包标记文件,不允许被 __* 误伤
 !**/__init__.py
+# 豁免:__fixtures__ 是测试夹具标准目录,不允许被 __* 误伤(G-926:mobile-rn 按路径读取的
+# 父组件源夹具 rootnavigator-parent-*.txt 被吞 ⇒ 干净检出上该用例直接取不到输入)
+!**/__fixtures__/
+!**/__fixtures__/**
 check_guard_final*.log
 deep_audit_round*.log
 stub_audit_round*.log

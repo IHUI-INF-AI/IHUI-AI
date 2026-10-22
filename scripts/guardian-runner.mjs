@@ -1744,12 +1744,15 @@ const checks = [
     script: 'scan-hardcoded-zh.mjs',
     args: ['--exit', '1'],
     mode: 'blocking',
+    // 2026-10-22 G-966:packages/app/src(共享登录屏层)并入扫描射程,注册面射程同步跟上,
+    // 否则该层的暂存提交根本不触发本门。
     stagedTriggers: [
       'apps/web/app/',
       'apps/web/src/components/',
       'apps/web/src/hooks/',
       'packages/ui-react/src/',
       'packages/shared/src/',
+      'packages/app/src/',
     ],
     skipEnv: 'HUSKY_SKIP_HARDCODED_ZH_GUARD',
     onFailHint: [
@@ -5257,6 +5260,26 @@ const checks = [
       '  单独复验:node scripts/check-sse-no-blind-merge.mjs [--staged|--strict|--json]',
       '     自检:node scripts/check-sse-no-blind-merge.mjs --self-test(15 例)',
       '  紧急跳过(不推荐):HUSKY_SKIP_SSE_NO_BLIND_MERGE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // 档位依据(G-965):红线只由**差值维**触发 —— A1 只数相对 HEAD 基准面本次新带入的未勾行,
+  // A2 只数被审面上标头与侧车不一致的枚数;存量缺侧车(现读 109 枚)只在结论行报数、不进 verdict,
+  // 否则就是与提交内容无关的恒红门(§12e)。存量是否清零由门自己打印,人不复述。
+  // --- 计划/台账(1 项,blocking)---
+  {
+    id: '234',
+    label:
+      '计划台账侧车字段一致性(新增行有侧车 ∧ 标头==侧车投影)',
+    script: 'check-plan-fields.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_PLAN_FIELDS',
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    onFailHint: [
+      '',
+      '读数:node scripts/check-plan-fields.mjs;结清存量:node scripts/plan-fields-extract.mjs --apply(只搬说辞不改台账行)',
       '',
     ].join('\n'),
   },

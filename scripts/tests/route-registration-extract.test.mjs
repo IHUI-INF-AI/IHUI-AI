@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { extractApiRegistrations, maskRegexLiterals, __test__ } from '../lib/route-registration-extract.mjs'
+import { extractApiRegistrations, maskRegexLiterals, skipQuoted, __test__ } from '../lib/route-registration-extract.mjs'
 
 const ENTRY = 'apps/api/src/server.ts'
 const files = (obj) => new Map(Object.entries(obj))
@@ -230,5 +230,258 @@ test('L2 形状锁:泛型动词段 / shaped 空串 / emit 侧空串,三处牙不
   assert.ok(libSrc.includes('(?:<[^()]*>)?'), 'VERB_CALL_SRC 的泛型段是 R1 的牙')
   assert.ok(libSrc.includes("arg.value === ''"), 'shaped 判据的空串臂是 R5 的牙(扫描侧)')
   assert.ok(libSrc.includes("v !== '' && !v.startsWith('/')"), 'emit 侧空串放行是 R5 的牙(产出侧,两处必须成对)')
+})
+
+// ─── Q 组:嵌套模板插值(G-962 实证,workspace-ai.ts:445 形态)────────────
+// 插值里套内层反引号 + 带裸引号的正则 + 三元:旧式 skipQuoted 把内层反引号当闭合 ⇒
+// 花括号失衡 ⇒ findTopLevelFunctions bodyEnd=-1 ⇒ 整文件 0 条入图,25 条前端真调用落桶。
+const WS_LINE =
+  '    return `git ${args.map((a) => (a.includes(\' \') ? `"${a.replace(/"/g, \'\\\\"\')}"` : a)).join(\' \')}`'
+
+test('Q1 skipQuoted 单元:嵌套模板插值(内层反引号/带引号正则/三元)必须解到真正的尾反引号', () => {
+  const end = skipQuoted(WS_LINE, WS_LINE.indexOf('`'))
+  assert.equal(WS_LINE[end], '`', '返回位必须是反引号')
+  assert.equal(end, WS_LINE.length - 1, '闭合位必须是行尾最后一个反引号(旧式停在内层)')
+})
+
+test('Q2 全链:嵌套模板之后的注册必须照常入图并带挂载前缀(workspaceAiRoutes 整族丢图锁)', () => {
+  const ws = [
+    'export const workspaceAiRoutes = async (server) => {',
+    '  function buildGitCmd(args: string[]): string {',
+    WS_LINE,
+    '  }',
+    "  server.post('/git/status', async () => null)",
+    '}',
+    '',
+  ].join('\n')
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { workspaceAiRoutes } from './routes/workspace-ai.js'\n" +
+          "server.register(workspaceAiRoutes, { prefix: '/api/workspace' })",
+      ),
+      'apps/api/src/routes/workspace-ai.ts': ws,
+    }),
+  )
+  assert.ok(
+    hasEntry(out, 'POST', '/api/workspace/git/status', 'apps/api/src/routes/workspace-ai.ts'),
+    `模板失衡时 bodyEnd=-1 ⇒ 插件函数整个被 findTopLevelFunctions 静默丢弃\nentries: ${JSON.stringify(out.entries)}`,
+  )
+})
+
+// ─── P 组:FastAPI 前缀拼接(G-962 实证,connectors/computer-use/cost-ledger 形态)──
+test('P1 py 拼接:include /api ⊕ 文件内 /computer-use ⇒ /api/computer-use/*(旧「二选一」判真挂载链为死)', () => {
+  const out = __test__.extractFastApiRegistrations(
+    files({
+      'apps/ai-service/app/main.py': 'app.include_router(computer_use.router, prefix="/api")\n',
+      'apps/ai-service/app/routers/computer_use.py':
+        "from fastapi import APIRouter\nrouter = APIRouter(prefix='/computer-use')\n@router.get('/sessions')\nasync def h():\n    return {}\n",
+    }),
+  )
+  assert.ok(
+    out.entries.some((e) => e.method === 'GET' && e.path === '/api/computer-use/sessions'),
+    `FastAPI 真实路径 = include 前缀 + 自有前缀 + localPath\nentries: ${JSON.stringify(out.entries)}`,
+  )
+})
+
+test('P2 防双 /api:文件内 prefix 已含 /api ⇒ 不叠 include 前缀', () => {
+  const out = __test__.extractFastApiRegistrations(
+    files({
+      'apps/ai-service/app/main.py': 'app.include_router(checkin.router, prefix="/api")\n',
+      'apps/ai-service/app/routers/checkin.py':
+        "from fastapi import APIRouter\nrouter = APIRouter(prefix='/api/checkin')\n@router.get('/summary')\nasync def h():\n    return {}\n",
+    }),
+  )
+  assert.ok(
+    out.entries.some((e) => e.path === '/api/checkin/summary'),
+    `自有前缀已含 /api 时取 Q 不叠 P\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  assert.ok(!out.entries.some((e) => e.path.startsWith('/api/api/')), '双 /api 形态不得出现')
+})
+
+test('P3 二级聚合器(killer_extras 型 include 行不在 main.py)+ 模块别名(browser_hub_router 型)都解到挂载前缀', () => {
+  const out = __test__.extractFastApiRegistrations(
+    files({
+      'apps/ai-service/app/main.py':
+        'from app.routers import browser_hub as browser_hub_router\napp.include_router(browser_hub_router.router, prefix="/api")\n',
+      'apps/ai-service/app/routers/killer_extras.py':
+        "from . import cost_ledger\napp.include_router(cost_ledger.router, prefix='/api')\ndef register(app):\n    pass\n",
+      'apps/ai-service/app/routers/cost_ledger.py':
+        "from fastapi import APIRouter\nrouter = APIRouter(prefix='/cost-ledger')\n@router.get('/summary')\nasync def h():\n    return {}\n",
+      'apps/ai-service/app/routers/browser_hub.py':
+        "from fastapi import APIRouter\nrouter = APIRouter(prefix='/browser-hub')\n@router.get('/tools')\nasync def h():\n    return {}\n",
+    }),
+  )
+  assert.ok(
+    out.entries.some((e) => e.path === '/api/cost-ledger/summary'),
+    `二级聚合器文件里的 include 行必须进挂载面(旧式只读 main.py 整族失明)\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  assert.ok(
+    out.entries.some((e) => e.path === '/api/browser-hub/tools'),
+    `include 键是模块别名时也必须解到文件\nentries: ${JSON.stringify(out.entries)}`,
+  )
+})
+
+test('P4 py 反向锁:注释里的假 include 不得参与拼接;无 prefix 的 include 不得叠不相干前缀', () => {
+  const out = __test__.extractFastApiRegistrations(
+    files({
+      'apps/ai-service/app/main.py':
+        '# app.include_router(ghost.router, prefix="/api")\n' +
+        'from app.routers import plain\napp.include_router(plain.router)\n',
+      'apps/ai-service/app/routers/ghost.py':
+        "from fastapi import APIRouter\nrouter = APIRouter(prefix='/ghost')\n@router.get('/x')\nasync def h():\n    return {}\n",
+      'apps/ai-service/app/routers/plain.py':
+        "from fastapi import APIRouter\nrouter = APIRouter(prefix='/plain')\n@router.get('/y')\nasync def h():\n    return {}\n",
+    }),
+  )
+  assert.ok(
+    !out.entries.some((e) => e.path === '/api/ghost/x'),
+    `注释假 include 若被当挂载边,会把 /ghost/x 拼成 /api/ghost/x(假路径入面=假绿源)\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  assert.ok(
+    out.entries.some((e) => e.path === '/plain/y'),
+    `include 不带 prefix ⇒ 自有前缀原样,不得叠任何东西\nentries: ${JSON.stringify(out.entries)}`,
+  )
+})
+
+// ─── F 组:deferredTemplate(O87g 先决①,registerCrud 族 :id 腿整族隐身实证)──
+const SHARED_REL = 'apps/api/src/routes/_shared.ts'
+const CRUD_SHARED = [
+  'export function registerCrud(server, basePath, table, opts) {',
+  '  server.get(basePath, async () => null)',
+  '  server.get(`${basePath}/:id`, async () => null)',
+  '  server.put(`${basePath}/:id`, async () => null)',
+  '  server.delete(`${basePath}/:id`, async () => null)',
+  '}',
+  '',
+].join('\n')
+
+test('F1 deferredTemplate 正例:工厂体 `${basePath}/:id` 腿必须在调用点按实参代入入图(旧式 shaped 静默丢 ⇒ 整族 45 条隐身)', () => {
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { consoleRoutes } from './routes/console.js'\n" +
+          "server.register(consoleRoutes, { prefix: '/api/admin' })",
+      ),
+      [SHARED_REL]: CRUD_SHARED,
+      'apps/api/src/routes/console.ts':
+        "import { registerCrud } from './_shared.js'\n" +
+        'export const consoleRoutes = async (server) => {\n' +
+        "  registerCrud(server, '/courses', {}, {})\n" +
+        '}\n',
+    }),
+  )
+  const factoryVia = (e) => String(e.via || '').startsWith('factory:')
+  assert.ok(
+    out.entries.some((e) => e.method === 'GET' && e.path === '/api/admin/courses' && factoryVia(e)),
+    `bare 形参腿 basePath 必须代入 '/courses'(via 须标 factory 溯源)\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  for (const m of ['GET', 'PUT', 'DELETE']) {
+    assert.ok(
+      out.entries.some(
+        (e) => e.method === m && e.path === '/api/admin/courses/:id' && factoryVia(e),
+      ),
+      `${m} 模板 :id 腿必须经工厂调用点代入入图\nentries: ${JSON.stringify(out.entries)}`,
+    )
+  }
+})
+
+test('F2 deferredTemplate 反向锁:调用点解不出的 `${x}` 模板必须落 undetermined 报名,不得静默丢也不得造条目', () => {
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { consoleRoutes } from './routes/console.js'\n" +
+          "server.register(consoleRoutes, { prefix: '/api/admin' })",
+      ),
+      [SHARED_REL]: CRUD_SHARED,
+      'apps/api/src/routes/console.ts':
+        "import { registerCrud } from './_shared.js'\n" +
+        'export const consoleRoutes = async (server) => {\n' +
+        '  registerCrud(server, pickBase(), {}, {})\n' +
+        '}\n',
+    }),
+  )
+  assert.ok(
+    !out.entries.some((e) => /\$\{|pickBase/.test(e.path)),
+    '解不出的模板绝不许带 "${" 入图\nentries: ' + JSON.stringify(out.entries),
+  )
+  assert.ok(
+    out.undetermined.some((u) => /factory|模板|deferred|pickBase/i.test(`${u.kind} ${u.detail}`)),
+    `工厂路径实参不可解必须逐条报名(三态纪律:看不见≠没有)\nundetermined: ${JSON.stringify(out.undetermined)}`,
+  )
+})
+
+test('F3 deferredTemplate 反向锁(非工厂上下文):普通插件里以 `${` 开头且无常量可解的模板注册必须报名,不得回到修复前的静默丢', () => {
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { looseRoutes } from './routes/loose.js'\n" +
+          "server.register(looseRoutes, { prefix: '/api' })",
+      ),
+      'apps/api/src/routes/loose.ts':
+        'export const looseRoutes = async (server) => {\n' +
+        '  server.get(`${dynamic}/:id`, async () => null)\n' +
+        '}\n',
+    }),
+  )
+  assert.ok(
+    !out.entries.some((e) => e.path.includes('${') || e.path === '/:id'),
+    `不可解模板不得造出畸形条目\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  assert.ok(
+    out.undetermined.some((u) => /:id|dynamic|模板/.test(`${u.kind} ${u.detail}`)),
+    `修复前的病灶正是"shaped=false ⇒ 整条静默丢弃";报名是它唯一的合法出口\nundetermined: ${JSON.stringify(out.undetermined)}`,
+  )
+})
+// ─── K1 无花括号箭头函数作用域(G-962,2026-10-22 实证)────────────────────
+// 病根:findTopLevelFunctions 旧式一律 indexOf('{') 找体起点,`const f = (x) => expr`
+// 于是把下一个函数的花括号当自己的体 ⇒ 插件体内紧随其后的注册被 enclosingFn 归给该
+// 辅助箭头函数(图上走不到)⇒ 落 via=fallback 裸路径,前端带前缀的真调用永判不死不活
+// (apps/api/src/routes/workspace-permissions.ts:210 GET /permission-default 实证:
+// readWireMode 单行箭头吞掉 L210 注册 ⇒ 前端 GET /api/workspace/permission-default 落桶)。
+test('K1 无花括号箭头函数不得吞后续注册:紧随的 server.get 归插件函数、带前缀入图', () => {
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { wspRoutes } from './routes/wsp.js'\n" +
+          "server.register(wspRoutes, { prefix: '/api/workspace' })",
+      ),
+      'apps/api/src/routes/wsp.ts':
+        'export const wspRoutes = async (server) => {\n' +
+        '  const readWireMode = (raw: unknown): string | null => permissionModeWire(raw)\n' +
+        "  server.get('/permission-default', async () => null)\n" +
+        '}\n',
+    }),
+  )
+  assert.ok(
+    hasEntry(out, 'GET', '/api/workspace/permission-default', 'apps/api/src/routes/wsp.ts'),
+    `注册必须带挂载前缀入图(修前落 fallback 裸路径 /permission-default)\nentries: ${JSON.stringify(out.entries)}`,
+  )
+  assert.ok(
+    !out.entries.some((e) => e.path === '/permission-default'),
+    `不得再产出无前缀的 fallback 裸路径\nentries: ${JSON.stringify(out.entries)}`,
+  )
+})
+
+// 防过度收紧:无花括号箭头函数**自身**不得被当成注册宿主 —— 表达式体里若真有注册调用
+// (反模式,但形态合法),它仍应被抽出(归到箭头函数名下,走 fallback 口径),不得整条消失。
+test('K1b 防过度收紧:表达式体内出现的注册形态仍要抽出,不得随作用域收窄一起消失', () => {
+  const out = extractApiRegistrations(
+    files({
+      [ENTRY]: serverTs(
+        "import { oneRoutes } from './routes/one.js'\n" +
+          "server.register(oneRoutes, { prefix: '/api' })",
+      ),
+      'apps/api/src/routes/one.ts':
+        'export const oneRoutes = async (server) => {\n' +
+        "  const reg = (s) => s.get('/inline-expr', async () => null)\n" +
+        '  reg(server)\n' +
+        '}\n',
+    }),
+  )
+  assert.ok(
+    out.entries.some((e) => e.path.includes('inline-expr')),
+    `表达式体里的注册不得整条静默丢\nentries: ${JSON.stringify(out.entries)}`,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
