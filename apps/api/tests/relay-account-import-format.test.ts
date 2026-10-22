@@ -157,6 +157,21 @@ describe('validateAccountExport', () => {
     expect(codes).toContain('enabled-invalid')
   })
 
+  it('WorkBuddy 长 refreshToken(实测 700)必须通过;超过 4096 才拦', () => {
+    const ok = validateAccountExport(
+      { accounts: [account({ refreshToken: 'r'.repeat(700) })] },
+      { providerCode: 'workbuddy', now: NOW },
+    )
+    expect(ok.ok).toBe(true)
+
+    const tooLong = validateAccountExport(
+      { accounts: [account({ refreshToken: 'r'.repeat(4097) })] },
+      { providerCode: 'workbuddy', now: NOW },
+    )
+    expect(tooLong.ok).toBe(false)
+    expect(tooLong.accounts[0]?.issues.map((i) => i.code)).toContain('refreshToken-invalid')
+  })
+
   it('codearts:缺 STS → error;完整两套导出格式都能解出 uid/到期', () => {
     const missing = validateAccountExport(
       { accounts: [{ name: '坏号' }] },

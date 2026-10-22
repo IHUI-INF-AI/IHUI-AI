@@ -312,7 +312,7 @@ function BatchScoreEntry({
           </thead>
           <tbody>
             {students.map((student) => (
-              <tr key={student.id} className="border-b last:border-0">
+              <tr key={student.id}>
                 <td className="px-3 py-2 font-medium">{student.name}</td>
                 {subjects.map((subject) => (
                   <td key={subject} className="px-3 py-2">
@@ -762,7 +762,7 @@ export default function GradesPage() {
                     {sortedScores.map((s, i) => {
                       const pct = Math.round((s.score / s.totalScore) * 100)
                       return (
-                        <tr key={s.id} className="border-b last:border-0 hover:bg-muted/30">
+                        <tr key={s.id} className="hover:bg-muted/30">
                           <td className="px-3 py-2">
                             <Link
                               href={`/edu/edu-management/grades/trend/${s.studentId}`}
@@ -857,7 +857,7 @@ export default function GradesPage() {
                   </thead>
                   <tbody>
                     {rankWithChange.map((r) => (
-                      <tr key={r.studentId} className="border-b last:border-0 hover:bg-muted/30">
+                      <tr key={r.studentId} className="hover:bg-muted/30">
                         <td className="px-3 py-2">
                           <span
                             className={cn(
@@ -985,7 +985,7 @@ export default function GradesPage() {
                 {rankWithChange.slice(0, 5).map((r) => (
                   <div
                     key={r.studentId}
-                    className="flex items-center justify-between border-b px-4 py-2 text-sm last:border-0"
+                    className="flex items-center justify-between px-4 py-2 text-sm"
                   >
                     <span className="font-medium">
                       #{r.rank} {r.studentId.slice(0, 8)}
@@ -1013,7 +1013,7 @@ export default function GradesPage() {
                   .map((r) => (
                     <div
                       key={r.studentId}
-                      className="flex items-center justify-between border-b px-4 py-2 text-sm last:border-0"
+                      className="flex items-center justify-between px-4 py-2 text-sm"
                     >
                       <span className="font-medium">
                         #{r.rank} {r.studentId.slice(0, 8)}

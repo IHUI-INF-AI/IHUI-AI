@@ -56,22 +56,14 @@ import { relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { COLORS as C } from './lib/logger.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import {
-  Undetermined,
-  assertRepoRoot,
-  catBatch,
-  gitRaw,
-  readWorktreeFile,
-  selectFace,
-} from './lib/face-reader.mjs'
+import { Undetermined, assertRepoRoot, selectFace } from './lib/face-reader.mjs'
+import { addedLineNumbers, headAnchors, readSources, sourceCandidates } from './lib/face-scan.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
 const isWorktree = process.argv.includes('--worktree')
 const isSelfTest = process.argv.includes('--self-test')
 const isHelp = process.argv.includes('--help')
-
-const GIT_TIMEOUT = 120_000
 
 /** §22d 双形态入口:被镜像测试 import 时不得执行 skip/--help/主流程,也不得 process.exit */
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -146,7 +138,12 @@ export function classifyBorderToken(cls) {
   if (segs.length === 1) return { kind: 'full', opacity }
   const second = segs[1]
   if (/^\d+$/.test(second)) return { kind: 'full', width: Number(second), opacity }
-  if (AXIS_TOKENS.has(second)) return { kind: 'axis', opacity }
+  if (AXIS_TOKENS.has(second)) {
+    // border-x / border-y 也吃宽度档:`border-x-0` 是擦除,不能顶掉整行判据
+    if (segs.length === 2) return { kind: 'axis', width: 1, opacity }
+    if (/^\d+$/.test(segs[2])) return { kind: 'axis', width: Number(segs[2]), opacity }
+    return { kind: 'axis', width: 1, opacity }
+  }
   if (SIDE_TOKENS.has(second)) {
     if (segs.length === 2) return { kind: 'side', side: second, width: 1, opacity }
     if (/^\d+$/.test(segs[2]))
@@ -188,8 +185,12 @@ export function classifyDividerLine(line) {
     if (parsed) tokens.push({ parsed, col: m.index + 1 })
   }
   if (tokens.length === 0) return null
-  // 整圈 / 双轴宽度在场 ⇒ 这一边只是边框系统里的一格 override,AGENTS.md 明示允许
-  if (tokens.some((t) => t.parsed.kind === 'full' || t.parsed.kind === 'axis')) return null
+  // 整圈 / 双轴宽度**实际在画**才算"边框系统的一格 override"(AGENTS.md 明示允许)。
+  // 2026-10-23 修一个自己写出来的真 bug:`border-b … last:border-0` 这种"表行线 + 末行擦除"
+  // 的写法里,`border-0` 是 kind:'full' width:0 的**擦除动作**,旧判定见到任何 full/axis token
+  // 就整行放过 ⇒ HEAD 面 24 条 `<tr>` 表行线就这么漏过去(教育条线各页密集)。
+  const ring = tokens.filter((t) => t.parsed.kind === 'full' || t.parsed.kind === 'axis')
+  if (ring.some((t) => (t.parsed.width ?? 1) > 0)) return null
   const sides = tokens.filter((t) => t.parsed.kind === 'side')
   if (sides.length === 0) return null
   // 宽度 0 = 擦除动作(如 last:border-b-0),不画线
@@ -345,216 +346,11 @@ function isExemptLine(line) {
   return false
 }
 
-// ───────────────────────────── 取材(face-reader 共用层) ─────────────────────────────
-
-/**
- * 候选清单:git grep 预筛。退出码 1 = 无命中(合法的零候选);其它非零 ⇒ Undetermined。
- * `git grep <rev>` 输出带 `<rev>:` 前缀,必须剥掉,否则 catBatch 规格变成 `HEAD:HEAD:…`。
- */
-function grepCandidates(top, face) {
-  const args =
-    face === 'staged'
-      ? ['grep', '--cached', '-I', '-l', '-E', PREFILTER_RE, '--', ...SCAN_GLOBS]
-      : face === 'worktree'
-        ? ['grep', '-I', '-l', '-E', PREFILTER_RE, '--', ...SCAN_GLOBS]
-        : ['grep', '-I', '-l', '-E', PREFILTER_RE, 'HEAD', '--', ...SCAN_GLOBS]
-  let out
-  try {
-    out = gitRaw(args, top, { timeout: GIT_TIMEOUT })
-  } catch (e) {
-    if (e instanceof Undetermined && e.status === 1) return []
-    throw e
-  }
-  return String(out)
-    .split(/\r?\n/)
-    .map((p) => p.trim())
-    .map((p) => (face === 'staged' ? p : p.replace(/^HEAD:/, '')))
-    .filter((p) => p.length > 0)
-    .filter((p) => p.startsWith('apps/') || p.startsWith('packages/'))
-    .filter((p) => !p.split('/').some((seg) => isExcludedDirName(seg)))
-}
-
-/** 一轮取材:清单与正文同面(`HEAD:<path>` / `:<path>`)。取不到不回落另一个面(§0.4)。 */
-function readFace(top, face, files) {
-  if (files.length === 0) return new Map()
-  const out = new Map()
-  if (face === 'worktree') {
-    // 人工逃生舱:盘上可能正被并发席删着 ⇒ 缺文件只跳过并计数,不拿机器态伪装成业务结论
-    let skipped = 0
-    for (const rel of files) {
-      const src = readWorktreeFile(top, rel)
-      if (src === null) {
-        skipped += 1
-        continue
-      }
-      out.set(rel, src)
-    }
-    if (skipped > 0) {
-      console.log(
-        `${C.dim}· worktree 档跳过盘上不存在的文件 ${skipped} 个(清单仍来自被跟踪面)${C.reset}`,
-      )
-    }
-    return out
-  }
-  const pre = face === 'staged' ? ':' : 'HEAD:'
-  const specs = files.map((p) => `${pre}${p}`)
-  const got = catBatch(top, specs, { timeout: GIT_TIMEOUT, maxBuffer: 1 << 28 })
-  for (let i = 0; i < files.length; i++) {
-    const src = got.get(specs[i])
-    if (src === null || src === undefined) {
-      throw new Undetermined(
-        `${face === 'staged' ? '索引' : 'HEAD'} blob 取不到 ${files[i]} ⇒ 该面无法判定(不冒红也不记绿)`,
-      )
-    }
-    out.set(files[i], src)
-  }
-  return out
-}
-
-/**
- * `git diff --cached --name-status -M -z` 解析:区分 A / rename 与取材失败(rename 基线要跟旧路径走)。
- *
- * ⚠️ **不带 pathspec** —— 实测(git 2.56.0,2026-10-23):同一份改名,带上
- * `-- <新路径>` 后 git 直接报 `A`(改名配对被 pathspec 单边限死,它看不见删除那一侧),
- * 于是"rename 从旧路径带基线"这一支永远不会命中,存量会被读成新增。守门 213 的
- * `nameStatusMap` 至今还带着 pathspec,那条分支在它那里同样是死的(本门先修自己那一份)。
- * 整份 staged diff 一次问完即可,不比逐文件派生贵。
- *
- * 另一格如实登记的局限:内容很短的文件(实测 81 字节的 tsx)git 自己就不配成 R 而报 A ⇒
- * 这类改名会按"新文件基线 0"判。宁可用一次可见的红换"不猜",不为此再造一把启发式尺子。
- */
-function nameStatusMap(top) {
-  const out = gitRaw(['diff', '--cached', '--name-status', '-M', '-z'], top, {
-    timeout: GIT_TIMEOUT,
-  })
-  const map = new Map()
-  const tokens = String(out).split('\0')
-  let i = 0
-  while (i < tokens.length) {
-    const st = tokens[i]
-    if (!st) {
-      i += 1
-      continue
-    }
-    if (/^[RC]/.test(st)) {
-      const old = tokens[i + 1]
-      const nw = tokens[i + 2]
-      if (nw) map.set(nw, { status: st[0], old: old ?? null })
-      i += 3
-      continue
-    }
-    const p = tokens[i + 1]
-    if (p) map.set(p, { status: st[0], old: null })
-    i += 2
-  }
-  return map
-}
-
-/**
- * 棘轮锚点:每个候选文件在 **HEAD 面**自身的族 4 命中数。
- * 新文件基线 0;rename 基线从旧路径带;两者都证明不了 ⇒ Undetermined(不拿"当成新文件"冒红)。
- */
-function buildAnchor(top, candidates, contents) {
-  const anchor = new Map()
-  const need = candidates.filter(
-    (rel) => countOpaqueSingles(scanSource(rel, contents.get(rel))) > 0,
-  )
-  if (need.length === 0) return anchor
-  const specs = need.map((r) => `HEAD:${r}`)
-  const got = catBatch(top, specs, { timeout: GIT_TIMEOUT, maxBuffer: 1 << 28 })
-  const status = nameStatusMap(top)
-  const pendings = []
-  for (const rel of need) {
-    const src = got.get(`HEAD:${rel}`) ?? null
-    if (src !== null) {
-      anchor.set(rel, countOpaqueSingles(scanSource(rel, src)))
-      continue
-    }
-    const st = status.get(rel)
-    if (st && st.status === 'A') {
-      anchor.set(rel, 0) // 新文件基线 0(不是取材失败)
-      continue
-    }
-    if (st && st.old) {
-      pendings.push({ rel, old: st.old })
-      continue
-    }
-    throw new Undetermined(
-      `HEAD blob 取不到 ${rel} 且 name-status 既不判 A 也不判 rename ⇒ 无法判定(不冒红也不记绿)`,
-    )
-  }
-  if (pendings.length > 0) {
-    const ospecs = pendings.map((p) => `HEAD:${p.old}`)
-    const ogot = catBatch(top, ospecs, { timeout: GIT_TIMEOUT, maxBuffer: 1 << 28 })
-    for (const p of pendings) {
-      const osrc = ogot.get(`HEAD:${p.old}`) ?? null
-      if (osrc === null) {
-        throw new Undetermined(`rename 基线源 HEAD blob 取不到 ${p.old}(${p.rel}) ⇒ 无法判定`)
-      }
-      anchor.set(p.rel, countOpaqueSingles(scanSource(p.old, osrc)))
-    }
-  }
-  return anchor
-}
-
-/**
- * 被审面"本次提交新增的行号"集合,供 divide / <hr 两族使用(出现即拦,不按基线)。
- * 族 4 **不用**这一把尺子:逐页清存量时同文件其余命中的行号会挪位,按行号拦会把"正在往下清"
- * 的动作判成新增 —— 那是 §12e 恒红门的另一副面孔。
- *
- * `--diff-filter` 必须带 **R**:实测(2026-10-23)只写 `ACM` 时"改名 + 改内容"这一档整个
- * 从 diff 里消失(连 `+++ b/` 头都没有),于是改名后的页面根本不进候选 —— 上面那行
- * `rename 基线从旧路径带` 的分支也就永远走不到,门对"改名顺带把描边留住"这一型失明。
- * 纯改名没有 "+" 行,依旧自然落在射程外,不会因此多拦。
- */
-function getStagedAddedLines(top) {
-  const result = new Map()
-  let output
-  try {
-    output = gitRaw(['diff', '--cached', '-U0', '--diff-filter=ACMR', '--no-color'], top, {
-      timeout: GIT_TIMEOUT,
-      maxBuffer: 50 * 1024 * 1024,
-    })
-  } catch {
-    return result
-  }
-  if (!output) return result
-
-  let curFile = null
-  let curLine = 0
-  for (const raw of output.split('\n')) {
-    if (raw.startsWith('+++ b/')) {
-      const m = raw.match(/^\+\+\+\s+b\/(.+)$/)
-      curFile = m ? m[1] : null
-      curLine = 0
-      continue
-    }
-    if (raw.startsWith('diff --git')) {
-      curFile = null
-      curLine = 0
-      continue
-    }
-    if (raw.startsWith('@@')) {
-      const m = raw.match(/@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/)
-      curLine = m ? parseInt(m[1], 10) : 0
-      continue
-    }
-    if (curFile && curLine > 0) {
-      if (raw.startsWith('+') && !raw.startsWith('+++')) {
-        if (!result.has(curFile)) result.set(curFile, new Set())
-        result.get(curFile).add(curLine)
-        curLine++
-      } else if (raw.startsWith('-') && !raw.startsWith('---')) {
-        // 删除行,不推进 curLine
-      } else {
-        curLine++
-      }
-    }
-  }
-  return result
-}
-
-// ───────────────────────────── 主流程 ─────────────────────────────
+// ───────────────────────────── 取材与棘轮(共用层 ./lib/face-scan.mjs) ─────────────────────────────
+// 候选清单 / 同面取材 / 新增行号 / 差值锚点这四件事每道内容门都要做,而且每一件都有已记录的错法
+// (带 pathspec 问 name-status ⇒ rename 支永远走不到;--diff-filter 少带 R ⇒ 改名档整个失明;
+// 清单取索引、内容读磁盘 ⇒ 盘上改好没提交也能报绿)。判据不得在锚点侧另写一份,故锚点与读数
+// 一律传同一个 countOf。
 
 export async function run({ staged, worktree }) {
   const top = assertRepoRoot(ROOT, '分割线守门')
@@ -576,20 +372,26 @@ export async function run({ staged, worktree }) {
   )
   console.log('')
 
-  const addedLines = staged ? getStagedAddedLines(top) : null
-  const candidates0 = staged
-    ? grepCandidates(top, face).filter((rel) => addedLines.has(rel))
-    : grepCandidates(top, face)
+  const addedLines = staged ? addedLineNumbers(top) : null
+  const listed = sourceCandidates(top, face, {
+    prefilterRe: PREFILTER_RE,
+    pathspecs: SCAN_GLOBS,
+    skipSegmentTest: isExcludedDirName,
+  })
+  const candidates0 = staged ? listed.filter((rel) => addedLines.has(rel)) : listed
   if (candidates0.length === 0) {
     console.log(
       `${C.green}✅ ${staged ? '暂存区无含分割线类 token 的源码变更,跳过' : '被审面无含分割线类 token 的源码文件,跳过'}${C.reset}`,
     )
     return 0
   }
-  const contents = readFace(top, face, candidates0)
+  const { texts: contents } = readSources(top, face, candidates0)
   const candidates = candidates0.filter((rel) => contents.has(rel))
   const addedLinesMap = staged ? addedLines : null
-  const anchor = staged ? buildAnchor(top, candidates, contents) : new Map()
+  // 锚点与读数同一个 countOf —— 两把尺子算出来的差值不叫棘轮,叫吵架
+  const anchor = staged
+    ? headAnchors(top, candidates, (rel, src) => countOpaqueSingles(scanSource(rel, src)))
+    : new Map()
 
   let hardNew = 0
   let hardStock = 0
@@ -851,6 +653,17 @@ export function selfTest() {
   t('S29 横边不享受缩进轨出口(最常见的遮红形状:mt-3 border-t pt-2)', () => {
     const r = hit('  <div className="mt-3 border-t border-border pt-2" />')
     ok(r && r.level === 'blocking', JSON.stringify(r))
+  })
+  t('S30 变体擦除不顶判:border-b + last:border-0 仍是分隔线(24 枚表行线曾漏在这一格)', () => {
+    const r = hit('  <tr key={id} className="border-b border-border last:border-0">')
+    ok(r && r.level === 'blocking', JSON.stringify(r))
+    const v = hit('  <div className="border-x-0 border-b border-border" />')
+    ok(v && v.level === 'blocking', JSON.stringify(v))
+  })
+  t('S31 反向对照:真在画的整圈/双轴边仍放过(擦除与整圈不是一回事)', () => {
+    ok(hit('  <div className="border border-border border-t-0" />') === null)
+    ok(hit('  <div className="border-x border-border" />') === null)
+    ok(hit('  <div className="border-2 border-border border-b" />') === null)
   })
 
   let pass = 0
