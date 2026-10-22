@@ -82,6 +82,87 @@ export const aiRelayKeyPool = pgTable(
 )
 
 /**
+ * 第三方 AI IDE 平台账号池表 (ai_relay_account_pool)。
+ *
+ * 2026-10-22 立:对标并超越码道网关(CodeArtsGateway)的「平台账号池 + 反代」子系统。
+ * 与 ai_relay_key_pool 的区别:key_pool 存的是上游 API Key(Bearer 直连),
+ * 本表存的是「完整账号会话凭证」(access token + refreshToken + cookies + 设备指纹),
+ * 需要平台适配器负责 token 临期自动刷新、401 自愈与指纹头伪装。
+ *
+ * - providerCode: 'trae' | 'workbuddy' | 'codearts'(与 ai_relay_key_pool.provider_code 同命名空间,独立表)
+ * - uid: 上游账号唯一标识(导入时从凭证解析,如 Trae JWT payload.data.id;同 provider 内唯一去重)
+ * - tokenEnc/refreshTokenEnc/cookiesEnc: AES-256-GCM 字段级加密(同 encryptField 模式)
+ * - tokenExpiresAt: access token 过期时刻(导入时解析 JWT exp,刷新后更新;调度器据此临期刷新)
+ * - deviceId/machineId: 客户端设备指纹(明文存储,上游会话与设备绑定校验用)
+ * - healthStatus/lastRefreshAt/refreshFailureCount/consecutiveFailures: 健康检查与自愈状态
+ * - priority/weight/tempUnschedulable/isEnabled: 轮转调度(与 ai_relay_key_pool 同语义)
+ * - proxyUrl: 账号级出口代理(对标 workbuddy-manager WB_HTTP_PROXY,每账号独立出口 IP 降风控)
+ */
+export const aiRelayAccountPool = pgTable(
+  'ai_relay_account_pool',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    /** 平台编码:trae / workbuddy / codearts */
+    providerCode: varchar('provider_code', { length: 64 }).notNull(),
+    /** 上游账号唯一 id(导入时解析,同 provider 去重键) */
+    uid: varchar('uid', { length: 128 }).notNull(),
+    /** 账号展示名(admin 识别用,如导入 JSON 的 name) */
+    name: varchar('name', { length: 128 }).notNull(),
+    /** 加密的 access token(JWT 或平台等价凭证) */
+    tokenEnc: text('token_enc').notNull(),
+    /** 加密的 refreshToken(可空:部分平台无续期机制) */
+    refreshTokenEnc: text('refresh_token_enc'),
+    /** 加密的会话 cookies(JSON 数组,Chrome 导出格式原样保留) */
+    cookiesEnc: text('cookies_enc'),
+    /** 加密的平台扩展敏感凭证(JSON,如 CodeArts 的 secretAccessKey/DPoP 私钥/PKCE verifier) */
+    secretsEnc: text('secrets_enc'),
+    /** 设备指纹 device id(明文) */
+    deviceId: varchar('device_id', { length: 128 }),
+    /** 设备指纹 machine id(明文) */
+    machineId: varchar('machine_id', { length: 128 }),
+    /** access token 过期时刻(解析 JWT exp 落库,刷新后更新) */
+    tokenExpiresAt: timestamp('token_expires_at', { withTimezone: true }),
+    /** refreshToken 过期时刻(可空) */
+    refreshExpiresAt: timestamp('refresh_expires_at', { withTimezone: true }),
+    /** 优先级(越小越优先,0 = 最高) */
+    priority: integer('priority').default(0).notNull(),
+    /** 权重(同优先级内加权随机,默认 1) */
+    weight: integer('weight').default(1).notNull(),
+    isEnabled: boolean('is_enabled').default(true).notNull(),
+    /** 临时不可调度(admin/系统手动摘除,区别于 isEnabled 永久停用;选路时跳过) */
+    tempUnschedulable: boolean('temp_unschedulable').default(false).notNull(),
+    /** 健康状态:unknown / healthy / degraded / down */
+    healthStatus: varchar('health_status', { length: 16 }).default('unknown').notNull(),
+    healthCheckedAt: timestamp('health_checked_at', { withTimezone: true }),
+    lastErrorMessage: text('last_error_message'),
+    /** 最近一次被转发请求使用的时间(轮转/亲和参考) */
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    /** 最近一次成功刷新 token 的时间 */
+    lastRefreshAt: timestamp('last_refresh_at', { withTimezone: true }),
+    /** 连续刷新失败次数(达阈值 → healthStatus=down + tempUnschedulable) */
+    refreshFailureCount: integer('refresh_failure_count').default(0).notNull(),
+    /** 连续转发失败次数(转发层熔断计数,成功即清零) */
+    consecutiveFailures: integer('consecutive_failures').default(0).notNull(),
+    /** 账号级出口代理(如 http://user:pass@ip:port;null = 直连) */
+    proxyUrl: text('proxy_url'),
+    /** 累计转发调用次数(号池消耗观测) */
+    totalCalls: bigint('total_calls', { mode: 'number' }).default(0).notNull(),
+    /** 平台特有附加凭证/元数据(明文,非敏感;敏感一律进 *Enc 字段) */
+    extraMetadata: jsonb('extra_metadata').default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    providerUidUniq: unique('ai_relay_account_pool_provider_uid_unique').on(t.providerCode, t.uid),
+    providerIdx: index('ai_relay_account_pool_provider_idx').on(t.providerCode),
+    enabledIdx: index('ai_relay_account_pool_enabled_idx').on(t.isEnabled),
+    healthIdx: index('ai_relay_account_pool_health_idx').on(t.healthStatus),
+    /** 临期刷新扫描:按 (providerCode, tokenExpiresAt) 建索引,scheduler 轮询用 */
+    expiresIdx: index('ai_relay_account_pool_expires_idx').on(t.providerCode, t.tokenExpiresAt),
+  }),
+)
+
+/**
  * 中转站动态发现待审批表 (ai_relay_discovery)。
  *
  * P0-5c(2026-07-29 立):从上游 provider 拉取新模型 → 待审批 → 入库上架。
@@ -134,6 +215,8 @@ export const aiRelayDiscovery = pgTable(
 
 export type AiRelayKeyPool = typeof aiRelayKeyPool.$inferSelect
 export type NewAiRelayKeyPool = typeof aiRelayKeyPool.$inferInsert
+export type AiRelayAccountPool = typeof aiRelayAccountPool.$inferSelect
+export type NewAiRelayAccountPool = typeof aiRelayAccountPool.$inferInsert
 export type AiRelayDiscovery = typeof aiRelayDiscovery.$inferSelect
 export type NewAiRelayDiscovery = typeof aiRelayDiscovery.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

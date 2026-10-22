@@ -8,7 +8,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -174,5 +174,20 @@ test('端到端 CLI(演练仓,脚本连闭包拷入 ⇒ ROOT 解析到演练仓)
   } finally {
     rmScratch(dir)
   }
+})
+
+test('可发现性钉锁(G-952):漂开型"交人工"决策点必须就地指向 --merge-drifted 出口(出口 2026-10-18 已落地,文案不点名 ⇒ 派单器现读会再次误判"没有出口")', () => {
+  const src = readFileSync(path.join(SCRIPTS, 'plan-tasks-merge.mjs'), 'utf8')
+  const offenders = src
+    .split('\n')
+    .filter(
+      (l) =>
+        /(漂开|漂移|折半即有损)[^\n]*交人工/.test(l) &&
+        !l.includes('--merge-drifted') &&
+        // 出口自己的停手文案不算决策点(引用自身是循环)
+        !l.includes('漂开归并档'),
+    )
+  assert.deepEqual(offenders, [], `这些"漂开⇒交人工"行没点名出口:\n${offenders.join('\n')}`)
+  assert.ok(src.includes('出口是 --merge-drifted'), '至少一处决策点必须点名出口')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

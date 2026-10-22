@@ -226,19 +226,35 @@ for (const [name, mutate, fixture, mode, planted] of MUTATIONS) {
         filter: (s) => !/[\\/]\tests?[\\/]/.test(s),
       })
       const target = path.join(dir, 'scripts', 'lib', 'plan-task-index.mjs')
+      // 传递闭包现取,不手写第二份名单(手写必腐烂)。扫**已在夹具里的文件**的相对 import,
+      // `../x.mjs` 与 `./x.mjs` / `./lib/x.mjs` 两型都收,递归到不动点。
+      // (2026-10-22 G-963:旧版只扫 lib 的 `../` 一跳 ⇒ scripts 根 check-plan-line-loss 的
+      // 同级二跳 `./scrub-declared-removals.mjs` 永不进清单,4 枚变异用例 ERR_MODULE_NOT_FOUND。)
+      // 闭包必须在变异写入**之前**收完:递归拷贝会用真仓字节覆盖夹具,后写变异才不被冲掉。
+      const seen = new Set()
+      const queue = []
+      for (const f of readdirSync(path.join(ROOT, 'scripts', 'lib'))) {
+        if (f.endsWith('.mjs')) {
+          const abs = path.join(ROOT, 'scripts', 'lib', f)
+          seen.add(abs)
+          queue.push(abs)
+        }
+      }
+      while (queue.length) {
+        const cur = queue.shift()
+        const t = readFileSync(cur, 'utf8')
+        for (const m of t.matchAll(/from\s+['"](\.\.?\/[A-Za-z0-9._/-]+\.mjs)['"]/g)) {
+          const abs = path.resolve(path.dirname(cur), m[1])
+          if (seen.has(abs) || !existsSync(abs)) continue
+          seen.add(abs)
+          queue.push(abs)
+          cpSync(abs, path.join(dir, path.relative(ROOT, abs)))
+        }
+      }
       const src = readFileSync(target, 'utf8')
       const mutated = mutate(src)
       assert.notEqual(mutated, src, `变异没命中(${name})⇒ 判据被改名/改形,本锁须同批改`)
       writeFileSync(target, mutated, 'utf8')
-      // 传递闭包现取(lib 里任何 `from '../x.mjs'` 的反向依赖),不手写第二份名单(手写必腐烂)
-      for (const f of readdirSync(path.join(ROOT, 'scripts', 'lib'))) {
-        if (!f.endsWith('.mjs')) continue
-        const t = readFileSync(path.join(ROOT, 'scripts', 'lib', f), 'utf8')
-        for (const m of t.matchAll(/from\s+['"]\.\.\/([A-Za-z0-9._-]+\.mjs)['"]/g)) {
-          const abs = path.join(ROOT, 'scripts', m[1])
-          if (existsSync(abs)) cpSync(abs, path.join(dir, 'scripts', m[1]))
-        }
-      }
       const mod = await import(pathToFileURL(target).href)
       if (mode === 'key') {
         assert.equal(compositeKeyOf(TAIL_A), compositeKeyOf(TAIL_B), '正装面上两行必须同复合主键(这是①存在的理由)')

@@ -19,6 +19,8 @@
 - reset / 持久化写盘读回 / round 稳定性
 - G-821 按来源增量基线:多轮累加 / 压缩下移基线 / 三条来源链独立基线 /
   单条不扣减 / 聚合幂等 / 空 session 不成链 / llm_usage_service 共用同一实现
+- G-816021/G-941 链判别维度:聚合面双链独立基线 / 未标注链退化兼容 /
+  sync 透传 chain / 生产者(AgentLoopV2 chain=)端到端四环锁
 """
 
 from __future__ import annotations
@@ -632,6 +634,60 @@ def test_g816021_sync_from_recorder_carries_chain(tmp_path: Path):
     assert {e["chain"] for e in entries} == {"main", "subagent"}
     # 同 prompt 值、同 tool_name,两链各自首条照计(共用基线的旧口径这里 = 1000)
     assert ld.aggregate()["total_tokens_in"] == 2000
+
+
+async def test_g941_loop_producer_chain_end_to_end_baseline_not_swallowed(tmp_path: Path):
+    """G-941 端到端回归锁:生产者→录制→入账→聚合四环一次打通。
+
+    上面两条 G-816021 用例分别钉住聚合面与入账面,但生产者侧(AgentLoopV2 构造器
+    chain=)从未被锁 —— 生产构造点漏传参时条目 chain 恒空,退化按 tool_name 分桶,
+    少计原地复发。本例驱动真实循环写录制步:main 1000 → subagent 1000 → main 1500
+    应得 1000+1000+500=2500;若链在生产侧断掉,三条同 tool_name="llm" 共用基线,
+    读成 1000+0+500=1500,本用例即红。
+    """
+    from app.services.agent_loop_v2 import AgentLoopV2
+
+    ld = _ledger(tmp_path)
+    rec = _recorder(tmp_path)
+
+    def _final_llm(prompt_tokens: int):
+        async def _mock(messages, tools):
+            return {
+                "content": "ok",
+                "tool_calls": None,
+                "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": 10},
+            }
+        return _mock
+
+    async def _one_round(chain: str, prompt_tokens: int) -> None:
+        loop = AgentLoopV2(
+            _final_llm(prompt_tokens),
+            tools=[],
+            max_iterations=2,
+            recorder=rec,
+            session_id="s-g941",
+            chain=chain,
+        )
+        result = await loop.run([{"role": "user", "content": "hi"}])
+        assert result.success is True
+
+    await _one_round("main", 1000)
+    await _one_round("subagent", 1000)
+    await _one_round("main", 1500)
+
+    # 环①生产者→录制:loop 把构造器 chain 标签落到每个 llm 步
+    # (recorder 无 run_id ⇒ 运行键回退 session_id,与生产口径一致)
+    steps = rec.replay("s-g941")["steps"]
+    llm_steps = [s for s in steps if s["type"] == "llm"]
+    assert [s["chain"] for s in llm_steps] == ["main", "subagent", "main"]
+    assert [s["tokens_in"] for s in llm_steps] == [1000, 1000, 1500]
+
+    # 环②录制→入账 + 环③聚合面按链分桶持基线
+    out = ld.sync_from_recorder("s-g941", rec, user_id="u1", session_id="s-g941")
+    assert out["synced"] == 3
+    agg = ld.aggregate()
+    # main 链 1000+500(第 2 轮只计增量),subagent 链首条 1000 照计不被主链基线吃掉
+    assert agg["total_tokens_in"] == 1000 + 1000 + 500 == 2500
 
 
 # =============================================================================

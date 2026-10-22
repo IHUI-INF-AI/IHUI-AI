@@ -14,7 +14,8 @@ L9 元认知 = 记忆自我反思 + 主动遗忘策略(对比被动衰减)。
    - 应用行动 → 持久化反思日志到 agent_metacognition_log
 2. detect_conflicts:冲突检测
    - 扫描 semantic + procedural 找潜在冲突
-   - 启发式:关键词重叠但 importance 差异 > 0.5 / 同 tool_name 不同 pattern
+   - 启发式:关键词重叠但 importance 差异 > 0.5 / 同 tool_name 且
+     "同经验干前缀 + score 反向"(L8064 真冲突判据,doom_loop 族枚举差异不报)
    - 可选用 LLM 验证
 3. get_reflection_history:从 DB 加载反思历史
 4. build_system_prompt_snippet:从最近反思抽取 findings 注入 system prompt
@@ -60,6 +61,9 @@ _HEURISTIC_DEMOTE_IMPORTANCE = 0.2  # importance < 0.2 → demote
 _CONFLICT_IMPORTANCE_DIFF = 0.5  # importance 差异 > 0.5 视为潜在冲突
 _KEYWORD_MIN_LEN = 2  # 关键词最短长度(过滤单字噪声)
 _KEYWORD_MAX_PER_DOC = 20  # 单条记忆最多提取的关键词数
+# L8064 真冲突判据阈值:同一工具下"同一经验干 + score 反向"才算冲突
+_CONFLICT_PREFIX_MIN_CHARS = 4  # 共同前缀("经验干")最短长度,低于此视为形态巧合
+_SCORE_NEUTRAL = 0.5  # importance_score 中性点(建表默认值);分居两侧 = 评价反向
 
 # system prompt snippet 上限
 _MAX_SNIPPET_CHARS = 800
@@ -280,14 +284,53 @@ class Metacognition:
         """同族 doom_loop 且**哈希段不同** ⇒ 枚举多样性(真冲突判据的反面)。
 
         同哈希段不会走到这里(外层已挡 pattern 相等);所以族内到达这里的
-        全部是"不同入参的沉淀",一律豁免。族外(任一侧非 doom_loop)不豁免:
-        旧明文 pattern 的两两差异仍按真冲突上报,等清洗器收编后再议。
+        全部是"不同入参的沉淀",一律豁免。族外(任一侧非 doom_loop)不在
+        本方法豁免范围 —— 是否上报改由 _is_true_procedural_conflict 裁决。
         """
         fa, fb = cls._split_doom_loop(pa), cls._split_doom_loop(pb)
         if fa is None or fb is None:
             return False
         # 同工具族(外层已按 tool_name 分组,这里防跨族误配)+ 哈希段不同
         return fa[0] == fb[0] and fa[1] != fb[1]
+
+    @staticmethod
+    def _common_prefix_len(pa: str, pb: str) -> int:
+        """两条 pattern 的公共前缀长度(逐字符比较,不做归一)。"""
+        n = 0
+        for ca, cb in zip(pa, pb):
+            if ca != cb:
+                break
+            n += 1
+        return n
+
+    @classmethod
+    def _is_true_procedural_conflict(
+        cls, pa: str, pb: str, sa: float, sb: float
+    ) -> bool:
+        """真冲突判据(L8064 票面解阻判据):同一 tool_name 下两条不同 pattern
+        何时才算冲突 —— 替换旧口径"pattern 不同即冲突"(枚举维度误报的根源)。
+
+        依次拦截三型非冲突:
+        1. 枚举多样性:同族 doom_loop 不同哈希段(_is_enum_diversity),
+           沉淀越多配对越多,是枚举维度不是冲突面;
+        2. 形态不同源:任一侧是 doom_loop 族形态(哈希摘要尾)。族记录与
+           自由文本 pattern 的差异是"形态差",不是同一经验的两种评价,不报
+           (含 tool_name 列与 pattern 工具段漂移的跨族配对);
+        3. 无评价矛盾:真冲突 = 同一经验干(公共前缀 ≥ _CONFLICT_PREFIX_MIN_CHARS)
+           + score 反向(两条 importance 分居 _SCORE_NEUTRAL 两侧,一肯定一否定)。
+           同向(都高/都低)是互补知识;任一侧恰为中性默认分则未评价,不算反向。
+
+        可分辨性:同一干前缀 + 反向 score 的真冲突(如"search: 优先 web"0.9 vs
+        "search: 优先本地"0.2)仍照常上报,conflict_type 与置信度公式不变。
+        """
+        if cls._is_enum_diversity(pa, pb):
+            return False
+        if cls._split_doom_loop(pa) is not None or cls._split_doom_loop(pb) is not None:
+            return False
+        return (
+            cls._common_prefix_len(pa, pb) >= _CONFLICT_PREFIX_MIN_CHARS
+            and (sa - _SCORE_NEUTRAL) * (sb - _SCORE_NEUTRAL) < 0
+        )
 
     async def detect_conflicts(
         self,
@@ -299,7 +342,8 @@ class Metacognition:
 
         启发式:
         - semantic:关键词重叠但 importance_score 差异 > 0.5
-        - procedural:同 tool_name 不同 pattern 视为潜在冲突
+        - procedural:同 tool_name 不同 pattern,且满足真冲突判据
+          (同经验干前缀 + score 反向;doom_loop 族枚举差异不报)才视为冲突
 
         Args:
             user_id: 用户 ID
@@ -381,17 +425,15 @@ class Metacognition:
                     if len(conflicts) >= top_k:
                         break
                     a, b = items[i], items[j]
-                    if a["pattern"] != b["pattern"]:
-                        # L8064(2026-10-13):同 tool_name 下 pattern 不同 ≠ 冲突本身。
-                        # 我方自产记录形如 `doom_loop:<tool>:<sha256(入参)>`——摘要
-                        # 按"入参不同⇒pattern 不同"设计,同一工具沉淀越多枚举越长,
-                        # 把"正常的多样性"逐对记成冲突是枚举维度误判,不是真冲突。
-                        # 真冲突判据(票面解阻判据):同族(同一 doom_loop 前缀)下
-                        # **同 pattern 前缀 + 不同 score 方向**才算;不同入参哈希
-                        # (前缀同、哈希段异)是枚举,跳过。非 doom_loop 族的旧明文
-                        # pattern 维持原判(它们才是清洗器的对象)。
-                        if self._is_enum_diversity(a["pattern"], b["pattern"]):
-                            continue
+                    # L8064(2026-10-13 枚举豁免;2026-10-22 真冲突判据收口):
+                    # 同 tool_name 下 pattern 不同 ≠ 冲突。自产记录形如
+                    # `doom_loop:<tool>:<sha256(入参)>`,沉淀越多枚举配对越长,
+                    # 逐对上报是枚举维度误报。判据(_is_true_procedural_conflict):
+                    # 族内差异(枚举)与形态差(族×自由文本)不报;族外只有
+                    # "同一经验干前缀 + score 分居中性点两侧(反向)"才报。
+                    if a["pattern"] != b["pattern"] and self._is_true_procedural_conflict(
+                        a["pattern"], b["pattern"], a["score"], b["score"]
+                    ):
                         score_diff = abs(a["score"] - b["score"])
                         conflicts.append({
                             "id_a": a["id"],

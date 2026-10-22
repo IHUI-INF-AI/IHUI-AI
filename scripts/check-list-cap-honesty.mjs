@@ -24,11 +24,10 @@
 //       `node scripts/check-list-cap-honesty.mjs --self-test`(内置成对用例,不依赖真仓)
 // 本门由主会话决定是否挂提交链;缺省档现读**工作树**面。
 
-import { readFileSync, existsSync, readdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, existsSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { mkScratch } from './lib/scratch-dir.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')

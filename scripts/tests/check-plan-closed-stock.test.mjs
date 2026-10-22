@@ -49,6 +49,23 @@ test('M2b 反向配对:摘除该行的提交全绿(滞留集为空)', () => {
   assert.equal(v.stale.length, 0)
 })
 
+test('M2c 同主键两枚滞留已勾拷贝逐枚全报:首枚不遮蔽后续(清扫器 H3 恒拒的根,2026-10-22 根治)', () => {
+  const copy2 = '- [x] ✅(2026-10-20/镜像席) G-1 P1 测试票:镜像夹具要做一件事〔第二枚拷贝〕'
+  const face = [CLOSED, copy2].join('\n')
+  const v = G.staleClosedVerdict(face, face)
+  assert.equal(v.undetermined, false, '判据不得异常')
+  assert.equal(v.stale.length, 2, `两枚拷贝应逐枚全报,实得 ${v.stale.length}`)
+  assert.deepEqual(v.stale.map((r) => r.line), [1, 2], '逐枚上报且按行序')
+})
+
+test('M2d 同号一行未勾+一行滞留已勾 ⇒ 已勾拷贝照报,不被未勾副本遮蔽(票面夹具)', () => {
+  const face = [OPEN, CLOSED].join('\n')
+  const v = G.staleClosedVerdict(face, face)
+  assert.equal(v.stale.length, 1, '已勾拷贝必须检出,不因同号存在未勾行而漏报')
+  assert.equal(v.stale[0].raw, CLOSED)
+  assert.equal(v.faceClosed, 1, '未勾行不得进已勾集')
+})
+
 test('M3 未勾行零射程:两面全是未勾 ⇒ 已勾计数恒 0', () => {
   const v = G.staleClosedVerdict([OPEN, UNRELATED].join('\n'), [OPEN, UNRELATED].join('\n'))
   assert.equal(v.faceClosed, 0, '未勾行不得进已勾集')

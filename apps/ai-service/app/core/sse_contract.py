@@ -8,8 +8,9 @@
 由 scripts/check-agent-event-parity.mjs 断言对齐。
 
 本模块不承担序列化职责,但它**确实被运行时依赖**:全仓运行时 import 现读为
-SSE-CONTRACT-IMPORT-SITES = 2(app/routers/llm.py 两处函数内 import:
-`_sse()` 取 SSE_EVENT_CONTRACTS、`_capabilities_payload()` 取能力声明键名常量)。
+SSE-CONTRACT-IMPORT-SITES = 3(app/routers/llm.py 三处函数内 import:
+`_sse()` 取 SSE_EVENT_CONTRACTS、`_capabilities_payload()` 取能力声明键名常量、
+`_approval_replay_frames()` 取 D690 重放标记键名常量)。
 这里曾写过一句"零行为变化、运行时不需要它"的自述,与上面那行 grep 结果矛盾 —— 模块自述的
 依赖关系一旦与实况分叉,读注释的人就会以为改它没有影响。该等式由
 apps/ai-service/tests/test_sse_contract_self_description.py 现读核(声明数 != 现读数即失败),
@@ -195,6 +196,24 @@ SSE_CAPABILITIES_PAYLOAD_KEY: str = "capabilities"
 SSE_CAPABILITY_INTERJECTION_KEY: str = "interjection"
 #: 承载能力声明的帧名(与下方 done 契约条目里的 capabilities 字段成对,改一处必须改两处)。
 SSE_CAPABILITIES_FRAME: str = "done"
+
+# ── D690(2026-10-22,机主授权代拍板方案 A;承 D131 取证、D1047 diff②)──────────
+#
+# 断线重连时服务端重放**仍待决**的 tool-approval 帧:帧形与正常下发的审批帧同字段,
+# 只多一个可选标记键 `replay: true`(前端按 approval_id 幂等渲染,不二次弹窗)。
+# 生产侧两处:agents.py 任务流重放(D1047 先行交付,写面是 `"replay": True` 字面量)
+# 与 llm.py 主对话流重放(本票接线,经 `_approval_replay_frames` 取本常量)。
+# 键名唯一真相源在这里;TS 侧对应在
+# packages/shared/src/sse/contract.ts::SSE_APPROVAL_REPLAY_PAYLOAD_KEY,
+# 两侧同值由 apps/ai-service/tests/test_d690_chat_reconnect_approval_replay.py 钉住
+# (先例:D174 traceId 两侧同表)。
+#
+# ⚠️ **不进 SSEEventContract("tool-approval") 的 payload_fields**:那份清单被
+# `_sse()` 的契约诊断当"必填"查(missing ⇒ 告警),而 replay **只出现在重放帧上** ——
+# 正常下发的审批帧没有这一格,列进去就等于让诊断对合法帧恒告警(与 traceId 恒在
+# ⇒ 记 SSE_FRAME_META_FIELDS、capabilities 乘特定帧 ⇒ 记 done 条目 两种既有纪律
+# 都不同:replay 是"乘特定形态的可选标记",只登记常量)。
+SSE_APPROVAL_REPLAY_PAYLOAD_KEY: str = "replay"
 
 
 @dataclass(frozen=True)

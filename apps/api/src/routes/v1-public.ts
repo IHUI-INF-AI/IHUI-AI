@@ -121,8 +121,13 @@ const chatCompletionSchema = z.object({
   messages: z
     .array(
       z.object({
-        role: z.enum(['system', 'user', 'assistant']),
-        content: z.string(),
+        // 2026-10-22 放宽:支持 function-calling 回环(tool 角色 + assistant.tool_calls)
+        role: z.enum(['system', 'user', 'assistant', 'tool', 'developer', 'function']),
+        // 多模态 parts 数组 / assistant 纯工具调用时缺省 content
+        content: z.union([z.string(), z.array(z.unknown()), z.null()]).optional(),
+        name: z.string().optional(),
+        tool_call_id: z.string().optional(),
+        tool_calls: z.array(z.unknown()).optional(),
       }),
     )
     .min(1),
@@ -135,7 +140,25 @@ const chatCompletionSchema = z.object({
   stream_options: z.object({ include_usage: z.boolean().optional() }).optional(),
   response_format: z.unknown().optional(),
   seed: z.number().optional(),
+  // OpenAI function-calling 透传(2026-10-22):渠道直连与账号池上游均按 OpenAI 形状处理
+  tools: z.array(z.unknown()).optional(),
+  tool_choice: z.unknown().optional(),
 })
+
+/** 提取 message content 的纯文本(计费/审计用;多模态 parts 取 text 段,null/缺省 → '') */
+function messageContentText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map((p) => {
+        if (typeof p === 'string') return p
+        const rec = p as { text?: unknown } | null
+        return typeof rec?.text === 'string' ? rec.text : ''
+      })
+      .join('')
+  }
+  return ''
+}
 
 const agentCallSchema = z.object({
   input: z.string().min(1),
@@ -565,9 +588,12 @@ async function streamChatCompletion(
   reply: FastifyReply,
   opts: {
     model: string
-    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+    messages: Array<{ role: string; content?: unknown; [key: string]: unknown }>
     temperature?: number
     maxTokens?: number
+    /** OpenAI function-calling 透传(2026-10-22) */
+    tools?: unknown[]
+    toolChoice?: unknown
     /** P0-5 中转站计费:API Key id + 用户 id + prompt 文本 + 调用起始计时表 */
     apiKeyId?: string
     userId?: string
@@ -658,6 +684,9 @@ async function streamChatCompletion(
       if (maxTokens !== undefined) baseBody.max_tokens = maxTokens
       if (opts.responseFormat !== undefined) baseBody.response_format = opts.responseFormat
       if (opts.seed !== undefined) baseBody.seed = opts.seed
+      // function-calling 透传(2026-10-22):tools/tool_choice 原样进渠道 body 与账号池 norm
+      if (opts.tools !== undefined) baseBody.tools = opts.tools
+      if (opts.toolChoice !== undefined) baseBody.tool_choice = opts.toolChoice
       const channelParamOps = await applyParamOpsToBody(baseBody, { model })
       const fwd = await forwardToChannel({
         model,
@@ -667,6 +696,8 @@ async function streamChatCompletion(
         stream: true,
         responseFormat: opts.responseFormat,
         seed: opts.seed,
+        tools: opts.tools,
+        toolChoice: opts.toolChoice,
         userId,
         affinityKey: opts.affinityKey,
         bodyOverride: channelParamOps.body,
@@ -1328,6 +1359,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       stream_options,
       response_format,
       seed,
+      tools,
+      tool_choice,
     } = body
 
     // OpenAI 协议扩展:json_schema 注入 system 提示 + seed 透传 + stream_usage 检测
@@ -1355,7 +1388,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
     // 格②(2026-09-26):原 `const startTime = Date.now()` 是墙钟 epoch,换成单调钟表
     const sw = startStopwatch()
-    const promptText = messages.map((m) => `${m.role}: ${m.content}`).join('\n')
+    const promptText = messages.map((m) => `${m.role}: ${messageContentText(m.content)}`).join('\n')
 
     // 提示词审计(2026-09-17 立,补强 54):入站提示词风险检测。
     // block 规则直接拒绝;warn/log 仅记录(命中已落库),不阻断调用。
@@ -1376,7 +1409,10 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     }
 
     if (apiKey) {
-      const estimatedTokens = messages.reduce((sum, m) => sum + Math.ceil(m.content.length / 4), 0)
+      const estimatedTokens = messages.reduce(
+        (sum, m) => sum + Math.ceil(messageContentText(m.content).length / 4),
+        0,
+      )
       const quotaCheck = await checkQuota(apiKey.id, estimatedTokens, { clientIp: request.ip })
       if (!quotaCheck.allowed) {
         const reasonMap: Record<string, string> = {
@@ -1516,6 +1552,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         streamUsageEnabled,
         responseFormat: upstreamResponseFormat,
         seed: upstreamSeed,
+        tools,
+        toolChoice: tool_choice,
         // 响应形态 + 两段式计费凭证 + 渠道亲和性
         flavor,
         preDeducted: preDeduction,
@@ -1596,6 +1634,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           if (upstreamResponseFormat !== undefined)
             baseBody.response_format = upstreamResponseFormat
           if (upstreamSeed !== undefined) baseBody.seed = upstreamSeed
+          // function-calling 透传(2026-10-22):tools/tool_choice 原样进渠道 body 与账号池 norm
+          if (tools !== undefined) baseBody.tools = tools
+          if (tool_choice !== undefined) baseBody.tool_choice = tool_choice
           // 参数覆盖系统与 ai-service 路径同源(渠道路径同样生效)
           const paramOpsResult = await applyParamOpsToBody(baseBody, { model: resolvedModel })
           const fwd = await forwardToChannel({
@@ -1606,6 +1647,8 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             stream: false,
             responseFormat: upstreamResponseFormat,
             seed: upstreamSeed,
+            tools,
+            toolChoice: tool_choice,
             userId: apiKey?.userId,
             affinityKey: apiKey?.id,
             bodyOverride: paramOpsResult.body,

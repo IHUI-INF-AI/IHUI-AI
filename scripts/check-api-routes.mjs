@@ -48,7 +48,12 @@ import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
 // O87g(2026-10-22):后端注册面的**精确挂载图**提取式(Fastify 挂载图 + 工厂/模板/内联别名)。
 // 立门因由与提取式覆盖宽度见该文件头注;本门只在 `server.ts` 在面时用它当判据,
 // 不在面时退回旧的「前缀假设」拼接档(见 `buildCompositePrefixes` 调用点)。
-import { extractApiRegistrations, VERBS as BACKEND_VERBS } from './lib/route-registration-extract.mjs'
+import {
+  extractApiRegistrations,
+  VERBS as BACKEND_VERBS,
+  combinePyPrefix,
+  buildPyIncludeMaps,
+} from './lib/route-registration-extract.mjs'
 
 /**
  * ROOT 由脚本自身位置推导(§15)。此前是 `process.cwd()` —— "扫哪棵树"由调用者站哪决定,
@@ -106,6 +111,14 @@ const BASELINE_FILE_REL = 'scripts/api-routes-baseline.json'
  * 基线件不在面里 ⇒ 该腿本轮**未判定**(逐条列出、不判红也不记绿,与 `BASELINE_FILE_REL` 同一手法)。
  */
 const BARE_LEG_BASELINE_REL = 'scripts/data/api-routes-bare-path-baseline.json'
+/**
+ * 「未判定(前缀假设命中)」两腿的裁决台账(票 G-962 续作 2026-10-22 立)。
+ * 主腿按 method|path 全局去重 ⇒ 台账 leg=main 用 method|path;BP 腿按 method|path|file 去重
+ * ⇒ 台账 leg=bare 用 method|path|file —— 与各自去重键同构,不另发明第三把尺子(§0.6)。
+ * 缺档 ⇒ 两腿维持未判定(不判红也不下降,与 BP 基线缺档同一手法);
+ * 三型判红:AJ1 条目形状不全 / AJ2 到期未复裁 / AJ3 台账条目在 head 整仓面找不到对应站点(清单腐烂)。
+ */
+const ASSUMPTION_ADJ_FILE_REL = 'scripts/data/api-routes-assumption-adjudications.json'
 
 /**
  * 四端前端调用面(2026-09-26 由单一 apps/web 扩出)。
@@ -1887,6 +1900,8 @@ function parseNextRewriteForwardFaces(src) {
     selfFacePrefixes: [],
     otherRules: [],
     unknownSource: 0,
+    /** ai 面里**改前缀**的规则对(source 路径 ≠ destination 路径),供派生面消费 */
+    pathMaps: [],
   }
   if (src === null || src === undefined) return out
   out.read = true
@@ -1914,11 +1929,67 @@ function parseNextRewriteForwardFaces(src) {
       // 未知形态计数放在这里而不是匹配处:分面已定,剩下的只是"这条 source 认不认得"
       if (rewriteSourceSegments(source).some((seg) => seg === '')) out.unknownSource++
       out.forwardedPrefixes.push(source)
+      // 摘出 destination 的路径部分(template 的 `${IHUI_AI_PROXY_TARGET}` 前缀丢掉)。
+      // 只有**字面 /api/ 开头**的才算;认不出形态 ⇒ 不派生(保守方向)。
+      const dp = dest.match(/\/api\/[^`'"\s]*/)
+      if (dp) out.pathMaps.push({ source, destPath: dp[0] })
     } else {
       out.otherRules.push({ source, destination: dest })
     }
   }
   return out
+}
+
+/**
+ * 「边缘改写派生面」(G-962 收尾,2026-10-22):next rewrites 里**改前缀**的规则
+ * (`/api/lsp/:path* → ai-service /api/v1/lsp/:path*` 等,owner 拍板的反代白名单)
+ * 让"看着前缀错位"的前端调用在生产真实可达。本门旧判据只拿 rewrite 做**豁免**
+ * (REWRITE_EXEMPTION_CLAIMS 两条),没拿它做**派生** ⇒ py 前缀拼接修好后,
+ * lsp 4 条 + self-healing 1 条从「前缀假设未判定」浮成假红(实测:它们不是死调用,
+ * 生产经 next rewrite 打到 ai-service /api/v1/*)。
+ * 判据:对每条 (source,destPath) 且前缀不同者,把注册面里以 destPath 为段前缀的
+ * 条目映射成 source 前缀的外部路径。**窄口径**:source/dest 的公共前缀段必须全是
+ * 字面段(参数段对齐不做,保守不派生);`:path*` 尾 ⇒ 任意后缀;`:x` 裸参数尾 ⇒ 单段。
+ * 派生条目逐条报名(报数必须报名,票面③),via='edge-rewrite'。
+ * @returns {Array<{method:string,path:string,file:string,rule:string}>}
+ */
+function deriveEdgeRewriteEntries(backendEntries, pathMaps) {
+  const derived = []
+  for (const { source, destPath } of pathMaps) {
+    const sSegs = rewriteSourceSegments(source)
+    const dSegs = rewriteSourceSegments(destPath)
+    if (sSegs.length === 0 || dSegs.length === 0) continue
+    if (sSegs.join('/') === dSegs.join('/')) continue // 同前缀透明转发:注册面已是终形,不派生
+    // 定尾长:两侧都到 :path* 为止的"固定段"数;超过部分不做(保守)
+    const sWild = sSegs[sSegs.length - 1] === ':path*' ? 1 : 0
+    const dWild = dSegs[dSegs.length - 1] === ':path*' ? 1 : 0
+    const sFixed = sSegs.slice(0, sSegs.length - sWild)
+    const dFixed = dSegs.slice(0, dSegs.length - dWild)
+    // 通配对齐纪律:source 与 dest 的 `:path*` 尾必须**同有或同无**。
+    // 同有 ⇒ 前缀映射(改前缀规则的段数差正是改写本身,不做长度相等约束);
+    // 一有一无 ⇒ 形态不对齐,保守不派生;同无 ⇒ 精确一对一。
+    if (sWild !== dWild) continue
+    if (dFixed.some((seg) => seg.startsWith(':'))) continue // 目标含参数段 ⇒ 对齐不可判,不派生
+    const prefixFrom = '/' + dFixed.join('/')
+    const prefixTo = '/' + sFixed.join('/')
+    const singleSegment = sWild === 0 && dWild === 0
+    for (const e of backendEntries) {
+      const p = e.path
+      if (singleSegment) {
+        if (p === prefixFrom) derived.push({ method: e.method, path: prefixTo, file: e.file, rule: `${source} → ${destPath}` })
+        continue
+      }
+      if (p === prefixFrom || p.startsWith(prefixFrom + '/')) {
+        derived.push({
+          method: e.method,
+          path: prefixTo + p.slice(prefixFrom.length),
+          file: e.file,
+          rule: `${source} → ${destPath}`,
+        })
+      }
+    }
+  }
+  return derived
 }
 
 /**
@@ -2053,6 +2124,8 @@ function nextRewriteExemption() {
     selfFace: [],
     otherRules: [],
     unknownSource: 0,
+    // 降级档 = 不派生(保守方向:看不见改写面 ⇒ 派生面为空,绝不凭空造绿)
+    pathMaps: [],
   }
   let src = null
   try {
@@ -2085,6 +2158,7 @@ function nextRewriteExemption() {
     selfFace: faces.selfFacePrefixes,
     otherRules: faces.otherRules,
     unknownSource: faces.unknownSource,
+    pathMaps: faces.pathMaps,
   }
 }
 
@@ -2143,13 +2217,18 @@ function extractFrontendCalls(src, file, opts) {
   // 直接看原文会栽在两处:① 注释里写 `// 见 fetch('/api/x')` 的行;② 字符串里嵌 `'/api/a2a/'` 字样。
   // `maskComments` 保留字符串、整段删行注释、块注释等长换空白 ⇒ 行号/列位不漂,可安全按行取。
   const maskedLines = maskComments(src).split('\n')
+  // G-962 机制⑥补刀:e2e 源码锁断言 `expect(s).toContain("'/api/…'")` 同型 —— 谓词名单
+  // 缺 toContain、且实参是「双引号包单引号」的两层引号,旧式 `['"`]\/api\/` 贴不住。
   const STRING_PREDICATE_RE =
-    /\.\s*(?:includes|startsWith|endsWith|contains|match|replace|split|indexOf|search)\s*\(\s*['"`]\/api\//
+    /\.\s*(?:includes|startsWith|endsWith|contains|toContain|match|replace|split|indexOf|search)\s*\(\s*['"`]{1,2}\/api\//
   lines.forEach((line, idx) => {
     const maskedLine = maskedLines[idx] ?? ''
     let m
     pathRe.lastIndex = 0
-    while ((m = pathRe.exec(line)) !== null) {
+    // G-962 机制⑥:扫描面必须是**遮罩行**。旧式跑原文 ⇒ 注释里的 `fetchApi('/api/x')`
+    // 照样进调用集(use-auth.ts:64「原实现裸调」说明、feedback-survey-card.tsx:16 端点
+    // 说明、mobile-rn config.ts:32 JSDoc 实证)。maskComments 等长换空白,列位不漂。
+    while ((m = pathRe.exec(maskedLine)) !== null) {
       const rawPath = m[1]
       // 跳过非 API 路径（如 /api/health 这种纯字面量但被误捕）
       if (!rawPath.startsWith('/api/')) continue
@@ -2202,7 +2281,7 @@ function extractFrontendCalls(src, file, opts) {
       //   ⇒ cli 端行为逐字不变(纯增益、零新增假阳)。
       const isPathConstDecl =
         /^\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z0-9_$]+\s*=\s*['"`]\/api\/[^'"`]+['"`];?\s*$/.test(
-          line,
+          maskedLine,
         )
       const positional = cliShapes ? cliPositionalMethod(lines, idx) : null
       const method = positional || (isPathConstDecl ? 'ANY' : inferMethodAtLine(lines, idx))
@@ -2873,56 +2952,50 @@ function extractBackendRoutes() {
     ...listFace(AI_SERVICE_API_DIR, ['.py']),
   ]
   if (routerFiles.length > 0) {
-    // 1. 先从 main.py 提取 include_router(router.router, prefix="...") 映射
-    const includePrefixMap = new Map() // router变量名 -> prefix
     /**
-     * 1b. 同一份 include 面还有第二种写法:`from app.api.memory import router as memory_router`
-     *     + `app.include_router(memory_router, prefix="/api")` —— 变量名不等于模块名,旧写法
-     *     按"变量名 == 文件名"查,对这一族**整型失明**(实测 ai-service 的 app/api/memory.py
-     *     九个端点全无挂载上下文,前端三条真调用被当死调用)。现按"点分模块路径"建映射,
-     *     与被扫文件的路径同形 ⇒ 两个目录共用一条判据,不各写一份。
+     * include 挂载面判据**收敛到 lib 一份实现**(`buildPyIncludeMaps`,守门 8 与提取式
+     * 两处算同一件事必漂移)。本段旧实现有三重结构性失明,实测把 G-962 的真挂载链
+     * 判成"高置信真死候选":
+     *   ① 只读 main.py —— cost-ledger/model-pricing/longterm-memory 三族的 include 行写在
+     *      二级聚合器 killer_extras.py(main.py 以 `killer_extras.register(app)` 调用);
+     *   ② 「二选一」—— 文件有自有 APIRouter(prefix=Q) 就无视 include 前缀 P,而 FastAPI
+     *      真路径是 P+Q(connectors.py 自有 /connectors + include /api ⇒ /api/connectors/*);
+     *   ③ 别名失明 —— `from app.routers import prompts as prompts_router` 的 include 键是
+     *      'prompts_router',按 fileName 'prompts' 查不到 ⇒ prompts 族整族丢 /api。
+     * 别名四形态/相对导入/注释遮噪的解析与防双 /api 拼接规则见 lib 头注,此处不重述。
      */
-    const modulePrefixMap = new Map() // 'app.api.memory' -> '/api'
+    const pyFace = new Map()
     const mainSrc = readSource(AI_SERVICE_MAIN_FILE)
-    if (mainSrc !== null && mainSrc !== undefined) {
-      const includeRe =
-        /app\.include_router\(\s*(\w+)\.router\s*,\s*prefix\s*=\s*['"`]([^'"`]+)['"`]/g
-      let im
-      while ((im = includeRe.exec(mainSrc)) !== null) {
-        includePrefixMap.set(im[1], im[2])
-      }
-      const aliasToModule = new Map()
-      const importRe = /from\s+(app[\w.]*)\s+import\s+(?:\w+\s*,\s*)?router\s+as\s+([A-Za-z0-9_]+)/g
-      let ir
-      while ((ir = importRe.exec(mainSrc)) !== null) aliasToModule.set(ir[2], ir[1])
-      const bareRe =
-        /app\.include_router\(\s*([A-Za-z0-9_]+)\s*(?:,\s*prefix\s*=\s*['"`]([^'"`]+)['"`])?/g
-      let br
-      while ((br = bareRe.exec(mainSrc)) !== null) {
-        const mod = aliasToModule.get(br[1])
-        if (!mod || !br[2]) continue
-        modulePrefixMap.set(mod, br[2])
-      }
-    }
+    if (mainSrc !== null && mainSrc !== undefined) pyFace.set(AI_SERVICE_MAIN_FILE, mainSrc)
+    const srcCache = new Map()
     for (const rel of routerFiles) {
-      const src = readSource(rel)
-      if (src === null || src === undefined) continue
+      const s = readSource(rel)
+      if (s === null || s === undefined) continue
+      srcCache.set(rel, s)
+      pyFace.set(rel, s)
+    }
+    const { byModule, byFile } = buildPyIncludeMaps(pyFace)
+    for (const rel of routerFiles) {
+      const src = srcCache.get(rel)
+      if (src === undefined) continue
       const fileName = rel.split('/').pop().replace(/\.py$/, '')
       const moduleKey = rel.replace(/^apps\/ai-service\//, '').replace(/\.py$/, '').replaceAll('/', '.')
-      // 提取 router 的 prefix（文件内 APIRouter(prefix=...)）
+      // 提取 router 的 prefix（文件内 APIRouter(prefix=...)）—— 保持 raw 扫描(注释里的
+      // 假前缀形态是既有基线的一部分,本票只补拼接腿,不动这一档,免得 py 面行为变更混进裁决)
       const prefixRe = /APIRouter\(\s*prefix\s*=\s*['"`]([^'"`]+)['"`]/g
       const routerPrefixes = []
       let pm
       while ((pm = prefixRe.exec(src)) !== null) {
         routerPrefixes.push(pm[1])
       }
-      // 如果文件内无 prefix，尝试从 main.py include_router 映射获取(两种写法都查)
-      if (routerPrefixes.length === 0) {
-        const mounted = modulePrefixMap.get(moduleKey) ?? includePrefixMap.get(fileName)
-        if (mounted) routerPrefixes.push(mounted)
-      }
-      // 如果仍无 prefix，使用空字符串
-      const prefixes2 = routerPrefixes.length > 0 ? routerPrefixes : ['']
+      const mounted = byModule.get(moduleKey) ?? byFile.get(fileName)
+      const prefixes2 = routerPrefixes.length
+        ? mounted
+          ? [...new Set(routerPrefixes.map((q) => combinePyPrefix(mounted, q)))]
+          : routerPrefixes
+        : mounted
+          ? [mounted]
+          : ['']
       // 提取 @router.xxx("/path") 注册
       // 2026-10-04 加固(机制②):路径组改 `([^'"`]+)?` —— 原式要求 ≥1 字符,
       // 于是全仓 7 处 `@router.get("")`(model_pricing_api / cloud_runs / connectors / ai_skills /
@@ -4126,6 +4199,8 @@ const baseInputs = new Set([
   BASELINE_FILE_REL,
   // BP 腿的棘轮锚点必须与其余内容同面同轮读满(缺档 ⇒ 该腿未判定,不判红也不记绿)
   BARE_LEG_BASELINE_REL,
+  // 前缀假设未判定两腿的裁决台账(G-962 续作):同样必须同面同轮读满(缺档 ⇒ 维持未判定,不判红也不下降)
+  ASSUMPTION_ADJ_FILE_REL,
   // next rewrites 转发面的判据输入:必须与其余内容**同面同轮**读满(理由同 CLIENT_TRANSPORT_FILE)。
   // 不进 listFace ⇒ 不受 isIgnoredSourceFile 那条"next.config.* 是 rewrite 规则不是调用点"影响
   // (那条只该挡它在**前端调用面**里被当调用点,与此处作为**判据输入**是两件事)。
@@ -4314,6 +4389,35 @@ const pyBackendRoutes = backendRoutes.filter((r) => r.file.endsWith('.py'))
 const compositePrefixes = buildCompositePrefixes(prefixes)
 
 /**
+ * 「边缘改写派生面」接线(G-962 收尾,2026-10-22):next.config.ts 里**改前缀**的
+ * ai 面 rewrite(lsp / self-healing / knowledge-graph 三条,owner 拍板反代白名单)
+ * 让"前缀错位"的前端调用在生产真实可达。py 前缀拼接修好后这批调用从「前缀假设
+ * 未判定」浮进精确对账 ⇒ 假红 5 条(lsp×4 + self-healing×1)—— 实测它们经 rewrite
+ * 打到 ai-service /api/v1/*,不是死调用。判据本体见 `deriveEdgeRewriteEntries`。
+ * 派生源 = 精确档两腿合并(TS 挂载图 + FastAPI 旧提取式);兜底档不接(形状与
+ * 换票前逐字节相同的老纪律)。降级档 pathMaps=[] ⇒ 派生面为空,保守不造绿。
+ */
+const edgeRewriteDerived = GRAPH_AVAILABLE
+  ? deriveEdgeRewriteEntries(
+      [
+        ...regGraph.entries.flatMap((e) => {
+          if (e.file.endsWith('.py')) return []
+          if (e.method === 'ANY') {
+            return BACKEND_VERBS.map((v) => ({
+              method: String(v).toUpperCase(),
+              path: e.path,
+              file: e.file,
+            }))
+          }
+          return [{ method: e.method, path: e.path, file: e.file }]
+        }),
+        ...pyBackendRoutes.map((r) => ({ method: r.method, path: r.localPath, file: r.file })),
+      ],
+      rewriteExemption.pathMaps,
+    )
+  : []
+
+/**
  * 带值旗标的取值(2026-09-28 修 `--dump-* --staged` 这一型;口径照抄枚 `380431ffc`,不另发明):
  * **紧邻的下一个 token 必须存在且不以 `-` 开头**才算该旗标的值,否则视为"没带值"。
  * `scripts/guardian-runner.mjs` 会给每道门追加 `--staged`,而旧写法是**无条件**的
@@ -4376,6 +4480,7 @@ if (backendDumpPath) {
               line: 0,
               via: 'py',
             })),
+            ...edgeRewriteDerived.map((d) => ({ ...d, line: 0, via: 'edge-rewrite' })),
           ]
         : backendRoutes.map((r) => {
             const fullPaths = compositePrefixes.map(
@@ -4419,6 +4524,7 @@ if (GRAPH_AVAILABLE) {
     backendPathSet.add(`${e.method} ${e.path}`)
   }
   for (const r of pyBackendRoutes) backendPathSet.add(`${r.method} ${r.localPath}`)
+  for (const d of edgeRewriteDerived) backendPathSet.add(`${d.method} ${d.path}`)
 } else {
   for (const e of assumptionPathSet) backendPathSet.add(e)
 }
@@ -4427,7 +4533,7 @@ if (GRAPH_AVAILABLE) {
 const undeterminedDumpPath = dumpFlagValue('--dump-undetermined')
 if (GRAPH_AVAILABLE) {
   console.log(
-    `${C.dim}[API 路由比对] 后端注册路由: 精确挂载图 ${backendPathSet.size} 条（图 ${regGraph.entries.length} + FastAPI ${pyBackendRoutes.length};TS ${regGraph.stats.tsFilesAnalyzed} 文件 / 工厂 ${regGraph.stats.factories} 个 / 走到节点 ${regGraph.stats.touchedNodes} 个）${C.reset}`,
+    `${C.dim}[API 路由比对] 后端注册路由: 精确挂载图 ${backendPathSet.size} 条（图 ${regGraph.entries.length} + FastAPI ${pyBackendRoutes.length} + 边缘改写派生 ${edgeRewriteDerived.length};TS ${regGraph.stats.tsFilesAnalyzed} 文件 / 工厂 ${regGraph.stats.factories} 个 / 走到节点 ${regGraph.stats.touchedNodes} 个）${C.reset}`,
   )
   /**
    * 报数必须报名(票面③):图产出里的三格盲区逐条点名,默认档各截前 20 条,
@@ -4456,6 +4562,20 @@ if (GRAPH_AVAILABLE) {
     '不透明挂载前缀(其下调用落「未判定」出口,不判红)',
     regGraph.opaque.map((o) => ({ file: o.prefix, line: 0, kind: 'opaque', detail: o.evidence })),
   )
+  // 派生面**逐条报名**(票面③"报数必须报名"):每条派生绿都带改写规则原文与源文件,
+  // 全量另见 --dump-backend(via='edge-rewrite')。
+  if (edgeRewriteDerived.length) {
+    for (const d of edgeRewriteDerived.slice(0, GRAPH_SITE_PRINT_CAP)) {
+      console.log(
+        `${C.dim}  · 边缘改写派生: ${d.method} ${d.path} ⇐ ${d.rule} @ ${d.file}${C.reset}`,
+      )
+    }
+    if (edgeRewriteDerived.length > GRAPH_SITE_PRINT_CAP) {
+      console.log(
+        `${C.dim}  · 边缘改写派生:其余 ${edgeRewriteDerived.length - GRAPH_SITE_PRINT_CAP} 条见 --dump-backend via=edge-rewrite${C.reset}`,
+      )
+    }
+  }
 } else {
   console.log(
     `${C.yellow}[API 路由比对] ⚠️ 兜底档:${backendTsFiles.has(SERVER_FILE) ? `${SERVER_FILE} 在面但没有一条 \`X.register(\` 挂载边` : `${SERVER_FILE} 不在 ${FACE} 面`} ⇒ 挂载图无起点,本轮后端注册面退回旧「前缀假设」笛卡尔拼接(${backendRoutes.length} 条 × ${compositePrefixes.length} 个组合前缀)—— 这一档能拼出结构上不存在的 /api/courses 型假路径(票 O87g 点名的假绿成因),「死调用 0 处」在本档**不得读成对账通过**${C.reset}`,
@@ -4550,7 +4670,15 @@ function collectShapeUnknownSites(rel, end, src) {
     else if (importOnly) note = 'import/export 语句(路径住在被引模块内)'
     else note = '传输口在代码里、路径抽不出(形态见原文)'
     if (maskedHits > 0 && !importOnly) callLike = true
-    sites.push({ line: i + 1, text: lines[i].trim().slice(0, 110), note })
+    // 注释态站点不引原文(G-962 机制⑥镜像锁:注释里的路径不得出现在任何报名里 ——
+    // 报名 = file:line + 形态 + 标签,证据文字不是点名的必要条件;引原文会把
+    // `fetchApi('/api/ghost/…')` 型说明注释的路径 echo 进报告,读报告的人无从
+    // 区分"这是盲区标签"还是"这是被点名的调用"。计数口径一字未动,只改打印面。)
+    sites.push({
+      line: i + 1,
+      text: maskedHits === 0 ? '〔注释行,原文不引(防路径进报名)〕' : lines[i].trim().slice(0, 110),
+      note,
+    })
   }
   return {
     end,
@@ -5071,6 +5199,118 @@ for (const c of bareUnique) {
   bareMissing.push(c)
 }
 
+/* ============================================================================
+ * ===== 「未判定(前缀假设命中)」两腿的裁决台账(票 G-962 续作 2026-10-22 立)=====
+ * 桶是"两型静态不可分辨"的暂存格,不是结论;台账把它变成"逐条裁决 + 证据 + 归属 + 到期"。
+ * 已裁条目退出未判定桶(计数按台账下降),但**禁消音** —— 必须在「已裁决(台账)」块逐条点名
+ * (与不透明挂载桶"判不出就点名"同一条禁令)。
+ * 台账经 `readSource` 按判定面读:缺档 ⇒ 本轮两腿维持未判定(不判红、不下降,与 BP 基线缺档
+ * 同一手法);解析失败 ⇒ 同样降级为"台账读不出" —— 坏台账不得静默把桶清空,那比没台账更危险。
+ * 三型判红(仿守门 150 AJ 模板,`check-radius-role-conformance.mjs::applyAdjudications`):
+ *  AJ1 条目形状不全(leg/method/path/verdict/reason/owner/reviewBy 缺一不可;bare 腿另需 file)⇒ 红;
+ *  AJ2 reviewBy 已过 ⇒ 红,该站点退回未判定桶(过期裁决不得继续替站点免检);
+ *  AJ3 台账条目在本轮桶面找不到对应键 ⇒ 清单腐烂红(站点已删/已改对 ⇒ 必须了结该条)。
+ *    AJ3 只在 head 整仓面对账:staged 面只扫暂存文件、桶天然是子集,拿全量台账去比会恒冒假红
+ *    (§12e,与 BP 腿 `repoWide` 同一挡法);worktree 是夹具/人工档,同理记未判定、不冒红不记绿。
+ * ========================================================================== */
+const assumptionAdjLedger = {
+  adjudicatedMain: [],
+  adjudicatedBare: [],
+  problems: [],
+  unjudgedAj3: 0,
+  degraded: null,
+}
+if (GRAPH_AVAILABLE) {
+  const adjSrc = readSource(ASSUMPTION_ADJ_FILE_REL)
+  let ledgerItems = null
+  if (adjSrc === null || adjSrc === undefined) {
+    assumptionAdjLedger.degraded = `${FACE} 面里没有 ${ASSUMPTION_ADJ_FILE_REL} —— 前缀假设未判定两腿本轮不应用任何裁决(如实说明,不是"全部未裁")`
+  } else {
+    try {
+      const j = JSON.parse(adjSrc)
+      if (!j || !Array.isArray(j.items)) throw new Error('缺 items 数组')
+      ledgerItems = j.items
+    } catch (e) {
+      assumptionAdjLedger.degraded = `${ASSUMPTION_ADJ_FILE_REL} 解析失败:${e.message} —— 坏台账不得静默当空台账用,两腿本轮维持未判定`
+    }
+  }
+  if (ledgerItems) {
+    const today = new Date().toISOString().slice(0, 10)
+    const mainBucketKeys = new Set(assumptionUndetermined.map((c) => `${c.method}|${c.path}`))
+    const bareBucketKeys = new Set(bareAssumption.map((c) => `${c.method}|${c.path}|${c.file}`))
+    const validMain = new Map()
+    const validBare = new Map()
+    for (const it of ledgerItems) {
+      const where = `${it?.leg ?? '(缺leg)'} ${it?.method ?? '?'} ${it?.path ?? '(缺path)'}`
+      if (
+        !it ||
+        typeof it !== 'object' ||
+        (it.leg !== 'main' && it.leg !== 'bare') ||
+        typeof it.method !== 'string' ||
+        typeof it.path !== 'string'
+      ) {
+        assumptionAdjLedger.problems.push(`AJ1 条目形状不全(leg ∈ {main,bare} / method / path 缺一不可):${where}`)
+        continue
+      }
+      if (it.leg === 'bare' && typeof it.file !== 'string') {
+        assumptionAdjLedger.problems.push(`AJ1 bare 腿条目缺 file(键 = method|path|file):${where}`)
+        continue
+      }
+      if (!['alive', 'dead', 'human-review'].includes(it.verdict)) {
+        assumptionAdjLedger.problems.push(`AJ1 verdict 不是 alive/dead/human-review:${where}`)
+        continue
+      }
+      if (typeof it.reason !== 'string' || it.reason.trim() === '') {
+        assumptionAdjLedger.problems.push(`AJ1 裁决无理由:${where}`)
+        continue
+      }
+      if (typeof it.owner !== 'string' || it.owner.trim() === '') {
+        assumptionAdjLedger.problems.push(`AJ1 裁决无归属(谁负责复裁):${where}`)
+        continue
+      }
+      if (typeof it.reviewBy !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(it.reviewBy)) {
+        assumptionAdjLedger.problems.push(`AJ1 到期日缺失或形态不对(要 YYYY-MM-DD):${where}`)
+        continue
+      }
+      const key = it.leg === 'main' ? `${it.method}|${it.path}` : `${it.method}|${it.path}|${it.file}`
+      const bucketKeys = it.leg === 'main' ? mainBucketKeys : bareBucketKeys
+      if (!bucketKeys.has(key)) {
+        if (FACE === 'head') {
+          assumptionAdjLedger.problems.push(
+            `AJ3 清单腐烂:台账条目在 head 整仓面的前缀假设桶里找不到对应站点 ⇒ 要么站点已删/已改对,要么桶判据变了,必须把这条了结:${key}`,
+          )
+        } else {
+          assumptionAdjLedger.unjudgedAj3++
+        }
+        continue
+      }
+      if (it.reviewBy < today) {
+        assumptionAdjLedger.problems.push(
+          `AJ2 裁决到期未复裁(reviewBy=${it.reviewBy} < ${today}),该站点退回未判定桶:${key}`,
+        )
+        continue
+      }
+      ;(it.leg === 'main' ? validMain : validBare).set(key, it)
+    }
+    const keptMain = []
+    for (const c of assumptionUndetermined) {
+      const it = validMain.get(`${c.method}|${c.path}`)
+      if (it) assumptionAdjLedger.adjudicatedMain.push({ ...c, verdict: it.verdict, owner: it.owner, reviewBy: it.reviewBy })
+      else keptMain.push(c)
+    }
+    assumptionUndetermined.length = 0
+    assumptionUndetermined.push(...keptMain)
+    const keptBare = []
+    for (const c of bareAssumption) {
+      const it = validBare.get(`${c.method}|${c.path}|${c.file}`)
+      if (it) assumptionAdjLedger.adjudicatedBare.push({ ...c, verdict: it.verdict, owner: it.owner, reviewBy: it.reviewBy })
+      else keptBare.push(c)
+    }
+    bareAssumption.length = 0
+    bareAssumption.push(...keptBare)
+  }
+}
+
 const UPDATE_BARE_BASELINE = process.argv.includes('--update-bare-baseline')
 const bareCountsByFile = new Map()
 for (const c of bareMissing) {
@@ -5547,6 +5787,24 @@ if (GRAPH_AVAILABLE && assumptionUndetermined.length > 0) {
     )
   }
 }
+if (GRAPH_AVAILABLE && assumptionAdjLedger.degraded) {
+  console.log(`${C.yellow}[API 路由比对] ⚠️ ${assumptionAdjLedger.degraded}${C.reset}`)
+}
+if (GRAPH_AVAILABLE && assumptionAdjLedger.unjudgedAj3 > 0) {
+  console.log(
+    `${C.dim}[API 路由比对] ℹ️ 台账 AJ3(清单腐烂对账)本轮未判定 ${assumptionAdjLedger.unjudgedAj3} 条 —— ${FACE} 面桶是子集/夹具档,不冒红也不记绿;head 整仓面会逐条对账${C.reset}`,
+  )
+}
+if (GRAPH_AVAILABLE && assumptionAdjLedger.adjudicatedMain.length > 0) {
+  console.log(
+    `${C.dim}[API 路由比对] ℹ️ 已裁决(前缀假设台账,主腿)${assumptionAdjLedger.adjudicatedMain.length} 处 —— 已退出未判定桶,禁消音逐条点名(裁决与证据见 ${ASSUMPTION_ADJ_FILE_REL}):${C.reset}`,
+  )
+  for (const c of assumptionAdjLedger.adjudicatedMain) {
+    console.log(
+      `${C.dim}    [${c.verdict}] ${c.method} ${c.path} @ ${c.file}:${c.line} —— 复裁:${c.owner} / ${c.reviewBy}${C.reset}`,
+    )
+  }
+}
 if (GRAPH_AVAILABLE && undeterminedDumpPath) {
   writeFileSync(
     undeterminedDumpPath,
@@ -5557,6 +5815,9 @@ if (GRAPH_AVAILABLE && undeterminedDumpPath) {
         opaque: regGraph.opaque,
         assumptionUndetermined,
         bareAssumptionUndetermined: bareAssumption,
+        assumptionAdjudicated: assumptionAdjLedger.adjudicatedMain,
+        bareAssumptionAdjudicated: assumptionAdjLedger.adjudicatedBare,
+        assumptionAdjudicationProblems: assumptionAdjLedger.problems,
         stats: regGraph.stats,
       },
       null,
@@ -5722,6 +5983,16 @@ if (GRAPH_AVAILABLE && bareAssumption.length > 0) {
     )
   }
 }
+if (GRAPH_AVAILABLE && assumptionAdjLedger.adjudicatedBare.length > 0) {
+  console.log(
+    `${C.dim}  已裁决(前缀假设台账,BP 腿)${assumptionAdjLedger.adjudicatedBare.length} 处 —— 已退出未判定桶,禁消音逐条点名:${C.reset}`,
+  )
+  for (const c of assumptionAdjLedger.adjudicatedBare) {
+    console.log(
+      `${C.dim}    [${c.verdict}] ${c.method} ${c.path} @ ${c.file}:${c.line} —— 复裁:${c.owner} / ${c.reviewBy}${C.reset}`,
+    )
+  }
+}
 if (bareIgnored.length > 0) {
   console.log(
     `${C.yellow}  (登记)BP 腿 ${bareIgnored.length} 处被 ${IGNORE_FILE_REL} 豁免(与主腿共用同一份豁免表)${C.reset}`,
@@ -5871,6 +6142,7 @@ if (
   webViolations.length === 0 &&
   ratchetNew.length === 0 &&
   bareNew.length === 0 &&
+  assumptionAdjLedger.problems.length === 0 &&
   channelVerdict.sites.length === 0
 ) {
   console.log(
@@ -5919,6 +6191,20 @@ if (bareNew.length > 0) {
         `${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}(字面量原文 ${c.raw} →归一 ${c.path})${C.reset}`,
       )
     }
+  }
+}
+
+if (assumptionAdjLedger.problems.length > 0) {
+  console.log(
+    `${C.red}[API 路由比对] ❌ 前缀假设裁决台账(${ASSUMPTION_ADJ_FILE_REL})有 ${assumptionAdjLedger.problems.length} 处问题(AJ1 形状不全 / AJ2 到期未复裁 / AJ3 清单腐烂):${C.reset}`,
+  )
+  for (const p of assumptionAdjLedger.problems.slice(0, 50)) {
+    console.log(`${C.red}  ${p}${C.reset}`)
+  }
+  if (assumptionAdjLedger.problems.length > 50) {
+    console.log(
+      `${C.dim}  ... 其余 ${assumptionAdjLedger.problems.length - 50} 条见 --dump-undetermined 的 assumptionAdjudicationProblems${C.reset}`,
+    )
   }
 }
 
