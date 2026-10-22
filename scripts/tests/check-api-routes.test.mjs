@@ -1666,4 +1666,132 @@ test('O87g P3 兜底档:server.ts 不在面 ⇒ 退回旧拼接并大声点名(�
     destroyTempRoot(dir)
   }
 })
+
+// ─── ER 组:边缘改写派生面(G-962 收尾,2026-10-22)──
+// 立据:next.config.ts 里**改前缀**的 ai 面 rewrite(真仓 lsp/self-healing/knowledge-graph 三条)
+// 让"前缀错位"调用在生产真实可达。py 前缀拼接修好后 lsp 4 条 + self-healing 1 条从「前缀假设
+// 未判定」浮进精确对账成假红 —— 派生面把它们转在册。正反双向:ER1 命中派生;ER2 目标含参数段
+// 保守不派生(不得造绿);ER3 同前缀透明规则不派生(注册面已是终形,派生了就是重复入面)。
+function edgeRewriteFixture(dir, rules) {
+  writeFile(
+    dir,
+    'apps/api/src/server.ts',
+    [
+      "import Fastify from 'fastify'",
+      "import { liveRoutes } from './routes/live'",
+      'const server = Fastify()',
+      "server.register(liveRoutes, { prefix: '/api' })",
+      'server.listen()',
+      '',
+    ].join('\n'),
+  )
+  writeFile(
+    dir,
+    'apps/api/src/routes/live.ts',
+    "export async function liveRoutes(server) {\n  server.get('/ping', async () => ({}))\n}\n",
+  )
+  writeFile(
+    dir,
+    'apps/ai-service/app/main.py',
+    'from app.routers import lsp\napp.include_router(lsp.router, prefix="/api/v1")\n',
+  )
+  writeFile(
+    dir,
+    'apps/ai-service/app/routers/lsp.py',
+    "from fastapi import APIRouter\nrouter = APIRouter(prefix='/lsp')\n@router.post('/definition')\nasync def h():\n    return {}\n",
+  )
+  writeFile(
+    dir,
+    'apps/web/next.config.ts',
+    [
+      "const IHUI_AI_PROXY_TARGET = 'http://127.0.0.1:8803'",
+      'const nextConfig = {',
+      '  async rewrites() {',
+      '    return [',
+      ...rules,
+      '    ]',
+      '  },',
+      '}',
+      '',
+    ].join('\n'),
+  )
+  writeFile(dir, 'apps/web/api.ts', "fetchApi('/api/lsp/definition', { method: 'POST' })")
+}
+const rewriteRule = (source, dest) =>
+  [
+    '        {',
+    `          source: '${source}',`,
+    '          destination: `' + dest + '`,',
+    '        },',
+  ]
+
+test('ER1 边缘改写派生正例:改前缀 rewrite(/api/lsp/:path* → /api/v1/lsp/:path*)下的前端调用必须经派生面转在册 → exit 0', () => {
+  const dir = createTempRoot()
+  try {
+    edgeRewriteFixture(
+      dir,
+      rewriteRule('/api/lsp/:path*', '${IHUI_AI_PROXY_TARGET}/api/v1/lsp/:path*'),
+    )
+    const r = runScript(dir)
+    assert.match(
+      r.out,
+      /边缘改写派生: POST \/api\/lsp\/definition/,
+      `派生条目必须逐条报名(报数必须报名)\nstdout: ${r.out}`,
+    )
+    assert.equal(
+      r.status,
+      0,
+      `经 rewrite 生产真实可达的调用不得判死\nstdout: ${r.out}\nstderr: ${r.stderr}`,
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+test('ER2 边缘改写派生反向锁:目标含参数段的规则保守不派生,前端调用照判红(不得凭空造绿)', () => {
+  const dir = createTempRoot()
+  try {
+    edgeRewriteFixture(
+      dir,
+      rewriteRule('/api/lsp/:path*', '${IHUI_AI_PROXY_TARGET}/api/v1/lsp/:kind/:path*'),
+    )
+    const r = runScript(dir)
+    assert.doesNotMatch(
+      r.out,
+      /边缘改写派生:/,
+      `对齐不可判的规则绝不派生\nstdout: ${r.out}`,
+    )
+    assert.equal(
+      r.status,
+      1,
+      `不派生时这条调用仍是死调用,必须判红(阳性对照:ER1 同夹具仅规则形态之差)\nstdout: ${r.out}`,
+    )
+    assert.match(r.out, /POST \/api\/lsp\/definition/, '死调用必须点名')
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
+
+test('ER3 边缘改写派生反向锁:同前缀透明规则不派生(注册面已是终形,派生即重复入面)', () => {
+  const dir = createTempRoot()
+  try {
+    edgeRewriteFixture(
+      dir,
+      [
+        ...rewriteRule('/api/lsp/:path*', '${IHUI_AI_PROXY_TARGET}/api/v1/lsp/:path*'),
+        ...rewriteRule('/api/ping/:path*', '${IHUI_AI_PROXY_TARGET}/api/ping/:path*'),
+      ],
+    )
+    const r = runScript(dir)
+    assert.equal(r.status, 0, `stdout: ${r.out}\nstderr: ${r.stderr}`)
+    const derivedLines = (r.out.match(/边缘改写派生:/g) || []).length
+    assert.equal(
+      derivedLines,
+      1,
+      `只有改前缀的 lsp 规则可派生;透明 ping 规则(source=dest 前缀)必须跳过\nstdout: ${r.out}`,
+    )
+  } finally {
+    destroyTempRoot(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
