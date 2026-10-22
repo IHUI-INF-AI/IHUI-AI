@@ -1,6 +1,6 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 镜像测试:scripts/live-doc-edit.mjs 的「同号不同题」落地闸(§22c —— 判据从源脚本 __test__ 出口拿,
 // 本文件禁止再抄一份"什么算撞号")。
@@ -46,56 +46,59 @@ test('形状锁:判据从源脚本出口拿,且成组口径必须委托 F9(禁�
   const call = src.indexOf('judgeNewIdCollisions({')
   assert.ok(call > 0, 'main 里必须真的调用本闸(函数在而无人调 = 提交链上一路绿灯)')
   const blob = src.indexOf('writeBlob(nextLines')
-  assert.ok(blob > call, '闸必须在 writeBlob 之前:内容一旦 commit,再 exit 1 就是把已入库谎报成没落地')
+  assert.ok(
+    blob > call,
+    '闸必须在 writeBlob 之前:内容一旦 commit,再 exit 1 就是把已入库谎报成没落地',
+  )
 })
 
 test('C1 真撞车必拦:落地面里同一号挂着两个不同标题,而底稿没有这一组', () => {
   const r = __test__.judgeNewIdCollisions({
-    baseText: doc(OPEN('G-926', 'lint-staged 雷区仍有 84 枚')),
+    baseText: doc(OPEN('G-900810', 'lint-staged 雷区仍有 84 枚')),
     nextText: doc(
-      OPEN('G-926', 'lint-staged 雷区仍有 84 枚'),
-      OPEN('G-926', '生产 web 的部署承载者没查清'),
+      OPEN('G-900810', 'lint-staged 雷区仍有 84 枚'),
+      OPEN('G-900810', '生产 web 的部署承载者没查清'),
     ),
   })
   assert.equal(r.undetermined, false)
   assert.equal(r.blocked.length, 1)
-  assert.equal(r.blocked[0].key, 'G-926')
+  assert.equal(r.blocked[0].key, 'G-900810')
   assert.equal(r.blocked[0].titleCount, 2)
   assert.equal(r.preexisting.length, 0, '底稿里这一组不存在 ⇒ 账必须记在本次')
 })
 
 test('C2 就地改写不误拦:同一条行换了内容,号没变', () => {
   const r = __test__.judgeNewIdCollisions({
-    baseText: doc(OPEN('G-300', '某票标题')),
-    nextText: doc(`${OPEN('G-300', '某票标题')} 〔补充现状〕`),
+    baseText: doc(OPEN('G-900811', '某票标题')),
+    nextText: doc(`${OPEN('G-900811', '某票标题')} 〔补充现状〕`),
   })
   assert.equal(r.blocked.length, 0, '§1 建议的修法不得被判成违规')
 })
 
 test('C3 让号不误拦:旧号行删掉、同题在新号上出现一次', () => {
   const r = __test__.judgeNewIdCollisions({
-    baseText: doc(OPEN('G-301', '需要让号的事')),
-    nextText: doc(OPEN('G-302', '需要让号的事')),
+    baseText: doc(OPEN('G-900812', '需要让号的事')),
+    nextText: doc(OPEN('G-900813', '需要让号的事')),
   })
   assert.equal(r.blocked.length, 0)
 })
 
 test('C4 存量只报数不拦:撞号在底稿里已在、本次没再加', () => {
-  const t = doc(OPEN('G-303', '甲题的完整标题'), OPEN('G-303', '乙题的完整标题'))
+  const t = doc(OPEN('G-900814', '甲题的完整标题'), OPEN('G-900814', '乙题的完整标题'))
   const r = __test__.judgeNewIdCollisions({ baseText: t, nextText: t })
   assert.equal(r.blocked.length, 0, '拿别人留下的账钉红每一次落地 = 逼人绕开本器(§12e)')
   assert.equal(r.preexisting.length, 1)
 })
 
 test('C5 口径对账(与 F9 一致,不是本器偏好):同号一未勾一已勾仍算一组', () => {
-  const t = doc(OPEN('G-304', '待办题的完整标题'), DONE('G-304', '另一道已结清的题'))
+  const t = doc(OPEN('G-900815', '待办题的完整标题'), DONE('G-900815', '另一道已结清的题'))
   const r = __test__.judgeNewIdCollisions({ baseText: t, nextText: t })
   assert.equal(r.preexisting.length, 1, 'F9 只在"组内全已勾"时降档;混一未勾就仍是一组')
   assert.equal(r.blocked.length, 0)
 })
 
 test('C5b 全已勾组降档只报数(F9 定级 2026-10-06 那一档必须一起继承)', () => {
-  const t = doc(DONE('G-306', '已结清的第一题'), DONE('G-306', '已结清的第二题'))
+  const t = doc(DONE('G-900816', '已结清的第一题'), DONE('G-900816', '已结清的第二题'))
   const r = __test__.judgeNewIdCollisions({ baseText: t, nextText: t })
   assert.equal(r.blocked.length, 0)
   assert.equal(r.preexisting.length, 0, '降档组不进判定面 ⇒ 本闸也不该把它念成存量')
@@ -111,7 +114,12 @@ test('C6 让界给 F1:同号同题(尾注不同)不成组,本闸不得抢在 F1 
 })
 
 test('C7 输入不成文本一律未判定:不许把"没读到内容"读成"没有撞号"', () => {
-  for (const bad of [{}, { baseText: '', nextText: '' }, { baseText: null, nextText: doc() }, { nextText: 42 }]) {
+  for (const bad of [
+    {},
+    { baseText: '', nextText: '' },
+    { baseText: null, nextText: doc() },
+    { nextText: 42 },
+  ]) {
     const r = __test__.judgeNewIdCollisions(bad)
     assert.equal(r.undetermined, true, `输入 ${JSON.stringify(bad)} ⇒ 必须未判定`)
     assert.equal(r.blocked.length, 0)
@@ -132,4 +140,4 @@ test('C8 真仓面自证:底稿取 HEAD 的 PROJECT_PLAN 时,本闸读出的是�
   assert.equal(r.blocked.length, 0, '同一份文本自己跟自己比 ⇒ 一组都不能算本次新增(否则棘轮无锚)')
   assert.ok(r.preexisting.length >= 1, 'HEAD 面现读就有存量撞号 ⇒ 必须走只报数那一档')
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

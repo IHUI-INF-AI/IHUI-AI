@@ -59,7 +59,7 @@ import { blobInAncestry } from './heal-worktree-tracked.mjs'
 import {
   auditPlan,
   compositeKeyOf,
-  dispositionOf,
+  dispositionOfV2,
   findReopenedFlipCandidates,
   FLIPPED_ROW_RE,
   isDeclarationRow,
@@ -68,6 +68,7 @@ import {
   usedIdsOfPrefix,
   LEDGER_TTL_DAYS,
 } from './lib/plan-task-index.mjs'
+import { FIELDS_REL, loadFields } from './lib/plan-fields.mjs'
 import { headAges } from './lib/plan-line-age.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -443,6 +444,61 @@ function readPlan(root, face) {
 }
 
 const clip = (s, n = 96) => s.replace(/\s+/g, ' ').trim().slice(0, n)
+
+/** git 规格一律正斜杠:`FIELDS_REL` 由 `path.join` 造,在本机是 `scripts\data\…`,
+ *  而 `cat-file` 的 rev 规格只认 posix 分隔符 —— 照原样送会恒判"取不到"(§12f:出路必须真跑得通)。 */
+const fieldsSpecRel = () => FIELDS_REL.split(path.sep).join('/')
+
+/**
+ * 侧车与台账**同面同轮**(§0.4):全量档读 HEAD blob、`--staged` 读索引 blob、`--worktree` 读工作树。
+ * 取不到 ⇒ 落 `undetermined` 并点名,既不回落另一个面、也不把"文件不存在"读成"零条记录"
+ * (后者会让派单面冒"散文依赖 0 枚")。空文件才是零条记录。
+ */
+export function readFieldsFace(root, face) {
+  const rel = fieldsSpecRel()
+  let text
+  try {
+    if (face === 'worktree') {
+      text = readWorktreeFile(root, rel)
+    } else {
+      const spec = face === 'staged' ? `:${rel}` : `HEAD:${rel}`
+      text = catBatch(root, [spec], { maxBuffer: 1 << 26 }).get(spec)
+    }
+  } catch (e) {
+    return { ...loadFields(root, null), why: `侧车取材失败:${String(e?.message ?? e).split('\n')[0]}` }
+  }
+  if (text === null || text === undefined)
+    return { ...loadFields(root, null), why: `${LABEL[face] ?? face} 取不到 ${rel}` }
+  return loadFields(root, text)
+}
+
+/**
+ * 派单面自报"这一轮靠什么判"(规格 §2)。`prose` 枚数就是迁移进度尺:侧车每搬进一条,
+ * 这个数才少一条 —— 它必须由判据自己数,不能写成措辞(措辞会漂,数不会)。
+ * 取不到侧车 ⇒ 明写未判定,绝不冒"零散文依赖"(§0.3)。
+ */
+export function dispositionSummary(rows, fields) {
+  let fieldsN = 0
+  let proseN = 0
+  let conflictN = 0
+  for (const r of rows) {
+    const d = dispositionOfV2({ line: r.raw, fields })
+    if (d.source === 'fields') fieldsN++
+    else proseN++
+    if (d.conflict) conflictN++
+  }
+  const undetermined = !!fields?.undetermined
+  return {
+    fields: fieldsN,
+    prose: proseN,
+    conflict: conflictN,
+    undetermined,
+    line:
+      `归属判定来源:侧车 ${fieldsN} 枚 / 仍靠散文判定 ${proseN} 枚` +
+      (conflictN ? ` / 两侧矛盾 ${conflictN} 枚(以侧车为准,由门报数)` : '') +
+      (undetermined ? ' —— 侧车取不到 ⇒ 本轮未判定,不得读成"零散文依赖"' : ''),
+  }
+}
 
 /**
  * 判定面 = 取材 + `auditPlan` + **F9 的编号位收窄**,三件事同面同轮一次做完。
@@ -2447,6 +2503,9 @@ function main() {
     console.log(`⚠️ 无法判定 —— ${why}`)
     return 2
   }
+  // 侧车与台账**同面同轮**(§0.4):与上面那次取材同一枚 HEAD / 同一份索引。
+  // 取不到不抛、也不回落另一个面 —— 落 `undetermined`,由消费点如实报名(§0.3)。
+  const fieldsFace = readFieldsFace(o.root, o.face)
   // 年龄只在"有历史可问"的面上判(全量 HEAD 档)。`--staged`(提交链)结构上没有本次新行的历史,
   // 所以那一档连 blame 都不派生 —— 既省 9s,也免得把"没有历史"读成"很老"。
   // blame 取不到 ⇒ **显式降级并喊出来**,不得静默退回"只看行内日期"那把较窄的尺子。
@@ -2599,8 +2658,10 @@ function main() {
   if (o.open) {
     // `--open --dispatchable`:把"现在就能做的活"从"等着别人/等环境的账"里分出来。
     // 默认口径不变 —— 分层只在这条显式旗标下生效,免得一次正则误判把真活踢出派单面。
+    const F = fieldsFace
+    const bucketV2 = (r) => dispositionOfV2({ line: r.raw, fields: F }).bucket
     const rows = o.dispatchable
-      ? a.claimableRows.filter((r) => dispositionOf(r.raw) === 'actionable')
+      ? a.claimableRows.filter((r) => bucketV2(r) === 'actionable')
       : a.claimableRows
     if (o.dispatchable) {
       console.log(
@@ -2608,6 +2669,21 @@ function main() {
           `(剔除:待人拍板 ${a.counts.dispWaitingHuman} / 等条件 ${a.counts.dispWaitingEnv} / 归他人 ${a.counts.dispOwnedElsewhere};` +
           `剔除按正文推导,拿不准的**留在清单里**而不是踢掉)──`,
       )
+      // 判定来源必须自己报名:侧车一旦开始有记录,上行那组"按正文推导"的剔除数就会与过滤面分开,
+      // 而分开的方向是" fewer 活被踢出清单" —— 不报名就会被当成读数错乱(规格 §2)。
+      const sum = dispositionSummary(a.claimableRows, F)
+      console.log(`── ${sum.line} ──`)
+      if (sum.fields > 0) {
+        const v2c = { 'waiting-human': 0, 'waiting-env': 0, 'owned-elsewhere': 0 }
+        for (const r of a.claimableRows) {
+          const b = bucketV2(r)
+          if (b in v2c) v2c[b]++
+        }
+        console.log(
+          `   按 v2 重算的剔除面:待人拍板 ${v2c['waiting-human']} / 等条件 ${v2c['waiting-env']} / 归他人 ${v2c['owned-elsewhere']}` +
+            `(与上行不同即两侧都在报数,不静默取其一)`,
+        )
+      }
       // 行内自述"不再单独派单/走持有行"的副本:勾选一字未动(§1 F4 口径),但不再占派单名额。
       // 必须报名而不只报数 —— 拿数字的人会去 grep【归并】字面并据此判定"这一族不存在"。
       const sd = a.counts.selfDedispatchList || []
@@ -2728,7 +2804,7 @@ function main() {
     console.log(`── 超过 ${LEDGER_TTL_DAYS} 天没有进展的未勾选行 ${a.staleRows.length} 行 ──`)
     for (const r of a.staleRows)
       console.log(
-        `  L${r.line}  锚点 ${r.anchor}(距今 ${r.age} 天) ${dispositionOf(r.raw)}  ${clip(r.raw)}`,
+        `  L${r.line}  锚点 ${r.anchor}(距今 ${r.age} 天) ${dispositionOfV2({ line: r.raw, fields: fieldsFace }).bucket}  ${clip(r.raw)}`,
       )
     if (a.counts.undated)
       console.log(
