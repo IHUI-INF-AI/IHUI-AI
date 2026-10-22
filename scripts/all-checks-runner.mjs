@@ -5,7 +5,7 @@
 /**
  * check:all 的串行编排器 —— 跑完全部子步骤再汇总(台账票 G-816501,原名 G-815996)。
  *
- * 为什么在仓里(不是把 `&&` 换成 `;` 就完事):根 package.json 的 `check:all` 此前是 26 条子步骤的
+ * 为什么在仓里(不是把 `&&` 换成 `;` 就完事):根 package.json 的 `check:all` 此前是 27 条子步骤的
  * `&&` 串链。`&&` 的语义是"前一条非零即终止整条链",于是链条中间任何一步判红之后,**它后面的所有步骤
  * 当天等于从没跑过**,而调用方只看到那一条红 —— 这正是本仓最高频的失效型:"判据没跑"与"跑完全绿"
  * 在账面上长得一模一样(参见同名族:守门 70/76/81/115、AGENTS §12f)。低透明度告警形(如
@@ -36,7 +36,7 @@ import { pathToFileURL } from 'node:url'
 /** 直接执行时的入口(为空则说明本文件被当作断言目标跑,不进 CLI 主流程)。 */
 const entryArg = process.argv[1] || ''
 
-/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条),顺序与集合都不得增删。 */
+/** 子步骤清单:逐字取自改前 `check:all` 的 `&&` 串链(26 条)+ 票 G-217 补接的第 27 条 `check:benchmark-delivery`,顺序与集合都不得增删。 */
 export const CHECK_ALL_STEPS = Object.freeze([
   'pnpm check:conflict-markers',
   'pnpm check:api-key-leak',
@@ -64,6 +64,9 @@ export const CHECK_ALL_STEPS = Object.freeze([
   'node scripts/check-prod-bundle-shadow.mjs',
   'pnpm check:sdk-publish',
   'pnpm check:artifact-budget',
+  // 票 G-217 补接:尺子②`audit-benchmark-delivery.mjs --strict` 早在 2026-10-06 就造好了,却从未进
+  // check:all ⇒ 按 AGENTS §0.9「造好没装车 = 没有」等于没有。范例同前 26 条(走 pnpm 脚本名,不裸写路径)。
+  'pnpm check:benchmark-delivery',
 ])
 
 /** 单步子上限:默认 25 分钟(全量档里最慢的是逐 blob 取材的那几道门)。 */
@@ -387,9 +390,9 @@ function runSelfTest() {
       })(),
     ],
     [
-      'A7 子步骤清单是 26 条且含那条死链上的第 18 步',
+      'A7 子步骤清单是 27 条且含那条死链上的第 18 步',
       (() =>
-        CHECK_ALL_STEPS.length === 26 &&
+        CHECK_ALL_STEPS.length === 27 &&
         CHECK_ALL_STEPS[17] === 'node scripts/scan-dead-i18n-keys.mjs --target all --exit 1')(),
     ],
     [
@@ -398,6 +401,10 @@ function runSelfTest() {
         const a = aggregate([])
         return a.passed === 0 && a.exitCode === 0 && a.failed.length === 0
       })(),
+    ],
+    [
+      'A9 末条是 check:benchmark-delivery(票 G-217:造好没装车 = 没有,摘掉即红)',
+      CHECK_ALL_STEPS[CHECK_ALL_STEPS.length - 1] === 'pnpm check:benchmark-delivery',
     ],
   ]
   let bad = 0
