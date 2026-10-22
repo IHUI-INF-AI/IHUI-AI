@@ -141,7 +141,7 @@ export function claimStaleLockCore(dir, judged, why, { archiveRoot = null, suffi
 export function createLockInstanceObserver() {
   // 每路径一份观察状态:当前在位实例的指纹 / 是否在位 / 迄今见过的实例数。
   const byPath = new Map()
-  return function observeLockInstance(lockPath, lockStat, observedAt) {
+  return function observeLockInstance(lockPath, lockStat, _observedAt) {
     let st = byPath.get(lockPath)
     if (!st) {
       st = { fp: null, present: false, count: 0 }
