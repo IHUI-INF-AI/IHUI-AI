@@ -18,11 +18,14 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { authExtendedRoutes } from '../auth-extended.js'
 import { isAlipayConfigured } from '../../services/alipay.js'
+
+/** 仓根:③/④ 两档要用"仓内一定存在的真实文件"和"一个目录"当对照夹具,不落临时件 */
+const ROOT = resolve(__dirname, '../../../../..')
 
 let app: FastifyInstance
 
@@ -120,35 +123,23 @@ describe('isAlipayConfigured 验的是私钥可用性,不是键名在场', () =>
     expect(isAlipayConfigured()).toBe(true)
   })
 
-  it('③ 路径指向的文件真在位 ⇒ 配置好了(反向:不许修成一律红)', async () => {
-    // 临时夹具唯一落点 = scripts/lib/scratch-dir.mjs(§15b:不得用 os.tmpdir、不得落仓库树内)
-    // arch-exempt: 测试面复用根工具层的夹具出口,属测试依赖而非生产依赖边;until 2026-12-31
-    const { mkScratch, rmScratch } = await import('../../../../../scripts/lib/scratch-dir.mjs')
-    const dir = mkScratch('alipay-key')
-    const f = resolve(dir, 'pk.pem')
-    writeFileSync(f, 'dummy-key-material', 'utf8')
-    setKeys({ ALIPAY_APP_ID: '2021000000000000', ALIPAY_PRIVATE_KEY_PATH: f })
-    try {
-      expect(isAlipayConfigured()).toBe(true)
-    } finally {
-      rmScratch(dir)
-      setKeys({})
-    }
+  it('③ 路径指向一个真实可读的文件 ⇒ 配置好了(反向:不许修成一律红)', () => {
+    // 用仓内一定存在且非空的文件当夹具,不落任何临时件:
+    // 建临时文件要引根工具层的 scratch-dir(无 d.ts ⇒ apps/api 的 tsconfig 报 TS7016),
+    // 而这一档要证的只是"读得到就算配置",不需要真的新造文件。
+    setKeys({
+      ALIPAY_APP_ID: '2021000000000000',
+      ALIPAY_PRIVATE_KEY_PATH: resolve(ROOT, 'apps/api/package.json'),
+    })
+    expect(isAlipayConfigured()).toBe(true)
   })
 
-  it('④ 空文件也算没配(内容长度为零不可用)', async () => {
-    // arch-exempt: 同 ③,夹具落点唯一出口在根工具层;until 2026-12-31
-    const { mkScratch, rmScratch } = await import('../../../../../scripts/lib/scratch-dir.mjs')
-    const dir = mkScratch('alipay-empty')
-    const f = resolve(dir, 'pk.pem')
-    writeFileSync(f, '', 'utf8')
-    setKeys({ ALIPAY_APP_ID: '2021000000000000', ALIPAY_PRIVATE_KEY_PATH: f })
-    try {
-      expect(isAlipayConfigured()).toBe(false)
-    } finally {
-      rmScratch(dir)
-      setKeys({})
-    }
+  it('④ 路径指向目录 ⇒ 未配置(有人把目录当私钥文件填,读它会 EISDIR)', () => {
+    setKeys({
+      ALIPAY_APP_ID: '2021000000000000',
+      ALIPAY_PRIVATE_KEY_PATH: resolve(ROOT, 'apps/api'),
+    })
+    expect(isAlipayConfigured()).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
