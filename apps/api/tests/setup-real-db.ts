@@ -25,7 +25,22 @@ beforeAll(async () => {
   await db.execute(sql`SELECT 1`)
 
   // 禁用 RLS + 触发器,允许 TRUNCATE 所有表
-  await db.execute(sql`SET session_replication_role = 'replica'`)
+  // 2026-10-23 实测:这条 GUC 是超级用户专属,而本机 apps/api/.env 用的是库属主角色
+  // (`ihui`,usesuper=false)⇒ 整个 *.real.test.ts 桶在标准入口 pnpm test:real 上 beforeAll 即崩
+  // (42501 permission denied to set parameter),不是某一枚用例的问题。
+  // 出路:取不到该权限时降级 —— TRUNCATE 本身不受 RLS 约束且 CASCADE 会跨 FK 传播,清理仍然发生;
+  // 代价是 users 的 DELETE 会受 RLS 过滤,可能残留他人可见行 ⇒ 大声报名,不静默当已清干净。
+  let replicaRoleOff = true
+  try {
+    await db.execute(sql`SET session_replication_role = 'replica'`)
+  } catch (e) {
+    replicaRoleOff = false
+    console.warn(
+      '[setup-real-db] 无权 SET session_replication_role(该角色非超级用户),降级为 CASCADE 直切;' +
+        'users 的 DELETE 仍受 RLS 过滤,残留风险由这条日志背书:' +
+        (e instanceof Error ? e.message : String(e)),
+    )
+  }
 
   // 一次性 TRUNCATE 所有业务表(拼接表名比逐表循环快 10x+)
   await db.execute(sql`
@@ -50,6 +65,6 @@ beforeAll(async () => {
   await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
 
   // 恢复 RLS + 触发器
-  await db.execute(sql`SET session_replication_role = 'origin'`)
+  if (replicaRoleOff) await db.execute(sql`SET session_replication_role = 'origin'`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
