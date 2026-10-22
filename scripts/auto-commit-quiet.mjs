@@ -226,6 +226,29 @@ function main() {
     for (const f of [...stale].filter((p) => HUMAN_LEDGER_RE.test(p))) {
       const r = mergeLiveDoc(f)
       if (r.ok) {
+        // 归并达标≠可以收编:工作树滞后副本里那些"已被声明式摘除"的旧行,归并档看不见
+        // (它只判不丢行/不重复),会被当成本轮改动收编回去 —— 实测四枚已结清登记行因此整批复活。
+        // 收编前先按摘除台账把这些行剔掉;器物判不出一律不剔(宁可留一轮噪音)。
+        try {
+          const sr = execFileSync(process.execPath, [join(ROOT, 'scripts', 'scrub-declared-removals.mjs'), f], {
+            cwd: ROOT,
+            encoding: 'utf8',
+            maxBuffer: 64 << 20,
+            timeout: 120000,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            windowsHide: true,
+          })
+          const m = /state=(\w+) dropped=(\d+)/.exec(String(sr ?? ''))
+          log(`活文档摘除台账复洁(${f}): ${m ? `${m[1]} dropped=${m[2]}` : '未回带机读行 ⇒ 本轮不收编'}`)
+          if (!m) {
+            stale.splice(stale.indexOf(f), 1)
+            continue
+          }
+        } catch (e) {
+          log(`活文档摘除台账复洁失败(${f}),本轮不收编:${String(e?.stdout || e?.message || '').split('\n').slice(-2).join(' / ')}`)
+          stale.splice(stale.indexOf(f), 1)
+          continue
+        }
         log(`活文档归并完成(${f}):lost=0 / 长行重复新增 0,可收编`)
       } else {
         log(`活文档归并未达标(${f}),本轮不收编:${r.why}`)
