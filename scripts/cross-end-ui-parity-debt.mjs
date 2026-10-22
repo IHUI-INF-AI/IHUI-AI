@@ -34,6 +34,8 @@ const GATE = join(ROOT, 'scripts', 'check-cross-end-ui-parity.mjs')
 const SNAPSHOT_REL = 'scripts/cross-end-ui-parity-debt.json'
 const SNAPSHOT = join(ROOT, SNAPSHOT_REL)
 const GATE_TIMEOUT_MS = 600_000
+/** 对账门的豁免登记台账(族的"已裁决"状态与存活期唯一住在这里,本尺子只投影、不另立一份) */
+const WAIVERS_REL = 'scripts/cross-end-ui-parity-baseline.json'
 
 /**
  * 本台账**看得见**的维度。刻意逐条写死:哪一天门多吐一个维度,`--check` 会因为它不在
@@ -45,6 +47,18 @@ const DIMENSIONS = [
   'elementRadiusCount',
   'langMismatch',
 ]
+
+/**
+ * 一族的差异是不是"已登记豁免" ⇒ 只认门的 waivers 台账里那一行,且必须**同时**满足:
+ * 有 reason、有 until、且 until 未过期。缺一样都不算豁免(§0.7 验过才免)。
+ * 过期 ⇒ 该族差异重新变成**未裁决欠债**,这是设计后果,不是尺子坏了。
+ */
+function waiverState(name, waivers, today) {
+  const w = waivers?.[name]
+  if (!w || typeof w.reason !== 'string' || w.reason.trim() === '') return { waived: false }
+  if (typeof w.until !== 'string') return { waived: false, noExpiry: true }
+  return { waived: w.until >= today, until: w.until, expired: w.until < today }
+}
 
 /** 取用形态两端不同 = 结构性分叉(一份 className、一份 StyleSheet.create ⇒ 不可能同脸) */
 function langMismatch(f) {
@@ -82,20 +96,27 @@ function uncoveredDimensions(json) {
   return [...seen].filter((k) => !known.has(k))
 }
 
-function buildRows(json) {
-  const rows = (json?.findings ?? []).map((f) => ({
-    name: f.name,
-    debt: debtOf(f),
-    geometry: Number(f.diffCount ?? 0),
-    radiusFile: Number(f.radiusCount ?? 0),
-    radiusElement: Number(f.elementRadiusCount ?? 0),
-    radiusOnlyMiniapp: (f.radius?.onlyMiniapp ?? []).length,
-    radiusOnlyRn: (f.radius?.onlyRn ?? []).length,
-    elementOnlyMiniapp: (f.elementRadius?.onlyMiniapp ?? []).length,
-    elementOnlyRn: (f.elementRadius?.onlyRn ?? []).length,
-    lang: `${f.lang?.miniapp ?? '?'} vs ${f.lang?.rn ?? '?'}`,
-    langMismatch: langMismatch(f),
-  }))
+function buildRows(json, waivers = {}, today = new Date().toISOString().slice(0, 10)) {
+  const rows = (json?.findings ?? []).map((f) => {
+    const w = waiverState(f.name, waivers, today)
+    return {
+      name: f.name,
+      debt: debtOf(f),
+      waived: w.waived,
+      waiverUntil: w.until ?? null,
+      waiverExpired: w.expired === true,
+      waiverMissingExpiry: w.noExpiry === true,
+      geometry: Number(f.diffCount ?? 0),
+      radiusFile: Number(f.radiusCount ?? 0),
+      radiusElement: Number(f.elementRadiusCount ?? 0),
+      radiusOnlyMiniapp: (f.radius?.onlyMiniapp ?? []).length,
+      radiusOnlyRn: (f.radius?.onlyRn ?? []).length,
+      elementOnlyMiniapp: (f.elementRadius?.onlyMiniapp ?? []).length,
+      elementOnlyRn: (f.elementRadius?.onlyRn ?? []).length,
+      lang: `${f.lang?.miniapp ?? '?'} vs ${f.lang?.rn ?? '?'}`,
+      langMismatch: langMismatch(f),
+    }
+  })
   return rows.sort((a, b) => b.debt - a.debt || a.name.localeCompare(b.name))
 }
 
@@ -146,6 +167,20 @@ function diffAgainst(rows, snap) {
   return { up, down, same, vanished, baseline: snap.recordedAt }
 }
 
+function readWaivers() {
+  const p = join(ROOT, WAIVERS_REL)
+  if (!existsSync(p)) throw new Error(`${WAIVERS_REL} 不存在 ⇒ 无法判定哪些差异已裁决,本台账拒绝出数`)
+  let j
+  try {
+    j = JSON.parse(readFileSync(p, 'utf8'))
+  } catch (e) {
+    throw new Error(`${WAIVERS_REL} 不是合法 JSON:${e.message}`)
+  }
+  if (!j.waivers || typeof j.waivers !== 'object')
+    throw new Error(`${WAIVERS_REL} 没有 waivers 段 ⇒ 未判定,不把全部差异当成待修`)
+  return j.waivers
+}
+
 async function main() {
   const argv = process.argv.slice(2)
   const asJson = argv.includes('--json')
@@ -164,8 +199,20 @@ async function main() {
     return 2
   }
 
-  const rows = buildRows(json)
+  let waivers
+  try {
+    waivers = readWaivers()
+  } catch (e) {
+    console.error(`❌ 未判定:${e.message}`)
+    return 2
+  }
+  const rows = buildRows(json, waivers)
   const total = rows.reduce((s, r) => s + r.debt, 0)
+  /** 已登记豁免(带原因 + 未过期)的那部分**不是待修**;剩下的才是。两数必须分开报。 */
+  const waivedTotal = rows.filter((r) => r.waived).reduce((s, r) => s + r.debt, 0)
+  const openTotal = total - waivedTotal
+  const expired = rows.filter((r) => r.waiverExpired)
+  const noExpiry = rows.filter((r) => r.waiverMissingExpiry)
   let snap
   try {
     snap = readSnapshot()
@@ -177,16 +224,19 @@ async function main() {
   const uncovered = uncoveredDimensions(json)
 
   const payload = {
-    schema: 1,
+    schema: 2,
     recordedAt: new Date().toISOString(),
     face: json.face ?? 'unknown',
     gate: 'scripts/check-cross-end-ui-parity.mjs --json',
+    waiversSource: WAIVERS_REL,
     dimensions: DIMENSIONS,
     uncoveredFindingKeys: uncovered,
     pairCount: json.pairCount ?? null,
     onlyMiniappNames: (json.onlyMiniappNames ?? []).length,
     onlyRnNames: (json.onlyRnNames ?? []).length,
     total,
+    waivedTotal,
+    openTotal,
     families: rows,
   }
 
@@ -207,18 +257,33 @@ async function main() {
   } else {
     console.log(
       `[跨端样式欠债台账] 面=${payload.face} 同名配对 ${payload.pairCount} 对 · ` +
-        `仅小程序成文件 ${payload.onlyMiniappNames} / 仅 RN 成文件 ${payload.onlyRnNames} · ` +
-        `在册总欠债 ${total}`,
+        `仅小程序成文件 ${payload.onlyMiniappNames} / 仅 RN 成文件 ${payload.onlyRnNames}\n` +
+        `  待修(未裁决)= ${openTotal} · 已登记豁免 = ${waivedTotal} · 合计读数 = ${total}\n` +
+        `  (豁免读的是 ${WAIVERS_REL} 里各族的 reason+until;过期或缺 until 即回到"待修",见 §0.7)`,
     )
-    console.log('  族名                 总  几何  圆角(文件/同名元素)  取用形态')
+    console.log('  族名                 总  几何  圆角(文件/同名元素)  取用形态           裁决')
     for (const r of rows) {
       const lang = r.langMismatch ? `⚠ ${r.lang}` : `= ${r.lang}`
+      const state = r.waived
+        ? `豁免至 ${r.waiverUntil}`
+        : r.waiverExpired
+          ? `⛔ 豁免已过期 ${r.waiverUntil}`
+          : r.waiverMissingExpiry
+            ? '⛔ 豁免无终态'
+            : '未裁决'
       console.log(
         `  ${r.name.padEnd(22)}${String(r.debt).padStart(3)} ${String(r.geometry).padStart(5)}` +
           `      ${String(r.radiusFile).padStart(2)} / ${String(r.radiusElement).padStart(3)}` +
-          `   ${r.elementOnlyMiniapp}仅小程序 · ${r.elementOnlyRn}仅RN  ${lang}`,
+          `   ${r.elementOnlyMiniapp}仅小程序 · ${r.elementOnlyRn}仅RN  ${lang.padEnd(24)} ${state}`,
       )
     }
+    if (openTotal === 0)
+      console.log(
+        '  ⓘ 同名配对这一层已无未裁决分叉 ⇒ "两端看起来还是不一样"的成因不在这些族里,' +
+          '在两侧各自那 ' +
+          (payload.onlyMiniappNames + payload.onlyRnNames) +
+          ' 个不配对的文件上(它们不成对,门零判据)。',
+      )
     console.log(
       d.baseline
         ? `\n与在册快照(${d.baseline})对比:涨 ${d.up.length} 族 / 降 ${d.down.length} 族 / 持平 ${d.same.length} 族`
@@ -262,5 +327,12 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { debtOf, langMismatch, buildRows, diffAgainst, uncoveredDimensions }
+export const __test__ = {
+  debtOf,
+  langMismatch,
+  buildRows,
+  diffAgainst,
+  uncoveredDimensions,
+  waiverState,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
