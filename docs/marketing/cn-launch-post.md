@@ -171,7 +171,7 @@ pnpm dev
 
 需求:桌面端用 Tauri WebView 加载,要求纯静态文件。设置 `output: 'export'` 后 middleware 不工作(Next.js 官方限制),所有 `/admin/*` 路由保护失效。
 
-**解法**:middleware 只在 `next dev` 模式生效,生产环境由 nginx 配置 `if ($cookie_auth_token = "") { return 307 /sso/login; }`。两边逻辑保持一致,加 CI 测试覆盖。
+**解法**:middleware 只在 `next dev` 模式生效,生产环境由 nginx 对**受保护页**配置 `if ($cookie_auth_token = "") { return 307 /sso/login; }`(射程只有 `/admin/*` 与企业端 `/edu/edu-management/*`,它做的是"未登录不许进后台"的守卫,不是用户的登录入口——普通用户登录走 `/login`,那是打开全局登录弹窗再回前一页的软路由)。两边逻辑保持一致,加 CI 测试覆盖。
 
 ### 坑 2:Drizzle 0.38 schema drift 频发
 
@@ -660,7 +660,7 @@ React DOM / React Native / Taro 的渲染层差异由 React Native Web 抹平,�
 
 我的解决方案:
 - middleware 只在 `next dev` 生效,做开发期的 FOUC 防护
-- 生产环境由 nginx 配置 `if ($cookie_auth_token = "") { return 307 /sso/login; }`
+- 生产环境由 nginx 只对**受保护页**(`/admin/*` 与企业端 `/edu/edu-management/*`)配置 `if ($cookie_auth_token = "") { return 307 /sso/login; }`——这是未登录进后台的守卫;普通登录入口 `/login` 不在其射程(它是打开登录弹窗后回前一页的软路由)
 - 两边逻辑保持一致,加 e2e 测试覆盖
 
 ### 坑 2:176 模型路由配置膨胀到 800 行

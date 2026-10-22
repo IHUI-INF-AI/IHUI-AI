@@ -16,7 +16,7 @@
 '
 ' USAGE (from .husky/* sh hooks)
 '   wscript //nologo scripts/hook-run-hidden.vbs <logname> <script.mjs> [args...]
-'   - logname: stdout/stderr are appended to .workbuddy/hook-logs/<logname>.log
+'   - logname: stdout/stderr are appended to .ihui-agent/state/hook-logs/<logname>.log
 '              with a timestamp marker line per invocation.
 '   - script:  path relative to repo root (repo root = parent folder of scripts/).
 '   The exit code of the wrapped node process is propagated via WScript.Quit
@@ -78,18 +78,18 @@ For i = 2 To WScript.Arguments.Count - 1
   End If
 Next
 
-' Log dir bootstrap (.workbuddy may be missing on fresh clones).
+' Log dir bootstrap (.ihui-agent/state may be missing on fresh clones).
 ' Concurrent hooks (parallel agent commits) can race on FolderExists, so
 ' CreateFolder is wrapped idempotently: an "already exists" error must never
 ' crash this script, because wscript would then pop up a GUI error dialog.
-wbDir = fso.BuildPath(repoRoot, ".workbuddy")
+wbDir = fso.BuildPath(fso.BuildPath(repoRoot, ".ihui-agent"), "state")
 logDir = fso.BuildPath(wbDir, "hook-logs")
 logPath = fso.BuildPath(logDir, logName & ".log")
 
 On Error Resume Next
-If Not fso.FolderExists(wbDir) Then
-  fso.CreateFolder wbDir
-End If
+If Not fso.FolderExists(fso.GetParentFolderName(wbDir)) Then fso.CreateFolder fso.GetParentFolderName(wbDir)
+If Not fso.FolderExists(wbDir) Then fso.CreateFolder wbDir
+
 If Not fso.FolderExists(logDir) Then
   fso.CreateFolder logDir
 End If

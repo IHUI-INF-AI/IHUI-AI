@@ -9,12 +9,12 @@
  * 成因:统计器 `plan-bypass-ledger-report.mjs` 把无正证提交记为 unknown,并按引用事务见证拆成
  * "本机可疑 / 别机或更早 / 无从分"三格(c9f23d691a),但那只产出名单 —— 台账 G-978004 剩下的活是
  * "按名单逐枚读钩子日志"。本器把这一步自动化:对每枚 unknown 提交,汇集四路证据
- *   ① 一方记录 `.workbuddy/hook-logs/pre-commit-rounds.jsonl`(0c9e3f5fb2 起,钩子自报本轮 headBefore
+ *   ① 一方记录 `.ihui-agent/state/hook-logs/pre-commit-rounds.jsonl`(0c9e3f5fb2 起,钩子自报本轮 headBefore
  *      / 暂存集 / 门是否跑过 / 是否红 / 退出码);
- *   ② 回显轮 `.workbuddy/hook-logs/pre-commit.log`(含轮转副本 `.log.1` —— **统计器只读 `.log`,
+ *   ② 回显轮 `.ihui-agent/state/hook-logs/pre-commit.log`(含轮转副本 `.log.1` —— **统计器只读 `.log`,
  *      09-22..09-28 那一段的轮次它从未见过,这是本器能翻案的第一格来源);
  *      每轮取 `staged 文件清单(N 个):` + `- 路径` + `失败: N` + 尾部失败门点名(`· [id] 名` / `单独复现:`);
- *   ③ 引用事务见证 `.workbuddy/commit-witness.log`(--no-verify 跳不掉的 ref 变更正证);
+ *   ③ 引用事务见证 `.ihui-agent/state/commit-witness.log`(--no-verify 跳不掉的 ref 变更正证);
  *   ④ reflog(HEAD + --all)的落 ref 选择器 —— 只当**正证**用:`commit:` 选择器 = 本机 git commit 创建;
  *      空选择器 = plumbing/ref-move 落地痕迹;其余(integration)或无记录 = 不作数。
  *      (reflog 被重建/分支删除截断过,缺席绝不反证"别机",只报语境。)
@@ -62,7 +62,7 @@ const REPO_ROOT = resolve(HERE, '..')
 /** 作者本地日(%aI 带作者时区偏移,切前 10 位即作者本地日;与统计器同一形态)。 */
 const dayKey = (iso) => String(iso ?? '').slice(0, 10)
 
-const HOOK_LOG_REL = '.workbuddy/hook-logs'
+const HOOK_LOG_REL = '.ihui-agent/state/hook-logs'
 const DEFAULT_SINCE = '2026-09-29'
 const DEFAULT_WINDOW_MIN = 30
 const LOG_LIMIT_DEFAULT = 20_000
@@ -769,7 +769,6 @@ function selfTest() {
   const P = 'f'.repeat(40)
   const sha = 'a'.repeat(40)
   const C = (over) => ({ sha, parent: P, parents: [P], iso: new Date(T).toISOString(), ms: T, cIso: new Date(T).toISOString(), cMs: T, day: dayKey(new Date(T).toISOString()), files: ['x.ts', 'y.ts'], ...over })
-  const seg = (over) => ({ ts: new Date(T - 5 * 60_000), target: 'scripts/lib/pre-commit-hook.js', echoFiles: null, failed: null, failedGates: [], lintStagedFailed: false, ...over })
   const round = (over) => ({ ts: new Date(T - 5 * 60_000), set: new Set(['x.ts', 'y.ts']), failed: 0, failedGates: [], endMs: T - 3 * 60_000, ...over })
   const fpRec = (over) => ({ headBefore: P, files: new Set(['x.ts', 'y.ts']), gatesRan: true, gatesPassed: true, exitCode: 0, ts: new Date(T - 5 * 60_000), consumed: false, ...over })
   const base = (over) => ({

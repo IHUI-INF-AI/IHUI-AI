@@ -104,8 +104,27 @@ const { RC_MARK, KILLED_MARK } = evidenceKit
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
 
+/**
+ * **真入口靶**(台账票 G-960,2026-10-22 换靶)。这是一枚**与 env 无关的字面量**,镜像测试锁的就是它:
+ * `DEFAULTS.publicUrl` 可被 `IHUI_PUBLIC_URL` 覆盖,而"默认靶必须是 www"这一条不许被覆盖动作洗掉。
+ *
+ * 换靶依据 = **两组成组对照(各 ≥20 次,项目纪律)**,2026-10-22 实测:
+ *   · 机主组:`https://www.aizhs.top/` 20 次 ⇒ 20×200;`https://aizhs.top/` 20 次 ⇒ 20×301。
+ *   · 本席组(同日独立复量,`/sso/login` 同路径可比):裸域 20×301(p50 668ms,Location 恒指
+ *     `https://www.aizhs.top/...`)、www/sso/login 20×200(p50 473ms)、www/ 20×200(p50 348ms)。
+ * ⇒ **裸域那一腿在 Cloudflare 边缘就 301 收场,结构上永不触达回源 ⇒ 零信息**。
+ * 立案现场:同日入口整条不通(`www` 连续 522 约 10.3s、`api/sso/ai` 530),而当时靶钉在裸域,
+ * 这把尺子的公网腿 10/10 停在 `redirected` 档并判 **ok**(交付时现读取证:`buckets.redirected=10`、
+ * `verdict:"ok"`)—— 断了的是量不到,所以没报警到人。
+ * 裸域旧靶(`https://aizhs.top/sso/login`)保留为 `ZERO_INFO_LEGACY_URL`,只作自测夹具与文档对照,
+ * **不得**再当被探测靶。
+ */
+const ENTRY_URL_DEFAULT = 'https://www.aizhs.top/sso/login'
+/** 旧靶(裸域):实测恒 301、零信息。留名是为了让"换回去"这件事在代码里也必须留下理由。 */
+const ZERO_INFO_LEGACY_URL = 'https://aizhs.top/sso/login'
+
 export const DEFAULTS = {
-  publicUrl: process.env.IHUI_PUBLIC_URL || 'https://aizhs.top/sso/login',
+  publicUrl: process.env.IHUI_PUBLIC_URL || ENTRY_URL_DEFAULT,
   localUrl: 'http://127.0.0.1:8801/sso/login',
   /**
    * **阳性对照目标**(判据三"这条尺子不能恒 0"):一个形状合法、TCP 真出发、当前无人监听的死端口
@@ -162,7 +181,7 @@ export function classifySample(r) {
   if (typeof r.status === 'number') {
     if (r.status >= 500) return { stage: 'http', bucket: 'http5xx', unavailable: true, note: `HTTP ${r.status}` }
     if (r.status >= 400) return { stage: 'http', bucket: 'http4xx', unavailable: false, note: `HTTP ${r.status}(未算对端不可用:4xx 常是路由/鉴权语义)` }
-    if (r.status >= 300) return { stage: 'http', bucket: 'redirected', unavailable: false, note: `HTTP ${r.status}` }
+    if (r.status >= 300) return { stage: 'http', bucket: 'redirected', unavailable: false, note: `HTTP ${r.status}(3xx 不等于坏:探测档不跟随重定向,这一条只证明"到得了答 3xx 的那一跳",不证明回源健康)` }
     return { stage: 'http', bucket: 'ok', unavailable: false, note: `HTTP ${r.status}` }
   }
   // 有分阶段读数时**先看走到了哪一跳**,再看错误文案(文案随运行时版本漂,跳不会漂)。
@@ -319,6 +338,15 @@ export function classifyPublicLeg(pub, local, opt = {}) {
   if (!over(pub)) return { leg: 'clear', tag: null, note: `公网侧本轮未越阈(对照 ${local.n} 样本、最慢 ${Math.round(local.maxMs)}ms)` }
   const split = `握手完成 ${pub.tlsDoneN}/${pub.n},停在握手前或中 ${pub.preTlsStall},慢样本里走到对端之后 ${pub.httpSlow}、没走到对端 ${pub.stallSlow}`
   if (over(local)) return { leg: 'service', tag: '服务段', note: `本地对照组同轮也越阈(慢 ${local.slow}/${local.n},最慢 ${Math.round(local.maxMs)}ms)⇒ 洞在**服务段**(web 本体),不是公网入口;${split}` }
+  // ── **对端可归因失败必须归到访客同经的那一段,不得落"本机出口段"**(台账票 G-960,2026-10-22 补)
+  // 旧判序是「慢样本 → 入口段 / 否则 → 本机出口段」,它隐含一个从未写明的假设:越阈的构成只会是"慢"。
+  // 真断流的形状不是慢:CF/EdgeOne 的 522/530 与隧道拒/复位可以在**几百毫秒**内答复,于是一条整轮 5xx
+  // 的读数会被旧判序写成"坏点全部停在握手前或握手中 ⇒ 只关于本机出口,真实访客不经此路"——
+  // 恰恰把最该喊人的那一型指到一个健康的组件上(§5e-1:红了收信人能做的那件事变成了错的那件事)。
+  // 这一支只加维度、不动任何阈值:`unavailable` 的口径仍由 classifySample 那一份实现说了算。
+  const bk = pub.buckets && typeof pub.buckets === 'object' ? pub.buckets : {}
+  const farFail = `5xx ${bk.http5xx ?? 0}、拒连 ${bk.connRefused ?? 0}、复位 ${bk.connReset ?? 0}`
+  if ((pub.unavailable ?? 0) > 0) return { leg: 'entry', tag: '入口段', note: `本地对照同轮未越阈(${local.n} 样本、最慢 ${Math.round(local.maxMs)}ms)⇒ 服务段是快的;而公网侧有 ${pub.unavailable}/${pub.n} 条**对端可归因失败**(${farFail})——这些样本拿到了状态行或被对端明确拒绝/复位,请求确实走到了本机之外的一跳,真实访客同经此路 ⇒ 洞在**公网入口 ↔ 本机隧道 / 回源**这一段(522/530/拒连正是"边缘在、回源不通"的签名),不是本机出口;${split}` }
   if (!pub.stageEvidence) return { leg: 'unlocated', tag: null, note: `越阈但分阶段读数不全(${pub.stageSamples}/${pub.n} 条有)⇒ 无法区分"本机出口在丢包"与"访客同经的入口段慢",本条只报数不指段` }
   const postTlsBad = pub.httpSlow + (pub.postTlsStall ?? 0)
   if (postTlsBad > 0) return { leg: 'entry', tag: '入口段', note: `本地对照同轮 ${local.n} 样本最慢仅 ${Math.round(local.maxMs)}ms ⇒ 服务段是快的;有 ${postTlsBad} 条**握手完成后**才慢/没等到完整响应 ⇒ 洞在访客同经的**公网入口 ↔ 本机隧道**这一段(CF 边缘 / cloudflared / 上行);${split}` }
@@ -366,6 +394,19 @@ export function judgeSequence(id, stat, opt = {}) {
   if (stat.n === 0) return { verdict: 'unjudged', reasons: [`${id}:一个样本都没采到 ⇒ **未判定**,不得读成"0 次失败"`], numbers: `${id} 样本 0` }
   if (stat.probeSideBroken > 0 && stat.probeSideBroken / stat.n > 0.2) {
     return { verdict: 'unjudged', reasons: [`${id}:${stat.probeSideBroken}/${stat.n} 次是**本地**异常(无法归类)⇒ 这台尺子该目标本轮失明,不出结论`], numbers }
+  }
+  // **全序列停在 3xx ⇒ 这一腿零信息,判"未判定"而不是"合规"**(台账票 G-960,2026-10-22 立)。
+  // 立案现场:靶钉在裸域时公网腿 10/10 都是边缘 301,而旧账面写的是 `verdict:"ok"` ⇒ 入口 522/530
+  // 断流这件事**结构上量不到**(§0.3"没判绝不写成判过"在公网探测这一面的具体形态)。
+  // 既有语义不动:3xx 单独一条**不算坏**(mixed 序列里 3xx 照常不进取代率);混合(3xx+2xx)也不触发这一条,
+  // 只有"整条序列一条都没触达终页"才剥夺它出合格证的资格。失效方向 = 多要一次换靶说明,绝不反向。
+  const redirectedN = stat.buckets && typeof stat.buckets.redirected === 'number' ? stat.buckets.redirected : 0
+  if (redirectedN > 0 && redirectedN === stat.n && (stat.unavailable ?? 0) === 0) {
+    return {
+      verdict: 'unjudged',
+      reasons: [`${id}:${redirectedN}/${stat.n} 条全部停在 3xx 重定向 ⇒ 本目标**一条都没触达回源**,该腿对入口可用性零信息 ⇒ **未判定**(不得读成"入口健康")。出路:把靶指向真入口(现读默认 ${ENTRY_URL_DEFAULT}),或 --url-public 显式给一个会返回 2xx/5xx 的路径`],
+      numbers,
+    }
   }
   const reasons = []
   if (rule === 'outage') {
@@ -1086,6 +1127,64 @@ function selfTest() {
     const r = classifyAlertIdentity('B/公网·常态', rateStat(15, 8), { nowMs: NOW })
     return /成因=/.test(r.why) && /严重度=档/.test(r.why) && /已持续=档/.test(r.why) && !/15/.test(r.why) && !/8/.test(r.why) && !/15/.test(r.identity) && !/8/.test(r.identity)
   })())
+  // ══ 票 G-960(2026-10-22 换靶):"入口断了这把尺子看不到"必须被三件事同时钉住 ══
+  //   ① 真入口断流 ⇒ 打中(阳性对照);② 零信息靶(全 3xx)⇒ 自曝未判定,不得冒领合格证;③ 常态 ⇒ 不红。
+  const g960 = (over) => {
+    const raw = { stageReached: over.status ? 'body' : 'tcp', stages: { dns: 2, tcp: 260, tls: 520, head: over.status ? 700 : null, body: over.status ? 900 : null }, ...over }
+    return { at: new Date(t0 + (over.i ?? 0) * 1000).toISOString(), ...raw, ...classifySample(raw) }
+  }
+  const pub522 = summarizeSequence(Array.from({ length: 10 }, (_, i) => g960({ i, status: 522, ms: 10_300 })), { slowMs: 8000 })
+  const pub530Fast = summarizeSequence(Array.from({ length: 10 }, (_, i) => g960({ i, status: 530, ms: 300 })), { slowMs: 8000 })
+  const localG960 = summarizeSequence(Array.from({ length: 10 }, (_, i) => g960({ i, status: 200, ms: 20 })), { slowMs: 8000 })
+  ok('G1 阳性对照·必判 outage(2026-10-22 真形):整轮 522(≈10.3s/条)对 10 条 ⇒ 公网腿必须 breach 且是"对端可归因失败"', (() => {
+    const j = judgeSequence('B/公网·常态·入口段', pub522, { rule: 'ratio', slowMs: 8000 })
+    return pub522.unavailable === 10 && pub522.buckets.http5xx === 10 && j.verdict === 'breach' && /对端可归因失败率/.test(j.reasons.join(' '))
+  })())
+  ok('G2 定位不许指错组件(阳性对照第二型):530 型断流**很快**(300ms<慢线),旧判序会写成"本机出口段、真实访客不经此路";新判序必须归入口段', (() => {
+    const g = classifyPublicLeg(pub530Fast, localG960)
+    const legacyLandingTrue = pub530Fast.httpSlow + pub530Fast.postTlsStall === 0 // 取证:旧判序的落点条件今天确实成立 ⇒ 这一支不是空转
+    return legacyLandingTrue && g.leg === 'entry' && g.tag === '入口段' && /有 10\/10 条\*\*对端可归因失败\*\*/.test(g.note) && /5xx 10/.test(g.note)
+  })())
+  ok('G2b 变异对照:同一条 522 读数换成"对照组同轮也越阈"⇒ 必须翻成服务段(新支不得吞掉既有 service 判定)', (() => {
+    const localBad = summarizeSequence(Array.from({ length: 10 }, (_, i) => g960({ i, status: 500, ms: 20 })), { slowMs: 8000 })
+    const g = classifyPublicLeg(pub522, localBad)
+    return g.leg === 'service' && g.tag === '服务段'
+  })())
+  ok('G3 断流级身份穿得过契约:522 全轮 ⇒ cause=entry、sev=4(严重度档只从 stat 取)', (() => {
+    const r = classifyAlertIdentity('B/公网·常态·入口段', pub522, { nowMs: NOW, localStat: localG960 })
+    return r.causeKey === 'entry' && r.sevTier === 4 && r.identity === 'entry;sev=4;held=0'
+  })())
+  ok('G4 零信息靶自曝:整轮 3xx ⇒ **未判定**并点名换靶出路(立案现场:10/10 redirected 而账面写 ok)', (() => {
+    const bare = summarizeSequence(Array.from({ length: 10 }, (_, i) => g960({ i, status: 301, ms: 668 })), { slowMs: 8000 })
+    const j = judgeSequence('B/公网·常态', bare, { rule: 'ratio', slowMs: 8000 })
+    return bare.buckets.redirected === 10 && bare.unavailable === 0 && j.verdict === 'unjudged' && /全部停在 3xx/.test(j.reasons.join(' ')) && /真入口/.test(j.reasons.join(' '))
+  })())
+  ok('G4b 既有语义不动(变异对照):混合 5×301+5×200 ⇒ 3xx 仍**不算坏**、该腿照旧出合格证(不得把"有重定向"读成失明)', (() => {
+    const mix = summarizeSequence(Array.from({ length: 10 }, (_, i) => g960({ i, status: i % 2 ? 301 : 200, ms: 400 })), { slowMs: 8000 })
+    const j = judgeSequence('B/公网·常态', mix, { rule: 'ratio', slowMs: 8000 })
+    return mix.buckets.redirected === 5 && j.verdict === 'ok' && j.reasons.length === 0
+  })())
+  ok('G4c 反向锁:全序列没有 2xx 但**确有对端可归因失败**(3xx+5xx)⇒ 断流优先,不得被零信息支洗成未判定', (() => {
+    const s = summarizeSequence(Array.from({ length: 8 }, (_, i) => g960({ i, status: i < 6 ? 301 : 502, ms: 700 })), { slowMs: 8000 })
+    const j = judgeSequence('B/公网·常态', s, { rule: 'ratio', slowMs: 8000 })
+    return s.buckets.redirected === 6 && s.unavailable === 2 && j.verdict === 'breach'
+  })())
+  ok('G5 常态不红(§12e 前置自证):真入口靶全 200 且快 ⇒ verdict=ok 且定位 clear(不给段名,身份里不凭空多一档)', (() => {
+    const healthy = summarizeSequence(Array.from({ length: 10 }, (_, i) => g960({ i, status: 200, ms: 473 })), { slowMs: 8000 })
+    const j = judgeSequence('B/公网·常态', healthy, { rule: 'ratio', slowMs: 8000 })
+    const g = classifyPublicLeg(healthy, localG960)
+    return j.verdict === 'ok' && j.reasons.length === 0 && g.leg === 'clear' && g.tag === null
+  })())
+  ok('G6 靶的形状锁(与 env 无关,只锁默认字面量):默认靶必须是**真入口**(www 前缀),不得回落到实测恒 301 的裸域旧靶', (() => {
+    const hostOf = (u) => {
+      try {
+        return new URL(u).host
+      } catch {
+        return ''
+      }
+    }
+    return hostOf(ENTRY_URL_DEFAULT).startsWith('www.') && ENTRY_URL_DEFAULT !== ZERO_INFO_LEGACY_URL
+  })())
   let pass = 0
   for (const [n, p] of cases) {
     console.log(`${p ? '  ✅' : '  ❌'} ${n}`)
@@ -1392,5 +1491,7 @@ export const __test__ = {
   writeLedgerTrailer,
   sealLedger,
   DEFAULTS,
+  ENTRY_URL_DEFAULT,
+  ZERO_INFO_LEGACY_URL,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

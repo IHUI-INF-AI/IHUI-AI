@@ -253,7 +253,7 @@ log('info', `期望暂存 ${C.cyan}${expectedFiles.length}${C.reset} 个文件`)
 /**
  * 把"本次清空了他人的 N 项暂存删除"落成一份可追责的账(票 G-1018292)。
  *
- * 落点选`.workbuddy/` 而非仓根:① `.gitignore:377` 已忽略整个目录(实测 `check-ignore` rc=0),
+ * 落点选`.ihui-agent/state/` 而非仓根:① `.gitignore:377` 已忽略整个目录(实测 `check-ignore` rc=0),
  * 不会留没人收的 `??`;② 本脚本既有的归因账 `safe-commit-attestation.jsonl` 也在同一目录,
  * 两份留痕同族同生命周期;③ 落盘**失败不得阻断提交** —— 喊人已经在stdout 里发生了,
  * 账写不进去是次级问题,不该把提交变成一次环境故障(与 Step 1 那个 warn 同取向)。
@@ -268,9 +268,9 @@ function recordClearedStagedDeletions({
   declaredFiles,
 }) {
   try {
-    mkdirSync(join(root, '.workbuddy'), { recursive: true })
+    mkdirSync(join(root, '.ihui-agent', 'state'), { recursive: true })
     appendFileSync(
-      join(root, '.workbuddy', 'staged-delete-intent-ledger.jsonl'),
+      join(root, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
       `${JSON.stringify({
         ts: new Date().toISOString(),
         event: 'index-purge-cleared-staged-deletions',
@@ -996,7 +996,7 @@ for (let attempt = 1; attempt <= LOCK_RETRIES + 1; attempt++) {
   log(
     'info',
     '钩子链(守门批量检查)本机实测约 9~15 分钟,期间无输出属正常;' +
-      '逐门实时进度: tail -f .workbuddy/hook-logs/gates-progress.log',
+      '逐门实时进度: tail -f .ihui-agent/state/hook-logs/gates-progress.log',
   )
   const r = await spawnStreaming(
     'git',
@@ -1064,7 +1064,7 @@ if (hookFailed && commitResult.status !== 0) {
   // ③门判的是机器/远端态。实测 134 道门跑完只有 check-push-sync(远端态)红,输出仍写
   // "因其他 agent 代码" —— 归因从未被计算过。现在:把红的门逐道**复跑**,用它们自己这次的
   // 输出比对本次声明的文件集。点名我 ⇒ 拒绝跳门;一个都没点名 ⇒ 才允许跳,且只说量到的话。
-  // 实测(2026-09-25):pre-commit 常把守门汇总**只**写进 .workbuddy/hook-logs/pre-commit.log,
+  // 实测(2026-09-25):pre-commit 常把守门汇总**只**写进 .ihui-agent/state/hook-logs/pre-commit.log,
   // stdout 停在半路 —— 没有这第二输入源,归因在真仓里的命中率是 0(每次都说"未归因")。
   // 只喂尾部 256KB:整份日志是多轮追加的,全量读既慢又会把别人的轮子卷进来。
   // 归档也要读:日志现在由 git-guardian 按保留期回收(`.log` → `.log.1`),上一轮可能正好落在
@@ -1072,7 +1072,7 @@ if (hookFailed && commitResult.status !== 0) {
   let hookLogTail = ''
   for (const suffix of ['.1', '']) {
     try {
-      const logPath = join(repoRoot, '.workbuddy', 'hook-logs', `pre-commit.log${suffix}`)
+      const logPath = join(repoRoot, '.ihui-agent', 'state', 'hook-logs', `pre-commit.log${suffix}`)
       const size = statSync(logPath).size
       const len = Math.min(size, 256 * 1024)
       const fd = openSync(logPath, 'r')
@@ -1422,9 +1422,9 @@ if (hookFailed && commitResult.status !== 0) {
       )
   }
 
-  mkdirSync(join(repoRoot, '.workbuddy'), { recursive: true })
+  mkdirSync(join(repoRoot, '.ihui-agent', 'state'), { recursive: true })
   appendFileSync(
-    join(repoRoot, '.workbuddy', 'safe-commit-attestation.jsonl'),
+    join(repoRoot, '.ihui-agent', 'state', 'safe-commit-attestation.jsonl'),
     `${JSON.stringify({
       ts: new Date().toISOString(),
       kind: verdict.kind,
@@ -1537,7 +1537,7 @@ if (hookFailed && commitResult.status !== 0) {
     log(
       'warn',
       `⚠️  已用 --no-verify 落地(归因=${verdict.kind};守门未在本次提交链上重跑,` +
-        `逐道复跑记录见上,留痕于 .workbuddy/safe-commit-attestation.jsonl)`,
+        `逐道复跑记录见上,留痕于 .ihui-agent/state/safe-commit-attestation.jsonl)`,
     )
   }
 }

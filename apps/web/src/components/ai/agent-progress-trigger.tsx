@@ -132,6 +132,12 @@ export function AgentProgressTrigger({
   // 字体颜色与项目不一致),改用项目统一 <Tooltip> 组件(Radix UI 实现,rounded-md +
   // bg-popover + border + Arrow + fade/zoom 动画)。hover/focus 时显示
   // `liveStatusText (Ctrl+Shift+J)`,确保快捷键提示与样式完全统一。
+  // 2026-10-22 修复(CI e2e chat-mode-badge i18n ko 红根因):此前 aria-label 整串由
+  // `任务进度 ${liveStatusText}` / `${modeLabel}任务` 手拼 —— 模式名走 t(),而「任务」/
+  // 「任务进度」是组件内硬编码中文,非中文 locale 下渲染混血串(ko = 「빌드任务」),
+  // e2e 又把混血串钉成了基线。现整串经 chat.taskProgressAria / chat.modeTaskAria
+  // 五语言词包取形(ICU {status}/{mode}),zh-CN 形态逐字不变。锁定用例:
+  // apps/web/tests/agent-progress-trigger-aria-i18n.test.tsx。
   const triggerButton = (
     <button
       type="button"
@@ -139,7 +145,11 @@ export function AgentProgressTrigger({
         togglePane()
         onTriggerClick?.()
       }}
-      aria-label={hasLiveActivity ? `任务进度 ${liveStatusText}` : `${modeLabel}任务`}
+      aria-label={
+        hasLiveActivity
+          ? t('taskProgressAria', { status: liveStatusText })
+          : t('modeTaskAria', { mode: modeLabel })
+      }
       aria-expanded={paneOpen}
       aria-haspopup="dialog"
       className={cn(

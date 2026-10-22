@@ -655,10 +655,10 @@ function pruneDedupeState(state: DedupeState, nowMs: number, windowMs: number): 
   return out
 }
 
-/** 状态文件与 .env 同层推导(§15 禁硬编码盘符):apps/api/scripts → 仓库根 .workbuddy/。
+/** 状态文件与 .env 同层推导(§15 禁硬编码盘符):apps/api/scripts → 仓库根 .ihui-agent/state/。
  *  ⚠️ 层级是实测过的:scripts →(1)apps/api →(2)apps →(3)仓库根。少写一层不会报错,
  *  只会让 readFileSync 恒 ENOENT ⇒ prevMs 恒 null ⇒ **去重静默失效、每轮照寄** ——
- *  与本仓"造好没装车"那一族同型,故由测试里"路径必须以 <根>\.workbuddy\ 结尾且不在 apps 下"钉住。 */
+ *  与本仓"造好没装车"那一族同型,故由测试里"路径必须以 <根>\.ihui-agent\state\ 结尾且不在 apps 下"钉住。 */
 /**
  * 投递台账的落点(§5e-3,2026-10-18 立)。
  *
@@ -666,7 +666,7 @@ function pruneDedupeState(state: DedupeState, nowMs: number, windowMs: number): 
  * SMTP),而生产者有 20 多处(scripts/、deploy/win/*.ps1、monitoring 桥、CI、ai-service)。
  * 记在出口上,**本机这一路**就不再依赖"每个生产者记得写"了(今天 18 封同一件事之所以
  * "没人看得见",根子就是量的器物只读了其中一个生产者的日志)。两条如实边界,别把这句说成
- * "全世界都有账":① CI 跑在 GitHub 临时 runner 上,行写在那份 checkout 的 .workbuddy/ 里、
+ * "全世界都有账":① CI 跑在 GitHub 临时 runner 上,行写在那份 checkout 的 .ihui-agent/state/ 里、
  * 随 run 销毁 ⇒ 本机量不到 CI 寄的那几封;② 各生产者**自己窗口压住**的轮次根本走不到这里,
  * 所以 disposition=suppressed 只反映出口这一层的 --alert-id 窗口,不是全链路。
  * 两条都登记在 scripts/data/alert-mail-faces.json 与 AGENTS §5e-3 的补登行里。
@@ -677,7 +677,8 @@ function defaultMailSendLedgerPath(): string {
     '..',
     '..',
     '..',
-    '.workbuddy',
+    '.ihui-agent',
+    'state',
     'mail-send-ledger.jsonl',
   )
 }
@@ -754,7 +755,8 @@ function defaultDedupeStatePath(): string {
     '..',
     '..',
     '..',
-    '.workbuddy',
+    '.ihui-agent',
+    'state',
     'notify-dedupe-state.json',
   )
 }
@@ -1211,7 +1213,7 @@ const defaultVerifySmtp: SmtpVerifyFn = async (opts) => {
   }
 }
 
-/** 状态落盘的默认档:.workbuddy/ 可能整目录不存在(新机 / 被清理),先建目录再写 */
+/** 状态落盘的默认档:.ihui-agent/state/ 可能整目录不存在(新机 / 被清理),先建目录再写 */
 function defaultWriteStateFile(p: string, text: string): void {
   mkdirSync(dirname(p), { recursive: true })
   writeFileSync(p, text, 'utf8')

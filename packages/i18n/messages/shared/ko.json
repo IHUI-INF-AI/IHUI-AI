@@ -469,6 +469,8 @@
     "resetPassword": "비밀번호 재설정",
     "resetSuccess": "비밀번호 재설정이 완료되었습니다. 다시 로그인해 주십시오",
     "sendCode": "인증 코드 받기",
+    "ssoLogin": "웹사이트에서 로그인",
+    "ssoLoginLoading": "웹사이트에서 로그인 중...",
     "termsOfService": "서비스 약관",
     "thirdPartyLogin": "서드파티 로그인",
     "toLogin": "로그인으로 이동",
@@ -1455,7 +1457,6 @@
     "password": "비밀번호",
     "passwordPlaceholder": "비밀번호 입력",
     "loginBtn": "로그인",
-    "ssoLogin": "SSO 로그인",
     "loading": "로그인 중...",
     "error": "로그인 실패"
   },

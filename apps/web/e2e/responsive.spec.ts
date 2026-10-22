@@ -89,9 +89,9 @@ test.describe('响应式设计 - 多视口', () => {
 
   test('移动端登录页可用', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
-    await page.goto('/login')
-    // /login 会被中间件重定向到 /sso/login,任意 input 即可
-    await expect(page).toHaveURL(/\/(sso\/)?login/)
+    await page.goto('/sso/login')
+    // 直连 /sso/login(独立登录页),任意 input 即可
+    await expect(page).toHaveURL(/\/sso\/login/)
     // 2026-08-26 修复:登录页首个 input 是隐藏的 file 输入(QR 扫码区),first() 取到不可见元素。
     // 改为断言存在可见的 input(邮箱/账号输入框)。
     await expect(page.locator('input:not([type="file"]):visible').first()).toBeVisible({

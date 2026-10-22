@@ -7,7 +7,7 @@
  * 访客链路测速 + 边缘缓存预热(2026-10-19 立)。
  *
  * 为什么放在 api 进程内而不是仓库里一个脚本:本机跑的那份 api 在 `D:\DevEnv\ihui-prod`,
- * 与仓库树不是同一棵树 ⇒ "脚本落 `.workbuddy/` 文件、大屏读文件"这条形态跨树必然读不到。
+ * 与仓库树不是同一棵树 ⇒ "脚本落 `.ihui-agent/state/` 文件、大屏读文件"这条形态跨树必然读不到。
  * 现读依据:`nssm get IHUI-API AppDirectory` = `D:\DevEnv\ihui-prod\apps\api`。
  *
  * 一轮做两件事:① 访问首页即刷新边缘缓存(首页 HIT 0.13s,而 MISS 实测 4~7s,

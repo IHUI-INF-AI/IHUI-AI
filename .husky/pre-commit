@@ -15,12 +15,12 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OB
 # 控制台窗口,且因守门项众多存活数分钟 —— 是整条 hook 链最长驻的弹窗源。
 # 根治:node 逻辑整体挪至 scripts/lib/pre-commit-hook.js,本薄壳经
 #   wscript //nologo scripts/hook-run-hidden.vbs(GUI 子系统 + SW_HIDE)执行,
-#   输出转 .workbuddy/hook-logs/pre-commit.log,退出码原样传播。
+#   输出转 .ihui-agent/state/hook-logs/pre-commit.log,退出码原样传播。
 # 成功回显日志末 5 行摘要;失败回显末 40 行定位原因。
 wscript //nologo scripts/hook-run-hidden.vbs pre-commit scripts/lib/pre-commit-hook.js "$@" || {
   printf '%s\n' "❌ Pre-commit 守门失败,提交已阻止 —— 日志末 40 行:" >&2
-  tail -40 .workbuddy/hook-logs/pre-commit.log >&2 || true
-  printf '%s\n' "   (完整日志: .workbuddy/hook-logs/pre-commit.log)" >&2
+  tail -40 .ihui-agent/state/hook-logs/pre-commit.log >&2 || true
+  printf '%s\n' "   (完整日志: .ihui-agent/state/hook-logs/pre-commit.log)" >&2
   exit 1
 }
-tail -5 .workbuddy/hook-logs/pre-commit.log >&2 || true
+tail -5 .ihui-agent/state/hook-logs/pre-commit.log >&2 || true

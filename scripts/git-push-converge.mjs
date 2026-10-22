@@ -30,7 +30,7 @@
  *   每仓独立超时(默认 180s),单仓网络卡死不拖垮其他仓。
  *
  * 读数诚实性(2026-09-28 立,本文件的那处账面失真):
- *   凡是**依赖 `.workbuddy/push-state.json`** 的结论行(PUSHING / SKIP / DIVERGED / PUSH_FAILED),
+ *   凡是**依赖 `.ihui-agent/state/push-state.json`** 的结论行(PUSHING / SKIP / DIVERGED / PUSH_FAILED),
  *   下方必须挂一行"依据出处":该记录**关于哪枚提交**(headSha 是否 == 当前 HEAD)、**距今多久**、
  *   以及由这两件事得到的定性(当下量的 / 历史残留 / 未判定)。旧写法把 guard 的输出整个 catch 掉、
  *   又拿几小时前那条记录当结论的注脚,读的人分不清"这是当下量的"还是"历史残留"——实测某次
@@ -67,7 +67,7 @@ import { resolveGitBin } from './lib/gitdir.mjs'
  *  - push-state 与 guard 脚本路径按调用方终端的当前工作目录/相对路径解析,
  *  - git 调用按裸 `'git'`(PATH)且不传 `cwd`,
  * 于是从别的目录跑这一把时,**报告里混的是两个不同仓的事实**:HEAD/ls-remote 读的是
- * "调用方那一棵树",而 `.workbuddy/push-state.json` 与 `scripts/git-push-guard.mjs` 也按
+ * "调用方那一棵树",而 `.ihui-agent/state/push-state.json` 与 `scripts/git-push-guard.mjs` 也按
  * 调用方 cwd 找 —— 一旦那一棵树不是本仓,读数就是本仓 HEAD 配别人家的推送状态。
  * 现在三处一律钉在同一个 ROOT(本文件上一级即仓根,AGENTS §15「路径推导用脚本自身位置」),
  * git 一律走 `resolveGitBin()`(AGENTS §5b「脚本不得依赖环境取 git」;钩子/计划任务不继承 shell env)。
@@ -75,7 +75,7 @@ import { resolveGitBin } from './lib/gitdir.mjs'
  * 唯一旁路 = `--root=<目录>`(e2e 注入缝,2026-10-16 立,镜像 pg-drill R7/R8 的假执行器那
  * 一类「注入缝」模式):生产链(guard / 计划任务 / 钩子)一律不传 ⇒ 逐字保持「由本文件自身位置
  * 推根」;测试在临时仓里构造「本地落后 + 四小时前关于别枚提交的 push-state」这一现场时,
- * 走这一缝让脚本判**注入的那份** push-state,而不是真仓 `.workbuddy/push-state.json`
+ * 走这一缝让脚本判**注入的那份** push-state,而不是真仓 `.ihui-agent/state/push-state.json`
  * 里那条与测试无关的读数(那条真仓读数会随 guard 后台推送不断刷新,把构造场景活生生顶掉)。
  * guard 委托腿(healViaGuard)与 SKIPPED-branch 腿在注入根下都不产生(本地落后 ⇒ 走 SKIP,
  * 不触推送),因此注入根只改变「push-state 与 HEAD 读自哪棵树」,不改任何判据。
@@ -169,7 +169,7 @@ console.log(`本地 HEAD: ${localHead.slice(0, 11)} (branch=${branch})`)
 //     而不说 guard 已经判过,读的人还会再去试一趟推送(那正是本次修复要断掉的循环)。
 function readPushState() {
   try {
-    return JSON.parse(readFileSync(resolve(ROOT, '.workbuddy/push-state.json'), 'utf8'))
+    return JSON.parse(readFileSync(resolve(ROOT, '.ihui-agent/state/push-state.json'), 'utf8'))
   } catch {
     return null
   }

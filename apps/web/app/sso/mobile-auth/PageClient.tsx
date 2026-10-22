@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Loader2, ShieldAlert } from 'lucide-react'
+import { SSO_CLIENT_IDS } from '@ihui/shared'
 import { isSafeNavigationTarget } from '@/lib/sso-redirect-guard'
 
 /**
@@ -26,6 +27,10 @@ export default function SsoMobileAuthPage() {
   const searchParams = useSearchParams()
   const code = searchParams.get('sso_code') || searchParams.get('code') || ''
   const redirectUrl = searchParams.get('redirect') || '/'
+  // clientId 必须与**签发端**一致(后端判不一致即 401,见下面 exchange 那段的既有注释)。
+  // 原先整页烘死 mobile-rn ⇒ 新端要复用这条腿只能复制整页,而复制必然漂移(§6 单一真相源)。
+  // 现按参数取,缺省仍是 mobile-rn —— 现役 RN 腿的请求体一字不变。
+  const clientId = searchParams.get('client_id') || SSO_CLIENT_IDS.MOBILE_RN
 
   const [state, setState] = React.useState<'processing' | 'failed'>('processing')
   const [errorMsg, setErrorMsg] = React.useState('')
@@ -45,10 +50,10 @@ export default function SsoMobileAuthPage() {
         const res = await fetch('/api/auth/sso/exchange', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-          // 2026-09-07 修复:code 由 WebViewScreen 以 clientId='mobile-rn' 生成,
-          // 交换 clientId 必须与生成端一致,否则后端校验 'clientId 不匹配' → 401,
-          // WebView 会话打通全链路断裂(本页即 mobile-rn 专属消费页,页名已语义对应)。
-          body: JSON.stringify({ code, clientId: 'mobile-rn' }),
+          // 2026-09-07 修复:交换 clientId 必须与**生成端**一致,否则后端判 'clientId 不匹配' → 401,
+          // WebView 会话打通全链路断裂。2026-10-22:clientId 改由 ?client_id= 取(缺省仍 mobile-rn),
+          // 于是本页不再是 RN 专属消费页 —— 新端(如小程序)复用同一条腿,不需要复制整页。
+          body: JSON.stringify({ code, clientId }),
           credentials: 'include',
         })
         const json = (await res.json()) as { code?: number; message?: string }
@@ -80,7 +85,7 @@ export default function SsoMobileAuthPage() {
     return () => {
       cancelled = true
     }
-  }, [code, redirectUrl, t])
+  }, [code, redirectUrl, clientId, t])
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 py-4">

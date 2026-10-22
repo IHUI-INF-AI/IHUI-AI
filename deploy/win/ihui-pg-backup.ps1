@@ -26,7 +26,7 @@
 #   · **绝不传 --env-file**(tsx v4 会劫持它转发给 node,路径不存在时 node 直接 exit 9);
 #   · 收件人不写死在本文件:派发器自己按 apps/api/.env 的 ALERT_EMAIL_TO 解析(§5e);
 #   · 去重按**身份**(--alert-id 固定串,不含计数/时间戳/被挡文件名),**没有总量封顶**;
-#   · 寄不出去必须留痕:.workbuddy/pg-backup-alert-UNDELIVERED.json + 一行 ERROR,
+#   · 寄不出去必须留痕:.ihui-agent/state/pg-backup-alert-UNDELIVERED.json + 一行 ERROR,
 #     下一次投递成功自动清除。通知自身失败**绝不改备份的退出码**(那是另一件事)。
 # 参数只影响上面这段发信,备份/清理/退出码一字未动。
 param(
@@ -102,9 +102,10 @@ $BrandTsxEntry     = Join-Path $ProjectRoot 'apps\api\node_modules\tsx\dist\cli.
 $BrandNotifyScript = Join-Path $ProjectRoot 'apps\api\scripts\notify-deploy-failure.ts'
 # §15:临时物一律项目内(.ihui-agent/tmp/ 已被 .gitignore 忽略),不落 C 盘、不落盘根
 $BrandNotifyMsgDir = Join-Path $ProjectRoot '.ihui-agent\tmp\pg-backup-notify'
-# 未送达留痕(.workbuddy/ 已忽略)。§5e:"失败必须响" —— 寄不出去得留下可诊断痕迹,
-# 而不是像第三方推送时代那样把"邮件只是兜底、失败可以忍"的旧前提带进新通道。
-$AlertUndeliveredFile = Join-Path $ProjectRoot '.workbuddy\pg-backup-alert-UNDELIVERED.json'
+# 未送达留痕(.ihui-agent/state/ 已忽略;2026-10-22 运行态目录自 .workbuddy/ 迁至此,
+# 读方 ops-watch-reader 扫的也是新址 —— 写旧路径 = 告警静默丢)。§5e:"失败必须响" ——
+# 寄不出去得留下可诊断痕迹,而不是像第三方推送时代那样把"邮件只是兜底、失败可以忍"的旧前提带进新通道。
+$AlertUndeliveredFile = Join-Path $ProjectRoot '.ihui-agent\state\pg-backup-alert-UNDELIVERED.json'
 # 告警身份:固定串,与"这件事是不是同一件"同义。派发器按它在窗口内去重(默认 4h),
 # **不得**把库名数量/时间戳/文件名拼进来 —— 那等于每轮换一次身份、去重结构上永不命中。
 $AlertIdentity = 'pg-backup-failure'

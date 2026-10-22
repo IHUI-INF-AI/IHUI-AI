@@ -8,7 +8,7 @@
 // syntax error;post-commit 不拦提交 ⇒ safe-commit 照样打"将自动推送"提示行,
 // 自动推送/归档/自愈腿的死亡无声 —— 实测同日 13:04 跑过、13:15 死,随触发方 env 浮动)。
 // 根治:与 .husky/pre-commit 同型 —— 正文整体迁到本文件,薄壳(.husky/post-commit,sh)
-// 经 scripts/hook-run-hidden.vbs 启动,把死法变响(失败进 .workbuddy/hook-logs/post-commit.log)。
+// 经 scripts/hook-run-hidden.vbs 启动,把死法变响(失败进 .ihui-agent/state/hook-logs/post-commit.log)。
 // 本文件由薄壳直启,不被 import;段编号、日志 label、跳过 env(HUSKY_SKIP_* 族)与迁入前逐字一致。
 //
 // ─── 0. git 写锁(2026-08-06 立,根治多 agent 并发写损坏) ─────
@@ -29,7 +29,7 @@
 // 任何外部包装文件**:① 无可见控制台窗口(windowsHide 显式传,不依赖 §5b
 // 机器级 NODE_OPTIONS 钩子,后者对 sh→node 派生链无效);② 没有可被误删的
 // .vbs,弹窗在机制上不可能。
-// 输出仍按 label 落 `.workbuddy/hook-logs/<label>.log`,与原行为一致。
+// 输出仍按 label 落 `.ihui-agent/state/hook-logs/<label>.log`,与原行为一致。
 const { execSync, spawn, spawnSync } = require('child_process')
 const {
   mkdirSync,
@@ -41,6 +41,9 @@ const {
   statSync,
 } = require('fs')
 const { join } = require('path')
+// G-927(2026-10-22):git 派生改走共用层(绝对路径 git + 显式 stdio + quotepath + timeout)。
+// require(esm) 在本仓 engines(node >=22.13)下免旗标可用;层无顶层 await。
+const { gitRaw } = require('./face-reader.mjs')
 
 // ─── GIT_DIR 去污(2026-10-01,同 pre-commit-hook.js 同款病理根治)───
 // IDE(Trae)git 扩展注入的 GIT_DIR 指向 worktree 之外的 gitdir,会让本钩子
@@ -61,13 +64,11 @@ for (const k of [
 //   就是死在这一行:execSync 内部走 cmd.exe,没给 stdio ⇒ 钩子整体崩在 push guard 之前,
 //   commit 落了地但**自动推送整段静默跳过**(靠 guardian 补推才没丢)。runLogged 里的
 //   execSync 一直都带 stdio(第 59 行),漏的只有这两个顶层调用。
-const ROOT = execSync('git rev-parse --show-toplevel', {
-  encoding: 'utf8',
-  windowsHide: true,
-  stdio: ['ignore', 'pipe', 'pipe'],
-}).trim()
+//   2026-10-22 G-927:rev-parse 改走 face-reader 的 gitRaw(层内已收口 stdio/绝对路径 git),
+//   本文件不再持有裸 'git' 派生;git-lfs 探测那枚是另一支二进制,原样保留显式 stdio。
+const ROOT = gitRaw(['rev-parse', '--show-toplevel'], process.cwd()).trim()
 process.chdir(ROOT)
-const LOG_DIR = join(ROOT, '.workbuddy', 'hook-logs')
+const LOG_DIR = join(ROOT, '.ihui-agent', 'state', 'hook-logs')
 mkdirSync(LOG_DIR, { recursive: true })
 
 // 跑一条命令:全量输出(含 stderr)落 <label>.log,返回是否成功。
@@ -128,7 +129,7 @@ if (!process.env.IHUI_GIT_LOCK_UNIT) {
   if (!ok) {
     LOCK_UNIT = '' // 未拿到锁就不该去释放(等价原 sh:trap 在 acquire 成功之后才登记)
     console.error(
-      '❌ 获取 git 写锁失败(有其他写操作进行中,稍后重试或检查 .git/ihui-git-write.lock;详见 .workbuddy/hook-logs/post-commit-lock.log)',
+      '❌ 获取 git 写锁失败(有其他写操作进行中,稍后重试或检查 .git/ihui-git-write.lock;详见 .ihui-agent/state/hook-logs/post-commit-lock.log)',
     )
     process.exit(1)
   }
@@ -173,7 +174,7 @@ if (process.env.HUSKY_SKIP_PUSH === '1') {
   if (!ok) {
     console.error('❌ git-push-guard 失败, commit 仅落地本地(未推送到 origin)')
     console.error('   修复后请手动: git push origin main')
-    console.error('   失败详情: .workbuddy/hook-logs/post-commit-push-guard.log')
+    console.error('   失败详情: .ihui-agent/state/hook-logs/post-commit-push-guard.log')
     process.exit(1)
   }
 }
@@ -220,12 +221,12 @@ if (process.env.HUSKY_SKIP_TAG_SYNC !== '1') {
 // 不阻塞本次提交返回,结果落 gates-deferred-run.log。提交已落地 ⇒ 这里失败只留日志不阻断。
 // 跳过:HUSKY_SKIP_DEFERRED_GATES=1
 if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
-  const deferredFile = join(ROOT, '.workbuddy', 'hook-logs', 'gates-deferred.json')
+  const deferredFile = join(ROOT, '.ihui-agent', 'state', 'hook-logs', 'gates-deferred.json')
   if (existsSync(deferredFile)) {
     try {
       const j = JSON.parse(readFileSync(deferredFile, 'utf8'))
       if (j && Array.isArray(j.gates) && j.gates.length > 0) {
-        const outLog = join(ROOT, '.workbuddy', 'hook-logs', 'gates-deferred-run.log')
+        const outLog = join(ROOT, '.ihui-agent', 'state', 'hook-logs', 'gates-deferred-run.log')
         const fd = openSync(outLog, 'w')
         // 索引快照(2026-10-22 修正):补跑会大量派生 git 且长期持有**主索引锁**,实测把后续
         // 提交卡在 "Unable to create index.lock"(13 个 git 进程 + 1.85MB 僵尸锁)。
@@ -309,7 +310,7 @@ if (process.env.IHUI_PLAN_HEAL_COMMIT !== '1' && process.env.HUSKY_SKIP_PLAN_HEA
     timeout: 90000,
     env: { IHUI_PLAN_HEAL_COMMIT: '1' },
   })
-  const healLog = join(ROOT, '.workbuddy', 'plan-heal.log')
+  const healLog = join(ROOT, '.ihui-agent', 'state', 'plan-heal.log')
   if (existsSync(healLog)) {
     try {
       const lines = readFileSync(healLog, 'utf8').split(/\r?\n/)

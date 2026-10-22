@@ -7,7 +7,7 @@
  *
  * 为什么这些例子必须存在:本层是**删文件**的清理器,而清理器的失效方向永远是安静 ——
  * "没删"、"删错"、"根本没挂上"三种情况在账面上都长得像"日志很健康"。实测动因:
- * `.workbuddy/hook-logs/pre-commit.log` 93,344,342 B 无保留期,而全仓唯一的轮转在
+ * `.ihui-agent/state/hook-logs/pre-commit.log` 93,344,342 B 无保留期,而全仓唯一的轮转在
  * `deploy/win/ihui-deploy-loop.ps1`(53MB 事故之后才加的)。
  *
  * 跑法:`node --test scripts/tests/log-rotation.test.mjs`

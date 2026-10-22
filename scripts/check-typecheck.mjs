@@ -602,7 +602,7 @@ const timeoutTimer = setTimeout(() => {
   console.error('   1. worktree 各包缺 node_modules —— tsc 解析不到 workspace 依赖而静默长耗时')
   console.error('      修法(见 skills/ihui-worktree-parallel-dev §2):给 apps/*、packages/* 各包')
   console.error('      逐个建 node_modules junction 指向主仓同名目录')
-  console.error('   2. .workbuddy/typecheck.lock 被僵死进程持有 —— rm -rf .workbuddy/typecheck.lock')
+  console.error('   2. .ihui-agent/state/typecheck.lock 被僵死进程持有 —— rm -rf .ihui-agent/state/typecheck.lock')
   console.error('   3. pnpm -r 进程树递归 —— 复核 scripts/typecheck-full.mjs 的再入守卫 env 是否生效')
   console.error(
     '[check-typecheck] ⏭️ 按「环境挂起」处理(exit 1):不等第二次带 hook 重试,push guard 将直接降级重推',

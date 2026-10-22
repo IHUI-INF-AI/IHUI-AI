@@ -336,7 +336,7 @@ function applyCheck(asJson) {
   else console.log('  无可进计划的 ref ⇒ 这一轮不做任何网络与写动作')
   if (asJson) {
     writeFileSync(
-      join(ROOT, '.workbuddy', 'git-heal-broken-links.json'),
+      join(ROOT, '.ihui-agent', 'state', 'git-heal-broken-links.json'),
       JSON.stringify(
         {
           rows,
@@ -348,7 +348,7 @@ function applyCheck(asJson) {
         2,
       ),
     )
-    console.log('  清单落盘:.workbuddy/git-heal-broken-links.json')
+    console.log('  清单落盘:.ihui-agent/state/git-heal-broken-links.json')
   }
   for (const p of plans) console.log(`  plan depth=${p.depth}  ${p.ref}`)
   return 1

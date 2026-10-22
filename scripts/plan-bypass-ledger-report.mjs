@@ -7,7 +7,7 @@
  * 旁路落地 / 跳门总量统计(`G-725`,**只读量算仪**,不是判据,不进提交链)。
  *
  * 要回答的那句话(AGENTS §12f):"有多少提交是在检查未跑的状态下入库的?"
- * 此前答不出 —— 台账 `.workbuddy/safe-commit-attestation.jsonl` 只有 `safe-commit.mjs` **决定跳门**时
+ * 此前答不出 —— 台账 `.ihui-agent/state/safe-commit-attestation.jsonl` 只有 `safe-commit.mjs` **决定跳门**时
  * 才写行,于是"过了全部门禁的正常提交"与"根本不跑钩子的旁路提交"在账面上同形(2026-09-29 现读:
  * 当日零点起 0 条,而同一窗口非合并提交 222 枚)。本器把四态拆开:
  *
@@ -486,7 +486,7 @@ export function readHookRounds(path, { capBytes = HOOK_READ_CAP_BYTES, chunkByte
  *   unreadable—— 取了个空/权限问题 ⇒ 同上,只能说无从分
  */
 export function readWitness(root) {
-  const path = resolve(root, '.workbuddy', 'commit-witness.log')
+  const path = resolve(root, '.ihui-agent', 'state', 'commit-witness.log')
   let fd
   try {
     fd = openSync(path, 'r')
@@ -531,7 +531,7 @@ export function readWitness(root) {
 }
 
 /**
- * 钩子自己落的一方记录 `.workbuddy/hook-logs/pre-commit-rounds.jsonl`
+ * 钩子自己落的一方记录 `.ihui-agent/state/hook-logs/pre-commit-rounds.jsonl`
  * (2026-09-30 由 `scripts/lib/pre-commit-hook.js` 的 round witness 写入)。
  *
  * 为什么需要它:此前 normal 的**唯一**正证是"钩子日志里有一段与提交文件集逐字等值的回显",
@@ -542,7 +542,7 @@ export function readWitness(root) {
  * 的记录一律不发合格证;取不到文件 ⇒ `missing`(退回日志回显那一维,并在报告里说明两种正证各多少)。
  */
 export function readFirstPartyRounds(root) {
-  const path = resolve(root, '.workbuddy', 'hook-logs', 'pre-commit-rounds.jsonl')
+  const path = resolve(root, '.ihui-agent', 'state', 'hook-logs', 'pre-commit-rounds.jsonl')
   let raw
   try {
     raw = readFileSync(path, 'utf8')
@@ -765,7 +765,7 @@ async function run({ argv }) {
   const batchRuns = indexBatchRuns(batchLedger.records)
   const index = indexLedger(ledger.records.filter((r) => r.kind !== GATE_BATCH_KIND))
 
-  const hookPath = resolve(root, '.workbuddy', 'hook-logs', 'pre-commit.log')
+  const hookPath = resolve(root, '.ihui-agent', 'state', 'hook-logs', 'pre-commit.log')
   const hook = readHookRounds(hookPath)
   const rounds = hook.rounds
   const witness = readWitness(root)

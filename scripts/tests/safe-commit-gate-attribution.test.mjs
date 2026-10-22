@@ -406,14 +406,14 @@ test('反向对照:旧那句未经计算的"因其他 agent 代码"不得再作�
 
 /**
  * 真实日志取样(不是夹具):本机每次跳门都会把 runner 的原始输出追加到
- * `.workbuddy/hook-logs/pre-commit.log`,里面就有**实际印出来的**失败门清单。
+ * `.ihui-agent/state/hook-logs/pre-commit.log`,里面就有**实际印出来的**失败门清单。
  * 用它复核解析锚点,才能证明夹具不是我照着自己的想象写的。
  * 该文件属机器运行态且被 gitignore —— 缺席时如实记"未判定",**不计为通过**。
  */
 test('真实钩子日志取样:解析结果必须与手工核对一致(缺席则判未判定,不计绿)', (t) => {
-  const logPath = join(here, '..', '..', '.workbuddy', 'hook-logs', 'pre-commit.log')
+  const logPath = join(here, '..', '..', '.ihui-agent', 'state', 'hook-logs', 'pre-commit.log')
   if (!existsSync(logPath)) {
-    t.skip('本机无 .workbuddy/hook-logs/pre-commit.log ⇒ 未判定(不记为通过)')
+    t.skip('本机无 .ihui-agent/state/hook-logs/pre-commit.log ⇒ 未判定(不记为通过)')
     return
   }
   const text = readFileSync(logPath, 'utf8')
@@ -830,7 +830,7 @@ test('装车证明(2026-09-26 新增支):批没跑完 ⇒ safe-commit 必须真�
 /**
  * 差分四态(2026-09-27 立)的镜像锁。
  *
- * 立因(不是假想):`.workbuddy/safe-commit-attestation.jsonl` 里 ts=2026-09-27T09:05:40Z 那条
+ * 立因(不是假想):`.ihui-agent/state/safe-commit-attestation.jsonl` 里 ts=2026-09-27T09:05:40Z 那条
  * (declaredFiles 含 `apps/ai-service/app/services/mcp_server.py`、kind=not-ours、failedGates ["35","55"])
  * 放行了一枚**自引入**的红,27 分钟后由 `fa9e4e64d` 补。成因是门 55 的失败行只点名符号、
  * 不点名文件(`[tool-name-coverage] ❌ 覆盖率 86/87` + `未映射工具名(1):…`),旧铰链于是把
@@ -1016,7 +1016,7 @@ test('反向回归锁:没有汇总块时,必须先试"那一步有没有点名�
  *   20:08:46 那一轮 lint-staged 的 git 步骤死在 EBUSY(eslint 全程 `✔`、通篇没有本任务路径)
  *   ⇒ 它自己的输出定不了责,而 `blameFromFailedStep(fallbackText)` 从 256KB 日志尾部
  *   **借用了上一轮**的 eslint 报告 ⇒ 又判 mine ⇒ 已修好的红继续替本轮挡门。
- * 夹具逐行取自 .workbuddy/hook-logs/pre-commit.log:21529-21626 与 :21254-21308 的真实形状。
+ * 夹具逐行取自 .ihui-agent/state/hook-logs/pre-commit.log:21529-21626 与 :21254-21308 的真实形状。
  */
 const DECLARED3 = [
   'scripts/check-exemption-expiry.mjs',
@@ -1234,7 +1234,7 @@ test('G-1058649-6 装车证明:env-blocked 在 safe-commit 的分流/措辞/留�
 // 而 45 行取材窗口**够得着**这两块(实测最小行距:staged 清单块 20 行、lint-staged 任务回显块 11 行,
 // 探针 probe-echo-gap.mjs)⇒ 摘除有承重空间,不是"摘了也白摘"。
 //
-// 夹具形状逐行取自 .workbuddy/hook-logs/pre-commit.log:21243-21257(钩子 staged 清单回显)
+// 夹具形状逐行取自 .ihui-agent/state/hook-logs/pre-commit.log:21243-21257(钩子 staged 清单回显)
 // 与 :21312(lint-staged 任务回显);根级声明文件取自同档 3:00:27 那一轮真实的 PROJECT_PLAN.md。
 
 const ECHO_AUDIT_BLOCK = `📋 staged 文件清单审计(2026-08-06 立,防同目录文件级污染,共 1 个文件):
@@ -1833,7 +1833,7 @@ test('G-1018220-②③:混合输出(自愈点名 + 真失败点名)⇒ 仍判 mi
 
 test('G-1018220-②④:门 47 真实自愈块形态(逐字取自钩子日志)在无汇总路径上不得被读成点名', () => {
   const { classifyHookFailure, blameFromFailedStep, SELF_HEAL_FIXED_MARK, MY_FILES } = __test__
-  // 逐字形态取自 .workbuddy/hook-logs/pre-commit.log:157065-157070(仅按口径②给清单行补键)。
+  // 逐字形态取自 .ihui-agent/state/hook-logs/pre-commit.log:157065-157070(仅按口径②给清单行补键)。
   const HOOK47 = `[47] 💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)...
 [watermark-coverage] 🔧 检出 2 个文件水印缺失/损坏, 自动补齐中...
 [watermark-coverage] ✅ 已自动补齐 2 个文件的水印并加入暂存区(无需再跳过门禁):
@@ -1880,5 +1880,159 @@ test('G-1018220-②⑤:豁免键两侧同源 —— 门 47 import 常量、只�
     '归因层判定体里出现了关键词式自愈识别 ⇒ 本例外被改成猜词,必须退回结构化键',
   )
 })
+
+// ── 票 G-24(2026-10-22 落):差分基线优先取"同一份索引减去声明集"的他人面 ────────────────
+// 实测锚点(2026-09-29 05:1x):一枚只动 scripts/tests/plan-tasks-f3-archive-exit.test.mjs 的提交,
+// 守门 71 判"HEAD 面不红、我的面红"⇒ 定责本枚 ⇒ 拒绝 --no-verify;真相是共享索引里躺着**别人**
+// 暂存的滞后 PROJECT_PLAN.md 副本,而本枚带 pathspec,那路径进不了本次提交。归因错的方向很贵:
+// 拒掉合法跳门,把人逼到不跑钩子的对象空间。票面验收①②必须成对 —— 少一条就是单向放松。
+{
+  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, EXTERNALS_STABLE, externalsAdvanced } =
+    __test__
+  const GATE71 = '❌ 计划登记行防丢:检测到 1 行已入库登记行整行消失(按索引面判)'
+  const DECL = ['scripts/tests/plan-tasks-f3-archive-exit.test.mjs']
+  const myRed = () => ({ status: 1, output: GATE71, externals: EXTERNALS_STABLE })
+  const base = {
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL,
+    runGate: myRed,
+  }
+
+  test('G-24-验收①:他人面(索引减去声明集)仍红 ⇒ 仍红才算别人的红 ⇒ not-ours,不得拒合法跳门', () => {
+    const v = classifyHookFailure({
+      ...base,
+      runGateForeignFace: () => ({
+        ran: true,
+        status: 1,
+        output: '他人面同样红',
+        why: null,
+        externals: EXTERNALS_STABLE,
+      }),
+    })
+    assert.equal(v.kind, 'not-ours', `别人暂存的红不得钉成本枚引入,实得 ${v.kind}:${v.reason}`)
+    assert.equal(v.delta.foreignFaceRed, 1, '他人面档必须可机读')
+    assert.equal(v.delta.introduced, 0, '这一型禁止落 introduced(那正是本票的失效方向)')
+    assert.match(v.reason, /他人面/, '措辞必须点名差分取材面是"同一份索引减去声明集"')
+    assert.ok(
+      !/禁止 --no-verify/.test(verdictLine(v)),
+      '反向锁:这一型不得拒跳门 —— 拒掉合法跳门、逼人走对象空间正是票面实测的伤害格',
+    )
+  })
+
+  test('G-24-验收②(成对锁):同一份输入只把他人面换成绿 ⇒ introduced ⇒ 照旧 mine 拒跳', () => {
+    const v = classifyHookFailure({
+      ...base,
+      runGateForeignFace: () => ({
+        ran: true,
+        status: 0,
+        output: '他人面跑绿',
+        why: null,
+        externals: EXTERNALS_STABLE,
+      }),
+    })
+    assert.equal(v.kind, 'mine', `红恰由本枚声明内容引入时必须仍判 mine,实得 ${v.kind}`)
+    assert.equal(v.delta.introduced, 1, 'introduced 计数与 D1 同一把尺')
+    assert.match(v.reason, /禁止 --no-verify/, '出口必须是"修",不是跳门 —— 验收①②不成对=单向推松铰链')
+  })
+
+  test('G-24-前提复用:他人面绿但两跑之间外部状态动过 ⇒ 不得落 introduced(第二前提同样管新档)', () => {
+    const v = classifyHookFailure({
+      ...base,
+      runGateForeignFace: () => ({
+        ran: true,
+        status: 0,
+        output: '他人面跑绿',
+        why: null,
+        externals: externalsAdvanced(),
+      }),
+    })
+    assert.equal(v.kind, 'undetermined-red', `实得 ${v.kind}`)
+    assert.equal(v.delta.introduced, 0)
+  })
+
+  test('G-24-回落档:他人面做不到的那一档 ⇒ 回落 HEAD 差分仍被轮次绑定守卫拦下,且点名路径不笼统拒绝', () => {
+    const v = classifyHookFailure({
+      ...base,
+      runGateForeignFace: () => ({ ran: false, status: null, output: '', why: '临时索引不可写(EBUSY)' }),
+      runGateBaseline: () => ({ ran: true, status: 0, output: '绿', why: null, externals: EXTERNALS_STABLE }),
+      myFaceStaged: [...DECL, 'PROJECT_PLAN.md'],
+    })
+    assert.equal(v.kind, 'undetermined-red', `实得 ${v.kind}:${v.reason}`)
+    const det = v.detail.join('\n')
+    assert.match(det, /他人面\(索引减去声明集\)不可用/, '回落必须留痕,不得静默换档')
+    assert.match(v.reason, /这一面含 1 个非本票暂存项,归属未经差分证明/, '票面原句必须逐字在结论里')
+    assert.match(v.reason + det, /PROJECT_PLAN\.md/, '必须点名"因他人暂存内容而红"的具体路径,不得笼统拒绝')
+    assert.ok(!/不在本次提交内容里/.test(verdictLine(v)), '降级档不得冒充实证过的"与本次无关"')
+  })
+}
+
+// ── 票 G-420①(2026-10-22 落):归因层差分复跑读的是还原后的索引 ⇒ introduced 必须绑本轮声明集 ──
+// 实测形态(枚 924184043,2026-09-28):首次 commit 失败 → 还原 staging → 逐道复跑;还原后的共享索引里
+// 躺着他人挂着的旧版本 blob,门 30c 复跑红在不在本票清单的路径上,差分却打印"基线面(HEAD)不红 /
+// 我的面红 ⇒ 这枚提交引入了红"并拒绝跳门。票面要求:差分复跑必须绑到"本次声明集"这一轮索引态,
+// 或在结论里明写"这一面含 N 个非本票暂存项,归属未经差分证明"。
+{
+  const { classifyHookFailure, verdictLine, SUMMARY, FAIL_29, EXTERNALS_STABLE } = __test__
+  const GATE30C = '❌ 陈旧副本守门:检出 3 个路径的索引内容等于历史提交版本'
+  const DECL = ['scripts/lib/commit-gate-attribution.mjs']
+  const foreignOnFace = ['scripts/live-doc-edit.mjs', 'scripts/next-plan-id.mjs', 'apps/api/src/routes/live-gifts.ts']
+  const greenBase = () => ({ ran: true, status: 0, output: 'HEAD 面绿', why: null, externals: EXTERNALS_STABLE })
+  const base = {
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL,
+    runGate: () => ({ status: 1, output: GATE30C, externals: EXTERNALS_STABLE }),
+    runGateBaseline: greenBase,
+  }
+
+  test('G-420①:复跑面含非本票暂存项 ⇒ introduced 降级 undetermined-red,明写票面原句并点名路径', () => {
+    const v = classifyHookFailure({
+      ...base,
+      myFaceStaged: [...DECL, ...foreignOnFace],
+    })
+    assert.equal(v.kind, 'undetermined-red', `轮次前提不成立时不得钉"本枚引入",实得 ${v.kind}:${v.reason}`)
+    assert.equal(v.delta.replayForeignUndetermined, 1, '降级档必须可机读')
+    assert.equal(v.delta.foreignOnFaceCount, 3, 'N 必须可机读(票面:这一面含 N 个非本票暂存项)')
+    assert.match(v.reason, /这一面含 3 个非本票暂存项,归属未经差分证明/, '票面要求的原句必须逐字出现在结论里')
+    assert.match(v.reason, /live-doc-edit\.mjs/, '必须点名具体路径,不得笼统拒绝')
+    const line = verdictLine(v)
+    assert.ok(!/引入了红|改红/.test(line), `降级档不得再喊"本枚引入",实得:${line}`)
+    assert.ok(!/不在本次提交内容里/.test(line), '降级档也不得冒充实证过的"与本次无关"(失效方向=多要一次定向说明)')
+    assert.match(line, /^⚠️/, '警示口吻,不得读起来像已过门')
+  })
+
+  test('G-420①-反向锁(生死线):复跑面恰是声明集 ⇒ introduced 照判 mine,守卫不得削判据', () => {
+    const v = classifyHookFailure({ ...base, myFaceStaged: [...DECL] })
+    assert.equal(v.kind, 'mine', `面干净时 introduced 必须照判,实得 ${v.kind}`)
+    assert.equal(v.delta.introduced, 1)
+    assert.match(v.reason, /禁止 --no-verify/)
+  })
+
+  test('G-420①-兼容锁:调用方未注入观察面 ⇒ 行为与旧版逐字同形(接线属下一批,不得先改判据默认值)', () => {
+    const v = classifyHookFailure({ ...base })
+    assert.equal(v.kind, 'mine', `未注入时必须与旧版同形,实得 ${v.kind}`)
+    assert.equal(v.delta.foreignOnFaceCount, 0, '未注入不得被臆造成"面上有东西"来求绿')
+  })
+
+  test('G-420①-透传锁:自跑分支必须接同一把铰链(他人面与观察面都不得在自跑那一轮失踪)', () => {
+    const { decideWithSelfRunBatch } = __test__
+    const seen = []
+    const v = decideWithSelfRunBatch({
+      verdict: { kind: 'unattributed', ranFullBatch: false, failed: [], detail: [], reason: 'r' },
+      stagedFiles: DECL,
+      runBatch: () => ({ ran: true, status: 1, output: SUMMARY + FAIL_29, why: null }),
+      runGate: base.runGate,
+      runGateBaseline: greenBase,
+      runGateForeignFace: (s) => {
+        seen.push(s)
+        return { ran: true, status: 1, output: '他人面同样红', why: null }
+      },
+      myFaceStaged: [...DECL, ...foreignOnFace],
+      hookText: '',
+    })
+    assert.ok(seen.length > 0, '自跑那一轮必须真的调用到他人面出口(否则自跑比钩子宽)')
+    assert.equal(v.kind, 'not-ours', `他人面读数必须参与自跑轮归因,实得 ${v.kind}`)
+    assert.equal(v.delta.foreignFaceRed, 1)
+  })
+}
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

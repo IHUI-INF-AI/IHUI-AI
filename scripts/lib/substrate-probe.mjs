@@ -11,7 +11,7 @@
  * 恰恰是"量不到 vs 量到了健康"这种三态逻辑,没有纯函数面就只能靠真把 .git 弄坏一次来取证。
  *
  * 立因(2026-09-29 05:16–05:19 实测):gitdir 的 `core.bare` 在外部清工作树期间漂成
- * `true`,约 90 秒后守护自愈(`.workbuddy/git-guardian.log` 有整条流水)。那个窗口里五道门
+ * `true`,约 90 秒后守护自愈(`.ihui-agent/state/git-guardian.log` 有整条流水)。那个窗口里五道门
  * (137 / 140 / 141 / 146 / 149)各自打印
  * `❌ 无法判定:git rev-parse 失败: fatal: this operation must be run in a work tree`,
  * 而分发循环把任何非零码一律计成「blocking 失败,提交已阻止」——

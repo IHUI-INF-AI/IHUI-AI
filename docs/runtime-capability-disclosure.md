@@ -498,7 +498,7 @@ Blink 引擎已验证"，不主张 WebView2 已验证。派发形态是页内合
   该脚本职责写在其头注 `scripts/git-push-guard.mjs:15-16`（"检测 → 若本地 ahead 则自动 push
   含 upstream 设置"），并内置推送被 push protection 拒收时的凭据形状点名（`:64`）。
   异步化后 commit 秒回、后台 worker 推送（AGENTS.md §5b"推送异步化"条），
-  状态文件 `.workbuddy/push-state.json`。
+  状态文件 `.ihui-agent/state/push-state.json`。
   ⇒ **在本仓做出的提交，默认会被推到 origin。**
 - **pre-push 跑全量质量门**（typecheck 等，AGENTS.md §20 第 3 道防线）。
 - **禁止 `git stash`** 由 `.husky/reference-transaction` 硬拦（AGENTS.md §12d）。

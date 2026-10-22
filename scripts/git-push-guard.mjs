@@ -302,7 +302,7 @@ if (!process.env.GUARD_SKIP_DANGLING_REF_CHECK) {
     log('info', '修复顺序(不可颠倒:先清坏指针,再刷备份,否则把坏指针复制进"恢复源"):')
     log(
       'info',
-      '  1) for-each-ref 取 sha + 一次 git cat-file --batch-check 找 missing,名字+sha 先落 .workbuddy/dangling-tags.txt 留证',
+      '  1) for-each-ref 取 sha + 一次 git cat-file --batch-check 找 missing,名字+sha 先落 .ihui-agent/state/dangling-tags.txt 留证',
     )
     log(
       'info',
@@ -361,7 +361,7 @@ if ((promisorCfg || filterCfg) && !process.env.GUARD_SKIP_PARTIAL_CLONE_CHECK) {
 // 方案:主模式检测到 ahead → 写 running 状态 + spawn detached worker 后立即
 //      返回(commit 秒回);worker 在后台执行真正推送(质量门不降级,pre-push
 //      照跑),结束写 done/failed/diverged 状态。失败由下一次 guard 调用自动重试。
-// 状态:.workbuddy/push-state.json {status,headSha,ts,pid[,reason,kind,nextCommand]},converge 脚本读取。
+// 状态:.ihui-agent/state/push-state.json {status,headSha,ts,pid[,reason,kind,nextCommand]},converge 脚本读取。
 //   status ∈ running | done | failed | diverged(2026-09-26 新增)。
 //   `diverged` = 远端拒收 non-fast-forward(并发会话已推进远端)⇒ **一次都没推出去**,
 //   出路只有 git-sync-converge;它与 `failed` 的区别不是"更轻",而是"下一步动作不同":
@@ -370,7 +370,7 @@ if ((promisorCfg || filterCfg) && !process.env.GUARD_SKIP_PARTIAL_CLONE_CHECK) {
 //   不是本文件的注释):scripts/check-push-sync.mjs(pushVerdict)、
 //   scripts/git-push-converge.mjs(注释 + DIVERGED 输出)、scripts/git-sync-converge.mjs
 //   (waitForPushState 的终态集合 —— 漏了它会白等 8 分钟才判 timeout)。
-const pushStateFile = resolve(process.cwd(), '.workbuddy/push-state.json')
+const pushStateFile = resolve(process.cwd(), '.ihui-agent/state/push-state.json')
 const GUARD_ASYNC = process.env.GUARD_ASYNC !== '0' // 默认开;GUARD_ASYNC=0 强制同步
 const PUSH_STATE_STALE_MS = 5 * 60 * 1000
 
@@ -403,7 +403,7 @@ function isPidAlive(pid) {
  */
 function writePushState(status, headSha, extra) {
   try {
-    mkdirSync(resolve(process.cwd(), '.workbuddy'), { recursive: true })
+    mkdirSync(resolve(process.cwd(), '.ihui-agent', 'state'), { recursive: true })
     writeFileSync(
       pushStateFile,
       JSON.stringify({
@@ -446,7 +446,7 @@ function assertDiskOk() {
 /** push 门中断标记(2026-09-18):pre-push 在门被中断(exit 75)时写入。
  * 供 worker 区分「门被杀(临时失败,应带 hook 重试拿真实结论)」与
  * 「真实类型检查失败(按用户规则 --no-verify 兜底)」。15 分钟内的标记才采信。 */
-const pushGateMarkerFile = resolve(process.cwd(), '.workbuddy/push-gate-last-result.json')
+const pushGateMarkerFile = resolve(process.cwd(), '.ihui-agent/state/push-gate-last-result.json')
 function readPushGateMarker() {
   try {
     const m = JSON.parse(readFileSync(pushGateMarkerFile, 'utf8'))
@@ -529,7 +529,7 @@ const workerActive =
 // 2026-09-18 自愈:死 worker 残留 running 状态(被强杀来不及写终态)→ 启动时顺手改写为
 // failed 终态,消费端(converge/check-push-sync)不再依赖 pid 推断,状态文件保持真实。
 // ⚠️ 这一记 failed 写的是**那枚死 worker 的 headSha**,不是本次本地 HEAD —— 多会话并发下
-// 它每天落 353 次(实测 `grep -ac "发现死 worker" .workbuddy/git-push-guard-async.log`),
+// 它每天落 353 次(实测 `grep -ac "发现死 worker" .ihui-agent/state/git-push-guard-async.log`),
 // 于是"现值 ahead + 状态 failed"常常与本次提交毫无因果。必须带 reason 落盘,
 // 让下游能分清"推送真的失败了"与"上一个 worker 没写完终态"(2026-09-26 补,守门 29 假红根因)。
 if (existingState && existingState.status === 'running' && !isPidAlive(existingState.pid)) {
@@ -581,7 +581,7 @@ if (isWorkerMode) {
   const workerLog = (msg) => {
     try {
       appendFileSync(
-        resolve(process.cwd(), '.workbuddy/git-push-guard-async.log'),
+        resolve(process.cwd(), '.ihui-agent/state/git-push-guard-async.log'),
         `[${new Date().toISOString()}] [worker ${process.pid}] ${msg}\n`,
       )
     } catch {
@@ -677,7 +677,7 @@ if (isWorkerMode) {
   }
   if (!recentSameHeadWorkerFailure) {
     writePushState('running', localHead)
-    const logFile = resolve(process.cwd(), '.workbuddy/git-push-guard-async.log')
+    const logFile = resolve(process.cwd(), '.ihui-agent/state/git-push-guard-async.log')
     let spawned = false
     try {
       const out = openSync(logFile, 'a')
@@ -720,8 +720,8 @@ if (isWorkerMode) {
           // windowsHide:true 对齐 ——
           //   CreateFlags = CREATE_NO_WINDOW (0x08000000) → 新进程不分配可见控制台
           //   ShowWindow  = SW_HIDE (0)                  → 双保险
-          // 派生结果落盘 .workbuddy/wmi-watchdog-last.txt(ret/pid/alive),失败也留痕。
-          const wdOutFile = resolve(process.cwd(), '.workbuddy/wmi-watchdog-last.txt')
+          // 派生结果落盘 .ihui-agent/state/wmi-watchdog-last.txt(ret/pid/alive),失败也留痕。
+          const wdOutFile = resolve(process.cwd(), '.ihui-agent/state/wmi-watchdog-last.txt')
           const wdScript =
             `try { ` +
             `$s = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{CreateFlags=[uint32]2147483648; ShowWindow=[uint16]0}; ` +

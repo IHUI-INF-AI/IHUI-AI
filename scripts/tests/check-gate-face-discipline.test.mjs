@@ -285,7 +285,7 @@ test('T16 白名单边界:运行台账 / 只在部署机的忽略副本 / tee �
   // 的同一份夹具,结论同样是 loose-fs。所以"白名单挡住了红"这句话从来不曾是真的;
   // 本条现在锁的是**预拼规则自己**的边界(那才是白名单该守的地方)。
   const neg = [
-    "const LEDGER = join(ROOT, '.workbuddy', 'push-state.json')\nreadFileSync(LEDGER, 'utf8')\n",
+    "const LEDGER = join(ROOT, '.ihui-agent', 'state', 'push-state.json')\nreadFileSync(LEDGER, 'utf8')\n",
     "const RUNNING = join(ROOT, 'deploy', 'prod-bundle', 'monitor.ps1')\nreadFileSync(RUNNING, 'utf8')\n",
     "const RESULT_FILE = join(ROOT, '__gate_result.txt')\nreadFileSync(RESULT_FILE, 'utf8')\n",
     "const PARENT = dirname(ROOT)\nreadFileSync(join(PARENT, 'x.json'), 'utf8')\n",

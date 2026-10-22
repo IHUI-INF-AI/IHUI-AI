@@ -547,7 +547,7 @@ test('P8 未送达标记:四态不并桶 + 结论串逐字稳定 + 正文不外�
   const base = mkdtempSync(join(scratchRoot(), 'ops-p8-mirror-'))
   try {
     const repo = join(base, 'repo')
-    const wb = join(repo, '.workbuddy')
+    const wb = join(repo, '.ihui-agent', 'state')
     mkdirSync(wb, { recursive: true })
     const marker = join(wb, 'pg-backup-alert-UNDELIVERED.json')
     const at = '2026-10-01 09:08:29 +08:00'
@@ -608,7 +608,7 @@ test('P5 备份产出:逐库出头,一库齐备不得替另一库作证(注入�
 const { parseProbeOutput, mailProbeDue, mailProbeRow, loadDebtAcks, ackCoversDebt, debtAnchor, checkUndeliveredAlertDebt: checkUndeliveredAlertDebtRaw } = mod.__test__
 /**
  * 夹具隔离默认:不注入 `channelOkAtMs` 时,门会去读**真机**的邮件探针落盘件
- * (`.workbuddy/mail-probe-last.json`),于是夹具自造的欠账被这台机的成功投递时刻全数豁免,
+ * (`.ihui-agent/state/mail-probe-last.json`),于是夹具自造的欠账被这台机的成功投递时刻全数豁免,
  * 该判红的臂回成 `ok` —— 门头注写着"必须可注入…2026-10-03 实测踩过,判据自身没错是取材没隔离",
  * 而这条镜像臂当初就漏了注入。默认给 0(通道从未通),要测豁免那一支的臂自己显式传值覆盖。
  */
@@ -711,7 +711,7 @@ test('TP6 P10 三态与出口:挂账红 / 逐条裁过绿且报名 / 台账坏 J
   try {
     const now = Date.parse('2026-10-01T12:00:00.000Z')
     const repo = join(base, 'repo')
-    const wb = join(repo, '.workbuddy')
+    const wb = join(repo, '.ihui-agent', 'state')
     mkdirSync(wb, { recursive: true })
     const st = join(wb, 'git-guardian-notify-state.json')
     const FP = 'a'.repeat(40)

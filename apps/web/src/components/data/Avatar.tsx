@@ -7,9 +7,13 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+import type { AvatarShape, AvatarSize } from '@ihui/shared/ui/avatar-spec'
 
-type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
-type AvatarShape = 'circle' | 'square'
+/**
+ * 档位名与数值取自跨端唯一表 `@ihui/shared/ui/avatar-spec`(`AvatarSize` 就是那张表的键集);
+ * 类名留在本文件是 Tailwind 扫描面的要求,对应关系由
+ * `packages/shared/src/ui/__tests__/avatar-spec-wiring.test.ts` 与 `AVATAR_PX` 逐档对账钉住。
+ */
 
 interface AvatarProps {
   src?: string
@@ -37,7 +41,14 @@ export function getInitials(name?: string | null): string {
   return trimmed.slice(0, 2).toUpperCase()
 }
 
-export function Avatar({ src, fallback, name, size = 'md', className }: AvatarProps) {
+export function Avatar({
+  src,
+  fallback,
+  name,
+  size = 'md',
+  shape = 'circle',
+  className,
+}: AvatarProps) {
   const [error, setError] = React.useState(false)
   const initials = fallback ?? getInitials(name)
 
@@ -46,8 +57,11 @@ export function Avatar({ src, fallback, name, size = 'md', className }: AvatarPr
       className={cn(
         'relative inline-flex shrink-0 items-center justify-center overflow-hidden bg-muted font-medium text-muted-foreground',
         sizeMap[size],
-        // 项目规则:头像外层容器禁止 rounded-full,统一 rounded-md
-        'rounded-md',
+        // 形状档取共享唯一表的 AVATAR_SHAPE_STEP(circle→md=6 / square→lg=8),类名写死是
+        // Tailwind 扫描面的要求;两档对应关系由 avatar-spec-wiring 契约测试钉住。
+        // 项目规则:头像外层容器禁止 rounded-full。此前本组件收了 shape 却从不使用,
+        // 设计系统演示页的 `<Avatar shape="square">` 渲染成圆形 —— prop 是假的,这次一并修掉。
+        shape === 'square' ? 'rounded-lg' : 'rounded-md',
         className,
       )}
     >

@@ -898,7 +898,7 @@ describe('isScannableRel(两种取材面共用的判据)', () => {
  * 立因(实测):本步作为**批外 blocking** 按磁盘判,并行会话未暂存的半编辑态
  * (apps/web/app/status/page.tsx 短暂 orphan `statusPage.*`)把它判红,而红与本次提交无关 ⇒
  * 各会话唯一出路 --no-verify ⇒ 链上 ~185 道门对该提交全部作废(AGENTS §12e/§12f;
- * 证据 .workbuddy/safe-commit-attestation.jsonl 两条 kind:"not-ours" 点名「🌐 i18n 死 key 扫描」）。
+ * 证据 .ihui-agent/state/safe-commit-attestation.jsonl 两条 kind:"not-ours" 点名「🌐 i18n 死 key 扫描」）。
  * 2026-10-16 补另一向:同一把磁盘尺子在共享工作树上把孤儿键 `Menu.d1` 判成绿(`a86e4cc821` 摘掉的
  * 消费者在盘上留了 4 份等字节未跟踪副本),CI 却判红 —— "没判"与"判错"两个方向都得有牙。
  *

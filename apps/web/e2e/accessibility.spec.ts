@@ -25,7 +25,7 @@ test.describe('基础可访问性', () => {
   })
 
   test('登录页表单元素有 label(若可访问)', async ({ page }) => {
-    await page.goto('/login')
+    await page.goto('/sso/login')
     await page.waitForLoadState('domcontentloaded')
     // 检查是否有 label 或 aria-label
     const inputs = page.locator('input')
