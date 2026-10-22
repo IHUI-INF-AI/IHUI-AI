@@ -29014,3 +29014,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ]（进行中@2026-10-22/goal-r52） G-966 **守门 70 的射程不含 packages/app/src ⇒ 该层写死中文对门完全隐身(现读 32 枚文件 / 174 行含中文)** 2026-10-22 现读 scan-hardcoded-zh.mjs 的 TARGETS 只有 web/ui-react/shared/mobile-rn/extension/cli,共享登录屏那一层从未入过射程。出路照 2026-09-24 补三端那一档:先把 HEAD blob 面存量逐文件入账,再把该目录并进 TARGETS。陷阱:--update-baseline 缺省读工作树磁盘,五席并发时会把他席在飞态一并钉进额度。
 
+
