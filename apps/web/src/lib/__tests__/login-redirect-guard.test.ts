@@ -41,7 +41,8 @@ vi.mock('@ihui/shared', () => ({
   WEB_BASE: 'https://aizhs.top',
 }))
 vi.mock('@ihui/ui-react', () => {
-  const passthrough = ({ children }: { children?: ReactNode }) => createElement('div', null, children)
+  const passthrough = ({ children }: { children?: ReactNode }) =>
+    createElement('div', null, children)
   return {
     QrTab: () => null,
     Button: () => null,
@@ -49,6 +50,10 @@ vi.mock('@ihui/ui-react', () => {
     DialogContent: passthrough,
     DialogTitle: passthrough,
     DialogDescription: passthrough,
+    // 0c7ca66b99 起 LoginDialog 会渲染 ConfirmDialog(admin 大屏自选弹窗),
+    // 它额外用到 DialogHeader / DialogFooter ⇒ mock 面必须同步补全,否则挂载即抛
+    DialogHeader: passthrough,
+    DialogFooter: passthrough,
   }
 })
 vi.mock('@/components/auth/AuthShell', () => ({
@@ -58,7 +63,8 @@ vi.mock('@/components/login/QrCodeLogin', () => ({ QrCodeLogin: () => null }))
 vi.mock('@/components/login/RegisterFormContent', () => ({ RegisterFormContent: () => null }))
 vi.mock('@/components/login/ForgotPasswordForm', () => ({ ForgotPasswordForm: () => null }))
 vi.mock('@/components/login/LoginWithTurnstile', () => ({
-  LoginWithTurnstile: ({ children }: { children?: ReactNode }) => createElement('div', null, children),
+  LoginWithTurnstile: ({ children }: { children?: ReactNode }) =>
+    createElement('div', null, children),
 }))
 // onSuccess 是"登录成功"的唯一入口,这里把它接出来供用例触发 —— 不在测试里重写一份判据
 vi.mock('@/components/login/LoginFormContent', () => ({
