@@ -532,7 +532,7 @@ export default function RelayUsagePage() {
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{t('analytics.actualPrice')}</p>
               {analytics.cost.standardCents !== null && (
-                <div className="mt-2 border-t border-border pt-2 text-xs">
+                <div className="mt-2 pt-2 text-xs">
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">{t('analytics.standardPrice')}</span>
                     <span className="tabular-nums">

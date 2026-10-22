@@ -119,7 +119,7 @@ export function CategoryTable({ categories, isLoading, error, onEdit, onDelete }
           ))}
         </tbody>
       </table>
-      <div className="flex items-center justify-between border-t px-4 py-2.5 text-sm text-muted-foreground">
+      <div className="flex items-center justify-between px-4 py-2.5 text-sm text-muted-foreground">
         <span>{t('total', { total: categories.length })}</span>
       </div>
     </div>

@@ -560,10 +560,7 @@ export const TimelineEventRow = React.memo(function TimelineEventRow({
           )}
           {evidenceAvailable && (
             <div
-              className={cn(
-                'space-y-1 pt-1',
-                hasChildren && 'mt-1 border-t border-border/30 pt-1.5',
-              )}
+              className={cn('space-y-1 pt-1', hasChildren && 'mt-1 pt-1.5')}
               data-testid="timeline-evidence-details"
             >
               {(evidence!.decision !== undefined || evidence!.reason !== undefined) && (

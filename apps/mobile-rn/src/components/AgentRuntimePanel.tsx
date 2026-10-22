@@ -51,10 +51,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
       // 形态自带角色的写法让 [150] 权威高于组件名后缀,与小程序端同档。
       style={{ backgroundColor: tokens.surface.card, borderRadius: rnRadiusFor.card }}
     >
-      <View
-        className="flex-row items-center border-b px-3 py-2"
-        style={{ borderColor: tokens.border.light }}
-      >
+      <View className="flex-row items-center px-3 py-2">
         <Text className="text-sm font-semibold" style={{ color: tokens.text.secondary }}>
           {t('agent.runtimeTitle')}
         </Text>
@@ -148,7 +145,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
         ) : null}
       </ScrollView>
 
-      <View className="border-t p-3" style={{ borderColor: tokens.border.light }}>
+      <View className="p-3">
         <View className="flex-row items-end">
           <Input
             value={input}

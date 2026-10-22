@@ -353,7 +353,7 @@ export function GoalCard() {
           </div>
 
           {/* 操作按钮行 */}
-          <div className="flex flex-wrap gap-1.5 border-t pt-2">
+          <div className="flex flex-wrap gap-1.5 pt-2">
             <button
               type="button"
               data-testid="goal-continue"

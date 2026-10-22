@@ -194,7 +194,7 @@ export default function LivePlayPage() {
               </div>
             ))}
           </div>
-          <div className="border-t p-3">
+          <div className="p-3">
             <div className="flex gap-2">
               <Input
                 value={newDanmu}

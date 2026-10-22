@@ -56,10 +56,7 @@ export function CheckpointHistoryPanel({
         <h3 className="text-sm font-semibold">{t('title')}</h3>
       </div>
       {onRestore && checkpoints.length > 0 && (
-        <div
-          className="flex items-center gap-2 border-b px-4 py-2"
-          data-testid="checkpoint-scope-selector"
-        >
+        <div className="flex items-center gap-2 px-4 py-2" data-testid="checkpoint-scope-selector">
           <span className="text-xs text-muted-foreground">{t('scopeLabel')}</span>
           <div className="flex overflow-hidden rounded-md border" role="group">
             {(
@@ -101,7 +98,7 @@ export function CheckpointHistoryPanel({
                   {!isLast && (
                     <span className="absolute left-[7px] top-7 h-[calc(100%-0.5rem)] w-px bg-border" />
                   )}
-                  
+
                   <span className="z-10 mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 border-brand-accent-deep bg-card" />
                   <div className="min-w-0 flex-1 pb-2">
                     <div className="flex items-center justify-between gap-2">

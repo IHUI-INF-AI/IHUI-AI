@@ -502,7 +502,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
             </div>
           )}
           {archived.length > 0 && (
-            <div className="mt-3 border-t pt-2" data-testid="voice-note-archive">
+            <div className="mt-3 pt-2" data-testid="voice-note-archive">
               {archived
                 .slice()
                 .reverse()

@@ -434,7 +434,7 @@ export default function UserLlmConfigsPage() {
       {/* BYOK 模式 onboarding:首次访问引导 */}
       <Dialog open={mounted && showOnboarding} onOpenChange={(o) => !o && dismissOnboarding()}>
         <DialogContent className="max-w-lg gap-0 p-0 min-[640px]:rounded-lg">
-          <DialogHeader className="space-y-2 border-b p-3">
+          <DialogHeader className="space-y-2 p-3">
             <DialogTitle className="flex items-center gap-2 text-base">
               <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-500" />
               <span className="whitespace-nowrap">{tV2('byok.welcomeTitle')}</span>
@@ -504,7 +504,7 @@ export default function UserLlmConfigsPage() {
             </section>
           </div>
 
-          <DialogFooter className="border-t p-3">
+          <DialogFooter className="p-3">
             <Button
               onClick={dismissOnboarding}
               size="sm"

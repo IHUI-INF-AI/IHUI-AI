@@ -427,7 +427,7 @@ export default function WorkflowDetailPage() {
       </div>
 
       {/* Tab 导航 */}
-      <div className="border-b">
+      <div>
         <nav className="flex gap-1">
           {(['instances', 'definition'] as const).map((k) => (
             <button

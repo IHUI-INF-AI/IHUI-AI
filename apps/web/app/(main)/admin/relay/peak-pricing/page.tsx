@@ -296,7 +296,7 @@ export default function PeakPricingPage() {
               </tr>
             ) : (
               (rulesQ.data ?? []).map((rule) => (
-                <tr key={rule.id} className="border-t border-border">
+                <tr key={rule.id}>
                   <td className="px-3 py-2">
                     <TruncatedText value={rule.name} />
                   </td>

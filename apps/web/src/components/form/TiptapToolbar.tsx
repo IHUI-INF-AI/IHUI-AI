@@ -108,7 +108,7 @@ export function TiptapToolbar({ editor }: { editor: Editor }) {
   }
   return (
     <>
-      <div className="flex flex-wrap items-center gap-1 border-b bg-muted/30 p-2">
+      <div className="flex flex-wrap items-center gap-1 bg-muted/30 p-2">
         <ToolbarBtn
           icon={Bold}
           title={t('bold')}

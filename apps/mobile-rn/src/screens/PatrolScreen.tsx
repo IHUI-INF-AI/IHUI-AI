@@ -492,7 +492,7 @@ export function PatrolScreen() {
                 </View>
 
                 {historyId === task.id ? (
-                  <View className="mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-800">
+                  <View className="mt-2 pt-2">
                     <Text className="mb-1 text-xs font-semibold text-neutral-800 dark:text-neutral-200">
                       {t('patrol.historyTitle')}
                     </Text>
