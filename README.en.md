@@ -90,7 +90,7 @@ Headline claims (same source as the table below, all live-computed): **599 table
 | 工程守门 | 268 | `guardianGates` |
 | — blocking | 245 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15683 | `trackedFiles` |
+| 跟踪文件 | 15684 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -101,6 +101,18 @@ Headline claims (same source as the table below, all live-computed): **599 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-22**
+- 📚 Docs:补认领 G-962/G-957/G-958/G-959/G-924(登录屏批次) 加发4席 (56002665ad)
+
+**2026-10-22**
+- 📚 Docs:G-734 复验注记+释放认领(51/51 绿,A/E 保持开放)+结清 G-934(接线与 e2e 已在 HEAD 闭环) (c64335e857)
+- 📚 Docs:补认领 G-24(归因层注入口已落待接线,与 G-420 同批) (d2b5793c10)
+
+**2026-10-22**
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (28c0230be9)
+- 📚 Docs:另立门 8 未判定桶 237 条裁决票(O87g 结清遗留,禁消音) (cca1767d1a)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6914bc3c31)
+
 **2026-10-22**
 - 🚀 Feature/Improvement:把"改写整行须断言三维不变"做成共享器物,AGENTS §1 那条不再是话 (a4ba22a7ac)
 - 🚀 Feature/Improvement:标头投影层:渲染与解析同一份实现,超预算只截 owner 不牺牲等段 (c362cda2d8)
@@ -174,21 +186,6 @@ Headline claims (same source as the table below, all live-computed): **599 table
 - 🐞 Fix:共享登录屏两处硬编码中文取键(票 G-959),并删掉零消费的 shared.login.ssoLogin 死键 (b57d497658)
 - 🚀 Feature/Improvement:mobile-auth 的 clientId 改为可配(缺省仍 mobile-rn)——为票 G-957 拆掉第一块砖 (20ac42245c)
 - 🐞 Fix:探活尺子的靶换成真入口,并把"整轮全 3xx"从冒认 ok 改成未判定(票 G-960) (6e2e2a1c0b)
-
-**2026-10-22**
-- 🔧 Chore/Other:项目运行态自 .workbuddy 迁至 .ihui-agent/state,清理 IDE 残留目录 (c4012eacc3)
-- 📚 Docs:守卫参考文档补溯源水印(生成器输出后注入) (f1b0d8e799)
-- 🐞 Fix:头像 shape 接上实现(演示页的 square 此前渲染成圆),并给门 128 的 VoiceInput 登记带理由豁免 (b85a07a11e)
-
-**2026-10-22**
-- 📚 Docs:守卫参考文档补溯源水印(生成器输出后注入) (f1b0d8e799)
-- 🐞 Fix:头像 shape 接上实现(演示页的 square 此前渲染成圆),并给门 128 的 VoiceInput 登记带理由豁免 (b85a07a11e)
-
-**2026-10-22**
-- 🐞 Fix:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (97d022cc3d)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c45ca90a55)
-- 📚 Docs:G-957 出路补两条实测接手事实(已有 mobile-auth 闭环先例 / 其 clientId 写死 / 域名白名单阻塞) (2a4d89d698)
-- 🐞 Fix:门71统一全文归一比对(行首编号含点号单源);完成即删清扫层提前到工作区自愈后,避免调度停摆 (02a714b81c)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
