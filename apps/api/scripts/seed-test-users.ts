@@ -37,6 +37,10 @@ import { eq } from 'drizzle-orm'
  * `ihui_dev_`,整串 includes 把它误判成生产库 → seed 恒拒绝 → global-setup 只 warn
  * → test@aizhs.top 永不存在 → 全部 authenticatedPage 用例死在 fixture 登录。
  * URL 解析不了时退回整串匹配,保持 fail-closed。
+ *
+ * 显式本地标记(2026-10-22 加):E2E_ALLOW_LOCAL_DB=1 表示操作者**显式声明**当前
+ * 名为 ihui_dev 的库就是本机库而非生产库,放行 seed。默认不设 ⇒ 保护原样生效;
+ * 生产保护没有被拆掉,只是给"库名恰好撞生产命名"的本地环境一条显式出路。
  */
 const DATABASE_URL = process.env.DATABASE_URL ?? ''
 let prodDbNameMatched: boolean
@@ -45,7 +49,7 @@ try {
 } catch {
   prodDbNameMatched = DATABASE_URL.includes('ihui_dev')
 }
-if (prodDbNameMatched && process.env.CI !== 'true') {
+if (prodDbNameMatched && process.env.CI !== 'true' && process.env.E2E_ALLOW_LOCAL_DB !== '1') {
   console.error(
     '[seed-test-users] 拒绝执行:DATABASE_URL 指向生产库 ihui_dev。' +
       'E2E 种子只允许写入隔离库,请显式传 DATABASE_URL(如 ihui_e2e);CI 环境不受影响。',
