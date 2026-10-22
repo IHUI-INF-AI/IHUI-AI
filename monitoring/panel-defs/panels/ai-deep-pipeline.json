@@ -11,11 +11,11 @@
   "annotations": { "list": [] },
   "panels": [
     {
-      "title": "活跃 LLM 会话",
+      "title": "号池冷却中的腿数",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
-      "targets": [{ "expr": "ihui_llm_active_sessions", "legendFormat": "会话", "refId": "A" }],
+      "targets": [{ "expr": "sum(ihui_llm_pool_leg_in_cooldown)", "legendFormat": "冷却中的腿", "refId": "A" }],
       "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
     },
