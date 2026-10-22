@@ -25,14 +25,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { __test__ as gate } from '../check-load-state-loaded-marks.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
-import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
+import { mkScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
