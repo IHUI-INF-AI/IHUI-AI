@@ -40,6 +40,14 @@
  *     识别式与门 150 的报名共用 `lib/radius-exempt-marker.mjs` 那一份;判它必须看**原文行** ——
  *     标记活在注释里,而本门逐行的第一步就是把整行注释直接 return。散文提这个族名不带冒号,
  *     因此不会被自己判红(判据不能吃自己的说明文字)。
+ *  B10 静态容器用 `clip-path: polygon(…)` / `clip-[polygon…]` **造角** → 红。
+ *     立因:监控大屏 2026-10-18 自创 HUD,给每个面板挂切角 polygon,把 rounded-* 剪成斜角、
+ *     边框在角上断开,机主 2026-10-22 反馈"每一个容器的圆角都有问题" —— 而 B1–B8 全绿:
+ *     B3 只看 `border-radius:`、B4 只认 `rounded-[…]`、B7 只解析类名尾段,**形状可以完全不用
+ *     档位表而账面一处不红**。RADIUS_ROLES 是全仓唯一规定"哪类元素用哪一档"的地方,里面
+ *     没有任何切角档 ⇒ 静态容器上的 polygon 造形没有合法出处。
+ *     只拦"静态形状":@keyframes 里的 clip-path 是动画遮罩(擦除/glitch),不是圆角的替身,
+ *     结构性落在射程外(animations.css 的 wipeTransition / glitch-1 即此型,不是豁免标记)。
  *  B 走 **HEAD 锚点棘轮**:每文件容忍上限 = 该文件 HEAD 版本自身的违规数(全量审计时上限只来自
  *    人工基线,因为内容就是 HEAD)。只拦"这次改动把绕档加回来了",不拦仓库既有债。
  *    锚点原先是一份手工维护的 JSON 清单,它有两个致命伤:并行会话把已迁好的路径整文件回写成
@@ -70,7 +78,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { execFileSync } from 'node:child_process'
 
 import { catBatch, Undetermined } from './lib/face-reader.mjs'
-import { objectDims, boxDims, scopeDimTexts, isHalfOfDeclaredSide, classifyRadiusGeometry } from './lib/box-geometry.mjs'
+import {
+  objectDims,
+  boxDims,
+  scopeDimTexts,
+  isHalfOfDeclaredSide,
+  classifyRadiusGeometry,
+} from './lib/box-geometry.mjs'
 import { RADIUS_EXEMPT_MARKER_RE } from './lib/radius-exempt-marker.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -78,7 +92,9 @@ const BASELINE_FILE = join(ROOT, 'scripts/radius-single-source-baseline.json')
 const isStaged = process.argv.includes('--staged')
 /** 显式文件清单模式:供迁移执行者按文件自验,判据与全量/暂存模式完全同源 */
 const FILES_MODE = process.argv.includes('--files')
-const fileList = FILES_MODE ? process.argv.slice(process.argv.indexOf('--files') + 1).filter((a) => !a.startsWith('--')) : []
+const fileList = FILES_MODE
+  ? process.argv.slice(process.argv.indexOf('--files') + 1).filter((a) => !a.startsWith('--'))
+  : []
 const SELF_TEST = process.argv.includes('--self-test')
 const UPDATE_BASELINE = process.argv.includes('--update-baseline')
 
@@ -101,7 +117,22 @@ const SCAN_DIRS = [
   // api 端不渲染 UI,但 swagger-theme 会**生成 HTML/CSS**(B3 覆盖),一并纳入对账
   'apps/api/src',
 ]
-const SKIP_DIRS = new Set(['node_modules', '.next', 'dist', 'build', 'android', 'ios', '.expo', 'coverage', '.output', 'web-build', '__tests__', 'tests', 'e2e', 'test'])
+const SKIP_DIRS = new Set([
+  'node_modules',
+  '.next',
+  'dist',
+  'build',
+  'android',
+  'ios',
+  '.expo',
+  'coverage',
+  '.output',
+  'web-build',
+  '__tests__',
+  'tests',
+  'e2e',
+  'test',
+])
 /** 档位表自身的定义处(tokens.css / app.css 的 --radius-* 行)不参与 B3 判定 */
 const TABLE_FILES = /styles[\\/]tokens\.css$/
 
@@ -130,7 +161,12 @@ function gitRo(args) {
 /** 一份 git 文件清单(路径统一正斜杠);取不到返回 null,调用方按"无法收窄"处理而非静默放行 */
 function gitNameSet(args) {
   try {
-    return new Set(gitRo(args).split('\n').filter(Boolean).map((l) => l.replaceAll('\\', '/')))
+    return new Set(
+      gitRo(args)
+        .split('\n')
+        .filter(Boolean)
+        .map((l) => l.replaceAll('\\', '/')),
+    )
   } catch {
     return null
   }
@@ -150,12 +186,18 @@ function resolveGitContext() {
   try {
     top = gitRo(['rev-parse', '--show-toplevel']).trim()
   } catch (e) {
-    return { ok: false, reason: `git rev-parse --show-toplevel 未能执行:${String(e?.stderr || e?.message || e).split('\n')[0]}` }
+    return {
+      ok: false,
+      reason: `git rev-parse --show-toplevel 未能执行:${String(e?.stderr || e?.message || e).split('\n')[0]}`,
+    }
   }
   if (!top) return { ok: false, reason: 'git rev-parse --show-toplevel 返回空输出' }
   const norm = (p) => p.replaceAll('\\', '/').replace(/\/+$/, '').toLowerCase()
   if (norm(top) !== norm(ROOT)) {
-    return { ok: false, reason: `git 上下文指向 ${top},不是本门 ROOT(${ROOT})—— 本检出没有自己的 .git,跟踪清单会被读成外层仓库的口径` }
+    return {
+      ok: false,
+      reason: `git 上下文指向 ${top},不是本门 ROOT(${ROOT})—— 本检出没有自己的 .git,跟踪清单会被读成外层仓库的口径`,
+    }
   }
   return { ok: true }
 }
@@ -179,7 +221,12 @@ const STAGED_SET = (() => {
   if (!isStaged) return null
   try {
     return new Set(
-      execFileSync(process.execPath === '' ? 'git' : 'git', ['diff', '--cached', '--name-only'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', windowsHide: true })
+      execFileSync(process.execPath === '' ? 'git' : 'git', ['diff', '--cached', '--name-only'], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        cwd: ROOT,
+        encoding: 'utf8',
+        windowsHide: true,
+      })
         .split('\n')
         .filter(Boolean)
         .map((f) => f.replaceAll('\\', '/')),
@@ -197,10 +244,12 @@ const isDoc = (f) => /\.(md|json|snap)$/.test(f)
 /** 生成"应写成什么"的提示(档位名唯一来源仍是 table,守门不复制表) */
 function targetOf(table, px) {
   const step = table.stepOf(px)
-  if (step === null) return `档位表无 ${px}px(就近 ${table.nearest(px)};几何真圆请写成与边长同形的 <边长> / 2 或 50%)`
+  if (step === null)
+    return `档位表无 ${px}px(就近 ${table.nearest(px)};几何真圆请写成与边长同形的 <边长> / 2 或 50%)`
   return step === '2xl' ? "rnRadius['2xl']" : `rnRadius.${step}`
 }
-const skipped = (rel) => rel.split('/').some((seg) => SKIP_DIRS.has(seg)) || /\.(test|spec)\.[jt]sx?$/.test(rel)
+const skipped = (rel) =>
+  rel.split('/').some((seg) => SKIP_DIRS.has(seg)) || /\.(test|spec)\.[jt]sx?$/.test(rel)
 
 /**
  * 判据 C:覆盖面对账 —— 「我没扫到」与「我声明过不扫」必须可区分。
@@ -233,7 +282,10 @@ export const OUT_OF_SCOPE = [
     why: '上面那份字形数据的生成器(写入的是 lucide 原始 path 文本,不是本仓 UI 的圆角取用)',
     bExempt: true,
   },
-  { re: /^packages\/design-tokens\//, why: '档位表自身(radius.js / tailwind-preset / tokens.css),由 A 判据负责其一致性' },
+  {
+    re: /^packages\/design-tokens\//,
+    why: '档位表自身(radius.js / tailwind-preset / tokens.css),由 A 判据负责其一致性',
+  },
   {
     re: /^apps\/ai-service\//,
     why: '内容渲染分支:发布到第三方平台的文章 HTML 属内容产物(同 §4「文档/营销正文」豁免口径),不是应用界面',
@@ -242,14 +294,30 @@ export const OUT_OF_SCOPE = [
   { re: /(^|\/)scripts\/gen_[^/]*\.(py|mjs)$/, why: '开发期报告生成器产物模板,非应用界面' },
 ]
 
-const RADIUS_TOKEN_RE = /(border(?:-top|-bottom)?(?:-left|-right)?-radius|borderRadius|\brounded-\[|\b(?:rx|ry)\s*[=:])/
+const RADIUS_TOKEN_RE =
+  /(border(?:-top|-bottom)?(?:-left|-right)?-radius|borderRadius|\brounded-\[|\b(?:rx|ry)\s*[=:])/
 
 /**
  * B7 的方向词表:`rounded-t` / `rounded-tr-sm` 这类"只写方向"或"方向+档位"都是合法类名。
  * 档位名**不写在这里** —— 见 scanText 里的 `classStepNames`(从 radius.js 的表现取,
  * 抄一份固定名单就是第二份真相:表改档时 B7 会拿旧名单判新代码)。
  */
-const CLASS_DIR_NAMES = new Set(['t', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br', 'ss', 'se', 'es', 'ee', 's', 'e'])
+const CLASS_DIR_NAMES = new Set([
+  't',
+  'b',
+  'l',
+  'r',
+  'tl',
+  'tr',
+  'bl',
+  'br',
+  'ss',
+  'se',
+  'es',
+  'ee',
+  's',
+  'e',
+])
 
 /**
  * 判据 C 的"范围外"声明里带 `bExempt` 的那些,**同时把文件从 B 的取材清单摘出去**。
@@ -258,7 +326,8 @@ const CLASS_DIR_NAMES = new Set(['t', 'b', 'l', 'r', 'tl', 'tr', 'bl', 'br', 'ss
  * 数量在结论行如实打印:摘出去多少必须报名,不得让"少扫了文件"读成"没有违规"。
  */
 const B_EXEMPT = OUT_OF_SCOPE.filter((o) => o.bExempt)
-const isBExcluded = (rel) => B_EXEMPT.some((o) => o.re.test(rel) && (o.bExempt === true || o.bExempt.test(rel)))
+const isBExcluded = (rel) =>
+  B_EXEMPT.some((o) => o.re.test(rel) && (o.bExempt === true || o.bExempt.test(rel)))
 
 /** 纯函数(便于自检注入文件清单):返回 { red:[{file,why}], exempt:[{file,category}] } */
 export function coverageAudit(trackedFiles, readFile) {
@@ -276,10 +345,19 @@ export function coverageAudit(trackedFiles, readFile) {
     } catch {
       continue
     }
-    if (!text.split('\n').some((l) => RADIUS_TOKEN_RE.test(l) && !/^\s*(\/\/|\*|#|<!--)/.test(l.trim()))) continue
+    if (
+      !text
+        .split('\n')
+        .some((l) => RADIUS_TOKEN_RE.test(l) && !/^\s*(\/\/|\*|#|<!--)/.test(l.trim()))
+    )
+      continue
     const hit = OUT_OF_SCOPE.find((o) => o.re.test(f))
     if (hit) exempt.push({ file: f, category: hit.why })
-    else red.push({ file: f, why: '既不在 SCAN_DIRS 覆盖内,也未声明为范围外 —— 新增端/目录静默绕开门' })
+    else
+      red.push({
+        file: f,
+        why: '既不在 SCAN_DIRS 覆盖内,也未声明为范围外 —— 新增端/目录静默绕开门',
+      })
   }
   return { red, exempt }
 }
@@ -320,7 +398,8 @@ export function splitFresh(byFile, tolOf) {
  */
 export function makeBlobAccessor(map) {
   return (spec) => {
-    if (!map.has(spec)) throw new Undetermined(`未预取的规格:${spec}(先 prefetch 再 read,禁止补一次派生)`)
+    if (!map.has(spec))
+      throw new Undetermined(`未预取的规格:${spec}(先 prefetch 再 read,禁止补一次派生)`)
     return map.get(spec)
   }
 }
@@ -360,7 +439,11 @@ export function scanText(rel, text, table) {
   const B9_HINT = `圆角半径不得超过最大档 2xl(${MAX_STEP}px)—— 项目定档"不允许圆角过大",改取 ≤ 2xl 的档(全圆写法由守门 11 的 C7 判同一上限)`
   // B7 的档位名单**从 radius.js 的表现取**;`DEFAULT` 是数值兜底键、不是类名后缀,留着它
   // 就等于把"看起来像类名"当成"是类名",而那正是 B7 要防的同一型。
-  const classStepNames = new Set([...Object.keys(table.RADIUS_STEPS).filter((k) => k !== 'DEFAULT'), 'full', 'none'])
+  const classStepNames = new Set([
+    ...Object.keys(table.RADIUS_STEPS).filter((k) => k !== 'DEFAULT'),
+    'full',
+    'none',
+  ])
   /**
    * 纯圆相对式(`50%` / `9999px`)的放行判据从"有没有标记"换成"**量出来的形状**":
    *  - 同一作用域里 `width === height` ⇒ 真圆是几何,不是"绕档位表写死数字",不需要任何标记;
@@ -374,7 +457,8 @@ export function scanText(rel, text, table) {
    * 'circle' / 'rounded-end' 算几何 ⇒ 不是"绕档位表写死数字";
    * 'capsule' 是本项目禁止的形状;'tier' 就是普通圆角取用,必须走档位表。
    */
-  const geoPass = (idx, radiusText, anchor) => ['circle', 'rounded-end'].includes(classifyRadiusGeometry(lines, idx, radiusText, anchor))
+  const geoPass = (idx, radiusText, anchor) =>
+    ['circle', 'rounded-end'].includes(classifyRadiusGeometry(lines, idx, radiusText, anchor))
   const circleVerdict = (i) => {
     // 作者把宽高写成同一个值(常量、rpx(N)、toRpx(x) 都算)⇒ 盒子是正方,这是比数值更强的证据:
     // 它不依赖 dims 的单位折算口径。
@@ -415,7 +499,10 @@ export function scanText(rel, text, table) {
       // `[border-radius:6rpx]` 前面是 `[` 不是空白 —— 旧字符类把它整个漏掉,于是 6rpx(=3px,
       // 根本不在档位表上)长期隐身。值字符类同时排除 `]`,否则整串 className 被当成一个值读。
       if (TABLE_FILES.test(rel)) return
-      const m = /(^|[;{}[\s])(border(?:-top|-bottom)?(?:-left|-right)?-radius\s*:\s*)([^;}\n'"\]]+)/.exec(line)
+      const m =
+        /(^|[;{}[\s])(border(?:-top|-bottom)?(?:-left|-right)?-radius\s*:\s*)([^;}\n'"\]]+)/.exec(
+          line,
+        )
       if (m) {
         const val = m[3].trim()
         if (/^(?:inherit|none|0)$/i.test(val)) {
@@ -438,15 +525,36 @@ export function scanText(rel, text, table) {
           // `border-radius: var(--radius-xl) 24rpx 0 0` 这种"第一个角引用档位、其余角写死字面量"
           // 的多值声明整条隐身(HEAD 实测 4 处)。多值声明的每一个角都必须自己合规。
           for (const part of val.split(/\s+/)) {
-            if (/^(?:var\(|calc\(|inherit|none|auto$)/i.test(part) || /^0(?:\.[0-9]+)?(?:px|rpx|rem|em|%)?$/i.test(part)) continue
+            if (
+              /^(?:var\(|calc\(|inherit|none|auto$)/i.test(part) ||
+              /^0(?:\.[0-9]+)?(?:px|rpx|rem|em|%)?$/i.test(part)
+            )
+              continue
             const mm = /^([0-9.]+)(rpx|px|rem|em)$/.exec(part)
             if (!mm) continue
             // 与 B1 同一条尺子:等式成立才算几何,不是绕档(实现只有一份,见 lib/box-geometry.isGeometricCircle)。
             if (geoPass(i, part)) continue
-            const px = mm[2] === 'rpx' ? Number(mm[1]) / 2 : mm[2] === 'px' ? Number(mm[1]) : Number(mm[1]) * 16
+            const px =
+              mm[2] === 'rpx'
+                ? Number(mm[1]) / 2
+                : mm[2] === 'px'
+                  ? Number(mm[1])
+                  : Number(mm[1]) * 16
             if (px === 0) continue
-            if (steps.includes(px)) bad.push({ line: i + 1, rule: 'B3', raw: part, hint: `应写 var(--radius-*)(${table.stepOf(px) ?? px})` })
-            else bad.push({ line: i + 1, rule: 'B3-off', raw: part, hint: `偏档字面量;就近档位 = ${table.nearest(px)}` })
+            if (steps.includes(px))
+              bad.push({
+                line: i + 1,
+                rule: 'B3',
+                raw: part,
+                hint: `应写 var(--radius-*)(${table.stepOf(px) ?? px})`,
+              })
+            else
+              bad.push({
+                line: i + 1,
+                rule: 'B3-off',
+                raw: part,
+                hint: `偏档字面量;就近档位 = ${table.nearest(px)}`,
+              })
           }
         }
       }
@@ -456,7 +564,8 @@ export function scanText(rel, text, table) {
       // B1 RN/内联 style:裸数字、rpx()、以及**带引号的字符串值**('8px' / "6px 6px 0 0" / `…`)
       //    带引号那支是 2026-09-23 对抗排查补的:原判据只认裸数字,54 处 `borderRadius: '8px'`
       //    与 B3 的值字符类(排除引号)同时漏过,等于最大盲区。
-      const re = /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*(rpx\(\s*[0-9.]+\s*\)|-?[0-9.]+|(['"`])([^'"`]*)\2)/
+      const re =
+        /\bborder(?:Top|Bottom)?(?:Left|Right)?Radius\s*:\s*(rpx\(\s*[0-9.]+\s*\)|-?[0-9.]+|(['"`])([^'"`]*)\2)/
       const m = re.exec(line)
       if (m) {
         if (m[1].startsWith('rpx(') || /^-?[0-9.]+$/.test(m[1])) {
@@ -497,7 +606,12 @@ export function scanText(rel, text, table) {
            */
           // 数值支路走到这里已经过了"折算后 > MAX_STEP"那道闸,所以半径必 ≤ 最大档 —— 几何放行不再叠上限闸。
           if (halfForm ? isHalfOfDeclaredSide(lines, i, raw) : geoPass(i, raw)) return
-          bad.push({ line: i + 1, rule: isRpx ? 'B1-rpx' : 'B1', raw, hint: `应写 ${targetOf(table, px)}(几何圆请写成 <边长> / 2 或 50%)` })
+          bad.push({
+            line: i + 1,
+            rule: isRpx ? 'B1-rpx' : 'B1',
+            raw,
+            hint: `应写 ${targetOf(table, px)}(几何圆请写成 <边长> / 2 或 50%)`,
+          })
         } else {
           const val = (m[3] || '').trim()
           if (/var\(--radius|inherit|none/.test(val)) return
@@ -522,9 +636,19 @@ export function scanText(rel, text, table) {
             const mm = /^([0-9.]+)(rpx|px|rem|em)$/.exec(part)
             if (!mm) continue
             if (geoPass(i, part)) continue
-            const px = mm[2] === 'rpx' ? Number(mm[1]) / 2 : mm[2] === 'px' ? Number(mm[1]) : Number(mm[1]) * 16
+            const px =
+              mm[2] === 'rpx'
+                ? Number(mm[1]) / 2
+                : mm[2] === 'px'
+                  ? Number(mm[1])
+                  : Number(mm[1]) * 16
             if (px === 0) continue
-            bad.push({ line: i + 1, rule: 'B1-string', raw: part, hint: `应写数值档位 ${targetOf(table, px)}(不要字符串字面量)` })
+            bad.push({
+              line: i + 1,
+              rule: 'B1-string',
+              raw: part,
+              hint: `应写数值档位 ${targetOf(table, px)}(不要字符串字面量)`,
+            })
           }
         }
       }
@@ -534,8 +658,17 @@ export function scanText(rel, text, table) {
       //   · ARXIV_MAX_RESULTS —— arXiv 查询参数(RX 子串)
       //   · SNIPPET_RADIUS —— 确实叫 RADIUS 但是字符窗口,属命名债,靠改名解决(见下)
       // 误报的代价是把业务常量吸附成档位值(5 轮→4 轮、60 字符→16 字符),比漏判严重得多。
-      const mc = /^\s*(?:const|let)\s+([A-Za-z0-9_]*(?:RADIUS|Radius|CORNER|Corner)(?:[A-Za-z0-9_]*|\b)|(?:(?:[A-Za-z0-9_]+_)?(?:RX|RY|Rx|Ry)(?:_[A-Za-z0-9_]+)?))(?![A-Za-z0-9_])\s*=\s*([0-9.]+)(?![0-9.]*\s*\/)/.exec(line)
-      if (mc) bad.push({ line: i + 1, rule: 'B2', raw: `${mc[1]}=${mc[2]}`, hint: '本地圆角/圆点半径常量应直接引用 rnRadius.<step>' })
+      const mc =
+        /^\s*(?:const|let)\s+([A-Za-z0-9_]*(?:RADIUS|Radius|CORNER|Corner)(?:[A-Za-z0-9_]*|\b)|(?:(?:[A-Za-z0-9_]+_)?(?:RX|RY|Rx|Ry)(?:_[A-Za-z0-9_]+)?))(?![A-Za-z0-9_])\s*=\s*([0-9.]+)(?![0-9.]*\s*\/)/.exec(
+          line,
+        )
+      if (mc)
+        bad.push({
+          line: i + 1,
+          rule: 'B2',
+          raw: `${mc[1]}=${mc[2]}`,
+          hint: '本地圆角/圆点半径常量应直接引用 rnRadius.<step>',
+        })
     }
     // B5:SVG 圆角矩形 —— rx/ry 同样产生圆角,原先完全无判据(.svg 还被当资产整体跳过)
     //   静态 .svg 资产里没有 JS/CSS 变量通道,故只要求「取值等于档位」或带 radius-exempt 标记;
@@ -549,13 +682,25 @@ export function scanText(rel, text, table) {
       const px = Number(raw)
       if (!Number.isFinite(px) || px === 0 || geoPass(i, raw, /\b(?:rx|ry)\s*[=:]/)) continue
       if (staticSvg && steps.includes(px)) continue
-      bad.push({ line: i + 1, rule: 'B5', raw: `${r5[1] || r5[4]}=${raw}`, hint: staticSvg ? `静态 SVG 圆角须等于档位值(${table.nearest(px)}) —— 项目不留豁免标记,确属图形轮廓则把该资产目录声明进 OUT_OF_SCOPE` : `SVG 圆角应引用档位 ${targetOf(table, px)}` })
+      bad.push({
+        line: i + 1,
+        rule: 'B5',
+        raw: `${r5[1] || r5[4]}=${raw}`,
+        hint: staticSvg
+          ? `静态 SVG 圆角须等于档位值(${table.nearest(px)}) —— 项目不留豁免标记,确属图形轮廓则把该资产目录声明进 OUT_OF_SCOPE`
+          : `SVG 圆角应引用档位 ${targetOf(table, px)}`,
+      })
     }
     const arb = /\brounded(?:-[a-z0-9]+)*-\[([^\]]+)\]/g
     let a
     while ((a = arb.exec(line))) {
       if (/var\(--radius/.test(a[1]) || geoPass(i, a[1], /rounded-/)) continue
-      bad.push({ line: i + 1, rule: 'B4', raw: a[0], hint: '任意值须换档位类 rounded-<step>(几何真圆请写成与边长同形的 <边长> / 2,门能认出它)' })
+      bad.push({
+        line: i + 1,
+        rule: 'B4',
+        raw: a[0],
+        hint: '任意值须换档位类 rounded-<step>(几何真圆请写成与边长同形的 <边长> / 2,门能认出它)',
+      })
     }
     /**
      * B7:类名**解析不到任何工具类**时,圆角其实是 0,而账面什么都看不出来。
@@ -582,9 +727,17 @@ export function scanText(rel, text, table) {
           let why = ''
           if (!segs.length) continue
           else if (segs.every((s) => CLASS_DIR_NAMES.has(s))) continue
-          else if (!classStepNames.has(segs[segs.length - 1])) why = `尾段 "${segs[segs.length - 1]}" 不是档位名`
-          else if (!segs.slice(0, -1).every((s) => CLASS_DIR_NAMES.has(s))) why = `中段 "${segs.find((s) => !CLASS_DIR_NAMES.has(s))}" 不是方向/角`
-          if (why) bad.push({ line: i + 1, rule: 'B7-dead-class', raw: tok, hint: `${why} ⇒ Tailwind 不产出任何规则,这一处的圆角实际是 0(死类名)` })
+          else if (!classStepNames.has(segs[segs.length - 1]))
+            why = `尾段 "${segs[segs.length - 1]}" 不是档位名`
+          else if (!segs.slice(0, -1).every((s) => CLASS_DIR_NAMES.has(s)))
+            why = `中段 "${segs.find((s) => !CLASS_DIR_NAMES.has(s))}" 不是方向/角`
+          if (why)
+            bad.push({
+              line: i + 1,
+              rule: 'B7-dead-class',
+              raw: tok,
+              hint: `${why} ⇒ Tailwind 不产出任何规则,这一处的圆角实际是 0(死类名)`,
+            })
         }
       }
     }
@@ -599,19 +752,89 @@ export function scanText(rel, text, table) {
   //    旧判据对**门自己规定的写法**整族失明(2026-09-29 实测:一枚只改取值不改 import 的提交
   //    带着 TS2552 + TS6133 进了 HEAD,而 B6/门 98/门 77 全绿,只有 typecheck 红)。
   if (isJsx(rel)) {
-    const importLists = [...text.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*design-tokens['"]/g)].map((m) => m[1])
+    const importLists = [
+      ...text.matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*['"][^'"]*design-tokens['"]/g),
+    ].map((m) => m[1])
     for (const name of ['rnRadius', 'rnRadiusFor', 'RADIUS_CSS_PX']) {
       // G-589 验收②:`rnRadiusFor['chip']` 括号形态与点形态同判 —— 使用式只认 `\s*\.` 时,
       // 括号取档的文件对 B6 整族失明。rnRadius 的括号形态(rnRadius['2xl'])是 B1 段既有
       // 检测的合法写法,这里只扩 rnRadiusFor,不放大 rnRadius 的语义面。
-      const useRe = name === 'rnRadiusFor' ? /\brnRadiusFor\s*(?:\.|\[)/ : new RegExp(`\\b${name}\\s*\\.`)
+      const useRe =
+        name === 'rnRadiusFor' ? /\brnRadiusFor\s*(?:\.|\[)/ : new RegExp(`\\b${name}\\s*\\.`)
       const used = lines.some((l) => !/^\s*(\/\/|\*|\/\*|<!--)/.test(l) && useRe.test(l))
       if (!used) continue
-      if (importLists.some((s) => new RegExp(`[\\s,{]${name}(?:\\s+as\\s+\\w+)?\\s*(?:,|$)`).test(s))) continue
-      bad.push({ line: 1, rule: 'B6', raw: `${name} 被使用但未 import`, hint: `须在 '@ihui/design-tokens' 的 import 列表里带上 ${name},否则该文件在 HEAD 上直接编译不过` })
+      if (
+        importLists.some((s) => new RegExp(`[\\s,{]${name}(?:\\s+as\\s+\\w+)?\\s*(?:,|$)`).test(s))
+      )
+        continue
+      bad.push({
+        line: 1,
+        rule: 'B6',
+        raw: `${name} 被使用但未 import`,
+        hint: `须在 '@ihui/design-tokens' 的 import 列表里带上 ${name},否则该文件在 HEAD 上直接编译不过`,
+      })
+    }
+  }
+  // B10:容器造形(切角)绕开档位表。文件级判据 —— 一条 clip-path 是否合法,取决于它住在
+  //    @keyframes 里还是外面,逐行判据拿不到这个上下文(见 findContainerNotches 的立因)。
+  if (isCss(rel) || isJsx(rel)) {
+    for (const h of findContainerNotches(text)) {
+      if (h.inKeyframes) continue
+      bad.push({
+        line: h.line,
+        rule: 'B10-shape-notch',
+        raw: h.raw,
+        hint: '静态容器不得用 clip-path 造角:圆角一律取 rounded-* / var(--radius-*),角色档见 RADIUS_ROLES(里面没有切角档);动画遮罩请写进 @keyframes,那一型结构性豁免',
+      })
     }
   }
   return bad
+}
+
+/**
+ * B10 的认形:**纯函数**,输入整份文件文本,返回每个 clip-path 造形命中及其是否落在 @keyframes 内。
+ *
+ * 为什么必须自己遮注释:标记活在注释里,而"旧写法 clip-path: polygon(…) 已废弃"这类说明
+ * 文字一旦被当成代码扫,判据就会因为自己写的文档而红(§0 同型教训:判据不能吃自己的说明文字)。
+ * 遮罩按字符等长替换,行号才不会漂。
+ */
+export function findContainerNotches(text) {
+  const src = String(text ?? '')
+  if (!src.trim()) return []
+  const masked = src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/(^|[^:])\/\/[^\n]*/g, (m, p) => p + ' '.repeat(m.length - p.length))
+  const hits = [
+    ...masked.matchAll(/clip-path\s*:\s*polygon\(|clip-\[polygon|clipPath\s*=\s*["']polygon/gi),
+  ]
+  if (!hits.length) return []
+  const ranges = keyframeRanges(masked)
+  return hits.map((h) => ({
+    line: masked.slice(0, h.index).split('\n').length,
+    raw: h[0],
+    inKeyframes: ranges.some(([a, b]) => h.index >= a && h.index < b),
+  }))
+}
+
+/**
+ * @keyframes 块的字符区间(括号配平)。配不平 ⇒ 区间延伸到文末,即"宁可当它在块内放行一条,
+ * 也不拿一个量不准的上下文去喊红" —— 失效方向是多放一次形状声明,不是多拦一次提交。
+ */
+function keyframeRanges(masked) {
+  const ranges = []
+  const re = /@keyframes\s+[\w-]+\s*\{/gi
+  let m
+  while ((m = re.exec(masked))) {
+    let depth = 1
+    let i = m.index + m[0].length
+    while (i < masked.length && depth > 0) {
+      if (masked[i] === '{') depth++
+      else if (masked[i] === '}') depth--
+      i++
+    }
+    ranges.push([m.index, depth === 0 ? i : masked.length])
+  }
+  return ranges
 }
 
 /**
@@ -638,7 +861,8 @@ export function checkRoleUnion(roles, declText) {
   const dset = new Set(declared)
   const tset = new Set(table)
   for (const r of table) if (!dset.has(r)) errors.push(`RadiusRole 缺 '${r}'(radius.js 已有该角色)`)
-  for (const r of declared) if (!tset.has(r)) errors.push(`RadiusRole 多 '${r}'(radius.js 已无此角色 = 类型清单腐烂)`)
+  for (const r of declared)
+    if (!tset.has(r)) errors.push(`RadiusRole 多 '${r}'(radius.js 已无此角色 = 类型清单腐烂)`)
   return errors
 }
 
@@ -657,10 +881,22 @@ export async function checkTableConsistency() {
   // 1) tokens.css
   const tokensCss = readFileSync(join(ROOT, 'packages/design-tokens/src/styles/tokens.css'), 'utf8')
   const cssMap = readCssRadius(tokensCss)
-  const expectCss = { '--radius': table.DEFAULT, '--radius-xs': table.xs, '--radius-sm': table.sm, '--radius-md': table.md, '--radius-lg': table.lg, '--radius-xl': table.xl, '--radius-2xl': table['2xl'] }
+  const expectCss = {
+    '--radius': table.DEFAULT,
+    '--radius-xs': table.xs,
+    '--radius-sm': table.sm,
+    '--radius-md': table.md,
+    '--radius-lg': table.lg,
+    '--radius-xl': table.xl,
+    '--radius-2xl': table['2xl'],
+  }
   for (const [k, v] of Object.entries(expectCss)) {
-    if (cssMap[k] === undefined) { errors.push(`tokens.css 缺少 ${k} 定义(应为 ${v}px)`); continue }
-    if (Math.abs(cssMap[k] - v) > 0.001) errors.push(`tokens.css ${k}=${cssMap[k]}px 与 radius.js ${v}px 漂移`)
+    if (cssMap[k] === undefined) {
+      errors.push(`tokens.css 缺少 ${k} 定义(应为 ${v}px)`)
+      continue
+    }
+    if (Math.abs(cssMap[k] - v) > 0.001)
+      errors.push(`tokens.css ${k}=${cssMap[k]}px 与 radius.js ${v}px 漂移`)
   }
   // 2) miniapp-taro app.css(端内同步块)
   const appCssPath = join(ROOT, 'apps/miniapp-taro/src/app.css')
@@ -668,17 +904,25 @@ export async function checkTableConsistency() {
     const appMap = readCssRadius(readFileSync(appCssPath, 'utf8'))
     for (const [k, v] of Object.entries(expectCss)) {
       if (appMap[k] === undefined) continue // 端内可只同步子集
-      if (Math.abs(appMap[k] - v) > 0.001) errors.push(`miniapp-taro app.css ${k}=${appMap[k]}px 与 radius.js ${v}px 漂移`)
+      if (Math.abs(appMap[k] - v) > 0.001)
+        errors.push(`miniapp-taro app.css ${k}=${appMap[k]}px 与 radius.js ${v}px 漂移`)
     }
   }
   // 3) tailwind preset 必须引用 RADIUS_REM,不得重新内联字面量表
   const preset = readFileSync(join(ROOT, 'packages/design-tokens/src/tailwind-preset.js'), 'utf8')
-  if (!PRESET_RADIUS_REF_RE.test(preset)) errors.push('tailwind-preset.js 的 borderRadius 必须写 `borderRadius: RADIUS_REM`,不得重新内联档位字面量')
+  if (!PRESET_RADIUS_REF_RE.test(preset))
+    errors.push(
+      'tailwind-preset.js 的 borderRadius 必须写 `borderRadius: RADIUS_REM`,不得重新内联档位字面量',
+    )
   // 4) 角色名两处对账(档值同形,但历史上只比档值 —— 新角色就是这么在类型面隐身的)
   const roleDecl = (() => {
     try {
       const b = catBatch(ROOT, ['HEAD:packages/design-tokens/src/radius.d.ts'])
-      return b.get('packages/design-tokens/src/radius.d.ts') ?? b.get('HEAD:packages/design-tokens/src/radius.d.ts') ?? ''
+      return (
+        b.get('packages/design-tokens/src/radius.d.ts') ??
+        b.get('HEAD:packages/design-tokens/src/radius.d.ts') ??
+        ''
+      )
     } catch {
       return null
     }
@@ -701,30 +945,116 @@ async function selfTest() {
   const table = {
     RADIUS_STEPS: { xs: 2, sm: 4, DEFAULT: 8, md: 6, lg: 8, xl: 12, '2xl': 16 },
     stepOf: (px) => ({ 2: 'xs', 4: 'sm', 6: 'md', 8: 'lg', 12: 'xl', 16: '2xl' })[px] || null,
-    nearest: (px) => [2, 4, 6, 8, 12, 16].reduce((a, b) => (Math.abs(b - px) < Math.abs(a - px) ? b : a)),
+    nearest: (px) =>
+      [2, 4, 6, 8, 12, 16].reduce((a, b) => (Math.abs(b - px) < Math.abs(a - px) ? b : a)),
   }
   const cases = [
-    { name: 'B1 RN 数字字面量必拦', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 8 } }', red: true },
-    { name: 'B1 rnRadius 引用放行', f: 'packages/app/src/x.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst st = { a: { borderRadius: rnRadius.lg } }", red: false },
-    { name: 'B1 0 放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 0 } }', red: false },
-    { name: 'B1 `<边长> / 2` 且分子等于同一作用域的正方边长 ⇒ §4 推荐的几何式,放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 20, height: 20, borderRadius: 20 / 2 } }', red: false },
-    { name: 'B1 反向:`/ 2` 只是声称在算一半 —— 分子与盒尺寸不符(10 vs 40×40)不得放行', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 40, height: 40, borderRadius: 10 / 2 } }', red: true },
-    { name: 'B1 反向:量不到盒形的 `/ 2` 不得放行(声称不等于证明)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 20 / 2 } }', red: true },
+    {
+      name: 'B1 RN 数字字面量必拦',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { borderRadius: 8 } }',
+      red: true,
+    },
+    {
+      name: 'B1 rnRadius 引用放行',
+      f: 'packages/app/src/x.tsx',
+      s: "import { rnRadius } from '@ihui/design-tokens'\nconst st = { a: { borderRadius: rnRadius.lg } }",
+      red: false,
+    },
+    {
+      name: 'B1 0 放行',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { borderRadius: 0 } }',
+      red: false,
+    },
+    {
+      name: 'B1 `<边长> / 2` 且分子等于同一作用域的正方边长 ⇒ §4 推荐的几何式,放行',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { width: 20, height: 20, borderRadius: 20 / 2 } }',
+      red: false,
+    },
+    {
+      name: 'B1 反向:`/ 2` 只是声称在算一半 —— 分子与盒尺寸不符(10 vs 40×40)不得放行',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { width: 40, height: 40, borderRadius: 10 / 2 } }',
+      red: true,
+    },
+    {
+      name: 'B1 反向:量不到盒形的 `/ 2` 不得放行(声称不等于证明)',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { borderRadius: 20 / 2 } }',
+      red: true,
+    },
     // 用户 2026-09-29 定档「任何圆角半径不得超过最大档 2xl=16px,圆形头像不再豁免」之后,
     // 这一格的原期望("48×48 上的 24 按形状放行")**已被裁决推翻** —— 半径 24 超上限,必红。
     // 留原样就是让自检替一条已废的口径背书,所以改判红,并补一条仍在上限内的几何真圆当放行对照。
-    { name: 'B1 数值真圆 48×48 上的 24 ⇒ 形状是正圆但**半径超上限**,按 2026-09-29 定档判红', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 48, height: 48, borderRadius: 24 } }', red: true },
-    { name: 'B1 数值真圆 32×32 上的 16 ⇒ 既是几何真圆又不超上限 ⇒ 放行(上一条的放行对照)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 32, height: 32, borderRadius: 16 } }', red: false },
-    { name: 'B1 `<边长> / 2` 折算后才比上限:48 的盒写 `48 / 2`=24 ⇒ 红', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 48, height: 48, borderRadius: 48 / 2 } }', red: true },
-    { name: 'B1 `<边长> / 2` 折算是真半径:18 的盒写 `18 / 2`=9 ⇒ 几何放行(不得按分子 18 去比上限而误判)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 18, height: 18, borderRadius: 18 / 2 } }', red: false },
-    { name: 'B1 反向:`/ 2` 的分子与盒边长不符(36 的盒写 18/2)⇒ 声称不等于证明,仍按绕档拦', f: 'packages/app/src/x.tsx', s: 'const st = { a: { width: 36, height: 36, borderRadius: 18 / 2 } }', red: true },
+    {
+      name: 'B1 数值真圆 48×48 上的 24 ⇒ 形状是正圆但**半径超上限**,按 2026-09-29 定档判红',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { width: 48, height: 48, borderRadius: 24 } }',
+      red: true,
+    },
+    {
+      name: 'B1 数值真圆 32×32 上的 16 ⇒ 既是几何真圆又不超上限 ⇒ 放行(上一条的放行对照)',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { width: 32, height: 32, borderRadius: 16 } }',
+      red: false,
+    },
+    {
+      name: 'B1 `<边长> / 2` 折算后才比上限:48 的盒写 `48 / 2`=24 ⇒ 红',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { width: 48, height: 48, borderRadius: 48 / 2 } }',
+      red: true,
+    },
+    {
+      name: 'B1 `<边长> / 2` 折算是真半径:18 的盒写 `18 / 2`=9 ⇒ 几何放行(不得按分子 18 去比上限而误判)',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { width: 18, height: 18, borderRadius: 18 / 2 } }',
+      red: false,
+    },
+    {
+      name: 'B1 反向:`/ 2` 的分子与盒边长不符(36 的盒写 18/2)⇒ 声称不等于证明,仍按绕档拦',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { width: 36, height: 36, borderRadius: 18 / 2 } }',
+      red: true,
+    },
 
-    { name: 'B1 反向:量不到盒形时标记**不再**替几何背书(零豁免)', f: 'packages/app/src/x.tsx', s: 'const st = { a: { borderRadius: 24 } } // radius-exempt: 48dp 头像正圆', red: true },
-    { name: 'B1 rpx 绕档必拦', f: 'apps/mobile-rn/src/x.tsx', s: 'const st = { a: { borderRadius: rpx(16) } }', red: true },
-    { name: 'B2 本地常量必拦', f: 'apps/mobile-rn/src/x.tsx', s: 'const CARD_RADIUS = 12', red: true },
-    { name: 'B2 引用档位放行', f: 'apps/mobile-rn/src/x.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst CARD_RADIUS = rnRadius.xl", red: false },
-    { name: 'B3 CSS 字面量必拦', f: 'apps/miniapp-taro/src/a.css', s: '  border-radius: 24rpx;', red: true },
-    { name: 'B3 CSS var 放行', f: 'apps/miniapp-taro/src/a.css', s: '  border-radius: var(--radius-xl);', red: false },
+    {
+      name: 'B1 反向:量不到盒形时标记**不再**替几何背书(零豁免)',
+      f: 'packages/app/src/x.tsx',
+      s: 'const st = { a: { borderRadius: 24 } } // radius-exempt: 48dp 头像正圆',
+      red: true,
+    },
+    {
+      name: 'B1 rpx 绕档必拦',
+      f: 'apps/mobile-rn/src/x.tsx',
+      s: 'const st = { a: { borderRadius: rpx(16) } }',
+      red: true,
+    },
+    {
+      name: 'B2 本地常量必拦',
+      f: 'apps/mobile-rn/src/x.tsx',
+      s: 'const CARD_RADIUS = 12',
+      red: true,
+    },
+    {
+      name: 'B2 引用档位放行',
+      f: 'apps/mobile-rn/src/x.tsx',
+      s: "import { rnRadius } from '@ihui/design-tokens'\nconst CARD_RADIUS = rnRadius.xl",
+      red: false,
+    },
+    {
+      name: 'B3 CSS 字面量必拦',
+      f: 'apps/miniapp-taro/src/a.css',
+      s: '  border-radius: 24rpx;',
+      red: true,
+    },
+    {
+      name: 'B3 CSS var 放行',
+      f: 'apps/miniapp-taro/src/a.css',
+      s: '  border-radius: var(--radius-xl);',
+      red: false,
+    },
     {
       name: 'B3 多值声明逐值判 —— var 之后的裸字面量必须看见(旧整串短路漏过 4 处)',
       f: 'apps/miniapp-taro/src/a.css',
@@ -780,7 +1110,12 @@ async function selfTest() {
       s: '<View className="rounded-xs rounded-2xl" />',
       red: false,
     },
-    { name: 'B3 反向:量不到盒形时标记**不再**放行(零豁免 —— 形状是量出来的,不是谁声明的)', f: 'apps/web/app/x.css', s: '  border-radius: 50%; /* radius-exempt: 头像 */', red: true },
+    {
+      name: 'B3 反向:量不到盒形时标记**不再**放行(零豁免 —— 形状是量出来的,不是谁声明的)',
+      f: 'apps/web/app/x.css',
+      s: '  border-radius: 50%; /* radius-exempt: 头像 */',
+      red: true,
+    },
     {
       name: 'B8 合规取用 + 一行标记 ⇒ 仍红(拦的是"挂标记"这个动作本身,与那一档对不对无关)',
       f: 'apps/web/app/b8.tsx',
@@ -799,71 +1134,318 @@ async function selfTest() {
       s: '/* 这里以前挂过 radius-exempt 与 radius-role-exempt,通道已整体废除,现在靠形状量 */\n.card { border-radius: var(--radius-lg); }\n',
       red: false,
     },
-    { name: 'B3 可证正方 + 50% ⇒ 真圆放行(不需要任何标记)', f: 'apps/web/app/x.css', s: '  width: 96rpx;\n  height: 96rpx;\n  border-radius: 50%;', red: false },
-    { name: 'B3 注释行放行', f: 'apps/web/app/x.css', s: '  /* border-radius: 24rpx; */', red: false },
-    { name: 'B3 tokens.css 自身定义行放行', f: 'packages/design-tokens/src/styles/tokens.css', s: '  border-radius: 8px;', red: false },
-    { name: 'B4 任意值必拦', f: 'apps/miniapp-taro/src/a.tsx', s: '<View className="rounded-[24rpx]" />', red: true },
-    { name: 'B4 var 形式放行', f: 'apps/miniapp-taro/src/a.tsx', s: '<View className="rounded-[var(--radius-lg)]" />', red: false },
-    { name: 'B3 一行多声明也要看见(width…; border-radius: 50%)—— 非正方 ⇒ 胶囊判红', f: 'apps/desktop/src-tauri/offline/index.html', s: '    width: 16px; height: 12px; border-radius: 50%;', red: true },
-    { name: 'B3 同一行的 width/height 必须被读到(正方 ⇒ 真圆放行)', f: 'apps/desktop/src-tauri/offline/index.html', s: '    width: 16px; height: 16px; border-radius: 50%;', red: false },
-    { name: 'B3 TS 模板里生成的 CSS 字面量必拦', f: 'apps/cli/src/commands/share.ts', s: '  .meta { background: #f6f8fa; border-radius: 6px; padding: 1rem; }', red: true },
-    { name: 'B1 带引号字符串值必拦(原判据盲区:54 处 borderRadius: "8px")', f: 'apps/web/src/components/common/Toaster.tsx', s: 'const t = { borderRadius: "8px" }', red: true },
-    { name: 'B1 字符串多值必拦', f: 'apps/web/app/(main)/design/InspectorPanel.tsx', s: 'style={{ borderRadius: "6px 6px 0 0" }}', red: true },
-    { name: 'B1 字符串写 var 放行', f: 'apps/web/src/a.tsx', s: 'style={{ borderRadius: "var(--radius-lg)" }}', red: false },
-    { name: 'B1 字符串纯圆无标记必拦', f: 'apps/web/src/a.tsx', s: 'style={{ borderRadius: "50%" }}', red: true },
-    { name: 'B5 SVG rx 表达式数值必拦(且不得算出 NaN/undefined)', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: '<rect rx={2} ry={2} width={10} />', red: true, saneRaw: true },
-    { name: 'B5 静态 svg 偏档必拦', f: 'apps/web/public/x.svg', s: '<rect rx="5" ry="5" />', red: true },
-    { name: 'B5 静态 svg 取值为档位则放行(无 JS 变量通道)', f: 'apps/web/public/x.svg', s: '<rect rx="8" ry="8" />', red: false },
-    { name: 'B5 JSX 内联 svg 仍须引用档位', f: 'apps/web/src/a.tsx', s: '<rect rx="8" ry="8" />', red: true },
-    { name: 'B2 常量名不含 RADIUS 也要拦(BAR_RX 形态)', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: 'const BAR_RX = 2', red: true },
-    { name: 'B2 正向对照:名字含 ROUND 的非圆角常量不得误报(MAX_ROUNDS=5 是编排轮次)', f: 'apps/api/src/services/crew-orchestrator.ts', s: 'const MAX_ROUNDS = 5', red: false },
-    { name: 'B2 正向对照:DEFAULT_COMM_ROUNDS 同形不误报', f: 'apps/api/src/services/subagent-dispatch-service.ts', s: 'const DEFAULT_COMM_ROUNDS = 3', red: false },
-    { name: 'B2 正向对照:ARXIV_MAX_RESULTS 含 RX 子串不得误报(arXiv 查询参数)', f: 'apps/api/src/jobs/ai-world-sync.ts', s: 'const ARXIV_MAX_RESULTS = 60', red: false },
-    { name: 'B2 正向对照:aiRounds 轮次计数不误报', f: 'apps/api/src/routes/edu-canteen.ts', s: 'let aiRounds = 1', red: false },
-    { name: 'B2 反向对照:独立成词的 RX 常量仍要拦(SVG 半径)', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: 'const RX = 2', red: true },
-    { name: 'B2 反向对照:BAR_RX 前缀形仍要拦', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: 'const BAR_RX = 4', red: true },
-    { name: 'B1 带引号字符串值必拦(原判据盲区:54 处 borderRadius: "8px")', f: 'apps/web/src/components/common/Toaster.tsx', s: 'const t = { borderRadius: "8px" }', red: true },
-    { name: 'B1 字符串多值必拦', f: 'apps/web/app/(main)/design/InspectorPanel.tsx', s: 'style={{ borderRadius: "6px 6px 0 0" }}', red: true },
-    { name: 'B1 字符串写 var 放行', f: 'apps/web/src/a.tsx', s: 'style={{ borderRadius: "var(--radius-lg)" }}', red: false },
-    { name: 'B1 字符串纯圆无标记必拦', f: 'apps/web/src/a.tsx', s: 'style={{ borderRadius: "50%" }}', red: true },
-    { name: 'B5 SVG rx 数值必拦', f: 'apps/web/src/components/ai/chart-template-card.tsx', s: '<rect rx={2} ry={2} width={10} />', red: true },
-    { name: '档位类放行', f: 'apps/web/src/a.tsx', s: '<div className="rounded-lg p-2" />', red: false },
-    { name: 'B6 引用 rnRadius 却没 import 必拦(HEAD 上就是编译不过)', f: 'apps/web/src/a.tsx', s: 'const s = { a: { borderRadius: rnRadius.lg } }', red: true },
-    { name: 'B6 多行 import 带 rnRadius 必须放行(首版单行匹配误伤 6 个正常文件)', f: 'apps/api/src/plugins/swagger-theme.ts', s: "import {\n  COLOR_BLACK,\n  rnRadius,\n  RADIUS_CSS_PX,\n} from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadius.lg } }\nconst css = `border-radius: ${RADIUS_CSS_PX.md}`", red: false },
-    { name: 'B6 别名 import(rnRadius as r)同样放行', f: 'apps/web/src/a.tsx', s: "import { rnRadius as r } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: r.lg } }", red: false },
-    { name: 'B6 只在注释里提到 rnRadius 不算使用', f: 'apps/web/src/a.tsx', s: '// 这里将来会换成 rnRadius.lg\nconst s = { a: { borderRadius: 0 } }', red: false },
+    {
+      name: 'B3 可证正方 + 50% ⇒ 真圆放行(不需要任何标记)',
+      f: 'apps/web/app/x.css',
+      s: '  width: 96rpx;\n  height: 96rpx;\n  border-radius: 50%;',
+      red: false,
+    },
+    {
+      name: 'B3 注释行放行',
+      f: 'apps/web/app/x.css',
+      s: '  /* border-radius: 24rpx; */',
+      red: false,
+    },
+    {
+      name: 'B3 tokens.css 自身定义行放行',
+      f: 'packages/design-tokens/src/styles/tokens.css',
+      s: '  border-radius: 8px;',
+      red: false,
+    },
+    {
+      name: 'B4 任意值必拦',
+      f: 'apps/miniapp-taro/src/a.tsx',
+      s: '<View className="rounded-[24rpx]" />',
+      red: true,
+    },
+    {
+      name: 'B4 var 形式放行',
+      f: 'apps/miniapp-taro/src/a.tsx',
+      s: '<View className="rounded-[var(--radius-lg)]" />',
+      red: false,
+    },
+    {
+      name: 'B3 一行多声明也要看见(width…; border-radius: 50%)—— 非正方 ⇒ 胶囊判红',
+      f: 'apps/desktop/src-tauri/offline/index.html',
+      s: '    width: 16px; height: 12px; border-radius: 50%;',
+      red: true,
+    },
+    {
+      name: 'B3 同一行的 width/height 必须被读到(正方 ⇒ 真圆放行)',
+      f: 'apps/desktop/src-tauri/offline/index.html',
+      s: '    width: 16px; height: 16px; border-radius: 50%;',
+      red: false,
+    },
+    {
+      name: 'B3 TS 模板里生成的 CSS 字面量必拦',
+      f: 'apps/cli/src/commands/share.ts',
+      s: '  .meta { background: #f6f8fa; border-radius: 6px; padding: 1rem; }',
+      red: true,
+    },
+    {
+      name: 'B1 带引号字符串值必拦(原判据盲区:54 处 borderRadius: "8px")',
+      f: 'apps/web/src/components/common/Toaster.tsx',
+      s: 'const t = { borderRadius: "8px" }',
+      red: true,
+    },
+    {
+      name: 'B1 字符串多值必拦',
+      f: 'apps/web/app/(main)/design/InspectorPanel.tsx',
+      s: 'style={{ borderRadius: "6px 6px 0 0" }}',
+      red: true,
+    },
+    {
+      name: 'B1 字符串写 var 放行',
+      f: 'apps/web/src/a.tsx',
+      s: 'style={{ borderRadius: "var(--radius-lg)" }}',
+      red: false,
+    },
+    {
+      name: 'B1 字符串纯圆无标记必拦',
+      f: 'apps/web/src/a.tsx',
+      s: 'style={{ borderRadius: "50%" }}',
+      red: true,
+    },
+    {
+      name: 'B5 SVG rx 表达式数值必拦(且不得算出 NaN/undefined)',
+      f: 'apps/web/src/components/ai/chart-template-card.tsx',
+      s: '<rect rx={2} ry={2} width={10} />',
+      red: true,
+      saneRaw: true,
+    },
+    {
+      name: 'B5 静态 svg 偏档必拦',
+      f: 'apps/web/public/x.svg',
+      s: '<rect rx="5" ry="5" />',
+      red: true,
+    },
+    {
+      name: 'B5 静态 svg 取值为档位则放行(无 JS 变量通道)',
+      f: 'apps/web/public/x.svg',
+      s: '<rect rx="8" ry="8" />',
+      red: false,
+    },
+    {
+      name: 'B5 JSX 内联 svg 仍须引用档位',
+      f: 'apps/web/src/a.tsx',
+      s: '<rect rx="8" ry="8" />',
+      red: true,
+    },
+    {
+      name: 'B2 常量名不含 RADIUS 也要拦(BAR_RX 形态)',
+      f: 'apps/web/src/components/ai/chart-template-card.tsx',
+      s: 'const BAR_RX = 2',
+      red: true,
+    },
+    {
+      name: 'B2 正向对照:名字含 ROUND 的非圆角常量不得误报(MAX_ROUNDS=5 是编排轮次)',
+      f: 'apps/api/src/services/crew-orchestrator.ts',
+      s: 'const MAX_ROUNDS = 5',
+      red: false,
+    },
+    {
+      name: 'B2 正向对照:DEFAULT_COMM_ROUNDS 同形不误报',
+      f: 'apps/api/src/services/subagent-dispatch-service.ts',
+      s: 'const DEFAULT_COMM_ROUNDS = 3',
+      red: false,
+    },
+    {
+      name: 'B2 正向对照:ARXIV_MAX_RESULTS 含 RX 子串不得误报(arXiv 查询参数)',
+      f: 'apps/api/src/jobs/ai-world-sync.ts',
+      s: 'const ARXIV_MAX_RESULTS = 60',
+      red: false,
+    },
+    {
+      name: 'B2 正向对照:aiRounds 轮次计数不误报',
+      f: 'apps/api/src/routes/edu-canteen.ts',
+      s: 'let aiRounds = 1',
+      red: false,
+    },
+    {
+      name: 'B2 反向对照:独立成词的 RX 常量仍要拦(SVG 半径)',
+      f: 'apps/web/src/components/ai/chart-template-card.tsx',
+      s: 'const RX = 2',
+      red: true,
+    },
+    {
+      name: 'B2 反向对照:BAR_RX 前缀形仍要拦',
+      f: 'apps/web/src/components/ai/chart-template-card.tsx',
+      s: 'const BAR_RX = 4',
+      red: true,
+    },
+    {
+      name: 'B1 带引号字符串值必拦(原判据盲区:54 处 borderRadius: "8px")',
+      f: 'apps/web/src/components/common/Toaster.tsx',
+      s: 'const t = { borderRadius: "8px" }',
+      red: true,
+    },
+    {
+      name: 'B1 字符串多值必拦',
+      f: 'apps/web/app/(main)/design/InspectorPanel.tsx',
+      s: 'style={{ borderRadius: "6px 6px 0 0" }}',
+      red: true,
+    },
+    {
+      name: 'B1 字符串写 var 放行',
+      f: 'apps/web/src/a.tsx',
+      s: 'style={{ borderRadius: "var(--radius-lg)" }}',
+      red: false,
+    },
+    {
+      name: 'B1 字符串纯圆无标记必拦',
+      f: 'apps/web/src/a.tsx',
+      s: 'style={{ borderRadius: "50%" }}',
+      red: true,
+    },
+    {
+      name: 'B5 SVG rx 数值必拦',
+      f: 'apps/web/src/components/ai/chart-template-card.tsx',
+      s: '<rect rx={2} ry={2} width={10} />',
+      red: true,
+    },
+    {
+      name: '档位类放行',
+      f: 'apps/web/src/a.tsx',
+      s: '<div className="rounded-lg p-2" />',
+      red: false,
+    },
+    {
+      name: 'B6 引用 rnRadius 却没 import 必拦(HEAD 上就是编译不过)',
+      f: 'apps/web/src/a.tsx',
+      s: 'const s = { a: { borderRadius: rnRadius.lg } }',
+      red: true,
+    },
+    {
+      name: 'B6 多行 import 带 rnRadius 必须放行(首版单行匹配误伤 6 个正常文件)',
+      f: 'apps/api/src/plugins/swagger-theme.ts',
+      s: "import {\n  COLOR_BLACK,\n  rnRadius,\n  RADIUS_CSS_PX,\n} from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadius.lg } }\nconst css = `border-radius: ${RADIUS_CSS_PX.md}`",
+      red: false,
+    },
+    {
+      name: 'B6 别名 import(rnRadius as r)同样放行',
+      f: 'apps/web/src/a.tsx',
+      s: "import { rnRadius as r } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: r.lg } }",
+      red: false,
+    },
+    {
+      name: 'B6 只在注释里提到 rnRadius 不算使用',
+      f: 'apps/web/src/a.tsx',
+      s: '// 这里将来会换成 rnRadius.lg\nconst s = { a: { borderRadius: 0 } }',
+      red: false,
+    },
     // 门自己推荐的写法必须被门看见 —— 2026-09-29 一枚按本条推荐改取值的提交把 import 漏了,
     // 而旧判据(\brnRadius\s*\.)对 `rnRadiusFor.card` 整族失明,typecheck 才红。
-    { name: 'B6 引用 rnRadiusFor 却没 import 必拦(真仓刚踩过一次)', f: 'apps/miniapp-taro/src/components/InputArea.tsx', s: "import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor.card } }", red: true },
-    { name: 'B6 反向:同一文件 import 了 rnRadiusFor 必须放行(只拦缺 import,不拦这种写法)', f: 'apps/miniapp-taro/src/components/InputArea.tsx', s: "import { cn, rnRadiusFor, TARO_RPX_PER_PX } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor.card } }", red: false },
+    {
+      name: 'B6 引用 rnRadiusFor 却没 import 必拦(真仓刚踩过一次)',
+      f: 'apps/miniapp-taro/src/components/InputArea.tsx',
+      s: "import { cn, rnRadius, TARO_RPX_PER_PX } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor.card } }",
+      red: true,
+    },
+    {
+      name: 'B6 反向:同一文件 import 了 rnRadiusFor 必须放行(只拦缺 import,不拦这种写法)',
+      f: 'apps/miniapp-taro/src/components/InputArea.tsx',
+      s: "import { cn, rnRadiusFor, TARO_RPX_PER_PX } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor.card } }",
+      red: false,
+    },
     {
       name: 'B6 rnRadius 与 rnRadiusFor 是两个标识符:只 import 其一而两个都用 ⇒ 只喊缺的那个',
       f: 'apps/web/src/a.tsx',
       s: "import { rnRadius } from '@ihui/design-tokens'\nconst a = { r: rnRadius.lg }\nconst b = { r: rnRadiusFor.card }",
       red: true,
     },
-    { name: 'B6 G-589②:rnRadiusFor 括号形态无 import 必拦(与点形态同判)', f: 'apps/mobile-rn/src/a.tsx', s: "import { rnRadius } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor['chip'] } }", red: true },
-    { name: 'B6 G-589②:rnRadiusFor 括号形态带 import 放行', f: 'apps/mobile-rn/src/a.tsx', s: "import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor['chip'] } }", red: false },
+    {
+      name: 'B6 G-589②:rnRadiusFor 括号形态无 import 必拦(与点形态同判)',
+      f: 'apps/mobile-rn/src/a.tsx',
+      s: "import { rnRadius } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor['chip'] } }",
+      red: true,
+    },
+    {
+      name: 'B6 G-589②:rnRadiusFor 括号形态带 import 放行',
+      f: 'apps/mobile-rn/src/a.tsx',
+      s: "import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'\nconst s = { a: { borderRadius: rnRadiusFor['chip'] } }",
+      red: false,
+    },
+    // B10 四型:静态造形拦、动画遮罩放、注释里的文字放、非 polygon 的裁剪不扩射程。
+    // 每一型都要有配对 —— 只写拦的那一半,门改成"全放"也不会翻红(§0.9 同型)。
+    {
+      name: 'B10 静态容器挂 clip-path 切角必拦(2026-10-22 大屏"每个容器角缺一块"的真成因)',
+      f: 'apps/web/app/x.css',
+      s: '.wb-panel {\n  clip-path: polygon(0 10px, 10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);\n  border-radius: var(--radius-xl);\n}',
+      red: true,
+    },
+    {
+      name: 'B10 反向:@keyframes 里的 clip-path 是动画遮罩,不是圆角的替身 ⇒ 放行',
+      f: 'apps/web/src/styles/animations.css',
+      s: '@keyframes wipeTransition {\n  0% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }\n  50% { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }\n}',
+      red: false,
+    },
+    {
+      name: 'B10 反向:clip-path 只出现在注释文字里不算(判据不能吃自己的说明文字)',
+      f: 'apps/web/app/x.css',
+      s: '/* 旧写法 clip-path: polygon(0 10px, 10px 0) 已废弃 */\n.wb-panel { border-radius: var(--radius-lg); }',
+      red: false,
+    },
+    {
+      name: 'B10 Tailwind 任意值 clip-[polygon…] 同判(JSX 面)',
+      f: 'apps/web/src/a.tsx',
+      s: '<div className="clip-[polygon(0_0,100%_0,100%_calc(100%-8px))] rounded-lg" />',
+      red: true,
+    },
+    {
+      name: 'B10 反向:静态 clip-path: inset(…) 不扩射程(拦的是"造角",矩形裁剪不是圆角替身)',
+      f: 'apps/web/app/x.css',
+      s: '.mask { clip-path: inset(20% 0 60% 0); border-radius: var(--radius-md); }',
+      red: false,
+    },
   ]
   let fail = 0
   for (const c of cases) {
     const bad = scanText(c.f, c.s, table)
     const hit = bad.length > 0
     const ok = hit === c.red
-    if (c.saneRaw) for (const b of bad) if (/undefined|NaN/.test(b.raw)) console.log('❌', c.name, 'raw 解析异常:', b.raw)
-    console.log(ok ? '✅' : '❌', c.name, ok ? `(${bad.length} 违规)` : `→ 期望${c.red ? '红' : '绿'},实际${hit ? '红' : '绿'} ${JSON.stringify(bad.map((b) => b.rule))}`)
+    if (c.saneRaw)
+      for (const b of bad)
+        if (/undefined|NaN/.test(b.raw)) console.log('❌', c.name, 'raw 解析异常:', b.raw)
+    console.log(
+      ok ? '✅' : '❌',
+      c.name,
+      ok
+        ? `(${bad.length} 违规)`
+        : `→ 期望${c.red ? '红' : '绿'},实际${hit ? '红' : '绿'} ${JSON.stringify(bad.map((b) => b.rule))}`,
+    )
     if (!ok) fail++
     if (c.saneRaw && bad.some((b) => /undefined|NaN/.test(b.raw))) fail++
   }
   // HEAD 锚点棘轮:每文件容忍上限 = 该文件 HEAD 版本自身的违规数(或人工基线,取大)。
   // 这四例钉住的是本门最容易跑偏的两个方向 —— 把别人的老债算成本次新增(误红 → --no-verify 常态化),
   // 以及容忍整文件回写旧基线(误绿 → 迁移被静默撤销)。
-  const mk = (n) => Array.from({ length: n }, (_, i) => ({ line: i + 1, rule: 'B1', raw: '8', hint: '' }))
+  const mk = (n) =>
+    Array.from({ length: n }, (_, i) => ({ line: i + 1, rule: 'B1', raw: '8', hint: '' }))
   const ratchet = [
-    { name: '锚点:HEAD 已迁完(0 处)、待提交内容 3 处 → 新增 3(整文件回写旧基线必红)', by: { 'a.tsx': 3 }, tol: { 'a.tsx': 0 }, want: 3 },
-    { name: '锚点:HEAD 本来 3 处、待提交仍 3 处 → 新增 0(改老文件不替老债背红)', by: { 'a.tsx': 3 }, tol: { 'a.tsx': 3 }, want: 0 },
-    { name: '锚点:HEAD 3 处、待提交 5 处 → 新增恰为超出的 2 处', by: { 'a.tsx': 5 }, tol: { 'a.tsx': 3 }, want: 2 },
-    { name: '锚点:HEAD 3 处、待提交 1 处(减债)→ 新增 0', by: { 'a.tsx': 1 }, tol: { 'a.tsx': 3 }, want: 0 },
+    {
+      name: '锚点:HEAD 已迁完(0 处)、待提交内容 3 处 → 新增 3(整文件回写旧基线必红)',
+      by: { 'a.tsx': 3 },
+      tol: { 'a.tsx': 0 },
+      want: 3,
+    },
+    {
+      name: '锚点:HEAD 本来 3 处、待提交仍 3 处 → 新增 0(改老文件不替老债背红)',
+      by: { 'a.tsx': 3 },
+      tol: { 'a.tsx': 3 },
+      want: 0,
+    },
+    {
+      name: '锚点:HEAD 3 处、待提交 5 处 → 新增恰为超出的 2 处',
+      by: { 'a.tsx': 5 },
+      tol: { 'a.tsx': 3 },
+      want: 2,
+    },
+    {
+      name: '锚点:HEAD 3 处、待提交 1 处(减债)→ 新增 0',
+      by: { 'a.tsx': 1 },
+      tol: { 'a.tsx': 3 },
+      want: 0,
+    },
   ]
   for (const r of ratchet) {
     const byFile = new Map(Object.entries(r.by).map(([f, n]) => [f, mk(n)]))
@@ -950,25 +1532,49 @@ async function selfTest() {
   const css = '--radius: 0.5rem;\n  --radius-xs: 0.125rem;\n  --radius-sm: 0.3rem;\n'
   const map = readCssRadius(css)
   const driftOk = Math.abs(map['--radius-sm'] - 4.8) < 0.01
-  console.log(driftOk ? '✅' : '❌', 'A 判据能读出 CSS 漂移值 sm=4.8px', driftOk ? '' : JSON.stringify(map))
+  console.log(
+    driftOk ? '✅' : '❌',
+    'A 判据能读出 CSS 漂移值 sm=4.8px',
+    driftOk ? '' : JSON.stringify(map),
+  )
   if (!driftOk) fail++
   /**
    * A4 角色名对账:三条成对 —— 只加"缺档必红"而不加"一致必须绿",判据失效也会表现为红消失;
    * 而"多档(清单腐烂)"必须与"缺档"同时判,否则有人删 radius.js 的一档而 d.ts 不删,门一路绿,
    * 消费方拿到 `rnRadiusFor.<已删角色>` = undefined(颜色/圆角 undefined 是本仓记过的运行时形态)。
    */
-  const ROLE_DECL_OK = "export type RadiusRole = 'tiny' | 'control' | 'chip'\n\n/** 档位 → px */\nexport declare const RADIUS_STEPS: number\n"
-  const roleMissing = checkRoleUnion({ tiny: 'xs', control: 'sm', chip: 'md', popover: 'md' }, "export type RadiusRole = 'tiny' | 'control' | 'chip'\n")
+  const ROLE_DECL_OK =
+    "export type RadiusRole = 'tiny' | 'control' | 'chip'\n\n/** 档位 → px */\nexport declare const RADIUS_STEPS: number\n"
+  const roleMissing = checkRoleUnion(
+    { tiny: 'xs', control: 'sm', chip: 'md', popover: 'md' },
+    "export type RadiusRole = 'tiny' | 'control' | 'chip'\n",
+  )
   const roleRotten = checkRoleUnion({ tiny: 'xs', control: 'sm' }, ROLE_DECL_OK)
   const roleOk = checkRoleUnion({ tiny: 'xs', control: 'sm', chip: 'md' }, ROLE_DECL_OK)
   const roleNoDecl = checkRoleUnion({ tiny: 'xs' }, 'export declare const RADIUS_STEPS: number\n')
   const roleEmptyTable = checkRoleUnion({}, ROLE_DECL_OK)
   for (const [nm, cond, det] of [
-    ['A4 radius.js 有新角色而 RadiusRole 未跟上 ⇒ 点名缺档', roleMissing.length === 1 && /缺 'popover'/.test(roleMissing[0]), roleMissing],
-    ['A4 反向:RadiusRole 多出的角色(表里已删)⇒ 判清单腐烂', roleRotten.length === 1 && /多 'chip'/.test(roleRotten[0]), roleRotten],
+    [
+      'A4 radius.js 有新角色而 RadiusRole 未跟上 ⇒ 点名缺档',
+      roleMissing.length === 1 && /缺 'popover'/.test(roleMissing[0]),
+      roleMissing,
+    ],
+    [
+      'A4 反向:RadiusRole 多出的角色(表里已删)⇒ 判清单腐烂',
+      roleRotten.length === 1 && /多 'chip'/.test(roleRotten[0]),
+      roleRotten,
+    ],
     ['A4 两侧一致 ⇒ 零红(与上两条成对,否则"红消失"没有含义)', roleOk.length === 0, roleOk],
-    ['A4 声明整块不见 ⇒ 判"未能执行"而非通过', roleNoDecl.length === 1 && /找不到/.test(roleNoDecl[0]), roleNoDecl],
-    ['A4 角色表被清空 ⇒ 判死,不记绿', roleEmptyTable.length === 1 && /为空/.test(roleEmptyTable[0]), roleEmptyTable],
+    [
+      'A4 声明整块不见 ⇒ 判"未能执行"而非通过',
+      roleNoDecl.length === 1 && /找不到/.test(roleNoDecl[0]),
+      roleNoDecl,
+    ],
+    [
+      'A4 角色表被清空 ⇒ 判死,不记绿',
+      roleEmptyTable.length === 1 && /为空/.test(roleEmptyTable[0]),
+      roleEmptyTable,
+    ],
   ]) {
     console.log(cond ? '✅' : '❌', nm, cond ? '' : JSON.stringify(det))
     if (!cond) fail++
@@ -980,7 +1586,11 @@ async function selfTest() {
   } catch (e) {
     tableErr = [`checkTableConsistency 抛错:${e?.message || e}`]
   }
-  console.log(tableErr.length === 0 ? '✅' : '❌', 'A 判据端到端:真实档位表四处一致', tableErr.length ? '→ ' + tableErr.join(' | ') : '')
+  console.log(
+    tableErr.length === 0 ? '✅' : '❌',
+    'A 判据端到端:真实档位表四处一致',
+    tableErr.length ? '→ ' + tableErr.join(' | ') : '',
+  )
   if (tableErr.length) fail++
   // 判据 C 覆盖面对账:未归类目录必红,已声明范围外只计数不红
   const fake = {
@@ -995,7 +1605,11 @@ async function selfTest() {
     covRes.red[0].file === 'apps/newui/src/card.tsx' &&
     covRes.exempt.length === 2 &&
     covRes.exempt.every((e) => !e.file.includes('newui'))
-  console.log(covOk ? '✅' : '❌', 'C 判据:新端未归类必红 / 已声明范围外只计数 / 已覆盖目录交 B', covOk ? '' : JSON.stringify(covRes))
+  console.log(
+    covOk ? '✅' : '❌',
+    'C 判据:新端未归类必红 / 已声明范围外只计数 / 已覆盖目录交 B',
+    covOk ? '' : JSON.stringify(covRes),
+  )
   if (!covOk) fail++
   const total = cases.length + 3 + ratchet.length + faceProofs.length
   console.log(fail ? `\n${fail}/${total} 例失败` : `\n全部 ${total} 例通过`)
@@ -1018,8 +1632,12 @@ async function main() {
   const mod = await loadTable()
   const table = {
     RADIUS_STEPS: rawTable,
-    stepOf: (px) => Object.keys(rawTable).find((k) => rawTable[k] === px && k !== 'DEFAULT') || null,
-    nearest: (px) => [...new Set(Object.values(rawTable))].reduce((a, b) => (Math.abs(b - px) < Math.abs(a - px) ? b : a)),
+    stepOf: (px) =>
+      Object.keys(rawTable).find((k) => rawTable[k] === px && k !== 'DEFAULT') || null,
+    nearest: (px) =>
+      [...new Set(Object.values(rawTable))].reduce((a, b) =>
+        Math.abs(b - px) < Math.abs(a - px) ? b : a,
+      ),
     mod,
   }
   const files = []
@@ -1036,21 +1654,24 @@ async function main() {
       }
   } else if (isStaged) {
     if (!STAGED_SET) {
-      console.error('❌ [radius-guard] 无法判定:git diff --cached 未能执行,--staged 无法收窄到暂存区 —— 判据未能执行,不计通过')
+      console.error(
+        '❌ [radius-guard] 无法判定:git diff --cached 未能执行,--staged 无法收窄到暂存区 —— 判据未能执行,不计通过',
+      )
       return 2
     }
     for (const f of STAGED_SET) if (!skipped(f) && !isDoc(f) && !isBExcluded(f)) files.push(f)
   } else {
-    for (const d of SCAN_DIRS) for (const abs of walk(join(ROOT, d))) {
-      const rel = relative(ROOT, abs).replaceAll('\\', '/')
-      if (skipped(rel) || isDoc(rel) || /(^|\/)\.d\.ts$/.test(rel)) continue
-      // 摘出去多少要报名:判据 C 的声明式范围若静默生效,读报告的人会把"没扫"当成"没有违规"。
-      if (isBExcluded(rel)) {
-        bExcludedCount++
-        continue
+    for (const d of SCAN_DIRS)
+      for (const abs of walk(join(ROOT, d))) {
+        const rel = relative(ROOT, abs).replaceAll('\\', '/')
+        if (skipped(rel) || isDoc(rel) || /(^|\/)\.d\.ts$/.test(rel)) continue
+        // 摘出去多少要报名:判据 C 的声明式范围若静默生效,读报告的人会把"没扫"当成"没有违规"。
+        if (isBExcluded(rel)) {
+          bExcludedCount++
+          continue
+        }
+        files.push(rel)
       }
-      files.push(rel)
-    }
   }
   const violations = []
   // **全量审计判的是仓库现状(HEAD blob),不是工作区快照。**
@@ -1065,16 +1686,22 @@ async function main() {
     // 全量审计的取材面是 HEAD:清单取不到、或"退出码 0 但 0 条"(守门 78:空扫不报绿)都是尺子失效,
     // 不是"判据执行了、命中 0"。真仓不可能没有跟踪文件 —— 0 只可能是 git 上下文不对。
     if (!trackedSet) {
-      console.error('❌ [radius-guard] 无法判定:git ls-files 未能执行,HEAD 口径的全仓跟踪清单取不到 —— 不计通过')
+      console.error(
+        '❌ [radius-guard] 无法判定:git ls-files 未能执行,HEAD 口径的全仓跟踪清单取不到 —— 不计通过',
+      )
       return 2
     }
     if (trackedSet.size === 0) {
-      console.error('❌ [radius-guard] 无法判定:git ls-files 列出 0 个路径(空扫不报绿,真仓不可能没有跟踪文件)—— 不计通过')
+      console.error(
+        '❌ [radius-guard] 无法判定:git ls-files 列出 0 个路径(空扫不报绿,真仓不可能没有跟踪文件)—— 不计通过',
+      )
       return 2
     }
     for (let i = files.length - 1; i >= 0; i--) if (!trackedSet.has(files[i])) files.splice(i, 1)
     if (files.length === 0) {
-      console.error('❌ [radius-guard] 无法判定:全量候选为 0 文件(SCAN_DIRS ∩ 跟踪清单为空)—— 判据未能执行,不计通过')
+      console.error(
+        '❌ [radius-guard] 无法判定:全量候选为 0 文件(SCAN_DIRS ∩ 跟踪清单为空)—— 判据未能执行,不计通过',
+      )
       return 2
     }
   }
@@ -1096,7 +1723,9 @@ async function main() {
     headBlobs = catBatch(ROOT, headSpecs)
   } catch (e) {
     console.error(
-      `❌ [radius-guard] 无法判定:HEAD blob 一次批量预取失败(${String(e?.message || e).split('\n')[0].slice(0, 180)})—— 判据未能执行,不记绿`,
+      `❌ [radius-guard] 无法判定:HEAD blob 一次批量预取失败(${String(e?.message || e)
+        .split('\n')[0]
+        .slice(0, 180)})—— 判据未能执行,不记绿`,
     )
     return 2
   }
@@ -1127,26 +1756,46 @@ async function main() {
   //   全量:内容就是 HEAD,上限只能来自人工登记的基线 —— 否则"仓里有多少就容忍多少",
   //        存量债永远照不出来(基线现为空 = 仓内绕档必须为 0)。
   //   暂存:改老文件不该替老债背红,故上限 += 该文件 HEAD 自身已有的量(相对 HEAD 只减不增)。
-  const tolOf = (rel) => Math.max(baselineCounts.get(rel) || 0, isStaged || FILES_MODE ? headCountOf(rel) : 0)
+  const tolOf = (rel) =>
+    Math.max(baselineCounts.get(rel) || 0, isStaged || FILES_MODE ? headCountOf(rel) : 0)
   // 判据 C:覆盖面对账。与暂存范围无关,恒按全仓跟踪清单判 —— 静默逃逸不会因"本次没碰"而消失
   let cov = { red: [], exempt: [] }
   try {
-    const tracked = execFileSync('git', ['ls-files'], { stdio: ['ignore', 'pipe', 'pipe'], cwd: ROOT, encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 28, timeout: 120000 })
+    const tracked = execFileSync('git', ['ls-files'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: 1 << 28,
+      timeout: 120000,
+    })
       .split('\n')
       .filter(Boolean)
     cov = coverageAudit(tracked, (f) => readFileSync(join(ROOT, f), 'utf8'))
   } catch (e) {
-    console.error(`❌ [radius-guard] 无法判定:判据 C 的跟踪文件清单取不到(git ls-files 失败:${String(e?.message || e).split('\n')[0]})—— 判据未能执行,既不记红也不记绿`)
+    console.error(
+      `❌ [radius-guard] 无法判定:判据 C 的跟踪文件清单取不到(git ls-files 失败:${String(e?.message || e).split('\n')[0]})—— 判据未能执行,既不记红也不记绿`,
+    )
     return 2
   }
   // 棘轮锚点从"会腐烂的手工清单"换成**该文件 HEAD 版本自身的违规数**:
   // 只拦"这次改动把绕档取用加回来了",不拦仓库既有债;工作区滞后既不能藏债也不能造债。
   const fresh = splitFresh(byFile, tolOf)
-  const healed = baselineSites.filter((s) => !violations.some((v) => `${v.file}::${v.rule}::${v.raw}` === `${s.file}::${s.rule}::${s.raw}`))
+  const healed = baselineSites.filter(
+    (s) =>
+      !violations.some(
+        (v) => `${v.file}::${v.rule}::${v.raw}` === `${s.file}::${s.rule}::${s.raw}`,
+      ),
+  )
 
   if (UPDATE_BASELINE) {
-    const sites = violations.map((v) => ({ file: v.file, rule: v.rule, raw: v.raw })).sort((a, b) => `${a.file}${a.rule}${a.raw}`.localeCompare(`${b.file}${b.rule}${b.raw}`))
-    writeFileSync(BASELINE_FILE, `${JSON.stringify({ updatedAt: new Date().toISOString().slice(0, 10), note: '人工登记的存量兜底(只减不增)。常态应为空:自 2026-9-24 起本门棘轮锚点已是"该文件 HEAD 自身的违规数",不再依赖此清单;仅当某目录整体纳入扫描需一次性放行时才写。', sites }, null, 2)}\n`)
+    const sites = violations
+      .map((v) => ({ file: v.file, rule: v.rule, raw: v.raw }))
+      .sort((a, b) => `${a.file}${a.rule}${a.raw}`.localeCompare(`${b.file}${b.rule}${b.raw}`))
+    writeFileSync(
+      BASELINE_FILE,
+      `${JSON.stringify({ updatedAt: new Date().toISOString().slice(0, 10), note: '人工登记的存量兜底(只减不增)。常态应为空:自 2026-9-24 起本门棘轮锚点已是"该文件 HEAD 自身的违规数",不再依赖此清单;仅当某目录整体纳入扫描需一次性放行时才写。', sites }, null, 2)}\n`,
+    )
     console.log(`[radius-guard] 基线已下调:${sites.length} 处存量`)
     return 0
   }
@@ -1166,33 +1815,54 @@ async function main() {
   }
   if (cov.red.length) {
     console.error('\n❌ 判据 C:这些文件含圆角取用,却既不在 SCAN_DIRS 覆盖内、也未声明为范围外 ——')
-    console.error('   等于新增端/目录静默绕开本门。要么把目录加进 SCAN_DIRS,要么在 OUT_OF_SCOPE 写明为什么不适用:')
+    console.error(
+      '   等于新增端/目录静默绕开本门。要么把目录加进 SCAN_DIRS,要么在 OUT_OF_SCOPE 写明为什么不适用:',
+    )
     for (const c of cov.red.slice(0, 20)) console.error(`   - ${c.file}`)
     if (cov.red.length > 20) console.error(`   ...另有 ${cov.red.length - 20} 个`)
   }
   if (cov.exempt.length && !isStaged) {
     const byCat = {}
-    for (const e of cov.exempt) byCat[e.category.split(':')[0]] = (byCat[e.category.split(':')[0]] || 0) + 1
-    console.log(`   已声明范围外(如实报数,便于质疑):${Object.entries(byCat).map(([k, n]) => `${k}×${n}`).join(', ')}`)
+    for (const e of cov.exempt)
+      byCat[e.category.split(':')[0]] = (byCat[e.category.split(':')[0]] || 0) + 1
+    console.log(
+      `   已声明范围外(如实报数,便于质疑):${Object.entries(byCat)
+        .map(([k, n]) => `${k}×${n}`)
+        .join(', ')}`,
+    )
   }
   if (fresh.length) {
     const byRule = {}
     for (const v of fresh) byRule[v.rule] = (byRule[v.rule] || 0) + 1
-    console.error(`\n❌ 新增 ${fresh.length} 处绕开圆角档位表(${Object.entries(byRule).map(([k, n]) => `${k}×${n}`).join(', ')}):`)
-    for (const v of fresh.slice(0, 40)) console.error(`   ${v.file}:${v.line}  [${v.rule}] ${v.raw}  → ${v.hint}`)
+    console.error(
+      `\n❌ 新增 ${fresh.length} 处绕开圆角档位表(${Object.entries(byRule)
+        .map(([k, n]) => `${k}×${n}`)
+        .join(', ')}):`,
+    )
+    for (const v of fresh.slice(0, 40))
+      console.error(`   ${v.file}:${v.line}  [${v.rule}] ${v.raw}  → ${v.hint}`)
     if (fresh.length > 40) console.error(`   ...另有 ${fresh.length - 40} 处`)
     //  HEAD 已迁移而待提交内容仍有违规 = 草稿落在迁移前的旧基线上(共享工作区滞后),
     //  不是"你写错了档位",正解是把改动重做到 HEAD 版本之上。
     //  2026-09-26 取材收口:全量档下旧写法仍会逐文件去读 HEAD blob,而 `(isStaged||FILES_MODE)`
     //  为假时结果恒为空 ⇒ 判据一字未动,只把短路提到读之前(全量档不再为该目的派生任何 blob)。
-    const staleBase = isStaged || FILES_MODE ? [...byFile.keys()].filter((f) => headCountOf(f) === 0) : []
+    const staleBase =
+      isStaged || FILES_MODE ? [...byFile.keys()].filter((f) => headCountOf(f) === 0) : []
     if (staleBase.length) {
-      console.error(`\n   ⚠️ 其中这些文件的 **HEAD 版本 0 违规**、待提交内容却有违规 → 你的草稿基于旧基线(圆角迁移已落在 HEAD):`)
-      for (const f of staleBase.slice(0, 10)) console.error(`      - ${f}  (对照: git show HEAD:${f})`)
-      console.error('      修法:按上面的档位提示改写这几行,或把改动重做到 HEAD 版本之上;不得整文件回写旧基线(守门 76 会按静默回滚拦)。')
+      console.error(
+        `\n   ⚠️ 其中这些文件的 **HEAD 版本 0 违规**、待提交内容却有违规 → 你的草稿基于旧基线(圆角迁移已落在 HEAD):`,
+      )
+      for (const f of staleBase.slice(0, 10))
+        console.error(`      - ${f}  (对照: git show HEAD:${f})`)
+      console.error(
+        '      修法:按上面的档位提示改写这几行,或把改动重做到 HEAD 版本之上;不得整文件回写旧基线(守门 76 会按静默回滚拦)。',
+      )
     }
   }
-  if (healed.length && !isStaged) console.log(`💡 ${healed.length} 处存量已修,可跑 node scripts/check-radius-single-source.mjs --update-baseline 下调基线`)
+  if (healed.length && !isStaged)
+    console.log(
+      `💡 ${healed.length} 处存量已修,可跑 node scripts/check-radius-single-source.mjs --update-baseline 下调基线`,
+    )
   const red = tableErrors.length > 0 || fresh.length > 0 || cov.red.length > 0
   if (!red) console.log('✅ 圆角单一源头对账通过(档位表一致,无新增绕档取用,覆盖面全部归类)')
   return red ? 1 : 0
@@ -1200,10 +1870,12 @@ async function main() {
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
-  main().then((code) => process.exit(code)).catch((e) => {
-    console.error(`❌ 守门自身异常:${e?.stack || e}`)
-    process.exit(2)
-  })
+  main()
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      console.error(`❌ 守门自身异常:${e?.stack || e}`)
+      process.exit(2)
+    })
 }
 
 // §22c:导出的必须是**判据本身**,不是给测试的第二份复制品。
@@ -1212,5 +1884,6 @@ if (isDirectRun) {
 export const __test__ = {
   PRESET_RADIUS_REF_RE,
   checkTableConsistency,
+  findContainerNotches,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
