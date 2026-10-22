@@ -28896,6 +28896,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] G-874 web 登录首屏接入 Passkey:后端 auth/options 与 auth/verify 已实现但零前端调用方(注册侧只有设置页在用),缺 @simplewebauthn/browser 依赖与 packages/ui-react login-form 的 tab;动 login-form 连带 8 个既有测试,小程序无 WebAuthn 须按 §9 显式标注平台豁免
 - [ ] G-875 生产 admin 账号仍在使用仓内公开的 e2e 默认口令(离线比对散列命中,未发起登录以免触发锁定计数)—— 本仓同步到 Gitee/GitCode 镜像 ⇒ 任何能读仓库的人可登后台。等:机主定新口令;定后由本仓把 apps/web/e2e/fixtures.ts 的默认值改为仅从 env 取
+- [ ] G-876 注册接口不验证手机号真实性:`POST /api/auth/register` 的 schema 收了 `code`(标注"可选")但 handler 从不读它,手机号归属无人核验 ⇒ 任何人可用他人号码抢先建号并当场拿到 token,真号主之后注册只会得到 409「该手机号已注册」;而 `/login/password` 又接受手机号+密码,被抢号的下一步就是撞密码。隔离实例(8809/ihui_e2e)实测:不带任何验证码注册返回 200 且直接发 token。等:短信通道可用(阿里云欠费 ¥20.9 或腾讯云 G-871 报审通过)—— 现在把 code 改必填会当场把注册功能关死。通道一通即改:必填 + 走 code-store verifyCode,并按 §5 断言"未验过不落库"
 - [ ]（认领已释放@2026-10-22/qoder-claimfix:旧裸标记无日期无持有者,年龄不可判;机主 2026-10-22 判定无席位在飞,按 §1 交回派单面;登记内容一字未动）**WP-7 浏览器语义快照与可复用元素句柄**(规格已写,未开工)。〔进行中@2026-10-22/goal-r52:席位在飞〕
 - [ ] 〔归:web 消息列表持有人 + 用户)〕 （认领已释放@2026-10-18/goal-leasegc:租约超龄 315h 未清账,按 §1 交回派单面;登记内容一字未动） G-828 **长会话渲染成本:上游虚拟滚动 vs 我方 2026-08-11 主动移除 `content-visibility` —— 需拍板** —— 上游虚拟行/测高/回收整套机制在本线前几轮已登记。我方现状两处事实:① `git show HEAD:apps/web/src/components/layout/MainShell.tsx` :72-75 —— 2026-08-05 曾加 `content-visibility:auto`+`contain-intrinsic-size:1000px`,**2026-08-11 主动移除**,注释自陈根因是"已知浏览 〔压缩@2026-10-22〕
 - [ ] 〔归:api 端持有者〕 **G-241 自动化"结算状态机"（认领/退避/终态）—— 需建表，属 §24 领地**（本线只登记）
