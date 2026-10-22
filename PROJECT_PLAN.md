@@ -28881,7 +28881,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - §9 平台独占豁免登记:本轮触及 apps/api、packages/app、packages/shared、apps/mobile-rn、apps/miniapp-taro(门户同源 + 离线语言包/四端 ui-routes 派生件同批)与 packages/i18n/{mobile-rn,miniapp-taro};desktop / extension / cli / miniapp 无对等契约改动需求(门户清单与记忆屏共享组件的唯一消费端就是 RN 与小程序,已同批)。
 
 ## 2026-10-21 RN↔web 全量对齐收口轮(apps/mobile-rn + apps/api;本轮 3 枚已入库,取证面=HEAD blob)
-- [ ] **G-866 EdgeOne 免费版只有 1 条缓存规则,新加的 `/api/*` 源站头是否真被边缘缓存尚未在控制台核过**〔登记@2026-10-21〕:源站侧已交付(枚 `42e21bacda0587f050baf71be528abc341bf57b4` 给 14 个公开只读 GET 打 `public, s-maxage=60, stale-while-revalidate=60`,单一出口 `apps/api/src/utils/public-edge-cache.ts`),但实测公网臂对 `/api/*` 恒 `EO-Cache-Status: MISS` 且免费版规则不遵守未覆盖路径的源站头 ⇒ 命中率归控制台规则管。出路 = 在 EO 站点里核/加一条针对这些精确路径的缓存规则(免费额度只有 1 条,加它就要裁掉现有那条,属 〔压缩@2026-10-22〕
+- [x] ✅(2026-10-22) **G-866 EdgeOne 免费版只有 1 条缓存规则,新加的 `/api/*` 源站头是否真被边缘缓存尚未在控制台核过**〔登记@2026-10-21〕:源站侧已交付(枚 `42e21bacda0587f050baf71be528abc341bf57b4` 给 14 个公开只读 GET 打 `public, s-maxage=60, stale-while-revalidate=60`,单一出口 `apps/api/src/utils/public-edge-cache.ts`),但实测公网臂对 `/api/*` 恒 `EO-Cache-Status: MISS` 且免费版规则不遵守未覆盖路径的源站头 ⇒ 命中率归控制台规则管。出路 = 在 EO 站点里核/加一条针对这些精确路径的缓存规则(免费额度只有 1 条,加它就要裁掉现有那条,属 〔压缩@2026-10-22〕
 
 
 
