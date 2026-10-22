@@ -69,7 +69,7 @@ import {
 import { TARO_UI_ROUTES } from '@/constants/ui-routes.generated'
 
 const TAB_PAGE = '/pages/user/index'
-const PLAIN_PAGE = '/pages/login/login'
+const PLAIN_PAGE = '/pages/register/index'
 const SUB_PACKAGE_PAGE = '/pkg-ai/ai/chat'
 
 function routeOf(path: string) {
@@ -112,7 +112,7 @@ describe('navigate —— 必须按页面类型选对 Taro 导航 API', () => {
   })
 
   it('name 不带前导斜杠也认(Taro 两种写法都合法)', async () => {
-    const result = await executeTaroUiAction('navigate', { name: 'pages/login/login' })
+    const result = await executeTaroUiAction('navigate', { name: 'pages/register/index' })
     expect(result.ok).toBe(true)
     expect(mocks.navigateTo).toHaveBeenCalledWith({ url: PLAIN_PAGE })
   })
