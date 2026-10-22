@@ -116,12 +116,34 @@ describe('judgeAliyunResponse：HTTP 200 不等于发出去了', () => {
   })
 })
 
-describe('judgeUnconfiguredDelivery：没配凭据时,生产档不得记成功', () => {
+describe('judgeUnconfiguredDelivery：没配通道时不得冒充"已发送"', () => {
+  const P = (dev = false) => ({ productionGuard: true, devEchoOptIn: dev })
+  const D = (dev = false) => ({ productionGuard: false, devEchoOptIn: dev })
+
   it('生产档 ⇒ sent:false(旧写法这里恒为"已发送",用户等到天荒地老)', () => {
-    expect(sms.judgeUnconfiguredDelivery(true).sent).toBe(false)
+    expect(sms.judgeUnconfiguredDelivery(P()).sent).toBe(false)
   })
-  it('非生产档 ⇒ 维持 console 降级 sent:true(开发要靠回显码登录,不得改成红)', () => {
-    expect(sms.judgeUnconfiguredDelivery(false).sent).toBe(true)
+
+  it(
+    '非生产档但未显式声明回显 ⇒ 仍 sent:false —— 立因:生产机的 NODE_ENV 是 development,' +
+      '信 NODE_ENV 就等于线上恒假绿',
+    () => {
+      expect(sms.judgeUnconfiguredDelivery(D()).sent).toBe(false)
+      expect(sms.judgeUnconfiguredDelivery(D()).reason).toContain('SMS_DEV_ECHO')
+    },
+  )
+
+  it('显式 SMS_DEV_ECHO=1 且非生产 ⇒ 才给回显(sent:true)', () => {
+    expect(sms.judgeUnconfiguredDelivery(D(true)).sent).toBe(true)
+  })
+
+  it('成对反向锁:显式声明在生产档也不得放行(摘掉 productionGuard 这一维即翻绿=判据无牙)', () => {
+    expect(sms.judgeUnconfiguredDelivery(P(true)).sent).toBe(false)
+  })
+
+  it('reason 必须点名是哪三档没配(只说"失败"= 下一个人还得重新查)', () => {
+    expect(sms.judgeUnconfiguredDelivery(P()).reason).toContain('ALI_SMS_*')
+    expect(sms.judgeUnconfiguredDelivery(P()).reason).toContain('SMS_API_BASE_URL')
   })
 })
 
