@@ -8,6 +8,7 @@
  */
 import { test, expect } from '@playwright/test'
 import { request } from '@playwright/test'
+import { ADMIN_USER } from './fixtures'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
@@ -35,7 +36,7 @@ test.describe('分享功能验证', () => {
     console.log('[Step 1] API 登录...')
     const httpReq = await request.newContext()
     const loginResp = await httpReq.post(`${API_URL}/api/auth/login`, {
-      data: { account: 'admin', password: 'admin123' },
+      data: { account: ADMIN_USER.account, password: ADMIN_USER.password },
     })
     expect(loginResp.ok()).toBe(true)
     const loginBody = await loginResp.json()

@@ -18,7 +18,7 @@
 //   node deploy/prod-bundle/scripts/smoke-public-ws.mjs
 // 或指定参数:
 //   SMOKE_WEB_HOST=aizhs.top SMOKE_WS_HOST=api.aizhs.top \
-//   SMOKE_ACCOUNT=admin SMOKE_PASSWORD=admin123 \
+//   SMOKE_ACCOUNT=admin SMOKE_PASSWORD=<部署环境注入的口令> \
 //   node deploy/prod-bundle/scripts/smoke-public-ws.mjs
 // 退出码:0=通过, 非0=失败。CI/定时任务可据此判定。
 // =============================================================================
@@ -26,7 +26,12 @@
 const WEB_HOST = process.env.SMOKE_WEB_HOST || 'aizhs.top'
 const WS_HOST = process.env.SMOKE_WS_HOST || 'api.aizhs.top'
 const ACCOUNT = process.env.SMOKE_ACCOUNT || 'admin'
-const PASSWORD = process.env.SMOKE_PASSWORD || 'admin123'
+// 口令只从环境读取:仓库内不提供默认值,缺失即失败(probe 不触库、不做兜底登录)。
+const PASSWORD = process.env.SMOKE_PASSWORD
+if (!PASSWORD) {
+  console.error('[smoke-public-ws] 缺少 SMOKE_PASSWORD:口令仅允许从环境注入。')
+  process.exit(2)
+}
 const PROMPT = process.env.SMOKE_PROMPT || 'say hi in one word'
 const TIMEOUT_MS = Number(process.env.SMOKE_TIMEOUT_MS || '35000')
 
