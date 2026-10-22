@@ -29,6 +29,9 @@ import { gitRaw } from './face-reader.mjs'
 // 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
 // 独立 lib(执行逻辑逐字搬,闭包引用改 ctx 参数);本文件只保留调用点与数组本体。
 import { pushGateCacheEarlyExit, writePushGateCache } from './guardian-pushgate-cache.mjs'
+// 纯内容门的指纹结果缓存(2026-10-22):只对 CONTENT_CACHE_GATE_IDS(⊆ PAR_GATE_IDS)生效,
+// 任何读写错误都收敛成"没缓存、门照跑"。接线点由镜像测试 T1/T6 双向锁死。
+import { createGateContentCache } from './guardian-gate-cache.mjs'
 import { attestGateBatchRun as attestGateBatchRunImpl } from './guardian-batch-attest.mjs'
 import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
 import { widenFilesOverDependents } from './import-graph.mjs'
@@ -129,6 +132,11 @@ const HEAVY_GATE_IDS = new Set([
   // (test-paths 单轮 57~67s、dangling-local-imports 33~38s、stale-copy 13s),
   // 判的是仓库状态而非本次提交内容,与 30a 同性质,一并延后到 post-commit。
   '85', '98', '30c',
+  // 2026-10-22 快档实测:门 8(前端↔后端路由全量对账)单门 15~22s,占快档墙钟一半以上。
+  // guardian-runner 注册它的 args 是 [] ⇒ 判的是 **HEAD 全仓面**、不是索引面,
+  // 与本次提交内容无关(同 85/98/30c 性质);post-commit 的 IHUI_GATE_FAST=0 补跑会在
+  // 新 HEAD 上判同一件事(更鲜),pre-commit 跑它只是重复上一枚提交的结论。
+  '8',
 ])
 const fastMode = process.env.IHUI_GATE_FAST === '1'
 
@@ -140,6 +148,10 @@ const fastMode = process.env.IHUI_GATE_FAST === '1'
 const FAST_BUDGET_MS = Number(process.env.IHUI_GATE_FAST_BUDGET_MS ?? 35_000)
 const deferredGates = []
 let budgetBlown = false
+
+// 纯内容门指纹缓存实例(2026-10-22,机主要求"提速到极致"):同一份内容在失败重试、
+// safe-commit 内部重入、post-commit 补跑时会被逐字重算。惰性算指纹,读坏/写坏只当没缓存。
+const gateContentCache = createGateContentCache({ cwd: process.cwd() })
 
 const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
 /** blocking 失败门清单(末尾汇总用)。 */
@@ -364,6 +376,10 @@ const PAR_GATE_IDS = new Set([
   '168', '47', '224', '220', '213', '100', '221', '232',
   '210', '13d', '170', '231', '15',
   '70b', // i18n 死 key 扫描(2026-10-22 从 pre-commit 串行段移入池)
+  // 2026-10-22 补入:纯内容缓存白名单(T1 要求缓存集 ⊆ 本池)。三门均只读 ——
+  //   211 check-plan-id-pool(只读 PROJECT_PLAN) / 203 check-plan-task-duplicates(face-reader 读 HEAD·索引面)
+  //   / 229 check-plan-closed-stock(只读 PROJECT_PLAN);逐门核过无 writeFileSync/spawn。
+  '211', '203', '229',
 ])
 // === 只读门并行池(方案A;逃生舱:GUARDIAN_SERIAL=1 退回全串行,GUARDIAN_PAR=<n> 调并发度) ===
 // 契约(与串行版逐字对齐的三条):
@@ -423,7 +439,16 @@ process.on('exit', () => {
 
 /** 派发一道只读门:先按 checks 原序入队(保回放序),再等槽;完成后 job.done 置位。 */
 async function dispatchPar(check, cmdArgs) {
-  const job = { check, runtime: 0, error: null, status: null, signal: null, stdout: '', stderr: '' }
+  const job = {
+    check,
+    args: cmdArgs,
+    runtime: 0,
+    error: null,
+    status: null,
+    signal: null,
+    stdout: '',
+    stderr: '',
+  }
   let markDone
   job.done = new Promise((ok) => {
     markDone = ok
@@ -529,7 +554,7 @@ async function flushParBuffer() {
     parPending.shift()
     if (job.stdout) process.stdout.write(job.stdout)
     // checkStart 回推:⏱ 显示子进程真实运行时长,而非"等到 flush 才开始计时"
-    applyGateResult(job.check, job, Date.now() - job.runtime)
+    applyGateResult(job.check, job, Date.now() - job.runtime, job.args)
   }
 }
 
@@ -540,7 +565,7 @@ async function flushParBuffer() {
 const totalGates = effectiveChecks.length
 let doneGates = 0
 
-function applyGateResult(check, r, checkStart) {
+function applyGateResult(check, r, checkStart, cmdArgs = []) {
   doneGates += 1
   const pct = totalGates > 0 ? Math.min(100, Math.round((doneGates / totalGates) * 100)) : 100
   const okNow = !r?.error && r?.status === 0 && r?.signal === null
@@ -581,6 +606,12 @@ function applyGateResult(check, r, checkStart) {
     if (showTiming) {
       console.info(`  ${C.dim}⏱  ${Date.now() - checkStart}ms${C.reset}`)
     }
+    // 只有真正跑过且通过的门才落缓存(白名单内);失败/崩溃/warn 走下方 catch 或另一分支,永不记账。
+    gateContentCache.record(
+      check.id,
+      { script: check.script, args: cmdArgs },
+      { passed: true, ms: Date.now() - checkStart },
+    )
   } catch (e) {
     const elapsed = Date.now() - checkStart
     // 2026-09-18 中断传播:子检查以 exit 75(临时失败/被中断)退出 ≠ 检查结论失败,
@@ -675,7 +706,7 @@ for (const check of effectiveChecks) {
   // 阻塞与本任务无关的提交(本次改动不含该目录时,门的结论是假阳性)。
   // 纪律:commit message 必须写明责任归属;默认行为不变(不设变量照常阻塞)。
   if (check.skipEnv && process.env[check.skipEnv] === '1') {
-    await flushParBuffer()
+    // 同 stagedTriggers / 重型门:应急放行不 spawn 任何门进程,纯记账 ⇒ 不设屏障。
     skipped++
     selfSkippedGates.push({ id: String(check.id), label: check.label, skipEnv: check.skipEnv })
     console.info(`⏭  [${check.id}] ${check.label}(跳过:${check.skipEnv}=1)`)
@@ -703,8 +734,12 @@ for (const check of effectiveChecks) {
   // 快档:重型门延后到 post-commit 后台补跑(见 HEAVY_GATE_IDS 头注)。计入 notTriggered 而不是
   // selfSkipped —— 它不是"人按了跳过开关",是"本档设计上就不在这里跑",两者的处置动作不同。
   if (fastMode && HEAVY_GATE_IDS.has(String(check.id))) {
-    await flushParBuffer()
+    // 不 flush:本分支一道子进程都不 spawn,是纯记账 + 打印 ⇒ 没有任何理由等池里在飞的门跑完。
+    // 2026-10-22 实测:32 道重型门散落在注册序里,旧写法的 32 次全屏障把并行池反复抽干,
+    // 119 道实跑门 CPU 合计 33.7s、parMax=8,墙钟却 15s(并发仅 2.2);去掉后墙钟约 1/3。
     skipped++
+    // 必须进延后清单:预算没爆时 post-commit 也要知道这 N 道 blocking 门没跑(镜像测试 T6 锁死)。
+    deferredGates.push({ id: String(check.id), label: check.label, script: check.script })
     notTriggeredGates.push({
       id: String(check.id),
       label: check.label,
@@ -719,6 +754,20 @@ for (const check of effectiveChecks) {
   if (passStaged) cmdArgs.push('--staged')
   // (旧版这里拼一条 shell 字符串给 execSync;改 spawnSync 用 argv 数组后不再需要,
   //  顺带去掉 shell 一层。复现命令由汇总段按 `node scripts/<script>` 现拼,不在此处留变量。)
+
+  // 纯内容门指纹缓存查询 —— 必须排在 skipEnv/stagedTriggers/重型门三个跳过分支**之后**:
+  // 被跳过的门不得被缓存洗绿(镜像测试 T6 用源码顺序锁这条)。命中 = 同一份输入此前真跑过且通过。
+  const cacheHit = gateContentCache.lookup(check.id, { script: check.script, args: cmdArgs })
+  if (cacheHit) {
+    passed++
+    console.info(
+      `⚡ [${check.id}] ${check.label} 命中指纹缓存(${Math.round(cacheHit.ageMs / 1000)}s 前通过,省 ${cacheHit.ms}ms)`,
+    )
+    if (showTiming) {
+      timingRows.push({ id: check.id, label: check.label, script: check.script, mode: check.mode, ms: 0, ok: true })
+    }
+    continue
+  }
 
   // ⚠️ 2026-10-21 关键修复:`check.id` 在注册表里**大多是数字**(1/2/30/103…),而
   // PAR_GATE_IDS 里存的是**字符串** ⇒ 旧写法 `has(check.id)` 对绝大多数门恒 false,
@@ -745,7 +794,7 @@ for (const check of effectiveChecks) {
     maxBuffer: 20 * 1024 * 1024,
     encoding: 'utf8',
   })
-  applyGateResult(check, r, checkStart)
+  applyGateResult(check, r, checkStart, cmdArgs)
 }
 
 // 汇总前收口:把剩余在飞/缓冲的并行结果按原序全部回放(全屏障)。
