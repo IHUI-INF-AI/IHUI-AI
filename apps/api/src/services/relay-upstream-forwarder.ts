@@ -50,6 +50,10 @@ export interface UpstreamForwardRequest {
   tools?: unknown[]
   /** tool_choice 透传(原样,平台归一由适配器负责) */
   toolChoice?: unknown
+  /** reasoning_effort 透传(渠道路径原样,账号池由适配器映射到平台专有字段) */
+  reasoningEffort?: string | number
+  /** stop 序列(OpenAI string | string[];账号池由适配器本地截断) */
+  stop?: string | string[]
   userId?: string
   /** session-affinity 亲和性 key(建议传 apiKeyId) */
   affinityKey?: string
@@ -162,6 +166,8 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
     if (req.seed !== undefined) body.seed = req.seed
     if (req.tools !== undefined) body.tools = req.tools
     if (req.toolChoice !== undefined) body.tool_choice = req.toolChoice
+    if (req.reasoningEffort !== undefined) body.reasoning_effort = req.reasoningEffort
+    if (req.stop !== undefined) body.stop = req.stop
     if (req.bodyOverride) {
       body = { ...req.bodyOverride, model: rawModel, stream: req.stream }
     }

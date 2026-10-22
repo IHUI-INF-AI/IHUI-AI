@@ -57,6 +57,54 @@ export function flattenQuery(messages: Array<{ role: string; content: unknown }>
 }
 
 // =============================================================================
+// query 块数组(线上实证形状)
+// =============================================================================
+
+/**
+ * 线上 web 客户端把 query 序列化为 [{type:"text",data:{content}}] 块数组,
+ * 而非裸文本字符串。空文本产出空数组(上游对空 query 报参数错误)。
+ */
+export interface TraeQueryBlock {
+  type: 'text'
+  data: { content: string }
+}
+
+export function buildQueryBlocks(text: string): TraeQueryBlock[] {
+  return text === '' ? [] : [{ type: 'text', data: { content: text } }]
+}
+
+// =============================================================================
+// response_format 模拟(上游无该字段,以 system 提示实现)
+// =============================================================================
+
+/** json_object 的 JSON-only 固定提示(上游无 response_format,只能提示词约束) */
+export const TRAE_JSON_OBJECT_HINT =
+  'Respond with a single valid JSON object only. Do not wrap it in Markdown code fences and do not add any prose.'
+
+/**
+ * response_format → 追加到 query 头部的提示文本。
+ * - json_object → 固定 JSON-only 提示
+ * - json_schema → 与网关 applyJsonSchemaResponseFormat 完全同文案(便于 includes 去重)
+ * - text/未知/缺失 → null(无需提示)
+ */
+export function responseFormatHint(responseFormat: unknown): string | null {
+  if (responseFormat === null || typeof responseFormat !== 'object') return null
+  const rf = responseFormat as Record<string, unknown>
+  if (rf.type === 'json_object') return TRAE_JSON_OBJECT_HINT
+  if (rf.type === 'json_schema') {
+    const js = rf.json_schema
+    if (js !== null && typeof js === 'object') {
+      const schema = (js as Record<string, unknown>).schema
+      if (schema !== undefined) {
+        return `Your response must follow this JSON schema: ${JSON.stringify(schema)}`
+      }
+    }
+    return TRAE_JSON_OBJECT_HINT
+  }
+  return null
+}
+
+// =============================================================================
 // 稳定会话 id(biz_session_id)
 // =============================================================================
 
@@ -74,6 +122,106 @@ export function deriveBizSessionId(accountId: string, model: string): string {
   const variantNibble = ((parseInt(d.slice(16, 17), 16) & 0b1011) | 0b1000).toString(16)
   const s = d.slice(0, 12) + '4' + d.slice(13, 16) + variantNibble + d.slice(17, 32)
   return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20, 32)}`
+}
+
+// =============================================================================
+// custom_model 描述符(线上 web 客户端 buildSendMessageRequest 实证)
+// =============================================================================
+
+function nonEmptyString(v: unknown): string | undefined {
+  return typeof v === 'string' && v !== '' ? v : undefined
+}
+
+/**
+ * reasoning 等级裁决(以 model_list 的 reasoning_effort_config 为权威枚举):
+ * - 未请求 / 显式 support_thinking=false / 无枚举 → 不发
+ * - 命中 options → 原样请求值
+ * - 未命中 → default_level(必须也在 options 内),否则不发
+ */
+export function resolveReasoningEffortLevel(
+  modelConfig: Record<string, unknown> | null | undefined,
+  requested: string | number | undefined,
+): string | number | undefined {
+  if (requested === undefined || requested === null || requested === '') return undefined
+  const raw = modelConfig?.reasoning_effort_config
+  if (raw === null || typeof raw !== 'object') return undefined
+  const cfg = raw as Record<string, unknown>
+  if (cfg.support_thinking === false) return undefined
+  const options = Array.isArray(cfg.options) ? cfg.options : []
+  if (options.length === 0) return undefined
+  const wanted = String(requested)
+  const hit = options.find(
+    (o) => (typeof o === 'string' || typeof o === 'number') && String(o) === wanted,
+  )
+  if (hit !== undefined) return requested
+  const fallback = cfg.default_level
+  if (
+    (typeof fallback === 'string' || typeof fallback === 'number') &&
+    options.some((o) => String(o) === String(fallback))
+  ) {
+    return fallback
+  }
+  return undefined
+}
+
+/**
+ * 组装 custom_model(仅手动选模;auto 由服务端选,不带此字段)。
+ *
+ * 字段语义与线上一致:is_preset/config_source/config_name 标识预设模型,
+ * model_name/display_model_name 传展示名,use_remote_service 表示走远端服务。
+ * provider/ak/base_url/custom_model_id/custom_model_type/multimodal/prompt_max_tokens
+ * 只在 model_list 真给了值时才写入 —— 绝不臆造模型路由信息。
+ */
+export function buildTraeCustomModel(
+  model: string,
+  modelConfig?: Record<string, unknown> | null,
+  reasoningEffort?: string | number,
+): Record<string, unknown> | undefined {
+  if (model === '' || model === 'auto') return undefined
+  const baseModel = model.endsWith('-work') ? model.slice(0, -5) : model
+  if (baseModel === '') return undefined
+  const cfg = modelConfig ?? {}
+
+  const rawConfigSource = cfg.config_source
+  const isPreset =
+    cfg.is_preset !== undefined
+      ? Boolean(cfg.is_preset)
+      : rawConfigSource === undefined
+        ? true
+        : String(rawConfigSource) === '1'
+  const modelName = nonEmptyString(cfg.model_name) ?? nonEmptyString(cfg.name) ?? baseModel
+  const customModel: Record<string, unknown> = {
+    is_preset: isPreset,
+    config_name: nonEmptyString(cfg.config_name) ?? nonEmptyString(cfg.name) ?? baseModel,
+    config_source: rawConfigSource ?? 1,
+    model_name: modelName,
+    display_model_name:
+      nonEmptyString(cfg.display_name) ?? nonEmptyString(cfg.display_model_name) ?? modelName,
+    use_remote_service:
+      cfg.use_remote_service !== undefined
+        ? Boolean(cfg.use_remote_service)
+        : !Boolean(cfg.client_connect),
+  }
+
+  const provider = nonEmptyString(cfg.provider)
+  if (provider) customModel.provider = provider
+  const ak = nonEmptyString(cfg.ak)
+  if (ak) customModel.ak = ak
+  const baseUrl = nonEmptyString(cfg.base_url)
+  if (baseUrl) customModel.base_url = baseUrl
+  const customModelId = nonEmptyString(cfg.custom_model_id)
+  if (customModelId) customModel.custom_model_id = customModelId
+  const customModelType = nonEmptyString(cfg.custom_model_type)
+  if (customModelType) customModel.custom_model_type = customModelType
+  if (typeof cfg.multimodal === 'boolean') customModel.multimodal = cfg.multimodal
+  if (typeof cfg.prompt_max_tokens === 'number') {
+    customModel.prompt_max_tokens = cfg.prompt_max_tokens
+  }
+
+  const level = resolveReasoningEffortLevel(modelConfig, reasoningEffort)
+  if (level !== undefined) customModel.reasoning_effort_level = level
+
+  return customModel
 }
 
 // =============================================================================
@@ -361,5 +509,66 @@ export function extractTokenPayload(body: unknown): TraeTokenPayload | null {
   const expiresRaw =
     pickAny(inner, ['ExpiredAt', 'TokenExpireAt']) ?? pickAny(top, ['ExpiredAt', 'TokenExpireAt'])
   return { token, refreshToken: refreshToken ?? null, expiresAt: parseExpiresAt(expiresRaw) }
+}
+// =============================================================================
+// stop 序列本地截断(上游无 stop 字段,流式安全模拟)
+// =============================================================================
+
+export interface StopSequenceFilter {
+  /** 喂入增量,返回可安全下发的文本;hit=true 表示命中 stop,应立即终止 */
+  feed(delta: string): { emit: string; hit: boolean }
+  /** 流正常结束:放出扣留的尾部余量(命中 stop 后为空) */
+  flush(): string
+}
+
+/**
+ * 跨帧 stop 序列过滤器。
+ *
+ * 为覆盖 stop 串被拆在多个 delta 帧的情形,始终扣留尾部 maxLen-1 个字符:
+ * - 命中 → 只发命中点之前的文本,并置 hit=true(之后不再放任何字节)
+ * - 未命中 → 放出扣留前的部分,尾部继续扣留
+ * - 流结束 → flush 放出余量
+ * 空列表/无有效串 → null(调用方零开销跳过)。
+ */
+export function createStopSequenceFilter(
+  stops?: readonly string[] | null,
+): StopSequenceFilter | null {
+  const list = (stops ?? []).filter((s): s is string => typeof s === 'string' && s !== '')
+  if (list.length === 0) return null
+  const keep = Math.max(...list.map((s) => s.length)) - 1
+
+  let pending = ''
+  let hitDone = false
+
+  return {
+    feed(delta: string): { emit: string; hit: boolean } {
+      if (hitDone) return { emit: '', hit: true }
+      const buf = pending + delta
+      let hitIndex = -1
+      for (const s of list) {
+        const idx = buf.indexOf(s)
+        if (idx >= 0 && (hitIndex === -1 || idx < hitIndex)) hitIndex = idx
+      }
+      if (hitIndex >= 0) {
+        hitDone = true
+        const emit = buf.slice(0, hitIndex)
+        pending = ''
+        return { emit, hit: true }
+      }
+      if (buf.length <= keep) {
+        pending = buf
+        return { emit: '', hit: false }
+      }
+      const emit = buf.slice(0, buf.length - keep)
+      pending = buf.slice(buf.length - keep)
+      return { emit, hit: false }
+    },
+    flush(): string {
+      if (hitDone) return ''
+      const tail = pending
+      pending = ''
+      return tail
+    },
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
