@@ -230,6 +230,11 @@ const chatStreamSchema = z.object({
       conversationId: z.string().optional(),
       userId: z.string().optional(),
       messageId: z.string().optional(),
+      // 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
+      // 不在此声明会被 zod strip 静默丢弃(同 knowledgeContext 注记那一型):
+      // 前端发了、网关"收了"、回调里没有 —— 回复落库不带族,版本切换整链空转。
+      parentMessageId: z.string().uuid().optional(),
+      siblingIndex: z.number().int().nonnegative().optional(),
     })
     .optional(),
 })
@@ -379,7 +384,14 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       systemPrompt?: string
       /** P1 #26(2026-09-16 立):知识库默认注入开关。undefined/true = 注入(默认);false = 关闭 */
       knowledgeContext?: boolean
-      metadata?: { conversationId?: string; userId?: string; messageId?: string }
+      metadata?: {
+        conversationId?: string
+        userId?: string
+        messageId?: string
+        /** 票59(3/3):regenerate 新回复的版本族坐标(透传上游回调后落 chat_messages 两列) */
+        parentMessageId?: string
+        siblingIndex?: number
+      }
     },
     extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
   ): Promise<void> {
@@ -561,6 +573,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         conversationId: opts.metadata?.conversationId,
         userId: opts.metadata?.userId ?? request.userId,
         messageId: opts.metadata?.messageId,
+        // 票59(3/3):版本族坐标原样透传上游(ai-service metadata 是 dict[str, Any],
+        // _fire_callback 整包回显)→ 回调端点提出进 job 顶层 → worker 落 createMessage 两列。
+        // undefined 的键经 JSON.stringify 自动省略 ⇒ 非 regenerate 流形态零变化。
+        parentMessageId: opts.metadata?.parentMessageId,
+        siblingIndex: opts.metadata?.siblingIndex,
       }
       // G-998168 票5:storage 段(存储/索引读 = repo wiki 百科 + 知识库检索)起表。
       // 两个读都未启用(repoName 缺省且 knowledgeContext 显式关)时该段缺席 ⇒ null;

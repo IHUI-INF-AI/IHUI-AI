@@ -219,6 +219,12 @@ const callbackSchema = z.object({
       conversationId: z.string().optional(),
       messageId: z.string().optional(),
       userId: z.string().optional(),
+      // 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
+      // 显式列举(G-94 纪律):这两键不是内容通道,是 chat_messages 两列的写入值,
+      // 从回调 metadata 提出后走 job 顶层,绝不落进 metadata jsonb(审计面零污染)。
+      // uuid 形态由 worker 侧 createMessage 的列类型兜底;此处只挡明显脏值。
+      parentMessageId: z.string().min(1).optional(),
+      siblingIndex: z.number().int().nonnegative().optional(),
     })
     .optional(),
 })
@@ -285,6 +291,10 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
       const conversationId = metadata?.conversationId
       const messageId = metadata?.messageId
       const userId = metadata?.userId
+      // 票59(3/3):版本族坐标与关联键同源提出,进 job 顶层(见 AICallbackJobData 注释);
+      // 缺省不写键 ⇒ worker 走普通 createMessage,存量回调形态零变化。
+      const parentMessageId = metadata?.parentMessageId
+      const siblingIndex = metadata?.siblingIndex
 
       if (!conversationId || !userId) {
         // 缺少关联键,无法处理,但仍返回 202 避免阻塞 AI service
@@ -343,6 +353,9 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
             completionTokens: usageObj?.completion_tokens,
             // 幂等键:同一消息重试只扣一次(防 BullMQ 重试重复扣费)
             idempotencyKey: `${conversationId}:${messageId ?? ''}`,
+            // 票59(3/3):regenerate 新回复的版本族坐标(worker 侧交 createMessage 落两列)
+            ...(parentMessageId ? { parentMessageId } : {}),
+            ...(siblingIndex !== undefined ? { siblingIndex } : {}),
             // D24(2026-09-19 立):工具调用/终端任务随 metadata 落库
             // (chat_messages.metadata jsonb 列),恢复会话/回放/审计时还原工具卡与终端区。
             // 空数组不写 key:与"无工具调用"语义区分,避免 metadata 冗余。
