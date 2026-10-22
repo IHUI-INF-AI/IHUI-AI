@@ -28900,6 +28900,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-873 小程序登录页接微信手机号一键验证:两端接线已全部入库(全量 sha ec9853d2e1b9f343282b3cec02f0aa1e20ff02ce —— 后端 one-tap-login 端点带 10 例锁、api/index.ts 加 oneTapLogin、pages/user 的 onOneClickLogin 单跳落 access/refresh/user 三件套、端内接线锁 10 例),LoginPopUp 那套取 phoneCode→Taro.login 取 loginCode 本就正确 —— 唯一未收口项:必须在微信开发者工具真机验一次才算完成,本机无小程序运行时(§17 UI 改动禁止只凭代码审查声明完成)
 
 - [ ] G-874 web 登录首屏接入 Passkey:后端 auth/options 与 auth/verify 已实现但零前端调用方(注册侧只有设置页在用),缺 @simplewebauthn/browser 依赖与 packages/ui-react login-form 的 tab;动 login-form 连带 8 个既有测试,小程序无 WebAuthn 须按 §9 显式标注平台豁免
+- [ ] G-875 生产 admin 账号仍在使用仓内公开的 e2e 默认口令(离线比对散列命中,未发起登录以免触发锁定计数)—— 本仓同步到 Gitee/GitCode 镜像 ⇒ 任何能读仓库的人可登后台。等:机主定新口令;定后由本仓把 apps/web/e2e/fixtures.ts 的默认值改为仅从 env 取
 - [ ]（认领已释放@2026-10-22/qoder-claimfix:旧裸标记无日期无持有者,年龄不可判;机主 2026-10-22 判定无席位在飞,按 §1 交回派单面;登记内容一字未动）**WP-7 浏览器语义快照与可复用元素句柄**(规格已写,未开工)。〔进行中@2026-10-22/goal-r52:席位在飞〕
 - [ ] 〔归:web 消息列表持有人 + 用户)〕 （认领已释放@2026-10-18/goal-leasegc:租约超龄 315h 未清账,按 §1 交回派单面;登记内容一字未动） G-828 **长会话渲染成本:上游虚拟滚动 vs 我方 2026-08-11 主动移除 `content-visibility` —— 需拍板** —— 上游虚拟行/测高/回收整套机制在本线前几轮已登记。我方现状两处事实:① `git show HEAD:apps/web/src/components/layout/MainShell.tsx` :72-75 —— 2026-08-05 曾加 `content-visibility:auto`+`contain-intrinsic-size:1000px`,**2026-08-11 主动移除**,注释自陈根因是"已知浏览 〔压缩@2026-10-22〕
 - [ ] 〔归:api 端持有者〕 **G-241 自动化"结算状态机"（认领/退避/终态）—— 需建表，属 §24 领地**（本线只登记）
