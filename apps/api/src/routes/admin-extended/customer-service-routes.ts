@@ -33,7 +33,8 @@ export const customerServiceRoutes: FastifyPluginAsync = async (server) => {
         isAdmin: true,
         attachments: body.attachments ?? [],
       })
-      return reply.status(201).send(success({ created: true, id: comment.id }))
+      // created 由委托侧 INSERT … RETURNING 的行存在性派生(守门 134),不再回字面量 true。
+      return reply.status(201).send(success({ created: Boolean(comment.id), id: comment.id }))
     },
   )
 }

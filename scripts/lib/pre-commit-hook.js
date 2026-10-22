@@ -1305,13 +1305,12 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
   console.log('⏭  createPortal 定位守门(HUSKY_SKIP_PORTAL_GUARD=1, 跳过)')
 }
 
-// 📏 Button 高度/宽度覆盖守门(2026-09-07 立,blocking)
-// 背景:Button className h-* 覆盖 size 档位导致全站按钮高度参差(发布账号页 4 钮 h-7/h-9 混用),
-//      2026-09-07 已全量迁移 130 处/56 文件至 size 档位。本守门防止回潮:
-//      <Button> 禁止 className h-*/w-* 覆盖 + size 值必须 ∈ 档位表。
-//      豁免:原生 <button>(IDE 面板 24px 紧凑档有意设计)、Input/SelectTrigger/Skeleton。
+// 📏 Button 高度/宽度覆盖守门(2026-09-07 立,blocking;2026-10-22 起三面取材)
+// 本地保留这一格索引面直调,且**不受 TOOL_ONLY 专项档跳过**:单门只读暂存文件(<1s),
+// 工具/文档提交的索引里没有 tsx ⇒ 0 候选直接绿,不拖慢那 27 道元门。全量档由
+// guardian-runner id 235(HEAD 面)承担 —— CI 自动触发启用前,这是它唯一的本地自动执行点。
 // 跳过方法(紧急):HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1 git commit ...
-if (!TOOL_ONLY && process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
+if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
   if (
     !run(
       '📏 Button 高度/宽度覆盖守门(必须走 size 档位, 2026-09-07 立)...',
@@ -1324,7 +1323,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
     process.exit(1)
   }
 } else {
-  console.log('⏭  Button 高度/宽度覆盖守门(HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1, 跳过)')
+  console.log('⏭  Button 高度/宽度覆盖守门(专项档或 HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1, 跳过)')
 }
 
 // 🔑 凭据前缀一致性守门(2026-09-13 立,blocking)
