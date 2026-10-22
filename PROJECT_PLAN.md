@@ -28995,3 +28995,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] （未取号:G 族号池已满;承 G-935 e2e 真机核验揭缺口 A）**工具面板开关未真窗格化**:apps/web mode-switcher.tsx:59-60 开关写根单例 useAiToolsPanelStore，而面板体 ai-side-panel-tools.tsx:292 读窗格实例 usePaneAiToolsPanelStore ⇒ 窗格内开关只点亮根格面板，两窗格互不顶在开关环断裂。修法=开关改读写窗格实例;验收=chat-pane-tools-jump-cache.spec.ts 用例① 预期红转绿 〔登记@2026-10-22/goal-r55/G-935 席〕
 - [ ] （未取号:承 G-935 揭缺口 B）**窗格续传不可达**:pane-split 布局树不持久化⇒reload 后窗格不重挂;ChatPaneBody 无 recentMessages 预填链(仅根主体 ai-side-panel.tsx:803-814 有 prefill→capture→loadHistory→runAfterHistory);关叶即 dispose store;useConversationPaneCache 内存 Map 不落盘 ⇒ 窗格半截流 reload 零 resume 请求、孤儿快照 streamCompleted:false 永挂。修法=布局持久化+预填链+快照落盘;验收=resume 探针用例⑧b 由 annotation 转绿色断言 〔登记@2026-10-22/goal-r55/G-935 席〕
 - [ ] （未取号:承 G-935 揭缺口 C）**窄窗格 send-button 与 mode-switcher 触发器几何重叠拦截鼠标点击**(hit-target 卡 3 分钟实机证据+截图;键盘 Enter 可绕遳)。属可用性/可访问性缺陷;修法=布局避让或命中区分层;验收=用例①鼠标点击腿通过 〔登记@2026-10-22/goal-r55/G-935 席〕
+
