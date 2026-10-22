@@ -28995,5 +28995,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] （进行中@2026-10-22/ledger-p1） **G-964 台账字段结构化 P1 残余**:侧车抽取器 `scripts/plan-fields-extract.mjs` 与新守门 `check-plan-fields.mjs`(warn 档)未建;规格 `docs/superpowers/specs/2026-10-22-plan-ledger-schema-design.md`
 
-- [ ] G-871 腾讯云短信第二通道已接线、处于未配置态:待控制台建应用取 SmsSdkAppId 并报签名与四枚场景模板后,填 apps/api/.env 的 TENCENT_SMS_* 并把 SMS_PROVIDER 改成 tencent(在等什么:国内短信运营商签名报备通常 7~10 个工作日;2026-10-22 现读 DescribeSmsSignList / DescribeSmsTemplateList 均空集,签名类型只认 公司/App/商标/政府机构)
+- [ ] G-871 腾讯云短信第二通道已接线、处于未配置态:应用与凭据均已核实并填入 apps/api/.env(SmsSdkAppId=1401196354 是该企业主账号下真实应用,密钥归属由真假 appid 对照判死:真报 FailedOperation.TemplateUnapprovedOrNotExist、假报 UnauthorizedOperation.SmsSdkAppIdVerifyFail);剩余唯一卡点=实名资质 0 条,新增资质表单要求 营业执照盖红章 + 法定代表人身份证正反面复印件盖公章 + 短信业务管理员身份证正反面及手持照 + 安全合规使用承诺书,属真人身份材料不可代传;资质过审(约 2h)后再报签名与四枚场景模板,填 TENCENT_SMS_TEMPLATE_CODE* 并把 SMS_PROVIDER 改 tencent(资质通过后仍须报备运营商,页面原文 7~10 个工作日或更长;企业认证首次开通赠 200 条 3 个月,以控制台实际为准)
 
