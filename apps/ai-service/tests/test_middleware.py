@@ -29,7 +29,6 @@ from app.middleware.input_sanitizer import (
     _scan_value,
 )
 from app.middleware.llm_metrics import (
-    llm_active_sessions,
     llm_provider_errors_total,
     llm_request_duration_seconds,
     llm_tokens_total,
@@ -683,7 +682,6 @@ class TestLlmMetrics:
         assert llm_tokens_total is not None
         assert llm_request_duration_seconds is not None
         assert llm_provider_errors_total is not None
-        assert llm_active_sessions is not None
 
     def test_record_successful_call_does_not_raise(self):
         record_llm_call(
@@ -715,17 +713,12 @@ class TestLlmMetrics:
             error="timeout",
         )
 
-    def test_gauge_inc_dec(self):
-        llm_active_sessions.inc()
-        llm_active_sessions.dec()
-
     def test_metrics_visible_in_registry(self):
         from prometheus_client import REGISTRY
         names = REGISTRY._names_to_collectors.keys()
         assert "ihui_llm_tokens_total" in names
         assert "ihui_llm_request_duration_seconds" in names
         assert "ihui_llm_provider_errors_total" in names
-        assert "ihui_llm_active_sessions" in names
 
 
 # =============================================================================
