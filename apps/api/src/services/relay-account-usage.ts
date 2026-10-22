@@ -44,7 +44,8 @@ export async function recordAccountUsage(input: RecordAccountUsageInput): Promis
       promptTokens: input.promptTokens,
       completionTokens: input.completionTokens,
       ok: input.ok,
-      latencyMs: input.latencyMs,
+      // latency_ms 是 integer 列:上游计时是 float(如 1636.917),不取整每次真实转发都写失败
+      latencyMs: Math.round(input.latencyMs),
       ts: input.ts ?? new Date(),
     })
   } catch (e) {
