@@ -79,7 +79,10 @@ export const vueToNextRedirects = [
   { source: '/topic', destination: '/topics', permanent: true },
   { source: '/announcement', destination: '/announcements', permanent: true },
   { source: '/announcement/:id', destination: '/announcements/:id', permanent: true },
-  { source: '/login', destination: '/sso/login', permanent: true },
+  // /login 不许再加回本表:它是 apps/web/app/login/ 的软路由(打开全局登录弹窗 + 回前一页,
+  // 并承担 ?method=qr&embed=true 的 RN WebView 嵌二维码)。2026-08-25 接线时这条 D 盘老口径
+  // 把该路由整页顶成 /sso/login 授权页(实测生产 /login → 308),普通用户被引导进"为 web 授权"
+  // 的话术里;锁判据见 apps/web/tests/auth-login-route-redirect.test.ts。
   { source: '/register', destination: '/sso/register', permanent: true },
   // 2026-07-20 首页路由合并:`/` 是营销落地页(原 /landing 与 /home 工作台版合并)。
   // 外部老链接 /home /landing 走 301 永久重定向,避免 SEO 流量流失 + 404。
