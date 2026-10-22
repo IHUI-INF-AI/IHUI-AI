@@ -34,7 +34,6 @@
 import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
 import http from 'node:http';
 import https from 'node:https';
 import { isRootLinkedWorktree } from './lib/worktree.mjs';
@@ -104,13 +103,9 @@ let skipAuditReportCheck = false
 if (stagedMode) {
   let stagedFiles = []
   try {
-    const out = execFileSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf-8',
-      cwd: ROOT,
-      windowsHide: true,
-    })
+    // G-54:裸 git 派生迁取材层 gitRaw(绝对 git + stdio 接管 + 有界 timeout + EBUSY 兜底);
+    // 原 stdio/encoding/cwd 三项由层统一提供,语义不变(取不到仍由下面 catch 降级为全量)。
+    const out = gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT)
     stagedFiles = out.split(/\r?\n/).filter((l) => l.trim().length > 0)
   } catch {
     // 非 git 环境,继续全量检查
