@@ -16,6 +16,7 @@ export { QrTab } from './qr-tab'
 export { ThirdPartyLoginButtons } from './third-party-login-buttons'
 export { AgreementCheckbox } from './agreement-checkbox'
 export { AgreementNoticeDialog } from './agreement-notice-dialog'
+export { PasskeyLoginButton } from './passkey-login-button'
 // 账号输入框 + 历史下拉(2026-07-30 抽到共享包,消除 web 端 B 版本功能差异)
 export { AccountHistoryInput } from './account-history-input'
 
@@ -28,6 +29,7 @@ export type {
   ThirdPartyProvider,
   ThirdPartyConfig,
   QrPlatformConfig,
+  PasskeyAuthOptionsData,
 } from './types'
 export { ALL_THIRD_PARTY_PLATFORMS, isValidEmail, isValidPhone } from './types'
 
@@ -38,5 +40,6 @@ export type { QrTabProps } from './qr-tab'
 export type { ThirdPartyLoginButtonsProps } from './third-party-login-buttons'
 export type { AgreementCheckboxProps } from './agreement-checkbox'
 export type { AgreementNoticeDialogProps } from './agreement-notice-dialog'
+export type { PasskeyLoginButtonProps } from './passkey-login-button'
 export type { AccountHistoryInputProps } from './account-history-input'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
