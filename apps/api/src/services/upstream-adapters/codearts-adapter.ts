@@ -13,6 +13,8 @@
  * - x-ot-session-id 按凭据稳定推导并复用(上游按它统计并发,每账号上限 3,超限 TM.00001041 = 临时故障)。
  * - 刷新:POST sts.cn-north-4.myhuaweicloud.com/v1/oauth2/tokens,form + DPoP(ES256 JWS);
  *   refresh_token 一次性轮转,且**整套 STS 凭据**(AK/SK/security_token)都会换新 → secrets 回写。
+ *   失败不吞错:抛 CodeArtsRefreshError(带 failureKind:401/403→auth、429→rate、5xx→server、
+ *   配额/积分→credit、STS5.1806/invalid_grant→session_dead);仅瞬态失败(rate/server)回退重试一次。
  *
  * 凭证映射:tokenEnc←security_token;refreshTokenEnc←refresh_token;
  * secretsEnc←JSON{accessKeyId,secretAccessKey,dpopPrivateKeyJwk,codeVerifier,clientId,domainId,userName}。
@@ -271,17 +273,59 @@ interface RefreshEnvelope {
   error_code?: string
 }
 
-async function refreshToken(
-  ctx: AdapterAccountContext,
-  opts?: AdapterCallOptions,
-): Promise<TokenRefreshResult | null> {
-  const secrets = readSecrets(ctx)
-  const refreshTokenOld = ctx.credentials.refreshToken
-  if (!refreshTokenOld || !secrets.codeVerifier || !secrets.dpopPrivateKeyJwk) {
-    // 硬绑定:refresh_token 与 client_id、DPoP 私钥、PKCE verifier 绑定,缺任一无法续期
-    throw new Error('缺少 refresh_token / DPoP 私钥 / PKCE verifier,无法续期')
+/** 刷新失败分类(与 classifyUpstreamFailure 同一套语义) */
+export type CodeArtsRefreshFailureKind =
+  'auth' | 'credit' | 'session_dead' | 'rate' | 'server' | 'client'
+
+/**
+ * 刷新失败的结构化抛错:不吞错,保留 failureKind 与 HTTP 状态码,
+ * 供 isAuthError 判定与调度器/转发层正确分级(401/403→auth、429→rate、5xx→server、
+ * 配额/积分→credit、STS5.1806/invalid_grant→session_dead)。
+ */
+export class CodeArtsRefreshError extends Error {
+  readonly failureKind: CodeArtsRefreshFailureKind
+  readonly statusCode: number
+  constructor(kind: CodeArtsRefreshFailureKind, statusCode: number, message: string) {
+    super(message)
+    this.name = 'CodeArtsRefreshError'
+    this.failureKind = kind
+    this.statusCode = statusCode
   }
-  const proof = buildDpopProof(secrets.dpopPrivateKeyJwk, { htm: 'POST', htu: STS_TOKEN_URL })
+}
+
+/** refresh_token 报废类标记(小写子串):重试无意义,直接抛 */
+const REFRESH_DEAD_MARKERS = ['sts5.1806', 'invalid_grant', 'already used']
+/** 凭证失效类标记:重新登录/刷新可救 */
+const REFRESH_AUTH_MARKERS = ['sts5.1804', 'apig.0301', 'apig.0303']
+/** 额度/积分/欠费类文案(剔除裸 insufficient/balance,防 "Insufficient privileges" 误判) */
+const REFRESH_CREDIT_RE =
+  /(欠费|额度|积分|余额不足|insufficient (credit|balance|quota)|quota exceeded|out of credit|payment required|\bcredit\b)/i
+
+/** 刷新响应/异常 → failureKind:dead→session_dead,auth 码/401/403/登录墙→auth,429→rate,5xx→server,额度→credit,其余→client */
+function classifyRefreshFailure(status: number, text: string): CodeArtsRefreshFailureKind {
+  const lower = text.toLowerCase()
+  if (REFRESH_DEAD_MARKERS.some((m) => lower.includes(m))) return 'session_dead'
+  if (
+    REFRESH_AUTH_MARKERS.some((m) => lower.includes(m)) ||
+    status === 401 ||
+    status === 403 ||
+    looksLikeHtmlLoginPage(text)
+  )
+    return 'auth'
+  if (status === 429) return 'rate'
+  if (status >= 500) return 'server'
+  if (status === 402 || REFRESH_CREDIT_RE.test(text)) return 'credit'
+  return 'client'
+}
+
+/** 单次刷新尝试(每次全新 DPoP proof,jti 防重放);失败抛 CodeArtsRefreshError,message 不带凭证 */
+async function attemptRefresh(
+  fetchImpl: typeof fetch,
+  secrets: CodeArtsSecrets,
+  dpopPrivateKeyJwk: Record<string, unknown>,
+  refreshTokenOld: string,
+): Promise<TokenRefreshResult> {
+  const proof = buildDpopProof(dpopPrivateKeyJwk, { htm: 'POST', htu: STS_TOKEN_URL })
   // form 体键序与 Go url.Values.Encode() 一致(字典序),纯离线构造便于测试桩
   const form = new URLSearchParams({
     client_id: secrets.clientId,
@@ -290,29 +334,48 @@ async function refreshToken(
     refresh_token: refreshTokenOld,
   })
   // STS 刷新与 chat 走同一出口 IP(账号级代理),防上游风控因 IP 漂移触发额外校验
-  const res = await resolveFetchImpl(opts ?? {})(STS_TOKEN_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/x-www-form-urlencoded',
-      accept: 'application/json',
-      DPoP: proof,
-    },
-    body: form.toString(),
-  })
-  const text = await res.text()
+  let res: Response
+  try {
+    res = await fetchImpl(STS_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        accept: 'application/json',
+        DPoP: proof,
+      },
+      body: form.toString(),
+    })
+  } catch (e) {
+    // 网络异常 = 上游瞬态故障(server),可回退重试一次;message 只带异常名
+    throw new CodeArtsRefreshError(
+      'server',
+      0,
+      `CodeArts 续期请求失败: 网络异常 ${e instanceof Error ? e.name : String(e)}`,
+    )
+  }
+  const text = await res.text().catch(() => '')
   let env: RefreshEnvelope
   try {
     env = JSON.parse(text) as RefreshEnvelope
   } catch {
-    throw new Error(`CodeArts 续期响应解析失败 HTTP ${res.status}: ${text.slice(0, 300)}`)
+    // 解析失败(常见为风控 HTML 登录墙):按响应体+状态分类,message 不带原文防凭证泄漏
+    throw new CodeArtsRefreshError(
+      classifyRefreshFailure(res.status, text),
+      res.status,
+      `CodeArts 续期响应解析失败 HTTP ${res.status}`,
+    )
   }
   const creds = env.credentials ?? env.result?.credentials
   const newRefresh = env.refresh_token ?? env.result?.refresh_token ?? ''
-  if (!creds?.access_key_id || !creds.security_token) {
-    // STS5.1806(refresh_token 已被使用)/ STS5.1804(过期)/ invalid_grant → 凭证报废,
-    // 抛错让调度器累计失败计数并摘除
-    const detail = env.error_description || env.error || env.error_code || text.slice(0, 300)
-    throw new Error(`CodeArts 续期失败 HTTP ${res.status}: ${detail}`)
+  if (res.status >= 400 || !creds?.access_key_id || !creds.security_token) {
+    // STS5.1806(refresh_token 已被使用)/ STS5.1804(过期)/ invalid_grant → 凭证报废;
+    // detail 只取 error 字段(不回落原始 body,防凭证进 message),分类仍用全文
+    const detail = env.error_description || env.error || env.error_code || ''
+    throw new CodeArtsRefreshError(
+      classifyRefreshFailure(res.status, `${detail} ${text}`),
+      res.status,
+      `CodeArts 续期失败 HTTP ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`,
+    )
   }
   const expiresAt = creds.expiration ? parseRfc3339(creds.expiration) : null
   return {
@@ -330,6 +393,33 @@ async function refreshToken(
       userName: env.user_name ?? secrets.userName,
     },
   }
+}
+
+async function refreshToken(
+  ctx: AdapterAccountContext,
+  opts?: AdapterCallOptions,
+): Promise<TokenRefreshResult | null> {
+  const secrets = readSecrets(ctx)
+  const refreshTokenOld = ctx.credentials.refreshToken
+  const jwk = secrets.dpopPrivateKeyJwk
+  if (!refreshTokenOld || !secrets.codeVerifier || !jwk) {
+    // 硬绑定:refresh_token 与 client_id、DPoP 私钥、PKCE verifier 绑定,缺任一无法续期
+    throw new Error('缺少 refresh_token / DPoP 私钥 / PKCE verifier,无法续期')
+  }
+  const fetchImpl = resolveFetchImpl(opts ?? {})
+  // 回退重试:仅瞬态失败(rate/server)重试一次(全新 DPoP jti 防重放);
+  // auth/credit/session_dead/client 是确定性失败,不重试,防烧一次性 refresh_token
+  let lastErr: Error = new Error('CodeArts 续期失败: 未知错误')
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await attemptRefresh(fetchImpl, secrets, jwk, refreshTokenOld)
+    } catch (e) {
+      lastErr = e instanceof Error ? e : new Error(String(e))
+      const kind = e instanceof CodeArtsRefreshError ? e.failureKind : 'client'
+      if (kind !== 'rate' && kind !== 'server') break
+    }
+  }
+  throw lastErr
 }
 
 function parseRfc3339(s: string): Date | null {
@@ -409,13 +499,57 @@ async function listModels(
 // 认证失败判定
 // =============================================================================
 
+/** 常见认证失效文案标记(JSON error 体 / SSE 中途断流帧都可能出现) */
+const CA_AUTH_BODY_MARKERS = [
+  'unauthorized',
+  'authentication failed',
+  'invalid token',
+  'token has expired',
+  'token expired',
+  'security token has expired',
+  'security token is expired',
+  '重新登录',
+  '登录已过期',
+]
+/** token 失效类短语("The security token is invalid" 等) */
+const CA_TOKEN_BAD_RE = /token.{0,40}(expired|invalid)/i
+
+/** 非 200 HTML 登录墙(上游风控跳转登录页):识别为认证失效形态 */
+function looksLikeHtmlLoginPage(bodyText: string): boolean {
+  const s = bodyText.slice(0, 2048).toLowerCase()
+  if (!s.includes('<html') && !s.includes('<!doctype html')) return false
+  return (
+    s.includes('login') ||
+    s.includes('登录') ||
+    s.includes('sign in') ||
+    s.includes('sign-in') ||
+    s.includes('signin') ||
+    s.includes('认证')
+  )
+}
+
 /**
- * 401/403,或响应体带凭证失效类错误码(APIG.0301/0303 签名/凭据、STS5.1804/5.1806 续期)→ true。
+ * 401/403,或响应体带凭证失效类错误码(APIG.0301/0303 签名/凭据、STS5.1804/5.1806 续期),
+ * 或常见认证文案 / token 失效短语 / HTML 登录墙 → true(forwarder 的 401 自愈依赖判真)。
  * TM.00001041(并发超限)是临时故障,返回 false 走退避而不是 401 自愈。
  */
 function isAuthFailure(statusCode: number, bodyText: string): boolean {
   if (statusCode === 401 || statusCode === 403) return true
-  return AUTH_FAILURE_CODES.some((code) => bodyText.includes(code))
+  if (AUTH_FAILURE_CODES.some((code) => bodyText.includes(code))) return true
+  const lower = bodyText.toLowerCase()
+  if (CA_AUTH_BODY_MARKERS.some((m) => lower.includes(m))) return true
+  if (CA_TOKEN_BAD_RE.test(bodyText)) return true
+  return looksLikeHtmlLoginPage(bodyText)
+}
+
+/** 刷新抛错/上游异常 → 是否凭证失效(forwarder 401 自愈判定;结构化错误直接看 failureKind) */
+function isAuthError(err: unknown): boolean {
+  if (err instanceof CodeArtsRefreshError) return err.failureKind === 'auth'
+  const message = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
+  // message 里的 "HTTP 401/403" 还原成状态码判定
+  const m = message.match(/HTTP\s+(\d{3})/i)
+  const status = m ? Number(m[1]) : 0
+  return isAuthFailure(status, message)
 }
 
 // =============================================================================
@@ -429,12 +563,14 @@ function extractErrorCode(bodyText: string): string {
 }
 
 /**
- * CodeArts 错误分级:
+ * CodeArts 错误分级(与 isAuthFailure / classifyRefreshFailure 同一套语义):
  * - TM.00001041(并发会话超限)→ rate(60s 退避,不罚号)
- * - STS5.1806(refresh_token 已被使用,凭证报废)→ session_dead(永久摘除,重试无意义)
- * - APIG.0301/0303、STS5.1804、HTTP 401/403 → auth(触发 401 自愈刷新)
+ * - STS5.1806 / invalid_grant(refresh_token 已被使用,凭证报废)→ session_dead(永久摘除,重试无意义)
+ * - APIG.0301/0303、STS5.1804 → auth(触发 401 自愈刷新)
  * - InferHub…406(model 头不一致)、4005(通道不支持该模型)、TM.00001027(资格类)→ request(参数级,不罚号)
- * - 额度/积分/欠费类文案 → credit(12h 冷却 + 摘除;上游暂无稳定错误码,按文案启发式识别)
+ * - 402 / 额度/积分/欠费类文案 → credit(12h 冷却 + 摘除;上游暂无稳定错误码,按文案启发式识别;
+ *   正则剔除裸 insufficient/balance,"Insufficient privileges" 不再误判)
+ * - 401/403、认证文案、token 失效短语、HTML 登录墙 → auth(额度文案之后,保证 401 自愈触发)
  * - 其余按 HTTP 状态粗分:404→not_found、429→rate、5xx→server、其他 4xx→client
  */
 function classifyUpstreamFailure(
@@ -445,7 +581,8 @@ function classifyUpstreamFailure(
 } {
   // 已知码一律子串匹配(与 isAuthFailure 同语义,不依赖 JSON 键形)
   if (bodyText.includes('TM.00001041')) return { kind: 'rate' }
-  if (bodyText.includes('STS5.1806')) return { kind: 'session_dead' }
+  if (bodyText.includes('STS5.1806') || bodyText.toLowerCase().includes('invalid_grant'))
+    return { kind: 'session_dead' }
   if (
     bodyText.includes('APIG.0301') ||
     bodyText.includes('APIG.0303') ||
@@ -456,9 +593,9 @@ function classifyUpstreamFailure(
   const code = extractErrorCode(bodyText)
   if (code.startsWith('InferHub') || code === '4005' || code === 'TM.00001027')
     return { kind: 'request' }
-  if (/(credit|quota|balance|insufficient|欠费|额度|积分)/i.test(bodyText))
-    return { kind: 'credit' }
-  if (statusCode === 401 || statusCode === 403) return { kind: 'auth' }
+  if (statusCode === 402 || REFRESH_CREDIT_RE.test(bodyText)) return { kind: 'credit' }
+  // 401/403 与认证文案/HTML 登录墙 → auth(先于状态粗分,保证 forwarder 401 自愈触发)
+  if (isAuthFailure(statusCode, bodyText)) return { kind: 'auth' }
   if (statusCode === 404) return { kind: 'not_found' }
   if (statusCode === 429) return { kind: 'rate' }
   if (statusCode >= 500) return { kind: 'server' }
@@ -479,6 +616,7 @@ export const codeartsAdapter: RelayUpstreamAdapter = {
   checkHealth,
   listModels,
   isAuthFailure,
+  isAuthError,
   classifyUpstreamFailure,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -11,7 +11,11 @@
  * - realm(CN copilot.tencent.com / global www.workbuddy.ai)按账号 domain 判定;
  * - 身份头(X-User-Id/X-Enterprise-Id/X-Domain)从 extraMetadata > JWT claims > row.uid 解析,
  *   缺字段用 X-No-* 显式声明;chat 请求绝不携带 X-Refresh-Token(红线);
- * - refreshToken() 走 /v2/plugin/auth/token/refresh(POST 无 body,不带 Authorization);
+ * - 凭据双格式兼容:tokenEnc 可为裸 JWT/opaque、token JSON({"accessToken":…})或 cookie 串
+ *   ("token=…; refresh_token=…"),parseLoginState 在 resolveAccount 统一归一后再建请求;
+ * - refreshToken() 主端点 /v2/plugin/auth/token/refresh(POST 无 body,不带 Authorization),
+ *   失败按序回退备用端点 /v2/auth/token/refresh 与备用凭据字段(登录态内嵌 refresh),
+ *   全部失败抛最后一次错误走既有错误分类;
  * - checkHealth()/listModels() 共用 /console/enterprises/personal/models(进程内缓存 1h);
  * - classifyUpstreamFailure() 实现接口可选的富错误分类(返回 {kind}),
  *   区分 credit/session_dead/auth/rate/request 等,供转发层决定罚不罚号。
@@ -42,12 +46,15 @@ import {
   normalizeCompletion,
   normalizeStreamChunk,
   parseEnvelope,
+  parseLoginState,
   prepareChatBody,
   randomHex32,
+  REFRESH_ENDPOINT_PATHS,
   resolveIdentity,
   resolveRealm,
   type UpstreamFailureKind,
   type WorkBuddyIdentity,
+  type WorkBuddyLoginState,
   type WorkBuddyRealm,
 } from './workbuddy-protocol.js'
 
@@ -84,20 +91,22 @@ function resolveFetchImpl(opts?: AdapterCallOptions): typeof fetch {
   return globalThis.fetch.bind(globalThis)
 }
 
-/** 账号上下文解析出的 realm + 身份(每请求一次) */
+/** 账号上下文解析出的 realm + 身份 + 登录材料(每请求一次;凭据双格式在此归一) */
 interface ResolvedAccount {
   realm: WorkBuddyRealm
   identity: WorkBuddyIdentity
+  login: WorkBuddyLoginState
 }
 
 function resolveAccount(ctx: AdapterAccountContext): ResolvedAccount {
-  const claims = ctx.credentials.token ? parseJwtClaims(ctx.credentials.token) : null
+  const login = parseLoginState(ctx.credentials)
+  const claims = login.accessToken ? parseJwtClaims(login.accessToken) : null
   const identity = resolveIdentity({
     extraMetadata: ctx.row.extraMetadata,
     claims,
     rowUid: ctx.row.uid,
   })
-  return { realm: resolveRealm(identity.domain), identity }
+  return { realm: resolveRealm(identity.domain), identity, login }
 }
 
 /** 统一信封 GET(模型目录);返回 {status, text} 供健康检查/列表复用 */
@@ -105,11 +114,11 @@ async function fetchModels(
   ctx: AdapterAccountContext,
   opts?: AdapterCallOptions,
 ): Promise<{ status: number; text: string }> {
-  const { realm } = resolveAccount(ctx)
+  const { realm, login } = resolveAccount(ctx)
   const url = `${chatBaseUrl(realm)}/console/enterprises/personal/models`
   const res = await resolveFetchImpl(opts)(url, {
     method: 'GET',
-    headers: buildHealthHeaders({ realm, accessToken: ctx.credentials.token }),
+    headers: buildHealthHeaders({ realm, accessToken: login.accessToken }),
   })
   const text = await res.text().catch(() => '')
   return { status: res.status, text }
@@ -132,16 +141,69 @@ function extractModelIds(envelopeText: string): string[] | null {
   return ids
 }
 
+/** 单次刷新尝试(一个端点 × 一个刷新凭证);失败抛错,message 不带凭证 */
+async function attemptRefresh(
+  fetchImpl: typeof fetch,
+  url: string,
+  refreshToken: string,
+  account: {
+    realm: WorkBuddyRealm
+    identity: WorkBuddyIdentity
+    rowUid: string
+    fallbackExpiresAt: Date | null
+  },
+): Promise<TokenRefreshResult> {
+  const headers = buildRefreshHeaders({
+    realm: account.realm,
+    refreshToken,
+    uid: account.identity.uid,
+    enterpriseId: account.identity.enterpriseId,
+    domain: account.identity.domain,
+    machineId: deriveStableId('machine', account.rowUid),
+    sessionId: deriveStableId('session', account.rowUid),
+    conversationRequestId: deriveConversationRequestId(),
+    messageRequestId: randomHex32(),
+  })
+  const res = await fetchImpl(url, { method: 'POST', headers })
+  const text = await res.text().catch(() => '')
+  // 抛错 message 只带状态码/信封 code,绝不带 body(可能含凭证)
+  if (res.status >= 400) throw new Error(`workbuddy refresh 失败: HTTP ${res.status}`)
+  const env = parseEnvelope(text)
+  if (!env) throw new Error('workbuddy refresh 失败: 响应信封非法')
+  if (env.code !== 0) throw new Error(`workbuddy refresh 失败: code=${env.code}`)
+  const data =
+    env.data && typeof env.data === 'object' && !Array.isArray(env.data)
+      ? (env.data as Record<string, unknown>)
+      : {}
+  const accessToken = typeof data['accessToken'] === 'string' ? data['accessToken'].trim() : ''
+  if (!accessToken)
+    throw new Error('workbuddy refresh 失败: 上游未返回 accessToken(会话已死,需重新登录)')
+  // 缺省 → null,由 scheduler 按"不改写"保留旧值
+  const newRefresh =
+    typeof data['refreshToken'] === 'string' && data['refreshToken'].trim()
+      ? data['refreshToken'].trim()
+      : null
+  const expiresIn = typeof data['expiresIn'] === 'number' ? data['expiresIn'] : NaN
+  let expiresAt: Date
+  if (Number.isFinite(expiresIn) && expiresIn > 0) {
+    expiresAt = new Date(Date.now() + expiresIn * 1000)
+  } else {
+    // 防刷新风暴:缺省/非正 → 沿用旧过期时刻;row 也没有则 now+24h
+    expiresAt = account.fallbackExpiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000)
+  }
+  return { token: accessToken, refreshToken: newRefresh, expiresAt }
+}
+
 export const workbuddyAdapter: RelayUpstreamAdapter = {
   providerCode: 'workbuddy',
 
   buildChatRequest(ctx: AdapterAccountContext, req: NormalizedChatRequest): UpstreamHttpRequest {
-    const { realm, identity } = resolveAccount(ctx)
+    const { realm, identity, login } = resolveAccount(ctx)
     const conversationRequestId = deriveConversationRequestId(req.conversationId)
     const messageRequestId = randomHex32()
     const headers = buildChatHeaders({
       realm,
-      accessToken: ctx.credentials.token,
+      accessToken: login.accessToken,
       uid: identity.uid,
       enterpriseId: identity.enterpriseId,
       domain: identity.domain,
@@ -198,53 +260,43 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
     return normalizeCompletion(responseBody)
   },
 
+  /**
+   * 刷新(带回退):首选 refreshToken × [主端点, 备用端点] → 备用凭据字段(登录态内嵌
+   * refresh,来自 token JSON / cookie 串 / cookies 数组)× [主端点, 备用端点]。
+   * 全部失败抛最后一次错误(message 只带状态码/信封 code,不带凭证),仍走既有错误分类。
+   */
   async refreshToken(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
   ): Promise<TokenRefreshResult | null> {
-    const refreshToken = ctx.credentials.refreshToken
-    if (!refreshToken) throw new Error('workbuddy refresh 失败: 账号缺少 refreshToken')
-    const { realm, identity } = resolveAccount(ctx)
-    const url = `${chatBaseUrl(realm)}/v2/plugin/auth/token/refresh`
-    const headers = buildRefreshHeaders({
-      realm,
-      refreshToken,
-      uid: identity.uid,
-      enterpriseId: identity.enterpriseId,
-      domain: identity.domain,
-      machineId: deriveStableId('machine', ctx.row.uid),
-      sessionId: deriveStableId('session', ctx.row.uid),
-      conversationRequestId: deriveConversationRequestId(),
-      messageRequestId: randomHex32(),
-    })
-    const res = await resolveFetchImpl(opts)(url, { method: 'POST', headers })
-    const text = await res.text().catch(() => '')
-    // 抛错 message 只带状态码/信封 code,绝不带 body(可能含凭证)
-    if (res.status >= 400) throw new Error(`workbuddy refresh 失败: HTTP ${res.status}`)
-    const env = parseEnvelope(text)
-    if (!env) throw new Error('workbuddy refresh 失败: 响应信封非法')
-    if (env.code !== 0) throw new Error(`workbuddy refresh 失败: code=${env.code}`)
-    const data =
-      env.data && typeof env.data === 'object' && !Array.isArray(env.data)
-        ? (env.data as Record<string, unknown>)
-        : {}
-    const accessToken = typeof data['accessToken'] === 'string' ? data['accessToken'].trim() : ''
-    if (!accessToken)
-      throw new Error('workbuddy refresh 失败: 上游未返回 accessToken(会话已死,需重新登录)')
-    // 缺省 → null,由 scheduler 按"不改写"保留旧值
-    const newRefresh =
-      typeof data['refreshToken'] === 'string' && data['refreshToken'].trim()
-        ? data['refreshToken'].trim()
-        : null
-    const expiresIn = typeof data['expiresIn'] === 'number' ? data['expiresIn'] : NaN
-    let expiresAt: Date
-    if (Number.isFinite(expiresIn) && expiresIn > 0) {
-      expiresAt = new Date(Date.now() + expiresIn * 1000)
-    } else {
-      // 防刷新风暴:缺省/非正 → 沿用旧过期时刻;row 也没有则 now+24h
-      expiresAt = ctx.row.tokenExpiresAt ?? new Date(Date.now() + 24 * 60 * 60 * 1000)
+    const { realm, identity, login } = resolveAccount(ctx)
+    const candidates: string[] = []
+    for (const rt of [
+      ctx.credentials.refreshToken ?? '',
+      login.refreshToken,
+      login.embeddedRefreshToken,
+    ]) {
+      const v = rt.trim()
+      if (v && !candidates.includes(v)) candidates.push(v)
     }
-    return { token: accessToken, refreshToken: newRefresh, expiresAt }
+    if (candidates.length === 0) throw new Error('workbuddy refresh 失败: 账号缺少 refreshToken')
+    const fetchImpl = resolveFetchImpl(opts)
+    let lastErr: Error = new Error('workbuddy refresh 失败: 未知错误')
+    for (const refreshToken of candidates) {
+      for (const path of REFRESH_ENDPOINT_PATHS) {
+        try {
+          return await attemptRefresh(fetchImpl, `${chatBaseUrl(realm)}${path}`, refreshToken, {
+            realm,
+            identity,
+            rowUid: ctx.row.uid,
+            fallbackExpiresAt: ctx.row.tokenExpiresAt,
+          })
+        } catch (e) {
+          lastErr = e instanceof Error ? e : new Error(String(e))
+        }
+      }
+    }
+    throw lastErr
   },
 
   async checkHealth(
@@ -289,7 +341,10 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
 
   isAuthError(err: unknown): boolean {
     const message = err instanceof Error ? err.message : typeof err === 'string' ? err : ''
-    return isAuthFailureCore(0, message)
+    // 刷新/上游抛错 message 里的 "HTTP 401/403" 还原成状态码判定(401 自愈依赖)
+    const m = message.match(/HTTP\s+(\d{3})/i)
+    const status = m ? Number(m[1]) : 0
+    return isAuthFailureCore(status, message)
   },
 
   classifyUpstreamFailure(statusCode: number, bodyText: string): { kind: UpstreamFailureKind } {

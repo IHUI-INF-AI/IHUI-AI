@@ -61,6 +61,7 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
       const result = await sweepAccountPool()
       server.log.info(
         {
+          skipped: result.skipped,
           refreshed: result.refreshed,
           refreshFailed: result.refreshFailed,
           refreshSkipped: result.refreshSkipped,
