@@ -22,13 +22,13 @@
  *   写回:`node scripts/scrub-declared-removals.mjs PROJECT_PLAN.md`
  *   自证:`node scripts/scrub-declared-removals.mjs --self-test`
  */
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const LEDGERS = ['.workbuddy/stale-claim-strip.jsonl', '.workbuddy/plan-row-drop.jsonl']
+const LEDGERS = ['.ihui-agent/state/stale-claim-strip.jsonl', '.ihui-agent/state/plan-row-drop.jsonl']
 
 /** 摘除声明集合:只收"整行原文"字段,解不开的行长跳过并计数。 */
 export function declaredRows(root = ROOT, files = LEDGERS) {
@@ -84,13 +84,9 @@ function main(argv) {
   }
   let headText
   try {
-    headText = execFileSync('git', ['show', `HEAD:${file}`], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      maxBuffer: 1 << 28,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    // 派生 git 走脚本层 gitRaw(G-927 2026-10-22):裸起 'git' 会被 face-reader.test 棘轮记为新增者;
+    // 层内失败抛 Undetermined,仍被本 try 的通用 catch 折成「未判定 ⇒ 不动文档」,语义不变。
+    headText = gitRaw(['show', `HEAD:${file}`], ROOT, { maxBuffer: 1 << 28 })
   } catch {
     console.log(`SCRUB-RESULT state=undetermined why=取不到 HEAD 面 ${file} ⇒ 不动文档`)
     return 2

@@ -27,10 +27,11 @@
  *   判据自证:`node scripts/check-ledger-verifiable.mjs --self-test`
  * 汇总行 `VERIFY-RESULT` 一定带 `undetermined=` 与 `skipped=`:把"没量到"写成"没有"是本仓最高频失效型。
  */
-import { execFileSync, execFile } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseTaskRows } from './lib/plan-task-index.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
@@ -85,13 +86,9 @@ export function summary(c, runs) {
 }
 
 async function main(argv) {
-  const txt = execFileSync('git', ['show', `HEAD:${FILE}`], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 1 << 28,
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  // 派生 git 走脚本层 gitRaw(G-927 2026-10-22):裸起 'git' 会被 face-reader.test 棘轮记为新增者;
+  // 层内已带显式 stdio/windowsHide/绝对路径纪律,台账整档 show 需 256MB 缓冲,沿用原 maxBuffer。
+  const txt = gitRaw(['show', `HEAD:${FILE}`], ROOT, { maxBuffer: 1 << 28 })
   const c = classify(txt)
   console.log(
     `[台账可验证性] 未勾登记行 ${c.rows.length} · 自带可跑判据 ${c.v1.length}(${((c.v1.length / c.rows.length) * 100).toFixed(1)}%) · 只点名对象 ${c.v2.length} · 纯叙述 ${c.v3.length}`,

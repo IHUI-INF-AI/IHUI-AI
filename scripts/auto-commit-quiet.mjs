@@ -23,18 +23,19 @@ import { execFileSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const QUIET_MIN = Number(process.env.IHUI_AUTO_COMMIT_QUIET_MIN || 3)
 const DRY = process.argv.includes('--dry-run')
-const LOG = join(ROOT, '.workbuddy', 'hook-logs', 'auto-commit-quiet.log')
+const LOG = join(ROOT, '.ihui-agent', 'state', 'hook-logs', 'auto-commit-quiet.log')
 
 const EXCLUDE = [
   /(^|\/)\.env(\.|$)/,
   /(^|\/)node_modules\//,
   /(^|\/)\.next\//,
   /(^|\/)\.ihui-agent\/tmp\//,
-  /(^|\/)\.workbuddy\/hook-logs\//,
+  /(^|\/)\.ihui-agent\/state\/hook-logs\//,
   /\.log$/,
   /\.(png|jpe?g|gif|webp|ico|pdf|zip|gz|apk|aab|jar|so|dll|exe|mp4|woff2?)$/i,
   // 人工台账**不**在此排除(2026-10-22 改):`PROJECT_PLAN.md`/`AGENTS.md` 是多席位并发改写的
@@ -48,17 +49,11 @@ const HUMAN_LEDGER_RE = /(^|\/)(PROJECT_PLAN|AGENTS)\.md$/
 const README_FILES = ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md']
 
 function git(args, opts = {}) {
-  // 三件事同批:显式 stdio(§12g,本机不写稳定 EBUSY)、windowsHide 置后(强制生效,调用方覆盖不掉)、
-  // 带 input 时 stdin 必须是 pipe。
-  const stdio = opts.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe']
-  return execFileSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    maxBuffer: 64 << 20,
-    stdio,
-    ...opts,
-    windowsHide: true,
-  })
+  // 派生 git 一律走脚本层(lib/face-reader 的 gitRaw,G-927 2026-10-22):裸起 'git' 会被
+  // scripts/tests/face-reader.test.mjs 的"裸派生生产文件只减不增"棘轮记为新增者。层内同批兜住
+  // 原先手写的三件事(显式 stdio §12g、windowsHide 强制生效、带 input 时 stdin=pipe),
+  // maxBuffer 默认 64MB 与本器原值同档;绝对路径 git 二进制与 safe.directory 纪律一并拿到。
+  return gitRaw(args, ROOT, opts)
 }
 
 function log(line) {
@@ -68,7 +63,7 @@ function log(line) {
 
 function guardBusy() {
   if (existsSync(join(ROOT, '.git', 'index.lock'))) return 'index.lock 在用'
-  const preCommitLog = join(ROOT, '.workbuddy', 'hook-logs', 'pre-commit.log')
+  const preCommitLog = join(ROOT, '.ihui-agent', 'state', 'hook-logs', 'pre-commit.log')
   if (!existsSync(preCommitLog)) return null
   const ageSec = (Date.now() - statSync(preCommitLog).mtimeMs) / 1000
   if (ageSec > 30) return null // 半分钟没人写 ⇒ 批次已结束(旧实现按 6 分钟判,把刚跑完的批次误当在跑,导致永远让路)
