@@ -5284,6 +5284,25 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- Button 档位收编(1 项,blocking)---
+  {
+    id: '235',
+    label:
+      '📏 Button 高度档位(三面取材:HEAD blob / 索引 blob / 工作区仅人工)',
+    script: 'check-button-height.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_BUTTON_HEIGHT_GUARD',
+    stagedTriggers: ['apps/', 'packages/'],
+    onFailHint: [
+      '',
+      '修复:改用 size 档位(新高度先在 packages/ui-react/src/components/button.tsx 立档)',
+      '自检:node scripts/check-button-height.mjs --self-test',
+      '紧急跳过:HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
