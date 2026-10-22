@@ -190,17 +190,33 @@ export function deliverSmsCode(
 }
 
 /** 无凭据也无代理时,这一轮到底算不算"发出去了"。
- *  生产档必须算失败:记成成功 ⇒ 响应写"验证码已发送"而用户永远等不到那条短信,
- *  而"降级"这件事只留下一行 warn,没人会去查。开发档保留降级(调用方拿得到回显码)。
- *  抽成纯函数是为了让两档各自有夹具可钉 —— 判据住在模块加载期读死的全局旗标时,
- *  测试永远只能覆盖其中一档,另一档等于没锁。 */
-export function judgeUnconfiguredDelivery(production: boolean): SmsDeliveryResult {
-  return production
-    ? {
-        sent: false,
-        reason: 'not_configured: ALI_SMS_* / TENCENT_SMS_* / SMS_API_BASE_URL 三档全未配置',
-      }
-    : { sent: true, reason: 'dev_console' }
+ *
+ * 生产档必须算失败:记成成功 ⇒ 响应写"验证码已发送"而用户永远等不到那条短信,
+ * 而"降级"这件事只留下一行 warn,没人会去查。
+ *
+ * **开发档的回显不再由 NODE_ENV 推断**(2026-10-22 实测改判)。原写法信 `NODE_ENV==='production'`,
+ * 而这台机器就是生产机、它跑的 api 却是 `NODE_ENV=development`(生产签出那份 `.env` 第 1 行),
+ * 于是"三档通道全未配置"被读成"开发态,可以假发" ⇒ 线上发码接口恒返回 `sent:true`,
+ * 而短信一条都没出。实测读数:`POST /api/auth/sms/send` 返
+ * `{"code":0,"data":{"sent":true,"expiresIn":300}}`,同轮 Redis 里 `code:*` 有键、厂商侧零发送。
+ * 失效方向按 §0.10 只能是"多要一次显式声明",不能是"多放一次假绿":
+ * 要拿到回显码必须显式设 `SMS_DEV_ECHO=1`,缺省一律 fail-closed。
+ *
+ * 抽成纯函数是为了让每一档各有成对夹具可钉(§feedback-fix-must-carry-mutation-proof):
+ * 摘掉 `devEchoOptIn` 这一维,显式声明那一档必须翻红,而不是两档同色。 */
+export function judgeUnconfiguredDelivery(opts: {
+  productionGuard: boolean
+  devEchoOptIn: boolean
+}): SmsDeliveryResult {
+  if (opts.devEchoOptIn && !opts.productionGuard) {
+    return { sent: true, reason: 'dev_console_opt_in' }
+  }
+  return {
+    sent: false,
+    reason:
+      'not_configured: ALI_SMS_* / TENCENT_SMS_* / SMS_API_BASE_URL 三档全未配置' +
+      (opts.productionGuard ? '' : '(非生产档也不回显:要回显请显式设 SMS_DEV_ECHO=1)'),
+  }
 }
 
 function isAliyunSmsConfigured(): boolean {
@@ -251,15 +267,18 @@ async function dispatchSms(
   if (channel === 'tencent') return sendViaTencent(phone, code, scene)
   if (channel === 'aliyun') return sendViaAliyun(phone, code, scene)
   if (channel === 'proxy') return sendViaProxy(phone, code)
-  // 策略 3：dev console（仅非生产档降级）
+  // 三档通道全未配置 ⇒ 这一轮没有真发送,必须让它响。
   logger.warn('SMS 没有任何已配置的发送通道 ⇒ 本轮没有真发送', {
     phone: maskPhone(phone),
     provider: declared,
   })
-  // 读法随仓内既有 7 处(旗标挂在 config 对象上,不是具名导出 —— 具名导入在只 mock
+  // 旗标读法随仓内既有 7 处(挂在 config 对象上,不是具名导出 —— 具名导入在只 mock
   // `config` 的测试里会在请求期才炸,表现为 500 而不是"档位不对")。
   // 真实 config 一定带这个键,退回 NODE_ENV 只为兼容没铺全的 mock。
-  return judgeUnconfiguredDelivery(config.isProductionGuard ?? config.NODE_ENV === 'production')
+  return judgeUnconfiguredDelivery({
+    productionGuard: config.isProductionGuard ?? config.NODE_ENV === 'production',
+    devEchoOptIn: env.SMS_DEV_ECHO === '1',
+  })
 }
 
 /** 场景 → 该场景专用模板码的 env 键。四枚模板在阿里云侧均已过审。 */
