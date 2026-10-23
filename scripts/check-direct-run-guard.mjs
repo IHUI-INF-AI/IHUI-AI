@@ -108,6 +108,8 @@ import {
   maskCommentsAndStrings,
   maskCommentsStringsAndRegex,
 } from './lib/code-mask.mjs'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -787,9 +789,11 @@ export function selfTest() {
 }
 
 function argValue(argv, flag) {
-  const i = argv.indexOf(flag)
-  if (i < 0) return null
-  return argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : undefined
+  // G-322:取值一律走 scripts/lib/flag-value.mjs 单源;`null` = 没给该旗标(走默认根),
+  // 给了旗标却没拿到值 ⇒ 返回 error,由调用方 exit 2 点名实得 token(不得折回默认根)。
+  const f = requireFlagValue(argv, flag, { noun: '目录参数' })
+  if (!f.present) return { value: null, error: null }
+  return { value: f.value, error: f.error }
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -811,11 +815,11 @@ export async function main(argv = process.argv.slice(2)) {
     return 2
   }
   const rootArg = argValue(argv, '--root')
-  if (rootArg === undefined) {
-    console.error(`${C.red}❌ --root 需要一个目录实参${C.reset}`)
+  if (rootArg.error) {
+    console.error(`${C.red}❌ ${rootArg.error}${C.reset}`)
     return 2
   }
-  const root = rootArg === null ? ROOT : resolve(rootArg)
+  const root = rootArg.value === null ? ROOT : resolve(rootArg.value)
 
   let a
   try {
