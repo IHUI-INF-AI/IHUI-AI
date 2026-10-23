@@ -128,14 +128,17 @@ describe('D162 六格拒因 / 六种不可用态各一条', () => {
   })
 })
 
-describe('D162 终态两分 / deferred(未发送)≠ failed(发送失败)', () => {
-  it('恰为两态;两条 labelKey 互不相同(同键即未落实)', () => {
-    expect(QUEUE_SEND_OUTCOMES).toEqual(['deferred', 'failed'])
+describe('D162 终态三分 / deferred(未发送)≠ failed(发送失败)≠ sent(已发送)', () => {
+  it('恰为三态(G-171b 补 sent);三条 labelKey 互不相同(同键即未落实)', () => {
+    expect(QUEUE_SEND_OUTCOMES).toEqual(['deferred', 'failed', 'sent'])
     const deferred = queueSendOutcomeView('deferred')
     const failed = queueSendOutcomeView('failed')
+    const sent = queueSendOutcomeView('sent')
     expect(deferred.labelKey).toBe(queueSendOutcomeKey('deferred'))
     expect(failed.labelKey).toBe(queueSendOutcomeKey('failed'))
-    expect(deferred.labelKey).not.toBe(failed.labelKey)
+    expect(sent.labelKey).toBe(queueSendOutcomeKey('sent'))
+    const keys = [deferred.labelKey, failed.labelKey, sent.labelKey]
+    expect(new Set(keys).size).toBe(3)
   })
 
   it('两条 zh-CN 文案互不相同(「没做」与「失败」是两个词)', () => {
@@ -153,7 +156,13 @@ describe('D162 终态两分 / deferred(未发送)≠ failed(发送失败)', () =
 
   it('六格拒因文案与两条终态文案之间也无同串(整族零撞句)', () => {
     const parsed = JSON.parse(readFileSync(ZH_CN_MESSAGES, 'utf8')) as {
-      ai?: { pane?: { inputNotices?: { queue?: { blocked?: Record<string, string>; outcome?: Record<string, string> } } } }
+      ai?: {
+        pane?: {
+          inputNotices?: {
+            queue?: { blocked?: Record<string, string>; outcome?: Record<string, string> }
+          }
+        }
+      }
     }
     const blocked = parsed.ai?.pane?.inputNotices?.queue?.blocked ?? {}
     const outcome = parsed.ai?.pane?.inputNotices?.queue?.outcome ?? {}

@@ -389,9 +389,7 @@ export function StudyIndexScreen({
               </View>
             ) : items.length > 0 && items.length >= total ? (
               <View style={styles.noMoreWrap}>
-                <View style={styles.noMoreLine} />
                 <Text style={styles.noMoreText}>{noMoreText}</Text>
-                <View style={styles.noMoreLine} />
               </View>
             ) : null
           }
@@ -658,18 +656,13 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.text.primary,
     } as TextStyle,
-    // 没有更多了
+    // 没有更多了(§4 禁分割线:两侧细线已清,文字居中留白)
     noMoreWrap: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       paddingTop: 20,
       marginTop: 10,
-    } as ViewStyle,
-    noMoreLine: {
-      flex: 1,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: tk.surface.muted,
     } as ViewStyle,
     noMoreText: {
       marginHorizontal: 10,
