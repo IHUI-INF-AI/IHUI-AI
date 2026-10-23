@@ -419,6 +419,84 @@ async def test_fusion_merge_mode_basic_returns_judge_answer():
     assert "gpt-4o-mini" in call_log
 
 
+@pytest.mark.asyncio
+async def test_fusion_judge_leg_receives_explicit_principal():
+    """fusion 的 judge 腿必须拿到承载层显式下传的主体(2026-10-23 票面第一格收口)。
+
+    llm_call_logs.user_id 是 NOT NULL + FK,而 `_emit_llm_call_log` 的判据是
+    "缺主体 ⇒ 连任务都不创建" ⇒ judge 腿一旦拿不到 billing_user_id,这条上游
+    尝试就在流水账里静默消失("这次请求走了哪条腿"数不对)。
+    正反成对:同一条链不带主体 ⇒ judge 腿拿到的必须是 None(不拿 owner_uuid 反推)。
+    """
+    router = _build_fusion_router(judge_mode="merge")
+    seen: dict[str, object] = {}
+
+    async def _complete(messages, model=None, **kwargs):
+        if model == "gpt-4o-mini":  # judge 腿
+            seen["judge_principal"] = kwargs.get("billing_user_id")
+            seen["judge_route"] = kwargs.get("_call_route")
+            return {"content": "merged", "model": model, "usage": {}, "stub": False}
+        return {"content": f"ans-{model}", "model": model, "usage": {}, "stub": False}
+
+    mock_gateway = MagicMock()
+    mock_gateway.complete = _complete
+
+    with patch("app.core.llm_gateway.llm_gateway", mock_gateway):
+        await router.route_with_combo(
+            messages=[{"role": "user", "content": "Q"}],
+            combo_name="f1",
+            primary="gpt-4o",
+            billing_user_id="7b2c3a4d-5e6f-4a1b-9c8d-7e6f5a4b3c2d",
+            _call_route="combo",
+            _combo_name="f1",
+        )
+    assert seen["judge_principal"] == "7b2c3a4d-5e6f-4a1b-9c8d-7e6f5a4b3c2d"
+    assert seen["judge_route"] == "combo"
+
+    seen.clear()
+    with patch("app.core.llm_gateway.llm_gateway", mock_gateway):
+        await router.route_with_combo(
+            messages=[{"role": "user", "content": "Q"}],
+            combo_name="f1",
+            primary="gpt-4o",
+            _call_route="combo",
+            _combo_name="f1",
+        )
+    assert seen["judge_principal"] is None, "不得从 combo 配置里反推主体"
+
+
+@pytest.mark.asyncio
+async def test_fusion_vote_judge_leg_receives_explicit_principal():
+    """vote 模式的 judge 腿与 merge 同一条传递路径,单独钉一条(两型各自有调用点)。"""
+    router = _build_fusion_router(judge_mode="vote")
+    principals: list[object] = []
+
+    async def _complete(messages, model=None, **kwargs):
+        if model == "gpt-4o-mini":
+            principals.append(kwargs.get("billing_user_id"))
+            return {
+                "content": '{"best_index": 1, "scores": [{"index": 1, "score": 9, "reason": "r"}]}',
+                "model": model,
+                "usage": {},
+                "stub": False,
+            }
+        return {"content": f"ans-{model}", "model": model, "usage": {}, "stub": False}
+
+    mock_gateway = MagicMock()
+    mock_gateway.complete = _complete
+
+    with patch("app.core.llm_gateway.llm_gateway", mock_gateway):
+        await router.route_with_combo(
+            messages=[{"role": "user", "content": "Q"}],
+            combo_name="f1",
+            primary="gpt-4o",
+            billing_user_id="11111111-2222-3333-4444-555555555555",
+            _call_route="combo",
+            _combo_name="f1",
+        )
+    assert principals == ["11111111-2222-3333-4444-555555555555"]
+
+
 def _prom_sample(name: str, labels: dict[str, str]) -> float:
     """从默认注册表按标签取样本值(取不到按 0 计 == 从未产生过样本)。"""
     from prometheus_client import REGISTRY

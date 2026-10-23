@@ -26,7 +26,15 @@
  *   留痕一律走生产出口 `recordBypassLanding`(手抄 JSON 键名 = 第二份 schema,§22c 禁)。
  */
 import { spawnSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join, normalize, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
@@ -692,6 +700,90 @@ test('G-182 ②′ 尺寸档:热活文档单档放行、普通路径照旧不判
     assert.equal(__test__.subsetCapForPath('README.md'), 16 * 1024 * 1024)
     assert.equal(__test__.subsetCapForPath('apps/web/src/x.ts'), 2 * 1024 * 1024)
   } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * T18b —— 第二/三层用**逐路径** update-index,绝不来一次全局 `git update-index --refresh`。
+ * 立因(2026-10-23 现读):`refreshStaleIndex` 只判 `diff --name-only HEAD --cached` 里那些
+ * 「索引 blob ≠ HEAD blob」的路径,而全局刷新会把**索引行内容与 HEAD 相同、但暂存态本身是别人
+ * 在飞成果**的条目(典型:并发的 `git rm --cached`)一起写回 HEAD —— 2026-09-12 实测 5 枚被这样
+ * 抹掉,`git status` 由 `D ` 变 ` D` 再变干净,一次不带 pathspec 的提交就把删除意图带成"改了内容"。
+ * 行为面自测里那条(⑧‖)判的是"删除路径不进 ②′ 候选",看不见"全局刷新"这一型回归 ⇒ 只能形状锁。
+ */
+test('T18b 形状锁:陈旧索引层不得出现无 pathspec 的全局 update-index --refresh', () => {
+  const src = healSrc()
+  for (const name of ['refreshStaleIndex', 'writeIndexCacheInfos', 'alignLandingDebtIndex']) {
+    const body = funcBody(src, name)
+    assert.ok(
+      !/--refresh(?!-quiet)/.test(body),
+      `${name}() 体内出现 --refresh:全局刷新会连带改写别人在飞的暂存态(2026-09-12 抹掉 5 枚 D 的成因)`,
+    )
+  }
+  // 而逐路径那条通道必须还在(否则这条锁就只是"什么都不许写"的空话)
+  assert.match(funcBody(src, 'writeIndexCacheInfos'), /update-index/, '逐路径写索引的出口不得消失')
+})
+
+/**
+ * T19 —— 活工作保护窗(`e5e01735b9` 装车,默认 600s)的正反两档镜像取证。
+ *
+ * 立因:护栏装车时**没同步改任何一处夹具**,而所有夹具都是"`writeFileSync` 刚写完立刻
+ * 调 alignDrifts" ⇒ 路径必然落在窗内被整条摘出可判集。于是第二/三层 10 例自测连红到
+ * 2026-10-23 才被发现,而这十项与 HEAD 版逐字同判(换文件复跑实测),账面一直写着"红线门 ③ 红"。
+ * 更糟的是:**这条护栏此前在 self-test 里一条用例都没有** —— 所以"夹具全落在窗内"与
+ * "护栏生效"这两种截然相反的成因,读出来都是同一句 aligned=0。本测试把两面分开钉:
+ *  ① 窗内 ⇒ 不写盘、不判 ⇒ `recentlySkipped` 逐条点名(它不得被塞进 driftUndetermined,
+ *     那是"判不出"那一族;在飞编辑既没判过也没判不出,只是本轮不做 —— §0.3);
+ *  ② 同一路径把 mtime 做成旧的(converge/旁路落地留下的滞后文件必然是旧的)⇒ 必须照常对齐;
+ *  ③ 装车形状锁:护栏必须接在两条通道**之前**(eligible 之前),否则"判完了才让路"仍会
+ *     把窗口外的成本(整棵历史树遍历)白付一遍,且把在飞编辑记进未判定名单。
+ * 窗口档位由本测试显式给定(600),不沿用进程环境 —— 环境是机器事实,判据不是(§0.1)。
+ */
+test('T19 活工作保护窗:窗内不判不写且点名,窗外同一现场照常对齐(正反两档)', () => {
+  const dir = mkScratch('wt-heal-freshguard-')
+  const key = 'IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC'
+  const prev = process.env[key]
+  process.env[key] = '600'
+  try {
+    const g = (args) => gitRaw(args, dir, { timeout: 60000 })
+    g(['init', '-q', '--initial-branch=main'])
+    g(['config', 'user.email', 't@t'])
+    g(['config', 'user.name', 't'])
+    g(['config', 'core.autocrlf', 'false'])
+    writeFileSync(join(dir, 'a.ts'), 'v1\n')
+    g(['add', '-A'])
+    g(['commit', '-qm', 'A: v1'])
+    writeFileSync(join(dir, 'a.ts'), 'v2\n')
+    g(['commit', '-qam', 'B: v2(HEAD)'])
+    // ① 窗内:刚写下的"回潮"内容 = 在飞编辑的形态
+    writeFileSync(join(dir, 'a.ts'), 'v1\n')
+    const inWindow = alignDrifts(dir)
+    assert.equal(inWindow.aligned, 0, '窗口内的路径不得被还原(还原 = 覆盖别人正在写的字节)')
+    assert.deepEqual(inWindow.recentlySkipped, ['a.ts'], '被护栏挡下的路径必须逐条点名')
+    assert.equal(readFileSync(join(dir, 'a.ts'), 'utf8'), 'v1\n', '现场内容必须一字不动')
+    assert.ok(
+      !(inWindow.driftUndetermined || []).some((u) => u.path === 'a.ts'),
+      '窗内是"本轮不做",不是"判不出" ⇒ 不得混进 driftUndetermined(两族处置不同)',
+    )
+    // ② 窗外:同一路径、同一内容,只把 mtime 做成旧的 ⇒ 必须自愈
+    const old = new Date(Date.now() - 601_000)
+    utimesSync(join(dir, 'a.ts'), old, old)
+    const aged = alignDrifts(dir)
+    assert.equal(aged.aligned, 1, '窗口外的真漂移仍必须对齐(否则护栏成了永不修复)')
+    assert.deepEqual(aged.recentlySkipped, [])
+    assert.equal(readFileSync(join(dir, 'a.ts'), 'utf8'), 'v2\n', '对齐后必须回到 HEAD 内容')
+    // ③ 形状锁:护栏必须接在两条通道之前
+    const body = funcBody(healSrc(), 'alignDrifts')
+    assert.match(body, /splitFreshWorktreePaths\(/, '护栏调用不得从本层消失')
+    assert.match(body, /freshSplit\.judgeable/, '可判集必须取护栏的 judgeable 那一支')
+    assert.ok(
+      body.indexOf('splitFreshWorktreePaths(') < body.indexOf('compositeDriftPaths('),
+      '护栏必须排在两条通道之前(排在后面 = 白付历史遍历 + 把在飞编辑记成判不出)',
+    )
+  } finally {
+    if (prev === undefined) delete process.env[key]
+    else process.env[key] = prev
     rmScratch(dir)
   }
 })
