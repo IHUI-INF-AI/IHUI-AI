@@ -21,9 +21,15 @@
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import { extractTokenExpiry } from '../relay-account-format.js'
+import {
+  describeQoderBridgeFailure,
+  ensureQoderBridge,
+  getQoderBridgeEndpoint,
+} from '../qoder-bridge-client.js'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
+  ChatExecuteOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
   RelayQuotaResult,
@@ -31,6 +37,7 @@ import type {
   StreamState,
   TokenRefreshResult,
   TranslatedChunk,
+  UpstreamChatResult,
   UpstreamHttpRequest,
 } from '../relay-upstream-adapters.js'
 
@@ -86,7 +93,7 @@ function cosyValue(cosy: Record<string, unknown>, keys: readonly string[]): stri
 
 /** chat 契约未实证的统一错误(转发层按普通上游错误处理,不刷新不重试) */
 export const QODER_CHAT_CONTRACT_UNVERIFIED =
-  'QODER_CHAT_CONTRACT_UNVERIFIED: Qoder 上游 chat 端点契约未实证(签到/配额/refresh 已实证),拒绝冒充可用'
+  'QODER_CHAT_CONTRACT_UNVERIFIED: Qoder chat 必须经本机桥(executeChat)执行,三件套直连通道未实证'
 
 /** Qoder 上游非鉴权失败(带 HTTP 状态码;消息截断防泄漏) */
 export class QoderUpstreamError extends Error {
@@ -99,108 +106,162 @@ export class QoderUpstreamError extends Error {
 }
 
 // =============================================================================
-// fetch 解析(测试缝 > 账号级代理 > 全局直连;与 trae-adapter 同优先级)
+// chat ↔ 本机桥(2026-10-23 打通)
 // =============================================================================
+//
+// 为什么必须走本机桥:chat 真实端点 `/algo/api/v2/service/pro/sse/agent_chat_generation`
+// 要求 **umid 设备签名**(resources/umid/runtime-info.exe + sgsdk.dll 生成,外部不可复刻)。
+// 官方 Agent SDK 的 worker 自己会签名,鉴权走 `jobToken`
+// (worker 侧 applyExternalToken(token,"host-job-token")) —— 即 IDE 把 device token
+// 交给 worker 的官方通道,**不需要 PAT、不需要浏览器授权**。
+//
+// 实测(2026-10-23,两次真实回复+真实计费):
+//   result="pong" / "我是 Qoder,…" , subtype=success, credits=0.87 / 2.48
+//
+// 安全:桥内 `options.tools=[]` 已清空工具面(不传会挂 18 个本机工具);
+//      cwd 固定为空目录,阻断 AGENTS.md 等上下文外泄。
 
-const proxyAgentCache = new Map<string, ProxyAgent>()
-
-function makeProxiedFetch(proxyUrl: string): typeof fetch {
-  let agent = proxyAgentCache.get(proxyUrl)
-  if (!agent) {
-    agent = new ProxyAgent(proxyUrl)
-    proxyAgentCache.set(proxyUrl, agent)
+/** 桥请求体:只保留桥会消费的字段,采样参数透传(桥当前忽略,不伪造生效) */
+function buildBridgeBody(req: NormalizedChatRequest): Record<string, unknown> {
+  const messages = Array.isArray(req.messages)
+    ? req.messages
+        .filter((m) => m && typeof m.role === 'string')
+        .map((m) => ({ role: m.role, content: m.content }))
+    : []
+  const body: Record<string, unknown> = {
+    model: req.model || 'auto',
+    messages,
+    stream: req.stream === true,
   }
-  const dispatcher = agent
-  return ((input: string | URL, init?: RequestInit) =>
-    undiciFetch(
-      input as never,
-      {
-        ...(init ?? {}),
-        dispatcher,
-      } as never,
-    ) as unknown as Promise<Response>) as unknown as typeof fetch
+  if (typeof req.temperature === 'number') body.temperature = req.temperature
+  if (typeof req.maxTokens === 'number') body.max_tokens = req.maxTokens
+  if (typeof req.topP === 'number') body.top_p = req.topP
+  if (Array.isArray(req.stop) && req.stop.length > 0) body.stop = req.stop
+  if (typeof req.seed === 'number') body.seed = req.seed
+  if (typeof req.presencePenalty === 'number') body.presence_penalty = req.presencePenalty
+  if (typeof req.frequencyPenalty === 'number') body.frequency_penalty = req.frequencyPenalty
+  return body
 }
 
-function resolveFetchImpl(opts: AdapterCallOptions): typeof fetch {
-  if (opts.fetchImpl) return opts.fetchImpl
-  if (opts.proxyUrl) return makeProxiedFetch(opts.proxyUrl)
-  return globalThis.fetch.bind(globalThis)
-}
-
-// =============================================================================
-// Cosy 设备头(风控面)
-// =============================================================================
-
-/** extraMetadata.cosy(导入时随账号落库)+ 行级 machineId → Cosy-* 请求头 */
-export function buildCosyHeaders(ctx: AdapterAccountContext): Record<string, string> {
-  const headers: Record<string, string> = {
-    'Cosy-ClientType': CLIENT_TYPE_DEFAULT,
-    'Cosy-MachineOS': MACHINE_OS_DEFAULT,
-  }
-  const extra = ctx.row.extraMetadata as Record<string, unknown> | null | undefined
-  const cosy = extra?.['cosy']
-  if (cosy !== null && typeof cosy === 'object' && !Array.isArray(cosy)) {
-    const c = cosy as Record<string, unknown>
-    for (const [mapKey, header] of COSY_HEADERS) {
-      // 蛇形键为正;历史行的驼峰键兼容读取(machine_token / machineToken)
-      const camel = mapKey.replace(/_([a-z])/g, (_, ch: string) => ch.toUpperCase())
-      const v = cosyValue(c, [mapKey, camel])
-      if (v) headers[header] = v
+/** 桥 → OpenAI chunk 异步序列(桥已输出 OpenAI 帧,这里只做 SSE 拆帧 + 错误上抛) */
+async function* parseBridgeSse(
+  body: ReadableStream<Uint8Array>,
+): AsyncIterable<Record<string, unknown>> {
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let nl = buffer.indexOf('\n')
+      while (nl >= 0) {
+        const raw = buffer.slice(0, nl).replace(/\r$/, '')
+        buffer = buffer.slice(nl + 1)
+        nl = buffer.indexOf('\n')
+        if (!raw.startsWith('data:')) continue
+        const payload = raw.slice(5).trim()
+        if (!payload || payload === '[DONE]') continue
+        let obj: unknown
+        try {
+          obj = JSON.parse(payload)
+        } catch {
+          continue
+        }
+        if (!obj || typeof obj !== 'object') continue
+        const err = (obj as Record<string, unknown>)['error']
+        if (err && typeof err === 'object') {
+          const msg = (err as Record<string, unknown>)['message']
+          throw new QoderUpstreamError(502, `Qoder 桥上流错误: ${String(msg ?? 'unknown')}`)
+        }
+        yield obj as Record<string, unknown>
+      }
+    }
+    // 收尾残留(无换行结尾的最后一行)
+    const tail = buffer.trim()
+    if (tail.startsWith('data:')) {
+      const payload = tail.slice(5).trim()
+      if (payload && payload !== '[DONE]') {
+        try {
+          const obj = JSON.parse(payload) as Record<string, unknown>
+          if (!obj['error']) yield obj
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  } finally {
+    try {
+      await reader.cancel()
+    } catch {
+      /* ignore */
     }
   }
-  const machineId = ctx.row.machineId
-  if (machineId) headers['Cosy-MachineId'] = machineId
-  return headers
-}
-
-/** 宽松取响应里的 token 字段(兼容 data 包裹;与 qoder_refresh_token 同键序) */
-function pickTokenField(body: unknown, keys: readonly string[]): string {
-  if (body === null || typeof body !== 'object') return ''
-  const o = body as Record<string, unknown>
-  for (const k of keys) {
-    const v = o[k]
-    if (typeof v === 'string' && v.trim()) return v.trim()
-  }
-  const data = o['data']
-  if (data !== null && typeof data === 'object') return pickTokenField(data, keys)
-  return ''
-}
-
-/** 配额端点请求头:健康检查与余额查询共用一份,防两处漂移 */
-function quotaRequestHeaders(ctx: AdapterAccountContext): Record<string, string> {
-  return {
-    accept: 'application/json',
-    'user-agent': USER_AGENT,
-    authorization: `Bearer ${ctx.credentials.token}`,
-    ...buildCosyHeaders(ctx),
-  }
-}
-
-/**
- * 取 add-on credits 余额(与 checkin_qoder.qoder_query_credits 同键序:
- * 先剥 data 包裹,再认 addOnQuota / add_on_quota 的 remaining 数值)。
- * 认不出 ⇒ null(未判定),绝不回落成 0 —— 0 在面板上读成"积分已耗尽"。
- */
-export function extractAddOnRemaining(body: unknown): number | null {
-  if (body === null || typeof body !== 'object' || Array.isArray(body)) return null
-  const o = body as Record<string, unknown>
-  const inner =
-    o['data'] !== null && typeof o['data'] === 'object' && !Array.isArray(o['data'])
-      ? (o['data'] as Record<string, unknown>)
-      : o
-  const raw = inner['addOnQuota'] ?? inner['add_on_quota']
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
-  const remaining = (raw as Record<string, unknown>)['remaining']
-  if (typeof remaining !== 'number' || !Number.isFinite(remaining)) return null
-  return Math.trunc(remaining)
 }
 
 // =============================================================================
-// 适配器
+// 适配器(2026-10-23:chat 走 executeChat→本机桥;refresh/quota/健康检查仍直连 openapi)
 // =============================================================================
 
 export const qoderAdapter: RelayUpstreamAdapter = {
   providerCode: 'qoder',
+
+  /**
+   * chat 执行(路径 A:executeChat)。转发层检测到本方法就不会调三件套。
+   * 桥未就绪时先等一次启动(Electron 冷启动 ~7s),仍失败则如实抛 503,绝不伪造成功。
+   */
+  async executeChat(
+    ctx: AdapterAccountContext,
+    req: NormalizedChatRequest,
+    opts: ChatExecuteOptions,
+  ): Promise<UpstreamChatResult> {
+    const ep = getQoderBridgeEndpoint() ?? (await ensureQoderBridge())
+    if (!ep) throw new QoderUpstreamError(503, describeQoderBridgeFailure())
+
+    const token = ctx.credentials.token
+    if (!token) throw new QoderUpstreamError(401, 'Qoder 账号缺少 device token')
+
+    // jobToken 的 expiresAt 只是 worker 侧本地预检(要求 >= 1e12 毫秒);
+    // 真实有效期由上游判定,过期会以 401 回来并触发 refresh —— 缺失时给 1h 占位。
+    const expRaw = ctx.row.tokenExpiresAt
+    const expiresAt =
+      expRaw instanceof Date && Number.isFinite(expRaw.getTime())
+        ? expRaw.getTime()
+        : Date.now() + 3_600_000
+
+    const doFetch = opts.fetchImpl ?? fetch
+    const res = await doFetch(`${ep.baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`,
+        'x-qoder-token-exp': String(expiresAt),
+        'x-qoder-bridge-key': ep.key,
+        accept: req.stream ? 'text/event-stream' : 'application/json',
+      },
+      body: JSON.stringify(buildBridgeBody(req)),
+      signal: opts.signal,
+    })
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '')
+      throw new QoderUpstreamError(
+        res.status,
+        `Qoder 桥 HTTP ${res.status}${text ? `: ${text}` : ''}`,
+      )
+    }
+
+    if (req.stream === true && res.body) {
+      return { stream: parseBridgeSse(res.body) }
+    }
+    return { completion: (await res.json()) as Record<string, unknown> }
+  },
+
+  /** 鉴权失败判据:401/403 交给转发层触发 refresh 后重试 */
+  isAuthError(err: unknown): boolean {
+    return err instanceof QoderUpstreamError && (err.statusCode === 401 || err.statusCode === 403)
+  },
 
   buildChatRequest(_ctx: AdapterAccountContext, _req: NormalizedChatRequest): UpstreamHttpRequest {
     throw new Error(QODER_CHAT_CONTRACT_UNVERIFIED)
@@ -363,4 +424,101 @@ export const qoderAdapter: RelayUpstreamAdapter = {
       return { kind: 'request' as const }
     return { kind: 'client' as const }
   },
+}
+
+// =============================================================================
+// fetch 解析(测试缝 > 账号级代理 > 全局直连;与 trae-adapter 同优先级)
+// =============================================================================
+
+const proxyAgentCache = new Map<string, ProxyAgent>()
+
+function makeProxiedFetch(proxyUrl: string): typeof fetch {
+  let agent = proxyAgentCache.get(proxyUrl)
+  if (!agent) {
+    agent = new ProxyAgent(proxyUrl)
+    proxyAgentCache.set(proxyUrl, agent)
+  }
+  const dispatcher = agent
+  return ((input: string | URL, init?: RequestInit) =>
+    undiciFetch(
+      input as never,
+      {
+        ...(init ?? {}),
+        dispatcher,
+      } as never,
+    ) as unknown as Promise<Response>) as unknown as typeof fetch
+}
+
+function resolveFetchImpl(opts: AdapterCallOptions): typeof fetch {
+  if (opts.fetchImpl) return opts.fetchImpl
+  if (opts.proxyUrl) return makeProxiedFetch(opts.proxyUrl)
+  return globalThis.fetch.bind(globalThis)
+}
+
+// =============================================================================
+// Cosy 设备头(风控面)
+// =============================================================================
+
+/** extraMetadata.cosy(导入时随账号落库)+ 行级 machineId → Cosy-* 请求头 */
+export function buildCosyHeaders(ctx: AdapterAccountContext): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Cosy-ClientType': CLIENT_TYPE_DEFAULT,
+    'Cosy-MachineOS': MACHINE_OS_DEFAULT,
+  }
+  const extra = ctx.row.extraMetadata as Record<string, unknown> | null | undefined
+  const cosy = extra?.['cosy']
+  if (cosy !== null && typeof cosy === 'object' && !Array.isArray(cosy)) {
+    const c = cosy as Record<string, unknown>
+    for (const [mapKey, header] of COSY_HEADERS) {
+      // 蛇形键为正;历史行的驼峰键兼容读取(machine_token / machineToken)
+      const camel = mapKey.replace(/_([a-z])/g, (_, ch: string) => ch.toUpperCase())
+      const v = cosyValue(c, [mapKey, camel])
+      if (v) headers[header] = v
+    }
+  }
+  const machineId = ctx.row.machineId
+  if (machineId) headers['Cosy-MachineId'] = machineId
+  return headers
+}
+
+/** 宽松取响应里的 token 字段(兼容 data 包裹;与 qoder_refresh_token 同键序) */
+function pickTokenField(body: unknown, keys: readonly string[]): string {
+  if (body === null || typeof body !== 'object') return ''
+  const o = body as Record<string, unknown>
+  for (const k of keys) {
+    const v = o[k]
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  const data = o['data']
+  if (data !== null && typeof data === 'object') return pickTokenField(data, keys)
+  return ''
+}
+
+/** 配额端点请求头:健康检查与余额查询共用一份,防两处漂移 */
+function quotaRequestHeaders(ctx: AdapterAccountContext): Record<string, string> {
+  return {
+    accept: 'application/json',
+    'user-agent': USER_AGENT,
+    authorization: `Bearer ${ctx.credentials.token}`,
+    ...buildCosyHeaders(ctx),
+  }
+}
+
+/**
+ * 取 add-on credits 余额(与 checkin_qoder.qoder_query_credits 同键序:
+ * 先剥 data 包裹,再认 addOnQuota / add_on_quota 的 remaining 数值)。
+ * 认不出 ⇒ null(未判定),绝不回落成 0 —— 0 在面板上读成"积分已耗尽"。
+ */
+export function extractAddOnRemaining(body: unknown): number | null {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return null
+  const o = body as Record<string, unknown>
+  const inner =
+    o['data'] !== null && typeof o['data'] === 'object' && !Array.isArray(o['data'])
+      ? (o['data'] as Record<string, unknown>)
+      : o
+  const raw = inner['addOnQuota'] ?? inner['add_on_quota']
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const remaining = (raw as Record<string, unknown>)['remaining']
+  if (typeof remaining !== 'number' || !Number.isFinite(remaining)) return null
+  return Math.trunc(remaining)
 }
