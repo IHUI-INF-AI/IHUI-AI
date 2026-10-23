@@ -54,8 +54,24 @@ export default function CheckinAssistant() {
 
   const checkin = async (acc: CheckinAccount) => {
     try {
-      await api.post(`/checkin/accounts/${acc.id}/checkin`)
-      Taro.showToast({ title: t('checkinAssistant.lastOk', { credits: 0 }), icon: 'success' })
+      // 端点直接回写库后的那条 record;读它才拿得到本次真值 —— 原先硬编码 credits: 0,
+      // 而文案是「上次签到成功 +{credits}」,等于每天替用户谎报一次零收益。
+      const record = await api.post<{
+        ok?: boolean
+        credits?: number | null
+        credits_delta?: number | null
+      }>(`/checkin/accounts/${acc.id}/checkin`)
+      const gained =
+        typeof record?.credits_delta === 'number' ? record.credits_delta : record?.credits
+      const ok = record?.ok !== false
+      Taro.showToast({
+        title: !ok
+          ? t('checkinAssistant.lastFailed')
+          : typeof gained === 'number'
+            ? t('checkinAssistant.lastOk', { credits: gained })
+            : t('accountPool.checkinSuccess'),
+        icon: ok ? 'success' : 'none',
+      })
       void load()
     } catch {
       Taro.showToast({ title: t('checkinAssistant.actionFailed'), icon: 'none' })
