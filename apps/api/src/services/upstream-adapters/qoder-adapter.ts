@@ -73,7 +73,13 @@ const COSY_HEADERS: ReadonlyArray<readonly [string, string]> = [
 function cosyValue(cosy: Record<string, unknown>, keys: readonly string[]): string {
   for (const k of keys) {
     const v = cosy[k]
-    if (typeof v === 'string' && v.trim()) return v.trim()
+    if (typeof v === 'string' && v.trim()) {
+      // HTTP 头必须 ASCII(RFC 7230):非 ASCII(如中文主机名"服务器")会被底层
+      // encode('ascii') 抛 UnicodeEncodeError(ai-service 侧已因此致 id=5 每日签到
+      // 全挂)。此处同样剔除非可打印 ASCII;清洗后为空则继续找下一个候选键。
+      const safe = v.trim().replace(/[^\x20-\x7e]/g, '').trim()
+      if (safe) return safe
+    }
   }
   return ''
 }

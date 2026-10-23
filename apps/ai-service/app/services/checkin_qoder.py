@@ -211,21 +211,43 @@ def default_machine_os() -> str:
     return f"{arch}_windows"
 
 
+def _ascii_header_value(raw: Any) -> str:
+    """把任意设备标识清洗成合法 HTTP 头值(纯 ASCII)。
+
+    **根因(2026-10-23 真机证据)**:id=5 的 cosy.machine_hostname 为中文"服务器",
+    直接塞进 Cosy-MachineHostname 后,httpx 在 HTTP/1.1 下按 RFC 7230 强制
+    `encode("ascii")` → 抛 `UnicodeEncodeError: 'ascii' codec ...`,被 _api_call
+    的兜底 except 误吞成"网络异常",致该账号每日签到 100% 失败(对照 id=18 主机名
+    "LICHUNCHUAN" 纯 ASCII ⇒ 签到正常)。
+    HTTP 头本就必须 ASCII,故此处丢非 ASCII 字符(中文主机名对服务端风控无意义),
+    清洗后为空则不出该头,绝不把非法值发出去。
+    """
+    if not isinstance(raw, (str, int)):
+        return ""
+    try:
+        return str(raw).encode("ascii", "ignore").decode("ascii").strip()
+    except Exception:
+        return ""
+
+
 def build_cosy_headers(device_map: dict[str, Any]) -> dict[str, str]:
     """device_map["cosy"] → Cosy-* 请求头;缺 clientType 时补桌面端固定值 10。
 
     纯函数(不读环境):服务端场景设备标识全部来自落库的 device_map
     (桌面端提取后随账号录入),与 TRAE 的「确定性派生」不同 —— Qoder 的
     machineToken 等来自客户端 runtime-info.exe,派生不可行。
+
+    所有头值经 _ascii_header_value 清洗:非 ASCII(如中文主机名)一律剔除,
+    清洗后为空的头不发送 —— 杜绝 httpx 的 UnicodeEncodeError(见该函数注释)。
     """
     cosy = device_map.get("cosy")
     if not isinstance(cosy, dict):
         cosy = {}
     headers: dict[str, str] = {}
     for map_key, header in COSY_HEADER_KEYS:
-        val = cosy.get(map_key)
-        if isinstance(val, (str, int)) and str(val).strip():
-            headers[header] = str(val).strip()
+        safe = _ascii_header_value(cosy.get(map_key))
+        if safe:
+            headers[header] = safe
     headers.setdefault("Cosy-ClientType", CLIENT_TYPE_DEFAULT)
     if "Cosy-MachineOS" not in headers:
         headers["Cosy-MachineOS"] = default_machine_os()
@@ -436,6 +458,8 @@ async def qoder_checkin_account(
         "classified_error": None,
         "warning": None,
     }
+    # 当前有效票(下方预检刷新 / 401 刷新会替换) — 供调度器回写 relay 唯一真源
+    result["access_token"] = jwt
 
     if not jwt:
         result["message"] = "未配置 token"
@@ -464,6 +488,7 @@ async def qoder_checkin_account(
                 jwt = refreshed["access_token"]
                 device_map["refresh_token"] = refreshed["refresh_token"]
                 device_map["expires_at"] = refreshed["expires_at"]
+                result["access_token"] = jwt
                 result["warning"] = None
                 logger.info("Qoder token 已自刷新", name=name, user_id=user_id)
             else:
@@ -484,6 +509,7 @@ async def qoder_checkin_account(
             jwt = refreshed["access_token"]
             device_map["refresh_token"] = refreshed["refresh_token"]
             device_map["expires_at"] = refreshed["expires_at"]
+            result["access_token"] = jwt
             status, data = await _campaigns()
     if status in (0, -1):
         result["message"] = "网络异常" if status == 0 else (f"网络异常: {data}" if data else "网络异常")
