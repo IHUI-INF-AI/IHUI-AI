@@ -5324,6 +5324,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 镜像 purge 内容完好(2026-10-23 立)(1 项,blocking)---
+  {
+    id: '237',
+    label:
+      '🧹 镜像 purge 内容完好对账(blocking;M1 死仓 URL / M2 仓库根链接 / M3 徽章同行 / M4 在役断言;绝对零容忍,射程 10 文档,2026-10-23 union 行合并回潮根治)',
+    script: 'check-mirror-purge-intact.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_MIRROR_PURGE_INTACT',
+    stagedTriggers: ['README.md', 'README.en.md', 'README.ja.md', 'README.ko.md', 'AGENTS.md', 'docs/marketing/cn-launch-post.md', 'docs/marketing/multi-platform-distribution.md', 'docs/engineering/readme-01-positioning.md', 'docs/RELEASE.md', 'scripts/README.md'],
+    onFailHint: [
+      '',
+      '  💡 射程内任何一面出现镜像 purge 内容 = 回潮(union 行合并不传播删除,2026-10-23 实测两例:AGENTS.md §5b 旧断言复活、README 徽章回归)。\\n  M1 gitcode.com/IHUI-AI 死仓 URL(该仓已删)/ M2 gitee.com/JLSLSSZWHYXGS_0/IHUI-AI 仓库根链接(/releases/ 资产路径豁免)/\\n  M3 同行含「国内镜像」且含 gitee|gitcode / M4 mirror-to-cn 无弃用标记(弃用|已删除|不再写回|退役|2026-10-23)。\\n  修法:把该行改回 purge 后形态(删徽章 / 删链接 / 补弃用标记),别想着加豁免 —— 射程 10 个文档是机主令永禁清单;\\n  PROJECT_PLAN.md 刻意不在射程(历史台账叙事,收进来即恒红)。\\n  单独复验:node scripts/check-mirror-purge-intact.mjs --staged\\n  自检:node scripts/check-mirror-purge-intact.mjs --self-test(19 例,正反成对);\\n  镜像:node --test scripts/tests/check-mirror-purge-intact.test.mjs(10 例,含 T1 方向锁)。\\n  紧急跳过:HUSKY_SKIP_MIRROR_PURGE_INTACT=1(必须在提交信息里写明理由与清偿票)',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
