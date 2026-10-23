@@ -62,6 +62,11 @@ export interface UseToolApprovalQueueResult {
   onToolApproval: (event: ToolApprovalEvent) => void
   /** 必须渲染在屏内:面板 + 常驻待审批胶囊 */
   host: ReactNode
+  /**
+   * G-171a:是否有待决审批(pending 非空)。队列交互许可门(awaitingApproval 拒因)的
+   * 本端真实来源,与 web useToolApprovalPending / ext pendingApproval 同一档事实。
+   */
+  awaitingApproval: boolean
 }
 
 /** 三档作用域(与 @ihui/types 的 ToolApprovalScope 同一联合,顺序与 web 一致)。 */
@@ -406,7 +411,7 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
     </>
   )
 
-  return { onToolApproval, host }
+  return { onToolApproval, host, awaitingApproval: pending.length > 0 }
 }
 
 /**

@@ -17,8 +17,9 @@
 // **D162 a)G-171:queueChanged 的真实来源**:编辑窗口打开时记下目标项正文,确认前比对
 // 当前正文 —— 被外部改过 ⇒ 本地实测的 queueChanged 事实,经调用方注入的 blockCtx 取并后
 // 交给 D69 `queueActionBlockView` 判定(原因只有那一处判,本组件不复制 reason→文案表)。
-// 其余条件(queueChanged 的点击型动作 / 控制命令 / 来源匹配)在 web 侧仍无生产者,
-// 一律沿用调用方注入值,不臆造。
+// G-171a 补:同一漂移实测另经 `onEditDriftChange` 上抛调用方,并入 queueInteractionPerms
+// 的 queueChanged 输入 ⇒ 重排/撤回的许可门也吃到这一真实来源(perms 仍恒出自 D69 构造)。
+// 其余条件(控制命令 / 来源匹配)在 web 侧仍无生产者,一律沿用调用方注入值,不臆造。
 //
 // **W27 纪律**:本条只发"重排/移除/编辑/打断计划"意图,不做任何队列状态写操作;
 // 「打断并执行」只上抛 interruptPlan({stopFirst, thenRun}),停流走 W2 abort 通道、
@@ -84,6 +85,12 @@ export interface QueueInteractionBarProps {
    * 按钮挂具体拒因 tooltip(`queue.blocked.<key>`),拒绝提示追加具体拒因串。
    */
   blockCtx?: QueueActionBlockContext
+  /**
+   * G-171a:编辑窗口正文漂移实测(本面 queueChanged 唯一真实来源)上抛给调用方,
+   * 由调用方并入 `queueInteractionPerms` 输入 —— 许可判定对象必须恒出自 D69 那一份
+   * 构造,本组件只供事实、不在本地改 perms。漂移每次变化都通知(编辑结束回落 false)。
+   */
+  onEditDriftChange?: (drifted: boolean) => void
   className?: string
   'data-testid'?: string
 }
@@ -108,6 +115,7 @@ export function QueueInteractionBar({
   onInterruptAndRun,
   onModeChange,
   blockCtx,
+  onEditDriftChange,
   className,
   'data-testid': testId,
 }: QueueInteractionBarProps) {
@@ -115,6 +123,21 @@ export function QueueInteractionBar({
   // 单点消费(2026-09-24 收口):deniedNotice 三枚拒绝键的唯一文案本体在 D69
   // `ai.pane.inputNotices.queue.denied.*`;queueOps 命名空间下的同文副本已删除,不得再加回。
   const tn = useTranslations(INPUT_NOTICES_NAMESPACE)
+  // G-171 词包缺键防护:三个新拒因(denied.cause.queueChanged / .controlCommand /
+  // .awaitingApproval)的文案本体已落 shared 五语包(web 经 mergeMessages(shared ⊕ web)
+  // 解析);web 包内的同族副本被他席在飞改动阻塞(packages/i18n/messages/web/*.json
+  // 本席不得编辑)。取词异常(键缺失/加载竞态)按「宁缺一句不回显键名」纪律吞掉渲染
+  // null(同 extDeniedNoticeKey 先例),界面上绝不出现 `ai.pane.…` 字面量。
+  const tnSafe = React.useCallback(
+    (key: string): string | null => {
+      try {
+        return tn(key)
+      } catch {
+        return null
+      }
+    },
+    [tn],
+  )
 
   const [dragIndex, setDragIndex] = React.useState<number | null>(null)
   const [editingId, setEditingId] = React.useState<string | null>(null)
@@ -139,6 +162,13 @@ export function QueueInteractionBar({
     editBaseline !== null &&
     editBaseline.id === editingId &&
     (items.find((item) => item.id === editingId)?.text ?? null) !== editBaseline.text
+
+  // G-171a:漂移实测上抛 —— 调用方把它并入 queueInteractionPerms 的 queueChanged 输入,
+  // 使重排/撤回的许可门(edit 的拦截仍走 blockCtx 取并,两路同一 D69/D162 判定本体)也能
+  // 看到"编辑期间队列被并发改过"这一实测事实。只供事实,判定不在本组件复制。
+  React.useEffect(() => {
+    onEditDriftChange?.(editDrift)
+  }, [editDrift, onEditDriftChange])
 
   // 许可门统一走 D69 复用判定(每渲染一次求值;动作触发时再校验一次,防状态漂移)
   const verdicts = React.useMemo(() => {
@@ -413,7 +443,7 @@ export function QueueInteractionBar({
         // data-queue-denied-cause 携带**渲染出的文案串**,data-cause-key 携带键名 ——
         // 两条测试断言用:两个不同拒绝条件得到的文案必须互不相同。
         const causeKey = verdict.causeKey && !sixGridBlocked ? verdict.causeKey : null
-        const causeText = causeKey ? tn(`queue.${causeKey}`) : null
+        const causeText = causeKey ? tnSafe(`queue.${causeKey}`) : null
         const deniedText = verdict.deniedKey ? tn(`queue.${verdict.deniedKey}`) : null
         return (
           <span

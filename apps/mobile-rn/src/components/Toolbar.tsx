@@ -375,9 +375,8 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   separator: {
+    // 旧版契约分隔条:§4 禁分割线,已清线只留间距(marginHorizontal 维持原排布几何)
     height: 20,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: tokens.border.medium,
     marginHorizontal: 4,
   },
 
