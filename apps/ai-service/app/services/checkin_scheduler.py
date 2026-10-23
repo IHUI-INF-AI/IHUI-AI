@@ -134,6 +134,23 @@ def partition_platforms(
     return main_side, qoder_side
 
 
+def classify_checkin_result(result: dict[str, Any]) -> str:
+    """签到结果三分类(可观测性口径唯一实现):claimed / skipped / failed。
+
+    ok=true 同时覆盖「本次真的领取成功」与「平台侧今日已签、本次跳过」——
+    前者引擎 action=checkin/claim,后者 action=skip_already。把两者都算「成功」
+    会让运营面看不出自动签到到底有没有真领到东西(2026-10-24 实测:8 条 ok=true
+    全是 skip_already、0 条 claim,汇总却报「成功 8」)。判定自动签到是否好使,
+    只认 claimed 且 credits_delta > 0。
+    """
+    if not result.get("ok"):
+        return "failed"
+    action = str(result.get("action") or "")
+    if action == "skip_already":
+        return "skipped"
+    return "claimed"
+
+
 def _cooldown_end(cooldown_seconds: int | None) -> datetime | None:
     """由引擎给的 cooldown_seconds 计算冷却结束时刻。0/None → 不冷却(None)。"""
     if not cooldown_seconds or cooldown_seconds <= 0:
@@ -331,7 +348,9 @@ class CheckinScheduler:
         多个真人各自操作无法区分。
         """
         now = datetime.now(UTC)
-        ok_count = 0
+        claimed = 0
+        skipped = 0
+        failed = 0
         shuffled = list(accounts)
         random.shuffle(shuffled)
         accounts = shuffled
@@ -355,16 +374,23 @@ class CheckinScheduler:
             try:
                 result = await self.checkin_one(acc)
                 await self.record_result(acc["id"], result)
-                if result.get("ok"):
-                    ok_count += 1
+                kind = classify_checkin_result(result)
+                if kind == "claimed":
+                    claimed += 1
+                elif kind == "skipped":
+                    skipped += 1
+                else:
+                    failed += 1
             except OutboundPaused as e:
                 # 风控铁律:平台限流全局暂停中,整批立即中止(绝不换个账号继续打)
                 logger.warning(
-                    "[checkin_scheduler] %s出站限流暂停中(剩 %.0fs),整批中止: 共 %d 个账号,已签 %d",
+                    "[checkin_scheduler] %s出站限流暂停中(剩 %.0fs),整批中止: 共 %d 个账号,已领 %d / 已签跳过 %d / 失败 %d",
                     label,
                     e.remaining,
                     len(accounts),
-                    ok_count,
+                    claimed,
+                    skipped,
+                    failed,
                 )
                 break
             except Exception as e:
@@ -372,7 +398,12 @@ class CheckinScheduler:
                     "[checkin_scheduler] 账号 %s 签到异常(继续下一个): %s", acc.get("name"), e
                 )
         logger.info(
-            "[checkin_scheduler] %s本轮签到完成: 共 %d 个账号,成功 %d", label, len(accounts), ok_count
+            "[checkin_scheduler] %s本轮签到完成: 共 %d 个账号,领取成功 %d / 今日已签跳过 %d / 失败 %d",
+            label,
+            len(accounts),
+            claimed,
+            skipped,
+            failed,
         )
 
     async def _probe_platform(
