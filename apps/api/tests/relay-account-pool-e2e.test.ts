@@ -80,8 +80,9 @@ vi.mock('../src/db/index.js', () => {
   const chainWrite = () => {
     const step: Record<string, unknown> = {}
     step.values = vi.fn((values: Record<string, unknown>) => {
+      const id = `acct-${++rowSeq}`
       store.push({
-        id: `acct-${++rowSeq}`,
+        id,
         providerCode: String(values['providerCode']),
         uid: String(values['uid']),
         name: String(values['name']),
@@ -110,7 +111,9 @@ vi.mock('../src/db/index.js', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       })
-      return Promise.resolve()
+      // importAccounts 走 `.values(...).returning({id, credVersion})`(O64 凭证版本回写);
+      // 不返行会被 service 判"未取到回写行"→ 导入恒为 0。这里与真实 insert 同形状回一行。
+      return { returning: vi.fn(() => Promise.resolve([{ id, credVersion: 1 }])) }
     })
     step.set = vi.fn((values: Record<string, unknown>) => {
       updateCalls.push(values)
