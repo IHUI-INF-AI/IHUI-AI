@@ -24,8 +24,9 @@
  *   各自分流,不把一条正则套到另一条上;未知网络显式放行。
  * - 形态非法报 400 而非 500:「未配置」是缺配置(补环境变量即可,500);
  *   「配错了」是人的错,报 500 会让一次可修的配置笔误在监控上表现成服务故障。
- * - 调用点两处:createUsdtPayment(落库前按 network 拦新订单)与 verifyTrc20OnChain
- *   (兜住校验上线前已落库的存量脏行,该处 address 来自订单行而非 env,固定 TRC20)。
+ * - 调用点两处:createUsdtPayment(落库前按 network 拦新订单)与链上取证
+ *   verifyTrc20OnChain / verifyErc20OnChain(兜住校验上线前已落库的存量脏行,
+ *   该处 address 来自订单行而非 env,各自固定本网络的正则)。
  * - 错误信息不回显地址原文:坏值常带复制噪声,回显会让它流进日志/告警并长期留存。
  *
  * 金额转换:
@@ -737,6 +738,15 @@ async function verifyErc20OnChain(
     to: string | null,
     confirmations: number | null,
   ) => ({ verified: false, reason, network: 'ERC20', txHash, amountOnChain, to, confirmations })
+
+  // 与 createUsdtPayment 共用同一份实现(与 verifyTrc20OnChain 同配方、同理由):
+  // 本函数的 address 来自 usdt_payments.address(订单行),不是直接读 env,
+  // 创建侧校验覆盖不到校验上线前已落库的存量脏行(那些行不会被重新创建)。
+  // 而 address 在这里同时充当 ① Etherscan 查询参数 ②「收款地址一致性」比对基准
+  // (tx.to !== address,大小写归一)——基准本身畸形时,比对结果不可信。
+  // 故在此复用同一断言 fail-closed:抛错被 verifyUsdtOnChain 的 try 捕获 →
+  // verified=false,订单保持 pending,永不入账,也不会把畸形地址继续拼进链上查询。
+  assertUsdtAddressFormat('ERC20', address)
 
   const apiKey = process.env.ETHERSCAN_API_KEY
   const params = new URLSearchParams({
