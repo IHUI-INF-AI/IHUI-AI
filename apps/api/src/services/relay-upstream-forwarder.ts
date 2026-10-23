@@ -271,6 +271,13 @@ export interface PipedStreamStats {
   cacheCreationTokens: number
   ttftMs: number | null
   httpStatus: number
+  /**
+   * 上游是否已经自己发过带 `finish_reason` 的帧（2026-10-23 加）。
+   * 调用方据此决定收尾要不要补结束帧：**补了就重复**——客户端会收到两个 finish
+   * （部分实现按最后一个覆盖、部分直接当协议错），且 usage 帧会被夹在两个 finish
+   * 之间，偏离 OpenAI 的 finish → usage → [DONE] 顺序。
+   */
+  sawFinish: boolean
 }
 
 export interface PipeStreamOptions {
@@ -336,6 +343,7 @@ export async function pipeChannelStream(
     cacheCreationTokens: 0,
     ttftMs: null,
     httpStatus: upstream.status,
+    sawFinish: false,
   }
   const startedAt = Date.now()
   const reader = upstream.body!.getReader()
@@ -352,6 +360,15 @@ export async function pipeChannelStream(
     if (!json) return
     if (stats.ttftMs === null) stats.ttftMs = Date.now() - startedAt
     const choices = json['choices'] as Array<Record<string, unknown>> | undefined
+    // 上游已给结束帧**且该帧确实被转发**⇒ 记下来，调用方收尾不再补（否则出现两个 finish）。
+    // textMode 不转发原始行（由调用方按 text chunk 重发），故那里不算——收尾仍须补结束帧。
+    if (
+      !textMode &&
+      Array.isArray(choices) &&
+      choices.some((c) => c?.['finish_reason'] != null)
+    ) {
+      stats.sawFinish = true
+    }
     const delta = choices?.[0]?.['delta'] as Record<string, unknown> | undefined
     const content = delta?.['content']
     if (typeof content === 'string' && content.length > 0) {
