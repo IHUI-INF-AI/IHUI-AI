@@ -528,4 +528,135 @@ class TestWebMode:
         assert workbuddy_is_web_mode({"login_type": "Web"}) is True
         assert workbuddy_is_web_mode({"login_type": "token"}) is False
         assert workbuddy_is_web_mode({}) is False
+
+
+# ---------------------------------------------------------------------------
+# 网页会话保活(2026-10-24):cookie 解析 / Bearer 回退 / 会话探活
+# ---------------------------------------------------------------------------
+
+
+class TestWebCookieResolution:
+    """device_map.web_cookie 与旧 login_type=web 两种落库形态。"""
+
+    def test_device_map_cookie_wins_over_bearer(self):
+        from app.services.checkin_workbuddy import workbuddy_web_cookie
+
+        assert workbuddy_web_cookie("bearer-token", {"web_cookie": "session=abc"}) == "session=abc"
+
+    def test_legacy_login_type_web_uses_jwt(self):
+        from app.services.checkin_workbuddy import workbuddy_web_cookie
+
+        assert workbuddy_web_cookie("session=abc", {"login_type": "web"}) == "session=abc"
+
+    def test_token_account_without_cookie(self):
+        from app.services.checkin_workbuddy import workbuddy_web_cookie
+
+        assert workbuddy_web_cookie("bearer-token", {}) == ""
+
+
+class TestBrowserUserAgent:
+    """2026-10-24 实测:本域 WAF 对自定义 UA 一律 401,必须伪装成真实 Chrome。"""
+
+    @pytest.mark.asyncio
+    async def test_web_mode_uses_chrome_ua(self):
+        seen: dict = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["ua"] = request.headers.get("user-agent")
+            return httpx.Response(200, json=_wb_response(10001))
+
+        await workbuddy_checkin_account(
+            "wb-web", "session=abc", {"uid": UID, "login_type": "web"},
+            client=make_client(handler),
+        )
+        assert "Chrome/" in seen["ua"]
+        assert "IHUI-Desktop-Checkin" not in seen["ua"]
+
+    @pytest.mark.asyncio
+    async def test_device_map_ua_wins(self):
+        seen: dict = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["ua"] = request.headers.get("user-agent")
+            return httpx.Response(200, json=_wb_response(10001))
+
+        await workbuddy_checkin_account(
+            "wb-web", "session=abc",
+            {"uid": UID, "login_type": "web", "user_agent": "UA-From-Extractor/1.0"},
+            client=make_client(handler),
+        )
+        assert seen["ua"] == "UA-From-Extractor/1.0"
+
+
+class TestBearerToWebFallback:
+    """Bearer 过期但网页 cookie 仍有效时,签到必须自动改走 cookie(不误报失败)。"""
+
+    @pytest.mark.asyncio
+    async def test_bearer_401_falls_back_to_cookie(self, jwt):
+        seen: list[str] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(str(request.url))
+            if request.headers.get("authorization"):
+                return httpx.Response(401, json={})
+            assert request.headers.get("cookie") == "session=abc"
+            return httpx.Response(200, json=_wb_response(0, data={"credit": 7}))
+
+        result = await workbuddy_checkin_account(
+            "wb", jwt, {"uid": UID, "web_cookie": "session=abc"}, client=make_client(handler)
+        )
+        assert result["ok"] is True and result["credits_delta"] == 7
+        assert len(seen) == 2 and seen[1].startswith("https://www.workbuddy.cn/")
+
+    @pytest.mark.asyncio
+    async def test_bearer_200_keeps_token_path(self, jwt):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.headers.get("authorization", "").startswith("Bearer ")
+            return httpx.Response(200, json=_wb_response(10001))
+
+        result = await workbuddy_checkin_account(
+            "wb", jwt, {"uid": UID, "web_cookie": "session=abc"}, client=make_client(handler)
+        )
+        assert result["ok"] is True and result["status"] == "already"
+
+
+class TestCheckSession:
+    """GET /console/account 探活:200=活、302/401/403=过期、网络异常=未判定。"""
+
+    @pytest.mark.asyncio
+    async def test_ok_returns_uid(self):
+        from app.services.checkin_workbuddy import workbuddy_check_session
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/console/account"
+            return httpx.Response(200, json={"code": 0, "data": {"uid": UID}})
+
+        ok, uid, status = await workbuddy_check_session(
+            "session=abc", {}, client=make_client(handler)
+        )
+        assert (ok, uid, status) == (True, UID, 200)
+
+    @pytest.mark.asyncio
+    async def test_redirect_means_expired(self):
+        from app.services.checkin_workbuddy import workbuddy_check_session
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(302, headers={"location": "https://www.workbuddy.cn/login/"})
+
+        ok, uid, status = await workbuddy_check_session(
+            "session=abc", {}, client=make_client(handler)
+        )
+        assert (ok, uid, status) == (False, None, 302)
+
+    @pytest.mark.asyncio
+    async def test_network_error_is_undetermined(self):
+        from app.services.checkin_workbuddy import workbuddy_check_session
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("boom")
+
+        ok, uid, status = await workbuddy_check_session(
+            "session=abc", {}, client=make_client(handler)
+        )
+        assert (ok, uid, status) == (False, None, None)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -51,6 +51,7 @@ from app.services import (
     checkin_qoder,
     checkin_store,
     checkin_workbuddy,
+    checkin_workbuddy_local,
 )
 from app.services.checkin_engine import client_for, status_check
 from app.services.checkin_outbound import (
@@ -62,6 +63,8 @@ from app.services.checkin_outbound import (
 
 _BATCH_JITTER_MIN = float(os.environ.get("CHECKIN_BATCH_JITTER_MIN", "8"))
 _BATCH_JITTER_MAX = float(os.environ.get("CHECKIN_BATCH_JITTER_MAX", "45"))
+# WorkBuddy 本机重抽节流:失败/无效时至少隔这么久再拉起一次无头 Chrome
+_WB_EXTRACT_INTERVAL_SECONDS = float(os.environ.get("CHECKIN_WB_EXTRACT_INTERVAL_SECONDS", "1800"))
 from app.services.checkin_engine import checkin_account
 
 logger = get_logger(__name__)
@@ -173,6 +176,8 @@ class CheckinScheduler:
     def __init__(self) -> None:
         self._scheduler: AsyncIOScheduler | None = None
         self._started: bool = False
+        # WorkBuddy 本机重抽节流(秒):失败也等这么久再试,避免每轮都拉起无头 Chrome
+        self._wb_extract_at: float = 0.0
 
     # ===== 启停(lifespan 钩子) =====
 
@@ -483,13 +488,19 @@ class CheckinScheduler:
         return body if isinstance(token, str) and token else None
 
     async def _sync_local_credentials(self) -> None:
-        """本机客户端凭据同步(每 15 分钟)。
+        """本机凭据同步(每 15 分钟)。两条腿互相独立,任一条失败不影响另一条。"""
+        for leg in (self._sync_minimax_local, self._sync_workbuddy_local):
+            try:
+                await leg()
+            except Exception as e:  # noqa: BLE001 — 单腿异常不得拖垮另一条
+                logger.warning("[checkin_scheduler] 本机凭据同步腿 %s 失败: %s", leg.__name__, e)
 
-        两条腿:
+    async def _sync_minimax_local(self) -> None:
+        """MiniMax 服务端续期 + 客户端凭据同步。
+
         1. **服务端续期**(客户端不在也生效):MiniMax 的 refreshToken 在
            `auth.json` 明文可读,临期(≤5 分钟)时直接调 OAuth 换新并写回文件;
         2. **客户端同步**:读取客户端刷新后的凭据写回签到账号并解除冷却。
-        Trae/WorkBuddy 的续期材料在客户端安全区(私钥/加密信封),本方法不假装成功。
         """
         path = os.path.expanduser("~/.minimax/auth/prod/cn/mcode-public/auth.json")
         if not os.path.exists(path):
@@ -558,6 +569,91 @@ class CheckinScheduler:
                 "[checkin_scheduler] 本机 MiniMax 凭据已同步 %d 个账号(exp=%s)",
                 updated,
                 exp,
+            )
+
+    async def _sync_workbuddy_local(self) -> None:
+        """WorkBuddy 网页会话保活 + 过期时从本机 Chrome 重抽(客户端不在也生效)。
+
+        网页 `session` cookie 是唯一能在客户端关闭后继续签到的凭据,有效期 7 天,
+        服务端没有任何续期接口(直连 Keycloak/网关注入/静默 SSO 三条路都实测失败,
+        见 checkin_workbuddy_local 模块头注)。因此:
+        1. 现存 cookie 每 15 分钟探活;临期(<24h)或已失效 ⇒ 触发重抽;
+        2. 重抽走 VSS + 无头 Chrome(Chrome 自己解密 ABE),成功才写库并解冷却;
+        3. 重抽失败按节流等待(默认 30 分钟),不每轮拉起浏览器。
+        取不到一律只记日志,绝不把旧凭据冒充成新凭据。
+        """
+        rows = await checkin_store.list_accounts_by_platform("workbuddy")
+        if not rows:
+            return
+        now = datetime.now(UTC).timestamp()
+        need_extract = False
+        for row in rows:
+            dm = row["device_map"]
+            cookie = checkin_workbuddy.workbuddy_web_cookie("", dm)
+            if not cookie:
+                # 纯 Bearer 账号(未声明网页登录)不强制拉起浏览器;只有显式
+                # login_type=web 却没 cookie 才视为缺口(用户刚加号、尚未登录)。
+                if checkin_workbuddy.workbuddy_is_web_mode(dm):
+                    need_extract = True
+                continue
+            exp = dm.get("web_cookie_expires_at")
+            if isinstance(exp, (int, float)) and 0 < exp - now < 86400:
+                need_extract = True
+                continue
+            ok, uid, http_status = await checkin_workbuddy.workbuddy_check_session(cookie, dm)
+            if ok:
+                if uid and dm.get("uid") != uid:
+                    dm["uid"] = uid
+                    await checkin_store.save_device_map(row["id"], dm)
+                continue
+            if http_status in (302, 401, 403):
+                logger.info(
+                    "[checkin_scheduler] WorkBuddy 网页会话已失效(HTTP %s),准备本机重抽",
+                    http_status,
+                )
+                need_extract = True
+        if not need_extract:
+            return
+        if now - self._wb_extract_at < _WB_EXTRACT_INTERVAL_SECONDS:
+            return
+        self._wb_extract_at = now
+        extracted = await checkin_workbuddy_local.extract_workbuddy_cookie()
+        if not extracted:
+            logger.info("[checkin_scheduler] WorkBuddy 网页会话重抽未取到(浏览器未登录或 Chrome 未运行)")
+            return
+        ok, uid, http_status = await checkin_workbuddy.workbuddy_check_session(
+            extracted["cookie"], {"user_agent": extracted.get("user_agent")}
+        )
+        if not ok or not uid:
+            logger.warning(
+                "[checkin_scheduler] WorkBuddy 重抽凭据探活失败(HTTP %s),不写库", http_status
+            )
+            return
+        updated = 0
+        for row in rows:
+            dm = row["device_map"]
+            if str(dm.get("uid") or "") != uid:
+                continue
+            dm["web_cookie"] = extracted["cookie"]
+            if extracted.get("user_agent"):
+                dm["user_agent"] = extracted["user_agent"]
+            if extracted.get("expires_at"):
+                dm["web_cookie_expires_at"] = extracted["expires_at"]
+            dm["web_cookie_synced_at"] = int(now)
+            await checkin_store.save_device_map(row["id"], dm)
+            await checkin_store.clear_open_cooldowns(row["id"])
+            updated += 1
+        if updated:
+            logger.info(
+                "[checkin_scheduler] WorkBuddy 网页会话已同步 %d 个账号(uid=%s, exp=%s)",
+                updated,
+                uid,
+                extracted.get("expires_at"),
+            )
+        else:
+            logger.info(
+                "[checkin_scheduler] WorkBuddy 抽到 uid=%s 的会话,但签到账号无对应 uid,未写库",
+                uid,
             )
 
     async def _daily_run(self) -> None:
