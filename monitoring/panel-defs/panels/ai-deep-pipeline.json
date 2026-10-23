@@ -1,7 +1,7 @@
 {
   "uid": "ihui-ai-deep-pipeline",
   "title": "IHUI-AI · AI 深度链路(压缩 / MCP / TTFT)",
-  "description": "AI 链路里最深、最低频但最有价值的一批观测:上下文压缩、MCP 工具质量、首 token 时延、token 压缩。立因(2026-10-19):这批指标此前既无面板,又被误判为'埋点坏了'。实测结论(72h 窗口):TTFT 与 token_compaction 埋点工作正常(72h 分别有过 3 次 / 2 次事件),只是低频;ihui_compaction_* 与 ihui_mcp_* 系列 72h 零样本的原因是这两条功能路径近 72 小时从未被真实流量触发(埋点完好)。⇒ 本盘的 0 多数是诚实的'业务未发生',不是采集故障;一旦有流量,这里会立刻有数。所有直方图一律用 $__range + increase,避免短窗 rate 出 NaN。",
+  "description": "AI 链路里最深、最低频但最有价值的一批观测:上下文压缩、MCP 工具质量、首 token 时延、token 压缩。立因(2026-10-19):这批指标此前既无面板,又被误判为'埋点坏了'。实测结论(72h 窗口):TTFT 与 token_compaction 埋点工作正常(72h 分别有过 3 次 / 2 次事件),只是低频;ihui_compaction_* 与 ihui_mcp_* 系列 72h 零样本的原因是这两条功能路径近 72 小时从未被真实流量触发(埋点完好)。⇒ 本盘的 0 多数是诚实的'业务未发生',不是采集故障;一旦有流量,这里会立刻有数。所有直方图一律用 $__range + increase,避免短窗 rate 出 NaN。【Relay 号池健康组(2026-10-23 立,盘尾 y=61 起)】ai_relay_key_pool(API key 池)与 ai_relay_account_pool(账号池)的健康态此前只是库里两列——admin 页能看到当次快照,但'哪条 key 什么时候开始 down、冷却/临期有没有人在恢复、池子里还剩几条能用的腿'没有任何时序,也没有头条数。本组把两表当前状态折叠成有界标签 gauge(5 分钟一轮,错开 tenant-resource-gauge),指标由 apps/api 的 /business-metrics 手写文本端点发射(job=business-metrics)。读数纪律三条:① '可用 key 数'显示 No data = 本进程从未成功刷新过(≠ 池子空),看'key 池刷新滞后'佐证;② 健康态是封闭四档(unknown/healthy/degraded/down),schema 列注释是唯一源,库里的历史脏值会被跳过并计进'号池采集丢失'面板——那块大于 0 说明有行没被统计到,不是没坏;③ token 临期允许负值(负 = 已过期,正是要看的信号),年龄类一律钳 0。号池现状(2026-10-23 实测):key 池 29 行 / 14 provider 全部 down 或 degraded 且 disabled,账号池 1 行 healthy ⇒ 本组上线初期'可用 key 数'预期是 0 或 No data,那是诚实读数,不是面板坏了。",
   "tags": ["ai", "compaction", "mcp", "ttft"],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -272,6 +272,165 @@
         }
       ],
       "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "Relay 号池健康(key 池 + 账号池)",
+      "type": "row",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 1, "w": 12, "x": 0, "y": 61 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "title": "可用 relay key 数(选路选得到)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 3, "x": 0, "y": 62 },
+      "targets": [
+        { "expr": "sum(ihui_relay_key_pool_schedulable_keys{job=\"business-metrics\"})", "legendFormat": "可用 key", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0.5 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "异常 relay key 数(degraded + down)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 3, "x": 3, "y": 62 },
+      "targets": [
+        { "expr": "sum(ihui_relay_key_pool_keys{job=\"business-metrics\",state=~\"degraded|down\"})", "legendFormat": "异常 key", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "可用 relay 账号数",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 3, "x": 6, "y": 62 },
+      "targets": [
+        { "expr": "sum(ihui_relay_account_pool_schedulable{job=\"business-metrics\"})", "legendFormat": "可用账号", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 0.5 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "key 池刷新滞后(秒;5 分钟一轮)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 5, "w": 3, "x": 9, "y": 62 },
+      "targets": [
+        { "expr": "time() - ihui_relay_key_pool_refresh_last_success_timestamp_seconds{job=\"business-metrics\"}", "legendFormat": "刷新滞后", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 600 }, { "color": "red", "value": 1800 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "title": "Relay key 健康态分布(按 provider 折叠)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 67 },
+      "targets": [
+        { "expr": "sum by (provider_code, state) (ihui_relay_key_pool_keys{job=\"business-metrics\"})", "legendFormat": "{{provider_code}}·{{state}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号连续失败(熔断计数,按账号)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 67 },
+      "targets": [
+        { "expr": "ihui_relay_account_pool_consecutive_failures{job=\"business-metrics\"}", "legendFormat": "{{provider_code}}/{{account}}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 3 }, { "color": "red", "value": 5 } ] }
+        },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号 token 临期(秒;负 = 已过期)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 75 },
+      "targets": [
+        { "expr": "ihui_relay_account_pool_token_expires_in_seconds{job=\"business-metrics\"}", "legendFormat": "{{provider_code}}/{{account}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "最陈的 10 条 key(健康检查年龄,秒)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 75 },
+      "targets": [
+        { "expr": "topk(10, ihui_relay_key_pool_health_age_seconds{job=\"business-metrics\"})", "legendFormat": "{{provider_code}}/{{key}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "账号累计转发调用(按账号)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 83 },
+      "targets": [
+        { "expr": "ihui_relay_account_pool_total_calls{job=\"business-metrics\"}", "legendFormat": "{{provider_code}}/{{account}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "title": "号池采集丢失(窗口增量;脏行 + 标签撞车)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 83 },
+      "targets": [
+        { "expr": "sum(increase(ihui_relay_key_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))", "legendFormat": "key 脏行", "refId": "A" },
+        { "expr": "sum(increase(ihui_relay_key_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))", "legendFormat": "key 标签撞车", "refId": "B" },
+        { "expr": "sum(increase(ihui_relay_account_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))", "legendFormat": "账号脏行", "refId": "C" },
+        { "expr": "sum(increase(ihui_relay_account_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))", "legendFormat": "账号标签撞车", "refId": "D" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": { "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] }
+        },
+        "overrides": []
+      },
       "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
     }
   ]

@@ -1172,6 +1172,128 @@
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
       "id": 904
+    },
+    {
+      "title": "Relay 号池健康(key 池 + 账号池)",
+      "type": "row",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 67 },
+      "collapsed": false,
+      "panels": [],
+      "id": 905
+    },
+    {
+      "title": "可用 relay key 数(选路选得到)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 68 },
+      "targets": [
+        {
+          "expr": "sum(ihui_relay_key_pool_schedulable_keys{job=\"business-metrics\"})",
+          "legendFormat": "可用 key",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "id": 906
+    },
+    {
+      "title": "异常 relay key 数(degraded + down)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 68 },
+      "targets": [
+        {
+          "expr": "sum(ihui_relay_key_pool_keys{job=\"business-metrics\",state=~\"degraded|down\"})",
+          "legendFormat": "异常 key",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "id": 907
+    },
+    {
+      "title": "可用 relay 账号数",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 68 },
+      "targets": [
+        {
+          "expr": "sum(ihui_relay_account_pool_schedulable{job=\"business-metrics\"})",
+          "legendFormat": "可用账号",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 0.5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "id": 908
+    },
+    {
+      "title": "key 池刷新滞后(秒;5 分钟一轮)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 68 },
+      "targets": [
+        {
+          "expr": "time() - ihui_relay_key_pool_refresh_last_success_timestamp_seconds{job=\"business-metrics\"}",
+          "legendFormat": "刷新滞后",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 600 },
+              { "color": "red", "value": 1800 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "id": 909
     }
   ],
   "refresh": "30s",
@@ -1287,5 +1409,5 @@
   "uid": "ihui-ai-overview",
   "version": 1,
   "weekStart": "",
-  "description": "AI 总览:调用量、成功率、Token、成本、TTFT 与业务落账口径并排,是其余 AI 盘的入口。"
+  "description": "AI 总览:调用量、成功率、Token、成本、TTFT 与业务落账口径并排,是其余 AI 盘的入口。尾行 Relay 号池健康(2026-10-23 立):中转 key 池 / 账号池的'还剩几条能用的腿'头条数,读数口径与注意事项见 ai-deep-pipeline 盘同组说明;该组上线初期预期是 0 或 No data(池子实测全 down),是诚实读数。"
 }
