@@ -45,6 +45,7 @@ from app.core.logging import get_logger
 from app.services import (
     checkin_credits,
     checkin_minimax,
+    checkin_pool_writeback,
     checkin_proxy_pool,
     checkin_qoder,
     checkin_store,
@@ -580,8 +581,16 @@ class CheckinScheduler:
 
     async def checkin_one(self, account: dict[str, Any]) -> dict[str, Any]:
         """对单个账号执行签到(按 platform 分发引擎),并把引擎可能补齐的
-        device_map 写回存储(Qoder 的自刷新新 token 也经此通路落库)。"""
+        device_map 写回存储(Qoder 的自刷新新 token 也经此通路落库)。
+
+        O64(2026-10-23):device_map 的凭证变化(refresh_token/expires_at) additionally
+        回写号池(checkin_pool_writeback) —— 号池 = 凭证权威,签到刷新必须回流,
+        否则号池拿旧 refresh_token 打官方白白消耗轮换次数。失败落待重试不阻塞。
+        """
         device_map = dict(account.get("device_map") or {})
+        # O64:凭证指纹快照(签到前)—— 引擎自刷新改写 refresh_token/expires_at
+        # 时据此判定是否需要回写号池(CAS 双写不漂移的另一半)
+        cred_before = checkin_pool_writeback.cred_fingerprint(device_map)
         platform = account.get("platform")
         # 多账号风控三件套之二:device_map.proxy 绑定独立出口 IP,
         # 有代理的账号全程走自己的 client(用完即关),无代理本机直连零变化。
@@ -618,6 +627,19 @@ class CheckinScheduler:
             await checkin_store.save_device_map(account["id"], device_map)
         except Exception as e:
             logger.warning("[checkin_scheduler] device_map 写回失败(忽略): %s", e)
+        # O64:凭证回写号池(签到刷新 → 号池 CAS 回流;失败落 device_map.pool_pending_cred
+        # 下次重试,故 dirty 时需再持久化一次)。maybe_writeback 自身不抛,外层 try 双保险。
+        try:
+            dirty = await checkin_pool_writeback.maybe_writeback(device_map, cred_before)
+            if dirty:
+                try:
+                    await checkin_store.save_device_map(account["id"], device_map)
+                except Exception as e:
+                    logger.warning(
+                        "[checkin_scheduler] 号池回写待推标记持久化失败(忽略): %s", e
+                    )
+        except Exception as e:
+            logger.warning("[checkin_scheduler] 号池凭证回写异常(忽略): %s", e)
         return result
 
     async def record_result(self, account_id: int, result: dict[str, Any]) -> dict[str, Any]:
