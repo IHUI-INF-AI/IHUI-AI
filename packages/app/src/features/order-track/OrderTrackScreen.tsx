@@ -87,7 +87,10 @@ function createStyles(tk: AppThemeTokens) {
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
-    separator: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },
+    separator: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: tk.border.light,
+    },
     card: {
       padding: 12,
       borderRadius: rnRadius.lg,

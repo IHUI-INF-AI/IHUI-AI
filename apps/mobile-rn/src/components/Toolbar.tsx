@@ -375,9 +375,9 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   separator: {
-    width: 1,
     height: 20,
-    backgroundColor: tokens.border.medium,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: tokens.border.medium,
     marginHorizontal: 4,
   },
 

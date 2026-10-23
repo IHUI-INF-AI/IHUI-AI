@@ -668,8 +668,8 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     noMoreLine: {
       flex: 1,
-      height: 1,
-      backgroundColor: tk.surface.muted,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: tk.surface.muted,
     } as ViewStyle,
     noMoreText: {
       marginHorizontal: 10,
