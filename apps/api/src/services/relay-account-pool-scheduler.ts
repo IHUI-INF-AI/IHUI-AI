@@ -90,6 +90,37 @@ export const __test__ = {
 }
 
 /**
+ * "这枚账号还能不能自己再取到凭据"的谓词 = 有 refreshToken **或** 有 cookie。
+ *
+ * 立因(2026-10-23 现读):Trae 的 web 号只有登录 cookie、没有 refreshToken
+ * (它的 `refreshToken` 走 cookie→GetUserToken 换票,rt 只是兜底通道),而两档候选都写死了
+ * `refreshTokenEnc IS NOT NULL` ⇒ 这类号既进不了临期刷新、也进不了 down 恢复队列,
+ * 一旦掉进 healthStatus=down 就永久停在那儿,除非有人手工点一次余额。
+ * 归属判据应当是"适配器能不能重新拿到凭据",不是"某一枚列恰好非空"。
+ */
+export function recredentialableCondition() {
+  return or(isNotNull(aiRelayAccountPool.refreshTokenEnc), isNotNull(aiRelayAccountPool.cookiesEnc))
+}
+
+/** 步骤 1「临期刷新」的 where(导出供镜像测试锁形状,查询与断言读同一个对象) */
+export function expiringRefreshWhere(deadline: Date) {
+  return and(
+    eq(aiRelayAccountPool.isEnabled, true),
+    recredentialableCondition(),
+    lte(aiRelayAccountPool.tokenExpiresAt, deadline),
+  )
+}
+
+/** 步骤 3「down/degraded 恢复」的 where(不设到期界限:健康已判死,属按需重试) */
+export function downRecoveryWhere() {
+  return and(
+    eq(aiRelayAccountPool.isEnabled, true),
+    inArray(aiRelayAccountPool.healthStatus, ['down', 'degraded']),
+    recredentialableCondition(),
+  )
+}
+
+/**
  * 刷新单账号;成功回写凭证,失败累计摘除。返回 true = 刷新成功。
  * 导出给管理面「按需查余额」共用同一把出口(回写/解摘/失败累计的口径只有一份)。
  */
@@ -186,13 +217,7 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   const expiring = await dbRead
     .select()
     .from(aiRelayAccountPool)
-    .where(
-      and(
-        eq(aiRelayAccountPool.isEnabled, true),
-        isNotNull(aiRelayAccountPool.refreshTokenEnc),
-        lte(aiRelayAccountPool.tokenExpiresAt, deadline),
-      ),
-    )
+    .where(expiringRefreshWhere(deadline))
     .limit(BATCH_LIMIT)
   await runWithConcurrency(expiring, SWEEP_CONCURRENCY, async (row) => {
     const adapter = getRelayAdapter(row.providerCode)
@@ -241,18 +266,8 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     }
   })
 
-  // ── 3. down 账号恢复尝试(有 refreshToken 且未超失败阈值) ──
-  const downs = await dbRead
-    .select()
-    .from(aiRelayAccountPool)
-    .where(
-      and(
-        eq(aiRelayAccountPool.isEnabled, true),
-        inArray(aiRelayAccountPool.healthStatus, ['down', 'degraded']),
-        isNotNull(aiRelayAccountPool.refreshTokenEnc),
-      ),
-    )
-    .limit(10)
+  // ── 3. down 账号恢复尝试(可按 cookie 或 refreshToken 再取凭据,且未超失败阈值) ──
+  const downs = await dbRead.select().from(aiRelayAccountPool).where(downRecoveryWhere()).limit(10)
   for (const row of downs) {
     if (row.refreshFailureCount >= REFRESH_FAILURE_LIMIT) continue
     const adapter = getRelayAdapter(row.providerCode)
