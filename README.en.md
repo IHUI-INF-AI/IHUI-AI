@@ -61,8 +61,8 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **603 tables · 4,468 API routes ·
-25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,063 test files ·
+Headline claims (same source as the table below, all live-computed): **603 tables · 4538 API routes ·
+25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3115 test files ·
 268 engineering gates · 50 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
@@ -71,8 +71,8 @@ Headline claims (same source as the table below, all live-computed): **603 table
 | ---- | ---- | ------ |
 | 数据库表 | 603 | `dbTables` |
 | schema 文件 | 232 | `dbSchemaFiles` |
-| API 路由 | 4516 | `apiRoutes` |
-| 路由文件 | 612 | `apiRouteFiles` |
+| API 路由 | 4538 | `apiRoutes` |
+| 路由文件 | 616 | `apiRouteFiles` |
 | AI 服务路由 | 576 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 118 | `llmModels` |
@@ -84,18 +84,16 @@ Headline claims (same source as the table below, all live-computed): **603 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3063 | `testFiles` |
+| 测试文件 | 3115 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 270 | `guardianGates` |
-| — blocking | 247 | `guardianBlocking` |
+| 工程守门 | 271 | `guardianGates` |
+| — blocking | 248 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15842 | `trackedFiles` |
+| 跟踪文件 | 15804 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-23。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
-> ⚠️ 未判定 1 项:`apiSrc`(apps/api/src 有 1 个 .ts 在面上取不到内容)
 
 <!-- END GENERATED NUMBERS -->
 
@@ -103,6 +101,96 @@ Headline claims (same source as the table below, all live-computed): **603 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-23**
+- 🐞 Fix:摘除被收编捞回的 plugins-data 残留副本 —— 解 HEAD 面 12 处 TS2307 悬空引用 (75ba36d703)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2ac0f9c6b2)
+- 📚 Docs:号池可观测票两格收满并纠票面错述 — ①「fusion judge 腿无主体不写行」经现读与代码不符(gateway 触发 combo 处已显式下传 billing_user_id,两处 judge 经 kwargs 拿到同一主体,3 枚用例钉住);②config_id 取既有 bigint 列零新迁移。同批记入号池上游余额按需点查两枚(trae 与 qoder getQuota;过期票先走调度器同一把 refreshOne)。翻勾仍差票面验收第 3 条(真跑一次网关调用后 llm_call_logs 命中腿字段可查),该行保持未勾。 (9c0cdc5c67)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8d7d6440af)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (10f12f561d)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1dbaa32547)
+- 📚 Docs:结清「另有 7 个脚本的 self-test 仍走 os.tmpdir()」滞留行 3 枚(含 1 枚 F4 指针行) (1c947c216f)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (80ec7a548b)
+- 🔧 Chore/Other:Esc 无层栈协议补上真机档,并量出它判得到与判不到的两维 (edc008bf94)
+- 📚 Docs:摘除收敛期回潮的旧口径压缩说明行,体积 89,544→89,057 (b4a9496821)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e5c1807696)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4b9fb09999)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (94e6292b83)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7feef45a4f)
+- 🔧 Chore/Other:翻勾「锁初始化写全再原子可见」(lib 入树 + 两锁各 2 处接线 + 54/54 含真进程并发对照) (f7d3a945c2)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (425cb2c503)
+- 📚 Docs:Esc 无层栈协议 —— 真机档交付两格并写明余下一格的判据边界(附变异矩阵读数) (ff6181c4fc)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9b9bc1ab26)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1287fefa94)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (865a55d6ce)
+- 🔧 Chore/Other:G-343 翻勾(盘根/PG 落点私有推导四处残余现读已闭环,镜像 59/59 反向锁在场) (8d2ac1a574)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f748dc87f4)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e78e341fc9)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9c77e05e29)
+- 🔧 Chore/Other:G-929 翻勾(旁路落地器镜像套件现读 76/76 全绿,他席已修本席复核) (a1959b4d3a)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3352407e2b)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ce1b8cf95b)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dbfe3aa4e0)
+- 🔧 Chore/Other:G-239 翻勾(门 194 存量清零,第 5 枚 auto-commit-quiet 补守卫) (de5dcdb6f0)
+- 📚 Docs:压缩 AGENTS.md 96,531→88,993 字节,清偿门 207 超预算红 (0f9d7af1ce)
+- 🐞 Fix:auto-commit-quiet 补 §22d isDirectRun 守卫与 __test__ 判据导出(门 194 存量清零) (cbf84dc055)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3e792853fa)
+- 🐞 Fix:漂开副本归并(--merge-drifted,人工点名持有行后 N→1) (81e91aa2c5)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (641c0a8195)
+- 🐞 Fix:漂开副本归并(--merge-drifted,人工点名持有行后 N→1) (fe5b3b23c4)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1363080ec9)
+- 📚 Docs:结清三票——恢复器用例 10 连跑全绿 / 小程序远程图标死键 / 无编号漂开行归并出口 (5d9c161869)
+- 🔧 Chore/Other:alipay 配置判据用例跟上"私钥真读得到才算配好"——假路径改判 false,补真实可读文件正向例(反向锁不许修成一律红) (1a50193483)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (67d786124a)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dc1e29551a)
+- 🚀 Feature/Improvement:派单入口新增「时间序档 order=late」,出单顺序改问仓库 (b40fb20c3e)
+- 🔧 Chore/Other:V3 #52 RAG 真重排补 tests/test_reranker.py(46 例:RRF 手算断言/去重聚合/关键词单路降级/LLM mock 失败降级链) (42aeb1d040)
+- 🐞 Fix:readme-sync 镜像补溯源水印(HEAD 缺载荷,CI 水印红第 3 次复现) (76bf5cabf9)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c04a01c3a5)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d56ce2b511)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (62c289f65e)
+- 🔧 Chore/Other:重生成 ui-routes 派生自述钉(union 合并后输入面已取对侧) (df8e576f68)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (609106eac9)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (21812f4e57)
+- 🚀 Feature/Improvement:大屏补 Relay 号池健康组(deep-pipeline 11 板 + overview 头条行) (4c3c012fdd)
+- 🔧 Chore/Other:G-926 收口:articles/ 不再整体忽略(宽式规则无挡之物) (a402f50043)
+- 🚀 Feature/Improvement:中转号池健康 gauge(key/账号两表四档健康态 + 显式丢失 + 失败不写空) (6bda68dcae)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c468db756e)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (20fe4e4dd9)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a71e95072e)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (08ef43589d)
+
+**2026-10-23**
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a703a69a8e)
+- 📚 Docs:修本席刚写错的一处证据指针,改判留痕改指全 40 位可取回的那枚 (e7fb235acb)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (da9bd67811)
+- 📚 Docs:更正本席 13:34 写进 G-14 的错读数并补 O 族有空号这一实测事实(本票不翻勾,差的格子写明) (901f21bb30)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (eef5d3dc41)
+- 📚 Docs:把同号多题存量今日重测就地并进持有行 (ca44c32ee3)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9338d10c44)
+- 🐞 Fix:漂开副本归并(--merge-drifted,人工点名持有行后 N→1) (1a15e4841a)
+
+**2026-10-23**
+- 🐞 Fix:网关流水带上命中的 provider 配置行 id,并把 fusion judge 腿的主体传递钉成用例 (8368505b62)
+- 🐞 Fix:挂牌判据补第四型口径漂移——半角括号里的租约不再隐身 (f13bfd0db1)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (203cdbbcfb)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3d6190a5a2)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3f1ec1e02d)
+- 🔧 Chore/Other:结清 G-79 的 31 枚内容红——所在 15 个文件现读 389/389 绿 (7b86a39b3d)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (aefb0b62b2)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c82694a39)
+- 📚 Docs:把 G-322 两站被镜像反向锁钉住的前置格就地并进持有行 (ddff78a208)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (bf3783fca2)
+- 📚 Docs:§5b 自愈行点名"删除意图到期档"——先问留痕账再决定让路还是回盘 (89763f6d21)
+- 🔧 Chore/Other:摘除根目录一次性扫描草稿 candidates2.txt,按门 99 通道登记具名豁免(带 reason) (ba517478df)
+- ♻️ Refactor:格式棘轮门的带值旗标改接单源判据,不再自算 argv 下一位(G-322 warn 档一站;自检 30 例、探针 26 例、eslint 零 error 全绿) (5b9c8058f7)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9b63a78b6b)
+- 🔧 Chore/Other:写回四端 ui-routes 派生钉 —— 生成器输入面现读全部与 HEAD 同形，重生成只清陈旧钉不改语义 (ab7c343a12)
+- 🐞 Fix:存续自愈的删除意图保护只看该路径最新一条留痕——陈旧那档不得永久护着 (edef1bce7e)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7646bc4b3c)
+- 📚 Docs:给侧边栏收敛批次补进展注记(六大域第二批已入库,余跨端对齐) (f7910fb15d)
+- 🔧 Chore/Other:侧边栏档位对账锁 —— 逐条钉住 HEAD 直标 31 枚在收敛后仍为 27 枚直标加 4 枚经继承,有效可见集逐字相等 (7de6d11fe4)
+- 🐞 Fix:工作区存续自愈加"删除意图到期档"——摘标超两小时仍缺的文件回盘,意图逐字转进同一本账 (09a647d761)
+
 **2026-10-22**
 - 🐞 Fix:Button 门本地直调不受专项档跳过——索引面 0 候选直接绿,执行点真装车 (9a96efd75e)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0e4621c90a)
@@ -278,27 +366,6 @@ Headline claims (same source as the table below, all live-computed): **603 table
 - ♻️ Refactor:验证码链上 5 处进程内状态全部迁到共享存储 —— 一次部署不再清零限速与在飞验证码 (18be871c22)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7a3c6c0ad3)
 - 🐞 Fix:净面回收补两处生产实测缺口(改名失败走后台删 + 删不动项重试等句柄) (dcec5dc7cb)
-
-**2026-10-22**
-- 🐞 Fix:健康门禁与 AI 诊断的公网基址从 apex 换成真入口 www(探测腿此前恒瞎) (72357a8456)
-- 📚 Docs:认领 G-865(摘 DEFAULT_AVATAR_URL 死键+同批改两处 RN 测试) (6d135d16ea)
-- 📚 Docs:结清 G-960/G-922/G-959/G-924(登录屏i18n票) 四票 (279794970d)
-- 🔧 Chore/Other:G-960 探活镜像⑭⑮⑯ + G-922 守门39反向锁T7-T10 [goal-20261022] (575cc13efb)
-- 📚 Docs:认领 G-343(残余三处盘根替换+落点断言) (0751c0694f)
-- 📚 Docs:结清 G-928(ui-routes 产物重钉,门105 head面转绿) (12cfc1283e)
-- ♻️ Refactor:把我侧那枚 Cloudflare token 票让号重登(改走正牌取号令牌现算空闲号) (35e89acfc6)
-- 🐞 Fix:G-928 重钉 ui-routes.generated 自述块 [goal-20261022] (9387ee71f0)
-
-**2026-10-22**
-- 📚 Docs:认领 G-343(残余三处盘根替换+落点断言) (0751c0694f)
-- 📚 Docs:结清 G-928(ui-routes 产物重钉,门105 head面转绿) (12cfc1283e)
-- ♻️ Refactor:把我侧那枚 Cloudflare token 票让号重登(改走正牌取号令牌现算空闲号) (35e89acfc6)
-- 🐞 Fix:G-928 重钉 ui-routes.generated 自述块 [goal-20261022] (9387ee71f0)
-
-**2026-10-22**
-- 📚 Docs:另立 f9 夹具二跳闭包过期票(G-955 复跑取证) (6e40140c9e)
-- 📚 Docs:补认领 G-922(标记被归并批冲掉) (61bc27922f)
-- 📚 Docs:结清 G-955(--check RC=0 主会话复跑实证)+认领 G-960/G-928 满载5席 (75682d367d)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
@@ -331,6 +398,35 @@ and **16 shared packages**.
 | Browser extension | `apps/extension`    | WXT + Chrome MV3                               | Side Panel toolset                                           |
 | CLI               | `apps/cli`          | Node.js + TypeScript                           | Terminal assistant, tools, drift checks, agent-engine client |
 | Capacitor shell   | `apps/mobile-cap`   | Capacitor 7                                    | Packages `apps/web` `out/` export for Android/iOS            |
+
+### Sidebar domain hub and per-domain entry pages (introduced 2026-10-19, AI and personal domains added 2026-10-23)
+
+The sidebar collapses many first-level menu items into **per-domain entries**; each domain's full set of pages is hosted by one card-grid page. Existing routes are untouched (`CategoryShell` as a Next.js layout only covers its own directory subtree, so moving a directory would change URLs), so the entry page only groups and links.
+
+- **What it does**: all five entry pages render through one component, `apps/web/src/components/layout/DomainHub.tsx`, and take their items from the `*_HUB_ITEMS` exports in `apps/web/src/components/sidebar/nav-data.ts` (single source of truth — no per-page copy of the list). Visibility goes through `useNavVisibilityFilter` (`apps/web/src/components/sidebar/use-nav-visibility.ts`): `adminOnly`/`permission` decide *may this be seen at all*, `advancedOnly` decides *should it be shown to ordinary users*. Same predicate as the Sidebar; do not re-implement it per page.
+- **How to use**: open one of the URLs below, or click the domain entry in the sidebar and then a card. The tier (simple mode) is set in Settings → sidebar tiers and persists to `user_preferences.group=preferences` under `navTiers`.
+
+| Entry URL | Item source | End |
+| --------- | ----------- | --- |
+| `/domains/ai` | `AI_HUB_ITEMS` | web (Next.js, platform-exclusive) |
+| `/domains/personal` | `PERSONAL_HUB_ITEMS` | web (Next.js, platform-exclusive) |
+| `/domains/content` | `CONTENT_HUB_ITEMS` | web (Next.js, platform-exclusive) |
+| `/domains/edu` | `EDU_HUB_ITEMS` | web (Next.js, platform-exclusive) |
+| `/domains/trade` | `TRADE_HUB_ITEMS` | web (Next.js, platform-exclusive) |
+
+- **End**: web-only (the desktop shell reuses this web UI; mini-program and RN carry their own navigation).
+
+### User-side read-only and unauthenticated endpoints (registered 2026-10-23 — previously absent from the README)
+
+| Endpoint | Method | Auth | Response shape | End / consumer |
+| -------- | ------ | ---- | -------------- | -------------- |
+| `/api/goods/select` | GET | Public — only the on-shelf catalogue where `zhs_product.status = 1`, no private user fields | `{ code, message, data: { list, total, page, pageSize } }`; `page` defaults to 1, `pageSize` is 1..100 with default 20 | api + mobile-rn `CartScreen` + mini-program `pkg-shop/cart`, through `selectGoods()` in `packages/api-client/src/endpoints/goods.ts` |
+| `/api/sign-ups` | GET | Requires login; ownership is checked in the handler — a `?userId` that is not the caller's, without system-admin rights, gets 403 (authentication is not authorization) | `{ code, message, data: { list: [{ id, targetTitle, targetType, status, createdAt }] } }`, status normalised to `draft/published/rejected/completed` | api + web `apps/web/app/(main)/user/sign-up/page.tsx`; aggregates `lesson_sign_ups` and `exam_signups` |
+| `/api/auth/wechat/mini/one-tap-login` | POST | **Unauthenticated** (rate limited to 5 requests per minute); the phone number and the openId are both exchanged from one-time WeChat codes, so nothing is taken from the client | Success returns `{ ...tokens, user }` — the user object travels with the tokens; 503 when WeChat mini is unconfigured, 401 when the code exchange fails, 409 when the openId is already bound to another account, 403 when the account is disabled | api + mini-program `apps/miniapp-taro` (one-tap login button) |
+
+- **What they do**: `/goods/select` supplies the cart's product paging read; `/sign-ups` merges course sign-ups and exam sign-ups into one "my sign-ups" list; `/auth/wechat/mini/one-tap-login` is a newly opened endpoint — previously `/mini/login` answered new users with `{needPhone:true, openId}` and issued no token, while `/mini/phone` required an existing session and returned no token either, so that chain was structurally impossible (proof case: `apps/api/src/routes/__tests__/wechat-mini-one-tap-login.test.ts`).
+- **How to use**: all three are registered in `apps/api/src/routes/index.ts` (`goods.ts` under `prefix:'/api'`, `sign-ups.ts` under `prefix:'/api/sign-ups'`, the login leg under the auth prefix). Inputs are Zod-validated; one-tap login accepts `{ loginCode, phoneCode }` as a `strictObject`, so unknown keys answer 400.
+- **End**: backend `apps/api`; consumers are listed in the table column above (web / mobile-rn / mini-program).
 
 ## 🚀 Quick start
 
