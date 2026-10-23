@@ -285,6 +285,13 @@ export interface PipedStreamStats {
    * 调用方造收尾帧时应优先用它，缺失再回落到自己生成的 id。
    */
   lastFrameId: string | null
+  /**
+   * 上游以「积分」计费且**不返回 token** 时的真实扣减量（2026-10-23 加，qoder 首用）。
+   * 这类上游（Qoder）usage 的 token 字段恒 0，唯一真实计量是 credits；
+   * 桥把它放在终止帧的 `x_qoder_credits` / `usage.credits` 里。
+   * null = 本流未提供（或该上游本来就按 token 计费，值在 prompt/completion 上）。
+   */
+  upstreamCredits: number | null
 }
 
 export interface PipeStreamOptions {
@@ -311,6 +318,11 @@ function parseSseData(line: string): Record<string, unknown> | null {
 
 function readNum(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0
+}
+
+/** 读小数（credits 是小数，不能过 readNum 的取整） */
+function readFloat(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null
 }
 
 /**
@@ -352,6 +364,7 @@ export async function pipeChannelStream(
     httpStatus: upstream.status,
     sawFinish: false,
     lastFrameId: null,
+    upstreamCredits: null,
   }
   const startedAt = Date.now()
   const reader = upstream.body!.getReader()
@@ -375,7 +388,7 @@ export async function pipeChannelStream(
     if (
       !textMode &&
       Array.isArray(choices) &&
-      choices.some((c) => c?.['finish_reason'] != null)
+      choices.some((c) => c?.['finish_reason'] !== null && c?.['finish_reason'] !== undefined)
     ) {
       stats.sawFinish = true
     }
@@ -397,7 +410,13 @@ export async function pipeChannelStream(
         readNum(usage['cache_read_input_tokens']),
       )
       stats.cacheCreationTokens = readNum(usage['cache_creation_input_tokens'])
+      // 积分计费上游（qoder）：token 恒 0，credits 才是真实扣减量
+      const usageCredits = readFloat(usage['credits'])
+      if (usageCredits !== null) stats.upstreamCredits = usageCredits
     }
+    // 桥上把 credits 同时放在帧顶层（x_qoder_credits），usage 缺失时也能取到
+    const frameCredits = readFloat(json['x_qoder_credits'])
+    if (frameCredits !== null) stats.upstreamCredits = frameCredits
   }
 
   try {
