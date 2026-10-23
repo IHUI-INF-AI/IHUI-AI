@@ -12,7 +12,7 @@
 //
 // 用法:
 //   node scripts/audit-benchmark-delivery.mjs [--doc <相对路径>]... [--claims <相对路径>]
-//   node scripts/audit-benchmark-delivery.mjs --strict      # 判不出/台账腐烂 ⇒ exit 2(拒绝出合格证)
+//   node scripts/audit-benchmark-delivery.mjs --strict      # 判不出/台账腐烂/未豁免的"仍存在" ⇒ exit 2(拒绝出合格证)
 //   node scripts/audit-benchmark-delivery.mjs --json
 //   node scripts/audit-benchmark-delivery.mjs --self-test
 //
@@ -29,6 +29,15 @@
 // 镜像测试 scripts/tests/audit-benchmark-delivery.test.mjs 钉住。
 // **明令禁止 `--update` 式把读数冻成基线**(照 scripts/check-plan-sha-resolvable.mjs 的先例):
 // 读数每天会变,冻起来等于给"文档与代码脱节"发通行证。
+//
+// **G-217 补牙(2026-10-23):`--strict` 的第三族红**。此前牙只有两族——判不出、台账腐烂;
+// "仍存在(文档与代码脱节)"只打印不顶红 ⇒ check:all 第 27 步对脱节常年绿,它不是一致性合格证。
+// 现增第三族:**仍存在且无有效豁免 ⇒ exit 2**。误报面的出口按 AGENTS §0.7「豁免必须验过才免且会到期」
+// 做成 claim 级两字段(`exemptUntil` + `exemptReason`):带原因、未到期才免;缺一半/理由过短/日期形态坏/
+// 已到期一律视同无豁免顶红;豁免挂在非"仍存在"条上 = 豁免粘连 ⇒ 台账腐烂顶红(防豁免堆积成白名单,
+// AGENTS §0.10 失效方向恒为"多要一次定向说明",不许走成"多放一次跳门")。于是新出现的脱节当轮即红,
+// 而已登记、等拍板/分阶段落地的存量有显式、会到期、每轮点名的出口,门不是恒红门(§12e 禁的是
+// "存量未清就无条件升 blocking",不是"判据不许有牙")。
 //
 // 取材口径同 70/77/83/98/101/103/118:全量判 HEAD blob、`--staged` 判索引 blob、
 // `--worktree` 仅人工;两面旗同给 ⇒ exit 2;取不到 ⇒ 未判定,不冒红也不记绿;
@@ -151,6 +160,57 @@ function ledgerRot(claims, docTextById) {
   return rot
 }
 
+/** now(Date|'YYYY-MM-DD') ⇒ 本地日期当天的 UTC 午夜。只比日期不比时刻:"当天到期"不被时区吞掉。 */
+function dateUtc(now) {
+  const d = now instanceof Date ? now : new Date(String(now))
+  return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+}
+
+/**
+ * 豁免判定(G-217;AGENTS §0.7「验过才免 + 会到期」)。now 可传 Date 或 'YYYY-MM-DD'(测试注入)。
+ *   none    —— 两字段都没挂 ⇒ 没有豁免这回事
+ *   valid   —— exemptUntil 未到期 ∧ exemptReason ≥10 字 ⇒ 本轮"仍存在"不顶红(仍每轮打印点名)
+ *   invalid —— 只挂一半 / 理由过短 / 日期形态坏 / 已到期 ⇒ 视同无豁免,顶红
+ * 设计取向:豁免不是跳门,是"多要一次定向说明"——到期必须复判或带新理由复续期,不许静默延长。
+ */
+function exemptionOf(claim, now = new Date()) {
+  const untilRaw = claim?.exemptUntil
+  const reasonRaw = claim?.exemptReason
+  if (untilRaw === undefined && reasonRaw === undefined) return { state: 'none' }
+  const detail = []
+  if (typeof reasonRaw !== 'string' || reasonRaw.trim().length < 10) detail.push('缺定向说明(exemptReason 至少 10 字)')
+  if (typeof untilRaw !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(untilRaw)) {
+    detail.push('到期日形态坏(exemptUntil 须 YYYY-MM-DD)')
+  } else {
+    const until = Date.parse(`${untilRaw}T00:00:00Z`)
+    if (!Number.isFinite(until)) detail.push(`到期日不可解析:${untilRaw}`)
+    else if (until < dateUtc(now)) detail.push(`豁免已于 ${untilRaw} 到期(复判或带新理由复续期,不得静默延长)`)
+  }
+  if (detail.length > 0) return { state: 'invalid', detail: detail.join(';'), until: untilRaw, reason: reasonRaw }
+  return { state: 'valid', until: untilRaw, reason: reasonRaw.trim() }
+}
+
+/**
+ * 豁免粘连(AGENTS §0.7 末句:已登记的豁免若被审面不再命中 ⇒ 清单腐烂判红):
+ * 豁免字段挂在非"仍存在" verdict 上 ⇒ 腐烂。缺口已关或判不出却挂着豁免,就是豁免堆积成白名单的头一步;
+ * 这一族进 rot,`--strict` 照旧顶红。
+ */
+function staleExemptions(claims, verdictById) {
+  const out = []
+  for (const c of claims) {
+    if (c.exemptUntil === undefined && c.exemptReason === undefined) continue
+    const v = verdictById.get(c.id)
+    if (v !== 'still-open')
+      out.push({ id: c.id, reason: `豁免粘连:该条现判 ${v ?? '不在结论里'}(豁免只对"仍存在"生效;缺口状态变了就必须摘豁免或改判据)` })
+  }
+  return out
+}
+
+/** `--strict` 下要顶红的"仍存在"集合:无有效豁免的那些。有效豁免 ⇒ 不顶红,但打印点名。 */
+function unexemptedStillOpen(results, claimById, now) {
+  return results.filter((r) => r.verdict === 'still-open' && exemptionOf(claimById.get(r.id), now).state !== 'valid')
+}
+
 function loadFace(root, face) {
   const cache = new Map()
   const specs = new Map()
@@ -218,15 +278,17 @@ function walkPaths(claims) {
   return out
 }
 
-function formatLine(r) {
+function formatLine(r, ex) {
   const mark = { delivered: '✅ 已交付', 'still-open': '❌ 仍存在', undetermined: '❔ 判不出' }[r.verdict]
+  // 有效豁免必须每轮点名(理由 + 到期日),否则"豁免"就会退化成读者看不见的暗门(§0.10)。
+  const tag = r.verdict === 'still-open' && ex && ex.state === 'valid' ? `(⏳豁免至 ${ex.until}:${ex.reason})` : ''
   const first = r.assertions && r.assertions[0]
   const res = first && first.anchors && first.anchors[0] && first.anchors[0].result
   // 命中路径必须报名;expect:'absent' 那一型没有"命中",就报"核过哪些候选" ——
   // 否则读者拿到一句"已交付",却不知道该结论是靠哪个文件撑起来的(报告不得只给颜色)。
-  if (res && res.hit) return `  ${mark}  ${r.id} ${r.title} —— 命中 ${res.hit.path}`
-  if (res && Array.isArray(res.missed)) return `  ${mark}  ${r.id} ${r.title} —— 已核候选 ${res.missed.length} 个路径/条件:${res.missed.slice(0, 3).join(', ')}`
-  return `  ${mark}  ${r.id} ${r.title}${first && first.reason ? ` —— ${first.reason}` : ''}`
+  if (res && res.hit) return `  ${mark}${tag}  ${r.id} ${r.title} —— 命中 ${res.hit.path}`
+  if (res && Array.isArray(res.missed)) return `  ${mark}${tag}  ${r.id} ${r.title} —— 已核候选 ${res.missed.length} 个路径/条件:${res.missed.slice(0, 3).join(', ')}`
+  return `  ${mark}${tag}  ${r.id} ${r.title}${first && first.reason ? ` —— ${first.reason}` : ''}`
 }
 
 function main(argv) {
@@ -277,6 +339,13 @@ function main(argv) {
 
   const results = claims.map((c) => judgeClaim(c, faceReader))
   const rot = ledgerRot(claims, docTextById)
+  const verdictById = new Map(results.map((r) => [r.id, r.verdict]))
+  const claimById = new Map(claims.map((c) => [c.id, c]))
+  const staleEx = staleExemptions(claims, verdictById)
+  const now = new Date()
+  const exById = new Map(results.map((r) => [r.id, exemptionOf(claimById.get(r.id), now)]))
+  const openRed = results.filter((r) => r.verdict === 'still-open' && exById.get(r.id).state !== 'valid')
+  const invalidEx = results.filter((r) => exById.get(r.id).state === 'invalid')
   const counts = { delivered: 0, 'still-open': 0, undetermined: 0 }
   for (const r of results) counts[r.verdict] += 1
 
@@ -285,10 +354,10 @@ function main(argv) {
   const coverage = { docRows: rows.length, claimsRegistered: claims.length, unregistered: rows.filter((r) => !registered.has(String(r.id))).length }
 
   if (flags.has('--json')) {
-    console.log(JSON.stringify({ face, counts, coverage, rot, results }, null, 2))
+    console.log(JSON.stringify({ face, counts, coverage, rot, staleExemptions: staleEx, invalidExemptions: invalidEx.map((r) => ({ id: r.id, detail: exById.get(r.id).detail })), openRed: openRed.map((r) => r.id), results }, null, 2))
   } else {
     console.log(`[对标交付核验] 判定面=${face}  登记表=${claimsPath}(${claims.length} 条已建子断言)`)
-    for (const r of results) console.log(formatLine(r))
+    for (const r of results) console.log(formatLine(r, exById.get(r.id)))
     for (const r of results)
       for (const o of r.observations || [])
         console.log(`     · 如实登记(不参与定性):${r.id} ${o.text} —— ${o.state === 'holds' ? '仍成立' : o.state === 'fails' ? '已不成立(登记表待更正)' : '判不出'}`)
@@ -296,14 +365,28 @@ function main(argv) {
       console.log(`⚠️ 登记表与文档脱节 ${rot.length} 条:`)
       for (const x of rot) console.log(`     - ${x.id}:${x.reason}`)
     }
+    if (invalidEx.length > 0) {
+      console.log(`⚠️ 豁免无效 ${invalidEx.length} 条(视同无豁免,--strict 顶红):`)
+      for (const r of invalidEx) console.log(`     - ${r.id}:${exById.get(r.id).detail}`)
+    }
+    if (staleEx.length > 0) {
+      console.log(`⚠️ 豁免粘连 ${staleEx.length} 条(缺口状态已变,豁免必须摘):`)
+      for (const x of staleEx) console.log(`     - ${x.id}:${x.reason}`)
+    }
     if (coverage.docRows > 0)
       console.log(`覆盖面:${coverage.docRows} 条文档条目 / 已建断言 ${coverage.claimsRegistered} 条 / 未建档 ${coverage.unregistered} 条 —— 未建档的不是"已核对",是"还没判"`)
     console.log(`三态:已交付 ${counts.delivered} / 仍存在 ${counts['still-open']} / 判不出 ${counts.undetermined}(判不出绝不并入前两者)`)
+    if (openRed.length > 0)
+      console.log(`未豁免的仍存在 ${openRed.length} 条:${openRed.map((r) => r.id).join(', ')} —— --strict 下顶红;合法暂态挂 exemptUntil+exemptReason(AGENTS §0.7)`)
     console.log('定级 warn:本尺子不在提交链上(它判文档与代码是否一致,与提交内容无关 ⇒ blocking 即恒红门)。')
   }
 
-  if (flags.has('--strict') && (counts.undetermined > 0 || rot.length > 0)) {
-    console.error('❌ --strict:存在判不出或台账腐烂 ⇒ 拒绝出具合格证')
+  if (flags.has('--strict') && (counts.undetermined > 0 || rot.length > 0 || staleEx.length > 0 || openRed.length > 0)) {
+    console.error('❌ --strict:存在判不出/台账腐烂/未豁免的仍存在 ⇒ 拒绝出具合格证')
+    for (const r of openRed) {
+      const ex = exById.get(r.id)
+      console.error(`   - ${r.id} ${r.title}(仍存在且无有效豁免${ex.state === 'invalid' ? `:${ex.detail}` : ''};合法暂态须挂 exemptUntil+exemptReason,AGENTS §0.7)`)
+    }
     return 2
   }
   return 0
@@ -368,6 +451,25 @@ function selfTest() {
   t('⑲ ^ 锚点按行命中(把 gm 旗改回 g,这一条必须翻红)', anchored.state === 'holds')
   t('⑳ 锚点确实不存在时仍老实判 fails(不是恒绿的 ^)', evalAnchor(anchor(['big.md'], '^## 不存在的节'), mapFace({ 'big.md': '前言\n## 十、标题' })).state === 'fails')
 
+  // ㉑–㉗ G-217 补牙:豁免出口的判读(AGENTS §0.7 验过才免 + 会到期;§0.10 不许走成白名单)
+  const ex = (claim, now) => exemptionOf(claim, now)
+  t('㉑ 没挂豁免字段 ⇒ none(不是 valid)', ex({}).state === 'none' && ex({ exemptReason: undefined }, '2026-10-23').state === 'none')
+  t('㉒ 带原因且未到期 ⇒ valid', ex({ exemptUntil: '2026-11-23', exemptReason: '等 §24 拍板后开工,预填方案已登记' }, '2026-10-23').state === 'valid')
+  t('㉓ 到期 ⇒ invalid(视同无豁免,顶红)', ex({ exemptUntil: '2026-10-22', exemptReason: '等 §24 拍板后开工,预填方案已登记' }, '2026-10-23').state === 'invalid')
+  t('㉔ 只挂一半/理由过短/日期形态坏 ⇒ invalid', ex({ exemptReason: '原因足够长但没有到期日' }).state === 'invalid' && ex({ exemptUntil: '2026-11-23', exemptReason: '短' }).state === 'invalid' && ex({ exemptUntil: '11-23', exemptReason: '原因足够长但日期形态坏' }).state === 'invalid')
+  t('㉕ 到期日当天仍有效、次日起失效(只比日期不比时刻)', ex({ exemptUntil: '2026-10-23', exemptReason: '当天到期仍算未到期,次日才失效' }, '2026-10-23').state === 'valid' && ex({ exemptUntil: '2026-10-23', exemptReason: '当天到期仍算未到期,次日才失效' }, '2026-10-24').state === 'invalid')
+  t('㉖ 豁免粘连:挂在已交付条上 ⇒ 腐烂点名(防豁免堆积成白名单)', (() => {
+    const s = staleExemptions([{ id: '#a', exemptUntil: '2026-11-23', exemptReason: '等拍板,方案已登记在案' }, { id: '#b' }], new Map([['#a', 'delivered'], ['#b', 'delivered']]))
+    return s.length === 1 && s[0].id === '#a'
+  })())
+  t('㉗ 豁免只对仍存在生效:仍存在+有效豁免不进顶红集,无豁免/到期进', (() => {
+    const claims = [{ id: '#ok' }, { id: '#ex', exemptUntil: '2026-11-23', exemptReason: '等拍板,方案已登记在案' }, { id: '#exp', exemptUntil: '2026-10-01', exemptReason: '等拍板,方案已登记在案' }]
+    const results = [{ id: '#ok', verdict: 'still-open' }, { id: '#ex', verdict: 'still-open' }, { id: '#exp', verdict: 'still-open' }]
+    const byId = new Map(claims.map((c) => [c.id, c]))
+    const red = unexemptedStillOpen(results, byId, '2026-10-23')
+    return red.length === 2 && red.map((r) => r.id).join() === '#ok,#exp'
+  })())
+
   console.log(`✅ ${pass.length} 条 / ❌ ${fail.length} 条`)
   for (const f of fail) console.log(`   ❌ ${f}`)
   return fail.length === 0 ? 0 : 1
@@ -388,5 +490,5 @@ if (isDirectRun) {
 }
 
 // §22d:__test__ 的 export 必须在入口守卫之后(位置本身是判据,镜像测试 T2 钉着)。
-export const __test__ = { anchorProblem, evalAnchor, evalAssertion, judgeClaim, parseDocRows, ledgerRot, selfTest }
+export const __test__ = { anchorProblem, evalAnchor, evalAssertion, judgeClaim, parseDocRows, ledgerRot, exemptionOf, staleExemptions, unexemptedStillOpen, selfTest }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -46,6 +46,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 逃生舱**;两面旗同给 ⇒ exit 2;该面取不到输入 ⇒ exit 2「无法判定」;枚举到 0 个候选 ⇒ 判死。
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const SELF = fileURLToPath(import.meta.url)
 const ROOT = resolve(dirname(SELF), '..')
@@ -607,7 +609,21 @@ async function main() {
   }
   const probeArg = argv.find((a) => a.startsWith('--probe'))
   if (probeArg) {
-    const val = probeArg.includes('=') ? probeArg.split('=')[1] : argv[argv.indexOf(probeArg) + 1]
+    // 等号形态(`--probe=Mod+K`)原样保留;空格形态改走 scripts/lib/flag-value.mjs 单源(G-322)。
+    // 旧写法 `argv[argv.indexOf(probeArg) + 1]` 无条件把紧邻 token 当组合键:runner 追加 --staged 时
+    // `--probe --staged` 造出一个名为 `--staged` 的合法 chord 并计入声明集 —— 观测面被凭空加了一条;
+    // 漏值(`--probe` 打在结尾)拿到 undefined,`String(undefined)`='undefined' 同样被当成一个键。
+    let val
+    if (probeArg.includes('=')) {
+      val = probeArg.split('=')[1]
+    } else {
+      const f = requireFlagValue(argv, probeArg, { noun: '组合键(如 Mod+K)' })
+      if (f.error) {
+        console.error(`❌ 无法判定(exit 2):${f.error}`)
+        return 2
+      }
+      val = f.value
+    }
     const c = normalizeChord(val)
     if (!c) {
       console.error(`--probe 参数无法解析为 chord: ${val}`)

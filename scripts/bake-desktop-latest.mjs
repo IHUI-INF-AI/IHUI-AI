@@ -31,6 +31,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 import { giteeBytesVerdict } from './resolve-desktop-download.mjs'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_OUT = resolve(ROOT, 'apps/web/src/config/desktop-latest.generated.ts')
@@ -174,14 +176,26 @@ async function fetchGiteeSize(url) {
   }
 }
 
-const argValue = (args, name) => {
-  const i = args.indexOf(name)
-  return i >= 0 ? args[i + 1] : undefined
+/**
+ * 带值旗标的取值判定(G-322:一律走 scripts/lib/flag-value.mjs 单源,本器不再自己算 `args[i + 1]`)。
+ * 旧写法 `i >= 0 ? args[i + 1] : undefined` 把"给了开关却没给值"与"压根没给开关"折成同一个
+ * `undefined`,调用方的 `|| 默认` 顺势接住 ⇒ `--out --tag desktop-v1` 会把 `--tag` 当输出路径
+ * (写进 `outputs/--tag/`)还照报已写出;`--latest-json` 打在结尾则报"缺 --latest-json",
+ * 读起来像用户忘了打,其实是用户打了、值位上什么都没有。
+ * 用法错一律 exit 2 并点名实得 token;**没给旗标**仍返回 `null` ⇒ 各旗标自己的默认档不变。
+ */
+const takeFlag = (args, name, noun) => {
+  const f = requireFlagValue(args, name, { noun })
+  if (f.error) {
+    console.error(`❌ ${f.error} ⇒ 无法判定,不退回默认(exit 2)`)
+    process.exit(2)
+  }
+  return f.value
 }
 
 async function main() {
   const args = process.argv.slice(2)
-  const latestPath = argValue(args, '--latest-json')
+  const latestPath = takeFlag(args, '--latest-json', '文件路径')
   if (!latestPath) {
     console.error('❌ 缺 --latest-json <path> ⇒ 拒绝(不猜输入)')
     process.exit(2)
@@ -202,8 +216,8 @@ async function main() {
     console.error('❌ latest.json 缺 version ⇒ 拒绝')
     process.exit(2)
   }
-  const tag = argValue(args, '--tag') || `desktop-v${version}`
-  const out = resolve(argValue(args, '--out') || DEFAULT_OUT)
+  const tag = takeFlag(args, '--tag', '版本号') || `desktop-v${version}`
+  const out = resolve(takeFlag(args, '--out', '文件路径') || DEFAULT_OUT)
   const existingText = existsSync(out) ? readFileSync(out, 'utf8') : ''
   const existing = extractGeneratedObject(existingText)
   const winUrl = latest?.platforms?.[PLATFORM]?.url
@@ -213,9 +227,9 @@ async function main() {
   }
   const assetName = decodeURIComponent(new URL(winUrl).pathname.split('/').pop() || '')
   const giteeUrl =
-    argValue(args, '--gitee-url') || deriveGiteeUrl({ existingUrl: existing?.platforms?.[PLATFORM]?.url, tag, assetName })
-  let githubSize = Number(argValue(args, '--github-size') || 0) || null
-  let giteeSize = Number(argValue(args, '--gitee-size') || 0) || null
+    takeFlag(args, '--gitee-url', 'URL') || deriveGiteeUrl({ existingUrl: existing?.platforms?.[PLATFORM]?.url, tag, assetName })
+  let githubSize = Number(takeFlag(args, '--github-size', '字节数') || 0) || null
+  let giteeSize = Number(takeFlag(args, '--gitee-size', '字节数') || 0) || null
   const notes = []
   if (!githubSize) {
     const r = await fetchGithubAssetSize({ tag, assetName })
