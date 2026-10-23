@@ -5512,6 +5512,24 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-23**
+- 🐞 修复:余额自愈改由上游鉴权标志触发,并以真号回包量出库里到期字段不可信 (11e5dc625e)
+- 📚 文档:收编 README 四语面 —— §21 域页导航覆盖(/domains/ai、/domains/personal 按域速览) + 发丝分隔线清理配套 + FAQ/Keywords 改挂 docs/engineering 索引 + 生成块数字对齐现算(2026-10-23) (237864c1d5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (fde93239bf)
+- 🐞 修复:门105 web ui-routes.generated.ts 自述钉重生成收stale (0166dd30b5)
+- 🐞 修复:settings notifications/privacy 登录态三态门 —— ready 未就绪显加载而非误踢未登录(与签到助手/favorites 同型,useAuthGate.ready HEAD 已导出) (f9b56e4278)
+- 📚 文档:门207瘦身——守门历史/取证叙述与收敛带回重复副本整区归档(AGENTS_trim-2026-10-23b) (8307ff098c)
+- 🔧 工程/其他:收编死席遗留守门/测试簇 —— G-322 flag-value 单源断言补全(R3 CLI 档) + 新增只读尺 hairline-separator/plan-fragment-rows(未接提交链,§12e 设计) + 11 门体/lib 与 7 镜像测试更新,逐件自测/镜像测试全绿 (ea0fb180f0)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b4be005b4a)
+- 📚 文档:翻勾背景色发丝线判据票(分割线守门族4/6形状重载补档已落地) (086fe3491c)
+- 🚀 新功能/改进:分割线守门补背景色发丝线判据(族4/6形状重载·L29015)——三型结构件机械排除+RN对象块档并入差值棘轮 (c45c9c0bb8)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (285b0f5b69)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c0462af2b)
+- 📚 文档:族归并 + 立因叙述压缩,体积 102,084→85,755 字节(余量 10,245) (0f47cbeed6)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f3c07eb17e)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0cd065958d)
+- 📚 文档:结清 G-924 小程序远程图标注册表死键滞留行(四条现读凭据) (8c67ae715c)
+
+**2026-10-23**
 - 🐞 修复:摘除被收编捞回的 plugins-data 残留副本 —— 解 HEAD 面 12 处 TS2307 悬空引用 (75ba36d703)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2ac0f9c6b2)
 - 📚 文档:号池可观测票两格收满并纠票面错述 — ①「fusion judge 腿无主体不写行」经现读与代码不符(gateway 触发 combo 处已显式下传 billing_user_id,两处 judge 经 kwargs 拿到同一主体,3 枚用例钉住);②config_id 取既有 bigint 列零新迁移。同批记入号池上游余额按需点查两枚(trae 与 qoder getQuota;过期票先走调度器同一把 refreshOne)。翻勾仍差票面验收第 3 条(真跑一次网关调用后 llm_call_logs 命中腿字段可查),该行保持未勾。 (9c0cdc5c67)
@@ -5642,22 +5660,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 
 - 🐞 修复:Button 门本地直调不受专项档跳过——索引面 0 候选直接绿,执行点真装车 (9a96efd75e)
 - ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0e4621c90a)
-
-**2026-10-22**
-- 🐞 修复:反代号池领取按钮改用 xs 档——移除 h-7 覆盖,守住门 235 的 HEAD 零存量 (457bec27c7)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (452d031ea7)
-- ♻️ 重构:G-965 投影第二批 29 枚——放宽存量长行、侧车 owner/等待条件复算后可投影 (c02c02763d)
-- 🔧 工程/其他:gate-scope 注释经 prettier 归一(前枚应急路径跳过 lint-staged 的补账) (b27c490866)
-- 🔧 工程/其他:侧车记录复算——修 10 枚截断 owner、补 9 枚等待条件(桶零漂,19 枚) (8f7d21bcf7)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4db1f2ea1c)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (95168bb1a5)
-- 📚 文档:消 F9 撞号——G-926 后来者(生产 web 部署承载者,10-22 登记)去掉复用编号,G-926 仍归 lint-staged 那条;G-312 不得批量改号,本处只改后来者一条 (7195c3e181)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (08604e1db1)
-- 🐞 修复:解绑后重新扫码不得登进旧账号 —— 绑定表读出口径统一并加族级锁 (ff588871cc)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (76cce23bb7)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4777c3cd32)
-- 🐞 修复:登录方式实测收口 —— 认证端点不得冒充成功,第三方按钮改按服务器真值启用 (f4693c3d0d)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c643fb6d4e)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:

@@ -102,6 +102,24 @@ Headline claims (same source as the table below, all live-computed): **603 table
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-23**
+- 🐞 Fix:余额自愈改由上游鉴权标志触发,并以真号回包量出库里到期字段不可信 (11e5dc625e)
+- 📚 Docs:收编 README 四语面 —— §21 域页导航覆盖(/domains/ai、/domains/personal 按域速览) + 发丝分隔线清理配套 + FAQ/Keywords 改挂 docs/engineering 索引 + 生成块数字对齐现算(2026-10-23) (237864c1d5)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (fde93239bf)
+- 🐞 Fix:门105 web ui-routes.generated.ts 自述钉重生成收stale (0166dd30b5)
+- 🐞 Fix:settings notifications/privacy 登录态三态门 —— ready 未就绪显加载而非误踢未登录(与签到助手/favorites 同型,useAuthGate.ready HEAD 已导出) (f9b56e4278)
+- 📚 Docs:门207瘦身——守门历史/取证叙述与收敛带回重复副本整区归档(AGENTS_trim-2026-10-23b) (8307ff098c)
+- 🔧 Chore/Other:收编死席遗留守门/测试簇 —— G-322 flag-value 单源断言补全(R3 CLI 档) + 新增只读尺 hairline-separator/plan-fragment-rows(未接提交链,§12e 设计) + 11 门体/lib 与 7 镜像测试更新,逐件自测/镜像测试全绿 (ea0fb180f0)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b4be005b4a)
+- 📚 Docs:翻勾背景色发丝线判据票(分割线守门族4/6形状重载补档已落地) (086fe3491c)
+- 🚀 Feature/Improvement:分割线守门补背景色发丝线判据(族4/6形状重载·L29015)——三型结构件机械排除+RN对象块档并入差值棘轮 (c45c9c0bb8)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (285b0f5b69)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c0462af2b)
+- 📚 Docs:族归并 + 立因叙述压缩,体积 102,084→85,755 字节(余量 10,245) (0f47cbeed6)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f3c07eb17e)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0cd065958d)
+- 📚 Docs:结清 G-924 小程序远程图标注册表死键滞留行(四条现读凭据) (8c67ae715c)
+
+**2026-10-23**
 - 🐞 Fix:摘除被收编捞回的 plugins-data 残留副本 —— 解 HEAD 面 12 处 TS2307 悬空引用 (75ba36d703)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2ac0f9c6b2)
 - 📚 Docs:号池可观测票两格收满并纠票面错述 — ①「fusion judge 腿无主体不写行」经现读与代码不符(gateway 触发 combo 处已显式下传 billing_user_id,两处 judge 经 kwargs 拿到同一主体,3 枚用例钉住);②config_id 取既有 bigint 列零新迁移。同批记入号池上游余额按需点查两枚(trae 与 qoder getQuota;过期票先走调度器同一把 refreshOne)。翻勾仍差票面验收第 3 条(真跑一次网关调用后 llm_call_logs 命中腿字段可查),该行保持未勾。 (9c0cdc5c67)
@@ -354,18 +372,6 @@ Headline claims (same source as the table below, all live-computed): **603 table
 
 **2026-10-22**
 - 📚 Docs:CF 穷举席翻勾 G-870/G-929(令牌轮换)/G-865/G-866/desktop-feed 五行,附控制台与实测证据 (c968894ac8)
-
-**2026-10-22**
-- 📚 Docs:结清 G-107(接线已入库实证)+认领 G-923/D690(拍板A) (617f9cf618)
-- 📚 Docs:认领 D195(通知中心隐藏归档恢复流+十键五语言;§24 范围由机主授权代拍板按票面十键执行) (56a94e5400)
-- 📚 Docs:结清 G-932(待落内容已由 10-15 批入库,HEAD 复验) (47fd04b352)
-- 📚 Docs:认领 G-107(recovery 闸门接线到帧路由) (96f5416d47)
-- 📚 Docs:结清"生产 web 的部署承载者没查清"(承载者已实证,不是查不到而是取错了面) (cba0a36dee)
-- 🐞 Fix:修 Start-CleanBuildAsyncDelete 顺序铁律——purger 先建 args 后赋值,-File 槽捕获 null 致后台删成死进程 (64f9f36f97)
-- 🔧 Chore/Other:收尾 scripts/tests 第四批清冗余 + 两处测试判据钉死 (8527b2c007)
-- ♻️ Refactor:验证码链上 5 处进程内状态全部迁到共享存储 —— 一次部署不再清零限速与在飞验证码 (18be871c22)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7a3c6c0ad3)
-- 🐞 Fix:净面回收补两处生产实测缺口(改名失败走后台删 + 删不动项重试等句柄) (dcec5dc7cb)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
