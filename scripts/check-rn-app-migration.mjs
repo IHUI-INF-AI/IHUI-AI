@@ -98,10 +98,10 @@ export const WHITELIST_ENTRIES = new Map(
       why: '用量统计屏:模型用量条 + 周期切换,共享层无同名屏,RN 端独占统计视图',
       expires: '2027-06-30',
     },
-    'UserFansScreen.tsx': {
-      why: '粉丝列表屏:Image 头像 + ScrollView 分页 + 关注态切换,共享层无同名屏,RN 端独占列表交互',
-      expires: '2027-06-30',
-    },
+    // ── 2026-10-24 摘除 UserFansScreen.tsx:粉丝列表已新立 user-fans 共享屏族
+    //    (packages/app/src/features/user-fans/UserFansScreen.tsx),RN 端改为薄壳。
+    //    注:小程序端**没有**粉丝页(pkg-user/following 是「我的关注」,其同物是 features/follow),
+    //    "两端同屏"这一格属新功能,归人拍板,不在本门射程。──
     'ArticleHotScreen.tsx': {
       why: '热门文章屏:ScrollView 排行列表 + 热度排序,共享层无同名屏,RN 端独占列表交互',
       expires: '2027-06-30',
@@ -111,7 +111,7 @@ export const WHITELIST_ENTRIES = new Map(
       expires: '2027-06-30',
     },
     'DistributionCompanyScreen.tsx': {
-      why: '分销公司屏:公司信息表单 + 审核状态,共享层无同名屏,RN 端独占表单交互',
+      why: '2026-10-24 按被描述文件订正旧账(原文"公司信息表单 + 审核状态…独占表单交互"与文件内容不符:全文 TextInput/validate/onSubmit/audit 命中 0)。实读 = 佣金窗口卡 + 下线列表卡 + 两个跳转,取数 /finance/commission/summary 与 /finance/distribution/subordinates;共享层无同名屏。小程序 pkg-ai/distribution/company 是另一件事(取 getDistributionInfo/getDistributionTeam + 成员列表,其自述对齐 TeamScreen),web 还有第三套。强行合屏必失真,归人拍板承载什么。',
       expires: '2027-06-30',
     },
     'ImageGenGalleryScreen.tsx': {

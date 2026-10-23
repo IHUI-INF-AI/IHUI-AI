@@ -154,3 +154,10 @@ export type {
   CartItemView,
   CartScreenProps,
 } from '../../../../packages/app/src/features/cart/CartScreen'
+// 2026-10-24:UserFans 薄壳接真实共享屏(粉丝列表页)。同上方纪律:re-export 真实组件,
+// 不得另写假实现 —— 缺席则壳渲染 undefined,"RN 端渲染共享层那一份"判不到。
+export { UserFansScreen } from '../../../../packages/app/src/features/user-fans/UserFansScreen'
+export type {
+  UserFansRowView,
+  UserFansScreenProps,
+} from '../../../../packages/app/src/features/user-fans/UserFansScreen'
