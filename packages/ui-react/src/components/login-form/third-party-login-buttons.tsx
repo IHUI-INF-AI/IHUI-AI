@@ -92,9 +92,9 @@ export function ThirdPartyLoginButtons({
           {restProviders.length > 0 && (
             <>
               <div className="my-4 flex items-center gap-3 text-muted-foreground">
-                <span className="h-px flex-1 bg-border" />
+                <span className="flex-1 border-t border-border" />
                 <span className="text-xs">{'或'}</span>
-                <span className="h-px flex-1 bg-border" />
+                <span className="flex-1 border-t border-border" />
               </div>
               <ThirdPartyGrid
                 t={t}
