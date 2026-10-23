@@ -185,7 +185,7 @@ def broken_db(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_declared_provider_code_only_accepts_vendor_path_prefixes() -> None:
     assert _declared_provider_code_of("openrouter/qwen/qwen3-max") == "openrouter"
     assert _declared_provider_code_of("groq/llama-3.3-70b-versatile") == "groq"
-    assert _declared_provider_code_of("ihui/MiniMax-M2.7") == "ihui_relay"
+    assert _declared_provider_code_of("stepfun/step-3.7-flash") == "stepfun"
     assert _declared_provider_code_of("byok/deepseek-v3") == "byok"
     assert _declared_provider_code_of("t6688/gm-3.8-flash") == "token6688"
 
@@ -226,7 +226,7 @@ async def test_explicit_vendor_path_short_circuits_db(monkeypatch: pytest.Monkey
 
     monkeypatch.setattr("app.core.llm_gateway._db_provider_code_for_model", _db)
     assert await _resolve_provider_code("openrouter/qwen/qwen3-max") == "openrouter"
-    assert await _resolve_provider_code("ihui/MiniMax-M2.7") == "ihui_relay"
+    assert await _resolve_provider_code("stepfun/step-3.7-flash") == "stepfun"
     assert seen == []
 
 
