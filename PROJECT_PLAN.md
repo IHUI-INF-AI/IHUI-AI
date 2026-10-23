@@ -29041,3 +29041,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 
 - [ ] G-929 **旁路落地器的镜像套件红 26 例：暖色描边涉事判据（门 231）在测试通道换仓时必然「未判定」而被落地器当拒绝**〔登记@2026-10-21/工程执行席〕:成因现读复现 = `node scripts/tests/object-space-land.test.mjs` 得 `tests 66 / pass 40 / fail 26`,首条失败自述「❌ 暖色描边涉事判据未判定(rc=2),拒绝落盘 … git ls-tree 失败: fatal: not a tree object」;根因是门 231 的 `--rev <tree>` 档**按门体自身仓根**解析树 oid(`scripts/check-no-warm-border.mjs` 头注自写"门体按仓库根自推导,不跟 LAND_ROOT 走"),而镜像用例把落地器指 〔压缩@2026-10-22〕
+
