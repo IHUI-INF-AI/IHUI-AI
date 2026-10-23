@@ -235,7 +235,8 @@
     "phdTextSpeech": "文本转语音",
     "phdBundledAv": "视频音频一体化",
     "phdOtherType": "其他类型模型",
-    "phdKbSearch": "通用知识库检索"
+    "phdKbSearch": "通用知识库检索",
+    "retryText": "重试"
   },
   "course": {
     "title": "课程",

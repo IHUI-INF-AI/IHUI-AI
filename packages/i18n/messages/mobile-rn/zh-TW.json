@@ -235,7 +235,8 @@
     "phdTextSpeech": "文本轉語音",
     "phdBundledAv": "視頻音頻一體化",
     "phdOtherType": "其他類型模型",
-    "phdKbSearch": "通用知識庫檢索"
+    "phdKbSearch": "通用知識庫檢索",
+    "retryText": "重試"
   },
   "course": {
     "title": "課程",

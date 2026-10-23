@@ -24977,15 +24977,7 @@
     "submit": "提交認證"
   },
   "recruitment": {
-    "title": "招聘資訊",
-    "count": "共 {count} 個職位",
-    "empty": "暫無招聘資訊",
-    "applied": "已申請",
-    "close": "關閉",
-    "description": "職位描述",
-    "requirements": "任職要求",
-    "appliedWaiting": "已申請，等待處理",
-    "applyNow": "立即申請"
+    "title": "招聘資訊"
   },
   "studyProgress": {
     "loadFailed": "載入失敗",

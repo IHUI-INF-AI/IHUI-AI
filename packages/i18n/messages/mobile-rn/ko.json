@@ -235,7 +235,8 @@
     "phdTextSpeech": "텍스트-음성 변환",
     "phdBundledAv": "영상·음성 일체화",
     "phdOtherType": "기타 유형 모델",
-    "phdKbSearch": "지식 베이스 검색"
+    "phdKbSearch": "지식 베이스 검색",
+    "retryText": "재시도"
   },
   "course": {
     "title": "강의",

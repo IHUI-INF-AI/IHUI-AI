@@ -235,7 +235,8 @@
     "phdTextSpeech": "Text-to-speech",
     "phdBundledAv": "Integrated video + audio",
     "phdOtherType": "Other model types",
-    "phdKbSearch": "General knowledge retrieval"
+    "phdKbSearch": "General knowledge retrieval",
+    "retryText": "Retry"
   },
   "course": {
     "title": "Courses",
