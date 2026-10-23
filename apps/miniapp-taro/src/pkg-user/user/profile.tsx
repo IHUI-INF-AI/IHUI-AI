@@ -102,6 +102,11 @@ export default function Profile() {
       path: '/pkg-user/checkin-assistant/index',
       value: '',
     },
+    {
+      label: t('accountPool.title'),
+      path: '/pkg-user/account-pool/index',
+      value: '',
+    },
   ]
 
   return (

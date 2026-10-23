@@ -122,6 +122,7 @@ export default defineAppConfig({
         'message/index',
         'account-cancel/index',
         'checkin-assistant/index',
+        'account-pool/index',
         'check-in/index',
         'task-center/index',
         'bill/index',
