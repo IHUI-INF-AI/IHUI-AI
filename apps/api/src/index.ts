@@ -351,7 +351,14 @@ async function start() {
   // 官方 Agent SDK worker 完成 ⇒ 包成 127.0.0.1 上的 OpenAI 兼容端点常驻。
   // 后台跑不阻塞就绪;未装 Qoder / QODER_BRIDGE_AUTOSTART=false 时静默跳过,
   // 首次 chat 仍会懒启动兜底。
-  if (process.env.QODER_BRIDGE_AUTOSTART !== 'false') startQoderBridge()
+  // QODER_BRIDGE_ENABLED=0 是 chat 总开关(见 qoder-adapter 的 QODER_CHAT_DISABLED),
+  // 此时不必白拉起 Electron 冷启动。
+  if (
+    process.env.QODER_BRIDGE_AUTOSTART !== 'false' &&
+    process.env.QODER_BRIDGE_ENABLED?.trim() !== '0'
+  ) {
+    startQoderBridge()
+  }
 
   // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
   // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)

@@ -87,7 +87,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         {t('backToList')}
       </Link>
 
-      <header className="space-y-4">
+      <header className="space-y-4 pb-8">
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           <Badge variant="outline" className="font-normal">
             {post.category}
@@ -119,8 +119,6 @@ export default async function BlogPostPage({ params }: PageProps) {
           </div>
         )}
       </header>
-
-      <div className="border-t border-border" aria-hidden />
 
       <BlogPostContent content={post.content} />
 

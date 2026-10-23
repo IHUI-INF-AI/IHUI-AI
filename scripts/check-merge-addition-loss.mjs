@@ -54,6 +54,15 @@
  *   "文档不得写跑不通的出路"在这一格的具体形态。取证档**不吃**"两端都已入库 ⇒ 不重判"那条豁免
  *   (那是提交链的恒红防线,人工指名问一次时不适用),也**不去重**(要能反复回看同一枚),口径与 `--limit` 同形。
  *
+ * ── A5(2026-10-24 立,票 G-939 的残段③:内容存续维)────────────────────────────
+ *   A1/A2/A3 判的都是**路径成员性**(`tree` 里有没有 P)。G-939 现读现场 11 枚文件里只有 5 枚是
+ *   新文件(被 A3 看见),另外 6 枚是**改已有文件** —— 位移把 blob 退回共同基底,路径却还在,
+ *   于是 A3 当场判绿(`--move 72b3a20c50..588a6342d8` 修复前只报 5 条 repaired)。
+ *   **A5** 改读 blob oid:位移两端 P 都在,`blob(from) ≠ blob(to)` 且 `blob(to) == blob(基底)`
+ *   ⇒ 这条线的改动被这次位移静默回滚 ⇒ 判红;`blob(to)` 与两端都不同 = 别人继续演进过 ⇒ 放过
+ *   (不归因给这次位移)。`atRef` 上 blob 已离开基底 ⇒ 记 `repaired`(与 A1/A3 同口径)。
+ *   取材仍走层的 `catBatchOids`(`blobMapAt`),不新增第二套 git 封装。
+ *
  * 用法:
  *   node scripts/check-merge-addition-loss.mjs                 # 提交链口径:未进入 origin/main 的合并 + 当前分支最近 40 次引用位移(A3)
  *   node scripts/check-merge-addition-loss.mjs --staged        # runner 统一下发的档(如实记录,判据读同一份提交图)
@@ -231,6 +240,24 @@ export function presentIn(rev, paths, cwd = ROOT) {
 }
 
 /**
+ * 一批路径在某个提交树里的 **blob oid**(A5 的内容面;`null` = 该路径不在树里)。
+ * 与 `presentIn` 同源同派生(都走层的 `catBatchOids`),只把"在不在"换成"是哪一版内容" ——
+ * A5 要判"路径还在、内容却退回共同基底",成员性那一面结构上看不见这一型。
+ */
+export function blobMapAt(rev, paths, cwd = ROOT) {
+  const usable = paths.filter((p) => p && !p.includes('\n'))
+  const map = new Map()
+  if (usable.length === 0) return { map, failed: false, skipped: paths.length - usable.length }
+  try {
+    const oids = catBatchOids(cwd, usable.map((p) => `${rev}:${p}`), { timeout: GIT_TIMEOUT, maxBuffer: GIT_MAX_BUFFER })
+    for (const p of usable) map.set(p, oids.get(`${rev}:${p}`) ?? null)
+    return { map, failed: false, skipped: paths.length - usable.length }
+  } catch {
+    return { map, failed: true, skipped: paths.length - usable.length }
+  }
+}
+
+/**
  * 当前分支 reflog 的相邻位移(`from → to`,新→旧配对)。**取不到就 ok:false 并点名**:
  * 分离头 / reflog 被裁 ⇒ 这一维不判,绝不拿"没有位移"冒充判过(§0.3)。
  * 用分支 reflog 而不是 HEAD reflog:后者混入 `checkout:` 换分支,而换分支天然"新头不是旧头后代",
@@ -284,8 +311,11 @@ export function refMoves(cwd = ROOT, limit = REF_MOVE_WINDOW) {
 /**
  * 审计**一次引用位移** `from → to`(A3 的核心;`atRef` 与 A1 同义 = "后手有没有补回"的对照面)。
  * 正常前进/真合并:from 是 to 的祖先 ⇒ 直接放过(零额外派生)。
- * 否则:以共同基底为界取"from 线改过的路径",其中 tree(from) 有而 tree(to) 没有的就是被这次位移整批
- * 丢掉的路径。位移两端取不到 / 无共同基底 / 树成员性问不到 ⇒ 逐条落 `atRefUndetermined`,不冒绿。
+ * 否则:以共同基底为界取"from 线改过的路径":
+ *   · A3(路径面):tree(from) 有而 tree(to) 没有 ⇒ 被这次位移整批丢掉;
+ *   · A5(内容面,2026-10-24):路径**两端都有**,但 blob(to) 恰好退回 blob(基底) ⇒ 这条线的改动被
+ *     静默回滚。原案 11 枚文件里 6 枚是改已有文件,路径面看见"还在"就放过 ⇒ 当场判绿。
+ * 位移两端取不到 / 无共同基底 / 树取数问不到 ⇒ 逐条落 `atRefUndetermined`,不冒绿。
  */
 export function auditRefMove(from, to, cwd = ROOT, atRef = 'HEAD') {
   const row = { rev: to, kind: 'ref-move', merge: false, from, droppedCommits: 0, bases: [], lost: [], repaired: [], atRefUndetermined: '' }
@@ -308,20 +338,35 @@ export function auditRefMove(from, to, cwd = ROOT, atRef = 'HEAD') {
     row.atRefUndetermined = `${from.slice(0, 11)} → ${to.slice(0, 11)} 的位移清单取不到(${String(e?.message ?? e).split('\n')[0].slice(0, 60)})⇒ 未判定`
     return row
   }
-  const inFrom = presentIn(from, changed, cwd)
-  const inTo = presentIn(to, changed, cwd)
-  if (inFrom.failed || inTo.failed) {
-    row.atRefUndetermined = `${from.slice(0, 11)} → ${to.slice(0, 11)} 的树成员性问不到(${changed.length} 条)⇒ 未判定`
+  const inFrom = blobMapAt(from, changed, cwd)
+  const inTo = blobMapAt(to, changed, cwd)
+  const inBase = blobMapAt(bases[0], changed, cwd)
+  if (inFrom.failed || inTo.failed || inBase.failed) {
+    row.atRefUndetermined = `${from.slice(0, 11)} → ${to.slice(0, 11)} 的树内容问不到(${changed.length} 条)⇒ 未判定`
     return row
   }
   let alive = null
-  const atView = presentIn(atRef, changed, cwd)
+  const atView = blobMapAt(atRef, changed, cwd)
   if (atView.failed) row.atRefUndetermined = `${atRef} 树取不到 ⇒ 后手补回维不判,退回按位移结果判丢失`
   else alive = atView
   for (const p of changed) {
-    if (inFrom.map.get(p) !== true || inTo.map.get(p) === true) continue
-    if (alive && alive.map.get(p) === true) row.repaired.push({ path: p, addedBy: from, restoredAt: atRef })
-    else row.lost.push({ path: p, addedBy: from })
+    const f = inFrom.map.get(p) ?? null
+    if (!f) continue // 该线本身是删除(或从未引入)⇒ 不归这一维判
+    const t = inTo.map.get(p) ?? null
+    if (!t) {
+      // A3:路径被整批丢出祖先链
+      if (alive && alive.map.get(p)) row.repaired.push({ path: p, addedBy: from, restoredAt: atRef })
+      else row.lost.push({ path: p, addedBy: from })
+      continue
+    }
+    if (t === f) continue // 内容原样存活
+    const b = inBase.map.get(p) ?? null
+    // A5:该线改过、结果里路径还在,而 blob **恰好退回基底** ⇒ 这次位移把内容静默回滚了。
+    // 结果与两端都不同 ⇒ 别人在该路径上继续演进过,不能归因给这次位移 ⇒ 放过(不制造误伤)。
+    if (!b || t !== b) continue
+    if (alive && alive.map.get(p) && alive.map.get(p) !== b)
+      row.repaired.push({ path: p, addedBy: from, restoredAt: atRef, contentReverted: true })
+    else row.lost.push({ path: p, addedBy: from, contentReverted: true })
   }
   return row
 }
@@ -917,6 +962,57 @@ function selfTest() {
       locateMoveCursor([{ sha: 'X' }, { sha: 'Y' }, { sha: 'X' }, { sha: 'Z' }], 'X') === 2 && locateMoveCursor([{ sha: 'X' }], '缺') === -1,
       JSON.stringify(locateMoveCursor([{ sha: 'X' }, { sha: 'Y' }, { sha: 'X' }], 'X')),
     )
+
+    // ── A5(2026-10-24,G-939 判据缺口③:内容存续维)──────────────────────────
+    // 侧移丢掉的那条线改的是**已存在的文件**(不是新增路径)⇒ A3 的路径成员性当面判绿
+    // (原案 11 枚里 6 枚正是这一形态,`--move` 修复前只报 5 条 repaired)。
+    writeFileSync(join(dir, 'content-a.txt'), 'v0\n', 'utf8')
+    run('add', 'content-a.txt')
+    run('commit', '-qm', 'A5 基底:content-a.txt')
+    const cBase = run('rev-parse', 'HEAD').trim()
+    writeFileSync(join(dir, 'content-a.txt'), 'v1 by dropped line\n', 'utf8')
+    run('add', 'content-a.txt')
+    run('commit', '-qm', 'A5 feat: 改已有文件内容')
+    const cFrom = run('rev-parse', 'HEAD').trim()
+    run('update-ref', '-m', 'A5 relay align(旁路落地)', 'HEAD', cBase)
+    const a5 = auditRefMove(cFrom, cBase, dir, cBase)
+    ok(
+      'A5:路径还在、内容却退回共同基底 ⇒ 必须判红并点名(路径成员性维在该形态上结构失明)',
+      a5.lost.some((x) => x.path === 'content-a.txt' && x.contentReverted === true) && a5.repaired.length === 0 && a5.droppedCommits >= 1,
+      JSON.stringify({ lost: a5.lost, repaired: a5.repaired, dropped: a5.droppedCommits }),
+    )
+    ok('A5 反向对照:正常前进(from 是 to 的祖先)一律放过', auditRefMove(cBase, cFrom, dir, cFrom).lost.length === 0)
+    // update-ref 不动索引/工作树 ⇒ 先把夹具对齐,免得下一枚提交把 content-a 的 v1 顺手带进"基底"
+    run('reset', '-q', '--hard', cBase)
+    // 内容被另一侧演进过(与基底、该线都不同)⇒ 不能归因给这次位移,必须放过(§12e 不误伤)
+    writeFileSync(join(dir, 'content-b.txt'), 'b0\n', 'utf8')
+    run('add', 'content-b.txt')
+    run('commit', '-qm', 'A5 基底:content-b.txt')
+    const bBase = run('rev-parse', 'HEAD').trim()
+    writeFileSync(join(dir, 'content-b.txt'), 'from side\n', 'utf8')
+    run('add', 'content-b.txt')
+    run('commit', '-qm', 'A5 改 content-b')
+    const bFrom = run('rev-parse', 'HEAD').trim()
+    run('reset', '-q', '--hard', bBase)
+    writeFileSync(join(dir, 'content-b.txt'), 'to side evolved\n', 'utf8')
+    run('add', 'content-b.txt')
+    run('commit', '-qm', 'A5 另一侧也改 content-b')
+    const bTo = run('rev-parse', 'HEAD').trim()
+    ok(
+      'A5 反向对照:结果内容与基底/该线都不同 ⇒ 别人演进过,不得归因给位移',
+      auditRefMove(bFrom, bTo, dir, bTo).lost.length === 0,
+      JSON.stringify(auditRefMove(bFrom, bTo, dir, bTo).lost),
+    )
+    // 后手重落(blob 离开基底)⇒ repaired,与 A1/A3 同口径
+    writeFileSync(join(dir, 'content-a.txt'), 'v1 re-landed by hand\n', 'utf8')
+    run('add', 'content-a.txt')
+    run('commit', '-qm', 'A5 fix: 重落 content-a.txt')
+    const healedA = auditRefMove(cFrom, cBase, dir, 'HEAD')
+    ok(
+      'A5:后手重落 ⇒ 进 repaired 不再判红(内容已离开基底,不重复喊人补)',
+      healedA.repaired.some((x) => x.path === 'content-a.txt' && x.contentReverted === true) && !healedA.lost.some((x) => x.path === 'content-a.txt'),
+      JSON.stringify({ lost: healedA.lost, repaired: healedA.repaired }),
+    )
   } finally {
     treeCache.clear()
     rmScratch(dir)
@@ -1044,7 +1140,7 @@ async function main() {
   const nRepaired =
     rows.reduce((s, r) => s + ((r.repaired || []).length), 0) + moveRows.reduce((s, r) => s + ((r.repaired || []).length), 0)
   console.log(
-    `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失新增路径 ${nLost} / 已被后手补回 ${nRepaired}(照常点名,不计丢失) / 引用位移 ${moveAudit.judged} 次(判红 ${badMoves.length})${
+    `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失路径或回退内容 ${nLost} / 已被后手补回 ${nRepaired}(照常点名,不计丢失) / 引用位移 ${moveAudit.judged} 次(判红 ${badMoves.length})${
       moveAudit.swept === undefined ? '' : ` / 位移游标扫描 ${moveAudit.swept} 对(游标 ${String(moveAudit.cursor || '').slice(0, 11)})`
     }`,
   )
@@ -1060,11 +1156,13 @@ async function main() {
   for (const r of badMoves)
     for (const l of r.lost)
       console.log(
-        `  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 引入,引用位移 ${r.from.slice(0, 11)} → ${r.rev.slice(0, 11)} 把该线整批丢出祖先链(${r.droppedCommits} 枚提交;reflog 消息「${String(r.msg || '空').slice(0, 40)}」)`,
+        l.contentReverted
+          ? `  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 改动的**内容**在引用位移 ${r.from.slice(0, 11)} → ${r.rev.slice(0, 11)} 里静默退回共同基底(路径还在、blob 回到位移前的值;${r.droppedCommits} 枚提交被丢;reflog 消息「${String(r.msg || '空').slice(0, 40)}」)`
+          : `  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 引入,引用位移 ${r.from.slice(0, 11)} → ${r.rev.slice(0, 11)} 把该线整批丢出祖先链(${r.droppedCommits} 枚提交;reflog 消息「${String(r.msg || '空').slice(0, 40)}」)`,
       )
   if (nLost)
     console.log(
-      '\n  合并不得吞掉任一父提交的"独有新增",引用位移也不得把已入库的提交整批丢出祖先链。修法:\n' +
+      '\n  合并不得吞掉任一父提交的"独有新增",引用位移也不得把已入库的提交整批丢出祖先链,更不得把改过的内容静默退回基底。修法:\n' +
         '  ① 合并吞新增:在合并结果里把该路径补回(`git checkout <引入它的提交> -- <路径>`),或改用真正的三路合并;\n' +
         '  ② 引用位移丢提交:把被丢的提参加回当前分支(`git merge <那枚>` 或 `cherry-pick`),先 `git tag lost-commit/<sha>` 保全原件;\n' +
         '  确要删除,请在合并之后单独 `git rm` 并写明理由(那时所有父提交都不含它,本判据放过)。',
@@ -1101,6 +1199,7 @@ export const __test__ = {
   // A2/A3(2026-10-22,G-939):镜像测试只能用门的实现,不得另写一份判据
   isAncestor,
   presentIn,
+  blobMapAt,
   refMoves,
   auditRefMove,
   auditRefMoves,

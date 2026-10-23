@@ -4,7 +4,7 @@
 
 """
 模型名官方归一化(2026-09-13 立)。
-背景:上游各来源(token6688 / swiftapi / openrouter / seed 脚本)对同一模型
+背景:上游各来源(token6688 / openrouter / seed 脚本)对同一模型
 使用不同大小写写法(如 minimax-m3 与 MiniMax-M3 并存),导致:
   1. 公开目录(/v1/models、/api/relay/models/public)同一模型出现两条;
   2. 计费按 model_id 精确 eq 匹配,大小写不符时静默查不到 → 成本算 0(计费漏损)。
@@ -18,7 +18,8 @@
 
 # 官方名映射表:键为小写形式,值为官方要求的标准写法
 OFFICIAL_MODEL_NAMES: dict[str, str] = {
-    # swiftapi 上游官方路由模型(官方 API 文档书写形式)
+    # Auto-Model 官方书写形式(历史上由 ihui_relay/New API 上游路由,2026-10-24
+    # 该上游随 SwiftAPI 弃用移除;映射保留作通用归一化防御)
     "auto-model": "Auto-Model",
     # MiniMax 官方驼峰家族(官方 API 文档书写形式)
     "minimax-m1": "MiniMax-M1",

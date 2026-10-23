@@ -9,18 +9,20 @@ import {
   type UsageRulesScreenProps,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function UsageRulesScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
 
   const props: UsageRulesScreenProps = {
     t,
     onBack: () => navigation.goBack(),
-    colorScheme: 'light',
+    colorScheme: resolvedTheme,
   }
 
   return <SharedUsageRulesScreen {...props} />

@@ -126,11 +126,18 @@ function assertNeverKind(kind: never): never {
 function denyReasonFor(action: QueueDeniedAction, perms: QueueInteractionPerms): QueueDenyReason {
   switch (action) {
     case 'reorder':
-      // 流式中锁定重排(W27 出队顺序预期);否则唯一可能是队列空。
+      // G-171a:队列并发变更(看到的是旧队列,重排会覆盖新顺序)优先于流式锁定;
+      // 否则流式中锁定重排(W27 出队顺序预期);再否则唯一可能是队列空。
+      if (perms.queueChanged) return 'queueChanged'
       return perms.reasonKey === queueReasonKey('turnRunning') ? 'streaming' : 'emptyQueue'
     case 'undo':
-      return 'emptyQueue'
+      // G-171a:目标项可能已被外部动过 ⇒ 并发变更;否则队列空。
+      return perms.queueChanged ? 'queueChanged' : 'emptyQueue'
     case 'interject':
+      // 优先级同六格:能力硬缺口最先(不得被后两个条件掩盖)> 审批待决让行 > 控制命令。
+      if (!perms.runtimeSupportsInterjection) return 'runtimeNoInterject'
+      if (perms.awaitingApproval) return 'awaitingApproval'
+      if (perms.isControlCommand && perms.streaming) return 'controlCommand'
       return 'runtimeNoInterject'
   }
   return assertNeverDeniedAction(action)

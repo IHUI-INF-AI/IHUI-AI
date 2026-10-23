@@ -91,10 +91,9 @@ const viewStyles = {
     objectFit: 'contain',
     display: 'block',
   }),
-  separator: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
-    width: 1,
+  separator: (): CSSProperties => ({
+    // 旧版契约分隔条:§4 禁分割线,已清线只留间距(margin 维持原排布几何)
     height: 20,
-    backgroundColor: tk.border.medium,
     marginLeft: 4,
     marginRight: 4,
   }),
@@ -149,7 +148,7 @@ export function Toolbar({
                 <span style={textStyles.iconEmoji(tk)}>{item.icon}</span>
               )}
             </div>
-            {showSeparator ? <div style={viewStyles.separator(tk)} /> : null}
+            {showSeparator ? <div style={viewStyles.separator()} /> : null}
           </div>
         )
       })}

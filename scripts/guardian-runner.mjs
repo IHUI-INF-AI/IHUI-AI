@@ -5324,9 +5324,36 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 镜像 purge 内容完好(2026-10-23 立)(1 项,blocking)---
+  // --- 237 (2026-10-23 新增,计划归档单调性) ---
+  // 立因(当日实测事故):工作区台账被旧快照回插 29+/16- —— 4 条**已归档**(✅ 含日期)的完成票
+  //   (D17/G-807/僵尸实例/G-8160 失败共享事实)被展开回"未勾活行",整批已被 git add 进暂存区。
+  //   门 71 守"丢行"、门 229 守"跨枚滞留的已勾行",两侧都不覆盖"已完成票复活成待办"。
+  //   判据只裁决**本次新增行**(存量只报数,§12e):复活已归档标记 ⇒ 红;同标记逐字孪生 ⇒ 红;
+  //   改写/搬移(删旧+增新)与全新票放行。自证:`node scripts/check-plan-archive-monotonic.mjs --self-test`。
   {
     id: '237',
+    label: '🈲 计划归档单调性(PROJECT_PLAN.md 已归档✅的票不得复活成未勾活行/逐字孪生回插)',
+    script: 'check-plan-archive-monotonic.mjs',
+    args: ['--staged'],
+    mode: 'blocking',
+    stagedTriggers: ['PROJECT_PLAN.md'],
+    skipEnv: 'HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC',
+    onFailHint: [
+      '',
+      '  💡 成因几乎总是"按旧快照整文件写回":HEAD 里已归档(✅)的票被展开回未勾活行,',
+      '     或同一条登记行被再插一份(逐字孪生)。正解是从 HEAD 取现版重放,不是 --no-verify:',
+      '       1) 取现版:git show HEAD:PROJECT_PLAN.md > <临时文件>;',
+      '       2) 用 scripts/live-doc-edit.mjs 定向改写(带 CAS)重放你要写的行;',
+      '       3) 复核:node scripts/check-plan-archive-monotonic.mjs --worktree(审磁盘面)。',
+      '     自检:node scripts/check-plan-archive-monotonic.mjs --self-test(8 例,含反向锁)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
+  // --- 镜像 purge 内容完好(2026-10-23 立)(1 项,blocking)---
+  {
+    id: '238',
     label:
       '🧹 镜像 purge 内容完好对账(blocking;M1 死仓 URL / M2 仓库根链接 / M3 徽章同行 / M4 在役断言;绝对零容忍,射程 10 文档,2026-10-23 union 行合并回潮根治)',
     script: 'check-mirror-purge-intact.mjs',

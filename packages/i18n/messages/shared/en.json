@@ -2492,7 +2492,10 @@
             "cause": {
               "streaming": "The reply is still generating, so the queue order is locked for now",
               "emptyQueue": "There are no queued messages left to undo",
-              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue"
+              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue",
+              "queueChanged": "The queue changed concurrently, so the current order is stale",
+              "controlCommand": "Control commands can't be injected into a running turn; the message stays queued",
+              "awaitingApproval": "A risky action is awaiting approval; interjection waits until you decide"
             }
           }
         }

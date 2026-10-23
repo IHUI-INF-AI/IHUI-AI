@@ -183,6 +183,7 @@ import {
 import { parseElementPackFrames } from '@ihui/shared/chat/element-pack-history'
 import { type BottomActionBarIconType } from '../components/BottomActionBar'
 import { ChatInputBar } from '../components/chat/ChatInputBar'
+import { VoiceNote } from '../components/chat/VoiceNote'
 import { McpStatusStrip } from '../components/McpStatusStrip'
 // 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
 import IntelligentAssistant from '../components/IntelligentAssistant'
@@ -2877,6 +2878,8 @@ export function ChatScreen() {
           items={sideQueue}
           streaming={isStreaming}
           mode={followUpMode}
+          // G-171a:待决审批事实喂入许可门(真实来源 = useToolApprovalQueue 的 pending 非空)
+          awaitingApproval={toolApproval.awaitingApproval}
           onReorder={handleQueueReorder}
           onUndo={handleQueueUndo}
           onEdit={handleQueueEdit}
@@ -2977,6 +2980,14 @@ export function ChatScreen() {
           onPlusToggle={handlePlusToggle}
           plusActive={inputPanelVisible}
           isShowIcon={inputPanelVisible}
+          // D43 票③ RN 会话屏挂载位(2026-10-23 强制令到终态,前任顺延格):
+          // 会话内快捷笔记,conversationId 随笔记落库;「插入对话」= 追加进输入框既有通道。
+          voiceNoteNode={
+            <VoiceNote
+              conversationId={conversationId}
+              onInsert={(text) => setPrompt((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+            />
+          }
         />
       </KeyboardAvoidingView>
 

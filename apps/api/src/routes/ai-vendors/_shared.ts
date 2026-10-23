@@ -402,24 +402,6 @@ export const VENDORS: Record<string, VendorConfig> = {
     baseUrl: 'https://api.agnes-ai.cn/v1',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
   },
-  x5m5x: {
-    name: 'New API(按量/LLM)',
-    keyEnv: 'X5M5X_API_KEY',
-    baseUrl: 'https://new.x5m5x.com/v1',
-    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-  },
-  x5m5xImage: {
-    name: 'New API(生图)',
-    keyEnv: 'X5M5X_IMAGE_KEY',
-    baseUrl: 'https://new.x5m5x.com/v1',
-    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-  },
-  x5m5xSubscribe: {
-    name: 'New API(订阅/Auto-Model)',
-    keyEnv: 'X5M5X_SUBSCRIBE_KEY',
-    baseUrl: 'https://new.x5m5x.com/v1',
-    authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-  },
   bailian: {
     name: 'Bailian(百炼/阿里云)',
     keyEnv: 'BAILIAN_API_KEY',

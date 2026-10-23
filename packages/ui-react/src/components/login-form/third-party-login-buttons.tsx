@@ -80,7 +80,7 @@ export function ThirdPartyLoginButtons({
 
   return (
     <div className={cn(className)}>
-      {/* 主推平台大按钮模式(对齐 RN WeChatLoginButton):大按钮 + "或"分隔线 + 其余网格 */}
+      {/* 主推平台大按钮模式(对齐 RN WeChatLoginButton):大按钮 + 居中「或」提示 + 其余网格 */}
       {featuredProvider ? (
         <div className="mt-3">
           <FeaturedPlatformButton
@@ -91,10 +91,8 @@ export function ThirdPartyLoginButtons({
           />
           {restProviders.length > 0 && (
             <>
-              <div className="my-4 flex items-center gap-3 text-muted-foreground">
-                <span className="flex-1 border-t border-border" />
-                <span className="text-xs">{'或'}</span>
-                <span className="flex-1 border-t border-border" />
+              <div className="my-4 flex items-center justify-center gap-3 text-xs text-muted-foreground">
+                <span>{'或'}</span>
               </div>
               <ThirdPartyGrid
                 t={t}
