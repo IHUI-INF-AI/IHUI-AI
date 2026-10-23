@@ -4440,6 +4440,8 @@
     }
   },
   "accountPool": {
+    "backToCheckin": "Back to Check-in Assistant",
+    "calls": "Calls",
     "title": "My Account Pool",
     "subtitle": "Your own third-party AI account pool — the same accounts as Check-in Assistant, signed in daily, and used first for your own relay requests.",
     "add": "Add account",
