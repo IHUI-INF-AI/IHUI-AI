@@ -4343,6 +4343,113 @@ export function sweepStaleClaimMarks(opts = {}) {
   }
 }
 
+const SWEEP_LIVENESS_INTERVAL_MS = Number(process.env.IHUI_SWEEP_LIVENESS_INTERVAL_MS || 30 * 60 * 1000)
+
+/**
+ * 清扫背离巡检(2026-10-23 立,机主令"要"):判"派发在动、留痕静默"这一族空转 ——
+ * 上面两把清扫器的节流台账都在刷新(只证明"被叫醒过"),而摘除留痕台账最后一条 at
+ * 静默超过 2 小时,同时 HEAD 面上还有这一轮真正会动手的可清存量 ⇒ 器物在仓、派发点在、
+ * 就是干不成活。两度实证的形态:10-22 护栏③ 整批让路(45 枚超龄牌一枚未摘)、
+ * 10-23 摘除成功落地却一行留痕都不写(复洁器与 union 同时瞎掉)。
+ *
+ * 三条刻意(与 reportBaselineFreshness 同族):
+ *  ① **只读探针**:判的是"守护自己的巡检层空转",与提交内容无关 ⇒ 不 notifyGuardRed、
+ *     不改任何退出码(§12e 恒红门禁令)。先证明自己不是狼来了,再谈别的。
+ *  ② 30 分钟节流:closed 族存量要跑守门 71 尺子(H4 分档),不宜 5 分钟档;间隔内不派生
+ *     子进程(本守护每 2 分钟一趟,便宜档零成本)。
+ *  ③ 挂在 sweepStaleClaimMarks() 之后:两族 tick 刚被那一轮刷新 ⇒ 同轮即可验证健康。
+ *
+ * 结论只认尺子自己打的机读行/JSON(`overall` + 逐族 `state`),中文文案不参与判定;
+ * 取不到结论一律写"未判定"并带上原因,不读成绿(§0.3)。
+ */
+export function auditSweeperLiveness(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = SWEEP_LIVENESS_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'sweeper-liveness-last.json'),
+    logger = log,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-sweeper-liveness.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 清扫背离巡检:尺子不在位(scripts/check-sweeper-liveness.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ 清扫背离巡检:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})——下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 5 * 60 * 1000, // 守门 80:热路径派生一律带上限
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // 非零退出**不是**"尺子坏了":stalled 就 exit 1、未判定 exit 2,结论整份在 stdout。
+            // 把 status/stdout/stderr 全取回来交 readProbeVerdict 分三态(§5e 同型)。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const v = readProbeVerdict({ status: r.status ?? null, stdout: r.out, stderr: r.err ?? '' })
+  if (!v.parsed) {
+    // 尺子跑不动 ≠ 有空转;也 ≠ 可以静默。留一行,免得"账没了"和"账绿了"长得一样。
+    logger(`⚠️ 清扫背离巡检:尺子结论不可用:未判定 —— ${v.why ?? '原因未取到'},不影响自愈与退出码`)
+    return { ran: true, ok: false, why: v.why ?? 'unparsed' }
+  }
+  const fams = Array.isArray(v.parsed.families) ? v.parsed.families : []
+  const stalled = fams.filter((f) => f && f.state === 'stalled')
+  const und = fams.filter((f) => f && f.state === 'undetermined')
+  if (stalled.length > 0) {
+    for (const f of stalled) {
+      logger(
+        `⚠️ 清扫背离:${f.id}(${f.label})派发在动(节流 ${f.tickAgeMin ?? '?'} 分钟前刚醒)` +
+          `但留痕${f.ledgerSilentMin === null ? '从未写过' : `已静默 ${f.ledgerSilentMin} 分钟`},` +
+          `可清存量 ${f.stock} ⇒ 器物空转 ｜ ${f.detail} ｜ ${f.stockNote ?? ''}`,
+      )
+    }
+  } else if (und.length > 0) {
+    for (const f of und) {
+      logger(`⚠️ 清扫背离巡检:${f.id} 未判定(${f.why})—— ${f.detail} ｜ ${f.stockNote ?? ''}`)
+    }
+  } else {
+    // 探针自己的心跳证据:全绿也写行(与 reportBaselineFreshness 的"安静"刻意不同 ——
+    // 这一格判的是别的层空转,它自己哑了同样没人知道,参考 watchPatrolHeartbeat)。
+    logger(`✅ 清扫背离巡检:两族均无背离(${v.parsed.overall ?? '?'})`)
+  }
+  return {
+    ran: true,
+    ok: r.ok,
+    overall: v.parsed.overall ?? null,
+    stalled: stalled.length,
+    undetermined: und.length,
+    families: fams,
+  }
+}
+
 export function auditTunnelLegHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -5396,6 +5503,11 @@ function main() {
     // 超龄认领牌代摘(与上一层同节律):提交链上的门绝不代摘任何人的认领,所以死牌只能由这一层清。
     // 正在干活的席位会续租 ⇒ 天然落在射程外;裸标记由器物自己按 CL4 同批依据代摘。
     if (!CHECK_ONLY) sweepStaleClaimMarks()
+    // 清扫背离巡检(2026-10-23 立,机主令"要"):上面两把清扫器的节流台账都在动、摘除留痕
+    // 却静默 > 2h 且 HEAD 面还有本轮真会动手的可清存量 ⇒ 器物在仓、派发点在、就是干不成活
+    // (10-22 护栏③整批让路 / 10-23 摘除不写留痕,两度实证)。只读探针,不改退出码、不喊人
+    // (§12e);挂在两族 tick 刚刷新的这一轮之后,同轮即可验证健康。自带 30 分钟节流。
+    if (!CHECK_ONLY) auditSweeperLiveness()
     if (!CHECK_ONLY) auditTunnelMetrics()
     // 部署停摆:判据写 45 分钟阈值,而凭据巡检那支班每 6 小时才量一趟(现读 09:37/15:37)⇒ 阈值与
     // 节律差两个数量级等于没有判据。本格按 15 分钟量,身份 = tip + 最近一次成功部署时刻。
@@ -5792,6 +5904,7 @@ export const __test__ = {
   auditDispatchSites,
   auditPublicPathProbe,
   auditTunnelLegHealth,
+  auditSweeperLiveness,
   sweepStaleClosedRows,
   sweepStaleClaimMarks,
   auditTunnelMetrics,
