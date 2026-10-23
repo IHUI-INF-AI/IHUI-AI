@@ -4436,5 +4436,31 @@
       "needsUser": "請求用戶確認",
       "unknown": "決策未知"
     }
+  },
+  "checkinAssistant": {
+    "title": "簽到助手",
+    "subtitle": "管理第三方帳號並自動簽到；與個人號池互通，轉發時優先使用你自己的帳號。",
+    "summary": "共 {total} 個帳號 · 已啟用 {enabled} · 已進號池 {synced}",
+    "empty": "還沒有帳號",
+    "emptyHint": "在下方表單新增第一個帳號。",
+    "addTitle": "新增帳號",
+    "add": "新增",
+    "adding": "新增中…",
+    "namePlaceholder": "帳號名稱",
+    "tokenLabel": "Token",
+    "tokenPlaceholder": "貼上存取憑證",
+    "refreshTokenLabel": "Refresh Token（選填）",
+    "optional": "選填",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "enable": "啟用",
+    "disable": "停用",
+    "checkin": "簽到",
+    "delete": "刪除",
+    "deleteConfirm": "確認刪除 {name}？",
+    "poolSynced": "已進號池",
+    "lastOk": "上次簽到成功 +{credits}",
+    "lastFailed": "上次簽到失敗",
+    "actionFailed": "操作失敗"
   }
 }

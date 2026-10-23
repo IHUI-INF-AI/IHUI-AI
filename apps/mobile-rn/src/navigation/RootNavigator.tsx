@@ -101,6 +101,7 @@ import { PointsMallScreen } from '../screens/PointsMallScreen'
 import { PointsRecordScreen } from '../screens/PointsRecordScreen'
 import { TaskCenterScreen } from '../screens/TaskCenterScreen'
 import { CheckInScreen } from '../screens/CheckInScreen'
+import CheckinAssistantScreen from '../screens/CheckinAssistantScreen'
 import { RankingScreen } from '../screens/RankingScreen'
 import { PromoteScreen } from '../screens/PromoteScreen'
 import { DistributionScreen } from '../screens/DistributionScreen'
@@ -366,6 +367,7 @@ export type RootStackParamList = {
   PointsRecord: undefined
   TaskCenter: undefined
   CheckIn: undefined
+  CheckinAssistant: undefined
   Ranking: undefined
   Promote: undefined
   Distribution: undefined
@@ -809,6 +811,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="PointsRecord" component={PointsRecordScreen} />
             <RootStack.Screen name="TaskCenter" component={TaskCenterScreen} />
             <RootStack.Screen name="CheckIn" component={CheckInScreen} />
+            <RootStack.Screen name="CheckinAssistant" component={CheckinAssistantScreen} />
             <RootStack.Screen name="Ranking" component={RankingScreen} />
             <RootStack.Screen name="Promote" component={PromoteScreen} />
             <RootStack.Screen name="Distribution" component={DistributionScreen} />

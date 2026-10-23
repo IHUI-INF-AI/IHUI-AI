@@ -4607,5 +4607,31 @@
     },
     "knowledgeCards": "Knowledge Cards",
     "knowledgePlanet": "Knowledge Planet"
+  },
+  "checkinAssistant": {
+    "title": "Check-in Assistant",
+    "subtitle": "Manage third-party accounts and check in daily. Synced with your personal account pool and used first for your own relay requests.",
+    "summary": "{total} accounts · {enabled} enabled · {synced} in pool",
+    "empty": "No accounts yet",
+    "emptyHint": "Add your first account using the form below.",
+    "addTitle": "Add account",
+    "add": "Add",
+    "adding": "Adding…",
+    "namePlaceholder": "Account name",
+    "tokenLabel": "Token",
+    "tokenPlaceholder": "Paste access credential",
+    "refreshTokenLabel": "Refresh token (optional)",
+    "optional": "Optional",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enable": "Enable",
+    "disable": "Disable",
+    "checkin": "Check in",
+    "delete": "Delete",
+    "deleteConfirm": "Delete {name}?",
+    "poolSynced": "In account pool",
+    "lastOk": "Last check-in succeeded +{credits}",
+    "lastFailed": "Last check-in failed",
+    "actionFailed": "Action failed"
   }
 }
