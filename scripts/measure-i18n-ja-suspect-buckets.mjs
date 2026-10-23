@@ -65,6 +65,8 @@ import * as OpenCC from 'opencc-js'
 import { git } from './lib/bypass-git.mjs'
 import { JOYO_FILE_REL, joyoSetFromRaw } from './lib/i18n-script-families.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+// 带值旗标取值判死单源(G-322):--source/--limit 不再自写吞值副本(旧"忽略无效值退默认"支删)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -284,19 +286,16 @@ function main() {
   if (argv.includes('--self-test')) return selfTest(cv)
 
   let limit = 15
-  const iLim = argv.indexOf('--limit')
-  if (iLim >= 0) {
-    const n = Number(argv[iLim + 1])
+  const limReq = requireFlagValue(argv, '--limit', { noun: '非负整数' })
+  if (limReq.error) return fail2(`✗ ${limReq.error}`)
+  if (limReq.present) {
+    const n = Number(limReq.value)
     if (Number.isInteger(n) && n >= 0) limit = n
-    else return fail2(`✗ --limit 要非负整数,收到 ${JSON.stringify(argv[iLim + 1])}`)
+    else return fail2(`✗ --limit 要非负整数,收到 ${JSON.stringify(limReq.value)}`)
   }
-  const iSrc = argv.indexOf('--source')
-  let source = null
-  if (iSrc >= 0) {
-    const raw = argv[iSrc + 1]
-    if (typeof raw === 'string' && raw !== '' && !raw.startsWith('-')) source = raw
-    else console.error(`ℹ 忽略无效的 --source 值:${JSON.stringify(raw)},已退回默认(工作树磁盘面)`)
-  }
+  const srcReq = requireFlagValue(argv, '--source', { noun: 'git rev' })
+  if (srcReq.error) return fail2(`✗ ${srcReq.error}`)
+  const source = srcReq.present ? srcReq.value : null
 
   // ── 表:优先读磁盘(与被审面同源由 source 决定),取不到 ⇒ 全部不判 ──
   const joyoPath = join(REPO_ROOT, JOYO_FILE_REL)
