@@ -2361,7 +2361,8 @@
       "editBtn2": "Edit",
       "editBtn": "Settings",
       "noMore": "No more"
-    }
+    },
+    "becomeDeveloper": "Become a Developer"
   },
   "modelPlaza": {
     "title": "Model plaza",
@@ -4678,5 +4679,20 @@
     "lastOk": "Last check-in succeeded +{credits}",
     "lastFailed": "Last check-in failed",
     "actionFailed": "Action failed"
+  },
+  "developerInfo": {
+    "title": "Developer info",
+    "nameLabel": "Name",
+    "descLabel": "Intro",
+    "statusLabel": "Application status",
+    "statusApproved": "Approved",
+    "statusRejected": "Rejected",
+    "statusPending": "Pending review",
+    "accountLabel": "Account",
+    "apiKeyLabel": "API Keys",
+    "apiKeyCount": "{count} created",
+    "apiKeyNone": "None created",
+    "urlLabel": "Website",
+    "expiryLabel": "Expires on"
   }
 }

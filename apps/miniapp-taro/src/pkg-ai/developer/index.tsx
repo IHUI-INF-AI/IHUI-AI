@@ -2,14 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-// 对齐目标(RN 共享屏): packages/app/src/features/developer/DeveloperScreen.tsx
-// 说明(2026-10-23 现读,不是笔误而是本仓页面拓扑):本页渲染的是**我的智能体列表**
-// (一级状态 tab + 搜索 + 卡片列表 + 分页),RN 端同物是端内屏
-// `apps/mobile-rn/src/screens/DevEnterScreen.tsx`(标题亦为「我的智能体」),共享层目前**没有**
-// 这一屏 —— 上面那行指针登记的是本包(developer)的跨端在册共享屏,即 2026-10-23 收为真相源的
-// 「开发者空间页」(头部用户卡 + 开发者信息 + 四入口 + 问题解答卡),其小程序侧真实渲染层在
-// `apps/miniapp-taro/src/pkg-ai/dev-enter/cover/index.tsx`。把本行改指到 dev-enter/cover 之前,
-// 先把 DevEnter 列表屏下沉进 `packages/app/src/features/dev-enter/`,否则守门
+// 本页面没有「对齐目标」指针,这是有意的(2026-10-24 复核推翻旧说明):
+// 本页渲染的是**我的智能体列表**(一级状态 tab + 搜索 + 卡片列表 + 分页,调 getZntList),
+// 它的 RN 同物是端内屏 apps/mobile-rn/src/screens/DevEnterScreen.tsx,而共享层还没有这一族屏。
+// 旧版此处写过一行指向 developer 共享屏的指针,但那个共享屏是「开发者空间」落地页
+// (头部用户卡 + 开发者信息 + 四入口 + 问题解答卡),与本页同包而异物 —— 指针留着就是假同物。
+// 「开发者空间」在小程序端的真实渲染层已另建为独立页面(路由 pkg-ai/dev-space/index),
+// 由它持有那条对齐指针;跨端登记表也按那条真同物登记,不再登记本页。
 // `check-cross-end-screen-coverage.mjs` 的 R3 镜像数会当场倒退。
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
@@ -19,6 +18,7 @@ import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import SearchBar from '@/components/SearchBar'
 import LineIcon from '@/components/LineIcon'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 // 智能体小类(对标原 category() 返回的 modelTypes)
 interface ModelType {
@@ -336,9 +336,7 @@ export default function DeveloperIndex() {
           onScrollToLower={onScrollToLower}
         >
           {loading && list.length === 0 ? (
-            <Text className="block text-center text-muted-foreground text-[length:28rpx] py-[60rpx]">
-              {t('common.loading')}
-            </Text>
+            <ScreenSkeleton variant="list" count={4} />
           ) : list.length ? (
             list.map((agent) => (
               <View
@@ -390,9 +388,7 @@ export default function DeveloperIndex() {
               </View>
             ))
           ) : (
-            <Text className="block text-center text-muted-foreground text-[length:28rpx] py-[60rpx]">
-              {t('developer.index.empty')}
-            </Text>
+            <EmptyState title={t('developer.index.empty')} />
           )}
           {list.length > 0 && !hasMore ? (
             <Text className="block text-center text-[length:24rpx] text-[var(--color-text-tertiary)] py-[16rpx]">

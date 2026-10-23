@@ -37,6 +37,11 @@
       "miniapp": "pkg-user/check-in/index"
     },
     {
+      "shared": "packages/app/src/features/developer/DeveloperScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/DeveloperScreen.tsx",
+      "miniapp": "pkg-ai/dev-space/index"
+    },
+    {
       "shared": "packages/app/src/features/model-edit/ModelEditScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ModelEditScreen.tsx",
       "miniapp": "pkg-ai/dev-enter/model-edit/index"

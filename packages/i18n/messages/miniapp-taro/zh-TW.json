@@ -2361,7 +2361,8 @@
       "editBtn2": "修改",
       "editBtn": "設定",
       "noMore": "沒有更多了"
-    }
+    },
+    "becomeDeveloper": "成為開發者"
   },
   "modelPlaza": {
     "title": "模型廣場",
@@ -4678,5 +4679,20 @@
     "lastOk": "上次簽到成功 +{credits}",
     "lastFailed": "上次簽到失敗",
     "actionFailed": "操作失敗"
+  },
+  "developerInfo": {
+    "title": "開發者資訊",
+    "nameLabel": "名稱",
+    "descLabel": "簡介",
+    "statusLabel": "申請狀態",
+    "statusApproved": "已通過",
+    "statusRejected": "已拒絕",
+    "statusPending": "待審核",
+    "accountLabel": "帳號",
+    "apiKeyLabel": "API 金鑰",
+    "apiKeyCount": "已建立 {count} 個",
+    "apiKeyNone": "未建立",
+    "urlLabel": "網址",
+    "expiryLabel": "到期時間"
   }
 }
