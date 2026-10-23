@@ -109,6 +109,7 @@ import {
   findLessonAverageRating,
 } from '../db/learn-extended-queries.js'
 import { success, error } from '../utils/response.js'
+import { buildSignedVideoUrl, verifyVideoToken } from '../services/video-sign.js'
 import { db } from '../db/index.js'
 import { learnHomework, LESSON_DIFFICULTIES } from '@ihui/database'
 import { eduLessonTopicCategories } from '@ihui/database'
@@ -271,6 +272,19 @@ const sectionParamSchema = z.object({
   id: z.uuid({ error: '无效的 ID' }),
   chapterId: z.uuid({ error: '无效的章节 ID' }),
   sectionId: z.uuid({ error: '无效的小节 ID' }),
+})
+
+/** 播放校验点入参(G-921 ①):路径锁课时身份,query 携带签名三元组。 */
+const playParamSchema = z.object({
+  id: z.uuid({ error: '无效的 ID' }),
+  sectionId: z.uuid({ error: '无效的小节 ID' }),
+})
+
+const playQuerySchema = z.object({
+  uid: z.string().min(1).max(64),
+  rid: z.uuid({ error: '无效的资源签名' }),
+  exp: z.coerce.number().int().positive(),
+  sig: z.string().regex(/^[0-9a-fA-F]{64}$/, '无效的播放签名'),
 })
 
 const createSectionSchema = z.object({
@@ -661,11 +675,35 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 查询章节及小节
+    //
+    // 付费门槛真实化(G-921 ①,签发侧):非免费小节的裸 CDN 地址不再对所有人下发。
+    // - 免费课/免费小节 ⇒ 原样下发(无门槛可绕,既有回归 learn-lesson-video 语义不变);
+    // - 付费小节且当前身份已报名 ⇒ 下发短时签名播放 URL(指向本服务 /play 校验点,
+    //   payload 契约沿用 video-sign 的 `${userId}|${resourceId}|${expiresAt}`,不另造第二套);
+    // - 匿名/未报名 ⇒ videoUrl 置 null,前端自然落到"不可播"占位,不伪造 URL。
+    // 身份 = authenticate 写入的 request.userId(承载层显式入参),不由被操作记录反推。
+    const host = request.headers.host ?? 'localhost'
+    const origin = `${request.protocol ?? 'http'}://${host}`
+    const canPlayPaid = Boolean(request.userId) && signedUp
     const chapters = await findLessonChapters(parsed.data.id)
     const chaptersWithSections = await Promise.all(
       chapters.map(async (c) => {
         const sections = await findLessonSections(c.id)
-        return { ...c, sections: sections.map(adaptSection) }
+        return {
+          ...c,
+          sections: sections.map((s) => {
+            const adapted = adaptSection(s)
+            if (!adapted.videoUrl) return adapted
+            if (lesson.isFree || s.isFree) return adapted
+            if (!canPlayPaid) return { ...adapted, videoUrl: null }
+            const { url } = buildSignedVideoUrl({
+              baseUrl: `${origin}/api/learn/lessons/${parsed.data.id}/sections/${s.id}/play`,
+              userId: request.userId!,
+              resourceId: s.id,
+            })
+            return { ...adapted, videoUrl: url }
+          }),
+        }
       }),
     )
     const adaptedLesson = {
@@ -677,6 +715,58 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
       rating: await findLessonAverageRating(parsed.data.id),
     }
     return reply.send(success({ lesson: adaptedLesson, chapters: chaptersWithSections }))
+  })
+
+  // GET /learn/lessons/:id/sections/:sectionId/play - 付费课时视频播放校验点(G-921 ①)
+  //
+  // verifyVideoToken 的真实消费方:上一版全仓零调用 ⇒ 签名不生效 ⇒ 付费门槛形同虚设。
+  // 逐项显式核验,任一不成立即 403/404 并点名原因,绝不静默放行、绝不回落裸 URL:
+  //   1. 签名三元组齐备且形状合法(缺 sig / 畸形 sig 直接 403,不做兜底正则放行);
+  //   2. rid 必须与路径 sectionId 一致(签名与资源绑定,防止拿 A 票播 B);
+  //   3. exp 未过期(HMAC 只对给定的 exp 成立,时效必须在这里对钟判);
+  //   4. verifyVideoToken HMAC 比对(secretsEqual 定长比较);
+  //   5. 课时→章节→课程归属链与发布态(草稿课 404,与详情路由同一判据);
+  //   6. 播放资格按签名载荷里的 uid 现查报名记录(签发后掉权 ⇒ 过期前也播不了)。
+  // 身份 = 签名载荷 uid(HMAC 覆盖,客户端改不动),预签名形态;<video> 元素发不出
+  // Authorization 头,这正是把校验装到 URL 侧的原因。通过后 302 到真源。
+  server.get('/learn/lessons/:id/sections/:sectionId/play', async (request, reply) => {
+    const paramParsed = playParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const queryParsed = playQuerySchema.safeParse(request.query)
+    if (!queryParsed.success) {
+      return reply.status(403).send(error(403, '播放需要有效签名'))
+    }
+    const { uid, rid, exp, sig } = queryParsed.data
+    if (rid !== paramParsed.data.sectionId) {
+      return reply.status(403).send(error(403, '播放签名与课时不匹配'))
+    }
+    if (exp <= Math.floor(Date.now() / 1000)) {
+      return reply.status(403).send(error(403, '播放链接已过期,请重新进入课程页'))
+    }
+    if (!verifyVideoToken({ userId: uid, resourceId: rid, expiresAt: exp, signature: sig })) {
+      return reply.status(403).send(error(403, '播放签名无效'))
+    }
+    const section = await findSectionById(rid)
+    if (!section || !section.videoUrl) {
+      return reply.status(404).send(error(404, '课时视频不存在'))
+    }
+    const chapter = await findChapterById(section.chapterId)
+    if (!chapter || chapter.lessonId !== paramParsed.data.id) {
+      return reply.status(404).send(error(404, '课时不存在'))
+    }
+    const lesson = await findLessonById(paramParsed.data.id)
+    if (!lesson || !lesson.isPublished) {
+      return reply.status(404).send(error(404, '课程不存在'))
+    }
+    if (!lesson.isFree && !section.isFree) {
+      const signUp = await findSignUp(paramParsed.data.id, uid)
+      if (!signUp) {
+        return reply.status(403).send(error(403, '未报名该课程,无权播放'))
+      }
+    }
+    return reply.status(302).header('location', section.videoUrl).send()
   })
 
   // GET /learn/records - 用户学习记录（需登录,前端 user/learn-record 页面调用）
