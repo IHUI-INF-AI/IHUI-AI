@@ -1147,7 +1147,28 @@ async function runSelfTest() {
   eq('⑥k-0 现读 alerts.yml 结构自洽(规则数 > 0 且每条齐 alert/expr/for/severity/summary/description)', [shapeNow.ok, shapeNow.ruleCount > 0], [true, true])
   const oneRule = rulesNow.replace('      - alert: LogSourceSplitBlind\n        expr: ihui_alertbridge_log_anchor_ok == 0\n        for: 10m\n', '      - alert: LogSourceSplitBlind\n        expr: ihui_alertbridge_log_anchor_ok == 0\n')
   eq('⑥k-1 抽掉一条规则的 for ⇒ 必红(漏写不是"少一行"而是整份被 promtool 拒收)', logAnchor.validateAlertRules(oneRule).ok, false)
-  eq('⑥k-2 标量收尾的引号丢了 ⇒ 必红(YAML 会把后半行连同下一行吃进标量)', logAnchor.validateAlertRules(rulesNow.replace("description: 'grafana(127.0.0.1:8816)无指标超过 10 分钟;只影响人工查看,告警链不经它,故窗口放宽'", "description: 'grafana 无指标超过 10 分钟;窗口放宽")).ok, false)
+  // ⑥k-2 夹具自带,不再锚 alerts.yml 的某一行正文(2026-10-23):原写法 replace 一句
+  // 真实 description,而那行早被别人改写 ⇒ replace 空转 ⇒ "该必红"变成"根本没改"而假红。
+  // 夹具一旦依赖被审文件的正文,它测的就是那行字还在不在,不是判据还灵不灵。
+  const syntheticRules = [
+    'groups:',
+    '  - name: probe',
+    '    rules:',
+    '      - alert: ProbeRule',
+    '        expr: ihui_alertbridge_log_anchor_ok == 0',
+    '        for: 10m',
+    '        labels:',
+    '          severity: warning',
+    '        annotations:',
+    "          summary: 's'",
+    "          description: 'd'",
+  ].join('\n')
+  eq('⑥k-2a 自带夹具的正向对照:这份合成规则本身必须判干净(否则下面那条负例是空转)', logAnchor.validateAlertRules(syntheticRules).ok, true)
+  eq(
+    '⑥k-2 标量收尾的引号丢了 ⇒ 必红(YAML 会把后半行连同下一行吃进标量)',
+    logAnchor.validateAlertRules(syntheticRules.replace("description: 'd'", "description: 'd")).ok,
+    false,
+  )
   eq('⑥k-3 把失明 gauge 多写一遍 ⇒ 必红(两份真相 = 改一处漏一处)', logAnchor.validateAlertRules(rulesNow + '\n      - alert: LogSourceSplitBlind\n        expr: ihui_alertbridge_log_anchor_ok == 0\n        for: 10m\n        labels:\n          severity: critical\n        annotations:\n          summary: s\n          description: d\n').ok, false)
 
   // ⑨ 状态分流(2026-10-17,"恢复被当故障寄信"的假警报型)。四条成对,全走纯函数铰链:

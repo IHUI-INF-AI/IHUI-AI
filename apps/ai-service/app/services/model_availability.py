@@ -107,6 +107,8 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     ("agnes-", "agnes"),
     # 2026-08-31 强化:智汇AI官方中继(极速API),健康检查/5分钟ping/模型过滤需覆盖 ihui/ 前缀
     ("ihui/", "ihui_relay"),
+    # WorkBuddy 账号池(项目自有中转站):模型 id 以 workbuddy/ 前缀暴露
+    ("workbuddy/", "workbuddy_relay"),
     # 2026-09-08 新增:token6688 聚合网关(t6688/ 前缀),缺此条 is_model_available
     # 返回未知 → 模型永远被过滤,前端看不到
     ("t6688/", "token6688"),
@@ -762,6 +764,9 @@ class ModelAvailabilityService:
         headers: dict[str, str] = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
+        from app.core.provider_caps import resolve_provider_headers
+
+        headers.update(resolve_provider_headers(code))
 
         last_err: tuple[int, str] | None = None
         try:
@@ -891,6 +896,9 @@ class ModelAvailabilityService:
         headers: dict[str, str] = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
+        from app.core.provider_caps import resolve_provider_headers
+
+        headers.update(resolve_provider_headers(code))
 
         try:
             resp = await client.get(models_url, headers=headers, timeout=15.0)

@@ -846,7 +846,11 @@ function jsonKeyPathResurrect({ base, next, ancestors }) {
         }
       }
       if (!best) continue
-      record(Math.min(extra, best), `${p} ⇐ 元素 ${el}`, bestCommit)
+      // ④ 复活的前提是"曾被删过":祖先比基线多出的那几份才叫被删,只"出现过"不算。
+      //    否则复用 lastNotNull 这类常见值必误报(2026-10-23:追加面板复用同形 options)。
+      const removed = best - (bm.get(el) ?? 0)
+      if (removed <= 0) continue
+      record(Math.min(extra, removed), `${p} ⇐ 元素 ${el}`, bestCommit)
     }
   }
   return { status: 'judged', reason: null, count, sample, commits }
