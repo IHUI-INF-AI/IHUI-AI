@@ -2525,6 +2525,7 @@ async def test_byok_user_config_returns_user_api_key(monkeypatch):
     """BYOK:用户私有配置(owner_uuid=userId)的 api_key 被正确返回。"""
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
+        "id": 11,
         "api_key_enc": "sk-user-private-key",
         "base_url": "https://api.user-custom.com/v1",
         "api_format": "openai_chat",
@@ -2533,10 +2534,11 @@ async def test_byok_user_config_returns_user_api_key(monkeypatch):
 
     result = await _resolve_from_db("stepfun/step-3.7-flash", owner_uuid="user-abc-123")
     assert result is not None
-    api_key, api_base, litellm_model = result
+    api_key, api_base, litellm_model, config_id = result
     assert api_key == "sk-user-private-key"
     assert api_base == "https://api.user-custom.com/v1"
     assert litellm_model == "openai/step-3.7-flash"
+    assert config_id == 11  # llm_call_logs.config_id 的唯一实证来源
 
 
 async def test_byok_no_matching_config_returns_none(monkeypatch):
@@ -2551,6 +2553,7 @@ async def test_byok_decrypts_aes256_gcm_encrypted_key(monkeypatch):
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     encrypted = _encrypt_api_key_for_test("sk-decrypted-byok-key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
+        "id": 12,
         "api_key_enc": encrypted,
         "base_url": "https://api.example.com/v1",
         "api_format": "openai_chat",
@@ -2559,7 +2562,7 @@ async def test_byok_decrypts_aes256_gcm_encrypted_key(monkeypatch):
 
     result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid="user-123")
     assert result is not None
-    api_key, _, _ = result
+    api_key, _, _, _ = result
     assert api_key == "sk-decrypted-byok-key"
 
 
@@ -2567,6 +2570,7 @@ async def test_byok_plaintext_key_returned_stripped(monkeypatch):
     """BYOK:明文 api_key_enc(非 JSON)直接返回(strip 首尾引号/空白)。"""
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
+        "id": 13,
         "api_key_enc": '"sk-plaintext-key"',
         "base_url": None,
         "api_format": "openai_chat",
@@ -2575,7 +2579,7 @@ async def test_byok_plaintext_key_returned_stripped(monkeypatch):
 
     result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid="user-123")
     assert result is not None
-    api_key, api_base, _ = result
+    api_key, api_base, _, _ = result
     assert api_key == "sk-plaintext-key"
     assert api_base is None  # base_url 为 None/空时返回 None
 
@@ -2584,6 +2588,7 @@ async def test_byok_stepfun_prefix_maps_to_openai(monkeypatch):
     """BYOK:stepfun/ 前缀模型 → litellm_model = openai/<real_model>(去前缀加 openai/)。"""
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
+        "id": 14,
         "api_key_enc": "sk-test",
         "base_url": "https://api.stepfun.com/v1",
         "api_format": "openai_chat",
@@ -2592,7 +2597,7 @@ async def test_byok_stepfun_prefix_maps_to_openai(monkeypatch):
 
     result = await _resolve_from_db("stepfun/step-3.7-flash", owner_uuid="user-123")
     assert result is not None
-    _, _, litellm_model = result
+    _, _, litellm_model, _ = result
     assert litellm_model == "openai/step-3.7-flash"
 
 
@@ -2600,6 +2605,7 @@ async def test_byok_openrouter_passthrough_no_prefix_change(monkeypatch):
     """BYOK:openrouter/ 前缀 → litellm_model 原样返回(不转 openai/,走 LiteLLM 原生路由)。"""
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
+        "id": 15,
         "api_key_enc": "sk-or-test",
         "base_url": None,
         "api_format": "openai_chat",
@@ -2608,7 +2614,7 @@ async def test_byok_openrouter_passthrough_no_prefix_change(monkeypatch):
 
     result = await _resolve_from_db("openrouter/llama-3.3-70b", owner_uuid="user-123")
     assert result is not None
-    _, _, litellm_model = result
+    _, _, litellm_model, _ = result
     assert litellm_model == "openrouter/llama-3.3-70b"
 
 
@@ -2616,6 +2622,7 @@ async def test_byok_anthropic_protocol_adds_prefix(monkeypatch):
     """BYOK:api_format=anthropic_messages → litellm_model 加 anthropic/ 前缀(无 / 时)。"""
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
+        "id": 16,
         "api_key_enc": "sk-ant-test",
         "base_url": None,
         "api_format": "anthropic_messages",
@@ -2624,7 +2631,7 @@ async def test_byok_anthropic_protocol_adds_prefix(monkeypatch):
 
     result = await _resolve_from_db("claude-3-opus", owner_uuid="user-123")
     assert result is not None
-    _, _, litellm_model = result
+    _, _, litellm_model, _ = result
     assert litellm_model == "anthropic/claude-3-opus"
 
 
@@ -2643,6 +2650,7 @@ async def test_byok_no_owner_uuid_works_global_only(monkeypatch):
     """BYOK:owner_uuid=None 时正常查询全局配置(无用户上下文,走全局 SQL 分支)。"""
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
+        "id": 17,
         "api_key_enc": "sk-global-key",
         "base_url": "https://api.global.com/v1",
         "api_format": "openai_chat",
@@ -2651,7 +2659,7 @@ async def test_byok_no_owner_uuid_works_global_only(monkeypatch):
 
     result = await _resolve_from_db("groq/llama-3.3-70b", owner_uuid=None)
     assert result is not None
-    api_key, api_base, _ = result
+    api_key, api_base, _, _ = result
     assert api_key == "sk-global-key"
     assert api_base == "https://api.global.com/v1"
 
@@ -2660,6 +2668,7 @@ async def test_byok_empty_api_key_enc_returns_none(monkeypatch):
     """BYOK:api_key_enc 为空 → _decrypt_api_key 返回 None → _resolve_from_db 返回 None。"""
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
+        "id": 18,
         "api_key_enc": "",
         "base_url": None,
         "api_format": "openai_chat",
@@ -2674,6 +2683,7 @@ async def test_byok_agnes_prefix_maps_to_openai(monkeypatch):
     """BYOK:agnes/ 前缀模型 → litellm_model = openai/<real_model>(中转站 OpenAI 兼容)。"""
     monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
     row = _FakeRow({
+        "id": 19,
         "api_key_enc": "sk-agnes-byok",
         "base_url": "https://apihub.agnes-ai.com/v1",
         "api_format": "openai_chat",
@@ -2682,10 +2692,122 @@ async def test_byok_agnes_prefix_maps_to_openai(monkeypatch):
 
     result = await _resolve_from_db("agnes/gpt-4o-mini", owner_uuid="user-456")
     assert result is not None
-    api_key, api_base, litellm_model = result
+    api_key, api_base, litellm_model, config_id = result
     assert api_key == "sk-agnes-byok"
     assert api_base == "https://apihub.agnes-ai.com/v1"
     assert litellm_model == "openai/gpt-4o-mini"
+
+
+async def test_byok_row_without_valid_id_still_resolves_key_but_no_config_id(monkeypatch):
+    """配置行 id 取不到(脏行/替身缺列)⇒ key 照用,config_id 落 None(宁缺毋假)。"""
+    monkeypatch.setattr(settings, "credentials_encryption_key", _BYOK_TEST_ENC_KEY)
+    row = _FakeRow({
+        "id": None,
+        "api_key_enc": "sk-no-id",
+        "base_url": None,
+        "api_format": "openai_chat",
+    })
+    _patch_db_pool(monkeypatch, row)
+
+    result = await _resolve_from_db("stepfun/step-3.7-flash", owner_uuid="user-789")
+    assert result is not None
+    api_key, _, _, config_id = result
+    assert api_key == "sk-no-id"
+    assert config_id is None
+
+
+async def test_resolve_yields_config_id_only_on_the_byok_leg(monkeypatch):
+    """_resolve 五元组:BYOK 腿带配置行 id;号池腿与环境变量腿一律 None。"""
+    import app.core.llm_gateway as gw_mod
+
+    gw = LLMGateway()
+
+    async def _db_hit(model, owner_uuid=None):
+        return ("sk-byok", "https://byok.example/v1", "openai/step-3", 41)
+
+    monkeypatch.setattr(gw_mod, "_resolve_from_db", _db_hit)
+    resolved = await gw._resolve("stepfun/step-3", "user-1")
+    assert resolved[3] is None  # 号池腿没命中 ⇒ key_pool_id 为空
+    assert resolved[4] == 41
+
+    async def _db_miss(model, owner_uuid=None):
+        return None
+
+    monkeypatch.setattr(gw_mod, "_resolve_from_db", _db_miss)
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-env"}}))
+    env_resolved = await gw._resolve("stepfun/step-3", "user-1")
+    assert env_resolved[0] == "sk-env"
+    assert env_resolved[4] is None, "环境变量腿没有配置行,不得凭空造 config_id"
+
+
+async def test_complete_call_log_row_carries_resolved_config_id(monkeypatch):
+    """接线锁(2026-10-23 票面第二格):命中的 ai_model_config.id 必须落到落库字段。
+
+    正向对照同批:配置行没命中(走 .env)⇒ 同一字段必须是 None,
+    否则"这次调用用的是哪条 provider 配置"会被读成一条猜出来的数。
+    """
+    import sys
+    from types import ModuleType
+
+    import app.services.llm_call_log_writer as writer_mod
+
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-env"}}))
+
+    class _Usage:
+        def model_dump(self):
+            return {"prompt_tokens": 3, "completion_tokens": 4, "total_tokens": 7}
+
+    class _Message:
+        content = "ok"
+
+    class _Choice:
+        message = _Message()
+
+    class _Response:
+        usage = _Usage()
+        choices = [_Choice()]
+        model = "step-3"
+
+    fake_litellm = ModuleType("litellm")
+
+    async def _acompletion(**_kwargs):
+        return _Response()
+
+    fake_litellm.acompletion = _acompletion
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    seen: list[Any] = []
+    monkeypatch.setattr(writer_mod, "schedule_llm_call_log", lambda f: seen.append(f))
+
+    import app.core.llm_gateway as gw_mod
+
+    gw = LLMGateway()
+
+    async def _db_hit(model, owner_uuid=None):
+        return ("sk-byok", "https://byok.example/v1", "openai/step-3", 88)
+
+    monkeypatch.setattr(gw_mod, "_resolve_from_db", _db_hit)
+    result = await gw.complete(
+        [{"role": "user", "content": "你好"}],
+        model="stepfun/step-3",
+        billing_user_id="7b2c3a4d-5e6f-4a1b-9c8d-7e6f5a4b3c2d",
+    )
+    assert not result.get("error")
+    assert [f.config_id for f in seen] == [88]
+
+    seen.clear()
+
+    async def _db_miss(model, owner_uuid=None):
+        return None
+
+    monkeypatch.setattr(gw_mod, "_resolve_from_db", _db_miss)
+    await gw.complete(
+        [{"role": "user", "content": "你好"}],
+        model="stepfun/step-3",
+        billing_user_id="7b2c3a4d-5e6f-4a1b-9c8d-7e6f5a4b3c2d",
+    )
+    assert seen, ".env 腿仍应落一行(只是不带 config_id)"
+    assert [f.config_id for f in seen] == [None]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 
