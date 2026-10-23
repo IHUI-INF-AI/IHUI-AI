@@ -45,6 +45,12 @@ import {
 } from '../../services/relay-account-pool-service.js'
 import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
+import {
+  checkinPlatformFor,
+  markCheckinSyncPending,
+  pushPoolState,
+  type PoolAccountState,
+} from '../../services/relay-account-pool-checkin-sync.js'
 import { sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
 import { getAccountUsage, getAccountUsageSummaries } from '../../services/relay-account-usage.js'
 import {
@@ -387,17 +393,35 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
     try {
       const [row] = await dbRead
-        .select({ isEnabled: aiRelayAccountPool.isEnabled })
+        .select({
+          providerCode: aiRelayAccountPool.providerCode,
+          uid: aiRelayAccountPool.uid,
+          isEnabled: aiRelayAccountPool.isEnabled,
+        })
         .from(aiRelayAccountPool)
         .where(eq(aiRelayAccountPool.id, p.data.id))
         .limit(1)
       if (!row) return reply.status(404).send(error(404, '账号不存在'))
       const next = !row.isEnabled
+      const nextState: PoolAccountState = next ? 'enabled' : 'disabled'
       const changed = { isEnabled: next }
       await db
         .update(aiRelayAccountPool)
         .set({ ...changed, updatedAt: new Date() })
         .where(eq(aiRelayAccountPool.id, p.data.id))
+      // O64:状态联动推送(号池启用态 = 签到侧调度权威)。推送失败落 pending 待重推,
+      // 绝不阻塞 toggle 响应;pending 落库本身再失败只记日志,由对账收敛器兜底。
+      const checkinPlatform = checkinPlatformFor(row.providerCode)
+      if (checkinPlatform) {
+        const push = await pushPoolState(checkinPlatform, row.uid, nextState)
+        if (!push.ok) {
+          try {
+            await markCheckinSyncPending([p.data.id], 'state', nextState, push.error ?? '未知错误')
+          } catch (e) {
+            request.log.error(e, '[relay-account-pool] 签到状态待推标记失败,待对账收敛器兜底')
+          }
+        }
+      }
       return reply.send(success({ id: p.data.id, isEnabled: next }))
     } catch (e) {
       request.log.error(e)
@@ -450,9 +474,28 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       const deleted = await db
         .delete(aiRelayAccountPool)
         .where(eq(aiRelayAccountPool.id, p.data.id))
-        .returning({ id: aiRelayAccountPool.id })
+        .returning({
+          id: aiRelayAccountPool.id,
+          providerCode: aiRelayAccountPool.providerCode,
+          uid: aiRelayAccountPool.uid,
+        })
       if (deleted.length === 0) return reply.status(404).send(error(404, '账号不存在'))
-      return reply.send(success({ id: deleted[0] ? deleted[0].id : p.data.id }))
+      const removed = deleted[0]
+      // O64:删除联动(签到侧停用保历史,不物理删)。号池行已不存在 ⇒ 推送失败无处落
+      // pending,只记日志,由对账收敛器(O64 提交 5)扫差集兜底。
+      if (removed) {
+        const checkinPlatform = checkinPlatformFor(removed.providerCode)
+        if (checkinPlatform) {
+          const push = await pushPoolState(checkinPlatform, removed.uid, 'pool_deleted')
+          if (!push.ok) {
+            request.log.warn(
+              { accountId: removed.id, err: push.error },
+              '[relay-account-pool] pool_deleted 状态推送失败,待对账收敛器兜底',
+            )
+          }
+        }
+      }
+      return reply.send(success({ id: removed ? removed.id : p.data.id }))
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '删除账号失败'))
