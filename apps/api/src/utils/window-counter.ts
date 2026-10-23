@@ -95,17 +95,6 @@ export async function incrWindow(key: string, windowMs: number): Promise<number>
   return localIncr(key, windowMs, now)
 }
 
-export async function clearWindow(key: string): Promise<void> {
-  localStore.delete(key)
-  const redis = getRedis()
-  if (!redis) return
-  try {
-    await redis.del(key)
-  } catch (e) {
-    logger.error('[window-counter] 删除计数键失败', { error: String((e as Error)?.message ?? e) })
-  }
-}
-
 export interface WindowSpec {
   key: string
   windowMs: number

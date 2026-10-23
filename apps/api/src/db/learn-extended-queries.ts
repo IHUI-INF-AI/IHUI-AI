@@ -1024,7 +1024,7 @@ export async function findRateList(
  * 单条评价的评分 —— 三个分项(contentUtility / teacher / service)里**有值那几项**的均值。
  * 三项都可空;一项都没有 ⇒ null(这条没有可算的评分,不是 0 分)。
  */
-export function rateRowScore(row: {
+function rateRowScore(row: {
   contentUtilityScore: number | null
   teacherScore: number | null
   serviceScore: number | null

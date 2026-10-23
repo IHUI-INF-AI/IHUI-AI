@@ -120,7 +120,7 @@ export function resolvePath(ctx: ToolContext, filePath: string): string {
 }
 
 /** 读后写校验的稳定错误码(调用方/重试判据读 errorType,不读中文短句) */
-export type ReadBeforeWriteErrorCode = 'file_not_read' | 'file_stale_read';
+type ReadBeforeWriteErrorCode = 'file_not_read' | 'file_stale_read';
 
 interface ReadGuardRejection {
   error: string;

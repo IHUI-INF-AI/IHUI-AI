@@ -128,7 +128,7 @@ function readSecrets(ctx: AdapterAccountContext): CodeArtsSecrets {
  * 必须按凭据**稳定推导复用**(上游按它统计并发,每账号上限 3;每请求随机会立刻打爆 TM.00001041),
  * 凭据轮换(AK 变化)后自然换新。
  */
-export function deriveSessionId(domainId: string, accessKeyId: string): string {
+function deriveSessionId(domainId: string, accessKeyId: string): string {
   return `ses_${createHash('sha256').update(`${domainId}|${accessKeyId}`).digest('hex').slice(0, 32)}`
 }
 

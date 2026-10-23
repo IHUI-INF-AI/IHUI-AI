@@ -28,6 +28,15 @@ if TYPE_CHECKING:
     from .agent_orchestrator import AgentOrchestrator
 
 # 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
+# 2026-10-21(五开关按用户生效):本模块 exec_policy_mode 的档位一律经
+# `agent_security_prefs.resolve_security_config(主体)` 解析 —— 进程默认 ⊕ 该用户显式覆盖。
+# 主体唯一来源是 `call_tool` 的 `user_id` 形参(承载层注入)与 agent_loop_v2 在执行工具前
+# 发布的作用域;**绝不**读 arguments 里的 `__user_id`(那是 handler 入参,模型可填的形状)。
+from .agent_security_prefs import (
+    current_security_principal,
+    resolve_security_config,
+    security_principal_scope,
+)
 from .command_streamer import (
     FRAME_READ_EOF,
     FRAME_READ_LINE,
@@ -49,16 +58,6 @@ from .merge3 import merge3_for_edit
 
 # 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
 from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
-
-# 2026-10-21(五开关按用户生效):本模块 exec_policy_mode 的档位一律经
-# `agent_security_prefs.resolve_security_config(主体)` 解析 —— 进程默认 ⊕ 该用户显式覆盖。
-# 主体唯一来源是 `call_tool` 的 `user_id` 形参(承载层注入)与 agent_loop_v2 在执行工具前
-# 发布的作用域;**绝不**读 arguments 里的 `__user_id`(那是 handler 入参,模型可填的形状)。
-from .agent_security_prefs import (
-    current_security_principal,
-    resolve_security_config,
-    security_principal_scope,
-)
 
 # 批58(三十):敏感目录黑名单收敛为单一权威源(与 file_editor 共用同一常量与匹配函数)。
 # 此前本模块的路径校验完全不做敏感目录判定,导致三个写工具可写 .git/hooks/。

@@ -102,7 +102,7 @@ export function canonicalQuery(u: URL): string {
 }
 
 /** X-Sdk-Date 格式:YYYYMMDDTHHMMSSZ(UTC)。 */
-export function sdkDate(now: Date = new Date()): string {
+function sdkDate(now: Date = new Date()): string {
   const pad = (n: number): string => String(n).padStart(2, '0')
   return (
     `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}` +

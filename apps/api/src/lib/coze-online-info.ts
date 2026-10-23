@@ -26,7 +26,7 @@
  *   写进去会被 PG 取整成 0/1 的假值 —— 宁可不写。
  */
 
-export type CozeModelInfo = {
+type CozeModelInfo = {
   model_id?: string
   model_name?: string
   temperature?: number
@@ -35,7 +35,7 @@ export type CozeModelInfo = {
   context_round?: number
 }
 
-export type CozePromptInfo = {
+type CozePromptInfo = {
   prompt?: string
   prompt_mode?: string
 }
