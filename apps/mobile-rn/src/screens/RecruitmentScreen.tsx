@@ -2,187 +2,77 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * RecruitmentScreen 操盘手计划页(mobile-rn 端)
- *
- * 对齐历史项目 pagesA/recruitment/index.vue(84 行纯静态宣传页):
- * - 全屏背景大图(recruitment/bigtp@2x.png)
- * - 顶部居中标题「操盘手计划」(白色 32rpx)
- * - 底部渐变卡片(type-bottom-top):创始人头像 + 「AI智汇社 | 私董会创始人 | 李总」+ 推荐语
- * - 棕色介绍文案:扫描二维码免费进社群
- * - 社群二维码(ewm@2x.png,380rpx)
- * - 「购买¥18888」渐变按钮(红→紫)
- * - 原页面无任何 JS 逻辑(纯静态),购买按钮点击提示联系客服
- *
- * 注:历史版本曾把本路由误实现为招聘列表(getAiCareers)——招聘属另一功能,
- * 本路由语义为操盘手计划宣传页,已恢复对齐原项目。
- */
-import {
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  type ImageStyle,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
+// 平台特有:依赖 Metro require()(静态资源打包契约)与 expo-asset / expo-media-library(相册写入)
+
+import { useCallback } from 'react'
+import { Asset } from 'expo-asset'
+import * as MediaLibrary from 'expo-media-library'
+import { RecruitmentScreen as SharedRecruitmentScreen } from '@ihui/rn-app'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { appAlert } from '../components/BottomPops'
-import { tokens } from '../theme/active-tokens'
+import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
-import { rpx } from '../utils/rpx'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { rnRadius } from '@ihui/design-tokens'
-
-// 2026-10-15 本地化:原 bspapp 云存储 CDN(mp-aab956eb-…)整体不可达(HTTP 000),
-// 3 张图按原 CDN 路径打包进应用(文件副本与 apps/web/public 本地化批次同源):
-//   recruitment/bigtp@2x.png   → assets/images/carousel/bigtp@2x.png
-//   recruitment/xuancai@2x.png → assets/images/carousel/xuancai@2x.png
-//   recruitment/ewm@2x.png     → assets/images/carousel/ewm@2x.png
-// RN 静态资源打包必须用 require(Metro asset 插件契约),此处豁免 no-require-imports;
-// 写法与 ModelRecordScreen/ProfileScreen 同档(块级 disable,只罩资源声明行)。
+/**
+ * RecruitmentScreen 操盘手计划页(mobile-rn 端薄壳)
+ *
+ * 渲染真相源在共享层 `packages/app/src/features/recruitment/RecruitmentScreen.tsx`;段构成、
+ * 顺序、取词键、图片槽位同住 `@ihui/shared/constants/trader-plan-promo` 的 TRADER_PLAN_SEGMENTS
+ * (小程序端 `pkg-content/recruitment/index/index.tsx` 读同一张表)。本壳只做四件端内的事:
+ * ① 图片资源句柄注入;② 取词与主题注入;③ 购买 CTA 接到在册屏 `VipTrader`;
+ * ④ 长按二维码落到系统相册(与 HomeScreen 二维码弹窗同一条在册能力,不是假按钮)。
+ *
+ * 图片为什么在本壳:RN 静态资源打包必须走 require()(Metro asset 插件契约),共享屏拿不到;
+ * 2026-10-15 本地化批次把原 bspapp 云存储 CDN(mp-aab956eb-…,整体不可达 HTTP 000)的三张图
+ * 按原 CDN 路径打包进应用,文件副本与 apps/web/public 同源(小程序端用的是同一批素材):
+ *   recruitment/bigtp@2x.png   → assets/images/carousel/bigtp@2x.png(全屏背景)
+ *   recruitment/xuancai@2x.png → assets/images/carousel/xuancai@2x.png(创始人头像)
+ *   recruitment/ewm@2x.png     → assets/images/carousel/ewm@2x.png(社群二维码)
+ * 写法与 CarteScreen/BusinessLicenseScreen 同档(块级 disable,只罩资源声明行)。
+ */
 /* eslint-disable @typescript-eslint/no-require-imports */
-const BG_IMAGE = require('../../assets/images/carousel/bigtp@2x.png')
+const BACKGROUND_IMAGE = require('../../assets/images/carousel/bigtp@2x.png')
 const AVATAR_IMAGE = require('../../assets/images/carousel/xuancai@2x.png')
-const QR_IMAGE = require('../../assets/images/carousel/ewm@2x.png')
+const QRCODE_IMAGE = require('../../assets/images/carousel/ewm@2x.png')
 /* eslint-enable @typescript-eslint/no-require-imports */
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export default function RecruitmentScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
+  const navigation = useNavigation<NavigationProp>()
 
-  const handleBuy = (): void => {
-    // 原页面为纯静态展示,购买按钮无绑定逻辑;APP 端提示联系客服完成购买
-    appAlert(t('common.hint'), '请联系客服购买操盘手计划服务')
-  }
+  /** 长按二维码 → 保存到系统相册(对齐 HomeScreen 二维码弹窗的 handleLongPressQrCode) */
+  const saveQrcodeToAlbum = useCallback(async (): Promise<void> => {
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync()
+      if (!perm.granted) {
+        appAlert(t('imageGen.needPermission'))
+        return
+      }
+      const localAsset = Asset.fromModule(QRCODE_IMAGE)
+      await localAsset.downloadAsync()
+      const asset = await MediaLibrary.createAssetAsync(localAsset.localUri ?? localAsset.uri)
+      await MediaLibrary.saveToLibraryAsync(asset.uri)
+      appAlert(t('imageGen.saveSuccess'))
+    } catch {
+      appAlert(t('imageGen.saveFailed'))
+    }
+  }, [t])
 
   return (
-    <View style={styles.container}>
-      <Image source={BG_IMAGE} style={styles.bgImage} resizeMode="cover" />
-      <Text style={styles.title}>操盘手计划</Text>
-
-      <View style={styles.bottom}>
-        <View style={styles.bottomTop}>
-          <View>
-            <Image source={AVATAR_IMAGE} style={styles.avatar} resizeMode="cover" />
-          </View>
-          <View style={styles.bottomTopText}>
-            <Text style={styles.founder}>AI智汇社 | 私董会创始人 | 李总</Text>
-            <Text style={styles.recommend}>为您推荐</Text>
-          </View>
-        </View>
-
-        <Text style={styles.intro}>
-          扫描下方二维码,可免费进入智汇社社群,群内定期免费分享AI信息并有专属客服为您服务
-        </Text>
-
-        <View style={styles.qrWrap}>
-          <Image source={QR_IMAGE} style={styles.qr} resizeMode="cover" />
-        </View>
-
-        <View style={styles.buyWrap}>
-          <TouchableOpacity style={styles.buyBtn} onPress={handleBuy} activeOpacity={0.85}>
-            <Text style={styles.buyText}>购买¥18888</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
+    <SharedRecruitmentScreen
+      t={t}
+      backgroundSource={BACKGROUND_IMAGE}
+      avatarSource={AVATAR_IMAGE}
+      qrcodeSource={QRCODE_IMAGE}
+      colorScheme={resolvedTheme}
+      onPurchase={() => navigation.navigate('VipTrader')}
+      onQrcodeLongPress={() => void saveQrcodeToAlbum()}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  } as ViewStyle,
-  bgImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
-  } as ImageStyle,
-  title: {
-    position: 'absolute',
-    top: rpx(20),
-    left: 0,
-    right: 0,
-    color: tokens.surface.light,
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  } as TextStyle,
-  bottom: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: rpx(30),
-    paddingBottom: rpx(60),
-  } as ViewStyle,
-  bottomTop: {
-    paddingHorizontal: rpx(30),
-    paddingVertical: rpx(10),
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopLeftRadius: rnRadius['2xl'],
-    borderTopRightRadius: rnRadius['2xl'],
-    backgroundColor: '#9395E4',
-  } as ViewStyle,
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: rnRadius['2xl'],
-  } as ImageStyle,
-  bottomTopText: {
-    flex: 1,
-    paddingLeft: rpx(24),
-  } as ViewStyle,
-  founder: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: tokens.gray.black,
-    marginTop: rpx(10),
-  } as TextStyle,
-  recommend: {
-    fontSize: 13,
-    color: tokens.text.medium,
-    marginTop: 2,
-  } as TextStyle,
-  intro: {
-    marginTop: rpx(20),
-    paddingHorizontal: rpx(40),
-    color: tokens.danger.DEFAULT,
-    fontSize: 15,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  } as TextStyle,
-  qrWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: rpx(16),
-  } as ViewStyle,
-  qr: {
-    width: 190,
-    height: 190,
-  } as ImageStyle,
-  buyWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: rpx(30),
-  } as ViewStyle,
-  buyBtn: {
-    width: 125,
-    height: 42,
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.danger.bright,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  buyText: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: tokens.surface.light,
-  } as TextStyle,
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
