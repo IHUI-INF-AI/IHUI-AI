@@ -54,7 +54,6 @@ def _real_providers_json() -> dict[str, Any]:
 # 顺序 = 自家 ihui 中转优先(产品自有链路,MiniMax-M2.7 原生 FC,配额自控),其次 stepfun。
 # 环境变量 NATIVE_FC_E2E_OPENAI_COMPAT_MODEL 仍可强制指定单个模型(优先级最高)。
 _PREFIX_TO_PROVIDER = {
-    "ihui": "ihui_relay",
     "stepfun": "stepfun",
     "openrouter": "openrouter",
     "nvidia": "nvidia",
@@ -63,7 +62,6 @@ _PREFIX_TO_PROVIDER = {
 _ALL_OPENAI_COMPAT_CANDIDATES = [
     ("openrouter/deepseek/deepseek-chat", "openrouter"),
     ("gemini/gemini-3.6-flash", "gemini"),
-    ("ihui/glm-5.3-flash", "ihui_relay"),
     ("stepfun/step-3.7-flash", "stepfun"),
 ]
 _FORCED_E2E_MODEL = os.environ.get("NATIVE_FC_E2E_OPENAI_COMPAT_MODEL", "").strip()

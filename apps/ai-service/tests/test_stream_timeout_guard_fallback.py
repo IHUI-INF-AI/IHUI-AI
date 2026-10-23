@@ -2,13 +2,15 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""极速API 流式 timeout-guard 占位块自动非流式回退单测(2026-09-18)。
+"""上游流式 timeout-guard 占位块自动非流式回退单测(2026-09-18,2026-10-24 载体切换)。
 
-背景:极速API(x5m5x)上游「流式+工具调用」模式整体降级时,约 45s 后仅回
+背景:某上游「流式+工具调用」模式整体降级时,约 45s 后仅回
 id="chatcmpl-timeout-guard" 的占位 chunk(内容 "[req_xxx] [model]\\n**Request
 exceeded ...**"),随后直接 [DONE];同参数非流式请求完全正常。
 llm_gateway.astream 检测到 guard chunk 后应:放弃该流 → 改非流式重试 →
 把非流式结果包装成等价事件流(chunk/reasoning/tool_calls/usage/done)。
+(该行为 2026-09-18 首发发现于极速API 上游;2026-10-24 随 SwiftAPI 弃用,
+测试载体从 ihui/ 切换为 agnes/,守护逻辑本身与 provider 无关。)
 """
 
 import json
@@ -91,9 +93,7 @@ def _fake_tool_call(name: str = "get_weather", arguments: str = '{"location": "�
 @pytest.mark.asyncio
 async def test_guard_stream_falls_back_to_non_stream(monkeypatch):
     """guard 占位流 → 放弃并回退非流式:内容不泄漏、tool_calls/usage/done 齐全。"""
-    monkeypatch.setattr(settings, "llm_providers", json.dumps({"ihui_relay": {"api_key": "sk-test"}}))
-    # 避免 TCP 竞速探测真实端点,固定 base
-    monkeypatch.setattr("app.core.llm_gateway._detect_ihui_relay_base", lambda: "https://new.x5m5x.com/v1")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"agnes": {"api_key": "sk-test"}}))
     call_log: list[dict] = []
     guard_stream_chunks = [
         _delta_chunk(_GUARD_CHUNK_ID, _GUARD_CONTENT),
@@ -103,7 +103,7 @@ async def test_guard_stream_falls_back_to_non_stream(monkeypatch):
     _fake_litellm_module(monkeypatch, [guard_stream_chunks], non_stream, call_log)
 
     gw = LLMGateway()
-    events = [e async for e in gw.astream([{"role": "user", "content": "上海天气"}], model="ihui/glm-5.3-flash")]
+    events = [e async for e in gw.astream([{"role": "user", "content": "上海天气"}], model="agnes/agnes-2.5-flash")]
 
     # 两次调用:先流式后非流式
     assert [c["stream"] for c in call_log] == [True, False]
@@ -129,8 +129,7 @@ async def test_guard_stream_falls_back_to_non_stream(monkeypatch):
 @pytest.mark.asyncio
 async def test_normal_stream_does_not_fallback(monkeypatch):
     """负向:正常流(id 非守卫)不触发回退,acompletion 仅调用一次。"""
-    monkeypatch.setattr(settings, "llm_providers", json.dumps({"ihui_relay": {"api_key": "sk-test"}}))
-    monkeypatch.setattr("app.core.llm_gateway._detect_ihui_relay_base", lambda: "https://new.x5m5x.com/v1")
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"agnes": {"api_key": "sk-test"}}))
     call_log: list[dict] = []
     normal_chunks = [
         _delta_chunk("chatcmpl-abc123", "你好"),
@@ -139,7 +138,7 @@ async def test_normal_stream_does_not_fallback(monkeypatch):
     _fake_litellm_module(monkeypatch, [normal_chunks], _fake_non_stream_response("不应出现"), call_log)
 
     gw = LLMGateway()
-    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}], model="ihui/glm-5.3-flash")]
+    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}], model="agnes/agnes-2.5-flash")]
 
     assert len(call_log) == 1 and call_log[0]["stream"] is True
     chunk_texts = [e["content"] for e in events if e["type"] == "chunk"]
