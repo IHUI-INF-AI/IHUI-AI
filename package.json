@@ -183,7 +183,8 @@
     "check:miniapp-css-landing": "node scripts/check-miniapp-css-landing.mjs --min-coverage 0.9",
     "check:miniapp-css-landing:report": "node scripts/check-miniapp-css-landing.mjs --min-coverage 0",
     "check:sdk-publish": "node --test packages/sdk/tests/publish-ready.test.mjs",
-    "check:sheet-flex": "node scripts/check-sheet-flex-contract.mjs"
+    "check:sheet-flex": "node scripts/check-sheet-flex-contract.mjs",
+    "qoder:import": "pnpm --filter @ihui/api qoder:import"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "contributors": [
