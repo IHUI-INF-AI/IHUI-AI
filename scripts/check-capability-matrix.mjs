@@ -10,6 +10,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
 
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 /**
  * check-capability-matrix.mjs — 能力台账静态对账门(V3 #57,2026-09-26 立)
@@ -65,12 +67,12 @@ const ROOT_DEFAULT = join(fileURLToPath(import.meta.url), '..', '..')
 const args = process.argv.slice(2)
 const quiet = args.includes('--quiet')
 const selfTest = args.includes('--self-test')
-const rootFlagIdx = args.indexOf('--root')
-const ROOT_HAS_VALUE = rootFlagIdx >= 0 && !!args[rootFlagIdx + 1] && !args[rootFlagIdx + 1].startsWith('-')
-const ROOT = ROOT_HAS_VALUE ? resolvePath(args[rootFlagIdx + 1]) : ROOT_DEFAULT
-if (rootFlagIdx >= 0 && !ROOT_HAS_VALUE) {
+// G-322:--root 的取值一律走 scripts/lib/flag-value.mjs 单源(本器不再自己算 `args[i + 1]`)。
+const rootFlag = requireFlagValue(args, '--root', { noun: '目录值' })
+const ROOT = rootFlag.value ? resolvePath(rootFlag.value) : ROOT_DEFAULT
+if (rootFlag.error) {
   // --root 给了开关却没值:静默退回真仓 = 夹具扫真仓的假绿(守门 70 那一型),判死。
-  console.error('❌ check-capability-matrix: --root 必须带目录值(未判定,exit 2)')
+  console.error(`❌ check-capability-matrix: ${rootFlag.error}(未判定,exit 2)`)
   process.exit(2)
 }
 

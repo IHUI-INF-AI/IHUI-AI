@@ -1,10 +1,8 @@
 {
   "$schemaNote": "对标交付核验尺子(票 D140)的断言登记表。这里登记的是**判据**(一条差距拆成哪几条可机器判的子断言、各挂哪些候选锚点),不是读数基线 —— 读数一律每次现跑 `node scripts/audit-benchmark-delivery.mjs` 取,禁止把某个数字写回本表(那等于给'文档与代码脱节'发通行证,照 scripts/check-plan-sha-resolvable.mjs 那条'warn 级 + 禁 --update'的先例)。docAnchor 必须是文档里的**内容**串而不是行号:台账明令'证据指针禁止写行号'(AGENTS §1),行号在任何一次追加后都会挪位。",
+  "$exemptNote": "G-217 补牙(2026-10-23):`--strict` 下「仍存在(文档与代码脱节)」也顶红。合法暂态(等拍板/分阶段落地)的唯一出口 = 本条两字段 `exemptUntil`(YYYY-MM-DD,会到期)+ `exemptReason`(≥10 字定向说明):缺一半/理由过短/日期形态坏/已到期 ⇒ 视同无豁免顶红;豁免挂在非「仍存在」条上 ⇒ 豁免粘连判腐烂顶红(AGENTS §0.7 验过才免且会到期、§0.10 失效方向不许走成白名单)。锚点随实现改名而更新属尺子防锈(如 #D174 frameTraceIdOfLine→frameMetaOfLine),不是削判据。",
   "$addingNote": "新增一条:① 在被引文档里找到该条目的原文,取一段稳定文字作 docAnchor;② 把这条差距拆成 blocking 子断言(整票判'已交付'会把未拆的半边洗白 —— 本表 #51 就是这个型,stub 半边另列为 observations);③ 每条子断言的 anchors[].paths 必须**同时挂文档字面路径与搬家后的真路径**(V3 #73 字面说 pages/ 下无 chat,真身在 pkg-ai/ 子包 —— 只按字面路径判会得到'仍存在'的假差距);④ 判'缺'之前正则里必须带上别名集(rewind/revert/backtrack 同型),不得按单一标识符零命中就记'没有'。",
-  "docs": [
-    "docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md",
-    "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"
-  ],
+  "docs": ["docs/AI_CHAT_BENCHMARK_ANALYSIS_V3.md", "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"],
   "claims": [
     {
       "id": "#51",
@@ -17,9 +15,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/services/task_executors.py"
-              ],
+              "paths": ["apps/ai-service/app/services/task_executors.py"],
               "regex": "IMPLEMENTED_TASK_TYPES\\s*[:=]",
               "expect": "present"
             }
@@ -30,9 +26,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/services/dag_scheduler.py"
-              ],
+              "paths": ["apps/ai-service/app/services/dag_scheduler.py"],
               "regex": "真实分派",
               "expect": "present"
             }
@@ -45,9 +39,7 @@
           "blocking": false,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/services/task_executors.py"
-              ],
+              "paths": ["apps/ai-service/app/services/task_executors.py"],
               "regex": "STUB_TASK_TYPES",
               "expect": "present"
             }
@@ -82,15 +74,15 @@
       "doc": "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md",
       "docAnchor": "add_director|extraDir|additionalDir|multiRoot",
       "title": "竞品控制帧 add_directories(一次挂多个工作根)无我方等价能力",
+      "exemptUntil": "2026-11-23",
+      "exemptReason": "V4 D141 判定表唯一「真缺」行(多根工作区追加目录):属新增对外能力,按 AGENTS §24 须机主拍板,预填方案 apps/cli --add-dir + ToolContext.additionalDirectories(deny-by-default)已登记在案;拍板前保持登记态即合法暂态。到期未拍板 ⇒ 复判,不得静默续期。",
       "assertions": [
         {
           "text": "CLI 工具面有'追加工作根目录'这一类入参(别名集一起找,不按单一标识符零命中记'没有')",
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/cli/src/tools/index.ts"
-              ],
+              "paths": ["apps/cli/src/tools/index.ts"],
               "regex": "add_director|extraDir|additionalDir|multiRoot|additionalRoots",
               "expect": "present"
             }
@@ -109,9 +101,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/core/permission_mode.py"
-              ],
+              "paths": ["apps/ai-service/app/core/permission_mode.py"],
               "regex": "CHAT_MODE_TOOL_AXIS",
               "expect": "present"
             }
@@ -144,9 +134,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/approved-rules-panel.tsx"
-              ],
+              "paths": ["apps/web/src/components/ai/approved-rules-panel.tsx"],
               "regex": "放行规则|approved-rules|revoke",
               "expect": "present"
             }
@@ -157,9 +145,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/i18n/messages/web/zh-CN.json"
-              ],
+              "paths": ["packages/i18n/messages/web/zh-CN.json"],
               "regex": "grantRuleDesc|envAllowTargetAlways",
               "expect": "present"
             }
@@ -178,9 +164,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/services/network_approval.py"
-              ],
+              "paths": ["apps/ai-service/app/services/network_approval.py"],
               "regex": "def grant_network_target",
               "expect": "present"
             }
@@ -191,9 +175,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/services/approval_persistence.py"
-              ],
+              "paths": ["apps/ai-service/app/services/approval_persistence.py"],
               "regex": "def describe_exec_environment",
               "expect": "present"
             }
@@ -234,9 +216,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/database/src/schema/llm-call-logs.ts"
-              ],
+              "paths": ["packages/database/src/schema/llm-call-logs.ts"],
               "regex": "traceId: varchar\\('trace_id'",
               "expect": "present"
             }
@@ -247,9 +227,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/database/drizzle/20260929120000_llm_call_logs_trace_id.sql"
-              ],
+              "paths": ["packages/database/drizzle/20260929120000_llm_call_logs_trace_id.sql"],
               "regex": "ADD COLUMN IF NOT EXISTS \"trace_id\"",
               "expect": "present"
             }
@@ -268,9 +246,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/chat/connection-status-bar.tsx"
-              ],
+              "paths": ["apps/web/src/components/chat/connection-status-bar.tsx"],
               "regex": "deriveConnectionState",
               "expect": "present"
             }
@@ -289,30 +265,24 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/core/sse_contract.py"
-              ],
+              "paths": ["apps/ai-service/app/core/sse_contract.py"],
               "regex": "SSE_TRACE_ID_PAYLOAD_KEY",
               "expect": "present"
             },
             {
-              "paths": [
-                "packages/shared/src/sse/contract.ts"
-              ],
+              "paths": ["packages/shared/src/sse/contract.ts"],
               "regex": "SSE_TRACE_ID_PAYLOAD_KEY|traceId",
               "expect": "present"
             }
           ]
         },
         {
-          "text": "前端解析面在泛化兜底之前认领该键(三次同型的唯一判据)",
+          "text": "前端解析面在泛化兜底之前认领该键(G-248 R1 起认领点已从 frameTraceIdOfLine 泛化为 frameMetaOfLine:SSEEventMeta 全部顶层注入字段的唯一认领点,三次同型的判据不变)",
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/shared/src/utils/sse-parse.ts"
-              ],
-              "regex": "frameTraceIdOfLine",
+              "paths": ["packages/shared/src/utils/sse-parse.ts"],
+              "regex": "frameMetaOfLine",
               "expect": "present"
             }
           ]
@@ -330,9 +300,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"
-              ],
+              "paths": ["docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"],
               "regex": "## 十二、竞品缺口清单",
               "expect": "present"
             }
@@ -351,9 +319,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"
-              ],
+              "paths": ["docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"],
               "regex": "^## 十、实施级开发计划",
               "expect": "present"
             }
@@ -364,9 +330,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"
-              ],
+              "paths": ["docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md"],
               "regex": "^## 十一、票面勘误与待拍板决策索引",
               "expect": "present"
             }
@@ -385,16 +349,12 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/core/sse_contract.py"
-              ],
+              "paths": ["apps/ai-service/app/core/sse_contract.py"],
               "regex": "terminal_interaction",
               "expect": "present"
             },
             {
-              "paths": [
-                "packages/shared/src/sse/contract.ts"
-              ],
+              "paths": ["packages/shared/src/sse/contract.ts"],
               "regex": "terminal_interaction",
               "expect": "present"
             }
@@ -405,9 +365,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/shared/src/utils/sse-parse.ts"
-              ],
+              "paths": ["packages/shared/src/utils/sse-parse.ts"],
               "regex": "terminal_interaction",
               "expect": "present"
             }
@@ -418,9 +376,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/services/mcp_server.py"
-              ],
+              "paths": ["apps/ai-service/app/services/mcp_server.py"],
               "regex": "TERMINAL_INTERACTION_WAIT_TIMEOUT_S",
               "expect": "present"
             }
@@ -433,9 +389,7 @@
           "blocking": false,
           "anchors": [
             {
-              "paths": [
-                "scripts/data/sse-dispatch-coverage.json"
-              ],
+              "paths": ["scripts/data/sse-dispatch-coverage.json"],
               "regex": "extension",
               "expect": "present"
             }
@@ -454,9 +408,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/api-client/src/client.ts"
-              ],
+              "paths": ["packages/api-client/src/client.ts"],
               "regex": "export function readStreamTraceId|onTraceId?:",
               "expect": "present"
             }
@@ -491,9 +443,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/api/src/routes/chat.ts"
-              ],
+              "paths": ["apps/api/src/routes/chat.ts"],
               "regex": "auto-title",
               "expect": "present"
             }
@@ -504,9 +454,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/hooks/use-chat/send-message.ts"
-              ],
+              "paths": ["apps/web/src/hooks/use-chat/send-message.ts"],
               "regex": "autoTitleAfterFirstTurn",
               "expect": "present"
             }
@@ -525,9 +473,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/hooks/use-chat/smooth-delta-batcher.ts"
-              ],
+              "paths": ["apps/web/src/hooks/use-chat/smooth-delta-batcher.ts"],
               "regex": "Math\\.ceil\\(remaining / 8\\)",
               "expect": "present"
             }
@@ -546,9 +492,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/markdown-stream.tsx"
-              ],
+              "paths": ["apps/web/src/components/ai/markdown-stream.tsx"],
               "regex": "showLineNumbers=",
               "expect": "present"
             }
@@ -567,9 +511,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/shared/src/chat/mention-engine.ts"
-              ],
+              "paths": ["packages/shared/src/chat/mention-engine.ts"],
               "regex": "MENTION_DIMENSIONS",
               "expect": "present"
             }
@@ -580,9 +522,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/hooks/use-context-selector.ts"
-              ],
+              "paths": ["apps/web/src/hooks/use-context-selector.ts"],
               "regex": "parseMentionTrigger|dimensionsForSigil",
               "expect": "present"
             }
@@ -601,9 +541,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/chat/message-list/file-chips.tsx"
-              ],
+              "paths": ["apps/web/src/components/chat/message-list/file-chips.tsx"],
               "regex": "MessageFileChips",
               "expect": "present"
             }
@@ -622,9 +560,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/chat/message-list/turn-changes-card.tsx"
-              ],
+              "paths": ["apps/web/src/components/chat/message-list/turn-changes-card.tsx"],
               "regex": "TurnChangesCard",
               "expect": "present"
             }
@@ -643,9 +579,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/api-client/src/client.ts"
-              ],
+              "paths": ["packages/api-client/src/client.ts"],
               "regex": "type === 'usage'",
               "expect": "present"
             }
@@ -664,9 +598,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/api-client/src/client.ts"
-              ],
+              "paths": ["packages/api-client/src/client.ts"],
               "regex": "Last-Event-ID",
               "expect": "present"
             }
@@ -677,9 +609,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/api-client/src/client.ts"
-              ],
+              "paths": ["packages/api-client/src/client.ts"],
               "regex": "dedupe",
               "expect": "present"
             }
@@ -698,10 +628,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/api/src/routes/message.ts",
-                "apps/api/src/db/chat-queries.ts"
-              ],
+              "paths": ["apps/api/src/routes/message.ts", "apps/api/src/db/chat-queries.ts"],
               "regex": "nextCursor",
               "expect": "present"
             }
@@ -720,9 +647,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/core/sse_contract.py"
-              ],
+              "paths": ["apps/ai-service/app/core/sse_contract.py"],
               "regex": "SSE_",
               "expect": "present"
             }
@@ -733,9 +658,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/shared/src/sse/contract.ts"
-              ],
+              "paths": ["packages/shared/src/sse/contract.ts"],
               "regex": "export",
               "expect": "present"
             }
@@ -798,9 +721,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/code-block-run.ts"
-              ],
+              "paths": ["apps/web/src/components/ai/code-block-run.ts"],
               "regex": "python3|npx",
               "expect": "present"
             }
@@ -833,9 +754,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/chat/sampling-params-panel.tsx"
-              ],
+              "paths": ["apps/web/src/components/chat/sampling-params-panel.tsx"],
               "regex": "persona",
               "expect": "present"
             }
@@ -854,9 +773,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/chat/diff-comments-bar.tsx"
-              ],
+              "paths": ["apps/web/src/components/chat/diff-comments-bar.tsx"],
               "regex": "DiffCommentsBar",
               "expect": "present"
             }
@@ -875,9 +792,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/ai-side-panel-tools.tsx"
-              ],
+              "paths": ["apps/web/src/components/ai/ai-side-panel-tools.tsx"],
               "regex": "'kanban'",
               "expect": "present"
             }
@@ -896,9 +811,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/lib/reasoning-sections.ts"
-              ],
+              "paths": ["apps/web/src/lib/reasoning-sections.ts"],
               "regex": "splitReasoningSections",
               "expect": "present"
             }
@@ -917,9 +830,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/chat/sr-stream-announcer.tsx"
-              ],
+              "paths": ["apps/web/src/components/chat/sr-stream-announcer.tsx"],
               "regex": "aria-live=\"polite\"",
               "expect": "present"
             }
@@ -938,9 +849,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/lib/markdown-stable-split.ts"
-              ],
+              "paths": ["apps/web/src/lib/markdown-stable-split.ts"],
               "regex": "splitMarkdownStable",
               "expect": "present"
             }
@@ -959,9 +868,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/best-of-compare.tsx"
-              ],
+              "paths": ["apps/web/src/components/ai/best-of-compare.tsx"],
               "regex": "BestOfCompare",
               "expect": "present"
             }
@@ -980,9 +887,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/stores/worlds.ts"
-              ],
+              "paths": ["apps/web/src/stores/worlds.ts"],
               "regex": "WorldsState|WorldBranch",
               "expect": "present"
             }
@@ -993,9 +898,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/worlds-compare.tsx"
-              ],
+              "paths": ["apps/web/src/components/ai/worlds-compare.tsx"],
               "regex": "WorldsCompare",
               "expect": "present"
             }
@@ -1014,9 +917,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/trace-replay.tsx"
-              ],
+              "paths": ["apps/web/src/components/ai/trace-replay.tsx"],
               "regex": "toolCalls",
               "expect": "present"
             }
@@ -1027,9 +928,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/api/src/routes/share-content.ts"
-              ],
+              "paths": ["apps/api/src/routes/share-content.ts"],
               "regex": "toolCalls",
               "expect": "present"
             }
@@ -1048,9 +947,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "packages/database/src/schema/patrol.ts"
-              ],
+              "paths": ["packages/database/src/schema/patrol.ts"],
               "regex": "pgTable",
               "expect": "present"
             }
@@ -1061,9 +958,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/api/src/routes/patrol.ts"
-              ],
+              "paths": ["apps/api/src/routes/patrol.ts"],
               "regex": "patrol",
               "expect": "present"
             }
@@ -1074,9 +969,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/api/src/index.ts"
-              ],
+              "paths": ["apps/api/src/index.ts"],
               "regex": "startPatrolScheduler",
               "expect": "present"
             }
@@ -1095,9 +988,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/routers/llm.py"
-              ],
+              "paths": ["apps/ai-service/app/routers/llm.py"],
               "regex": "_inject_memory_graph",
               "expect": "present",
               "minCount": 2
@@ -1117,9 +1008,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/ai-side-panel-tools.tsx"
-              ],
+              "paths": ["apps/web/src/components/ai/ai-side-panel-tools.tsx"],
               "regex": "atomicrollback|AtomicRollbackPanel",
               "expect": "present"
             }
@@ -1138,9 +1027,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/cost-estimate-bar.tsx"
-              ],
+              "paths": ["apps/web/src/components/ai/cost-estimate-bar.tsx"],
               "regex": "CostEstimateBar",
               "expect": "present"
             }
@@ -1159,9 +1046,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/ai/ai-side-panel-tools.tsx"
-              ],
+              "paths": ["apps/web/src/components/ai/ai-side-panel-tools.tsx"],
               "regex": "'swarm'|'orchestration'",
               "expect": "present"
             }
@@ -1196,9 +1081,7 @@
           "blocking": false,
           "anchors": [
             {
-              "paths": [
-                "apps/ai-service/app/routers/self_healing.py"
-              ],
+              "paths": ["apps/ai-service/app/routers/self_healing.py"],
               "regex": "AGENT_SELF_HEALING_ENABLED",
               "expect": "present"
             }
@@ -1217,9 +1100,7 @@
           "blocking": true,
           "anchors": [
             {
-              "paths": [
-                "apps/web/src/components/chat/voice-stream-speaker.tsx"
-              ],
+              "paths": ["apps/web/src/components/chat/voice-stream-speaker.tsx"],
               "regex": "VOICE_PLAYBACK_KEY|VoicePlaybackToggle",
               "expect": "present"
             }

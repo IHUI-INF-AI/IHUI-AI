@@ -44,6 +44,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120000
@@ -528,8 +530,13 @@ function main() {
     process.exitCode = 2
     return
   }
-  const ti = argv.indexOf('--today')
-  const today = ti >= 0 ? argv[ti + 1] : new Date().toISOString().slice(0, 10)
+  const ti = requireFlagValue(argv, '--today', { noun: 'ISO 日期(YYYY-MM-DD)' })
+  if (ti.error) {
+    console.error(`❌ ${ti.error}`)
+    process.exitCode = 2
+    return
+  }
+  const today = ti.value ?? new Date().toISOString().slice(0, 10)
   if (!ISO_DATE.test(today)) {
     console.error(`❌ --today 不是 ISO 日期:${today}`)
     process.exitCode = 2

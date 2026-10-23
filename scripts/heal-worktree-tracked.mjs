@@ -46,6 +46,7 @@
  *     逐条 `git log --find-object=<blob> -- <path>` 人工定性,不是把门弄绿。
  */
 import {
+  appendFileSync,
   copyFileSync,
   existsSync,
   lstatSync,
@@ -472,35 +473,115 @@ function splitFreshWorktreePaths(repoRoot, paths, guardMs) {
  *    账坏了不该让整层崩掉(G-794 同一取向);而空集合的失效方向是"照原判据恢复",
  *    那正是改前的行为,不是新的破坏面。
  */
-export function recentlyClearedStagedIntent(repoRoot) {
-  const out = new Set()
+function readIntentLedger(repoRoot) {
   let raw
   try {
-    raw = readFileSync(join(repoRoot, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'), 'utf8')
+    raw = readFileSync(
+      join(repoRoot, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
+      'utf8',
+    )
   } catch {
-    return out // 账不存在 = 从没发生过清空 ⇒ 无证据(调用点按判不出处理,不做写动作)
+    return [] // 账不存在 = 从没发生过清空 ⇒ 无证据(调用点按判不出处理,不做写动作)
   }
+  const recs = []
   for (const line of raw.split('\n')) {
     const s = line.trim()
     if (!s) continue
-    let rec
     try {
-      rec = JSON.parse(s)
+      const rec = JSON.parse(s)
+      if (rec && typeof rec === 'object') recs.push(rec)
     } catch {
-      continue // 半截行(并发 append 撞上)不折进结论,也不让整层崩
+      // 半截行(并发 append 撞上)不折进结论,也不让整层崩
     }
-    if (!rec || rec.actionTaken !== 'report-only') continue
+  }
+  return recs
+}
+
+/**
+ * 单源解析:路径 ⇒ **该路径最后一次被记进账的那一条事件**(含 actionTaken 与 ts)。
+ *
+ * 为什么必须"只看最新一条":2026-10-23 到期档落地后自审出的边界 —— 若读侧看"历史上任意一条
+ * report-only",那么一枚曾被摘过标的路径会永久带着那枚陈旧时刻;归属会话哪天再删它,
+ * 陈旧时刻早就超 TTL ⇒ 被"秒到期"立刻回盘,保护形同虚设。只看最新一条之后:
+ * 新一次摘标会由 safe-commit 落下新的 report-only(时刻新 ⇒ 保护照在),
+ * 而一次到期回盘后的再删没有新证据 ⇒ 按原判据①正常恢复,不留幽灵保护也不误伤。
+ */
+function latestIntentEventByPath(repoRoot) {
+  const latest = new Map()
+  for (const rec of readIntentLedger(repoRoot)) {
+    const ts = typeof rec.ts === 'string' ? rec.ts : ''
+    const actionTaken = typeof rec.actionTaken === 'string' ? rec.actionTaken : ''
     for (const p of Array.isArray(rec.clearedIntentLost) ? rec.clearedIntentLost : []) {
-      if (typeof p === 'string' && p) out.add(normRepoPath(p))
+      if (typeof p !== 'string' || !p) continue
+      const key = normRepoPath(p)
+      const prev = latest.get(key)
+      // 时刻缺失的记录也必须留在投影里(既有形状锁钉着:账可以没有 ts,不能没有证据)
+      if (!prev || (ts && ts >= prev.ts)) latest.set(key, { ts, actionTaken })
     }
+  }
+  return latest
+}
+
+export function recentlyClearedStagedIntent(repoRoot) {
+  return new Set(stagedIntentLatestTsByPath(repoRoot).keys())
+}
+
+/**
+ * 同一次读账的第二把投影:仍处"待裁决"那一档的路径 ⇒ 它最后一次被摘标的时间戳。
+ *
+ * 为什么要有这把:2026-10-23 实测 —— 38 枚跟踪文件按"只报数不代裁"在盘上缺了 10 小时,
+ * web/api typecheck 因此恒红、门 236 门体不在面上,而**归属会话早已停摆**,那枚删除意图
+ * 永远不会有人再 stage。"分不清就不动"的失效方向在这条线上变成了"仓库长期验不动",
+ * 而它本来该是"多要一次定向说明"。所以给这一档加**到期**:超 TTL 仍缺 ⇒ 文件回盘(内容恒等于
+ * HEAD,零丢失),同时把逐字路径清单写回同一本账的新事件里 ⇒ 意图没有消失,只是换了载体。
+ *
+ * 判序纪律不变:与 `recentlyClearedStagedIntent` 共用同一次 parse(§0.6 单一真相源),
+ * 账取不到 ⇒ 空 Map ⇒ 调用方按"无证据"走原判据,不新增破坏面。
+ */
+export function stagedIntentLatestTsByPath(repoRoot) {
+  const out = new Map()
+  for (const [p, ev] of latestIntentEventByPath(repoRoot)) {
+    if (ev.actionTaken === 'report-only') out.set(p, ev.ts) // 非 report-only ⇒ 该路径已处置,不再保护
   }
   return out
 }
 
+/** TTL 现读(小时),默认 2;非法值一律回落默认,不靠环境变量把档位改没。 */
+export function intentExpiryTtlHours(env = process.env) {
+  const v = Number(env.IHUI_STAGED_INTENT_TTL_HOURS)
+  return Number.isFinite(v) && v > 0 ? v : 2
+}
+
+/**
+ * 到期恢复后把意图逐字写回同一本账(新事件名 + `actionTaken` 非 report-only ⇒ 读侧不再当它
+ * 是"待裁决",也不会自我循环)。这一步必须排在**落地成功之后**:先写后落会把"面上还在"
+ * 说成"已删"。写失败只喊一行,不撤销已经成功的恢复。
+ */
+export function appendIntentExpiryLedger(repoRoot, paths, { ttlHours, headSha = '' } = {}) {
+  const line = JSON.stringify({
+    ts: new Date().toISOString(),
+    event: 'staged-intent-expiry-restored',
+    actionTaken: 'restored-intent-expired',
+    ttlHours,
+    headSha,
+    clearedIntentLost: paths,
+  })
+  try {
+    const dir = join(repoRoot, '.ihui-agent', 'state')
+    mkdirSync(dir, { recursive: true })
+    appendFileSync(join(dir, 'staged-delete-intent-ledger.jsonl'), line + '\n', 'utf8')
+    return true
+  } catch (e) {
+    console.log(`⚠️ 到期恢复的意图留痕写不进账(${e?.message ?? e})—— 文件已回盘,清单见本行末尾: ${paths.join(', ')}`)
+    return false
+  }
+}
+
 /** 工作区缺失但索引与 HEAD 完全一致的已跟踪文件 = 被外部删除 */
-export function findOrphanedDeletions(repoRoot) {
+export function findOrphanedDeletions(repoRoot, { now = Date.now(), ttlHours = intentExpiryTtlHours() } = {}) {
   const g = makeGit(repoRoot)
   const st = g(['status', '--porcelain', '-z'])
+  const intentTsByPath = stagedIntentLatestTsByPath(repoRoot)
   const safe = []
   const held = []
   /**
@@ -510,6 +591,8 @@ export function findOrphanedDeletions(repoRoot) {
    * (索引面已被覆盖,标记已经不在了)——折进同一格会让账面读起来像"标记还在,只是没碰"。
    */
   const intentLost = []
+  /** 同一档的**到期分支**(2026-10-23 立):账上有点名、但摘标已超 TTL ⇒ 回盘 + 意图转留痕 */
+  const intentExpired = []
   /**
    * **只报不修**的一类:`git status` 首列 `D ` —— 索引里没有、磁盘也没有,而 HEAD 有该路径。
    * 两种成因在机器上分不开:① 会话有意 `git rm`(暂存删除,尚未提交);② 旁路提交
@@ -568,14 +651,24 @@ export function findOrphanedDeletions(repoRoot) {
       //
       // ⚠️ 这一档**只把该路径从 safe 移到 intentLost(报数)**,不改任何既有判据:
       // 索引/HEAD/工作树三条的算法、其余分支、退出码面全部逐字未动。
-      if (recentlyClearedStagedIntent(repoRoot).has(normRepoPath(path))) {
+      if (intentTsByPath.has(normRepoPath(path))) {
+        const seenAt = Date.parse(intentTsByPath.get(normRepoPath(path)) || '')
+        const age = Number.isFinite(seenAt) ? now - seenAt : NaN
+        if (Number.isFinite(age) && age > ttlHours * 3600_000) {
+          // 超 TTL 仍缺 ⇒ 归属会话已不在(本仓班次硬上限 60 分钟,2h 已是三倍),
+          // 而内容恒等于 HEAD、回盘零丢失 ⇒ 走恢复,意图逐字转进新留痕(见 appendIntentExpiryLedger)。
+          intentExpired.push(path)
+          safe.push(path)
+          continue
+        }
+        // TTL 内、或账上时刻根本读不出 ⇒ 照旧"只报数不代裁"(§0.3:判不出不是恢复的许可证)
         intentLost.push(path)
         continue
       }
       safe.push(path)
     } else if (!indexBlob) held.push(path) // 索引里也没有:他人已暂存删除,不碰
   }
-  return { safe, held, orphanIndex, intentLost }
+  return { safe, held, orphanIndex, intentLost, intentExpired }
 }
 
 /**
@@ -1974,11 +2067,13 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       paths: [],
       intentLost: 0,
       intentLostPaths: [],
+      intentExpired: 0,
+      intentExpiredPaths: [],
       layerSkips: [mergeSkipEntry(mh, '工作区存续自愈整轮(存续恢复/陈旧索引孤儿对齐)')],
       mergeInProgress: true,
     }
   }
-  const { safe, held, orphanIndex, intentLost } = findOrphanedDeletions(repoRoot)
+  const { safe, held, orphanIndex, intentLost, intentExpired } = findOrphanedDeletions(repoRoot)
   const rec = reconcileStaleIndexOrphans(repoRoot, { dryRun })
   // 让路原因必须随返回值走:reconcile 跳过 ≠ 无事发生(G-794 —— 旧形状里这一层的跳过只剩
   // 一个 reconciled:0,读报告的人无从知道它是"被锁挡了"还是"本来就没有"。)
@@ -1986,6 +2081,7 @@ export function heal(repoRoot, { dryRun = false } = {}) {
   // G-1018292:这一档不进 restored,也不进 paths(那是"已恢复"的清单),单列一个字段 ——
   // 折进 paths 会让读日志的人以为这些文件已回到盘上,而它们**恰恰没有**(那正是本票的事故)。
   const intentLostPaths = [...intentLost]
+  const intentExpiredPaths = [...intentExpired]
   if (!safe.length)
     return {
       restored: 0,
@@ -1995,6 +2091,8 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       paths: [],
       intentLost: intentLostPaths.length,
       intentLostPaths,
+      intentExpired: intentExpiredPaths.length,
+      intentExpiredPaths,
       layerSkips,
     }
   if (dryRun)
@@ -2006,11 +2104,27 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       paths: safe,
       intentLost: intentLostPaths.length,
       intentLostPaths,
+      intentExpired: intentExpiredPaths.length,
+      intentExpiredPaths,
       dryRun: true,
       layerSkips,
     }
   const g = makeGit(repoRoot)
   const { done, deferred, viaIndex } = restoreToHead(g, safe)
+  // 留痕必须排在落地成功之后(先写后落会把"面上还在"说成"已删",复洁器就会误剔)。
+  const expiredRestored = intentExpiredPaths.filter((p) => done.includes(p))
+  if (expiredRestored.length) {
+    appendIntentExpiryLedger(repoRoot, expiredRestored, {
+      ttlHours: intentExpiryTtlHours(),
+      headSha: (() => {
+        try {
+          return g(['rev-parse', 'HEAD']).trim()
+        } catch {
+          return ''
+        }
+      })(),
+    })
+  }
   return {
     restored: done.length,
     held: held.length,
@@ -2025,6 +2139,9 @@ export function heal(repoRoot, { dryRun = false } = {}) {
     // G-1018292:报数档(删除意图被共享索引清空摘掉标记 ⇒ 分不清是宿主误删还是有意删除,不代裁)。
     intentLost: intentLostPaths.length,
     intentLostPaths,
+    // 2026-10-23 到期档:摘标超 TTL 且此刻仍缺 ⇒ 回盘(内容==HEAD)+ 意图逐字转进新留痕
+    intentExpired: expiredRestored.length,
+    intentExpiredPaths: expiredRestored,
     layerSkips,
     // 延后的原因不能只留一个数字:锁在位 / 疑似悬挂 / 此刻无锁(⇒ 前提复核不成立)是三种结论
     ...(deferred.length ? { lockStateAtReport: probeIndexLock(repoRoot, g) } : {}),
@@ -3242,8 +3359,19 @@ async function main() {
         : '') +
       (res.orphanIndex
         ? `;⚠️ ${res.orphanIndex} 个路径 HEAD 有而索引+磁盘都无(旁路提交孤儿或有意 git rm;恢复走 --align-drift 第四层,四判据可证才修,其余只报数)`
-        : ''),
+        : '') +
+      // 2026-10-23 到期档:摘标超 TTL 的删除意图不再无限期拖着整仓验不动(实测拖了 10 小时,
+      // web/api typecheck 恒红、门 236 门体不在面上)。回盘零丢失(内容==HEAD),
+      // 意图逐字转进同一本账的新事件 ⇒ 归属会话照样能坐实那次删除。
+      (res.intentExpired ? `;另有 ${res.intentExpired} 个删除意图摘标已超 TTL ⇒ 文件回盘、意图转入留痕` : ''),
   )
+  if (res.intentExpiredPaths?.length) {
+    console.log(
+      '   意图清单已逐字写回 .ihui-agent/state/staged-delete-intent-ledger.jsonl(event=staged-intent-expiry-restored)' +
+        ` —— 归属会话要坐实删除: git rm --cached -- ${res.intentExpiredPaths.slice(0, 3).join(' ')}${res.intentExpiredPaths.length > 3 ? ' …' : ''}`,
+    )
+    for (const p of res.intentExpiredPaths.slice(0, 20)) console.log('   ↩ 到期回盘 ' + p)
+  }
   for (const p of res.paths.slice(0, 20)) console.log('   - ' + p)
   if (res.intentLostPaths?.length) {
     for (const p of res.intentLostPaths.slice(0, 20))
@@ -3283,6 +3411,10 @@ if (isDirectRun) {
 
 export const __test__ = {
   findOrphanedDeletions,
+  // 2026-10-23 到期档三件(判据单源在此,测试不许另抄一份 —— §22c)
+  stagedIntentLatestTsByPath,
+  intentExpiryTtlHours,
+  appendIntentExpiryLedger,
   heal,
   alignDrifts,
   refreshStaleIndex,
