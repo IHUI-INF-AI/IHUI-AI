@@ -933,6 +933,36 @@ function Invoke-WorktreeAlign {
         Remove-Item $outFile, "$outFile.err" -Force -ErrorAction SilentlyContinue
     }
 }
+function Invoke-DriftAlignToRemoteTip {
+    # 2026-10-23 加:幻影漂移对齐的**第二条判据**(不依赖旁路落地台账)。
+    # 现场:`heal-worktree-tracked.mjs --align-drift` 要先读
+    # `.ihui-agent/state/safe-commit-attestation.jsonl` 才能证明"这份陈旧由哪一次落地造成";
+    # 而 prod 签出里没有那份台账(它长在开发工作区)⇒ 每轮都报"可判定 0 个/未判定",
+    # 于是**内容已经等于即将合入的那枚提交**的文件照样进 BLOCKED-WIP,部署环永久停在
+    # "有人正在写,等对方收尾"的结论上(实测 17:11:14 与 17:12:53 两轮 FAIL)。
+    # 本函数补一条更强、无需台账的证明:**该路径工作树内容 == 本轮钉住的远端 tip 的内容**
+    # ⇒ 它不可能是"别人的在途编辑"(那份内容本来就要由这次 ff 写进盘),`git checkout --`
+    # 只把"未提交"这个标记清掉,内容零变化,ff 之后仍是同一份字节。
+    # 只处理未暂存的 ` M` 项:暂存项(`M `/`MM`)说明索引里也有东西,不在本函数职权内,照旧交人工。
+    param([string]$Tip)
+    if (-not $Tip) { return 0 }
+    $aligned = 0
+    foreach ($entry in (Get-TrackedDirtyEntry)) {
+        if ($entry -notmatch '^ M (.+)$') { continue }
+        $rel = $Matches[1].Trim()
+        if (-not $rel) { continue }
+        & git -C $Root diff --quiet $Tip -- $rel 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { continue }   # 与 tip 内容不同 ⇒ 真编辑,绝不动
+        & git -C $Root checkout -- $rel 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            $aligned++
+            Log "  [align-tip] 已清标记(内容与本轮 tip 逐字节相同,ff 后仍是同一份):$rel"
+        } else {
+            Log "WARN  [align-tip] 清理失败(不动,照旧进 BLOCKED-WIP):$rel"
+        }
+    }
+    return $aligned
+}
 function Report-BlockedWip {
     param([string[]]$Entries)
     # 一句话把成因钉在日志里(轮询外壳会把本输出实时落进 deploy-loop.log,可 grep BLOCKED-WIP)
@@ -2473,6 +2503,11 @@ if ($behind -gt 0) {
     if ($dirtyBefore.Count -gt 0) {
         Log "ff-only 前置:检测到 $($dirtyBefore.Count) 个被跟踪文件有未提交改动 → 先做幻影漂移对齐(真编辑不碰)"
         Invoke-WorktreeAlign | Out-Null
+        # 台账缺失时 align-drift 判不出来,再用"内容==本轮 tip"这条不依赖台账的判据收一遍。
+        $alignedByTip = Invoke-DriftAlignToRemoteTip -Tip $remoteTip
+        if ($alignedByTip -gt 0) {
+            Log "ff-only 前置:另按「内容==本轮 tip」清掉 $alignedByTip 个已被本次 ff 覆盖的脏标记(内容零变化)"
+        }
         $dirtyAfter = Get-TrackedDirtyEntry
         Log "ff-only 前置:对齐后剩余 $($dirtyAfter.Count) 个未提交被跟踪文件(本轮对齐掉 $($dirtyBefore.Count - $dirtyAfter.Count) 个)"
     }
