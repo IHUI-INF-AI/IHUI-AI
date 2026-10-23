@@ -193,6 +193,34 @@ describe('workbuddyAdapter.buildChatRequest', () => {
     const without = workbuddyAdapter.buildChatRequest(makeCtx(), baseReq)
     expect((without.body as Record<string, unknown>)['reasoning_effort']).toBeUndefined()
   })
+
+  it('body:采样面/工具开关透传;stop 一律数组(上游字符串形态直接 400)', () => {
+    const http = workbuddyAdapter.buildChatRequest(makeCtx(), {
+      ...baseReq,
+      topP: 0.5,
+      presencePenalty: 0.1,
+      frequencyPenalty: 0.2,
+      parallelToolCalls: false,
+      user: 'u-1',
+      serviceTier: 'auto',
+      stop: ['END'],
+    })
+    const body = http.body as Record<string, unknown>
+    expect(body['top_p']).toBe(0.5)
+    expect(body['presence_penalty']).toBe(0.1)
+    expect(body['frequency_penalty']).toBe(0.2)
+    expect(body['parallel_tool_calls']).toBe(false)
+    expect(body['user']).toBe('u-1')
+    expect(body['service_tier']).toBe('auto')
+    expect(body['stop']).toEqual(['END'])
+
+    // 防御:调用方误传字符串时也必须包成数组
+    const asString = workbuddyAdapter.buildChatRequest(makeCtx(), {
+      ...baseReq,
+      stop: 'END' as unknown as string[],
+    })
+    expect((asString.body as Record<string, unknown>)['stop']).toEqual(['END'])
+  })
 })
 
 // =============================================================================

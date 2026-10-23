@@ -95,7 +95,7 @@ vi.mock('undici', () => ({
   fetch: (...args: unknown[]) => mockUndiciFetch(...args),
 }))
 
-import { forwardToAccountPool } from '../src/services/relay-account-forwarder.js'
+import { forwardToAccountPool, __test__ as F } from '../src/services/relay-account-forwarder.js'
 import { classifyUpstreamFailure as classifyTraeFailure } from '../src/services/upstream-adapters/trae-adapter.js'
 import {
   __test__ as sharedState,
@@ -947,6 +947,17 @@ describe('forwardToAccountPool', () => {
     expect(refreshToken).toHaveBeenCalledTimes(1)
     expect(r1 && r1.ok).toBe(false)
     expect(r2 && r2.ok).toBe(false)
+  })
+})
+
+describe('mergeToolCallDelta', () => {
+  it('后续分片的空 id/name 不得覆盖首次非空值;arguments 逐片拼接', () => {
+    const slot = { args: '' }
+    F.mergeToolCallDelta(slot, { index: 0, id: 'call_1', type: 'function', function: { name: 'get_time', arguments: '' } })
+    F.mergeToolCallDelta(slot, { index: 0, id: '', function: { name: '', arguments: '{}' } })
+    expect(slot.name).toBe('get_time')
+    expect(slot.id).toBe('call_1')
+    expect(slot.args).toBe('{}')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
