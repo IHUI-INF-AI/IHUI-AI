@@ -29079,3 +29079,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 
 - [ ] **G-925 守门 77 的一百一十五处 dead-class 圆角修复(净检出分桶判定的真存量)** —— 现状:rounded-panel / rounded-control / rounded-tiny 的尾段是角色名不是档位名,Tailwind 不产出规则 ⇒ 这些元素实际圆角为 0,是真实视觉缺陷而非账面噪声;两侧读数逐字相同、基线 sites 为空 ⇒ 报在"新增"是口径设计,不存在恒红门豁免空间。修法:按 packages/design-tokens 的角色映射(tiny 对 xs、control 对 sm、card 对 lg、panel 对 xl)逐枚换成真档位;**注意这是改观感**(从无圆角到有圆角),须真机/模拟器验证后交付,禁改判据、禁往基线塞条目凑绿。
+
