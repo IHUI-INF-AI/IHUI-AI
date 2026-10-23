@@ -67,6 +67,11 @@ export interface QueueInteractionBarProps {
    * 声明到达即原样透传(true 放开插话与 steer 模式,false 仍走降级句)。
    */
   runtimeSupportsInterjection?: boolean
+  /**
+   * G-171a:是否有待决的高危工具审批(宿主从 useToolApprovalQueue().awaitingApproval
+   * 注入,本端真实来源)。可选缺省 false:未接线前行为与扩展前逐字一致。
+   */
+  awaitingApproval?: boolean
   /** 当前队列模式偏好(steer / queue) */
   mode: FollowUpMode
   /** 重排回调(fromIndex → toIndex,先摘后插);被拒时调用方不回调 */
@@ -90,6 +95,8 @@ export function QueueInteractionBar({
   mode,
   // 能力声明未落地 ⇒ 宿主不传 ⇒ 回落 false(与改造前硬编码 false 同行为,零回归)
   runtimeSupportsInterjection = false,
+  // G-171a:审批位同理 —— 宿主不传 ⇒ false,行为与扩展前一致
+  awaitingApproval = false,
   onReorder,
   onUndo,
   onEdit,
@@ -109,10 +116,14 @@ export function QueueInteractionBar({
   // 许可门统一走 D69 复用判定;插话能力由宿主注入(缺失 ⇒ false,见上契约),端内不判语义。
   // 非布尔兜底:声明面若给出非布尔(脏数据 / 旧服务端),按"没读到"处理,不误放量。
   const supportsInterjection = runtimeSupportsInterjection === true
+  // 非布尔兜底同能力位:宿主给出非布尔(脏数据)按"没读到"处理,不误拦插话
+  const awaiting = awaitingApproval === true
   const perms = queueInteractionPerms({
     runtimeSupportsInterjection: supportsInterjection,
     streaming,
     hasQueuedMessages: items.length > 0,
+    // G-171a:待决审批事实喂入 D69 许可门(awaitingApproval 拒因的真实来源)
+    awaitingApproval: awaiting,
   })
   const reorderVerdict = interactionAllowed('reorder', perms)
   const undoVerdict = interactionAllowed('undo', perms)
@@ -121,7 +132,7 @@ export function QueueInteractionBar({
   // 许可面变化(流式结束/队列清空)即过期的拒因提示随之失效,不残留旧话
   useEffect(() => {
     setDeniedHint(null)
-  }, [streaming, items.length])
+  }, [streaming, items.length, awaiting])
 
   // 模式解析:steer 偏好遇不支持插话的 Runtime ⇒ 显式降级句,不得静默降级(web 同)。
   // 支撑位同样取自能力声明(缺失 ⇒ false ⇒ steer 显式降级为 queue,与改造前同)。
@@ -150,8 +161,13 @@ export function QueueInteractionBar({
 
   const handleInterrupt = (): void => {
     if (!interruptVerdict.allowed) {
-      // D38 收口:插话被拒显式说因(能力声明未给到/给 false —— 与降级句同判据,不静默吞)
-      setDeniedHint({ action: 'interject', reason: 'runtimeNoInterject' })
+      // D38 收口:插话被拒显式说因(不静默吞)。G-171a:拒因按喂入 perms 的同一事实推导,
+      // 不臆造 —— 能力位 false ⇒ runtimeNoInterject(既有唯一因);能力 true 且拦下 ⇒
+      // 本端唯一可能的新因 awaitingApproval(controlCommand 在本端无生产者,不喂不判)。
+      setDeniedHint({
+        action: 'interject',
+        reason: supportsInterjection ? 'awaitingApproval' : 'runtimeNoInterject',
+      })
       return
     }
     // 队首只读不改:items[0] 由调用方按既有队列顺序传入(W27:选择逻辑不在此)
