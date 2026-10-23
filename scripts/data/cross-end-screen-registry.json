@@ -1,5 +1,5 @@
 {
-  "comment": "跨端页面覆盖登记表 —— (shared 真相源, rn 薄壳, miniapp 镜像页) 三元组。门 scripts/check-cross-end-screen-coverage.mjs 的 R1 逐条核验:三处文件必须真实存在,且小程序页必须含指向该 shared 路径的 `对齐目标(RN 共享屏)` 标记。字段形态(现读门体判据,别写歪):shared/rn 是仓库相对**文件路径**;miniapp 是 app.config.ts 里的**路由**(如 pkg-about/about/index),不是文件路径 —— 门按路由查页。只登记真对齐的条目,不登记凑数的。",
+  "comment": "跨端页面覆盖登记表 —— (shared 真相源, rn 薄壳, miniapp 镜像页) 三元组。门 scripts/check-cross-end-screen-coverage.mjs 的 R1 逐条核验:三处文件必须真实存在,且小程序页必须含指向该 shared 路径的 `对齐目标(RN 共享屏)` 标记。字段形态(现读门体判据,别写歪):shared/rn 是仓库相对**文件路径**;miniapp 是 app.config.ts 里的**路由**(如 pkg-about/about/index),不是文件路径 —— 门按路由查页。路由段数不固定(实测两段 pkg-about/about/index 与三段 pkg-content/recruitment/index/index 并存)，照 app.config.ts 里 root+pages 拼出的字符串逐字抄，别自己截断 —— 写短一段门就报「小程序页不存在」。只登记真对齐的条目,不登记凑数的。",
   "entries": [
     {
       "shared": "packages/app/src/features/about/AboutScreen.tsx",
@@ -9,7 +9,7 @@
     {
       "shared": "packages/app/src/features/recruitment/RecruitmentScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/RecruitmentScreen.tsx",
-      "miniapp": "pkg-content/recruitment/index"
+      "miniapp": "pkg-content/recruitment/index/index"
     },
     {
       "shared": "packages/app/src/features/carte/CarteScreen.tsx",
