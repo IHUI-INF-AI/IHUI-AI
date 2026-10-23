@@ -136,19 +136,32 @@ class FakeStore:
                     "platform": acc["platform"],
                     "identityKey": acc["identity_key"],
                     "enabled": acc["enabled"],
+                    "ownerUserId": acc["owner_user_id"],
                     "poolAccountId": acc["device_map"].get("pool_account_id"),
                     "poolCredVersion": checkin_store._pool_cred_version_of(acc["device_map"]),
                 }
             )
         return out
 
-    async def apply_pool_state(self, platform: str, uid: str, state: str) -> dict[str, Any]:
+    async def apply_pool_state(
+        self,
+        platform: str,
+        uid: str,
+        state: str,
+        *,
+        pool_account_id: str | None = None,
+        owner_user_id: str | None = None,
+    ) -> dict[str, Any]:
         for acc in self.accounts.values():
-            if (
-                acc["owner_user_id"] == POOL_SYNC_OWNER
-                and acc["platform"] == platform
-                and acc["identity_key"] == uid
-            ):
+            if pool_account_id:
+                matched = acc["device_map"].get("pool_account_id") == pool_account_id
+            else:
+                matched = (
+                    acc["owner_user_id"] == (owner_user_id or POOL_SYNC_OWNER)
+                    and acc["platform"] == platform
+                    and acc["identity_key"] == uid
+                )
+            if matched:
                 if state == "pool_deleted":
                     acc["enabled"] = False
                     acc["device_map"]["pool_deleted_at"] = datetime.now(UTC).isoformat()
@@ -157,13 +170,24 @@ class FakeStore:
                 return {"found": True, "accountId": acc["id"]}
         return {"found": False, "accountId": None}
 
-    async def pool_status(self, platform: str, uid: str) -> dict[str, Any]:
+    async def pool_status(
+        self,
+        platform: str,
+        uid: str,
+        *,
+        pool_account_id: str | None = None,
+        owner_user_id: str | None = None,
+    ) -> dict[str, Any]:
         for acc in self.accounts.values():
-            if (
-                acc["owner_user_id"] == POOL_SYNC_OWNER
-                and acc["platform"] == platform
-                and acc["identity_key"] == uid
-            ):
+            if pool_account_id:
+                matched = acc["device_map"].get("pool_account_id") == pool_account_id
+            else:
+                matched = (
+                    acc["owner_user_id"] == (owner_user_id or POOL_SYNC_OWNER)
+                    and acc["platform"] == platform
+                    and acc["identity_key"] == uid
+                )
+            if matched:
                 return {
                     "found": True,
                     "accountId": acc["id"],

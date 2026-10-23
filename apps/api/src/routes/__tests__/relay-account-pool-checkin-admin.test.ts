@@ -140,7 +140,8 @@ vi.mock('../../services/relay-account-pool-checkin-sync.js', () => ({
   clearCheckinSyncPending: vi.fn(async () => {}),
   extractCosy: vi.fn(() => null),
   fetchPoolStatus: vi.fn(
-    async (_p: string, uid: string) => hoisted.statusViews[uid] ?? { ok: true, found: false },
+    async (_p: string, target: { poolAccountId: string; uid: string }) =>
+      hoisted.statusViews[target.uid] ?? { ok: true, found: false },
   ),
   postPoolRun: vi.fn(async () => hoisted.runResult),
   listCheckinSyncPending: vi.fn(async () => []),
@@ -161,6 +162,7 @@ let app: FastifyInstance
 function poolRow(over: Record<string, unknown> = {}) {
   return {
     id: 'pool-1',
+    ownerUserId: null,
     providerCode: 'trae',
     uid: 'uid-1',
     name: '池号 A',
@@ -369,7 +371,11 @@ describe('POST /admin/relay/accounts/:id/checkin-run', () => {
     expect((res.json() as { data: { record: { credits: number } } }).data.record).toMatchObject({
       credits: 200,
     })
-    expect(postPoolRun).toHaveBeenCalledWith('trae', 'uid-1')
+    expect(postPoolRun).toHaveBeenCalledWith('trae', {
+      poolAccountId: 'pool-1',
+      ownerUserId: null,
+      uid: 'uid-1',
+    })
   })
 
   it('429(冷却/限流)原样透传(admin 看到剩余时间)', async () => {

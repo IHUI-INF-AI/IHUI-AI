@@ -102,6 +102,8 @@ const listQuerySchema = paginationSchema.extend({
   provider: z.transform(emptyToUndefined).pipe(z.enum(RELAY_PROVIDERS).optional()),
   enabled: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
   health: z.transform(emptyToUndefined).pipe(z.enum(PROVIDER_HEALTH_STATUSES).optional()),
+  /** ops = 运营池(默认,保持存量视图);all = 含用户个人池;其余按 ownerUserId 精确筛 */
+  owner: z.transform(emptyToUndefined).pipe(z.string().max(64).optional()),
 })
 
 const updateBodySchema = z.object({
@@ -181,6 +183,7 @@ function deriveCircuitBreakReason(row: {
 /** 列表/详情统一脱敏投影(绝不 SELECT *Enc 字段) */
 const safeProjection = {
   id: aiRelayAccountPool.id,
+  ownerUserId: aiRelayAccountPool.ownerUserId,
   providerCode: aiRelayAccountPool.providerCode,
   uid: aiRelayAccountPool.uid,
   name: aiRelayAccountPool.name,
@@ -256,9 +259,12 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const q = listQuerySchema.safeParse(request.query)
     if (!q.success)
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
-    const { page, pageSize, search, provider, enabled, health } = q.data
+    const { page, pageSize, search, provider, enabled, health, owner } = q.data
 
     const conds: SQL[] = []
+    // 双池并存:运营号池页默认只显示运营池(存量视图零变化);owner=all 或指定用户 id 才扩面
+    if (!owner || owner === 'ops') conds.push(isNull(aiRelayAccountPool.ownerUserId))
+    else if (owner !== 'all') conds.push(eq(aiRelayAccountPool.ownerUserId, owner))
     if (provider) conds.push(eq(aiRelayAccountPool.providerCode, provider))
     if (enabled === 'true') conds.push(eq(aiRelayAccountPool.isEnabled, true))
     if (enabled === 'false') conds.push(eq(aiRelayAccountPool.isEnabled, false))
@@ -298,6 +304,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .from(aiRelayAccountPool)
           .where(
             and(
+              isNull(aiRelayAccountPool.ownerUserId),
               isNotNull(aiRelayAccountPool.tokenExpiresAt),
               lt(aiRelayAccountPool.tokenExpiresAt, now),
             ),
@@ -307,6 +314,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .from(aiRelayAccountPool)
           .where(
             and(
+              isNull(aiRelayAccountPool.ownerUserId),
               eq(aiRelayAccountPool.isEnabled, true),
               eq(aiRelayAccountPool.tempUnschedulable, false),
               or(
@@ -413,6 +421,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       const [row] = await dbRead
         .select({
           providerCode: aiRelayAccountPool.providerCode,
+          ownerUserId: aiRelayAccountPool.ownerUserId,
           uid: aiRelayAccountPool.uid,
           isEnabled: aiRelayAccountPool.isEnabled,
         })
@@ -431,7 +440,11 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       // 绝不阻塞 toggle 响应;pending 落库本身再失败只记日志,由对账收敛器兜底。
       const checkinPlatform = checkinPlatformFor(row.providerCode)
       if (checkinPlatform) {
-        const push = await pushPoolState(checkinPlatform, row.uid, nextState)
+        const push = await pushPoolState(
+          checkinPlatform,
+          { poolAccountId: p.data.id, ownerUserId: row.ownerUserId, uid: row.uid },
+          nextState,
+        )
         if (!push.ok) {
           try {
             await markCheckinSyncPending([p.data.id], 'state', nextState, push.error ?? '未知错误')
@@ -495,6 +508,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         .returning({
           id: aiRelayAccountPool.id,
           providerCode: aiRelayAccountPool.providerCode,
+          ownerUserId: aiRelayAccountPool.ownerUserId,
           uid: aiRelayAccountPool.uid,
         })
       if (deleted.length === 0) return reply.status(404).send(error(404, '账号不存在'))
@@ -504,7 +518,15 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       if (removed) {
         const checkinPlatform = checkinPlatformFor(removed.providerCode)
         if (checkinPlatform) {
-          const push = await pushPoolState(checkinPlatform, removed.uid, 'pool_deleted')
+          const push = await pushPoolState(
+            checkinPlatform,
+            {
+              poolAccountId: removed.id,
+              ownerUserId: removed.ownerUserId,
+              uid: removed.uid,
+            },
+            'pool_deleted',
+          )
           if (!push.ok) {
             request.log.warn(
               { accountId: removed.id, err: push.error },
@@ -582,6 +604,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       const credentials = decryptAccountCredentials(row)
       const acc = buildPoolSyncAccount({
         id: row.id,
+        ownerUserId: row.ownerUserId,
         uid: row.uid ?? '',
         name: (row.name ?? '').slice(0, 128),
         token: credentials.token,
@@ -621,6 +644,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       .select({
         id: aiRelayAccountPool.id,
         providerCode: aiRelayAccountPool.providerCode,
+        ownerUserId: aiRelayAccountPool.ownerUserId,
         uid: aiRelayAccountPool.uid,
       })
       .from(aiRelayAccountPool)
@@ -638,7 +662,10 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
         items[id] = { found: false, noEngine: true }
         continue
       }
-      items[id] = await fetchPoolStatus(platform, row.uid ?? '')
+      items[id] = await fetchPoolStatus(platform, {
+        poolAccountId: row.id,
+        uid: row.uid ?? '',
+      })
     }
     return reply.send(success({ items }))
   })
@@ -650,7 +677,11 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     const p = idParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
     const [row] = await dbRead
-      .select({ providerCode: aiRelayAccountPool.providerCode, uid: aiRelayAccountPool.uid })
+      .select({
+        providerCode: aiRelayAccountPool.providerCode,
+        ownerUserId: aiRelayAccountPool.ownerUserId,
+        uid: aiRelayAccountPool.uid,
+      })
       .from(aiRelayAccountPool)
       .where(eq(aiRelayAccountPool.id, p.data.id))
       .limit(1)
@@ -659,7 +690,11 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     if (!platform) {
       return reply.status(400).send(error(400, `平台 ${row.providerCode} 无签到引擎,无法签到`))
     }
-    const r = await postPoolRun(platform, row.uid ?? '')
+    const r = await postPoolRun(platform, {
+      poolAccountId: p.data.id,
+      ownerUserId: row.ownerUserId,
+      uid: row.uid ?? '',
+    })
     if (r.ok) {
       return reply.send(success({ record: r.record }))
     }

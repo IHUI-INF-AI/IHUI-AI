@@ -57,6 +57,8 @@ export function checkinPlatformFor(providerCode: string): CheckinPlatform | null
 /** 号池单账号 → 签到侧投影(字段对齐 ai-service PoolAccountIn;凭证仅内网传输) */
 export interface PoolSyncAccount {
   poolAccountId: string
+  /** 池归属:null = 运营池(签到侧落 system:relay-pool);非 null = 该平台用户的个人池 */
+  ownerUserId: string | null
   uid: string
   name: string
   token: string
@@ -74,6 +76,7 @@ export interface PoolSyncAccount {
 
 export interface PoolSyncAccountSource {
   id: string
+  ownerUserId: string | null
   uid: string
   name: string
   token: string
@@ -95,6 +98,7 @@ export function buildPoolSyncAccount(src: PoolSyncAccountSource): PoolSyncAccoun
       : null
   return {
     poolAccountId: src.id,
+    ownerUserId: src.ownerUserId,
     uid: src.uid,
     name: src.name,
     token: src.token,
@@ -209,10 +213,20 @@ export async function pushPoolSync(
 /** 号池账号在签到侧的三态(与 ai-service PoolStateItem.state 一致) */
 export type PoolAccountState = 'enabled' | 'disabled' | 'pool_deleted'
 
+/**
+ * 跨服务寻址键:poolAccountId 是唯一跨 owner 稳定的标识。
+ * 用户个人池里不同 owner 可能持有同一上游 uid,只按 (platform, uid) 会串号。
+ */
+export interface PoolAccountRef {
+  poolAccountId: string
+  ownerUserId: string | null
+  uid: string
+}
+
 /** 推送单账号状态到签到侧(POST /internal/checkin/pool-state) */
 export async function pushPoolState(
   platform: CheckinPlatform,
-  uid: string,
+  target: PoolAccountRef,
   state: PoolAccountState,
   fetchImpl: typeof fetch = fetch,
 ): Promise<{ ok: boolean; error: string | null }> {
@@ -224,7 +238,17 @@ export async function pushPoolState(
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
-        body: JSON.stringify({ platform, items: [{ uid, state }] }),
+        body: JSON.stringify({
+          platform,
+          items: [
+            {
+              poolAccountId: target.poolAccountId,
+              ownerUserId: target.ownerUserId,
+              uid: target.uid,
+              state,
+            },
+          ],
+        }),
         signal: AbortSignal.timeout(PUSH_TIMEOUT_MS),
       },
     )
@@ -256,6 +280,7 @@ export type CheckinSyncPendingKind = 'cred' | 'state'
 export interface CheckinSyncPendingRow {
   id: string
   providerCode: string
+  ownerUserId: string | null
   uid: string
   name: string
   tokenEnc: string
@@ -333,11 +358,11 @@ export async function markCheckinSyncPending(
       extraMetadata: sql`coalesce(${aiRelayAccountPool.extraMetadata}, '{}'::jsonb) || jsonb_build_object(
         'checkinSync', jsonb_build_object(
           'pending', true,
-          'pendingKind', ${kind},
-          'pendingAt', ${new Date().toISOString()},
-          'lastError', ${error.slice(0, 200)},
+          'pendingKind', ${kind}::text,
+          'pendingAt', ${new Date().toISOString()}::text,
+          'lastError', ${error.slice(0, 200)}::text,
           'attempts', coalesce((${aiRelayAccountPool.extraMetadata}->'checkinSync'->>'attempts')::int, 0) + 1,
-          'state', ${state}
+          'state', ${state}::text
         )
       )`,
       updatedAt: new Date(),
@@ -359,7 +384,7 @@ export async function clearCheckinSyncPending(ids: string[]): Promise<void> {
           'lastError', null,
           'attempts', 0,
           'state', null,
-          'lastSyncedAt', ${new Date().toISOString()}
+          'lastSyncedAt', ${new Date().toISOString()}::text
         )
       )`,
       updatedAt: new Date(),
@@ -373,6 +398,7 @@ export async function listCheckinSyncPending(limit: number): Promise<CheckinSync
     .select({
       id: aiRelayAccountPool.id,
       providerCode: aiRelayAccountPool.providerCode,
+      ownerUserId: aiRelayAccountPool.ownerUserId,
       uid: aiRelayAccountPool.uid,
       name: aiRelayAccountPool.name,
       tokenEnc: aiRelayAccountPool.tokenEnc,
@@ -420,7 +446,12 @@ export async function retryPendingCheckinSyncs(
     out.retried++
     if (meta.pendingKind === 'state') {
       const state = meta.state ?? 'enabled'
-      const r = await pushPoolState(platform, row.uid, state, fetchImpl)
+      const r = await pushPoolState(
+        platform,
+        { poolAccountId: row.id, ownerUserId: row.ownerUserId, uid: row.uid },
+        state,
+        fetchImpl,
+      )
       if (r.ok) {
         await clearCheckinSyncPending([row.id])
         out.cleared++
@@ -434,6 +465,7 @@ export async function retryPendingCheckinSyncs(
     try {
       const acc = buildPoolSyncAccount({
         id: row.id,
+        ownerUserId: row.ownerUserId,
         uid: row.uid,
         name: row.name,
         token: decryptField(row.tokenEnc),
@@ -507,7 +539,7 @@ const EMPTY_STATUS: Omit<PoolStatusView, 'ok' | 'error'> = {
 /** 点查单账号签到状态(GET /internal/checkin/pool-status;ai-service 不可达 → ok:false) */
 export async function fetchPoolStatus(
   platform: CheckinPlatform,
-  uid: string,
+  target: { poolAccountId: string; uid: string },
   fetchImpl: typeof fetch = fetch,
 ): Promise<PoolStatusView> {
   const secret = config.AI_CALLBACK_SECRET
@@ -516,7 +548,7 @@ export async function fetchPoolStatus(
   }
   try {
     const resp = await fetchImpl(
-      `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-status?platform=${encodeURIComponent(platform)}&uid=${encodeURIComponent(uid)}`,
+      `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-status?platform=${encodeURIComponent(platform)}&poolAccountId=${encodeURIComponent(target.poolAccountId)}&uid=${encodeURIComponent(target.uid)}`,
       {
         method: 'GET',
         headers: { 'X-Internal-Secret': secret },
@@ -565,10 +597,10 @@ export interface PoolRunResult {
   error: string | null
 }
 
-/** 触发系统 owner 账号立即签到(尊重冷却/限流:429 由调用方原样透传给 admin) */
+/** 触发账号立即签到(尊重冷却/限流:429 由调用方原样透传给 admin/用户) */
 export async function postPoolRun(
   platform: CheckinPlatform,
-  uid: string,
+  target: PoolAccountRef,
   fetchImpl: typeof fetch = fetch,
 ): Promise<PoolRunResult> {
   const secret = config.AI_CALLBACK_SECRET
@@ -586,7 +618,12 @@ export async function postPoolRun(
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
-        body: JSON.stringify({ platform, uid }),
+        body: JSON.stringify({
+          platform,
+          poolAccountId: target.poolAccountId,
+          ownerUserId: target.ownerUserId,
+          uid: target.uid,
+        }),
         signal: AbortSignal.timeout(30_000),
       },
     )

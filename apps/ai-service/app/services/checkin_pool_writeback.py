@@ -75,7 +75,12 @@ async def _post_writeback(
         resp = await client.post(
             url,
             json=payload,
-            headers={"Content-Type": "application/json", "X-Internal-Secret": secret},
+            headers={
+                "Content-Type": "application/json",
+                "X-Internal-Secret": secret,
+                # 网关 CSRF 机器调用豁免(与 internal-principal 的验真出口同源)
+                "X-Internal-Service-Token": secret,
+            },
         )
     if resp.status_code >= 400:
         raise RuntimeError(f"回写 HTTP {resp.status_code}: {resp.text[:200]}")

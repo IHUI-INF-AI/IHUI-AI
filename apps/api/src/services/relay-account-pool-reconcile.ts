@@ -44,6 +44,8 @@ import { decryptAccountCredentials } from './relay-account-pool-service.js'
 /** 号池侧单账号对账投影(映射域内;凭证列不入选 —— 明文只在执行 push 时才解密) */
 export interface PoolSideRow {
   id: string
+  /** null = 运营池;非 null = 该平台用户的个人池(对账按 poolAccountId 天然隔离,不跨 owner 匹配) */
+  ownerUserId: string | null
   providerCode: string
   uid: string
   name: string
@@ -55,6 +57,8 @@ export interface PoolSideRow {
 export interface CheckinSideRow {
   accountId: number
   poolAccountId: string | null
+  /** 签到账号的 owner(仅供审计;匹配一律走 poolAccountId) */
+  ownerUserId: string | null
   platform: string
   identityKey: string
   enabled: boolean
@@ -65,7 +69,13 @@ export interface CheckinSideRow {
 
 export type ReconcileAction =
   | { kind: 'push'; pool: PoolSideRow; reason: 'missing' | 'version_behind' }
-  | { kind: 'disable'; platform: string; uid: string; poolAccountId: string }
+  | {
+      kind: 'disable'
+      platform: string
+      uid: string
+      poolAccountId: string
+      ownerUserId: string | null
+    }
   | { kind: 'state'; pool: PoolSideRow; state: 'enabled' | 'disabled' }
   | { kind: 'flush'; accountId: number; poolAccountId: string }
 
@@ -161,6 +171,7 @@ export function planReconciliation(
       platform: c.platform,
       uid: c.identityKey,
       poolAccountId: c.poolAccountId,
+      ownerUserId: c.ownerUserId,
     })
     taken.disable++
   }
@@ -212,6 +223,7 @@ export async function fetchPoolAccounts(
       accounts.push({
         accountId,
         poolAccountId: typeof r.poolAccountId === 'string' ? r.poolAccountId : null,
+        ownerUserId: typeof r.ownerUserId === 'string' ? r.ownerUserId : null,
         platform: typeof r.platform === 'string' ? r.platform : '',
         identityKey: typeof r.identityKey === 'string' ? r.identityKey : '',
         enabled: r.enabled === true,
@@ -275,6 +287,7 @@ async function loadPoolSide(): Promise<PoolSideRow[]> {
   const rows = await dbRead
     .select({
       id: aiRelayAccountPool.id,
+      ownerUserId: aiRelayAccountPool.ownerUserId,
       providerCode: aiRelayAccountPool.providerCode,
       uid: aiRelayAccountPool.uid,
       name: aiRelayAccountPool.name,
@@ -284,6 +297,7 @@ async function loadPoolSide(): Promise<PoolSideRow[]> {
     .from(aiRelayAccountPool)
   return rows.map((r) => ({
     id: r.id,
+    ownerUserId: r.ownerUserId,
     providerCode: r.providerCode,
     uid: r.uid ?? '',
     name: r.name ?? '',
@@ -396,6 +410,7 @@ export async function reconcileCheckinSync(opts?: {
           payloads.push(
             buildPoolSyncAccount({
               id: full.id,
+              ownerUserId: full.ownerUserId,
               uid: full.uid ?? '',
               name: (full.name ?? '').slice(0, 128),
               token: creds.token,
@@ -439,7 +454,12 @@ export async function reconcileCheckinSync(opts?: {
   // ── disable:号池已删,签到侧停用保历史 ──
   for (const a of plan.actions) {
     if (a.kind !== 'disable') continue
-    const r = await pushPoolState(a.platform as CheckinPlatform, a.uid, 'pool_deleted', fetchImpl)
+    const r = await pushPoolState(
+      a.platform as CheckinPlatform,
+      { poolAccountId: a.poolAccountId, ownerUserId: a.ownerUserId, uid: a.uid },
+      'pool_deleted',
+      fetchImpl,
+    )
     if (r.ok) out.disabled++
     else {
       out.disableFailed++
@@ -456,7 +476,16 @@ export async function reconcileCheckinSync(opts?: {
     if (a.kind !== 'state') continue
     const platform = checkinPlatformFor(a.pool.providerCode)
     if (!platform) continue
-    const r = await pushPoolState(platform, a.pool.uid, a.state as PoolAccountState, fetchImpl)
+    const r = await pushPoolState(
+      platform,
+      {
+        poolAccountId: a.pool.id,
+        ownerUserId: a.pool.ownerUserId,
+        uid: a.pool.uid,
+      },
+      a.state as PoolAccountState,
+      fetchImpl,
+    )
     if (r.ok) out.stateCalibrated++
     else {
       out.stateFailed++

@@ -35,6 +35,8 @@ import { socialRoutes } from './social.js'
 import { interactionsRoutes } from './interactions.js'
 import { promotionRoutes, adminPromotionRoutes } from './promotions.js'
 import { gamificationRoutes } from './gamification.js'
+import accountPoolRoutes from './account-pool.js'
+import checkinProxyRoutes from './checkin-proxy.js'
 import { creditsUsageRoutes } from './credits-usage.js'
 import { desktopPrefsRoutes } from './desktop-prefs.js'
 import { pointsTasksRoutes } from './points-tasks.js'
@@ -98,6 +100,7 @@ import { adminEduExtendedRoutes, adminCourseAuditRoutes } from './edu-extended.j
 import aiCallbackRoutes from './ai-callback.js'
 import internalUserBroadcastRoutes from './internal-user-broadcast.js'
 import internalRelayAccountPoolCredentialRoutes from './internal-relay-account-pool-credential.js'
+import internalRelayUserPoolRoutes from './internal-relay-user-pool.js'
 import { adminSysRoutes, menuRoutersRoutes } from './admin-sys.js'
 import { dictPublicRoutes } from './dict.js'
 import { eduPublicRoutes } from './edu-public.js'
@@ -597,6 +600,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(deployDiagnosisRoutes, { prefix: '/api/admin' })
   // 积分 / 等级 / 签到：/api/points /api/sign-in /api/levels /api/leaderboard
   server.register(gamificationRoutes, { prefix: '/api' })
+  server.register(accountPoolRoutes)
+  server.register(checkinProxyRoutes)
   // 按日积分消耗聚合（只读，需登录）：/api/credits/usage/daily
   server.register(creditsUsageRoutes, { prefix: '/api/credits' })
   // 桌面端偏好跨设备漫游（需登录，整棵子树强制鉴权）：/api/desktop/prefs
@@ -708,6 +713,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(internalUserBroadcastRoutes)
   // O64:号池凭证回写内网端点(ai-service 签到引擎自刷新 → 号池 CAS 回流)
   server.register(internalRelayAccountPoolCredentialRoutes)
+  server.register(internalRelayUserPoolRoutes)
 
   // 支付网关：微信/支付宝/基金/对账（R1 补完）
   server.register(paymentGatewayRoutes, { prefix: '/api' })
