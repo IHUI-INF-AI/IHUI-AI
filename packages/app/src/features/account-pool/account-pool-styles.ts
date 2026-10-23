@@ -42,6 +42,9 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
     },
     badgeOn: { color: tk.success.DEFAULT, backgroundColor: tk.success.light },
     badgePending: { color: tk.warning.DEFAULT, backgroundColor: tk.warning.light },
+    summary: { fontSize: 14, fontWeight: '600', color: tk.text.primary, flexShrink: 1 },
+    linkBtn: { marginTop: 8, alignItems: 'center', paddingVertical: 8 },
+    linkText: { fontSize: 13, color: tk.brand.DEFAULT ?? tk.text.primary },
     actions: { flexDirection: 'row', gap: 8, marginTop: 2 },
     action: {
       flexDirection: 'row',
