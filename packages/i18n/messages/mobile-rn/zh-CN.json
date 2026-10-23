@@ -547,7 +547,7 @@
   "menu": {
     "about": "关于",
     "feedback": "意见反馈",
-    "privacy": "隐私协议",
+    "privacy": "隐私政策",
     "agreement": "用户协议",
     "changePwd": "修改密码",
     "accountManage": "账号管理",
@@ -557,7 +557,7 @@
     "appPermission": "应用权限",
     "usageRules": "使用规范",
     "businessLicense": "营业执照",
-    "icpRecord": "ICP 备案",
+    "icpRecord": "ICP备案",
     "modelRecord": "模型备案",
     "sectionDiscover": "发现",
     "assistant": "我的助手",
