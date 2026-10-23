@@ -438,7 +438,10 @@ alipayRootCert*
 apps/ai-service/app/skills/.session/
 apps/ai-service/app/skills/content_engine/output/
 apps/ai-service/app/skills/content_engine/.wechat_token_cache.json
-apps/ai-service/app/skills/content_engine/articles/
+# 2026-10-23 G-926 收口:articles/ 不再整体忽略 —— 运行时写进这里的只有 .md 源文件
+# (self_media.py 的 articles/{title}.md、publish_pipeline 归档进 articles/archive/),
+# 真产物(html/docx/images)全在 output/(上一行已忽略)。宽式规则没挡任何产物,却把 12 枚
+# 已跟踪源文件压成 tracked-but-ignored;该族整族回归"被忽略即不入库"的正常态。
 apps/ai-service/app/skills/content_engine/download_real_imgs_v2.py
 apps/ai-service/app/skills/koubo_workflow/.cache/
 apps/ai-service/app/skills/koubo_workflow/build_0721.py
