@@ -84,11 +84,11 @@
     "description": "原先並列的多個能力市場入口收斂為一頁:技能、MCP、能力、連接器市場與專家包組合,都在這裡直達。",
     "marketsSection": "能力市場",
     "bundlesSection": "專家包",
-    "bundlesHint": "按專家工作流組合多個市場的能å,點擊標籤直達對應頁面",
+    "bundlesHint": "按專家工作流組合多個市場的能力,點擊標籤直達對應頁面",
     "cards": {
       "aiSkills": {
         "title": "AI 技能",
-        "desc": "為智能體掛載 AI 技能,擴展對話與任務能å"
+        "desc": "為智能體掛載 AI 技能,擴展對話與任務能力"
       },
       "mcpStore": {
         "title": "MCP 商店",
@@ -114,7 +114,7 @@
       },
       "developerExtension": {
         "title": "開發者擴展包",
-        "desc": "工具擴展工作流的組合入口:MCP 商店註冊與平臺能å啟用"
+        "desc": "工具擴展工作流的組合入口:MCP 商店註冊與平臺能力啟用"
       }
     }
   },
@@ -7664,7 +7664,10 @@
             "cause": {
               "streaming": "無法在回覆生成期間調整佇列順序",
               "emptyQueue": "佇列中已沒有可復原的訊息",
-              "runtimeNoInterject": "此 Runtime 不支援插入語句，訊息將留在佇列依序處理"
+              "runtimeNoInterject": "此 Runtime 不支援插入語句，訊息將留在佇列依序處理",
+              "queueChanged": "佇列已被並行操作改動，當前順序已失效",
+              "controlCommand": "控制命令無法插入執行中的 Turn，訊息將留在佇列依序處理",
+              "awaitingApproval": "有待核准的高風險操作，插話將暫讓，請先完成決策"
             }
           },
           "blocked": {
@@ -7677,7 +7680,8 @@
           },
           "outcome": {
             "deferred": "訊息未傳送，仍保留在佇列中",
-            "failed": "訊息傳送失敗，請重試"
+            "failed": "訊息傳送失敗，請重試",
+            "sent": "訊息已傳送"
           },
           "reorderAria": "拖動調整排隊順序；聚焦後可使用上下方向鍵"
         }
@@ -9471,6 +9475,15 @@
       "reasonServer": "伺服器出現問題，請稍後重試",
       "reasonUnknown": "操作失敗，請稍後重試",
       "folderNone": "未分類"
+    },
+    "pictureInPicture": {
+      "sectionLabel": "電腦使用畫中畫",
+      "title": "畫中畫",
+      "hideInSession": "在此會話中隱藏畫中畫",
+      "hideInAllSessions": "在所有會話中隱藏畫中畫",
+      "updateFailed": "更新失敗",
+      "emptyState": "暫無可觀看的電腦使用會話",
+      "openWindow": "開啟畫中畫視窗"
     }
   },
   "aiCost": {
@@ -12616,6 +12629,43 @@
     "resultCount": "{count} 個結果",
     "searchPlaceholder": "搜索命令...",
     "recentGroup": "最近使用"
+  },
+  "collab": {
+    "collaboratorsEmpty": "暫無協作者",
+    "collaboratorsTitle": "協作者",
+    "invitationAccept": "接受邀請",
+    "invitationAcceptDone": "已接受邀請",
+    "invitationAcceptFailed": "接受邀請失敗",
+    "invitationAccepting": "接受中…",
+    "invitationConversation": "會話",
+    "invitationInvitedBy": "邀請人",
+    "invitationTitle": "待處理協作邀請",
+    "lockAcquire": "開始發言",
+    "lockAcquired": "已取得發言權",
+    "lockFailed": "發言鎖操作失敗",
+    "lockFree": "目前無人發言",
+    "lockHeldBy": "{user} 正在發言",
+    "lockRelease": "交麥",
+    "lockReleased": "已交麥",
+    "lockTakeover": "接管發言",
+    "lockTaken": "已接管發言",
+    "lockTitle": "發言鎖",
+    "manageTitle": "協作管理",
+    "revoke": "撤銷",
+    "revokeConfirm": "確定撤銷該協作者？",
+    "revokeDone": "已撤銷協作者",
+    "revokeFailed": "撤銷失敗",
+    "statusAccepted": "已接受",
+    "statusPending": "待接受",
+    "statusRevoked": "已撤銷",
+    "tierAcceptEdits": "接受編輯（可發言）",
+    "tierBypassPermissions": "繞過權限（可發言）",
+    "tierDefault": "預設檔（可發言）",
+    "tierLabel": "權限檔",
+    "tierPlan": "唯讀+評論",
+    "tierUpdated": "檔位已更新",
+    "tierUpdateFailed": "檔位更新失敗",
+    "you": "你"
   },
   "comments": {
     "adminReply": "管理員回復",
@@ -15848,6 +15898,8 @@
     "officialApp": "公眾號",
     "officialPromotion": "官方推廣平臺",
     "officialWechat": "我的微信",
+    "openOnGitcode": "前往 GitCode",
+    "openOnGitee": "前往 Gitee 碼雲",
     "openOnGithub": "前往 GitHub",
     "paymentPlatforms": "支付平臺",
     "payments": {
@@ -19636,35 +19688,6 @@
     "editDeviceMapDescription": "為 {platform} 帳號編輯設備指紋（JSON 物件；留空儲存將自動產生）。",
     "checkedInToday": "今日已簽到",
     "rename": "重新命名"
-  },
-  "accountPool": {
-    "title": "個人號池",
-    "subtitle": "你自己的第三方 AI 帳號池：與簽到助手同一批帳號，支援每日自動簽到，並優先服務你自己的轉發請求。",
-    "add": "新增帳號",
-    "provider": "平台",
-    "name": "名稱",
-    "namePlaceholder": "給帳號起個名字",
-    "token": "Token（存取憑證）",
-    "refreshToken": "Refresh Token",
-    "optional": "選填",
-    "save": "儲存",
-    "cancel": "取消",
-    "loading": "載入中…",
-    "empty": "還沒有帳號",
-    "emptyHint": "在簽到助手中新增帳號後會自動同步到這裡。",
-    "enabled": "已啟用",
-    "disabled": "已停用",
-    "enable": "啟用",
-    "disable": "停用",
-    "checkin": "立即簽到",
-    "delete": "刪除",
-    "confirmDelete": "確認刪除",
-    "syncPending": "待同步",
-    "uid": "帳號識別",
-    "checkinSuccess": "簽到成功",
-    "addSuccess": "帳號已新增",
-    "actionFailed": "操作失敗",
-    "loginRequired": "登入後管理你的個人號池"
   },
   "nav": {
     "accountPool": "個人號池",
@@ -28819,5 +28842,34 @@
   "personalHub": {
     "title": "個人中心",
     "subtitle": "我的學習、賬號安全、學員中心、反饋與幫助"
+  },
+  "accountPool": {
+    "title": "個人號池",
+    "subtitle": "你自己的第三方 AI 帳號池：與簽到助手同一批帳號，支援每日自動簽到，並優先服務你自己的轉發請求。",
+    "add": "新增帳號",
+    "provider": "平台",
+    "name": "名稱",
+    "namePlaceholder": "給帳號起個名字",
+    "token": "Token（存取憑證）",
+    "refreshToken": "Refresh Token",
+    "optional": "選填",
+    "save": "儲存",
+    "cancel": "取消",
+    "loading": "載入中…",
+    "empty": "還沒有帳號",
+    "emptyHint": "在簽到助手中新增帳號後會自動同步到這裡。",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "enable": "啟用",
+    "disable": "停用",
+    "checkin": "立即簽到",
+    "delete": "刪除",
+    "confirmDelete": "確認刪除",
+    "syncPending": "待同步",
+    "uid": "帳號識別",
+    "checkinSuccess": "簽到成功",
+    "addSuccess": "帳號已新增",
+    "actionFailed": "操作失敗",
+    "loginRequired": "登入後管理你的個人號池"
   }
 }

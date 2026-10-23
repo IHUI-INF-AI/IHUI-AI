@@ -5944,7 +5944,7 @@ def _form_response_card(row: dict[str, Any]) -> dict[str, Any]:
             text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
             fields.append({"name": str(name), "preview": text[:120]})
     decided = row.get("decided_at")
-    if hasattr(decided, "isoformat"):
+    if decided is not None and hasattr(decided, "isoformat"):
         decided_at = decided.isoformat()
     else:
         decided_at = str(decided) if decided is not None else None
@@ -6010,7 +6010,7 @@ async def get_form_response(
         outcome = await read_form_response(request_id=request_id, session_id=session_id)
         if outcome.state == "unavailable":
             return {"ok": False, "error": "form response store unavailable"}
-        if outcome.state != "found":
+        if outcome.state != "found" or outcome.row is None:
             return _form_settle_rejected(request_id)
         return {"ok": True, **_form_response_card(outcome.row)}
 
