@@ -61,6 +61,8 @@ class PoolAccountIn(BaseModel):
     """号池侧单账号投影(api 映射 platform 后送达)。"""
 
     poolAccountId: str = Field(min_length=1, max_length=64)
+    """池归属:null/缺省 = 运营池(落 system:relay-pool);非 null = 该平台用户的个人池"""
+    ownerUserId: str | None = Field(default=None, max_length=64)
     uid: str = Field(min_length=1, max_length=128)
     name: str = Field(default="", max_length=128)
     token: str = Field(min_length=1, max_length=8192)
@@ -80,6 +82,10 @@ class PoolSyncIn(BaseModel):
 
 
 class PoolStateItem(BaseModel):
+    """寻址优先 poolAccountId(跨 owner 稳定);uid/ownerUserId 仅老调用兜底。"""
+
+    poolAccountId: str | None = Field(default=None, max_length=64)
+    ownerUserId: str | None = Field(default=None, max_length=64)
     uid: str = Field(min_length=1, max_length=128)
     state: Literal["enabled", "disabled", "pool_deleted"]
 
@@ -153,9 +159,11 @@ async def pool_sync(body: PoolSyncIn, request: Request) -> dict[str, Any]:
         }
     results: list[dict[str, Any]] = []
     for acc in body.accounts:
+        # 同一归属内同步:运营池(NULL)→ 系统 owner;个人池 → 该平台用户自己的 owner
+        owner = acc.ownerUserId or POOL_SYNC_OWNER
         try:
             row = await checkin_store.create_account(
-                POOL_SYNC_OWNER,
+                owner,
                 acc.name or acc.uid,
                 acc.token,
                 _build_device_map(acc),
@@ -165,7 +173,7 @@ async def pool_sync(body: PoolSyncIn, request: Request) -> dict[str, Any]:
             # create_account 恒建 enabled=true;disabled 载荷建后立即置位
             # (版本防降级跳过更新的路径同样要置位 —— 启用态永远以号池为准)
             if not acc.enabled:
-                await checkin_store.set_enabled(row["id"], POOL_SYNC_OWNER, False)
+                await checkin_store.set_enabled(row["id"], owner, False)
             results.append(
                 {
                     "poolAccountId": acc.poolAccountId,
@@ -193,7 +201,13 @@ async def pool_state(body: PoolStateIn, request: Request) -> dict[str, Any]:
     results: list[dict[str, Any]] = []
     for item in body.items:
         try:
-            r = await checkin_store.apply_pool_state(body.platform, item.uid, item.state)
+            r = await checkin_store.apply_pool_state(
+                body.platform,
+                item.uid,
+                item.state,
+                pool_account_id=item.poolAccountId,
+                owner_user_id=item.ownerUserId,
+            )
             results.append(
                 {
                     "uid": item.uid,
@@ -214,10 +228,21 @@ async def pool_state(body: PoolStateIn, request: Request) -> dict[str, Any]:
 
 
 @router.get("/pool-status")
-async def pool_status_endpoint(request: Request, platform: str, uid: str) -> dict[str, Any]:
-    """单账号签到状态(admin 点查):记录/冷却/同步态/pending 回写标记。"""
+async def pool_status_endpoint(
+    request: Request,
+    platform: str,
+    uid: str,
+    poolAccountId: str | None = None,
+    ownerUserId: str | None = None,
+) -> dict[str, Any]:
+    """单账号签到状态(admin/个人池点查):记录/冷却/同步态/pending 回写标记。"""
     _require_internal(request)
-    return await checkin_store.pool_status(platform, uid)
+    return await checkin_store.pool_status(
+        platform,
+        uid,
+        pool_account_id=poolAccountId,
+        owner_user_id=ownerUserId,
+    )
 
 
 class PoolCredFlushIn(BaseModel):
@@ -227,9 +252,11 @@ class PoolCredFlushIn(BaseModel):
 
 
 class PoolRunIn(BaseModel):
-    """admin 手动签到请求:按 (platform, uid) 点名(与端点 4 同一寻址口径)。"""
+    """手动签到请求:poolAccountId 优先,uid/ownerUserId 兜底(与端点 4 同一寻址口径)。"""
 
     platform: str = Field(min_length=1, max_length=32)
+    poolAccountId: str | None = Field(default=None, max_length=64)
+    ownerUserId: str | None = Field(default=None, max_length=64)
     uid: str = Field(min_length=1, max_length=128)
 
 
@@ -296,15 +323,22 @@ async def pool_run(body: PoolRunIn, request: Request) -> dict[str, Any]:
     # 延迟 import:scheduler 模块重(引擎/风控),仅 pool-run 路径需要
     from app.services import checkin_scheduler as checkin_scheduler_mod
 
-    account_id = await checkin_store.pool_account_id_of(body.platform, body.uid)
+    account_id = await checkin_store.pool_account_id_of(
+        body.platform,
+        body.uid,
+        pool_account_id=body.poolAccountId,
+        owner_user_id=body.ownerUserId,
+    )
     if account_id is None:
         raise HTTPException(
             status_code=404,
             detail=f"签到账号不存在: {body.platform}/{body.uid}",
         )
     try:
+        # 用账号真实 owner(运营池 = system:relay-pool,个人池 = 平台用户 id)
+        owner = await checkin_store.owner_of_account(account_id)
         record = await checkin_scheduler_mod.checkin_scheduler.run_checkin_now(
-            account_id, POOL_SYNC_OWNER
+            account_id, owner
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

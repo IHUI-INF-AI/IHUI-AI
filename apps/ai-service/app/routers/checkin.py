@@ -50,6 +50,7 @@ from app.services import (
     checkin_workbuddy,
 )
 from app.services import checkin_scheduler as checkin_scheduler_mod
+from app.services import checkin_user_pool_bridge
 from app.services.checkin_engine import extract_user_id, get_jwt_exp
 from app.services.checkin_outbound import OutboundPaused, checkin_outbound_gate
 
@@ -240,6 +241,9 @@ async def create_account(
         )
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from e
+    # 反向同步到同一归属的个人号池(双向:号池导入也会推回签到助手)。
+    # 失败只落 device_map.pool_bridge_pending,绝不阻塞录入。
+    await _bridge_upsert(current_user, account, body.jwt, account.get("enabled", True))
     # 导入即探针(2026-10-16 李总报障):账号今天在平台侧已签过时,库里没有
     # 今天的记录 ⇒ 首屏「今日已签到」不亮、按钮还能点。录入后立刻跑一次真实
     # 签到引擎(全平台幂等,已签路径=status 预检命中后落 skip_already 记录),
@@ -257,6 +261,30 @@ async def _import_probe(account_id: int, owner_user_id: str) -> dict[str, Any] |
     return await checkin_scheduler_mod.checkin_scheduler.run_checkin_now(
         account_id, owner_user_id
     )
+
+
+async def _bridge_upsert(
+    owner_user_id: str,
+    account: dict[str, Any],
+    jwt: str,
+    enabled: bool,
+) -> None:
+    """把用户账号回填到其个人号池;成功后把 pool_account_id 等写回 device_map。"""
+    try:
+        changed, dm = await checkin_user_pool_bridge.sync_upsert(
+            owner_user_id=owner_user_id,
+            account_id=account["id"],
+            platform=account.get("platform") or "trae",
+            name=account.get("name") or "",
+            jwt=jwt,
+            device_map=account.get("device_map") or {},
+            enabled=enabled,
+        )
+        if changed:
+            await checkin_store.save_device_map(account["id"], dm)
+            account["device_map"] = dm
+    except Exception:  # noqa: BLE001 — 个人号池同步是旁路
+        pass
 
 
 @router.get("/accounts")
@@ -278,10 +306,17 @@ async def list_accounts(
 async def delete_account(
     account_id: int, current_user: str = Depends(require_request_user_id)
 ) -> dict[str, Any]:
-    """删除账号(属主校验,记录级联删除)。"""
+    """删除账号(属主校验,记录级联删除);已桥接的账号同步清掉个人池行。"""
+    info = await checkin_store.get_decrypted_jwt(account_id, current_user)
     deleted = await checkin_store.delete_account(account_id, current_user)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    pool_account_id = (info or {}).get("device_map", {}).get("pool_account_id")
+    if isinstance(pool_account_id, str) and pool_account_id:
+        await checkin_user_pool_bridge.sync_delete(
+            owner_user_id=current_user,
+            pool_account_id=pool_account_id,
+        )
     return {"ok": True, "id": account_id}
 
 
@@ -291,10 +326,13 @@ async def set_enabled(
     body: SetEnabledIn,
     current_user: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
-    """启用/停用账号(停用后每日调度跳过,手动签到仍可用)。"""
+    """启用/停用账号(停用后每日调度跳过,手动签到仍可用);同步个人池启用态。"""
     updated = await checkin_store.set_enabled(account_id, current_user, body.enabled)
     if not updated:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    info = await checkin_store.get_decrypted_jwt(account_id, current_user)
+    if info is not None:
+        await _bridge_upsert(current_user, info, info["jwt"], body.enabled)
     return {"ok": True, "id": account_id, "enabled": body.enabled}
 
 
@@ -314,6 +352,10 @@ async def update_account_jwt(
     updated = await checkin_store.update_jwt(account_id, current_user, body.jwt)
     if not updated:
         raise HTTPException(status_code=404, detail=f"账号不存在: {account_id}")
+    # 新凭证同步个人号池(已有个人池行走 upsert 覆盖 + credVersion 前进)
+    info = await checkin_store.get_decrypted_jwt(account_id, current_user)
+    if info is not None:
+        await _bridge_upsert(current_user, info, info["jwt"], info["enabled"])
     return {
         "ok": True,
         "id": account_id,
