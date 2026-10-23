@@ -18,7 +18,7 @@
  * 的可被调度器续期;没有的直接标 down + 摘除),是否可用交给健康检查/转发链路判定。
  */
 import { createHash } from 'node:crypto'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { db } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
@@ -30,6 +30,14 @@ import {
   parseFlexibleExpiry,
   type RelayProviderCode,
 } from './relay-account-format.js'
+import {
+  buildPoolSyncAccount,
+  checkinPlatformFor,
+  extractCosy,
+  markCheckinSyncPending,
+  pushPoolSync,
+  type PoolSyncAccount,
+} from './relay-account-pool-checkin-sync.js'
 
 // =============================================================================
 // 类型
@@ -68,6 +76,12 @@ export interface ImportBatchResult {
   skipped: number
   failed: number
   items: ImportItemResult[]
+  /**
+   * O64 签到同步统计(导入/覆盖 → 签到副本;号池 = 凭证权威)。
+   * pushed = 签到侧已建/已更新条数;skipped = 平台无签到引擎条数;pending = 推送失败
+   * 落待推条数(由 retryPendingCheckinSyncs / 对账收敛器清偿)。失败不阻塞导入。
+   */
+  checkinSync?: { pushed: number; skipped: number; pending: number; error: string | null }
 }
 
 // =============================================================================
@@ -240,6 +254,8 @@ export async function importAccounts(
     items: [],
   }
   const seenInBatch = new Set<string>()
+  // O64:签到推送载荷收集(明文凭证仅本进程内传递,循环结束后一次性推送)
+  const checkinPush: PoolSyncAccount[] = []
 
   for (let i = 0; i < accounts.length; i++) {
     const acc = accounts[i] ?? {}
@@ -360,11 +376,24 @@ export async function importAccounts(
         )
         .limit(1)
 
+      // O64:凭证写入即 cred_version 变化 —— insert 显式 1;覆盖走 SQL 原子自增
+      // (+1 = 签到侧 pool_cred_version 防降级的 CAS 基准,杜绝并发覆盖版本撞车)。
+      // returning 取新版本号,供签到推送载荷携带。
+      const cosyPayload = extractCosy(extra)
+      let writtenId: string
+      let writtenCredVersion: number
       if (existing.length > 0 && existing[0]) {
-        await db
+        const [written] = await db
           .update(aiRelayAccountPool)
-          .set(values)
+          .set({ ...values, credVersion: sql`${aiRelayAccountPool.credVersion} + 1` })
           .where(eq(aiRelayAccountPool.id, existing[0].id))
+          .returning({
+            id: aiRelayAccountPool.id,
+            credVersion: aiRelayAccountPool.credVersion,
+          })
+        if (!written) throw new Error('覆盖凭证后未取到回写行(id/credVersion)')
+        writtenId = written.id
+        writtenCredVersion = written.credVersion
         result.updated++
         result.items.push({
           index: i,
@@ -376,7 +405,16 @@ export async function importAccounts(
             : '已覆盖凭证并重置健康状态',
         })
       } else {
-        await db.insert(aiRelayAccountPool).values(values)
+        const [written] = await db
+          .insert(aiRelayAccountPool)
+          .values({ ...values, credVersion: 1 })
+          .returning({
+            id: aiRelayAccountPool.id,
+            credVersion: aiRelayAccountPool.credVersion,
+          })
+        if (!written) throw new Error('插入后未取到回写行(id/credVersion)')
+        writtenId = written.id
+        writtenCredVersion = written.credVersion
         result.imported++
         result.items.push({
           index: i,
@@ -386,6 +424,22 @@ export async function importAccounts(
           reason: down ? 'token 已过期且无 refreshToken,入库即摘除' : null,
         })
       }
+      checkinPush.push(
+        buildPoolSyncAccount({
+          id: writtenId,
+          uid,
+          name: displayName.slice(0, 128),
+          token,
+          refreshToken,
+          credVersion: writtenCredVersion,
+          enabled: values.isEnabled,
+          proxyUrl: values.proxyUrl,
+          deviceId: values.deviceId,
+          machineId: values.machineId,
+          cosy: cosyPayload,
+          tokenExpiresAt,
+        }),
+      )
     } catch (e) {
       result.failed++
       result.items.push({
@@ -395,6 +449,38 @@ export async function importAccounts(
         status: 'failed',
         reason: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
       })
+    }
+  }
+  // O64:导入/覆盖即推送签到侧(号池 = 凭证权威 → 签到副本)。推送失败绝不阻塞导入:
+  // 整批失败全落 pending;部分失败按 poolAccountId 精确落;由重推器/对账收敛器清偿。
+  const checkinPlatform = checkinPlatformFor(providerCode)
+  if (checkinPush.length === 0) {
+    result.checkinSync = { pushed: 0, skipped: 0, pending: 0, error: null }
+  } else if (!checkinPlatform) {
+    // 平台无签到引擎(如 codearts):如实计 skipped,不推送、不落 pending
+    result.checkinSync = { pushed: 0, skipped: checkinPush.length, pending: 0, error: null }
+  } else {
+    const push = await pushPoolSync(checkinPlatform, checkinPush)
+    if (push.ok) {
+      result.checkinSync = {
+        pushed: push.pushed,
+        skipped: push.skipped,
+        pending: 0,
+        error: push.error,
+      }
+    } else {
+      const failedIdSet = new Set(push.failedIds)
+      const pendingIds =
+        push.failedIds.length > 0
+          ? checkinPush.filter((a) => failedIdSet.has(a.poolAccountId)).map((a) => a.poolAccountId)
+          : checkinPush.map((a) => a.poolAccountId)
+      await markCheckinSyncPending(pendingIds, 'cred', null, push.error ?? '未知错误')
+      result.checkinSync = {
+        pushed: push.pushed,
+        skipped: push.skipped,
+        pending: pendingIds.length,
+        error: push.error,
+      }
     }
   }
   return result
