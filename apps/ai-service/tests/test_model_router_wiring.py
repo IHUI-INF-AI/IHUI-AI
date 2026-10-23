@@ -31,7 +31,7 @@ from app.services.model_router import ModelRouter
 _POOL_IDS = [
     "stepfun/step-3.7-flash",
     "agnes/agnes-2.5-flash",
-    "ihui/glm-5.3",
+    "gemini/gemini-pro",
 ]
 
 
