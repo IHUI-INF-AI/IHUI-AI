@@ -89,6 +89,8 @@ _JOB_ID_PROBE = "checkin_daily_status_probe"
 # 本机客户端凭据同步(2026-10-24 立):第三方 access token 由客户端签发并自动刷新;
 # 客户端与 ai-service 同机时,直接取客户端刷新后的凭据写回,客户端登录在 ⇒ 平台侧不过期。
 _JOB_ID_LOCAL_SYNC = "checkin_local_creds_sync"
+# MiniMax OAuth 换票端点(2026-10-24 抓包确认,客户端不在时的服务端续期出口)
+_MINIMAX_TOKEN_URL = "https://account.minimax.cn/oauth2/token"
 
 # 日级起批漂移(2026-10-16 风控第四件套):CronTrigger jitter = uniform(0, jitter)
 # 加到触发时刻,每天起批时间在窗口内随机(08:05~08:12 / 10:05~10:10 / 08:10~08:15),
@@ -441,14 +443,53 @@ class CheckinScheduler:
         )
         return ok_s, checked_in, credits, msg_s or ""
 
+    async def _refresh_minimax_token(self, rec: dict[str, Any]) -> dict[str, Any] | None:
+        """用 refreshToken 换新令牌 —— 客户端不在时的服务端续期。
+
+        端点 2026-10-24 抓包确认:`POST https://account.minimax.cn/oauth2/token`
+        (`grant_type=refresh_token` + `client_id` + `scope` + `audience`)。
+        refreshToken 会轮换,成功结果必须写回 auth.json,否则下一次续期
+        直接 invalid_grant(实测过的失效路径)。
+        """
+        rt = rec.get("refreshToken")
+        if not isinstance(rt, str) or not rt:
+            return None
+        payload: dict[str, str] = {
+            "grant_type": "refresh_token",
+            "refresh_token": rt,
+            "client_id": str(rec.get("clientId") or "mcode-public"),
+        }
+        scopes = rec.get("scopes")
+        if isinstance(scopes, list) and scopes:
+            payload["scope"] = " ".join(str(s) for s in scopes)
+        audience = rec.get("audience")
+        if isinstance(audience, str) and audience:
+            payload["audience"] = audience
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(_MINIMAX_TOKEN_URL, data=payload)
+            if resp.status_code >= 400:
+                logger.warning(
+                    "[checkin_scheduler] MiniMax 令牌续期失败 HTTP %s: %s",
+                    resp.status_code,
+                    resp.text[:160],
+                )
+                return None
+            body = resp.json()
+        except Exception as e:
+            logger.warning("[checkin_scheduler] MiniMax 令牌续期异常: %s", e)
+            return None
+        token = body.get("access_token") if isinstance(body, dict) else None
+        return body if isinstance(token, str) and token else None
+
     async def _sync_local_credentials(self) -> None:
         """本机客户端凭据同步(每 15 分钟)。
 
-        第三方 access token 由客户端签发并自动刷新,服务端没有通用 refresh 接口。
-        客户端与 ai-service 同机时,直接读取客户端刷新后的凭据写回签到账号并解除
-        冷却 —— 客户端保持登录 ⇒ 平台侧永不过期。
-        当前覆盖 MiniMax(`auth.json` 明文可读);Trae/WorkBuddy 的令牌在客户端
-        主进程内存或加密区,需桌面端捕获通道,本方法不假装成功。
+        两条腿:
+        1. **服务端续期**(客户端不在也生效):MiniMax 的 refreshToken 在
+           `auth.json` 明文可读,临期(≤5 分钟)时直接调 OAuth 换新并写回文件;
+        2. **客户端同步**:读取客户端刷新后的凭据写回签到账号并解除冷却。
+        Trae/WorkBuddy 的续期材料在客户端安全区(私钥/加密信封),本方法不假装成功。
         """
         path = os.path.expanduser("~/.minimax/auth/prod/cn/mcode-public/auth.json")
         if not os.path.exists(path):
@@ -456,17 +497,46 @@ class CheckinScheduler:
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-            records = list((data.get("records") or {}).values())
         except (OSError, ValueError):
             return
+        records = data.get("records") or {}
         if not records:
             return
-        rec = records[0]
-        token = rec.get("accessToken")
-        if not isinstance(token, str) or not token:
+        rec = next(iter(records.values()))
+        if not isinstance(rec, dict):
             return
+        token = rec.get("accessToken")
         exp_ms = rec.get("expiresAtMs")
         exp = int(exp_ms / 1000) if isinstance(exp_ms, (int, float)) and exp_ms > 0 else None
+        now = int(datetime.now(UTC).timestamp())
+        if (not isinstance(token, str) or not token or exp is None or exp - now < 300) and rec.get(
+            "refreshToken"
+        ):
+            refreshed = await self._refresh_minimax_token(rec)
+            if refreshed:
+                rec["accessToken"] = refreshed["access_token"]
+                if isinstance(refreshed.get("refresh_token"), str) and refreshed["refresh_token"]:
+                    rec["refreshToken"] = refreshed["refresh_token"]
+                if isinstance(refreshed.get("expires_in"), (int, float)):
+                    rec["expiresAtMs"] = (now + int(refreshed["expires_in"])) * 1000
+                token = rec["accessToken"]
+                exp_ms = rec.get("expiresAtMs")
+                exp = (
+                    int(exp_ms / 1000)
+                    if isinstance(exp_ms, (int, float)) and exp_ms > 0
+                    else exp
+                )
+                try:
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                    logger.info(
+                        "[checkin_scheduler] MiniMax 令牌已服务端续期并写回 auth.json(exp=%s)",
+                        exp,
+                    )
+                except OSError as e:
+                    logger.warning("[checkin_scheduler] MiniMax 续期结果写回失败: %s", e)
+        if not isinstance(token, str) or not token:
+            return
         rows = await checkin_store.list_accounts_by_platform("minimax")
         updated = 0
         for row in rows:
