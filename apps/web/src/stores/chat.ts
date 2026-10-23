@@ -26,6 +26,7 @@ import { markStreamError } from '@ihui/shared/chat'
 // G-704(2026-09-29 立):值等价比较器只能有共享层那一份实现(端内不得再抄一份近似品)
 import { areRecordValuesEqual } from '@ihui/shared/utils/deep-equal-records'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
+import type { QueueSendOutcome } from '@ihui/shared/chat/input-notices'
 import type { InterjectionDeclaration } from '@/hooks/use-chat/runtime-capabilities'
 import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ihui/types/ai'
 
@@ -404,6 +405,15 @@ export interface ChatState {
    *  持久化:排队问题跨刷新保留(用户排队后刷新再回来仍可补答),故纳入 partialize。 */
   sideQueueByConversation: Record<string, SideQueueItem[]>
 
+  /** G-171b(D162 终态回传,2026-10-23 立):队列项发送终态台账,按会话分桶、按 itemId 记。
+   *  生产者 = message-input.tsx 发送 promise 的 settle 点(成功→sent / 失败→failed)
+   *  与撤回入口(被撤回→deferred);枚举唯一本体 @ihui/shared/chat/input-notices
+   *  `QUEUE_SEND_OUTCOMES`。会话级不持久化(队列本体已是会话态,终态台账随会话作废)。 */
+  queueSendOutcomes: Record<
+    string,
+    Array<{ itemId: string; outcome: QueueSendOutcome; at: number }>
+  >
+
   /** D60 发送可靠性草稿保全(2026-09-23 立):最近一次持久化失败时保留的用户输入正文。
    *  只增字段:不参与既有消息/草稿(draftInput)语义;输入框读取后由 clearFailedDraft 消费。
    *  null = 无待恢复草稿。持久化(跨刷新不丢,见 partialize)。 */
@@ -570,6 +580,13 @@ export interface ChatState {
   /** D38:「打断并执行」预备:读取并移除队首项后返回,**不负责停流** ——
    *  调用方先经 W2 abort 通道停止当前流,再以返回项发起发送;桶空返回 null(队列不动) */
   interruptAndRun: (conversationId: string) => SideQueueItem | null
+  /** G-171b:登记一条队列项发送终态(sent/failed/deferred),按会话追加、每桶上限 20(旧条目淘汰)。
+   *  终态取值必须来自 shared `QUEUE_SEND_OUTCOMES`;本 action 不判语义,只落账。 */
+  recordQueueSendOutcome: (
+    conversationId: string,
+    itemId: string,
+    outcome: QueueSendOutcome,
+  ) => void
   /** D38:队列模式偏好(对标 Codex followUpQueueMode),默认 'queue'(排队优先)。
    *  steer 请求在 Runtime 不支持插话时由渲染层 `effectiveMode` 降级为 queue 执行,
    *  偏好本身保留用户选择;判定唯一入口 @ihui/shared/chat/queue-interactions。 */
@@ -759,6 +776,7 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   inputHistory: [],
   // D28 快速侧问(2026-09-20 立):按会话分桶的侧问 FIFO 队列(持久化,见 partialize)
   sideQueueByConversation: {},
+  queueSendOutcomes: {},
   // D38 队列交互模式偏好(2026-09-24 立):默认排队优先;steer 在 Runtime 不支持插话时
   // 由渲染层 effectiveMode 降级为 queue 执行,偏好保留(持久化,见 partialize)
   followUpQueueMode: 'queue',
@@ -1575,6 +1593,20 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     })
     return head
   },
+
+  // G-171b 终态落账:只追加不判语义(枚举本体在 shared input-notices);每桶上限 20,
+  // 与 sideQueue 桶的 slice(-20) 持久化淘汰同纪律。未知会话直接建桶。
+  recordQueueSendOutcome: (conversationId, itemId, outcome) =>
+    set((s) => {
+      const bucket = s.queueSendOutcomes[conversationId] ?? []
+      const next = [
+        ...bucket.filter((e) => e.itemId !== itemId),
+        { itemId, outcome, at: Date.now() },
+      ]
+      return {
+        queueSendOutcomes: { ...s.queueSendOutcomes, [conversationId]: next.slice(-20) },
+      }
+    }),
 
   // D38 setMode 落点:模式偏好恒可切(许可门只管 interject 能力,不管用户想不想 steer);
   // steer 能否真正生效由渲染层 effectiveMode 判定(Runtime 不支持则降级 queue 并显式提示)。

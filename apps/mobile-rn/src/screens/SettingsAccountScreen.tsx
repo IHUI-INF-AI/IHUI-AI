@@ -11,12 +11,14 @@ import {
   type SettingsAccountItem,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
 export function SettingsAccountScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<Nav>()
   const [account, setAccount] = useState<SettingsAccountItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -80,6 +82,7 @@ export function SettingsAccountScreen() {
       onPhoneChange={(v) => setAccount((a) => (a ? { ...a, phone: v } : a))}
       onSave={onSave}
       onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
     />
   )
 }

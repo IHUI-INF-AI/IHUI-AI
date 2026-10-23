@@ -86,7 +86,9 @@ export function compactionBlockConsequenceKey(reason: CompactionBlockReason): st
  * 从原始状态解析当前压缩不可用原因(优先级:积分 > 运行中 > 无边界)。
  * 全部满足 ⇒ null(压缩可用,不渲染不可用提示)。
  */
-export function resolveCompactionBlockReason(ctx: CompactionBlockContext): CompactionBlockReason | null {
+export function resolveCompactionBlockReason(
+  ctx: CompactionBlockContext,
+): CompactionBlockReason | null {
   if (!ctx.creditsSufficient) return 'insufficientCredits'
   if (ctx.turnRunning) return 'runningTurn'
   if (!ctx.turnBoundaryAvailable) return 'noTurnBoundary'
@@ -159,6 +161,25 @@ export interface QueueInteractionContext {
   readonly streaming: boolean
   /** 队列中是否有消息 */
   readonly hasQueuedMessages: boolean
+  /**
+   * G-171(a) 条件一:自用户上次查看后队列是否已发生并发变更(看到的是旧队列)。
+   * 可选输入:调用方有**实测来源**才喂(web 端 = 编辑窗口正文漂移,queue-interaction-bar
+   * editDrift 实测),未喂 ⇒ 按 false 处理,行为与扩展前逐字一致(不得臆造状态)。
+   */
+  readonly queueChanged?: boolean
+  /**
+   * G-171(a) 条件二:本次动作的对象是否控制命令(控制命令不能插入运行中的 Turn)。
+   * 可选输入:全仓现读无生产者(逐端 grep 证实)⇒ 各端暂不喂,模型先接上,
+   * 回传链路落地后只改传参不改判定。
+   */
+  readonly isControlCommand?: boolean
+  /**
+   * G-171(a) 条件三:是否有高危工具审批正等待用户决策(插话/打断须让行,
+   * 否则注入会落在等待人工放行的 Turn 上被吞)。可选输入:端内审批态在位才喂
+   * (web = useToolApprovalPending / extension = ChatPage pendingApproval /
+   * RN = useToolApprovalQueue 待决位 / 小程序 = chat.tsx approvalQueue)。
+   */
+  readonly awaitingApproval?: boolean
 }
 
 export interface QueueReasonView {
@@ -226,6 +247,17 @@ export interface QueueInteractionPerms {
    * 优先级:Runtime 不支持插话 > 流式中;队列空时无排队之事,不给原因。
    */
   readonly reasonKey: string | null
+  /**
+   * G-171(a) 条件快照(ctx 直通,可选输入缺省=false)。`denyReasonFor` 据此判具体拒因;
+   * 消费方(web bar / 端内适配器)只读不回写。
+   */
+  readonly queueChanged: boolean
+  readonly isControlCommand: boolean
+  readonly awaitingApproval: boolean
+  /** 流式态直通(判 controlCommand 是否命中「插入运行中的 Turn」所需) */
+  readonly streaming: boolean
+  /** 能力协商位直通(插话拒因优先级:能力硬缺口最先,不得被后两个条件掩盖) */
+  readonly runtimeSupportsInterjection: boolean
 }
 
 /**
@@ -234,9 +266,17 @@ export interface QueueInteractionPerms {
  * 判定依据(自证定名):Runtime 插话能力 / 流式状态 / 队列存在性。
  */
 export function queueInteractionPerms(ctx: QueueInteractionContext): QueueInteractionPerms {
-  const canInterject = ctx.runtimeSupportsInterjection
-  const canReorder = ctx.hasQueuedMessages && !ctx.streaming
-  const canUndo = ctx.hasQueuedMessages
+  // G-171(a):三个新条件全部「可选输入,缺省 false」—— 未喂的端行为与扩展前逐字一致。
+  const queueChanged = ctx.queueChanged ?? false
+  const isControlCommand = ctx.isControlCommand ?? false
+  const awaitingApproval = ctx.awaitingApproval ?? false
+  // 插话门:能力协商 ∧ 非审批待决 ∧ 非「控制命令撞运行中的 Turn」(六格同优先级)。
+  const canInterject =
+    ctx.runtimeSupportsInterjection && !awaitingApproval && !(isControlCommand && ctx.streaming)
+  // 重排门:原有两条锁定(流式/队列空)之外,队列并发变更时用户看到的是旧顺序 ⇒ 锁定。
+  const canReorder = ctx.hasQueuedMessages && !ctx.streaming && !queueChanged
+  // 撤回门:项仍在队列即可撤;并发变更后目标项可能已被外部动过 ⇒ 让行到最新状态。
+  const canUndo = ctx.hasQueuedMessages && !queueChanged
 
   const reasonKey: string | null = !ctx.hasQueuedMessages
     ? null
@@ -246,7 +286,17 @@ export function queueInteractionPerms(ctx: QueueInteractionContext): QueueIntera
         ? queueReasonKey('turnRunning')
         : null
 
-  return { canReorder, canUndo, canInterject, reasonKey }
+  return {
+    canReorder,
+    canUndo,
+    canInterject,
+    reasonKey,
+    queueChanged,
+    isControlCommand,
+    awaitingApproval,
+    streaming: ctx.streaming,
+    runtimeSupportsInterjection: ctx.runtimeSupportsInterjection,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -260,18 +310,30 @@ export function queueInteractionPerms(ctx: QueueInteractionContext): QueueIntera
 export const QUEUE_DENIED_ACTIONS = ['reorder', 'undo', 'interject'] as const
 export type QueueDeniedAction = (typeof QUEUE_DENIED_ACTIONS)[number]
 
-/** 拒绝原因维度(与动作的组合见 DENIED_COMBOS) */
-export const QUEUE_DENY_REASONS = ['streaming', 'emptyQueue', 'runtimeNoInterject'] as const
+/**
+ * 拒绝原因维度(与动作的组合见 DENIED_COMBOS)。
+ * G-171(a) 补三因:queueChanged / controlCommand / awaitingApproval —— 三因的**输入**
+ * 来自 QueueInteractionContext 同名可选条件(调用方有实测来源才喂,缺省 false),
+ * 现由 queueInteractionPerms 判入许可门、由 queue-interactions.denyReasonFor 出因。
+ */
+export const QUEUE_DENY_REASONS = [
+  'streaming',
+  'emptyQueue',
+  'runtimeNoInterject',
+  'queueChanged',
+  'controlCommand',
+  'awaitingApproval',
+] as const
 export type QueueDenyReason = (typeof QUEUE_DENY_REASONS)[number]
 
 /**
- * 合法 (action, reason) 组合矩阵:撤回/重排被拒只看队列态与流式态;
- * 插话被拒只看 Runtime 能力协商。组合外一律 null(宁可不渲染,也不臆造)。
+ * 合法 (action, reason) 组合矩阵:撤回/重排看队列态、流式态与并发变更;
+ * 插话看 Runtime 能力协商、控制命令与审批待决。组合外一律 null(宁可不渲染,也不臆造)。
  */
 const DENIED_COMBOS: Record<QueueDeniedAction, readonly QueueDenyReason[]> = {
-  reorder: ['streaming', 'emptyQueue'],
-  undo: ['emptyQueue'],
-  interject: ['runtimeNoInterject'],
+  reorder: ['streaming', 'emptyQueue', 'queueChanged'],
+  undo: ['emptyQueue', 'queueChanged'],
+  interject: ['runtimeNoInterject', 'controlCommand', 'awaitingApproval'],
 }
 
 /**
@@ -304,8 +366,8 @@ function assertNeverDeniedAction(action: never): never {
  * 渲染层在 D69 命名空间下加 `queue.` 前缀消费,即 `ai.pane.inputNotices.queue.denied.cause.*`,
  * 与五份词包键逐字同形)。
  *
- * switch 穷尽 QUEUE_DENY_REASONS 三因、**无 default**:漏一个因 ⇒ `reason` 收窄不成
- * `never`,assertNeverDeniedCause 处编译失败(新增拒因必须同步补键,构建拦截)。
+ * switch 穷尽 QUEUE_DENY_REASONS 六因(G-171a 起)、**无 default**:漏一个因 ⇒ `reason`
+ * 收窄不成 `never`,assertNeverDeniedCause 处编译失败(新增拒因必须同步补键,构建拦截)。
  */
 export function deniedCauseNotice(reason: QueueDenyReason): string {
   switch (reason) {
@@ -315,6 +377,12 @@ export function deniedCauseNotice(reason: QueueDenyReason): string {
       return 'denied.cause.emptyQueue'
     case 'runtimeNoInterject':
       return 'denied.cause.runtimeNoInterject'
+    case 'queueChanged':
+      return 'denied.cause.queueChanged'
+    case 'controlCommand':
+      return 'denied.cause.controlCommand'
+    case 'awaitingApproval':
+      return 'denied.cause.awaitingApproval'
   }
   return assertNeverDeniedCause(reason)
 }
@@ -465,11 +533,16 @@ function assertNeverBlockableAction(action: never): never {
 // ---------------------------------------------------------------------------
 
 /**
- * 队列动作终态两分(D162):「未发送」(deferred —— 还没做,消息仍保留在队列)与
- * 「发送失败」(failed —— 做了但失败)是两个词、两条文案,不得共用一句笼统话。
- * 取值即 i18n 键片段;`ai.pane.inputNotices.queue.outcome.<key>`。
+ * 队列动作终态三分(D162 两分 + G-171b 补 sent):
+ *   · deferred —— 未发送(被撤回/从未落到发送面;消息不再占队,但没有发出这件事)
+ *   · failed   —— 发送失败(做了但失败)
+ *   · sent     —— 发送成功(发送 promise 正常 settle)
+ * 三个词、三条文案,不得共用一句笼统话。取值即 i18n 键片段;
+ * `ai.pane.inputNotices.queue.outcome.<key>`。
+ * 生产者接线(web 现读):message-input.tsx 的发送 settle 点 —— 成功→sent、
+ * 失败→failed、撤回→deferred,经 chat store `recordQueueSendOutcome` 落终态台账。
  */
-export const QUEUE_SEND_OUTCOMES = ['deferred', 'failed'] as const
+export const QUEUE_SEND_OUTCOMES = ['deferred', 'failed', 'sent'] as const
 export type QueueSendOutcome = (typeof QUEUE_SEND_OUTCOMES)[number]
 
 const QUEUE_SEND_OUTCOME_SET: ReadonlySet<string> = new Set<string>(QUEUE_SEND_OUTCOMES)
@@ -489,12 +562,12 @@ export function queueSendOutcomeKey(outcome: QueueSendOutcome): string {
   return `outcome.${outcome}`
 }
 
-/** 终态 → 视图(穷尽两态、零 default;deferred 与 failed 的 labelKey 由键名保证互异)。 */
+/** 终态 → 视图(穷尽三态、零 default;三条 labelKey 由键名保证互异)。 */
 export function queueSendOutcomeView(outcome: QueueSendOutcome): QueueSendOutcomeView {
   switch (outcome) {
     case 'deferred':
-      return { outcome, labelKey: queueSendOutcomeKey(outcome) }
     case 'failed':
+    case 'sent':
       return { outcome, labelKey: queueSendOutcomeKey(outcome) }
   }
   return assertNeverSendOutcome(outcome)

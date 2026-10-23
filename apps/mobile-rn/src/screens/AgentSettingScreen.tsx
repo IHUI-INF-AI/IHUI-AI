@@ -8,12 +8,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { AgentSettingScreen as SharedAgentSettingScreen, type AgentSettingData } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
 export function AgentSettingScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<Nav>()
   const [setting, setSetting] = useState<AgentSettingData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -68,6 +70,7 @@ export function AgentSettingScreen() {
       onChange={(patch) => setSetting((prev) => (prev ? { ...prev, ...patch } : prev))}
       onSave={onSave}
       onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
     />
   )
 }
