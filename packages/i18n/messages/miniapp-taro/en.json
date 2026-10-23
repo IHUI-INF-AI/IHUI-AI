@@ -1262,17 +1262,12 @@
     "missingUrl": "Missing link, cannot open"
   },
   "carte": {
-    "shareHint": "Please save the image before sharing",
-    "noQrcode": "No QR code",
-    "anonymous": "Anonymous user",
-    "cardSuffix": "'s card",
-    "introLabel": "Intro",
-    "phone": "Phone",
-    "email": "Email",
-    "scanHint": "Scan to view card",
-    "shareCard": "Share card",
-    "saveQrcode": "Save QR code",
-    "title": "Digital business card"
+    "title": "ZHIHUI Community",
+    "founder": "AI ZHIHUI Community | Advisory Board Founder | Mr. Li",
+    "recommend": "Recommended for you",
+    "inviteHint": "Scan the QR code below to join the ZHIHUI community for free - AI insights are shared regularly and a dedicated agent is on hand to help",
+    "scanHint": "Scan to join and talk about AI with 1000+ peers",
+    "introLabel": "Intro"
   },
   "exam": {
     "tabs": {
@@ -2524,17 +2519,8 @@
     "noData": "No Ranking Data"
   },
   "recruitment": {
-    "applied": "Application submitted",
-    "empty": "No openings",
-    "defaultTitle": "Join us",
-    "subtitle": "Grow with IHUI AI",
-    "requirements": "Requirements",
-    "privileges": "Benefits",
-    "incomeEstimate": "Estimated income",
-    "monthlyIncome": "Monthly",
-    "yearlyIncome": "Yearly",
-    "submitting": "Submitting…",
-    "apply": "Apply now"
+    "title": "Trader Program",
+    "defaultTitle": "Join us"
   },
   "register": {
     "enterPhone": "Please enter your phone number",
@@ -3121,6 +3107,11 @@
     "text6": "Level intro page not configured",
     "menu": {
       "subscriptions": "My subscriptions"
+    }
+  },
+  "vipScreen": {
+    "qr": {
+      "hint": "Long press QR code to save"
     }
   },
   "vipTrader": {

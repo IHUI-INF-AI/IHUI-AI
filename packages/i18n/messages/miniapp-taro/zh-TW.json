@@ -1262,17 +1262,12 @@
     "missingUrl": "連結缺失,無法開啟網頁"
   },
   "carte": {
-    "shareHint": "請先儲存圖片再分享",
-    "noQrcode": "暫無 QR code",
-    "anonymous": "匿名使用者",
-    "cardSuffix": "的名片",
-    "introLabel": "簡介",
-    "phone": "電話",
-    "email": "郵箱",
-    "scanHint": "掃一掃,查看名片",
-    "shareCard": "分享名片",
-    "saveQrcode": "儲存 QR code",
-    "title": "電子名片"
+    "title": "智匯社社群",
+    "founder": "AI智匯社 | 私董會創始人 | 李總",
+    "recommend": "為您推薦",
+    "inviteHint": "掃描下方二維碼,可免費進入智匯社社群,群內定期免費分享AI資訊並有專屬客服為您服務",
+    "scanHint": "掃碼加入,和 1000+ 同行一起交流 AI",
+    "introLabel": "簡介"
   },
   "exam": {
     "tabs": {
@@ -2524,17 +2519,8 @@
     "noData": "暫無排行數據"
   },
   "recruitment": {
-    "applied": "申請已提交",
-    "empty": "暫無招募資訊",
-    "defaultTitle": "加入我們",
-    "subtitle": "與智匯 AI 一起成長",
-    "requirements": "崗位要求",
-    "privileges": "專屬福利",
-    "incomeEstimate": "預估收入",
-    "monthlyIncome": "月收入",
-    "yearlyIncome": "年收入",
-    "submitting": "提交中…",
-    "apply": "立即申請"
+    "title": "操盤手計劃",
+    "defaultTitle": "加入我們"
   },
   "register": {
     "enterPhone": "請輸入手機號碼",
@@ -3121,6 +3107,11 @@
     "text6": "等級介紹頁未設定",
     "menu": {
       "subscriptions": "我的訂閱"
+    }
+  },
+  "vipScreen": {
+    "qr": {
+      "hint": "長按二維碼儲存至相簿"
     }
   },
   "vipTrader": {

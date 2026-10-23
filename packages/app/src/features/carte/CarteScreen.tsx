@@ -2,289 +2,138 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
-import { Heart } from 'lucide-react-native'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { CarteCreator, CarteScreenProps, CarteWork } from '../../types'
-
+import { useMemo, type ReactNode } from 'react'
+import { Image, StyleSheet, Text, View } from 'react-native'
+import { Users } from 'lucide-react-native'
 import { rnRadius } from '@ihui/design-tokens'
+import { CARTE_I18N_KEYS, CARTE_SEGMENTS, type CarteSegment } from '@ihui/shared/constants'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import type { CarteScreenProps } from '../../types'
 
-/** 创客名片共享屏 — props 注入式跨端组件 */
-export type { CarteCreator, CarteScreenProps, CarteWork }
-
-function initials(name: string): string {
-  if (!name) return '?'
-  return name.slice(0, 1).toUpperCase()
-}
-
+/**
+ * 社群宣传卡共享屏(RN 端唯一实现,props 注入式跨端组件)。
+ *
+ * 语义真相源 = 历史项目 `pagesA/carte/index.vue` 的社群宣传卡(RN 端与 web 端 `/carte`
+ * 走的都是这一页);段落构成/顺序/取词键/字形名一律取自
+ * `@ihui/shared/constants` 的 `CARTE_SEGMENTS`,小程序端 `pkg-content/carte/index.tsx`
+ * 按同一张表出段 ⇒ 三端不会再各自漂成一份(AGENTS §0.6)。
+ *
+ * 图片资源本体按端注入(RN 是 Metro 的 require() 数字句柄,web/小程序是 URL/分包路径),
+ * 因此屏本身零端内私有依赖;页头返回键复用 `BackChevron`(守门 102 的 S0 唯一实现)。
+ */
 export function CarteScreen({
   t,
-  creator,
-  works,
-  skills,
-  loading,
-  refreshing,
-  error,
-  onRefresh,
-  onRetry,
+  avatarSource,
+  qrcodeSource,
   onBack,
   colorScheme = 'light',
 }: CarteScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
-  if (loading && !creator) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
-  }
-
-  if (error && !creator) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity
-          style={styles.retryBtn}
-          onPress={onRetry}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.retryText}>{t('common.retry')}</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
-
-  const stats = creator
-    ? [
-        { label: t('carte.projects'), value: creator.projects },
-        { label: t('carte.skills'), value: creator.skills },
-        { label: t('carte.rating'), value: creator.rating },
-      ]
-    : []
-
-  return (
-    <FlatList<CarteWork>
-      style={styles.container}
-      data={works}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 32 }}
-      ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      ListHeaderComponent={
-        <View>
-          <View style={styles.header}>
-            <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-            <Text style={styles.title}>{t('carte.title')}</Text>
-          </View>
-
-          {error ? (
-            <View style={styles.errorBar}>
-              <Text style={styles.errorText}>{error}</Text>
+  const renderSegment = (seg: CarteSegment): ReactNode => {
+    switch (seg.id) {
+      case 'hero':
+        return (
+          <View key={seg.id} style={styles.hero}>
+            <Image source={avatarSource} style={styles.heroAvatar} resizeMode="cover" />
+            <View style={styles.heroTexts}>
+              {seg.textKeys.map((key, row) => (
+                <Text key={key} style={row === 0 ? styles.heroLead : styles.heroSub}>
+                  {t(key)}
+                </Text>
+              ))}
             </View>
-          ) : null}
-
-          {creator ? (
-            <>
-              <View style={styles.profileCard}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initials(creator.name)}</Text>
-                </View>
-                <View style={styles.profileMeta}>
-                  <Text style={styles.name}>{creator.name}</Text>
-                  <Text style={styles.title2}>{creator.title}</Text>
-                </View>
-              </View>
-              <Text style={styles.bio}>{creator.bio}</Text>
-
-              <View style={styles.statsRow}>
-                {stats.map((st) => (
-                  <View key={st.label} style={styles.statItem}>
-                    <Text style={styles.statValue}>{st.value}</Text>
-                    <Text style={styles.statLabel}>{st.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
-
-          <Text style={styles.sectionTitle}>{t('carte.skillsTitle')}</Text>
-          <View style={styles.skillsRow}>
-            {skills.map((sk) => (
-              <View key={sk} style={styles.skillBadge}>
-                <Text style={styles.skillText}>{sk}</Text>
-              </View>
+          </View>
+        )
+      case 'invite':
+        return (
+          <View key={seg.id} style={styles.invite}>
+            {seg.textKeys.map((key) => (
+              <Text key={key} style={styles.inviteText}>
+                {t(key)}
+              </Text>
             ))}
           </View>
+        )
+      case 'qrcode':
+        return (
+          <View key={seg.id} style={styles.qrWrap}>
+            <Image source={qrcodeSource} style={styles.qrImage} resizeMode="contain" />
+          </View>
+        )
+      case 'scan':
+        return (
+          <View key={seg.id} style={styles.scanRow}>
+            <Users size={14} color={tk.text.secondary} />
+            {seg.textKeys.map((key) => (
+              <Text key={key} style={styles.scanText}>
+                {t(key)}
+              </Text>
+            ))}
+          </View>
+        )
+    }
+  }
 
-          <Text style={styles.sectionTitle}>{t('carte.worksTitle')}</Text>
-        </View>
-      }
-      ListEmptyComponent={
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('carte.empty')}</Text>
-        </View>
-      }
-      renderItem={({ item }) => (
-        <View style={styles.card}>
-          <View style={styles.workThumb}>
-            <Text style={styles.workThumbText}>{item.category}</Text>
-          </View>
-          <View style={styles.workBody}>
-            <Text style={styles.workTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
-            <Text style={styles.workDesc} numberOfLines={2}>
-              {item.desc}
-            </Text>
-            <View style={styles.tagRow}>
-              {item.tags.map((tg) => (
-                <View key={tg} style={styles.tagBadge}>
-                  <Text style={styles.tagText}>{tg}</Text>
-                </View>
-              ))}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Heart size={11} color={tk.danger.DEFAULT} />
-                <Text style={styles.likesText}>{item.likes}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      )}
-    />
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <Text style={styles.title}>{t(CARTE_I18N_KEYS.title)}</Text>
+      </View>
+
+      <View style={styles.card} testID="carte-promo-card">
+        {CARTE_SEGMENTS.map((seg) => renderSegment(seg))}
+      </View>
+    </View>
   )
 }
 
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    header: {
+    container: { flex: 1, backgroundColor: tk.surface.bg, padding: 16 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 12 },
+    title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
+    card: {
+      backgroundColor: tk.surface.light,
+      borderRadius: rnRadius['2xl'],
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      overflow: 'hidden',
+    },
+    hero: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      paddingBottom: 12,
+      padding: 16,
+      backgroundColor: tk.brandAccent.DEFAULT,
+      borderTopLeftRadius: rnRadius['2xl'],
+      borderTopRightRadius: rnRadius['2xl'],
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    errorBar: {
-      marginBottom: 12,
-      padding: 8,
-      borderRadius: rnRadius.lg,
-      backgroundColor: tk.danger.light,
-    },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    profileCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 14,
-      borderRadius: rnRadius.lg,
-      backgroundColor: tk.surface.light,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-    },
-    avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.surface.muted,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    avatarText: { fontSize: 20, fontWeight: '600', color: tk.brand.DEFAULT },
-    profileMeta: { marginLeft: 12, flex: 1 },
-    name: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    title2: { marginTop: 8, fontSize: 14, color: tk.brand.DEFAULT },
-    bio: {
-      marginTop: 12,
-      fontSize: 14,
-      lineHeight: 20,
-      color: tk.text.medium,
-    },
-    statsRow: {
-      flexDirection: 'row',
-      marginTop: 12,
-      padding: 14,
-      borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.surface.light,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-    },
-    statItem: { flex: 1, alignItems: 'center' },
-    statValue: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    statLabel: {
-      marginTop: 8,
-      fontSize: 11,
-      color: tk.text.secondary,
-    },
-    sectionTitle: {
+    heroAvatar: { width: 64, height: 64, borderRadius: rnRadius.xl },
+    heroTexts: { flex: 1 },
+    heroLead: { fontSize: 16, fontWeight: '700', color: tk.brandAccent.foreground },
+    heroSub: { marginTop: 4, fontSize: 14, color: tk.brandAccent.foreground },
+    invite: { marginTop: 16, paddingHorizontal: 12 },
+    inviteText: {
       fontSize: 16,
       fontWeight: '600',
+      textAlign: 'center',
       color: tk.text.primary,
-      marginTop: 16,
-      marginBottom: 12,
     },
-    skillsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-    skillBadge: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.surface.muted,
-    },
-    skillText: { fontSize: 14, color: tk.brand.DEFAULT },
-    card: {
+    qrWrap: { alignItems: 'center', marginTop: 16 },
+    qrImage: { width: 192, height: 192 },
+    scanRow: {
       flexDirection: 'row',
-      padding: 14,
-      borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      backgroundColor: tk.surface.light,
-    },
-    workThumb: {
-      width: 64,
-      height: 64,
-      borderRadius: rnRadius.xl,
-      backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    workThumbText: { fontSize: 11, color: tk.text.secondary },
-    workBody: { marginLeft: 12, flex: 1 },
-    workTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    workDesc: {
-      marginTop: 8,
-      fontSize: 14,
-      lineHeight: 18,
-      color: tk.text.secondary,
-    },
-    tagRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'center',
       gap: 6,
-      marginTop: 8,
-    },
-    tagBadge: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.surface.muted,
-    },
-    tagText: { fontSize: 10, color: tk.text.secondary },
-    likesText: { fontSize: 11, color: tk.danger.DEFAULT },
-    retryBtn: {
       marginTop: 12,
-      paddingHorizontal: 10,
-      height: 44,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-      alignItems: 'center',
-      justifyContent: 'center',
+      marginBottom: 16,
     },
-    retryText: { color: tk.surface.light, fontSize: 14 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    scanText: { fontSize: 12, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

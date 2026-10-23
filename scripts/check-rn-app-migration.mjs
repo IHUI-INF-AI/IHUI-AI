@@ -134,14 +134,8 @@ export const WHITELIST_ENTRIES = new Map(
       why: '更多课程:KnowledgePlanet + BottomFigure + CommissionFloatingIcon,RN 端独占课程列表',
       expires: '2027-06-30',
     },
-    'CarteScreen.tsx': {
-      why: '社群宣传卡纯静态页:无 JS 逻辑,CDN 图片展示,对齐 Uniapp pagesA/carte/index.vue,无跨端需求',
-      expires: '2027-06-30',
-    },
-    'DeveloperScreen.tsx': {
-      why: '开发者空间页:标题+三功能入口+开发者信息占位,对齐 Uniapp pagesA/plaza/developer.vue,无跨端需求',
-      expires: '2027-06-30',
-    },
+    // ── 2026-10-24 摘除 CarteScreen.tsx / DeveloperScreen.tsx 两枚:两屏渲染已收进
+    //    packages/app 同名共享屏(RN 端改为薄壳 import @ihui/rn-app),豁免无的放矢。──
     'RecruitmentScreen.tsx': {
       why: '操盘手计划宣传页:全屏背景+底部卡片+二维码,对齐 Uniapp pagesA/recruitment/index.vue,无跨端需求',
       expires: '2027-06-30',

@@ -1262,17 +1262,12 @@
     "missingUrl": "链接缺失,无法打开网页"
   },
   "carte": {
-    "shareHint": "请先保存图片再分享",
-    "noQrcode": "暂无二维码",
-    "anonymous": "匿名用户",
-    "cardSuffix": "的名片",
-    "introLabel": "简介",
-    "phone": "电话",
-    "email": "邮箱",
-    "scanHint": "扫一扫,查看名片",
-    "shareCard": "分享名片",
-    "saveQrcode": "保存二维码",
-    "title": "电子名片"
+    "title": "智汇社社群",
+    "founder": "AI智汇社 | 私董会创始人 | 李总",
+    "recommend": "为您推荐",
+    "inviteHint": "扫描下方二维码,可免费进入智汇社社群,群内定期免费分享AI信息并有专属客服为您服务",
+    "scanHint": "扫码加入,和 1000+ 同行一起交流 AI",
+    "introLabel": "简介"
   },
   "exam": {
     "tabs": {
@@ -2524,17 +2519,8 @@
     "noData": "暂无排行数据"
   },
   "recruitment": {
-    "applied": "申请已提交",
-    "empty": "暂无招募信息",
-    "defaultTitle": "加入我们",
-    "subtitle": "与智汇 AI 一起成长",
-    "requirements": "岗位要求",
-    "privileges": "专属福利",
-    "incomeEstimate": "预估收入",
-    "monthlyIncome": "月收入",
-    "yearlyIncome": "年收入",
-    "submitting": "提交中…",
-    "apply": "立即申请"
+    "title": "操盘手计划",
+    "defaultTitle": "加入我们"
   },
   "register": {
     "enterPhone": "请输入手机号",
@@ -3121,6 +3107,11 @@
     "text6": "等级介绍页未配置",
     "menu": {
       "subscriptions": "我的订阅"
+    }
+  },
+  "vipScreen": {
+    "qr": {
+      "hint": "长按二维码保存到相册"
     }
   },
   "vipTrader": {
