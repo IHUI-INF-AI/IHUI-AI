@@ -81,6 +81,7 @@ vi.mock('../src/db/usercenter-queries.js', () => ({
 }))
 vi.mock('../src/services/relay-account-pool-scheduler.js', () => ({
   sweepAccountPool: vi.fn().mockResolvedValue({}),
+  refreshOne: vi.fn().mockResolvedValue(true),
 }))
 vi.mock('../src/services/relay-upstream-adapters.js', () => ({
   getRelayAdapter: vi.fn(() => null),
@@ -132,6 +133,8 @@ vi.mock('../src/db/index.js', () => {
 
 import relayAccountPoolRoutes from '../src/routes/admin/relay-account-pool.js'
 import { getRelayAdapter } from '../src/services/relay-upstream-adapters.js'
+import { refreshOne } from '../src/services/relay-account-pool-scheduler.js'
+import { encryptField } from '../src/utils/crypto.js'
 
 const ADMIN_TOKEN = 'Bearer admin-token'
 const USER_TOKEN = 'Bearer user-token'
@@ -421,6 +424,114 @@ describe('relay-admin-proxy-pool', () => {
       })
       expect(res.statusCode).toBe(400)
       expect(res.json().message).toContain('未支持')
+    })
+
+    it('上游判鉴权失效 → 走调度器同一把刷新出口重试一次,第二次用的是新票', async () => {
+      mockAdmin()
+      const stale = {
+        id: ACC_ID,
+        providerCode: 'trae',
+        proxyUrl: null,
+        tokenEnc: encryptField('jwt-stale'),
+        refreshTokenEnc: null,
+        cookiesEnc: null,
+        secretsEnc: null,
+        // 刻意写成"未来才过期":库里这枚字段不可信,自愈必须由上游的 401 触发,不由时间戳触发
+        tokenExpiresAt: new Date(Date.now() + 7200_000),
+      }
+      const fresh = { ...stale, tokenEnc: encryptField('jwt-fresh') }
+      mockSelectResult.mockResolvedValueOnce([stale]).mockResolvedValueOnce([fresh])
+      const seenTokens: string[] = []
+      vi.mocked(getRelayAdapter).mockReturnValueOnce({
+        providerCode: 'trae',
+        refreshToken: vi.fn(),
+        getQuota: vi.fn(async (ctx: { credentials: { token: string } }) => {
+          seenTokens.push(ctx.credentials.token)
+          return seenTokens.length === 1
+            ? { ok: false, authFailed: true, error: 'web_user_ent_usage HTTP 401' }
+            : { ok: true, quota: { remaining: 97.9 } }
+        }),
+      } as never)
+      vi.mocked(refreshOne).mockClear().mockResolvedValueOnce(true)
+      const res = await server.inject({
+        method: 'POST',
+        url: quotaUrl,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(refreshOne).toHaveBeenCalledTimes(1)
+      expect(seenTokens).toEqual(['jwt-stale', 'jwt-fresh'])
+      expect(res.json().data.attemptedRefresh).toBe(true)
+      expect(res.json().data.ok).toBe(true)
+    })
+
+    it('首查即成功 → 一次都不刷新(正向对照:刷新不是无条件路过)', async () => {
+      mockAdmin()
+      const live = {
+        id: ACC_ID,
+        providerCode: 'qoder',
+        proxyUrl: null,
+        tokenEnc: encryptField('dt-live'),
+        refreshTokenEnc: null,
+        cookiesEnc: null,
+        secretsEnc: null,
+        tokenExpiresAt: new Date(Date.now() + 7200_000),
+      }
+      mockSelectResult.mockResolvedValueOnce([live])
+      const seenTokens: string[] = []
+      vi.mocked(getRelayAdapter).mockReturnValueOnce({
+        providerCode: 'qoder',
+        refreshToken: vi.fn(),
+        getQuota: vi.fn(async (ctx: { credentials: { token: string } }) => {
+          seenTokens.push(ctx.credentials.token)
+          return { ok: true, quota: { remaining: 120 } }
+        }),
+      } as never)
+      vi.mocked(refreshOne).mockClear()
+      const res = await server.inject({
+        method: 'POST',
+        url: quotaUrl,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(refreshOne).not.toHaveBeenCalled()
+      expect(seenTokens).toEqual(['dt-live'])
+      expect(res.json().data.attemptedRefresh).toBe(false)
+    })
+
+    it('失败但不是鉴权(如上游 500)⇒ 不换票、只重试零次(防把任何失败都当票问题)', async () => {
+      mockAdmin()
+      const live = {
+        id: ACC_ID,
+        providerCode: 'qoder',
+        proxyUrl: null,
+        tokenEnc: encryptField('dt-live'),
+        refreshTokenEnc: null,
+        cookiesEnc: null,
+        secretsEnc: null,
+        tokenExpiresAt: null,
+      }
+      mockSelectResult.mockResolvedValueOnce([live])
+      let calls = 0
+      vi.mocked(getRelayAdapter).mockReturnValueOnce({
+        providerCode: 'qoder',
+        refreshToken: vi.fn(),
+        getQuota: vi.fn(async () => {
+          calls += 1
+          return { ok: false, error: 'quota HTTP 500' }
+        }),
+      } as never)
+      vi.mocked(refreshOne).mockClear()
+      const res = await server.inject({
+        method: 'POST',
+        url: quotaUrl,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(calls).toBe(1)
+      expect(refreshOne).not.toHaveBeenCalled()
+      expect(res.json().data.attemptedRefresh).toBe(false)
+      expect(res.json().data.ok).toBe(false)
     })
 
     it('非管理员身份 → 403(余额不出非管理面)', async () => {

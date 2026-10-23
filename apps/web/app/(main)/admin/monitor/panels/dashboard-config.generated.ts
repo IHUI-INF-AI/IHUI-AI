@@ -6,7 +6,7 @@
  * 监控面板原生配置(自动生成,请勿手改)。
  *
  * 由 scripts/generate-monitor-panels.mjs 从 monitoring/panel-defs/panels/*.json 转译;
- * 表达式与 Grafana 盘逐条同源(338 条),模板变量已归一为 All 档(.*)。
+ * 表达式与 Grafana 盘逐条同源(355 条),模板变量已归一为 All 档(.*)。
  * $__interval / $__range 为占位符,由 /admin/monitor/panels 页面按时间窗替换。
  */
 export interface PanelTarget {
@@ -935,6 +935,244 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "sum(increase(ihui_compaction_decision_chain_entries_sum[$__range])) / clamp_min(sum(increase(ihui_compaction_decision_chain_entries_count[$__range])), 0.000001)",
             "legend": "决策链条目"
+          }
+        ]
+      },
+      {
+        "id": "stat-15",
+        "title": "可用 relay key 数(选路选得到)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 0.5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(ihui_relay_key_pool_schedulable_keys{job=\"business-metrics\"})",
+            "legend": "可用 key"
+          }
+        ]
+      },
+      {
+        "id": "stat-16",
+        "title": "异常 relay key 数(degraded + down)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(ihui_relay_key_pool_keys{job=\"business-metrics\",state=~\"degraded|down\"})",
+            "legend": "异常 key"
+          }
+        ]
+      },
+      {
+        "id": "stat-17",
+        "title": "可用 relay 账号数",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 0.5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(ihui_relay_account_pool_schedulable{job=\"business-metrics\"})",
+            "legend": "可用账号"
+          }
+        ]
+      },
+      {
+        "id": "stat-18",
+        "title": "key 池刷新滞后(秒;5 分钟一轮)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 600
+          },
+          {
+            "color": "red",
+            "value": 1800
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "time() - ihui_relay_key_pool_refresh_last_success_timestamp_seconds{job=\"business-metrics\"}",
+            "legend": "刷新滞后"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-19",
+        "title": "Relay key 健康态分布(按 provider 折叠)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum by (provider_code, state) (ihui_relay_key_pool_keys{job=\"business-metrics\"})",
+            "legend": "{{provider_code}}·{{state}}"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-20",
+        "title": "账号连续失败(熔断计数,按账号)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 3
+          },
+          {
+            "color": "red",
+            "value": 5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "ihui_relay_account_pool_consecutive_failures{job=\"business-metrics\"}",
+            "legend": "{{provider_code}}/{{account}}"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-21",
+        "title": "账号 token 临期(秒;负 = 已过期)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "ihui_relay_account_pool_token_expires_in_seconds{job=\"business-metrics\"}",
+            "legend": "{{provider_code}}/{{account}}"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-22",
+        "title": "最陈的 10 条 key(健康检查年龄,秒)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "s",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "topk(10, ihui_relay_key_pool_health_age_seconds{job=\"business-metrics\"})",
+            "legend": "{{provider_code}}/{{key}}"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-23",
+        "title": "账号累计转发调用(按账号)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "ihui_relay_account_pool_total_calls{job=\"business-metrics\"}",
+            "legend": "{{provider_code}}/{{account}}"
+          }
+        ]
+      },
+      {
+        "id": "timeseries-24",
+        "title": "号池采集丢失(窗口增量;脏行 + 标签撞车)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "short",
+        "min": 0,
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "red",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_relay_key_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))",
+            "legend": "key 脏行"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(increase(ihui_relay_key_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))",
+            "legend": "key 标签撞车"
+          },
+          {
+            "ref": "C",
+            "expr": "sum(increase(ihui_relay_account_pool_rows_skipped_total{job=\"business-metrics\"}[$__range]))",
+            "legend": "账号脏行"
+          },
+          {
+            "ref": "D",
+            "expr": "sum(increase(ihui_relay_account_pool_label_collisions_total{job=\"business-metrics\"}[$__range]))",
+            "legend": "账号标签撞车"
           }
         ]
       }
@@ -3812,6 +4050,110 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "sum(increase(ihui_traffic_scan_hits_total[1h]))",
             "legend": "探测命中"
+          }
+        ]
+      },
+      {
+        "id": "906",
+        "title": "可用 relay key 数(选路选得到)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 0.5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(ihui_relay_key_pool_schedulable_keys{job=\"business-metrics\"})",
+            "legend": "可用 key"
+          }
+        ]
+      },
+      {
+        "id": "907",
+        "title": "异常 relay key 数(degraded + down)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 1
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(ihui_relay_key_pool_keys{job=\"business-metrics\",state=~\"degraded|down\"})",
+            "legend": "异常 key"
+          }
+        ]
+      },
+      {
+        "id": "908",
+        "title": "可用 relay 账号数",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "red",
+            "value": null
+          },
+          {
+            "color": "green",
+            "value": 0.5
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(ihui_relay_account_pool_schedulable{job=\"business-metrics\"})",
+            "legend": "可用账号"
+          }
+        ]
+      },
+      {
+        "id": "909",
+        "title": "key 池刷新滞后(秒;5 分钟一轮)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "s",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 600
+          },
+          {
+            "color": "red",
+            "value": 1800
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "time() - ihui_relay_key_pool_refresh_last_success_timestamp_seconds{job=\"business-metrics\"}",
+            "legend": "刷新滞后"
           }
         ]
       }

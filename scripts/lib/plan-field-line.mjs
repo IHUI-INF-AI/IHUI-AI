@@ -12,6 +12,16 @@
  *  - 超预算只截断显示中的 owner,等段一定保住(丢了"在等什么"就等于把这行退回不可判);
  *  - parse 遇到截断省略号一律报 `malformed` 而**不猜**被截掉的字符(§0.3:"没判"不许写成"判过");
  *  - 只有 `归:` 开头且位于登记行复选框之后的那一段才算标头,反引号内的举例不算(复用单源码段尺子)。
+ *
+ * 同一复合键在侧车里有多条时,"投影取哪一条"**必须是显式裁决而不是读取顺序的副产品**(2026-10-24 立):
+ *  - 本层原先只认一条记录(`renderHeader(rec)`),而"谁算那一条"住在 `lib/plan-fields.mjs` 的
+ *   `loadFields`(按 `updatedAt` 最新胜出)—— 那是**写入时刻**,不是归属权威;同键两条读数不同
+ *   (实测 `G-41#围栏只判…`:`持有人` 与 `mcp_unscoped_exit 围栏持有人`)时,隐式胜出者会让
+ *   派单口径随读取面翻脸,而账面(门 234 A2)仍说"一致 0 枚"。
+ *  - 现在由 `resolveSidecar()` 一处把这件事说明白:同键多条且**投影读数不同** ⇒ 输出
+ *   `〔归:未判定〕`(失效方向 = 多要一次定向说明,绝不是蒙一条,§0.3/铁律 10);
+ *   同键多条但读数逐字相同(抽取器重跑只换 `updatedAt` 的那种同义追加)⇒ 照旧正常投影,不制造噪声;
+ *   单条记录 ⇒ 输出与改动前 `renderHeader(rec)` 逐字节相同(阳性对照由镜像测试钉住)。
  */
 import { codeSpanRangesOf, insideCodeSpan } from './plan-task-index.mjs'
 
@@ -22,13 +32,22 @@ const SEP = '｜'
 const OWNER_PREFIX = '归:'
 const WAIT_PREFIX = '等:'
 const NO_OWNER = '—'
+/** 同键矛盾时的归属占位读数:它必须能被 parseHeader 读回(否则"未判定"自己就成了新的 malformed)。 */
+export const UNJUDGED_OWNER = '未判定'
+export const UNJUDGED_HEADER = OPEN + OWNER_PREFIX + UNJUDGED_OWNER + CLOSE
+
+/** 标头两段的唯一算法(渲染与"是否矛盾"共用一份实现,分家必漂)。 */
+function headerParts(rec) {
+  const owner = String(rec.owner ?? '').trim() || NO_OWNER
+  const blocking = String(rec.blocking ?? '').trim()
+  const waitSeg = rec.waiting && rec.waiting !== 'none' && blocking ? WAIT_PREFIX + blocking : ''
+  return { owner, waitSeg }
+}
 
 /** 侧车记录 → 标头(不含标头时为 '')。owner 超长时截 owner,不牺牲等段。 */
 export function renderHeader(rec) {
   if (!rec) return ''
-  const owner = String(rec.owner ?? '').trim() || NO_OWNER
-  const blocking = String(rec.blocking ?? '').trim()
-  const waitSeg = rec.waiting && rec.waiting !== 'none' && blocking ? WAIT_PREFIX + blocking : ''
+  const { owner, waitSeg } = headerParts(rec)
   const fixed = OWNER_PREFIX.length + owner.length + (waitSeg ? SEP.length + waitSeg.length : 0)
   let shownOwner = owner
   if (fixed > MAX) {
@@ -38,6 +57,35 @@ export function renderHeader(rec) {
   const parts = [OWNER_PREFIX + shownOwner]
   if (waitSeg) parts.push(waitSeg)
   return OPEN + parts.join(SEP) + CLOSE
+}
+
+/**
+ * 一条记录的**投影读数身份**(未截断)。两条记录读数相同 ⇒ 它们在标头这一面上是同一件事;
+ * 不同 ⇒ 同键矛盾。用未截断值比,是为了"两个长 owner 截到同一前缀"不被读成一致。
+ */
+export function projectionReading(rec) {
+  const { owner, waitSeg } = headerParts(rec)
+  return JSON.stringify([owner, waitSeg])
+}
+
+/**
+ * 同一复合键的 N 条侧车记录 ⇒ 显式投影裁决。返回 `{ n, readings, conflict, header }`:
+ *  - `n` = 参与投影的记录条数(0 ⇒ `header=''`,即"这条键位什么都没有");
+ *  - `readings` = 去重排序后的投影读数(给门当棘轮签名用,与记录条数无关);
+ *  - `conflict` = 读数 >1 个 ⇒ 归属不可判,**不许挑一条**；
+ *  - `header` = conflict 时 `〔归:未判定〕`,否则与 `renderHeader(第一条)` 逐字相同。
+ */
+export function resolveSidecar(records) {
+  const list = (Array.isArray(records) ? records : records ? [records] : []).filter(Boolean)
+  if (list.length === 0) return { n: 0, readings: [], conflict: false, header: '' }
+  const readings = [...new Set(list.map(projectionReading))].sort()
+  const conflict = readings.length > 1
+  return {
+    n: list.length,
+    readings,
+    conflict,
+    header: conflict ? UNJUDGED_HEADER : renderHeader(list[0]),
+  }
 }
 
 /** 行 → 标头语义。`malformed` = 看见了但读不回(要人看),`rec=null ∧ malformed=false` = 没有标头。 */
@@ -84,5 +132,15 @@ export function roundTripOk(line) {
   return again === '' || String(line).includes(again)
 }
 
-export const __test__ = { renderHeader, parseHeader, stripHeader, roundTripOk, MAX }
+export const __test__ = {
+  renderHeader,
+  parseHeader,
+  stripHeader,
+  roundTripOk,
+  projectionReading,
+  resolveSidecar,
+  MAX,
+  UNJUDGED_OWNER,
+  UNJUDGED_HEADER,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

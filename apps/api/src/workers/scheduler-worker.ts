@@ -19,6 +19,7 @@ import {
 import { DistributedLock } from '../utils/distributed-lock.js'
 import { aggregateHeatStats } from '../services/heat-stats-service.js'
 import { refreshTrafficGauges } from '../services/traffic-stats-service.js'
+import { refreshRelayPoolGaugesSafely } from '../services/relay-pool-stats-service.js'
 import { checkDailyAlerts } from '../services/alert-check-service.js'
 import { archiveDailyData } from '../services/data-archive-service.js'
 import { startExpirationMonitor } from '../services/expiration-monitor-service.js'
@@ -1018,6 +1019,42 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               refreshed: result.refreshed.length,
               failed: result.failures.length,
               cells: result.cells,
+            }
+          }
+          case 'relay-pool-gauge': {
+            // ihui_relay_key_pool_* / ihui_relay_account_pool_*(Gauge):中转号池
+            // 健康快照。查询失败时服务返回 reason 且**不碰 gauge**(旧值 + 新鲜度戳
+            // 自证变陈),这里按 failed 记账;成功也如实报 skipped/collisions 两路
+            // 显式丢失(脏健康态行 / 标签撞车),不悄悄吞。
+            const result = await refreshRelayPoolGaugesSafely()
+            if (result.reason) {
+              server.log.warn({ reason: result.reason }, 'relay pool gauge refresh failed')
+              try {
+                server.recordJobExecution(name, 'failed')
+              } catch {
+                /* 指标采集失败不影响业务 */
+              }
+              return { failed: true, reason: result.reason }
+            }
+            server.log.info(
+              {
+                keys: result.keys,
+                accounts: result.accounts,
+                keyRowsSkipped: result.keyRowsSkipped,
+                accountRowsSkipped: result.accountRowsSkipped,
+              },
+              'relay pool gauge refreshed',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return {
+              keys: result.keys,
+              accounts: result.accounts,
+              keyRowsSkipped: result.keyRowsSkipped,
+              accountRowsSkipped: result.accountRowsSkipped,
             }
           }
           default:
