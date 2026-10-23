@@ -17,10 +17,12 @@ import { EMPTY } from './helpers'
 import { apiOrThrow } from '@/lib/api'
 import type { ExchangeRate } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export default function ExchangeRatesPage() {
   const t = useTranslations('admin.exchangeRates')
   const tc = useTranslations('common')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   const [currentPage] = React.useState(1)
   const [open, setOpen] = React.useState(false)
@@ -128,7 +130,9 @@ export default function ExchangeRatesPage() {
         isLoading={isLoading}
         onEdit={openEdit}
         onDelete={(item) => {
-          if (confirm(t('deleteConfirm'))) deleteMut.mutate(item.id)
+          void confirm({ title: t('deleteConfirm'), variant: 'destructive' }).then((ok) => {
+            if (ok) deleteMut.mutate(item.id)
+          })
         }}
         deletePending={deleteMut.isPending}
       />
@@ -142,6 +146,7 @@ export default function ExchangeRatesPage() {
         onSubmit={submit}
         onClose={close}
       />
+      <ConfirmDialogRenderer />
     </div>
   )
 }

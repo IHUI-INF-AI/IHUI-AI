@@ -15,9 +15,11 @@ import { apiOrThrow } from '@/lib/api'
 import { normList, parseJson, EMPTY_FORM, ossDriverToForm } from './helpers'
 import type { OssDriver, OssForm } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export default function AdminOssPage() {
   const t = useTranslations('admin.oss')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<OssDriver | null>(null)
@@ -86,7 +88,9 @@ export default function AdminOssPage() {
     saveMut.mutate()
   }
   function handleDelete(c: OssDriver) {
-    if (confirm(t('deleteConfirm'))) delMut.mutate(c.id)
+    void confirm({ title: t('deleteConfirm'), variant: 'destructive' }).then((ok) => {
+      if (ok) delMut.mutate(c.id)
+    })
   }
 
   return (
@@ -110,6 +114,7 @@ export default function AdminOssPage() {
         onSubmit={submit}
         onClose={close}
       />
+      <ConfirmDialogRenderer />
     </div>
   )
 }

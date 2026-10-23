@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { TruncatedText, BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { useWithdrawalMachine } from '@/lib/workflows'
+import { usePrompt } from '@/hooks/use-confirm'
 import type { Withdrawal, WithdrawalListData, WithdrawalStatus } from './types'
 
 const PAGE_SIZE = 20
@@ -38,6 +39,7 @@ export default function AdminWithdrawalPage() {
   const locale = useLocale()
   const qc = useQueryClient()
   const { can } = useWithdrawalMachine()
+  const { prompt, PromptDialogRenderer } = usePrompt()
   const [search, setSearch] = React.useState('')
   const [status, setStatus] = React.useState<WithdrawalStatus | 'all'>('pending')
   const [page, setPage] = React.useState(1)
@@ -74,11 +76,13 @@ export default function AdminWithdrawalPage() {
     onError: (e: Error) => toast.error(e.message),
   })
 
-  function handleAudit(w: Withdrawal, next: 'approved' | 'rejected') {
+  async function handleAudit(w: Withdrawal, next: 'approved' | 'rejected') {
     if (auditMut.isPending) return
     const defaultRemark = next === 'rejected' ? t('defaultRejectRemark') : ''
-    const remark =
-      typeof window !== 'undefined' ? window.prompt(t('remarkPrompt'), defaultRemark) : null
+    const remark = await prompt({
+      title: t('remarkPrompt'),
+      defaultValue: defaultRemark,
+    })
     if (remark === null) return
     auditMut.mutate({ id: w.id, body: { status: next, remark: remark.trim() || undefined } })
   }
@@ -235,6 +239,8 @@ export default function AdminWithdrawalPage() {
           </Button>
         </div>
       </div>
+
+      <PromptDialogRenderer />
     </div>
   )
 }

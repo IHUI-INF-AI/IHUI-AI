@@ -11,6 +11,7 @@ import { fetchApi } from '@/lib/api'
 import { Button, Input, Card, CardContent } from '@ihui/ui-react'
 import type { OssConfig, OssConfigForm, OssConfigListData, OssConfigStatus } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 const EMPTY: OssConfigForm = {
   name: '',
@@ -33,6 +34,7 @@ const RES = '/api/admin/oss/config'
 
 export default function AdminOssConfigPage() {
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [editing, setEditing] = React.useState<OssConfig | null>(null)
   const [form, setForm] = React.useState<OssConfigForm>(EMPTY)
   const [open, setOpen] = React.useState(false)
@@ -170,7 +172,12 @@ export default function AdminOssConfigPage() {
                         className="text-destructive hover:text-destructive"
                         disabled={delMut.isPending}
                         onClick={() => {
-                          if (confirm('确定删除该配置?')) delMut.mutate(c.id)
+                          void confirm({
+                            title: '确定删除该配置?',
+                            variant: 'destructive',
+                          }).then((ok) => {
+                            if (ok) delMut.mutate(c.id)
+                          })
                         }}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -309,6 +316,8 @@ export default function AdminOssConfigPage() {
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

@@ -523,8 +523,6 @@ const styles = StyleSheet.create({
   publishedMeta: {
     marginTop: rpx(16),
     paddingTop: rpx(14),
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.gray[300],
     gap: rpx(6),
   } as ViewStyle,
   metaLine: {

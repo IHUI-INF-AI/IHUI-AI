@@ -23,6 +23,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { useConfirm } from '@/hooks/use-confirm'
 import {
   Button,
   Card,
@@ -63,6 +64,7 @@ export function DeveloperCards({
 }: DeveloperCardsProps) {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   const [resetTarget, setResetTarget] = React.useState<{ id: string; name: string } | null>(null)
   const [resetPending, setResetPending] = React.useState(false)
@@ -162,7 +164,12 @@ export function DeveloperCards({
                             className="text-destructive hover:text-destructive"
                             disabled={delKeyPending}
                             onClick={() => {
-                              if (confirm(t('developer.keyDeleteConfirm'))) onDeleteKey(k.id)
+                              void confirm({
+                                title: t('developer.keyDeleteConfirm'),
+                                variant: 'destructive',
+                              }).then((ok) => {
+                                if (ok) onDeleteKey(k.id)
+                              })
                             }}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -325,6 +332,8 @@ export function DeveloperCards({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialogRenderer />
     </>
   )
 }

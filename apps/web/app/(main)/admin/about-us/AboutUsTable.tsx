@@ -7,6 +7,7 @@ import { Edit, Trash2, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { useConfirm } from '@/hooks/use-confirm'
 import { COLS, TH_CLASS, PERM } from './helpers'
 import type { AboutUsItem } from './types'
 
@@ -20,6 +21,7 @@ interface Props {
 
 export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete }: Props) {
   const t = useTranslations('admin.aboutUs')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -75,7 +77,14 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
                         disabled={deletePending}
-                        onClick={() => confirm(t('confirmDelete')) && onDelete(item.id)}
+                        onClick={() => {
+                          void confirm({
+                            title: t('confirmDelete'),
+                            variant: 'destructive',
+                          }).then((ok) => {
+                            if (ok) onDelete(item.id)
+                          })
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                         {t('delete')}
@@ -88,6 +97,7 @@ export function AboutUsTable({ list, isLoading, deletePending, onEdit, onDelete 
           )}
         </tbody>
       </table>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

@@ -287,8 +287,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.border.light,
     backgroundColor: tokens.surface.card,
     paddingVertical: rpx(16),
     paddingBottom: rpx(20),
@@ -377,8 +375,6 @@ const styles = StyleSheet.create({
   commentItem: {
     flexDirection: 'row',
     paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tokens.border.light,
   } as ViewStyle,
   commentAvatar: {
     width: 32,
@@ -418,8 +414,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 10,
     padding: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.border.light,
   } as ViewStyle,
   commentInput: {
     flex: 1,

@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils'
 import { apiOrThrow } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { Button } from '@ihui/ui-react'
+import { useConfirm } from '@/hooks/use-confirm'
 
 /** 声纹库管理页(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传。
  *  调用 /api/voice/voices(ai-service),声纹上传走 multipart 异步克隆。 */
@@ -87,6 +88,7 @@ export default function VoicesPage() {
   // 2026-10-15 登录态门(与 settings/notifications 同型):未就绪/未登录不发注定 401 的请求,改显登录引导
   const tGate = useTranslations('chatHistory')
   const { allow } = useAuthGate()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   // 声纹库是平台共享资源,删除影响所有用户 → 仅 admin(roleId>=1)可见删除按钮,
   // 与后端 delete_voice 的 _require_admin 守卫对齐(2026-09-09 P1)。
   const userRoleId = useAuthStore((s) => s.user?.roleId)
@@ -165,7 +167,8 @@ export default function VoicesPage() {
   }
 
   const deleteVoice = async (id: string) => {
-    if (!window.confirm(t('deleteConfirm'))) return
+    const ok = await confirm({ title: t('deleteConfirm'), variant: 'destructive' })
+    if (!ok) return
     setDeleting(id)
     setError(null)
     setInfo(null)
@@ -380,6 +383,7 @@ export default function VoicesPage() {
       {!listQuery.isLoading && !listQuery.error && voices.length > 0 && (
         <p className="text-xs text-muted-foreground">{t('count', { count: voices.length })}</p>
       )}
+      <ConfirmDialogRenderer />
     </div>
   )
 }

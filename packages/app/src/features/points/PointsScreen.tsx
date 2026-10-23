@@ -384,8 +384,6 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       gap: 12,
       paddingVertical: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: tk.border.light,
     },
     txMain: { flex: 1, gap: 2 },
     txSource: { fontSize: 13, color: tk.text.primary },
