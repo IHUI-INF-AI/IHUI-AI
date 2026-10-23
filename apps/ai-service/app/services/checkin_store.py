@@ -879,23 +879,23 @@ async def save_device_map(account_id: int, device_map: dict[str, Any]) -> None:
 
 
 async def list_pool_accounts() -> list[dict[str, Any]]:
-    """号池同步账号全量(系统 owner 面;对账收敛器用)。
+    """号池同步账号全量(跨 owner;对账收敛器用)。
 
     只回对账判据需要的字段:poolAccountId / poolCredVersion / platform /
-    identityKey / enabled / name / poolPendingCred;jwt 明文不出库。
-    poolPendingCred = device_map.pool_pending_cred 摘要(上次回写号池失败留的
-    待重试标记;None = 无待重试)。对账器据此发现「签到侧有新凭证没回流号池」。
+    identityKey / enabled / ownerUserId / name / poolPendingCred;jwt 明文不出库。
+    范围 = 所有 device_map 带 pool_account_id 的账号:运营池账号(system:relay-pool)
+    与用户个人池账号(owner_user_id = 平台用户 id)一并对账 —— 匹配一律走
+    poolAccountId,不同 owner 持有同一上游 uid 也不会串号。
     """
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT id, name, platform, identity_key, enabled, device_map
+            SELECT id, name, platform, identity_key, enabled, owner_user_id, device_map
             FROM checkin_accounts
-            WHERE owner_user_id = $1
+            WHERE device_map ? 'pool_account_id'
             ORDER BY id
             """,
-            POOL_SYNC_OWNER,
         )
     out: list[dict[str, Any]] = []
     for r in rows:
@@ -915,6 +915,7 @@ async def list_pool_accounts() -> list[dict[str, Any]]:
                 "platform": r["platform"],
                 "identityKey": r["identity_key"],
                 "enabled": r["enabled"],
+                "ownerUserId": r["owner_user_id"],
                 "poolAccountId": dm.get("pool_account_id"),
                 "poolCredVersion": _pool_cred_version_of(dm),
                 "poolPendingCred": (
@@ -933,19 +934,19 @@ async def list_pool_accounts() -> list[dict[str, Any]]:
 
 
 async def load_device_map(account_id: int) -> dict[str, Any] | None:
-    """按 id 读系统 owner 账号的 device_map 全文(flush 端点回写号池用)。
+    """按 id 读号池同步账号的 device_map 全文(flush 端点回写号池用)。
 
-    仅限 POOL_SYNC_OWNER(用户账号寻址不到);不存在回 None。
+    范围 = device_map 带 pool_account_id 的账号(运营池 + 用户个人池);
+    普通用户手工账号(未同步进号池)寻址不到;不存在回 None。
     """
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
             SELECT device_map FROM checkin_accounts
-            WHERE id = $1 AND owner_user_id = $2
+            WHERE id = $1 AND device_map ? 'pool_account_id'
             """,
             account_id,
-            POOL_SYNC_OWNER,
         )
     if row is None:
         return None
@@ -960,27 +961,83 @@ async def load_device_map(account_id: int) -> dict[str, Any] | None:
     return dict(dm)
 
 
-async def pool_account_id_of(platform: str, uid: str) -> int | None:
-    """按 (platform, identity_key) 定位系统 owner 账号 id(pool-run 点名用)。
+async def _find_pool_account(
+    conn: Any,
+    *,
+    platform: str,
+    uid: str,
+    pool_account_id: str | None,
+    owner_user_id: str | None,
+) -> Any | None:
+    """号池↔签到寻址单源:poolAccountId 优先(跨 owner 稳定),否则 (owner, platform, uid)。
 
-    与 apply_pool_state / pool_status 同一寻址口径(identity_key = 号池 uid);
-    不存在回 None(调用方映射 404)。
+    用户个人池里不同 owner 可能持有同一上游 uid,只按 uid 会串号 —— 号池侧
+    push/state/status/run 全部携带 poolAccountId,uid 路径只作老调用兜底。
     """
+    if pool_account_id:
+        return await conn.fetchrow(
+            """
+            SELECT id, name, enabled, platform, identity_key, owner_user_id, device_map
+            FROM checkin_accounts
+            WHERE device_map->>'pool_account_id' = $1
+            LIMIT 1
+            """,
+            pool_account_id,
+        )
+    return await conn.fetchrow(
+        """
+        SELECT id, name, enabled, platform, identity_key, owner_user_id, device_map
+        FROM checkin_accounts
+        WHERE owner_user_id = $1 AND platform = $2 AND identity_key = $3
+        LIMIT 1
+        """,
+        owner_user_id or POOL_SYNC_OWNER,
+        platform,
+        uid,
+    )
+
+
+async def owner_of_account(account_id: int) -> str:
+    """读签到账号的 owner(内部端点执行签到/回写时用)。不存在抛 LookupError。"""
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
-        found = await conn.fetchval(
-            """
-            SELECT id FROM checkin_accounts
-            WHERE owner_user_id = $1 AND platform = $2 AND identity_key = $3
-            """,
-            POOL_SYNC_OWNER,
-            platform,
-            uid,
+        owner = await conn.fetchval(
+            "SELECT owner_user_id FROM checkin_accounts WHERE id = $1",
+            account_id,
         )
-    return found if isinstance(found, int) else None
+    if not isinstance(owner, str) or not owner:
+        raise LookupError(f"签到账号不存在: {account_id}")
+    return owner
 
 
-async def apply_pool_state(platform: str, uid: str, state: str) -> dict[str, Any]:
+async def pool_account_id_of(
+    platform: str,
+    uid: str,
+    *,
+    pool_account_id: str | None = None,
+    owner_user_id: str | None = None,
+) -> int | None:
+    """定位号池同步账号的签到侧 id(pool-run 点名用);不存在回 None(调用方映射 404)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await _find_pool_account(
+            conn,
+            platform=platform,
+            uid=uid,
+            pool_account_id=pool_account_id,
+            owner_user_id=owner_user_id,
+        )
+    return row["id"] if row is not None and isinstance(row["id"], int) else None
+
+
+async def apply_pool_state(
+    platform: str,
+    uid: str,
+    state: str,
+    *,
+    pool_account_id: str | None = None,
+    owner_user_id: str | None = None,
+) -> dict[str, Any]:
     """号池状态联动(enabled / disabled / pool_deleted),返回 {found, accountId}。
 
     - enabled/disabled: 置 checkin_accounts.enabled(调度器即恢复/跳过);
@@ -990,14 +1047,12 @@ async def apply_pool_state(platform: str, uid: str, state: str) -> dict[str, Any
     """
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            """
-            SELECT id, device_map FROM checkin_accounts
-            WHERE owner_user_id = $1 AND platform = $2 AND identity_key = $3
-            """,
-            POOL_SYNC_OWNER,
-            platform,
-            uid,
+        row = await _find_pool_account(
+            conn,
+            platform=platform,
+            uid=uid,
+            pool_account_id=pool_account_id,
+            owner_user_id=owner_user_id,
         )
         if row is None:
             return {"found": False, "accountId": None}
@@ -1033,10 +1088,25 @@ async def apply_pool_state(platform: str, uid: str, state: str) -> dict[str, Any
     return {"found": True, "accountId": row["id"]}
 
 
-async def pool_status(platform: str, uid: str) -> dict[str, Any]:
-    """单账号签到状态(admin 点查):账号 + 最近记录 + 活跃冷却 + 同步态。"""
+async def pool_status(
+    platform: str,
+    uid: str,
+    *,
+    pool_account_id: str | None = None,
+    owner_user_id: str | None = None,
+) -> dict[str, Any]:
+    """单账号签到状态(admin/个人池点查):账号 + 最近记录 + 活跃冷却 + 同步态。"""
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
+        target = await _find_pool_account(
+            conn,
+            platform=platform,
+            uid=uid,
+            pool_account_id=pool_account_id,
+            owner_user_id=owner_user_id,
+        )
+        if target is None:
+            return {"found": False}
         row = await conn.fetchrow(
             """
             SELECT a.id, a.name, a.enabled, a.device_map,
@@ -1050,11 +1120,9 @@ async def pool_status(platform: str, uid: str) -> dict[str, Any]:
                 ORDER BY created_at DESC
                 LIMIT 1
             ) r ON true
-            WHERE a.owner_user_id = $1 AND a.platform = $2 AND a.identity_key = $3
+            WHERE a.id = $1
             """,
-            POOL_SYNC_OWNER,
-            platform,
-            uid,
+            target["id"],
         )
         if row is None:
             return {"found": False}

@@ -100,6 +100,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 function makeAccount(over: Partial<PoolSyncAccount> = {}): PoolSyncAccount {
   return {
     poolAccountId: 'pool-1',
+    ownerUserId: null,
     uid: 'uid-1',
     name: '账号一',
     token: 'tok-1',
@@ -168,6 +169,7 @@ describe('buildPoolSyncAccount', () => {
   it('tokenExpiresAt → ISO 字符串;无效日期按 null(不抛)', () => {
     const acc = buildPoolSyncAccount({
       id: 'p1',
+      ownerUserId: null,
       uid: 'u1',
       name: 'n',
       token: 't',
@@ -182,6 +184,7 @@ describe('buildPoolSyncAccount', () => {
     })
     expect(acc).toEqual({
       poolAccountId: 'p1',
+      ownerUserId: null,
       uid: 'u1',
       name: 'n',
       token: 't',
@@ -196,6 +199,7 @@ describe('buildPoolSyncAccount', () => {
     })
     const bad = buildPoolSyncAccount({
       id: 'p2',
+      ownerUserId: null,
       uid: 'u2',
       name: 'n',
       token: 't',
@@ -399,17 +403,29 @@ describe('pushPoolSync', () => {
 // =============================================================================
 
 describe('pushPoolState', () => {
-  it('成功:体断言 {platform, items:[{uid, state}]};found=true → ok', async () => {
+  it('成功:体断言 poolAccountId 寻址 + owner;found=true → ok', async () => {
     const fetchMock = makeFetchMock({
       state: (body) => {
         expect(body).toEqual({
           platform: 'qoder',
-          items: [{ uid: 'uid-1', state: 'disabled' }],
+          items: [
+            {
+              poolAccountId: 'pool-1',
+              ownerUserId: null,
+              uid: 'uid-1',
+              state: 'disabled',
+            },
+          ],
         })
         return jsonResponse({ results: [{ uid: 'uid-1', found: true, accountId: 'ca-1' }] })
       },
     })
-    const r = await pushPoolState('qoder', 'uid-1', 'disabled', fetchMock)
+    const r = await pushPoolState(
+      'qoder',
+      { poolAccountId: 'pool-1', ownerUserId: null, uid: 'uid-1' },
+      'disabled',
+      fetchMock,
+    )
     expect(r).toEqual({ ok: true, error: null })
   })
 
@@ -417,14 +433,24 @@ describe('pushPoolState', () => {
     const fetchMock = makeFetchMock({
       state: () => jsonResponse({ results: [{ uid: 'uid-1', found: false }] }),
     })
-    const r = await pushPoolState('trae', 'uid-1', 'pool_deleted', fetchMock)
+    const r = await pushPoolState(
+      'trae',
+      { poolAccountId: 'pool-1', ownerUserId: null, uid: 'uid-1' },
+      'pool_deleted',
+      fetchMock,
+    )
     expect(r.ok).toBe(false)
     expect(r.error).toContain('未命中')
   })
 
   it('HTTP 401(内网密钥错)→ ok=false', async () => {
     const fetchMock = makeFetchMock({ state: () => jsonResponse({ detail: '密钥不匹配' }, 401) })
-    const r = await pushPoolState('trae', 'uid-1', 'enabled', fetchMock)
+    const r = await pushPoolState(
+      'trae',
+      { poolAccountId: 'pool-1', ownerUserId: null, uid: 'uid-1' },
+      'enabled',
+      fetchMock,
+    )
     expect(r.ok).toBe(false)
     expect(r.error).toContain('HTTP 401')
   })
@@ -481,6 +507,7 @@ describe('markCheckinSyncPending / clearCheckinSyncPending', () => {
 function pendingCredRow(over: Record<string, unknown> = {}) {
   return {
     id: 'pool-1',
+    ownerUserId: null,
     providerCode: 'trae',
     uid: 'uid-1',
     name: '账号一',
@@ -549,7 +576,17 @@ describe('retryPendingCheckinSyncs', () => {
     })
     const r = await retryPendingCheckinSyncs(10, fetchMock)
     expect(r.cleared).toBe(1)
-    expect(seen).toEqual({ platform: 'qoder', items: [{ uid: 'uid-1', state: 'pool_deleted' }] })
+    expect(seen).toEqual({
+      platform: 'qoder',
+      items: [
+        {
+          poolAccountId: 'pool-2',
+          ownerUserId: null,
+          uid: 'uid-1',
+          state: 'pool_deleted',
+        },
+      ],
+    })
   })
 
   it('state 行 meta.state 缺失 → 按 enabled 兜底重推', async () => {
@@ -566,7 +603,17 @@ describe('retryPendingCheckinSyncs', () => {
       },
     })
     await retryPendingCheckinSyncs(10, fetchMock)
-    expect(seen).toEqual({ platform: 'trae', items: [{ uid: 'uid-1', state: 'enabled' }] })
+    expect(seen).toEqual({
+      platform: 'trae',
+      items: [
+        {
+          poolAccountId: 'pool-1',
+          ownerUserId: null,
+          uid: 'uid-1',
+          state: 'enabled',
+        },
+      ],
+    })
   })
 
   it('无签到引擎平台(codearts)→ 不发请求,直接清并计 droppedNoEngine', async () => {
@@ -650,10 +697,16 @@ describe('fetchPoolStatus(端点 4 点查)', () => {
         })
       },
     )
-    const r = await fetchPoolStatus('qoder', 'u-9001', fetchMock as unknown as typeof fetch)
+    const r = await fetchPoolStatus(
+      'qoder',
+      { poolAccountId: 'pool-1', uid: 'u-9001' },
+      fetchMock as unknown as typeof fetch,
+    )
     expect(r.ok).toBe(true)
     expect(seenAuth).toBe('test-internal-secret')
-    expect(seenUrl).toContain('/internal/checkin/pool-status?platform=qoder&uid=u-9001')
+    expect(seenUrl).toContain(
+      '/internal/checkin/pool-status?platform=qoder&poolAccountId=pool-1&uid=u-9001',
+    )
     expect(r.found).toBe(true)
     expect(r.accountId).toBe(12)
     expect(r.pendingCred).toBe(true)
@@ -663,13 +716,21 @@ describe('fetchPoolStatus(端点 4 点查)', () => {
 
   it('found:false(未同步)原样回传,不当作错误', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({ found: false }))
-    const r = await fetchPoolStatus('trae', 'u-1', fetchMock as unknown as typeof fetch)
+    const r = await fetchPoolStatus(
+      'trae',
+      { poolAccountId: 'pool-1', uid: 'u-1' },
+      fetchMock as unknown as typeof fetch,
+    )
     expect(r).toMatchObject({ ok: true, found: false, error: null })
   })
 
   it('HTTP 500 / 网络错 → ok:false', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({ detail: 'boom' }, 500))
-    const r = await fetchPoolStatus('trae', 'u-1', fetchMock as unknown as typeof fetch)
+    const r = await fetchPoolStatus(
+      'trae',
+      { poolAccountId: 'pool-1', uid: 'u-1' },
+      fetchMock as unknown as typeof fetch,
+    )
     expect(r.ok).toBe(false)
     expect(r.error).toContain('500')
   })
@@ -677,7 +738,11 @@ describe('fetchPoolStatus(端点 4 点查)', () => {
   it('密钥未配置 → ok:false 不发请求', async () => {
     hoisted.cfg.AI_CALLBACK_SECRET = undefined
     const fetchMock = vi.fn()
-    const r = await fetchPoolStatus('trae', 'u-1', fetchMock as unknown as typeof fetch)
+    const r = await fetchPoolStatus(
+      'trae',
+      { poolAccountId: 'pool-1', uid: 'u-1' },
+      fetchMock as unknown as typeof fetch,
+    )
     expect(r.ok).toBe(false)
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -690,18 +755,31 @@ describe('postPoolRun(立即签到转发)', () => {
       seenBody = JSON.parse(String(init?.body))
       return jsonResponse({ ok: true, credits: 200 })
     })
-    const r = await postPoolRun('qoder', 'u-9001', fetchMock as unknown as typeof fetch)
+    const r = await postPoolRun(
+      'qoder',
+      { poolAccountId: 'pool-1', ownerUserId: null, uid: 'u-9001' },
+      fetchMock as unknown as typeof fetch,
+    )
     expect(r.ok).toBe(true)
     expect(r.httpStatus).toBe(200)
     expect(r.record).toMatchObject({ credits: 200 })
-    expect(seenBody).toEqual({ platform: 'qoder', uid: 'u-9001' })
+    expect(seenBody).toEqual({
+      platform: 'qoder',
+      poolAccountId: 'pool-1',
+      ownerUserId: null,
+      uid: 'u-9001',
+    })
   })
 
   it('429(冷却/限流)透传 httpStatus 与 detail', async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({ detail: '签到接口限流冷却中(120s),请稍后再试' }, 429),
     )
-    const r = await postPoolRun('qoder', 'u-9001', fetchMock as unknown as typeof fetch)
+    const r = await postPoolRun(
+      'qoder',
+      { poolAccountId: 'pool-1', ownerUserId: null, uid: 'u-9001' },
+      fetchMock as unknown as typeof fetch,
+    )
     expect(r.ok).toBe(false)
     expect(r.httpStatus).toBe(429)
     expect(r.error).toContain('429')
@@ -710,7 +788,11 @@ describe('postPoolRun(立即签到转发)', () => {
 
   it('404(未同步)透传', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({ detail: '签到账号不存在: qoder/u-9' }, 404))
-    const r = await postPoolRun('qoder', 'u-9', fetchMock as unknown as typeof fetch)
+    const r = await postPoolRun(
+      'qoder',
+      { poolAccountId: 'pool-1', ownerUserId: null, uid: 'u-9' },
+      fetchMock as unknown as typeof fetch,
+    )
     expect(r).toMatchObject({ ok: false, httpStatus: 404 })
   })
 
@@ -718,7 +800,11 @@ describe('postPoolRun(立即签到转发)', () => {
     const fetchMock = vi.fn(async () => {
       throw new Error('connect ECONNREFUSED')
     })
-    const r = await postPoolRun('qoder', 'u-1', fetchMock as unknown as typeof fetch)
+    const r = await postPoolRun(
+      'qoder',
+      { poolAccountId: 'pool-1', ownerUserId: null, uid: 'u-1' },
+      fetchMock as unknown as typeof fetch,
+    )
     expect(r).toMatchObject({ ok: false, httpStatus: 502 })
     expect(r.error).toContain('网络错误')
   })
