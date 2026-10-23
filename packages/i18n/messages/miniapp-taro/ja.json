@@ -2361,7 +2361,8 @@
       "editBtn2": "編集",
       "editBtn": "設定",
       "noMore": "これ以上ありません"
-    }
+    },
+    "becomeDeveloper": "開発者になる"
   },
   "modelPlaza": {
     "title": "モデル広場",
@@ -4678,5 +4679,20 @@
     "lastOk": "前回のチェックイン成功 +{credits}",
     "lastFailed": "前回のチェックイン失敗",
     "actionFailed": "操作に失敗しました"
+  },
+  "developerInfo": {
+    "title": "開発者情報",
+    "nameLabel": "名前",
+    "descLabel": "紹介",
+    "statusLabel": "申請ステータス",
+    "statusApproved": "承認済み",
+    "statusRejected": "却下されました",
+    "statusPending": "審査待ち",
+    "accountLabel": "アカウント",
+    "apiKeyLabel": "API キー",
+    "apiKeyCount": "{count} 件作成済み",
+    "apiKeyNone": "まだ作成していません",
+    "urlLabel": "URL",
+    "expiryLabel": "有効期限"
   }
 }

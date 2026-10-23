@@ -2361,7 +2361,8 @@
       "editBtn2": "수정",
       "editBtn": "설정",
       "noMore": "더 이상 없음"
-    }
+    },
+    "becomeDeveloper": "개발자 되기"
   },
   "modelPlaza": {
     "title": "모델 광장",
@@ -4678,5 +4679,20 @@
     "lastOk": "지난 체크인 성공 +{credits}",
     "lastFailed": "지난 체크인 실패",
     "actionFailed": "작업 실패"
+  },
+  "developerInfo": {
+    "title": "개발자 정보",
+    "nameLabel": "이름",
+    "descLabel": "소개",
+    "statusLabel": "신청 상태",
+    "statusApproved": "승인됨",
+    "statusRejected": "거절됨",
+    "statusPending": "심사 대기",
+    "accountLabel": "계정",
+    "apiKeyLabel": "API 키",
+    "apiKeyCount": "{count}개 생성됨",
+    "apiKeyNone": "생성되지 않음",
+    "urlLabel": "웹사이트",
+    "expiryLabel": "만료일"
   }
 }
