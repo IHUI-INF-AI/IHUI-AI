@@ -22,6 +22,11 @@
       "miniapp": "pages/ask/detail"
     },
     {
+      "shared": "packages/app/src/features/cart/CartScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CartScreen.tsx",
+      "miniapp": "pkg-shop/cart/index"
+    },
+    {
       "shared": "packages/app/src/features/carte/CarteScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CarteScreen.tsx",
       "miniapp": "pkg-content/carte/index"

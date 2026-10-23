@@ -2089,6 +2089,7 @@
   },
   "cart": {
     "title": "购物车",
+    "selectAll": "全选",
     "checkout": "去结算",
     "loading": "加载中…",
     "product": "商品",
@@ -2254,6 +2255,26 @@
       "submitSuccess": "提交成功",
       "mockSuccess": "接口暂未开放,已模拟提交"
     }
+  },
+  "devSpace": {
+    "title": "开发者详情",
+    "notLoggedIn": "未登录",
+    "renew": "续费",
+    "linkCopied": "链接已复制,请在浏览器中打开",
+    "linkCopyFailed": "复制失败,请重试",
+    "entryMyAgents": "我的智能体",
+    "entryAgentIncome": "智能体收入",
+    "entryN8nModel": "n8n智能体",
+    "entryBusinessCard": "创客名片",
+    "faqHeading": "相关开发者的一系列问题解答?",
+    "faqIncentiveTitle": "开发者激励计划",
+    "faqIncentiveDesc": "发布 AI 智能体,获取分成收益",
+    "faqIncentiveBtn": "查看详情",
+    "faqGuideTitle": "上架指南",
+    "faqGuideDesc": "创建智能体、配置模型、提交审核",
+    "faqGuideBtn": "去了解",
+    "contactHeading": "其他问题?",
+    "contactDesc": "咨询客服,获得多对一在线答疑"
   },
   "developer": {
     "withdrawal": {
