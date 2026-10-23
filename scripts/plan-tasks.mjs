@@ -26,6 +26,15 @@
  *                                                # 纯滞后副本(工作树 blob = 该路径某个历史版本)不算"别人在飞",
  *                                                # 不暂移 —— 懒判,只对被点名的脏路径问祖先(blobInAncestry 四态)
  *                                                # (默认档不打扰 —— 下游有按行解析这份输出的消费者)
+ *   node scripts/plan-tasks.mjs --open --dispatchable --order=late
+ *                                                # 时间排序档(2026-10-23 机主令"计划文档要按时间排序,
+ *                                                # 以后做任务也要有先后顺序、要按时间去做"):出单按每行
+ *                                                # **"最后一次被人动过"**的时刻排序,`late`=最近的在最前、
+ *                                                # `early`=最陈旧的在最前。锚点是 blame∧行内日期的较新者,
+ *                                                # 单源 `lib/plan-line-age.mjs`(本文件零复算,§0.6);
+ *                                                # **量不到锚点的行恒排末尾并逐行点名** —— 拿"没量到"
+ *                                                # 冒充"最新"或"最旧"是同一种失效的两个方向。
+ *                                                # 只在显式旗标下生效:默认档行序有下游按行解析的消费者。
  *   node scripts/plan-tasks.mjs --gate [--strict] # 判据档(默认存量只报数;--strict 判红)
  *   node scripts/plan-tasks.mjs --reopened-flips --since=YYYY-MM-DD [--max-commits=N]
  *                                                 # F10 翻勾回写候选(只报数,**必须显式窗口**;见 scanReopenedFlipEvidence 头注)
@@ -123,6 +132,26 @@ export function parseArgs(argv) {
   if (mcEq !== undefined && !/^\d+$/.test(mcEq.slice('--max-commits='.length)))
     flagIssues.push(`--max-commits= 必须是正整数,实得:${JSON.stringify(mcEq.slice('--max-commits='.length))}`)
   const maxCommits = Number.isFinite(Number(mcRaw)) && Number(mcRaw) > 0 ? Number(mcRaw) : F10_DEFAULT_MAX_COMMITS
+  // `--order` 时间排序档(2026-10-23,只在 --open 生效)。带值旗标一律走单源判据 `flagValue`
+  // (G-322 那一族的正解),**必须显式给 late|early** —— 不给值 / 给了别的 ⇒ flagIssues ⇒ exit 2,
+  // 绝不静默退回"不按时间排":静默退回会让"我要时间序"这次调用交出默认序的清单,而账面看起来
+  // 就是一份正常派单单(顺序本身不带证据,读的人无法看出它不是按时间排的)。
+  // 等号与空格两种写法都收,与 --since / --max-commits / --next-id 同口径。
+  const orderEq = argv.find((x) => x.startsWith('--order='))
+  const orderFlag = flagValue(argv, '--order')
+  const orderRaw =
+    orderEq !== undefined ? orderEq.slice('--order='.length) : orderFlag.valid ? orderFlag.value : null
+  if (orderEq !== undefined || orderFlag.valid) {
+    if (orderRaw !== 'late' && orderRaw !== 'early')
+      flagIssues.push(
+        `--order 只认 late(最近的在最前)或 early(最陈旧的在最前),实得:${JSON.stringify(orderRaw)}`,
+      )
+  } else if (orderFlag.present) {
+    flagIssues.push(
+      `--order 需要一个值(late|early)—— 紧邻的 token 实得:${describeFlagToken(orderFlag)}(不得静默退回默认序)`,
+    )
+  }
+  const order = orderRaw === 'late' || orderRaw === 'early' ? orderRaw : null
   return {
     json: has('--json'),
     nextIdRequested,
@@ -140,6 +169,7 @@ export function parseArgs(argv) {
     stale: has('--stale'),
     undisposed: has('--undisposed'),
     dispatchable: has('--dispatchable'),
+    order,
     conflicts: has('--conflicts'),
     excludeInflight: has('--exclude-inflight'),
     selfTest: has('--self-test'),
@@ -535,6 +565,10 @@ export function auditFace(root, face) {
 function enrichStale(a, root) {
   const { ages } = headAges(root)
   const byLine = new Map(ages.map((x) => [x.line, x]))
+  // 全量锚点留给时间排序档用(--order)。**一次 blame 供两个消费者**:headAges 内部是全文件
+  // blame(真仓 ≈9s),为排序再派一次等于把一次派单扫描的耗时翻倍,而两处的锚点必须同瞬间
+  // (分开取 ⇒ 两次 blame 之间别人提交 ⇒ 到期读数与出单顺序来自不同瞬间的仓库,对不上账)。
+  a.ageByLine = byLine
   const stale = []
   let unmeasurable = 0
   // 重新按同一 TTL 过一遍全部未勾选行(锚点换成 blame ∧ 行内日期)
@@ -558,6 +592,41 @@ function enrichStale(a, root) {
   a.counts.ageUnmeasurable = unmeasurable
   a.counts.ageCovered = byLine.size
   return a
+}
+
+/**
+ * 时间排序档 —— 把出单顺序交给"这一行最后一次被人动过"的时刻(2026-10-23 立,机主令
+ * 「计划文档要按时间排序,以后做任务也要有先后顺序、要按时间去做」)。
+ *
+ * 为什么排**工具面**而不是把 PROJECT_PLAN.md 物理重排:现读台账 29034 行 / 611 个标题,
+ * 主体是批次编年史(一个标题下挂着同一任务的 ①②③ 子项族,§1 明令机械拆散是净损失),
+ * 而它由多会话并发 append + 行级 union 归并 —— 一次全文件移动会让 merge-live-doc 的行锚点
+ * 配对大面积失配(本仓「改锚点的行会被报成丢行」记过多次),且下一批登记当场把它洗回无序。
+ * 顺序要成为口径,必须住在派单入口里,而不是住在一份会腐烂的文件排版里。
+ *
+ * 三条判据(纯函数:rows 与锚点表都由调用方注入,自检不碰 git):
+ *  1. 锚点只问 `lib/plan-line-age.mjs`(blame∧行内日期较新者),本层零复算(§0.6);
+ *  2. **量不到锚点的行恒排末尾,两种 mode 都一样** —— 按 mode 把它排到头部等于拿"没量到"
+ *     冒充"最新"(§0.3「没判绝不写成判过」在排序维的同型:不得替它编一个位置);
+ *  3. 同锚点 / 同无锚点 ⇒ 回退行号升序 ⇒ 输出确定。不稳定排序会让两次调用给出两种顺序,
+ *     下游按行 diff 会把顺序抖动读成内容变化。
+ */
+export function orderRowsByTime(rows, ageByLine, mode) {
+  if (mode !== 'late' && mode !== 'early')
+    throw new Error(`orderRowsByTime: mode 只认 late|early,实得 ${JSON.stringify(mode)}`)
+  const tsOf = (r) => {
+    const t = ageByLine?.get(r.line)?.anchorTs
+    return typeof t === 'number' ? t : null
+  }
+  const anchored = []
+  const unanchored = []
+  for (const r of rows) (tsOf(r) === null ? unanchored : anchored).push(r)
+  anchored.sort((p, q) => {
+    const d = mode === 'late' ? tsOf(q) - tsOf(p) : tsOf(p) - tsOf(q)
+    return d !== 0 ? d : p.line - q.line
+  })
+  unanchored.sort((p, q) => p.line - q.line)
+  return { rows: [...anchored, ...unanchored], unanchored, anchoredCount: anchored.length }
 }
 
 /**
@@ -717,9 +786,20 @@ function report(a, face) {
     console.log('  本次提交新带入且无交代: **未判定**(无基准面 —— 全量档算不出"新增",不得当作 0)')
 }
 
-function listRows(rows, face) {
+function listRows(rows, face, ages = null) {
   console.log(`── ${rows.length} 行(判定面:${LABEL[face]})──`)
-  for (const r of rows) console.log(`  L${r.line}  ${clip(r.raw)}`)
+  // ages 传入时(时间排序档)逐行带上锚点,让"按时间排"这件事在出单面上可核;
+  // 不传时输出与旧档**逐字节相同** —— 下游有按行解析这份输出的消费者,默认档格式不许动。
+  for (const r of rows) {
+    if (!ages) {
+      console.log(`  L${r.line}  ${clip(r.raw)}`)
+      continue
+    }
+    const ts = ages.get(r.line)?.anchorTs
+    const anchor =
+      typeof ts === 'number' ? new Date(ts).toISOString().slice(0, 16).replace('T', ' ') : '锚点未判定'
+    console.log(`  L${r.line}  ${anchor}  ${clip(r.raw)}`)
+  }
 }
 
 /**
@@ -2468,6 +2548,99 @@ function selfTest() {
     !probe({ counts: {} }).some(([k]) => k === 'F10'),
     'F10 绝不许进 probe 差值棘轮(会变成与任何提交无关的恒红门,§12e/§12f)',
   )
+  // ── 时间排序档 --order(2026-10-23 立)──
+  // 夹具只用构造面(锚点表由本例注入),不碰 git ⇒ 确定性(§22b 取向:形状判据要用纯函数+构造面证明)。
+  const tOld = Date.UTC(2026, 8, 1)
+  const tMid = Date.UTC(2026, 9, 1)
+  const tNew = Date.UTC(2026, 9, 20)
+  const oRows = [
+    { line: 10, raw: '- [ ] 最陈旧的一张' },
+    { line: 20, raw: '- [ ] 中间那张' },
+    { line: 30, raw: '- [ ] 最近动过的这张' },
+    { line: 40, raw: '- [ ] 量不到锚点的这张' },
+  ]
+  const oAges = new Map([
+    [10, { anchorTs: tOld }],
+    [20, { anchorTs: tMid }],
+    [30, { anchorTs: tNew }],
+    [40, { anchorTs: null }],
+  ])
+  const late = orderRowsByTime(oRows, oAges, 'late')
+  ok(
+    late.rows.map((r) => r.line).join(',') === '30,20,10,40',
+    `--order=late 应"最近的在最前、无锚点在末尾",实测 ${late.rows.map((r) => r.line).join(',')}`,
+  )
+  const early = orderRowsByTime(oRows, oAges, 'early')
+  ok(
+    early.rows.map((r) => r.line).join(',') === '10,20,30,40',
+    `--order=early 应"最陈旧在最前、无锚点仍在末尾",实测 ${early.rows.map((r) => r.line).join(',')}`,
+  )
+  // 反向锁(这一档最重要的一条):无锚点的行在**两种 mode 下都不得进头部**。
+  // 按 mode 把它排到最前 = 拿"没量到"冒充"最新"(或"最旧"),正是 §0.3 禁止的那种失效。
+  ok(
+    late.rows[0].line !== 40 && early.rows[0].line !== 40,
+    '无锚点行不得因 mode 而占据头部(量不到既不读成最新、也不读成最陈旧)',
+  )
+  // 阳性对照:同一把尺子必须真能区分新旧 —— 若两档输出同一个顺序,上面两条正控是空过的。
+  ok(
+    late.rows.map((r) => r.line).join(',') !== early.rows.map((r) => r.line).join(','),
+    'late 与 early 必须给出不同顺序(相同说明锚点根本没参与排序,判据空转)',
+  )
+  ok(
+    late.unanchored.length === 1 && late.unanchored[0].line === 40 && late.anchoredCount === 3,
+    `未判龄行必须逐行点名并可数,实测 unanchored=${JSON.stringify(late.unanchored.map((r) => r.line))} anchored=${late.anchoredCount}`,
+  )
+  // 行数守恒:排完不许少一行(排序档丢行等于把票从派单面上静默摘掉)。
+  ok(
+    [...late.rows, ...early.rows].every((r) => r.raw !== undefined) &&
+      late.rows.length === oRows.length &&
+      early.rows.length === oRows.length,
+    `两种 mode 都必须原样出 ${oRows.length} 行,实测 late=${late.rows.length} early=${early.rows.length}`,
+  )
+  // 确定性:同锚点 ⇒ 回退行号升序(两次调用必须给同一个顺序,否则下游按行 diff 会把抖动读成变化)。
+  const tie = orderRowsByTime(
+    [
+      { line: 7, raw: '- [ ] 同刻 B' },
+      { line: 5, raw: '- [ ] 同刻 A' },
+    ],
+    new Map([
+      [5, { anchorTs: tMid }],
+      [7, { anchorTs: tMid }],
+    ]),
+    'late',
+  )
+  ok(
+    tie.rows.map((r) => r.line).join(',') === '5,7',
+    `同锚点必须回退行号升序以保证确定,实测 ${tie.rows.map((r) => r.line).join(',')}`,
+  )
+  // 锚点表缺失(取不到 blame / 索引面)⇒ 一律落"无锚点",绝不静默按时间声称排过。
+  const noMap = orderRowsByTime(oRows, null, 'late')
+  ok(
+    noMap.rows.length === oRows.length && noMap.unanchored.length === oRows.length,
+    `锚点表为 null 时全部行必须进 unanchored(由调用方大声报名"未判定"),实测 anchored=${noMap.rows.length - noMap.unanchored.length}`,
+  )
+  // 非法 mode ⇒ 当场抛,不退回某一种顺序(静默退回 = 账面看着像按时间排的默认单)。
+  let threwMode = false
+  try {
+    orderRowsByTime(oRows, oAges, 'newest-first')
+  } catch {
+    threwMode = true
+  }
+  ok(threwMode, 'mode 非 late|early 必须抛(不得静默挑一种顺序)')
+  // 旗标判据:--order 少值 / 顶值 / 被下一枚旗标吃掉 ⇒ 收进 flagIssues,由 CLI 在任何输出前 exit 2。
+  ok(
+    parseArgs(['--open', '--order']).flagIssues.length === 1 &&
+      parseArgs(['--open', '--order=bogus']).flagIssues.length === 1 &&
+      parseArgs(['--open', '--order', '--gate']).flagIssues.length === 1,
+    '--order 少值/错值/吞旗标三种都必须记成用法错(不得静默退回默认序)',
+  )
+  ok(
+    parseArgs(['--open', '--order=late']).order === 'late' &&
+      parseArgs(['--open', '--order', 'early']).order === 'early' &&
+      parseArgs(['--open']).order === null &&
+      parseArgs(['--open']).flagIssues.length === 0,
+    '--order 的等号与空格两种写法都要收到;不带该旗标必须为 null 且零用法错(默认档一字不动)',
+  )
   console.log(`\n自检:${pass} 通过 / ${fail} 失败`)
   return fail ? 1 : 0
 }
@@ -2819,7 +2992,31 @@ function main() {
         }
       }
     }
-    listRows(rowsOut, o.face)
+    // 时间排序档:只在显式 --order 下动手,且**永远不冒充判过**。锚点表来自 enrichStale 那一次
+    // blame(同一瞬间);face!=='head' 或 blame 取不到 ⇒ a.ageByLine 不在 ⇒ 大声点名"未判定"、
+    // 按默认行号出单(把"量不到"读成"按时间排好了"就是给一份没有牙的清单盖时间序的章)。
+    let ageFaceForOrder = null
+    if (o.order) {
+      if (!a.ageByLine) {
+        console.log(
+          `  ⚠️ --order=${o.order} **未判定**:${a.counts.ageSource ?? '年龄锚点取不到'}` +
+            ` ⇒ 本单仍按行号出,不冒充时间序`,
+        )
+      } else {
+        const or = orderRowsByTime(rowsOut, a.ageByLine, o.order)
+        rowsOut = or.rows
+        ageFaceForOrder = a.ageByLine
+        console.log(
+          `  时间排序档 --order=${o.order}:锚点 = blame∧行内日期较新者(单源 lib/plan-line-age.mjs),` +
+            `${or.anchoredCount} 行按此刻排序(最近的在最前),` +
+            `判不到锚点 ${or.unanchored.length} 行**恒排末尾**(不猜它新还是旧)`,
+        )
+        for (const r of or.unanchored.slice(0, 10)) console.log(`    L${r.line} 无锚点 ${clip(r.raw)}`)
+        if (or.unanchored.length > 10)
+          console.log(`    …另 ${or.unanchored.length - 10} 行无锚点,同样排在末尾`)
+      }
+    }
+    listRows(rowsOut, o.face, ageFaceForOrder)
     return 0
   }
   if (o.undisposed) {
