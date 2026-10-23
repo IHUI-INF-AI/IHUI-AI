@@ -297,7 +297,8 @@ class Metacognition:
     def _common_prefix_len(pa: str, pb: str) -> int:
         """两条 pattern 的公共前缀长度(逐字符比较,不做归一)。"""
         n = 0
-        for ca, cb in zip(pa, pb):
+        # 公共前缀只比较到较短一侧为止,长度不同是合法输入(非结构性不匹配)
+        for ca, cb in zip(pa, pb, strict=False):
             if ca != cb:
                 break
             n += 1

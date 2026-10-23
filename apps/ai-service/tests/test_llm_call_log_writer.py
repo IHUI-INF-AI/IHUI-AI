@@ -51,7 +51,7 @@ class FakeConnection:
 
 
 class FakeAcquireContext:
-    def __init__(self, pool: "FakePool") -> None:
+    def __init__(self, pool: FakePool) -> None:
         self._pool = pool
 
     async def __aenter__(self) -> FakeConnection:
@@ -73,7 +73,6 @@ class FakePool:
 
     def acquire(self) -> Any:
         if self.fail_execute:
-            outer = self.recorder
 
             class _Boom(FakeAcquireContext):
                 async def __aenter__(self) -> Any:

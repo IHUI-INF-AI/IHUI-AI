@@ -31,9 +31,9 @@ const GROUP = USER_PREFERENCE_GROUPS.security
 
 export const IP_WHITELIST_KEY = 'ipWhitelist'
 /** 自救出口：最后一次修改白名单时的来源 IP —— 否则用户在错误网络上清空白名单会被永久锁死 */
-export const IP_WHITELIST_TRUSTED_IP_KEY = 'ipWhitelistTrustedIp'
+const IP_WHITELIST_TRUSTED_IP_KEY = 'ipWhitelistTrustedIp'
 
-export const LOGIN_BLOCKED_BY_IP_ALLOWLIST = 'login_blocked_by_ip_allowlist'
+const LOGIN_BLOCKED_BY_IP_ALLOWLIST = 'login_blocked_by_ip_allowlist'
 
 /** 与 web settings/security-log 的 ABNORMAL_EVENTS 同名单；改名必须同批改那一处。 */
 export function isIpLiteral(value: string): boolean {
@@ -99,7 +99,7 @@ export async function readIpWhitelist(userId: string): Promise<string[]> {
   }
 }
 
-export async function readIpWhitelistTrustedIp(userId: string): Promise<string | null> {
+async function readIpWhitelistTrustedIp(userId: string): Promise<string | null> {
   const { list } = await findUserPreferences(userId, GROUP)
   const raw = list.find((row) => row.key === IP_WHITELIST_TRUSTED_IP_KEY)?.value
   const normalized = normalizeIpLiteral(raw)

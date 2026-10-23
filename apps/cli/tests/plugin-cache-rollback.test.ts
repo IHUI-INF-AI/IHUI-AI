@@ -24,6 +24,7 @@ import {
   landStagedSwap,
   prepareStagingDirectory,
   recoverStaleSwapArtifacts,
+  refreshFlagPathFor,
   supersededPathFor,
   swapMarkerName,
   swapScratchMarkers,
@@ -67,9 +68,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // G-807:本文件不再用假时钟造"必须刷新"——生产侧已把回位副本显式置过期
-  // (cache.ts 的 RESTORED_COPY_STAMP),时钟作弊连同它的注释一起退场。这行是安全网:
-  // 万一将来又有用例假 Date,绝不让它漏进下一条用例或别的套件(漏出去就是一条新的随机红)。
+  // G-807:本文件不用假时钟造"必须刷新"——生产侧把回位副本显式标成需刷新
+  // (cache.ts 的 refreshFlagPathFor 记录 + 本次调用的回位事实;纪元 mtime 只是兜底那一格)。
+  // 这行是安全网:万一将来又有用例假 Date,绝不让它漏进下一条用例或别的套件(漏出去就是一条新的随机红)。
   vi.useRealTimers();
   if (savedHome !== undefined) process.env[HOME_ENV] = savedHome;
   else delete process.env[HOME_ENV];
@@ -687,9 +688,13 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
     // ≥1ms),而 TTL 判据(cache.ts 的 `ageMs = Date.now() - stat.mtimeMs; ageMs < ttl ⇒ 命中`)
     // 只看 mtime ⇒ 恢复回来的旧代偶发被判成"刚更新的新副本" ⇒ fromCache:true ⇒ `expected true
     // to be false`。红的是时序而不是行为,所以正解不是把 TTL 再拧一格、也不是把时钟拨得更假,
-    // 而是生产侧写侧置过期(票面正解①):`restoreArchiveToTarget` 回位后把目录时间戳显式盖到
-    // Unix 纪元(RESTORED_COPY_STAMP),内容真实年龄已随 rename 丢失,取最保守值 ⇒ 任何 TTL 下
-    // ageMs 都远大于 ttl,"必须刷新"成为确定性前提。恢复证据因此改拿 `recovered`
+    // 而是票面正解①的**写侧显式置过期**:恢复器回位后把"这份副本必须刷新"落成两格显式事实 ——
+    // 本次调用的回位结论(`recovered`,不落盘也成立)与同级的 `refreshFlagPathFor()` 记录;
+    // 判定(cache.ts 的 `copyNeedsRefresh`)只吃这两格,**不再吃 mtime**。目录时间戳盖到 Unix
+    // 纪元(RESTORED_COPY_STAMP)仍在,但它降级成兜底那一格(给任何只看年龄的读法),没有任何判定
+    // 依赖它 —— 上一版只靠它,而 `utimesSync` 走 Windows `SetFileTime`、目录刚 rename 完正被
+    // 杀软/索引器短暂持有 ⇒ 偶发失败被 try/catch 吞掉 ⇒ 判定原样退回 mtime 竞猜,
+    // 本票"改过一次还在随机红"就是这一格留下的。恢复证据改拿 `recovered`
     // (G-757 的结构化结论,第一等证据),不拿 fromCache 当间接证据(票面正解②);
     // fromCache:false 在这里只证明"刷新发生了"这一件独立的事。
     const result = await getOrCloneGitCache(url, { ttlMs: 60 * 1000 });
@@ -704,13 +709,15 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
     expect(leftoverSuperseded(getMarketplaceCacheDir())).toEqual([]);
     // 回位过来的旧内容不该混进新副本
     expect(fs.existsSync(path.join(cachePath, 'legacy.txt'))).toBe(false);
+    // "需刷新"记录已兑现 ⇒ 必须随本次落位一起摘掉:留着等于让新副本从此每轮都强制刷新(记录不是垃圾)
+    expect(fs.existsSync(refreshFlagPathFor(cachePath))).toBe(false);
   });
 
-  it('G-807 正向锁:回位副本被写侧显式置过期(任何 TTL 下都判"必须刷新")', async () => {
-    // 票面正解①的生产侧契约:恢复回来的副本不许再靠 mtime 判新鲜。判据不绑具体常量 ——
-    // 回位后的目录年龄必须远超任何生产 TTL(默认 5 分钟),否则"下一轮刷新要等一整个 TTL"
-    // (G-730 交付报告残余⑥)就会复发。这一条同时是"摘标记重盖 mtime"那台竞态的正面锁:
-    // 只要置过期还在,时钟怎么拨、rename 与摘标记怎么插队,都不会把回位副本判成新鲜。
+  it('G-807 正向锁:回位副本被写侧显式标成需刷新(判定吃显式记录,不吃 mtime)', async () => {
+    // 票面正解①的生产侧契约:恢复回来的副本必须留下**显式**的"需刷新"记录,而不是靠 mtime 判新鲜。
+    // 两格各自都得钉住(判定少一票兜底就是回到竞猜):① 同级显式记录在位(跨调用/跨进程那一格);
+    // ② 兜底的纪元时间戳确实落盘 —— 回位后的目录年龄必须远超任何生产 TTL(默认 5 分钟),
+    // 否则"下一轮刷新要等一整个 TTL"(G-730 交付报告残余⑥)就会复发。判据不绑具体常量。
     const scene = seedCrashScene({ name: 'stamped-expiry' });
     writeAuthority(scene.authorityFile, 'an-older-generation-txn');
 
@@ -718,8 +725,41 @@ describe('遗留归档的恢复 — 写者证据 × 权威结论', () => {
 
     expect(outcomes.map((o) => o.action)).toEqual(['restored']);
     expect(fs.readFileSync(path.join(scene.target, 'old.txt'), 'utf-8')).toBe('old');
+    expect(fs.existsSync(refreshFlagPathFor(scene.target))).toBe(true);
     const ageMs = Date.now() - fs.statSync(scene.target).mtimeMs;
     expect(ageMs).toBeGreaterThan(24 * 60 * 60 * 1000);
+  });
+
+  it('G-807 正向锁③:兜底的 mtime 被重盖成"刚刚更新"时,读入口仍按显式记录判必须刷新', async () => {
+    // 这一条钉的正是本票那台竞态:rename 回位与摘标记都会让 NTFS 给目录重盖 mtime,而旧判定只看
+    // `ageMs < ttl` ⇒ 时序一抖结论就翻。现在判定吃显式记录 ⇒ 把年龄造成"新鲜"也照样必须刷新。
+    // 反向说:哪天有人把新鲜度判定改回只看 mtime,这一条先红(它才是"不靠 mtime 猜"的证明);
+    // 它也顺带钉住"跨调用"那一格 —— 本次调用没有回位事实可拿(recovered 为空),只剩盘上记录。
+    const url = 'https://example.test/restored-but-mtime-fresh.git';
+    const cachePath = getCachePath(url);
+    const archive = `${cachePath}${swapScratchMarkers().superseded}424246`;
+    fs.mkdirSync(archive, { recursive: true });
+    fs.writeFileSync(path.join(archive, 'legacy.txt'), 'legacy', 'utf-8');
+    fs.writeFileSync(
+      path.join(archive, swapMarkerName()),
+      JSON.stringify({ transactionId: 'a-crashed-txn-2', target: cachePath, stagedAt: '2026-09-28T00:00:00.000Z' }),
+      'utf-8',
+    );
+    writeMockCloneSrc({ 'fresh.txt': 'fresh' });
+
+    // 先只跑恢复器(不经读入口)拿到现场,再把兜底那一格造成最坏:时间戳被重盖成"刚刚更新"
+    const outcomes = await recoverStaleSwapArtifacts(cachePath);
+    expect(outcomes.map((o) => o.action)).toEqual(['restored']);
+    const justNow = new Date();
+    fs.utimesSync(cachePath, justNow, justNow);
+    expect(Date.now() - fs.statSync(cachePath).mtimeMs).toBeLessThan(60 * 1000);
+
+    const result = await getOrCloneGitCache(url, { ttlMs: 60 * 1000 });
+
+    // 年龄说"新鲜"、本次调用也没回位过 ⇒ 显式记录一票否决(旧实现在这里回 fromCache:true)
+    expect(result.recovered).toBeUndefined();
+    expect(result.fromCache).toBe(false);
+    expect(fs.readFileSync(path.join(cachePath, 'fresh.txt'), 'utf-8')).toBe('fresh');
   });
 
   it('G-807 反向锁②:归档没有事务标记 ⇒ 恢复不插手 ⇒ 读入口也不得把它清掉(否则上面"归档消失"无从归因)', async () => {

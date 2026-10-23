@@ -19,8 +19,8 @@ from pathlib import Path
 
 from app.core.schema_check import (
     _SCHEMA_DIR,
-    _SQLITE_DRIVER_RE,
     _SQL_TABLE_RE,
+    _SQLITE_DRIVER_RE,
     diff_columns,
     parse_ts_table_fields,
     scan_ai_service_sql_tables,

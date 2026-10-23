@@ -24,6 +24,12 @@
  * ③ 裸键(不含主体段)在缓存里不得存在;失效目标必须是**同一个三段键**
  * ④ 主体由有到无仍清空整片缓存(query-provider 负责的另一半)
  *
+ * 〔2026-10-23 补〕2026-10-15 起 /connectors 页加了**登录态门**(G-933:
+ * `enabled: allow` + AuthGatePrompt 渲染门,未登录不发注定 401 的请求)⇒ 原 ②
+ * 只对 /mcp-store(无登录门)成立;connectors 侧改判为「已登录但主体尚未落定仍照发
+ * 请求、落 anonymous 桶」(②)+「未登录不发请求、渲染引导而不是停在 loading」(②′)。
+ * 「不得因主体条件而永久 pending」的原强度保留在 ③″:闸只允许取登录态且必须有渲染门。
+ *
  * 另钉一条**不得顺手收紧**的:`['mcp-store','store']`(全站目录)必须**仍不含主体** ——
  * 后端 GET /api/mcp/store 的 handler 根本不收 user_id(app/ai-service/app/routers/mcp.py:577),
  * 给它分桶只会让同一份目录在每个账号下各取一次,是往错误方向改。
@@ -82,6 +88,19 @@ vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+/**
+ * 登录态门替身(2026-10-23):产品自 2026-10-15 起用 `useAuthGate().allow` 做
+ * 「未登录不发注定 401 的查询」的门。这里只替换 ready/allow 的取值来源(直接读
+ * auth store),不走真实 useAuthBootstrap —— 后者在测试里会去发 /auth/refresh。
+ * 门本身是否接线由 ③″ 的源码判据钉住,不用替身冒充。
+ */
+vi.mock('@/hooks/use-auth-gate', () => ({
+  useAuthGate: () => ({
+    ready: true,
+    allow: useAuthStore.getState().isAuthenticated,
+  }),
+}))
+
 vi.mock('lucide-react', () => {
   const base: Record<PropertyKey, unknown> = { __esModule: true }
   return new Proxy(base, {
@@ -119,7 +138,14 @@ vi.mock('@ihui/ui-react', () => {
 })
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
-vi.mock('@/components/common', () => ({ BackButton: () => null }))
+vi.mock('@/components/common', () => ({
+  BackButton: () => null,
+  // 产品 2026-10-15 起在 `!allow` 分支渲染登录引导(AuthGatePrompt);不导出会让
+  // 未登录用例抛「No export is defined on the mock」,而不是测到引导本身。
+  AuthGatePrompt: ({ message }: { message?: string }) => (
+    <div data-testid="auth-gate">{message}</div>
+  ),
+}))
 vi.mock('@/components/common/ConfirmDialog', () => ({ ConfirmDialog: () => null }))
 vi.mock('@/components/data', () => ({
   Badge: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
@@ -276,12 +302,14 @@ describe('/connectors 页的列表按登录主体分键', () => {
     expect(getConnectors).toHaveBeenCalledTimes(2)
   })
 
-  it('② 没有主体时请求照发、数据照渲染(结果只落 "anonymous" 桶)', async () => {
+  it('② 已登录但主体尚未落定(isAuthenticated=true, user=null):请求照发、数据照渲染,只落 "anonymous" 桶', async () => {
     const qc = makeQueryClient()
-    useAuthStore.setState({ isAuthenticated: false, user: null })
+    // 2026-10-15 登录态门后的合法空主体态:登录态已成立、/auth/me 的资料还没回来。
+    // 这一支仍必须照发 —— 若用 `enabled: principalId !== null` 关查询,此时整页悬空。
+    useAuthStore.setState({ isAuthenticated: true, user: null })
     render(<ConnectorsPageClient />, { wrapper: wrapperOf(qc) })
 
-    // 断"数据渲染出来"而不是只断"调用发生过":加 enabled 闸时调用不会发生,
+    // 断"数据渲染出来"而不是只断"调用发生过":以主体为条件的 enabled 闸会让调用不发生,
     // 而界面会永久停在 loading 文案 —— 两个症状这里都能抓到。
     await waitFor(() => expect(getConnectors).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.getByText('A的语雀')).toBeTruthy())
@@ -290,6 +318,20 @@ describe('/connectors 页的列表按登录主体分键', () => {
     const anon = qc.getQueryData<ConnectorListResponse>(['connectors', 'list', 'anonymous'])
     expect(anon?.connectors).toHaveLength(1)
     expect(qc.getQueryData(['connectors', 'list', 'user-A'])).toBeUndefined()
+  })
+
+  it('②′ 未登录(登录态门关闭):不发请求,渲染登录引导而不是停在 loading', async () => {
+    const qc = makeQueryClient()
+    useAuthStore.setState({ isAuthenticated: false, user: null })
+    render(<ConnectorsPageClient />, { wrapper: wrapperOf(qc) })
+
+    // 2026-10-15 起的正面语义:未登录时不发注定 401 的查询,页面给引导。
+    // 原缺陷「无主体 ⇒ 永久 pending / 整页空白」在这一支由这三条共同钉住:
+    // 零请求 ∧ 引导可见 ∧ 没有 loading 文案。
+    await waitFor(() => expect(screen.getByTestId('auth-gate')).toBeTruthy())
+    expect(screen.queryByText('loading')).toBeNull()
+    expect(getConnectors).not.toHaveBeenCalled()
+    expect(qc.getQueryData(['connectors', 'list', 'anonymous'])).toBeUndefined()
   })
 
   it('③ 缓存按主体分桶,裸键与 null 键都不存在;全站目录那格不受牵连', async () => {
@@ -355,17 +397,29 @@ describe('两页共同的源码判据(行为面看不见的那两格)', () => {
   const CONN_KEY_RE = /queryKey:\s*\[\s*'connectors'\s*,\s*'list'\s*,\s*principalId/
   const MCP_KEY_RE = /queryKey:\s*\[\s*'mcp-store'\s*,\s*'registered'\s*,\s*principalId/
 
-  it('③″ 两个含主体的 queryKey 都不得带 enabled 闸(否则无主体时永久 pending)', () => {
-    for (const [file, re, label] of [
-      [CONNECTORS_SRC, CONN_KEY_RE, 'connectors'],
-      [MCP_STORE_SRC, MCP_KEY_RE, 'mcp-store/registered'],
-    ] as const) {
-      const block = principalScopedQueryBlock(readFileSync(file, 'utf8'), re, label)
-      expect(
-        /\benabled\s*:/.test(block),
-        `${label}:出现 enabled 闸 ⇒ 无主体时整页停在 loading`,
-      ).toBe(false)
-    }
+  it('③″ 含主体的查询只允许登录态门:connectors 必须是 enabled: allow 且有渲染门,mcp-store 不得带闸', () => {
+    const connectorsSrc = readFileSync(CONNECTORS_SRC, 'utf8')
+    const connBlock = principalScopedQueryBlock(connectorsSrc, CONN_KEY_RE, 'connectors')
+    // 2026-10-15 起 connectors 页允许登录态门 `enabled: allow`(未登录整页渲染引导,
+    // 不发注定 401 的请求)。但闸**只能**取登录态:一旦以主体(principalId/user)为条件,
+    // 「已登录但主体尚未落定」那一瞬就会永久 pending —— 正是 D17 钉住的那一型。
+    expect(connBlock, 'connectors:登录态门必须是 enabled: allow').toMatch(/\benabled\s*:\s*allow\b/)
+    expect(connBlock, 'connectors:enabled 闸不得以主体为条件').not.toMatch(
+      /\benabled\s*:\s*[^,\n}]*(?:principalId|user)\b/,
+    )
+    // 有闸就必须有配套渲染门:删掉 AuthGatePrompt 会让 allow=false 时整页悬在 loading。
+    expect(connectorsSrc).toMatch(/!allow\s*\?\s*\(\s*<AuthGatePrompt/)
+
+    const mcpBlock = principalScopedQueryBlock(
+      readFileSync(MCP_STORE_SRC, 'utf8'),
+      MCP_KEY_RE,
+      'mcp-store/registered',
+    )
+    // mcp-store 页仍是「无登录门、无主体也照发」,这条不得顺手收紧。
+    expect(
+      /\benabled\s*:/.test(mcpBlock),
+      'mcp-store/registered:出现 enabled 闸 ⇒ 无主体时整页停在 loading',
+    ).toBe(false)
   })
 
   it('③‴ refresh() 的失效目标必须是同一个三段键,而全站目录仍打裸两段键', () => {

@@ -17,7 +17,7 @@ export interface SmsDeliveryResult {
 }
 
 /** 发送失败归类,供调用方选状态码。不得靠 `msg` 文案猜 —— 文案会改,归类不会。 */
-export type SendCodeFailure = 'rate_limited' | 'delivery_failed'
+type SendCodeFailure = 'rate_limited' | 'delivery_failed'
 
 export interface SendCodeResult {
   success: boolean

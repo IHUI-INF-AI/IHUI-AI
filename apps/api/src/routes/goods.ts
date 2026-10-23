@@ -62,5 +62,3 @@ export const goodsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
 }
-
-export default goodsRoutes

@@ -90,7 +90,7 @@ export function takeHeadItem(items: readonly SideQueueItem[]): {
   return { head, rest: items.filter((q) => q.id !== head.id) }
 }
 
-export interface SideQueueHost {
+interface SideQueueHost {
   /** 当前队列(顺序即排队顺序) */
   readonly items: readonly SideQueueItem[]
   /** 队列模式偏好(steer 插话优先 / queue 排队优先) */

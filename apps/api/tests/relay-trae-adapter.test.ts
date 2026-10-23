@@ -28,6 +28,7 @@ import {
   createStopSequenceFilter,
   deriveBizSessionId,
   extractTokenPayload,
+  extractUsage,
   flattenQuery,
   normalizeEventName,
   parseExpiresAt,
@@ -211,6 +212,36 @@ describe('SSE 事件流解析', () => {
     expect(normalizeEventName('Message')).toBe('message')
   })
 
+  it('extractUsage:线上真帧字段 reasoning_tokens/cache_creation_input_tokens 归一注入', () => {
+    // 线上实证 token_usage 帧形状(2026-10-23):input/output/reasoning/cache_creation_input_tokens
+    const u = extractUsage(
+      {
+        input_tokens: 19415,
+        output_tokens: 33,
+        reasoning_tokens: 12,
+        cache_creation_input_tokens: 4096,
+      },
+      'token_usage',
+    )
+    expect(u).not.toBeNull()
+    expect(u!.prompt_tokens).toBe(19415)
+    expect(u!.completion_tokens).toBe(33)
+    expect(u!.prompt_tokens_details.cached_tokens).toBe(4096)
+    expect(u!.completion_tokens_details.reasoning_tokens).toBe(12)
+  })
+
+  it('extractUsage:无任何计数字段判死,兼容字段缺失补 0', () => {
+    expect(extractUsage({ foo: 1 }, 'message')).toBeNull()
+    const u = extractUsage({ input_tokens: 5 }, 'token_usage')
+    expect(u).toEqual({
+      prompt_tokens: 5,
+      completion_tokens: 0,
+      total_tokens: 5,
+      prompt_tokens_details: { cached_tokens: 0 },
+      completion_tokens_details: { reasoning_tokens: 0 },
+    })
+  })
+
   it('增量帧 + tokenusage 终帧 + done 终止 + stop 收尾', async () => {
     const sse = [
       ': heartbeat\n\n',
@@ -240,6 +271,7 @@ describe('SSE 事件流解析', () => {
       completion_tokens: 5,
       total_tokens: 15,
       prompt_tokens_details: { cached_tokens: 2 },
+      completion_tokens_details: { reasoning_tokens: 0 },
     })
 
     const last = chunks[chunks.length - 1] as {

@@ -303,7 +303,8 @@ describe('relay-usage-ledger', () => {
       expect((sinks.insert.value as Record<string, unknown>).latencyMs).toBe(0)
     })
 
-    it('显式 ts 原样使用', async () => {      const ts = new Date('2026-10-22T08:00:00Z')
+    it('显式 ts 原样使用', async () => {
+      const ts = new Date('2026-10-22T08:00:00Z')
       await recordAccountUsage({
         accountId: 'acc-1',
         providerCode: 'trae',
@@ -315,6 +316,36 @@ describe('relay-usage-ledger', () => {
         ts,
       })
       expect((sinks.insert.value as Record<string, unknown>).ts).toBe(ts)
+    })
+
+    it('reasoning/cached 透传落库,缺省补 0', async () => {
+      await recordAccountUsage({
+        accountId: 'acc-1',
+        providerCode: 'trae',
+        model: 'doubao-seed-code',
+        promptTokens: 100,
+        completionTokens: 50,
+        reasoningTokens: 20,
+        cachedTokens: 80,
+        ok: true,
+        latencyMs: 10,
+      })
+      const v = sinks.insert.value as Record<string, unknown>
+      expect(v.reasoningTokens).toBe(20)
+      expect(v.cachedTokens).toBe(80)
+
+      await recordAccountUsage({
+        accountId: 'acc-1',
+        providerCode: 'workbuddy',
+        model: 'hy3',
+        promptTokens: 1,
+        completionTokens: 1,
+        ok: true,
+        latencyMs: 0,
+      })
+      const v2 = sinks.insert.value as Record<string, unknown>
+      expect(v2.reasoningTokens).toBe(0)
+      expect(v2.cachedTokens).toBe(0)
     })
 
     it('DB 写入异常被吞掉,只记 warn,永不抛', async () => {

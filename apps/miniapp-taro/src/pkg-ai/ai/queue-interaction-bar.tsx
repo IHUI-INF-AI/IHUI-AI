@@ -49,7 +49,7 @@ const qk = (key: string): string => `${QUEUE_OPS_NAMESPACE}.${key}`
 const nk = (key: string): string => `${INPUT_NOTICES_NAMESPACE}.queue.${key}`
 
 /** 队列项展示视图(调用方从宿主队列态映射;与 web QueuedItemView / RN RnQueuedItemView 同形) */
-export interface MiniQueuedItemView {
+interface MiniQueuedItemView {
   readonly id: string
   readonly text: string
 }

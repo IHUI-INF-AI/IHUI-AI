@@ -33,7 +33,9 @@ interface Section {
   title: string
   duration?: string
   completed?: boolean
-  videoUrl?: string
+  // G-921 ①:付费小节未报名/匿名时为 null(服务端不裸发 CDN 地址);
+  // 已报名则是带 ?uid&rid&exp&sig 的短时签名播放 URL。
+  videoUrl?: string | null
 }
 interface QAItem {
   id: string
@@ -50,6 +52,9 @@ export default function EduCourseLearnPage() {
   const t = useTranslations('eduCourseLearnPage')
   const qc = useQueryClient()
   const [currentSec, setCurrentSec] = React.useState<Section | null>(null)
+  // G-921 ①:付费小节走服务端短时签名播放 URL(302 到真源);链接过期/被拒时
+  // <video> 触发 error,必须可见(复用本命名空间既有 loadFailed 键,不新增文案)。
+  const [playError, setPlayError] = React.useState(false)
   const [noteText, setNoteText] = React.useState('')
   const [qaText, setQaText] = React.useState('')
 
@@ -167,13 +172,22 @@ export default function EduCourseLearnPage() {
         <div className="space-y-4">
           <div className="flex aspect-video items-center justify-center rounded-lg bg-black">
             {active?.videoUrl ? (
-              <video src={active.videoUrl} controls className="h-full w-full rounded-lg">
+              <video
+                key={active.id}
+                src={active.videoUrl}
+                controls
+                onError={() => setPlayError(true)}
+                className="h-full w-full rounded-lg"
+              >
                 <track kind="captions" />
               </video>
             ) : (
               <PlayCircle className="h-16 w-16 text-white/30" />
             )}
           </div>
+          {active?.videoUrl && playError && (
+            <p className="text-xs text-destructive">{t('loadFailed')}</p>
+          )}
           <div className="space-y-1">
             <h1 className="text-lg font-semibold">{active?.title ?? courseTitle}</h1>
             {active?.duration && (
@@ -230,7 +244,10 @@ export default function EduCourseLearnPage() {
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => setCurrentSec(s)}
+                  onClick={() => {
+                    setCurrentSec(s)
+                    setPlayError(false)
+                  }}
                   className={cn(
                     'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors',
                     active?.id === s.id ? 'bg-primary/10 text-primary' : 'hover:bg-accent',

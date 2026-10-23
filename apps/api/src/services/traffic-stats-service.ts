@@ -117,7 +117,7 @@ function windowStart(window: TrafficWindow) {
 }
 
 /** 单值聚合(1 行输出):窗口内的 PV 与精确 UV。 */
-export async function queryTrafficTotals(
+async function queryTrafficTotals(
   source: TrafficSource,
   window: TrafficWindow,
 ): Promise<{ pv: number; uv: number }> {
@@ -166,7 +166,7 @@ export async function queryTrafficUaKinds(
   }))
 }
 
-export interface TrafficSnapshotReport {
+interface TrafficSnapshotReport {
   window: TrafficWindow
   source: TrafficSource
   pv: number

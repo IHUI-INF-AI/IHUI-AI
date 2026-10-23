@@ -49,6 +49,7 @@ import {
   Trash2,
   TriangleAlert,
   Users,
+  Wallet,
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
@@ -227,6 +228,41 @@ function fmtNum(v: number | null | undefined): string {
   return v === null || v === undefined ? '-' : v.toLocaleString()
 }
 
+/** POST /admin/relay/accounts/:id/quota 的 data 形状(平台给不到的字段一律留空,不兜 0) */
+interface QuotaResult {
+  id: string
+  providerCode: string
+  ok: boolean
+  error: string | null
+  quota: {
+    used?: number
+    total?: number
+    remaining?: number
+    ratio?: number
+    unit?: string
+    resetsAt?: string
+    packs?: Array<{ name?: string; limit?: number; remaining?: number; endAt?: string }>
+  } | null
+  queriedAt: string
+}
+
+// 余额一行话:优先"剩余/总额";平台只给已用时按 total 换算,两者都给不到就不编数字。
+function formatQuotaLine(q: NonNullable<QuotaResult['quota']>): string {
+  const unit = q.unit ?? '额度'
+  const remaining =
+    q.remaining ?? (q.used !== undefined && q.total !== undefined ? q.total - q.used : undefined)
+  const pct =
+    q.ratio !== undefined && q.ratio >= 0 && q.ratio <= 1
+      ? ` · 已用 ${(q.ratio * 100).toFixed(1)}%`
+      : ''
+  if (remaining !== undefined && q.total !== undefined) {
+    return `余额 ${fmtNum(remaining)} / ${fmtNum(q.total)} ${unit}${pct}`
+  }
+  if (remaining !== undefined) return `余额 ${fmtNum(remaining)} ${unit}`
+  if (q.used !== undefined) return `已用 ${fmtNum(q.used)} ${unit}`
+  return '余额接口已应答,但字段未识别(未判定)'
+}
+
 // failRate24h 契约未指明是 0–1 比例还是 0–100 百分数:≤1 视为比例换算,否则按百分数直显。
 function failRatePct(v: number | null | undefined): number | null {
   if (v === null || v === undefined) return null
@@ -372,6 +408,21 @@ export default function AdminRelayAccountPoolPage() {
       invalidate()
     },
     onError: (e: Error) => toast.error(e.message || '健康检查失败'),
+  })
+
+  const quotaMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<QuotaResult>(`/api/admin/relay/accounts/${id}/quota`, {
+        method: 'POST',
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      if (d.ok && d.quota) toast.success(formatQuotaLine(d.quota))
+      else toast.error(`余额查询失败:${d.error ?? '未判定'}`)
+    },
+    onError: (e: Error) => toast.error(e.message || '余额查询失败'),
   })
 
   const deleteMut = useMutation({
@@ -935,6 +986,22 @@ export default function AdminRelayAccountPoolPage() {
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                       <RefreshCw className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                              <Tooltip content="查余额">
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={quotaMut.isPending}
+                                    onClick={() => quotaMut.mutate(k.id)}
+                                  >
+                                    {quotaMut.isPending && quotaMut.variables === k.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Wallet className="h-4 w-4" />
                                     )}
                                   </Button>
                                 </span>
