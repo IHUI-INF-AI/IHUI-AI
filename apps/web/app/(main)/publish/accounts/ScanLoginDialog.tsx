@@ -845,11 +845,11 @@ export function ScanLoginDialog({
                 {t('accounts.scanWithPhoneHint')}
               </p>
               <div className="flex items-center gap-2">
-                <div className="h-px flex-1 bg-border" />
+                <div className="flex-1 border-t border-border" />
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                   {t('accounts.orDivider')}
                 </span>
-                <div className="h-px flex-1 bg-border" />
+                <div className="flex-1 border-t border-border" />
               </div>
               <Button
                 variant="outline"
