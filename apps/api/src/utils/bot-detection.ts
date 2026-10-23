@@ -256,6 +256,18 @@ export const CLIENT_FAMILIES = [
 
 export type ClientFamily = (typeof CLIENT_FAMILIES)[number]
 
+/**
+ * 视为「真人」的族:首方自有端 + 人浏览器形态。**这是全仓唯一一份真人口径**
+ * —— 大屏"真人 PV / 机器人 PV"两格(`routes/admin-ops-wallboard.ts`)、指标族折叠
+ * (`services/traffic-stats-service.ts`)与 Grafana 的 `client_family=~"human-browser|first-party"`
+ * 三处必须同一把尺子,任何一处自己另写 `new Set([...])` 就是第二份判据(§0.6)。
+ * 注意:这是**形态判定**的上界,不辨真伪 —— 伪装成浏览器的脚本仍计入真人侧。
+ */
+export const HUMAN_CLIENT_FAMILIES: ReadonlySet<ClientFamily> = new Set<ClientFamily>([
+  'first-party',
+  'human-browser',
+])
+
 /** UA 是否形如真实浏览器(Mozilla/5.0 + 平台 + 引擎三者齐备)。只看形态,不验真。 */
 function isBrowserShape(ua: string): boolean {
   if (!ua.startsWith('Mozilla/5.0')) return false

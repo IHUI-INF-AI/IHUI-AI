@@ -185,6 +185,7 @@ interface TrafficSnapshot {
   humanPv24h: number | null
   botPv24h: number | null
   families: Array<{ family: string; pv: number }>
+  /** 这份快照距今多少秒(后端 5 秒缓存 + 5 秒轮询 ⇒ 常为 0..5);null = 整块取不到 */
   aggregationAgeSec: number | null
   truncated: boolean | null
 }
@@ -196,7 +197,10 @@ interface RelayPoolSnapshot {
   accountsTotal: number | null
   accountsSchedulable: number | null
   minTokenExpiresInSeconds: number | null
+  /** 账号最近一次刷新距今(秒);null = 没有账号刷过 */
   staleAgeSec: number | null
+  /** 健康态不在封闭词表内、无法折叠的行数(非 0 = 库里有脏值) */
+  rowsUnclassified?: number | null
 }
 
 interface ActiveAlert {
@@ -2054,7 +2058,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             </div>
           </Panel>
 
-          {/* AI 号池:key 池 / 账号池 / token 临期(5 分钟一轮,取不到一律"—") */}
+          {/* AI 号池:key 池 / 账号池 / token 临期(后端现读两张池表 + 5 秒缓存,取不到一律"—") */}
           <Panel
             title={t('panelRelayPool')}
             icon={<Sparkles className="h-3.5 w-3.5" />}
