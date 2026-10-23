@@ -776,23 +776,30 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .status(400)
           .send(error(400, `平台 ${row.providerCode} 无已实证的余额端点(未支持)`))
       }
-      // 票面已过期(或没有到期时刻)⇒ 先走调度器同一把刷新出口,再拿新副本去查。
-      // 判据只认库里的 tokenExpiresAt,不拿错误文案猜(§check-error-code-not-text-matching)。
-      // 刷新不成不拦查询:让它如实回 ok:false 的原因,不由这一层编一条"票不行"。
-      const stale =
-        row.tokenExpiresAt === null || new Date(row.tokenExpiresAt).getTime() <= Date.now()
+      // 首查直接用库里的票;只有上游**当场**判为鉴权失效才刷新重试一次。
+      // authFailed 由适配器按它自己量到的 HTTP 状态码给出,不是文案匹配(§check-error-code-not-text-matching);
+      // 不以库里 tokenExpiresAt 为准 —— 现读实证:上游已回 401 code 1001,而该列仍记着未来到期时刻,
+      // 按时间戳触发自愈会让这一格整条不生效。形态与转发链路 chat 的 401 自愈一致,仍只重试一次。
       let live = row
-      if (stale && adapter.refreshToken) {
-        await refreshOne(row)
+      let outcome = await adapter.getQuota(
+        { row: live, credentials: decryptAccountCredentials(live) },
+        { proxyUrl: live.proxyUrl },
+      )
+      let attemptedRefresh = false
+      if (!outcome.ok && outcome.authFailed && adapter.refreshToken) {
+        attemptedRefresh = true
+        await refreshOne(live)
         const [fresh] = await dbRead
           .select()
           .from(aiRelayAccountPool)
           .where(eq(aiRelayAccountPool.id, p.data.id))
           .limit(1)
-        live = fresh ?? row
+        live = fresh ?? live
+        outcome = await adapter.getQuota(
+          { row: live, credentials: decryptAccountCredentials(live) },
+          { proxyUrl: live.proxyUrl },
+        )
       }
-      const ctx = { row: live, credentials: decryptAccountCredentials(live) }
-      const outcome = await adapter.getQuota(ctx, { proxyUrl: live.proxyUrl })
       return reply.send(
         success({
           id: live.id,
@@ -800,7 +807,7 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           ok: outcome.ok,
           error: outcome.error ?? null,
           quota: outcome.quota ?? null,
-          attemptedRefresh: stale && !!adapter.refreshToken,
+          attemptedRefresh,
           queriedAt: new Date().toISOString(),
         }),
       )

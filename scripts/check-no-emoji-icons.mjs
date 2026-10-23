@@ -29,32 +29,37 @@
  * 用法:
  *   node scripts/check-no-emoji-icons.mjs --staged   (pre-commit, 新增违规则 exit 1)
  *   node scripts/check-no-emoji-icons.mjs             (全量扫描报告, 违规则 exit 1)
+ *   node scripts/check-no-emoji-icons.mjs --worktree  (人工逃生舱: 判磁盘, 不作提交门禁)
+ *
+ * 判定面(AGENTS §0.4):全量档判 **HEAD blob**、`--staged` 判**索引 blob**、`--worktree` 仅人工逃生舱;
+ * 清单与正文取自**同一个**被审面,取不到 ⇒ exit 2「未判定」(不冒红也不记绿),绝不回落另一个面。
+ * 旧版扫的是磁盘全树(含未跟踪文件与并行会话的半编辑态) —— 提交门要判的是提交里的那一份,故改面。
+ *
+ * §22d:本文件既可 CLI 直跑,也可被镜像测试 import 取判据(`__test__`);模块顶层零副作用、零 exit。
  *
  * 跳过方法(紧急):HUSKY_SKIP_NO_EMOJI=1 git commit ...
  */
-import { execSync } from 'node:child_process'
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { COLORS as C } from './lib/logger.mjs'
+import { Undetermined, assertRepoRoot, listFaceFiles, selectFace } from './lib/face-reader.mjs'
+import { addedLineNumbers, readSources } from './lib/face-scan.mjs'
 
-const ROOT = process.cwd()
-const isStaged = process.argv.includes('--staged')
-const isHelp = process.argv.includes('--help')
+/**
+ * ROOT 由脚本自身位置推导(AGENTS §15:共享工作区 cwd 不可靠,不得用 process.cwd() 定根)。
+ * 旧写法 `process.cwd()` 在子目录 / `pnpm --filter` 里调用时会把"扫描了 0 个文件"读成通过。
+ */
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-if (process.env.HUSKY_SKIP_NO_EMOJI === '1') {
-  console.log('⏭  emoji 图标守门(HUSKY_SKIP_NO_EMOJI=1, 跳过)')
-  process.exit(0)
-}
-
-if (isHelp) {
-  console.log(`
+const HELP_TEXT = `
 check-no-emoji-icons.mjs — emoji 图标守门(UI 图标位置禁 emoji)
 
 用法:
   node scripts/check-no-emoji-icons.mjs --staged   pre-commit 模式(新增违规则 exit 1)
   node scripts/check-no-emoji-icons.mjs             全量扫描(违规则 exit 1)
+  node scripts/check-no-emoji-icons.mjs --worktree  人工逃生舱:判磁盘(不作提交门禁)
   node scripts/check-no-emoji-icons.mjs --help      显示本帮助
 
 判定(BLOCKING):
@@ -67,9 +72,7 @@ check-no-emoji-icons.mjs — emoji 图标守门(UI 图标位置禁 emoji)
   - 评分星('★'.repeat(n))
   - 表情面板(InputArea 表情数组)
   - docs 正文装饰性 emoji(但 docs 的 icon: 字段仍违规)
-`)
-  process.exit(0)
-}
+`
 
 // 排除目录:共享 EXCLUDE_DIRS + 构建产物/测试
 // 2026-09-15 补:.next-static / .next-e2e* 为 Next 构建产物目录(并行会话构建时生成),
@@ -121,12 +124,16 @@ const EMOJI_PICKER_FILE_RE = /InputArea\.(tsx|ts)$/
  * 字符类只从上面那一份 EMOJI_RE 派生,不得再抄第四份 Unicode 区段表
  * (本文件原本已有三处逐字复制;两处算同一件事必漂移,见 AGENTS「两处算同一件事必漂移」条)。
  * 提取不到 ⇒ 本门对自己失明,当场大声退出 2,不静默降级成"什么都豁免不了"或"全放行"。
+ *
+ * 2026-10-23:检查从模块顶层移进 `main()` 的第一格 —— 顶层 `process.exit(2)` 会让**测试 import**
+ * 这个模块时当场打死宿主(§22d 要防的正是这一型),而"判据起不来"与"有没有人 import"无关。
+ * 派生失败时用空字符类兜住模块加载(空字符类在 JS 里合法,只是永不匹配),再由 `CHAR_CLASS_BROKEN`
+ * 在 main 里如实折成 exit 2 —— 不静默、也不改判据。
  */
-const EMOJI_CHAR_CLASS = /^\[(.*)\]$/u.exec(EMOJI_RE.source)?.[1]
-if (!EMOJI_CHAR_CLASS) {
-  console.error('❌ 无法从 EMOJI_RE 提取字符类(该区段表达式被改写过?)⇒ 面板数据判据无从成立,拒绝出具结论')
-  process.exit(2)
-}
+const CHAR_CLASS_ERROR =
+  '❌ 无法从 EMOJI_RE 提取字符类(该区段表达式被改写过?)⇒ 面板数据判据无从成立,拒绝出具结论'
+const EMOJI_CHAR_CLASS = /^\[(.*)\]$/u.exec(EMOJI_RE.source)?.[1] ?? ''
+const CHAR_CLASS_BROKEN = EMOJI_CHAR_CLASS === ''
 const QUOTE_CC = "['\"`]"
 /** 面板数组的一行一个元素:`'😀',` / `"😊",` / `` `👍` `` */
 const PANEL_ELEMENT_RE = new RegExp(`^${QUOTE_CC}[${EMOJI_CHAR_CLASS}]+${QUOTE_CC},?$`, 'u')
@@ -304,203 +311,205 @@ function runSelfTest() {
     console.log(`${c.pass ? '  ✅' : '  ❌'} ${c.name}${!c.pass && c.got && c.got !== 'false' ? ` — ${c.got}` : ''}`)
   }
   console.log(`自检 ${r.pass} 通过 / ${r.fail} 失败(共 ${r.cases.length} 条)`)
-  process.exit(r.fail === 0 ? 0 : 1)
+  return r.fail === 0 ? 0 : 1
 }
 
-if (process.argv.includes('--self-test')) runSelfTest()
-
-function collectFiles(dir, result = []) {
-  if (!existsSync(dir)) return result
-  for (const entry of readdirSync(dir)) {
-    // 2026-09-15:.next* 前缀统一跳过(.next-static/.next-e2e-*/.next-bak-* 等构建产物
-    // 目录名带随机/日期后缀,EXCLUDE_DIRS 精确名匹配覆盖不到,曾致 minified chunk
-    // 里的 emoji 字面量被误判为 UI 图标违规,blocking 全体 commit)
-    if (isExcludedDirName(entry) || entry.startsWith('.next')) continue
-    const full = join(dir, entry)
-    const st = statSync(full)
-    if (st.isDirectory()) {
-      collectFiles(full, result)
-    } else if (SCAN_EXTS.some((e) => entry.endsWith(e))) {
-      result.push(full)
-    }
-  }
-  return result
+/**
+ * 扫描候选:只看前端 UI 端(UI_SCAN_ROOTS)下的 .ts/.tsx/.js/.jsx,且路径段不含构建产物。
+ * 与旧版磁盘 walk 的目录剪枝等价(2026-09-15 那条 .next* 教训原样保留),区别只在
+ * **清单来源**:旧版 walk 磁盘(含未跟踪文件与并行会话的半编辑态),现在来自被审面。
+ */
+function isScanCandidate(rel) {
+  // 射程锁:非 UI 扫描根直接不收。生产路径里 pathspec 已保证前缀(此判据是冗余防线),
+  // 但导出口必须自洽 —— 镜像测试直判本函数,"后端不在射程"不能只靠调用方记得传 pathspec。
+  if (!UI_SCAN_ROOTS.some((r) => rel.startsWith(r + '/'))) return false
+  const parts = rel.split('/')
+  if (parts.some((p) => isExcludedDirName(p) || p.startsWith('.next'))) return false
+  const base = parts[parts.length - 1] ?? ''
+  return SCAN_EXTS.some((e) => base.endsWith(e))
 }
 
-function getStagedAddedLines() {
-  const result = new Map()
-  let output
-  try {
-    output = execSync('git diff --cached -U0 --diff-filter=ACM --no-color', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      maxBuffer: 50 * 1024 * 1024,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-  } catch {
-    return result
-  }
-  if (!output) return result
-
-  let curFile = null
-  let curLine = 0
-  for (const raw of output.split('\n')) {
-    if (raw.startsWith('+++ b/')) {
-      const m = raw.match(/^\+\+\+\s+b\/(.+)$/)
-      curFile = m ? join(ROOT, m[1]) : null
-      curLine = 0
-      continue
-    }
-    if (raw.startsWith('diff --git')) {
-      curFile = null
-      curLine = 0
-      continue
-    }
-    if (raw.startsWith('@@')) {
-      const m = raw.match(/@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@/)
-      curLine = m ? parseInt(m[1], 10) : 0
-      continue
-    }
-    if (curFile && curLine > 0) {
-      if (raw.startsWith('+') && !raw.startsWith('+++')) {
-        if (!result.has(curFile)) result.set(curFile, new Set())
-        result.get(curFile).add(curLine)
-        curLine++
-      } else if (raw.startsWith('-') && !raw.startsWith('---')) {
-        // 删除行,不推进 curLine
-      } else {
-        curLine++
-      }
-    }
-  }
-  return result
-}
-
-function getStagedFiles() {
-  try {
-    const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
-      encoding: 'utf8',
-      cwd: ROOT,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-    return output
-      .split('\n')
-      .filter(Boolean)
-      .filter((f) => SCAN_EXTS.some((e) => f.endsWith(e)))
-      .filter((f) => !isExcludedDirName(f.split('/')[0]))
-      .map((f) => join(ROOT, f))
-      .filter((f) => existsSync(f))
-  } catch {
-    return []
-  }
-}
-
-console.log(`${C.cyan}${C.bold}[emoji 图标守门] 扫描 UI 图标位 emoji 违规...${C.reset}`)
-console.log(
-  `${C.dim}规则: AGENTS.md 第 4 节 — UI 图标统一图标库(web: lucide-react / RN: lucide-react-native / Taro: SVG <Image>),禁 emoji 充当图标${C.reset}`,
-)
-console.log(
-  `${C.dim}模式: ${isStaged ? 'staged (新增违规阻塞 commit)' : '全量 (违规则 exit 1)'}${C.reset}`,
-)
-console.log('')
-
-let files = []
-let addedLinesMap = new Map()
-
-if (isStaged) {
-  addedLinesMap = getStagedAddedLines()
-  files = getStagedFiles().filter((f) => addedLinesMap.has(f))
-  if (files.length === 0) {
-    console.log(`${C.green}✅ 暂存区无 .ts/.tsx/.js/.jsx 变更,跳过${C.reset}`)
-    process.exit(0)
-  }
-} else {
-  for (const sub of UI_SCAN_ROOTS) {
-    files = files.concat(collectFiles(join(ROOT, sub)))
-  }
-}
-
-let totalViolations = 0
-const fileReports = []
-// 扫的是整棵工作树,而并行会话随时在增删文件:`readdirSync` 列到、`readFileSync` 读不到
-// 是**常态**不是异常。旧写法让这种竞态以未捕获 ENOENT 崩出去 ⇒ Node 退出码 1 ⇒
-// 一道 blocking 门把"我读不到"报成"你违规"(按项目口径读不到应是 2/无法判定)。
-// 现在:消失的文件计入 skipped 并如实打印,不影响判定。
-let unreadable = 0
-
-for (const file of files) {
-  let src
-  try {
-    src = readFileSync(file, 'utf8')
-  } catch (e) {
-    if (e?.code === 'ENOENT' || e?.code === 'EACCES' || e?.code === 'EBUSY') {
-      unreadable++
-      continue
-    }
-    throw e
-  }
-  const lines = src.split('\n')
+/**
+ * 单文件判定 —— 判据仍只有 `judgeLine` 一份(主循环与 `--self-test` 共用)。
+ * `allowedLines` 为 null 表示不限行(全量/HEAD 档);`--staged` 档只判本次新增行。
+ */
+function judgeText(rel, text, allowedLines = null) {
   const findings = []
-
-  lines.forEach((line, idx) => {
+  text.split('\n').forEach((line, idx) => {
     const lineNumber = idx + 1
-    if (isStaged) {
-      const allowed = addedLinesMap.get(file)
-      if (!allowed || !allowed.has(lineNumber)) return
-    }
+    if (allowedLines && !allowedLines.has(lineNumber)) return
     // 判定只有一份实现(judgeLine)—— 主循环与自检共用,避免"自检绿而门瞎"那一型
-    const f = judgeLine(line, lineNumber, file)
+    const f = judgeLine(line, lineNumber, rel)
     if (f) findings.push(f)
   })
-
-  if (findings.length > 0) {
-    totalViolations += findings.length
-    fileReports.push({ file: relative(ROOT, file), findings })
-  }
+  return findings
 }
 
-console.log(`${C.bold}扫描结果:${C.reset}`)
-console.log(`  扫描文件: ${files.length} 个`)
-if (unreadable > 0) {
-  console.log(
-    `  读不到而跳过: ${unreadable} 个(并行会话在扫描期间增删所致,不影响判定;非 0 时如实打印而非静默)`,
-  )
-}
-console.log(`  违规数:   ${totalViolations} 处 (BLOCKING)`)
-console.log('')
-
-if (totalViolations === 0) {
-  console.log(`${C.green}${C.bold}✅ emoji 图标守门通过${C.reset}`)
-  process.exit(0)
-}
-
-console.log(`${C.red}${C.bold}❌ 发现 ${totalViolations} 处违规:${C.reset}`)
-console.log('')
-for (const { file, findings } of fileReports) {
-  console.log(`${C.red}${file}${C.reset}`)
-  for (const f of findings) {
-    console.log(
-      `  ${C.dim}行 ${f.line}:${f.col}${C.reset} ${C.red}[${f.label}]${C.reset} ${f.snippet}`,
+/**
+ * 取样 + 判定。清单与正文取自**同一个**被审面(AGENTS §0.4):取不到 ⇒ `Undetermined`
+ * (调用方折成 exit 2),绝不回落另一个面 —— 混面会让报告说的和提交里的不是同一份代码。
+ */
+function analyze({ root = ROOT, face = 'head' } = {}) {
+  const listed = listFaceFiles(root, face, { paths: UI_SCAN_ROOTS }).filter(isScanCandidate)
+  if (listed.length === 0) {
+    throw new Undetermined(
+      `被审面 ${face} 在 ${UI_SCAN_ROOTS.length} 个 UI 扫描根下枚举到 0 个 .ts/.tsx/.js/.jsx 文件 ⇒ 无法判定(不冒红也不记绿)`,
     )
   }
+  // --staged 档只判本次新增行(diff 解析只有 face-scan 一份实现,本文件不再自带第二份)
+  const added = face === 'staged' ? addedLineNumbers(root) : null
+  const targets = added ? listed.filter((rel) => added.has(rel)) : listed
+  if (targets.length === 0) {
+    return { face, scanned: 0, skippedMissing: [], totalViolations: 0, fileReports: [], empty: true }
+  }
+  const { texts, skippedMissing } = readSources(root, face, targets)
+  let totalViolations = 0
+  const fileReports = []
+  for (const rel of targets) {
+    // 只有 worktree 档会缺正文(并发席正删着),已计入 skippedMissing;判空串等于假绿
+    if (!texts.has(rel)) continue
+    const findings = judgeText(rel, texts.get(rel), added ? added.get(rel) : null)
+    if (findings.length > 0) {
+      totalViolations += findings.length
+      fileReports.push({ file: rel, findings })
+    }
+  }
+  return { face, scanned: targets.length, skippedMissing, totalViolations, fileReports, empty: false }
+}
+
+
+function printBanner(face) {
+  const mode = face === 'staged' ? 'staged (新增违规阻塞 commit)' : '全量 (违规则 exit 1)'
+  console.log(`${C.cyan}${C.bold}[emoji 图标守门] 扫描 UI 图标位 emoji 违规...${C.reset}`)
+  console.log(
+    `${C.dim}规则: AGENTS.md 第 4 节 — UI 图标统一图标库(web: lucide-react / RN: lucide-react-native / Taro: SVG <Image>),禁 emoji 充当图标${C.reset}`,
+  )
+  console.log(`${C.dim}模式: ${mode}${C.reset}`)
   console.log('')
 }
-console.log(`${C.dim}修复方法:${C.reset}`)
-console.log(`  1. web 端:lucide-react 组件(import { X } from 'lucide-react' → <X className="h-4 w-4" />)`)
-console.log(`  2. RN 端:lucide-react-native 组件(<X size={16} color={'#6b7280'} />)`)
-console.log(`  3. Taro 端:static/images/icons/*.svg + <Image src="/static/images/icons/xxx.svg" />`)
-console.log(`  4. 配置数组 icon: 'emoji' → icon: LucideIcon 组件引用`)
-console.log(`  5. 动态切换图标用三元组件: {playing ? <Pause /> : <Play />}`)
-console.log(`  6. 豁免范围:注释 / i18n 文案参数 / 评分星 / 表情面板 / docs 正文装饰(不含 icon: 字段)`)
-console.log('')
 
-if (isStaged) {
-  console.log(`${C.red}${C.bold}❌ emoji 图标守门失败 — 提交已阻止${C.reset}`)
-  console.log(`${C.dim}跳过方法:HUSKY_SKIP_NO_EMOJI=1 git commit ...${C.reset}`)
+/** 报告版式与旧版逐字一致(扫描结果 / 扫描文件 / 违规数 + 修复方法 6 条),只把 exit 换成返回值。 */
+function printReport(a) {
+  console.log(`${C.bold}扫描结果:${C.reset}`)
+  console.log(`  扫描文件: ${a.scanned} 个`)
+  if (a.skippedMissing.length > 0) {
+    console.log(
+      `  读不到而跳过: ${a.skippedMissing.length} 个(并行会话在扫描期间增删所致,不影响判定;非 0 时如实打印而非静默)`,
+    )
+  }
+  console.log(`  违规数:   ${a.totalViolations} 处 (BLOCKING)`)
+  console.log('')
+
+  if (a.totalViolations === 0) {
+    console.log(`${C.green}${C.bold}✅ emoji 图标守门通过${C.reset}`)
+    return 0
+  }
+
+  console.log(`${C.red}${C.bold}❌ 发现 ${a.totalViolations} 处违规:${C.reset}`)
+  console.log('')
+  for (const { file, findings } of a.fileReports) {
+    console.log(`${C.red}${file}${C.reset}`)
+    for (const f of findings) {
+      console.log(
+        `  ${C.dim}行 ${f.line}:${f.col}${C.reset} ${C.red}[${f.label}]${C.reset} ${f.snippet}`,
+      )
+    }
+    console.log('')
+  }
+  console.log(`${C.dim}修复方法:${C.reset}`)
+  console.log(`  1. web 端:lucide-react 组件(import { X } from 'lucide-react' → <X className="h-4 w-4" />)`)
+  console.log(`  2. RN 端:lucide-react-native 组件(<X size={16} color={'#6b7280'} />)`)
+  console.log(`  3. Taro 端:static/images/icons/*.svg + <Image src="/static/images/icons/xxx.svg" />`)
+  console.log(`  4. 配置数组 icon: 'emoji' → icon: LucideIcon 组件引用`)
+  console.log(`  5. 动态切换图标用三元组件: {playing ? <Pause /> : <Play />}`)
+  console.log(`  6. 豁免范围:注释 / i18n 文案参数 / 评分星 / 表情面板 / docs 正文装饰(不含 icon: 字段)`)
+  console.log('')
+
+  if (a.face === 'staged') {
+    console.log(`${C.red}${C.bold}❌ emoji 图标守门失败 — 提交已阻止${C.reset}`)
+    console.log(`${C.dim}跳过方法:HUSKY_SKIP_NO_EMOJI=1 git commit ...${C.reset}`)
+  }
+  return 1
 }
-process.exit(1)
+
+/** CLI 主流程。**返回退出码**而不是 process.exit —— 测试与自检要能拿到结论而不打死宿主。 */
+export async function main(argv = process.argv.slice(2)) {
+  if (process.env.HUSKY_SKIP_NO_EMOJI === '1') {
+    console.log('⏭  emoji 图标守门(HUSKY_SKIP_NO_EMOJI=1, 跳过)')
+    return 0
+  }
+  if (argv.includes('--help')) {
+    console.log(HELP_TEXT)
+    return 0
+  }
+  // 判据起不来 ⇒ 大声 exit 2(不静默降级成"全放行",也不冒红成"你违规")
+  if (CHAR_CLASS_BROKEN) {
+    console.error(CHAR_CLASS_ERROR)
+    return 2
+  }
+  if (argv.includes('--self-test')) return runSelfTest()
+
+  const picked = selectFace({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    def: 'head',
+  })
+  if (picked.error) {
+    console.error(`❌ ${picked.error}`)
+    return 2
+  }
+  const { face } = picked
+  try {
+    assertRepoRoot(ROOT, 'emoji 图标守门')
+  } catch (e) {
+    console.error(`❌ 无法判定:${e?.message ?? e}`)
+    return 2
+  }
+
+  printBanner(face)
+  let result
+  try {
+    result = analyze({ root: ROOT, face })
+  } catch (e) {
+    console.error(`❌ 无法判定:${e?.message ?? e}`)
+    return 2
+  }
+  if (result.empty) {
+    console.log(`${C.green}✅ 暂存区无 .ts/.tsx/.js/.jsx 变更,跳过${C.reset}`)
+    return 0
+  }
+  return printReport(result)
+}
+
+// §22d:模块加载不得触发主流程(镜像测试 import 判据就是这个姿势)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+      process.exit(2)
+    })
+}
+
+export const __test__ = {
+  isExempt,
+  judgeLine,
+  judgeText,
+  isScanCandidate,
+  analyze,
+  runSelfTest,
+  main,
+  EMOJI_RE,
+  ICON_FIELD_RE,
+  RENDER_EMOJI_RE,
+  BARE_EMOJI_LINE_RE,
+  PANEL_ELEMENT_RE,
+  PANEL_ARRAY_RE,
+  EMOJI_PICKER_FILE_RE,
+  EMOJI_CHAR_CLASS,
+  CHAR_CLASS_BROKEN,
+  UI_SCAN_ROOTS,
+  SCAN_EXTS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

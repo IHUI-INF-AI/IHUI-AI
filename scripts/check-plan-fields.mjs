@@ -6,30 +6,48 @@
  * 守门 台账侧车字段一致性(2026-10-22 立,blocking 档,只判差值维)。规格:
  * `docs/superpowers/specs/2026-10-22-plan-ledger-schema-design.md` §4 第 3 步。
  *
- * 判两维,取材一律同面同轮(§0.4:全量档 HEAD blob、`--staged` 索引 blob、`--worktree` 只作人工逃生舱):
+ * 判三维,取材一律同面同轮(§0.4:全量档 HEAD blob、`--staged` 索引 blob、`--worktree` 只作人工逃生舱):
  *  A1 **本次提交新带入**的未勾登记行里,既没有行内租约、也没有侧车记录的枚数。
  *     租约算交代(它已机器可读地指名持有者),侧车记录算交代(它结构化地指名持有者或等待条件),
  *     两者皆无才是 P1 要收的那种"靠散文猜"的新账 —— 存量一律只报数(下面 stock),
  *     因为 237 行历史账不可能在上线当天补齐:那是一台与任何提交都无关的恒红门(§12e)。
  *  A2 行内投影标头与侧车不一致:读不回(malformed)或投影 `renderHeader(侧车)` 不在行内 ⇒ 点名。
  *     投影本身属 P2,所以今天 A2 的射程只有"手工写了个不对的标头"这一型 —— 正是必须现在就拦的那型。
+ *     **例外(2026-10-24 补)**:该键位若落在 A3 的矛盾组上,期望标头本身就不可判(见下),
+ *     那一行 A2 **不判**并计入 `blind=` 点名 —— "没判"绝不写成"判过"(§0.3),也绝不因为
+ *     侧车自己的矛盾把 21 枚已投影行钉成恒红(§12e)。
+ *  A3 **侧车同一复合键有多条、且投影读数互相矛盾**的键组(2026-10-24 立,实测缺口复现):
+ *     `scripts/data/plan-fields.jsonl` 是"只增不删"的追加面,同键两条天然会发生;真正的问题不是
+ *     "多了一份",而是**两条投影出不同标头**时"取哪一条"由 `loadFields` 按 `updatedAt` 隐式裁决
+ *     —— 那是写入时刻,不是归属权威。实测 `G-41#围栏只判"新代码不得选用已删出口"` 同键两条:
+ *     `owner="持有人"`(退化占位)与 `owner="mcp_unscoped_exit 围栏持有人"`,而当时账面是
+ *     `A2 标头不一致 0 枚`(= 说"一致"),同一件事却有两个归属 —— 与 §1 记过的"两把尺子各读出
+ *     31 与 59"同型。判据形状照 A1 的差值棘轮接,**不另造机制**:
+ *       · 被审面全量矛盾组 ⇒ 只报数(`conflict=`);
+ *       · 基准面(HEAD 侧车)没有的签名 ⇒ `a3` 新增,拦红;
+ *       · 同键但读数逐字相同(抽取器重跑只换 `updatedAt` 的同义追加)⇒ 归 `dup=` 报数,永不拦红
+ *         (拦它就是把门架在唯一合法的写入出口上,§12e)。
+ *     投影层的显式规则在同源单点 `lib/plan-field-line.mjs` 的 `resolveSidecar()`:矛盾时输出
+ *     `〔归:未判定〕`,不挑一条。
  *
- * 为什么 A1 只在有基准面时才算:全量档(HEAD 面)结构上没有"本次新增"这一维。拿不到基准就写成 0,
- * 等于把"没判"报成"判过"(§0.3),所以那一档明写 `a1=NA` 且不参与 verdict。
+ * 为什么 A1/A3 只在有基准面时才算:全量档(HEAD 面)结构上没有"本次新增"这一维。拿不到基准就写成 0,
+ * 等于把"没判"报成"判过"(§0.3),所以那一档明写 `a1=NA`/`a3=NA` 且不参与 verdict。
  *
  * 为什么可以 blocking(§12e/票 G-965):本门的 verdict **只由差值维构成** —— A1 仅在拿得到基准面时
- * 数"本次新带入"的行,A2 只数被审面上标头与侧车不一致的枚数;存量 stock 只报数、不进判定。
- * 于是全量档存量 109 枚缺侧车仍是 exit 0 —— 不构成与提交内容无关的恒红门;存量维(哪天把 stock
- * 也判红)仍未升档,那一步的前置才是存量归零。
+ * 数"本次新带入"的行,A3 仅在拿得到基准侧车面时数"本次新带入"的矛盾键组,A2 只数被审面上标头与侧车
+ * 不一致的枚数;存量 stock / dup / conflict 只报数、不进判定。
+ * 于是全量档存量 153 枚缺侧车 + 34 组矛盾仍是 exit 0 —— 不构成与提交内容无关的恒红门;存量维
+ * (哪天把 stock/dup 也判红)仍未升档,那一步的前置才是存量归零。
  *
- * 机读末行:`PLAN-FIELDS-RESULT state=clean|warn|red|undetermined a1=<n|NA> a2=<n> stock=<n> face=<head|staged|worktree>`
- * 退出码:0 = clean/warn / 1 = red / 2 = 未判定(取不到台账或侧车面)。
+ * 机读末行:`PLAN-FIELDS-RESULT state=clean|warn|red|undetermined a1=<n|NA> a2=<n> a3=<n|NA>
+ *  dup=<n> conflict=<n> blind=<n> stock=<n> face=<head|staged|worktree>`
+ * 退出码:0 = clean/warn / 1 = red / 2 = 未判定(取不到台账或侧车面,含 A3 的基准侧车面)。
  */
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { MAX as HEADER_MAX } from './lib/plan-field-line.mjs'
-import { parseHeader, renderHeader, stripHeader } from './lib/plan-field-line.mjs'
+import { parseHeader, renderHeader, resolveSidecar, stripHeader } from './lib/plan-field-line.mjs'
 import { claimMarkOf, compositeKeyOf, parseTaskRows, titleOf } from './lib/plan-task-index.mjs'
 import { readFieldsFace, readPlan } from './plan-tasks.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -51,12 +69,57 @@ const isOpenRow = (r) => r.state === 'open'
 const hasLease = (line) => claimMarkOf(line)?.form === 'lease'
 
 /**
- * 两维判定。纯函数:输入是已取好的行与已读好的侧车映射,不碰 git ——
- * 这样 `--self-test` 与镜像测试能用同一份实现跑构造面,而不是另抄一套判据(§22c)。
+ * 侧车全记录 → 复合键分组 → 只留"同键多条"的组(投影裁决委派单源 `resolveSidecar`,§0.6)。
+ * 被审面与基准面走**同一个出口**,否则"签名"在两面各算各的,A3 棘轮就成了第二把尺子。
+ * @returns {{conflicts:{key:string,n:number,readings:string[]}[], dup:number}}
  */
-export function judge(rows, { baseRowTexts = null, map = new Map() } = {}) {
+export function conflictGroupsOf(records) {
+  const byKey = new Map()
+  for (const rec of records ?? []) {
+    if (!rec || typeof rec.key !== 'string' || rec.key === '') continue
+    const list = byKey.get(rec.key)
+    if (list) list.push(rec)
+    else byKey.set(rec.key, [rec])
+  }
+  const conflicts = []
+  let dup = 0
+  for (const [key, recs] of byKey) {
+    const res = resolveSidecar(recs)
+    if (res.n < 2) continue
+    if (res.conflict) conflicts.push({ key, n: res.n, readings: res.readings })
+    else dup += 1
+  }
+  return { conflicts, dup }
+}
+
+/** 矛盾组的跨面身份:键 + 去重排序后的投影读数(与记录条数无关,读数才是"矛盾的那件事")。 */
+export const sideSig = (g) => JSON.stringify([g.key, g.readings])
+
+/**
+ * 三维判定(A1/A2/A3)+ 三个只报数维(dup/conflict/blind)。纯函数:输入是已取好的行与已读好的
+ * 侧车(最新映射 + 全记录 + 基准矛盾签名集),不碰 git ——
+ * 这样 `--self-test` 与镜像测试能用同一份实现跑构造面,而不是另抄一套判据(§22c)。
+ * `baseSideSignatures === null` ⇒ 没有基准侧车面(全量档)⇒ A3 不参与、报 NA(§0.3)。
+ */
+export function judge(
+  rows,
+  { baseRowTexts = null, map = new Map(), allRecords = [], baseSideSignatures = null } = {},
+) {
+  const { conflicts, dup } = conflictGroupsOf(allRecords)
+  const conflictKeys = new Map(conflicts.map((g) => [g.key, g]))
+  const a3List = []
+  const conflictList = []
+  for (const g of conflicts) {
+    conflictList.push(
+      `  ${g.key}  ${g.n} 条记录、投影读数 ${g.readings.length} 个互斥:${g.readings.map((x) => clip(x)).join(' ↔ ')}`,
+    )
+    if (baseSideSignatures !== null && !baseSideSignatures.has(sideSig(g)))
+      a3List.push(`  ${g.key}  基准面(HEAD 侧车)没有这个矛盾签名 ⇒ A3 新增拦红`)
+  }
+
   const a1List = []
   const a2List = []
+  const blindList = []
   let stock = 0
   for (const r of rows.filter(isOpenRow)) {
     const line = r.raw
@@ -68,7 +131,12 @@ export function judge(rows, { baseRowTexts = null, map = new Map() } = {}) {
       else stock++
     }
     const p = parseHeader(line)
-    if (p.malformed) {
+    if (key && conflictKeys.has(key)) {
+      // A2 例外(2026-10-24):键位落在矛盾组上 ⇒ 期望标头本身不可判,这一行 A2 **不判**、
+      // 计入 blind 点名 —— "没判"绝不写成"判过"(§0.3),也不因侧车自己的矛盾把已投影行钉成恒红(§12e)。
+      if (p.malformed || p.rec)
+        blindList.push(`  L${r.line}  ${key}  键位在矛盾组 ⇒ 期望标头不可判,A2 未判`)
+    } else if (p.malformed) {
       a2List.push(`  L${r.line}  标头读不回(malformed):${clip(headerOf(line))}`)
     } else if (p.rec && rec) {
       const want = renderHeader(rec)
@@ -81,10 +149,18 @@ export function judge(rows, { baseRowTexts = null, map = new Map() } = {}) {
   return {
     a1: a1List.length,
     a2: a2List.length,
+    a3: a3List.length,
+    dup,
+    conflict: conflicts.length,
+    blind: blindList.length,
     stock,
     hasBase: !!baseRowTexts,
+    hasBaseSide: baseSideSignatures !== null,
     a1List,
     a2List,
+    a3List,
+    conflictList,
+    blindList,
   }
 }
 
@@ -118,6 +194,7 @@ export function readFaces(root = ROOT, face = 'head') {
   const side = readFieldsFace(root, face)
   if (side.undetermined) return { ok: false, why: `侧车面取不到:${side.why ?? '(未点名原因)'}` }
   let base = null
+  let baseSideSigs = null
   if (face !== 'head') {
     try {
       base = new Set(
@@ -131,24 +208,33 @@ export function readFaces(root = ROOT, face = 'head') {
         why: `基准面(HEAD)取不到 ⇒ A1 未判定:${String(e?.message ?? e).split('\n')[0]}`,
       }
     }
+    const bs = readFieldsFace(root, 'head')
+    if (bs.undetermined)
+      return { ok: false, why: `基准侧车面(HEAD)取不到 ⇒ A3 未判定:${bs.why ?? '(未点名原因)'}` }
+    baseSideSigs = new Set(conflictGroupsOf([...bs.map.values(), ...(bs.orphans ?? [])]).conflicts.map(sideSig))
   }
   return {
     ok: true,
     rows: parseTaskRows(content),
     baseRowTexts: base,
     map: side.map,
+    allRecords: [...side.map.values(), ...(side.orphans ?? [])],
+    baseSideSignatures: baseSideSigs,
     malformedSide: side.malformed ?? 0,
   }
 }
 
 export function verdict(v, face) {
   const a1Text = v.hasBase ? String(v.a1) : 'NA'
-  const red = v.a2 > 0 || (v.hasBase && v.a1 > 0)
+  const a3Text = v.hasBaseSide ? String(v.a3) : 'NA'
+  const red = v.a2 > 0 || (v.hasBase && v.a1 > 0) || (v.hasBaseSide && v.a3 > 0)
   const state = red ? 'red' : v.stock > 0 ? 'warn' : 'clean'
   return {
     state,
     code: red ? 1 : 0,
-    line: `PLAN-FIELDS-RESULT state=${state} a1=${a1Text} a2=${v.a2} stock=${v.stock} face=${face}`,
+    line:
+      `PLAN-FIELDS-RESULT state=${state} a1=${a1Text} a2=${v.a2} a3=${a3Text} dup=${v.dup} ` +
+      `conflict=${v.conflict} blind=${v.blind} stock=${v.stock} face=${face}`,
   }
 }
 
@@ -156,21 +242,39 @@ function run({ root = ROOT, face = 'head' } = {}) {
   const f = readFaces(root, face)
   if (!f.ok) {
     console.log(`⚠️ 未判定 —— ${f.why}`)
-    console.log(`PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA stock=NA face=${face}`)
+    console.log(
+      `PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA stock=NA face=${face}`,
+    )
     return 2
   }
-  const v = judge(f.rows, { baseRowTexts: f.baseRowTexts, map: f.map })
+  const v = judge(f.rows, {
+    baseRowTexts: f.baseRowTexts,
+    map: f.map,
+    allRecords: f.allRecords,
+    baseSideSignatures: f.baseSideSignatures,
+  })
   console.log(
     `判定面:${LABEL[face]} ⊕ 同轮侧车 ${f.map.size} 条记录(侧车畸形行 ${f.malformedSide} 条,畸形行不参与判定但必须报名)` +
-      (v.hasBase ? '' : ' —— 全量档没有"本次新增"这一维 ⇒ A1=NA,不得读成 0'),
+      (v.hasBase ? '' : ' —— 全量档没有"本次新增"这一维 ⇒ A1=NA/A3=NA,不得读成 0'),
   )
   console.log(
-    `A1 新增行缺交代 ${v.hasBase ? v.a1 : 'NA'} 枚 / A2 标头不一致 ${v.a2} 枚 / 存量缺侧车记录 ${v.stock} 枚(只报数)`,
+    `A1 新增行缺交代 ${v.hasBase ? v.a1 : 'NA'} 枚 / A2 标头不一致 ${v.a2} 枚 / ` +
+      `A3 新增矛盾键组 ${v.hasBaseSide ? v.a3 : 'NA'} 组 / ` +
+      `同键同读数 dup ${v.dup} 组 / 全量矛盾 ${v.conflict} 组 / A2 盲区点名 ${v.blind} 枚 / ` +
+      `存量缺侧车记录 ${v.stock} 枚(dup/conflict/blind/存量只报数)`,
   )
   for (const l of v.a1List.slice(0, 20)) console.log(`  · A1 ${l}`)
   if (v.a1List.length > 20) console.log(`  · A1 …另 ${v.a1List.length - 20} 枚同型未逐条打印`)
   for (const l of v.a2List.slice(0, 20)) console.log(`  · A2 ${l}`)
   if (v.a2List.length > 20) console.log(`  · A2 …另 ${v.a2List.length - 20} 枚同型未逐条打印`)
+  for (const l of v.a3List.slice(0, 20)) console.log(`  · A3 ${l}`)
+  if (v.a3List.length > 20) console.log(`  · A3 …另 ${v.a3List.length - 20} 组同型未逐条打印`)
+  for (const l of v.conflictList.slice(0, 20)) console.log(`  · 矛盾组 ${l}`)
+  if (v.conflictList.length > 20)
+    console.log(`  · 矛盾组 …另 ${v.conflictList.length - 20} 组同型未逐条打印`)
+  for (const l of v.blindList.slice(0, 20)) console.log(`  · A2盲区 ${l}`)
+  if (v.blindList.length > 20)
+    console.log(`  · A2盲区 …另 ${v.blindList.length - 20} 枚同型未逐条打印`)
   if (v.stock > 0)
     console.log(
       `   存量 ${v.stock} 枚 = P1 的迁移分母,结清出口:node scripts/plan-fields-extract.mjs --apply(只搬说辞,不改一行台账文本)`,
@@ -240,6 +344,42 @@ function selfTest() {
   const und = withScratch((dir) => readFaces(dir, 'head'))
   ok('S14 取不到面 ⇒ 未判定臂真的通(不记绿也不冒红)', und.ok === false && /取不到/.test(und.why))
 
+  const recB = { key: rec.key, owner: '另一个人', waiting: 'none', updatedAt: '2026-10-23T00:00:00.000Z' }
+  const conflictRecords = [rec, recB]
+  const v15 = judge([], { allRecords: conflictRecords, baseSideSignatures: new Set() })
+  ok(
+    'S15 同键两条读数互斥且基准侧车面没有 ⇒ A3=1 拦红(阳性对照)',
+    v15.a3 === 1 && v15.conflict === 1 && verdict(v15, 'staged').code === 1,
+  )
+  const v16 = judge([], {
+    allRecords: conflictRecords,
+    baseSideSignatures: new Set(conflictGroupsOf(conflictRecords).conflicts.map(sideSig)),
+  })
+  ok(
+    'S16 同一矛盾签名已在基准侧车面 ⇒ 棘轮不涨,A3=0 不拦',
+    v16.conflict === 1 && v16.a3 === 0 && verdict(v16, 'staged').code === 0,
+  )
+  const v17 = judge([], { allRecords: [rec, { ...rec, updatedAt: '2026-10-23T00:00:00.000Z' }] })
+  ok(
+    'S17 同键同读数(重跑只换 updatedAt)⇒ 归 dup 报数,不算矛盾',
+    v17.dup === 1 && v17.conflict === 0 && v17.a3 === 0,
+  )
+  const v18 = judge([mk(`- [ ] ${renderHeader(rec)} G-1 甲 细节`)], {
+    map: new Map([[rec.key, recB]]),
+    allRecords: conflictRecords,
+  })
+  ok(
+    'S18 键位落在矛盾组 ⇒ A2 不判、计入 blind 点名',
+    v18.a2 === 0 && v18.blind === 1,
+  )
+  const v19 = judge([], { allRecords: conflictRecords })
+  ok(
+    'S19 无基准侧车面 ⇒ A3 报 NA 且不当红(§0.3)',
+    v19.hasBaseSide === false &&
+      /a3=NA/.test(verdict(v19, 'head').line) &&
+      verdict(v19, 'head').code === 0,
+  )
+
   let fails = 0
   for (const [name, pass] of checks) {
     if (!pass) fails++
@@ -256,7 +396,9 @@ function main() {
   if (argv.includes('--self-test')) return selfTest()
   if (argv.includes('--staged') && argv.includes('--worktree')) {
     console.log('❌ 用法错 —— --staged 与 --worktree 不得同用(两个判定面互斥,§0.4)')
-    console.log('PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA stock=NA face=none')
+    console.log(
+      'PLAN-FIELDS-RESULT state=undetermined a1=NA a2=NA a3=NA dup=NA conflict=NA blind=NA stock=NA face=none',
+    )
     return 2
   }
   const face = argv.includes('--staged')
@@ -277,5 +419,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { judge, verdict, readFaces, headerOf, run }
+export const __test__ = { judge, verdict, readFaces, headerOf, run, conflictGroupsOf, sideSig }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

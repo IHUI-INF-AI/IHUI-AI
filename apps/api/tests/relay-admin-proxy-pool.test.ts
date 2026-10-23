@@ -426,7 +426,7 @@ describe('relay-admin-proxy-pool', () => {
       expect(res.json().message).toContain('未支持')
     })
 
-    it('票已过期 → 先走调度器同一把刷新出口,再用刷新后的副本查', async () => {
+    it('上游判鉴权失效 → 走调度器同一把刷新出口重试一次,第二次用的是新票', async () => {
       mockAdmin()
       const stale = {
         id: ACC_ID,
@@ -436,13 +436,10 @@ describe('relay-admin-proxy-pool', () => {
         refreshTokenEnc: null,
         cookiesEnc: null,
         secretsEnc: null,
-        tokenExpiresAt: new Date(Date.now() - 60_000),
+        // 刻意写成"未来才过期":库里这枚字段不可信,自愈必须由上游的 401 触发,不由时间戳触发
+        tokenExpiresAt: new Date(Date.now() + 7200_000),
       }
-      const fresh = {
-        ...stale,
-        tokenEnc: encryptField('jwt-fresh'),
-        tokenExpiresAt: new Date(Date.now() + 3600_000),
-      }
+      const fresh = { ...stale, tokenEnc: encryptField('jwt-fresh') }
       mockSelectResult.mockResolvedValueOnce([stale]).mockResolvedValueOnce([fresh])
       const seenTokens: string[] = []
       vi.mocked(getRelayAdapter).mockReturnValueOnce({
@@ -450,7 +447,9 @@ describe('relay-admin-proxy-pool', () => {
         refreshToken: vi.fn(),
         getQuota: vi.fn(async (ctx: { credentials: { token: string } }) => {
           seenTokens.push(ctx.credentials.token)
-          return { ok: true, quota: { remaining: 7 } }
+          return seenTokens.length === 1
+            ? { ok: false, authFailed: true, error: 'web_user_ent_usage HTTP 401' }
+            : { ok: true, quota: { remaining: 97.9 } }
         }),
       } as never)
       vi.mocked(refreshOne).mockClear().mockResolvedValueOnce(true)
@@ -461,12 +460,12 @@ describe('relay-admin-proxy-pool', () => {
       })
       expect(res.statusCode).toBe(200)
       expect(refreshOne).toHaveBeenCalledTimes(1)
-      // 打上游的那一枚票必须是刷新后的新票,不是库里已过期的旧票
-      expect(seenTokens).toEqual(['jwt-fresh'])
+      expect(seenTokens).toEqual(['jwt-stale', 'jwt-fresh'])
       expect(res.json().data.attemptedRefresh).toBe(true)
+      expect(res.json().data.ok).toBe(true)
     })
 
-    it('票未过期 → 一次都不刷新(正向对照:刷新分支不是无条件路过)', async () => {
+    it('首查即成功 → 一次都不刷新(正向对照:刷新不是无条件路过)', async () => {
       mockAdmin()
       const live = {
         id: ACC_ID,
@@ -498,6 +497,41 @@ describe('relay-admin-proxy-pool', () => {
       expect(refreshOne).not.toHaveBeenCalled()
       expect(seenTokens).toEqual(['dt-live'])
       expect(res.json().data.attemptedRefresh).toBe(false)
+    })
+
+    it('失败但不是鉴权(如上游 500)⇒ 不换票、只重试零次(防把任何失败都当票问题)', async () => {
+      mockAdmin()
+      const live = {
+        id: ACC_ID,
+        providerCode: 'qoder',
+        proxyUrl: null,
+        tokenEnc: encryptField('dt-live'),
+        refreshTokenEnc: null,
+        cookiesEnc: null,
+        secretsEnc: null,
+        tokenExpiresAt: null,
+      }
+      mockSelectResult.mockResolvedValueOnce([live])
+      let calls = 0
+      vi.mocked(getRelayAdapter).mockReturnValueOnce({
+        providerCode: 'qoder',
+        refreshToken: vi.fn(),
+        getQuota: vi.fn(async () => {
+          calls += 1
+          return { ok: false, error: 'quota HTTP 500' }
+        }),
+      } as never)
+      vi.mocked(refreshOne).mockClear()
+      const res = await server.inject({
+        method: 'POST',
+        url: quotaUrl,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(calls).toBe(1)
+      expect(refreshOne).not.toHaveBeenCalled()
+      expect(res.json().data.attemptedRefresh).toBe(false)
+      expect(res.json().data.ok).toBe(false)
     })
 
     it('非管理员身份 → 403(余额不出非管理面)', async () => {

@@ -835,6 +835,8 @@ export const traeAdapter: RelayUpstreamAdapter = {
         const text = await res.text().catch(() => '')
         return {
           ok: false,
+          // 鉴权失效判定与 isAuthFailure 同源(状态码当场量得),供承载层触发自愈
+          authFailed: traeAdapter.isAuthFailure(res.status, text),
           error: `web_user_ent_usage HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
         }
       }
