@@ -131,19 +131,19 @@ export default function ImageGenPage() {
       {result && (
         <Card>
           <CardContent className="min-[640px]:p-3 space-y-3 p-3">
+            {/* revisedPrompt 是死字段(后端零产出通路,见 @ihui/types 的 ImageGenResult 注记)
+                ⇒ 死渲染腿于 2026-10-23 撤除:alt 恒取用户原文(旧写法 `?? prompt` 的实际取值
+                也恒是 prompt,行为不变),不再挂在永不返回的键上。 */}
             <div className="overflow-hidden rounded-lg bg-muted">
               <Image
                 src={result.imageUrl}
-                alt={result.revisedPrompt ?? prompt}
+                alt={prompt}
                 width={1024}
                 height={1024}
                 className="mx-auto max-h-[60vh] w-auto object-contain"
                 style={{ width: 'auto', height: 'auto' }}
               />
             </div>
-            {result.revisedPrompt && (
-              <p className="text-xs text-muted-foreground">{result.revisedPrompt}</p>
-            )}
             <div className="flex justify-end">
               <Button size="sm" variant="outline" onClick={download}>
                 <Download className="mr-1.5 h-4 w-4" />
