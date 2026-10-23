@@ -13,6 +13,7 @@ job;这里只测拆分语义(不触 store / 引擎,纯函数无 IO)。
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -263,6 +264,165 @@ def test_classify_checkin_result_separates_claim_from_skip():
     assert cs.classify_checkin_result({"ok": False, "action": "checkin"}) == "failed"
     assert cs.classify_checkin_result({"ok": False, "action": "skip_already"}) == "failed"
     assert cs.classify_checkin_result({}) == "failed"
+
+
+# ---------------------------------------------------------------------------
+# WorkBuddy 网页会话保活腿(2026-10-24):探活 / 过期重抽 / 节流
+# ---------------------------------------------------------------------------
+
+
+def _wb_rows(device_map: dict[str, Any]) -> list[dict[str, Any]]:
+    return [{"id": 7, "owner_user_id": "o", "name": "wb", "device_map": dict(device_map)}]
+
+
+async def test_wb_sync_alive_skips_extraction(monkeypatch):
+    """现有 cookie 探活通过 ⇒ 不拉起浏览器、不写库。"""
+    sched = cs.CheckinScheduler()
+    rows = _wb_rows({"uid": "u1", "web_cookie": "session=ok", "web_cookie_expires_at": int(time.time()) + 86400 * 5})
+    saves: list[Any] = []
+    extracts: list[Any] = []
+
+    async def fake_list(platform: str):
+        assert platform == "workbuddy"
+        return rows
+
+    async def fake_session(cookie: str, dm: dict[str, Any]):
+        return True, "u1", 200
+
+    async def fake_extract():
+        extracts.append(1)
+        return {"cookie": "session=new", "user_agent": "UA", "expires_at": 1}
+
+    async def fake_save(account_id: int, dm: dict[str, Any]):
+        saves.append(account_id)
+
+    monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
+    monkeypatch.setattr(cs.checkin_workbuddy, "workbuddy_check_session", fake_session)
+    monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_cookie", fake_extract)
+    monkeypatch.setattr(checkin_store, "save_device_map", fake_save)
+    await sched._sync_workbuddy_local()
+    assert extracts == [] and saves == []
+
+
+async def test_wb_sync_dead_cookie_reextracts_and_writes(monkeypatch):
+    """探活 401 ⇒ 重抽;重抽结果再探活通过才写库并解冷却。"""
+    sched = cs.CheckinScheduler()
+    rows = _wb_rows({"uid": "u1", "web_cookie": "session=old"})
+    saves: list[tuple[int, dict[str, Any]]] = []
+    cooldowns: list[int] = []
+    calls: list[str] = []
+
+    async def fake_list(platform: str):
+        return rows
+
+    async def fake_session(cookie: str, dm: dict[str, Any]):
+        calls.append(cookie)
+        return (False, None, 401) if cookie == "session=old" else (True, "u1", 200)
+
+    async def fake_extract():
+        return {"cookie": "session=new", "user_agent": "UA-1", "expires_at": 1793380841}
+
+    async def fake_save(account_id: int, dm: dict[str, Any]):
+        saves.append((account_id, dict(dm)))
+
+    async def fake_clear(account_id: int):
+        cooldowns.append(account_id)
+
+    monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
+    monkeypatch.setattr(cs.checkin_workbuddy, "workbuddy_check_session", fake_session)
+    monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_cookie", fake_extract)
+    monkeypatch.setattr(checkin_store, "save_device_map", fake_save)
+    monkeypatch.setattr(checkin_store, "clear_open_cooldowns", fake_clear)
+    await sched._sync_workbuddy_local()
+    assert calls == ["session=old", "session=new"]
+    assert saves and saves[0][1]["web_cookie"] == "session=new"
+    assert saves[0][1]["user_agent"] == "UA-1"
+    assert saves[0][1]["web_cookie_expires_at"] == 1793380841
+    assert cooldowns == [7]
+
+
+async def test_wb_sync_extract_failure_writes_nothing(monkeypatch):
+    """重抽取不到(浏览器未登录)⇒ 一个字段都不写,不冒充成功。"""
+    sched = cs.CheckinScheduler()
+    rows = _wb_rows({"uid": "u1", "login_type": "web"})
+    saves: list[Any] = []
+
+    async def fake_list(platform: str):
+        return rows
+
+    async def fake_extract():
+        return None
+
+    async def fake_save(account_id: int, dm: dict[str, Any]):
+        saves.append(account_id)
+
+    monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
+    monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_cookie", fake_extract)
+    monkeypatch.setattr(checkin_store, "save_device_map", fake_save)
+    await sched._sync_workbuddy_local()
+    assert saves == []
+
+
+async def test_wb_sync_expiring_triggers_extraction(monkeypatch):
+    """临期(<24h)即使探活通过也要重抽,提前换新。"""
+    sched = cs.CheckinScheduler()
+    rows = _wb_rows({"uid": "u1", "web_cookie": "session=ok", "web_cookie_expires_at": int(time.time()) + 3600})
+    extracts: list[Any] = []
+
+    async def fake_list(platform: str):
+        return rows
+
+    async def fake_session(cookie: str, dm: dict[str, Any]):
+        return True, "u1", 200
+
+    async def fake_extract():
+        extracts.append(1)
+        return {"cookie": "session=ok", "user_agent": "UA", "expires_at": 1}
+
+    monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
+    monkeypatch.setattr(cs.checkin_workbuddy, "workbuddy_check_session", fake_session)
+    monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_cookie", fake_extract)
+    await sched._sync_workbuddy_local()
+    assert extracts == [1]
+
+
+async def test_wb_sync_throttles_repeated_extraction(monkeypatch):
+    """同一失败在节流窗口内不重复拉起无头 Chrome。"""
+    sched = cs.CheckinScheduler()
+    rows = _wb_rows({"uid": "u1", "login_type": "web"})
+    extracts: list[Any] = []
+
+    async def fake_list(platform: str):
+        return rows
+
+    async def fake_extract():
+        extracts.append(1)
+        return None
+
+    monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
+    monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_cookie", fake_extract)
+    await sched._sync_workbuddy_local()
+    await sched._sync_workbuddy_local()
+    assert extracts == [1]
+
+
+async def test_wb_sync_bearer_only_account_does_not_extract(monkeypatch):
+    """纯 Bearer 账号(无 login_type=web、无 cookie)不触发浏览器抽取。"""
+    sched = cs.CheckinScheduler()
+    rows = _wb_rows({"uid": "u1"})
+    extracts: list[Any] = []
+
+    async def fake_list(platform: str):
+        return rows
+
+    async def fake_extract():
+        extracts.append(1)
+        return {"cookie": "session=new", "user_agent": "UA", "expires_at": 1}
+
+    monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
+    monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_cookie", fake_extract)
+    await sched._sync_workbuddy_local()
+    assert extracts == []
 
 
 # [IHUI-AI-PROVENANCE-TAIL]
