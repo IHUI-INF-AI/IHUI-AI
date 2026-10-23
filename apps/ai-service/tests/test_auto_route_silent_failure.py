@@ -42,10 +42,10 @@ from app.services.local_provider_health import local_provider_health
 from app.services.model_availability import model_availability
 from app.services.model_router import TaskComplexity
 
-# 真实 app/data/default_models.json 里稳定存在的条目(前缀决定 tier:flash→1 / glm-5→10)
+# 真实 app/data/default_models.json 里稳定存在的条目(前缀决定 tier:flash→1 / glm-4-plus→10)
 CHEAP_HEAD = "stepfun/step-3.7-flash"  # 运维预设首选 ⇒ 同时也是既有 fallback
 CHEAP_OTHER = "agnes/agnes-2.5-flash"  # 预设兜底(同 tier;用于区分 chosen 与 fallback)
-PREMIUM = "ihui/glm-5.3"  # tier 10 ⇒ premium_pool 唯一成员 ⇒ plan.premium_top
+PREMIUM = "glm-4-plus"  # tier 10 ⇒ premium_pool 唯一成员 ⇒ plan.premium_top
 FREE = "@cf/zai-org/glm-4.7-flash"  # _AUTO_FREE_PREFIXES 命中 ⇒ free_pool
 WHITELIST = [CHEAP_HEAD, CHEAP_OTHER, PREMIUM, FREE]
 
