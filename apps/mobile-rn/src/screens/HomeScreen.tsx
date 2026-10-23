@@ -2679,8 +2679,8 @@ const shellStyles = {
     fontWeight: '600',
   } as const,
   modelModalHairline: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: tokens.border.light,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.border.light,
     marginHorizontal: rpx(32),
   } as const,
   // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──
