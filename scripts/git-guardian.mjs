@@ -133,11 +133,13 @@ export {
 export const WORKTREE = resolveWorktree()
 const GITDIR = resolveGitdir(WORKTREE)
 const BACKUP = resolveBackupDir(WORKTREE)
-const GITEE_URL = 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
 /** origin = GitHub SSH(仓库唯一权威源;严禁改回 https,见 AGENTS.md §5b 铁律) */
 const GITHUB_SSH_URL = 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'
-/** 国内镜像仓(由 mirror-to-cn.yml 覆盖,本机不直推) */
-const GITCODE_URL = 'https://gitcode.com/IHUI-AI/IHUI-AI.git'
+// 2026-10-23 机主令:GitCode/Gitee **代码镜像仓早已弃用**,此处不再保留任何镜像远端常量。
+// 曾经的 gitee/gitcode 两个 URL 常量 + restoreRemoteConfig 里的写回循环,作用是在每次
+// gitdir 自愈后把这两个远端**重新加回**仓库配置 —— 那正是"弃用后仍留痕迹"的活体来源:
+// 只要自愈跑一轮,`git remote -v` 就又长出两条指向死镜像的远端,后续 fetch/push 会
+// 拿它们当候选源,把 HEAD 拖进另一条线。现改为只认 origin(GitHub)一个远端。
 /** GitHub 部署私钥;服务账户/交互账户都要用它,故写入仓库级 core.sshCommand */
 const SSH_COMMAND =
   'ssh -i C:/Users/Administrator/.ssh/id_ed25519_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20'
@@ -4982,13 +4984,14 @@ function healFromRemote() {
   git(['init', '--separate-git-dir=' + GITDIR, WORKTREE], true)
   if (!pointerOk()) healPointer()
   const remote = git(['remote', 'get-url', 'origin'], true)
-  if (!remote) git(['remote', 'add', 'origin', GITEE_URL], true)
+  if (!remote) git(['remote', 'add', 'origin', GITHUB_SSH_URL], true)
   git(['fetch', 'origin', 'main'], true)
   const head = git(['rev-parse', 'FETCH_HEAD'], true)
   if (head) git(['reset', '--mixed', head], true)
   // —— 还原完整远端与仓库配置(2026-09-12 15:30 补齐)——
-  // 旧版只设 origin=https,会丢掉 gitee/gitcode 镜像远端与部署私钥 sshCommand,
+  // 旧版只设 origin=https,会丢掉部署私钥 sshCommand,
   // 导致「自愈成功后 origin 变成 https」违反 AGENTS.md §5b「严禁改回 https」。
+  // 2026-10-23:gitee/gitcode 镜像远端写回已删除(弃用仓,不得由自愈复活)。
   restoreRemoteConfig()
   git(['config', 'core.hooksPath', '.husky'], true)
   git(['config', 'gc.auto', '0'], true)
@@ -4998,20 +5001,15 @@ function healFromRemote() {
 }
 
 /**
- * 把 origin(github SSH)/gitee/gitcode 三个远端 + 部署私钥 sshCommand 写回仓库配置。
+ * 把 origin(GitHub SSH)+ 部署私钥 sshCommand 写回仓库配置。
  * 幂等:已存在则 set-url,不存在才 add。用于远端重建后的配置收口。
+ * 2026-10-23:只收口 origin 一个远端 —— gitee/gitcode 镜像已弃用,写回它们等于每次
+ * 自愈都重新制造两条指向死镜像的远端(见本文件 GITEE_URL/GITCODE_URL 删除处的说明)。
  */
 function restoreRemoteConfig() {
   git(['remote', 'set-url', 'origin', GITHUB_SSH_URL], true)
   if (!git(['remote', 'get-url', 'origin'], true))
     git(['remote', 'add', 'origin', GITHUB_SSH_URL], true)
-  for (const [name, url] of [
-    ['gitee', GITEE_URL],
-    ['gitcode', GITCODE_URL],
-  ]) {
-    if (git(['remote', 'get-url', name], true)) git(['remote', 'set-url', name, url], true)
-    else git(['remote', 'add', name, url], true)
-  }
   git(['config', 'core.sshCommand', SSH_COMMAND], true)
 }
 

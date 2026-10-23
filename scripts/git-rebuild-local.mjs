@@ -92,17 +92,13 @@ function isHealthy(repoRoot) {
 }
 
 /**
- * 重建后逐条写回完整远端与仓库配置(修复旧逻辑会丢 gitee/gitcode 远端、
- * core.sshCommand、core.hooksPath 等的问题)。
+ * 重建后逐条写回完整远端与仓库配置(修复旧逻辑会丢 core.sshCommand、core.hooksPath 等的问题)。
+ * 2026-10-23:gitee/gitcode 两条镜像远端写回已删除 —— 弃用仓不得由重建脚本复活。
  */
 function restoreConfig(repoRoot) {
   const cfg = [
-    // 远端
+    // 远端(唯一权威源;镜像仓已弃用,见上)
     ['remote.origin.url', 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'],
-    ['remote.gitee.url', 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'],
-    ['remote.gitee.fetch', '+refs/heads/*:refs/remotes/gitee/*'],
-    ['remote.gitcode.url', 'https://gitcode.com/IHUI-AI/IHUI-AI.git'],
-    ['remote.gitcode.fetch', '+refs/heads/*:refs/remotes/gitcode/*'],
     // 部署用 SSH 私钥与钩子
     [
       'core.sshCommand',
