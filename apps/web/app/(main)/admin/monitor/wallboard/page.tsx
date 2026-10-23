@@ -241,7 +241,7 @@ interface EventItem {
 interface OverviewPayload {
   generatedAt: string
   prometheusUrl: string
-  sources: { prometheus: string; alertmanager: string; database: string }
+  sources: { prometheus: string; alertmanager: string; database: string; edge: string }
   host: HostSnapshot | null
   services: ServicesSnapshot | null
   http: HttpSnapshot | null
@@ -1011,6 +1011,15 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     n >= 3000 ? 'bad' : n >= 1500 ? 'warn' : 'ok',
   )
   const edgeHitTone = thresholdTone(edge?.stats.hitRatio, (n) => (n >= 0.8 ? 'ok' : 'warn'))
+  // 边缘探测三条腿的标签键(官网首页 / 根域名跳转 / 静态资源);对照腿 originViaCf 已有专属文案
+  const EDGE_LEG_LABEL: Record<
+    'edgeHomepage' | 'apexRedirect' | 'edgeStatic',
+    'edgeLegHomepage' | 'edgeLegApex' | 'edgeLegStatic'
+  > = {
+    edgeHomepage: 'edgeLegHomepage',
+    apexRedirect: 'edgeLegApex',
+    edgeStatic: 'edgeLegStatic',
+  }
 
   // ---------- 渲染 ----------
   return (
@@ -1059,6 +1068,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 [t('srcPrometheus'), ov?.sources.prometheus],
                 [t('srcAlertmanager'), ov?.sources.alertmanager],
                 [t('srcDatabase'), ov?.sources.database],
+                [t('srcEdge'), ov?.sources.edge],
               ] as Array<[string, string | undefined]>
             ).map(([name, state]) => (
               <span
@@ -1442,7 +1452,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelQuality')}
             icon={<Gauge className="h-3.5 w-3.5" />}
-            className="wb-c4"
+            className="wb-c6"
             bodyClassName="flex flex-col gap-1"
           >
             <div className="relative">
@@ -1476,7 +1486,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelAlerts')}
             icon={<AlertTriangle className="h-3.5 w-3.5" />}
-            className="wb-c5"
+            className="wb-c6"
             right={
               <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <span>
@@ -1646,7 +1656,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelDatastore')}
             icon={<Database className="h-3.5 w-3.5" />}
-            className="wb-c3"
+            className="wb-c6"
             bodyClassName="flex flex-col gap-2"
           >
             <div>
@@ -1739,7 +1749,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelBusiness')}
             icon={<Wallet className="h-3.5 w-3.5" />}
-            className="wb-c5"
+            className="wb-c6"
             bodyClassName="wb-split overflow-y-auto"
           >
             <div>
@@ -1869,7 +1879,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelEdge')}
             icon={<Globe className="h-3.5 w-3.5" />}
-            className="wb-c7"
+            className="wb-c6"
             right={
               edge ? (
                 <span className="text-[10px] text-muted-foreground">
@@ -1972,6 +1982,36 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     <span className="ml-0.5 text-[11px] text-muted-foreground">{t('unitMs')}</span>
                   </span>
                 </div>
+                <div className="mt-2 space-y-1">
+                  {(
+                    [
+                      ['edgeHomepage', edge.legs.edgeHomepage],
+                      ['apexRedirect', edge.legs.apexRedirect],
+                      ['edgeStatic', edge.legs.edgeStatic],
+                    ] as const
+                  ).map(([legKey, leg]) => (
+                    <div
+                      key={legKey}
+                      className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5"
+                    >
+                      <Dot tone={leg.ok ? 'ok' : 'bad'} />
+                      <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
+                        {t(EDGE_LEG_LABEL[legKey])}
+                      </span>
+                      <span
+                        className={cn(
+                          'wb-num ml-auto text-[13px] font-semibold',
+                          isNum(leg.totalMs) ? 'text-foreground' : 'text-muted-foreground',
+                        )}
+                      >
+                        {isNum(leg.totalMs) ? fmtInt(leg.totalMs) : '—'}
+                        <span className="ml-0.5 text-[10px] text-muted-foreground">
+                          {t('unitMs')}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
                 <div className="min-h-0 flex-1">
                   <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
                     {t('edgeSparkTitle')}
@@ -1989,7 +2029,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTrafficRobot')}
             icon={<Users className="h-3.5 w-3.5" />}
-            className="wb-c7"
+            className="wb-c6"
             right={
               traffic === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2025,6 +2065,18 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   value={fmtInt(traffic?.botPv24h)}
                   unit={t('unitPv')}
                   tone="warn"
+                />
+                <StatCell
+                  label={t('pv1h')}
+                  value={fmtInt(traffic?.pv1h)}
+                  unit={t('unitPv')}
+                  tone="accent"
+                />
+                <StatCell
+                  label={t('uv1h')}
+                  value={fmtInt(traffic?.uv1h)}
+                  unit={t('unitUser')}
+                  tone="ok"
                 />
               </div>
               {traffic?.truncated ? (
@@ -2064,7 +2116,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelRelayPool')}
             icon={<Sparkles className="h-3.5 w-3.5" />}
-            className="wb-c5"
+            className="wb-c6"
             right={
               relayPool === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2093,6 +2145,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     !isNum(relayPool?.keyAbnormal)
                       ? 'unknown'
                       : (relayPool?.keyAbnormal ?? 0) > 0
+                        ? 'warn'
+                        : 'ok'
+                  }
+                />
+                <StatCell
+                  label={t('poolRowsUnclassified')}
+                  value={fmtInt(relayPool?.rowsUnclassified)}
+                  tone={
+                    !isNum(relayPool?.rowsUnclassified)
+                      ? 'unknown'
+                      : (relayPool?.rowsUnclassified ?? 0) > 0
                         ? 'warn'
                         : 'ok'
                   }
@@ -2128,8 +2191,52 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                           : 'ok'
                   }
                 />
+                <StatCell
+                  label={t('accountRefreshAge')}
+                  value={
+                    !isNum(relayPool?.accountRefreshAgeSec)
+                      ? '—'
+                      : fmtDuration(relayPool.accountRefreshAgeSec)
+                  }
+                  tone={
+                    !isNum(relayPool?.accountRefreshAgeSec)
+                      ? 'unknown'
+                      : relayPool.accountRefreshAgeSec >= 3600
+                        ? 'warn'
+                        : 'ok'
+                  }
+                />
               </div>
             </div>
+          </Panel>
+
+          {/* 进程运行时长:http.uptimeSeconds(各进程自启动起运行时长,后端已返回,此前仅在页脚) */}
+          <Panel
+            title={t('panelUptime')}
+            icon={<Clock3 className="h-3.5 w-3.5" />}
+            className="wb-c6"
+            right={http === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
+            bodyClassName="max-h-[320px] overflow-y-auto"
+          >
+            {(http?.uptimeSeconds ?? []).length === 0 ? (
+              <div className="flex justify-center py-3">
+                <SourceGap text={t('sourceUnreachable')} />
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {(http?.uptimeSeconds ?? []).map((u) => (
+                  <div
+                    key={u.job}
+                    className="flex items-center justify-between rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="wb-num truncate text-[11px] text-foreground">{u.job}</span>
+                    <span className="wb-num ml-auto shrink-0 text-[11px] text-info-text">
+                      {fmtDuration(u.seconds)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </Panel>
         </section>
 
