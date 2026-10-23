@@ -18,7 +18,7 @@
  * 的可被调度器续期;没有的直接标 down + 摘除),是否可用交给健康检查/转发链路判定。
  */
 import { createHash } from 'node:crypto'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { db } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
@@ -46,6 +46,8 @@ import {
 /** 导入 JSON 里的单账号形状(与账号导出工具/浏览器插件格式对齐,字段宽松) */
 export interface ImportAccountInput {
   name?: string
+  /** 显式上游 uid(签到助手反向同步时以 identity_key 为权威;缺省则从 token 解析) */
+  uid?: string
   token?: string
   refreshToken?: string
   deviceId?: string
@@ -237,12 +239,14 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
 // =============================================================================
 
 /**
- * 批量导入账号(幂等:同 (providerCode, uid) 再导入 = 覆盖凭证 + 重置健康状态)。
+ * 批量导入账号(幂等:同一归属内 (providerCode, uid) 再导入 = 覆盖凭证 + 重置健康状态)。
+ * ownerUserId 缺省/null = 运营池(存量行为零变化);非 null = 该平台用户的个人号池。
  * 逐条独立 try/catch,一条坏不影响整批。
  */
 export async function importAccounts(
   providerCode: RelayProviderCode,
   accounts: ImportAccountInput[],
+  ownerUserId: string | null = null,
 ): Promise<ImportBatchResult> {
   const result: ImportBatchResult = {
     providerCode,
@@ -303,7 +307,11 @@ export async function importAccounts(
         : typeof acc.refreshToken === 'string' && acc.refreshToken.trim()
           ? acc.refreshToken.trim()
           : null
-      const uid = mapped ? mapped.uid : extractUid(token)
+      const uid = mapped
+        ? mapped.uid
+        : typeof acc.uid === 'string' && acc.uid.trim()
+          ? acc.uid.trim()
+          : extractUid(token)
       if (seenInBatch.has(uid)) {
         result.skipped++
         result.items.push({
@@ -343,6 +351,7 @@ export async function importAccounts(
       if (expired) extra.importedExpired = true
 
       const values = {
+        ownerUserId,
         providerCode,
         uid,
         name: displayName.slice(0, 128),
@@ -372,7 +381,13 @@ export async function importAccounts(
         .select({ id: aiRelayAccountPool.id })
         .from(aiRelayAccountPool)
         .where(
-          and(eq(aiRelayAccountPool.providerCode, providerCode), eq(aiRelayAccountPool.uid, uid)),
+          and(
+            ownerUserId === null
+              ? isNull(aiRelayAccountPool.ownerUserId)
+              : eq(aiRelayAccountPool.ownerUserId, ownerUserId),
+            eq(aiRelayAccountPool.providerCode, providerCode),
+            eq(aiRelayAccountPool.uid, uid),
+          ),
         )
         .limit(1)
 
@@ -427,6 +442,7 @@ export async function importAccounts(
       checkinPush.push(
         buildPoolSyncAccount({
           id: writtenId,
+          ownerUserId,
           uid,
           name: displayName.slice(0, 128),
           token,

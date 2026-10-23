@@ -114,6 +114,9 @@ class Settings(BaseSettings):
     # 2026-09-09 新增:/api/media/tasks/callback — 统一媒体回调(对话内媒体任务自动收尾),
     # 与 video 回调同协议(TOKEN6688_CALLBACK_SECRET + HMAC),必须放行 JWT 否则平台 webhook 401。
     jwt_public_paths: str = (
+        # 内网端点(/internal/*)一律由路由层 X-Internal-Secret 自证;
+        # 配置 JWT_SECRET 后中间件会强制 Bearer,不放行会把号池↔签到同步整条打断。
+        "/internal/,"
         "/api/health,/api/legacy/,/health,/metrics,"
         "/api/publish/scan-login/platforms,"
         # 2026-09-09 P1 收权:refresh-daily/publish-recent 为匿名可触发 LLM 消耗

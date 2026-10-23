@@ -230,17 +230,27 @@ async function selectAccountCandidates(
   rawModel: string,
   providerCodes: RelayProviderCode[],
 ): Promise<AiRelayAccountPool[]> {
+  // 双池隔离:请求带用户身份时 = 该用户的个人池 ∪ 运营池(个人池优先,运营池兜底);
+  // 无身份(匿名/渠道 key)= 仅运营池。用户自己的账号绝不服务他人请求。
+  const ownerCond = req.userId
+    ? or(isNull(aiRelayAccountPool.ownerUserId), eq(aiRelayAccountPool.ownerUserId, req.userId))
+    : isNull(aiRelayAccountPool.ownerUserId)
   const rows = await dbRead
     .select()
     .from(aiRelayAccountPool)
     .where(
       and(
+        ownerCond,
         inArray(aiRelayAccountPool.providerCode, providerCodes),
         eq(aiRelayAccountPool.isEnabled, true),
         eq(aiRelayAccountPool.tempUnschedulable, false),
       ),
     )
-    .orderBy(asc(aiRelayAccountPool.priority), desc(aiRelayAccountPool.weight))
+    .orderBy(
+      sql`case when ${aiRelayAccountPool.ownerUserId} is null then 1 else 0 end`,
+      asc(aiRelayAccountPool.priority),
+      desc(aiRelayAccountPool.weight),
+    )
 
   // 冷却跨实例共享(shared-state:Redis 优先、内存兜底);读失败已在内部降级,不会抛
   const cooling = await getAccountsInCooldown(rows.map((r) => r.id))
