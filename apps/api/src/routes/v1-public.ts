@@ -823,7 +823,15 @@ async function streamChatCompletion(
         // 渠道分支在下方 return 收尾,该赋值对本函数唯一读者不可达,而 ttft 差值已改走单调钟,
         // 故删除(渠道路径自身的 ttftMs 仍按 stats.ttftMs 原样落库,未改)。
         if (opts.streamUsageEnabled && (streamPromptTokens > 0 || streamCompletionTokens > 0)) {
-          raw.write(buildStreamUsageChunk(id, model, streamPromptTokens, streamCompletionTokens))
+          // 复用上游帧 id：同一条流里出现两个 id 会让按 id 聚合/追踪的实现当成两条流
+          raw.write(
+            buildStreamUsageChunk(
+              stats.lastFrameId ?? id,
+              model,
+              streamPromptTokens,
+              streamCompletionTokens,
+            ),
+          )
         }
         // 结束帧只发一次(2026-10-23 修):上游自带 finish_reason 且已原样转发时不再补,
         // 否则客户端收到两个 finish,且 usage 帧被夹在中间、偏离 OpenAI 的 finish → usage → [DONE]。
