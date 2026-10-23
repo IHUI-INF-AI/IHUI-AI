@@ -65,6 +65,12 @@ _BATCH_JITTER_MIN = float(os.environ.get("CHECKIN_BATCH_JITTER_MIN", "8"))
 _BATCH_JITTER_MAX = float(os.environ.get("CHECKIN_BATCH_JITTER_MAX", "45"))
 # WorkBuddy 本机重抽节流:失败/无效时至少隔这么久再拉起一次无头 Chrome
 _WB_EXTRACT_INTERVAL_SECONDS = float(os.environ.get("CHECKIN_WB_EXTRACT_INTERVAL_SECONDS", "1800"))
+# WorkBuddy 客户端内存令牌扫描节流(默认 6h;一次约 5s,只在临期时触发)
+_WB_MEMORY_SCAN_INTERVAL_SECONDS = float(
+    os.environ.get("CHECKIN_WB_MEMORY_SCAN_SECONDS", "21600")
+)
+# Bearer 剩余有效期低于该值才去客户端内存里捞新令牌(28 天票,提前 7 天足够)
+_WB_TOKEN_REFRESH_AHEAD_HOURS = 24 * 7
 from app.services.checkin_engine import checkin_account
 
 logger = get_logger(__name__)
@@ -178,6 +184,8 @@ class CheckinScheduler:
         self._started: bool = False
         # WorkBuddy 本机重抽节流(秒):失败也等这么久再试,避免每轮都拉起无头 Chrome
         self._wb_extract_at: float = 0.0
+        # WorkBuddy 客户端内存令牌扫描节流(秒)
+        self._wb_memory_scan_at: float = 0.0
 
     # ===== 启停(lifespan 钩子) =====
 
@@ -572,20 +580,71 @@ class CheckinScheduler:
             )
 
     async def _sync_workbuddy_local(self) -> None:
-        """WorkBuddy 网页会话保活 + 过期时从本机 Chrome 重抽(客户端不在也生效)。
+        """WorkBuddy 凭据保活:客户端内存令牌(主)+ 网页会话 cookie(备)。
 
-        网页 `session` cookie 是唯一能在客户端关闭后继续签到的凭据,有效期 7 天,
-        服务端没有任何续期接口(直连 Keycloak/网关注入/静默 SSO 三条路都实测失败,
-        见 checkin_workbuddy_local 模块头注)。因此:
-        1. 现存 cookie 每 15 分钟探活;临期(<24h)或已失效 ⇒ 触发重抽;
-        2. 重抽走 VSS + 无头 Chrome(Chrome 自己解密 ABE),成功才写库并解冷却;
-        3. 重抽失败按节流等待(默认 30 分钟),不每轮拉起浏览器。
-        取不到一律只记日志,绝不把旧凭据冒充成新凭据。
+        客户端自己会持续自动刷新(用户实证:从不需要重登),运行期明文令牌就在
+        主进程/守护进程堆上。故主路 = **只读**采集客户端当前 Bearer(28 天),
+        临期 7 天内才扫一次;不拿它的 Offline refresh token 去换票 —— 那可能
+        触发 Keycloak 轮换,反把客户端挤下线。
+
+        备路 = 网页 `session` cookie(7 天,客户端长期不开时用):每 15 分钟探活,
+        临期(<24h)或失效才重抽(VSS + 无头 Chrome 自解密 ABE);失败 30 分钟节流。
+        两条路都只在探活/解出真令牌后才写库并解冷却;取不到只记日志,不冒充成功。
         """
         rows = await checkin_store.list_accounts_by_platform("workbuddy")
         if not rows:
             return
         now = datetime.now(UTC).timestamp()
+
+        # ---- 主路:客户端内存令牌(只读) -------------------------------------
+        need_tokens: list[dict[str, Any]] = []
+        for row in rows:
+            # dev-anonymous 是历史占位账号,uid 不在客户端令牌里,扫了也只会白跑
+            if row["owner_user_id"] == "dev-anonymous":
+                continue
+            dm = row["device_map"]
+            if not str(dm.get("uid") or ""):
+                continue
+            _, remaining = checkin_workbuddy.workbuddy_session_expiry(dm)
+            if remaining is not None and remaining >= _WB_TOKEN_REFRESH_AHEAD_HOURS:
+                continue
+            need_tokens.append(row)
+        if need_tokens and now - self._wb_memory_scan_at >= _WB_MEMORY_SCAN_INTERVAL_SECONDS:
+            self._wb_memory_scan_at = now
+            found = await checkin_workbuddy_local.extract_workbuddy_memory_tokens()
+            updated = 0
+            for row in need_tokens:
+                dm = row["device_map"]
+                uid = str(dm.get("uid") or "")
+                entry = found.get(uid)
+                if not isinstance(entry, dict):
+                    continue
+                bearer = entry.get("bearer")
+                exp = int(entry.get("bearer_exp") or 0)
+                if not isinstance(bearer, str) or not bearer or not exp:
+                    continue
+                _, cur_remaining = checkin_workbuddy.workbuddy_session_expiry(dm)
+                cur_exp = int(now + cur_remaining * 3600) if cur_remaining is not None else 0
+                if exp <= cur_exp:
+                    continue
+                if not await checkin_store.update_jwt(row["id"], row["owner_user_id"], bearer):
+                    continue
+                dm["expires_at"] = exp
+                dm["token_source"] = "client-memory"
+                offline = entry.get("offline")
+                if isinstance(offline, str) and offline:
+                    dm["refresh_token"] = offline
+                    dm["refresh_expires_at"] = int(entry.get("offline_exp") or 0)
+                await checkin_store.save_device_map(row["id"], dm)
+                await checkin_store.clear_open_cooldowns(row["id"])
+                updated += 1
+            if updated:
+                logger.info(
+                    "[checkin_scheduler] WorkBuddy 客户端令牌已采集 %d 个账号(内存只读)",
+                    updated,
+                )
+
+        # ---- 备路:网页会话 cookie -------------------------------------------
         need_extract = False
         for row in rows:
             dm = row["device_map"]
@@ -600,10 +659,10 @@ class CheckinScheduler:
             if isinstance(exp, (int, float)) and 0 < exp - now < 86400:
                 need_extract = True
                 continue
-            ok, uid, http_status = await checkin_workbuddy.workbuddy_check_session(cookie, dm)
+            ok, alive_uid, http_status = await checkin_workbuddy.workbuddy_check_session(cookie, dm)
             if ok:
-                if uid and dm.get("uid") != uid:
-                    dm["uid"] = uid
+                if alive_uid and dm.get("uid") != alive_uid:
+                    dm["uid"] = alive_uid
                     await checkin_store.save_device_map(row["id"], dm)
                 continue
             if http_status in (302, 401, 403):
@@ -621,10 +680,10 @@ class CheckinScheduler:
         if not extracted:
             logger.info("[checkin_scheduler] WorkBuddy 网页会话重抽未取到(浏览器未登录或 Chrome 未运行)")
             return
-        ok, uid, http_status = await checkin_workbuddy.workbuddy_check_session(
+        ok, alive_uid, http_status = await checkin_workbuddy.workbuddy_check_session(
             extracted["cookie"], {"user_agent": extracted.get("user_agent")}
         )
-        if not ok or not uid:
+        if not ok or not alive_uid:
             logger.warning(
                 "[checkin_scheduler] WorkBuddy 重抽凭据探活失败(HTTP %s),不写库", http_status
             )
@@ -632,7 +691,7 @@ class CheckinScheduler:
         updated = 0
         for row in rows:
             dm = row["device_map"]
-            if str(dm.get("uid") or "") != uid:
+            if str(dm.get("uid") or "") != alive_uid:
                 continue
             dm["web_cookie"] = extracted["cookie"]
             if extracted.get("user_agent"):
