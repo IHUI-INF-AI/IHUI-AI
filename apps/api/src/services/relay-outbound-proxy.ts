@@ -16,12 +16,19 @@
  *
  * 设计:**只让被墙 host 走代理,其余全部直连**——
  * - `RELAY_PROXY_URL` 空(缺省)= 不装配任何东西,行为与从前逐字节一致;
- * - `RELAY_PROXY_HOSTS` 逗号分隔 host 名单(缺省 api.openai.com,
- *   generativelanguage.googleapis.com),命中(含子域)才走代理;
+ * - `RELAY_PROXY_HOSTS` 逗号分隔 host 名单(缺省见 DEFAULT_PROXY_HOSTS),命中(含子域)
+ *   才走代理;
  * - 未命中 host 的流量永远直连——代理挂了也不影响它们(它们本来直连就通),
  *   不会把国内 provider 或整个中继的可用性绑到本地代理软件上;
  * - 全局 dispatcher 一次装配,健康检查器与上游转发器的 fetch 自动生效,
  *   两处调用点零改动(转发器当时正被他席编辑,不能碰)。
+ *
+ * 名单演进(全部实测):
+ * - 2026-10-23 首立:api.openai.com / generativelanguage.googleapis.com(直连恒 000);
+ * - 同日追加:api.groq.com(真直连 000,Clash 5 轮 2 通≈40%)、apihub.agnes-ai.com
+ *   (真直连 000,Clash 5 轮 1 通≈20%)——直连 0% ⇒ 走代理严格更优,航空线拥塞是线路
+ *   质量问题(换节点/升套餐可提升,非代码可解);llm7 两条路都不通(上游自身抖)
+ *   刻意不进名单——API 服务直连反而时通。
  *
  * 实现走 undici 公开 API:`Agent.compose(interceptor)` 返回正规 ComposedDispatcher,
  * 拦截器只按 origin 换 dispatcher,不碰 body/handler;fetch 对全局 dispatcher 只调
@@ -30,8 +37,17 @@
 import { Agent, ProxyAgent, setGlobalDispatcher } from 'undici'
 import { logger } from '../utils/logger.js'
 
-/** 默认只有这两个 host 被墙实测确认;新增被墙 host 走环境变量,不改代码 */
-const DEFAULT_PROXY_HOSTS = ['api.openai.com', 'generativelanguage.googleapis.com']
+/**
+ * 默认被墙 host 名单(2026-10-23 实测直连恒失败确认;新增被墙 host 也可走环境变量
+ * RELAY_PROXY_HOSTS 追加,不必改代码)。注意命中名单只意味着"值得走代理试",不保证
+ * 代理一定通——航空线拥塞下 groq≈40%、agnes≈20%,仍严格优于直连的 0%。
+ */
+const DEFAULT_PROXY_HOSTS = [
+  'api.openai.com',
+  'generativelanguage.googleapis.com',
+  'api.groq.com',
+  'apihub.agnes-ai.com',
+]
 
 let installed = false
 
