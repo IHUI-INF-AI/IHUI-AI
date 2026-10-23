@@ -17,7 +17,6 @@ import logging
 import os
 import random
 import re
-import socket
 import time
 from collections.abc import AsyncIterator
 from collections.abc import AsyncIterator as AsyncIteratorType
@@ -172,75 +171,22 @@ def _emit_llm_call_log(
 
 
 # ============================================================================
-# ihui_relay api_base 自动检测(国内/海外端点竞速)
+# (2026-10-24)ihui_relay api_base 自动检测已移除
 # ============================================================================
-# 根据网络延迟自动选择更快的端点,5 分钟缓存,避免每次请求都检测
-# IHUI_RELAY_REGION=auto(默认) → TCP 竞速选最低延迟
-# IHUI_RELAY_REGION=cn         → 强制国内端点
-# IHUI_RELAY_REGION=us         → 强制海外端点
-_ihui_relay_base_cache: dict[str, Any] = {"base": None, "expires_at": 0.0}
-_IHUI_RELAY_BASE_TTL = 300  # 5 分钟
-_IHUI_RELAY_BASES = [
-    "https://new.x5m5x.com/v1",     # 国内主节点
-    "https://us-new.x5m5x.com/v1",  # 海外备用节点
-]
+# 原 _IHUI_RELAY_BASES 与 _detect_ihui_relay_base
+# (TCP 竞速选端点)随 SwiftAPI(极速API)弃用一并删除:供应商已停止运营、key 已吊销,
+# prod .env 亦无 IHUI_RELAY_API_KEY,ihui/ 前缀模型已从 default_models.json 与
+# free_provider_registry 移除(见 2026-10-24 弃用提交)。
 
-
-def _check_tcp_latency(url: str, timeout: float = 2.0) -> float:
-    """TCP 连接延迟检测(秒),不可达返回 inf。"""
-    try:
-        parsed = httpx.URL(url)
-        host = parsed.host
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        start = time.time()
-        with socket.create_connection((host, port), timeout=timeout):
-            return time.time() - start
-    except Exception:
-        return float("inf")
-
-
-def _detect_ihui_relay_base() -> str:
-    """自动检测最佳 ihui_relay api_base。
-
-    优先级:
-    1. IHUI_RELAY_REGION=cn → 强制国内
-    2. IHUI_RELAY_REGION=us → 强制海外
-    3. auto(默认) → TCP 竞速,选延迟最低的
-    4. 全部不可达 → 默认国内
-
-    结果缓存 5 分钟,避免每次请求都检测。
-    """
-    now = time.time()
-    cached = _ihui_relay_base_cache.get("base")
-    if cached and now < _ihui_relay_base_cache.get("expires_at", 0):
-        return cast(str, cached)
-
-    region = os.environ.get("IHUI_RELAY_REGION", "auto").lower().strip()
-    if region == "cn":
-        base = _IHUI_RELAY_BASES[0]
-    elif region == "us":
-        base = _IHUI_RELAY_BASES[1]
-    else:
-        # auto: TCP 竞速两个端点
-        latencies = [(url, _check_tcp_latency(url)) for url in _IHUI_RELAY_BASES]
-        reachable = [(url, lat) for url, lat in latencies if lat < float("inf")]
-        if reachable:
-            base = min(reachable, key=lambda x: x[1])[0]
-        else:
-            base = _IHUI_RELAY_BASES[0]  # 全部不可达,默认国内
-
-    _ihui_relay_base_cache["base"] = base
-    _ihui_relay_base_cache["expires_at"] = now + _IHUI_RELAY_BASE_TTL
-    logger.info("[llm_gateway] ihui_relay 自动检测 api_base=%s (region=%s)", base, region)
-    return base
 
 def _is_stream_timeout_guard(chunk: Any) -> bool:
-    """识别极速API(x5m5x)上游流式降级的超时占位 chunk。
+    """识别上游流式降级的超时占位 chunk。
 
     特征(2026-09-18 实测):上游「流式+工具调用」模式整体降级时,约 45s 后仅回
     id="chatcmpl-timeout-guard" 的占位 chunk(delta.content 形如
     "[req_xxx] [model]\\n**Request exceeded ...**"),随后直接 [DONE];
     同参数非流式请求完全正常。命中后由 astream 自动回退非流式重试。
+    该行为不限于任一上游,保留为通用防护。
     """
     return getattr(chunk, "id", None) == "chatcmpl-timeout-guard"
 
@@ -448,7 +394,6 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "stepfun/": "stepfun",
     "agnes/": "agnes",
     "t6688/": "token6688",
-    "ihui/": "ihui_relay",
     "workbuddy/": "workbuddy_relay",
     "qwen": "qwen",
     "qwen-": "qwen",
@@ -754,7 +699,7 @@ def _estimate_cost_usd(model: str, usage: dict[str, Any] | None) -> float | None
 # 故归属判定固定三级:显式厂商路径 > ai_model_config 实证 > 名字前缀兜底。
 # 前缀层原样保留:这是全链路热路径,DB 不可用/查不到时必须逐字节退回改动前的行为。
 
-_PROVIDER_OWNERSHIP_TTL = 300  # 与 _IHUI_RELAY_BASE_TTL 同档(模型同步 6h 一轮,5 分钟够跟上新行)
+_PROVIDER_OWNERSHIP_TTL = 300  # 模型同步 6h 一轮,5 分钟够跟上新行
 _PROVIDER_OWNERSHIP_MAX = 512  # 键是调用方传入的模型串,给上限防爆;整表清,不做 LRU
 _provider_ownership_cache: dict[str, tuple[str, float]] = {}
 
@@ -764,7 +709,7 @@ def _declared_provider_code_of(model: str) -> str:
 
     裸名规则("qwen" / "mimo-" / "glm-")是"按名字猜",不构成用户点名,
     所以只有含斜杠前缀才享有"压倒 DB 实证"的优先级
-    (openrouter/… 不能被 DB 猜成别的厂商,ihui/… 同理)。
+    (openrouter/… 不能被 DB 猜成别的厂商,agnes/… 同理)。
     """
     m = (model or "").lower()
     for prefix, code in _PREFIX_TO_PROVIDER_CODE.items():
@@ -1256,29 +1201,6 @@ def _supports_tool_calling(model_id: str) -> bool:
     return any(k in mid for k in _TOOL_CALLING_KEYWORDS)
 
 
-def _resolve_ihui_auto_model() -> str:
-    """智汇 Auto-Model 服务端随机路由(成本可控版,2026-08-31 立)。
-
-    极速套餐的 'Auto-Model'(1:1) 若透传,由极速服务端随机选模型,
-    可能随机到 1:5~1:10 高成本模型,按标称 3x 积分计费会压缩利润。
-    改为网关层拦截:从低档池(极速扣费 1:1~1:2,倍率<=6,Auto-Model 自身剔除)
-    随机选具体模型,收入 3x vs 成本最高 1:2 档,利润恒为正。
-    """
-    from ..services.free_provider_registry import get_ihui_auto_pool
-
-    # 延迟导入避免循环(llm_gateway ↔ model_availability),与 _resolve_auto_model 同源
-    from ..services.model_availability import model_availability
-
-    pool = [m for m in get_ihui_auto_pool() if model_availability.is_model_available(m)]
-    if not pool:
-        # 全部不可用时仍用池内定义,交由上游 provider 报错兜底
-        pool = get_ihui_auto_pool()
-    if not pool:
-        return "ihui/MiniMax-M2.7"  # 理论不可达:池定义保证非空
-    chosen = random.choice(pool)
-    logger.info("ihui Auto-Model 服务端随机路由 -> %s", chosen)
-    return chosen
-
 
 # ============================================================================
 # D16:成本感知智能路由接线(2026-09-25 立)
@@ -1456,9 +1378,6 @@ async def _resolve_auto_model(
             for m in all_models
             if model_availability.is_model_available(m["id"])
             and _local_auto_eligible(m["id"], _local_health)
-            # ihui/Auto-Model 是极速服务端自动随机模型:全局 auto 路由需选具体模型,
-            # 避免双重随机(系统 auto → ihui auto → 极速随机)导致路由行为不可预测
-            and m["id"].lower() != "ihui/auto-model"
         ]
         if not available:
             logger.info("[auto-route] 无可用模型,降级到 settings.litellm_model=%r", fallback)
@@ -2046,7 +1965,6 @@ VENDOR_ENV_KEYS: list[str] = [
     "ROUTEWAY_API_KEY",  # Routeway(:free 后缀模型免费)
     "BAZAARLINK_API_KEY",  # BazaarLink(auto:free 路由)
     "AINATIVE_API_KEY",  # AINative Studio(每月 ~10M tokens 免费)
-    "IHUI_RELAY_API_KEY",  # 智汇AI 官方中转(国内/海外自动切换)
 ]
 
 
@@ -2147,12 +2065,6 @@ class LLMGateway:
             if not base.endswith("/v1"):
                 base += "/v1"
             return cfg.api_key, base, f"openai/{real_model}"
-        if m.startswith("ihui/"):
-            real_model = model.split("/", 1)[1]
-            cfg = settings.get_provider_config("ihui_relay")
-            # api_base 自动检测:根据网络延迟切换国内/海外端点
-            api_base = _detect_ihui_relay_base()
-            return cfg.api_key, api_base, f"openai/{real_model}"
         if m.startswith("workbuddy/"):
             # 项目自有中转站(账号池):模型串保持 workbuddy/ 前缀,由中转站路由到账号池
             cfg = settings.get_provider_config("workbuddy_relay")
@@ -2471,7 +2383,7 @@ class LLMGateway:
     ) -> None:
         """ModelReroute 事件(2026-09-18 第三批,对标 Codex ModelReroute)。
 
-        auto / ihui/auto-model 路由把请求模型改道到实际模型时发出,客户端与
+        auto 路由把请求模型改道到实际模型时发出,客户端与
         审计侧可感知"实际用了哪个模型";失败降级绝不影响主链路。
         """
         try:
@@ -2535,11 +2447,6 @@ class LLMGateway:
                 messages=messages,
             )
             # ModelReroute:改道可观测(2026-09-18 第三批)
-            await self._emit_model_reroute(model, used_model)
-        elif model.lower() == "ihui/auto-model":
-            # 2026-08-31 立:智汇 Auto-Model 服务端随机(成本可控版),
-            # 不透传给极速随机,避免随机到 1:5~1:10 高成本模型压缩利润
-            used_model = _resolve_ihui_auto_model()
             await self._emit_model_reroute(model, used_model)
         else:
             used_model = model
@@ -3328,9 +3235,6 @@ class LLMGateway:
                 has_tools=bool(kwargs.get("tools")),
                 messages=messages,
             )
-        elif model.lower() == "ihui/auto-model":
-            # 2026-08-31 立:智汇 Auto-Model 服务端随机(成本可控版),与 complete() 同源
-            used_model = _resolve_ihui_auto_model()
         else:
             used_model = model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 complete() 同源)。

@@ -105,8 +105,9 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     # 只有带斜杠那条会判成"未知 provider",整家被 /llm/models 过滤掉 —— 而 agnes 是实测
     # 免充值真能出字的通道之一(2026-09-21 逐通道探测)。与 mimo 同一类缺陷。
     ("agnes-", "agnes"),
-    # 2026-08-31 强化:智汇AI官方中继(极速API),健康检查/5分钟ping/模型过滤需覆盖 ihui/ 前缀
-    ("ihui/", "ihui_relay"),
+    # (2026-10-24 移除)ihui/ → ihui_relay 映射随 SwiftAPI 弃用删除:ihui_relay
+    # (极速API)已停止运营,registry 条目与 default_models.json
+    # 中的 ihui/ 模型均已移除,再无 ihui/ 前缀模型需要健康检查覆盖。
     # WorkBuddy 账号池(项目自有中转站):模型 id 以 workbuddy/ 前缀暴露
     ("workbuddy/", "workbuddy_relay"),
     # 2026-09-08 新增:token6688 聚合网关(t6688/ 前缀),缺此条 is_model_available
@@ -749,12 +750,12 @@ class ModelAvailabilityService:
             model_ids = list(provider.default_models)
         if not model_ids:
             model_ids = ["gpt-3.5-turbo"]
-        # 剥离已知前缀(stepfun/agnes/gemini/ihui/t6688),模型名带 / 会被 API 拒绝
-        # 2026-08-31 强化:ihui/ 前缀剥离后用真实模型名(glm-5.3 等)调极速API,否则 400 全失败误判 DOWN
+        # 剥离已知前缀(stepfun/agnes/gemini/t6688),模型名带 / 会被 API 拒绝
+        # (2026-10-24 移除 ihui/:随 SwiftAPI 弃用,ihui_relay 已不存在)
         # 2026-09-08 新增:t6688/ 剥离(token6688 registry default_models 带网关前缀)
         cleaned: list[str] = []
         for mid in model_ids:
-            for prefix in ("stepfun/", "agnes/", "gemini/", "ihui/", "t6688/"):
+            for prefix in ("stepfun/", "agnes/", "gemini/", "t6688/"):
                 if mid.startswith(prefix):
                     mid = mid[len(prefix):]
                     break
