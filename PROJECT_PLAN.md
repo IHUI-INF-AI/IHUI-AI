@@ -29030,3 +29030,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 
 
+- [ ] O-1 **固化 Qoder 反代号池一键导入工具(模式A/B/C,兼容账号JSON直接导入)** —— 2026-10-23 立。新增 apps/api/scripts/qoder-capture.ps1(本机 Qoder 登录态 DPAPI+AES-256-GCM 解密,产出 sessions JSON)、relay-import-qoder.ts(一键编排三模式: A 本机捕获导入 / B 直接导入账号JSON / C 已解密会话JSON;幂等覆盖凭证+重置健康;输出不回显 token 明文;--dry-run 干跑;退出码0/1/2;容错 token 别名+内联 user+单对象自动包数组)。package.json 登记 qoder:import 入口(根+api);docs/RELAY_ACCOUNT_IMPORT_FORMAT.md 补 §8 一键工具说明与明文凭证安全告示;补单测 11 例(vitest 全量 18 例通过);lint/tsc 零错误。提交 dd1d65e7d7 + 3ed730a294。重复性导入可一键复用,账号 JSON 直接导入已兼容(裸数组 / {accounts} / {providerCode,accounts} / 顶层单条)。
