@@ -25,6 +25,17 @@
  *   - "看着像路径/符号"但判不准的 ⇒ 计入 undetermined 只报数,不判红(误判成本是把别人
  *     的正常叙述改红,那是 §12e 的恒红门成因)。
  *
+ * 缺物三问(path 在 HEAD 取不到时按序问,三问皆否才判红 —— 2026-10-23 立,承现读 2 枚误报):
+ *   ① `git check-ignore` 判它被 ignore ⇒ 判不准。§5d 那族(密钥只落 .env 与 HKCU,设计上
+ *      不入提交面)要它"在 HEAD 有实物"是结构上永远满足不了的条件,挂成红就是 §12e 恒红门。
+ *   ② `git log --diff-filter=D` 判它曾在 HEAD 史、后被某枚删除 ⇒ 判不准,并把**删除枚点名**。
+ *      这一行到底是"退役叙述"还是"声称已入库后又没了",尺子读语义必然误伤;点名枚就是把
+ *      可整改的下一步交出去(5e-1),静默放过才是掩盖。
+ *   ③ 父目录也不在 HEAD ⇒ 判不准(别仓引用 / 整树移动,既有规则)。
+ *   三问皆否 ⇒ 判红,证据写死"从未在 HEAD 史出现"—— 这正是本门立项时那一型(D35/D36/D43:
+ *   账面写"已入库 + N 例全绿",实现物在任何 ref 与磁盘都不存在)。收窄没有放过它。
+ *   探针自己取不到结论(git 报错)⇒ 同样落判不准,不得冒红也不得记绿。
+ *
  * 【尚未接线】本门**不在提交链上**:未注册进 `scripts/guardian-runner.mjs`(2026-10-18 该文件正被并行会话持有,
  *   按 §12 不往在飞 runner 里加块),也不在 `scripts/lib/pre-commit-hook.js` ⇒ 没有紧急跳过变量生效点。
  *   接线前置(写在这是为了不让下一手顺手升档):① 基线文件先随建门枚落地(基线按 §0.4 取 HEAD 面,
@@ -247,21 +258,52 @@ export function groupClaims(claims) {
   return [...byTarget.values()]
 }
 
-/** 实物核对:path/migration 走 blob 存在性,symbol 走 HEAD grep。 */
-export function judgeEntry(entry, { catFile, grepHead, migrationDirs }) {
+/**
+ * 实物核对:path/migration 走 blob 存在性,symbol 走 HEAD grep。
+ * path 在 HEAD 取不到时按"缺物三问"逐档问(见头注),三问皆否才判 missing。
+ * 两个探针是**注入**的:judge 层不碰 git,镜像测试才能既验命中也验"探针哑了"那一档(§22c)。
+ * 探针约定返回 true|false|null,`undefined` 视为探针未接线(跳过该问,不改变既有判序)。
+ */
+export function judgeEntry(entry, { catFile, grepHead, migrationDirs, isIgnored, removedSha }) {
   const t = entry.target
   if (entry.kind === 'path') {
     if (catFile(t)) return { verdict: 'ok' }
-    // 父目录也不在 HEAD ⇒ 大概率是别仓/上游引用的路径(票面常逐字抄上游出处),或整棵树移动过
+    // 问①:设计上就不在提交面(§5d 那族)。要求它"在 HEAD"永远满足不了 ⇒ 判不准,不冒红。
+    if (isIgnored) {
+      const ig = isIgnored(t)
+      if (ig === true) {
+        return { verdict: 'undetermined', reason: 'gitignored', evidence: '被 .gitignore 覆盖(按设计不入提交面)' }
+      }
+      if (ig === null) {
+        return { verdict: 'undetermined', reason: 'probe-silent', evidence: 'git check-ignore 取不到结论' }
+      }
+    }
+    // 问②:HEAD 史里曾有、后被删 ⇒ 语义分不出"退役叙述"还是"声称背离",但必须点名删除枚。
+    if (removedSha) {
+      const rm = removedSha(t)
+      if (rm === null) {
+        return { verdict: 'undetermined', reason: 'probe-silent', evidence: 'git log 删除史取不到结论' }
+      }
+      if (rm) {
+        return {
+          verdict: 'undetermined',
+          reason: 'retired',
+          evidence: `HEAD 史里被枚 ${rm} 删除(退役叙述 or 声称背离,看枚面判)`,
+        }
+      }
+    }
+    // 问③:父目录也不在 HEAD ⇒ 大概率是别仓/上游引用的路径(票面常逐字抄上游出处),或整棵树移动过
     // —— 这两种都不是"我方声称有个文件而它不存在",判"未判定"交人工看,不冒红(§0.3/§12e)。
     const dir = t.includes('/') ? t.slice(0, t.lastIndexOf('/')) : ''
     if (dir && !catFile(dir)) {
       return {
         verdict: 'undetermined',
+        reason: 'parent-dir-absent',
         evidence: `父目录 HEAD:${dir} 也不存在(疑似别仓引用或整树移动)`,
       }
     }
-    return { verdict: 'missing', evidence: `HEAD:${t}` }
+    // 三问皆否 = 本门立项时那一型:声称有实物,而它在 HEAD 史任何位置都没出现过。
+    return { verdict: 'missing', evidence: `HEAD:${t}(从未在 HEAD 史出现)` }
   }
   if (entry.kind === 'migration') {
     for (const dir of migrationDirs) {
@@ -270,7 +312,9 @@ export function judgeEntry(entry, { catFile, grepHead, migrationDirs }) {
     return { verdict: 'missing', evidence: `迁移 ${t} 不在 HEAD 的任一迁移目录` }
   }
   const hits = grepHead(t)
-  if (hits === null) return { verdict: 'undetermined', evidence: 'git grep 取不到结论' }
+  if (hits === null) {
+    return { verdict: 'undetermined', reason: 'probe-silent', evidence: 'git grep 取不到结论' }
+  }
   if (hits.length > 0) return { verdict: 'ok' }
   return { verdict: 'missing', evidence: `符号 ${t} 在 HEAD 面零命中` }
 }
@@ -318,6 +362,32 @@ function main() {
     }
     return grepCache.get(sym)
   }
+  const ignoreCache = new Map()
+  // 三态:ignore 命中 ⇒ true;未命中 ⇒ false;git 自己出错(含 rc>1)⇒ null(交判不准,不猜)
+  const isIgnored = (p) => {
+    if (!ignoreCache.has(p)) {
+      try {
+        git(['check-ignore', '-q', '--', p])
+        ignoreCache.set(p, true)
+      } catch (e) {
+        ignoreCache.set(p, e.status === 1 ? false : null)
+      }
+    }
+    return ignoreCache.get(p)
+  }
+  const removedCache = new Map()
+  // 三态:HEAD 史里有过删除 ⇒ 返回那枚短 sha;从未出现 ⇒ '';git 出错 ⇒ null
+  const removedSha = (p) => {
+    if (!removedCache.has(p)) {
+      try {
+        const out = git(['log', '-1', '--format=%h', '--diff-filter=D', 'HEAD', '--', p])
+        removedCache.set(p, out.trim() || '')
+      } catch {
+        removedCache.set(p, null)
+      }
+    }
+    return removedCache.get(p)
+  }
   /*
    * 差值棘轮(§0.5 + §12e):台账里现成有 71 条"路径写法与仓库不符"的存量(移动过、改名过,
    * 或干脆不存在 —— 后者正是本门要抓的那一型)。一上来全判红 = 每次提交刷 71 行,那正是
@@ -338,9 +408,9 @@ function main() {
   const undetermined = []
   let ok = 0
   for (const e of grouped) {
-    const r = judgeEntry(e, { catFile, grepHead, migrationDirs })
+    const r = judgeEntry(e, { catFile, grepHead, migrationDirs, isIgnored, removedSha })
     if (r.verdict === 'missing') missing.push({ ...e, evidence: r.evidence })
-    else if (r.verdict === 'undetermined') undetermined.push({ ...e, evidence: r.evidence })
+    else if (r.verdict === 'undetermined') undetermined.push({ ...e, evidence: r.evidence, reason: r.reason })
     else ok += 1
   }
   const baseline = loadBaseline()
@@ -368,7 +438,33 @@ function main() {
   }
   if (listed.length > 30) console.log(`  · … 其余 ${listed.length - 30} 条`)
   if (undetermined.length > 0) {
-    console.log(`  ℹ️ 判不准 ${undetermined.length} 条:既不记绿也不冒红(§0.3),逐条需人工看写法`)
+    const REASON_LABEL = {
+      gitignored: '按设计不入提交面(.gitignore 命中)',
+      retired: 'HEAD 史里被删(点名删除枚)',
+      'parent-dir-absent': '父目录不在 HEAD(疑似别仓引用)',
+      'probe-silent': '探针取不到结论',
+    }
+    const byReason = new Map()
+    for (const u of undetermined) {
+      const k = u.reason || 'unclassified'
+      if (!byReason.has(k)) byReason.set(k, [])
+      byReason.get(k).push(u)
+    }
+    console.log(
+      `  ℹ️ 判不准 ${undetermined.length} 条:既不记绿也不冒红(§0.3)· ` +
+        [...byReason.entries()]
+          .map(([k, v]) => `${REASON_LABEL[k] ?? k} ${v.length}`)
+          .join(' / '),
+    )
+    // 判不准也要逐条点名:只报计数 = 下一手既不知道是谁,也无从判"这行是不是真声称存在"
+    // (5e-1 可整改性:挂到人的通道前必须答得出"看了之后能做什么")。
+    for (const [k, v] of byReason) {
+      const cap = k === 'retired' || k === 'gitignored' ? 12 : 4
+      for (const u of v.slice(0, cap)) {
+        console.log(`     · [${k}] ${u.target} — ${u.evidence} · 声称方:${u.rows.slice(0, 3).join(',')}`)
+      }
+      if (v.length > cap) console.log(`     · … [${k}] 其余 ${v.length - cap} 条未点名`)
+    }
   }
   if (baseline === null) process.exit(2)
   if (added.length === 0) {
