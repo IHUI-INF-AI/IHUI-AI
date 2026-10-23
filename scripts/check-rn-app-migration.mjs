@@ -136,10 +136,8 @@ export const WHITELIST_ENTRIES = new Map(
     },
     // ── 2026-10-24 摘除 CarteScreen.tsx / DeveloperScreen.tsx 两枚:两屏渲染已收进
     //    packages/app 同名共享屏(RN 端改为薄壳 import @ihui/rn-app),豁免无的放矢。──
-    'RecruitmentScreen.tsx': {
-      why: '操盘手计划宣传页:全屏背景+底部卡片+二维码,对齐 Uniapp pagesA/recruitment/index.vue,无跨端需求',
-      expires: '2027-06-30',
-    },
+    // ── 2026-10-24 摘除 RecruitmentScreen.tsx:渲染已收进 packages/app 同名共享屏,
+    //    宣传表提到 packages/shared/src/constants/trader-plan-promo.ts(RN 端已真委托)。──
     'SubagentsScreen.tsx': {
       why: '子智能体屏:RN 独占 FlatList 队列交互 + api-client subagents 流,Web 端有独立实现',
       expires: '2027-06-30',
