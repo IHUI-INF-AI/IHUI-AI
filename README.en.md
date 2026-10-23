@@ -26,8 +26,6 @@
 <p align="center">
   <sub>
     <a href="README.md">简体中文</a> · <a href="README.en.md">English</a> · <a href="README.ko.md">한국어</a> · <a href="README.ja.md">日本語</a>
-    &nbsp;&nbsp;|&nbsp;&nbsp;
-    <strong>Mirrors</strong> · <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> · <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
   </sub>
 </p>
 
@@ -61,9 +59,9 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **603 tables · 4,468 API routes ·
-25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,063 test files ·
-268 engineering gates · 50 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+Headline claims (same source as the table below, all live-computed): **603 tables · 4,538 API routes ·
+25 WebSocket endpoints · 118 catalogued LLMs · 38 platforms auto-publishing · 3,110 test files ·
+271 engineering gates · 49 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
@@ -71,8 +69,8 @@ Headline claims (same source as the table below, all live-computed): **603 table
 | ---- | ---- | ------ |
 | 数据库表 | 603 | `dbTables` |
 | schema 文件 | 232 | `dbSchemaFiles` |
-| API 路由 | 4516 | `apiRoutes` |
-| 路由文件 | 612 | `apiRouteFiles` |
+| API 路由 | 4538 | `apiRoutes` |
+| 路由文件 | 616 | `apiRouteFiles` |
 | AI 服务路由 | 576 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 118 | `llmModels` |
@@ -84,18 +82,16 @@ Headline claims (same source as the table below, all live-computed): **603 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3063 | `testFiles` |
-| CI 工作流 | 50 | `ciWorkflows` |
+| 测试文件 | 3110 | `testFiles` |
+| CI 工作流 | 49 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 270 | `guardianGates` |
-| — blocking | 247 | `guardianBlocking` |
+| 工程守门 | 271 | `guardianGates` |
+| — blocking | 248 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15842 | `trackedFiles` |
+| 跟踪文件 | 15807 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-22。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-23。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
-> ⚠️ 未判定 1 项:`apiSrc`(apps/api/src 有 1 个 .ts 在面上取不到内容)
 
 <!-- END GENERATED NUMBERS -->
 
