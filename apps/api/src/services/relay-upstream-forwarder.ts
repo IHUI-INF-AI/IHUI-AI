@@ -278,6 +278,13 @@ export interface PipedStreamStats {
    * 之间，偏离 OpenAI 的 finish → usage → [DONE] 顺序。
    */
   sawFinish: boolean
+  /**
+   * 最近一帧的 `id`（2026-10-23 加）。
+   * verbatim 转发的帧带的是上游 id，而收尾的 usage/stop 帧由本服务生成——
+   * 不统一就会在同一条流里出现两个 id，按 id 聚合/串联追踪的实现会把它当成两条流。
+   * 调用方造收尾帧时应优先用它，缺失再回落到自己生成的 id。
+   */
+  lastFrameId: string | null
 }
 
 export interface PipeStreamOptions {
@@ -344,6 +351,7 @@ export async function pipeChannelStream(
     ttftMs: null,
     httpStatus: upstream.status,
     sawFinish: false,
+    lastFrameId: null,
   }
   const startedAt = Date.now()
   const reader = upstream.body!.getReader()
@@ -359,6 +367,8 @@ export async function pipeChannelStream(
     const json = parseSseData(line)
     if (!json) return
     if (stats.ttftMs === null) stats.ttftMs = Date.now() - startedAt
+    // 记住上游帧 id，供调用方造收尾帧时复用它（同一条流只应有一个 id）
+    if (typeof json['id'] === 'string' && json['id']) stats.lastFrameId = json['id']
     const choices = json['choices'] as Array<Record<string, unknown>> | undefined
     // 上游已给结束帧**且该帧确实被转发**⇒ 记下来，调用方收尾不再补（否则出现两个 finish）。
     // textMode 不转发原始行（由调用方按 text chunk 重发），故那里不算——收尾仍须补结束帧。
