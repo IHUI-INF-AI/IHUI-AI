@@ -28,11 +28,49 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { dirname, resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120_000
+/**
+ * 仓里**已有的**ignored-tracked 目录台账(G-926)。本门必须认它,否则就是第二把尺子(§0.6):
+ * 那些目录是"登记过、有归属、有到期日"的存量,门若一律拦新增,等于把别人已裁决的口径当违规。
+ * 本门只做一件事:把**台账没覆盖的**新增拦住;台账覆盖且未过期的,照实点名但放行。
+ */
+const LEDGER_REL = join('scripts', 'data', 'lint-staged-ignored-tracked.json')
+
+/** 读台账;取不到/坏了 ⇒ 抛(调用方落 exit 2),不得当成"没有台账"从而把全部新增判红 */
+function loadLedger() {
+  const p = join(ROOT, LEDGER_REL)
+  if (!existsSync(p)) throw new Error(`台账 ${LEDGER_REL} 不存在`)
+  let j
+  try {
+    j = JSON.parse(readFileSync(p, 'utf8'))
+  } catch (e) {
+    throw new Error(`台账 ${LEDGER_REL} 不是合法 JSON:${e.message}`)
+  }
+  if (!Array.isArray(j.entries)) throw new Error(`台账 ${LEDGER_REL} 缺 entries 数组`)
+  return j.entries
+    .filter((e) => e && typeof e.dir === 'string' && typeof e.until === 'string')
+    .map((e) => ({ dir: e.dir.replace(/\/+$/, ''), until: e.until }))
+}
+
+/**
+ * 纯判据:把"新增且被 ignore 命中"的路径按台账分两桶。
+ * 命中口径为**目录前缀**(台账的 dir 是目录),且到期日必须 ≥ 今天 —— 过期即回到 red。
+ */
+export function classifyWithLedger(ignoredPaths, entries, today = new Date().toISOString().slice(0, 10)) {
+  const exempt = []
+  const red = []
+  for (const p of ignoredPaths) {
+    const hit = entries.find((e) => p === e.dir || p.startsWith(e.dir + '/'))
+    if (hit && hit.until >= today) exempt.push({ path: p, dir: hit.dir, until: hit.until })
+    else red.push(p)
+  }
+  return { exempt, red }
+}
 
 /**
  * 跑一条 git。`okCodes` 之外的退出码一律抛(调用方落 exit 2)。
@@ -115,18 +153,26 @@ export function main(argv = process.argv.slice(2)) {
 
   let faces
   let stock
+  let ledger
   try {
     faces = loadFaces(face)
     stock = stockCount()
+    ledger = loadLedger()
   } catch (e) {
     console.error(
-      `❌ check-tracked-ignored 未判定:取不到 ${face} 面或存量清单(${String(e?.message ?? e).slice(0, 200)})`,
+      `❌ check-tracked-ignored 未判定:取不到 ${face} 面 / 存量清单 / 豁免台账(${String(e?.message ?? e).slice(0, 200)})`,
     )
     return 2
   }
 
-  const bad = classifyAdded(faces.added, faces.ignored)
-  const head = `[tracked-ignored] 面=${face} 新增 ${faces.added.length} 条 / 命中 ignore ${bad.length} 条 / 存量(只报数)${stock} 条`
+  const hits = classifyAdded(faces.added, faces.ignored)
+  const { exempt, red } = classifyWithLedger(hits, ledger)
+  const bad = red
+  const head =
+    `[tracked-ignored] 面=${face} 新增 ${faces.added.length} 条 / 命中 ignore ${hits.length} 条` +
+    `(台账内 ${exempt.length} · 无台账 ${red.length})/ 存量(只报数)${stock} 条`
+  for (const e of exempt)
+    console.log(`  · ${e.path} —— 落在已登记目录 ${e.dir}(至 ${e.until}),按 G-926 台账放行`)
 
   if (bad.length > 0) {
     console.error(head)
@@ -159,5 +205,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { classifyAdded, ignoredAmong }
+export const __test__ = { classifyAdded, ignoredAmong, classifyWithLedger }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
