@@ -183,10 +183,12 @@ export const qoderAdapter: RelayUpstreamAdapter = {
 
   /**
    * token 自刷新:POST {base}/api/v1/deviceToken/refresh,body 带 refresh_token
-   * (实证:checkin_qoder.qoder_refresh_token)。双 base 回退判据与 _api_call 同:
-   * 网络错/超时/404 = 端点不对换下一个;401 等其余非 2xx = 结论,抛错由调度器计数。
-   * 上游新 token 仍是 opaque 非 JWT,响应不带可解析 exp ⇒ expiresAt 保守兜底 24h
-   * (临期刷新 + 401 自愈双保险,与 trae-adapter 同策略)。
+   * (实证:checkin_qoder.qoder_refresh_token + 2026-10-23 真机回包)。
+   * 双 base 回退判据与 _api_call 同:网络错/超时/404 = 端点不对换下一个;
+   * 401 等其余非 2xx = 结论,抛错由调度器计数。
+   * 2026-10-23 真机实证 200 回包:{device_token(新票opaque), refresh_token(轮转),
+   * expires_at(真实ISO,约30天), refresh_token_expires_at} —— 到期真源取响应
+   * expires_at;缺该字段才退 JWT exp / 24h 兜底(临期刷新+401自愈双保险)。
    */
   async refreshToken(
     ctx: AdapterAccountContext,
@@ -220,16 +222,33 @@ export const qoderAdapter: RelayUpstreamAdapter = {
           )
         }
         const body: unknown = await res.json().catch(() => null)
-        const token = pickTokenField(body, ['token', 'accessToken', 'access_token'])
+        // 2026-10-23 真机实证:200 响应形状是
+        // {device_token(新票,27字符opaque), refresh_token(轮转新值), token_type:"Bearer",
+        //  expires_at(真实ISO到期), refresh_token_expires_at, created_at}
+        // —— 不是 token/accessToken(参考实现 checkin_qoder 同样没认这个键,一并修正)
+        const token = pickTokenField(body, ['device_token', 'token', 'accessToken', 'access_token'])
         if (!token) throw new QoderUpstreamError(0, 'Qoder refresh 响应无 token')
-        const newRt = pickTokenField(body, ['refreshToken', 'refresh_token']) || rt
-        // 实证(checkin_qoder.qoder_refresh_token):刷新后的新 token 是带 exp 的
-        // JWT,可解析出真实到期;解析不出再保守兜底 24h(双保险)
-        const realExp = extractTokenExpiry(token)
+        const newRt = pickTokenField(body, ['refresh_token', 'refreshToken']) || rt
+        // 到期真源优先级:响应 expires_at(真实 ISO)> 新票 JWT exp(没有)> 保守 24h
+        const expFrom = (b: unknown, keys: readonly string[]): Date | null => {
+          const o = b !== null && typeof b === 'object' ? (b as Record<string, unknown>) : {}
+          for (const k of keys) {
+            const v = o[k]
+            if (typeof v === 'string' && v.trim()) {
+              const d = new Date(v)
+              if (!Number.isNaN(d.getTime())) return d
+            }
+          }
+          return null
+        }
+        const expiresAt =
+          expFrom(body, ['expires_at', 'expiresAt']) ??
+          extractTokenExpiry(token) ??
+          new Date(Date.now() + 24 * 3600_000)
         return {
           token,
           refreshToken: newRt,
-          expiresAt: realExp ?? new Date(Date.now() + 24 * 3600_000),
+          expiresAt,
         }
       } catch (e) {
         if (e instanceof QoderUpstreamError) throw e
