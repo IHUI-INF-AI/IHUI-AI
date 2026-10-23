@@ -24,8 +24,8 @@
      "language": "python"}
     → {"code": 0, "message": "ok", "data": {"completion": "return a + b", ...}}
 
-    POST /api/llm/fim/metrics          # 前端防抖上报指标增量快照
-    GET  /api/llm/fim/metrics/summary  # 按模型汇总接受率/延迟分位/告警(管理看板)
+    POST /api/llm/fim/metrics          # 前端防抖上报指标增量快照(scene 可选,缺省 completion)
+    GET  /api/llm/fim/metrics/summary  # 按 model × scene 汇总接受率/延迟分位/告警(管理看板)
 
     POST /api/llm/fim/edit-intent      # V3 #82 独立编辑意图预测(2026-09-27 立)
     {"content": "…全文…", "cursor": 12, "language": "python", "budget_ms": 1200}
@@ -171,7 +171,8 @@ class FIMRequest(BaseModel):
 # 补全接受率闭环(2026-09-13 P1-9 立,对标 Trae CUE Tab 的接受率反馈)
 #
 # 前端 CodeEditor 防抖 5s 上报**增量快照**(累计值之差,非全量累计),
-# 后端按 model 聚合,供管理看板「FIM 补全接受率」区块消费。
+# 后端按 model × scene 聚合(scene 缺省 completion ⇒ 旧调用方仍落同一个桶),
+# 供管理看板「FIM 补全接受率」区块消费;补全与编辑意图预测的接受率因此可分开看。
 # 持久化(2026-09-14,H2 收尾):Redis 写穿 + 进程启动后首次访问惰性恢复,
 # 重启不再清零(真实流量积累不被部署重启打断);Redis 不可用/读写异常
 # 一律静默降级为纯内存,绝不阻塞上报或补全主链路。
@@ -180,8 +181,16 @@ class FIMRequest(BaseModel):
 _LATENCY_SAMPLES_CAP = 500  # 每模型延迟样本上限,防止无界增长
 _ALERT_ACCEPTANCE_RATE = 0.3  # 接受率告警阈值(严格小于才告警)
 _ALERT_MIN_SUGGESTIONS = 20  # 触发告警的最少建议数(样本不足不告警)
-_METRICS_MODELS_CAP = 50  # 聚合模型数上限:防伪造 model 字段造成无界 keys
+_METRICS_MODELS_CAP = 50  # 聚合桶上限(model × scene):防伪造 model/scene 造成无界 keys
 _FIM_METRICS_REDIS_KEY = "ihui:fim:metrics"  # 全量快照 JSON,无 TTL(持续积累)
+
+#: V3 #82 未闭环 ②:接受率看板需要 scene 维度(补全 / 编辑意图预测分开聚合)。
+#: 缺省场景 = 历史唯一的那个场景(FIM 补全),因此**不传 scene 的旧调用方落的就是原来的桶**,
+#: 聚合键继续用裸 model(Redis 旧快照里的裸 model 键也能原样恢复),读数含义一字不变。
+_DEFAULT_METRICS_SCENE = "completion"
+#: 聚合键分隔符(载体私有控制符,不出现在任何真实 model/scene 里;上报时会被剥掉防伪造串键)
+_METRICS_SCENE_SEP = "\u241f"
+_METRICS_SCENE_MAX_LEN = 32
 
 _METRICS_ZERO_SLOT: dict[str, Any] = {
     "requests": 0,
@@ -199,6 +208,10 @@ class FIMMetricsReport(BaseModel):
     """前端上报的补全指标增量快照(本次相对上次上报的增量)。"""
 
     model: str = Field("auto", description="实际使用的模型 id(auto=后端自选)")
+    scene: str = Field(
+        _DEFAULT_METRICS_SCENE,
+        description="场景标识(completion=补全 / edit_intent=编辑意图预测);缺省 completion,与历史读数同桶",
+    )
     requestCount: int = Field(0, ge=0, description="补全请求数增量")
     suggestionCount: int = Field(0, ge=0, description="返回非空建议数增量")
     acceptedCount: int = Field(0, ge=0, description="用户接受建议数增量")
@@ -209,9 +222,27 @@ class FIMMetricsReport(BaseModel):
     latencyMs: list[float] = Field(default_factory=list, description="本次新增延迟样本(ms)")
 
 
-#: 进程内聚合:model → 计数 + 延迟滑窗。threading.Lock 保护读写(端点极短,同步锁足够)。
+#: 进程内聚合:聚合键(model,或 model×scene)→ 计数 + 延迟滑窗。threading.Lock 保护读写。
 _METRICS_BY_MODEL: dict[str, dict[str, Any]] = {}
 _METRICS_LOCK = threading.Lock()
+
+
+def _normalize_scene(raw: str | None) -> str:
+    """场景名归一:空白回缺省、剥掉聚合键分隔符并截断(防伪造键把两个桶串成一个)。"""
+    scene = (raw or _DEFAULT_METRICS_SCENE).strip().replace(_METRICS_SCENE_SEP, "")
+    return scene[:_METRICS_SCENE_MAX_LEN] or _DEFAULT_METRICS_SCENE
+
+
+def _metrics_key(model: str, scene: str) -> str:
+    """聚合键:缺省场景沿用裸 model(历史快照/既有看板逐字同),其余场景才拼分隔符。"""
+    return model if scene == _DEFAULT_METRICS_SCENE else f"{model}{_METRICS_SCENE_SEP}{scene}"
+
+
+def _split_metrics_key(key: str) -> tuple[str, str]:
+    """聚合键解码;没有分隔符的老快照键按缺省场景读,不做数据迁移。"""
+    model, sep, scene = key.partition(_METRICS_SCENE_SEP)
+    return model, (scene if sep else _DEFAULT_METRICS_SCENE)
+
 
 # --- Redis 持久化状态(均静默降级:任何异常不外抛) ---
 _redis_client: Any = None
@@ -238,12 +269,12 @@ async def _get_redis() -> Any:
     return _redis_client
 
 
-def _merge_restored_slot(model: str, slot: dict[str, Any]) -> None:
-    """把 Redis 恢复的单 model 槽位合并进内存聚合(叠加计数、拼接延迟滑窗)。"""
-    cur = _METRICS_BY_MODEL.setdefault(model, {**_METRICS_ZERO_SLOT, "latencies": []})
-    for key in ("requests", "suggestions", "accepted", "dismissed", "failures", "cancellations", "cacheHits"):
+def _merge_restored_slot(key: str, slot: dict[str, Any]) -> None:
+    """把 Redis 恢复的单个聚合桶(model×scene)合并进内存(叠加计数、拼接延迟滑窗)。"""
+    cur = _METRICS_BY_MODEL.setdefault(key, {**_METRICS_ZERO_SLOT, "latencies": []})
+    for field in ("requests", "suggestions", "accepted", "dismissed", "failures", "cancellations", "cacheHits"):
         try:
-            cur[key] += max(0, int(slot.get(key) or 0))
+            cur[field] += max(0, int(slot.get(field) or 0))
         except (TypeError, ValueError):
             continue
     raw_lat = slot.get("latencies")
@@ -275,9 +306,9 @@ async def _ensure_restored() -> None:
             if not isinstance(data, dict):
                 return
             with _METRICS_LOCK:
-                for model, slot in data.items():
-                    if isinstance(model, str) and model and isinstance(slot, dict):
-                        _merge_restored_slot(model, slot)
+                for key, slot in data.items():
+                    if isinstance(key, str) and key and isinstance(slot, dict):
+                        _merge_restored_slot(key, slot)
         except Exception as e:  # noqa: BLE001 — 恢复失败静默降级
             logger.debug("fim 指标 Redis 恢复失败(降级内存态): %s", e)
 
@@ -290,8 +321,8 @@ async def _persist_snapshot() -> None:
             return
         with _METRICS_LOCK:
             snapshot = {
-                model: {**slot, "latencies": list(slot["latencies"])}
-                for model, slot in _METRICS_BY_MODEL.items()
+                key: {**slot, "latencies": list(slot["latencies"])}
+                for key, slot in _METRICS_BY_MODEL.items()
             }
         await client.set(_FIM_METRICS_REDIS_KEY, json.dumps(snapshot, separators=(",", ":")))
     except Exception as e:  # noqa: BLE001 — 持久化失败静默
@@ -539,20 +570,26 @@ async def fim_predict_edit(req: PredictiveEditRequest) -> dict[str, Any]:
 
 @router.post("/llm/fim/metrics", response_model=None)
 async def report_fim_metrics(req: FIMMetricsReport) -> dict[str, Any]:
-    """接收前端补全指标增量快照并按 model 聚合(上报永远不阻塞编辑器)。
+    """接收前端补全指标增量快照并按 model × scene 聚合(上报永远不阻塞编辑器)。
 
     Returns:
-        {code, message, data: {model}} —— 仅回执,不做重计算。
+        {code, message, data: {model, scene}} —— 仅回执,不做重计算。
     """
-    model = (req.model or "auto").strip() or "auto"
+    model = (req.model or "auto").strip().replace(_METRICS_SCENE_SEP, "") or "auto"
+    scene = _normalize_scene(req.scene)
+    key = _metrics_key(model, scene)
     await _ensure_restored()
     with _METRICS_LOCK:
-        slot = _METRICS_BY_MODEL.get(model)
+        slot = _METRICS_BY_MODEL.get(key)
         if slot is None:
-            # 模型数上限:超出后丢弃新 model 的上报(既有 model 不受影响),防无界 keys
+            # 聚合桶上限:超出后丢弃新桶的上报(既有桶不受影响),防无界 keys
             if len(_METRICS_BY_MODEL) >= _METRICS_MODELS_CAP:
-                return {"code": 0, "message": "ok", "data": {"model": model, "capped": True}}
-            slot = _METRICS_BY_MODEL.setdefault(model, {**_METRICS_ZERO_SLOT, "latencies": []})
+                return {
+                    "code": 0,
+                    "message": "ok",
+                    "data": {"model": model, "scene": scene, "capped": True},
+                }
+            slot = _METRICS_BY_MODEL.setdefault(key, {**_METRICS_ZERO_SLOT, "latencies": []})
         slot["requests"] += req.requestCount
         slot["suggestions"] += req.suggestionCount
         slot["accepted"] += req.acceptedCount
@@ -566,28 +603,29 @@ async def report_fim_metrics(req: FIMMetricsReport) -> dict[str, Any]:
             if len(slot["latencies"]) > _LATENCY_SAMPLES_CAP:
                 slot["latencies"] = slot["latencies"][-_LATENCY_SAMPLES_CAP:]
     await _persist_snapshot()
-    return {"code": 0, "message": "ok", "data": {"model": model}}
+    return {"code": 0, "message": "ok", "data": {"model": model, "scene": scene}}
 
 
 @router.get("/llm/fim/metrics/summary", response_model=None)
 async def fim_metrics_summary() -> dict[str, Any]:
-    """按模型汇总补全接受率与延迟分位,附低接受率告警。
+    """按 model × scene 汇总接受率与延迟分位,附低接受率告警。
 
     Returns:
-        {code, message, data: {models: [{model, requests, suggestions, accepted,
+        {code, message, data: {models: [{model, scene, requests, suggestions, accepted,
          acceptanceRate, failures, p50LatencyMs, p95LatencyMs, alert, alertReason}]}}
         无数据时 models=[](空列表,不报错)。
     """
     await _ensure_restored()
     with _METRICS_LOCK:
         snapshot = {
-            model: {**slot, "latencies": list(slot["latencies"])}
-            for model, slot in _METRICS_BY_MODEL.items()
+            key: {**slot, "latencies": list(slot["latencies"])}
+            for key, slot in _METRICS_BY_MODEL.items()
         }
 
     rows: list[dict[str, Any]] = []
-    for model in sorted(snapshot):
-        slot = snapshot[model]
+    for key in sorted(snapshot):
+        slot = snapshot[key]
+        model, scene = _split_metrics_key(key)
         suggestions = slot["suggestions"]
         accepted = slot["accepted"]
         # 无建议样本时接受率不可计算 → None(前端显示为 "—")
@@ -601,6 +639,7 @@ async def fim_metrics_summary() -> dict[str, Any]:
         rows.append(
             {
                 "model": model,
+                "scene": scene,
                 "requests": slot["requests"],
                 "suggestions": suggestions,
                 "accepted": accepted,
