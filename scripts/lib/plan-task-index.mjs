@@ -85,14 +85,14 @@ export function archiveFaceEntries(root, face) {
   }
 }
 
-export const CLAIM_SOURCE = '（进行中[^）]*）'
+export const CLAIM_SOURCE = '[（(]进行中[^）)]*[）)]'
 /** 结构位:复选框后**允许可选空白**再紧跟标记。
  *  ⚠ 这里 originally 写成 `^- \[ \]` + 标记、不吃空格,于是 `- [ ] （进行中@…）` 这类
  *  「多打一个空格」的真租约在守门 109 里隐身成"无人认领"(HEAD 面 2026-10-21 实测 9 枚),
  *  别的会话照样领走同一张票 —— 正是挂租约要防的那一型。失效方向是安静的。 */
 export const CLAIM_MARKER_RE = new RegExp(`^- \\[ \\]\\s*${CLAIM_SOURCE}\\s*`)
 /** 标记本体 → 租约三要素(@日期 与 /持有者 各可选,组合决定形态)。 */
-export const LEASE_INNER_RE = /^（进行中(?:@(\d{4}-\d{2}-\d{2}))?(?:\/([^）/]+))?）$/
+export const LEASE_INNER_RE = /^[（(]进行中(?:@(\d{4}-\d{2}-\d{2}))?(?:\/([^）)/]+))?[）)]$/
 
 /**
  * 量出一行内的**反引号代码段**区间(行内码 `` `x` `` 与双反引号码段 ``` ``x`` ```;
@@ -172,6 +172,11 @@ export function isValidIsoDate(iso) {
  *     实测台账里 17 枚把牌挂在行尾注记位(如 `…〕（进行中@2026-10-18/w1-permax:…）`),
  *     意图明确是认领;只认结构位会让这些真牌永久隐身 ⇒ 两席做同一件事。
  *
+ * ③ **括号形态两可**(2026-10-23 补,收第四型口径漂移):`（进行中…）` 与 `(进行中…)` 同解。
+ *    实测 HEAD 面全角 10 枚 / 半角 2 枚,其中半角那枚 `- [ ] **P1 侧边栏收敛批次…**(进行中@2026-10-19/opencode)`
+ *    旧判据读 null ⇒ 一枚牌龄 4 天(>72h TTL)的真租约既不被代摘器物看见、又被派单面当"可做"
+ *    ——正是本判据立项要防的"真牌隐身⇒两席领同一张票"。失效方向同样是安静的。
+ *
  * 判为**不挂牌**的:落在反引号代码段内的标记(那是在描述这个形态本身,不是状态),
  * 以及非结构位的裸标记(叙述里提一句"某某当时挂了（进行中）")。
  *
@@ -188,7 +193,7 @@ export function claimMarkOf(line) {
   // 条目行前置**住在判据本体里**,不由各调用方各记一遍(2026-10-22 实测:本席在门 109 装了这道
   // 护栏,转头在新器物里漏掉 ⇒ 同一 HEAD 面把 216 行叙述当成挂牌 —— 一份纪律散在多处必然漏)。
   if (!/^\s*- \[ \]/.test(text)) return null
-  if (!text.includes('（进行中')) return null
+  if (!/[（(]进行中/.test(text)) return null
   const matches = [...text.matchAll(new RegExp(CLAIM_SOURCE, 'g'))]
   if (matches.length === 0) return null
   const { spans, undetermined } = codeSpanRangesOf(text)
