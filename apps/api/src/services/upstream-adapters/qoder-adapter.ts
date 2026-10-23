@@ -14,16 +14,24 @@
  *   MachineToken/Code/Type 来自导入时 extraMetadata.cosy(客户端 runtime-info.exe
  *   产出,缺失则不发力求,失败如实报告,不冒充可用)。
  *
- * chat 反代契约**未实证**(Qoder IDE 态的上游对话端点不在已实证面内)⇒
- * 单段式三件套(buildChatRequest/translateStreamChunk/translateNonStream)
- * 一律明确抛错,绝不返回假成功;接入号池的账号可被调度器续期/健康检查,
- * 转发链路会在调chat时如实得到"契约未实证"错误。
+ * chat 反代契约现状(2026-10-23 更新):
+ * - HTTP 直连**未实证**:反代端点 POST gateway.qoder.com.cn .../sse/agent_chat_generation
+ *   (SSE 响应,错误包在 data:{headers,body,statusCodeValue} wrapper)要求内嵌 HMAC/wasm
+ *   计算的 Signature 头,服务端无法复现(直连实证 403 "Signature invalid")⇒
+ *   单段式三件套(buildChatRequest/translateStreamChunk/translateNonStream)一律明确抛错,
+ *   绝不返回假成功;
+ * - CLI 桥接**已实证**:spawn Qoder 官方 CLI + SDK query() 取流(见 qoder-cli-bridge.ts),
+ *   env 门控(QODER_BRIDGE_ENABLED=1,或非生产下 runner/SDK/CLI 路径齐备)启用时
+ *   executeChat 走桥接;未启用时 executeChat 不定义,转发层落到三件套如实得到
+ *   "契约未实证"错误 —— 两个口径都不冒充可用。
+ * 接入号池的账号可被调度器续期/健康检查;转发链路调 chat 时按上述两条路径如实得到结果或错误。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import { extractTokenExpiry } from '../relay-account-format.js'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
+  ChatExecuteOptions,
   NormalizedChatRequest,
   QuotaCallOptions,
   RelayQuotaResult,
@@ -31,8 +39,15 @@ import type {
   StreamState,
   TokenRefreshResult,
   TranslatedChunk,
+  UpstreamChatResult,
   UpstreamHttpRequest,
 } from '../relay-upstream-adapters.js'
+import {
+  isQoderBridgeEnabled,
+  preflightQoderBridge,
+  qoderCliChatChunks,
+  renderQoderPrompt,
+} from './qoder-cli-bridge.js'
 
 // =============================================================================
 // 端点常量(实证值;非生产档允许 env 覆写指向假上游,供 tests 真跑协议线)
@@ -212,6 +227,66 @@ export const qoderAdapter: RelayUpstreamAdapter = {
     throw new Error(QODER_CHAT_CONTRACT_UNVERIFIED)
   },
 
+  // ── 路径 A:CLI 桥接(env 门控;未启用时不定义 executeChat,转发层落到上面三件套
+  //    如实抛"契约未实证" —— HTTP 直连仍未实证,不改口径)──
+  ...(isQoderBridgeEnabled()
+    ? {
+        /**
+         * 对话转发:spawn Qoder 官方 CLI + SDK query() 取流(协议/预检/互斥/杀进程
+         * 见 qoder-cli-bridge.ts)。预检失败(未配置/CLI 缺失)在返回流之前抛
+         * statusCode 0 ⇒ 转发层按 network 冷却自愈,绝不假成功。
+         * opts.proxyUrl/fetchImpl 不适用:CLI 自管网络出口。
+         * 非流式(req.stream=false)本地聚合(CLI 只有流,与 trae 同做法)。
+         */
+        async executeChat(
+          _ctx: AdapterAccountContext,
+          req: NormalizedChatRequest,
+          opts: ChatExecuteOptions,
+        ): Promise<UpstreamChatResult> {
+          preflightQoderBridge()
+          const stream = qoderCliChatChunks({
+            prompt: renderQoderPrompt(req),
+            model: req.model,
+            signal: opts.signal,
+          })
+          if (req.stream) return { stream }
+          let content = ''
+          let usage: Record<string, unknown> | null = null
+          let finishReason = 'stop'
+          let id = ''
+          const created = Math.floor(Date.now() / 1000)
+          for await (const chunk of stream) {
+            if (typeof chunk.id === 'string' && chunk.id !== '') id = chunk.id
+            const u = chunk.usage
+            if (u !== null && typeof u === 'object') usage = u as Record<string, unknown>
+            const choices = chunk.choices
+            if (Array.isArray(choices)) {
+              for (const raw of choices) {
+                const ch = raw as { delta?: Record<string, unknown>; finish_reason?: string | null }
+                const deltaContent = ch.delta?.content
+                if (typeof deltaContent === 'string') content += deltaContent
+                if (typeof ch.finish_reason === 'string' && ch.finish_reason !== '') {
+                  finishReason = ch.finish_reason
+                }
+              }
+            }
+          }
+          return {
+            completion: {
+              id: id !== '' ? id : 'chatcmpl-qoder',
+              object: 'chat.completion',
+              created,
+              model: req.model,
+              choices: [
+                { index: 0, message: { role: 'assistant', content }, finish_reason: finishReason },
+              ],
+              usage: usage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+            },
+          }
+        },
+      }
+    : {}),
+
   /**
    * token 自刷新:POST {base}/api/v1/deviceToken/refresh,body 带 refresh_token
    * (实证:checkin_qoder.qoder_refresh_token + 2026-10-23 真机回包)。
@@ -329,6 +404,8 @@ export const qoderAdapter: RelayUpstreamAdapter = {
         const text = await res.text().catch(() => '')
         return {
           ok: false,
+          // 与 isAuthFailure 同源判定(401 = 会话死),供承载层触发自愈
+          authFailed: qoderAdapter.isAuthFailure(res.status, text),
           error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
         }
       }

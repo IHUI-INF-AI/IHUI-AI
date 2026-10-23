@@ -42,6 +42,7 @@ import {
   gitRaw,
   gitErrText,
   selectFace,
+  listFaceFiles,
   packByBytes,
   spawnCauseText,
   parseBatchCheckSizes,
@@ -1107,6 +1108,87 @@ test('parseBatchBuffers:与 parseBatch 同构(值=Buffer/missing=null/截断抛)
   )
   // 同输入走 utf8 纯函数:值必须是等值字符串 —— 两出口的唯一差异就是解码这一步
   assert.equal(parseBatch(ok, [oid]).get(oid), 'abc')
+})
+
+/* ── 2026-10-23 G-880:listFaceFiles(按判定面枚举全部跟踪文件)──────────────────────
+ * 这格守的是 AGENTS §0.4「清单与内容同面同轮」:清单取自哪个面,决定这一轮判的是哪个面。
+ * 三档行为都被真 git 证明(HEAD 树 / 索引 / 跟踪工作区),另加三条构造:
+ * 未知面必须抛(不回落)、pathspec 限定、NUL 分帧(含空格路径不被引号转义);
+ * 还有一条正向对照的反面 —— **未跟踪文件在任何一档都不进清单**(旧 walk 把构建产物卷进来的病灶)。 */
+
+function seedFaceRepo() {
+  const root = mkScratch('face-list-')
+  gitRaw(['init', '--quiet'], root)
+  mkdirSync(join(root, 'a'), { recursive: true })
+  writeFileSync(join(root, 'a', 'base.ts'), 'export const a = 1\n')
+  // 含空格的路径:用来证明清单是 NUL 分帧取的,不经 core.quotepath 转义
+  writeFileSync(join(root, 'a', 'with space.ts'), 'export const b = 2\n')
+  gitRaw(['add', '-A'], root)
+  gitRaw(['-c', 'user.email=t@t.local', '-c', 'user.name=t', 'commit', '--quiet', '-m', 'seed'], root)
+  // 只在索引面:HEAD 档必须看不见,索引档必须看得见
+  writeFileSync(join(root, 'a', 'staged.ts'), 'export const c = 3\n')
+  gitRaw(['add', 'a/staged.ts'], root)
+  // 完全未跟踪:三档都不得出现
+  writeFileSync(join(root, 'a', 'untracked.ts'), 'export const d = 4\n')
+  return root
+}
+
+test('listFaceFiles:三面各判各的(HEAD 树 / 索引 / 跟踪工作区),未跟踪文件一律不进清单', () => {
+  const root = seedFaceRepo()
+  try {
+    const head = listFaceFiles(root, 'head')
+    const staged = listFaceFiles(root, 'staged')
+    const worktree = listFaceFiles(root, 'worktree')
+    assert.ok(head.includes('a/base.ts'), `HEAD 清单缺已提交文件: ${head.join(',')}`)
+    assert.ok(
+      !head.includes('a/staged.ts'),
+      'HEAD 清单混进了只在索引里的文件 ⇒ 清单与内容混面(悬留替红顶绿那一型)',
+    )
+    assert.ok(staged.includes('a/staged.ts'), '索引清单缺了已 add 的文件 ⇒ 提交档对本次改动失明')
+    assert.ok(worktree.includes('a/staged.ts'), '工作区(跟踪)清单缺了新文件')
+    for (const f of ['a/untracked.ts']) {
+      assert.ok(
+        !head.includes(f) && !staged.includes(f) && !worktree.includes(f),
+        `${f} 进了清单(未跟踪文件不该被任何一档收)`,
+      )
+    }
+    // NUL 分帧:含空格路径原样返回
+    assert.ok(head.includes('a/with space.ts'), 'NUL 分帧失效(路径被引号/转义改写)')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('listFaceFiles:pathspec 限定子树(只回被请求的路径)', () => {
+  const root = seedFaceRepo()
+  try {
+    mkdirSync(join(root, 'b'), { recursive: true })
+    writeFileSync(join(root, 'b', 'other.ts'), 'export const z = 1\n')
+    gitRaw(['add', '-A'], root)
+    const only = listFaceFiles(root, 'staged', { paths: ['b'] })
+    assert.deepEqual(only, ['b/other.ts'], `pathspec 未生效: ${only.join(',')}`)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('listFaceFiles:未知面必须抛 Undetermined(不回落任何一面,也不返回空数组冒充"没有文件")', () => {
+  const root = mkScratch('face-list-bad-')
+  try {
+    assert.throws(() => listFaceFiles(root, 'index'), Undetermined)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('listFaceFiles:取不到被审面 ⇒ 抛 Undetermined(空仓无 HEAD,绝不返回空数组)', () => {
+  const root = mkScratch('face-list-nohd-')
+  try {
+    gitRaw(['init', '--quiet'], root)
+    assert.throws(() => listFaceFiles(root, 'head'), Undetermined)
+  } finally {
+    rmScratch(root)
+  }
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

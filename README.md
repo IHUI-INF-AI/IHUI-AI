@@ -7540,3 +7540,162 @@ A: Yes. ~14839+ tests / 3029 test files / 67 e2e spec / 4451 API 路由 / 599 �
 | **账号上游余额点查**        | `POST /admin/relay/accounts/:id/quota`                        | 按需点查上游余额/积分(2026-10-23 立),**不进调度轮询**——只在 admin 点击时发一次上游请求,回包带 queriedAt;仅已实证余额端点的平台可用(现 trae / qoder 适配器实现 getQuota),workbuddy / codearts 无实证端点 ⇒ 400 未支持,适配器未注册同样 400;取不到的一律留 null,不拿 0 冒充(0 在面板读成积分耗尽)                                                                                                                                                                                                                                                   |
 | **账号池转发回落**          | `apps/api/src/services/relay-account-forwarder.ts`            | `/v1` 公开链路在「渠道 key 池无候选」时由 relay-upstream-forwarder 回落到账号池,返回形状与渠道路径一致(v1-public 消费端零改动):模型→平台反查(60s 进程缓存)、选号 priority asc → weight desc → lastUsedAt asc、会话亲和 affinityKey+model 30 分钟、上限 3 号 failover;401 自愈(刷新凭证回写后用完整 messages 重放一次);分层熔断——连续 3 败 60s 冷却、rate 60s、credit 12h、risk 30 分钟起且连续命中翻倍                                                                                                                                            |
 | **账号池管理页 admin**      | `/admin/relay/account-pool`                                   | 页面源文件 `apps/web/app/(main)/admin/relay/account-pool/page.tsx`:单页三栏(账号池 / 代理池 / 模型目录),账号列表 + 平台与健康度筛选 + 分页 + 导入对话框 + 启停 + 真实探活 + 按需查余额 + 认领释放 + 手动巡检 + 单账号用量抽屉                                                                                                                                                                                                                                                                                                                     |
+对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4538 API 路由 · 25 个 WebSocket 端点 ·
+118 入库模型 · 38 平台自动发布 · 3115 测试文件 · 271 道工程守门 · 50 CI workflows ·
+| API 路由 | 4538 | `apiRoutes` |
+| 路由文件 | 616 | `apiRouteFiles` |
+| 测试文件 | 3115 | `testFiles` |
+| 工程守门 | 271 | `guardianGates` |
+| — blocking | 248 | `guardianBlocking` |
+| 跟踪文件 | 15805 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-23。
+  <strong>603 张表 · 4538 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3115 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4538 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **测试覆盖** | **3115 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4538 API 路由 / 3115 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 50 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 3115 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 3115 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4538 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 603 数据库表 / drizzle-kit push / 4538 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4538 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 测试覆盖            | **3115 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+### 按域速览(与上表同源,按用户可感知的域分组)
+- **规模**:603 张表 · 4538 API 路由 · 3115 测试文件 · ~14839 测试用例
+- **质量**:271 道工程守门（244 blocking）· 50 CI workflows · 删水印即 CI 失败
+### 侧边栏域中心与域入口页(2026-10-19 立,2026-10-23 第二批补齐 AI 域与个人域)
+侧边栏从多个一级菜单项收敛为**按域入口**,每个域的全部子页面由一枚卡片网格页承载 —— 页面路径不变(`CategoryShell` 作为 Next.js layout 只管自己目录子树,搬目录等于改 URL、破坏外链),故入口页只做收纳与二级跳转。
+- **功能说明**:五枚域入口页共用同一个渲染器 `apps/web/src/components/layout/DomainHub.tsx`,条目一律取自 `apps/web/src/components/sidebar/nav-data.ts` 的 `*_HUB_ITEMS`(§0.6 单一真相源,入口页不另抄清单);可见性由 `useNavVisibilityFilter`(`apps/web/src/components/sidebar/use-nav-visibility.ts`)统一过滤,`adminOnly`/`permission` 判"能不能看"、`advancedOnly` 判"要不要给普通人看",与 Sidebar 同一把尺子,禁止端内自抄过滤。
+- **使用方式**:浏览器直达下表 URL,或点侧边栏对应域入口;卡片点击进二级页。档位(简洁模式)在「设置 → 侧边栏档位」里调,状态落 `user_preferences.group='preferences'` 的 `navTiers`。
+| 域入口 URL | 条目取源 | 所属端 |
+| ---------- | -------- | ------ |
+| `/domains/ai` | `AI_HUB_ITEMS` | web(Next.js,平台独占) |
+| `/domains/personal` | `PERSONAL_HUB_ITEMS` | web(Next.js,平台独占) |
+| `/domains/content` | `CONTENT_HUB_ITEMS` | web(Next.js,平台独占) |
+| `/domains/edu` | `EDU_HUB_ITEMS` | web(Next.js,平台独占) |
+| `/domains/trade` | `TRADE_HUB_ITEMS` | web(Next.js,平台独占) |
+- **所属端**:平台独占 web-only(桌面端同源复用该 Web 界面;小程序/RN 的侧栏另按各自导航实现,不共享此 URL)。
+| 78         | check-workspace-dep-links.mjs                                            | **workspace 依赖链接五维对账(blocking)**:①`workspace:*` 声明必须有链接(悬空同判红) ②链接目标必须是真包(`existsSync` 对"指向空目录的链接"仍返回 true,故旧判据对"链接在、内容被掏空"恒绿) ③直接依赖声明 `bin` 而该处无 shim → 只报数(并发 install 窗口实测 0↔113 跳,判红会逼全队 `--no-verify`),判红落 `pnpm check:dep-links:strict`(已串进 `check:all`),`--strict` 另把 ②延伸到 `node_modules/.pnpm/*/node_modules/*` 传递闭包(真仓实测浅扫 717 / 深扫 10,015 条,均 0 红) ④`lint-staged` 必 spawn 的命令必须在**根** `.bin` 解析得到(不接受"包目录存在",也不查全局 PATH —— 故障当天正是"包体完好、shim 没了",而全局 `where eslint` 还能命中) ⑤shim 指向的**入口文件**必须存在(④只验 shim 文件在不在)。成因:2026-09-23 `apps/extension` 缺 `@ihui/design-tokens` → rollup 解析失败 → 部署环连续 4 次全红并冷却,线上停在旧提交,而 typecheck/lint/单测全绿;2026-09-24 `node_modules/typescript`、`eslint` 指向 `.pnpm` 空目录 → lint-staged 第一步即崩 → **每次提交被迫跳门,约 271 道守门对全队同时失效<!-- doc-num-exempt: 叙述 2026-09-24 事故当时的门数,非当前守门总量 -->**。`--staged` 刻意**不**随暂存收窄(这类破损与"本次改了什么"无关)。修复分两类:①② 全量 `pnpm install`(不带 `--filter`,见 §12e);③④⑤ `node scripts/repair-node-bin-links.mjs` —— **shim 不会被 `pnpm install` 或 `--force` 重建**(两条都只回 "Already up to date")。验收必须实测命令本身(`.bin/eslint --version` + `.bin/tsc --version` 都出版本号)。取证 `--self-test` + 镜像测试(含装车证明、"真仓 eslint/prettier 第五维必须判绿"的反恒红对照、"深扫只在 strict 生效"的接线方向对照;例数以末行现测为准)。紧急跳过 `HUSKY_SKIP_WORKSPACE_DEP_LINKS=1`                                                                                                                                   |
+### 通病 ② 边界条件处理不足 → 实际:3115 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 3115 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- **API(Fastify 5)**:4538 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **3115 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+> **8 端代码 · 603 张数据库表 · 4451 个 API 路由。**<!-- doc-num-exempt: 引文中的历史体量,非当前账实 -->
+A: Yes. ~14839+ tests / 3115 test files / 67 e2e spec / 4538 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+**用户侧只读与免鉴权端点(2026-10-23 按 §21 补登,此前全仓 README 零登记):**
+| 端点 | 方法 | 鉴权 | 响应形状 | 所属端 / 消费方 |
+| ---- | ---- | ---- | -------- | --------------- |
+| `/api/goods/select` | GET | 公开(只取 `zhs_product.status = 1` 的在架目录,不含用户私有字段) | `{ code, message, data: { list, total, page, pageSize } }`(`page` 默认 1,`pageSize` 1..100 默认 20) | api + mobile-rn `CartScreen` + 小程序 `pkg-shop/cart`(经 `packages/api-client/src/endpoints/goods.ts` 的 `selectGoods()`) |
+| `/api/sign-ups` | GET | 需登录;归属校验在 handler 内 —— `?userId` 非本人且非系统管理员 ⇒ 403(认证不等于授权) | `{ code, message, data: { list: [{ id, targetTitle, targetType, status, createdAt }] } }`,status 归一到 `draft/published/rejected/completed` | api + web `apps/web/app/(main)/user/sign-up/page.tsx`;数据源 `lesson_sign_ups` + `exam_signups` 两表聚合 |
+| `/api/auth/wechat/mini/one-tap-login` | POST | **免鉴权**(限流 5 次/分钟);手机号与 openId 均由微信一次性 code 换回,不信客户端自报 | 成功回 `{ ...tokens, user }`(响应随 token 一并回 user);未配置 ⇒ 503,换码失败 ⇒ 401,openId 已绑他人 ⇒ 409,账号禁用 ⇒ 403 | api + 小程序 `apps/miniapp-taro`(一键登录按钮) |
+- **功能说明**:`/goods/select` 补的是购物车的商品分页读腿;`/sign-ups` 把课程报名与考试报名聚合成"我的报名"一张列表;`/auth/wechat/mini/one-tap-login` 是新建的一枚端点 —— 此前 `/mini/login` 对新用户只回 `{needPhone:true, openId}` 且不发 token,而 `/mini/phone` 要求已登录且不回 token,这条链结构上从来没通过(用例见 `apps/api/src/routes/__tests__/wechat-mini-one-tap-login.test.ts`)。
+- **使用方式**:三者均由 `apps/api/src/routes/index.ts` 注册(`goods.ts` 走 `prefix:'/api'`、`sign-ups.ts` 走 `prefix:'/api/sign-ups'`、`auth-extended.ts` 走 auth 前缀);请求参数由 Zod 校验,`/api/auth/wechat/mini/one-tap-login` 入参为 `{ loginCode, phoneCode }`(`strictObject`,未知键即 400)。
+- **所属端**:后端 `apps/api`;消费端见上表"所属端 / 消费方"一列(web / mobile-rn / 小程序)。
+**2026-10-23**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (485a183354)
+- 📚 文档:登记一条可派单票 —— 号池凭证到期字段与上游接受态背离(库里记未来时刻而上游当场回 401),出路是换票被拒时收敛该列并让巡检按同判据降级;余额档已改为不依赖该字段 (049f177588)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b926b99b36)
+- 📚 文档:就地更正号池可观测行里"按到期时刻触发刷新"那句 —— 真号实测该字段不可信(上游已回 401 code 1001 而库里记的是未来时刻),现行判据是上游当场判鉴权失效才换票重试一次 (a9215ca573)
+**2026-10-23**
+- 🐞 修复:余额自愈改由上游鉴权标志触发,并以真号回包量出库里到期字段不可信 (11e5dc625e)
+- 📚 文档:收编 README 四语面 —— §21 域页导航覆盖(/domains/ai、/domains/personal 按域速览) + 发丝分隔线清理配套 + FAQ/Keywords 改挂 docs/engineering 索引 + 生成块数字对齐现算(2026-10-23) (237864c1d5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (fde93239bf)
+- 🐞 修复:门105 web ui-routes.generated.ts 自述钉重生成收stale (0166dd30b5)
+- 🐞 修复:settings notifications/privacy 登录态三态门 —— ready 未就绪显加载而非误踢未登录(与签到助手/favorites 同型,useAuthGate.ready HEAD 已导出) (f9b56e4278)
+- 📚 文档:门207瘦身——守门历史/取证叙述与收敛带回重复副本整区归档(AGENTS_trim-2026-10-23b) (8307ff098c)
+- 🔧 工程/其他:收编死席遗留守门/测试簇 —— G-322 flag-value 单源断言补全(R3 CLI 档) + 新增只读尺 hairline-separator/plan-fragment-rows(未接提交链,§12e 设计) + 11 门体/lib 与 7 镜像测试更新,逐件自测/镜像测试全绿 (ea0fb180f0)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b4be005b4a)
+- 📚 文档:翻勾背景色发丝线判据票(分割线守门族4/6形状重载补档已落地) (086fe3491c)
+- 🚀 新功能/改进:分割线守门补背景色发丝线判据(族4/6形状重载·L29015)——三型结构件机械排除+RN对象块档并入差值棘轮 (c45c9c0bb8)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (285b0f5b69)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c0462af2b)
+- 📚 文档:族归并 + 立因叙述压缩,体积 102,084→85,755 字节(余量 10,245) (0f47cbeed6)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f3c07eb17e)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0cd065958d)
+- 📚 文档:结清 G-924 小程序远程图标注册表死键滞留行(四条现读凭据) (8c67ae715c)
+**2026-10-23**
+- 🐞 修复:摘除被收编捞回的 plugins-data 残留副本 —— 解 HEAD 面 12 处 TS2307 悬空引用 (75ba36d703)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2ac0f9c6b2)
+- 📚 文档:号池可观测票两格收满并纠票面错述 — ①「fusion judge 腿无主体不写行」经现读与代码不符(gateway 触发 combo 处已显式下传 billing_user_id,两处 judge 经 kwargs 拿到同一主体,3 枚用例钉住);②config_id 取既有 bigint 列零新迁移。同批记入号池上游余额按需点查两枚(trae 与 qoder getQuota;过期票先走调度器同一把 refreshOne)。翻勾仍差票面验收第 3 条(真跑一次网关调用后 llm_call_logs 命中腿字段可查),该行保持未勾。 (9c0cdc5c67)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8d7d6440af)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (10f12f561d)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1dbaa32547)
+- 📚 文档:结清「另有 7 个脚本的 self-test 仍走 os.tmpdir()」滞留行 3 枚(含 1 枚 F4 指针行) (1c947c216f)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (80ec7a548b)
+- 🔧 工程/其他:Esc 无层栈协议补上真机档,并量出它判得到与判不到的两维 (edc008bf94)
+- 📚 文档:摘除收敛期回潮的旧口径压缩说明行,体积 89,544→89,057 (b4a9496821)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e5c1807696)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4b9fb09999)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (94e6292b83)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7feef45a4f)
+- 🔧 工程/其他:翻勾「锁初始化写全再原子可见」(lib 入树 + 两锁各 2 处接线 + 54/54 含真进程并发对照) (f7d3a945c2)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (425cb2c503)
+- 📚 文档:Esc 无层栈协议 —— 真机档交付两格并写明余下一格的判据边界(附变异矩阵读数) (ff6181c4fc)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9b9bc1ab26)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1287fefa94)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (865a55d6ce)
+- 🔧 工程/其他:G-343 翻勾(盘根/PG 落点私有推导四处残余现读已闭环,镜像 59/59 反向锁在场) (8d2ac1a574)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f748dc87f4)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e78e341fc9)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9c77e05e29)
+- 🔧 工程/其他:G-929 翻勾(旁路落地器镜像套件现读 76/76 全绿,他席已修本席复核) (a1959b4d3a)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3352407e2b)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ce1b8cf95b)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dbfe3aa4e0)
+- 🔧 工程/其他:G-239 翻勾(门 194 存量清零,第 5 枚 auto-commit-quiet 补守卫) (de5dcdb6f0)
+- 📚 文档:压缩 AGENTS.md 96,531→88,993 字节,清偿门 207 超预算红 (0f9d7af1ce)
+- 🐞 修复:auto-commit-quiet 补 §22d isDirectRun 守卫与 __test__ 判据导出(门 194 存量清零) (cbf84dc055)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3e792853fa)
+- 🐞 修复:漂开副本归并(--merge-drifted,人工点名持有行后 N→1) (81e91aa2c5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (641c0a8195)
+- 🐞 修复:漂开副本归并(--merge-drifted,人工点名持有行后 N→1) (fe5b3b23c4)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1363080ec9)
+- 📚 文档:结清三票——恢复器用例 10 连跑全绿 / 小程序远程图标死键 / 无编号漂开行归并出口 (5d9c161869)
+- 🔧 工程/其他:alipay 配置判据用例跟上"私钥真读得到才算配好"——假路径改判 false,补真实可读文件正向例(反向锁不许修成一律红) (1a50193483)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (67d786124a)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dc1e29551a)
+- 🚀 新功能/改进:派单入口新增「时间序档 order=late」,出单顺序改问仓库 (b40fb20c3e)
+- 🔧 工程/其他:V3 #52 RAG 真重排补 tests/test_reranker.py(46 例:RRF 手算断言/去重聚合/关键词单路降级/LLM mock 失败降级链) (42aeb1d040)
+- 🐞 修复:readme-sync 镜像补溯源水印(HEAD 缺载荷,CI 水印红第 3 次复现) (76bf5cabf9)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c04a01c3a5)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d56ce2b511)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (62c289f65e)
+- 🔧 工程/其他:重生成 ui-routes 派生自述钉(union 合并后输入面已取对侧) (df8e576f68)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (609106eac9)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (21812f4e57)
+- 🚀 新功能/改进:大屏补 Relay 号池健康组(deep-pipeline 11 板 + overview 头条行) (4c3c012fdd)
+- 🔧 工程/其他:G-926 收口:articles/ 不再整体忽略(宽式规则无挡之物) (a402f50043)
+- 🚀 新功能/改进:中转号池健康 gauge(key/账号两表四档健康态 + 显式丢失 + 失败不写空) (6bda68dcae)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c468db756e)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (20fe4e4dd9)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a71e95072e)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (08ef43589d)
+**2026-10-23**
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a703a69a8e)
+- 📚 文档:修本席刚写错的一处证据指针,改判留痕改指全 40 位可取回的那枚 (e7fb235acb)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (da9bd67811)
+- 📚 文档:更正本席 13:34 写进 G-14 的错读数并补 O 族有空号这一实测事实(本票不翻勾,差的格子写明) (901f21bb30)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (eef5d3dc41)
+- 📚 文档:把同号多题存量今日重测就地并进持有行 (ca44c32ee3)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9338d10c44)
+- 🐞 修复:漂开副本归并(--merge-drifted,人工点名持有行后 N→1) (1a15e4841a)
+**2026-10-23**
+- 🐞 修复:网关流水带上命中的 provider 配置行 id,并把 fusion judge 腿的主体传递钉成用例 (8368505b62)
+- 🐞 修复:挂牌判据补第四型口径漂移——半角括号里的租约不再隐身 (f13bfd0db1)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (203cdbbcfb)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3d6190a5a2)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3f1ec1e02d)
+- 🔧 工程/其他:结清 G-79 的 31 枚内容红——所在 15 个文件现读 389/389 绿 (7b86a39b3d)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (aefb0b62b2)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c82694a39)
+- 📚 文档:把 G-322 两站被镜像反向锁钉住的前置格就地并进持有行 (ddff78a208)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (bf3783fca2)
+- 📚 文档:§5b 自愈行点名"删除意图到期档"——先问留痕账再决定让路还是回盘 (89763f6d21)
+- 🔧 工程/其他:摘除根目录一次性扫描草稿 candidates2.txt,按门 99 通道登记具名豁免(带 reason) (ba517478df)
+- ♻️ 重构:格式棘轮门的带值旗标改接单源判据,不再自算 argv 下一位(G-322 warn 档一站;自检 30 例、探针 26 例、eslint 零 error 全绿) (5b9c8058f7)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9b63a78b6b)
+- 🔧 工程/其他:写回四端 ui-routes 派生钉 —— 生成器输入面现读全部与 HEAD 同形，重生成只清陈旧钉不改语义 (ab7c343a12)
+- 🐞 修复:存续自愈的删除意图保护只看该路径最新一条留痕——陈旧那档不得永久护着 (edef1bce7e)
+- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7646bc4b3c)
+- 📚 文档:给侧边栏收敛批次补进展注记(六大域第二批已入库,余跨端对齐) (f7910fb15d)
+- 🔧 工程/其他:侧边栏档位对账锁 —— 逐条钉住 HEAD 直标 31 枚在收敛后仍为 27 枚直标加 4 枚经继承,有效可见集逐字相等 (7de6d11fe4)
+- 🐞 修复:工作区存续自愈加"删除意图到期档"——摘标超两小时仍缺的文件回盘,意图逐字转进同一本账 (09a647d761)
