@@ -56,6 +56,8 @@ export type ScheduledJobName =
   | 'tenant-resource-gauge'
   // 访客 PV/UV 聚合 Gauge 刷新(2026-10-23 立;聚合面见 services/traffic-stats-service.ts)
   | 'traffic-stats-hourly'
+  // 中转号池健康 Gauge 刷新(2026-10-23 立;聚合面见 services/relay-pool-stats-service.ts)
+  | 'relay-pool-gauge'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -236,6 +238,15 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'traffic-stats-hourly',
     pattern: '35 * * * *',
     description: '访客 PV/UV 聚合 Gauge 刷新（每小时35分,限窗扫 api_logs/visit_logs）',
+  },
+  // 中转号池健康 Gauge 刷新(2026-10-23 立)。分钟取 3/8/13/…(每5分、错开
+  // tenant-resource-gauge 的 0/5/10/…):两条都是"小表全量 SELECT",错开是为了
+  // 不与它同分钟抢 DB(与 traffic-stats-hourly 错峰的同一纪律)。代价靠"两张池表
+  // 都是运营级小表"钉住(现读 key 池 29 行 / 账号池 1 行),不挂 scrape、不挂请求路径。
+  {
+    name: 'relay-pool-gauge',
+    pattern: '3,8,13,18,23,28,33,38,43,48,53,58 * * * *',
+    description: '中转号池健康 Gauge 刷新（每5分,查 ai_relay_key_pool/ai_relay_account_pool）',
   },
 ]
 
