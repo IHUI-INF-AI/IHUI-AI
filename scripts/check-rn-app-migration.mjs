@@ -150,10 +150,9 @@ export const WHITELIST_ENTRIES = new Map(
       why: '购物车页:RN 端独占 WeChat 支付流程 + Native Stack 导航,Web/Miniapp 有独立 cart 实现',
       expires: '2027-06-30',
     },
-    'TopicDetailScreen.tsx': {
-      why: '话题详情:RN 端独占关注翻转 + 时间相对化 + 帖子详情流,Web/Miniapp 有独立实现',
-      expires: '2027-06-30',
-    },
+    // ── 2026-10-24 摘除 TopicDetailScreen.tsx:话题详情已新立 topic-detail 共享屏族
+    //    (packages/app/src/features/topic-detail/TopicDetailScreen.tsx),RN 端改为薄壳,
+    //    时间相对化收进 @ihui/shared/utils/date-utils 单源。──
     // ── 2026-10-23 摘除 AboutScreen.tsx 与 aboutPageSections.ts 两枚:富版已提升为共享真相源
     //    (packages/app/src/features/about/AboutScreen.tsx + 分段表
     //     packages/shared/src/constants/about-sections.ts),RN 端改为薄壳委托,端内分段数据件已删

@@ -2,7 +2,9 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useTt } from '@/i18n'
+// 对齐目标(RN 共享屏): packages/app/src/features/topic-detail/TopicDetailScreen.tsx
+import { useI18n, useTt } from '@/i18n'
+import { formatDateByTemplate, formatRelativeTime } from '@ihui/shared/utils/date-utils'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro, {
@@ -32,6 +34,7 @@ const PAGE_SIZE = 10
 
 export default function TopicDetailPage() {
   const tt = useTt()
+  const { locale } = useI18n()
   const [topic, setTopic] = useState<TopicData>({})
   const [displayPosts, setDisplayPosts] = useState<Circle[]>([])
   const [loading, setLoading] = useState(true)
@@ -135,21 +138,13 @@ export default function TopicDetailPage() {
     })
   }, [id, topic.name])
 
+  // 与共享屏 topicFeedTime 同规则(date-utils 单源):≤24h 相对化,>24h 落 YYYY-MM-DD
   const formatTime = (v: string): string => {
     if (!v) return ''
-    const d = new Date(v)
-    if (isNaN(d.getTime())) return v
-    const now = Date.now()
-    const diff = now - d.getTime()
-    if (diff < 60000) return tt('topic.detail.justNow', '刚刚')
-    if (diff < 3600000)
-      return tt('topic.detail.minutesAgo', '{n} 分钟前', { n: Math.floor(diff / 60000) })
-    if (diff < 86400000)
-      return tt('topic.detail.hoursAgo', '{n} 小时前', { n: Math.floor(diff / 3600000) })
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
+    const then = new Date(v).getTime()
+    if (Number.isNaN(then)) return v
+    if (Date.now() - then < 86_400_000) return formatRelativeTime(v, locale)
+    return formatDateByTemplate(v, 'YYYY-MM-DD')
   }
 
   return (
@@ -188,7 +183,7 @@ export default function TopicDetailPage() {
             <View className="topic-detail-publish" onClick={goPublish} hoverClass="opacity-60">
               <LineIcon
                 name="pencil"
-                size={28}
+                size={30}
                 className="topic-detail-publish-icon"
                 color="var(--color-muted-foreground)"
               />
@@ -216,11 +211,11 @@ export default function TopicDetailPage() {
                   hoverClass="opacity-60"
                 >
                   <View className="topic-detail-post-user">
-                    <Image
-                      className="topic-detail-avatar"
-                      src={p.avatar || '/static/default-avatar.png'}
-                      mode="aspectFill"
-                    />
+                    {p.avatar ? (
+                      <Image className="topic-detail-avatar" src={p.avatar} mode="aspectFill" />
+                    ) : (
+                      <View className="topic-detail-avatar" />
+                    )}
                     <View className="topic-detail-user-info">
                       <Text className="topic-detail-author">
                         {p.author || tt('topic.detail.anonymous', '匿名用户')}
@@ -228,7 +223,7 @@ export default function TopicDetailPage() {
                       <Text className="topic-detail-time">{formatTime(p.createTime)}</Text>
                     </View>
                   </View>
-                  <Text className="topic-detail-post-title">{p.title}</Text>
+                  {p.title ? <Text className="topic-detail-post-title">{p.title}</Text> : null}
                   <Text className="topic-detail-post-content">{p.content}</Text>
                   {p.images && p.images.length > 0 ? (
                     <View className="topic-detail-post-images">
@@ -251,7 +246,7 @@ export default function TopicDetailPage() {
                     <View className="topic-detail-post-stat">
                       <LineIcon
                         name="heart"
-                        size={26}
+                        size={28}
                         className="topic-detail-post-stat-icon"
                         color="var(--color-muted-foreground)"
                       />
@@ -260,7 +255,7 @@ export default function TopicDetailPage() {
                     <View className="topic-detail-post-stat">
                       <LineIcon
                         name="message-circle"
-                        size={26}
+                        size={28}
                         className="topic-detail-post-stat-icon"
                         color="var(--color-muted-foreground)"
                       />
@@ -278,15 +273,14 @@ export default function TopicDetailPage() {
             </View>
           ) : null}
 
-          {!loading && loadingMore ? (
+          {/* 流尾(与共享屏同语义:hasMore∨loadingMore 读「加载中」,否则「没有更多了」) */}
+          {!loading && displayPosts.length > 0 ? (
             <View className="topic-detail-footer">
-              <Text>{tt('topic.detail.loadingMore', '加载中…')}</Text>
-            </View>
-          ) : null}
-
-          {!loading && !hasMore && displayPosts.length > 0 ? (
-            <View className="topic-detail-footer">
-              <Text>{tt('topic.detail.noMore', '没有更多了')}</Text>
+              <Text>
+                {hasMore || loadingMore
+                  ? tt('topic.detail.loadingMore', '加载中…')
+                  : tt('topic.detail.noMore', '没有更多了')}
+              </Text>
             </View>
           ) : null}
         </ScrollView>

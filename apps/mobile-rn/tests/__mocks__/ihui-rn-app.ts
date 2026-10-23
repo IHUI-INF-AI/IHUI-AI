@@ -139,3 +139,18 @@ export type {
 // 2026-10-23:Developer 薄壳同样接真实共享屏(开发者空间页)。同 CarteScreen/AboutScreen 那条
 // 纪律:替身只转发、不另写假实现 —— 写假的等于「RN 端渲染共享层那一份」这一格零覆盖。
 export { DeveloperScreen } from '../../../../packages/app/src/features/developer/DeveloperScreen'
+// 2026-10-24:TopicDetail 薄壳接真实共享屏(话题详情页)。同 CarteScreen/AboutScreen 纪律:
+// 替身只转发、不另写假实现 —— 否则「RN 端渲染共享层那一份」这一格零判据。
+export { TopicDetailScreen } from '../../../../packages/app/src/features/topic-detail/TopicDetailScreen'
+export type {
+  TopicDetailPostView,
+  TopicDetailView,
+  TopicDetailScreenProps,
+} from '../../../../packages/app/src/features/topic-detail/TopicDetailScreen'
+// 2026-10-24:Cart 薄壳接真实共享屏(购物车页)。同上方纪律:re-export 真实组件,
+// 不得另写假实现 —— 缺席则壳渲染 undefined,"RN 端渲染共享层那一份"判不到。
+export { CartScreen } from '../../../../packages/app/src/features/cart/CartScreen'
+export type {
+  CartItemView,
+  CartScreenProps,
+} from '../../../../packages/app/src/features/cart/CartScreen'
