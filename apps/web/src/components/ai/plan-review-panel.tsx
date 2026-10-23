@@ -167,7 +167,10 @@ export function PlanReviewPanel({
           <React.Fragment key={p}>
             {i > 0 && (
               <span
-                className={cn('h-px w-3 shrink-0', i <= phaseIdx ? 'bg-primary/40' : 'bg-border')}
+                className={cn(
+                  'w-3 shrink-0 border-t',
+                  i <= phaseIdx ? 'border-primary/40' : 'border-border',
+                )}
                 aria-hidden="true"
               />
             )}

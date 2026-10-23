@@ -664,4 +664,19 @@ test('G-322 第十八批:烘焙/归档两站的落点与节流旗标漏值各自
     assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, re, `${flag} ${v} 走的必须是 ${re} 那一档:\n${r.stdout ?? ''}${r.stderr ?? ''}`)
   }
 })
+
+// ─── 第十九批(2026-10-23)───
+// 本批四站全是**未注册档**(guardian-runner 注册表 mode 里没有它们)的 CLI 入口层,带病形:
+// redundant/state-transition 的旧副本只挡 `--` 双划线(单划线 token 被当合法目录/数值收下),
+// 两把 measure 尺的旧支是"点名一句 ℹ 后退默认照跑 exit 0"(mpbm 的 --source、ijb 的 --source
+// 把"我指定了另一个面"写成"我问的就是默认面")。接单源后判死,措辞只有一份。
+test('G-322 第十九批:未注册档四站 —— --root/--max-sites 与两把 measure 尺的 --source/--limit 接单源判死', () => {
+  assertBadFlag(S('check-redundant-discriminator-predicate.mjs'), '--root', '目录实参', { eat: '--json', rc: 2 })
+  assertBadFlag(S('check-state-transition-guard.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
+  assertBadFlag(S('check-state-transition-guard.mjs'), '--max-sites', '非负整数', { eat: '--json', rc: 2 })
+  assertBadFlag(S('measure-plan-block-migration.mjs'), '--source', 'git rev', { eat: '--json', rc: 2 })
+  assertBadFlag(S('measure-plan-block-migration.mjs'), '--limit', '非负整数', { eat: '--json', rc: 2 })
+  assertBadFlag(S('measure-i18n-ja-suspect-buckets.mjs'), '--source', 'git rev', { eat: '--json', rc: 2 })
+  assertBadFlag(S('measure-i18n-ja-suspect-buckets.mjs'), '--limit', '非负整数', { eat: '--json', rc: 2 })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

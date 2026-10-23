@@ -7,13 +7,15 @@
 当前导出:
 - generate_chart: 图表生成工具(chart_tools);
 - generate_report: 报表/汇报文档生成工具(report_tools,PROJECT_PLAN #81 最小一环);
-- parse_document: 文档解析工具(document_tools)。
+- parse_document: 文档解析工具(document_tools);
+- init_agents_md: AGENTS.md 草稿生成器(init_agents_md,D118 /init 式生成器)。
 """
 
 from .browser_selfcheck import capture_screenshot, selfcheck_report
 from .chart_tools import generate_chart
 from .document_asset_tools import document_tables, extract_document_assets
 from .document_tools import parse_document
+from .init_agents_md import init_agents_md
 from .report_tools import generate_report
 from .web_crawl_tools import crawl_site, extract_web, fetch_readable, map_site
 
@@ -29,4 +31,5 @@ __all__ = [
     "extract_web",
     "capture_screenshot",
     "selfcheck_report",
+    "init_agents_md",
 ]
