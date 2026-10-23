@@ -115,7 +115,7 @@ describe('Qoder 导入映射', () => {
     expect((lastInsert()['tokenExpiresAt'] as Date).toISOString()).toBe('2026-01-27T09:20:00.000Z')
   })
 
-  it('Cosy 设备头族落 extraMetadata.cosy', async () => {
+  it('Cosy 设备头族落 extraMetadata.cosy(蛇形键,对齐 checkin_qoder 契约)', async () => {
     await importAccounts('qoder', [
       {
         token: 'dt-cosy',
@@ -128,9 +128,9 @@ describe('Qoder 导入映射', () => {
     ])
     const cosy = extraOf(lastInsert())['cosy'] as Record<string, string>
     expect(cosy).toEqual({
-      machineToken: 'mt-1',
-      machineCode: 'mc-1',
-      machineType: 'mty-1',
+      machine_token: 'mt-1',
+      machine_code: 'mc-1',
+      machine_type: 'mty-1',
       version: '1.2.3',
     })
   })
@@ -244,6 +244,34 @@ describe('relay-import-qoder 纯函数', () => {
         'Qoder · 01234567',
       )
       expect(buildQoderImportAccount({ token: 't' })!.name).toBe('Qoder · 未知号')
+    })
+  })
+
+  describe('buildCosyHeaders(键位兼容)', () => {
+    it('蛇形键(正)+ 驼峰键(历史行兼容)都能出 Cosy 头族', async () => {
+      const { buildCosyHeaders } =
+        await import('../src/services/upstream-adapters/qoder-adapter.js')
+      const mkCtx = (cosy: Record<string, unknown>) =>
+        ({
+          row: { extraMetadata: { cosy }, machineId: 'mid-1' },
+        }) as never
+      const snake = buildCosyHeaders(
+        mkCtx({ machine_token: 'mt-s', machine_code: 'mc-s', machine_type: 't-s', version: '1.0' }),
+      )
+      expect(snake['Cosy-MachineToken']).toBe('mt-s')
+      expect(snake['Cosy-MachineCode']).toBe('mc-s')
+      expect(snake['Cosy-MachineType']).toBe('t-s')
+      expect(snake['Cosy-Version']).toBe('1.0')
+      expect(snake['Cosy-ClientType']).toBe('10')
+      expect(snake['Cosy-MachineOS']).toBe('x86_64_windows')
+      expect(snake['Cosy-MachineId']).toBe('mid-1')
+      const camel = buildCosyHeaders(mkCtx({ machineToken: 'mt-c', machineCode: 'mc-c' }))
+      expect(camel['Cosy-MachineToken']).toBe('mt-c')
+      expect(camel['Cosy-MachineCode']).toBe('mc-c')
+      // cosy 缺失时只发固定头,不抛
+      const none = buildCosyHeaders(mkCtx({}))
+      expect(none['Cosy-ClientType']).toBe('10')
+      expect(none['Cosy-MachineToken']).toBeUndefined()
     })
   })
 })

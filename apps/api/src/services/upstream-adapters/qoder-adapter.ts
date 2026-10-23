@@ -20,6 +20,7 @@
  * 转发链路会在调chat时如实得到"契约未实证"错误。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
+import { extractTokenExpiry } from '../relay-account-format.js'
 import type {
   AdapterAccountContext,
   AdapterCallOptions,
@@ -56,13 +57,24 @@ const USER_AGENT = 'Qoder/claim'
 const CLIENT_TYPE_DEFAULT = '10'
 const MACHINE_OS_DEFAULT = 'x86_64_windows'
 
-/** extraMetadata.cosy 的键 → Cosy-* 请求头(与 checkin_qoder.COSY_HEADER_KEYS 同序) */
+/** extraMetadata.cosy 的键 → Cosy-* 请求头(与 checkin_qoder.COSY_HEADER_KEYS 同序)。
+ * 2026-10-23 修:cosy 落库键以蛇形为正(对齐 checkin_qoder device_map["cosy"] 契约,
+ * 键位错配曾让 Cosy-MachineToken/Code/Type 头整族缺失 → refresh 被上游拒),
+ * 读取面同时兼容历史行里的驼峰键。 */
 const COSY_HEADERS: ReadonlyArray<readonly [string, string]> = [
   ['machine_token', 'Cosy-MachineToken'],
   ['machine_code', 'Cosy-MachineCode'],
   ['machine_type', 'Cosy-MachineType'],
   ['version', 'Cosy-Version'],
 ]
+
+function cosyValue(cosy: Record<string, unknown>, keys: readonly string[]): string {
+  for (const k of keys) {
+    const v = cosy[k]
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  return ''
+}
 
 /** chat 契约未实证的统一错误(转发层按普通上游错误处理,不刷新不重试) */
 export const QODER_CHAT_CONTRACT_UNVERIFIED =
@@ -122,8 +134,10 @@ export function buildCosyHeaders(ctx: AdapterAccountContext): Record<string, str
   if (cosy !== null && typeof cosy === 'object' && !Array.isArray(cosy)) {
     const c = cosy as Record<string, unknown>
     for (const [mapKey, header] of COSY_HEADERS) {
-      const v = c[mapKey]
-      if (typeof v === 'string' && v.trim()) headers[header] = v.trim()
+      // 蛇形键为正;历史行的驼峰键兼容读取(machine_token / machineToken)
+      const camel = mapKey.replace(/_([a-z])/g, (_, ch: string) => ch.toUpperCase())
+      const v = cosyValue(c, [mapKey, camel])
+      if (v) headers[header] = v
     }
   }
   const machineId = ctx.row.machineId
@@ -209,10 +223,13 @@ export const qoderAdapter: RelayUpstreamAdapter = {
         const token = pickTokenField(body, ['token', 'accessToken', 'access_token'])
         if (!token) throw new QoderUpstreamError(0, 'Qoder refresh 响应无 token')
         const newRt = pickTokenField(body, ['refreshToken', 'refresh_token']) || rt
+        // 实证(checkin_qoder.qoder_refresh_token):刷新后的新 token 是带 exp 的
+        // JWT,可解析出真实到期;解析不出再保守兜底 24h(双保险)
+        const realExp = extractTokenExpiry(token)
         return {
           token,
           refreshToken: newRt,
-          expiresAt: new Date(Date.now() + 24 * 3600_000),
+          expiresAt: realExp ?? new Date(Date.now() + 24 * 3600_000),
         }
       } catch (e) {
         if (e instanceof QoderUpstreamError) throw e
