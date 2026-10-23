@@ -13,6 +13,8 @@
 - POST /internal/checkin/pool-sync   账号 upsert(幂等:pool_cred_version 防降级)
 - POST /internal/checkin/pool-state  状态联动(enabled / disabled / pool_deleted)
 - GET  /internal/checkin/pool-status 单账号状态(admin 点查)
+- GET  /internal/checkin/pool-accounts 系统 owner 全量摘要(对账收敛器拉签到侧)
+- POST /internal/checkin/pool-cred-flush 指定账号立即重试凭证回写(对账收敛器补写象限)
 
 设计:docs/engineering/account-pool-checkin-sync-design.md
 平台映射单一真相源在 api 侧(D5):本模块只认 platform 白名单,零映射逻辑 ——
@@ -215,3 +217,60 @@ async def pool_status_endpoint(request: Request, platform: str, uid: str) -> dic
     """单账号签到状态(admin 点查):记录/冷却/同步态/pending 回写标记。"""
     _require_internal(request)
     return await checkin_store.pool_status(platform, uid)
+
+
+class PoolCredFlushIn(BaseModel):
+    """对账收敛器的补回写请求:按 checkin accountId 精确点名(≤ 上限防打爆)。"""
+
+    accountIds: list[int] = Field(min_length=1, max_length=200)
+
+
+@router.get("/pool-accounts")
+async def pool_accounts_endpoint(request: Request) -> dict[str, Any]:
+    """系统 owner 全量摘要(对账收敛器用):poolAccountId / poolCredVersion /
+    enabled / poolPendingCred;jwt 明文不出库。"""
+    _require_internal(request)
+    return {"accounts": await checkin_store.list_pool_accounts()}
+
+
+@router.post("/pool-cred-flush")
+async def pool_cred_flush(body: PoolCredFlushIn, request: Request) -> dict[str, Any]:
+    """对指定签到账号立即重试凭证回写(对账收敛器 §8 第四象限)。
+
+    复用 checkin_pool_writeback.maybe_writeback:device_map 现载 refresh_token /
+    expires_at 即回写载荷,与 checkin_one 末尾同一条代码路径;上次失败留的
+    pool_pending_cred 在此自然重试。单账号失败不拖垮整批。
+    """
+    _require_internal(request)
+    # 延迟 import:该模块 import 链更重(httpx/api_tools_bridge),仅 flush 路径需要
+    from app.services.checkin_pool_writeback import cred_fingerprint, maybe_writeback
+
+    results: list[dict[str, Any]] = []
+    for account_id in body.accountIds:
+        try:
+            dm = await checkin_store.load_device_map(account_id)
+            if dm is None:
+                results.append({"accountId": account_id, "status": "not_found"})
+                continue
+            if not isinstance(dm.get("pool_account_id"), str) or not dm["pool_account_id"].strip():
+                results.append({"accountId": account_id, "status": "skipped", "reason": "非号池账号"})
+                continue
+            before = cred_fingerprint(dm)
+            changed = await maybe_writeback(dm, before)
+            if changed:
+                await checkin_store.save_device_map(account_id, dm)
+            results.append(
+                {
+                    "accountId": account_id,
+                    "status": "flushed" if changed else "noop",
+                }
+            )
+        except Exception as e:  # noqa: BLE001 — 单条失败不拖垮整批
+            results.append(
+                {
+                    "accountId": account_id,
+                    "status": "failed",
+                    "reason": (str(e) or "未知错误")[:200],
+                }
+            )
+    return {"results": results}
