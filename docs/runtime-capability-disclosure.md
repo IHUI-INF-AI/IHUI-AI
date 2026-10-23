@@ -722,12 +722,14 @@ oem11.inf，gamevieweridddriver.inf_amd64_9586929572de2d1b"）——即"彻底�
   消费端 `apps/api/src/workers/scheduler-worker.ts`。
   ⚠️ 这份清单是本仓代码声明；**这些任务是否在你的实例上真的在跑**取决于 Redis/BullMQ
   与 worker 是否启动，本文档**未验证**（§8）。
-- **CI 每 20 分钟把整仓镜像推到国内仓库**：`.github/workflows/mirror-to-cn.yml`
-  的 `on.schedule.cron: '*/20 * * * *'`（`:25`），
-  推 `https://gitee.com/<owner>/IHUI-AI.git`（`:77`）与 GitCode（`:217-228`，
-  未配 `GITCODE_TOKEN` 则跳过 `:223-225`）；检出是 `fetch-depth: 0` **全历史 + LFS**（`:38-40`）。
-  ⇒ **进了 git 的东西（含历史提交）会被同步到第三方托管平台。**
-  这是"哪些内容算内部"的硬边界：不要指望 `.gitignore` 之外的东西只留在自己手里。
+- **代码仓库不再对外镜像（2026-10-23 起）**：原 `.github/workflows/mirror-to-cn.yml` 每 20 分钟把
+  整仓（含全历史 + LFS）推到 Gitee 与 GitCode 两个国内仓，该作业已随渠道弃用**整体删除**，
+  仓库配置里的 `gitee` / `gitcode` 远端也已移除，`git remote -v` 现只有 `origin`（GitHub）一个。
+  ⇒ **进 git 的东西不再被同步到第三方托管平台。**
+  仍存在的第三方出站只有一处：桌面端安装包作为 release 附件上传到 Gitee（`release-desktop.yml`
+  的 `sync-gitee` 作业），供国内用户下载安装包；它只承载**构建产物**，不承载仓库历史。
+  历史事实仍须记住：2026-10-23 之前推过的全部提交与 LFS 对象**已经**留在那两个平台上，
+  删除作业不会回收它们；需要彻底清除须到对应平台删除仓库或强制 GC（属机主侧操作）。
   同时该任务会**删除国内仓的内部备份 tag**（`:99-148`，`git push --delete`）。
 
 ---

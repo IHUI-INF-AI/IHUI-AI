@@ -271,6 +271,20 @@ export interface PipedStreamStats {
   cacheCreationTokens: number
   ttftMs: number | null
   httpStatus: number
+  /**
+   * 上游是否已经自己发过带 `finish_reason` 的帧（2026-10-23 加）。
+   * 调用方据此决定收尾要不要补结束帧：**补了就重复**——客户端会收到两个 finish
+   * （部分实现按最后一个覆盖、部分直接当协议错），且 usage 帧会被夹在两个 finish
+   * 之间，偏离 OpenAI 的 finish → usage → [DONE] 顺序。
+   */
+  sawFinish: boolean
+  /**
+   * 最近一帧的 `id`（2026-10-23 加）。
+   * verbatim 转发的帧带的是上游 id，而收尾的 usage/stop 帧由本服务生成——
+   * 不统一就会在同一条流里出现两个 id，按 id 聚合/串联追踪的实现会把它当成两条流。
+   * 调用方造收尾帧时应优先用它，缺失再回落到自己生成的 id。
+   */
+  lastFrameId: string | null
 }
 
 export interface PipeStreamOptions {
@@ -300,11 +314,27 @@ function readNum(v: unknown): number {
 }
 
 /**
+ * 严格判定 SSE 终止帧：payload 恰好为 `[DONE]`（正文里出现该字样不得误判）。
+ * 与 relay-account-forwarder 的同名判据同构（那边是消费上游流时的内部私有函数）。
+ */
+function isSseDoneFrame(line: string): boolean {
+  const idx = line.indexOf(':')
+  if (idx < 0) return false
+  return line.slice(idx + 1).trim() === '[DONE]'
+}
+
+/**
  * 上游 OpenAI SSE 管道(双模式):
  * - verbatim(writeLine):逐行转发上游原始 data 行到客户端(OpenAI chunk 格式天然兼容,不改写)
  * - textMode(emitText):解析每个 delta.content 并回调(legacy /v1/completions 流式,由调用方自行组 text chunk)
  * 两种模式都聚合内容 + 末尾 usage chunk(prompt_tokens_details.cached_tokens / Anthropic cache 字段),
  * 返回聚合统计供调用方 recordCall 计费。
+ *
+ * 终止帧职责(2026-10-23 修):
+ * 上游自带的 `data: [DONE]` **一律不转发**。流结束标记由调用方（统一收尾出口）发且只发一次。
+ * 原实现 verbatim 转发上游 `[DONE]`，收尾又补一个 ⇒ 客户端收到**双终止帧**：
+ * 严格实现（遇 [DONE] 即 dispose 流、或视二次 DONE 为协议错误）会提前截断或报错，
+ * 宽松实现则白跑一轮解析。这不只影响账号池桥——任何自带 [DONE] 的 OpenAI 兼容上游都中招。
  */
 export async function pipeChannelStream(
   upstream: Response,
@@ -320,6 +350,8 @@ export async function pipeChannelStream(
     cacheCreationTokens: 0,
     ttftMs: null,
     httpStatus: upstream.status,
+    sawFinish: false,
+    lastFrameId: null,
   }
   const startedAt = Date.now()
   const reader = upstream.body!.getReader()
@@ -329,11 +361,24 @@ export async function pipeChannelStream(
   opts.signal?.addEventListener('abort', abort, { once: true })
 
   const handleLine = (line: string) => {
+    // 终止帧不转发（见函数头注释：结束标记只由调用方发一次）
+    if (isSseDoneFrame(line)) return
     if (!textMode) opts.writeLine?.(`${line}\n\n`)
     const json = parseSseData(line)
     if (!json) return
     if (stats.ttftMs === null) stats.ttftMs = Date.now() - startedAt
+    // 记住上游帧 id，供调用方造收尾帧时复用它（同一条流只应有一个 id）
+    if (typeof json['id'] === 'string' && json['id']) stats.lastFrameId = json['id']
     const choices = json['choices'] as Array<Record<string, unknown>> | undefined
+    // 上游已给结束帧**且该帧确实被转发**⇒ 记下来，调用方收尾不再补（否则出现两个 finish）。
+    // textMode 不转发原始行（由调用方按 text chunk 重发），故那里不算——收尾仍须补结束帧。
+    if (
+      !textMode &&
+      Array.isArray(choices) &&
+      choices.some((c) => c?.['finish_reason'] != null)
+    ) {
+      stats.sawFinish = true
+    }
     const delta = choices?.[0]?.['delta'] as Record<string, unknown> | undefined
     const content = delta?.['content']
     if (typeof content === 'string' && content.length > 0) {

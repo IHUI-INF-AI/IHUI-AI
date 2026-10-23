@@ -45,6 +45,7 @@ from app.core.logging import get_logger
 from app.services import (
     checkin_credits,
     checkin_minimax,
+    checkin_pool_writeback,
     checkin_proxy_pool,
     checkin_qoder,
     checkin_store,
@@ -580,9 +581,35 @@ class CheckinScheduler:
 
     async def checkin_one(self, account: dict[str, Any]) -> dict[str, Any]:
         """对单个账号执行签到(按 platform 分发引擎),并把引擎可能补齐的
-        device_map 写回存储(Qoder 的自刷新新 token 也经此通路落库)。"""
+        device_map 写回存储(Qoder 的自刷新新 token 也经此通路落库)。
+
+        O64(2026-10-23):device_map 的凭证变化(refresh_token/expires_at) additionally
+        回写号池(checkin_pool_writeback) —— 号池 = 凭证权威,签到刷新必须回流,
+        否则号池拿旧 refresh_token 打官方白白消耗轮换次数。失败落待重试不阻塞。
+        """
         device_map = dict(account.get("device_map") or {})
+        # O64:凭证指纹快照(签到前)—— 引擎自刷新改写 refresh_token/expires_at
+        # 时据此判定是否需要回写号池(CAS 双写不漂移的另一半)
+        cred_before = checkin_pool_writeback.cred_fingerprint(device_map)
         platform = account.get("platform")
+        # ── Qoder 凭证统一(2026-10-23):relay 池为唯一真源 ──
+        # 签到前从 relay 拉最新票覆盖本地(避免用 checkin 侧过期/分叉票);
+        # 刷新后统一回写 relay(唯一写点),checkin 侧不再独立轮换 refresh_token。
+        qoder_cred: dict[str, Any] | None = None
+        if platform == "qoder":
+            _uid = str(device_map.get("uid") or account.get("uid") or "")
+            qoder_cred = await checkin_store.load_qoder_cred(_uid)
+            if qoder_cred:
+                account = {**account, "jwt": qoder_cred["token"]}
+                if qoder_cred.get("refresh_token"):
+                    device_map["refresh_token"] = qoder_cred["refresh_token"]
+                if qoder_cred.get("expires_at"):
+                    device_map["expires_at"] = qoder_cred["expires_at"]
+                _cosy = qoder_cred.get("cosy") or {}
+                if _cosy:
+                    _merged = dict(device_map.get("cosy") or {})
+                    _merged.update({k: v for k, v in _cosy.items() if v})
+                    device_map["cosy"] = _merged
         # 多账号风控三件套之二:device_map.proxy 绑定独立出口 IP,
         # 有代理的账号全程走自己的 client(用完即关),无代理本机直连零变化。
         # 免费代理池自动分配(默认关;CHECKIN_FREE_PROXY_POOL=1 开):多账号自动绑独立出口
@@ -614,10 +641,42 @@ class CheckinScheduler:
         finally:
             if owned:
                 await client.aclose()
+        # 刷新回写 relay(唯一写点):引擎若轮换了票,把结果里的当前 token 同步回 relay
+        if platform == "qoder" and qoder_cred is not None:
+            _new_token = result.get("access_token")
+            _new_rt = device_map.get("refresh_token")
+            if _new_token and (
+                _new_token != qoder_cred.get("token")
+                or _new_rt != qoder_cred.get("refresh_token")
+            ):
+                try:
+                    await checkin_store.save_qoder_cred(
+                        str(device_map.get("uid") or account.get("uid") or ""),
+                        str(_new_token),
+                        str(_new_rt) if _new_rt else None,
+                        int(device_map["expires_at"])
+                        if isinstance(device_map.get("expires_at"), (int, float))
+                        else None,
+                    )
+                except Exception as e:
+                    logger.warning("[checkin_scheduler] qoder 凭证回写 relay 失败(忽略): %s", e)
         try:
             await checkin_store.save_device_map(account["id"], device_map)
         except Exception as e:
             logger.warning("[checkin_scheduler] device_map 写回失败(忽略): %s", e)
+        # O64:凭证回写号池(签到刷新 → 号池 CAS 回流;失败落 device_map.pool_pending_cred
+        # 下次重试,故 dirty 时需再持久化一次)。maybe_writeback 自身不抛,外层 try 双保险。
+        try:
+            dirty = await checkin_pool_writeback.maybe_writeback(device_map, cred_before)
+            if dirty:
+                try:
+                    await checkin_store.save_device_map(account["id"], device_map)
+                except Exception as e:
+                    logger.warning(
+                        "[checkin_scheduler] 号池回写待推标记持久化失败(忽略): %s", e
+                    )
+        except Exception as e:
+            logger.warning("[checkin_scheduler] 号池凭证回写异常(忽略): %s", e)
         return result
 
     async def record_result(self, account_id: int, result: dict[str, Any]) -> dict[str, Any]:
