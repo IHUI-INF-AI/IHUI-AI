@@ -115,7 +115,7 @@ describe('Qoder 导入映射', () => {
     expect((lastInsert()['tokenExpiresAt'] as Date).toISOString()).toBe('2026-01-27T09:20:00.000Z')
   })
 
-  it('Cosy 设备头族落 extraMetadata.cosy', async () => {
+  it('Cosy 设备头族落 extraMetadata.cosy(蛇形键,对齐 checkin_qoder 契约)', async () => {
     await importAccounts('qoder', [
       {
         token: 'dt-cosy',
@@ -128,9 +128,9 @@ describe('Qoder 导入映射', () => {
     ])
     const cosy = extraOf(lastInsert())['cosy'] as Record<string, string>
     expect(cosy).toEqual({
-      machineToken: 'mt-1',
-      machineCode: 'mc-1',
-      machineType: 'mty-1',
+      machine_token: 'mt-1',
+      machine_code: 'mc-1',
+      machine_type: 'mty-1',
       version: '1.2.3',
     })
   })
@@ -148,5 +148,130 @@ describe('Qoder 导入映射', () => {
     expect(lastInsert()['name']).toBe('nick6870552894')
     await importAccounts('qoder', [{ token: 'dt-p', uid: 'u-p', phone: '15330637579' }])
     expect(lastInsert()['name']).toBe('15330637579')
+  })
+})
+
+// 一键导入脚本的纯函数单测(2026-10-23 补)。
+// buildQoderImportAccount / extractAccountsFromJson 是脚本导出的纯函数,
+// 不依赖 DB / 网络,这里只测形状与兜底逻辑。
+import { buildQoderImportAccount, extractAccountsFromJson } from '../scripts/relay-import-qoder.js'
+
+describe('relay-import-qoder 纯函数', () => {
+  describe('extractAccountsFromJson', () => {
+    it('裸数组原样返回', () => {
+      const arr = [{ token: 't' }]
+      expect(extractAccountsFromJson(arr)).toBe(arr)
+    })
+    it('{accounts:[…]} 取 accounts', () => {
+      expect(extractAccountsFromJson({ accounts: [{ token: 't' }] })).toEqual([{ token: 't' }])
+    })
+    it('{providerCode,accounts:[…]} 取 accounts', () => {
+      expect(
+        extractAccountsFromJson({ providerCode: 'qoder', accounts: [{ token: 't' }] }),
+      ).toEqual([{ token: 't' }])
+    })
+    it('{sessions:[…]} 取 sessions', () => {
+      expect(extractAccountsFromJson({ sessions: [{ accessToken: 'a' }] })).toEqual([
+        { accessToken: 'a' },
+      ])
+    })
+    it('顶层单条(含 token)自动包数组', () => {
+      expect(extractAccountsFromJson({ token: 't', uid: 'u' })).toEqual([{ token: 't', uid: 'u' }])
+    })
+    it('顶层单条(含 user)自动包数组', () => {
+      expect(extractAccountsFromJson({ token: 't', user: { id: 'u' } })).toEqual([
+        { token: 't', user: { id: 'u' } },
+      ])
+    })
+    it('无法识别的形状抛错', () => {
+      expect(() => extractAccountsFromJson({ foo: 'bar' })).toThrow(/无法识别/)
+      expect(() => extractAccountsFromJson(123)).toThrow(/无法识别/)
+      expect(() => extractAccountsFromJson(null)).toThrow(/无法识别/)
+    })
+  })
+
+  describe('buildQoderImportAccount', () => {
+    it('ps1 产物(accessToken/uid/phone/nickname/name)正确映射', () => {
+      const a = buildQoderImportAccount({
+        uid: 'u1',
+        accessToken: 'a1',
+        refreshToken: 'r1',
+        expiresAt: '11/21/2026 11:38:26',
+        refreshTokenExpiresAt: '2027-10-17T11:38:26Z',
+        phone: '15330637579',
+        nickname: 'nick',
+        name: 'nm',
+        deviceId: 'dev1',
+        machineId: 'mac1',
+        machineToken: 'mt1',
+        machineCode: 'mc1',
+        machineType: 'win32',
+        version: '1.2.3',
+      })!
+      expect(a.token).toBe('a1')
+      expect(a.uid).toBe('u1')
+      expect(a.refreshToken).toBe('r1')
+      expect(a.expiresAt).toBe('11/21/2026 11:38:26')
+      expect(a.deviceId).toBe('dev1')
+      expect(a.machineToken).toBe('mt1')
+      // name 兜底:phone 优先于 nickname/name
+      expect(a.name).toBe('Qoder · 15330637579')
+    })
+    it('原生导出(token 别名 + 内联 user{id,name,phone})正确提取', () => {
+      const a = buildQoderImportAccount({
+        token: 'a2',
+        refreshToken: 'r2',
+        expiresAt: '2026-11-21T11:38:26Z',
+        user: { id: 'u2', name: 'nick6870552894', phone: '15330637579', email: 'x@y.com' },
+      })!
+      expect(a.token).toBe('a2')
+      expect(a.uid).toBe('u2')
+      expect(a.name).toBe('Qoder · 15330637579')
+      expect(a.email).toBe('x@y.com')
+    })
+    it('缺 token/accessToken → null(被过滤,不入池)', () => {
+      expect(buildQoderImportAccount({ uid: 'u', name: 'x' })).toBeNull()
+      expect(buildQoderImportAccount({} as never)).toBeNull()
+    })
+    it('name 兜底链:phone>nickname>name>email前缀>uid前8>未知号', () => {
+      expect(buildQoderImportAccount({ token: 't', phone: '138' })!.name).toBe('Qoder · 138')
+      expect(buildQoderImportAccount({ token: 't', nickname: 'nn' })!.name).toBe('Qoder · nn')
+      expect(buildQoderImportAccount({ token: 't', name: 'nm' })!.name).toBe('Qoder · nm')
+      expect(buildQoderImportAccount({ token: 't', user: { email: 'abc@x.com' } })!.name).toBe(
+        'Qoder · abc',
+      )
+      expect(buildQoderImportAccount({ token: 't', uid: '0123456789abcdef' })!.name).toBe(
+        'Qoder · 01234567',
+      )
+      expect(buildQoderImportAccount({ token: 't' })!.name).toBe('Qoder · 未知号')
+    })
+  })
+
+  describe('buildCosyHeaders(键位兼容)', () => {
+    it('蛇形键(正)+ 驼峰键(历史行兼容)都能出 Cosy 头族', async () => {
+      const { buildCosyHeaders } =
+        await import('../src/services/upstream-adapters/qoder-adapter.js')
+      const mkCtx = (cosy: Record<string, unknown>) =>
+        ({
+          row: { extraMetadata: { cosy }, machineId: 'mid-1' },
+        }) as never
+      const snake = buildCosyHeaders(
+        mkCtx({ machine_token: 'mt-s', machine_code: 'mc-s', machine_type: 't-s', version: '1.0' }),
+      )
+      expect(snake['Cosy-MachineToken']).toBe('mt-s')
+      expect(snake['Cosy-MachineCode']).toBe('mc-s')
+      expect(snake['Cosy-MachineType']).toBe('t-s')
+      expect(snake['Cosy-Version']).toBe('1.0')
+      expect(snake['Cosy-ClientType']).toBe('10')
+      expect(snake['Cosy-MachineOS']).toBe('x86_64_windows')
+      expect(snake['Cosy-MachineId']).toBe('mid-1')
+      const camel = buildCosyHeaders(mkCtx({ machineToken: 'mt-c', machineCode: 'mc-c' }))
+      expect(camel['Cosy-MachineToken']).toBe('mt-c')
+      expect(camel['Cosy-MachineCode']).toBe('mc-c')
+      // cosy 缺失时只发固定头,不抛
+      const none = buildCosyHeaders(mkCtx({}))
+      expect(none['Cosy-ClientType']).toBe('10')
+      expect(none['Cosy-MachineToken']).toBeUndefined()
+    })
   })
 })

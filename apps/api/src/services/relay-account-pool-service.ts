@@ -195,9 +195,17 @@ function mapQoderImport(acc: ImportAccountInput): QoderImportMapping | null {
       : '') ||
     extractUid(token)
   const cosy: Record<string, string> = {}
-  for (const k of ['machineToken', 'machineCode', 'machineType', 'version']) {
-    const v = cstr(a[k])
-    if (v) cosy[k] = v
+  // 2026-10-23 修:cosy 落库键改蛇形(对齐 checkin_qoder.COSY_HEADER_KEYS 的
+  // device_map["cosy"] 契约;此前存驼峰导致 adapter 取不到 → Cosy 头族缺失)
+  const cosyKeyMap: ReadonlyArray<readonly [string, string]> = [
+    ['machineToken', 'machine_token'],
+    ['machineCode', 'machine_code'],
+    ['machineType', 'machine_type'],
+    ['version', 'version'],
+  ]
+  for (const [srcKey, storeKey] of cosyKeyMap) {
+    const v = cstr(a[srcKey])
+    if (v) cosy[storeKey] = v
   }
   return {
     token,
