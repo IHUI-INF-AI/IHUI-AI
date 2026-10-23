@@ -245,7 +245,7 @@ export default function CheckinAssistantScreen() {
                 style={[styles.chip, platform === p && styles.chipOn]}
                 onPress={() => setPlatform(p)}
               >
-                <Text style={[styles.chipText, platform === p && styles.chipTextOn]}>{p}</Text>
+                <Text style={[styles.chipText, platform === p && styles.chipOnText]}>{p}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -332,9 +332,9 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
-  chipOn: { backgroundColor: tokens.brand.DEFAULT ?? tokens.text.primary },
+  chipOn: { backgroundColor: tokens.brand.cta },
   chipText: { fontSize: 12, color: tokens.text.secondary },
-  chipTextOn: { color: tokens.brand.ctaForeground ?? tokens.surface.bg },
+  chipOnText: { color: tokens.brand.ctaForeground ?? tokens.surface.bg },
   input: { marginTop: 2 },
   label: { fontSize: 12, color: tokens.text.secondary, marginTop: 4 },
   submit: {
