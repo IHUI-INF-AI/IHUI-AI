@@ -131,6 +131,7 @@ import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 import {
   FAMILY_NAMES,
   SCRIPT_RANGES,
@@ -220,21 +221,17 @@ export function faceFromArgv(argv) {
   })
 }
 
-/** `--root <dir>` 只作测试夹具通道;缺参数值不得静默退回仓库根 */
+/** `--root <dir>` 只作测试夹具通道;缺参数值不得静默退回仓库根(取值判据 = flag-value.mjs 单源) */
 export function rootFromArgv(argv, def = ROOT) {
-  const i = argv.indexOf('--root')
-  if (i === -1) {
-    const inline = argv.find((a) => a.startsWith('--root='))
-    if (!inline) return { root: def, error: null }
-    const value = inline.slice('--root='.length)
-    return value
-      ? { root: resolve(value), error: null }
-      : { root: null, error: '--root= 后面必须给目录' }
-  }
-  const value = argv[i + 1]
-  if (!value || value.startsWith('--'))
-    return { root: null, error: '--root 需要一个目录参数(不得静默退回仓库根)' }
-  return { root: resolve(value), error: null }
+  const rq = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rq.present)
+    return rq.error ? { root: null, error: rq.error } : { root: resolve(rq.value), error: null }
+  const inline = argv.find((a) => a.startsWith('--root='))
+  if (!inline) return { root: def, error: null }
+  const value = inline.slice('--root='.length)
+  return value
+    ? { root: resolve(value), error: null }
+    : { root: null, error: '--root= 后面必须给目录' }
 }
 
 /** 语言包路径形态:messages/<target>/<locale>.json;不匹配的计入 skippedPathShapes。

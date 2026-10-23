@@ -279,7 +279,8 @@ describe('relay-import-qoder 纯函数', () => {
     /**
      * 键序取自本仓参考实现 apps/ai-service/app/services/checkin_qoder.py 的
      * qoder_query_credits(data 包裹 → addOnQuota / add_on_quota → remaining)。
-     * 上游该响应细节未全证 ⇒ 判据是"认不出就落未判定",不是"猜出零"。
+     * 2026-10-23 号池两枚在册 qoder 号真跑该端点已实证 200(remaining 100 / 388);
+     * 判序仍是"认不出就落未判定",因为该上游响应细节属防御解析面。
      */
     it('addOnQuota.remaining 可解析(顶层与 data 包裹两形)', async () => {
       const { extractAddOnRemaining } =
@@ -326,6 +327,15 @@ describe('relay-import-qoder 纯函数', () => {
       expect(unknown.ok).toBe(false)
       expect(unknown.error).toContain('未判定')
       expect(unknown.quota).toBeUndefined()
+      // 200 但认不出字段 ≠ 鉴权失效 ⇒ 不许触发换票重试
+      expect(unknown.authFailed).toBeFalsy()
+
+      const denied = await qoderAdapter.getQuota!(ctx, {
+        fetchImpl: (async () =>
+          stub({ code: 'TOKEN_INVALID', message: 'invalid token' }, 401)) as never,
+      })
+      expect(denied.ok).toBe(false)
+      expect(denied.authFailed).toBe(true)
 
       const boom = await qoderAdapter.getQuota!(ctx, {
         fetchImpl: (async () => {
