@@ -55,14 +55,26 @@ test.describe('第三方登录 - 基础', () => {
     }
   })
 
-  test('OAuth 按钮可点击(无 disabled)', async ({ page }) => {
+  test('OAuth 按钮启用态与服务器真值一致(服务器报未配置 ⇒ disabled)', async ({ page, request }) => {
+    // 2026-10-22 f4693c3d0d 起:enabled = 构建期 NEXT_PUBLIC_*_ENABLED ∧ GET /api/auth/oauth-status
+    // (实现在 use-third-party-auth.ts 的 isPlatformEnabledNow)。CI 的 api 服务不配
+    // GOOGLE_APP_ID/GOOGLE_SECRET ⇒ 服务器报 google:false ⇒ 按钮按设计 disabled,
+    // 旧断言「一律 not disabled」把"未配置"误判成产品缺陷。
+    // 三档判据与产品语义逐条对齐:报 false ⇒ 必须 disabled;报 true ⇒ 必须可点;
+    // 取不到(端点不可达/信封无该键)⇒ 产品文档口径是"一行判据都不改"⇒ 维持可点。
+    const statusResp = await request.get('/api/auth/oauth-status').catch(() => null)
+    const statusBody = statusResp?.ok()
+      ? ((await statusResp.json().catch(() => null)) as { data?: { google?: boolean } } | null)
+      : null
+    const googleConfigured = statusBody?.data?.google
+
     await page.goto(LOGIN_PAGE)
     await page.waitForLoadState('domcontentloaded')
 
-    // Google 按钮应可点(所有平台均走真实 OAuth 流程)
     const googleBtn = page.getByRole('button', { name: /Google/i }).first()
     await expect(googleBtn).toBeVisible({ timeout: 5000 })
-    await expect(googleBtn).not.toBeDisabled({ timeout: 5000 })
+    if (googleConfigured === false) await expect(googleBtn).toBeDisabled({ timeout: 5000 })
+    else await expect(googleBtn).not.toBeDisabled({ timeout: 5000 })
   })
 
   test('OAuth 回调路径不崩溃', async ({ page }) => {

@@ -39,7 +39,7 @@ function stubLocation() {
   Object.defineProperty(window, 'location', {
     configurable: true,
     value: {
-      href: 'http://localhost:3000/sso/mobile-auth',
+      href: 'http://localhost:8801/sso/mobile-auth',
       replace: (v: string) => replaceMock(String(v)),
       assign: (v: string) => replaceMock(String(v)),
     },
