@@ -77,19 +77,74 @@ function collectExports(sources) {
 }
 
 // ===== 白名单:端内允许的独立实现(有合理理由不和 shared 共享) =====
-// 格式: "appName/exportName" — 这些 export 虽与 shared 同名,但是合理的深度集成/平台 adapter
-const WHITELIST = new Set([
-  'web/useAgentRuntime', // web 深度集成版(集成 applyDiff/工具调用),shared 是依赖注入抽象
-  'web/useAuth', // web 深度集成版(集成 next/navigation/react-query),shared 是纯逻辑层
-  'web/useChat', // web 1678 行深度集成版(集成 store/router/applyDiff),shared 是依赖注入抽象
-  'web/useClipboard', // 工厂模式: createUseClipboard + 浏览器 adapter,不是独立实现
-  'web/useNotificationStore', // web 特有 notification store(集成浏览器 Notification API)
-  'mobile-rn/useAuth', // RN AuthContext wrapper(集成 AsyncStorage),shared 是纯逻辑层
-  'mobile-rn/useNotificationStore', // RN 薄封装:re-export @ihui/shared/notifications/notification-store
-  // + 只在 addFromWs 上过滤 agent-control 指令帧(agent.action),其余字段原样透传。
-  // 属 AGENTS.md §3 允许的"re-export wrapper + 平台 adapter",非端内独立实现;
-  // 本守门的 re-export 判定只看 export 那一行有没有 `from`,故函数型 wrapper 必须显式登记。
-])
+// 格式: {app, name, reason, reviewBy} — 这些 export 虽与 shared 同名,但是合理的深度集成/平台 adapter。
+// 形态仿 scripts/fixture-tmpdir-exemptions.json(G-880 判据③,2026-10-23 立):
+//   每条必须带非空 reason(可复核的事实)与 reviewBy(ISO 日期);
+//   **到期(reviewBy < 当刻本地日)⇒ 不再豁免且照计违规** —— 须按当刻现读重新评估:
+//   改 import shared,或带新理由续期;形态坏(缺 reason / reviewBy 非法)同样不豁免(fail-closed)。
+const WHITELIST = [
+  {
+    app: 'web',
+    name: 'useAgentRuntime',
+    reason: 'web 深度集成版(集成 applyDiff/工具调用),shared 是依赖注入抽象',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'web',
+    name: 'useAuth',
+    reason: 'web 深度集成版(集成 next/navigation/react-query),shared 是纯逻辑层',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'web',
+    name: 'useChat',
+    reason: 'web 1678 行深度集成版(集成 store/router/applyDiff),shared 是依赖注入抽象',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'web',
+    name: 'useClipboard',
+    reason: '工厂模式: createUseClipboard + 浏览器 adapter,不是独立实现',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'web',
+    name: 'useNotificationStore',
+    reason: 'web 特有 notification store(集成浏览器 Notification API)',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'mobile-rn',
+    name: 'useAuth',
+    reason: 'RN AuthContext wrapper(集成 AsyncStorage),shared 是纯逻辑层',
+    reviewBy: '2027-03-31',
+  },
+  {
+    app: 'mobile-rn',
+    name: 'useNotificationStore',
+    reason:
+      'RN 薄封装:re-export @ihui/shared/notifications/notification-store;另在 addFromWs 上只过滤 agent-control 指令帧(agent.action),其余字段原样透传。属 AGENTS.md §3 允许的"re-export wrapper + 平台 adapter",非端内独立实现;本守门的 re-export 判定只看 export 那一行有没有 from,故函数型 wrapper 必须显式登记。',
+    reviewBy: '2027-03-31',
+  },
+]
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+/**
+ * 白名单命中判定(纯函数,now 可注入 ⇒ 镜像测试能构造"到期前/到期后/形态坏"三态)。
+ * 未登记 / 已过期 / 形态坏(reason 空或 reviewBy 非 ISO)⇒ 一律不豁免(fail-closed)。
+ */
+function isWhitelisted(whitelist, appName, exportName, now = new Date()) {
+  const entry = whitelist.find((e) => e && e.app === appName && e.name === exportName)
+  if (!entry) return false
+  if (!entry.reason || !ISO_DATE_RE.test(String(entry.reviewBy))) return false
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-')
+  return String(entry.reviewBy) >= today
+}
 
 // ===== re-export wrapper 检测标识 =====
 const RE_EXPORT_INDICATORS = [

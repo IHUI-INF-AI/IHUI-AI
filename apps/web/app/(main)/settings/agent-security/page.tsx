@@ -31,7 +31,7 @@ export default function AgentSecurityPage() {
   const tc = useTranslations('common')
   // 2026-10-15 登录态门(与 /chat/favorites、签到助手同型):未就绪/未登录不发注定 401 的请求,改显登录引导
   const tGate = useTranslations('chatHistory')
-  const { allow } = useAuthGate()
+  const { ready, allow } = useAuthGate()
   const [config, setConfig] = React.useState<AgentSecurityConfig>({
     prompt_guard_enabled: true,
     prompt_guard_policy: 'flag',
@@ -150,7 +150,14 @@ export default function AgentSecurityPage() {
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
-        {!allow ? (
+        {!ready ? (
+          // 登录态确认中 ≠ 未登录:bootstrap 静默刷新还没跑完时就显「请先登录」,
+          // 已登录用户会误判被踢出(与签到助手 HEAD 三态同型,2026-10-15 改判)。
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {tc('loading')}
+          </div>
+        ) : !allow ? (
           <AuthGatePrompt message={tGate('loginRequired')} />
         ) : loading ? (
           <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">

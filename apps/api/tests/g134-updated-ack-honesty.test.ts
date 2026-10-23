@@ -9,7 +9,9 @@
  *   ① PUT /api/admin/developer/coze/:id/status —— 表无 status 列,整趟不发写 ⇒ 不得回 updated:true;
  *   ② PUT /api/auth/user-sk/:skId —— update 补 .returning({id}),updated 由命中行数派生;
  *   ③ PUT /api/admin/learn/lessons/:id/exam-paper —— upsert 的 update/insert 均补 .returning,
- *      updated 由返回行数派生(响应键名不变)。
+ *      updated 由返回行数派生(响应键名不变);
+ *   ④ PUT /api/auth/password —— updated 由委托侧 updateUser(UPDATE … RETURNING)的行存在性派生,
+ *      委托零命中抛错时不得回出 updated:true 的成功信封。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
