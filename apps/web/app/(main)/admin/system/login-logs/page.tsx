@@ -14,6 +14,7 @@ import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { exportFromApi } from '@/lib/export-utils'
 import { useBatchMutation } from '@/hooks/use-batch-mutation'
+import { useConfirm } from '@/hooks/use-confirm'
 
 import { LoginLogFilter } from './LoginLogFilter'
 import { LoginLogTable } from './LoginLogTable'
@@ -24,6 +25,7 @@ import { BackButton } from '@/components/common'
 export default function LoginLogsPage() {
   const t = useTranslations('admin.system')
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [search, setSearch] = React.useState<LoginLogSearch>(EMPTY_SEARCH)
   const [applied, setApplied] = React.useState<LoginLogSearch>(EMPTY_SEARCH)
   const [page, setPage] = React.useState(1)
@@ -125,7 +127,12 @@ export default function LoginLogsPage() {
             variant="outline"
             disabled={selected.size === 0 || delMut.isPending}
             onClick={() => {
-              if (confirm(t('common.confirmDelete', { count: selected.size }))) delMut.mutate()
+              void confirm({
+                title: t('common.confirmDelete', { count: selected.size }),
+                variant: 'destructive',
+              }).then((ok) => {
+                if (ok) delMut.mutate()
+              })
             }}
           >
             <Trash2 className="h-4 w-4" />
@@ -136,7 +143,12 @@ export default function LoginLogsPage() {
             variant="outline"
             disabled={cleanMut.isPending}
             onClick={() => {
-              if (confirm(t('loginLogs.confirmClean'))) cleanMut.mutate()
+              void confirm({
+                title: t('loginLogs.confirmClean'),
+                variant: 'destructive',
+              }).then((ok) => {
+                if (ok) cleanMut.mutate()
+              })
             }}
           >
             <Eraser className="h-4 w-4" />
@@ -186,6 +198,8 @@ export default function LoginLogsPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

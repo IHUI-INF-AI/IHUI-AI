@@ -337,7 +337,6 @@
 }
 .member-menu-item + .member-menu-item {
   margin-top: 0;
-  border-top: 2rpx solid var(--color-border);
 }
 /* ===== 联系客服 ===== */
 .member-contact {

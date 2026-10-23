@@ -206,7 +206,39 @@ export const REPO_GIT_IDENTITY_ARGS = ['-c', 'user.name=智汇AGI社区', '-c', 
  *   `git fsck --unreachable` 里的 `unreachable commit` 行,于是"一次被拦的落地"会给全仓
  *   埋一颗"下次提交必须先把这枚悬空 commit 备份成 tag"的地雷。树/blob 不在它的判据面内。
  */
+/**
+ * 运行态台账路径 —— **不得经任何旁路落地进 HEAD**(2026-10-23 立,实测)。
+ *
+ * `.ihui-agent/tmp/` 与 `.ihui-agent/state/` 是 gitignored 的本机现场(§15),而旁路落地
+ * 结构性不跑钩子 ⇒ 提交链上的 `check-tracked-ignored`(门 236)对这条通道**看不见**。
+ * 实测后果:plan-pointer-purge 每轮把取证台账(每轮新名字)落进 HEAD,清理侧逐枚
+ * `git rm --cached`,合并侧又按对侧副本带回 ⇒ `git-sync-converge` 每轮被门 168 拦一次
+ * (2026-10-23 同一晚撞两轮,只能靠应急变量放行)。生产者已改为只写盘;这里再从**落地原语**
+ * 堵死这一族,免得下一个工具重犯。
+ *
+ * 有意为之的例外必须给理由(§0.10:多要一次定向说明,不多放一次跳门)。
+ */
+const RUNTIME_LEDGER_PATH_RE = /^\.ihui-agent\/(?:tmp|state)\//
+
 export function commitTreeWithIndex({ root, parent, message, entries, treePath, text, blob, baseRef = 'HEAD', mode = '100644', onTree }) {
+  // 运行态台账护栏**排在 writeBlob 之前**:被拒的一次落地不该顺手在对象库里留一枚孤儿 blob。
+  // 单路径档(treePath/text)也覆盖 —— 那条通道同样绕过钩子。
+  // `deleted:true` 的条目**必须放行** —— 取消跟踪正是这一族想要的运动方向;本护栏只拦"往里加"。
+  for (const e of entries ?? [{ path: treePath }]) {
+    if (!e || e.deleted === true) continue
+    const p = e.path
+    if (p === undefined || !RUNTIME_LEDGER_PATH_RE.test(p)) continue
+    const reason = (process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON ?? '').trim()
+    if (process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND === '1' && reason) {
+      console.warn(`⚠️ 旁路落地运行态台账 ${p}(理由:${reason})—— 例外须可追责`)
+      continue
+    }
+    throw new Error(
+      `commitTreeWithIndex:${p} 落在 .ihui-agent/tmp|state(本机现场)⇒ 免检旁路会把它写进 HEAD,` +
+        `而旁路不跑钩子 ⇒ 门 236 看不见;清理侧与合并侧随后互相对打(实测每轮被门 168 拦)。` +
+        `改写成盘、不作为提交条目;确需例外:IHUI_ALLOW_RUNTIME_LEDGER_LAND=1 且 IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON=<理由>`,
+    )
+  }
   const norm = (e) => (e.deleted ? { path: e.path, deleted: true } : { path: e.path, blob: e.blob ?? writeBlob(e.text, { root }), mode: e.mode ?? mode })
   const list = entries ? entries.map(norm) : [{ path: treePath, blob: blob ?? writeBlob(text, { root }), mode }]
   // 删除档的两条护栏(头注):自相矛盾的声明一律拒,不猜调用方想干什么。

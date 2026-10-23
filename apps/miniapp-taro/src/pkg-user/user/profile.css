@@ -69,7 +69,7 @@
   overflow: hidden;
 }
 
-/* ===== 信息行(RN plainRow:120rpx 行高 + 行底色明暗切换 + 细分隔线) ===== */
+/* ===== 信息行(RN plainRow:120rpx 行高 + 行底色明暗切换分隔,§4 禁止用描边画线) ===== */
 .pf-item {
   display: flex;
   align-items: center;
@@ -80,9 +80,6 @@
 }
 .dark .pf-item {
   background: var(--color-muted);
-}
-.pf-item + .pf-item {
-  border-top: 1rpx solid var(--color-border);
 }
 .pf-item-label {
   font-size: 32rpx;

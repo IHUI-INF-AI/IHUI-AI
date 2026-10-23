@@ -385,8 +385,6 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     chipsBar: {
       backgroundColor: tk.surface.card,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: tk.border.light,
     } as ViewStyle,
     listContent: {
       padding: 10,

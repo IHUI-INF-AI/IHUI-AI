@@ -190,8 +190,6 @@ function makeStyles() {
       alignItems: 'center',
       gap: 8,
       paddingVertical: 10,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: tokens.border.light,
     },
     rowText: { flex: 1, fontSize: 14, color: tokens.text.primary },
     rowCount: { fontSize: 13, color: tokens.text.secondary, fontWeight: '600' },

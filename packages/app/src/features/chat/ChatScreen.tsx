@@ -265,8 +265,6 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       paddingHorizontal: 12,
       paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: tk.border.light,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     navRow: { flexDirection: 'row', gap: 12 },
@@ -274,8 +272,6 @@ function createStyles(tk: AppThemeTokens) {
     modelBar: {
       paddingHorizontal: 12,
       paddingVertical: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: tk.border.light,
     },
     modelText: { fontSize: 14, color: tk.text.secondary },
     list: { flex: 1, paddingHorizontal: 12 },
@@ -306,8 +302,6 @@ function createStyles(tk: AppThemeTokens) {
     pickerHeader: {
       paddingHorizontal: 16,
       paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: tk.border.light,
     },
     pickerTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     pickerItem: { paddingHorizontal: 16, paddingVertical: 12 },

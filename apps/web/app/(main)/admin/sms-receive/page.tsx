@@ -34,6 +34,7 @@ import { Label } from '@ihui/ui-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 import {
   POLL_INTERVAL_MS,
   POLL_TIMEOUT_MS,
@@ -73,6 +74,7 @@ type Phase = 'idle' | 'waiting' | 'polling' | 'received' | 'timeout'
 const MAX_AUTO_ROUNDS = 20
 
 export default function SmsReceivePage() {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   // ── 余额 ──
   const [balance, setBalance] = React.useState<string | null>(null)
   const [balanceLoading, setBalanceLoading] = React.useState(false)
@@ -447,7 +449,7 @@ export default function SmsReceivePage() {
 
   async function handleRelease() {
     if (!phone) return
-    if (!window.confirm(`确认释放号码 ${phone}?释放后该号码不再归属本账号`)) return
+    if (!(await confirm({ title: `确认释放号码 ${phone}?释放后该号码不再归属本账号` }))) return
     stopPolling()
     autoModeRef.current = false
     try {
@@ -461,7 +463,7 @@ export default function SmsReceivePage() {
 
   async function handleBlock() {
     if (!phone) return
-    if (!window.confirm(`确认拉黑号码 ${phone}?拉黑后平台不再分配该号码`)) return
+    if (!(await confirm({ title: `确认拉黑号码 ${phone}?拉黑后平台不再分配该号码` }))) return
     stopPolling()
     autoModeRef.current = false
     try {
@@ -803,7 +805,8 @@ export default function SmsReceivePage() {
                         <span className="font-mono font-bold">{row.register}</span>
                         {row.other > 0 && (
                           <>
-                            {' '}· 其他 <span className="font-mono">{row.other}</span>
+                            {' '}
+                            · 其他 <span className="font-mono">{row.other}</span>
                           </>
                         )}
                       </div>
@@ -995,6 +998,8 @@ export default function SmsReceivePage() {
         API 文档:https://www.d1jiema.com/api.html · 频率计费:同一账号或 IP 每请求 1000 次扣 0.01~0.2
         元 · Token 配置于服务端 D1JIEMA_TOKEN
       </p>
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }
@@ -1003,7 +1008,9 @@ export default function SmsReceivePage() {
 function UsageTag({ kind }: { kind: PhoneHistoryItem['usageKind'] }) {
   if (kind === 'register')
     return (
-      <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-600">注册</span>
+      <span className="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-xs text-emerald-600">
+        注册
+      </span>
     )
   if (kind === 'login')
     return (
@@ -1011,6 +1018,8 @@ function UsageTag({ kind }: { kind: PhoneHistoryItem['usageKind'] }) {
         登录(已注册过)
       </span>
     )
-  return <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">其他</span>
+  return (
+    <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">其他</span>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -276,7 +276,6 @@
   justify-content: center;
   align-items: center;
   padding: 16rpx;
-  border-bottom: 1rpx solid var(--color-border);
 }
 
 .nation-info1 {

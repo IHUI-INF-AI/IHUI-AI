@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
 import { fingerprintVerdict } from '@/lib/fingerprint-verdict'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 interface BlacklistItem {
   id: string
@@ -54,6 +55,7 @@ const TYPE_LABEL: Record<BlacklistItem['type'], string> = { user: '用户', ip: 
 
 export default function AdminMemberBlacklistPage() {
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [search, setSearch] = React.useState('')
   const [type, setType] = React.useState('all')
 
@@ -207,7 +209,12 @@ export default function AdminMemberBlacklistPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => {
-                        if (confirm('确认删除记录？')) delMut.mutate(b.id)
+                        void confirm({
+                          title: '确认删除记录？',
+                          variant: 'destructive',
+                        }).then((ok) => {
+                          if (ok) delMut.mutate(b.id)
+                        })
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -219,6 +226,8 @@ export default function AdminMemberBlacklistPage() {
           </TableBody>
         </Table>
       </div>
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

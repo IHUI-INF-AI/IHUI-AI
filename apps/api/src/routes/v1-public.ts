@@ -146,6 +146,19 @@ const chatCompletionSchema = z.object({
   // 输出控制(2026-10-22 协议补全):stop 支持 string | string[];reasoning_effort 支持字符串或数字等级
   stop: z.union([z.string(), z.array(z.string())]).optional(),
   reasoning_effort: z.union([z.string(), z.number()]).optional(),
+  // 采样面与工具开关(2026-10-23 协议补全;账号池上游实测均接受)
+  top_p: z.number().min(0).max(1).optional(),
+  presence_penalty: z.number().min(-2).max(2).optional(),
+  frequency_penalty: z.number().min(-2).max(2).optional(),
+  parallel_tool_calls: z.boolean().optional(),
+  user: z.string().max(256).optional(),
+  service_tier: z.string().max(32).optional(),
+  // OpenAI 新版输出预算别名
+  max_completion_tokens: z.number().int().positive().optional(),
+  // 账号池上游静默忽略的语义参数:收下并交回 ai-service 链路,不在账号池假装支持
+  n: z.number().int().positive().optional(),
+  logprobs: z.boolean().optional(),
+  top_logprobs: z.number().int().min(0).max(20).optional(),
 })
 
 /** 提取 message content 的纯文本(计费/审计用;多模态 parts 取 text 段,null/缺省 → '') */
@@ -622,6 +635,17 @@ async function streamChatCompletion(
     stop?: string | string[]
     /** OpenAI 输出控制:reasoning_effort(账号池 Trae 映射 custom_model.reasoning_effort_level) */
     reasoningEffort?: string | number
+    /** 采样面与工具开关(2026-10-23 协议补全) */
+    topP?: number
+    presencePenalty?: number
+    frequencyPenalty?: number
+    parallelToolCalls?: boolean
+    user?: string
+    serviceTier?: string
+    /** 账号池上游静默忽略的语义参数(n>1/logprobs 交回 ai-service 链路) */
+    n?: number
+    logprobs?: boolean
+    topLogprobs?: number
     /** 响应形态:'chat'=chat.completion.chunk(默认)| 'text'=legacy text_completion chunk(/v1/completions) */
     flavor?: 'chat' | 'text'
     /** 两段式计费:preDeductQuota 预扣凭证(recordCall 透传结算) */
@@ -642,7 +666,19 @@ async function streamChatCompletion(
   const id = `chatcmpl-${randomUUID()}`
   const created = Math.floor(Date.now() / 1000)
   const { model, messages, temperature, maxTokens, userId } = opts
-  const { stop, reasoningEffort } = opts
+  const {
+    stop,
+    reasoningEffort,
+    topP,
+    presencePenalty,
+    frequencyPenalty,
+    parallelToolCalls,
+    user,
+    serviceTier,
+    n,
+    logprobs,
+    topLogprobs,
+  } = opts
   const isTextFlavor = opts.flavor === 'text'
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
@@ -700,6 +736,16 @@ async function streamChatCompletion(
       // 输出控制(2026-10-22):渠道原样,账号池按平台映射/本地截断
       if (stop !== undefined) baseBody.stop = stop
       if (reasoningEffort !== undefined) baseBody.reasoning_effort = reasoningEffort
+      // 采样面与工具开关(2026-10-23 协议补全)
+      if (topP !== undefined) baseBody.top_p = topP
+      if (presencePenalty !== undefined) baseBody.presence_penalty = presencePenalty
+      if (frequencyPenalty !== undefined) baseBody.frequency_penalty = frequencyPenalty
+      if (parallelToolCalls !== undefined) baseBody.parallel_tool_calls = parallelToolCalls
+      if (user !== undefined) baseBody.user = user
+      if (serviceTier !== undefined) baseBody.service_tier = serviceTier
+      if (n !== undefined) baseBody.n = n
+      if (logprobs !== undefined) baseBody.logprobs = logprobs
+      if (topLogprobs !== undefined) baseBody.top_logprobs = topLogprobs
       const channelParamOps = await applyParamOpsToBody(baseBody, { model })
       const fwd = await forwardToChannel({
         model,
@@ -713,6 +759,15 @@ async function streamChatCompletion(
         toolChoice: opts.toolChoice,
         stop,
         reasoningEffort,
+        topP,
+        presencePenalty,
+        frequencyPenalty,
+        parallelToolCalls,
+        user,
+        serviceTier,
+        n,
+        logprobs,
+        topLogprobs,
         userId,
         affinityKey: opts.affinityKey,
         bodyOverride: channelParamOps.body,
@@ -791,6 +846,22 @@ async function streamChatCompletion(
     const body: Record<string, unknown> = { messages, model }
     if (temperature !== undefined) body.temperature = temperature
     if (maxTokens !== undefined) body.max_tokens = maxTokens
+    // 输出控制与协议扩展(2026-10-23):ai-service 兜底同样保留入口参数
+    if (stop !== undefined) body.stop = stop
+    if (reasoningEffort !== undefined) body.reasoning_effort = reasoningEffort
+    if (topP !== undefined) body.top_p = topP
+    if (presencePenalty !== undefined) body.presence_penalty = presencePenalty
+    if (frequencyPenalty !== undefined) body.frequency_penalty = frequencyPenalty
+    if (parallelToolCalls !== undefined) body.parallel_tool_calls = parallelToolCalls
+    if (user !== undefined) body.user = user
+    if (serviceTier !== undefined) body.service_tier = serviceTier
+    if (n !== undefined) body.n = n
+    if (logprobs !== undefined) body.logprobs = logprobs
+    if (topLogprobs !== undefined) body.top_logprobs = topLogprobs
+    if (opts.tools !== undefined) body.tools = opts.tools
+    if (opts.toolChoice !== undefined) body.tool_choice = opts.toolChoice
+    if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
+    if (opts.seed !== undefined) body.seed = opts.seed
     // BYOK 平台模式(2026-07-30):透传 owner_uuid via metadata.userId
     if (userId) body.metadata = { userId }
     // OpenAI 协议扩展:response_format(json_schema 已在 system 提示注入,原样透传) + seed
@@ -1372,7 +1443,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       messages,
       stream,
       temperature,
-      maxTokens,
+      maxTokens: maxTokensCamel,
+      max_tokens,
+      max_completion_tokens,
       stream_options,
       response_format,
       seed,
@@ -1380,7 +1453,18 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       tool_choice,
       stop,
       reasoning_effort,
+      top_p,
+      presence_penalty,
+      frequency_penalty,
+      parallel_tool_calls,
+      user,
+      service_tier,
+      n,
+      logprobs,
+      top_logprobs,
     } = body
+    // 三个输出预算字段等价:显式 maxTokens > 标准 max_tokens > OpenAI 新名 max_completion_tokens
+    const maxTokens = maxTokensCamel ?? max_tokens ?? max_completion_tokens
 
     // OpenAI 协议扩展:json_schema 注入 system 提示 + seed 透传 + stream_usage 检测
     // - json_schema:工具函数在 system message 末尾追加 schema 提示,提升非原生模型命中率
@@ -1575,6 +1659,15 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         toolChoice: tool_choice,
         stop,
         reasoningEffort: reasoning_effort,
+        topP: top_p,
+        presencePenalty: presence_penalty,
+        frequencyPenalty: frequency_penalty,
+        parallelToolCalls: parallel_tool_calls,
+        user,
+        serviceTier: service_tier,
+        n,
+        logprobs,
+        topLogprobs: top_logprobs,
         // 响应形态 + 两段式计费凭证 + 渠道亲和性
         flavor,
         preDeducted: preDeduction,
@@ -1661,6 +1754,16 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           // 输出控制(2026-10-22):渠道原样,账号池按平台映射/本地截断
           if (stop !== undefined) baseBody.stop = stop
           if (reasoning_effort !== undefined) baseBody.reasoning_effort = reasoning_effort
+          if (top_p !== undefined) baseBody.top_p = top_p
+          if (presence_penalty !== undefined) baseBody.presence_penalty = presence_penalty
+          if (frequency_penalty !== undefined) baseBody.frequency_penalty = frequency_penalty
+          if (parallel_tool_calls !== undefined)
+            baseBody.parallel_tool_calls = parallel_tool_calls
+          if (user !== undefined) baseBody.user = user
+          if (service_tier !== undefined) baseBody.service_tier = service_tier
+          if (n !== undefined) baseBody.n = n
+          if (logprobs !== undefined) baseBody.logprobs = logprobs
+          if (top_logprobs !== undefined) baseBody.top_logprobs = top_logprobs
           // 参数覆盖系统与 ai-service 路径同源(渠道路径同样生效)
           const paramOpsResult = await applyParamOpsToBody(baseBody, { model: resolvedModel })
           const fwd = await forwardToChannel({
@@ -1675,6 +1778,15 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             toolChoice: tool_choice,
             stop,
             reasoningEffort: reasoning_effort,
+            topP: top_p,
+            presencePenalty: presence_penalty,
+            frequencyPenalty: frequency_penalty,
+            parallelToolCalls: parallel_tool_calls,
+            user,
+            serviceTier: service_tier,
+            n,
+            logprobs,
+            topLogprobs: top_logprobs,
             userId: apiKey?.userId,
             affinityKey: apiKey?.id,
             bodyOverride: paramOpsResult.body,
@@ -1695,6 +1807,19 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         // 输出控制透传(2026-10-22):与流式路径同源
         if (stop !== undefined) body.stop = stop
         if (reasoning_effort !== undefined) body.reasoning_effort = reasoning_effort
+        if (top_p !== undefined) body.top_p = top_p
+        if (presence_penalty !== undefined) body.presence_penalty = presence_penalty
+        if (frequency_penalty !== undefined) body.frequency_penalty = frequency_penalty
+        if (parallel_tool_calls !== undefined) body.parallel_tool_calls = parallel_tool_calls
+        if (user !== undefined) body.user = user
+        if (service_tier !== undefined) body.service_tier = service_tier
+        if (n !== undefined) body.n = n
+        if (logprobs !== undefined) body.logprobs = logprobs
+        if (top_logprobs !== undefined) body.top_logprobs = top_logprobs
+        if (tools !== undefined) body.tools = tools
+        if (tool_choice !== undefined) body.tool_choice = tool_choice
+        if (upstreamResponseFormat !== undefined) body.response_format = upstreamResponseFormat
+        if (upstreamSeed !== undefined) body.seed = upstreamSeed
         // P0-5 BYOK(2026-07-30):非流式也透传 metadata.userId + byokMode,
         // 让 ai-service 能识别 BYOK 调用并走用户自有 key 路径(与流式 streamChatCompletion 对齐)。
         if (apiKey?.userId) {
