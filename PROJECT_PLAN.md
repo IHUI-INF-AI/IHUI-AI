@@ -29059,3 +29059,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] （进行中@2026-10-23/goal-20261023-M）**第 3 波待办（覆盖面本身，不是功能票）** —— 未读名单已报名，按此接手：`apps/zcode-cli/packages/core/src/{tool/handlers 120, runtime/methods 98, runtime/helpers 53, subagent 22, workflow 31, hooks 17, context 12, memory 10, browser-client 7}`；`packages/desktop/src/main/index.ts`(2384，装配主入口) + 遥测/ARMS 族 + `processResource*` 13；`packages/ui/src/lib` 剩余 workspace 22/task 21/provider 15/telemetry 9/tool 9 〔压缩@2026-10-22〕〔进展@2026-10-22/goal-r52:第二批回填 24 份入表(tool/handlers 余 1 份 rejected 带 why+runtime/methods 字母序前 23 份 deep,slices 497→521,readFiles.lines 逐条磁盘现量复核+JSON 校验 OK);现读校正票面名单滞后——hooks 19 份与 packages/ui/src/lib 238 份已全部在表,余量=runtime/methods 约 75+helpers 53+subagent 22+workflow 31+context 12+memory 10+browser-client 7+desktop main/index.ts+遥测 ARMS 族+processResource 13〕
 
 
+
