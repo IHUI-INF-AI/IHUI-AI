@@ -812,6 +812,12 @@ function main() {
     process.exit(1)
   }
 
+  // 落地前先钉住 HEAD:留痕的凭据是"面上真的摘掉了",而落地器的退出码答不了这一问 ——
+  // 实测 2026-10-23:落地器 CAS 成功推进 HEAD,却因提交面回读"git 问不到"返 exit 2;
+  // 若按退出码跳过留痕,这一批就成了**无凭据摘除**,下一轮合并必把它们带回。
+  // 必须声明在 try 之外:留痕段在 try/finally 之后读取它(声明在 try 内会 ReferenceError,
+  // 落地成功也写不进留痕 ⇒ 正是"摘一次、回一次"的根因)。
+  const headBefore = git(['rev-parse', 'HEAD']).trim()
   const dir = mkScratch('ihui-strip-closed-')
   // 落地器的退出码要带出 try 块:留痕段(try 之后)要拿它决定"该怎么解释这次推进"。
   let landStatus = 0
@@ -846,10 +852,6 @@ function main() {
         `未勾行逐字节守恒,判据 import 守门 check-plan-closed-stock,` +
         `摘除前按守门 71 同一把尺子复核 ⇒ 另跳过 ${part.held.length} 条"仍保护"的行交人工)`,
     }
-    // 落地前先钉住 HEAD:留痕的凭据是"面上真的摘掉了",而落地器的退出码答不了这一问 ——
-    // 实测 2026-10-23:落地器 CAS 成功推进 HEAD,却因提交面回读"git 问不到"返 exit 2;
-    // 若按退出码跳过留痕,这一批就成了**无凭据摘除**,下一轮合并必把它们带回。
-    const headBefore = git(['rev-parse', 'HEAD']).trim()
     const land = spawnSync(process.execPath, [path.join(ROOT, 'scripts/object-space-land.mjs')], {
       cwd: ROOT,
       env,
