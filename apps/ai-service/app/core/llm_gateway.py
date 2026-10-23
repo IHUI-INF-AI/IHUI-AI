@@ -103,6 +103,7 @@ def _emit_llm_call_log(
     error_message: str | None = None,
     error_kind: str | None = None,
     key_pool_id: str | None = None,
+    config_id: int | None = None,
     attempt: int = 0,
     call_route: str = "direct",
     leg_primary: str | None = None,
@@ -154,6 +155,7 @@ def _emit_llm_call_log(
                 cost_usd=cost_usd,
                 cost_source=cost_source,
                 key_pool_id=key_pool_id,
+                config_id=config_id,
                 config_source="key_pool" if key_pool_id else "byok_or_env",
                 attempt=attempt,
                 call_route=call_route,
@@ -1579,10 +1581,13 @@ _FREE_PROVIDER_ENDPOINT_RESOLVERS: dict[str, tuple[str, str | None, bool, bool]]
 async def _resolve_from_db(
     model: str,
     owner_uuid: str | None = None,
-) -> tuple[str | None, str | None, str | None] | None:
-    """从 ai_model_config 表查询配置,返回 (api_key, api_base, litellm_model) 或 None。
+) -> tuple[str | None, str | None, str | None, int | None] | None:
+    """从 ai_model_config 表查询配置,返回 (api_key, api_base, litellm_model, config_id) 或 None。
 
     优先 owner_uuid 匹配的用户私有配置,兜底 owner_uuid IS NULL 的全局配置。
+    config_id = 命中的那一行 ai_model_config.id(bigint),供 llm_call_logs.config_id
+    落库使用(2026-10-23 立,"这次调用用的是哪条 provider 配置"可回溯);
+    读的是同一行同一次查询,不另开一条 SQL,取不到就是 None。
     """
     provider_code = await _resolve_provider_code(model) or "openai"
     try:
@@ -1590,7 +1595,7 @@ async def _resolve_from_db(
         async with pool.acquire() as conn:
             if owner_uuid:
                 row = await conn.fetchrow(
-                    """SELECT api_key_enc, base_url, api_format
+                    """SELECT id, api_key_enc, base_url, api_format
                        FROM ai_model_config
                        WHERE enabled = true AND provider_code = $1
                          AND (owner_uuid IS NULL OR owner_uuid = $2)
@@ -1601,7 +1606,7 @@ async def _resolve_from_db(
                 )
             else:
                 row = await conn.fetchrow(
-                    """SELECT api_key_enc, base_url, api_format
+                    """SELECT id, api_key_enc, base_url, api_format
                        FROM ai_model_config
                        WHERE enabled = true AND provider_code = $1 AND owner_uuid IS NULL
                        ORDER BY sort_order ASC, id ASC
@@ -1610,6 +1615,16 @@ async def _resolve_from_db(
                 )
         if not row:
             return None
+        # 命中的配置行 id:llm_call_logs.config_id 的唯一实证来源(同一行同一次查询)。
+        # bool 是 int 的子类,必须显式排除;非正数/非整数一律 None(宁缺毋假)。
+        raw_config_id = row["id"]
+        config_id: int | None = (
+            raw_config_id
+            if isinstance(raw_config_id, int)
+            and not isinstance(raw_config_id, bool)
+            and raw_config_id > 0
+            else None
+        )
         # 带上 provider_code:坏密文会被读到很多次,日志不带名字等于没人知道是哪一家坏了
         api_key = _decrypt_api_key(row["api_key_enc"], provider_code)
         if not api_key:
@@ -1637,7 +1652,7 @@ async def _resolve_from_db(
             litellm_model = model if model.lower().startswith("openrouter/") else f"openrouter/{model}"
         else:
             litellm_model = f"openai/{real_model}"
-        return api_key, base_url, litellm_model
+        return api_key, base_url, litellm_model, config_id
     except Exception as e:
         logger.warning("从 ai_model_config 查询失败(provider=%s): %s", provider_code, e)
         return None
@@ -2312,9 +2327,9 @@ class LLMGateway:
             db_result = await _resolve_from_db(model, owner_uuid)
             if not db_result:
                 return None
-            api_key, api_base, _ = db_result
+            api_key, api_base = db_result[0], db_result[1]
         else:
-            api_key, api_base, _, _ = await self._resolve(model, owner_uuid)
+            api_key, api_base, _, _, _ = await self._resolve(model, owner_uuid)
         if not api_key:
             return None
         # 批 58:on 时用 ProviderConfig 强类型校验归一 api_base(去末尾斜杠);off 原样透传
@@ -2332,7 +2347,7 @@ class LLMGateway:
         self,
         model: str,
         owner_uuid: str | None = None,
-    ) -> tuple[str | None, str | None, str | None, str | None]:
+    ) -> tuple[str | None, str | None, str | None, str | None, int | None]:
         """优先 BYOK → 号池 → .env(三层优先级)。
 
         1. BYOK 用户私有配置(_resolve_from_db 查 ai_model_config WHERE owner_uuid=?)
@@ -2340,14 +2355,17 @@ class LLMGateway:
         3. .env 单 key(_resolve_provider 兜底)
 
         Returns:
-            (api_key, api_base, litellm_model, key_pool_id)
+            (api_key, api_base, litellm_model, key_pool_id, config_id)
             key_pool_id 非空表示命中号池,供 complete/astream 故障转移标记用。
+            config_id 非空表示 key/base 来自哪一行 ai_model_config(llm_call_logs.config_id);
+            号池腿与环境变量兜底腿都没有配置行 ⇒ None(不拿 provider 猜 id)。
             2026-08-01 P0 修复:改为返回值而非设置类属性,消除并发共享状态。
         """
         # 1. BYOK 用户私有配置
         db_result = await _resolve_from_db(model, owner_uuid)
         if db_result:
-            return (*db_result, None)
+            api_key, api_base, litellm_model, config_id = db_result
+            return (api_key, api_base, litellm_model, None, config_id)
 
         # 2. 号池(中转站模式):查 ai_relay_key_pool
         provider_code = KeyPoolSelector.model_to_provider_code(model)
@@ -2357,10 +2375,10 @@ class LLMGateway:
             # litellm_model 走 _resolve_provider 的前缀处理(去前缀 + 加 openai/ 等)
             cfg = settings.get_provider_config(provider_code)
             _, _, litellm_model = self._resolve_provider(model)
-            return pool_key["api_key"], cfg.api_base or None, litellm_model, pool_key["key_pool_id"]
+            return pool_key["api_key"], cfg.api_base or None, litellm_model, pool_key["key_pool_id"], None
 
         # 3. .env 单 key 兜底
-        return (*self._resolve_provider(model), None)
+        return (*self._resolve_provider(model), None, None)
 
     async def _apply_token_compaction(
         self,
@@ -2629,10 +2647,12 @@ class LLMGateway:
                     "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
                     "stub": True,
                 }
-            api_key, api_base, real_model = db_result
+            api_key, api_base, real_model, current_config_id = db_result
             current_key_pool_id: str | None = None
         else:
-            api_key, api_base, real_model, current_key_pool_id = await self._resolve(used_model, owner_uuid)
+            api_key, api_base, real_model, current_key_pool_id, current_config_id = (
+                await self._resolve(used_model, owner_uuid)
+            )
 
         _metrics_t0 = time.perf_counter()
         try:
@@ -2756,6 +2776,7 @@ class LLMGateway:
                 cost_usd=_cost_usd,
                 cost_source=_cost_source,
                 key_pool_id=current_key_pool_id,
+                config_id=current_config_id,
                 attempt=_pool_retry,
                 call_route=_call_route,
                 leg_primary=_call_route_primary,
@@ -2824,6 +2845,7 @@ class LLMGateway:
                 error_message=safe_msg,
                 error_kind=_err_status,
                 key_pool_id=current_key_pool_id,
+                config_id=current_config_id,
                 attempt=_pool_retry,
                 call_route=_call_route,
                 leg_primary=_call_route_primary,
@@ -3536,10 +3558,12 @@ class LLMGateway:
                     "stub": True,
                 }
                 return
-            api_key, api_base, real_model = db_result
+            api_key, api_base, real_model, current_config_id = db_result
             current_key_pool_id: str | None = None
         else:
-            api_key, api_base, real_model, current_key_pool_id = await self._resolve(used_model, owner_uuid)
+            api_key, api_base, real_model, current_key_pool_id, current_config_id = (
+                await self._resolve(used_model, owner_uuid)
+            )
 
         # 累积 content/reasoning,用于 provider 不返回 stream_usage 时估算 token
         # 必须在 try 块之前初始化:若 try 内 import/raise 在赋值前抛异常,
@@ -3808,6 +3832,7 @@ class LLMGateway:
                 cost_usd=_stream_cost,
                 cost_source=_stream_cost_source,
                 key_pool_id=current_key_pool_id,
+                config_id=current_config_id,
                 attempt=_pool_retry,
                 call_route=_call_route,
                 leg_primary=_call_route_primary,
@@ -3893,6 +3918,7 @@ class LLMGateway:
                 error_message=safe_msg,
                 error_kind=_err_status_s,
                 key_pool_id=current_key_pool_id,
+                config_id=current_config_id,
                 attempt=_pool_retry,
                 call_route=_call_route,
                 leg_primary=_call_route_primary,

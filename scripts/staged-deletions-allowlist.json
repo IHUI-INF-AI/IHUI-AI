@@ -44,6 +44,10 @@
     {
       "path": "apps/miniapp-taro/tests/login-thirdparty-entries.test.tsx",
       "reason": "2026-10-23 随其被测对象(登录页)删除。**它锁的性质没有跟着删** —— \"登录界面不许挂点了拿不回登录态的假入口\"已迁到弹窗侧继续锁:tests/login-popup-password-fallback.test.tsx 断言① 弹窗不渲染 oauth 图标格、不引 Google 素材;② 弹窗源码不往 /pages/webview 那条死路导航(那条路从没有一方接管 sso 回传);③ 7 个原硬编码登录页路由的调用点全部归零。登记本条而不是让门自己放过:门 99 的替代路径判据只认同名同后缀文件,而新载体住在另一个文件名里。"
+    },
+    {
+      "path": "candidates2.txt",
+      "reason": "2026-10-23 摘除根目录一次性扫描草稿。三条实测凭据:① 零消费方 —— git grep -l 现读命中文件数 0;② 成因是收集器误收 —— 入库枚 411646ee58 的提交信息自述 chore(auto): 收编停留≥3分钟的未提交改动,即 §15 要求落 .ihui-agent/tmp/<任务名>/ 的临时件被整目录收编器顺手带回 HEAD;③ 它此刻正顶着一道 blocking 门 —— node scripts/check-root-dir-clean.mjs 现读末行『根目录整洁守门失败:一级目录存在白名单外条目 · candidates2.txt (文件)』。内容不是资产而是可再生产物:同形态的调用点↔后端在册对照由守门 8(check-api-routes.mjs)每次现算,不靠盘上一枚快照;正解按门 44 的处置档是删除而非进白名单(白名单只收配置/标准文档/标准目录)。"
     }
   ]
 }
