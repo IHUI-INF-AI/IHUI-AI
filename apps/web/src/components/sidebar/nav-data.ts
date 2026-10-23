@@ -653,6 +653,8 @@ export const AI_HUB_ITEMS: NavItem[] = [
   // 签到助手(2026-10-03 立):账号服务端化管理(ai-service /api/checkin)
   // 2026-10-20 简洁模式:`experimental` —— 服务端账号签到运维面板,与自己无关的账号状态
   { href: '/checkin', labelKey: 'checkin', icon: CalendarCheck, advancedOnly: 'experimental' },
+  // 个人号池(2026-10-23 立):与签到助手同一批第三方账号,归属当前用户,可启停/立即签到/看同步态
+  { href: '/account-pool', labelKey: 'accountPool', icon: Wallet, advancedOnly: 'experimental' },
   { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
   // 知识库三合一(2026-08-30):知识库/RAG/图谱 三个入口概念重叠,收进"知识库"子清单
   {
