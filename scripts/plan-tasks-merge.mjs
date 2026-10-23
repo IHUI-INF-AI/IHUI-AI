@@ -45,6 +45,12 @@
  *    → 出口是 `--merge-drifted "<题面锚点>"`:报告族内名单 → 人工 `--keeper` 点名持有行 →
  *    `--commit` 落地;副本原地折成"指针注记 + 行尾沿革",正文逐字保留、一行不删、不翻勾,
  *    持有行不猜(裁决哪份作数必须是人)。判据与散文见 `--merge-drifted` 段头注(G-952,原 G-1058524)。
+ *    **G-952 收口(2026-10-23)补的是这一档的可发现性与守恒**:① 无编号族的只读扫描
+ *    `findKeylessDriftedFamilies` 随默认预演档与 `--dedupe-open-rows` / `--fold-identical-open-rows`
+ *    一起报数点名并直接给出可回填的锚点(旧报名只走 composite 键 ⇒ 无编号行整族隐身,"出口存在
+ *    但没人拿得到锚点");② 折叠改写必须过 `lib/plan-row-conservation.mjs` 的三维守恒
+ *    (勾选态 ∧ 认领租约 ∧ 归属桶),拒写而非"照样折"—— 本档那条机器注记自己就能把
+ *    `waiting-env` 读成 `actionable`(真仓 HEAD 现读 L28865),那等于悄悄往派单口径里加活。
  *
  * 安全阀(全部由机器核,不靠人眼):
  *  1. 改写按**行号精确 splice**,所以"面上有逐字同文的孪生行"不构成误伤 —— 真正的风险是
@@ -145,6 +151,9 @@ import { recordBypassLanding } from './lib/commit-attestation.mjs'
 // 而回退支写的是 `head, commit]`(后面无逗号)⇒ 天然不匹配。现行实现与本注释的出处见 :362-373。
 // 遮噪只引这一份实现(守门 131/135/148 同规,§22c)。
 import { maskCommentsStringsAndRegex } from './lib/code-mask.mjs'
+// G-952 收口(2026-10-23):漂开折叠是**整行改写**,必须过 AGENTS §1 那三维守恒(勾选态 ∧ 认领租约 ∧ 归属桶)。
+// 实现单源在 lib,本器不得再抄一份"什么算漂了归属"(§0.6;门 191 拦的是测试侧复制,实现侧自抄没人拦)。
+import { assertRowRewriteConservation } from './lib/plan-row-conservation.mjs'
 import { runSelfTest } from './lib/plan-tasks-merge-selftest.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -2095,7 +2104,18 @@ export function findOpenRowRefusals(content) {
     if (texts.size > 1)
       drifted.push({ key: g.key, copies: g.open.length, at: g.open.map((r) => r.line) })
   }
-  return { noPointer, drifted }
+  // G-952:上面那一族只覆盖**有复合主键**的行(`compositeKeyOf` 对无编号行恒 null ⇒ 整族隐身)。
+  // 这一格补的是"无编号而题面相撞、正文已漂开"那一族的可发现性;error 必须原样带出,
+  // 不得当成空数组回报(§0.3:取不到输入既不记绿也不冒红)。
+  const keyless = findKeylessDriftedFamilies(content)
+  return {
+    noPointer,
+    drifted,
+    driftedKeyless: keyless.error ? [] : keyless.families,
+    driftedKeylessError: keyless.error ?? null,
+    keylessScan: keyless,
+    keylessNote: keylessDriftedNote(keyless),
+  }
 }
 
 /**
@@ -3129,6 +3149,18 @@ export function driftedFoldRejectReason(beforeLine, afterLine) {
   if (!note) return '注记形状不合本档构造(内部出现了闭括号?)'
   if (TWIN_ID_RE.test(note)) return `注记里出现了任务编号形态 ⇒ 会被尺子读成本行主键(实得 ${k})`
   if (/\bL\d{1,6}\b/.test(note)) return '注记里出现了行号(§1 规矩 3 禁止证据指针写行号)'
+  /**
+   * G-952 收口(2026-10-23):整行改写的**三维守恒**必须当场量,不接受注释承诺。
+   * 判据单源 = `scripts/lib/plan-row-conservation.mjs`(勾选态 ∧ 认领租约 ∧ 归属桶)。
+   * 立因是同日实测:本档那条机器注记**自己就会改判据输入** —— 真仓 HEAD 现读 L28865 那行折前读
+   * `waiting-env`、折后读 `actionable`(注记的成对括注被 `bodyOfRow` 当成主键区装饰吃掉了原有
+   * 的等待句),于是一张"在等前置"的票在派单口径里变成"现在就能派"。这类改变**没人翻勾、
+   * 没人删字**,所以门 71/109/130 全绿也照样错(§1 明令:整行改写必须三维逐行不变)。
+   * 拒写的方向是"多要一次定向说明"(该行留在面上、逐条点名),绝不是"照样折但少折一行"。
+   */
+  const conserved = assertRowRewriteConservation({ oldLine: beforeLine, newLine: afterLine })
+  if (conserved.length)
+    return `三维守恒未过(勾选态∧租约∧归属桶,单源 plan-row-conservation):${conserved.join(' / ')}`
   if (stripDriftFold(afterLine) !== beforeLine) return '剥掉本档注记后不等于底稿(折叠不可逆)'
   const bs = STATE_TOKEN_RE.exec(beforeLine)?.[0]
   const as = STATE_TOKEN_RE.exec(afterLine)?.[0]
@@ -3136,6 +3168,24 @@ export function driftedFoldRejectReason(beforeLine, afterLine) {
     return `勾选状态被改了(${JSON.stringify(bs)}→${JSON.stringify(as)})—— 翻勾是 --heal 那一维的职责`
   if (headIdOf(beforeLine) !== headIdOf(afterLine))
     return `行首编号被门 71 读成变了(${String(headIdOf(beforeLine))}→${String(headIdOf(afterLine))})⇒ 会与回捞层互咬`
+  return null
+}
+
+/**
+ * 漂开族的**行级入场判据**(G-952 收口时抽出 —— 锚点档与全档扫描档共用这一份,§0.6)。
+ * 返回 `null` = 可作漂开族候选;否则返回它**退场的那一格的名字**。三档全部沿用既有单源出口,
+ * 这里不新增任何"什么算副本"的口径:
+ *  - `pointer`:`DUP_POINTER_RE`(索引层把这句字面算作"同一件事的副本"⇒ 已标注/已折过,不再是待裁对象)
+ *  - `folded`:本档自己的产物形状(`isDriftFolded`)⇒ 幂等复跑不得再折一次
+ *  - `leased`:`LEASE_RE`(G-761 第⑥维:别人正在干活的现场一份不碰)
+ * @param {string} raw 登记行原文
+ * @returns {null|'pointer'|'folded'|'leased'}
+ */
+export function driftRowAdmission(raw) {
+  const s = String(raw ?? '')
+  if (DUP_POINTER_RE.test(s)) return 'pointer'
+  if (isDriftFolded(s)) return 'folded'
+  if (new RegExp(LEASE_RE.source).test(s)) return 'leased'
   return null
 }
 
@@ -3155,17 +3205,95 @@ export function findDriftedFamilies(lines, anchor) {
   const skippedLeased = []
   for (const r of parseTaskRows(content)) {
     if (r.state !== 'open') continue
-    if (DUP_POINTER_RE.test(r.raw)) continue // 已折过(任一档)的形状,不再是漂开副本
-    if (isDriftFolded(r.raw)) continue
     const t = titleOf(r.raw)
     if (!t || !t.includes(a)) continue
-    if (new RegExp(LEASE_RE.source).test(r.raw)) {
+    const why = driftRowAdmission(r.raw)
+    if (why === 'leased') {
       skippedLeased.push(r.line)
       continue
     }
+    if (why) continue
     rows.push(r)
   }
   return { anchor: a, rows, skippedLeased }
+}
+
+/**
+ * G-952 收口的**只读扫描档**:全档枚举「无编号 ∧ 未勾选 ∧ 未标注 ∧ 未带牌」登记行,按**题面**
+ * (`titleOf` 那份单源出口 —— 本档不重定义"同题")成族,只留族内正文**逐字不等**的那些 ⇒ 漂开候选族名单。
+ *
+ * 为什么必须有这一格,而不是"直接给 --merge-drifted 喂锚点就行":
+ *  出口本身 2026-10-18 就装车了,但它要**人先把题面锚点亲手打出来**;而既有报名档
+ *  (`findOpenRowRefusals().drifted`)取组喂的是 `auditPlan().dupOpen`,那一层按**复合主键**分组,
+ *  `compositeKeyOf` 对无编号行恒返回 null ⇒ 票面那三条(全是无编号 P1)从报名面上整族隐身。
+ *  出口存在而不可发现,读报告的人只能得出票面那句结论:"没有归并出口"。
+ *
+ * 三条刻意的保守,别在"顺手收紧/放宽"时改掉:
+ *  ① **只报名,不判同题**:题面相撞 ≠ 同一件事。真仓现读有一族 10 行题面都叫「副本指针」而各是各的票,
+ *     本档如实报名成候选族并标 `overCap`(>DRIFT_GROUP_MAX ⇒ --merge-drifted 那一侧本来就会拒)。
+ *     裁决同题与否归人,不归这把尺子(§0.10:失效方向必须是"多要一次定向说明",绝不能是"多放一次跳门")。
+ *  ② **与两条既有尺子互斥不重叠**:有编号的族归 `dupOpen`(同主键报名),无编号而**逐字相同**的族归
+ *     F4b / `--fold-identical-open-rows`;本档只吃"无编号 ∧ 族内正文互不等"那一格。同一族被两把尺子
+ *     各算一遍就会长出两笔互相顶数的账(本仓记过最多次的失效型)。
+ *  ③ **取不到输入 ⇒ error(未判定)**:非字符串 / 空文本 / 枚举到 0 行登记行,一律既不记绿也不冒红(§0.3)。
+ *
+ * @param {string} content 整档文本(调用方负责按被审面取,同面同轮,§0.4)
+ * @returns {{error?:string, families:Array<{anchor:string,copies:number,lines:number[],lens:number[],overCap:boolean}>, skippedLeased:number[], scannedRows:number}}
+ */
+export function findKeylessDriftedFamilies(content) {
+  if (typeof content !== 'string')
+    return { error: `扫描未判定 —— 入参不是整档文本(实得 ${typeof content})` }
+  if (content.trim() === '') return { error: '扫描未判定 —— 入参是空文本,枚举不到任何行' }
+  const rows = parseTaskRows(content)
+  if (rows.length === 0) return { error: '扫描未判定 —— 档内枚举到 0 行登记行(不等于"没有漂开族")' }
+  const byTitle = new Map()
+  const skippedLeased = []
+  let keyless = 0
+  for (const r of rows) {
+    if (r.state !== 'open') continue
+    // 有编号的族由 dupOpen 那一侧报名,两条通道不得重叠记账(见头注 ②)。
+    if (keyOfRow(r.raw) !== null) continue
+    keyless++
+    const t = titleOf(r.raw)
+    if (!t || t.length < 4) continue
+    const why = driftRowAdmission(r.raw)
+    if (why === 'leased') {
+      skippedLeased.push(r.line)
+      continue
+    }
+    if (why) continue
+    if (!byTitle.has(t)) byTitle.set(t, [])
+    byTitle.get(t).push(r)
+  }
+  const families = []
+  for (const [anchor, rs] of byTitle) {
+    if (rs.length < 2) continue
+    // 逐字相同的那一族不是漂开(它归 --fold-identical-open-rows)⇒ 族内必须存在互不相等的正文。
+    if (new Set(rs.map((r) => r.raw)).size < 2) continue
+    families.push({
+      anchor,
+      copies: rs.length,
+      lines: rs.map((r) => r.line),
+      lens: rs.map((r) => r.raw.length),
+      overCap: rs.length > DRIFT_GROUP_MAX,
+    })
+  }
+  families.sort((x, y) => x.lines[0] - y.lines[0])
+  return { families, skippedLeased, scannedRows: keyless }
+}
+
+/** 扫描档的一行**结论**(两个报名站点共用这一份文案,免得同一读数在两处各说一遍)。
+ *  入参是 `findKeylessDriftedFamilies` 的返回值本身 —— 站点各自已经扫过,不得在这里再扫第二遍
+ *  (同一轮里两次扫描之间若被别席推了 HEAD,打出来的两行会互相顶不上数)。 */
+export function keylessDriftedNote(scan) {
+  if (!scan || typeof scan !== 'object') return '④ 无编号漂开候选族(G-952 扫描档):**未判定** —— 拿不到扫描结果入参'
+  if (scan.error) return `④ 无编号漂开候选族(G-952 扫描档):**未判定** —— ${scan.error}`
+  const rows = (scan.families ?? []).reduce((n, f) => n + f.copies, 0)
+  return (
+    `④ 无编号漂开候选族(G-952 扫描档):${(scan.families ?? []).length} 族 / ${rows} 行` +
+    `(无编号未勾登记行 ${scan.scannedRows} 行里取;带认领牌跳过 ${(scan.skippedLeased ?? []).length} 行)` +
+    ` —— 只报名不判同题,裁决后走 --merge-drifted "<题面>" --keeper <行号>`
+  )
 }
 
 /**
@@ -3242,6 +3370,12 @@ export function verifyDriftedMerge(srcText, outText, edits, refused = [], anchor
     if (b[e.line - 1] !== e.after) problems.push(`L${e.line} 产物没落到声明的位置`)
     if (stripDriftFold(b[e.line - 1] ?? '') !== e.before)
       problems.push(`L${e.line} 剥掉本档注记后不等于底稿(不可逆的归并不许落地)`)
+    // G-952:落地闸**再量一次**三维守恒(与 driftedFoldRejectReason 同一份单源实现)。
+    // 为什么拒写理由已经有了还要在这里重复:前者是"造候选"那一格,可被调用方绕过
+    // (直接喂 applyDriftedMerge 的产物),而这里是"落地面"那一格 —— 守恒只许在落地前当场证,
+    // 不许由上游的口头保证代证。
+    const conserved = assertRowRewriteConservation({ oldLine: e.before, newLine: b[e.line - 1] ?? '' })
+    if (conserved.length) problems.push(`L${e.line} 三维守恒未过(勾选态∧租约∧归属桶):${conserved.join(' / ')}`)
     const kAfter = keyOfRow(b[e.line - 1] ?? '')
     const kBefore = keyOfRow(e.before)
     if (kAfter !== null && kAfter !== kBefore)
@@ -5018,6 +5152,19 @@ function main() {
       console.log(
         `  · 交人工(同主键漂移):${d.copies} 份 @ L${d.at.join(',L')} 键「${String(d.key).slice(0, 40)}」`,
       )
+    // G-952 第四族报名:无编号而题面相撞、正文已漂开。上面那一把尺子按复合主键取组,
+    // 对无编号行整族失明 ⇒ 出口(--merge-drifted)存在却拿不到锚点,读报告的人只能得出
+    // "没有出口"这一个结论 —— 这一格补的就是可发现性,不是新的删行权力(只报名,不判同题)。
+    console.log(`   ${refO.keylessNote}`)
+    if (refO.driftedKeylessError === null) {
+      for (const f of refO.driftedKeyless.slice(0, has('--all') ? 9999 : 5))
+        console.log(
+          `  · 候选漂开族(无编号):${f.copies} 份 @ L${f.lines.join(',L')} 正文长度 ${f.lens.join('/')}` +
+            (f.overCap
+              ? ` —— 超过 ${DRIFT_GROUP_MAX} 份,--merge-drifted 会拒(题面撞车不等于同题),需人工缩小锚点`
+              : `;锚点 = --merge-drifted "${f.anchor}"`),
+        )
+    }
     if (!groupsO.length) {
       console.log(
         match
@@ -5213,6 +5360,17 @@ function main() {
     `F10 同题不同编号的孪生登记:成组 ${twR.groups.length} 族 / 拟折 ${twR.edits.length} 行 / 判不出 ${twR.undetermined.length} 条` +
       `(判不出不计入通过;逐条点名见 --fold-twins)`,
   )
+  // G-952:无编号而题面相撞、正文已漂开那一族的**可发现性**必须与 F1–F4/F10 同屏报出 ——
+  // 它不在 composite 键里,默认档不报就等于"没有这一型",而票面读到的正是"没有归并出口"。
+  const klScan = findKeylessDriftedFamilies(src)
+  console.log(keylessDriftedNote(klScan))
+  for (const f of (klScan.families ?? []).slice(0, has('--all') ? 9999 : 5))
+    console.log(
+      `  · 候选漂开族(无编号):${f.copies} 份 @ L${f.lines.join(',L')} 正文长度 ${f.lens.join('/')}` +
+        (f.overCap
+          ? ` —— 超过 ${DRIFT_GROUP_MAX} 份,--merge-drifted 会拒(题面撞车不等于同题),需人工缩小锚点`
+          : `;锚点 = --merge-drifted "${f.anchor}"`),
+    )
   for (const c of r.changed.slice(0, has('--all') ? 9999 : 8)) {
     console.log(`\n  L${c.line} [${c.kind}]`)
     console.log(`    - ${c.before.slice(0, 140)}`)
@@ -5294,7 +5452,10 @@ export const __test__ = {
   stripDriftFold,
   isDriftFolded,
   driftedFoldRejectReason,
+  driftRowAdmission,
   findDriftedFamilies,
+  findKeylessDriftedFamilies,
+  keylessDriftedNote,
   applyDriftedMerge,
   verifyDriftedMerge,
   DRIFT_GROUP_MAX,
