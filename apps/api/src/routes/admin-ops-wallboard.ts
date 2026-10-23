@@ -36,6 +36,8 @@ import { success, error } from '../utils/response.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import type { EdgeLegKey, EdgeLegSample, EdgeStats } from '../services/edge-access.js'
 import { edgeSeries, latestEdgeSnapshot } from '../services/edge-access.js'
+import { getTrafficLiveSnapshot } from '../services/traffic-stats-service.js'
+import { getRelayPoolLiveSnapshot } from '../services/relay-pool-stats-service.js'
 
 // ===== 可观测数据源端点(环境变量可覆盖;默认值 = Windows 原生部署实况)=====
 const PROMETHEUS_URL = (process.env.PROMETHEUS_URL ?? 'http://127.0.0.1:8815').replace(/\/$/, '')
@@ -429,11 +431,14 @@ async function buildBridge(): Promise<BridgeSnapshot | null> {
 
 // ===== 访客与机器人 / AI 号池(2026-10-23 立:把面板盘里的关键数字直接搬上大屏)=====
 /**
- * 这两块只读 Prometheus 里由 business-metrics 发射的聚合 gauge,不碰业务库:
- *  - 访客块:`ihui_traffic_page_views` / `_unique_visitors` / `_family_page_views`(小时级刷新,
- *    api 重启归零 —— 所以同时给出 `aggregationAgeSec`,让大屏能显示"这数是多久前算的");
- *  - 号池块:`ihui_relay_key_pool_*` / `ihui_relay_account_pool_*`(5 分钟一轮)。
- * 取不到一律 null(渲染"—"),不折成 0。
+ * 这两块**现算**,不读 Prometheus gauge(2026-10-23 改:机主要"实时",不要小时级)。
+ *  - 访客块:`getTrafficLiveSnapshot()` —— 直接对 `api_logs` 跑 24h/1h 总计 +
+ *    24h 按 UA 分组三条 SQL(实测合计 ≈ 46 ms,走 `api_logs_created_at_idx`),
+ *    带 5 秒进程内缓存 ⇒ 大屏 5 秒轮询拿到的就是 5 秒内的真值,且 **api 重启不归零**。
+ *  - 号池块:`getRelayPoolLiveSnapshot()` —— 直接读 `ai_relay_key_pool` /
+ *    `ai_relay_account_pool`(运营级小表),同样 5 秒缓存,不受 5 分钟 gauge 节奏影响。
+ * 两块都:取不到/查询失败一律 null(渲染"—"),**不折成 0**;`aggregationAgeSec`
+ * 现在报的是"这份快照距今多少秒"(0..5),不再是"上一次小时级刷新距今"。
  */
 interface TrafficSnapshot {
   /** 近 24h PV / UV(api_logs 口径) */
@@ -447,73 +452,27 @@ interface TrafficSnapshot {
   botPv24h: number | null
   /** 各客户端族近 24h PV(降序) */
   families: Array<{ family: string; pv: number }>
-  /** 聚合器多久没成功刷过(秒) */
+  /** 这份快照距今多少秒(0..TTL);null = 快照取不到,整块不可用 */
   aggregationAgeSec: number | null
   /** true = 族分解被 UA 种类预算截断,族值只是下界 */
   truncated: boolean | null
 }
 
-/** 视为"真人"的族:首方自有端 + 人浏览器(见 bot-detection 的族优先级) */
-const HUMAN_FAMILIES = new Set(['first-party', 'human-browser'])
-
-/**
- * 新鲜度秒数的合理上界。新鲜度戳在"从未成功刷新"时是 0,`time() - 0` 会算出
- * 十亿级秒数(大屏上显示成"两万天"),那不是"很久没刷",而是"根本没刷过" ——
- * 这种值必须折成 null(未判定),不能当成真实年龄渲染。
- */
-const TRAFFIC_AGG_MAX_AGE_SEC = 6 * 3600
-const RELAY_POOL_MAX_AGE_SEC = 3600
-
-function saneAgeSec(sec: number | null, maxSec: number): number | null {
-  if (sec === null || !Number.isFinite(sec) || sec < 0 || sec > maxSec) return null
-  return sec
-}
-
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
   try {
-    const [pv24, uv24, pv1, uv1, fam, age, trunc] = await Promise.all([
-      promQuery('max(ihui_traffic_page_views{window="24h",source="api_logs"})'),
-      promQuery('max(ihui_traffic_unique_visitors{window="24h",source="api_logs"})'),
-      promQuery('max(ihui_traffic_page_views{window="1h",source="api_logs"})'),
-      promQuery('max(ihui_traffic_unique_visitors{window="1h",source="api_logs"})'),
-      promQuery(
-        'sum by (client_family) (ihui_traffic_family_page_views{window="24h",source="api_logs"})',
-      ),
-      promQuery('time() - max(ihui_traffic_aggregation_last_success_timestamp_seconds)'),
-      promQuery('max(ihui_traffic_family_breakdown_truncated)'),
-    ])
-    const aggregationAgeSec = saneAgeSec(firstNum(age), TRAFFIC_AGG_MAX_AGE_SEC)
-    // 聚合器从未成功刷过(常见于 api 刚重启,小时级任务还没到点):此时 0 不是
-    // "没人访问"而是"还没算",一律 null ⇒ 大屏渲染"—"并提示"暂无访问聚合"。
-    const fresh = aggregationAgeSec !== null
-    const families = (fam ?? [])
-      .map((s) => ({ family: s.metric?.client_family ?? 'unknown', pv: sampleNum(s) ?? 0 }))
-      .filter((f) => f.pv > 0)
-      .sort((a, b) => b.pv - a.pv)
-    // 族分解一条都没有 ⇒ 聚合器还没跑过(或指标刚重启),真人/自动化两格按 null 处理
-    let humanPv24h: number | null = null
-    let botPv24h: number | null = null
-    if (fresh && families.length > 0) {
-      let human = 0
-      let bot = 0
-      for (const f of families) {
-        if (HUMAN_FAMILIES.has(f.family)) human += f.pv
-        else bot += f.pv
-      }
-      humanPv24h = Math.round(human)
-      botPv24h = Math.round(bot)
-    }
-    const truncRaw = firstNum(trunc)
+    // 现算(带 5 秒进程内缓存):三条限窗 SQL 走 api_logs_created_at_idx,合计 ≈ 46 ms。
+    // 任何一条抛错都会上抛到下面的 catch ⇒ 整块 null ⇒ 大屏渲染"—",绝不折成 0 访客。
+    const live = await getTrafficLiveSnapshot()
     return {
-      pv24h: fresh ? firstNum(pv24) : null,
-      uv24h: fresh ? firstNum(uv24) : null,
-      pv1h: fresh ? firstNum(pv1) : null,
-      uv1h: fresh ? firstNum(uv1) : null,
-      humanPv24h,
-      botPv24h,
-      families: fresh ? families : [],
-      aggregationAgeSec,
-      truncated: truncRaw === null ? null : truncRaw >= 1,
+      pv24h: live.pv24h,
+      uv24h: live.uv24h,
+      pv1h: live.pv1h,
+      uv1h: live.uv1h,
+      humanPv24h: live.humanPv24h,
+      botPv24h: live.botPv24h,
+      families: live.families,
+      aggregationAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
+      truncated: live.truncated,
     }
   } catch {
     return null
@@ -530,30 +489,25 @@ interface RelayPoolSnapshot {
   accountsSchedulable: number | null
   /** 账号 token 最短临期(秒;负 = 已过期) */
   minTokenExpiresInSeconds: number | null
-  /** 号池刷新滞后(秒;5 分钟一轮) */
+  /** 账号最近一次刷新距今(秒);null = 没有任何账号刷过 */
   staleAgeSec: number | null
+  /** 健康态不在封闭词表内、无法折叠的行数(非 0 说明库里有脏值,必须看得见) */
+  rowsUnclassified: number | null
 }
 
 async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
   try {
-    const [keyTotal, keySched, keyAbnormal, accTotal, accSched, tokenExp, stale] =
-      await Promise.all([
-        promQuery('count(ihui_relay_key_pool_schedulable)'),
-        promQuery('sum(ihui_relay_key_pool_schedulable)'),
-        promQuery('sum(ihui_relay_key_pool_keys{state=~"degraded|down"})'),
-        promQuery('count(ihui_relay_account_pool_schedulable)'),
-        promQuery('sum(ihui_relay_account_pool_schedulable)'),
-        promQuery('min(ihui_relay_account_pool_token_expires_in_seconds)'),
-        promQuery('time() - max(ihui_relay_key_pool_refresh_last_success_timestamp_seconds)'),
-      ])
+    // 现读两张池表(带 5 秒缓存),不经 gauge ⇒ 不受 5 分钟刷新节奏影响,重启也有数。
+    const live = await getRelayPoolLiveSnapshot()
     return {
-      keyTotal: firstNum(keyTotal),
-      keySchedulable: firstNum(keySched),
-      keyAbnormal: firstNum(keyAbnormal),
-      accountsTotal: firstNum(accTotal),
-      accountsSchedulable: firstNum(accSched),
-      minTokenExpiresInSeconds: firstNum(tokenExp),
-      staleAgeSec: saneAgeSec(firstNum(stale), RELAY_POOL_MAX_AGE_SEC),
+      keyTotal: live.keyTotal,
+      keySchedulable: live.keySchedulable,
+      keyAbnormal: live.keyAbnormal,
+      accountsTotal: live.accountsTotal,
+      accountsSchedulable: live.accountsSchedulable,
+      minTokenExpiresInSeconds: live.minTokenExpiresInSeconds,
+      staleAgeSec: live.maxRefreshAgeSeconds,
+      rowsUnclassified: live.rowsUnclassified,
     }
   } catch {
     return null

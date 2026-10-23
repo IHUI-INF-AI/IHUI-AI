@@ -2296,39 +2296,114 @@ $gitNet = @()
 if ($Proxy) { $gitNet = @('-c', "http.proxy=$Proxy", '-c', "https.proxy=$Proxy"); Log "git 网络走代理 $Proxy" }
 else { Log "WARN  未探测到可用代理(候选:$($ProxyCandidates -join ',')),将尝试直连" }
 
-Update-DeployLockHeartbeat   # fetch 走代理时可能很慢(镜像回退链),阶段边界续心跳
-Log "fetch origin main ..."
-$fetchOut = & git @gitNet fetch origin main 2>&1 | Out-String
-$fetchOut.Trim() | Write-Host
-# ── 镜像回退(2026-09-13 加):本机 GitHub 直连被墙,依赖 Clash 代理(127.0.0.1:7897);
-#    代理未运行/被防火墙拦时 fetch 必失败 → fail-closed → 部署循环长时间停摆(实测 09-13
-#    出现 uptime 单调上升 35 分钟、新提交不入库)。三仓 main 由本项目推送流程保证同步,
-#    故 origin 失败时回退国内镜像;镜像落后时 behind=0 会自然跳过,不会回滚。
-#    注意:镜像 fetch 同样写 FETCH_HEAD,而下游只认下面立刻定格的 $remoteTip(取自当次
-#    FETCH_HEAD 的第一行),所以镜像回退不需要另一条取值路径 —— 但它也不再回头看那枚共享文件。
+Update-DeployLockHeartbeat   # fetch 走代理时可能很慢(取源回退链),阶段边界续心跳
+# ── 带秒级墙钟的 git 调用(2026-10-23 加:第二个把部署环钉死的病灶)─────────────────
+# 现场:GitHub 在本机是"TCP 通、TLS 握不上"的半死态 —— `git fetch origin` 有时 6 秒报
+# `schannel: failed to receive handshake`,有时**永久挂住**(实测 16:50:16 起的那轮 fetch
+# 到 17:08 仍无任何返回,整轮日志停更 18 分钟以上)。外壳(`ihui-deploy-loop.ps1`)的墙钟
+# 是按"整轮部署"给的(要容纳 6 分钟 web 构建),几十秒的 fetch 挂死它兜不住。
+# 判据:凡走网络的 git 子命令都必须有秒级墙钟;超时即杀**整棵进程树**并按失败处理
+# —— 下游 fail-closed(取源全失败 ⇒ Fail),绝不把超时读成"已是最新"。
+# 说明:`.ArgumentList` 需要 .NET Core,本脚本本来就要求 pwsh 7(见 ihui-deploy-loop.ps1
+# 的 PwshCandidates 与"ihui-deploy.ps1 依赖 PS7"那条),所以不另写引号拼接。
+function Invoke-GitWithTimeout {
+    param(
+        [string[]]$GitArgs,
+        [int]$TimeoutSec = 90
+    )
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'git'
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    foreach ($a in $GitArgs) { [void]$psi.ArgumentList.Add([string]$a) }
+    $proc = New-Object System.Diagnostics.Process
+    $proc.StartInfo = $psi
+    try { [void]$proc.Start() }
+    catch { return @{ ExitCode = -1; Output = "启动 git 失败:$($_.Exception.Message)"; TimedOut = $false } }
+    $outTask = $proc.StandardOutput.ReadToEndAsync()
+    $errTask = $proc.StandardError.ReadToEndAsync()
+    if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
+        # Kill(true) 连带子进程(remote-https / 凭据助手),只杀 git 本体仍会留孙进程持管道。
+        try { $proc.Kill($true) } catch { try { $proc.Kill() } catch { } }
+        try { [void]$proc.WaitForExit(5000) } catch { }
+        return @{
+            ExitCode = -1
+            Output   = "git $($GitArgs -join ' ') 超时($TimeoutSec 秒)未返回,已杀进程树"
+            TimedOut = $true
+        }
+    }
+    $out = ''
+    try { $out = $outTask.GetAwaiter().GetResult() } catch { }
+    $err = ''
+    try { $err = $errTask.GetAwaiter().GetResult() } catch { }
+    $text = (@($out, $err) | Where-Object { $_ }) -join "`n"
+    return @{ ExitCode = $proc.ExitCode; Output = $text; TimedOut = $false }
+}
+
+# ── 取源顺序(2026-10-23 修:BLOCKED-DIVERGED 永久停摆的根因)─────────────────────
+# 现场:origin(GitHub)不可达 → 旧代码直接落到国内镜像 → 镜像的 main 是**另一条收敛线**
+# (实测与 prod HEAD 真分叉:HEAD 侧 5 枚 / 镜像侧 53 枚,54 文件 +3311/−3903)→
+# `merge --ff-only` 每轮必失败 → 连续 12 轮 `BLOCKED-DIVERGED`,部署环彻底不干活。
+# 关键事实:**本机就是开发 checkout 所在机**。`D:\IHUI-AI\.git` 是 28 字节指针文件,
+# 真 gitdir = `D:\IHUI-AI-git-repo`,本机所有提交都写进它,**永远可达、不走网络**。
+# prod 只要跟着它 ff,这条链结构上就不会分叉(prod 只 ff、自己不造提交)。
+# 因此顺序改为:① origin(权威,通的时候仍以它为准)→ ② 本机工作区 gitdir(离线可用)
+# → ③ 国内镜像(最后手段;它会带来分叉,只在①②都不可用时才碰)。
+# 可用 `IHUI_DEPLOY_LOCAL_SOURCES`(分号分隔)覆盖②,换机时不必改脚本。
+$LocalSourceCandidates = @('D:/IHUI-AI-git-repo')
+if ($env:IHUI_DEPLOY_LOCAL_SOURCES) {
+    $LocalSourceCandidates = @($env:IHUI_DEPLOY_LOCAL_SOURCES -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
 $MirrorUrls = @(
     'https://gitcode.com/IHUI-AI/IHUI-AI.git',
     'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
 )
-$fetched = $false
-if ($LASTEXITCODE -eq 0 -and -not ($fetchOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
-    $fetched = $true
-} else {
-    Log "WARN  origin fetch 失败,尝试国内镜像回退 ..."
+
+$fetchSource = $null
+Log "fetch origin main ..."
+$r = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('fetch', 'origin', 'main')) -TimeoutSec 25
+$r.Output.Trim() | Write-Host
+if ($r.ExitCode -eq 0 -and -not $r.TimedOut -and -not ($r.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+    $fetchSource = 'origin'
+}
+
+if (-not $fetchSource) {
+    Log "WARN  origin fetch 失败,改从本机工作区 gitdir 取源(离线可用) ..."
+    foreach ($local in $LocalSourceCandidates) {
+        if (-not (Test-Path (Join-Path $local 'HEAD'))) {
+            Log "跳过本机取源 $local(不是 git 仓库或不存在)"
+            continue
+        }
+        Log "fetch $local main ..."
+        $lr = Invoke-GitWithTimeout -GitArgs @('fetch', $local, 'main') -TimeoutSec 120
+        $lr.Output.Trim() | Write-Host
+        if ($lr.ExitCode -eq 0 -and -not $lr.TimedOut -and -not ($lr.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+            $fetchSource = "local:$local"
+            Log "本机取源成功:$local(prod 只跟随本机 main,不合并、不推送)"
+            break
+        }
+    }
+}
+
+if (-not $fetchSource) {
+    Log "WARN  本机取源也不可用,最后回退国内镜像(注意:镜像可能是另一条收敛线,会带来分叉) ..."
     foreach ($m in $MirrorUrls) {
         Log "fetch $m main ..."
-        $mOut = & git fetch $m main 2>&1 | Out-String
-        $mOut.Trim() | Write-Host
-        if ($LASTEXITCODE -eq 0 -and -not ($mOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
-            $fetched = $true
+        $mr = Invoke-GitWithTimeout -GitArgs @('fetch', $m, 'main') -TimeoutSec 90
+        $mr.Output.Trim() | Write-Host
+        if ($mr.ExitCode -eq 0 -and -not $mr.TimedOut -and -not ($mr.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+            $fetchSource = "mirror:$m"
             Log "镜像回退成功:$m"
             break
         }
     }
 }
-if (-not $fetched) {
-    Fail "git fetch 全部来源失败(origin + 镜像),fetch 未成功则无法判定是否落后,本轮不部署;请先检查本机 Clash 代理(127.0.0.1:7897)是否在跑,git 网络依赖它"
+if (-not $fetchSource) {
+    Fail "git fetch 全部来源失败(origin + 本机工作区 gitdir + 镜像),fetch 未成功则无法判定是否落后,本轮不部署;请先确认 D:\IHUI-AI-git-repo 在位,或本机 Clash 代理(127.0.0.1:7897)在跑"
 }
+Log "本轮取源 = $fetchSource"
 # 落后提交数 = 本地未含本轮远端 tip 的提交数
 # 2026-09-13 修复(实测):本机 origin/main 这个嵌套 remote-tracking ref 会被宿主吞掉、永不更新
 # (fetch 打印 6eedf5b0f1..adcc23136a 但 rev-parse origin/main 仍读回旧值)→
@@ -2359,7 +2434,9 @@ $remoteTip = $remoteTipRaw
 & git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Log "远端 sha $remoteTip 的对象不在本地对象库:定向 fetch 一次后复核"
-    & git @gitNet fetch origin $remoteTip 2>&1 | Out-String | Write-Host
+    # 同样带墙钟:这是唯一一处"按 sha 定向补对象"的网络调用,挂死会重演上面那 18 分钟停更。
+    $rr = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('fetch', 'origin', $remoteTip)) -TimeoutSec 45
+    $rr.Output.Trim() | Write-Host
     & git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "本轮远端 sha 的对象取不到,无法判定是否落后 ⇒ 本轮不部署、不切流" }
 }
