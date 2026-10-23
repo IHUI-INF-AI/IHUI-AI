@@ -47,6 +47,7 @@ import {
   Megaphone,
   Info,
   Plug,
+  Database,
   FileUp,
   Menu,
 } from 'lucide-react-native'
@@ -104,6 +105,7 @@ export default function SettingsScreen() {
     { key: 'ApiKeys', label: t('apiKeys.title') },
     // 签到助手 / 个人号池(2026-10-23 立):与 Web /checkin 同一后端,移动端可管理
     { key: 'CheckinAssistant', label: t('checkinAssistant.title') },
+    { key: 'AccountPool', label: t('accountPool.title') },
     { key: 'Usage', label: t('usage.title') },
     { key: 'ConnectedAccounts', label: t('connectedAccounts.title') },
     { key: 'DataRights', label: t('dataRights.title') },
@@ -139,6 +141,7 @@ export default function SettingsScreen() {
     { key: 'SecuritySettings', label: '安全设置', icon: Shield },
     { key: 'ApiKeys', label: t('apiKeys.title'), icon: Key },
     { key: 'CheckinAssistant', label: t('checkinAssistant.title'), icon: CalendarCheck },
+    { key: 'AccountPool', label: t('accountPool.title'), icon: Database },
     { key: 'Usage', label: t('usage.title'), icon: BarChart3 },
     { key: 'ConnectedAccounts', label: t('connectedAccounts.title'), icon: Link2 },
     { key: 'DataRights', label: t('dataRights.title'), icon: ShieldCheck },

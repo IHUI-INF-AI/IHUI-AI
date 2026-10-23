@@ -11,12 +11,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { CalendarCheck, Plus, Trash2 } from 'lucide-react-native'
+import { Plus, Wallet } from 'lucide-react-native'
+import { getTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
-import { getTokens } from '../../theme/tokens'
 import { createAccountPoolStyles } from './account-pool-styles'
+import { AccountPoolRowCard } from './account-pool-row'
 
 /** 号池可选平台:与 apps/api 的 RELAY_PROVIDERS 同集(codearts 无每日签到引擎,如实列出) */
 export const ACCOUNT_POOL_PROVIDERS = ['trae', 'workbuddy', 'qoder', 'codearts'] as const
@@ -27,6 +28,10 @@ export interface AccountPoolRow {
   uid: string
   name: string
   isEnabled: boolean
+  /** 号池巡检定级(healthy / degraded / down / unknown);down = 票已不被上游接受 */
+  healthStatus: string
+  /** 该号在 relay 转发侧被使用的累计次数 */
+  totalCalls: number
   /** 号池 → 签到助手同步挂起(断链待补推) */
   checkinPending: boolean
 }
@@ -39,8 +44,8 @@ export interface AccountPoolDraft {
 }
 
 /** 注入式跨端屏:平台侧(导航 / API / 确认弹窗)由 wrapper 提供,本屏只管渲染与回调。
- *  同时是门 39 V2 要求的同名共享源 —— apps/mobile-rn 那侧的号池屏按"有 import 必须有
- *  同名共享屏"这一档过门,摘掉本文件会把那道新屏的提交顶红。 */
+ *  本文件同时是门 39 V2 要求的同名共享屏(RN 端号池屏按"有 @ihui/rn-app import 必须有
+ *  同名共享屏"这一档过门)。 */
 export interface AccountPoolScreenProps {
   t: TFunction
   rows: AccountPoolRow[]
@@ -57,6 +62,8 @@ export interface AccountPoolScreenProps {
   onDelete: (row: AccountPoolRow) => void
   onRefresh: () => void
   onBack: () => void
+  /** 空态里的「回签到助手」入口;未给则不渲染(平台未必有该路由) */
+  onBackToCheckin?: () => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -75,77 +82,60 @@ export function AccountPoolScreen({
   onDelete,
   onRefresh,
   onBack,
+  onBackToCheckin,
   colorScheme = 'light',
 }: AccountPoolScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createAccountPoolStyles(tk), [tk])
   const canSave = draft.name.trim() !== '' && draft.token.trim() !== '' && !submitting
+  const enabledCount = rows.filter((r) => r.isEnabled).length
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('accountPool.title')}</Text>
-        <Text style={styles.subtitle}>{t('accountPool.subtitle')}</Text>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        <View style={styles.card}>
+          <View style={styles.rowHead}>
+            <Wallet size={16} color={tk.text.secondary} />
+            <Text style={styles.summary}>
+              {t('accountPool.summary', { total: rows.length, enabled: enabledCount })}
+            </Text>
+          </View>
+          <Text style={styles.muted}>{t('accountPool.subtitle')}</Text>
+        </View>
+
         {loading ? (
           <ActivityIndicator color={tk.brand.DEFAULT ?? tk.text.secondary} />
         ) : rows.length === 0 ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{t('accountPool.empty')}</Text>
             <Text style={styles.muted}>{t('accountPool.emptyHint')}</Text>
+            {onBackToCheckin ? (
+              <TouchableOpacity style={styles.linkBtn} onPress={onBackToCheckin}>
+                <Text style={styles.linkText}>{t('accountPool.backToCheckin')}</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         ) : (
           rows.map((row) => (
-            <View key={row.id} style={styles.card}>
-              <View style={styles.rowHead}>
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                  {row.name}
-                </Text>
-                <View style={styles.badges}>
-                  <Text style={styles.badge}>{row.providerCode}</Text>
-                  <Text style={[styles.badge, row.isEnabled ? styles.badgeOn : null]}>
-                    {row.isEnabled ? t('accountPool.enabled') : t('accountPool.disabled')}
-                  </Text>
-                  {row.checkinPending ? (
-                    <Text style={[styles.badge, styles.badgePending]}>
-                      {t('accountPool.syncPending')}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-              <Text style={styles.muted} numberOfLines={1}>
-                {t('accountPool.uid')}: {row.uid}
-              </Text>
-              <View style={styles.actions}>
-                <TouchableOpacity
-                  style={styles.action}
-                  disabled={busyId === row.id}
-                  onPress={() => onCheckin(row)}
-                >
-                  <CalendarCheck size={14} color={tk.text.primary} />
-                  <Text style={styles.actionText}>{t('accountPool.checkin')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.action}
-                  disabled={busyId === row.id}
-                  onPress={() => onToggle(row)}
-                >
-                  <Text style={styles.actionText}>
-                    {row.isEnabled ? t('accountPool.disable') : t('accountPool.enable')}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.action} onPress={() => onDelete(row)}>
-                  <Trash2 size={14} color={tk.text.secondary} />
-                  <Text style={styles.actionText}>{t('accountPool.delete')}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <AccountPoolRowCard
+              key={row.id}
+              row={row}
+              t={t}
+              styles={styles}
+              tk={tk}
+              busy={busyId === row.id}
+              onCheckin={onCheckin}
+              onToggle={onToggle}
+              onDelete={onDelete}
+            />
           ))
         )}
 
