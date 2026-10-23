@@ -15,7 +15,7 @@
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
-import { and, eq, isNotNull, lte, or, inArray } from 'drizzle-orm'
+import { and, eq, isNotNull, lte, or, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
@@ -175,6 +175,10 @@ export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
         tempUnschedulable: false,
         healthStatus: row.healthStatus === 'down' ? 'unknown' : row.healthStatus,
         lastErrorMessage: null,
+        // 凭证已换型 ⇒ 版本必须原子自增。对账收敛器只在「号池 cred_version > 签到
+        // pool_cred_version」时补推;不涨版本 = 这次刷新出来的新凭证永远到不了签到侧,
+        // 而旧票在上游当天就 401 —— 号池看着 healthy、签到天天失败且无人知情(2026-10-23 实测)。
+        credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
         updatedAt: now,
       })
       .where(eq(aiRelayAccountPool.id, row.id))

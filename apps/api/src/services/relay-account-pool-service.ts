@@ -23,10 +23,12 @@ import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { db } from '../db/index.js'
 import { encryptField, decryptField } from '../utils/crypto.js'
 import {
+  credentialShapeIssue,
   earliestCookieExpiry,
   extractTenantId,
   extractTokenExpiry,
   extractUid,
+  normalizeCredentialValue,
   parseFlexibleExpiry,
   type RelayProviderCode,
 } from './relay-account-format.js'
@@ -290,7 +292,9 @@ export async function importAccounts(
         })
         continue
       }
-      const token = mapped ? mapped.token : typeof acc.token === 'string' ? acc.token.trim() : ''
+      // 入口归一化:从 JSON 整段复制的粘贴值会带包裹引号,上游按前缀校验 ⇒ 一个多余字符
+      // 就令号池自刷新与每日签到同时失败(dev 实测 `"drt-…` 那枚,详见 normalizeCredentialValue 头注)
+      const token = normalizeCredentialValue(mapped ? mapped.token : acc.token) ?? ''
       if (!token) {
         result.failed++
         result.items.push({
@@ -302,16 +306,20 @@ export async function importAccounts(
         })
         continue
       }
-      const refreshToken = mapped
-        ? mapped.refreshToken
-        : typeof acc.refreshToken === 'string' && acc.refreshToken.trim()
-          ? acc.refreshToken.trim()
-          : null
-      const uid = mapped
-        ? mapped.uid
-        : typeof acc.uid === 'string' && acc.uid.trim()
-          ? acc.uid.trim()
-          : extractUid(token)
+      const refreshToken = normalizeCredentialValue(mapped ? mapped.refreshToken : acc.refreshToken)
+      const uid = normalizeCredentialValue(mapped ? mapped.uid : acc.uid) ?? extractUid(token)
+      const shapeIssue = credentialShapeIssue(providerCode, { refreshToken })
+      if (shapeIssue) {
+        result.failed++
+        result.items.push({
+          index: i,
+          name: displayName,
+          uid,
+          status: 'failed',
+          reason: shapeIssue,
+        })
+        continue
+      }
       if (seenInBatch.has(uid)) {
         result.skipped++
         result.items.push({

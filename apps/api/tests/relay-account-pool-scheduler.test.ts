@@ -291,4 +291,51 @@ describe('refreshOne 失败原因必须带出来', () => {
     expect(last.tempUnschedulable).toBe(true)
   })
 })
+
+/**
+ * 刷新成功必须涨 cred_version(2026-10-23 立)。
+ * 对账收敛器只在「号池 cred_version > 签到 pool_cred_version」时补推 ⇒ 适配器换出来的新票
+ * 若不涨版本,签到侧会永远持有导入那一刻的旧凭证,而号池自己看着 healthy:两面都绿、
+ * 上游天天 401。涨版本与写凭证必须是同一笔 UPDATE;失败档不涨(凭证没变,无新东西可推)。
+ */
+describe('refreshOne 成功必须涨 credVersion', () => {
+  const renderSql = (frag: unknown) => new PgDialect().sqlToQuery(frag as never).sql.toLowerCase()
+
+  it('刷新成功 ⇒ 同一笔 UPDATE 里写新凭证 + cred_version 原子自增', async () => {
+    const { refreshOne } = await import('../src/services/relay-account-pool-scheduler.js')
+    registerRelayAdapter({
+      providerCode: 'trae',
+      refreshToken: vi.fn(async () => ({
+        token: 'new-jwt',
+        refreshToken: 'new-rt',
+        expiresAt: new Date(Date.now() + 86_400_000),
+      })),
+    } as never)
+
+    const ok = await refreshOne(sweepRow({ refreshTokenEnc: 'enc:rt' }) as never)
+    expect(ok).toBe(true)
+    const written = updateCalls[updateCalls.length - 1] as Record<string, unknown>
+    expect(String(written.tokenEnc)).toBe('enc:new-jwt')
+    expect(written.credVersion).toBeTruthy()
+    const text = renderSql(written.credVersion)
+    expect(text).toContain('cred_version')
+    expect(text).toContain('+ 1')
+  })
+
+  it('刷新失败 ⇒ 不涨版本(凭证没变就不许制造版本差)', async () => {
+    const { refreshOne } = await import('../src/services/relay-account-pool-scheduler.js')
+    registerRelayAdapter({
+      providerCode: 'trae',
+      refreshToken: vi.fn(async () => {
+        throw new Error('Qoder deviceToken/refresh HTTP 400')
+      }),
+    } as never)
+    updateCalls.length = 0
+
+    const ok = await refreshOne(sweepRow({ refreshTokenEnc: 'enc:rt' }) as never)
+    expect(ok).toBe(false)
+    const written = updateCalls[updateCalls.length - 1] as Record<string, unknown>
+    expect(written.credVersion).toBeUndefined()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
