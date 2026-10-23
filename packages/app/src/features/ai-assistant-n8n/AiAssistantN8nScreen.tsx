@@ -12,7 +12,20 @@
  * - 浅色优雅风,圆角守门(无 rounded-full);无分割线(gap 间距)
  */
 import { useMemo } from 'react'
-import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type ImageStyle, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ImageStyle,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { TextField } from '../../components/TextField'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
@@ -186,7 +199,8 @@ export function AiAssistantN8nScreen({
 
       {/* 输入区 */}
       <View style={styles.inputWrap}>
-        <TextField colorScheme={colorScheme}
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={searchInput}
           onChangeText={onSearchInputChange}
@@ -286,8 +300,6 @@ function createStyles(tk: AppThemeTokens) {
     // 快捷操作区
     quickWrap: {
       backgroundColor: tk.surface.bg,
-      borderTopWidth: 1,
-      borderTopColor: tk.border.light,
     } as ViewStyle,
     quickScrollContent: {
       paddingHorizontal: 12,
@@ -314,8 +326,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       paddingVertical: 8,
       backgroundColor: tk.surface.card,
-      borderTopWidth: 1,
-      borderTopColor: tk.border.light,
     } as ViewStyle,
     modelBarLabel: {
       flex: 1,
@@ -350,8 +360,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       paddingVertical: 8,
       backgroundColor: tk.surface.card,
-      borderTopWidth: 1,
-      borderTopColor: tk.border.light,
     } as ViewStyle,
     input: {
       flex: 1,

@@ -4,7 +4,13 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, WebView } from '@tarojs/components'
-import { navigateTo, useRouter, setNavigationBarTitle, getStorageSync, reLaunch } from '@tarojs/taro'
+import {
+  navigateTo,
+  useRouter,
+  setNavigationBarTitle,
+  getStorageSync,
+  reLaunch,
+} from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
 import { logger } from '@/utils/logger'
@@ -107,14 +113,18 @@ export default function WebviewIndex() {
   if (!url) {
     return (
       // 对齐 RN WebViewScreen:根容器 bg-white/dark neutral-900 → var(--color-card);
-      // 头部 px-4(32rpx)/pt-3(24rpx)/pb-2(16rpx) + 底部描边,标题 text-base(32rpx) font-medium
+      // 头部 px-4(32rpx)/pt-3(24rpx)/pb-2(16rpx),标题 text-base(32rpx) font-medium;底部那条 2rpx 描边按 §4 摘除
       <ThemeRoot>
         <View className="min-h-screen bg-card">
-          <View className="px-[32rpx] pt-[24rpx] pb-[16rpx] border-b-[length:2rpx] border-border">
-            <Text className="text-[length:32rpx] font-medium text-foreground">{t('webview.title')}</Text>
+          <View className="px-[32rpx] pt-[24rpx] pb-[16rpx]">
+            <Text className="text-[length:32rpx] font-medium text-foreground">
+              {t('webview.title')}
+            </Text>
           </View>
           <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">{t('webview.missingUrl')}</Text>
+            <Text className="text-[length:28rpx] text-muted-foreground">
+              {t('webview.missingUrl')}
+            </Text>
           </View>
         </View>
       </ThemeRoot>

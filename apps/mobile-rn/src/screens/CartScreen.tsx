@@ -445,8 +445,6 @@ const createStyles = (tk: RnThemeTokens) =>
       paddingHorizontal: rpx(24),
       paddingVertical: rpx(20),
       paddingBottom: rpx(40),
-      borderTopWidth: 1,
-      borderTopColor: tk.border.light,
       backgroundColor: tk.surface.card,
     },
     selectAll: {

@@ -11,12 +11,19 @@
  *   禁止 `<hr>` / divide-y / divide-x / 单边 border-t/b/l/r 当纯分隔线。
  *   允许:容器完整描边(border border-border)、背景色对比、间距分隔(gap-* / space-y-*)。
  *
- * 判定四族:
+ * 判定六族(同一把"分隔线"尺子,按**书写语言**分面 —— 2026-10-23 补 5/6):
  *   1) divide-y / divide-x        → BLOCKING(出现即违规,无合法 UI 用途)
  *   2) 字面量 `<hr>`              → BLOCKING(仅 .tsx 的真实 JSX;字符串/注释内豁免)
  *   3) 单边低透明度描边(如 border-t border-border/50)→ WARN(不阻塞)
  *   4) **单边不透明描边**(如 `border-b border-border`、`<tr className="border-t">`)
  *      → 差值棘轮 BLOCKING(2026-10-23 立)
+ *   5) **.css 里的单边声明**(`border-top: 1px solid var(--color-border)`)
+ *      → 差值棘轮 BLOCKING(2026-10-23 立 G-879)。本文件旧头注写着"CSS 侧由跨端 token 门管",
+ *      实测是**假的**:`check-cross-end-tokens.mjs` 只判 token 副本同步,全仓没有任何一道门判
+ *      CSS 单边描边 ⇒ 门自己写了条不存在的出路,把小程序 26 条页面级分割线整个放在射程外。
+ *      排除条款必须是量出来的事实,不能是一句注释(见 [[feedback-gate-exclusion-clause-is-a-defect]] 同型)。
+ *   6) **RN / Taro 样式对象单边宽**(`{ borderTopWidth: 1, borderTopColor: tk.border.light }`)
+ *      → 差值棘轮 BLOCKING(同批立)。原生端根本不用 Tailwind 类名,族 1–4 对它结构上打不到。
  *
  * 为什么第 4 族走差值棘轮而不是"出现即拦":机主 2026-10-22 定档"界面里不该有分割线",
  * 而存量按当次 HEAD 现读(散在几十页)。把存量挂成绝对红就是 §12e 的恒红门 —— 唯一结局
@@ -35,7 +42,11 @@
  *   · 竖边 + 同轴缩进对(`ml-4 border-l pl-2`)⇒ 引用块左条 / 树形缩进导引线(§4 明文允许
  *     "引用块左边框"),放过;横边不享受这一条;
  *   · 宽度为 0(`last:border-b-0`)⇒ 擦除动作,放过。
- * 已知不在射程的形状:实心 CSS 字符串(`border-bottom:1px`)、深色面上的 `border-white/10`。
+ * 同一套形状收窄(整圈 / 双轴 / ≥2px 粗边 / 彩色 / 横竖同格 / 缩进轨 / 宽度 0 擦除)对六族共用,
+ * 差别只在"从哪里取形状":族 4 读一行 class,族 5 读一条 CSS 规则块,族 6 读一个对象字面量。
+ * 已知不在射程而**必须点名**的形状:写在 TS 字符串里的生成式 CSS(`border-bottom:1px solid ${t.hairline}`)
+ * —— HTML 邮件、落地页、swagger 主题这类面用不了 flex 间距(邮件客户端按 table 排版),照族 5 拦
+ * 就是 §12e 恒红门 ⇒ 族 5 在代码文件里降为 WARN 并逐条报数,升档的前置 = 存量归零 + 逐面给出替代版式。
  * 判据宁窄勿宽 —— 漏的那部分由全量档报数暴露,不许为凑数反手放宽。
  *
  * 取材面纪律(§0.4):全量档判 **HEAD blob**、`--staged` 判**索引 blob**、棘轮锚点判 HEAD blob;
@@ -57,6 +68,7 @@ import { pathToFileURL } from 'node:url'
 import { COLORS as C } from './lib/logger.mjs'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
 import { Undetermined, assertRepoRoot, selectFace } from './lib/face-reader.mjs'
+import { maskComments } from './lib/code-mask.mjs'
 import { addedLineNumbers, headAnchors, readSources, sourceCandidates } from './lib/face-scan.mjs'
 
 const ROOT = process.cwd()
@@ -92,17 +104,21 @@ check-no-divider.mjs — 分割线守门
   - 单边低透明度描边(border-t border-border/50):WARN(非阻塞)
   - 单边不透明描边(border-b border-border、<tr className="border-t">):差值棘轮 BLOCKING
     锚点 = 该文件 HEAD 面自身命中数;存量只报数,超出基线才拦提交
-  - 整圈边框、双轴(border-x/y)、宽度≥2 的强调条、彩色描边、横竖各一边的网格收口、
-    竖边+同轴 ml/pl 的缩进轨(引用块左条/树形导引线)、宽度 0 的擦除 ⇒ 结构性,放过
+  - .css 里的单边声明(border-top: 1px solid var(--color-border)):同一把差值棘轮 BLOCKING
+  - RN/Taro 样式对象单边宽({ borderTopWidth: 1, ... }):同一把差值棘轮 BLOCKING
+  - 代码文件字符串里的生成式 CSS(邮件/落地页/第三方主题):WARN 逐条报数,不拦提交
+  放过:整圈边框 / 双轴 / ≥2px 粗边 / 彩色或 transparent / 横竖同格(网格收口) /
+        竖边+同轴 m?p? 缩进轨(引用块左条)/ 宽度 0 擦除(last:border-0、border-bottom:none)
 `)
   process.exit(0)
 }
 
-/** 只扫源码(class 工具类不会出现在纯 CSS 产物之外;CSS 侧由跨端 token 门管) */
-const SCAN_GLOBS = ['*.ts', '*.tsx', '*.js', '*.jsx']
+/** 源码(class 工具类 + RN 样式对象)与 .css(声明块)两面都要扫 —— 2026-10-23 补 CSS 面 */
+const SCAN_GLOBS = ['*.ts', '*.tsx', '*.js', '*.jsx', '*.css']
 
 /** git grep 预筛:必须是各族判据的**超集**,否则清单面比内容面窄 = 静默少扫 */
-const PREFILTER_RE = 'divide-[yx]|<hr|border-[tblr]'
+const PREFILTER_RE =
+  'divide-[yx]|<hr|border-[tblr]|border-(top|bottom|left|right)|border(Top|Bottom|Left|Right)(Width|Color)'
 
 /** 违规模式:divide-y / divide-x(独立 class token;用 \b 词边界,兼容引号包裹的 className) */
 const VIOLATION_RE = /\bdivide-[yx]\b/
@@ -122,12 +138,30 @@ const NEUTRAL_SHADE_RE = /^(?:gray|neutral|slate|zinc|stone)-\d+$/
 const CLASS_TOKEN_RE = /[A-Za-z0-9_[\]./:()@%,-]+/g
 
 /**
+ * 剥掉变体前缀(`hover:` / `md:hover:` / `[&>div]:`),只看最后一段真 class。
+ * 必须按**括号深度**找冒号:`border-b-[length:2rpx]` 的冒号住在方括号里,是 Tailwind 的
+ * 类型标注而不是变体分隔符 —— 旧的"取最后一个冒号"会把 head 切成 `2rpx]`,整枚 token
+ * 直接判不成描边(S59 实测那一格)。
+ */
+export function stripVariantPrefix(cls) {
+  let depth = 0
+  let lastOutside = -1
+  for (let i = 0; i < cls.length; i++) {
+    const c = cls[i]
+    if (c === '[') depth++
+    else if (c === ']') depth = Math.max(0, depth - 1)
+    else if (c === ':' && depth === 0) lastOutside = i
+  }
+  return lastOutside < 0 ? cls : cls.slice(lastOutside + 1)
+}
+
+/**
  * 把一个 class token 拆成分割线判据要的形状信息。
  * 变体前缀(hover: / dark: / last: / [&>div]:)一律剥掉,只看最后一段真 class。
  * @returns {{kind:'full'|'axis'|'side'|'color', side?:string, width?:number, color?:string, opacity:number|null}|null}
  */
 export function classifyBorderToken(cls) {
-  const head = cls.includes(':') ? cls.slice(cls.lastIndexOf(':') + 1) : cls
+  const head = stripVariantPrefix(cls)
   if (!head.startsWith('border')) return null
   const slash = head.indexOf('/')
   const body = slash < 0 ? head : head.slice(0, slash)
@@ -148,7 +182,17 @@ export function classifyBorderToken(cls) {
     if (segs.length === 2) return { kind: 'side', side: second, width: 1, opacity }
     if (/^\d+$/.test(segs[2]))
       return { kind: 'side', side: second, width: Number(segs[2]), opacity }
-    return { kind: 'side', side: second, width: 1, color: segs.slice(2).join('-'), opacity }
+    const rest = segs.slice(2).join('-')
+    // 任意值宽度(`border-b-[length:2rpx]` / `border-t-[3px]`):方括号里是**长度**不是颜色档。
+    // 旧判定把它当色名 ⇒ isNeutralColor 判不出 ⇒ 归"彩色"放过(小程序 6 条页面级线漏在这一格)。
+    const arb = rest.match(/^\[(?:length:)?([^\]]*)\]$/)
+    if (arb) {
+      const g = cssHairlineGrade(arb[1])
+      if (g === 'thick') return { kind: 'side', side: second, width: 3, opacity }
+      if (g === 'erase') return { kind: 'side', side: second, width: 0, opacity }
+      return { kind: 'side', side: second, width: 1, opacity }
+    }
+    return { kind: 'side', side: second, width: 1, color: rest, opacity }
   }
   return { kind: 'color', color: segs.slice(1).join('-'), opacity }
 }
@@ -230,6 +274,318 @@ export function classifyDividerLine(line) {
   return { level: 'blocking', label: 'single-side divider', col: first.col }
 }
 
+// ─────────────────────── 族 5/6:CSS 声明块与 RN 样式对象 ───────────────────────
+// 族 1–4 读的是 Tailwind class 字符串。原生端(RN/Taro StyleSheet)与非 Tailwind 的 .css 根本不写
+// 这种字符串 ⇒ 同一个"用描边画一条线"的动作在两种书写语言里结构上打不到。形状收窄共用一把尺子。
+
+/** 单边方向:CSS kebab 名 / RN camel 名 → 同一个 t|b|l|r 轴 */
+const SIDE_FROM_CSS = { top: 't', bottom: 'b', left: 'l', right: 'r' }
+const SIDE_FROM_RN = { Top: 't', Bottom: 'b', Left: 'l', Right: 'r' }
+const HORIZONTAL_SIDES = new Set(['t', 'b'])
+const VERTICAL_SIDES = new Set(['l', 'r'])
+
+/** 中性色档词根(与 class 族同一张表:NEUTRAL_COLOR_ROOTS);强调色词根单独列,命中即放过 */
+const ACCENT_COLOR_ROOT_RE =
+  /(primary|brand|accent|info|success|warning|danger|error|cta|link|focus|ring|select|active)/i
+const NEUTRAL_COLOR_ROOT_RE = /(border|input|muted|card|background|divider|hairline|separator|gray|grey|neutral|slate|zinc|stone)/i
+
+/**
+ * 一段颜色引用是不是中性描边档。
+ * 没写颜色 ⇒ 继承全局描边档 ⇒ 中性(与 class 族 isNeutralBorderColor 同口径);
+ * 读不出颜色形态(既不是 var() 也不是 #hex/函数/关键字)⇒ 按未知放过,不猜。
+ */
+export function isNeutralColorRef(raw) {
+  const v = String(raw ?? '').trim()
+  if (v === '') return true
+  if (/transparent|currentColor|inherit/i.test(v)) return false
+  if (ACCENT_COLOR_ROOT_RE.test(v)) return false
+  if (NEUTRAL_COLOR_ROOT_RE.test(v)) return true
+  const hexes = v.match(/#([0-9a-fA-F]{3,8})\b/g) || []
+  if (hexes.length > 0) return hexes.every((h) => isGrayHex(h))
+  return false
+}
+
+/** 灰阶 hex(r≈g≈b 且不是纯黑墨档)⇒ 中性描边;其余按强调放过 */
+function isGrayHex(hex) {
+  const body = hex.slice(1)
+  const full =
+    body.length === 3 || body.length === 4
+      ? body
+          .slice(0, 3)
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : body.slice(0, 6)
+  if (full.length < 6) return false
+  const [r, g, b] = [0, 2, 4].map((i) => Number.parseInt(full.slice(i, i + 2), 16))
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  if (max - min > 12) return false
+  return !(max === 0 && min === 0) // 纯黑 = 墨档,§4「描边不得取墨档」另有其门,这里不当分隔线判
+}
+
+/**
+ * CSS 长度值 → 是否发丝线。返回 'hair' | 'thick' | 'erase' | 'unknown'。
+ * px ≤2 与 rpx ≤4(750 设计稿下 2rpx≈1px)算发丝;更粗 = 强调条/选中下划线(§4 允许出口,
+ * 与 class 族「宽度 ≥2 放过」同一条);`none`/`0` = 擦除;认不出的单位与变量一律不判。
+ */
+export function cssHairlineGrade(raw) {
+  const v = String(raw ?? '').trim()
+  if (v === '') return 'unknown'
+  if (/^(none|hidden)\b/i.test(v)) return 'erase'
+  const m = v.match(/^(\d+(?:\.\d+)?)(px|rpx|rem|em|pt)?(?![\w.])/)
+  if (!m) return 'unknown'
+  const n = Number(m[1])
+  const unit = m[2] || 'px'
+  if (n === 0) return 'erase'
+  if (unit === 'rpx') return n <= 4 ? 'hair' : 'thick'
+  if (unit === 'px') return n <= 2 ? 'hair' : 'thick'
+  if (unit === 'pt') return n <= 1.5 ? 'hair' : 'thick'
+  return 'unknown' // rem/em/%:量不出物理像素 ⇒ 不判(§0.3 取不到不冒充)
+}
+
+/** RN 样式对象的宽度取值:'hair' | 'thick' | 'erase' | 'unknown' */
+export function rnHairlineGrade(raw) {
+  const v = String(raw ?? '').trim()
+  if (v === 'StyleSheet.hairlineWidth') return 'hair'
+  if (/^[0-9a-zA-Z_$.[\]]+$/.test(v) && !/^\d/.test(v)) return 'unknown' // 变量:量不到就不判
+  const n = Number(v)
+  if (!Number.isFinite(n)) return 'unknown'
+  if (n <= 0) return 'erase'
+  return n <= 1 ? 'hair' : 'thick'
+}
+
+/** 整份文本里 `${…}` 插值的花括号位置(每轮扫描算一次,别按命中重算 ⇒ O(n·命中) 的自造慢) */
+export function interpolationBraceIndices(text) {
+  const skip = new Set()
+  for (const m of text.matchAll(/\$\{[^{}]*\}/g)) {
+    skip.add(m.index + 1)
+    skip.add(m.index + m[0].length - 1)
+  }
+  return skip
+}
+
+/**
+ * 命中处所在的最内层 `{ … }`(CSS 规则块 / JS 对象字面量)。
+ * 只按括号配平走,不做语法解析 —— 判据要的只是"同一个盒子里还画了什么"。
+ * `${…}`(模板字符串插值)不算块:生成式 CSS 就住在模板字面量里,把 `${VAR}` 当盒子会让
+ * 规则块在插值处断裂 ⇒ 颜色与邻边全部读丢(S50 实测那一型)。
+ */
+export function enclosingBraceBlock(text, idx, skip = new Set()) {
+  // 模板字符串插值 `${…}` 的两枚花括号整对摘掉:它们既不开块也不闭块
+  let depth = 0
+  let start = -1
+  for (let i = idx; i >= 0; i--) {
+    if (skip.has(i)) continue
+    const c = text[i]
+    if (c === '}') depth++
+    else if (c === '{') {
+      if (depth === 0) {
+        start = i
+        break
+      }
+      depth--
+    }
+  }
+  if (start < 0) return null
+  depth = 0
+  for (let i = start + 1; i < text.length; i++) {
+    if (skip.has(i)) continue
+    const c = text[i]
+    if (c === '{') depth++
+    else if (c === '}') {
+      if (depth === 0) return { start, end: i, inner: text.slice(start + 1, i) }
+      depth--
+    }
+  }
+  return null
+}
+
+/** 索引 → 行/列(遮罩后的文本与原文件逐行等长,所以行号可直接对回原文件) */
+function lineColAt(text, idx) {
+  const before = text.slice(0, idx)
+  const nl = before.lastIndexOf('\n')
+  return { line: (before.match(/\n/g) || []).length + 1, col: idx - nl }
+}
+
+/**
+ * 族 5/6 共用的形状判定:给出「本块里画着的边」与形状事实,决定这一条算不算分隔线。
+ * @returns {null|'divider'} 放过 ⇒ null
+ */
+function judgeBoxSides({ drawn, grade, neutral, inner, side, railChecks }) {
+  if (grade !== 'hair') return null // 擦除 / 粗边 / 量不出 ⇒ 放过
+  if (!neutral) return null // 彩色 ⇒ 强调
+  // 三角、箭头这类 CSS 图形:同块里出现 transparent 的边 ⇒ 这是在画形状,不是在画线
+  if (/transparent/i.test(inner)) return null
+  const horiz = [...drawn].some((s) => HORIZONTAL_SIDES.has(s))
+  const vert = [...drawn].some((s) => VERTICAL_SIDES.has(s))
+  if (horiz && vert) return null // 横竖各一边 = 网格 / 箱体收口(同 class 族那条)
+  if (VERTICAL_SIDES.has(side) && railChecks()) return null // 引用块左条 / 树形导引线
+  return 'divider'
+}
+
+/** CSS 声明值的形状:`;`/行尾/`}` 断开,但 `${插值}` 整段算值的一部分(生成式 CSS 的颜色就住在这儿)
+ *  插值分支必须排在前面 —— `[^;{}…]` 会先吃掉那个 `$`,留下 `{` 时无路可走,值就在插值处断掉(S50) */
+const CSS_VAL_SRC = '(?:\\$\\{[^}]*\\}|[^;{}\\n])*'
+
+/** 族 5:.css(与代码文件里的 CSS 串)单边声明。返回 {hits, undetermined} */
+export function scanCssDeclarations(text, { asWarnOnly = false, skip = interpolationBraceIndices(text) } = {}) {
+  const hits = []
+  const undeterminedRows = []
+  let undetermined = 0
+  const re = new RegExp(`\\bborder-(top|bottom|left|right)\\s*:\\s*(${CSS_VAL_SRC})`, 'g')
+  for (const m of text.matchAll(re)) {
+    const side = SIDE_FROM_CSS[m[1]]
+    const value = m[2]
+    const block = enclosingBraceBlock(text, m.index, skip)
+    if (!block) {
+      undetermined++
+      undeterminedRows.push({
+        line: lineColAt(text, m.index).line,
+        col: lineColAt(text, m.index).col,
+        label: asWarnOnly ? 'generated-css undetermined' : 'css undetermined',
+        why: '声明不在任何规则块内(内联 style 属性 / 模板串)⇒ 同块邻边与整圈形状读不出',
+      })
+      continue
+    }
+    const inner = block.inner
+    // 整圈 / 双轴宽度在画 ⇒ 这一边只是盒框里的一格 override(与 class 族同一条出口)
+    let hasRing = false
+    for (const r of inner.matchAll(
+      new RegExp(`(?:^|[;{\\s])border(?:-width)?\\s*:\\s*(${CSS_VAL_SRC})`, 'g'),
+    )) {
+      const g = cssHairlineGrade(r[1])
+      if (g === 'hair' || g === 'thick') hasRing = true
+    }
+    if (hasRing) continue
+    const grade = cssHairlineGrade(value)
+    if (grade === 'unknown') {
+      undetermined++
+      const at = lineColAt(text, m.index)
+      undeterminedRows.push({
+        line: at.line,
+        col: at.col,
+        label: asWarnOnly ? 'generated-css undetermined' : 'css undetermined',
+        why: `宽度取不出物理长度(${value.trim().slice(0, 24)})⇒ 不判`,
+      })
+      continue
+    }
+    const drawn = new Set()
+    for (const d of inner.matchAll(
+      new RegExp(`\\bborder-(top|bottom|left|right)\\s*:\\s*(${CSS_VAL_SRC})`, 'g'),
+    )) {
+      if (cssHairlineGrade(d[2]) === 'hair') drawn.add(SIDE_FROM_CSS[d[1]])
+    }
+    const colorPart = value.replace(/^(?:\d+(?:\.\d+)?(?:px|rpx|rem|em|pt)?|none|hidden)\s*/, '')
+    const verdict = judgeBoxSides({
+      drawn,
+      grade,
+      neutral: isNeutralColorRef(colorPart || value),
+      inner,
+      side,
+      railChecks: () => cssIndentRail(inner, side),
+    })
+    if (verdict !== 'divider') continue
+    const { line, col } = lineColAt(text, m.index)
+    hits.push({
+      line,
+      col,
+      level: asWarnOnly ? 'warn' : 'blocking',
+      label: asWarnOnly ? 'generated-css single-side divider' : 'css single-side divider',
+      snippet: text.split('\n')[line - 1].trim().slice(0, 140),
+    })
+  }
+  return { hits, undetermined, undeterminedRows }
+}
+
+/** 引用块左条 / 树形导引线的 CSS 形态:竖边 + 同轴 padding 与 margin 都在同一条规则里 */
+function cssIndentRail(inner, side) {
+  if (!VERTICAL_SIDES.has(side)) return false
+  const other = side === 'l' ? 'left' : 'right'
+  const pad = new RegExp(`padding(-${other}|-inline)?\\s*:`, 'i')
+  const mar = new RegExp(`margin(-${other}|-inline)?\\s*:`, 'i')
+  return pad.test(inner) && mar.test(inner)
+}
+
+/** 族 6:RN / Taro 样式对象单边宽度。返回 {hits, undetermined, undeterminedRows} */
+export function scanRnStyleObjects(text, skip = interpolationBraceIndices(text)) {
+  const hits = []
+  const undeterminedRows = []
+  let undetermined = 0
+  const re = /\bborder(Top|Bottom|Left|Right)Width\s*:\s*([^,;{}\n]*)/g
+  for (const m of text.matchAll(re)) {
+    const side = SIDE_FROM_RN[m[1]]
+    const value = m[2]
+    const block = enclosingBraceBlock(text, m.index, skip)
+    if (!block) {
+      undetermined++
+      const at = lineColAt(text, m.index)
+      undeterminedRows.push({
+        line: at.line,
+        col: at.col,
+        label: 'rn-style undetermined',
+        why: '样式对象括号配不平 ⇒ 同盒整圈/邻边形状读不出',
+      })
+      continue
+    }
+    const inner = block.inner
+    let hasRing = false
+    for (const r of inner.matchAll(/\bborderWidth\s*:\s*([^,;{}\n]*)/g)) {
+      const g = rnHairlineGrade(r[1])
+      if (g === 'hair' || g === 'thick') hasRing = true
+    }
+    if (hasRing) continue
+    const grade = rnHairlineGrade(value)
+    if (grade === 'unknown') {
+      undetermined++
+      const at = lineColAt(text, m.index)
+      undeterminedRows.push({
+        line: at.line,
+        col: at.col,
+        label: 'rn-style undetermined',
+        why: `宽度取自变量(${value.trim().slice(0, 24)})⇒ 量不到就不判`,
+      })
+      continue
+    }
+    const drawn = new Set()
+    for (const d of inner.matchAll(/\bborder(Top|Bottom|Left|Right)Width\s*:\s*([^,;{}\n]*)/g)) {
+      if (rnHairlineGrade(d[2]) === 'hair') drawn.add(SIDE_FROM_RN[d[1]])
+    }
+    const colorVals = [
+      ...inner.matchAll(new RegExp(`\\bborder${m[1]}Color\\s*:\\s*([^,;{}\\n]*)`, 'g')),
+      ...inner.matchAll(/\bborderColor\s*:\s*([^,;{}\n]*)/g),
+    ].map((c) => c[1])
+    const neutral = colorVals.length === 0 || colorVals.every((c) => isNeutralColorRef(c))
+    const verdict = judgeBoxSides({
+      drawn,
+      grade,
+      neutral,
+      inner,
+      side,
+      railChecks: () => rnIndentRail(inner, side),
+    })
+    if (verdict !== 'divider') continue
+    const { line, col } = lineColAt(text, m.index)
+    hits.push({
+      line,
+      col,
+      level: 'blocking',
+      label: 'rn-style single-side divider',
+      snippet: text.split('\n')[line - 1].trim().slice(0, 140),
+    })
+  }
+  return { hits, undetermined, undeterminedRows }
+}
+
+/** RN 侧缩进轨:竖边 + 同轴 padding 与 margin 同在(与 class 族 hasIndentRailPair 同一形状) */
+function rnIndentRail(inner, side) {
+  if (!VERTICAL_SIDES.has(side)) return false
+  const camel = side === 'l' ? 'Left' : 'Right'
+  const pad = new RegExp(`\\bpadding(${camel}|Horizontal)?\\s*:`, 'i')
+  const mar = new RegExp(`\\bmargin(${camel}|Horizontal)?\\s*:`, 'i')
+  return pad.test(inner) && mar.test(inner)
+}
+
 /**
  * 块注释遮罩:内容替换为空格、保留换行,行号与原文件逐行对齐。
  * 字符串字面量**不遮** —— 生成器往 HTML 里拼 `border-b` 也是真违规(code-generator.ts 实测即此型)。
@@ -239,14 +595,29 @@ export function maskBlockComments(text) {
 }
 
 /**
+ * CSS 里的属性选择器 `[class*='border-l']` 是在**描述**哪些元素带了那个类,不是自己在画边。
+ * 不遮的话族 4 会把这类兼容规则读成分隔线(globals.css 实测两枚假阳 ⇒ 棘轮锚点被顶高,
+ * 等于给这一文件的真违规让出两格额度)。只遮 `[class…]` 这一族,代码文件里的
+ * `[&>div]:border-b` 那种任意值变体不在射程内 —— 它是真在画。
+ */
+export function maskCssAttributeSelectors(text) {
+  return text.replace(/\[class[^=\]]*[~^*|$]?=[^\]]*\]/g, (m) => m.replace(/[^\n]/g, ' '))
+}
+
+/**
  * 整份源码判据。
- * @returns {{hard: Array, single: Array}} hard=族 1/2(无条件违规),single=族 3/4(带 level)
+ * @returns {{hard: Array, single: Array, undetermined: number, lines: string[]}}
+ *   hard=族 1/2,single=族 3/4/5/6(带 level),undetermined=族 5/6 里取值取不出形状的那些
+ *   (变量宽度、括号配不平的块 ⇒ §0.3 不判,但必须报数,不得静默),
+ *   lines=**与 single/hard 同一次读取**的那份行数组(遮罩后)—— 主判定要用它做片段,
+ *   不要再按行号去原文件取第二遍:清单面与被审面同轮、内容与结论同轮(§0.4)。
  */
 export function scanSource(relPath, text) {
   const hard = []
   const single = []
   const isTsx = relPath.endsWith('.tsx')
-  const lines = maskBlockComments(text).split('\n')
+  const isCss = relPath.endsWith('.css')
+  const lines = maskBlockComments(isCss ? maskCssAttributeSelectors(text) : text).split('\n')
   lines.forEach((line, idx) => {
     if (isExemptLine(line)) return
     const lineNumber = idx + 1
@@ -284,7 +655,20 @@ export function scanSource(relPath, text) {
       })
     }
   })
-  return { hard, single }
+  // ── 族 5/6:同一张"分隔线"尺子,读另外两种书写语言 ──
+  // .css 用块注释遮罩(`//` 在 CSS 里不是注释,`url(https://…)` 会被行注释遮掉 ⇒ 按方言分开)
+  const surface = isCss ? maskBlockComments(text) : maskComments(text)
+  const skip = interpolationBraceIndices(surface)
+  let undetermined = 0
+  const undeterminedRows = []
+  for (const found of isCss
+    ? [scanCssDeclarations(surface, { skip }), scanRnStyleObjects(surface, skip)]
+    : [scanRnStyleObjects(surface, skip), scanCssDeclarations(surface, { asWarnOnly: true, skip })]) {
+    single.push(...found.hits)
+    undetermined += found.undetermined
+    undeterminedRows.push(...found.undeterminedRows)
+  }
+  return { hard, single, undetermined, undeterminedRows }
 }
 
 /** 族 4 的计数口径 —— 棘轮锚点与本轮读数必须用同一把尺子(§22c) */
@@ -398,10 +782,17 @@ export async function run({ staged, worktree }) {
   let dividerNew = 0
   let dividerStock = 0
   let warnStock = 0
+  let undetermined = 0
+  const undeterminedItems = []
   const reports = []
 
   for (const rel of candidates) {
     const scan = scanSource(rel, contents.get(rel))
+    undetermined += scan.undetermined
+    const relPosix = relative(top, rel).split('\\').join('/')
+    for (const u of scan.undeterminedRows) {
+      undeterminedItems.push({ file: relPosix, item: { ...u, level: 'undetermined', tag: '未判定' } })
+    }
     const allowed = staged ? addedLinesMap?.get(rel) : null
     const items = []
 
@@ -443,12 +834,17 @@ export async function run({ staged, worktree }) {
   console.log(`${C.bold}扫描结果:${C.reset}`)
   console.log(`  扫描文件: ${candidates.length} 个`)
   console.log(
-    `  拦截数:   ${blockingTotal} 处 (BLOCKING:divide/<hr> 新增 ${hardNew},单边描边超基线 ${dividerNew})`,
+    `  拦截数:   ${blockingTotal} 处 (BLOCKING:divide/<hr> 新增 ${hardNew},单边描边(类名/CSS/RN 样式对象)超基线 ${dividerNew})`,
   )
   console.log(
     `  存量:     ${hardStock + dividerStock} 处 (divide/<hr> ${hardStock},单边描边 ${dividerStock}) — 只报数(§12e)`,
   )
-  console.log(`  告警:     ${warnStock} 处 (WARN:低透明度单边描边,不阻塞)`)
+  console.log(
+    `  告警:     ${warnStock} 处 (WARN:低透明度单边描边 + 代码里的生成式 CSS 单边,不阻塞)`,
+  )
+  console.log(
+    `  ${undetermined > 0 ? `${C.yellow}` : C.dim}未判定: ${undetermined} 处 (宽度取自变量 / 声明不在规则块内 ⇒ 不判也不冒充没命中)${C.reset}`,
+  )
   console.log('')
 
   if (reports.length === 0) {
@@ -472,6 +868,16 @@ export async function run({ staged, worktree }) {
       const lvl = f.level === 'blocking' ? '[BLOCKING]' : f.level === 'warn' ? '[WARN]' : '[存量]'
       console.log(
         `  ${C.dim}行 ${f.line}:${f.col}${C.reset} ${tag}${lvl} [${f.label}] ${f.tag}${C.reset} ${f.snippet}`,
+      )
+    }
+    console.log('')
+  }
+  // 未判定逐条点名(§0.3:取不到输入就说"没判",不得写成"没命中")
+  if (undeterminedItems.length > 0) {
+    console.log(`${C.yellow}${C.bold}未判定 ${undeterminedItems.length} 处(不拦提交,但必须让人看见):${C.reset}`)
+    for (const { file, item } of undeterminedItems) {
+      console.log(
+        `  ${C.dim}${file}:${item.line}:${item.col}${C.reset} ${C.yellow}[未判定] [${item.label}]${C.reset} ${item.why}`,
       )
     }
     console.log('')
@@ -666,6 +1072,108 @@ export function selfTest() {
     ok(hit('  <div className="border-2 border-border border-b" />') === null)
   })
 
+  // ── 族 5(CSS 声明块)/ 族 6(RN 样式对象):2026-10-23 补的两面书写语言 ──
+  const css = (body) => scanSource('a.css', body).single
+  const rn = (body) => scanSource('a.tsx', body).single
+  t('S40 族 5 正例:.css 单边中性描边 = 分隔线(小程序页面级 26 条即这一型)', () => {
+    const hits = css('.card {\n  border-top: 1px solid var(--color-border);\n}')
+    ok(hits.length === 1 && hits[0].level === 'blocking', JSON.stringify(hits))
+    ok(hits[0].label === 'css single-side divider', hits[0].label)
+    ok(hits[0].line === 2, `行号要对回声明那一行,实际 ${hits[0].line}`)
+  })
+  t('S41 族 5 擦除:not-last 的 border-bottom:none 不画线', () => {
+    ok(css('.row:last-child {\n  border-bottom: none;\n}').length === 0)
+    ok(css('.row {\n  border-bottom: 0;\n}').length === 0)
+  })
+  t('S42 族 5 整圈 override:盒框在画时那一条竖边不算分隔线', () => {
+    ok(css('.box {\n  border: 1px solid var(--color-border);\n  border-left: 3px solid var(--color-primary);\n}').length === 0)
+    ok(css('.box {\n  border-width: 1px;\n  border-top: 1px solid var(--color-border);\n}').length === 0)
+  })
+  t('S43 族 5 CSS 三角/箭头(两侧 transparent)是在画形状,不是线', () => {
+    const caret =
+      '.caret {\n  width: 0;\n  height: 0;\n  border-left: 5rpx solid transparent;\n  border-right: 5rpx solid transparent;\n  border-top: 9rpx solid var(--color-muted-foreground);\n}'
+    ok(css(caret).length === 0, JSON.stringify(css(caret)))
+  })
+  t('S44 族 5 引用块左条:竖边 + 同轴 padding 与 margin ⇒ §4 明文允许', () => {
+    const rail = '.quote {\n  margin-left: 8px;\n  padding-left: 12px;\n  border-left: 1px solid var(--color-border);\n}'
+    ok(css(rail).length === 0, JSON.stringify(css(rail)))
+    // 只加 padding 不加 margin ⇒ 轨不成立,照判(不许"补个 padding 就遮红")
+    ok(css('.quote {\n  padding-left: 12px;\n  border-left: 1px solid var(--color-border);\n}').length === 1)
+  })
+  t('S45 族 5 网格收口:同格横竖各一边(表格每格 bottom+right)放过', () => {
+    ok(css('.cell {\n  border-bottom: 1px solid var(--color-border);\n  border-right: 1px solid var(--color-border);\n}').length === 0)
+  })
+  t('S46 族 5 同向两条(top+bottom)= 两条线,照判', () => {
+    const hits = css('.band {\n  border-top: 1px solid var(--color-border);\n  border-bottom: 1px solid var(--color-border);\n}')
+    ok(hits.length === 2, JSON.stringify(hits))
+  })
+  t('S47 族 5 强调色与粗边出口:彩色 = 高亮下划线;>2px = 强调条', () => {
+    ok(css('.tab {\n  border-bottom: 1px solid var(--color-primary);\n}').length === 0)
+    ok(css('.hero {\n  border-top: 3px solid var(--color-border);\n}').length === 0)
+    ok(css('.tab {\n  border-bottom: 1px solid #0969da;\n}').length === 0)
+    ok(css('.tab {\n  border-bottom: 1px solid #e5e7eb;\n}').length === 1, '灰阶 hex 就是中性档')
+  })
+  t('S48 族 5 单位量不出 ⇒ 未判定计数,既不记绿也不冒红(§0.3)', () => {
+    const r = scanSource('a.css', '.x {\n  border-top: 0.06rem solid var(--color-border);\n}')
+    ok(r.single.length === 0 && r.undetermined === 1, JSON.stringify(r))
+  })
+  t('S49 族 5 注释里的 CSS 不算(遮罩只由注释层负责)', () => {
+    ok(css('/* .x { border-top: 1px solid var(--color-border); } */').length === 0)
+  })
+  t('S50 族 5 在代码文件里降 WARN:生成式 CSS(邮件/落地页/第三方主题)逐条报数不拦', () => {
+    const hits = rn('const s = `.cover{border-bottom:1px solid ${DOC_BORDER};margin-bottom:40px;}`')
+    ok(hits.length === 1 && hits[0].level === 'warn', JSON.stringify(hits))
+    ok(hits[0].label === 'generated-css single-side divider', hits[0].label)
+  })
+  t('S51 族 6 正例:RN 样式对象单边宽 = 分隔线(rowDivider 那种命名即自证)', () => {
+    const hits = rn('const s = StyleSheet.create({\n  rowDivider: { borderTopColor: tk.border.light, borderTopWidth: 1 },\n})')
+    ok(hits.length === 1 && hits[0].level === 'blocking', JSON.stringify(hits))
+    ok(hits[0].label === 'rn-style single-side divider', hits[0].label)
+  })
+  t('S52 族 6 擦除与整圈:borderBottomWidth:0 不画线;bund borderWidth 在画时那一条是 override', () => {
+    ok(rn('const s = {\n  rowLast: { borderBottomWidth: 0 },\n}').length === 0)
+    ok(rn('const s = {\n  box: { borderWidth: 1, borderColor: tk.border.light, borderTopWidth: 1 },\n}').length === 0)
+  })
+  t('S53 族 6 网格 / 强调色 / 缩进轨三条出口同一把尺子', () => {
+    ok(rn('const s = {\n  cell: { borderBottomWidth: 1, borderRightWidth: 1 },\n}').length === 0)
+    ok(rn('const s = {\n  tab: { borderBottomWidth: 1, borderBottomColor: brand.cta },\n}').length === 0)
+    ok(rn('const s = {\n  rail: { borderLeftWidth: 1, paddingLeft: 8, marginLeft: 4 },\n}').length === 0)
+    ok(rn('const s = {\n  rail: { borderLeftWidth: 1, paddingLeft: 8 },\n}').length === 1, '缺 margin 就不算轨')
+  })
+  t('S54 族 6 hairlineWidth 与变量宽度:前者是发丝线,后者未判定', () => {
+    ok(rn('const s = {\n  line: { borderTopWidth: StyleSheet.hairlineWidth },\n}').length === 1)
+    const r = scanSource('a.tsx', 'const s = {\n  bar: { borderTopWidth: TAB_BAR_TOP_BORDER },\n}')
+    ok(r.single.length === 0 && r.undetermined === 1, JSON.stringify(r))
+  })
+  t('S55 族 6 反向锁:borderTopLeftRadius / borderBottomColor 单出不算宽度动作', () => {
+    ok(rn('const s = {\n  card: { borderTopLeftRadius: 8, borderBottomColor: tk.border.light },\n}').length === 0)
+  })
+  t('S56 族 6 行注释里的属性不算(遮注释、留字符串)', () => {
+    ok(rn('// 旧写法:borderTopWidth: 1\nconst s = { paddingTop: 4 }').length === 0)
+  })
+  t('S57 反向对照:.css 里的属性选择器是在"描述谁带了这个类",不是自己在画边', () => {
+    const hits = css("[class*='border-l'][class*='bg-card'] * {\n  scrollbar-width: thin;\n}")
+    ok(hits.length === 0, JSON.stringify(hits))
+    // 同一条规则里真画了单边 ⇒ 照样点名(遮罩只遮选择器,不遮声明)
+    ok(css("[class*='border-l'] * {\n  border-top: 1px solid var(--color-border);\n}").length === 1)
+  })
+  t('S58 形状锁:两面书写语言都在清单面里(CSS 面曾被一句"由跨端 token 门管"整片放过)', () => {
+    ok(SCAN_GLOBS.includes('*.css'), JSON.stringify(SCAN_GLOBS))
+    ok(/border-\(top\|bottom\|left\|right\)/.test(PREFILTER_RE), PREFILTER_RE)
+    ok(/border\(Top\|Bottom\|Left\|Right\)\(Width\|Color\)/.test(PREFILTER_RE), PREFILTER_RE)
+  })
+
+  t('S59 任意值宽度不是色档:`border-b-[length:2rpx] border-border` 是真分隔线(6 枚曾按"彩色"放过)', () => {
+    const v = hit('  <View className="px-[24rpx] border-b-[length:2rpx] border-border" />')
+    ok(v && v.level === 'blocking', JSON.stringify(v))
+    ok(hit('  <View className="border-b-[length:8rpx] border-border" />') === null, '粗档仍算强调条')
+    ok(hit('  <View className="border-b-[0] border-border" />') === null, '0 仍是擦除')
+    ok(hit('  <View className="border-l-[3px] border-brand-500" />') === null, '彩色仍放过')
+    // 反向锁:变体前缀仍要剥(`[&>div]:` 的冒号在括号外,`[length:]` 的在括号内)
+    ok(hit('  <div className="[&>div]:border-b [&>div]:border-border" />')?.level === 'blocking')
+    ok(hit('  <div className="hover:border-b hover:border-border" />')?.level === 'blocking')
+  })
+
   let pass = 0
   const lines = []
   for (const c of cases) {
@@ -705,12 +1213,21 @@ if (isDirectRun) {
 export const __test__ = {
   classifyBorderToken,
   classifyDividerLine,
+  cssHairlineGrade,
+  enclosingBraceBlock,
   hasIndentRailPair,
   isNeutralBorderColor,
+  isNeutralColorRef,
   maskBlockComments,
+  maskCssAttributeSelectors,
+  interpolationBraceIndices,
+  rnHairlineGrade,
+  scanCssDeclarations,
+  scanRnStyleObjects,
   scanSource,
   countOpaqueSingles,
   selfTest,
   PREFILTER_RE,
+  SCAN_GLOBS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

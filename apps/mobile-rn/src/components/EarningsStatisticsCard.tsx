@@ -290,8 +290,6 @@ const styles = StyleSheet.create({
   // ── 底部统计 ──
   bottomStats: {
     flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
     paddingTop: 12,
   } as ViewStyle,
   statItem: {

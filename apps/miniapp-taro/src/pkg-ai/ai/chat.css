@@ -151,7 +151,6 @@
   padding: 12rpx 24rpx;
   padding-bottom: calc(12rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
-  border-top: 1rpx solid var(--color-border);
   gap: 8rpx;
 }
 .input {
@@ -628,7 +627,6 @@
   box-sizing: border-box;
   overflow-x: auto;
   flex: none;
-  border-bottom: 1px solid var(--color-border);
   margin-bottom: 20rpx;
   white-space: nowrap;
 }

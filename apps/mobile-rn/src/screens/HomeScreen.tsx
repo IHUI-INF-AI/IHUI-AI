@@ -2516,8 +2516,6 @@ const shellStyles = {
     flexShrink: 0,
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(24),
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tokens.border.light,
   } as const,
   detailDialogTitle: {
     flex: 1,
@@ -2548,8 +2546,6 @@ const shellStyles = {
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingVertical: rpx(10),
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: tokens.border.light,
   } as const,
   detailDialogFieldLabel: {
     width: rpx(140),
