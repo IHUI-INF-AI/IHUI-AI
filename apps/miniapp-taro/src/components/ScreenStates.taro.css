@@ -1,0 +1,112 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* ScreenStates 小程序镜像件样式 —— 对齐 RN 端 packages/app/src/components/ScreenStates.tsx。
+   取档换算:RN dp × 2 = rpx(750 设计稿基准);圆角/间距与 RN 端同出一份 design-tokens 档位表。
+   颜色一律引用 app.css 语义变量,暗色由 ThemeRoot .dark 自动适配(与 RN tk.* 一一映射)。 */
+
+/* 骨架屏 shimmer:与 RN 端 Animated 循环同周期(1.8s = 900ms×2)、同 opacity 区间(0.45~0.85) */
+.ihui-sk-shimmer {
+  animation: ihui-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes ihui-shimmer {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.ihui-sk-wrap {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.ihui-sk-row,
+.ihui-sk-card {
+  box-sizing: border-box;
+}
+
+/* 空态 / 错误态 */
+.ihui-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64rpx 64rpx;
+  gap: 20rpx;
+  min-height: 400rpx;
+}
+
+.ihui-state-glyph-circle {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
+}
+
+.ihui-state-glyph {
+  font-size: 52rpx;
+  color: var(--color-text-tertiary);
+}
+
+.ihui-state-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  text-align: center;
+  line-height: 44rpx;
+}
+
+.ihui-state-desc {
+  font-size: 26rpx;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  line-height: 38rpx;
+}
+
+.ihui-state-btn {
+  margin-top: 12rpx;
+  padding: 18rpx 36rpx;
+  border-radius: 12rpx;
+  background-color: var(--color-brand);
+}
+
+.ihui-state-btn:active {
+  opacity: 0.85;
+}
+
+.ihui-state-btn-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-primary-foreground);
+}
+
+/* 按压卡片 */
+.ihui-press-card {
+  box-sizing: border-box;
+  padding: 28rpx;
+  border-radius: 16rpx;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-card);
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.ihui-press-card:active {
+  /* 与 RN 端 PressableCard 的 0.975 缩放同观感 */
+  transform: scale(0.975);
+}
+
+.ihui-press-card-dark.ihui-press-card {
+  background-color: var(--color-card);
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

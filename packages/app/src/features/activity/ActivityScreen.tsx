@@ -8,6 +8,7 @@ import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ActivityItem, ActivityScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 活动屏/Props 类型 re-export(单一来源 @ihui/types) */
 export type { ActivityItem, ActivityScreenProps }
@@ -52,12 +53,10 @@ export function ActivityScreen({
         <Text style={styles.title}>{t('activity.title')}</Text>
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+      {error ? (
+        <ErrorState message={error} onRetry={onRefresh} retryLabel={t('common.retry')} colorScheme={colorScheme} />
+      ) : loading && items.length === 0 ? (
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<ActivityItem>
           data={items}
@@ -66,9 +65,12 @@ export function ActivityScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('activity.empty')}</Text>
-            </View>
+            <EmptyState
+              title={t('activity.empty')}
+              actionLabel={t('common.retry')}
+              onAction={onRefresh}
+              colorScheme={colorScheme}
+            />
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
