@@ -137,6 +137,51 @@ export function buildCookieHeader(cookies: Array<Record<string, unknown>>): stri
 
 export type ImportIssueLevel = 'error' | 'warning'
 
+/**
+ * 凭证字符串录入归一化(2026-10-23 立,dev 库实测根因)。
+ *
+ * 现象:`ai_relay_account_pool` 里那枚 Qoder 号 `health_status=down`、
+ * 签到侧天天 `活动查询失败 HTTP 401`,而失败原文是
+ * `DeviceRefreshTokenPrefixInvalid: invalid refresh_token: must start with drt-`。
+ * 现读解密后判形态:存进去的本体是 `"drt-…`/`"dt-…` —— 首字符是一个引号
+ * (从 auth.v1.dat 之类的 JSON 里整段复制时把引号一起粘上了),长度比正常值多 2。
+ * 上游按前缀校验,一个多余字符都不认 ⇒ 号池自己刷不动(连撞 3 次后自动摘除),
+ * 签到侧拿的还是这枚坏票,而用户界面上只看得见"签到失败"。
+ *
+ * 所以入口必须先把包裹引号/反引号与首尾空白剥掉,而不是等上游报错再猜。
+ * 只用于单段凭证串(token/refreshToken/uid);cookie 数组走 JSON 通道,不经此函数。
+ */
+export function normalizeCredentialValue(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  // 逐轮剥除两端的引号/反引号与空白,直到不再变化(容忍 `""drt-…""`、` "drt-…" ` 诸型)
+  let s = v
+  for (;;) {
+    const next = s.trim().replace(/^[ "'`]+|[ "'`]+$/g, '')
+    if (next === s) break
+    s = next
+  }
+  return s === '' ? null : s
+}
+
+/**
+ * 归一化之后的形态判据:能就地拒收的,绝不留给上游去 401。
+ * 返回 null = 合形或该平台无此约束;否则给出可直接执行的修正说明。
+ * 消息里不回显任何凭据字符(§9:日志与错误面只记 uid/version 这类非凭据键)。
+ */
+export function credentialShapeIssue(
+  providerCode: RelayProviderCode,
+  fields: { refreshToken: string | null },
+): string | null {
+  if (
+    providerCode === 'qoder' &&
+    fields.refreshToken !== null &&
+    !fields.refreshToken.startsWith('drt-')
+  ) {
+    return 'Qoder refreshToken 形态不符:需取 auth.v1.dat 里 `refreshToken` 字段本体(以 drt- 开头);当前值不是该形态,留着它号池无法自刷新、签到会天天被上游拒'
+  }
+  return null
+}
+
 export interface ImportIssue {
   level: ImportIssueLevel
   code: string
