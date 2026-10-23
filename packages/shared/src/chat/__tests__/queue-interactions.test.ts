@@ -80,8 +80,16 @@ describe('D38 许可门 interactionAllowed(复用 D69 queueInteractionPerms,正�
       streaming: false,
       hasQueuedMessages: false,
     })
-    expect(interactionAllowed('undo', perms)).toEqual({ allowed: false, deniedKey: 'denied.undo', causeKey: 'denied.cause.emptyQueue' })
-    expect(interactionAllowed('edit', perms)).toEqual({ allowed: false, deniedKey: 'denied.undo', causeKey: 'denied.cause.emptyQueue' })
+    expect(interactionAllowed('undo', perms)).toEqual({
+      allowed: false,
+      deniedKey: 'denied.undo',
+      causeKey: 'denied.cause.emptyQueue',
+    })
+    expect(interactionAllowed('edit', perms)).toEqual({
+      allowed: false,
+      deniedKey: 'denied.undo',
+      causeKey: 'denied.cause.emptyQueue',
+    })
     expect(interactionAllowed('reorder', perms)).toEqual({
       allowed: false,
       deniedKey: 'denied.reorder',
@@ -96,7 +104,11 @@ describe('D38 许可门 interactionAllowed(复用 D69 queueInteractionPerms,正�
       hasQueuedMessages: true,
     })
     const verdict = interactionAllowed('interruptAndRun', perms)
-    expect(verdict).toEqual({ allowed: false, deniedKey: 'denied.interject', causeKey: 'denied.cause.runtimeNoInterject' })
+    expect(verdict).toEqual({
+      allowed: false,
+      deniedKey: 'denied.interject',
+      causeKey: 'denied.cause.runtimeNoInterject',
+    })
     expect(verdict.deniedKey).toBe(deniedNotice('interject', 'runtimeNoInterject'))
     // 插话能力不影响重排/撤回(D69 判据)
     expect(interactionAllowed('reorder', perms).allowed).toBe(true)
@@ -109,7 +121,11 @@ describe('D38 许可门 interactionAllowed(复用 D69 queueInteractionPerms,正�
       streaming: true,
       hasQueuedMessages: false,
     })
-    expect(interactionAllowed('setMode', perms)).toEqual({ allowed: true, deniedKey: null, causeKey: null })
+    expect(interactionAllowed('setMode', perms)).toEqual({
+      allowed: true,
+      deniedKey: null,
+      causeKey: null,
+    })
   })
 
   it('edit 与 undo 同门(同被拒键族):流式不拦,队列空才拦', () => {
@@ -119,6 +135,124 @@ describe('D38 许可门 interactionAllowed(复用 D69 queueInteractionPerms,正�
       hasQueuedMessages: true,
     })
     expect(interactionAllowed('edit', streamingPerms).deniedKey).toBeNull()
+  })
+})
+
+// G-171(a):三个新条件(queueChanged / controlCommand / awaitingApproval)从可选输入
+// 判入许可门并出具体拒因;缺省 false ⇒ 未喂端行为与扩展前逐字一致(向后兼容臂)。
+describe('G-171a 新拒因三条件 / 判入许可门 + 出因 + 缺省兼容', () => {
+  it('queueChanged=true:reorder/undo 被拒且出因 queueChanged(非流式也拦)', () => {
+    const perms = queueInteractionPerms({
+      runtimeSupportsInterjection: true,
+      streaming: false,
+      hasQueuedMessages: true,
+      queueChanged: true,
+    })
+    expect(interactionAllowed('reorder', perms)).toEqual({
+      allowed: false,
+      deniedKey: 'denied.reorder',
+      causeKey: 'denied.cause.queueChanged',
+    })
+    expect(interactionAllowed('undo', perms)).toEqual({
+      allowed: false,
+      deniedKey: 'denied.undo',
+      causeKey: 'denied.cause.queueChanged',
+    })
+    // 并发变更不锁编辑(D162 六格门另有 edit 拦截,perms 门口径与 undo 同族不同判)
+    expect(interactionAllowed('setMode', perms).allowed).toBe(true)
+  })
+
+  it('queueChanged 优先于 streaming:流式 + 并发变更同时命中 ⇒ reorder 出因 queueChanged', () => {
+    const perms = queueInteractionPerms({
+      runtimeSupportsInterjection: true,
+      streaming: true,
+      hasQueuedMessages: true,
+      queueChanged: true,
+    })
+    expect(interactionAllowed('reorder', perms).causeKey).toBe('denied.cause.queueChanged')
+  })
+
+  it('awaitingApproval=true(能力在位):interruptAndRun 被拒出因 awaitingApproval;重排/撤回不受影响', () => {
+    // 插话门与流式无关(插话本身发生在流式中),非流式摆明"重排/撤回不受审批位牵连"
+    const perms = queueInteractionPerms({
+      runtimeSupportsInterjection: true,
+      streaming: false,
+      hasQueuedMessages: true,
+      awaitingApproval: true,
+    })
+    expect(interactionAllowed('interruptAndRun', perms)).toEqual({
+      allowed: false,
+      deniedKey: 'denied.interject',
+      causeKey: 'denied.cause.awaitingApproval',
+    })
+    expect(perms.canReorder).toBe(true)
+    expect(perms.canUndo).toBe(true)
+  })
+
+  it('能力硬缺口优先:runtime=false + awaitingApproval=true ⇒ 出因仍是 runtimeNoInterject', () => {
+    const perms = queueInteractionPerms({
+      runtimeSupportsInterjection: false,
+      streaming: false,
+      hasQueuedMessages: true,
+      awaitingApproval: true,
+    })
+    expect(interactionAllowed('interruptAndRun', perms).causeKey).toBe(
+      'denied.cause.runtimeNoInterject',
+    )
+  })
+
+  it('controlCommand:仅撞运行中 Turn 才拦插话;非流式放行', () => {
+    const runningPerms = queueInteractionPerms({
+      runtimeSupportsInterjection: true,
+      streaming: true,
+      hasQueuedMessages: true,
+      isControlCommand: true,
+    })
+    expect(interactionAllowed('interruptAndRun', runningPerms)).toEqual({
+      allowed: false,
+      deniedKey: 'denied.interject',
+      causeKey: 'denied.cause.controlCommand',
+    })
+    const idlePerms = queueInteractionPerms({
+      runtimeSupportsInterjection: true,
+      streaming: false,
+      hasQueuedMessages: true,
+      isControlCommand: true,
+    })
+    expect(interactionAllowed('interruptAndRun', idlePerms).allowed).toBe(true)
+  })
+
+  it('审批待决优先于控制命令:两者同命中 ⇒ 出因 awaitingApproval(先处理等待中的请求)', () => {
+    const perms = queueInteractionPerms({
+      runtimeSupportsInterjection: true,
+      streaming: true,
+      hasQueuedMessages: true,
+      isControlCommand: true,
+      awaitingApproval: true,
+    })
+    expect(interactionAllowed('interruptAndRun', perms).causeKey).toBe(
+      'denied.cause.awaitingApproval',
+    )
+  })
+
+  it('向后兼容臂:新字段缺省 ⇒ perms 与显式 false 逐字同形(未喂端零行为变更)', () => {
+    const omitted = queueInteractionPerms({
+      runtimeSupportsInterjection: true,
+      streaming: true,
+      hasQueuedMessages: true,
+    })
+    const explicitFalse = queueInteractionPerms({
+      runtimeSupportsInterjection: true,
+      streaming: true,
+      hasQueuedMessages: true,
+      queueChanged: false,
+      isControlCommand: false,
+      awaitingApproval: false,
+    })
+    expect(omitted).toEqual(explicitFalse)
+    expect(omitted.queueChanged).toBe(false)
+    expect(omitted.isControlCommand).toBe(false)
+    expect(omitted.awaitingApproval).toBe(false)
   })
 })
 
