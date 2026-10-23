@@ -583,6 +583,24 @@ class CheckinScheduler:
         device_map 写回存储(Qoder 的自刷新新 token 也经此通路落库)。"""
         device_map = dict(account.get("device_map") or {})
         platform = account.get("platform")
+        # ── Qoder 凭证统一(2026-10-23):relay 池为唯一真源 ──
+        # 签到前从 relay 拉最新票覆盖本地(避免用 checkin 侧过期/分叉票);
+        # 刷新后统一回写 relay(唯一写点),checkin 侧不再独立轮换 refresh_token。
+        qoder_cred: dict[str, Any] | None = None
+        if platform == "qoder":
+            _uid = str(device_map.get("uid") or account.get("uid") or "")
+            qoder_cred = await checkin_store.load_qoder_cred(_uid)
+            if qoder_cred:
+                account = {**account, "jwt": qoder_cred["token"]}
+                if qoder_cred.get("refresh_token"):
+                    device_map["refresh_token"] = qoder_cred["refresh_token"]
+                if qoder_cred.get("expires_at"):
+                    device_map["expires_at"] = qoder_cred["expires_at"]
+                _cosy = qoder_cred.get("cosy") or {}
+                if _cosy:
+                    _merged = dict(device_map.get("cosy") or {})
+                    _merged.update({k: v for k, v in _cosy.items() if v})
+                    device_map["cosy"] = _merged
         # 多账号风控三件套之二:device_map.proxy 绑定独立出口 IP,
         # 有代理的账号全程走自己的 client(用完即关),无代理本机直连零变化。
         # 免费代理池自动分配(默认关;CHECKIN_FREE_PROXY_POOL=1 开):多账号自动绑独立出口
@@ -614,6 +632,25 @@ class CheckinScheduler:
         finally:
             if owned:
                 await client.aclose()
+        # 刷新回写 relay(唯一写点):引擎若轮换了票,把结果里的当前 token 同步回 relay
+        if platform == "qoder" and qoder_cred is not None:
+            _new_token = result.get("access_token")
+            _new_rt = device_map.get("refresh_token")
+            if _new_token and (
+                _new_token != qoder_cred.get("token")
+                or _new_rt != qoder_cred.get("refresh_token")
+            ):
+                try:
+                    await checkin_store.save_qoder_cred(
+                        str(device_map.get("uid") or account.get("uid") or ""),
+                        str(_new_token),
+                        str(_new_rt) if _new_rt else None,
+                        int(device_map["expires_at"])
+                        if isinstance(device_map.get("expires_at"), (int, float))
+                        else None,
+                    )
+                except Exception as e:
+                    logger.warning("[checkin_scheduler] qoder 凭证回写 relay 失败(忽略): %s", e)
         try:
             await checkin_store.save_device_map(account["id"], device_map)
         except Exception as e:
