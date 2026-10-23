@@ -58,6 +58,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { git } from './lib/bypass-git.mjs'
 import { DUP_POINTER_RE, compositeKeyOf, parseTaskRows } from './lib/plan-task-index.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+// 带值旗标取值判死单源(G-322):--source/--limit 不再自写吞值副本(旧"忽略无效值退默认"支删)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(HERE, '..')
@@ -639,20 +641,23 @@ function main() {
     if (takesValue.has(a)) i++ // 跳过取值 token(照抄 plan-id-face 的旗标口径,见其 iSrc 注释)
   }
 
-  const iSrc = argv.indexOf('--source')
-  let source = 'HEAD'
-  if (iSrc >= 0) {
-    const raw = argv[iSrc + 1]
-    if (typeof raw === 'string' && raw !== '' && !raw.startsWith('-')) source = raw
-    else console.error(`ℹ 忽略无效的 --source 值:${JSON.stringify(raw)},已退回默认 HEAD`)
+  const srcReq = requireFlagValue(argv, '--source', { noun: 'git rev' })
+  if (srcReq.error) {
+    console.error(`✗ ${srcReq.error}`)
+    return 2
   }
+  const source = srcReq.present ? srcReq.value : 'HEAD'
   let limit = 20
-  const iLim = argv.indexOf('--limit')
-  if (iLim >= 0) {
-    const n = Number(argv[iLim + 1])
+  const limReq = requireFlagValue(argv, '--limit', { noun: '非负整数' })
+  if (limReq.error) {
+    console.error(`✗ ${limReq.error}`)
+    return 2
+  }
+  if (limReq.present) {
+    const n = Number(limReq.value)
     if (Number.isInteger(n) && n >= 0) limit = n
     else {
-      console.error(`✗ --limit 要非负整数,收到 ${JSON.stringify(argv[iLim + 1])}`)
+      console.error(`✗ --limit 要非负整数,收到 ${JSON.stringify(limReq.value)}`)
       return 2
     }
   }

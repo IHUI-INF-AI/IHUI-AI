@@ -106,6 +106,8 @@ import {
 } from './lib/face-reader.mjs'
 // 链扫描/体切分只此一份(出处见头注"同族复用的部分")—— 本文件禁止再写一遍括号配平。
 import { findFunctionBodies, findRawSqlWriteChains, findWriteChains } from './check-batch-write-count-honesty.mjs'
+// 带值旗标取值判死单源(G-322):--root/--max-sites 不再自写吞值副本。
+import { requireFlagValue } from './lib/flag-value.mjs'
 // 纯判据层(词表 / 列名归一 / CAS 谓词 / 遮罩投影 / 行号 / 汇总)唯一住在 ./lib/state-transition-census.mjs,
 // 本文件只 import 回来并原样重新导出 —— 见该文件头注"为什么单独成库"(守门 11e 的行数上限)。
 import {
@@ -659,15 +661,12 @@ function printHuman(out, opts) {
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   let root = ROOT
-  const f = argv.indexOf('--root')
-  if (f >= 0) {
-    const token = argv[f + 1]
-    if (typeof token !== 'string' || token === '' || token.startsWith('-')) {
-      console.error(`❌ 无法判定(exit 2): --root 没收到有效目录,实得:${token === undefined ? '(其后无参数)' : JSON.stringify(token)}`)
-      return 2
-    }
-    root = resolve(token)
+  const rootReq = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootReq.error) {
+    console.error(`❌ 无法判定(exit 2): ${rootReq.error}`)
+    return 2
   }
+  if (rootReq.present) root = resolve(rootReq.value)
   const { face, error } = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
   if (error) {
     console.error(`❌ 无法判定: ${error}`)
@@ -679,10 +678,14 @@ function main(argv) {
     console.error(`❌ 无法判定(exit 2): ${e instanceof Undetermined ? e.message : String(e?.message ?? e)}`)
     return 2
   }
-  const maxIdx = argv.indexOf('--max-sites')
-  const maxSites = maxIdx >= 0 ? Number(argv[maxIdx + 1]) : 0
-  if (!Number.isFinite(maxSites) || maxSites < 0) {
-    console.error(`❌ 无法判定(exit 2): --max-sites 实得 ${JSON.stringify(argv[maxIdx + 1])},须是非负整数`)
+  const maxReq = requireFlagValue(argv, '--max-sites', { noun: '非负整数' })
+  if (maxReq.error) {
+    console.error(`❌ 无法判定(exit 2): ${maxReq.error}`)
+    return 2
+  }
+  const maxSites = maxReq.present ? Number(maxReq.value) : 0
+  if (maxReq.present && (!Number.isInteger(maxSites) || maxSites < 0)) {
+    console.error(`❌ 无法判定(exit 2): --max-sites 实得 ${JSON.stringify(maxReq.value)},须是非负整数`)
     return 2
   }
   let out
