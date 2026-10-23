@@ -2361,7 +2361,8 @@
       "editBtn2": "修改",
       "editBtn": "设置",
       "noMore": "没有更多了"
-    }
+    },
+    "becomeDeveloper": "成为开发者"
   },
   "modelPlaza": {
     "title": "模型广场",
@@ -4678,5 +4679,20 @@
     "lastOk": "上次签到成功 +{credits}",
     "lastFailed": "上次签到失败",
     "actionFailed": "操作失败"
+  },
+  "developerInfo": {
+    "title": "开发者信息",
+    "nameLabel": "名称",
+    "descLabel": "简介",
+    "statusLabel": "申请状态",
+    "statusApproved": "已通过",
+    "statusRejected": "已拒绝",
+    "statusPending": "待审核",
+    "accountLabel": "账号",
+    "apiKeyLabel": "API 密钥",
+    "apiKeyCount": "已创建 {count} 个",
+    "apiKeyNone": "未创建",
+    "urlLabel": "网址",
+    "expiryLabel": "到期时间"
   }
 }

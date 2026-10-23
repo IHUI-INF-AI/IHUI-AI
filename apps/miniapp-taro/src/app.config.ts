@@ -57,6 +57,7 @@ export default defineAppConfig({
         'developer/withdrawal',
         'developer/subscribe',
         'business-card/index',
+        'dev-space/index',
         'dev-enter/cover/index',
         'dev-enter/model-edit/index',
         'dev-enter/n8n-model/index',
