@@ -828,7 +828,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
               <div className="flex flex-col items-center pt-0.5">
                 <span className={cn('inline-block h-2 w-2 rounded-sm', style.bg)} />
                 {i < record.messages.length - 1 && (
-                  <span className="mt-0.5 h-full w-px bg-border" />
+                  <span className="mt-0.5 h-full border-l border-border" />
                 )}
               </div>
               {/* 消息内容 */}
