@@ -250,7 +250,7 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
             className={cn(
               'pointer-events-none absolute -bottom-1 left-1/2 w-10 -translate-x-1/2 border-b-2 transition-colors duration-200',
               parentActive || open
-                ? 'border-primary'
+                ? 'border-brand-accent-deep'
                 : 'border-muted-foreground/40 group-hover/exp:border-muted-foreground/70',
             )}
           />

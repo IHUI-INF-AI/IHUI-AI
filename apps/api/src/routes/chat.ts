@@ -69,6 +69,8 @@ import {
   replaceMessages,
   updateConversationTitle,
 } from '../db/chat-queries.js'
+// D125 另批收口(2026-10-23):写锁地板门控判据(纯函数,不触库;锁读写面在 chat-collab 路由)
+import { readCollabLock, resolveFloorGate } from '../db/chat-collab-write-queries.js'
 import { success, error } from '../utils/response.js'
 import { generateSemanticSummary, getCachedSemanticSummary } from '../utils/semantic-summary.js'
 import {
@@ -1199,8 +1201,28 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId
 
     const { id } = idParam.parse(request.params)
-    const owned = await ensureOwnedConversation(id, userId, reply)
-    if (!owned.conversation) return
+    // D125 另批收口(2026-10-23,设计稿 §6):写锁地板门控 —— 同一时刻单写者。
+    // 判据纯函数在 db/chat-collab-write-queries.ts(resolveFloorGate),这里只接线:
+    //  - 他人持麦 ⇒ 409(属主也在内 —— 锁的意义就包括把属主也挡在麦外,
+    //    属主想发言先显式 DELETE collab-lock 收麦,那是另一个动作);
+    //  - 本人持麦且非属主 ⇒ 放行(跳过归属门是"接管发言"的全部特权);
+    //  - 无锁 ⇒ 原属主独占语义,零行为差。
+    const conversationForFloor = await findConversationById(id)
+    if (!conversationForFloor) {
+      return reply.status(404).send(error(404, '对话不存在'))
+    }
+    const floorGate = resolveFloorGate({
+      lock: readCollabLock(conversationForFloor.metadata),
+      userId,
+      ownerId: conversationForFloor.userId,
+    })
+    if (floorGate === 'blocked') {
+      return reply.status(409).send(error(409, '当前有其他协作者持麦,无法发言'))
+    }
+    if (floorGate !== 'floor-holder') {
+      const owned = await ensureOwnedConversation(id, userId, reply)
+      if (!owned.conversation) return
+    }
 
     const parsed = createMessageSchema.safeParse(request.body)
     if (!parsed.success) {

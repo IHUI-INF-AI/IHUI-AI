@@ -2048,6 +2048,8 @@ export default function ChatPage() {
         items={sideQueue.items}
         streaming={thinking}
         mode={sideQueue.mode}
+        // G-171a:待决审批事实喂入许可门(真实来源 = approvalQueue 非空)
+        awaitingApproval={approvalQueue.length > 0}
         onReorder={sideQueue.reorder}
         onUndo={(itemId) => {
           const removed = sideQueue.remove(itemId)

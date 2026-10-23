@@ -56,7 +56,8 @@ import {
   consumeSendQuota,
   sendCodePreSerialization,
 } from '../utils/code-echo-guard.js'
-import { deliverSmsCode, smsCodeTtlMs } from '../services/sms.js'
+import { deliverSmsCode, smsCodeTtlMs, isSmsConfigured } from '../services/sms.js'
+import { config } from '../config/index.js'
 import { sendVerificationEmail } from '../services/email-service.js'
 import {
   evaluateLoginRisk,
@@ -93,7 +94,11 @@ export function normalizeDeviceFingerprint(raw: unknown): string | undefined {
 const registerSchema = z.object({
   phone: z.string().length(11, '手机号必须为 11 位'),
   password: z.string().min(8, '密码至少 8 位').max(72, '密码最多 72 位'),
-  code: z.string().optional(),
+  // G-876:带上 code 就必须是 6 位数字(schema 档);是否必填由通道配置档决定(见 handler)。
+  code: z
+    .string()
+    .regex(/^\d{6}$/, '验证码必须为 6 位')
+    .optional(),
   invitationCode: z.string().optional(),
 })
 import { buildResponseSchema } from '../utils/api-schemas.js'
@@ -516,7 +521,31 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const { phone, password } = parsed.data
+      const { phone, password, code } = parsed.data
+
+      // G-876(2026-10-23):手机号真实性核验。
+      //  - 短信通道已配置(isSmsConfigured 生产出口判据,§22c 不在测试复制):code 必填且必须
+      //    先过 code-store verifyCode(一次性消费),未验过不落库;
+      //  - 通道未配置:code 可选(改必填会当场关死注册),但带上就必须验真(防绕过);
+      //  - 校验先于 409 查询:未验码者不得借 409 文案枚举号码归属。
+      // fail-soft 开关(config.AUTH_REGISTER_CODE_FAIL_SOFT,默认关):开启时核验不过仅告警放行,
+      // 供通道切换/客户端灰度期的回退窗口;关闭即 fail-hard(400 拒)。
+      const smsConfigured = isSmsConfigured()
+      const codeFailSoft = config.AUTH_REGISTER_CODE_FAIL_SOFT === true
+      if (!code && smsConfigured) {
+        if (!codeFailSoft) {
+          return reply.status(400).send(error(400, '请填写短信验证码'))
+        }
+        request.log.warn({ ip: request.ip }, 'G-876 注册缺验证码(fail-soft 放行)')
+      } else if (code) {
+        const codeOk = await verifyCode(phone, code)
+        if (!codeOk) {
+          if (!codeFailSoft) {
+            return reply.status(400).send(error(400, '验证码错误或已过期'))
+          }
+          request.log.warn({ ip: request.ip }, 'G-876 注册验证码核验未通过(fail-soft 放行)')
+        }
+      }
 
       // 检查手机号是否已注册
       const existing = await findUserByPhone(phone)

@@ -15,7 +15,7 @@
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
-import { and, eq, isNotNull, lte, or, inArray } from 'drizzle-orm'
+import { and, eq, isNotNull, isNull, lt, lte, or, inArray } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
@@ -24,11 +24,6 @@ import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
-import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
-import {
-  retryPendingCheckinSyncs,
-  type RetryPendingResult,
-} from './relay-account-pool-checkin-sync.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
@@ -44,6 +39,23 @@ let lastUsagePurgeAt = 0
 /** 巡检分布式锁:锁名 + 租约 TTL(10 分钟 ≥ 单轮最坏耗时;进程崩溃锁自愈,不阻塞下轮) */
 export const SWEEP_LOCK_NAME = 'relay-account-pool-sweep'
 const SWEEP_LOCK_TTL_MS = 10 * 60 * 1000
+/**
+ * unknown 复检退避:上游持续不可用时不必每 5 分钟重打一遍。
+ * 新导入账号 healthCheckedAt 为空 → 立即受检;判成「未判定」后隔 30 分钟再试。
+ */
+const UNKNOWN_RECHECK_MS = 30 * 60 * 1000
+
+/**
+ * 健康结果 → 持久化状态(唯一口径:巡检 / 管理面 / 导入 CLI 共用)。
+ * indeterminate 保留 unknown,严禁写 down —— 「取不到」不等于「凭据失效」。
+ */
+export function healthStatusOf(outcome: {
+  ok: boolean
+  indeterminate?: boolean
+}): 'healthy' | 'down' | 'unknown' {
+  if (outcome.ok) return 'healthy'
+  return outcome.indeterminate === true ? 'unknown' : 'down'
+}
 
 export interface AccountPoolSweepResult {
   refreshed: number
@@ -51,25 +63,6 @@ export interface AccountPoolSweepResult {
   refreshSkipped: number
   healthChecked: number
   healthRecovered: number
-  /** O64 对账收敛器结果(undefined = 未执行/被跳过;号池↔签到断链自愈) */
-  checkinReconcile?: {
-    ok: boolean
-    error: string | null
-    pushed: number
-    pushFailed: number
-    disabled: number
-    disableFailed: number
-    stateCalibrated: number
-    stateFailed: number
-    flushed: number
-    flushFailed: number
-    orphanNoPoolId: number
-    outOfScope: number
-    truncated: number
-  }
-  /** O64 断链待推重推结果(undefined = 未执行/被跳过;reconcile 仅按"缺/版本落后"补推,
-   *  读不到 pending 标记,覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending) */
-  checkinRetry?: RetryPendingResult
   /** true = 分布式锁被其他实例持有,本轮整体跳过(多实例不重复 sweep) */
   skipped: boolean
 }
@@ -189,6 +182,9 @@ export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
     const note = `token 刷新失败(第 ${failures}/${REFRESH_FAILURE_LIMIT} 次):${reason}${
       shouldRemove ? ' ⇒ 连续超限,已自动摘除' : ''
     }`
+    // 上游**明确拒收**凭据时才收敛到期列(结构化判定,不匹配错误文案);
+    // 网络/5xx 等未判定失败绝不改写到期时刻。与失败计数、健康降级同一次写。
+    const authRejected = adapter.isAuthError?.(e) === true
     await db
       .update(aiRelayAccountPool)
       .set({
@@ -197,6 +193,7 @@ export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
         healthStatus: shouldRemove ? 'down' : row.healthStatus,
         lastErrorMessage: note.slice(0, 500),
         updatedAt: new Date(),
+        ...(authRejected ? { tokenExpiresAt: new Date() } : {}),
       })
       .where(eq(aiRelayAccountPool.id, row.id))
     return false
@@ -258,7 +255,8 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     else out.refreshFailed++
   })
 
-  // ── 2. unknown 健康定级(并发上限 SWEEP_CONCURRENCY) ──
+  // ── 2. unknown 健康定级(并发上限 SWEEP_CONCURRENCY;未判定结果按退避复检) ──
+  const recheckBefore = new Date(Date.now() - UNKNOWN_RECHECK_MS)
   const unknowns = await dbRead
     .select()
     .from(aiRelayAccountPool)
@@ -266,9 +264,12 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       and(
         eq(aiRelayAccountPool.isEnabled, true),
         eq(aiRelayAccountPool.healthStatus, 'unknown'),
+        // 未摘除的,或摘除但已重新启用的
+        eq(aiRelayAccountPool.tempUnschedulable, false),
+        // 新导入(healthCheckedAt 为空)立即受检;上一轮判「未判定」的按退避等待
         or(
-          // 未摘除的,或摘除但已重新启用的
-          eq(aiRelayAccountPool.tempUnschedulable, false),
+          isNull(aiRelayAccountPool.healthCheckedAt),
+          lt(aiRelayAccountPool.healthCheckedAt, recheckBefore),
         ),
       ),
     )
@@ -281,13 +282,18 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
         proxyUrl: row.proxyUrl,
       })
       out.healthChecked++
+      const now = new Date()
       await db
         .update(aiRelayAccountPool)
         .set({
-          healthStatus: outcome.ok ? 'healthy' : 'down',
-          healthCheckedAt: new Date(),
+          // 未判定保留 unknown,不写 down(§0.3:取不到 ≠ 失效)
+          healthStatus: healthStatusOf(outcome),
+          healthCheckedAt: now,
           lastErrorMessage: outcome.ok ? null : (outcome.error ?? '健康检查失败').slice(0, 500),
-          updatedAt: new Date(),
+          updatedAt: now,
+          // 上游明确拒收 → 到期列收敛到当下(与健康降级同一次写)。
+          // 未来到期时刻从此不能再被当成「票仍可用」的证据;5xx 未判定不碰该列。
+          ...(outcome.ok === false && outcome.authFailed === true ? { tokenExpiresAt: now } : {}),
         })
         .where(eq(aiRelayAccountPool.id, row.id))
     } catch {
@@ -302,26 +308,6 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) continue
     if (await refreshOne(row)) out.healthRecovered++
-  }
-
-  // ── 4. O64 号池↔签到对账收敛(断链自愈;失败不中断 sweep,下轮继续) ──
-  try {
-    out.checkinReconcile = await reconcileCheckinSync()
-  } catch (e) {
-    logger.warn('[relay-account-pool] 对账收敛器异常(不影响巡检)', {
-      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
-    })
-  }
-
-  // ── 4.5 O64 断链待推重推:retryPendingCheckinSyncs 直接读 pending 标记重推;
-  //    reconcile(步骤4)仅按"缺/版本落后"补推、读不到 extraMetadata.checkinSync.pending,
-  //    覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending。两者同在分布式锁内、幂等、互不冲突。
-  try {
-    out.checkinRetry = await retryPendingCheckinSyncs()
-  } catch (e) {
-    logger.warn('[relay-account-pool] 待推重推异常(不影响巡检)', {
-      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
-    })
   }
 
   return out

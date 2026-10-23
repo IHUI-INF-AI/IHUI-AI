@@ -318,6 +318,12 @@ const envSchema = z.object({
   // 只影响"带了 Idempotency-Key 且能力目录 idempotencyRequired=true"的请求,其余不受任何影响。
   IDEMPOTENCY_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(600),
 
+  // ===== G-876 注册验证码校验 fail-soft 开关(2026-10-23 立)=====
+  // 默认 false = fail-hard:短信通道已配置时注册缺码/错码一律 400 拒。
+  // 置 true = fail-soft:核验不过仅告警放行,供通道切换/客户端灰度期的回退窗口
+  // (与 OAUTH_REQUIRE_PKCE 同型的"灰度期不关死存量客户端"取向)。
+  AUTH_REGISTER_CODE_FAIL_SOFT: booleanFromString(false),
+
   // d1jiema 接码平台 API Token(C 类可选第三方,2026-10-08 立,管理员短信接码 /admin/sms-receive)。
   // 留空 = 未配置:d1jiema-service 消费点显式报"未配置"错误,不影响启动。
   // 创建入口:平台网页版 个人中心 → API对接中心 → 创建 API Token(一次创建长期使用,勿频繁更换)。

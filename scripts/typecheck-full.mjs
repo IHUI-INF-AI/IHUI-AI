@@ -225,37 +225,43 @@ function _pidAlive(pid) {
     return e.code === 'EPERM'
   }
 }
-for (;;) {
-  try {
-    _mkLock(_lockDir, { recursive: false })
-    _wrLock(_lockMeta, JSON.stringify({ pid: process.pid, ts: Date.now() }))
-    break
-  } catch {
-    let meta = null
+// `--self-test` 只证 pickStalePackages 这一维纯函数判据,不起 tsc、不需要串行化。
+// 锁落 os.tmpdir(),若自检也建锁,并发跑自检会在同一把锁上互等(累计 5s 轮询),
+// 而自检本身零派生 ⇒ 自检路径整段跳过锁(真实全量跑仍照旧独占)。
+const _SELF_TEST = process.argv.includes('--self-test')
+if (!_SELF_TEST) {
+  for (;;) {
     try {
-      meta = JSON.parse(_rdLock(_lockMeta, 'utf8'))
+      _mkLock(_lockDir, { recursive: false })
+      _wrLock(_lockMeta, JSON.stringify({ pid: process.pid, ts: Date.now() }))
+      break
     } catch {
-      /* meta 缺失按未知处理 */
+      let meta = null
+      try {
+        meta = JSON.parse(_rdLock(_lockMeta, 'utf8'))
+      } catch {
+        /* meta 缺失按未知处理 */
+      }
+      const stale = !meta || Date.now() - (meta.ts ?? 0) > _LOCK_STALE_MS || !_pidAlive(meta.pid)
+      if (stale) {
+        _rmLock(_lockDir, { recursive: true, force: true })
+        continue
+      }
+      console.log(`[typecheck:full] 另一全量 typecheck 进行中(pid ${meta.pid}),串行等待...`)
+      spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},5000)'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      })
     }
-    const stale = !meta || Date.now() - (meta.ts ?? 0) > _LOCK_STALE_MS || !_pidAlive(meta.pid)
-    if (stale) {
+  }
+  process.on('exit', () => {
+    try {
       _rmLock(_lockDir, { recursive: true, force: true })
-      continue
+    } catch {
+      /* 忽略 */
     }
-    console.log(`[typecheck:full] 另一全量 typecheck 进行中(pid ${meta.pid}),串行等待...`)
-    spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},5000)'], {
-      stdio: 'ignore',
-      windowsHide: true,
-    })
-  }
+  })
 }
-process.on('exit', () => {
-  try {
-    _rmLock(_lockDir, { recursive: true, force: true })
-  } catch {
-    /* 忽略 */
-  }
-})
 
 /**
  * `--self-test`:只证 `pickStalePackages` 这一维判定,**必须跑在清 .tsbuildinfo 之前**
@@ -263,7 +269,7 @@ process.on('exit', () => {
  * 本文件顶层就是 CLI 且无 §22d `isDirectRun` 守卫,所以镜像测试只能把脚本 spawn 起来验,
  * 不能 import 判据函数(§22c 记过这一型)。
  */
-if (process.argv.includes('--self-test')) {
+if (_SELF_TEST) {
   let ok = 0
   let bad = 0
   const t = (name, cond) => {

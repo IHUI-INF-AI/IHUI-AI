@@ -27,6 +27,25 @@ export interface AdapterAccountContext {
   credentials: AccountCredentials
 }
 
+/**
+ * 健康检查三态语义(2026-10-23 立,与 §0.3「取不到 ≠ 失效」同源):
+ * - `ok:true` → healthy
+ * - `ok:false` + `indeterminate:true` → 上游暂时给不出判定依据(5xx / 网络 / 形状不符),
+ *   **不得**写 down,保留 unknown 待下轮复检(避免上游抖动把好号误杀)
+ * - `ok:false` 且无 indeterminate → 凭据被上游明确拒收(401/403 / 业务鉴权错)→ down
+ */
+export interface HealthCheckResult {
+  ok: boolean
+  error?: string
+  indeterminate?: boolean
+  /**
+   * 上游**明确拒收**该凭据(401/403 / 业务鉴权错)。承载层据此在同一次写里把
+   * tokenExpiresAt 收敛到当下 —— 到期列只是「可能仍可用」的弱证据,不得与拒收态背离。
+   * 5xx / 网络 / 形状不符一律不得置真(那些走 indeterminate)。
+   */
+  authFailed?: boolean
+}
+
 /** 归一化的 chat 请求(OpenAI 形状,由转发层从客户端请求转换而来) */
 export interface NormalizedChatRequest {
   model: string
@@ -186,11 +205,8 @@ export interface RelayUpstreamAdapter {
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
   ): Promise<TokenRefreshResult | null>
-  /** 轻量健康检查(不得消耗大量配额;失败返回 ok:false + 原因) */
-  checkHealth(
-    ctx: AdapterAccountContext,
-    opts?: AdapterCallOptions,
-  ): Promise<{ ok: boolean; error?: string }>
+  /** 轻量健康检查(不得消耗大量配额;失败返回 ok:false + 原因;三态语义见 HealthCheckResult) */
+  checkHealth(ctx: AdapterAccountContext, opts?: AdapterCallOptions): Promise<HealthCheckResult>
   /** 上游模型列表(可空:平台无此端点时健康检查退化为最小 chat 探测) */
   listModels?(ctx: AdapterAccountContext, opts?: AdapterCallOptions): Promise<string[]>
   /**

@@ -15,7 +15,7 @@
 --     A. ai_pricing 增加 billing_mode / per_unit_price / tiered_call_prices /
 --        video_unit 四列(默认 token 模式,存量行为完全不变);
 --     B. llm_call_logs 增加 call_type 列(chat/image/video),多模态调用审计维度。
---   计价规则(与上游报价页 api.x5m5x.com/pricing 对齐):
+--   计价规则(与上游报价页定价对齐):
 --     per_call  三档:promptTokens ≤256K → le256k;≤512K → mid;>512K → gt512k
 --               (256K=262144,512K=524288)
 --     per_image 分/张 × 张数

@@ -7,17 +7,22 @@
  *   ① preToolCall 腿:执行窗合成信号经 ctx.signal 直达调用点 ⇒ 父级取消杀掉**正在运行**的
  *      钩子子进程,工具以 proceed:false 短路返回,不进主体;
  *   ② postToolCall 腿:同一接线,取消打在 post 钩子,事件层如实报 Cancelled;
- *   ③ 对照组:不取消 ⇒ 钩子正常完成(Succeeded),工具主体跑到结束。
+ *   ③ 对照组:不取消 ⇒ 钩子正常完成(Succeeded),工具主体跑到结束;
+ *   ④ 生产装配面(runToolLoop):回合 opts.signal 经 toolCtx 注入进 ToolContext
+ *      (handler 侧 ctx.signal 非 undefined 且随父级 abort 而 aborted),
+ *      取消打在运行中的 post 钩子 ⇒ 端到端 Cancelled。
  * 全程走生产链 executeToolCall → handler → run*ToolCall(真派生子进程 + 真 hooks.json),
  * 不 mock 执行面;钩子自身 timeout 远大于"取消后快速返回"的断言窗,防止"等超时才绿"。
+ * ④ 唯一 mock 的是采样出口 streamChat(不真发网络),执行面/钩子面仍是真的。
  */
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
 import {
   onHookRunEvent,
+  runPostToolCall,
   type HookRunEvent,
   type HookEvent,
 } from '../src/hooks/index.js';
@@ -29,6 +34,30 @@ import {
 } from '../src/tools/index.js';
 import { GIT_TOOLS } from '../src/tools/git.js';
 import { SHADOW_LEDGER_ENV } from '../src/skills/allowed-tools-shadow.js';
+import { runToolLoop } from '../src/commands/agent.js';
+
+// ── ④ 专用:部分 mock 采样出口(照 agent-stream-swallow-fix.test.ts 先例)──
+// 只桩掉 streamChat/setBaseUrl/setTokenProvider(不真发网络),其余导出走真实实现;
+// 执行面(executeToolCall)与钩子面(真子进程 + 真 hooks.json)一律不 mock。
+type StreamChatOpts = {
+  model: string;
+  messages: unknown[];
+  signal?: AbortSignal;
+  onDelta: (delta: string) => void;
+  onError?: (err: string) => void;
+};
+type StreamChatFn = (opts: StreamChatOpts) => Promise<void>;
+const { streamChatMock } = vi.hoisted(() => ({ streamChatMock: vi.fn<StreamChatFn>() }));
+import type * as ApiClient from '@ihui/api-client';
+vi.mock('@ihui/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof ApiClient>();
+  return {
+    ...actual,
+    streamChat: streamChatMock,
+    setBaseUrl: vi.fn(),
+    setTokenProvider: vi.fn(),
+  };
+});
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'g424-cancel-leg-'));
 const CONFIG = path.join(TMP, 'hooks.json');
@@ -182,6 +211,76 @@ describe('工具粒度钩子取消腿(承 G-424)', () => {
       expect(terminal.outcome).toBe('Succeeded');
     } finally {
       unsubscribe();
+    }
+  }, 25_000);
+
+  it('④ 生产装配面:runToolLoop 把回合 signal 注入 ToolContext ⇒ 取消端到端打到运行中的 post 钩子', async () => {
+    const a = hookName('loop-post-kill');
+    writeHookConfig('postToolCall', [{ name: a, command: longCmd, timeout: HOOK_TIMEOUT_MS }]);
+    const events: HookRunEvent[] = [];
+    const unsubscribe = onHookRunEvent((e) => events.push(e));
+    // 探针工具:与真 handler 同型(git.ts 等)——execute 里把 ctx.signal 透传给钩子层。
+    // 记两枚证据:① 收到的 ctx.signal 是哪一枚(注入腿),② post 钩子照常派发(取消落点)。
+    let seenSignal: AbortSignal | undefined;
+    let captured = false;
+    registerTools([
+      {
+        name: 'probe_cancel_leg',
+        description: '取消腿探针:同型真 handler,把 ctx.signal 透传 runPostToolCall',
+        parameters: {},
+        required: [],
+        dangerLevel: 'read',
+        execute: async (_args: Record<string, unknown>, ctx) => {
+          seenSignal = ctx.signal;
+          captured = true;
+          await runPostToolCall('probe_cancel_leg', { output: 'probe-ok' }, ctx.signal);
+          return { success: true, output: 'probe-ok' };
+        },
+      },
+    ]);
+    // 采样脚本:第 1 轮吐 tool_call 块(providerSupportsTools:false 走正则路径),第 2 轮纯文本收口。
+    let turn = 0;
+    streamChatMock.mockImplementation(async (o: StreamChatOpts) => {
+      turn += 1;
+      if (turn === 1) o.onDelta('```tool_call\n{"name":"probe_cancel_leg","arguments":{}}\n```');
+      else o.onDelta('done.');
+    });
+    const controller = new AbortController();
+    const wait = waitForStarted(a);
+    const t0 = Date.now();
+    try {
+      const loopP = runToolLoop({
+        modelId: 'test',
+        messages: [{ role: 'user', content: 'go' }],
+        ctx: { workspacePath: TMP },
+        maxIterations: 3,
+        signal: controller.signal,
+        providerSupportsTools: false,
+      });
+      await wait.promise;
+      controller.abort(new Error('user-cancel-loop'));
+      const result = await loopP;
+      const elapsed = Date.now() - t0;
+      expect(result).toBeDefined();
+      // 快速返回:远小于钩子自身 15s 时限(注入腿断了是"等满时限才回"的形状)
+      expect(elapsed).toBeLessThan(5_000);
+      // 注入腿成立:handler 收到的 ctx.signal 非 undefined(修前经 runToolLoop 恒 undefined;
+      // 执行链 executeWithinExecBudget 会派生新 controller,故不比对象身份),
+      // 且父级 abort 经 linkAbortSignal 打到派生 signal —— 本测试里 abort 是唯一取消来源,
+      // elapsed<5s ≪ 执行预算缺省,排除"预算到点"的假阳性。
+      expect(captured).toBe(true);
+      expect(seenSignal).toBeDefined();
+      expect(seenSignal!.aborted).toBe(true);
+      const terminal = events.find(
+        (e): e is Extract<HookRunEvent, { type: 'terminal' }> => e.type === 'terminal' && e.hook === a,
+      );
+      expect(terminal).toBeDefined();
+      expect(terminal!.hookEvent).toBe('postToolCall');
+      expect(terminal!.outcome).toBe('Cancelled');
+    } finally {
+      wait.dispose();
+      unsubscribe();
+      streamChatMock.mockReset();
     }
   }, 25_000);
 });

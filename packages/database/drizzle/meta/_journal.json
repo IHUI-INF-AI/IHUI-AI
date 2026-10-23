@@ -2342,6 +2342,13 @@
       "when": 1792778400000,
       "tag": "20261023180000_relay_account_pool_owner",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 338,
+      "when": 1792729200000,
+      "tag": "20261023120000_chat_collab",
+      "breakpoints": true
     }
   ]
 }

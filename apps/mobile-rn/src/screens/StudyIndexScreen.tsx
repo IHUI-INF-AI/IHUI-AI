@@ -964,8 +964,8 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   noMoreLine: {
     flex: 1,
-    height: 1,
-    backgroundColor: tk.border.light,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tk.border.light,
   } as ViewStyle,
   noMoreText: {
     marginHorizontal: rpx(20),

@@ -7673,7 +7673,10 @@
             "cause": {
               "streaming": "The reply is still generating, so the queue order is locked for now",
               "emptyQueue": "There are no queued messages left to undo",
-              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue"
+              "runtimeNoInterject": "This runtime has no interjection support; the message stays in the queue",
+              "queueChanged": "The queue changed concurrently, so the current order is stale",
+              "controlCommand": "Control commands can't be injected into a running turn; the message stays queued",
+              "awaitingApproval": "A risky action is awaiting approval; interjection waits until you decide"
             }
           },
           "blocked": {
@@ -7686,7 +7689,8 @@
           },
           "outcome": {
             "deferred": "Message not sent; it is kept in the queue",
-            "failed": "Message failed to send; please retry"
+            "failed": "Message failed to send; please retry",
+            "sent": "Message sent"
           },
           "reorderAria": "Drag to reorder queued messages; use the up and down arrow keys while focused"
         }
@@ -9375,6 +9379,15 @@
       "createDraftPullRequest": "Create Draft PR",
       "createDraftPullRequestOk": "Draft PR created",
       "createDraftPullRequestFailed": "Failed to create Draft PR"
+    },
+    "pictureInPicture": {
+      "sectionLabel": "Computer Use Picture-in-Picture",
+      "title": "Picture-in-Picture",
+      "hideInSession": "Hide picture-in-picture in this session",
+      "hideInAllSessions": "Hide picture-in-picture in all sessions",
+      "updateFailed": "Update failed",
+      "emptyState": "No watchable computer-use session yet",
+      "openWindow": "Open picture-in-picture window"
     },
     "floatMode": "Float Mode",
     "handleHint": "Click or drag right to open AI workspace",
@@ -12613,6 +12626,43 @@
     "resultCount": "{count} results",
     "searchPlaceholder": "Search commands...",
     "recentGroup": "Recent"
+  },
+  "collab": {
+    "collaboratorsEmpty": "No collaborators yet",
+    "collaboratorsTitle": "Collaborators",
+    "invitationAccept": "Accept invitation",
+    "invitationAcceptDone": "Invitation accepted",
+    "invitationAcceptFailed": "Failed to accept invitation",
+    "invitationAccepting": "Accepting…",
+    "invitationConversation": "Conversation",
+    "invitationInvitedBy": "Invited by",
+    "invitationTitle": "Pending collaboration invitations",
+    "lockAcquire": "Start speaking",
+    "lockAcquired": "You have the floor",
+    "lockFailed": "Floor lock action failed",
+    "lockFree": "No one is speaking",
+    "lockHeldBy": "{user} is speaking",
+    "lockRelease": "Give up the floor",
+    "lockReleased": "Floor released",
+    "lockTakeover": "Take the floor",
+    "lockTaken": "Floor taken over",
+    "lockTitle": "Floor lock",
+    "manageTitle": "Collaboration management",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke this collaborator?",
+    "revokeDone": "Collaborator revoked",
+    "revokeFailed": "Revoke failed",
+    "statusAccepted": "Accepted",
+    "statusPending": "Pending",
+    "statusRevoked": "Revoked",
+    "tierAcceptEdits": "Accept edits (can speak)",
+    "tierBypassPermissions": "Bypass permissions (can speak)",
+    "tierDefault": "Default (can speak)",
+    "tierLabel": "Permission tier",
+    "tierPlan": "Read-only + comments",
+    "tierUpdated": "Tier updated",
+    "tierUpdateFailed": "Failed to update tier",
+    "you": "you"
   },
   "comments": {
     "adminReply": "Admin Reply",

@@ -121,6 +121,11 @@ import { stripWatermarkStructure } from './lib/watermark-lines.mjs'
 // 冲突标记的判据只有守门 79 那一份实现:归档器要在自己写盘前问同一句"这文档带着未解标记吗",
 // 自己再抄一遍 `<<<<<<< / ======= / >>>>>>>` 的配对逻辑就是第二个真相(本仓记过最多次的漂移型)。
 import { findMarkerPairs } from './check-no-conflict-markers.mjs'
+// 2026-10-23 立:计划文档每一处整文件写盘之前,先问一句"这次写回有没有把 HEAD 里已归档(✅)的
+// 完成票复活成未勾行"。判据的**单一实现**是 scripts/check-plan-archive-monotonic.mjs(守门 237
+// 用的同一份 analyze);本文件只接线,绝不在这里再抄一遍 R1/R2 —— 两处各一份必然漂开,
+// 而漂开的表现是安静放绿。
+import { analyze } from './check-plan-archive-monotonic.mjs'
 // 对象空间落地的 plumbing **只有一份**(scripts/lib/bypass-git.mjs,2026-09-27 收口)。
 // 本脚本刻意不再手写第二份 read-tree/commit-tree/CAS —— 同一会话手写 6 份并漂开正是它入库的理由。
 import {
@@ -582,6 +587,93 @@ function readWorktreeFileOrNull(root) {
   } catch {
     return null
   }
+}
+
+/**
+ * 整文件写盘前的**归档单调性自检**(2026-10-23 立)。
+ *
+ * 为什么需要:本文件每个写盘点都是 `writeFileSync(PLAN_FILE, 全文)` —— 一次性重写整份活文档,
+ * 绕开了 scripts/live-doc-edit.mjs 的 CAS 通道。文件头 2026-09-28 记的那枚事故(拿滞后磁盘副本
+ * 整文件写回,别人已入库的 `[x]` 成批退回 `[ ]`)是同一型;2026-10-23 又复现了一次:旧快照把
+ * HEAD 里已归档(✅)的完成票展开回未勾活行、整批被 `git add`,差一步写进历史。
+ * 判据**单一实现**在 scripts/check-plan-archive-monotonic.mjs(守门 237 调的就是同一个 analyze),
+ * 本函数只负责取 HEAD 面、接线与拒绝落地的文案 —— 不在这里复制任何 R1/R2 逻辑。
+ *
+ * 返回 true = 允许写盘;false = 检出倒退,调用链必须放弃这次落地(绝不"先写了再说")。
+ * HEAD 面**结构上不存在**(非 git 仓 / HEAD 未诞生 / 该路径尚未入库)时没有可复活的基线,
+ * 只留一行 warn 就放行;而"仓在、路径在、就是读不到"沿用本器三态口径 exit 2「无法判定」。
+ */
+export function guardArchiveMonotonic(newText, where) {
+  // 逃生舱与守门 237 同名同义:一次绕过等于那道门对这枚提交作废,所以跳过必须留痕
+  if (process.env.HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC === '1') {
+    console.log(
+      `${C.yellow}⚠️ HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC=1 ⇒ 跳过归档单调性自检(${where})${C.reset}`,
+    )
+    return true
+  }
+  // 先问"有没有 HEAD 提交":没有它就不存在"别人已入库的归档票",自检不适用(不是放绿,是判不了这一维)。
+  // 这一步同时把"非 git 仓 / HEAD 未诞生"与下面"仓在、路径在、却读不到"两种形态分开。
+  let headCommit = null
+  try {
+    headCommit = plumbingGit(['rev-parse', '--verify', '--quiet', 'HEAD'], {
+      root: ROOT,
+      allowFail: true,
+    })
+  } catch {
+    headCommit = null
+  }
+  if (!headCommit) {
+    console.log(
+      `${C.yellow}⚠️ 归档单调性自检:没有 HEAD 提交可作基线(非 git 仓 / HEAD 未诞生)⇒ 本档不适用(${where})${C.reset}`,
+    )
+    return true
+  }
+  let headText = null
+  try {
+    // 取正文只走取材层这一条路(文件头①;自拼 git show 是守门 118 判的那一型)
+    const spec = `HEAD:${PLAN_REL}`
+    headText = catBatch(ROOT, [spec]).get(spec) ?? null
+  } catch (e) {
+    console.error(
+      C.red +
+        `❌ 无法判定:归档单调性自检取不到 HEAD 面(${where})—— ${String(e?.message ?? e).split('\n')[0]}` +
+        C.reset,
+    )
+    console.error(
+      C.dim +
+        '   既不写盘也不猜绿:HEAD 面读不到(锁住/超时/对象损坏)时落一份未校验的整文件写回,等于这道闸不存在。' +
+        C.reset,
+    )
+    process.exit(2)
+  }
+  if (headText === null) {
+    console.log(
+      `${C.yellow}⚠️ 归档单调性自检:${PLAN_REL} 尚未进入 HEAD ⇒ 无已归档基线可比,本档不适用(${where})${C.reset}`,
+    )
+    return true
+  }
+  const { hits } = analyze(headText, newText)
+  if (hits.length === 0) return true
+  console.error(C.red + `🈲 归档单调性自检:检出 ${hits.length} 条倒退 ⇒ 拒绝写盘(${where})` + C.reset)
+  for (const h of hits) {
+    console.error(`   ❌ ${h.kind} [标记 ${h.mark}]`)
+    console.error(`      ${String(h.row).slice(0, 120)}`)
+  }
+  console.error(
+    C.yellow +
+      '   这是"已归档票复活 / 逐字孪生回插":HEAD 里已归档(✅)的完成票被展开回未勾活行,或同一条登记行被再插一份。' +
+      C.reset,
+  )
+  console.error(
+    C.yellow + '   正解是从 HEAD 取现版重放本轮改动,而不是把旧快照整文件写回:' + C.reset,
+  )
+  console.error(C.dim + '     1) 取现版:git show HEAD:PROJECT_PLAN.md > <临时文件>' + C.reset)
+  console.error(C.dim + '     2) 用 scripts/live-doc-edit.mjs 定向改写(带 CAS)重放你要写的行' + C.reset)
+  console.error(C.dim + '     3) 复核:node scripts/check-plan-archive-monotonic.mjs --worktree' + C.reset)
+  console.error(
+    C.dim + '   紧急跳过(不推荐):HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC=1' + C.reset,
+  )
+  return false
 }
 
 /** 写通道自检:落任何东西之前,先用**本脚本解析出的 git 二进制**问一次 HEAD。 */
@@ -1356,6 +1448,17 @@ async function landThroughObjectSpace({ base, toArchive }) {
     // 显式逃生舱的磁盘**就是**底稿,拿它跟自己对齐是恒真式 ⇒ 一律不写盘(取证动作不改共享现场)
     console.log(C.yellow + '⚠️ 取证档(--plan-face worktree)⇒ 磁盘副本一字未动' + C.reset)
   } else if (wtText === base.text) {
+    // 写盘点①(2026-10-23):对齐工作树副本也是整文件重写,同样可能把已归档票写回未勾形态。
+    // 这里 HEAD 通常已推进到本枚归档提交(与本文件产出面同源);若期间 HEAD 又被第三方推进,
+    // 自检就以**新的 HEAD** 为基线复判,而不是无条件覆盖磁盘。
+    if (!guardArchiveMonotonic(newText, '归档后对齐工作树副本')) {
+      console.error(
+        C.yellow +
+          `   拒绝对齐:磁盘副本一字未动,归档结果已在 HEAD(${landed.slice(0, 9)});下一轮从 HEAD 重放` +
+          C.reset,
+      )
+      process.exit(1)
+    }
     writeFileSync(PLAN_FILE, newText, 'utf8')
     console.log(
       C.dim +
@@ -1703,6 +1806,10 @@ async function main() {
     process.exit(1)
   }
 
+  // 写盘点②(2026-10-23):这是工作树档的整文件重写(本脚本 2026-09-28 之前的原实现),
+  // 底稿来自磁盘、写回也写磁盘 —— 文件头记的那一型事故就长在这条路径上。写盘前先过单调性自检,
+  // 判红则一个字节都不落,让调用链知道这次没落地。
+  if (!guardArchiveMonotonic(newContent, '工作树档写回计划文档')) process.exit(1)
   writeFileSync(PLAN_FILE, newContent, 'utf8')
 
   console.log(`${C.green}✅ 已归档 ${toArchive.length} 个条目${C.reset}`)
@@ -1764,6 +1871,17 @@ async function main() {
           gitRaw(['restore', '--staged', '--', planRel, archiveRel], ROOT, { timeout: 120_000 })
         } catch {
           /* 撤销失败也要继续还原工作树,不在此处再抛 */
+        }
+        // 写盘点③(2026-10-23):回滚也是整文件重写(content = 搬运前的原文)。若这份原文与 HEAD
+        // 判红,说明"搬运前"本身就带着已归档票复活 —— 原样写回等于把事故固化。所以宁可保持磁盘上
+        // 本轮已写的产出面并退出,把重放交给"从 HEAD 取现版"的人。
+        if (!guardArchiveMonotonic(content, '回滚到搬运前原文')) {
+          console.error(
+            C.yellow +
+              '   回滚被拒:磁盘副本保持本轮的归档产出面;请按 HEAD 现版人工重放(不得硬写旧原文)' +
+              C.reset,
+          )
+          process.exit(1)
         }
         writeFileSync(PLAN_FILE, content, 'utf8')
         console.error(
@@ -2463,6 +2581,23 @@ function runSelfTest() {
         )
       })(),
       '裸 node / 缺 windowsHide / 失败仍继续,三者任一都算这条锁红(前者依赖 PATH,后者必弹窗,末者把红留给 CI)',
+    )
+  }
+
+  // S28 装车锁(2026-10-23):本器三处 `writeFileSync(PLAN_FILE, …)` 每一处之前都必须先过归档单调性
+  // 自检(判据单一实现 = check-plan-archive-monotonic.mjs 的 analyze)。只认"紧邻上文里真有一次
+  // guardArchiveMonotonic( 调用",不认"文件里出现过这个词" —— 后者是"造好没装车"的经典假证据。
+  {
+    const src28 = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    // 只数"行首(可缩进)的实写调用":注释/文案里出现同一个词组不算写盘点
+    const writes = [...src28.matchAll(/^[ \t]*writeFileSync\(PLAN_FILE\b/gm)].map((m) => m.index)
+    ok(
+      'S28 装车锁:每一处 writeFileSync(PLAN_FILE, …) 之前都接了归档单调性自检',
+      writes.length === 3 &&
+        writes.every((i) =>
+          /guardArchiveMonotonic\([\s\S]{0,400}$/.test(src28.slice(Math.max(0, i - 800), i)),
+        ),
+      `计划文档写盘点=${writes.length}(应为 3);有一处没接自检即红`,
     )
   }
 

@@ -39,6 +39,7 @@
  *   未引入 expo-image-picker 等新原生依赖。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import {
   ActivityIndicator,
   Animated,
@@ -228,6 +229,9 @@ export interface InputAreaProps {
   onPlusToggle?: () => void
   /** 「+」按钮激活态(底部菜单展开时高亮 + 旋转 45°) */
   plusActive?: boolean
+  /** D43 语音笔记入口节点(2026-10-23 RN 腿接线):调用方传入 <VoiceNote/> 触发钮,
+   *  渲染在大输入框「+」与发送钮之间;不传不渲染(其余调用方零影响,契约同「可选 props 降级」) */
+  voiceNoteNode?: ReactNode
 
   // ── 框内模型选择(2026-10-15 用户定:对齐 web 输入卡 ModelSelector 形态 ──
   /** 模型选择触发钮(「+」左侧):显示当前模型名(未选时兜底「自动」),点击回调;
@@ -368,6 +372,7 @@ export function InputArea({
   onVoiceEnd,
   onPlusToggle,
   plusActive = false,
+  voiceNoteNode,
   onOpenModelSelect,
   selectedModelName = null,
   onClearModel,
@@ -769,6 +774,9 @@ export function InputArea({
                 <PlusButton active={plusActive} onPress={onPlusToggle} />
               </View>
             ) : null}
+            {/* D43 语音笔记入口(2026-10-23 RN 腿):复用 plusInShellGap 同档左距,
+                不在端内新造几何档;面板与状态机全部住在 VoiceNote 组件内 */}
+            {voiceNoteNode ? <View style={styles.plusInShellGap}>{voiceNoteNode}</View> : null}
             {/* 发送按钮(框内右侧) */}
             {sendInShellNode}
           </View>

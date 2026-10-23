@@ -421,11 +421,9 @@ function ThirdPartyLoginArea({
       ) : null}
       {restOptions.length > 0 ? (
         <>
-          {/* 分隔线:"或"居中(对齐 web 端 or-divider) */}
+          {/* 分隔:§4 禁分割线,左右细线已清,居中「或」文字 + 上下间距分隔(对齐 web 端) */}
           <View style={styles.thirdPartyDivider}>
-            <View style={styles.thirdPartyDividerLine} />
             <Text style={styles.thirdPartyDividerText}>{t('auth.or')}</Text>
-            <View style={styles.thirdPartyDividerLine} />
           </View>
           <View style={styles.thirdPartyGrid}>
             {restOptions.map((opt) => {
@@ -732,11 +730,9 @@ function PhoneTabContent({
       {carrierOneClickEntry ? (
         <>
           {carrierOneClickEntry}
-          {/* 分隔线:与下方验证码登录表单区分主次(复用第三方登录区"或"分隔样式) */}
+          {/* 分隔:与下方验证码登录表单区分主次(复用第三方登录区居中「或」样式,§4 已清线) */}
           <View style={styles.thirdPartyDivider}>
-            <View style={styles.thirdPartyDividerLine} />
             <Text style={styles.thirdPartyDividerText}>{t('auth.or')}</Text>
-            <View style={styles.thirdPartyDividerLine} />
           </View>
         </>
       ) : null}
@@ -2033,16 +2029,12 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     thirdPartyArea: {
       marginTop: 20,
     },
-    // "或"分隔线:左右细线 + 中间文字(对齐 web or-divider)
+    // "或"分隔:§4 禁分割线,左右细线已清,文字居中 + 上下间距分隔
     thirdPartyDivider: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       marginVertical: 16,
-    },
-    thirdPartyDividerLine: {
-      flex: 1,
-      height: 1,
-      backgroundColor: tk.border.light,
     },
     thirdPartyDividerText: {
       fontSize: 12,

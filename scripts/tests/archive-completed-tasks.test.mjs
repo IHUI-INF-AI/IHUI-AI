@@ -1266,3 +1266,58 @@ test('seamArchiveChunk:底稿尾换行缺失时补缝,保证块首行独立(§22
   assert.equal(seam(null, chunk), chunk)
 })
 
+// 2026-10-23 事故:旧快照把 HEAD 里已归档(✅)的完成票整文件写回未勾活行。归档器的每个
+// `writeFileSync(PLAN_FILE, ...)` 前都接了 guardArchiveMonotonic(判据单一实现 = 守门 237 的 analyze)。
+// 本档在真 git 仓里双跑对照:正常面放行 / 含复活行的面拒绝,并证明"拒绝 = 磁盘一字未动"。
+test('J 归档单调性守门:候选面复活已归档票 ⇒ 拒绝写盘;正常面 ⇒ 放行(磁盘一字未动)', () => {
+  const dir = createTempGitRepo()
+  try {
+    const head = [
+      '# 计划',
+      '<!-- 已归档(2026-10-08:✅(2026-10-07) G-807 恢复器用例不稳定,完整内容在归档件) -->',
+      '- [ ] G-100 甲票正文很长很长足够二十字以上用于判据样例',
+      '',
+    ].join('\n')
+    commitPlan(dir, head)
+    // 正例:候选面 = HEAD(零新增);反例:把归档注释里的 G-807 展开回未勾活行
+    writeFileSync(join(dir, 'ok.txt'), head)
+    writeFileSync(join(dir, 'bad.txt'), `${head}- [ ] G-807 恢复器用例不稳定,完整内容在归档件\n`)
+    writeFileSync(
+      join(dir, 'guard-probe.mjs'),
+      [
+        "import { readFileSync } from 'node:fs'",
+        `import { guardArchiveMonotonic } from ${JSON.stringify(pathToFileURL(SCRIPT_PATH).href)}`,
+        "const ok = guardArchiveMonotonic(readFileSync('ok.txt', 'utf8'), '自测正例')",
+        "const bad = guardArchiveMonotonic(readFileSync('bad.txt', 'utf8'), '自测反例')",
+        "console.log('RESULT:' + JSON.stringify({ ok, bad }))",
+      ].join('\n'),
+    )
+    const before = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    const r = spawnSync('node', ['guard-probe.mjs'], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 120_000,
+    })
+    const strip = (s) => String(s || '').replace(/\x1b\[[0-9;]*m/g, '')
+    const out = strip(r.stdout)
+    const err = strip(r.stderr)
+    const m = out.match(/RESULT:(\{.*\})/)
+    assert.ok(m, `探针必须打印判定结果\nstdout:${out}\nstderr:${err}`)
+    const verdict = JSON.parse(m[1])
+    assert.equal(verdict.ok, true, '正常面(无新增未勾行)必须放行')
+    assert.equal(verdict.bad, false, '★ 含"已归档票复活"的候选面必须拒绝写盘')
+    assert.match(err, /拒绝写盘/, '拒绝必须大声喊出"拒绝写盘",不得静默返回')
+    assert.match(err, /G-807/, '拒绝明细必须点名被复活的标记')
+    assert.match(err, /已归档票复活|逐字孪生/, '必须说明这是哪一型倒退')
+    assert.equal(
+      readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8'),
+      before,
+      '守门只判不写:拒绝时磁盘文件必须一字未动',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+

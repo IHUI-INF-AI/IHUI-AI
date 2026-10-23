@@ -7673,7 +7673,10 @@
             "cause": {
               "streaming": "답변 생성 중에는 대기열 순서를 변경할 수 없습니다",
               "emptyQueue": "되돌릴 수 있는 대기열 메시지가 없습니다",
-              "runtimeNoInterject": "해당 런타임은 끼어들기를 지원하지 않아 대기열에 남아 순서를 기다립니다"
+              "runtimeNoInterject": "해당 런타임은 끼어들기를 지원하지 않아 대기열에 남아 순서를 기다립니다",
+              "queueChanged": "대기열이 병렬 작업으로 변경되어 현재 순서는 더 이상 유효하지 않습니다",
+              "controlCommand": "제어 명령은 실행 중인 Turn에 삽입할 수 없어 대기열에 남아 순서를 기다립니다",
+              "awaitingApproval": "승인 대기 중인 위험 작업이 있어 끼어들기가 결정까지 잠시 양보합니다"
             }
           },
           "blocked": {
@@ -7686,7 +7689,8 @@
           },
           "outcome": {
             "deferred": "메시지가 전송되지 않고 대기열에 유지됩니다",
-            "failed": "메시지 전송에 실패했습니다. 다시 시도해 주세요"
+            "failed": "메시지 전송에 실패했습니다. 다시 시도해 주세요",
+            "sent": "메시지를 전송했습니다"
           },
           "reorderAria": "드래그하여 대기열 순서를 변경합니다. 포커스된 상태에서 위/아래 방향키를 사용할 수 있습니다"
         }
@@ -9375,6 +9379,15 @@
       "createDraftPullRequest": "Draft PR 만들기",
       "createDraftPullRequestOk": "Draft PR가 생성되었습니다",
       "createDraftPullRequestFailed": "Draft PR 생성 실패"
+    },
+    "pictureInPicture": {
+      "sectionLabel": "컴퓨터 사용 Picture-in-Picture",
+      "title": "Picture-in-Picture",
+      "hideInSession": "이 세션에서 Picture-in-Picture 숨기기",
+      "hideInAllSessions": "모든 세션에서 Picture-in-Picture 숨기기",
+      "updateFailed": "업데이트 실패",
+      "emptyState": "시청 가능한 컴퓨터 사용 세션이 없습니다",
+      "openWindow": "Picture-in-Picture 창 열기"
     },
     "floatMode": "플로팅 모드",
     "handleHint": "클릭하거나 오른쪽으로 드래그해 AI 작업공간 열기",
@@ -12616,6 +12629,43 @@
     "resultCount": "{count}개 결과",
     "searchPlaceholder": "명령 검색...",
     "recentGroup": "최근 사용"
+  },
+  "collab": {
+    "collaboratorsEmpty": "공동 편집자 없음",
+    "collaboratorsTitle": "공동 편집자",
+    "invitationAccept": "초대 수락",
+    "invitationAcceptDone": "초대를 수락했습니다",
+    "invitationAcceptFailed": "초대 수락에 실패했습니다",
+    "invitationAccepting": "수락 중…",
+    "invitationConversation": "대화",
+    "invitationInvitedBy": "초대자",
+    "invitationTitle": "대기 중인 공동 편집 초대",
+    "lockAcquire": "발언 시작",
+    "lockAcquired": "발언권을 획득했습니다",
+    "lockFailed": "발언 잠금 작업에 실패했습니다",
+    "lockFree": "현재 발언 중인 사용자 없음",
+    "lockHeldBy": "{user} 님이 발언 중",
+    "lockRelease": "발언권 반환",
+    "lockReleased": "발언권을 반환했습니다",
+    "lockTakeover": "발언권 인수",
+    "lockTaken": "발언권을 인수했습니다",
+    "lockTitle": "발언 잠금",
+    "manageTitle": "공동 편집 관리",
+    "revoke": "철회",
+    "revokeConfirm": "이 공동 편집자를 철회할까요?",
+    "revokeDone": "공동 편집자를 철회했습니다",
+    "revokeFailed": "철회에 실패했습니다",
+    "statusAccepted": "수락됨",
+    "statusPending": "대기 중",
+    "statusRevoked": "철회됨",
+    "tierAcceptEdits": "편집 수락 (발언 가능)",
+    "tierBypassPermissions": "권한 우회 (발언 가능)",
+    "tierDefault": "기본 (발언 가능)",
+    "tierLabel": "권한 등급",
+    "tierPlan": "읽기 전용 + 댓글",
+    "tierUpdated": "권한 등급이 업데이트되었습니다",
+    "tierUpdateFailed": "권한 등급 업데이트에 실패했습니다",
+    "you": "나"
   },
   "comments": {
     "adminReply": "관리자 답변",

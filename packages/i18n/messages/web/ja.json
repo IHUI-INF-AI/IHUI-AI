@@ -7673,7 +7673,10 @@
             "cause": {
               "streaming": "回答の生成中は待機列の順序を変更できません",
               "emptyQueue": "取り消しできる待機メッセージはありません",
-              "runtimeNoInterject": "このランタイムは割り込みに対応していないため、待機列のまま順番を待ちます"
+              "runtimeNoInterject": "このランタイムは割り込みに対応していないため、待機列のまま順番を待ちます",
+              "queueChanged": "待機列が並行して変更されたため、現在の順序は失効しています",
+              "controlCommand": "制御コマンドは実行中の Turn に割り込めないため、待機列のまま順番を待ちます",
+              "awaitingApproval": "承認待ちの危険な操作があるため、割り込みは判断が終わるまで譲ります"
             }
           },
           "blocked": {
@@ -7686,7 +7689,8 @@
           },
           "outcome": {
             "deferred": "メッセージは送信されず、キューに保持されています",
-            "failed": "メッセージの送信に失敗しました。再試行してください"
+            "failed": "メッセージの送信に失敗しました。再試行してください",
+            "sent": "メッセージを送信しました"
           },
           "reorderAria": "ドラッグでキューの順序を変更。フォーカス中は上下方向キーも使用できます"
         }
@@ -9375,6 +9379,15 @@
       "createDraftPullRequest": "Draft PR を作成",
       "createDraftPullRequestOk": "Draft PR を作成しました",
       "createDraftPullRequestFailed": "Draft PR の作成に失敗しました"
+    },
+    "pictureInPicture": {
+      "sectionLabel": "コンピュータ操作のピクチャーインピクチャー",
+      "title": "ピクチャーインピクチャー",
+      "hideInSession": "このセッションでピクチャーインピクチャーを非表示",
+      "hideInAllSessions": "すべてのセッションでピクチャーインピクチャーを非表示",
+      "updateFailed": "更新に失敗しました",
+      "emptyState": "視聴可能なコンピュータ操作セッションはありません",
+      "openWindow": "ピクチャーインピクチャーウィンドウを開く"
     },
     "floatMode": "フロートモード",
     "handleHint": "クリックまたは右にドラッグしてAIワークスペースを開く",
@@ -12616,6 +12629,43 @@
     "resultCount": "{count} 件の結果",
     "searchPlaceholder": "コマンドを検索...",
     "recentGroup": "最近使用"
+  },
+  "collab": {
+    "collaboratorsEmpty": "共同編集者はいません",
+    "collaboratorsTitle": "共同編集者",
+    "invitationAccept": "招待を承認",
+    "invitationAcceptDone": "招待を承認しました",
+    "invitationAcceptFailed": "招待の承認に失敗しました",
+    "invitationAccepting": "承認中…",
+    "invitationConversation": "会話",
+    "invitationInvitedBy": "招待者",
+    "invitationTitle": "未処理の共同編集招待",
+    "lockAcquire": "発言を開始",
+    "lockAcquired": "発言権を取得しました",
+    "lockFailed": "発言ロックの操作に失敗しました",
+    "lockFree": "現在発言中のユーザーはいません",
+    "lockHeldBy": "{user} が発言中です",
+    "lockRelease": "発言権を返す",
+    "lockReleased": "発言権を返しました",
+    "lockTakeover": "発言権を引き継ぐ",
+    "lockTaken": "発言権を引き継ぎました",
+    "lockTitle": "発言ロック",
+    "manageTitle": "共同編集管理",
+    "revoke": "取り消し",
+    "revokeConfirm": "この共同編集者を取り消しますか？",
+    "revokeDone": "共同編集者を取り消しました",
+    "revokeFailed": "取り消しに失敗しました",
+    "statusAccepted": "承認済み",
+    "statusPending": "未承認",
+    "statusRevoked": "取り消し済み",
+    "tierAcceptEdits": "編集を承認（発言可）",
+    "tierBypassPermissions": "権限を回避（発言可）",
+    "tierDefault": "デフォルト（発言可）",
+    "tierLabel": "権限レベル",
+    "tierPlan": "読み取り専用+コメント",
+    "tierUpdated": "権限レベルを更新しました",
+    "tierUpdateFailed": "権限レベルの更新に失敗しました",
+    "you": "あなた"
   },
   "comments": {
     "adminReply": "管理者返信",
