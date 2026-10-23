@@ -17,10 +17,22 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
+
 from app.services import checkin_scheduler as cs
 from app.services import checkin_store
 from app.services.checkin_outbound import checkin_outbound_gate
 from app.services.checkin_scheduler import partition_platforms
+
+
+@pytest.fixture(autouse=True)
+def _stub_wb_memory_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    """默认不触真实进程内存扫描(单测不读别人进程);需要时用例内再覆盖。"""
+
+    async def _none() -> dict[str, Any]:
+        return {}
+
+    monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_memory_tokens", _none)
 
 
 def _acc(aid: int, platform: str | None) -> dict[str, Any]:
@@ -423,6 +435,75 @@ async def test_wb_sync_bearer_only_account_does_not_extract(monkeypatch):
     monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_cookie", fake_extract)
     await sched._sync_workbuddy_local()
     assert extracts == []
+
+
+async def test_wb_sync_harvests_client_memory_token(monkeypatch):
+    """临期时从客户端内存采到更新 Bearer ⇒ 写库、记来源、解冷却。"""
+    sched = cs.CheckinScheduler()
+    rows = _wb_rows({"uid": "u1", "expires_at": 1000})  # 1970,早已过期
+    saved: list[tuple[int, dict[str, Any]]] = []
+    cooldowns: list[int] = []
+    jwt_updates: list[tuple[int, str]] = []
+    new_exp = int(time.time()) + 86400 * 20
+
+    async def fake_list(platform: str):
+        return rows
+
+    async def fake_mem():
+        return {
+            "u1": {
+                "bearer": "new-bearer",
+                "bearer_exp": new_exp,
+                "offline": "rt-new",
+                "offline_exp": new_exp + 86400,
+            }
+        }
+
+    async def fake_update_jwt(aid: int, owner: str, tok: str) -> bool:
+        jwt_updates.append((aid, tok))
+        return True
+
+    async def fake_save(aid: int, dm: dict[str, Any]) -> None:
+        saved.append((aid, dict(dm)))
+
+    async def fake_clear(aid: int) -> None:
+        cooldowns.append(aid)
+
+    monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
+    monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_memory_tokens", fake_mem)
+    monkeypatch.setattr(checkin_store, "update_jwt", fake_update_jwt)
+    monkeypatch.setattr(checkin_store, "save_device_map", fake_save)
+    monkeypatch.setattr(checkin_store, "clear_open_cooldowns", fake_clear)
+    await sched._sync_workbuddy_local()
+    assert jwt_updates == [(7, "new-bearer")]
+    assert saved[0][1]["expires_at"] == new_exp
+    assert saved[0][1]["token_source"] == "client-memory"
+    assert saved[0][1]["refresh_token"] == "rt-new"
+    assert cooldowns == [7]
+
+
+async def test_wb_sync_does_not_downgrade_token(monkeypatch):
+    """客户端里那枚比库里还旧 ⇒ 一字不写(防把有效票换成短命票)。"""
+    sched = cs.CheckinScheduler()
+    cur_exp = int(time.time()) + 86400 * 3
+    rows = _wb_rows({"uid": "u1", "expires_at": cur_exp})
+    jwt_updates: list[Any] = []
+
+    async def fake_list(platform: str):
+        return rows
+
+    async def fake_mem():
+        return {"u1": {"bearer": "older", "bearer_exp": cur_exp - 3600}}
+
+    async def fake_update_jwt(aid: int, owner: str, tok: str) -> bool:
+        jwt_updates.append((aid, tok))
+        return True
+
+    monkeypatch.setattr(checkin_store, "list_accounts_by_platform", fake_list)
+    monkeypatch.setattr(cs.checkin_workbuddy_local, "extract_workbuddy_memory_tokens", fake_mem)
+    monkeypatch.setattr(checkin_store, "update_jwt", fake_update_jwt)
+    await sched._sync_workbuddy_local()
+    assert jwt_updates == []
 
 
 # [IHUI-AI-PROVENANCE-TAIL]
