@@ -25,12 +25,18 @@
  *
  * 健康态词表只有一份:`plugins/business-metrics.ts` 的 `RELAY_POOL_HEALTH_STATES`
  * (与 schema 列注释、web 侧 PROVIDER_HEALTH_STATUSES 同源);本文件不抄第二份。
+ *
+ * 2026-10-23 追加:机主要"实时"。gauge 仍按 5 分钟刷(Grafana 看时序),
+ * 但**大屏不再读 gauge**,改读本文件的 `getRelayPoolLiveSnapshot()` —— 同一份
+ * `loadRelayPoolRows()` + 同一把 `isRelayPoolRowSchedulable` 尺子,带 5 秒缓存,
+ * 所以重启不再需要等下一轮 gauge 才有数,也不会把"进程刚起来"读成"池子空了"。
  */
 
 import { db } from '../db/index.js'
 import { aiRelayKeyPool, aiRelayAccountPool } from '@ihui/database'
 import {
   isRelayPoolHealthState,
+  RELAY_POOL_HEALTH_STATE_VALUE,
   setRelayPoolGaugeSample,
   type RelayPoolAccountSample,
   type RelayPoolHealthState,
@@ -49,29 +55,51 @@ export interface RelayPoolRefreshResult {
   reason?: string
 }
 
-/** 年龄类秒数:now 与过去时刻之差,负值(时钟漂移)钳 0;null 原样返回。 */
-function ageSeconds(at: Date | null, nowMs: number): number | null {
-  if (!at) return null
-  const ms = at.getTime()
-  if (!Number.isFinite(ms)) return null
-  return Math.max(0, Math.floor((nowMs - ms) / 1000))
+/**
+ * 「异常」的唯一下界:degraded(2)及以上 —— 与 Grafana 面板 `state=~"degraded|down"`
+ * 同口径,也直接复用 `RELAY_POOL_HEALTH_STATE_VALUE` 这把"越大越坏"的尺子,
+ * 不在本文件另写一张 `new Set(['degraded','down'])`(§0.6 同类判据只许一份)。
+ */
+export const RELAY_POOL_ABNORMAL_MIN_VALUE = RELAY_POOL_HEALTH_STATE_VALUE.degraded
+
+/** 一行可调度性判定:启用且未被临时摘除。**全仓唯一一份**(gauge 与实时快照共用)。 */
+export function isRelayPoolRowSchedulable(row: {
+  isEnabled: boolean | null
+  tempUnschedulable: boolean | null
+}): boolean {
+  return Boolean(row.isEnabled) && !row.tempUnschedulable
 }
 
-/** 到未来时刻的秒数(token 临期):**不钳负**(负 = 已过期,正是要看的信号)。 */
-function untilSeconds(at: Date | null, nowMs: number): number | null {
-  if (!at) return null
-  const ms = at.getTime()
-  if (!Number.isFinite(ms)) return null
-  return Math.floor((ms - nowMs) / 1000)
+/** 两张池表的原始行(带 schema 全量列,供 gauge 与实时快照两种消费方各自折叠)。 */
+export interface RelayPoolRows {
+  keyRows: Array<{
+    providerCode: string
+    name: string
+    priority: number
+    healthStatus: string
+    isEnabled: boolean | null
+    tempUnschedulable: boolean | null
+    healthCheckedAt: Date | null
+  }>
+  accountRows: Array<{
+    providerCode: string
+    uid: string
+    healthStatus: string
+    isEnabled: boolean | null
+    tempUnschedulable: boolean | null
+    consecutiveFailures: number
+    totalCalls: number
+    tokenExpiresAt: Date | null
+    lastRefreshAt: Date | null
+  }>
 }
 
 /**
- * 跑一轮全量刷新:两张表各一条全量 SELECT ⇒ 折叠 ⇒ 一次性写入 gauge。
- * 任何一步抛错都向上抛(由 `refreshRelayPoolGauges` 收成 reason),**不写半个 gauge**。
+ * 读两张池表的当前全量行。运营级小表(2026-10-23 现读 key 池 29 行 / 账号池 1 行),
+ * 全量 SELECT 与 tenant_quotas 同档 ⇒ 允许在请求路径上按 TTL 缓存后现读。
+ * **不 catch**:查询失败上抛,由调用方决定是"保持旧 gauge"还是"把整块折成 null"。
  */
-export async function refreshRelayPoolGauges(
-  nowMs: number = Date.now(),
-): Promise<RelayPoolRefreshResult> {
+export async function loadRelayPoolRows(): Promise<RelayPoolRows> {
   const [keyRows, accountRows] = await Promise.all([
     db
       .select({
@@ -100,6 +128,135 @@ export async function refreshRelayPoolGauges(
       .from(aiRelayAccountPool)
       .orderBy(aiRelayAccountPool.providerCode, aiRelayAccountPool.uid),
   ])
+  return { keyRows, accountRows }
+}
+
+/** 大屏「AI 号池」面板要的全部数字(现读两张池表,不经 gauge)。 */
+export interface RelayPoolLiveSnapshot {
+  keyTotal: number
+  keySchedulable: number
+  /** health_state ≥ degraded 的 key 条数(含 down) */
+  keyAbnormal: number
+  accountsTotal: number
+  accountsSchedulable: number
+  /** 账号 token 最短临期(秒;负 = 已过期;无账号带 expires_at 时为 null) */
+  minTokenExpiresInSeconds: number | null
+  /** 账号最近一次刷新距今(秒;null = 一条都没刷过) */
+  maxRefreshAgeSeconds: number | null
+  /** 健康态不在封闭词表内、因而无法折叠的行数(非 0 必须看得见) */
+  rowsUnclassified: number
+  computedAtMs: number
+}
+
+/**
+ * 现算一份号池实时快照。与 gauge 侧**同一把尺子**(`isRelayPoolRowSchedulable` +
+ * `RELAY_POOL_ABNORMAL_MIN_VALUE`),但**不写 gauge**、也不受 5 分钟刷新节奏影响。
+ * 不 catch:失败由调用方折成 null。
+ */
+export async function computeRelayPoolLiveSnapshot(
+  nowMs: number = Date.now(),
+): Promise<RelayPoolLiveSnapshot> {
+  const { keyRows, accountRows } = await loadRelayPoolRows()
+  let keySchedulable = 0
+  let keyAbnormal = 0
+  let rowsUnclassified = 0
+  for (const row of keyRows) {
+    if (!isRelayPoolHealthState(row.healthStatus)) {
+      rowsUnclassified++
+      continue
+    }
+    if (isRelayPoolRowSchedulable(row)) keySchedulable++
+    if (RELAY_POOL_HEALTH_STATE_VALUE[row.healthStatus] >= RELAY_POOL_ABNORMAL_MIN_VALUE) {
+      keyAbnormal++
+    }
+  }
+  let accountsSchedulable = 0
+  let minTokenExpiresInSeconds: number | null = null
+  let maxRefreshAgeSeconds: number | null = null
+  for (const row of accountRows) {
+    if (!isRelayPoolHealthState(row.healthStatus)) {
+      rowsUnclassified++
+      continue
+    }
+    if (isRelayPoolRowSchedulable(row)) accountsSchedulable++
+    const exp = untilSeconds(row.tokenExpiresAt, nowMs)
+    if (exp !== null && (minTokenExpiresInSeconds === null || exp < minTokenExpiresInSeconds)) {
+      minTokenExpiresInSeconds = exp
+    }
+    const age = ageSeconds(row.lastRefreshAt, nowMs)
+    if (age !== null && (maxRefreshAgeSeconds === null || age > maxRefreshAgeSeconds)) {
+      maxRefreshAgeSeconds = age
+    }
+  }
+  return {
+    keyTotal: keyRows.length,
+    keySchedulable,
+    keyAbnormal,
+    accountsTotal: accountRows.length,
+    accountsSchedulable,
+    minTokenExpiresInSeconds,
+    maxRefreshAgeSeconds,
+    rowsUnclassified,
+    computedAtMs: nowMs,
+  }
+}
+
+/** 实时快照 TTL:与大屏 overview 的 5 秒轮询同周期(理由同 traffic 侧)。 */
+export const RELAY_POOL_LIVE_TTL_MS = 5_000
+
+let liveCache: { atMs: number; value: RelayPoolLiveSnapshot } | null = null
+let liveInflight: Promise<RelayPoolLiveSnapshot> | null = null
+
+/** 取一份"最多 TTL 毫秒前"的号池快照;失败不入缓存(下个请求重试)。 */
+export async function getRelayPoolLiveSnapshot(
+  ttlMs: number = RELAY_POOL_LIVE_TTL_MS,
+): Promise<RelayPoolLiveSnapshot> {
+  const nowMs = Date.now()
+  if (liveCache && nowMs - liveCache.atMs < ttlMs) return liveCache.value
+  if (liveInflight) return liveInflight
+  const inflight = (async () => {
+    try {
+      const value = await computeRelayPoolLiveSnapshot()
+      liveCache = { atMs: value.computedAtMs, value }
+      return value
+    } finally {
+      liveInflight = null
+    }
+  })()
+  liveInflight = inflight
+  return inflight
+}
+
+/** 仅测试用:清缓存。 */
+export function __resetRelayPoolLiveCacheForTest(): void {
+  liveCache = null
+  liveInflight = null
+}
+
+/** 年龄类秒数:now 与过去时刻之差,负值(时钟漂移)钳 0;null 原样返回。 */
+function ageSeconds(at: Date | null, nowMs: number): number | null {
+  if (!at) return null
+  const ms = at.getTime()
+  if (!Number.isFinite(ms)) return null
+  return Math.max(0, Math.floor((nowMs - ms) / 1000))
+}
+
+/** 到未来时刻的秒数(token 临期):**不钳负**(负 = 已过期,正是要看的信号)。 */
+function untilSeconds(at: Date | null, nowMs: number): number | null {
+  if (!at) return null
+  const ms = at.getTime()
+  if (!Number.isFinite(ms)) return null
+  return Math.floor((ms - nowMs) / 1000)
+}
+
+/**
+ * 跑一轮全量刷新:两张表各一条全量 SELECT ⇒ 折叠 ⇒ 一次性写入 gauge。
+ * 任何一步抛错都向上抛(由 `refreshRelayPoolGauges` 收成 reason),**不写半个 gauge**。
+ */
+export async function refreshRelayPoolGauges(
+  nowMs: number = Date.now(),
+): Promise<RelayPoolRefreshResult> {
+  const { keyRows, accountRows } = await loadRelayPoolRows()
 
   const keys: RelayPoolKeySample[] = []
   let keyRowsSkipped = 0
@@ -113,7 +270,7 @@ export async function refreshRelayPoolGauges(
       providerCode: row.providerCode,
       key: `${row.name}-p${row.priority}`,
       healthState,
-      schedulable: row.isEnabled && !row.tempUnschedulable,
+      schedulable: isRelayPoolRowSchedulable(row),
       healthAgeSeconds: ageSeconds(row.healthCheckedAt, nowMs),
     })
   }
@@ -130,7 +287,7 @@ export async function refreshRelayPoolGauges(
       providerCode: row.providerCode,
       account: row.uid,
       healthState,
-      schedulable: row.isEnabled && !row.tempUnschedulable,
+      schedulable: isRelayPoolRowSchedulable(row),
       consecutiveFailures: row.consecutiveFailures,
       totalCalls: row.totalCalls,
       tokenExpiresInSeconds: untilSeconds(row.tokenExpiresAt, nowMs),

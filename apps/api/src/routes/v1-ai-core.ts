@@ -319,6 +319,18 @@ function lookupContextWindow(modelName: string): number | undefined {
   return undefined
 }
 
+/**
+ * SSE 终止帧判定：payload 恰好为 `[DONE]`（正文里出现该字样不得误判）。
+ *
+ * 用于裸透传链路：流结束标记必须由本服务收尾统一发且只发一次。上游自带的
+ * `data: [DONE]` 若也原样写下，客户端会收到**双终止帧**（严格实现提前截断或
+ * 报协议错，宽松实现白跑一轮解析）。2026-10-23 修。
+ */
+function isSseDonePayload(line: string): boolean {
+  const idx = line.indexOf(':')
+  return idx >= 0 && line.slice(idx + 1).trim() === '[DONE]'
+}
+
 // =============================================================================
 // 路由插件
 // =============================================================================
@@ -1268,11 +1280,13 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           while ((nl = buffer.indexOf('\n')) !== -1) {
             const line = buffer.slice(0, nl).replace(/\r$/, '')
             buffer = buffer.slice(nl + 1)
+            // 终止帧不透传:结束标记由下方收尾统一发一次(否则客户端收双 [DONE])
+            if (isSseDonePayload(line)) continue
             // 透传 SSE 行(空行也保留以维持 SSE 帧结构)
             raw.write(`${line}\n`)
           }
         }
-        if (buffer.trim()) raw.write(`${buffer}\n`)
+        if (buffer.trim() && !isSseDonePayload(buffer.trim())) raw.write(`${buffer}\n`)
         raw.write('data: [DONE]\n\n')
       } catch (e) {
         const msg =

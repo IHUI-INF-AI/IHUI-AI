@@ -23,6 +23,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { developerApiKeys } from '@ihui/database'
+import { parseApiCredential } from './api-key-credential.js'
 
 /** 与 plugins/api-key-auth.ts `generateApiKey()` 同源:公开标识形如 `ihui_<24 hex>`。 */
 export const API_KEY_PUBLIC_PREFIX = 'ihui_'
@@ -35,16 +36,21 @@ export function hasApiKeyPublicShape(key: string | undefined): key is string {
 /**
  * 这把 API Key 在库里真实存在、处于 active、且未过期 ⇒ true。
  *
+ * 入参允许是**单凭据组合形态** `ihui_xxx.sk_yyy`(见 utils/api-key-credential.ts):
+ * 拆出公开标识再查库,而**不放松任何判据**——仍要求行存在 + active + 未过期,
+ * secret 的真伪不在这里判(那是 authenticateApiKey 的职责,本函数只回答"这行在不在")。
+ *
  * 任何异常(DB 不可达、schema 不匹配等)⇒ false(fail-closed):判据不可用时拒绝豁免,
  * 而不是"查不到就先信客户端说的"。fail-open 等于把 CSRF 防线交给攻击者能否让 DB 抖动。
  */
 export async function isRegisteredUsableApiKey(key: string | undefined): Promise<boolean> {
-  if (!hasApiKeyPublicShape(key)) return false
+  const publicKey = parseApiCredential(key).key
+  if (!hasApiKeyPublicShape(publicKey ?? undefined)) return false
   try {
     const [row] = await db
       .select({ status: developerApiKeys.status, expiresAt: developerApiKeys.expiresAt })
       .from(developerApiKeys)
-      .where(eq(developerApiKeys.key, key))
+      .where(eq(developerApiKeys.key, publicKey as string))
       .limit(1)
     if (!row || row.status !== 'active') return false
     if (row.expiresAt && row.expiresAt.getTime() <= Date.now()) return false

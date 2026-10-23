@@ -933,6 +933,36 @@ function Invoke-WorktreeAlign {
         Remove-Item $outFile, "$outFile.err" -Force -ErrorAction SilentlyContinue
     }
 }
+function Invoke-DriftAlignToRemoteTip {
+    # 2026-10-23 加:幻影漂移对齐的**第二条判据**(不依赖旁路落地台账)。
+    # 现场:`heal-worktree-tracked.mjs --align-drift` 要先读
+    # `.ihui-agent/state/safe-commit-attestation.jsonl` 才能证明"这份陈旧由哪一次落地造成";
+    # 而 prod 签出里没有那份台账(它长在开发工作区)⇒ 每轮都报"可判定 0 个/未判定",
+    # 于是**内容已经等于即将合入的那枚提交**的文件照样进 BLOCKED-WIP,部署环永久停在
+    # "有人正在写,等对方收尾"的结论上(实测 17:11:14 与 17:12:53 两轮 FAIL)。
+    # 本函数补一条更强、无需台账的证明:**该路径工作树内容 == 本轮钉住的远端 tip 的内容**
+    # ⇒ 它不可能是"别人的在途编辑"(那份内容本来就要由这次 ff 写进盘),`git checkout --`
+    # 只把"未提交"这个标记清掉,内容零变化,ff 之后仍是同一份字节。
+    # 只处理未暂存的 ` M` 项:暂存项(`M `/`MM`)说明索引里也有东西,不在本函数职权内,照旧交人工。
+    param([string]$Tip)
+    if (-not $Tip) { return 0 }
+    $aligned = 0
+    foreach ($entry in (Get-TrackedDirtyEntry)) {
+        if ($entry -notmatch '^ M (.+)$') { continue }
+        $rel = $Matches[1].Trim()
+        if (-not $rel) { continue }
+        & git -C $Root diff --quiet $Tip -- $rel 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { continue }   # 与 tip 内容不同 ⇒ 真编辑,绝不动
+        & git -C $Root checkout -- $rel 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            $aligned++
+            Log "  [align-tip] 已清标记(内容与本轮 tip 逐字节相同,ff 后仍是同一份):$rel"
+        } else {
+            Log "WARN  [align-tip] 清理失败(不动,照旧进 BLOCKED-WIP):$rel"
+        }
+    }
+    return $aligned
+}
 function Report-BlockedWip {
     param([string[]]$Entries)
     # 一句话把成因钉在日志里(轮询外壳会把本输出实时落进 deploy-loop.log,可 grep BLOCKED-WIP)
@@ -1779,12 +1809,14 @@ function Invoke-Diagnose {
     if (Test-Path $Root) {
         Push-Location $Root
         try {
-            $srcs = @('origin', 'https://gitcode.com/IHUI-AI/IHUI-AI.git', 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git')
-            # 诊断面同样必须"取完立刻定格":旧写法在三个源各 fetch 一次之后才读 FETCH_HEAD,
-            # 那一刻它是**最后一个应答的镜像**而不是 origin —— 镜像按设计会落后,于是
-            # ahead 被报成 >0,而 :971 那句提示把"本地领先 ⇒ 分叉,需人工决定处理策略"写给
+            # 取源只认两处(2026-10-23 机主订正:GitCode/Gitee 镜像早已弃用,不得再当取源):
+            # ① origin(GitHub,权威)② 本机工作区真 gitdir(离线可达)。
+            # 诊断面同样必须"取完立刻定格":旧写法在多个源各 fetch 一次之后才读 FETCH_HEAD,
+            # 那一刻它是**最后一个应答的源**而不是 origin —— 落后源会让 ahead 被报成 >0,
+            # 而 :971 那句提示把"本地领先 ⇒ 分叉,需人工决定处理策略"写给
             # 下一个读日志的人。同一条竞态在决策面造成的是静默部署旧提交,在诊断面造成的
             # 是错误归因(本仓 09-24 那次"把排查带去清扫工作树、白耗 1.5h"就是这类)。
+            $srcs = @('origin', 'D:/IHUI-AI-git-repo')
             $diagOriginTip = $null
             foreach ($s in $srcs) {
                 $o = & git @gitNet fetch $s main 2>&1 | Out-String
@@ -2296,39 +2328,102 @@ $gitNet = @()
 if ($Proxy) { $gitNet = @('-c', "http.proxy=$Proxy", '-c', "https.proxy=$Proxy"); Log "git 网络走代理 $Proxy" }
 else { Log "WARN  未探测到可用代理(候选:$($ProxyCandidates -join ',')),将尝试直连" }
 
-Update-DeployLockHeartbeat   # fetch 走代理时可能很慢(镜像回退链),阶段边界续心跳
+Update-DeployLockHeartbeat   # fetch 走代理时可能很慢(取源回退链),阶段边界续心跳
+# ── 带秒级墙钟的 git 调用(2026-10-23 加:第二个把部署环钉死的病灶)─────────────────
+# 现场:GitHub 在本机是"TCP 通、TLS 握不上"的半死态 —— `git fetch origin` 有时 6 秒报
+# `schannel: failed to receive handshake`,有时**永久挂住**(实测 16:50:16 起的那轮 fetch
+# 到 17:08 仍无任何返回,整轮日志停更 18 分钟以上)。外壳(`ihui-deploy-loop.ps1`)的墙钟
+# 是按"整轮部署"给的(要容纳 6 分钟 web 构建),几十秒的 fetch 挂死它兜不住。
+# 判据:凡走网络的 git 子命令都必须有秒级墙钟;超时即杀**整棵进程树**并按失败处理
+# —— 下游 fail-closed(取源全失败 ⇒ Fail),绝不把超时读成"已是最新"。
+# 说明:`.ArgumentList` 需要 .NET Core,本脚本本来就要求 pwsh 7(见 ihui-deploy-loop.ps1
+# 的 PwshCandidates 与"ihui-deploy.ps1 依赖 PS7"那条),所以不另写引号拼接。
+function Invoke-GitWithTimeout {
+    param(
+        [string[]]$GitArgs,
+        [int]$TimeoutSec = 90
+    )
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'git'
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    foreach ($a in $GitArgs) { [void]$psi.ArgumentList.Add([string]$a) }
+    $proc = New-Object System.Diagnostics.Process
+    $proc.StartInfo = $psi
+    try { [void]$proc.Start() }
+    catch { return @{ ExitCode = -1; Output = "启动 git 失败:$($_.Exception.Message)"; TimedOut = $false } }
+    $outTask = $proc.StandardOutput.ReadToEndAsync()
+    $errTask = $proc.StandardError.ReadToEndAsync()
+    if (-not $proc.WaitForExit($TimeoutSec * 1000)) {
+        # Kill(true) 连带子进程(remote-https / 凭据助手),只杀 git 本体仍会留孙进程持管道。
+        try { $proc.Kill($true) } catch { try { $proc.Kill() } catch { } }
+        try { [void]$proc.WaitForExit(5000) } catch { }
+        return @{
+            ExitCode = -1
+            Output   = "git $($GitArgs -join ' ') 超时($TimeoutSec 秒)未返回,已杀进程树"
+            TimedOut = $true
+        }
+    }
+    $out = ''
+    try { $out = $outTask.GetAwaiter().GetResult() } catch { }
+    $err = ''
+    try { $err = $errTask.GetAwaiter().GetResult() } catch { }
+    $text = (@($out, $err) | Where-Object { $_ }) -join "`n"
+    return @{ ExitCode = $proc.ExitCode; Output = $text; TimedOut = $false }
+}
+
+# ── 取源(2026-10-23 定稿:只有两个源,镜像已彻底移出部署链)─────────────────────
+# 病灶史:origin(GitHub)不可达 → 旧代码落到**国内镜像** → 镜像 main 是另一条收敛线
+# (实测与 prod HEAD 真分叉:HEAD 侧 5 枚 / 镜像侧 53 枚,54 文件 +3311/−3903)→
+# `merge --ff-only` 每轮必失败 → 连续 12 轮 `BLOCKED-DIVERGED`,部署环彻底不干活。
+# **机主订正(2026-10-23):GitCode/Gitee 镜像早已弃用** —— 它们不是部署链的合法取源,
+# 只是 `mirror-to-cn.yml` 那条"往外镜像"的历史尾巴;把弃用渠道留在回退链里,等于给部署环
+# 留一条会把 HEAD 拖进分叉的路。故**整条镜像回退已删除**,不再保留"最后手段"。
+# 现在只有两个源:① origin(GitHub,权威,通的时候以它为准);
+# ② 本机工作区真 gitdir(`D:\IHUI-AI-git-repo`;`D:\IHUI-AI\.git` 只是 28 字节指针文件)
+# —— 本机所有提交都写进它,**永远可达、不走网络**,prod 只跟随它 ff,
+# 结构上不会再分叉(prod 只 ff、自己不造提交)。
+# 两源都失败 ⇒ fail-closed 停轮报错,绝不猜、绝不用弃用渠道兜底。
+# 可用 `IHUI_DEPLOY_LOCAL_SOURCES`(分号分隔)覆盖②,换机时不必改脚本。
+$LocalSourceCandidates = @('D:/IHUI-AI-git-repo')
+if ($env:IHUI_DEPLOY_LOCAL_SOURCES) {
+    $LocalSourceCandidates = @($env:IHUI_DEPLOY_LOCAL_SOURCES -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+
+$fetchSource = $null
 Log "fetch origin main ..."
-$fetchOut = & git @gitNet fetch origin main 2>&1 | Out-String
-$fetchOut.Trim() | Write-Host
-# ── 镜像回退(2026-09-13 加):本机 GitHub 直连被墙,依赖 Clash 代理(127.0.0.1:7897);
-#    代理未运行/被防火墙拦时 fetch 必失败 → fail-closed → 部署循环长时间停摆(实测 09-13
-#    出现 uptime 单调上升 35 分钟、新提交不入库)。三仓 main 由本项目推送流程保证同步,
-#    故 origin 失败时回退国内镜像;镜像落后时 behind=0 会自然跳过,不会回滚。
-#    注意:镜像 fetch 同样写 FETCH_HEAD,而下游只认下面立刻定格的 $remoteTip(取自当次
-#    FETCH_HEAD 的第一行),所以镜像回退不需要另一条取值路径 —— 但它也不再回头看那枚共享文件。
-$MirrorUrls = @(
-    'https://gitcode.com/IHUI-AI/IHUI-AI.git',
-    'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
-)
-$fetched = $false
-if ($LASTEXITCODE -eq 0 -and -not ($fetchOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
-    $fetched = $true
-} else {
-    Log "WARN  origin fetch 失败,尝试国内镜像回退 ..."
-    foreach ($m in $MirrorUrls) {
-        Log "fetch $m main ..."
-        $mOut = & git fetch $m main 2>&1 | Out-String
-        $mOut.Trim() | Write-Host
-        if ($LASTEXITCODE -eq 0 -and -not ($mOut -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
-            $fetched = $true
-            Log "镜像回退成功:$m"
+$r = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('fetch', 'origin', 'main')) -TimeoutSec 25
+$r.Output.Trim() | Write-Host
+if ($r.ExitCode -eq 0 -and -not $r.TimedOut -and -not ($r.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+    $fetchSource = 'origin'
+}
+
+if (-not $fetchSource) {
+    Log "WARN  origin fetch 失败,改从本机工作区 gitdir 取源(离线可用) ..."
+    foreach ($local in $LocalSourceCandidates) {
+        if (-not (Test-Path (Join-Path $local 'HEAD'))) {
+            Log "跳过本机取源 $local(不是 git 仓库或不存在)"
+            continue
+        }
+        Log "fetch $local main ..."
+        $lr = Invoke-GitWithTimeout -GitArgs @('fetch', $local, 'main') -TimeoutSec 120
+        $lr.Output.Trim() | Write-Host
+        if ($lr.ExitCode -eq 0 -and -not $lr.TimedOut -and -not ($lr.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
+            $fetchSource = "local:$local"
+            Log "本机取源成功:$local(prod 只跟随本机 main,不合并、不推送)"
             break
         }
     }
 }
-if (-not $fetched) {
-    Fail "git fetch 全部来源失败(origin + 镜像),fetch 未成功则无法判定是否落后,本轮不部署;请先检查本机 Clash 代理(127.0.0.1:7897)是否在跑,git 网络依赖它"
+
+if (-not $fetchSource) {
+    # 镜像回退已于 2026-10-23 删除(机主:GiteCode/Gitee 早已弃用)。两源都取不到就停轮,
+    # 不用弃用渠道兜底 —— 那条路会把 HEAD 拖进分叉,比"这一轮不部署"危险得多。
+    Fail "git fetch 全部来源失败(origin + 本机工作区 gitdir),fetch 未成功则无法判定是否落后,本轮不部署;请先确认 D:\IHUI-AI-git-repo 在位,或本机 Clash 代理(127.0.0.1:7897)在跑"
 }
+Log "本轮取源 = $fetchSource"
 # 落后提交数 = 本地未含本轮远端 tip 的提交数
 # 2026-09-13 修复(实测):本机 origin/main 这个嵌套 remote-tracking ref 会被宿主吞掉、永不更新
 # (fetch 打印 6eedf5b0f1..adcc23136a 但 rev-parse origin/main 仍读回旧值)→
@@ -2336,7 +2431,8 @@ if (-not $fetched) {
 # 改为对齐刚 fetch 下来的远端 tip,彻底免疫该问题。
 # ── 但那枚 tip 必须先"定格"成一枚显式 sha(2026-09-28 实测竞态)────────────────────
 # FETCH_HEAD 是 .git 下**全局共享的单文件**:任何一次并发 `git fetch`(其它会话、post-commit 的
-# push-guard、git-guardian、本文件的镜像回退分支)都会整体重写它。旧写法在 behind 计算与
+# push-guard、git-guardian;本文件的镜像回退分支已于 2026-10-23 删除,但本机取源分支同样会写它)
+# 都会整体重写它。旧写法在 behind 计算与
 # `git merge --ff-only FETCH_HEAD` 之间夹了一次现场对齐(实测 15 秒),那 15 秒里 FETCH_HEAD
 # 可以被换成一枚**本地 HEAD 的祖先**,于是 merge 打印 "Already up to date." 且 **exit 0**,
 # 旧代码只看退出码 ⇒ 照常打一条"merge 已完成"的成功结论,随后备份、重建、切流。
@@ -2359,7 +2455,9 @@ $remoteTip = $remoteTipRaw
 & git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Log "远端 sha $remoteTip 的对象不在本地对象库:定向 fetch 一次后复核"
-    & git @gitNet fetch origin $remoteTip 2>&1 | Out-String | Write-Host
+    # 同样带墙钟:这是唯一一处"按 sha 定向补对象"的网络调用,挂死会重演上面那 18 分钟停更。
+    $rr = Invoke-GitWithTimeout -GitArgs (@($gitNet) + @('fetch', 'origin', $remoteTip)) -TimeoutSec 45
+    $rr.Output.Trim() | Write-Host
     & git cat-file -e "$remoteTip^{commit}" 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail "本轮远端 sha 的对象取不到,无法判定是否落后 ⇒ 本轮不部署、不切流" }
 }
@@ -2396,6 +2494,11 @@ if ($behind -gt 0) {
     if ($dirtyBefore.Count -gt 0) {
         Log "ff-only 前置:检测到 $($dirtyBefore.Count) 个被跟踪文件有未提交改动 → 先做幻影漂移对齐(真编辑不碰)"
         Invoke-WorktreeAlign | Out-Null
+        # 台账缺失时 align-drift 判不出来,再用"内容==本轮 tip"这条不依赖台账的判据收一遍。
+        $alignedByTip = Invoke-DriftAlignToRemoteTip -Tip $remoteTip
+        if ($alignedByTip -gt 0) {
+            Log "ff-only 前置:另按「内容==本轮 tip」清掉 $alignedByTip 个已被本次 ff 覆盖的脏标记(内容零变化)"
+        }
         $dirtyAfter = Get-TrackedDirtyEntry
         Log "ff-only 前置:对齐后剩余 $($dirtyAfter.Count) 个未提交被跟踪文件(本轮对齐掉 $($dirtyBefore.Count - $dirtyAfter.Count) 个)"
     }

@@ -328,7 +328,9 @@ fn is_stale_update_check(check_id: u64) -> bool {
     check_id != UPDATE_CHECK_GENERATION.load(Ordering::SeqCst)
 }
 
-/// 应用自更新检查(每小时一次):经 updater endpoints(Gitee raw 优先)检查新版,
+/// 应用自更新检查(每小时一次):经 tauri updater 的**单端点** `https://aizhs.top/desktop-feed.json`
+/// (见 tauri.conf.json 的 plugins.updater.endpoints;2026-10-05 机主拍板定稿,不再有多端点回退,
+/// 原先的 Gitee raw 端点已随桌面 feed 真源化删除)检查新版,
 /// 有则下载+静默安装(安装器接管前先做退出准备,应用退出后重启即新版)。
 /// **开发构建例外**:函数体首按 `cfg!(debug_assertions)` 早退,不下载不重启(见该处注释)。
 async fn check_app_update(app: &tauri::AppHandle) {

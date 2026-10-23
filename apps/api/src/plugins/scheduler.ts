@@ -228,16 +228,17 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     pattern: '*/5 * * * *',
     description: '租户资源 used/quota Gauge 刷新（每5分钟,查 tenant_quotas）',
   },
-  // 访客 PV/UV 聚合 Gauge 刷新(2026-10-23 立)。取每时 35 分:错开 heat-stats-hourly
-  // (0 分)、file-cleanup-hourly(0 分)、upload-session-reap-hourly(45 分)、
-  // oss-storage-stats(每10分)与 tenant-resource-gauge(每5分)—— 35 不是 5 的倍数,
-  // 不与任何一条既有的小时级/分钟级任务同分钟抢 DB。这条链扫的是**无二级索引**的
-  // api_logs(2026-10-23 现读近 6 天 186231 行),所以代价靠"限窗 + 每小时一次"钉住,
-  // 既不挂 scrape、也不挂请求路径(理由与后果逐条写在 services/traffic-stats-service.ts 头注)。
+  // 访客 PV/UV 聚合 Gauge 刷新(2026-10-23 立,同日由"每小时"提速到"每 60 秒")。
+  // 提速依据:`api_logs_created_at_idx` 已存在,限窗聚合走索引扫描(24h 13.3 ms /
+  // 1h 0.46 ms / 24h 按 UA 分组 32.4 ms),原"无二级索引 ⇒ 只能小时级"的判据已过期。
+  // **键名保留 `traffic-stats-hourly`**:upsertJobScheduler 以 name 为键,改名会在
+  // Redis 里留一条旧 repeatable 记录继续按小时派活(而 worker 已无同名 case ⇒ 空转报错)。
+  // 这条链仍不挂 scrape、也不挂请求路径;大屏侧另有 `getTrafficLiveSnapshot()`
+  // (5 秒缓存)保证"实时",本 job 只负责 Grafana 的时序曲线。
   {
     name: 'traffic-stats-hourly',
-    pattern: '35 * * * *',
-    description: '访客 PV/UV 聚合 Gauge 刷新（每小时35分,限窗扫 api_logs/visit_logs）',
+    every: 60_000,
+    description: '访客 PV/UV 聚合 Gauge 刷新（每60秒,限窗扫 api_logs/visit_logs;键名为历史遗留）',
   },
   // 中转号池健康 Gauge 刷新(2026-10-23 立)。分钟取 3/8/13/…(每5分、错开
   // tenant-resource-gauge 的 0/5/10/…):两条都是"小表全量 SELECT",错开是为了
