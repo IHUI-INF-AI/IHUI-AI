@@ -488,7 +488,10 @@ test('parseBatch:非 blob 的头(tree / commit)归 null,且不得把内容当下
 // 那批未同步钉数)。票面 git grep 法(不遮注释)另报 3 枚 check-disk-root-write /
 // check-grafana-datasource-wiring / check-panel-datasource-wiring,系注释里提这条判据本身的
 // 散文,遮注释后零命中 ⇒ 不是债。型 B / 型 C 两维本票照旧不动(他席迁移面)。
-const BARE_GIT_BASELINE = 64 // 紧贴现读(2026-10-23 G-927 复核 65→64;注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
+// 2026-10-23 G-927 三次复核降钉:基线 64 → 61,紧贴现读。账目:`node --test scripts/tests/face-reader.test.mjs`
+// HEAD 面现读打出「裸 git 存量已降到 61(基线 64)」⇒ 票面 9 枚新增者已全部在各票内迁完(85→61);
+// 型 B / 型 C 两维照旧不动(现读与钉数齐,测试无提示)。
+const BARE_GIT_BASELINE = 61 // 紧贴现读(2026-10-23 G-927 三次复核 64→61;注记形态系防落地守门把与祖先逐字相同的 const 行误判为"复活行")
 // 2026-10-23 72 → 67:G-54 批 G3 席迁 5 个文件(check-api-migration-completeness /
 // benchmark-diff-matrix / check-credential-leak-in-message / check-radius-single-source /
 // check-api-key-leak)到 gitRaw/catBatch,落地后 HEAD 面现读 67;紧贴现读不留余量。
