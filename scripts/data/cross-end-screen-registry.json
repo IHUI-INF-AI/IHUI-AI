@@ -5,6 +5,21 @@
       "shared": "packages/app/src/features/about/AboutScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AboutScreen.tsx",
       "miniapp": "pkg-about/about/index"
+    },
+    {
+      "shared": "packages/app/src/features/recruitment/RecruitmentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RecruitmentScreen.tsx",
+      "miniapp": "pkg-content/recruitment/index"
+    },
+    {
+      "shared": "packages/app/src/features/carte/CarteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CarteScreen.tsx",
+      "miniapp": "pkg-content/carte/index"
+    },
+    {
+      "shared": "packages/app/src/features/developer/DeveloperScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/DeveloperScreen.tsx",
+      "miniapp": "pkg-ai/developer/index"
     }
   ]
 }
