@@ -72,7 +72,9 @@ vi.mock('next/navigation', () => ({
 vi.mock('next-intl', () => ({
   useTranslations: () => {
     const translate = (key: string) => key
-    return Object.assign(translate, { has: () => true })
+    // TagLabel(与侧边栏同源)用 raw() 判"该 key 是不是字符串",mock 必须同批提供,
+    // 否则渲染期抛 t.raw is not a function(写法照 TagsView.test.tsx 的同一套 mock)。
+    return Object.assign(translate, { has: () => true, raw: (k: string) => k })
   },
   useLocale: () => 'zh-CN',
 }))

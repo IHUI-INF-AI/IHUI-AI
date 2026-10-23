@@ -38,7 +38,12 @@ import {
   readCachedNameStatus,
   snapshotStagedDeleteIntent,
 } from '../lib/staged-delete-intent.mjs'
-import { findOrphanedDeletions, recentlyClearedStagedIntent } from '../heal-worktree-tracked.mjs'
+import {
+  findOrphanedDeletions,
+  recentlyClearedStagedIntent,
+  heal,
+  intentExpiryTtlHours,
+} from '../heal-worktree-tracked.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
 
@@ -277,6 +282,74 @@ test('存续自愈:账里点名的路径不再被当成"外部删除"恢复,而�
   )
 })
 
+// ─── 到期档(2026-10-23 立):摘标超 TTL 仍缺 ⇒ 回盘 + 意图逐字转进新留痕 ───
+function writeIntentLedger(dir, ts, paths = ['base.txt']) {
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
+  writeFileSync(
+    join(dir, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
+    JSON.stringify({
+      ts,
+      event: 'index-purge-cleared-staged-deletions',
+      clearedIntentLost: paths,
+      actionTaken: 'report-only',
+    }) + '\n',
+  )
+}
+
+test('到期档:TTL 内不恢复;超 TTL 回盘并把意图写回同一本账;时刻读不出不恢复', (t) => {
+  const H = 3600_000
+  // ① TTL 内 ⇒ 照旧"只报数"(阳性对照:加了到期绝不能把在飞席位的东西抢回来)
+  const a = scratchRepo(t)
+  git(a, 'rm', '-q', '--', 'base.txt')
+  git(a, 'reset', 'HEAD')
+  writeIntentLedger(a, new Date(Date.now() - 30_000).toISOString())
+  const fresh = findOrphanedDeletions(a, { now: Date.now(), ttlHours: 2 })
+  assert.deepEqual(fresh.intentLost, ['base.txt'], 'TTL 内必须仍落 intentLost')
+  assert.deepEqual(fresh.intentExpired, [], 'TTL 内不得到期')
+  assert.ok(!fresh.safe.includes('base.txt'), 'TTL 内不得进恢复清单')
+
+  // ② 超 TTL ⇒ 移入到期并随 safe 回盘;heal 落地成功后写新留痕,且新留痕不再被读侧消费
+  const b = scratchRepo(t)
+  git(b, 'rm', '-q', '--', 'base.txt')
+  git(b, 'reset', 'HEAD')
+  writeIntentLedger(b, new Date(Date.now() - 3 * H).toISOString())
+  const expired = findOrphanedDeletions(b, { now: Date.now(), ttlHours: 2 })
+  assert.deepEqual(expired.intentExpired, ['base.txt'], '超 TTL 必须识别成到期档')
+  assert.ok(expired.safe.includes('base.txt'), '到期档要随 safe 一起回盘')
+  const res = heal(b, {})
+  assert.equal(existsSync(join(b, 'base.txt')), true, '到期后文件必须回到盘上(内容恒等于 HEAD)')
+  assert.deepEqual(res.intentExpiredPaths, ['base.txt'], '结果里要看得见回盘的那几枚')
+  const ledgerAfter = readFileSync(
+    join(b, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
+    'utf8',
+  ).trim().split('\n')
+  const last = JSON.parse(ledgerAfter[ledgerAfter.length - 1])
+  assert.equal(last.event, 'staged-intent-expiry-restored', '意图清单要写回同一本账')
+  assert.deepEqual(last.clearedIntentLost, ['base.txt'], '路径逐字留着,归属会话可一句 git rm --cached 坐实')
+  // 反自我循环:回盘后再制造同样的缺失,新事件(report-only 之外)不得把它再判成"待裁决"
+  git(b, 'rm', '-q', '--', 'base.txt')
+  git(b, 'reset', 'HEAD')
+  const again = findOrphanedDeletions(b, { now: Date.now(), ttlHours: 2 })
+  assert.deepEqual(again.intentLost, [], '到期留痕不得被读侧再消费成待裁决(自我循环)')
+  assert.ok(again.safe.includes('base.txt'), '无 report-only 证据时回到原判据:按外部删除恢复')
+
+  // ③ 账上时刻读不出 ⇒ 判不出那一档,不恢复(§0.3)
+  const c = scratchRepo(t)
+  git(c, 'rm', '-q', '--', 'base.txt')
+  git(c, 'reset', 'HEAD')
+  writeIntentLedger(c, '昨天下午')
+  const deaf = findOrphanedDeletions(c, { now: Date.now(), ttlHours: 2 })
+  assert.deepEqual(deaf.intentLost, ['base.txt'], '时刻解不出来时必须回落到"不代裁"')
+  assert.deepEqual(deaf.intentExpired, [], '判不出不是恢复的许可证')
+
+  // ④ TTL 档位本身:非法值回落默认,不接受把档位关成 0(0 ⇒ 恒到期 = 拆牙)
+  assert.equal(intentExpiryTtlHours({}), 2, '默认 2 小时')
+  assert.equal(intentExpiryTtlHours({ IHUI_STAGED_INTENT_TTL_HOURS: '12' }), 12, '合法覆盖要生效')
+  for (const bad of ['0', '-1', 'abc', '']) {
+    assert.equal(intentExpiryTtlHours({ IHUI_STAGED_INTENT_TTL_HOURS: bad }), 2, `非法值 ${bad} 必须回落默认`)
+  }
+})
+
 test('存续自愈:账坏/半截行 ⇒ 读账吞掉并按空集合走,不让每2 分钟一轮的守护崩掉', (t) => {
   const dir = scratchRepo(t)
   mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
@@ -297,7 +370,63 @@ test('存续自愈:账坏/半截行 ⇒ 读账吞掉并按空集合走,不让每
   assert.deepEqual([...recentlyClearedStagedIntent(dir)], [], '非 report-only 的条目不得被采信')
 })
 
+// ─── 保护只认最新一条事件(到期档落地后自审出的边界,2026-10-23)───
+test('陈旧 report-only 不得永久保护:同一路径的最新事件若是到期留痕 ⇒ 再删按原判据恢复', (t) => {
+  const H = 3600_000
+  const dir = scratchRepo(t)
+  git(dir, 'rm', '-q', '--', 'base.txt')
+  git(dir, 'reset', 'HEAD')
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
+  writeFileSync(
+    join(dir, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
+    [
+      JSON.stringify({
+        ts: new Date(Date.now() - 3 * H).toISOString(),
+        event: 'index-purge-cleared-staged-deletions',
+        clearedIntentLost: ['base.txt'],
+        actionTaken: 'report-only',
+      }),
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        event: 'staged-intent-expiry-restored',
+        clearedIntentLost: ['base.txt'],
+        actionTaken: 'restored-intent-expired',
+      }),
+    ].join('\n') + '\n',
+  )
+  const after = findOrphanedDeletions(dir, { now: Date.now(), ttlHours: 2 })
+  assert.deepEqual(after.intentLost, [], '最新事件已非 report-only ⇒ 不得再当"待裁决"挂着')
+  assert.deepEqual(after.intentExpired, [], '同理不该重复到期')
+  assert.ok(after.safe.includes('base.txt'), '无现行保护 ⇒ 回到原判据:按外部删除恢复')
+
+  // 反向对照:report-only 若才是最新一条,保护必须照在(收窄不能反过来吃掉真保护)
+  const rev = scratchRepo(t)
+  git(rev, 'rm', '-q', '--', 'base.txt')
+  git(rev, 'reset', 'HEAD')
+  mkdirSync(join(rev, '.ihui-agent', 'state'), { recursive: true })
+  writeFileSync(
+    join(rev, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
+    [
+      JSON.stringify({
+        ts: new Date(Date.now() - 5 * H).toISOString(),
+        event: 'staged-intent-expiry-restored',
+        clearedIntentLost: ['base.txt'],
+        actionTaken: 'restored-intent-expired',
+      }),
+      JSON.stringify({
+        ts: new Date(Date.now() - 30_000).toISOString(),
+        event: 'index-purge-cleared-staged-deletions',
+        clearedIntentLost: ['base.txt'],
+        actionTaken: 'report-only',
+      }),
+    ].join('\n') + '\n',
+  )
+  const revRes = findOrphanedDeletions(rev, { now: Date.now(), ttlHours: 2 })
+  assert.deepEqual(revRes.intentLost, ['base.txt'], '最新的 report-only 必须仍在射程内(TTL 内不恢复)')
+})
+
 // ─── 形状锁:两处接线不得被摘掉,也不得改成自动恢复 ───
+
 test('形状锁:safe-commit 必须在 reset 之前取样,只标记不代裁(不得出现自动恢复)', () => {
   const src = readFileSync(SAFE_COMMIT, 'utf8')
   const masked = maskCommentsAndStrings(src)
@@ -334,10 +463,34 @@ test('形状锁:存续自愈读的是同一份账,且判据面与既有 held 分
   const src = readFileSync(join(HERE, '..', 'heal-worktree-tracked.mjs'), 'utf8')
   assert.match(src, /recentlyClearedStagedIntent/, '必须接上账的读取')
   assert.match(src, /intentLost\.push\(path\)/, '命中账的路径必须被移入 intentLost 而不是 safe')
-  assert.match(src, /return \{ safe, held, orphanIndex, intentLost \}/, '必须单列一档,不折进 held')
+  assert.match(
+    src,
+    /return \{ safe, held, orphanIndex, intentLost, intentExpired \}/,
+    '必须单列一档,不折进 held;到期档也单列(2026-10-23)',
+  )
+  // 到期档的三条纪律:①只按 TTL 分档,读不出时刻一律不恢复;②留痕必须排在落地成功之后;
+  // ③写进同一本账的新事件不得被自己的读侧再消费成"待裁决"(会自我循环)。
   const masked = maskCommentsAndStrings(src)
+  assert.match(src, /const age = Number\.isFinite\(seenAt\) \? now - seenAt : NaN/, '时刻解不出 ⇒ 年龄是 NaN,不是 0')
+  assert.match(
+    src,
+    /if \(Number\.isFinite\(age\) && age > ttlHours \* 3600_000\) \{/,
+    '只有"量得到年龄且确已超 TTL"才准进到期档(行为由上面③的夹具用例钉住)',
+  )
   assert.ok(
-    !/intentLost\.push\(path\)[\s\S]{0,80}restore/.test(masked),
+    masked.indexOf('restoreToHead(g, safe)') < masked.indexOf('appendIntentExpiryLedger(repoRoot, expiredRestored'),
+    '留痕必须排在落地成功之后(先写后落会把"面上还在"说成"已删")',
+  )
+  assert.match(
+    masked,
+    /expiredRestored = intentExpiredPaths\.filter\(\(p\) => done\.includes\(p\)\)/,
+    '留痕只能记真正回盘成功的那几枚',
+  )
+  assert.match(src, /actionTaken: 'restored-intent-expired'/, '新事件必须用非 report-only 的 actionTaken')
+  assert.doesNotMatch(src, /actionTaken: 'report-only'[\s\S]{0,40}restored-intent-expired/, '两者不得同形')
+  const masked0 = maskCommentsAndStrings(src)
+  assert.ok(
+    !/intentLost\.push\(path\)[\s\S]{0,80}restore/.test(masked0),
     'intentLost 档里不得夹带恢复动作',
   )
   // 判据本体必须住在 lib 里(两处算同一件事必漂移 ⇒ 只许一份实现)

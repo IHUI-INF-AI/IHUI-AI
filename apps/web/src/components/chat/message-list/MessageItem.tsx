@@ -88,7 +88,7 @@ import { FeedbackSurveyCard } from '@/components/chat/feedback-survey-card'
 import type { FeedbackSurveyPayload } from '@ihui/shared/chat/element-pack'
 // P3 #39(2026-09-16 立):执行轨迹回放(toolCalls 时序重演)
 import { TraceReplay } from '@/components/ai/trace-replay'
-import { useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
+import { matchesPaneEvent, useOptionalPaneId, usePaneChatStore } from '@/stores/chat-pane-context'
 import { useTts } from '@/hooks/use-tts'
 // D60(2026-09-23 渲染位):失败轮草稿保留提示与 toast 同源取词,不另立文案/状态
 import { resolvePersistTexts } from '@/hooks/use-chat/persistence'
@@ -387,19 +387,23 @@ const MessageItem = React.memo(function MessageItem({
     autoExpandedRef.current = false
     setReasoningExpanded((prev) => !prev)
   }, [])
-  // 监听全局 'ihui:toggle-reasoning' 事件:键盘 Enter 聚焦消息触发,只响应本条消息
+  // 监听全局 'ihui:toggle-reasoning' 事件:键盘 Enter 聚焦消息触发,只响应本条消息。
+  // 票60 后续切片(2026-10-23):补窗格门控 —— 两窗格同开一会话时同一 messageId 会各挂
+  // 一个监听器,只按 messageId 匹配 ⇒ A 格按 Enter 把 B 格的思考区也翻(跨窗格串话)。
+  // 派发侧(use-message-list-scroll)detail 带上本窗格 paneId,这里用同一把尺子 matchesPaneEvent。
   React.useEffect(() => {
     // 2026-08-02 修复: Bug 6 — 把 if (!m.reasoning) return 移到 listener 内部,
     // 否则 m.reasoning 后到达时才注册 listener,之前 toggle 事件已丢失。
     const onToggle = (e: Event) => {
       if (!m.reasoning) return
-      const detail = (e as CustomEvent<{ messageId: string }>).detail
+      const detail = (e as CustomEvent<{ messageId: string; paneId?: string | null }>).detail
       if (detail?.messageId !== m.id) return
+      if (!matchesPaneEvent(detail.paneId, paneId)) return
       toggleReasoning()
     }
     window.addEventListener('ihui:toggle-reasoning', onToggle as EventListener)
     return () => window.removeEventListener('ihui:toggle-reasoning', onToggle as EventListener)
-  }, [m.id, m.reasoning, toggleReasoning])
+  }, [m.id, m.reasoning, toggleReasoning, paneId])
 
   // 自动展开仅用于"正文输出中新思考交错到达"场景(思考区已挂载,用户可感知新思考);
   // "先想后答"模型的思考在 TypingIndicator 阶段(content 为空)已完成,
