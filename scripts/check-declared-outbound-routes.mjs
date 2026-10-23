@@ -52,7 +52,8 @@
  *     取材一律走 `scripts/lib/face-reader.mjs` 的读取入口(`catBatch` / `readWorktreeFile`)——
  *     门 118 专判"引了层却自己派生 git"的半接线。
  *   - **`--files` 的两个假绿灯同族缺陷(2026-09-28 收)**:① 取值判据 —— 值必须存在且不以 `-` 开头
- *     才算清单(口径同 `scan-hardcoded-zh` / `check-direct-backend-calls` 的 `flagValue`);旧写法
+ *     才算清单(口径的唯一出口是 `scripts/lib/flag-value.mjs` 的 `requireFlagValue`,G-322 把本文件
+ *     那份逐字本地副本收掉了 —— 同族副本普查当日全仓 9 份,漂移方向实测是洞);旧写法
  *     无条件吞紧邻下一个 token,而 runner 每道门都追加 `--staged`,于是 `--files --staged` 把清单
  *     收成"一个叫 --staged 的文件",实测 `声明 0 / 未匹配 0`**且 `--strict` 也 exit 0** = 账面全绿的
  *     空扫。② 显式给了 `--files` 而收窄后声明侧为 0 条 ⇒ 判"无法判定"(exit 2),**不是**"通过";
@@ -85,6 +86,7 @@
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
+import { requireFlagValue } from './lib/flag-value.mjs'
 import {
   Undetermined,
   catBatch,
@@ -259,44 +261,41 @@ const USAGE = `用法: node scripts/check-declared-outbound-routes.mjs [--staged
 /**
  * `--files <逗号分隔的路径清单>` 的取值判据。
  *
- * 口径**照抄已入库的那两处同型修法**(`scan-hardcoded-zh.mjs` 的 `flagValue` / `--root`、
- * `check-direct-backend-calls.mjs` 的 `flagValue`,枚 `380431ffc`):**值必须存在且不以 `-` 开头**,
- * 否则不算该旗标的值 —— 不得另发明一份(两处实现必漂移是本仓记过最多次的失败型)。
+ * **「值有没有被吞」这条判据不在本文件写** —— 唯一出口 `scripts/lib/flag-value.mjs` 的
+ * `requireFlagValue`(§0.6 单一真相源 / §22c)。G-322 之前这里躺着一份逐字本地副本
+ * (两支:值必须是字符串、值不得以单划线开头),而普查量到这份副本全仓有 9 份、
+ * 漂移方向恰好是洞(旧那份只挡 `--` 双划线,单划线的 `-x` 被当合法清单收下)。
+ * 镜像测试 T11 的锁方向因此**反过来判**:出现单源 import 与 `requireFlagValue(` 为绿,
+ * 出现那两枚本地判据字面为红(加强,不是放宽)。
  *
- * 为什么本门的处置是「无法判定」而不是「退回默认」:那两处退的是**输出档**(退回 stdout 仍是完整结论,
- * 结论本身没被削弱);而 `--files` 收窄的是**判据的输入面**。旧写法
- * `String(argv[argv.indexOf('--files') + 1] || '')` 无条件吞紧邻的下一个 token,而
- * `guardian-runner.mjs` 会给每道门追加 `--staged`,于是 `--files --staged` 把清单收成"一个叫 --staged
- * 的文件":实测(2026-09-28)`声明 0 / 未匹配 0`**且 `--strict` 也 exit 0** —— 一次账面读起来像
- * "扫过了、零漂移"的**空扫**。"静默当成没有 --files"(退回全量)与"静默当成清单为空"都把"没看清"
- * 写成"看清了",所以两态一律走本文件既有的 `❌ 无法判定:` + exit 2 通道,并点名收到的 token。
+ * 本文件只保留**域名判据**(`lib/flag-value.mjs` 明文把域名校验留给调用方):`--files` 的值
+ * 还得真能拆出 ≥1 个路径名,否则不构成清单。
+ *
+ * 为什么本门的处置是「无法判定」而不是「退回默认」:相邻那两站退的是**输出档**(退回 stdout
+ * 仍是完整结论,结论本身没被削弱);而 `--files` 收窄的是**判据的输入面**。旧写法
+ * 无条件吞紧邻的下一个 token,而 `guardian-runner.mjs` 会给每道门追加 `--staged`,于是
+ * `--files --staged` 把清单收成"一个叫 --staged 的文件":实测(2026-09-28)`声明 0 / 未匹配 0`
+ * **且 `--strict` 也 exit 0** —— 一次账面读起来像"扫过了、零漂移"的**空扫**。"静默当成没有
+ * --files"(退回全量)与"静默当成清单为空"都把"没看清"写成"看清了",所以两态一律走本文件
+ * 既有的 `❌ 无法判定:` + exit 2 通道,并由单源出口点名收到的 token。
  *
  * 返回 `{ given, files, error }`:`given` 供 analyze 分辨上面那两种 0(见那里的长注释)。
  */
 export function parseFilesFlag(argv) {
-  const i = argv.indexOf('--files')
-  if (i < 0) return { given: false, files: null, error: null }
-  const raw = argv[i + 1]
-  if (typeof raw !== 'string' || raw === '')
+  const f = requireFlagValue(argv, '--files', { noun: '逗号分隔的路径清单' })
+  if (!f.present) return { given: false, files: null, error: null }
+  if (f.error)
     return {
       given: true,
       files: null,
-      error: "--files 需要一个值(逗号分隔的路径清单),但它已是最后一个参数 / 后面那个 token 是空串 ⇒ 无法按清单审,不退回全量",
+      error: `${f.error}(runner 给每道门追加 --staged,于是 --files --staged 曾被当成"只审一个叫 --staged 的文件" ⇒ 声明 0 / 未匹配 0 的空扫)`,
     }
-  if (raw.startsWith('-'))
-    return {
-      given: true,
-      files: null,
-      error:
-        `--files 的紧邻下一个 token 是「${raw}」:以 - 开头的是旗标不是文件路径,不得当成清单值` +
-        '(runner 给每道门追加 --staged,于是 --files --staged 曾被当成"只审一个叫 --staged 的文件" ⇒ 声明 0 / 未匹配 0 的空扫)',
-    }
-  const files = raw
+  const files = f.value
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean)
   if (files.length === 0)
-    return { given: true, files: null, error: `--files 的值「${raw}」拆分后得到 0 个路径名(只有空白/逗号),不构成清单` }
+    return { given: true, files: null, error: `--files 的值「${f.value}」拆分后得到 0 个路径名(只有空白/逗号),不构成清单` }
   return { given: true, files, error: null }
 }
 

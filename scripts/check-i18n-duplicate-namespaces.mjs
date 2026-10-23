@@ -52,6 +52,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 取材只走这一层(绝对路径 git / safe.directory / quotepath / windowsHide / maxBuffer /
 // "输出被截断 ⇒ 无法判定"),各门自己写一遍就会各漏一遍 —— 口径同守门 36/124/56/60。
 import { Undetermined, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const SKIP_ENV = 'HUSKY_SKIP_I18N_DUP_NS'
 /** 扫描根的默认锚点:**由脚本自身位置推导**,不是 process.cwd()(见上方 2026-09-26 那条修正) */
@@ -142,19 +143,18 @@ export function readFaceInputs(root, face, rels) {
  * 换根**不换判定面**:无论哪个根,读的都是磁盘。
  */
 export function rootFromArgv(argv, def = ROOT) {
-  const i = argv.indexOf('--root')
-  if (i === -1) {
-    const inline = argv.find((a) => a.startsWith('--root='))
-    if (!inline) return { root: def, error: null }
-    const value = inline.slice('--root='.length)
-    return value
-      ? { root: resolve(value), error: null }
-      : { root: null, error: '--root= 后面必须给目录' }
+  const rq = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rq.present) {
+    // G-322:空格形态的取值一律走 scripts/lib/flag-value.mjs 单源 —— 旧副本只挡 `--` 前缀,
+    // 单划线 token(`-x`)会被当合法目录收下;判据与措辞都只许有一份(§0.6)。
+    return rq.error ? { root: null, error: rq.error } : { root: resolve(rq.value), error: null }
   }
-  const value = argv[i + 1]
-  if (!value || value.startsWith('--'))
-    return { root: null, error: '--root 需要一个目录参数(不得静默退回仓库根)' }
-  return { root: resolve(value), error: null }
+  const inline = argv.find((a) => a.startsWith('--root='))
+  if (!inline) return { root: def, error: null }
+  const value = inline.slice('--root='.length)
+  return value
+    ? { root: resolve(value), error: null }
+    : { root: null, error: '--root= 后面必须给目录' }
 }
 
 const C = {
