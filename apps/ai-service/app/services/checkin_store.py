@@ -900,6 +900,58 @@ async def get_account_platform(account_id: int, owner_user_id: str) -> str | Non
     return row["platform"] if row else None
 
 
+async def list_accounts_by_platform(platform: str) -> list[dict[str, Any]]:
+    """跨 owner 列出某平台的签到账号(本机凭据同步器用;只回 id/owner/device_map)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, owner_user_id, name, device_map
+            FROM checkin_accounts
+            WHERE platform = $1
+            ORDER BY id
+            """,
+            platform,
+        )
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        dm = r["device_map"]
+        if isinstance(dm, str):
+            try:
+                dm = json.loads(dm or "{}")
+            except (json.JSONDecodeError, ValueError):
+                dm = {}
+        elif not isinstance(dm, dict):
+            dm = {}
+        out.append(
+            {
+                "id": r["id"],
+                "owner_user_id": r["owner_user_id"],
+                "name": r["name"],
+                "device_map": dict(dm),
+            }
+        )
+    return out
+
+
+async def clear_open_cooldowns(account_id: int) -> int:
+    """清该账号未到期冷却(换票后调用)。返回清除行数;解析不了按 0。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        tag = await conn.execute(
+            """
+            UPDATE checkin_records
+            SET cooldown_until = NULL
+            WHERE account_id = $1 AND cooldown_until > now()
+            """,
+            account_id,
+        )
+    try:
+        return int(str(tag).rsplit(" ", 1)[-1])
+    except (TypeError, ValueError):
+        return 0
+
+
 async def update_jwt(account_id: int, owner_user_id: str, jwt: str) -> bool:
     """更换账号 jwt(重加密落库)。返回是否命中行(属主校验并入 WHERE)。"""
     pool = await get_shared_pool()
