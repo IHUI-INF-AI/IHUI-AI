@@ -44,6 +44,17 @@ export interface NormalizedChatRequest {
   responseFormat?: unknown
   /** 采样确定性种子 */
   seed?: number
+  /** 核采样(top_p),与 temperature 同属采样面 */
+  topP?: number
+  /** 频率/存在惩罚(OpenAI -2..2) */
+  presencePenalty?: number
+  frequencyPenalty?: number
+  /** 并行工具调用开关 */
+  parallelToolCalls?: boolean
+  /** 终端用户标识(OpenAI user 字段,仅透传,不做鉴权) */
+  user?: string
+  /** 服务等级(OpenAI service_tier;上游不支持时忽略) */
+  serviceTier?: string
   /**
    * reasoning_effort 原样透传(OpenAI 语义 low/medium/high 等)。
    * Trae 落 `custom_model.reasoning_effort_level`,其余平台按原生字段透传。
