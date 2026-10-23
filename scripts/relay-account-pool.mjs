@@ -5,10 +5,12 @@
 /**
  * 反代账号池一键导入(2026-10-23 立)。
  *
- * 两种入口:
+ * 三种入口:
  *   1) 自动取本机正在登录的 WorkBuddy:
  *        node scripts/relay-account-pool.mjs --from workbuddy
- *   2) 直接导入标准账号 JSON({accounts:[...]} 或裸数组):
+ *   2) 自动取本机 Trae 客户端会话(带 refreshToken ⇒ 号池可自续期):
+ *        node scripts/relay-account-pool.mjs --from trae
+ *   3) 直接导入标准账号 JSON({accounts:[...]} 或裸数组):
  *        node scripts/relay-account-pool.mjs --file accounts.json [--provider workbuddy]
  *
  * 编排:提取/读取 → (stdin 传 JSON,不落盘) → apps/api/scripts/relay-account-import.ts
@@ -30,6 +32,7 @@ const HELP = `反代账号池导入
 
 用法:
   node scripts/relay-account-pool.mjs --from workbuddy             # 取本机当前登录的 WorkBuddy 号并导入
+  node scripts/relay-account-pool.mjs --from trae                  # 取本机 Trae 客户端会话(含 refreshToken)并导入
   node scripts/relay-account-pool.mjs --file <accounts.json>       # 直接导入标准账号 JSON
     [--provider <trae|workbuddy|codearts>]   文件顶层无 providerCode 时必须给
     [--dry-run]                              只校验预检,不写库
@@ -40,6 +43,7 @@ const HELP = `反代账号池导入
 说明:
   - 同一 provider+uid 重复导入 = 覆盖凭证并重置健康状态(用于换 token/刷新);
   - WorkBuddy 需要桌面版正在运行且已登录(密钥只存在于主进程);
+  - Trae 只读 %APPDATA%\\<Trae CN|TRAE SOLO CN>\\User\\globalStorage\\storage.json 的信封,客户端不必在跑;
   - 任何输出都不包含令牌明文。
 `
 
@@ -66,9 +70,13 @@ function parseArgs(argv) {
   }
   if (options.help) return { options, error: null }
   if (options.from && options.file) return { options: null, error: '--from 与 --file 只能二选一' }
-  if (!options.from && !options.file) return { options: null, error: '缺少输入:--from workbuddy 或 --file <json>' }
-  if (options.from && options.from !== 'workbuddy') {
-    return { options: null, error: `暂不支持的来源: ${options.from}(可选 workbuddy;其他平台请用 --file)` }
+  if (!options.from && !options.file)
+    return { options: null, error: '缺少输入:--from workbuddy|trae 或 --file <json>' }
+  if (options.from && !['workbuddy', 'trae'].includes(options.from)) {
+    return {
+      options: null,
+      error: `暂不支持的来源: ${options.from}(可选 workbuddy | trae;其他平台请用 --file)`,
+    }
   }
   return { options, error: null }
 }
@@ -137,7 +145,9 @@ async function main(argv) {
       extracted = await extractWorkbuddyAccount()
     } catch (e) {
       const code = e?.code ? `[${e.code}] ` : ''
-      process.stderr.write(`❌ 提取失败(未判定): ${code}${e instanceof Error ? e.message : String(e)}\n`)
+      process.stderr.write(
+        `❌ 提取失败(未判定): ${code}${e instanceof Error ? e.message : String(e)}\n`,
+      )
       return 2
     }
     const meta = extracted.meta
@@ -148,17 +158,46 @@ async function main(argv) {
     )
     providerCode = extracted.providerCode
     payloadText = JSON.stringify(extracted)
+  } else if (options.from === 'trae') {
+    const { extractTraeAccount } = await import(
+      pathToFileURL(path.join(ROOT, 'scripts', 'lib', 'trae-auth-extract.mjs')).href
+    )
+    let extracted
+    try {
+      extracted = extractTraeAccount()
+    } catch (e) {
+      const code = e?.code ? `[${e.code}] ` : ''
+      process.stderr.write(
+        `❌ 提取失败(未判定): ${code}${e instanceof Error ? e.message : String(e)}\n`,
+      )
+      return 2
+    }
+    const meta = extracted.meta
+    process.stderr.write(
+      `提取: 落点=${meta.storageFile} 键=${meta.storageKey} uid=${meta.uid} 名称=${meta.name} ` +
+        `token到期=${meta.tokenExpiresAt ?? '-'} refreshToken到期=${meta.refreshExpiresAt ?? '-'} ` +
+        `指纹=${meta.tokenFingerprint} (access ${meta.accessTokenLength}B / refresh ${meta.refreshTokenLength}B)\n`,
+    )
+    providerCode = extracted.providerCode
+    payloadText = JSON.stringify(extracted)
   } else {
     try {
       payloadText = fs.readFileSync(path.resolve(options.file), 'utf8')
     } catch (e) {
-      process.stderr.write(`❌ 读取文件失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`)
+      process.stderr.write(
+        `❌ 读取文件失败(未判定): ${e instanceof Error ? e.message : String(e)}\n`,
+      )
       return 2
     }
     if (!providerCode) {
       try {
         const raw = JSON.parse(payloadText)
-        if (raw && typeof raw === 'object' && !Array.isArray(raw) && typeof raw.providerCode === 'string') {
+        if (
+          raw &&
+          typeof raw === 'object' &&
+          !Array.isArray(raw) &&
+          typeof raw.providerCode === 'string'
+        ) {
           providerCode = raw.providerCode
         }
       } catch {
