@@ -54,6 +54,26 @@ export function rowStateOf(line) {
   return rows.length ? rows[0].state : null
 }
 
+/** 台账整行原文 → 摘除声明索引。这是维二输入的**唯一构造出口**(self-test 与镜像测试都走它,
+ *  不得在别处自己拼 `Map` —— 拼法一旦分叉,"测试绿而生产判据瞎"就是本仓记过的那一型)。 */
+export function buildDeclared(rowTexts) {
+  const set = new Set()
+  const closed = new Map()
+  const seenClosed = new Set()
+  for (const s of rowTexts) {
+    if (typeof s !== 'string' || !/^\s*- \[[ xX]\]/.test(s)) continue
+    set.add(s)
+    if (rowStateOf(s) !== 'done' || seenClosed.has(s)) continue
+    seenClosed.add(s)
+    const ck = compositeKeyOf(s)
+    const body = bodyOfRow(s)
+    if (!ck || body === null) continue
+    if (!closed.has(ck)) closed.set(ck, [])
+    closed.get(ck).push({ raw: s, body })
+  }
+  return { set, closed, closedDeclared: seenClosed.size }
+}
+
 /** 摘除声明集合:
  *  · `set` = 整行原文集(维一逐字比对用;字段口径与 2026-10-22 立版逐字节不变,调用方 `union-converge`
  *    的 `declaredDropCaps` 与门 71 都只读它,新增维度必须是**加字段**而不是改语义);
@@ -61,9 +81,7 @@ export function rowStateOf(line) {
  *  · `closedDeclared` = 已勾形态枚数(维二的输入面;0 枚只说明"台账里没有结清行",不是判据坏了)。
  *  解不开的行长跳过并计数。 */
 export function declaredRows(root = ROOT, files = LEDGERS) {
-  const set = new Set()
-  const closed = new Map()
-  const seenClosed = new Set()
+  const rows = []
   let malformed = 0
   for (const f of files) {
     const p = path.join(root, f)
@@ -78,20 +96,11 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
         continue
       }
       for (const key of ['rowBefore', 'before']) {
-        if (typeof o[key] === 'string' && /^\s*- \[[ xX]\]/.test(o[key])) {
-          set.add(o[key])
-          if (rowStateOf(o[key]) !== 'done' || seenClosed.has(o[key])) continue
-          seenClosed.add(o[key])
-          const ck = compositeKeyOf(o[key])
-          const body = bodyOfRow(o[key])
-          if (!ck || body === null) continue
-          if (!closed.has(ck)) closed.set(ck, [])
-          closed.get(ck).push({ raw: o[key], body })
-        }
+        if (typeof o[key] === 'string' && /^\s*- \[[ xX]\]/.test(o[key])) rows.push(o[key])
       }
     }
   }
-  return { set, closed, malformed, closedDeclared: seenClosed.size }
+  return { ...buildDeclared(rows), malformed }
 }
 
 /** 兼容旧调用方:只给 `Set` 的调用只有逐字维(维二输入为空 ⇒ 一条也不按正文剔)。 */
@@ -244,6 +253,18 @@ function selfTest() {
   t('非登记行一律不剔(只认台账语义)', prose.dropped.length === 0)
   const d = declaredRows(ROOT, ['.ihui-agent/tmp/nonexistent-ledger.jsonl'])
   t('台账不在位 ⇒ 空集(调用方须判未判定,不得当成"没有声明过")', d.set.size === 0)
+  // —— 维二(正文等值维)自带四例:命中能剔、四道闸各挡一次 ——
+  const closedRow = '- [x] ✅(2026-10-23) G-905 复洁维二的靶行:判据已重写 —— **已结清**:45 处全换'
+  const staleRow = '- [ ] G-905 复洁维二的靶行:判据已重写'
+  const rewrittenRow = '- [ ] G-905 复洁维二的靶行:题面被改写过的另一版'
+  const headLiveRow = '- [ ] G-905 复洁维二的靶行:别人本轮在册的另一版'
+  const openLedgerRow = '- [ ]（进行中@2026-10-18/甲） G-905 复洁维二的靶行:判据已重写'
+  const dd = buildDeclared([closedRow])
+  t('维二:台账=已勾 ∧ 盘上=未勾 ∧ 正文前缀 ∧ HEAD 无此键 ⇒ 剔', scrub(`${head}\n${staleRow}`, head, dd).dropped.length === 1)
+  t('维二只吃"勾选态相反"这一形:台账也是未勾(维一逐字又不命中)⇒ 不剔', scrub(`${head}\n${staleRow}`, head, buildDeclared([openLedgerRow])).dropped.length === 0)
+  t('维二:HEAD 面仍有同主键行 ⇒ 绝不剔并点名', scrub(`${head}\n${staleRow}`, `${head}\n${headLiveRow}`, dd).held.length === 1)
+  t('维二:同主键而正文已漂开(非前缀)⇒ 不剔并点名', scrub(`${head}\n${rewrittenRow}`, head, dd).held.length === 1)
+  t('维二输入为空(Set 调用形)⇒ 一条也不按正文剔(旧口径零放宽)', scrub(`${head}\n${staleRow}`, head, new Set([closedRow])).dropped.length === 0)
   console.log(`--self-test: ${pass}/${pass + fail} 通过`)
   return fail
 }
@@ -251,5 +272,5 @@ function selfTest() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) process.exitCode = main(process.argv.slice(2))
 
-export const __test__ = { scrub, declaredRows, LEDGERS }
+export const __test__ = { scrub, declaredRows, buildDeclared, rowStateOf, main, LEDGERS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
