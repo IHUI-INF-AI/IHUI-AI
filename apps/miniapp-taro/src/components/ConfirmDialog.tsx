@@ -4,7 +4,6 @@
 
 import { t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import { rnRadiusFor } from '@ihui/design-tokens'
 
 export interface ConfirmDialogProps {
   visible?: boolean
@@ -29,10 +28,9 @@ export default function ConfirmDialog({
 
   return (
     <View className="fixed inset-0 z-[1040] flex items-center justify-center" onClick={onCancel}>
-      <View className="absolute inset-0 bg-[var(--color-black-40)]" />
+      <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
-        className="relative bg-card mx-8 px-6 py-5 max-w-xs w-full"
-        style={{ borderRadius: rnRadiusFor.panel }}
+        className="relative bg-background m-4 w-full max-w-lg rounded-lg border border-border p-6"
         onClick={(e) => e.stopPropagation()}
         hoverClass="opacity-60"
       >
