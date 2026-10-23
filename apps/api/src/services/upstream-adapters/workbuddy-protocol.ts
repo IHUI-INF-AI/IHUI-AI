@@ -40,17 +40,17 @@ export function chatBaseUrl(realm: WorkBuddyRealm): string {
   return realm === 'global' ? GLOBAL_CHAT_BASE : CN_CHAT_BASE
 }
 
-export function originFor(realm: WorkBuddyRealm): string {
+function originFor(realm: WorkBuddyRealm): string {
   return realm === 'global' ? GLOBAL_ORIGIN : CN_ORIGIN
 }
 
 /** UA 平台段:CN 为 WorkBuddy,global 为 WorkBuddy AI;产品/CLI 版本段两域一致 */
-export function userAgentFor(realm: WorkBuddyRealm): string {
+function userAgentFor(realm: WorkBuddyRealm): string {
   const platform = realm === 'global' ? 'WorkBuddy AI' : 'WorkBuddy'
   return `${platform}/5.5.4 WorkBuddy/5.5.4 CLI/2.137.1`
 }
 
-export function acceptLanguageFor(realm: WorkBuddyRealm): string {
+function acceptLanguageFor(realm: WorkBuddyRealm): string {
   return realm === 'global' ? 'en-US' : 'zh-CN'
 }
 
@@ -560,7 +560,7 @@ export function looksLikeHtmlLoginPage(bodyText: string): boolean {
 }
 
 /** body 是否命中鉴权失效标记(不含状态码判定;401/403 由调用方先判) */
-export function hasAuthFailureBodyMarker(bodyText: string): boolean {
+function hasAuthFailureBodyMarker(bodyText: string): boolean {
   const lower = bodyText.toLowerCase()
   return (
     TOKEN_BAD_RE.test(lower) ||

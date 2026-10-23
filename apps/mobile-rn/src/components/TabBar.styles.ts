@@ -36,7 +36,7 @@ export const TAB_BAR_HEIGHT = TAB_BAR_HEIGHT_PX
 export const TAB_BAR_ICON_SIZE = TAB_BAR_ICON_SIZE_PX
 export const TAB_BAR_FONT_SIZE = TAB_BAR_FONT_SIZE_PX
 /** 选中态字号:比未选中大 1px(2026-10-20 用户定稿「选中时文字稍微放大加粗」) */
-export const TAB_BAR_FONT_SIZE_ACTIVE = TAB_BAR_FONT_SIZE_ACTIVE_PX
+const TAB_BAR_FONT_SIZE_ACTIVE = TAB_BAR_FONT_SIZE_ACTIVE_PX
 /** 胶囊左右留边(与两端输入栏同一条垂直边线) */
 export const TAB_BAR_FLOAT_MARGIN_H = TAB_BAR_MARGIN_H_PX
 /** 胶囊顶部与内容的间距 */
@@ -46,7 +46,7 @@ export const TAB_BAR_FLOAT_GAP_BOTTOM_MIN = TAB_BAR_GAP_BOTTOM_MIN_PX
 /** 胶囊圆角(小圆角悬浮卡,对齐钉钉风格;2026-09-22 用户定稿"小圆角";原 14,R1 吸附至 xl(12)) */
 export const TAB_BAR_RADIUS = rnRadius.xl
 /** 选中态光晕半径(px);颜色一律走 token,端内不得出现裸 hex(守门 218) */
-export const TAB_BAR_GLOW_RADIUS_PX = TAB_BAR_GLOW_RADIUS_SRC_PX
+const TAB_BAR_GLOW_RADIUS_PX = TAB_BAR_GLOW_RADIUS_SRC_PX
 
 /**
  * 内容区底部预留(给悬浮胶囊让出滚动空间,内容可滚到胶囊底下若隐若现):
@@ -87,7 +87,7 @@ const GLASS_BLUR_PX = 24
 
 /** web 预览专属模糊层(RNW 类型外属性,经 ViewStyle 断言注入,避免 any);
  *  TabBar 胶囊与 HomeScreen 底部玻璃停靠区共用同一模糊半径。 */
-export const glassBlurLayer: ViewStyle =
+const glassBlurLayer: ViewStyle =
   Platform.OS === 'web'
     ? ({ backdropFilter: `blur(${GLASS_BLUR_PX}px)` } as unknown as ViewStyle)
     : {}

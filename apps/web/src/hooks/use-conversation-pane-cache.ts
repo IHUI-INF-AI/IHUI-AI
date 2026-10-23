@@ -198,7 +198,7 @@ export function patchConversationCache(
 }
 
 /** 摘除某窗格的全部快照(窗格关闭/主体卸载;不摘 = 长会话内存只增不减) */
-export function dropConversationCacheForPane(paneId: string | null): void {
+function dropConversationCacheForPane(paneId: string | null): void {
   ensureHydrated()
   const prefix = paneKeyPrefix(paneId)
   let dropped = false
@@ -228,7 +228,7 @@ export function resetConversationCache(): void {
 }
 
 /** 某窗格现存快照数(省略 paneId = 全部窗格合计);只给用例与取证用,不进生产判定 */
-export function conversationCacheSize(paneId?: string | null): number {
+function conversationCacheSize(paneId?: string | null): number {
   ensureHydrated()
   if (paneId === undefined) return cacheEntries.size
   const prefix = paneKeyPrefix(paneId)

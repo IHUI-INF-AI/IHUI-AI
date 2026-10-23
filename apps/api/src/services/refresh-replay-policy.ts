@@ -27,10 +27,10 @@
 import { findLiveFamilyToken } from '../db/queries.js'
 
 /** 重放宽容期(毫秒)。窗口固定:不以重放次数续窗,revokedAt 保持首次吊销时间。 */
-export const REFRESH_REUSE_LEEWAY_MS = 30_000
+const REFRESH_REUSE_LEEWAY_MS = 30_000
 
 /** 重放裁决档位。 */
-export type RefreshReplayVerdict = 'race' | 'stale-sibling' | 'reuse'
+type RefreshReplayVerdict = 'race' | 'stale-sibling' | 'reuse'
 
 /** 裁决结果(带观测用的吊销时长,便于日志定位是哪种重放)。 */
 export interface RefreshReplayAssessment {

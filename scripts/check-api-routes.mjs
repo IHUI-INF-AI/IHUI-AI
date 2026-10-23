@@ -61,6 +61,7 @@ import {
   VERBS as BACKEND_VERBS,
   combinePyPrefix,
   buildPyIncludeMaps,
+  classifyRouteCoverage,
 } from './lib/route-registration-extract.mjs'
 
 /**
@@ -3742,6 +3743,88 @@ function runSelfTest() {
   } finally {
     rmScratch(bpNoBareRoot)
   }
+
+  // ===== 参数段覆盖(2026-10-23 立,收「具体静态路径被 :param 路由记成在册」的假绿)=====
+  // 判据本体在共享 lib(`classifyRouteCoverage`),镜像测试直接 import `__test__`(§22c);
+  // 这里钉两件事:**该分档的判据正确** + **门真的按它分流**(不记在册 / 不判红 / 正例仍绿)。
+  eq(
+    '路由覆盖分类:具体字面段被 :param 吞掉 ⇒ param',
+    'param',
+    classifyRouteCoverage(['', 'api', 'asks', 'my'], ['', 'api', 'asks', ':id']),
+  )
+  eq(
+    '路由覆盖分类:逐段字面相等 ⇒ literal',
+    'literal',
+    classifyRouteCoverage(['', 'api', 'asks', 'my'], ['', 'api', 'asks', 'my']),
+  )
+  eq(
+    '路由覆盖分类:前端动态段对后端参数段 ⇒ literal(同一路由形状,不误伤)',
+    'literal',
+    classifyRouteCoverage(['', 'api', 'asks', ':param'], ['', 'api', 'asks', ':id']),
+  )
+  eq(
+    '路由覆盖分类:段数不等 ⇒ null',
+    null,
+    classifyRouteCoverage(['', 'api', 'asks', 'my'], ['', 'api', 'asks', ':id', 'answers']),
+  )
+  const paramFixture = (asksBody, webCall) =>
+    makeSelfTestRoot({
+      [BASELINE_FILE_REL]: EMPTY_BASELINE,
+      'apps/api/src/server.ts':
+        "import { asksRoutes } from './routes/asks'\nserver.register(asksRoutes, { prefix: '/api' })\n",
+      'apps/api/src/routes/asks.ts': `export async function asksRoutes(server) {\n${asksBody}}\n`,
+      'apps/web/call.ts': webCall,
+    })
+  // 反例:后端只有 `/asks/:id`(参数路由),前端调具体路径 `/asks/my` —— 旧口径记成「已在册」,
+  // 现在必须落「未判定(参数段覆盖)」并点名,但仍然不判红(存量口径,§12e)。
+  const paramHitRoot = paramFixture(
+    "  server.get('/asks/:id', async () => ({}))\n",
+    "fetch('/api/asks/my')\n",
+  )
+  try {
+    const r = runGateIn(paramHitRoot)
+    eq(
+      '参数段覆盖:具体路径只被 :param 接住 ⇒ 不记在册、不判红、逐条点名',
+      [0, true, true],
+      [
+        r.status,
+        /未判定\(参数段覆盖\)1 处/.test(r.out),
+        /\/api\/asks\/my/.test(r.out),
+      ],
+    )
+  } finally {
+    rmScratch(paramHitRoot)
+  }
+  // 正例:后端真有字面静态注册 ⇒ 同一条调用必须回到 literal,不得被误打进未判定桶。
+  const paramOkRoot = paramFixture(
+    "  server.get('/asks/:id', async () => ({}))\n  server.get('/asks/my', async () => ({}))\n",
+    "fetch('/api/asks/my')\n",
+  )
+  try {
+    const r = runGateIn(paramOkRoot)
+    eq(
+      '参数段覆盖:字面静态注册优先 ⇒ 同一条调用仍判在册(未判定桶 0)',
+      [0, true],
+      [r.status, /未判定\(参数段覆盖\)0 处/.test(r.out)],
+    )
+  } finally {
+    rmScratch(paramOkRoot)
+  }
+  // 防过度收紧:前端本身是动态段(`:param`)对后端参数段 ⇒ 同一路由形状,不得进未判定桶。
+  const paramDynRoot = paramFixture(
+    "  server.get('/asks/:id/answers', async () => ({}))\n",
+    'fetch(`/api/asks/${encodeURIComponent(id)}/answers`)\n',
+  )
+  try {
+    const r = runGateIn(paramDynRoot)
+    eq(
+      '参数段覆盖:前端动态段 ↔ 后端参数段不误判(未判定桶 0 且 exit 0)',
+      [0, true],
+      [r.status, /未判定\(参数段覆盖\)0 处/.test(r.out)],
+    )
+  } finally {
+    rmScratch(paramDynRoot)
+  }
   return { failures, assertions }
 }
 
@@ -4602,14 +4685,22 @@ const assumptionIndex = GRAPH_AVAILABLE ? buildRouteIndex(assumptionPathSet) : n
  *  · `server.ts` 不在面 ⇒ 挂载图无起点,退回本节旧笛卡尔档(本段所述假绿**仍在**),
  *    结论行大声点名,不冒充精确档。
  */
+/**
+ * 原 pathMatches 非通配分支逐行搬移(段数校验保留,防分桶外误用)。
+ *
+ * 2026-10-23 起本函数只是 `classifyRouteCoverage` 的布尔投影(单一真相源,§0.6)——
+ * 「命中」与「哪一档命中」必须由同一份判据给出,否则主腿按档分流、其他腿按布尔判在册,
+ * 两条口径迟早漂移(本仓记过最多的一型)。语义逐条不变:`!== null` ⇔ 原 matchSegs 为真。
+ *
+ * ## 已知假绿 —— 参数段吞并(2026-10-23 修,见 `backendCoverage`)
+ *
+ * 旧 `matchSegs` 对 `:param` 段两侧都 `continue` ⇒ 「段数相等」是唯一约束,一条参数路由会吞掉
+ * 任意同段数的具体路径:`GET /api/asks/my` 被 `GET /api/asks/:id` 记成「已在册」,而后者
+ * 只证明"某个 ID 路由存在",不证明 `/asks/my` 这条静态路由存在。主腿现由 `backendCoverage`
+ * 分档处理(param 档落「未判定」桶,不记绿);本函数保留布尔语义供前缀假设/通道等价两腿复用。
+ */
 function matchSegs(fParts, bParts) {
-  if (fParts.length !== bParts.length) return false
-  for (let i = 0; i < fParts.length; i++) {
-    if (bParts[i].startsWith(':')) continue // 后端 :param 匹配任意
-    if (fParts[i].startsWith(':')) continue // 前端 :param 通配
-    if (fParts[i] !== bParts[i]) return false
-  }
-  return true
+  return classifyRouteCoverage(fParts, bParts) !== null
 }
 /** 原 pathMatches '*' catch-all 分支逐行搬移 */
 function matchStar(fParts, bParts) {
@@ -4624,26 +4715,46 @@ function matchStar(fParts, bParts) {
   return true
 }
 /**
- * 「这条路径在这个 method 下在册吗」—— 与主对账循环**共用一份索引与判据**的唯一查询出口
- * (通道等价维要问的就是同一件事,另写一遍必然与主循环漂移;主循环本身一字未动)。
+ * 「这条路径在这个 method 下被后端覆盖到了哪一档」—— 主腿、BP 腿、通道等价腿共用的唯一查询出口:
+ *   literal —— 字面静态注册(或前端动态段对后端参数段,同一路由形状)⇒ 真在册;
+ *   param   —— 只被 `:param` 段吞下(前端具体字面段被后端参数段覆盖)⇒ **不得记成在册**;
+ *   wild    —— 只被 `*` catch-all 接住(本票不动的一族,见下方覆盖缺口提示);
+ *   none    —— 一条都不命中。
+ * 判序与旧 `backendHasRoute` 逐条同构(exact → 段桶 → star),唯一差别是段桶命中时再多给一档;
+ * `literal/param/wild` 的并集与旧布尔 true 逐个调用相同(等价性由 `classifyRouteCoverage` 保证)。
  */
-function backendHasRoute(method, callPath) {
+function backendCoverage(method, callPath) {
   const f = callPath.replace(/\/$/, '')
   const fParts = f.split('/')
-  if (exactKeys.has(`${method} ${f}`)) return true
+  if (exactKeys.has(`${method} ${f}`)) return 'literal'
+  let sawParam = false
   const byMethodMap = segBuckets.get(fParts.length)
   if (byMethodMap) {
     const buckets =
       method === 'ANY' ? [...byMethodMap.values()] : [byMethodMap.get(method)].filter(Boolean)
     for (const arr of buckets) {
-      for (const bParts of arr) if (matchSegs(fParts, bParts)) return true
+      for (const bParts of arr) {
+        const kind = classifyRouteCoverage(fParts, bParts)
+        if (kind === 'literal') return 'literal'
+        if (kind === 'param') sawParam = true
+      }
     }
   }
+  if (sawParam) return 'param'
   for (const e of starEntries) {
     const methodOk = method === 'ANY' || e.method === method
-    if (methodOk && matchStar(fParts, e.parts)) return true
+    if (methodOk && matchStar(fParts, e.parts)) return 'wild'
   }
-  return false
+  return 'none'
+}
+/**
+ * 「这条路径在这个 method 下在册吗」—— 与主对账循环**共用一份索引与判据**的唯一查询出口
+ * (通道等价维要问的就是同一件事,另写一遍必然与主循环漂移)。
+ * 2026-10-23:布尔口径**保持原语义**(param 档也算"有注册"),因为 BP/通道等价腿问的不是
+ * "这条具体静态路径是否存在";`param` 档的「未判定」只在主腿(前端调用对账)生效。
+ */
+function backendHasRoute(method, callPath) {
+  return backendCoverage(method, callPath) !== 'none'
 }
 /**
  * 「这条路径只在『前缀假设』面里命中吗」—— 精确档降级判据专用(O87g)。
@@ -4704,45 +4815,29 @@ const EFFECTIVE_OPAQUE = [
 const opaqueUndetermined = []
 /** 精确档:图走不到、但「前缀假设」笛卡尔面拼得出的调用 —— 不记绿也不判红,逐条报名 */
 const assumptionUndetermined = []
+/**
+ * 「未判定(参数段覆盖)」桶(2026-10-23 立,收参数段假命中盲区):
+ * 前端调用路径是**具体字面**、后端只有 `:param` 路由能在同段数上接住它 —— 典型
+ * `GET /api/asks/my` ↔ `GET /api/asks/:id`。旧判据把这种命中记成「已在册」,于是一条
+ * 从未注册的具体路径(真死调用)在账面是绿的。本桶**不记绿也不判红**(§12e:存量当场判红
+ * 就是恒红门),但必须逐条点名 + 计入结论行,不许读成"已对账"。
+ * 方向纪律(fail-closed):宁可把"参数路由恰好接住"的活路径列进未判定,也不许把死调用读活。
+ */
+const paramCovered = []
 const missing = []
 const seen = new Set()
 for (const call of allCalls) {
   const key = `${call.method} ${call.path}`
   if (seen.has(key)) continue
   seen.add(key)
-  // 检查是否在后端注册
+  // 检查是否在后端注册(静态字面优先:只被 :param 覆盖不算在册,见 backendCoverage)
   const f = call.path.replace(/\/$/, '')
-  const fParts = f.split('/')
-  // ANY 的 method 字面量不会进 exactKeys(后端条目 method 无 ANY),精确通道对 ANY 天然不命中
-  let found = exactKeys.has(`${call.method} ${f}`)
-  if (!found) {
-    const byMethodMap = segBuckets.get(fParts.length)
-    if (byMethodMap) {
-      const buckets =
-        call.method === 'ANY'
-          ? [...byMethodMap.values()]
-          : [byMethodMap.get(call.method)].filter(Boolean)
-      for (const arr of buckets) {
-        for (const bParts of arr) {
-          if (matchSegs(fParts, bParts)) {
-            found = true
-            break
-          }
-        }
-        if (found) break
-      }
-    }
+  const coverage = backendCoverage(call.method, call.path)
+  if (coverage === 'param') {
+    paramCovered.push(call)
+    continue
   }
-  if (!found) {
-    for (const e of starEntries) {
-      // ANY = method 为动态三元等无法确定，任意 method 匹配即算注册
-      const methodOk = call.method === 'ANY' || e.method === call.method
-      if (methodOk && matchStar(fParts, e.parts)) {
-        found = true
-        break
-      }
-    }
-  }
+  const found = coverage === 'literal' || coverage === 'wild'
   if (!found) {
     const op = EFFECTIVE_OPAQUE.find((o) => f.startsWith(o.prefix))
     if (op) {
@@ -4854,11 +4949,24 @@ const bareRegistered = []
 const bareMissing = []
 const bareIgnored = []
 const bareOpaque = []
+/**
+ * BP 腿「未判定(参数段覆盖)」：裸路径(`fetchApi('/asks/my')` 这类,运行期由 normalizeUrl 补 `/api`)
+ * 同样会被同段数的 `:param` 路由接住 —— 与主腿**同一判据同一档**(§0.6,不另发明)。
+ * 实证:`packages/api-client/src/endpoints/community.ts` 的 `/asks/my`、`/asks/my/answers` 只是
+ * `fetchApi()` 的裸路径实参,后端只有 `/asks/:id`、`/asks/:id/answers`,旧口径下两条都被记成
+ * 「已在册」;真死调用因此在本门结构上不可见。
+ */
+const bareParam = []
 /** BP 腿与主腿同一降级判据(§0.6 不另发明):图走不到但前缀假设拼得出 ⇒ 未判定,不判红 */
 const bareAssumption = []
 for (const c of bareUnique) {
-  if (backendHasRoute(c.method, c.path)) {
+  const coverage = backendCoverage(c.method, c.path)
+  if (coverage === 'literal' || coverage === 'wild') {
     bareRegistered.push(c)
+    continue
+  }
+  if (coverage === 'param') {
+    bareParam.push(c)
     continue
   }
   const f = c.path.replace(/\/$/, '')
@@ -5453,6 +5561,34 @@ if (opaqueUndetermined.length > 0) {
     )
   }
 }
+/**
+ * 「未判定(参数段覆盖)」—— 2026-10-23 立,无条件打印(0 也要出声)。
+ *
+ * 为什么 0 也要出声:这一格是"读成已在册"的高危形态,它的**失效方向是安静**——把判据改回
+ * 布尔命中时,桶会恒为 0 而输出与"全部是字面静态注册"一模一样。所以 0 必须自证口径:
+ * 说清是"一条都没枚举到"还是"对账过、没有这种形态"。
+ *
+ * 为什么只报数不判红:改判会让存量一次性从"在册"落到这一桶(实测 HEAD 面存量见结论行),
+ * 当场判红就是一台与任何提交都无关的恒红门(§12e);升 blocking 的前置是存量归零,
+ * 在那之前只许"逐条点名 + 计数 + 不记绿"。
+ */
+if (paramCovered.length > 0) {
+  console.log(
+    `${C.yellow}[API 路由比对] ⚠️ 未判定(参数段覆盖)${paramCovered.length} 处:前端具体字面路径只在同段数上被后端 \`:param\` 路由接住,不证明该静态路径存在 —— 不记在册也不判红,逐条报名:${C.reset}`,
+  )
+  for (const c of paramCovered.slice(0, 20)) {
+    console.log(`${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}${C.reset}`)
+  }
+  if (paramCovered.length > 20) {
+    console.log(
+      `${C.dim}    ... 其余 ${paramCovered.length - 20} 条见 --dump-undetermined 的 paramSegmentCovered${C.reset}`,
+    )
+  }
+} else {
+  console.log(
+    `${C.dim}[API 路由比对] ℹ️ 未判定(参数段覆盖)0 处 —— 对账了 ${seen.size} 条去重调用,没有"具体字面路径只被 \`:param\` 接住"的站点(不是"这一格没扫")${C.reset}`,
+  )
+}
 if (GRAPH_AVAILABLE && assumptionUndetermined.length > 0) {
   console.log(
     `${C.yellow}[API 路由比对] ⚠️ 未判定(前缀假设命中)${assumptionUndetermined.length} 处调用:挂载图走不到,但旧笛卡尔「前缀假设」拼得出 —— 可能是图未追到的真挂载链(re-export barrel 等),也可能是票 O87g 点名的 /api/courses 型假路径;两型静态不可分辨 ⇒ 不记绿也不判红,逐条报名:${C.reset}`,
@@ -5484,21 +5620,30 @@ if (GRAPH_AVAILABLE && assumptionAdjLedger.adjudicatedMain.length > 0) {
     )
   }
 }
-if (GRAPH_AVAILABLE && undeterminedDumpPath) {
+if (undeterminedDumpPath) {
+  // 参数段覆盖桶与挂载图无关(兜底档同样要能落盘):两档都写,只把图相关字段按档给 null。
   writeFileSync(
     undeterminedDumpPath,
     JSON.stringify(
-      {
-        undetermined: regGraph.undetermined,
-        unreached: regGraph.unreached,
-        opaque: regGraph.opaque,
-        assumptionUndetermined,
-        bareAssumptionUndetermined: bareAssumption,
-        assumptionAdjudicated: assumptionAdjLedger.adjudicatedMain,
-        bareAssumptionAdjudicated: assumptionAdjLedger.adjudicatedBare,
-        assumptionAdjudicationProblems: assumptionAdjLedger.problems,
-        stats: regGraph.stats,
-      },
+      GRAPH_AVAILABLE
+        ? {
+            undetermined: regGraph.undetermined,
+            unreached: regGraph.unreached,
+            opaque: regGraph.opaque,
+            assumptionUndetermined,
+            bareAssumptionUndetermined: bareAssumption,
+            assumptionAdjudicated: assumptionAdjLedger.adjudicatedMain,
+            bareAssumptionAdjudicated: assumptionAdjLedger.adjudicatedBare,
+            assumptionAdjudicationProblems: assumptionAdjLedger.problems,
+            paramSegmentCovered: paramCovered,
+            bareParamSegmentCovered: bareParam,
+            stats: regGraph.stats,
+          }
+        : {
+            paramSegmentCovered: paramCovered,
+            bareParamSegmentCovered: bareParam,
+            note: '兜底档(挂载图无起点):本文件只含主腿未判定桶,其余字段不适用',
+          },
       null,
       2,
     ),
@@ -5607,7 +5752,7 @@ if (bareLegVerdict.state !== 'ok') {
   if (bareLegVerdict.state === 'inconsistent' || FACE !== 'worktree') process.exit(2)
 }
 console.log(
-  `${C.dim}  · BP 桶明细:可判 ${bareCensus.get('api') || 0} / 已在册 ${bareRegistered.length} / 死调用 ${bareMissing.length}(无锚点 ${bareNoAnchor.reduce((a, s) => a + s.count, 0)} + 存量 ${bareStock.reduce((a, s) => a + s.count, 0)} + 新增 ${bareNew.reduce((a, s) => a + (s.count - s.allowed), 0)}) / 已豁免 ${bareIgnored.length} / 不透明挂载 ${bareOpaque.length} / 前缀假设未判定 ${bareAssumption.length}${C.reset}`,
+  `${C.dim}  · BP 桶明细:可判 ${bareCensus.get('api') || 0} / 已在册 ${bareRegistered.length} / 死调用 ${bareMissing.length}(无锚点 ${bareNoAnchor.reduce((a, s) => a + s.count, 0)} + 存量 ${bareStock.reduce((a, s) => a + s.count, 0)} + 新增 ${bareNew.reduce((a, s) => a + (s.count - s.allowed), 0)}) / 已豁免 ${bareIgnored.length} / 不透明挂载 ${bareOpaque.length} / 前缀假设未判定 ${bareAssumption.length} / 参数段覆盖未判定 ${bareParam.length}${C.reset}`,
 )
 console.log(
   `${C.dim}  · BP 不判的桶(逐桶报名,不静默丢):已是 /api/(主腿射程)${bareCensus.get('alreadyApi') || 0} / 透传档原样返回 ${bareCensus.get('passthrough') || 0} / 改写档那一族(判权在 CE 与③')${bareCensus.get('aliasRewriteFamily') || 0} / \`:param\` 假影 ${bareCensus.get('interpPhantom') || 0} / 字面量读不出 ${bareCensus.get('literalUnparsed') || 0} / 字面量未闭合 ${bareCensus.get('literalUnclosed') || 0} / 转发面豁免 ${bareCensus.get('rewriteForwarded') || 0} / 事实源读不出 ${bareCensus.get('factSourceUnread') || 0} / 归一未读到 ${bareCensus.get('barePrefixUnread') || 0} / 两口径不同形 ${bareCensus.get('normalizationMismatch') || 0}${C.reset}`,
@@ -5638,6 +5783,21 @@ if (bareStaleLedger.length > 0) {
   console.log(
     `${C.yellow}  (登记)BP 基线里有 ${bareStaleLedger.length} 个文件已不再命中(清单该收紧了):${C.reset} ${bareStaleLedger.slice(0, 5).join(', ')}`,
   )
+}
+if (bareParam.length > 0) {
+  console.log(
+    `${C.yellow}  (未判定)BP 腿 ${bareParam.length} 处裸路径只在同段数上被后端 \`:param\` 路由接住,不判红也不计通过(逐条报名;不记在册):${C.reset}`,
+  )
+  for (const c of bareParam.slice(0, 20)) {
+    console.log(
+      `${C.dim}    ${c.method} ${c.path} @ ${c.file}:${c.line}(字面量原文 ${c.raw})${C.reset}`,
+    )
+  }
+  if (bareParam.length > 20) {
+    console.log(
+      `${C.dim}    ... 其余 ${bareParam.length - 20} 条见 --dump-undetermined 的 bareParamSegmentCovered`,
+    )
+  }
 }
 if (bareOpaque.length > 0) {
   console.log(
@@ -5825,7 +5985,7 @@ if (
   channelVerdict.sites.length === 0
 ) {
   console.log(
-    `${C.green}[API 路由比对] ✅ 通过(新增 0 处死调用;三端存量 ${ratchetStock.reduce((a, s) => a + s.count, 0)} 处按棘轮只报数;BP 腿裸路径存量 ${bareStock.reduce((a, s) => a + s.count, 0)} 处同样只报数)${C.reset}`,
+    `${C.green}[API 路由比对] ✅ 通过(新增 0 处死调用;三端存量 ${ratchetStock.reduce((a, s) => a + s.count, 0)} 处按棘轮只报数;BP 腿裸路径存量 ${bareStock.reduce((a, s) => a + s.count, 0)} 处同样只报数;参数段覆盖 ${paramCovered.length}+${bareParam.length} 处未判定、不记在册(主腿+BP 腿))${C.reset}`,
   )
   process.exit(0)
 }

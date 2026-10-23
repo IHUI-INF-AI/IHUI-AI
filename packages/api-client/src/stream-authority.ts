@@ -26,7 +26,7 @@ import {
   type RecoveryGateSnapshot,
 } from './recovery-gate.js'
 
-export interface StreamAuthorityVerdict {
+interface StreamAuthorityVerdict {
   /** 该帧是否应被丢弃(不投递、不进下游解析与渲染) */
   readonly drop: boolean
   /** 该帧要求重新订阅:调用方应中止本轮 attempt,走既有重连路径 */

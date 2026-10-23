@@ -192,6 +192,10 @@ export const aiRelayAccountUsageLedger = pgTable(
     model: varchar('model', { length: 128 }).notNull(),
     promptTokens: integer('prompt_tokens').default(0).notNull(),
     completionTokens: integer('completion_tokens').default(0).notNull(),
+    /** 推理 token(Trae reasoning_tokens / OpenAI completion_tokens_details;completion 已含它,只作拆分展示) */
+    reasoningTokens: integer('reasoning_tokens').default(0).notNull(),
+    /** 命中缓存的前缀 token(Trae cache_creation_input_tokens / OpenAI prompt_tokens_details.cached_tokens) */
+    cachedTokens: integer('cached_tokens').default(0).notNull(),
     /** 本次转发是否成功 */
     ok: boolean('ok').notNull(),
     /** 端到端耗时(毫秒) */

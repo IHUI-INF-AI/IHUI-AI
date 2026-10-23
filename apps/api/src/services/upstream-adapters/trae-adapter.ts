@@ -31,6 +31,8 @@ import type {
   AdapterCallOptions,
   ChatExecuteOptions,
   NormalizedChatRequest,
+  QuotaCallOptions,
+  RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
   TokenRefreshResult,
@@ -44,6 +46,7 @@ import {
   buildTraeCustomModel,
   createStopSequenceFilter,
   deriveBizSessionId,
+  extractEntUsage,
   extractErrorInfo,
   extractGetUserTokenPayload,
   extractReasoningDelta,
@@ -98,6 +101,12 @@ const WEB_LOGIN_ORIGIN = 'https://work.trae.cn'
 const TRAE_MODEL_LIST_URL = endpoint(
   'TRAE_MODEL_LIST_URL',
   'https://trae-api-cn.mchost.guru/api/ide/v1/model_list?type=chat',
+)
+/** 积分余额端点(线上实证 2026-10-23:带 `Authorization: Cloud-IDE-JWT` ⇒ 200 且回
+ *  usage_summary;无凭据 ⇒ 401 body.code=1001。只读,不进调度轮询) */
+const TRAE_ENT_USAGE_URL = endpoint(
+  'TRAE_ENT_USAGE_URL',
+  'https://api.trae.cn/trae/api/v2/pay/web_user_ent_usage',
 )
 
 const WEB_ORIGIN = 'https://solo.trae.cn'
@@ -673,7 +682,13 @@ export const traeAdapter: RelayUpstreamAdapter = {
         created: meta.created,
         model: req.model,
         choices: [{ index: 0, message, finish_reason: finishReason }],
-        usage: usage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+        usage: usage ?? {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0,
+          prompt_tokens_details: { cached_tokens: 0 },
+          completion_tokens_details: { reasoning_tokens: 0 },
+        },
       },
     }
   },
@@ -801,6 +816,52 @@ export const traeAdapter: RelayUpstreamAdapter = {
     return configs
       .map((c) => (typeof c?.name === 'string' ? c.name : null))
       .filter((n): n is string => n !== null && n !== '')
+  },
+
+  /**
+   * 积分余额按需查询(管理面点查;不进健康检查轮询,不消耗对话配额)。
+   * 永不抛:一切失败归 ok:false —— "取不到"不得被读成"余额为零"(§0.3)。
+   */
+  async getQuota(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult> {
+    try {
+      const res = await resolveFetchImpl(opts ?? {})(TRAE_ENT_USAGE_URL, {
+        method: 'GET',
+        headers: {
+          Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
+          Accept: 'application/json',
+        },
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        return {
+          ok: false,
+          error: `web_user_ent_usage HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+        }
+      }
+      const usage = extractEntUsage(await res.json().catch(() => null))
+      if (!usage) {
+        return { ok: false, error: 'web_user_ent_usage 响应无 usage_summary ⇒ 未判定' }
+      }
+      const remaining =
+        usage.total > 0 && usage.used >= 0 && usage.used <= usage.total
+          ? usage.total - usage.used
+          : undefined
+      const endAts = usage.packs.map((p) => p.endAt).filter((e): e is string => e !== undefined)
+      return {
+        ok: true,
+        quota: {
+          used: usage.used,
+          total: usage.total,
+          remaining,
+          ratio: usage.ratio,
+          unit: 'trae 积分',
+          resetsAt: endAts.length > 0 ? endAts.sort()[0] : undefined,
+          packs: usage.packs,
+        },
+      }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
   },
 
   isAuthFailure(statusCode: number, bodyText: string): boolean {

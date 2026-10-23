@@ -203,6 +203,10 @@ test.describe.serial('签到助手 · 登录态全流程', () => {
     await authenticatedPage.getByRole('button', { name: '添加账号' }).click()
     const dialog = authenticatedPage.getByRole('dialog')
     await expect(dialog).toBeVisible()
+    // 2026-10-10 f98f6d295d 起:平台/名称/JWT/设备头/分组全部收进「手动填写(高级)」折叠区
+    // (page.tsx 的 <details> 默认关闭,未展开时内容在 DOM 但 hidden)。分组字段在折叠区内,
+    // 必须先展开再断可见,否则断言读的是折叠态而非字段缺失。
+    await dialog.getByText('手动填写(高级)').click()
     await expect(dialog.getByText('分组(可选)')).toBeVisible()
     await dialog.locator('#checkin-name').fill(ACCOUNT_NAME)
     await dialog.locator('#checkin-jwt').fill(makeFakeJwt('u-e2e-phase1d'))

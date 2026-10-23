@@ -11,66 +11,37 @@
  * tracked-but-ignored 文件。清理侧逐枚 `git rm --cached`(988a243cd12 60 枚、33a433dd491 …),
  * 合并侧又按对侧副本把它们带回 ⇒ `git-sync-converge` 每轮被门 168 拦一次(2026-10-23 同一晚
  * 撞了两轮,每次都只能靠 `IHUI_SKIP_CONVERGE_DELETION_RESURRECTION` + 理由放行)。
- * 全仓现读存量 81 枚(其中 `.ihui-agent/tmp/` 61 枚),没有一道门在看这一格。
+ * 立时现读存量 81 枚(其中 `.ihui-agent/tmp/` 61 枚),没有一道门在看这一格;存量枚数一律现读,
+ * 不在此写死(2026-10-23 全量档现读 25 条)。
  *
- * 判据(两档,永不恒红):
- *  - **拦新增**(blocking):本次提交**新增**的路径(`git diff --cached --diff-filter=A`)里,
- *    凡命中 `git check-ignore` 的 ⇒ 红并逐条点名。这一档天生增量,不会因存量而恒红(§12e)。
- *  - **存量只报数**:`git ls-files -i -c --exclude-standard` 的计数照实打印,不判红 ——
- *    存量得靠"取消跟踪"逐个清,而不是把所有人的提交挡住。
+ * 判据(三档,永不恒红;档位 ⇄ 退出码一一对应):
+ *  - **`--staged` 拦新增**(blocking):本次提交**新增**的路径(`git diff --cached --diff-filter=A`)里,
+ *    凡命中 `git check-ignore --no-index` 的 ⇒ 红(exit 1)并逐条点名。这一档天生增量,
+ *    不会因存量而恒红(§12e)。
+ *  - **全量/HEAD 档只报数**:`git ls-files -i -c --exclude-standard` 的存量逐条打印 + 计数,
+ *    **exit 0,绝不判红**。存量得靠"取消跟踪"逐个清,而不是把所有人的提交挡住。
+ *    2026-10-23 修:旧实现把 `git ls-files` 的**全量** tracked 路径(现读 15,805 条)当"新增"
+ *    喂给 `check-ignore --no-index` ⇒ HEAD 里那 25 条存量每次全量档都全判红 = 恒红门,
+ *    与本节头两句自相矛盾(§12e)。现在全量档**根本不取"新增"面**,只取存量清单。
+ *    这也正是 AGENTS「tracked-but-ignored(236)…存量只报数」所写的口径。
+ *  - **`--strict` 问责档(显式 opt-in,不进提交链、runner 也不追加)**:存量 > 0 ⇒ exit 1。
+ *    人工清库存时用的尺子;默认档位里没有任何一条会因存量翻红。
  *
  * 为什么是"新增"而不是"全部":`.gitignore` 与既有意图本来就有一处不一致(见 README 里
  * `.ihui-agent/archive/` 那类"故意入库却整目录被忽略"的历史遗留),把存量判红就是恒红门,
  * 唯一结局是人人 `--no-verify`、连带废掉全部守门。
  *
- * 退出码(§0.3):0 无新增违规 / 1 有新增违规 / 2 取不到输入(未判定,不记绿也不冒红)。
+ * 退出码(§0.3):0 通过(含"全量档有存量、只报数") / 1 有新增违规(`--staged`)或
+ * `--strict` 下存量不为零 / 2 取不到输入(未判定,不记绿也不冒红)。
  * 应急:`HUSKY_SKIP_TRACKED_IGNORED=1`(会进跳门留痕)。
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120_000
-/**
- * 仓里**已有的**ignored-tracked 目录台账(G-926)。本门必须认它,否则就是第二把尺子(§0.6):
- * 那些目录是"登记过、有归属、有到期日"的存量,门若一律拦新增,等于把别人已裁决的口径当违规。
- * 本门只做一件事:把**台账没覆盖的**新增拦住;台账覆盖且未过期的,照实点名但放行。
- */
-const LEDGER_REL = join('scripts', 'data', 'lint-staged-ignored-tracked.json')
-
-/** 读台账;取不到/坏了 ⇒ 抛(调用方落 exit 2),不得当成"没有台账"从而把全部新增判红 */
-function loadLedger() {
-  const p = join(ROOT, LEDGER_REL)
-  if (!existsSync(p)) throw new Error(`台账 ${LEDGER_REL} 不存在`)
-  let j
-  try {
-    j = JSON.parse(readFileSync(p, 'utf8'))
-  } catch (e) {
-    throw new Error(`台账 ${LEDGER_REL} 不是合法 JSON:${e.message}`)
-  }
-  if (!Array.isArray(j.entries)) throw new Error(`台账 ${LEDGER_REL} 缺 entries 数组`)
-  return j.entries
-    .filter((e) => e && typeof e.dir === 'string' && typeof e.until === 'string')
-    .map((e) => ({ dir: e.dir.replace(/\/+$/, ''), until: e.until }))
-}
-
-/**
- * 纯判据:把"新增且被 ignore 命中"的路径按台账分两桶。
- * 命中口径为**目录前缀**(台账的 dir 是目录),且到期日必须 ≥ 今天 —— 过期即回到 red。
- */
-export function classifyWithLedger(ignoredPaths, entries, today = new Date().toISOString().slice(0, 10)) {
-  const exempt = []
-  const red = []
-  for (const p of ignoredPaths) {
-    const hit = entries.find((e) => p === e.dir || p.startsWith(e.dir + '/'))
-    if (hit && hit.until >= today) exempt.push({ path: p, dir: hit.dir, until: hit.until })
-    else red.push(p)
-  }
-  return { exempt, red }
-}
 
 /**
  * 跑一条 git。`okCodes` 之外的退出码一律抛(调用方落 exit 2)。
@@ -128,70 +99,124 @@ export function ignoredAmong(paths, { root = ROOT } = {}) {
   return classifyAdded(paths, ignored)
 }
 
-/** 取不到就抛(调用方落 exit 2),绝不返回空集冒充"没有" */
-function loadFaces(face) {
-  const added = git(
-    face === 'staged'
-      ? ['diff', '--cached', '--diff-filter=A', '--name-only', '-z']
-      : ['ls-files', '-z'],
-  )
+/**
+ * 存量清单(单源):tracked 且被 `.gitignore` 命中的路径。`-z` 是为了含换行的路径不被拆错。
+ * 取不到就抛(调用方落 exit 2),绝不返回空清单冒充"没有存量"。
+ */
+function loadStock(root) {
+  return git(['ls-files', '-i', '-c', '--exclude-standard', '-z'], {}, root)
     .split('\0')
     .filter(Boolean)
-  if (added.length === 0) return { added, ignored: new Set() }
-  return { added, ignored: new Set(ignoredAmong(added)) }
 }
 
-function stockCount() {
-  const out = git(['ls-files', '-i', '-c', '--exclude-standard']).trim()
-  return out === '' ? 0 : out.split('\n').length
+/** 本次提交**新增**的路径(`git diff --cached --diff-filter=A`,索引面)。取不到就抛。 */
+function loadAdded(root) {
+  return git(['diff', '--cached', '--diff-filter=A', '--name-only', '-z'], {}, root)
+    .split('\0')
+    .filter(Boolean)
 }
 
-export function main(argv = process.argv.slice(2)) {
+/** 全量档名录打印上限(纯展示闸;超出的条数必须显式报出,不许静默截断)。 */
+const STOCK_PRINT_CAP = 50
+
+/**
+ * 单源判据:返回 `{ code, face, added, bad, stock, stdout, stderr }`,自己**不**写 console。
+ * `root` 可注入:镜像用例在自己那个 scratch 真仓里跑同一段实现(§22c 不复制第二份)。
+ *
+ * 面纪律(§0.4):`--staged` 判**索引面新增**;全量档只判"存量清单取不取得到",**不判存量本身**。
+ */
+export function evaluate(argv = [], { root = ROOT } = {}) {
   const staged = argv.includes('--staged')
   const strict = argv.includes('--strict')
   const face = staged ? 'staged' : 'head'
 
-  let faces
   let stock
-  let ledger
+  let added = []
+  let bad = []
   try {
-    faces = loadFaces(face)
-    stock = stockCount()
-    ledger = loadLedger()
+    stock = loadStock(root)
+    if (staged) {
+      added = loadAdded(root)
+      bad = ignoredAmong(added, { root })
+    }
   } catch (e) {
-    console.error(
-      `❌ check-tracked-ignored 未判定:取不到 ${face} 面 / 存量清单 / 豁免台账(${String(e?.message ?? e).slice(0, 200)})`,
-    )
-    return 2
+    return {
+      code: 2,
+      face,
+      added: [],
+      bad: [],
+      stock: [],
+      stdout: [],
+      stderr: [
+        `❌ check-tracked-ignored 未判定:取不到 ${face} 面或存量清单(${String(e?.message ?? e).slice(0, 200)})`,
+      ],
+    }
   }
 
-  const hits = classifyAdded(faces.added, faces.ignored)
-  const { exempt, red } = classifyWithLedger(hits, ledger)
-  const bad = red
-  const head =
-    `[tracked-ignored] 面=${face} 新增 ${faces.added.length} 条 / 命中 ignore ${hits.length} 条` +
-    `(台账内 ${exempt.length} · 无台账 ${red.length})/ 存量(只报数)${stock} 条`
-  for (const e of exempt)
-    console.log(`  · ${e.path} —— 落在已登记目录 ${e.dir}(至 ${e.until}),按 G-926 台账放行`)
+  const stockNote = `存量(只报数)${stock.length} 条`
+
+  // ---- 全量/HEAD 档:只报数,exit 0(判存量 = 恒红门,§12e)----
+  if (!staged) {
+    const stdout = [`[tracked-ignored] 面=head ${stockNote} —— 本档只报数,不判红`]
+    for (const p of stock.slice(0, STOCK_PRINT_CAP)) stdout.push(`  · ${p}`)
+    if (stock.length > STOCK_PRINT_CAP)
+      stdout.push(
+        `  … 还有 ${stock.length - STOCK_PRINT_CAP} 条未列出(列全:git ls-files -i -c --exclude-standard)`,
+      )
+    if (strict && stock.length > 0) {
+      return {
+        code: 1,
+        face,
+        added,
+        bad,
+        stock,
+        stdout: [`${stdout[0]} ⇒ --strict 下存量 ${stock.length} 条判红`],
+        stderr: ['  ✗ --strict:存量不为零(逐条:git ls-files -i -c --exclude-standard)'],
+      }
+    }
+    return { code: 0, face, added, bad, stock, stdout, stderr: [] }
+  }
+
+  // ---- --staged 档:只看本次新增(天生增量)----
+  const head = `[tracked-ignored] 面=staged 新增 ${added.length} 条 / 命中 ignore ${bad.length} 条 / ${stockNote}`
 
   if (bad.length > 0) {
-    console.error(head)
-    for (const p of bad)
-      console.error(`  ✗ ${p} —— 该路径被 .gitignore 命中 ⇒ gitignored 的内容不得进版本控制`)
-    console.error(
-      '  修法:改落点(写盘/写 gitignored 的运行态目录)或从本次声明集里去掉;**不要**用 git add -f 绕过,',
-    )
-    console.error('  也不要把 .gitignore 的否定规则放宽到整个目录(那会把噪音一起放进仓)。')
-    return 1
+    return {
+      code: 1,
+      face,
+      added,
+      bad,
+      stock,
+      stdout: [],
+      stderr: [
+        head,
+        ...bad.map((p) => `  ✗ ${p} —— 该路径被 .gitignore 命中 ⇒ gitignored 的内容不得进版本控制`),
+        '  修法:改落点(写盘/写 gitignored 的运行态目录)或从本次声明集里去掉;**不要**用 git add -f 绕过,',
+        '  也不要把 .gitignore 的否定规则放宽到整个目录(那会把噪音一起放进仓)。',
+      ],
+    }
   }
 
-  const tail = strict && stock > 0 ? ` ⇒ --strict 下存量 ${stock} 条判红` : ''
-  console.log(`${head}${tail}`)
-  if (strict && stock > 0) {
-    console.error('  ✗ --strict:存量不为零(逐条:git ls-files -i -c --exclude-standard)')
-    return 1
+  if (strict && stock.length > 0) {
+    return {
+      code: 1,
+      face,
+      added,
+      bad,
+      stock,
+      stdout: [`${head} ⇒ --strict 下存量 ${stock.length} 条判红`],
+      stderr: ['  ✗ --strict:存量不为零(逐条:git ls-files -i -c --exclude-standard)'],
+    }
   }
-  return 0
+
+  return { code: 0, face, added, bad, stock, stdout: [head], stderr: [] }
+}
+
+export function main(argv = process.argv.slice(2), opts = {}) {
+  const r = evaluate(argv, opts)
+  for (const line of r.stdout) console.log(line)
+  for (const line of r.stderr) console.error(line)
+  return r.code
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -205,5 +230,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { classifyAdded, ignoredAmong, classifyWithLedger }
+export const __test__ = { classifyAdded, ignoredAmong, evaluate }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

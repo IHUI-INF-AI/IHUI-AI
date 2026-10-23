@@ -109,11 +109,6 @@ export function resetModePaneStores(): void {
   paneModeStores.clear()
 }
 
-/** 当前窗格实例数(测试断言用,不进生产判定) */
-export function modePaneCount(): number {
-  return paneModeStores.size
-}
-
 /**
  * 窗格寻址的模式解析 hook(与 usePaneAiToolsPanelStore 同一身份来源 useOptionalPaneId):
  * Provider 内 = 该窗格的独立实例;无 Provider = 根单例本尊(恒同一引用 ⇒ 单窗格形态逐字不变)。
