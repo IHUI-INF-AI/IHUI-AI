@@ -1585,10 +1585,14 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!user?.passwordHash || !(await verifyPassword(oldPassword, user.passwordHash))) {
         return reply.status(400).send(error(400, '原密码错误'))
       }
-      await updateUser(request.userId!, { passwordHash: await hashPassword(newPassword) })
+      // updated 由委托侧 UPDATE … RETURNING 的行存在性派生(守门 134),不再回字面量 true。
+      const updatedUser = await updateUser(request.userId!, {
+        passwordHash: await hashPassword(newPassword),
+      })
       // 2026-07-24 安全加固:密码修改后吊销所有 refresh token(与重置密码对齐)
       await revokeAllUserRefreshTokens(request.userId!)
-      return reply.send(success({ updated: true }))
+      // updated 由委托侧 UPDATE … RETURNING 的命中行存在性派生(守门 134),不再回字面量 true。
+      return reply.send(success({ updated: Boolean(updatedUser.id) }))
     },
   )
 

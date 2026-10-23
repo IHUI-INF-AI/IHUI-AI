@@ -46,7 +46,7 @@ export default function KnowledgeBasePageClient() {
   const tCommon = useTranslations('common')
   // 2026-10-15 登录态门(与 /chat/favorites、签到助手同型):未就绪/未登录不发注定 401 的查询
   const tGate = useTranslations('chatHistory')
-  const { allow } = useAuthGate()
+  const { ready, allow } = useAuthGate()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [categoryId, setCategoryId] = React.useState<string>('all')
@@ -155,7 +155,14 @@ export default function KnowledgeBasePageClient() {
             />
           </div>
 
-          {!allow ? (
+          {!ready ? (
+            // 登录态确认中 ≠ 未登录:bootstrap 静默刷新还没跑完时就显「请先登录」,
+            // 已登录用户会误判被踢出(与签到助手 HEAD 三态同型,2026-10-15 改判)。
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              {tCommon('loading')}
+            </div>
+          ) : !allow ? (
             <AuthGatePrompt message={tGate('loginRequired')} />
           ) : isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">

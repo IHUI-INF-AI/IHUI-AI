@@ -156,6 +156,8 @@ export const aiRelayAccountPool = pgTable(
     claimNote: text('claim_note'),
     /** 累计转发调用次数(号池消耗观测) */
     totalCalls: bigint('total_calls', { mode: 'number' }).default(0).notNull(),
+    /** 凭证单调版本(O64 号池↔签到双向同步):每次凭证写入 +1,签到回写 CAS 基准;旧凭证永不覆盖新凭证 */
+    credVersion: bigint('cred_version', { mode: 'number' }).default(1).notNull(),
     /** 平台特有附加凭证/元数据(明文,非敏感;敏感一律进 *Enc 字段) */
     extraMetadata: jsonb('extra_metadata').default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
