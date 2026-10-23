@@ -49,6 +49,8 @@ import {
   startRelayModelSyncScheduler,
   stopRelayModelSyncScheduler,
 } from './services/relay-model-sync.js'
+// 中继出网代理分流(被墙 host 走本地代理,其余直连;未配置 RELAY_PROXY_URL 时 no-op)
+import { installRelayOutboundProxy } from './services/relay-outbound-proxy.js'
 import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
 // 访客链路测速 + 边缘缓存预热(同一形态:进程内定时读方,不新增服务拓扑,2026-10-19 立)
 import { startEdgeAccessProbe } from './services/edge-access.js'
@@ -153,6 +155,10 @@ async function start() {
   // OpenTelemetry 追踪：在 buildServer 之前初始化，最大化 instrument 覆盖（含启动期代码）
   // 未配置 OTEL_EXPORTER_OTLP_ENDPOINT 且 OTEL_ENABLED!=true 时为 no-op，不阻塞启动
   initOtel()
+
+  // 中继出网代理分流:必须早于任何出站 fetch(健康巡检/上游转发都吃全局 dispatcher)。
+  // 未配置 RELAY_PROXY_URL 时为 no-op,行为与从前逐字节一致。
+  installRelayOutboundProxy()
 
   // 生产环境微信支付配置完整性检查(失败立即退出)
   checkProductionConfig()
