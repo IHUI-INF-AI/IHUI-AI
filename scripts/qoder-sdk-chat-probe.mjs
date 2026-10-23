@@ -120,12 +120,12 @@ if (!fs.existsSync(sdkEntry)) {
 
 const PAT = (process.env.QODER_PAT || '').trim()
 if (!PAT) {
-  console.error(
-    'QODER_PAT_MISSING: chat 必须用 PAT（个人访问令牌），device token 会被拒为 access_token_invalid。\n' +
-      '  生成入口: https://qoder.com.cn/account/integrations\n' +
-      '  然后: QODER_PAT=<token> node scripts/qoder-sdk-chat-probe.mjs',
+  // 已跑过 `qoderclicn login` 的机器无需 PAT：worker 直接读 CLI 登录态。
+  console.log(
+    '[probe] 未提供 QODER_PAT ⇒ 改用 qodercli 已登录凭证(qodercliAuth)。\n' +
+      '  若报 "No qodercli login found"：先跑 qoderclicn login 完成浏览器授权；\n' +
+      '  或改用 PAT: https://qoder.com.cn/account/integrations',
   )
-  process.exit(5)
 }
 
 const timer = setTimeout(() => {
@@ -144,7 +144,10 @@ let streamed = ''
 try {
   const it = mod.query({
     prompt: PROMPT,
-    options: { cwd: process.cwd(), auth: mod.accessToken(PAT) },
+    options: {
+      cwd: process.cwd(),
+      auth: PAT ? mod.accessToken(PAT) : mod.qodercliAuth(),
+    },
   })
   for await (const msg of it) {
     n++
