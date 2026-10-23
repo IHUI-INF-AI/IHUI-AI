@@ -288,7 +288,8 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
       await db
         .update(aiRelayAccountPool)
         .set({
-          healthStatus: outcome.ok ? 'healthy' : 'down',
+          // 未判定保留 unknown,不写 down(§0.3:取不到 ≠ 失效)
+          healthStatus: outcome.ok ? 'healthy' : outcome.indeterminate === true ? 'unknown' : 'down',
           healthCheckedAt: new Date(),
           lastErrorMessage: outcome.ok ? null : (outcome.error ?? '健康检查失败').slice(0, 500),
           updatedAt: new Date(),

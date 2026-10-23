@@ -186,11 +186,13 @@ export interface RelayUpstreamAdapter {
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
   ): Promise<TokenRefreshResult | null>
-  /** 轻量健康检查(不得消耗大量配额;失败返回 ok:false + 原因) */
+  /** 轻量健康检查(不得消耗大量配额;失败返回 ok:false + 原因)
+   *  indeterminate=true 表示"取不到结论"(上游 5xx/网络异常),不等于凭据失效;
+   *  调度器据此保留 unknown,绝不写 down(§0.3)。 */
   checkHealth(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
-  ): Promise<{ ok: boolean; error?: string }>
+  ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean }>
   /** 上游模型列表(可空:平台无此端点时健康检查退化为最小 chat 探测) */
   listModels?(ctx: AdapterAccountContext, opts?: AdapterCallOptions): Promise<string[]>
   /**
