@@ -13,14 +13,21 @@
 - extract_trace_id(W3C traceparent 解析,含 None/空/畸形)
 - 缓冲区超限丢弃最旧 10%(monkeypatch 调小 _max_buffer)
 - 模块级单例 audit_service
+- G-951(2026-10-23):trace 关联键由唯一运行时出口 current_trace_id() 现取
+  (接上 / 显式优先 / 宁缺勿假 三判据)+ 落库面 resource_id 直证
 
 隔离:AuditService._buffer 为类级共享列表,autouse fixture 每个测试前后清空。
-本模块当前仅内存缓冲(生产 DB 路径未启用),无需连真实 DB。
+落库面(_persist_entry)按 AGENTS §5 测试隔离铁律一律 monkeypatch
+`app.core.db.get_db_pool` 为假池并收下 execute 参数当场判 ⇒ 全程不发一条 SQL
+往真实 PostgreSQL(8810 生产实例与本机 dev 5432 都不连)。
 """
 from __future__ import annotations
 
+import re
+
 import pytest
 
+from app.middleware.trace_context import use_trace_id
 from app.services.audit_service import AuditEntry, AuditService, audit_service
 
 
@@ -226,4 +233,127 @@ def test_singleton_instance():
     """模块级 audit_service 是 AuditService 实例,共享类级 _buffer。"""
     assert isinstance(audit_service, AuditService)
     assert audit_service._buffer is AuditService._buffer
+
+
+# =============================================================================
+# G-951(2026-10-23):落库处的 trace 关联键由唯一运行时出口现取
+# =============================================================================
+# 立因:api 那张 provider 调用流水的 trace 列(D172 / llm_call_logs.trace_id)已由
+# `resolveTraceId` 接上,而 ai-service 这个落库处只认调用方手递的 `trace_id=`。
+# `agent_loop_v2._report_agent_error` / `_report_tool_error` 两条真实调用点都不传
+# (且该文件按 D147 禁改),于是它们落库的行 resource_id 恒为 NULL —— 本轮 id 明明
+# 在内存记录里(`core/tool_call_trace.py::as_dict()` 现取 contextvar),库里按编号
+# 就是查不到。判据三条与 `tests/test_d147_trace_attribution.py` 同形,不新立口径。
+
+TRACE_ID = "4bf92f3577b34da6a3ce929d0e0e4736"
+OTHER_TRACE_ID = "0af7651916cd43dd8448eb211c80319c"
+
+
+def test_trace_id_taken_from_bound_context_when_caller_supplies_none():
+    """① 接上:调用点不传 trace_id,只要构造落在绑定期内,记录必须带本轮 id。
+
+    时刻规则与 D147 同源:**构造**发生在绑定期内(出了 `with` 再读已无本轮值),
+    调用点一行都不用改 —— 这正是 `agent_loop_v2` 那两条禁改调用点的形状。
+    """
+    s = AuditService()
+    with use_trace_id(TRACE_ID):
+        s.log_tool_execution(
+            tool_name="read_file",
+            args={"path": "src/index.ts"},
+            result="ok",
+            status="ok",
+            duration_ms=1.0,
+        )
+    entry = s._buffer[-1]
+    assert entry.trace_id == TRACE_ID
+    assert entry.to_dict()["trace_id"] == TRACE_ID, "读面(get_recent)同样要看得见"
+
+
+def test_explicit_trace_id_wins_over_contextvar():
+    """② 显式优先:调用方(如审计中间件)解析出的那份不得被 contextvar 覆盖。"""
+    s = AuditService()
+    with use_trace_id(TRACE_ID):
+        s.log_agent_action(
+            agent_id="system",
+            action="POST /api/x",
+            details={"status": 200},
+            trace_id=OTHER_TRACE_ID,
+        )
+    assert s._buffer[-1].trace_id == OTHER_TRACE_ID
+
+
+def test_unbound_context_yields_none_not_a_placeholder():
+    """③ 宁缺勿假:两处都取不到 ⇒ None。
+
+    不得用空串/占位串冒充"接上了"——缺 id 与 id 为空在账面上长得一样,
+    后者会把"没接上"洗成"接上了"(反向对照,防止把兜底做成造假)。
+    """
+    s = AuditService()
+    s.log_agent_action(agent_id="a", action="act", details={})
+    value = s._buffer[-1].trace_id
+    assert value is None, f"未绑定且未显式传入时必须为 None,实得 {value!r}"
+    assert not re.fullmatch(r"[0-9a-f]{32}", str(value or ""))
+
+
+async def test_persisted_row_carries_trace_id_in_resource_id(monkeypatch):
+    """④ 落库面直证:写进 audit_logs 的那一列(resource_id)拿到本轮 trace id。
+
+    只断言"内存里有条记录"不构成这一格的验收 —— 票面病是"库里查不到",
+    所以判据必须停在 INSERT 的参数上。假池把 execute 参数收下来当场判,
+    一条 SQL 都不发往真实 PostgreSQL(AGENTS §5 测试隔离铁律)。
+    """
+    captured: list[tuple[str, tuple[object, ...]]] = []
+
+    class _FakeConn:
+        async def execute(self, sql: str, *args: object) -> None:
+            captured.append((sql, args))
+
+    class _FakeAcquire:
+        async def __aenter__(self) -> _FakeConn:
+            return _FakeConn()
+
+        async def __aexit__(self, *exc: object) -> bool:
+            return False
+
+    class _FakePool:
+        def acquire(self) -> _FakeAcquire:
+            return _FakeAcquire()
+
+    async def _fake_get_db_pool() -> _FakePool:
+        return _FakePool()
+
+    # audit_service._persist_entry 是函数内 `from app.core.db import get_db_pool`
+    # (晚绑定),所以 patch 模块属性即可命中它真正执行的那一份。
+    monkeypatch.setattr("app.core.db.get_db_pool", _fake_get_db_pool)
+
+    s = AuditService()
+    with use_trace_id(TRACE_ID):
+        entry = AuditEntry(action="agent_error", details={"iteration": 3})
+    await s._persist_entry(entry)
+
+    assert len(captured) == 1, f"落库面必须恰好发一条 INSERT,实得 {len(captured)} 条"
+    sql, args = captured[0]
+    assert "INSERT INTO audit_logs" in sql
+    assert "resource_id" in sql
+    # 参数序:action / resource_type / resource_id / details / created_at
+    assert args[2] == TRACE_ID, f"resource_id 应为本轮 trace id,实得 {args[2]!r}"
+
+
+async def test_persist_degrades_when_db_unavailable(monkeypatch):
+    """⑤ 降级契约不变(阳性对照):取不到池 ⇒ 不抛、不写、内存仍在。
+
+    这一条不是给本次改动补数,而是锁死"接上 trace"没把静默降级改成硬失败:
+    _append 的 fire-and-forget 仍然只能降级,不能把 DB 不可达变成主流程异常。
+    """
+
+    async def _unavailable_get_db_pool() -> object:
+        raise RuntimeError("测试隔离:不得连真实 PostgreSQL")
+
+    monkeypatch.setattr("app.core.db.get_db_pool", _unavailable_get_db_pool)
+
+    s = AuditService()
+    with use_trace_id(TRACE_ID):
+        entry = AuditEntry(action="tool_execution", details={"tool": "grep"})
+    await s._persist_entry(entry)  # 不得抛出
+    assert entry.trace_id == TRACE_ID, "降级不得连带把已取到的关联键丢掉"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -2102,7 +2102,6 @@
       "title": "API Settings",
       "tokenHint": "Tip: You can obtain your API token and workflow ID from the Coze platform"
     },
-    "introFallback": "IHUI AI is dedicated to building a one-stop AI service platform",
     "copyright": "© 2026 IHUI AI. All rights reserved."
   },
   "businessCard": {
