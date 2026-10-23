@@ -1042,8 +1042,12 @@ export function useMessageListScroll({
           const m = msgs[idx]
           if (m?.reasoning) {
             e.preventDefault()
+            // 票60 后续切片(2026-10-23):detail 带本窗格 paneId ⇒ 监听侧(MessageItem)
+            // 按 matchesPaneEvent 门控;根窗格 paneId=null,与不带该键的旧形等价。
             window.dispatchEvent(
-              new CustomEvent('ihui:toggle-reasoning', { detail: { messageId: m.id } }),
+              new CustomEvent('ihui:toggle-reasoning', {
+                detail: { messageId: m.id, paneId },
+              }),
             )
           }
         }
@@ -1054,7 +1058,8 @@ export function useMessageListScroll({
       popOverlay(MESSAGE_LIST_KEYBOARD_NAV_OVERLAY_ID)
       window.removeEventListener('keydown', onKey)
     }
-  }, [setFocusedIndexBoth])
+    // paneId 进依赖:窗格归属变更(理论不发生,防御性)即重挂派发闭包,不吃 stale 窗格身份
+  }, [setFocusedIndexBoth, paneId])
 
   // 2026-07-28 立:focused message 变更后自动 scrollIntoView(确保可见)
   // 配合键盘 ↑/↓ 用,避免焦点切到屏幕外时用户看不到

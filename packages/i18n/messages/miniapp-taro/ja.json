@@ -2102,7 +2102,6 @@
       "title": "API 設定",
       "tokenHint": "ヒント: Coze プラットフォームから API トークンとワークフロー ID を取得できます"
     },
-    "introFallback": "IHUI AIはワンストップのAIサービスプラットフォームの構築に取り組んでいます",
     "copyright": "© 2026 IHUI AI. All rights reserved."
   },
   "businessCard": {
