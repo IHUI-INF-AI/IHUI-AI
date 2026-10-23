@@ -75,7 +75,6 @@ export function MessageDetailScreen({
             <Text style={styles.metaLabel}>{t('messageDetail.createdAt')}</Text>
             <Text style={styles.metaValue}>{message.createdAt}</Text>
           </View>
-          <View style={styles.divider} />
           <Text style={styles.content}>{message.content}</Text>
         </ScrollView>
       )}
@@ -118,12 +117,8 @@ function createStyles(tk: AppThemeTokens) {
     },
     metaLabel: { fontSize: 14, color: tk.text.tertiary },
     metaValue: { fontSize: 14, color: tk.text.secondary },
-    divider: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: tk.border.light,
-      marginVertical: 12,
-    },
-    content: { fontSize: 16, color: tk.text.medium, lineHeight: 22 },
+    // §4 禁分割线:原 meta 与正文间发丝线改为间距分隔(marginTop 24 ≈ 原 12+1 线+12 的留白)
+    content: { marginTop: 24, fontSize: 16, color: tk.text.medium, lineHeight: 22 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
