@@ -30,6 +30,10 @@ import {
 } from '../commands/session.js';
 import type { PermissionMode } from '../tools/permissions.js';
 import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
+import {
+  buildToolResultPersistence,
+  type ToolResultPersistence,
+} from '../tools/index.js';
 
 export interface AgentCoreOptions {
   workspacePath: string;
@@ -55,6 +59,11 @@ export type AgentEvent =
        * 缺省 = 本次没触发裁剪。绝不得用它替换 `output`(那才是模型侧权威)。
        */
       display?: ToolResultDisplaySource;
+      /**
+       * G-109 三条独立投影之「落库的」那一维:display 全文 + serialization 四数,不含 content。
+       * 消费方拿它写 metadata 即可(与 `output`/`modelContent` 无关);缺省 = 无内容可落。
+       */
+      persistence?: ToolResultPersistence;
     }
   /**
    * D113(2026-09-27)文件写类工具的**流中 diff 预览**帧。载荷字段沿用
@@ -239,12 +248,16 @@ export class AgentCore {
           if (settled) {
             await onEvent({ type: 'tool_delta_clear', name: settled.toolName, toolCallId: settled.toolCallId });
           }
+          // G-109:落库面从 display 派生(不是从 output 抄全文)—— UI 文案用 display,
+          // metadata 用 persistence;两者都不把模型侧全文带出去。
+          const persistence = buildToolResultPersistence(output, display);
           await onEvent({
             type: 'tool_result',
             name,
             success,
             output,
             ...(display ? { display } : {}),
+            ...(persistence ? { persistence } : {}),
           });
         },
         onIteration: async (count, max) => {
