@@ -33,9 +33,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { AuthGatePrompt, BackButton } from '@/components/common'
 import { Alert } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 import { useAuthStore } from '@/stores/auth'
 
 /* ============ 类型定义(与 apps/api/src/routes/gdpr.ts 返回结构对齐) ============ */
@@ -196,6 +197,10 @@ export default function DataRightsPage() {
   const t = useTranslations('eduAi.dataRights')
   const ct = useTranslations('common')
   const authT = useTranslations('oAuthCallbackPage')
+  // 登录态门(与 settings/notifications、privacy、agent-security 同族,G-932 三态分离):
+  // ready=false 是「登录态确认中」,不等于未登录;allow=false 才确未登录。
+  const tGate = useTranslations('chatHistory')
+  const { ready, allow } = useAuthGate()
   const router = useRouter()
   const logout = useAuthStore((s) => s.logout)
 
@@ -269,8 +274,14 @@ export default function DataRightsPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
-      {erased ? (
-        /* ============ 擦除成功结果 ============ */
+      {!ready ? (
+        /* ============ 登录态确认中(冷启动 bootstrap 未收束,不得当游客踢回登录页) ============ */
+        <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {ct('loading')}
+        </div>
+      ) : erased ? (
+        /* ============ 擦除成功结果(必须排在 !allow 之前:logout() 已把 allow 翻假) ============ */
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base text-destructive">
@@ -286,6 +297,9 @@ export default function DataRightsPage() {
             </Button>
           </CardContent>
         </Card>
+      ) : !allow ? (
+        /* ============ 确未登录:显登录引导,三张卡(含擦除/携带入口)一并收起 ============ */
+        <AuthGatePrompt message={tGate('loginRequired')} />
       ) : (
         <>
           {/* ============ 数据导出卡 ============ */}
