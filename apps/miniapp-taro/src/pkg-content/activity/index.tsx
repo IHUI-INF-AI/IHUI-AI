@@ -12,6 +12,8 @@ import { apiOrThrow } from '@ihui/api-client'
 import type { ActivityItem } from '@ihui/types'
 import { useTt } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
+// 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
+import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -193,22 +195,18 @@ export default function ActivityList() {
         </View>
 
         {error ? (
-          <View style={viewStyles.errorText()}>
-            <Text style={textStyles.error()}>{error}</Text>
-          </View>
-        ) : null}
-
-        {loading && items.length === 0 ? (
-          <View style={viewStyles.center()}>
-            <Text style={textStyles.muted()}>{tt('common.loading', '加载中...')}</Text>
-          </View>
+          <ErrorState message={error} onRetry={() => void load()} retryLabel={tt('common.retry', '重试')} />
+        ) : loading && items.length === 0 ? (
+          <ScreenSkeleton variant="list" count={4} />
         ) : (
           <ScrollView scrollY style={{ flex: 1 }}>
             <View style={viewStyles.listBody()}>
               {items.length === 0 ? (
-                <View style={viewStyles.center()}>
-                  <Text style={textStyles.muted()}>{tt('activity.empty', '暂无活动')}</Text>
-                </View>
+                <EmptyState
+                  title={tt('activity.empty', '暂无活动')}
+                  actionLabel={tt('common.retry', '重试')}
+                  onAction={() => void load()}
+                />
               ) : (
                 items.map((item, index) => (
                   <View key={item.id}>
