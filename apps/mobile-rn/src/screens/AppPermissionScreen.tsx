@@ -9,18 +9,20 @@ import {
   type AppPermissionScreenProps,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function AppPermissionScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
 
   const props: AppPermissionScreenProps = {
     t,
     onBack: () => navigation.goBack(),
-    colorScheme: 'light',
+    colorScheme: resolvedTheme,
   }
 
   return <SharedAppPermissionScreen {...props} />
