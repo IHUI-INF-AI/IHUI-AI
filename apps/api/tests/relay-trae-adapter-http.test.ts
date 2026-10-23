@@ -82,6 +82,45 @@ const MODEL_CONFIGS = {
   ],
 }
 
+/** 上游剧本:余额端点返回码(测 401 归 ok:false) */
+let entUsageStatus = 200
+
+/**
+ * 积分余额端点线上实证 200 回包(2026-10-23,Authorization: Cloud-IDE-JWT ⇒ 200)。
+ * 逐字保留判据相关键位:包名只有 display_desc/group_name(无 name 键),
+ * 到期在 expire_time 与 entitlement_base_info.end_time(秒),credits_limit 在 quota 内。
+ * 第二枚包按实证截断处只留已见键(免费包无 quota.credits_limit ⇒ 认不出就该 undefined)。
+ */
+const ENT_USAGE_BODY = {
+  is_credits_billing: true,
+  is_dollar_usage_billing: false,
+  is_pay_freshman: true,
+  trial_status: { is_eligible_for_trial: false, is_in_trial: false },
+  usage_summary: {
+    consumed_amount: 4502.1,
+    consumption_ratio: 0.9787173913043479,
+    total_amount: 4600,
+  },
+  user_entitlement_pack_list: [
+    {
+      display_desc: '老用户福利',
+      entitlement_base_info: {
+        end_time: 1795334916,
+        quota: { credits_limit: 4000, no_bonus_quota: true },
+      },
+      expire_time: 1795334916,
+      group_name: '用户福利',
+      quota: { credits_limit: 4000, no_bonus_quota: true },
+      usage: { credits_amount: 4000 },
+    },
+    {
+      display_desc: '免费',
+      entitlement_base_info: { end_time: 1793462399 },
+      group_name: '免费',
+    },
+  ],
+}
+
 beforeAll(async () => {
   server = createServer(async (req, res) => {
     const body = await readBody(req)
@@ -129,6 +168,18 @@ beforeAll(async () => {
       ])
     }
     if (url.endsWith('/stop')) return json(res, 200, { code: 0 })
+    // 积分余额(线上实证:带 Cloud-IDE-JWT ⇒ 200;无凭据 ⇒ 401 body.code=1001)
+    if (url.endsWith('/pay/web_user_ent_usage')) {
+      if (entUsageStatus !== 200) {
+        return json(res, entUsageStatus, {
+          code: 1001,
+          message: 'not able to authenticate you',
+          usage_summary: {},
+          user_entitlement_pack_list: [],
+        })
+      }
+      return json(res, 200, ENT_USAGE_BODY)
+    }
     return json(res, 404, { code: 404 })
   })
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
@@ -139,6 +190,7 @@ beforeAll(async () => {
   process.env.TRAE_MODEL_LIST_URL = `${base}/api/ide/v1/model_list?type=chat`
   process.env.TRAE_EXCHANGE_TOKEN_URL = `${base}/oauth/ExchangeToken`
   process.env.TRAE_GET_USER_TOKEN_URL = `${base}/cloudide/api/v3/common/GetUserToken`
+  process.env.TRAE_ENT_USAGE_URL = `${base}/trae/api/v2/pay/web_user_ent_usage`
 })
 
 afterAll(async () => {
@@ -147,6 +199,7 @@ afterAll(async () => {
   delete process.env.TRAE_MODEL_LIST_URL
   delete process.env.TRAE_EXCHANGE_TOKEN_URL
   delete process.env.TRAE_GET_USER_TOKEN_URL
+  delete process.env.TRAE_ENT_USAGE_URL
 })
 
 async function loadAdapter() {
@@ -368,6 +421,48 @@ describe('Trae 协议层 · 风控帧分类(真 HTTP)', () => {
     expect(caught).toBeInstanceOf(TraeUpstreamError)
     expect((caught as InstanceType<typeof TraeUpstreamError>).upstreamCode).toBe('4015')
     expect(classifyUpstreamFailure(0, 'code:4015')).toBe('risk')
+  })
+})
+
+describe('Trae 积分余额 getQuota(真 HTTP · 实证回包形状)', () => {
+  it('200 实证包 ⇒ used/total/remaining/ratio 全对,包名与到期取自实证键位', async () => {
+    const { traeAdapter } = await loadAdapter()
+    seen.length = 0
+    entUsageStatus = 200
+
+    const out = await traeAdapter.getQuota!(makeCtx() as never, {})
+    expect(out.ok).toBe(true)
+    const q = out.quota!
+    expect(q.used).toBe(4502.1)
+    expect(q.total).toBe(4600)
+    expect(q.remaining).toBeCloseTo(97.9, 6)
+    expect(q.ratio).toBeCloseTo(0.9787173913043479, 12)
+    expect(q.unit).toBe('trae 积分')
+
+    // 回归锁①:包名真源是 display_desc(实证回包无 name 键 ⇒ 取 name 的写法恒 undefined)
+    expect(q.packs?.[0]?.name).toBe('老用户福利')
+    // 回归锁②:credits_limit 在 quota 内,免费包无 quota ⇒ 认不出就留空,不编 0
+    expect(q.packs?.[0]?.limit).toBe(4000)
+    expect(q.packs?.[1]?.limit).toBeUndefined()
+    // 回归锁③:到期时刻在 expire_time / entitlement_base_info.end_time(秒),不在 quota 内
+    expect(q.packs?.[0]?.endAt).toBe(new Date(1795334916 * 1000).toISOString())
+    expect(q.packs?.[1]?.endAt).toBe(new Date(1793462399 * 1000).toISOString())
+    // resetsAt = 最早到期那枚(不是第一枚 ⇒ 排序必须真做)
+    expect(q.resetsAt).toBe(new Date(1793462399 * 1000).toISOString())
+
+    const req = seen.find((s) => s.path.includes('/pay/web_user_ent_usage'))
+    expect(req?.method).toBe('GET')
+    expect(req?.headers.authorization).toBe('Cloud-IDE-JWT jwt-original')
+  })
+
+  it('401 ⇒ ok:false 且带原因(不得把"取不到"写成余额 0)', async () => {
+    const { traeAdapter } = await loadAdapter()
+    entUsageStatus = 401
+    const out = await traeAdapter.getQuota!(makeCtx() as never, {})
+    entUsageStatus = 200
+    expect(out.ok).toBe(false)
+    expect(out.error).toContain('401')
+    expect(out.quota).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

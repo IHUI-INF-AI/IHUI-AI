@@ -25,6 +25,7 @@
  * 17. PATCH  /admin/relay/proxy-pool/:id     — 更新代理(status/boundAccountId/proxyUrl)
  * 18. DELETE /admin/relay/proxy-pool/:id     — 删除代理(不存在 404)
  * 19. POST   /admin/relay/proxy-pool/:id/check — 人工标记活性(调 markProxyChecked)
+ * 20. POST   /admin/relay/accounts/:id/quota — 按需查上游余额/积分(平台无实证端点则 400 未支持)
  *
  * 加密:token/refreshToken/cookies 走 encryptField(AES-256-GCM),响应面永不回传密文/明文。
  */
@@ -750,6 +751,47 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     }
     await markProxyChecked(found.row.proxyUrl, b.data.alive)
     return reply.send(success({ id: found.row.id, alive: b.data.alive }))
+  })
+
+  // ===== 20. POST /admin/relay/accounts/:id/quota — 按需查余额(不进调度轮询) =====
+  server.post('/admin/relay/accounts/:id/quota', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const [row] = await dbRead
+        .select()
+        .from(aiRelayAccountPool)
+        .where(eq(aiRelayAccountPool.id, p.data.id))
+        .limit(1)
+      if (!row) return reply.status(404).send(error(404, '账号不存在'))
+      const adapter = getRelayAdapter(row.providerCode)
+      if (!adapter) {
+        return reply
+          .status(400)
+          .send(error(400, `平台 ${row.providerCode} 适配器未注册,无法查余额`))
+      }
+      // 平台无已实证余额端点 ⇒ 如实"未支持",不得拿 0 冒充(0 在面板读成积分耗尽)
+      if (!adapter.getQuota) {
+        return reply
+          .status(400)
+          .send(error(400, `平台 ${row.providerCode} 无已实证的余额端点(未支持)`))
+      }
+      const ctx = { row, credentials: decryptAccountCredentials(row) }
+      const outcome = await adapter.getQuota(ctx, { proxyUrl: row.proxyUrl })
+      return reply.send(
+        success({
+          id: row.id,
+          providerCode: row.providerCode,
+          ok: outcome.ok,
+          error: outcome.error ?? null,
+          quota: outcome.quota ?? null,
+          queriedAt: new Date().toISOString(),
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '余额查询失败'))
+    }
   })
 }
 

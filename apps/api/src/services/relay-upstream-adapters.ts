@@ -55,7 +55,11 @@ export interface NormalizedChatRequest {
   user?: string
   /** 服务等级(OpenAI service_tier;上游不支持时忽略) */
   serviceTier?: string
-  /** 非标准但国内模型常用:top_k / repetition_penalty / logit_bias */
+  /**
+   * 采样面补集(与 relay-upstream-forwarder 的 UpstreamForwardRequest 同键同型,
+   * 2026-10-23 补齐:客户端面早有这三枚,归一契约缺位让消费方无处可接)。
+   * 协议不接受的平台直接忽略该字段。
+   */
   topK?: number
   repetitionPenalty?: number
   logitBias?: Record<string, number>
@@ -123,6 +127,32 @@ export interface UpstreamChatResult {
   completion?: Record<string, unknown>
 }
 
+/**
+ * 上游余额/配额查询结果(管理面按需展示,不进健康检查轮询)。
+ * 平台给得到哪些字段就给哪些:trae 给 used/total/ratio(积分制),
+ * qoder 只给 remaining(add-on credits)。全未知 ⇒ ok:false,不得用 0 冒充"余额为零"。
+ * ok:false 时 quota 为空;平台无余额端点则适配器不实现本方法。
+ */
+export interface RelayQuotaResult {
+  ok: boolean
+  error?: string
+  quota?: {
+    used?: number
+    total?: number
+    /** 剩余量(平台直接给剩余时的首选字段) */
+    remaining?: number
+    /** consumed/total,0..1 */
+    ratio?: number
+    /** 原始单位说明(如 trae 积分) */
+    unit?: string
+    resetsAt?: string
+    packs?: Array<{ name?: string; limit?: number; remaining?: number; endAt?: string }>
+  }
+}
+
+/** 余额查询的执行选项(与 AdapterCallOptions 同形,单独命名便于语义区分) */
+export type QuotaCallOptions = AdapterCallOptions
+
 export interface RelayUpstreamAdapter {
   providerCode: RelayProviderCode
   /** 构造上游 chat 请求(单段式协议;两段式协议平台改实现 executeChat) */
@@ -156,6 +186,11 @@ export interface RelayUpstreamAdapter {
   ): Promise<{ ok: boolean; error?: string }>
   /** 上游模型列表(可空:平台无此端点时健康检查退化为最小 chat 探测) */
   listModels?(ctx: AdapterAccountContext, opts?: AdapterCallOptions): Promise<string[]>
+  /**
+   * 余额/配额查询(可选:平台无已知端点则不实现,管理面显示"未支持")。
+   * 按需调用(管理面点查),不进调度轮询;永不抛(失败归 ok:false)。
+   */
+  getQuota?(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult>
   /** 上游响应是否 401/会话失效(触发 401 自愈刷新重试一次) */
   isAuthFailure(statusCode: number, bodyText: string): boolean
   /** executeChat 路径抛出的异常是否为鉴权失效(等价于 isAuthFailure 的异常形态) */
