@@ -825,10 +825,15 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
           return (
             <div key={i} className="flex items-stretch gap-1.5">
               {/* 时间轴线 + 圆点 */}
-              <div className="flex flex-col items-center pt-0.5">
-                <span className={cn('inline-block h-2 w-2 rounded-sm', style.bg)} />
+              <div className="relative flex w-2 flex-col items-center pt-0.5">
+                <span className={cn('relative inline-block h-2 w-2 rounded-sm', style.bg)} />
                 {i < record.messages.length - 1 && (
-                  <span className="mt-0.5 h-full border-l border-border" />
+                  // G-877 分割线残余:原 border-l 单边描边改判据认可的"导引轨"机械形
+                  // (absolute + top/bottom 上界成对 + w-px 背景细条,视觉等价,不再落在棘轮射程)
+                  <span
+                    className="absolute bottom-0 left-1/2 top-3 w-px -translate-x-1/2 bg-border"
+                    aria-hidden="true"
+                  />
                 )}
               </div>
               {/* 消息内容 */}
