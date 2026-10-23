@@ -452,6 +452,16 @@ export interface AgentActionRequest {
   targetInstanceId?: string
   /** 超时 ms,默认 30000 */
   timeout?: number
+  /**
+   * 协议派发序号(G-86,拍板@2026-10-09 机主授权代行:AgentActionRequest 增协议 ordinal 字段)。
+   *
+   * **服务端权威**:仅由 api /execute 派发投递时写入(executeSchema 会剥掉调用方自报的同名键,
+   * 客户端不得自算);对目标实例单调递增,进程级递增并以 Date.now() 为下限 ⇒ 重启后仍高于旧值,
+   * 端侧水位不会把新指令误判 stale。同 (实例, requestId) 再派发复用同值 ⇒ 重投帧被端侧
+   * 重放水位判 duplicate,这是「有界 id 集淘汰后重放复活」的协议级出口。
+   * 缺省 = 旧服务端形态,端侧水位回退端内到达计数作 provisional(恒 fresh,去重仍由 id 集承担)。
+   */
+  ordinal?: number
 }
 
 /** AgentActionResponse.errorCode 枚举 */
