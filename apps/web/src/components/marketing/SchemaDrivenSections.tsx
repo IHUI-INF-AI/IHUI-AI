@@ -94,17 +94,14 @@ function HeroSection({ pageIndex }: SectionProps) {
             <ShieldCheck className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
             {t('welcome.benefits.benefit6')}
           </span>
-          <span className="hidden h-3 border-l border-border min-[768px]:inline-block" />
           <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
             <Users className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
             {t('welcome.seats')}
           </span>
-          <span className="hidden h-3 border-l border-border min-[768px]:inline-block" />
           <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
             <Zap className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
             {t('welcome.earlyBird')}
           </span>
-          <span className="hidden h-3 border-l border-border min-[768px]:inline-block" />
           <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
             <Globe className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
             {t('welcome.multiEnd')}
