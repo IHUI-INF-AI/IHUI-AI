@@ -2767,7 +2767,8 @@ async def list_models(request: Request) -> dict[str, Any]:
                           m.release_date, m.tags{extra}
                    FROM ai_model_config_models m
                    JOIN ai_model_config c ON m.config_id = c.id
-                   WHERE m.enabled = true AND c.enabled = true AND m.is_relay_public = true
+                   WHERE m.enabled = true AND c.enabled = true
+                     AND (m.is_relay_public = true OR 'workbuddy' = ANY(m.tags))
                    ORDER BY c.sort_order NULLS LAST, m.relay_sort_order"""
             )
             try:
@@ -2778,6 +2779,8 @@ async def list_models(request: Request) -> dict[str, Any]:
         for r in rows:
             mid = r["model_id"]
             provider_code = r["provider_code"]
+            # 选择器条目实际使用的 provider(WorkBuddy 走 ihui_relay 桥,其余同原值)
+            entry_provider = provider_code
             # 2026-08-02 立:DB 模型 id 规范化(修复 /llm/models 模型缺失),按 provider 分支:
             # - gemini:剥掉 "models/" 前缀再加 "gemini/"(DB 中两种格式混存,如
             #   "models/gemini-2.0-flash" 与 "gemini-2.5-flash",统一为 "gemini/<name>")
@@ -2799,6 +2802,9 @@ async def list_models(request: Request) -> dict[str, Any]:
             elif provider_code == "stepfun" and not mid.startswith("stepfun/"):
                 # StepFun 模型加 "stepfun/" 前缀(与 default_models.json 对齐,避免重复)
                 mid = f"stepfun/{mid}"
+            elif provider_code == "workbuddy":
+                # 账号池模型直接以 workbuddy/ 前缀暴露;provider 用 workbuddy_relay 供可用性/能力判定
+                entry_provider = "workbuddy_relay"
             elif provider_code == "token6688":
                 # 2026-09-08 立:token6688 模型加 "t6688/" 前缀(调用时 gateway 按前缀路由,
                 # 否则裸 ID 会误路由到 OpenAI 默认分支);且只放行 chat 模型——
@@ -2815,7 +2821,7 @@ async def list_models(request: Request) -> dict[str, Any]:
                 _entry: dict[str, Any] = {
                     "id": mid,
                     "name": r["display_name"] or mid,
-                    "provider": provider_code,
+                    "provider": entry_provider,
                     "context_length": r["context_length"] or 4096,
                     # 分类引擎输入:用途分类需要 tags,代次判定需要 release_date
                     "release_date": r["release_date"],

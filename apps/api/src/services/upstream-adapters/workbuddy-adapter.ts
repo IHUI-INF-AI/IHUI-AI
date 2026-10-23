@@ -229,6 +229,9 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
     if (req.parallelToolCalls !== undefined) raw['parallel_tool_calls'] = req.parallelToolCalls
     if (req.user !== undefined) raw['user'] = req.user
     if (req.serviceTier !== undefined) raw['service_tier'] = req.serviceTier
+    if (req.topK !== undefined) raw['top_k'] = req.topK
+    if (req.repetitionPenalty !== undefined) raw['repetition_penalty'] = req.repetitionPenalty
+    if (req.logitBias !== undefined) raw['logit_bias'] = req.logitBias
     // stop 必须数组:上游 Go 服务对字符串形态直接 400(实测 code=11101)
     const stops = normalizeStopList(req.stop)
     if (stops.length > 0) raw['stop'] = stops

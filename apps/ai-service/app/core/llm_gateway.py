@@ -447,6 +447,7 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "agnes/": "agnes",
     "t6688/": "token6688",
     "ihui/": "ihui_relay",
+    "workbuddy/": "workbuddy_relay",
     "qwen": "qwen",
     "qwen-": "qwen",
     # 小米 MiMo 官方 /v1/models 返回裸名(mimo-v2.5 等,无 vendor 前缀)。缺这条则
@@ -2137,6 +2138,10 @@ class LLMGateway:
             # api_base 自动检测:根据网络延迟切换国内/海外端点
             api_base = _detect_ihui_relay_base()
             return cfg.api_key, api_base, f"openai/{real_model}"
+        if m.startswith("workbuddy/"):
+            # 项目自有中转站(账号池):模型串保持 workbuddy/ 前缀,由中转站路由到账号池
+            cfg = settings.get_provider_config("workbuddy_relay")
+            return cfg.api_key, cfg.api_base, f"openai/{model}"
         if m.startswith("groq/"):
             cfg = settings.get_provider_config("groq")
             return cfg.api_key, cfg.api_base or None, model

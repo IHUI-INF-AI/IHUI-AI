@@ -55,6 +55,10 @@ export interface NormalizedChatRequest {
   user?: string
   /** 服务等级(OpenAI service_tier;上游不支持时忽略) */
   serviceTier?: string
+  /** 非标准但国内模型常用:top_k / repetition_penalty / logit_bias */
+  topK?: number
+  repetitionPenalty?: number
+  logitBias?: Record<string, number>
   /**
    * reasoning_effort 原样透传(OpenAI 语义 low/medium/high 等)。
    * Trae 落 `custom_model.reasoning_effort_level`,其余平台按原生字段透传。
