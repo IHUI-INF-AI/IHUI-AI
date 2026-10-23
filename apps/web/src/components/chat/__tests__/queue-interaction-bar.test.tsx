@@ -162,6 +162,36 @@ describe('D38 QueueInteractionBar / 渲染结构与四动作', () => {
     expect(onEdit).not.toHaveBeenCalled()
   })
 
+  it('G-171a:编辑期间目标项正文被外部改动 ⇒ onEditDriftChange 上抛 true;编辑结束回落 false', () => {
+    // 调用方(message-input)把该实测值并入 queueInteractionPerms 的 queueChanged 输入,
+    // 使重排/撤回许可门吃到编辑窗口漂移这一真实来源 —— 本用例钉上抛契约本身。
+    const onEditDriftChange = vi.fn()
+    const { container, rerender } = render(
+      <QueueInteractionBar {...baseProps({ onEditDriftChange })} />,
+    )
+    fireEvent.click(
+      container.querySelector('[data-queue-op="edit"][data-item-id="q1"]') as HTMLButtonElement,
+    )
+    // 刚进编辑:基线 == 当前正文,无漂移
+    expect(onEditDriftChange).toHaveBeenLastCalledWith(false)
+    // 外部并发变更:调用方注入的 items 里 q1 正文已变(用户看到的是旧队列)
+    rerender(
+      <QueueInteractionBar
+        {...baseProps({
+          onEditDriftChange,
+          items: [
+            { id: 'q1', text: '被外部改过' },
+            { id: 'q2', text: '第二条' },
+          ],
+        })}
+      />,
+    )
+    expect(onEditDriftChange).toHaveBeenLastCalledWith(true)
+    // 取消编辑 ⇒ 漂移位必须收回(调用方 perms 不得继续锁重排/撤回)
+    fireEvent.click(container.querySelector('[data-queue-op="editCancel"]') as HTMLButtonElement)
+    expect(onEditDriftChange).toHaveBeenLastCalledWith(false)
+  })
+
   it('键盘重排:把手 ↑↓ 上抛 onReorder(先摘后插语义);端点方向不越界', () => {
     const onReorder = vi.fn()
     const three: QueuedItemView[] = [

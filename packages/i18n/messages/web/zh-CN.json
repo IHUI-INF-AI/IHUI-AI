@@ -7664,7 +7664,10 @@
             "cause": {
               "streaming": "本轮回答还在生成，排队顺序暂时锁定",
               "emptyQueue": "队列里已经没有可以撤回的消息",
-              "runtimeNoInterject": "该 Runtime 未开放插话，消息会留在队列里按顺序处理"
+              "runtimeNoInterject": "该 Runtime 未开放插话，消息会留在队列里按顺序处理",
+              "queueChanged": "队列已被并发操作改动，当前顺序已失效",
+              "controlCommand": "控制命令不能插入运行中的 Turn，消息会留在队列里按顺序处理",
+              "awaitingApproval": "有待批准的高危操作，插话将让行，请先完成决策"
             }
           },
           "blocked": {
@@ -7677,7 +7680,8 @@
           },
           "outcome": {
             "deferred": "消息未发送，仍保留在队列中",
-            "failed": "消息发送失败，请重试"
+            "failed": "消息发送失败，请重试",
+            "sent": "消息已发送"
           },
           "reorderAria": "拖动调整排队顺序；聚焦后可使用上下方向键"
         }
@@ -9366,6 +9370,15 @@
       "createDraftPullRequest": "创建 Draft PR",
       "createDraftPullRequestOk": "Draft PR 已创建",
       "createDraftPullRequestFailed": "创建 Draft PR 失败"
+    },
+    "pictureInPicture": {
+      "sectionLabel": "电脑使用画中画",
+      "title": "画中画",
+      "hideInSession": "在此会话中隐藏画中画",
+      "hideInAllSessions": "在所有会话中隐藏画中画",
+      "updateFailed": "更新失败",
+      "emptyState": "暂无可观看的电脑使用会话",
+      "openWindow": "打开画中画窗口"
     },
     "floatMode": "浮窗模式",
     "handleHint": "点击或向右拉出AI工作区",
@@ -12616,6 +12629,43 @@
     "resultCount": "{count} 个结果",
     "searchPlaceholder": "搜索命令...",
     "recentGroup": "最近使用"
+  },
+  "collab": {
+    "collaboratorsEmpty": "暂无协作者",
+    "collaboratorsTitle": "协作者",
+    "invitationAccept": "接受邀请",
+    "invitationAcceptDone": "已接受邀请",
+    "invitationAcceptFailed": "接受邀请失败",
+    "invitationAccepting": "接受中…",
+    "invitationConversation": "会话",
+    "invitationInvitedBy": "邀请人",
+    "invitationTitle": "待处理协作邀请",
+    "lockAcquire": "开始发言",
+    "lockAcquired": "已拿到发言权",
+    "lockFailed": "发言锁操作失败",
+    "lockFree": "当前无人发言",
+    "lockHeldBy": "{user} 正在发言",
+    "lockRelease": "交麦",
+    "lockReleased": "已交麦",
+    "lockTakeover": "接管发言",
+    "lockTaken": "已接管发言",
+    "lockTitle": "发言锁",
+    "manageTitle": "协作管理",
+    "revoke": "撤销",
+    "revokeConfirm": "确定撤销该协作者？",
+    "revokeDone": "已撤销协作者",
+    "revokeFailed": "撤销失败",
+    "statusAccepted": "已接受",
+    "statusPending": "待接受",
+    "statusRevoked": "已撤销",
+    "tierAcceptEdits": "接受编辑（可发言）",
+    "tierBypassPermissions": "绕过权限（可发言）",
+    "tierDefault": "默认档（可发言）",
+    "tierLabel": "权限档",
+    "tierPlan": "只读+评论",
+    "tierUpdated": "档位已更新",
+    "tierUpdateFailed": "档位更新失败",
+    "you": "你"
   },
   "comments": {
     "adminReply": "管理员回复",

@@ -97,6 +97,8 @@ import { QueueInteractionBar } from '@/components/chat/queue-interaction-bar'
 import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
 // Runtime 插话能力声明的**唯一回落判点**(未声明 ⇒ false,与写死 false 同形)
 import { resolveInterjectionSupport } from '@/hooks/use-chat/runtime-capabilities'
+// G-171a:审批待决事实源(turn-status-line 的 waitingConfirm 同一位,不另取数)
+import { useToolApprovalPending } from '@/components/ai/tool-approval-dialog'
 import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getMessages } from '@ihui/api-client'
@@ -481,25 +483,41 @@ export function MessageInput({
   // (ai-side-panel 的 getConversation 分支),均落在 chat store 这一个键上。
   const runtimeInterjection = chatStore((s) => s.runtimeInterjection)
   const runtimeSupportsInterjection = resolveInterjectionSupport(runtimeInterjection)
+  // G-171a:审批待决位(高危工具审批正等待用户决策 ⇒ 插话/打断须让行)。
+  const awaitingApproval = useToolApprovalPending()
+  // G-171a:queueChanged 的调用方态 —— 由 QueueInteractionBar 实测的编辑窗口正文漂移
+  // 上抛(用户看到的正文与队列现值不一致 = 队列已变),喂进 D69 perms 同一判定。
+  const [editQueueDrift, setEditQueueDrift] = React.useState(false)
   // 补答一条侧问文本(runBestOfN 单候选,回答以 sidechat 消息入本地流,不入主线历史);
-  // 失败仅 toast 提示,不打断主流程
+  // 失败仅 toast 提示,不打断主流程。
+  // G-171b:发送 promise 的 settle 点 —— 队列项(带 queuedItemId)成功→sent、失败→failed,
+  // 经 chat store recordQueueSendOutcome 落 D162 终态台账;非队列即答(无 itemId)不落账。
   const answerWithToast = React.useCallback(
-    (text: string) => {
-      void answerSideQuestion(text, t).catch((error: unknown) => {
-        toast.error(
-          t('sideAnswerFailed', {
-            error: error instanceof Error ? error.message : String(error),
-          }),
-        )
-      })
+    (text: string, queuedItemId?: string) => {
+      void answerSideQuestion(text, t)
+        .then(() => {
+          if (queuedItemId && conversationId) {
+            chatStore.getState().recordQueueSendOutcome(conversationId, queuedItemId, 'sent')
+          }
+        })
+        .catch((error: unknown) => {
+          if (queuedItemId && conversationId) {
+            chatStore.getState().recordQueueSendOutcome(conversationId, queuedItemId, 'failed')
+          }
+          toast.error(
+            t('sideAnswerFailed', {
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          )
+        })
     },
-    [t],
+    [t, conversationId, chatStore],
   )
   // 从当前会话队列出队一条并补答(流结束自动补答 / 「立即补答」共用)
   const answerCurrentSideQuestion = React.useCallback(() => {
     if (!conversationId) return
     const item = shiftSideQuestion(conversationId)
-    if (item) answerWithToast(item.text)
+    if (item) answerWithToast(item.text, item.id)
   }, [conversationId, shiftSideQuestion, answerWithToast])
   // 流式结束后自动发送预备消息(2026-08-14 立,对标 Cursor/ChatGPT 流式期间输入下一条行为)
   // D28(2026-09-20):流结束后预备消息优先(W27);无预备消息时补答当前会话队首侧问
@@ -985,7 +1003,8 @@ export function MessageInput({
       if (!conversationId || !plan.thenRun) return
       if (plan.stopFirst) onStop()
       const head = chatStore.getState().interruptAndRun(conversationId)
-      if (head && head.id === plan.thenRun) answerWithToast(head.text)
+      // G-171b:「打断并执行」的补答同样是队列项 → 带 id 落终态台账
+      if (head && head.id === plan.thenRun) answerWithToast(head.text, head.id)
     },
     // answerWithToast 是 useCallback 稳定引用,列入依赖防闭包读旧 conversationId
     [conversationId, onStop, answerWithToast, chatStore],
@@ -1046,15 +1065,22 @@ export function MessageInput({
             resolveInterjectionSupport):**字段缺失即回落 false**,与声明落地前写死 false 同形,
             故生产者一到位即自动生效,端内不自建能力判定(判定只有 shared 那一套)。
             D162:blockCtx 只喂本面**真实已知**的条件(Runtime 不支持插话 / 流式中 Turn 在跑 /
-            队列非空即有等待请求);queueChanged / 控制命令 / 来源匹配现无生产者,恒 false,
-            待各自回传链路落地后接线 —— 不臆造状态。 */}
+            队列非空即有等待请求);控制命令 / 来源匹配现无生产者,恒 false,
+            待各自回传链路落地后接线 —— 不臆造状态。
+            G-171a:perms 新增三条件里本面有真实来源的两条已喂 —— awaitingApproval =
+            useToolApprovalPending()(高危工具审批等待决策,与 turn-status-line 同一事实源);
+            queueChanged = 交互条实测的编辑窗口正文漂移(editQueueDrift 上抛)。
+            isControlCommand 全仓现读无生产者 ⇒ 不喂(缺省 false)。 */}
         <QueueInteractionBar
           items={(sideQueue ?? []).map((sq) => ({ id: sq.id, text: sq.text }))}
           perms={queueInteractionPerms({
             runtimeSupportsInterjection,
             streaming: isStreaming,
             hasQueuedMessages: (sideQueue?.length ?? 0) > 0,
+            awaitingApproval,
+            queueChanged: editQueueDrift,
           })}
+          onEditDriftChange={setEditQueueDrift}
           blockCtx={{
             runtimeSupportsInterjection,
             hasRunningTurn: isStreaming,
@@ -1070,7 +1096,11 @@ export function MessageInput({
             if (conversationId) chatStore.getState().requeue(conversationId, from, to)
           }}
           onUndo={(id) => {
-            if (conversationId) chatStore.getState().removeQueued(conversationId, id)
+            if (conversationId) {
+              // G-171b:被撤回的队列项 = 未发送 ⇒ deferred 终态(D162 两分:deferred≠failed)
+              chatStore.getState().recordQueueSendOutcome(conversationId, id, 'deferred')
+              chatStore.getState().removeQueued(conversationId, id)
+            }
           }}
           onEdit={(id, text) => {
             if (conversationId) chatStore.getState().editQueued(conversationId, id, text)
