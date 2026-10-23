@@ -53,13 +53,31 @@ test.describe('Admin 号池页签到列(O64)', () => {
     await expect(header).toBeVisible({ timeout: 10000 })
   })
 
-  test('行操作含立即签到/重推同步入口(O64,若可访问且有数据行)', async ({ page }) => {
+  test('行操作含立即签到/重推同步入口(O64)', async ({ page }) => {
     await page.goto('/admin/relay/account-pool')
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/relay/account-pool')) return
-    const runBtn = page.getByTitle('立即签到').first()
-    const resyncBtn = page.getByTitle('重推签到同步').first()
-    if ((await runBtn.count()) === 0 && (await resyncBtn.count()) === 0) return // 空表格/无权限,降级通过
-    await expect(runBtn.or(resyncBtn).first()).toBeVisible()
+
+    // 等表格落定:出现「暂无数据」(空池)或至少一行带勾选框的真实数据
+    const tbody = page.locator('table tbody').first()
+    await tbody
+      .locator('tr', { hasText: '暂无数据' })
+      .or(tbody.locator('tr').filter({ has: page.getByRole('checkbox') }))
+      .first()
+      .waitFor({ timeout: 10_000 })
+      .catch(() => {})
+
+    // 仅当确实空池(无任何账号行)才放行;有数据行时操作按钮必须存在
+    if (
+      await tbody
+        .getByText('暂无数据')
+        .isVisible()
+        .catch(() => false)
+    )
+      return
+
+    const runBtn = page.getByRole('button', { name: '立即签到' }).first()
+    const resyncBtn = page.getByRole('button', { name: '重推签到同步' }).first()
+    await expect(resyncBtn.or(runBtn)).toBeVisible()
   })
 })

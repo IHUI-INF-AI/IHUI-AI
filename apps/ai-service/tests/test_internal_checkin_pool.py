@@ -197,7 +197,7 @@ class FakeStore:
                     "poolCredVersion": checkin_store._pool_cred_version_of(acc["device_map"]),
                     "poolSyncedAt": acc["device_map"].get("pool_synced_at"),
                     "poolDeletedAt": acc["device_map"].get("pool_deleted_at"),
-                    "pendingCred": "pending_cred" in acc["device_map"],
+                    "pendingCred": "pool_pending_cred" in acc["device_map"],
                     "cooldownUntil": None,
                     "lastRecord": None,
                 }

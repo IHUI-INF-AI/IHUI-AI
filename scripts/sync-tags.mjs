@@ -5,11 +5,13 @@
 // 运维工具:按命名空间策略分批同步 tag 到远端(根治 push --tags 假死)
 // 用法: node scripts/sync-tags.mjs <remote...>
 // 背景: 本地 4919 tag 中 lost-commit/* 历史归档占 4018,单次 push --tags
-//       巨量协商无进度反馈形如假死;gitcode 等镜像仓不需要全量历史归档.
+//       巨量协商无进度反馈形如假死;镜像仓不需要全量历史归档.
 // 策略(2026-09-04 立见 STATE.md):
 //   - origin = 权威备份仓,历史归档命名空间全量保护
-//   - gitee/gitcode = 镜像仓,只同步活命名空间(backup/saved/recovery/
+//   - 镜像仓 = 只同步活命名空间(backup/saved/recovery/
 //     unreachable-commits-backup/release 版本 tag),历史归档不同步
+// 注:2026-10-23 起国内代码镜像仓(Gitee/GitCode)已弃用、远端已从仓库配置移除,
+//     本脚本对它们不再有任何调用点;镜像分支仍保留,供将来任一真实镜像远端使用。
 import { spawnSync } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
 

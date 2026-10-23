@@ -137,13 +137,8 @@
   </sub>
 </p>
 
-<p align="center">
-  <strong>国内镜像</strong> ·
-  <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> ·
-  <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
-  <br/>
-  <sub>国内用户克隆/下载更快，与 GitHub 自动同步</sub>
-</p>
+<!-- 2026-10-23 机主令:国内代码镜像(Gitee/GitCode)早已弃用,此徽章块整块删除。
+     不要再按旧稿把镜像链接加回 README —— 那两个仓已停更,链过去拿到的是过期代码。 -->
 
 <p align="center">
   <strong>📬 快速联系 · 合作咨询</strong>

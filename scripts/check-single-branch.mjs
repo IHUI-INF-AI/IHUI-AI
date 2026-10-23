@@ -16,7 +16,7 @@
  * 检测逻辑:
  *   1. git branch -a 列出全部本地 + 远程分支
  *   2. 规范化:去掉当前分支星号、remotes/ 前缀
- *   3. 白名单:main / origin/main / upstream/main / gitee/main(镜像远程)/ HEAD
+ *   3. 白名单:main / origin/main / upstream/main / HEAD
  *   4. 已 checkout 在 linked worktree 的分支豁免(AGENTS.md §12d sanctioned 并行隔离,非 feature 分支)
  *   4. 剩余分支逐一判定:
  *      - goal/* 前缀 → 检查 .ihui-agent/goal-runtime/STATE.md 是否标注 active → 合法豁免
@@ -26,9 +26,9 @@
  * 集成位置: scripts/guardian-runner.mjs id 41(blocking)
  *
  * 2026-09-24 两处判据改正(都是"红得没有处置对象"那一类):
- *   ① 镜像远端(除 origin/upstream 外的一切:gitee / gitcode / gh …)下的分支**不判,但如实报数**。
- *      §9b 禁的是"工作分支",而 AGENTS §5b 明令本机不直推 Gitee/GitCode(交 mirror-to-cn.yml
- *      CI 收敛)⇒ 这些引用在本机既不该建也不该删,判红只会把一个无人能在此处置的状态
+ *   ① 镜像远端(除 origin/upstream 外的一切:gh 等)下的分支**不判,但如实报数**。
+ *      §9b 禁的是"工作分支",而 AGENTS §5b 明令本机不直推镜像仓(2026-10-23 起国内镜像仓
+ *      Gitee/GitCode 已整体弃用,此处保留的是对"第三类远端"的通用豁免形态)⇒ 这些引用在本机既不该建也不该删,判红只会把一个无人能在此处置的状态
  *      变成全局阻塞(实测 `gh/main` 因不在硬编码白名单而被判成非法分支)。
  *   ② **不可解析的远程跟踪引用(幻影)不判,但如实报数**。§5b 实测宿主清理层会删
  *      depth≥2 的 `refs/remotes/<remote>/*`,而 `git-refs-heal` / packed-refs 又会把它按
@@ -67,13 +67,11 @@ const C = {
   reset: '\x1b[0m',
 }
 
-/** 合法分支白名单(本地 main + 远程 main:origin/upstream/gitee/gitcode 镜像;gitee/gitcode 为项目 sanctioned 镜像远程,main 即 main) */
+/** 合法分支白名单(本地 main + 远程 main:origin/upstream;main 即 main) */
 const ALLOWED = new Set([
   'main',
   'origin/main',
   'upstream/main',
-  'gitee/main',
-  'gitcode/main',
   'HEAD',
 ])
 
@@ -81,17 +79,16 @@ const ALLOWED = new Set([
  * sanctioned 发布产物分支(非开发分支,不违反单分支原则)。
  *
  * desktop-feed(2026-09-17 立):桌面端 updater feed 的"真源分支"——GitHub 侧
- * desktop-feed 分支承载 latest.json feed,Gitee/GitCode 镜像自动携带。属发布管线
+ * desktop-feed 分支承载 latest.json feed。属发布管线
  * 数据通道,非功能开发分支;见 commit 359a782d3be(desktop-feed 真源化 GitHub),
  * 其 updater 端点自 2026-10-05 定稿为单端点 https://aizhs.top/desktop-feed.json,
- * 原 desktop-updater-feed release 兜底端点已删除(数据链仍为 Gitee raw → GitHub raw/desktop-feed)。
+ * 原 desktop-updater-feed release 兜底端点已删除(数据链为 GitHub raw/desktop-feed)。
  * 该分支由 CI/发版脚本写入,人工严禁在此分支做功能开发。
+ * 2026-10-23:Gitee/GitCode 代码镜像已弃用,镜像侧的 desktop-feed 跟踪引用一并移出白名单。
  */
 const SANCTIONED_RELEASE_BRANCHES = new Set([
   'desktop-feed',
   'origin/desktop-feed',
-  'gitee/desktop-feed',
-  'gitcode/desktop-feed',
 ])
 
 /**
@@ -445,7 +442,7 @@ function main() {
     if (exempt.mirror.length) {
       console.log(
         `${C.dim}ℹ️ 不判但如实报数:${exempt.mirror.length} 个镜像远端引用(${exempt.mirror.join(', ')})` +
-          ` —— §5b 本机不直推 Gitee/GitCode/gh,交 mirror-to-cn.yml CI 收敛${C.reset}`,
+          ` —— §5b 本机不直推镜像仓,代码只经 origin 收敛(国内镜像仓已弃用,见 AGENTS §5b)${C.reset}`,
       )
     }
     if (exempt.phantom.length) {
@@ -532,13 +529,13 @@ export function selfTest() {
     }
     cases.push([name, verdict])
   }
-  const mirrors = mirrorRemoteSet('gitee\ngitcode\norigin\nupstream\ngh\n')
+  const mirrors = mirrorRemoteSet('gh\ncn\norigin\nupstream\n')
   const e = (name, remote = true) => ({ name, remote })
   const ctx = (over = {}) => ({ mirrorRemotes: mirrors, unresolvable: new Set(), ...over })
 
-  t('remote 清单:origin/upstream 不当镜像,gitee/gitcode/gh 算镜像', () => {
+  t('remote 清单:origin/upstream 不当镜像,gh/cn 算镜像', () => {
     return (
-      mirrors.has('gitee') &&
+      mirrors.has('cn') &&
       mirrors.has('gh') &&
       !mirrors.has('origin') &&
       !mirrors.has('upstream')
@@ -546,7 +543,7 @@ export function selfTest() {
   })
   t('镜像远端引用豁免为 mirror(含未配进 git remote 的 gh)', () => {
     return (
-      nonLocalExempt(e('gitee/desktop-feed'), ctx()) === 'mirror' &&
+      nonLocalExempt(e('gh/desktop-feed'), ctx()) === 'mirror' &&
       nonLocalExempt(e('gh/main'), ctx()) === 'mirror'
     )
   })
@@ -622,7 +619,7 @@ export function selfTest() {
     return (
       staleExempt('feat/local-thing', q) === null &&
       staleExempt('wip/no-slash-name', q) === null &&
-      staleExempt('gitee/desktop-feed', q) === null
+      staleExempt('gh/desktop-feed', q) === null
     )
   })
   // ---- 2026-09-28 新增:在飞窗口 + 备份引用。豁免类判据最大的风险是"把该拦的放过去",

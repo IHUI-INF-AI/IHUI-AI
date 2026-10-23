@@ -28,7 +28,7 @@
 | 技术栈 | Next.js 16 + Fastify 5 + FastAPI + LangGraph + LiteLLM + MCP + Taro 4 |
 | 数据 | 340 表 / 144 迁移 / 1300+ API / 5346 测试 / 176 模型 |
 | License | Apache-2.0(商业可用) |
-| 国内镜像 | Gitee https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI · GitCode https://gitcode.com/IHUI-AI/IHUI-AI |
+| 国内镜像 | 无(2026-10-23 起停止对外镜像,代码只托管在 GitHub;旧镜像仓已弃用,勿再引用) |
 | 联系方式 | 微信 `ok502319984` · 邮箱 [REDACTED-EMAIL] |
 | 一句话 | 一个仓库,干翻 40+ 商业产品 — 8 端 / 176 模型 / LangGraph+MCP+A2A / 340 表 / 1300+ API / Apache 2.0 |
 
