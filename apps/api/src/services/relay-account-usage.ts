@@ -27,6 +27,10 @@ export interface RecordAccountUsageInput {
   model: string
   promptTokens: number
   completionTokens: number
+  /** 推理 token(completion 已含它,只作拆分展示);缺省 0 */
+  reasoningTokens?: number
+  /** 命中缓存的前缀 token;缺省 0 */
+  cachedTokens?: number
   ok: boolean
   latencyMs: number
   ts?: Date
@@ -53,6 +57,8 @@ export async function recordAccountUsage(input: RecordAccountUsageInput): Promis
       model: input.model,
       promptTokens: input.promptTokens,
       completionTokens: input.completionTokens,
+      reasoningTokens: input.reasoningTokens ?? 0,
+      cachedTokens: input.cachedTokens ?? 0,
       ok: input.ok,
       latencyMs: normalizeLedgerLatencyMs(input.latencyMs),
       ts: input.ts ?? new Date(),

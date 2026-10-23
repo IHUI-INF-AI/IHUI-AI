@@ -185,7 +185,7 @@ import { compositeKeyOf, auditPlan, f9GroupLine } from './lib/plan-task-index.mj
 import { narrowF9Face, readFieldsFace } from './plan-tasks.mjs'
 // G-965 写盘闸改造(2026-10-22):改写整行时的三维守恒断言**只有这一份实现**(规格 §2),
 // 本器只做接线;翻勾/删行是活文档编辑器的合法动作,断言刻意拒绝它们(故只在 open→open 时施加)。
-import { assertRowRewriteConservation } from './lib/plan-row-conservation.mjs'
+import { assertRowRewriteConservation, leaseTransitionOf } from './lib/plan-row-conservation.mjs'
 import { fieldsFor } from './lib/plan-fields.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
@@ -1173,7 +1173,13 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
         )
       bad = bad.filter((b) => !b.startsWith('主键漂了:'))
     }
-    if (bad.length === 0) continue
+    if (bad.length === 0) {
+      if (leaseTransitionOf(oldLine, newLine) === 'add-complete')
+        notes.push(
+          `ℹ 三维守恒第 ${i + 1} 项:新增完整租约(无牌 → @日期/持有者)⇒ 放行(AGENTS §1 认领动作;摘牌/换牌仍拒)`,
+        )
+      continue
+    }
     const at = []
     for (let k = 0; k < baseLines.length; k++) if (baseLines[k] === oldLine) at.push(k + 1)
     violations.push({ item: i + 1, at, bad })

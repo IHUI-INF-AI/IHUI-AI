@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 
 import pytest
-from prometheus_client import REGISTRY, Counter, Gauge, Histogram
+from prometheus_client import REGISTRY, Counter, Histogram
 
 from app.middleware.llm_metrics import (
     llm_provider_errors_total,

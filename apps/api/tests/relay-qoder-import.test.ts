@@ -274,4 +274,66 @@ describe('relay-import-qoder 纯函数', () => {
       expect(none['Cosy-MachineToken']).toBeUndefined()
     })
   })
+
+  describe('getQuota(add-on credits 余额)', () => {
+    /**
+     * 键序取自本仓参考实现 apps/ai-service/app/services/checkin_qoder.py 的
+     * qoder_query_credits(data 包裹 → addOnQuota / add_on_quota → remaining)。
+     * 上游该响应细节未全证 ⇒ 判据是"认不出就落未判定",不是"猜出零"。
+     */
+    it('addOnQuota.remaining 可解析(顶层与 data 包裹两形)', async () => {
+      const { extractAddOnRemaining } =
+        await import('../src/services/upstream-adapters/qoder-adapter.js')
+      expect(extractAddOnRemaining({ addOnQuota: { remaining: 118.7 } })).toBe(118)
+      expect(extractAddOnRemaining({ data: { add_on_quota: { remaining: 300 } } })).toBe(300)
+    })
+
+    it('认不出 remaining ⇒ null(布尔/字符串/缺字段都不算余额)', async () => {
+      const { extractAddOnRemaining } =
+        await import('../src/services/upstream-adapters/qoder-adapter.js')
+      expect(extractAddOnRemaining({ addOnQuota: { remaining: true } })).toBeNull()
+      expect(extractAddOnRemaining({ addOnQuota: { remaining: '12' } })).toBeNull()
+      expect(extractAddOnRemaining({ usage: { remaining: 12 } })).toBeNull()
+      expect(extractAddOnRemaining('<html>challenge</html>')).toBeNull()
+      expect(extractAddOnRemaining(null)).toBeNull()
+    })
+
+    it('适配器:200 可解析 ⇒ ok:true;200 但认不出 ⇒ ok:false 未判定;永不抛', async () => {
+      const { qoderAdapter } = await import('../src/services/upstream-adapters/qoder-adapter.js')
+      const ctx = {
+        row: { extraMetadata: {}, machineId: 'mid-1' },
+        credentials: { token: 'dt-token', cookies: [], secrets: {} },
+      } as never
+      const stub = (payload: unknown, status = 200) =>
+        ({
+          ok: status >= 200 && status < 300,
+          status,
+          json: async () => payload,
+          text: async () => JSON.stringify(payload),
+        }) as never
+      const hit = await qoderAdapter.getQuota!(ctx, {
+        fetchImpl: (async (url: string) => {
+          expect(String(url)).toContain('/api/v2/quota/usage')
+          return stub({ addOnQuota: { remaining: 120 } })
+        }) as never,
+      })
+      expect(hit.ok).toBe(true)
+      expect(hit.quota?.remaining).toBe(120)
+
+      const unknown = await qoderAdapter.getQuota!(ctx, {
+        fetchImpl: (async () => stub({ data: {} })) as never,
+      })
+      expect(unknown.ok).toBe(false)
+      expect(unknown.error).toContain('未判定')
+      expect(unknown.quota).toBeUndefined()
+
+      const boom = await qoderAdapter.getQuota!(ctx, {
+        fetchImpl: (async () => {
+          throw new Error('socket hang up')
+        }) as never,
+      })
+      expect(boom.ok).toBe(false)
+      expect(boom.error).toContain('socket hang up')
+    })
+  })
 })

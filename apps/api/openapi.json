@@ -951,189 +951,6 @@
         }
       }
     },
-    "/api/admin/admin/relay/channels/batch-toggle": {
-      "post": {
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/admin/admin/relay/channels/groups": {
-      "get": {
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      },
-      "post": {
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/admin/admin/relay/channels/groups/{id}": {
-      "delete": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      },
-      "patch": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/admin/admin/relay/channels/groups/{id}/members": {
-      "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/admin/admin/relay/channels/groups/{id}/members/{memberId}": {
-      "delete": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          },
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "memberId",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/admin/admin/relay/channels/groups/{id}/stats": {
-      "get": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/admin/admin/relay/channels/test/{keyPoolId}": {
-      "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "keyPoolId",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/admin/admin/relay/channels/test/{keyPoolId}/reset-circuit": {
-      "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "keyPoolId",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/admin/admin/relay/channels/{id}/test": {
-      "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
     "/api/admin/admin/relay/pricing/discounts": {
       "get": {
         "responses": {
@@ -7820,6 +7637,214 @@
         }
       }
     },
+    "/api/admin/customer-service/sessions": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "实时会话列表",
+        "tags": [
+          "customer-service"
+        ]
+      }
+    },
+    "/api/admin/customer-service/stats": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "客服工作台统计",
+        "tags": [
+          "customer-service"
+        ]
+      }
+    },
     "/api/admin/customer-service/tickets": {
       "get": {
         "parameters": [
@@ -7982,6 +8007,243 @@
           }
         },
         "summary": "工单列表",
+        "tags": [
+          "customer-service"
+        ]
+      }
+    },
+    "/api/admin/customer-service/tickets/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "工单详情(管理台)",
+        "tags": [
+          "customer-service"
+        ]
+      },
+      "put": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "更新工单",
         "tags": [
           "customer-service"
         ]
@@ -28570,6 +28832,108 @@
         "tags": [
           "order"
         ]
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "手工创建订单",
+        "tags": [
+          "order"
+        ]
       }
     },
     "/api/admin/orders/batch-cancel": {
@@ -31512,6 +31876,200 @@
         }
       }
     },
+    "/api/admin/relay/account-pool/sweep": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/account-pool/usage/{id}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/import": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/claim": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/health": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/quota": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/release": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/accounts/{id}/toggle": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/alert-rules": {
       "get": {
         "responses": {
@@ -31723,6 +32281,170 @@
         }
       }
     },
+    "/api/admin/relay/channels/batch-toggle": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/channels/groups": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/channels/groups/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "patch": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/channels/groups/{id}/members": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/channels/groups/{id}/members/{memberId}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "memberId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/channels/groups/{id}/stats": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/channels/test/{keyPoolId}": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "keyPoolId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/channels/test/{keyPoolId}/reset-circuit": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "keyPoolId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/channels/{id}": {
       "patch": {
         "parameters": [
@@ -31921,6 +32643,25 @@
         "tags": [
           "ChannelQuota"
         ]
+      }
+    },
+    "/api/admin/relay/channels/{id}/test": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
       }
     },
     "/api/admin/relay/commission": {
@@ -32423,6 +33164,41 @@
         }
       }
     },
+    "/api/admin/relay/model-catalog": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/model-catalog/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/admin/relay/models": {
       "get": {
         "responses": {
@@ -32745,6 +33521,77 @@
     },
     "/api/admin/relay/prompt-audit/stats": {
       "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/proxy-pool": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/proxy-pool/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "patch": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/admin/relay/proxy-pool/{id}/check": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response"
@@ -43087,6 +43934,22 @@
         }
       }
     },
+    "/api/agent-setting": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/agent-withdrawal-detail": {
       "get": {
         "responses": {
@@ -43276,6 +44139,13 @@
     },
     "/api/agents": {
       "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -77853,6 +78723,24 @@
         ]
       }
     },
+    "/api/ai/mcp/prompts": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/ai/mcp/resources": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/ai/mcp/servers": {
       "get": {
         "responses": {
@@ -77928,6 +78816,15 @@
     },
     "/api/ai/mcp/tools/call": {
       "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/ai/mcp/usage": {
+      "get": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -111253,7 +112150,41 @@
       }
     },
     "/api/announcements/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
       "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "patch": {
         "parameters": [
           {
             "schema": {
@@ -111985,6 +112916,24 @@
       }
     },
     "/api/asks/member/question/list": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/asks/my/answers/count": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/asks/my/count": {
       "get": {
         "responses": {
           "200": {
@@ -113768,6 +114717,24 @@
                 }
               }
             }
+          },
+          "502": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "邮箱登录-校验邮箱并发送验证码",
@@ -113993,6 +114960,13 @@
     },
     "/api/auth/me": {
       "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -114778,6 +115752,24 @@
                 }
               }
             }
+          },
+          "502": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "summary": "发送手机验证码",
@@ -115018,6 +116010,15 @@
     },
     "/api/auth/wechat/mini/login": {
       "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/auth/wechat/mini/one-tap-login": {
+      "post": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -117282,6 +118283,22 @@
         }
       }
     },
+    "/api/certificates": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/certificates/issue": {
       "post": {
         "responses": {
@@ -119168,6 +120185,22 @@
         }
       }
     },
+    "/api/chat/settings": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/chat/skills/": {
       "get": {
         "responses": {
@@ -119916,6 +120949,34 @@
             "required": true
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/circles/topic/{tid}/follow": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "tid",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/circles/topics/hot": {
+      "get": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -123329,6 +124390,110 @@
         }
       }
     },
+    "/api/customer-service/info": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "客服联系方式",
+        "tags": [
+          "customer-service"
+        ]
+      }
+    },
     "/api/customer-service/send": {
       "post": {
         "responses": {
@@ -124924,6 +126089,15 @@
         }
       }
     },
+    "/api/developer/billing": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/developer/conversations": {
       "get": {
         "responses": {
@@ -124989,6 +126163,15 @@
       }
     },
     "/api/developer/dev-info": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/developer/docs": {
       "get": {
         "responses": {
           "200": {
@@ -125107,6 +126290,13 @@
             "description": "Default Response"
           }
         }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
       }
     },
     "/api/developer/keys": {
@@ -125149,6 +126339,31 @@
             "required": true
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/developer/limits": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/developer/notifications": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -125456,6 +126671,38 @@
         }
       }
     },
+    "/api/developer/sandbox": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/developer/settings": {
+      "delete": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/developer/shares": {
       "get": {
         "responses": {
@@ -125527,6 +126774,24 @@
         }
       }
     },
+    "/api/developer/summary": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/developer/team": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/developer/team/invite": {
       "post": {
         "responses": {
@@ -125565,6 +126830,15 @@
             "required": true
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/developer/versions": {
+      "get": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -127201,6 +128475,13 @@
       }
     },
     "/api/edu-ai-management/parent-binding": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
       "post": {
         "responses": {
           "200": {
@@ -128307,6 +129588,13 @@
       }
     },
     "/api/edu-ai-management/trial-reservation": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
       "post": {
         "responses": {
           "200": {
@@ -135185,6 +136473,15 @@
         }
       }
     },
+    "/api/goods/select": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/groups/": {
       "get": {
         "responses": {
@@ -135238,6 +136535,23 @@
       }
     },
     "/api/groups/{id}/members": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
       "post": {
         "parameters": [
           {
@@ -138019,6 +139333,33 @@
             },
             "in": "path",
             "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/learn/lessons/{id}/sections/{sectionId}/play": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "sectionId",
             "required": true
           }
         ],
@@ -141775,6 +143116,15 @@
         }
       }
     },
+    "/api/memory/status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/memory/{id}": {
       "delete": {
         "parameters": [
@@ -141842,6 +143192,20 @@
             "description": "Default Response"
           }
         }
+      }
+    },
+    "/api/message/group": {
+      "get": {
+        "description": "返回当前用户的私信会话分组(每会话最后一条消息 + 未读数)",
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        },
+        "summary": "私信会话分组列表",
+        "tags": [
+          "message"
+        ]
       }
     },
     "/api/messages": {
@@ -145135,6 +146499,15 @@
         }
       }
     },
+    "/api/miniprogram/": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/miniprogram/config": {
       "get": {
         "responses": {
@@ -145162,6 +146535,42 @@
     },
     "/api/miniprogram/versions": {
       "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/miniprogram/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response"
@@ -147145,6 +148554,23 @@
             "description": "Default Response"
           }
         }
+      },
+      "put": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
       }
     },
     "/api/openrouter-proxy/chat/completions": {
@@ -147392,6 +148818,214 @@
             "description": "Default Response"
           }
         }
+      }
+    },
+    "/api/order-log": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "订单操作日志",
+        "tags": [
+          "order"
+        ]
+      }
+    },
+    "/api/order-track": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "订单跟踪",
+        "tags": [
+          "order"
+        ]
       }
     },
     "/api/orders": {
@@ -155179,7 +156813,41 @@
       }
     },
     "/api/plaza/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
       "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
         "parameters": [
           {
             "schema": {
@@ -155374,6 +157042,111 @@
             "description": "Default Response"
           }
         }
+      }
+    },
+    "/api/points/records": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "in": "query",
+            "name": "page",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "in": "query",
+            "name": "pageSize",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "earn",
+                "spend"
+              ],
+              "default": "all"
+            },
+            "in": "query",
+            "name": "type",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "获取积分明细",
+        "tags": [
+          "gamification"
+        ]
       }
     },
     "/api/points/redeem": {
@@ -155654,6 +157427,15 @@
           }
         }
       },
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/product-identity/verify": {
       "post": {
         "responses": {
           "200": {
@@ -158483,6 +160265,96 @@
       }
     },
     "/api/resources/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "parameters": [
           {
@@ -161705,6 +163577,15 @@
         ]
       }
     },
+    "/api/sign-ups/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/skill-categories": {
       "get": {
         "responses": {
@@ -164295,6 +166176,15 @@
         }
       }
     },
+    "/api/tbox/": {
+      "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/tbox/agent/channel/deploy": {
       "post": {
         "responses": {
@@ -164413,6 +166303,42 @@
     },
     "/api/tbox/events": {
       "post": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/tbox/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      },
+      "put": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
         "responses": {
           "200": {
             "description": "Default Response"
@@ -165269,6 +167195,15 @@
         }
       }
     },
+    "/api/terminal/recordings": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/terminal/sessions": {
       "get": {
         "responses": {
@@ -165703,6 +167638,44 @@
         }
       },
       "patch": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trader/{id}/follow": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/trader/{id}/unfollow": {
+      "post": {
         "parameters": [
           {
             "schema": {
@@ -166251,8 +168224,26 @@
         }
       }
     },
+    "/api/user/third-party-accounts": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/user/token-balance": {
       "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/user/unbind-third-party": {
+      "delete": {
         "responses": {
           "200": {
             "description": "Default Response"
@@ -166334,6 +168325,25 @@
       }
     },
     "/api/users/{id}/devices": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
+    "/api/users/{id}/follows": {
       "get": {
         "parameters": [
           {
@@ -167172,6 +169182,15 @@
         }
       }
     },
+    "/api/vip-compare": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/vip/benefits": {
       "get": {
         "responses": {
@@ -167298,9 +169317,6 @@
                         "type": "string",
                         "description": "UUID(服务端 Zod 校验)"
                       },
-                      "ip": {
-                        "type": "string"
-                      },
                       "city": {
                         "type": "string"
                       },
@@ -167308,9 +169324,6 @@
                         "type": "string"
                       },
                       "referer": {
-                        "type": "string"
-                      },
-                      "userAgent": {
                         "type": "string"
                       },
                       "sessionId": {
@@ -167326,9 +169339,6 @@
                     "type": "string",
                     "description": "UUID(服务端 Zod 校验)"
                   },
-                  "ip": {
-                    "type": "string"
-                  },
                   "city": {
                     "type": "string"
                   },
@@ -167336,9 +169346,6 @@
                     "type": "string"
                   },
                   "referer": {
-                    "type": "string"
-                  },
-                  "userAgent": {
                     "type": "string"
                   },
                   "sessionId": {
@@ -167829,6 +169836,15 @@
         }
       }
     },
+    "/api/wallet/bank-cards": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/wallet/recharge": {
       "post": {
         "responses": {
@@ -167874,6 +169890,25 @@
         }
       }
     },
+    "/api/webhooks/trigger/{id}": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/webhooks/webhooks/events": {
       "get": {
         "responses": {
@@ -167911,25 +169946,6 @@
             },
             "in": "path",
             "name": "eventId",
-            "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Default Response"
-          }
-        }
-      }
-    },
-    "/api/webhooks/webhooks/trigger/{id}": {
-      "post": {
-        "parameters": [
-          {
-            "schema": {
-              "type": "string"
-            },
-            "in": "path",
-            "name": "id",
             "required": true
           }
         ],

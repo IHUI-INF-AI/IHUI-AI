@@ -395,6 +395,40 @@ export function isAbsoluteApiPath(p) {
   return p === '/api' || p.startsWith('/api/')
 }
 
+/**
+ * 路由覆盖分类(守门 8「静态字面注册优先」判据,唯一实现;匹配语义与原 `matchSegs` 逐条同构)。
+ *
+ * 立因(2026-10-23):原 `matchSegs` 对 `:param` 段两侧都 `continue`,「段数相等」于是成了唯一约束 ——
+ * `GET /api/asks/my` 被 `GET /api/asks/:id` 吞下、记成「已在册」,而后者是**参数路由**,
+ * 并不证明前者那条具体静态路径存在(实证:`packages/api-client/src/endpoints/community.ts`
+ * 的 `/asks/my`、`/asks/my/answers`;后端 `apps/api/src/routes/community/asks.ts` 只有
+ * `/asks/:id`、`/asks/:id/answers`,静态的只有 `/asks/my/count`、`/asks/my/answers/count`)。
+ * 本函数把「命中」拆成两档:
+ *   · `literal` —— 逐段字面相等,或后端参数段只对上前端动态段 ⇒ 真在册;
+ *   · `param`   —— 段数相等且能匹配,但至少一处**前端具体字面段**被后端 `:param` 吞掉
+ *                  (或前端动态段对后端字面段) ⇒ 只是"可能被参数路由接住",**不得记成在册**。
+ * 返回 null = 不匹配。等价性:`classifyRouteCoverage(...) !== null` ⇔ 原 `matchSegs` 为真
+ * (逐分支同构,改判只多给了一个"命中是哪一档"的答案,没有改变哪些对算命中)。
+ * `*` catch-all 不归本函数管(守门侧 `matchStar` 单独判),本函数只判等段路径。
+ */
+export function classifyRouteCoverage(fParts, bParts) {
+  if (fParts.length !== bParts.length) return null
+  let paramCovered = false
+  for (let i = 0; i < fParts.length; i++) {
+    if (bParts[i].startsWith(':')) {
+      if (fParts[i].startsWith(':')) continue // 前端动态段 ↔ 后端参数段:同一路由形状
+      paramCovered = true // 前端具体字面段被后端参数段吞掉
+      continue
+    }
+    if (fParts[i].startsWith(':')) {
+      paramCovered = true // 前端动态段 ↔ 后端字面段:前端不可静态判定
+      continue
+    }
+    if (fParts[i] !== bParts[i]) return null
+  }
+  return paramCovered ? 'param' : 'literal'
+}
+
 export function lineOfIdx(src, idx) {
   let line = 1
   for (let i = 0; i < idx && i < src.length; i++) if (src[i] === '\n') line += 1
@@ -1487,6 +1521,7 @@ export function extractApiRegistrations(files, opts = {}) {
 // 故不需要 §22d 的 isDirectRun 守卫。
 export const __test__ = {
   analyzeTsFile,
+  classifyRouteCoverage,
   collectFactoryNames,
   describeFactory,
   expandTemplatePath,

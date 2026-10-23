@@ -25,6 +25,8 @@ import type {
   AdapterAccountContext,
   AdapterCallOptions,
   NormalizedChatRequest,
+  QuotaCallOptions,
+  RelayQuotaResult,
   RelayUpstreamAdapter,
   StreamState,
   TokenRefreshResult,
@@ -158,6 +160,35 @@ function pickTokenField(body: unknown, keys: readonly string[]): string {
   return ''
 }
 
+/** 配额端点请求头:健康检查与余额查询共用一份,防两处漂移 */
+function quotaRequestHeaders(ctx: AdapterAccountContext): Record<string, string> {
+  return {
+    accept: 'application/json',
+    'user-agent': USER_AGENT,
+    authorization: `Bearer ${ctx.credentials.token}`,
+    ...buildCosyHeaders(ctx),
+  }
+}
+
+/**
+ * 取 add-on credits 余额(与 checkin_qoder.qoder_query_credits 同键序:
+ * 先剥 data 包裹,再认 addOnQuota / add_on_quota 的 remaining 数值)。
+ * 认不出 ⇒ null(未判定),绝不回落成 0 —— 0 在面板上读成"积分已耗尽"。
+ */
+export function extractAddOnRemaining(body: unknown): number | null {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return null
+  const o = body as Record<string, unknown>
+  const inner =
+    o['data'] !== null && typeof o['data'] === 'object' && !Array.isArray(o['data'])
+      ? (o['data'] as Record<string, unknown>)
+      : o
+  const raw = inner['addOnQuota'] ?? inner['add_on_quota']
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const remaining = (raw as Record<string, unknown>)['remaining']
+  if (typeof remaining !== 'number' || !Number.isFinite(remaining)) return null
+  return Math.trunc(remaining)
+}
+
 // =============================================================================
 // 适配器
 // =============================================================================
@@ -267,12 +298,7 @@ export const qoderAdapter: RelayUpstreamAdapter = {
     try {
       const res = await resolveFetchImpl(opts ?? {})(`${QODER_QUOTA_BASE}${PATH_QUOTA}`, {
         method: 'GET',
-        headers: {
-          accept: 'application/json',
-          'user-agent': USER_AGENT,
-          authorization: `Bearer ${ctx.credentials.token}`,
-          ...buildCosyHeaders(ctx),
-        },
+        headers: quotaRequestHeaders(ctx),
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
@@ -282,6 +308,35 @@ export const qoderAdapter: RelayUpstreamAdapter = {
         }
       }
       return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  },
+
+  /**
+   * Add-on Credits 余额按需查询(管理面点查,不进轮询)。永不抛,失败归 ok:false。
+   * 字段映射对齐本仓参考实现 apps/ai-service/app/services/checkin_qoder.py 的
+   * qoder_query_credits(该上游响应结构细节未全证 ⇒ 防御解析:认不出 remaining 就
+   * 落 ok:false「未判定」,不得把解析不出来冒充成余额 0)。
+   */
+  async getQuota(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult> {
+    try {
+      const res = await resolveFetchImpl(opts ?? {})(`${QODER_QUOTA_BASE}${PATH_QUOTA}`, {
+        method: 'GET',
+        headers: quotaRequestHeaders(ctx),
+      })
+      if (!res.ok) {
+        const text = await res.text().catch(() => '')
+        return {
+          ok: false,
+          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+        }
+      }
+      const remaining = extractAddOnRemaining(await res.json().catch(() => null))
+      if (remaining === null) {
+        return { ok: false, error: 'quota 响应未含 addOnQuota.remaining ⇒ 未判定(不读成零)' }
+      }
+      return { ok: true, quota: { remaining, unit: 'Qoder credits' } }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }
     }

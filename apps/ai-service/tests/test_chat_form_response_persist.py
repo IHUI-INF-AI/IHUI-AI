@@ -66,7 +66,8 @@ class _FakeTable:
         request_id = args[0]
         if any(row["request_id"] == request_id for row in self.rows):
             return False
-        self.rows.append(dict(zip(_ROW_COLUMNS, args)))
+        # 列名与参数逐位配对,长度不等即替身失真 ⇒ 用 strict 让结构性问题当场暴露
+        self.rows.append(dict(zip(_ROW_COLUMNS, args, strict=True)))
         return True
 
     def count(self) -> int:

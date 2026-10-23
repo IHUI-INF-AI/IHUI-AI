@@ -11,6 +11,8 @@ vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
   process.env.NODE_ENV = 'test'
+  // 短信三档全未配置时不回显;测试档要显式 opt-in 才走 dev_console(2026-10-22 起的契约)
+  process.env.SMS_DEV_ECHO ??= '1'
 })
 
 // ---------- 可控 mock ----------

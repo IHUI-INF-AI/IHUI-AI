@@ -88,10 +88,9 @@ export function IpWhitelistPanel() {
 
   const onRemove = (ip: string) => {
     void run(() =>
-      fetchApi<string[]>(
-        `/api/user/ip-whitelist?ip=${encodeURIComponent(ip)}`,
-        { method: 'DELETE' },
-      ),
+      fetchApi<string[]>(`/api/user/ip-whitelist?ip=${encodeURIComponent(ip)}`, {
+        method: 'DELETE',
+      }),
     )
   }
 
@@ -173,7 +172,12 @@ const styles = StyleSheet.create({
   title: { fontSize: rpx(30), fontWeight: '600', color: tokens.text.primary },
   hint: { fontSize: rpx(22), lineHeight: rpx(34), color: tokens.text.secondary },
   center: { alignItems: 'center', paddingVertical: rpx(24) },
-  empty: { fontSize: rpx(24), color: tokens.text.tertiary, textAlign: 'center', paddingVertical: rpx(16) },
+  empty: {
+    fontSize: rpx(24),
+    color: tokens.text.tertiary,
+    textAlign: 'center',
+    paddingVertical: rpx(16),
+  },
   list: { gap: rpx(8) },
   row: {
     flexDirection: 'row',
@@ -201,6 +205,4 @@ const styles = StyleSheet.create({
   addText: { fontSize: rpx(26), fontWeight: '600', color: tokens.brand.ctaForeground },
   errorText: { fontSize: rpx(22), color: tokens.danger.DEFAULT },
 })
-
-export default IpWhitelistPanel
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

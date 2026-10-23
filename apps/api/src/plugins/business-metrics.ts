@@ -580,16 +580,16 @@ const OSS_ERROR_TYPES = ['status_4xx', 'status_5xx'] as const
  * (§0.6:同类判据第二份必然漂移)。取值总:任何状态码都落进 1..5 五档之一,
  * 不产生枚举外的新序列 ⇒ 零基线列出的键与钩子写出的键同源。
  */
-export const STATUS_CLASSES = [
+const STATUS_CLASSES = [
   'status_1xx',
   'status_2xx',
   'status_3xx',
   'status_4xx',
   'status_5xx',
 ] as const
-export type StatusClass = (typeof STATUS_CLASSES)[number]
+type StatusClass = (typeof STATUS_CLASSES)[number]
 
-export function statusClassFor(statusCode: number): StatusClass {
+function statusClassFor(statusCode: number): StatusClass {
   const bucket = Math.min(5, Math.max(1, Math.floor(statusCode / 100)))
   return STATUS_CLASSES[bucket - 1] as StatusClass
 }
@@ -632,7 +632,7 @@ export type TrafficSource = (typeof TRAFFIC_SOURCES)[number]
  * 键集必须与 `TRAFFIC_SOURCES` 逐字相同 —— 由 `services/traffic-stats-service.ts`
  * 的用例 G3 用 `Object.keys` 对账锁住。
  */
-export const TRAFFIC_SOURCE_UV_LABEL: Record<TrafficSource, string> = {
+const TRAFFIC_SOURCE_UV_LABEL: Record<TrafficSource, string> = {
   api_logs: 'UV = distinct server-observed ip over /api requests (includes bots and probes)',
   visit_logs: 'UV = distinct coalesce(session_id, ip) over reported page visits',
 }
@@ -1173,7 +1173,7 @@ export function recordOssError(driver: string, errorType: string): void {
  * 上报一次入口请求的"客户端族 × 状态码族"。
  * 入参类型已由两个封闭枚举收窄 ⇒ 调用方传不进枚举外的值,基线与真实事件必然同形。
  */
-export function recordTrafficRequest(family: ClientFamily, statusClass: StatusClass): void {
+function recordTrafficRequest(family: ClientFamily, statusClass: StatusClass): void {
   safeRecord('recordTrafficRequest', () => {
     ihuiCounterInc(ihuiState.trafficRequestsTotal, `${family}|${statusClass}`)
   })
@@ -1183,7 +1183,7 @@ export function recordTrafficRequest(family: ClientFamily, statusClass: StatusCl
  * 上报一次恶意路径形态命中。族维度记的是**自述**(攻击者把自己伪装成 Googlebot 就会
  * 落进 search-crawler)—— 族面不判真伪,真伪留给看盘的人,判据不越权编一个"spoofed"。
  */
-export function recordTrafficScanHit(kind: ScanProbeKind, family: ClientFamily): void {
+function recordTrafficScanHit(kind: ScanProbeKind, family: ClientFamily): void {
   safeRecord('recordTrafficScanHit', () => {
     ihuiCounterInc(ihuiState.trafficScanHitsTotal, `${kind}|${family}`)
   })
