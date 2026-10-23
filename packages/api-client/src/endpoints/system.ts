@@ -538,11 +538,18 @@ export async function getOrderStatistics(
 export async function recordVisit(input: {
   page: string
   referrer?: string
-  duration?: number
+  sessionId?: string
 }): Promise<ApiResult<{ success: boolean }>> {
+  // 出站形状必须与 apps/api 的 pageRecordSchema 逐字对齐(url / sessionId / referer):
+  // 此前这里原样发 {page, referrer, duration},服务端要的 url 不在其中 ⇒ 该调用方
+  // **恒 400**,一次也没成功过(2026-10-23 修)。duration 服务端没有对应列,不发了。
   return fetchApi<{ success: boolean }>('/api/visit-tracking/page/record', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      url: input.page,
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      ...(input.referrer ? { referer: input.referrer } : {}),
+    }),
   })
 }
 
