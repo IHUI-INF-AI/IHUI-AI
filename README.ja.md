@@ -2205,6 +2205,12 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-10-23**
+- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (485a183354)
+- 📚 ドキュメント:登记一条可派单票 —— 号池凭证到期字段与上游接受态背离(库里记未来时刻而上游当场回 401),出路是换票被拒时收敛该列并让巡检按同判据降级;余额档已改为不依赖该字段 (049f177588)
+- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b926b99b36)
+- 📚 ドキュメント:就地更正号池可观测行里"按到期时刻触发刷新"那句 —— 真号实测该字段不可信(上游已回 401 code 1001 而库里记的是未来时刻),现行判据是上游当场判鉴权失效才换票重试一次 (a9215ca573)
+
+**2026-10-23**
 - 🐞 修正:余额自愈改由上游鉴权标志触发,并以真号回包量出库里到期字段不可信 (11e5dc625e)
 - 📚 ドキュメント:收编 README 四语面 —— §21 域页导航覆盖(/domains/ai、/domains/personal 按域速览) + 发丝分隔线清理配套 + FAQ/Keywords 改挂 docs/engineering 索引 + 生成块数字对齐现算(2026-10-23) (237864c1d5)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (fde93239bf)
@@ -2521,25 +2527,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🔧 その他:5 枚超长 owner 缩为可渲染标签(≤44 字,桶不变) (9654d0638f)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9341e66f22)
 - 🐞 修正:监控大屏圆角回归设计规范档位(删自创 clip-path 切角 + 按 RADIUS_ROLES 角色归档) (4b872b93a8)
-
-**2026-10-23**
-- 🐞 修正:G-863 跨批附件容量原子性——commitFileReference 自增 pending、预筛读 len+pending,同帧拖30+语音1 不再静默超容;attachment-limits+d184 22/22 绿,web tsc 0 错 (57715e842c)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (375fab0e72)
-- 🐞 修正:G-212 沙箱默认严档落地入库并整票结清 (c23c6e6f78)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6d6327433d)
-- 📚 ドキュメント:结清 G-863——语音入口闭环已在 HEAD(f9fe720fc6);本次补跨批容量原子性:commitFileReference 自增 pending/预筛读 len+pending,同帧拖30+语音1 不再静默超容;attachment-limits+d184 22/22 绿 (bb21dfa247)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (959c1ad73d)
-- ♻️ リファクタ:G-54 批——check-staged-files/check-staged-pollution 裸 git 迁 gitRaw;补 complete pollution 残留 execSync(死席删了 import 未改调用,门会静默读空);裸 git 棘轮与两镜像测试绿 (adc4c28a89)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1150a04a36)
-- 🔧 その他:G-935 缺口B 结清翻勾(窗格续传可达,代码落地 5673527) (e81ba9465a)
-- 🚀 機能/改善:批6前端裁决收口(账85→13,清10条AJ3腐烂键,gate8补防回潮源锁) (2e6b8f3e59)
-- 🐞 修正:G-935 缺口B 窗格续传可达——布局持久化+recentMessages 预填+缓存/快照落盘;单测 27 例全绿、e2e chat-pane-tools-jump-cache 5/5 绿 (5673527328)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (45c8561170)
-- 🔧 その他:perf e2e 基建三堵点清障入库 + 挂账不可结(实现腿 history-read-ops 零 importer/CI 腿待权限) (55ec2c1b6e)
-- 🐞 修正:三处 updated ack 改为库侧 RETURNING 派生(门134第二格诚实性) (ce8f0a667a)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (859fdbdcf7)
-- 🔧 その他:G-212 apps/cli 半结(默认档 trusted→limited 机主拍板) + ai-service 半他席待落挂账(本票未翻勾) (93cba1391d)
-- 🚀 機能/改善:BOOL_ACK_KEYS 扩至七键(updated/created)并同步自检与镜像测试 (d058440466)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
