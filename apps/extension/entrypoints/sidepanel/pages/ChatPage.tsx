@@ -191,6 +191,9 @@ export default function ChatPage() {
     hasQueuedMessages: queuedItems.length > 0,
     streaming,
     runtimeSupportsInterjection: EXT_RUNTIME_SUPPORTS_INTERJECTION,
+    // G-171a:awaitingApproval 真实来源 = 本端审批横幅 pendingApproval(上方同一 state,
+    // 与 web useToolApprovalPending 同一档事实;流结束 finally 收回 null 即自动解除)
+    awaitingApproval: pendingApproval !== null,
   })
   /** 当前流的 AbortController(W2 既有 abort 通道;「打断并执行」经它停流,不新建第三种停流语义) */
   const abortRef = useRef<AbortController | null>(null)
