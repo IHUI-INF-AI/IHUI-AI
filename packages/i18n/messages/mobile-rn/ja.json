@@ -4436,5 +4436,31 @@
       "needsUser": "あなたの承認が必要",
       "unknown": "判定不明"
     }
+  },
+  "checkinAssistant": {
+    "title": "チェックインアシスタント",
+    "subtitle": "サードパーティアカウントを管理して毎日自動チェックイン。個人アカウントプールと連携し、自分のリレーリクエストで優先使用されます。",
+    "summary": "全 {total} 件 · 有効 {enabled} · プール登録 {synced}",
+    "empty": "アカウントがありません",
+    "emptyHint": "下のフォームから最初のアカウントを追加してください。",
+    "addTitle": "アカウントを追加",
+    "add": "追加",
+    "adding": "追加中…",
+    "namePlaceholder": "アカウント名",
+    "tokenLabel": "トークン",
+    "tokenPlaceholder": "アクセス資格情報を貼り付け",
+    "refreshTokenLabel": "リフレッシュトークン（任意）",
+    "optional": "任意",
+    "enabled": "有効",
+    "disabled": "無効",
+    "enable": "有効化",
+    "disable": "無効化",
+    "checkin": "チェックイン",
+    "delete": "削除",
+    "deleteConfirm": "{name} を削除しますか？",
+    "poolSynced": "プール登録済み",
+    "lastOk": "前回のチェックイン成功 +{credits}",
+    "lastFailed": "前回のチェックイン失敗",
+    "actionFailed": "操作に失敗しました"
   }
 }
