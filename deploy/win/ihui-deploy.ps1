@@ -1809,12 +1809,14 @@ function Invoke-Diagnose {
     if (Test-Path $Root) {
         Push-Location $Root
         try {
-            $srcs = @('origin', 'https://gitcode.com/IHUI-AI/IHUI-AI.git', 'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git')
-            # 诊断面同样必须"取完立刻定格":旧写法在三个源各 fetch 一次之后才读 FETCH_HEAD,
-            # 那一刻它是**最后一个应答的镜像**而不是 origin —— 镜像按设计会落后,于是
-            # ahead 被报成 >0,而 :971 那句提示把"本地领先 ⇒ 分叉,需人工决定处理策略"写给
+            # 取源只认两处(2026-10-23 机主订正:GitCode/Gitee 镜像早已弃用,不得再当取源):
+            # ① origin(GitHub,权威)② 本机工作区真 gitdir(离线可达)。
+            # 诊断面同样必须"取完立刻定格":旧写法在多个源各 fetch 一次之后才读 FETCH_HEAD,
+            # 那一刻它是**最后一个应答的源**而不是 origin —— 落后源会让 ahead 被报成 >0,
+            # 而 :971 那句提示把"本地领先 ⇒ 分叉,需人工决定处理策略"写给
             # 下一个读日志的人。同一条竞态在决策面造成的是静默部署旧提交,在诊断面造成的
             # 是错误归因(本仓 09-24 那次"把排查带去清扫工作树、白耗 1.5h"就是这类)。
+            $srcs = @('origin', 'D:/IHUI-AI-git-repo')
             $diagOriginTip = $null
             foreach ($s in $srcs) {
                 $o = & git @gitNet fetch $s main 2>&1 | Out-String
@@ -2372,24 +2374,23 @@ function Invoke-GitWithTimeout {
     return @{ ExitCode = $proc.ExitCode; Output = $text; TimedOut = $false }
 }
 
-# ── 取源顺序(2026-10-23 修:BLOCKED-DIVERGED 永久停摆的根因)─────────────────────
-# 现场:origin(GitHub)不可达 → 旧代码直接落到国内镜像 → 镜像的 main 是**另一条收敛线**
+# ── 取源(2026-10-23 定稿:只有两个源,镜像已彻底移出部署链)─────────────────────
+# 病灶史:origin(GitHub)不可达 → 旧代码落到**国内镜像** → 镜像 main 是另一条收敛线
 # (实测与 prod HEAD 真分叉:HEAD 侧 5 枚 / 镜像侧 53 枚,54 文件 +3311/−3903)→
 # `merge --ff-only` 每轮必失败 → 连续 12 轮 `BLOCKED-DIVERGED`,部署环彻底不干活。
-# 关键事实:**本机就是开发 checkout 所在机**。`D:\IHUI-AI\.git` 是 28 字节指针文件,
-# 真 gitdir = `D:\IHUI-AI-git-repo`,本机所有提交都写进它,**永远可达、不走网络**。
-# prod 只要跟着它 ff,这条链结构上就不会分叉(prod 只 ff、自己不造提交)。
-# 因此顺序改为:① origin(权威,通的时候仍以它为准)→ ② 本机工作区 gitdir(离线可用)
-# → ③ 国内镜像(最后手段;它会带来分叉,只在①②都不可用时才碰)。
+# **机主订正(2026-10-23):GitCode/Gitee 镜像早已弃用** —— 它们不是部署链的合法取源,
+# 只是 `mirror-to-cn.yml` 那条"往外镜像"的历史尾巴;把弃用渠道留在回退链里,等于给部署环
+# 留一条会把 HEAD 拖进分叉的路。故**整条镜像回退已删除**,不再保留"最后手段"。
+# 现在只有两个源:① origin(GitHub,权威,通的时候以它为准);
+# ② 本机工作区真 gitdir(`D:\IHUI-AI-git-repo`;`D:\IHUI-AI\.git` 只是 28 字节指针文件)
+# —— 本机所有提交都写进它,**永远可达、不走网络**,prod 只跟随它 ff,
+# 结构上不会再分叉(prod 只 ff、自己不造提交)。
+# 两源都失败 ⇒ fail-closed 停轮报错,绝不猜、绝不用弃用渠道兜底。
 # 可用 `IHUI_DEPLOY_LOCAL_SOURCES`(分号分隔)覆盖②,换机时不必改脚本。
 $LocalSourceCandidates = @('D:/IHUI-AI-git-repo')
 if ($env:IHUI_DEPLOY_LOCAL_SOURCES) {
     $LocalSourceCandidates = @($env:IHUI_DEPLOY_LOCAL_SOURCES -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 }
-$MirrorUrls = @(
-    'https://gitcode.com/IHUI-AI/IHUI-AI.git',
-    'https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git'
-)
 
 $fetchSource = $null
 Log "fetch origin main ..."
@@ -2418,20 +2419,9 @@ if (-not $fetchSource) {
 }
 
 if (-not $fetchSource) {
-    Log "WARN  本机取源也不可用,最后回退国内镜像(注意:镜像可能是另一条收敛线,会带来分叉) ..."
-    foreach ($m in $MirrorUrls) {
-        Log "fetch $m main ..."
-        $mr = Invoke-GitWithTimeout -GitArgs @('fetch', $m, 'main') -TimeoutSec 90
-        $mr.Output.Trim() | Write-Host
-        if ($mr.ExitCode -eq 0 -and -not $mr.TimedOut -and -not ($mr.Output -match 'fatal:|Could not connect|RPC failed|Could not resolve host')) {
-            $fetchSource = "mirror:$m"
-            Log "镜像回退成功:$m"
-            break
-        }
-    }
-}
-if (-not $fetchSource) {
-    Fail "git fetch 全部来源失败(origin + 本机工作区 gitdir + 镜像),fetch 未成功则无法判定是否落后,本轮不部署;请先确认 D:\IHUI-AI-git-repo 在位,或本机 Clash 代理(127.0.0.1:7897)在跑"
+    # 镜像回退已于 2026-10-23 删除(机主:GiteCode/Gitee 早已弃用)。两源都取不到就停轮,
+    # 不用弃用渠道兜底 —— 那条路会把 HEAD 拖进分叉,比"这一轮不部署"危险得多。
+    Fail "git fetch 全部来源失败(origin + 本机工作区 gitdir),fetch 未成功则无法判定是否落后,本轮不部署;请先确认 D:\IHUI-AI-git-repo 在位,或本机 Clash 代理(127.0.0.1:7897)在跑"
 }
 Log "本轮取源 = $fetchSource"
 # 落后提交数 = 本地未含本轮远端 tip 的提交数
@@ -2441,7 +2431,8 @@ Log "本轮取源 = $fetchSource"
 # 改为对齐刚 fetch 下来的远端 tip,彻底免疫该问题。
 # ── 但那枚 tip 必须先"定格"成一枚显式 sha(2026-09-28 实测竞态)────────────────────
 # FETCH_HEAD 是 .git 下**全局共享的单文件**:任何一次并发 `git fetch`(其它会话、post-commit 的
-# push-guard、git-guardian、本文件的镜像回退分支)都会整体重写它。旧写法在 behind 计算与
+# push-guard、git-guardian;本文件的镜像回退分支已于 2026-10-23 删除,但本机取源分支同样会写它)
+# 都会整体重写它。旧写法在 behind 计算与
 # `git merge --ff-only FETCH_HEAD` 之间夹了一次现场对齐(实测 15 秒),那 15 秒里 FETCH_HEAD
 # 可以被换成一枚**本地 HEAD 的祖先**,于是 merge 打印 "Already up to date." 且 **exit 0**,
 # 旧代码只看退出码 ⇒ 照常打一条"merge 已完成"的成功结论,随后备份、重建、切流。
