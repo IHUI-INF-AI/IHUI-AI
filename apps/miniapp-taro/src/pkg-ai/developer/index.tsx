@@ -2,6 +2,15 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/developer/DeveloperScreen.tsx
+// 说明(2026-10-23 现读,不是笔误而是本仓页面拓扑):本页渲染的是**我的智能体列表**
+// (一级状态 tab + 搜索 + 卡片列表 + 分页),RN 端同物是端内屏
+// `apps/mobile-rn/src/screens/DevEnterScreen.tsx`(标题亦为「我的智能体」),共享层目前**没有**
+// 这一屏 —— 上面那行指针登记的是本包(developer)的跨端在册共享屏,即 2026-10-23 收为真相源的
+// 「开发者空间页」(头部用户卡 + 开发者信息 + 四入口 + 问题解答卡),其小程序侧真实渲染层在
+// `apps/miniapp-taro/src/pkg-ai/dev-enter/cover/index.tsx`。把本行改指到 dev-enter/cover 之前,
+// 先把 DevEnter 列表屏下沉进 `packages/app/src/features/dev-enter/`,否则守门
+// `check-cross-end-screen-coverage.mjs` 的 R3 镜像数会当场倒退。
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, navigateTo } from '@tarojs/taro'

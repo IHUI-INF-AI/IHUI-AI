@@ -416,6 +416,8 @@ export type {
   DeveloperPlan,
   DeveloperFeature,
   DeveloperScreenProps,
+  DeveloperSpaceInfo,
+  DeveloperSpaceEntryId,
 } from '@ihui/types'
 
 /** 批次 31-34(2026-08-15):静态信息/状态/表单/Mock 数据屏(props 类型单一来源 @ihui/types) */

@@ -2,186 +2,123 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n, useTt } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+// 对齐目标(RN 共享屏): packages/app/src/features/carte/CarteScreen.tsx
+import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
-import { getBusinessCard } from '@/api'
-import { showShareMenu, getShareInfo } from '@/utils/share'
-import { saveNetworkImageToAlbum } from '@/utils/save-album'
+import { useI18n, useTt } from '@/i18n'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import ThemeRoot from '@/components/ThemeRoot'
+import { showShareMenu } from '@/utils/share'
+import {
+  CARTE_I18N_KEYS,
+  CARTE_SEGMENTS,
+  type CarteImageSlot,
+  type CarteSegment,
+} from '@ihui/shared/constants'
 
 /**
- * 名片卡页 — 样式对齐 RN 端电子名片共享屏
- * (apps/mobile-rn/src/screens/BusinessCardScreen.tsx → packages/app
- *  features/business-card/BusinessCardScreen.tsx,RN 端 carte 路由为静态社群宣传卡、
- *  与本页「用户名片」数据流不符,故按内容最接近原则对齐共享名片屏)
- * 业务逻辑不变:getBusinessCard / 分享提示 / 保存二维码 / 复制电话
+ * 社群宣传卡(小程序端)—— 渲染层用 Taro 重写,页面构成不自己拿主意:
+ * 段落、顺序、取词键、字形名一律读 `@ihui/shared/constants` 的 CARTE_SEGMENTS
+ * (与 RN 共享屏 packages/app/src/features/carte/CarteScreen.tsx 同一张表)。
+ *
+ * 历史缺陷(本轮收口):本页此前实现的是「用户电子名片」(getBusinessCard + 分享/保存二维码),
+ * 与 pkg-ai/business-card 是同题两份;而 carte 路由在历史项目(pagesA/carte/index.vue)
+ * 与本仓 RN/web 两端都是**社群宣传卡**。现按真实语义重写,名片功能仍由 pkg-ai/business-card 承载。
+ *
+ * 平台差异一条:返回 affordance 由微信原生导航栏供出,页内不再画返回键(禁双返回,守门 102 GA6);
+ * 标题走 setNavigationBarTitle 取词,静态 index.config.ts 不参与判定。
  */
-interface CardInfo {
-  name?: string
-  nickname?: string
-  avatar?: string
-  title?: string
-  company?: string
-  phone?: string
-  email?: string
-  qrcode?: string
-  intro?: string
+
+/** 图片槽位 → 本端分包静态路径(单一源在 src/pkg-content/assets/,由 config copy.patterns 派生产物) */
+const CARTE_IMAGES: Record<CarteImageSlot, string> = {
+  avatar: '/pkg-content/assets/xuancai@2x.png',
+  qrcode: '/pkg-content/assets/ewm@2x.png',
 }
+
+/** 本端 LineIcon 只认注册表里真实存在的键(共享表给的是 lucide 官方 kebab 名) */
+const LINE_ICON: Record<string, IconName> = { users: 'users' }
+
+const imageOf = (seg: CarteSegment): string | undefined =>
+  seg.imageSlot === null ? undefined : CARTE_IMAGES[seg.imageSlot]
 
 export default function CartePage() {
   const { t } = useI18n()
   const tt = useTt()
-  const [info, setInfo] = useState<CardInfo>({})
-
-  const load = useCallback(async () => {
-    try {
-      const res = (await getBusinessCard()) as CardInfo
-      setInfo(res)
-    } catch {
-      // ignore
-    }
-  }, [])
 
   useDidShow(() => {
-    load()
+    Taro.setNavigationBarTitle({ title: tt(CARTE_I18N_KEYS.title, '智汇社社群') })
     showShareMenu()
   })
 
-  const handleShare = () => {
-    Taro.showToast({ title: t('carte.shareHint'), icon: 'none' })
-  }
-
-  const handleSaveQrcode = async () => {
-    if (!info.qrcode) {
-      Taro.showToast({ title: t('carte.noQrcode'), icon: 'none' })
-      return
+  const renderSegment = (seg: CarteSegment) => {
+    const src = imageOf(seg)
+    switch (seg.id) {
+      case 'hero':
+        return (
+          <View
+            key={seg.id}
+            className="flex flex-row items-center gap-3 rounded-t-2xl bg-brand-accent p-4"
+          >
+            {src ? (
+              <Image className="h-16 w-16 shrink-0 rounded-xl" src={src} mode="aspectFill" />
+            ) : null}
+            <View className="flex-1">
+              {seg.textKeys.map((key, row) => (
+                <Text
+                  key={key}
+                  className={
+                    row === 0
+                      ? 'block text-base font-bold text-brand-accent-foreground'
+                      : 'mt-1 block text-sm text-brand-accent-foreground'
+                  }
+                >
+                  {t(key)}
+                </Text>
+              ))}
+            </View>
+          </View>
+        )
+      case 'invite':
+        return (
+          <View key={seg.id} className="mt-4 px-3">
+            {seg.textKeys.map((key) => (
+              <Text key={key} className="block text-center text-base font-semibold text-foreground">
+                {t(key)}
+              </Text>
+            ))}
+          </View>
+        )
+      case 'qrcode':
+        return (
+          <View key={seg.id} className="mt-4 flex items-center justify-center">
+            {src ? <Image className="h-48 w-48" src={src} mode="aspectFit" /> : null}
+          </View>
+        )
+      case 'scan': {
+        const glyph = seg.icon === null ? undefined : LINE_ICON[seg.icon]
+        return (
+          <View
+            key={seg.id}
+            className="mt-3 mb-4 flex flex-row items-center justify-center gap-1.5"
+          >
+            {glyph ? <LineIcon name={glyph} size={28} /> : null}
+            {seg.textKeys.map((key) => (
+              <Text key={key} className="text-xs text-muted-foreground">
+                {t(key)}
+              </Text>
+            ))}
+          </View>
+        )
+      }
     }
-    try {
-      await saveNetworkImageToAlbum(info.qrcode)
-    } catch {
-      // ignore
-    }
   }
-
-  const handleCopyPhone = () => {
-    if (!info.phone) return
-    Taro.setClipboardData({ data: info.phone })
-  }
-
-  const displayName = info.name || info.nickname || t('carte.anonymous')
-  const shareInfo = getShareInfo(
-    '/pkg-content/carte/index',
-    `${displayName}${t('carte.cardSuffix')}`,
-  )
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background flex flex-col">
-        {/* 顶部导航(对齐共享名片屏 header:返回 + 标题) */}
-        <View className="flex items-center gap-3 px-5 pt-5 pb-3">
-          <Text className="text-xl font-semibold text-foreground">
-            {tt('carte.title', '电子名片')}
-          </Text>
-        </View>
-
-        {/* 名片主卡(RN card:白底 / 圆角16 / 描边 border-light / padding14) */}
-        <View className="mx-4 p-[28rpx] ui-card rounded-lg bg-card border border-border">
-          <View className="flex items-center">
-            {info.avatar ? (
-              <Image
-                className="w-12 h-12 rounded-2xl flex-shrink-0"
-                src={info.avatar}
-                mode="aspectFill"
-              />
-            ) : (
-              <View className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center flex-shrink-0">
-                <Text className="text-2xl font-bold text-primary-foreground">
-                  {displayName.charAt(0)}
-                </Text>
-              </View>
-            )}
-            <View className="ml-3 flex-1">
-              <Text className="text-xl font-semibold text-foreground">{displayName}</Text>
-              {info.title ? <Text className="mt-2 text-sm text-primary">{info.title}</Text> : null}
-              {info.company ? (
-                <Text className="mt-2 text-sm text-muted-foreground">{info.company}</Text>
-              ) : null}
-            </View>
-          </View>
-
-          {info.intro ? (
-            <Text className="mt-3 text-sm leading-5 text-[color:var(--color-text-medium)]">
-              {info.intro}
-            </Text>
-          ) : null}
-
-          {/* 联系方式(RN contactsBox:muted 底 / 圆角12 / padding14) */}
-          {info.phone || info.email ? (
-            <View className="mt-3 p-[28rpx] rounded-xl bg-muted">
-              {info.phone ? (
-                <View
-                  className="flex items-center justify-between py-1"
-                  onClick={handleCopyPhone}
-                  hoverClass="opacity-60"
-                >
-                  <Text className="w-10 text-[11px] text-muted-foreground">{t('carte.phone')}</Text>
-                  <Text className="flex-1 text-sm text-foreground text-right">{info.phone}</Text>
-                </View>
-              ) : null}
-              {info.email ? (
-                <View className="flex items-center justify-between py-1">
-                  <Text className="w-10 text-[11px] text-muted-foreground">{t('carte.email')}</Text>
-                  <Text className="flex-1 text-sm text-foreground text-right">{info.email}</Text>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-
-          {/* 二维码(RN qrBox:140dp 方块 muted 底 圆角12) */}
-          <View className="mt-4 flex flex-col items-center">
-            {info.qrcode ? (
-              <Image
-                className="w-[140px] h-[140px] rounded-xl"
-                src={info.qrcode}
-                mode="aspectFit"
-              />
-            ) : (
-              <View className="w-[140px] h-[140px] rounded-xl bg-muted flex items-center justify-center">
-                <Text className="text-[11px] text-muted-foreground">{t('carte.noQrcode')}</Text>
-              </View>
-            )}
-            <Text className="mt-2 text-[11px] text-muted-foreground">{t('carte.scanHint')}</Text>
-          </View>
-        </View>
-
-        {/* 操作按钮(对齐 RN actionRow:高44 / 圆角12 / 描边) */}
-        <View className="px-[20rpx] py-4 flex gap-2">
-          <View
-            className="flex-1 h-11 rounded-xl border border-border flex items-center justify-center"
-            onClick={handleShare}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-sm text-[color:var(--color-text-medium)]">
-              {t('carte.shareCard')}
-            </Text>
-          </View>
-          <View
-            className="flex-1 h-11 rounded-xl border border-border flex items-center justify-center"
-            onClick={handleSaveQrcode}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-sm text-[color:var(--color-text-medium)]">
-              {t('carte.saveQrcode')}
-            </Text>
-          </View>
-        </View>
-
-        <View className="px-[20rpx] pb-6">
-          <Text className="block text-[11px] text-[color:var(--color-text-tertiary)] text-center break-all">
-            {shareInfo.path}
-          </Text>
+      <View className="min-h-screen bg-background px-4 py-4">
+        <Text className="text-lg font-semibold text-foreground">{t(CARTE_I18N_KEYS.title)}</Text>
+        <View className="mt-2 overflow-hidden rounded-2xl border border-border bg-card">
+          {CARTE_SEGMENTS.map((seg) => renderSegment(seg))}
         </View>
       </View>
     </ThemeRoot>
