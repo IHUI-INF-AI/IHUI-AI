@@ -3425,7 +3425,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 本门是「两端一模一样」的正向推进尺:存量只报数,**只拦本次带进来的倒退**(§12e)。',
-      '     ① 看缺口在哪:node scripts/check-cross-end-screen-coverage.mjs(共享屏被小程序显式镜像 x/210);',
+      '     ① 看缺口在哪:node scripts/check-cross-end-screen-coverage.mjs(结论行自带"共享屏被小程序显式镜像 x/N",N 由门体现读,别在提示里钉死计数 —— §0.1);',
       '     ② 小程序页声明对齐目标,只需在文件顶部写一行注释:',
       '        // 对齐目标(RN 共享屏): packages/app/src/features/<domain>/<Name>Screen.tsx',
       '     ③ 禁止靠删条目或改判据去消红 —— 那是把尺子锯短,不是收口;棘轮锚点是 HEAD 面(无基线文件可维护),确需放行时用 skipEnv 并把理由写进提交信息;',

@@ -37,6 +37,11 @@ export { CertDetailScreen } from './features/cert-detail/CertDetailScreen'
 export { PostDetailScreen } from './features/post-detail/PostDetailScreen'
 export { CartScreen, type CartItemView, type CartScreenProps } from './features/cart/CartScreen'
 export {
+  UserFansScreen,
+  type UserFansRowView,
+  type UserFansScreenProps,
+} from './features/user-fans/UserFansScreen'
+export {
   TopicDetailScreen,
   type TopicDetailPostView,
   type TopicDetailView,
