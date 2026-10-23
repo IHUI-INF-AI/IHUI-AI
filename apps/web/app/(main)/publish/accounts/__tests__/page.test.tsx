@@ -123,9 +123,7 @@ vi.mock('@/components/feedback', () => ({
       <div data-testid="dropdown-items">
         {items.map((it) =>
           it.divider ? (
-            // 夹具只表示"这一项是分隔项"(真实 Dropdown 渲染 DropdownMenu.Separator,
-            // 那是一个 div/role=separator,不是 <hr>);断言对象是页面上的 divider 契约
-            <div key={it.key} role="separator" data-testid={`divider-${it.key}`} />
+            <div key={it.key} data-testid={`divider-${it.key}`} />
           ) : (
             <button
               key={it.key}

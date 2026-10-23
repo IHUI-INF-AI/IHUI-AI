@@ -57,6 +57,12 @@ export function buildStreamUsageChunk(
   model: string,
   promptTokens: number,
   completionTokens: number,
+  /**
+   * 额外计量（2026-10-23 加）：积分计费上游（Qoder）token 恒 0，
+   * 唯一真实扣减量是 credits，作为非标准键随 usage 一起如实带给客户端。
+   * 仅在确有值时才写，绝不填占位 0（0 会被读成"本次免费"）。
+   */
+  extra?: Record<string, unknown>,
 ): string {
   const payload = {
     id,
@@ -68,6 +74,7 @@ export function buildStreamUsageChunk(
       prompt_tokens: promptTokens,
       completion_tokens: completionTokens,
       total_tokens: promptTokens + completionTokens,
+      ...(extra ?? {}),
     },
   }
   return `data: ${JSON.stringify(payload)}\n\n`
