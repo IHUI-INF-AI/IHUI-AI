@@ -182,6 +182,9 @@ export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
     const note = `token 刷新失败(第 ${failures}/${REFRESH_FAILURE_LIMIT} 次):${reason}${
       shouldRemove ? ' ⇒ 连续超限,已自动摘除' : ''
     }`
+    // 上游**明确拒收**凭据时才收敛到期列(结构化判定,不匹配错误文案);
+    // 网络/5xx 等未判定失败绝不改写到期时刻。与失败计数、健康降级同一次写。
+    const authRejected = adapter.isAuthError?.(e) === true
     await db
       .update(aiRelayAccountPool)
       .set({
@@ -190,6 +193,7 @@ export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
         healthStatus: shouldRemove ? 'down' : row.healthStatus,
         lastErrorMessage: note.slice(0, 500),
         updatedAt: new Date(),
+        ...(authRejected ? { tokenExpiresAt: new Date() } : {}),
       })
       .where(eq(aiRelayAccountPool.id, row.id))
     return false
@@ -278,14 +282,18 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
         proxyUrl: row.proxyUrl,
       })
       out.healthChecked++
+      const now = new Date()
       await db
         .update(aiRelayAccountPool)
         .set({
           // 未判定保留 unknown,不写 down(§0.3:取不到 ≠ 失效)
           healthStatus: healthStatusOf(outcome),
-          healthCheckedAt: new Date(),
+          healthCheckedAt: now,
           lastErrorMessage: outcome.ok ? null : (outcome.error ?? '健康检查失败').slice(0, 500),
-          updatedAt: new Date(),
+          updatedAt: now,
+          // 上游明确拒收 → 到期列收敛到当下(与健康降级同一次写)。
+          // 未来到期时刻从此不能再被当成「票仍可用」的证据;5xx 未判定不碰该列。
+          ...(outcome.ok === false && outcome.authFailed === true ? { tokenExpiresAt: now } : {}),
         })
         .where(eq(aiRelayAccountPool.id, row.id))
     } catch {

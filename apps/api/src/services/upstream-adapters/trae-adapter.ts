@@ -780,7 +780,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
   async checkHealth(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
-  ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean }> {
+  ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
     const doFetch = resolveFetchImpl(opts ?? {})
     const cookieHeader = buildCookieHeader(ctx.credentials.cookies)
     if (cookieHeader) {
@@ -801,6 +801,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
           return {
             ok: false,
             indeterminate: !rejected,
+            authFailed: rejected,
             error: `GetUserToken HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
               rejected ? '' : '(未判定)'
             }`,
@@ -833,6 +834,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
         return {
           ok: false,
           indeterminate: !rejected,
+          authFailed: rejected,
           error: `model_list HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
             rejected ? '' : '(未判定)'
           }`,
@@ -944,9 +946,11 @@ export const traeAdapter: RelayUpstreamAdapter = {
     return lower.includes('authentication_error') || lower.includes('unauthorized')
   },
 
-  /** executeChat 抛出的 TraeAuthFailureError → 触发转发层刷新自愈 */
+  /** executeChat / refreshToken 抛出的鉴权失败(401/403)→ 触发刷新自愈与到期列收敛 */
   isAuthError(err: unknown): boolean {
-    return isTraeAuthFailure(err)
+    if (isTraeAuthFailure(err)) return true
+    // refreshToken 的 HTTP 失败抛 TraeUpstreamError(带 statusCode),401/403 同属明确拒收
+    return err instanceof TraeUpstreamError && (err.statusCode === 401 || err.statusCode === 403)
   },
 
   /** 富分类:与独立导出函数同源;network 归入 client(接口只接受 8 类) */
