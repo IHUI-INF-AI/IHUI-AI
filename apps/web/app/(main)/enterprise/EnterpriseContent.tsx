@@ -106,9 +106,9 @@ export function EnterpriseContent() {
 
         <section className="space-y-5 text-center">
           <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            <span className="h-px w-8 bg-border" />
+            <span className="w-8 border-t border-border" />
             {t('hero.brandLabel')}
-            <span className="h-px w-8 bg-border" />
+            <span className="w-8 border-t border-border" />
           </div>
           <h1 className="text-2xl min-[768px]:text-3xl min-[1024px]:text-4xl font-bold tracking-tight">
             {t('hero.title')}

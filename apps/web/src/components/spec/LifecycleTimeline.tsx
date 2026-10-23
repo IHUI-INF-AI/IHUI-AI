@@ -67,7 +67,7 @@ export function LifecycleTimeline({
               </span>
               {i < SPEC_LIFECYCLE_STAGES.length - 1 && (
                 <span
-                  className={`mt-1 w-px flex-1 ${i < currentIndex ? 'bg-foreground/30' : 'bg-border'}`}
+                  className={`mt-1 flex-1 border-l ${i < currentIndex ? 'border-foreground/30' : 'border-border'}`}
                   style={{ minHeight: '0.75rem' }}
                 />
               )}
