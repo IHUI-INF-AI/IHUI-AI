@@ -1866,7 +1866,7 @@
       "submitting": "제출 중..."
     },
     "contact": {
-      "title": "문의하기",
+      "title": "고객 지원 문의",
       "phone": "전화",
       "email": "이메일",
       "qq": "QQ",
@@ -1913,7 +1913,7 @@
       "query": "MIIT에서 조회",
       "icpLabel": "ICP 신고/허가증 번호",
       "copyHint": "번호를 클릭하여 복사",
-      "title": "ICP 비안"
+      "title": "ICP 신고"
     },
     "usageRules": {
       "s2": {
@@ -2003,7 +2003,7 @@
         "p2": "본 규범의 체결, 이행, 해석 및 분쟁 해결에는 모두 중화인민공화국 법률이 적용됩니다(홍콩, 마카오, 대만 지역 법률 제외).",
         "title": "9. 분쟁 해결"
       },
-      "title": "사용 규칙"
+      "title": "이용 규정"
     },
     "appPermission": {
       "names": [
@@ -2044,7 +2044,7 @@
       "tableTitle": "대형 모델 신고 정보",
       "imageUnavailable": "신고 이미지가 아직 업로드되지 않았습니다",
       "noticeText": "본 앱은 인공지능 기술을 사용합니다. 다음은 사용된 모델에 대한 정보입니다",
-      "title": "모델 비안"
+      "title": "모델 신고"
     },
     "apiSettings": {
       "apiUrl": "API URL",
