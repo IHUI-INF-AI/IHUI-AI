@@ -248,10 +248,10 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
             aria-hidden="true"
             data-testid={`nav-${item.labelKey}-indicator`}
             className={cn(
-              'pointer-events-none absolute -bottom-1 left-1/2 h-[2px] w-10 -translate-x-1/2 transition-colors duration-200',
+              'pointer-events-none absolute -bottom-1 left-1/2 w-10 -translate-x-1/2 border-b-2 transition-colors duration-200',
               parentActive || open
-                ? 'bg-primary'
-                : 'bg-muted-foreground/40 group-hover/exp:bg-muted-foreground/70',
+                ? 'border-primary'
+                : 'border-muted-foreground/40 group-hover/exp:border-muted-foreground/70',
             )}
           />
         </span>
