@@ -235,7 +235,8 @@
     "phdTextSpeech": "テキスト読み上げ",
     "phdBundledAv": "動画・音声一体化",
     "phdOtherType": "その他タイプモデル",
-    "phdKbSearch": "ナレッジベース検索"
+    "phdKbSearch": "ナレッジベース検索",
+    "retryText": "再試行"
   },
   "course": {
     "title": "コース",
