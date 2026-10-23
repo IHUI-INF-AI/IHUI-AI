@@ -26,12 +26,15 @@
  * 18. DELETE /admin/relay/proxy-pool/:id     — 删除代理(不存在 404)
  * 19. POST   /admin/relay/proxy-pool/:id/check — 人工标记活性(调 markProxyChecked)
  * 20. POST   /admin/relay/accounts/:id/quota — 按需查上游余额/积分(平台无实证端点则 400 未支持)
+ * 21. POST   /admin/relay/accounts/:id/checkin-resync — 单条重推签到同步(O64)
+ * 22. POST   /admin/relay/account-pool/checkin-status — 批量点查签到状态(O64,≤20)
+ * 23. POST   /admin/relay/accounts/:id/checkin-run — 立即签到(O64,转发 ai-service,429 透传)
  *
  * 加密:token/refreshToken/cookies 走 encryptField(AES-256-GCM),响应面永不回传密文/明文。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, or, ilike, lt, gte, isNull, isNotNull, sql, type SQL } from 'drizzle-orm'
+import { eq, and, or, ilike, lt, gte, isNull, isNotNull, inArray, sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import { aiRelayAccountPool } from '@ihui/database'
 import { PROVIDER_HEALTH_STATUSES } from '@ihui/types'
@@ -46,9 +49,15 @@ import {
 import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
 import {
+  buildPoolSyncAccount,
   checkinPlatformFor,
+  clearCheckinSyncPending,
+  extractCosy,
+  fetchPoolStatus,
   markCheckinSyncPending,
+  postPoolRun,
   pushPoolState,
+  pushPoolSync,
   type PoolAccountState,
 } from '../../services/relay-account-pool-checkin-sync.js'
 import { sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
@@ -200,6 +209,15 @@ const safeProjection = {
   claimedAt: aiRelayAccountPool.claimedAt,
   claimNote: aiRelayAccountPool.claimNote,
   extraMetadata: aiRelayAccountPool.extraMetadata,
+  // O64:号池↔签到同步态(仅取 checkinSync 子键,前端零解析;extraMetadata 全量回传是既有行为)
+  checkinSync: sql<{
+    pending?: boolean
+    pendingKind?: string | null
+    pendingAt?: string | null
+    lastError?: string | null
+    attempts?: number
+    lastSyncedAt?: string | null
+  } | null>`(${aiRelayAccountPool.extraMetadata} -> 'checkinSync')`.as('checkin_sync'),
   createdAt: aiRelayAccountPool.createdAt,
   updatedAt: aiRelayAccountPool.updatedAt,
 }
@@ -543,6 +561,111 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply.status(500).send(error(500, '查询账号用量失败'))
     }
+  })
+
+  // ===== 21. POST /admin/relay/accounts/:id/checkin-resync — 单条重推签到同步 =====
+  // 号池 = 凭证权威:解密现值重建载荷补推;成功清 pending,失败重落(attempts 累积)。
+  server.post('/admin/relay/accounts/:id/checkin-resync', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const [row] = await dbRead
+      .select()
+      .from(aiRelayAccountPool)
+      .where(eq(aiRelayAccountPool.id, p.data.id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '账号不存在'))
+    const platform = checkinPlatformFor(row.providerCode)
+    if (!platform) {
+      return reply.status(400).send(error(400, `平台 ${row.providerCode} 无签到引擎,无法同步`))
+    }
+    try {
+      const credentials = decryptAccountCredentials(row)
+      const acc = buildPoolSyncAccount({
+        id: row.id,
+        uid: row.uid ?? '',
+        name: (row.name ?? '').slice(0, 128),
+        token: credentials.token,
+        refreshToken: credentials.refreshToken,
+        credVersion: row.credVersion,
+        enabled: row.isEnabled,
+        proxyUrl: row.proxyUrl,
+        deviceId: row.deviceId,
+        machineId: row.machineId,
+        cosy: extractCosy(row.extraMetadata),
+        tokenExpiresAt: row.tokenExpiresAt,
+      })
+      const push = await pushPoolSync(platform, [acc])
+      if (push.ok && push.failed === 0) {
+        await clearCheckinSyncPending([row.id])
+        return reply.send(success({ pushed: push.pushed, skipped: push.skipped, pending: false }))
+      }
+      await markCheckinSyncPending([row.id], 'cred', null, push.error ?? '重推失败')
+      return reply.status(502).send(error(502, push.error ?? '签到同步推送失败,已留待重试'))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '重推签到同步失败'))
+    }
+  })
+
+  // ===== 22. POST /admin/relay/account-pool/checkin-status — 批量点查签到状态 =====
+  // 号池页「签到」列数据源(设计 §11):按页内 id 批量点查 ai-service 端点 4,
+  // 单批 ≤ 20(一页),不做全表拉取;平台无签到引擎/账号未同步 → found:false 明示。
+  const checkinStatusBodySchema = z.object({
+    ids: z.array(z.string().min(1)).min(1).max(20),
+  })
+  server.post('/admin/relay/account-pool/checkin-status', async (request, reply) => {
+    const b = checkinStatusBodySchema.safeParse(request.body ?? {})
+    if (!b.success)
+      return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
+    const rows = await dbRead
+      .select({
+        id: aiRelayAccountPool.id,
+        providerCode: aiRelayAccountPool.providerCode,
+        uid: aiRelayAccountPool.uid,
+      })
+      .from(aiRelayAccountPool)
+      .where(inArray(aiRelayAccountPool.id, b.data.ids))
+    const byId = new Map(rows.map((r) => [r.id, r]))
+    const items: Record<string, unknown> = {}
+    for (const id of b.data.ids) {
+      const row = byId.get(id)
+      if (!row) {
+        items[id] = { found: false, error: '号池账号不存在' }
+        continue
+      }
+      const platform = checkinPlatformFor(row.providerCode)
+      if (!platform) {
+        items[id] = { found: false, noEngine: true }
+        continue
+      }
+      items[id] = await fetchPoolStatus(platform, row.uid ?? '')
+    }
+    return reply.send(success({ items }))
+  })
+
+  // ===== 23. POST /admin/relay/accounts/:id/checkin-run — 立即签到 =====
+  // 转发 ai-service pool-run(系统 owner 面,尊重冷却/限流):429 原样透传,
+  // 让 admin 看到「冷却中,剩余 Xs」而不是笼统失败。
+  server.post('/admin/relay/accounts/:id/checkin-run', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    const [row] = await dbRead
+      .select({ providerCode: aiRelayAccountPool.providerCode, uid: aiRelayAccountPool.uid })
+      .from(aiRelayAccountPool)
+      .where(eq(aiRelayAccountPool.id, p.data.id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '账号不存在'))
+    const platform = checkinPlatformFor(row.providerCode)
+    if (!platform) {
+      return reply.status(400).send(error(400, `平台 ${row.providerCode} 无签到引擎,无法签到`))
+    }
+    const r = await postPoolRun(platform, row.uid ?? '')
+    if (r.ok) {
+      return reply.send(success({ record: r.record }))
+    }
+    // 404(未同步)/429(冷却/限流)原样透传;502(网络)由 ai-service 不可达导致
+    const status = r.httpStatus === 404 || r.httpStatus === 429 ? r.httpStatus : 502
+    return reply.status(status).send(error(status, r.error ?? '触发签到失败'))
   })
 
   // ===== 10. POST /admin/relay/accounts/:id/claim — 认领账号 =====

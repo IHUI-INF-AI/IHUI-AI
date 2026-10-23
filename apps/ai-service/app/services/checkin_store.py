@@ -960,6 +960,26 @@ async def load_device_map(account_id: int) -> dict[str, Any] | None:
     return dict(dm)
 
 
+async def pool_account_id_of(platform: str, uid: str) -> int | None:
+    """按 (platform, identity_key) 定位系统 owner 账号 id(pool-run 点名用)。
+
+    与 apply_pool_state / pool_status 同一寻址口径(identity_key = 号池 uid);
+    不存在回 None(调用方映射 404)。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        found = await conn.fetchval(
+            """
+            SELECT id FROM checkin_accounts
+            WHERE owner_user_id = $1 AND platform = $2 AND identity_key = $3
+            """,
+            POOL_SYNC_OWNER,
+            platform,
+            uid,
+        )
+    return found if isinstance(found, int) else None
+
+
 async def apply_pool_state(platform: str, uid: str, state: str) -> dict[str, Any]:
     """号池状态联动(enabled / disabled / pool_deleted),返回 {found, accountId}。
 
