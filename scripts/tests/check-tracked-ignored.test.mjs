@@ -19,7 +19,7 @@ import { join } from 'node:path'
 import { __test__ as G } from '../check-tracked-ignored.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { classifyAdded, ignoredAmong } = G
+const { classifyAdded, ignoredAmong, classifyWithLedger } = G
 
 /** 在 scratch 里起一个真仓:`.ihui-agent/*` 忽略,其余不忽略(与主仓同一条规则形态) */
 function scratchRepo() {
@@ -103,6 +103,42 @@ describe('check-tracked-ignored:判据面', () => {
   it('T5 classifyAdded 保序(逐条点名要按入参顺序,否则日志顺序随实现漂)', () => {
     const ignored = new Set(['b', 'd'])
     assert.deepEqual(classifyAdded(['a', 'b', 'c', 'd'], ignored), ['b', 'd'])
+  })
+})
+
+describe('classifyWithLedger:认 G-926 台账,不做第二把尺子', () => {
+  const today = '2026-10-23'
+  const ledger = [
+    { dir: '.ihui-agent/archive', until: '2027-04-21' },
+    { dir: 'apps/ai-service/app/skills/content_engine/articles', until: '2026-10-22' },
+  ]
+
+  it('W1 落在已登记且未过期的目录 ⇒ 放行,但**要点名**出来(不是静默通过)', () => {
+    const r = classifyWithLedger(['.ihui-agent/archive/AGENTS_trim-x.md'], ledger, today)
+    assert.deepEqual(r.red, [])
+    assert.deepEqual(r.exempt, [
+      { path: '.ihui-agent/archive/AGENTS_trim-x.md', dir: '.ihui-agent/archive', until: '2027-04-21' },
+    ])
+  })
+
+  it('W2 台账到期 ⇒ 自动回到 red(登记过不等于永远免)', () => {
+    const r = classifyWithLedger(
+      ['apps/ai-service/app/skills/content_engine/articles/x.md'],
+      ledger,
+      today,
+    )
+    assert.equal(r.exempt.length, 0)
+    assert.deepEqual(r.red, ['apps/ai-service/app/skills/content_engine/articles/x.md'])
+  })
+
+  it('W3 不在台账里的目录 ⇒ red(这正是本门存在的理由)', () => {
+    const r = classifyWithLedger(['.ihui-agent/tmp/plan-pointer-purge-x-1.md'], ledger, today)
+    assert.deepEqual(r.red, ['.ihui-agent/tmp/plan-pointer-purge-x-1.md'])
+  })
+
+  it('W4 前缀必须按目录边界匹配:`…/articles-old/` 不得借 `…/articles` 的豁免', () => {
+    const r = classifyWithLedger(['.ihui-agent/archive-old/x.md'], ledger, today)
+    assert.deepEqual(r.red, ['.ihui-agent/archive-old/x.md'])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
