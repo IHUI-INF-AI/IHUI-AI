@@ -24976,15 +24976,7 @@
     "submit": "認証を送信"
   },
   "recruitment": {
-    "title": "採用情報",
-    "count": "全 {count} 件の求人",
-    "empty": "採用情報はありません",
-    "applied": "応募済み",
-    "close": "閉じる",
-    "description": "職務内容",
-    "requirements": "応募資格",
-    "appliedWaiting": "応募済み、審査待ち",
-    "applyNow": "今すぐ応募"
+    "title": "採用情報"
   },
   "studyProgress": {
     "loadFailed": "読み込みに失敗しました",
