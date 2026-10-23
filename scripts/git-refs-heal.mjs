@@ -202,7 +202,7 @@ function remoteFaceIsComplete(remoteRefNames) {
 function remoteCandidatesFor(ref) {
   if (ref.startsWith('refs/remotes/origin/')) {
     const rest = ref.slice('refs/remotes/origin/'.length)
-    // 镜像远端(gitee/gitcode)的 tracking ref 也长这样,故两种形态都算命中
+    // 同一分支名在远端既有 heads 形态、也有本机 tracking 形态,故两种都算命中
     return [`refs/heads/${rest}`, ref]
   }
   if (ref.startsWith('refs/tags/')) return [ref]
