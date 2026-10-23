@@ -162,9 +162,9 @@ export default function AiFeedHealthPage() {
           ) : list.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">暂无数据源</div>
           ) : (
-            <div className="space-y-3">
+            <div>
               {list.map(({ source: s, itemCount, snapshotCount }) => (
-                <div key={s.id} className="flex flex-wrap items-center gap-3 py-1.5">
+                <div key={s.id} className="flex flex-wrap items-center gap-3 py-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{s.sourceName}</span>
