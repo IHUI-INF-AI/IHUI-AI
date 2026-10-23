@@ -38,6 +38,12 @@ export interface HealthCheckResult {
   ok: boolean
   error?: string
   indeterminate?: boolean
+  /**
+   * 上游**明确拒收**该凭据(401/403 / 业务鉴权错)。承载层据此在同一次写里把
+   * tokenExpiresAt 收敛到当下 —— 到期列只是「可能仍可用」的弱证据,不得与拒收态背离。
+   * 5xx / 网络 / 形状不符一律不得置真(那些走 indeterminate)。
+   */
+  authFailed?: boolean
 }
 
 /** 归一化的 chat 请求(OpenAI 形状,由转发层从客户端请求转换而来) */
