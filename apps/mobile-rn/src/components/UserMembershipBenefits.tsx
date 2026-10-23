@@ -316,8 +316,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: tokens.border.light,
   } as ViewStyle,
   colTitle: {
     width: '40%',

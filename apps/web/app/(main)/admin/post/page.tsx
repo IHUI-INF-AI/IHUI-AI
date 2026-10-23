@@ -12,6 +12,7 @@ import { Briefcase, Plus, Trash2, Download, ChevronLeft, ChevronRight } from 'lu
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { useBatchMutation } from '@/hooks/use-batch-mutation'
+import { useConfirm } from '@/hooks/use-confirm'
 import { Button } from '@ihui/ui-react'
 import { PostFilter } from './PostFilter'
 import { PostTable } from './PostTable'
@@ -25,6 +26,7 @@ const EMPTY_SEARCH: PostSearch = { postCode: '', postName: '', status: '' }
 
 export default function PostPage() {
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [search, setSearch] = React.useState<PostSearch>(EMPTY_SEARCH)
   const [applied, setApplied] = React.useState<PostSearch>(EMPTY_SEARCH)
   const [page, setPage] = React.useState(1)
@@ -158,7 +160,12 @@ export default function PostPage() {
             variant="outline"
             disabled={selected.size === 0 || delMut.isPending}
             onClick={() => {
-              if (confirm(`确认删除选中的 ${selected.size} 条记录？`)) delMut.mutate()
+              void confirm({
+                title: `确认删除选中的 ${selected.size} 条记录？`,
+                variant: 'destructive',
+              }).then((ok) => {
+                if (ok) delMut.mutate()
+              })
             }}
           >
             <Trash2 className="h-4 w-4" />
@@ -221,6 +228,8 @@ export default function PostPage() {
         onClose={closeDialog}
         onSubmit={submit}
       />
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

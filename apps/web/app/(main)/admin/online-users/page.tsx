@@ -13,6 +13,7 @@ import { apiOrThrow } from '@/lib/api'
 import { Button, SearchInput } from '@ihui/ui-react'
 import { DataTable, type Column, Badge } from '@/components/data'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 interface OnlineUser {
   id: string
@@ -40,6 +41,7 @@ function DeviceIcon({ device }: { device: string }) {
 
 export default function OnlineUsersPage() {
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [search, setSearch] = React.useState('')
   const [page, setPage] = React.useState(1)
 
@@ -129,7 +131,9 @@ export default function OnlineUsersPage() {
           className="text-destructive hover:text-destructive"
           disabled={forceLogoutMut.isPending}
           onClick={() => {
-            if (confirm(`确认强制下线用户 ${u.username}?`)) forceLogoutMut.mutate(u.id)
+            void confirm({ title: `确认强制下线用户 ${u.username}?` }).then((ok) => {
+              if (ok) forceLogoutMut.mutate(u.id)
+            })
           }}
         >
           <LogOut className="h-4 w-4" />
@@ -174,6 +178,8 @@ export default function OnlineUsersPage() {
         pagination={{ page, pageSize: PAGE_SIZE, total }}
         onPageChange={setPage}
       />
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

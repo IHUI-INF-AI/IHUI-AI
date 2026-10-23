@@ -35,6 +35,7 @@ import {
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 /** 后端 ParamOpRule 契约(简化版,ops 用 unknown[] 避免 any)。 */
 interface ParamOpRule {
@@ -69,6 +70,7 @@ const fmtTime = (iso?: string): string => {
 
 export default function AdminRelayParamOpsPage() {
   const t = useTranslations('admin.relayParamOps')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   const queryKey = ['admin', 'relay-param-ops']
   const [editOpen, setEditOpen] = React.useState(false)
@@ -338,8 +340,12 @@ export default function AdminRelayParamOpsPage() {
                             size="icon-xs"
                             className="text-destructive hover:text-destructive"
                             onClick={() => {
-                              if (confirm(t('deleteConfirm', { name: r.name })))
-                                deleteMut.mutate(r.id)
+                              void confirm({
+                                title: t('deleteConfirm', { name: r.name }),
+                                variant: 'destructive',
+                              }).then((ok) => {
+                                if (ok) deleteMut.mutate(r.id)
+                              })
                             }}
                             aria-label={t('delete')}
                           >
@@ -511,6 +517,7 @@ export default function AdminRelayParamOpsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

@@ -13,6 +13,7 @@ import { TruncatedText } from '@/components/common'
 import { th } from './helpers'
 import type { Post } from './types'
 import { formatDate } from '@/lib/date-utils'
+import { useConfirm } from '@/hooks/use-confirm'
 
 interface PostTableProps {
   list: Post[]
@@ -33,6 +34,7 @@ export function PostTable({
   onEdit,
   onDelete,
 }: PostTableProps) {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -111,7 +113,11 @@ export function PostTable({
                         variant="ghost"
                         className="text-destructive"
                         onClick={() => {
-                          if (confirm('确认删除？')) onDelete(p.id)
+                          void confirm({ title: '确认删除？', variant: 'destructive' }).then(
+                            (ok) => {
+                              if (ok) onDelete(p.id)
+                            },
+                          )
                         }}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -124,6 +130,7 @@ export function PostTable({
           )}
         </tbody>
       </table>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

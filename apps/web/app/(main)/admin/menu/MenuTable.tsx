@@ -10,6 +10,7 @@ import { Button } from '@ihui/ui-react'
 import { DataTable, type Column } from '@/components/data'
 import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
+import { useConfirm } from '@/hooks/use-confirm'
 import { PAGE_SIZE } from './helpers'
 import type { MenuItem } from './types'
 
@@ -39,6 +40,7 @@ export function MenuTable({
   onPageChange,
 }: Props) {
   const t = useTranslations('admin.menu')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const columns: Column<MenuItem>[] = [
     {
       key: 'name',
@@ -114,7 +116,9 @@ export function MenuTable({
             className="text-destructive hover:text-destructive"
             disabled={delPending}
             onClick={() => {
-              if (confirm(t('confirmDelete'))) onDelete(m)
+              void confirm({ title: t('confirmDelete'), variant: 'destructive' }).then((ok) => {
+                if (ok) onDelete(m)
+              })
             }}
           >
             <Trash2 className="h-4 w-4" />
@@ -125,14 +129,17 @@ export function MenuTable({
   ]
 
   return (
-    <DataTable
-      columns={columns}
-      data={list}
-      rowKey={(m) => m.id}
-      loading={isLoading}
-      pagination={{ page, pageSize: PAGE_SIZE, total }}
-      onPageChange={onPageChange}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        data={list}
+        rowKey={(m) => m.id}
+        loading={isLoading}
+        pagination={{ page, pageSize: PAGE_SIZE, total }}
+        onPageChange={onPageChange}
+      />
+      <ConfirmDialogRenderer />
+    </>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

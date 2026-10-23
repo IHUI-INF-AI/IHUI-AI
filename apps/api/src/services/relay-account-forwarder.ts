@@ -60,6 +60,11 @@ import { recordAccountUsage } from './relay-account-usage.js'
 import { pickProxyForAccount, reportProxyFailure, reportProxySuccess } from './relay-proxy-pool.js'
 import { resolveModelAlias } from './relay-model-catalog.js'
 import {
+  applyStopToCompletion,
+  createStopTruncator,
+  truncateAtStops,
+} from './relay-stop-truncate.js'
+import {
   getRelayAdapter,
   normalizeStopSequences,
   type AdapterAccountContext,
@@ -568,18 +573,76 @@ function translateSseResponse(
   upstream: ReadableStream<Uint8Array>,
   adapter: RelayUpstreamAdapter,
   ctx: AdapterAccountContext,
+  stop?: string | string[],
 ): Response {
   const encoder = new TextEncoder()
   const state: StreamState = {}
+  const truncator = createStopTruncator(stop)
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let stopped = false
+      let flushed = false
+      let lastChunk: Record<string, unknown> | null = null
+      const emit = (chunk: Record<string, unknown>) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`))
+      }
       try {
         for await (const line of readSseDataLines(upstream)) {
           if (isSseDone(line)) break
           const translated = adapter.translateStreamChunk(ctx, line, state)
           if (!translated) continue
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(translated.openaiChunk)}\n\n`))
-          if (translated.done) break
+          const chunk = translated.openaiChunk
+          lastChunk = chunk
+          const choices = Array.isArray(chunk.choices) ? chunk.choices : []
+          let reachesEnd = translated.done === true
+          if (truncator) {
+            for (const raw of choices) {
+              const choice = asRecord(raw)
+              const delta = choice ? asRecord(choice.delta) : null
+              if (!choice || !delta) continue
+              if (typeof delta.content === 'string') {
+                const r = truncator.push(delta.content)
+                delta.content = r.text
+                if (r.matched) {
+                  choice.finish_reason = 'stop'
+                  stopped = true
+                }
+              }
+              if (typeof choice.finish_reason === 'string' && choice.finish_reason)
+                reachesEnd = true
+            }
+            // 结束帧前把 holdback 的尾巴补进正文(命中 stop 时丢弃尾巴)
+            if (!stopped && reachesEnd && !flushed) {
+              const f = truncator.flush()
+              flushed = true
+              if (f.text && choices.length > 0) {
+                const first = asRecord(choices[0])
+                const delta = first ? asRecord(first.delta) : null
+                if (delta)
+                  delta.content = `${typeof delta.content === 'string' ? delta.content : ''}${f.text}`
+              }
+            }
+          }
+          emit(chunk)
+          if (stopped || translated.done) break
+        }
+        if (truncator && !stopped && !flushed) {
+          const f = truncator.flush()
+          if (f.text) {
+            const base =
+              lastChunk && typeof lastChunk.id === 'string'
+                ? {
+                    id: lastChunk.id,
+                    object: lastChunk.object ?? 'chat.completion.chunk',
+                    created: lastChunk.created,
+                    model: lastChunk.model,
+                  }
+                : { object: 'chat.completion.chunk' }
+            emit({
+              ...base,
+              choices: [{ index: 0, delta: { content: f.text }, finish_reason: 'stop' }],
+            })
+          }
         }
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
@@ -596,12 +659,33 @@ function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
 }
 
+export interface ToolCallSlot {
+  id?: string
+  type?: string
+  name?: string
+  args: string
+}
+
+/**
+ * 合并 tool_calls 分片:后续分片常带空 id/name,不能覆盖首次非空值;
+ * arguments 按到达顺序拼接。抽成纯函数是为了能被单测直接钉住(曾出现 name 被空串覆盖)。
+ */
+export function mergeToolCallDelta(slot: ToolCallSlot, tc: Record<string, unknown>): void {
+  if (typeof tc.id === 'string' && tc.id) slot.id = tc.id
+  if (typeof tc.type === 'string' && tc.type) slot.type = tc.type
+  const fn = asRecord(tc.function)
+  if (!fn) return
+  if (typeof fn.name === 'string' && fn.name && !slot.name) slot.name = fn.name
+  if (typeof fn.arguments === 'string') slot.args += fn.arguments
+}
+
 /** 上游强制流式时的网关侧聚合:SSE 帧 → chat.completion(delta/tool_calls/usage 合并) */
 async function aggregateSseToCompletion(
   upstream: ReadableStream<Uint8Array>,
   adapter: RelayUpstreamAdapter,
   ctx: AdapterAccountContext,
   model: string,
+  stop?: string | string[],
 ): Promise<Record<string, unknown>> {
   const state: StreamState = {}
   let id = ''
@@ -610,13 +694,7 @@ async function aggregateSseToCompletion(
   let reasoning = ''
   let finishReason: string | null = null
   let usage: Record<string, unknown> | null = null
-  interface Slot {
-    id?: string
-    type?: string
-    name?: string
-    args: string
-  }
-  const toolSlots = new Map<number, Slot>()
+  const toolSlots = new Map<number, ToolCallSlot>()
 
   for await (const line of readSseDataLines(upstream)) {
     if (isSseDone(line)) break
@@ -642,19 +720,19 @@ async function aggregateSseToCompletion(
       if (!tc) continue
       const idx = typeof tc.index === 'number' ? tc.index : i
       const slot = toolSlots.get(idx) ?? { args: '' }
-      if (typeof tc.id === 'string') slot.id = tc.id
-      if (typeof tc.type === 'string') slot.type = tc.type
-      const fn = asRecord(tc.function)
-      if (fn) {
-        if (typeof fn.name === 'string') slot.name = fn.name
-        if (typeof fn.arguments === 'string') slot.args += fn.arguments
-      }
+      mergeToolCallDelta(slot, tc)
       toolSlots.set(idx, slot)
     }
     if (translated?.done) break
   }
 
   const message: Record<string, unknown> = { role: 'assistant', content }
+  // stop 本地截断(上游数组形态收下但不生效):聚合后按首个命中位置截断并改 finish_reason
+  const truncated = truncateAtStops(content, stop)
+  if (truncated.matched) {
+    message.content = truncated.text
+    finishReason = 'stop'
+  }
   if (reasoning) message.reasoning_content = reasoning
   if (toolSlots.size > 0) {
     message.tool_calls = [...toolSlots.entries()]
@@ -797,6 +875,13 @@ function toNormalized(req: UpstreamForwardRequest, rawModel: string): Normalized
   if (req.reasoningEffort !== undefined) norm.reasoningEffort = req.reasoningEffort
   const stops = normalizeStopSequences(req.stop)
   if (stops !== undefined) norm.stop = stops
+  // 采样面与工具开关(2026-10-23):上游实测均接受,账号池不再静默丢弃
+  if (req.topP !== undefined) norm.topP = req.topP
+  if (req.presencePenalty !== undefined) norm.presencePenalty = req.presencePenalty
+  if (req.frequencyPenalty !== undefined) norm.frequencyPenalty = req.frequencyPenalty
+  if (req.parallelToolCalls !== undefined) norm.parallelToolCalls = req.parallelToolCalls
+  if (req.user !== undefined) norm.user = req.user
+  if (req.serviceTier !== undefined) norm.serviceTier = req.serviceTier
   if (req.affinityKey) norm.conversationId = req.affinityKey
   return norm
 }
@@ -985,13 +1070,13 @@ async function consumeUpstreamResponse(
   // 2xx 但不可消费/不可解析 = 上游服务异常,必须罚号(否则坏上游永远健康)
   if (!body) return fail('server', '上游响应无 body', resp.status)
   if (req.stream) {
-    return finish(translateSseResponse(body, adapter, ctx))
+    return finish(translateSseResponse(body, adapter, ctx, req.stop))
   }
   const ct = resp.headers.get('content-type') ?? ''
   if (ct.includes('text/event-stream')) {
     // 上游拒绝非流式(WorkBuddy):网关侧聚合成 chat.completion
     try {
-      const completion = await aggregateSseToCompletion(body, adapter, ctx, rawModel)
+      const completion = await aggregateSseToCompletion(body, adapter, ctx, rawModel, req.stop)
       return finish(Response.json(completion))
     } catch (err) {
       return fail(
@@ -1012,7 +1097,9 @@ async function consumeUpstreamResponse(
     )
   }
   try {
-    return finish(Response.json(adapter.translateNonStream(ctx, json)))
+    const completion = adapter.translateNonStream(ctx, json)
+    applyStopToCompletion(completion, req.stop)
+    return finish(Response.json(completion))
   } catch (err) {
     return fail(
       'server',
@@ -1036,6 +1123,9 @@ export async function forwardToAccountPool(
 ): Promise<ForwardResult> {
   try {
     if (req.endpoint && req.endpoint !== 'chat') return null // 账号池仅 chat
+    // 上游静默忽略的语义参数不在这里"假装支持":候选数 >1 / logprobs 直接交回 ai-service 链路
+    if (req.n !== undefined && req.n > 1) return null
+    if (req.logprobs === true) return null
     const providers = await resolvePoolProviders(rawModel)
     if (providers.length === 0) return null
     const candidates = await selectAccountCandidates(
@@ -1143,4 +1233,6 @@ export async function forwardToAccountPool(
     return null // 账号池链路任何异常 → 调用方继续回退 ai-service
   }
 }
+
+export const __test__ = { mergeToolCallDelta }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

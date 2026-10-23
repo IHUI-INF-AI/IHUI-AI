@@ -62,8 +62,8 @@ export function AboutScreen({
         </View>
 
         <View style={styles.infoCard}>
-          {rows.map((row, idx) => (
-            <View key={row.label} style={[styles.row, idx > 0 && styles.rowDivider]}>
+          {rows.map((row) => (
+            <View key={row.label} style={styles.row}>
               <Text style={styles.label}>{row.label}</Text>
               <Text style={styles.value} numberOfLines={1}>
                 {row.value}
@@ -121,7 +121,6 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       paddingVertical: 10,
     },
-    rowDivider: { borderTopColor: tk.border.light, borderTopWidth: 1 },
     label: { fontSize: 14, color: tk.text.secondary },
     value: { fontSize: 14, color: tk.text.primary, maxWidth: 200 },
   })

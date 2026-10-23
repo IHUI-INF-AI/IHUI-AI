@@ -1941,8 +1941,6 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.primary,
     },
     historyClear: {
-      borderTopWidth: 1,
-      borderTopColor: inputBorder,
       paddingVertical: 10,
       paddingHorizontal: 14,
       alignItems: 'center',

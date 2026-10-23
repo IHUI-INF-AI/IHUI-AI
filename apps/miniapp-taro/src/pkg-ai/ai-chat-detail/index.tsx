@@ -302,8 +302,8 @@ export default function AiChatDetail() {
 
   return (
     <ThemeRoot className="flex flex-col h-screen bg-background">
-      {/* 对齐 RN ChatScreen header:无卡片底 + 底部描边 + 标题 20dp/600 */}
-      <View className="flex flex-row items-center justify-between px-[24rpx] py-[24rpx] border-b-[length:2rpx] border-border flex-shrink-0">
+      {/* 对齐 RN ChatScreen header:无卡片底 + 标题 20dp/600(底部描边已按 §4 两端同批摘除) */}
+      <View className="flex flex-row items-center justify-between px-[24rpx] py-[24rpx] flex-shrink-0">
         <Text className="text-[length:40rpx] font-semibold text-foreground">
           {t('aiChatDetail.title')}
         </Text>
@@ -399,7 +399,7 @@ export default function AiChatDetail() {
       ) : null}
 
       {isInputFullscreen ? (
-        <View className="flex flex-row items-center justify-between px-[32rpx] py-[24rpx] border-b-[length:2rpx] border-border">
+        <View className="flex flex-row items-center justify-between px-[32rpx] py-[24rpx]">
           {/* back-label-exempt: 全屏输入态的退出按钮,「返回」是按钮文案且箭头已矢量化(LineIcon 在同一按钮内) until 2026-12-31 */}
           <View
             onClick={handleFullscreenToggle}
@@ -418,7 +418,7 @@ export default function AiChatDetail() {
       ) : null}
 
       {isVoiceMode ? (
-        <View className="flex flex-col items-center px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[length:2rpx] border-border">
+        <View className="flex flex-col items-center px-[20rpx] pt-[10rpx] pb-[20rpx]">
           <Text className="text-[length:24rpx] text-[var(--color-text-tertiary)] mb-[12rpx]">
             {isRecording ? t('messageInput.recording') : t('messageInput.voiceHint')}
           </Text>
@@ -438,7 +438,7 @@ export default function AiChatDetail() {
           </View>
         </View>
       ) : (
-        <View className="px-[20rpx] pt-[10rpx] pb-[20rpx] border-t-[length:2rpx] border-border flex-shrink-0">
+        <View className="px-[20rpx] pt-[10rpx] pb-[20rpx] flex-shrink-0">
           {/* 对齐 RN MessageInput inputRow:胶囊描边容器(radius 2xl=16px,聚焦态取墨档 = focusStyle) */}
           <View
             className="flex flex-row items-end rounded-2xl border-[length:2rpx] border-border bg-card px-[30rpx] py-[12rpx] gap-[20rpx]"

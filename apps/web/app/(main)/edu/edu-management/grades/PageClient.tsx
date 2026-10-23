@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils'
 import { apiOrThrow } from '@/lib/api'
 import { neutralizeFormulaCell } from '@/lib/export-utils'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 import {
   Card,
   CardContent,
@@ -345,6 +346,7 @@ function BatchScoreEntry({
 export default function GradesPage() {
   const queryClient = useQueryClient()
   const t = useTranslations('eduGrades')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
 
   /* ── State ── */
   const [selectedTermId, setSelectedTermId] = React.useState('')
@@ -521,7 +523,7 @@ export default function GradesPage() {
   }
 
   const handleDeleteScore = async (id: string) => {
-    if (confirm(t('confirmDeleteScore'))) {
+    if (await confirm({ title: t('confirmDeleteScore'), variant: 'destructive' })) {
       await deleteScore.mutateAsync(id)
     }
   }
@@ -1043,6 +1045,8 @@ export default function GradesPage() {
           await createScore.mutateAsync(data)
         }}
       />
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

@@ -3,7 +3,16 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { TextField } from '../../components/TextField'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiGroupItem, AiGroupScreenProps, AiGroupTab } from '../../types'
@@ -195,7 +204,8 @@ export function AiGroupScreen({
       {/* 搜索框(对齐 Uniapp ai_group/index.vue InputArea「搜索AI助手」;未注入回调则不渲染) */}
       {onKeywordChange ? (
         <View style={styles.searchRow}>
-          <TextField colorScheme={colorScheme}
+          <TextField
+            colorScheme={colorScheme}
             value={keyword ?? ''}
             onChangeText={onKeywordChange}
             placeholder={t('aiGroup.searchPlaceholder')}
@@ -320,8 +330,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 12,
       gap: 12,
-      borderBottomColor: tk.border.light,
-      borderBottomWidth: 1,
     },
     detailTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
     detailBody: { flex: 1 },

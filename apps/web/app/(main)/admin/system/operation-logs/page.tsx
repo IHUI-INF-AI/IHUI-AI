@@ -20,12 +20,14 @@ import { OperationLogsDetailDialog } from './OperationLogsDetailDialog'
 import { RESOURCE, BIZ_TYPE, STATUS_LABEL, api } from './helpers'
 import type { OperLog, ListResp } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 const PAGE_SIZE = 15
 const EMPTY_SEARCH = { title: '', operName: '', businessType: '' }
 
 export default function OperationLogsPage() {
   const t = useTranslations('admin.system')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   const [search, setSearch] = React.useState(EMPTY_SEARCH)
   const [applied, setApplied] = React.useState(EMPTY_SEARCH)
@@ -146,7 +148,12 @@ export default function OperationLogsPage() {
             variant="outline"
             disabled={selected.size === 0 || delMut.isPending}
             onClick={() => {
-              if (confirm(t('common.confirmDelete', { count: selected.size }))) delMut.mutate()
+              void confirm({
+                title: t('common.confirmDelete', { count: selected.size }),
+                variant: 'destructive',
+              }).then((ok) => {
+                if (ok) delMut.mutate()
+              })
             }}
           >
             <Trash2 className="h-4 w-4" />
@@ -157,7 +164,12 @@ export default function OperationLogsPage() {
             variant="outline"
             disabled={cleanMut.isPending}
             onClick={() => {
-              if (confirm(t('operationLogs.confirmClean'))) cleanMut.mutate()
+              void confirm({
+                title: t('operationLogs.confirmClean'),
+                variant: 'destructive',
+              }).then((ok) => {
+                if (ok) cleanMut.mutate()
+              })
             }}
           >
             <Eraser className="h-4 w-4" />
@@ -210,6 +222,7 @@ export default function OperationLogsPage() {
       )}
 
       <OperationLogsDetailDialog detail={detail} onClose={() => setDetail(null)} />
+      <ConfirmDialogRenderer />
     </div>
   )
 }

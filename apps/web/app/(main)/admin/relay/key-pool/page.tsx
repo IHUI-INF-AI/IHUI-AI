@@ -38,6 +38,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
+import { useConfirm } from '@/hooks/use-confirm'
 
 const PAGE_SIZE = 20
 const selectClass =
@@ -83,6 +84,7 @@ const EMPTY_FORM = {
 export default function AdminRelayKeyPoolPage() {
   const locale = useLocale()
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState('')
   const [provider, setProvider] = React.useState('')
@@ -340,12 +342,17 @@ export default function AdminRelayKeyPoolPage() {
                               variant="ghost"
                               disabled={act.isPending}
                               onClick={() => {
-                                if (confirm(`删除 Key "${k.name}"?`)) {
-                                  act.mutate({
-                                    url: `/api/admin/relay/key-pool/${k.id}`,
-                                    method: 'DELETE',
-                                  })
-                                }
+                                void confirm({
+                                  title: `删除 Key "${k.name}"?`,
+                                  variant: 'destructive',
+                                }).then((ok) => {
+                                  if (ok) {
+                                    act.mutate({
+                                      url: `/api/admin/relay/key-pool/${k.id}`,
+                                      method: 'DELETE',
+                                    })
+                                  }
+                                })
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -480,6 +487,8 @@ export default function AdminRelayKeyPoolPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

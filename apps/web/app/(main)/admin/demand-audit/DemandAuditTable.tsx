@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Check, Edit, Trash2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { DataTable, type Column, Badge } from '@/components/data'
+import { useConfirm } from '@/hooks/use-confirm'
 import type { DemandRow } from './types'
 
 interface DemandAuditTableProps {
@@ -31,6 +32,7 @@ export function DemandAuditTable({
   onEdit,
   onDelete,
 }: DemandAuditTableProps) {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const t = useTranslations('admin.demandAudit')
   const columns: Column<DemandRow>[] = [
     {
@@ -89,7 +91,9 @@ export function DemandAuditTable({
             variant="ghost"
             className="shrink-0 text-destructive"
             onClick={() => {
-              if (confirm(t('deleteConfirm'))) onDelete(d.id)
+              void confirm({ title: t('deleteConfirm'), variant: 'destructive' }).then((ok) => {
+                if (ok) onDelete(d.id)
+              })
             }}
           >
             <Trash2 className="h-4 w-4 shrink-0" />
@@ -100,14 +104,17 @@ export function DemandAuditTable({
   ]
 
   return (
-    <DataTable
-      columns={columns}
-      data={list}
-      rowKey={(d) => d.id}
-      loading={isLoading}
-      pagination={{ page, pageSize: 20, total }}
-      onPageChange={onPageChange}
-    />
+    <>
+      <DataTable
+        columns={columns}
+        data={list}
+        rowKey={(d) => d.id}
+        loading={isLoading}
+        pagination={{ page, pageSize: 20, total }}
+        onPageChange={onPageChange}
+      />
+      <ConfirmDialogRenderer />
+    </>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
