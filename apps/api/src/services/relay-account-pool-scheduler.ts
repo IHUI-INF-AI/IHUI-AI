@@ -89,8 +89,11 @@ export const __test__ = {
   },
 }
 
-/** 刷新单账号;成功回写凭证,失败累计摘除。返回 true = 刷新成功 */
-async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
+/**
+ * 刷新单账号;成功回写凭证,失败累计摘除。返回 true = 刷新成功。
+ * 导出给管理面「按需查余额」共用同一把出口(回写/解摘/失败累计的口径只有一份)。
+ */
+export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
   const adapter = getRelayAdapter(row.providerCode)
   if (!adapter?.refreshToken) return false
   const credentials = decryptAccountCredentials(row)

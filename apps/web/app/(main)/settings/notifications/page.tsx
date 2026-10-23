@@ -43,7 +43,7 @@ export default function NotificationsPage() {
   const tc = useTranslations('common')
   // 2026-10-15 登录态门(与 /chat/favorites、签到助手同型):未就绪/未登录不发注定 401 的请求,改显登录引导
   const tGate = useTranslations('chatHistory')
-  const { allow } = useAuthGate()
+  const { ready, allow } = useAuthGate()
   const { soundEnabled, setSoundEnabled } = useNotification()
   const [prefs, setPrefs] = React.useState<NotificationPrefs>(NOTIFICATION_DEFAULTS)
   const [loading, setLoading] = React.useState(true)
