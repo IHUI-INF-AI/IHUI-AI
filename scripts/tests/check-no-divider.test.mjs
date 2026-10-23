@@ -387,4 +387,68 @@ test('D18 横边不享受缩进轨出口(mt-3 border-t pt-2 这一族照判)', (
     rmScratch(dir)
   }
 })
+
+test('D20 族 5 装车:.css 单边声明进射程(旧头注写着"CSS 侧由跨端 token 门管",而全仓没有那道门)', () => {
+  const dir = createRepo({
+    'apps/miniapp-taro/src/pages/home/index.css': '.card {\n  padding: 16rpx;\n}\n',
+  })
+  try {
+    stage(
+      dir,
+      'apps/miniapp-taro/src/pages/home/index.css',
+      '.card {\n  padding: 16rpx;\n  border-top: 2rpx solid var(--color-border);\n}\n',
+    )
+    const r = runStaged(dir)
+    assert.equal(r.status, 1, `CSS 面的单边声明必须拦提交\n${r.stdout}`)
+    assert.match(r.stdout, /\[css single-side divider\]/, `必须点名到 css 面\n${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D21 族 5 反向对照:not-last 的擦除与整圈 override 都不许被卷进来(否则清存量清不掉)', () => {
+  const dir = createRepo({
+    'apps/miniapp-taro/src/pages/home/index.css': '.card {\n  padding: 16rpx;\n}\n',
+  })
+  try {
+    stage(
+      dir,
+      'apps/miniapp-taro/src/pages/home/index.css',
+      '.card {\n  padding: 16rpx;\n}\n.card + .card {\n  border-top: 2rpx solid var(--color-border);\n}\n.card:last-child {\n  border-top: none;\n}\n.chip {\n  border: 1rpx solid var(--color-border);\n  border-left: 6rpx solid var(--color-brand);\n}\n',
+    )
+    const r = runStaged(dir)
+    assert.match(r.stdout, /\[css single-side divider\]/, '真分隔线那条仍要点名')
+    assert.equal(
+      (r.stdout.match(/\[css single-side divider\]/g) || []).length,
+      1,
+      `只许点名那一条真分隔线:擦除与整圈 override 各多算一格 = 清理动作会被自己的基线顶住\n${r.stdout}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D22 族 6 装车:RN 样式对象的单边宽度进射程,同形出口(擦除 / 整圈 / 网格)仍放过', () => {
+  const dir = createRepo({
+    'packages/app/src/features/x/Screen.tsx':
+      'export const s = {\n  row: { paddingVertical: 8 },\n}\n',
+  })
+  try {
+    stage(
+      dir,
+      'packages/app/src/features/x/Screen.tsx',
+      'export const s = {\n  row: { paddingVertical: 8 },\n  rowDivider: { borderTopWidth: 1, borderTopColor: tokens.border.light },\n  rowLast: { borderBottomWidth: 0 },\n  box: { borderWidth: 1, borderColor: tokens.border.light, borderTopWidth: 1 },\n  cell: { borderBottomWidth: 1, borderRightWidth: 1 },\n}\n',
+    )
+    const r = runStaged(dir)
+    assert.equal(r.status, 1, `RN 样式对象的分隔线必须拦提交\n${r.stdout}`)
+    assert.match(r.stdout, /\[rn-style single-side divider\]/, `必须点名到 rn 面\n${r.stdout}`)
+    assert.equal(
+      (r.stdout.match(/\[rn-style single-side divider\]/g) || []).length,
+      1,
+      `只许点名那一条真分隔线:擦除(0)、整圈 override、横竖成对都不算\n${r.stdout}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

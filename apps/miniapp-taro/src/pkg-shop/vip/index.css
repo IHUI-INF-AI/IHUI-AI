@@ -265,7 +265,6 @@
   background: var(--vip-buy-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid var(--vip-border);
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -392,8 +392,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: rpx(24),
     paddingTop: rpx(20),
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
   },
   groupFooterLeft: {
     flexDirection: 'row',
@@ -464,8 +462,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: rpx(24),
     paddingTop: rpx(20),
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
   },
   settingBtn: {
     paddingHorizontal: rpx(32),
@@ -481,8 +477,6 @@ const styles = StyleSheet.create({
   detailPanel: {
     marginTop: rpx(24),
     paddingTop: rpx(20),
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
   },
   detailText: {
     fontSize: rpx(24),

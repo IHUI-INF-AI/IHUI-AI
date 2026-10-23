@@ -58,7 +58,6 @@ export interface TabBarProps {
 const TAB_BAR_HEIGHT = 56
 const TAB_BAR_ICON_SIZE = 24
 const TAB_BAR_FONT_SIZE = 10
-const TAB_BAR_TOP_BORDER = 1
 const DEFAULT_TABS: readonly TabBarItemConfig[] = [
   { key: 'home', label: '首页', iconInactive: '', iconActive: '' },
   { key: 'course', label: '课程', singleTinted: true, singleIcon: '' },
@@ -79,9 +78,6 @@ const viewStyles = {
     backgroundColor: tk.glass.bg,
     backdropFilter: 'blur(24px)',
     WebkitBackdropFilter: 'blur(24px)',
-    borderTopWidth: TAB_BAR_TOP_BORDER,
-    borderTopColor: tk.border.light,
-    borderTopStyle: 'solid',
   }),
   item: (): CSSProperties => ({
     flex: 1,

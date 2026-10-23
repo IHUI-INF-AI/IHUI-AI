@@ -88,7 +88,6 @@
   display: flex;
   align-items: flex-start;
   padding: 12rpx 0;
-  border-bottom: 1rpx solid var(--color-border);
 }
 .ai-card-plan-item:last-child {
   border-bottom: none;
@@ -151,7 +150,6 @@
   display: flex;
   align-items: flex-start;
   padding: 14rpx 0;
-  border-bottom: 1rpx solid var(--color-border);
 }
 .ai-card-tool-item:last-child {
   border-bottom: none;
@@ -284,7 +282,6 @@
 /* ============ 终端输出卡片 ============ */
 .ai-card-term-item {
   padding: 14rpx 0;
-  border-bottom: 1rpx solid var(--color-border);
 }
 .ai-card-term-item:last-child {
   border-bottom: none;

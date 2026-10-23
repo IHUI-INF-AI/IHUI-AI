@@ -170,11 +170,10 @@
   transform: translateX(0);
 }
 
-/* ===== posi_angeetlis(对齐原项目 position: relative;
-      顶部分隔线对齐 RN HomeScreen modelTypeBar borderTop 1dp→2rpx)===== */
+/* ===== posi_angeetlis(对齐原项目 position: relative;顶部那条 2rpx 描边按 §4「禁止分割线」摘除,
+      RN HomeScreen modelTypeBar 同位同批摘除,跨端仍同形)===== */
 .posi_angeetlis {
   position: relative;
-  border-top: 2rpx solid var(--color-border);
 }
 
 /* ===== input_box_content(对齐原项目 background-color: #fff)===== */
@@ -272,7 +271,6 @@
 .material-tabs {
   display: flex;
   flex-direction: row;
-  border-bottom: 2rpx solid var(--color-border-subtle);
   padding: 0 10rpx;
 }
 
@@ -318,7 +316,6 @@
   flex-direction: row;
   align-items: center;
   padding: 16rpx 10rpx;
-  border-bottom: 2rpx solid var(--color-border-subtle);
   cursor: pointer;
   transition: background 0.2s ease;
 }
@@ -386,7 +383,6 @@
   right: 0;
   z-index: 999;
   background: var(--color-card-subtle);
-  border-top: 2rpx solid var(--color-border-subtle);
 }
 
 .material-cards-scroll {

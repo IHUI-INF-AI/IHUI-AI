@@ -4,7 +4,15 @@
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { TextField } from '../../components/TextField'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AIMultimodalScreenProps, AiMultimodalMode } from '../../types'
@@ -111,7 +119,8 @@ export function AIMultimodalScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <View style={styles.inputRow}>
-        <TextField colorScheme={colorScheme}
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={input}
           onChangeText={onInputChange}
@@ -188,8 +197,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingVertical: 8,
       gap: 8,
-      borderTopColor: tk.border.light,
-      borderTopWidth: 1,
     },
     input: {
       flex: 1,
