@@ -402,6 +402,9 @@ def _sync_env_file_to_os() -> None:
             # 不带 x-internal-service-token,被 apps/api 以 401 "请先登录" 拒掉
             # (真机实测复现),edu_* 与 api_* 桥接同样断链。
             "AI_CALLBACK_SECRET",
+            # WorkBuddy 账号池桥:中转站要求 Bearer 之外再带 X-Api-Secret,
+            # provider_caps 以 os.environ 直读;不进白名单则 .env 配置静默失效。
+            "WORKBUDDY_RELAY_API_SECRET",
             "API_TOOLS_MODE",
             "API_TOOLS_MAX",
             "API_TOOLS_EXCLUDE",

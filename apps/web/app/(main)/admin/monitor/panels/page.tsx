@@ -184,7 +184,15 @@ function MonitorPanelsContent({ headerExtra }: { headerExtra: React.ReactNode })
     void loadConfig().then((m) => {
       if (!alive) return
       setConfig(m)
-      setActiveUid((u) => u || m.MONITOR_DASHBOARDS[0]!.uid)
+      // 默认落地盘 = 全景(2026-10-23 机主拍板)。此前取数组第一张,而生成器按文件名字典序
+      // 排 ⇒ 落在「Agent 与工具链路」,全景、访客与号池这些"一眼看全局"的盘都得翻页才看得到
+      // (机主原话:"我也没看到有啥变化啊")。取不到全景时回落到第一张,不改变兜底行为。
+      setActiveUid(
+        (u) =>
+          u ||
+          (m.MONITOR_DASHBOARDS.find((d) => d.uid === 'ihui-ai-overview')?.uid ??
+            m.MONITOR_DASHBOARDS[0]!.uid),
+      )
     })
     return () => {
       alive = false

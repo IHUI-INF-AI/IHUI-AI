@@ -78,6 +78,15 @@ PROVIDER_CAPS: dict[str, ProviderCap] = {
         max_context=8192,
         stream_idle_timeout_s=60,
     ),
+    # 项目自有中转站(账号池桥):Bearer 之外还必须带 X-Api-Secret,
+    # 值只留在环境变量 WORKBUDDY_RELAY_API_SECRET(env_headers 语义:这里存变量名)。
+    "workbuddy_relay": ProviderCap(
+        supports_vision=True,
+        default_timeout=120,
+        max_context=1000000,
+        request_max_retries=1,
+        env_headers={"X-Api-Secret": "WORKBUDDY_RELAY_API_SECRET"},
+    ),
     "openai": ProviderCap(
         supports_stream_usage=True,
         supports_tools=True,
