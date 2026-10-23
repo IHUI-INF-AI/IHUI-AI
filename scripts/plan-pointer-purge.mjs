@@ -62,7 +62,7 @@
  * 用法: node scripts/plan-pointer-purge.mjs [--dry-run|--apply] [--absorb]
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
@@ -152,6 +152,11 @@ function ledgerWithWatermark(ledgerRel, text) {
 // .ihui-agent/archive/ 已整体出版本控制并整目录忽略,新台账一律落 .ihui-agent/tmp/(gitignored,
 // 只作本机取证,不再入库;被删行原文凭 git 历史可查,无需入库台账)。门 71 已改为"已勾行不进
 // 保护集",清偿带走的行不再触发回捞,本台账从"防回捞凭据"降级为纯本机留痕。
+// 2026-10-23 补完迁移的另一半:上面那句"不再入库"当时只改了**落点**,代码仍把台账塞进
+// commit 的 entries ⇒ 每轮清偿都在 HEAD 里多一枚 gitignored 的临时件。后果可量:清理侧
+// (33a433dd491 等)逐枚 git rm --cached,合并侧又按对侧副本带回,git-sync-converge 每轮被
+// 门 168 拦一次;同一晚实测两轮。现改为**只写盘**、entries 只留 PROJECT_PLAN.md。
+// 消费侧本来就在盘上读(门 71 faceArchiveFiles:"它们永不入版本控制"),故本改动不改任何判据面。
 const LEDGER_REL = '.ihui-agent/tmp/plan-pointer-purge-2026-10-14.md'
 const GIT = process.env.GIT_BIN || 'git'
 /** 归档台账所在目录 —— 由 LEDGER_REL 自身推出,不另写第二份路径常量。 */
@@ -767,6 +772,28 @@ const firstLine = (e) =>
  * 读不到 ⇒ `{files:null, reason}` —— 未判定 ≠ 没有占用。
  * 只取名、不读内容(归档目录里有 13.8 MB 的归档件,`lib/plan-id-face.mjs` 同一课)。
  */
+/**
+ * **磁盘那一份**台账名清单(2026-10-23 起是本器取名的第一腿)。
+ *
+ * 台账自本日起不再入提交(见头注「台账」段),所以"这一格名字被占了没"的主面是**盘**而不是
+ * `HEAD:`. 仍保留 HEAD 面作第二腿:历史遗留的已入库名照样要避让,否则旧台账被新内容覆盖,
+ * 门 71 的"原文在台账里找得到"就少了一段(那正是它对打的成因)。
+ *
+ * 取不到目录 ⇒ `files: null` + 原因(§0.3:不当成"没人占用")。
+ */
+export function listLedgerNamesOnDisk({ root = ROOT, dir = LEDGER_DIR_REL } = {}) {
+  try {
+    const abs = path.join(root, ...dir.split('/'))
+    const names = readdirSync(abs).filter((n) => ARCHIVE_LEDGER_NAME_RE.test(n))
+    return { files: names.map((n) => `${dir}/${n}`), reason: '' }
+  } catch (e) {
+    return { files: null, reason: `磁盘 ${dir} 枚举失败:${firstLine(e).slice(0, 160)}` }
+  }
+}
+
+/** 台账文件名射程(与门 71 的 ARCHIVE_FILE_RE 同字面形态:同一族文件,两把尺子不得各认一套) */
+const ARCHIVE_LEDGER_NAME_RE = /^plan-pointer-purge-.*\.md$/
+
 export function listLedgerNamesOnSource(
   source,
   { root = ROOT, dir = LEDGER_DIR_REL, gitRun = gitRead } = {},
@@ -943,18 +970,30 @@ function main() {
     console.log(m)
   }
   const ledgerRelForThisRun = () => {
-    const local = listLedgerNamesOnSource('HEAD', { root: ROOT })
+    // 主面 = 盘(台账不再入库);第二腿 = HEAD(历史遗留名照样避让,免得覆盖旧台账的逐字记录)
+    const disk = listLedgerNamesOnDisk()
+    const head = listLedgerNamesOnSource('HEAD', { root: ROOT })
+    if (!disk.files) {
+      return chooseLedgerRel({
+        tag: ledgerTag,
+        localFiles: null,
+        localReason: disk.reason,
+        remoteFiles: remoteLedger.files,
+        remoteReason: remoteLedger.reason,
+        note: sayOnce,
+      })
+    }
     return chooseLedgerRel({
       tag: ledgerTag,
-      localFiles: local.files,
-      localReason: local.reason,
+      localFiles: [...disk.files, ...(head.files ?? [])],
+      localReason: head.files ? '' : head.reason,
       remoteFiles: remoteLedger.files,
       remoteReason: remoteLedger.reason,
       note: sayOnce,
     })
   }
   console.log(
-    `   台账取名基准:机器标识=${ledgerTag || '(未取到)'} · 本地面 HEAD:${LEDGER_DIR_REL} · ` +
+    `   台账取名基准:机器标识=${ledgerTag || '(未取到)'} · 主面 盘:${LEDGER_DIR_REL}(台账只写盘,不入库)+ 第二腿 HEAD 历史名 · ` +
       (remoteLedger.files
         ? `远端面 ${remoteLedger.source}`
         : `远端面**未判定**(${remoteLedger.reason})⇒ 只按本地面取名,跨机那一维由机器标识隔开`),
@@ -1054,14 +1093,17 @@ function main() {
         )
         return 1
       }
+      // 台账**只写盘,不进提交**(2026-10-23):它落在 .ihui-agent/tmp/(gitignored),每轮一个新名字,
+      // 一旦入库就每轮多一枚 tracked-but-ignored 文件 —— 清理侧逐枚 git rm --cached,合并侧又按
+      // 对侧副本把它们带回,于是 git-sync-converge 每轮都被门 168 拦一次(实测同一晚撞了两轮)。
+      // 消费侧门 71 自 2026-10-16 起就改成**从盘上**读这一族(它头注原话:"它们永不入版本控制"),
+      // 只有本器还留着入库那一半 —— 这是一次改了一半的迁移,现在补完。
+      writeFileSync(path.join(ROOT, ...landedLedger.split('/')), wm.text, 'utf8')
       const { commit } = commitTreeWithIndex({
         root: ROOT,
         parent: head,
         message: fMsg,
-        entries: [
-          { path: PLAN, text: fNextText },
-          { path: landedLedger, text: wm.text },
-        ],
+        entries: [{ path: PLAN, text: fNextText }],
         baseRef: 'HEAD',
       })
       const ref = (resolveHeadRef({ root: ROOT }) || 'HEAD').trim()
@@ -1069,7 +1111,9 @@ function main() {
         console.log(`   第 ${attempt} 次 CAS 未中(HEAD 被别人推进)⇒ 在新面上重算`)
         continue
       }
-      const al = alignSharedIndex({ root: ROOT, paths: [PLAN, landedLedger], parentRef: head })
+      // 索引只对齐本枚真提交过的路径(台账现在只在盘上,不在 HEAD ⇒ 拿它去对齐只会造出一条
+      // "索引里有、HEAD 里没有"的脏条目,下一个提交者会把它当成在飞文件)
+      const al = alignSharedIndex({ root: ROOT, paths: [PLAN], parentRef: head })
       console.log(
         `✅ 落地 ${commit.slice(0, 11)}(父 ${head.slice(0, 11)}) 删 ${fPlan.deleteSet.size} 行;台账=${landedLedger};` +
           `主索引 moved=${(al.moved || []).length} already=${(al.already || []).length} skipped=${(al.skipped || []).length} 未判定=${(al.undetermined || []).length}`,
