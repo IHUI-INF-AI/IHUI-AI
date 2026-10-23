@@ -373,7 +373,12 @@ export async function importAccounts(
         machineId:
           typeof acc.machineId === 'string' && acc.machineId ? acc.machineId.slice(0, 128) : null,
         tokenExpiresAt,
-        refreshExpiresAt: mapped && 'refreshExpiresAt' in mapped ? mapped.refreshExpiresAt : null,
+        // 平台映射(目前仅 qoder)优先;其余平台认账号对象上的 refreshTokenExpiresAt
+        // (Trae 提取器已写入,2026-10-24:此前只有 qoder 分支会落这一列 ⇒ trae 恒 NULL)
+        refreshExpiresAt:
+          mapped && 'refreshExpiresAt' in mapped
+            ? mapped.refreshExpiresAt
+            : parseFlexibleExpiry(acc['refreshTokenExpiresAt']),
         isEnabled: acc.enabled === false ? false : true,
         tempUnschedulable: down,
         healthStatus,

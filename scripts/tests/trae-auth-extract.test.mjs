@@ -98,8 +98,20 @@ test('⑤ userInfo → 号池账号 JSON:展示名优先级与空 refreshToken �
   assert.equal(acct.accounts[0].uid, '256600094542297')
   assert.equal(acct.accounts[0].name, '13800000000', '手机优先于邮箱/账户名')
   assert.equal(acct.accounts[0].expiresAt, SESSION.expiredAt)
+  assert.equal(
+    acct.accounts[0].refreshTokenExpiresAt,
+    SESSION.refreshExpiredAt,
+    '刷新票到期必须进账号对象(此前只进 meta,导入器丢弃 ⇒ 库里 refresh_expires_at 恒 NULL)',
+  )
   assert.equal(acct.meta.refreshExpiresAt, SESSION.refreshExpiredAt)
   assert.equal(acct.meta.hasRefreshToken, true)
+
+  const noRtExp = T.toPoolAccount({ ...SESSION, refreshExpiredAt: undefined })
+  assert.equal(
+    'refreshTokenExpiresAt' in noRtExp.accounts[0],
+    false,
+    '上游没给刷新票到期时不得写空键',
+  )
 
   const noRt = T.toPoolAccount({ ...SESSION, refreshToken: '' })
   assert.equal('refreshToken' in noRt.accounts[0], false, '空 refreshToken 不得写成空串键')

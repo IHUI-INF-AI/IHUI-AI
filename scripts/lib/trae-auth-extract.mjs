@@ -173,6 +173,11 @@ export function toPoolAccount(userInfo) {
         ...(refreshToken ? { refreshToken } : {}),
         uid,
         ...(typeof userInfo.expiredAt === 'string' ? { expiresAt: userInfo.expiredAt } : {}),
+        // 2026-10-24: refreshToken 的到期时刻进账号对象(此前只进 meta,导入器丢弃 meta
+        // ⇒ 库里 refresh_expires_at 恒 NULL,管理面看不出这枚票还能活多久)
+        ...(typeof userInfo.refreshExpiredAt === 'string'
+          ? { refreshTokenExpiresAt: userInfo.refreshExpiredAt }
+          : {}),
         enabled: true,
       },
     ],
