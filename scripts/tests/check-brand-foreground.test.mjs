@@ -12,7 +12,9 @@
 // 红/绿成对夹具;② 变异对照 —— 旧版"只认 DEFAULT"的正则必须匹配不上 cta 夹具,证明这些断言
 // 真的挂在扩面上,谁改回去当场红;③ **装车证明** —— guardian-runner 里确有本门注册块
 // (id 反查、不硬写编号,本仓同日撞过号)+ blocking + skipEnv,且该 id 全 runner 唯一;
-// ④ 真仓端到端:全量审计 exit 0 且 R3 存量回升到盲区修复前的合理量级(≥200,盲区态实测 87)。
+// ④ 真仓端到端:全量审计 exit 0 且 R3 存量回升到盲区修复前的合理量级(≥200,盲区态实测 87);
+// ⑤ (台账票:守门 83 判据盲区)R4 跨兄弟键三层锁 —— 阳性对照(票面点名形态 + PlazaScreen
+// 真内容 A/B)、负例锁(无关跨键不误报、同块归 R1 不双计)、有牙锁(run() 真调用 + r4Counts 棘轮)。
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -1099,6 +1101,159 @@ test('R8 覆盖面必须按整面取,且枚举与筛选同表、预筛含 CSS �
     /\[xysteblr\]/.test(patBody),
     '预筛必须含单边方向中缀形态,否则 Tailwind `border-t-*` 整族在候选阶段就消失',
   )
+})
+
+// ── R4 跨兄弟键配对(守门 83 判据盲区票:正/负/有牙三层锁)──────────────────
+//
+// 票面立因:R1 只判**同一 style 块**内的 bg×fg,而 4 处 shipped 真缺陷全是跨兄弟键
+// (retryBtn×retryText / chatBtn×chatBtnText,brand.DEFAULT 底 × text.primary 字),
+// 旧脚本还显式断言「跨块不得触发」,于是漏进已发布包。R4(2026-09-24 立门)按 StyleSheet
+// 键名配对(X↔XText、XBtn↔XBtnText、X↔XLabel,顺序无关)补上这条边;R1 同块语义一字未改。
+// 本组把票面要求的三层锁补齐:
+//  ① 阳性对照 —— 票面点名的缺陷形态必须命中(合成夹具 + PlazaScreen 真内容 A/B:
+//     头注"存量 text.primary 前景 0 处"的结论,只有先构造已知正例才可信);
+//  ② 负例锁 —— 无关跨键不误报、正配前景不误报、同块归 R1 不双计(否则两份基线互相顶掉);
+//  ③ 有牙锁 —— 摘掉新判据 ⇒ 正例翻红:函数级(直调 findR4Violations,夹具即红)+ 接线级
+//     (run() 必须真调用并走 r4Counts 棘轮,与 R8/R9 装车证明同一条理由:
+//     判据在而 run 不调 = 提交链上一路绿灯,本仓最高频失效模式)。
+
+test('R4 阳性对照:brand.DEFAULT 底 × text.primary 字的兄弟键必命中(X↔XText/XBtn↔XBtnText/X↔XLabel,顺序无关)', () => {
+  // 票面点名形态 1:retryBtn(底)在前、retryText(字)在后
+  const retry = [
+    '  retryBtn: {',
+    '    backgroundColor: tk.brand.DEFAULT,',
+    '  },',
+    '  retryText: {',
+    '    color: tk.text.primary,',
+    '  },',
+  ]
+  assert.deepEqual(
+    gate.findR4Violations(retry),
+    ['retryBtn×retryText'],
+    'DEFAULT 底 × text.primary 拆到兄弟键必须判出(线上真实事故形态)',
+  )
+  // 变异对照:R1(同块判据)对同一夹具永远失明 ⇒ 正例的红真挂在新判据上,不是蹭 R1
+  assert.equal(
+    gate.findR1Violations(retry).length,
+    0,
+    '对照前提:R1 对跨兄弟键夹具不命中(票面点名的盲区本身),R4 的命中不得归功于 R1',
+  )
+  // 票面点名形态 2:chatBtnText(字)在前、chatBtn(底)在后 —— 配对不得依赖 key 出现顺序
+  assert.deepEqual(
+    gate.findR4Violations([
+      '  chatBtnText: {',
+      '    color: tk.text.primary,',
+      '  },',
+      '  chatBtn: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '  },',
+    ]),
+    ['chatBtn×chatBtnText'],
+    'R4 配对必须顺序无关',
+  )
+  // 配对规则第三条 X ↔ XLabel(真实键名分布里 Label 与 Text 同为文字侧后缀)
+  assert.deepEqual(
+    gate.findR4Violations([
+      '  switchTrack: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '  },',
+      '  switchTrackLabel: {',
+      '    color: tk.text.primary,',
+      '  },',
+    ]),
+    ['switchTrack×switchTrackLabel'],
+    'X↔XLabel 同属配对规则',
+  )
+})
+
+test('R4 负例锁:无关跨键不误报、正配前景不误报、同块归 R1 不双计', () => {
+  // 主干不同(card × avatarText):名字不成对 ⇒ 0(旧版"跨块不得触发"的合理内核由新判据
+  // 的**名字配对前置**继承,而不是靠整条判据缺席)
+  assert.equal(
+    gate.findR4Violations([
+      '  card: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '  },',
+      '  avatarText: {',
+      '    color: tk.text.primary,',
+      '  },',
+    ]).length,
+    0,
+    '无关跨键不得误报(名字配对是前置,不是滑窗)',
+  )
+  // 正配前景(brand.foreground 是 DEFAULT 底的唯一正配)⇒ 0
+  assert.equal(
+    gate.findR4Violations([
+      '  retryBtn: {',
+      '    backgroundColor: tk.brand.DEFAULT,',
+      '  },',
+      '  retryText: {',
+      '    color: tk.brand.foreground,',
+      '  },',
+    ]).length,
+    0,
+    '兄弟键正配(brand.foreground)必绿 —— 红逼人 --no-verify 的写法不是判据',
+  )
+  // 同块形态:bg+fg 同一个 key ⇒ R1 计 1、R4 计 0(互斥,否则同一笔债顶两份基线额度)
+  const sameBlock = [
+    '  btn: {',
+    '    backgroundColor: tk.brand.DEFAULT,',
+    '    color: tk.text.primary,',
+    '  },',
+  ]
+  assert.equal(gate.findR1Violations(sameBlock).length, 1, '同块形态归 R1(语义一字未改)')
+  assert.equal(gate.findR4Violations(sameBlock).length, 0, 'R4 不得把同块再计一次')
+})
+
+test('R4 真内容 A/B:PlazaScreen(票面 4 处缺陷原产地)HEAD 现值 0,把正配前景回退成 text.primary 必复现点名配对', () => {
+  const rel = 'packages/app/src/features/plaza/PlazaScreen.tsx'
+  const head = execFileSync('git', ['-c', 'safe.directory=*', 'show', `HEAD:${rel}`], {
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: REPO,
+    encoding: 'utf8',
+    maxBuffer: 1 << 26,
+    windowsHide: true,
+    timeout: 30000,
+  })
+  const lines = head.split('\n')
+  assert.equal(
+    gate.findR4Violations(lines).length,
+    0,
+    'PlazaScreen 的 4 处黑压黑已人工改正(现值 0)—— 本条的"0"由下面的回退注入证明是判出来的',
+  )
+  const regressed = lines.map((l) => l.replace(/color: tk\.brand\.ctaForeground/g, 'color: tk.text.primary'))
+  assert.notEqual(regressed.join('\n'), head, '回退替换没生效 ⇒ 本条会是恒绿')
+  const pairs = gate.findR4Violations(regressed)
+  for (const want of ['retryBtn×retryText', 'chatBtn×chatBtnText']) {
+    assert.ok(pairs.includes(want), `票面点名的缺陷形态必须判出:${want}(实得 ${JSON.stringify(pairs)})`)
+  }
+  assert.equal(
+    gate.findR1Violations(regressed).length,
+    0,
+    '同一份回退内容 R1 必须仍 0 —— 证明该形态在 R1 视野外,命中完全挂在 R4 上',
+  )
+})
+
+test('R4 装车证明:run() 必须真调用 findR4Violations 并走 r4Counts 棘轮(死判据 = 提交链一路绿灯)', () => {
+  const src = readFileSync(join(REPO, 'scripts', 'check-brand-foreground.mjs'), 'utf8')
+  const body = src.slice(src.indexOf('function run(options)'))
+  assert.ok(
+    body.includes('findR4Violations(lines)'),
+    'run() 里没有 findR4Violations(lines) ⇒ R4 只是挂在文件里的死函数(判据在而永不调用 = 没有)',
+  )
+  assert.ok(body.includes('r4ByFile[rel] = r4Pairs'), 'R4 命中无处汇集 ⇒ 失败段永远不会亮')
+  assert.ok(
+    body.includes('baseline.r4Counts?.[file]'),
+    'R4 必须按 r4Counts 基线棘轮逐文件比对(只减不增,存量不得让门恒红)',
+  )
+  assert.match(src, /❌ R4 /, 'R4 失败行缺失 ⇒ 命中时无人知道该改哪一行')
+  // --update-baseline 重写六个计数面:R4 面必须列入 omit,否则被 ...notes 旧值带走(假绿)
+  assert.match(src, /r4Counts:\s*_omitR4,/, '--update-baseline 未把 R4 面列入 omit ⇒ 会拿旧值当新基线')
+  const base = JSON.parse(
+    readFileSync(join(REPO, 'scripts', 'brand-foreground-baseline.json'), 'utf8'),
+  )
+  assert.ok(Object.hasOwn(base, 'r4Counts'), '基线必须含 r4Counts 键(缺键 ?? 0 等于零容忍,须有意为之)')
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
