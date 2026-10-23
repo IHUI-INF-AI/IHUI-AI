@@ -10,7 +10,7 @@
  * 定位(AGENTS.md「提交/推送」节 2026-09-18 规则):**只读核验工具 + 应急通道**。
  * 常规推送链完全自动,agent 不得手写 git push:
  *   - origin:post-commit 钩子 git-push-guard.mjs(ahead 检测+推送+回读验证,幂等)
- *   - Gitee/GitCode:mirror-to-cn.yml CI(push 触发+每日 2 次兜底)
+ *   - Gitee/GitCode:已弃用(2026-10-23 移除,原由 mirror-to-cn.yml 镜像;远端与本脚本示例同时清除)
  * agent 收尾核验同步状态 = 跑本脚本(默认零推送:ALREADY/SKIP/BEHIND/DIVERGED
  * 均不产生写网络动作);仅在 guard/CI 双失效的应急场景人工推。
  *
@@ -44,14 +44,15 @@
  *   1 — 存在推送失败或分叉(需人工)
  *
  * 用法:
- *   node scripts/git-push-converge.mjs                         # 默认仅核验 origin(镜像归 CI,见下)
- *   node scripts/git-push-converge.mjs --remotes=origin,gitee  # 显式指定仓(镜像仓仅在应急时使用)
+ *   node scripts/git-push-converge.mjs                         # 默认仅核验 origin(唯一远端)
+ *   node scripts/git-push-converge.mjs --remotes=origin,mirror # 显式指定仓(应急通道)
  *   node scripts/git-push-converge.mjs --branch=dev            # 指定分支(默认 main)
  *   node scripts/git-push-converge.mjs --force-with-lease      # 分叉时允许 lease 强推(慎用)
  *
- * ⚠️ 默认 remotes=origin(2026-09-18 收紧):Gitee/GitCode 的同步归 mirror-to-cn.yml CI
- *    (push 触发+每日兜底),本地手推镜像仓违反架构且每次 push 触发仓库级 pre-push
- *    全量 typecheck(数分钟)。核验镜像仓请显式 --remotes=origin,gitee,gitcode。
+ * ⚠️ 默认 remotes=origin(2026-09-18 收紧):仓库现只有 origin 一个远端
+ *    (国内镜像仓 Gitee/GitCode 已于 2026-10-23 整体弃用,远端配置与镜像作业同时删除),
+ *    本地手推镜像仓这条路径已不存在。每次 push 触发仓库级 pre-push 全量 typecheck(数分钟),
+ *    故默认只核验 origin。
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'

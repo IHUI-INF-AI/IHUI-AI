@@ -124,9 +124,9 @@ pre-commit / commit-msg / pre-push 钩子使用的 `check-*` 守门脚本(含 `o
 
 ## 四、构建/部署(2 个)
 
-| 脚本名                      | 用途                                                                                  | pre-commit 项 | 备注                         |
-| --------------------------- | ------------------------------------------------------------------------------------- | ------------- | ---------------------------- |
-| pre-deploy.mjs              | R65 生产部署 pre-deploy 自检(typecheck/lint/test/i18n parity/migration/页面/端点/env) | —             | 8 项硬性门禁                 |
+| 脚本名         | 用途                                                                                  | pre-commit 项 | 备注         |
+| -------------- | ------------------------------------------------------------------------------------- | ------------- | ------------ |
+| pre-deploy.mjs | R65 生产部署 pre-deploy 自检(typecheck/lint/test/i18n parity/migration/页面/端点/env) | —             | 8 项硬性门禁 |
 
 ---
 
@@ -152,10 +152,10 @@ Git 协作守门、CLI 验证、运维工具、证书管理、API 工具、基�
 
 ### API 工具(2 个)
 
-| 脚本名                   | 用途                                                   | pre-commit 项 | 备注                                        |
-| ------------------------ | ------------------------------------------------------ | ------------- | ------------------------------------------- |
+| 脚本名                   | 用途                                                   | pre-commit 项 | 备注                                                                 |
+| ------------------------ | ------------------------------------------------------ | ------------- | -------------------------------------------------------------------- |
 | find-route-conflicts.mjs | 扫描后端路由文件,输出按 method+path 分组的真实重复路由 | —             | 取材面=server.ts+routes/index.ts 两入口,barrel 递归下钻,只报数不判红 |
-| generate-stub-routes.mjs | 根据 api-routes-missing.json 批量生成前端缺失路由桩    | —             | 输出 apps/api/src/routes/frontend-stub-*.ts |
+| generate-stub-routes.mjs | 根据 api-routes-missing.json 批量生成前端缺失路由桩    | —             | 输出 apps/api/src/routes/frontend-stub-*.ts                          |
 
 ### 基础设施(4 个)
 
@@ -168,14 +168,13 @@ Git 协作守门、CLI 验证、运维工具、证书管理、API 工具、基�
 
 ### 运维/部署工具(6 个)
 
-| 脚本名                   | 用途                                                               | pre-commit 项 | 备注                                 |
-| ------------------------ | ------------------------------------------------------------------ | ------------- | ------------------------------------ |
-| dev-web.mjs              | 启动 @ihui/web dev server + 进程树生命周期管理(防僵尸 next-server) | —             | 支持 `--clean` `--port`              |
-| miniapp-preview.mjs      | 启动 miniapp H5 开发服务器并输出预览 URL                           | —             | `pnpm -F @ihui/miniapp-taro dev:h5`  |
-| setup-mirror-repos.mjs   | 国内镜像仓库一键初始化(Gitee + GitCode)                            | —             | 用 PAT,仓库已存在视为成功            |
-| grant-ihui-superuser.mjs | 给 ihui 数据库用户授予 SUPERUSER                                   | —             | 幂等                                 |
-| test-llm-connection.mjs  | 验证 AI service LLM 接入是否可用(/health + 模型调用)               | —             | 默认 AI_URL=http://localhost:8803    |
-| video-ops.mjs            | 视频下载(yt-dlp)与 OSS 上传工具                                    | —             | 等价自历史项目 PowerShell 脚本       |
+| 脚本名                   | 用途                                                               | pre-commit 项 | 备注                                |
+| ------------------------ | ------------------------------------------------------------------ | ------------- | ----------------------------------- |
+| dev-web.mjs              | 启动 @ihui/web dev server + 进程树生命周期管理(防僵尸 next-server) | —             | 支持 `--clean` `--port`             |
+| miniapp-preview.mjs      | 启动 miniapp H5 开发服务器并输出预览 URL                           | —             | `pnpm -F @ihui/miniapp-taro dev:h5` |
+| grant-ihui-superuser.mjs | 给 ihui 数据库用户授予 SUPERUSER                                   | —             | 幂等                                |
+| test-llm-connection.mjs  | 验证 AI service LLM 接入是否可用(/health + 模型调用)               | —             | 默认 AI_URL=http://localhost:8803   |
+| video-ops.mjs            | 视频下载(yt-dlp)与 OSS 上传工具                                    | —             | 等价自历史项目 PowerShell 脚本      |
 
 ### 证书管理(3 个)
 
