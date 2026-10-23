@@ -117,6 +117,7 @@ import { MoreTitles } from '../components/MoreTitles'
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
+import { VoiceNote } from '../components/chat/VoiceNote'
 import { AddPanel } from '../components/AddPanel'
 import { useVoiceRecorder } from '../hooks/use-voice-recorder'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
@@ -2372,6 +2373,15 @@ export function HomeScreen() {
           onVoiceEnd={() => void voiceRecorder.stop()}
           onPlusToggle={handlePlusToggle}
           plusActive={plusPanelVisible}
+          // D43 语音笔记入口(2026-10-23 RN 腿接线):HomeScreen 无会话上下文 ⇒ conversationId=null
+          // (与 web 组件默认同档);「插入对话」= 追加进输入框既有 onChangeText 通道。
+          // 会话屏 ChatScreen 的挂载位因该文件被他席持有(未提交改动)而顺延,台账如实标注。
+          voiceNoteNode={
+            <VoiceNote
+              conversationId={null}
+              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+            />
+          }
           // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
           // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
           onOpenModelSelect={() => openModelModal()}
