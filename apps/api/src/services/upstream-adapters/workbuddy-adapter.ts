@@ -34,6 +34,7 @@ import type {
   UpstreamHttpRequest,
 } from '../relay-upstream-adapters.js'
 import { parseJwtClaims } from '../relay-account-format.js'
+import { normalizeStopList } from '../relay-stop-truncate.js'
 import {
   buildChatHeaders,
   buildHealthHeaders,
@@ -221,6 +222,16 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
     if (typeof req.maxTokens === 'number') raw['max_tokens'] = req.maxTokens
     // reasoning_effort 原样透传(上游接受 OpenAI 语义 low/medium/high;不做本地值域裁剪)
     if (req.reasoningEffort !== undefined) raw['reasoning_effort'] = req.reasoningEffort
+    // 采样面与工具开关(2026-10-23 实测上游均接受)
+    if (req.topP !== undefined) raw['top_p'] = req.topP
+    if (req.presencePenalty !== undefined) raw['presence_penalty'] = req.presencePenalty
+    if (req.frequencyPenalty !== undefined) raw['frequency_penalty'] = req.frequencyPenalty
+    if (req.parallelToolCalls !== undefined) raw['parallel_tool_calls'] = req.parallelToolCalls
+    if (req.user !== undefined) raw['user'] = req.user
+    if (req.serviceTier !== undefined) raw['service_tier'] = req.serviceTier
+    // stop 必须数组:上游 Go 服务对字符串形态直接 400(实测 code=11101)
+    const stops = normalizeStopList(req.stop)
+    if (stops.length > 0) raw['stop'] = stops
     // function-calling 透传:prepareChatBody 内 normalizeToolChoice 会做上游 string 形态归一
     if (req.tools !== undefined) raw['tools'] = req.tools
     if (req.toolChoice !== undefined) raw['tool_choice'] = req.toolChoice
