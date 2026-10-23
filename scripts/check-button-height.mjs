@@ -39,6 +39,8 @@ import {
 } from './lib/face-reader.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 // ───────────────────── 扫描根注入(2026-09-24 自检加固) ─────────────────────
 // 此前 ROOT = process.cwd():自检若只"cd 到夹具"实际仍静默扫真仓(本仓实证事故形态:
@@ -63,11 +65,10 @@ function resolveRoot(argv, env) {
     if (!v.trim()) throw new Error('--root= 缺少目录值(要么给路径,要么去掉这个参数)')
     return { root: path.resolve(SCRIPT_REPO_ROOT, v), explicitCli: true }
   }
-  const i = argv.indexOf('--root')
-  if (i >= 0) {
-    const v = argv[i + 1]
-    if (!v || v.startsWith('--')) throw new Error('--root 缺少目录参数')
-    return { root: path.resolve(SCRIPT_REPO_ROOT, v), explicitCli: true }
+  const i = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (i.error) throw new Error(i.error)
+  if (i.present) {
+    return { root: path.resolve(SCRIPT_REPO_ROOT, i.value), explicitCli: true }
   }
   if (env && env.BUTTON_HEIGHT_ROOT) {
     return { root: path.resolve(env.BUTTON_HEIGHT_ROOT), explicitCli: true }

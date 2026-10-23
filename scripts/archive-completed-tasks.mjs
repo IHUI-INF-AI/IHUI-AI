@@ -148,6 +148,8 @@ import {
   countBulletCompleted,
   OPEN_ROW_RE,
 } from './lib/plan-task-headings.mjs'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = process.cwd()
 const PLAN_FILE = join(ROOT, 'PROJECT_PLAN.md')
@@ -167,23 +169,43 @@ const listBlocked = args.includes('--list-blocked')
 const jsonOut = args.includes('--json')
 // 大批量(格式漂移/积压)时的显式人工放行口 —— 自动档(pre-commit 钩子)没有这个开关就走阀门
 const allowMass = args.includes('--allow-mass')
-const daysIdx = args.indexOf('--days')
-const daysThreshold = daysIdx >= 0 && args[daysIdx + 1] ? parseInt(args[daysIdx + 1], 10) : 0
+/**
+ * `--days` 的取值判定(G-322:取值一律走 scripts/lib/flag-value.mjs 单源,本器不再自己算 `args[i + 1]`)。
+ * 漏值 / 值被下一个旗标顶掉 ⇒ error(用法错,exit 2);`abc` 这类"token 合法但数值域不合法"
+ * 也判死 —— 旧写法 `parseInt('abc')=NaN` 会让 `diff >= NaN` 恒假 ⇒ "一个也不搬"读起来像"确实没有到期项",
+ * 而漏值(`--days` 打在结尾)被 `? :` 折回 0 = 把"我要按年龄节流"写成"关掉年龄节流"。
+ * @returns {{days:number|null, error:string|null}}
+ */
+export function resolveDaysThreshold(argv) {
+  const f = requireFlagValue(argv, '--days', { noun: '天数(非负整数)' })
+  if (f.error) return { days: null, error: f.error }
+  if (!f.present) return { days: 0, error: null }
+  const n = Number(f.value)
+  if (!Number.isInteger(n) || n < 0) {
+    return { days: null, error: `--days 需要非负整数,实得:${JSON.stringify(f.value)}` }
+  }
+  return { days: n, error: null }
+}
+const daysVerdict = resolveDaysThreshold(args)
+const daysThreshold = daysVerdict.error ? 0 : daysVerdict.days
 
 /**
  * 底稿面:`head`(默认,= 被审面)/ `worktree`(人工取证逃生舱,或"根本没有被审面可比"时的自动退化)。
  * 值必须是这两个之一 —— 未知值**报错退出**,不得静默掉进默认档(那会让"我明明指定了另一面"
  * 与"脚本压根没认这个开关"在账面上长得一模一样)。
- * @returns {{face:string|null, error:string|null}}
+ *
+ * `exitCode` 分两档(G-322):值给了但不在枚举里 = 既有用法错,沿用 1(测试 A3 钉着);
+ * **压根没拿到值**(漏值 / 被下一旗标顶掉 / 空串)= 本票新增的吞值档,走 2「未判定」。
+ * @returns {{face:string|null, error:string|null, exitCode:number|null}}
  */
 export function resolveRequestedFace(argv) {
-  const i = argv.indexOf('--plan-face')
-  if (i < 0) return { face: null, error: null }
-  const v = String(argv[i + 1] ?? '')
-  if (v !== 'head' && v !== 'worktree') {
-    return { face: null, error: `--plan-face 只接受 head|worktree,实得 ${JSON.stringify(v)}` }
+  const f = requireFlagValue(argv, '--plan-face', { noun: '面名(head|worktree)' })
+  if (!f.present) return { face: null, error: null, exitCode: null }
+  if (f.error) return { face: null, error: f.error, exitCode: 2 }
+  if (f.value !== 'head' && f.value !== 'worktree') {
+    return { face: null, error: `--plan-face 只接受 head|worktree,实得 ${JSON.stringify(f.value)}`, exitCode: 1 }
   }
-  return { face: v, error: null }
+  return { face: f.value, error: null, exitCode: null }
 }
 const requestedFace = resolveRequestedFace(args)
 
@@ -1363,9 +1385,13 @@ async function main() {
     )
     process.exit(0)
   }
+  if (daysVerdict.error) {
+    console.error(C.red + `❌ 无法判定(不退回默认节流档):${daysVerdict.error}` + C.reset)
+    process.exit(2)
+  }
   if (requestedFace.error) {
     console.error(C.red + `❌ ${requestedFace.error}` + C.reset)
-    process.exit(1)
+    process.exit(requestedFace.exitCode ?? 1)
   }
   if (!existsSync(PLAN_FILE)) {
     console.log(`${C.dim}⏭  PROJECT_PLAN.md 不存在,跳过归档${C.reset}`)
@@ -2481,6 +2507,7 @@ export const __test__ = {
   blockLandsContiguously,
   reconcileArchiveBase,
   resolveRequestedFace,
+  resolveDaysThreshold,
   resolvePlanBase,
   partitionPlanBlocks,
   describeBlockedBlock,

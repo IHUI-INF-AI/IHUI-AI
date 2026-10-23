@@ -8,7 +8,9 @@
 - log_agent_action():记录 agent 执行的关键操作(工具调用/文件修改/命令执行)
 - log_llm_call():记录 LLM 调用(model/token/latency/stub)
 - log_tool_execution():记录工具调用(tool_name/args/result/status/duration)
-- 透传 trace_id:从请求头 traceparent 解析,关联 api 端审计
+- 透传 trace_id:调用方显式传入者优先,未传时由唯一运行时出口
+  `middleware/trace_context.current_trace_id()` 现取本轮绑定的 id(G-951,2026-10-23);
+  两处都取不到 ⇒ NULL(不写空串冒充"接上了")
 - L5-5(2026-08-12):异步落库 audit_logs 表,错误数据不再重启即丢;DB 不可达/无 event loop 时静默降级,内存保留
 
 与 apps/api 端 plugins/audit.ts 对等,实现跨服务审计链路闭环。
@@ -19,6 +21,8 @@ import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
+
+from app.middleware.trace_context import current_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +44,23 @@ class AuditEntry:
     ):
         self.action = action
         self.details = details
-        self.trace_id = trace_id
+        # G-951(2026-10-23):本落库处的 trace 关联键改由**唯一运行时出口**现取。
+        # 立因:api 侧那张 provider 调用流水(llm_call_logs.trace_id,D172)已由
+        # `resolveTraceId` 接上,而 ai-service 这张审计流水仍只认调用方手递的
+        # `trace_id=` —— 于是 `agent_loop_v2._report_agent_error` /
+        # `_report_tool_error` 两条真实调用点(它们不传,且该文件按 D147 禁改)
+        # 落库行的 resource_id 恒为 NULL:记录在内存里带得到(D147 的
+        # `tool_call_trace.as_dict()` 现取 contextvar),库里按编号就是查不到。
+        # 三条口径与 D147 同源,不新立:
+        # ① 显式传入者优先(中间件那份解析结果不得被覆盖);
+        # ② 取值只经 `current_trace_id()`(声明与读写只住
+        #    `app/middleware/trace_context.py`,本处不建第二份 trace 上下文);
+        # ③ 两处都取不到 ⇒ 保持 None —— 不得用空串/占位串把"没接上"洗成
+        #    "接上了"(宁缺勿假,同 `tool_call_trace.py:91` 与 D174 的缺席语义)。
+        # 与 `as_dict()` 同一个时刻规则:**构造**必须发生在 trace 绑定期内
+        # (`asyncio.create_task` 会在构造点拷贝当前 context),出了绑定期再读
+        # 已无本轮值可读。
+        self.trace_id = trace_id or current_trace_id()
         self.agent_id = agent_id
         self.user_id = user_id
         self.timestamp = timestamp or datetime.now(UTC).isoformat()

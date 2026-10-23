@@ -42,6 +42,8 @@
 import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -139,8 +141,23 @@ function selfTest() {
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   const verbose = argv.includes('--verbose')
-  const gi = argv.indexOf('--timeout-ms')
-  const timeoutMs = gi >= 0 ? Number(argv[gi + 1]) || 200_000 : 200_000
+  // G-322:--timeout-ms 走 scripts/lib/flag-value.mjs 单源。旧写法 `Number(argv[gi+1]) || 200_000`
+  // 把三支坏值全折回默认:漏值 ⇒ Number(undefined)=NaN ⇒ `|| 200_000`;`--timeout-ms --json` ⇒ 把
+  // `--json` 当毫秒数;`--timeout-ms 0` ⇒ 0 是 falsy,又被折回 200_000(用户显式要的即时超时没了)。
+  const timeoutFlag = requireFlagValue(argv, '--timeout-ms', { noun: '毫秒数(正整数)' })
+  if (timeoutFlag.error) {
+    console.log(`❌ 无法判定 —— ${timeoutFlag.error}`)
+    return 2
+  }
+  let timeoutMs = 200_000
+  if (timeoutFlag.present) {
+    const n = Number(timeoutFlag.value)
+    if (!Number.isInteger(n) || n <= 0) {
+      console.log(`❌ 无法判定 —— --timeout-ms 必须是正整数,实得:${JSON.stringify(timeoutFlag.value)}`)
+      return 2
+    }
+    timeoutMs = n
+  }
   let ran = 0
   const gaps = []
   const shrink = []

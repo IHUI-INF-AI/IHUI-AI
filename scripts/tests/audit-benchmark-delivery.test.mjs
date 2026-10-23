@@ -41,7 +41,16 @@ const face = (files) => ({ exists: (p) => typeof files[p] === 'string', read: (p
 const A = (paths, regex, expect = 'present') => ({ paths, regex, expect })
 
 test('T1 出口成套:判据必须从源文件导出,测试面不得有第二份实现', () => {
-  for (const k of ['evalAnchor', 'evalAssertion', 'judgeClaim', 'parseDocRows', 'ledgerRot'])
+  for (const k of [
+    'evalAnchor',
+    'evalAssertion',
+    'judgeClaim',
+    'parseDocRows',
+    'ledgerRot',
+    'exemptionOf',
+    'staleExemptions',
+    'unexemptedStillOpen',
+  ])
     assert.equal(typeof ruler[k], 'function', `源文件必须导出 __test__.${k}`)
   // 反向锁:本文件里不得再出现"锚点判读"的实现体(只准调用 ruler.*),否则就是镜像漂移的开始。
   assert.equal(
@@ -204,5 +213,153 @@ test('T13 自检入口必须真跑并且零失败(不接受"跑了一次"当结�
   const { rc, out } = runCli(['--self-test'])
   assert.equal(rc, 0, out)
   assert.match(out, /❌ 0 条/, `自检里有失败项:${out}`)
+})
+
+// ─── G-217 补牙(2026-10-23):「仍存在」也进 --strict 判红,合法暂态走会到期的豁免出口 ───
+
+/** 造一份只含指定 claims 的临时登记表(文档锚点取 V4 真实存在的串,避免误触腐烂)。 */
+function writeClaims(dir, claims) {
+  const p = join(dir, 'claims.json')
+  writeFileSync(
+    p,
+    JSON.stringify({ docs: ['docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md'], claims }),
+    'utf8',
+  )
+  return p
+}
+const stillOpenClaim = (id, extra = {}) => ({
+  id,
+  doc: 'docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md',
+  docAnchor: '### D147 可观测',
+  title: `${id} 仍存在`,
+  assertions: [{ text: 'a', blocking: true, anchors: [{ paths: ['apps/cli/src/tools/index.ts'], regex: 'no_such_symbol_zzz_9182', expect: 'present' }] }],
+  ...extra,
+})
+
+test('T14 补牙阳性(票面验收④):仍存在且无豁免 ⇒ --strict RC=2 并点名(改前 RC=0,这就是没牙的那半张)', () => {
+  const dir = mkScratch('audit-open-red')
+  try {
+    const p = writeClaims(dir, [stillOpenClaim('#OPEN1')])
+    const def = runCli([`--claims=${p}`])
+    assert.equal(def.rc, 0, def.out)
+    assert.match(def.out, /仍存在 1/, '默认档仍如实打印仍存在')
+    const strict = runCli([`--claims=${p}`, '--strict'])
+    assert.equal(strict.rc, 2, strict.out)
+    assert.match(strict.out, /#OPEN1/)
+    assert.match(strict.out, /拒绝出具合格证/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T15 合法暂态出口:仍存在 + 带原因且未到期的豁免 ⇒ --strict RC=0 且点名(理由与到期日都必须在输出里)', () => {
+  const dir = mkScratch('audit-open-exempt')
+  try {
+    const p = writeClaims(dir, [
+      stillOpenClaim('#EX1', {
+        exemptUntil: '2099-12-31',
+        exemptReason: 'V4 D141 判定表唯一真缺行:§24 拍板未做、未开工,预填方案已登记在案',
+      }),
+    ])
+    const strict = runCli([`--claims=${p}`, '--strict'])
+    assert.equal(strict.rc, 0, strict.out)
+    assert.match(strict.out, /豁免至 2099-12-31/, '豁免必须每轮可见,不许退化成暗门')
+    assert.match(strict.out, /§24 拍板未做/)
+    const j = JSON.parse(runCli([`--claims=${p}`, '--json']).out)
+    assert.deepEqual(j.openRed, [], '有效豁免 ⇒ 不进顶红集')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T16 豁免失效三态:到期 / 缺原因 / 豁免粘连 ⇒ 一律 RC=2(不许拿豁免当白名单)', () => {
+  const dir = mkScratch('audit-open-bad-exempt')
+  try {
+    // ① 已到期 ⇒ 视同无豁免
+    const p1 = writeClaims(dir, [stillOpenClaim('#EXP1', { exemptUntil: '2020-01-01', exemptReason: '等拍板,方案已登记在案' })])
+    const r1 = runCli([`--claims=${p1}`, '--strict'])
+    assert.equal(r1.rc, 2, r1.out)
+    assert.match(r1.out, /到期/)
+    // ② 缺定向说明 ⇒ 视同无豁免
+    const p2 = writeClaims(dir, [stillOpenClaim('#EXP2', { exemptUntil: '2099-12-31' })])
+    const r2 = runCli([`--claims=${p2}`, '--strict'])
+    assert.equal(r2.rc, 2, r2.out)
+    // ③ 豁免粘连:挂在"已交付"条上 ⇒ 台账腐烂(防豁免堆积)
+    const p3 = writeClaims(dir, [
+      {
+        id: '#STALE1',
+        doc: 'docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md',
+        docAnchor: '### D147 可观测',
+        title: '已交付却挂着豁免',
+        exemptUntil: '2099-12-31',
+        exemptReason: '等拍板,方案已登记在案',
+        assertions: [{ text: 'a', blocking: true, anchors: [{ paths: ['apps/ai-service/app/core/sse_contract.py'], regex: 'SSE_TRACE_ID_PAYLOAD_KEY', expect: 'present' }] }],
+      },
+    ])
+    const r3 = runCli([`--claims=${p3}`, '--strict'])
+    assert.equal(r3.rc, 2, r3.out)
+    assert.match(r3.out, /豁免粘连/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T17 回归锁:补牙不许削掉原本 RC=2 的各族(腐烂/重复登记/空表/坏 JSON/判不出)', () => {
+  const dir = mkScratch('audit-regress')
+  try {
+    // 台账腐烂:docAnchor 找不到
+    const pRot = join(dir, 'rot.json')
+    writeFileSync(
+      pRot,
+      JSON.stringify({
+        docs: ['docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md'],
+        claims: [
+          {
+            id: '#ROT1',
+            doc: 'docs/AI_CHAT_BENCHMARK_ANALYSIS_V4.md',
+            docAnchor: '一条在文档里根本不存在的锚点串',
+            title: '腐烂',
+            assertions: [{ text: 'a', blocking: true, anchors: [{ paths: ['apps/ai-service/app/core/sse_contract.py'], regex: 'SSE_', expect: 'present' }] }],
+          },
+        ],
+      }),
+      'utf8',
+    )
+    assert.equal(runCli([`--claims=${pRot}`, '--strict']).rc, 2, 'docAnchor 腐烂必须照旧顶红')
+    // 重复登记同一 id
+    const pDup = join(dir, 'dup.json')
+    const dupClaim = stillOpenClaim('#DUP1')
+    writeFileSync(pDup, JSON.stringify({ docs: [], claims: [dupClaim, { ...dupClaim }] }), 'utf8')
+    const rDup = runCli([`--claims=${pDup}`, '--strict'])
+    assert.equal(rDup.rc, 2, '同一 id 登记两次必须照旧顶红')
+    // 空表
+    const pEmpty = join(dir, 'empty.json')
+    writeFileSync(pEmpty, JSON.stringify({ docs: [], claims: [] }), 'utf8')
+    assert.equal(runCli([`--claims=${pEmpty}`, '--strict']).rc, 2, '空表必须照旧判死')
+    // 坏 JSON(不得当空表用)
+    const pBad = join(dir, 'bad.json')
+    writeFileSync(pBad, '{ 这不是 json', 'utf8')
+    const rBad = runCli([`--claims=${pBad}`, '--strict'])
+    assert.equal(rBad.rc, 2, '坏 JSON 必须照旧判死')
+    assert.match(rBad.out, /坏|取不到/)
+    // 判不出(锚点缺正则)
+    const pUnd = writeClaims(dir, [stillOpenClaim('#UND1', { assertions: [{ text: 'a', blocking: true, anchors: [{ paths: ['apps/cli/src/tools/index.ts'], regex: '' }] }] })])
+    const rUnd = runCli([`--claims=${pUnd}`, '--strict'])
+    assert.equal(rUnd.rc, 2, '判不出必须照旧顶红')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T18 回归锁:真实仓库当前无未豁免的仍存在 ⇒ --strict RC=0(存量已清/已挂期豁免;新脱节出现即红)', () => {
+  const { rc, out } = runCli(['--strict'])
+  assert.equal(rc, 0, out)
+  // 带有效豁免的"仍存在"仍如实计在"仍存在 N"里(不并桶、不洗白),但不得出现"未豁免的仍存在 ≥1"
+  assert.doesNotMatch(out, /未豁免的仍存在 [1-9]/, `真实仓出现未豁免的仍存在:${out}`)
+  const j = JSON.parse(runCli(['--json']).out)
+  assert.deepEqual(j.openRed, [], 'openRed 必须为空')
+  assert.equal(j.counts.undetermined, 0)
+  assert.equal(j.rot.length, 0)
+  assert.equal(j.staleExemptions.length, 0)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
