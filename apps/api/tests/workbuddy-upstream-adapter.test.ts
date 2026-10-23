@@ -203,6 +203,9 @@ describe('workbuddyAdapter.buildChatRequest', () => {
       parallelToolCalls: false,
       user: 'u-1',
       serviceTier: 'auto',
+      topK: 40,
+      repetitionPenalty: 1.1,
+      logitBias: { '123': -100 },
       stop: ['END'],
     })
     const body = http.body as Record<string, unknown>
@@ -212,6 +215,9 @@ describe('workbuddyAdapter.buildChatRequest', () => {
     expect(body['parallel_tool_calls']).toBe(false)
     expect(body['user']).toBe('u-1')
     expect(body['service_tier']).toBe('auto')
+    expect(body['top_k']).toBe(40)
+    expect(body['repetition_penalty']).toBe(1.1)
+    expect(body['logit_bias']).toEqual({ '123': -100 })
     expect(body['stop']).toEqual(['END'])
 
     // 防御:调用方误传字符串时也必须包成数组

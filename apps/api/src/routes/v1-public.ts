@@ -159,6 +159,10 @@ const chatCompletionSchema = z.object({
   n: z.number().int().positive().optional(),
   logprobs: z.boolean().optional(),
   top_logprobs: z.number().int().min(0).max(20).optional(),
+  // 国内模型常用扩展(上游实测均接受)
+  top_k: z.number().int().positive().optional(),
+  repetition_penalty: z.number().positive().optional(),
+  logit_bias: z.record(z.string(), z.number()).optional(),
 })
 
 /** 提取 message content 的纯文本(计费/审计用;多模态 parts 取 text 段,null/缺省 → '') */
@@ -646,6 +650,9 @@ async function streamChatCompletion(
     n?: number
     logprobs?: boolean
     topLogprobs?: number
+    topK?: number
+    repetitionPenalty?: number
+    logitBias?: Record<string, number>
     /** 响应形态:'chat'=chat.completion.chunk(默认)| 'text'=legacy text_completion chunk(/v1/completions) */
     flavor?: 'chat' | 'text'
     /** 两段式计费:preDeductQuota 预扣凭证(recordCall 透传结算) */
@@ -678,6 +685,9 @@ async function streamChatCompletion(
     n,
     logprobs,
     topLogprobs,
+    topK,
+    repetitionPenalty,
+    logitBias,
   } = opts
   const isTextFlavor = opts.flavor === 'text'
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
@@ -746,6 +756,9 @@ async function streamChatCompletion(
       if (n !== undefined) baseBody.n = n
       if (logprobs !== undefined) baseBody.logprobs = logprobs
       if (topLogprobs !== undefined) baseBody.top_logprobs = topLogprobs
+      if (topK !== undefined) baseBody.top_k = topK
+      if (repetitionPenalty !== undefined) baseBody.repetition_penalty = repetitionPenalty
+      if (logitBias !== undefined) baseBody.logit_bias = logitBias
       const channelParamOps = await applyParamOpsToBody(baseBody, { model })
       const fwd = await forwardToChannel({
         model,
@@ -768,6 +781,9 @@ async function streamChatCompletion(
         n,
         logprobs,
         topLogprobs,
+        topK,
+        repetitionPenalty,
+        logitBias,
         userId,
         affinityKey: opts.affinityKey,
         bodyOverride: channelParamOps.body,
@@ -858,6 +874,9 @@ async function streamChatCompletion(
     if (n !== undefined) body.n = n
     if (logprobs !== undefined) body.logprobs = logprobs
     if (topLogprobs !== undefined) body.top_logprobs = topLogprobs
+    if (topK !== undefined) body.top_k = topK
+    if (repetitionPenalty !== undefined) body.repetition_penalty = repetitionPenalty
+    if (logitBias !== undefined) body.logit_bias = logitBias
     if (opts.tools !== undefined) body.tools = opts.tools
     if (opts.toolChoice !== undefined) body.tool_choice = opts.toolChoice
     if (opts.responseFormat !== undefined) body.response_format = opts.responseFormat
@@ -1462,6 +1481,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       n,
       logprobs,
       top_logprobs,
+      top_k,
+      repetition_penalty,
+      logit_bias,
     } = body
     // 三个输出预算字段等价:显式 maxTokens > 标准 max_tokens > OpenAI 新名 max_completion_tokens
     const maxTokens = maxTokensCamel ?? max_tokens ?? max_completion_tokens
@@ -1584,6 +1606,14 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     // 大小写不符会查空 → 落到默认 provider → 上游 422(实测 minimax-m3 → openai 422)。
     // 保守实现:仅命中官方名映射表才改写,未知模型原样透传(不改变既有上游契约)。
     resolvedModel = toOfficialModelName(resolvedModel)
+
+    // WorkBuddy 账号池不支持 n>1 / logprobs(上游静默忽略);入口明确拒绝,
+    // 避免经 ai-service → relay 回打时落到 ai-service 兜底形成回环。
+    if (resolvedModel.startsWith('workbuddy/') && ((n ?? 1) > 1 || logprobs === true)) {
+      return reply
+        .status(400)
+        .send(error(400, 'WorkBuddy 账号池不支持 n>1 或 logprobs;请去掉这些参数后重试'))
+    }
 
     // 两段式计费第一阶段(2026-09-12 立):预扣预估用量(封顶当前余额),
     // recordCall 收到凭证后自动结算(多退少补),敞口上限 = 单次预扣额。
@@ -1764,6 +1794,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           if (n !== undefined) baseBody.n = n
           if (logprobs !== undefined) baseBody.logprobs = logprobs
           if (top_logprobs !== undefined) baseBody.top_logprobs = top_logprobs
+          if (top_k !== undefined) baseBody.top_k = top_k
+          if (repetition_penalty !== undefined) baseBody.repetition_penalty = repetition_penalty
+          if (logit_bias !== undefined) baseBody.logit_bias = logit_bias
           // 参数覆盖系统与 ai-service 路径同源(渠道路径同样生效)
           const paramOpsResult = await applyParamOpsToBody(baseBody, { model: resolvedModel })
           const fwd = await forwardToChannel({
@@ -1787,6 +1820,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
             n,
             logprobs,
             topLogprobs: top_logprobs,
+            topK: top_k,
+            repetitionPenalty: repetition_penalty,
+            logitBias: logit_bias,
             userId: apiKey?.userId,
             affinityKey: apiKey?.id,
             bodyOverride: paramOpsResult.body,
@@ -1816,6 +1852,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         if (n !== undefined) body.n = n
         if (logprobs !== undefined) body.logprobs = logprobs
         if (top_logprobs !== undefined) body.top_logprobs = top_logprobs
+        if (top_k !== undefined) body.top_k = top_k
+        if (repetition_penalty !== undefined) body.repetition_penalty = repetition_penalty
+        if (logit_bias !== undefined) body.logit_bias = logit_bias
         if (tools !== undefined) body.tools = tools
         if (tool_choice !== undefined) body.tool_choice = tool_choice
         if (upstreamResponseFormat !== undefined) body.response_format = upstreamResponseFormat

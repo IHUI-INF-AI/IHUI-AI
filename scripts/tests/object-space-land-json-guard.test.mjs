@@ -383,3 +383,42 @@ test('己(不削弱的那一半):Markdown 活文档仍由行级判据管 —— 
   assert.equal(r.status, 1, `行级判据必须照拦,实得 ${r.status}:\n${out}`)
   assert.match(out, /复活 1 行\(证据行门槛/, '.md 的复活报告保持行级口径的措辞')
 })
+
+/**
+ * 数组元素的"复活"必须要求**曾被删过**(2026-10-23 立)。
+ *
+ * 立因(真事故):给 ihui-ai-overview 追加 3 块面板时,新面板复用了既有的
+ * `options.reduceOptions.calcs = ["lastNotNull"]` 同形对象,守卫判"复活 2 行"并拒绝落地;
+ * 而那个父面板是全新的,结构上不可能把任何已删行搬回。根因是数组分支只要求
+ * "该元素在某个祖先里出现过",从不要求它在 祖先→基线 之间**减少过**。
+ */
+test('P3 数组元素:复用未被删的同值元素 ⇒ 不算复活;真被删过又补回 ⇒ 算', () => {
+  const mk = (tags) => JSON.stringify({ tags }, null, 2) + '\n'
+  // 甲(假阳锁):祖先与基线同为 ["a","b"],落地追加一个 "a" ⇒ 计数只增不减 ⇒ 复活 0
+  const reuse = __test__.jsonKeyPathAudit({
+    baseText: mk(['a', 'b']),
+    newText: mk(['a', 'b', 'a']),
+    kind: 'json',
+    ancestors: [{ commit: 'aaaaaaaaa', text: mk(['a', 'b']) }],
+  })
+  assert.equal(reuse.applicable, true)
+  assert.equal(
+    reuse.line.count,
+    0,
+    `复用未被删过的同值元素不得算复活:${JSON.stringify(reuse.line)}`,
+  )
+  // 乙(真阳对照):祖先 ["a","b","c"] → 基线 ["a","b"](c 被删)→ 补回 c ⇒ 复活 1
+  const restore = __test__.jsonKeyPathAudit({
+    baseText: mk(['a', 'b']),
+    newText: mk(['a', 'b', 'c']),
+    kind: 'json',
+    ancestors: [{ commit: 'bbbbbbbbb', text: mk(['a', 'b', 'c']) }],
+  })
+  assert.equal(restore.line.status, 'judged')
+  assert.equal(
+    restore.line.count,
+    1,
+    `真被删过再补回必须仍被咬:${JSON.stringify(restore.line)}`,
+  )
+  assert.deepEqual(restore.line.commits, ['bbbbbbbbb'])
+})

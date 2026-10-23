@@ -62,6 +62,9 @@ export interface UpstreamForwardRequest {
   user?: string
   /** 服务等级(仅透传) */
   serviceTier?: string
+  topK?: number
+  repetitionPenalty?: number
+  logitBias?: Record<string, number>
   /** 候选数:账号池单请求只支持 1,>1 时回退到 ai-service 链路 */
   n?: number
   /** logprobs:账号池上游静默忽略,请求时回退到 ai-service 链路 */
@@ -188,6 +191,9 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
     if (req.parallelToolCalls !== undefined) body.parallel_tool_calls = req.parallelToolCalls
     if (req.user !== undefined) body.user = req.user
     if (req.serviceTier !== undefined) body.service_tier = req.serviceTier
+    if (req.topK !== undefined) body.top_k = req.topK
+    if (req.repetitionPenalty !== undefined) body.repetition_penalty = req.repetitionPenalty
+    if (req.logitBias !== undefined) body.logit_bias = req.logitBias
     if (req.n !== undefined) body.n = req.n
     if (req.logprobs !== undefined) body.logprobs = req.logprobs
     if (req.topLogprobs !== undefined) body.top_logprobs = req.topLogprobs
