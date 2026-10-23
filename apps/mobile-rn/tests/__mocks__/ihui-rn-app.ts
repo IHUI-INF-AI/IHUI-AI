@@ -121,4 +121,15 @@ export type {
 // 不得另写假实现。
 export { SearchInput } from '../../../../packages/app/src/components/SearchInput'
 export type { SearchInputProps } from '../../../../packages/app/src/components/SearchInput'
+// CarteScreen 同上一条纪律:替身必须转发**真实共享屏**,不得另写假实现 ——
+// apps/mobile-rn/src/screens/CarteScreen.tsx 是薄壳,渲染的就是这一份;
+// 若此处缺席或写假组件,"RN 端渲染共享层那份"这一格就没有任何一层能判。
+export { CarteScreen } from '../../../../packages/app/src/features/carte/CarteScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 2026-10-23:About 薄壳接的是真实共享屏,本替身必须把真件透出来,否则 About 测的是虚构组件
+export { AboutScreen } from '../../../../packages/app/src/features/about/AboutScreen'
+export type {
+  AboutEntry,
+  SharedAboutScreenProps,
+} from '../../../../packages/app/src/features/about/AboutScreen'

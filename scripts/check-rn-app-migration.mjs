@@ -162,10 +162,10 @@ export const WHITELIST_ENTRIES = new Map(
       why: '话题详情:RN 端独占关注翻转 + 时间相对化 + 帖子详情流,Web/Miniapp 有独立实现',
       expires: '2027-06-30',
     },
-    'AboutScreen.tsx': {
-      why: '关于页:2026-09-05 产品定稿恢复历史合规跳转列表(对齐 Uniapp about.vue),7 条目跳转 RN 端合规屏集合;共享层 app-info 卡版 UI 不适用,曾接 SharedAboutScreen 后有意移除',
-      expires: '2027-06-30',
-    },
+    // ── 2026-10-23 摘除 AboutScreen.tsx 与 aboutPageSections.ts 两枚:富版已提升为共享真相源
+    //    (packages/app/src/features/about/AboutScreen.tsx + 分段表
+    //     packages/shared/src/constants/about-sections.ts),RN 端改为薄壳委托,端内分段数据件已删
+    //    ⇒ 白名单无的放矢(留着即 §0.7 清单腐烂)。──
     // ── 2026-10-21 补登(HEAD 面 V1 红 3 条,逐条按现读判"无低成本真迁移";
     //     原块上方另有三枚同名的历史短账,重名静默覆盖 = 名单腐烂,已去重只留本份详账)──
     'AgentCategoriesScreen.tsx': {
@@ -174,10 +174,6 @@ export const WHITELIST_ENTRIES = new Map(
     },
     'PublishAccountsScreen.tsx': {
       why: '平台账号屏(443 行):扫码重新授权走 /api/publish/scan-login/start + 2.5s 轮询 + 关闭时 cancel(第 141-183 行),二维码用 RN Image 的 headers 带 Bearer(第 246-251/341-346 行,依赖 getToken 与 API_BASE_URL),解绑走本地 appAlert;packages/app 只有 PublishScreen(发布任务列表),web /publish/accounts 是 DOM 实现且另带批量导入/分组,无同名共享屏',
-      expires: '2027-06-30',
-    },
-    'aboutPageSections.ts': {
-      why: '数据模块不是屏:AboutScreen 的分段数据源(ABOUT_VALUES/ABOUT_PLATFORMS/ABOUT_STATS/ABOUT_COMPLIANCE 四张表 + AboutFeature/ComplianceTarget 类型),图标取 lucide-react-native 的 LucideIcon,只被 RN AboutScreen.tsx 第 22 行 import;其宿主屏 AboutScreen.tsx 因 2026-09-05 产品定稿已在本表登记为 RN 独占,小程序端另有同形 aboutSections.ts(图标走本地 LineIcon),本文件无 UI 可共享,随宿主屏留在端内',
       expires: '2027-06-30',
     },
   }),
