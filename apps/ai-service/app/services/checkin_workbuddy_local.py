@@ -2,35 +2,42 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""本机 Chrome → WorkBuddy 网页会话 Cookie 抽取(2026-10-24 立)。
+"""本机 WorkBuddy 凭据采集:客户端内存令牌(主)+ 网页会话 Cookie(备)。
 
-为什么需要:WorkBuddy 网页会话(`session` cookie,HttpOnly,7 天)是目前唯一
-能在客户端关闭后继续签到的凭据。服务端没有可用的续期接口:
+**客户端令牌(主路,2026-10-24 立)**:桌面端把 accessToken/refreshToken 包进
+`$wbEncrypted` 信封落盘(密钥只在客户端进程内),但运行期明文就在主进程/守护
+进程的堆上。客户端自己会持续自动刷新(用户实证:从不需要重登),所以只要它
+在跑,内存里就有一枚**当前有效**的 28 天 Bearer。本模块只读扫描该令牌并交给
+调度器写库,不参与刷新、不消耗 Offline refresh token —— 一旦拿客户端那枚
+refresh token 去换票,Keycloak 可能轮换作废它,反而把客户端挤下线。
 
-- Keycloak 直连刷新 ⇒ `unauthorized_client`(console 客户端需凭据);
-- 网关注入刷新(`/console/v2/auth/token/refresh`)⇒ 旧离线令牌 `access_denied`;
-- 静默 SSO(`prompt=none` + KEYCLOAK_SESSION)⇒ `login_required`(身份 cookie 已失效)。
+**网页 Cookie(备路)**:客户端长时间不启动时用。`session` cookie(HttpOnly,
+7 天)可服务端直接复放;服务端没有任何续期接口(直连 Keycloak
+`unauthorized_client`、网关注入对旧令牌 `access_denied`、`prompt=none`
+`login_required`,三条都实测过)。Chrome 155 的 cookie 用 app-bound 加密,
+外部进程解不开,但**同一个 chrome.exe** 可以:
 
-因此续期只能回到浏览器本身。Chrome 155 的 cookie 用 app-bound 加密(ABE),
-外部进程无法解密;但**同一个 chrome.exe** 可以。做法:
-
-1. `esentutl /y /vss` 快照被锁的 `Network/Cookies` 与 `Local State`(VSS 只读复制);
-2. 复制到临时 profile,用 `--headless=new` 启动同一个 chrome.exe;
-3. 读 `DevToolsActivePort`,经 CDP `Storage.getCookies` 拿到明文 cookie;
+1. `esentutl /y /vss` 快照被锁的 `Network/Cookies` 与 `Local State`;
+2. 复制到临时 profile,`--headless=new` 启动同一个 chrome.exe;
+3. 读 `DevToolsActivePort`,经 CDP `Storage.getCookies` 拿明文 cookie;
 4. 立刻 kill 进程并删除临时目录。
 
-本模块只读、不写 Chrome 的任何数据;取不到一律返回 None 并点名原因(§0.3)。
+两条路都只读;取不到一律返回 None 并点名原因(§0.3),绝不冒充成功。
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
+import ctypes
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
+from ctypes import wintypes
 from typing import Any, Final
 
 import websockets
@@ -42,6 +49,156 @@ logger = get_logger(__name__)
 _COOKIE_HOST_SUFFIX: Final = "workbuddy.cn"
 _TARGET_PATHS: Final = ("/console/account", "/v2/billing/meter/daily-checkin")
 _CREATE_NO_WINDOW: Final = 0x08000000 if sys.platform == "win32" else 0
+
+# ---------------------------------------------------------------------------
+# 客户端内存令牌采集(只读)
+# ---------------------------------------------------------------------------
+
+_JWT_ASCII: Final = re.compile(rb"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}")
+_JWT_UTF16: Final = re.compile(
+    rb"e\x00y\x00J\x00(?:[A-Za-z0-9_-]\x00){10,}\.\x00"
+    rb"(?:[A-Za-z0-9_-]\x00){10,}\.\x00(?:[A-Za-z0-9_-]\x00){10,}"
+)
+_PROCESS_QUERY_INFORMATION: Final = 0x0400
+_PROCESS_VM_READ: Final = 0x0010
+_MEM_COMMIT: Final = 0x1000
+_PAGE_GUARD: Final = 0x100
+_PAGE_NOACCESS: Final = 0x01
+_READABLE_PROTECTIONS: Final = {0x02, 0x04, 0x20, 0x40, 0x80}
+_MAX_USER_ADDRESS: Final = 0x7FFFFFFEFFFF
+_SCAN_CHUNK: Final = 4 * 1024 * 1024
+
+
+class _MemoryBasicInformation(ctypes.Structure):
+    _fields_ = [
+        ("BaseAddress", ctypes.c_void_p),
+        ("AllocationBase", ctypes.c_void_p),
+        ("AllocationProtect", wintypes.DWORD),
+        ("RegionSize", ctypes.c_size_t),
+        ("State", wintypes.DWORD),
+        ("Protect", wintypes.DWORD),
+        ("Type", wintypes.DWORD),
+    ]
+
+
+def decode_jwt_claims(token: str) -> dict[str, Any] | None:
+    """解析 JWT payload(不验签);坏串返回 None。"""
+    parts = (token or "").strip().split(".")
+    if len(parts) < 2:
+        return None
+    try:
+        pad = parts[1] + "=" * (-len(parts[1]) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(pad.replace("-", "+").replace("_", "/")))
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _workbuddy_pids() -> list[int]:
+    """枚举持有凭据的 WorkBuddy 进程(跳过 renderer/gpu/utility/crashpad)。"""
+    if sys.platform != "win32":
+        return []
+    try:
+        import psutil
+    except ImportError:
+        logger.warning("[wb-local] psutil 未安装,无法枚举 WorkBuddy 进程")
+        return []
+    pids: list[int] = []
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            info = proc.info
+            if str(info.get("name") or "").lower() != "workbuddy.exe":
+                continue
+            argv = info.get("cmdline") or []
+            if any(str(a).startswith("--type=") for a in argv):
+                continue
+            pids.append(int(info["pid"]))
+        except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError, ValueError):
+            continue
+    return pids
+
+
+def _scan_pid_tokens(pid: int) -> list[tuple[str, dict[str, Any]]]:
+    """只读扫描单个进程的可读内存,返回其中的 JWT 及声明。"""
+    if sys.platform != "win32":
+        return []
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    handle = k32.OpenProcess(_PROCESS_QUERY_INFORMATION | _PROCESS_VM_READ, False, pid)
+    if not handle:
+        return []
+    out: dict[str, dict[str, Any]] = {}
+    addr = 0
+    try:
+        while addr < _MAX_USER_ADDRESS:
+            mbi = _MemoryBasicInformation()
+            if not k32.VirtualQueryEx(
+                handle, ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi)
+            ):
+                break
+            base = int(mbi.BaseAddress or 0)
+            size = int(mbi.RegionSize or 0)
+            if size <= 0:
+                break
+            prot = int(mbi.Protect or 0)
+            if (
+                int(mbi.State or 0) == _MEM_COMMIT
+                and (prot & 0xFF) in _READABLE_PROTECTIONS
+                and not (prot & (_PAGE_GUARD | _PAGE_NOACCESS))
+            ):
+                off = 0
+                while off < size:
+                    n = min(_SCAN_CHUNK, size - off)
+                    buf = ctypes.create_string_buffer(n)
+                    read = ctypes.c_size_t(0)
+                    ok = k32.ReadProcessMemory(
+                        handle, ctypes.c_void_p(base + off), buf, n, ctypes.byref(read)
+                    )
+                    if ok and read.value:
+                        data = buf.raw[: read.value]
+                        for rx in (_JWT_ASCII, _JWT_UTF16):
+                            for m in rx.finditer(data):
+                                tok = m.group(0).replace(b"\x00", b"").decode("ascii", "ignore")
+                                claims = decode_jwt_claims(tok)
+                                if claims is not None:
+                                    out[tok] = claims
+                    off += n
+            addr = base + size
+    finally:
+        k32.CloseHandle(handle)
+    return list(out.items())
+
+
+async def extract_workbuddy_memory_tokens() -> dict[str, dict[str, Any]]:
+    """按 uid 返回客户端内存中最新的 Bearer / Offline 令牌。
+
+    返回 {uid: {"bearer": str, "bearer_exp": int, "offline": str, "offline_exp": int}}。
+    同一 uid 多枚时按 exp 取最新一枚;取不到返回空 dict(不猜、不编造)。
+    """
+    if sys.platform != "win32":
+        return {}
+    pids = await asyncio.to_thread(_workbuddy_pids)
+    if not pids:
+        logger.info("[wb-local] 未发现运行中的 WorkBuddy 客户端进程")
+        return {}
+    found: dict[str, dict[str, Any]] = {}
+    for pid in pids:
+        try:
+            tokens = await asyncio.to_thread(_scan_pid_tokens, pid)
+        except OSError as e:
+            logger.warning("[wb-local] 扫描 PID %s 失败: %s", pid, e)
+            continue
+        for tok, claims in tokens:
+            uid = str(claims.get("sub") or "")
+            typ = str(claims.get("typ") or "")
+            if not uid or typ not in ("Bearer", "Offline"):
+                continue
+            exp = int(claims.get("exp") or 0)
+            entry = found.setdefault(uid, {})
+            key = "bearer" if typ == "Bearer" else "offline"
+            if exp > int(entry.get(f"{key}_exp") or 0):
+                entry[key] = tok
+                entry[f"{key}_exp"] = exp
+    return found
 
 
 def _chrome_exe() -> str | None:

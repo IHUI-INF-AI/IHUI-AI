@@ -464,7 +464,8 @@ async def workbuddy_checkin_account(
       (桌面端 WebView 登录自动获取,普通用户零 token)。
     流程:过期预检告警(web 模式无 exp 声明,跳过)→ POST daily-checkin →
     code 0=成功(credit/streak_days)/ 10001=今日已签(幂等成功)/
-    401/403=SessionDead。无自刷新(refreshToken 不可得;过期即提示重抓/重登)。
+    401/403=SessionDead。令牌续期不在引擎内做:由调度器只读采集桌面客户端
+    内存里的当前 Bearer(见 checkin_workbuddy_local),引擎只管用。
     """
     result = _base_result(name, None)
     web_mode = workbuddy_is_web_mode(device_map)
