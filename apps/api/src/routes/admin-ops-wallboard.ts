@@ -20,9 +20,18 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { desc, gte, lte, sql, and } from 'drizzle-orm'
+import { desc, eq, gte, lte, sql, and } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
-import { apiLogs, llmCallLogs, monitorAlerts, orders, systemEvents, users } from '@ihui/database'
+import {
+  apiLogs,
+  llmCallLogs,
+  monitorAlerts,
+  orders,
+  signInRecords,
+  systemEvents,
+  users,
+} from '@ihui/database'
+import { shiftDate, todayString } from '../utils/checkin-helpers.js'
 import { success, error } from '../utils/response.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import type { EdgeLegKey, EdgeLegSample, EdgeStats } from '../services/edge-access.js'
@@ -418,7 +427,144 @@ async function buildBridge(): Promise<BridgeSnapshot | null> {
   }
 }
 
+// ===== 访客与机器人 / AI 号池(2026-10-23 立:把面板盘里的关键数字直接搬上大屏)=====
+/**
+ * 这两块只读 Prometheus 里由 business-metrics 发射的聚合 gauge,不碰业务库:
+ *  - 访客块:`ihui_traffic_page_views` / `_unique_visitors` / `_family_page_views`(小时级刷新,
+ *    api 重启归零 —— 所以同时给出 `aggregationAgeSec`,让大屏能显示"这数是多久前算的");
+ *  - 号池块:`ihui_relay_key_pool_*` / `ihui_relay_account_pool_*`(5 分钟一轮)。
+ * 取不到一律 null(渲染"—"),不折成 0。
+ */
+interface TrafficSnapshot {
+  /** 近 24h PV / UV(api_logs 口径) */
+  pv24h: number | null
+  uv24h: number | null
+  /** 近 1h PV / UV */
+  pv1h: number | null
+  uv1h: number | null
+  /** 近 24h 真人(首方 + 人浏览器)PV 与自动化 PV */
+  humanPv24h: number | null
+  botPv24h: number | null
+  /** 各客户端族近 24h PV(降序) */
+  families: Array<{ family: string; pv: number }>
+  /** 聚合器多久没成功刷过(秒) */
+  aggregationAgeSec: number | null
+  /** true = 族分解被 UA 种类预算截断,族值只是下界 */
+  truncated: boolean | null
+}
+
+/** 视为"真人"的族:首方自有端 + 人浏览器(见 bot-detection 的族优先级) */
+const HUMAN_FAMILIES = new Set(['first-party', 'human-browser'])
+
+async function buildTraffic(): Promise<TrafficSnapshot | null> {
+  try {
+    const [pv24, uv24, pv1, uv1, fam, age, trunc] = await Promise.all([
+      promQuery('max(ihui_traffic_page_views{window="24h",source="api_logs"})'),
+      promQuery('max(ihui_traffic_unique_visitors{window="24h",source="api_logs"})'),
+      promQuery('max(ihui_traffic_page_views{window="1h",source="api_logs"})'),
+      promQuery('max(ihui_traffic_unique_visitors{window="1h",source="api_logs"})'),
+      promQuery(
+        'sum by (client_family) (ihui_traffic_family_page_views{window="24h",source="api_logs"})',
+      ),
+      promQuery('time() - max(ihui_traffic_aggregation_last_success_timestamp_seconds)'),
+      promQuery('max(ihui_traffic_family_breakdown_truncated)'),
+    ])
+    const families = (fam ?? [])
+      .map((s) => ({ family: s.metric?.client_family ?? 'unknown', pv: sampleNum(s) ?? 0 }))
+      .filter((f) => f.pv > 0)
+      .sort((a, b) => b.pv - a.pv)
+    // 族分解一条都没有 ⇒ 聚合器还没跑过(或指标刚重启),真人/自动化两格按 null 处理
+    let humanPv24h: number | null = null
+    let botPv24h: number | null = null
+    if (families.length > 0) {
+      let human = 0
+      let bot = 0
+      for (const f of families) {
+        if (HUMAN_FAMILIES.has(f.family)) human += f.pv
+        else bot += f.pv
+      }
+      humanPv24h = Math.round(human)
+      botPv24h = Math.round(bot)
+    }
+    const truncRaw = firstNum(trunc)
+    return {
+      pv24h: firstNum(pv24),
+      uv24h: firstNum(uv24),
+      pv1h: firstNum(pv1),
+      uv1h: firstNum(uv1),
+      humanPv24h,
+      botPv24h,
+      families,
+      aggregationAgeSec: firstNum(age),
+      truncated: truncRaw === null ? null : truncRaw >= 1,
+    }
+  } catch {
+    return null
+  }
+}
+
+interface RelayPoolSnapshot {
+  /** key 池:总条数 / 可调度 / 异常(degraded + down) */
+  keyTotal: number | null
+  keySchedulable: number | null
+  keyAbnormal: number | null
+  /** 账号池:总条数 / 可调度 */
+  accountsTotal: number | null
+  accountsSchedulable: number | null
+  /** 账号 token 最短临期(秒;负 = 已过期) */
+  minTokenExpiresInSeconds: number | null
+  /** 号池刷新滞后(秒;5 分钟一轮) */
+  staleAgeSec: number | null
+}
+
+async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
+  try {
+    const [keyTotal, keySched, keyAbnormal, accTotal, accSched, tokenExp, stale] =
+      await Promise.all([
+        promQuery('count(ihui_relay_key_pool_schedulable)'),
+        promQuery('sum(ihui_relay_key_pool_schedulable)'),
+        promQuery('sum(ihui_relay_key_pool_keys{state=~"degraded|down"})'),
+        promQuery('count(ihui_relay_account_pool_schedulable)'),
+        promQuery('sum(ihui_relay_account_pool_schedulable)'),
+        promQuery('min(ihui_relay_account_pool_token_expires_in_seconds)'),
+        promQuery('time() - max(ihui_relay_key_pool_refresh_last_success_timestamp_seconds)'),
+      ])
+    return {
+      keyTotal: firstNum(keyTotal),
+      keySchedulable: firstNum(keySched),
+      keyAbnormal: firstNum(keyAbnormal),
+      accountsTotal: firstNum(accTotal),
+      accountsSchedulable: firstNum(accSched),
+      minTokenExpiresInSeconds: firstNum(tokenExp),
+      staleAgeSec: firstNum(stale),
+    }
+  } catch {
+    return null
+  }
+}
+
 // ===== 业务库聚合 =====
+
+/**
+ * 签到快照(2026-10-23 立,机主要求"签到几个/还剩几个未签到"上大屏)。
+ * 口径与写入口 `routes/gamification.ts` 严格同源:`sign_in_date` 由 `todayString()` 写,
+ * 即 **UTC 日期** 而非上海日界 —— 这里必须用同一个函数取"今天",否则每天 00:00-08:00
+ * (上海)会与真实签到记录错开一天,大屏读成 0 而用户明明签过。
+ * 未签到人数 = 启用用户数 - 今日签到人数(下限 0);`signIn` 整块取不到时为 null,
+ * 不折成 0(0 在大屏上等于"没人签到",与"没量到"是两件事)。
+ */
+interface SignInSnapshot {
+  /** 今日签到人数(按 user_id 去重) */
+  todayUsers: number
+  /** 今日发放的签到奖励积分合计 */
+  todayRewardPoints: number
+  /** 今日签到用户中的最高连续签到天数 */
+  maxStreakDays: number
+  /** 未签到人数 = 启用用户(status=1) - 今日签到人数,下限 0 */
+  unsignedActiveUsers: number
+  /** 近 7 日每日签到人数(缺的那天补 0:查询成功时"没有记录"就是真 0) */
+  last7d: Array<{ date: string; users: number }>
+}
 
 interface BusinessSnapshot {
   usersTotal: number
@@ -437,83 +583,139 @@ interface BusinessSnapshot {
   llmErrRate: number
   llmP95LatencyMs: number
   llmTopModels: Array<{ model: string; calls: number }>
+  signIn: SignInSnapshot | null
 }
 
 async function buildBusiness(): Promise<BusinessSnapshot | null> {
   try {
     const todayStart = shanghaiDayStartUtc(0)
     const yestStart = shanghaiDayStartUtc(1)
-    const [userRows, orderToday, orderYest, apiToday, apiTop, llmToday, llmModels] =
-      await Promise.all([
-        dbRead
-          .select({
-            total: sql<number>`count(*)::int`,
-            todayNew: sql<number>`count(*) filter (where ${users.createdAt} >= ${todayStart.toISOString()}::timestamptz)::int`,
-            active: sql<number>`count(*) filter (where ${users.status} = 1)::int`,
-          })
-          .from(users),
-        dbRead
-          .select({
-            paid: sql<number>`count(*)::int`,
-            amountCents: sql<number>`coalesce(sum(${orders.amount}), 0)::bigint::int`,
-          })
-          .from(orders)
-          .where(and(gte(orders.createdAt, todayStart), sql`${orders.status} = 'paid'`)),
-        dbRead
-          .select({ paid: sql<number>`count(*)::int` })
-          .from(orders)
-          .where(
-            and(
-              gte(orders.createdAt, yestStart),
-              lte(orders.createdAt, todayStart),
-              sql`${orders.status} = 'paid'`,
-            ),
+    // 签到口径:与写入口 gamification.ts 同源(UTC 日期,不是上面业务块的上海日界)
+    const signInToday = todayString()
+    const signInWeekAgo = shiftDate(signInToday, -6)
+    const [
+      userRows,
+      orderToday,
+      orderYest,
+      apiToday,
+      apiTop,
+      llmToday,
+      llmModels,
+      signToday,
+      signWeek,
+    ] = await Promise.all([
+      dbRead
+        .select({
+          total: sql<number>`count(*)::int`,
+          todayNew: sql<number>`count(*) filter (where ${users.createdAt} >= ${todayStart.toISOString()}::timestamptz)::int`,
+          active: sql<number>`count(*) filter (where ${users.status} = 1)::int`,
+        })
+        .from(users),
+      dbRead
+        .select({
+          paid: sql<number>`count(*)::int`,
+          amountCents: sql<number>`coalesce(sum(${orders.amount}), 0)::bigint::int`,
+        })
+        .from(orders)
+        .where(and(gte(orders.createdAt, todayStart), sql`${orders.status} = 'paid'`)),
+      dbRead
+        .select({ paid: sql<number>`count(*)::int` })
+        .from(orders)
+        .where(
+          and(
+            gte(orders.createdAt, yestStart),
+            lte(orders.createdAt, todayStart),
+            sql`${orders.status} = 'paid'`,
           ),
-        dbRead
-          .select({
-            calls: sql<number>`count(*)::int`,
-            errRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 500 then 1 else 0 end) * 100, 0)::float8`,
-            avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)::int`,
-          })
-          .from(apiLogs)
-          .where(gte(apiLogs.createdAt, todayStart)),
-        dbRead
-          .select({
-            path: apiLogs.path,
-            method: apiLogs.method,
-            calls: sql<number>`count(*)::int`,
-          })
-          .from(apiLogs)
-          .where(gte(apiLogs.createdAt, todayStart))
-          .groupBy(apiLogs.path, apiLogs.method)
-          .orderBy(desc(sql`count(*)`))
-          .limit(5),
-        dbRead
-          .select({
-            calls: sql<number>`count(*)::int`,
-            tokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
-            costCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
-            errRate: sql<number>`coalesce(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100, 0)::float8`,
-            p95Latency: sql<number>`coalesce(percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int, 0)`,
-          })
-          .from(llmCallLogs)
-          .where(gte(llmCallLogs.createdAt, todayStart)),
-        dbRead
-          .select({
-            model: llmCallLogs.model,
-            calls: sql<number>`count(*)::int`,
-          })
-          .from(llmCallLogs)
-          .where(gte(llmCallLogs.createdAt, todayStart))
-          .groupBy(llmCallLogs.model)
-          .orderBy(desc(sql`count(*)`))
-          .limit(5),
-      ])
+        ),
+      dbRead
+        .select({
+          calls: sql<number>`count(*)::int`,
+          errRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 500 then 1 else 0 end) * 100, 0)::float8`,
+          avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)::int`,
+        })
+        .from(apiLogs)
+        .where(gte(apiLogs.createdAt, todayStart)),
+      dbRead
+        .select({
+          path: apiLogs.path,
+          method: apiLogs.method,
+          calls: sql<number>`count(*)::int`,
+        })
+        .from(apiLogs)
+        .where(gte(apiLogs.createdAt, todayStart))
+        .groupBy(apiLogs.path, apiLogs.method)
+        .orderBy(desc(sql`count(*)`))
+        .limit(5),
+      dbRead
+        .select({
+          calls: sql<number>`count(*)::int`,
+          tokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
+          costCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
+          errRate: sql<number>`coalesce(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100, 0)::float8`,
+          p95Latency: sql<number>`coalesce(percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int, 0)`,
+        })
+        .from(llmCallLogs)
+        .where(gte(llmCallLogs.createdAt, todayStart)),
+      dbRead
+        .select({
+          model: llmCallLogs.model,
+          calls: sql<number>`count(*)::int`,
+        })
+        .from(llmCallLogs)
+        .where(gte(llmCallLogs.createdAt, todayStart))
+        .groupBy(llmCallLogs.model)
+        .orderBy(desc(sql`count(*)`))
+        .limit(5),
+      // 签到今日汇总:单表独立 catch ⇒ 这张表出问题不拖垮整块业务纵深
+      dbRead
+        .select({
+          users: sql<number>`count(distinct ${signInRecords.userId})::int`,
+          points: sql<number>`coalesce(sum(${signInRecords.rewardPoints}), 0)::int`,
+          maxStreak: sql<number>`coalesce(max(${signInRecords.consecutiveDays}), 0)::int`,
+        })
+        .from(signInRecords)
+        .where(eq(signInRecords.signInDate, signInToday))
+        .catch(() => null),
+      // 近 7 日每日签到人数(含今天)
+      dbRead
+        .select({
+          date: sql<string>`to_char(${signInRecords.signInDate}, 'YYYY-MM-DD')`,
+          users: sql<number>`count(distinct ${signInRecords.userId})::int`,
+        })
+        .from(signInRecords)
+        .where(gte(signInRecords.signInDate, signInWeekAgo))
+        .groupBy(signInRecords.signInDate)
+        .orderBy(signInRecords.signInDate)
+        .catch(() => null),
+    ])
     const u = userRows[0]
     const o = orderToday[0]
     const oy = orderYest[0]
     const a = apiToday[0]
     const l = llmToday[0]
+    // 签到块:今日汇总取不到 ⇒ 整块 null(渲染"未判定");近 7 日取不到 ⇒ 只留空数组,
+    // 不把"没量到"写成 7 根 0 柱(0 根柱在大屏上等于"连着七天没人签到")
+    const st = signToday?.[0]
+    const signInUsersToday = st?.users ?? 0
+    let signIn: SignInSnapshot | null = null
+    if (signToday !== null) {
+      const byDate = new Map((signWeek ?? []).map((r) => [r.date, r.users]))
+      const last7d: SignInSnapshot['last7d'] = []
+      if (signWeek !== null) {
+        for (let i = 6; i >= 0; i--) {
+          const date = shiftDate(signInToday, -i)
+          last7d.push({ date, users: byDate.get(date) ?? 0 })
+        }
+      }
+      signIn = {
+        todayUsers: signInUsersToday,
+        todayRewardPoints: st?.points ?? 0,
+        maxStreakDays: st?.maxStreak ?? 0,
+        unsignedActiveUsers: Math.max(0, (u?.active ?? 0) - signInUsersToday),
+        last7d,
+      }
+    }
     return {
       usersTotal: u?.total ?? 0,
       usersTodayNew: u?.todayNew ?? 0,
@@ -535,6 +737,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       llmErrRate: Number((l?.errRate ?? 0).toFixed(2)),
       llmP95LatencyMs: l?.p95Latency ?? 0,
       llmTopModels: llmModels.map((r) => ({ model: r.model, calls: r.calls })),
+      signIn,
     }
   } catch (e) {
     console.error('[ops-wallboard] buildBusiness failed:', e)
@@ -776,17 +979,20 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
     // 字段名含 "token"(llmTokensToday 等)会被 response-sanitizer 遮蔽为 "***"(同 ai-cost);
     // 大屏为 requireAdmin 管理端点,可信上下文直接跳过整端点脱敏
     request.skipResponseSanitization = true
-    const [host, services, http, redis, pg, bridge, business, alerts, events] = await Promise.all([
-      buildHost(),
-      buildServices(),
-      buildHttp(),
-      buildRedis(),
-      buildPg(),
-      buildBridge(),
-      buildBusiness(),
-      buildAlerts(),
-      buildEvents(),
-    ])
+    const [host, services, http, redis, pg, bridge, business, alerts, events, traffic, relayPool] =
+      await Promise.all([
+        buildHost(),
+        buildServices(),
+        buildHttp(),
+        buildRedis(),
+        buildPg(),
+        buildBridge(),
+        buildBusiness(),
+        buildAlerts(),
+        buildEvents(),
+        buildTraffic(),
+        buildRelayPool(),
+      ])
     const edge = buildEdge()
     return reply.send(
       success({
@@ -807,6 +1013,8 @@ export const adminOpsWallboardRoutes: FastifyPluginAsync = async (server) => {
         business,
         alerts,
         events,
+        traffic,
+        relayPool,
         edge,
       }),
     )
