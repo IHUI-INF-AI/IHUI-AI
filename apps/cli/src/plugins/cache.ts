@@ -308,17 +308,33 @@ const STAGING_SUFFIX = '.staging-';
 const SUPERSEDED_SUFFIX = '.superseded-';
 /** 归档目录里的事务标记:删除之前必须逐字读回并等于本次 transactionId */
 const SWAP_MARKER_NAME = '.ihui-swap-transaction.json';
+/**
+ * G-807①:回位副本"需刷新"显式记录的后缀(与暂存/归档同族定名)。
+ *
+ * 它落在**内容目录之外**(与副本同级),所以恢复出来的插件内容逐字不变 ——
+ * 装载器/安装器扫的永远是目录里的清单,不会多出一份我方私有文件;而按标记名
+ * 过滤的遗留物判据(`.staging-`/`.superseded-`)也不会把它认成在途物。
+ */
+const REFRESH_FLAG_SUFFIX = '.needs-refresh';
+
+/** "这份副本刚被回位"的显式记录落点(判定与测试都只引用这里,不在别处再抄后缀名) */
+export function refreshFlagPathFor(target: string): string {
+  return `${target}${REFRESH_FLAG_SUFFIX}`;
+}
 
 /**
- * G-807①:回位副本的显式过期时间戳(Unix 纪元)。
+ * G-807①(兜底那一格):回位副本的显式过期时间戳(Unix 纪元)。
  *
  * 崩溃恢复把旧代 rename 回权威槽位后,这份内容的真实年龄已经随那次 rename 丢了,
  * 而紧随其后的摘标记还会把目录 mtime **重盖**到当前时刻 —— 不显式置过期,
- * TTL 判据(见 `getOrCloneGitCache` 内 `ageMs = Date.now() - stat.mtimeMs`)就会把
- * 恢复出来的旧代误判成"刚更新的新副本"而命中缓存,下一轮刷新要白等一整个 TTL
- * (G-730 交付报告残余⑥;实测本机该 mtime 可比 `Date.now()` 超前最多 1.5ms+,
- * 于是连 `ttlMs:-1` 都会被偶发判成新鲜)。写入侧取最保守值:盖到 Unix 纪元 ⇒
- * 任何 TTL 下 ageMs 都远大于 ttl,"必须刷新"成为确定性前提,不靠 mtime 猜。
+ * 只看 mtime 的 TTL 判据就会把恢复出来的旧代误判成"刚更新的新副本"而命中缓存,
+ * 下一轮刷新要白等一整个 TTL(G-730 交付报告残余⑥;实测本机该 mtime 可比
+ * `Date.now()` 超前最多 1.5ms+,于是连 `ttlMs:-1` 都会被偶发判成新鲜)。
+ *
+ * ⚠ 它只是**兜底**,不是判定依据:`utimesSync` 走的是 Windows 的 `SetFileTime`,
+ * 目录刚 rename 完会被杀软/索引器短暂持有 ⇒ 这一写会偶发失败,而失败被吞掉后
+ * 判据就退回"mtime 竞猜"(= 本票点名的随机红)。真正的判定见 `copyNeedsRefresh`:
+ * 恢复器本次调用回位过这份副本(第一等事实)∨ 盘上的 `REFRESH_FLAG_SUFFIX` 记录。
  */
 const RESTORED_COPY_STAMP = new Date(0);
 
@@ -1083,6 +1099,57 @@ export interface SwapRecoveryEntry {
   readonly reason: string;
 }
 
+/**
+ * G-807①:把"刚回位回来的这份副本必须刷新"写成**显式事实**,而不是留给 mtime 猜。
+ *
+ * 两格一起写,方向各管一段:
+ *  ① 同级显式记录 `refreshFlagPathFor(target)` —— 跨调用/跨进程那一格,判定只认它(和②),
+ *     内容目录里一个字都不加;
+ *  ② 目录 mtime 盖到 Unix 纪元 —— 兜底那一格,给任何只看年龄的读法(含人工/其它工具)。
+ * 两格都可能被 Windows 的瞬时句柄占用打死(目录刚 rename 完正被杀软/索引器扫),
+ * 所以**都不许是判定的唯一依赖**:同一笔调用还有 `restoredInThisCall` 那第一等事实
+ * (恢复器自己说"我刚刚把它回位到了这个槽位"),它不落盘也成立。
+ * 回传的布尔是"哪一格真落地了",只用于如实报名,不参与任何判定。
+ */
+function markCopyNeedingRefresh(target: string): { flagged: boolean; stamped: boolean } {
+  let flagged = false;
+  try {
+    const flagPath = refreshFlagPathFor(target);
+    const payload = JSON.stringify({
+      target,
+      reason: '崩溃恢复把旧代回位到权威槽位 ⇒ 内容真实年龄已随 rename 丢失,本轮必须刷新',
+      markedAt: new Date().toISOString(),
+    });
+    commitAtomicWrite(captureWriteBaseline(flagPath), payload);
+    // 写下去还要读回来:存在性就是这条记录的全部语义,回读不到等于没写
+    flagged = fs.existsSync(flagPath);
+  } catch {
+    flagged = false;
+  }
+  let stamped = false;
+  try {
+    fs.utimesSync(target, RESTORED_COPY_STAMP, RESTORED_COPY_STAMP);
+    stamped = fs.statSync(target).mtimeMs <= RESTORED_COPY_STAMP.getTime();
+  } catch {
+    stamped = false;
+  }
+  return { flagged, stamped };
+}
+
+/**
+ * 新鲜度判定的唯一出口:**这份副本是不是必须刷新**。
+ *
+ * 票面明令"写侧显式置过期,而不是靠 mtime 猜",所以这里吃的两格都是显式事实:
+ *  ① `restoredInThisCall` —— 本次调用里恢复器刚把它回位(第一等证据,与盘上时间戳无关);
+ *  ② 同级显式记录在位(跨调用那一格)。
+ * 任一成立 ⇒ 判"需刷新"(即:不得命中缓存)。年龄那一维仍由调用侧的 `ageMs < ttl` 把关,
+ * 本函数**不看** mtime —— 否则又回到"随机红"。
+ */
+function copyNeedsRefresh(target: string, restoredInThisCall: boolean): boolean {
+  if (restoredInThisCall) return true;
+  return fs.existsSync(refreshFlagPathFor(target));
+}
+
 async function restoreArchiveToTarget(archive: string, target: string): Promise<SwapRecoveryEntry> {
   try {
     renameDirectoryWithRetry(archive, target);
@@ -1101,15 +1168,16 @@ async function restoreArchiveToTarget(archive: string, target: string): Promise<
   } catch {
     // 摘不掉不改判据结论:内容已回位,下一轮恢复会再问一次
   }
-  // G-807①(写侧置过期):上面两步都会让文件系统给目录**重盖** mtime 到当前时刻,
-  // 而"判新鲜"只看 mtime ⇒ 不显式置过期,回位回来的旧代会被 TTL 判成新副本
-  // (根因与实测数据见 RESTORED_COPY_STAMP 注释)。内容年龄已丢,取最保守值盖到纪元。
-  try {
-    fs.utimesSync(target, RESTORED_COPY_STAMP, RESTORED_COPY_STAMP);
-  } catch {
-    // 置不上过期不改"已回位"的结论:内容已在权威槽位,最坏退回改动前的 mtime 行为
-  }
-  return { archive, action: 'restored', reason: `旧副本已回位到权威槽位(已显式标记需刷新):${target}` };
+  // G-807①:上面两步(rename 回位 + 摘标记)都会让文件系统给目录**重盖** mtime 到当前时刻,
+  // 而旧实的"只看 mtime"判新鲜会把回位回来的旧代当成新副本(根因与实测数据见
+  // RESTORED_COPY_STAMP 注释)。现在写侧把"必须刷新"落成显式事实,判定不再问年龄。
+  const { flagged, stamped } = markCopyNeedingRefresh(target);
+  const carriers = `显式记录=${flagged ? '已落地' : '未落地(瞬时占用)'} / 纪元时间戳=${stamped ? '已落地' : '未落地(瞬时占用)'}`;
+  return {
+    archive,
+    action: 'restored',
+    reason: `旧副本已回位到权威槽位,并显式标成需刷新(${carriers};本次调用的回位事实独立成立):${target}`,
+  };
 }
 
 async function deleteCommittedArchive(archive: string): Promise<SwapRecoveryEntry> {
@@ -1306,13 +1374,18 @@ export async function getOrCloneGitCache(
   }
 
   const hadCache = fs.existsSync(localPath);
+  // G-807②:本次调用里恢复器把归档回位进了这个槽位 ⇒ "刚回位"是第一等事实,
+  // 与盘上时间戳无关。判定必须吃它,否则 rename/摘标记对 mtime 的重盖章会把
+  // 旧代读成新鲜(本票点名的随机红:红的是时序,不是行为)。
+  const restoredInThisCall = recovered.some((entry) => entry.action === 'restored');
 
   if (hadCache) {
     const stat = fs.statSync(localPath);
     const ageMs = Date.now() - stat.mtimeMs;
-    // 命中除了"没过期"还必须"确实是可用副本":空目录/被删空的目录按 TTL 判会报成
-    // "缓存命中",而调用方拿到的是一条指向空目录的路径(与降级同一型失效)。
-    if (ageMs < ttl && isUsableDirectoryCopy(localPath)) {
+    // 命中除了"没过期"还必须"确实是可用副本",且**没有被判成必须刷新**
+    // (空目录/被删空的目录按 TTL 判会报成"缓存命中",而调用方拿到的是一条指向空目录的路径;
+    //  回位副本按新鲜判则是把"盘上还躺着一代旧内容"读成"这就是最新副本")。
+    if (ageMs < ttl && !copyNeedsRefresh(localPath, restoredInThisCall) && isUsableDirectoryCopy(localPath)) {
       return { localPath, fromCache: true, ...(recovered.length > 0 ? { recovered } : {}) };
     }
   }
@@ -1362,6 +1435,14 @@ export async function getOrCloneGitCache(
     fs.utimesSync(localPath, now, now);
   } catch {
     // 不改判据结论:缓存内容已是权威状态
+  }
+  // G-807①:权威槽位此刻装的是**本次刚拉下来的新副本**,回位留下的"需刷新"记录已经兑现,
+  // 必须摘掉 —— 留着等于让这份新副本每一轮都被判成必须刷新(方向与"漏摘"相反,
+  // 但同样是把显式记录用坏了)。摘不掉不改判据结论:最坏多刷一轮。
+  try {
+    fs.rmSync(refreshFlagPathFor(localPath), { force: true });
+  } catch {
+    // 同上:记录摘不掉只让下一轮多刷新一次,不可能把旧代说成新的
   }
   return {
     localPath,
