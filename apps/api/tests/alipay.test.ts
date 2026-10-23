@@ -4,6 +4,7 @@
 
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { generateKeyPairSync, createSign } from 'node:crypto'
+import { resolve } from 'node:path'
 
 vi.stubEnv('ALIPAY_APP_ID', '')
 vi.stubEnv('ALIPAY_PRIVATE_KEY', '')
@@ -38,10 +39,17 @@ describe('alipay — 支付宝支付服务', () => {
       expect(isAlipayConfigured()).toBe(true)
     })
 
-    it('有 APP_ID + 私钥路径返回 true', () => {
+    it('有 APP_ID + 私钥路径,但文件不在位 ⇒ false(2026-10-22 收口的判据:路径写了不等于读得到)', () => {
       vi.stubEnv('ALIPAY_APP_ID', '2021000')
       vi.stubEnv('ALIPAY_PRIVATE_KEY', '')
-      vi.stubEnv('ALIPAY_PRIVATE_KEY_PATH', '/path/to/key.pem')
+      vi.stubEnv('ALIPAY_PRIVATE_KEY_PATH', resolve(__dirname, 'no-such-alipay-key.pem'))
+      expect(isAlipayConfigured()).toBe(false)
+    })
+
+    it('有 APP_ID + 私钥路径指向真实可读文件 ⇒ true(反向锁:不许修成一律红)', () => {
+      vi.stubEnv('ALIPAY_APP_ID', '2021000')
+      vi.stubEnv('ALIPAY_PRIVATE_KEY', '')
+      vi.stubEnv('ALIPAY_PRIVATE_KEY_PATH', resolve(__dirname, '../package.json'))
       expect(isAlipayConfigured()).toBe(true)
     })
   })
