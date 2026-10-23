@@ -29023,8 +29023,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-880 另三道禁令门仍取磁盘面(§0.4 同型)〔mask 已完成,余两道〕:`check-no-emoji-icons` / `check-shared-layer-duplication` 两档都 `readFileSync` 工作树 ⇒ “盘上改好但没提交”照样报绿(§5c 2026-10-15 那一型)。现读(2026-10-23):① `check-no-mask-image` 已迁移并收窄成“只判渐变”(提交 `7017cbedb4e`,四例镜像锁);② 余两道不能只换 import —— emoji 判据吃的是 Unicode 字符集,`git grep -E` 表达不了“任意 emoji”这个超集,必须先在 `face-scan` 加一档“按面列全部跟踪文件”(HEAD=`ls-tree -r` / staged=`ls-files --cached` / worktree=`ls-files`)再配 `catBatch` 读,否则清单面比判据窄 = 新的静默少扫;shared-layer 同此(它比的是 packages/shared 与 apps/* 两棵树的 export 集合,同样要全量清单)。③ 判据加固仍未做:emoji 不扫 `.svg/.css/.json`;shared-layer 只认 `use[A-Z]` 且名逐字相等(`formatDate` 三处重实现看不见)、白名单 7 条无到期。
 - [ ] **背景色画的发丝线没有判据:web/小程序 `h-px|w-px bg-*` 29 枚 + RN `height: hairlineWidth|1` 配中性底 6 枚**(2026-10-23 分割线收口时现读;登记@2026-10-23):它与「单边 border」是同一个视觉动作(线由背景色画),但形状重载 —— 菜单/下拉的 `role="separator"`、时间线/树的 `absolute top-0 bottom-0 w-px` 导引轨、`pane-split` 分割器都不是分隔线,机械判据会把这三型结构件判红(§12e);出口 = 先给出这三型的可机械判定指纹再并入族 4 的差值棘轮,逐点人判。
 
-
-
-
-
-
+- [ ] （未取号:G 族号池 1..999 已满,取号器回 pool-exhausted;补号归号段持有人） 台账里有两类"正文被吃掉"的残行,先造只读尺子再谈修器物:①空正文行 —— HEAD 面现读一枚 `- [ ]（认领已释放@2026-10-23/stale-claim-strip#mvjyuyh8-27）` 除标记外无任何内容,上下紧邻两枚都是「重复副本」HTML 注释行;②截断正文行 —— `- [ ] `+反引号+`--allow-dangerous` 确认旁路仍在调用方(commands/agent.ts:1757、server/agent-core.ts:101),` 以逗号收尾且其参照路径在本仓零命中(属上游参照实现),同型截断也出现在「已归档」占位注释里(标题在句中被切成 commands/agent. 即断)。第一步=一把只读尺:枚举 HEAD 面登记行中「复选框后除标记外无正文」与「以 , ; 、 收尾」两类,逐条报数点名,判不出⇒未判定;量出命中集之后才谈是哪个器物产的(代摘器 skipLines 通路 / 行级 union 拼断 / 归档占位截断),不许先开处方。〔登记@2026-10-23/qoder-续席〕
