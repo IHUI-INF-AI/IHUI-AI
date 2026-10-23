@@ -6,7 +6,7 @@
  * 监控面板原生配置(自动生成,请勿手改)。
  *
  * 由 scripts/generate-monitor-panels.mjs 从 monitoring/panel-defs/panels/*.json 转译;
- * 表达式与 Grafana 盘逐条同源(334 条),模板变量已归一为 All 档(.*)。
+ * 表达式与 Grafana 盘逐条同源(338 条),模板变量已归一为 All 档(.*)。
  * $__interval / $__range 为占位符,由 /admin/monitor/panels 页面按时间窗替换。
  */
 export interface PanelTarget {
@@ -3748,6 +3748,70 @@ export const MONITOR_DASHBOARDS: NativeDashboard[] = [
             "ref": "A",
             "expr": "count(business_ai_calls_total{job=\"business-metrics\",vendor=~\".*\",model=~\".*\"})",
             "legend": "series"
+          }
+        ]
+      },
+      {
+        "id": "902",
+        "title": "真人/首方 vs 其余(入口请求速率)",
+        "kind": "timeseries",
+        "backend": "prometheus",
+        "unit": "reqps",
+        "span": "full",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(rate(ihui_traffic_requests_total{client_family=~\"human-browser|first-party\"}[5m]))",
+            "legend": "真人 + 首方"
+          },
+          {
+            "ref": "B",
+            "expr": "sum(rate(ihui_traffic_requests_total{client_family!~\"human-browser|first-party\"}[5m]))",
+            "legend": "其余全部(机器/脚本/爬虫/无 UA)"
+          }
+        ]
+      },
+      {
+        "id": "903",
+        "title": "近 24h 网页访客(visit_logs 去重)",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "max(ihui_traffic_unique_visitors{window=\"24h\",source=\"visit_logs\"})",
+            "legend": "独立访客"
+          }
+        ]
+      },
+      {
+        "id": "904",
+        "title": "近 1h 恶意路径形态命中",
+        "kind": "stat",
+        "backend": "prometheus",
+        "unit": "short",
+        "thresholds": [
+          {
+            "color": "green",
+            "value": null
+          },
+          {
+            "color": "orange",
+            "value": 1
+          },
+          {
+            "color": "red",
+            "value": 9
+          }
+        ],
+        "span": "half",
+        "targets": [
+          {
+            "ref": "A",
+            "expr": "sum(increase(ihui_traffic_scan_hits_total[1h]))",
+            "legend": "探测命中"
           }
         ]
       }
