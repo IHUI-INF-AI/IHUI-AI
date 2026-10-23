@@ -18,6 +18,11 @@
  *   2) 渲染级 emoji 图标:JSX 内 <Text>▶</Text> / <span>✅</span> /
  *      {liked ? '♥' : '♡'} 等直接渲染在 UI 图标位置的 emoji → 违规
  *
+ * 加固维度(G-880 判据③,2026-10-23,棘轮档):.svg/.css/.json 此前整片在射程外;
+ *   现收 css `content:"🦄"`、json `"icon":"🦄"`、svg emoji 字形三型。
+ *   全量档(HEAD)对加固维度**只报数不阻断**(§0.5/§12e,防并行漂移恒红),
+ *   `--staged` 档只拦本次提交新增行。立项现读精确判据存量 = 0。
+ *
  * 豁免(不判违规):
  *   - 注释行(// /* * 及行内 // 之后)
  *   - i18n 文案参数:tt('key', '📺 我要开播') / t('key', {…}) 等函数参数内的 emoji
@@ -65,13 +70,20 @@ check-no-emoji-icons.mjs — emoji 图标守门(UI 图标位置禁 emoji)
 判定(BLOCKING):
   - icon: '🦄' 配置字段(AGENTS.md 点名的违规模式)
   - JSX 渲染级 emoji(<Text>▶</Text> / <span>✅</span> / {a ? '♥' : '♡'})
+  - 整行裸 emoji(被拆行的 JSX 文本子节点)
+
+加固维度(G-880 判据③,棘轮档 — 全量面只报数,--staged 拦本次新增):
+  - .css  content: "🦄"(生成位=渲染位)
+  - .json "icon": "🦄"(配置字段)
+  - .svg  任意 emoji 字形(矢量图标文件里出现 emoji 字符)
 
 豁免:
   - 注释行
   - i18n 参数(tt('k','📺 文案') / t('k', …))
   - 评分星('★'.repeat(n))
-  - 表情面板(InputArea 表情数组)
+  - 表情面板(InputArea 表情数组的数据行)
   - docs 正文装饰性 emoji(但 docs 的 icon: 字段仍违规)
+  - asset 行级注释(css /* */ 与续行、svg <!-- -->)
 `
 
 // 排除目录:共享 EXCLUDE_DIRS + 构建产物/测试
@@ -92,6 +104,17 @@ const UI_SCAN_ROOTS = [
 ]
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
+
+/**
+ * 加固维度(G-880 判据③,2026-10-23 立):此前 emoji 只扫 .ts/.tsx/.js/.jsx,
+ * .svg/.css/.json 整片在射程外 —— css 的 `content:"🦄"`(生成位=渲染位)、json 的
+ * `"icon":"🦄"`(配置字段)、svg 里的 emoji 字形(字符当图标的最直接形态)全都看不见。
+ * 接法 = **HEAD 存量棘轮**(§0.5/§12e):立项时现读精确判据存量为 0(6 处含 emoji 的
+ * asset 行全是注释),但"量存量"与"门生效"之间并行会话仍可落入新违规,故全量档(HEAD)
+ * 对 asset 维度**只报数不阻断**,`--staged` 档经 addedLineNumbers 天然只拦本次提交新增行。
+ * 存量清零后升 blocking 由后续票决定 —— 判据本体在此。
+ */
+const ASSET_SCAN_EXTS = ['.svg', '.css', '.json']
 
 // 渲染级 emoji 检测(显式 Unicode 区段,排除 © U+00A9 / ® U+00AE 等版权符号)
 const EMOJI_RE =
@@ -152,6 +175,17 @@ const PANEL_ARRAY_RE = new RegExp(
  * 的裸 emoji 行在 .ts/.tsx/.js/.jsx 里只能是 JSX 文本,不构成数据。
  */
 const BARE_EMOJI_LINE_RE = new RegExp(`^[${EMOJI_CHAR_CLASS}]+$`, 'u')
+
+/**
+ * 加固维度判据(asset 文件)。字符类一律从 EMOJI_CHAR_CLASS 派生(单源,见上方登记),
+ * 判据按扩展名分流、维度互不污染:json 只认 icon 字段、css 只认 content 生成声明、
+ * svg 认任意 emoji 字形(矢量图标文件里出现 emoji 字符 = 拿字符当图标本体)。
+ */
+const JSON_ICON_FIELD_RE = new RegExp(`"icon"\\s*:\\s*['"\`][${EMOJI_CHAR_CLASS}]`, 'u')
+const CSS_CONTENT_EMOJI_RE = new RegExp(`\\bcontent\\s*:[^;]*[${EMOJI_CHAR_CLASS}]`, 'iu')
+const SVG_EMOJI_RE = new RegExp(`[${EMOJI_CHAR_CLASS}]`, 'u')
+/** asset 行级注释豁免:css 块注释起/续行(`/*`、` * `)、js 式 `//`、svg 注释 `<!--`(实测 6 处存量全在这一族) */
+const ASSET_COMMENT_RE = /^\s*(?:\/\/|\/\*|\*|<!--)/
 
 // 评分星纯数据(非 JSX 渲染位):'★'.repeat(n) 生成字符串(如导出/纯逻辑),豁免。
 //   注:JSX 渲染位 <Text>★ {rating}</Text> 仍由 RENDER_EMOJI_RE 捕获,不豁免。
@@ -255,6 +289,34 @@ function judgeLine(line, lineNumber, file) {
 }
 
 /**
+ * 加固维度单行判定(asset 文件)—— 与 judgeLine 同构:主循环与 `--self-test` 共用这一份。
+ * 分流按扩展名;注释行豁免;非 asset 扩展名返回 null(代码维度请走 judgeLine)。
+ */
+function judgeAssetLine(rel, line, lineNumber) {
+  const trimmed = line.trim()
+  if (ASSET_COMMENT_RE.test(trimmed)) return null
+  if (rel.endsWith('.json')) {
+    const m = JSON_ICON_FIELD_RE.exec(line)
+    if (m)
+      return { line: lineNumber, col: m.index + 1, label: 'json icon field emoji', snippet: trimmed.slice(0, 140) }
+    return null
+  }
+  if (rel.endsWith('.css')) {
+    const m = CSS_CONTENT_EMOJI_RE.exec(line)
+    if (m)
+      return { line: lineNumber, col: m.index + 1, label: 'css content emoji icon', snippet: trimmed.slice(0, 140) }
+    return null
+  }
+  if (rel.endsWith('.svg')) {
+    const m = SVG_EMOJI_RE.exec(line)
+    if (m)
+      return { line: lineNumber, col: m.index + 1, label: 'svg emoji glyph', snippet: trimmed.slice(0, 140) }
+    return null
+  }
+  return null
+}
+
+/**
  * `--self-test`:成对正反例。每条"豁免"都必须配一条"同一位置的另一种写法仍判违规",
  * 否则自检只能证明标记存在,不能证明它没被顺手放宽(本仓把这一型记作"恒绿的断言比没有断言更糟")。
  */
@@ -305,6 +367,18 @@ function runSelfTest() {
   // ⑥ 判据有牙的反向证明:把裸行判据喂给一个**不是**整行 emoji 的形态,不得命中
   t('带引号的裸数据形态不被违规 3 命中', judgeLine("  '😊',", 1, OTHER)?.label !== 'bare emoji JSX child')
   t('普通赋值行不被违规 3 命中', judgeLine('const x = a ? 1 : 2', 1, OTHER) === null)
+  // ⑦ 加固维度(G-880 判据③,asset):每条正例配同位反向对照,且证明分流互不污染
+  t('css content 生成位 emoji 判违规', judgeAssetLine('a.css', '  content: "🦄";', 3)?.label === 'css content emoji icon')
+  t('css 块注释续行里的 emoji 豁免(实测 6 处存量全在这一族)', judgeAssetLine('a.css', ' * ⚠️ 说明 😊', 77) === null)
+  t('json icon 字段 emoji 判违规', judgeAssetLine('a.json', '  "icon": "🦄",', 12)?.label === 'json icon field emoji')
+  t('json 文案字段不判违规(非图标位)', judgeAssetLine('a.json', '  "label": "🎉 活动",', 13) === null)
+  t('svg emoji 字形判违规', judgeAssetLine('a.svg', '<text>😊</text>', 4)?.label === 'svg emoji glyph')
+  t('svg 注释行豁免', judgeAssetLine('a.svg', '<!-- 😊 占位说明 -->', 2) === null)
+  t('asset 候选收 .css/.svg/.json', isScanCandidate('apps/web/src/a.css') && isScanCandidate('packages/ui-react/icon.svg') && isScanCandidate('apps/web/src/cfg.json'))
+  t('后端 asset 仍不收(射程锁)', !isScanCandidate('apps/api/src/a.css'))
+  t('分流互不污染:css 文件不吃代码维 icon 判据', judgeText('apps/web/src/a.css', "icon: '🦄'").length === 0)
+  t('分流互不污染:ts 文件不吃 css 维 content 判据', judgeText(OTHER, '  content: "🦄";').length === 0)
+  t('asset 判据与 EMOJI_RE 同码位集(派生单源)', ['🦄', '😊', 'A', '©', '中'].every((c) => SVG_EMOJI_RE.test(c) === EMOJI_RE.test(c)))
 
   const r = report()
   for (const c of r.cases) {
@@ -326,20 +400,25 @@ function isScanCandidate(rel) {
   const parts = rel.split('/')
   if (parts.some((p) => isExcludedDirName(p) || p.startsWith('.next'))) return false
   const base = parts[parts.length - 1] ?? ''
-  return SCAN_EXTS.some((e) => base.endsWith(e))
+  return (
+    SCAN_EXTS.some((e) => base.endsWith(e)) || ASSET_SCAN_EXTS.some((e) => base.endsWith(e))
+  )
 }
 
 /**
- * 单文件判定 —— 判据仍只有 `judgeLine` 一份(主循环与 `--self-test` 共用)。
+ * 单文件判定 —— 判据仍只有 `judgeLine`(代码维)/ `judgeAssetLine`(asset 维)各一份,
+ * 主循环与 `--self-test` 共用。按扩展名分流,维度互不污染。
  * `allowedLines` 为 null 表示不限行(全量/HEAD 档);`--staged` 档只判本次新增行。
  */
 function judgeText(rel, text, allowedLines = null) {
+  const asset = ASSET_SCAN_EXTS.some((e) => rel.endsWith(e))
   const findings = []
   text.split('\n').forEach((line, idx) => {
     const lineNumber = idx + 1
     if (allowedLines && !allowedLines.has(lineNumber)) return
-    // 判定只有一份实现(judgeLine)—— 主循环与自检共用,避免"自检绿而门瞎"那一型
-    const f = judgeLine(line, lineNumber, rel)
+    // 判定只有一份实现(judgeLine / judgeAssetLine 按扩展名分流)—— 主循环与自检共用,
+    // 避免"自检绿而门瞎"那一型
+    const f = asset ? judgeAssetLine(rel, line, lineNumber) : judgeLine(line, lineNumber, rel)
     if (f) findings.push(f)
   })
   return findings
@@ -353,28 +432,54 @@ function analyze({ root = ROOT, face = 'head' } = {}) {
   const listed = listFaceFiles(root, face, { paths: UI_SCAN_ROOTS }).filter(isScanCandidate)
   if (listed.length === 0) {
     throw new Undetermined(
-      `被审面 ${face} 在 ${UI_SCAN_ROOTS.length} 个 UI 扫描根下枚举到 0 个 .ts/.tsx/.js/.jsx 文件 ⇒ 无法判定(不冒红也不记绿)`,
+      `被审面 ${face} 在 ${UI_SCAN_ROOTS.length} 个 UI 扫描根下枚举到 0 个 .ts/.tsx/.js/.jsx/.svg/.css/.json 文件 ⇒ 无法判定(不冒红也不记绿)`,
     )
   }
   // --staged 档只判本次新增行(diff 解析只有 face-scan 一份实现,本文件不再自带第二份)
   const added = face === 'staged' ? addedLineNumbers(root) : null
   const targets = added ? listed.filter((rel) => added.has(rel)) : listed
   if (targets.length === 0) {
-    return { face, scanned: 0, skippedMissing: [], totalViolations: 0, fileReports: [], empty: true }
+    return {
+      face,
+      scanned: 0,
+      skippedMissing: [],
+      totalViolations: 0,
+      fileReports: [],
+      assetStock: 0,
+      assetReports: [],
+      empty: true,
+    }
   }
   const { texts, skippedMissing } = readSources(root, face, targets)
   let totalViolations = 0
   const fileReports = []
+  let assetStock = 0
+  const assetReports = []
   for (const rel of targets) {
     // 只有 worktree 档会缺正文(并发席正删着),已计入 skippedMissing;判空串等于假绿
     if (!texts.has(rel)) continue
     const findings = judgeText(rel, texts.get(rel), added ? added.get(rel) : null)
-    if (findings.length > 0) {
-      totalViolations += findings.length
-      fileReports.push({ file: rel, findings })
+    if (findings.length === 0) continue
+    // 棘轮(§0.5/§12e):asset 加固维度在**非 staged 档**(全量 HEAD / worktree)只报数不阻断;
+    // staged 档 judgeText 已按新增行过滤,命中必是"本次提交带进来的新增"⇒ 并入阻断集照拦。
+    if (ASSET_SCAN_EXTS.some((e) => rel.endsWith(e)) && face !== 'staged') {
+      assetStock += findings.length
+      assetReports.push({ file: rel, findings })
+      continue
     }
+    totalViolations += findings.length
+    fileReports.push({ file: rel, findings })
   }
-  return { face, scanned: targets.length, skippedMissing, totalViolations, fileReports, empty: false }
+  return {
+    face,
+    scanned: targets.length,
+    skippedMissing,
+    totalViolations,
+    fileReports,
+    assetStock,
+    assetReports,
+    empty: false,
+  }
 }
 
 
@@ -398,7 +503,25 @@ function printReport(a) {
     )
   }
   console.log(`  违规数:   ${a.totalViolations} 处 (BLOCKING)`)
+  if (a.assetStock > 0) {
+    console.log(`  加固维度存量: ${a.assetStock} 处 (.svg/.css/.json — 棘轮档,全量面只报数不阻断)`)
+  }
   console.log('')
+
+  if (a.assetReports.length > 0) {
+    console.log(
+      `${C.yellow}${C.bold}🔎 加固维度(asset emoji 图标位)命中 ${a.assetStock} 处 — 只拦本次提交新增(--staged),存量清零后由后续票升 blocking${C.reset}`,
+    )
+    for (const { file, findings } of a.assetReports) {
+      console.log(`${C.yellow}${file}${C.reset}`)
+      for (const f of findings) {
+        console.log(
+          `  ${C.dim}行 ${f.line}:${f.col}${C.reset} ${C.yellow}[${f.label}]${C.reset} ${f.snippet}`,
+        )
+      }
+    }
+    console.log('')
+  }
 
   if (a.totalViolations === 0) {
     console.log(`${C.green}${C.bold}✅ emoji 图标守门通过${C.reset}`)
@@ -475,7 +598,7 @@ export async function main(argv = process.argv.slice(2)) {
     return 2
   }
   if (result.empty) {
-    console.log(`${C.green}✅ 暂存区无 .ts/.tsx/.js/.jsx 变更,跳过${C.reset}`)
+    console.log(`${C.green}✅ 暂存区无 .ts/.tsx/.js/.jsx/.svg/.css/.json 变更,跳过${C.reset}`)
     return 0
   }
   return printReport(result)
@@ -495,6 +618,7 @@ if (isDirectRun) {
 export const __test__ = {
   isExempt,
   judgeLine,
+  judgeAssetLine,
   judgeText,
   isScanCandidate,
   analyze,
@@ -504,6 +628,10 @@ export const __test__ = {
   ICON_FIELD_RE,
   RENDER_EMOJI_RE,
   BARE_EMOJI_LINE_RE,
+  JSON_ICON_FIELD_RE,
+  CSS_CONTENT_EMOJI_RE,
+  SVG_EMOJI_RE,
+  ASSET_COMMENT_RE,
   PANEL_ELEMENT_RE,
   PANEL_ARRAY_RE,
   EMOJI_PICKER_FILE_RE,
@@ -511,5 +639,6 @@ export const __test__ = {
   CHAR_CLASS_BROKEN,
   UI_SCAN_ROOTS,
   SCAN_EXTS,
+  ASSET_SCAN_EXTS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
