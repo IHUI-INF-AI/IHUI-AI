@@ -99,8 +99,13 @@ foreach ($dir in $dirs) {
     }
 
     # ── 4. 安装目录:productVersion + runtime-info.exe 机器指纹(best-effort)──
+    # 2026-10-23 修:本机 Qoder CN 装在 G:\Qoder CN(非 LOCALAPPDATA/Program Files),
+    # 且 build-manifest.json 在 .qoder-versions\<ver>\resources\ 下(多版本并存,取最高版);
+    # runtime-info.exe --account-stdin 需要 stdin 喂 {uid,token} 才产出机器指纹(裸跑无输出)。
     $version = ""; $machineToken = ""; $machineCode = ""; $machineType = ""
     $roots = New-Object System.Collections.ArrayList
+    if ($env:QODER_INSTALL_DIR) { [void]$roots.Add($env:QODER_INSTALL_DIR) }
+    [void]$roots.Add('G:\Qoder CN')
     if ($env:LOCALAPPDATA) {
         [void]$roots.Add((Join-Path $env:LOCALAPPDATA 'Programs\Qoder CN'))
         [void]$roots.Add((Join-Path $env:LOCALAPPDATA 'Programs\Qoder'))
@@ -117,10 +122,24 @@ foreach ($dir in $dirs) {
         if (-not $version -and (Test-Path $mf)) {
             try { $version = "$((Get-Content $mf -Raw | ConvertFrom-Json).productVersion)".Trim() } catch {}
         }
-        $exe = Join-Path $root 'resources\umid\runtime-info.exe'
-        if (-not $machineToken -and (Test-Path $exe)) {
+        if (-not $version) {
+            # 多版本安装形态:<root>\.qoder-versions\<ver>\resources\build-manifest.json,取版本号最高者
             try {
-                $line = & $exe --account-stdin 2>$null | Select-Object -Last 1
+                $vmf = Get-ChildItem (Join-Path $root '.qoder-versions\*\resources\build-manifest.json') -ErrorAction Stop |
+                    Sort-Object { [version]$_.Directory.Parent.Name } -Descending | Select-Object -First 1
+                if ($vmf) { $version = "$((Get-Content $vmf.FullName -Raw | ConvertFrom-Json).productVersion)".Trim() }
+            } catch {}
+        }
+        $exe = Join-Path $root 'resources\umid\runtime-info.exe'
+        if (-not (Test-Path $exe)) {
+            $exe = Join-Path $root '.qoder-versions\*\resources\umid\runtime-info.exe'
+            $exe = (Get-Item $exe -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+        }
+        if (-not $machineToken -and $exe -and (Test-Path $exe)) {
+            try {
+                # --account-stdin 需要 stdin 喂 {uid,token}(实测:裸跑无输出)
+                $acctJson = @{ uid = "$uid"; token = "$token" } | ConvertTo-Json -Compress
+                $line = $acctJson | & $exe --account-stdin 2>$null | Select-Object -Last 1
                 if ($line) {
                     $v = $line | ConvertFrom-Json
                     $machineToken = "$($v.machineToken)".Trim()
