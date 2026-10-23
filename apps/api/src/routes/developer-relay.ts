@@ -24,6 +24,7 @@ import { dbRead } from '../db/index.js'
 import { db } from '../db/index.js'
 import { developerApiKeys, llmCallLogs, aiModelMappings } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { composeApiCredential } from '../utils/api-key-credential.js'
 import { requireAuth } from '../plugins/require-permission.js'
 import { paginationSchema } from './admin/_shared.js'
 import { rechargeApiKeyFromWallet } from '../services/relay-billing-service.js'
@@ -208,7 +209,16 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
       // 字段打成 '***',开发者永远拿不到明文 key,key 创建即作废
       request.skipResponseSanitization = true
       const { secret: _s, ...safe } = result.apiKey
-      return reply.status(201).send(success({ apiKey: safe, secret: result.secret }))
+      // credential = 单凭据组合形态 `<ihui_key>.<sk_secret>`（2026-10-23 加）：
+      // 绝大多数 OpenAI 兼容客户端只有一个 "API Key" 输入框，没有地方填 X-Api-Secret。
+      // 直接把这一串粘进去即可同时携带两因子，避免用户拿 sk_ 当 Bearer 撞 403。
+      return reply.status(201).send(
+        success({
+          apiKey: safe,
+          secret: result.secret,
+          credential: composeApiCredential(result.apiKey.key, result.secret),
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '创建 API Key 失败'))
@@ -261,7 +271,14 @@ const developerRelayRoutes: FastifyPluginAsync = async (server) => {
       if (!result) return reply.status(404).send(error(404, 'API Key 不存在或无权操作'))
       request.skipResponseSanitization = true
       const { secret: _s, ...safe } = result.apiKey
-      return reply.send(success({ apiKey: safe, secret: result.secret }))
+      // credential 同创建端点：轮换后同样下发可直接粘贴的单凭据组合形态
+      return reply.send(
+        success({
+          apiKey: safe,
+          secret: result.secret,
+          credential: composeApiCredential(result.apiKey.key, result.secret),
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '重置 API Key 失败'))
