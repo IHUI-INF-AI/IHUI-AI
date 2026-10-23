@@ -55,6 +55,7 @@ import { developerApiKeys } from '@ihui/database'
 import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
 import { CAPABILITY_CATALOG, getCapability, isM2MAllowed, type CapabilityEntry } from '@ihui/types'
 import { verifySecret } from '../utils/api-key-hash.js'
+import { parseApiCredential } from '../utils/api-key-credential.js'
 import { ApiKeyQuota } from '../utils/api-key-quota.js'
 import { config } from '../config/index.js'
 import { logger } from '../utils/logger.js'
@@ -314,10 +315,13 @@ function getRedisClient(): Redis {
 }
 
 /**
- * 从请求中提取 API Key 公开标识。
- * 优先 Authorization: Bearer ihui_xxx,其次 X-Api-Key: ihui_xxx。
+ * 从请求中取原始凭据串（**未拆分**）。
+ * 优先 Authorization: Bearer xxx,其次 X-Api-Key: xxx。
+ *
+ * 取原串而非直接取 key:单凭据组合形态 `ihui_xxx.sk_yyy`(见 utils/api-key-credential.ts)
+ * 的内联 secret 也要从这里拿到,否则"一个 Key 框"的客户端永远过不了双因子。
  */
-function extractKey(request: FastifyRequest): string | null {
+function rawCredential(request: FastifyRequest): string | null {
   const header = request.headers.authorization
   if (header && header.startsWith('Bearer ')) {
     const k = header.slice('Bearer '.length).trim()
@@ -326,6 +330,14 @@ function extractKey(request: FastifyRequest): string | null {
   const xKey = request.headers['x-api-key']
   if (typeof xKey === 'string' && xKey.length > 0) return xKey
   return null
+}
+
+/**
+ * 从请求中提取 API Key 公开标识（组合形态自动拆出 `ihui_` 段）。
+ * 优先 Authorization: Bearer ihui_xxx,其次 X-Api-Key: ihui_xxx。
+ */
+function extractKey(request: FastifyRequest): string | null {
+  return parseApiCredential(rawCredential(request)).key
 }
 
 // ===== P0-7 安全粒度检查函数(2026-07-31 立,对齐 New API 行业标准)=====
@@ -913,11 +925,21 @@ export async function authenticateApiKey(request: FastifyRequest): Promise<Authe
   if (!row || row.status !== 'active') throw unauthorized('Invalid or revoked API key')
 
   // --- 凭据形态收紧(O2 2026-09-21)---
-  // `API_KEY_REQUIRE_SECRET=true`(默认):X-Api-Secret 必须携带,缺失 → 401 SECRET_REQUIRED。
+  // `API_KEY_REQUIRE_SECRET=true`(默认):secret 必须携带,缺失 → 401 SECRET_REQUIRED。
   // 置 false 回退历史"不带即跳过"行为(存量纯 key 客户端过渡期)。
+  //
+  // secret 两个合法来源(2026-10-23 补内联):
+  //  ① `Authorization: Bearer ihui_xxx.sk_yyy` / `X-Api-Key: ihui_xxx.sk_yyy` 的内联段
+  //     —— 给"只有一个 Key 输入框"的 OpenAI 兼容客户端用;
+  //  ② `X-Api-Secret: sk_yyy` 头 —— 原来的双因子口径,继续支持。
+  // 两者同时出现时以请求头为准(同族凭据里更显式的那处胜出),内联段只作回落,
+  // 因此不可能用内联段去"覆盖"一个错误的头。任一来源都必须过 verifySecret 哈希比对。
+  const inlineSecret = parseApiCredential(rawCredential(request)).secret
   const xSecret = request.headers['x-api-secret']
-  if (typeof xSecret === 'string' && xSecret.length > 0) {
-    if (!verifySecret(xSecret, row.secret)) throw unauthorized('Invalid API key secret')
+  const providedSecret =
+    typeof xSecret === 'string' && xSecret.length > 0 ? xSecret : inlineSecret
+  if (providedSecret) {
+    if (!verifySecret(providedSecret, row.secret)) throw unauthorized('Invalid API key secret')
   } else if (config.API_KEY_REQUIRE_SECRET) {
     throw secretRequired()
   }
