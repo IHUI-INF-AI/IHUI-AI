@@ -157,9 +157,10 @@ export interface ToolResult {
   display?: ToolResultDisplay;
   /**
    * G-109 三条独立投影之「给模型的」那一维:按 `TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES`
-   * (100_000 B)截断后的内容。`output` 保留旧语义(见下方 `assembleToolResultProjections`:
-   * 本字段与 `output` 同值),新增读取方一律读本字段,旧调用方读 `output` 不受影响。
-   * 截断时正文头部带 ASCII 注记,点明 truncated 结论与 original/returned/budget 三枚数字。
+   * (100_000 B)截断后的内容。**`output` 的字节语义一字不动**(票面反向锁:装配前后
+   * `output` 逐字同形),本字段只是新增的有界读法;新增读取方读本字段,旧调用方读
+   * `output` 不受影响。截断时正文头部带 ASCII 注记,点明 truncated 结论与
+   * original/returned/budget 三枚数字。
    */
   modelContent?: string;
   /**
@@ -1095,7 +1096,8 @@ export function buildToolResultPersistence(
  * → 预算/截断(modelContent)→ 建 display(独立限长)→ 终态(output/modelContent/display/persistence 一次写齐)。
  *
  * 不变量:
- *  1. `output` 的旧语义保留为模型侧 —— 装配后 `output === modelContent`,旧调用方逐字可读;
+ *  1. **反向锁(票面最硬一条)**:装配前后 `output` 逐字节同形 —— 本函数原样透传入参,
+ *     不截断、不拼注记;`modelContent` 才是那枚 100_000 B 有界投影;
  *  2. display 从**原始全文**建(优先复用 `applyToolResultBudget` 已产出的 display 文本),
  *     所以模型被裁掉的那段仍能在人读面看到 —— 但受 display 自身上限管;
  *  3. persistence 只搬 display,永不搬 modelContent;`artifactPath` 只做原样透传。
@@ -1123,7 +1125,8 @@ export function assembleToolResultProjections(result: ToolResult): ToolResult {
   const persistence = buildToolResultPersistence(modelContent, display, result.artifactPath);
   return {
     ...result,
-    output: modelContent,
+    // 反向锁:output 逐字节原样透传(票面:字节语义一字不动,禁止把喂模型的换成有界投影)
+    output: original,
     modelContent,
     display,
     ...(persistence ? { persistence } : {}),

@@ -33,11 +33,15 @@ describe('G-109 大输出:三条投影各自截断且互不影响', () => {
     expect(out.modelContent).toContain(`original ${bytes(original)} bytes`)
     expect(out.modelContent).toContain(`budget ${TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES} bytes`)
     expect(out.modelContent).toContain('strategy: truncate')
-    // 旧字段仍是模型侧:装配后与 modelContent 同值,旧调用方零改动
-    expect(out.output).toBe(out.modelContent)
+    // 反向锁(票面最硬一条):output 装配前后逐字节同形,不得被有界投影替换
+    expect(out.output).toBe(original)
+    expect(bytes(out.output)).toBe(bytes(original))
+    expect(out.output).not.toBe(out.modelContent)
 
-    // ② 人读侧:受自己的上限管,与模型预算无关
+    // ② 人读侧:受自己的上限管,与模型预算无关;从原始全文建,不抄模型侧注记
     expect(out.display).toBeDefined()
+    expect(out.display!.text.startsWith('H'.repeat(1_000))).toBe(true)
+    expect(out.display!.text).not.toContain('[tool-result-budget]')
     expect(bytes(out.display!.text)).toBeLessThanOrEqual(TOOL_RESULT_DISPLAY_TEXT_BUDGET_BYTES)
     expect(out.display!.truncated).toBe(true)
     expect(out.display!.originalBytes).toBe(bytes(original))
