@@ -25,8 +25,30 @@ export function bucketOf(line, rec) {
 }
 
 /**
+ * 租约形态迁移分档(2026-10-23 立,承「台账挂牌没有合法通道」票):
+ * `same` = 没牌/同一张牌;`add-complete` = 无牌 → 完整租约(日期+持有者);
+ * `removed` = 牌被切掉;`changed` = 换牌/半牌/裸牌等其余形态变化。
+ *
+ * 只放行 `add-complete` 这一档:AGENTS §1「认领即租约」要求在共享工作树里给待办加牌,
+ * 而旧断言把"加牌"与"摘牌"同判 ⇒ 这条路结构上走不通(2026-10-23 实测四行加租约整批拒落)。
+ * 摘牌、换持有者/日期、裸 `（进行中）` 仍一律拒:它们会改派单面的归属。
+ */
+export function leaseTransitionOf(oldLine, newLine) {
+  const m0 = claimMarkOf(oldLine)
+  const m1 = claimMarkOf(newLine)
+  const f0 = m0 ? m0.mark : null
+  const f1 = m1 ? m1.mark : null
+  if (f0 === f1) return 'same'
+  if (!f0 && m1 && m1.form === 'lease' && m1.date && m1.holder) return 'add-complete'
+  if (f0 && !f1) return 'removed'
+  return 'changed'
+}
+
+/**
  * @returns {string[]} 违规列表;空 = 放行。
  * 三件分别钉:主键漂(门 71 会按缺失回捞,等于把行判死)、租约形态变化(=本器代摘)、归属桶变化(=账面虚增)。
+ * 唯一放行的形态变化 = 无牌 → 完整租约(日期+持有者):那是 AGENTS §1 要求的认领动作,不是代摘;
+ * 摘牌、换牌、裸牌仍拒(见 `leaseTransitionOf`)。
  */
 export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, newRec = null }) {
   const o = String(oldLine ?? '')
@@ -45,16 +67,17 @@ export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, 
   const k1 = keyOfRow(n)
   if (k0 !== k1) v.push(`主键漂了:${k0 ?? '(无)'} → ${k1 ?? '(无)'}`)
 
-  const m0 = claimMarkOf(o)
-  const m1 = claimMarkOf(n)
-  const f0 = m0 ? m0.mark : null
-  const f1 = m1 ? m1.mark : null
-  if (f0 !== f1)
-    v.push(
-      f0 && !f1
-        ? `租约被切掉(原牌 ${f0})⇒ 等于本器代摘他人认领`
-        : `租约形态变化:${f0 ?? '(无)'} → ${f1 ?? '(无)'}`,
-    )
+  const lease = leaseTransitionOf(o, n)
+  if (lease === 'removed') {
+    const f0 = claimMarkOf(o)?.mark ?? '(无)'
+    v.push(`租约被切掉(原牌 ${f0})⇒ 等于本器代摘他人认领`)
+  } else if (lease === 'changed') {
+    const f0 = claimMarkOf(o)?.mark ?? '(无)'
+    const f1 = claimMarkOf(n)?.mark ?? '(无)'
+    v.push(`租约形态变化:${f0} → ${f1}`)
+  }
+  // lease === 'add-complete' 放行:AGENTS §1 要求给待办加牌,这是正当动作;
+  // 'same' 放行。摘牌/换牌/半牌仍由上面两档拒。
 
   const b0 = bucketOf(o, oldRec)
   const b1 = bucketOf(n, newRec)
@@ -62,5 +85,5 @@ export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, 
   return v
 }
 
-export const __test__ = { assertRowRewriteConservation, bucketOf }
+export const __test__ = { assertRowRewriteConservation, bucketOf, leaseTransitionOf }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

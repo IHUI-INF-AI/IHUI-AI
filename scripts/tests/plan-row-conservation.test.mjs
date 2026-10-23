@@ -73,9 +73,36 @@ describe('登记行改写三维守恒', () => {
     )
   })
 
-  it('新行加上了牌也不算守恒通过(形态变化就是变化,得让人看见)', () => {
+  it('无牌 → 完整租约(日期+持有者)⇒ 放行(AGENTS §1 认领动作)', () => {
+    assert.deepEqual(
+      C.assertRowRewriteConservation({
+        oldLine: '- [ ] G-10 标题 —— 正文',
+        newLine: '- [ ]（进行中@2026-10-22/乙） G-10 标题 —— 正文',
+        oldRec: null,
+        newRec: null,
+      }),
+      [],
+    )
+  })
+
+  it('无牌 → 裸牌/半牌 ⇒ 仍拒(只有"完整租约"这一档放行)', () => {
+    for (const mark of ['（进行中）', '（进行中@2026-10-22）', '（进行中@2026-10-22/）']) {
+      const v = C.assertRowRewriteConservation({
+        oldLine: '- [ ] G-10 标题 —— 正文',
+        newLine: `- [ ]${mark} G-10 标题 —— 正文`,
+        oldRec: null,
+        newRec: null,
+      })
+      assert.ok(
+        v.some((x) => /租约/.test(x)),
+        `${mark} ⇒ ${JSON.stringify(v)}`,
+      )
+    }
+  })
+
+  it('换牌/改持有者/改日期 ⇒ 仍拒(会改派单面归属)', () => {
     const v = C.assertRowRewriteConservation({
-      oldLine: '- [ ] G-10 标题 —— 正文',
+      oldLine: '- [ ]（进行中@2026-10-21/甲） G-10 标题 —— 正文',
       newLine: '- [ ]（进行中@2026-10-22/乙） G-10 标题 —— 正文',
       oldRec: null,
       newRec: null,
@@ -83,6 +110,25 @@ describe('登记行改写三维守恒', () => {
     assert.ok(
       v.some((x) => /租约/.test(x)),
       JSON.stringify(v),
+    )
+  })
+
+  it('leaseTransitionOf 四档:same / add-complete / removed / changed', () => {
+    assert.equal(C.leaseTransitionOf('- [ ] G-1 正文', '- [ ] G-1 正文'), 'same')
+    assert.equal(
+      C.leaseTransitionOf('- [ ] G-1 正文', '- [ ]（进行中@2026-10-23/b） G-1 正文'),
+      'add-complete',
+    )
+    assert.equal(
+      C.leaseTransitionOf('- [ ]（进行中@2026-10-23/b） G-1 正文', '- [ ] G-1 正文'),
+      'removed',
+    )
+    assert.equal(
+      C.leaseTransitionOf(
+        '- [ ]（进行中@2026-10-23/b） G-1 正文',
+        '- [ ]（进行中@2026-10-23/c） G-1 正文',
+      ),
+      'changed',
     )
   })
 
