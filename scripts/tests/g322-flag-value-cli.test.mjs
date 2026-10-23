@@ -9,7 +9,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { resolve } from 'node:path'
+import { writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..', '..')
 const S = (name) => resolve(ROOT, 'scripts', name)
@@ -538,6 +540,128 @@ test('G-322 第十七批:四道"判红型"守门的 --root 一律接 scripts/lib
     'check-provider-health-vocabulary.mjs',
   ]) {
     assertBadRoot(S(f), '目录参数')
+  }
+})
+
+// ─── 第十八批(2026-10-23)───
+// 本批 10 站的旗标**不只有 --root**,noun 还带括号/竖线/连字符 ⇒ 旧 assertBadRoot 的
+// `new RegExp(\`--root 需要一个${noun}\`)` 不转义会把 `(非负整数)` 读成捕获组、把真文案判成不匹配。
+// 故新增一把通用尺:三支坏值(顶值 / 缺值 / 空串)逐支量 rc + 点名 noun + 点名实得 token,
+// 文案一律来自 lib 的 error 串(措辞被某扇门改回去 = 本探针红)。
+// 正例(默认档逐字不变)仍由各站自己的套件锁 —— 本文件不重复(见文件头口径)。
+
+/** 正则元字符一律转义:noun 里出现 `(`、`|`、`-`、`/` 都是字面量,不是量词。 */
+const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * @param {string} script 绝对路径
+ * @param {string} flag   被吞的那个带值旗标
+ * @param {string} noun   lib 文案里的"一个<noun>"
+ * @param {{pre?:string[], eat?:string, rc?:number, env?:object}} o
+ *        pre = 前置实参(默认空);eat = 顶值那支拿来占值位的旗标(默认 --json);
+ *        rc  = 期望退出码(默认只断非零 —— 各站用法错档既有 1 也有 2,不替它们改契约)。
+ */
+function assertBadFlag(script, flag, noun, o = {}) {
+  const pre = o.pre ?? []
+  const eat = o.eat ?? '--json'
+  const arms = [
+    { args: [...pre, flag, eat], expect: JSON.stringify(eat) },
+    { args: [...pre, flag], expect: '(其后没有任何参数)' },
+    { args: [...pre, flag, ''], expect: '""' },
+  ]
+  for (const { args, expect } of arms) {
+    const r = spawnSync(process.execPath, [script, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: o.env,
+    })
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    if (o.rc === undefined) assert.notEqual(r.status, 0, `${script} ${JSON.stringify(args)} 不得静默按默认档出结论:\n${out.slice(0, 240)}`)
+    else assert.equal(r.status, o.rc, `${script} ${JSON.stringify(args)} 必须 exit ${o.rc}:\n${out.slice(0, 240)}`)
+    assert.match(out, new RegExp(esc(`${flag} 需要一个${noun}`)), `${script} 必须由单源出口点名用法:${out.slice(0, 240)}`)
+    assert.match(out, new RegExp(esc(expect)), `${script} 三态必须分开(只测一支会留洞):${out.slice(0, 240)}`)
+    assert.doesNotMatch(out, /ERR_INVALID_ARG_TYPE|at ModuleJob/, `${script} 不得以裸栈当用法错出口:${out.slice(0, 240)}`)
+  }
+}
+
+test('G-322 第十八批:五道 --root 站的旧副本只挡 `--` 前缀,单划线 token 那格由单源补上', () => {
+  // check-button-height 旧副本 `if (!v || v.startsWith('--')) throw`、check-direct-run-guard /
+  // check-disk-root-write 的 argValue `!argv[i+1].startsWith('--') ? … : undefined` 同型;
+  // check-capability-matrix 旧副本挡的是单划线(`startsWith('-')`)但漏值支只喊一句自写文案,
+  // 三态不分。换成单源后判据只有一份,措辞也只有一份。
+  assertBadRoot(S('check-button-height.mjs'), '目录参数')
+  assertBadRoot(S('check-direct-run-guard.mjs'), '目录参数')
+  assertBadRoot(S('check-disk-root-write.mjs'), '目录参数')
+  assertBadFlag(S('check-capability-matrix.mjs'), '--root', '目录值', { eat: '--staged', rc: 2 })
+})
+
+test('G-322 第十八批:派单/巡检/审计四站的数值与枚举型旗标漏值不得折回默认', () => {
+  // --timeout-ms 旧写法 `Number(argv[gi+1]) || 200_000`:漏值 ⇒ NaN 折回默认、`0` 是 falsy
+  // 也被折回(用户显式要的即时超时没了)、`--timeout-ms --verbose` 把旗标当毫秒数。
+  assertBadFlag(S('check-dispatch-key-coverage.mjs'), '--timeout-ms', '毫秒数(正整数)', { eat: '--verbose' })
+  for (const v of ['abc', '0']) {
+    const r = spawnSync(process.execPath, [S('check-dispatch-key-coverage.mjs'), '--timeout-ms', v], {
+      cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    assert.notEqual(r.status, 0, `--timeout-ms ${v} 不得被 Number() 读成 NaN/0 后当"正常超时"跑完:\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--timeout-ms .*正整数/, `数值域那一支必须单独点名"正整数":\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+  }
+  // `-5` 不是"数值域不合法",它是**值位上放的是个旗标**(以 - 开头)⇒ 由单源的形态档先拦,
+  // 文案与全仓标准同形 —— 这一支与上面两支不等价,少了它就分不清"少打了个值"和"打了个错值"。
+  {
+    const r = spawnSync(process.execPath, [S('check-dispatch-key-coverage.mjs'), '--timeout-ms', '-5'], {
+      cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    assert.notEqual(r.status, 0)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, /--timeout-ms 需要一个毫秒数/)
+  }
+  // --base 是差值棘轮的**基线**:旧副本只挡 `--` 前缀,`-x` 会被交给 canResolve 报成"ref 解析不了",
+  // 读起来像用户打了个好 ref 而 git 不认,其实是值位上放的是个旗标。
+  assertBadFlag(S('check-format-changed.mjs'), '--base', 'ref', { eat: '--staged' })
+  // --today 是这道门算"注册晚于基准日"的那把尺:漏值旧写法把 undefined 交给 ISO_DATE.test ⇒
+  // 冒成"不是 ISO 日期:undefined",而 `--today --json` 会被当基准日(同样不是 ISO)—— 两态文案不分。
+  assertBadFlag(S('check-auth-handler-registration-parity.mjs'), '--today', 'ISO 日期(YYYY-MM-DD)')
+  // --probe 会**往声明集里塞一条**再对账:旧写法把 `--json` 归一化成一个真 chord 计进声明,
+  // 观测面被凭空加一条;漏值时 String(undefined)='undefined' 同样被当成一个键。
+  assertBadFlag(S('check-declared-shortcuts.mjs'), '--probe', '组合键(如 Mod+K)')
+})
+
+test('G-322 第十八批:烘焙/归档两站的落点与节流旗标漏值各自大声拒绝', () => {
+  // --latest-json 是**输入面**:旧写法漏值报"缺 --latest-json"(读起来像用户没打),
+  // 而 `--latest-json --out` 把旗标当路径 ⇒ 下一句"latest.json 不存在:--out"仍是被吞的 token 冒充路径。
+  assertBadFlag(S('bake-desktop-latest.mjs'), '--latest-json', '文件路径', { eat: '--out' })
+  // 其余落点旗标(--out/--tag/--gitee-url/…)读在"输入面已验过"之后 ⇒ 必须给一份**真能解析**的
+  // latest.json 才走得到它们。夹具落 mkScratch(§15b,仓库外 + 进程退出回收),不碰真产物。
+  const dir = mkScratch('g322-bake-')
+  try {
+    const fixture = join(dir, 'latest.json')
+    writeFileSync(
+      fixture,
+      JSON.stringify({ version: '1.2.3', platforms: { 'windows-x86_64': { url: 'https://example.invalid/a.zip' } } }),
+    )
+    // 旧写法 `--out --gitee-url` 会把旗标当输出路径(resolve('--gitee-url') 是合法路径名)
+    // ⇒ 认证产物被写进一个由吞值造出来的目录,末行照打"✅ 已烘焙"。
+    assertBadFlag(S('bake-desktop-latest.mjs'), '--out', '文件路径', { pre: ['--latest-json', fixture], eat: '--gitee-url' })
+  } finally {
+    rmScratch(dir)
+  }
+  // --days 折回 0 = **关掉年龄节流**(把"我要按年龄节流"写成"全部可搬");--plan-face 折回默认面 =
+  // 把"我指定了另一面"写成"我问的就是这个面"。归档器会写盘,故三支全部带 --dry-run 前置,
+  // 且显式清空 HUSKY_SKIP_ARCHIVE(那条应急开关排在用法校验之前,留着会让探针 rc=0)。
+  const env = { ...process.env, HUSKY_SKIP_ARCHIVE: '' }
+  assertBadFlag(S('archive-completed-tasks.mjs'), '--days', '天数(非负整数)', { pre: ['--dry-run'], env })
+  assertBadFlag(S('archive-completed-tasks.mjs'), '--plan-face', '面名(head|worktree)', { pre: ['--dry-run'], eat: '--auto-commit', env })
+  for (const [flag, v, re] of [
+    ['--days', 'abc', /--days 需要非负整数/], // 数值域那一支:token 形态合法但读不出整数
+    ['--days', '-1', /--days 需要一个天数\(非负整数\)/], // `-1` 以 - 开头 ⇒ 先落单源的**形态**档,不是数值档
+  ]) {
+    const r = spawnSync(process.execPath, [S('archive-completed-tasks.mjs'), '--dry-run', flag, v], {
+      cwd: ROOT, encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], env,
+    })
+    assert.equal(r.status, 2, `${flag} ${v} 必须 exit 2(parseInt('abc')=NaN ⇒ diff>=NaN 恒假 = "一个也没到期"):\n${r.stdout ?? ''}${r.stderr ?? ''}`)
+    assert.match(`${r.stdout ?? ''}${r.stderr ?? ''}`, re, `${flag} ${v} 走的必须是 ${re} 那一档:\n${r.stdout ?? ''}${r.stderr ?? ''}`)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
