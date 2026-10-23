@@ -13,26 +13,36 @@
  *
  * 三条刻意的取舍,后果都写在这里而不是藏在代码里:
  * 1. **不建预聚合表、不出迁移**:另一路会话在飞,建表要占 drizzle 迁移编号会撞。
- *    所以聚合结果只活在指标进程的内存里 ⇒ **重启归零**:大屏上这两族只能看
- *    "本进程起来之后"的滚动窗口,历史 PV/UV 要回 `api_logs` / `visit_logs` 查。
- *    这个代价换来的是"今天就有可看的面",不是"等一张表立项"。
- * 2. **只在小时级 job 里跑**:2026-10-23 现读 `api_logs` 近 6 天 186231 行且
- *    **一条二级索引都没有** ⇒ 任何按 created_at 的聚合都是顺序扫描。所以这条链
- *    既不在 scrape 路径上、也不在任何请求路径上,只由 scheduler 每小时派一次;
- *    每次跑总共 4 条查询 × 2 张表,输出行数由预算钉住(见 `TRAFFIC_UA_KIND_BUDGET`)。
- *    api_logs 若涨到百万级,正解是给 created_at 加索引(需要迁移,见交付报告)。
+ *    所以 gauge 里的聚合结果只活在指标进程的内存里 ⇒ **重启归零**。为了不让
+ *    重启把大屏打回一片"—",大屏**不再读 gauge**,改读本文件的实时快照
+ *    `getTrafficLiveSnapshot()`(同两条 SQL,带 5 秒进程内缓存);gauge 只留给
+ *    Grafana 看时序曲线。
+ * 2. **2026-10-23 复测后已推翻"只能小时级"**:原判据是"`api_logs` 一条二级索引
+ *    都没有 ⇒ 按 created_at 聚合必顺序扫描"。实测该判据**已过期**:
+ *    `api_logs_created_at_idx` 存在,`Index Scan using api_logs_created_at_idx`,
+ *    24h 总计 13.3 ms / 1h 总计 0.46 ms / 24h 按 UA 分组(401 行)32.4 ms。
+ *    因此本链不再受"每小时一次"约束:gauge 侧改 60 秒一轮(scheduler
+ *    `traffic-stats-hourly` 名字保留、节奏已改),大屏侧走 5 秒缓存的实时快照。
+ *    若 `api_logs` 涨到千万级,这条索引扫描会重新变贵,那时正解是预聚合表 +
+ *    迁移,而不是把节奏调回去。
  * 3. **失败不写 0**:查询抛了就跳过这一格并计入 `failures`,gauge 保持上一次的值 ——
- *    把"没测到"写成 0 就是造假数据(§0.3「没判」不许写成「判过」)。新鲜度另有一格
- *    `ihui_traffic_aggregation_last_success_timestamp_seconds` 可以自证。
+ *    把"没测到"写成 0 就是造假数据(§0.3「没判」不许写成「判过」)。实时快照
+ *    同理:任一条 SQL 抛错就整块上抛,由路由把该块折成 null(大屏渲染"—"),
+ *    **绝不把失败兜成 0 人访问**。新鲜度另有 `computedAtMs` 可以自证。
  *
- * 族归一**只用 `utils/bot-detection.ts` 的 `classifyClientFamily`**(§0.6/§22c:
- * 同类判据全仓只许一份;指标面、告警面、面板面必须是同一把尺子),本文件不再抄第二份词表。
+ * 族归一**只用 `utils/bot-detection.ts` 的 `classifyClientFamily`**,真人口径
+ * **只用同文件的 `HUMAN_CLIENT_FAMILIES`**(§0.6/§22c:同类判据全仓只许一份;
+ * 指标面、告警面、面板面必须是同一把尺子),本文件不再抄第二份词表。
  */
 
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { apiLogs, visitLogs } from '@ihui/database'
-import { classifyClientFamily, type ClientFamily } from '../utils/bot-detection.js'
+import {
+  classifyClientFamily,
+  HUMAN_CLIENT_FAMILIES,
+  type ClientFamily,
+} from '../utils/bot-detection.js'
 import {
   setTrafficGaugeSample,
   TRAFFIC_SOURCES,
@@ -109,8 +119,9 @@ const PV_EXPR = sql<number>`count(*)::int`
 /**
  * 窗口起点(限窗就是这条链唯一的价格护栏):
  * `now() - make_interval(hours => N)`,N 只取自 `TRAFFIC_WINDOW_HOURS` 这个有界常量,
- * 不吃任何外部字符串。窗口外的行不参与聚合;`api_logs` 无二级索引 ⇒ 这仍是顺序扫描,
- * 但它只发生在小时级 job 里(见文件头第 2 条)。
+ * 不吃任何外部字符串。窗口外的行不参与聚合。
+ * 2026-10-23 复测:`api_logs_created_at_idx` 存在,限窗聚合走索引扫描(24h 13.3 ms),
+ * 不再是"无索引顺序扫描"——这也是本条链能被提到分钟级/请求级的前提。
  */
 function windowStart(window: TrafficWindow) {
   return sql`now() - make_interval(hours => ${TRAFFIC_WINDOW_HOURS[window]})`
@@ -225,5 +236,108 @@ export async function refreshTrafficGauges(): Promise<TrafficRefreshResult> {
   }
 
   return { refreshed, failures, cells: TRAFFIC_WINDOWS.length * TRAFFIC_SOURCES.length }
+}
+
+// ============================================================================
+// 实时快照(2026-10-23 追加:机主要"实时",不要小时级)
+// ============================================================================
+
+/** 大屏「访客与机器人」面板要的全部数字(一条 SQL 口径,不含 gauge)。 */
+export interface TrafficLiveSnapshot {
+  /** 近 24h 页面/请求量(api_logs,精确值) */
+  pv24h: number
+  /** 近 24h 去重访客(按 ip,精确值) */
+  uv24h: number
+  pv1h: number
+  uv1h: number
+  /** 近 24h 真人族 PV(首方 + 人浏览器形态) */
+  humanPv24h: number
+  /** 近 24h 自动化族 PV */
+  botPv24h: number
+  /** 各族近 24h PV(降序,已滤掉 0) */
+  families: Array<{ family: string; pv: number }>
+  /** true = 族分解被 UA 种类预算截断 ⇒ `families` / 真人 / 机器人三处都只是下界 */
+  truncated: boolean
+  /** 本次聚合完成的时刻(ms) —— 大屏"新鲜度"就报 `now - computedAtMs` */
+  computedAtMs: number
+}
+
+/**
+ * 现算一份实时快照。**不 catch**:任一条 SQL 抛错就整块上抛,由调用方折成 null
+ * (大屏渲染"—"),绝不兜成 0(§0.3)。
+ *
+ * 三条查询并行(24h 总计 / 1h 总计 / 24h 按 UA 分组),实测合计 ≈ 46 ms
+ * (24h 13.3 ms + 1h 0.46 ms + UA 分组 32.4 ms,均走 `api_logs_created_at_idx`)。
+ */
+export async function computeTrafficLiveSnapshot(
+  source: TrafficSource = 'api_logs',
+): Promise<TrafficLiveSnapshot> {
+  const [totals24, totals1h, kinds24] = await Promise.all([
+    queryTrafficTotals(source, '24h'),
+    queryTrafficTotals(source, '1h'),
+    queryTrafficUaKinds(source, '24h'),
+  ])
+  const folded = foldUaKindsToFamily(kinds24)
+  const families = Object.entries(folded.familyPageViews)
+    .map(([family, pv]) => ({ family, pv: Number(pv ?? 0) }))
+    .filter((f) => f.pv > 0)
+    .sort((a, b) => b.pv - a.pv)
+  let human = 0
+  let bot = 0
+  for (const f of families) {
+    if (HUMAN_CLIENT_FAMILIES.has(f.family as ClientFamily)) human += f.pv
+    else bot += f.pv
+  }
+  return {
+    pv24h: totals24.pv,
+    uv24h: totals24.uv,
+    pv1h: totals1h.pv,
+    uv1h: totals1h.uv,
+    humanPv24h: human,
+    botPv24h: bot,
+    families,
+    truncated: folded.truncated,
+    computedAtMs: Date.now(),
+  }
+}
+
+/**
+ * 实时快照的进程内缓存 TTL。大屏 overview 5 秒轮询一次,这里取同一个 5 秒:
+ * 每个观众最多每 5 秒触发一轮 46 ms 的聚合,多个观众并发时用 in-flight 去重
+ * 合成同一轮 —— 既保住"5 秒内必是新的",又不让观众数变成 DB 负载乘数。
+ */
+export const TRAFFIC_LIVE_TTL_MS = 5_000
+
+let liveCache: { atMs: number; value: TrafficLiveSnapshot } | null = null
+let liveInflight: Promise<TrafficLiveSnapshot> | null = null
+
+/**
+ * 取一份"最多 TTL 毫秒前"的实时快照。**永不返回 0 冒充数据**:底层失败照样上抛,
+ * 只是同一轮失败不会被 N 个观众各打一次 DB(失败不入缓存,下个请求重试)。
+ */
+export async function getTrafficLiveSnapshot(
+  source: TrafficSource = 'api_logs',
+  ttlMs: number = TRAFFIC_LIVE_TTL_MS,
+): Promise<TrafficLiveSnapshot> {
+  const nowMs = Date.now()
+  if (liveCache && nowMs - liveCache.atMs < ttlMs) return liveCache.value
+  if (liveInflight) return liveInflight
+  const inflight = (async () => {
+    try {
+      const value = await computeTrafficLiveSnapshot(source)
+      liveCache = { atMs: value.computedAtMs, value }
+      return value
+    } finally {
+      liveInflight = null
+    }
+  })()
+  liveInflight = inflight
+  return inflight
+}
+
+/** 仅测试用:清掉缓存,避免用例之间互相污染。 */
+export function __resetTrafficLiveCacheForTest(): void {
+  liveCache = null
+  liveInflight = null
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

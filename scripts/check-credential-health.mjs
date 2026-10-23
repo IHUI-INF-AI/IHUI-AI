@@ -50,7 +50,7 @@ import { resolveRemoteHead } from './lib/face-reader.mjs'
 // 解析器不在此重写(§0.6 单一真相源;同一条 10-15 的修法已住在 check-ops-patrol 的 prodCheckoutRoot 里)。
 import { prodCheckoutRoot, prodDeployLoopLog } from './check-ops-patrol.mjs'
 import { redactAlertDetail, redactChildOutput } from './lib/secret-shape-redact.mjs'
-import { keyFile, resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
+import { resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 // .env 解析复用现役实现(该脚本有 §22d isDirectRun 守卫,被 import 时不触发 CLI 副作用)
 import { parseEnvText } from './check-env-drift.mjs'
 // 状态/心跳件的**原子替换**唯一出口(2026-09-29 立,台账 G-653)。裸 `writeFileSync` 覆盖写一个
@@ -72,7 +72,7 @@ const SECRETS_DIR =
   firstExisting([join(REPO, '.DevEnv', 'secrets'), 'D:/DevEnv/secrets', 'F:/DevEnv/secrets', 'G:/DevEnv/secrets', 'E:/DevEnv/secrets']) ||
   'D:/DevEnv/secrets'
 // 盘符按"存在即真"解析(见 scripts/lib/key-dir.mjs):本机真实库在 F 盘,写死 D 盘会让
-// 镜像活性探测读不到 key ⇒ 报成"国内镜像停摆",把"路径过期"误诊成"凭据失效"。
+// 凭据探测读不到 key ⇒ 报成"凭据失效",把"路径过期"误诊成"token 挂了"。
 // 全都不存在时保留旧字面量,使 detail 里的路径仍指向文档登记的权威位置。
 const GIT_KEY_DIR = process.env.IHUI_MODEL_KEY_DIR_GIT || resolveKeyDir('git仓库') || 'D:/BaiduSyncdisk/密钥/git仓库'
 const WEB_PROBE = process.env.IHUI_DEPLOY_PROBE || 'http://127.0.0.1:8801'
@@ -232,147 +232,6 @@ export function readFileSyncOr(path) {
 }
 
 /**
- * 国内镜像活性。判据必须是**镜像仓真收到了哪一天的提交**,不是 GitHub 运行元数据 ——
- * 2026-09-23 实测两者会严重背离:run 每 20 分钟一条且 `updated_at` 一直在刷新,看起来"很健康",
- * 而 Gitee 的 `main` 停在 09-20(被服务端硬配额 `Repo size 1156MB > 1024MB` 拒绝),
- * 一整天的镜像**一条都没落地**。看元数据 = 把"持续失败"读成"在跑"。
- *
- * 分级(gitee 与 gitcode 独立判,不混为一谈):
- *   · 两仓 main 都够新 ⇒ ok
- *   · 只有一个落后 ⇒ fail 并点名是哪个仓 + 落后天数(今天实况:GitCode 新鲜、Gitee 停摆)
- *   · 都落后 ⇒ fail,并在 detail 里带上 GitHub 侧最近一次运行的 conclusion(定位用)
- * 阈值默认 30 小时(镜像本就是"尽力而为"的下游,不是发布通道);`IHUI_MIRROR_STALL_MIN` 可调。
- * 仍保留补发 dispatch 自愈:只有"两仓都旧且 GitHub 也没有在跑的运行"时才补发,
- * 因为**配额型失败补发多少次都不会成功**(实测补发那轮跑了 69 分钟后失败)。
- */
-const GH_REPO = 'IHUI-INF-AI/IHUI-AI'
-const MIRROR_WF = '317969743' // Mirror to CN 的 workflow id(由 API 取,非猜测;变更需重取)
-
-function ghApi(method, path, body) {
-  const token = readText(process.env.IHUI_GH_KEY_FILE || keyFile('git仓库', 'github key.txt') || join(GIT_KEY_DIR, 'github key.txt')).trim()
-  if (!token) return Promise.resolve({ status: 0, j: null, why: '未取到 GitHub 权威凭据文件' })
-  const payload = body ? JSON.stringify(body) : null
-  return new Promise((res) => {
-    const r = request({
-      host: 'api.github.com',
-      path,
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'User-Agent': 'ihui-credential-health',
-        Accept: 'application/vnd.github+json',
-        ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}),
-      },
-      timeout: 20000,
-    }, (rp) => {
-      let b = ''
-      rp.on('data', (d) => (b += d))
-      rp.on('end', () => {
-        let j = null
-        try {
-          j = JSON.parse(b || 'null')
-        } catch {
-          /* 非 JSON 响应只保留状态码 */
-        }
-        res({ status: rp.statusCode, j })
-      })
-    })
-    r.on('error', (e) => res({ status: 0, j: null, why: e.message }))
-    r.on('timeout', () => {
-      r.destroy()
-      res({ status: 0, j: null, why: '超时' })
-    })
-    r.end(payload)
-  })
-}
-
-/** 形状校验后再用凭据:同目录有 `_冲突文件_` 副本把 Gitee token 与 GitHub token 拼成 74 字符串
- *  (实测前缀 `a97fghp_`),不加形状闸就会拿错 key ⇒ 表现为"镜像凭据失效"的假故障。 */
-export function pickKey(raw, re) {
-  // `readFileSyncOr` 的缺失/读失败契约是 **null**,原来直接 `.trim()` ⇒ TypeError 把整轮巡检打崩。
-  // 崩在 runChecks 里意味着心跳文件永不写出,而守护的"看门人的看守"检测到的正是这个缺失,
-  // 它派生的自愈拉起同样跑在这一行 ⇒ 凭据/停摆告警链在一台缺 key 的机器上**双向静默**。
-  const v = (raw ?? '').trim()
-  return re.test(v) ? v : ''
-}
-
-function readMirrKey(file, re) {
-  return pickKey(readFileSyncOr(join(GIT_KEY_DIR, file)), re)
-}
-
-async function mirrorTipDate({ host, path, label }) {
-  const p = await probeHttps(host, path)
-  if (p.sc !== 200) return { label, ok: false, why: `http=${p.sc}` }
-  let j = null
-  try {
-    j = JSON.parse(p.body)
-  } catch {
-    return { label, ok: false, why: '响应非 JSON' }
-  }
-  const c = Array.isArray(j) ? j[0] : j
-  const iso = c?.commit?.committer?.date || c?.commit?.author?.date || ''
-  const t = Date.parse(iso)
-  return Number.isFinite(t) ? { label, ok: true, t, sha: String(c.sha || '').slice(0, 9) } : { label, ok: false, why: `无提交时间(${iso.slice(0, 25)})` }
-}
-
-async function mirrorLivenessCheck() {
-  const NAME = '国内镜像活性(mirror-to-cn)'
-  // 仓径只写一次:API 取数与服务端 GC 面板地址必须同源(§0.6),否则改了名字只改一半,
-  // 告警里那条"唯一能降体积的出路"就会指向一个不存在的页面。
-  const GITEE_REPO = 'JLSLSSZWHYXGS_0/IHUI-AI'
-  const thresholdMin = Number(process.env.IHUI_MIRROR_STALL_MIN || 18 * 60)
-  const now = Date.now()
-  const giteeTok = readMirrKey('gitee apikey.txt', /^[0-9a-f]{32}$/)
-  if (!giteeTok) {
-    // 读不到 key **不等于** key 失效:整个密钥目录不存在(换盘符 / 同步盘未挂载)时判 unknown,
-    // 否则一次挂载抖动就会产出一条假的"镜像停摆",而它看起来完全像凭据事故(本次即如此)。
-    if (!existsSync(GIT_KEY_DIR)) {
-      return [{ name: NAME, level: 'unknown', detail: `密钥目录不存在:${GIT_KEY_DIR}(不判定为凭据失效,先核对盘符)` }]
-    }
-    return [{ name: NAME, level: 'fail', detail: 'gitee apikey.txt 取不到形状合法的 token(注意同目录的 _冲突文件_ 副本不可用)' }]
-  }
-  const [g, gh] = await Promise.all([
-    mirrorTipDate({
-      host: 'gitee.com',
-      path: `/api/v5/repos/${GITEE_REPO}/commits?sha=main&per_page=1&access_token=` + encodeURIComponent(giteeTok),
-      label: 'Gitee',
-    }),
-    ghApi('GET', `/repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/runs?per_page=1`),
-  ])
-  const last = gh.j?.workflow_runs?.[0]
-  const runDesc = last ? `${last.event}/${last.status}/${last.conclusion ?? '-'}` : '无运行记录'
-  if (!g.ok) return [{ name: NAME, level: 'unreachable', detail: `Gitee 查询失败 ${g.why};GitHub 侧最近运行 ${runDesc}` }]
-  const ageMin = (now - g.t) / 60000
-  const head = `Gitee main=${g.sha} @ ${new Date(g.t).toISOString().slice(0, 16)}Z,落后 ${(ageMin / 1440).toFixed(1)} 天;最近运行 ${runDesc}`
-  if (ageMin <= thresholdMin) return [{ name: NAME, level: 'ok', detail: `${head} ≤ 阈值 ${(thresholdMin / 1440).toFixed(1)} 天` }]
-  // 落后 ⇒ 先看 GitHub 侧是否**正有一轮在跑**(在跑就别补发,免得两轮互相抢)
-  const running = last && (last.status === 'in_progress' || last.status === 'queued')
-  if (running) return [{ name: NAME, level: 'limited', detail: `${head} 超阈值但有运行在途,等它结束再看` }]
-  // 已知上一轮是 failure 时**不补发**:配额/体积型失败补发多少次都还是失败,而单轮要跑 69 分钟
-  // (实测),白烧 Actions 时长。判红本身照旧,但**出路必须写进这一条 detail 里**(detail 才是进邮件的那格):
-  // 旧注释把处置"交给下面的 hint",而那个 hint 只挂在**另一条**补发分支上、failure 分支根本不经过它
-  // ⇒ 一条响了 20.9 天的告警,信里没有那条能直接点的 GC 地址。
-  if (last?.conclusion === 'failure') {
-    return [
-      {
-        name: NAME,
-        level: 'fail',
-        detail: `${head} 超阈值,且上一轮 conclusion=failure ⇒ 不补发(配额型失败补发多少次都还是失败,单轮实测要跑 69 分钟)。CI 侧曾装的「0 字节配额探针」**已于 2026-09-28 整块撤除**:逐轮日志取证证明它两个方向都证不了(被接受的推送照样打配额行;ref 一旦存在则每轮报 Everything up-to-date、一次都不联系服务端),留着的唯一效果是替一条已经不成立的机制背书。现判词只从**真实推送被拒的那一刻**逐字取(实测体积 1624.812MB→1715.750MB,超配额 ~692MB),并如实说明「本轮对象已上传、下一轮仍会再试」。⚠️ 上面那两个体积数字取自 **2026-09-27 / 09-28 的 CI 作业日志,本轮没有重新量** —— Gitee 仓库 API 不返回体积字段,唯一量法是读作业日志,而本格不下载日志(单轮 69 分钟量级的作业,日志几十 MB)。差的是 Gitee 服务端体积回收:仓库设置里的「Git GC」/「压缩」(无 GC API,改判据/改触发器都无效)——**这一步只有仓库所有者能做**。直达地址(与镜像作业失败行里那条同源,不是另编的):https://gitee.com/${GITEE_REPO}/settings#git-gc 。顺手可清:服务端还留着分支 \`ci-quota-probe\`(与 main 同 sha,是 09-28 已撤除那套配额探针的残留,它让每轮有一次推送被判成 Everything up-to-date),删掉不影响镜像语义。GC 完成后要立刻验一次:gh api --method POST /repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/dispatches -f ref=main;不 GC 只补发 = 白烧 69 分钟。`,
-      },
-    ];
-  }
-  const d = await ghApi('POST', `/repos/${GH_REPO}/actions/workflows/${MIRROR_WF}/dispatches`, { ref: 'main' })
-  const hint = ''
-  return [
-    {
-      name: NAME,
-      level: 'fail',
-      detail: `${head} 超阈值(阈值 ${(thresholdMin / 1440).toFixed(1)} 天)→ ${d.status === 204 ? '已补发 dispatch(下轮复验是否真落地)' : `补发失败 http=${d.status}`}${hint}`,
-    },
-  ]
-}
-
-/**
  * ⑥ 应用 .env 关键凭据**齐备性**(2026-09-27 立)。
  *
  * 为什么本门原有各条都看不见它:①②③④判的是"凭据在不在、还有效吗",全部指向**外部**凭据
@@ -520,7 +379,9 @@ export async function runChecks() {
       out.push({ name: 'GitHub token 可写仓库', level: rp.sc === 200 ? (push ? 'ok' : 'fail') : classifyHttpStatus(rp.sc), detail: `http=${rp.sc} push 权限=${push}` })
     }
   }
-  // ④ 镜像 token(不直推,但 CI secrets 用的是同一把 ⇒ 挂了镜像会静默)
+  // ④ Gitee token(代码镜像仓已弃用,但**桌面端安装包资产仍由 Gitee release 直链分发** ——
+  //    线上 /desktop-feed.json 的 Windows 包 href 就指向它,实测 HTTP 200 ⇒ 这把 key 仍须有效,
+  //    失效会让每次发版的资产补传静默失败。判据只查"这把 token 还能用吗",不再关联任何镜像仓。)
   const gitee = readFileSyncOr(join(GIT_KEY_DIR, 'gitee apikey.txt'))
   if (gitee) {
     const p = await probeHttps('gitee.com', '/api/v5/user?access_token=' + encodeURIComponent(gitee))
@@ -547,7 +408,11 @@ export async function runChecks() {
       resolveServiceValue: (k) => readServiceEnv('IHUI-API', k),
     }),
   )
-  out.push(...(await mirrorLivenessCheck()))
+  // ⑦ 国内镜像活性(原 mirrorLivenessCheck)—— 2026-10-23 整条删除。
+  //    理由:机主确认 Gitee/GitCode 代码镜像仓早已弃用,镜像作业(mirror-to-cn.yml)同时下线。
+  //    留着这一条等于每天替一个不存在的下游报警(实测它最后的状态是"Gitee main 落后 N 天"),
+  //    而那条告警的唯一出路是去 Gitee 点「Git GC」—— 对一个不再同步的仓做体积回收毫无意义。
+  //    Gitee 凭据本身仍有用途(桌面端安装包资产 CDN),其有效性检查在下文 ② 保留。
   return out
 }
 
@@ -1019,7 +884,7 @@ function selfTest() {
   const T0 = Date.parse('2026-09-29T00:00:00Z')
   const HR = 3600 * 1000
   const A = '凭据 A(部署停摆)'
-  const B = '凭据 B(Gitee 镜像落后)'
+  const B = '凭据 B(桌面资产 CDN)'
   const v2 = (entries) => ({ present: true, parsed: { version: ALERT_STATE_VERSION, ts: new Date(T0).toISOString(), sig: Object.keys(entries).sort().join(' | '), fails: Object.keys(entries).length, sent: Object.fromEntries(Object.entries(entries).map(([k, ms]) => [k, new Date(ms).toISOString()])) } })
   // (a) 同一项在窗口内第二次 ⇒ 不寄
   eq('(a) 同一项窗口内第二次不寄', decideAlert({ failNames: [A], state: v2({ [A]: T0 }), nowMs: T0 + 1 * HR }).shouldSend, false)

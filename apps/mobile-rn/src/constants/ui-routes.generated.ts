@@ -8,14 +8,13 @@
 // 改路由请改 RootNavigator.tsx 后重新生成。
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/mobile-rn/scripts/generate-ui-routes.mjs
-// sourceCommit: 721e61b929b4a74bfb89f0482e754416bc285997
-// inputsSha256: 4db329ece52837fd2ad4b735791e5842e31bc9c409b51b71ae7e12c5c2c53de2
-// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 58fe4cf9785886e1922fb168a17beca520ce9a17107f85ef27a43f03c6767e13
+// sourceCommit: 68c7006955832b67649c832995f9525049e5392e
+// inputsSha256: cf7b4aad4211fca20dc895b4e8a87c22547b0e04d98d3a2f25b8f6e5c9dbab00
+// input: apps/mobile-rn/src/navigation/RootNavigator.tsx 9ebcce35ec10dd41aec7b9462fe9023a23686bcbd270d2d12e2e3f12f331241e
 // input: apps/mobile-rn/src/navigation/linking.ts a837df56feae352828f449fb73b6635acf01e7a0601272c04c70ab9d8dc8c108
 // skipped: unauthedBranchScreens=3(未登录分支 Screen 不入白名单,桥接挂载时不存在)
-// generatedAt: 2026-10-21T00:34:08.560Z
+// generatedAt: 2026-10-23T12:08:35.409Z
 // IHUI-GEN-PIN-END
-
 
 /** AI 可导航 Screen 条目:name 是 react-navigation 的 screen name(不是 URL 路径) */
 export interface RnUiRouteEntry {
@@ -29,7 +28,7 @@ export interface RnUiRouteEntry {
   requiredParams: string[]
 }
 
-/** 全量白名单:前 250 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
+/** 全量白名单:前 251 条是已登录分支 RootStack.Screen,后 5 条是 Main Tab */
 export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'Main', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Login', tab: false, requiresParams: false, requiredParams: [] },
@@ -52,6 +51,7 @@ export const RN_UI_ROUTES: readonly RnUiRouteEntry[] = [
   { name: 'PointsRecord', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'TaskCenter', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'CheckIn', tab: false, requiresParams: false, requiredParams: [] },
+  { name: 'CheckinAssistant', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Ranking', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Promote', tab: false, requiresParams: false, requiredParams: [] },
   { name: 'Distribution', tab: false, requiresParams: false, requiredParams: [] },
