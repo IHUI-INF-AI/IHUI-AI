@@ -456,6 +456,19 @@ interface TrafficSnapshot {
 /** 视为"真人"的族:首方自有端 + 人浏览器(见 bot-detection 的族优先级) */
 const HUMAN_FAMILIES = new Set(['first-party', 'human-browser'])
 
+/**
+ * 新鲜度秒数的合理上界。新鲜度戳在"从未成功刷新"时是 0,`time() - 0` 会算出
+ * 十亿级秒数(大屏上显示成"两万天"),那不是"很久没刷",而是"根本没刷过" ——
+ * 这种值必须折成 null(未判定),不能当成真实年龄渲染。
+ */
+const TRAFFIC_AGG_MAX_AGE_SEC = 6 * 3600
+const RELAY_POOL_MAX_AGE_SEC = 3600
+
+function saneAgeSec(sec: number | null, maxSec: number): number | null {
+  if (sec === null || !Number.isFinite(sec) || sec < 0 || sec > maxSec) return null
+  return sec
+}
+
 async function buildTraffic(): Promise<TrafficSnapshot | null> {
   try {
     const [pv24, uv24, pv1, uv1, fam, age, trunc] = await Promise.all([
@@ -469,6 +482,10 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
       promQuery('time() - max(ihui_traffic_aggregation_last_success_timestamp_seconds)'),
       promQuery('max(ihui_traffic_family_breakdown_truncated)'),
     ])
+    const aggregationAgeSec = saneAgeSec(firstNum(age), TRAFFIC_AGG_MAX_AGE_SEC)
+    // 聚合器从未成功刷过(常见于 api 刚重启,小时级任务还没到点):此时 0 不是
+    // "没人访问"而是"还没算",一律 null ⇒ 大屏渲染"—"并提示"暂无访问聚合"。
+    const fresh = aggregationAgeSec !== null
     const families = (fam ?? [])
       .map((s) => ({ family: s.metric?.client_family ?? 'unknown', pv: sampleNum(s) ?? 0 }))
       .filter((f) => f.pv > 0)
@@ -476,7 +493,7 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
     // 族分解一条都没有 ⇒ 聚合器还没跑过(或指标刚重启),真人/自动化两格按 null 处理
     let humanPv24h: number | null = null
     let botPv24h: number | null = null
-    if (families.length > 0) {
+    if (fresh && families.length > 0) {
       let human = 0
       let bot = 0
       for (const f of families) {
@@ -488,14 +505,14 @@ async function buildTraffic(): Promise<TrafficSnapshot | null> {
     }
     const truncRaw = firstNum(trunc)
     return {
-      pv24h: firstNum(pv24),
-      uv24h: firstNum(uv24),
-      pv1h: firstNum(pv1),
-      uv1h: firstNum(uv1),
+      pv24h: fresh ? firstNum(pv24) : null,
+      uv24h: fresh ? firstNum(uv24) : null,
+      pv1h: fresh ? firstNum(pv1) : null,
+      uv1h: fresh ? firstNum(uv1) : null,
       humanPv24h,
       botPv24h,
-      families,
-      aggregationAgeSec: firstNum(age),
+      families: fresh ? families : [],
+      aggregationAgeSec,
       truncated: truncRaw === null ? null : truncRaw >= 1,
     }
   } catch {
@@ -536,7 +553,7 @@ async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
       accountsTotal: firstNum(accTotal),
       accountsSchedulable: firstNum(accSched),
       minTokenExpiresInSeconds: firstNum(tokenExp),
-      staleAgeSec: firstNum(stale),
+      staleAgeSec: saneAgeSec(firstNum(stale), RELAY_POOL_MAX_AGE_SEC),
     }
   } catch {
     return null
