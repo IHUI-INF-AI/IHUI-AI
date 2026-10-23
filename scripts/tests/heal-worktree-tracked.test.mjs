@@ -738,13 +738,15 @@ test('T18b 形状锁:陈旧索引层不得出现无 pathspec 的全局 update-in
  *  ② 同一路径把 mtime 做成旧的(converge/旁路落地留下的滞后文件必然是旧的)⇒ 必须照常对齐;
  *  ③ 装车形状锁:护栏必须接在两条通道**之前**(eligible 之前),否则"判完了才让路"仍会
  *     把窗口外的成本(整棵历史树遍历)白付一遍,且把在飞编辑记进未判定名单。
- * 窗口档位由本测试显式给定(600),不沿用进程环境 —— 环境是机器事实,判据不是(§0.1)。
+ * 窗口档位由本测试显式给定(取源文件的默认档常量,不在测试里另抄 600 —— §22c),
+ * 不沿用进程环境 —— 环境是机器事实,判据不是(§0.1)。
  */
 test('T19 活工作保护窗:窗内不判不写且点名,窗外同一现场照常对齐(正反两档)', () => {
   const dir = mkScratch('wt-heal-freshguard-')
   const key = 'IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC'
+  const { ALIGN_FRESH_GUARD_DEFAULT_MS } = __test__
   const prev = process.env[key]
-  process.env[key] = '600'
+  process.env[key] = String(Math.round(ALIGN_FRESH_GUARD_DEFAULT_MS / 1000))
   try {
     const g = (args) => gitRaw(args, dir, { timeout: 60000 })
     g(['init', '-q', '--initial-branch=main'])
@@ -767,7 +769,8 @@ test('T19 活工作保护窗:窗内不判不写且点名,窗外同一现场照�
       '窗内是"本轮不做",不是"判不出" ⇒ 不得混进 driftUndetermined(两族处置不同)',
     )
     // ② 窗外:同一路径、同一内容,只把 mtime 做成旧的 ⇒ 必须自愈
-    const old = new Date(Date.now() - 601_000)
+    //    回拨量取"窗口 + 1s"(由源文件那个常量导出),不在测试里另抄一个 600 —— §22c
+    const old = new Date(Date.now() - ALIGN_FRESH_GUARD_DEFAULT_MS - 1_000)
     utimesSync(join(dir, 'a.ts'), old, old)
     const aged = alignDrifts(dir)
     assert.equal(aged.aligned, 1, '窗口外的真漂移仍必须对齐(否则护栏成了永不修复)')

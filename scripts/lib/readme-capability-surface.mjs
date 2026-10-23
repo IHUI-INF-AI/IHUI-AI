@@ -20,10 +20,15 @@
  *    匹配变严(判出更多待人工裁决的条目),不会让 README 里真写了的路由被读成没写。
  *
  * 三态纪律(§0.3):本层只产结论桶,不把"没判"折成"判过"。
- *  - `covered`  = README 面里找得到该能力的路径身份;
- *  - `alias`    = 完整身份找不到、但找得到它的**多段尾巴**(去前缀/换挂载点的写法),或尾巴含动态段
- *                 而 README 用 `{param}` 形态写同一格 —— 这型"可能是改名/别称"**不判红,只报数点名**;
- *  - `missing`  = 两种写法都不在面上 ⇒ 计入违规。
+ *  - `covered`  = 面上找得到该能力的路径身份 —— 三种写法都算提到:完整身份、去尾部动态段的
+ *                **资源族前缀**、动态段写成 `{userId}`/`[id]` 而注册面是 `:id` 的**同格混写**
+ *                (见 `dynamicVariantRe`:动态段折成"一段非斜杠通配"再问一次面);
+ *  - `alias`    = 以上都找不到、只找得到它的**多段尾巴**(去 `/api` 前缀 / 换挂载点那一族写法)
+ *                ⇒ "可能是改名/别称"这一型**不判红,逐条点名报数**,判红权交人;
+ *  - `missing`  = 身份与前缀与通配与尾巴四种形态都不在面上 ⇒ 计入违规。
+ *  刻意**不**把"单段词出现在散文里"当凭据:`select`/`settings`/`archive` 这类词在 README 英文正文与
+ *  代码块里必然命中,拿它当"提到"就是把判据改回恒绿(实测:早期用单段词做别称,148 项新增里 62 项
+ *  被读成"也许提到过",而 `GET /api/goods/select` 这类真缺口正好落进那一格)。
  */
 
 import { SCAN_DIRS } from './outbound-route-facts.mjs'
@@ -110,6 +115,32 @@ export function normalizeToken(path) {
     .toLowerCase()
 }
 
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** 动态段:Fastify/Spring 风格 `:id`、小程序/Nuxt 风格 `{id}`、Next.js 风格 `[id]` */
+function isDynamicSeg(seg) {
+  return /^[:{[]/.test(seg)
+}
+
+const VARIANT_RE_CACHE = new Map()
+/**
+ * 同一路径的"动态段怎么写"变体:README 常写 `/api/x/{userId}/y`,而注册面是 `/api/x/:id/y`。
+ * 两种写法是同一个能力,所以把动态段折成"一段非斜杠通配"再问一次面。
+ * 只有身份里真的有动态段才产正则(普通路径不走通配,免得把尺子放宽成"任意前缀都算提到")。
+ */
+export function dynamicVariantRe(tokenLower) {
+  const key = String(tokenLower)
+  if (VARIANT_RE_CACHE.has(key)) return VARIANT_RE_CACHE.get(key)
+  const segs = key.split('/').filter(Boolean)
+  const re = segs.some(isDynamicSeg)
+    ? new RegExp(`(^|[^a-z0-9])${segs.map((s) => (isDynamicSeg(s) ? '[^/]{1,64}' : escapeRe(s))).join('/')}(?![a-z0-9])`)
+    : null
+  VARIANT_RE_CACHE.set(key, re)
+  return re
+}
+
 /**
  * 静态前缀:剥掉**尾部**动态段(`/api/plaza/:id` → `api/plaza`)。
  * README 通常按"资源族"描述,不带参数名,所以前缀形态也算提到过。
@@ -137,11 +168,6 @@ export function aliasTails(token) {
   return out
 }
 
-/** 参数形态归一:`{id}` 与 `:id` 在 README 里是同一种东西的两种写法 */
-export function normalizeParamForms(token) {
-  return String(token ?? '').replace(/\{[^{}/:]*\}/g, ':p')
-}
-
 /**
  * "README 面里到底有没有提到这个 token" —— 边界判定:
  * 左右邻字符不得是字母/数字(否则 `health` 会命中 `healthcare`、`select` 会命中 `selection`),
@@ -153,8 +179,7 @@ export function containsToken(haystackLower, tokenLower) {
   let re = TOKEN_RE_CACHE.get(key)
   if (!re) {
     if (!key) return false
-    const esc = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    re = new RegExp(`(^|[^a-z0-9])${esc}(?![a-z0-9])`)
+    re = new RegExp(`(^|[^a-z0-9])${escapeRe(key)}(?![a-z0-9])`)
     TOKEN_RE_CACHE.set(key, re)
   }
   return re.test(haystackLower)
@@ -215,28 +240,24 @@ export function addedDescriptors(nowMap, baseMap) {
 
 /**
  * 三态归类。返回 `{state, evidence}`:
- *  - covered:完整身份 或 静态前缀 在面上;
- *  - alias  :只有多段尾巴(或 `{param}`/`:param` 混写形态)在面上;
+ *  - covered:完整身份 / 静态前缀 / 动态段通配形态 在面上;
+ *  - alias  :只有多段尾巴(或尾巴的动态段通配形态)在面上;
  *  - missing:都不在。
  */
 export function classifyDescriptor(desc, haystackLower) {
-  const primary = normalizeToken(desc.primary)
+  const primary = normalizeToken(desc?.primary)
   if (!primary) return { state: 'covered', evidence: '(无路径身份,不计为对外能力)' }
   if (containsToken(haystackLower, primary)) return { state: 'covered', evidence: primary }
   const prefix = staticPrefix(primary)
   if (prefix && prefix !== primary && containsToken(haystackLower, prefix))
     return { state: 'covered', evidence: prefix }
-  const paramForm = normalizeParamForms(primary)
-  if (paramForm !== primary) {
-    for (const cand of [paramForm, staticPrefix(paramForm)]) {
-      if (cand && containsToken(haystackLower, cand)) return { state: 'covered', evidence: cand }
-    }
-  }
+  const variant = dynamicVariantRe(primary)
+  if (variant && variant.test(haystackLower)) return { state: 'covered', evidence: `${primary}(动态段通配)` }
   for (const tail of aliasTails(primary)) {
     if (containsToken(haystackLower, tail)) return { state: 'alias', evidence: tail }
-    const tailParam = normalizeParamForms(tail)
-    if (tailParam !== tail && containsToken(haystackLower, tailParam))
-      return { state: 'alias', evidence: tailParam }
+    const tailVariant = dynamicVariantRe(tail)
+    if (tailVariant && tailVariant.test(haystackLower))
+      return { state: 'alias', evidence: `${tail}(动态段通配)` }
   }
   return { state: 'missing', evidence: primary }
 }
@@ -314,7 +335,7 @@ export const __test__ = {
   normalizeToken,
   staticPrefix,
   aliasTails,
-  normalizeParamForms,
+  dynamicVariantRe,
   containsToken,
   descriptorsFromApiEntries,
   descriptorsFromPageRels,
