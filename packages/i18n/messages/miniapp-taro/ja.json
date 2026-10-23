@@ -1866,7 +1866,7 @@
       "submitting": "送信中..."
     },
     "contact": {
-      "title": "お問い合わせ",
+      "title": "カスタマーサポートに連絡",
       "phone": "電話",
       "email": "メール",
       "qq": "QQ",
@@ -1900,7 +1900,7 @@
       "scopeTitle": "事業範囲",
       "footer": "参考用、登記が優先",
       "tapToView": "タップして営業許可証を表示",
-      "title": "事業許可証"
+      "title": "営業許可証"
     },
     "icpRecord": {
       "footer": "MIIT登録システムより",
@@ -1913,7 +1913,7 @@
       "query": "MIITで照会",
       "icpLabel": "ICP登録/ライセンス番号",
       "copyHint": "番号をクリックしてコピー",
-      "title": "ICP 備案"
+      "title": "ICP備案"
     },
     "usageRules": {
       "s2": {
@@ -2003,7 +2003,7 @@
         "p2": "本規範の締結、履行、解釈および紛争解決には、中華人民共和国の法律が適用されます（香港、マカオ、台湾地域の法律を除く）。",
         "title": "九、紛争解決"
       },
-      "title": "利用規則"
+      "title": "利用規範"
     },
     "appPermission": {
       "names": [
