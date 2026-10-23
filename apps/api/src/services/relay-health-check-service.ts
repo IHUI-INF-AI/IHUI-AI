@@ -98,33 +98,43 @@ function buildModelsUrl(baseUrl: string): string {
   return `${trimmed}/v1/models`
 }
 
-/** 用 AbortController 实现 fetch 超时。返回状态与可选错误信息。 */
+/**
+ * 用 AbortController 实现 fetch 超时。返回状态与可选错误信息。
+ *
+ * 2026-10-23:网络错误(超时/连接失败)重试一次再判 degraded——被墙 host 经本地代理
+ * 出海实测有约 50% 瞬时抖动(对照 gstatic 同样抖,是航空线拥塞不是域名封锁),
+ * 单次超时就把 key 打进 degraded 会让状态每 5 分钟翻一次饼。HTTP 状态码
+ * (401/403/429 等)一次定论、不重试——那不是抖动,是结论。
+ */
 async function pingModelsEndpoint(
   url: string,
   apiKey: string,
 ): Promise<{ status: HealthStatus; errorMessage?: string }> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS)
-  try {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: controller.signal,
-    })
-    if (res.status === 200) return { status: 'healthy' }
-    if (res.status === 401 || res.status === 403) {
-      return { status: 'down', errorMessage: `HTTP ${res.status}: key 失效或无权访问` }
+  let lastErr = ''
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS)
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: controller.signal,
+      })
+      if (res.status === 200) return { status: 'healthy' }
+      if (res.status === 401 || res.status === 403) {
+        return { status: 'down', errorMessage: `HTTP ${res.status}: key 失效或无权访问` }
+      }
+      if (res.status === 429) {
+        return { status: 'degraded', errorMessage: 'HTTP 429: 限流' }
+      }
+      return { status: 'degraded', errorMessage: `HTTP ${res.status}` }
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err)
+    } finally {
+      clearTimeout(timer)
     }
-    if (res.status === 429) {
-      return { status: 'degraded', errorMessage: 'HTTP 429: 限流' }
-    }
-    return { status: 'degraded', errorMessage: `HTTP ${res.status}` }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    return { status: 'degraded', errorMessage: msg }
-  } finally {
-    clearTimeout(timer)
   }
+  return { status: 'degraded', errorMessage: lastErr }
 }
 
 /**

@@ -785,7 +785,7 @@ cd IHUI-AI && pnpm install && pnpm dev
 
 **在线 Demo**:https://aizhs.top
 **GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
-**国内镜像**:Gitee https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI · GitCode https://gitcode.com/IHUI-AI/IHUI-AI
+**国内镜像**:**无**(2026-10-23 起停止对外镜像,代码只托管在 GitHub;历史镜像仓已弃用,勿再引用)
 
 **不是 PPT,不是 demo,所有数字都能 grep 到**:
 
@@ -803,7 +803,7 @@ cd IHUI-AI && pnpm install && pnpm dev
 **自托管 5 分钟**:
 
 ```bash
-git clone https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git  # 国内更快
+git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 cd IHUI-AI && pnpm install
 cp .env.example .env  # 填数据库 + AI key
 docker compose up -d postgres redis
