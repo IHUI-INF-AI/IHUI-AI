@@ -22,7 +22,7 @@
 - **GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
 - **在线 Demo**:https://aizhs.top
 - **License**:Apache-2.0(商业可用)
-- **国内镜像**:Gitee https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI · GitCode https://gitcode.com/IHUI-AI/IHUI-AI
+- **国内镜像**:**无**(2026-10-23 起停止对外镜像,代码只托管在 GitHub;历史镜像仓已弃用,勿再引用)
 - **一句话**:一个仓库,干翻 40+ 商业产品 — 8 端 / 176 模型 / LangGraph+MCP+A2A / 340 表 / 1300+ API / Apache 2.0
 - **联系方式**:微信 `ok502319984` · 邮箱 [REDACTED-EMAIL]
 
@@ -439,9 +439,9 @@ CSDN 的朋友们好,今天推荐一个 Apache 2.0 开源的 AI 商业平台 **I
 ### Step 2:Clone 仓库
 
 ```bash
-git clone https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI.git
-# 国内用户用 Gitee 镜像更快
-# 海外用户用 GitHub:git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
+git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
+# 2026-10-23 起不再提供 Gitee/GitCode 代码镜像(旧镜像仓已停更,克隆会拿到过期代码)
+# 国内网络请自备代理/加速,不要再用旧镜像地址
 cd IHUI-AI
 ```
 
@@ -550,8 +550,6 @@ pnpm dev
 
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 - 在线 Demo:https://aizhs.top
-- Gitee 镜像:https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI
-- GitCode 镜像:https://gitcode.com/IHUI-AI/IHUI-AI
 - 微信群:微信号 `ok502319984`(加好友备注 "IHUI")
 - 邮箱:`[REDACTED-EMAIL]`
 
