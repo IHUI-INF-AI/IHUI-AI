@@ -97,6 +97,11 @@ export default function Profile() {
       path: '/pkg-user/user/realname',
       value: form.realName ? t('user.profile.verified') : t('user.profile.unverified'),
     },
+    {
+      label: t('checkinAssistant.title'),
+      path: '/pkg-user/checkin-assistant/index',
+      value: '',
+    },
   ]
 
   return (
