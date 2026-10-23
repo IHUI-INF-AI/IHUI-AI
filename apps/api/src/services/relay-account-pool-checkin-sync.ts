@@ -463,3 +463,146 @@ export async function retryPendingCheckinSyncs(
   }
   return out
 }
+
+// =============================================================================
+// admin 点查与手动触发(号池页「签到」列数据源与行操作,设计 §11)
+// =============================================================================
+
+/** 单账号签到状态点查结果(ai-service pool-status 透传) */
+export interface PoolStatusView {
+  ok: boolean
+  found: boolean
+  accountId: number | null
+  name: string | null
+  enabled: boolean | null
+  poolAccountId: string | null
+  poolCredVersion: number | null
+  poolSyncedAt: string | null
+  poolDeletedAt: string | null
+  pendingCred: boolean
+  cooldownUntil: string | null
+  lastRecord: {
+    ok: boolean
+    action: string | null
+    credits: number | null
+    createdAt: string | null
+  } | null
+  error: string | null
+}
+
+const EMPTY_STATUS: Omit<PoolStatusView, 'ok' | 'error'> = {
+  found: false,
+  accountId: null,
+  name: null,
+  enabled: null,
+  poolAccountId: null,
+  poolCredVersion: null,
+  poolSyncedAt: null,
+  poolDeletedAt: null,
+  pendingCred: false,
+  cooldownUntil: null,
+  lastRecord: null,
+}
+
+/** 点查单账号签到状态(GET /internal/checkin/pool-status;ai-service 不可达 → ok:false) */
+export async function fetchPoolStatus(
+  platform: CheckinPlatform,
+  uid: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<PoolStatusView> {
+  const secret = config.AI_CALLBACK_SECRET
+  if (!secret) {
+    return { ok: false, ...EMPTY_STATUS, error: 'AI_CALLBACK_SECRET 未配置,无法点查签到状态' }
+  }
+  try {
+    const resp = await fetchImpl(
+      `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-status?platform=${encodeURIComponent(platform)}&uid=${encodeURIComponent(uid)}`,
+      {
+        method: 'GET',
+        headers: { 'X-Internal-Secret': secret },
+        signal: AbortSignal.timeout(10_000),
+      },
+    )
+    if (!resp.ok) {
+      const text = (await resp.text().catch(() => '')).slice(0, 200)
+      return { ok: false, ...EMPTY_STATUS, error: `pool-status HTTP ${resp.status}: ${text}` }
+    }
+    const body = (await resp.json()) as Record<string, unknown>
+    const last = (body.lastRecord ?? null) as Record<string, unknown> | null
+    return {
+      ok: true,
+      found: body.found === true,
+      accountId: typeof body.accountId === 'number' ? body.accountId : null,
+      name: typeof body.name === 'string' ? body.name : null,
+      enabled: typeof body.enabled === 'boolean' ? body.enabled : null,
+      poolAccountId: typeof body.poolAccountId === 'string' ? body.poolAccountId : null,
+      poolCredVersion: typeof body.poolCredVersion === 'number' ? body.poolCredVersion : null,
+      poolSyncedAt: typeof body.poolSyncedAt === 'string' ? body.poolSyncedAt : null,
+      poolDeletedAt: typeof body.poolDeletedAt === 'string' ? body.poolDeletedAt : null,
+      pendingCred: body.pendingCred === true,
+      cooldownUntil: typeof body.cooldownUntil === 'string' ? body.cooldownUntil : null,
+      lastRecord: last
+        ? {
+            ok: last.ok === true,
+            action: typeof last.action === 'string' ? last.action : null,
+            credits: typeof last.credits === 'number' ? last.credits : null,
+            createdAt: typeof last.createdAt === 'string' ? last.createdAt : null,
+          }
+        : null,
+      error: null,
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message.slice(0, 200) : '未知错误'
+    return { ok: false, ...EMPTY_STATUS, error: `pool-status 网络错误: ${msg}` }
+  }
+}
+
+/** 手动签到触发结果(POST /internal/checkin/pool-run;httpStatus 供 admin 路由透传 429/404) */
+export interface PoolRunResult {
+  ok: boolean
+  httpStatus: number
+  record: Record<string, unknown> | null
+  error: string | null
+}
+
+/** 触发系统 owner 账号立即签到(尊重冷却/限流:429 由调用方原样透传给 admin) */
+export async function postPoolRun(
+  platform: CheckinPlatform,
+  uid: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<PoolRunResult> {
+  const secret = config.AI_CALLBACK_SECRET
+  if (!secret) {
+    return {
+      ok: false,
+      httpStatus: 503,
+      record: null,
+      error: 'AI_CALLBACK_SECRET 未配置,无法触发签到',
+    }
+  }
+  try {
+    const resp = await fetchImpl(
+      `${config.AI_SERVICE_URL.replace(/\/+$/, '')}/internal/checkin/pool-run`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': secret },
+        body: JSON.stringify({ platform, uid }),
+        signal: AbortSignal.timeout(30_000),
+      },
+    )
+    const body = (await resp.json().catch(() => null)) as Record<string, unknown> | null
+    if (!resp.ok) {
+      const detail = typeof body?.detail === 'string' ? body.detail : ''
+      return {
+        ok: false,
+        httpStatus: resp.status,
+        record: null,
+        error: `pool-run HTTP ${resp.status}${detail ? `: ${detail}` : ''}`,
+      }
+    }
+    return { ok: true, httpStatus: 200, record: body ?? {}, error: null }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message.slice(0, 200) : '未知错误'
+    return { ok: false, httpStatus: 502, record: null, error: `pool-run 网络错误: ${msg}` }
+  }
+}

@@ -83,6 +83,8 @@ import {
   markCheckinSyncPending,
   parseCheckinSyncMeta,
   pushPoolState,
+  fetchPoolStatus,
+  postPoolRun,
   pushPoolSync,
   retryPendingCheckinSyncs,
   type PoolSyncAccount,
@@ -611,5 +613,113 @@ describe('retryPendingCheckinSyncs', () => {
     const rows = await listCheckinSyncPending(42)
     expect(hoisted.limitUsed).toEqual([42])
     expect(rows).toHaveLength(1)
+  })
+})
+
+// =============================================================================
+// admin 点查与手动触发(O64 提交 6:号池页签到列数据源与行操作)
+// =============================================================================
+
+describe('fetchPoolStatus(端点 4 点查)', () => {
+  it('GET + 鉴权 + 查询串;解析 found/冷却/最近记录', async () => {
+    let seenUrl = ''
+    let seenAuth = ''
+    const fetchMock = vi.fn(
+      async (input: unknown, init?: { body?: unknown; headers?: unknown }) => {
+        seenUrl = String(input)
+        seenAuth = String(
+          (init?.headers as Record<string, string> | undefined)?.['X-Internal-Secret'] ?? '',
+        )
+        return jsonResponse({
+          found: true,
+          accountId: 12,
+          name: '池号 A',
+          enabled: true,
+          poolAccountId: 'pool-1',
+          poolCredVersion: 5,
+          poolSyncedAt: '2026-10-23T00:00:00Z',
+          poolDeletedAt: null,
+          pendingCred: true,
+          cooldownUntil: '2026-10-24T01:00:00Z',
+          lastRecord: {
+            ok: true,
+            action: 'checkin',
+            credits: 120,
+            createdAt: '2026-10-23T06:00:00Z',
+          },
+        })
+      },
+    )
+    const r = await fetchPoolStatus('qoder', 'u-9001', fetchMock as unknown as typeof fetch)
+    expect(r.ok).toBe(true)
+    expect(seenAuth).toBe('test-internal-secret')
+    expect(seenUrl).toContain('/internal/checkin/pool-status?platform=qoder&uid=u-9001')
+    expect(r.found).toBe(true)
+    expect(r.accountId).toBe(12)
+    expect(r.pendingCred).toBe(true)
+    expect(r.cooldownUntil).toBe('2026-10-24T01:00:00Z')
+    expect(r.lastRecord).toMatchObject({ ok: true, credits: 120 })
+  })
+
+  it('found:false(未同步)原样回传,不当作错误', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ found: false }))
+    const r = await fetchPoolStatus('trae', 'u-1', fetchMock as unknown as typeof fetch)
+    expect(r).toMatchObject({ ok: true, found: false, error: null })
+  })
+
+  it('HTTP 500 / 网络错 → ok:false', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ detail: 'boom' }, 500))
+    const r = await fetchPoolStatus('trae', 'u-1', fetchMock as unknown as typeof fetch)
+    expect(r.ok).toBe(false)
+    expect(r.error).toContain('500')
+  })
+
+  it('密钥未配置 → ok:false 不发请求', async () => {
+    hoisted.cfg.AI_CALLBACK_SECRET = undefined
+    const fetchMock = vi.fn()
+    const r = await fetchPoolStatus('trae', 'u-1', fetchMock as unknown as typeof fetch)
+    expect(r.ok).toBe(false)
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('postPoolRun(立即签到转发)', () => {
+  it('成功 → 回传 record', async () => {
+    let seenBody: unknown
+    const fetchMock = vi.fn(async (_input: unknown, init?: { body?: unknown }) => {
+      seenBody = JSON.parse(String(init?.body))
+      return jsonResponse({ ok: true, credits: 200 })
+    })
+    const r = await postPoolRun('qoder', 'u-9001', fetchMock as unknown as typeof fetch)
+    expect(r.ok).toBe(true)
+    expect(r.httpStatus).toBe(200)
+    expect(r.record).toMatchObject({ credits: 200 })
+    expect(seenBody).toEqual({ platform: 'qoder', uid: 'u-9001' })
+  })
+
+  it('429(冷却/限流)透传 httpStatus 与 detail', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ detail: '签到接口限流冷却中(120s),请稍后再试' }, 429),
+    )
+    const r = await postPoolRun('qoder', 'u-9001', fetchMock as unknown as typeof fetch)
+    expect(r.ok).toBe(false)
+    expect(r.httpStatus).toBe(429)
+    expect(r.error).toContain('429')
+    expect(r.error).toContain('限流冷却')
+  })
+
+  it('404(未同步)透传', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ detail: '签到账号不存在: qoder/u-9' }, 404))
+    const r = await postPoolRun('qoder', 'u-9', fetchMock as unknown as typeof fetch)
+    expect(r).toMatchObject({ ok: false, httpStatus: 404 })
+  })
+
+  it('网络错 → httpStatus 502', async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error('connect ECONNREFUSED')
+    })
+    const r = await postPoolRun('qoder', 'u-1', fetchMock as unknown as typeof fetch)
+    expect(r).toMatchObject({ ok: false, httpStatus: 502 })
+    expect(r.error).toContain('网络错误')
   })
 })

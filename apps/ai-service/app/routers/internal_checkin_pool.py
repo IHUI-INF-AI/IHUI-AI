@@ -15,6 +15,7 @@
 - GET  /internal/checkin/pool-status 单账号状态(admin 点查)
 - GET  /internal/checkin/pool-accounts 系统 owner 全量摘要(对账收敛器拉签到侧)
 - POST /internal/checkin/pool-cred-flush 指定账号立即重试凭证回写(对账收敛器补写象限)
+- POST /internal/checkin/pool-run 指定账号立即签到(admin 手动触发,尊重冷却/限流)
 
 设计:docs/engineering/account-pool-checkin-sync-design.md
 平台映射单一真相源在 api 侧(D5):本模块只认 platform 白名单,零映射逻辑 ——
@@ -225,6 +226,13 @@ class PoolCredFlushIn(BaseModel):
     accountIds: list[int] = Field(min_length=1, max_length=200)
 
 
+class PoolRunIn(BaseModel):
+    """admin 手动签到请求:按 (platform, uid) 点名(与端点 4 同一寻址口径)。"""
+
+    platform: str = Field(min_length=1, max_length=32)
+    uid: str = Field(min_length=1, max_length=128)
+
+
 @router.get("/pool-accounts")
 async def pool_accounts_endpoint(request: Request) -> dict[str, Any]:
     """系统 owner 全量摘要(对账收敛器用):poolAccountId / poolCredVersion /
@@ -274,3 +282,35 @@ async def pool_cred_flush(body: PoolCredFlushIn, request: Request) -> dict[str, 
                 }
             )
     return {"results": results}
+
+
+@router.post("/pool-run")
+async def pool_run(body: PoolRunIn, request: Request) -> dict[str, Any]:
+    """对系统 owner 账号立即签到(admin 手动触发,设计 §11「立即签到」)。
+
+    复用 run_checkin_now(与用户态 manual_checkin 同一条代码路径):尊重出站
+    全局闸门与账号冷却(命中 429,绝不提供绕过冷却的后门);结果照写 records,
+    积分/冷却语义与自动调度完全一致。
+    """
+    _require_internal(request)
+    # 延迟 import:scheduler 模块重(引擎/风控),仅 pool-run 路径需要
+    from app.services import checkin_scheduler as checkin_scheduler_mod
+
+    account_id = await checkin_store.pool_account_id_of(body.platform, body.uid)
+    if account_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"签到账号不存在: {body.platform}/{body.uid}",
+        )
+    try:
+        record = await checkin_scheduler_mod.checkin_scheduler.run_checkin_now(
+            account_id, POOL_SYNC_OWNER
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except (
+        checkin_scheduler_mod.RateLimitedError,
+        checkin_scheduler_mod.CooldownActiveError,
+    ) as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
+    return record

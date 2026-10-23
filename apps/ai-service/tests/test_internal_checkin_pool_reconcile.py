@@ -96,6 +96,16 @@ class FakeStore:
             return None
         return acc["device_map"]
 
+    async def pool_account_id_of(self, platform: str, uid: str) -> int | None:
+        for acc in self.accounts.values():
+            if (
+                acc["owner_user_id"] == POOL_SYNC_OWNER
+                and acc["platform"] == platform
+                and acc["identity_key"] == uid
+            ):
+                return acc["id"]
+        return None
+
     async def save_device_map(self, account_id: int, device_map: dict[str, Any]) -> None:
         self.save_calls.append((account_id, dict(device_map)))
         if account_id in self.accounts:
@@ -105,7 +115,13 @@ class FakeStore:
 @pytest.fixture
 def fake_store(monkeypatch):
     store = FakeStore()
-    for name in ["create_account", "list_pool_accounts", "load_device_map", "save_device_map"]:
+    for name in [
+        "create_account",
+        "list_pool_accounts",
+        "load_device_map",
+        "save_device_map",
+        "pool_account_id_of",
+    ]:
         monkeypatch.setattr(checkin_store, name, getattr(store, name))
     return store
 
@@ -317,6 +333,117 @@ async def test_pool_cred_flush_rejects_empty_and_oversize(client):
         headers={"X-Internal-Secret": INTERNAL_SECRET},
     )
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# POST /internal/checkin/pool-run(admin 手动签到,系统 owner 面)
+# ---------------------------------------------------------------------------
+
+
+async def test_pool_run_requires_secret(client, monkeypatch):
+    monkeypatch.setattr(settings, "ai_callback_secret", INTERNAL_SECRET)
+    resp = await client.post(
+        "/internal/checkin/pool-run",
+        json={"platform": "qoder", "uid": "u-1"},
+        headers={"X-Internal-Secret": "wrong"},
+    )
+    assert resp.status_code == 401
+
+
+async def test_pool_run_success_with_system_owner(client, fake_store, monkeypatch):
+    from app.services import checkin_scheduler as sched_mod
+
+    row = await fake_store.create_account(
+        POOL_SYNC_OWNER,
+        "池号 A",
+        "tok",
+        {"pool_account_id": "pool-a", "pool_uid": "u-1"},
+        platform="qoder",
+    )
+    seen: list[tuple[int, str]] = []
+
+    class FakeScheduler:
+        async def run_checkin_now(self, account_id: int, owner_user_id: str) -> dict[str, Any]:
+            seen.append((account_id, owner_user_id))
+            return {"ok": True, "credits": 120, "accountId": account_id}
+
+    monkeypatch.setattr(sched_mod, "checkin_scheduler", FakeScheduler())
+
+    resp = await client.post(
+        "/internal/checkin/pool-run",
+        json={"platform": "qoder", "uid": "u-1"},
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["credits"] == 120
+    # 系统 owner 触发:用户态 API 按 owner 过滤,寻址不到这些账号
+    assert seen == [(row["id"], POOL_SYNC_OWNER)]
+
+
+async def test_pool_run_unknown_target_maps_404(client, fake_store):
+    resp = await client.post(
+        "/internal/checkin/pool-run",
+        json={"platform": "qoder", "uid": "no-such"},
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 404
+
+
+async def test_pool_run_user_owned_account_not_addressable(client, fake_store):
+    # 用户自建账号(同 platform/identity_key 但 owner 不同)必须寻址不到
+    await fake_store.create_account("user:1", "我的", "tok", {}, platform="qoder")
+    resp = await client.post(
+        "/internal/checkin/pool-run",
+        json={"platform": "qoder", "uid": ""},
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 422  # uid 空串过不了 min_length
+
+
+async def test_pool_run_cooldown_maps_429(client, fake_store, monkeypatch):
+    from datetime import timedelta
+
+    from app.services import checkin_scheduler as sched_mod
+
+    await fake_store.create_account(
+        POOL_SYNC_OWNER, "池号 A", "tok", {"pool_uid": "u-1"}, platform="qoder"
+    )
+
+    class FakeScheduler:
+        async def run_checkin_now(self, account_id: int, owner_user_id: str) -> dict[str, Any]:
+            raise sched_mod.CooldownActiveError(
+                "池号 A", datetime.now(UTC) + timedelta(seconds=600)
+            )
+
+    monkeypatch.setattr(sched_mod, "checkin_scheduler", FakeScheduler())
+
+    resp = await client.post(
+        "/internal/checkin/pool-run",
+        json={"platform": "qoder", "uid": "u-1"},
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 429  # 尊重冷却:不提供绕过风控的后门
+
+
+async def test_pool_run_rate_limited_maps_429(client, fake_store, monkeypatch):
+    from app.services import checkin_scheduler as sched_mod
+
+    await fake_store.create_account(
+        POOL_SYNC_OWNER, "池号 A", "tok", {"pool_uid": "u-1"}, platform="qoder"
+    )
+
+    class FakeScheduler:
+        async def run_checkin_now(self, account_id: int, owner_user_id: str) -> dict[str, Any]:
+            raise sched_mod.RateLimitedError("签到接口限流冷却中(120s)", remaining=120)
+
+    monkeypatch.setattr(sched_mod, "checkin_scheduler", FakeScheduler())
+
+    resp = await client.post(
+        "/internal/checkin/pool-run",
+        json={"platform": "qoder", "uid": "u-1"},
+        headers={"X-Internal-Secret": INTERNAL_SECRET},
+    )
+    assert resp.status_code == 429
 
 
 # ---------------------------------------------------------------------------
