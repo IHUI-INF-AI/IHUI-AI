@@ -5307,6 +5307,23 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- tracked-ignored(1 项,blocking)---
+  {
+    id: '236',
+    label:
+      'tracked-but-ignored 新增拦截(gitignored 的东西不得进版本控制)',
+    script: 'check-tracked-ignored.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TRACKED_IGNORED',
+    onFailHint: [
+      '',
+      '把落点改成写盘/写 gitignored 的运行态目录,或从本次声明集去掉该路径。',
+      '不要用 git add -f 绕过;不要把 .gitignore 的否定规则放宽到整个目录。',
+      '',
+    ].join('\n'),
+  },
+
   // --- info (1 项) ---
   {
     id: '23',
