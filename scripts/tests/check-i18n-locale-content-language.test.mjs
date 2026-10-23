@@ -206,7 +206,7 @@ test('M1 ROOT 由脚本自身位置推导:默认根 = 仓库根,与 cwd 无关',
   assert.equal(gate.DEFAULT_ROOT.split('\\').join('/'), REPO_ROOT.split('\\').join('/'))
   assert.equal(gate.rootFromArgv([]).root, gate.DEFAULT_ROOT)
   assert.equal(gate.rootFromArgv(['--staged']).root, gate.DEFAULT_ROOT)
-  assert.match(String(gate.rootFromArgv(['--root']).error), /不得静默退回仓库根/)
+  assert.match(String(gate.rootFromArgv(['--root']).error), /--root 需要一个目录参数.*不得静默退回默认/)
   assert.match(String(gate.rootFromArgv(['--root=']).error), /目录参数|必须给目录/)
 })
 

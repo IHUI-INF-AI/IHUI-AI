@@ -7,6 +7,9 @@
  * 零真实 Redis/DB:shared-state 走内存兜底档(REDIS_URL 指死端口)+ drizzle 链式 mock。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import fs from 'node:fs'
+import { fileURLToPath } from 'node:url'
 
 let accountRows: unknown[] = []
 let selectCalls = 0
@@ -198,6 +201,94 @@ describe('sweepAccountPool 台账清理与并发上限', () => {
     expect(out.healthChecked).toBe(8)
     expect(maxInFlight).toBeLessThanOrEqual(5)
     expect(maxInFlight).toBeGreaterThan(1)
+  })
+})
+
+/**
+ * 候选谓词的形状锁(2026-10-23 立)。
+ * 为什么单独锁这一格:调度器测试的 DB 桩是"给它什么行它就当查到了什么行",
+ * 结构上**证不了 WHERE**。而这一票修的正是 WHERE ——
+ * Trae web 号只有 cookiesEnc、没有 refreshTokenEnc,谓词写死 rt 非空时它既不进临期刷新、
+ * 也不进 down 恢复,掉进 down 后永久停摆(盘上现读那枚 trae-web-real 就是这个形态)。
+ * 所以这里直接渲染查询实际使用的那两个条件对象(与生产同一份,§0.6 不复写判据)。
+ */
+describe('可再取凭据的候选谓词(cookie 通道必须在内)', () => {
+  const render = (sql: unknown) => {
+    const q = new PgDialect().sqlToQuery(sql as never)
+    return { text: q.sql.toLowerCase(), params: (q.params as unknown[]).map(String) }
+  }
+
+  it('临期刷新候选:rt 与 cookie 两条通道都以 OR 并存,且仍受到期界限约束', async () => {
+    const { expiringRefreshWhere } = await import('../src/services/relay-account-pool-scheduler.js')
+    const { text, params } = render(expiringRefreshWhere(new Date('2026-10-23T00:00:00Z')))
+    expect(text).toContain(' or ')
+    expect(text).toContain('refresh_token_enc')
+    expect(text).toContain('cookies_enc')
+    expect(text).toContain('is not null')
+    expect(text).toContain('token_expires_at')
+    expect(text).toContain('<=')
+    expect(text).toContain('is_enabled')
+    expect(params).toContain('true')
+  })
+
+  it('down 恢复候选:含 cookie 通道且按 down/degraded 定级筛,不受到期界限拦', async () => {
+    const { downRecoveryWhere } = await import('../src/services/relay-account-pool-scheduler.js')
+    const { text, params } = render(downRecoveryWhere())
+    expect(text).toContain('cookies_enc')
+    expect(text).toContain('refresh_token_enc')
+    expect(text).toContain('health_status')
+    expect(text).toContain(' in ')
+    expect(params).toContain('down')
+    expect(params).toContain('degraded')
+    // 正向对照:恢复档刻意不加到期条件(down 号的到期字段本就可信度存疑)
+    expect(text).not.toContain('token_expires_at')
+  })
+
+  it('谓词单源:两档都不得自带一份 rt 判空(全文件只许出现一次)', async () => {
+    const m = await import('../src/services/relay-account-pool-scheduler.js')
+    // 由本文件自身位置推导(禁 process.cwd() 定根,§15)
+    const src = fs.readFileSync(
+      fileURLToPath(new URL('../src/services/relay-account-pool-scheduler.ts', import.meta.url)),
+      'utf8',
+    )
+    const sites = (src.match(/isNotNull\(aiRelayAccountPool\.refreshTokenEnc\)/g) ?? []).length
+    expect(sites).toBe(1)
+    // 且那一处必须在 recredentialableCondition 里(两档渲染片段都含它)
+    const both = new PgDialect().sqlToQuery(m.recredentialableCondition() as never).sql
+    expect(render(m.expiringRefreshWhere(new Date())).text).toContain(both.toLowerCase())
+    expect(render(m.downRecoveryWhere()).text).toContain(both.toLowerCase())
+  })
+})
+
+/**
+ * 刷新失败原因的可见性(2026-10-23 立)。
+ * 原形态:catch 把异常整个吞掉,只有撞上限那一次写一句"连续 N 次刷新失败",
+ * 于是"cookie 死了 / 票被顶掉 / 代码错"三种成因在账面上一模一样 —— 本机为分辨它们
+ * 跑了四型对照才定下来。失效方向必须是"多留一条可读原因",不能是静默。
+ */
+describe('refreshOne 失败原因必须带出来', () => {
+  it('未超限 ⇒ 写原因、不写摘除;超限 ⇒ 原因与摘除并列', async () => {
+    const { refreshOne } = await import('../src/services/relay-account-pool-scheduler.js')
+    registerRelayAdapter({
+      providerCode: 'trae',
+      refreshToken: vi.fn(async () => {
+        throw new Error('Trae GetUserToken 失败(HTTP 401): code=1001')
+      }),
+    } as never)
+
+    await refreshOne(sweepRow({ refreshFailureCount: 0 }) as never)
+    const first = updateCalls[updateCalls.length - 1] as Record<string, unknown>
+    expect(String(first.lastErrorMessage)).toContain('GetUserToken 失败(HTTP 401)')
+    expect(String(first.lastErrorMessage)).toContain('第 1/')
+    expect(String(first.lastErrorMessage)).not.toContain('已自动摘除')
+    expect(first.tempUnschedulable).not.toBe(true)
+
+    updateCalls.length = 0
+    await refreshOne(sweepRow({ refreshFailureCount: 99 }) as never)
+    const last = updateCalls[updateCalls.length - 1] as Record<string, unknown>
+    expect(String(last.lastErrorMessage)).toContain('GetUserToken 失败(HTTP 401)')
+    expect(String(last.lastErrorMessage)).toContain('已自动摘除')
+    expect(last.tempUnschedulable).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

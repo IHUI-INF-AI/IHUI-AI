@@ -3,221 +3,287 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * scripts/check-no-emoji-icons.mjs 的镜像测试(此前**根本没有**)。
+ * `scripts/check-no-emoji-icons.mjs` 的镜像测试(§22c/§22d)。
  *
- * 立因:这道 blocking 门扫整棵工作树却对 `readFileSync` 无 try/catch。并行会话在
- * `readdirSync` 与读取之间删掉一个文件,就以未捕获 ENOENT 崩出去、Node 退出码 1 ⇒
- * "我读不到"被上报成"你违规"(按项目口径读不到应走 exit 2/无法判定)。而一道 blocking
- * 门无端红的实际后果不是"这次提交红",是**每次提交都被迫 --no-verify,连带约 110 道门作废**
- * (AGENTS §12e / 守门 78 同型)。
- *
- * 判据只钉**结构位**,不钉相邻文本(整块文本搜会在合规代码上恒红 —— 本项目当天连修三次同族)。
- * 三条结构判据收进 `readGuardShape()` 一处,并配一条**变异对照**:把修复前那一版的主循环读取
- * 原样嵌进来当反例,同一函数必须判它"不成形"。缺了这条,任何把正则写宽的改动都会让本文件
- * 变成"永远为真的断言"(§22c 同型失效)。另配端到端一条:真跑一次,崩溃与违规必须能区分。
+ * 判据**一律从源脚本 import**(`__test__`),不在本文件里复写一份 —— 复算的第二把尺子必然漂开。
+ * 本文件守四件事:
+ *   ① 违规族(icon 字段 / 渲染位 / 裸 emoji 行)与豁免族(注释 / i18n / 评分星 / 面板数据行 …)
+ *      同时有牙:每条豁免都配一条"同一位置的另一种写法仍判违规"的反向对照;
+ *   ② 判定面纪律(AGENTS §0.4):`analyze()` 在 head / staged / worktree 三档上各判各的 ——
+ *      改盘不算改 HEAD、未提交的新文件不进 HEAD 面;
+ *   ③ 枚举到 0 ⇒ `Undetermined`(不把"没扫到"读成"没违规");
+ *   ④ §22d 形状锁:import 本模块零输出零退出,CLI 直跑才执行 main;
+ *   ⑤ 加固维度(G-880 判据③,asset .svg/.css/.json):判据有牙 + 分流互不污染 +
+ *      棘轮(HEAD 面只报数,staged 档拦本次新增)。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const HERE = dirname(fileURLToPath(import.meta.url))
-const REPO = resolve(HERE, '..', '..')
-const SCRIPT = join(REPO, 'scripts', 'check-no-emoji-icons.mjs')
-
-/**
- * 从"扫描主循环的读点"起算一个窗口,逐项判容错结构是否成形。
- * 定位失败(找不到读点)必须显式报错,不得当成"已包住"而放行。
- */
-function readGuardShape(src) {
-  const at = src.indexOf("readFileSync(file, 'utf8')")
-  assert.ok(at > 0, '未定位到扫描主循环的读点 ⇒ 判据定位失败,不能视作通过')
-  const win = src.slice(at, at + 700)
-  return {
-    有catch: /\}\s*catch\s*\(/.test(win),
-    认ENOENT: /ENOENT/.test(win),
-    认EBUSY: /EBUSY/.test(win),
-    照抛其它异常: /throw\s+e/.test(win),
-    有计数: /(?:let|const)\s+unreadable\b/.test(src),
-    打印计数: /读不到而跳过/.test(src),
-  }
-}
-
-const 完整成形 = (shape) => Object.entries(shape).filter(([, v]) => !v).map(([k]) => k)
-
-test('结构:读文件的容错六项齐备(缺任一项即红)', () => {
-  const missing = 完整成形(readGuardShape(readFileSync(SCRIPT, 'utf8')))
-  assert.deepEqual(missing, [], `容错结构不完整: ${missing.join(' / ')}`)
-})
-
-test('变异对照:修复前那一版必须被判为不成形', () => {
-  // 9974db24956^ 的主循环读取原样抄入(反例夹具,勿"顺手修好")。
-  const before = `
-let totalViolations = 0
-const fileReports = []
-
-for (const file of files) {
-  const src = readFileSync(file, 'utf8')
-  const lines = src.split('\\n')
-  const findings = []
-  if (findings.length) {
-    totalViolations += findings.length
-    fileReports.push({ file, findings })
-  }
-}
-
-console.log(\`  违规数:   \${totalViolations} 处 (BLOCKING)\`)
-process.exit(totalViolations > 0 ? 1 : 0)
-`
-  const missing = 完整成形(readGuardShape(before))
-  assert.ok(
-    missing.includes('有catch') && missing.includes('认ENOENT') && missing.includes('打印计数'),
-    `反例未被识别 ⇒ 判据太宽(实际判缺: ${missing.join(' / ') || '无'}),本测试断言无效`,
-  )
-})
-
-test('端到端:真跑一次,不得以未捕获异常收场(崩溃 ≠ 违规)', () => {
-  const r = spawnSync(process.execPath, [SCRIPT], {
-    encoding: 'utf8',
-    cwd: REPO,
-    timeout: 180_000,
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  const out = `${r.stdout || ''}${r.stderr || ''}`
-  assert.ok(
-    !/ENOENT|EBUSY|Node\.js v\d+/.test(out),
-    `输出里出现未捕获异常签名(退出码 ${r.status}):\n${out.split(/\r?\n/).slice(-8).join('\n')}`,
-  )
-  assert.match(out, /扫描文件/, '没打印扫描结果 ⇒ 很可能没真跑')
-  assert.ok(r.status === 0 || r.status === 1, `退出码只能是 0(通过)/1(违规),实得 ${r.status}`)
-})
-
-/**
- * ── 2026-09-29 追加:三处**失明**的锁(与本文件上方"读文件容错"两码事)────────────────
- *
- * 当天现读到的事实:这道 blocking 门在仓库里明明有 26 处"字符当 UI 图标",而 `--staged` 与
- * 全量两档**都报绿**。三个原因各自独立,少修一个都还是瞎的:
- *  ① 表情面板(InputArea)整文件豁免 ⇒ 同文件里按钮位的 emoji 一起被放过;
- *  ② `RENDER_EMOJI_RE` 是行内判据 ⇒ 被 prettier 拆成独立行的 JSX 文本子节点(`>␤ ★ ␤ </Text>`)看不见;
- *  ③ 注释豁免写成"整行以 `{` 起手即放过",而 JSX 表达式行**全都**以 `{` 起手
- *     ⇒ `{selected && <Text>✓</Text>}` 这一族整族隐身(这才是 26→5 的差)。
- * 下面 T1–T6 就是把这三处 + "判据只许有一份实现"钉成机器可查。区段表只从 `EMOJI_RE.source`
- * 派生(本文件原本已有三处逐字复制,第四处就是下一次漂移的起点)。
- */
-import { writeFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
+import { gitBinary, Undetermined } from '../lib/face-reader.mjs'
+// §22c:判据从源脚本 import,不在测试里复算
+import { __test__ as gate } from '../check-no-emoji-icons.mjs'
 
-const GATE_PATH = SCRIPT
-const norm = (s) => s.replace(/\s+/g, ' ').trim()
-let cachedSrc = null
-const srcText = () => (cachedSrc ??= readFileSync(GATE_PATH, 'utf8'))
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const SCRIPT_PATH = join(__dirname, '..', 'check-no-emoji-icons.mjs')
+const GIT = gitBinary()
 
-/** 跑一次 `--self-test`。刻意清掉跳门 env —— 否则"跳过"会被读成"通过"。 */
-function runSelfTest(scriptPath) {
-  try {
-    const out = execFileSync(process.execPath, [scriptPath, '--self-test'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      env: { ...process.env, HUSKY_SKIP_NO_EMOJI: '' },
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    return { rc: 0, out }
-  } catch (e) {
-    return { rc: e.status ?? -1, out: `${e.stdout || ''}${e.stderr || ''}` }
-  }
+const PANEL = 'apps/miniapp-taro/src/components/InputArea.tsx'
+const OTHER = 'apps/web/src/components/demo.tsx'
+/** 真实违规样本(取自本门立项时的现场形态) */
+const ICON_FIELD = "  icon: '🦄',"
+const RENDER_JSX = '<Text className="x">😊</Text>'
+const RENDER_TERNARY = "{liked ? '♥' : '♡'}"
+const BARE_EMOJI = '              😊'
+
+/** 派生 git 一律显式 stdio + windowsHide(§12g 派生进程纪律) */
+function git(cwd, args) {
+  return spawnSync(GIT, args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
 }
 
-test('T1 注释豁免不得再吃掉整行 JSX 表达式(旧写法 `|\\{` 是 26 处隐身的根因)', () => {
-  const line = norm(srcText()).match(/if \(\/\^\\s\*\([^)]*\)\//)?.[0] || ''
-  assert.ok(line, '未定位到豁免 1 的判定式 ⇒ 尺子失效,不得视作通过')
-  assert.ok(line.includes(String.raw`{\/\*`), `豁免 1 必须只认 \`{/*\` 起手的 JSX 注释,实得:${line}`)
-  assert.ok(!/\|\{\)/.test(line), `豁免 1 不得再出现裸 \\{ 分支(它放过所有 JSX 表达式行):${line}`)
+function writeRepoFile(dir, rel, content) {
+  const full = join(dir, rel)
+  mkdirSync(join(full, '..'), { recursive: true })
+  writeFileSync(full, content)
+}
+
+/** 建一个带一次提交的临时仓(HEAD 面才有东西可判) */
+function createRepo(files) {
+  const dir = mkScratch('ihui-emoji-git-')
+  const r = git(dir, ['init', '-q'])
+  assert.equal(r.status, 0, `git init 失败: ${r.stderr}`)
+  git(dir, ['config', 'user.email', 'test@ihui.local'])
+  git(dir, ['config', 'user.name', 'Test'])
+  git(dir, ['config', 'commit.gpgsign', 'false'])
+  git(dir, ['config', 'core.autocrlf', 'false'])
+  for (const [rel, content] of Object.entries(files)) writeRepoFile(dir, rel, content)
+  git(dir, ['add', '-A'])
+  const c = git(dir, ['commit', '-q', '-m', 'baseline'])
+  assert.equal(c.status, 0, `baseline commit 失败: ${c.stdout}${c.stderr}`)
+  return dir
+}
+
+// ─── ① 违规族 ───
+
+test('E01 违规族:icon 字段 / JSX 渲染位 / 三元图标 / 裸 emoji 行 四型都判得出来', () => {
+  assert.equal(gate.judgeLine(ICON_FIELD, 1, OTHER)?.label, 'icon field emoji')
+  assert.equal(gate.judgeLine(RENDER_JSX, 1, OTHER)?.label, 'render emoji icon')
+  assert.equal(gate.judgeLine(RENDER_TERNARY, 1, OTHER)?.label, 'render emoji icon')
+  assert.equal(gate.judgeLine(BARE_EMOJI, 861, OTHER)?.label, 'bare emoji JSX child')
+  // 面板文件里的按钮位/icon 字段照判(旧版整文件豁免吃掉的就是这两型)
+  assert.equal(gate.judgeLine(RENDER_JSX, 1, PANEL)?.label, 'render emoji icon')
+  assert.equal(gate.judgeLine(ICON_FIELD, 1, PANEL)?.label, 'icon field emoji')
+  assert.equal(gate.judgeLine(BARE_EMOJI, 861, PANEL)?.label, 'bare emoji JSX child')
+  // 表达式行(`{…}` 起手)过去被"注释豁免"整族吃掉 —— 这条是那 26 处隐身的现场形态
+  assert.equal(
+    gate.judgeLine('{selected && <Text className="text-xs text-primary">✓</Text>}', 353, OTHER)?.label,
+    'render emoji icon',
+  )
 })
 
-test('T2 区段表只许有一份:派生正则必须从 EMOJI_RE.source 取,不得自己抄', () => {
-  // 用**逐字子串**而不是再写一层转义正则:上一版这里断言自己写错了转义(`\.\*` 对 `.*`),
-  // 结果是"测试红"被误读成"判据被改"—— 形状锁的表达式越复杂,越容易锁的是它自己。
-  assert.ok(
-    srcText().includes(String.raw`EMOJI_CHAR_CLASS = /^\[(.*)\]$/u.exec(EMOJI_RE.source)`),
-    'EMOJI_CHAR_CLASS 必须从 EMOJI_RE.source 提取(区段表只许有一份)',
-  )
-  for (const name of ['PANEL_ELEMENT_RE', 'PANEL_ARRAY_RE', 'BARE_EMOJI_LINE_RE']) {
-    const at = srcText().indexOf(`const ${name}`)
-    assert.ok(at > 0, `未找到 ${name} 的定义 ⇒ 该判据已被摘线`)
-    const def = srcText().slice(at, at + 340)
-    assert.ok(!/\\u\{1F000\}/.test(def), `${name} 不得自己抄一份 Unicode 区段表:${def.slice(0, 140)}`)
-    assert.match(def, /EMOJI_CHAR_CLASS/, `${name} 必须由 EMOJI_CHAR_CLASS 派生`)
+// ─── ② 豁免族(逐条配反向对照) ───
+
+test('E02 豁免族:注释 / i18n / 评分星 / 表格标记 / 键帽 / docs 正文 全部仍豁免', () => {
+  assert.equal(gate.isExempt('// 这里曾有 😊', OTHER), true)
+  assert.equal(gate.isExempt("tt('live.start', '📺 我要开播')", OTHER), true)
+  assert.equal(gate.isExempt("  return '★'.repeat(n)", OTHER), true)
+  assert.equal(gate.isExempt("<td>{c.nullable ? '✓' : '—'}</td>", OTHER), true)
+  assert.equal(gate.isExempt('⌫', OTHER), true)
+  assert.equal(gate.isExempt("  icon: '📄',", 'apps/web/app/(main)/docs/page.tsx'), true)
+  // 反向对照:同一批字符出现在渲染位 ⇒ 必须判违规(证明豁免没有外溢成"含这些字符就放行")。
+  // 样本取门体豁免 6 注释点名的"仍判违规"形态(`<Text>★ {rating}</Text>`);
+  // 带 `.repeat(` 的整行按现行判据属行级豁免面(本票禁改判据,反向样本不得依赖它)。
+  assert.equal(gate.judgeLine('<Text>★ {rating}</Text>', 1, OTHER)?.label, 'render emoji icon')
+  assert.equal(gate.judgeLine('const x = a ? 1 : 2', 1, OTHER), null)
+})
+
+test('E03 面板数据行收窄:数组元素/整行字面量豁免,同一形态在非面板文件不豁免', () => {
+  assert.equal(gate.isExempt("      '😀',", PANEL), true)
+  assert.equal(gate.isExempt("const EMOJI_LIST = ['😀','😁','😊']", PANEL), true)
+  // 数据形状豁免不许外溢(否则"任何 emoji 数组都算数据"就是新盲区)
+  assert.equal(gate.isExempt("      '😀',", OTHER), false)
+  // 带引号的裸数据形态不能被违规 3 命中
+  assert.notEqual(gate.judgeLine("  '😊',", 1, OTHER)?.label, 'bare emoji JSX child')
+})
+
+// ─── ③ 单源与派生字符类 ───
+
+test('E04 字符类单源:派生字符类与 EMOJI_RE 逐码位同结论,且未处于"判据失明"态', () => {
+  assert.equal(gate.CHAR_CLASS_BROKEN, false, '跳过了字符类提取 —— 面板判据会静默失明')
+  const derived = new RegExp(`[${gate.EMOJI_CHAR_CLASS}]`, 'u')
+  const probes = ['😀', '😊', '★', '✓', '⭐', '⌫', 'A', '©', '®', '中', ' ', '‍']
+  for (const c of probes) {
+    assert.equal(derived.test(c), gate.EMOJI_RE.test(c), `码位 ${JSON.stringify(c)} 两尺结论不一致`)
   }
 })
 
-test('T3 区段表提取失败必须大声退出 2,不得静默降级成"全不豁免"或"全放行"', () => {
-  assert.match(srcText(), /if \(!EMOJI_CHAR_CLASS\)[\s\S]{0,300}process\.exit\(2\)/)
+// ─── ④ --staged 语义:只判本次新增行 ───
+
+test('E05 judgeText:allowedLines 为 null 判全篇,给了集合就只判集合内的行', () => {
+  const text = [ICON_FIELD, 'const ok = 1', ICON_FIELD].join('\n')
+  assert.equal(gate.judgeText(OTHER, text).length, 2, '全篇档应命中两处')
+  const only1 = gate.judgeText(OTHER, text, new Set([1]))
+  assert.deepEqual(only1.map((f) => f.line), [1], 'allowedLines 未生效 ⇒ 提交档会把存量算成本次新增')
+  assert.equal(gate.judgeText(OTHER, text, new Set([2])).length, 0)
 })
 
-test('T4 主循环与自检共用同一份判定(judgeLine),不得留第二份内联实现', () => {
-  const calls = srcText().match(/judgeLine\(/g) || []
-  assert.ok(calls.length >= 2, `judgeLine 必须既有定义又有调用点,实得 ${calls.length} 处`)
-  // 判"主循环里不许自己跑 isExempt"必须**按循环体窗口**取,不能全文搜 ——
-  // 上一版全文负向断言被 judgeLine 自己体内那句 `if (isExempt(...)) return null` 顶红,
-  // 红的是断言写法,不是门被改了(本仓记过多次"假阳比漏报更贵")。
-  const at = srcText().indexOf('lines.forEach((line, idx) => {')
-  assert.ok(at > 0, '未定位到扫描主循环 ⇒ 该锁失效,不得视作通过')
-  const body = srcText().slice(at, at + 600)
-  assert.ok(body.includes('judgeLine('), `主循环没走 judgeLine:${body.slice(0, 200)}`)
-  assert.ok(!body.includes('isExempt('), '主循环不得再直接调 isExempt 后自跑三个正则(那正是"自检绿而门瞎"的形态)')
+// ─── ⑤ 候选剪枝 ───
+
+test('E06 isScanCandidate:只收 UI 端 .ts/.tsx/.js/.jsx,构建产物/依赖/测试副本身份一律不收', () => {
+  assert.equal(gate.isScanCandidate('apps/web/src/a.tsx'), true)
+  assert.equal(gate.isScanCandidate('packages/ui-react/src/a.js'), true)
+  assert.equal(gate.isScanCandidate('apps/web/src/a.md'), false)
+  assert.equal(gate.isScanCandidate('apps/api/src/a.ts'), false, '后端不在射程(UI 端才判图标)')
+  // .next* 族:minified chunk 里的 emoji 曾被误判(2026-09-15 事故),剪枝必须留着
+  assert.equal(gate.isScanCandidate('apps/web/.next/server/chunk.js'), false)
+  assert.equal(gate.isScanCandidate('apps/web/.next-staging/chunk.js'), false)
+  assert.equal(gate.isScanCandidate('apps/web/node_modules/x/a.js'), false)
 })
 
-test('T5 门体自检必须真绿(装车证明,不读文档数字)', () => {
-  const r = runSelfTest(GATE_PATH)
-  assert.equal(r.rc, 0, `--self-test 应 rc=0,实得 ${r.rc}\n${r.out}`)
-  assert.match(r.out, /自检 \d+ 通过 \/ 0 失败/)
-})
+// ─── ⑥ 判定面纪律(§0.4) ───
 
-test('T6 三条变异各自必须把自检翻红(证明每条新判据都有牙,不是恒绿断言)', () => {
-  const dir = mkScratch('emoji-gate-mutation-')
+test('E07 analyze:三档各判各面 —— 改盘不算改 HEAD,新文件只进索引档', () => {
+  const BAD = "export const NAV = [{ label: 'x', icon: '🦄' }]\n"
+  const dir = createRepo({ 'apps/web/src/nav.tsx': BAD })
   try {
-    copyScriptWithClosure(join(REPO, 'scripts'), 'check-no-emoji-icons.mjs', join(dir, 'scripts'))
-    const dst = join(dir, 'scripts', 'check-no-emoji-icons.mjs')
-    const base = readFileSync(dst, 'utf8')
-    const mutations = [
-      [
-        '豁免 1 回退成"整行以 { 即放过"',
-        // String.raw 免掉双层转义:目标文件里那段式子的字面文本就是 `|\{\/\*`
-        () => base.replace(String.raw`|\{\/\*`, String.raw`|\{`),
-      ],
-      [
-        '豁免 2 回退成整文件豁免',
-        () =>
-          base.replace(
-            /if \(EMOJI_PICKER_FILE_RE\.test\(file\)\) \{[\s\S]*?\n  \}\n/,
-            'if (EMOJI_PICKER_FILE_RE.test(file)) return true\n',
-          ),
-      ],
-      [
-        '违规 3(裸 emoji 行)摘线',
-        () =>
-          base.replace(
-            /const bare = BARE_EMOJI_LINE_RE\.exec\(line\.trim\(\)\)[\s\S]*?\n  \}\n\n  return null/,
-            'return null',
-          ),
-      ],
-    ]
-    for (const [label, mutate] of mutations) {
-      const mutated = mutate()
-      assert.notEqual(mutated, base, `变异「${label}」没有真的改动源码 ⇒ 这条臂是空转的`)
-      writeFileSync(dst, mutated)
-      const r = runSelfTest(dst)
-      assert.notEqual(r.rc, 0, `变异「${label}」之后自检仍全绿 ⇒ 该判据没有牙\n${r.out}`)
-    }
+    const head1 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head1.scanned, 1, JSON.stringify(head1))
+    assert.equal(head1.totalViolations, 1, 'HEAD 面漏判基线违规')
+
+    // 只改盘(不 add、不 commit):HEAD 面读数必须不动,worktree 面必须看到修好后的那一份
+    writeRepoFile(dir, 'apps/web/src/nav.tsx', 'export const NAV = []\n')
+    const head2 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head2.totalViolations, 1, '盘上改对把 HEAD 面读数改动了 ⇒ 两面混取')
+    const wt = gate.analyze({ root: dir, face: 'worktree' })
+    assert.equal(wt.totalViolations, 0, 'worktree 档没读到盘上那一份')
+
+    // 新增一个只在索引里的违规文件:staged 档必须看得见,HEAD 档必须看不见
+    writeRepoFile(dir, 'apps/web/src/new.tsx', BAD)
+    assert.equal(git(dir, ['add', 'apps/web/src/new.tsx']).status, 0)
+    const staged = gate.analyze({ root: dir, face: 'staged' })
+    assert.equal(staged.scanned, 1, `staged 档只该判本次新增行(${JSON.stringify(staged)})`)
+    assert.equal(staged.totalViolations, 1, 'staged 档漏判新增文件')
+    const head3 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head3.scanned, 1, 'HEAD 档把未提交的新文件收进来了')
+    assert.equal(head3.totalViolations, 1)
   } finally {
     rmScratch(dir)
   }
+})
+
+test('E08 analyze:被审面枚举到 0 个候选 ⇒ Undetermined(不记绿)', () => {
+  const dir = createRepo({ 'README.md': '# 空仓\n' })
+  try {
+    assert.throws(() => gate.analyze({ root: dir, face: 'head' }), Undetermined)
+    assert.throws(() => gate.analyze({ root: dir, face: 'head' }), /枚举到 0/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── ⑦ §22d 形状锁 ───
+
+test('E09 形状锁:import 本模块零输出零退出(§22d),且守卫/导出/取材面都在位', async () => {
+  const src = readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(src, /const isDirectRun = process\.argv\[1\] && import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/)
+  assert.match(src, /if \(isDirectRun\) \{/)
+  assert.match(src, /export async function main\(/)
+  assert.match(src, /export const __test__ = \{/)
+  // 顶层零 exit:process.exit 只许出现在缩进的守卫兜底里
+  assert.equal(/^process\.exit\(/m.test(src), false, '模块顶层出现裸 process.exit ⇒ 测试 import 会打死宿主')
+  // 取材必须走共用层(自己 walk 磁盘 / 自己拼 git 的那一套已经删掉)
+  assert.match(src, /from '\.\/lib\/face-reader\.mjs'/)
+  assert.match(src, /from '\.\/lib\/face-scan\.mjs'/)
+  assert.equal(/\breadFileSync\(/.test(src), false, '门内又出现 readFileSync ⇒ 取材面退回磁盘')
+  assert.equal(/\bgetStagedAddedLines\b|\bcollectFiles\b/.test(src), false, '旧的磁盘 walk / 自拼 diff 又回来了')
+
+  const fileUrl = pathToFileURL(SCRIPT_PATH).href
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(fileUrl)})`], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  assert.equal(r.status, 0, `import 未零退出: ${r.stderr}`)
+  assert.equal(r.stdout, '', `import 产生了 stdout(顶层有副作用): ${r.stdout}`)
+  assert.equal(r.stderr, '', `import 产生了 stderr: ${r.stderr}`)
+})
+
+test('E10 CLI 直跑:守卫放行后 main 真的执行了(输出扫描读数)', () => {
+  const r = spawnSync(process.execPath, [SCRIPT_PATH], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  // 允许 0/1(仓库现状由内容决定);这里只证明"直跑确实进了主流程"
+  assert.ok([0, 1].includes(r.status), `意外退出码 ${r.status}: ${r.stderr}`)
+  assert.match(r.stdout, /扫描文件: \d+ 个/)
+  assert.match(r.stdout, /违规数:\s+\d+ 处 \(BLOCKING\)/)
+})
+
+// ─── ⑧ 加固维度(G-880 判据③,asset:.svg/.css/.json)───
+
+test('E11 asset 候选:UI 根下 .css/.svg/.json 收,后端/图片扩展名不收', () => {
+  assert.equal(gate.isScanCandidate('apps/web/src/a.css'), true)
+  assert.equal(gate.isScanCandidate('packages/ui-react/icon.svg'), true)
+  assert.equal(gate.isScanCandidate('apps/web/src/cfg.json'), true)
+  assert.equal(gate.isScanCandidate('apps/api/src/a.css'), false, '后端不在射程')
+  assert.equal(gate.isScanCandidate('apps/web/src/a.png'), false, '位图没有"行"可判')
+})
+
+test('E12 asset 判据有牙:三型各自命中,同位反向对照不命中', () => {
+  assert.equal(gate.judgeAssetLine('a.css', '  content: "🦄";', 3)?.label, 'css content emoji icon')
+  assert.equal(gate.judgeAssetLine('a.css', ' * ⚠️ 说明 😊', 77), null, 'css 注释续行(实测 6 处存量全在这一族)必须豁免')
+  assert.equal(gate.judgeAssetLine('a.json', '  "icon": "🦄",', 12)?.label, 'json icon field emoji')
+  assert.equal(gate.judgeAssetLine('a.json', '  "label": "🎉 活动",', 13), null, 'json 文案字段不是图标位')
+  assert.equal(gate.judgeAssetLine('a.svg', '<text>😊</text>', 4)?.label, 'svg emoji glyph')
+  assert.equal(gate.judgeAssetLine('a.svg', '<!-- 😊 占位说明 -->', 2), null, 'svg 注释行豁免')
+})
+
+test('E13 分流互不污染(有牙锁:摘掉任一维,命中集立刻变化)', () => {
+  // 代码形态 `icon: '🦄'` 出现在 css 文件 ⇒ asset 维不吃(若分流被摘,这里立刻多命中)
+  assert.deepEqual(gate.judgeText('apps/web/src/a.css', "icon: '🦄'"), [])
+  // css 形态 `content: "🦄"` 出现在 tsx 文件 ⇒ 代码维不吃(反向同证)
+  assert.deepEqual(gate.judgeText(OTHER, '  content: "🦄";'), [])
+  // asset 命中经 judgeText 收得到 ⇒ 证明 asset 维接进了主循环,不是只住在导出口
+  assert.equal(gate.judgeText('apps/web/src/a.css', 'a{content:"🦄"}').length, 1)
+  // 代码命中经 judgeText 照旧收得到 ⇒ 加固没有把旧维挤掉
+  assert.equal(gate.judgeText(OTHER, "  icon: '🦄',").length, 1)
+})
+
+test('E14 analyze 棘轮+面纪律:asset 命中 HEAD 面只报数,盘上偷改不动 HEAD 读数,staged 档新增行进阻断集', () => {
+  const CSS1 = 'button::before{content:"🦄"}\n'
+  const dir = createRepo({ 'apps/web/src/a.css': CSS1, 'apps/web/src/ok.tsx': 'export const X = 1\n' })
+  try {
+    const head = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head.totalViolations, 0, 'asset 加固维在全量面不得进阻断集(§0.5 棘轮:有存量的新判据不升 blocking)')
+    assert.equal(head.assetStock, 1, 'asset 存量没报数 = 静默少扫')
+
+    // 工作树偷改(不 add):追加一行 asset emoji ⇒ HEAD 面读数必须纹丝不动(证明没读盘)
+    writeRepoFile(dir, 'apps/web/src/a.css', CSS1 + 'span::after{content:"😊"}\n')
+    const head2 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head2.assetStock, 1, '盘上偷改动到了 HEAD 面 ⇒ 混面取材')
+    const wt = gate.analyze({ root: dir, face: 'worktree' })
+    assert.equal(wt.assetStock, 2, 'worktree 档应看见盘上的新值')
+
+    // git add 后 staged 档:本次新增那一行进阻断集,存量行不重复计
+    assert.equal(git(dir, ['add', 'apps/web/src/a.css']).status, 0)
+    const staged = gate.analyze({ root: dir, face: 'staged' })
+    assert.equal(staged.totalViolations, 1, 'staged 档必须拦本次提交带进来的 asset 新增')
+    assert.equal(staged.assetStock, 0, 'staged 档按新增行过滤后,存量行不该再进任何命中集')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('E15 --self-test 与镜像同尺:判据共用一份实现,自检必须全绿', () => {
+  assert.equal(gate.runSelfTest(), 0, '源脚本 --self-test 有失败用例')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

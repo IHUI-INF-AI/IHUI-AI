@@ -1086,9 +1086,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       if (!user?.passwordHash || !(await verifyPassword(oldPwd, user.passwordHash))) {
         return reply.status(400).send(error(400, '旧密码错误'))
       }
-      await updateUser(request.userId!, { passwordHash: await hashPassword(newPwd) })
+      const updatedUser = await updateUser(request.userId!, {
+        passwordHash: await hashPassword(newPwd),
+      })
       await recordSecurityEvent(request, 'password_change')
-      return reply.send(success({ success: true, updated: true }))
+      // updated 由委托侧 UPDATE … RETURNING 的命中行存在性派生(守门 134),不再回字面量 true。
+      return reply.send(success({ success: true, updated: Boolean(updatedUser.id) }))
     },
   )
 

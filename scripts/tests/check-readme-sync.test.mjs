@@ -1,330 +1,501 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 镜像测试:守门 22 `check-readme-sync.mjs`(README 对外能力同步)
+//
+// §22c 纪律:本文件**不复制任何判据常量/正则/路径口径** —— 判据一律从门体 `__test__` 直连
+// (门体自己再从 `scripts/lib/readme-capability-surface.mjs` 单源取)。要加断言只加断言,
+// 不许在这里重写一份"什么算对外能力""什么算提到过"。
+//
+// 用例形状(成对硬要求,单侧不算证明):
+//  - 阳性对照:器物必须真能看见一条没写进 README 的新能力(否则就是恒绿门);
+//  - 阴性对照:已经描述过的能力不得被误报(否则 warn 也会退化成噪声);
+//  - 三态各一 + 三面分叉(§0.4 同面同轮)+ "枚举到 0 ≠ 通过" + 取不到输入 ⇒ 未判定;
+//  - 形状锁:runner 档位现值仍是 warn(§12e:升档前置 = 存量归零)。
+
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execSync, spawnSync } from 'node:child_process'
-import { writeFileSync, mkdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
-import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { spawnSync } from 'node:child_process'
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-// §22c:判据真相只在门体一份 —— 测试导入生产判据,不在测试里重抄豁免/触发表
+
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { catBatch } from '../lib/face-reader.mjs'
+import { SCAN_DIRS } from '../lib/outbound-route-facts.mjs'
+// §22c:判据真相只在门体/判据层一份
 import { __test__ as gate } from '../check-readme-sync.mjs'
 
-// ─── 路径推导(AGENTS.md §15:用 import.meta.url,不硬编码) ───
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-readme-sync.mjs')
+const REPO_ROOT = join(__dirname, '..', '..')
+const STDIO = ['ignore', 'pipe', 'pipe']
+const OLD_DATE = '2000-01-01T00:00:00Z'
 
-// ─── 辅助:创建临时 git 仓库(含初始 commit,README.md 已纳入版本控制) ──
-// check-readme-sync.mjs 通过 git diff 读取 staged/working 文件,需 git 环境
-function createTempRepo() {
-  const dir = mkScratch('ihui-readme-sync-')
-  const opt = { cwd: dir, encoding: 'utf8' }
-  spawnSync('git', ['init', '-b', 'main'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
-  spawnSync('git', ['config', 'user.email', 'test@ihui.local'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
-  spawnSync('git', ['config', 'user.name', 'Test'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
-  spawnSync('git', ['config', 'commit.gpgsign', 'false'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
-  writeFileSync(join(dir, 'README.md'), '# init\n')
-  spawnSync('git', ['add', 'README.md'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
-  spawnSync('git', ['commit', '-q', '-m', 'init'], { ...opt, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: ['ignore', 'pipe', 'pipe'] })
-  return dir
-}
+/* ──────────── 夹具源码(输入样本,不是判据;README 文本与门体 FIXTURES 同源) ──────────── */
 
-// ─── 辅助:在工作仓库创建新文件并 stage(不 commit) ─────────
-// files: ['apps/web/src/foo.ts', ...] (正斜杠路径,Windows 上 git 也接受)
-function stageFiles(dir, files) {
-  for (const f of files) {
-    const fullPath = join(dir, f)
-    mkdirSync(dirname(fullPath), { recursive: true })
-    writeFileSync(fullPath, `content for ${f}\n`)
-    execSync(`git add "${f}"`, { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
-  }
-}
+/** 守门 8 的唯一提取式能解析的最小挂载图:server.ts 按 prefix 注册插件函数 */
+const SERVER_TS_WITHOUT_NEW = [
+  "import Fastify from 'fastify'",
+  "import { widgetRoutes } from './routes/widget.js'",
+  'export async function buildServer() {',
+  '  const server = Fastify()',
+  "  await server.register(widgetRoutes, { prefix: '/api/widget' })",
+  '  return server',
+  '}',
+  '',
+].join('\n')
 
-// ─── 辅助:修改已纳入版本控制的 README.md 并 stage ────────
-// 用于"README 已同步"场景(README.md 在初始 commit 中,需 modified 才进 staged)
-function stageReadme(dir, content) {
-  writeFileSync(join(dir, 'README.md'), content)
-  execSync('git add README.md', { cwd: dir, /* 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY */ stdio: 'ignore' })
-}
+const SERVER_TS_WITH_NEW = [
+  "import Fastify from 'fastify'",
+  "import { widgetRoutes } from './routes/widget.js'",
+  "import { brandNewRoutes } from './routes/brand-new.js'",
+  'export async function buildServer() {',
+  '  const server = Fastify()',
+  "  await server.register(widgetRoutes, { prefix: '/api/widget' })",
+  "  await server.register(brandNewRoutes, { prefix: '/api/widget' })",
+  '  return server',
+  '}',
+  '',
+].join('\n')
 
-function stripAnsi(s) {
-  return s.replace(/\x1b\[[0-9;]*m/g, '')
-}
+const WIDGET_ROUTE_TS = [
+  "import type { FastifyPluginAsync } from 'fastify'",
+  'const widgetRoutes: FastifyPluginAsync = async (server) => {',
+  "  server.get('/existing', async () => ({}))",
+  '}',
+  'export default widgetRoutes',
+  '',
+].join('\n')
 
-// ─── 辅助:运行 check-readme-sync.mjs ─────────────────────
-// 默认传 --staged(pre-commit 钩子模式);opts.args 可覆盖(传 [] 走默认 working tree 模式)
-// 脚本用 console.warn → 业务输出走 stderr;stdout 始终空
-function runScript(opts = {}) {
-  const args = opts.args !== undefined ? opts.args : ['--staged']
-  const r = spawnSync('node', [SCRIPT_PATH, ...args], {
-    cwd: opts.cwd || process.cwd(),
+const BRAND_NEW_ROUTE_TS = [
+  "import type { FastifyPluginAsync } from 'fastify'",
+  'const brandNewRoutes: FastifyPluginAsync = async (server) => {',
+  "  server.get('/brand-new-capability', async () => ({}))",
+  '}',
+  'export default brandNewRoutes',
+  '',
+].join('\n')
+
+const README_SILENT = gate.FIXTURES.readmeBlank
+const README_FULL_PATH = '# IHUI-AI\n\n组件可选清单:`/api/widget/brand-new-capability`。\n'
+const README_FAMILY_PREFIX = '# IHUI-AI\n\n组件能力见 `/api/widget`(逐条子路径不逐一列举)。\n'
+const README_ALIAS_ONLY = '# IHUI-AI\n\n旧写法登记:`widget/brand-new-capability`(不带 /api 前缀)。\n'
+
+/* ───────────────── 临时 git 仓辅助(§15b:夹具落仓库外) ───────────────── */
+
+function gitIn(dir, args, env = {}) {
+  return spawnSync('git', args, {
+    cwd: dir,
     encoding: 'utf8',
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    stdio: STDIO,
+    env: { ...process.env, ...env },
   })
-  r.err = stripAnsi(r.stderr || '')
-  r.out = stripAnsi(r.stdout || '')
-  return r
 }
 
-// ═══════════════════════════════════════════════════════════
-// 环境与空状态
-// ═══════════════════════════════════════════════════════════
+function mustGit(dir, args, env = {}) {
+  const r = gitIn(dir, args, env)
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} 失败:${r.stderr || r.stdout}`)
+  return String(r.stdout || '').trim()
+}
 
-// ─── 1. 非 git: 非 git 仓库目录 + --staged → exit 0(getStagedFiles catch 返回空) ──
-test('非 git: 非 git 仓库目录 + --staged → exit 0(跳过,无 warn)', () => {
-  const dir = mkScratch('ihui-nongit-')
+function writeFileIn(dir, rel, content) {
+  const abs = join(dir, rel)
+  mkdirSync(dirname(abs), { recursive: true })
+  writeFileSync(abs, content)
+}
+
+function commitAll(dir, message, dateIso) {
+  mustGit(dir, ['add', '-A'])
+  const env = dateIso ? { GIT_AUTHOR_DATE: dateIso, GIT_COMMITTER_DATE: dateIso } : {}
+  const r = gitIn(dir, ['commit', '-q', '-m', message], env)
+  if (r.status !== 0) throw new Error(`commit 失败:${r.stderr || r.stdout}`)
+  return mustGit(dir, ['rev-parse', 'HEAD'])
+}
+
+/**
+ * 造一枚"有历史的仓":
+ *   commit1(远古日期)= README + 后端旧面(只有 /api/widget/existing)
+ *   commit2(今天)= 按 commit2Files 决定这一轮动了什么;动了 brand-new 路由才同步换 server.ts
+ * 远古日期让"默认 7 天回看点"正好落在 commit1 上 ⇒ 窗口起点可解、不产生"回看点取不到"那一格未判定,
+ * 这样 `--strict` 与非 `--strict` 两支的差就只剩别称桶本身(否则两因混在一处,证不到点上)。
+ */
+function makeRepo({ readme1 = README_SILENT, commit2Files = null, readme2 = null } = {}) {
+  const dir = mkScratch('ihui-readme-sync-')
+  mustGit(dir, ['init', '-q', '-b', 'main'])
+  mustGit(dir, ['config', 'user.email', 'test@ihui.local'])
+  mustGit(dir, ['config', 'user.name', 'Test'])
+  mustGit(dir, ['config', 'commit.gpgsign', 'false'])
+  writeFileIn(dir, 'README.md', readme1)
+  writeFileIn(dir, 'apps/api/src/server.ts', SERVER_TS_WITHOUT_NEW)
+  writeFileIn(dir, 'apps/api/src/routes/widget.ts', WIDGET_ROUTE_TS)
+  writeFileIn(dir, 'docs/ops.md', '# 运维\n')
+  const c1 = commitAll(dir, 'init: README + 后端旧面', OLD_DATE)
+  const files = commit2Files ?? { 'apps/api/src/routes/brand-new.ts': BRAND_NEW_ROUTE_TS }
+  for (const [rel, content] of Object.entries(files)) writeFileIn(dir, rel, content)
+  if (Object.keys(files).some((p) => p.endsWith('routes/brand-new.ts')))
+    writeFileIn(dir, 'apps/api/src/server.ts', SERVER_TS_WITH_NEW)
+  if (readme2 !== null && readme2 !== undefined) writeFileIn(dir, 'README.md', readme2)
+  const c2 = commitAll(dir, 'feat: 新增对外能力')
+  return { dir, c1, c2 }
+}
+
+function cleanup(...dirs) {
+  for (const d of dirs) {
+    try {
+      rmScratch(d)
+    } catch {
+      /* 回收失败不改结论 */
+    }
+  }
+}
+
+function runCli(args, cwd = REPO_ROOT) {
+  const r = spawnSync(process.execPath, [SCRIPT_PATH, ...args], {
+    cwd,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: STDIO,
+  })
+  return { code: r.status, out: String(r.stdout || ''), err: String(r.stderr || '') }
+}
+
+const { analyze } = gate
+
+/* ═════════════════════ 一、阳性 / 阴性对照(器物的牙) ═════════════════════ */
+
+test('阳性对照:窗口内新增端点而 README 未写 ⇒ 判成未描述缺口并点名出处(旧判据这一型全静默)', () => {
+  const { dir } = makeRepo()
   try {
-    const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0, `非 git 应 exit 0,实际 ${r.status}`)
-    assert.ok(!r.err.includes('[check-readme-sync]'), '非 git 不应触发 warn')
+    const r = analyze({ root: dir })
+    assert.equal(
+      r.counts.missing,
+      1,
+      `未描述应为 1,实得 ${r.counts.missing};notes=${JSON.stringify(r.notes)};undetermined=${JSON.stringify(r.undetermined)}`,
+    )
+    assert.equal(r.counts.added, 1, '窗口内新增对外能力应恰 1 枚')
+    assert.equal(r.gaps[0].id, 'GET /api/widget/brand-new-capability')
+    assert.equal(r.gaps[0].file, 'apps/api/src/routes/brand-new.ts')
+    assert.equal(r.exit, 1)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 2. 空 staged: git 仓库无 staged 文件 → exit 0(无 trigger,无 warn) ─────
-test('空 staged: git 仓库无 staged 文件 → exit 0(无 trigger,无 warn)', () => {
-  const dir = createTempRepo()
+test('阴性对照:同一枚新能力已写进 README ⇒ 不误报(而"新增"照样算得出来)', () => {
+  const { dir } = makeRepo({ readme2: README_FULL_PATH })
   try {
-    const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0, `空 staged 应 exit 0,实际 ${r.status}`)
-    assert.ok(!r.err.includes('[check-readme-sync]'), '空 staged 不应触发 warn')
+    const r = analyze({ root: dir })
+    // README 在第二枚提交里同步更新了 ⇒ 文档锚点挪到 HEAD,窗口起点仍取更旧的远古回看点,
+    // 所以"改了功能也改了 README"这一型不再被静默放过,而是真去核对描述有没有覆盖
+    assert.equal(r.counts.added, 1)
+    assert.equal(r.counts.covered, 1)
+    assert.equal(r.counts.missing, 0)
+    assert.equal(r.exit, 0)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ═══════════════════════════════════════════════════════════
-// pass 场景(README 已同步 / 无功能代码改动)
-// ═══════════════════════════════════════════════════════════
-
-// ─── 3. pass: staged apps/web/src 功能代码 + README.md 已同步 → exit 0 ─────
-test('pass: staged apps/web/src 功能代码 + README.md 已同步 → exit 0,无 warn', () => {
-  const dir = createTempRepo()
+test('前缀不吃便宜:README 只写资源族 `/api/widget` 而新增的是其子路径 ⇒ 仍算缺口', () => {
+  const { dir } = makeRepo({ readme2: README_FAMILY_PREFIX })
   try {
-    stageFiles(dir, ['apps/web/src/page.tsx'])
-    stageReadme(dir, '# updated\n')
-    const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0, `README 已同步应 exit 0,实际 ${r.status}`)
-    assert.ok(!r.err.includes('[check-readme-sync]'), 'README 已同步不应 warn')
+    const r = analyze({ root: dir })
+    // 只有"尾部动态段"才折成资源族前缀(`/api/plaza/:id` 与 `/api/plaza` 是同一能力寻址到实例);
+    // 多出一个静态段就是一条新能力,写一行族名不许给整片新端点打钩(门体 --self-test ⑭ 钉住另一侧)
+    assert.equal(r.counts.missing, 1, `应仍判 1 枚缺口,实得 ${JSON.stringify(r.gaps)}`)
+    assert.equal(r.counts.covered, 0)
+    assert.equal(r.exit, 1)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 4. pass: staged packages/ui/src 共享包代码 + README.md 已同步 → exit 0 ─
-test('pass: staged packages/ui/src 共享包代码 + README.md 已同步 → exit 0,无 warn', () => {
-  const dir = createTempRepo()
+test('别称桶:只命中不带 /api 前缀的多段尾巴 ⇒ 报数不判红,--strict 才逼人交待', () => {
+  const { dir } = makeRepo({ readme2: README_ALIAS_ONLY })
   try {
-    stageFiles(dir, ['packages/ui/src/button.tsx'])
-    stageReadme(dir, '# updated\n')
-    const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
-    assert.ok(!r.err.includes('[check-readme-sync]'), 'packages + README 同步不应 warn')
+    const r = analyze({ root: dir })
+    assert.equal(r.counts.alias, 1, `未判定应 1 枚,实得 ${r.counts.alias}`)
+    assert.equal(r.counts.missing, 0)
+    assert.equal(r.undetermined.length, 0, '夹具把回看点落在远古 commit1 上 ⇒ 不该有尺子未判定混进来')
+    assert.equal(r.exit, 0, 'warn 档:别称不顶红(§12e)')
+    assert.equal(gate.decideExit(r, { strict: true }), 1, '--strict 必须逼这一格交待人')
+    assert.equal(r.aliases[0].evidence, 'widget/brand-new-capability')
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 5. pass: staged 仅 scripts/ 改动(豁免,非功能代码)→ exit 0 ──────────────
-test('pass: staged 仅 scripts/ 改动(豁免,非功能代码)→ exit 0,无 warn', () => {
-  const dir = createTempRepo()
+test('web 页面腿:新增 apps/web/app/(main)/demo/page.tsx 而 README 未写 ⇒ PAGE /demo', () => {
+  const { dir } = makeRepo({
+    commit2Files: { 'apps/web/app/(main)/demo/page.tsx': 'export default function P() { return null }\n' },
+  })
   try {
-    stageFiles(dir, ['scripts/check-foo.mjs', 'scripts/helpers/util.mjs'])
-    const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
-    assert.ok(!r.err.includes('[check-readme-sync]'), 'scripts/ 豁免不应 warn')
+    const r = analyze({ root: dir })
+    assert.equal(r.counts.missing, 1, `缺口应 1 枚,实得 ${JSON.stringify(r.gaps)}`)
+    assert.equal(r.gaps[0].id, 'PAGE /demo')
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 6. pass: staged 仅 README.md(modified,无功能代码)→ exit 0 ─────────────
-test('pass: staged 仅 README.md(modified,无功能代码)→ exit 0,无 warn', () => {
-  const dir = createTempRepo()
+test('存量 / 新增分档:第二轮带来的缺口 bucket=in-doc-window(升 blocking 时唯一可拦的一截)', () => {
+  const { dir } = makeRepo()
   try {
-    stageReadme(dir, '# only readme\n')
-    const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
-    assert.ok(!r.err.includes('[check-readme-sync]'), '仅 README.md 不应 warn')
+    const r = analyze({ root: dir })
+    assert.equal(r.gaps[0].bucket, 'in-doc-window')
+    assert.equal(r.counts['in-doc-window'], 1)
+    assert.equal(r.counts.backlog, 0)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ═══════════════════════════════════════════════════════════
-// warn 场景(功能代码改动但 README.md 未同步)
-// ═══════════════════════════════════════════════════════════
-
-// ─── 7. warn: staged apps/web/src 功能代码,无 README.md → exit 0 + warn ─────
-test('warn: staged apps/web/src 功能代码,无 README.md → exit 0 + warn', () => {
-  const dir = createTempRepo()
+test('盲区点名:第二轮动小程序页面文件 ⇒ blindSpots 计数但不判红(§0.6 不另立第二份提取式)', () => {
+  const { dir } = makeRepo({
+    commit2Files: {
+      'apps/miniapp-taro/src/pages/demo/index.tsx': 'export default function P() { return null }\n',
+    },
+  })
   try {
-    stageFiles(dir, ['apps/web/src/page.tsx'])
-    const r = runScript({ cwd: dir })
-    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
-    assert.equal(r.status, 1, 'warn-only 违规应 exit 1')
-    assert.match(r.err, /\[check-readme-sync\]/, '应输出脚本标识')
-    assert.match(r.err, /README\.md 未同步/, '应提示 README 未同步')
-    assert.match(r.err, /warn-only/, '应标明 warn-only')
-    assert.match(r.err, /apps\/web\/src\/page\.tsx/, '应列出触发文件')
+    const r = analyze({ root: dir })
+    assert.ok(r.blindSpots.files >= 1, `盲区应点名到文件,实得 ${JSON.stringify(r.blindSpots)}`)
+    assert.ok(r.blindSpots.dirs.includes('apps/miniapp-taro/src'))
+    assert.equal(r.counts.missing, 0, '盲区只报数,不得冒红')
+    assert.equal(r.exit, 0)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 8. warn: staged packages/ui/src 共享包代码,无 README.md → exit 0 + warn ─
-test('warn: staged packages/ui/src 共享包代码,无 README.md → exit 0 + warn', () => {
-  const dir = createTempRepo()
+/* ═════════════════════ 二、三态纪律(§0.3) ═════════════════════ */
+
+test('取不到被审文档面 ⇒ 未判定(抛 Undetermined,不回落另一个面)', () => {
+  const dir = mkScratch('ihui-readme-sync-')
   try {
-    stageFiles(dir, ['packages/ui/src/button.tsx'])
-    const r = runScript({ cwd: dir })
-    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
-    assert.equal(r.status, 1)
-    assert.match(r.err, /\[check-readme-sync\]/)
-    assert.match(r.err, /README\.md 未同步/)
-    assert.match(r.err, /warn-only/, '应标明 warn-only')
-    assert.match(r.err, /packages\/ui\/src\/button\.tsx/, '应列出 packages 触发文件')
+    mustGit(dir, ['init', '-q', '-b', 'main'])
+    mustGit(dir, ['config', 'user.email', 'test@ihui.local'])
+    mustGit(dir, ['config', 'user.name', 'Test'])
+    writeFileIn(dir, 'apps/api/src/server.ts', SERVER_TS_WITHOUT_NEW)
+    writeFileIn(dir, 'apps/api/src/routes/widget.ts', WIDGET_ROUTE_TS)
+    commitAll(dir, 'init: 仓里根本没有 README')
+    assert.throws(
+      () => analyze({ root: dir }),
+      (e) => /取不到 README\.md/.test(String(e?.message ?? e)),
+      undefined,
+      '必须显式未判定',
+    )
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 9. warn: staged apps/ai-service/app/api/ 改动,无 README.md → exit 0 + warn ─
-test('warn: staged apps/ai-service/app/api/ 改动,无 README.md → exit 0 + warn', () => {
-  const dir = createTempRepo()
+test('枚举到 0 个端点却有后端源文件 ⇒ 未判定(尺子坏了不等于没有能力)', () => {
+  const dir = mkScratch('ihui-readme-sync-')
   try {
-    stageFiles(dir, ['apps/ai-service/app/api/route.py'])
-    const r = runScript({ cwd: dir })
-    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
-    assert.equal(r.status, 1)
-    assert.match(r.err, /\[check-readme-sync\]/)
-    assert.match(r.err, /README\.md 未同步/)
-    assert.match(r.err, /warn-only/, '应标明 warn-only')
-    assert.match(r.err, /apps\/ai-service\/app\/api\/route\.py/, '应列出 ai-service api 触发文件')
+    mustGit(dir, ['init', '-q', '-b', 'main'])
+    mustGit(dir, ['config', 'user.email', 'test@ihui.local'])
+    mustGit(dir, ['config', 'user.name', 'Test'])
+    writeFileIn(dir, 'README.md', README_SILENT)
+    commitAll(dir, 'init readme', OLD_DATE)
+    writeFileIn(dir, 'apps/api/src/loose.ts', 'export const x = 1\n')
+    commitAll(dir, 'feat: 加一个不注册任何端点的后端文件')
+    assert.throws(
+      () => analyze({ root: dir }),
+      (e) => /提取式失效/.test(String(e?.message ?? e)),
+      undefined,
+      '必须显式未判定',
+    )
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 10. warn: staged apps/ai-service/app/services/ 改动,无 README.md → exit 0 + warn ─
-test('warn: staged apps/ai-service/app/services/ 改动,无 README.md → exit 0 + warn', () => {
-  const dir = createTempRepo()
+test('有依据的 0:窗口内只动文档没动能力源面 ⇒ 记 sound-zero 依据行,不空口通过', () => {
+  const dir = mkScratch('ihui-readme-sync-')
   try {
-    stageFiles(dir, ['apps/ai-service/app/services/llm.py'])
-    const r = runScript({ cwd: dir })
-    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
-    assert.equal(r.status, 1)
-    assert.match(r.err, /\[check-readme-sync\]/)
-    assert.match(r.err, /README\.md 未同步/)
-    assert.match(r.err, /warn-only/, '应标明 warn-only')
-    assert.match(r.err, /apps\/ai-service\/app\/services\/llm\.py/, '应列出 ai-service services 触发文件')
+    mustGit(dir, ['init', '-q', '-b', 'main'])
+    mustGit(dir, ['config', 'user.email', 'test@ihui.local'])
+    mustGit(dir, ['config', 'user.name', 'Test'])
+    writeFileIn(dir, 'README.md', README_SILENT)
+    writeFileIn(dir, 'apps/api/src/server.ts', SERVER_TS_WITHOUT_NEW)
+    writeFileIn(dir, 'apps/api/src/routes/widget.ts', WIDGET_ROUTE_TS)
+    commitAll(dir, 'init', OLD_DATE)
+    writeFileIn(dir, 'docs/ops.md', '# 运维(改了文档)\n')
+    commitAll(dir, 'docs: 只动文档')
+    const r = analyze({ root: dir })
+    assert.equal(r.counts.added, 0)
+    assert.equal(r.exit, 0)
+    assert.ok(r.notes.some((n) => n.kind === 'sound-zero'), '必须给出"这是有依据的 0"的依据行')
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ═══════════════════════════════════════════════════════════
-// 边界场景(豁免交互 / 非 trigger 路径 / 截断 / 默认模式)
-// ═══════════════════════════════════════════════════════════
-
-// ─── 11. 边界 pass: staged apps/web/src/foo.test.ts(测试文件豁免)→ exit 0 ──
-test('边界 pass: staged apps/web/src/foo.test.ts(测试文件豁免)→ exit 0,无 warn', () => {
-  const dir = createTempRepo()
+test('回看点解不出(仓龄短于窗口)⇒ 落一条未判定点名,不冒充审过全部历史', () => {
+  const dir = mkScratch('ihui-readme-sync-')
   try {
-    stageFiles(dir, ['apps/web/src/foo.test.ts'])
-    const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
-    assert.ok(!r.err.includes('[check-readme-sync]'), '测试文件豁免不应 warn')
+    mustGit(dir, ['init', '-q', '-b', 'main'])
+    mustGit(dir, ['config', 'user.email', 'test@ihui.local'])
+    mustGit(dir, ['config', 'user.name', 'Test'])
+    writeFileIn(dir, 'README.md', README_SILENT)
+    writeFileIn(dir, 'apps/api/src/server.ts', SERVER_TS_WITHOUT_NEW)
+    writeFileIn(dir, 'apps/api/src/routes/widget.ts', WIDGET_ROUTE_TS)
+    commitAll(dir, 'init(今天)')
+    writeFileIn(dir, 'apps/api/src/routes/brand-new.ts', BRAND_NEW_ROUTE_TS)
+    writeFileIn(dir, 'apps/api/src/server.ts', SERVER_TS_WITH_NEW)
+    commitAll(dir, 'feat: 新能力(今天)')
+    const r = analyze({ root: dir })
+    assert.ok(
+      r.undetermined.some((u) => u.what === '回看点'),
+      '两条提交都是今天 ⇒ 7 天回看点解不出,必须点名',
+    )
+    assert.equal(r.counts.missing, 1, '文档锚点窗口照样判得出这一枚(退化到锚点,不是退化到不判)')
+    assert.equal(r.exit, 1, '未判定项不顶红,缺口顶红(warn 档)')
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 12. 边界 pass: staged apps/web/src/guide.md(md 文件豁免,TRIGGER 命中但被 EXEMPT 抵消)→ exit 0 ──
-test('边界 pass: staged apps/web/src/guide.md(md 豁免,TRIGGER+EXEMPT 抵消)→ exit 0,无 warn', () => {
-  const dir = createTempRepo()
+/* ═════════════════════ 三、面纪律(§0.4 同面同轮) ═════════════════════ */
+
+test('三面分叉:README 只在盘上补对而未提交 ⇒ head/staged 仍判缺口,worktree 判覆盖', () => {
+  const { dir } = makeRepo()
   try {
-    stageFiles(dir, ['apps/web/src/guide.md'])
-    const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
-    assert.ok(!r.err.includes('[check-readme-sync]'), 'md 文件豁免不应 warn')
+    writeFileIn(dir, 'README.md', README_FULL_PATH) // 只改盘上,不 add 不 commit
+    const head = analyze({ root: dir, face: 'head' })
+    const staged = analyze({ root: dir, face: 'staged' })
+    const wt = analyze({ root: dir, face: 'worktree' })
+    assert.equal(head.counts.missing, 1, 'HEAD 面不看盘上副本')
+    assert.equal(staged.counts.missing, 1, '索引面不看盘上副本')
+    assert.equal(wt.counts.missing, 0, '--worktree 是显式逃生舱,读盘上副本')
+    assert.equal(wt.counts.covered, 1)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 13. 边界 pass: staged apps/web/foo.ts(不在 src/,非 trigger)→ exit 0 ──
-test('边界 pass: staged apps/web/foo.ts(不在 src/,非 trigger)→ exit 0,无 warn', () => {
-  const dir = createTempRepo()
+test('两面旗同给 ⇒ 参数不成立,不猜面', () => {
+  const r = runCli(['--staged', '--worktree'])
+  assert.equal(r.code, 2, `${r.out}${r.err}`)
+  assert.match(r.err, /不得同用/)
+})
+
+/* ═════════════════════ 四、CLI 与参数纪律 ═════════════════════ */
+
+test('非 git 目录 ⇒ exit 2 显式未判定(旧行为是 exit 0 假绿,这一条封死它)', () => {
+  const dir = mkScratch('ihui-readme-sync-nongit-')
   try {
-    stageFiles(dir, ['apps/web/foo.ts'])
-    const r = runScript({ cwd: dir })
-    assert.equal(r.status, 0)
-    assert.ok(!r.err.includes('[check-readme-sync]'), '非 src 路径不触发')
+    const r = runCli(['--root', dir, '--staged'], dir)
+    assert.equal(r.code, 2, `实得 ${r.code}/${r.err || r.out}`)
+    assert.match(r.err, /无法判定/)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 14. 边界 warn: staged 6 个 trigger 文件(>5)→ exit 0 + warn,含"还有 1 个"截断 ──
-test('边界 warn: staged 6 个 trigger 文件(>5)→ exit 0 + warn,含"还有 1 个"截断提示', () => {
-  const dir = createTempRepo()
+test('旗标吞值与未知旗标 ⇒ 参数不成立并点名,不静默退回默认', () => {
+  assert.match(String(gate.parseArgs(['--horizon-days']).horizonError), /--horizon-days 需要一个/)
+  assert.match(String(gate.parseArgs(['--since']).sinceError), /--since 需要一个/)
+  assert.equal(gate.parseArgs(['--horizon-days', '3']).horizonDays, 3)
+  assert.equal(gate.parseArgs(['--turbo-mode']).unknown.join(' '), '--turbo-mode')
+  const r = runCli(['--turbo-mode'])
+  assert.equal(r.code, 2)
+  assert.match(r.err, /未知旗标:--turbo-mode/)
+})
+
+test('--horizon-days 非正数 ⇒ 参数不成立(不接受"0 = 关掉窗口"这种静默降级)', () => {
+  const r = runCli(['--horizon-days', '0'])
+  assert.equal(r.code, 2, `${r.out}${r.err}`)
+  assert.match(r.err, /必须是正数/)
+})
+
+test('--since 钉到 HEAD ⇒ same-face 依据行,不拿 0 冒充审过', () => {
+  const { dir, c2 } = makeRepo()
   try {
-    const files = []
-    for (let i = 0; i < 6; i++) files.push(`apps/web/src/file${i}.ts`)
-    stageFiles(dir, files)
-    const r = runScript({ cwd: dir })
-    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
-    assert.equal(r.status, 1)
-    assert.match(r.err, /\[check-readme-sync\]/)
-    assert.match(r.err, /warn-only/, '应标明 warn-only')
-    assert.match(r.err, /6 个功能文件/, '应报告 6 个功能文件')
-    assert.match(r.err, /还有 1 个/, '应输出截断提示"还有 1 个"')
+    const r = analyze({ root: dir, since: c2 })
+    assert.equal(r.counts.added, 0)
+    assert.ok(r.notes.some((n) => n.kind === 'same-face'))
+    assert.match(r.startSource, /--since/)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ─── 15. 非 staged 模式: 默认模式(无 --staged)读取 working tree 改动,无 README.md → warn ──
-test('非 staged 模式: 默认模式(无 --staged)读取 working tree 改动,无 README.md → exit 0 + warn', () => {
-  const dir = createTempRepo()
+test('--since 给一个解不出的引用 ⇒ 未判定 exit 2', () => {
+  const r = runCli(['--since', 'definitely-not-a-rev-xyz'])
+  assert.equal(r.code, 2, `${r.out}${r.err}`)
+  assert.match(r.err, /无法判定/)
+})
+
+test('--json 出口给逐条缺口(清存量的唯一机器可读入口)且形状稳定', () => {
+  const { dir } = makeRepo()
   try {
-    // stageFiles 创建并 stage 新文件;git diff --name-only HEAD 会包含 staged 新文件(HEAD 未含)
-    stageFiles(dir, ['apps/web/src/page.tsx'])
-    // 不传 --staged,走默认 working tree 模式(line 87-94 分支)
-    const r = runScript({ cwd: dir, args: [] })
-    // 2026-08-19 起脚本有意 exit 1 供 runner 计 warning(依据:scripts/check-readme-sync.mjs:131-134 注释 + runner id 22 mode=warn)
-    assert.equal(r.status, 1)
-    assert.match(r.err, /\[check-readme-sync\]/, '默认模式也应检测功能代码改动')
-    assert.match(r.err, /README\.md 未同步/)
-    assert.match(r.err, /warn-only/, '应标明 warn-only')
+    const r = analyze({ root: dir })
+    const json = JSON.parse(JSON.stringify(r))
+    assert.equal(json.gaps[0].id, 'GET /api/widget/brand-new-capability')
+    for (const k of [
+      'face',
+      'docAnchor',
+      'horizonRev',
+      'start',
+      'counts',
+      'gaps',
+      'aliases',
+      'undetermined',
+      'blindSpots',
+      'notes',
+    ])
+      assert.ok(k in json, `json 面必须有 ${k}`)
   } finally {
-    rmScratch(dir)
+    cleanup(dir)
   }
 })
 
-// ═══════════════════════════════════════════════════════════
-// §22c 判据直连(触发/豁免表只在门体一份,测试不重抄)
-// ═══════════════════════════════════════════════════════════
-
-// ─── 16. 判据直连: gate.isTrigger / gate.isExempt 与端到端用例同形 ──
-test('判据直连: 触发与豁免判据来自门体 export(§22c 单一真相)', () => {
-  assert.ok(Array.isArray(gate.TRIGGER_PATTERNS) && gate.TRIGGER_PATTERNS.length > 0)
-  assert.ok(Array.isArray(gate.EXEMPT_PATTERNS) && gate.EXEMPT_PATTERNS.length > 0)
-  // 触发端:与用例 7/8/9/10 的端到端结论一致
-  assert.equal(gate.isTrigger('apps/web/src/page.tsx'), true)
-  assert.equal(gate.isTrigger('packages/ui/src/button.tsx'), true)
-  assert.equal(gate.isTrigger('apps/ai-service/app/api/route.py'), true)
-  assert.equal(gate.isTrigger('apps/ai-service/app/services/llm.py'), true)
-  // 非触发端:与用例 13 一致
-  assert.equal(gate.isTrigger('apps/web/foo.ts'), false)
-  // 豁免端:与用例 5/11/12 一致
-  assert.equal(gate.isExempt('scripts/check-foo.mjs'), true)
-  assert.equal(gate.isExempt('apps/web/src/foo.test.ts'), true)
-  assert.equal(gate.isExempt('apps/web/src/guide.md'), true)
-  // 裁定组合(TRIGGER 命中但被 EXEMPT 抵消)同样走门体函数,测试不复述表内容
-  const isViolation = (f) => gate.isTrigger(f) && !gate.isExempt(f)
-  assert.equal(isViolation('apps/web/src/page.tsx'), true)
-  assert.equal(isViolation('apps/web/src/guide.md'), false)
-  assert.equal(isViolation('scripts/check-foo.mjs'), false)
+test('--help 给用法即 exit 0(§0.8:文档里每条出路都必须真跑得通)', () => {
+  const r = runCli(['--help'])
+  assert.equal(r.code, 0, `${r.out}${r.err}`)
+  assert.match(r.out, /--horizon-days/)
 })
+
+test('--self-test 真求值且零失败(登记侧不求值会被门 156 判红)', () => {
+  const r = runCli(['--self-test'])
+  assert.equal(r.code, 0, `${r.out}\n${r.err}`)
+  assert.match(r.out, /--self-test: \d+ 通过 \/ 0 失败/)
+})
+
+/* ═════════════════════ 五、单源与形状锁(§22c / §12e) ═════════════════════ */
+
+test('§22c 判据直连:门体 surface 与判据层是同一批函数对象(测试与门都没抄第二份)', () => {
+  const surface = gate.surface
+  assert.equal(typeof surface.classifyDescriptor, 'function')
+  assert.equal(typeof surface.pickWindowStart, 'function')
+  assert.equal(
+    surface.BACKEND_SOURCE_DIRS,
+    SCAN_DIRS,
+    '源面目录必须是 outbound 那一枚数组,不是副本(§0.6 单一真相源)',
+  )
+  // 端到端与判据函数同形:两侧都得成立(阳性 + 阴性)
+  const d = { primary: 'api/widget/brand-new-capability' }
+  assert.equal(surface.classifyDescriptor(d, README_SILENT.toLowerCase()).state, 'missing')
+  assert.equal(surface.classifyDescriptor(d, README_FULL_PATH.toLowerCase()).state, 'covered')
+})
+
+test('形状锁:runner(HEAD 面)登记 id 22 且档位仍是 warn(升档前置=存量归零)', () => {
+  const got = catBatch(REPO_ROOT, ['HEAD:scripts/guardian-runner.mjs'], { maxBuffer: 1 << 29 })
+  const runner = got.get('HEAD:scripts/guardian-runner.mjs')
+  assert.equal(typeof runner, 'string', 'runner 的 HEAD 面必须取到,取不到就是没判')
+  const idx = runner.indexOf("script: 'check-readme-sync.mjs'")
+  assert.ok(idx > 0, '本门必须真在注册表里(没装车=没有)')
+  const entry = runner.slice(Math.max(0, idx - 400), idx + 260)
+  assert.match(entry, /id:\s*'22'/, '条目 id 必须紧邻')
+  assert.match(
+    entry,
+    /mode:\s*'warn'/,
+    `runner 现值必须是 warn(§12e:存量未清零时上 blocking=恒红门):${entry}`,
+  )
+  assert.doesNotMatch(entry, /mode:\s*'blocking'/, '有人没清存量就升档 ⇒ 本用例先红')
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

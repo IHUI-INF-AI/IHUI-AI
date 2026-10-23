@@ -824,17 +824,28 @@ export const traeAdapter: RelayUpstreamAdapter = {
    */
   async getQuota(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult> {
     try {
+      const cookieHeader = buildCookieHeader(ctx.credentials.cookies)
       const res = await resolveFetchImpl(opts ?? {})(TRAE_ENT_USAGE_URL, {
         method: 'GET',
         headers: {
           Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
           Accept: 'application/json',
+          // 该端点属 web 域(api.trae.cn):线上那次 200 是在页面上下文带 cookie 取到的;
+          // 只发 Authorization 是否够用,本机无法证明(唯一在册号的会话已被上游整体拒收,
+          // JWT、cookie、两者叠加、无凭据四型同回 401 code 1001)。⇒ 取超集:
+          // JWT + cookie + 站点身份头(与 GetUserToken 同一组常量,该端点已实证接受这套指纹)。
+          Origin: WEB_LOGIN_ORIGIN,
+          Referer: `${WEB_LOGIN_ORIGIN}/`,
+          'User-Agent': WEB_USER_AGENT,
+          ...(cookieHeader ? { Cookie: cookieHeader } : {}),
         },
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
         return {
           ok: false,
+          // 鉴权失效判定与 isAuthFailure 同源(状态码当场量得),供承载层触发自愈
+          authFailed: traeAdapter.isAuthFailure(res.status, text),
           error: `web_user_ent_usage HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
         }
       }

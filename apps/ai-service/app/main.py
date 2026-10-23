@@ -1126,6 +1126,9 @@ def create_app() -> FastAPI:
     # router 自带 /api/checkin 前缀,鉴权用 require_request_user_id。
     from app.routers import checkin as checkin_router
     app.include_router(checkin_router.router, tags=["checkin"])
+    # O64 号池↔签到同步 internal 端点(自带 /internal/checkin 前缀,X-Internal-Secret 鉴权)。
+    from app.routers import internal_checkin_pool as checkin_internal_router
+    app.include_router(checkin_internal_router.router, tags=["checkin-internal"])
 
     # W4(Phase 0):Plan Mode 计划模式端点族(对标 Claude Code Plan Mode,全新端点 /api/agent-plan*)
     from app.routers import agent_plan as agent_plan_router
