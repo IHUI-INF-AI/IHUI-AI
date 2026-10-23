@@ -482,9 +482,18 @@ CLI 历史上只认「人凭据」(登录拿到的 JWT)。本节补齐「机器�
 | 形态 | `eyJhbGciOi…`(三段 base64url) | `ihui_` 前缀 + 24 位 hex |
 | 获取方式 | `ihui login` / SSO 授权 | 服务端开发者中心签发 |
 | 本地续期 | access 过期自动用 `refreshToken` 换新 | **不续期**(无 `exp` / refresh 语义) |
-| 出站请求头 | `Authorization: Bearer <jwt>` | `Authorization: Bearer ihui_xxx` + `X-Api-Secret: sk_xxx` |
+| 出站请求头 | `Authorization: Bearer <jwt>` | `Authorization: Bearer ihui_xxx` + `X-Api-Secret: sk_xxx`，**或**单凭据组合形态 `Authorization: Bearer ihui_xxx.sk_xxx` |
 | 权限模型 | 用户角色 / 会员等级 | 能力目录 scope(与 `packages/types/generated/capabilities.json` 同源) |
 | 存放位置 | `settings.json` 的 `apiKey` | 同一 `apiKey` 字段,由 `credentialKind` 判别 |
+
+> **单凭据组合形态（2026-10-23 起）**
+> API Key 是双因子：`ihui_<24hex>` 定行、`sk_<32hex>` 是 secret（库内只存哈希）。
+> 大多数 OpenAI 兼容客户端只有一个 "API Key" 输入框，填不进 `X-Api-Secret`，
+> 因此支持把两者用 `.` 拼成一串：`ihui_xxx.sk_xxx`，粘进 Key 框即可。
+> 创建/重置 Key 的响应里 `credential` 字段直接给出这一串。
+>
+> **不要只填 `sk_xxx`**：secret 是哈希存储、无法反查所在行，单填 secret 必然鉴权失败
+> （而且会被 CSRF 钩子以"凭据未验真"拒绝，返回 403 而非 401，容易误判成别的问题）。
 
 ### settings.json 的凭据字段
 

@@ -240,7 +240,7 @@ test('T15 stale 判据四向：远端无⇒豁免 / 远端有⇒仍判 / 问不�
   assert.equal(staleExempt('origin/wip/real', q), null, '远端真有的滞留旁支必须仍判（§9b 拦的就是它）')
   assert.equal(staleExempt('origin/main', q), null)
   assert.equal(staleExempt('wip/gone', q), null, '本地分支永远要判')
-  assert.equal(staleExempt('gitee/wip/gone', q), null, '镜像远端归 mirror 档，不得由 stale 抢')
+  assert.equal(staleExempt('gh/wip/gone', q), null, '镜像远端归 mirror 档，不得由 stale 抢')
   assert.equal(staleExempt('origin/wip/gone', { remoteHeads: heads, remoteQueryable: false }), null)
   assert.equal(staleExempt('origin/wip/gone', { remoteQueryable: true }), null, '没给集合⇒不豁免')
 })

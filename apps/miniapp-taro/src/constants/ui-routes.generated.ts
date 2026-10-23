@@ -8,11 +8,11 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 609106eac967b8bcbd151f34c3725c2f3dd052e2
-// inputsSha256: cb01000b8b8866ec3bd0ee4698b73ded73cd32ed9385112071f449ac301b34b9
+// sourceCommit: 68c7006955832b67649c832995f9525049e5392e
+// inputsSha256: d2c978d00f4f308640eb0ab77c59e8220295a643c79e1379c1909c7ffa9e0f65
 // input: apps/miniapp-taro/src/api/index.ts 906678d9feb2dabe632a4a45b2a75ace7e081d020944f31357aa249f64c7ab2e
 // input: apps/miniapp-taro/src/api/social.ts 6fd0f50805af0b076929ce380009d01c6856fa63994bce8367577161e968a160
-// input: apps/miniapp-taro/src/app.config.ts 6db0159d12d39834ff6aaf5c9a04d9eff34eaad28d4c4811b38f22784728d404
+// input: apps/miniapp-taro/src/app.config.ts 78079ef762d4769c8d2d09ce9f097cde0eb80b825892d8c0e3509c2fafba4508
 // input: apps/miniapp-taro/src/app.tsx e6ba1c10e5a77c399b1308dbc6f92bce206a08226d5a8544d1c4cf2ca2a68327
 // input: apps/miniapp-taro/src/components/AgentListPanel.tsx 1e9ba13abe25ef1f475d28393dc0df9812a4b3df620bff14e19cf2942914c051
 // input: apps/miniapp-taro/src/components/AgentRuntimePanel.tsx dccf5486d145e8f00d80c4e8067ef929229234d2122b8f2e625f9dc48c6872d6
@@ -416,6 +416,7 @@
 // input: apps/miniapp-taro/src/pkg-user/account-cancel/index.tsx 610ca47fcdf52fe1d6f9e51406efda3934065bbf2bca145df4c03a46d2813336
 // input: apps/miniapp-taro/src/pkg-user/bill/index.tsx 8074e5cac07f5dea373bc46d9b3527ec4590cde2ad25d95b7970e84dcc0a5c93
 // input: apps/miniapp-taro/src/pkg-user/check-in/index.tsx cac7a666e603fb0d1c3506f93d0b5d8cfad8d3a30067f855889108c87e0e7362
+// input: apps/miniapp-taro/src/pkg-user/checkin-assistant/index.tsx 198737a74bb3398ee071ef4c209291804017020f475872b4fca0681061e26fbe
 // input: apps/miniapp-taro/src/pkg-user/favorites/index.config.ts 0782030c1ca94bfe6b26f2a1eb9bd77862414e7de5ae0e0d12f23af5ca4b341e
 // input: apps/miniapp-taro/src/pkg-user/favorites/index.tsx 634265388028821085fad2355aa745f4a3c3e9d125ba704e842cceb36846bca7
 // input: apps/miniapp-taro/src/pkg-user/following/index.config.ts c17f5f4bf09110d00ae568437b311ca7ca331436bc8578f6d314671390db3e92
@@ -440,7 +441,7 @@
 // input: apps/miniapp-taro/src/pkg-user/user/phone.config.ts eb2105a4743e5c524dda8e0b87a3eaade795049eaf0670622faa340fdcc9a7cb
 // input: apps/miniapp-taro/src/pkg-user/user/phone.tsx 28774b31eadfcbe4ca0090eb4d132aa4b72461049d74bef7967c23bc1720bd72
 // input: apps/miniapp-taro/src/pkg-user/user/profile.config.ts 1f467c8f083c6fcd9430649a8391b0aaa2065cea03f259c0d0aa80fd7ce8ffc9
-// input: apps/miniapp-taro/src/pkg-user/user/profile.tsx 93295eac3070ef2e14fef025a6de298de3a4461c354147c9eb4bd2556d7b58d7
+// input: apps/miniapp-taro/src/pkg-user/user/profile.tsx ad9614f525711102a9a5884f54d12c24c8723fe482e4dee51e0ab8b394216d7d
 // input: apps/miniapp-taro/src/pkg-user/user/realname.config.ts aeb6ad009e936d7da2143385d9e15e45fe38d5a40cb75d16b2b14d210f9966c9
 // input: apps/miniapp-taro/src/pkg-user/user/realname.tsx 3f315a36f116cacf63c560c41f7a9500ae03a6c8508b58120db6972f240d9ac0
 // input: apps/miniapp-taro/src/pkg-user/user/settings.config.ts a665b1922789f231edf66bccdf5034b1e334e9f866a37b74400edfff21e73ce7
@@ -484,9 +485,9 @@
 // input: apps/miniapp-taro/src/utils/upload-image.ts 595d36c6d76e3d4e2673cb66c66942bb4b052f4075a1ae50c8a7ccea1ab796d3
 // input: apps/miniapp-taro/src/utils/voice-recorder.ts 2ea58f7273c643f6e032640c175c2878516be0bf35bba8420e3f847b1218aad7
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
-// scanned: 354 source files(navigateTo url 参数探测,requiresParams 的依据)
-// skipped: pagesWithoutOwnConfig=36(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-23T05:19:38.127Z
+// scanned: 355 source files(navigateTo url 参数探测,requiresParams 的依据)
+// skipped: pagesWithoutOwnConfig=37(标题回落 app window / tabBar 文案)
+// generatedAt: 2026-10-23T12:08:35.126Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */
@@ -1077,6 +1078,13 @@ export const TARO_UI_ROUTES: readonly TaroUiRouteEntry[] = [
   },
   {
     path: '/pkg-user/account-cancel/index',
+    title: '智汇AI',
+    tab: false,
+    subPackageRoot: 'pkg-user',
+    requiresParams: false,
+  },
+  {
+    path: '/pkg-user/checkin-assistant/index',
     title: '智汇AI',
     tab: false,
     subPackageRoot: 'pkg-user',

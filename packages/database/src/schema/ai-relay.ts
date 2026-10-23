@@ -15,7 +15,9 @@ import {
   jsonb,
   index,
   unique,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { users } from './users.js'
 
 /**
@@ -102,6 +104,12 @@ export const aiRelayAccountPool = pgTable(
   'ai_relay_account_pool',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    /**
+     * 池归属:NULL = 运营级全局池(现有行为);非 NULL = 该平台用户的个人号池。
+     * 用户个人池只服务本人(转发选号按 owner 过滤、签到同步落到同一 owner),
+     * 运营池保持全局兜底。两套唯一性各由部分唯一索引约束(见下方)。
+     */
+    ownerUserId: varchar('owner_user_id', { length: 64 }),
     /** 平台编码:trae / workbuddy / codearts / qoder */
     providerCode: varchar('provider_code', { length: 64 }).notNull(),
     /** 上游账号唯一 id(导入时解析,同 provider 去重键) */
@@ -156,13 +164,23 @@ export const aiRelayAccountPool = pgTable(
     claimNote: text('claim_note'),
     /** 累计转发调用次数(号池消耗观测) */
     totalCalls: bigint('total_calls', { mode: 'number' }).default(0).notNull(),
+    /** 凭证单调版本(O64 号池↔签到双向同步):每次凭证写入 +1,签到回写 CAS 基准;旧凭证永不覆盖新凭证 */
+    credVersion: bigint('cred_version', { mode: 'number' }).default(1).notNull(),
     /** 平台特有附加凭证/元数据(明文,非敏感;敏感一律进 *Enc 字段) */
     extraMetadata: jsonb('extra_metadata').default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
-    providerUidUniq: unique('ai_relay_account_pool_provider_uid_unique').on(t.providerCode, t.uid),
+    /** 运营池(owner_user_id IS NULL)内同平台同 uid 唯一 */
+    opsProviderUidUniq: uniqueIndex('ai_relay_account_pool_ops_provider_uid_uniq')
+      .on(t.providerCode, t.uid)
+      .where(sql`${t.ownerUserId} IS NULL`),
+    /** 个人池内同一 owner 下同平台同 uid 唯一(不同用户可各自持有同一上游账号) */
+    userProviderUidUniq: uniqueIndex('ai_relay_account_pool_user_provider_uid_uniq')
+      .on(t.ownerUserId, t.providerCode, t.uid)
+      .where(sql`${t.ownerUserId} IS NOT NULL`),
+    ownerIdx: index('ai_relay_account_pool_owner_idx').on(t.ownerUserId),
     providerIdx: index('ai_relay_account_pool_provider_idx').on(t.providerCode),
     enabledIdx: index('ai_relay_account_pool_enabled_idx').on(t.isEnabled),
     healthIdx: index('ai_relay_account_pool_health_idx').on(t.healthStatus),

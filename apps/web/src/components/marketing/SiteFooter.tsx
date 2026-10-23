@@ -255,15 +255,17 @@ export function SiteFooter({ className }: { className?: string }) {
   // (用户反馈"左边底部有点空,跟右侧不太对称,可以再加点什么内容吗 比如仓库地址?一键跳转?")
   // - 复制按钮:点击复制完整仓库地址 + toast 提示
   // - 跳转按钮:外部链接(新窗口打开)
-  // - 2026-08-12 加 Gitee/GitCode 国内镜像(用户"再往下加国内的两个镜像仓库")
+  // 2026-10-23 机主令:删掉 Gitee/GitCode 两条"国内镜像"入口。两个理由都成立且各自独立:
+  //   ① 渠道早已弃用(mirror-to-cn.yml 已删、远端已移除),这两个链接指向的仓不再更新;
+  //   ② 它们连组织名都是错的(写的是 IHUI-INF-AI,镜像实际在别的 owner 下)⇒ 一直是死链。
   // 仓库数据放在组件内常量(非 props,简单场景无需提升到 footer-data.ts)
   const REPOS: ReadonlyArray<{
-    key: 'github' | 'gitee' | 'gitcode'
+    key: 'github'
     url: string
     display: string
-    nameKey: 'githubRepo' | 'giteeRepo' | 'gitcodeRepo'
-    openKey: 'openOnGithub' | 'openOnGitee' | 'openOnGitcode'
-    icon: 'github' | 'gitee' | 'gitcode'
+    nameKey: 'githubRepo'
+    openKey: 'openOnGithub'
+    icon: 'github'
   }> = [
     {
       key: 'github',
@@ -272,22 +274,6 @@ export function SiteFooter({ className }: { className?: string }) {
       nameKey: 'githubRepo',
       openKey: 'openOnGithub',
       icon: 'github',
-    },
-    {
-      key: 'gitee',
-      url: 'https://gitee.com/IHUI-INF-AI/IHUI-AI',
-      display: 'gitee.com/IHUI-INF-AI/IHUI-AI',
-      nameKey: 'giteeRepo',
-      openKey: 'openOnGitee',
-      icon: 'gitee',
-    },
-    {
-      key: 'gitcode',
-      url: 'https://gitcode.com/IHUI-INF-AI/IHUI-AI',
-      display: 'gitcode.com/IHUI-INF-AI/IHUI-AI',
-      nameKey: 'gitcodeRepo',
-      openKey: 'openOnGitcode',
-      icon: 'gitcode',
     },
   ]
 
@@ -388,7 +374,7 @@ export function SiteFooter({ className }: { className?: string }) {
                 - 视觉:每个仓库一行 = 平台 icon + 仓库地址 + 复制按钮 + 跳转按钮
                 - 交互:复制→toast 提示,跳转→新窗口打开
                 - 样式:text-[10px] 比 link 区更小,作为辅助信息不抢视觉焦点
-                - GitHub/Gitee/GitCode logo 用 inline SVG(lucide-react 不提供品牌图标) */}
+                - GitHub logo 用 inline SVG(lucide-react 不提供品牌图标) */}
             <div className="space-y-0.5 text-[10px] text-muted-foreground/80">
               {REPOS.map((repo) => (
                 <div key={repo.key} className="flex items-center gap-1">
@@ -400,26 +386,6 @@ export function SiteFooter({ className }: { className?: string }) {
                       aria-hidden="true"
                     >
                       <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.4 3-.405 1.02.005 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
-                    </svg>
-                  )}
-                  {repo.icon === 'gitee' && (
-                    <svg
-                      className="h-3 w-3 flex-shrink-0"
-                      viewBox="0 0 1024 1024"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M512 1024C229.222 1024 0 794.778 0 512S229.222 0 512 0s512 229.222 512 512-229.222 512-512 512z m259.148-534.738H394.034l86.546-86.546a23.273 23.273 0 0 0 0-32.92 23.273 23.273 0 0 0-32.92 0l-131.99 131.99a46.546 46.546 0 0 0 0 65.84l131.99 131.99a23.273 23.273 0 1 0 32.92-32.92l-86.546-86.546h377.114a23.273 23.273 0 0 0 0-46.546z" />
-                    </svg>
-                  )}
-                  {repo.icon === 'gitcode' && (
-                    <svg
-                      className="h-3 w-3 flex-shrink-0"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path d="M.057 12.035c-.057-.81.034-1.63.196-2.443l.108-.5.107-.5c.092-.43.222-.855.38-1.27.34-.91.81-1.78 1.39-2.59l.21-.29.22-.29c.32-.41.66-.8 1.04-1.17l.25-.25.26-.25c.36-.34.74-.66 1.15-.96l.28-.2.29-.21c.79-.56 1.66-1.04 2.59-1.39.41-.16.84-.29 1.27-.38l.5-.1.5-.11c.81-.16 1.63-.25 2.44-.2.81-.05 1.63.04 2.44.2l.5.11.5.1c.43.09.85.22 1.27.38.93.35 1.8.83 2.59 1.39l.29.21.28.2c.41.3.79.62 1.15.96l.26.25.25.25c.38.37.72.76 1.04 1.17l.22.29.21.29c.58.81 1.05 1.68 1.39 2.59.16.42.29.85.38 1.27l.11.5.1.5c.16.81.26 1.63.2 2.44.06.81-.04 1.63-.2 2.44l-.1.5-.11.5c-.09.43-.22.85-.38 1.27-.34.91-.81 1.78-1.39 2.59l-.21.29-.22.29c-.32.41-.66.8-1.04 1.17l-.25.25-.26.25c-.36.34-.74.66-1.15.96l-.28.2-.29.21c-.79.56-1.66 1.04-2.59 1.39-.42.16-.84.29-1.27.38l-.5.11-.5.1c-.81.16-1.63.26-2.44.2-.81.06-1.63-.04-2.44-.2l-.5-.1-.5-.11c-.43-.09-.85-.22-1.27-.38-.93-.35-1.8-.83-2.59-1.39l-.29-.21-.28-.2c-.41-.3-.79-.62-1.15-.96l-.26-.25-.25-.25c-.38-.37-.72-.76-1.04-1.17l-.22-.29-.21-.29c-.58-.81-1.05-1.68-1.39-2.59-.16-.42-.29-.85-.38-1.27l-.11-.5-.1-.5c-.16-.81-.26-1.63-.2-2.44z M11.83 7.16a4.7 4.7 0 1 0 0 9.4 4.7 4.7 0 0 0 0-9.4z" />
                     </svg>
                   )}
                   <code className="truncate font-mono">{repo.display}</code>

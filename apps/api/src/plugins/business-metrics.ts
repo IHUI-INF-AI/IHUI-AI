@@ -70,7 +70,7 @@ import {
  *     - business_ttft_total{model,result} (counter)
  *     - business_ttft_p50_seconds / p95_seconds / p99_seconds (gauge)
  *     - business_ttft_alerts_total (counter)
- * 13. 访客 PV/UV 聚合(gauge,由 scheduler 的 traffic-stats-hourly 刷新,见
+ * 13. 访客 PV/UV 聚合(gauge,由 scheduler 的 traffic-stats-hourly 每 60 秒刷新,见
  *     `services/traffic-stats-service.ts`;UV 是按 IP/session 去重的开放集,
  *     **聚合后**才成指标,IP/session 原文永不入标签)：
  *     - ihui_traffic_page_views{window,source}
@@ -677,7 +677,9 @@ export const RELAY_POOL_HEALTH_STATE_VALUE: Record<RelayPoolHealthState, number>
 }
 
 export function isRelayPoolHealthState(value: unknown): value is RelayPoolHealthState {
-  return typeof value === 'string' && (RELAY_POOL_HEALTH_STATES as readonly string[]).includes(value)
+  return (
+    typeof value === 'string' && (RELAY_POOL_HEALTH_STATES as readonly string[]).includes(value)
+  )
 }
 
 /** key 池一行的投影(标签是**未洗**的原始拼接,清洗与撞检在 setter 里做)。 */
@@ -806,7 +808,8 @@ const ihuiState = {
   // 状态只活在进程内存里 ⇒ **重启归零**:本次刻意接受这个代价,后果是面板在大屏上
   // 只能看"本进程起来之后"的滚动窗口,历史 PV/UV 要回 `api_logs` / `visit_logs` 查。
   // 之所以不建预聚合表:另一路会话在飞,建表要出 drizzle 迁移、编号会撞(禁改清单内)。
-  // 刷新方 = scheduler 的 `traffic-stats-hourly`(小时级),**不在 scrape 路径、也不在请求路径**。
+  // 刷新方 = scheduler 的 `traffic-stats-hourly`(2026-10-23 起每 60 秒;键名为历史遗留),
+  // **不在 scrape 路径、也不在请求路径**。大屏另有实时快照(getTrafficLiveSnapshot),不读本 gauge。
   /** key: window|source */
   trafficPageViews: new Map<string, number>(),
   /** key: window|source */
@@ -1298,7 +1301,11 @@ export function setRelayPoolGaugeSample(sample: RelayPoolGaugeSample): void {
         ihuiState.relayKeyLabelCollisions++
         continue
       }
-      relayGaugeSet(ihuiState.relayKeyHealth, mapKey, RELAY_POOL_HEALTH_STATE_VALUE[row.healthState])
+      relayGaugeSet(
+        ihuiState.relayKeyHealth,
+        mapKey,
+        RELAY_POOL_HEALTH_STATE_VALUE[row.healthState],
+      )
       relayGaugeSet(ihuiState.relayKeySchedulable, mapKey, row.schedulable ? 1 : 0)
       if (row.healthAgeSeconds !== null) {
         relayGaugeSet(ihuiState.relayKeyHealthAge, mapKey, relayGaugeInt(row.healthAgeSeconds))
@@ -1341,11 +1348,7 @@ export function setRelayPoolGaugeSample(sample: RelayPoolGaugeSample): void {
         RELAY_POOL_HEALTH_STATE_VALUE[row.healthState],
       )
       relayGaugeSet(ihuiState.relayAccountSchedulable, mapKey, row.schedulable ? 1 : 0)
-      relayGaugeSet(
-        ihuiState.relayAccountFailures,
-        mapKey,
-        relayGaugeInt(row.consecutiveFailures),
-      )
+      relayGaugeSet(ihuiState.relayAccountFailures, mapKey, relayGaugeInt(row.consecutiveFailures))
       relayGaugeSet(ihuiState.relayAccountTotalCalls, mapKey, relayGaugeInt(row.totalCalls))
       if (row.tokenExpiresInSeconds !== null) {
         relayGaugeSet(
@@ -1365,10 +1368,7 @@ export function setRelayPoolGaugeSample(sample: RelayPoolGaugeSample): void {
 
     ihuiState.relayKeyRowsSkipped += Math.max(0, Math.floor(sample.keyRowsSkipped ?? 0))
     ihuiState.relayAccountRowsSkipped += Math.max(0, Math.floor(sample.accountRowsSkipped ?? 0))
-    ihuiState.relayKeyLabelCollisions += Math.max(
-      0,
-      Math.floor(sample.keyLabelCollisions ?? 0),
-    )
+    ihuiState.relayKeyLabelCollisions += Math.max(0, Math.floor(sample.keyLabelCollisions ?? 0))
     ihuiState.relayAccountLabelCollisions += Math.max(
       0,
       Math.floor(sample.accountLabelCollisions ?? 0),
@@ -2607,11 +2607,11 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
 
     // traffic 3:PV/UV 聚合(gauge)。UV 是开放集 ⇒ 只在服务端聚合完再发**单值**,
     // 标签只留有界的 窗口 / 来源表 / 客户端族。数值来源 = scheduler 的
-    // `traffic-stats-hourly`(限窗 + 带预算的聚合查询),**不在每次 scrape、也不在请求路径上**。
+    // `traffic-stats-hourly`(每 60 秒,限窗 + 带预算的聚合查询),**不在每次 scrape、也不在请求路径上**。
     // 读 0 的两种含义要分清:看 `ihui_traffic_aggregation_last_success_timestamp_seconds`
     // —— 它是 0 表示"这个进程还没成功聚合过一次",不是"真没有一个访客"。
     lines.push(
-      '# HELP ihui_traffic_page_views Rolling-window page/request views (gauge, refreshed by traffic-stats-hourly)',
+      '# HELP ihui_traffic_page_views Rolling-window page/request views (gauge, refreshed every 60s by traffic-stats-hourly)',
     )
     lines.push('# TYPE ihui_traffic_page_views gauge')
     for (const [k, v] of ihuiState.trafficPageViews) {
@@ -2690,9 +2690,7 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     lines.push('# TYPE ihui_relay_key_pool_schedulable gauge')
     for (const [k, v] of ihuiState.relayKeySchedulable) {
       const [provider, key] = k.split('|')
-      lines.push(
-        `ihui_relay_key_pool_schedulable{provider_code="${provider}",key="${key}"} ${v}`,
-      )
+      lines.push(`ihui_relay_key_pool_schedulable{provider_code="${provider}",key="${key}"} ${v}`)
     }
 
     lines.push(

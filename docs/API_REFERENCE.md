@@ -75,7 +75,7 @@ interface ApiError {
 | Cookie | 浏览器同源页面刷新 | `auth_token` httpOnly cookie(后端 Set-Cookie) | 浏览器自动携带 |
 | X-Tenant-ID | 多租户隔离 | 请求头 `X-Tenant-Id: <uuid 或 slug>` | 见 [architecture.md §12](./architecture.md#12-多租户架构原-server-docsmulti_tenantmd2026-07-22-整合) |
 | WS query token | WebSocket 握手 | `?token=<wsToken>` 或 `socket.handshake.auth.token` | `wss://host/ws/notifications?token=xxx` |
-| API Key | 对外公开 API `/v1/*` | `Authorization: Bearer <apiKey>`(前缀 `ihui_`) | 见 §10 |
+| API Key | 对外公开 API `/v1/*` | `Authorization: Bearer <apiKey>`(前缀 `ihui_`)；可附加 `X-Api-Secret: sk_xxx`，或直接用组合形态 `ihui_xxx.sk_xxx` 单串携带双因子 | 见 §10 |
 | Challenge Token | 2FA 登录中间态 | `Authorization: Bearer <challengeToken>`(type=challenge,5min,仅限 `/auth/2fa/login-verify`) | 见 [AUTHENTICATION.md](./AUTHENTICATION.md) |
 
 公开端点(无需认证):`/api/health/*`、`/api/auth/login`、`/api/auth/register`、`/api/auth/send-code`、`/api/csrf-token`、`/api/agreements/*`、`/api/exchange-rates/*`、`/api/share/*`、`/api/carousels`、`/docs`、`/openapi.json`。
@@ -591,6 +591,32 @@ eventSource.onerror = () => eventSource.close()
 | 知识工具 | 57 | `POST /v1/knowledge/search` / `POST /v1/memory/search` / `POST /v1/messages` / `POST /v1/files/upload` / `POST /v1/workflow/execute` |
 
 完整 SDK 见 `packages/sdk/`(TypeScript / Go / Java / Python / .NET 5 语言),SDK 内置熔断器 + 流式 + 自动重试。
+
+#### API Key 的两因子与单凭据组合形态(2026-10-23)
+
+API Key 由两段组成，缺一不可：
+
+| 段 | 形态 | 作用 | 存储 |
+|------|------|------|------|
+| 公开标识 | `ihui_<24 hex>` | 按行定位（查库主键） | 明文列 |
+| secret | `sk_<32 hex>` | 二次因子（防 key 泄漏即用） | **仅存哈希，无法反查** |
+
+三种合法携带方式（任选其一）：
+
+```bash
+# ① 双因子（原有口径）
+curl -H "Authorization: Bearer ihui_xxx" -H "X-Api-Secret: sk_yyy" ...
+
+# ② 单凭据组合形态（给只有一个 Key 输入框的客户端；创建/重置响应里的 credential 字段）
+curl -H "Authorization: Bearer ihui_xxx.sk_yyy" ...
+
+# ③ X-Api-Key 携带（同上两种形态均可）
+curl -H "X-Api-Key: ihui_xxx.sk_yyy" ...
+```
+
+⚠️ **只填 `sk_yyy` 不行**：secret 只存哈希，服务端无法由它反查所在行；
+且它不具备 `ihui_` 形态，会在 CSRF 钩子处被判为"凭据未验真"而返回 **403**
+（而非 401），很容易被误读成 CSRF 配置问题。要么用 ① 要么用 ②。
 
 ### API Key / PAT / SK 三种凭证区别
 

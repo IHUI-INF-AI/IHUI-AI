@@ -90,7 +90,7 @@ const {
 const T0 = Date.parse('2026-09-29T00:00:00.000Z')
 const HR = 3600 * 1000
 const A = '部署停摆(线上构建 vs origin/main)'
-const B = '国内镜像活性(mirror-to-cn)'
+const B = '应用 .env 关键凭据齐备性'
 
 /** 造一份 v2 状态(表里的值 = 上次通报的毫秒时刻) */
 const v2state = (entries, nowMs = T0) => ({
@@ -616,17 +616,6 @@ test('T20 活动件没有完成行时必须去滚动件找回,并写明取自哪
   const none = scanRotatedLoopLogs(join(logDir, 'nope'), 'deploy-loop.log', (l) => l)
   assert.equal(none.lastOkIso, '')
   assert.equal(none.candidates, 0, '目录取不到时必须报"一个候选都没看",而不是看成 0 条完成')
-})
-
-test('镜像停摆的失败判词必须自带可做的出路:服务端 GC 直达地址 + 探针残留分支(§5e-1)', () => {
-  const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '..', 'check-credential-health.mjs'), 'utf8')
-  assert.match(src, /settings#git-gc/, '收件人唯一能降体积的那一步要写成能直接点的地址')
-  assert.match(src, /ci-quota-probe/, '已撤除探针留在服务端的残留分支要点名,否则每轮白占一次配额账')
-  assert.match(src, /const GITEE_REPO = /, 'GC 地址与取数路径必须同一个仓径来源(§0.6,改一半就是假出路)')
-  assert.doesNotMatch(src, /\/api\/v5\/repos\/JLSLSSZWHYXGS_0/, 'API 路径不得再硬写第二份仓径')
-  assert.doesNotMatch(src, /处置交给下面的 hint/, '旧注释把出路许诺给一个从不进正文的变量;注释必须与代码同代')
-  // 引号里的历史数字必须带日期并写明"本轮没重量" —— 否则一条 9 月的读数会被当成今天的实测值
-  assert.match(src, /2026-09-27 \/ 09-28 的 CI 作业日志[\s\S]{0,80}本轮没有重新量/, '体积数字没带日期与"本轮未重量"声明 ⇒ 9 月的读数会被当成今天的实测值')
 })
 
 test('T-EXITID 记账身份必须交给唯一出口,且不得顺带开启出口那层第二窗口(§5e-3)', () => {

@@ -94,16 +94,18 @@
 - `SLACK_WEBHOOK_URL` — Slack 告警 Webhook（可选）
 - `DINGTALK_WEBHOOK_URL` — 钉钉告警 Webhook（可选）
 
-### 国内镜像同步（mirror-to-cn.yml）
+### Gitee 发布资产（release-desktop.yml / backfill-gitee-assets.yml）
 
-> 仅用 Personal Access Token，不接收明文密码。配置后 push 到 main 会自动镜像到 Gitee + GitCode（每天 08:00/20:00 北京时间兜底同步一次）。
+> **只用于桌面端安装包的国内分发，不做代码镜像。** 2026-10-23 起国内代码镜像（Gitee 仓 + GitCode 仓）与
+> `mirror-to-cn.yml` 作业已整体下线：机主确认该渠道早已弃用。留下这两个 secret 的唯一理由是
+> 线上 `/desktop-feed.json` 的 Windows 包直链指向 Gitee release 附件（国内直连 GitHub 资产域名被重置），
+> 去掉会让桌面端下载 404。
 
 - `GITEE_TOKEN` — Gitee Personal Access Token（生成：https://gitee.com/profile/personal_access_tokens，勾选 `projects`）
 - `GITEE_OWNER` — Gitee 用户名或组织名（当前值：`JLSLSSZWHYXGS_0`）
-- `GITCODE_TOKEN` — GitCode Personal Access Token（生成：https://gitcode.com/profile/personal_access_tokens，勾选 `api`）
-- `GITCODE_OWNER` — GitCode 用户名或组织名（当前值：`IHUI-AI`，注：原用户名 `lichunchuan1` 已改名，旧地址有 redirect 但 GitHub Actions 环境可能不跟随 redirect 导致同步静默失败）
 
-> 首次创建镜像仓库可本地运行 `node scripts/setup-mirror-repos.mjs`（调用各平台官方 REST API 创建，已存在则跳过）。
+> ~~`GITCODE_TOKEN` / `GITCODE_OWNER`~~ — **已废弃（2026-10-23）**。GitCode 渠道整体弃用，两个 secret
+> 可在仓库 Settings → Secrets 里删除；`mirror-to-cn.yml` 与 `scripts/setup-mirror-repos.mjs` 已同时删除。
 
 ## 可选 Secrets
 
@@ -147,11 +149,10 @@
 | ws-loadtest.yml           | （无，依赖运行中的服务）                                                                                                                                                                                                                                                                                                                                                                         |
 | smoke-new-modules.yml     | （无）                                                                                                                                                                                                                                                                                                                                                                                           |
 | release-cli.yml           | `NPM_PUBLISH_TOKEN`（**已配置**，granular token + Bypass 2FA）；`SIGNPATH_API_TOKEN`/`SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_PROJECT_SLUG`/`SIGNPATH_SIGNING_POLICY_SLUG`（**未配置**，SignPath 批准后填入；缺任一项则 Windows 签名步骤跳过，发布仍为未签名 exe）；`GITHUB_TOKEN` 自动提供。**不读** `NPM_TOKEN`，也**不依赖** Trusted Publishing/OIDC（OIDC 仅作前向兼容尝试，失败自动回退 token） |
-| release-desktop.yml       | `SIGNPATH_API_TOKEN`/`SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_PROJECT_SLUG`/`SIGNPATH_SIGNING_POLICY_SLUG`（**未配置**，与 release-cli 同一组；缺任一项则 Windows 签名步跳过，发布仍为未签名安装包）；`DESKTOP_TAURI_PRIVATE_KEY`/`DESKTOP_TAURI_KEY_PASSWORD`（已配置，构建与 `.sig` 重算共用）；`GITEE_TOKEN`/`GITEE_OWNER`（国内镜像）；`GITHUB_TOKEN` 自动提供                                   |
+| release-desktop.yml       | `SIGNPATH_API_TOKEN`/`SIGNPATH_ORGANIZATION_ID`/`SIGNPATH_PROJECT_SLUG`/`SIGNPATH_SIGNING_POLICY_SLUG`（**未配置**，与 release-cli 同一组；缺任一项则 Windows 签名步跳过，发布仍为未签名安装包）；`DESKTOP_TAURI_PRIVATE_KEY`/`DESKTOP_TAURI_KEY_PASSWORD`（已配置，构建与 `.sig` 重算共用）；`GITEE_TOKEN`/`GITEE_OWNER`（桌面端安装包国内分发，非代码镜像）；`GITHUB_TOKEN` 自动提供           |
 | release-sdk.yml           | `NPM_TOKEN`（**尚未配置**，见上方说明；未配置时 real 模式 npm gate 判红）、`PYPI_TOKEN`（未配置）、`MAVEN_USERNAME`/`MAVEN_TOKEN`（未配置）、`NUGET_API_KEY`（未配置）；`GITHUB_TOKEN` 自动提供                                                                                                                                                                                                  |
 | npm-bootstrap.yml         | `NPM_BOOT_PUBKEY`, `NPM_BOOT_EMAIL`, `NPM_BOOT_USERNAME`, `NPM_BOOT_PASSWORD`（已配置，账号已建成）；`NPM_PUBLISH_TOKEN`（**已配置**，publish job 使用）；`SIGNPATH_EMAIL`（已配置）；`NPM_VERIFY_URL`（未配置，仅在重新走 email 验证时需要）。`trusted_publisher` 分支已于 2026-10-19 删除                                                                                                      |
 | weekly-security-audit.yml | `GITHUB_TOKEN`（GitHub 自动提供，无需手动配置）                                                                                                                                                                                                                                                                                                                                                  |
 | miniapp-preview.yml       | （无）                                                                                                                                                                                                                                                                                                                                                                                           |
-| mirror-to-cn.yml          | `GITEE_TOKEN`, `GITEE_OWNER`, `GITCODE_TOKEN`, `GITCODE_OWNER`                                                                                                                                                                                                                                                                                                                                   |
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

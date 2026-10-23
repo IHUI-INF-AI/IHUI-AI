@@ -733,6 +733,12 @@ async function streamChatCompletion(
   // fwd === null(无渠道配置)或 ok:false(全部候选失败)→ 回退 ai-service 既有链路。
   // ==========================================================================
   if (opts.mode !== 'byok') {
+    // 渠道链路是否**已经向客户端写出过帧**（2026-10-23 立）。
+    // 用途：异常回退的闸门。旧注释假设「首个 chunk 尚未写出，客户端无感」，但渠道路径
+    // 是 verbatim 转发（writeLine 直写 raw），一旦开始转发就已经写出去了；此时再回退
+    // ai-service，客户端会先收到渠道的半段内容与 role 帧，再收到 ai-service 又一份
+    // role 帧和正文 ⇒ 正文重复/错乱，且首个 role 帧发两次。
+    let channelWroteToClient = false
     try {
       // 渠道路径同样应用参数覆盖系统(与 ai-service 路径同源)
       const baseBody: Record<string, unknown> = { messages, model }
@@ -794,8 +800,18 @@ async function streamChatCompletion(
         const stats = await pipeChannelStream(fwd.response, {
           // verbatim 转发上游 OpenAI chunk;legacy text 模式改为解析后按 text chunk 重发
           ...(isTextFlavor
-            ? { emitText: (text: string) => writeChunk({ content: text }, null) }
-            : { writeLine: (line: string) => raw.write(line) }),
+            ? {
+                emitText: (text: string) => {
+                  channelWroteToClient = true
+                  writeChunk({ content: text }, null)
+                },
+              }
+            : {
+                writeLine: (line: string) => {
+                  channelWroteToClient = true
+                  raw.write(line)
+                },
+              }),
           signal: controller.signal,
         })
         responseText = stats.responseText
@@ -807,9 +823,19 @@ async function streamChatCompletion(
         // 渠道分支在下方 return 收尾,该赋值对本函数唯一读者不可达,而 ttft 差值已改走单调钟,
         // 故删除(渠道路径自身的 ttftMs 仍按 stats.ttftMs 原样落库,未改)。
         if (opts.streamUsageEnabled && (streamPromptTokens > 0 || streamCompletionTokens > 0)) {
-          raw.write(buildStreamUsageChunk(id, model, streamPromptTokens, streamCompletionTokens))
+          // 复用上游帧 id：同一条流里出现两个 id 会让按 id 聚合/追踪的实现当成两条流
+          raw.write(
+            buildStreamUsageChunk(
+              stats.lastFrameId ?? id,
+              model,
+              streamPromptTokens,
+              streamCompletionTokens,
+            ),
+          )
         }
-        writeChunk({}, 'stop')
+        // 结束帧只发一次(2026-10-23 修):上游自带 finish_reason 且已原样转发时不再补,
+        // 否则客户端收到两个 finish,且 usage 帧被夹在中间、偏离 OpenAI 的 finish → usage → [DONE]。
+        if (!stats.sawFinish) writeChunk({}, 'stop')
         raw.write('data: [DONE]\n\n')
         request.raw.off('close', onClose)
         raw.end()
@@ -850,8 +876,21 @@ async function streamChatCompletion(
         return // 渠道链路全程接管,不进入 ai-service 分支
       }
       // fwd === null(无渠道)/ fwd.ok === false(全部候选失败)→ 落入下方 ai-service 链路
-    } catch {
-      // 渠道链路任何异常 → 回退 ai-service(首个 chunk 尚未写出,客户端无感)
+    } catch (e) {
+      // 已向客户端写出过帧 ⇒ **禁止**回退 ai-service（见 channelWroteToClient 注释），
+      // 只能就地收尾并把错误如实告知。客户端已拿到部分内容，回退等于把两段内容缝在一起。
+      if (channelWroteToClient) {
+        const msg =
+          (e as Error)?.name === 'AbortError'
+            ? 'client disconnected'
+            : ((e as Error)?.message ?? 'stream error')
+        if (msg !== 'client disconnected') writeChunk({ content: `[error] ${msg}` }, 'stop')
+        raw.write('data: [DONE]\n\n')
+        request.raw.off('close', onClose)
+        raw.end()
+        return
+      }
+      // 尚未写出任何帧 → 回退 ai-service（客户端无感）
     }
   }
 

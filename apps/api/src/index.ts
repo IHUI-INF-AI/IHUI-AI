@@ -57,6 +57,7 @@ import {
   stopAgentAutomationScheduler,
 } from './services/agent-automation-scheduler.js'
 import { startPatrolScheduler, stopPatrolScheduler } from './services/patrol-scheduler.js'
+import { startQoderBridge, stopQoderBridge } from './services/qoder-bridge-client.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
@@ -203,6 +204,8 @@ async function start() {
       syncStopPhase('stopOpsWatchReaderScheduler', stopOpsWatchReaderScheduler),
       syncStopPhase('stopAgentAutomationScheduler', stopAgentAutomationScheduler),
       syncStopPhase('stopPatrolScheduler', stopPatrolScheduler),
+      // Qoder chat 桥是独立 Electron 子进程:不显式杀会在 API 重启后留孤儿占端口
+      syncStopPhase('stopQoderBridge', stopQoderBridge),
       // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
       syncStopPhase('stopAutoRollbackMonitor', stopAutoRollbackMonitor),
       syncStopPhase('routineManager.stopScheduler', () => routineManager.stopScheduler()),
@@ -337,6 +340,12 @@ async function start() {
 
   // 启动主动巡逻调度器(P3 #40,60s tick,到点执行 active 的巡检任务)
   startPatrolScheduler()
+
+  // 预热本机 Qoder chat 桥(2026-10-23):chat 真实端点要求 umid 设备签名,只能由
+  // 官方 Agent SDK worker 完成 ⇒ 包成 127.0.0.1 上的 OpenAI 兼容端点常驻。
+  // 后台跑不阻塞就绪;未装 Qoder / QODER_BRIDGE_AUTOSTART=false 时静默跳过,
+  // 首次 chat 仍会懒启动兜底。
+  if (process.env.QODER_BRIDGE_AUTOSTART !== 'false') startQoderBridge()
 
   // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
   // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)
