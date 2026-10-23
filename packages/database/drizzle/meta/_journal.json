@@ -2349,6 +2349,13 @@
       "when": 1792729200000,
       "tag": "20261023120000_chat_collab",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 339,
+      "when": 1792821600000,
+      "tag": "20261024020000_tool_invocation_ledger",
+      "breakpoints": true
     }
   ]
 }
