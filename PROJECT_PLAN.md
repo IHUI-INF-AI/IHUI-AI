@@ -29026,6 +29026,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] G-880 另三道禁令门仍取磁盘面(§0.4 同型)〔mask 已完成,余两道〕:`check-no-emoji-icons` / `check-shared-layer-duplication` 两档都 `readFileSync` 工作树 ⇒ “盘上改好但没提交”照样报绿(§5c 2026-10-15 那一型)。现读(2026-10-23):① `check-no-mask-image` 已迁移并收窄成“只判渐变”(提交 `7017cbedb4e`,四例镜像锁);② 余两道不能只换 import —— emoji 判据吃的是 Unicode 字符集,`git grep -E` 表达不了“任意 emoji”这个超集,必须先在 `face-scan` 加一档“按面列全部跟踪文件”(HEAD=`ls-tree -r` / staged=`ls-files --cached` / worktree=`ls-files`)再配 `catBatch` 读,否则清单面比判据窄 = 新的静默少扫;shared-layer 同此(它比的是 packages/shared 与 apps/* 两棵树的 export 集合,同样要全量清单)。③ 判据加固仍未做:emoji 不扫 `.svg/.css/.json`;shared-layer 只认 `use[A-Z]` 且名逐字相等(`formatDate` 三处重实现看不见)、白名单 7 条无到期。
 - [ ] **背景色画的发丝线没有判据:web/小程序 `h-px|w-px bg-*` 29 枚 + RN `height: hairlineWidth|1` 配中性底 6 枚**(2026-10-23 分割线收口时现读;登记@2026-10-23):它与「单边 border」是同一个视觉动作(线由背景色画),但形状重载 —— 菜单/下拉的 `role="separator"`、时间线/树的 `absolute top-0 bottom-0 w-px` 导引轨、`pane-split` 分割器都不是分隔线,机械判据会把这三型结构件判红(§12e);出口 = 先给出这三型的可机械判定指纹再并入族 4 的差值棘轮,逐点人判。
 
-
-
-
+- [ ] （未取号:G 族号池 1..999 已满,取号器回 pool-exhausted;补号归号段持有人） 台账挂牌没有合法通道:live-doc-edit 的整行改写档把"租约形态变化"一律拒落(2026-10-23 12:00 实测:给四行加 （进行中@2026-10-23/席名) ⇒ 报"❌ 改写未过三维守恒(4 项违规)"整批不落,该档只把翻勾/删行放行到各自器物),于是 AGENTS §1「认领即租约」在共享工作树里结构上做不到——唯一还能改整行的通道是按 pathspec 交滞后的工作树副本,而那正是 §12 记过一夜三次自伤的形态。出路=给该守恒断言加一档"仅新增完整租约"的放行(判据仍 import scripts/lib/plan-row-conservation.mjs,不写第二份),镜像锁两向:加约放行 ∧ 摘约/改归属仍拒。〔登记@2026-10-23/qoder-续席〕
