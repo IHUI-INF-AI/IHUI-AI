@@ -119,3 +119,28 @@
 {"key":"G-933#冷启动抢跑全仓盘点余量","waiting":"env","blocking":"小程序/扩展真机与加载态验证(本机无微信开发者工具与扩展运行时)+ 确零注册路径属后端注册面","updatedAt":"2026-10-23T12:26:06.932Z","updatedBy":"main-session-waiting-human-closure"}
 {"key":"D77#对话流业务表单卡","waiting":"none","next":"web 表单卡消费 GET form-response 读口(可派单)","updatedAt":"2026-10-23T12:26:06.932Z","updatedBy":"main-session-waiting-human-closure"}
 {"key":"G-271#第三十三批标题段","waiting":"none","next":"线①副本归并/线②真实任务执行/线③代裁代执行","updatedAt":"2026-10-23T12:26:06.932Z","updatedBy":"main-session-waiting-human-closure"}
+{"key":"D14#云端沙箱agent","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"D50#多端遥控配对+每会话浏览器Tab状态","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"G-329#机主2026-09-28拍板四条","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"T:fb76477c48f6c35c","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"T:a6dc1552097ba2b2","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"G-940#生产备份链日志的写入侧编码要改成UTF-8","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"G-158#DevEnv搬入G","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"T:040056060e262630","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"G-870#把file","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"64#AI消息可编辑+消息级pin/书签","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"G-873#小程序登录页接微信手机号一键验证","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"G-175#承G-427第②步","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"T:c0c6ff3abfeb6e96","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"T:13e8da04b3647421","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"T:26ab4c5be5bd21a1","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"T:098422afb8744bca","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"D181#电脑使用画中画","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"G-947#小程序/Web缺图的来源问题今天有了终判","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"G-933#冷启动抢跑全仓盘点余量","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"G-313#活文档取号在\"并发批次带着旧底稿并入\"这一型下仍","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","owner":"台账判据线","waiting":"none"}
+{"key":"T:f996e1ca6e7e5aa9","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","owner":"web 会话在飞席","waiting":"none"}
+{"key":"D43#会话内快捷笔记","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","owner":"mobile-rn InputArea 持有席","waiting":"none"}
+{"key":"G-82#VideoPlayerScreen全屏纯黑⇒黑页","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
+{"key":"O81#跨端UI单一源","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"none"}
+{"key":"T:603fa0e505d0c389","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"none"}
