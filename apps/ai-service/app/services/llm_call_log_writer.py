@@ -18,7 +18,11 @@ admin/relay-channels.ts:790 / other/llm-stream-routes.ts:136),ai-service 网关�
    且一条 INSERT 都不发出(用例锁定"副作用没发生")。
 2. **不做数据库迁移(票面硬约束)**:号池 key(`key_pool_id`,顶层 uuid 列)、
    重试轮次(`attempt`)、命中腿(`call_route`/`leg_primary`/`combo_name`)等新维度
-   落既有 `metadata` jsonb 列。metadata 键清单(ascii、稳定、可 grep,全仓唯一一份):
+   落既有 `metadata` jsonb 列。**唯一例外**是 `config_id` —— 它是**既有列**
+   (bigint,关联 `ai_model_config.id`,2026-09-13 那枚迁移建的),Python 侧此前
+   一直没取;取到新值只准写它自己的列,不得再往 metadata 里塞同名键
+   (用例 `test_config_id_is_written_as_bigint_column` 钉这一格归属)。
+   metadata 键清单(ascii、稳定、可 grep,全仓唯一一份):
    - `writer`            : 常量 "ai-service.llm_gateway"(与 Node 侧写入行区分)
    - `attempt`           : 号池换 key 重试轮次(0 = 首次尝试)
    - `call_route`        : "direct"|"fallback"|"combo"|"native"|"key_pool_retry"|"openrouter_failover"
@@ -81,9 +85,12 @@ _UUID_RE = re.compile(
 )
 
 # llm_call_logs 写侧列规格(packages/database/src/schema/llm-call-logs.ts:39-134)。
-# retryable / refunded / api_key_id / config_id / client_ip / raw_retention_days
+# retryable / refunded / api_key_id / client_ip / raw_retention_days
 # 刻意**不写**:走各自 DEFAULT(§schema 注释"默认档 = 0 保守档,尚不知此列的写入口
 # 走 DEFAULT"是明示的兼容路径;无迁移授权,不加列)。
+# config_id(bigint,关联 ai_model_config.id;列自迁移 20260913000000 起在库)
+# 自 2026-10-23 起写:值只来自 `_resolve_from_db` 命中的那一行 ai_model_config,
+# 号池腿与环境变量兜底腿拿不到配置行 ⇒ 落 NULL(宁缺毋假,不拿 provider 猜 id)。
 _INSERT_SQL = """
 INSERT INTO llm_call_logs
     (user_id, model, prompt, response, raw_retained,
@@ -91,13 +98,13 @@ INSERT INTO llm_call_logs
      cache_read_tokens, cache_creation_tokens,
      latency_ms, status, error_message, conversation_id, metadata,
      provider_code, key_pool_id, cost_cents, http_status, ttft_ms,
-     call_type, trace_id)
+     call_type, trace_id, config_id)
 VALUES
     ($1::uuid, $2, $3, $4, $5::boolean,
      $6, $7, $8, $9, $10,
      $11, $12, $13, $14, $15::jsonb,
      $16, $17::uuid, $18::numeric, $19, $20,
-     $21, $22)
+     $21, $22, $23::bigint)
 """
 
 # 用户级"不落原文"选择(Node 侧 raw-retention-optout.ts 的同一份存储事实,
@@ -245,6 +252,7 @@ class LlmCallLogFields:
     cost_usd: float | None = None
     cost_source: str | None = None
     key_pool_id: str | None = None
+    config_id: int | None = None
     config_source: str | None = None
     attempt: int = 0
     call_route: str = "direct"
@@ -294,6 +302,23 @@ def _optional_int(value: Any, maximum: int | None = None) -> int | None:
 def _optional_uuid(value: Any) -> str | None:
     if isinstance(value, str) and _UUID_RE.match(value.strip()):
         return value.strip()
+    return None
+
+
+# ai_model_config.id 是 bigserial(正整数);bool 在 Python 里是 int 的子类,
+# 必须显式排除,否则 True 会被写成 config_id=1 冒充"命中了 1 号配置行"。
+_BIGINT_MAX = 9_223_372_036_854_775_807
+
+
+def _optional_config_id(value: Any) -> int | None:
+    """config_id 列形状锁:只接受正整形态的 ai_model_config.id,其余一律 NULL。"""
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int):
+        return value if 0 < value <= _BIGINT_MAX else None
+    if isinstance(value, str) and value.strip().isdigit():
+        number = int(value.strip())
+        return number if 0 < number <= _BIGINT_MAX else None
     return None
 
 
@@ -457,6 +482,7 @@ async def persist_llm_call_log(
                 _optional_int(fields.ttft_ms),
                 fields.call_type[:16] or "chat",
                 _build_trace_id(fields.trace_id),
+                _optional_config_id(fields.config_id),
             )
         return True
     except Exception as e:

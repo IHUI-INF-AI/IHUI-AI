@@ -116,6 +116,7 @@ def _fields(**overrides: Any) -> LlmCallLogFields:
         "cost_source": "litellm",
         "config_source": "key_pool",
         "key_pool_id": KEY_POOL_UUID,
+        "config_id": 41,
         "attempt": 1,
         "call_route": "fallback",
         "leg_primary": "openrouter/gpt-oss",
@@ -238,6 +239,7 @@ async def test_insert_argument_shape() -> None:
         None,
         "chat",
         TRACE_32HEX,
+        41,
     ]
 
 
@@ -489,4 +491,63 @@ def test_trace_id_falls_back_to_contextvar() -> None:
 
     asyncio.run(_run())
     assert pool_holder[0].recorder["executions"][0][1][21] == TRACE_32HEX
+
+
+# ---------------------------------------------------------------------------
+# ⑦ config_id:命中哪一条 provider 配置可回溯(2026-10-23 补票面第二格)
+# ---------------------------------------------------------------------------
+
+
+async def test_config_id_is_written_as_bigint_column() -> None:
+    """config_id 走**列**不走 metadata(与 metadata 闭合集判据互不越界)。"""
+    pool = FakePool()
+    assert await persist_llm_call_log(_fields(), pool=pool, raw_optout_lookup=_no_optout)
+    sql, args = pool.recorder["executions"][0]
+    assert "config_id" in sql
+    assert args[22] == 41
+    metadata = json.loads(args[14])
+    assert "config_id" not in metadata
+
+
+async def test_config_id_shape_lock_rejects_non_evidence() -> None:
+    """拿不到实证 id ⇒ 落 NULL:bool/0/负数/非数字串一律不冒充"命中了某条配置"。"""
+    for forged in (True, 0, -7, "not-a-number", "", 9_223_372_036_854_775_808, None):
+        pool = FakePool()
+        assert await persist_llm_call_log(
+            _fields(config_id=forged), pool=pool, raw_optout_lookup=_no_optout
+        ), forged
+        _sql, args = pool.recorder["executions"][0]
+        assert args[22] is None, forged
+
+
+async def test_config_id_positive_control_accepts_int_and_digit_string() -> None:
+    """正向对照:整形与纯数字串两种真实形态都落原值(asyncpg 回 int / 旧调用方回串)。"""
+    for raw, expected in ((41, 41), ("41", 41)):
+        pool = FakePool()
+        assert await persist_llm_call_log(
+            _fields(config_id=raw), pool=pool, raw_optout_lookup=_no_optout
+        )
+        _sql, args = pool.recorder["executions"][0]
+        assert args[22] == expected, raw
+
+
+def test_gateway_emit_carries_config_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """网关分发器把 config_id 透传给写入层(缺省=None,不拿 provider 猜 id)。"""
+    import app.services.llm_call_log_writer as writer_mod
+    from app.core.llm_gateway import _emit_llm_call_log
+
+    seen: list[Any] = []
+    monkeypatch.setattr(writer_mod, "schedule_llm_call_log", lambda f: seen.append(f))
+
+    _emit_llm_call_log(
+        billing_user_id=USER_UUID,
+        model="stepfun/step-3",
+        provider="stepfun",
+        status="success",
+        config_id=77,
+    )
+    _emit_llm_call_log(
+        billing_user_id=USER_UUID, model="stepfun/step-3", provider="stepfun", status="success"
+    )
+    assert [f.config_id for f in seen] == [77, None]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

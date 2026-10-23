@@ -54,6 +54,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
@@ -427,11 +428,12 @@ const normRepoPath = (p) => String(p).replace(/\\/g, '/').replace(/^\.\//, '')
  * 不会落进窗口;窗口内的真漂移只是延后一轮,不是丢数据。
  * 默认 600s;`IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC=0` 关闭(演练/诊断用)。
  */
+const ALIGN_FRESH_GUARD_DEFAULT_MS = 600_000
 function alignFreshGuardMs() {
   const raw = process.env.IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC
-  if (raw === undefined || raw === '') return 600_000
+  if (raw === undefined || raw === '') return ALIGN_FRESH_GUARD_DEFAULT_MS
   const n = Number(raw)
-  return Number.isFinite(n) && n >= 0 ? n * 1000 : 600_000
+  return Number.isFinite(n) && n >= 0 ? n * 1000 : ALIGN_FRESH_GUARD_DEFAULT_MS
 }
 
 /**
@@ -2148,6 +2150,67 @@ export function heal(repoRoot, { dryRun = false } = {}) {
   }
 }
 
+/**
+ * 自检夹具专用:把「工作区相对 HEAD 有差异」的那些路径的 mtime 一律回拨到活工作保护窗之外。
+ *
+ * 为什么必须有这一步(2026-10-23 现读十例红的**唯一**根因,不是器物坏):
+ * 幻影漂移对齐自 `e5e01735b9` 起带一条**活工作保护窗**(`alignFreshGuardMs`,默认 600s):
+ * 最近被写过的路径在 eligible 之前就被 `splitFreshWorktreePaths` 整条摘走,既不判也不写。
+ * 而自检夹具里的"滞后副本"是 `writeFileSync` 刚写下的,mtime == now ⇒ 永远落在窗内,于是
+ * ①写动作读成 `aligned:0`(⑥⑭c⑭d⑮b⑯b⑩⑮差分)、②判定根本不跑 ⇒ `windowLoss` 收集口为空,
+ * 连"窗口用尽未判定"都点不出名(㉜b㉜c㉜d)。**护栏本身是对的,错的是夹具没造出护栏射程外的形态。**
+ * 真实现场恰好相反:converge / 旁路落地留下的滞后文件必然是**旧的**(文件没被人碰过才会滞后),
+ * 所以"陈旧"本来就是这些用例的前提,不是为了让断言变绿而放的口子。
+ * 年龄 = `alignFreshGuardMs() * 2 + 60s`,与判据同源取数(§0.6,不在夹具里另抄一个 600):
+ * 覆盖者把窗口调大照样落在窗外;窗口设 0(关闭)时回拨 60s 同样无害。
+ * 盘上取不到的路径(删除形态)静默跳过 —— 那一格由既有判据自己处置,这里不替它做决定。
+ * 第二参 `onlyPaths`:只回拨点名的路径,其余脏路径留在窗内。用在"这一轮只管这一个文件、
+ * 不想让前面用例留下的滞后副本被这一轮顺路收走"的夹具上(⑩ 即此型)。
+ */
+function ageWorktreeDriftsForSelfTest(repoRoot, onlyPaths = null) {
+  const ageMs = alignFreshGuardMs() * 2 + 60_000
+  const t = (Date.now() - ageMs) / 1000
+  const gg = makeGit(repoRoot)
+  let paths = []
+  try {
+    paths = gg(['diff', '--name-only', 'HEAD', '--no-renames']).split('\n').filter(Boolean)
+  } catch {
+    return
+  }
+  if (onlyPaths) {
+    const want = new Set(onlyPaths.map(normRepoPath))
+    paths = paths.filter((p) => want.has(normRepoPath(p)))
+  }
+  for (const p of paths) {
+    try {
+      utimesSync(resolve(repoRoot, p), t, t)
+    } catch {
+      // 该路径此刻不在盘上(删除形态)⇒ 无 mtime 可回拨,交由判据的缺失分支处理
+    }
+  }
+}
+
+/**
+ * 自检夹具专用:在指定的活工作保护窗档位下跑一次 fn,跑完原样还原环境变量。
+ *
+ * 为什么 ⑥b/⑥c 要自己钉窗口、而不是沿用进程环境:窗口档位是**环境事实**,而这两条断言判的
+ * 就是这条窗口。沿用环境会让结论取决于调用方设没设 `IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC`
+ * (兄弟测试 `git-guardian-drift-align.test.mjs` 就常把它设成 0),那既不是器物坏也不是夹具坏,
+ * 只是账面在随风飘 —— 档位由用例自己给,红绿才只跟判据走。还原走 `delete`,不把"本来没设"
+ * 记成"设成空串"(后者会被 `alignFreshGuardMs` 读成默认档,与"关闭"是两回事)。
+ */
+function withFreshGuardSec(sec, fn) {
+  const key = 'IHUI_ALIGN_DRIFT_FRESH_GUARD_SEC'
+  const prev = process.env[key]
+  process.env[key] = String(sec)
+  try {
+    return fn()
+  } finally {
+    if (prev === undefined) delete process.env[key]
+    else process.env[key] = prev
+  }
+}
+
 /** 独立临时仓演练:①外部删除必被识别并恢复 ②他人 `git rm --cached` 的删除绝不碰 */
 function selfTestRun() {
   const tmp = mkScratch('wt-heal-drill-')
@@ -2185,17 +2248,45 @@ function selfTestRun() {
     check('⑤ 无缺失时零动作', h2.restored === 0)
 
     // ⑥ 幻影漂移:工作区写回祖先版本(索引仍 == HEAD)⇒ 必须被对齐
+    //    夹具先把这份"滞后副本"做成旧的(见 ageWorktreeDriftsForSelfTest 头注),
+    //    否则它落在活工作保护窗内,本层按设计就不该动它 —— 那测的是护栏,不是漂移判据。
     writeFileSync(join(tmp, 'keep.ts'), 'v2\n')
     g(['commit', '-qam', 'C: v2'])
     writeFileSync(join(tmp, 'keep.ts'), 'v1\n') // == 提交 A 的版本,!= HEAD
+    ageWorktreeDriftsForSelfTest(tmp)
     const d1 = alignDrifts(tmp)
     check(
       '⑥ 漂移被识别并对齐',
       d1.aligned === 1 && readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v2\n',
     )
 
+    // ⑥b/⑥c 活工作保护窗自身的成对锁(2026-10-23 补:护栏装车后 10 例红,却**没有任何一条
+    //     用例钉住这条护栏**,于是"夹具全部落在窗内"与"护栏生效"两面都读不出来)。
+    //     ⑥b 窗内:刚写下的真漂移(与 ⑥ 同一判据面)必须**不写且点名** ——
+    //     摘掉 alignDrifts 里 splitFreshWorktreePaths 那一行,本条立刻红(aligned 会变成 1)。
+    //     ⑥c 窗外对照:同一现场只把窗口设 0 ⇒ 必须被对齐 —— 摘掉护栏的"窗口"取值或把它
+    //     写成恒跳过,本条立刻红。两条互为正反面,单留任何一条都不构成守住。
+    writeFileSync(join(tmp, 'keep.ts'), 'v1\n')
+    const dFresh = withFreshGuardSec(ALIGN_FRESH_GUARD_DEFAULT_MS / 1000, () => alignDrifts(tmp))
+    check(
+      '⑥b 活工作保护窗:刚写下的漂移不判不写,且逐条点名到 recentlySkipped',
+      dFresh.aligned === 0 &&
+        (dFresh.recentlySkipped || []).includes('keep.ts') &&
+        readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v1\n',
+    )
+    // ⑥c 同一现场、同一判据面,只把窗口设 0 ⇒ 必须被对齐:
+    //    这样 ⑥b 少做的那件事只能归因于窗口,不可能是"判据本身失明"。
+    const dOff = withFreshGuardSec(0, () => alignDrifts(tmp))
+    check(
+      '⑥c 对照:窗口设 0 ⇒ 同一现场被对齐(⑥b 少做的那件事确由窗口造成)',
+      dOff.aligned === 1 &&
+        readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v2\n' &&
+        (dOff.recentlySkipped || []).length === 0,
+    )
+
     // ⑦ 真实未提交编辑 ⇒ 绝不覆盖
     writeFileSync(join(tmp, 'keep.ts'), 'v3 未提交的新工作\n')
+    ageWorktreeDriftsForSelfTest(tmp)
     const d2 = alignDrifts(tmp)
     check(
       '⑦ 真编辑不被覆盖',
@@ -2237,6 +2328,7 @@ function selfTestRun() {
       '⑭b 取用行逐块可对上历史 ⇒ 判为回潮',
       compositeDriftPaths(tmp, ['mix.ts']).includes('mix.ts'),
     )
+    ageWorktreeDriftsForSelfTest(tmp)
     const d14 = alignDrifts(tmp)
     check(
       '⑭c 对齐后工作区回到 HEAD',
@@ -2250,6 +2342,7 @@ function selfTestRun() {
     // ⑮ 单块回潮:本仓 8 个滞后文件的真实形态就是"一条取用行换回旧档名" ⇒ 不受块数限制
     writeFileSync(join(tmp, 'mix.ts'), mix('one', 'two', 'two'))
     check('⑮ 单块取用行回潮同样判拼合', compositeDriftPaths(tmp, ['mix.ts']).includes('mix.ts'))
+    ageWorktreeDriftsForSelfTest(tmp)
     alignDrifts(tmp)
     check(
       '⑮b 已复位到 HEAD',
@@ -2266,6 +2359,7 @@ function selfTestRun() {
     g(['commit', '-qam', 'M6(HEAD) mix2=a2'])
     writeFileSync(join(tmp, 'mix2.ts'), lg('a1'))
     check('⑯ 非取用行 ⇒ 本通道不认领(护栏①)', compositeDriftPaths(tmp, ['mix2.ts']).length === 0)
+    ageWorktreeDriftsForSelfTest(tmp)
     const d16 = alignDrifts(tmp)
     check(
       '⑯b 整块等于祖先 ⇒ 由既有整块通道收口(composite=0/aligned=1)',
@@ -2275,6 +2369,7 @@ function selfTestRun() {
     // ⑰ 取用行形态、但该写法从未出现在任何历史版本 ⇒ 判据②挡下
     writeFileSync(join(tmp, 'mix.ts'), mix('zz9', 'two', 'two'))
     check('⑰ 未见过的取用行 ⇒ 不判拼合(护栏②)', compositeDriftPaths(tmp, ['mix.ts']).length === 0)
+    ageWorktreeDriftsForSelfTest(tmp)
     alignDrifts(tmp)
     check(
       '⑰b 该文件未被覆盖',
@@ -2285,6 +2380,7 @@ function selfTestRun() {
     const cut = mix('one', 'one', 'two').replace(P2 + '\n', '')
     writeFileSync(join(tmp, 'mix.ts'), cut)
     check('⑱ 含非取用行的删除 ⇒ 不判拼合', compositeDriftPaths(tmp, ['mix.ts']).length === 0)
+    ageWorktreeDriftsForSelfTest(tmp)
     alignDrifts(tmp)
     check('⑱b 删除现场保留', readFileSync(join(tmp, 'mix.ts'), 'utf8') === cut)
     g(['restore', '--source=HEAD', '--worktree', '--', 'mix.ts'])
@@ -2296,6 +2392,7 @@ function selfTestRun() {
     const reorderTxt = [hl[0], ...hl.slice(2), hl[1], hl[hl.length - 1]].join('\n') + '\n'
     writeFileSync(join(tmp, 'mix.ts'), reorderTxt)
     check('⑲ 纯重排 ⇒ 本通道不认领(护栏③)', compositeDriftPaths(tmp, ['mix.ts']).length === 0)
+    ageWorktreeDriftsForSelfTest(tmp)
     alignDrifts(tmp)
     check('⑲b 重排现场保留', readFileSync(join(tmp, 'mix.ts'), 'utf8') === reorderTxt)
     g(['restore', '--source=HEAD', '--worktree', '--', 'mix.ts'])
@@ -2375,6 +2472,7 @@ function selfTestRun() {
     writeFileSync(join(tmp, 'keep.ts'), 'v4 暂存后又改了\n') // worktree != index ⇒ 有现场
     const r0 = refreshStaleIndex(tmp)
     check('⑧ 暂存后又有改动 ⇒ 不刷新', r0.refreshed === 0)
+    ageWorktreeDriftsForSelfTest(tmp)
     alignDrifts(tmp)
     check(
       '⑧b 该文件工作区改动未被覆盖',
@@ -2442,6 +2540,9 @@ function selfTestRun() {
     g(['add', 'keep.ts']) // index==v2(祖先版本)、worktree==v2 ⇒ 典型"HEAD 前移而索引留在原地"
     const r1 = refreshStaleIndex(tmp)
     check('⑨ 落后索引被逐路径刷新', r1.refreshed === 1)
+    // 只把 keep.ts 做成旧的:本条只管"刷新之后工作区随之对齐",不该顺路把 ⑧′/⑧″
+    // 留在盘上的在飞现场也收走(它们各自另有断言)。
+    ageWorktreeDriftsForSelfTest(tmp, ['keep.ts'])
     alignDrifts(tmp)
     check('⑩ 刷新后工作区随之对齐到 HEAD', readFileSync(join(tmp, 'keep.ts'), 'utf8') === 'v9\n')
 
@@ -2984,6 +3085,7 @@ function selfTestRun() {
         check(`㉜0 夹具确实把该路径历史做深到窗口之外(共 ${depth} 枚 > 窗口 ${win})`, depth > win)
         // 工作树回到**最老**那一版(深度 46,窗内取不到)
         writeFileSync(join(t7, 'deep.ts'), 'L0\n')
+        ageWorktreeDriftsForSelfTest(t7, ['deep.ts'])
         const d32 = alignDrifts(t7)
         check(
           '㉜a 窗外祖先复归 ⇒ 保守不动(不覆写别人的现场优先于把门弄绿)',
@@ -2997,6 +3099,7 @@ function selfTestRun() {
         )
         // ㉜c 反例(点名不是放过):窗内祖先版本 ⇒ 照旧被识别并回到 HEAD
         writeFileSync(join(t7, 'deep.ts'), 'L40\n') // 深度 6,窗内
+        ageWorktreeDriftsForSelfTest(t7, ['deep.ts'])
         const d32c = alignDrifts(t7)
         check(
           '㉜c 窗内祖先复归 ⇒ 仍被对齐,且不进未判定名单',
@@ -3007,6 +3110,7 @@ function selfTestRun() {
         // ㉜d 第三态:既不是滞后也谈不上"已判定"——真新内容同样落在窗内没命中,而窗口用尽时
         //    本层无从区分它和窗外复归 ⇒ 一律点名(把"没抓到"写成"没有回写"才是原缺陷)
         writeFileSync(join(t7, 'deep.ts'), 'X 从未在任何版本出现过的一行\n')
+        ageWorktreeDriftsForSelfTest(t7, ['deep.ts'])
         const d32d = alignDrifts(t7)
         check(
           '㉜d 真新内容 ⇒ 不动,且同样按"未判定"点名(不冒红也不记绿)',
@@ -3096,6 +3200,8 @@ function selfTestRun() {
     g(['add', 'PROJECT_PLAN.md'])
     g(['commit', '-qm', 'P2', '--', 'PROJECT_PLAN.md'])
     writeFileSync(join(tmp, 'PROJECT_PLAN.md'), 'v1\n') // == 祖先版本 ⇒ ③a 本会命中,若无豁免必被对齐
+    // 只把非豁免的对照文件做成旧的(豁免那条靠"路径在台账里"绕行,与新鲜度无关)
+    ageWorktreeDriftsForSelfTest(tmp, ['keep2.ts'])
     const dDiff = alignDrifts(tmp)
     check(
       '⑮ 同轮差分:非豁免被对齐、台账豁免只报数不写',

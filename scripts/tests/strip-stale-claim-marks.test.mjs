@@ -98,6 +98,36 @@ test('①幂等:摘过的文本再跑=零可摘(否则每轮都在抖台账)', (
   assert.equal(again.leases.length, 0)
 })
 
+test('①括号形态两可:半角租约必须进射程,放宽不得吃掉两道既有防线', () => {
+  // 阳性对照:2026-10-23 实测 HEAD 面那枚 `- [ ] **P1 侧边栏收敛批次…**(进行中@2026-10-19/opencode)`
+  // 旧判据读 null ⇒ 4 天超龄的真牌既不被代摘器物看见,又被派单面当"可做"(两席领同一张票)。
+  const half =
+    '- [ ] **P1 侧边栏收敛批次:去重 4 处 + 设置项归位 3 项**(进行中@2026-10-19/opencode)—— 一级菜单 72→66'
+  const got = claimMarkOf(half)
+  assert.ok(got, '半角括号里的完整租约必须判为挂牌(两可口径,2026-10-23 补第四型漂移)')
+  assert.equal(got.form, 'lease')
+  assert.equal(got.date, '2026-10-19')
+  assert.equal(got.holder, 'opencode')
+  // 全角那侧一个字都不许变
+  assert.equal(
+    claimMarkOf('- [ ] （进行中@2026-10-19/opencode） **P1 侧边栏收敛批次**')?.mark,
+    '（进行中@2026-10-19/opencode）',
+    '全角形态读数必须逐字不变(只扩大,不改动)',
+  )
+  // 防线①:非结构位的**裸**标记仍不算牌(放宽只加括号形态,不加位置)
+  assert.equal(
+    claimMarkOf('- [ ] 叙述里提一句 上一席挂了(进行中) 不算认领'),
+    null,
+    '半角裸标记落在非结构位仍须判为不挂牌',
+  )
+  // 防线②:反引号代码段内的标记仍是在"描述形态本身",不是状态
+  assert.equal(
+    claimMarkOf('- [ ] 口径见 `(进行中@2026-01-01/x)` 这一族写法'),
+    null,
+    '代码段内的半角租约仍不得算牌',
+  )
+})
+
 test('②形状锁:器物与守门 109 共用同一份挂牌判据,不得自带正则', () => {
   const src = readFileSync(path.join(HERE, '..', 'strip-stale-claim-marks.mjs'), 'utf8')
   assert.match(
