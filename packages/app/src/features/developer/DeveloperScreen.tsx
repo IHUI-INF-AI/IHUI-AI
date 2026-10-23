@@ -1,215 +1,212 @@
-// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 import { useMemo } from 'react'
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native'
+import type { TFunction } from '@ihui/types'
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type {
-  DeveloperFeature,
-  DeveloperPlan,
-  DeveloperPlanType,
-  DeveloperScreenProps,
-} from '../../types'
-
-import { rnRadius } from '@ihui/design-tokens'
-
-export type { DeveloperFeature, DeveloperPlan, DeveloperPlanType, DeveloperScreenProps }
+  DEVELOPER_DEFAULT_LOGO_URL,
+  DEVELOPER_SPACE_ENTRIES,
+  DEVELOPER_SPACE_PROBLEMS,
+} from '@ihui/shared/constants/developer-space'
+import { getTokens } from '../../theme/tokens'
+import type { DeveloperScreenProps, DeveloperSpaceInfo } from '../../types'
+import { createDeveloperStyles } from './developer-styles'
 
 /**
- * 开发者入口共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API)
+ * DeveloperScreen 开发者空间页 —— 平台无关共享屏(RN 端与小程序端的唯一真相源)
  *
- * 平台无关:渲染标题 + Hero 卡(成为开发者 + 特性网格)+ 套餐选择(月/年)
- * + 提交按钮 + 协议提示。
- * 平台特定(API 价格拉取 / 下拉刷新 / 提交互调 / Alert)由 wrapper 通过 props 注入。
+ * 对齐历史项目 pagesA/plaza/developer.vue(标题「开发者详情」),四段构成:
+ * ① 头部用户卡(头像 + 昵称 + 「成为开发者 / 续费」CTA)
+ * ② 开发者信息卡(申请信息 / 账号 / API 密钥 / 网址 / 到期时间 + 续费)—— 行的构成与顺序
+ *    就是下面 `buildInfoRows()` 那张表;端侧只供原料,不得再各写一份版式
+ * ③ 四个功能入口(构成/顺序/i18n 键在 `@ihui/shared/constants/developer-space`)
+ * ④ 问题解答卡 + 咨询客服入口
+ *
+ * 纯 UI:不取数、不自绘导航栏、不用平台 API。取数与路由由端侧薄壳注入
+ * (RN 壳:`apps/mobile-rn/src/screens/DeveloperScreen.tsx`;小程序端渲染层须逐元素同形本屏)。
+ * 样式表住在 `./developer-styles.ts`(同 `features/about/about-styles.ts` 的分工)。
  */
+
+/** 无值占位:排字符号而非文案,不占 i18n 键 */
+const EMPTY_PLACEHOLDER = '—'
+
+interface InfoAction {
+  label: string
+  onPress: () => void
+}
+
+interface InfoRowSpec {
+  label: string
+  value: string
+  lines?: number
+  danger?: boolean
+  action?: InfoAction | null
+}
+
+function applicationStatusLabel(t: TFunction, status: number): string {
+  if (status === 1) return t('developerInfo.statusApproved')
+  if (status === 2) return t('developerInfo.statusRejected')
+  return t('developerInfo.statusPending')
+}
+
+/** 信息卡行的单一来源:无申请记录 ⇒ 三行申请信息整块缺席;无可复制密钥 ⇒ 不出复制动作 */
+function buildInfoRows(
+  t: TFunction,
+  info: DeveloperSpaceInfo,
+  onCopyApiKey: (key: string) => void,
+  onRenew: () => void,
+): InfoRowSpec[] {
+  const rows: InfoRowSpec[] = []
+  if (info.application) {
+    const { name, description, status } = info.application
+    rows.push({ label: t('developerInfo.nameLabel'), value: name || EMPTY_PLACEHOLDER })
+    if (description) {
+      rows.push({ label: t('developerInfo.descLabel'), value: description, lines: 2 })
+    }
+    rows.push({ label: t('developerInfo.statusLabel'), value: applicationStatusLabel(t, status) })
+  }
+  const copyableKey = info.copyableApiKey
+  rows.push(
+    { label: t('developerInfo.accountLabel'), value: info.account || EMPTY_PLACEHOLDER },
+    {
+      label: t('developerInfo.apiKeyLabel'),
+      value:
+        info.apiKeyCount > 0
+          ? t('developerInfo.apiKeyCount', { count: info.apiKeyCount })
+          : t('developerInfo.apiKeyNone'),
+      action: copyableKey
+        ? { label: t('devSpace.copy'), onPress: () => onCopyApiKey(copyableKey) }
+        : null,
+    },
+    { label: t('developerInfo.urlLabel'), value: info.website || EMPTY_PLACEHOLDER },
+    {
+      label: t('developerInfo.expiryLabel'),
+      value: info.expiry || EMPTY_PLACEHOLDER,
+      danger: true,
+      action: { label: t('devSpace.renew'), onPress: onRenew },
+    },
+  )
+  return rows
+}
+
 export function DeveloperScreen({
   t,
-  features,
-  plans,
-  selected,
-  loading,
-  refreshing,
-  error,
-  submitting,
-  onSelectChange,
-  onRefresh,
-  onSubmit,
+  avatarUrl,
+  displayName,
+  subscribed,
+  info,
+  onBecomeDeveloper,
+  onRenew,
+  onCopyApiKey,
+  onEntryPress,
+  onProblemPress,
+  onContactService,
   colorScheme = 'light',
 }: DeveloperScreenProps) {
   const tk = getTokens(colorScheme)
-  const styles = useMemo(() => createStyles(tk), [tk])
+  const styles = useMemo(() => createDeveloperStyles(tk), [tk])
+  const rows = info ? buildInfoRows(t, info, onCopyApiKey, onRenew) : null
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('developer.title')}</Text>
-      </View>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
-        <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>{t('developer.becomeDeveloper')}</Text>
-          <Text style={styles.heroSubtitle}>{t('developer.subtitle')}</Text>
-          <View style={styles.featureGrid}>
-            {features.map((f) => (
-              <View key={f.title} style={styles.featureItem}>
-                <Text style={styles.featureTitle}>{f.title}</Text>
-                <Text style={styles.featureDesc} numberOfLines={2}>
-                  {f.desc}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>{t('developer.selectService')}</Text>
-        {error ? (
-          <View style={styles.stateWrap}>
-            <Text style={styles.stateText}>{error}</Text>
-          </View>
-        ) : loading ? (
-          <View style={styles.stateWrap}>
-            <ActivityIndicator color={tk.brand.DEFAULT} />
-            <Text style={styles.stateText}>{t('common.loading')}</Text>
-          </View>
-        ) : (
-          <View style={styles.planRow}>
-            {plans.map((p) => {
-              const active = selected === p.type
-              return (
-                <TouchableOpacity
-                  key={p.type}
-                  style={[styles.planCard, active && styles.planCardActive]}
-                  onPress={() => onSelectChange(p.type)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.planLabel, active && styles.planLabelActive]}>
-                    {p.label}
-                  </Text>
-                  <Text style={active ? styles.planPriceActive : styles.planPrice}>
-                    <Text style={styles.planPriceNumber}>{p.price}</Text>
-                    <Text style={styles.planPriceUnit}> / {p.unit}</Text>
-                  </Text>
-                  <View style={styles.perkList}>
-                    {p.perks.map((perk) => (
-                      <Text
-                        key={perk}
-                        style={[styles.perkText, active && styles.perkTextActive]}
-                        numberOfLines={1}
-                      >
-                        · {perk}
-                      </Text>
-                    ))}
-                  </View>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
-          onPress={onSubmit}
-          disabled={submitting}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.submitText}>
-            {submitting ? t('developer.processing') : t('developer.openNow')}
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* ① 头部用户卡 */}
+      <View style={styles.headerCard}>
+        <Image
+          source={{ uri: avatarUrl || DEVELOPER_DEFAULT_LOGO_URL }}
+          style={styles.avatar}
+          resizeMode="cover"
+        />
+        <Text style={styles.userName} numberOfLines={1}>
+          {displayName}
+        </Text>
+        <TouchableOpacity style={styles.ctaBtn} onPress={onBecomeDeveloper} activeOpacity={0.8}>
+          <Text style={styles.ctaBtnText}>
+            {t(subscribed ? 'devSpace.renew' : 'developer.becomeDeveloper')}
           </Text>
         </TouchableOpacity>
-        <Text style={styles.agreementHint}>{t('developer.agreementHint')}</Text>
-      </ScrollView>
-    </View>
+      </View>
+
+      {/* ② 开发者信息卡(行表驱动) */}
+      {rows ? (
+        <View style={styles.infoCard}>
+          <Text style={styles.infoTitle}>{t('developerInfo.title')}</Text>
+          {rows.map((row) => (
+            <InfoRow key={row.label} styles={styles} {...row} />
+          ))}
+        </View>
+      ) : null}
+
+      {/* ③ 四个功能入口(顺序即跨端表顺序) */}
+      <View style={styles.entryRow}>
+        {DEVELOPER_SPACE_ENTRIES.map((entry) => (
+          <TouchableOpacity
+            key={entry.id}
+            style={styles.entryItem}
+            onPress={() => onEntryPress(entry.id)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.iconWell}>
+              <Image
+                source={{ uri: entry.iconUrl }}
+                style={styles.entryIcon}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.entryText}>{t(entry.labelKey)}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ④ 问题解答卡 + 咨询客服 */}
+      <View style={styles.faqSection}>
+        <Text style={styles.faqHeading}>{t('devSpace.faqHeading')}</Text>
+        {DEVELOPER_SPACE_PROBLEMS.map((problem) => (
+          <TouchableOpacity
+            key={problem.id}
+            style={styles.problemCard}
+            onPress={() => onProblemPress(problem.url)}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.problemTitle}>{t(problem.titleKey)}</Text>
+            <Text style={styles.problemDesc}>{t(problem.descKey)}</Text>
+            <View style={styles.problemBtn}>
+              <Text style={styles.problemBtnText}>{t(problem.btnKey)}</Text>
+            </View>
+          </TouchableOpacity>
+        ))}
+        <TouchableOpacity
+          style={styles.contactCard}
+          onPress={onContactService}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.contactTitle}>{t('devSpace.contactHeading')}</Text>
+          <Text style={styles.contactDesc}>{t('devSpace.contactDesc')}</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   )
 }
 
-function createStyles(tk: AppThemeTokens) {
-  const primary = tk.brand.DEFAULT
-  const primaryLight = tk.surface.muted
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingVertical: 12 },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    scrollContent: { padding: 14, paddingBottom: 32 },
-    heroCard: {
-      backgroundColor: primaryLight,
-      borderRadius: rnRadius.lg,
-      padding: 14,
-      marginBottom: 20,
-    },
-    heroTitle: { fontSize: 20, fontWeight: '700', color: primary },
-    heroSubtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    featureGrid: {
-      marginTop: 14,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-    },
-    featureItem: {
-      width: '47%',
-      backgroundColor: tk.surface.light,
-      borderRadius: rnRadius.xl,
-      padding: 10,
-    },
-    featureTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    featureDesc: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: tk.text.secondary,
-      marginBottom: 12,
-    },
-    stateWrap: { paddingVertical: 32, alignItems: 'center' },
-    stateText: { marginTop: 8, fontSize: 14, color: tk.text.tertiary },
-    planRow: { flexDirection: 'row', gap: 12 },
-    planCard: {
-      flex: 1,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      borderRadius: rnRadius.lg,
-      padding: 14,
-      backgroundColor: tk.surface.light,
-    },
-    planCardActive: {
-      borderColor: primary,
-      backgroundColor: tk.surface.light,
-    },
-    planLabel: { fontSize: 16, fontWeight: '600', color: tk.text.secondary },
-    planLabelActive: { color: primary },
-    planPrice: { marginTop: 8 },
-    planPriceActive: { marginTop: 8 },
-    planPriceNumber: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
-    planPriceUnit: { fontSize: 14, color: tk.text.tertiary },
-    perkList: { marginTop: 10, gap: 4 },
-    perkText: { fontSize: 11, color: tk.text.tertiary },
-    perkTextActive: { color: primary },
-    submitBtn: {
-      marginTop: 24,
-      height: 50,
-      borderRadius: rnRadius.sm,
-      backgroundColor: primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    submitBtnDisabled: { opacity: 0.6 },
-    submitText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
-    agreementHint: {
-      marginTop: 12,
-      textAlign: 'center',
-      fontSize: 11,
-      color: tk.text.tertiary,
-    },
-  })
+interface InfoRowProps extends InfoRowSpec {
+  styles: ReturnType<typeof createDeveloperStyles>
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+function InfoRow({ styles, label, value, lines = 1, danger = false, action = null }: InfoRowProps) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={[styles.infoLabel, danger && styles.dangerText]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={[styles.infoValue, danger && styles.dangerText]} numberOfLines={lines}>
+        {value}
+      </Text>
+      {action ? (
+        <TouchableOpacity onPress={action.onPress} hitSlop={8}>
+          <Text style={[styles.infoAction, danger && styles.dangerText]}>{action.label}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  )
+}

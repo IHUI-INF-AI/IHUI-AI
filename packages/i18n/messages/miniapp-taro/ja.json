@@ -1262,17 +1262,12 @@
     "missingUrl": "リンクなし、開けません"
   },
   "carte": {
-    "shareHint": "画像を保存してから共有",
-    "noQrcode": "QRコードなし",
-    "anonymous": "匿名ユーザー",
-    "cardSuffix": "の名刺",
-    "introLabel": "紹介",
-    "phone": "電話",
-    "email": "メール",
-    "scanHint": "スキャンして名刺を見る",
-    "shareCard": "名刺を共有",
-    "saveQrcode": "QRコードを保存",
-    "title": "デジタル名刺"
+    "title": "ZHIHUI コミュニティ",
+    "founder": "AI ZHIHUI コミュニティ | 経営助言会創設者 | 李",
+    "recommend": "あなたへのおすすめ",
+    "inviteHint": "下のQRコードをスキャンすると無料でZHIHUIコミュニティに参加できます。AI情報を定期的に共有し、専任担当がサポートします",
+    "scanHint": "スキャンして参加し、1000人以上の仲間とAIを語り合いましょう",
+    "introLabel": "紹介"
   },
   "exam": {
     "tabs": {
@@ -2524,17 +2519,8 @@
     "noData": "ランキングデータなし"
   },
   "recruitment": {
-    "applied": "応募送信済み",
-    "empty": "募集なし",
-    "defaultTitle": "参加する",
-    "subtitle": "IHUI AIと共に成長",
-    "requirements": "応募要件",
-    "privileges": "特典",
-    "incomeEstimate": "想定収入",
-    "monthlyIncome": "月収",
-    "yearlyIncome": "年収",
-    "submitting": "送信中…",
-    "apply": "今すぐ応募"
+    "title": "トレーダー計画",
+    "defaultTitle": "参加する"
   },
   "register": {
     "enterPhone": "電話番号を入力",
@@ -3121,6 +3107,11 @@
     "text6": "レベル紹介ページ未設定",
     "menu": {
       "subscriptions": "マイ購読"
+    }
+  },
+  "vipScreen": {
+    "qr": {
+      "hint": "QRコードを長押しで保存"
     }
   },
   "vipTrader": {

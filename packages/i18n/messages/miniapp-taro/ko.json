@@ -1262,17 +1262,12 @@
     "missingUrl": "링크 없음, 열 수 없습니다"
   },
   "carte": {
-    "shareHint": "이미지 저장 후 공유",
-    "noQrcode": "QR 코드 없음",
-    "anonymous": "익명 사용자",
-    "cardSuffix": "의 명함",
-    "introLabel": "소개",
-    "phone": "전화",
-    "email": "이메일",
-    "scanHint": "스캔하여 명함 보기",
-    "shareCard": "명함 공유",
-    "saveQrcode": "QR 코드 저장",
-    "title": "디지털 명함"
+    "title": "ZHIHUI 커뮤니티",
+    "founder": "AI ZHIHUI 커뮤니티 | 자문위원회 창립자 | 리 선생님",
+    "recommend": "당신에게 추천합니다",
+    "inviteHint": "아래 QR 코드를 스캔하면 ZHIHUI 커뮤니티에 무료 가입할 수 있고 AI 정보를 정기적으로 공유하며 전담 상담원이 도와드립니다",
+    "scanHint": "QR 코드를 스캔하고 1000명 이상 동료와 AI를 이야기하세요",
+    "introLabel": "소개"
   },
   "exam": {
     "tabs": {
@@ -2524,17 +2519,8 @@
     "noData": "랭킹 데이터 없음"
   },
   "recruitment": {
-    "applied": "지원 제출됨",
-    "empty": "채용 정보 없음",
-    "defaultTitle": "참여하기",
-    "subtitle": "IHUI AI와 함께 성장",
-    "requirements": "지원 자격",
-    "privileges": "혜택",
-    "incomeEstimate": "예상 수입",
-    "monthlyIncome": "월 수입",
-    "yearlyIncome": "연 수입",
-    "submitting": "제출 중…",
-    "apply": "지금 지원"
+    "title": "트레이더 계획",
+    "defaultTitle": "참여하기"
   },
   "register": {
     "enterPhone": "전화번호 입력",
@@ -3121,6 +3107,11 @@
     "text6": "등급 소개 페이지 미구성",
     "menu": {
       "subscriptions": "내 구독"
+    }
+  },
+  "vipScreen": {
+    "qr": {
+      "hint": "QR코드 길게 눌러 저장"
     }
   },
   "vipTrader": {

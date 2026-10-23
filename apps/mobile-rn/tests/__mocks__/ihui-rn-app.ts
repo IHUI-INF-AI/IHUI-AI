@@ -125,6 +125,9 @@ export type { SearchInputProps } from '../../../../packages/app/src/components/S
 // apps/mobile-rn/src/screens/CarteScreen.tsx 是薄壳,渲染的就是这一份;
 // 若此处缺席或写假组件,"RN 端渲染共享层那份"这一格就没有任何一层能判。
 export { CarteScreen } from '../../../../packages/app/src/features/carte/CarteScreen'
+// RecruitmentScreen 同一条纪律(操盘手计划宣传页,2026-10-24 收敛):薄壳渲染的就是共享层那一份;
+// 本替身此前根本不导出这个名字 ⇒ 不补上,壳会渲染 undefined,而"RN 端渲染共享层"这一格零判据。
+export { RecruitmentScreen } from '../../../../packages/app/src/features/recruitment/RecruitmentScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 2026-10-23:About 薄壳接的是真实共享屏,本替身必须把真件透出来,否则 About 测的是虚构组件
@@ -133,3 +136,6 @@ export type {
   AboutEntry,
   SharedAboutScreenProps,
 } from '../../../../packages/app/src/features/about/AboutScreen'
+// 2026-10-23:Developer 薄壳同样接真实共享屏(开发者空间页)。同 CarteScreen/AboutScreen 那条
+// 纪律:替身只转发、不另写假实现 —— 写假的等于「RN 端渲染共享层那一份」这一格零覆盖。
+export { DeveloperScreen } from '../../../../packages/app/src/features/developer/DeveloperScreen'
