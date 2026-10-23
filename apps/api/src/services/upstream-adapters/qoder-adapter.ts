@@ -121,6 +121,19 @@ export class QoderUpstreamError extends Error {
 // 安全:桥内 `options.tools=[]` 已清空工具面(不传会挂 18 个本机工具);
 //      cwd 固定为空目录,阻断 AGENTS.md 等上下文外泄。
 
+/**
+ * 网关对外模型名 → 上游裸名。
+ * 中转站对外用 `provider/model` 形态(如 `qoder/auto`,与 workbuddy/xxx 同族),
+ * 而 SDK 的 `options.model` 只认上游自己的名字(`auto` / 具体模型 id),
+ * 带前缀传过去会被当成不存在的模型 —— 故在出网前剥掉第一段前缀。
+ */
+function upstreamModelName(model: string): string {
+  const m = (model ?? '').trim()
+  if (!m) return 'auto'
+  const slash = m.indexOf('/')
+  return slash >= 0 ? m.slice(slash + 1) || 'auto' : m
+}
+
 /** 桥请求体:只保留桥会消费的字段,采样参数透传(桥当前忽略,不伪造生效) */
 function buildBridgeBody(req: NormalizedChatRequest): Record<string, unknown> {
   const messages = Array.isArray(req.messages)
@@ -129,7 +142,7 @@ function buildBridgeBody(req: NormalizedChatRequest): Record<string, unknown> {
         .map((m) => ({ role: m.role, content: m.content }))
     : []
   const body: Record<string, unknown> = {
-    model: req.model || 'auto',
+    model: upstreamModelName(req.model),
     messages,
     stream: req.stream === true,
   }
