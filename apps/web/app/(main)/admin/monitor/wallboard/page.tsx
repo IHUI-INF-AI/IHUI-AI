@@ -197,8 +197,10 @@ interface RelayPoolSnapshot {
   accountsTotal: number | null
   accountsSchedulable: number | null
   minTokenExpiresInSeconds: number | null
-  /** 账号最近一次刷新距今(秒);null = 没有账号刷过 */
+  /** 这份快照距今多少秒(后端 5 秒缓存 + 5 秒轮询 ⇒ 常为 0..5) */
   staleAgeSec: number | null
+  /** 账号最近一次刷新距今(秒);null = 没有任何账号带刷新戳 */
+  accountRefreshAgeSec?: number | null
   /** 健康态不在封闭词表内、无法折叠的行数(非 0 = 库里有脏值) */
   rowsUnclassified?: number | null
 }
