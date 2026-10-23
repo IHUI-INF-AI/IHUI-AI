@@ -29011,3 +29011,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ]（进行中@2026-10-23/goal-20261023） G-343 **同一族的残余四处(代 agent-DRIVEROOT 登记,它按纪律只普查未动手)**:① `scripts/pg-backup-cadence-audit.mjs:435-437` 与 drill 改前**逐字同式**,且它头注 `:69` 那句"drill 的 `devEnvRoot()`/`pgBinDir()` 是私有且本票禁止修改它"**现已半失真**(drill 里不再有私有 `devEnvRoot`)—— 改它必须连那句注释一起收,否则注释会替人做出"还有一份私有实现"的判断;② `scripts/pg-restore-app-reads.mjs:56` `resolve(REPO,'..','..','DevEnv')`;③ 〔压缩@2026-10-22〕
 - [ ] **D690 断线窗口待决审批的重放(承 D131 取证;等 §24 拍板 A/B/C)** —— 取证已证"会丢"(`apps/ai-service/tests/test_d131_pending_approval_resume.py` 6 例 RC=0)。三条修法与爆炸半径:A=服务端在重连时重放仍待决的条目(改 `llm.py::_approval_sessions` 与 agents 侧待决表的取用点,**须与 `sse_contract` 同批**);B=让主对话流帧出口写 `id:`(动 `_sse()` 是全仓共用出口 ⇒ 影响所有流式消费端与两侧契约,须单独票 + 跨端同批);C=端侧在重连后显式再拉一次待决清单(新增一次读端点,不改服务端语义)。**等谁**:用户拍板选哪条(推荐 A,理由是"不新造对外能力、只补重放"),B 〔压缩@2026-10-22〕
 
+
