@@ -44,6 +44,13 @@ export interface ExtQueueFacts {
   readonly streaming: boolean
   /** Runtime 插话能力协商位;全仓生产者未落地前宿主必须传 false(见文件头) */
   readonly runtimeSupportsInterjection: boolean
+  /**
+   * G-171a:是否有待决的高危工具审批(本端真实来源 = ChatPage 审批横幅的 pendingApproval
+   * 非空,与 web useToolApprovalPending 同一档事实)。可选缺省 false:宿主未接线前
+   * 行为与扩展前逐字一致;本端 runtimeSupportsInterjection 现为 false,插话恒被
+   * runtimeNoInterject 拦下,此位是为能力协商落地后**同一条链**预先接好的真实来源。
+   */
+  readonly awaitingApproval?: boolean
 }
 
 /** 许可判定唯一入口:D69 queueInteractionPerms,插话能力由调用方如实注入 */
@@ -52,6 +59,7 @@ export function extQueuePerms(facts: ExtQueueFacts): QueueInteractionPerms {
     hasQueuedMessages: facts.hasQueuedMessages,
     streaming: facts.streaming,
     runtimeSupportsInterjection: facts.runtimeSupportsInterjection,
+    awaitingApproval: facts.awaitingApproval ?? false,
   })
 }
 

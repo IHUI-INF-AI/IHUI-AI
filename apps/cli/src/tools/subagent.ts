@@ -373,6 +373,18 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
             /* 诊断出口自身抛错不得把执行带崩 */
           }
         }
+        // G-395 请求档 vs 实得档留痕:降档不再静默,出处标签直接进日志面。
+        // 留痕只由 precedence.ts 一处生成,本消费方读同一出口,不复算。
+        if (effective.effortDowngrade) {
+          const d = effective.effortDowngrade;
+          try {
+            process.stderr.write(
+              `[subagent] reasoningEffort 降档留痕(G-395):请求档 '${d.requested}'(${d.requestedSource.layer}:${d.requestedSource.origin})⇒ 实得档 '${d.effective ?? '(无)'}'(${d.effectiveSource.layer}:${d.effectiveSource.origin}),原因 ${d.reason}\n`,
+            );
+          } catch {
+            /* 诊断出口自身抛错不得把执行带崩 */
+          }
+        }
       }
 
       const subagentId = resumeFrom ?? newSubagentId();
