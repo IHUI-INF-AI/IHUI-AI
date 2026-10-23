@@ -196,7 +196,7 @@ describe('relay-import-qoder 纯函数', () => {
         uid: 'u1',
         accessToken: 'a1',
         refreshToken: 'r1',
-        expiresAt: '11/21/2026 11:38:26',
+        expiresAt: '2026-11-21T11:38:26Z',
         refreshTokenExpiresAt: '2027-10-17T11:38:26Z',
         phone: '15330637579',
         nickname: 'nick',
@@ -211,7 +211,7 @@ describe('relay-import-qoder 纯函数', () => {
       expect(a.token).toBe('a1')
       expect(a.uid).toBe('u1')
       expect(a.refreshToken).toBe('r1')
-      expect(a.expiresAt).toBe('11/21/2026 11:38:26')
+      expect(a.expiresAt).toBe('2026-11-21T11:38:26Z')
       expect(a.deviceId).toBe('dev1')
       expect(a.machineToken).toBe('mt1')
       // name 兜底:phone 优先于 nickname/name
