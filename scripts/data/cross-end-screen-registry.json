@@ -1,15 +1,25 @@
 {
-  "comment": "跨端页面覆盖登记表 —— (shared 真相源, rn 薄壳, miniapp 镜像页) 三元组。门 scripts/check-cross-end-screen-coverage.mjs 的 R1 逐条核验:三处文件必须真实存在,且小程序页必须含指向该 shared 路径的 `对齐目标(RN 共享屏)` 标记。字段形态(现读门体判据,别写歪):shared/rn 是仓库相对**文件路径**;miniapp 是 app.config.ts 里的**路由**(如 pkg-about/about/index),不是文件路径 —— 门按路由查页。路由段数不固定(实测两段 pkg-about/about/index 与三段 pkg-content/recruitment/index/index 并存)，照 app.config.ts 里 root+pages 拼出的字符串逐字抄，别自己截断 —— 写短一段门就报「小程序页不存在」。只登记真对齐的条目,不登记凑数的。",
+  "comment": "跨端页面覆盖登记表 —— (shared 真相源, rn 薄壳, miniapp 镜像页) 三元组。门 scripts/check-cross-end-screen-coverage.mjs 的 R1 逐条核验:三处文件必须真实存在、shared 必须在 packages/app/src/index.ts 有同名导出、小程序页必须含指向该 shared 路径的「对齐目标(RN 共享屏)」标记。字段形态:shared/rn 是仓库相对文件路径;miniapp 是 app.config.ts 里 root+pages 拼出的路由(段数不固定,实测两段与三段并存,照原样逐字抄)。本表只登记\"标记链完整\"的条目:它证明的是声明链(指向存在、导出存在、RN 真委托),不证明像素同物 —— 同页异名的假同物(见 developer 那格被剔除的理由)仍需逐屏人工复核。",
   "entries": [
     {
-      "shared": "packages/app/src/features/about/AboutScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/AboutScreen.tsx",
-      "miniapp": "pkg-about/about/index"
+      "shared": "packages/app/src/features/activity/ActivityScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ActivityScreen.tsx",
+      "miniapp": "pkg-content/activity/index"
     },
     {
-      "shared": "packages/app/src/features/recruitment/RecruitmentScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/RecruitmentScreen.tsx",
-      "miniapp": "pkg-content/recruitment/index/index"
+      "shared": "packages/app/src/features/announcement-detail/AnnouncementDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AnnouncementDetailScreen.tsx",
+      "miniapp": "pkg-content/announcement/detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/announcement/AnnouncementScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AnnouncementScreen.tsx",
+      "miniapp": "pkg-content/announcement/index"
+    },
+    {
+      "shared": "packages/app/src/features/ask-detail/AskDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AskDetailScreen.tsx",
+      "miniapp": "pages/ask/detail"
     },
     {
       "shared": "packages/app/src/features/carte/CarteScreen.tsx",
@@ -17,9 +27,59 @@
       "miniapp": "pkg-content/carte/index"
     },
     {
-      "shared": "packages/app/src/features/developer/DeveloperScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/DeveloperScreen.tsx",
-      "miniapp": "pkg-ai/developer/index"
+      "shared": "packages/app/src/features/check-in/CheckInScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CheckInScreen.tsx",
+      "miniapp": "pkg-user/check-in/index"
+    },
+    {
+      "shared": "packages/app/src/features/model-edit/ModelEditScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ModelEditScreen.tsx",
+      "miniapp": "pkg-ai/dev-enter/model-edit/index"
+    },
+    {
+      "shared": "packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PlazaCoverScreen.tsx",
+      "miniapp": "pkg-content/plaza/cover/index"
+    },
+    {
+      "shared": "packages/app/src/features/post-create/PostCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PostCreateScreen.tsx",
+      "miniapp": "pkg-content/community/create/index"
+    },
+    {
+      "shared": "packages/app/src/features/post-detail/PostDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PostDetailScreen.tsx",
+      "miniapp": "pkg-content/plaza/detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/recruitment/RecruitmentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RecruitmentScreen.tsx",
+      "miniapp": "pkg-content/recruitment/index/index"
+    },
+    {
+      "shared": "packages/app/src/features/search/SearchScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SearchScreen.tsx",
+      "miniapp": "pkg-content/search/index"
+    },
+    {
+      "shared": "packages/app/src/features/set-need/SetNeedScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SetNeedScreen.tsx",
+      "miniapp": "pkg-content/plaza/set-need/index"
+    },
+    {
+      "shared": "packages/app/src/features/task-center/TaskCenterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TaskCenterScreen.tsx",
+      "miniapp": "pkg-user/task-center/index"
+    },
+    {
+      "shared": "packages/app/src/features/topic-detail/TopicDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TopicDetailScreen.tsx",
+      "miniapp": "pkg-content/topic/detail"
+    },
+    {
+      "shared": "packages/app/src/features/vip-trader/VipTraderScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VipTraderScreen.tsx",
+      "miniapp": "pkg-shop/vip-trader/index/index"
     }
   ]
 }

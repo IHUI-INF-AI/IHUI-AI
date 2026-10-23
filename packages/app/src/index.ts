@@ -35,6 +35,12 @@ export { RefundDetailScreen } from './features/refund-detail/RefundDetailScreen'
 export { OrderDetailScreen } from './features/order-detail/OrderDetailScreen'
 export { CertDetailScreen } from './features/cert-detail/CertDetailScreen'
 export { PostDetailScreen } from './features/post-detail/PostDetailScreen'
+export {
+  TopicDetailScreen,
+  type TopicDetailPostView,
+  type TopicDetailView,
+  type TopicDetailScreenProps,
+} from './features/topic-detail/TopicDetailScreen'
 export { AnnouncementDetailScreen } from './features/announcement-detail/AnnouncementDetailScreen'
 export { LegalDocScreen } from './features/legal-doc/LegalDocScreen'
 export { HelpScreen } from './features/help/HelpScreen'

@@ -3,80 +3,49 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * TopicDetailScreen 话题详情页(mobile-rn 端)
+ * RN 端「话题详情」薄壳 —— 渲染全部委托共享屏
+ * `packages/app/src/features/topic-detail/TopicDetailScreen.tsx`,本文件只管平台侧:
+ * 路由取参、取数与分页游标、关注翻转与提示(appAlert 平台特有:依赖本端 BottomPops)、
+ * 导航落点(CircleCreate / CircleDetail)与主题接线。
  *
- * 镜像 miniapp-taro pages/topic/detail(P1 社区链路补齐):
- * - 数据源:@ihui/api-client fetchApi GET /topics/:id(帖子随详情一次性返回,客户端分页 slice)
- * - 交互:关注/取关 POST /circles/topic/:id/follow(翻转 isFollowed ± followerCount,
- *   toast → appAlert(t('common.hint')))→ 发布入口跳 CircleCreate(topicId/topicName 透传)→
- *   帖子卡点击进 CircleDetail;时间相对化(刚刚/N 分钟前/N 小时前/YYYY-MM-DD)
- * - 样式:getRnTokens 语义 token(零 hex,过 check:rn-parity);图标 lucide-react-native(无 emoji)
+ * 数据源与端语义(与收敛前保持一致):
+ * - GET /topics/:id(帖子随详情一次性返回,客户端分页 slice,PAGE_SIZE=10)
+ * - 关注 POST /circles/topic/:id/follow(翻转 isFollowed ± followerCount,toast 走 appAlert)
+ * - 此前本屏自带一份 478 行实现并挂 RN 独占白名单;本轮立共享屏后白名单由发起人统一摘除。
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
-import { appAlert } from '../components/BottomPops'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Heart, MessageCircle, PenLine } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
-import { NavBar } from '../components/NavBar'
+import {
+  TopicDetailScreen as SharedTopicDetailScreen,
+  type TopicDetailPostView,
+  type TopicDetailView,
+} from '@ihui/rn-app'
+import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
-import { NavChrome } from '../components/NavChrome'
 
 type Route = RouteProp<RootStackParamList, 'TopicDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/** 帖子结构(对齐 miniapp api Circle) */
-interface TopicPost {
-  id: string | number
-  title?: string
-  content: string
-  images?: string[]
-  author?: string
-  avatar?: string
-  createTime: string
-  likes?: number
-  comments?: number
-}
-
-/** /topics/:id 响应(对齐 miniapp TopicData) */
-interface TopicData {
-  id?: string
-  name?: string
-  description?: string
-  followerCount?: number
-  isFollowed?: boolean
-  posts?: TopicPost[]
+/** /topics/:id 响应(对齐 miniapp TopicData;posts 只作分页源,不上屏由共享屏渲染) */
+interface TopicApiData extends TopicDetailView {
+  posts?: TopicDetailPostView[]
 }
 
 const PAGE_SIZE = 10
 
 export function TopicDetailScreen() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const route = useRoute<Route>()
-  const tk = getRnTokens(resolvedTheme)
-  const styles = useMemo(() => createStyles(tk), [tk])
 
   const { id } = route.params
-  const [topic, setTopic] = useState<TopicData>({})
-  const [displayPosts, setDisplayPosts] = useState<TopicPost[]>([])
+  const [topic, setTopic] = useState<TopicApiData>({})
+  const [displayPosts, setDisplayPosts] = useState<TopicDetailPostView[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -86,7 +55,7 @@ export function TopicDetailScreen() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetchApi<TopicData>(`/topics/${encodeURIComponent(id)}`)
+      const res = await fetchApi<TopicApiData>(`/topics/${encodeURIComponent(id)}`)
       if (res.success && res.data) {
         setTopic(res.data)
         const allPosts = res.data.posts ?? []
@@ -156,323 +125,32 @@ export function TopicDetailScreen() {
     navigation.navigate('CircleCreate', { topicId: id, topicName: topic.name ?? '' })
   }, [navigation, id, topic.name])
 
-  const formatTime = useCallback(
-    (v: string): string => {
-      if (!v) return ''
-      const d = new Date(v)
-      if (isNaN(d.getTime())) return v
-      const diff = Date.now() - d.getTime()
-      if (diff < 60000) return t('topic.detail.justNow')
-      if (diff < 3600000) return t('topic.detail.minutesAgo', { n: Math.floor(diff / 60000) })
-      if (diff < 86400000) return t('topic.detail.hoursAgo', { n: Math.floor(diff / 3600000) })
-      const y = d.getFullYear()
-      const m = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      return `${y}-${m}-${day}`
-    },
-    [t],
-  )
-
-  const renderPost = ({ item }: { item: TopicPost }) => (
-    // 守门 131 改型:post 卡片无边距(内容自定高)⇒ 外层不设 style,父列表容器默认拉伸,
-    // 命中盒与卡片可视盒均等于原 Pressable;卡片底色 + pressed 淡出落内层数组形态。
-    <Pressable
-      onPress={() => navigation.navigate('CircleDetail', { id: String(item.id) })}
-      accessibilityRole="button"
-    >
-      {({ pressed }) => (
-        <View style={[styles.post, pressed ? styles.cardPressed : null]}>
-          <View style={styles.postUser}>
-            {item.avatar ? (
-              <Image source={{ uri: item.avatar }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatar} />
-            )}
-            <View style={styles.userInfo}>
-              <Text style={styles.author}>{item.author || t('topic.detail.anonymous')}</Text>
-              <Text style={styles.time}>{formatTime(item.createTime)}</Text>
-            </View>
-          </View>
-          {item.title ? (
-            <Text style={styles.postTitle} numberOfLines={2}>
-              {item.title}
-            </Text>
-          ) : null}
-          <Text style={styles.postContent} numberOfLines={3}>
-            {item.content}
-          </Text>
-          {item.images && item.images.length > 0 ? (
-            <View style={styles.imgRow}>
-              {item.images.slice(0, 3).map((img, i) => (
-                <Image key={i} source={{ uri: img }} style={styles.postImg} />
-              ))}
-              {item.images.length > 3 ? (
-                <View style={[styles.postImg, styles.imgMore]}>
-                  <Text style={styles.imgMoreText}>{`+${item.images.length - 3}`}</Text>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-          <View style={styles.postFooter}>
-            <View style={styles.stat}>
-              <Heart size={14} color={tk.text.tertiary} />
-              <Text style={styles.statNum}>{item.likes ?? 0}</Text>
-            </View>
-            <View style={styles.stat}>
-              <MessageCircle size={14} color={tk.text.tertiary} />
-              <Text style={styles.statNum}>{item.comments ?? 0}</Text>
-            </View>
-          </View>
-        </View>
-      )}
-    </Pressable>
+  const goPost = useCallback(
+    (postId: string) => navigation.navigate('CircleDetail', { id: postId }),
+    [navigation],
   )
 
   return (
-    <View style={styles.container}>
-      <NavChrome>
-        <NavBar title={t('topic.detail.pageTitle')} onBack={() => navigation.goBack()} />
-      </NavChrome>
-      {topic.name ? (
-        <View style={styles.header}>
-          <View style={styles.headerInfo}>
-            <Text style={styles.topicName}>
-              {'#'}
-              {topic.name}
-            </Text>
-            {topic.description ? <Text style={styles.topicDesc}>{topic.description}</Text> : null}
-            <Text style={styles.followers}>
-              {t('topic.detail.followers', { n: topic.followerCount ?? 0 })}
-            </Text>
-          </View>
-          <Pressable
-            style={[styles.followBtn, topic.isFollowed ? styles.followBtnActive : null]}
-            disabled={following}
-            onPress={() => void onFollow()}
-            accessibilityRole="button"
-          >
-            <Text
-              style={[styles.followBtnText, topic.isFollowed ? styles.followBtnTextActive : null]}
-            >
-              {topic.isFollowed ? t('topic.detail.following') : t('topic.detail.follow')}
-            </Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {topic.name ? (
-        // 守门 131 改型:publishBar 是通栏行盒(上下 hairline 边 + 内容撑高)⇒ 外层不设 style,
-        // 通栏宽度由父列默认拉伸保持;行盒 + pressed 淡出落内层。
-        <Pressable onPress={goPublish} accessibilityRole="button">
-          {({ pressed }) => (
-            <View style={[styles.publishBar, pressed ? styles.cardPressed : null]}>
-              <PenLine size={15} color={tk.text.tertiary} />
-              <Text style={styles.publishText} numberOfLines={1}>
-                {t('topic.detail.publishPlaceholder')}
-              </Text>
-              <Text style={styles.publishBtn}>{t('topic.detail.publish')}</Text>
-            </View>
-          )}
-        </Pressable>
-      ) : null}
-      <FlatList
-        data={displayPosts}
-        keyExtractor={(item) => String(item.id)}
-        renderItem={renderPost}
-        contentContainerStyle={styles.listContent}
-        onEndReached={onLoadMore}
-        onEndReachedThreshold={0.2}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={tk.text.secondary}
-          />
-        }
-        ListEmptyComponent={
-          loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator color={tk.text.secondary} />
-              <Text style={styles.stateText}>{t('topic.detail.loading')}</Text>
-            </View>
-          ) : (
-            <View style={styles.center}>
-              <Text style={styles.stateText}>{t('topic.detail.empty')}</Text>
-            </View>
-          )
-        }
-        ListFooterComponent={
-          !loading && displayPosts.length > 0 ? (
-            <View style={styles.footer}>
-              <Text style={styles.stateText}>
-                {loadingMore || hasMore ? t('topic.detail.loadingMore') : t('topic.detail.noMore')}
-              </Text>
-            </View>
-          ) : null
-        }
-      />
-    </View>
+    <SharedTopicDetailScreen
+      t={t}
+      colorScheme={resolvedTheme}
+      locale={locale}
+      topic={topic}
+      posts={displayPosts}
+      loading={loading}
+      refreshing={refreshing}
+      loadingMore={loadingMore}
+      hasMore={hasMore}
+      followBusy={following}
+      onBack={() => navigation.goBack()}
+      onFollow={() => void onFollow()}
+      onPublish={goPublish}
+      onPostPress={goPost}
+      onLoadMore={onLoadMore}
+      onRefresh={onRefresh}
+    />
   )
 }
 
-const createStyles = (tk: RnThemeTokens) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: tk.surface.bg,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: rpx(24),
-      padding: rpx(24),
-      backgroundColor: tk.surface.card,
-    },
-    headerInfo: {
-      flex: 1,
-      gap: rpx(8),
-    },
-    topicName: {
-      fontSize: 17,
-      fontWeight: '600',
-      color: tk.text.primary,
-    },
-    topicDesc: {
-      fontSize: 13,
-      lineHeight: 18,
-      color: tk.text.secondary,
-    },
-    followers: {
-      fontSize: 12,
-      color: tk.text.tertiary,
-    },
-    followBtn: {
-      paddingHorizontal: rpx(32),
-      paddingVertical: rpx(12),
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
-    followBtnActive: {
-      backgroundColor: tk.surface.muted,
-    },
-    followBtnText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: tk.brand.ctaForeground,
-    },
-    followBtnTextActive: {
-      color: tk.text.secondary,
-    },
-    publishBar: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: rpx(16),
-      paddingHorizontal: rpx(24),
-      paddingVertical: rpx(20),
-      backgroundColor: tk.surface.card,
-    },
-    publishText: {
-      flex: 1,
-      fontSize: 13,
-      color: tk.text.tertiary,
-    },
-    publishBtn: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: tk.brand.DEFAULT,
-    },
-    listContent: {
-      padding: rpx(24),
-      paddingBottom: rpx(40),
-      gap: rpx(16),
-    },
-    post: {
-      gap: rpx(12),
-      padding: rpx(24),
-      borderRadius: rnRadius.lg,
-      backgroundColor: tk.surface.card,
-    },
-    cardPressed: {
-      opacity: 0.85,
-    },
-    postUser: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: rpx(16),
-    },
-    avatar: {
-      width: rpx(64),
-      height: rpx(64),
-      borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.surface.muted,
-    },
-    userInfo: {
-      flex: 1,
-      gap: rpx(4),
-    },
-    author: {
-      fontSize: 13,
-      fontWeight: '500',
-      color: tk.text.primary,
-    },
-    time: {
-      fontSize: 11,
-      color: tk.text.tertiary,
-    },
-    postTitle: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: tk.text.primary,
-    },
-    postContent: {
-      fontSize: 13,
-      lineHeight: 19,
-      color: tk.text.secondary,
-    },
-    imgRow: {
-      flexDirection: 'row',
-      gap: rpx(12),
-    },
-    postImg: {
-      width: rpx(200),
-      height: rpx(200),
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.surface.muted,
-    },
-    imgMore: {
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    imgMoreText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: tk.text.secondary,
-    },
-    postFooter: {
-      flexDirection: 'row',
-      gap: rpx(32),
-    },
-    stat: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: rpx(8),
-    },
-    statNum: {
-      fontSize: 12,
-      color: tk.text.tertiary,
-    },
-    center: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: rpx(120),
-      gap: rpx(16),
-    },
-    stateText: {
-      fontSize: 13,
-      color: tk.text.tertiary,
-    },
-    footer: {
-      alignItems: 'center',
-      paddingVertical: rpx(24),
-    },
-  } satisfies Record<string, ViewStyle | TextStyle>)
+export default TopicDetailScreen
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
