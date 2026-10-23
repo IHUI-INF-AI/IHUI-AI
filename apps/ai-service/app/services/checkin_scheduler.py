@@ -40,6 +40,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.logging import get_logger
 from app.services import (
@@ -85,6 +86,9 @@ _JOB_ID_QODER = "checkin_daily_qoder"
 # —— 半夜 0 点平台重置后用户常已在对应程序里手动签完,等 08:05 主窗口才落
 # 记录 = UI 一早上都亮着可点按钮。探针只读不 claim,未签账号不落任何记录。
 _JOB_ID_PROBE = "checkin_daily_status_probe"
+# 本机客户端凭据同步(2026-10-24 立):第三方 access token 由客户端签发并自动刷新;
+# 客户端与 ai-service 同机时,直接取客户端刷新后的凭据写回,客户端登录在 ⇒ 平台侧不过期。
+_JOB_ID_LOCAL_SYNC = "checkin_local_creds_sync"
 
 # 日级起批漂移(2026-10-16 风控第四件套):CronTrigger jitter = uniform(0, jitter)
 # 加到触发时刻,每天起批时间在窗口内随机(08:05~08:12 / 10:05~10:10 / 08:10~08:15),
@@ -196,6 +200,13 @@ class CheckinScheduler:
             self._daily_credits_snapshot,
             trigger=CronTrigger(hour=8, minute=10, timezone=_CN_TZ, jitter=_CRON_JITTER),
             id=_CREDITS_JOB_ID,
+            replace_existing=True,
+        )
+        # 本机凭据同步:与每日签到开关同一个门;客户端不在同机时任务内部直接跳过(不假装成功)
+        self._scheduler.add_job(
+            self._sync_local_credentials,
+            trigger=IntervalTrigger(minutes=15),
+            id=_JOB_ID_LOCAL_SYNC,
             replace_existing=True,
         )
         self._scheduler.start()
@@ -398,6 +409,55 @@ class CheckinScheduler:
             name, acc["jwt"], device_map, client=client
         )
         return ok_s, checked_in, credits, msg_s or ""
+
+    async def _sync_local_credentials(self) -> None:
+        """本机客户端凭据同步(每 15 分钟)。
+
+        第三方 access token 由客户端签发并自动刷新,服务端没有通用 refresh 接口。
+        客户端与 ai-service 同机时,直接读取客户端刷新后的凭据写回签到账号并解除
+        冷却 —— 客户端保持登录 ⇒ 平台侧永不过期。
+        当前覆盖 MiniMax(`auth.json` 明文可读);Trae/WorkBuddy 的令牌在客户端
+        主进程内存或加密区,需桌面端捕获通道,本方法不假装成功。
+        """
+        path = os.path.expanduser("~/.minimax/auth/prod/cn/mcode-public/auth.json")
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            records = list((data.get("records") or {}).values())
+        except (OSError, ValueError):
+            return
+        if not records:
+            return
+        rec = records[0]
+        token = rec.get("accessToken")
+        if not isinstance(token, str) or not token:
+            return
+        exp_ms = rec.get("expiresAtMs")
+        exp = int(exp_ms / 1000) if isinstance(exp_ms, (int, float)) and exp_ms > 0 else None
+        rows = await checkin_store.list_accounts_by_platform("minimax")
+        updated = 0
+        for row in rows:
+            dm = row["device_map"]
+            if exp is not None and dm.get("expires_at") == exp:
+                continue
+            if not await checkin_store.update_jwt(row["id"], row["owner_user_id"], token):
+                continue
+            if exp is not None:
+                dm["expires_at"] = exp
+            refresh = rec.get("refreshToken")
+            if isinstance(refresh, str) and refresh:
+                dm["refresh_token"] = refresh
+            await checkin_store.save_device_map(row["id"], dm)
+            await checkin_store.clear_open_cooldowns(row["id"])
+            updated += 1
+        if updated:
+            logger.info(
+                "[checkin_scheduler] 本机 MiniMax 凭据已同步 %d 个账号(exp=%s)",
+                updated,
+                exp,
+            )
 
     async def _daily_run(self) -> None:
         """08:05 主窗口:遍历非 Qoder 账号(Qoder 账号走 10:05 独立窗口)。"""
