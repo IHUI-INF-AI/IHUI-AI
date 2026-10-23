@@ -164,6 +164,29 @@ describe('sweepAccountPool 分布式锁', () => {
     await vi.waitFor(() => expect(updateCalls.length).toBeGreaterThan(0))
     expect(updateCalls.some((s) => s.healthStatus === 'healthy')).toBe(true)
   })
+
+  it('健康检查未判定(上游 5xx/网络)→ 保留 unknown,不写 down', async () => {
+    const checkHealth = vi.fn(async () => ({
+      ok: false,
+      indeterminate: true,
+      error: 'model_list HTTP 500: Internal Server Error',
+    }))
+    registerRelayAdapter({
+      providerCode: 'trae',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      checkHealth,
+      isAuthFailure: (status) => status === 401,
+    } as never)
+    accountRows = [sweepRow()]
+    const out = await sweepAccountPool()
+    expect(out.healthChecked).toBe(1)
+    await vi.waitFor(() => expect(updateCalls.length).toBeGreaterThan(0))
+    const healthUpdate = updateCalls.find((s) => s.healthStatus !== undefined)
+    expect(healthUpdate?.healthStatus).toBe('unknown')
+    expect(String(healthUpdate?.lastErrorMessage)).toContain('500')
+  })
 })
 
 describe('sweepAccountPool 台账清理与并发上限', () => {

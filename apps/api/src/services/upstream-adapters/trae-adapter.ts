@@ -769,7 +769,7 @@ export const traeAdapter: RelayUpstreamAdapter = {
   async checkHealth(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
-  ): Promise<{ ok: boolean; error?: string }> {
+  ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean }> {
     try {
       const res = await resolveFetchImpl(opts ?? {})(TRAE_MODEL_LIST_URL, {
         method: 'GET',
@@ -782,6 +782,9 @@ export const traeAdapter: RelayUpstreamAdapter = {
         const text = await res.text().catch(() => '')
         return {
           ok: false,
+          // 5xx = 上游元数据面故障(与凭据无关,实测 2026-10-23 任何凭据都 500):
+          // 标未判定,调度器保留 unknown;401/403 才是凭据被拒。
+          ...(res.status >= 500 ? { indeterminate: true } : {}),
           error: `model_list HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
         }
       }
@@ -791,7 +794,12 @@ export const traeAdapter: RelayUpstreamAdapter = {
       rememberModelConfigs(ctx, configs)
       return { ok: true }
     } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+      // 网络/超时同样只是"取不到",不据此判凭据失效
+      return {
+        ok: false,
+        indeterminate: true,
+        error: e instanceof Error ? e.message : String(e),
+      }
     }
   },
 
