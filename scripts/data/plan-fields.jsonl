@@ -144,3 +144,5 @@
 {"key":"G-82#VideoPlayerScreen全屏纯黑⇒黑页","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"human"}
 {"key":"O81#跨端UI单一源","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"none"}
 {"key":"T:603fa0e505d0c389","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"none"}
+
+{"key":"G-925#守门77的一百一十五处dead-class圆角修","waiting":"human","owner":"机主","blocking":"真机/模拟器观感验证(修复已入库 枚1e96525416,门77 HEAD面 RC=0,镜像22/22+37/37绿)","updatedAt":"2026-10-23T18:31:00.817Z","updatedBy":"converge-recheck-20261024"}
