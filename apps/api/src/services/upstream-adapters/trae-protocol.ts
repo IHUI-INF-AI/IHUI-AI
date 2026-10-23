@@ -372,51 +372,6 @@ export function extractThoughtSnapshot(obj: Record<string, unknown>): string | n
   return typeof v === 'string' && v !== '' ? v : null
 }
 
-/**
- * GetUserToken(web 官网 cookie 换票)响应解析。
- * 线上实证(2026-10-23)形状:{ Result: { Token: <JWT>, ExpiredAt, UserID, TenantID } }。
- * ExpiredAt 兼容 unix 秒/毫秒/ISO 字符串;全解不出时用 JWT payload.exp;再兜底 6h。
- */
-export function extractGetUserTokenPayload(
-  body: unknown,
-): { token: string; expiresAt: Date } | null {
-  const top = body !== null && typeof body === 'object' ? (body as Record<string, unknown>) : null
-  const result =
-    top && top['Result'] !== null && typeof top['Result'] === 'object'
-      ? (top['Result'] as Record<string, unknown>)
-      : null
-  const token = result && typeof result['Token'] === 'string' ? result['Token'] : ''
-  if (!token) return null
-  let expiresAt: Date | null = null
-  const raw = result?.['ExpiredAt']
-  const fromNumber = (n: number): Date => new Date(n < 1e12 ? n * 1000 : n)
-  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
-    expiresAt = fromNumber(raw)
-  } else if (typeof raw === 'string' && raw !== '') {
-    const n = Number(raw)
-    if (Number.isFinite(n) && n > 0) expiresAt = fromNumber(n)
-    else {
-      const d = new Date(raw)
-      if (!Number.isNaN(d.getTime())) expiresAt = d
-    }
-  }
-  if (!expiresAt || Number.isNaN(expiresAt.getTime())) {
-    try {
-      const payload = JSON.parse(
-        Buffer.from(token.split('.')[1]!.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString(
-          'utf8',
-        ),
-      ) as { exp?: number }
-      if (typeof payload?.exp === 'number' && payload.exp > 0) {
-        expiresAt = new Date(payload.exp * 1000)
-      }
-    } catch {
-      /* JWT 形态不合法,走兜底 */
-    }
-  }
-  return { token, expiresAt: expiresAt ?? new Date(Date.now() + 6 * 3600_000) }
-}
-
 /** OpenAI usage 形状 */
 export interface OpenAiUsage {
   prompt_tokens: number

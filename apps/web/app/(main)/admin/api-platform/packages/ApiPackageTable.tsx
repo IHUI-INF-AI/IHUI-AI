@@ -18,6 +18,7 @@ import {
 import { PERIOD_LABEL_KEY } from './helpers'
 import type { ApiPackage } from './types'
 import { formatNumber } from '@/lib/date-utils'
+import { useConfirm } from '@/hooks/use-confirm'
 
 interface Props {
   list: ApiPackage[]
@@ -28,6 +29,7 @@ interface Props {
 
 export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
   const t = useTranslations('adminApiPackages')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   return (
     <div className="overflow-x-auto rounded-lg border">
       <Table>
@@ -87,7 +89,12 @@ export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
                       size="sm"
                       variant="ghost"
                       onClick={() => {
-                        if (confirm(t('confirmDelete'))) onDelete(p.id)
+                        void confirm({
+                          title: t('confirmDelete'),
+                          variant: 'destructive',
+                        }).then((ok) => {
+                          if (ok) onDelete(p.id)
+                        })
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -99,6 +106,7 @@ export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
           )}
         </TableBody>
       </Table>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

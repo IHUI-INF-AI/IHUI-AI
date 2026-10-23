@@ -29,10 +29,12 @@ import {
 } from './helpers'
 import type { JobLog, ListResp, SearchState, SortState } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export default function JobLogPage() {
   const t = useTranslations('admin.system')
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [search, setSearch] = React.useState<SearchState>(EMPTY_SEARCH)
   const [applied, setApplied] = React.useState<SearchState>(EMPTY_SEARCH)
   const [page, setPage] = React.useState(1)
@@ -114,7 +116,12 @@ export default function JobLogPage() {
             variant="outline"
             disabled={selected.size === 0 || delMut.isPending}
             onClick={() => {
-              if (confirm(t('common.confirmDelete', { count: selected.size }))) delMut.mutate()
+              void confirm({
+                title: t('common.confirmDelete', { count: selected.size }),
+                variant: 'destructive',
+              }).then((ok) => {
+                if (ok) delMut.mutate()
+              })
             }}
           >
             <Trash2 className="h-4 w-4" />
@@ -125,7 +132,11 @@ export default function JobLogPage() {
             variant="outline"
             disabled={cleanMut.isPending}
             onClick={() => {
-              if (confirm(t('tasksLog.confirmClean'))) cleanMut.mutate()
+              void confirm({ title: t('tasksLog.confirmClean'), variant: 'destructive' }).then(
+                (ok) => {
+                  if (ok) cleanMut.mutate()
+                },
+              )
             }}
           >
             <Eraser className="h-4 w-4" />
@@ -178,6 +189,8 @@ export default function JobLogPage() {
       )}
 
       <TaskLogDetailDialog detail={detail} onClose={() => setDetail(null)} />
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

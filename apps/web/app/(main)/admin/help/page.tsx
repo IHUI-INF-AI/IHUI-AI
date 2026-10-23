@@ -16,9 +16,11 @@ import { apiOrThrow } from '@/lib/api'
 import { slugify } from '@/lib/content'
 import type { HelpArticle, HelpForm } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export default function AdminHelpPage() {
   const t = useTranslations('admin.help')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<HelpArticle | null>(null)
@@ -71,7 +73,9 @@ export default function AdminHelpPage() {
     saveMut.mutate(values)
   }
   function handleDelete(h: HelpArticle) {
-    if (confirm(t('deleteConfirm'))) delMut.mutate(h.id)
+    void confirm({ title: t('deleteConfirm'), variant: 'destructive' }).then((ok) => {
+      if (ok) delMut.mutate(h.id)
+    })
   }
 
   return (
@@ -95,6 +99,8 @@ export default function AdminHelpPage() {
         onValid={onValid}
         onClose={close}
       />
+
+      <ConfirmDialogRenderer />
     </div>
   )
 }

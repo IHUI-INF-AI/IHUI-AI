@@ -573,8 +573,6 @@ function makeStyles() {
       alignItems: 'center',
       gap: 12,
       paddingVertical: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: tokens.border.light,
     },
     rowLast: { borderBottomWidth: 0 },
     rowMain: { flex: 1, gap: 2 },

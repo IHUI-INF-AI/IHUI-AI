@@ -94,21 +94,6 @@ beforeAll(async () => {
         Result: { Token: 'jwt-rotated', RefreshToken: 'rt-2', ExpiredAt: 1_893_456_000 },
       })
     }
-    // web 官网 cookie 换票(线上实证:credentials:'include',无 body;有 cookie → 新 JWT)
-    if (url.endsWith('/common/GetUserToken') && req.method === 'POST') {
-      const cookie = req.headers.cookie
-      if (!cookie || !cookie.includes('sessionid=')) {
-        return json(res, 401, { ResponseMetadata: { Error: { Code: '20101' } } })
-      }
-      return json(res, 200, {
-        Result: {
-          Token: 'jwt-from-cookie',
-          ExpiredAt: 1_893_456_000,
-          UserID: 'u1',
-          TenantID: 't1',
-        },
-      })
-    }
     if (url.endsWith('/chat_sessions') && req.method === 'POST') {
       if (createStatus === 401) return json(res, 401, { code: 1001, message: 'unauthorized' })
       return json(res, 200, { data: { chat_session_id: 'cs-http-1', message_id: 'ms-http-1' } })
@@ -138,7 +123,6 @@ beforeAll(async () => {
   process.env.TRAE_REMOTE_BASE = `${base}/api/remote/v1`
   process.env.TRAE_MODEL_LIST_URL = `${base}/api/ide/v1/model_list?type=chat`
   process.env.TRAE_EXCHANGE_TOKEN_URL = `${base}/oauth/ExchangeToken`
-  process.env.TRAE_GET_USER_TOKEN_URL = `${base}/cloudide/api/v3/common/GetUserToken`
 })
 
 afterAll(async () => {
@@ -146,7 +130,6 @@ afterAll(async () => {
   delete process.env.TRAE_REMOTE_BASE
   delete process.env.TRAE_MODEL_LIST_URL
   delete process.env.TRAE_EXCHANGE_TOKEN_URL
-  delete process.env.TRAE_GET_USER_TOKEN_URL
 })
 
 async function loadAdapter() {
@@ -241,48 +224,6 @@ describe('Trae 协议层 · 真 HTTP 往返(本机假上游)', () => {
     } finally {
       eventsFrames = 'ok'
     }
-  })
-
-  it('web 号无 refreshToken 但有 cookies → GetUserToken cookie 换票成功', async () => {
-    const { traeAdapter } = await loadAdapter()
-    seen.length = 0
-    const ctx = makeCtx('jwt-stale')
-    ;(ctx.credentials as { refreshToken: string | null }).refreshToken = null
-    ;(ctx.credentials as { cookies: unknown[] }).cookies = [
-      { name: 'sessionid', value: 'abc', domain: '.trae.cn', path: '/' },
-      { name: 'csrftoken', value: 'xyz', domain: '.trae.cn', path: '/' },
-    ]
-    const res = await traeAdapter.refreshToken!(ctx, {})
-    expect(res).toBeTruthy()
-    expect(res!.token).toBe('jwt-from-cookie')
-    // refreshToken 返回 undefined = 调度器保留原值(web 号本无 rt)
-    expect(res!.refreshToken).toBeUndefined()
-    expect(res!.expiresAt).toBeTruthy()
-    // 换票请求必须带 Cookie 头且无 Authorization
-    const gt = seen.find((s) => s.path.endsWith('/common/GetUserToken'))
-    expect(gt).toBeTruthy()
-    expect(gt!.method).toBe('POST')
-    expect(gt!.headers.cookie).toContain('sessionid=abc')
-    expect(gt!.headers.authorization).toBeUndefined()
-  })
-
-  it('cookie 换票 401 且有 refreshToken → 落回 ExchangeToken', async () => {
-    const { traeAdapter } = await loadAdapter()
-    seen.length = 0
-    const ctx = makeCtx('jwt-stale')
-    ;(ctx.credentials as { cookies: unknown[] }).cookies = [{ name: 'other', value: 'no-session' }]
-    const res = await traeAdapter.refreshToken!(ctx, {})
-    expect(res).toBeTruthy()
-    expect(res!.token).toBe('jwt-rotated')
-    expect(seen.some((s) => s.path.endsWith('/common/GetUserToken'))).toBe(true)
-    expect(seen.some((s) => s.path.startsWith('/oauth/ExchangeToken'))).toBe(true)
-  })
-
-  it('无 refreshToken 也无 cookies → null(不抛)', async () => {
-    const { traeAdapter } = await loadAdapter()
-    const ctx = makeCtx('jwt-stale')
-    ;(ctx.credentials as { refreshToken: string | null }).refreshToken = null
-    await expect(traeAdapter.refreshToken!(ctx, {})).resolves.toBeNull()
   })
 
   it('请求指纹:Cloud-IDE-JWT + web 渠道头,且不得带 x-user-region', async () => {

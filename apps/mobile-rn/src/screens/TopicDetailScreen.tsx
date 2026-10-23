@@ -186,7 +186,7 @@ export function TopicDetailScreen() {
             {item.avatar ? (
               <Image source={{ uri: item.avatar }} style={styles.avatar} />
             ) : (
-              <View style={[styles.avatar, styles.avatarFallback]} />
+              <View style={styles.avatar} />
             )}
             <View style={styles.userInfo}>
               <Text style={styles.author}>{item.author || t('topic.detail.anonymous')}</Text>
@@ -369,10 +369,6 @@ const createStyles = (tk: RnThemeTokens) =>
       paddingHorizontal: rpx(24),
       paddingVertical: rpx(20),
       backgroundColor: tk.surface.card,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: tk.border.light,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: tk.border.light,
     },
     publishText: {
       flex: 1,
@@ -409,7 +405,6 @@ const createStyles = (tk: RnThemeTokens) =>
       borderRadius: rnRadius['2xl'],
       backgroundColor: tk.surface.muted,
     },
-    avatarFallback: {},
     userInfo: {
       flex: 1,
       gap: rpx(4),

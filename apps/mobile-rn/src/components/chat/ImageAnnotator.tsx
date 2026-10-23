@@ -171,8 +171,6 @@ const styles = StyleSheet.create({
     paddingBottom: rpx(12),
     gap: rpx(16),
     backgroundColor: tokens.surface.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.border.light,
   },
   toolRow: {
     flexDirection: 'row',

@@ -52,6 +52,21 @@ export interface UpstreamForwardRequest {
   toolChoice?: unknown
   /** reasoning_effort 透传(渠道路径原样,账号池由适配器映射到平台专有字段) */
   reasoningEffort?: string | number
+  /** 采样面(top_p / 惩罚项),渠道路径原样透传;账号池由适配器按平台规则透传 */
+  topP?: number
+  presencePenalty?: number
+  frequencyPenalty?: number
+  /** 并行工具调用开关 */
+  parallelToolCalls?: boolean
+  /** 终端用户标识(仅透传) */
+  user?: string
+  /** 服务等级(仅透传) */
+  serviceTier?: string
+  /** 候选数:账号池单请求只支持 1,>1 时回退到 ai-service 链路 */
+  n?: number
+  /** logprobs:账号池上游静默忽略,请求时回退到 ai-service 链路 */
+  logprobs?: boolean
+  topLogprobs?: number
   /** stop 序列(OpenAI string | string[];账号池由适配器本地截断) */
   stop?: string | string[]
   userId?: string
@@ -167,6 +182,15 @@ export async function forwardToChannel(req: UpstreamForwardRequest): Promise<For
     if (req.tools !== undefined) body.tools = req.tools
     if (req.toolChoice !== undefined) body.tool_choice = req.toolChoice
     if (req.reasoningEffort !== undefined) body.reasoning_effort = req.reasoningEffort
+    if (req.topP !== undefined) body.top_p = req.topP
+    if (req.presencePenalty !== undefined) body.presence_penalty = req.presencePenalty
+    if (req.frequencyPenalty !== undefined) body.frequency_penalty = req.frequencyPenalty
+    if (req.parallelToolCalls !== undefined) body.parallel_tool_calls = req.parallelToolCalls
+    if (req.user !== undefined) body.user = req.user
+    if (req.serviceTier !== undefined) body.service_tier = req.serviceTier
+    if (req.n !== undefined) body.n = req.n
+    if (req.logprobs !== undefined) body.logprobs = req.logprobs
+    if (req.topLogprobs !== undefined) body.top_logprobs = req.topLogprobs
     if (req.stop !== undefined) body.stop = req.stop
     if (req.bodyOverride) {
       body = { ...req.bodyOverride, model: rawModel, stream: req.stream }

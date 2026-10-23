@@ -14,6 +14,7 @@ import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem,
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 type DocCategory = 'api' | 'guide' | 'development' | 'faq'
 type DocStatus = 'draft' | 'published'
@@ -57,6 +58,7 @@ export default function AdminDocsPage() {
   const tc = useTranslations('common')
   const locale = useLocale()
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Doc | null>(null)
   const [slugTouched, setSlugTouched] = React.useState(false)
@@ -148,7 +150,7 @@ export default function AdminDocsPage() {
                   <td className="px-4 py-2.5 text-right">
                     <div className="flex justify-end gap-1">
                       <Button size="sm" variant="ghost" onClick={() => openEdit(d)}><Edit className="h-4 w-4" />{t('edit')}</Button>
-                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={delMut.isPending} onClick={() => { if (confirm(t('deleteConfirm'))) delMut.mutate(d.id) }}>
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={delMut.isPending} onClick={() => { void confirm({ title: t('deleteConfirm'), variant: 'destructive' }).then((ok) => { if (ok) delMut.mutate(d.id) }) }}>
                         <Trash2 className="h-4 w-4" />{t('delete')}
                       </Button>
                     </div>
@@ -215,6 +217,7 @@ export default function AdminDocsPage() {
           </form>
         </DialogContent>
       </Dialog>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

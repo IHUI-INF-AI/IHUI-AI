@@ -198,7 +198,6 @@
   align-items: center;
   gap: 16rpx;
   padding: 20rpx 24rpx 40rpx;
-  border-top: 2rpx solid var(--color-border);
   background: var(--color-card);
   z-index: 100;
 }

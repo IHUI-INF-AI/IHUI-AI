@@ -45,7 +45,6 @@ import {
   createStopSequenceFilter,
   deriveBizSessionId,
   extractErrorInfo,
-  extractGetUserTokenPayload,
   extractReasoningDelta,
   extractTextDelta,
   extractThoughtSnapshot,
@@ -58,7 +57,6 @@ import {
   TERMINAL_EVENT_NAMES,
   type OpenAiUsage,
 } from './trae-protocol.js'
-import { buildCookieHeader } from '../relay-account-format.js'
 
 // =============================================================================
 // 上游端点与 web 渠道指纹常量
@@ -86,14 +84,6 @@ const TRAE_EXCHANGE_TOKEN_URL = endpoint(
   'TRAE_EXCHANGE_TOKEN_URL',
   'https://api.trae.cn/cloudide/api/v3/trae/oauth/ExchangeToken',
 )
-/** web 官网 cookie 换票端点(线上实证:credentials:'include' 纯靠 HttpOnly cookie,
- * 返回 Result{Token,ExpiredAt};web 号无 refreshToken 时的自动续票唯一通道) */
-const TRAE_GET_USER_TOKEN_URL = endpoint(
-  'TRAE_GET_USER_TOKEN_URL',
-  'https://api.trae.cn/cloudide/api/v3/common/GetUserToken',
-)
-/** 换票请求的站点身份(请求出自 work.trae.cn 页面,与 chat 的 solo.trae.cn 不同源) */
-const WEB_LOGIN_ORIGIN = 'https://work.trae.cn'
 /** 模型列表端点(健康检查 + listModels 共用,轻量不耗配额) */
 const TRAE_MODEL_LIST_URL = endpoint(
   'TRAE_MODEL_LIST_URL',
@@ -679,11 +669,8 @@ export const traeAdapter: RelayUpstreamAdapter = {
   },
 
   /**
-   * Token 刷新,两条通道:
-   * 1. web 号(cookie 换票):账号有 cookies → POST GetUserToken(纯靠 Cookie,无 body 无
-   *    Authorization),换出 ~6h 新 JWT。线上实证通道,web 号(无 refreshToken)的唯一续命方式。
-   * 2. IDE 号(ExchangeToken):有 refreshToken → 原通道。
-   * cookie 路径失败且有 rt → 落回 ExchangeToken;两条都不可用 → null;HTTP 失败 → 抛错(调度器计数摘除)。
+   * Token 刷新:ExchangeToken 端点无 Authorization 头。
+   * 无 refreshToken → null;HTTP 非 2xx 或响应无 Token → 抛错(调度器计数摘除)。
    * opts.proxyUrl 非空时走账号级代理(与 chat 同出口 IP,防 Trae 风控因 IP 漂移触发校验)。
    */
   async refreshToken(
@@ -691,42 +678,8 @@ export const traeAdapter: RelayUpstreamAdapter = {
     opts?: AdapterCallOptions,
   ): Promise<TokenRefreshResult | null> {
     const rt = ctx.credentials.refreshToken
-    const cookieHeader = buildCookieHeader(ctx.credentials.cookies)
-    const doFetch = resolveFetchImpl(opts ?? {})
-    if (cookieHeader) {
-      try {
-        const res = await doFetch(TRAE_GET_USER_TOKEN_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Cookie: cookieHeader,
-            Origin: WEB_LOGIN_ORIGIN,
-            Referer: `${WEB_LOGIN_ORIGIN}/`,
-            'User-Agent': WEB_USER_AGENT,
-          },
-        })
-        if (!res.ok) {
-          const text = await res.text().catch(() => '')
-          throw new TraeUpstreamError(
-            res.status,
-            `Trae GetUserToken 失败(HTTP ${res.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
-          )
-        }
-        const body: unknown = await res.json().catch(() => null)
-        const payload = extractGetUserTokenPayload(body)
-        if (!payload) throw new Error('Trae GetUserToken 响应无 Token')
-        return {
-          token: payload.token,
-          // undefined = 调度器保留原 refreshTokenEnc(web 号本无 rt,IDE 号不丢 rt)
-          refreshToken: undefined,
-          expiresAt: payload.expiresAt,
-        }
-      } catch (e) {
-        if (!rt) throw e
-        // 有 rt:cookie 路径失败,落回 ExchangeToken
-      }
-    }
     if (!rt) return null
+    const doFetch = resolveFetchImpl(opts ?? {})
     const res = await doFetch(TRAE_EXCHANGE_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -2314,6 +2314,13 @@
       "when": 1792683600000,
       "tag": "20261022234000_invalidate_public_admin_password",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 334,
+      "when": 1792704600000,
+      "tag": "20261023053000_api_logs_created_at_idx",
+      "breakpoints": true
     }
   ]
 }

@@ -2167,8 +2167,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(24),
     paddingVertical: rpx(16),
     backgroundColor: tokens.surface.card,
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
   },
   modelBarLabel: {
     flex: 1,
@@ -2201,8 +2199,6 @@ const styles = StyleSheet.create({
   // 快捷操作区(对齐 Uniapp quick-actions-container)
   quickWrap: {
     backgroundColor: tokens.surface.bg,
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
   },
   quickScrollContent: {
     paddingHorizontal: rpx(24),
@@ -2448,8 +2444,6 @@ const pickerStyles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: rpx(32),
     paddingVertical: rpx(24),
-    borderBottomWidth: 1,
-    borderBottomColor: tokens.border.light,
   },
   title: {
     fontSize: 15,

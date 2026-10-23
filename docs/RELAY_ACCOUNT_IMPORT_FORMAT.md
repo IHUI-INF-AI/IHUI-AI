@@ -6,7 +6,7 @@
 
 # 号池导入 JSON 格式规范
 
-> 适用范围:`/api/admin/relay/accounts/import`、[apps/api/scripts/relay-account-import-validate.ts](../apps/api/scripts/relay-account-import-validate.ts) 与一键导入工具 [apps/api/scripts/relay-import-qoder.ts](../apps/api/scripts/relay-import-qoder.ts)
+> 适用范围:`/api/admin/relay/accounts/import` 与 [apps/api/scripts/relay-account-import-validate.ts](../apps/api/scripts/relay-account-import-validate.ts)
 > 判据单源:[relay-account-format.ts](../apps/api/src/services/relay-account-format.ts)
 
 ## 1. 两种形状
@@ -184,35 +184,4 @@ curl -X POST https://<host>/api/admin/relay/accounts/import \
 - JWT 只解码不验签;预检通过 ≠ 账号有效,也 ≠ 上游接受该凭证。
 - `deviceId` / `machineId` 为空不阻塞导入;是否必须由各平台适配器的请求形状决定。
 - 上游平台的服务条款与账号共享限制由使用者自行评估;本仓只提供导入与调度机制。
-
-## 8. 一键导入工具 `relay-import-qoder.ts`(2026-10-23 立)
-
-把「解密本机 Qoder 登录态 → 入号池」固化成可复用入口,**重复性导入**直接一键,免去每次手工解密。
-进 `apps/api` 后通过根命令调用:
-
-```bash
-# 模式 A(默认):捕获本机 Qoder 登录态 → 导入号池(一键)
-pnpm qoder:import
-
-# 模式 B:直接导入账号 JSON(裸数组 / {accounts:[…]} / {providerCode,accounts})
-pnpm qoder:import -- --file accounts.json
-pnpm qoder:import -- --file accounts.json --provider trae
-
-# 模式 C:已解密的本机会话 JSON(qoder-capture.ps1 产物;无 pwsh 环境的降级通道)
-pnpm qoder:import -- --session-file session.json
-
-# 干跑(只解析不落库,核对来源/uid/到期)
-pnpm qoder:import -- --dry-run
-```
-
-三模式要点:
-- **幂等**:同 `(providerCode, uid)` 再导入 = 覆盖凭证 + 重置健康状态(号池续命,重复导入安全)。
-- **兼容形状**:`--file` 认裸数组 / `{accounts:[…]}` / `{providerCode,accounts}` / 顶层单条账号对象;
-  `--session-file` 认 `{sessions:[…]}` / 顶层单条会话对象(兼容两种导出:`accessToken`+`uid` 的 ps1 产物,
-  以及 `token`(accessToken 别名)+ 内联 `user{id,name,phone}` 的原生会话导出)。
-- **安全**:输出永不回显 token/refreshToken 明文(只给 uid/到期/问题码)。
-  `--file` 的账号 JSON 与 `--session-file` 的会话 JSON 均含**明文凭证**——用完即删、勿入仓(见 §7)。
-- **退出码**:`0` 全部成功 / `1` 有失败或缺可导账号 / `2` 参数或输入读取失败(未判定)。
-- 模式 A 需要 PowerShell 7+(`pwsh`)且本机已登录 Qoder 客户端;不满足时走模式 C 降级:
-  在能解密的机器上 `pwsh -File qoder-capture.ps1 -OutFile session.json`,再加 `--session-file` 导入。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

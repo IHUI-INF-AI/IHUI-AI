@@ -266,13 +266,10 @@ export async function revokeAllUserRefreshTokens(
   // 默认 force_logout(密码重置/修改后强制全端下线);SSO logout 等场景由调用点传入
   reason = 'force_logout',
 ): Promise<void> {
-  // 守门 134 后续批「updated/created 布尔 ACK 存量清偿」:写链补 .returning() 以库确认命中集
-  // (与同文件 revokeRefreshTokenFamily 同形),使调用方 `updated: true` 由 RETURNING 背书而非字面量。
   await db
     .update(refreshTokens)
     .set({ revokedAt: new Date() })
     .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)))
-    .returning({ id: refreshTokens.id })
   recordAuthTokenRevoked(reason)
 }
 
