@@ -872,8 +872,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: CONTAINER_PADDING_HORIZONTAL,
     paddingTop: CONTAINER_PADDING_VERTICAL,
     backgroundColor: tokens.surface.card,
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
   } as ViewStyle,
   rowMode: {
     flexDirection: 'row',

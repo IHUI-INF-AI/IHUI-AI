@@ -241,7 +241,6 @@
   padding: 20rpx 28rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
-  border-top: 2rpx solid var(--color-border);
   z-index: 10;
 }
 

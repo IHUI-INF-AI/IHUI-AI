@@ -219,7 +219,7 @@ export function LecturerDetailScreen({
                     {c.coverUrl ? (
                       <Image source={{ uri: c.coverUrl }} style={styles.courseCover} />
                     ) : (
-                      <View style={[styles.courseCover, styles.courseCoverFallback]} />
+                      <View style={styles.courseCover} />
                     )}
                     <View style={styles.courseBody}>
                       <Text style={styles.courseTitle} numberOfLines={2}>
@@ -512,7 +512,6 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md, // rpx(12)
       backgroundColor: tk.surface.muted,
     },
-    courseCoverFallback: {},
     courseBody: {
       flex: 1,
       justifyContent: 'space-between',
@@ -587,8 +586,6 @@ function createStyles(tk: AppThemeTokens) {
     footerBar: {
       paddingHorizontal: 12, // rpx(24)
       paddingVertical: 8, // rpx(16)
-      borderTopWidth: 1,
-      borderTopColor: tk.border.light,
       backgroundColor: tk.surface.card,
     },
     footerBtn: {
