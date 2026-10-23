@@ -251,5 +251,19 @@ async def test_restore_outbound_pause_query_failure_fail_open(monkeypatch):
     monkeypatch.setattr(checkin_store, "latest_outbound_pause_signal", fake_signal)
     await cs.checkin_scheduler._restore_outbound_pause()  # 不抛
     assert checkin_outbound_gate.paused_remaining() == 0
+def test_classify_checkin_result_separates_claim_from_skip():
+    """ok=true 不等于本次领取:skip_already 必须单列。
+
+    2026-10-24 实测:8 条 ok=true 全是 skip_already、0 条 claim,汇总却报「成功 8」
+    —— 运营面据此会误判自动签到真的领到了积分。
+    """
+    assert cs.classify_checkin_result({"ok": True, "action": "checkin"}) == "claimed"
+    assert cs.classify_checkin_result({"ok": True, "action": "claim"}) == "claimed"
+    assert cs.classify_checkin_result({"ok": True, "action": "skip_already"}) == "skipped"
+    assert cs.classify_checkin_result({"ok": False, "action": "checkin"}) == "failed"
+    assert cs.classify_checkin_result({"ok": False, "action": "skip_already"}) == "failed"
+    assert cs.classify_checkin_result({}) == "failed"
+
+
 # [IHUI-AI-PROVENANCE-TAIL]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
