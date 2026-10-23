@@ -464,20 +464,28 @@ async function fetchBuiltinModels(
 async function checkHealth(
   ctx: AdapterAccountContext,
   opts?: AdapterCallOptions,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
   try {
     const json = await fetchBuiltinModels(ctx, opts)
     const err = extractErrorFrame(json)
     if (err) {
       const e = err.openaiChunk['error'] as { code: string; message: string }
-      return { ok: false, error: `${e.code}: ${e.message}` }
+      return {
+        ok: false,
+        // 上游错误帧里的鉴权类错误码(APIG.0301/0303、STS5.1804 等)= 明确拒收
+        authFailed: isAuthFailure(0, JSON.stringify(e)),
+        error: `${e.code}: ${e.message}`,
+      }
     }
     if (!Array.isArray(json['builtinModels'])) {
       return { ok: false, error: '模型清单响应缺少 builtinModels' }
     }
     return { ok: true }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    const msg = e instanceof Error ? e.message : String(e)
+    const m = msg.match(/^HTTP\s+(\d{3})/)
+    const status = m ? Number(m[1]) : 0
+    return { ok: false, authFailed: isAuthFailure(status, msg), error: msg }
   }
 }
 

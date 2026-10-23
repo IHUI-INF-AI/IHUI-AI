@@ -100,7 +100,10 @@ function cosyValue(cosy: Record<string, unknown>, keys: readonly string[]): stri
       // HTTP 头必须 ASCII(RFC 7230):非 ASCII(如中文主机名"服务器")会被底层
       // encode('ascii') 抛 UnicodeEncodeError(ai-service 侧已因此致 id=5 每日签到
       // 全挂)。此处同样剔除非可打印 ASCII;清洗后为空则继续找下一个候选键。
-      const safe = v.trim().replace(/[^\x20-\x7e]/g, '').trim()
+      const safe = v
+        .trim()
+        .replace(/[^\x20-\x7e]/g, '')
+        .trim()
       if (safe) return safe
     }
   }
@@ -461,7 +464,7 @@ export const qoderAdapter: RelayUpstreamAdapter = {
   async checkHealth(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
-  ): Promise<{ ok: boolean; error?: string }> {
+  ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
     try {
       const res = await resolveFetchImpl(opts ?? {})(`${QODER_QUOTA_BASE}${PATH_QUOTA}`, {
         method: 'GET',
@@ -469,14 +472,24 @@ export const qoderAdapter: RelayUpstreamAdapter = {
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
+        // 401 = 上游明确拒收凭据 → down + 收敛到期列;5xx/429 等属未判定,保留 unknown
+        const rejected = qoderAdapter.isAuthFailure(res.status, text)
         return {
           ok: false,
-          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+          indeterminate: !rejected,
+          authFailed: rejected,
+          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
+            rejected ? '' : '(未判定)'
+          }`,
         }
       }
       return { ok: true }
     } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `${e instanceof Error ? e.message : String(e)}(未判定)`,
+      }
     }
   },
 

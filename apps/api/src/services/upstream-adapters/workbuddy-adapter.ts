@@ -321,13 +321,14 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
   async checkHealth(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
-  ): Promise<{ ok: boolean; error?: string }> {
+  ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
     try {
       const { status, text } = await fetchModels(ctx, opts)
-      if (status === 401 || status === 403) return { ok: false, error: `HTTP ${status} 鉴权失效` }
-      if (status >= 400) return { ok: false, error: `HTTP ${status}` }
+      if (status === 401 || status === 403)
+        return { ok: false, authFailed: true, error: `HTTP ${status} 鉴权失效` }
+      if (status >= 400) return { ok: false, indeterminate: true, error: `HTTP ${status}(未判定)` }
       const env = parseEnvelope(text)
-      if (!env) return { ok: false, error: '响应信封非法' }
+      if (!env) return { ok: false, indeterminate: true, error: '响应信封非法(未判定)' }
       if (env.code !== 0) {
         const brief = env.msg ? `: ${env.msg.slice(0, 80)}` : ''
         return { ok: false, error: `code=${env.code}${brief}` }
@@ -336,7 +337,11 @@ export const workbuddyAdapter: RelayUpstreamAdapter = {
       if (!ids || ids.length === 0) return { ok: false, error: 'models 列表为空' }
       return { ok: true }
     } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message.slice(0, 120) : '健康检查请求失败' }
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `${e instanceof Error ? e.message.slice(0, 120) : '健康检查请求失败'}(未判定)`,
+      }
     }
   },
 
