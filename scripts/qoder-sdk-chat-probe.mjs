@@ -119,12 +119,15 @@ if (!fs.existsSync(sdkEntry)) {
 }
 
 const PAT = (process.env.QODER_PAT || '').trim()
-if (!PAT) {
-  // 已跑过 `qoderclicn login` 的机器无需 PAT：worker 直接读 CLI 登录态。
+const DEV_TOKEN = (process.env.QODER_DEV_TOKEN || '').trim()
+const DEV_EXP = Number(process.env.QODER_DEV_TOKEN_EXP || 0)
+if (!PAT && !DEV_TOKEN) {
+  // 已跑过 `qoderclicn login` 的机器无需任何 token：worker 直接读 CLI 登录态。
   console.log(
-    '[probe] 未提供 QODER_PAT ⇒ 改用 qodercli 已登录凭证(qodercliAuth)。\n' +
-      '  若报 "No qodercli login found"：先跑 qoderclicn login 完成浏览器授权；\n' +
-      '  或改用 PAT: https://qoder.com.cn/account/integrations',
+    '[probe] 未提供 QODER_DEV_TOKEN / QODER_PAT ⇒ 改用 qodercli 已登录凭证(qodercliAuth)。\n' +
+      '  推荐（2026-10-23 实证可用，无需 PAT、无需浏览器授权）：\n' +
+      '    QODER_DEV_TOKEN=<dt-...> QODER_DEV_TOKEN_EXP=<到期毫秒> node scripts/qoder-sdk-chat-probe.mjs\n' +
+      '  其余途径：qoderclicn login 完成浏览器授权；或 PAT https://qoder.com.cn/account/integrations',
   )
 }
 
@@ -142,11 +145,23 @@ const t0 = Date.now()
 let n = 0
 let streamed = ''
 try {
+  // 三条鉴权通道，按实证可靠度排序：
+  // 1) jobToken —— IDE 把 device token 交给 worker 的官方通道
+  //    (worker 侧 applyExternalToken(token,"host-job-token"))，**无需 PAT/浏览器**；
+  // 2) accessToken(PAT) —— worker 走 exchangePersonalToken 换票；
+  // 3) qodercliAuth —— 读 `qoderclicn login` 落盘的登录态。
+  const auth =
+    DEV_TOKEN && DEV_EXP
+      ? mod.jobToken(async () => ({ token: DEV_TOKEN, expiresAt: DEV_EXP }))
+      : PAT
+        ? mod.accessToken(PAT)
+        : mod.qodercliAuth()
+  console.log(`[probe] auth = ${DEV_TOKEN && DEV_EXP ? 'jobToken(device token)' : PAT ? 'accessToken(PAT)' : 'qodercliAuth'}`)
   const it = mod.query({
     prompt: PROMPT,
     options: {
       cwd: process.cwd(),
-      auth: PAT ? mod.accessToken(PAT) : mod.qodercliAuth(),
+      auth,
     },
   })
   for await (const msg of it) {
@@ -161,7 +176,8 @@ try {
     }
     if (msg && msg.type === 'result') {
       console.log(
-        `[probe] RESULT subtype=${msg.subtype} is_error=${msg.is_error} errors=${JSON.stringify(msg.errors || [])} stop=${msg.stop_reason}`,
+        `[probe] RESULT subtype=${msg.subtype} is_error=${msg.is_error} result=${JSON.stringify(msg.result)?.slice(0, 200)}` +
+          ` errors=${JSON.stringify(msg.errors || [])} stop=${msg.stop_reason} credits=${msg.total_credits}`,
       )
       if (msg.is_error) {
         clearTimeout(timer)
