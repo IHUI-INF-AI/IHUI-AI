@@ -105,29 +105,36 @@ describe('G-816011 失败也是共享事实:失败广播 + 有失败不供缓存
   })
 
   it('③ 身份变化 ⇒ 全部在途请求失效:旧身份迟到的结果被丢弃,不写缓存、不广播', async () => {
-    const gates = { a: createDeferred(), b: createDeferred() }
+    // 有牙锁:旧身份放**两条**在途(a1/a2)。若实现只失效"发起那一个"(单 hook 级 requestVersion,
+    // 上游 :45-46 明令禁止的形态),另一条迟到结果会落地并广播 ⇒ 本用例翻红。
+    const gates = { a1: createDeferred(), a2: createDeferred(), b: createDeferred() }
     let count = 0
     const policy = createResourceRefreshPolicy({
       load: () => {
         count += 1
-        return count === 1 ? gates.a.promise : gates.b.promise
+        if (count === 1) return gates.a1.promise
+        if (count === 2) return gates.a2.promise
+        return gates.b.promise
       },
     })
     const site = createRecorder()
     policy.subscribe(site.listener)
     policy.setIdentity('user-a')
-    const refreshA = policy.refresh() // 在途(user-a)
+    const refreshA1 = policy.refresh() // 在途(user-a)第一条
+    const refreshA2 = policy.refresh() // 在途(user-a)第二条
     policy.setIdentity('user-b') // 换代:全部在途失效(工厂级,不是单 hook 级)
     const refreshB = policy.refresh() // user-b 的请求
     gates.b.resolve('user-b 的快照')
-    gates.a.resolve('user-a 的迟到快照') // 比后者还晚返回
-    await Promise.all([refreshA, refreshB, flush()])
+    gates.a1.resolve('user-a 的迟到快照 1') // 比 user-b 还晚返回
+    gates.a2.resolve('user-a 的迟到快照 2') // 比 user-b 还晚返回
+    await Promise.all([refreshA1, refreshA2, refreshB, flush()])
 
-    // 只有 user-b 的结果落地;user-a 迟到结果不得覆盖、不得广播
+    // 只有 user-b 的结果落地;user-a 的**两条**迟到结果都不得覆盖、不得广播
     assert.equal(policy.getCachedSnapshot(), 'user-b 的快照')
     const snapshots = site.calls.map(([snapshot]) => snapshot)
     assert.deepEqual(snapshots, ['user-b 的快照'])
-    assert.ok(!snapshots.includes('user-a 的迟到快照'))
+    assert.ok(!snapshots.includes('user-a 的迟到快照 1'))
+    assert.ok(!snapshots.includes('user-a 的迟到快照 2'))
 
     // 换代同样作废旧身份的失败:旧身份的在途失败在换代后不计数、不广播
     const gates2 = { a: createDeferred(), b: createDeferred() }

@@ -120,7 +120,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         )}
       </header>
 
-      <div className="h-px bg-border" aria-hidden />
+      <div className="border-t border-border" aria-hidden />
 
       <BlogPostContent content={post.content} />
 

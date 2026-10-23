@@ -76,14 +76,14 @@ export const CompressionDivider = React.memo(function CompressionDivider({
       role="separator"
       aria-label={description}
     >
-      <span className="h-px flex-1 bg-border/50" aria-hidden />
+      <span className="flex-1 border-t border-border/50" aria-hidden />
       <span className="shrink-0 font-medium">{t('compaction.dividerTitle')}</span>
       {savedRatio > 0 ? (
         <span className="shrink-0 text-muted-foreground/40">
           {t('compaction.dividerSaved', { ratio: savedRatio })}
         </span>
       ) : null}
-      <span className="h-px flex-1 bg-border/50" aria-hidden />
+      <span className="flex-1 border-t border-border/50" aria-hidden />
     </div>
   )
 })

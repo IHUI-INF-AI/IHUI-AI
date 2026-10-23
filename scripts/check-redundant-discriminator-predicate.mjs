@@ -42,6 +42,8 @@ import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selec
 import { maskCommentsAndStrings, scanSpans } from './lib/code-mask.mjs'
 // 复用守门 188 那一份 SQL 字面量抠取(三引号 + 相邻拼接),不在本文件抄第二遍。
 import { extractSqlLiterals } from './check-authorization-column-isolation.mjs'
+// 带值旗标取值判死单源(G-322):本站不再自写 argValue 副本。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120_000 // 守门 80:热路径 git 只读调用不得无界
@@ -736,8 +738,6 @@ export function selfTest() {
   return { total: cases.length, pass: cases.filter((c) => c.ok).length, fail: cases.filter((c) => !c.ok).length, failed: cases.filter((c) => !c.ok) }
 }
 
-const argValue = (argv, flag) => { const i = argv.indexOf(flag); return i < 0 ? null : argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : undefined }
-
 const die = (msg) => (console.error(`${C.red}❌ ${msg}${C.reset}`), 2)
 
 export async function main(argv = process.argv.slice(2)) {
@@ -749,8 +749,9 @@ export async function main(argv = process.argv.slice(2)) {
   }
   const sel = selectFace({ staged: argv.includes('--staged'), worktree: argv.includes('--worktree'), def: 'head' })
   if (sel.error) return die(sel.error)
-  const rootArg = argValue(argv, '--root')
-  if (argv.includes('--root') && rootArg === undefined) return die('--root 需要一个目录实参')
+  const rootReq = requireFlagValue(argv, '--root', { noun: '目录实参' })
+  if (rootReq.error) return die(rootReq.error)
+  const rootArg = rootReq.value
   let a
   try {
     a = analyze({ face: sel.face, root: rootArg ? resolve(String(rootArg)) : ROOT })

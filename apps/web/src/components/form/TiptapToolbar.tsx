@@ -68,7 +68,7 @@ function ToolbarBtn({
   )
 }
 
-const Sep = () => <span className="mx-1 h-4 w-px bg-border" />
+const Sep = () => <span className="mx-1 h-4 border-l border-border" />
 
 export function TiptapToolbar({ editor }: { editor: Editor }) {
   const t = useTranslations('editor.toolbar')
