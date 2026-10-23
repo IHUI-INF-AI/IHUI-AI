@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any, Final
 from zoneinfo import ZoneInfo
 
 from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from app.core.db_pool import get_shared_pool
 from app.core.logging import get_logger
@@ -395,6 +396,121 @@ def _decrypt_jwt(blob: bytes) -> str:
         return _load_fernet().decrypt(bytes(blob)).decode("utf-8")
     except InvalidToken as e:
         raise ValueError("JWT 密文解密失败(密钥不匹配或密文损坏)") from e
+
+
+# ---------------------------------------------------------------------------
+# Qoder 凭证唯一真源(2026-10-23 统一):直接读写 ai_relay_account_pool
+#
+# 背景:同一 Qoder 账号此前在 checkin_accounts(Fernet)与 ai_relay_account_pool
+# (AES-256-GCM,API 侧 crypto.ts)各存一份凭证,两边各自刷新 refresh_token 会因
+# 轮转而分叉,致签到拿到过期票恒 401。现统一为:**relay 池是唯一真源 + 唯一
+# refresh 写点**;签到侧每次签到前从 relay 拉最新票、刷新后回写 relay。
+# 密钥 CREDENTIALS_ENCRYPTION_KEY 两侧同源(实测同 sha256),故 Python 可直接用
+# AES-256-GCM 解开 API 侧密文;密文格式对齐 crypto.ts encryptField:
+# JSON.stringify({iv,ciphertext,tag}) 三字段均 base64,明文 = JSON.stringify(token)。
+# ---------------------------------------------------------------------------
+
+
+def _relay_aes_key() -> bytes:
+    k = os.environ.get("CREDENTIALS_ENCRYPTION_KEY", "").strip()
+    if len(k) < 32:
+        raise RuntimeError("CREDENTIALS_ENCRYPTION_KEY 缺失或不足 32 字符,无法读写 relay 凭证")
+    return k[:32].encode("utf-8")
+
+
+def _relay_encrypt(plain: str) -> str:
+    iv = os.urandom(12)
+    out = AESGCM(_relay_aes_key()).encrypt(iv, json.dumps(plain).encode("utf-8"), None)
+    ct, tag = out[:-16], out[-16:]
+    return json.dumps(
+        {
+            "iv": base64.b64encode(iv).decode("ascii"),
+            "ciphertext": base64.b64encode(ct).decode("ascii"),
+            "tag": base64.b64encode(tag).decode("ascii"),
+        }
+    )
+
+
+def _relay_decrypt(stored: str) -> str:
+    p = json.loads(stored)
+    iv = base64.b64decode(p["iv"])
+    ct = base64.b64decode(p["ciphertext"])
+    tag = base64.b64decode(p["tag"])
+    raw = AESGCM(_relay_aes_key()).decrypt(iv, ct + tag, None).decode("utf-8")
+    try:
+        val = json.loads(raw)  # 裸字符串 token:json.loads('"dt-..."') -> 'dt-...'
+        return val if isinstance(val, str) else str(val)
+    except Exception:
+        return raw
+
+
+async def load_qoder_cred(uid: str) -> dict[str, Any] | None:
+    """按 uid 从 relay 池取 Qoder 活凭证(解密)。无行/解密失败 → None(调用方回退旧路径)。
+
+    返回 {token, refresh_token, expires_at(epoch 秒|None), cosy(dict), machine_id}。
+    """
+    if not uid:
+        return None
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT token_enc, refresh_token_enc, token_expires_at, machine_id, extra_metadata
+            FROM ai_relay_account_pool
+            WHERE provider_code = 'qoder' AND uid = $1
+            ORDER BY updated_at DESC
+            LIMIT 1
+            """,
+            uid,
+        )
+    if row is None:
+        return None
+    try:
+        token = _relay_decrypt(row["token_enc"])
+        refresh = _relay_decrypt(row["refresh_token_enc"]) if row["refresh_token_enc"] else None
+    except Exception as e:  # noqa: BLE001 — 解不开让调用方回退,不炸签到
+        logger.warning("[checkin_store] relay qoder 凭证解密失败 uid=%s: %s", uid, e)
+        return None
+    exp = row["token_expires_at"]
+    extra = row["extra_metadata"]
+    if isinstance(extra, str):
+        try:
+            extra = json.loads(extra)
+        except ValueError:
+            extra = {}
+    cosy = (extra or {}).get("cosy") if isinstance(extra, dict) else None
+    return {
+        "token": token,
+        "refresh_token": refresh,
+        "expires_at": int(exp.timestamp()) if isinstance(exp, datetime) else None,
+        "cosy": cosy if isinstance(cosy, dict) else {},
+        "machine_id": row["machine_id"],
+    }
+
+
+async def save_qoder_cred(
+    uid: str, token: str, refresh_token: str | None, expires_at_epoch: int | None = None
+) -> None:
+    """把最新 Qoder 票回写 relay 池(唯一写点)。AES-256-GCM 加密,与 API 侧互通。"""
+    if not uid or not token:
+        return
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            UPDATE ai_relay_account_pool
+            SET token_enc = $2,
+                refresh_token_enc = COALESCE($3, refresh_token_enc),
+                token_expires_at = COALESCE($4, token_expires_at),
+                last_refresh_at = now(),
+                updated_at = now()
+            WHERE provider_code = 'qoder' AND uid = $1
+            """,
+            uid,
+            _relay_encrypt(token),
+            _relay_encrypt(refresh_token) if refresh_token else None,
+            datetime.fromtimestamp(expires_at_epoch, UTC) if expires_at_epoch else None,
+        )
 
 
 def reset_fernet_cache() -> None:

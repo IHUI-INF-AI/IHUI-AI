@@ -231,6 +231,49 @@ class TestCosyHeaders:
         assert "Cosy-MachineId" not in h
         assert "Cosy-MachineToken" not in h
 
+    def test_non_ascii_hostname_sanitized(self):
+        """根因回归(2026-10-23 真机证据):中文 machine_hostname "服务器" 若原样
+        进 Cosy-MachineHostname,httpx 在 HTTP/1.1 下 encode('ascii') 会抛
+        UnicodeEncodeError,被 _api_call 误吞成"网络异常",致 id=5 每日签到全挂。
+        清洗后必须:中文被剔除(不残留非 ASCII)、空值不出头、ASCII 值原样保留,
+        且构造出的头一定能被 httpx 正常发出去(无编码异常)。"""
+        from app.services.checkin_qoder import _ascii_header_value
+
+        # 纯中文 → 空 → 不出头
+        h = build_cosy_headers({"cosy": {"machine_hostname": "服务器", "machine_id": "mid-1"}})
+        assert "Cosy-MachineHostname" not in h
+        assert h["Cosy-MachineId"] == "mid-1"
+
+        # 中英混合 → 只留 ASCII 部分
+        h2 = build_cosy_headers({"cosy": {"machine_hostname": "服务器-PC01"}})
+        assert h2["Cosy-MachineHostname"] == "-PC01"
+        assert "Cosy-MachineHostname" in h2
+
+        # 直接单测清洗函数
+        assert _ascii_header_value("服务器") == ""
+        assert _ascii_header_value("LICHUNCHUAN") == "LICHUNCHUAN"
+        assert _ascii_header_value("服务器") != "服务器"
+        assert _ascii_header_value(None) == ""
+        assert _ascii_header_value(10) == "10"
+
+        # 全头族均为 ASCII(httpx 能无异常编码 ⇒ 不再触发 UnicodeEncodeError)
+        full = build_cosy_headers(
+            {
+                "cosy": {
+                    "client_type": "10",
+                    "machine_os": "x86_64_windows",
+                    "machine_hostname": "服务器",
+                    "machine_id": "a0358379-dd23",
+                    "machine_token": "mtok",
+                    "machine_code": "mcode",
+                    "machine_type": "PC",
+                    "version": "1.2.3",
+                }
+            }
+        )
+        for k, v in full.items():
+            v.encode("ascii")  # 不抛 ⇒ 合法 HTTP 头值
+
 
 class TestClaimable:
     def test_claimable_extracted(self):
