@@ -882,7 +882,9 @@ async def list_pool_accounts() -> list[dict[str, Any]]:
     """号池同步账号全量(系统 owner 面;对账收敛器用)。
 
     只回对账判据需要的字段:poolAccountId / poolCredVersion / platform /
-    identityKey / enabled / name;jwt 明文不出库。
+    identityKey / enabled / name / poolPendingCred;jwt 明文不出库。
+    poolPendingCred = device_map.pool_pending_cred 摘要(上次回写号池失败留的
+    待重试标记;None = 无待重试)。对账器据此发现「签到侧有新凭证没回流号池」。
     """
     pool = await get_shared_pool()
     async with pool.acquire() as conn:
@@ -905,6 +907,7 @@ async def list_pool_accounts() -> list[dict[str, Any]]:
                 dm = {}
         elif not isinstance(dm, dict):
             dm = {}
+        pending = dm.get("pool_pending_cred")
         out.append(
             {
                 "accountId": r["id"],
@@ -914,9 +917,47 @@ async def list_pool_accounts() -> list[dict[str, Any]]:
                 "enabled": r["enabled"],
                 "poolAccountId": dm.get("pool_account_id"),
                 "poolCredVersion": _pool_cred_version_of(dm),
+                "poolPendingCred": (
+                    {
+                        "attempts": pending.get("attempts")
+                        if isinstance(pending.get("attempts"), int)
+                        else 0,
+                        "at": pending.get("at") if isinstance(pending.get("at"), str) else None,
+                    }
+                    if isinstance(pending, dict)
+                    else None
+                ),
             }
         )
     return out
+
+
+async def load_device_map(account_id: int) -> dict[str, Any] | None:
+    """按 id 读系统 owner 账号的 device_map 全文(flush 端点回写号池用)。
+
+    仅限 POOL_SYNC_OWNER(用户账号寻址不到);不存在回 None。
+    """
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT device_map FROM checkin_accounts
+            WHERE id = $1 AND owner_user_id = $2
+            """,
+            account_id,
+            POOL_SYNC_OWNER,
+        )
+    if row is None:
+        return None
+    dm = row["device_map"]
+    if isinstance(dm, str):
+        try:
+            dm = json.loads(dm or "{}")
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    if not isinstance(dm, dict):
+        return {}
+    return dict(dm)
 
 
 async def apply_pool_state(platform: str, uid: str, state: str) -> dict[str, Any]:
