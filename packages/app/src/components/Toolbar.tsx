@@ -92,9 +92,9 @@ const viewStyles = {
     display: 'block',
   }),
   separator: (tk: ReturnType<typeof getTokens>): CSSProperties => ({
-    width: 1,
     height: 20,
-    backgroundColor: tk.border.medium,
+    borderLeftWidth: 1,
+    borderLeftColor: tk.border.medium,
     marginLeft: 4,
     marginRight: 4,
   }),

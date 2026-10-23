@@ -106,12 +106,19 @@ import {
 } from './lib/face-scan.mjs'
 // 形状读取器**复用**兄弟门而不是抄一份(§0.6):块定位 / 插值 / 发丝档 / 中性色引用这四件纯解析
 // 在 11d 里已被 30+ 例自检钉住,第二份必然漂开(本仓记过"两把尺子读出 31 与 59"那一型)。
+// 三型结构件指纹(`structuralTypeOf`)同样只有一份,住在 11d 的族 7 段:
+// 本门与族 7 对同一枚发丝线必须得到同一判定,否则又是"两把尺子"。
 import {
-  cssHairlineGrade,
+  attributeValueSpan,
+  classNameValueSpan,
   enclosingBraceBlock,
   interpolationBraceIndices,
   isNeutralColorRef,
+  jsxTagNameAt,
+  ownerNameOf,
   stripVariantPrefix,
+  structuralTypeOf,
+  thinTokensOf,
 } from './check-no-divider.mjs'
 
 const ROOT = process.cwd()
@@ -199,93 +206,8 @@ export function lineOfIndex(text, idx) {
   return (before.match(/\n/g) || []).length + 1
 }
 
-/**
- * `attr = <值>` 的值区间。三种形态:引号串 / `{…}`(按括号配平,**跳过引号内的花括号** ——
- * `cn('a{b')` 那种裸花括号否则会把配平带跑)/ 其它(裸标识符,不取)。
- * @returns {{start:number,end:number}|null}
- */
-export function attributeValueSpan(text, afterKey) {
-  let i = afterKey
-  while (i < text.length && /\s/.test(text[i])) i++
-  if (text[i] !== '=') return null
-  i++
-  while (i < text.length && /\s/.test(text[i])) i++
-  const c = text[i]
-  if (c === '"' || c === "'") {
-    let j = i + 1
-    while (j < text.length) {
-      if (text[j] === '\\') {
-        j += 2
-        continue
-      }
-      if (text[j] === c) return { start: i + 1, end: j }
-      j++
-    }
-    return null
-  }
-  if (c === '{') {
-    let depth = 0
-    let quote = null
-    for (let j = i; j < text.length; j++) {
-      const ch = text[j]
-      if (quote) {
-        if (ch === '\\') j++
-        else if (ch === quote) quote = null
-        continue
-      }
-      if (ch === '"' || ch === "'" || ch === '`') {
-        quote = ch
-        continue
-      }
-      if (ch === '{') depth++
-      else if (ch === '}') {
-        depth--
-        if (depth === 0) return { start: i + 1, end: j }
-      }
-    }
-    return null
-  }
-  return null
-}
-
-/**
- * 命中处所属的 **className 值表达式**区间(不是物理行)。
- * 存在理由见头注型②:`cn('absolute … w-px', cond ? 'top-6 bottom-1 bg-border/70' : …)`
- * 的形状分散在多行,按行读会把导引轨读成分隔线。取不到(命中不在 className 属性里,
- * 例如 `const SEP = 'h-px bg-border'`)⇒ null,由调用方退回整行。
- * @returns {{start:number,end:number}|null}
- */
-export function classNameValueSpan(text, idx) {
-  const at = text.lastIndexOf('className', idx)
-  if (at < 0) return null
-  const span = attributeValueSpan(text, at + 'className'.length)
-  if (!span) return null
-  return idx >= span.start && idx <= span.end ? span : null
-}
-
-/**
- * 发丝维度档。`h-px`/`w-px` = 1px;任意值只认**数字+单位**形态(`h-[1px]`、`w-[0.5px]`、
- * `h-[length:2rpx]`)—— `h-[calc(100%-1rem)]` 是**长度**不是横截面,归 null;粗于发丝的
- * (如 `h-[20rpx]`、`h-[96rpx]`)**根本不进候选**(它是尺寸,不是线;实测 miniapp 满树这种
- * 缩略图/骨架块,收进来只会把报告淹掉)。
- * @returns {Array<{axis:'h'|'w', token:string, grade:'hair'|'unknown'}>}
- */
-export function thinTokensOf(classText) {
-  const out = []
-  for (const m of classText.matchAll(CLASS_TOKEN_RE)) {
-    const head = stripVariantPrefix(m[0])
-    const px = /^([hw])-px$/.exec(head)
-    if (px) {
-      out.push({ axis: px[1], token: head, grade: 'hair' })
-      continue
-    }
-    const arb = /^([hw])-\[(?:length:)?([0-9.]+(?:px|rpx|rem|em|pt))\]$/.exec(head)
-    if (!arb) continue
-    const grade = cssHairlineGrade(arb[2])
-    if (grade === 'hair' || grade === 'unknown') out.push({ axis: arb[1], token: head, grade })
-  }
-  return out
-}
+// `attributeValueSpan` / `classNameValueSpan` / `thinTokensOf` 的实现住在 11d 的族 7 段,
+// 本文件只 import(§0.6:同一把尺子只留一份)。
 
 /**
  * 底色档。返回 true = 中性(就是"线"的颜色)/ false = 彩色(强调)/ null = 不是颜色 token。
@@ -321,102 +243,8 @@ export function bgTokensOf(classText) {
   return out
 }
 
-// ───────────────────────── 三型结构件的机械指纹(票面核心) ─────────────────────────
-
-/**
- * 命中处的 JSX 开放标签起点。`tag` 与命中之间出现 `>` ⇒ 那个 `<` 是上一个元素的收尾,
- * 不是本命中的宿主 ⇒ 放弃(判不出就落"没有豁免",不猜)。
- * @returns {number|null}
- */
-export function jsxTagStart(text, idx) {
-  for (let i = idx; i >= 1; i--) {
-    if (text[i] !== '<') continue
-    if (!/[A-Za-z]/.test(text[i + 1] ?? '')) continue
-    if (text.slice(i + 1, idx).includes('>')) return null
-    return i
-  }
-  return null
-}
-
-/** 命中处的 JSX 标签名(`DropdownMenuPrimitive.Separator` 原样返回);取不到 ⇒ null */
-export function jsxTagNameAt(text, idx) {
-  const start = jsxTagStart(text, idx)
-  if (start === null) return null
-  const m = /^<([A-Za-z][\w.]*)/.exec(text.slice(start, start + 120))
-  return m ? m[1] : null
-}
-
-/** 宿主元素窗口:从开放标签到命中所在行尾(`role=` 常写在命中行的上一行) */
-function elementWindow(text, idx) {
-  const start = jsxTagStart(text, idx)
-  const nl = text.indexOf('\n', idx)
-  const end = nl < 0 ? text.length : nl
-  return text.slice(start === null ? Math.max(0, idx - 300) : start, end)
-}
-
-/**
- * 命中处的**拥有者名字**:最近的 `const|let|var X =` 或块首 `X: {`。
- * 型③要靠它(`RESIZER_CLASS.x.line` 那一格)。
- */
-export function ownerNameOf(text, idx) {
-  const before = text.slice(Math.max(0, idx - 4000), idx)
-  const decls = [...before.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?:=[^=]|:)/g)]
-  if (decls.length > 0) return decls[decls.length - 1][1]
-  const keys = [...before.matchAll(/(?:^|\n)\s*([A-Za-z_$][\w$]*)\s*:\s*[{(]/g)]
-  if (keys.length > 0) return keys[keys.length - 1][1]
-  return null
-}
-
-/**
- * 三型结构件判定(型①/②/③,原话见文件头注)。命中即放过并带上"凭什么"。
- * @returns {{type:string, why:string}|null} null = 不属三型(交棘轮)
- */
-export function structuralTypeOf({ relPath = '', text, idx, surface = '' }) {
-  // 型① 语义分隔件
-  if (/role\s*=\s*["'{][^}]*\bseparator\b/.test(elementWindow(text, idx))) {
-    return {
-      type: 'semantic-separator',
-      why: '同元素带 role="separator" ⇒ ARIA 语义分隔件(菜单/下拉的合法分隔项)',
-    }
-  }
-  const tag = jsxTagNameAt(text, idx)
-  if (tag && /(^|\.)[A-Za-z]*Separator$/.test(tag)) {
-    return {
-      type: 'semantic-separator',
-      why: `宿主组件是 ${tag} ⇒ Radix 分隔件原语(自带 role=separator)`,
-    }
-  }
-  const tokens = []
-  for (const m of surface.matchAll(CLASS_TOKEN_RE)) tokens.push(stripVariantPrefix(m[0]))
-  const has = (re) => tokens.some((t) => re.test(t))
-  // 型② 导引轨
-  const thin = thinTokensOf(surface)
-  if (has(/^absolute$/)) {
-    const verticalInset = has(/^top-/) && has(/^bottom-/)
-    const inset = has(/^inset-y-0$/) || has(/^inset-0$/)
-    const calcHeight = has(/^h-\[(calc|min|max)\(/)
-    const pinned = verticalInset || inset || (calcHeight && (has(/^top-/) || has(/^bottom-/)))
-    // 铁律:发丝维度必须是**宽度**(横截面),且上界沿竖轴撑满;横向撑满的 h-px 是分隔线
-    if (pinned && thin.some((t) => t.axis === 'w')) {
-      return {
-        type: 'guide-rail',
-        why: 'absolute + 竖轴上界成对(top/bottom 或 top+calc 高度)+ w-px ⇒ 撑满长度方向的导引轨',
-      }
-    }
-  }
-  // 型③ 可拖拽分隔器
-  const probe = `${surface}\n${ownerNameOf(text, idx) ?? ''}\n${relPath}`
-  if (/cursor-(col|row)-resize/.test(probe)) {
-    return { type: 'draggable-splitter', why: '光标 cursor-col/row-resize ⇒ 可拖拽分割器手柄' }
-  }
-  if (/(pane-?split|resizer|split-?handle|drag-?handle)/i.test(probe)) {
-    return {
-      type: 'draggable-splitter',
-      why: '类名/拥有者声明名/文件路径命中 pane-split|resizer|*-handle ⇒ 可拖拽分割器',
-    }
-  }
-  return null
-}
+// 三型结构件指纹(`structuralTypeOf`)已上收到 11d 族 7 段,本文件 import 同一份实现。
+// 原话与逐型理由见本文件头注;判据本体见 check-no-divider.mjs 的族 7 段(§0.6)。
 
 // ───────────────────────── 面 B:RN / 内联样式对象 ─────────────────────────
 

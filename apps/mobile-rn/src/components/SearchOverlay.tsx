@@ -478,8 +478,8 @@ const styles = StyleSheet.create({
   },
   // 段间分隔线(web `h-px bg-muted/30` 的 RN 对位:1px muted 色)
   divider: {
-    height: StyleSheet.hairlineWidth * 2,
-    backgroundColor: tokens.surface.muted,
+    borderTopWidth: StyleSheet.hairlineWidth * 2,
+    borderTopColor: tokens.surface.muted,
     marginVertical: 6,
     marginHorizontal: WORD_ROW_PADDING_H,
   },
