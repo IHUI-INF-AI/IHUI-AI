@@ -97,7 +97,10 @@ test('D03 形状锁:锚点走共用层且必须回调用门里那把尺(不许�
   const src = readFileSync(SCRIPT_PATH, 'utf8')
   const lib = readFileSync(join(__dirname, '..', 'lib', 'face-scan.mjs'), 'utf8')
   // 门侧:锚点读数都经同一个 countOf 闭包
-  assert.match(src, /headAnchors\(top, candidates, \(rel, src\) => countOpaqueSingles\(scanSource\(rel, src\)\)\)/)
+  assert.match(
+    src,
+    /headAnchors\(top, candidates, \(rel, src\) => countOpaqueSingles\(scanSource\(rel, src\)\)\)/,
+  )
   // 共用层:两处 HEAD 读数(本路径与 rename 旧路径)都只能调注入的 countOf,不许自带判据
   assert.match(lib, /anchor\.set\(rel, countOf\(rel, src\)\)/)
   assert.match(lib, /anchor\.set\(p\.rel, countOf\(p\.old, osrc\)\)/)
@@ -369,7 +372,10 @@ test('D19 变体擦除不顶判:`border-b … last:border-0` 表行线必须被�
     const r = runHead(dir)
     assert.match(r.stdout, /\[single-side divider\]/, `表行线必须仍被点名\n${r.stdout}`)
     // 反向对照:真在画的整圈边不许被算成分隔线
-    assert.equal(gate.classifyDividerLine('<div className="border border-border border-t-0" />'), null)
+    assert.equal(
+      gate.classifyDividerLine('<div className="border border-border border-t-0" />'),
+      null,
+    )
   } finally {
     rmScratch(dir)
   }
@@ -447,6 +453,90 @@ test('D22 族 6 装车:RN 样式对象的单边宽度进射程,同形出口(擦�
       1,
       `只许点名那一条真分隔线:擦除(0)、整圈 override、横竖成对都不算\n${r.stdout}`,
     )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── 族 7(背景色发丝线,L29015)装车 ───
+
+test('D23 staged 装车:新增 h-px bg-border ⇒ exit 1(发丝线与单边描边同一把棘轮)', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n}\n',
+  })
+  try {
+    stage(
+      dir,
+      'apps/web/app/x/page.tsx',
+      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n  <div className="h-px bg-border" />\n}\n',
+    )
+    const r = runStaged(dir)
+    assert.equal(r.status, 1, `新增背景色发丝线必须拦提交\n${r.stdout}`)
+    assert.match(r.stdout, /\[bg hairline divider\]/, `必须点名到发丝线\n${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D24 staged:三型排除结构件(分隔件/导引轨/分割器)不冒红,裸线照判(反向锁)', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n}\n',
+  })
+  try {
+    stage(
+      dir,
+      'apps/web/app/x/page.tsx',
+      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-muted" />\n  <div role="separator" className="h-px bg-border" />\n  <div className="absolute top-0 bottom-0 w-px bg-border" />\n  <div className="w-full h-px bg-border" />\n}\n',
+    )
+    const r = runStaged(dir)
+    assert.equal(r.status, 0, `三型结构件不该被卷进射程\n${r.stdout}`)
+    // 反向锁:同一文件再加一枚裸 h-px bg-border ⇒ 必须拦(排除不许被拿来遮红)
+    stage(
+      dir,
+      'apps/web/app/x/page.tsx',
+      'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n  <DropdownMenuSeparator className="-mx-1 my-1 h-px bg-muted" />\n  <div role="separator" className="h-px bg-border" />\n  <div className="absolute top-0 bottom-0 w-px bg-border" />\n  <div className="w-full h-px bg-border" />\n  <div className="h-px bg-border" />\n}\n',
+    )
+    const r2 = runStaged(dir)
+    assert.equal(r2.status, 1, `裸发丝线必须照判\n${r2.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D25 全量档:类名面与 RN 面发丝线存量只报数、exit 0', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return <div className="h-px bg-border" />\n}\n',
+    'packages/app/src/x.tsx':
+      'export const s = {\n  line: { height: 1, backgroundColor: tk.border.light },\n}\n',
+  })
+  try {
+    const r = runHead(dir)
+    assert.equal(r.status, 0, `全量档存量不拦\n${r.stdout}\n${r.stderr}`)
+    assert.match(r.stdout, /\[bg hairline divider\]/, `类名面必须点名\n${r.stdout}`)
+    assert.match(r.stdout, /\[rn-style bg hairline divider\]/, `RN 面必须点名\n${r.stdout}`)
+    assert.match(r.stdout, /存量/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D26 staged 装车:RN 对象块 height:hairlineWidth + 中性底 ⇒ exit 1', () => {
+  const dir = createRepo({
+    'packages/app/src/features/x/Screen.tsx':
+      'export const s = {\n  row: { paddingVertical: 8 },\n}\n',
+  })
+  try {
+    stage(
+      dir,
+      'packages/app/src/features/x/Screen.tsx',
+      'export const s = {\n  row: { paddingVertical: 8 },\n  line: { height: StyleSheet.hairlineWidth, backgroundColor: tk.border.light },\n}\n',
+    )
+    const r = runStaged(dir)
+    assert.equal(r.status, 1, `RN 面发丝线必须拦提交\n${r.stdout}`)
+    assert.match(r.stdout, /\[rn-style bg hairline divider\]/)
   } finally {
     rmScratch(dir)
   }

@@ -174,7 +174,7 @@ import {
   newMalformed,
   malformedLine,
 } from './lib/plan-task-index.mjs'
-import { collectIdFace, scanFamilyIds } from './lib/plan-id-face.mjs'
+import { collectIdFace, scanFamilyIdHits } from './lib/plan-id-face.mjs'
 
 // 守门 194 同题查重(2026-10-13):指纹判据只此一份,取号器不另写"什么算同题"
 import { extractTaskFingerprint, findSameFingerprint } from './check-plan-task-duplicates.mjs'
@@ -469,19 +469,24 @@ export function idBasisGate({ families = [], remote = null, allowUnaligned = fal
  * G-14(2026-10-22):候选号还要过一遍**全文件正则扫出的号集**(`scanFamilyIds`,台账 ⊕ 归档件),
  * 命中即跳过并由 `scanNotes` 点名 —— 别席既存题只以归档占位注释/正文引用留在面上时,
  * `usedIdsOfPrefix` 看不见它,旧口径就会把已占号当空闲发出。
+ * G-14 补完(2026-10-23):点名必须**逐枚带位置**(`scanFamilyIdHits`,票面出路①要求"哪个位置出现过"),
+ * 且扫描面取不到 ⇒ **拒绝发号**(`id-scan-undetermined`)—— 扫不出号集时按段内空闲序照发,
+ * 正是本缺陷的原形。
  */
 export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
   const machineId =
     typeof opts?.machineId === 'string' && opts.machineId.trim() ? opts.machineId.trim() : null
   const families = idTokenFamilies(lines)
   if (families.length === 0) return { ok: true, lines, assigned: null, basis: [] }
+  // 被审面取不到 ⇒ 不合格就不发号(§0.3):扫不出号集时退回"段内空闲序"就是本缺陷的原形。
+  if (typeof baseContent !== 'string') return { ok: false, reason: 'id-scan-undetermined:base' }
   const pool = new Map() // f -> { free:number[] 升序, idx }
   const template = new Map()
   const basis = []
   const leaseClaims = []
   const leaseNotes = []
   const scanNotes = []
-  const scanSkips = []
+  const scanReport = []
   const dupTitleNotes = []
   const numOf = (label) => {
     const m = /(\d+)$/.exec(String(label))
@@ -502,17 +507,26 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     // G-14(2026-10-22,票面出路①):发号前再核**全文件正则扫出的号集**。`usedIdsOfPrefix` 只认
     // 登记行的声明位,而别席既存题常只以归档占位注释/正文引用的形态留在面上(实测 G-924/G-926/G-929
     // 三个号当日就是这样被当成空闲发出去的)⇒ 扫描命中即跳过并点名。扫描只有一份实现
-    // (lib/plan-id-face.mjs 的 scanFamilyIds)。租约行**不参与扫描**:行内 `段=G-901~G-950`
+    // (lib/plan-id-face.mjs 的 scanFamilyIdHits;`scanFamilyIds` 是它的号集投影)。租约行**不参与扫描**:行内 `段=G-901~G-950`
     // 是预留声明而不是实占(段尾主键已由 usedIdsOfPrefix 计入),把它算成已占会让每段首号白白跳过
     // —— 租约制"一个号不浪费"的既有行为必须不变。
+    // 租约行**不参与扫描**,但必须**换成空行而不是删掉** —— 删一行会让其后所有行号整体前移,
+    // 而票面要求跳过明细点名"哪个位置出现过":行号错了,运维照着去核会核到别人那一行上。
     const scanText = String(baseContent)
       .split('\n')
-      .filter((l) => !l.includes(LEASE_MARK))
+      .map((l) => (l.includes(LEASE_MARK) ? '' : l))
       .join('\n')
-    const scanned = scanFamilyIds(scanText, f)
+    const scanned = scanFamilyIdHits(scanText, f)
+    // 扫不出号集(入参不是文本 / 族名取不出)⇒ 判「未判定」并拒绝发号,绝不按段内空闲序照发。
+    if (scanned === null) return { ok: false, reason: `id-scan-undetermined:${f}`, basis, scanReport }
+    // 未过滤候选序:改动前(没有全文件扫描时)会发出的那个号 = rawFree[0]。对照臂与报告都读它。
+    const rawFree = []
+    const skipped = []
     const keepIfFree = (n) => {
-      if (!scanned.has(n)) return true
-      scanSkips.push(lbl(n))
+      rawFree.push(n)
+      const hit = scanned.get(n)
+      if (!hit) return true
+      skipped.push({ id: lbl(n), sites: hit.sites })
       return false
     }
     let freeList
@@ -544,11 +558,14 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
           basis,
           leaseClaims,
           leaseNotes,
+          scanReport,
           dupTitleNotes,
         }
       }
     } else {
-      freeList = poolFreeList({ usedNumbers: usedNums, baseMax: chosenMax }).filter(keepIfFree)
+      freeList = []
+      for (const n of poolFreeList({ usedNumbers: usedNums, baseMax: chosenMax }))
+        if (keepIfFree(n)) freeList.push(n)
     }
     if (!freeList.length)
       return {
@@ -557,20 +574,33 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
         basis,
         leaseClaims,
         leaseNotes,
+        scanReport,
         dupTitleNotes,
       }
     pool.set(f, { free: freeList, idx: 0 })
     template.set(f, used.template)
+    scanReport.push({ family: f, firstCandidate: rawFree.length ? lbl(rawFree[0]) : null, skipped })
     // 三条读数一起交出:报告里"号段基准"那一行必须能说清号是从哪一侧算出来的,
     // 只印最终值就分不清"远端把这一段顶开了"与"远端压根没参与"。
     basis.push({ family: f, localMax: used.max, remoteMax, chosenMax })
   }
   const got = []
-  if (scanSkips.length > 0) {
-    const labels = [...new Set(scanSkips)]
+  // 跳过点名**逐枚带位置**(票面出路①原文:"逐枚打印被跳过的号与它被命中的原因(哪个位置出现过)"):
+  // 只说"某某号已被占"读不出该去核哪一行,下一个人就会把它当误报关掉(失效方向是安静的)。
+  // 聚合行照旧先给(既有读者与镜像测试认它),逐枚明细紧随其后。
+  for (const rep of scanReport) {
+    if (rep.skipped.length === 0) continue
+    const labels = rep.skipped.map((s) => s.id)
     scanNotes.push(
       `G-14 全文件扫描:候选号 ${labels.join(', ')} 已在台账/归档件里出现过(别席已占,或只活在归档占位注释/正文引用里)⇒ 跳过换下一个`,
     )
+    for (const s of rep.skipped) {
+      const shown = s.sites.slice(0, 3).map((x) => `第 ${x.line} 行「${x.snippet}」`)
+      const more = s.sites.length > shown.length ? ` 等 ${s.sites.length} 处` : ''
+      scanNotes.push(
+        `G-14 全文件扫描:跳过 ${s.id} —— 命中 ${s.sites.length} 处:${shown.join('、')}${more};候选顺延取下一枚`,
+      )
+    }
   }
   let exhaustedFamily = null
   // 守门 194 同题查重(2026-10-13):携带取号令牌的行 = 新登记 ⇒ 发号前先按标题指纹
@@ -639,6 +669,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     leaseClaims,
     leaseNotes,
     scanNotes,
+    scanReport,
     dupTitleNotes,
   }
 }
@@ -1828,6 +1859,16 @@ async function main() {
             `下一个接手者按那句去找"新号那一行"找不到,按旧号引用的人以为已经让位。` +
             `出路:把这一步拆成两笔 —— 先落"剥掉声明位编号/只留让位注记"的改写(不带令牌),` +
             `再单独跑一次带令牌的取号;绝不带着同一个号落地。`,
+        )
+        process.exit(2)
+      }
+      if (String(tok.reason).startsWith('id-scan-undetermined')) {
+        console.error(
+          `❌ 未判定:全文件号集扫不出(${tok.reason})⇒ 拒绝落地(G-14 补完,2026-10-23)。` +
+            `发号前那道查重吃的是"该族编号在整份占用面(台账 ⊕ 归档件)上出现过的全部号",` +
+            `扫不出就没有资格按"段内空闲序"照发 —— 那正是本票要根治的撞号原形。\n` +
+            '   出路:确认占用面读到了正文(不是空串/非文本)后重跑;' +
+            '若底稿本身取不到,先修好那一层(archive/manifest 读取),不要绕过取号器手填编号。',
         )
         process.exit(2)
       }
