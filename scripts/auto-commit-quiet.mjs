@@ -20,7 +20,14 @@
  * 用法: node scripts/auto-commit-quiet.mjs [--dry-run]
  */
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw } from './lib/face-reader.mjs'
@@ -147,7 +154,14 @@ function checkArchiveMonotonic() {
     execFileSync(
       process.execPath,
       [join(ROOT, 'scripts', 'check-plan-archive-monotonic.mjs'), '--worktree'],
-      { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 << 20,
+        timeout: 120000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      },
     )
     return { ok: true }
   } catch (e) {
@@ -156,6 +170,33 @@ function checkArchiveMonotonic() {
       .split('\n')
       .filter(Boolean)
     return { ok: false, why: out.slice(0, 3).join(' / ') }
+  }
+}
+
+/**
+ * 活文档写盘前快照(2026-10-24 加固):merge-live-doc 与摘除复洁都是"**先写盘、后判定**"——
+ * 实测 16:00/16:06/16:09 三轮各检出 12/14 条归档倒退,提交被门 237 拦下了,但工作树副本
+ * 已被这两步写脏,下一位席位读到的是被污染的台账。快照 + 判定红即回滚,让"不收编"真的
+ * 等于"本器没碰过这个文件"。返回 Buffer(逐字节回写,不经编码转换)。
+ */
+function snapshotLedger(file) {
+  try {
+    return readFileSync(join(ROOT, file))
+  } catch {
+    return null
+  }
+}
+
+/** 回滚到快照;内容未变(本器没写盘)时不动文件,避免空写刷新 mtime 把文件又冻 3 分钟。 */
+function rollbackLedger(file, snap, why) {
+  if (!snap) return
+  try {
+    const cur = readFileSync(join(ROOT, file))
+    if (cur.equals(snap)) return
+    writeFileSync(join(ROOT, file), snap)
+    log(`活文档已回滚工作树副本(${file}):${why}`)
+  } catch (e) {
+    log(`⚠️ 活文档回滚失败(${file}),工作树仍可能脏:${String(e?.message || e)}`)
   }
 }
 
@@ -185,7 +226,11 @@ function syncReadmeNumbers(stale) {
     })
   } catch (e) {
     return log(
-      `⚠️ sync-readme-numbers 失败(不阻断):${String(e?.stdout || e?.message || '').trim().split('\n').slice(-3).join('\n')}`,
+      `⚠️ sync-readme-numbers 失败(不阻断):${String(e?.stdout || e?.message || '')
+        .trim()
+        .split('\n')
+        .slice(-3)
+        .join('\n')}`,
     )
   }
   const added = []
@@ -245,28 +290,52 @@ function main() {
   // 活文档先归并,再把归并达标的收编(2026-10-22:替代"永不收编"——后者会让改动永久悬挂)。
   if (!DRY) {
     for (const f of [...stale].filter((p) => HUMAN_LEDGER_RE.test(p))) {
+      // 写盘前快照(2026-10-24):下面三步都是"先写盘、后判定",判定红时若不回滚,
+      // "本轮不收编"只保住了历史,工作树副本仍被写脏 —— 那正是 16:00/16:06/16:09 三次
+      // 回插事故里污染扩散到下一席位的原因。
+      const snap = snapshotLedger(f)
+      /** 只在判定红时回滚;判定绿则保留本器写盘(归并/复洁的正当产物)。 */
+      const revertIfRed = (why) => {
+        if (!f.endsWith('PROJECT_PLAN.md')) return
+        const mono = checkArchiveMonotonic()
+        if (mono.ok) return
+        rollbackLedger(f, snap, `${why} ⇒ ${mono.why}`)
+      }
       const r = mergeLiveDoc(f)
       if (r.ok) {
         // 归并达标≠可以收编:工作树滞后副本里那些"已被声明式摘除"的旧行,归并档看不见
         // (它只判不丢行/不重复),会被当成本轮改动收编回去 —— 实测四枚已结清登记行因此整批复活。
         // 收编前先按摘除台账把这些行剔掉;器物判不出一律不剔(宁可留一轮噪音)。
         try {
-          const sr = execFileSync(process.execPath, [join(ROOT, 'scripts', 'scrub-declared-removals.mjs'), f], {
-            cwd: ROOT,
-            encoding: 'utf8',
-            maxBuffer: 64 << 20,
-            timeout: 120000,
-            stdio: ['ignore', 'pipe', 'pipe'],
-            windowsHide: true,
-          })
+          const sr = execFileSync(
+            process.execPath,
+            [join(ROOT, 'scripts', 'scrub-declared-removals.mjs'), f],
+            {
+              cwd: ROOT,
+              encoding: 'utf8',
+              maxBuffer: 64 << 20,
+              timeout: 120000,
+              stdio: ['ignore', 'pipe', 'pipe'],
+              windowsHide: true,
+            },
+          )
           const m = /state=(\w+) dropped=(\d+)/.exec(String(sr ?? ''))
-          log(`活文档摘除台账复洁(${f}): ${m ? `${m[1]} dropped=${m[2]}` : '未回带机读行 ⇒ 本轮不收编'}`)
+          log(
+            `活文档摘除台账复洁(${f}): ${m ? `${m[1]} dropped=${m[2]}` : '未回带机读行 ⇒ 本轮不收编'}`,
+          )
           if (!m) {
+            revertIfRed('复洁未回带机读行')
             stale.splice(stale.indexOf(f), 1)
             continue
           }
         } catch (e) {
-          log(`活文档摘除台账复洁失败(${f}),本轮不收编:${String(e?.stdout || e?.message || '').split('\n').slice(-2).join(' / ')}`)
+          log(
+            `活文档摘除台账复洁失败(${f}),本轮不收编:${String(e?.stdout || e?.message || '')
+              .split('\n')
+              .slice(-2)
+              .join(' / ')}`,
+          )
+          revertIfRed('复洁失败')
           stale.splice(stale.indexOf(f), 1)
           continue
         }
@@ -277,6 +346,8 @@ function main() {
           const mono = checkArchiveMonotonic()
           if (!mono.ok) {
             log(`活文档归档单调性未通过(${f}),本轮不收编:${mono.why}`)
+            // 已实锤的污染态:回滚到本轮开跑前的副本,不让本器的归并/复洁写盘留在磁盘上。
+            rollbackLedger(f, snap, `本轮归并/复洁后归档单调性判红:${mono.why}`)
             stale.splice(stale.indexOf(f), 1)
             continue
           }
@@ -284,6 +355,7 @@ function main() {
         log(`活文档归并完成(${f}):lost=0 / 长行重复新增 0,可收编`)
       } else {
         log(`活文档归并未达标(${f}),本轮不收编:${r.why}`)
+        revertIfRed('归并未达标')
         stale.splice(stale.indexOf(f), 1)
       }
     }
@@ -291,20 +363,56 @@ function main() {
   }
 
   const verb = youngest === Infinity ? '全部已删除' : `最年轻 ${youngest.toFixed(1)} 分钟`
-  log(`候选 ${stale.length}/${changes.length} 个文件(${verb},阈值 ${QUIET_MIN} 分钟):${stale.slice(0, 8).join(', ')}${stale.length > 8 ? ' …' : ''}`)
+  log(
+    `候选 ${stale.length}/${changes.length} 个文件(${verb},阈值 ${QUIET_MIN} 分钟):${stale.slice(0, 8).join(', ')}${stale.length > 8 ? ' …' : ''}`,
+  )
   if (DRY) return log('dry-run:不提交')
 
-  syncReadmeNumbers(stale)
+  syncReadmeNumbers(stale) // 先刷数字,再把真写盘的 README 纳入
+  // 命令行长度上限(2026-10-24 实测):脏件到 620 个时,整批 pathspec 传给 safe-commit 会在
+  // Windows CreateProcess 处撞 ENAMETOOLONG(日志连续多轮 `spawnSync ... ENAMETOOLONG`),
+  // 于是"自动收编"整器空转、改动永久悬挂。改为每轮只收前 N 个,余量下一轮接着收 ——
+  // 契约不变(全部过期改动最终都会被收编),只是把一次提交拆成多轮。
+  // README 必须留在本批:sync 已把数字刷进工作树,不带它提交会让门 173 在下一枚提交必红。
+  const MAX_PATHS = Number(process.env.IHUI_AUTO_COMMIT_MAX_PATHS || 100)
+  if (stale.length > MAX_PATHS) {
+    const keep = stale.filter((f) => README_FILES.includes(f))
+    const rest = stale.filter((f) => !README_FILES.includes(f))
+    const picked = rest.slice(0, Math.max(0, MAX_PATHS - keep.length))
+    log(
+      `候选 ${stale.length} 个超过单轮上限 ${MAX_PATHS}(命令行长度),本轮只收 ${picked.length + keep.length} 个,余量下一轮`,
+    )
+    stale.length = 0
+    stale.push(...picked, ...keep)
+  }
 
   try {
     const out = execFileSync(
       process.execPath,
-      [join(ROOT, 'scripts', 'safe-commit.mjs'), '-m', `chore(auto): 收编停留≥${QUIET_MIN}分钟的未提交改动`, '--', ...stale],
-      { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20, windowsHide: true, env: { ...process.env, AGENT_SCOPE: '' } },
+      [
+        join(ROOT, 'scripts', 'safe-commit.mjs'),
+        '-m',
+        `chore(auto): 收编停留≥${QUIET_MIN}分钟的未提交改动`,
+        '--',
+        ...stale,
+      ],
+      {
+        cwd: ROOT,
+        encoding: 'utf8',
+        maxBuffer: 64 << 20,
+        windowsHide: true,
+        env: { ...process.env, AGENT_SCOPE: '' },
+      },
     )
     log(`✅ safe-commit 成功\n${String(out).trim().split('\n').slice(-4).join('\n')}`)
   } catch (e) {
-    log(`❌ safe-commit 失败(下一轮再试):${String(e.stdout || e.message).trim().split('\n').slice(-6).join('\n')}`)
+    log(
+      `❌ safe-commit 失败(下一轮再试):${String(e.stdout || e.message)
+        .trim()
+        .split('\n')
+        .slice(-6)
+        .join('\n')}`,
+    )
   }
 }
 
@@ -315,5 +423,13 @@ if (isDirectRun) {
   main()
 }
 
-export const __test__ = { isExcluded, listChanges, guardBusy, mergeLiveDoc, syncReadmeNumbers }
+export const __test__ = {
+  isExcluded,
+  listChanges,
+  guardBusy,
+  mergeLiveDoc,
+  syncReadmeNumbers,
+  snapshotLedger,
+  rollbackLedger,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
