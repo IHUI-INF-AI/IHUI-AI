@@ -22,7 +22,7 @@
 import { execFileSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -43,6 +43,11 @@ const EXCLUDE = [
   // 处置改为收编前先过 merge-live-doc 归并(见 mergeLiveDocs):归并后 lost≠0 / 长行重复新增
   // 的本轮剔除,其余正常收编 —— 既不丢行,也不留无人认领的改动。
 ]
+/** 排除表唯一判据(§0.6 单一真相源):主流程与镜像测试 import 同一份,不复制表。 */
+function isExcluded(path) {
+  return EXCLUDE.some((re) => re.test(path))
+}
+
 /** 活文档:收编前必须归并(工作树副本可能滞后于 HEAD,直接提交会吞掉别人已入库的行)。 */
 const HUMAN_LEDGER_RE = /(^|\/)(PROJECT_PLAN|AGENTS)\.md$/
 /** README 生成数字块(由 sync-readme-numbers.mjs 独占写入)。 */
@@ -184,7 +189,7 @@ function main() {
   const busy = guardBusy()
   if (busy) return log(`跳过:${busy}`)
 
-  const changes = listChanges().filter((c) => !EXCLUDE.some((re) => re.test(c.path)))
+  const changes = listChanges().filter((c) => !isExcluded(c.path))
   if (changes.length === 0) return
 
   const conflicted = changes.filter((c) => /^(UU|AA|DD|AU|UA|DU|UD)$/.test(c.xy))
@@ -271,5 +276,12 @@ function main() {
   }
 }
 
-main()
+// §22d:被 import 时不得触发 CLI 主流程(镜像测试要能用生产判据复算,§22c)。
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main()
+}
+
+export const __test__ = { isExcluded, listChanges, guardBusy, mergeLiveDoc, syncReadmeNumbers }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
