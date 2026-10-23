@@ -4313,7 +4313,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 
 
-- [ ]（进行中@2026-10-23/goal-20261023）（认领已释放@2026-10-23/stale-claim-strip#mvjyuyh8-5） **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件(`DeveloperKeyDialog` / `AiGenerationContent` / `PermissionSelector` / `helpers`),**逐条按内容复核后全部不在 HEAD**(`git grep <新键名> HEAD -- apps/web` 四处均 0 命中),工作区也已被并发会话覆盖 → 判为**丢失需重做**,不要当成已完成。中途我一度按"工作区里有"记成"已落地",那是读到了被覆盖前的窗口 —— 并行期复核一律以 **HEAD 对象树内容**为准(档案第 4 节已记此教训)。
+- [x] ✅(2026-10-23)（认领已释放@2026-10-23/stale-claim-strip#mvjyuyh8-5） **本轮未落地、需重做的一批(web 86 处内的键名对齐)**:该批次报告改了 4 个文件(`DeveloperKeyDialog` / `AiGenerationContent` / `PermissionSelector` / `helpers`),**逐条按内容复核后全部不在 HEAD**(`git grep <新键名> HEAD -- apps/web` 四处均 0 命中),工作区也已被并发会话覆盖 → 判为**丢失需重做**,不要当成已完成。中途我一度按"工作区里有"记成"已落地",那是读到了被覆盖前的窗口 —— 并行期复核一律以 **HEAD 对象树内容**为准(档案第 4 节已记此教训)。〔结清@2026-10-23/goal-20261023 验证席+主席复验:票面"丢失需重做"系 2026-09-25 陈旧读数——该批早已重做入库且为 HEAD 祖先(02e3474c932c6ade1ff391e9753e3c212dbefc8b 第十批 apiKeyPerms/labelKey camelCase 化+aiGeneration 20 键、a00983523bcda491a3f76628f781833e74bc1c10 repo-recover helpers SUB_TABS 16 项+AiGenerationContent 分发,主席 merge-base --is-ancestor 双 rc=0,HEAD 面 tabGeminiImage 在 apps/web/app/(main)/ai-generation/helpers.ts);复跑 check-i18n-keys --target=web RC=0(1628 文件/19008 键/五语 parity)、check-word-table-resolvable RC=0、web typecheck RC=0⇒无需重做、本批零改动,票面成〕
 >
 >
 **留一条一般化结论**:*镜像测试若只复刻实现的形状,它就只是实现的复读机* —— 凡是"从某个真实文件里取形态"的判据,至少要有一条用例的输入**逐字取自那个真实文件**,否则实现和对象一起漂而测试永远绿。
