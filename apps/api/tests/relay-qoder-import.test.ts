@@ -25,7 +25,13 @@ vi.mock('../src/db/index.js', () => ({
     select: () => ({
       from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }),
     }),
-    insert: () => ({ values: mockInsertValues.mockImplementation(() => Promise.resolve()) }),
+    // importAccounts 现在走 `.values(...).returning({id, credVersion})`(O64 凭证版本回写);
+    // mock 必须返一行,否则 service 判"未取到回写行"→ 计入 failed。
+    insert: () => ({
+      values: mockInsertValues.mockImplementation(() => ({
+        returning: () => Promise.resolve([{ id: 'row-qoder', credVersion: 1 }]),
+      })),
+    }),
     update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
   },
   dbRead: { select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }) },

@@ -13,7 +13,7 @@
  * 覆盖面:请求头指纹、创建回合体形状、SSE 帧翻译、tokenusage、stop 收尾、
  * 401 → ExchangeToken 换票、error 帧 → 风控分类。
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
@@ -30,6 +30,9 @@ const seen: Seen[] = []
 /** 上游剧本:每次请求按队列决定返回什么(测 401 自愈用) */
 let createStatus = 200
 let eventsFrames: 'ok' | 'risk' | 'real' = 'ok'
+/** 健康检查端点剧本(测三态定级):500 = 上游故障,401 = 凭据被拒 */
+let modelListStatus = 200
+let userTokenStatus = 200
 
 /** 线上真形状帧(2026-10-23 真号抓帧实证):正文住 thought(累积快照,可重复),
  * 推理增量住 reasoning_content;usage 帧字段为 input/output/prompt_tokens/completion_tokens。 */
@@ -127,7 +130,10 @@ beforeAll(async () => {
     const url = req.url ?? ''
     seen.push({ path: url, method: req.method ?? '', headers: req.headers, body })
 
-    if (url.startsWith('/api/ide/v1/model_list')) return json(res, 200, MODEL_CONFIGS)
+    if (url.startsWith('/api/ide/v1/model_list')) {
+      if (modelListStatus !== 200) return json(res, modelListStatus, { code: modelListStatus })
+      return json(res, 200, MODEL_CONFIGS)
+    }
     if (url.startsWith('/oauth/ExchangeToken')) {
       return json(res, 200, {
         Result: { Token: 'jwt-rotated', RefreshToken: 'rt-2', ExpiredAt: 1_893_456_000 },
@@ -139,6 +145,7 @@ beforeAll(async () => {
       if (!cookie || !cookie.includes('sessionid=')) {
         return json(res, 401, { ResponseMetadata: { Error: { Code: '20101' } } })
       }
+      if (userTokenStatus !== 200) return json(res, userTokenStatus, { code: userTokenStatus })
       return json(res, 200, {
         Result: {
           Token: 'jwt-from-cookie',
@@ -402,6 +409,71 @@ describe('Trae 协议层 · 真 HTTP 往返(本机假上游)', () => {
     expect(health.ok).toBe(true)
     const models = await traeAdapter.listModels!(makeCtx() as never, {})
     expect(models).toContain('auto')
+  })
+})
+
+describe('Trae 健康检查 · 三态定级(真 HTTP)', () => {
+  afterEach(() => {
+    modelListStatus = 200
+    userTokenStatus = 200
+    seen.length = 0
+  })
+
+  function makeWebCtx() {
+    return {
+      row: { id: 'acct-web-1', providerCode: 'trae', uid: 'uid-web-1', proxyUrl: null } as never,
+      credentials: {
+        token: '',
+        refreshToken: undefined,
+        cookies: [{ name: 'sessionid', value: 's-1' }],
+        secrets: {},
+      },
+    }
+  }
+
+  it('web 号(cookie)以 GetUserToken 自证:200 → healthy,且不再依赖 model_list', async () => {
+    const { traeAdapter } = await loadAdapter()
+    modelListStatus = 500 // 元数据面挂了也不影响凭据活性判定
+    const health = await traeAdapter.checkHealth(makeWebCtx() as never, {})
+    expect(health.ok).toBe(true)
+    expect(health.indeterminate).toBeUndefined()
+    expect(seen.some((s) => s.path.includes('GetUserToken'))).toBe(true)
+    expect(seen.some((s) => s.path.includes('model_list'))).toBe(false)
+  })
+
+  it('web 号 cookie 被上游拒收 401 → 明确失败(非未判定,应写 down)', async () => {
+    const { traeAdapter } = await loadAdapter()
+    const ctx = makeWebCtx()
+    // 有 cookie 头但不含 sessionid ⇒ 假上游按线上口径回 401
+    ctx.credentials.cookies = [{ name: 'foo', value: 'bar' }]
+    const health = await traeAdapter.checkHealth(ctx as never, {})
+    expect(health.ok).toBe(false)
+    expect(health.indeterminate).toBe(false)
+  })
+
+  it('web 号 GetUserToken 500 → 未判定(不得写 down)', async () => {
+    const { traeAdapter } = await loadAdapter()
+    userTokenStatus = 500
+    const health = await traeAdapter.checkHealth(makeWebCtx() as never, {})
+    expect(health.ok).toBe(false)
+    expect(health.indeterminate).toBe(true)
+    expect(health.error).toContain('500')
+  })
+
+  it('IDE 号(无 cookie)model_list 500 → 未判定', async () => {
+    const { traeAdapter } = await loadAdapter()
+    modelListStatus = 500
+    const health = await traeAdapter.checkHealth(makeCtx() as never, {})
+    expect(health.ok).toBe(false)
+    expect(health.indeterminate).toBe(true)
+  })
+
+  it('IDE 号 model_list 401 → 明确失败(应写 down)', async () => {
+    const { traeAdapter } = await loadAdapter()
+    modelListStatus = 401
+    const health = await traeAdapter.checkHealth(makeCtx() as never, {})
+    expect(health.ok).toBe(false)
+    expect(health.indeterminate).toBe(false)
   })
 })
 

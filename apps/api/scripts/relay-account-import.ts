@@ -44,6 +44,7 @@ const { importAccounts, decryptAccountCredentials } =
 const { db, dbRead } = await import('../src/db/index.js')
 const { registerAllRelayAdapters } = await import('../src/services/upstream-adapters/index.js')
 const { getRelayAdapter } = await import('../src/services/relay-upstream-adapters.js')
+const { healthStatusOf } = await import('../src/services/relay-account-pool-scheduler.js')
 
 interface CliOptions {
   stdin: boolean
@@ -119,6 +120,8 @@ interface HealthOutcome {
   id: string
   uid: string
   ok: boolean
+  /** true = 上游取不到判定依据(5xx/网络),状态保留 unknown,≠ 凭据失效 */
+  indeterminate: boolean
   error: string | null
 }
 
@@ -131,32 +134,43 @@ async function runHealth(providerCode: string, uid: string): Promise<HealthOutco
   if (!row) return null
   const adapter = getRelayAdapter(providerCode)
   if (!adapter) return { id: row.id, uid, ok: false, error: `平台 ${providerCode} 适配器未注册` }
-  let outcome: { ok: boolean; error?: string }
+  let outcome: { ok: boolean; error?: string; indeterminate?: boolean }
   try {
     outcome = await Promise.race([
       adapter.checkHealth(
         { row, credentials: decryptAccountCredentials(row) },
         { proxyUrl: row.proxyUrl ?? undefined },
       ),
-      new Promise<{ ok: boolean; error: string }>((resolve) =>
-        setTimeout(() => resolve({ ok: false, error: 'timeout 30s' }), 30000),
+      new Promise<{ ok: boolean; error: string; indeterminate: boolean }>((resolve) =>
+        setTimeout(() => resolve({ ok: false, error: 'timeout 30s', indeterminate: true }), 30000),
       ),
     ])
   } catch (e) {
-    outcome = { ok: false, error: e instanceof Error ? e.message.slice(0, 200) : String(e) }
+    outcome = {
+      ok: false,
+      indeterminate: true,
+      error: e instanceof Error ? e.message.slice(0, 200) : String(e),
+    }
   }
   const now = new Date()
   await db
     .update(aiRelayAccountPool)
     .set({
-      healthStatus: outcome.ok ? 'healthy' : 'down',
+      // 未判定保留 unknown,不写 down(取不到 ≠ 失效)
+      healthStatus: healthStatusOf(outcome),
       healthCheckedAt: now,
       lastErrorMessage: outcome.ok ? null : (outcome.error ?? '健康检查失败').slice(0, 500),
       consecutiveFailures: outcome.ok ? 0 : row.consecutiveFailures,
       updatedAt: now,
     })
     .where(eq(aiRelayAccountPool.id, row.id))
-  return { id: row.id, uid, ok: outcome.ok, error: outcome.error ?? null }
+  return {
+    id: row.id,
+    uid,
+    ok: outcome.ok,
+    indeterminate: outcome.indeterminate === true,
+    error: outcome.error ?? null,
+  }
 }
 
 async function main(argv: string[]): Promise<number> {
@@ -287,7 +301,7 @@ async function main(argv: string[]): Promise<number> {
         uid: item.uid,
         status: item.status,
         reason: item.reason,
-        health: h ? (h.ok ? 'healthy' : 'down') : null,
+        health: h ? healthStatusOf(h) : null,
         healthError: h && !h.ok ? h.error : null,
       }
     }),

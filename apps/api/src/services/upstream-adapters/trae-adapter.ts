@@ -765,13 +765,62 @@ export const traeAdapter: RelayUpstreamAdapter = {
     }
   },
 
-  /** 轻量健康检查:model_list 端点 2xx 且响应含 model_configs[] */
+  /**
+   * 轻量健康检查 —— 按凭据链自证,不再单押 model_list(2026-10-23 重构)。
+   *
+   * 立因:此前唯一判据是 GET model_list;该端点属模型元数据面,2026-10-23 线上对
+   * 任何凭据都回 500,而旧实现把非 2xx 一律写 down ⇒ 好号被误杀、面板 false alarm。
+   *
+   * 现行判据:
+   * - web 号(有 cookie):POST GetUserToken。这既是它唯一的续命通道,也是凭据活性的
+   *   最权威自证 —— 能换回 Token 就是活着;换不到 401/403 才是死。
+   * - IDE 号(无 cookie):GET model_list(2xx + model_configs ⇒ healthy,顺带暖缓存)。
+   * - 5xx / 网络异常 / 响应形状不符 → indeterminate(未判定),交调度器保留 unknown 复检。
+   */
   async checkHealth(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
-  ): Promise<{ ok: boolean; error?: string }> {
+  ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean }> {
+    const doFetch = resolveFetchImpl(opts ?? {})
+    const cookieHeader = buildCookieHeader(ctx.credentials.cookies)
+    if (cookieHeader) {
+      try {
+        const res = await doFetch(TRAE_GET_USER_TOKEN_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Cookie: cookieHeader,
+            Origin: WEB_LOGIN_ORIGIN,
+            Referer: `${WEB_LOGIN_ORIGIN}/`,
+            'User-Agent': WEB_USER_AGENT,
+          },
+        })
+        if (!res.ok) {
+          const text = await res.text().catch(() => '')
+          const rejected = res.status === 401 || res.status === 403
+          return {
+            ok: false,
+            indeterminate: !rejected,
+            error: `GetUserToken HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
+              rejected ? '' : '(未判定)'
+            }`,
+          }
+        }
+        const payload = extractGetUserTokenPayload(await res.json().catch(() => null))
+        if (!payload) {
+          return { ok: false, indeterminate: true, error: 'GetUserToken 响应无 Token(未判定)' }
+        }
+        return { ok: true }
+      } catch (e) {
+        return {
+          ok: false,
+          indeterminate: true,
+          error: `GetUserToken ${e instanceof Error ? e.message : String(e)}(未判定)`,
+        }
+      }
+    }
     try {
-      const res = await resolveFetchImpl(opts ?? {})(TRAE_MODEL_LIST_URL, {
+      const res = await doFetch(TRAE_MODEL_LIST_URL, {
         method: 'GET',
         headers: {
           Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
@@ -780,18 +829,32 @@ export const traeAdapter: RelayUpstreamAdapter = {
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
+        const rejected = res.status === 401 || res.status === 403
         return {
           ok: false,
-          error: `model_list HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+          indeterminate: !rejected,
+          error: `model_list HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
+            rejected ? '' : '(未判定)'
+          }`,
         }
       }
       const configs = extractModelConfigs(await res.json().catch(() => null))
-      if (!configs) return { ok: false, error: 'model_list 响应缺少 model_configs' }
+      if (!configs) {
+        return {
+          ok: false,
+          indeterminate: true,
+          error: 'model_list 响应缺少 model_configs(未判定)',
+        }
+      }
       // 健康检查顺带暖缓存:后续 chat 的 custom_model 直接复用
       rememberModelConfigs(ctx, configs)
       return { ok: true }
     } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `model_list ${e instanceof Error ? e.message : String(e)}(未判定)`,
+      }
     }
   },
 
