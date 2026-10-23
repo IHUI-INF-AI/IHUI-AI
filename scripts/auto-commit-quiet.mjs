@@ -139,6 +139,27 @@ function mergeLiveDoc(file) {
 }
 
 /**
+ * 门 237(归档单调性)同一把尺子,审磁盘面:红 = 有已归档票被复活成未勾活行 / 逐字孪生回插。
+ * 判据实现只有 scripts/check-plan-archive-monotonic.mjs 一份(§0.6 单一真相源),本器不复制。
+ */
+function checkArchiveMonotonic() {
+  try {
+    execFileSync(
+      process.execPath,
+      [join(ROOT, 'scripts', 'check-plan-archive-monotonic.mjs'), '--worktree'],
+      { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
+    )
+    return { ok: true }
+  } catch (e) {
+    const out = String(e?.stderr || e?.stdout || e?.message || '')
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+    return { ok: false, why: out.slice(0, 3).join(' / ') }
+  }
+}
+
+/**
  * 把 README 的 GENERATED NUMBERS 块刷到现算值,并把**真写盘**的 README 纳入本次提交。
  *
  * 病灶(2026-10-22 实测):该块由 post-commit 回写 ⇒ 工作树最新、索引面落后一枚;而门 173 判的
@@ -248,6 +269,17 @@ function main() {
           log(`活文档摘除台账复洁失败(${f}),本轮不收编:${String(e?.stdout || e?.message || '').split('\n').slice(-2).join(' / ')}`)
           stale.splice(stale.indexOf(f), 1)
           continue
+        }
+        // 归档单调性自检(2026-10-23 新增,承当日实测事故):归并只补"丢行",对"已归档(✅)票被旧快照
+        // 展开回未勾活行"零覆盖 —— 实测工作区副本这样回插 29+/16- 后被本器整批收编进历史。收编前按
+        // 门 237 同一把尺子审磁盘面(判据只有那一份实现);红即让路,不在本器里"先修后收编"。
+        if (f.endsWith('PROJECT_PLAN.md')) {
+          const mono = checkArchiveMonotonic()
+          if (!mono.ok) {
+            log(`活文档归档单调性未通过(${f}),本轮不收编:${mono.why}`)
+            stale.splice(stale.indexOf(f), 1)
+            continue
+          }
         }
         log(`活文档归并完成(${f}):lost=0 / 长行重复新增 0,可收编`)
       } else {
