@@ -96,7 +96,11 @@ from ..services.agent_events import (
 from ..services.async_gen_close import aclose_async_gen
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
-from ..services.form_responses import persist_form_response
+from ..services.form_responses import (
+    list_form_responses,
+    persist_form_response,
+    read_form_response,
+)
 from ..services.mcp_server import (
     _FORM_REQUEST_TOOL_NAME,
     _TOOL_ALIASES,
@@ -5924,6 +5928,101 @@ async def post_form_response(
     if persist.error:
         result["persistError"] = persist.error
     return result
+
+
+def _form_response_card(row: dict[str, Any]) -> dict[str, Any]:
+    """一条持久应答 → camelCase 回显卡片(读端点的唯一出口形状)。
+
+    values 只给**预览**(每字段截 120 字符)而不是全量回放:本端点的消费者是"表单卡
+    想知道自己答过没有",不是草稿恢复器;截断同时防响应体变成用户输入的第二份全文副本。
+    reject 行的 values 恒 NULL(DB 层成对判据)⇒ valueFields 空、valueCount 0。
+    """
+    values = row.get("values")
+    fields: list[dict[str, str]] = []
+    if isinstance(values, dict):
+        for name, value in values.items():
+            text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+            fields.append({"name": str(name), "preview": text[:120]})
+    decided = row.get("decided_at")
+    if hasattr(decided, "isoformat"):
+        decided_at = decided.isoformat()
+    else:
+        decided_at = str(decided) if decided is not None else None
+    return {
+        "requestId": row["request_id"],
+        "sessionId": row["session_id"],
+        "kind": row["kind"],
+        "action": row["action"],
+        "valueFields": fields,
+        "valueCount": len(fields),
+        "rejectReason": row.get("reject_reason"),
+        "decidedAt": decided_at,
+    }
+
+
+@router.get("/llm/complete/stream/{session_id}/form-response", response_model=None)
+async def get_form_response(
+    request: Request,
+    session_id: str,
+    request_id: str | None = None,
+) -> dict[str, Any]:
+    """D77 残余收口(2026-10-23):表单应答状态的**读端点**。
+
+    带 `request_id` ⇒ 回显单条应答;不带 ⇒ 回显本会话近期应答(倒序,封顶 100)。
+    消费者是刷新/重连后的前端表单卡:内存待决项早已被工具循环 pop,本端点是
+    "这张表单当时答过了没有、答成了什么样"的唯一通道。
+
+    鉴权逐字复用 goal 端点族(`post_session_goal`):principal 只取令牌主体
+    (`_resolve_owner_uuid` 读 request.state.user_id),thread 属主只取
+    `metadata.userId`,严格判据走 `owner_scoped_allows`。无身份 / 无 thread 映射 /
+    不是你的 ⇒ 一律回**与"不存在"同形**的包(`_form_settle_rejected`),端点因此
+    不可能被当成存在性探针;越权只留服务端 warning。
+
+    读 SQL 排在鉴权闸门**之后** —— 越权路径结构上一行 SQL 都不发出,这不是防御性
+    写法而是判据本身(用例断言的就是替身表的 calls 为空)。
+
+    库不可达是唯一**可分辨**的失败:"连不上库"不泄露任何行级信息,值得与 not-found
+    区分(调用方可据此重试);而 not-found 与"不是你的"保持同形。
+    """
+    from ..routers.sessions import get_session_store
+    from ..services.session_store import owner_scoped_allows, thread_owner
+
+    caller_uid = _resolve_owner_uuid(request)
+    if caller_uid is None:
+        return _form_settle_rejected(request_id or "")
+
+    store = get_session_store()
+    thread_id = store.resolve_thread_id_for_conversation(session_id)
+    if not thread_id:
+        return _form_settle_rejected(request_id or "")
+    thread = store.get_thread(thread_id)
+    if thread is None or not owner_scoped_allows(caller_uid, thread_owner(thread)):
+        if thread is not None:
+            # 别人的会话:一行 SQL 都不发出,只留服务端日志(不给调用方任何差异)。
+            logger.warning(
+                "form-response 读越权尝试(session=%s, caller=%s)已拒绝:未发出任何 SQL",
+                session_id,
+                caller_uid,
+            )
+        return _form_settle_rejected(request_id or "")
+
+    if request_id:
+        outcome = await read_form_response(request_id=request_id, session_id=session_id)
+        if outcome.state == "unavailable":
+            return {"ok": False, "error": "form response store unavailable"}
+        if outcome.state != "found":
+            return _form_settle_rejected(request_id)
+        return {"ok": True, **_form_response_card(outcome.row)}
+
+    outcome = await list_form_responses(session_id=session_id)
+    if outcome.state == "unavailable":
+        return {"ok": False, "error": "form response store unavailable"}
+    return {
+        "ok": True,
+        "sessionId": session_id,
+        "responses": [_form_response_card(r) for r in outcome.rows],
+        "count": len(outcome.rows),
+    }
 
 
 @router.post("/llm/complete/stream/{session_id}/terminal-input", response_model=None)

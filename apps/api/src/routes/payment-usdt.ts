@@ -13,6 +13,7 @@
  * 5. GET    /admin/payment/usdt/orders   — 管理员查询所有订单(requireAdmin)
  * 6. GET    /admin/payment/usdt/config   — 管理员查看配置
  * 7. PATCH  /admin/payment/usdt/config   — 管理员修改配置
+ * 8. GET    /payment/usdt/public-config  — 公开:各网络收款方式可用性(G-944 fail-closed,只回布尔)
  *
  * 复用 payment-usdt-service.ts + system_configs 表(category='usdt_payment')。
  */
@@ -28,6 +29,8 @@ import {
   getUsdtPaymentConfig,
   setUsdtPaymentConfig,
   confirmUsdtPaymentWithOnChainCheck,
+  isTronAddress,
+  isErc20Address,
 } from '../services/payment-usdt-service.js'
 
 // =============================================================================
@@ -312,6 +315,34 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
       } catch (e) {
         request.log.error(e)
         return reply.status(500).send(error(500, '修改配置失败'))
+      }
+    },
+  )
+
+  // ===== 8. GET /payment/usdt/public-config — 公开:各网络收款方式是否可用(G-944 fail-closed) =====
+  // 只回布尔可用性,不回显地址(env 未配置或形态非法 ⇒ available=false,
+  // 前端据此隐藏该收款方式;与 createUsdtPayment 的「未配置 500 拒单」同一取向)。
+  server.get(
+    '/payment/usdt/public-config',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (_request, reply) => {
+      try {
+        const config = await getUsdtPaymentConfig()
+        return reply.send(
+          success({
+            networks: {
+              TRC20: {
+                available: !!config.trc20Address && isTronAddress(config.trc20Address),
+              },
+              ERC20: {
+                available: !!config.erc20Address && isErc20Address(config.erc20Address),
+              },
+            },
+          }),
+        )
+      } catch (e) {
+        _request.log.error(e)
+        return reply.status(500).send(error(500, '查询配置失败'))
       }
     },
   )
