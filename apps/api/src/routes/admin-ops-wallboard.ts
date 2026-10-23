@@ -489,8 +489,14 @@ interface RelayPoolSnapshot {
   accountsSchedulable: number | null
   /** 账号 token 最短临期(秒;负 = 已过期) */
   minTokenExpiresInSeconds: number | null
-  /** 账号最近一次刷新距今(秒);null = 没有任何账号刷过 */
+  /**
+   * 这份快照距今多少秒(0..TTL)。**语义已随实时化改写**(2026-10-23):原来报的是
+   * "5 分钟一轮的 gauge 多久没刷过",现在池子是现读的,该值恒为 0..5 —— 它就是
+   * "这个数有多新"。账号自身 `last_refresh_at` 的年龄另有 `accountRefreshAgeSec`。
+   */
   staleAgeSec: number | null
+  /** 账号最近一次刷新距今(秒);null = 没有任何账号带刷新戳 */
+  accountRefreshAgeSec: number | null
   /** 健康态不在封闭词表内、无法折叠的行数(非 0 说明库里有脏值,必须看得见) */
   rowsUnclassified: number | null
 }
@@ -506,7 +512,8 @@ async function buildRelayPool(): Promise<RelayPoolSnapshot | null> {
       accountsTotal: live.accountsTotal,
       accountsSchedulable: live.accountsSchedulable,
       minTokenExpiresInSeconds: live.minTokenExpiresInSeconds,
-      staleAgeSec: live.maxRefreshAgeSeconds,
+      staleAgeSec: Math.max(0, Math.floor((Date.now() - live.computedAtMs) / 1000)),
+      accountRefreshAgeSec: live.maxRefreshAgeSeconds,
       rowsUnclassified: live.rowsUnclassified,
     }
   } catch {
