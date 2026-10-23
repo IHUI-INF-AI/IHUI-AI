@@ -451,7 +451,10 @@ export const TRADE_HUB_ITEMS: NavItem[] = [
   ...MEMBER_ITEMS,
 ]
 
-/** /developer 开发者工具子菜单(2026-08-30 瘦身):低频开发者工具收进可折叠子菜单 */
+/** /developer 开发者工具子菜单(2026-08-30 瘦身):低频开发者工具收进可折叠子菜单
+ * 2026-10-23 P2 收敛第一批:本清单不再挂在独立父项下,而是整体摊入开发者域入口
+ * (见 DEVELOPER_HUB_CHILDREN 末尾展开)—— ExpandableNavItem 只渲染两级,
+ * 三级 children 会在侧边栏静默消失,所以域子清单必须保持扁平(与 MODELS_CHILDREN 同型)。 */
 const DEVELOPER_TOOLS_CHILDREN: NavItem[] = [
   // P0 Playground 内置在线测试页(2026-07-31 立):用当前用户 API Key 走 /v1/chat/completions 在线测试
   { href: '/playground', labelKey: 'playground', icon: FlaskConical },
@@ -471,48 +474,58 @@ const DEVELOPER_TOOLS_CHILDREN: NavItem[] = [
 ]
 
 /**
- * /developer 项整合到"开发者"组下(2026-08-30 瘦身:19+ 项平铺对普通用户不可理解,
- * 只保留 5 个核心项平铺,中转站密钥/用量挂为子项,其余低频工具收进"开发者工具"折叠子菜单)
+ * 开发者域子清单 —— P2 六大域收敛第一批(2026-10-23,票 L7241)
  *
- * 2026-10-20 简洁模式:5 个顶层项全部标 `developer` —— 整个组面向"来接 API 的外部开发者",
- * 与本站普通创作者/学习者毫无交集。**子项无需逐个标注**:16 个子项由继承规则自动带上同一档。
- * 末尾两项已是 `adminOnly`(普通用户本就看不到),不需要再标 advancedOnly。
+ * developerGroup 顶层由 7 项收敛为 1 个域入口父项「开发者工具」(/developer):
+ * 工作台顶 / api-docs / 中转站(+keys/usage)/ 订阅包 / 原「开发者工具」子菜单 14 项
+ * 全部摊平为二级子项 —— ExpandableNavItem 只渲染两级(父+子),带 children 的
+ * 三级项不会被渲染(中转站原来挂的 keys/usage 会静默消失),故本清单必须扁平
+ * (与 MODELS_CHILDREN「四组扁平化为三级子菜单」同型)。入口与 URL 一个不删(A 方案);
+ * /developer 页本身就是开发者工作台顶,无需新增 /domains/developer 页。
+ *
+ * labelKey 去向:父项沿用原折叠子菜单的 'developerTools' 档 —— 该键全仓只有这一处
+ * 发射点,子菜单父项被摊平后若不接住,nav.developerTools 即成死键(门 70b
+ * scan-dead-i18n-keys 为 blocking)。首个子项用 'developer' 承接原顶层入口
+ * (父项与子项同 href 是 /knowledge-base、/admin/theme 既有的"父项+子菜单"设计,
+ * 两者 labelKey 各不相同)。
  */
-const DEVELOPER_ITEMS: NavItem[] = [
-  { href: '/developer', labelKey: 'developer', icon: Terminal, advancedOnly: 'developer' },
-  {
-    href: '/developer/api-docs',
-    labelKey: 'developerApiDocs',
-    icon: Code,
-    advancedOnly: 'developer',
-  },
+const DEVELOPER_HUB_CHILDREN: NavItem[] = [
+  { href: '/developer', labelKey: 'developer', icon: Terminal },
+  { href: '/developer/api-docs', labelKey: 'developerApiDocs', icon: Code },
   // 2026-09-13:原 /developer/keys 独立入口与「中转站 → API 密钥」重复且旧页 API 不存在,
-  // 统一收敛到 /developer/relay/keys(旧路由保留重定向,见 developer/keys/page.tsx)
-  // P0-5 模型 API 中转站(2026-07-29 立);2026-08-30 密钥/用量挂为中转站子项
-  {
-    href: '/developer/relay',
-    labelKey: 'developerRelay',
-    icon: Zap,
-    advancedOnly: 'developer',
-    children: [
-      { href: '/developer/relay/keys', labelKey: 'developerRelayKeys', icon: KeyRound },
-      { href: '/developer/relay/usage', labelKey: 'developerRelayUsage', icon: Activity },
-    ],
-  },
+  // 统一收敛到 /developer/relay/keys(旧路由保留重定向,见 developer/keys/page.tsx);
+  // 原"中转站父项 + 2 子项"随本批收敛摊平为 3 个直接子项。
+  { href: '/developer/relay', labelKey: 'developerRelay', icon: Zap },
+  { href: '/developer/relay/keys', labelKey: 'developerRelayKeys', icon: KeyRound },
+  { href: '/developer/relay/usage', labelKey: 'developerRelayUsage', icon: Activity },
   // P0 API 订阅包产品化(2026-07-31 立):3 档 API 订阅方案(Starter/Pro/Enterprise)
   {
     href: '/developer/relay/subscriptions',
     labelKey: 'developerRelaySubscriptions',
     icon: CreditCard,
-    advancedOnly: 'developer',
   },
-  // 2026-08-30 瘦身:低频开发者工具收进"开发者工具"可展开子菜单(入口保留,高级用户可展开使用)
+  // 低频开发者工具(原「开发者工具」折叠子菜单 14 项,收敛后摊平进本清单)
+  ...DEVELOPER_TOOLS_CHILDREN,
+]
+
+/**
+ * /developer 域项(2026-08-30 瘦身 → 2026-10-23 P2 收敛第一批)
+ *
+ * 2026-10-20 简洁模式:本域除末尾 2 项 adminOnly 外全部落 `developer` 档 ——
+ * 整个域面向"来接 API 的外部开发者",与本站普通创作者/学习者毫无交集。
+ * 收敛后**只标域入口父项一项**:20 个子项由继承规则(filterNavItemsByTier)
+ * 自动带上同一档,不逐个重复标注;档位与 adminOnly/permission 是三层独立判据,
+ * 禁止合并成一个字段(AGENTS §4「侧边栏可见性三层分治」)。
+ * 末尾两项 adminOnly(IoT TBox 设备后台 / Meta-Learner 自进化管理)原位保留:
+ * 它们归 admin 组还是开发者组属管理域收敛批次的裁决,不在本批范围。
+ */
+const DEVELOPER_ITEMS: NavItem[] = [
   {
-    href: '/developer/webhooks',
+    href: '/developer',
     labelKey: 'developerTools',
     icon: Terminal,
     advancedOnly: 'developer',
-    children: DEVELOPER_TOOLS_CHILDREN,
+    children: DEVELOPER_HUB_CHILDREN,
   },
   // 2026-08-08 feature-final2:IoT 设备管理(TBox 车载设备)——设备后台管理,仅 admin 可见
   { href: '/edu-ai/tbox', labelKey: 'eduAiTbox', icon: Cpu, adminOnly: true },
@@ -569,6 +582,144 @@ const ADVANCED_AI_TOOLS_CHILDREN: NavItem[] = [
   { href: '/computer-use', labelKey: 'computerUse', icon: MonitorSmartphone },
 ]
 
+/**
+ * AI 域条目全清单 —— P2 六大域收敛第二批(2026-10-23,票 L7241)
+ *
+ * aiGroupLabel 分组顶层由 14 项收敛为 1 个域入口(/domains/ai),原 14 项(连同
+ * /models 18 子项、/memory 14 子项、/knowledge-base 6 子项、/ai-world 1 子项,
+ * flatten 共 53 条)整体移入本清单,由域入口页以卡片网格承载。
+ * 页面一个不删、URL 一个不改(A 方案)—— 全部旧链接仍可直接访问。
+ *
+ * 档位归属原样带走:`advancedAi` 仍只标在 /memory 父项(14 子项由 filterNavItemsByTier
+ * 的继承规则自动带档),`experimental` 仍逐子项标注,/models 父项**不得**标 relayOps
+ * (标了会把 overview/usage 一起带走)—— 三层判据彼此独立,不随收敛合并(AGENTS §4)。
+ *
+ * 位置说明:必须声明在 MODELS_CHILDREN / ADVANCED_AI_TOOLS_CHILDREN / KNOWLEDGE_CHILDREN
+ * 之后 —— 模块顶层 const 有 TDZ,展开时若尚未初始化会 ReferenceError(整页白屏,
+ * 同 EDU_HUB_ITEMS / TRADE_HUB_ITEMS 首版的事故)。
+ */
+export const AI_HUB_ITEMS: NavItem[] = [
+  // /chat 路由已废弃:AI 任务是全局 docked 面板(挂载于 MainShell,与 Sidebar 同级),
+  // 顶部"+"按钮即 toggle 面板的入口,不再放可点击的 /chat 导航项。
+  { href: '/chat/history', labelKey: 'chatHistory', icon: MessageSquare },
+  // /models 整合原 ModelsSidebar 15 项(主功能/业务/财务/资源四组扁平化为三级子菜单)
+  { href: '/models', labelKey: 'models', icon: Bot, children: MODELS_CHILDREN },
+  { href: '/agents', labelKey: 'agents', icon: Bot },
+  // 2026-10-20 简洁模式:`experimental` —— Agent 运行时调试台,是开发期产物,不是用户功能
+  {
+    href: '/agent-workbench',
+    labelKey: 'agentWorkbench',
+    icon: Activity,
+    advancedOnly: 'experimental',
+  },
+  {
+    href: '/agent-canvas',
+    labelKey: 'agentCanvas',
+    icon: Network,
+    advancedOnly: 'experimental',
+  },
+  {
+    href: '/ai-world',
+    labelKey: 'aiWorld',
+    icon: Globe,
+    children: [{ href: '/ai-world/favorites', labelKey: 'favorites', icon: Star }],
+  },
+  // 2026-07-24 对标 AI 工作台的能力入口(2026-08-30 收进"高级 AI 工具"折叠子菜单)
+  // 2026-10-20 简洁模式:整组标 `advancedAi` —— Agent 框架内部概念,普通用户看名词不知道是什么。
+  // 只标父项:14 个子项由 filterNavItemsByTier 的继承规则自动带上同一档,不逐个重复标注。
+  {
+    href: '/memory',
+    labelKey: 'advancedAiTools',
+    icon: Brain,
+    advancedOnly: 'advancedAi',
+    children: ADVANCED_AI_TOOLS_CHILDREN,
+  },
+  // 对话内媒体任务统一中心(2026-09-09 立):视频/音乐/语音/图片任务查看/播放/取消
+  { href: '/media-tasks', labelKey: 'mediaTasks', icon: Clapperboard },
+  // 网页工具中心(2026-09-09 立):Firecrawl 四件套融合的只读网页抓取
+  // 2026-10-20 简洁模式:`experimental` —— 面向抓取/采集场景的技术工具,普通用户无此诉求
+  { href: '/web-tools', labelKey: 'webTools', icon: Globe, advancedOnly: 'experimental' },
+  // D31 设计稿转码(2026-09-26 立):Figma Frame/组件 → 可运行前端代码(lucide 无 Figma 图标,用 Palette)
+  // 2026-10-20 简洁模式:`experimental` —— 前端/设计师专用
+  {
+    href: '/figma-import',
+    labelKey: 'figmaImport',
+    icon: Palette,
+    advancedOnly: 'experimental',
+  },
+  // 声纹库管理(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传
+  // 2026-10-20 简洁模式:`experimental` —— 服务端音色账号管理界面,普通用户点开是空列表或他人音色
+  { href: '/voices', labelKey: 'voices', icon: Mic, advancedOnly: 'experimental' },
+  // 签到助手(2026-10-03 立):账号服务端化管理(ai-service /api/checkin)
+  // 2026-10-20 简洁模式:`experimental` —— 服务端账号签到运维面板,与自己无关的账号状态
+  { href: '/checkin', labelKey: 'checkin', icon: CalendarCheck, advancedOnly: 'experimental' },
+  { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
+  // 知识库三合一(2026-08-30):知识库/RAG/图谱 三个入口概念重叠,收进"知识库"子清单
+  {
+    href: '/knowledge-base',
+    labelKey: 'knowledgeBase',
+    icon: BookOpen,
+    children: KNOWLEDGE_CHILDREN,
+  },
+]
+
+/**
+ * 个人域条目全清单 —— P2 六大域收敛第二批(2026-10-23,票 L7241)
+ *
+ * personalGroup 顶层由 5 项收敛为 1 个域入口(/domains/personal),原 5 项连同
+ * 「我的学习」3 子项与 USER_CHILDREN 14 子项(flatten 共 22 条)整体移入本清单。
+ * 本域一项 adminOnly / permission / advancedOnly 都没有 —— 三层判据在本域均不涉及,
+ * 收敛不得顺手补标(补了就是给普通用户加门)。
+ *
+ * 位置说明:必须声明在 USER_CHILDREN 之后(TDZ,同上)。
+ */
+export const PERSONAL_HUB_ITEMS: NavItem[] = [
+  {
+    href: '/favorites',
+    labelKey: 'myLearning',
+    icon: BookOpen,
+    children: [
+      { href: '/favorites', labelKey: 'favorites', icon: Star },
+      { href: '/following', labelKey: 'following', icon: Users },
+      { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
+      // 2026-08-30 曾把「会员收藏」收进本父项,但该 href 同期仍在 MEMBER_ITEMS(交易组)登记,
+      // 两份逐字相同 ⇒ React key=href 双条目(2026-10-19 P1 复查时实测仍并存)。
+      // 现保留 TRADE_HUB_ITEMS 里那一份(会员功能与交易同域),此处不重复登记。
+    ],
+  },
+  // /user 16 项作为可展开子清单(原 UserNav.tsx 页面级菜单栏)
+  {
+    href: '/user/profile',
+    labelKey: 'user',
+    icon: User,
+    children: USER_CHILDREN,
+  },
+  { href: '/student', labelKey: 'student', icon: GraduationCap },
+  // 2026-10-19 P1 归位:/settings 与 /settings/data-rights 两项移出主侧边栏,归设置页统一管理
+  // (逐条核实过不丢入口,见该批提交信息)。
+  { href: '/feedback', labelKey: 'feedback', icon: MessageSquare },
+  { href: '/help', labelKey: 'help', icon: HelpCircle },
+]
+
+/**
+ * 五个域入口页消费的全部条目(2026-10-23 P2 收敛第二批登记)。
+ *
+ * 为什么要有这份常量:条目搬进 *_HUB_ITEMS 后就**不在 NAV_GROUPS 里**了,而
+ * FLAT_NAV_ITEMS / ALL_NAV_HREFS 两个派生面原先只从 NAV_GROUPS 取源,于是
+ * 这些 href 会同时从三处消费者眼里消失 —— ① path-labels 的 TagsView 取名退化成
+ * 英文 Title Case 兜底;② use-custom-nav 的收藏允许集把它们当"已删除路由"剔除
+ * (用户收藏的 /models 会在刷新后无声蒸发);③ isHrefActive 的精确匹配面变小。
+ * 2026-10-19 那三域(教育/内容/交易)就漏了这一格且无人发现(现读 FLAT_NAV_ITEMS
+ * 不含 /learn 即证)。本批把两域带进来时一并补齐,单一真相源仍是这份清单本身。
+ */
+const DOMAIN_HUB_ITEM_GROUPS: NavItem[][] = [
+  EDU_HUB_ITEMS,
+  CONTENT_HUB_ITEMS,
+  TRADE_HUB_ITEMS,
+  AI_HUB_ITEMS,
+  PERSONAL_HUB_ITEMS,
+]
+
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: '',
@@ -588,77 +739,16 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
+    // 2026-10-23 P2 收敛第二批:本组由 14 项收敛为 1 个域入口(/domains/ai)。
+    // 原 14 条顶层(连同 /models 18、/memory 14、/knowledge-base 6、/ai-world 1 子项,
+    // flatten 53 条)全部移入 AI_HUB_ITEMS,由域入口页以卡片网格承载;侧边栏不再平铺。
+    // 页面一个不删、URL 一个不改(A 方案)—— 全部旧链接仍可直接访问。
+    // labelKey 复用分组同名的 nav.aiGroupLabel:本仓消息文件在 packages/i18n(本批写权
+    // 不在射程),不得新增键,也不得在端内硬编码中文(AGENTS §4/§19)—— 复用既有五语言键
+    // 是唯一同时满足两条的形态。档位不标在入口上:域内 /models 总览、/agents、
+    // 知识库、媒体任务都是普通用户要用的功能,入口一旦被隐藏就把它们一起锁死。
     label: 'aiGroupLabel',
-    items: [
-      // /chat 路由已废弃:AI 任务是全局 docked 面板(挂载于 MainShell,与 Sidebar 同级),
-      // 顶部"+"按钮(下方)即 toggle 面板的入口,不再放可点击的 /chat 导航项,
-      // 避免点击后右侧工作区被占位空状态"开始新任务"替换。
-      { href: '/chat/history', labelKey: 'chatHistory', icon: MessageSquare },
-      // /models 整合原 ModelsSidebar 15 项(主功能/业务/财务/资源四组扁平化为三级子菜单)
-      { href: '/models', labelKey: 'models', icon: Bot, children: MODELS_CHILDREN },
-      { href: '/agents', labelKey: 'agents', icon: Bot },
-      // 2026-10-20 简洁模式:`experimental` —— Agent 运行时调试台,是开发期产物,不是用户功能
-      {
-        href: '/agent-workbench',
-        labelKey: 'agentWorkbench',
-        icon: Activity,
-        advancedOnly: 'experimental',
-      },
-      {
-        href: '/agent-canvas',
-        labelKey: 'agentCanvas',
-        icon: Network,
-        advancedOnly: 'experimental',
-      },
-      {
-        href: '/ai-world',
-        labelKey: 'aiWorld',
-        icon: Globe,
-        children: [{ href: '/ai-world/favorites', labelKey: 'favorites', icon: Star }],
-      },
-      // 2026-07-24 对标 AI 工作台 AI 工作台能力(2026-08-30 收进"高级 AI 工具"折叠子菜单,见 ADVANCED_AI_TOOLS_CHILDREN)
-      // 2026-10-20 简洁模式:整组标 `advancedAi` —— Agent 框架内部概念(memory/subagents/context/
-      // spec/plan/registry/a2a/personas/orchestration/...),普通用户看名词完全不知道是什么。
-      // 只标父项:14 个子项由 filterNavItemsByTier 的继承规则自动带上同一档,不逐个重复标注。
-      {
-        href: '/memory',
-        labelKey: 'advancedAiTools',
-        icon: Brain,
-        advancedOnly: 'advancedAi',
-        children: ADVANCED_AI_TOOLS_CHILDREN,
-      },
-      // 对话内媒体任务统一中心(2026-09-09 立):视频/音乐/语音/图片任务查看/播放/取消
-      { href: '/media-tasks', labelKey: 'mediaTasks', icon: Clapperboard },
-      // 网页工具中心(2026-09-09 立):Firecrawl 四件套融合的只读网页抓取(正文/站点地图/结构化抽取)
-      // 2026-10-20 简洁模式:`experimental` —— 面向抓取/采集场景的技术工具,普通用户无此诉求
-      { href: '/web-tools', labelKey: 'webTools', icon: Globe, advancedOnly: 'experimental' },
-      // D31 设计稿转码(2026-09-26 立):Figma Frame/组件 → 可运行前端代码(lucide 无 Figma 图标,用 Palette)
-      // 2026-10-20 简洁模式:`experimental` —— 前端/设计师专用
-      {
-        href: '/figma-import',
-        labelKey: 'figmaImport',
-        icon: Palette,
-        advancedOnly: 'experimental',
-      },
-      // 声纹库管理(2026-09-09 F4):token6688 克隆音色列表/详情/删除/上传
-      // 2026-10-20 简洁模式:`experimental` —— 服务端音色账号管理界面,普通用户点开是空列表或他人音色
-      { href: '/voices', labelKey: 'voices', icon: Mic, advancedOnly: 'experimental' },
-      // 签到助手(2026-10-03 立):账号服务端化管理(ai-service /api/checkin)
-      // 2026-10-20 简洁模式:`experimental` —— 服务端账号签到运维面板,用户点进去只会看到一排与自己无关的账号状态
-      { href: '/checkin', labelKey: 'checkin', icon: CalendarCheck, advancedOnly: 'experimental' },
-      { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
-      // 知识库三合一(2026-08-30):原平铺的知识库/RAG/图谱收进可展开子菜单
-      {
-        href: '/knowledge-base',
-        labelKey: 'knowledgeBase',
-        icon: BookOpen,
-        children: KNOWLEDGE_CHILDREN,
-      },
-      // 2026-08-07 feature-final:A2A 智能体互联(注册智能体/派发任务)→ 已收进"高级 AI 工具"
-      // 2026-08-07 feature-final:Personas 人设中心(查看人设契约)→ 已收进"高级 AI 工具"
-      // 2026-08-07 feature-final:编排中心(中枢状态/仪表盘/事件流)→ 已收进"高级 AI 工具"
-      // 自动化任务调度器已于 2026-07-22 移至侧边栏快捷区(插件市场按钮下方),不再占用 AI 分组位置。
-    ],
+    items: [{ href: '/domains/ai', labelKey: 'aiGroupLabel', icon: Sparkles }],
   },
   // 管理 分组(2026-07-20 重构):
   // 整合原 AdminNav.tsx 的 11 个运营域分组(作为二级可展开项)+ /admin/theme 9 项(作为二级可展开项)。
@@ -711,38 +801,13 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [{ href: '/domains/trade', labelKey: 'tradeHubTitle', icon: Wallet }],
   },
   {
+    // 2026-10-23 P2 收敛第二批:本组由 5 项收敛为 1 个域入口(/domains/personal)。
+    // 原 5 条顶层(我的学习 + 3 子项 / /user/profile + USER_CHILDREN 14 / 学员中心 /
+    // 反馈 / 帮助,flatten 22 条)全部移入 PERSONAL_HUB_ITEMS,由域入口页承载。
+    // labelKey 复用既有的 nav.user(「个人中心」/Account):消息文件在 packages/i18n,
+    // 本批无写权 ⇒ 不新增键、不硬编码中文(见 aiGroupLabel 那一条的同款说明)。
     label: 'personalGroup',
-    items: [
-      {
-        href: '/favorites',
-        labelKey: 'myLearning',
-        icon: BookOpen,
-        children: [
-          { href: '/favorites', labelKey: 'favorites', icon: Star },
-          { href: '/following', labelKey: 'following', icon: Users },
-          { href: '/subscriptions', labelKey: 'subscriptions', icon: Rss },
-          // 2026-08-30 曾把「会员收藏」收进本父项,但该 href 同期仍在 MEMBER_ITEMS(交易组)登记,
-          // 两份逐字相同 ⇒ React key=href 双条目(2026-10-19 P1 复查时实测仍并存)。
-          // 现保留 MEMBER_ITEMS 那一份(交易组与会员功能同域),此处删重复项。
-        ],
-      },
-      // /user 16 项作为可展开子菜单(原 UserNav.tsx 页面级菜单栏)
-      {
-        href: '/user/profile',
-        labelKey: 'user',
-        icon: User,
-        children: USER_CHILDREN,
-      },
-      { href: '/student', labelKey: 'student', icon: GraduationCap },
-      // 2026-10-19 P1 归位:/settings 与 /settings/data-rights 两项移出主侧边栏,归设置页统一管理。
-      // 删这两项不丢入口,逐条已核实:
-      //  - /settings —— 侧边栏用户行下拉(SidebarUserRow.tsx:275 navigate('/settings'))、
-      //    Ctrl+Shift+, 全局快捷键、命令面板、桌面托盘「打开设置」、首页会员卡,共 5+ 条独立入口。
-      //  - /settings/data-rights —— 同批已在 settings/helpers.ts NAV_GROUPS.navBilling 补位,
-      //    与 data-export 同组;若只删不补,该页会成零入口孤儿页(只能手敲 URL)。
-      { href: '/feedback', labelKey: 'feedback', icon: MessageSquare },
-      { href: '/help', labelKey: 'help', icon: HelpCircle },
-    ],
+    items: [{ href: '/domains/personal', labelKey: 'user', icon: User }],
   },
   // 开发者分组(2026-07-20 新增):整合原 /developer/layout.tsx 14 项页面级菜单栏
   {
@@ -755,10 +820,25 @@ export function flattenNavItems(items: NavItem[]): NavItem[] {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavItems(item.children) : [])])
 }
 
-export const ALL_NAV_HREFS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items)).map((i) => i.href)
+/** 主侧边栏分组项 + 五个域入口页消费的条目(见 DOMAIN_HUB_ITEM_GROUPS 头注的三个消费者) */
+const ALL_NAV_SOURCE_ITEMS: NavItem[] = (() => {
+  const seen = new Set<string>()
+  const out: NavItem[] = []
+  for (const item of flattenNavItems([
+    ...NAV_GROUPS.flatMap((g) => g.items),
+    ...DOMAIN_HUB_ITEM_GROUPS.flat(),
+  ])) {
+    if (seen.has(item.href)) continue
+    seen.add(item.href)
+    out.push(item)
+  }
+  return out
+})()
 
-/** 扁平化主侧边栏导航项,供 TagsView 等复用 path -> labelKey 映射 */
-export const FLAT_NAV_ITEMS = flattenNavItems(NAV_GROUPS.flatMap((g) => g.items))
+export const ALL_NAV_HREFS = ALL_NAV_SOURCE_ITEMS.map((i) => i.href)
+
+/** 扁平化全部导航项(含域清单),供 TagsView 等复用 path -> labelKey 映射 */
+export const FLAT_NAV_ITEMS = ALL_NAV_SOURCE_ITEMS
 
 /**
  * 纯函数判断给定 href 是否与当前 pathname 匹配为活跃路由。
