@@ -90,6 +90,7 @@ import {
 function poolRow(over: Partial<PoolSideRow> = {}): PoolSideRow {
   return {
     id: 'pool-1',
+    ownerUserId: null,
     providerCode: 'trae',
     uid: 'uid-1',
     name: '账号一',
@@ -103,6 +104,7 @@ function checkinRow(over: Partial<CheckinSideRow> = {}): CheckinSideRow {
   return {
     accountId: 101,
     poolAccountId: 'pool-1',
+    ownerUserId: null,
     platform: 'trae',
     identityKey: 'uid-1',
     enabled: true,
@@ -115,6 +117,7 @@ function checkinRow(over: Partial<CheckinSideRow> = {}): CheckinSideRow {
 function fullRow(over: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'pool-1',
+    ownerUserId: null,
     providerCode: 'trae',
     uid: 'uid-1',
     name: '账号一',
@@ -185,7 +188,13 @@ describe('planReconciliation', () => {
   it('签到有、号池无 → disable(pool_deleted,带签到侧 platform/identityKey)', () => {
     const plan = planReconciliation([], [checkinRow()])
     expect(plan.actions).toEqual([
-      { kind: 'disable', platform: 'trae', uid: 'uid-1', poolAccountId: 'pool-1' },
+      {
+        kind: 'disable',
+        platform: 'trae',
+        uid: 'uid-1',
+        poolAccountId: 'pool-1',
+        ownerUserId: null,
+      },
     ])
   })
 

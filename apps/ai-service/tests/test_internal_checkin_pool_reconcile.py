@@ -76,6 +76,7 @@ class FakeStore:
                     "platform": acc["platform"],
                     "identityKey": acc["identity_key"],
                     "enabled": acc["enabled"],
+                    "ownerUserId": acc["owner_user_id"],
                     "poolAccountId": acc["device_map"].get("pool_account_id"),
                     "poolCredVersion": checkin_store._pool_cred_version_of(acc["device_map"]),
                     "poolPendingCred": (
@@ -96,15 +97,32 @@ class FakeStore:
             return None
         return acc["device_map"]
 
-    async def pool_account_id_of(self, platform: str, uid: str) -> int | None:
+    async def pool_account_id_of(
+        self,
+        platform: str,
+        uid: str,
+        *,
+        pool_account_id: str | None = None,
+        owner_user_id: str | None = None,
+    ) -> int | None:
         for acc in self.accounts.values():
+            if pool_account_id:
+                if acc["device_map"].get("pool_account_id") == pool_account_id:
+                    return acc["id"]
+                continue
             if (
-                acc["owner_user_id"] == POOL_SYNC_OWNER
+                acc["owner_user_id"] == (owner_user_id or POOL_SYNC_OWNER)
                 and acc["platform"] == platform
                 and acc["identity_key"] == uid
             ):
                 return acc["id"]
         return None
+
+    async def owner_of_account(self, account_id: int) -> str:
+        acc = self.accounts.get(account_id)
+        if acc is None:
+            raise LookupError(f"签到账号不存在: {account_id}")
+        return acc["owner_user_id"]
 
     async def save_device_map(self, account_id: int, device_map: dict[str, Any]) -> None:
         self.save_calls.append((account_id, dict(device_map)))
@@ -121,6 +139,7 @@ def fake_store(monkeypatch):
         "load_device_map",
         "save_device_map",
         "pool_account_id_of",
+        "owner_of_account",
     ]:
         monkeypatch.setattr(checkin_store, name, getattr(store, name))
     return store
