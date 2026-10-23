@@ -117,6 +117,7 @@ import { MoreTitles } from '../components/MoreTitles'
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
+import { VoiceNote } from '../components/chat/VoiceNote'
 import { AddPanel } from '../components/AddPanel'
 import { useVoiceRecorder } from '../hooks/use-voice-recorder'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
@@ -2109,7 +2110,7 @@ export function HomeScreen() {
                 ) : null}
               </View>
             ) : null}
-            {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间发丝线分层 */}
+            {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间以间距分层(§4 禁分割线) */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -2147,7 +2148,6 @@ export function HomeScreen() {
                 )
               })}
             </ScrollView>
-            <View style={shellStyles.modelModalHairline} />
             {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
                 搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
             {modelModalTab === 'skills' && !modelSearch.trim() ? (
@@ -2372,6 +2372,15 @@ export function HomeScreen() {
           onVoiceEnd={() => void voiceRecorder.stop()}
           onPlusToggle={handlePlusToggle}
           plusActive={plusPanelVisible}
+          // D43 语音笔记入口(2026-10-23 RN 腿接线):HomeScreen 无会话上下文 ⇒ conversationId=null
+          // (与 web 组件默认同档);「插入对话」= 追加进输入框既有 onChangeText 通道。
+          // 会话屏 ChatScreen 的挂载位因该文件被他席持有(未提交改动)而顺延,台账如实标注。
+          voiceNoteNode={
+            <VoiceNote
+              conversationId={null}
+              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+            />
+          }
           // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
           // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
           onOpenModelSelect={() => openModelModal()}
@@ -2637,6 +2646,8 @@ const shellStyles = {
     // 固定 chrome 永不被 flex 压缩:此前列表未约束 flex,自然高度撑爆 sheet 的
     // maxHeight 时 tab 行被 shrink 压扁(33→14px,背景条比文字矮 → 图标/文字穿帮错位)
     flexShrink: 0,
+    // 与列表分层:§4 禁分割线,原发丝线改间距分隔
+    marginBottom: rpx(16),
   } as const,
   modelModalListBody: {
     // 列表区是弹窗里唯一弹性块:吃掉 sheet 剩余高度并内部滚动
@@ -2677,11 +2688,6 @@ const shellStyles = {
     // 否则判据认不出配对、R3 只能靠无配对实底兜账 —— 命名改对才让 R4/R9 直接可判。
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
-  } as const,
-  modelModalHairline: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: tokens.border.light,
-    marginHorizontal: rpx(32),
   } as const,
   // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──
   modelSearchToggle: {

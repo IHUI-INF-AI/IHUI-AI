@@ -217,6 +217,38 @@ async def test_fim_metrics_default_model_is_auto(client):
     assert row["model"] == "auto"
 
 
+async def test_fim_metrics_scene_split_and_default_compat(client):
+    """V3 #82 未闭环 ②:scene 分桶聚合,且缺省 scene 的语义与改造前逐字一致。
+
+    - 不传 scene(旧调用方)与显式 scene="completion" 必须落**同一个桶**;
+    - scene="edit_intent"(编辑意图预测)独立成桶,不污染补全接受率;
+    - 两桶的 model 同名但计数/接受率各自独立计算。
+    """
+    await client.post(
+        "/api/llm/fim/metrics",
+        json={"model": "m-scene", "suggestionCount": 4, "acceptedCount": 2},
+    )
+    await client.post(
+        "/api/llm/fim/metrics",
+        json={"model": "m-scene", "scene": "completion", "suggestionCount": 2, "acceptedCount": 1},
+    )
+    await client.post(
+        "/api/llm/fim/metrics",
+        json={"model": "m-scene", "scene": "edit_intent", "suggestionCount": 3, "acceptedCount": 0},
+    )
+    rows = (await client.get("/api/llm/fim/metrics/summary")).json()["data"]["models"]
+    assert len(rows) == 2
+    completion = next(r for r in rows if r["scene"] == "completion")
+    edit = next(r for r in rows if r["scene"] == "edit_intent")
+    assert completion["model"] == edit["model"] == "m-scene"
+    # 旧调用方(不传 scene)与显式 completion 同桶:6 建议 3 接受
+    assert (completion["suggestions"], completion["accepted"]) == (6, 3)
+    assert completion["acceptanceRate"] == pytest.approx(0.5)
+    # 编辑意图预测自己一桶:3 建议 0 接受
+    assert (edit["suggestions"], edit["accepted"]) == (3, 0)
+    assert edit["acceptanceRate"] == 0.0
+
+
 # ---------------------------------------------------------------------------
 # 补全专用档位选型(P1-9):_resolve_fim_model 接线
 # ---------------------------------------------------------------------------
@@ -356,6 +388,8 @@ async def test_fim_metrics_redis_restore_on_first_access(client, fake_redis):
     assert len(rows) == 1
     row = rows[0]
     assert row["model"] == "m-restore"
+    # 旧快照用裸 model 作键(无 scene 维度)→ 恢复后归入缺省场景,读数含义不变
+    assert row["scene"] == "completion"
     assert row["requests"] == 7
     assert row["suggestions"] == 5
     assert row["accepted"] == 4

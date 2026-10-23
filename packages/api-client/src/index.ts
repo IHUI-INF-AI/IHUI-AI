@@ -258,6 +258,8 @@ export * from './endpoints/category.js'
 export * from './endpoints/chat.js'
 // D179:会话 Issue 绑定流出口(searchIssues / bindIssue / unbindIssue)
 export * from './endpoints/issue-binding.js'
+// D125:多用户协作会话(邀请/评论)REST 消费面
+export * from './endpoints/chat-collab.js'
 export * from './endpoints/community.js'
 // 中文连接器端点(2026-09-02 立,P2-2 语雀/飞书/企微/钉钉文档接入)
 export * from './endpoints/connectors.js'

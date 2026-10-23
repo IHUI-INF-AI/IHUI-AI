@@ -24,6 +24,7 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { gitBinary } from '../lib/face-reader.mjs'
 // §22c:判据从源脚本 import,不在测试里复算
 import { __test__ as gate } from '../check-hairline-separator.mjs'
+import { __test__ as dividerGate } from '../check-no-divider.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-hairline-separator.mjs')
@@ -169,7 +170,7 @@ test('H05 形状锁:解析器 import 自兄弟门 11d,锚点与读数同一把�
   const src = readFileSync(SCRIPT_PATH, 'utf8')
   // ① 四件纯解析从 check-no-divider import,不许在本门里长第二份
   assert.match(src, /from '\.\/check-no-divider\.mjs'/)
-  for (const name of ['cssHairlineGrade', 'enclosingBraceBlock', 'isNeutralColorRef']) {
+  for (const name of ['thinTokensOf', 'enclosingBraceBlock', 'isNeutralColorRef']) {
     assert.ok(src.includes(name), `应复用 11d 的 ${name}`)
     assert.equal(
       new RegExp(`(?:export )?function ${name}\\s*\\(`).test(src),
@@ -373,5 +374,47 @@ test('H16 预筛是判据的超集(删掉任一支就静默少扫)', () => {
   }
   assert.ok(gate.SCAN_GLOBS.includes('*.tsx'))
   assert.ok(gate.SCAN_GLOBS.includes('*.ts'))
+})
+
+test('H17 两把尺子合一:同一枚发丝线在 11d 族 7 与本门同一判定(阳性 + 三型阴性对照)', () => {
+  const rel = 'apps/web/src/components/x.tsx'
+  const family7Verdict = (body, needle) => {
+    const line = body.split('\n').find((l) => l.includes(needle))
+    const lineStart = body.indexOf(line)
+    return dividerGate.classifyHairlineLine(line, { relPath: rel, text: body, lineStart })
+  }
+  // 阳性:真分隔线 → 本门命中,族 7 同样命中(不许任一边因"合一"而漏)
+  const expectHit = (body, needle) => {
+    const hairline = gate.scanSource(rel, body)
+    assert.equal(gate.countDividers(hairline), 1, `本门应命中\n${JSON.stringify(hairline.hits)}`)
+    assert.ok(family7Verdict(body, needle), '11d 族 7 必须同样命中')
+  }
+  // 阴性:三型结构件 → 本门放过,族 7 同样放过,且两边认的是同一型
+  const expectExempt = (body, needle, type) => {
+    const hairline = gate.scanSource(rel, body)
+    assert.equal(hairline.hits[0]?.kind, 'exempt', JSON.stringify(hairline.hits))
+    assert.equal(hairline.hits[0].type, type)
+    assert.equal(family7Verdict(body, needle), null, '11d 族 7 必须同样放过')
+  }
+
+  expectHit('<div className="h-px bg-border" />\n', 'h-px')
+  expectHit('<div className="w-px bg-border" />\n', 'w-px')
+
+  expectExempt('<div role="separator" className="h-px bg-border" />\n', 'h-px', 'semantic-separator')
+  expectExempt(
+    '<div className="absolute top-0 bottom-0 w-px bg-border" />\n',
+    'w-px',
+    'guide-rail',
+  )
+  expectExempt(
+    '<div className="h-px w-8 cursor-col-resize bg-border" />\n',
+    'h-px',
+    'draggable-splitter',
+  )
+
+  // 两侧历史口径一并锁住(11d S62/S63 与 D24 已钉,不许在合一中漂开)
+  // 裸 h-full + w-px:尺子判 divider 并带 railSuspect,族 7 同样照判 —— 合一后两边都计数
+  expectHit('<div className="h-full w-px bg-border" />\n', 'w-px')
+  expectExempt('<div className="w-full h-px bg-border" />\n', 'h-px', 'draggable-splitter')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

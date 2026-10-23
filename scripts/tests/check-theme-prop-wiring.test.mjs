@@ -75,6 +75,74 @@ test('整标签 {...props} 转发归 spread-unknown,不当成 ok 也不当成 mi
   assert.notEqual(r.kind, 'ok')
 })
 
+test('只有顶层 {...} 才算转发:属性表达式内部的展开不得掩盖漏传(阳性对照)', () => {
+  // 旧判据对原文做 /\{\s*\.\.\./ 会命中这里的 `{ ...a }`
+  const attrs = ' onChange={() => setX({ ...a })} '
+  assert.match(attrs, /\{\s*\.\.\./, '阳性对照:原文里确实存在 {...} 形态')
+  assert.deepEqual(__test__.findTopLevelSpreads(attrs), [], '但它不是顶层展开')
+  assert.equal(__test__.inspectThemeAttr(attrs).kind, 'missing', '未传 colorScheme ⇒ 必须判红')
+  assert.deepEqual(__test__.findTopLevelSpreads(' {...props} title="a" '), ['props'])
+})
+
+/**
+ * 端内 wrapper props 类型事实的判定:展开源 → 同文件 `const props[: XxxProps] = {…}`。
+ * 三个方向都必须钉住,否则"升级"可能只是把 spread-unknown 换成另一种沉默:
+ *  ① 传了 colorScheme(表达式)⇒ 不判红;② 写死 'light' ⇒ 判红;
+ *  ③ 顶层没传 / 判不出 ⇒ 分别判红与如实报 unknown。
+ */
+test('spread 展开源可解析:传了不判红 / 写死判红 / 没传判红(均带反例)', () => {
+  const src = `
+import { NavBar } from '@ihui/rn-app'
+export function Screen() {
+  const withTheme: NavBarProps = { title: 'a', colorScheme: resolvedTheme }
+  const withLiteral: NavBarProps = { title: 'a', colorScheme: 'light' }
+  const without: NavBarProps = { title: 'a' }
+  const opaque = { ...base }
+  return (
+    <>
+      <NavBar {...withTheme} />
+      <NavBar {...withLiteral} />
+      <NavBar {...without} />
+      <NavBar {...opaque} />
+      <NavBar {...fromParam} />
+      <NavBar title="a" onChange={() => setX({ ...a })} />
+    </>
+  )
+}
+`
+  const sharedNames = new Map([['NavBar', new Set(['packages/app/src/NavBar.tsx'])]])
+  const out = __test__.judgeFile(
+    'apps/mobile-rn/src/screens/fixture.tsx',
+    src,
+    sharedNames,
+  )
+  assert.equal(
+    out.violations.filter((v) => v.kind === 'literal').length,
+    1,
+    '展开源写死 colorScheme: "light" 必须判红(阳性)',
+  )
+  assert.equal(
+    out.violations.filter((v) => v.kind === 'missing').length,
+    2,
+    '展开源顶层没传 + 属性表达式里的展开掩盖漏传 ⇒ 2 处红',
+  )
+  assert.equal(
+    out.unknown.length,
+    2,
+    '对象内继续展开 / 形参来源 ⇒ 仍如实报 2 处判不出(不得静默放行)',
+  )
+  assert(
+    !out.violations.some((v) => v.detail?.includes('withTheme')),
+    '阴性对照:展开源传了真主题的站点不得进入 red 清单',
+  )
+  // 直接对解析器取证,防止上面只靠位置计数而判据本身失效
+  assert.equal(__test__.resolveSpreadObject(src, 'withTheme')?.kind, 'ok')
+  assert.equal(__test__.resolveSpreadObject(src, 'withLiteral')?.kind, 'literal')
+  assert.equal(__test__.resolveSpreadObject(src, 'without')?.kind, 'missing')
+  assert.equal(__test__.resolveSpreadObject(src, 'opaque'), undefined)
+  assert.equal(__test__.resolveSpreadObject(src, 'fromParam'), undefined)
+})
+
 test('渲染点枚举:同名多站点逐个报,不合并', () => {
   const sites = __test__.findJsxElementSites(
     'const a = <Foo t={x} />\nconst b = <Foo colorScheme="light" />\n',

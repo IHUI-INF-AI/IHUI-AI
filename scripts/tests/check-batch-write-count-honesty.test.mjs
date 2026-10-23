@@ -1141,4 +1141,98 @@ test('M25 B6 jsonb 整列覆盖:镜像必须经生产入口消费该维度(摘�
   }
 })
 
+/**
+ * M26(2026-10-23 第三十一批 ③「信封锚枚举改造」)—— 票面那 5 处的形状在旧判据里**结构隐身**:
+ * 既有布尔 ack 锚点是 `.send(success({`(success 后紧跟对象字面量),而 `success(row ?? { updated: true })`
+ * 在 `\s*\{` 那一步就被挡在面外。本条的牙在于:同一份夹具走**生产入口**必须命中,且只报数不判红。
+ * 夹具文本取自门的 `FIXTURES`,测试里不再抄一份信封正则或兜底键名单(§22c)。
+ */
+test('M26 B8 信封兜底假 ack:兜底对象写死 updated:true ⇒ 命中并点名该键,且终态只报数不判红', () => {
+  if (typeof T.findFallbackAckSites !== 'function')
+    throw new Error('门不再导出 findFallbackAckSites ⇒ B8 判据被摘线')
+  if (!T.ENVELOPE_ANCHOR_KEYS?.fallback || T.ENVELOPE_ANCHOR_KEYS.fallback.length === 0)
+    throw new Error('ENVELOPE_ANCHOR_KEYS.fallback 缺失或为空 ⇒ 兜底族键表被削,判据会整族失明')
+  // 键族与判据两半必须同集:兜底族独立写死期望(不同步就当场红,而不是静默少一族)。
+  const fallbackKeys = [...T.ENVELOPE_ANCHOR_KEYS.fallback].sort().join(',')
+  if (fallbackKeys !== ['created', 'updated'].sort().join(','))
+    throw new Error(`兜底族键表被改动(实得 ${fallbackKeys})⇒ 判据与枚举表必须同轮成对改`)
+  const body = T.FIXTURES?.b8FallbackLiteral
+  if (typeof body !== 'string')
+    throw new Error('门的 FIXTURES 里没有 b8FallbackLiteral ⇒ 本条失去依据,先核门再改本条')
+  // 生产入口先对一遍:不该只有端到端能看见。
+  const direct = T.scanFileText(REL, body, { knownPaths: new Set([REL]) })
+  const b8 = direct?.b8
+  if (!b8 || !Array.isArray(b8.violations))
+    throw new Error('scanFileText 的返回里没有 b8 ⇒ 该维度不再随主扫描产出')
+  if (b8.violations.length !== 1 || b8.violations[0].key !== 'updated')
+    throw new Error(`生产入口应命中 1 处且点名 updated,实得 ${JSON.stringify(b8.violations)}`)
+  const dir = mkScratch('bch-b8-hit-')
+  try {
+    writeRepo(dir, { body })
+    for (const flags of [[], ['--strict']]) {
+      const r = run(dir, ['--root', dir, ...flags, '--json'])
+      if (r.code !== 0)
+        throw new Error(
+          `${flags.join(' ') || '默认档'}下 B8 是只报数维,不得判红(实得 exit ${r.code}):${r.out.slice(0, 240)}`,
+        )
+      const j = JSON.parse(r.out)
+      if (j.counts.b8Violations !== 1 || j.counts.b8Files !== 1)
+        throw new Error(
+          `夹具必须点名 1 处/1 文件,实得 ${j.counts.b8Violations}/${j.counts.b8Files}`,
+        )
+      if (!j.b8Violations?.some((v) => v.file === REL && v.key === 'updated'))
+        throw new Error(`必须点名文件与键:${JSON.stringify(j.b8Violations)}`)
+      if (!(j.counts.b8EnvelopeSites >= 1))
+        throw new Error(`信封锚枚举数必须现读(实得 ${j.counts.b8EnvelopeSites})`)
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
+ * M27 两条放过通道各自对答案(只验"绿"不验"把证据摘掉必须红",等于没验):
+ *  - 库确认集:`updated: result.rowCount > 0` ⇒ 0 违规,处置 db-confirmed;
+ *  - 唯一出口:`success(batchWriteOutcome(...))` ⇒ 0 违规,放过 outlet 1。
+ * 红腿由 M26 的同一生产入口钉着(兜底写死 true ⇒ 1),不在这里重跑。
+ */
+test('M27 B8 放过通道:兜底布尔来自库确认集 / success(batchWriteOutcome(...)) 唯一出口 ⇒ 均不判', () => {
+  const arms = [
+    ['b8FallbackDbConfirmed', 'db-confirmed'],
+    ['b8FallbackOutlet', null],
+  ]
+  for (const [k, disposition] of arms) {
+    const body = T.FIXTURES?.[k]
+    if (typeof body !== 'string') throw new Error(`门的 FIXTURES 里没有 ${k} ⇒ 本条失去依据`)
+    const r = T.scanFileText(REL, body, { knownPaths: new Set([REL]) })
+    if (!r?.b8 || r.b8.violations.length !== 0)
+      throw new Error(`${k}(放过通道)不得判红:${JSON.stringify(r?.b8)}`)
+    if (k === 'b8FallbackDbConfirmed' && r.b8.candidates[0]?.disposition !== disposition)
+      throw new Error(
+        `${k} 的处置必须是 ${disposition}(否则"库确认"这名分是假的):${JSON.stringify(r.b8.candidates)}`,
+      )
+    if (k === 'b8FallbackOutlet' && r.b8.exempt.outlet !== 1)
+      throw new Error(`${k} 必须记进 outlet 放过通道:${JSON.stringify(r.b8.exempt)}`)
+  }
+})
+
+/**
+ * M28 枚举到 0 判死:routes/ 下有跟踪文件、却一处 `.send(success(` 信封锚都没枚举到 ⇒
+ * B8 结构上扫不到任何东西,必须 exit 2 并说清"枚举到 0",不得记绿(空扫是本门反复记过的那一型)。
+ */
+test('M28 B8 空枚举 ⇒ 判死(exit 2 且点名"信封锚枚举到 0"),不得静默记绿', () => {
+  const dir = mkScratch('bch-b8-empty-')
+  try {
+    writeRepo(dir, {
+      body: "server.get('/x', async (request, reply) => {\n  return reply.send({ ok: true })\n})\n",
+    })
+    const r = run(dir, ['--root', dir])
+    if (r.code !== 2) throw new Error(`枚举到 0 必须判死,实得 exit ${r.code}:${r.out}`)
+    if (!/信封锚枚举到 0/.test(r.out))
+      throw new Error(`必须说清是"信封锚枚举到 0",而不是笼统失败:${r.out}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

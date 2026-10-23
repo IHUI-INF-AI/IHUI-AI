@@ -12,11 +12,18 @@
  *
  * 只代理这一个前缀;Authorization 原样透传(ai-service 的 JWTAuthMiddleware 验签),
  * 不注入任何身份 —— 网关不成为鉴权旁路。
+ *
+ * L7066(G-396 拍板,2026-10-23):转发前先在本层验用户会话(checkAuth)。会话在本层
+ * 已证实有效,下游仍回 401 ⇒ 那是"服务侧凭据被 ai-service 拒收",不是用户登录态失效,
+ * 映射为 502 + UPSTREAM_AUTH_FAILED 出栈,不再伪装 401 触发端内强制登出。
+ * 真会话过期的 401 由本层 checkAuth 直接发出(在转发之前),refresh→登出链语义不变。
  */
 import type { FastifyPluginAsync } from 'fastify'
 import fp from 'fastify-plugin'
 import { config } from '../config/index.js'
 import { error } from '../utils/response.js'
+import { checkAuth } from '../plugins/auth.js'
+import { mapNonSessionUpstreamStatus, upstreamAuthFailedBody } from '../utils/upstream-auth.js'
 
 const PROXY_TIMEOUT_MS = 60_000
 const HOP_BY_HOP = new Set([
@@ -37,6 +44,8 @@ const checkinProxyRoutes: FastifyPluginAsync = async (server) => {
     method: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE'],
     url: '/api/checkin/*',
     handler: async (request, reply) => {
+      // L7066:会话在本层先证实;此后下游 401 一律属"服务侧凭据"问题(见文件头)。
+      if (!(await checkAuth(request, reply))) return
       const base = config.AI_SERVICE_URL.replace(/\/+$/, '')
       const headers: Record<string, string> = {}
       for (const [k, v] of Object.entries(request.headers)) {
@@ -53,10 +62,19 @@ const checkinProxyRoutes: FastifyPluginAsync = async (server) => {
           body: hasBody ? JSON.stringify(request.body) : undefined,
           signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
         })
+        const buf = Buffer.from(await resp.arrayBuffer())
+        const outbound = mapNonSessionUpstreamStatus(resp.status)
+        if (outbound !== resp.status) {
+          // 下游 401 被映射(会话已在本层验过)⇒ 不透传下游体,换独立 errorCode 的 502。
+          request.log.warn(
+            { upstreamStatus: resp.status, url: request.url },
+            '[checkin-proxy] 非会话场景下游 401,已映射 502/UPSTREAM_AUTH_FAILED',
+          )
+          return reply.status(outbound).send(upstreamAuthFailedBody())
+        }
         reply.status(resp.status)
         const contentType = resp.headers.get('content-type')
         if (contentType) reply.header('content-type', contentType)
-        const buf = Buffer.from(await resp.arrayBuffer())
         return reply.send(buf)
       } catch (e) {
         request.log.error(e, '[checkin-proxy] 转发 ai-service 失败')

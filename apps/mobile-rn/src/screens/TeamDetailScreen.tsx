@@ -20,6 +20,7 @@ import { TeamDetailScreen, type TeamDetailScreenProps } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 
 type LocalParamList = RootStackParamList & {
   TeamDetail: { memberId: string }
@@ -33,6 +34,7 @@ export default function TeamDetailScreenWrapper() {
   const route = useRoute<TeamDetailRouteProp>()
   const { memberId } = route.params
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const [member, setMember] = useState<TeamMemberDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -95,7 +97,7 @@ export default function TeamDetailScreenWrapper() {
       : null,
     onContact,
     onViewOrders,
-    colorScheme: 'light',
+    colorScheme: resolvedTheme,
   }
 
   return (

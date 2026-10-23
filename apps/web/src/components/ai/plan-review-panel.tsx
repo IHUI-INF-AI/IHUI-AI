@@ -165,15 +165,8 @@ export function PlanReviewPanel({
       <div className="flex items-center gap-1 px-4 pb-2" data-testid="plan-phase-track">
         {PLAN_PHASES.map((p, i) => (
           <React.Fragment key={p}>
-            {i > 0 && (
-              <span
-                className={cn(
-                  'w-3 shrink-0 border-t',
-                  i <= phaseIdx ? 'border-primary/40' : 'border-border',
-                )}
-                aria-hidden="true"
-              />
-            )}
+            {/* 阶段连接位:§4 禁分割线,只留间距维持原排布几何 */}
+            {i > 0 && <span className="w-3 shrink-0" aria-hidden="true" />}
             <span
               className={cn(
                 'inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',

@@ -78,6 +78,33 @@ interface RegisteredEndpoint {
 /** instanceId → RegisteredEndpoint */
 const _endpoints = new Map<string, RegisteredEndpoint>()
 
+// ---------------------------------------------------------------------------
+// 协议派发序号(G-86,拍板@2026-10-09:AgentActionRequest 增协议 ordinal 字段)
+// ---------------------------------------------------------------------------
+
+/**
+ * 进程级单调递增、以 Date.now() 为下限:重启后时钟已前进 ⇒ 序号仍高于端侧水位里的旧值,
+ * 新指令不会被误判 stale。全局递增蕴含"对每个目标实例单调"(子序列保序)。
+ * 同 (instanceId, requestId) 再派发复用已发序号(FIFO 限量记忆,与端侧台账同款淘汰),
+ * 重投帧因此被端侧重放水位判 duplicate —— 这正是"有界 id 集淘汰后重放复活"的协议级出口。
+ */
+let _dispatchOrdinal = 0
+const _ordinalMemo = new Map<string, number>()
+const ORDINAL_MEMO_MAX = 200
+
+function ordinalForDispatch(instanceId: string, requestId: string): number {
+  const key = `${instanceId}\u0000${requestId}`
+  const seen = _ordinalMemo.get(key)
+  if (seen !== undefined) return seen
+  _dispatchOrdinal = Math.max(_dispatchOrdinal + 1, Date.now())
+  _ordinalMemo.set(key, _dispatchOrdinal)
+  if (_ordinalMemo.size > ORDINAL_MEMO_MAX) {
+    const oldest = _ordinalMemo.keys().next().value
+    if (oldest !== undefined) _ordinalMemo.delete(oldest)
+  }
+  return _dispatchOrdinal
+}
+
 export interface PendingRequest {
   resolve: (response: AgentActionResponse) => void
   reject: (err: Error) => void
@@ -331,9 +358,10 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       instanceId: ep.capability.instanceId,
       token: randomUUID(),
     }
+    // G-86:派发时盖上协议序号(服务端权威,executeSchema 已剥掉调用方自报的 ordinal)。
     const payload = {
       type: 'agent.action',
-      request: req,
+      request: { ...req, ordinal: ordinalForDispatch(ep.capability.instanceId, req.requestId) },
       assignment,
     }
     try {

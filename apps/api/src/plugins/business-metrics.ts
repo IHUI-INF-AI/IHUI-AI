@@ -9,6 +9,7 @@ import { authenticate } from '../plugins/auth.js'
 import { isSystemAdmin } from './require-permission.js'
 import { error } from '../utils/response.js'
 import { logger } from '../utils/logger.js'
+import { PROVIDER_HEALTH_STATUSES, type ProviderHealthStatus } from '@ihui/types'
 import {
   classifyClientFamily,
   classifyScanProbe,
@@ -652,18 +653,17 @@ export interface TrafficGaugeSample {
 }
 
 /**
- * 中转号池健康态封闭四档 —— **全仓唯一一份**(§0.6/§22c)。
- *
- * 出处:`packages/database/src/schema/ai-relay.ts` 两张池表的 `health_status`
- * 列注释(unknown/healthy/degraded/down),admin UI 的 `PROVIDER_HEALTH_STATUSES`
- * 是同一词表的 web 侧消费。住在指标文件是因为只有渲染侧需要"逐档开零基线"
- * (与 OSS_DRIVER_TYPES 同例),它不引任何应用模块。
+ * 中转号池健康态封闭四档 —— **派生自唯一真相源**(§0.6/§22c,守门 200 裁决:
+ * 并表不重述)。档位本体住在 `packages/types/src/ai.ts` 的
+ * `PROVIDER_HEALTH_STATUSES`(落库列 health_status + REST 字段 healthStatus +
+ * 前端徽章三重对外契约),本处只做指标渲染侧的别名导出(逐档开零基线需要,
+ * 与 OSS_DRIVER_TYPES 同例),不再逐字重述档位。
  *
  * 库列是 varchar(16) ⇒ 运行期**必须**过这道闸:枚举外的历史脏值不进标签、
  * 不进数值,由调用方计入 rows_skipped(显式丢失,不悄悄少报)。
  */
-export const RELAY_POOL_HEALTH_STATES = ['unknown', 'healthy', 'degraded', 'down'] as const
-export type RelayPoolHealthState = (typeof RELAY_POOL_HEALTH_STATES)[number]
+export const RELAY_POOL_HEALTH_STATES = PROVIDER_HEALTH_STATUSES
+export type RelayPoolHealthState = ProviderHealthStatus
 
 /**
  * 健康态 → 数值(单调:越大越坏)。告警阈值因此可以直接写 `> 2`(= degraded 及以上),
