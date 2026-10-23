@@ -52,10 +52,10 @@ from app.services.agent_security_prefs import (
     parse_enum,
     prefs_from_rows,
     prefs_ttl_seconds,
+    reset_security_principal,
     resolve_security_config,
     security_principal_scope,
     set_security_principal,
-    reset_security_principal,
     user_explicit_pipeline_record,
 )
 from app.services.security_config import (
@@ -314,7 +314,7 @@ def test_each_of_five_user_values_changes_the_effective_config(db: dict[str, Any
         ("pipeline_record_enabled", False, "pipeline_record_enabled", True),
     ]
     assert isinstance(base, SecurityConfig)
-    for key, user_value, _neglected, default_value in cases:
+    for key, user_value, _neglected, _default_value in cases:
         db["store"].clear()
         clear_agent_security_prefs_cache()
         db["store"][USER_A] = _rows(**{key: "1" if user_value is True else ("0" if user_value is False else str(user_value))})
@@ -437,8 +437,8 @@ async def test_input_scan_off_only_disables_heuristics(db: dict[str, Any]) -> No
     loop = _make_loop(_echo_tool(calls), user_id=USER_A)
 
     # 现状(未表态):两类启发式都拦
-    assert HARD_SCAN_FLAGS == frozenset({"command_injection", "path_traversal"})
-    assert DEFAULT_FLAGS - HARD_SCAN_FLAGS == frozenset({"ssrf_loopback", "arg_too_long"})
+    assert frozenset({"command_injection", "path_traversal"}) == HARD_SCAN_FLAGS
+    assert frozenset({"ssrf_loopback", "arg_too_long"}) == DEFAULT_FLAGS - HARD_SCAN_FLAGS
     for heuristic in (_SSRF_ARGS, _LONG_ARGS):
         blocked = await loop._pre_guard_check(_tool_call(dict(heuristic)))
         assert blocked is not None and blocked.error_type == "scan_blocked", heuristic

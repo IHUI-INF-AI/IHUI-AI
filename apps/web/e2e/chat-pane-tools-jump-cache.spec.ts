@@ -847,6 +847,18 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     await expect(paneList(page, SECOND_PANE)).toContainText(PANE_ORPHAN_PREFIX, {
       timeout: 20_000,
     })
+    // 2026-10-23 修:窗格缓存落盘不是同步的 —— use-conversation-pane-cache.ts 的 persistCache
+    // 是 200ms 合批。立刻 reload 会读到"孤儿到达前"的旧快照,而 reload 后 cacheHit 会跳过
+    // recentMessages 预填充(chat-pane-body.tsx 的 shouldPrefillRecentMessages),孤儿捕获不到
+    // ⇒ resume/status 一次都不问(CI 实测:reload 后窗格只剩历史 1 条)。这里把落盘面等到
+    // 含孤儿再 reload —— 判的是"快照真进盘",不是加固定延时。
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(() => window.localStorage.getItem('ihui-conversation-pane-cache') ?? ''),
+        { timeout: 10_000, message: 'reload 前窗格缓存快照必须已落盘到含孤儿前缀' },
+      )
+      .toContain(PANE_ORPHAN_PREFIX)
 
     await page.reload()
 

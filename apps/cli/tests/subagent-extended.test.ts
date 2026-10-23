@@ -52,6 +52,8 @@ vi.mock('../src/subagents/worktree.js', () => ({
   getDefaultWorktreeRoot: vi.fn(() => '/fake/.worktrees'),
   listWorktrees: vi.fn(() => []),
   pruneWorktrees: vi.fn(() => 0),
+  // G-706:createSession 提交后回收落盘 marker,产品签名 (wtPath: string) => boolean
+  reclaimWorktreeMarker: vi.fn(() => true),
 }));
 
 import {

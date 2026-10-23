@@ -5,6 +5,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -51,8 +52,12 @@ export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const t = useTranslations('learn')
+  // G-921 ①:付费小节播放链接是服务端短时签名 URL;过期/被拒时 <video> 会触发 error,
+  // 必须可见(不能静默黑屏)。复用 common.loadFailed 既有五语言键,不新增文案。
+  const tc = useTranslations('common')
   const qc = useQueryClient()
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
+  const [playError, setPlayError] = useState(false)
 
   // 章节+小节在响应顶层(lesson 体内没有 chapters 字段),videoUrl 随小节一起下发
   const { data, isLoading, error } = useQuery({
@@ -137,18 +142,27 @@ export default function CourseDetailPage() {
                 controls
                 playsInline
                 preload="metadata"
+                onError={() => setPlayError(true)}
                 className="aspect-video w-full rounded-lg bg-black"
               />
             ) : lesson.cover ? (
-              <img
-                src={lesson.cover}
-                alt={lesson.title}
-                className="aspect-video w-full rounded-lg bg-muted object-cover"
-              />
+              <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-muted">
+                {/* 封面来自课程数据(任意远程 URL,未必在 remotePatterns 白名单),显式 unoptimized 不走优化管线 */}
+                <Image
+                  src={lesson.cover}
+                  alt={lesson.title}
+                  fill
+                  unoptimized
+                  className="object-cover"
+                />
+              </div>
             ) : (
               <div className="flex aspect-video items-center justify-center rounded-lg bg-muted">
                 <PlayCircle className="h-16 w-16 text-muted-foreground/30" />
               </div>
+            )}
+            {activeSection?.videoUrl && playError && (
+              <p className="text-xs text-destructive">{tc('loadFailed')}</p>
             )}
             <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">
               {lesson.title}
@@ -193,7 +207,10 @@ export default function CourseDetailPage() {
                         <button
                           key={sec.id}
                           type="button"
-                          onClick={() => setActiveSectionId(sec.id)}
+                          onClick={() => {
+                            setActiveSectionId(sec.id)
+                            setPlayError(false)
+                          }}
                           className={cn(
                             'flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm transition-colors',
                             activeSection?.id === sec.id

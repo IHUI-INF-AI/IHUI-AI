@@ -244,7 +244,7 @@ export function reclaimWorktreeMarker(wtPath: string): boolean {
   }
 }
 
-export type WorktreeReconcileAction = 'recovered' | 'removed-own' | 'kept-unprovable';
+type WorktreeReconcileAction = 'recovered' | 'removed-own' | 'kept-unprovable';
 
 export interface WorktreeReconcileEntry {
   subagentId: string;

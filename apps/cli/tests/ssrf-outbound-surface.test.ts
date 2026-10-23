@@ -487,18 +487,44 @@ describe('接入存续性(摘线即红)', () => {
     'tools/fetch-url.ts',
   ];
 
-  it.each(WIRED)('%s 里 assertSafeFetchUrl 既被 import 也被调用,且调用先于 fetch', (rel) => {
+  // 出站传输标记:默认端内裸 fetch。
+  // memory/index.ts 自 G-924(7f58694525)起改走 @ihui/api-client 记忆端点
+  // (真连接发生在端点内部的 fetchApi)⇒ 探针跟随真实出站形态,强度不变:
+  // 守卫必须仍被真调用,且调用排在出站传输之前。
+  const OUTBOUND_OF: Record<string, RegExp> = {
+    'memory/index.ts': /\b(?:await\s+)?(?:listMemories|createMemory)\(\s*\{/,
+  };
+  const OUTBOUND_DEFAULT = /await fetch\(|[^t]fetch\(/;
+
+  it.each(WIRED)('%s 里 assertSafeFetchUrl 既被 import 也被调用,且调用先于出站传输', (rel) => {
     const text = fs.readFileSync(path.join(CLI_SRC, rel), 'utf8');
     const codeLines = text
       .split('\n')
       .filter((line) => !line.trim().startsWith('*') && !line.trim().startsWith('//'));
     const code = codeLines.join('\n');
     expect(code, `${rel} 未 import 共享守卫`).toContain('assertSafeFetchUrl');
-    const fetchIdx = code.search(/await fetch\(|[^t]fetch\(/);
+    const fetchIdx = code.search(OUTBOUND_OF[rel] ?? OUTBOUND_DEFAULT);
     const guardIdx = code.search(/assertSafeFetchUrl\s*\(/);
     expect(guardIdx, `${rel} 没有真调用守卫`).toBeGreaterThanOrEqual(0);
-    expect(fetchIdx, `${rel} 里找不到出站 fetch`).toBeGreaterThanOrEqual(0);
+    expect(fetchIdx, `${rel} 里找不到出站传输`).toBeGreaterThanOrEqual(0);
     expect(guardIdx, `${rel} 的裁决没有排在出站之前`).toBeLessThan(fetchIdx);
+  });
+
+  it('memory/index.ts 的出站走 api-client 记忆端点(符号来自该包,端点内部真发 fetchApi)', () => {
+    const text = fs.readFileSync(path.join(CLI_SRC, 'memory/index.ts'), 'utf8');
+    const importLine = text
+      .split('\n')
+      .find((line) => line.includes("from '@ihui/api-client/endpoints/memory'"));
+    expect(importLine, 'memory/index.ts 未从 api-client 记忆端点导入出站实现').toBeDefined();
+    expect(importLine).toContain('listMemories');
+    expect(importLine).toContain('createMemory');
+    // 端点实现必须真落到共享传输层(不是本地空实现):fetchApi 来自 client.js 且被 await 调用
+    const endpoint = fs.readFileSync(
+      path.resolve(CLI_SRC, '../../../packages/api-client/src/endpoints/memory.ts'),
+      'utf8',
+    );
+    expect(endpoint).toContain("from '../client.js'");
+    expect(endpoint).toMatch(/await fetchApi</);
   });
 
   it('D-1 的每个信任声明点都带得出处的行内标注(不得让"声明"变成无出处的自证)', () => {
