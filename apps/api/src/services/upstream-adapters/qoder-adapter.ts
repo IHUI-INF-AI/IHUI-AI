@@ -329,6 +329,8 @@ export const qoderAdapter: RelayUpstreamAdapter = {
         const text = await res.text().catch(() => '')
         return {
           ok: false,
+          // 与 isAuthFailure 同源判定(401 = 会话死),供承载层触发自愈
+          authFailed: qoderAdapter.isAuthFailure(res.status, text),
           error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
         }
       }

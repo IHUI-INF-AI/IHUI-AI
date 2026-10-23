@@ -136,6 +136,13 @@ export interface UpstreamChatResult {
 export interface RelayQuotaResult {
   ok: boolean
   error?: string
+  /**
+   * 本次失败是否属"鉴权失效"。由适配器按**上游 HTTP 状态码**(它自己当场拿到的数)判定,
+   * 不由承载层去匹配错误文案(§check-error-code-not-text-matching)。
+   * 库里的 tokenExpiresAt 实测不可信(上游已回 401 而库里仍记着未来到期时刻),
+   * 故承载层的刷新自愈必须以这一枚标志为准,而不是以时间戳为准。
+   */
+  authFailed?: boolean
   quota?: {
     used?: number
     total?: number

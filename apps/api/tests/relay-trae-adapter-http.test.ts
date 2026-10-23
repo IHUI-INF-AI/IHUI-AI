@@ -455,13 +455,14 @@ describe('Trae 积分余额 getQuota(真 HTTP · 实证回包形状)', () => {
     expect(req?.headers.authorization).toBe('Cloud-IDE-JWT jwt-original')
   })
 
-  it('401 ⇒ ok:false 且带原因(不得把"取不到"写成余额 0)', async () => {
+  it('401 ⇒ ok:false 且带原因(不得把"取不到"写成余额 0),并给出 authFailed 供承载层自愈', async () => {
     const { traeAdapter } = await loadAdapter()
     entUsageStatus = 401
     const out = await traeAdapter.getQuota!(makeCtx() as never, {})
     entUsageStatus = 200
     expect(out.ok).toBe(false)
     expect(out.error).toContain('401')
+    expect(out.authFailed).toBe(true)
     expect(out.quota).toBeUndefined()
   })
 })

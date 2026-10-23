@@ -326,6 +326,15 @@ describe('relay-import-qoder 纯函数', () => {
       expect(unknown.ok).toBe(false)
       expect(unknown.error).toContain('未判定')
       expect(unknown.quota).toBeUndefined()
+      // 200 但认不出字段 ≠ 鉴权失效 ⇒ 不许触发换票重试
+      expect(unknown.authFailed).toBeFalsy()
+
+      const denied = await qoderAdapter.getQuota!(ctx, {
+        fetchImpl: (async () =>
+          stub({ code: 'TOKEN_INVALID', message: 'invalid token' }, 401)) as never,
+      })
+      expect(denied.ok).toBe(false)
+      expect(denied.authFailed).toBe(true)
 
       const boom = await qoderAdapter.getQuota!(ctx, {
         fetchImpl: (async () => {
