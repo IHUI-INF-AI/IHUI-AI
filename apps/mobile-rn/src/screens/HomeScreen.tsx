@@ -2110,7 +2110,7 @@ export function HomeScreen() {
                 ) : null}
               </View>
             ) : null}
-            {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间发丝线分层 */}
+            {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间以间距分层(§4 禁分割线) */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -2148,7 +2148,6 @@ export function HomeScreen() {
                 )
               })}
             </ScrollView>
-            <View style={shellStyles.modelModalHairline} />
             {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
                 搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
             {modelModalTab === 'skills' && !modelSearch.trim() ? (
@@ -2647,6 +2646,8 @@ const shellStyles = {
     // 固定 chrome 永不被 flex 压缩:此前列表未约束 flex,自然高度撑爆 sheet 的
     // maxHeight 时 tab 行被 shrink 压扁(33→14px,背景条比文字矮 → 图标/文字穿帮错位)
     flexShrink: 0,
+    // 与列表分层:§4 禁分割线,原发丝线改间距分隔
+    marginBottom: rpx(16),
   } as const,
   modelModalListBody: {
     // 列表区是弹窗里唯一弹性块:吃掉 sheet 剩余高度并内部滚动
@@ -2687,11 +2688,6 @@ const shellStyles = {
     // 否则判据认不出配对、R3 只能靠无配对实底兜账 —— 命名改对才让 R4/R9 直接可判。
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
-  } as const,
-  modelModalHairline: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.border.light,
-    marginHorizontal: rpx(32),
   } as const,
   // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──
   modelSearchToggle: {
