@@ -7,6 +7,7 @@
  * 改用 Taro 现有 chatStream(SSE 流式),保留核心交互:思考进度条 + 消息列表 + 复制/预览/可见性切换 + 快捷问题 + 分享。
  * 路由注册:需在 app.config.ts pages 追加 'pages/ai-assistant/index'。
  */
+// 对齐目标(RN 共享屏): packages/app/src/features/ai-assistant/AiAssistantScreen.tsx
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, ScrollView, Image, Video } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'

@@ -4,6 +4,7 @@
 
 // 平台页面:镜像 apps/mobile-rn AiSkillScreen(AI 技能市场,数据源 listAiSkills('all'))
 // 端内重写渲染层(Taro 无法直接渲染 RN 原语);RN Alert 确认弹窗改用 Taro.showModal
+// 对齐目标(RN 共享屏): packages/app/src/features/ai-skill/AiSkillScreen.tsx
 import { useCallback, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
