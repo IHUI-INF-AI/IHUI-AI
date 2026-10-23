@@ -119,8 +119,8 @@ function createStyles(tk: AppThemeTokens) {
     metaLabel: { fontSize: 14, color: tk.text.tertiary },
     metaValue: { fontSize: 14, color: tk.text.secondary },
     divider: {
-      height: 1,
-      backgroundColor: tk.border.light,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: tk.border.light,
       marginVertical: 12,
     },
     content: { fontSize: 16, color: tk.text.medium, lineHeight: 22 },

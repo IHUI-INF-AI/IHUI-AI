@@ -2041,8 +2041,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     thirdPartyDividerLine: {
       flex: 1,
-      height: 1,
-      backgroundColor: tk.border.light,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: tk.border.light,
     },
     thirdPartyDividerText: {
       fontSize: 12,

@@ -264,9 +264,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   tabDivider: {
-    width: 1,
     height: 14,
-    backgroundColor: tokens.border.light,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: tokens.border.light,
   } as ViewStyle,
   // ── 数据行 ──
   dataRow: {
