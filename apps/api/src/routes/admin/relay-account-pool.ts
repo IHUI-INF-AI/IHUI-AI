@@ -45,7 +45,7 @@ import {
 } from '../../services/relay-account-pool-service.js'
 import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
-import { sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
+import { refreshOne, sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
 import { getAccountUsage, getAccountUsageSummaries } from '../../services/relay-account-usage.js'
 import {
   listProxies,
@@ -776,15 +776,31 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .status(400)
           .send(error(400, `平台 ${row.providerCode} 无已实证的余额端点(未支持)`))
       }
-      const ctx = { row, credentials: decryptAccountCredentials(row) }
-      const outcome = await adapter.getQuota(ctx, { proxyUrl: row.proxyUrl })
+      // 票面已过期(或没有到期时刻)⇒ 先走调度器同一把刷新出口,再拿新副本去查。
+      // 判据只认库里的 tokenExpiresAt,不拿错误文案猜(§check-error-code-not-text-matching)。
+      // 刷新不成不拦查询:让它如实回 ok:false 的原因,不由这一层编一条"票不行"。
+      const stale =
+        row.tokenExpiresAt === null || new Date(row.tokenExpiresAt).getTime() <= Date.now()
+      let live = row
+      if (stale && adapter.refreshToken) {
+        await refreshOne(row)
+        const [fresh] = await dbRead
+          .select()
+          .from(aiRelayAccountPool)
+          .where(eq(aiRelayAccountPool.id, p.data.id))
+          .limit(1)
+        live = fresh ?? row
+      }
+      const ctx = { row: live, credentials: decryptAccountCredentials(live) }
+      const outcome = await adapter.getQuota(ctx, { proxyUrl: live.proxyUrl })
       return reply.send(
         success({
-          id: row.id,
-          providerCode: row.providerCode,
+          id: live.id,
+          providerCode: live.providerCode,
           ok: outcome.ok,
           error: outcome.error ?? null,
           quota: outcome.quota ?? null,
+          attemptedRefresh: stale && !!adapter.refreshToken,
           queriedAt: new Date().toISOString(),
         }),
       )
