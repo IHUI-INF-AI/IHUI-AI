@@ -148,6 +148,14 @@ interface EdgeSnapshot {
   series: Array<[number, number, boolean]>
 }
 
+interface SignInSnapshot {
+  todayUsers: number
+  todayRewardPoints: number
+  maxStreakDays: number
+  unsignedActiveUsers: number
+  last7d: Array<{ date: string; users: number }>
+}
+
 interface BusinessSnapshot {
   usersTotal: number
   usersTodayNew: number
@@ -165,6 +173,36 @@ interface BusinessSnapshot {
   llmErrRate: number
   llmP95LatencyMs: number
   llmTopModels: Array<{ model: string; calls: number }>
+  /** 签到快照:后端取不到时为 null(渲染"—"),老版本后端无此字段(undefined 同样走"—") */
+  signIn?: SignInSnapshot | null
+}
+
+interface TrafficSnapshot {
+  pv24h: number | null
+  uv24h: number | null
+  pv1h: number | null
+  uv1h: number | null
+  humanPv24h: number | null
+  botPv24h: number | null
+  families: Array<{ family: string; pv: number }>
+  /** 这份快照距今多少秒(后端 5 秒缓存 + 5 秒轮询 ⇒ 常为 0..5);null = 整块取不到 */
+  aggregationAgeSec: number | null
+  truncated: boolean | null
+}
+
+interface RelayPoolSnapshot {
+  keyTotal: number | null
+  keySchedulable: number | null
+  keyAbnormal: number | null
+  accountsTotal: number | null
+  accountsSchedulable: number | null
+  minTokenExpiresInSeconds: number | null
+  /** 这份快照距今多少秒(后端 5 秒缓存 + 5 秒轮询 ⇒ 常为 0..5) */
+  staleAgeSec: number | null
+  /** 账号最近一次刷新距今(秒);null = 没有任何账号带刷新戳 */
+  accountRefreshAgeSec?: number | null
+  /** 健康态不在封闭词表内、无法折叠的行数(非 0 = 库里有脏值) */
+  rowsUnclassified?: number | null
 }
 
 interface ActiveAlert {
@@ -213,6 +251,8 @@ interface OverviewPayload {
   business: BusinessSnapshot | null
   alerts: AlertsSnapshot | null
   events: EventItem[] | null
+  traffic?: TrafficSnapshot | null
+  relayPool?: RelayPoolSnapshot | null
   edge: EdgeSnapshot | null
 }
 
@@ -522,6 +562,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const biz = ov?.business ?? null
   const alerts = ov?.alerts ?? null
   const events = ov?.events ?? null
+  const traffic = ov?.traffic ?? null
+  const relayPool = ov?.relayPool ?? null
   const edge = ov?.edge ?? null
 
   // 告警数 = Alertmanager 活跃 ∪ 库内 firing(按告警名去重):
@@ -875,6 +917,41 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       ],
     }
   }, [biz?.llmTopModels, isDark])
+
+  // 近 7 日签到人数:纯柱形,横轴只留 MM-DD,纵轴标签隐藏(格子小,数字已标在柱顶)
+  const signInOption = React.useMemo<EChartsOption>(() => {
+    const rows = biz?.signIn?.last7d ?? []
+    return {
+      grid: { left: 4, right: 4, top: 12, bottom: 2, containLabel: true },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
+      },
+      xAxis: {
+        type: 'category',
+        data: rows.map((r) => r.date.slice(5)),
+        ...AXIS(isDark),
+        axisLabel: { color: chartText(isDark), fontSize: 9 },
+      },
+      yAxis: {
+        type: 'value',
+        ...AXIS(isDark),
+        splitLine: { show: false },
+        axisLabel: { show: false },
+      },
+      series: [
+        {
+          type: 'bar',
+          data: rows.map((r) => r.users),
+          barWidth: 9,
+          itemStyle: { borderRadius: [3, 3, 0, 0], color: withAlpha(CHART_GREEN, 0.85) },
+          label: { show: true, position: 'top', color: chartText(isDark), fontSize: 9 },
+        },
+      ],
+    }
+  }, [biz?.signIn?.last7d, isDark])
 
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
@@ -1706,6 +1783,47 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <StatCell label={t('usersActive')} value={fmtInt(biz?.usersActive)} />
                 <StatCell label={t('usersNewToday')} value={fmtInt(biz?.usersTodayNew)} tone="ok" />
               </div>
+              {/* 签到:数据来自 sign_in_records(与积分体系同源);取不到 ⇒ 各格渲染"—",不写 0 */}
+              <div className="mt-2">
+                <div className="mb-1.5 flex items-center gap-2 text-[10px] tracking-[0.14em] text-muted-foreground">
+                  <span>{t('signInTitle')}</span>
+                  {biz && !biz.signIn ? <SourceGap text={t('sourceUnreachable')} /> : null}
+                </div>
+                <div className="wb-cells grid gap-1.5">
+                  <StatCell
+                    label={t('signInToday')}
+                    value={fmtInt(biz?.signIn?.todayUsers)}
+                    unit={t('unitUser')}
+                    tone="ok"
+                  />
+                  <StatCell
+                    label={t('signInUnsigned')}
+                    value={fmtInt(biz?.signIn?.unsignedActiveUsers)}
+                    unit={t('unitUser')}
+                    tone="warn"
+                  />
+                  <StatCell
+                    label={t('signInStreak')}
+                    value={fmtInt(biz?.signIn?.maxStreakDays)}
+                    unit={t('unitDay')}
+                  />
+                  <StatCell
+                    label={t('signInReward')}
+                    value={fmtInt(biz?.signIn?.todayRewardPoints)}
+                    unit={t('unitPoint')}
+                    tone="accent"
+                  />
+                </div>
+                <div className="relative mt-1.5">
+                  <div className="mb-0.5 text-[9px] tracking-[0.12em] text-muted-foreground">
+                    {t('signIn7d')}
+                  </div>
+                  <EChart option={signInOption} height={62} />
+                  {!biz?.signIn || biz.signIn.last7d.length === 0 ? (
+                    <ChartEmpty text={biz?.signIn ? t('noSignIn7d') : t('sourceUnreachable')} />
+                  ) : null}
+                </div>
+              </div>
             </div>
             <div>
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
@@ -1865,6 +1983,153 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </div>
               </>
             )}
+          </Panel>
+
+          {/* 访客与机器人(2026-10-23):PV/UV + 真人 vs 自动化 + 客户端族构成 */}
+          <Panel
+            title={t('panelTrafficRobot')}
+            icon={<Users className="h-3.5 w-3.5" />}
+            className="wb-c7"
+            right={
+              traffic === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : isNum(traffic.aggregationAgeSec) ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('trafficAggAge', { ago: fmtDuration(traffic.aggregationAgeSec) })}
+                </span>
+              ) : null
+            }
+            bodyClassName="wb-split"
+          >
+            <div>
+              <div className="wb-cells grid gap-1.5">
+                <StatCell
+                  label={t('pv24h')}
+                  value={fmtInt(traffic?.pv24h)}
+                  unit={t('unitPv')}
+                  tone="accent"
+                />
+                <StatCell
+                  label={t('uv24h')}
+                  value={fmtInt(traffic?.uv24h)}
+                  unit={t('unitUser')}
+                  tone="ok"
+                />
+                <StatCell
+                  label={t('humanPv')}
+                  value={fmtInt(traffic?.humanPv24h)}
+                  unit={t('unitPv')}
+                />
+                <StatCell
+                  label={t('botPv')}
+                  value={fmtInt(traffic?.botPv24h)}
+                  unit={t('unitPv')}
+                  tone="warn"
+                />
+              </div>
+              {traffic?.truncated ? (
+                <div className="mt-1.5 text-[10px] text-warning-text">{t('trafficTruncated')}</div>
+              ) : null}
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('familyBreakdown')}
+              </div>
+              <div className="space-y-1">
+                {(traffic?.families ?? []).slice(0, 6).map((f) => (
+                  <div
+                    key={f.family}
+                    className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
+                  >
+                    <span className="truncate text-[10px] text-foreground">{f.family}</span>
+                    <span className="wb-num ml-auto shrink-0 text-[10px] text-info-text">
+                      {fmtCompact(f.pv)}
+                    </span>
+                  </div>
+                ))}
+                {traffic === null ? (
+                  <div className="flex justify-center px-2 py-3">
+                    <SourceGap text={t('sourceUnreachable')} />
+                  </div>
+                ) : traffic.families.length === 0 ? (
+                  <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+                    {t('noTrafficData')}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </Panel>
+
+          {/* AI 号池:key 池 / 账号池 / token 临期(后端现读两张池表 + 5 秒缓存,取不到一律"—") */}
+          <Panel
+            title={t('panelRelayPool')}
+            icon={<Sparkles className="h-3.5 w-3.5" />}
+            className="wb-c5"
+            right={
+              relayPool === null ? (
+                <SourceGap text={t('sourceUnreachable')} />
+              ) : isNum(relayPool.staleAgeSec) ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {t('poolStale')} {fmtDuration(relayPool.staleAgeSec)}
+                </span>
+              ) : null
+            }
+            bodyClassName="wb-split"
+          >
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('poolKey')}
+              </div>
+              <div className="wb-cells grid gap-1.5">
+                <StatCell
+                  label={t('poolKeySchedulable')}
+                  value={`${fmtInt(relayPool?.keySchedulable)} / ${fmtInt(relayPool?.keyTotal)}`}
+                  tone="accent"
+                />
+                <StatCell
+                  label={t('poolKeyAbnormal')}
+                  value={fmtInt(relayPool?.keyAbnormal)}
+                  tone={
+                    !isNum(relayPool?.keyAbnormal)
+                      ? 'unknown'
+                      : (relayPool?.keyAbnormal ?? 0) > 0
+                        ? 'warn'
+                        : 'ok'
+                  }
+                />
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
+                {t('poolAccount')}
+              </div>
+              <div className="wb-cells grid gap-1.5">
+                <StatCell
+                  label={t('poolAccountSchedulable')}
+                  value={`${fmtInt(relayPool?.accountsSchedulable)} / ${fmtInt(relayPool?.accountsTotal)}`}
+                  tone="ok"
+                />
+                <StatCell
+                  label={t('poolTokenExpiry')}
+                  value={
+                    !isNum(relayPool?.minTokenExpiresInSeconds)
+                      ? '—'
+                      : relayPool.minTokenExpiresInSeconds < 0
+                        ? t('expired')
+                        : fmtDuration(relayPool.minTokenExpiresInSeconds)
+                  }
+                  tone={
+                    !isNum(relayPool?.minTokenExpiresInSeconds)
+                      ? 'unknown'
+                      : relayPool.minTokenExpiresInSeconds < 0
+                        ? 'bad'
+                        : relayPool.minTokenExpiresInSeconds < 86400
+                          ? 'warn'
+                          : 'ok'
+                  }
+                />
+              </div>
+            </div>
           </Panel>
         </section>
 
