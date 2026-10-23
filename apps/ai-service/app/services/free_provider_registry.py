@@ -267,9 +267,14 @@ _REGISTRY: list[FreeProvider] = [
         provider_code="ihui_relay",
         display_name="智汇AI 官方模型",
         category=ProviderCategory.DOMESTIC,
-        # 2026-08-31 修复:元规则要求所有 provider 必须有 signup_url(管理端"去充值"降级也用它),
-        # 智汇官方中继的套餐购买/管理入口为极速API主站
-        signup_url="https://new.x5m5x.com",
+        # 2026-08-31 修复:元规则要求所有 provider 必须有 signup_url(管理端"去充值"降级也用它)
+        # 2026-10-23 订正:原入口极速API(new.x5m5x.com)供应商已停止运营——机主决策彻底弃用
+        # (中继号池 swiftapi 16 行 key + 2 行 ai_model_config 已停用并物理清除),且本站
+        # IHUI_RELAY_API_KEY 实测国内/海外两端均回 "Invalid token"(key 已被吊销)。
+        # 购买/管理入口改回站内 VIP 页(与 /pricing「立即订阅」同一落点)。
+        # 注:default_base_url 仍指向已停运供应商,ihui/ 前缀调用目前 401;恢复需把 base_url
+        # 改为 https://aizhs.top/v1 并配一把平台自己的 key(需机主签发,未擅自改)。
+        signup_url="https://aizhs.top/vip",
         free_quota="智汇AI 官方中转,已配置",
         rate_limit="无限制(官方中转)",
         default_base_url="https://new.x5m5x.com/v1",
