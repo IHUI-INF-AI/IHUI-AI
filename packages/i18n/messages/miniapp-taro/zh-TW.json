@@ -2089,6 +2089,7 @@
   },
   "cart": {
     "title": "購物車",
+    "selectAll": "全選",
     "checkout": "去結算",
     "loading": "載入中…",
     "product": "商品",
@@ -2254,6 +2255,26 @@
       "submitSuccess": "提交成功",
       "mockSuccess": "介面暫未開放,已模擬提交"
     }
+  },
+  "devSpace": {
+    "title": "開發者詳情",
+    "notLoggedIn": "未登入",
+    "renew": "續費",
+    "linkCopied": "連結已複製,請在瀏覽器中開啟",
+    "linkCopyFailed": "複製失敗,請重試",
+    "entryMyAgents": "我的智能體",
+    "entryAgentIncome": "智能體收益",
+    "entryN8nModel": "n8n智能體",
+    "entryBusinessCard": "創客名片",
+    "faqHeading": "相關開發者的一系列問題解答?",
+    "faqIncentiveTitle": "開發者激勵計劃",
+    "faqIncentiveDesc": "發布 AI 智能體,獲取分成收益",
+    "faqIncentiveBtn": "查看詳情",
+    "faqGuideTitle": "上架指南",
+    "faqGuideDesc": "建立智能體、配置模型、提交審核",
+    "faqGuideBtn": "去了解",
+    "contactHeading": "其他問題?",
+    "contactDesc": "諮詢客服,獲得多對一線上答疑"
   },
   "developer": {
     "withdrawal": {
