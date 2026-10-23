@@ -26,6 +26,20 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# ConvertFrom-Json 把 ISO 时间转成 DateTime,直接字符串化会丢时区(Kind=Utc 的
+# "2026-11-22T03:31:28Z" 会变成 "11/22/2026 03:31:28"),下游 Node 按本地时区
+# 解析 ⇒ 到期时间偏 8 小时。捕获段统一固化成 UTC ISO。
+function ConvertTo-IsoUtc($v) {
+    if ($null -eq $v) { return '' }
+    if ($v -is [datetime]) {
+        return $v.ToUniversalTime().ToString(
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            [System.Globalization.CultureInfo]::InvariantCulture
+        )
+    }
+    return "$v".Trim()
+}
+
 # ── 1. Qoder 数据目录(mtime 新→旧;国际版 com.qoder.app.* / 国内版 com.qodercn.app.*)──
 $base = $env:APPDATA
 if (-not $base) { Write-Error 'APPDATA 未设置(非 Windows 交互会话?)'; exit 2 }
@@ -164,8 +178,8 @@ foreach ($dir in $dirs) {
         uid                   = $uid
         accessToken           = $token
         refreshToken          = "$($session.refreshToken)".Trim()
-        expiresAt             = "$($session.expiresAt)".Trim()
-        refreshTokenExpiresAt = "$($session.refreshTokenExpiresAt)".Trim()
+        expiresAt             = ConvertTo-IsoUtc $session.expiresAt
+        refreshTokenExpiresAt = ConvertTo-IsoUtc $session.refreshTokenExpiresAt
         machineId             = $machineId
         deviceId              = $deviceId
         version               = $version
