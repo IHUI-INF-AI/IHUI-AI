@@ -417,16 +417,83 @@ export function extractGetUserTokenPayload(
   return { token, expiresAt: expiresAt ?? new Date(Date.now() + 6 * 3600_000) }
 }
 
-/** OpenAI usage 形状 */
+/** OpenAI usage 形状(reasoning/cached 为 Trae 帧字段归一注入,便于网关 tap 统一提取) */
 export interface OpenAiUsage {
   prompt_tokens: number
   completion_tokens: number
   total_tokens: number
   prompt_tokens_details: { cached_tokens: number }
+  completion_tokens_details: { reasoning_tokens: number }
+}
+
+/** web_user_ent_usage 归一余额(线上实证 2026-10-23:usage_summary + user_entitlement_pack_list) */
+export interface TraeEntUsage {
+  used: number
+  total: number
+  /** consumed/total,0..1;上游未给且算不出时缺省 */
+  ratio?: number
+  packs: Array<{ name?: string; limit?: number; endAt?: string }>
+}
+
+function asRec(v: unknown): Record<string, unknown> | null {
+  return v !== null && typeof v === 'object' && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : null
+}
+
+/**
+ * 积分余额响应解析:GET /trae/api/v2/pay/web_user_ent_usage。
+ * 线上实证 200 形状(2026-10-23,Authorization: Cloud-IDE-JWT;无 cookie 时 401/1001):
+ * { is_credits_billing, is_pay_freshman, trial_status,
+ *   usage_summary: { consumed_amount, total_amount, consumption_ratio },
+ *   user_entitlement_pack_list: [{ display_desc, group_name, expire_time,
+ *     entitlement_base_info: { end_time, quota: { credits_limit } },
+ *     quota: { credits_limit }, usage: { credits_amount } }] }
+ * 包名只在 display_desc/group_name(无 name 键);到期时刻在 expire_time 与
+ * entitlement_base_info.end_time(秒),quota 内只有 credits_limit。
+ * usage.credits_amount 语义未取证(不知是已用还是余量)⇒ 不映射成 remaining。
+ * 兼容 {code,data:{...}} 包裹层(仅作防御,实证未出现)。usage_summary 缺失 ⇒ null(不猜)。
+ */
+export function extractEntUsage(body: unknown): TraeEntUsage | null {
+  const top = asRec(body)
+  if (!top) return null
+  const src = asRec(top.data) ?? top
+  const summary = asRec(src.usage_summary)
+  if (!summary) return null
+  const used = num(summary.consumed_amount) ?? num(summary.used_amount)
+  const total = num(summary.total_amount)
+  if (used === null && total === null) return null
+  const ratio =
+    num(summary.consumption_ratio) ??
+    (used !== null && total !== null && total > 0 ? used / total : undefined)
+  const rawPacks = Array.isArray(src.user_entitlement_pack_list)
+    ? src.user_entitlement_pack_list
+    : []
+  const packs = rawPacks
+    .map((p) => {
+      const rec = asRec(p)
+      if (!rec) return null
+      const quota = asRec(rec.quota)
+      const base = asRec(rec.entitlement_base_info)
+      const limit =
+        num(quota?.credits_limit) ?? num(base?.credits_limit) ?? num(quota?.total_amount)
+      const endSec = num(rec.expire_time) ?? num(base?.end_time)
+      return {
+        name: str(rec.display_desc) ?? str(rec.group_name),
+        limit: limit === null ? undefined : limit,
+        endAt: endSec === null ? undefined : new Date(endSec * 1000).toISOString(),
+      }
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null)
+  return { used: used ?? 0, total: total ?? 0, ratio, packs }
 }
 
 function num(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
+}
+
+function str(v: unknown): string | undefined {
+  return typeof v === 'string' && v !== '' ? v : undefined
 }
 
 /**
@@ -443,8 +510,9 @@ export function extractUsage(obj: Record<string, unknown>, eventName: string): O
   if (!src) return null
   const prompt = num(src.input_tokens) ?? num(src.prompt_tokens)
   const completion = num(src.output_tokens) ?? num(src.completion_tokens)
-  const cached = num(src.cached_tokens)
-  if (prompt === null && completion === null && cached === null) return null
+  const cached = num(src.cached_tokens) ?? num(src.cache_creation_input_tokens)
+  const reasoning = num(src.reasoning_tokens) ?? num(src.reasoning_output_tokens)
+  if (prompt === null && completion === null && cached === null && reasoning === null) return null
   const p = prompt ?? 0
   const c = completion ?? 0
   return {
@@ -452,6 +520,7 @@ export function extractUsage(obj: Record<string, unknown>, eventName: string): O
     completion_tokens: c,
     total_tokens: num(src.total_tokens) ?? p + c,
     prompt_tokens_details: { cached_tokens: cached ?? 0 },
+    completion_tokens_details: { reasoning_tokens: reasoning ?? 0 },
   }
 }
 

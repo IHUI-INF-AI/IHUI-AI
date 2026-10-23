@@ -131,6 +131,7 @@ vi.mock('../src/db/index.js', () => {
 })
 
 import relayAccountPoolRoutes from '../src/routes/admin/relay-account-pool.js'
+import { getRelayAdapter } from '../src/services/relay-upstream-adapters.js'
 
 const ADMIN_TOKEN = 'Bearer admin-token'
 const USER_TOKEN = 'Bearer user-token'
@@ -372,6 +373,68 @@ describe('relay-admin-proxy-pool', () => {
         headers: { authorization: ADMIN_TOKEN },
       })
       expect(res.statusCode).toBe(400)
+    })
+  })
+
+  // 余额路由与代理池同属 relay-account-pool 路由文件;本文件是本仓唯一的 Fastify
+  // inject 承载体,故在此锁它,不再复制第二套 DB 桩(§0.6 单一真相源)。
+  describe('POST /api/admin/relay/accounts/:id/quota — 按需余额', () => {
+    const ACC_ID = '00000000-0000-4000-8000-0000000000c1'
+    const quotaUrl = `/api/admin/relay/accounts/${ACC_ID}/quota`
+
+    it('账号不存在 → 404', async () => {
+      mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([])
+      const res = await server.inject({
+        method: 'POST',
+        url: quotaUrl,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('适配器未注册 → 400 且点名平台', async () => {
+      mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([{ id: ACC_ID, providerCode: 'trae', proxyUrl: null }])
+      vi.mocked(getRelayAdapter).mockReturnValueOnce(null)
+      const res = await server.inject({
+        method: 'POST',
+        url: quotaUrl,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('未注册')
+    })
+
+    it('平台无已实证余额端点 → 400「未支持」(不解密凭证、不猜余额)', async () => {
+      mockAdmin()
+      mockSelectResult.mockResolvedValueOnce([
+        { id: ACC_ID, providerCode: 'workbuddy', proxyUrl: null },
+      ])
+      // 该桩刻意不带 getQuota,也不带 decrypt 需要的任何密文字段:
+      // 命中"未支持"分支必须在取凭证之前,否则这里会因解不开 tokenEnc 而 500。
+      vi.mocked(getRelayAdapter).mockReturnValueOnce({ providerCode: 'workbuddy' } as never)
+      const res = await server.inject({
+        method: 'POST',
+        url: quotaUrl,
+        headers: { authorization: ADMIN_TOKEN },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('未支持')
+    })
+
+    it('非管理员身份 → 403(余额不出非管理面)', async () => {
+      mockSelectResult.mockResolvedValueOnce([{ id: ACC_ID, providerCode: 'trae' }])
+      mockVerifyAccessToken.mockResolvedValue({
+        userId: '00000000-0000-4000-8000-000000000002',
+        roleId: 0,
+      })
+      const res = await server.inject({
+        method: 'POST',
+        url: quotaUrl,
+        headers: { authorization: USER_TOKEN },
+      })
+      expect(res.statusCode).toBe(403)
     })
   })
 })
