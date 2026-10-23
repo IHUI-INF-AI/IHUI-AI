@@ -175,6 +175,7 @@ function captureLocalSessions(): QoderSession[] {
     {
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
+      windowsHide: true,
     },
   )
   if (r.error || r.status !== 0) {
