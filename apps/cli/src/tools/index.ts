@@ -155,10 +155,43 @@ export interface ToolResult {
    * display 不是 output 的替代品:把喂模型的换成 display 正是上游注释点名要避免的方向。
    */
   display?: ToolResultDisplay;
+  /**
+   * G-109 三条独立投影之「给模型的」那一维:按 `TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES`
+   * (100_000 B)截断后的内容。`output` 保留旧语义(见下方 `assembleToolResultProjections`:
+   * 本字段与 `output` 同值),新增读取方一律读本字段,旧调用方读 `output` 不受影响。
+   * 截断时正文头部带 ASCII 注记,点明 truncated 结论与 original/returned/budget 三枚数字。
+   */
+  modelContent?: string;
+  /**
+   * G-109 三条独立投影之「落库的」那一维:`display` 全文 + serialization 四数
+   * (truncated/originalBytes/returnedBytes/budgetStrategy)+ artifactPath。
+   * 结构上**没有** content/output 字段 —— 全文进不了落库面(见 `ToolResultPersistence`)。
+   */
+  persistence?: ToolResultPersistence;
+  /**
+   * handler 产出的完整内容落盘路径(artifact,如 result-envelope 的 `relativePath` 口径)。
+   * 只做原样搬运进 `persistence.artifactPath`,不臆造路径;缺席 = 没有可回捞的全文。
+   */
+  artifactPath?: string;
 }
 
 /** display 投影的自身上限(对齐上游 result-display 的"独立于 provider content 单独限长"):200 KiB。 */
 export const TOOL_RESULT_DISPLAY_LIMIT_BYTES = 200 * 1024;
+
+/** G-109 模型侧内容预算:**独立于 display**,100_000 B(上游 tool-result 的 model content 预算)。 */
+export const TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES = 100_000;
+
+/**
+ * G-109 display 侧独立限长(对齐上游 result-display:hunk 8 / 行 160 / 字段 4·16 KiB / 图
+ * 200 KiB·2 张)。本端 ToolResult 只有**文本**一种载荷:行数上限 160 直接生效;字段预算
+ * 4 × 16 KiB 折成文本总量上限;hunk 与图片两档在文本面上无可施加对象,200 KiB 仍是总天花板
+ * (`TOOL_RESULT_DISPLAY_LIMIT_BYTES`)。这些上限**只**管 display,不回灌模型侧。
+ */
+export const TOOL_RESULT_DISPLAY_LINE_LIMIT = 160;
+export const TOOL_RESULT_DISPLAY_FIELD_COUNT = 4;
+export const TOOL_RESULT_DISPLAY_FIELD_BYTES = 16 * 1024;
+export const TOOL_RESULT_DISPLAY_TEXT_BUDGET_BYTES =
+  TOOL_RESULT_DISPLAY_FIELD_COUNT * TOOL_RESULT_DISPLAY_FIELD_BYTES;
 
 /**
  * 「无活动空闲超时」的错误 context(G-426)。三枚数字 + 两枚标记,全部由执行器边界在
@@ -190,6 +223,23 @@ export interface ToolResultDisplay {
   originalBytes: number;
   returnedBytes: number;
   budgetStrategy: 'truncate';
+}
+
+/**
+ * 落库投影的形状(G-109):`display` 全文 + serialization 四数 + artifactPath。
+ *
+ * 刻意**没有** `content`/`output`/`modelContent` 这类模型侧全文字段 —— "把全文写进落库"
+ * 在类型上不可表达。`display` 自身已由 `TOOL_RESULT_DISPLAY_*` 限长,所以落库面不会
+ * 借 display 之名整块装下原始全文。形状与 `@ihui/types` 的 `ToolResultDisplaySource`
+ * 同族(那里是写侧最小面,这里是端内结果上的完整投影)。
+ */
+export interface ToolResultPersistence {
+  display: string;
+  truncated: boolean;
+  originalBytes: number;
+  returnedBytes: number;
+  budgetStrategy: 'truncate';
+  artifactPath?: string;
 }
 
 /**
@@ -948,6 +998,138 @@ export function withToolResultBudget(tool: Tool, result: ToolResult): ToolResult
   return budget ? applyToolResultBudget(result, budget) : result;
 }
 
+// ==================== G-109 三条独立投影的唯一装配点 ====================
+//
+// 票面口径:「序列化 → 预算/截断 → 建 display → 终态」。三条投影各自有界且互不代替:
+//   - modelContent / output = 给模型的,100_000 B 预算(本函数的 `TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES`);
+//   - display = 给人看的,独立限长(行 160 / 文本 4×16 KiB,不吃模型预算);
+//   - persistence = 落库的,只装 display 全文 + serialization 四数 + artifactPath,**不装 content**。
+// `output` 维持旧读取方式:装配后它与 `modelContent` 同值(模型侧语义),旧调用方零改动;
+// 新调用方读 `modelContent`/`display`/`persistence` 即可。装配只发生在 `executeToolCall`
+// 的终态出口(全部 return 分支共用),不在 handler 内部改任何字节。
+
+/** 模型侧裁剪:超预算时正文头部拼一条 ASCII 注记(结论位 + 三枚数字),总字节不越过预算。 */
+function clipModelContent(original: string, originalBytes: number): string {
+  if (originalBytes <= TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES) return original;
+  const noteFor = (returned: number): string =>
+    `[tool-result-budget] model content truncated: original ${originalBytes} bytes, ` +
+    `returned ${returned} bytes (budget ${TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES} bytes, strategy: truncate). ` +
+    `This is a partial view, not the complete tool output.`;
+  // 注记里的 returned 位数不超过预算本身的位数(returned ≤ budget),先按预算算占位即可保证总量不越界。
+  const room =
+    TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES -
+    Buffer.byteLength(noteFor(TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES), 'utf8') -
+    1;
+  const text = clipByBytes(original, Math.max(0, room), 'head');
+  return `${noteFor(Buffer.byteLength(text, 'utf8'))}\n${text}`;
+}
+
+/** display 侧独立裁剪:行数 / 文本总量两道闸,任一触发都置结论位;不读也不改模型侧预算。 */
+function clipDisplayText(candidate: string, originalBytes: number): ToolResultDisplay {
+  let text = candidate;
+  let truncated = false;
+  const lines = text.split('\n');
+  if (lines.length > TOOL_RESULT_DISPLAY_LINE_LIMIT) {
+    text = lines.slice(0, TOOL_RESULT_DISPLAY_LINE_LIMIT).join('\n');
+    truncated = true;
+  }
+  const textBudget = Math.min(
+    TOOL_RESULT_DISPLAY_TEXT_BUDGET_BYTES,
+    TOOL_RESULT_DISPLAY_LIMIT_BYTES,
+  );
+  if (Buffer.byteLength(text, 'utf8') > textBudget) {
+    text = clipByBytes(text, textBudget, 'head');
+    truncated = true;
+  }
+  const returnedBytes = Buffer.byteLength(text, 'utf8');
+  return {
+    text,
+    originalBytes,
+    returnedBytes,
+    budgetStrategy: 'truncate',
+    ...(truncated || returnedBytes < originalBytes ? { truncated: true as const } : {}),
+  };
+}
+
+/**
+ * 落库投影的唯一构造函数(可独立复用):有 display 就落 display 全文 + 它的四数;
+ * 没有 display(短结果,三面本就同文)就按 output 建等价四数。空 output ⇒ 不产条目。
+ * 结构上没有 content —— 模型侧全文不可能从这里进落库面。
+ */
+export function buildToolResultPersistence(
+  output: string,
+  display?: {
+    text: string;
+    truncated?: true;
+    originalBytes: number;
+    returnedBytes: number;
+    budgetStrategy: string;
+  },
+  artifactPath?: string,
+): ToolResultPersistence | undefined {
+  if (display) {
+    return {
+      display: display.text,
+      truncated:
+        display.truncated === true || display.originalBytes > display.returnedBytes,
+      originalBytes: display.originalBytes,
+      returnedBytes: display.returnedBytes,
+      budgetStrategy: 'truncate',
+      ...(artifactPath ? { artifactPath } : {}),
+    };
+  }
+  if (output === '') return undefined;
+  const bytes = Buffer.byteLength(output, 'utf8');
+  return {
+    display: output,
+    truncated: false,
+    originalBytes: bytes,
+    returnedBytes: bytes,
+    budgetStrategy: 'truncate',
+    ...(artifactPath ? { artifactPath } : {}),
+  };
+}
+
+/**
+ * 三条投影的**唯一装配点**(G-109)。顺序固定:序列化(handler 的 output 即序列化产物)
+ * → 预算/截断(modelContent)→ 建 display(独立限长)→ 终态(output/modelContent/display/persistence 一次写齐)。
+ *
+ * 不变量:
+ *  1. `output` 的旧语义保留为模型侧 —— 装配后 `output === modelContent`,旧调用方逐字可读;
+ *  2. display 从**原始全文**建(优先复用 `applyToolResultBudget` 已产出的 display 文本),
+ *     所以模型被裁掉的那段仍能在人读面看到 —— 但受 display 自身上限管;
+ *  3. persistence 只搬 display,永不搬 modelContent;`artifactPath` 只做原样透传。
+ * 未裁剪的输出与空 output 都**原样返回同一对象引用**:三投影本就同文,不造重复载荷
+ * (既有调用方 `toEqual({ success, output })` 这类断言逐字不变)。
+ */
+export function assembleToolResultProjections(result: ToolResult): ToolResult {
+  const original = result.output;
+  if (original === '') return result;
+  const actualBytes = Buffer.byteLength(original, 'utf8');
+  const needsModelClip = actualBytes > TOOL_RESULT_MODEL_CONTENT_BUDGET_BYTES;
+  // display 侧两道闸:有既有 display(契约预算已裁)或原文越过 display 自身上限。
+  const lines = original.split('\n').length;
+  const displayTriggered =
+    result.display !== undefined ||
+    lines > TOOL_RESULT_DISPLAY_LINE_LIMIT ||
+    actualBytes > Math.min(TOOL_RESULT_DISPLAY_TEXT_BUDGET_BYTES, TOOL_RESULT_DISPLAY_LIMIT_BYTES);
+  // 未裁剪 = 三投影本就同文 ⇒ 返回同一对象引用,不造重复载荷(既有调用方逐字不变)。
+  if (!needsModelClip && !displayTriggered && result.artifactPath === undefined) return result;
+
+  // originalBytes 取"进预算之前的全文"尺寸:契约预算的 display 已记着它,否则用当前 output。
+  const originalBytes = Math.max(result.display?.originalBytes ?? 0, actualBytes);
+  const modelContent = needsModelClip ? clipModelContent(original, actualBytes) : original;
+  const display = clipDisplayText(result.display?.text ?? original, originalBytes);
+  const persistence = buildToolResultPersistence(modelContent, display, result.artifactPath);
+  return {
+    ...result,
+    output: modelContent,
+    modelContent,
+    display,
+    ...(persistence ? { persistence } : {}),
+  };
+}
+
 // ==================== 批准闸:要不要问人(唯一实现)====================
 //
 // 立票理由(2026-09-28,实测):
@@ -1180,7 +1362,7 @@ async function gateRemoteHubTool(
   return denyOrApproveDangerous(toolView, call, ctx);
 }
 
-export async function executeToolCall(
+async function executeToolCallInner(
   call: ParsedToolCall,
   ctx: ToolContext,
 ): Promise<ToolResult> {
@@ -1418,6 +1600,17 @@ export async function executeToolCall(
   // 裁剪/标注。契约缺席 ⇒ 原样返回(零行为变更);hub 分支拿不到本地 Tool 对象,与上方
   // shadowValidateToolArguments 的已知覆盖面缺口同型,本票不扩面。
   return withToolResultBudget(tool, executed);
+}
+
+/**
+ * G-109 终态出口:全部 return 分支(hub / 本地 / 各道拒绝闸)共用同一个装配点,
+ * 保证"三条投影一次写齐"不靠每条分支自觉。装配内部不改早退判定的任何字段。
+ */
+export async function executeToolCall(
+  call: ParsedToolCall,
+  ctx: ToolContext,
+): Promise<ToolResult> {
+  return assembleToolResultProjections(await executeToolCallInner(call, ctx));
 }
 
 // ==================== P1-4 Rate limiting(滑动窗口计数)====================
