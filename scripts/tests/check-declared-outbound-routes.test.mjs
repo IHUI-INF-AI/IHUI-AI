@@ -206,7 +206,7 @@ test('T10 (d) 本次提交不涉及射程(没给 --files 而声明侧 0 条)⇒ 
   }
 })
 
-test('T11 (e) 源码级反向锁:--files 不得再是裸 argv[indexOf()+1],且两态必须各有出口', () => {
+test('T11 (e) 源码级反向锁:取值判据只许单源一份(引 lib 为绿、留本地副本为红),且两态必须各有出口', () => {
   const src = readFileSync(new URL('../check-declared-outbound-routes.mjs', import.meta.url), 'utf8')
   /**
    * **缺席类断言一律判在"剥掉注释与字符串"的代码面上**(`lib/code-mask.mjs` 是全仓唯一那份遮罩实现,
@@ -217,11 +217,40 @@ test('T11 (e) 源码级反向锁:--files 不得再是裸 argv[indexOf()+1],且�
   const code = maskCommentsAndStrings(src)
   if (/argv\[\s*argv\.indexOf\(/.test(code))
     throw new Error('退回了裸取紧邻下一个 token 的旧形态 argv[argv.indexOf(…) + 1] —— 旗标吞噬那一型会原样复发')
-  if (!/export function parseFilesFlag/.test(src)) throw new Error('取值判据必须是可导入的一份实现(§22c:测试不得再抄)')
-  // 值校验三态缺一不可:不存在 / 以 - 开头 / 拆出 0 个路径名
-  if (!/startsWith\('-'\)/.test(src)) throw new Error('缺"以 - 开头不算值"的判据(口径来自 scan-hardcoded-zh 的 flagValue)')
-  if (!/typeof raw !== 'string'/.test(src)) throw new Error('缺"值必须存在"的判据')
-  if (!/files\.length === 0/.test(src)) throw new Error('缺"值拆出 0 个路径名"的判据')
+  if (!/export function parseFilesFlag/.test(src)) throw new Error('清单解析必须是可导入的一份实现(§22c:测试不得再抄)')
+  /**
+   * ── 本条锁的**方向**在 G-322 收口时翻过一次,翻的是判据不是牙口 ──
+   * 旧写法:要求站体正文**出现** `startsWith('-')` 与 `typeof raw !== 'string'` 两枚字面。
+   * 那两枚字面是 `scripts/lib/flag-value.mjs` 里判据本体的形状,把它钉在站体里 = 用测试强制
+   * 保留"第二份副本"(§0.6/§22c 恰恰禁这个),于是站体永远改不动 —— 台账票 G-322 第十八批
+   * 就是被这一格钉住的。
+   * 新写法:**反着判**,两枚字面在代码面上一旦出现即红;绿的条件换成"引了单源且真调用"。
+   * 为什么仍然拦得住原来那一型回归(吞值的假绿灯):
+   *   ① 回归有两条路 —— (a) 把判据抄回站体、(b) 干脆不判值。
+   *      (a) 被上面三条缺席锁打死:`argv[argv.indexOf(`、`argv[<var> + 1]`、两枚判据字面,
+   *          抄回去就红;抄成别的写法仍要落回 `argv[…] + 1` 那一类下标形状才拿得到值,还是红。
+   *      (b) 被下面两条存在锁打死:少 `import … './lib/flag-value.mjs'` 或代码面里没有
+   *          `requireFlagValue(` 调用 ⇒ 红(只 import 不调用同样红,防"挂着当装饰")。
+   *   ② 真正决定"假绿灯有没有被关掉"的是**行为**那一格(T7 端到端:三支坏值各自 exit 2 且点名
+   *      token),那条与本锁互不替代 —— 本锁防的是"判据又长出第二份"这一型行为回归的前置形态。
+   *   ③ 新锁还多拦一型:旧锁**拦不住**"把两支判据拆成两份、每份各管一支"(如 `typeof raw !== 'string'`
+   *      留着、`startsWith('-')` 换成 `startsWith('--')`) —— 实测这正是普查里 9 份副本的漂移方向
+   *      (单划线 token 被当合法值)。按字面缺席判,换成 `--` 也照样命中 `\.startsWith\(...\)` 那条。
+   */
+  const LOCAL_COPIES = [
+    [/\.startsWith\(\s*['"][^'"]*['"]\s*\)/, '本地"值不得以划线开头"判据(.startsWith(…))'],
+    [/typeof\s+\w+\s*!==\s*['"]string['"]/, '本地"值必须是字符串"判据(typeof x !== \'string\')'],
+    [/\bargv\s*\[\s*\w+\s*\+\s*1\s*\]/, '裸取紧邻下一个 token 的下标形状(argv[<var> + 1])'],
+  ]
+  for (const [re, why] of LOCAL_COPIES)
+    if (re.test(code))
+      throw new Error(`站体代码面出现${why} ${re} —— "值有没有被吞"的判据唯一出口是 scripts/lib/flag-value.mjs 的 requireFlagValue(§0.6/§22c:第二份必然漂移,而实测漂移方向就是这一族的洞)`)
+  if (!/from '\.\/lib\/flag-value\.mjs'/.test(src))
+    throw new Error("站体未 import 单源出口(应 import { requireFlagValue } from './lib/flag-value.mjs')")
+  if (!/requireFlagValue\(/.test(code))
+    throw new Error('引了单源却没调用 ⇒ 判据实际仍住在别处(装饰性接线比不接更危险)')
+  // **域名**判据不属于单源(lib 明文把域名校验留给调用方):清单值还得能拆出 ≥1 个路径名。
+  if (!/files\.length === 0/.test(src)) throw new Error('缺"值拆出 0 个路径名"的域名判据(吞值之外的另一型空扫)')
   // 必须走既有的「无法判定」通道,而不是静默退回
   if (!/无法判定: \$\{filesFlag\.error\}/.test(src)) throw new Error('--files 报错没接进既有的无法判定 + return 2 通道')
   // 空声明集判据必须**只在显式 --files 时**触发 —— 去掉这个条件就是把 (d) 那一态判红

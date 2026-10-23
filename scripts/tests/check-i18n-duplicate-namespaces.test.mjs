@@ -58,7 +58,9 @@ test('R1 ROOT 由脚本自身位置推导:默认根 = 仓库根,与 cwd 无关',
   // 缺参数值必须判死,而不是静默退回默认根去扫真仓。
   assert.equal(gate.rootFromArgv(['--root', '/tmp/wherever']).root, resolve('/tmp/wherever'))
   assert.equal(gate.rootFromArgv(['--root=inline/x']).root, resolve('inline/x'))
-  assert.match(String(gate.rootFromArgv(['--root']).error), /不得静默退回仓库根/)
+  // G-322:空格形态文案改由 scripts/lib/flag-value.mjs 单源产出(旧自写文案「不得静默退回仓库根」
+  // 随之退役 —— 断言换成单源措辞,防止某日又漂回第二份文案)。
+  assert.match(String(gate.rootFromArgv(['--root']).error), /--root 需要一个目录参数.*不得静默退回默认/)
   assert.match(String(gate.rootFromArgv(['--root=']).error), /目录参数|必须给目录/)
 })
 
@@ -106,7 +108,8 @@ test('R3 --root 只作 --worktree 档的夹具通道:指到夹具 ⇒ 只扫夹�
 
     const noValue = run(['--worktree', '--root'])
     assert.equal(noValue.status, 2, `--root 不给值必须判死,实得 ${noValue.status}`)
-    assert.match(noValue.stdout + noValue.stderr, /不得静默退回仓库根/)
+    // G-322 补全:CLI 档与 R1 同因 —— 文案单源在 scripts/lib/flag-value.mjs,旧自写串已退役。
+    assert.match(noValue.stdout + noValue.stderr, /--root 需要一个目录参数.*不得静默退回默认/)
 
     const inline = run([`--worktree`, `--root=${dir}`])
     assert.equal(inline.status, 1, '--root=<dir> 内联形态与分开形态必须同判')
