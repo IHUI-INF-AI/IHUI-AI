@@ -3233,10 +3233,8 @@ export default function CheckinPage() {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="flex-1 border-t border-border" />
+            <div className="flex items-center justify-center gap-2 pt-1 text-xs text-muted-foreground">
               <span>{t('captureWbManualDivider')}</span>
-              <span className="flex-1 border-t border-border" />
             </div>
             {wbCaptured.length > 0 && (
               <div className="max-h-72 space-y-2 overflow-y-auto">
