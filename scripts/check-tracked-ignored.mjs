@@ -45,7 +45,9 @@ function git(args, { input, okCodes = [0] } = {}, root = ROOT) {
     cwd: root,
     encoding: 'utf8',
     input,
-    stdio: input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
+    // 一律三管接管(带 input 必须 pipe;不带时也 pipe,由进程退出关闭)—— 写成三元分支会让
+    // 守门 193 读不出 stdio 值,落进"判不出"桶(实测该桶第一次出现就是本文件)。
+    stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: GIT_TIMEOUT,
   })
