@@ -402,8 +402,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: CARD_PADDING,
     paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: tokens.border.light,
   } as ViewStyle,
   socialLeft: {
     flexDirection: 'row',

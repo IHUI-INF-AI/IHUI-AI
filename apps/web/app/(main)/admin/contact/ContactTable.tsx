@@ -8,6 +8,7 @@ import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
+import { useConfirm } from '@/hooks/use-confirm'
 import { PERM, th, stripHtml } from './helpers'
 import type { ContactItem } from './types'
 
@@ -21,6 +22,7 @@ interface Props {
 
 export function ContactTable({ list, isLoading, delPending, onEdit, onDelete }: Props) {
   const t = useTranslations('adminContact')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   return (
     <div className="overflow-x-auto rounded-lg border">
       <table className="w-full text-sm">
@@ -70,7 +72,14 @@ export function ContactTable({ list, isLoading, delPending, onEdit, onDelete }: 
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
                         disabled={delPending}
-                        onClick={() => confirm(t('confirmDelete')) && onDelete(item.id)}
+                        onClick={() => {
+                          void confirm({
+                            title: t('confirmDelete'),
+                            variant: 'destructive',
+                          }).then((ok) => {
+                            if (ok) onDelete(item.id)
+                          })
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                         {t('delete')}
@@ -83,6 +92,7 @@ export function ContactTable({ list, isLoading, delPending, onEdit, onDelete }: 
           )}
         </tbody>
       </table>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

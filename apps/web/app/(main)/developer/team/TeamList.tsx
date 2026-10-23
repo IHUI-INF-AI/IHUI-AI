@@ -8,6 +8,7 @@ import { Loader2, Trash2, Pencil } from 'lucide-react'
 import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 import { TruncatedText } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 import { cn } from '@/lib/utils'
 import { ROLE_CONFIG } from './types'
 import type { TeamMember } from './types'
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRemove }: Props) {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   return (
     <Card>
       <CardContent className="p-0">
@@ -61,7 +63,14 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => confirm('确认移除该成员?') && onRemove(m.id)}
+                        onClick={() => {
+                          void confirm({
+                            title: '确认移除该成员?',
+                            variant: 'destructive',
+                          }).then((ok) => {
+                            if (ok) onRemove(m.id)
+                          })
+                        }}
                         disabled={removePending}
                         className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
                       >
@@ -75,6 +84,8 @@ export function TeamList({ list, isLoading, dateFmt, removePending, onEdit, onRe
           </div>
         )}
       </CardContent>
+
+      <ConfirmDialogRenderer />
     </Card>
   )
 }

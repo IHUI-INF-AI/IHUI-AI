@@ -10,6 +10,7 @@ import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TYPE_BADGE } from './helpers'
 import { ANN_TYPE_KEY } from '@/lib/content'
+import { useConfirm } from '@/hooks/use-confirm'
 import type { Announcement } from './types'
 
 interface Props {
@@ -29,6 +30,7 @@ export function AnnouncementTable({
   onEdit,
   onDelete,
 }: Props) {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const t = useTranslations('admin.announcements')
   const locale = useLocale()
   const dateFmt = new Intl.DateTimeFormat(locale, {
@@ -126,7 +128,11 @@ export function AnnouncementTable({
                       className="text-destructive hover:text-destructive"
                       disabled={deletePending}
                       onClick={() => {
-                        if (confirm(t('deleteConfirm'))) onDelete(a.id)
+                        void confirm({ title: t('deleteConfirm'), variant: 'destructive' }).then(
+                          (ok) => {
+                            if (ok) onDelete(a.id)
+                          },
+                        )
                       }}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -139,6 +145,7 @@ export function AnnouncementTable({
           )}
         </tbody>
       </table>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

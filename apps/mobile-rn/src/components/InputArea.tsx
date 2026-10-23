@@ -946,8 +946,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: INPUT_AREA_CONTAINER_PADDING_X_PX,
     paddingVertical: INPUT_AREA_CONTAINER_PADDING_V_PX,
     backgroundColor: tokens.surface.card,
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
   },
   main: {
     flex: 1,
@@ -962,8 +960,6 @@ const styles = StyleSheet.create({
     gap: INPUT_AREA_STACK_GAP_PX,
     paddingBottom: INPUT_AREA_STACK_GAP_PX,
     paddingTop: 2,
-    borderBottomWidth: 1,
-    borderBottomColor: tokens.border.light,
     marginBottom: INPUT_AREA_STACK_GAP_PX,
   },
   thumbWrap: {

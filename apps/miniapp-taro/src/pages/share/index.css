@@ -101,7 +101,6 @@
   align-items: center;
   justify-content: center;
   padding: 20rpx 28rpx;
-  border-top: 1rpx solid var(--color-border);
   text-align: center;
 }
 .share-rank-more-text {
@@ -195,11 +194,9 @@
   padding: 0;
   animation: shareSlideDown 0.25s ease;
   box-shadow: 0 8rpx 32rpx var(--color-black-40);
-  border-bottom: 1rpx solid var(--color-muted);
 }
 .share-tag-panel-header {
   padding: 28rpx 28rpx 16rpx;
-  border-bottom: 1rpx solid var(--color-border);
 }
 .share-tag-panel-title {
   font-size: 28rpx;

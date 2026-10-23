@@ -574,4 +574,100 @@ test('T20 留痕出口不得开第二本台账:写盘只许委托 commit-attesta
     '去重要问同一本台账(readLedgerRecords 未 import 就会永远判"没写过")',
   )
 })
+
+// ===== 运行态台账不得进 HEAD(2026-10-23 立)=====
+// 现场:plan-pointer-purge 每轮把自己的取证台账(新名字)落进 .ihui-agent/tmp/ ⇒ 清理侧逐枚
+// git rm --cached、合并侧又带回 ⇒ git-sync-converge 每轮被门 168 拦。旁路落地不跑钩子,
+// 所以门 236 对这条通道看不见 —— 只能从落地原语这一层堵。
+
+test('L1 落 .ihui-agent/tmp 下的台账 ⇒ 当场拒,且 HEAD 不动', (t) => {
+  const dir = makeRepo(t)
+  const before = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  assert.throws(
+    () =>
+      bg.commitTreeWithIndex({
+        root: dir,
+        parent: before,
+        message: 'x',
+        entries: [
+          { path: 'a.txt', text: 'v2\n' },
+          { path: '.ihui-agent/tmp/plan-pointer-purge-2026-10-14-x-1.md', text: 'ledger\n' },
+        ],
+      }),
+    /\.ihui-agent\/tmp\|state/,
+  )
+  assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), before, '被拒的落地不得推进 HEAD')
+})
+
+test('L2 .ihui-agent/state 同样拒(两处都是本机现场)', (t) => {
+  const dir = makeRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  assert.throws(
+    () =>
+      bg.commitTreeWithIndex({
+        root: dir,
+        parent: head,
+        message: 'x',
+        entries: [{ path: '.ihui-agent/state/safe-commit-attestation.jsonl', text: '{}\n' }],
+      }),
+    /本机现场/,
+  )
+})
+
+test('L3 对照臂:普通路径照常落地(护栏不得把正常落地一起拦掉)', (t) => {
+  const dir = makeRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const { commit } = bg.commitTreeWithIndex({
+    root: dir,
+    parent: head,
+    message: 'ok',
+    entries: [{ path: 'a.txt', text: 'v3\n' }],
+  })
+  assert.match(commit, /^[0-9a-f]{40}$/)
+})
+
+test('L5 删除档必须放行:取消跟踪运行态台账正是这条护栏要的方向', (t) => {
+  const dir = makeRepo(t)
+  // 先用普通 git 把一枚 tmp 文件放进 HEAD(模拟本仓 2026-10-23 之前的存量)
+  mkdirSync(join(dir, '.ihui-agent', 'tmp'), { recursive: true })
+  writeFileSync(join(dir, '.ihui-agent', 'tmp', 'old-ledger.md'), 'x\n')
+  runGit(dir, ['add', '-f', '.ihui-agent/tmp/old-ledger.md'])
+  runGit(dir, ['commit', '-q', '-m', 'seed'])
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  // 取消跟踪:不得抛(实测第一版写成了"连删除一起拦",清理批当场被自己的护栏挡住)
+  const { commit, entries } = bg.commitTreeWithIndex({
+    root: dir,
+    parent: head,
+    message: 'untrack',
+    entries: [{ path: '.ihui-agent/tmp/old-ledger.md', deleted: true }],
+  })
+  assert.match(commit, /^[0-9a-f]{40}$/)
+  assert.equal(entries[0].deleted, true)
+  const tree = runGit(dir, ['ls-tree', '-r', '--name-only', commit]).trim().split('\n')
+  assert.ok(!tree.includes('.ihui-agent/tmp/old-ledger.md'), '取消跟踪后结果树里不得再有这条')
+})
+
+test('L4 例外通道必须"开关 + 理由"同时给:只给开关不给理由 ⇒ 仍拒', (t) => {
+  const dir = makeRepo(t)
+  const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
+  const entries = [{ path: '.ihui-agent/tmp/keep.md', text: 'x\n' }]
+  const oldOn = process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND
+  const oldReason = process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON
+  try {
+    process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND = '1'
+    delete process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON
+    assert.throws(
+      () => bg.commitTreeWithIndex({ root: dir, parent: head, message: 'x', entries }),
+      /IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON/,
+    )
+    process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON = '审计要求:这一枚必须入库(票 G-0)'
+    const { commit } = bg.commitTreeWithIndex({ root: dir, parent: head, message: 'x', entries })
+    assert.match(commit, /^[0-9a-f]{40}$/, '开关+理由齐备时必须放行(否则例外通道是死的)')
+  } finally {
+    if (oldOn === undefined) delete process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND
+    else process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND = oldOn
+    if (oldReason === undefined) delete process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON
+    else process.env.IHUI_ALLOW_RUNTIME_LEDGER_LAND_REASON = oldReason
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
