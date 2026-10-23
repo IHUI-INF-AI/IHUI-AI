@@ -37,7 +37,7 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-const { isTronAddress, assertUsdtAddressFormat, createUsdtPayment } =
+const { isTronAddress, assertUsdtAddressFormat, createUsdtPayment, verifyUsdtOnChain } =
   await import('../src/services/payment-usdt-service.js')
 
 /** 已上线的真实 TRC20 收款地址(前端 sponsor 页在用)—— 必须通过校验 */
@@ -190,6 +190,57 @@ describe('createUsdtPayment — 「未配置」500与「格式非法」400 是�
     expect(err).toBeInstanceOf(Error)
     expect((err as { statusCode?: number }).statusCode).toBe(500)
     expect(mockInsertValues).not.toHaveBeenCalled()
+  })
+})
+
+describe('取证侧第二调用点 — verifyErc20OnChain 与 verifyTrc20OnChain 同配方 fail-closed', () => {
+  // 取证侧的 address 来自 usdt_payments.address(订单行),不是 env:创建侧校验
+  // 覆盖不到校验上线前已落库的存量脏行。这里钉住「脏行在取证处被拒、
+  // 畸形值不拼进链上查询、拒因不回显原文、合法值不误拦」四条。
+  const mockFetch = vi.fn()
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', mockFetch)
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('ERC20 脏地址(截断 hex)⇒ verified=false,不发链上查询,不回显原文', async () => {
+    const bad = '0x' + 'a'.repeat(39)
+    const r = await verifyUsdtOnChain('ERC20', 'tx-erc-1', 1, bad)
+    expect(r.verified).toBe(false)
+    expect(r.reason).toContain('格式非法')
+    expect(r.reason).toContain('ERC20')
+    expect(r.reason).not.toContain(bad)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('ERC20 行贴了波场地址(跨链错贴)⇒ 同样拒,不拼进 Etherscan URL', async () => {
+    const r = await verifyUsdtOnChain('ERC20', 'tx-erc-2', 1, REAL_TRON)
+    expect(r.verified).toBe(false)
+    expect(r.reason).toContain('格式非法')
+    expect(r.reason).toContain('ERC20')
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('ERC20 合法地址 ⇒ 守卫放行到取证查询(URL 带该地址,业务未命中≠格式拦截)', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ status: '1', result: [] }) })
+    const r = await verifyUsdtOnChain('ERC20', 'tx-erc-3', 1, ERC20_SAMPLE)
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(String(mockFetch.mock.calls[0][0])).toContain(ERC20_SAMPLE)
+    expect(r.verified).toBe(false)
+    expect(r.reason).toContain('未在平台地址转入记录中找到')
+    expect(r.reason).not.toContain('格式非法')
+  })
+
+  it('TRC20 取证侧同配方回归:脏地址⇒拒且不查 TronGrid', async () => {
+    const bad = 'T0' + 'a'.repeat(32)
+    const r = await verifyUsdtOnChain('TRC20', 'tx-tron-1', 1, bad)
+    expect(r.verified).toBe(false)
+    expect(r.reason).toContain('格式非法')
+    expect(r.reason).not.toContain(bad)
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
