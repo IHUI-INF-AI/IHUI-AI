@@ -12,7 +12,9 @@
  *   ② 判定面纪律(AGENTS §0.4):`analyze()` 在 head / staged / worktree 三档上各判各的 ——
  *      改盘不算改 HEAD、未提交的新文件不进 HEAD 面;
  *   ③ 枚举到 0 ⇒ `Undetermined`(不把"没扫到"读成"没违规");
- *   ④ §22d 形状锁:import 本模块零输出零退出,CLI 直跑才执行 main。
+ *   ④ §22d 形状锁:import 本模块零输出零退出,CLI 直跑才执行 main;
+ *   ⑤ 加固维度(G-880 判据③,asset .svg/.css/.json):判据有牙 + 分流互不污染 +
+ *      棘轮(HEAD 面只报数,staged 档拦本次新增)。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -224,5 +226,64 @@ test('E10 CLI 直跑:守卫放行后 main 真的执行了(输出扫描读数)', 
   assert.ok([0, 1].includes(r.status), `意外退出码 ${r.status}: ${r.stderr}`)
   assert.match(r.stdout, /扫描文件: \d+ 个/)
   assert.match(r.stdout, /违规数:\s+\d+ 处 \(BLOCKING\)/)
+})
+
+// ─── ⑧ 加固维度(G-880 判据③,asset:.svg/.css/.json)───
+
+test('E11 asset 候选:UI 根下 .css/.svg/.json 收,后端/图片扩展名不收', () => {
+  assert.equal(gate.isScanCandidate('apps/web/src/a.css'), true)
+  assert.equal(gate.isScanCandidate('packages/ui-react/icon.svg'), true)
+  assert.equal(gate.isScanCandidate('apps/web/src/cfg.json'), true)
+  assert.equal(gate.isScanCandidate('apps/api/src/a.css'), false, '后端不在射程')
+  assert.equal(gate.isScanCandidate('apps/web/src/a.png'), false, '位图没有"行"可判')
+})
+
+test('E12 asset 判据有牙:三型各自命中,同位反向对照不命中', () => {
+  assert.equal(gate.judgeAssetLine('a.css', '  content: "🦄";', 3)?.label, 'css content emoji icon')
+  assert.equal(gate.judgeAssetLine('a.css', ' * ⚠️ 说明 😊', 77), null, 'css 注释续行(实测 6 处存量全在这一族)必须豁免')
+  assert.equal(gate.judgeAssetLine('a.json', '  "icon": "🦄",', 12)?.label, 'json icon field emoji')
+  assert.equal(gate.judgeAssetLine('a.json', '  "label": "🎉 活动",', 13), null, 'json 文案字段不是图标位')
+  assert.equal(gate.judgeAssetLine('a.svg', '<text>😊</text>', 4)?.label, 'svg emoji glyph')
+  assert.equal(gate.judgeAssetLine('a.svg', '<!-- 😊 占位说明 -->', 2), null, 'svg 注释行豁免')
+})
+
+test('E13 分流互不污染(有牙锁:摘掉任一维,命中集立刻变化)', () => {
+  // 代码形态 `icon: '🦄'` 出现在 css 文件 ⇒ asset 维不吃(若分流被摘,这里立刻多命中)
+  assert.deepEqual(gate.judgeText('apps/web/src/a.css', "icon: '🦄'"), [])
+  // css 形态 `content: "🦄"` 出现在 tsx 文件 ⇒ 代码维不吃(反向同证)
+  assert.deepEqual(gate.judgeText(OTHER, '  content: "🦄";'), [])
+  // asset 命中经 judgeText 收得到 ⇒ 证明 asset 维接进了主循环,不是只住在导出口
+  assert.equal(gate.judgeText('apps/web/src/a.css', 'a{content:"🦄"}').length, 1)
+  // 代码命中经 judgeText 照旧收得到 ⇒ 加固没有把旧维挤掉
+  assert.equal(gate.judgeText(OTHER, "  icon: '🦄',").length, 1)
+})
+
+test('E14 analyze 棘轮+面纪律:asset 命中 HEAD 面只报数,盘上偷改不动 HEAD 读数,staged 档新增行进阻断集', () => {
+  const CSS1 = 'button::before{content:"🦄"}\n'
+  const dir = createRepo({ 'apps/web/src/a.css': CSS1, 'apps/web/src/ok.tsx': 'export const X = 1\n' })
+  try {
+    const head = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head.totalViolations, 0, 'asset 加固维在全量面不得进阻断集(§0.5 棘轮:有存量的新判据不升 blocking)')
+    assert.equal(head.assetStock, 1, 'asset 存量没报数 = 静默少扫')
+
+    // 工作树偷改(不 add):追加一行 asset emoji ⇒ HEAD 面读数必须纹丝不动(证明没读盘)
+    writeRepoFile(dir, 'apps/web/src/a.css', CSS1 + 'span::after{content:"😊"}\n')
+    const head2 = gate.analyze({ root: dir, face: 'head' })
+    assert.equal(head2.assetStock, 1, '盘上偷改动到了 HEAD 面 ⇒ 混面取材')
+    const wt = gate.analyze({ root: dir, face: 'worktree' })
+    assert.equal(wt.assetStock, 2, 'worktree 档应看见盘上的新值')
+
+    // git add 后 staged 档:本次新增那一行进阻断集,存量行不重复计
+    assert.equal(git(dir, ['add', 'apps/web/src/a.css']).status, 0)
+    const staged = gate.analyze({ root: dir, face: 'staged' })
+    assert.equal(staged.totalViolations, 1, 'staged 档必须拦本次提交带进来的 asset 新增')
+    assert.equal(staged.assetStock, 0, 'staged 档按新增行过滤后,存量行不该再进任何命中集')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('E15 --self-test 与镜像同尺:判据共用一份实现,自检必须全绿', () => {
+  assert.equal(gate.runSelfTest(), 0, '源脚本 --self-test 有失败用例')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
