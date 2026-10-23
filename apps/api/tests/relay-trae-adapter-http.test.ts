@@ -455,6 +455,29 @@ describe('Trae 积分余额 getQuota(真 HTTP · 实证回包形状)', () => {
     expect(req?.headers.authorization).toBe('Cloud-IDE-JWT jwt-original')
   })
 
+  it('带 cookie 的账号 ⇒ 余额请求同时带上 Cookie 头(线上 200 的取证形态是 JWT+cookie)', async () => {
+    const { traeAdapter } = await loadAdapter()
+    seen.length = 0
+    entUsageStatus = 200
+    const ctxWithCookies = {
+      row: { id: 'acct-http-1', providerCode: 'trae', proxyUrl: null } as never,
+      credentials: {
+        token: 'jwt-original',
+        refreshToken: null,
+        cookies: [
+          { name: 'sessionid', value: 'sid-1', domain: '.trae.cn', path: '/' },
+          { name: 'd_ticket', value: 'dt-1', domain: '.trae.cn', path: '/' },
+        ],
+        secrets: {},
+      },
+    } as never
+    const out = await traeAdapter.getQuota!(ctxWithCookies, {})
+    expect(out.ok).toBe(true)
+    const req = seen.find((s) => s.path.includes('/pay/web_user_ent_usage'))
+    expect(req?.headers.authorization).toBe('Cloud-IDE-JWT jwt-original')
+    expect(String(req?.headers.cookie)).toContain('sessionid=sid-1')
+  })
+
   it('401 ⇒ ok:false 且带原因(不得把"取不到"写成余额 0),并给出 authFailed 供承载层自愈', async () => {
     const { traeAdapter } = await loadAdapter()
     entUsageStatus = 401

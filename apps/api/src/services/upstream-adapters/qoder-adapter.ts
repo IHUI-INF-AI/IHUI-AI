@@ -390,9 +390,10 @@ export const qoderAdapter: RelayUpstreamAdapter = {
 
   /**
    * Add-on Credits 余额按需查询(管理面点查,不进轮询)。永不抛,失败归 ok:false。
-   * 字段映射对齐本仓参考实现 apps/ai-service/app/services/checkin_qoder.py 的
-   * qoder_query_credits(该上游响应结构细节未全证 ⇒ 防御解析:认不出 remaining 就
-   * 落 ok:false「未判定」,不得把解析不出来冒充成余额 0)。
+   * 键序与本仓参考实现 apps/ai-service/app/services/checkin_qoder.py 的
+   * qoder_query_credits 同源(data 包裹 → addOnQuota / add_on_quota → remaining)。
+   * 线上实证 2026-10-23:号池两枚在册 qoder 号真跑该端点 ⇒ 200 且 remaining 可读(100 与 388)。
+   * 仍按防御解析:认不出 remaining ⇒ ok:false「未判定」,不得把解析不出来冒充成余额 0。
    */
   async getQuota(ctx: AdapterAccountContext, opts?: QuotaCallOptions): Promise<RelayQuotaResult> {
     try {
