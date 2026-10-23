@@ -698,6 +698,50 @@ export function readWorktreeFile(root, rel) {
 }
 
 /**
+ * 按判定面枚举**全部跟踪文件**(2026-10-23 立,G-880)。
+ *
+ * 为什么这一格必须住在层里:§0.4 要求"清单与内容同面同轮",而 `catBatch` 只能按
+ * `<rev>:<path>` 取正文 —— **路径清单从哪来,决定这一轮判的是哪个面**。此前每道门各写一份
+ * (`check-auth-refresh-singleton` / `check-button-height` / `check-image-source-domains` /
+ * `check-spawn-output-channel` / `check-privacy-*` … 现读十余份),于是同一件事有十余种写法,
+ * 其中若干份还在 `worktree` 档复用 `--cached` 的清单却不说明。收成一份之后:
+ *
+ *   - `head`     ⇒ `git ls-tree -r --name-only -z HEAD`(HEAD 树 = 提交面)
+ *   - `staged`   ⇒ `git ls-files --cached -z`(索引面 = pre-commit 面)
+ *   - `worktree` ⇒ `git ls-files -z`(跟踪路径,正文读盘 = 人工逃生舱)
+ *
+ * 未跟踪文件在**任何**一档都不进清单:`head`/`staged` 本来就没有它们;`worktree` 档若改用
+ * 磁盘递归当清单,又会把 `.gitignore` 掉的构建产物卷进来 —— 那正是各门自己 walk 的老毛病
+ * (minified chunk 里的 emoji / `refreshAccessToken` 都被误判过)。要看未跟踪文件,请显式
+ * `git ls-files --others --exclude-standard`,不要在这里偷偷加面。
+ *
+ * ⚠️ `-z`:路径含空格/中文时不被打断,也不经 `core.quotepath` 转义(层里虽已关 quotepath,
+ * 但 NUL 分帧才是唯一不依赖转义规则的取法)。取不到被审面 ⇒ `gitRaw` 抛 `Undetermined`,
+ * 由调用方折成 exit 2「未判定」—— 绝不回落另一个面、也绝不返回空数组冒充"没有文件"。
+ *
+ * @param {string} root 仓库根
+ * @param {'head'|'staged'|'worktree'} face 判定面
+ * @param {{paths?:string[], timeout?:number}} [opts] `paths` = 限定子树(相对仓库根,git pathspec)
+ * @returns {string[]} 相对仓库根的路径(正斜杠),按被审面的序;空数组由调用方判"枚举到 0"
+ */
+export function listFaceFiles(root, face, opts = {}) {
+  if (!FACES.includes(face)) {
+    throw new Undetermined(`未知判定面 ${String(face)}(只认 ${FACES.join(' / ')})`)
+  }
+  const pathspec = Array.isArray(opts.paths) && opts.paths.length ? ['--', ...opts.paths] : []
+  const args =
+    face === 'head'
+      ? ['ls-tree', '-r', '--name-only', '-z', 'HEAD', ...pathspec]
+      : face === 'staged'
+        ? ['ls-files', '--cached', '-z', ...pathspec]
+        : ['ls-files', '-z', ...pathspec]
+  const out = gitRaw(args, root, { timeout: opts.timeout ?? 120000 })
+  return String(out)
+    .split('\u0000')
+    .filter((p) => p.length > 0)
+}
+
+/**
  * 「远端分支现在在哪」的唯一取法 —— 凡是拿远端位置做**决策**(已收敛 / 已被包含 / 分叉 /
  * 合并输入新鲜度 / 推送后回读)的地方都必须用它,不要再各写一份。
  *
