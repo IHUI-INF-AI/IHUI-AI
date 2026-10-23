@@ -53,13 +53,6 @@
   </sub>
 </p>
 
-<p align="center">
-  <strong>중국 미러</strong> ·
-  <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> ·
-  <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
-  <br/>
-  <sub>중국 사용자에게 더 빠른 클론/다운로드, GitHub과 자동 동기화</sub>
-</p>
 
 ---
 
@@ -408,7 +401,7 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 |                          | 이메일 SMS                     | SMTP / SMS 게이트웨이 / 이메일 템플릿 / 인증번호 / mail + message-templates                                                                    |
 |                          | 국제화                         | 5개 언어 parity(zh-CN / zh-TW / en / ko / ja) + 19 i18n 툴체인 + 4 게이트 스크립트                                                             |
 |                          | 엔지니어링 게이트              | 21 pre-commit 훅 + post-commit 자동 push + 11 마이그레이션 감사 + 9 PowerShell 시작                                                            |
-|                          | 테스트 커버리지                | 268 + 400+ 케이스 / Vitest + Playwright + pytest + Locust 부하 테스트 + Lighthouse 성능                                                        |
+|                          | 테스트 커버리지                | ~14839+ 케이스 + 400+ 케이스 / Vitest + Playwright + pytest + Locust 부하 테스트 + Lighthouse 성능                                                        |
 |                          | 배포 운영                      | Docker Compose(14 서비스) / 블루그린 배포 / Nginx upstream 전환 / 헬스 체크 / 롤백 / 백업 / 인증서 갱신 cron                                   |
 |                          | 성능 CI                        | Knip 미사용 코드 감지 + Lighthouse CI 성능 예산 + GitHub Act 로컬 CI                                                                           |
 |                          | 마이크로서비스 엔지니어링 패턴 | Outbox 트랜잭션 아웃박스 + Refund DLQ 데드레터 큐 + Circuit Breaker 서킷 브레이커 + IDOR 보호 + WS Dedup 메시지 중복 제거 + Hot Config 핫 설정 |
@@ -996,7 +989,7 @@ LiteLLM 게이트웨이로 통합 연동, 스마트 라우팅 + 60% 캐시 적�
 
 | 타입           | 프레임워크    | 규모                         | 명령                              |
 | -------------- | ------------- | ---------------------------- | --------------------------------- |
-| 백엔드 유닛    | Vitest        | 38 파일, 268 케이스          | `pnpm --filter @ihui/api test`    |
+| 백엔드 유닛    | Vitest        | 322개 파일, ~14839+ 케이스          | `pnpm --filter @ihui/api test`    |
 | 프론트엔드 E2E | Playwright    | 17 spec 파일                 | `pnpm test:e2e`                   |
 | AI 서비스      | pytest        | 13 파일, 400+ 케이스         | `cd apps/ai-service && pytest`    |
 | CLI 유닛       | Vitest        | 13 파일                      | `pnpm --filter ihui-cli test`     |
@@ -1116,7 +1109,7 @@ pnpm turbo build typecheck lint test
 
 | 서비스              | 엔드포인트 수 | 접두사                | 라우트 파일 수 | 커버 도메인                                                                                                                                                                                                                                                                 |
 | ------------------- | ------------- | --------------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **apps/api**        | 4443          | `/api` + `/api/admin` | 604            | 30+ 비즈니스 도메인(auth/users/billing/content/chat/teams/workspace/agents/coze/oss/order/vip/exam/learn/live/news/topic/search/drama/stock/gdpr/rbac/tenant/community/edu/payment/wallet/point/ranking/distribution/developer/workflows/business-card/customer-service 등) |
+| **apps/api**        | 4538          | `/api` + `/api/admin` | 603            | 30+ 비즈니스 도메인(auth/users/billing/content/chat/teams/workspace/agents/coze/oss/order/vip/exam/learn/live/news/topic/search/drama/stock/gdpr/rbac/tenant/community/edu/payment/wallet/point/ranking/distribution/developer/workflows/business-card/customer-service 등) |
 | **apps/ai-service** | ~577           | `/api`                | 12 routers     | a2a(5)/ agents(9)/ health(4)/ llm(2)/ mcp(10)/ tools(3)/ personas(4)/ voice_stt(3)/ self_media(6)/ publish(8)/ agent_runtime(6)/ legacy                                                                                                                                     |
 
 **통합 응답 형식:**
