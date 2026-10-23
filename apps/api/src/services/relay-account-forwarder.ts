@@ -770,6 +770,15 @@ async function safeText(resp: Response): Promise<string> {
 interface UsagePair {
   promptTokens: number
   completionTokens: number
+  reasoningTokens: number
+  cachedTokens: number
+}
+
+const ZERO_USAGE: UsagePair = {
+  promptTokens: 0,
+  completionTokens: 0,
+  reasoningTokens: 0,
+  cachedTokens: 0,
 }
 
 function extractUsage(json: unknown): UsagePair | null {
@@ -779,7 +788,15 @@ function extractUsage(json: unknown): UsagePair | null {
   const p = typeof usage.prompt_tokens === 'number' ? usage.prompt_tokens : 0
   const c = typeof usage.completion_tokens === 'number' ? usage.completion_tokens : 0
   if (!p && !c) return null
-  return { promptTokens: p, completionTokens: c }
+  // OpenAI 标准嵌套形状;Trae 适配器已在注入前归一成同一形状(trae-protocol extractUsage)
+  const ctd = asRecord(usage.completion_tokens_details)
+  const ptd = asRecord(usage.prompt_tokens_details)
+  return {
+    promptTokens: p,
+    completionTokens: c,
+    reasoningTokens: typeof ctd?.reasoning_tokens === 'number' ? ctd.reasoning_tokens : 0,
+    cachedTokens: typeof ptd?.cached_tokens === 'number' ? ptd.cached_tokens : 0,
+  }
 }
 
 /** SSE data: 行 → JSON(非 JSON/[DONE] → null) */
@@ -803,7 +820,7 @@ function tapAccountUsage(resp: Response, onUsage: (u: UsagePair) => void): Respo
   const ct = resp.headers.get('content-type') ?? ''
   if (ct.includes('text/event-stream')) {
     if (!resp.body) {
-      onUsage({ promptTokens: 0, completionTokens: 0 })
+      onUsage(ZERO_USAGE)
       return resp
     }
     const [pass, tap] = resp.body.tee()
@@ -818,7 +835,7 @@ function tapAccountUsage(resp: Response, onUsage: (u: UsagePair) => void): Respo
       } catch {
         /* tap 支路失败不影响主路径 */
       }
-      onUsage(last ?? { promptTokens: 0, completionTokens: 0 })
+      onUsage(last ?? ZERO_USAGE)
     })()
     return new Response(pass, {
       status: resp.status,
@@ -830,7 +847,7 @@ function tapAccountUsage(resp: Response, onUsage: (u: UsagePair) => void): Respo
     .clone()
     .text()
     .then((text) => {
-      let u: UsagePair = { promptTokens: 0, completionTokens: 0 }
+      let u: UsagePair = ZERO_USAGE
       try {
         const parsed = extractUsage(JSON.parse(text))
         if (parsed) u = parsed
@@ -839,7 +856,7 @@ function tapAccountUsage(resp: Response, onUsage: (u: UsagePair) => void): Respo
       }
       onUsage(u)
     })
-    .catch(() => onUsage({ promptTokens: 0, completionTokens: 0 }))
+    .catch(() => onUsage(ZERO_USAGE))
   return resp
 }
 
@@ -1193,6 +1210,8 @@ export async function forwardToAccountPool(
             model: rawModel,
             promptTokens: u.promptTokens,
             completionTokens: u.completionTokens,
+            reasoningTokens: u.reasoningTokens,
+            cachedTokens: u.cachedTokens,
             ok: true,
             latencyMs: attempt.latencyMs ?? 0,
           })
