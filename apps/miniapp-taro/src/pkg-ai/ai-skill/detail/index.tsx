@@ -4,6 +4,7 @@
 
 // 平台页面:镜像 apps/mobile-rn AiSkillDetailScreen(AI 技能详情:prompt 模板与来源信息)
 // 端内重写渲染层(Taro 无法直接渲染 RN 原语)
+// 对齐目标(RN 共享屏): packages/app/src/features/ai-skill/AiSkillDetailScreen.tsx
 import { useCallback, useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'

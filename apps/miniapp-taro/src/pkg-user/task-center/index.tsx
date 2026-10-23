@@ -4,6 +4,7 @@
 
 // 平台页面:镜像 packages/app/src/features/task-center/TaskCenterScreen UI 与
 // apps/mobile-rn TaskCenterScreen 状态机(端内重写渲染层,Taro 无法直接渲染 RN 原语)
+// 对齐目标(RN 共享屏): packages/app/src/features/task-center/TaskCenterScreen.tsx
 import { useCallback, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
