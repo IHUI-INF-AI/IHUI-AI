@@ -9,6 +9,7 @@
 // border.light→--color-border / text.primary→--color-foreground / text.secondary→--color-muted-foreground /
 // text.tertiary→--color-text-tertiary / text.medium→--color-text-medium / brand→--color-primary /
 // success.DEFAULT→--color-success / success.light→--color-success-light / danger→--color-danger)。
+// 对齐目标(RN 共享屏): packages/app/src/features/search/SearchScreen.tsx
 import { Fragment, useCallback, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
