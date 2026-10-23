@@ -21,7 +21,6 @@ import {
   INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX,
   INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX,
   INPUT_AREA_AI_HOME_INPUT_MAX_HEIGHT_PX,
-  INPUT_AREA_AI_HOME_ICON_BOX_PX,
   INPUT_AREA_AI_HOME_INLINE_GAP_PX,
   INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX,
   INPUT_AREA_AI_HOME_EMOJI_CELL_PX,
@@ -30,9 +29,13 @@ import {
   INPUT_AREA_ATTACHMENT_BADGE_LINE_PX,
   INPUT_AREA_VIDEO_THUMB_W_PX,
   INPUT_AREA_VIDEO_THUMB_H_PX,
-  // 票⑤:图标墨迹档(位图退役后,矢量字形是正方形盒,取数一律经这三枚)
+  // 票⑤:图标墨迹档(位图退役后,矢量字形是正方形盒,取数一律经这几枚)。
+  // 其中 `INPUT_AREA_CONTROL_GLYPH_PX` 是**与 RN 同一枚常数**(控件字形档 = geometry.controlGlyph):
+  // ai-home 的加号/发送/清空三处墨迹与 RN 框内 ⤢、ChevronDown、删除 X 同槽同档,
+  // 本端旧的两枚别名(`..._AI_HOME_ICON_BOX_PX` / `..._AI_HOME_ADD_GLYPH_PX`)值早已被改指
+  // controlGlyph 却没摘名,一档三名 ⇒ 本票并成一名,两端各站哪一端都跟着这一枚动。
   INPUT_AREA_GLYPH_MD_PX,
-  INPUT_AREA_AI_HOME_ADD_GLYPH_PX,
+  INPUT_AREA_CONTROL_GLYPH_PX,
   INPUT_AREA_AI_HOME_EXPAND_GLYPH_PX,
   INPUT_AREA_THUMB_GLYPH_PX,
   INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX,
@@ -694,14 +697,14 @@ export default function InputArea({
                   <LineIcon
                     className={cn('search-box2-img', isShowIcon ? 'rotate-icon' : '')}
                     name="plus"
-                    size={toUnit(INPUT_AREA_AI_HOME_ADD_GLYPH_PX)}
+                    size={toUnit(INPUT_AREA_CONTROL_GLYPH_PX)}
                   />
                 </View>
                 <View className="search-box3">
                   <LineIcon
                     className="search-box3-img"
                     name="send"
-                    size={toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX)}
+                    size={toUnit(INPUT_AREA_CONTROL_GLYPH_PX)}
                     color="var(--color-brand)"
                     style={{ marginLeft: toUnit(INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX) }}
                   />
@@ -739,7 +742,7 @@ export default function InputArea({
                     <LineIcon
                       className={cn('search-box2-img', isShowIcon ? 'rotate-icon' : '')}
                       name="plus"
-                      size={toUnit(INPUT_AREA_AI_HOME_ADD_GLYPH_PX)}
+                      size={toUnit(INPUT_AREA_CONTROL_GLYPH_PX)}
                       color={isShowIcon ? 'var(--color-cta-foreground)' : undefined}
                     />
                   </View>
@@ -752,7 +755,7 @@ export default function InputArea({
                     <LineIcon
                       className="search-box3-img"
                       name="x"
-                      size={toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX)}
+                      size={toUnit(INPUT_AREA_CONTROL_GLYPH_PX)}
                       style={{ marginRight: toUnit(INPUT_AREA_AI_HOME_INLINE_GAP_PX) }}
                       onClick={handleClear}
                     />
@@ -773,7 +776,7 @@ export default function InputArea({
                     <LineIcon
                       className="search-box3-img"
                       name="send"
-                      size={toUnit(INPUT_AREA_AI_HOME_ICON_BOX_PX)}
+                      size={toUnit(INPUT_AREA_CONTROL_GLYPH_PX)}
                       color="var(--color-cta-foreground)"
                     />
                   </View>
