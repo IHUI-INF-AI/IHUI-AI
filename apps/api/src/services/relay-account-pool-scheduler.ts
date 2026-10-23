@@ -24,6 +24,7 @@ import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
+import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
@@ -46,6 +47,22 @@ export interface AccountPoolSweepResult {
   refreshSkipped: number
   healthChecked: number
   healthRecovered: number
+  /** O64 对账收敛器结果(undefined = 未执行/被跳过;号池↔签到断链自愈) */
+  checkinReconcile?: {
+    ok: boolean
+    error: string | null
+    pushed: number
+    pushFailed: number
+    disabled: number
+    disableFailed: number
+    stateCalibrated: number
+    stateFailed: number
+    flushed: number
+    flushFailed: number
+    orphanNoPoolId: number
+    outOfScope: number
+    truncated: number
+  }
   /** true = 分布式锁被其他实例持有,本轮整体跳过(多实例不重复 sweep) */
   skipped: boolean
 }
@@ -255,6 +272,15 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) continue
     if (await refreshOne(row)) out.healthRecovered++
+  }
+
+  // ── 4. O64 号池↔签到对账收敛(断链自愈;失败不中断 sweep,下轮继续) ──
+  try {
+    out.checkinReconcile = await reconcileCheckinSync()
+  } catch (e) {
+    logger.warn('[relay-account-pool] 对账收敛器异常(不影响巡检)', {
+      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
   }
 
   return out
