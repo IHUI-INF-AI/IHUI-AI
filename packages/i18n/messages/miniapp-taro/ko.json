@@ -2089,6 +2089,7 @@
   },
   "cart": {
     "title": "장바구니",
+    "selectAll": "전체 선택",
     "checkout": "결제",
     "loading": "로딩 중…",
     "product": "상품",
@@ -2254,6 +2255,26 @@
       "submitSuccess": "제출 완료",
       "mockSuccess": "API가 아직 열리지 않았습니다. 모의 제출 완료"
     }
+  },
+  "devSpace": {
+    "title": "개발자 상세",
+    "notLoggedIn": "로그인되지 않음",
+    "renew": "갱신",
+    "linkCopied": "링크를 복사했습니다. 브라우저에서 열어 주세요",
+    "linkCopyFailed": "복사 실패했습니다. 다시 시도해 주세요",
+    "entryMyAgents": "내 에이전트",
+    "entryAgentIncome": "에이전트 수익",
+    "entryN8nModel": "n8n 에이전트",
+    "entryBusinessCard": "크리에이터 명함",
+    "faqHeading": "개발자에게 자주 있는 질문",
+    "faqIncentiveTitle": "개발자 인센티브 프로그램",
+    "faqIncentiveDesc": "AI 에이전트를 게시하고 수익 배분을 받으세요",
+    "faqIncentiveBtn": "자세히 보기",
+    "faqGuideTitle": "등록 가이드",
+    "faqGuideDesc": "에이전트 생성, 모델 구성, 심사 제출",
+    "faqGuideBtn": "살펴보기",
+    "contactHeading": "다른 질문이 있으신가요?",
+    "contactDesc": "고객 센터에 문의해 1:1 상담을 받으세요"
   },
   "developer": {
     "withdrawal": {

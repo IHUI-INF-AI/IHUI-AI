@@ -2089,6 +2089,7 @@
   },
   "cart": {
     "title": "カート",
+    "selectAll": "すべて選択",
     "checkout": "精算",
     "loading": "読み込み中…",
     "product": "商品",
@@ -2254,6 +2255,26 @@
       "submitSuccess": "送信完了",
       "mockSuccess": "APIは未対応です。モック送信が完了しました"
     }
+  },
+  "devSpace": {
+    "title": "開発者詳細",
+    "notLoggedIn": "未ログイン",
+    "renew": "継続利用",
+    "linkCopied": "リンクをコピーしました。ブラウザで開いてください",
+    "linkCopyFailed": "コピーに失敗しました。もう一度お試しください",
+    "entryMyAgents": "マイエージェント",
+    "entryAgentIncome": "エージェント収益",
+    "entryN8nModel": "n8n エージェント",
+    "entryBusinessCard": "クリエイター名刺",
+    "faqHeading": "開発者の方によくある質問",
+    "faqIncentiveTitle": "開発者インセンティブ計画",
+    "faqIncentiveDesc": "AI エージェントを公開して収益分配を得る",
+    "faqIncentiveBtn": "詳細を見る",
+    "faqGuideTitle": "公開ガイド",
+    "faqGuideDesc": "エージェント作成、モデル設定、審査提出",
+    "faqGuideBtn": "詳しく見る",
+    "contactHeading": "その他の質問はありますか?",
+    "contactDesc": "サポートに連絡して1対1の回答を得る"
   },
   "developer": {
     "withdrawal": {

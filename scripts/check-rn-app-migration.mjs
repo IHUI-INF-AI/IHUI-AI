@@ -146,10 +146,9 @@ export const WHITELIST_ENTRIES = new Map(
       why: 'Web 门户屏:RN WebView 全屏容器加载 web portal,RN 端独占 webview 壳',
       expires: '2027-06-30',
     },
-    'CartScreen.tsx': {
-      why: '购物车页:RN 端独占 WeChat 支付流程 + Native Stack 导航,Web/Miniapp 有独立 cart 实现',
-      expires: '2027-06-30',
-    },
+    // ── 2026-10-24 摘除 CartScreen.tsx:购物车已新立 cart 共享屏族
+    //    (packages/app/src/features/cart/CartScreen.tsx),RN 端改为薄壳,
+    //    取词与字段兜底收单源(CTA 改 brand.cta/ctaForeground 成对)。──
     // ── 2026-10-24 摘除 TopicDetailScreen.tsx:话题详情已新立 topic-detail 共享屏族
     //    (packages/app/src/features/topic-detail/TopicDetailScreen.tsx),RN 端改为薄壳,
     //    时间相对化收进 @ihui/shared/utils/date-utils 单源。──

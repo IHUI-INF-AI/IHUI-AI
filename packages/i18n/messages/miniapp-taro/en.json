@@ -2089,6 +2089,7 @@
   },
   "cart": {
     "title": "Cart",
+    "selectAll": "Select all",
     "checkout": "Checkout",
     "loading": "Loading…",
     "product": "Product",
@@ -2254,6 +2255,26 @@
       "submitSuccess": "Submitted successfully",
       "mockSuccess": "API not yet available. Mock submission completed"
     }
+  },
+  "devSpace": {
+    "title": "Developer Details",
+    "notLoggedIn": "Not signed in",
+    "renew": "Renew",
+    "linkCopied": "Link copied. Please open it in a browser.",
+    "linkCopyFailed": "Copy failed. Please try again.",
+    "entryMyAgents": "My Agents",
+    "entryAgentIncome": "Agent Earnings",
+    "entryN8nModel": "n8n Agents",
+    "entryBusinessCard": "Creator Card",
+    "faqHeading": "Common developer questions",
+    "faqIncentiveTitle": "Developer Incentive Program",
+    "faqIncentiveDesc": "Publish AI agents and earn revenue share",
+    "faqIncentiveBtn": "View details",
+    "faqGuideTitle": "Publishing Guide",
+    "faqGuideDesc": "Create agents, configure models and submit for review",
+    "faqGuideBtn": "Learn more",
+    "contactHeading": "Still have questions?",
+    "contactDesc": "Contact support for one-on-one guidance"
   },
   "developer": {
     "withdrawal": {
