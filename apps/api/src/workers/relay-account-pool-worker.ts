@@ -78,6 +78,14 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
                 truncated: result.checkinReconcile.truncated,
               }
             : null,
+          checkinRetry: result.checkinRetry
+            ? {
+                retried: result.checkinRetry.retried,
+                cleared: result.checkinRetry.cleared,
+                stillPending: result.checkinRetry.stillPending,
+                droppedNoEngine: result.checkinRetry.droppedNoEngine,
+              }
+            : null,
         },
         'relay-account-pool sweep done',
       )

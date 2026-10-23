@@ -1152,7 +1152,7 @@ async def pool_status(
         "poolCredVersion": _pool_cred_version_of(dm),
         "poolSyncedAt": dm.get("pool_synced_at"),
         "poolDeletedAt": dm.get("pool_deleted_at"),
-        "pendingCred": "pending_cred" in dm,
+        "pendingCred": "pool_pending_cred" in dm,
         "cooldownUntil": cooldown.isoformat() if cooldown is not None else None,
         "lastRecord": (
             {

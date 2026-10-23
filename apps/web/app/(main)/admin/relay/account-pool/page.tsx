@@ -1130,6 +1130,7 @@ export default function AdminRelayAccountPoolPage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
+                                    aria-label="重推签到同步"
                                     disabled={resyncMut.isPending}
                                     onClick={() => resyncMut.mutate(k.id)}
                                   >
@@ -1146,6 +1147,7 @@ export default function AdminRelayAccountPoolPage() {
                                   <Button
                                     size="sm"
                                     variant="ghost"
+                                    aria-label="立即签到"
                                     disabled={checkinRunMut.isPending}
                                     onClick={() => checkinRunMut.mutate(k.id)}
                                   >
