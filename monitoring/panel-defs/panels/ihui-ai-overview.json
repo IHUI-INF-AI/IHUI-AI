@@ -1099,6 +1099,79 @@
         "orientation": "auto",
         "textMode": "auto"
       }
+    },
+    {
+      "title": "访客与机器人(入口)",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 58 },
+      "id": 901
+    },
+    {
+      "title": "真人/首方 vs 其余(入口请求速率)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 59 },
+      "targets": [
+        {
+          "expr": "sum(rate(ihui_traffic_requests_total{client_family=~\"human-browser|first-party\"}[5m]))",
+          "legendFormat": "真人 + 首方",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(ihui_traffic_requests_total{client_family!~\"human-browser|first-party\"}[5m]))",
+          "legendFormat": "其余全部(机器/脚本/爬虫/无 UA)",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "id": 902
+    },
+    {
+      "title": "近 24h 网页访客(visit_logs 去重)",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 59 },
+      "targets": [
+        {
+          "expr": "max(ihui_traffic_unique_visitors{window=\"24h\",source=\"visit_logs\"})",
+          "legendFormat": "独立访客",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "id": 903
+    },
+    {
+      "title": "近 1h 恶意路径形态命中",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 59 },
+      "targets": [
+        {
+          "expr": "sum(increase(ihui_traffic_scan_hits_total[1h]))",
+          "legendFormat": "探测命中",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 9 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "id": 904
     }
   ],
   "refresh": "30s",
