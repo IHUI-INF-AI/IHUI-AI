@@ -882,6 +882,9 @@ function toNormalized(req: UpstreamForwardRequest, rawModel: string): Normalized
   if (req.parallelToolCalls !== undefined) norm.parallelToolCalls = req.parallelToolCalls
   if (req.user !== undefined) norm.user = req.user
   if (req.serviceTier !== undefined) norm.serviceTier = req.serviceTier
+  if (req.topK !== undefined) norm.topK = req.topK
+  if (req.repetitionPenalty !== undefined) norm.repetitionPenalty = req.repetitionPenalty
+  if (req.logitBias !== undefined) norm.logitBias = req.logitBias
   if (req.affinityKey) norm.conversationId = req.affinityKey
   return norm
 }
