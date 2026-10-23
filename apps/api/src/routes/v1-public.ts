@@ -809,7 +809,9 @@ async function streamChatCompletion(
         if (opts.streamUsageEnabled && (streamPromptTokens > 0 || streamCompletionTokens > 0)) {
           raw.write(buildStreamUsageChunk(id, model, streamPromptTokens, streamCompletionTokens))
         }
-        writeChunk({}, 'stop')
+        // 结束帧只发一次(2026-10-23 修):上游自带 finish_reason 且已原样转发时不再补,
+        // 否则客户端收到两个 finish,且 usage 帧被夹在中间、偏离 OpenAI 的 finish → usage → [DONE]。
+        if (!stats.sawFinish) writeChunk({}, 'stop')
         raw.write('data: [DONE]\n\n')
         request.raw.off('close', onClose)
         raw.end()
