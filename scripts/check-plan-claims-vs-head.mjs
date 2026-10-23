@@ -103,6 +103,11 @@ const SOURCE_EXTS = new Set([
 ])
 /** C2:迁移文件名(`NNNN_...sql`),journal 口径的记账对象。 */
 const MIGRATION_RE = /\b(\d{4}_[A-Za-z0-9_\-]+\.sql)\b/
+/** 登记行本体(未完成条目)= 抽"可判红声称"的唯一面。行首不允许缩进:
+ *  缩进的复选框在台账里是叙述里的示例/子条,归它只会把判红面凭空扩大(收窄必须是减法)。 */
+const OPEN_ROW_RE = /^[-*]\s+\[\s]/
+/** 已勾行:§1 完成即删,整行(含其续行)不再参与判定。 */
+const CLOSED_ROW_RE = /^\s*[-*]\s+\[[xX]\]/
 /** C3:具名符号 —— 宁窄勿宽:反引号内裸标识符,小写开头、长度 ≥ 6、不含常见散文词。 */
 const SYMBOL_RE = /^[a-z][a-z0-9_]{5,}$/
 
@@ -398,9 +403,10 @@ function main() {
   ).split(',')
   const { claims, stat } = extractClaims(text)
   const grouped = groupClaims(claims)
-  if (grouped.length === 0) {
+  if (grouped.length === 0 || !grouped.some((g) => g.source === 'row')) {
     console.log(
-      `⚠️  未抽到任何可机检声称(未完成条目 ${stat.openRows} 行 / 判不准 ${stat.undetermined} 处)⇒ 未判定,不得读成"通过"`,
+      `⚠️ 登记行本体上未抽到任何可机检声称(未完成条目 ${stat.openRows} 行 / 叙述行声称 ${stat.narrativeClaims} 处 / 判不准 ${stat.undetermined} 处)` +
+        `⇒ 未判定,不得读成"通过"(§0.3:枚举到 0 判死;判红面只有登记行本体)`,
     )
     process.exit(2)
   }
@@ -474,10 +480,14 @@ function main() {
   const missing = []
   const undetermined = []
   let ok = 0
+  let rowClaims = 0
   for (const e of grouped) {
-    const r = judgeEntry(e, { catFile, grepHead, migrationDirs, isIgnored, removedSha })
+    if (e.source === 'row') rowClaims += 1
+    const raw = judgeEntry(e, { catFile, grepHead, migrationDirs, isIgnored, removedSha })
+    const r = resolveVerdict(e, raw)
     if (r.verdict === 'missing') missing.push({ ...e, evidence: r.evidence })
-    else if (r.verdict === 'undetermined') undetermined.push({ ...e, evidence: r.evidence, reason: r.reason })
+    else if (r.verdict === 'undetermined')
+      undetermined.push({ ...e, evidence: r.evidence, reason: r.reason })
     else ok += 1
   }
   const baseline = loadBaseline()
@@ -487,29 +497,39 @@ function main() {
   const carried = missing.length - added.length
   console.log(
     `[plan-claims] 判定面=HEAD blob(${DOC}) · 未完成条目 ${stat.openRows} 行 · 声称 ${grouped.length} 条` +
-      `(在 ${ok} / 缺 ${missing.length} / 判不准 ${undetermined.length})` +
+      `(登记行本体 ${rowClaims} 条 = 判红射程 / 叙述行 ${grouped.length - rowClaims} 条 = 只点名不判红)` +
+      ` · 在 ${ok} / 缺 ${missing.length} / 判不准 ${undetermined.length}` +
       ` · C3 具名符号 ${stat.symbolsSkipped} 处默认不判(全树 grep 耗时未量;开档 PLAN_CLAIMS_SYMBOLS=1)`,
   )
   if (baseline === null) {
     console.log(`⚠️  基线 ${BASELINE_REL} 取不到或形状不对 ⇒ 未判定(下方只列事实,不据以判红判绿)`)
   } else {
+    const hit = missing.filter((m) => baseSet.has(`${m.kind}:${m.target}`)).length
     console.log(
-      `  [差值] 基线 ${baseSet.size} 条 · 存量只报数 ${carried} · 新增判红 ${added.length}`,
+      `  [差值] 基线 ${baseSet.size} 条(本次仍命中 ${hit} 条,余 ${baseSet.size - hit} 条已不在缺集:口径收窄或已补齐 ⇒ 不作放行依据,基线需随口径重造) · 存量只报数 ${carried} · 新增判红 ${added.length}`,
     )
   }
-  const listed = baseline === null ? missing : added.length > 0 ? added : missing.slice(0, 0)
-  for (const m of listed.slice(0, 30)) {
+  const listing = chooseListing({ added, missing })
+  for (const m of listing.shown) {
     console.log(
-      `  ❌ [${m.kind}] ${m.target} — ${m.evidence} · 声称方:${m.rows.slice(0, 4).join(',')}`,
+      `  ${listing.isAdded(m) ? '❌ 新增' : '⚠️ 存量'} [${m.kind}] ${m.target} — ${m.evidence} · 声称方(登记行):${m.rows.slice(0, 4).join(',')}`,
     )
   }
-  if (listed.length > 30) console.log(`  · … 其余 ${listed.length - 30} 条`)
+  if (listing.omitted > 0) console.log(`  · … 其余 ${listing.omitted} 条未点名`)
+  if (listing.mode === 'stock-only') {
+    console.log(
+      `  ↳ 上面这些是**基线内存量**:只报数、不拦提交(§12e 恒红门禁令);整改出口 = 把该行改成真实路径,或补齐实物,或从基线 ${BASELINE_REL} 里显式剔除该条`,
+    )
+  } else if (listing.mode === 'clean' && baseline !== null) {
+    console.log('  ↳ 本次既无新增也无存量缺物,故无逐条点名。')
+  }
   if (undetermined.length > 0) {
     const REASON_LABEL = {
       gitignored: '按设计不入提交面(.gitignore 命中)',
       retired: 'HEAD 史里被删(点名删除枚)',
       'parent-dir-absent': '父目录不在 HEAD(疑似别仓引用)',
       'probe-silent': '探针取不到结论',
+      'narrative-source': '叙述行(非登记行本体)提到而 HEAD 无实物',
     }
     const byReason = new Map()
     for (const u of undetermined) {
@@ -526,9 +546,14 @@ function main() {
     // 判不准也要逐条点名:只报计数 = 下一手既不知道是谁,也无从判"这行是不是真声称存在"
     // (5e-1 可整改性:挂到人的通道前必须答得出"看了之后能做什么")。
     for (const [k, v] of byReason) {
-      const cap = k === 'retired' || k === 'gitignored' ? 12 : 4
+      const cap = k === 'retired' || k === 'gitignored' || k === 'narrative-source' ? 12 : 4
       for (const u of v.slice(0, cap)) {
-        console.log(`     · [${k}] ${u.target} — ${u.evidence} · 声称方:${u.rows.slice(0, 3).join(',')}`)
+        // 有票号 ⇒ 声称方是登记行;没票号 ⇒ 该 target 只出现在叙述里,出处必须用该行原文片段
+        const src =
+          u.rows.length > 0
+            ? `声称方(登记行):${u.rows.slice(0, 3).join(',')}`
+            : `出处(叙述行原文锚点,不占票号):${(u.anchors[0] ?? '').slice(0, 60)}`
+        console.log(`     · [${k}] ${u.target} — ${u.evidence} · ${src}`)
       }
       if (v.length > cap) console.log(`     · … [${k}] 其余 ${v.length - cap} 条未点名`)
     }
@@ -560,6 +585,8 @@ export const __test__ = {
   extractClaims,
   groupClaims,
   judgeEntry,
+  resolveVerdict,
+  chooseListing,
   isPathClaim,
   isSymbolClaim,
   expandBraces,

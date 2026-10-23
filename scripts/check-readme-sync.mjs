@@ -333,6 +333,16 @@ export function analyze(opts = {}) {
     String(gitA(['rev-list', '--count', `${out.start}..HEAD`], root)).trim() || '0',
   )
 
+  // ── 窗口起点就是被审面 ⇒ 无区间可审(先于 diff 判,免得把"同一枚提交"报成"0 处改动") ──
+  if (out.start === out.faceSha) {
+    out.notes.push({
+      kind: 'same-face',
+      text: `窗口起点(${out.start.slice(0, 8)})与被审面同一枚提交 ⇒ 无区间可审;新增 0 项的依据是"没有区间",不是"区间里没有"`,
+    })
+    out.elapsedMs = Date.now() - t0
+    return out
+  }
+
   // ── 一次全量 diff 同时供"有依据的 0"与盲区点名用 ──
   const allChanged = changedFiles(root, out.start, face, [])
   const capChanged = allChanged.filter((p) => surface.isCapabilitySourceFile(p))
@@ -374,10 +384,7 @@ export function analyze(opts = {}) {
     )
 
   let added
-  if (out.start === out.faceSha) {
-    added = []
-    out.notes.push({ kind: 'same-face', text: '窗口起点与被审面同一枚提交 ⇒ 无区间可审' })
-  } else {
+  {
     const apiBase = apiFaceAt(root, out.start)
     const pageBase = pageFaceAt(root, out.start)
     let apiAdded = []

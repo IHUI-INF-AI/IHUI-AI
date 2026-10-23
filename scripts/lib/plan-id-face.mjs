@@ -328,15 +328,46 @@ export function familyMaxOn(text, family = PRIMARY_FAMILY) {
  * 返回 `Set<number>`;空集 = 该族零命中,不是"没扫"(入参由调用方保证是真面文本)。
  */
 export function scanFamilyIds(text, family) {
+  const hits = scanFamilyIdHits(text, family)
+  return hits === null ? new Set() : new Set(hits.keys())
+}
+
+/** 号命中位置片段的左右窗(字符数)。只用于报告点名的证据锚,不是判据。 */
+const HIT_SNIPPET_LEFT = 16
+const HIT_SNIPPET_RIGHT = 28
+
+/**
+ * 全文件扫描的**带位置视图**(G-14 补完,2026-10-23):`scanFamilyIds` 只答"哪些号出现过",
+ * 而取号器跳过一枚候选号时必须回答**"它出现在哪"(票面出路①原话:逐枚打印被跳过的号与它被命中的原因)** ——
+ * 只说"G-904 已被占"的运维读不出该去核哪一行,于是下一个人会当成误报把这一维关掉(失效方向是安静)。
+ *
+ * 形状与 `scanFamilyIds` **同一份实现**(它是本函数投影,不另写一条正则):
+ *  - 返回 `Map<number, {id:number, sites:[{line:number, col:number, snippet:string}]}>`;
+ *  - `sites` 按出现顺序,**行号是 1 基、列号也是 1 基**,`snippet` 是命中点前后有界窗口(已 trim);
+ *  - 输入不是字符串 / 族名取不出 ⇒ **`null`(判不出)**,绝不返回空 Map —— 空 Map 是"扫过且零命中",
+ *    两者并桶正是本仓最高频失效型(§0.3)。调用方拿到 null 必须拒绝发号。
+ */
+export function scanFamilyIdHits(text, family) {
   const want = String(family ?? '').replace(/[^A-Za-z]/g, '')
-  const out = new Set()
-  if (!want) return out
+  if (typeof text !== 'string' || !want) return null
   const re = new RegExp(`(?<![A-Za-z0-9])${want}[-_ ]?(\\d+)`, 'gi')
-  for (const m of String(text ?? '').matchAll(re)) {
-    const n = Number(m[1])
-    if (Number.isFinite(n)) out.add(n)
+  const hits = new Map()
+  const lines = text.split(/\r?\n/)
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]
+    if (!line) continue
+    for (const m of line.matchAll(re)) {
+      const n = Number(m[1])
+      if (!Number.isFinite(n)) continue
+      const at = m.index
+      const from = Math.max(0, at - HIT_SNIPPET_LEFT)
+      const to = Math.min(line.length, at + m[0].length + HIT_SNIPPET_RIGHT)
+      const rec = hits.get(n) ?? { id: n, sites: [] }
+      rec.sites.push({ line: i + 1, col: at + 1, snippet: line.slice(from, to).trim() })
+      hits.set(n, rec)
+    }
   }
-  return out
+  return hits
 }
 
 /**
@@ -789,6 +820,7 @@ export const __test__ = {
   joinFace,
   familyMaxOn,
   scanFamilyIds,
+  scanFamilyIdHits,
   usedLowIds,
   resolveSource,
   transport: ID_FACE_TRANSPORT,
