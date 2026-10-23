@@ -155,18 +155,23 @@ export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
       })
       .where(eq(aiRelayAccountPool.id, row.id))
     return true
-  } catch {
+  } catch (e) {
     const failures = row.refreshFailureCount + 1
     const shouldRemove = failures >= REFRESH_FAILURE_LIMIT
+    // 失败原因必须自己带出来:原先 catch 把异常整个吞掉,只有撞上限那一次才写一句
+    // "连续 N 次刷新失败"—— 于是面板与台账上都看不出到底是 cookie 死了、票被顶掉还是代码错,
+    // 机主只能盲猜(2026-10-23 实测就是这么绕了一圈)。
+    const reason = e instanceof Error ? e.message : String(e)
+    const note = `token 刷新失败(第 ${failures}/${REFRESH_FAILURE_LIMIT} 次):${reason}${
+      shouldRemove ? ' ⇒ 连续超限,已自动摘除' : ''
+    }`
     await db
       .update(aiRelayAccountPool)
       .set({
         refreshFailureCount: failures,
         tempUnschedulable: shouldRemove ? true : row.tempUnschedulable,
         healthStatus: shouldRemove ? 'down' : row.healthStatus,
-        lastErrorMessage: shouldRemove
-          ? `连续 ${failures} 次 token 刷新失败,已自动摘除`
-          : row.lastErrorMessage,
+        lastErrorMessage: note.slice(0, 500),
         updatedAt: new Date(),
       })
       .where(eq(aiRelayAccountPool.id, row.id))

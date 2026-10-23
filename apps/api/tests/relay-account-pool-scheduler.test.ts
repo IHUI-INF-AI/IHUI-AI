@@ -259,4 +259,36 @@ describe('可再取凭据的候选谓词(cookie 通道必须在内)', () => {
     expect(render(m.downRecoveryWhere()).text).toContain(both.toLowerCase())
   })
 })
+
+/**
+ * 刷新失败原因的可见性(2026-10-23 立)。
+ * 原形态:catch 把异常整个吞掉,只有撞上限那一次写一句"连续 N 次刷新失败",
+ * 于是"cookie 死了 / 票被顶掉 / 代码错"三种成因在账面上一模一样 —— 本机为分辨它们
+ * 跑了四型对照才定下来。失效方向必须是"多留一条可读原因",不能是静默。
+ */
+describe('refreshOne 失败原因必须带出来', () => {
+  it('未超限 ⇒ 写原因、不写摘除;超限 ⇒ 原因与摘除并列', async () => {
+    const { refreshOne } = await import('../src/services/relay-account-pool-scheduler.js')
+    registerRelayAdapter({
+      providerCode: 'trae',
+      refreshToken: vi.fn(async () => {
+        throw new Error('Trae GetUserToken 失败(HTTP 401): code=1001')
+      }),
+    } as never)
+
+    await refreshOne(sweepRow({ refreshFailureCount: 0 }) as never)
+    const first = updateCalls[updateCalls.length - 1] as Record<string, unknown>
+    expect(String(first.lastErrorMessage)).toContain('GetUserToken 失败(HTTP 401)')
+    expect(String(first.lastErrorMessage)).toContain('第 1/')
+    expect(String(first.lastErrorMessage)).not.toContain('已自动摘除')
+    expect(first.tempUnschedulable).not.toBe(true)
+
+    updateCalls.length = 0
+    await refreshOne(sweepRow({ refreshFailureCount: 99 }) as never)
+    const last = updateCalls[updateCalls.length - 1] as Record<string, unknown>
+    expect(String(last.lastErrorMessage)).toContain('GetUserToken 失败(HTTP 401)')
+    expect(String(last.lastErrorMessage)).toContain('已自动摘除')
+    expect(last.tempUnschedulable).toBe(true)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
