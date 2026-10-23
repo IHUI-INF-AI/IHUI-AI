@@ -33,6 +33,8 @@ const WALLETS = [
     id: 'usdtTrc20',
     icon: null,
     emoji: '₮',
+    // 权威值在 env USDT_TRC20_ADDRESS(2026-10-06 机主拍板:取本页已上线的收款地址);
+    // 本行只是投影,待公开配置端点化后改为从接口读取。锁:apps/api/tests/sponsor-usdt-address-source.test.ts
     address: 'TMtTpPEMduWurHLi6Fe8XjfcP5Y5AMMnbG',
     explorer: 'https://tronscan.org/#/address/',
     recommended: true,
@@ -41,7 +43,7 @@ const WALLETS = [
     id: 'usdtErc20',
     icon: null,
     emoji: '₮',
-    // 权威值在 env USDT_ERC20_ADDRESS(0x26e359a5…79dd),2026-10-06 与 env 对齐;待后续公开配置端点化后改为从接口读取。
+    // 权威值在 env USDT_ERC20_ADDRESS(0x26e359a5…79dd),2026-10-06 与 env 对齐;待后续公开配置端点化后改为从接口读取。锁:apps/api/tests/sponsor-usdt-address-source.test.ts
     address: '0x26e359a5c69cf903d8709a286f5fd2d7554579dd',
     explorer: 'https://etherscan.io/address/',
     recommended: false,

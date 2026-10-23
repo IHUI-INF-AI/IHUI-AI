@@ -166,11 +166,18 @@ export const INPUT_AREA_GLYPH_LG_PX = 26
 export const INPUT_AREA_THUMB_GLYPH_PX = 24
 
 /**
- * 【B 单端档·RN】控件字形 14(放大/缩小 ⤢ 字符):RN 收编前写 15。
- * 依据:裁决规则 4 —— 字号只能落既有档(12/14/18/24),15 不在档上,就近取较小档 14。
- * 另一端(小程序)这一位置是 PNG 素材、无字号数字,故不构成把某端拉偏。
+ * 【A 两端同值】控件字形档 —— 值就是几何表的 `controlGlyph`,本文件不再抄第二份 14。
+ * 依据:裁决规则 4 —— 字号只能落既有档(12/14/18/24),RN 收编前写 15 不在档上,就近取 14。
+ * 两条腿的消费面(共用这一枚常数,不再一档多名):
+ *  - RN:`inputBare` 框内 ⤢/⤡ 字符字号、模型行 ChevronDown、附件删除 X、放大钮字形;
+ *  - 小程序 ai-home:发送/清空图标墨迹、加号(附件钮)墨迹。
+ * 历史(本票收的口):上面两枚小程序档此前各挂一枚别名
+ * `INPUT_AREA_AI_HOME_ICON_BOX_PX`(注释写 25)与 `INPUT_AREA_AI_HOME_ADD_GLYPH_PX`(注释写 22),
+ * 而"首页活体 ai-home 发送/附件键与 RN 同档"那一票已经把两枚别名的**值**改指 `controlGlyph`,
+ * 别名与注释却留在原地 —— 同一档挂三个名字,注释还在声称"与 RN 不成对",账面与实态互相打脸。
+ * 现并成一名:别名摘除,两端一律引本常数;数值 14 未动,两端观感零变化。
  */
-export const INPUT_AREA_CONTROL_GLYPH_PX = 14
+export const INPUT_AREA_CONTROL_GLYPH_PX = GEOMETRY_PX.controlGlyph
 
 /**
  * 【B 单端档·RN】语音/键盘切换钮盒宽 32。
@@ -327,12 +334,6 @@ export const INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX = 146
  */
 export const INPUT_AREA_AI_HOME_SEND_ICON_MARGIN_PX = 9
 
-/**
- * 【B 单端档·小程序】ai-home 原项目图标盒 25(=50rpx 方形:语音钮盒宽、发送/清空图标)。
- * 与 RN 的 40/44 实底钮不同形态(裸图标无底),故不成对。
- */
-export const INPUT_AREA_AI_HOME_ICON_BOX_PX = GEOMETRY_PX.controlGlyph
-
 /** 【B 单端档·小程序】ai-home 行内 10rpx 留白(表情面板与输入条之间、清空图标与发送图标之间)= 5。 */
 export const INPUT_AREA_AI_HOME_INLINE_GAP_PX = 5
 
@@ -353,18 +354,12 @@ export const INPUT_AREA_AI_HOME_EMOJI_CELL_PX = 30
 export const INPUT_AREA_GLYPH_MD_PX = 20
 
 /**
- * 【B 单端档·小程序】ai-home 加号(附件钮)墨迹 22(= `.search-box2-img` 的 44rpx)。
- * 与上面 20 那一档不同形:20 是 RN 与小程序 default 变体共享的档,而 ai-home 这一枚是复刻
- * 原项目的 44rpx 内联盒(RN 端同一功能走共享 `PlusButton` 实底钮,墨迹 16/26 两档另有形态),
- * 强行并档会改写首页输入条的观感,故登记为单端档,换算入表以免端内裸数字。
- */
-export const INPUT_AREA_AI_HOME_ADD_GLYPH_PX = GEOMETRY_PX.controlGlyph
-
-/**
  * 【B 单端档·小程序】ai-home 放大/缩小钮墨迹 24(= 收编前位图内联 `rpx(48)`)。
- * RN 端同一处不是矢量图标:输入框里是 `⤢`/`⤡` 字符(`INPUT_AREA_CONTROL_GLYPH_PX` 14),
+ * RN 端同一处不是矢量图标:输入框里是 `⤢`/`⤡` 字符(取 `INPUT_AREA_CONTROL_GLYPH_PX`),
  * 底部辅助行才是 lucide `Maximize` 18 —— 三处三种载体,取值不同形,故本档只登记小程序这一枚,
  * 数值取原位图墨迹盒以免改观感。
+ * (加号/发送/清空三处墨迹**不在本档**:它们与 RN 的控件字形同槽同档,统一引
+ * `INPUT_AREA_CONTROL_GLYPH_PX`,见那一枚的"历史"段。)
  */
 export const INPUT_AREA_AI_HOME_EXPAND_GLYPH_PX = 24
 
