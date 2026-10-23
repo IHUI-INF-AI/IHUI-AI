@@ -29007,3 +29007,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 另有 7 个脚本的 `--self-test` 仍走 `os.tmpdir()`(`check-workspace-dep-links` / （认领已释放@2026-10-23/stale-claim-strip#mvkkixmx-1） (持有行题面「另有7个脚本的--self-test仍走os」)
 
 
+
