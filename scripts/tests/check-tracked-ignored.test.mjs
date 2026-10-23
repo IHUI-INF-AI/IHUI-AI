@@ -14,6 +14,10 @@
  * 于是 HEAD 里 25 条存量每轮全判红,与头注"存量只报数"自相矛盾(§12e)。T6–T11 用
  * 源脚本的 `evaluate(root)` 在 scratch 真仓里钉住三档退出码:全量有存量 ⇒ 0、
  * `--staged` 新增 ⇒ 1、取不到面 ⇒ 2、`--strict` 问责档 ⇒ 只有带旗才判红。
+ *
+ * 同日回填台账 exemptions(第四轮收敛里该特性所在路径被声明式取对侧取代,随即重落地):
+ * T12/T13 钉"staged 档认 G-926 台账 —— 登记且未过期 ⇒ 放行但逐条点名、过期 ⇒ 回 red",
+ * W1–W4 钉纯判据 `classifyWithLedger` 的两桶口径与目录边界前缀。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -24,7 +28,7 @@ import { join } from 'node:path'
 import { __test__ as G } from '../check-tracked-ignored.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { classifyAdded, ignoredAmong, evaluate } = G
+const { classifyAdded, ignoredAmong, classifyWithLedger, evaluate } = G
 
 /** 在 scratch 里起一个真仓:`.ihui-agent/*` 忽略,其余不忽略(与主仓同一条规则形态) */
 function scratchRepo() {
@@ -199,6 +203,42 @@ describe('check-tracked-ignored:staged 档不得被削弱(本次新增仍必须�
       rmScratch(dir)
     }
   })
+
+  it('T12 --staged 档认 G-926 台账:登记且未过期的目录 ⇒ exit 0,逐条点名但放行', () => {
+    const { dir, run } = scratchRepo()
+    try {
+      run('add', '-f', '.ihui-agent/tmp/ledger-1.md')
+      const r = evaluate(['--staged'], {
+        root: dir,
+        ledger: [{ dir: '.ihui-agent/tmp', until: '2099-12-31' }],
+      })
+      assert.equal(r.code, 0)
+      assert.deepEqual(r.bad, [], '台账内的新增不得判红(否则就是第二把尺子,§0.6)')
+      assert.deepEqual(r.exempt, [
+        { path: '.ihui-agent/tmp/ledger-1.md', dir: '.ihui-agent/tmp', until: '2099-12-31' },
+      ])
+      // 豁免不是静默通过:点名行必须在 stdout 里(台账上与日志上看得见的是同一份)
+      assert.ok(r.stdout.some((l) => l.includes('按 G-926 台账放行')))
+    } finally {
+      rmScratch(dir)
+    }
+  })
+
+  it('T13 台账到期 ⇒ 自动回到 red(登记过不等于永远免)', () => {
+    const { dir, run } = scratchRepo()
+    try {
+      run('add', '-f', '.ihui-agent/tmp/ledger-1.md')
+      const r = evaluate(['--staged'], {
+        root: dir,
+        ledger: [{ dir: '.ihui-agent/tmp', until: '2020-01-01' }],
+      })
+      assert.equal(r.code, 1)
+      assert.deepEqual(r.bad, ['.ihui-agent/tmp/ledger-1.md'])
+      assert.deepEqual(r.exempt, [])
+    } finally {
+      rmScratch(dir)
+    }
+  })
 })
 
 describe('check-tracked-ignored:取不到被审面 ⇒ exit 2(未判定)', () => {
@@ -224,6 +264,46 @@ describe('check-tracked-ignored:取不到被审面 ⇒ exit 2(未判定)', () =>
     } finally {
       rmScratch(dir)
     }
+  })
+})
+
+describe('classifyWithLedger:认 G-926 台账,不做第二把尺子', () => {
+  const today = '2026-10-23'
+  const ledger = [
+    { dir: '.ihui-agent/archive', until: '2027-04-21' },
+    { dir: 'apps/ai-service/app/skills/content_engine/articles', until: '2026-10-22' },
+  ]
+
+  it('W1 落在已登记且未过期的目录 ⇒ 放行,但**要点名**出来(不是静默通过)', () => {
+    const r = classifyWithLedger(['.ihui-agent/archive/AGENTS_trim-x.md'], ledger, today)
+    assert.deepEqual(r.red, [])
+    assert.deepEqual(r.exempt, [
+      {
+        path: '.ihui-agent/archive/AGENTS_trim-x.md',
+        dir: '.ihui-agent/archive',
+        until: '2027-04-21',
+      },
+    ])
+  })
+
+  it('W2 台账到期 ⇒ 自动回到 red(登记过不等于永远免)', () => {
+    const r = classifyWithLedger(
+      ['apps/ai-service/app/skills/content_engine/articles/x.md'],
+      ledger,
+      today,
+    )
+    assert.equal(r.exempt.length, 0)
+    assert.deepEqual(r.red, ['apps/ai-service/app/skills/content_engine/articles/x.md'])
+  })
+
+  it('W3 不在台账里的目录 ⇒ red(这正是本门存在的理由)', () => {
+    const r = classifyWithLedger(['.ihui-agent/tmp/plan-pointer-purge-x-1.md'], ledger, today)
+    assert.deepEqual(r.red, ['.ihui-agent/tmp/plan-pointer-purge-x-1.md'])
+  })
+
+  it('W4 前缀必须按目录边界匹配:`…/articles-old/` 不得借 `…/articles` 的豁免', () => {
+    const r = classifyWithLedger(['.ihui-agent/archive-old/x.md'], ledger, today)
+    assert.deepEqual(r.red, ['.ihui-agent/archive-old/x.md'])
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -13,6 +13,20 @@
  * 而这一型恰恰最贵:账面说"做完了",于是它留在派单口径外(或不留),别的会话既可能重做,
  * 也可能永远不去做 —— 两边都错。
  *
+ * 【2026-10-23 收窄:声称必须长在登记行本体上】
+ * 此前 `extractClaims` 的形状是"遇 `- [ ]` 行设 currentId,其后**所有行**都沿用这个 currentId 抽声称"。
+ * 于是散文/注释行既冒充了别人的票号,又把"文中明写自己不存在"的叙述算成实物缺口 —— 现读"缺 11 条"
+ * 里 11/11 都不在 `- [ ]` 登记行本体上(逐条形态见镜像测试),报出来的"声称方:82/10/35/O81"整串不可用。
+ * 分档改为三档,判序单向收窄(只减误报,不减覆盖面):
+ *   ① 登记行本体(`^[-*] [ ]`)的声称 ⇒ 照旧走 C1/C2/C3,判缺 ⇒ 进**判红集**;
+ *   ② 登记行之外的叙述行(散文、注释、前置段落、已勾行的续行)的声称 ⇒ **仍逐条量 HEAD 实物**,
+ *      但缺物只能落 undetermined(reason=narrative-source)并逐条点名:不冒红也不记绿(§0.3)。
+ *      这是可追责的一档,不是"从此无人管"——它把出处写成**该行自己的原文片段**(内容锚点),
+ *      不再继承任何票号;
+ *   ③ 已勾行 `- [x]` ⇒ 按 §1 完成即删,整行不参与判定。
+ * 红线没动:②永远吃不到"票面声称已入库而任何 ref 无实物"那一型,因为那一型的定义就是**登记行**
+ * 上的声称(D35/D36/D43 一族)—— 判红面仍是①,镜像测试用真 git 探针钉住"登记行上凭空造的路径照红"。
+ *
  * 判据(三类可机检声称,只从**未完成条目** `- [ ]` 里抽 —— 已勾行按 §1 完成即删,不该再判):
  *   C1 反引号里的路径形态 `path/file.ext`(ext ∈ 已知源码/迁移扩展名)⇒ 必须 `git cat-file -e HEAD:<path>`
  *   C2 迁移文件名 `NNNN_*.sql` ⇒ 必须在 HEAD 的迁移目录里存在(按 §5/守门 49 的 journal 口径)
@@ -40,7 +54,8 @@
  *   按 §12 不往在飞 runner 里加块),也不在 `scripts/lib/pre-commit-hook.js` ⇒ 没有紧急跳过变量生效点。
  *   接线前置(写在这是为了不让下一手顺手升档):① 基线文件先随建门枚落地(基线按 §0.4 取 HEAD 面,
  *   所以建门当轮本门必判"未判定",这是设计而非故障);② C3 具名符号那一维先量过全树 grep 的耗时再决定开不开;
- *   ③ 存量(现读 26 条真缺 + 44 条判不准)清零才谈 blocking,否则就是 §12e 的恒红门。
+ *   ③ 存量(2026-10-23 收窄前的读数 26 条真缺 + 44 条判不准,只作历史参照;
+ *      收窄后的现值以本门当次运行为准)清零才谈 blocking,否则就是 §12e 的恒红门。
  * * 定级:**warn 起步**。存量非零时上 blocking 就是恒红门(§12e);升档前置 = 本门在被审面
  * 现读违规归零,且逐条误报都已被 C1–C3 的收窄规则消化。应急放行:
  * `HUSKY_SKIP_PLAN_CLAIMS_VS_HEAD=1`(注册条目与 skipEnv 一律以 guardian-runner.mjs 现值为准)。
@@ -88,6 +103,11 @@ const SOURCE_EXTS = new Set([
 ])
 /** C2:迁移文件名(`NNNN_...sql`),journal 口径的记账对象。 */
 const MIGRATION_RE = /\b(\d{4}_[A-Za-z0-9_\-]+\.sql)\b/
+/** 登记行本体(未完成条目)= 抽"可判红声称"的唯一面。行首不允许缩进:
+ *  缩进的复选框在台账里是叙述里的示例/子条,归它只会把判红面凭空扩大(收窄必须是减法)。 */
+const OPEN_ROW_RE = /^[-*]\s+\[\s]/
+/** 已勾行:§1 完成即删,整行(含其续行)不再参与判定。 */
+const CLOSED_ROW_RE = /^\s*[-*]\s+\[[xX]\]/
 /** C3:具名符号 —— 宁窄勿宽:反引号内裸标识符,小写开头、长度 ≥ 6、不含常见散文词。 */
 const SYMBOL_RE = /^[a-z][a-z0-9_]{5,}$/
 
@@ -198,35 +218,40 @@ function isSymbolClaim(token) {
 }
 
 /**
- * 从台账 HEAD 面抽声称。返回 {claims:[{rowId,line,kind,target}], stat}
- * 未完成条目 = 行首 `- [ ]`(允许夹带认领牌括号)。
+ * 从台账 HEAD 面抽声称。返回 `{claims,stat}`,claims 里每条带 `source`:
+ *   - `'row'`       ⇒ 声称长在**未完成登记行本体**(`^[-*] [ ]`)上,`rowId` 是该行自己的编号;
+ *   - `'narrative'` ⇒ 长在登记行之外(散文/注释/前置段落/已勾行的续行),`rowId` 恒为空,
+ *                     出处只用该行原文片段 `anchor` —— **绝不继承上一登记行的编号**(那是本门
+ *                     现读"缺 11 条"全部误报的机制:11/11 都不在登记行本体上)。
+ * 已勾行 `- [x]` 整行不参与判定(§1 完成即删)。
  */
 export function extractClaims(docText) {
   const claims = []
-  const stat = { openRows: 0, withClaims: 0, undetermined: 0, symbolsSkipped: 0 }
+  const stat = { openRows: 0, withClaims: 0, undetermined: 0, symbolsSkipped: 0, narrativeClaims: 0 }
   const rows = docText.split(/\r?\n/)
-  let currentId = ''
   for (const line of rows) {
-    const isOpen = /^[-*]\s+\[\s]/.test(line)
-    if (/^\s*[-*]\s+\[[xX]\]/.test(line)) continue
+    if (CLOSED_ROW_RE.test(line)) continue
+    const isOpen = OPEN_ROW_RE.test(line)
+    let owner = ''
     if (isOpen) {
       stat.openRows += 1
       // 行身份:取 G-NNN / DNN / 纯数字编号,取不到就用行首 40 字
       const idm = line.match(/\b(G-\d+|D\d+[a-z]?|O\d+[a-z]?|P\d+-F\.\d+|W\d+|B\d+|\d{1,3})\b/)
-      currentId = idm ? idm[1] : line.slice(0, 40).trim()
+      owner = idm ? idm[1] : line.slice(0, 40).trim()
     }
-    if (!isOpen && !currentId) continue
-    const owner = currentId || '(前置段落)'
+    // 叙述行的出处锚点 = 该行自己的原文片段(内容锚点,不用行号:行号一次 append 就挪位)
+    const anchor = isOpen ? '' : line.trim().slice(0, 80)
+    const source = isOpen ? 'row' : 'narrative'
     let found = 0
     for (const tok of backticked(line)) {
       if (isPathClaim(tok)) {
         for (const one of expandBraces(tok)) {
           if (!OUR_ROOTS.has(one.split('/')[0])) continue
-          claims.push({ rowId: owner, kind: 'path', target: one })
+          claims.push({ rowId: owner, anchor, kind: 'path', target: one, source })
           found += 1
         }
       } else if (MIGRATION_RE.test(tok)) {
-        claims.push({ rowId: owner, kind: 'migration', target: tok.match(MIGRATION_RE)[1] })
+        claims.push({ rowId: owner, anchor, kind: 'migration', target: tok.match(MIGRATION_RE)[1], source })
         found += 1
       } else if (isSymbolClaim(tok)) {
         // C3 默认**不判**:每条具名符号都要在 HEAD 全树跑一次 git grep(本仓 2.5G),
@@ -234,28 +259,75 @@ export function extractClaims(docText) {
         // 超时被跳)。要开走 `PLAN_CLAIMS_SYMBOLS=1`,开之前先量耗时再谈接线。
         stat.symbolsSkipped += 1
         if (process.env.PLAN_CLAIMS_SYMBOLS === '1') {
-          claims.push({ rowId: owner, kind: 'symbol', target: tok })
+          claims.push({ rowId: owner, anchor, kind: 'symbol', target: tok, source })
           found += 1
         }
       } else if (MIGRATION_RE.test(tok.replace(/\s/g, ''))) {
         stat.undetermined += 1
       }
     }
-    if (found > 0) stat.withClaims += 1
+    if (found > 0) {
+      if (isOpen) stat.withClaims += 1
+      else stat.narrativeClaims += found
+    }
   }
   return { claims, stat }
 }
 
-/** 去重:同一 target 在多条行里被反复引用时只判一次,但保留全部出处行。 */
+/** 去重:同一 target 在多条行里被反复引用时只判一次,但保留全部出处。
+ *  归属取**登记行优先**:同一 target 只要在任何登记行本体上出现过一次,它就归 `'row'`
+ *  (判红射程内);只在叙述里出现过的才归 `'narrative'`(判不准档,点名不判红)。 */
 export function groupClaims(claims) {
   const byTarget = new Map()
   for (const c of claims) {
     const key = `${c.kind}:${c.target}`
-    if (!byTarget.has(key)) byTarget.set(key, { kind: c.kind, target: c.target, rows: [] })
+    if (!byTarget.has(key)) {
+      byTarget.set(key, { kind: c.kind, target: c.target, rows: [], anchors: [], source: c.source })
+    }
     const e = byTarget.get(key)
-    if (!e.rows.includes(c.rowId)) e.rows.push(c.rowId)
+    if (c.source === 'row') e.source = 'row'
+    if (c.rowId && !e.rows.includes(c.rowId)) e.rows.push(c.rowId)
+    if (c.anchor && e.anchors.length < 6 && !e.anchors.includes(c.anchor)) e.anchors.push(c.anchor)
   }
   return [...byTarget.values()]
+}
+
+/**
+ * 分档单源(§22c:这条归属规则只许写在这里,main 与测试都 import 它)。
+ * 叙述行上的"缺实物"降为判不准,**保留原始 evidence**(不许把"从未在 HEAD 史出现"洗掉),
+ * 登记行上的照原样返回 —— 判红面一条不减,只是不再让散文替别人背票号。
+ */
+export function resolveVerdict(entry, verdict) {
+  if (entry.source === 'narrative' && verdict.verdict === 'missing') {
+    return {
+      verdict: 'undetermined',
+      reason: 'narrative-source',
+      evidence: verdict.evidence,
+    }
+  }
+  return verdict
+}
+
+/**
+ * 打印选择单源(§5e-1:挂到人眼前的每一行,收信人必须能据此动手)。
+ * 旧写法 `added.length > 0 ? added : missing.slice(0, 0)` 让"无新增但有存量"这一档
+ * **一行都不印** ⇒ 读的人既不知道存量是谁,也无从整改。现在三档都点名(有界):
+ *   - 新增全列(它们是拦截项,不能被截断藏起来),存量补到 `cap`;
+ *   - 只有存量 ⇒ 存量逐条点名前 `cap` 条 + 其余计数;
+ *   - 无基线 ⇒ 只列事实,不据以判红判绿。
+ */
+export function chooseListing({ added, missing, cap = 15 }) {
+  const addedSet = new Set(added)
+  const limit = added.length > 0 ? added.length + cap : cap
+  const order =
+    added.length > 0 ? [...added, ...missing.filter((m) => !addedSet.has(m))] : missing
+  const shown = order.slice(0, limit)
+  return {
+    shown,
+    omitted: order.length - shown.length,
+    isAdded: (m) => addedSet.has(m),
+    mode: added.length > 0 ? 'added+stock' : missing.length > 0 ? 'stock-only' : 'clean',
+  }
 }
 
 /**
@@ -331,9 +403,10 @@ function main() {
   ).split(',')
   const { claims, stat } = extractClaims(text)
   const grouped = groupClaims(claims)
-  if (grouped.length === 0) {
+  if (grouped.length === 0 || !grouped.some((g) => g.source === 'row')) {
     console.log(
-      `⚠️  未抽到任何可机检声称(未完成条目 ${stat.openRows} 行 / 判不准 ${stat.undetermined} 处)⇒ 未判定,不得读成"通过"`,
+      `⚠️ 登记行本体上未抽到任何可机检声称(未完成条目 ${stat.openRows} 行 / 叙述行声称 ${stat.narrativeClaims} 处 / 判不准 ${stat.undetermined} 处)` +
+        `⇒ 未判定,不得读成"通过"(§0.3:枚举到 0 判死;判红面只有登记行本体)`,
     )
     process.exit(2)
   }
@@ -407,10 +480,14 @@ function main() {
   const missing = []
   const undetermined = []
   let ok = 0
+  let rowClaims = 0
   for (const e of grouped) {
-    const r = judgeEntry(e, { catFile, grepHead, migrationDirs, isIgnored, removedSha })
+    if (e.source === 'row') rowClaims += 1
+    const raw = judgeEntry(e, { catFile, grepHead, migrationDirs, isIgnored, removedSha })
+    const r = resolveVerdict(e, raw)
     if (r.verdict === 'missing') missing.push({ ...e, evidence: r.evidence })
-    else if (r.verdict === 'undetermined') undetermined.push({ ...e, evidence: r.evidence, reason: r.reason })
+    else if (r.verdict === 'undetermined')
+      undetermined.push({ ...e, evidence: r.evidence, reason: r.reason })
     else ok += 1
   }
   const baseline = loadBaseline()
@@ -420,29 +497,39 @@ function main() {
   const carried = missing.length - added.length
   console.log(
     `[plan-claims] 判定面=HEAD blob(${DOC}) · 未完成条目 ${stat.openRows} 行 · 声称 ${grouped.length} 条` +
-      `(在 ${ok} / 缺 ${missing.length} / 判不准 ${undetermined.length})` +
+      `(登记行本体 ${rowClaims} 条 = 判红射程 / 叙述行 ${grouped.length - rowClaims} 条 = 只点名不判红)` +
+      ` · 在 ${ok} / 缺 ${missing.length} / 判不准 ${undetermined.length}` +
       ` · C3 具名符号 ${stat.symbolsSkipped} 处默认不判(全树 grep 耗时未量;开档 PLAN_CLAIMS_SYMBOLS=1)`,
   )
   if (baseline === null) {
     console.log(`⚠️  基线 ${BASELINE_REL} 取不到或形状不对 ⇒ 未判定(下方只列事实,不据以判红判绿)`)
   } else {
+    const hit = missing.filter((m) => baseSet.has(`${m.kind}:${m.target}`)).length
     console.log(
-      `  [差值] 基线 ${baseSet.size} 条 · 存量只报数 ${carried} · 新增判红 ${added.length}`,
+      `  [差值] 基线 ${baseSet.size} 条(本次仍命中 ${hit} 条,余 ${baseSet.size - hit} 条已不在缺集:口径收窄或已补齐 ⇒ 不作放行依据,基线需随口径重造) · 存量只报数 ${carried} · 新增判红 ${added.length}`,
     )
   }
-  const listed = baseline === null ? missing : added.length > 0 ? added : missing.slice(0, 0)
-  for (const m of listed.slice(0, 30)) {
+  const listing = chooseListing({ added, missing })
+  for (const m of listing.shown) {
     console.log(
-      `  ❌ [${m.kind}] ${m.target} — ${m.evidence} · 声称方:${m.rows.slice(0, 4).join(',')}`,
+      `  ${listing.isAdded(m) ? '❌ 新增' : '⚠️ 存量'} [${m.kind}] ${m.target} — ${m.evidence} · 声称方(登记行):${m.rows.slice(0, 4).join(',')}`,
     )
   }
-  if (listed.length > 30) console.log(`  · … 其余 ${listed.length - 30} 条`)
+  if (listing.omitted > 0) console.log(`  · … 其余 ${listing.omitted} 条未点名`)
+  if (listing.mode === 'stock-only') {
+    console.log(
+      `  ↳ 上面这些是**基线内存量**:只报数、不拦提交(§12e 恒红门禁令);整改出口 = 把该行改成真实路径,或补齐实物,或从基线 ${BASELINE_REL} 里显式剔除该条`,
+    )
+  } else if (listing.mode === 'clean' && baseline !== null) {
+    console.log('  ↳ 本次既无新增也无存量缺物,故无逐条点名。')
+  }
   if (undetermined.length > 0) {
     const REASON_LABEL = {
       gitignored: '按设计不入提交面(.gitignore 命中)',
       retired: 'HEAD 史里被删(点名删除枚)',
       'parent-dir-absent': '父目录不在 HEAD(疑似别仓引用)',
       'probe-silent': '探针取不到结论',
+      'narrative-source': '叙述行(非登记行本体)提到而 HEAD 无实物',
     }
     const byReason = new Map()
     for (const u of undetermined) {
@@ -459,9 +546,14 @@ function main() {
     // 判不准也要逐条点名:只报计数 = 下一手既不知道是谁,也无从判"这行是不是真声称存在"
     // (5e-1 可整改性:挂到人的通道前必须答得出"看了之后能做什么")。
     for (const [k, v] of byReason) {
-      const cap = k === 'retired' || k === 'gitignored' ? 12 : 4
+      const cap = k === 'retired' || k === 'gitignored' || k === 'narrative-source' ? 12 : 4
       for (const u of v.slice(0, cap)) {
-        console.log(`     · [${k}] ${u.target} — ${u.evidence} · 声称方:${u.rows.slice(0, 3).join(',')}`)
+        // 有票号 ⇒ 声称方是登记行;没票号 ⇒ 该 target 只出现在叙述里,出处必须用该行原文片段
+        const src =
+          u.rows.length > 0
+            ? `声称方(登记行):${u.rows.slice(0, 3).join(',')}`
+            : `出处(叙述行原文锚点,不占票号):${(u.anchors[0] ?? '').slice(0, 60)}`
+        console.log(`     · [${k}] ${u.target} — ${u.evidence} · ${src}`)
       }
       if (v.length > cap) console.log(`     · … [${k}] 其余 ${v.length - cap} 条未点名`)
     }
@@ -493,6 +585,8 @@ export const __test__ = {
   extractClaims,
   groupClaims,
   judgeEntry,
+  resolveVerdict,
+  chooseListing,
   isPathClaim,
   isSymbolClaim,
   expandBraces,

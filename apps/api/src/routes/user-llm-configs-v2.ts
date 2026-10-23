@@ -1079,7 +1079,8 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
         ? (res as unknown as Array<{ id: number }>)
         : ((res as { rows?: Array<{ id: number }> }).rows ?? [])
       if (rows.length === 0) return reply.status(404).send(error(404, 'group 不存在或无权限'))
-      return reply.send(success({ id: p.data.id, updated: true }))
+      // updated 由本链 UPDATE … RETURNING 的命中集派生(守门 134),不再回字面量 true。
+      return reply.send(success({ id: p.data.id, updated: rows.length > 0 }))
     } catch (e) {
       if (isSchemaMissingError(e)) {
         return reply.status(503).send(error(503, SCHEMA_NOT_READY_MSG))

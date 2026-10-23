@@ -24,22 +24,69 @@ export function bucketOf(line, rec) {
   return rec ? bucketFromFields(rec) : dispositionOf(line)
 }
 
+/** 两行逐字节对照的**首个分歧处**(只产证据,不做判定;判定永远只看等不等)。 */
+function firstDiffProbe(a, b) {
+  const limit = Math.min(a.length, b.length)
+  let i = 0
+  while (i < limit && a[i] === b[i]) i++
+  const cut = (s) => (s.length <= i ? '(一边到此已结束)' : JSON.stringify(s.slice(i, i + 12)))
+  return { at: i + 1, a: cut(a), b: cut(b) }
+}
+
 /**
- * 租约形态迁移分档(2026-10-23 立,承「台账挂牌没有合法通道」票):
- * `same` = 没牌/同一张牌;`add-complete` = 无牌 → 完整租约(日期+持有者);
- * `removed` = 牌被切掉;`changed` = 换牌/半牌/裸牌等其余形态变化。
+ * 放行档的条件③:剥掉 after 里**那一枚**新增标记(位置一律取自 `claimMarkOf`,本层不另写
+ * "牌在哪"第二把尺子,§0.6)之后,必须与 before **逐字节相等**。
+ * 也就是"唯一差异 = 插入这枚牌":正文、勾选态、其余注记、空格一个字符都没动。
+ * 牌两侧多打/少打的空格同样算"顺带改了别的东西"⇒ 拒(实测台账正形是牌紧贴 `- [ ]`,
+ * 形如 `- [ ]（进行中@2026-10-23/甲） G-123 标题`,那是从旧行逐字节插出来的,天然过这一条)。
+ * 位置量不出来 ⇒ `{ok:false}` 点名"未判定":取不到输入绝不冒绿(§0.3)。
+ * @returns {{ok:true}|{ok:false,why:string}}
+ */
+export function addedMarkIsIsolated(oldLine, newLine, mark) {
+  const o = String(oldLine ?? '')
+  const n = String(newLine ?? '')
+  const at = Number.isInteger(mark?.at) ? mark.at : null
+  const text = typeof mark?.mark === 'string' ? mark.mark : null
+  if (at === null || text === null)
+    return { ok: false, why: '未判定:claimMarkOf 没交出牌的位置(at/mark)⇒ 无从证明"只多一枚牌"' }
+  const stripped = n.slice(0, at) + n.slice(at + text.length)
+  if (stripped === o) return { ok: true }
+  const d = firstDiffProbe(stripped, o)
+  return {
+    ok: false,
+    why: `剥掉那枚牌后与旧行第 ${d.at} 个字起不再逐字节相等(旧行"${d.b}" ↔ 剥牌后"${d.a}")`,
+  }
+}
+
+/**
+ * 租约形态迁移分档(2026-10-23 立,承「台账挂牌没有合法通道」票;同日晚补齐条件③)。
+ * 放行档 = 「无牌 → 完整租约」,四个条件**同时**成立才算 `add-complete`;任一不成立就落到
+ * 自己的拒落档,由 `assertRowRewriteConservation` 点名是哪一条(§0.10:失效方向恒为"多要一次
+ * 定向说明",绝不是"多放一次跳门"):
+ *  ① `claimMarkOf(before)` 为空 —— 旧行本来没牌。摘约/换约都不在这一档,这正是"提交链上的门
+ *     绝不代摘任何人的认领"要刻意保住的那一格(摘超龄牌另有兜底器物 `strip-stale-claim-marks`);
+ *  ② `claimMarkOf(after)` 是**完整租约**(`form==='lease'` ∧ `date` ∧ `holder`,判据现读自
+ *     `claimMarkOf`/`parseLeaseForm`)—— 裸 `（进行中）`、缺日期、缺持有者一律不算,所以守门 109
+ *     的 CL4「裸牌新增即拦」不可能被本器旁路;
+ *  ③ 把 after 里那一枚新增标记剥掉后与 before **逐字节相等**(见 `addedMarkIsIsolated`);
+ *  ④ 主键维与归属桶维照常判,本档一条也不替它们放行(见 `assertRowRewriteConservation` 首尾)。
  *
- * 只放行 `add-complete` 这一档:AGENTS §1「认领即租约」要求在共享工作树里给待办加牌,
- * 而旧断言把"加牌"与"摘牌"同判 ⇒ 这条路结构上走不通(2026-10-23 实测四行加租约整批拒落)。
- * 摘牌、换持有者/日期、裸 `（进行中）` 仍一律拒:它们会改派单面的归属。
+ * 为什么必须有这一档:AGENTS §1「认领即租约」要求在共享工作树里给待办加牌,而旧断言把"加牌"与
+ * "摘牌"同判 ⇒ 这条路结构上走不通(2026-10-23 12:00 实测:四行加租约整批拒落,全仓没有合法的
+ * 挂牌通道,并发会话因此领同一张票重复做)。
  */
 export function leaseTransitionOf(oldLine, newLine) {
-  const m0 = claimMarkOf(oldLine)
-  const m1 = claimMarkOf(newLine)
+  const o = String(oldLine ?? '')
+  const n = String(newLine ?? '')
+  const m0 = claimMarkOf(o)
+  const m1 = claimMarkOf(n)
   const f0 = m0 ? m0.mark : null
   const f1 = m1 ? m1.mark : null
   if (f0 === f1) return 'same'
-  if (!f0 && m1 && m1.form === 'lease' && m1.date && m1.holder) return 'add-complete'
+  if (!f0 && f1) {
+    if (!(m1.form === 'lease' && m1.date && m1.holder)) return 'add-incomplete'
+    return addedMarkIsIsolated(o, n, m1).ok ? 'add-complete' : 'add-attached'
+  }
   if (f0 && !f1) return 'removed'
   return 'changed'
 }
@@ -47,8 +94,9 @@ export function leaseTransitionOf(oldLine, newLine) {
 /**
  * @returns {string[]} 违规列表;空 = 放行。
  * 三件分别钉:主键漂(门 71 会按缺失回捞,等于把行判死)、租约形态变化(=本器代摘)、归属桶变化(=账面虚增)。
- * 唯一放行的形态变化 = 无牌 → 完整租约(日期+持有者):那是 AGENTS §1 要求的认领动作,不是代摘;
- * 摘牌、换牌、裸牌仍拒(见 `leaseTransitionOf`)。
+ * 唯一放行的形态变化 = 「旧行本来没牌 → 新行多一枚完整租约,且除此之外逐字节不动」四条件全中
+ * (AGENTS §1 要求的认领动作,不是代摘);摘牌、换持有者、改日期、裸牌/半牌、加牌顺带改正文
+ * 仍一律拒,且**逐条点名是哪一条件不满足**(§0.10)。分档判据见 `leaseTransitionOf`。
  */
 export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, newRec = null }) {
   const o = String(oldLine ?? '')
@@ -70,14 +118,27 @@ export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, 
   const lease = leaseTransitionOf(o, n)
   if (lease === 'removed') {
     const f0 = claimMarkOf(o)?.mark ?? '(无)'
-    v.push(`租约被切掉(原牌 ${f0})⇒ 等于本器代摘他人认领`)
+    v.push(
+      `租约被切掉(原牌 ${f0})⇒ 等于本器代摘他人认领:放行档要求**旧行本来没牌**(条件①),摘约请走兜底器物 strip-stale-claim-marks`,
+    )
   } else if (lease === 'changed') {
     const f0 = claimMarkOf(o)?.mark ?? '(无)'
     const f1 = claimMarkOf(n)?.mark ?? '(无)'
-    v.push(`租约形态变化:${f0} → ${f1}`)
+    v.push(
+      `租约形态变化:${f0} → ${f1}(改持有者/改日期都是换约,本器既不代摘也不代改:**旧行本来没牌**这一条不满足,条件①)`,
+    )
+  } else if (lease === 'add-incomplete') {
+    const f1 = claimMarkOf(n)?.mark ?? '(无)'
+    v.push(
+      `加的不是完整租约:${f1}(条件②:必须 @日期/持有者 三要素齐备;裸（进行中）与半牌由守门 109 CL4「新增即拦」,本器不给它开后门)`,
+    )
+  } else if (lease === 'add-attached') {
+    const d = addedMarkIsIsolated(o, n, claimMarkOf(n))
+    v.push(
+      `加牌这一步顺带改了别的东西(条件③:${d.ok ? '(判定与分档不一致,请上报)' : d.why}):唯一差异必须只是插入这枚牌。出路=分两次定向改写:先只加牌(正文一个字都别动),再单独改正文/注记`,
+    )
   }
-  // lease === 'add-complete' 放行:AGENTS §1 要求给待办加牌,这是正当动作;
-  // 'same' 放行。摘牌/换牌/半牌仍由上面两档拒。
+  // 'add-complete'(四条件全中)与 'same'(没牌/同一张牌)放行;其余四档逐条点名。
 
   const b0 = bucketOf(o, oldRec)
   const b1 = bucketOf(n, newRec)
@@ -85,5 +146,10 @@ export function assertRowRewriteConservation({ oldLine, newLine, oldRec = null, 
   return v
 }
 
-export const __test__ = { assertRowRewriteConservation, bucketOf, leaseTransitionOf }
+export const __test__ = {
+  assertRowRewriteConservation,
+  addedMarkIsIsolated,
+  bucketOf,
+  leaseTransitionOf,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

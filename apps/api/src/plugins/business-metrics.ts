@@ -79,6 +79,25 @@ import {
  *     - ihui_traffic_family_unique_visitors{window,source,client_family}
  *     - ihui_traffic_family_breakdown_truncated{window,source}  (1 = 族分解只是下界)
  *     - ihui_traffic_aggregation_last_success_timestamp_seconds  (0 = 本进程从未聚合成功)
+ * 14. 中转号池健康(gauge,由 scheduler 的 relay-pool-gauge 刷新,见
+ *     `services/relay-pool-stats-service.ts`;两个池子 = ai_relay_key_pool 的
+ *     API key 池 + ai_relay_account_pool 的账号池。健康态是**封闭四档**
+ *     (unknown/healthy/degraded/down,唯一份见本文件 RELAY_POOL_HEALTH_STATES),
+ *     逐档开零基线 ⇒ 面板读到 down 是"库里真是 down",不会与"埋点没接"同形;
+ *     key/账号展示标签经 sanitizeIhuiLabel 洗 + 碰撞计数,基数帽同全族纪律):
+ *     - ihui_relay_key_pool_health_state{provider_code,key}        (0..3,越大越坏)
+ *     - ihui_relay_key_pool_schedulable{provider_code,key}         (1 = 选路选得到它)
+ *     - ihui_relay_key_pool_health_age_seconds{provider_code,key}  (距上次健康检查)
+ *     - ihui_relay_key_pool_keys{provider_code,state}              (每 provider 每态 key 数)
+ *     - ihui_relay_key_pool_schedulable_keys{provider_code}        (每 provider 可用 key 数)
+ *     - ihui_relay_account_pool_health_state{provider_code,account}        (0..3)
+ *     - ihui_relay_account_pool_schedulable{provider_code,account}         (0/1)
+ *     - ihui_relay_account_pool_consecutive_failures{provider_code,account}
+ *     - ihui_relay_account_pool_total_calls{provider_code,account}         (累计转发调用)
+ *     - ihui_relay_account_pool_token_expires_in_seconds{provider_code,account} (可为负 = 已过期)
+ *     - ihui_relay_account_pool_refresh_age_seconds{provider_code,account}
+ *     - ihui_relay_key_pool_refresh_last_success_timestamp_seconds / _account_pool_  (0 = 从未刷新成功)
+ *     - ihui_relay_key_pool_rows_skipped_total / _label_collisions_total  (账号池同族两枚)
  *
  * 路由通过 server.recordFunnel / recordApiCall / recordOrder / recordPayment / recordAiCall
  * 及新增的 record* 系列装饰器上报。
@@ -632,6 +651,77 @@ export interface TrafficGaugeSample {
   aggregatedAtMs?: number
 }
 
+/**
+ * 中转号池健康态封闭四档 —— **全仓唯一一份**(§0.6/§22c)。
+ *
+ * 出处:`packages/database/src/schema/ai-relay.ts` 两张池表的 `health_status`
+ * 列注释(unknown/healthy/degraded/down),admin UI 的 `PROVIDER_HEALTH_STATUSES`
+ * 是同一词表的 web 侧消费。住在指标文件是因为只有渲染侧需要"逐档开零基线"
+ * (与 OSS_DRIVER_TYPES 同例),它不引任何应用模块。
+ *
+ * 库列是 varchar(16) ⇒ 运行期**必须**过这道闸:枚举外的历史脏值不进标签、
+ * 不进数值,由调用方计入 rows_skipped(显式丢失,不悄悄少报)。
+ */
+export const RELAY_POOL_HEALTH_STATES = ['unknown', 'healthy', 'degraded', 'down'] as const
+export type RelayPoolHealthState = (typeof RELAY_POOL_HEALTH_STATES)[number]
+
+/**
+ * 健康态 → 数值(单调:越大越坏)。告警阈值因此可以直接写 `> 2`(= degraded 及以上),
+ * 不需要在 PromQL 里维护字符串排序。
+ */
+export const RELAY_POOL_HEALTH_STATE_VALUE: Record<RelayPoolHealthState, number> = {
+  unknown: 0,
+  healthy: 1,
+  degraded: 2,
+  down: 3,
+}
+
+export function isRelayPoolHealthState(value: unknown): value is RelayPoolHealthState {
+  return typeof value === 'string' && (RELAY_POOL_HEALTH_STATES as readonly string[]).includes(value)
+}
+
+/** key 池一行的投影(标签是**未洗**的原始拼接,清洗与撞检在 setter 里做)。 */
+export interface RelayPoolKeySample {
+  providerCode: string
+  /** 展示标签,约定 `${name}-p${priority}`(name 不唯一,撞了由 collisions 计数显式可见) */
+  key: string
+  healthState: RelayPoolHealthState
+  schedulable: boolean
+  /** 距上次健康检查的秒数;null = 从未检查过 ⇒ 不发这一序列(没有"编一个 0"的选项) */
+  healthAgeSeconds: number | null
+}
+
+/** 账号池一行的投影(account = uid,provider+uid 有唯一约束 ⇒ 不会撞)。 */
+export interface RelayPoolAccountSample {
+  providerCode: string
+  account: string
+  healthState: RelayPoolHealthState
+  schedulable: boolean
+  consecutiveFailures: number
+  totalCalls: number
+  /** token 距过期秒数;null = 库里无过期时刻。**可为负**(负 = 已过期) */
+  tokenExpiresInSeconds: number | null
+  /** 距上次成功刷新的秒数;null = 从未刷新过 ⇒ 不发 */
+  refreshAgeSeconds: number | null
+}
+
+/**
+ * 一次号池快照(set 语义:整组清空后重写,键消失 = 行被删/被摘,不留给幽灵序列)。
+ * 两个数组都**始终在场**(空数组 = 池子真空,与"查询失败"靠新鲜度戳区分:
+ * 失败时调用方压根不调本函数,旧值原样保留)。
+ */
+export interface RelayPoolGaugeSample {
+  keys: RelayPoolKeySample[]
+  accounts: RelayPoolAccountSample[]
+  /** 刷新成功时刻(ms);两个池各推进自己的新鲜度戳 */
+  refreshedAtMs?: number
+  /** 调用方已判定的显式丢失(健康态脏值 / 标签撞车),原样加进计数器 */
+  keyRowsSkipped?: number
+  keyLabelCollisions?: number
+  accountRowsSkipped?: number
+  accountLabelCollisions?: number
+}
+
 const ihuiState = {
   // ---- auth 7 ----
   authLoginAttemptTotal: 0,
@@ -727,6 +817,44 @@ const ihuiState = {
   trafficFamilyUniqueVisitors: new Map<string, number>(),
   /** key: window|source —— 1 = 族分解被 UA 种类预算截断(族值只剩下界,必须显式可见) */
   trafficFamilyBreakdownTruncated: new Map<string, number>(),
+  // ---- relay 号池 2(key 池 + 账号池,2026-10-23 立) ----
+  // 同 PV/UV 的架构决策:状态在模块级单例 ⇒ 重启归零,只反映"本进程起来之后"
+  // 的池子快照;池子的完整历史在 admin 的号池管理页,不建预聚合表(那要出迁移)。
+  // 刷新方 = scheduler 的 `relay-pool-gauge`(每5分,两张表各一条不带 where 的
+  // 全量 SELECT —— 池子是运营级小表,现读 29/1 行,代价与 tenant_quotas 同档),
+  // **不在 scrape 路径、也不在请求路径**。查询失败时本服务压根不调 setter ⇒
+  // 旧值原样留着,新鲜度戳不推进,"陈"由 gauge 自己说,不把失败读成空池。
+  /** key: provider_code|key —— 健康态数值 0..3(封闭四档,见 RELAY_POOL_HEALTH_STATES) */
+  relayKeyHealth: new Map<string, number>(),
+  /** key: provider_code|key —— 1 = 选路选得到它(isEnabled ∧ ¬tempUnschedulable) */
+  relayKeySchedulable: new Map<string, number>(),
+  /** key: provider_code|key —— 距上次健康检查的秒数;从未检查过的 key 不发这一序列 */
+  relayKeyHealthAge: new Map<string, number>(),
+  /** key: provider_code|state —— 每 provider 每态 key 数(折叠值,由 setter 现算) */
+  relayKeyByProviderState: new Map<string, number>(),
+  /** key: provider_code —— 每 provider 可用 key 数(折叠值;sum 起来就是池子头条数字) */
+  relayKeySchedulableByProvider: new Map<string, number>(),
+  /** key: provider_code|account(uid)—— 健康态数值 0..3 */
+  relayAccountHealth: new Map<string, number>(),
+  /** key: provider_code|account(uid)—— 1 = 选路选得到它 */
+  relayAccountSchedulable: new Map<string, number>(),
+  /** key: provider_code|account(uid)—— 连续转发失败次数(转发层熔断计数) */
+  relayAccountFailures: new Map<string, number>(),
+  /** key: provider_code|account(uid)—— 累计转发调用次数(bigint → number) */
+  relayAccountTotalCalls: new Map<string, number>(),
+  /** key: provider_code|account(uid)—— token 距过期秒数,**可为负**(负 = 已过期,这正是要看的) */
+  relayAccountTokenExpiresIn: new Map<string, number>(),
+  /** key: provider_code|account(uid)—— 距上次成功刷新 token 的秒数;从未刷新过不发 */
+  relayAccountRefreshAge: new Map<string, number>(),
+  /** 健康态落在封闭四档之外的行数(库是 varchar,历史脏值必须显式可见,不许悄悄丢) */
+  relayKeyRowsSkipped: 0,
+  relayAccountRowsSkipped: 0,
+  /** 标签清洗后仍撞车的条数(name+priority 不唯一,现读 key 池 29 行有 13 个重复前缀) */
+  relayKeyLabelCollisions: 0,
+  relayAccountLabelCollisions: 0,
+  /** 各池最后一次刷新成功的 unix 秒;0 = 本进程从未刷新成功(≠ 池子是空的) */
+  relayKeyRefreshedAtSeconds: 0,
+  relayAccountRefreshedAtSeconds: 0,
   /** 上次聚合成功完成的 unix 秒。0 = 本进程从未跑成过(与"这段时间真没访客"不同形) */
   trafficAggregatedAtSeconds: 0,
   // ---- 横切:基数上限丢弃计数(单族超 512 条序列后每次新序列写入 +1) ----
@@ -1111,6 +1239,149 @@ function trafficGaugeInt(value: number | undefined): number {
   return Math.floor(value)
 }
 
+/** 非负 gauge 值(NaN/Infinity 归 0,负数归 0;年龄类只会是正)。 */
+function relayGaugeInt(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 0
+  return Math.floor(value)
+}
+
+/** 可负 gauge 值(token 临期:负 = 已过期,正是要看的信号,不许 clamp 掉)。 */
+function relaySignedInt(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.floor(value)
+}
+
+/** 基数护栏(set 语义版):超上限的新序列不录,计入 seriesDroppedTotal。 */
+function relayGaugeSet(map: Map<string, number>, key: string, value: number): void {
+  if (map.has(key) || map.size < IHUI_SERIES_CAP) {
+    map.set(key, value)
+    return
+  }
+  ihuiState.seriesDroppedTotal++
+}
+
+/**
+ * Gauge:写入一次中转号池快照(两个池子,set 语义)。
+ *
+ * 与 `setTrafficGaugeSample` 的三条同源纪律,逐条对应:
+ * 1. **整组清空重建**:key 池/账号池的行会被删、被摘、被停用 ⇒ 只 set 不清会留下
+ *    幽灵序列(行没了,面板上还挂着旧值)。清空的代价是"刷新失败不能调本函数" ——
+ *    那正是调用方的契约(失败不碰 gauge,靠新鲜度戳显式变陈)。
+ * 2. **标签必须有界**:provider_code / 健康态四档全封闭;key 的展示标签
+ *    (name-pN)是运营自定字符串 ⇒ sanitizeIhuiLabel 洗 + 洗后撞车计数
+ *    ( collisions 显式进 counter,不悄悄少一条 key)。
+ * 3. **显式丢失两路计数**:调用方判掉的脏健康态行(rowsSkipped)与标签撞车
+ *    (labelCollisions)都加进本模块 counter,面板/告警能看见"少了"。
+ */
+export function setRelayPoolGaugeSample(sample: RelayPoolGaugeSample): void {
+  safeRecord('setRelayPoolGaugeSample', () => {
+    ihuiState.relayKeyHealth.clear()
+    ihuiState.relayKeySchedulable.clear()
+    ihuiState.relayKeyHealthAge.clear()
+    ihuiState.relayKeyByProviderState.clear()
+    ihuiState.relayKeySchedulableByProvider.clear()
+    ihuiState.relayAccountHealth.clear()
+    ihuiState.relayAccountSchedulable.clear()
+    ihuiState.relayAccountFailures.clear()
+    ihuiState.relayAccountTotalCalls.clear()
+    ihuiState.relayAccountTokenExpiresIn.clear()
+    ihuiState.relayAccountRefreshAge.clear()
+
+    const keyCounts = new Map<string, Map<RelayPoolHealthState, number>>()
+    const keySchedulable = new Map<string, number>()
+    for (const row of sample.keys) {
+      if (!isRelayPoolHealthState(row.healthState)) continue
+      const provider = sanitizeIhuiLabel(row.providerCode, 32)
+      const key = sanitizeIhuiLabel(row.key, 48)
+      const mapKey = `${provider}|${key}`
+      if (ihuiState.relayKeyHealth.has(mapKey)) {
+        ihuiState.relayKeyLabelCollisions++
+        continue
+      }
+      relayGaugeSet(ihuiState.relayKeyHealth, mapKey, RELAY_POOL_HEALTH_STATE_VALUE[row.healthState])
+      relayGaugeSet(ihuiState.relayKeySchedulable, mapKey, row.schedulable ? 1 : 0)
+      if (row.healthAgeSeconds !== null) {
+        relayGaugeSet(ihuiState.relayKeyHealthAge, mapKey, relayGaugeInt(row.healthAgeSeconds))
+      }
+      const byState = keyCounts.get(provider) ?? new Map<RelayPoolHealthState, number>()
+      byState.set(row.healthState, (byState.get(row.healthState) ?? 0) + 1)
+      keyCounts.set(provider, byState)
+      if (row.schedulable) {
+        keySchedulable.set(provider, (keySchedulable.get(provider) ?? 0) + 1)
+      }
+    }
+    // 折叠值逐档开零基线:provider 出现过 ⇒ 四个态都列(缺的态是 0,不是"没有这一列")
+    for (const [provider, byState] of keyCounts) {
+      for (const state of RELAY_POOL_HEALTH_STATES) {
+        relayGaugeSet(
+          ihuiState.relayKeyByProviderState,
+          `${provider}|${state}`,
+          byState.get(state) ?? 0,
+        )
+      }
+      relayGaugeSet(
+        ihuiState.relayKeySchedulableByProvider,
+        provider,
+        keySchedulable.get(provider) ?? 0,
+      )
+    }
+
+    for (const row of sample.accounts) {
+      if (!isRelayPoolHealthState(row.healthState)) continue
+      const provider = sanitizeIhuiLabel(row.providerCode, 32)
+      const account = sanitizeIhuiLabel(row.account, 48)
+      const mapKey = `${provider}|${account}`
+      if (ihuiState.relayAccountHealth.has(mapKey)) {
+        ihuiState.relayAccountLabelCollisions++
+        continue
+      }
+      relayGaugeSet(
+        ihuiState.relayAccountHealth,
+        mapKey,
+        RELAY_POOL_HEALTH_STATE_VALUE[row.healthState],
+      )
+      relayGaugeSet(ihuiState.relayAccountSchedulable, mapKey, row.schedulable ? 1 : 0)
+      relayGaugeSet(
+        ihuiState.relayAccountFailures,
+        mapKey,
+        relayGaugeInt(row.consecutiveFailures),
+      )
+      relayGaugeSet(ihuiState.relayAccountTotalCalls, mapKey, relayGaugeInt(row.totalCalls))
+      if (row.tokenExpiresInSeconds !== null) {
+        relayGaugeSet(
+          ihuiState.relayAccountTokenExpiresIn,
+          mapKey,
+          relaySignedInt(row.tokenExpiresInSeconds),
+        )
+      }
+      if (row.refreshAgeSeconds !== null) {
+        relayGaugeSet(
+          ihuiState.relayAccountRefreshAge,
+          mapKey,
+          relayGaugeInt(row.refreshAgeSeconds),
+        )
+      }
+    }
+
+    ihuiState.relayKeyRowsSkipped += Math.max(0, Math.floor(sample.keyRowsSkipped ?? 0))
+    ihuiState.relayAccountRowsSkipped += Math.max(0, Math.floor(sample.accountRowsSkipped ?? 0))
+    ihuiState.relayKeyLabelCollisions += Math.max(
+      0,
+      Math.floor(sample.keyLabelCollisions ?? 0),
+    )
+    ihuiState.relayAccountLabelCollisions += Math.max(
+      0,
+      Math.floor(sample.accountLabelCollisions ?? 0),
+    )
+    const at = sample.refreshedAtMs
+    if (typeof at === 'number' && Number.isFinite(at) && at > 0) {
+      const seconds = Math.floor(at / 1000)
+      ihuiState.relayKeyRefreshedAtSeconds = seconds
+      ihuiState.relayAccountRefreshedAtSeconds = seconds
+    }
+  })
+}
+
 // 三个"是不是枚举成员"的判定写成值域检查而非类型断言:运行期输入来自 service 层,
 // 而 service 层的值又来自 SQL —— 编译期形状守不住脏数据,标签基数只能在这里收口。
 function isTrafficWindow(value: string): value is TrafficWindow {
@@ -1285,6 +1556,23 @@ export function resetIhuiState(): void {
   ihuiState.trafficFamilyUniqueVisitors.clear()
   ihuiState.trafficFamilyBreakdownTruncated.clear()
   ihuiState.trafficAggregatedAtSeconds = 0
+  ihuiState.relayKeyHealth.clear()
+  ihuiState.relayKeySchedulable.clear()
+  ihuiState.relayKeyHealthAge.clear()
+  ihuiState.relayKeyByProviderState.clear()
+  ihuiState.relayKeySchedulableByProvider.clear()
+  ihuiState.relayAccountHealth.clear()
+  ihuiState.relayAccountSchedulable.clear()
+  ihuiState.relayAccountFailures.clear()
+  ihuiState.relayAccountTotalCalls.clear()
+  ihuiState.relayAccountTokenExpiresIn.clear()
+  ihuiState.relayAccountRefreshAge.clear()
+  ihuiState.relayKeyRowsSkipped = 0
+  ihuiState.relayAccountRowsSkipped = 0
+  ihuiState.relayKeyLabelCollisions = 0
+  ihuiState.relayAccountLabelCollisions = 0
+  ihuiState.relayKeyRefreshedAtSeconds = 0
+  ihuiState.relayAccountRefreshedAtSeconds = 0
   ihuiState.seriesDroppedTotal = 0
   // 清零后必须把封闭枚举的 0 基线重新开回去,否则一次 admin reset / onClose 就把
   // 面板打回 "No data"(与本次要根治的形态同形)。
@@ -2383,6 +2671,166 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
       `ihui_traffic_aggregation_last_success_timestamp_seconds ${ihuiState.trafficAggregatedAtSeconds}`,
     )
 
+    // relay 号池 2:key 池 + 账号池健康快照(gauge,set 语义,relay-pool-gauge 每5分刷新)。
+    // 读数的两条自证:① 每个池都有自己的 refresh_last_success 戳(0 = 本进程从未刷新成功,
+    // 不是"池子空了");② rows_skipped / label_collisions 两路显式丢失计数 ——
+    // "少了几个 key"必须看得见,不许悄悄少报。
+    lines.push(
+      '# HELP ihui_relay_key_pool_health_state Relay API-key pool health per key (0=unknown 1=healthy 2=degraded 3=down; higher is worse)',
+    )
+    lines.push('# TYPE ihui_relay_key_pool_health_state gauge')
+    for (const [k, v] of ihuiState.relayKeyHealth) {
+      const [provider, key] = k.split('|')
+      lines.push(`ihui_relay_key_pool_health_state{provider_code="${provider}",key="${key}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_relay_key_pool_schedulable 1 when the relay key is enabled and not temp-unschedulable (routers can pick it)',
+    )
+    lines.push('# TYPE ihui_relay_key_pool_schedulable gauge')
+    for (const [k, v] of ihuiState.relayKeySchedulable) {
+      const [provider, key] = k.split('|')
+      lines.push(
+        `ihui_relay_key_pool_schedulable{provider_code="${provider}",key="${key}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_relay_key_pool_health_age_seconds Seconds since the key was last health-checked (series absent = never checked)',
+    )
+    lines.push('# TYPE ihui_relay_key_pool_health_age_seconds gauge')
+    for (const [k, v] of ihuiState.relayKeyHealthAge) {
+      const [provider, key] = k.split('|')
+      lines.push(
+        `ihui_relay_key_pool_health_age_seconds{provider_code="${provider}",key="${key}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_relay_key_pool_keys Relay key count per provider folded by health state',
+    )
+    lines.push('# TYPE ihui_relay_key_pool_keys gauge')
+    for (const [k, v] of ihuiState.relayKeyByProviderState) {
+      const [provider, state] = k.split('|')
+      lines.push(`ihui_relay_key_pool_keys{provider_code="${provider}",state="${state}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_relay_key_pool_schedulable_keys Routable relay keys per provider (sum across providers = pool headline number)',
+    )
+    lines.push('# TYPE ihui_relay_key_pool_schedulable_keys gauge')
+    for (const [k, v] of ihuiState.relayKeySchedulableByProvider) {
+      lines.push(`ihui_relay_key_pool_schedulable_keys{provider_code="${k}"} ${v}`)
+    }
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_health_state Relay account pool health per account (0=unknown 1=healthy 2=degraded 3=down)',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_health_state gauge')
+    for (const [k, v] of ihuiState.relayAccountHealth) {
+      const [provider, account] = k.split('|')
+      lines.push(
+        `ihui_relay_account_pool_health_state{provider_code="${provider}",account="${account}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_schedulable 1 when the relay account is enabled and not temp-unschedulable',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_schedulable gauge')
+    for (const [k, v] of ihuiState.relayAccountSchedulable) {
+      const [provider, account] = k.split('|')
+      lines.push(
+        `ihui_relay_account_pool_schedulable{provider_code="${provider}",account="${account}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_consecutive_failures Consecutive forwarding failures per relay account (circuit-breaker counter; resets on success)',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_consecutive_failures gauge')
+    for (const [k, v] of ihuiState.relayAccountFailures) {
+      const [provider, account] = k.split('|')
+      lines.push(
+        `ihui_relay_account_pool_consecutive_failures{provider_code="${provider}",account="${account}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_total_calls Cumulative forwarded calls per relay account (usage)',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_total_calls gauge')
+    for (const [k, v] of ihuiState.relayAccountTotalCalls) {
+      const [provider, account] = k.split('|')
+      lines.push(
+        `ihui_relay_account_pool_total_calls{provider_code="${provider}",account="${account}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_token_expires_in_seconds Seconds until the account access token expires (negative = already expired)',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_token_expires_in_seconds gauge')
+    for (const [k, v] of ihuiState.relayAccountTokenExpiresIn) {
+      const [provider, account] = k.split('|')
+      lines.push(
+        `ihui_relay_account_pool_token_expires_in_seconds{provider_code="${provider}",account="${account}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_refresh_age_seconds Seconds since the account token was last refreshed (series absent = never refreshed)',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_refresh_age_seconds gauge')
+    for (const [k, v] of ihuiState.relayAccountRefreshAge) {
+      const [provider, account] = k.split('|')
+      lines.push(
+        `ihui_relay_account_pool_refresh_age_seconds{provider_code="${provider}",account="${account}"} ${v}`,
+      )
+    }
+
+    lines.push(
+      '# HELP ihui_relay_key_pool_refresh_last_success_timestamp_seconds Last successful relay key pool refresh (unix seconds); 0 means this process never completed one — it does NOT mean the pool is empty',
+    )
+    lines.push('# TYPE ihui_relay_key_pool_refresh_last_success_timestamp_seconds gauge')
+    lines.push(
+      `ihui_relay_key_pool_refresh_last_success_timestamp_seconds ${ihuiState.relayKeyRefreshedAtSeconds}`,
+    )
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_refresh_last_success_timestamp_seconds Last successful relay account pool refresh (unix seconds); 0 means this process never completed one — it does NOT mean the pool is empty',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_refresh_last_success_timestamp_seconds gauge')
+    lines.push(
+      `ihui_relay_account_pool_refresh_last_success_timestamp_seconds ${ihuiState.relayAccountRefreshedAtSeconds}`,
+    )
+
+    lines.push(
+      '# HELP ihui_relay_key_pool_rows_skipped_total Relay key pool rows dropped because health_status fell outside the closed four-state vocabulary',
+    )
+    lines.push('# TYPE ihui_relay_key_pool_rows_skipped_total counter')
+    lines.push(`ihui_relay_key_pool_rows_skipped_total ${ihuiState.relayKeyRowsSkipped}`)
+
+    lines.push(
+      '# HELP ihui_relay_key_pool_label_collisions_total Relay key pool rows dropped because two keys sanitized to the same provider+key label',
+    )
+    lines.push('# TYPE ihui_relay_key_pool_label_collisions_total counter')
+    lines.push(`ihui_relay_key_pool_label_collisions_total ${ihuiState.relayKeyLabelCollisions}`)
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_rows_skipped_total Relay account pool rows dropped because health_status fell outside the closed four-state vocabulary',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_rows_skipped_total counter')
+    lines.push(`ihui_relay_account_pool_rows_skipped_total ${ihuiState.relayAccountRowsSkipped}`)
+
+    lines.push(
+      '# HELP ihui_relay_account_pool_label_collisions_total Relay account pool rows dropped because two accounts sanitized to the same provider+account label',
+    )
+    lines.push('# TYPE ihui_relay_account_pool_label_collisions_total counter')
+    lines.push(
+      `ihui_relay_account_pool_label_collisions_total ${ihuiState.relayAccountLabelCollisions}`,
+    )
+
     // 横切:基数上限丢弃计数
     lines.push(
       '# HELP ihui_series_dropped_total ihui_* metric series writes dropped at the label cardinality cap',
@@ -2438,6 +2886,11 @@ export const __test__ = {
   TRAFFIC_SOURCES,
   TRAFFIC_SOURCE_UV_LABEL,
   setTrafficGaugeSample,
+  // 中转号池健康族:封闭四档词表 + setter 出口(测试从源文件取,不抄第二份)
+  RELAY_POOL_HEALTH_STATES,
+  RELAY_POOL_HEALTH_STATE_VALUE,
+  isRelayPoolHealthState,
+  setRelayPoolGaugeSample,
 }
 
 declare module 'fastify' {

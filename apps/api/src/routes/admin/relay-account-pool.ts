@@ -60,7 +60,7 @@ import {
   pushPoolSync,
   type PoolAccountState,
 } from '../../services/relay-account-pool-checkin-sync.js'
-import { sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
+import { refreshOne, sweepAccountPool } from '../../services/relay-account-pool-scheduler.js'
 import { getAccountUsage, getAccountUsageSummaries } from '../../services/relay-account-usage.js'
 import {
   listProxies,
@@ -942,15 +942,38 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .status(400)
           .send(error(400, `平台 ${row.providerCode} 无已实证的余额端点(未支持)`))
       }
-      const ctx = { row, credentials: decryptAccountCredentials(row) }
-      const outcome = await adapter.getQuota(ctx, { proxyUrl: row.proxyUrl })
+      // 首查直接用库里的票;只有上游**当场**判为鉴权失效才刷新重试一次。
+      // authFailed 由适配器按它自己量到的 HTTP 状态码给出,不是文案匹配(§check-error-code-not-text-matching);
+      // 不以库里 tokenExpiresAt 为准 —— 现读实证:上游已回 401 code 1001,而该列仍记着未来到期时刻,
+      // 按时间戳触发自愈会让这一格整条不生效。形态与转发链路 chat 的 401 自愈一致,仍只重试一次。
+      let live = row
+      let outcome = await adapter.getQuota(
+        { row: live, credentials: decryptAccountCredentials(live) },
+        { proxyUrl: live.proxyUrl },
+      )
+      let attemptedRefresh = false
+      if (!outcome.ok && outcome.authFailed && adapter.refreshToken) {
+        attemptedRefresh = true
+        await refreshOne(live)
+        const [fresh] = await dbRead
+          .select()
+          .from(aiRelayAccountPool)
+          .where(eq(aiRelayAccountPool.id, p.data.id))
+          .limit(1)
+        live = fresh ?? live
+        outcome = await adapter.getQuota(
+          { row: live, credentials: decryptAccountCredentials(live) },
+          { proxyUrl: live.proxyUrl },
+        )
+      }
       return reply.send(
         success({
-          id: row.id,
-          providerCode: row.providerCode,
+          id: live.id,
+          providerCode: live.providerCode,
           ok: outcome.ok,
           error: outcome.error ?? null,
           quota: outcome.quota ?? null,
+          attemptedRefresh,
           queriedAt: new Date().toISOString(),
         }),
       )

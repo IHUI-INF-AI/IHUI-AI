@@ -1052,7 +1052,7 @@ test('形状锁:通道等价三维必须挂在主流程,且不得自带第二份
   // 判"整份源码里没有这个名字"是错的(自测夹具逐字写着它,那正是 §22c 要求的"输入取自真实形态"),
   // 所以按**区段 + 遮噪面**判:runSelfTest 之前 = 判定层,把它遮掉注释后仍出现任何 header 名,
   // 就是硬编码。遮噪必须引 lib 那一份实现,测试里不得再抄一台分词器(§22c)。
-  const judgeLayerStart = src.indexOf('function runSelfTest')
+  const judgeLayerStart = src.indexOf("if (process.argv.includes('--self-test'))")
   assert.ok(judgeLayerStart > 1000, '判定层区段必须切得出来(runSelfTest 之前)')
   const judgeCode = maskComments(src.slice(0, judgeLayerStart))
   assert.doesNotMatch(judgeCode, /x-client-channel/i, '判定层不得写死通道头名(注释里的说明性提及不计)')
@@ -1389,7 +1389,7 @@ test('FG-LOCK 反向锁:三条阳性对照各跑恰好一次,且盲区档挂在�
     "③/③ 的未判定档/③' 必须共用同一份识别式",
   )
   // 事实源仍只有 transport 那一份:判定层不得写死第二张改写表(照 T-CE-7 的同一把尺子)
-  const judgeLayerStart = src.indexOf('function runSelfTest')
+  const judgeLayerStart = src.indexOf("if (process.argv.includes('--self-test'))")
   assert.ok(judgeLayerStart > 1000, '判定层区段必须切得出来')
   const judgeCode = maskComments(src.slice(0, judgeLayerStart))
   assert.doesNotMatch(

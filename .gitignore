@@ -177,11 +177,15 @@ deploy/prod-bundle/cloudflared/*.local.txt
 # .ihui-agent/archive/PROJECT_PLAN_*.md 为"这行是被正当归档、不是被删"的依据。锚点只存在于
 # 某一台机器,等于让另一台机器的对账依据凭空消失(G-173 同条规矩:可审计锚点必须受版本控制)。
 .ihui-agent/*
-# §1 归档两步走需要新归档件能被正常提交(门 166 的唯一合法丢行通道);只放行
-# PROJECT_PLAN_*.md 这一族,archive 其余内容仍整目录忽略(存档机制退役的口径不变)。
+# §1 归档两步走需要新归档件能被正常提交(门 166 的唯一合法丢行通道);PROJECT_PLAN_*.md 与
+# AGENTS_*.md 两族放行,archive 其余内容仍整目录忽略(存档机制退役的口径不变)。
+# AGENTS_*.md 这一族是门 207 头注规定的压缩出路(守门历史/取证叙述/重复登记副本整区逐字移入
+# .ihui-agent/archive/<按日命名>.md);只放台账族会让那条出路在门 236(2026-10-23 立,拦新增
+# gitignored 路径)下变成跑不通的出路(§0.8),压缩因此无法入库。
 !/.ihui-agent/archive/
 /.ihui-agent/archive/*
 !/.ihui-agent/archive/PROJECT_PLAN_*.md
+!/.ihui-agent/archive/AGENTS_*.md
 .qoder/
 # 2026-10-19 补(门 44 同上):第三方 AI 工具 CodeArts Doer 在本仓的工作目录,
 # 与上面 .qoder/ .trae/ .superpowers/ 同一口径 —— 工具自有配置/技能/记忆,不是本仓产物。
@@ -438,7 +442,10 @@ alipayRootCert*
 apps/ai-service/app/skills/.session/
 apps/ai-service/app/skills/content_engine/output/
 apps/ai-service/app/skills/content_engine/.wechat_token_cache.json
-apps/ai-service/app/skills/content_engine/articles/
+# 2026-10-23 G-926 收口:articles/ 不再整体忽略 —— 运行时写进这里的只有 .md 源文件
+# (self_media.py 的 articles/{title}.md、publish_pipeline 归档进 articles/archive/),
+# 真产物(html/docx/images)全在 output/(上一行已忽略)。宽式规则没挡任何产物,却把 12 枚
+# 已跟踪源文件压成 tracked-but-ignored;该族整族回归"被忽略即不入库"的正常态。
 apps/ai-service/app/skills/content_engine/download_real_imgs_v2.py
 apps/ai-service/app/skills/koubo_workflow/.cache/
 apps/ai-service/app/skills/koubo_workflow/build_0721.py
