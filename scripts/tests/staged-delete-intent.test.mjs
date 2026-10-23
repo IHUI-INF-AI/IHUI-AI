@@ -370,7 +370,63 @@ test('存续自愈:账坏/半截行 ⇒ 读账吞掉并按空集合走,不让每
   assert.deepEqual([...recentlyClearedStagedIntent(dir)], [], '非 report-only 的条目不得被采信')
 })
 
+// ─── 保护只认最新一条事件(到期档落地后自审出的边界,2026-10-23)───
+test('陈旧 report-only 不得永久保护:同一路径的最新事件若是到期留痕 ⇒ 再删按原判据恢复', (t) => {
+  const H = 3600_000
+  const dir = scratchRepo(t)
+  git(dir, 'rm', '-q', '--', 'base.txt')
+  git(dir, 'reset', 'HEAD')
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
+  writeFileSync(
+    join(dir, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
+    [
+      JSON.stringify({
+        ts: new Date(Date.now() - 3 * H).toISOString(),
+        event: 'index-purge-cleared-staged-deletions',
+        clearedIntentLost: ['base.txt'],
+        actionTaken: 'report-only',
+      }),
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        event: 'staged-intent-expiry-restored',
+        clearedIntentLost: ['base.txt'],
+        actionTaken: 'restored-intent-expired',
+      }),
+    ].join('\n') + '\n',
+  )
+  const after = findOrphanedDeletions(dir, { now: Date.now(), ttlHours: 2 })
+  assert.deepEqual(after.intentLost, [], '最新事件已非 report-only ⇒ 不得再当"待裁决"挂着')
+  assert.deepEqual(after.intentExpired, [], '同理不该重复到期')
+  assert.ok(after.safe.includes('base.txt'), '无现行保护 ⇒ 回到原判据:按外部删除恢复')
+
+  // 反向对照:report-only 若才是最新一条,保护必须照在(收窄不能反过来吃掉真保护)
+  const rev = scratchRepo(t)
+  git(rev, 'rm', '-q', '--', 'base.txt')
+  git(rev, 'reset', 'HEAD')
+  mkdirSync(join(rev, '.ihui-agent', 'state'), { recursive: true })
+  writeFileSync(
+    join(rev, '.ihui-agent', 'state', 'staged-delete-intent-ledger.jsonl'),
+    [
+      JSON.stringify({
+        ts: new Date(Date.now() - 5 * H).toISOString(),
+        event: 'staged-intent-expiry-restored',
+        clearedIntentLost: ['base.txt'],
+        actionTaken: 'restored-intent-expired',
+      }),
+      JSON.stringify({
+        ts: new Date(Date.now() - 30_000).toISOString(),
+        event: 'index-purge-cleared-staged-deletions',
+        clearedIntentLost: ['base.txt'],
+        actionTaken: 'report-only',
+      }),
+    ].join('\n') + '\n',
+  )
+  const revRes = findOrphanedDeletions(rev, { now: Date.now(), ttlHours: 2 })
+  assert.deepEqual(revRes.intentLost, ['base.txt'], '最新的 report-only 必须仍在射程内(TTL 内不恢复)')
+})
+
 // ─── 形状锁:两处接线不得被摘掉,也不得改成自动恢复 ───
+
 test('形状锁:safe-commit 必须在 reset 之前取样,只标记不代裁(不得出现自动恢复)', () => {
   const src = readFileSync(SAFE_COMMIT, 'utf8')
   const masked = maskCommentsAndStrings(src)

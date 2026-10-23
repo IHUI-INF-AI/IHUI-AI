@@ -497,36 +497,53 @@ function readIntentLedger(repoRoot) {
   return recs
 }
 
+/**
+ * 单源解析:路径 ⇒ **该路径最后一次被记进账的那一条事件**(含 actionTaken 与 ts)。
+ *
+ * 为什么必须"只看最新一条":2026-10-23 到期档落地后自审出的边界 —— 若读侧看"历史上任意一条
+ * report-only",那么一枚曾被摘过标的路径会永久带着那枚陈旧时刻;归属会话哪天再删它,
+ * 陈旧时刻早就超 TTL ⇒ 被"秒到期"立刻回盘,保护形同虚设。只看最新一条之后:
+ * 新一次摘标会由 safe-commit 落下新的 report-only(时刻新 ⇒ 保护照在),
+ * 而一次到期回盘后的再删没有新证据 ⇒ 按原判据①正常恢复,不留幽灵保护也不误伤。
+ */
+function latestIntentEventByPath(repoRoot) {
+  const latest = new Map()
+  for (const rec of readIntentLedger(repoRoot)) {
+    const ts = typeof rec.ts === 'string' ? rec.ts : ''
+    const actionTaken = typeof rec.actionTaken === 'string' ? rec.actionTaken : ''
+    for (const p of Array.isArray(rec.clearedIntentLost) ? rec.clearedIntentLost : []) {
+      if (typeof p !== 'string' || !p) continue
+      const key = normRepoPath(p)
+      const prev = latest.get(key)
+      // 时刻缺失的记录也必须留在投影里(既有形状锁钉着:账可以没有 ts,不能没有证据)
+      if (!prev || (ts && ts >= prev.ts)) latest.set(key, { ts, actionTaken })
+    }
+  }
+  return latest
+}
+
 export function recentlyClearedStagedIntent(repoRoot) {
   return new Set(stagedIntentLatestTsByPath(repoRoot).keys())
 }
 
 /**
- * 同一次读账的第二把投影:路径 ⇒ **该路径最后一次被摘标的时间戳**(字符串,原样留着)。
+ * 同一次读账的第二把投影:仍处"待裁决"那一档的路径 ⇒ 它最后一次被摘标的时间戳。
  *
- * 为什么要有这把:2026-10-23 实测 —— 38 枚跟踪文件按这一档"只报数不代裁"在盘上缺了 10 小时,
+ * 为什么要有这把:2026-10-23 实测 —— 38 枚跟踪文件按"只报数不代裁"在盘上缺了 10 小时,
  * web/api typecheck 因此恒红、门 236 门体不在面上,而**归属会话早已停摆**,那枚删除意图
  * 永远不会有人再 stage。"分不清就不动"的失效方向在这条线上变成了"仓库长期验不动",
  * 而它本来该是"多要一次定向说明"。所以给这一档加**到期**:超 TTL 仍缺 ⇒ 文件回盘(内容恒等于
  * HEAD,零丢失),同时把逐字路径清单写回同一本账的新事件里 ⇒ 意图没有消失,只是换了载体。
  *
- * 判序纪律不变:`recentlyClearedStagedIntent` 与它共用同一次 parse(§0.6 单一真相源),
+ * 判序纪律不变:与 `recentlyClearedStagedIntent` 共用同一次 parse(§0.6 单一真相源),
  * 账取不到 ⇒ 空 Map ⇒ 调用方按"无证据"走原判据,不新增破坏面。
  */
 export function stagedIntentLatestTsByPath(repoRoot) {
-  const latest = new Map()
-  for (const rec of readIntentLedger(repoRoot)) {
-    if (rec.actionTaken !== 'report-only') continue
-    const ts = typeof rec.ts === 'string' ? rec.ts : ''
-    for (const p of Array.isArray(rec.clearedIntentLost) ? rec.clearedIntentLost : []) {
-      if (typeof p !== 'string' || !p) continue
-      const key = normRepoPath(p)
-      // 时刻缺失的记录也必须留在投影里(既有形状锁钉着这条:账可以没有 ts,不能没有证据)
-      const prev = latest.get(key)
-      if (prev === undefined || (ts && ts > prev)) latest.set(key, ts)
-    }
+  const out = new Map()
+  for (const [p, ev] of latestIntentEventByPath(repoRoot)) {
+    if (ev.actionTaken === 'report-only') out.set(p, ev.ts) // 非 report-only ⇒ 该路径已处置,不再保护
   }
-  return latest
+  return out
 }
 
 /** TTL 现读(小时),默认 2;非法值一律回落默认,不靠环境变量把档位改没。 */
