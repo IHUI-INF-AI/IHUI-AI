@@ -9,7 +9,9 @@
  *  2. 花括号集合是"多条路径的缩写"⇒ 展开逐条判(不展开会把 15 条正常引用一口气判死);
  *  3. 别仓路径(`apps/zcode-cli/...` 这类上游出处引用)不作我方声称;
  *  4. 阳性对照:同一夹具里"存在的路径"判 ok、"不存在的路径"判 missing —— 只判一条会把
- *     "整表都判缺"也算通过。
+ *     "整表都判缺"也算通过;
+ *  5. 缺物三问(2026-10-23 立):gitignored / HEAD 史里被删 / 父目录不在 ⇒ 判不准并逐条点名
+ *     (删除枚进证据行);探针未接线与探针哑了都不得改变判序;"从未在 HEAD 史出现"那一型照旧判红。
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -84,6 +86,83 @@ describe('check-plan-claims-vs-head', () => {
       { catFile: cat, grepHead: () => null, migrationDirs: [] },
     )
     assert.equal(r.verdict, 'undetermined')
+  })
+
+  // 缺物三问(2026-10-23 立,承现读 2 枚误报):path 在 HEAD 取不到时先问 ignore / 删除史 / 父目录。
+  it('缺物三问:探针未接线时判序不变;真缺(从未在 HEAD 史出现)那一型一条不放过', () => {
+    const probeOff = { catFile: () => false, grepHead: grepOk, migrationDirs: [] }
+    const noProbes = G.judgeEntry(
+      { kind: 'path', target: 'scripts/no-such-file-aa.ts', rows: ['X'] },
+      { catFile: (p) => p === 'scripts', grepHead: grepOk, migrationDirs: [] },
+    )
+    assert.equal(noProbes.verdict, 'missing', '探针未接线不得改变既有判序(收窄只能是加法)')
+
+    // 阳性对照:父目录在、未被 ignore、HEAD 史里也从没出现过 = 立项那一型,必须照红
+    const neverSeen = G.judgeEntry(
+      { kind: 'path', target: 'scripts/voice-note-d35-fabricated.ts', rows: ['X'] },
+      {
+        ...probeOff,
+        catFile: (p) => p === 'scripts',
+        isIgnored: () => false,
+        removedSha: () => '',
+      },
+    )
+    assert.equal(neverSeen.verdict, 'missing', '"从未在 HEAD 史出现"是本门存在的理由,不得被三问吞掉')
+    assert.match(neverSeen.evidence, /从未在 HEAD 史出现/, '证据必须写死这一点,不能只说"缺"')
+
+    // 问①:被 .gitignore 覆盖(§5d 那族)⇒ 判不准,要它"在 HEAD"是永远满足不了的条件
+    const ignored = G.judgeEntry(
+      { kind: 'path', target: 'apps/api/.env', rows: ['X'] },
+      { ...probeOff, isIgnored: () => true, removedSha: () => '' },
+    )
+    assert.equal(ignored.verdict, 'undetermined')
+    assert.equal(ignored.reason, 'gitignored')
+
+    // 问②:HEAD 史里被某枚删掉 ⇒ 判不准**且点名删除枚**(静默放过就是掩盖)
+    const retired = G.judgeEntry(
+      { kind: 'path', target: 'deploy/cf-preferred-ip.mjs', rows: ['X'] },
+      { ...probeOff, isIgnored: () => false, removedSha: () => 'd3d017c03c' },
+    )
+    assert.equal(retired.verdict, 'undetermined')
+    assert.equal(retired.reason, 'retired')
+    assert.match(retired.evidence, /d3d017c03c/, '删除枚必须进证据行,否则下一手无从判这行是叙述还是声称')
+
+    // 探针哑了(§0.3):取不到结论既不记绿也不冒红,更不得回落到"判缺"
+    const deaf = G.judgeEntry(
+      { kind: 'path', target: 'apps/whatever/x.ts', rows: ['X'] },
+      { catFile: (p) => p === 'apps', grepHead: grepOk, migrationDirs: [], isIgnored: () => null, removedSha: () => null },
+    )
+    assert.equal(deaf.verdict, 'undetermined')
+    assert.equal(deaf.reason, 'probe-silent')
+  })
+
+  it('真面承载:本轮点名的两枚误报在真 git 探针下必须落进判不准两档(不是 mock 自证)', () => {
+    const realIgnored = (p) => {
+      try {
+        execFileSync('git', ['check-ignore', '-q', '--', p], { stdio: ['ignore', 'ignore', 'ignore'] })
+        return true
+      } catch (e) {
+        return e.status === 1 ? false : null
+      }
+    }
+    const realRemoved = (p) => {
+      try {
+        return (
+          execFileSync('git', ['log', '-1', '--format=%h', '--diff-filter=D', 'HEAD', '--', p], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'ignore'],
+          }).trim() || ''
+        )
+      } catch {
+        return null
+      }
+    }
+    const probes = { catFile: cat, grepHead: grepOk, migrationDirs: [], isIgnored: realIgnored, removedSha: realRemoved }
+    const envRow = G.judgeEntry({ kind: 'path', target: 'apps/ai-service/.env', rows: ['G-957'] }, probes)
+    assert.equal(envRow.reason, 'gitignored', `apps/ai-service/.env 现读应为 gitignored,实得 ${envRow.reason}`)
+    const cfRow = G.judgeEntry({ kind: 'path', target: 'deploy/cf-preferred-ip.mjs', rows: ['G-957'] }, probes)
+    assert.equal(cfRow.reason, 'retired', `cf-preferred-ip 现读应为 retired,实得 ${cfRow.reason}`)
+    assert.match(cfRow.evidence, /枚 \w{7,}/, '真面也必须带删除枚 sha')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

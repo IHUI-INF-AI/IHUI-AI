@@ -27,6 +27,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 
 import { gitRaw } from './lib/face-reader.mjs'
+// G-322:带值旗标的**唯一取值出口**(值必须存在且不以 `-` 开头,否则判死,绝不折回默认)。
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const TAG = '[format-ratchet]'
@@ -187,10 +189,15 @@ function readFlagValue(argv, flag) {
     const value = eq.slice(flag.length + 1).trim()
     return value ? { value } : { error: `${flag} 需要一个 ref` }
   }
-  const i = argv.indexOf(flag)
-  if (i < 0) return {}
-  const value = (argv[i + 1] ?? '').trim()
-  if (!value || value.startsWith('--')) return { error: `${flag} 需要一个 ref` }
+  // G-322:空格形态走 scripts/lib/flag-value.mjs 单源(本器不再自己算 `argv[i + 1]`)。
+  // 旧副本只挡 `--` 前缀 ⇒ 单划线 token(`-x`)被当成合法 ref 往下交给 canResolve,
+  // 报的是"ref 解析不了"而不是"你少打了一个值";漏值(`--base` 打在结尾)同理由 lib 点名
+  // `(其后没有任何参数)`,调用方一律走 unjudged ⇒ exit 2,不静默退回 env/默认基线。
+  const f = requireFlagValue(argv, flag, { noun: 'ref' })
+  if (!f.present) return {}
+  if (f.error) return { error: f.error }
+  const value = f.value.trim()
+  if (!value) return { error: `${flag} 需要一个 ref` }
   return { value }
 }
 

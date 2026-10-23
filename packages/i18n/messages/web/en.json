@@ -28750,5 +28750,13 @@
   "tradeHub": {
     "title": "Trade",
     "subtitle": "Wallet, orders, membership and points benefits"
+  },
+  "aiHub": {
+    "title": "Agents and Models",
+    "subtitle": "Chat history, memory, knowledge base, media tasks and workspace"
+  },
+  "personalHub": {
+    "title": "Account",
+    "subtitle": "My learning, account security, student center, feedback and help"
   }
 }

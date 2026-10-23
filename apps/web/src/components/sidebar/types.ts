@@ -38,7 +38,8 @@ export interface NavItem {
    * 高级/运维功能分档(2026-10-20 立):该项属于「普通用户不该默认看见」的哪一档。
    *
    * **继承规则**:子项未标注时继承最近祖先的档位(见 `filterNavItemsByTier`)。
-   * 例如给 DEVELOPER_ITEMS 的「开发者工具」父项标 developer,其 14 个子项无需逐个标注。
+   * 例如给开发者域入口父项(/developer,2026-10-23 P2 收敛后)标 developer,
+   * 其 20 个子项无需逐个标注。
    * 反过来,若父项本身要保留(如 /models、/knowledge-base 用户需要进),
    * 就只能给**具体子项**标注 —— 这是 nav-data 里 MODELS_CHILDREN 逐项标注的原因。
    *
