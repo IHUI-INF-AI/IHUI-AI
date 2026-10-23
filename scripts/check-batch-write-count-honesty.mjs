@@ -296,6 +296,11 @@
  *   上一轮人肉量的"257 处"就是这么来的:它按整串 grep 数整个 `apps/api/src`,把这四类全算进去了。
  *   要并掉①②④必须**同批改枚举表与判据两半**(§4 圆角那条记过只改一半 ⇒ 整块动静默失效而门照报绿),
  *   并另立键族;不得只放宽正则把一个数做大。
+ *   **信封锚枚举(2026-10-23 第三十一批 ③)**:上面 V1/B1/B2 的锚点是 `success(` **后紧跟 `{`**
+ *   (`ENVELOPE_ANCHOR_KEYS.direct`);`success(row ?? { updated: true })` 这一族在 `\s*\{` 那一步就被挡在
+ *   面外,5 处整型隐身。故另立 `ENVELOPE_ANCHOR_KEYS.fallback`(`updated|created`)并配 B8 判据
+ *   (`findFallbackAckSites`,只报数、不接提交链):兜底对象写死字面量 true ⇒ 点名;布尔来自
+ *   rowCount/.length/.returning( 追溯或 `success(batchWriteOutcome(...))` 唯一出口 ⇒ 放过。
  *
  * 判不了 / 未判定(如实登记,绝不静默成"看起来全绿"):U1 链在 send 之后 ⇒ 顺序不成立,计入未判定
  * 并点名;U2 词法状态到文件末尾没闭合(疑正则字面量吞掉引号)⇒ 整份文件结论不可信 ⇒ 未判定,不冒红;
@@ -851,6 +856,22 @@ export const BOOL_ACK_KEY_VERBS = Object.freeze({
   // 只有 delete/update(insert 不入面)⇒ 本表**故意不登记 created**,退回"不筛选"的旧口径。
   updated: Object.freeze(['update']),
 })
+/**
+ * 信封锚枚举表(2026-10-23 第三十一批 ③「信封锚枚举改造」):`success(` 信封的两种锚形态**各立一族**,
+ * 枚举表与判据同批成对(头注"另立键族、同批改枚举表与判据两半"——只改一半 ⇒ 整块动静默失效而门照报绿)。
+ *   direct   = `success({ … })`:信封后紧跟对象字面量。既有 V1/B1/B2 的取材面,键族复用 BOOL_ACK_KEYS
+ *              (`sendSuccessObjects` 的 `\s*\{` 锚点就是这一族的结构定义)。
+ *   fallback = `success(<expr> ?? { … })`:请求侧兜底对象。上面的直挂锚点结构上要求 `success(` 后是 `{`,
+ *              于是这一族对既有判据**整体隐身** —— 5 处 `success(row ?? { updated: true })` 一处也看不见。
+ *              键族只认写结果 ack 两键(请求侧兜底兜不出 deleted/removed 那五键的"已删"语义)。
+ * 新增一族必须**同轮**在枚举表与本判据(`findFallbackAckSites`)两侧接线。
+ */
+export const ENVELOPE_ANCHOR_KEYS = Object.freeze({
+  direct: BOOL_ACK_KEYS,
+  fallback: Object.freeze(['updated', 'created']),
+})
+/** 判据正则/报表/点名三处**只从这一份派生**(下游再抄一份硬编码名单就是第二真相)。 */
+const FALLBACK_ACK_KEYS = ENVELOPE_ANCHOR_KEYS.fallback
 const BOOL_ACK_RE = new RegExp(`[{,]\\s*(${BOOL_ACK_KEYS.join('|')})\\s*:\\s*true\\s*(?=[,}])`, 'g')
 export function findBooleanAckSends(code) {
   const out = []
@@ -885,6 +906,191 @@ export function findHonestCarrierSibling(objText) {
     objText,
   )
   return m ? { key: m[1] } : null
+}
+
+/* --------- 第三十一批 ③:信封锚枚举(fallback 兜底对象那一族) --------- */
+
+/**
+ * `.send(<X>success(` 的信封锚逐个枚举(第三十一批 ③)。既有 `sendSuccessObjects` 的锚点是
+ * `success(` **后紧跟 `{`** —— 那是 `ENVELOPE_ANCHOR_KEYS.direct` 的结构定义;`success(row ?? { … })`
+ * 这一族在 `\s*\{` 那一步就被挡在面外,正是本批要补的"结构隐身"。本函数只负责把**信封**交出来,
+ * 两种锚形态由判据各取所需(判据不另写第二份 `.send(success(` 扫描,§22c)。
+ * `end < 0`(括号配平不到)由调用方按未判定点名,不静默跳过。
+ */
+export function* sendSuccessEnvelopes(code) {
+  const re = /\.\s*send\s*\(\s*\w*[sS]uccess\s*\(/g
+  let m
+  while ((m = re.exec(code)) !== null) {
+    const open = m.index + m[0].length - 1
+    const end = closeParen(code, open)
+    if (end < 0) {
+      yield { start: m.index, open, end: -1, argStart: open + 1, argEnd: -1, argText: '' }
+      continue
+    }
+    yield {
+      start: m.index,
+      open,
+      end,
+      argStart: open + 1,
+      argEnd: end - 1,
+      argText: code.slice(open + 1, end - 1),
+    }
+  }
+}
+
+/** 信封实参**顶层**的兜底算符(括号/花括号/方括号深度 0):`??` 或 `||`。 */
+function topLevelFallbackOp(code, from, to) {
+  let depth = 0
+  for (let i = from; i < to; i++) {
+    const c = code[i]
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') {
+      if (depth > 0) depth--
+    } else if (depth === 0) {
+      if ((c === '?' && code[i + 1] === '?') || (c === '|' && code[i + 1] === '|'))
+        return { index: i, op: code.slice(i, i + 2) }
+    }
+  }
+  return null
+}
+
+/** 报告用:落点所属的路由 handler / 具名函数(只做**标签**,不参与判据)。
+ *  路由路径只活在"剥注释留字符串"那一档(nonBlank),遮蔽档里它已被抹成空格。 */
+function enclosingLabel(nonBlankText, bodyStart, fallbackStart) {
+  const from = Math.max(0, bodyStart - 600)
+  const win = nonBlankText.slice(from, bodyStart)
+  let label = ''
+  const routeRe = /\bserver\s*\.\s*(get|post|put|patch|delete)\s*\(\s*['"]([^'"]+)['"]/g
+  let m
+  const routes = []
+  while ((m = routeRe.exec(win)) !== null) routes.push(`${m[1].toUpperCase()} ${m[2]}`)
+  if (routes.length) label = routes[routes.length - 1]
+  else {
+    const fnRe = /\b(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/g
+    const fns = []
+    while ((m = fnRe.exec(win)) !== null) fns.push(m[1])
+    if (fns.length) label = `${fns[fns.length - 1]}()`
+  }
+  return label || `@${fallbackStart}`
+}
+
+const FALLBACK_VALUE_RE = new RegExp(
+  `[{,]\\s*(${FALLBACK_ACK_KEYS.join('|')})\\s*:\\s*([^,}\\n]*)`,
+  'g',
+)
+const ROWCOUNT_RE = /\browCount\b|\browcount\b/
+
+/**
+ * B8(2026-10-23 第三十一批 ③):**信封兜底对象里的写死布尔 ACK**。
+ * 判据一条(窄口径,宁漏不误报):`apps/api/src/routes/**` 的跟踪文件里,`.send(<X>success(<expr>))`
+ * 的信封实参**顶层**出现 `??` / `||` 兜底,且兜底右值是对象字面量、其中 `updated|created` 取**字面量
+ * `true`** ⇒ 命中并点名(文件 + 行 + handler + 键)。布尔来自"请求侧推算的兜底对象",不是库确认集
+ * —— 库里改 0 行时响应仍承诺"改/建成了一行",与 `success({ … })` 直挂档的假 ack 同型、但旧扫法看不见。
+ * 放过通道(与判据同一次扫描内判定,各配正反例):
+ *   ① 同函数体内布尔值来自库确认集 —— `updated: rows.length > 0` / `rowCount > 0` / 标识符可追到
+ *      `.returning(` 结果(`resolveConfirmed`)⇒ 非字面量,结构上不进违规面;
+ *   ② `success(batchWriteOutcome(...))` 唯一出口 ⇒ 信封实参即诚实行数载体,无兜底对象;
+ *   ③ 兜底对象的值不是字面量 `true`(变量/比较式)⇒ 宁漏不误报,只记候选并放过;
+ *   ④ 同函数体内另有 `.returning(` 但兜底仍写死 `true` ⇒ **不**放过(库答复在手上却不用它,
+ *      与 ai-extended 修法前的病灶同型)。
+ * 未判定:信封括号配平不到 ⇒ 全局未判定并点名;顶层兜底右值不是对象字面量 ⇒ 记 b8 未判定
+ * (判不了,不冒红也不记绿)。**不接提交链**:本维只报数,不进 decide、不进 staged 棘轮。
+ */
+export function findFallbackAckSites(relPath, code, nonBlankText = code, bodies = null) {
+  const empty = {
+    envelopes: 0,
+    candidates: [],
+    violations: [],
+    exempt: { outlet: 0, db: 0, nonLiteral: 0 },
+    undetermined: [],
+    noBodySites: [],
+  }
+  // 票面点名面:只有 routes/ 下的跟踪文件(与 SCAN_DIRS 的枚举同面同轮,不另开清单)。
+  if (!relPath.startsWith('apps/api/src/routes/')) return empty
+  const fnBodies = bodies || findFunctionBodies(code)
+  const out = { ...empty, exempt: { ...empty.exempt } }
+  for (const env of sendSuccessEnvelopes(code)) {
+    out.envelopes++
+    if (env.end < 0) {
+      out.undetermined.push({
+        file: relPath,
+        line: lineAt(code, env.start),
+        why: 'success( 信封括号配平不到 ⇒ 判不了兜底对象(B8)',
+      })
+      continue
+    }
+    // 直挂对象字面量(envelope 实参首个非空字符是 `{`)归 ENVELOPE_ANCHOR_KEYS.direct / B1,
+    // 本判据**不重复计账**(否则同一处既有 B1 又有 B8,账面分不清哪一族)。
+    let k = env.argStart
+    while (k < env.argEnd && /\s/.test(code[k])) k++
+    if (code[k] === '{') continue
+    // `success(batchWriteOutcome(...))`:信封实参**整体**就是唯一出口(头注放过通道②)。
+    // 必须整枚实参都是这次调用(前面可选 `await`,后面只能有空白),否则
+    // `success(batchWriteOutcome(x) ?? { updated: true })` 这种"出口再兜底"会被放过 —— 那正是病灶。
+    if (/^\s*(?:await\s+)?[\w$.]*\bbatchWriteOutcome\s*\([\s\S]*\)\s*$/.test(env.argText)) {
+      out.exempt.outlet++
+      continue
+    }
+    const op = topLevelFallbackOp(code, env.argStart, env.argEnd)
+    if (!op) continue
+    let r = op.index + 2
+    while (r < env.argEnd && /\s/.test(code[r])) r++
+    if (code[r] !== '{') {
+      out.undetermined.push({
+        file: relPath,
+        line: lineAt(code, op.index),
+        why: `${op.op} 右侧不是对象字面量 ⇒ 判不了兜底里有没有写死布尔 ACK(B8)`,
+      })
+      continue
+    }
+    const objEnd = closeBrace(code, r)
+    if (objEnd < 0 || objEnd > env.argEnd + 1) {
+      out.undetermined.push({
+        file: relPath,
+        line: lineAt(code, op.index),
+        why: '兜底对象字面量括号配平不到 ⇒ 判不了(B8)',
+      })
+      continue
+    }
+    const objText = code.slice(r, objEnd)
+    const body = enclosingBody(fnBodies, env.start)
+    const label = body ? enclosingLabel(nonBlankText, body.start, op.index) : ''
+    if (!body) {
+      out.noBodySites.push({ file: relPath, line: lineAt(code, op.index), fn: label })
+      continue
+    }
+    FALLBACK_VALUE_RE.lastIndex = 0
+    let vm
+    while ((vm = FALLBACK_VALUE_RE.exec(objText)) !== null) {
+      const key = vm[1]
+      const expr = vm[2].trim()
+      const site = {
+        file: relPath,
+        line: lineAt(code, r + vm.index),
+        key,
+        expr: expr || '(空)',
+        fn: label,
+      }
+      out.candidates.push(site)
+      if (expr === 'true') {
+        // 兜底写死 `true` ⇒ 违规。同体内的 `.returning(` 不构成放过通道(④:库答复在手上却不用)。
+        site.disposition = 'fallback-literal-true'
+        out.violations.push(site)
+        continue
+      }
+      // 值非字面量 true ⇒ 宁漏不误报。能追到库确认集的记 db(与 B1 的 confirmed 同义),
+      // 其余记 nonLiteral;两者都只报数,不进退出码。
+      const root = /^([A-Za-z_$][\w$]*)/.exec(expr)?.[1] || ''
+      const dbDerived =
+        ROWCOUNT_RE.test(expr) ||
+        /\.\s*length\b/.test(expr) ||
+        DB_CONFIRMED_RE.test(expr) ||
+        (!!root && resolveConfirmed(code, body, root, 0))
+      site.disposition = dbDerived ? 'db-confirmed' : 'non-literal'
+      out.exempt[dbDerived ? 'db' : 'nonLiteral']++
+    }
+  }
+  return out
 }
 
 /**
@@ -2065,6 +2271,16 @@ export function scanFileText(relPath, text, opts = {}) {
     b6: { candidates: [], violations: [] },
     // B7(G-815984)与 B3/B4/B5/B6 同一条教训:壳必须建在 U2 提前 return 之前。
     b7: { candidates: [], violations: [] },
+    // B8(2026-10-23 第三十一批 ③)同一条教训:壳必须建在 U2 提前 return 之前(否则 analyze 读到
+    // undefined.envelopes,一份别人写坏的词法会把整道门换成脚本自身异常)。
+    b8: {
+      envelopes: 0,
+      candidates: [],
+      violations: [],
+      exempt: { outlet: 0, db: 0, nonLiteral: 0 },
+      undetermined: [],
+      noBodySites: [],
+    },
   }
   if (res.leaks.length) {
     res.undetermined.push({
@@ -2153,6 +2369,9 @@ export function scanFileText(relPath, text, opts = {}) {
   // B7(G-815984):消费 allChains(上面 L2006 那一份,§22c 链扫描只此一个来源),
   // 正文就是链所在的遮蔽档 code —— 判据不二次扫描、不二次 maskText。
   res.b7 = findReturningTimeColSites(relPath, code, allChains)
+  // B8(第三十一批 ③):信封锚的第二种形态(请求侧兜底对象)。面 = routes/ 下,与基础枚举同面同轮;
+  // 正文与函数体复用本函数已算好的遮蔽档 code / bodies,不二次扫描(§22c)。
+  res.b8 = findFallbackAckSites(relPath, code, nonBlank, bodies)
   // 裸 SQL 写链**解析不到**(括号配平失败)那一格:只有当同一函数体里确实有 ack 时,判据的结论
   // 才依赖它 ⇒ 记"未判定"(与 U1/U2 同档,--strict 下拒绝出合格证);体里没有 ack 的解析失败不影响
   // 任何结论,只进 rawSqlUnparsed 可见性桶(报数点名,不冒红也不静默算通过)。
@@ -2371,6 +2590,19 @@ export function analyze(root, face, opts = {}) {
   const b6Violations = [...per, ...b6OnlyPer].flatMap((r) => r.b6.violations)
   // B7(G-815984)的聚合:面与基础面同一张表(无专属面增量,与 B3/B4/B5 同理)。
   const b7Violations = per.flatMap((r) => r.b7.violations)
+  // B8(2026-10-23 第三十一批 ③)的聚合:面 = routes/ 下(票面点名面),只报数、不进 decide / 棘轮。
+  const b8Violations = per.flatMap((r) => r.b8.violations)
+  const b8Undetermined = per.flatMap((r) => r.b8.undetermined)
+  const b8NoBody = per.reduce((a, r) => a + r.b8.noBodySites.length, 0)
+  const b8EnvelopeSites = per.reduce((a, r) => a + r.b8.envelopes, 0)
+  // 枚举到 0 判死(口径纪律):routes/ 下有跟踪文件,却一处 `.send(success(` 信封锚都没枚举到
+  // ⇒ 本判据结构上扫不到任何东西,不能记绿。U2(词法未闭合)那份文件已显式未判定,此时不重复判死
+  // (它整文件本来就没判,名单里已有名字)。
+  const b8RouteFiles = scanned.filter((p) => p.startsWith('apps/api/src/routes/')).length
+  if (b8RouteFiles > 0 && b8EnvelopeSites === 0 && undetermined.length === 0)
+    throw new Undetermined(
+      `信封锚枚举到 0 处 .send(success(...)) (routes/ 下 ${b8RouteFiles} 个跟踪文件)⇒ B8 判据失效,不计通过`,
+    )
   const exempt = ['returning', 'db', 'outlet', 'marker'].reduce(
     (a, k) => ({ ...a, [k]: per.reduce((x, r) => x + r.exempt[k], 0) }),
     {},
@@ -2426,6 +2658,18 @@ export function analyze(root, face, opts = {}) {
     b7Candidates: per.reduce((a, r) => a + r.b7.candidates.length, 0),
     b7Violations: b7Violations.length,
     b7Files: new Set(b7Violations.map((v) => v.file)).size,
+    // B8(第三十一批 ③)自己的键:追加在 b7* 之后,一字不并入既有数;信封锚枚举数一并现读点名
+    // (`0 处 ≠ 没扫过` 由这个数自己承担)。
+    b8Candidates: per.reduce((a, r) => a + r.b8.candidates.length, 0),
+    b8Violations: b8Violations.length,
+    b8Files: new Set(b8Violations.map((v) => v.file)).size,
+    b8Exempt: per.reduce(
+      (a, r) => a + r.b8.exempt.outlet + r.b8.exempt.db + r.b8.exempt.nonLiteral,
+      0,
+    ),
+    b8Undetermined: b8Undetermined.length,
+    b8NoBody,
+    b8EnvelopeSites,
     // 2026-09-27 追加在**最末尾**:布尔 ack 按键分组的现读数(键族恒在位,含 0)。
     // 语义变化必须如实说:`booleanAckSites` / `booleanAckFiles` 自本批改用**键族全集**计数,
     // 所以这两个数的口径比扩面前宽(扩面前只有 `deleted`)—— 它们仍**不参与任何退出码**(X1/R7/R8/M13
@@ -2588,6 +2832,9 @@ export function analyze(root, face, opts = {}) {
     b5Violations,
     b6Violations,
     b7Violations,
+    // B8(第三十一批 ③):只报数,不进 decide / 棘轮;--explain 消费它。
+    b8Violations,
+    b8Undetermined,
     // B6 专属面增量单独成一份(per 不并入 —— 其余判据不得顺带扩面);--explain 消费它。
     b6OnlyPer,
   }
@@ -2660,6 +2907,7 @@ export function formatReport(out) {
   const b5v = out.b5Violations || []
   const b6v = out.b6Violations || []
   const b7v = out.b7Violations || []
+  const b8v = out.b8Violations || []
   if (out.ratcheted && out.ratcheted.length) {
     const nLegacy = out.ratcheted.filter((r) => (r.kind || 'count') === 'count').length
     const nB1 = out.ratcheted.filter((r) => r.kind === 'b1').length
@@ -2787,7 +3035,7 @@ export function formatReport(out) {
   // ⚠️ 只报数 —— 这一行永远不出 ❌,拦截只发生在 staged 差值棘轮(kind='b4')。措辞里必须把这句话喊出来。
   if (out.face !== 'staged' && c.b4Violations) {
     L.push(
-      `⚠️ 全量档现读 B4 终态回退 ${c.b4Violations} 处 / ${c.b4Files} 文件(set 写字面量 status/state 而 where 无同列 eq/in/ne 前置)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b4Candidates ?? 0} 处、其中已带前置而放过 ${c.b4Candidates != null ? c.b4Candidates - c.b4Violations : 0} 处`,
+      `⚠️ 全量档现读 B4 终态回退 ${c.b4Violations} 处 / ${c.b4Files} 文件(set 写字面量 status/state 而 where 无同列 eq/in/ne 前置)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b4Candidates ?? 0} 处、其中已带前置而放过 ${(c.b4Candidates ?? c.b4Violations) - c.b4Violations} 处`,
     )
     for (const v of b4v.slice(0, 40))
       L.push(
@@ -2799,7 +3047,7 @@ export function formatReport(out) {
   // 不出 ❌,拦截只发生在 staged 差值棘轮(kind='b5')。措辞里必须把这句话喊出来。
   if (out.face !== 'staged' && c.b5Violations) {
     L.push(
-      `⚠️ 全量档现读 B5 排序无尾键 ${c.b5Violations} 处 / ${c.b5Files} 文件(单键 orderBy 落在 sortOrder/sortOrderInGroup/position/sequence 这类可空/非唯一排序列而无确定性尾键)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b5Candidates ?? 0} 处、其中已带尾键而放过 ${c.b5Candidates != null ? c.b5Candidates - c.b5Violations : 0} 处`,
+      `⚠️ 全量档现读 B5 排序无尾键 ${c.b5Violations} 处 / ${c.b5Files} 文件(单键 orderBy 落在 sortOrder/sortOrderInGroup/position/sequence 这类可空/非唯一排序列而无确定性尾键)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b5Candidates ?? 0} 处、其中已带尾键而放过 ${(c.b5Candidates ?? c.b5Violations) - c.b5Violations} 处`,
     )
     for (const v of b5v.slice(0, 40))
       L.push(
@@ -2811,7 +3059,7 @@ export function formatReport(out) {
   // 不出 ❌,拦截只发生在 staged 差值棘轮(kind='b6')。措辞里必须把这句话喊出来。
   if (out.face !== 'staged' && c.b6Violations) {
     L.push(
-      `⚠️ 全量档现读 B6 jsonb 整列覆盖无声明 ${c.b6Violations} 处 / ${c.b6Files} 文件(onConflictDoUpdate set 写 jsonb 列而既非具名成员合并、非 jsonb_set 指定路径,又无逐列"全量真相"声明)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b6Candidates ?? 0} 处、其中具名合并/jsonb_set/带声明而放过 ${c.b6Candidates != null ? c.b6Candidates - c.b6Violations : 0} 处`,
+      `⚠️ 全量档现读 B6 jsonb 整列覆盖无声明 ${c.b6Violations} 处 / ${c.b6Files} 文件(onConflictDoUpdate set 写 jsonb 列而既非具名成员合并、非 jsonb_set 指定路径,又无逐列"全量真相"声明)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b6Candidates ?? 0} 处、其中具名合并/jsonb_set/带声明而放过 ${(c.b6Candidates ?? c.b6Violations) - c.b6Violations} 处`,
     )
     for (const v of b6v.slice(0, 40))
       L.push(
@@ -2823,7 +3071,7 @@ export function formatReport(out) {
   // 永远不出 ❌,拦截只发生在 staged 差值棘轮(kind='b7')。措辞里必须把这句话喊出来。
   if (out.face !== 'staged' && c.b7Violations) {
     L.push(
-      `⚠️ 全量档现读 B7 写时刻不回传 ${c.b7Violations} 处 / ${c.b7Files} 文件(写链 .returning( 取了业务列却不取回任何时间列 —— 写入时刻没回给调用方)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b7Candidates ?? 0} 处、其中带时间列/裸回全行/纯 id 计数而放过 ${c.b7Candidates != null ? c.b7Candidates - c.b7Violations : 0} 处`,
+      `⚠️ 全量档现读 B7 写时刻不回传 ${c.b7Violations} 处 / ${c.b7Files} 文件(写链 .returning( 取了业务列却不取回任何时间列 —— 写入时刻没回给调用方)—— **只报数不判红(--strict 也不判)**:票面拍板"现存违规报数不判红,只拦新增",提交链走差值棘轮,净新增即红;面内共 ${c.b7Candidates ?? 0} 处、其中带时间列/裸回全行/纯 id 计数而放过 ${(c.b7Candidates ?? c.b7Violations) - c.b7Violations} 处`,
     )
     for (const v of b7v.slice(0, 40))
       L.push(
@@ -2831,6 +3079,27 @@ export function formatReport(out) {
       )
     if (c.b7Violations > 40) L.push(`   …另 ${c.b7Violations - 40} 处(--explain 看全量)`)
   }
+  // B8(第三十一批 ③)是**只报数维**:信封兜底对象里的写死布尔 ACK。票面要的是"让门看得见"，
+  // 修那 5 处属另一维;故本行永远不出 ❌，也不进 --strict / 提交链。措辞里把这句话喊出来。
+  if (out.face !== 'staged' && c.b8Violations) {
+    L.push(
+      `⚠️ 全量档现读 B8 信封兜底假 ack ${c.b8Violations} 处 / ${c.b8Files} 文件(success( 信封顶层的 ?? / || 兜底对象里 updated|created 写死 true)—— **只报数不判红(--strict 也不判),不接提交链**:本票只让门看得见,改真属另一维;信封锚枚举 ${c.b8EnvelopeSites ?? 0} 处,兜底落点 ${c.b8Candidates ?? 0},放过 ${c.b8Exempt ?? 0} 处`,
+    )
+    for (const v of b8v.slice(0, 40))
+      L.push(`   ${v.file}:${v.line}  ${v.fn ? `${v.fn} ` : ''}〈${v.key}: ${v.expr}〉(请求侧兜底对象写死布尔 ACK)`)
+    if (c.b8Violations > 40) L.push(`   …另 ${c.b8Violations - 40} 处(--explain 看全量)`)
+  }
+  if (c.b8Undetermined) {
+    L.push(
+      `⚠️ B8 未判定 ${c.b8Undetermined} 处(信封顶层兜底右值不是对象字面量 / 括号配平不到)—— **未判定不是通过**,逐条点名如下:`,
+    )
+    for (const u of (out.b8Undetermined || []).slice(0, 40)) L.push(`   ${u.file}:${u.line}  ${u.why}`)
+    if (c.b8Undetermined > 40) L.push(`   …另 ${c.b8Undetermined - 40} 处(--explain 看全量)`)
+  }
+  if (c.b8NoBody)
+    L.push(
+      `⚠️ B8 未判定 ${c.b8NoBody} 处(信封兜底落在解析不出函数体的位置,如模块顶层/class 方法简写)—— 未判定不是通过,不冒红也不记绿(--explain 点名)。`,
+    )
   if (c.undetermined) {
     L.push(`⚠️ 未判定 ${c.undetermined} 处 —— **未判定不等于通过**,下列每一处本门都承认自己看不见:`)
     for (const u of out.undetermined.slice(0, 40)) L.push(`   ${u.file}:${u.line}  ${u.why}`)
@@ -2868,10 +3137,13 @@ export function formatReport(out) {
     !c.b4Violations &&
     !c.b5Violations &&
     !c.b6Violations &&
-    !c.b7Violations
+    !c.b7Violations &&
+    !c.b8Violations &&
+    !c.b8Undetermined &&
+    !c.b8NoBody
   )
     L.push(
-      '✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack、无 B3 回填无界、无 B4 终态回退、无 B5 排序无尾键、无 B6 jsonb 整列覆盖无声明、无 B7 写时刻不回传,且无未判定项。',
+      '✅ 通过:覆盖面内无自算计数、无 B1/B2 假 ack、无 B3 回填无界、无 B4 终态回退、无 B5 排序无尾键、无 B6 jsonb 整列覆盖无声明、无 B7 写时刻不回传、无 B8 信封兜底假 ack,且无未判定项。',
     )
   if (
     out.face === 'staged' &&
@@ -2919,6 +3191,12 @@ export function formatReport(out) {
       // B7(G-815984)与 B4/B5/B6 同构:现读点名 + 把"只拦新增"喊出来(0 也照喊,"0 处 ≠ 没扫过")。
       `;B7 写时刻不回传(判据:违规 ${c.b7Violations ?? 0} 处 / ${c.b7Files ?? 0} 文件,` +
       `候选 ${c.b7Candidates ?? 0};只报数不进 --strict,票面拍板只拦新增,提交链差值棘轮)` +
+      // B8(第三十一批 ③)现读点名 + 把"只报数、不接提交链"喊出来;信封锚枚举数与"0 处 = 判死"
+      // 的守卫同一口径(枚举 0 抛 Undetermined,不会走到这行报 0)。
+      `;B8 信封兜底假 ack(判据:违规 ${c.b8Violations ?? 0} 处 / ${c.b8Files ?? 0} 文件,` +
+      `信封锚枚举 ${c.b8EnvelopeSites ?? 0} 处,候选 ${c.b8Candidates ?? 0},放过 ${c.b8Exempt ?? 0} 只报数,` +
+      `找不到函数体不判 ${c.b8NoBody ?? 0},未判定 ${c.b8Undetermined ?? 0};` +
+      `只报数不进 --strict,不接提交链 —— 本票只让门看得见)` +
       // 逐键点名(2026-09-27):扩键族后"合计 12 处"这句话什么都没说 —— 新那一族可能一处都没有,
       // 也可能全是新那一族。含 0 也照喊,理由与 B1/B2 段同一句("0 处 ≠ 没扫过")。
       // 表由 BOOL_ACK_KEYS 派生:**报表漏键在这里结构上不可能发生**,自检 K0 再用一份独立写死的
@@ -2971,9 +3249,18 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
     时间列词法不可知,不进面;insert 链不进本维(findWriteChains 动词锚只有 .delete/.update,扩动词
     会同时改 B1/B3/B4 的面,登记不装看不见)
     **head 面(含 --strict)只报数不判红**(decide 签名刻意不收 b7Violations);staged 差值棘轮净新增即红
+  判据九(B8 信封兜底假 ack,2026-10-23 第三十一批 ③「信封锚枚举改造」):${API_SRC_DIR}/routes 下的跟踪文件里,
+    .send(<X>success(<expr>)) 的信封实参**顶层**有 ?? / || 兜底,且右值是对象字面量、其中
+    (键族 ENVELOPE_ANCHOR_KEYS.fallback = ${FALLBACK_ACK_KEYS.join(' | ')}) 取**字面量 true** ⇒ 命中并点名
+    —— 布尔来自"请求侧推算的兜底对象",不是库确认集:库改 0 行时响应仍承诺改/建成了一行
+    放过:同体内布尔值来自库确认集(rowCount / .length / 可追到 .returning( 结果)⇒ 非字面量不进违规面;
+         success(batchWriteOutcome(...)) 唯一出口(本就无兜底对象);兜底值非字面量 true ⇒ 只记候选放过
+    判不了格如实登记:信封顶层兜底右值不是对象字面量 / 括号配平不到 ⇒ 逐条未判定并点名,不冒红不记绿;
+    routes/ 下有跟踪文件却枚举到 0 处信封锚 ⇒ 判死(Undetermined),不计通过
+    **只报数不判红(含 --strict),不接提交链**:本票只让门看得见这 5 处,改真属另一维
   只报数不判红(现读惯例存量,写在结论行):布尔 ack(键族按键分组现读,无写链的那一半)与读查询 \`count: X.length\`;--explain 逐条点名
-  八条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
-  提交链档与 --strict 才问责(B4/B5/B6/B7 例外:全量档含 --strict 都只报数,只拦新增)。
+  九条判据的存量都按「该文件 HEAD 自身同判据计数」差值棘轮:全量档只报数(恒红门=逼人 --no-verify,§12e),
+  提交链档与 --strict 才问责(B4/B5/B6/B7/B8 例外:全量档含 --strict 都只报数,只拦新增;B8 不进提交链)。
   紧急跳过:${SELF_SKIP}=1`
 
 function main(argv) {
@@ -3080,6 +3367,17 @@ function main(argv) {
         console.log(
           `  · B7写时刻 ${s.file}:${s.line} returning→${s.excerpt} ⇒ ${s.disposition}${s.why ? ` (${s.why})` : ''}(只拦新增,不进 --strict)`,
         )
+    // B8 的逐条处置:违规(兜底写死 true)+ 放过(库确认 / 非字面量)。找不到函数体的单独喊。
+    for (const r of out.per) {
+      for (const s of r.b8.candidates)
+        console.log(
+          `  · B8信封兜底 ${s.file}:${s.line} ${s.fn ? `${s.fn} ` : ''}〈${s.key}: ${s.expr}〉 ⇒ ${s.disposition}(只报数,不进 --strict,不接提交链)`,
+        )
+      for (const s of r.b8.noBodySites)
+        console.log(`  · B8信封兜底 ${s.file}:${s.line} ${s.fn || ''} ⇒ 找不到函数体(未判定,不判)`)
+      for (const u of r.b8.undetermined)
+        console.log(`  · B8信封兜底 ${u.file}:${u.line} ⇒ 未判定:${u.why}`)
+    }
   }
   if (argv.includes('--json')) {
     console.log(
@@ -3107,6 +3405,9 @@ function main(argv) {
           b5Violations: out.b5Violations,
           b6Violations: out.b6Violations,
           b7Violations: out.b7Violations,
+          // 第三十一批 ③(B8):同样只追加、不改写既有字段。
+          b8Violations: out.b8Violations,
+          b8Undetermined: out.b8Undetermined,
         },
         null,
         2,
@@ -3606,6 +3907,34 @@ const FIX = {
     '}',
     '',
   ].join('\n'),
+  // ---- B8(2026-10-23 第三十一批 ③)夹具:信封兜底对象里的写死布尔 ACK(判据九,只报数维)----
+  /** 红腿:票面点名的现网形状 —— `success(row ?? { updated: true })`,兜底对象写死布尔 ACK。 */
+  b8FallbackLiteral: h([
+    '  const row = await db.update(agents).set(body).where(eq(agents.id, id)).returning()',
+    '  return reply.send(success(row[0] ?? { id, updated: true }))',
+  ]),
+  /** 红腿(带 .returning 也不放过):库答复在手上却不用它,兜底仍写死 `true`(放过通道④的反例)。 */
+  b8FallbackLiteralWithReturning: h([
+    '  const rows = await db.update(agents).set(body).where(eq(agents.id, id)).returning()',
+    '  const row = rows.length ? rows[0] : undefined',
+    '  return reply.send(success(row ?? { id, updated: true }))',
+  ]),
+  /** 绿腿(库确认集):兜底里的布尔来自 rowCount / 比较式,不是字面量 ⇒ 宁漏不误报,只记候选。 */
+  b8FallbackDbConfirmed: h([
+    '  const result = await db.update(agents).set(body).where(eq(agents.id, id))',
+    '  const row = result.rowCount ? { id, updated: result.rowCount > 0 } : null',
+    '  return reply.send(success(row ?? { id, updated: result.rowCount > 0 }))',
+  ]),
+  /** 绿腿(唯一出口):`success(batchWriteOutcome(...))` 本就是诚实行数载体,没有兜底对象。 */
+  b8FallbackOutlet: h([
+    '  const outcome = await batchWriteOutcome({ updated: 0, skipped: 0 })',
+    '  return reply.send(success(batchWriteOutcome(outcome)))',
+  ]),
+  /** 绿腿(非字面量):兜底值经变量传入 ⇒ 追不到库确认集也只记 nonLiteral,不判红。 */
+  b8FallbackNonLiteral: h([
+    '  const row = await db.update(agents).set(body).where(eq(agents.id, id)).returning()',
+    '  return reply.send(success(row[0] ?? { id, updated: flag }))',
+  ]),
 }
 
 /* ---- 2026-09-27 第二十九批:键族扩面 + "证据在别处"四型的夹具 ----
@@ -5082,6 +5411,55 @@ function selfTest(argv) {
     ],
     [0, 1],
   )
+  // ---- B8(第三十一批 ③):信封兜底对象里的写死布尔 ACK。----
+  /** 兜底族键表的**独立写死**期望(不从 ENVELOPE_ANCHOR_KEYS 派生):被削短 ⇒ 这一支当场红。 */
+  const FALLBACK_KEYS_EXPECTED = ['updated', 'created']
+  const b8Of = (t) => {
+    const r = v(t).b8
+    return [r.violations.length, r.candidates.length, r.envelopes]
+  }
+  eq(
+    'B8K 键族对账:兜底族(ENVELOPE_ANCHOR_KEYS.fallback)与自检侧独立写死的期望表逐字同集(削短=该族全盲)',
+    [[...FALLBACK_ACK_KEYS].sort().join(','), [...ENVELOPE_ANCHOR_KEYS.fallback].sort().join(',')],
+    [FALLBACK_KEYS_EXPECTED.slice().sort().join(','), FALLBACK_KEYS_EXPECTED.slice().sort().join(',')],
+  )
+  eq('B8a 兜底对象写死 updated:true ⇒ 命中 1 处并点名(旧直挂锚看不见这一族)', b8Of(FIX.b8FallbackLiteral), [1, 1, 1])
+  eq(
+    'B8b 同体内有 .returning( 但兜底仍写死 true ⇒ 照红(库答复在手上却不用,不是放过通道)',
+    b8Of(FIX.b8FallbackLiteralWithReturning),
+    [1, 1, 1],
+  )
+  eq(
+    'B8c 兜底布尔来自 rowCount 比较式 ⇒ 0 违规、1 候选、记 db(库确认集放过)',
+    [b8Of(FIX.b8FallbackDbConfirmed), v(FIX.b8FallbackDbConfirmed).b8.candidates[0].disposition],
+    [[0, 1, 1], 'db-confirmed'],
+  )
+  eq(
+    'B8d success(batchWriteOutcome(...)) 唯一出口 ⇒ 0 违规、0 候选、放过 outlet 1(信封锚仍枚举到 1)',
+    [b8Of(FIX.b8FallbackOutlet), v(FIX.b8FallbackOutlet).b8.exempt.outlet],
+    [[0, 0, 1], 1],
+  )
+  eq(
+    'B8e 兜底值是变量 ⇒ 宁漏不误报(0 违规、1 候选、记 non-literal)',
+    [b8Of(FIX.b8FallbackNonLiteral), v(FIX.b8FallbackNonLiteral).b8.candidates[0].disposition],
+    [[0, 1, 1], 'non-literal'],
+  )
+  eq(
+    'B8f 直挂 success({…}) 不重复计账(候选/违规 0;信封锚照数 1,但归 direct 族由 B1 判)',
+    b8Of('server.get(basePath, async (request, reply) => {\n  return reply.send(success({ deleted: true }))\n})\n'),
+    [0, 0, 1],
+  )
+  eq(
+    'B8D decide:B8 刻意**不在签名里** —— head+strict 即便有 5 处存量也不判红、不进提交链',
+    D({
+      face: 'head',
+      violations: [],
+      undetermined: [],
+      ratcheted: [{ file: 'a.ts', kind: 'b8', now: 5, anchor: 0, added: 5 }],
+      strict: true,
+    }),
+    0,
+  )
   eq(
     'B7fmt 报告面:B7 行**永远 ⚠️ 只报数**(strict 也不许出 ❌);棘红块 kind 分列点名 B7;结论行 0 也照喊',
     (() => {
@@ -5578,5 +5956,10 @@ export const __test__ = {
   EXCLUDED_REF_RE,
   jsonbPolicyDeclRe,
   listJsonbUpsertExtraPaths,
+  // B8(2026-10-23 第三十一批 ③):信封锚两种形态的枚举表、兜底族判据与信封枚举器都从这里取 ——
+  // 测试里再抄一份信封正则或兜底键名单,就是第二真相(§22c)。
+  ENVELOPE_ANCHOR_KEYS,
+  sendSuccessEnvelopes,
+  findFallbackAckSites,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
