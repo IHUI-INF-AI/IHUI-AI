@@ -335,7 +335,8 @@
     "progressLessons": "{completed}/{total} lessons completed",
     "free": "Free",
     "loadFailed": "Failed to load course",
-    "playError": "Playback error"
+    "playError": "Playback error",
+    "moreTitle": "More courses"
   },
   "teacher": {
     "list": {
@@ -877,7 +878,8 @@
     "toolOk": "OK",
     "toolFail": "Failed",
     "diffCollapse": "Collapse streaming diff",
-    "diffExpand": "Expand streaming diff"
+    "diffExpand": "Expand streaming diff",
+    "imagePreview": "Preview image"
   },
   "settings": {
     "title": "Settings",
@@ -1120,7 +1122,9 @@
     "closeOverlay": "Close sheet",
     "add": "Add",
     "panelCollapse": "Collapse panel",
-    "panelExpand": "Expand panel"
+    "panelExpand": "Expand panel",
+    "loadMore": "Load more",
+    "user": "User"
   },
   "network": {
     "offline": "You're offline. Some features are unavailable.",
@@ -1464,7 +1468,13 @@
     },
     "title": "Token Value",
     "tokenUnit": "tokens",
-    "totalCost": "Total cost"
+    "totalCost": "Total cost",
+    "range7d": "7 days",
+    "range1m": "1 month",
+    "range1y": "1 year",
+    "rangeAll": "All",
+    "unitYi": "{v}B",
+    "unitWan": "{v}K"
   },
   "messageInput": {
     "document": "Document",
@@ -2169,7 +2179,8 @@
     "loadFailed": "Failed to load ranking",
     "title": "Ranking",
     "wanSuffix": "{v}k",
-    "pointsUnit": "pts"
+    "pointsUnit": "pts",
+    "anonShort": "Anon"
   },
   "rankingDetail": {
     "rank": "Rank",
@@ -3899,7 +3910,10 @@
     "sectionThirdParty": "Third-party sharing",
     "sectionThirdPartyBody": "We do not sell your personal information. We may share necessary information with trusted partners when required by law or to provide our services, but we ensure they adhere to equally strict data protection standards.",
     "subtitle": "We value your privacy",
-    "title": "Privacy Policy"
+    "title": "Privacy Policy",
+    "mustAgree": "You must accept the privacy policy to use this app",
+    "disagreeA11y": "Disagree with privacy policy",
+    "agreeA11y": "Agree with privacy policy"
   },
   "refundDetail": {
     "amount": "Refund amount",
@@ -5328,5 +5342,73 @@
       "completed": "Completed",
       "refunded": "Refunded"
     }
+  },
+  "developerLimits": {
+    "title": "API Limits",
+    "item": "Metric",
+    "usage": "Usage"
+  },
+  "developerWebhooks": {
+    "title": "Webhooks",
+    "url": "URL",
+    "status": "Status",
+    "events": "Events",
+    "lastTriggered": "Last triggered",
+    "active": "Active",
+    "disabled": "Disabled",
+    "never": "Never",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete webhook",
+    "deleteConfirmDesc": "Delete this webhook?"
+  },
+  "tabBar": {
+    "market": "AI App Store",
+    "plaza": "Plaza",
+    "chat": "IHUI AI",
+    "feed": "Feed",
+    "me": "Me"
+  },
+  "agentShop": {
+    "use": "Used {n}",
+    "collect": "Liked {n}",
+    "like": "Likes {n}",
+    "likeA11y": "Like {name}",
+    "collectA11y": "Save {name}",
+    "catEmpty": "No agents in this category"
+  },
+  "career": {
+    "fillField": "Please fill: {name}",
+    "submitFail": "Submit failed. Retry later.",
+    "doneTitle": "Submitted",
+    "doneBody": "Survey submitted. Your AI study plan will appear here."
+  },
+  "pwd": {
+    "oldRequired": "Enter old password",
+    "minLen": "New password needs at least {n} chars",
+    "okTitle": "Password updated",
+    "okBody": "Password changed",
+    "failRetry": "Update failed",
+    "retryLater": "Try again later",
+    "netFail": "Network error. Try again later."
+  },
+  "study": {
+    "learnA11y": "Learning & growth",
+    "careerA11y": "AI study planner"
+  },
+  "developerNotifications": {
+    "title": "Notification Preferences",
+    "apiError": "API error alerts",
+    "quotaWarning": "Quota warnings",
+    "webhookFailure": "Webhook failure alerts",
+    "weeklyReport": "Weekly report",
+    "versionUpdate": "Version updates",
+    "billingReminder": "Billing reminders"
+  },
+  "developerSettings": {
+    "title": "Developer Settings",
+    "sandboxAutoRun": "Sandbox auto-run",
+    "sandboxAutoRunDesc": "Run sandbox code automatically after execution",
+    "errorReport": "Error reporting",
+    "errorReportDesc": "Report API errors automatically for diagnosis"
   }
 }

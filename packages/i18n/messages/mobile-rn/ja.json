@@ -335,7 +335,8 @@
     "progressLessons": "{completed}/{total} 節修了",
     "free": "無料",
     "loadFailed": "コースの読み込みに失敗",
-    "playError": "再生エラー"
+    "playError": "再生エラー",
+    "moreTitle": "もっと見る"
   },
   "teacher": {
     "list": {
@@ -877,7 +878,8 @@
     "toolOk": "成功",
     "toolFail": "失敗",
     "diffCollapse": "ストリーム diff を畳む",
-    "diffExpand": "ストリーム diff 展開"
+    "diffExpand": "ストリーム diff 展開",
+    "imagePreview": "画像プレビュー"
   },
   "settings": {
     "title": "設定",
@@ -1120,7 +1122,9 @@
     "closeOverlay": "シートを閉じる",
     "add": "追加",
     "panelCollapse": "パネルを畳む",
-    "panelExpand": "パネル展开"
+    "panelExpand": "パネル展开",
+    "loadMore": "さらに読み込む",
+    "user": "ユーザー"
   },
   "network": {
     "offline": "ネットワークが切断されました。一部の機能は利用できません",
@@ -1464,7 +1468,13 @@
     },
     "title": "トークン",
     "tokenUnit": "トークン",
-    "totalCost": "総消費"
+    "totalCost": "総消費",
+    "range7d": "7日間",
+    "range1m": "1ヶ月",
+    "range1y": "1年間",
+    "rangeAll": "すべて",
+    "unitYi": "{v}億",
+    "unitWan": "{v}万"
   },
   "messageInput": {
     "document": "ドキュメント",
@@ -2169,7 +2179,8 @@
     "loadFailed": "ランキングの読み込みに失敗",
     "title": "ランキング",
     "wanSuffix": "{v}万",
-    "pointsUnit": "ポイント"
+    "pointsUnit": "ポイント",
+    "anonShort": "匿名"
   },
   "rankingDetail": {
     "rank": "ランキング",
@@ -3899,7 +3910,10 @@
     "sectionThirdParty": "第三者との共有",
     "sectionThirdPartyBody": "当社は個人情報を販売しません。法律で要求される場合、またはサービス提供に必要な場合、信頼できるパートナーと必要最小限の情報を共有することがありますが、同等の厳格なデータ保護基準を遵守することを保証します。",
     "subtitle": "お客様のプライバシーを尊重します",
-    "title": "プライバシーポリシー"
+    "title": "プライバシーポリシー",
+    "mustAgree": "プライバシーポリシーへの同意が必要です",
+    "disagreeA11y": "プライバシーポリシーに同意しない",
+    "agreeA11y": "プライバシーポリシーに同意"
   },
   "refundDetail": {
     "amount": "返金額",
@@ -5328,5 +5342,73 @@
       "completed": "完了",
       "refunded": "返金済み"
     }
+  },
+  "developerLimits": {
+    "title": "API 上限",
+    "item": "項目",
+    "usage": "使用量"
+  },
+  "developerWebhooks": {
+    "title": "Webhooks",
+    "url": "URL",
+    "status": "ステータス",
+    "events": "イベント",
+    "lastTriggered": "最終トリガー",
+    "active": "有効",
+    "disabled": "無効",
+    "never": "未トリガー",
+    "delete": "削除",
+    "deleteConfirmTitle": "Webhook を削除",
+    "deleteConfirmDesc": "この Webhook を削除しますか?"
+  },
+  "tabBar": {
+    "market": "AIアプリストア",
+    "plaza": "プラザ",
+    "chat": "智汇AI",
+    "feed": "フィード",
+    "me": "マイ"
+  },
+  "agentShop": {
+    "use": "使用 {n}",
+    "collect": "收藏 {n}",
+    "like": "いいね {n}",
+    "likeA11y": "{name} にいいね",
+    "collectA11y": "{name} を收藏",
+    "catEmpty": "この分類にエージェントがありません"
+  },
+  "career": {
+    "fillField": "入力してください：{name}",
+    "submitFail": "送信に失敗しました。後で再試行",
+    "doneTitle": "送信完了",
+    "doneBody": "アンケート送信済み。AI 学習プランはこのページに表示されます."
+  },
+  "pwd": {
+    "oldRequired": "旧パスワードを入力",
+    "minLen": "新パスワードは{n}文字以上",
+    "okTitle": "変更に成功",
+    "okBody": "パスワードを更新しました",
+    "failRetry": "変更に失敗",
+    "retryLater": "後で再試行",
+    "netFail": "ネットワークエラー。後で再試行"
+  },
+  "study": {
+    "learnA11y": "学習・成長",
+    "careerA11y": "AI 学習プラン"
+  },
+  "developerNotifications": {
+    "title": "通知設定",
+    "apiError": "API エラー通知",
+    "quotaWarning": "クォータ警告",
+    "webhookFailure": "Webhook 失敗通知",
+    "weeklyReport": "週次レポート",
+    "versionUpdate": "バージョン更新",
+    "billingReminder": "請求リマインダー"
+  },
+  "developerSettings": {
+    "title": "開発者設定",
+    "sandboxAutoRun": "サンドボックス自動実行",
+    "sandboxAutoRunDesc": "サンドボックスコードを完了後自動実行",
+    "errorReport": "エラー報告",
+    "errorReportDesc": "API エラーを自動報告して調査に役立てる"
   }
 }

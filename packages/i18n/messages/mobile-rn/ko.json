@@ -335,7 +335,8 @@
     "progressLessons": "{completed}/{total}강 수강 완료",
     "free": "무료",
     "loadFailed": "강좌 불러오기 실패",
-    "playError": "재생 오류"
+    "playError": "재생 오류",
+    "moreTitle": "강의 더보기"
   },
   "teacher": {
     "list": {
@@ -877,7 +878,8 @@
     "toolOk": "성공",
     "toolFail": "실패",
     "diffCollapse": "스트림 diff 접기",
-    "diffExpand": "스트림 diff 펼치기"
+    "diffExpand": "스트림 diff 펼치기",
+    "imagePreview": "이미지 미리보기"
   },
   "settings": {
     "title": "설정",
@@ -1120,7 +1122,9 @@
     "closeOverlay": "시트 닫기",
     "add": "추가",
     "panelCollapse": "패널 접기",
-    "panelExpand": "패널 펼치기"
+    "panelExpand": "패널 펼치기",
+    "loadMore": "더 불러오기",
+    "user": "사용자"
   },
   "network": {
     "offline": "네트워크가 연결되지 않아 일부 기능을 사용할 수 없습니다",
@@ -1464,7 +1468,13 @@
     },
     "title": "토큰",
     "tokenUnit": "토큰",
-    "totalCost": "총 소비"
+    "totalCost": "총 소비",
+    "range7d": "7일",
+    "range1m": "1개월",
+    "range1y": "1년",
+    "rangeAll": "전체",
+    "unitYi": "{v}B",
+    "unitWan": "{v}K"
   },
   "messageInput": {
     "document": "문서",
@@ -2169,7 +2179,8 @@
     "loadFailed": "순위 불러오기 실패",
     "title": "순위",
     "wanSuffix": "{v}만",
-    "pointsUnit": "점"
+    "pointsUnit": "점",
+    "anonShort": "익명"
   },
   "rankingDetail": {
     "rank": "순위",
@@ -3899,7 +3910,10 @@
     "sectionThirdParty": "제3자 공유",
     "sectionThirdPartyBody": "저희는 사용자의 개인정보를 판매하지 않습니다. 법률에서 요구하거나 서비스 제공에 필요한 경우 신뢰할 수 있는 파트너와 필요한 정보를 공유할 수 있으며, 이 경우 동등하게 엄격한 데이터 보호 기준을 준수하도록 보장합니다.",
     "subtitle": "우리는 귀하의 프라이버시를 존중합니다",
-    "title": "개인정보처리방침"
+    "title": "개인정보처리방침",
+    "mustAgree": "개인정보 처리방침에 동의해야 사용 가능",
+    "disagreeA11y": "개인정보 방침 비동의",
+    "agreeA11y": "개인정보 방침 동의"
   },
   "refundDetail": {
     "amount": "환불 금액",
@@ -5328,5 +5342,73 @@
       "completed": "완료",
       "refunded": "환불됨"
     }
+  },
+  "developerLimits": {
+    "title": "API 한도",
+    "item": "항목",
+    "usage": "사용량"
+  },
+  "developerWebhooks": {
+    "title": "Webhooks",
+    "url": "URL",
+    "status": "상태",
+    "events": "이벤트",
+    "lastTriggered": "최근 트리거",
+    "active": "활성",
+    "disabled": "비활성",
+    "never": "트리거 없음",
+    "delete": "삭제",
+    "deleteConfirmTitle": "Webhook 삭제",
+    "deleteConfirmDesc": "이 Webhook을 삭제하시겠습니까?"
+  },
+  "tabBar": {
+    "market": "AI 앱 마켓",
+    "plaza": "플라자",
+    "chat": "IHUI AI",
+    "feed": "피드",
+    "me": "내"
+  },
+  "agentShop": {
+    "use": "사용 {n}",
+    "collect": "收藏 {n}",
+    "like": "좋아요 {n}",
+    "likeA11y": "{name} 좋아요",
+    "collectA11y": "{name} 저장",
+    "catEmpty": "이 분류에 에이전트 없음"
+  },
+  "career": {
+    "fillField": "입력: {name}",
+    "submitFail": "제출 실패, 잠시 후 재시도",
+    "doneTitle": "제출 완료",
+    "doneBody": "설문 제출 완료. AI 학습 제안은 이 페이지에서 확인 가능"
+  },
+  "pwd": {
+    "oldRequired": " 이전 비밀번호 입력",
+    "minLen": "새 비밀번호는 {n}자 이상",
+    "okTitle": "변경 성공",
+    "okBody": "비밀번호 변경됨",
+    "failRetry": "변경 실패",
+    "retryLater": "잠시 후 재시도",
+    "netFail": "네트워크 오류, 잠시 후 재시도"
+  },
+  "study": {
+    "learnA11y": "학습 발전",
+    "careerA11y": "AI 학습 계획"
+  },
+  "developerNotifications": {
+    "title": "알림 설정",
+    "apiError": "API 오류 알림",
+    "quotaWarning": "할당량 경고",
+    "webhookFailure": "Webhook 실패 알림",
+    "weeklyReport": "주간 보고서",
+    "versionUpdate": "버전 업데이트",
+    "billingReminder": "청구 알림"
+  },
+  "developerSettings": {
+    "title": "개발자 설정",
+    "sandboxAutoRun": "샌드박스 자동 실행",
+    "sandboxAutoRunDesc": "샌드박스 코드 실행 후 자동 실행",
+    "errorReport": "오류 보고",
+    "errorReportDesc": "API 오류를 자동 보고하여 조사에 활용"
   }
 }
