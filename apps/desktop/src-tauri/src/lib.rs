@@ -10,9 +10,15 @@ mod checkin_capture;
 // 2026-10-12 立:WorkBuddy「网页登录自动添加账号」——内嵌 WebView 登录 + cookie jar
 // 读取(含 HttpOnly)+ /console/accounts 登录态验证,普通用户零 token 体验。
 mod checkin_web_login;
+// 2026-10-24 立:Trae「网页登录自动添加账号」——内嵌窗 cookie → GetUserToken 换真 JWT →
+// 解 uid/手机号,前端自动入库(与 WorkBuddy 同型,窗口仍走 embedded_browser)。
+mod checkin_trae_web_login;
 // 2026-10-16 立:项目内嵌浏览器(自绘工具条 + 地址栏 + Chrome UA 的 WebView2 窗口)。
 // 签到网页登录、SSO 兜底窗等"需要在浏览器里走一趟"的场景统一用它,不再外部拉 Chrome。
 mod embedded_browser;
+// 2026-10-24 立:右侧工作区「停靠浏览器」——把原生 webview 铺在工作面板 Tab 内容区
+// (iframe/代理/CDP 都拿不到登录 cookie,只有本机原生 webview 能读)。
+mod embedded_browser_dock;
 // 2026-10-17 立:内嵌浏览器「完整浏览器」能力——书签管理/最近历史/从 Chrome/Edge 导入书签。
 // 数据落 app_data_dir(持久化,区别于内存标签会话);纯函数(Chrome 书签解析/去重/历史)
 // 判据可单测,I/O 走薄 Tauri 命令胶水。
@@ -3773,6 +3779,15 @@ pub fn run() {
             git_channel_ipc::git_channel_info,
             embedded_browser::embedded_browser_open,
             embedded_browser::embedded_browser_close,
+            embedded_browser_dock::embedded_browser_dock_open,
+            embedded_browser_dock::embedded_browser_dock_bounds,
+            embedded_browser_dock::embedded_browser_dock_close,
+            embedded_browser_dock::embedded_browser_dock_navigate,
+            embedded_browser_dock::embedded_browser_dock_back,
+            embedded_browser_dock::embedded_browser_dock_forward,
+            embedded_browser_dock::embedded_browser_dock_reload,
+            embedded_browser_dock::embedded_browser_dock_devtools,
+            embedded_browser_dock::embedded_browser_dock_url,
             embedded_browser::embedded_browser_state,
             embedded_browser::embedded_browser_new_tab,
             embedded_browser::embedded_browser_devtools,
@@ -3828,6 +3843,8 @@ pub fn run() {
             // 这里只留 probe(读内嵌窗 cookie jar + 服务端验证,见 checkin_web_login.rs)。
             checkin_web_login::checkin_workbuddy_web_login_probe,
             checkin_web_login::checkin_workbuddy_web_login_probe_cookie,
+            // 2026-10-24 Trae 网页登录:读内嵌窗 cookie jar + GetUserToken 换票+解身份。
+            checkin_trae_web_login::checkin_trae_web_login_probe,
             checkin_capture::checkin_reset_device_ids,
             checkin_capture::checkin_get_public_ip,
             checkin_capture::checkin_one_click_reset,

@@ -1208,6 +1208,69 @@ test('R-O F5 的豁免额度必须窄到"指针行 ∧ 仍 ≥1 份",否则注�
   )
 })
 
+test('R-O3 G-815913:F5 必须与 verifyUnion 认同一本折叠账(⑤ 档),比较集由调用点收到两侧', () => {
+  const body = topLevelBody(srcOfTool(), 'export function planStateRegressions(')
+  // 同源锁:⑤ 档的折叠举证必须复用 attestFoldPair 那**一份**实现 —— 门内再写第二份"折没折成"必漂移,
+  // 漂移的固定代价就是本票的病:一边绿灯一边判红(两把尺子不同形)。
+  assert.match(
+    body,
+    /attestFoldPair\(/,
+    'F5 的折叠额度必须过与 verifyUnion 同一份 attestFoldPair 四问举证,不得自造第二把尺子',
+  )
+  assert.ok(body.includes('f5SideTexts') && body.includes('foldPairs'), 'F5 段必须读调用点传来的两侧集合与折叠台账')
+  const FD = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 落账:复测 2026-09-26〕'
+  const FK = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 落账:复测 2026-09-26〕〔【归并】G-900077 补记:第二注〕'
+  const FKX = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 补记:第二注〕'
+  const SIDE = `# 侧\n${FD}\n${FD}\n${FK}\n`
+  const MERGED = `# 果\n${FK}\n`
+  // 正例:合法折叠(保留行接住独有注记)⇒ 不得判红 —— 这正是部署环 BLOCKED-DIVERGED 120+ 轮的形状
+  assert.equal(
+    U.planStateRegressions(MERGED, [SIDE, 'z\n']).join(''),
+    '',
+    `合法折叠不得判红,实测 ${JSON.stringify(U.planStateRegressions(MERGED, [SIDE, 'z\n']))}`,
+  )
+  // 反向锁 1:去向行没接住独有注记 ⇒ 真少带仍被点名
+  assert.ok(
+    U.planStateRegressions(`# 果\n${FKX}\n`, [SIDE, 'z\n']).join('').includes('未被任何机制解释'),
+    'Q4 信息守恒不过的"折叠"必须照旧判红',
+  )
+  // 反向锁 2:结果面没有同指纹去向(真删除)⇒ 判红
+  assert.ok(
+    U.planStateRegressions('# 果\n无\n', [SIDE, 'z\n']).join('').includes('F5'),
+    '无去向的真删除必须判红,折叠额度不得成为删除的掩体',
+  )
+  // 反向锁 3:台账少报 ⇒ 超出部分不记额度(与 verifyUnion 的 droppedCopies 封顶同形)
+  assert.ok(
+    U.planStateRegressions(MERGED, [SIDE, 'z\n'], null, {
+      foldPairs: [{ dropped: FD, kept: FK, droppedCopies: 1 }],
+    })
+      .join('')
+      .includes('F5'),
+    '台账报 1 份而结果缺 2 份时,多出的那一份不得被折叠额度吞掉',
+  )
+  // 比较集(票面改法①):base 历史缩量不进 F5 差额;不传该参时旧口径逐字不变
+  const CN = '- [x] ✅(2026-09-20) **G-900078 比较集例**:做完了。〔【归并】G-900078 落账:复测 2026-09-26〕'
+  const OLD = '- [x] ✅(2026-09-20) **G-900079 历史缩量例**:做完了。〔【归并】G-900079 落账:复测 2026-09-26〕'
+  const BASE = `# B\n${OLD}\n${CN}\n`
+  const OURS = `# O\n${CN}\n`
+  const THEIRS = `# T\n${CN}\n`
+  assert.equal(
+    U.planStateRegressions(`# M\n${CN}\n`, [BASE, OURS, THEIRS], null, { f5SideTexts: [OURS, THEIRS] }).join(''),
+    '',
+    '声明两侧集合后,base 独有的历史缩量不得计入 F5 差额',
+  )
+  assert.ok(
+    U.planStateRegressions(`# M\n${CN}\n`, [BASE, OURS, THEIRS]).join('').includes('F5'),
+    '不传 f5SideTexts 的旧调用必须逐字保持旧口径(放宽只长在显式声明的调用点上)',
+  )
+  assert.ok(
+    U.planStateRegressions('# M\n无\n', [BASE, OURS, THEIRS], null, { f5SideTexts: [OURS, THEIRS] })
+      .join('')
+      .includes('F5'),
+    '两侧独有的注记行被顶掉,换集合后仍必须判红(比较集修法不削牙)',
+  )
+})
+
 test('R-O2 量纲锁(G-977960 ①):跨行注记只报名不判红,承载行真消失仍判红', async () => {
   // 同一条注记横写两行时,`[^〕]` 含换行 ⇒ 整面命中数会随**行序**变化,而逐行额度机器看不见它。
   // 旧写法拿整面数当份数 ⇒ 一行没少也恒差 N 条且名单为空(实测 622/530/扣 90+3/差 2)。
