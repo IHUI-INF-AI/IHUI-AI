@@ -1208,6 +1208,66 @@ test('R-O F5 的豁免额度必须窄到"指针行 ∧ 仍 ≥1 份",否则注�
   )
 })
 
+test('G-62 F5 两版判据共存:欠账名单与归档抑制额度必须机器可读(--json 问责)', () => {
+  // 票面:c18ac45d98 那一版(`f5Deficit`/`suppCredit`)被"整文件取向"的并发合并抹掉过。
+  // 这里钉的是它的**可问责出口**:逐行欠账必须是结构化的全部行(不是红句里列前 5 的字符串),
+  // 且"被本侧归档抑制"抵掉的份数必须单列 —— 两者与判据同源(同一份 rest),不得各算一遍。
+  const ONE =
+    '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。〔【归并】D9 落账:复测 2026-09-26: 取证 A。〕'
+  const NONE = '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。'
+  const noSide = '# 乙侧\n这一面没有任何注记行\n'
+  // A) 注记行整族消失 ⇒ 名单逐行给出:行原文 + 欠几份 + 结果面剩几份(全部行,不受红句截断)
+  const r = U.planStateRegressions(`${NONE}\n`, [`${ONE}\n`, noSide])
+  assert.ok(
+    r.some((x) => x.startsWith('F5')),
+    `A) 注记整族消失必须判红,实测 ${JSON.stringify(r)}`,
+  )
+  assert.ok(Array.isArray(r.f5Deficit), 'A) 欠账名单必须是机器可读数组(挂在返回值上供 --json 取)')
+  assert.deepEqual(
+    r.f5Deficit,
+    [{ line: ONE, short: 1, carried: 0 }],
+    `A) 名单必须给全行原文/欠份数/剩余份数,实测 ${JSON.stringify(r.f5Deficit)}`,
+  )
+  assert.equal(r.f5SuppressedCredit, 0, 'A) 没有抑制证据时该项额度必须是 0(不得空着)')
+  assert.equal(JSON.parse(JSON.stringify(r.f5Deficit))[0].short, 1, 'A) JSON 序列化后字段必须仍在')
+  // B) 抑制表**逐字点名** ⇒ 不判红,且额度必须报出条数(不得静默放过)
+  const cleared = U.planStateRegressions(`${NONE}\n`, [`${ONE}\n`, noSide], null, {
+    suppress: new Map([[ONE, 1]]),
+  })
+  assert.equal(
+    cleared.filter((x) => x.startsWith('F5')).length,
+    0,
+    `B) 被归档抑制的行不得判红,实测 ${JSON.stringify(cleared)}`,
+  )
+  assert.deepEqual(cleared.f5Deficit, [], 'B) 已抵清 ⇒ 名单必须为空')
+  assert.equal(cleared.f5SuppressedCredit, 1, 'B) 抵掉的份数必须逐条报出')
+  // C) 抑制表点名的是**另一行** ⇒ 照常判红(加额度不等于放过)
+  const still = U.planStateRegressions(`${NONE}\n`, [`${ONE}\n`, noSide], null, {
+    suppress: new Map([[NONE, 9]]),
+  })
+  assert.ok(
+    still.some((x) => x.startsWith('F5')),
+    `C) 点名另一行不得放过,实测 ${JSON.stringify(still)}`,
+  )
+  assert.equal(still.f5Deficit.length, 1, 'C) 未解释的行仍必须进名单')
+  assert.equal(still.f5SuppressedCredit, 0, 'C) 未命中抑制表不得记账')
+  // D) 量纲成对:一行两枚注记 ⇒ 欠账按 2 计,抑制一行恰好抵 2
+  const TWO =
+    '- [x] ✅(2026-09-20) **D9 同一件事**:做完了。' +
+    '〔【归并】D9 落账:复测 2026-09-26: 取证 A。〕 另有同题一条。' +
+    '〔【归并】D9 落账:复测 2026-09-27: 取证 B。〕'
+  const two = U.planStateRegressions(`${NONE}\n`, [`${TWO}\n`, noSide])
+  assert.equal(two.f5Deficit[0]?.short, 2, `D) 两枚注记必须按 2 份欠账计,实测 ${JSON.stringify(two.f5Deficit)}`)
+  const twoCleared = U.planStateRegressions(`${NONE}\n`, [`${TWO}\n`, noSide], null, {
+    suppress: new Map([[TWO, 1]]),
+  })
+  assert.equal(
+    twoCleared.f5SuppressedCredit,
+    2,
+    `D) 抑制一行必须抵 2 份(按标记数而不是按行数),实测 ${twoCleared.f5SuppressedCredit}`,
+  )
+})
+
 test('R-O3 G-815913:F5 必须与 verifyUnion 认同一本折叠账(⑤ 档),比较集由调用点收到两侧', () => {
   const body = topLevelBody(srcOfTool(), 'export function planStateRegressions(')
   // 同源锁:⑤ 档的折叠举证必须复用 attestFoldPair 那**一份**实现 —— 门内再写第二份"折没折成"必漂移,

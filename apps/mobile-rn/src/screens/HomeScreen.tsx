@@ -2778,8 +2778,10 @@ const shellStyles = {
     fontWeight: '600',
   } as const,
   modelModalHairline: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: tokens.border.light,
+    // 清偿@2026-10-24(票 L29015 尾格):背景色画的发丝线改等积单边描边(视觉等积:同 hairlineWidth、
+    // 同 tokens.border.light 中性档);族 7 与发丝尺已合一,此枚不再计入发丝尺存量。
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.border.light,
     marginHorizontal: rpx(32),
   } as const,
   // ── 弹窗内搜索(头部图标开关 + 展开态胶囊输入框)──
