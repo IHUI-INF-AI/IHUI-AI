@@ -21,12 +21,7 @@ import { useSearchPopular } from '@/hooks/use-search-popular'
 // 2026-09-15 治理:定位/portal/外点关闭统一收敛到 PortalPanel(此前 absolute 就地渲染,
 // 会被 overflow-hidden 祖先裁剪)。
 import { PortalPanel } from '@/components/feedback/portal-panel'
-import {
-  HistorySection,
-  PopularSection,
-  SuggestionsSection,
-  SectionDivider,
-} from './search-suggestions'
+import { HistorySection, PopularSection, SuggestionsSection } from './search-suggestions'
 
 interface SearchBarProps {
   placeholder?: string
@@ -184,7 +179,9 @@ export function SearchBar({
         align="start"
         gap={4}
         style={anchorWidth ? { width: anchorWidth } : undefined}
-        className="overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
+        // 段间节奏:space-y-2 = 0.5rem = 8px(Tailwind 间距档 2,与原 h-2 占位节点同值 ⇒ 视觉零变化);
+        // §4 禁分割线的替代正是 space-y-*,故不在段之间插任何线/空 div。
+        className="space-y-2 overflow-hidden rounded-xl border bg-popover p-1 text-popover-foreground shadow-md"
       >
         {!value ? (
           <>
@@ -193,7 +190,6 @@ export function SearchBar({
               onItemClick={handleHistoryItemClick}
               {...(onClearHistory ? { onClear: onClearHistory } : {})}
             />
-            {history.length > 0 && popular.length > 0 ? <SectionDivider /> : null}
             <PopularSection items={popular} onItemClick={handlePopularItemClick} />
           </>
         ) : (
