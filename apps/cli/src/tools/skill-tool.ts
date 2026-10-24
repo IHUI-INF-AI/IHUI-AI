@@ -17,8 +17,14 @@
  *
  * After compaction wipes the returned body, the session loaded-mark is reset by
  * resetLoadedSkills(); the model must call this tool again through the gate.
+ *
+ * G-175 coverage extension (2026-10-24): a successful load also augments the
+ * allowed-tools SHADOW surface for this skill (record-only, never enforced) --
+ * explicit single-skill loads bypass formatSkillsForPrompt, so without this the
+ * skill's declared whitelist would never be observed against real tool calls.
  */
-import { SKILL_INVOCATION_TOOL_NAME } from '../skills/index.js';
+import { SKILL_INVOCATION_TOOL_NAME, getAllowedTools } from '../skills/index.js';
+import { augmentShadowSurfaceForSkill } from '../skills/allowed-tools-shadow.js';
 import {
   checkSkillPrerequisites,
   findSessionSkill,
@@ -108,6 +114,10 @@ const skillTool: Tool = {
       }
       markSkillLoaded(skill.name);
     }
+
+    // G-175 扩面(2026-10-24):显式单点加载把该技能的 allowed-tools 并入影子面 ——
+    // 只记不挡(见 allowed-tools-shadow.ts 文件头三条口径),同名同表幂等,不动自动面。
+    augmentShadowSurfaceForSkill({ name: skill.name, allowed: getAllowedTools(skill.frontmatter) });
 
     return { success: true, output: renderLoadedSkill(skill) };
   },
