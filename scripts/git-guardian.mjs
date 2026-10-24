@@ -83,6 +83,7 @@ import {
   resolveBackupDir,
   gitdirArchivePath,
   refExpectationSatisfied,
+  brokenRefsFromSnapshot,
 } from './lib/gitdir.mjs'
 // 凭据形状脱敏的**唯一实现**住在 lib(G-334 / G-400):本文件原先自带一份逐字相同的副本,
 // 两份实现必漂移是本仓记过最多次的失效型,而这一族的失败形态是安静的 —— 漂了的一侧只会让
@@ -1275,23 +1276,6 @@ function currentRefs() {
     if (ref && sha) map[ref] = sha
   }
   return map
-}
-
-/**
- * 用**一份**批量快照(cur)判清单里哪些 ref 不满足期望;判据本身仍只有 lib 那一份
- * (`refExpectationSatisfied`),这里只做集合运算。
- *
- * 为什么必须批量而不是逐条问:清单把 `refs/tags/lost-commit/*` 全部收在内(实测 24,582 枚,
- * §29 的悬空 commit 备份族只增不减),逐条 `git rev-parse` 本机实测 177.9 ms/条 ⇒ 一轮
- * `healRefs()` 要派 24,737 次进程(≈73 分钟),而计划任务每 2 分钟派一轮 ⇒ 守护无限堆积
- * (2026-10-24 实测 54 枚常驻、各自挂一个 git.exe,连带把机器打成 fork 失败)。
- * 同一份 `for-each-ref` 快照实测 119 ms 覆盖 25,399 条。
- *
- * 三态:`cur === null`(这一面问不到)⇒ 返回 null 判「未判定」,绝不折成"清单全缺"。
- */
-function brokenRefsFromSnapshot(map, cur) {
-  if (cur === null) return null
-  return Object.entries(map).filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref]))
 }
 
 /** 清单中解析不到(或值与清单不符)的 ref;移动型 remote HEAD 由 lib 统一放过(见 refExpectationSatisfied) */
@@ -6003,8 +5987,6 @@ if (isDirectRun) {
 export const __test__ = {
   gitdirTargetVerdict,
   judgeRefsHealth,
-  // refs 存续判定的集合运算层(批量快照版):镜像测试要钉"一份快照判全清单"与旧逐条档等价
-  brokenRefsFromSnapshot,
   alertFingerprint,
   stableAlertFingerprint,
   auditDispatchSites,
