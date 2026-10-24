@@ -124,9 +124,7 @@ export function DashboardScreen({
                 const card = (
                   <View style={styles.card}>
                     <Text style={styles.cardLabel}>{metric.label}</Text>
-                    <Text style={styles.cardValue} numberOfLines={1}>
-                      {metric.value}
-                    </Text>
+                    <Text style={styles.cardValue}>{metric.value}</Text>
                     {metric.hint ? <Text style={styles.cardHint}>{metric.hint}</Text> : null}
                   </View>
                 )
@@ -176,7 +174,10 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       gap: 10,
     },
-    cell: { flexBasis: '48%' },
+    /* 原先靠 numberOfLines={1} 防断行 = 把数字截成省略号(违反 UI_GUIDELINES §13)。
+       改成 minWidth + 父级 flexWrap:22px 最坏读数(9 字符 ≈ 108 + padding 24)放得下,
+       窄屏放不下时整格换行,数字始终完整。 */
+    cell: { flexBasis: '48%', minWidth: 150 },
     card: {
       flexGrow: 1,
       padding: 12,
