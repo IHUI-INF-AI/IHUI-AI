@@ -40,18 +40,38 @@ export interface ScreenSkeletonProps {
   colorScheme?: Scheme
 }
 
-export function ScreenSkeleton({ variant = 'list', count = 4, colorScheme = 'light' }: ScreenSkeletonProps) {
+export function ScreenSkeleton({
+  variant = 'list',
+  count = 4,
+  colorScheme = 'light',
+}: ScreenSkeletonProps) {
   const blocks = Array.from({ length: Math.max(1, count) }, (_, i) => i)
   const key = `sk-${variant}-${colorScheme}`
 
   if (variant === 'grid') {
     return (
-      <View className='ihui-sk-wrap' style={{ padding: toRpx(SP.lg), gap: toRpx(SP.md) }}>
-        <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: toRpx(SP.md) }}>
+      <View className="ihui-sk-wrap" style={{ padding: toRpx(SP.lg), gap: toRpx(SP.md) }}>
+        <View
+          style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: toRpx(SP.md) }}
+        >
           {blocks.map((i) => (
-            <View key={`${key}-${i}`} style={{ width: '47%', display: 'flex', flexDirection: 'column', gap: toRpx(SP.sm) }}>
-              <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(46), width: '100%', borderRadius: toRpx(RD.md) }} />
-              <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(5), width: '70%' }} />
+            <View
+              key={`${key}-${i}`}
+              style={{ width: '47%', display: 'flex', flexDirection: 'column', gap: toRpx(SP.sm) }}
+            >
+              <View
+                className="ihui-sk-shimmer"
+                style={{
+                  ...blockBase(),
+                  height: toRpx(92),
+                  width: '100%',
+                  borderRadius: toRpx(RD.md),
+                }}
+              />
+              <View
+                className="ihui-sk-shimmer"
+                style={{ ...blockBase(), height: toRpx(10), width: '70%' }}
+              />
             </View>
           ))}
         </View>
@@ -60,7 +80,7 @@ export function ScreenSkeleton({ variant = 'list', count = 4, colorScheme = 'lig
   }
 
   return (
-    <View className='ihui-sk-wrap' style={{ padding: toRpx(SP.lg), gap: toRpx(SP.md) }}>
+    <View className="ihui-sk-wrap" style={{ padding: toRpx(SP.lg), gap: toRpx(SP.md) }}>
       {blocks.map((i) => (
         <View
           key={`${key}-${i}`}
@@ -77,12 +97,23 @@ export function ScreenSkeleton({ variant = 'list', count = 4, colorScheme = 'lig
           }}
         >
           <View
-            className='ihui-sk-shimmer'
-            style={{ width: toRpx(22), height: toRpx(22), borderRadius: toRpx(RD.md), ...blockBase() }}
+            className="ihui-sk-shimmer"
+            style={{
+              width: toRpx(44),
+              height: toRpx(44),
+              borderRadius: toRpx(RD.md),
+              ...blockBase(),
+            }}
           />
           <View style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: toRpx(SP.sm) }}>
-            <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(6), width: '80%' }} />
-            <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(5), width: '50%' }} />
+            <View
+              className="ihui-sk-shimmer"
+              style={{ ...blockBase(), height: toRpx(12), width: '80%' }}
+            />
+            <View
+              className="ihui-sk-shimmer"
+              style={{ ...blockBase(), height: toRpx(10), width: '50%' }}
+            />
           </View>
         </View>
       ))}
@@ -111,14 +142,14 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <View className={`ihui-state ${colorScheme === 'dark' ? 'ihui-state-dark' : ''}`}>
-      <View className='ihui-state-glyph-circle'>
-        <Text className='ihui-state-glyph'>{glyph}</Text>
+      <View className="ihui-state-glyph-circle">
+        <Text className="ihui-state-glyph">{glyph}</Text>
       </View>
-      <Text className='ihui-state-title'>{title}</Text>
-      {desc ? <Text className='ihui-state-desc'>{desc}</Text> : null}
+      <Text className="ihui-state-title">{title}</Text>
+      {desc ? <Text className="ihui-state-desc">{desc}</Text> : null}
       {actionLabel && onAction ? (
-        <View className='ihui-state-btn' onClick={onAction}>
-          <Text className='ihui-state-btn-text'>{actionLabel}</Text>
+        <View className="ihui-state-btn" onClick={onAction}>
+          <Text className="ihui-state-btn-text">{actionLabel}</Text>
         </View>
       ) : null}
     </View>
@@ -142,13 +173,13 @@ export function ErrorState({
 }: ErrorStateProps) {
   return (
     <View className={`ihui-state ${colorScheme === 'dark' ? 'ihui-state-dark' : ''}`}>
-      <View className='ihui-state-glyph-circle'>
-        <Text className='ihui-state-glyph'>!</Text>
+      <View className="ihui-state-glyph-circle">
+        <Text className="ihui-state-glyph">!</Text>
       </View>
-      <Text className='ihui-state-title'>{message}</Text>
+      <Text className="ihui-state-title">{message}</Text>
       {onRetry ? (
-        <View className='ihui-state-btn' onClick={onRetry}>
-          <Text className='ihui-state-btn-text'>{retryLabel}</Text>
+        <View className="ihui-state-btn" onClick={onRetry}>
+          <Text className="ihui-state-btn-text">{retryLabel}</Text>
         </View>
       ) : null}
     </View>
@@ -165,7 +196,13 @@ export interface PressableCardProps {
   className?: string
 }
 
-export function PressableCard({ children, onClick, colorScheme = 'light', style, className }: PressableCardProps) {
+export function PressableCard({
+  children,
+  onClick,
+  colorScheme = 'light',
+  style,
+  className,
+}: PressableCardProps) {
   return (
     <View
       className={`ihui-press-card ${colorScheme === 'dark' ? 'ihui-press-card-dark' : ''} ${className ?? ''}`}

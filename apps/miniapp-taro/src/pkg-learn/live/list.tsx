@@ -156,7 +156,7 @@ export default function LiveList() {
             {list.map((item) => (
               <PressableCard
                 key={item.id}
-                className="rounded-md border border-[var(--color-border)] p-[28rpx] mb-[24rpx]"
+                className="rounded-lg border border-[var(--color-border)] p-[28rpx] mb-[24rpx]"
                 onClick={() => goDetail(item.id)}
               >
                 {/* 对齐 RN titleRow:标题(flex1, numberOfLines 1)+ 状态徽章 */}

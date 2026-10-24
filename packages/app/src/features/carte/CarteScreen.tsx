@@ -98,7 +98,7 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 18, fontWeight: '600', color: tk.text.primary },
     card: {
       backgroundColor: tk.surface.light,
-      borderRadius: rnRadius['2xl'],
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       overflow: 'hidden',

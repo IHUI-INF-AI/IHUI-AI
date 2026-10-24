@@ -141,7 +141,7 @@ export default function LlmSettingsPage() {
           <Text className="text-xl font-bold text-foreground flex-1">{t('llmSettings.title')}</Text>
           <Button
             size="mini"
-            className="bg-cta text-cta-foreground rounded-md"
+            className="bg-cta text-cta-foreground rounded-sm"
             onClick={() => setWizardOpen(true)}
           >
             {t('byok.fab')}
@@ -201,8 +201,8 @@ export default function LlmSettingsPage() {
                     size="mini"
                     className={
                       selectedCode === p.code
-                        ? 'bg-cta text-cta-foreground rounded-md'
-                        : 'rounded-md'
+                        ? 'bg-cta text-cta-foreground rounded-sm'
+                        : 'rounded-sm'
                     }
                     onClick={() => setSelectedCode(p.code)}
                   >
@@ -218,7 +218,7 @@ export default function LlmSettingsPage() {
                 onInput={(e) => setApiKey(e.detail.value)}
                 placeholder={t('byok.keyPlaceholder')}
                 password
-                className="rounded-md border border-border bg-muted px-3 h-[44px] text-sm"
+                className="rounded-sm border border-border bg-muted px-3 h-[44px] text-sm"
               />
             ) : null}
 
@@ -246,7 +246,7 @@ export default function LlmSettingsPage() {
 
             <Button
               size="mini"
-              className="bg-cta text-cta-foreground rounded-md"
+              className="bg-cta text-cta-foreground rounded-sm"
               disabled={
                 pending ||
                 (step === 0 && !selectedCode) ||
