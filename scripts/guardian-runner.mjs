@@ -5388,7 +5388,7 @@ const checks = [
     script: 'check-readout-no-break.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ['apps/web/app/(main)/admin/monitor/wallboard/page.tsx'],
+    stagedTriggers: ['apps/web/', 'packages/ui-react/', 'apps/extension/'],
     skipEnv: 'HUSKY_SKIP_READOUT_NO_BREAK',
     onFailHint: [
       '',

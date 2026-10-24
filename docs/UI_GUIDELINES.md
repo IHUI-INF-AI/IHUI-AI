@@ -511,7 +511,11 @@ export function UserCard() {
 读数容器必须带 `whitespace-nowrap`——不只 `StatCell` 原语,**手写的 `wb-num` 大字号读数同样在册**(大屏里有 3 处 26px 手写读数,原判据只正则原语函数体,结构上打不到它们)。
 **用了 `wb-split-c3` 的面板,其内每一组网格都必须落在 c3 / wide / 固定列档上**:只改栏数不改列宽,等于把折行换成溢出。
 
-守门:`check-readout-no-break.mjs`(240,blocking)—— R1 大字号读数 nowrap / R2 常数定义且被消费 / R3 c3 档引用常数 / R4 用了 `wb-split-c3` 的面板内每组必须同档 / R5 栏阈值等于按被审面自身常数复算的值 / R6 时长读数所在网格不得停在裸 auto-fit 档。镜像测试 `scripts/tests/check-readout-no-break.test.mjs`(17 例,每条判据各有"摘掉即翻红"的成对夹具)。
+守门:`check-readout-no-break.mjs`(240,blocking)—— R1 大字号读数 nowrap / R2 常数定义且被消费 / R3 c3 档引用常数 / R4 用了 `wb-split-c3` 的面板内每组必须同档 / R5 栏阈值等于按被审面自身常数复算的值 / R6 时长读数不得停在裸 auto-fit 档 / **R8 把 R1 那条形态判据推广到 `apps/web` + `packages/ui-react` + `apps/extension` 全仓**。
+
+镜像测试 `scripts/tests/check-readout-no-break.test.mjs`(24 例,每条判据各有"摘掉即翻红"的成对夹具)。
+
+**R8 是差值棘轮,不是绝对零容忍**:锚点 = 该文件 HEAD 自身的违规数,只拦"本次把无-nowrap 的大字号读数加回来"。存量实测 **75 处 / 50 个文件**(2026-10-24 现读)——把它们一次性升成 blocking 就是逼人 `--no-verify` 的恒红门(§12e),连带废掉全部守门。而且**逐处补 nowrap 是有害的**:本条规范的前提是"列宽 ≥ 读数单行需求",只补 nowrap 会把折行变成溢出压邻格(大屏实测 51px)。所以存量按 13.3 那把尺逐处量,不批量刷。
 
 ### 13.3 「够不够宽」必须真渲染,所以另有一把尺
 
