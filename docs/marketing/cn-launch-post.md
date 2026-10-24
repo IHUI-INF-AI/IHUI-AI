@@ -23,7 +23,7 @@
 - **在线 Demo**:https://aizhs.top
 - **License**:Apache-2.0(商业可用)
 - **国内镜像**:**无**(2026-10-23 起停止对外镜像,代码只托管在 GitHub;历史镜像仓已弃用,勿再引用)
-- **一句话**:一个仓库,干翻 40+ 商业产品 — 8 端 / 176 模型 / LangGraph+MCP+A2A / 340 表 / 1300+ API / Apache 2.0
+- **一句话**:一个仓库,干翻 40+ 商业产品 — 9 端 / 101 模型 / LangGraph+MCP+A2A / 340 表 / 1300+ API / Apache 2.0
 - **联系方式**:微信 `ok502319984` · 邮箱 [REDACTED-EMAIL]
 
 ---
@@ -32,7 +32,7 @@
 
 ### 标题(三选一,推荐第 1 条)
 - 《花了 X 个月,我把 40+ 商业 AI 产品整合进了 1 个开源仓库》
-- 《8 端同源 + 176 模型 + LangGraph+MCP+A2A:这个开源 AI 平台把 Dify/Coze/Cursor 都对标了》
+- 《9 端同源 + 101 模型 + LangGraph+MCP+A2A:这个开源 AI 平台把 Dify/Coze/Cursor 都对标了》
 - 《340 张表 · 1300+ API · 5346 测试:一个 Apache 2.0 开源 AI 商业平台是怎么炼成的》
 
 ### 正文(可直接复制粘贴)
@@ -41,7 +41,7 @@
 
 ## 一句话介绍
 
-IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai-service/cli/desktop/extension/mobile/miniapp),176 大模型统一调度,LangGraph + MCP + A2A 三栈,340 张表,1300+ API,Apache 2.0 商业可用。
+IHUI-AI 是一个开源 AI 商业级一体化超级平台,9 端同源(web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp),101 大模型统一调度,LangGraph + MCP + A2A 三栈,340 张表,1300+ API,Apache 2.0 商业可用。
 
 ## 为什么造这个轮子
 
@@ -51,8 +51,8 @@ IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai
 
 从 2024 年初立项到现在,这个仓库已经:
 
-- 8 端同源(web / api / ai-service / cli / desktop / extension / mobile / miniapp)
-- 176 大模型统一调度(OpenAI / Claude / Gemini / Qwen / DeepSeek / Kimi / Doubao / 文心一言 / 智谱 / Hunyuan / Ollama 本地模型)
+- 9 端同源(web / api / ai-service / cli / desktop / extension / mobile / mobile-cap / miniapp)
+- 101 大模型统一调度(OpenAI / Claude / Gemini / Qwen / DeepSeek / Kimi / Doubao / 文心一言 / 智谱 / Hunyuan / Ollama 本地模型)
 - LangGraph + MCP + A2A 三栈(Agent 编排 / 工具协议 / Agent 互联)
 - 340 张表覆盖 30+ 业务域(chat/users/billing/articles/courses/marketplace/...)
 - 1300+ API 端点,5346 单元测试,63 e2e 规约
@@ -67,7 +67,7 @@ IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai
 | Agent 框架 | LangGraph + MCP + A2A | LangChain / AutoGen / CrewAI |
 | 商业 SaaS | 支付 / 订单 / 会员 / 钱包 | Stripe / Paddle / 微信支付 |
 | AI 教育 | 课程 / 考试 / 学分 / 教师 | Khan Academy / Coursera 国内版 |
-| 多端框架 | 8 端一套 TS | Tauri / Electron / React Native |
+| 多端框架 | 9 端一套 TS | Tauri / Electron / React Native |
 
 ## 核心架构
 
@@ -185,7 +185,7 @@ pnpm dev
 
 **解法**:tag 备份所有"丢失但有价值"的 commit 到 `lost-commit/*`,pre-commit 守门检测 `git reset --hard` 操作;`§22 防 commit 丢失硬性规则` 强制用 `git revert` 而非 reset。
 
-### 坑 4:176 模型路由配置膨胀
+### 坑 4:101 模型路由配置膨胀
 
 LiteLLM 的 `config.yaml` 写到 800 行,加一个模型要改 4 个文件。
 
@@ -212,9 +212,9 @@ manifest 写了 `'session'`(不是合法权限),`chrome.alarms` 用到了但没�
 ## 2. 思否(SegmentFault)适配版(架构向完整正文 1500 字)
 
 ### 标题(三选一)
-- 《[架构分享] 一个开源 AI 平台的 8 端同源架构:340 表 / 176 模型 / 32+ 守门脚本》
-- 《IHUI-AI 架构剖析:8 端同源 + LangGraph+MCP+A2A 三栈 + 32 个 pre-commit 守门》
-- 《一个 TypeScript Monorepo 如何同时输出 Web/API/CLI/Desktop/Extension/Mobile/Miniapp》
+- 《[架构分享] 一个开源 AI 平台的 9 端同源架构:340 表 / 101 模型 / 32+ 守门脚本》
+- 《IHUI-AI 架构剖析:9 端同源 + LangGraph+MCP+A2A 三栈 + 32 个 pre-commit 守门》
+- 《一个 TypeScript Monorepo 如何同时输出 Web/API/AI service/CLI/Desktop/Extension/Mobile/Capacitor/Miniapp》
 
 ### 正文(可直接复制粘贴)
 
@@ -300,7 +300,7 @@ const agent = await apiClient(createAgentRoute, { name: 'My Agent' })
 // agent 类型自动推断为 AgentSchema
 ```
 
-编译期类型对账,改 schema 一处,8 端同时报错。
+编译期类型对账,改 schema 一处,9 端同时报错。
 
 ### 3. Zod Schema 单一来源
 
@@ -381,7 +381,7 @@ button 内"图标 + 中文"垂直对齐偏差 ≤ 0.15px,超过就阻塞。这�
 - Web 首屏 LCP < 1.2s(4G 网络,Next.js 16 RSC)
 - AI 流式输出首 token < 400ms(Claude 3.5 Sonnet)
 - 数据库连接池 32,Drizzle prepared statement 缓存命中率 92%
-- 176 模型路由平均匹配时间 < 5ms
+- 101 模型路由平均匹配时间 < 5ms
 
 ## 写在最后
 
@@ -396,8 +396,8 @@ Star 支持一下,提 issue 讨论架构,PR 任何端都行。
 ## 3. CSDN 适配版(实用向完整正文 1800 字,带详细步骤)
 
 ### 标题(三选一)
-- 《别再花钱买 Dify/Coze 了!这个 Apache 2.0 开源 AI 平台 8 端全干翻》
-- 《340 表 + 176 模型 + 1300+ API:我开源了一个商业级 AI 超级平台》
+- 《别再花钱买 Dify/Coze 了!这个 Apache 2.0 开源 AI 平台 9 端全干翻》
+- 《340 表 + 101 模型 + 1300+ API:我开源了一个商业级 AI 超级平台》
 - 《2026 年最值得 clone 的开源 AI 仓库:从 0 跑通到上线只要 5 分钟》
 
 ### 正文(可直接复制粘贴)
@@ -412,7 +412,7 @@ CSDN 的朋友们好,今天推荐一个 Apache 2.0 开源的 AI 商业平台 **I
 - 340 张数据库表 → `packages/database/src/schema/`
 - 1300+ API 端点 → `apps/api/src/routes/`
 - 5346 单元测试 → `apps/api/tests/`
-- 176 大模型统一调度 → `apps/ai-service/`
+- 101 大模型统一调度 → `apps/ai-service/`
 
 ## 二、IHUI-AI 能干什么(8 个核心功能)
 
@@ -512,7 +512,7 @@ pnpm dev
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    IHUI-AI 8 端同源架构                       │
+│                    IHUI-AI 9 端同源架构                       │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │   Web(Next.js 16) ─┐                                       │
@@ -523,7 +523,7 @@ pnpm dev
 │   CLI(Commander) ──┘      AI Service(FastAPI)              │
 │                              │                              │
 │                              ├─→ LangGraph(Agent 编排)     │
-│                              ├─→ LiteLLM(176 模型路由)     │
+│                              ├─→ LiteLLM(101 模型路由)     │
 │                              ├─→ MCP(工具协议)             │
 │                              └─→ pgvector(RAG 向量检索)    │
 │                                                             │
@@ -574,8 +574,8 @@ pnpm dev
 
 一年后,这个仓库长这样:
 
-- 8 端同源(web/api/ai-service/cli/desktop/extension/mobile/miniapp)
-- 176 大模型统一调度(OpenAI / Claude / Gemini / Qwen / DeepSeek / Kimi / Doubao / 文心一言 / 智谱 / Ollama)
+- 9 端同源(web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp)
+- 101 大模型统一调度(OpenAI / Claude / Gemini / Qwen / DeepSeek / Kimi / Doubao / 文心一言 / 智谱 / Ollama)
 - 340 张数据库表,1300+ API,5346 测试
 - LangGraph + MCP + A2A 三栈
 - 5 语言 i18n 100% parity
@@ -600,11 +600,11 @@ LangChain/AutoGen 是**框架**,不是产品。客户要的不是 "Hello World" 
 
 所以我做 IHUI-AI 的核心思路是:**"整车下线",不是"造车框架"**。
 
-## 解决方案:8 端同源 + 商业闭环 + Apache 2.0
+## 解决方案:9 端同源 + 商业闭环 + Apache 2.0
 
 ### 端的设计
 
-8 端用一份 TypeScript 代码共享,核心是 **React Native Web**:
+9 端用一份 TypeScript 代码共享,核心是 **React Native Web**:
 
 ```typescript
 // packages/ui/src/Button.tsx
@@ -661,7 +661,7 @@ React DOM / React Native / Taro 的渲染层差异由 React Native Web 抹平,�
 - 生产环境由 nginx 只对**受保护页**(`/admin/*` 与企业端 `/edu/edu-management/*`)配置 `if ($cookie_auth_token = "") { return 307 /sso/login; }`——这是未登录进后台的守卫;普通登录入口 `/login` 不在其射程(它是打开登录弹窗后回前一页的软路由)
 - 两边逻辑保持一致,加 e2e 测试覆盖
 
-### 坑 2:176 模型路由配置膨胀到 800 行
+### 坑 2:101 模型路由配置膨胀到 800 行
 
 LiteLLM 的 `config.yaml` 加一个模型要改 4 个文件,出错率极高。
 
@@ -710,7 +710,7 @@ manifest 写了 `'session'`(不是合法 MV3 权限),`chrome.alarms` 用到了�
 2. **曝光度比代码质量重要 10 倍**。star 9 个说明问题:酒香也怕巷子深。
 3. **垂直深耕 > 全栈广度**。如果只做"AI 应用编排",可以做得比 Dify 更好;什么都做,什么都浅。
 
-所以现在我的策略是:**先把 8 端同源 + Agent 市场做透,再考虑商业化**。
+所以现在我的策略是:**先把 9 端同源 + Agent 市场做透,再考虑商业化**。
 
 ## 知乎的 3 个核心策略
 
@@ -737,7 +737,7 @@ manifest 写了 `'session'`(不是合法 MV3 权限),`chrome.alarms` 用到了�
 ### 标题(节点选"分享创造"或"开源软件")
 
 ```
-[开源] IHUI-AI — 8 端同源 / 176 模型 / LangGraph+MCP+A2A,Apache 2.0 商业可用
+[开源] IHUI-AI — 9 端同源 / 101 模型 / LangGraph+MCP+A2A,Apache 2.0 商业可用
 ```
 
 ### 正文(完整,直接复制)
@@ -747,8 +747,8 @@ GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
 **核心数据**(全部可在代码 grep 到):
 
-- 8 端:web / api / ai-service / cli / desktop / extension / mobile / miniapp
-- 176 大模型统一调度(LiteLLM)
+- 9 端:web / api / ai-service / cli / desktop / extension / mobile / mobile-cap / miniapp
+- 101 大模型统一调度(LiteLLM)
 - LangGraph + MCP + A2A 三栈
 - 340 表 · 1300+ API · 5346 测试
 - 5 语言 i18n 100% parity
@@ -776,7 +776,7 @@ cd IHUI-AI && pnpm install && pnpm dev
 ### 标题
 
 ```
-[开源] IHUI-AI — 8 端 / 176 模型 / 340 表,可自托管的 AI 商业平台(Apache 2.0)
+[开源] IHUI-AI — 9 端 / 101 模型 / 340 表,可自托管的 AI 商业平台(Apache 2.0)
 ```
 
 ### 正文(完整,直接复制)
@@ -792,9 +792,9 @@ cd IHUI-AI && pnpm install && pnpm dev
 - 340 表 → `packages/database/src/schema/`
 - 1300+ API → `apps/api/src/routes/`
 - 5346 测试 → `apps/api/tests/`
-- 176 模型 → `apps/ai-service/`
+- 101 模型 → `apps/ai-service/`
 
-**8 端**:web / api / ai-service / cli / desktop / extension / mobile / miniapp
+**9 端**:web / api / ai-service / cli / desktop / extension / mobile / mobile-cap / miniapp
 
 **三栈**:LangGraph(Agent 编排) + MCP(工具协议) + A2A(Agent 互联)
 
@@ -845,8 +845,8 @@ https://www.oschina.net/p/submit
 
 **核心特性**:
 
-- **8 端同源**:web / api / ai-service / cli / desktop / extension / mobile / miniapp,一份 TypeScript 代码共享
-- **176 大模型统一调度**:OpenAI / Claude / Gemini / Qwen / DeepSeek / Kimi / Doubao / 文心一言 / 智谱 / Ollama 本地模型,基于 LiteLLM
+- **9 端同源**:web / api / ai-service / cli / desktop / extension / mobile / mobile-cap / miniapp,一份 TypeScript 代码共享
+- **101 大模型统一调度**:OpenAI / Claude / Gemini / Qwen / DeepSeek / Kimi / Doubao / 文心一言 / 智谱 / Ollama 本地模型,基于 LiteLLM
 - **LangGraph + MCP + A2A 三栈**:Agent 编排 / 工具协议 / Agent 互联
 - **340 张表覆盖 30+ 业务域**:chat / users / billing / articles / courses / marketplace / ...
 - **1300+ API 端点,5346 单元测试,63 e2e 规约**
@@ -857,7 +857,7 @@ https://www.oschina.net/p/submit
 
 **Apache 2.0 商业可用**,支持自托管,**5 分钟跑起来**(`pnpm install && pnpm dev`)。
 
-不是 PPT 或脚手架,是支撑商业化主平台的生产级代码,所有数字(340 表 / 1300 API / 5346 测试 / 176 模型)都能在代码里 grep 到。
+不是 PPT 或脚手架,是支撑商业化主平台的生产级代码,所有数字(340 表 / 1300 API / 5346 测试 / 101 模型)都能在代码里 grep 到。
 
 **联系方式**:微信 `ok502319984` · 邮箱 `[REDACTED-EMAIL]`
 
@@ -875,9 +875,9 @@ https://github.com/521xueweihan/HelloGitHub/issues(找最新一期 "第 XX 期" 
 
 **项目地址**:https://github.com/IHUI-INF-AI/IHUI-AI
 
-**项目简介**:Apache 2.0 开源 AI 商业平台。8 端同源(web/api/ai-service/cli/desktop/extension/mobile/miniapp)+ 176 大模型 + LangGraph+MCP+A2A 三栈 + 340 表 + 1300+ API + 5346 测试。一站式对标 Dify/Coze/FastGPT/LangChain/Cursor/Claude Code/Stripe/Auth0/Tauri 等 40+ 商业产品,Apache 2.0 商业可用,支持自托管。
+**项目简介**:Apache 2.0 开源 AI 商业平台。9 端同源(web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp)+ 101 大模型 + LangGraph+MCP+A2A 三栈 + 340 表 + 1300+ API + 5346 测试。一站式对标 Dify/Coze/FastGPT/LangChain/Cursor/Claude Code/Stripe/Auth0/Tauri 等 40+ 商业产品,Apache 2.0 商业可用,支持自托管。
 
-**推荐理由**:不是 PPT 或脚手架,所有数字(340 表 / 1300 API / 5346 测试 / 176 模型)都能在代码里 grep 到。8 端独立代码 + 12 共享包,工程治理 32 个守门脚本(i18n parity / 圆角守门 / 防 commit 丢失 / Push 同步 / 多端同步)。
+**推荐理由**:不是 PPT 或脚手架,所有数字(340 表 / 1300 API / 5346 测试 / 101 模型)都能在代码里 grep 到。9 端独立代码 + 12 共享包,工程治理 32 个守门脚本(i18n parity / 圆角守门 / 防 commit 丢失 / Push 同步 / 多端同步)。
 
 **Demo**:https://aizhs.top
 

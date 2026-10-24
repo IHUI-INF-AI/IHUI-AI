@@ -407,3 +407,6 @@ pnpm turbo typecheck --filter=@ihui/web       # 单独验证前端(正解)
 ### 读数不得断行(强制)
 - 「一格一读数」格子的**读数必须整条单行**;放不下只能减列/减栏,禁折行、禁截断、禁缩字号。只补 `nowrap` 会把折行变成溢出压邻格(实测 61px),列宽下限与栏阈值须与它同批改(算式与量法见 `docs/UI_GUIDELINES.md` §13)。守门 `check-readout-no-break.mjs`(240,blocking,含"摘掉即翻红"成对夹具);像素够不够本门不判,另用只读尺 `verify-wallboard-readout.mjs --locale <五语言>` 逐格量。
 - 端侧(RN / 共享源)是同一约束:**行加 `flexWrap: 'wrap'` + 格加 `minWidth` = 最坏读数单行宽**,两条缺一不可(只给 minWidth 是溢出压邻格;只给 flexWrap 时 `flex:1` 的 `flexBasis` 是 0、永不触发换行)。守门 `check-rn-readout-cell.mjs`(241,blocking,AST 判 JSX 父子关系,存量 23 处已归零),写法见 `docs/UI_GUIDELINES.md` §13.4。
+<!-- 「计划/台账」旧副本(缺门 239 行)已逐字移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md;现行唯一面 = 文末含 check-plan-archive-monotonic 的同名行。 -->
+<!-- 「API/后端/DB」旧副本(缺 check-public-admin-default G-875 行)已逐字移 .ihui-agent/archive/AGENTS_trim-2026-10-25.md;现行唯一面 = 文末同名行。 -->
+- 端侧(RN / 共享源)同一约束,按宿主分五档:**等分格**行加 `flexWrap: 'wrap'` + 格加 `minWidth`(两条缺一不可,只给 minWidth 是溢出压邻格、只给 flexWrap 时 `flexBasis` 是 0 永不触发);**`space-between` 行 / `absolute` 容器**内的读数加 `flexShrink: 0`(否则行宽不够时先压读数、标签反而完整);**定宽格(`width:NN%` / `flexBasis`)**只能靠 `minWidth`(`flexShrink` 是纵向主轴属性,对横向定宽无效)。守门 `check-rn-readout-cell.mjs`(241,blocking,AST 判 JSX 父子关系,存量 69 处已归零),写法见 `docs/UI_GUIDELINES.md` §13.4。

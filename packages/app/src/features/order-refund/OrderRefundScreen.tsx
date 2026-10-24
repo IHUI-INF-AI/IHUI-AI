@@ -217,7 +217,13 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     },
     cardTitle: { flex: 1, fontSize: 18, fontWeight: '600', color: tk.text.primary },
-    cardAmount: { marginLeft: 8, fontSize: 18, fontWeight: '600', color: tk.success.DEFAULT },
+    cardAmount: {
+      flexShrink: 0,
+      marginLeft: 8,
+      fontSize: 18,
+      fontWeight: '600',
+      color: tk.success.DEFAULT,
+    },
     cardMetaRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',

@@ -9,7 +9,7 @@
  * 在修什么(2026-09-27 外部审计点名):
  *   文档里的数字此前**各处手抄**,同一件事有三种说法 —— 仓库简介写「340 tables」、README 写
  *   「542 张表」,而 schema 源码现读是 583 个 `pgTable` 声明;简介写「176 LLMs」,而仓内唯一
- *   入库的模型清单(default_models.json)是 118 条。数字没有主键,抄一次就多一份真相。
+ *   入库的模型清单(default_models.json)是 101 条。数字没有主键,抄一次就多一份真相。
  *   唯一算法住在 `scripts/gen-doc-numbers.mjs`,本门只判**文档有没有照它写**。
  *
  * 三条判据(互不重叠,各有正反用例):
@@ -157,7 +157,7 @@ export const CLAIMS = [
     re: /(?<![\d,])(\d{2,5})(?![\d,])\s*(?:个|种)?\s*(?:大模型|模型清单|入库模型)|(?<![\d,])(\d{2,5})(?![\d,])\s*(?:catalogued LLMs?|LLMs)\b/gi,
     pick: (m) => m[1] ?? m[2],
     sample: '<N> 大模型',
-    probe: '118',
+    probe: '101',
   },
   {
     key: 'publishPlatforms',
@@ -392,7 +392,7 @@ function readArg(argv, name) {
 
 /** 自检:构造面(不依赖真仓),正反成对。 */
 export function selfTest() {
-  const numbers = { dbTables: 583, apiRoutes: 4363, llmModels: 118, testFiles: 2103, i18nLanguages: 5, guardianGates: 187, appPackages: 9, aiServiceRoutes: 548, wsEndpoints: 25, publishPlatforms: 38, ciWorkflows: 46 }
+  const numbers = { dbTables: 583, apiRoutes: 4363, llmModels: 101, testFiles: 2103, i18nLanguages: 5, guardianGates: 187, appPackages: 9, aiServiceRoutes: 548, wsEndpoints: 25, publishPlatforms: 38, ciWorkflows: 46 }
   let pass = 0
   let fail = 0
   const ok = (name, cond) => {

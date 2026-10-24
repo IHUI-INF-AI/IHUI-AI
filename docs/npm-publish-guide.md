@@ -51,7 +51,7 @@
 | 便于集成 | 用户 `pnpm add @ihui/sdk` 即可用,无需 clone 仓库;CI/CD 友好 |
 | 建立品牌 | `@ihui` scope 占位,建立"全栈 AI 平台"心智;对比 Dify/Coze 的 npm 包更显专业 |
 | 版本可信 | semver + tag + changelog,用户敢用于生产;Apache 2.0 商业友好 |
-| 跨端复用 | 8 端代码同源,SDK 一处发布、多端调用;降低集成摩擦 |
+| 跨端复用 | 9 端代码同源,SDK 一处发布、多端调用;降低集成摩擦 |
 
 ---
 
@@ -235,7 +235,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
   "name": "@ihui/types",
   "version": "0.1.0",
   "private": false,
-  "description": "IHUI-AI 共享类型定义包 - 8 端同源的 TypeScript 类型契约",
+  "description": "IHUI-AI 共享类型定义包 - 9 端同源的 TypeScript 类型契约",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -305,7 +305,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
   "name": "@ihui/design-tokens",
   "version": "0.1.0",
   "private": false,
-  "description": "IHUI-AI 设计令牌(8 端共享):cn() 类名合并 + tokens 色板/间距/字号/圆角/阴影/z-index,JS 对象 + CSS 变量双形式",
+  "description": "IHUI-AI 设计令牌(9 端共享):cn() 类名合并 + tokens 色板/间距/字号/圆角/阴影/z-index,JS 对象 + CSS 变量双形式",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -352,7 +352,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
   "name": "@ihui/ui-react",
   "version": "0.1.0",
   "private": false,
-  "description": "IHUI-AI React 19 UI 组件库 - 基于 Radix UI + Tailwind 4,8 端共享",
+  "description": "IHUI-AI React 19 UI 组件库 - 基于 Radix UI + Tailwind 4,9 端共享",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -470,7 +470,7 @@ npm 的配置优先级里**项目级 `.npmrc` 高于用户级**,所以 GitHub Ac
 
 `@ihui/api-client` 是**内部传输层**,不是对外产品:
 
-1. **消费方式**:8 端经 workspace 按源码直接 `import { ... } from '@ihui/api-client/endpoints/xxx'`,
+1. **消费方式**:9 端经 workspace 按源码直接 `import { ... } from '@ihui/api-client/endpoints/xxx'`,
    依赖 AGENTS.md §3 的"所有 API 调用必须走 `@ihui/api-client`"约束。它是**仓库内规范**,不是对外契约。
 2. **对外契约已由 `@ihui/sdk` 承担**:同一份 REST 面发两个高度重叠的 npm 包,只会让外部使用者困惑。
 3. **翻了也发不出去**:它的 `dependencies` 是 `{ "@ihui/types": "workspace:*" }`,而 `@ihui/types` 仍是

@@ -6,7 +6,7 @@
 
 /**
  * 引流统计 — 各渠道引流数横向条形图(CSS 实现)
- * 渠道:免费模型 / 13 平台发布 / 直接注册
+ * 渠道:免费模型 / 38 平台发布 / 直接注册
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'

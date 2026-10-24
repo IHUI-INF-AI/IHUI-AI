@@ -1291,3 +1291,40 @@ test('形状锁:输入路径解析只有一份,门体必须两侧各按自己的
     )
   })
 }
+
+/**
+ * 深档(2026-10-25):祖先窗口用尽时回落到全历史。
+ * 立因是当天实测:门 84 报"127 个文件无历史回写",但其中 8 个路径(README×4 / PROJECT_PLAN /
+ * layout / ui-routes.generated / last-sha)的祖先清单被窗口上限截断 ⇒ 它们的"无回写"其实是
+ * **没判**,而这几本正是最容易被旧副本回写的大文件。
+ * 同一份夹具跑两档:A 臂(默认)必须如实报 truncated 且取不到窗外那一枚;B 臂(deep)必须判到底
+ * 并命中。任一臂单独变绿/变红都说明开关没接线(§22c 成对夹具)。
+ */
+test('窗口用尽的两档:默认档如实"未判定",深档回落全历史后命中窗外回写(成对)', () => {
+  const { dir, run } = repo()
+  try {
+    const rel = 'scripts/hot.mjs'
+    const total = G.ANCESTOR_WINDOW + 5
+    for (let i = 0; i < total; i += 1) {
+      put(dir, rel, `// v${i}\nexport const v = ${i}\n`)
+      run('add', '-A')
+      run('commit', '-qm', `v${i}`)
+    }
+    const oldest = run('rev-list', '--max-parents=0', 'HEAD')
+    put(dir, rel, '// v0\nexport const v = 0\n') // 写回窗口外那一版
+    const plain = G.ancestorWindow(dir, rel)
+    assert.equal(plain.truncated, true, '默认档必须如实报窗口用尽(未判定),不得冒绿')
+    assert.ok(!plain.shas.includes(oldest), '夹具病形:v0 必须落在窗口之外,否则测不到深档')
+    const deep = G.ancestorWindow(dir, rel, { deep: true })
+    assert.equal(deep.truncated, false, '深档必须判到底,不再留"未判定"')
+    assert.ok(deep.shas.includes(oldest), '深档必须取到窗口外那一枚祖先')
+    assert.equal(deep.shas.length, total, '深档必须取满该路径的全部祖先提交')
+    // 端到端:门 84 的分析档已走深档 ⇒ 这段回写必须被点名
+    run('add', '--', rel)
+    const hits = G.analyze(dir, [rel], { source: 'index' })
+    assert.equal(hits.length, 1, '深档下"写回窗口外旧版"必须判出')
+    assert.equal(hits[0].commit, oldest.slice(0, 9), '命中的必须正是那枚窗口外祖先')
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})

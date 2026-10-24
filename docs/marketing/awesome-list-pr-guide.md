@@ -59,7 +59,7 @@
 ### 通用 PR 标题
 
 ```
-Add IHUI-AI — 8-end open-source AI platform (176 models, LangGraph+MCP, Apache 2.0)
+Add IHUI-AI — 9-end open-source AI platform (101 models, LangGraph+MCP, Apache 2.0)
 ```
 
 ### 通用 PR 描述
@@ -67,12 +67,12 @@ Add IHUI-AI — 8-end open-source AI platform (176 models, LangGraph+MCP, Apache
 ```markdown
 ## What is IHUI-AI?
 
-IHUI-AI is an open-source, 8-end (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp) AI operating system. It's a commercial-grade integrated platform written in TypeScript (Next.js 16 + Fastify 5) + Python (FastAPI).
+IHUI-AI is an open-source, 9-end (Web / API / AI Service / CLI / Desktop / Browser Extension / Mobile / Miniapp) AI operating system. It's a commercial-grade integrated platform written in TypeScript (Next.js 16 + Fastify 5) + Python (FastAPI).
 
 ### Key Features
 
-- **8 ends same-source codebase** — one pnpm monorepo outputs 8 platforms
-- **176 LLM models** — OpenAI / Claude / Gemini / Qwen / DeepSeek / GLM / Ollama (via LiteLLM)
+- **9 ends same-source codebase** — one pnpm monorepo outputs 9 platforms
+- **101 LLM models** — OpenAI / Claude / Gemini / Qwen / DeepSeek / GLM / Ollama (via LiteLLM)
 - **LangGraph + MCP + A2A triple stack** — agent orchestration + tool calling + agent-to-agent
 - **RAG knowledge base** — pgvector + hybrid retrieval (vector + fulltext + rerank)
 - **Agent marketplace** — build, publish, and monetize AI agents
@@ -83,8 +83,8 @@ IHUI-AI is an open-source, 8-end (Web / API / AI Service / CLI / Desktop / Brows
 
 | | Dify | Coze | FastGPT | **IHUI-AI** |
 | --- | --- | --- | --- | --- |
-| 8 ends | ❌ | ❌ | ❌ | ✅ |
-| 176 models | 50+ | limited | 30+ | **176** |
+| 9 ends | ❌ | ❌ | ❌ | ✅ |
+| 101 models | 50+ | limited | 30+ | **176** |
 | MCP protocol | beta | ❌ | ❌ | ✅ |
 | A2A protocol | ❌ | ❌ | ❌ | ✅ |
 | Self-host | ✅ | ❌ | ✅ | ✅ |
@@ -110,12 +110,12 @@ IHUI-AI is an open-source, 8-end (Web / API / AI Service / CLI / Desktop / Brows
 ```markdown
 ## IHUI-AI 是什么?
 
-IHUI-AI 是 8 端全栈 AI 操作系统(Web / API / AI Service / CLI / Desktop / Extension / Mobile / Miniapp),Apache 2.0 开源。
+IHUI-AI 是 9 端全栈 AI 操作系统(Web / API / AI Service / CLI / Desktop / Extension / Mobile / Miniapp),Apache 2.0 开源。
 
 ### 核心亮点
 
-- **8 端同源**:一个 pnpm monorepo 输出 8 个平台
-- **176 大模型**:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Ollama
+- **9 端同源**:一个 pnpm monorepo 输出 8 个平台
+- **101 大模型**:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Ollama
 - **三栈协议**:LangGraph(编排)+ MCP(工具)+ A2A(Agent 间通信)
 - **RAG 知识库**:pgvector + 混合检索(向量+全文+重排)
 - **Agent 市场**:构建、发布、变现 AI Agent
@@ -139,13 +139,13 @@ ChatGPT Team / Dify / Coze / FastGPT / n8n 的开源替代方案,价格仅 ChatG
 ### 英文列表格式
 
 ```markdown
-- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 8-end open-source AI platform with 176 LLM models, LangGraph + MCP + A2A triple stack, RAG knowledge base, and agent marketplace. Apache 2.0.
+- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 9-end open-source AI platform with 101 LLM models, LangGraph + MCP + A2A triple stack, RAG knowledge base, and agent marketplace. Apache 2.0.
 ```
 
 ### 中文列表格式
 
 ```markdown
-- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 8 端全栈 AI 操作系统,176 大模型 + LangGraph+MCP+A2A 三栈 + RAG 知识库 + Agent 市场。Apache 2.0 开源。
+- [IHUI-AI](https://github.com/IHUI-INF-AI/IHUI-AI) - 9 端全栈 AI 操作系统,101 大模型 + LangGraph+MCP+A2A 三栈 + RAG 知识库 + Agent 市场。Apache 2.0 开源。
 ```
 
 ### 分类建议(根据列表结构选择)
@@ -165,7 +165,7 @@ ChatGPT Team / Dify / Coze / FastGPT / n8n 的开源替代方案,价格仅 ChatG
 1. **Fork** 目标仓库
 2. **Clone** fork 到本地
 3. **编辑** README.md,在合适分类下添加 IHUI-AI 条目(按字母序)
-4. **Commit**:`Add IHUI-AI — 8-end open-source AI platform`
+4. **Commit**:`Add IHUI-AI — 9-end open-source AI platform`
 5. **Push** 到 fork
 6. **Create PR**:使用上面的 PR 描述模板
 7. **等待审核**(通常 1-7 天)
@@ -212,6 +212,6 @@ ChatGPT Team / Dify / Coze / FastGPT / n8n 的开源替代方案,价格仅 ChatG
 ### 提交到 AlternativeTo 的文案
 
 ```
-IHUI-AI is an open-source, self-hosted alternative to ChatGPT Team, Dify, and Coze. It provides 8-end coverage (Web, API, CLI, Desktop, Extension, Mobile, Miniapp), 176 LLM model support, LangGraph + MCP + A2A agent orchestration, RAG knowledge base, and an agent marketplace. Apache 2.0 licensed, commercial-ready.
+IHUI-AI is an open-source, self-hosted alternative to ChatGPT Team, Dify, and Coze. It provides 9-end coverage (Web, API, CLI, Desktop, Extension, Mobile, Miniapp), 101 LLM model support, LangGraph + MCP + A2A agent orchestration, RAG knowledge base, and an agent marketplace. Apache 2.0 licensed, commercial-ready.
 ```
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

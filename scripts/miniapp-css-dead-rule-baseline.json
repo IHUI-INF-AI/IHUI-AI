@@ -1,11 +1,11 @@
 {
   "$comment": "C8 死规则分族棘轮锚点(scripts/check-miniapp-css-landing.mjs)。各族只减不增;重锚 = 跑 --emit-dead-rule-baseline 并人工确认,禁止为让门变绿而调高。",
   "families": {
-    "fractional": 3,
+    "fractional": 0,
     "prefixed": 5,
     "other": 6
   },
-  "total": 14,
+  "total": 11,
   "provenance": {
     "face": "head",
     "freshness": "fresh",

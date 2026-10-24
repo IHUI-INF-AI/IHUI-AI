@@ -204,7 +204,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       marginTop: 10,
     },
-    priceText: { fontSize: 20, fontWeight: '700', color: tk.brand.DEFAULT },
+    priceText: { flexShrink: 0, fontSize: 20, fontWeight: '700', color: tk.brand.DEFAULT },
     enrollBtn: {
       paddingHorizontal: 10,
       paddingVertical: 8,

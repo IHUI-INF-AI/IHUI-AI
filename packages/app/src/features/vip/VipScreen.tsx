@@ -213,7 +213,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
     },
     durationText: { fontSize: 12, color: tk.text.secondary },
-    priceText: { fontSize: 24, fontWeight: '700', color: VIP_GOLD },
+    priceText: { flexShrink: 0, fontSize: 24, fontWeight: '700', color: VIP_GOLD },
     benefitsText: { marginTop: 8, fontSize: 12, color: tk.text.secondary },
     purchaseBtn: {
       marginTop: 12,

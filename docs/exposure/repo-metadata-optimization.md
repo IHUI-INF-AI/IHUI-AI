@@ -30,15 +30,15 @@
 
 | 维度 | 优化前 | 优化后 |
 | --- | --- | --- |
-| 内容 | (空 / 简短中文) | `Eight-platform full-stack AI operating system - unifies 176 LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 340 tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.` |
+| 内容 | (空 / 简短中文) | `Nine-platform full-stack AI operating system - unifies 101 LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 340 tables, RAG knowledge base, agent marketplace. Web/API/AI service/CLI/Desktop/Extension/Mobile/Capacitor/Miniapp. Apache 2.0.` |
 | 字符数 | ~20 | 244 |
 | SEO 关键词覆盖 | 1(ai) | 12+(ai / llm / langgraph / mcp / a2a / multi-tenant / rag / agent-marketplace / web / api / cli / desktop / extension / mobile / miniapp / apache) |
 | 语言 | 中文 | 英文(国际可读) |
 
 **为什么这么写**:
 - GitHub 搜索算法对 description 的关键词密度敏感,英文描述可命中全球开发者检索
-- "Eight-platform full-stack AI operating system" 一句话定位差异化(对标 dify/coze 都是单端)
-- 列出 8 个端的具体名字(Web/API/CLI/Desktop/Extension/Mobile/Miniapp)让技术栈词命中
+- "Nine-platform full-stack AI operating system" 一句话定位差异化(对标 dify/coze 都是单端)
+- 列出 8 个端的具体名字(Web/API/AI service/CLI/Desktop/Extension/Mobile/Capacitor/Miniapp)让技术栈词命中
 - "Apache 2.0" 显式标注 license 友好度,降低商业使用顾虑
 
 ### 2.2 Homepage URL
@@ -90,15 +90,15 @@
 
 ### 3.1 `CONTRIBUTING.md`(370 行,根目录)
 
-**优化前**:132 行简版,覆盖基本流程但缺 PR 模板 / Review 标准 / 急需贡献领域 / 8 端架构图。
+**优化前**:132 行简版,覆盖基本流程但缺 PR 模板 / Review 标准 / 急需贡献领域 / 9 端架构图。
 
 **优化后**(370 行):
 
-- **Welcome 段落**:用项目使命("8 端统一 176 LLM")唤起贡献动机
+- **Welcome 段落**:用项目使命("9 端统一 101 LLM")唤起贡献动机
 - **Code of Conduct**:链接到 `CODE_OF_CONDUCT.md`,违规举报邮箱 `conduct@aizhs.top`
 - **Getting Started**:环境要求表 + Fork & Clone + 安装 + 启动 dev server(端口注册表链接)
 - **Development Workflow**:5 步流程(同步 main → 创建分支 → 编码 → 提交 → 推送),含 Conventional Commits 格式表
-- **Project Structure**:8 端 + 8 共享包的 ASCII 架构图
+- **Project Structure**:9 端 + 8 共享包的 ASCII 架构图
 - **Coding Standards**:TypeScript(strict / Zod)/ React(函数组件 / shadcn/ui / 禁用 rounded-full)/ Python(mypy / black)/ UI 设计系统 / i18n(5 语言 parity)
 - **Testing**:测试金字塔表(单元 / 类型 / lint / E2E / 集成 / Python / 全量)
 - **Submitting Changes**:PR 清单 + PR 模板 + Review 流程 + Review 标准
@@ -201,7 +201,7 @@ Google 对 GitHub repo 页面的索引权重信号:
 ```
 full_name: IHUI-INF-AI/IHUI-AI
 html_url: https://github.com/IHUI-INF-AI/IHUI-AI
-description: Eight-platform full-stack AI operating system - unifies 176 LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 340 tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.
+description: Nine-platform full-stack AI operating system - unifies 101 LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 340 tables, RAG knowledge base, agent marketplace. Web/API/AI service/CLI/Desktop/Extension/Mobile/Capacitor/Miniapp. Apache 2.0.
 homepage: https://aizhs.top
 has_issues: True
 has_discussions: True
@@ -255,7 +255,7 @@ visibility: public
 - [ ] 提交到 [awesome-selfhosted](https://github.com/awesome-selfhosted/awesome-selfhosted) list
 - [ ] 提交到 [awesome-ai-agents](https://github.com/e2b-dev/awesome-ai-agents) list
 - [ ] 在 Hacker News / Product Hunt / v2ex / 即刻 发布 v1.0.0
-- [ ] 写一篇 "Building an 8-platform AI OS with TypeScript Monorepo" 技术博客,带 repo 链接
+- [ ] 写一篇 "Building an 9-platform AI OS with TypeScript Monorepo" 技术博客,带 repo 链接
 
 ### P2(本季度)
 
