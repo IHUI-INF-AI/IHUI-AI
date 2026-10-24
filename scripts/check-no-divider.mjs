@@ -133,7 +133,7 @@ const SCAN_GLOBS = ['*.ts', '*.tsx', '*.js', '*.jsx', '*.css']
 
 /** git grep 预筛:必须是各族判据的**超集**,否则清单面比内容面窄 = 静默少扫 */
 const PREFILTER_RE =
-  'divide-[yx]|<hr|border-[tblr]|border-(top|bottom|left|right)|border(Top|Bottom|Left|Right)(Width|Color)|[hw]-px|[hw]-\\[1px\\]|hairlineWidth|backgroundColor'
+  'divide-[yx]|<hr|border-[tblr]|border-\\[|border-(top|bottom|left|right)|border(Top|Bottom|Left|Right)(Width|Color)|[hw]-px|[hw]-\\[1px\\]|hairlineWidth|backgroundColor'
 
 /** 违规模式:divide-y / divide-x(独立 class token;用 \b 词边界,兼容引号包裹的 className) */
 const VIOLATION_RE = /\bdivide-[yx]\b/
@@ -185,6 +185,18 @@ export function classifyBorderToken(cls) {
   const segs = body.split('-')
   if (segs[0] !== 'border') return null
   if (segs.length === 1) return { kind: 'full', opacity }
+  // 独立任意值必须整段匹配:变量名里的连字符会被 segs 切碎(`[var(--color-border)]` 不是 `[var(--color`)
+  const standaloneArb = body.match(/^border-\[([^\]]*)\]$/)
+  if (standaloneArb) {
+    const raw = standaloneArb[1].trim().replace(/^color:/i, '')
+    if (!isArbitraryColor(raw)) {
+      const g = cssHairlineGrade(raw.replace(/^length:/i, ''))
+      if (g === 'thick') return { kind: 'full', width: 3, opacity }
+      if (g === 'erase') return { kind: 'full', width: 0, opacity }
+      return { kind: 'full', width: 1, opacity }
+    }
+    return { kind: 'color', color: raw, opacity }
+  }
   const second = segs[1]
   if (/^\d+$/.test(second)) return { kind: 'full', width: Number(second), opacity }
   if (AXIS_TOKENS.has(second)) {
@@ -198,25 +210,50 @@ export function classifyBorderToken(cls) {
     if (/^\d+$/.test(segs[2]))
       return { kind: 'side', side: second, width: Number(segs[2]), opacity }
     const rest = segs.slice(2).join('-')
-    // 任意值宽度(`border-b-[length:2rpx]` / `border-t-[3px]`):方括号里是**长度**不是颜色档。
-    // 旧判定把它当色名 ⇒ isNeutralColor 判不出 ⇒ 归"彩色"放过(小程序 6 条页面级线漏在这一格)。
-    const arb = rest.match(/^\[(?:length:)?([^\]]*)\]$/)
+    // 任意值:方括号里既可能是长度也可能是颜色档,必须按内容分流。
+    // 旧判定把方括号一律当长度 ⇒ `border-t-[var(--color-primary)]` 被读成发丝线(假红);
+    // 而独立成枚的 `border-[var(--color-border)]` 又被当色名 ⇒ 中性变量名认不出 ⇒ 当彩色放过
+    // (settings/bill 14 条 `border-t border-[var(--color-border)]` 漏在这一格,G-879)。
+    const arb = rest.match(ARBITRARY_VALUE_RE)
     if (arb) {
-      const g = cssHairlineGrade(arb[1])
-      if (g === 'thick') return { kind: 'side', side: second, width: 3, opacity }
-      if (g === 'erase') return { kind: 'side', side: second, width: 0, opacity }
-      return { kind: 'side', side: second, width: 1, opacity }
+      const raw = arb[1].trim().replace(/^color:/i, '')
+      if (!isArbitraryColor(raw)) {
+        const g = cssHairlineGrade(raw.replace(/^length:/i, ''))
+        if (g === 'thick') return { kind: 'side', side: second, width: 3, opacity }
+        if (g === 'erase') return { kind: 'side', side: second, width: 0, opacity }
+        return { kind: 'side', side: second, width: 1, opacity }
+      }
+      return { kind: 'side', side: second, width: 1, color: raw, opacity }
     }
     return { kind: 'side', side: second, width: 1, color: rest, opacity }
   }
+  if (segs.length === 2) return { kind: 'color', color: second, opacity }
   return { kind: 'color', color: segs.slice(1).join('-'), opacity }
+}
+
+/** Tailwind 任意值语法 `[value]`(可能带 `length:` / `color:` 类型标注) */
+const ARBITRARY_VALUE_RE = /^\[([^\]]*)\]$/
+/** 方括号里是不是颜色档(var()/hex/颜色函数/`color:` 前缀);否则按长度档量 */
+export function isArbitraryColor(raw) {
+  const v = String(raw ?? '').trim()
+  return /^(?:color:|var\(|#|rgba?\(|hsla?\(|oklch\(|color\()/i.test(v)
 }
 
 /** 没写颜色 ⇒ 继承全局中性描边档;写了非中性色档 ⇒ 强调,不算分隔线 */
 export function isNeutralBorderColor(name) {
   if (name === undefined || name === null) return true
-  if (NEUTRAL_COLOR_ROOTS.has(name)) return true
-  return NEUTRAL_SHADE_RE.test(name)
+  const raw = String(name).trim().replace(/^color:/i, '')
+  if (NEUTRAL_COLOR_ROOTS.has(raw)) return true
+  if (NEUTRAL_SHADE_RE.test(raw)) return true
+  // CSS 变量名:同一张中性档表,`--color-border` → `border`,`--color-border-medium` → `border` 档
+  const cssVar = raw.match(/^var\(\s*--([\w-]+)\s*\)$/)
+  if (cssVar) {
+    const token = cssVar[1].replace(/^color-/, '')
+    if (NEUTRAL_COLOR_ROOTS.has(token)) return true
+    if (NEUTRAL_SHADE_RE.test(token)) return true
+    return NEUTRAL_COLOR_ROOTS.has(token.split('-')[0])
+  }
+  return false
 }
 
 /**
@@ -1526,6 +1563,37 @@ export function selfTest() {
     },
   )
 
+  // ── 任意值色档(G-879 第三条盲区):`border-[var(--color-border)]` 旧判当彩色放过 ──
+  t('S67 任意值中性色变量单边 ⇒ blocking(settings/bill 14 条就是这一型)', () => {
+    const r = hit('  <View className="border-t border-[var(--color-border)] px-[24rpx]" />')
+    ok(r && r.level === 'blocking', JSON.stringify(r))
+    ok(
+      hit('  <View className="border-b-[var(--color-border)] border-border" />')?.level ===
+        'blocking',
+      '"border-b-[<颜色>]" 是色档不是长度',
+    )
+    ok(
+      hit('  <View className="border-t border-[var(--color-border-medium)]" />')?.level ===
+        'blocking',
+    )
+  })
+  t('S68 任意值反向:彩色变量 / 整圈 / 粗档 / 擦除仍放过', () => {
+    ok(hit('  <div className="border-t border-[var(--color-primary)]" />') === null)
+    ok(hit('  <div className="border-t-[var(--color-brand-accent-deep)]" />') === null)
+    ok(hit('  <div className="border border-[var(--color-border)]" />') === null, '整圈不是分隔线')
+    ok(hit('  <div className="border-t-[3px] border-border" />') === null, '粗档是强调条')
+    ok(hit('  <div className="border-t-[0] border-border" />') === null, '0 是擦除')
+  })
+  t('S69 形状锁:任意值按内容分流,预筛含独立色档形态', () => {
+    ok(isArbitraryColor('var(--color-border)') && !isArbitraryColor('length:2rpx'))
+    ok(isNeutralBorderColor('var(--color-border)'), '变量名回落到中性档表')
+    ok(!isNeutralBorderColor('var(--color-primary)'))
+    ok(classifyBorderToken('border-[var(--color-border)]')?.kind === 'color')
+    const w = classifyBorderToken('border-[length:2rpx]')
+    ok(w?.kind === 'full' && w.width === 1, '独立长度档是整圈宽度,不是色名')
+    ok(PREFILTER_RE.includes('border-\\['), PREFILTER_RE)
+  })
+
   // ── 族 7(背景色发丝线):2026-10-23 L29015 ──
   const hit2 = classifyHairlineLine
   t('S60 族 7 正例:h-px/w-px/h-[1px] + 中性 bg ⇒ blocking;变体前缀要剥', () => {
@@ -1666,6 +1734,7 @@ export const __test__ = {
   cssHairlineGrade,
   enclosingBraceBlock,
   hasIndentRailPair,
+  isArbitraryColor,
   isNeutralBorderColor,
   isNeutralColorRef,
   maskBlockComments,
