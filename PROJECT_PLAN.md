@@ -7822,3 +7822,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] （未取号:G 族号池已满;承 G-935〔旧号〕〔旧号〕 e2e 真机核验揭缺口 A）**工具面板开关未真窗格化**:apps/web mode-switcher.tsx:59-60 开关写根单例 useAiToolsPanelStore，而面板体 ai-side-panel-tools.tsx:292 读窗格实例 usePaneAiToolsPanelStore ⇒ 窗格内开关只点亮根格面板，两窗格互不顶在开关环断裂。修法=开关改读写窗格实例;验收=chat-pane-tools-jump-cache.spec.ts 用例① 预期红转绿 〔登记@2026-10-22/goal-r55/G-935〔旧号〕〔旧号〕 席〕
 - [ ] G-85 **已推送的提交会被并发合并吞掉，而拦这一型的门当场没响（现读一例）**〔登记@2026-10-21/工程执行席〕：枚 `12898ccd9bcb2b8e094e0057d94e0fab0380293a`（票60 第三批，11 枚文件）现读**不在 HEAD 祖先链、`origin/main` 上亦无**（`git merge-base --is-ancestor` 两问皆否），它改的内容在盘上退回未提交态、只能重落（重落枚 `d3541dc2670cec8634a57d04bcfbe5ff2b47c093`；原枚已按 §22 先 `git tag lost-commit/12898ccd9bcb2b8e094e0057d94e0fab0380293a` 保全再重落）。要查的是判据那一格：守门 100（合并吞掉对侧新增）与 168 〔压缩@2026-10-22〕
 
+
