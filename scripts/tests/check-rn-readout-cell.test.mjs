@@ -132,8 +132,61 @@ it('单个样式带 as 断言也要采集', () => {
   eq(r.violations.length, 1, '违规枚数')
 })
 
+it('V3:space-between 行内的读数缺 flexShrink:0 ⇒ 报', () => {
+  // 行内两个子项都没有 flex ⇒ 读数默认 flexShrink:1,行宽不够时先压读数。
+  const sheet = `
+    const s = StyleSheet.create({
+      sbRow: { flexDirection: 'row', justifyContent: 'space-between' },
+      label: { fontSize: 12 },
+      amount: { fontSize: 22, fontWeight: '700' },
+      amountFix: { flexShrink: 0, fontSize: 22, fontWeight: '700' },
+    });`
+  const bad = analyze(sheet + '<View style={s.sbRow}><Text style={s.label}>金额</Text><Text style={s.amount}>{item.amount.toFixed(2)}</Text></View>')
+  eq(bad.squeezed.length, 1, '应报 1 处')
+  eq(bad.squeezed[0].host, 'space-between', '宿主类型')
+  const good = analyze(sheet + '<View style={s.sbRow}><Text style={s.label}>金额</Text><Text style={s.amountFix}>{item.amount.toFixed(2)}</Text></View>')
+  eq(good.squeezed.length, 0, '带 flexShrink:0 后不报')
+})
+
+it('V4:absolute 容器内的读数缺 flexShrink:0 ⇒ 报', () => {
+  const sheet = `
+    const s = StyleSheet.create({
+      footer: { position: 'absolute', bottom: 0, flexDirection: 'row' },
+      price: { fontSize: 22, fontWeight: '700' },
+    });`
+  const r = analyze(sheet + '<View style={s.footer}><Text style={s.price}>{TRADER_PRICE.toLocaleString()}</Text></View>')
+  eq(r.squeezed.length, 1, '应报 1 处')
+  eq(r.squeezed[0].host, 'absolute', '宿主类型')
+})
+
+it('V5:定宽格(width%)缺 minWidth ⇒ 报;补上不报', () => {
+  const sheet = `
+    const s = StyleSheet.create({
+      card: { width: '48%' },
+      cardFix: { width: '48%', minWidth: 96 },
+      val: { fontSize: 20, fontWeight: '700' },
+    });`
+  const bad = analyze(sheet + '<View style={s.card}><Text style={s.val}>{s.value}</Text></View>')
+  eq(bad.squeezed.length, 1, '应报 1 处')
+  eq(bad.squeezed[0].host, 'fixed-width', '宿主类型')
+  eq(analyze(sheet + '<View style={s.cardFix}><Text style={s.val}>{s.value}</Text></View>').squeezed.length, 0, '补 minWidth 后不报')
+})
+
+it('反向锁:等分格里的读数不被 V3 误报(父有 flex:1)', () => {
+  // 等分格的父级是 row(不是 space-between);若父级同时有 flex:1 也不该走 V3 —— V3 只认
+  // space-between 且父级不是 flex:1 格,否则同一处会被 V1 与 V3 双报。
+  const sheet = `
+    const s = StyleSheet.create({
+      row: { flexDirection: 'row', justifyContent: 'space-between' },
+      cell: { flex: 1, justifyContent: 'space-between' },
+      val: { fontSize: 20, fontWeight: '700' },
+    });`
+  const r = analyze(sheet + '<View style={s.row}><View style={s.cell}><Text style={s.val}>{info.totalDays}</Text></View></View>')
+  eq(r.squeezed.length, 0, 'V3 不应命中 flex:1 格')
+})
+
 it('真实仓库存量必须归零(整族不变量,不是逐处形状锁)', () => {
-  const files = execFileSync('git', ['-c', 'core.quotePath=false', 'ls-files'], { cwd: ROOT, encoding: 'utf8' })
+  const files = execFileSync('git', ['-c', 'core.quotePath=false', 'ls-files'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
     .split('\n')
     .filter((f) => inScope(f))
   if (files.length < 500) throw new Error(`射程文件只取到 ${files.length} 枚,取材面异常 ⇒ 未判定`)
@@ -146,6 +199,7 @@ it('真实仓库存量必须归零(整族不变量,不是逐处形状锁)', () =
       continue
     }
     for (const v of r.violations) bad.push(`${f}:${v.line} ${v.row}/${v.cell} — ${v.why}`)
+    for (const v of r.squeezed) bad.push(`${f}:${v.line} [${v.host}] ${v.cell} — ${v.why}`)
   }
   eq(bad.length, 0, `端侧等分读数格缺口\n      ${bad.slice(0, 5).join('\n      ')}`)
 })
