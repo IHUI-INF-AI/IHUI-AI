@@ -3,21 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, useState } from 'react'
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, Image, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
 
 /** 订单/Tab/Props 类型 re-export(单一来源 @ihui/types) */
@@ -129,9 +122,7 @@ export function OrderScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList
           data={filteredItems}
@@ -164,35 +155,30 @@ export function OrderScreen({
               </>
             )
             return (
-              <TouchableOpacity
+              <PressableCard
+                style={styles.card}
                 onPress={() => onPressItem(item)}
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                colorScheme={colorScheme}
               >
-                <View style={styles.card}>
-                  {item.image ? (
-                    <View style={styles.cardBodyRow}>
-                      <Image
-                        source={{ uri: item.image }}
-                        style={styles.cardImg}
-                        resizeMode="cover"
-                        accessibilityLabel={item.title}
-                      />
-                      <View style={styles.cardInfo}>{info}</View>
-                    </View>
-                  ) : (
-                    info
-                  )}
-                </View>
-              </TouchableOpacity>
+                {item.image ? (
+                  <View style={styles.cardBodyRow}>
+                    <Image
+                      source={{ uri: item.image }}
+                      style={styles.cardImg}
+                      resizeMode="cover"
+                      accessibilityLabel={item.title}
+                    />
+                    <View style={styles.cardInfo}>{info}</View>
+                  </View>
+                ) : (
+                  info
+                )}
+              </PressableCard>
             )
           }}
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('order.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('order.empty')} colorScheme={colorScheme} />}
           onEndReachedThreshold={0.2}
           onEndReached={onLoadMore ? () => onLoadMore() : undefined}
           ListFooterComponent={
@@ -237,7 +223,6 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     // 上拉分页 footer:对齐 Uniapp loadMore 底部加载提示
     footer: { alignItems: 'center', paddingVertical: 16 },
