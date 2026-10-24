@@ -207,9 +207,9 @@ def _chrome_exe() -> str | None:
     local = os.environ.get("LOCALAPPDATA") or ""
     candidates = [
         os.path.join(local, "Google", "Chrome", "Application", "chrome.exe"),
-        os.path.join(os.environ.get("ProgramFiles", ""), "Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "Google", "Chrome", "Application", "chrome.exe"),
         os.path.join(
-            os.environ.get("ProgramFiles(x86)", ""), "Google", "Chrome", "Application", "chrome.exe"
+            os.environ.get("PROGRAMFILES(X86)", ""), "Google", "Chrome", "Application", "chrome.exe"
         ),
     ]
     for path in candidates:
@@ -324,7 +324,8 @@ async def extract_workbuddy_cookie(
         while asyncio.get_running_loop().time() < deadline:
             if os.path.isfile(port_file):
                 try:
-                    lines = open(port_file, encoding="utf-8").read().splitlines()
+                    with open(port_file, encoding="utf-8") as fh:
+                        lines = fh.read().splitlines()
                     port = int(lines[0].strip()) if lines else 0
                     ws_path = lines[1].strip() if len(lines) > 1 else ""
                 except (OSError, ValueError):
@@ -357,7 +358,7 @@ async def extract_workbuddy_cookie(
             "expires_at": int(expires) if isinstance(expires, (int, float)) and expires > 0 else None,
             "user_agent": user_agent,
         }
-    except (OSError, asyncio.TimeoutError, websockets.WebSocketException) as e:
+    except (TimeoutError, OSError, websockets.WebSocketException) as e:
         logger.warning("[wb-local] 抽取异常: %s: %s", type(e).__name__, e)
         return None
     finally:
@@ -365,7 +366,7 @@ async def extract_workbuddy_cookie(
             try:
                 proc.kill()
                 await asyncio.wait_for(proc.wait(), timeout=5)
-            except (ProcessLookupError, asyncio.TimeoutError):
+            except (TimeoutError, ProcessLookupError):
                 pass
         await asyncio.to_thread(shutil.rmtree, tmp, True)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
