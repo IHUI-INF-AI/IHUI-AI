@@ -5359,12 +5359,13 @@ from ..tools import (  # noqa: E402
 from ..tools import (  # noqa: E402
     generate_report as _generate_report,
 )
-from ..tools import (
-    parse_document as _parse_document,
-)
+
 # D07 残余②:「/init 式 AGENTS.md」能力接入(实现已入库,此前未注册 ⇒ 外部不可调用)
 from ..tools import (
     init_agents_md as _init_agents_md,
+)
+from ..tools import (
+    parse_document as _parse_document,
 )
 
 
