@@ -1275,12 +1275,26 @@ function selfTest() {
 
 // ───────────────────────── main ─────────────────────────
 
-function pickOpt(argv, k, d) {
+// G-322:pickOpt 是旧 9 份取值副本在本门的残留 —— 空格形只挡 `--` 双划线(单划线 token 被当
+// 合法值收下),给了旗标而值缺失/被顶/空串一律**静默落默认**照常出 ✅;等号形 `--samples=` 空值
+// 同样折回默认。改走单源:等号形保留形态但空值判死,空格形经 requireFlagValue;
+// present&&!valid ⇒ 记错,由 main 在开跑前统一 exit 2 点名实得 token(措辞只有一份)。
+function pickOpt(argv, k, d, errs) {
   const eq = argv.find((a) => a.startsWith(`--${k}=`))
-  if (eq) return eq.slice(k.length + 3)
-  const i = argv.indexOf(`--${k}`)
-  if (i >= 0 && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--')) return argv[i + 1]
-  return d
+  if (eq !== undefined) {
+    const v = eq.slice(k.length + 3)
+    if (v === '') {
+      errs.push(`--${k} 需要一个参数 —— 等号后实得:""(不得静默退回默认)`)
+      return d
+    }
+    return v
+  }
+  const f = requireFlagValue(argv, `--${k}`, { noun: '参数' })
+  if (f.error) {
+    errs.push(f.error)
+    return d
+  }
+  return f.value ?? d
 }
 
 async function main(argv) {
@@ -1364,34 +1378,40 @@ async function main(argv) {
   const json = argv.includes('--json')
   const burst = argv.includes('--burst')
   const snapshot = argv.includes('--snapshot') || !(burst || argv.includes('--report'))
-  const sequence = String(pickOpt(argv, 'sequence', 'both')).toUpperCase()
+  const flagErrs = []
+  const sequence = String(pickOpt(argv, 'sequence', 'both', flagErrs)).toUpperCase()
   if (!['A', 'B', 'BOTH'].includes(sequence)) {
     console.log(`用法错:--sequence 只认 A / B / both,收到 ${JSON.stringify(sequence)}`)
     return 2
   }
   const opt = {
-    publicUrl: pickOpt(argv, 'url-public', DEFAULTS.publicUrl),
-    localUrl: pickOpt(argv, 'url-local', DEFAULTS.localUrl),
-    controlUrl: pickOpt(argv, 'control-url', DEFAULTS.controlUrl),
+    publicUrl: pickOpt(argv, 'url-public', DEFAULTS.publicUrl, flagErrs),
+    localUrl: pickOpt(argv, 'url-local', DEFAULTS.localUrl, flagErrs),
+    controlUrl: pickOpt(argv, 'control-url', DEFAULTS.controlUrl, flagErrs),
     // 阳性对照**默认开**;关掉它 = 主动放弃"尺子有牙"的证明,所以关掉时报告必须大声报名。
     positiveControl: !argv.includes('--no-positive-control'),
     // --snapshot(含裸跑,两档同义)是"一次采样巡检"档:比长跑档轻,取证封缄+读回闭环都在这一档做。
-    samples: Math.max(1, Number(pickOpt(argv, 'samples', burst ? 10 : snapshot ? 12 : DEFAULTS.samples)) || DEFAULTS.samples),
-    intervalMs: Math.max(50, Number(pickOpt(argv, 'interval-ms', DEFAULTS.intervalMs)) || 0),
-    ceilingMs: Math.max(500, Number(pickOpt(argv, 'ceiling-ms', DEFAULTS.ceilingMs)) || 0),
-    slowMs: Math.max(1, Number(pickOpt(argv, 'slow-ms', DEFAULTS.slowMs)) || 0),
-    windowMs: Math.max(1000, Number(pickOpt(argv, 'window-ms', DEFAULTS.windowMs)) || 0),
-    recencyMs: Math.max(0, Number(pickOpt(argv, 'recency-ms', DEFAULTS.recencyMs)) || 0),
-    splitPreMs: Math.max(0, Number(pickOpt(argv, 'split-pre-ms', DEFAULTS.splitPreMs)) || 0),
-    splitPostMs: Math.max(0, Number(pickOpt(argv, 'split-post-ms', DEFAULTS.splitPostMs)) || 0),
-    waitMs: Math.max(0, Number(pickOpt(argv, 'wait-ms', 0)) || 0),
-    failRatio: Number(pickOpt(argv, 'fail-ratio', DEFAULTS.failRatio)),
-    slowRatio: Number(pickOpt(argv, 'slow-ratio', DEFAULTS.slowRatio)),
-    outageMs: Number(pickOpt(argv, 'outage-ms', DEFAULTS.outageMs)),
-    deployLog: pickOpt(argv, 'deploy-log', DEFAULTS.deployLog),
+    samples: Math.max(1, Number(pickOpt(argv, 'samples', burst ? 10 : snapshot ? 12 : DEFAULTS.samples, flagErrs)) || DEFAULTS.samples),
+    intervalMs: Math.max(50, Number(pickOpt(argv, 'interval-ms', DEFAULTS.intervalMs, flagErrs)) || 0),
+    ceilingMs: Math.max(500, Number(pickOpt(argv, 'ceiling-ms', DEFAULTS.ceilingMs, flagErrs)) || 0),
+    slowMs: Math.max(1, Number(pickOpt(argv, 'slow-ms', DEFAULTS.slowMs, flagErrs)) || 0),
+    windowMs: Math.max(1000, Number(pickOpt(argv, 'window-ms', DEFAULTS.windowMs, flagErrs)) || 0),
+    recencyMs: Math.max(0, Number(pickOpt(argv, 'recency-ms', DEFAULTS.recencyMs, flagErrs)) || 0),
+    splitPreMs: Math.max(0, Number(pickOpt(argv, 'split-pre-ms', DEFAULTS.splitPreMs, flagErrs)) || 0),
+    splitPostMs: Math.max(0, Number(pickOpt(argv, 'split-post-ms', DEFAULTS.splitPostMs, flagErrs)) || 0),
+    waitMs: Math.max(0, Number(pickOpt(argv, 'wait-ms', 0, flagErrs)) || 0),
+    failRatio: Number(pickOpt(argv, 'fail-ratio', DEFAULTS.failRatio, flagErrs)),
+    slowRatio: Number(pickOpt(argv, 'slow-ratio', DEFAULTS.slowRatio, flagErrs)),
+    outageMs: Number(pickOpt(argv, 'outage-ms', DEFAULTS.outageMs, flagErrs)),
+    deployLog: pickOpt(argv, 'deploy-log', DEFAULTS.deployLog, flagErrs),
     // 取证默认开(票面判据一:"没跑到"必须可分辨,而 run-evidence 那把尺子判的是**文件**;
     // 不落盘的 stdout 没有"被截断"这个形态)。只准写项目内 .ihui-agent/tmp/(§15/§25),--no-ledger 关闭并大声报名。
-    ledger: argv.includes('--no-ledger') ? '' : pickOpt(argv, 'ledger', burst ? resolve(ROOT, '.ihui-agent/tmp/probers/public-path-burst.jsonl') : resolve(ROOT, '.ihui-agent/tmp/probers/public-path-snapshot.jsonl')),
+    ledger: argv.includes('--no-ledger') ? '' : pickOpt(argv, 'ledger', burst ? resolve(ROOT, '.ihui-agent/tmp/probers/public-path-burst.jsonl') : resolve(ROOT, '.ihui-agent/tmp/probers/public-path-snapshot.jsonl'), flagErrs),
+  }
+  // 判死必须在开跑之前:探测档会联网/落取证,坏值折回默认照常出 ✅ 就是普查量到的那一型。
+  if (flagErrs.length) {
+    for (const e of flagErrs) console.log(`用法错:${e}`)
+    return 2
   }
   if (opt.publicUrl === opt.localUrl) {
     console.log('用法错:--url-public 与 --url-local 不得相同(那等于把两条独立测量压成一条)')
