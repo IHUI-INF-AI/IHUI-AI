@@ -104,6 +104,11 @@ from ..services.agent_events import (
 from ..services.async_gen_close import aclose_async_gen
 from ..services.context_recall import context_recall
 from ..services.decision_chain import apply_decision_chain
+from ..services.expert_route import frame_payload as _expert_frame_payload
+from ..services.expert_route import merge_tools as _merge_expert_tools
+from ..services.expert_route import plan_route as _plan_expert_route
+from ..services.expert_route import resolve_mode as _resolve_expert_route_mode
+from ..services.expert_route import system_hint as _expert_system_hint
 from ..services.form_responses import (
     list_form_responses,
     persist_form_response,
@@ -2318,6 +2323,24 @@ def _inject_system_prefix(messages: list[dict[str, Any]], prefix: str) -> list[d
     return new_messages
 
 
+def _append_system_note(messages: list[dict[str, Any]], note: str | None) -> list[dict[str, Any]]:
+    """把一段说明**追加**到 system 消息尾部(与 ``_inject_system_prefix`` 的置顶语义相反)。
+
+    D09:专家包的系统提示属于"辅助说明"——会话级自定义指令与 ChatMode 引导优先,
+    故不置顶;无 system 消息时新插一条。
+    """
+    if not note:
+        return messages
+    new_messages = list(messages)
+    if new_messages and new_messages[0].get("role") == "system":
+        existing = new_messages[0].get("content", "")
+        merged = f"{existing}\n\n{note}" if existing else note
+        new_messages[0] = {**new_messages[0], "content": merged}
+    else:
+        new_messages.insert(0, {"role": "system", "content": note})
+    return new_messages
+
+
 def _inject_custom_system_prompt(
     messages: list[dict[str, Any]], prefix: str | None
 ) -> list[dict[str, Any]]:
@@ -2538,6 +2561,13 @@ class LLMCompleteRequest(BaseModel):
     # 丢弃并落通知 —— Pydantic 直接 422 会把「用户选了个不支持的档」打成整轮请求失败。
     reasoning_effort: str | None = Field(
         None, description="推理强度档位:minimal/low/medium/high(封闭集,非法值丢弃并回报回落)"
+    )
+    # D09(2026-10-24 立):意图自动路由专家包的三档开关。
+    # 默认(None)= hint:只把分类结果作为 injection_applied 帧交代给用户,**不改工具、
+    # 不改提示词**(票面"默认温和提示不强切");auto = 命中时并入专家包工具白名单与系统提示;
+    # off = 不分类、不发帧。值域不写 Literal:写错值只该回落默认档并留日志,不该 422 掉整轮。
+    expert_auto_route: str | None = Field(
+        None, description="意图自动路由专家包:'off'/'hint'(默认)/'auto'"
     )
 
 
@@ -3392,6 +3422,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         messages.insert(0, {"role": "system", "content": _ac_block})
         except Exception as _ac_err:  # 静默降级,绝不阻塞主聊天
             logger.warning("auto_context inject skipped: %s", _ac_err)
+    # D09(2026-10-24 立):发送前轻量意图分类 → 专家包。规则分类纯函数、零 LLM、零 IO。
+    # 默认 hint 档只发交代帧,不改 tools/messages;auto 档才追加系统提示(工具白名单在 gen()
+    # 内按同一 decision 并入,位置在 chat_mode 过滤之前)。off 档连分类都不做。
+    _expert_route = _plan_expert_route(_last_user_text(messages), req.expert_auto_route)
+    messages = _append_system_note(messages, _expert_system_hint(_expert_route))
     # D34(2026-09-22,G-40):把"本轮到底给模型注入了什么"交代成帧,在 gen() 首帧前发出。
     # 判定只复用注入器既有的去重 marker 与请求字段,不给任何注入器加新状态:
     # 手动 wiki `<!-- repo_wiki:{repo} -->` / 自动 wiki `<!-- repo-wiki-auto -->` /
@@ -3457,6 +3492,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 "count": auto_context_hits,
             }
         )
+    # D09:意图自动路由的交代帧(未命中/off 档 = None ⇒ 不发空帧,与 D34 口径一致)。
+    _expert_frame = _expert_frame_payload(_expert_route)
+    if _expert_frame:
+        injection_frames.append(_expert_frame)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
@@ -3708,6 +3747,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 # READONLY_TOOLS 交集(与 AgentLoopV2 plan 档同源同语义)。
                 # 必须在 augment 之后过滤:服务端自主补全的浏览器/电脑控制族同样受约束。
                 # ask 模式上游 if 已置 None(不进 tool loop),无需再过滤。
+                # D09:专家包工具白名单并入放在**过滤之前** —— auto 档加进来的写类工具
+                # 同样受 (mode × permission_mode) 收窄,不能绕过 plan/review 的只读承诺。
+                agent_tools = _merge_expert_tools(_expert_route, agent_tools)
                 agent_tools = _filter_agent_tools_for_chat_mode(
                     chat_mode, agent_tools, req.permission_mode
                 )
@@ -7312,6 +7354,19 @@ async def gemini_stream_generate_content_endpoint(
         kwargs["top_p"] = payload["generationConfig"]["topP"]
 
     return _gemini_streaming_response(messages, model_name, kwargs, request)
+
+
+@router.get("/llm/expert-route", response_model=None)
+async def get_expert_route_mode() -> dict[str, Any]:
+    """D09(2026-10-24 立)设置项只读镜像:部署侧意图路由档位 + 是否被 env 硬关。
+
+    web 设置页据此把 ``expert_auto_route`` 选择项置灰并说明原因 —— 部署方用
+    ``IHUI_EXPERT_AUTO_ROUTE=off`` 钉死时,请求字段一概被 ``resolve_mode`` 丢弃,
+    界面上再让用户拨档就是谎报可改。只回档位与布尔,不摊开 env(最小暴露面,
+    也不把部署配置变成客户端可探测的清单)。
+    """
+    mode = _resolve_expert_route_mode(None)
+    return _wrap_ok({"mode": mode, "envLocked": mode == "off"})
 
 
 @router.get("/llm/free-providers", response_model=None)

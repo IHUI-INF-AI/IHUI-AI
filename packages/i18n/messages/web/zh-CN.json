@@ -8193,6 +8193,7 @@
       "injectionKindRepoWiki": "已注入 Repo Wiki 项目百科",
       "injectionKindAutoContext": "{count, plural, other {已自动检索并注入 {count} 段代码上下文}}",
       "injectionKindIterationExtension": "已续期轮次预算",
+      "injectionKindExpertPack": "已按意图匹配专家包",
       "thinkingCharCountTitle": "{n} 个字符",
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",

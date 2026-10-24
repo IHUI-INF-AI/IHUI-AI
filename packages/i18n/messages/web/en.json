@@ -8193,6 +8193,7 @@
       "injectionKindRepoWiki": "Repo Wiki project knowledge injected",
       "injectionKindAutoContext": "{count, plural, one {Injected {count} auto-retrieved code context block} other {Injected {count} auto-retrieved code context blocks}}",
       "injectionKindIterationExtension": "Iteration budget extended",
+      "injectionKindExpertPack": "Expert pack matched by intent",
       "thinkingCharCountTitle": "{n} characters",
       "thinkingChars": "chars",
       "thinkingElapsedTitle": "Thinking for {time}",
