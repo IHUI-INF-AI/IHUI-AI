@@ -19,6 +19,7 @@
  * 聚合)与 deploy/saas/admin-api/src/routes/metrics.ts(promQuery 封装 + 超时降级 null)。
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { bizDayKey, bizDayStartUtc } from '../utils/biz-day.js'
 import { z } from 'zod'
 import { desc, eq, gte, lte, sql, and } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
@@ -143,33 +144,13 @@ function rangeToSeries(list: PromRangeSample[] | null): Array<[number, number]> 
   return out
 }
 
-// ===== 时区工具:Asia/Shanghai 日界(UTC 表示,口径与 relay-stats.ts 逐字一致)=====
-function shanghaiDayStartUtc(daysAgo = 0): Date {
-  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() - daysAgo,
-    ) -
-      8 * 3600 * 1000,
-  )
-}
+// 业务日界唯一出口在 utils/biz-day.ts(守门 246 拦第二份副本)
 
 /** 上海日界的 YYYY-MM-DD 日期串(daysAgo=0 即上海今天)。与 usersTodayNew 同口径:
  *  新增用户按上海日界切分,增长曲线若按 UTC 切日,16:00 后的注册会被算进"明天",
- *  与同一张屏上的「今日新增」读数自相矛盾。 */
-function shanghaiDateString(daysAgo = 0): string {
-  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() - daysAgo,
-    ),
-  )
-    .toISOString()
-    .slice(0, 10)
+ *  与同一张屏上的「今日新增」读数自相矛盾。算法本体在 utils/biz-day.ts(守门 246 拦第二份)。 */
+function bizDayKeyAgo(daysAgo = 0): string {
+  return bizDayKey(bizDayStartUtc(daysAgo))
 }
 
 // ===== 各数据面聚合(每块独立 try/catch ⇒ 失败置 null)=====
@@ -592,9 +573,9 @@ interface BusinessSnapshot {
 
 async function buildBusiness(): Promise<BusinessSnapshot | null> {
   try {
-    const todayStart = shanghaiDayStartUtc(0)
-    const yestStart = shanghaiDayStartUtc(1)
-    // 签到口径:与写入口 gamification.ts 同源(UTC 日期,不是上面业务块的上海日界)
+    const todayStart = bizDayStartUtc(0)
+    const yestStart = bizDayStartUtc(1)
+    // 签到口径:与写入口 gamification.ts 同源 —— 两侧都走 utils/biz-day.ts 的业务日界(上海)
     const signInToday = todayString()
     const signInWeekAgo = shiftDate(signInToday, -6)
     const [
@@ -709,7 +690,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
           count: sql<number>`count(*)::int`,
         })
         .from(users)
-        .where(gte(users.createdAt, shanghaiDayStartUtc(13)))
+        .where(gte(users.createdAt, bizDayStartUtc(13)))
         .groupBy(sql`1`)
         .orderBy(sql`1`)
         .catch(() => null),
@@ -748,7 +729,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       const byDate = new Map(userGrowthRows.map((r) => [r.date, r.count]))
       userGrowth = []
       for (let i = 13; i >= 0; i--) {
-        const date = shanghaiDateString(i)
+        const date = bizDayKeyAgo(i)
         userGrowth.push({ date, count: byDate.get(date) ?? 0 })
       }
     }
@@ -956,7 +937,7 @@ async function buildTrend(minutes: number, step: number): Promise<TrendSnapshot>
         calls: sql<number>`count(*)::int`,
       })
       .from(apiLogs)
-      .where(gte(apiLogs.createdAt, shanghaiDayStartUtc(0)))
+      .where(gte(apiLogs.createdAt, bizDayStartUtc(0)))
       .groupBy(sql`1`)
       .orderBy(sql`1`)
       .catch(() => [] as Array<{ hour: string; calls: number }>),

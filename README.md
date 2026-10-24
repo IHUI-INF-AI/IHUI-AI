@@ -276,6 +276,7 @@ node scripts/check-identity-principal-source.mjs --staged  # 「身份主体取�
 node scripts/check-guarded-write-affected.mjs --staged   # 「额度扣减不读回影响行 / 资金回调用 SUCCESS 吞掉失败」对账(2026-10-25 立;积分兑换超卖 + 提现冻结黑洞根治)
 node scripts/check-readout-and-timer-hygiene.mjs --staged  # 「定时器句柄被覆盖而未先停旧 / 读数分母可能为零」对账(2026-10-25 立;支付轮询僵尸 + 看板 NaN% 上屏根治)
 node scripts/check-live-doc-duplicates.mjs --staged  # 「活文档被同形态副本越堆越厚」对账(2026-10-25 立;README 4.6MB / 同一行 596 份的 union 翻倍族根治,出口 node scripts/dedupe-live-doc.mjs <文档> --apply)
+node scripts/check-biz-day-single-source.mjs --staged  # 「业务日界只许一个出口」对账(2026-10-25 立;6 份私有日界 + UTC 签到日与上海新增日同屏互搏的根治,出口 apps/api/src/utils/biz-day.ts)
 node scripts/check-db-migration-gaps.mjs  # DB 迁移账本「中间缺口」审计(只读默认):lateGap = hash 缺 ∧ when ≤ maxApplied ⇒ drizzle 永不应用,判红;补账出口 --repair --yes(本行为守门 89 R4 补点名,门体早已接线)
 ```
 
