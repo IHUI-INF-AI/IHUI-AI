@@ -9,8 +9,17 @@
 //
 // 为什么读落到元素上的样式:回归形态正是"往根 View 上再加一段行内 backgroundColor /
 // borderBottomWidth",只读 StyleSheet 对象会漏掉行内覆盖。
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
+
+/**
+ * NavBar(i18n 扫尾批起)内吃 useI18n(返回键的无障碍标签等)——本套件判据只是
+ * **根元素样式**(无底色/无底边线),不判文案;缺 mock ⇒ 裸 render 抛
+ * 「useI18n must be used within I18nProvider」整文件红(与 fenlei-overlay-statusbar 同治)。
+ */
+vi.mock('../src/i18n', () => ({
+  useI18n: () => ({ t: (key: string) => key, locale: 'zh-CN' }),
+}))
 
 import NavBar from '../src/components/NavBar'
 
