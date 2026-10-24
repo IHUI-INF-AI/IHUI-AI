@@ -111,7 +111,8 @@
     "uploading": "Uploading...",
     "user": "User",
     "more": "More",
-    "discountAmount": "Discount"
+    "discountAmount": "Discount",
+    "loadFailed": "Failed to load"
   },
   "login": {
     "loginSuccess": "Login successful",
@@ -4707,5 +4708,59 @@
     "apiKeyNone": "None created",
     "urlLabel": "Website",
     "expiryLabel": "Expires on"
+  },
+  "userPublic": {
+    "title": "User Profile",
+    "notFound": "User not found",
+    "follow": "Follow",
+    "following": "Following",
+    "message": "Message",
+    "followingCount": "Following",
+    "followersCount": "Followers",
+    "favoritesCount": "Favorites",
+    "joined": "Joined"
+  },
+  "eduShop": {
+    "title": "Edu Store",
+    "courses": "Courses",
+    "orders": "My Orders",
+    "free": "Free",
+    "buy": "Buy",
+    "lessons": "{n} lessons",
+    "loadMore": "Load more",
+    "emptyCourses": "No courses on sale",
+    "emptyOrders": "No orders yet",
+    "cancelOrder": "Cancel order",
+    "orderCreated": "Order created",
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "refunded": "Refunded"
+    }
+  },
+  "llmSettings": {
+    "title": "Model Providers",
+    "empty": "No providers configured",
+    "emptyDesc": "Tap the wizard to set up an API key in 4 steps",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "byok": {
+    "fab": "Quick setup",
+    "title": "Setup Wizard",
+    "step1Title": "Choose a provider",
+    "step2Title": "Enter API key",
+    "step3Title": "Verify key",
+    "step4Title": "Done",
+    "keyPlaceholder": "Paste API key (sk-…)",
+    "verify": "Verify",
+    "next": "Next",
+    "activate": "Activate",
+    "verifying": "Verifying…",
+    "verifySuccess": "Verified",
+    "verifyFailed": "Verification failed",
+    "doneDesc": "Provider created and revenue share activated"
   }
 }

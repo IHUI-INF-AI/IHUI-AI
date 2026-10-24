@@ -57,6 +57,15 @@ import WrongQuestionsScreen from '../screens/WrongQuestionsScreen'
 import PointsScreen from '../screens/PointsScreen'
 import GroupsScreen from '../screens/GroupsScreen'
 import UserFansScreen from '../screens/UserFansScreen'
+import UserPublicScreen from '../screens/UserPublicScreen'
+import LlmSettingsScreen from '../screens/LlmSettingsScreen'
+import EduShopScreen from '../screens/EduShopScreen'
+import DeveloperLimitsScreen from '../screens/DeveloperLimitsScreen'
+import DeveloperWebhooksScreen from '../screens/DeveloperWebhooksScreen'
+import DeveloperNotificationsScreen from '../screens/DeveloperNotificationsScreen'
+import DeveloperSettingsScreen from '../screens/DeveloperSettingsScreen'
+import DeveloperConversationsScreen from '../screens/DeveloperConversationsScreen'
+import ModelsPromptsScreen from '../screens/ModelsPromptsScreen'
 import UserArticlesScreen from '../screens/UserArticlesScreen'
 import InvoicesScreen from '../screens/InvoicesScreen'
 import PurchaseScreen from '../screens/PurchaseScreen'
@@ -394,6 +403,15 @@ export type RootStackParamList = {
   Points: undefined
   Groups: undefined
   UserFans: undefined
+  UserPublic: { userId: string }
+  LlmSettings: undefined
+  EduShop: undefined
+  DeveloperLimits: undefined
+  DeveloperWebhooks: undefined
+  DeveloperNotifications: undefined
+  DeveloperSettings: undefined
+  DeveloperConversations: undefined
+  ModelsPrompts: undefined
   UserArticles: undefined
   Invoices: undefined
   Purchase: undefined
@@ -838,6 +856,21 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Points" component={PointsScreen} />
             <RootStack.Screen name="Groups" component={GroupsScreen} />
             <RootStack.Screen name="UserFans" component={UserFansScreen} />
+            <RootStack.Screen name="UserPublic" component={UserPublicScreen} />
+            <RootStack.Screen name="LlmSettings" component={LlmSettingsScreen} />
+            <RootStack.Screen name="EduShop" component={EduShopScreen} />
+            <RootStack.Screen name="DeveloperLimits" component={DeveloperLimitsScreen} />
+            <RootStack.Screen name="DeveloperWebhooks" component={DeveloperWebhooksScreen} />
+            <RootStack.Screen
+              name="DeveloperNotifications"
+              component={DeveloperNotificationsScreen}
+            />
+            <RootStack.Screen name="DeveloperSettings" component={DeveloperSettingsScreen} />
+            <RootStack.Screen
+              name="DeveloperConversations"
+              component={DeveloperConversationsScreen}
+            />
+            <RootStack.Screen name="ModelsPrompts" component={ModelsPromptsScreen} />
             <RootStack.Screen name="UserArticles" component={UserArticlesScreen} />
             <RootStack.Screen name="Invoices" component={InvoicesScreen} />
             <RootStack.Screen name="Purchase" component={PurchaseScreen} />
