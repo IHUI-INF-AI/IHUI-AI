@@ -377,26 +377,30 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误: userId, amount 必填'))
     const { userId, amount, remark } = parsed.data
     try {
-      // 查询当前余额
-      const marginRows = await db
-        .select()
-        .from(userMargins)
-        .where(eq(userMargins.userId, userId))
-        .limit(1)
-      const currentBalance = marginRows[0]?.tokenQuantity ?? 0
-      const newBalance = currentBalance + amount
-      if (newBalance < 0) {
+      // 修前是"读余额 → JS 里加 → .set(绝对值)"整字回写:两处都会丢更新
+      //  · 管理员 A 调 +100 与管理员 B 调 −50 并发时,后写的那笔把前一笔整笔抹掉;
+      //  · 「调整后余额不能为负」也是拿陈旧读数判的 —— 并发扣减能让它落到负数而无人察觉。
+      // 现在:补行用 onConflictDoNothing(AGENTS 指定幂等惯用法),增减走 DB 侧表达式,
+      // 「不能为负」写进 WHERE 条件 ⇒ 判定与变更之间没有窗口;0 行即"这一笔调不下去"。
+      await db
+        .insert(userMargins)
+        .values({ userId, tokenQuantity: 0, frozenQuantity: 0 })
+        .onConflictDoNothing({ target: userMargins.userId })
+      const [adjusted] = await db
+        .update(userMargins)
+        .set({ tokenQuantity: sql`${userMargins.tokenQuantity} + ${amount}`, updatedAt: new Date() })
+        .where(
+          and(
+            eq(userMargins.userId, userId),
+            // numeric 列在 Drizzle 侧是 string ⇒ 比较式两侧都由 DB 求值,不做 JS 侧换算
+            sql`${userMargins.tokenQuantity} + ${amount} >= 0`,
+          ),
+        )
+        .returning({ tokenQuantity: userMargins.tokenQuantity })
+      if (!adjusted) {
         return reply.status(400).send(error(400, '调整后余额不能为负'))
       }
-      // 更新保证金余额
-      if (marginRows[0]) {
-        await db
-          .update(userMargins)
-          .set({ tokenQuantity: newBalance, updatedAt: new Date() })
-          .where(eq(userMargins.userId, userId))
-      } else {
-        await db.insert(userMargins).values({ userId, tokenQuantity: newBalance })
-      }
+      const newBalance = adjusted.tokenQuantity
       // 写入 token 流水（opType=5 管理员调整）
       const [flow] = await db
         .insert(tokenFlows)
