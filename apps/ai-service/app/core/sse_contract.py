@@ -37,6 +37,11 @@ SSE_EVENTS: frozenset[str] = frozenset(
         "plan-step",
         "thinking",
         "plan_updated",
+        # D115(2026-10-23,G-229):review 模式结构化审查结论帧。生产点
+        # llm.py 的流收尾包装(仅 ChatMode=review 挂),载荷由 app/core/review_findings.py
+        # 从模型输出的 <review-findings> JSON 块投影;一 finding 一帧,带 P1/P2/Nit
+        # 严重度 + 文件:行。必须与 packages/shared/src/sse/contract.ts 同步。
+        "review-finding",
         "terminal_start",
         "terminal_end",
         # V3 #48(2026-09-26):补登两个一直在生产、契约却漏登的漂移事件。
@@ -252,6 +257,23 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("subagent_end", ("payload",)),
     SSEEventContract("plan-step", ("payload",)),
     SSEEventContract("plan_updated", ("plan", "explanation", "timestamp", "messageId")),
+    # D115(2026-10-23,G-229):结构化审查 finding。字段集与
+    # app/core/review_findings.py::build_review_finding_frames 恒产出的键逐字一致
+    # (detail/suggestion 允许空串,但键恒在 —— 端上不做"缺字段=没说过"的二次猜)。
+    SSEEventContract(
+        "review-finding",
+        (
+            "findingId",
+            "index",
+            "total",
+            "severity",
+            "file",
+            "line",
+            "title",
+            "detail",
+            "suggestion",
+        ),
+    ),
     SSEEventContract("terminal_start", ("terminalId", "command", "status", "startedAt", "messageId")),
     # V3 #48(2026-09-26)补登:终端命令逐行增量(mcp_server._emit_terminal_delta 实时产出)
     SSEEventContract("terminal_delta", ("terminalId", "stream", "text")),
