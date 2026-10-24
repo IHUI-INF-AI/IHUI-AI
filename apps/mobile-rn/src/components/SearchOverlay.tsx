@@ -13,7 +13,9 @@
  *   rnRadiusFor.popover(= web rounded-md 档,唯一源 radius.js 角色表),底色/边框/文字全走 token
  * - 三段面板(对齐 web SearchBar + search-suggestions):
  *   · 无输入 → 历史段(shared `common.searchHistory` + 清空 `searchHistory.clearAll`,
- *     AsyncStorage 'searchHistory' 与 web localStorage 同 key 同 10 条上限) + 分隔线 + 热门段
+ *     AsyncStorage 'searchHistory' 与 web localStorage 同 key 同 10 条上限) + 段间留白
+ *     (web `SectionDivider` h-2 留白的 RN 对位;AGENTS §4 禁分割线,2026-10-23 跨端同批撤线,
+ *     分组可辨性由两段自有的可见标题承担) + 热门段
  *     (共享 POPULAR_SEARCHES 词池,Flame 图标取 warning token —— web 是硬编码 orange-500,
  *     本端相近色归并 warning,零硬编码)
  *   · 有输入 → 联想段(`search.quickSuggestions` 过滤前 8,Search 图标)
@@ -287,7 +289,7 @@ export const SearchOverlay = memo(function SearchOverlay({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {/* ── 静默段(无输入):历史 + 分隔线 + 热门;查询段(有输入):联想 ── */}
+            {/* ── 静默段(无输入):历史 + 留白 + 热门;查询段(有输入):联想 ── */}
             {!hasInput ? (
               <>
                 {showHistory ? (
@@ -313,7 +315,7 @@ export const SearchOverlay = memo(function SearchOverlay({
                     ))}
                   </View>
                 ) : null}
-                {showHistory && showPopular ? <View style={styles.divider} /> : null}
+                {showHistory && showPopular ? <View style={styles.sectionGap} /> : null}
                 {showPopular ? (
                   <View>
                     <View style={styles.sectionHead}>
@@ -335,7 +337,8 @@ export const SearchOverlay = memo(function SearchOverlay({
                 {filteredSuggestions.map((item) => (
                   <WordRow key={item} icon="search" label={item} onPress={() => handlePick(item)} />
                 ))}
-                {filteredSuggestions.length > 0 ? <View style={styles.divider} /> : null}
+                {/* 联想段尾不挂线:web 对位(SuggestionsSection)本就无尾分隔件;
+                    提交后结果段的可见标题行(sectionHead paddingTop 8)自带段间节奏 */}
               </>
             )}
 
@@ -476,12 +479,11 @@ const styles = StyleSheet.create({
     fontSize: WORD_ROW_FONT,
     color: tokens.text.primary,
   },
-  // 段间分隔线(web `h-px bg-muted/30` 的 RN 对位:1px muted 色)
-  divider: {
-    borderTopWidth: StyleSheet.hairlineWidth * 2,
-    borderTopColor: tokens.surface.muted,
-    marginVertical: 6,
-    marginHorizontal: WORD_ROW_PADDING_H,
+  // 段间留白(web `SectionDivider` 的 `h-2` 8px 留白档 RN 对位;AGENTS §4 禁分割线 ⇒ 不画线)。
+  // 无障碍:纯 View 不带 accessible/label 不进无障碍树,等价 web 侧 aria-hidden;
+  // 分组语义由两段自有的可见标题(sectionHead)承担(对位 web Section 的 aria-label 文案)。
+  sectionGap: {
+    height: 8,
   },
   stateBox: {
     alignItems: 'center',
