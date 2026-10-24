@@ -76,10 +76,7 @@ import businessMetricsPlugin, {
   RELAY_POOL_HEALTH_STATES,
   RELAY_POOL_HEALTH_STATE_VALUE,
 } from '../src/plugins/business-metrics.js'
-import {
-  refreshRelayPoolGauges,
-  refreshRelayPoolGaugesSafely,
-} from '../src/services/relay-pool-stats-service.js'
+import { refreshRelayPoolGaugesSafely } from '../src/services/relay-pool-stats-service.js'
 
 let server: FastifyInstance | undefined
 
@@ -186,12 +183,10 @@ describe('R) 中转号池健康 gauge:语义 + 有界标签 + 显式丢失 + 失
     ]) {
       expect(sampleLines(text, name).length, `${name} 未刷新时不得有序列`).toBe(0)
     }
-    expect(
-      gaugeValue(text, 'ihui_relay_key_pool_refresh_last_success_timestamp_seconds'),
-    ).toBe('0')
-    expect(
-      gaugeValue(text, 'ihui_relay_account_pool_refresh_last_success_timestamp_seconds'),
-    ).toBe('0')
+    expect(gaugeValue(text, 'ihui_relay_key_pool_refresh_last_success_timestamp_seconds')).toBe('0')
+    expect(gaugeValue(text, 'ihui_relay_account_pool_refresh_last_success_timestamp_seconds')).toBe(
+      '0',
+    )
   })
 
   it('R3 一次成功刷新:每键三件套(态/可调度/年龄)+ 账号池全字段 + 新鲜度戳推进', async () => {
@@ -227,9 +222,9 @@ describe('R) 中转号池健康 gauge:语义 + 有界标签 + 显式丢失 + 失
     expect(
       valueOf(text, 'ihui_relay_key_pool_keys', { provider_code: 'openai', state: 'down' }),
     ).toBe('0')
-    expect(
-      valueOf(text, 'ihui_relay_key_pool_schedulable_keys', { provider_code: 'openai' }),
-    ).toBe('1')
+    expect(valueOf(text, 'ihui_relay_key_pool_schedulable_keys', { provider_code: 'openai' })).toBe(
+      '1',
+    )
     // 账号池:累计调用 / 临期正数 / 刷新年龄
     expect(
       valueOf(text, 'ihui_relay_account_pool_total_calls', {
@@ -250,9 +245,9 @@ describe('R) 中转号池健康 gauge:语义 + 有界标签 + 显式丢失 + 失
       }),
     ).toBe('600')
     // 新鲜度戳推进到本次时钟
-    expect(
-      gaugeValue(text, 'ihui_relay_key_pool_refresh_last_success_timestamp_seconds'),
-    ).toBe(String(Math.floor(NOW / 1000)))
+    expect(gaugeValue(text, 'ihui_relay_key_pool_refresh_last_success_timestamp_seconds')).toBe(
+      String(Math.floor(NOW / 1000)),
+    )
   })
 
   it('R4 脏健康态行:枚举外值跳过并计数,不进标签不入数值', async () => {
@@ -285,12 +280,15 @@ describe('R) 中转号池健康 gauge:语义 + 有界标签 + 显式丢失 + 失
     await refreshRelayPoolGaugesSafely(NOW)
     let text = await render()
     expect(sampleLines(text, 'ihui_relay_key_pool_health_state').length).toBe(2)
-    expect(
-      valueOf(text, 'ihui_relay_key_pool_schedulable_keys', { provider_code: 'groq' }),
-    ).toBe('1')
+    expect(valueOf(text, 'ihui_relay_key_pool_schedulable_keys', { provider_code: 'groq' })).toBe(
+      '1',
+    )
 
     // 第二轮:groq 那条没了(行被删/被摘),openai 那条健康态变了
-    h.state.queue = [[keyRow({ name: 'k1', healthStatus: 'down', isEnabled: false })], [accountRow()]]
+    h.state.queue = [
+      [keyRow({ name: 'k1', healthStatus: 'down', isEnabled: false })],
+      [accountRow()],
+    ]
     await refreshRelayPoolGaugesSafely(NOW + 300_000)
     text = await render()
     expect(sampleLines(text, 'ihui_relay_key_pool_health_state').length).toBe(1)
@@ -340,7 +338,13 @@ describe('R) 中转号池健康 gauge:语义 + 有界标签 + 显式丢失 + 失
         keyRow({ name: 'fresh', healthCheckedAt: new Date(NOW + 60_000) }), // 时钟漂移 ⇒ 钳 0
         keyRow({ name: 'never', healthCheckedAt: null }), // 从未检查 ⇒ 无年龄序列
       ],
-      [accountRow({ uid: 'u-exp', tokenExpiresAt: new Date(NOW - 5_000_000), lastRefreshAt: null })],
+      [
+        accountRow({
+          uid: 'u-exp',
+          tokenExpiresAt: new Date(NOW - 5_000_000),
+          lastRefreshAt: null,
+        }),
+      ],
     ]
     await refreshRelayPoolGaugesSafely(NOW)
     const text = await render()
@@ -433,17 +437,16 @@ describe('R) 中转号池健康 gauge:语义 + 有界标签 + 显式丢失 + 失
   })
 
   it('R10 标签注入进不了文本:恶意 name/uid 被洗成安全字符', async () => {
-    h.state.queue = [
-      [keyRow({ name: 'evil",series="x' })],
-      [accountRow({ uid: 'a}b{c' })],
-    ]
+    h.state.queue = [[keyRow({ name: 'evil",series="x' })], [accountRow({ uid: 'a}b{c' })]]
     await refreshRelayPoolGaugesSafely(NOW)
     const text = await render()
     // 未洗的引号/花括号会把整次 scrape 打回 ⇒ 这里必须一个不剩
     expect(text).not.toContain('",series="')
     expect(text).not.toContain('a}b{c')
     const line = sampleLines(text, 'ihui_relay_key_pool_health_state')[0]!
-    expect(line).toMatch(/^ihui_relay_key_pool_health_state\{provider_code="openai",key="[A-Za-z0-9_.:@+\-]*"\} \d+$/)
+    expect(line).toMatch(
+      /^ihui_relay_key_pool_health_state\{provider_code="openai",key="[A-Za-z0-9_.:@+\-]*"\} \d+$/,
+    )
   })
 
   it('R11 直接驱动 setter 的折叠零基线:provider 出现过 ⇒ 四态各一条', async () => {
@@ -473,9 +476,9 @@ describe('R) 中转号池健康 gauge:语义 + 有界标签 + 显式丢失 + 失
     expect(
       valueOf(text, 'ihui_relay_key_pool_keys', { provider_code: 'groq', state: 'healthy' }),
     ).toBe('0')
-    expect(
-      valueOf(text, 'ihui_relay_key_pool_schedulable_keys', { provider_code: 'groq' }),
-    ).toBe('0')
+    expect(valueOf(text, 'ihui_relay_key_pool_schedulable_keys', { provider_code: 'groq' })).toBe(
+      '0',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
