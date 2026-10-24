@@ -12,10 +12,17 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native'
-import { AlertTriangle, CheckCircle2, FileUp, History, ListChecks, Sparkles } from 'lucide-react-native'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  FileUp,
+  History,
+  ListChecks,
+  Sparkles,
+} from 'lucide-react-native'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { ImportAnalysisSheet } from './ImportAnalysisSheet'
 import type { ImportSource } from '@ihui/shared/import-analysis'
 
@@ -131,11 +138,7 @@ export interface ConversationImportScreenProps {
    * 「用场景分析」发起:收到拼好的分析指令,端侧接**既有**聊天通道发出
    * (RN 接 ChatScreen 的 streamChat,与 P1.4 网页链接同一出口),不新造 LLM 调用链。
    */
-  onAnalyze?: (params: {
-    conversationId: string
-    source: ImportSource
-    prompt: string
-  }) => void
+  onAnalyze?: (params: { conversationId: string; source: ImportSource; prompt: string }) => void
 }
 
 export function ConversationImportScreen({
@@ -279,7 +282,7 @@ export function ConversationImportScreen({
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.body}>
-          <Text style={styles.desc}>{t('conversationImport.desc')}</Text>
+        <Text style={styles.desc}>{t('conversationImport.desc')}</Text>
 
         {/* Step 1:来源 */}
         <Text style={styles.sectionTitle}>{t('conversationImport.sourcesTitle')}</Text>
@@ -389,14 +392,20 @@ export function ConversationImportScreen({
 
             <TouchableOpacity
               accessibilityRole="button"
-              style={[styles.commitButton, selected.size === 0 ? styles.commitButtonDisabled : null]}
+              style={[
+                styles.commitButton,
+                selected.size === 0 ? styles.commitButtonDisabled : null,
+              ]}
               onPress={() => void commit()}
               disabled={selected.size === 0 || committing}
             >
               <ListChecks size={16} color={tk.brand.ctaForeground} />
               <Text style={styles.commitButtonText}>
                 {committing
-                  ? t('conversationImport.committing', { done: progress.done, total: progress.total })
+                  ? t('conversationImport.committing', {
+                      done: progress.done,
+                      total: progress.total,
+                    })
                   : t('conversationImport.commit')}
               </Text>
             </TouchableOpacity>
@@ -497,28 +506,28 @@ export function ConversationImportScreen({
         </View>
       </ScrollView>
 
-    {/* 「用场景分析」弹层:按需挂载(analysisTarget 为 null 时不渲染)。
+      {/* 「用场景分析」弹层:按需挂载(analysisTarget 为 null 时不渲染)。
         场景目录 chunk 由弹层内部的动态 import 在挂载后才拉,RN 首屏不等它。
         关闭时清 target —— 留着一个已关闭的目标会让下次开弹窗显示上一个会话的标题。
         source 取**该条目落库时那一份**,不读当前来源选择状态。 */}
-    {analysisTarget && onAnalyze && (
-      <ImportAnalysisSheet
-        visible
-        colorScheme={colorScheme}
-        t={t}
-        source={analysisTarget.source}
-        onClose={() => setAnalysisTarget(null)}
-        onSubmit={(prompt) => {
-          const target = analysisTarget
-          setAnalysisTarget(null)
-          onAnalyze({
-            conversationId: target.conversationId,
-            source: target.source,
-            prompt,
-          })
-        }}
-      />
-    )}
+      {analysisTarget && onAnalyze && (
+        <ImportAnalysisSheet
+          visible
+          colorScheme={colorScheme}
+          t={t}
+          source={analysisTarget.source}
+          onClose={() => setAnalysisTarget(null)}
+          onSubmit={(prompt) => {
+            const target = analysisTarget
+            setAnalysisTarget(null)
+            onAnalyze({
+              conversationId: target.conversationId,
+              source: target.source,
+              prompt,
+            })
+          }}
+        />
+      )}
     </>
   )
 }
@@ -531,16 +540,16 @@ function toMessage(e: unknown): string {
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    body: { padding: 12, gap: 8 },
-    desc: { fontSize: 12, lineHeight: 18, color: tk.text.secondary },
-    sectionTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    hint: { fontSize: 11, lineHeight: 16, color: tk.text.tertiary },
-    fileLine: { fontSize: 12, color: tk.text.medium },
-    errorText: { fontSize: 12, color: tk.danger.DEFAULT },
-    doneText: { fontSize: 12, color: tk.success.deep },
+    body: { padding: rnSpacing.md, gap: rnSpacing.sm },
+    desc: { fontSize: rnType.label.size, lineHeight: 18, color: tk.text.secondary },
+    sectionTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    hint: { fontSize: rnType.caption.size, lineHeight: 16, color: tk.text.tertiary },
+    fileLine: { fontSize: rnType.label.size, color: tk.text.medium },
+    errorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
+    doneText: { fontSize: rnType.label.size, color: tk.success.deep },
     card: {
-      padding: 12,
-      gap: 8,
+      padding: rnSpacing.md,
+      gap: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.card,
       borderWidth: 1,
@@ -552,7 +561,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6,
       justifyContent: 'space-between',
     },
-    sourceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    sourceGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     sourceCard: {
       flexGrow: 1,
       flexBasis: '46%',
@@ -564,7 +573,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     sourceCardActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
-    sourceLabel: { fontSize: 12, fontWeight: '600', color: tk.text.medium },
+    sourceLabel: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.medium },
     sourceLabelActive: { color: tk.text.primary },
     sourceHint: { fontSize: 10, lineHeight: 14, color: tk.text.tertiary },
     pickButton: {
@@ -577,7 +586,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     pickButtonText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
-    linkText: { fontSize: 12, color: tk.brand.dark },
+    linkText: { fontSize: rnType.label.size, color: tk.brand.dark },
     rowCard: {
       padding: 10,
       gap: 2,
@@ -588,7 +597,7 @@ function createStyles(tk: AppThemeTokens) {
     rowCardActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     rowTitleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     rowTitle: { flex: 1, fontSize: 13, fontWeight: '600', color: tk.text.primary },
-    rowMeta: { fontSize: 11, lineHeight: 15, color: tk.text.tertiary },
+    rowMeta: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.tertiary },
     commitButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -604,29 +613,38 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'flex-start',
       gap: 6,
-      padding: 8,
+      padding: rnSpacing.sm,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.warning.light,
     },
-    warningText: { flex: 1, fontSize: 11, lineHeight: 16, color: tk.warning.amberText },
-    historyRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    warningText: {
+      flex: 1,
+      fontSize: rnType.caption.size,
+      lineHeight: 16,
+      color: tk.warning.amberText,
+    },
+    historyRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     resultRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      paddingVertical: 4,
+      gap: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
     },
     resultActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     resultBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: rnSpacing.xs,
       paddingHorizontal: 10,
       height: 30,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    resultBtnText: { fontSize: 12, fontWeight: '600', color: tk.brand.ctaForeground },
+    resultBtnText: {
+      fontSize: rnType.label.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     resultBtnOutline: {
       paddingHorizontal: 10,
       height: 30,
@@ -635,9 +653,9 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.medium,
     },
-    resultBtnOutlineText: { fontSize: 12, color: tk.text.medium },
+    resultBtnOutlineText: { fontSize: rnType.label.size, color: tk.text.medium },
     historyMain: { flex: 1, gap: 2 },
-    historyFile: { fontSize: 12, fontWeight: '600', color: tk.text.primary },
+    historyFile: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.primary },
     statusBadge: {
       paddingHorizontal: 6,
       paddingVertical: 2,
