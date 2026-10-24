@@ -5289,6 +5289,35 @@ from ..tools import (  # noqa: E402
 from ..tools import (
     parse_document as _parse_document,
 )
+# D07 残余②:「/init 式 AGENTS.md」能力接入(实现已入库,此前未注册 ⇒ 外部不可调用)
+from ..tools import (
+    init_agents_md as _init_agents_md,
+)
+
+
+async def _init_agents_md_guarded(arguments: dict[str, Any]) -> dict[str, Any]:
+    """MCP 面入口:workspace_root 必须先过写路径白名单(D07 残余②)。
+
+    工具本体只保证 output_path 落在调用方给的 workspace_root 内;workspace_root
+    本身若不受限,普通用户即可指定任意目录写 AGENTS.md。这里复用写路径单一权威源
+    (``_validate_write_path_in_workspace``:白名单根 + symlink 解析 + 敏感目录黑名单),
+    把根收进进程白名单/会话附加根之后才下传。
+    """
+    raw_root = arguments.get("workspace_root")
+    root = str(raw_root).strip() if raw_root is not None else ""
+    if not root:
+        return await _init_agents_md(arguments)
+    ok, info = _validate_write_path_in_workspace(root)
+    if not ok:
+        return {
+            "tool": "init_agents_md",
+            "ok": False,
+            "errorCode": "PERMISSION_DENIED",
+            "message": info,
+        }
+    return await _init_agents_md({**arguments, "workspace_root": info})
+
+
 from ..tools.web_crawl_tools import (
     crawl_site as _crawl_site,
 )
@@ -9791,6 +9820,27 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="init_agents_md",
+        description=(
+            "扫描工作区(package.json scripts / 构建文件 / 目录结构 / 既有约定文档)生成"
+            "AGENTS.md 草稿文本。默认只返回草稿、不落盘;仅当显式传 output_path 才写入,"
+            "且路径必须位于 workspace_root 内并避开 .git/node_modules 等敏感目录。"
+            "用于给仓库补齐 AI 协作约定文档。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "workspace_root": {"type": "string", "description": "工作区绝对路径(必填)"},
+                "output_path": {
+                    "type": "string",
+                    "description": "可选。显式传入才写盘,且须落在 workspace_root 内",
+                },
+            },
+            "required": ["workspace_root"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="extract_document_assets",
         description=(
             "提取办公文档(Word/Excel/PPT/ODF/RTF/EPUB 等)内嵌的图片/对象等二进制资产,"
@@ -10832,6 +10882,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # PROJECT_PLAN #81 最小一环:报表模板生成器(2026-09-28,与 chart 共用产物基础设施)
     "generate_report": _generate_report,
     "parse_document": _parse_document,
+    # D07 残余②:AGENTS.md 草稿生成(默认不落盘,写盘须显式 output_path;
+    # workspace_root 经 MCP 面校验后才下传,见 _init_agents_md_guarded)
+    "init_agents_md": _init_agents_md_guarded,
     # ===== P1 文档资产/表格(2026-09-09,anydoc 文档模型极致融合)=====
     "extract_document_assets": _extract_document_assets,
     "document_tables": _document_tables,
