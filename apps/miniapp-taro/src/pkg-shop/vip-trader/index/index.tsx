@@ -96,7 +96,9 @@ const TRADER_FEATURES = [
   },
 ]
 
-// 历史业绩指标(年化收益率/胜率/最大回撤/累计收益)
+// ⚠️ @demo-data 历史业绩(年化/胜率/回撤/累计)与 PERF_BARS 均为**端内置演示数字,非真实战绩**;
+// RN 镜像共享屏(VipTraderScreen)无此区块。涉及投资品类的业绩宣传合规:接真数据前需产品/合规裁决
+// "保留演示(加示例标注)或移除区块"(台账在账,2026-10-24 全端 mock 审计定性,勿静默当真值展示)。
 const PERFORMANCE_METRICS = [
   { key: 'annualReturn', label: t('viptrader.d25'), value: '+38.6%', tone: 'up' as const },
   { key: 'winRate', label: t('viptrader.d26'), value: '72.4%', tone: 'up' as const },
@@ -125,7 +127,8 @@ const SERVICE_PACKAGES = [
   },
 ]
 
-// 用户评价(评分 + 评价内容)
+// ⚠️ @demo-data 用户评价(昵称/评分/内容)为端内置演示文案,非真实用户评价;性质同 PERFORMANCE_METRICS
+// 上的合规批注(演示 vs 真实需产品裁决,接评价端点前不得作为真实口碑展示)。
 const USER_REVIEWS = [
   {
     id: 'r1',

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/live-host/LiveHostScreen.tsx
-import { useTt, type TtFn } from '@/i18n'
+import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import Taro from '@tarojs/taro'
@@ -21,11 +21,9 @@ interface Product {
   price: number
 }
 
-const MOCK_PRODUCTS = (tt: TtFn): Product[] => [
-  { id: '1', name: tt('liveHost.d1', 'AI 课程包'), price: 199 },
-  { id: '2', name: tt('liveHost.d2', '会员年卡'), price: 365 },
-  { id: '3', name: tt('liveHost.d3', '实体周边'), price: 89 },
-]
+/** 直播间商品列表:后端暂无商品绑定端点 ⇒ 恒空态(与素材库 audio"无后端类型不回填假数据"
+ *  同纪律,原 3 条演示商品已去);补端点后在此接真源(接口在 aigc/商城域另行登记)。 */
+const HOST_PRODUCTS: Product[] = []
 
 function formatBytes(n: number | null): string {
   if (!n || n <= 0) return '0 B'
@@ -40,7 +38,8 @@ export default function LiveHost() {
   const [status, setStatus] = useState<StreamStatus>('idle')
   const [stream, setStream] = useState<SrsStream | null>(null)
   const [duration, setDuration] = useState(0)
-  const [viewers, setViewers] = useState(0)
+  // 观众数:保持真实 0,待后端观众上报端点接通再接真源(原随机假值已去,详见 startLive/计时器注释)
+  const [viewers] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -48,7 +47,7 @@ export default function LiveHost() {
     if (status !== 'active') return
     const timer = setInterval(() => {
       setDuration((d) => d + 1)
-      setViewers((v) => v + Math.floor(Math.random() * 5))
+      // 观众数不再随机涨假值:后端暂无观众上报源,保持真实 0(数据不撒谎原则)
     }, 1000)
     return () => clearInterval(timer)
   }, [status])
@@ -67,7 +66,7 @@ export default function LiveHost() {
       setStream(data)
       setStatus('active')
       setDuration(0)
-      setViewers(Math.floor(Math.random() * 20) + 5)
+      // 开播不再造"5~25 随机观众"假起点:真实计数待观众上报端点接通(见 HOST_PRODUCTS 同区在账)
     } catch (e) {
       const msg = e instanceof Error ? e.message : tt('liveHost.startFailed', '开启直播失败')
       setError(msg)
@@ -260,12 +259,12 @@ export default function LiveHost() {
               </Text>
             </View>
           </View>
-          {MOCK_PRODUCTS(tt).length === 0 ? (
+          {HOST_PRODUCTS.length === 0 ? (
             <Text className="block text-[length:28rpx] text-[var(--color-text-tertiary)] py-[16rpx] text-center">
               {tt('pointsMall.empty', '暂无商品')}
             </Text>
           ) : (
-            MOCK_PRODUCTS(tt).map((item) => (
+            HOST_PRODUCTS.map((item) => (
               <View key={item.id} className="flex items-center justify-between py-[16rpx]">
                 <Text className="flex-1 mr-[16rpx] text-[length:32rpx] text-foreground">
                   {item.name}

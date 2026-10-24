@@ -31,7 +31,6 @@
  */
 import { aizhsUrl } from '@/constants/icon-urls'
 import { TAB_BAR_OCCUPIED_CSS, TAB_BAR_OCCUPIED_PX } from '@/constants/tab-bar-metrics'
-import { domesticImageAt } from '@ihui/shared/constants'
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Image, Text, ScrollView, Button } from '@tarojs/components'
 import Taro, {
@@ -78,7 +77,14 @@ import type { ChatMessage } from '@/api'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
 // 兜底模型的上下文容量按模型 id 取真实值(写死一个数会让广场/首页对非 128K 模型显示错误容量)
-import { getModelContextCapacity } from '@ihui/api-client'
+import {
+  getModelContextCapacity,
+  getMyCreation as fetchMyCreation,
+  getAgents as fetchAgents,
+  type Agent as ApiAgent,
+  resolveFileUrl,
+  type MyCreationItem as ClientMyCreationItem,
+} from '@ihui/api-client'
 import ThemeRoot from '@/components/ThemeRoot'
 import { buildTaroWaitingText, deriveTaroWaitingTurn } from '@/pkg-ai/ai/waiting-text'
 
@@ -99,117 +105,31 @@ const FALLBACK_MODEL_ITEMS: ModelItem[] = FALLBACK_MODELS.map((f) => ({
   input_price: 0,
 }))
 
-// 本地 mock 智能体列表(对齐原项目 agentList 数据源)
-const MOCK_AGENTS: AgentInfo[] = [
-  {
-    id: 'agent-1',
-    name: t('pagesindexindex.d1'),
-    description: t('pagesindexindex.d2'),
-    avatar: '',
-    useCount: 1234,
-    category: t('ai.agentList.categories.writing'),
-  },
-  {
-    id: 'agent-2',
-    name: t('pagesindexindex.d3'),
-    description: t('pagesindexindex.d4'),
-    avatar: '',
-    useCount: 2341,
-    category: t('pagesindexindex.d5'),
-  },
-  {
-    id: 'agent-3',
-    name: t('pagesindexindex.d6'),
-    description: t('pagesindexindex.d7'),
-    avatar: '',
-    useCount: 987,
-    category: t('pagesindexindex.d8'),
-  },
-  {
-    id: 'agent-4',
-    name: t('pagesindexindex.d9'),
-    description: t('pagesindexindex.d10'),
-    avatar: '',
-    useCount: 876,
-    category: t('pagesindexindex.d11'),
-  },
-  {
-    id: 'agent-5',
-    name: t('pagesindexindex.d12'),
-    description: t('pagesindexindex.d13'),
-    avatar: '',
-    useCount: 765,
-    category: t('pagesindexindex.d14'),
-  },
-]
+/** Agent(api-client 契约,主键 agentId)→ AgentListPanel 视图模型。
+ *  只取后端真实回传字段(Agent 注释 2026-10-20 契约根治教训);分类无后端字段 ⇒ 不虚构。 */
+function toAgentInfo(a: ApiAgent): AgentInfo {
+  return {
+    id: a.agentId,
+    name: a.name,
+    description: a.description || undefined,
+    avatar: a.avatar || undefined,
+    useCount: a.usageCount,
+    isVipExclusive: a.isVipExclusive,
+    price: a.price,
+  }
+}
 
-// 本地 mock 技能列表(对齐原项目 skillsPopup 数据源)
-const MOCK_SKILLS: AgentItem[] = [
-  {
-    id: 'skill-1',
-    name: t('pagesindexindex.d15'),
-    description: t('pagesindexindex.d16'),
-    avatar: '',
-    useCount: 5678,
-    category: 'text',
-  },
-  {
-    id: 'skill-2',
-    name: t('pagesindexindex.d17'),
-    description: t('pagesindexindex.d18'),
-    avatar: '',
-    useCount: 4321,
-    category: 'image',
-  },
-  {
-    id: 'skill-3',
-    name: t('pagesindexindex.d19'),
-    description: t('pagesindexindex.d20'),
-    avatar: '',
-    useCount: 2345,
-    category: 'video',
-  },
-  {
-    id: 'skill-4',
-    name: t('pagesindexindex.d21'),
-    description: t('pagesindexindex.d22'),
-    avatar: '',
-    useCount: 1234,
-    category: 'audio',
-  },
-  {
-    id: 'skill-5',
-    name: t('pagesindexindex.d23'),
-    description: t('pagesindexindex.d24'),
-    avatar: '',
-    useCount: 3456,
-    category: 'text',
-  },
-  {
-    id: 'skill-6',
-    name: t('pagesindexindex.d25'),
-    description: t('pagesindexindex.d26'),
-    avatar: '',
-    useCount: 2100,
-    category: 'text',
-  },
-  {
-    id: 'skill-7',
-    name: t('pagesindexindex.d27'),
-    description: t('pagesindexindex.d28'),
-    avatar: '',
-    useCount: 5432,
-    category: 'image',
-  },
-  {
-    id: 'skill-8',
-    name: t('pagesindexindex.d29'),
-    description: t('pagesindexindex.d30'),
-    avatar: '',
-    useCount: 1876,
-    category: 'video',
-  },
-]
+/** Agent → SkillsPopup 视图模型;技能分类(text/image/video)后端无对应字段 ⇒ 留空,
+ *  组件"按分类筛选"对真数据退化为全部(诚实空态,不回填假分类,与素材库 audio 同策略)。 */
+function toSkillItem(a: ApiAgent): AgentItem {
+  return {
+    id: a.agentId,
+    name: a.name,
+    description: a.description || undefined,
+    avatar: a.avatar || undefined,
+    useCount: a.usageCount,
+  }
+}
 
 // ===== 素材库数据类型 =====
 interface MaterialItem {
@@ -236,92 +156,37 @@ interface MaterialCard {
   chatId?: string
 }
 
-// 素材库 Mock 数据(对齐原项目 getMyCreation API 响应格式)
-const MOCK_MATERIAL_TEXT: MaterialItem[] = [
-  {
-    id: 't1',
-    title: t('pagesindexindex.d31'),
-    content: t('pagesindexindex.d32'),
-    time: '2026-08-10',
-  },
-  {
-    id: 't2',
-    title: t('pagesindexindex.d33'),
-    content: t('pagesindexindex.d34'),
-    time: '2026-08-09',
-  },
-  {
-    id: 't3',
-    title: t('pagesindexindex.d35'),
-    content: t('pagesindexindex.d36'),
-    time: '2026-08-08',
-  },
-  {
-    id: 't4',
-    title: t('pagesindexindex.d37'),
-    content: t('pagesindexindex.d38'),
-    time: '2026-08-07',
-  },
-]
-
-const MOCK_MATERIAL_IMAGE: MaterialItem[] = [
-  {
-    id: 'i1',
-    title: t('pagesindexindex.d39'),
-    imageList: [domesticImageAt(0)],
-    time: '2026-08-10',
-  },
-  {
-    id: 'i2',
-    title: t('pagesindexindex.d40'),
-    imageList: [domesticImageAt(1)],
-    time: '2026-08-09',
-  },
-  {
-    id: 'i3',
-    title: t('pagesindexindex.d41'),
-    imageList: [domesticImageAt(2)],
-    time: '2026-08-08',
-  },
-]
-
-const MOCK_MATERIAL_VIDEO: MaterialItem[] = [
-  {
-    id: 'v1',
-    title: t('pagesindexindex.d42'),
-    videoUrl: 'https://example.com/video1.mp4',
-    posterUrl: domesticImageAt(3),
-    time: '2026-08-10',
-  },
-  {
-    id: 'v2',
-    title: t('pagesindexindex.d43'),
-    videoUrl: 'https://example.com/video2.mp4',
-    posterUrl: domesticImageAt(4),
-    time: '2026-08-09',
-  },
-]
-
-const MOCK_MATERIAL_AUDIO: MaterialItem[] = [
-  {
-    id: 'a1',
-    title: t('pagesindexindex.d44'),
-    audioUrl: 'https://example.com/audio1.mp3',
-    time: '2026-08-10',
-  },
-  {
-    id: 'a2',
-    title: t('pagesindexindex.d45'),
-    audioUrl: 'https://example.com/audio2.mp3',
-    time: '2026-08-09',
-  },
-  {
-    id: 'a3',
-    title: t('pagesindexindex.d46'),
-    audioUrl: 'https://example.com/audio3.mp3',
-    time: '2026-08-08',
-  },
-]
+/** MyCreation(后端弱索引字段)→ 页面 MaterialItem。字段语义与 RN 首页 mapMyCreationItem 对齐:
+ *  agent=文本(name/description→content)/plugin=图片(coverUrl|previewImage|agentUrl|url 首个非空)
+ *  /workflow=视频(videoUrl|url|agentUrl + poster|cover 封面);audio 无后端类型,页面侧恒空态不回填假数据。 */
+function toPageMaterial(it: ClientMyCreationItem, kind: 'text' | 'image' | 'video'): MaterialItem {
+  const str = (k: string): string => {
+    const v: unknown = (it as Record<string, unknown>)[k]
+    return typeof v === 'string' ? v : ''
+  }
+  const firstUrl = (...keys: string[]): string => {
+    for (const k of keys) {
+      const raw = str(k)
+      if (raw) return resolveFileUrl(raw)
+    }
+    return ''
+  }
+  const base: MaterialItem = {
+    id: str('agentId') || it.id,
+    title: it.name || '',
+    time: it.createdAt,
+  }
+  if (kind === 'image') {
+    const url = firstUrl('coverUrl', 'previewImage', 'agentUrl', 'url')
+    return { ...base, imageList: url ? [url] : [] }
+  }
+  if (kind === 'video') {
+    const url = firstUrl('videoUrl', 'url', 'agentUrl')
+    const poster = firstUrl('poster', 'cover', 'posterUrl', 'coverUrl')
+    return { ...base, videoUrl: url || undefined, posterUrl: poster || undefined }
+  }
+  return { ...base, content: str('text') || it.description || '' }
+}
 
 // 素材库 tab 配置
 const MATERIAL_TABS = [
@@ -365,6 +230,10 @@ interface AiHomeState {
   showSkillsPopup: boolean
   // 智能体列表
   showAgentList: boolean
+  /** 智能体/技能真列表(getAgents 一次拉取,同时喂 AgentListPanel 与 SkillsPopup;空态诚实) */
+  agentListItems: AgentInfo[]
+  skillItems: AgentItem[]
+  agentsLoading: boolean
   // 分页状态
   page: number
   pageSize: number
@@ -653,50 +522,15 @@ export default function Index() {
         active: false,
       },
     ],
-    groupedData: [
-      {
-        modelName: 'GPT-4',
-        dateGroups: [
-          {
-            date: tt('index.mock.today', '今天'),
-            chats: [
-              {
-                id: 1,
-                title: tt('index.mock.post1Title', '如何使用 React Hooks?'),
-                date: tt('index.mock.today', '今天'),
-              },
-              {
-                id: 2,
-                title: tt('index.mock.post2Title', 'TypeScript 类型推断'),
-                date: tt('index.mock.today', '今天'),
-              },
-            ],
-          },
-        ],
-      },
-      {
-        modelName: 'Claude',
-        dateGroups: [
-          {
-            date: tt('index.mock.yesterday', '昨天'),
-            chats: [
-              {
-                id: 3,
-                title: tt('index.mock.post3Title', '设计模式讨论'),
-                date: tt('index.mock.yesterday', '昨天'),
-              },
-            ],
-          },
-        ],
-      },
-    ],
-    // 素材库
+    // 历史对话分组(Drawer groupedData):空态起步,打开抽屉时 getChatHistory 真拉(对齐 user/community 页语义)
+    groupedData: [],
+    // 素材库(初始空态,登录后经 loadMyMaterials 拉真值;audio 无后端类型恒空)
     showMaterialList: false,
     materialTab: 1,
-    materialTextList: MOCK_MATERIAL_TEXT,
-    materialImageList: MOCK_MATERIAL_IMAGE,
-    materialVideoList: MOCK_MATERIAL_VIDEO,
-    materialAudioList: MOCK_MATERIAL_AUDIO,
+    materialTextList: [],
+    materialImageList: [],
+    materialVideoList: [],
+    materialAudioList: [],
     materialCards: [],
     materialLoading: false,
     // 语音输入
@@ -716,6 +550,9 @@ export default function Index() {
     showSkillsPopup: false,
     // 智能体列表
     showAgentList: false,
+    agentListItems: [],
+    skillItems: [],
+    agentsLoading: false,
     // 分页状态
     page: 1,
     pageSize: 10,
@@ -787,6 +624,115 @@ export default function Index() {
     })
   }, [models.length, loadModels, waitUntilReady])
 
+  // 「我的创作」素材列表拉取(RN 首页同语义:agent=文本/plugin=图片/workflow=视频;
+  // audio 无后端类型 → 恒空态,不回填假数据)。复用 waitUntilReady 门:防 G-933 冷启动 401
+  // 竞态沉淀成空态(与上方模型列表同款防线);接口异常同样保持空态,页面展示既有空态文案。
+  const materialsLoadedRef = useRef(false)
+  const loadMyMaterials = useCallback(async () => {
+    try {
+      const [textRes, imageRes, videoRes] = await Promise.all([
+        fetchMyCreation('agent', { page: 1, pageSize: 50 }),
+        fetchMyCreation('plugin', { page: 1, pageSize: 50 }),
+        fetchMyCreation('workflow', { page: 1, pageSize: 50 }),
+      ])
+      materialsLoadedRef.current = true
+      setState((s) => ({
+        ...s,
+        materialTextList: (textRes.success ? textRes.data.list : []).map((it) =>
+          toPageMaterial(it, 'text'),
+        ),
+        materialImageList: (imageRes.success ? imageRes.data.list : []).map((it) =>
+          toPageMaterial(it, 'image'),
+        ),
+        materialVideoList: (videoRes.success ? videoRes.data.list : []).map((it) =>
+          toPageMaterial(it, 'video'),
+        ),
+        materialAudioList: [],
+      }))
+    } catch {
+      // 网络/接口异常:保持空态,不伪造数据
+    }
+  }, [])
+  useEffect(() => {
+    if (!isLoggedIn()) return
+    return waitUntilReady(() => {
+      void loadMyMaterials()
+    })
+  }, [loadMyMaterials, waitUntilReady])
+
+  // 智能体/技能双消费一次拉取(getAgents 一趟同时喂 AgentListPanel 与 SkillsPopup)。
+  // 诚实 lazy:仅技能弹窗打开且已登录才发;失败不置 loaded、下次打开可重试;空态不回填 mock。
+  const agentsLoadedRef = useRef(false)
+  const loadAgents = useCallback(async () => {
+    setState((s) => ({ ...s, agentsLoading: true }))
+    try {
+      const res = await fetchAgents({ page: 1, pageSize: 50 })
+      if (res.success) {
+        agentsLoadedRef.current = true
+        const list = res.data.list
+        setState((s) => ({
+          ...s,
+          agentListItems: list.map(toAgentInfo),
+          skillItems: list.map(toSkillItem),
+        }))
+      }
+    } catch {
+      // 网络/接口异常:保持空态(组件既有空态渲染),agentsLoading 由 finally 回收
+    } finally {
+      setState((s) => ({ ...s, agentsLoading: false }))
+    }
+  }, [])
+
+  /** 按 模型/YYYY-MM 两级分组(与 pages/user groupDataByDate 同型,Drawer 消费形状一致) */
+  const groupDataByDate = useCallback(
+    (
+      chats: Array<{ id: string; title: string; time: string; modelName?: string }>,
+    ): DrawerModelGroup[] => {
+      const modelMap = new Map<
+        string,
+        Array<{ id: string; title: string; time: string; modelName?: string }>
+      >()
+      for (const chat of chats) {
+        const modelName = chat.modelName || t('tail.15')
+        if (!modelMap.has(modelName)) modelMap.set(modelName, [])
+        modelMap.get(modelName)!.push(chat)
+      }
+      return Array.from(modelMap.entries()).map(([modelName, modelChats]) => {
+        const dateMap = new Map<
+          string,
+          Array<{ id: string | number; title: string; date: string }>
+        >()
+        for (const chat of modelChats) {
+          // YYYY-MM 分组(与 user 页同语义);无时间字段归入"最近"
+          const dateKey = chat.time ? chat.time.slice(0, 7) : tt('ai.agentList.tabRecent', '最近')
+          if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
+          dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
+        }
+        return {
+          modelName,
+          dateGroups: Array.from(dateMap.entries()).map(([date, items]) => ({
+            date,
+            chats: items,
+          })),
+        }
+      })
+    },
+    [t, tt],
+  )
+
+  /** 历史对话真拉:api.getChatHistory → Drawer groupedData;失败退空态(原预置假会话已摘) */
+  const loadHistoryChat = useCallback(async () => {
+    try {
+      const res = (await api.getChatHistory({ page: 1, pageSize: 20 })) as {
+        list?: Array<{ id: string; title: string; time: string; modelName?: string }>
+      }
+      const rawList = Array.isArray(res?.list) ? res.list : []
+      setState((s) => ({ ...s, groupedData: groupDataByDate(rawList) }))
+    } catch {
+      setState((s) => ({ ...s, groupedData: [] }))
+    }
+  }, [groupDataByDate])
+
   // 下拉刷新(对齐原项目 onPullDownRefresh)
   usePullDownRefresh(() => {
     // 重置分页并刷新数据
@@ -818,7 +764,11 @@ export default function Index() {
   }))
 
   // ===== 事件处理 =====
-  const handleMenuClick = () => setState((s) => ({ ...s, drawerVisible: true }))
+  const handleMenuClick = () => {
+    // 打开抽屉即重拉历史分组(user/community 页 onShow 重拉同语义;未登录不发请求保持空态)
+    if (isLoggedIn()) void loadHistoryChat()
+    setState((s) => ({ ...s, drawerVisible: true }))
+  }
   const handleDrawerClose = () => setState((s) => ({ ...s, drawerVisible: false }))
   const handleJoinClick = () => setState((s) => ({ ...s, showQrCodeModal: true }))
   const handleQrCodeClose = () => setState((s) => ({ ...s, showQrCodeModal: false }))
@@ -841,6 +791,12 @@ export default function Index() {
     (type: ModelType) => {
       if (type === 'sck') {
         // sck 类型:切换素材库弹窗(对齐原项目 toggleMaterialPopup)
+        // 首次打开时若冷启动没拉到(当时未登录/无网),打开即补一次
+        // (对齐 RN 首页每次打开素材弹窗重拉 getMyCreation 的语义;只认"从未成功加载")
+        if (state.currentModelType !== 'sck' && !materialsLoadedRef.current && isLoggedIn()) {
+          materialsLoadedRef.current = true
+          void loadMyMaterials()
+        }
         setState((s) => {
           if (s.currentModelType === 'sck') {
             return { ...s, currentModelType: '', showMaterialList: false }
@@ -855,6 +811,11 @@ export default function Index() {
         })
       } else if (type === 'skills') {
         // skills 类型:弹出技能商店(SkillsPopup) + 显示智能体列表(对齐原项目 toggleSkillsPopup)
+        // 首次打开且已登录时补拉(对齐素材弹窗懒拉语义;未登录不置 loaded,登录后再打开可重试)
+        if (state.currentModelType !== 'skills' && !agentsLoadedRef.current && isLoggedIn()) {
+          agentsLoadedRef.current = true
+          void loadAgents()
+        }
         setState((s) => {
           if (s.currentModelType === 'skills') {
             return { ...s, currentModelType: '', showSkillsPopup: false, showAgentList: false }
@@ -893,7 +854,7 @@ export default function Index() {
         }, 500)
       }
     },
-    [models],
+    [models, state, loadMyMaterials, loadAgents],
   )
 
   // ===== 容器点击关闭逻辑(对齐原项目 handleContainerClick) =====
@@ -1559,8 +1520,8 @@ export default function Index() {
                     <AgentListPanel
                       visible={state.showAgentList}
                       isSheet
-                      agents={MOCK_AGENTS}
-                      loading={false}
+                      agents={state.agentListItems}
+                      loading={state.agentsLoading}
                       onSelect={(agent) => {
                         setState((s) => ({
                           ...s,
@@ -1765,8 +1726,8 @@ export default function Index() {
         {/* ===== SkillsPopup 技能商店弹窗(对齐原项目 skills popup,在 input_box_content 之外) ===== */}
         <SkillsPopup
           visible={state.showSkillsPopup}
-          agents={MOCK_SKILLS}
-          loading={false}
+          agents={state.skillItems}
+          loading={state.agentsLoading}
           selectedId={state.selectedModelId as string | undefined}
           onSelect={handleSkillSelect}
           onClose={handleSkillsClose}

@@ -180,14 +180,14 @@ export interface ModelConfigDialogProps {
 const ASPECT_RATIOS = ['1:1', '3:4', '4:3', '16:9', '9:16'] as const
 const RESOLUTIONS = ['512x512', '1024x1024', '2048x2048'] as const
 const FRAME_COUNTS = [5, 8, 16, 24] as const
-const TIMBRES = [
-  { id: 'longxiaochun', name: '龙小淳 · 女 · 温柔' },
-  { id: 'longhua', name: '龙华 · 男 · 沉稳' },
-  { id: 'longshuo', name: '龙朔 · 男 · 清亮' },
-  { id: 'longyue', name: '龙悦 · 女 · 活泼' },
-  { id: 'longshu', name: '龙叔 · 男 · 浑厚' },
-  { id: 'longmiao', name: '龙妙 · 女 · 甜美' },
-] as const
+const TIMBRES: ReadonlyArray<{ id: string; nameKey: string }> = [
+  { id: 'longxiaochun', nameKey: 'profile.cfgVoiceLongxiaochun' },
+  { id: 'longhua', nameKey: 'profile.cfgVoiceLonghua' },
+  { id: 'longshuo', nameKey: 'profile.cfgVoiceLongshuo' },
+  { id: 'longyue', nameKey: 'profile.cfgVoiceLongyue' },
+  { id: 'longshu', nameKey: 'profile.cfgVoiceLongshu' },
+  { id: 'longmiao', nameKey: 'profile.cfgVoiceLongmiao' },
+]
 
 /** 视频特有配置项(对齐原 shouldShowItem,仅在视频模型下显示) */
 const VIDEO_ONLY_VARIABLES = ['duration', 'movement', 'frames', 'enhanceClarity']
@@ -393,7 +393,7 @@ function DynamicVariables({
               <Row key={v.name} label={v.desc}>
                 <View className="flex-row items-center justify-between">
                   <Text className="text-xs" style={{ color: tokens.text.secondary }}>
-                    {cur ? '已启用' : '未启用'}
+                    {cur ? t('profile.cfgEnabledOn') : t('profile.cfgEnabledOff')}
                   </Text>
                   <Switch
                     value={!!cur}
@@ -525,7 +525,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
     keyboardType: 'numeric',
   })
   useUiTextField({
-    label: '请输入系统提示词',
+    label: t('profile.cfgSysPromptPh'),
     value: config.systemPrompt,
     setValue: (v) => update({ systemPrompt: v }),
     multiline: true,
@@ -588,7 +588,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
           colorScheme={currentRnTheme()}
           value={config.systemPrompt}
           onChangeText={(v) => update({ systemPrompt: v })}
-          placeholder="请输入系统提示词"
+          placeholder={t('profile.cfgSysPromptPh')}
           multiline
           className="min-h-[60px] rounded-sm p-2 text-xs"
           style={{ backgroundColor: tokens.surface.muted, color: tokens.text.primary }}
@@ -598,7 +598,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
       <Row label="Stream">
         <View className="flex-row items-center justify-between">
           <Text className="text-xs" style={{ color: tokens.text.secondary }}>
-            {config.streamEnabled ? '已启用' : '未启用'}
+            {config.streamEnabled ? t('profile.cfgEnabledOn') : t('profile.cfgEnabledOff')}
           </Text>
           <Switch
             value={config.streamEnabled}
@@ -610,7 +610,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
 
       {isImage ? (
         <>
-          <Row label="图片比例">
+          <Row label={t('profile.cfgImgRatio')}>
             <View className="flex-row flex-wrap">
               {ASPECT_RATIOS.map((r) => (
                 <Chip
@@ -623,7 +623,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
             </View>
           </Row>
 
-          <Row label="图片分辨率">
+          <Row label={t('profile.cfgImgRes')}>
             <View className="flex-row flex-wrap">
               {RESOLUTIONS.map((r) => (
                 <Chip
@@ -639,7 +639,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
       ) : null}
 
       {isVideo ? (
-        <Row label="视频帧数">
+        <Row label={t('profile.cfgVideoFrames')}>
           <View className="flex-row flex-wrap">
             {FRAME_COUNTS.map((f) => (
               <Chip
@@ -654,14 +654,14 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
       ) : null}
 
       {isAudio ? (
-        <Row label="音色">
+        <Row label={t('profile.cfgTimbre')}>
           <Pressable
             onPress={() => setTimbreOpen((v) => !v)}
             className="rounded-md px-2.5 py-2"
             style={{ backgroundColor: tokens.surface.muted }}
           >
             <Text className="text-xs" style={{ color: tokens.text.primary }}>
-              {voiceList.find((x) => x.id === config.timbre)?.name ?? '请选择音色'}
+              {voiceList.find((x) => x.id === config.timbre)?.name ?? t('profile.cfgTimbrePick')}
             </Text>
           </Pressable>
           {timbreOpen ? (
@@ -735,7 +735,10 @@ function BasicModelConfigDialog({
   // 视频模型:动态变量里的视频特有项才显示
   const isVideoModel = isVideo
   // 系统音色:优先用父组件注入(对齐原 fetchSystemVoices),否则用内置默认列表
-  const voiceList = systemVoices && systemVoices.length > 0 ? systemVoices : TIMBRES
+  const voiceList =
+    systemVoices && systemVoices.length > 0
+      ? systemVoices
+      : TIMBRES.map((tb) => ({ id: tb.id, name: t(tb.nameKey) }))
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -844,7 +847,10 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
   const isAudio = modelType === 'audio'
   // 视频模型判断(对齐原 watch modelName:含 t2v/i2v 为视频模型)
   const isVideoModel = isVideo || !!modelName?.includes('t2v') || !!modelName?.includes('i2v')
-  const voiceList = systemVoices && systemVoices.length > 0 ? systemVoices : TIMBRES
+  const voiceList =
+    systemVoices && systemVoices.length > 0
+      ? systemVoices
+      : TIMBRES.map((tb) => ({ id: tb.id, name: t(tb.nameKey) }))
 
   // 数字人模型:显示首帧图/尾帧图/克隆数字人按钮
   const isDigitalHuman = modelName?.includes('数字人') ?? false
@@ -903,7 +909,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 {/* 首帧图 */}
                 {isDigitalHuman ? (
                   <UploadButton
-                    label="添加首帧图"
+                    label={t('profile.cfgAddFirstFrame')}
                     url={firstFrameUrl}
                     onPress={onUploadFirstFrame}
                     onDelete={onDeleteFirstFrame}
@@ -913,7 +919,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 {/* 尾帧图 */}
                 {isDigitalHuman ? (
                   <UploadButton
-                    label="添加尾帧图"
+                    label={t('profile.cfgAddLastFrame')}
                     url={lastFrameUrl}
                     onPress={onUploadLastFrame}
                     onDelete={onDeleteLastFrame}
@@ -923,7 +929,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 {/* 参考音色 */}
                 {isVoiceSynthesis || isDigitalHuman ? (
                   <UploadButton
-                    label="参考音色"
+                    label={t('profile.cfgRefTimbre')}
                     url={audioUrl}
                     onPress={handleAudioMenu}
                     onDelete={onDeleteAudio}
@@ -933,7 +939,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 {/* 克隆数字人 */}
                 {isDigitalHuman ? (
                   <UploadButton
-                    label="克隆数字人"
+                    label={t('profile.cfgCloneHuman')}
                     url={videoUrl}
                     onPress={onUploadVideo}
                     onDelete={onDeleteVideo}
@@ -1029,7 +1035,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                     选择音色
                   </Text>
                   <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
-                    {audioUrl ? '当前已选择音色' : '从系统音色库中选择'}
+                    {audioUrl ? t('profile.cfgTimbreChosen') : t('profile.cfgTimbreFromLib')}
                   </Text>
                 </View>
                 <ChevronRight size={MODEL_CONFIG_INLINE_GLYPH_PX} color={tokens.text.tertiary} />
@@ -1115,7 +1121,9 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                   {/* 录音状态 */}
                   <View className="mb-4 items-center">
                     <Text className="text-xs" style={{ color: tokens.text.tertiary }}>
-                      {isRecording ? `录音中... ${recordDuration}秒` : '点击下方按钮开始录音'}
+                      {isRecording
+                        ? t('profile.cfgRecordingSec', { sec: recordDuration })
+                        : t('profile.cfgTapToRecord')}
                     </Text>
                   </View>
 
@@ -1137,7 +1145,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                       )}
                     </Pressable>
                     <Text className="mt-2 text-xs" style={{ color: tokens.text.tertiary }}>
-                      {isRecording ? '停止录音' : '开始录音'}
+                      {isRecording ? t('profile.cfgStopRecord') : t('profile.cfgStartRecord')}
                     </Text>
                   </View>
 
