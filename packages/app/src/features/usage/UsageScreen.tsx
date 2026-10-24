@@ -276,8 +276,12 @@ function createStyles(tk: AppThemeTokens) {
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     meta: { fontSize: 12, color: tk.text.tertiary },
     muted: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
-    quotaRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
-    quotaCell: { flex: 1, gap: 2 },
+    /* 读数不得被切成两行(AGENTS §4 / docs/UI_GUIDELINES.md §13):等分 flex:1 会把格子
+       压到任意窄 ⇒ 20px 的 metric 一旦是「123.4万」「$0.0000」这类 6+ 字符就断。
+       minWidth = 最坏读数单行宽(6 字符 × 20px 数字宽 ≈ 0.55em ⇒ 66 + 余量),
+       配合 flexWrap ⇒ 放不下整格换行,不切断数字、不截断、不缩字号。 */
+    quotaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+    quotaCell: { flex: 1, minWidth: 96, gap: 2 },
     metric: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     track: {
       height: 6,
@@ -287,8 +291,8 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 4,
     },
     trackFill: { height: '100%', borderRadius: rnRadius.xs },
-    statsGrid: { flexDirection: 'row', gap: 8, marginTop: 4 },
-    statCell: { flex: 1, gap: 2 },
+    statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+    statCell: { flex: 1, minWidth: 96, gap: 2 },
     barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     barLabel: { width: 38, fontSize: 11, color: tk.text.tertiary },
     barTrack: {
