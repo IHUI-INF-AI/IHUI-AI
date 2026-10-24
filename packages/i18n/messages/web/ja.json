@@ -614,8 +614,8 @@
     "ctaTitle": "30分で AI の旅を始めよう",
     "heroBadge": "智匯 AI について",
     "heroSubtitle": "IHUI AI はオープンソースのフルスタック AI オペレーティングシステムで、Agent 設計、ナレッジベース、マルチモデルスケジューリング、クロスプラットフォーム協業とチーム運営を1つのプラットフォームに統合します。",
-    "heroTitle": "1コード6クライアント、1つの AI",
-    "metaDescription": "IHUI AI(智匯 AI)はワンストップのフルスタック AI オペレーティングシステム: Agent マーケット、ナレッジベース RAG、マルチモデル統合スケジューリング、MCP ツールプロトコルを統合し、Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI の6クライアントを1つのコードベースでサポート、Apache 2.0 オープンソース。",
+    "heroTitle": "1コード7クライアント、1つの AI",
+    "metaDescription": "IHUI AI(智匯 AI)はワンストップのフルスタック AI オペレーティングシステム: Agent マーケット、ナレッジベース RAG、マルチモデル統合スケジューリング、MCP ツールプロトコルを統合し、Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / Capacitor ネイティブシェル / CLI の7クライアントを1つのコードベースでサポート、Apache 2.0 オープンソース。",
     "numbersTitle": "数字で見る実績",
     "platformAgentsDesc": "ビジュアルドラッグ&ドロップで AI Agent を構築、200+ テンプレート、プラグイン/MCP ツール、ワンクリックで全クライアントに公開。",
     "platformAgentsTitle": "Agent マーケット & オーケストレーション",
@@ -642,11 +642,11 @@
     "storyP1": "2024年、私たちは企業が AI を導入する際に普遍的に直面する「4つの難題」を発見しました: モデル選定の難しさ、ナレッジベース連携の難しさ、クロスプラットフォーム配信の難しさ、チーム協業と課金の難しさ。市販の製品は1つだけ解決するか、クローズドソースでロックインされるか、高すぎて使えないかのいずれかです。",
     "storyP2": "そこで私たちは智匯 AI を作りました: オープンソース、統合、クロスプラットフォーム、セルフホスト可能。12〜18ヶ月の自社開発時間を30分のアカウント開設に圧縮しました。",
     "storyTitle": "なぜ智匯 AI を作ったのか?",
-    "valueCrossDesc": "Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI、1コードベース、1回リリース、全プラットフォーム対応。",
-    "valueCrossTitle": "6クライアント1コード",
+    "valueCrossDesc": "Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / Capacitor ネイティブシェル / CLI、1コードベース、1回リリース、全プラットフォーム対応。",
+    "valueCrossTitle": "7クライアント1コード",
     "valueEnterpriseDesc": "SSO/OAuth、監査ログ、ロール権限、セルフホスト展開、複数の上場企業にサービス提供。",
     "valueEnterpriseTitle": "エンタープライズ級セキュリティ",
-    "valueFreeDesc": "毎月1,000クレジット、全モデル利用可能、6クライアント同時リリース。Pro版 ¥49/月〜、Enterprise版はセルフホスト対応。",
+    "valueFreeDesc": "毎月1,000クレジット、全モデル利用可能、7クライアント同時リリース。Pro版 ¥49/月〜、Enterprise版はセルフホスト対応。",
     "valueFreeTitle": "個人版永久無料",
     "valueOpenDesc": "Apache 2.0 ライセンス、コアコード公開、商用利用可、セルフホストコストゼロ。",
     "valueOpenTitle": "完全オープンソース",
@@ -800,6 +800,9 @@
       "rowsPerSec": "行/秒",
       "scrapeTargets": "収集ターゲット ({up}/{total} オンライン)",
       "noScrapeTargets": "スクレイプ対象なし",
+      "stateUp": "正常",
+      "stateDown": "異常",
+      "stateUnknown": "不明",
       "sevCritical": "重大",
       "sevInfo": "情報",
       "sevWarning": "警告",
@@ -1315,6 +1318,7 @@
     "announcements": {
       "colActions": "操作",
       "colPinned": "ピンめ",
+      "colPlatforms": "配信先",
       "colPublished": "み",
       "colPublishedAt": "公開日時",
       "colTitle": "タイトル",
@@ -1330,6 +1334,7 @@
       "editTitle": "編集お知らせ",
       "fieldContent": "コンテンツ",
       "fieldPinned": "ピンめ",
+      "fieldPlatforms": "配信先",
       "fieldPublished": "公開済み",
       "fieldTitle": "タイトル",
       "fieldType": "タイプ",
@@ -1355,6 +1360,17 @@
       },
       "no": "いいえ",
       "noData": "なしデータ",
+      "platforms": {
+        "cli": "CLI",
+        "desktop": "デスクトップ",
+        "extension": "拡張機能",
+        "miniapp": "ミニプログラム",
+        "mobile-cap": "モバイル収集",
+        "rn": "モバイルアプリ",
+        "web": "Web"
+      },
+      "platformsAll": "すべての端末",
+      "platformsHint": "未選択の場合は全端末に表示されます。選択した端末のみに表示されます",
       "published": "公開済み",
       "save": "保存",
       "subtitle": "のなドキュメントとAPIリファレンス",
@@ -15547,14 +15563,14 @@
     "q12Question": "智匯 AI は私のデータを使ってモデルを学習しますか?",
     "q1Answer": "IHUI AIはワンストップのフルスタック AI オペレーティングシステムです。Agent 設計、ナレッジベース RAG、マルチモデル統合スケジューリング、クロスプラットフォーム連携とチーム運営を1つのプラットフォームに統合し、Web、デスクトップ、ミニプログラム、ブラウザ拡張、React Native、CLI の6クライアントを1コードベースで配信、Apache 2.0 オープンソースのコアコードとセルフホスト展開をサポートします。",
     "q1Question": "智匯 AI とは何ですか?",
-    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。IHUI AI は現在少数、Agent マーケット + ナレッジベース + 6クライアント配信 + チーム連携 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
+    "q2Answer": "Dify は LLM アプリ開発中心(Web のみ); Coze はクローズドソース(セルフホスト不可); FastGPT はナレッジベース Q&A 中心。IHUI AI は現在少数、Agent マーケット + ナレッジベース + 7クライアント配信 + チーム連携 + クレジット課金を同時にカバーするオープンソースプラットフォームで、Dify + Coze + FastGPT の3点セットを1つのプラットフォームに置き換えます。",
     "q2Question": "智匯 AI と Dify、Coze、FastGPT の違いは?",
-    "q3Answer": "3タイプのユーザーが最も恩恵を受けます: AI 開発者(Agent の迅速な構築/配信/収益化、6クライアントへのワンクリック配信)、エンタープライズ IT(データ主権のためのセルフホスト展開、統合 AI 機能ハブ)、チームリーダー(マルチユーザー連携、統一ナレッジベース、統一課金)。",
+    "q3Answer": "3タイプのユーザーが最も恩恵を受けます: AI 開発者(Agent の迅速な構築/配信/収益化、7クライアントへのワンクリック配信)、エンタープライズ IT(データ主権のためのセルフホスト展開、統合 AI 機能ハブ)、チームリーダー(マルチユーザー連携、統一ナレッジベース、統一課金)。",
     "q3Question": "智匯 AI は誰向けですか?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1)、Anthropic Claude(Opus 4/Sonnet 4)、Google Gemini、Alibaba Qwen(Qwen-Max/Plus)、DeepSeek(V3/R1)、Zhipu GLM-4、Baidu ERNIE、ByteDance Doubao、Moonshot Kimi、そして Ollama などのローカルモデルおよび任意の OpenAI 互換エンドポイント。統合課金、自動フォールバック、コストベースルーティング。",
     "q4Question": "どの AI モデルに対応していますか?",
-    "q5Answer": "Web、デスクトップ(Tauri 2)、WeChat/Alipay/Douyin ミニプログラム(Taro 4)、ブラウザ拡張(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)の6クライアントが、同じ React コンポーネントライブラリ、同じ API 契約、同じビジネスロジックを共有します。1回書けば6クライアント同時配信、各プラットフォームごとに書き直す必要なし。",
-    "q5Question": "「6クライアント1コード」とはどういう意味ですか?",
+    "q5Answer": "Web、デスクトップ(Tauri 2)、WeChat/Alipay/Douyin ミニプログラム(Taro 4)、ブラウザ拡張(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)、Capacitor ネイティブシェル(iOS/Android)の7クライアントが、同じ React コンポーネントライブラリ、同じ API 契約、同じビジネスロジックを共有します。1回書けば7クライアント同時配信、各プラットフォームごとに書き直す必要なし。",
+    "q5Question": "「7クライアント1コード」とはどういう意味ですか?",
     "q6Answer": "3つの方法: ① OpenAPI 3.1 REST API(SDK は TypeScript/Python/Go をカバー); ② Webhook イベント購読; ③ MCP ツールプロトコル(社内システムを MCP Server として公開し、IHUI AI の Agent が呼び出し)。Enterprise 版は SSO/SAML 2.0/OIDC シングルサインオンもサポート。",
     "q6Question": "既存の業務システムとどう統合しますか?",
     "q7Answer": "はい、個人版は永久無料です: 毎月1,000クレジット、全モデル、6クライアントすべて、API アクセスすべて含む。Pro は ¥49/月(10,000クレジット + 優先キュー)、Team は ¥299/月/ユーザー(共有クレジットプール + 監査ログ)、Enterprise はカスタム(セルフホスト + SLA)。",
@@ -17539,7 +17555,7 @@
       "row1Claude": "CLI",
       "row1Cursor": "デスクトップ",
       "row1Feature": "プラットフォーム対応",
-      "row1Us": "8プラットフォーム完全対応",
+      "row1Us": "9プラットフォーム完全対応",
       "row2Chatgpt": "OpenAIモデル",
       "row2Claude": "Claudeモデル",
       "row2Cursor": "マルチモデル選択可",
@@ -17575,7 +17591,7 @@
       "row8Cursor": "なし",
       "row8Feature": "エージェントマーケット",
       "row8Us": "5+職能",
-      "subtitle": "智匯AI vs Claude Code vs Cursor vs ChatGPT · 8 プラットフォーム全面カバー + 100+ LLM + トリプルスタック + エージェント広場",
+      "subtitle": "智匯AI vs Claude Code vs Cursor vs ChatGPT · 9 プラットフォーム全面カバー + 100+ LLM + トリプルスタック + エージェント広場",
       "title": "競品対比 · 全次元超越",
       "titleEn": "COMPETITIVE COMPARISON"
     },
@@ -17612,9 +17628,9 @@
         "title": "フルスタック AI 教育"
       },
       "modelIntegration": {
-        "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 8 端汎用 · データゼロ移行",
-        "description": "Web/Desktop/Mobile/ミニプログラム/CLI/Extension 6 + API/AI-Service 2、フルスタック対応、統一アカウントでシームレス切替",
-        "title": "8 プラットフォームフルスタックアーキテクチャ"
+        "benefit": "8 倍の重複購入コストを節約 · 1 アカウントで 9 端汎用 · データゼロ移行",
+        "description": "Web/Desktop/Mobile/ミニプログラム/CLI/Extension/Capacitor 7 + API/AI-Service 2、フルスタック対応、統一アカウントでシームレス切替",
+        "title": "9 プラットフォームフルスタックアーキテクチャ"
       },
       "multimodal": {
         "benefit": "¥5 万/年デザイン費節約 · 5 大モダリティ全打通 · コンテンツ生産 10× 加速",
@@ -17626,7 +17642,7 @@
         "description": "3 権限モード + 7 実行時インターセプト端点 + 60s タイムアウト拒否 + RBAC 細粒度アクセス制御 + 99.9% SLA",
         "title": "企業級ワークスペース"
       },
-      "subtitle": "8 プラットフォーム全面カバーの企業級 AI プラットフォーム · 100+ 大モデル · 独自 CLI · 工業級エンジニアリング厳格 · 意思決定者にすべての AI 能力をワンストップで",
+      "subtitle": "9 プラットフォーム全面カバーの企業級 AI プラットフォーム · 100+ 大モデル · 独自 CLI · 工業級エンジニアリング厳格 · 意思決定者にすべての AI 能力をワンストップで",
       "title": "8 大コア能力 · フルスタックカバー",
       "titleEn": "POWERFUL FEATURES",
       "workflow": {
@@ -17830,7 +17846,7 @@
     "typewriter": {
       "brand": "独自 CLI、Claude Code 全次元対抗 · ACP が Zed/VSCode/Cursor に埋め込み",
       "connect": "LangGraph + MCP + A2A トリプルスタック · 1029+ API エンドポイント · 工業級厳格",
-      "content": "8プラットフォーム全面カバー · 業界でも比較的珍しいフルスタック AI プラットフォーム",
+      "content": "9プラットフォーム全面カバー · 業界でも比較的珍しいフルスタック AI プラットフォーム",
       "ctaPrimary": "今すぐ体験",
       "ctaSecondary": "もっと知る",
       "explore": "100+ LLM大モデル · 1つの API キーで全部アクセス · 年間 ¥18万節約",
@@ -17853,13 +17869,13 @@
         "benefit5": "AIアシスタントの優先体験",
         "benefit6": "不満の場合は全額返金"
       },
-      "brandSubtitle": "8プラットフォーム · 100+ 大モデル · 1029+ API · 年間 ¥18万節約",
-      "description": "Zhihui AI は Agent マーケットプレイス、ナレッジベース RAG、マルチモデル統合ディスパッチ、MCP ツールプロトコルを統合。Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / CLI の 6 プラットフォームに対応、Apache 2.0 オープンソース、プライベート展開をサポート。",
+      "brandSubtitle": "9プラットフォーム · 100+ 大モデル · 4557+ API · 年間 ¥18万節約",
+      "description": "Zhihui AI は Agent マーケットプレイス、ナレッジベース RAG、マルチモデル統合ディスパッチ、MCP ツールプロトコルを統合。Web / デスクトップ / ミニプログラム / ブラウザ拡張 / React Native / Capacitor ネイティブシェル / CLI の 7 プラットフォームに対応、Apache 2.0 オープンソース、プライベート展開をサポート。",
       "earlyBird": "アーリーバード ¥6000/年 · 67%オフ",
-      "multiEnd": "8プラットフォーム全面カバー · 業界でも比較的珍しい",
+      "multiEnd": "9プラットフォーム全面カバー · 業界でも比較的珍しい",
       "perYear": "/年",
       "seats": "18席限定 · 意思決定者専用",
-      "subtitle": "フルスタック AI OS・8 プラットフォーム対応・ワンストップエージェント連携",
+      "subtitle": "フルスタック AI OS・9 プラットフォーム対応・ワンストップエージェント連携",
       "title": "智匯AIコミュニティへようこそ"
     }
   },
@@ -20935,7 +20951,7 @@
     "comparison": {
       "agentMarket": "Agent マーケット",
       "apache2": "Apache 2.0",
-      "eightEnds": "8 エンド対応",
+      "eightEnds": "9 エンド対応",
       "feature": "機能",
       "llmCount": "176+ LLM 対応",
       "multiTenant": "マルチテナント分離",
@@ -22159,7 +22175,7 @@
         "desc": "ソースをサーバーにデプロイ",
         "features": [
           "PostgreSQL + Redis 設定",
-          "8 プラットフォーム構築",
+          "9 プラットフォーム構築",
           "2 時間オンライントレーニング",
           "30 日間メールサポート",
           "3-5 営業日で納品"
@@ -23731,7 +23747,7 @@
     "courseWorkload": "学習負荷",
     "description": "説明",
     "endDate": "終了日",
-    "metaDescription": "IHUI AI フルスタック AI OS で構築する AI 教育 Agent:コース構造化設計、自動答疑、添削、パーソナライズ学習パス、学習ダッシュボード、8 エンド同期配信。",
+    "metaDescription": "IHUI AI フルスタック AI OS で構築する AI 教育 Agent:コース構造化設計、自動答疑、添削、パーソナライズ学習パス、学習ダッシュボード、9 エンド同期配信。",
     "metaTitle": "AI 教育 Agent ユースケース — コース設計/自動答疑/学習推薦 | IHUI AI",
     "name": "コース名",
     "provider": "提供元",
@@ -25734,7 +25750,7 @@
     },
     "seats": "18 席限定 · 意思決定者専用",
     "earlyBird": "早割 ¥6000/年 · 3.3 割",
-    "multiEnd": "8 エンド全対応 · 広いカバレッジ"
+    "multiEnd": "9 エンド全対応 · 広いカバレッジ"
   },
   "typewriter": {
     "ctaPrimary": "今すぐ相談",

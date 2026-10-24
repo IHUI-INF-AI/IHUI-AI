@@ -8,6 +8,7 @@ import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findAnnouncements,
+  findAllAnnouncements,
   findAnnouncementById,
   createAnnouncement,
   updateAnnouncement,
@@ -41,6 +42,7 @@ import {
   countUnreadAnnouncements,
 } from '../db/content-queries.js'
 import { success, error } from '../utils/response.js'
+import { ANNOUNCEMENT_PLATFORMS } from '@ihui/database'
 import { renderChangelogEmail, renderLaunchEmail } from '../services/email-templates.js'
 import { listEmailRecipients, broadcastDispatchEmail } from '../services/broadcast-email-service.js'
 
@@ -85,6 +87,8 @@ const createAnnouncementSchema = z.object({
     .refine((d) => !isNaN(d.getTime()), '无效日期')
     .nullable()
     .optional(),
+  // 投放端多选(空数组/缺省 = 全端通用;见 ANNOUNCEMENT_PLATFORMS)
+  platforms: z.array(z.enum(ANNOUNCEMENT_PLATFORMS)).max(ANNOUNCEMENT_PLATFORMS.length).optional(),
 })
 
 const updateAnnouncementSchema = z.object({
@@ -103,6 +107,17 @@ const updateAnnouncementSchema = z.object({
     .refine((d) => !isNaN(d.getTime()), '无效日期')
     .nullable()
     .optional(),
+  // 投放端多选(空数组 = 全端通用;见 ANNOUNCEMENT_PLATFORMS)
+  platforms: z.array(z.enum(ANNOUNCEMENT_PLATFORMS)).max(ANNOUNCEMENT_PLATFORMS.length).optional(),
+})
+
+/**
+ * 公告按端定向(2026-10-24 立,李总定案):全端统一 GET /api/announcements,
+ * 各端传 ?platform=<自身端标识>;后端只返回"全端通用(platforms 空数组)
+ * 或包含该端"的公告。不传 platform = 不过滤(兼容旧调用)。
+ */
+const announcementPlatformQuerySchema = z.object({
+  platform: z.enum(ANNOUNCEMENT_PLATFORMS).optional(),
 })
 
 /** 更新推送邮件:changelog=版本更新日志 / launch=新品上线(渲染智汇通报版式后全量群发) */
@@ -231,7 +246,14 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const list = await findAnnouncements()
+      // 按端定向:?platform=web|miniapp|... 缺省 = 全端不过滤
+      const platformParsed = announcementPlatformQuerySchema.safeParse(request.query)
+      if (!platformParsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, platformParsed.error.issues[0]?.message ?? '无效的 platform 参数'))
+      }
+      const list = await findAnnouncements(platformParsed.data.platform)
       // 可选鉴权：已登录则附加 isRead 标记
       let readSet = new Set<string>()
       try {
@@ -252,6 +274,12 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /announcements/unread/count - 当前用户未读公告数（需登录）
   server.get('/announcements/unread/count', async (request, reply) => {
+    const platformParsed = announcementPlatformQuerySchema.safeParse(request.query)
+    if (!platformParsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, platformParsed.error.issues[0]?.message ?? '无效的 platform 参数'))
+    }
     try {
       await authenticate(request)
     } catch (e) {
@@ -259,18 +287,33 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(statusCode).send(error(statusCode, '操作失败,请稍后重试'))
     }
     const userId = request.userId!
-    const result = await countUnreadAnnouncements(userId)
+    const result = await countUnreadAnnouncements(userId, platformParsed.data.platform)
     return reply.send(success(result))
   })
 
-  // GET /announcements/:id - 公开：公告详情（仅已发布）
+  // GET /announcements/:id - 公开：公告详情（仅已发布；传 platform 时校验投放端）
   server.get('/announcements/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    const platformParsed = announcementPlatformQuerySchema.safeParse(request.query)
+    if (!platformParsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, platformParsed.error.issues[0]?.message ?? '无效的 platform 参数'))
+    }
     const announcement = await findAnnouncementById(parsed.data.id)
     if (!announcement || !announcement.isPublished) {
+      return reply.status(404).send(error(404, '公告不存在'))
+    }
+    // 按端隔离:传了 platform 且公告为非全端定向但不含该端 ⇒ 视同不存在
+    const platform = platformParsed.data.platform
+    if (
+      platform &&
+      announcement.platforms.length > 0 &&
+      !announcement.platforms.includes(platform)
+    ) {
       return reply.status(404).send(error(404, '公告不存在'))
     }
     return reply.send(success({ announcement }))
@@ -448,6 +491,20 @@ export const adminContentRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 
   // ----- Announcements Admin -----
+
+  // GET /announcements - 管理端列表（含未发布/已过期，支持 platform 过滤）
+  // 修复(2026-10-24):管理端公告页此前读 edu_announcements 表而保存写本表 ⇒
+  // "后台发布了界面不显示"。本端点让管理端与全端消费方同源同表。
+  server.get('/announcements', async (request, reply) => {
+    const platformParsed = announcementPlatformQuerySchema.safeParse(request.query)
+    if (!platformParsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, platformParsed.error.issues[0]?.message ?? '无效的 platform 参数'))
+    }
+    const list = await findAllAnnouncements(platformParsed.data.platform)
+    return reply.send(success({ list }))
+  })
 
   // POST /announcements - 创建公告
   server.post('/announcements', async (request, reply) => {

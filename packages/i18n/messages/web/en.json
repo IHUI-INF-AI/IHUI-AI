@@ -614,8 +614,8 @@
     "ctaTitle": "Start your AI journey in 30 minutes",
     "heroBadge": "About IHUI AI",
     "heroSubtitle": "IHUI AI is an open-source full-stack AI operating system that brings Agent design, knowledge base, multi-model dispatch, cross-platform collaboration and team operations into a single platform.",
-    "heroTitle": "One codebase, six clients, one AI",
-    "metaDescription": "IHUI AI (智汇 AI) is an all-in-one full-stack AI operating system: Agent marketplace, knowledge-base RAG, multi-model unified dispatch, MCP tool protocol, supports Web / Desktop / Mini Program / Browser Extension / React Native / CLI six clients from one codebase, Apache 2.0 open source.",
+    "heroTitle": "One codebase, seven clients, one AI",
+    "metaDescription": "IHUI AI (智汇 AI) is an all-in-one full-stack AI operating system: Agent marketplace, knowledge-base RAG, multi-model unified dispatch, MCP tool protocol, supports Web / Desktop / Mini Program / Browser Extension / React Native / Capacitor Native Shell / CLI seven clients from one codebase, Apache 2.0 open source.",
     "numbersTitle": "Numbers Speak",
     "platformAgentsDesc": "Visual drag-and-drop to build AI Agents, 200+ templates, plugin/MCP tools, one-click publish to any client.",
     "platformAgentsTitle": "Agent Marketplace & Orchestration",
@@ -642,11 +642,11 @@
     "storyP1": "In 2024, we discovered that companies adopting AI universally face a 'four-piece problem': choosing models is hard, integrating a knowledge base is hard, cross-platform distribution is hard, and team collaboration & billing is hard. Existing products either solve just one, are closed-source and locked-in, or cost too much to use.",
     "storyP2": "So we built IHUI AI: open-source, unified, cross-platform, self-hostable. We compressed what would take 12-18 months of in-house development into a 30-minute sign-up.",
     "storyTitle": "Why we built IHUI AI?",
-    "valueCrossDesc": "Web / Desktop / Mini Program / Browser Extension / React Native / CLI, one codebase, one publish, reach every platform.",
-    "valueCrossTitle": "Six Clients, One Codebase",
+    "valueCrossDesc": "Web / Desktop / Mini Program / Browser Extension / React Native / Capacitor Native Shell / CLI, one codebase, one publish, reach every platform.",
+    "valueCrossTitle": "Seven Clients, One Codebase",
     "valueEnterpriseDesc": "SSO/OAuth, audit logs, role-based access, self-hosting, serving multiple listed companies.",
     "valueEnterpriseTitle": "Enterprise-grade Security",
-    "valueFreeDesc": "1,000 credits monthly, all models, all six clients. Pro from ¥49/month, Enterprise supports self-hosting.",
+    "valueFreeDesc": "1,000 credits monthly, all models, all seven clients. Pro from ¥49/month, Enterprise supports self-hosting.",
     "valueFreeTitle": "Free for Personal Use",
     "valueOpenDesc": "Apache 2.0 license, core code public, commercial use allowed, zero self-host cost.",
     "valueOpenTitle": "Fully Open Source",
@@ -800,6 +800,9 @@
       "rowsPerSec": "Rows/s",
       "scrapeTargets": "Scrape Targets ({up}/{total} up)",
       "noScrapeTargets": "No scrape targets",
+      "stateUp": "Up",
+      "stateDown": "Down",
+      "stateUnknown": "Unknown",
       "sevCritical": "Critical",
       "sevInfo": "Info",
       "sevWarning": "Warning",
@@ -1315,6 +1318,7 @@
     "announcements": {
       "colActions": "Actions",
       "colPinned": "Pinned",
+      "colPlatforms": "Platforms",
       "colPublished": "Published",
       "colPublishedAt": "Published At",
       "colTitle": "Title",
@@ -1330,6 +1334,7 @@
       "editTitle": "Edit Announcement",
       "fieldContent": "Content",
       "fieldPinned": "Pinned",
+      "fieldPlatforms": "Platforms",
       "fieldPublished": "Published",
       "fieldTitle": "Title",
       "fieldType": "Type",
@@ -1355,6 +1360,17 @@
       },
       "no": "No",
       "noData": "No announcements",
+      "platforms": {
+        "cli": "CLI",
+        "desktop": "Desktop",
+        "extension": "Extension",
+        "miniapp": "Mini App",
+        "mobile-cap": "Mobile Capture",
+        "rn": "Mobile App",
+        "web": "Web"
+      },
+      "platformsAll": "All Platforms",
+      "platformsHint": "Leave all unchecked to show on every platform; only checked platforms will see it",
       "published": "Published",
       "save": "Save",
       "subtitle": "Manage platform announcements",
@@ -15544,14 +15560,14 @@
     "q12Question": "Will IHUI AI use my data to train your models?",
     "q1Answer": "IHUI AI (Chinese: 智汇 AI) is an all-in-one full-stack AI operating system. It unifies Agent design, knowledge-base RAG, multi-model dispatch, cross-platform collaboration and team operations in a single platform, supporting six clients (Web, Desktop, Mini Program, Browser Extension, React Native, CLI) from one codebase, with Apache 2.0 open-source core and self-hosting support.",
     "q1Question": "What is IHUI AI?",
-    "q2Answer": "Dify focuses on LLM app development (web only); Coze is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q&A. IHUI AI is an open-source platform that simultaneously covers Agent marketplace + knowledge base + six-client distribution + team collaboration + credit billing — one platform that replaces the Dify + Coze + FastGPT trio.",
+    "q2Answer": "Dify focuses on LLM app development (web only); Coze is closed-source (no self-hosting); FastGPT focuses on knowledge-base Q&A. IHUI AI is an open-source platform that simultaneously covers Agent marketplace + knowledge base + seven-client distribution + team collaboration + credit billing — one platform that replaces the Dify + Coze + FastGPT trio.",
     "q2Question": "How is IHUI AI different from Dify, Coze, and FastGPT?",
-    "q3Answer": "Three audiences benefit most: AI developers (rapidly build/distribute/monetize Agents, publish to all six clients in one click), enterprise IT (self-host for data sovereignty, unified AI capability hub), and team leaders (multi-user collaboration, unified knowledge base, unified billing).",
+    "q3Answer": "Three audiences benefit most: AI developers (rapidly build/distribute/monetize Agents, publish to all seven clients in one click), enterprise IT (self-host for data sovereignty, unified AI capability hub), and team leaders (multi-user collaboration, unified knowledge base, unified billing).",
     "q3Question": "Who is IHUI AI for?",
     "q4Answer": "OpenAI (GPT-4o/o1/GPT-4.1), Anthropic Claude (Opus 4 / Sonnet 4), Google Gemini, Alibaba Qwen (Qwen-Max/Plus), DeepSeek (V3/R1), Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, plus Ollama and any OpenAI-compatible endpoint. Unified billing, auto fallback, cost-based routing.",
     "q4Question": "Which AI models are supported?",
-    "q5Answer": "Web, Desktop (Tauri 2), WeChat/Alipay/Douyin Mini Programs (Taro 4), Browser Extension (WXT MV3), iOS/Android (React Native), and CLI (Node.js/Bun) — all six clients share the same React component library, the same API contracts, and the same business logic. Write once, publish to all six — no need to rewrite for each platform.",
-    "q5Question": "What does \"six clients, one codebase\" mean?",
+    "q5Answer": "Web, Desktop (Tauri 2), WeChat/Alipay/Douyin Mini Programs (Taro 4), Browser Extension (WXT MV3), iOS/Android (React Native), and CLI (Node.js/Bun), and the Capacitor Native Shell (iOS/Android) — all seven clients share the same React component library, the same API contracts, and the same business logic. Write once, publish to all seven — no need to rewrite for each platform.",
+    "q5Question": "What does \"seven clients, one codebase\" mean?",
     "q6Answer": "Three ways: ① OpenAPI 3.1 REST API (SDKs for TypeScript / Python / Go); ② Webhook event subscriptions; ③ MCP tool protocol (your internal systems can be exposed as MCP Servers and called by IHUI AI Agents). Enterprise edition also supports SSO/SAML 2.0/OIDC single sign-on.",
     "q6Question": "How do I integrate with my existing systems?",
     "q7Answer": "Yes, the Personal plan is free forever: 1,000 credits monthly, all models, all six clients, and API access are all included. Pro is ¥49/month (10,000 credits + priority queue), Team is ¥299/month/user (shared credit pool + audit logs), Enterprise is custom (self-host + SLA).",
@@ -17536,7 +17552,7 @@
       "row1Claude": "CLI",
       "row1Cursor": "Desktop",
       "row1Feature": "Platform Coverage",
-      "row1Us": "8 platforms fully covered",
+      "row1Us": "9 platforms fully covered",
       "row2Chatgpt": "OpenAI models",
       "row2Claude": "Claude models",
       "row2Cursor": "Multi-model optional",
@@ -17572,7 +17588,7 @@
       "row8Cursor": "No",
       "row8Feature": "Agent Marketplace",
       "row8Us": "5+ roles",
-      "subtitle": "Zhihui AI vs Claude Code vs Cursor vs ChatGPT · 8 platforms + 100+ LLMs + triple stack + Agent Square",
+      "subtitle": "Zhihui AI vs Claude Code vs Cursor vs ChatGPT · 9 platforms + 100+ LLMs + triple stack + Agent Square",
       "title": "Competitive Comparison · Multi-Dimensional",
       "titleEn": "COMPETITIVE COMPARISON"
     },
@@ -17609,9 +17625,9 @@
         "title": "Full-Stack AI Education"
       },
       "modelIntegration": {
-        "benefit": "Save 8× redundant purchase cost · 1 account across 8 platforms · zero data migration",
-        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension (6) + API/AI-Service (2), full-stack coverage, unified account seamless switching",
-        "title": "8-Platform Full-Stack Architecture"
+        "benefit": "Save 8× redundant purchase cost · 1 account across 9 platforms · zero data migration",
+        "description": "Web/Desktop/Mobile/Mini-Program/CLI/Extension/Capacitor (7) + API/AI-Service (2), full-stack coverage, unified account seamless switching",
+        "title": "9-Platform Full-Stack Architecture"
       },
       "multimodal": {
         "benefit": "Save ¥50K/year design cost · 5 modalities integrated · 10× content production",
@@ -17623,7 +17639,7 @@
         "description": "3 permission modes + 7 runtime interception endpoints + 60s timeout rejection + RBAC fine-grained access control + 99.9% SLA",
         "title": "Enterprise-Grade Workspace"
       },
-      "subtitle": "8-platform enterprise-grade AI · 100+ LLMs · self-developed CLI · industrial-grade rigor · all AI capabilities in one platform for decision-makers",
+      "subtitle": "9-platform enterprise-grade AI · 100+ LLMs · self-developed CLI · industrial-grade rigor · all AI capabilities in one platform for decision-makers",
       "title": "8 Core Capabilities · Full-Stack Coverage",
       "titleEn": "POWERFUL FEATURES",
       "workflow": {
@@ -17827,7 +17843,7 @@
     "typewriter": {
       "brand": "Self-Developed CLI Comparable to Claude Code · ACP Embedded in Zed/VSCode/Cursor",
       "connect": "LangGraph + MCP + A2A Triple Stack · 1029+ API Endpoints · Industrial-Grade",
-      "content": "8-Platform Coverage · Broad Full-Stack AI Platform",
+      "content": "9-Platform Coverage · Broad Full-Stack AI Platform",
       "ctaPrimary": "Try Now",
       "ctaSecondary": "Learn More",
       "explore": "100+ LLMs · One API Key for All · Save ¥180K/year",
@@ -17850,13 +17866,13 @@
         "benefit5": "Priority access to AI assistant",
         "benefit6": "Full refund if not satisfied"
       },
-      "brandSubtitle": "8 Platforms · 100+ LLMs · 1029+ API · Save ¥180K/year",
-      "description": "Zhihui AI integrates Agent marketplace, knowledge base RAG, multi-model unified dispatch, MCP tool protocol. Supports Web / Desktop / Mini Program / Browser Extension / React Native / CLI — 6 platforms, Apache 2.0 open source, supports private deployment.",
+      "brandSubtitle": "9 Platforms · 100+ LLMs · 4557+ API · Save ¥180K/year",
+      "description": "Zhihui AI integrates Agent marketplace, knowledge base RAG, multi-model unified dispatch, MCP tool protocol. Supports Web / Desktop / Mini Program / Browser Extension / React Native / Capacitor Native Shell / CLI — 7 platforms, Apache 2.0 open source, supports private deployment.",
       "earlyBird": "Early-Bird ¥6000/year · 67% Off",
-      "multiEnd": "8-Platform Coverage · Industry's Only",
+      "multiEnd": "9-Platform Coverage · Industry's Only",
       "perYear": "/year",
       "seats": "Limited to 18 Seats · Decision-Makers Only",
-      "subtitle": "Full-stack AI Operating System · 8-Platform Coverage · One-Stop Agent Collaboration",
+      "subtitle": "Full-stack AI Operating System · 9-Platform Coverage · One-Stop Agent Collaboration",
       "title": "Welcome to the Zhihui AI Community"
     }
   },
@@ -20932,7 +20948,7 @@
     "comparison": {
       "agentMarket": "Agent Marketplace",
       "apache2": "Apache 2.0",
-      "eightEnds": "8-End Coverage",
+      "eightEnds": "9-End Coverage",
       "feature": "Feature",
       "llmCount": "176+ LLMs",
       "multiTenant": "Multi-tenant",
@@ -22156,7 +22172,7 @@
         "desc": "Deploy source code to your server",
         "features": [
           "PostgreSQL + Redis setup",
-          "8-end build",
+          "9-end build",
           "2-hour online training",
           "30-day email support",
           "3-5 business days delivery"
@@ -23728,7 +23744,7 @@
     "courseWorkload": "Workload",
     "description": "Description",
     "endDate": "End Date",
-    "metaDescription": "Build AI Education Agent with IHUI AI full-stack AI OS: structured course authoring, smart Q&A, auto-grading, personalized learning paths, learning dashboard, 8-end sync distribution.",
+    "metaDescription": "Build AI Education Agent with IHUI AI full-stack AI OS: structured course authoring, smart Q&A, auto-grading, personalized learning paths, learning dashboard, 9-end sync distribution.",
     "metaTitle": "AI Education Agent Use Case — Course Authoring / Q&A / Learning Path | IHUI AI",
     "name": "Course Name",
     "provider": "Provider",
@@ -25731,7 +25747,7 @@
     },
     "seats": "18 seats only · Exclusively for decision makers",
     "earlyBird": "Early-bird ¥6000/yr · 33% off",
-    "multiEnd": "8-end coverage · Wide coverage"
+    "multiEnd": "9-end coverage · Wide coverage"
   },
   "typewriter": {
     "ctaPrimary": "Contact now",
