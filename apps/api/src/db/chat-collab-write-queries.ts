@@ -135,10 +135,16 @@ export async function releaseCollabLock(input: {
     }
     const base = normalizeMetadataBase(row.metadata)
     const { collabLock: _dropped, ...rest } = base
-    await tx
-      .update(chatConversations)
-      .set({ metadata: rest, updatedAt: new Date() })
-      .where(eq(chatConversations.id, input.conversationId))
+    // 只写真实变化:与 FOR UPDATE 读到的 metadata 现值比较,无变化不发 UPDATE、不盖 updatedAt
+    // (增量读不被同值空写污染;锁键仍在时删它必是变化,但仍按键比较而不是假定)
+    const changed: { metadata?: Record<string, unknown> } = {}
+    if (JSON.stringify(rest) !== JSON.stringify(base)) changed.metadata = rest
+    if (changed.metadata !== undefined) {
+      await tx
+        .update(chatConversations)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(eq(chatConversations.id, input.conversationId))
+    }
     return { released: true, previousHolder: current.holderUserId }
   })
 }
@@ -163,10 +169,15 @@ export async function clearCollabLockIfHeldBy(
     if (!current || current.holderUserId !== userId) return null
     const base = normalizeMetadataBase(row.metadata)
     const { collabLock: _dropped, ...rest } = base
-    await tx
-      .update(chatConversations)
-      .set({ metadata: rest, updatedAt: new Date() })
-      .where(eq(chatConversations.id, conversationId))
+    // 只写真实变化:与锁行现值比较,无变化不发 UPDATE、不盖 updatedAt
+    const changed: { metadata?: Record<string, unknown> } = {}
+    if (JSON.stringify(rest) !== JSON.stringify(base)) changed.metadata = rest
+    if (changed.metadata !== undefined) {
+      await tx
+        .update(chatConversations)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(eq(chatConversations.id, conversationId))
+    }
     return userId
   })
 }

@@ -189,10 +189,20 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
     }
     const nextMessages = [...history, userMsg, assistantMsg]
     if (existing) {
-      await db
-        .update(agentRuntimeSessions)
-        .set({ messages: nextMessages, updatedAt: new Date() })
-        .where(eq(agentRuntimeSessions.id, existing.id))
+      // 只追加库里还没有的消息:同毫秒重试/重发撞到同一 id 时不重复入库、不发 UPDATE
+      const currentIds = new Set(
+        (Array.isArray(existing.messages) ? existing.messages : []).map((m) => m.id),
+      )
+      const appended = [userMsg, assistantMsg].filter((m) => !currentIds.has(m.id))
+      if (appended.length > 0) {
+        const changed: { messages: AgentRuntimeSessionMessage[] } = {
+          messages: [...history, ...appended],
+        }
+        await db
+          .update(agentRuntimeSessions)
+          .set({ ...changed, updatedAt: new Date() })
+          .where(eq(agentRuntimeSessions.id, existing.id))
+      }
     } else {
       await db.insert(agentRuntimeSessions).values({
         id: `sess_${crypto.randomUUID()}`,
