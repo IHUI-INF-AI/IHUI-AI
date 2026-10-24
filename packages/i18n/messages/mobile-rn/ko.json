@@ -922,7 +922,8 @@
     "account": "계정 및 보안",
     "version": "버전",
     "language": "언어",
-    "theme": "테마"
+    "theme": "테마",
+    "logoutConfirmBody": "이 계정에서 로그아웃하시겠어요?"
   },
   "menu": {
     "about": "회사 소개",
@@ -1921,7 +1922,10 @@
     "tabCourse": "강좌",
     "tabLive": "라이브",
     "tabArticle": "게시글",
-    "empty": "즐겨찾기가 없습니다"
+    "empty": "즐겨찾기가 없습니다",
+    "loadFailed": "즐겨찾기 실패",
+    "deleteTitle": "즐겨찾기 삭제",
+    "deleteFailed": "삭제 실패"
   },
   "finance": {
     "title": "재무",
@@ -1997,7 +2001,16 @@
   },
   "learnDevelop": {
     "title": "학습 개발",
-    "contactLabel": "이 대표에게 직접 문의"
+    "contactLabel": "이 대표에게 직접 문의",
+    "courseTitle": "강의 플래닛",
+    "courseDesc": "인기 강의 둘러보기",
+    "planDesc": "내 학습 계획",
+    "kTitle": "지식 플래닛",
+    "kDesc": "지식 둘러보기",
+    "videoTitle": "학습 영상",
+    "videoDesc": "최신 강의 영상",
+    "centerTitle": "학습 센터",
+    "centerDesc": "체계적 학습 경로"
   },
   "liveChat": {
     "title": "라이브 채팅",

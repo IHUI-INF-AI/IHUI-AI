@@ -922,7 +922,8 @@
     "account": "Account & Security",
     "version": "Version",
     "language": "Language",
-    "theme": "Theme"
+    "theme": "Theme",
+    "logoutConfirmBody": "Sign out of this account?"
   },
   "menu": {
     "about": "About us",
@@ -1921,7 +1922,10 @@
     "tabCourse": "Courses",
     "tabLive": "Live",
     "tabArticle": "Articles",
-    "empty": "No favorites yet"
+    "empty": "No favorites yet",
+    "loadFailed": "Failed to load favorites",
+    "deleteTitle": "Remove favorite",
+    "deleteFailed": "Delete failed"
   },
   "finance": {
     "title": "Finance",
@@ -1997,7 +2001,16 @@
   },
   "learnDevelop": {
     "title": "Learning & Development",
-    "contactLabel": "Contact Mr. Li directly"
+    "contactLabel": "Contact Mr. Li directly",
+    "courseTitle": "Course planet",
+    "courseDesc": "Browse popular courses",
+    "planDesc": "View my study plan",
+    "kTitle": "Knowledge planet",
+    "kDesc": "Browse knowledge",
+    "videoTitle": "Learning videos",
+    "videoDesc": "Latest course videos",
+    "centerTitle": "Learning center",
+    "centerDesc": "Structured learning paths"
   },
   "liveChat": {
     "title": "Live Chat",
