@@ -62,8 +62,9 @@
  * 无需另设基线清单。
  *
  * 行内出口:`presence-exempt: <原因>`(**必须带原因**,裸标记不放行;只救本行或紧邻上一纯注释行)。
- * 如实登记:该豁免族尚未进守门 108 的 FAMILY_LIFETIME_DAYS(该文件在本票文件清单外),当前落
- * 108 的默认存活期档(90 天);给它定一个显式档位另计一票,不得为此顺手改判据。
+ * 如实登记(2026-10-23 修订本两行,原自述"该族尚未进守门 108 的 FAMILY_LIFETIME_DAYS、当前落默认
+ * 90 天档、定显式档位另计一票"已陈旧):该族随 108 的"整族补档"批次进了 FAMILY_LIFETIME_DAYS,
+ * 天数与理由以该表这一族的条目现读为准(§0.1,本注释不抄数,抄数必腐烂)。
  *
  * 覆盖面:apps/api/src/plugins/** 与 apps/api/src/middleware/**(若存在),外加 apps/ 与 packages/
  * 里文件名含 csrf|auth|permission|rate.?limit|internal 的 .ts/.tsx/.js/.jsx/.mjs/.cjs。
