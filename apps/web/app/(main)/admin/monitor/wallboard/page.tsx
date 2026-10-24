@@ -1656,7 +1656,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       type="button"
                       aria-label={`${target.job} ${stateWord(target.up === 1 ? 'up' : 'down')}`}
                       className={cn(
-                        'flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
+                        'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
                         target.up === 1
                           ? 'border-success/25 bg-success/10 text-success-text/90'
                           : 'border-destructive/30 bg-destructive/10 text-danger-text',
