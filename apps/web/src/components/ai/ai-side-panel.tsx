@@ -656,8 +656,14 @@ export function AISidePanel() {
         resetPager(cached.oldestCursor, cached.hasMore)
         setLoadingHistory(false)
 
-        // 后台异步拉取最新消息对比更新(不阻塞 UI,完成后覆盖缓存数据)
-        void (async () => {
+        // 后台异步拉取最新消息对比更新(不阻塞 UI,完成后覆盖缓存数据)。
+        // 必须 await:loadHistory 的 .finally 是续接点火点(见下方 runAfterHistory)。
+        // 若此处 fire-and-forget 立刻 return,续接会与这次整体覆盖赛跑 —— 覆盖回调里的
+        // isLocalMessagesChanged 只看"拉取期间本地是否被写入",而续接此刻正卡在
+        // resume/status 请求上、尚未写 store ⇒ 判成"本地未变",用服务端快照(不含未落库的
+        // 半截 assistant)整体覆盖 messages;随后 tail 的 appendToMessage 命中不到原 id,
+        // 静默丢弃(根窗格 e2e ④a 即此型;窗格主体是单腿 async,故 ④b 不受影响)。
+        await (async () => {
           // 记录拉取前的 messages 引用,识别拉取期间本地是否被写入(见 isLocalMessagesChanged)
           const localBefore = useChatStore.getState().messages
           try {
