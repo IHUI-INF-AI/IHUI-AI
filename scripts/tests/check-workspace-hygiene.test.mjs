@@ -304,6 +304,21 @@ test('WARNING: 硬编码中文路径 d:\\桌面\\foo → exit 0(warning 不阻�
   }
 })
 
+test('WARNING 例外: <root>/.ihui-agent/tmp/ 的一次性脚本含中文绝对路径 ⇒ 不报(可移植性判据不适用 scratch)', () => {
+  // 落点必须在**扫描根**的 .ihui-agent/tmp 下(门对根上的这一枝有专门扫描),否则测不到排除分支。
+  const sub = join(FIXTURE_ROOT, '.ihui-agent', 'tmp')
+  try {
+    const v = cat('d:', '\\', '桌面', '\\', 'foo')
+    mkdirSync(sub, { recursive: true })
+    writeFileSync(join(sub, 'v.mjs'), `const p = '${v}'\n`)
+    const r = runScript()
+    assert.equal(r.status, 0, `tmp 例外应 exit 0\nstderr: ${r.err}`)
+    assert.doesNotMatch(r.err, /v\.mjs/, `tmp 里的脚本不应被当作可移植性违规点名\nstderr: ${r.err}`)
+  } finally {
+    rmSync(join(FIXTURE_ROOT, '.ihui-agent'), { recursive: true, force: true })
+  }
+})
+
 // ─── 4. 豁免场景(行级白名单)→ 不检测 ─────────────────────
 
 test('豁免: 注释行(# 开头)含违规路径 → 不检测(exit 0)', () => {

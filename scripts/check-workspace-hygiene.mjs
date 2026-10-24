@@ -24,7 +24,7 @@
  *   a. 任何盘符 \temp\ 后跟非 .log/.txt 文件(项目数据写到系统 temp)
  *   b. \AppData\Local\Temp\ 后跟非 .log 文件
  *   c. $env:TEMP\ / $env:LOCALAPPDATA\ 后跟非 .log 文件
- *   d. 硬编码中文绝对路径(d:\桌面\ / d:\项目\ 等,GBK 会乱码)
+ *   d. 硬编码中文绝对路径(d:\桌面\ / d:\项目\ 等,GBK 会乱码);`.ihui-agent/tmp/` 的一次性脚本除外
  *   e. ihui-ext / ihui-prof 等项目数据目录名出现在项目外路径上下文
  *
  * 白名单:
@@ -348,7 +348,16 @@ function main() {
   const scannedCount = faceRes.scanned + (diskFiles.length - diskRes.unreadable);
 
   const blockingViolations = allViolations.filter(v => v.level === 'blocking');
-  const warningViolations = allViolations.filter(v => v.level === 'warning');
+  /**
+   * `.ihui-agent/tmp/` 是 §15 批准的一次性脚本落点(用完即删):那里允许绝对路径,
+   * 耐久代码才讲可移植性。**只把「硬编码中文绝对路径」这一条**从 tmp 面排除;
+   * 落点/垃圾/写入面等 blocking 规则照旧扫 tmp(那条职责不变)。
+   * 2026-10-25 实测:8 处告警全来自 .ihui-agent/tmp 的分析脚本,每轮审计都被读成"隐患"。
+   */
+  const isTmpLandingFile = (p) => /(^|\/)\.ihui-agent\/tmp(\/|$)/.test(String(p ?? '').replace(/\\/g, '/').toLowerCase());
+  const warningViolations = allViolations.filter(
+    v => v.level === 'warning' && !(v.name.startsWith('硬编码中文') && isTmpLandingFile(v.file)),
+  );
 
   if (allViolations.length === 0) {
     log.info(`✅ workspace-hygiene: 面=${faceKind} ⊕ 未跟踪磁盘件 ${diskFiles.length} 个;扫描 ${scannedCount} 个文件,无违规` + (faceRes.unreadable.length ? `;另 ${faceRes.unreadable.length} 个在册件在该面取不到内容 ⇒ 该部分未判定,不记绿` : ''));
