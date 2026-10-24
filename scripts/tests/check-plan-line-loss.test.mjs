@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 // 两把尺同判(T-D3h)的另一侧:旁路合并落地的自愈出口 —— 判据一律 import,不得复制(§22c)。
 import { postMergeLedgerSync } from '../lib/post-merge-ledger-sync.mjs'
+import { titleFpOf } from '../scrub-declared-removals.mjs'
 // 源脚本今日两种导出形态都成立:HEAD 仍导出 __test__,并行会话在制版已改成逐个具名导出。
 // 取 `__test__ ?? 模块命名空间`,同一批符号在此后两种形态下都能拿到 —— 断言强度一条不降,
 // 也让"删掉镜像测试"失去唯一理由(测试不会因源侧重命名而失效)。
@@ -1882,6 +1883,19 @@ test('端到端 --staged 阳性对照:吞掉唯一登记行照旧判红(新维�
   } finally {
     rmScratch(dir)
   }
+})
+
+test('题面前缀维:f11-purge 声明的同题行让号/改号后不被判丢(旧实现必红)', () => {
+  const base = '- [ ] **G-63. 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证**'
+  const declared = { set: new Set(), dropTitleFps: new Set([titleFpOf(base)]) }
+  // 无反例对照:只给空集 ⇒ 仍判丢(证明不是"凡 f11 主题都免")
+  assert.equal(G.lostMarkers(`${base}\n`, '- [ ] G-999 别的票\n', new Set()).length, 1)
+  assert.equal(
+    G.lostMarkers(`${base}\n`, '- [ ] G-999 别的票\n', { set: new Set(), dropTitleFps: new Set() }).length,
+    1,
+  )
+  // 正向:题面前缀相同(号不同)⇒ 免丢
+  assert.equal(G.lostMarkers(`${base}\n`, '- [ ] G-999 别的票\n', declared).length, 0)
 })
 
 test('端到端 全量档:同编号名额由 2 掉到 1 的历史存量不得判红(§12e 防恒红)', () => {

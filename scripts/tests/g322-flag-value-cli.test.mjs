@@ -695,4 +695,21 @@ test('G-322 第二十批:未注册档发布/运维 8 文件 10 站接单源判�
   assertBadFlag(S('verify-publish-adapters.mjs'), '--jwt', 'JWT 字符串', { eat: '--dry-run', rc: 2 })
   assertBadFlag(S('verify-publish-adapters.mjs'), '--api-url', 'API 地址', { eat: '--dry-run', rc: 2 })
 })
+
+// ─── 第二十一批(2026-10-25,台账票 L7635)───
+// 本批 10 站 / 10 文件:门与运维 CLI 的 --root/--dist/--today/--provider/--face 旧形
+// `argv[i+1]` 直取(或只挡 `--` 前缀/自写三态文案),值位被下一个旗标顶掉/结尾无值/空串
+// 三态不分,单划线 token 那格还漏。统一换 requireFlagValue 判死,文案只剩 lib 一份。
+test('G-322 第二十一批:十站三支坏值各自大声拒绝(rc 2 + 点名实得 token)', () => {
+  assertBadFlag(S('check-i18n-messages-exist.mjs'), '--root', '目录参数', { eat: '--staged', rc: 2 })
+  assertBadFlag(S('check-load-state-loaded-marks.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
+  assertBadFlag(S('check-migration-immutable.mjs'), '--root', '目录参数', { eat: '--staged', rc: 2 })
+  assertBadFlag(S('check-miniapp-build-artifacts.mjs'), '--dist', '目录参数', { eat: '--json', rc: 2 })
+  assertBadFlag(S('check-turn-ordinal-lock.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
+  assertBadFlag(S('check-txn-cancel-boundary.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
+  assertBadFlag(S('check-theme-prop-wiring.mjs'), '--root', '目录参数', { eat: '--json', rc: 2 })
+  assertBadFlag(S('check-tool-contract-declared.mjs'), '--today', 'ISO 日期(YYYY-MM-DD)', { eat: '--staged', rc: 2 })
+  assertBadFlag(S('scan-upstream-models.mjs'), '--provider', 'provider 代号', { eat: '--dry-run', rc: 2 })
+  assertBadFlag(S('sync-alpha-usage.mjs'), '--face', '面名(head|staged)', { eat: '--check', rc: 2 })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
