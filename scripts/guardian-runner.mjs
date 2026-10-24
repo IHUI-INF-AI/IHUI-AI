@@ -5358,7 +5358,9 @@ const checks = [
   //   判据只裁决**本次新增行**(存量只报数,§12e):复活已归档标记 ⇒ 红;同标记逐字孪生 ⇒ 红;
   //   改写/搬移(删旧+增新)与全新票放行。自证:`node scripts/check-plan-archive-monotonic.mjs --self-test`。
   {
-    id: '237',
+    // 2026-10-24 改号:原误登记 id '237' 与跨端页面覆盖对账撞号(门 89 R5 判红,串 skipEnv
+    // 与失败归属);后来者改号,判据面不动。
+    id: '239',
     label: '🈲 计划归档单调性(PROJECT_PLAN.md 已归档✅的票不得复活成未勾活行/逐字孪生回插)',
     script: 'check-plan-archive-monotonic.mjs',
     args: ['--staged'],
