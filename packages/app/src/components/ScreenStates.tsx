@@ -40,18 +40,37 @@ function Shimmer({ colorScheme, style }: { colorScheme: Scheme; style?: object }
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(v, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(v, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(v, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(v, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
       ]),
     )
     loop.start()
     return () => loop.stop()
   }, [v])
   const opacity = v.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0.85] })
-  return <Animated.View style={[{ backgroundColor: tk.text.tertiary, borderRadius: rnRadius.sm }, style, { opacity }]} />
+  return (
+    <Animated.View
+      style={[{ backgroundColor: tk.text.tertiary, borderRadius: rnRadius.sm }, style, { opacity }]}
+    />
+  )
 }
 
-export function ScreenSkeleton({ colorScheme = 'light', variant = 'list', count = 4, testID }: ScreenSkeletonProps) {
+export function ScreenSkeleton({
+  colorScheme = 'light',
+  variant = 'list',
+  count = 4,
+  testID,
+}: ScreenSkeletonProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const blocks = Array.from({ length: Math.max(1, count) }, (_, i) => i)
@@ -246,7 +265,7 @@ function createStyles(tk: AppThemeTokens) {
     stateGlyphCircle: {
       width: 64,
       height: 64,
-      borderRadius: 32,
+      borderRadius: 64 / 2,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.light,
@@ -260,7 +279,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 6,
       paddingHorizontal: 18,
       paddingVertical: 9,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.DEFAULT,
     },
     stateBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.foreground },
