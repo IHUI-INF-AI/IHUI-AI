@@ -7,9 +7,10 @@
  * check-plan-id-pool.mjs —— 号池对账门(2026-10-22 HEAD 存量归零后按 §12e 升 blocking;接线状态以 `guardian-runner.mjs` 注册条目现值为准,
  * 本头注不自称"已接"—— 守门 89 R1/R2 就是拦"声称已接而权威点零命中"的那一型)。立因(2026-10-14 真事故):
  *
- * 机主 2026-10-14 拍板「任务号全部 ≤3 位、个位数起」,这条硬上限**只写在发号器里**
- * (`lib/plan-id-lease.mjs` 的 `LEASE_POOL_MAX = 999`,`next-plan-id.mjs` 池满即拒绝发号)。
- * 活面上没有任何一道门拦"声明位号 >999 的登记行" ⇒ 谁绕过发号器就没人管:本会话实测就是
+ * 机主 2026-10-14 拍板「任务号全部 ≤3 位、个位数起」(2026-10-24 收紧为两位数:每族池 1..99,
+ * 族满开新字母族、永不升位数),这条硬上限**只写在发号器里**
+ * (`lib/plan-id-lease.mjs` 的 `LEASE_POOL_MAX`(本文件自 import,不另写字面量);`next-plan-id.mjs` 池满即拒绝发号)。
+ * 活面上没有任何一道门拦"声明位号 >LEASE_POOL_MAX 的登记行" ⇒ 谁绕过发号器就没人管:本会话实测就是
  * 直接用 `plan-task-index.usedIdsOfPrefix()` 的 `max + 1` 取号,拿到 `G-1080899 / G-1080900`
  * 两条七位号,并一路绿灯落地(提交 `f477d186ef`,已让号为 O23/O27,枚 `4ee12cb8bc`)。
  * §0.9:判据必须在真跑它的那一刻才成立;"规则写在 A 里、B 面无人守"就是这一型。
@@ -265,10 +266,10 @@ function selfTest() {
   const fail = []
   const NOTE = (n, k) => `- [ ] ${k} **事${n}**:正文交代得很长以便过闸。\n`
   // ① 超池识别
-  const face = `# t\n${NOTE(1, 'G-1038426')}${NOTE(2, 'O23')}${NOTE(3, 'D1047')}${NOTE(4, 'G-999')}${NOTE(5, 'O13b')}`
+  const face = `# t\n${NOTE(1, 'G-1038426')}${NOTE(2, 'O23')}${NOTE(3, 'D1047')}${NOTE(4, 'G-99')}${NOTE(5, 'O13b')}`
   const over = overPoolDeclarations(face)
   const keys = over.map((x) => x.key).sort()
-  if (keys.join(',') !== 'D1047,G-1038426') fail.push(`R1 识别错:${keys.join(',')} 应为 D1047,G-1038426(999/23/13b 不得算超池)`)
+  if (keys.join(',') !== 'D1047,G-1038426') fail.push(`R1 识别错:${keys.join(',')} 应为 D1047,G-1038426(99/23/13b 不得算超池)`)
   // ② 差值棘轮有牙:索引面把存量长号原样带着 ⇒ 不红;新带一条长号 ⇒ 红
   const headFace = `# t\n${NOTE(1, 'G-1038426')}${NOTE(2, 'O23')}`
   const sameFace = headFace
