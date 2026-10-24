@@ -18,7 +18,7 @@ import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenS
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 /**
  * PublishScreen 内容发布中心(共享层)
@@ -357,7 +357,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerTitle: {
       flex: 1,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
       textAlign: 'center',
@@ -368,22 +368,22 @@ function createStyles(tk: AppThemeTokens) {
     /* 统计条 */
     statsRow: {
       flexDirection: 'row',
-      gap: 8, // gap-2
-      marginHorizontal: 16, // mx-4
-      marginTop: 4,
-      marginBottom: 4, // mb-1
+      gap: rnSpacing.sm, // gap-2
+      marginHorizontal: rnSpacing.lg, // mx-4
+      marginTop: rnSpacing.xs,
+      marginBottom: rnSpacing.xs, // mb-1
     },
     statCard: {
       flex: 1,
       borderRadius: rnRadius.lg, // rounded-lg
-      padding: 8, // p-2
+      padding: rnSpacing.sm, // p-2
     },
     statLabel: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.text.secondary, // text-gray-500
     },
     statValue: {
-      fontSize: 16, // text-base
+      fontSize: rnType.title.size, // text-base
       fontWeight: '600',
       marginTop: 2, // mt-0.5
       color: tk.text.primary,
@@ -402,76 +402,76 @@ function createStyles(tk: AppThemeTokens) {
     },
     /* 列表 */
     listContent: {
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     /* 任务卡 */
     card: {
-      marginBottom: 12, // mb-3
+      marginBottom: rnSpacing.md, // mb-3
       borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
-      padding: 16, // p-4
+      padding: rnSpacing.lg, // p-4
       backgroundColor: tk.surface.card, // bg-white dark:bg-neutral-800
     },
     cardTopRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
       justifyContent: 'space-between',
-      gap: 8, // gap-2
+      gap: rnSpacing.sm, // gap-2
     },
     cardTitle: {
       flex: 1,
-      fontSize: 16, // text-base
+      fontSize: rnType.title.size, // text-base
       fontWeight: '500', // font-medium
       color: tk.text.primary,
     },
     badge: {
       borderRadius: rnRadius.md, // rounded-md
-      paddingHorizontal: 8, // px-2
+      paddingHorizontal: rnSpacing.sm, // px-2
       paddingVertical: 2, // py-0.5
     },
     badgeText: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       fontWeight: '500', // font-medium
     },
     cardPlatforms: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       marginTop: 6, // mt-1.5
       color: tk.text.secondary, // text-gray-500
     },
     cardTime: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       marginTop: 6, // mt-1.5
       color: tk.text.tertiary, // text-gray-400
     },
     cardError: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       marginTop: 6, // mt-1.5
       color: tk.danger.DEFAULT, // text-red-500
     },
     cardActions: {
       flexDirection: 'row',
-      marginTop: 8, // mt-2
-      gap: 8, // gap-2
+      marginTop: rnSpacing.sm, // mt-2
+      gap: rnSpacing.sm, // gap-2
     },
     actionBtn: {
       borderRadius: rnRadius.sm, // rounded-sm
       paddingHorizontal: 10, // px-2.5
-      paddingVertical: 4, // py-1
+      paddingVertical: rnSpacing.xs, // py-1
     },
     actionBtnGhost: {
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
     },
     actionBtnGhostText: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.text.secondary, // text-gray-500
     },
     actionBtnPrimary: {
       backgroundColor: tk.brand.cta, // bg-orange-600 → 共享层品牌主色
     },
     actionBtnPrimaryText: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.brand.ctaForeground, // text-white
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
