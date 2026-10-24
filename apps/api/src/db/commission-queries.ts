@@ -107,7 +107,8 @@ export async function deductToken(
   userId: string,
   quantity: number,
   remark?: string,
-): Promise<number> {
+  relatedOrderNo?: string,
+): Promise<{ balanceAfter: number; flowId: string }> {
   await ensureMargin(userId)
   // P1-1 行锁原子 UPDATE:WHERE 条件内联 token_quantity >= quantity,消除 SELECT→UPDATE 跨事务 TOCTOU
   const result = await db.transaction(async (tx) => {
@@ -117,14 +118,21 @@ export async function deductToken(
       .where(and(eq(userMargins.userId, userId), sql`token_quantity >= ${quantity}`))
       .returning()
     if (!updated) throw new Error('Token 余额不足')
-    await tx.insert(tokenFlows).values({
-      userId,
-      opType: 1,
-      quantity,
-      balanceAfter: updated.tokenQuantity,
-      remark: remark ?? '扣减',
-    })
-    return updated.tokenQuantity
+    const [flowRow] = await tx
+      .insert(tokenFlows)
+      .values({
+        userId,
+        opType: 1,
+        quantity,
+        balanceAfter: updated.tokenQuantity,
+        remark: remark ?? '扣减',
+      // 关联单号透传:扣减流水若丢了订单号,支付历史就再也对不回那一单(下面这条链的调用方
+      // 正是"支付历史"路由,它此前自己写了一份读-改-写实现,现改复用本函数,单号必须留住)
+        ...(relatedOrderNo ? { relatedOrderNo } : {}),
+      })
+      .returning({ id: tokenFlows.id })
+    if (!flowRow) throw new Error('扣减流水写入失败')
+    return { balanceAfter: updated.tokenQuantity, flowId: flowRow.id }
   })
   return result
 }
