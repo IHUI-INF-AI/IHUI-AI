@@ -53,36 +53,37 @@ export default function AccountCancelScreen() {
   const onSendSms = useCallback(async () => {
     const phone = inputPhone.trim()
     if (!phone) {
-      appAlert('提示', '请先输入手机号')
+      appAlert(t('home.pubTip'), t('account.phoneRequired'))
       return
     }
     if (!/^1\d{10}$/.test(phone)) {
-      appAlert('提示', '请输入正确的手机号')
+      appAlert(t('home.pubTip'), t('account.phoneInvalid'))
       return
     }
     // 真实发送短信验证码(对齐原项目 account-cancel.vue onGetCode → sendTextMsg)
     const res = await sendSmsCode(phone, 'login')
     if (res.success) {
-      appAlert('提示', '验证码已发送')
+      appAlert(t('home.pubTip'), t('account.smsSent'))
       setCountdown(60)
     } else {
-      appAlert('提示', res.error ?? '验证码发送失败，请稍后重试')
+      appAlert('提示', res.error ?? t('account.smsFailRetry'))
     }
-  }, [inputPhone])
+  }, [inputPhone, t])
 
   const validate = useCallback((): string => {
-    if (!inputPhone.trim()) return '请输入手机号'
-    if (!/^1\d{10}$/.test(inputPhone.trim())) return '请输入正确的手机号'
-    if (!smsCode.trim()) return '请输入短信验证码'
-    if (smsCode.trim().length < 4) return '验证码至少 4 位'
-    if (confirmText.trim() !== CONFIRM_SENTENCE) return `请输入「${CONFIRM_SENTENCE}」确认注销`
+    if (!inputPhone.trim()) return t('account.phoneRequired')
+    if (!/^1\d{10}$/.test(inputPhone.trim())) return t('account.phoneInvalid')
+    if (!smsCode.trim()) return t('account.smsRequired')
+    if (smsCode.trim().length < 4) return t('account.smsMin')
+    if (confirmText.trim() !== CONFIRM_SENTENCE)
+      return t('account.confirmHint', { s: CONFIRM_SENTENCE })
     return ''
-  }, [inputPhone, smsCode, confirmText])
+  }, [inputPhone, smsCode, confirmText, t])
 
   const onSubmit = useCallback(async () => {
     const err = validate()
     if (err) {
-      appAlert('提示', err)
+      appAlert(t('home.pubTip'), err)
       return
     }
     setSubmitting(true)
@@ -90,12 +91,12 @@ export default function AccountCancelScreen() {
       // 真实注销接口(对齐原项目 accountCancel → DELETE /login/cancel;RN 后端为 POST /api/settings/delete-account)
       const res = await deleteAccount(smsCode.trim(), '用户主动申请注销')
       if (!res.success) {
-        appAlert('提示', res.error ?? '提交失败，请稍后重试')
+        appAlert('提示', res.error ?? t('account.failRetry'))
         return
       }
-      appAlert('注销成功', '您的账号已注销', [
+      appAlert(t('account.okTitle'), t('account.okBody'), [
         {
-          text: '知道了',
+          text: t('common.gotIt'),
           onPress: () => {
             void logout()
           },
@@ -103,11 +104,11 @@ export default function AccountCancelScreen() {
       ])
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      appAlert('提示', detail.trim() ? toUserFriendlyMessage(e) : '提交失败，请稍后重试')
+      appAlert('提示', detail.trim() ? toUserFriendlyMessage(e) : t('account.failRetry'))
     } finally {
       setSubmitting(false)
     }
-  }, [validate, logout, smsCode])
+  }, [validate, logout, smsCode, t])
 
   return (
     <SharedAccountCancelScreen
