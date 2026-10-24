@@ -1,3 +1,9 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
 # AGENTS.md 移出原文 —— 2026-10-24(守门 207 体积清偿第 3 批)
 
 - 出处:AGENTS.md @ HEAD `8d6b4369f19ca28c215227a2c7956c978523c152`(2026-10-24)
@@ -122,3 +128,34 @@
 - 压缩版说明原文(已精简为取法一句):
 
 > **本文件为 2026-10-14 / 2026-10-21 两次压缩版**:规则条款全部保留;被压掉的历史原文**不在工作树** —— 2026-10-16 `7a77c44d86c` 已清除 `.ihui-agent/archive/` 全部存料(本节原引的三份归档,只有第一份曾存在过,且不在原登记的那个 sha 里)。要查时从 git 历史取:`git show 3017301fd0b:.ihui-agent/archive/AGENTS_full-pre-compact-2026-10-14.md`(实测 1,262,819 字节;原登记 `c7834a8f0388` / 1,261,607 字节均不成立)、二次压缩前原文 `git show 6efeeadc20c^:AGENTS.md`。本文与历史原文冲突时以本文为准;本文未写的历史案例按上述历史面查 —— 不再有独立的 archive 副本可翻。
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+---
+
+## 附录 2:2026-10-24 第 2 轮移出(同题重复副本 4 行)
+
+- 出处:AGENTS.md @ HEAD `cead297f1a99cd5e7635b13e72b983a46afbdcd6`;仅删重复副本,每条覆盖关系在下面逐条写明,被删行逐字保留。
+
+### 原 L120(721 B)
+
+- 覆盖关系:「git 网络与推送」旧版副本(721B):L407 新版(928B,含 pre-rebase 硬拦与"只有 origin 一个远端")逐条覆盖,本条独有内容 0
+
+- **git 网络与推送**:同步一律 `git fetch <remote> main` + `git merge --ff-only FETCH_HEAD`,**禁止 `git pull --rebase`**。**agent 禁止手写 `git push`**:origin 由 post-commit `git-push-guard.mjs` 自动异步推送(ahead 检测+后台 worker+回读验证,状态 `.ihui-agent/state/push-state.json`);**仓库只有 `origin` 一个远端**:国内代码镜像(Gitee/GitCode)与 `mirror-to-cn.yml` 作业已于 2026-10-23 整体弃用并删除,见到残留远端或跟踪引用应删掉而不是修。收尾核验只跑 `node scripts/git-push-converge.mjs`(只读六态);遇 non-FF 跑 `node scripts/git-sync-converge.mjs`(索引层合并,零触碰他人未提交文件),禁止手工 fetch/merge/push 循环。
+
+### 原 L387(1118 B)
+
+- 覆盖关系:「只读尺子/派生器/核验器」旧版副本(1118B):L406 新版(1484B)含其全部 23 枚脚本且有新增,本条独有脚本 0
+
+- 只读尺子/派生器/核验器(不在 runner,不进提交链,也不进守护巡检轮): `check-temp-landing.mjs` `check-dispatch-premise.mjs` `check-alertmanager-live-config.mjs` `check-monitor-runtime-parity.mjs` `check-tunnel-leg-health.mjs` `check-prod-checkout-foreign-work.mjs`(git-guardian 巡检轮派生,`--json` 只判不修;未跟踪洪水只计数不判定) `verify-panel-data.mjs` `verify-panel-logql.mjs` `verify-grafana-panel-data.mjs` `verify-grafana-logql-panels.mjs` `sync-panel-live-provisioning.mjs` `sync-grafana-live-provisioning.mjs`(仓内 provisioning 是唯一真相 ⇒ 派生到部署机运行副本,连不上的源不写入并点名原因;幂等 + `pre-sync-backups/` 退路;`--check` 零副作用;大屏核验五档 有数/全零/空板/失败/未判定,全零 ≠ 空板,不许接提交门) `strip-stale-closed-rows.mjs` `strip-stale-claim-marks.mjs` `env-backfill-model-keys.mjs` `quarantine-disk-root-strays.mjs` `git-refs-heal.mjs` `git-backup-refresh.mjs` `git-sync-converge.mjs` `git-push-converge.mjs` `git-push-guard.mjs` `heal-worktree-tracked.mjs` `sync-lost-commit-tags.mjs`
+
+### 原 L389(1329 B)
+
+- 覆盖关系:「常驻工具」清单(1329B):L388 已是同一份的归档指针,本条即被回插的那份副本
+
+- 常驻工具(不在 runner,勿当没装车): `watermark.mjs` `guardian-runner.mjs` `safe-commit.mjs` `git-guardian.mjs` `git-lock.mjs` `deploy-lock.mjs` `union-converge.mjs` `merge-live-doc.mjs` `live-doc-edit.mjs` `object-space-land.mjs` `gate-registry-insert.mjs` `plan-tasks.mjs` `plan-tasks-merge.mjs` `plan-pointer-purge.mjs` `plan-task-index.mjs` `plan-fields.mjs` `plan-field-line.mjs` `plan-row-conservation.mjs` `plan-fields-extract.mjs` `plan-line-age.mjs` `bypass-git.mjs` `face-reader.mjs` `code-mask.mjs` `scratch-dir.mjs` `key-dir.mjs` `secret-path.mjs` `seal-c-root-stray.mjs` `scrub-temp-fixtures.mjs` `c-disk-breakdown.mjs` `plan-union-merge.mjs` `run-evidence.mjs` `visible-window-probe.mjs` `install-console-window-hook.mjs` `audit-pane-store-addressing.mjs` `commit-gate-attribution.mjs` `plan-bypass-ledger-report.mjs` `alert-volume-report.mjs` `provenance-ledger.mjs` `module-context.mjs` `desktop-build.mjs` `git-refs-heal.mjs` `git-backup-refresh.mjs` `heal-worktree-tracked.mjs` `git-sync-converge.mjs` `git-push-converge.mjs` `git-push-guard.mjs` `msvc-env.mjs` `desktop-unsigned-config.mjs` `desktop-build-saas.mjs` `desktop-dev-saas.mjs` `gen-line-icons.mjs` `post-commit-hook.js` `release-desktop-local.mjs` `notify-deploy-failure.ts` `start-dev.ps1` `hook-run-hidden.vbs` `ensure-silent-tasks.mjs`
+
+### 原 L401(600 B)
+
+- 覆盖关系:「git 网络与推送」更旧副本(600B):内容为 L120 子集、亦被 L407 覆盖
+
+- **git 网络与推送**:同步一律 `git fetch <remote> main` + `git merge --ff-only FETCH_HEAD`,**禁止 `git pull --rebase`**。**agent 禁止手写 `git push`**:origin 由 post-commit `git-push-guard.mjs` 自动异步推送(ahead 检测+后台 worker+回读验证,状态 `.ihui-agent/state/push-state.json`);Gitee/GitCode 由 `mirror-to-cn.yml` CI 镜像,本地手推 = 违反架构。收尾核验只跑 `node scripts/git-push-converge.mjs`(只读六态);遇 non-FF 跑 `node scripts/git-sync-converge.mjs`(索引层合并,零触碰他人未提交文件),禁止手工 fetch/merge/push 循环。
