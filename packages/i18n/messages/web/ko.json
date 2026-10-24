@@ -729,6 +729,7 @@
       "errRateWindow": "최근 5분 기준",
       "eventsTitle": "시스템 이벤트",
       "footerSources": "데이터 소스 · Prometheus {url} / Alertmanager / PostgreSQL / Redis · 모두 프로덕션 실시간 수집",
+      "footerDataAge": "데이터 경과 {duration}",
       "footerUptime": "가동 시간 · {list}",
       "gaugeCpu": "CPU",
       "gaugeMem": "메모리",

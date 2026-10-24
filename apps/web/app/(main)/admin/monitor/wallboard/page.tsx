@@ -353,6 +353,15 @@ function makeFmt(locale: string, t: WallboardT) {
       if (Number.isNaN(d.getTime())) return '—'
       return d.toLocaleTimeString(locale, { hour12: false })
     },
+    /** 事件流用:当天只显示时分秒,跨天补 MM-DD(否则隔夜事件看不出哪一天)。 */
+    fmtStamp(iso: string | null | undefined): string {
+      if (!iso) return '—'
+      const d = new Date(iso)
+      if (Number.isNaN(d.getTime())) return '—'
+      const time = d.toLocaleTimeString(locale, { hour12: false })
+      if (d.toDateString() === new Date().toDateString()) return time
+      return `${d.toLocaleDateString(locale, { month: '2-digit', day: '2-digit' })} ${time}`
+    },
     fmtAgo(iso: string | null | undefined): string {
       if (!iso) return '—'
       const ts = new Date(iso).getTime()
@@ -553,7 +562,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const locale = useLocale()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
-  const { fmtInt, fmtCompact, fmtRate, fmtDuration, fmtClock, fmtAgo } = makeFmt(locale, t)
+  const { fmtInt, fmtCompact, fmtRate, fmtDuration, fmtClock, fmtStamp, fmtAgo } = makeFmt(
+    locale,
+    t,
+  )
   const [now, setNow] = React.useState(() => new Date())
   React.useEffect(() => {
     // 只服务数据年龄(15s 阈值)与当前小时;秒级刷新由 <LiveClock /> 自己承担。
@@ -754,6 +766,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           smooth: true,
           showSymbol: false,
           data: (trend?.qps ?? []).map(([, v]) => Number(v.toFixed(2))),
+          tooltip: { valueFormatter: (v) => `${v} ${t('axisReqPerSec')}` },
           ...seriesGlow(CHART_CYAN),
           areaStyle: {
             color: {
@@ -1008,6 +1021,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             ...(i === hours.length - 1 ? { itemStyle: { color: CHART_CYAN } } : {}),
           })),
           barWidth: '62%',
+          tooltip: { valueFormatter: (v) => `${v} ${t('unitPv')}` },
           itemStyle: {
             borderRadius: [2, 2, 0, 0],
             color: {
@@ -1025,7 +1039,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [trend?.hourlyCalls, isDark, nowHour])
+  }, [trend?.hourlyCalls, isDark, nowHour, t])
 
   const modelOption = React.useMemo<EChartsOption>(() => {
     const models = [...(biz?.llmTopModels ?? [])].reverse()
@@ -1055,6 +1069,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           type: 'bar',
           data: models.map((m) => m.calls),
           barWidth: 12,
+          tooltip: { valueFormatter: (v) => `${v} ${t('unitPv')}` },
           label: { show: true, position: 'right', color: chartText(isDark), fontSize: 10 },
           itemStyle: {
             borderRadius: [0, 6, 6, 0],
@@ -1073,7 +1088,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [biz?.llmTopModels, isDark])
+  }, [biz?.llmTopModels, isDark, t])
 
   // 近 7 日签到人数:纯柱形,横轴只留 MM-DD,纵轴标签隐藏(格子小,数字已标在柱顶)
   const signInOption = React.useMemo<EChartsOption>(() => {
@@ -1103,12 +1118,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           type: 'bar',
           data: rows.map((r) => r.users),
           barWidth: 9,
+          tooltip: { valueFormatter: (v) => `${v} ${t('unitUser')}` },
           itemStyle: { borderRadius: [3, 3, 0, 0], color: withAlpha(CHART_GREEN, 0.85) },
           label: { show: true, position: 'top', color: chartText(isDark), fontSize: 9 },
         },
       ],
     }
-  }, [biz?.signIn?.last7d, isDark])
+  }, [biz?.signIn?.last7d, isDark, t])
 
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
@@ -1866,7 +1882,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         {e.type}
                       </span>
                       <span className="ml-auto shrink-0 text-[9px] text-muted-foreground">
-                        {fmtClock(e.createdAt)}
+                        {fmtStamp(e.createdAt)}
                       </span>
                     </div>
                     <Tooltip content={e.message}>
@@ -2484,6 +2500,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
 
         <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 pt-1 pb-2 text-[10px] text-muted-foreground">
           <span>{t('footerSources', { url: ov?.prometheusUrl ?? '—' })}</span>
+          <span className={cn('wb-num', dataStale && 'text-warning-text/90')}>
+            {t('footerDataAge', {
+              duration: dataAgeMs === null ? '—' : fmtDuration(dataAgeMs / 1000),
+            })}
+          </span>
         </footer>
       </div>
     </TooltipProvider>

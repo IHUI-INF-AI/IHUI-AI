@@ -732,6 +732,7 @@
       "errRateWindow": "近 5 分钟窗口",
       "eventsTitle": "系统事件流",
       "footerSources": "数据源 · Prometheus {url} / Alertmanager / PostgreSQL / Redis · 全部为生产在线端实时采集",
+      "footerDataAge": "数据年龄 {duration}",
       "footerUptime": "运行时长 · {list}",
       "gaugeCpu": "CPU",
       "gaugeMem": "内存",
