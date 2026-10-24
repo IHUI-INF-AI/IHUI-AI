@@ -136,7 +136,9 @@ class TestConstants:
         }
 
     def test_pillar_events_count(self):
-        assert len(PILLAR_EVENTS) == 26
+        # 27 = 原 26 条 + D121 片一新增的 `subagent.handoff`(团队换手事件)。
+        # 这条断言是"事件族成员变更必须被显式复核"的计数锁:改数字必须同笔说明来源。
+        assert len(PILLAR_EVENTS) == 27
 
     def test_pillar_events_all_have_descriptions(self):
         for key, desc in PILLAR_EVENTS.items():

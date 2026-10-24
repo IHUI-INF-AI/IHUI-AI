@@ -70,6 +70,13 @@ class Settings(BaseSettings):
     # Agent tool loop 最大轮数(被 llm.py /llm/complete/stream 读取,2026-07-24 修复硬编码 3 的 bug)
     # 8 轮可覆盖"截图→识别→点击→再截图→输入→提交"等多步操作,同时留 2 轮余量防失控
     max_agent_iterations: int = 8
+    # D120(2026-10-24):轮次预算弹性续跑 —— 单期预算触及上限时允许续期的次数
+    # (0 = 关闭,默认 2 次)。env AGENT_BUDGET_RENEWALS(别名 MAX_AGENT_BUDGET_RENEWALS)可调;
+    # 刻意不改 max_agent_iterations 的原语义(它仍是"每期"预算,不是总预算)。
+    agent_budget_renewals: int = 2
+    # D120:每次续期追加的轮数(默认 +2)。env AGENT_BUDGET_RENEWAL_TURNS 可调;
+    # 续期是显式、有限、可观测的预算追加,总成本/超时/取消信号仍由既有闸门生效。
+    agent_budget_renewal_turns: int = 2
     # Sliding window:系统消息始终保留 + 最近 N 轮 user/assistant + 当前输入
     # 默认 6 轮,总消息数 ≤ 13(1 system + 12 turn + 1 current,实际 N*2+1)
     chat_history_window: int = 6
