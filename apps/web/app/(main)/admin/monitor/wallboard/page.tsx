@@ -317,6 +317,8 @@ function makeFmt(locale: string, t: WallboardT) {
     },
     fmtDuration(seconds: number | null | undefined): string {
       if (typeof seconds !== 'number' || !Number.isFinite(seconds)) return '—'
+      // <60s 必须落到秒档:原实现直接落到「N分」⇒ 3 秒聚合龄显示成「0分」。
+      if (seconds < 60) return t('durationSecs', { s: Math.max(0, Math.floor(seconds)) })
       const d = Math.floor(seconds / 86400)
       const h = Math.floor((seconds % 86400) / 3600)
       if (d > 0) return t('durationDays', { d, h })
@@ -391,6 +393,11 @@ function Dot({ tone }: { tone: StatusTone | 'idle' }) {
             ? 'bg-muted-foreground/60'
             : 'bg-muted-foreground'
   return <span className={cn('inline-block h-1.5 w-1.5 rounded-full', color)} />
+}
+
+/** 数据源状态三态:未到数(undefined)必须落灰,不得默认染红(§0.3 未判定不冒充故障)。 */
+function sourceTone(state: string | undefined): StatusTone | 'idle' {
+  return state === 'up' ? 'ok' : state === 'down' ? 'bad' : 'unknown'
 }
 
 function MiniBar({ pct, tone }: { pct: number; tone?: 'ok' | 'warn' | 'bad' }) {
@@ -605,6 +612,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         hour12: false,
       }),
     )
+    // 错误率与 P95 量纲差三个数量级:共用一个右轴时错误率恒贴底(实测不可见)。
+    // 错误率走隐藏的第三轴(0..实测峰值×1.2),只由 tooltip 读数,不占轴标签。
+    const errPctMax = Math.max(0.1, ...(trend?.errRate ?? []).map(([, v]) => v * 100)) * 1.2
     return {
       grid: { left: 42, right: 46, top: 26, bottom: 22 },
       legend: {
@@ -634,6 +644,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ...AXIS(isDark),
           splitLine: { show: false },
         },
+        {
+          type: 'value',
+          min: 0,
+          max: Number(errPctMax.toFixed(3)),
+          show: false,
+        },
       ],
       series: [
         {
@@ -660,7 +676,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         {
           name: t('legendErrRate'),
           type: 'line',
-          yAxisIndex: 1,
+          yAxisIndex: 2,
           smooth: true,
           showSymbol: false,
           data: (trend?.errRate ?? []).map(([, v]) => Number((v * 100).toFixed(3))),
@@ -751,7 +767,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       '5xx': CHART_RED,
       other: chartText(isDark),
     }
-    const data = (http?.statusRates ?? []).map((s) => ({
+    // 零占比类目不进环图(否则 legend/标签里挤出一串 0%);占比读数统一由右侧 legend 承担,
+    // 环内只标 ≥10% 的类目 —— 2xx 常占 99%+,原先四个标签全挤在环外左上角且互相压字。
+    const rows = (http?.statusRates ?? []).filter((s) => s.rate > 0)
+    const total = rows.reduce((acc, s) => acc + s.rate, 0)
+    const data = rows.map((s) => ({
       name: s.klass,
       value: Number(s.rate.toFixed(3)),
       itemStyle: { color: klassColor[s.klass] ?? chartText(isDark) },
@@ -763,23 +783,39 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         borderColor: chartAxis(isDark),
         textStyle: { color: fg(isDark), fontSize: 11 },
       },
+      legend: {
+        orient: 'vertical',
+        right: 4,
+        top: 'middle',
+        itemWidth: 8,
+        itemHeight: 8,
+        itemGap: 8,
+        textStyle: { color: chartText(isDark), fontSize: 10 },
+        formatter: (name: string) => {
+          const item = data.find((d) => d.name === name)
+          const pct = item && total > 0 ? (item.value / total) * 100 : 0
+          return `${name}  ${pct.toFixed(pct >= 10 ? 1 : 2)}%`
+        },
+      },
       series: [
         {
           type: 'pie',
-          radius: ['42%', '68%'],
-          center: ['50%', '52%'],
+          radius: ['42%', '66%'],
+          center: ['38%', '52%'],
           label: {
-            color: chartText(isDark),
+            show: true,
+            position: 'inside',
+            color: fg(true),
             fontSize: 10,
-            formatter: `{b}\n{c}${t('piePerSecSuffix')}`,
+            formatter: (p) => ((p.percent ?? 0) >= 10 ? `${(p.percent ?? 0).toFixed(1)}%` : ''),
           },
-          labelLine: { lineStyle: { color: withAlpha(chartText(isDark), 0.5) } },
+          labelLine: { show: false },
           itemStyle: { borderColor: chartBg(isDark), borderWidth: 2 },
           data,
         },
       ],
     }
-  }, [http?.statusRates, t, isDark])
+  }, [http?.statusRates, isDark])
 
   // 主机 CPU / 内存走势(补齐 trend.cpuPct / trend.memPct 两个已返回未上屏的序列)
   const hostTrendOption = React.useMemo<EChartsOption>(() => {
@@ -811,7 +847,15 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         boundaryGap: false,
         axisLabel: { show: false },
       },
-      yAxis: { type: 'value', min: 0, max: 100, ...AXIS(isDark), splitLine: { show: false } },
+      yAxis: {
+        type: 'value',
+        min: 0,
+        max: 100,
+        splitNumber: 2,
+        ...AXIS(isDark),
+        axisLabel: { color: chartText(isDark), fontSize: 9 },
+        splitLine: { show: false },
+      },
       series: [
         {
           name: t('cpuLegend'),
@@ -833,8 +877,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     }
   }, [trend, locale, t, isDark])
 
+  // 只画到今天当前小时:把未到的时段画成 0 柱会被读成「这些时段没有流量」。
+  const nowHour = now.getHours()
   const hourlyOption = React.useMemo<EChartsOption>(() => {
-    const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+    const hours = Array.from({ length: nowHour + 1 }, (_, i) => String(i).padStart(2, '0'))
     const byHour = new Map((trend?.hourlyCalls ?? []).map((r) => [r.hour, r.calls]))
     return {
       grid: { left: 40, right: 12, top: 16, bottom: 22 },
@@ -868,7 +914,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [trend?.hourlyCalls, isDark])
+  }, [trend?.hourlyCalls, isDark, nowHour])
 
   const modelOption = React.useMemo<EChartsOption>(() => {
     const models = [...(biz?.llmTopModels ?? [])].reverse()
@@ -1065,19 +1111,18 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <div className="wb-hdr-sources flex items-center gap-1.5">
             {(
               [
-                [t('srcPrometheus'), ov?.sources.prometheus],
-                [t('srcAlertmanager'), ov?.sources.alertmanager],
-                [t('srcDatabase'), ov?.sources.database],
-                [t('srcEdge'), ov?.sources.edge],
+                [t('srcPrometheus'), ov?.sources?.prometheus],
+                [t('srcAlertmanager'), ov?.sources?.alertmanager],
+                [t('srcDatabase'), ov?.sources?.database],
+                [t('srcEdge'), ov?.sources?.edge],
               ] as Array<[string, string | undefined]>
             ).map(([name, state]) => (
-              <span
-                key={name}
-                className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
-              >
-                <Dot tone={state === 'up' ? 'ok' : 'bad'} />
-                {name}
-              </span>
+              <Tooltip key={name} content={name}>
+                <span className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground">
+                  <Dot tone={sourceTone(state)} />
+                  <span className="wb-src-name">{name}</span>
+                </span>
+              </Tooltip>
             ))}
           </div>
 
@@ -1314,7 +1359,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <SourceGap text={t('sourceUnreachable')} />
               )
             }
-            bodyClassName="max-h-[540px] overflow-y-auto"
+            bodyClassName="flex max-h-[540px] flex-col overflow-y-auto"
           >
             <div className="space-y-1">
               {ov !== undefined && services === null ? (
@@ -1364,7 +1409,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </div>
               ))}
             </div>
-            <div className="mt-4">
+            <div className="mt-auto pt-4">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('scrapeTargets', {
                   up: services ? String(services.targetsUp) : '—',
@@ -1475,7 +1520,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                    全零柱渲染成「今日无流量」(§0.3) */
                 <ChartEmpty
                   text={
-                    ov?.sources.database === 'down' ? t('sourceUnreachable') : t('noCallsToday')
+                    ov?.sources?.database === 'down' ? t('sourceUnreachable') : t('noCallsToday')
                   }
                 />
               ) : null}
@@ -1489,7 +1534,16 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             className="wb-c6"
             right={
               <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                <span>
+                <span className="flex items-center gap-1">
+                  <Dot
+                    tone={
+                      isUnset(bridge?.mailUndelivered)
+                        ? 'unknown'
+                        : bridge.mailUndelivered
+                          ? 'bad'
+                          : 'ok'
+                    }
+                  />
                   {isUnset(bridge?.mailUndelivered)
                     ? t('statusUnknown')
                     : bridge.mailUndelivered === false
@@ -1695,7 +1749,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </span>
                 )}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-6 grid gap-1.5">
                 <StatCell label={t('redisClients')} value={fmtInt(redis?.clients)} tone="accent" />
                 <StatCell label={t('redisKeys')} value={fmtInt(redis?.keys)} />
                 <StatCell
@@ -2042,7 +2096,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             bodyClassName="wb-split"
           >
             <div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-6 grid gap-1.5">
                 <StatCell
                   label={t('pv24h')}
                   value={fmtInt(traffic?.pv24h)}
@@ -2316,11 +2370,21 @@ const WALLBOARD_CSS = `
 /* 均匀列网格:列数由容器宽决定,不再用视口断点(实测容器宽与视口不同步)。
  * 104 = 实测最大标签需求 99px + 余量;135 = 反算自原设计(容器 914 时 6 栏、gap 10 ⇒ 6×135+5×10=860≤882)。
  * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。 */
-.wb-cells { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+.wb-cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+/* 6 格一组(Redis / 访客):auto-fit 在半宽面板里只能排 5 列 ⇒ 第 6 格单独一行。
+ * 这里固定 3 列 ×2 行(总行数与 5+1 相同,但不再出现孤格);<480 落 2 列。 */
+.wb-cells-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@container (max-width: 479px) { .wb-cells-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wb-cells-lg { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
+/* KPI 带按容器宽分档:1440 视口下容器 ~786px,auto-fit(135) 只排 5 列,第 6 张会单独
+ * 占一行的 1/5(实测 2026-10-24)。≥900 六列一行、600–899 三列两行、<600 两列。 */
+@container (min-width: 900px) { .wb-cells-lg { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@container (min-width: 600px) and (max-width: 899px) { .wb-cells-lg { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (max-width: 599px) { .wb-cells-lg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wb-hdr-title h1, .wb-hdr-title p, .wb-hdr-status, .wb-hdr-sources { white-space: nowrap; }
 @container (max-width: 996px) {
-  .wb-hdr-sources { display: none; }
+  /* 窄容器只收掉文字、保留四个状态点(悬停 Tooltip 给全名),不再整块隐藏数据源 */
+  .wb-src-name { display: none; }
 }
 /* .wb-scroll-host 的 container-type 已迁 app/globals.css(与 .ai-input-toolbar/.account-card 同族);
  * 它原本住在这里 ⇒ 只在 wallboard 视图挂载,面板视图没有容器,@container 会退回按视口判定。
