@@ -274,6 +274,7 @@ node scripts/guardian-runner.mjs --staged     # pre-commit 全批
 node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」对账
 node scripts/check-identity-principal-source.mjs --staged  # 「身份主体取自 auth 层从不填充的 request.user」对账(2026-10-25 立;crew/knowledge 匿名越权族根治;W1/W3 绝对零容忍 + W2 差值棘轮)
 node scripts/check-guarded-write-affected.mjs --staged   # 「额度扣减不读回影响行 / 资金回调用 SUCCESS 吞掉失败」对账(2026-10-25 立;积分兑换超卖 + 提现冻结黑洞根治)
+node scripts/check-readout-and-timer-hygiene.mjs --staged  # 「定时器句柄被覆盖而未先停旧 / 读数分母可能为零」对账(2026-10-25 立;支付轮询僵尸 + 看板 NaN% 上屏根治)
 ```
 
 新增一道门**必须**用 `node scripts/gate-registry-insert.mjs`(自己取空闲号、自己保住别人的注册块),
