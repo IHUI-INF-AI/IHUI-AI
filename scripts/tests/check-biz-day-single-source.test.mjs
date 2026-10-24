@@ -64,6 +64,11 @@ ok('246 射程 apps/api/src/', Boolean(entry) && /apps\/api\/src\//.test(entry))
 // 覆盖面自锁:两台器物必须是复用的
 const gate = readFileSync(path.join(ROOT, 'scripts', 'check-biz-day-single-source.mjs'), 'utf8')
 ok('门体复用 code-mask 与 batch-write-lexer', /from '\.\/lib\/code-mask\.mjs'/.test(gate) && /from '\.\/lib\/batch-write-lexer\.mjs'/.test(gate))
+ok('取材复用面读取层(catBatch),清单与内容同面同轮', /from '\.\/lib\/face-reader\.mjs'/.test(gate) && /catBatch\(/.test(gate))
+// 反向锁:逐文件派生 git 在真仓是上千次进程创建(§5b fork 风暴同型),`git show rev:path` 还会撞
+// Windows 32k 命令行上限 —— 本门第一版就是这么写的,HEAD 面实测"被审面取不到 ⇒ 未判定"。
+ok('门体不得逐文件 git show 取材', !/spawnSync\('git', \['show', `\$\{/.test(gate))
+ok('锚点面 null(对象不存在)与整批失败(未判定)分档处理', /两种状态不能混/.test(gate))
 ok('门体不自带遮罩/配平实现', !/function\s+closeBrace|replace\(\/\\\/\\\*\[\\s\\S\]/.test(gate))
 ok('两面旗同给落未判定(§0.4)', /两面旗同给/.test(gate))
 ok('取不到面 ⇒ 未判定不记绿', /不出具合格证/.test(gate))
