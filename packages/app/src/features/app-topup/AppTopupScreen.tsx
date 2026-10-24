@@ -15,7 +15,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppTopupScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -176,20 +176,20 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
     balanceCard: {
       margin: 10,
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.brand.cta,
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     balanceLabel: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.brand.ctaForeground,
       opacity: 0.8,
     },
@@ -200,30 +200,30 @@ function createStyles(tk: AppThemeTokens) {
     },
     section: {
       paddingHorizontal: 10,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     rateBox: {
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       padding: 10,
       borderRadius: rnRadius.xl,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
-      gap: 4,
+      gap: rnSpacing.xs,
     },
     rateTitle: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.tertiary,
-      marginBottom: 4,
+      marginBottom: rnSpacing.xs,
     },
     rateItem: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
     rateItemActive: {
@@ -234,7 +234,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 10,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     amountCard: {
       width: '30%',
@@ -250,7 +250,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     amountText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
@@ -264,7 +264,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       paddingHorizontal: 14,
       height: 50,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
     payList: {
@@ -284,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.brandAccent.deep,
     },
     payLabel: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
     payLabelActive: {
@@ -292,13 +292,13 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
     },
     payCheck: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       color: tk.brand.DEFAULT,
       fontWeight: '700',
     },
     submitBtn: {
       marginHorizontal: 10,
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
@@ -309,7 +309,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     submitBtnText: {
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '600',
       color: tk.surface.light,
     },
@@ -318,23 +318,23 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 24,
+      padding: rnSpacing['2xl'],
     },
     modalContent: {
       width: '100%',
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius['2xl'],
-      padding: 24,
-      gap: 12,
+      padding: rnSpacing['2xl'],
+      gap: rnSpacing.md,
     },
     modalTitle: {
-      fontSize: 20,
+      fontSize: rnType.heading.size,
       fontWeight: '600',
       color: tk.text.primary,
       textAlign: 'center',
     },
     modalBody: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.secondary,
       textAlign: 'center',
       lineHeight: 22,
@@ -347,7 +347,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     modalCloseText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.surface.light,
     },
