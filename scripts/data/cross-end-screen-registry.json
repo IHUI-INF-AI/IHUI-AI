@@ -322,6 +322,11 @@
       "miniapp": "pkg-user/task-center/index"
     },
     {
+      "shared": "packages/app/src/features/team/TeamScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeamScreen.tsx",
+      "miniapp": "pages/distribution/company/index"
+    },
+    {
       "shared": "packages/app/src/features/topic-detail/TopicDetailScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/TopicDetailScreen.tsx",
       "miniapp": "pkg-content/topic/detail"
@@ -339,12 +344,12 @@
     {
       "shared": "packages/app/src/features/vip/VipScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AppTopupScreen.tsx",
-      "miniapp": "pkg-shop/vip/index"
+      "miniapp": "pages/member/index"
     },
     {
       "shared": "packages/app/src/features/vip/VipScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AppTopupScreen.tsx",
-      "miniapp": "pages/member/index"
+      "miniapp": "pkg-shop/vip/index"
     }
   ]
 }
