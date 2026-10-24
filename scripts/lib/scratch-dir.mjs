@@ -18,7 +18,7 @@
 // `post-commit-*` ⇒ 由提交链上的 git-lock 抢占在夹具工作树里跑出来的。
 // 判据(只读、不判红、绝不代删)= `scripts/check-scratch-root-no-nesting.mjs`。
 
-import { lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, parse, resolve, sep } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -40,18 +40,26 @@ export const NEST_SCAN_DEFAULTS = { maxDepth: 4, entryBudget: 1500 }
  * 改指 D:\DevEnv\Temp,但环境块只对重启后的新进程生效),实测 C 盘 Temp 单日因此
  * 长出 45 个 git 夹具目录。
  *
- * 为什么不落在仓库内(.ihui-agent/tmp/):夹具需要模拟"非 git 目录",放在仓库树内时
- * `git rev-parse --show-toplevel` 会向上逃逸到真仓库,使该用例恒红(已 A/B 实证)。
+ * 为什么落点必须"git 面不可见":夹具需要模拟"非 git 目录",若 `git rev-parse
+ * --show-toplevel` 能向上逃逸到真仓库,该用例恒红(已 A/B 实证,落点曾因此禁在
+ * .ihui-agent/tmp/)。G-158 后新址 `<repoRoot>/.DevEnv` 在工作树**目录**内但不在
+ * git **面**内:该根已入 .gitignore,且 `mkScratch` 在 `.DevEnv` 层维护一枚坏 gitfile
+ * 边界(见 ensureDevEnvGitBoundary),discovery 停在该层 fatal ⇒ 逃逸性质与旧盘根选址同值。
  *
- * 结论:与 scripts/lib/gitdir.mjs 的 gitArchiveDir() 同族推导 —— 工作树所在盘的
- * DevEnv/Temp(§15b 批准的临时物落点),不写死盘符。**该结论只对 Windows 成立**,
+ * 结论:落点 = §15b 批准的 DevEnv/Temp(不写死盘符)。**该结论只对 Windows 成立**,
  * 非 win32 的那一臂见下方 `chooseScratchRoot` 的注(GitHub runner 实测 EACCES)。
  *
- * G-286:盘根一律取 `parse(HERE).root`(**模块所在盘的盘根本身**),不再由
- * 「脚本位置向上两级」推导 —— 旧推导只对「仓库恰在 `<盘>:/IHUI-AI`」这一种布局成立,
- * 本模块一旦被闭包拷贝进演练仓,向上两级就落到夹具的祖先上去(见文件头注)。
- * 对真实布局两者逐字同值(换机/换盘语义不变);对被拷进夹具的副本,盘根锚定
- * 始终回到同一个盘级 scratch 根 —— 夹具与真仓同盘,这正是选址的本意。
+ * G-286:推导不得按「脚本位置向上两级」跟着闭包拷贝走(见文件头注),副本必须
+ * 回到与真仓同一个 scratch 根 —— 夹具与真仓同盘,这正是选址的本意。
+ *
+ * G-158(2026-10-23 补刀):DevEnv 实体已搬入仓内 `<repoRoot>/.DevEnv`(G-814433 立,
+ * `seal-c-root-stray.mjs` 的 `devEnvRoot()` 双形态为既定模式)。scratch 根随之改为
+ * `<DevEnv>/Temp/ihui-scratch`,优先级 `IHUI_SCRATCH_DIR` > `IHUI_DEVENV_ROOT` > 仓内
+ * `.DevEnv`(worktree 席各自成立;被拷进夹具的副本回落盘根 `<盘>:/IHUI-AI/.DevEnv`)。
+ * 旧「盘根 DevEnv」臂就此退役 —— 旧根 g:\DevEnv 不再有任何程序化写入者。
+ * 新址在工作树目录内,但 `.gitignore:590` 在册、守门 208 对 `.DevEnv` 整枝剪除,且
+ * `mkScratch` 会在 `.DevEnv` 层落一枚坏 gitfile 边界阻断 `git rev-parse` 向上逃逸
+ * (实测无边界时 toplevel=真仓、有边界时 fatal RC=128 ⇒ "非 git 目录"夹具性质保留)。
  */
 /**
  * 纯函数:落点的**唯一**推导处,输入全部显式给出(moduleDir / platform / env),
@@ -70,7 +78,23 @@ export function chooseScratchRoot({ moduleDir = HERE, platform = process.platfor
   const override = env && env.IHUI_SCRATCH_DIR
   if (override) return normalize(override)
   if (platform !== 'win32') return normalize(join(tmpdir(), SCRATCH_DIR_NAME))
-  return normalize(join(parse(moduleDir).root, 'DevEnv', 'Temp', SCRATCH_DIR_NAME))
+  const devEnvOverride = env && env.IHUI_DEVENV_ROOT
+  if (devEnvOverride) return normalize(join(devEnvOverride, 'Temp', SCRATCH_DIR_NAME))
+  return normalize(join(deriveDevEnvRoot(moduleDir), 'Temp', SCRATCH_DIR_NAME))
+}
+
+/**
+ * G-158 双形态推导(保持纯函数:零 fs 探测,§22c 构造面可证):
+ *   · 常规模块:repoRoot = moduleDir 向上两级 ⇒ `<repoRoot>/.DevEnv`
+ *     (真仓、worktree 席、任意盘任意深度都成立,不写死盘符);
+ *   · 被 `scratch-module-closure` 拷进夹具的副本:repoRoot 含 `ihui-scratch` 段 ⇒
+ *     回到同盘根 `<盘>:/IHUI-AI/.DevEnv`,与真仓逐字同根(G-286 解耦不变量,
+ *     旧「盘根 + DevEnv」的同族写法,只是根名换成搬迁后的新址)。
+ */
+function deriveDevEnvRoot(moduleDir) {
+  const repoRoot = resolve(moduleDir, '..', '..')
+  if (countScratchSegments(repoRoot) === 0) return join(repoRoot, '.DevEnv')
+  return join(parse(moduleDir).root, 'IHUI-AI', '.DevEnv')
 }
 
 export function scratchRoot() {
@@ -217,14 +241,48 @@ function isInsideRepo(dir) {
 
 const live = new Set()
 
+/**
+ * G-158:仓库树目录内**唯一批准**的落点 = `<repoRoot>/.DevEnv`(§15b 外置根搬入仓内后的形态;
+ * .gitignore 在册、守门 208 对该根整枝剪除、git 面由边界阻断 —— 三条都在文件头注)。
+ * 其余树内位置(IHUI_SCRATCH_DIR 指歪等)照旧拒建。
+ */
+function isApprovedDevEnvRoot(root) {
+  const approved = resolve(join(REPO_ROOT, '.DevEnv'))
+  const r = resolve(root)
+  return r === approved || r.startsWith(approved + sep)
+}
+
+/**
+ * 在 `.DevEnv` 层维护一枚**坏 gitfile 边界**(内容 = 指向不存在目录的 gitdir: 指针)。
+ * 立因:新址在工作树目录内,`git rev-parse` 会向上逃逸到真仓(实测 toplevel=仓根),
+ * "非 git 目录"夹具(check-migration-bookkeeping E5a、scan-hardcoded-zh 13 例等)当场翻红;
+ * 而 discovery 撞到 gitfile 后**不再继续向上**(实测 fatal RC=128)⇒ 边界把新址的
+ * git 面性质拉回与旧盘根选址同值。幂等:只在缺失时写,存在(含他席已写)绝不覆盖;
+ * 目录形态的 .git 同样阻断 discovery,但那是"独立仓"形态(守门 208 立门因由),不得造。
+ */
+function ensureDevEnvGitBoundary(root) {
+  const segs = resolve(root).split(sep)
+  const i = segs.findIndex((s) => s === '.DevEnv')
+  if (i < 0) return
+  const devEnvDir = segs.slice(0, i + 1).join(sep)
+  const boundary = join(devEnvDir, '.git')
+  if (existsSync(boundary)) return
+  try {
+    writeFileSync(boundary, `gitdir: ${join(devEnvDir, '.no-git-boundary')}\n`)
+  } catch {
+    /* 只读环境不喊:若边界没落上,"非 git"夹具会自己因逃逸红出来,红在判据而不是这里 */
+  }
+}
+
 export function mkScratch(prefix) {
   const root = scratchRoot()
-  if (isInsideRepo(root)) {
+  if (isInsideRepo(root) && !isApprovedDevEnvRoot(root)) {
     throw new Error(`scratch 落点不得在仓库树内: ${root}`)
   }
   // G-286:嵌套守卫必须在 mkdir 之前 —— 抛错本身就是结论,不得先建目录再报。
   assertNoNestedScratchRoot(root)
   mkdirSync(root, { recursive: true })
+  if (isApprovedDevEnvRoot(root)) ensureDevEnvGitBoundary(root)
   const dir = mkdtempSync(join(root, prefix))
   live.add(dir)
   return dir

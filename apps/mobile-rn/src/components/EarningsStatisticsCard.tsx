@@ -115,7 +115,7 @@ export default function EarningsStatisticsCard({
     <View style={styles.card}>
       {/* Tab 切换(对齐原项目 tab-switcher) */}
       <View style={styles.tabSwitcher}>
-        {TABS.map((tab, idx) => (
+        {TABS.map((tab) => (
           <View key={tab.key} style={styles.tabItemWrap}>
             {/* 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
                 interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失(守门 131
@@ -137,7 +137,6 @@ export default function EarningsStatisticsCard({
                 </View>
               )}
             </Pressable>
-            {idx < TABS.length - 1 ? <View style={styles.tabDivider} /> : null}
           </View>
         ))}
       </View>
@@ -263,11 +262,6 @@ const styles = StyleSheet.create({
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,
-  tabDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: tokens.border.light,
-  } as ViewStyle,
   // ── 数据行 ──
   dataRow: {
     flexDirection: 'row',

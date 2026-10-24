@@ -159,9 +159,14 @@ def test_default_openai_provider_config_empty(monkeypatch):
 
 
 def test_default_anthropic_provider_config_empty(monkeypatch):
-    """anthropic provider 配置默认空(阶段 3 主体:LLM_PROVIDERS 未配置时 api_key 为空字符串)。"""
+    """anthropic provider 配置默认空(阶段 3 主体:LLM_PROVIDERS 未配置时 api_key 为空字符串)。
+
+    2026-10-23 结清 L29017:补 _env_file=None 隔离本地 .env(同文件兄弟用例
+    L158/L174 既有模式)——此前 Settings() 直读本地 .env,回填 anthropic 真 key 后
+    该用例测的是本机配置而非代码默认值。
+    """
     monkeypatch.delenv("LLM_PROVIDERS", raising=False)
-    assert Settings().get_provider_config("anthropic").api_key == ""
+    assert Settings(_env_file=None).get_provider_config("anthropic").api_key == ""
 
 
 def test_default_all_provider_keys_empty(monkeypatch):

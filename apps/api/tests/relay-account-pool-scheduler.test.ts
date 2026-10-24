@@ -67,6 +67,7 @@ vi.mock('../src/services/relay-account-usage.js', () => ({
 import {
   SWEEP_LOCK_NAME,
   __test__,
+  healthStatusOf,
   sweepAccountPool,
 } from '../src/services/relay-account-pool-scheduler.js'
 import {
@@ -186,6 +187,39 @@ describe('sweepAccountPool 分布式锁', () => {
     const healthUpdate = updateCalls.find((s) => s.healthStatus !== undefined)
     expect(healthUpdate?.healthStatus).toBe('unknown')
     expect(String(healthUpdate?.lastErrorMessage)).toContain('500')
+  })
+})
+
+describe('健康三态定级(取不到 ≠ 失效)', () => {
+  it('healthStatusOf:ok → healthy;未判定 → unknown;明确拒收 → down', () => {
+    expect(healthStatusOf({ ok: true })).toBe('healthy')
+    expect(healthStatusOf({ ok: false, indeterminate: true })).toBe('unknown')
+    expect(healthStatusOf({ ok: false })).toBe('down')
+    expect(healthStatusOf({ ok: false, indeterminate: false, error: '401' })).toBe('down')
+  })
+
+  it('巡检遇到未判定结果保留 unknown,不得写 down', async () => {
+    const checkHealth = vi.fn(async () => ({
+      ok: false,
+      indeterminate: true,
+      error: 'model_list HTTP 500(未判定)',
+    }))
+    registerRelayAdapter({
+      providerCode: 'trae',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      checkHealth,
+      isAuthFailure: (status) => status === 401,
+    } as never)
+    accountRows = [sweepRow()]
+    const out = await sweepAccountPool()
+    expect(out.healthChecked).toBe(1)
+    await vi.waitFor(() => expect(updateCalls.length).toBeGreaterThan(0))
+    const healthWrites = updateCalls.filter((s) => 'healthStatus' in s)
+    expect(healthWrites.some((s) => s.healthStatus === 'down')).toBe(false)
+    expect(healthWrites.some((s) => s.healthStatus === 'unknown')).toBe(true)
+    expect(String(healthWrites[0]?.lastErrorMessage)).toContain('未判定')
   })
 })
 

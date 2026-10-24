@@ -61,6 +61,12 @@ export interface QueueInteractionBarProps {
   streaming: boolean
   /** 当前队列模式偏好(steer / queue) */
   mode: FollowUpMode
+  /**
+   * G-171a:是否有待决的高危工具审批(宿主从 approvalQueue 非空注入,本端真实来源)。
+   * 可选缺省 false:未接线前行为与扩展前逐字一致。本端 runtimeSupportsInterjection
+   * 恒 false,插话恒被 runtimeNoInterject 拦下;此位为能力协商落地后同一条链预先接好。
+   */
+  awaitingApproval?: boolean
   /** 重排回调(fromIndex → toIndex);被拒时调用方不回调 */
   onReorder?: (fromIndex: number, toIndex: number) => void
   /** 撤回回调;被拒时调用方不回调 */
@@ -80,6 +86,7 @@ export default function QueueInteractionBar({
   items,
   streaming,
   mode,
+  awaitingApproval = false,
   onReorder,
   onUndo,
   onEdit,
@@ -96,10 +103,12 @@ export default function QueueInteractionBar({
   } | null>(null)
 
   // 许可门:本端与 RN 同口径(无插话能力协商的生产者 ⇒ 恒 false)
+  // G-171a:待决审批事实喂入 D69 许可门(非布尔兜底同 RN:脏数据按"没读到"处理)
   const perms = queueInteractionPerms({
     runtimeSupportsInterjection: false,
     streaming,
     hasQueuedMessages: items.length > 0,
+    awaitingApproval: awaitingApproval === true,
   })
   const reorderVerdict = interactionAllowed('reorder', perms)
   const undoVerdict = interactionAllowed('undo', perms)
@@ -109,7 +118,7 @@ export default function QueueInteractionBar({
   // 许可面变化(流结束/队列清空)后,旧拒因提示立即失效,不残留上一句
   useEffect(() => {
     setDeniedHint(null)
-  }, [streaming, items.length])
+  }, [streaming, items.length, awaitingApproval])
 
   const modeResolution = effectiveMode(mode, false)
 

@@ -547,4 +547,203 @@ describe('parseReasoningEffort', () => {
     expect(parseReasoningEffort(undefined)).toBeUndefined()
   })
 })
+
+// ============================================================
+// 21. G-395 出处标签:四层各命中一次 ⇒ sources 正确
+// ============================================================
+describe('G-395 sources 出处标签 — 四层各命中一次', () => {
+  it('model 四层:explicit 命中 → layer=explicit + 覆盖项出处', () => {
+    const role: SubagentRole = { name: 'coder', model: 'sonnet' }
+    const persona: SubagentPersona = { name: 'p1', model: 'haiku' }
+    const result = resolveEffectiveOverrides(
+      { model: 'gpt-4', persona: 'p1' },
+      role,
+      { p1: persona },
+      undefined,
+      'coder',
+    )
+    expect(result.sources.model).toEqual({ layer: 'explicit', origin: 'overrides.model' })
+  })
+
+  it('model 四层:role 命中 → layer=role + role[name].model 出处', () => {
+    const role: SubagentRole = { name: 'coder', model: 'sonnet' }
+    const persona: SubagentPersona = { name: 'p1', model: 'haiku' }
+    const result = resolveEffectiveOverrides({ persona: 'p1' }, role, { p1: persona })
+    expect(result.sources.model).toEqual({ layer: 'role', origin: 'role[coder].model' })
+  })
+
+  it('model 四层:persona 命中 → layer=persona + persona[name].model 出处', () => {
+    const persona: SubagentPersona = { name: 'p1', model: 'haiku' }
+    const result = resolveEffectiveOverrides({ persona: 'p1' }, undefined, { p1: persona })
+    expect(result.sources.model).toEqual({ layer: 'persona', origin: 'persona[p1].model' })
+  })
+
+  it('model 四层:parent 兜底 → layer=parent(继承父 session)', () => {
+    const result = resolveEffectiveOverrides({}, undefined, {})
+    expect(result.sources.model).toEqual({ layer: 'parent', origin: 'parent(inherit)' })
+  })
+
+  it('reasoningEffort 四层:explicit / role / persona / parent 各命中一次', () => {
+    const persona: SubagentPersona = { name: 'p1', reasoningEffort: 'minimal' }
+    const personas: PersonaMap = { p1: persona }
+    const role: SubagentRole = { name: 'coder', reasoningEffort: 'low' }
+
+    const byExplicit = resolveEffectiveOverrides({ reasoningEffort: 'high', persona: 'p1' }, role, personas)
+    expect(byExplicit.sources.reasoningEffort).toEqual({
+      layer: 'explicit',
+      origin: 'overrides.reasoningEffort',
+    })
+
+    const byRole = resolveEffectiveOverrides({ persona: 'p1' }, role, personas)
+    expect(byRole.sources.reasoningEffort).toEqual({ layer: 'role', origin: 'role[coder].reasoningEffort' })
+
+    const byPersona = resolveEffectiveOverrides({ persona: 'p1' }, undefined, personas)
+    expect(byPersona.sources.reasoningEffort).toEqual({
+      layer: 'persona',
+      origin: 'persona[p1].reasoningEffort',
+    })
+
+    const byParent = resolveEffectiveOverrides({}, undefined, {})
+    expect(byParent.sources.reasoningEffort).toEqual({ layer: 'parent', origin: 'parent(inherit)' })
+  })
+
+  it('capabilityMode:explicit 命中;非法 explicit 被容错后出处标签归 role 层', () => {
+    const role: SubagentRole = { name: 'coder', defaultCapabilityMode: 'read-only' }
+    const byExplicit = resolveEffectiveOverrides({ capabilityMode: 'all' }, role, {})
+    expect(byExplicit.sources.capabilityMode).toEqual({
+      layer: 'explicit',
+      origin: 'overrides.capabilityMode',
+    })
+
+    const overrides = { capabilityMode: 'invalid' as 'all' }
+    const byRole = resolveEffectiveOverrides(overrides, role, {})
+    expect(byRole.capabilityMode).toBe('read-only')
+    expect(byRole.sources.capabilityMode).toEqual({
+      layer: 'role',
+      origin: 'role[coder].defaultCapabilityMode',
+    })
+  })
+
+  it('isolation 四层:explicit / role / persona 命中,全空时 parent 默认 none', () => {
+    const role: SubagentRole = { name: 'coder', defaultIsolation: 'worktree' }
+    const persona: SubagentPersona = { name: 'p1', defaultIsolation: 'subprocess' }
+    const personas: PersonaMap = { p1: persona }
+
+    const byExplicit = resolveEffectiveOverrides({ isolation: 'none', persona: 'p1' }, role, personas)
+    expect(byExplicit.sources.isolation).toEqual({ layer: 'explicit', origin: 'overrides.isolation' })
+
+    const byRole = resolveEffectiveOverrides({ persona: 'p1' }, role, personas)
+    expect(byRole.sources.isolation).toEqual({ layer: 'role', origin: 'role[coder].defaultIsolation' })
+
+    const byPersona = resolveEffectiveOverrides({ persona: 'p1' }, undefined, personas)
+    expect(byPersona.sources.isolation).toEqual({
+      layer: 'persona',
+      origin: 'persona[p1].defaultIsolation',
+    })
+
+    const byParent = resolveEffectiveOverrides({}, undefined, {})
+    expect(byParent.isolation).toBe('none')
+    expect(byParent.sources.isolation).toEqual({ layer: 'parent', origin: 'default:none' })
+  })
+
+  it('内容出处:instructionsFile / promptFile 带来源文件路径', () => {
+    const rel = writeRel('g395-inst.md', '研究员指令')
+    const persona: SubagentPersona = { name: 'p1', instructionsFile: rel }
+    const promptRel = writeRel('g395-prompt.md', 'coder 提示')
+    const role: SubagentRole = { name: 'coder', promptFile: promptRel }
+    const result = resolveEffectiveOverrides({ persona: 'p1' }, role, { p1: persona }, tmpDir, 'coder')
+    expect(result.sources.personaInstructions?.layer).toBe('persona')
+    expect(result.sources.personaInstructions?.origin).toContain('persona[p1].instructionsFile:')
+    expect(result.sources.personaInstructions?.origin).toContain('g395-inst.md')
+    expect(result.sources.rolePrompt?.layer).toBe('role')
+    expect(result.sources.rolePrompt?.origin).toContain('role[coder].promptFile:')
+    expect(result.sources.rolePrompt?.origin).toContain('g395-prompt.md')
+  })
+
+  it('内容出处:内嵌 instructions / prompt 标内嵌项,无内容时缺省', () => {
+    const persona: SubagentPersona = { name: 'p1', instructions: '内嵌' }
+    const role: SubagentRole = { name: 'coder', prompt: '内嵌 prompt' }
+    const withInline = resolveEffectiveOverrides({ persona: 'p1' }, role, { p1: persona })
+    expect(withInline.sources.personaInstructions).toEqual({
+      layer: 'persona',
+      origin: 'persona[p1].instructions',
+    })
+    expect(withInline.sources.rolePrompt).toEqual({ layer: 'role', origin: 'role[coder].prompt' })
+
+    const empty = resolveEffectiveOverrides({}, undefined, {})
+    expect(empty.sources.personaInstructions).toBeUndefined()
+    expect(empty.sources.rolePrompt).toBeUndefined()
+  })
+})
+
+// ============================================================
+// 22. G-395 请求档 vs 实得档:降档发生 ⇒ requested≠effective 可见
+// ============================================================
+describe('G-395 effortDowngrade 降档留痕', () => {
+  it('非法 explicit 请求档被容错丢弃 → 留痕 requested≠effective,双方出处可见', () => {
+    const role: SubagentRole = { name: 'coder', reasoningEffort: 'low' }
+    // 模拟运行时从 JSON 收到非法档位(as 绕过编译期)
+    const overrides = { reasoningEffort: 'ultra' as 'high' }
+    const result = resolveEffectiveOverrides(overrides, role, {})
+    expect(result.reasoningEffort).toBe('low')
+    expect(result.effortDowngrade).toBeDefined()
+    expect(result.effortDowngrade!.requested).toBe('ultra')
+    expect(result.effortDowngrade!.effective).toBe('low')
+    expect(result.effortDowngrade!.requested).not.toBe(result.effortDowngrade!.effective)
+    expect(result.effortDowngrade!.reason).toBe('invalid-enum')
+    expect(result.effortDowngrade!.requestedSource).toEqual({
+      layer: 'explicit',
+      origin: 'overrides.reasoningEffort',
+    })
+    expect(result.effortDowngrade!.effectiveSource).toEqual({
+      layer: 'role',
+      origin: 'role[coder].reasoningEffort',
+    })
+  })
+
+  it('非法请求档且四层皆空 → 留痕 effective=undefined(请求彻底落空)', () => {
+    const overrides = { reasoningEffort: 'turbo' as 'high' }
+    const result = resolveEffectiveOverrides(overrides, undefined, {})
+    expect(result.reasoningEffort).toBeUndefined()
+    expect(result.effortDowngrade).toBeDefined()
+    expect(result.effortDowngrade!.requested).toBe('turbo')
+    expect(result.effortDowngrade!.effective).toBeUndefined()
+    expect(result.effortDowngrade!.reason).toBe('invalid-enum')
+    expect(result.effortDowngrade!.effectiveSource).toEqual({
+      layer: 'parent',
+      origin: 'parent(inherit)',
+    })
+  })
+
+  it('role 层非法请求档(persona 合法接手)→ 留痕归因到 role 出处', () => {
+    const persona: SubagentPersona = { name: 'p1', reasoningEffort: 'medium' }
+    const role = { name: 'coder', reasoningEffort: 'mega' as 'high' }
+    const result = resolveEffectiveOverrides({ persona: 'p1' }, role, { p1: persona })
+    expect(result.reasoningEffort).toBe('medium')
+    expect(result.effortDowngrade).toBeDefined()
+    expect(result.effortDowngrade!.requested).toBe('mega')
+    expect(result.effortDowngrade!.requestedSource).toEqual({
+      layer: 'role',
+      origin: 'role[coder].reasoningEffort',
+    })
+    expect(result.effortDowngrade!.effectiveSource).toEqual({
+      layer: 'persona',
+      origin: 'persona[p1].reasoningEffort',
+    })
+  })
+
+  it('合法请求档被原样采纳 → 无留痕(降档未发生)', () => {
+    const role: SubagentRole = { name: 'coder', reasoningEffort: 'low' }
+    const result = resolveEffectiveOverrides({ reasoningEffort: 'high' }, role, {})
+    expect(result.reasoningEffort).toBe('high')
+    expect(result.effortDowngrade).toBeUndefined()
+  })
+
+  it('未给请求档 → 无留痕(不存在降档)', () => {
+    const role: SubagentRole = { name: 'coder', reasoningEffort: 'low' }
+    const result = resolveEffectiveOverrides({}, role, {})
+    expect(result.reasoningEffort).toBe('low')
+    expect(result.effortDowngrade).toBeUndefined()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -504,7 +504,44 @@
     "unpin": "固定を解除",
     "bookmark": "ブックマーク",
     "unbookmark": "ブックマークを解除",
-    "flagFailed": "標識の保存に失敗"
+    "flagFailed": "標識の保存に失敗",
+    "voiceNote": {
+      "title": "ボイスメモ",
+      "phase": {
+        "ready": "準備完了",
+        "recording": "録音中",
+        "waitingTranscript": "文字起こし待ち",
+        "completed": "完了",
+        "cancelled": "キャンセル",
+        "failed": "録音に失敗しました",
+        "error": "エラーが発生しました",
+        "interrupted": "中断されました",
+        "requestingPermission": "マイクの権限をリクエストしています",
+        "preparingMedia": "録音デバイスの準備中",
+        "connecting": "文字起こしサービスに接続中",
+        "stopping": "録音を停止中"
+      },
+      "errors": {
+        "permission": "マイクの権限が拒否されました。ブラウザの設定で許可してから再試行してください。",
+        "noMicrophone": "マイクデバイスが見つかりません",
+        "startFailed": "録音を開始できませんでした。再試行してください。",
+        "saveFailed": "録音を保存できませんでした",
+        "recognitionFailed": "音声認識が中断されました",
+        "emptyTranscript": "認識された内容がありません",
+        "sttPending": "現在文字起こしは利用できません。あとで再試行するか、音声のみを保存してください。",
+        "loadFailed": "ノート一覧の読み込みに失敗しました。もう一度お試しください。"
+      },
+      "action": {
+        "start": "録音を開始",
+        "stop": "録音を停止",
+        "retry": "再試行",
+        "saveAudioOnly": "音声のみ保存",
+        "insertToInput": "入力欄に挿入",
+        "dismiss": "閉じる"
+      },
+      "searchPlaceholder": "ノートを検索",
+      "groupAll": "すべて"
+    }
   },
   "settings": {
     "title": "設定",

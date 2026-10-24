@@ -5,6 +5,12 @@
 /**
  * 中转站上游模型自动同步(2026-10-09 立)。
  *
+ * ⚠️ 2026-10-23 弃用通告:SwiftAPI(极速API new.x5m5x.com)供应商已停止运营,中继号池
+ *   swiftapi key 行与 ai_model_config 路由行已全部停用弃用(其后已物理清除,现存 0 行)。
+ *   本同步因此转为 fail-closed:没有 enabled 的 swiftapi /v1 config 时直接收工——
+ *   不再请求已停运的上游(5s 超时请求每 6h 一次纯浪费),也不再每 6h 写一条失败同步日志。
+ *   若将来该上游恢复合作,只需把 config 行修回 enabled=true,本同步自动恢复工作。
+ *
  * 数据源:极速 API(new.x5m5x.com)/v1/models(按量 key,X5M5X_BASE_URL 可覆盖)。
  * 行为:定时拉取上游全量模型清单,与 ai_model_config_models 中 swiftapi /v1 config
  *   的 relay-public 上架清单 diff——上游新增自动上架,上游下架自动摘除。
@@ -109,12 +115,13 @@ async function fetchUpstreamModelIds(): Promise<string[]> {
   return ids
 }
 
-/** 单次同步:diff 上游清单与 config 31 上架清单,新增上架 / 消失下架 */
+/** 单次同步:diff 上游清单与 swiftapi /v1 config 上架清单,新增上架 / 消失下架 */
 export async function syncSwiftapiModels(): Promise<RelaySyncStats> {
   const startedAt = new Date()
   const empty: RelaySyncStats = { fetched: 0, added: 0, retired: 0, priced: 0 }
   try {
-    const upstream = await fetchUpstreamModelIds()
+    // 先问 enabled 的 /v1 config(2026-10-23 弃用后置):没有就直接收工,
+    // 不再打已停运上游,也不把"config 不存在"写进失败日志(那不是故障,是弃用态)。
     const configRows = await db
       .select({ id: aiModelConfig.id })
       .from(aiModelConfig)
@@ -126,10 +133,10 @@ export async function syncSwiftapiModels(): Promise<RelaySyncStats> {
         ),
       )
       .limit(1)
-    if (configRows.length === 0) throw new Error('swiftapi /v1 config 不存在')
     const configRow = configRows[0]
-    if (!configRow) throw new Error('swiftapi /v1 config 不存在')
+    if (!configRow) return { ...empty }
     const configId = configRow.id
+    const upstream = await fetchUpstreamModelIds()
 
     const existing = await db
       .select({ id: aiModelConfigModels.id, modelId: aiModelConfigModels.modelId })

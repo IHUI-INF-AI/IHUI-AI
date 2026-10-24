@@ -1542,6 +1542,12 @@ function extractSummaryBody(messages: CompressionResult['messages']): string {
 
 /** 执行多轮工具循环,直到 end_turn 或 maxIterations。messages 数组会被原地修改(追加 assistant + tool_result 消息) */
 export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoopResult> {
+  // 工具粒度钩子取消腿(G-424 移交票,"主会话补"那一行):生产装配面的回合 signal
+  // 此前从未进 ToolContext ⇒ executeToolCall 里 ctx.signal 恒 undefined,取消打不到
+  // runPreToolCall/runPostToolCall 的钩子子进程。这里一次性派生注入:有 opts.signal 才
+  // 展开新对象(无 signal 时原样复用 opts.ctx,行为逐零差异);opts.ctx 在本函数内只读
+  // 不写(已全量核点),浅拷贝无漂移面。
+  const toolCtx: ToolContext = opts.signal ? { ...opts.ctx, signal: opts.signal } : opts.ctx;
   // G-632:异步解算启动即捕获当下分支代数 —— 解算期间 /fork、/branch、/sessions resume
   // 任何一次分支装配都会使代数 +1,落地口比对不等即作废本轮结果。
   const branchGeneration = captureBranchGeneration();
@@ -1693,7 +1699,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   const dispatchEarlyTool =
     (name: string, args: Record<string, unknown>) =>
     (): Promise<unknown> =>
-      executeToolCall({ name, arguments: args }, opts.ctx);
+      executeToolCall({ name, arguments: args }, toolCtx);
   const newLedger = (): StreamToolLedger =>
     new StreamToolLedger({
       // G-633:turn 用回合起点 reserve 出的进程级唯一号,不再用会话内迭代计数 ——
@@ -2430,8 +2436,8 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           // 匹配按 (工具名+参数指纹) 而非下标 —— 上游解析器丢条目时下标会整体错位一格。
           const ledgerEntry = ledger.matchForCall(call.name, call.arguments);
           const result = ledgerEntry
-            ? (await ledger.runOnce(ledgerEntry, () => executeToolCall(call, opts.ctx))).value
-            : await executeToolCall(call, opts.ctx);
+            ? (await ledger.runOnce(ledgerEntry, () => executeToolCall(call, toolCtx))).value
+            : await executeToolCall(call, toolCtx);
           if (call.name === 'dispatch_subagent') {
             const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
             await runHook('subagentStop', {

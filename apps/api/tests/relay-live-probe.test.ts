@@ -150,6 +150,16 @@ describe('relay live probe(静态断言,零网络)', () => {
     expect(ctx2.credentials.refreshToken).toBe('rt')
   })
 
+  it('buildAccountContext:web 号的 cookies 原样透传(带 sessionid 才测得续票全链路)', () => {
+    const cookies = [
+      { name: 'sessionid', value: 's-1', domain: '.trae.cn', httpOnly: true },
+      { name: 'other', value: 'o-1', domain: '.trae.cn' },
+    ]
+    const ctx = buildAccountContext('trae', { token: 'jwt-1', cookies })
+    expect(ctx.credentials.cookies).toHaveLength(2)
+    expect(ctx.credentials.cookies[0]).toMatchObject({ name: 'sessionid', value: 's-1' })
+  })
+
   it('formatProbeReport / probeExitCode:纯函数按结果表渲染并反映成败', () => {
     const step = (
       status: ProbeStepOutcome['status'],

@@ -115,8 +115,8 @@ export const aiModelConfig = pgTable(
      * 除"删僵尸行 + 改生产者"外,这一层是防再生的硬闸(重复插入会被直接拒绝)。
      *
      * 为什么用 (provider_code, COALESCE(base_url,'')) 而不是单独 provider_code:
-     * 同一 provider_code 下允许存在多个**不同端点**的中转配置(既有设计,如 swiftapi 的
-     * https://new.x5m5x.com 与 https://new.x5m5x.com/v1 是两条语义不同的配置行)。
+   * 同一 provider_code 下允许存在多个**不同端点**的中转配置(既有设计,如 swiftapi 存在
+   * 空 base_url 行与 /v1 后缀行两条语义不同的配置行)。
      * 只按 provider_code 做唯一会误伤这类配置,故把 base_url 纳入键。
      * COALESCE 是必须的:base_url 可空,而 UNIQUE 对 NULL 不去重。
      */

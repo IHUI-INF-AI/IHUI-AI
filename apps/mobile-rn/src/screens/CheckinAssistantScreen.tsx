@@ -247,7 +247,7 @@ export default function CheckinAssistantScreen() {
                 style={[styles.chip, platform === p && styles.chipOn]}
                 onPress={() => setPlatform(p)}
               >
-                <Text style={[styles.chipText, platform === p && styles.chipTextOn]}>{p}</Text>
+                <Text style={[styles.chipText, platform === p && styles.chipOnText]}>{p}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: tokens.text.secondary,
     backgroundColor: tokens.surface.muted,
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.md,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
@@ -334,9 +334,9 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
-  chipOn: { backgroundColor: tokens.brand.DEFAULT ?? tokens.text.primary },
+  chipOn: { backgroundColor: tokens.brand.cta },
   chipText: { fontSize: 12, color: tokens.text.secondary },
-  chipTextOn: { color: tokens.brand.ctaForeground ?? tokens.surface.bg },
+  chipOnText: { color: tokens.brand.ctaForeground ?? tokens.surface.bg },
   input: { marginTop: 2 },
   label: { fontSize: 12, color: tokens.text.secondary, marginTop: 4 },
   submit: {
@@ -347,6 +347,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.cta,
   },
   submitOff: { opacity: 0.5 },
-  submitText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground ?? '#fff' },
+  submitText: { fontSize: 14, fontWeight: '600', color: tokens.brand.ctaForeground },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -27,6 +27,8 @@ from app.services.agent_graph import AgentState, get_agent_graph
 
 # 真实云端 Agent 容器运行时(对标 Cursor Cloud Agents / Codex CI sandbox,2026-09-05 立)
 from app.services.container_runtime import container_runtime
+# D14② 沙箱任务队列(G-17 拆票,2026-10-23):/queue/* 端点的队列消费面
+from app.services.sandbox_task_queue import SandboxQueueFullError, sandbox_task_queue
 from app.services.memory import unified_memory_client
 from app.services.session_store import owner_scoped_allows
 
@@ -593,6 +595,94 @@ async def cancel_container_run(
         raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
     logger.info("agent-runtime cancel container run=%s user=%s", run_id, user_id)
     return {"code": 0, "message": "ok", "data": snap}
+
+
+# ==================== D14② 沙箱任务队列(G-17 拆票,2026-10-23) ====================
+# 队列语义:按镜像道串行度可配、failed 可重放一次、队列满明确拒绝(429)。
+# 默认执行器委托 container_runtime:本机无 docker 时严档 fail-closed 以
+# "任务失败(可重放一次)"如实呈现,队列不降级、不假装成功。
+
+
+@router.post("/queue/tasks")
+async def enqueue_queue_task(
+    req: RunContainerRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """任务入队(按镜像道排队)。队列满 → 429 明确拒绝,不静默排队。"""
+    command: str | list[str] = req.command or "python --version"
+    prompt = req.task or (command if isinstance(command, str) else " ".join(command))
+    try:
+        snap = await sandbox_task_queue.enqueue(
+            {
+                "task": prompt,
+                "command": command,
+                "files": req.files,
+                "timeout_sec": req.timeout_sec,
+            },
+            image=req.image,
+            user_id=user_id,
+        )
+    except SandboxQueueFullError as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
+    return {"code": 0, "message": "ok", "data": snap}
+
+
+@router.get("/queue/tasks")
+async def list_queue_tasks(
+    user_id: str = Depends(get_current_user_id),
+    limit: int = 50,
+    image: str | None = None,
+    status: str | None = None,
+) -> dict[str, Any]:
+    """列出本人队列任务快照(新→旧),可按镜像道/状态过滤。"""
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": sandbox_task_queue.list_tasks(
+            limit=limit, user_id=user_id, image=image, status=status
+        ),
+    }
+
+
+@router.get("/queue/stats")
+async def queue_stats(
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """队列面快照(串行度/上限/各道等待数/状态计数),运维与看板取数用。"""
+    return {"code": 0, "message": "ok", "data": sandbox_task_queue.stats()}
+
+
+def _queue_task_or_404(task_id: str, user_id: str) -> dict[str, Any]:
+    """按 id 取任务快照,非属主与"没这条任务"同码同形(与 _run_or_404 同判据)。"""
+    snap = sandbox_task_queue.snapshot(task_id)
+    if snap is None or not owner_scoped_allows(user_id, snap.get("user_id")):
+        raise HTTPException(status_code=404, detail=f"队列任务不存在: {task_id}")
+    return snap
+
+
+@router.get("/queue/tasks/{task_id}")
+async def get_queue_task(
+    task_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """查询队列任务状态/结果快照(只准属主读)。"""
+    return {"code": 0, "message": "ok", "data": _queue_task_or_404(task_id, user_id)}
+
+
+@router.post("/queue/tasks/{task_id}/replay")
+async def replay_queue_task(
+    task_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """重放 failed 任务(每任务仅一次)。不可重放 → 409;队列满 → 429。"""
+    _queue_task_or_404(task_id, user_id)
+    try:
+        data = await sandbox_task_queue.replay(task_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e)) from e
+    except SandboxQueueFullError as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
+    return {"code": 0, "message": "ok", "data": data}
 
 
 __all__ = ["router"]

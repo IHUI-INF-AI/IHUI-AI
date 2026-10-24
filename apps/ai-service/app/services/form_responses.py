@@ -135,4 +135,111 @@ async def persist_form_response(
         )
         return FormPersistOutcome("duplicate")
     return FormPersistOutcome("written")
+
+
+# =============================================================================
+# D77 残余收口(2026-10-23):应答状态的**读面**(GET 端点的数据源)
+# =============================================================================
+# "唯一写入点"守的是同一个事实不被写两遍;读是同一份事实的另一面投影,与本模块的
+# 列名 / jsonb 形状 / 值域放在同一处,而不是把裸 SQL 散进路由层。
+
+# 与 _INSERT_SQL 同一纪律:一整条三引号字面量,让 core/schema_check.py 的表名扫描
+# 在同一份字符串里同时看到 SQL 动词与 chat_form_responses。
+_READ_COLUMNS = 'request_id, session_id, kind, action, "values", reject_reason, decided_at'
+
+# 单条查询**必须**带 session_id 复合谓词:request_id 是主键,只按主键查会让持有他人
+# requestId 的调用方借自己的 session 路径读到那一行 —— 复合谓词把"属于别的 session 的
+# request_id"在 SQL 层就落成 not_found(与端点回包的"不存在"同形,不泄露行级信息)。
+_SELECT_ONE_SQL = f"""
+SELECT {_READ_COLUMNS}
+FROM chat_form_responses
+WHERE request_id = $1 AND session_id = $2
+"""
+
+# 列表封顶:本表的正常体量是"一个会话答过几张表单",100 条以内在所有真实会话里
+# 都是全量;封顶防的是把一张被刷爆的表整个搬进响应体。
+_LIST_MAX_ROWS = 100
+
+_SELECT_BY_SESSION_SQL = f"""
+SELECT {_READ_COLUMNS}
+FROM chat_form_responses
+WHERE session_id = $1
+ORDER BY decided_at DESC
+LIMIT {_LIST_MAX_ROWS}
+"""
+
+
+class FormReadOutcome(NamedTuple):
+    """一次读的终态。
+
+    `unavailable` 只说"库不可达",不带任何行级信息 —— 端点把它映射成**可分辨**的
+    错误回包(前端可据此重试);`not_found` 与"不是你的"同形,是存在性探针防线的
+    另一半。列表查询成功但空 ⇒ state="found"、rows 为空元组(空会话不是错误)。
+    """
+
+    state: Literal["found", "not_found", "unavailable"]
+    rows: tuple[dict[str, Any], ...] = ()
+
+    @property
+    def row(self) -> dict[str, Any] | None:
+        return self.rows[0] if self.rows else None
+
+
+def _normalize_record(record: Any) -> dict[str, Any]:
+    """asyncpg Record → 普通 dict。
+
+    values 列按 ::jsonb 写入,而共享池**没有注册 jsonb codec**,读回来是 str,
+    在这里 json.loads(NULL ⇒ None);解析失败按 None 处置 —— 读面不替脏数据编造形状。
+    """
+    raw = record["values"]
+    values: dict[str, Any] | None = None
+    if isinstance(raw, dict):  # 兜住"未来给池注册了 codec"的情形,不因此改判
+        values = raw
+    elif isinstance(raw, str) and raw:
+        try:
+            parsed = json.loads(raw)
+        except ValueError:
+            parsed = None
+        if isinstance(parsed, dict):
+            values = parsed
+    return {
+        "request_id": record["request_id"],
+        "session_id": record["session_id"],
+        "kind": record["kind"],
+        "action": record["action"],
+        "values": values,
+        "reject_reason": record["reject_reason"],
+        "decided_at": record["decided_at"],
+    }
+
+
+async def read_form_response(*, request_id: str, session_id: str) -> FormReadOutcome:
+    """按 (request_id, session_id) 复合谓词读回一条应答。"""
+    try:
+        pool = await get_shared_pool()
+        async with pool.acquire() as conn:
+            record = await conn.fetchrow(_SELECT_ONE_SQL, request_id, session_id)
+    except Exception as e:  # 连接失败 / 表未迁移 ⇒ 只点名,不回显任何行级信息
+        logger.error(
+            "chat_form_responses 读取失败(request=%s, session=%s): %s",
+            request_id,
+            session_id,
+            e,
+        )
+        return FormReadOutcome("unavailable")
+    if record is None:
+        return FormReadOutcome("not_found")
+    return FormReadOutcome("found", (_normalize_record(record),))
+
+
+async def list_form_responses(*, session_id: str) -> FormReadOutcome:
+    """按会话读回全部应答(按裁决时间倒序,封顶 100 条)。"""
+    try:
+        pool = await get_shared_pool()
+        async with pool.acquire() as conn:
+            records = await conn.fetch(_SELECT_BY_SESSION_SQL, session_id)
+    except Exception as e:
+        logger.error("chat_form_responses 列表读取失败(session=%s): %s", session_id, e)
+        return FormReadOutcome("unavailable")
+    return FormReadOutcome("found", tuple(_normalize_record(r) for r in records))
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

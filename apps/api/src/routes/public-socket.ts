@@ -27,7 +27,11 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { broadcastEventClassOf, type BroadcastConnectionRole } from '../plugins/ws-broadcast.js'
+import {
+  resolveBroadcastFrameClass,
+  resolveBroadcastRole,
+  type BroadcastConnectionRole,
+} from '../plugins/ws-broadcast.js'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { isSystemAdminUser } from '../db/queries.js'
@@ -97,6 +101,8 @@ const sendMessageSchema = z.object({
    * 作为**收窄**提示生效 —— 帧类别本身由服务端按 `broadcastEventClassOf(event)` 推导,
    * 自报与事件名矛盾或自报 'all'(想不门控)一律以服务端推导为准:自报只许收窄、不许放宽。
    * 与连接角色不合的连接对该帧是 no-op(计入 gatedRole,不报错、不断开)。
+   * G-201:判定改走 plugins/ws-broadcast.ts 的统一出口 resolveBroadcastFrameClass
+   * —— 与 /ws/broadcast 发射侧同一口径,不抄第二份判定。
    */
   role: z.enum(['all', 'conversation', 'mcp']).optional(),
 })
@@ -115,8 +121,10 @@ const registerSchema = z.object({
   remoteAddress: z.string().optional(),
   /**
    * L9242 连接角色(订阅档位),缺省 'all' 维持既有语义。
-   * G-1080905:本字段应改为按**连接来源**推导,但 register 请求可得的信号只有
-   * admin JWT(claims 无平台/来源位),仓内亦无"连接来源"类型 ⇒ 本票未落,缺信号。
+   * G-201 已裁决落码:连接身份 = (认证主体, 连接通道) 二维。register 走全端点
+   * admin JWT 鉴权 ⇒ 服务端事实是 (admin-session, public-socket),档位上限由
+   * resolveBroadcastRole 推导(今日两组合 ceiling 皆 'all');本字段降级为
+   * 「可选收窄」:zod 封闭集挡掉集外值,集内值 ⊆ ceiling 才生效。
    */
   role: z.enum(['all', 'conversation', 'mcp']).default('all'),
 })
@@ -216,11 +224,17 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const { userId, event, data, compositeKey, role } = parsed.data
-    // G-1080905:帧类别是事件的属性,由服务端按事件名推导,不采信调用方自报。
-    // 自报 role 只在推导不出(无 conversation:/mcp: 前缀)时作收窄提示;
-    // 可推导时自报的 'all'/矛盾值一律被覆盖 ⇒ 自报只许收窄、不许放宽。
-    const derivedClass = broadcastEventClassOf(event)
-    const frameClass = derivedClass ?? (role !== undefined && role !== 'all' ? role : null)
+    // G-1080905/G-201:帧类别是事件的属性,由服务端按事件名推导,不采信调用方自报。
+    // 自报 role 只在推导不出(无 conversation:/mcp: 前缀)时作收窄提示,'all' 视作无声明;
+    // 矛盾 ⇒ 以推导值为准 + warn。与 /ws/broadcast 发射侧复用同一判定出口。
+    const frame = resolveBroadcastFrameClass(event, role === 'all' ? undefined : role)
+    if (frame.rejected !== undefined) {
+      server.log.warn(
+        { userId, event, declared: frame.rejected, applied: frame.cls },
+        'public-socket send-message 帧类别自报与事件名推导矛盾,以服务端推导为准(自报只许收窄)',
+      )
+    }
+    const frameClass = frame.cls
     const conns = activeConnections.get(userId) ?? []
     if (conns.length === 0) {
       pushEvent({ event, userId, compositeKey, payload: data, status: 'skipped' })
@@ -408,12 +422,25 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
           ),
         )
     }
+    // G-201:自报 role 经服务端身份判定出口 —— 本端点的鉴权面钉死身份为
+    // (admin-session, public-socket),ceiling 由推导表给出;自报只许收窄不许放宽。
+    const resolvedRole = resolveBroadcastRole({
+      channel: 'public-socket',
+      principal: 'admin-session',
+      declared: parsed.data.role,
+    })
+    if (resolvedRole.rejected !== undefined) {
+      server.log.warn(
+        { userId, requested: resolvedRole.rejected, applied: resolvedRole.role },
+        'public-socket register 自报角色未生效(与服务端上限矛盾),以服务端推导为准',
+      )
+    }
     const conn: ConnectionInfo = {
       userId,
       connectedAt: now,
       remoteAddress: remoteAddress ?? 'unknown',
       compositeKey,
-      role: parsed.data.role,
+      role: resolvedRole.role,
       sentCount: 0,
       lastHeartbeatAt: now,
     }

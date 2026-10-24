@@ -339,5 +339,78 @@ describe('agent-control 定址投递与回执身份 — 双宿主不变量', () 
     })
     await executePromise
   })
+
+  it('⑥ G-86 协议派发序号:服务端盖写 + 单调递增 + 同 requestId 再派发复用同值', async () => {
+    await reportCapability('web-ord')
+    const deliveredRequest = (): AgentActionRequest => {
+      const payload = mockPush.mock.calls.at(-1)?.[1] as { request: AgentActionRequest }
+      return payload.request
+    }
+
+    // 首派:投递载荷带协议 ordinal(端侧重放水位的取值来源)
+    const p1 = executeCommand({
+      requestId: 'req-ord-1',
+      category: 'ui',
+      action: 'describe',
+      userId: USER_A,
+    })
+    await waitPending('req-ord-1')
+    const o1 = deliveredRequest().ordinal
+    expect(typeof o1).toBe('number')
+    await reportResult({ requestId: 'req-ord-1', success: true, durationMs: 1, executedBy: 'web' })
+    await p1
+
+    // 再派(不同 requestId):序号严格递增 —— 水位"只升不降"的源头保证
+    const p2 = executeCommand({
+      requestId: 'req-ord-2',
+      category: 'ui',
+      action: 'describe',
+      userId: USER_A,
+    })
+    await waitPending('req-ord-2')
+    const o2 = deliveredRequest().ordinal
+    expect(o2).toBeGreaterThan(o1 as number)
+    await reportResult({ requestId: 'req-ord-2', success: true, durationMs: 1, executedBy: 'web' })
+    await p2
+
+    // 同 (实例, requestId) 再派发复用同序号:重投帧被端侧水位判 duplicate,
+    // 这是"有界 id 集淘汰后重放复活"的协议级出口
+    const p3 = executeCommand({
+      requestId: 'req-ord-1',
+      category: 'ui',
+      action: 'describe',
+      userId: USER_A,
+    })
+    await waitPending('req-ord-1')
+    expect(deliveredRequest().ordinal).toBe(o1)
+    await reportResult({ requestId: 'req-ord-1', success: true, durationMs: 1, executedBy: 'web' })
+    await p3
+
+    // 调用方自报的 ordinal 被 executeSchema 剥掉(服务端权威,不存在端侧自报通道)
+    const p4 = app.inject({
+      method: 'POST',
+      url: `${PREFIX}/execute`,
+      payload: {
+        requestId: 'req-ord-forge',
+        category: 'ui',
+        action: 'describe',
+        params: {},
+        userId: USER_A,
+        timeout: 1000,
+        ordinal: 42,
+      },
+      headers: INTERNAL_HEADERS,
+    })
+    await waitPending('req-ord-forge')
+    expect(deliveredRequest().ordinal).not.toBe(42)
+    expect(typeof deliveredRequest().ordinal).toBe('number')
+    await reportResult({
+      requestId: 'req-ord-forge',
+      success: true,
+      durationMs: 1,
+      executedBy: 'web',
+    })
+    await p4
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

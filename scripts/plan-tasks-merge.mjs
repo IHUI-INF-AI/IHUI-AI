@@ -102,6 +102,9 @@ import { archiveFaceEntries } from './lib/plan-task-index.mjs'
 // 自动档走 commit-tree 旁路落地,pre-commit 的门 13d 结构性不跑(AGENTS §1「旁路落地的机器
 // 不跑钩子」)⇒ 棘轮必须接在 heal 自己的落地闸 healStopReasons 里,见该函数 noPointer 注。
 import { countPointerRows } from './check-plan-dup-pointer-ratchet.mjs'
+// 归档单调性的**唯一判据**实现(2026-10-23 台账回插事故立;守门 237 与各旁路落地器共用这一份)。
+// 本器是第四台"commit-tree + CAS"旁路落地器,落地不跑钩子 ⇒ 门 237 结构性不覆盖它,必须自带这一跑。
+import { analyze } from './check-plan-archive-monotonic.mjs'
 // 折叠形态的**反判据**取自守门 71 自己那一份实现(不另抄):`headIdOf` 判"行首名额"还在不在,
 // `lostMarkers` 判"折叠会不会被防丢层读成整行消失"。见 foldTwins 头注 ① —— 那是两维互咬的接缝。
 // G-218 票一③:循环熔断的**唯一**实现也住在门 71(它是"登记行存续"那一层的尺子,触碰计数只能
@@ -112,7 +115,6 @@ import {
   headIdOf,
   lostMarkers,
   markerOf,
-  loopBreakerDecision,
   loopBreakerMin,
   loopTripsForMarkers,
   loopWindowCommits,
@@ -207,6 +209,69 @@ export function loadArchivedIndex(root, face) {
   }
 }
 const LABEL = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(逃生舱)' }
+
+/**
+ * 归档单调性自检(2026-10-23 立)。
+ *
+ * 立因:2026-10-23 台账被"旧快照整文件写回"—— 工作区 `PROJECT_PLAN.md` 把 HEAD 里已归档(✅)的
+ * 完成票展开回未勾活行(29 增/16 删),整批已被 `git add`,下一次收编就会写进历史。本器是第四台
+ * "commit-tree + CAS"旁路落地器,落地**不跑钩子** ⇒ 守门 237 结构性覆盖不到它,所以每一处写盘
+ * (建候选树 / 写临时索引 / CAS 推进 HEAD / 回写共享索引)之前必须自带这一跑。
+ *
+ * 判据**单一实现在 `scripts/check-plan-archive-monotonic.mjs`**(导出 `analyze`):本函数只负责
+ * 取 HEAD 面、调它、把明细交调用方打到 stderr —— 在本文件另抄一份"什么算复活"就是第二份真相(§0.6),
+ * 两边迟早漂开,而漂开的表现是这一侧安静放行。
+ *
+ * 口径与门 237 一字不差:
+ *  - 命中 >0 ⇒ 返回拒落理由(调用方打印后非零退出),磁盘与对象空间一个字节都不动;
+ *  - HEAD 面取不到 ⇒ 返回"无法判定"的理由并终止这次写盘,绝不静默放行(与门 237 的 exit 2 同义);
+ *  - `HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC=1` ⇒ 同名同语义的逃生舱,跳过时 warn 留痕。
+ *
+ * @param {string} newText 本次拟落地的台账全文
+ * @param {string} [root] 落地仓根(临时仓端到端用例传自己的 root;默认本仓根)
+ * @returns {string|null} null = 放行;字符串 = 拒落理由(已含逐条明细)
+ */
+function guardArchiveMonotonic(newText, root = ROOT) {
+  if (process.env.HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC === '1') {
+    console.warn(
+      `⚠️ HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC=1 —— 跳过归档单调性自检并留痕(本次拟落地的 ${PLAN_REL} 未经门 237 同一判据核验)`,
+    )
+    return null
+  }
+  let headText
+  try {
+    headText = execFileSync('git', ['show', `HEAD:${PLAN_REL}`], {
+      cwd: root,
+      encoding: 'utf8',
+      maxBuffer: 1 << 28,
+      windowsHide: true,
+      // 本机派生面 EBUSY 纪律(门「git stdio 纪律」):git 派生必须显式配 stdio,不写会间歇 EBUSY
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    const why = String(e?.stderr || e?.message || e)
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)[0]
+    return (
+      `🈲 归档单调性无法判定 —— HEAD 面取不到 ${PLAN_REL}:${why || '未知原因'}\n` +
+      '   判据不猜、不静默放行(与守门 237 的「无法判定」同口径)⇒ 本次写盘终止。'
+    )
+  }
+  const { hits, stats } = analyze(headText, String(newText ?? ''))
+  if (!hits.length) return null
+  const detail = hits
+    .map((h) => `   ❌ ${h.kind} [标记 ${h.mark}]\n      ${String(h.row).slice(0, 120)}`)
+    .join('\n')
+  return (
+    `🈲 归档单调性自检:检出 ${hits.length} 条倒退 ⇒ 拒落(磁盘与对象空间一个字节未动)。\n` +
+    `${detail}\n` +
+    `   读数:新增未勾条目 ${stats.addOpen} · 删除条目 ${stats.delEntry} · 放行(全新) ${stats.passedNew} · ` +
+    `放行(改写/搬移) ${stats.passedRewrite} · HEAD 归档注释 ${stats.archived}\n` +
+    '   成因几乎总是"按旧快照整文件写回"(2026-10-23 台账回插事故);正解是从 HEAD 取现版重放本轮改动。\n' +
+    '   紧急跳过(不推荐):HUSKY_SKIP_PLAN_ARCHIVE_MONOTONIC=1'
+  )
+}
 
 /**
  * G-184 —— 本次运行的**判定面**(由 CLI 与落地档各点名一次;纯函数调用方没点名 ⇒ 读出"未判定")。
@@ -1434,6 +1499,12 @@ export function restoreTerminalsAndLand(maxAttempts = 8) {
       for (const p of v.problems.slice(0, 10)) console.log('   ' + p)
       return 1
     }
+    // 写盘前自检:候选全文必须过归档单调性(判据单一实现在 check-plan-archive-monotonic.mjs)
+    const blocked = guardArchiveMonotonic(r.text)
+    if (blocked) {
+      console.error(blocked)
+      return 1
+    }
     const parent = gitIn(null, ['rev-parse', 'HEAD'])
     const msg = [
       'fix(plan): 恢复被"每行都带副本指针"遮住的待办登记(隐形族自动出口)',
@@ -1921,6 +1992,12 @@ export function rowsDedupeAndLand(match = null, maxAttempts = 8) {
     if (problems.length) {
       console.log('❌ 单行副本档停手(现场保留,交人工):')
       for (const p of problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    // 写盘前自检:候选全文必须过归档单调性(判据单一实现在 check-plan-archive-monotonic.mjs)
+    const blocked = guardArchiveMonotonic(r.text)
+    if (blocked) {
+      console.error(blocked)
       return 1
     }
     const parent = gitIn(null, ['rev-parse', 'HEAD'])
@@ -2431,6 +2508,18 @@ function openRowsDedupeOnce(match = null, maxAttempts = 8, opts = {}) {
     if (problems.length) {
       console.log('❌ 未勾单行副本档停手(现场保留,交人工):')
       for (const p of problems.slice(0, 10)) console.log('   ' + p)
+      return {
+        kind: 'failed',
+        deletedCount: 0,
+        sha: null,
+        remainingGroups: groups.length,
+        remainingRows: 0,
+      }
+    }
+    // 写盘前自检:候选全文必须过归档单调性(判据单一实现在 check-plan-archive-monotonic.mjs)
+    const blocked = guardArchiveMonotonic(r.text, root)
+    if (blocked) {
+      console.error(blocked)
       return {
         kind: 'failed',
         deletedCount: 0,
@@ -3004,6 +3093,12 @@ export function twinFoldAndLand(maxAttempts = 8) {
       for (const p of problems.slice(0, 10)) console.log('   ' + p)
       return 1
     }
+    // 写盘前自检:候选全文必须过归档单调性(判据单一实现在 check-plan-archive-monotonic.mjs)
+    const blocked = guardArchiveMonotonic(f.text)
+    if (blocked) {
+      console.error(blocked)
+      return 1
+    }
     const parent = gitIn(null, ['rev-parse', 'HEAD'])
     const msg = [
       'fix(plan): 折叠"同题不同编号"的孪生待办登记(F10 折叠档)',
@@ -3451,6 +3546,12 @@ export function driftedMergeAndLand(anchor, keeperLine, maxAttempts = 8) {
       for (const p of problems.slice(0, 10)) console.log('   ' + p)
       return 1
     }
+    // 写盘前自检:候选全文必须过归档单调性(判据单一实现在 check-plan-archive-monotonic.mjs)
+    const blocked = guardArchiveMonotonic(f.text)
+    if (blocked) {
+      console.error(blocked)
+      return 1
+    }
     const parent = gitIn(null, ['rev-parse', 'HEAD'])
     const msg = [
       'fix(plan): 漂开副本归并(--merge-drifted,人工点名持有行后 N→1)',
@@ -3691,6 +3792,12 @@ export function healAndLand() {
     console.log(`❌ 自愈停手:${bad.join(' / ')} —— 现场保留,交人工`)
     return 1
   }
+  // 写盘前自检:候选全文必须过归档单调性(判据单一实现在 check-plan-archive-monotonic.mjs)
+  const blocked = guardArchiveMonotonic(f.text)
+  if (blocked) {
+    console.error(blocked)
+    return 1
+  }
   // 临时件一律走 mkScratch(工作树同盘的 DevEnv/Temp/ihui-scratch):写死 `.ihui-agent/tmp/`
   // 在**没有该目录的检出**上直接 ENOENT —— 独立仓端到端证明就是这么抓出来的。
   const scratch = mkScratch(`plan-state-heal-${stamp}`)
@@ -3863,6 +3970,12 @@ function healWithPrefixHolder(holderFragment, { commit }) {
     )
     return 0
   }
+  // 写盘前自检:候选全文必须过归档单调性(判据单一实现在 check-plan-archive-monotonic.mjs)
+  const blocked = guardArchiveMonotonic(text)
+  if (blocked) {
+    console.error(blocked)
+    return 1
+  }
   const scratch = mkScratch(`plan-prefix-holder-${stamp}`)
   const tmp = path.join(scratch, 'pp.md')
   const msgFile = path.join(scratch, 'msg.txt')
@@ -3951,6 +4064,12 @@ export function dedupeAndLand(maxAttempts = 8) {
     if (problems.length) {
       console.log(`❌ 块级收口停手(现场保留,交人工):`)
       for (const p of problems.slice(0, 10)) console.log('   ' + p)
+      return 1
+    }
+    // 写盘前自检:候选全文必须过归档单调性(判据单一实现在 check-plan-archive-monotonic.mjs)
+    const blocked = guardArchiveMonotonic(r.text)
+    if (blocked) {
+      console.error(blocked)
       return 1
     }
     const scratch = mkScratch(`plan-block-dedupe-${Date.now()}`)

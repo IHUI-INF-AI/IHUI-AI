@@ -36,6 +36,12 @@ export const USER_BROADCAST_EVENT_NAMES = [
   'conversation:updated',
   'mcp:status',
   'checkpoint:availability',
+  // D125(2026-10-23 立,设计稿 docs/d125-session-collab-design.md):协作会话事件族,
+  // 与上面同载体同纪律(前缀 `collab:` 进 ws-broadcast 的帧类别推导)。
+  'collab:invitation',
+  'collab:comment',
+  // D125 另批收口(2026-10-23):写锁/接管发言事件,设计稿 §6 预留的"同三步追加"落地。
+  'collab:lock',
 ] as const
 
 export type UserBroadcastEventName = (typeof USER_BROADCAST_EVENT_NAMES)[number]
@@ -203,10 +209,151 @@ export interface CheckpointAvailabilityEvent {
   data: CheckpointAvailabilityData
 }
 
+// ===================== collab:invitation / collab:comment(D125)=====================
+
+/**
+ * 协作邀请的封闭状态集(与 packages/database chat_conversation_collaborators.status 同值域)。
+ * 三档各有唯一可操作语义:pending=待被邀请人裁决,accepted=协作生效(只读+评论),
+ * revoked=属主撤销。中间态没有第三方的动作可挂,不开第四档(同 CHECKPOINT_AVAILABILITY 纪律)。
+ */
+export const COLLAB_INVITATION_STATES = ['pending', 'accepted', 'revoked'] as const
+
+export type CollabInvitationState = (typeof COLLAB_INVITATION_STATES)[number]
+
+export function isCollabInvitationState(v: unknown): v is CollabInvitationState {
+  return typeof v === 'string' && (COLLAB_INVITATION_STATES as readonly string[]).includes(v)
+}
+
+/**
+ * `collab:invitation` 载荷。
+ *
+ * 收信人由 broadcastToUser 的 userId 参数钉死(建邀请→被邀请人;接受→属主;撤销→被撤销人),
+ * 载荷里**没有收信人身份**:`invitedBy` 是行为主体(与 `conversation:updated.changedBy` 同性质),
+ * 出现 `userId`/`user_id` 键 ⇒ 整帧判「未判定」(§5 认证不等于授权)。
+ * 不带会话标题等正文性内容:端上按 conversationId 走既有拉取面,帧只做失效信号。
+ */
+export interface CollabInvitationData {
+  conversationId: string
+  invitationId: string
+  /** 邀请动作主体 = 属主 userId(服务端盖章,不是载荷自报的收信人) */
+  invitedBy: string
+  state: CollabInvitationState
+  /** ISO 8601;服务端写库完成时刻,同邀请以此做新旧判定 */
+  at: string
+}
+
+export interface CollabInvitationEvent {
+  event: 'collab:invitation'
+  data: CollabInvitationData
+}
+
+/**
+ * `collab:comment` 载荷 —— **刻意不带评论正文**(拉取制,设计稿 §4.2):
+ * 评论是追加型集合,推正文会造出"帧到了、库里还有别的没看到"的半态;
+ * 帧只说"这条消息的评论变了",消费端按 (conversationId, messageId) 重取库确认集。
+ */
+export interface CollabCommentData {
+  conversationId: string
+  messageId: string
+  commentId: string
+  /** 评论作者(行为主体);收信人 = 属主 + 其余 accepted 协作者,作者本人的回声由发射侧排除 */
+  authorId: string
+  at: string
+}
+
+export interface CollabCommentEvent {
+  event: 'collab:comment'
+  data: CollabCommentData
+}
+
+function isCollabInvitationData(v: unknown): v is CollabInvitationData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (typeof d.conversationId !== 'string' || d.conversationId.length === 0) return false
+  if (typeof d.invitationId !== 'string' || d.invitationId.length === 0) return false
+  if (typeof d.invitedBy !== 'string' || d.invitedBy.length === 0) return false
+  if (!isCollabInvitationState(d.state)) return false
+  if (typeof d.at !== 'string' || Number.isNaN(Date.parse(d.at))) return false
+  if ('userId' in d || 'user_id' in d) return false
+  return true
+}
+
+function isCollabCommentData(v: unknown): v is CollabCommentData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (typeof d.conversationId !== 'string' || d.conversationId.length === 0) return false
+  if (typeof d.messageId !== 'string' || d.messageId.length === 0) return false
+  if (typeof d.commentId !== 'string' || d.commentId.length === 0) return false
+  if (typeof d.authorId !== 'string' || d.authorId.length === 0) return false
+  if (typeof d.at !== 'string' || Number.isNaN(Date.parse(d.at))) return false
+  if ('userId' in d || 'user_id' in d) return false
+  return true
+}
+
+// ===================== collab:lock(D125 另批:写锁/接管发言)=====================
+
+/**
+ * 写锁生命周期的封闭状态集。
+ * 三档与消费端动作一一对应:acquired=无人占时有人拿麦,taken=从他人手里夺麦
+ * (UI 须点名被夺者),released=交麦(锁空出)。没有"即将过期"档 —— 锁无 TTL,
+ * 造一档没人能操作的词同 CHECKPOINT_AVAILABILITY 纪律不开。
+ */
+export const COLLAB_LOCK_STATES = ['acquired', 'taken', 'released'] as const
+
+export type CollabLockState = (typeof COLLAB_LOCK_STATES)[number]
+
+export function isCollabLockState(v: unknown): v is CollabLockState {
+  return typeof v === 'string' && (COLLAB_LOCK_STATES as readonly string[]).includes(v)
+}
+
+/**
+ * `collab:lock` 载荷(设计稿 §6 预留帧族的落地形态)。
+ *
+ * `holderUserId` 是**当前持麦人**(服务端盖章的事实,不是收信人身份):
+ * acquired/taken 必填非空,released 恒为 null —— 与 checkpoint 的 checkpointId
+ * 同一条"说不出人/说错人即矛盾"判据。收信人 = 属主 + 全部 accepted 协作者
+ * (排除行为主体本人),仍由 broadcastToUser 的 userId 钉死,载荷不得出现
+ * `userId`/`user_id` 键(§5)。
+ */
+export interface CollabLockData {
+  conversationId: string
+  /** 当前持麦人;released 时为 null(锁空出) */
+  holderUserId: string | null
+  state: CollabLockState
+  /** ISO 8601;服务端写库完成时刻,同会话以此做新旧判定 */
+  at: string
+}
+
+export interface CollabLockEvent {
+  event: 'collab:lock'
+  data: CollabLockData
+}
+
+function isCollabLockData(v: unknown): v is CollabLockData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (typeof d.conversationId !== 'string' || d.conversationId.length === 0) return false
+  if (!isCollabLockState(d.state)) return false
+  if (typeof d.at !== 'string' || Number.isNaN(Date.parse(d.at))) return false
+  if (d.state === 'released') {
+    // 交麦却还挂着持麦人:两个断言互相矛盾,照用会把"没人能发言"渲染成"有人能发言"
+    if (d.holderUserId !== null) return false
+  } else {
+    if (typeof d.holderUserId !== 'string' || d.holderUserId.length === 0) return false
+  }
+  if ('userId' in d || 'user_id' in d) return false
+  return true
+}
+
 // ===================== 联合本体与线上帧形态 =====================
 
 export type UserBroadcastEvent =
-  ConversationUpdatedEvent | McpStatusEvent | CheckpointAvailabilityEvent
+  | ConversationUpdatedEvent
+  | McpStatusEvent
+  | CheckpointAvailabilityEvent
+  | CollabInvitationEvent
+  | CollabCommentEvent
+  | CollabLockEvent
 
 /** 传输线上的裸帧形态:`/ws/broadcast` 推送的就是这个对象 */
 export interface UserBroadcastFrame {
@@ -290,6 +437,9 @@ const DATA_GUARDS: Record<UserBroadcastEventName, (v: unknown) => boolean> = {
   'conversation:updated': isConversationUpdatedData,
   'mcp:status': isMcpStatusData,
   'checkpoint:availability': isCheckpointAvailabilityData,
+  'collab:invitation': isCollabInvitationData,
+  'collab:comment': isCollabCommentData,
+  'collab:lock': isCollabLockData,
 }
 
 /**
@@ -445,6 +595,130 @@ export function checkpointAvailabilityEvent(input: {
   if (input.checkpointId !== undefined) data.checkpointId = input.checkpointId
   if (input.reason !== undefined) data.reason = input.reason
   return { event: 'checkpoint:availability', data }
+}
+
+// ===================== 生产侧构造 collab 事件(D125)=====================
+
+/**
+ * 构造 `collab:invitation` 事件(生产侧唯一写法;路由内不得手拼 `{event,data}` 字面量)。
+ * 与另两个构造器同一条设计:**在构造点就拒坏值** —— 空 id 的邀请帧没人能应用,
+ * 未知 state 在词表里没有对应句子。`at` 缺省取调用时刻(路由在写库成功后调用,
+ * 该时刻即消费端判新旧的事实源,D163 同型)。
+ */
+export function collabInvitationEvent(input: {
+  conversationId: string
+  invitationId: string
+  invitedBy: string
+  state: CollabInvitationState
+  at?: Date | string
+}): CollabInvitationEvent {
+  if (!input.conversationId) throw new Error('collabInvitationEvent: conversationId 不得为空')
+  if (!input.invitationId) throw new Error('collabInvitationEvent: invitationId 不得为空')
+  if (!input.invitedBy) throw new Error('collabInvitationEvent: invitedBy 不得为空')
+  if (!isCollabInvitationState(input.state)) {
+    throw new Error(
+      `collabInvitationEvent: 未知状态 ${String(input.state)}(封闭集见 COLLAB_INVITATION_STATES)`,
+    )
+  }
+  const at =
+    input.at === undefined
+      ? new Date().toISOString()
+      : typeof input.at === 'string'
+        ? input.at
+        : input.at.toISOString()
+  if (Number.isNaN(Date.parse(at))) {
+    throw new Error(`collabInvitationEvent: at 不是时间:${at}`)
+  }
+  return {
+    event: 'collab:invitation',
+    data: {
+      conversationId: input.conversationId,
+      invitationId: input.invitationId,
+      invitedBy: input.invitedBy,
+      state: input.state,
+      at,
+    },
+  }
+}
+
+/**
+ * 构造 `collab:comment` 事件(生产侧唯一写法)。三个 id 任缺其一,消费端都无从定位
+ * "哪条消息的评论变了" ⇒ 构造点直接拒;正文不在帧里(拉取制,见 CollabCommentData)。
+ */
+export function collabCommentEvent(input: {
+  conversationId: string
+  messageId: string
+  commentId: string
+  authorId: string
+  at?: Date | string
+}): CollabCommentEvent {
+  if (!input.conversationId) throw new Error('collabCommentEvent: conversationId 不得为空')
+  if (!input.messageId) throw new Error('collabCommentEvent: messageId 不得为空')
+  if (!input.commentId) throw new Error('collabCommentEvent: commentId 不得为空')
+  if (!input.authorId) throw new Error('collabCommentEvent: authorId 不得为空')
+  const at =
+    input.at === undefined
+      ? new Date().toISOString()
+      : typeof input.at === 'string'
+        ? input.at
+        : input.at.toISOString()
+  if (Number.isNaN(Date.parse(at))) {
+    throw new Error(`collabCommentEvent: at 不是时间:${at}`)
+  }
+  return {
+    event: 'collab:comment',
+    data: {
+      conversationId: input.conversationId,
+      messageId: input.messageId,
+      commentId: input.commentId,
+      authorId: input.authorId,
+      at,
+    },
+  }
+}
+
+/**
+ * 构造 `collab:lock` 事件(生产侧唯一写法;路由内不得手拼 `{event,data}` 字面量)。
+ * 与另几个构造器同一条设计:**在构造点就拒坏值** —— 空 conversationId 的锁帧没人能应用;
+ * `released` 却带着持麦人、`acquired`/`taken` 却说不出持麦人,两个断言互相矛盾,
+ * 照用会把"没人能发言"渲染成"有人能发言"(或反之),正是本票要消灭的分叉形态。
+ * `at` 缺省取调用时刻(路由在写库成功后调用,该时刻即消费端判新旧的事实源)。
+ */
+export function collabLockEvent(input: {
+  conversationId: string
+  holderUserId: string | null
+  state: CollabLockState
+  at?: Date | string
+}): CollabLockEvent {
+  if (!input.conversationId) throw new Error('collabLockEvent: conversationId 不得为空')
+  if (!isCollabLockState(input.state)) {
+    throw new Error(`collabLockEvent: 未知状态 ${String(input.state)}(封闭集见 COLLAB_LOCK_STATES)`)
+  }
+  if (input.state === 'released') {
+    if (input.holderUserId !== null) {
+      throw new Error('collabLockEvent: released 不得携带 holderUserId(交麦即空出)')
+    }
+  } else if (typeof input.holderUserId !== 'string' || input.holderUserId.length === 0) {
+    throw new Error(`collabLockEvent: ${input.state} 必须携带非空 holderUserId`)
+  }
+  const at =
+    input.at === undefined
+      ? new Date().toISOString()
+      : typeof input.at === 'string'
+        ? input.at
+        : input.at.toISOString()
+  if (Number.isNaN(Date.parse(at))) {
+    throw new Error(`collabLockEvent: at 不是时间:${at}`)
+  }
+  return {
+    event: 'collab:lock',
+    data: {
+      conversationId: input.conversationId,
+      holderUserId: input.holderUserId,
+      state: input.state,
+      at,
+    },
+  }
 }
 
 // ===================== 同字段"以库为准"的新旧判定 =====================

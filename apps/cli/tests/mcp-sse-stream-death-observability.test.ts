@@ -13,7 +13,8 @@
  *   - 'aborted'(取消路径):静默,留注释;
  *   - 'error'(异常路径):`console.warn` 告警(照抄本文件既有 `[mcp-runtime] server=…` 形态)
  *     + `conn.connected = false`(复用既有状态字段,状态上报可见)。
- *   刻意**不加 Retry、不做自动重连** —— 重连是设计取向,登记待拍板;禁为吞错加 Retry 藏红。
+ *   刻意**不加 Retry、不做后台自动重连** —— O46 已拍板 B(命令层手动重连):恢复入口是
+ *   ACP `x.ai/mcp/reconnect`,降档告警必须指向该入口(判据①钉住接线);禁为吞错加 Retry 藏红。
  *
  * 判据成对(正反缺一不可,否则判据恒真):
  *  ① 正:流异常死亡(对端半途 RST)⇒ 恰一条带 server 名的告警 + connected 翻 false;
@@ -144,6 +145,10 @@ describe('SSE 后台循环吞错的最小可观测修复', () => {
       expect(hits).toHaveLength(1);
       expect(hits[0]).toContain('[mcp-runtime]');
       expect(hits[0]).toContain('server=fake-sse');
+      // O46 拍板 B 的接线半边:降档提示必须指向命令层手动重连入口(带 serverName 参数),
+      // 否则消费方只看到"不可用"却不知道该往哪发 retry —— 取向 B 的判据在此钉死。
+      expect(hits[0]).toContain('x.ai/mcp/reconnect');
+      expect(hits[0]).toContain('serverName=fake-sse');
     } finally {
       if (conn) disconnectMcpConnection(conn);
       await fake.close();

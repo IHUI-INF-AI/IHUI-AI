@@ -73,7 +73,8 @@ async def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     if resp.status_code >= 400:
         raise RuntimeError(f"个人号池 HTTP {resp.status_code}: {resp.text[:200]}")
     body = resp.json()
-    return body.get("data") if isinstance(body, dict) and isinstance(body.get("data"), dict) else {}
+    data = body.get("data") if isinstance(body, dict) else None
+    return data if isinstance(data, dict) else {}
 
 
 async def sync_upsert(
