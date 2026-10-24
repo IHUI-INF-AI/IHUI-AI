@@ -374,7 +374,9 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                   accessibilityRole="button"
                   testID="voice-note-group-chip-all"
                 >
-                  <Text style={styles.chipText}>{t('chat.voiceNote.groupAll')}</Text>
+                  <Text style={[styles.chipText, groupKey === null && styles.chipActiveText]}>
+                    {t('chat.voiceNote.groupAll')}
+                  </Text>
                 </Pressable>
                 {groups.map((facet) => (
                   <Pressable
@@ -384,7 +386,12 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                     accessibilityRole="button"
                     testID="voice-note-group-chip"
                   >
-                    <Text style={styles.chipText}>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        groupKey === facet.groupKey && styles.chipActiveText,
+                      ]}
+                    >
                       {facet.groupKey} {facet.count}
                     </Text>
                   </Pressable>
@@ -530,7 +537,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  chipActive: { backgroundColor: tokens.surface.light },
+  // 选中胶囊走 RN 既有范式(ChatTemplatesScreen/ArticleEditScreen 同尺):brand.cta 底 +
+  // ctaForeground 字,两态自适应;不得用 surface.light(两态恒白 ⇒ 白卡上选中态不可见)
+  chipActive: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
+  chipActiveText: { color: tokens.brand.ctaForeground },
   chipText: { fontSize: 11, color: tokens.text.secondary },
   archiveList: { maxHeight: 220 },
   archiveItem: {
