@@ -12,7 +12,7 @@ import { __test__ as scrubTool } from '../scrub-declared-removals.mjs'
 import { compositeKeyOf } from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
-const { scrub, declaredRows, buildDeclared, rowStateOf, main, LEDGERS } = scrubTool
+const { scrub, declaredRows, buildDeclared, rowStateOf, titleFpOf, main, LEDGERS } = scrubTool
 
 const ROW = '- [ ] G-900 已被台账摘除的登记行'
 const HEAD = ['- [ ] G-901 在册行', '- [x] G-902 已勾在册行'].join('\n')
@@ -191,6 +191,45 @@ describe('维二:正文等值(2026-10-23 补,治"已结清票以未勾形态复�
     assert.match(src, /export function rowStateOf\(line\)[\s\S]{0,200}parseTaskRows\(/)
     assert.match(src, /export function buildDeclared\(/, '维二输入的唯一构造出口必须在位')
     assert.ok(typeof scrubTool.buildDeclared === 'function' && typeof scrubTool.rowStateOf === 'function')
+  })
+
+  it('题面前缀维:f11-purge 声明的同题行让号/改号后仍剔', () => {
+    const base = '- [ ] G-63 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证'
+    const variant = '- [ ] G-87 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证'
+    const declared = { set: new Set([base]), closed: new Map(), dropTitleFps: new Set([titleFpOf(base)]) }
+    const r = scrub(`${HEAD}\n${variant}`, HEAD, declared)
+    assert.equal(r.dropped.length, 1)
+    assert.equal(r.via.get(variant), 'title')
+  })
+
+  it('题面前缀维反证:HEAD 仍有同题键 ⇒ 不剔', () => {
+    const base = '- [ ] G-63 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证'
+    const variant = '- [ ] G-87 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证'
+    const declared = { set: new Set([base]), closed: new Map(), dropTitleFps: new Set([titleFpOf(base)]) }
+    const r = scrub(`${HEAD}\n${variant}`, `${HEAD}\n${variant}`, declared)
+    assert.equal(r.dropped.length, 0)
+  })
+
+  it('declaredRows 只为 f11-purge 条目建题面前缀集(其它 kind 不进维三)', () => {
+    const dir = mkScratch('declared-tfp-')
+    try {
+      mkdirSync(path.join(dir, '.ihui-agent', 'state'), { recursive: true })
+      const f11 = '- [ ] G-63 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证'
+      const other = '- [ ] G-64 另一张无关票'
+      writeFileSync(
+        path.join(dir, '.ihui-agent', 'state', 'drop.jsonl'),
+        [
+          JSON.stringify({ rowBefore: f11, kind: 'f11-purge', at: '2026-10-25T00:00:00.000Z' }),
+          JSON.stringify({ rowBefore: other, kind: 'stale-closed-sweep', at: '2026-10-25T00:00:00.000Z' }),
+        ].join('\n') + '\n',
+        'utf8',
+      )
+      const d = declaredRows(dir, ['.ihui-agent/state/drop.jsonl'])
+      assert.equal(d.dropTitleFps.size, 1)
+      assert.ok(d.dropTitleFps.has(titleFpOf(f11)))
+    } finally {
+      rmScratch(dir)
+    }
   })
 })
 
