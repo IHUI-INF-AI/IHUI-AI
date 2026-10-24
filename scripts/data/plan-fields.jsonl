@@ -46,10 +46,9 @@
 {"key":"G-86#b76-12c票1后续格","waiting":"env","updatedAt":"2026-10-22T06:39:58.322Z","updatedBy":"plan-fields-extract"}
 {"key":"G-24#safe-commit的差分归因会把别人暂存的红","owner":"持有人","waiting":"none","updatedAt":"2026-10-22T06:39:58.322Z","updatedBy":"plan-fields-extract"}
 {"key":"G-195#生产服务的实际入口","owner":"分叉裁决完成后接下一班运维**","waiting":"none","updatedAt":"2026-10-22T06:39:58.322Z","updatedBy":"plan-fields-extract"}
-{"key":"G-40#schemacheck的\"按驱动事实判sqlit","owner":"`app/core/schema_check.py` 持有人","waiting":"none","updatedAt":"2026-10-22T13:03:10.517Z","updatedBy":"ledger-p2"}
+{"key":"G-17#schemacheck的\"按驱动事实判sqlit","owner":"`app/core/schema_check.py` 持有人","waiting":"none","updatedAt":"2026-10-22T13:03:10.517Z","updatedBy":"ledger-p2"}
 {"key":"G-41#围栏只判\"新代码不得选用已删出口\"","owner":"持有人","waiting":"none","updatedAt":"2026-10-22T06:39:58.323Z","updatedBy":"plan-fields-extract"}
 {"key":"G-11#对账器L3「宾语落点」清单只点了7个通用动词","owner":"该工具持有人","waiting":"none","updatedAt":"2026-10-22T06:39:58.323Z","updatedBy":"plan-fields-extract"}
-{"key":"G-15#合并落地闸拦下这一枚合并的真病灶是\"并集少带了本","owner":"`scripts/union-converge.mjs` 落地闸持有人","waiting":"none","updatedAt":"2026-10-22T13:03:10.517Z","updatedBy":"ledger-p2"}
 {"key":"G-949#备份链重建","owner":"待认领","waiting":"none","updatedAt":"2026-10-22T06:39:58.323Z","updatedBy":"plan-fields-extract"}
 {"key":"G-36#收敛链这一轮量到的四格","owner":"union-converge / git-sync-converge 转述层","waiting":"none","updatedAt":"2026-10-22T13:43:04.929Z","updatedBy":"ledger-p2"}
 {"key":"G-32#活文档行union会把\"本侧已让号删掉的旧形态\"","owner":"union-converge 落地闸持有人","waiting":"none","updatedAt":"2026-10-22T06:39:58.323Z","updatedBy":"plan-fields-extract"}
@@ -68,7 +67,6 @@
 {"key":"G-956#G-956归属","owner":"守门 98 D4(影子 .js","waiting":"none","updatedAt":"2026-10-22T06:39:58.326Z","updatedBy":"plan-fields-extract"}
 {"key":"G-69#G-69D","waiting":"env","updatedAt":"2026-10-22T06:39:58.326Z","updatedBy":"plan-fields-extract"}
 {"key":"G-925#守门77的一百一十五处dead-class圆角修","waiting":"env","updatedAt":"2026-10-22T06:39:58.326Z","updatedBy":"plan-fields-extract"}
-{"key":"G-18#G-18归属","owner":"union-converge 落地闸持有人 —— 两版 F5 修法被\"整文件取向\"的并发合并各自","waiting":"none","updatedAt":"2026-10-22T06:39:58.327Z","updatedBy":"plan-fields-extract"}
 {"key":"G-221#本批全量终审186项=173通过/5警告/8失败","owner":"一处恒红门已当场修掉","waiting":"none","updatedAt":"2026-10-22T06:39:58.327Z","updatedBy":"plan-fields-extract"}
 {"key":"G-943#索引里挂着4枚他人暂存的删除","owner":"持有这四枚暂存删除的那路会话","waiting":"none","updatedAt":"2026-10-22T06:39:58.327Z","updatedBy":"plan-fields-extract"}
 {"key":"G-928#plan-pointer-purge的归档台账取","waiting":"human","updatedAt":"2026-10-22T07:31:37.520Z","updatedBy":"plan-fields-extract"}
@@ -110,7 +108,6 @@
 {"key":"G-956#G-956归属","owner":"守门 98 D4","waiting":"none","updatedAt":"2026-10-22T08:29:34.920Z","updatedBy":"plan-fields-extract"}
 {"key":"G-69#G-69D","waiting":"env","blocking":"等环境","updatedAt":"2026-10-22T08:29:34.920Z","updatedBy":"plan-fields-extract"}
 {"key":"G-925#守门77的一百一十五处dead-class圆角修","waiting":"env","blocking":"模拟器","updatedAt":"2026-10-22T08:29:34.920Z","updatedBy":"plan-fields-extract"}
-{"key":"G-18#G-18归属","owner":"union-converge 落地闸持有人","waiting":"none","updatedAt":"2026-10-22T08:29:34.920Z","updatedBy":"plan-fields-extract"}
 {"key":"G-943#索引里挂着4枚他人暂存的删除","owner":"持有这四枚暂存删除的那路会话","waiting":"none","blocking":"等它自己提交","updatedAt":"2026-10-22T08:29:34.920Z","updatedBy":"plan-fields-extract"}
 {"key":"G-245#事故归档无\"双上限\"回收——与§5b的禁删条款正","owner":"存续线","waiting":"none","updatedAt":"2026-10-22T13:55:29.313Z","updatedBy":"agent-p2-g245"}
 {"key":"G-245#事故归档无\"双上限\"回收——与§5b的禁删条款正","owner":"`.git` 存续线","waiting":"none","updatedAt":"2026-10-22T13:58:18.217Z","updatedBy":"agent-p2-g245"}
@@ -145,7 +142,7 @@
 {"key":"O81#跨端UI单一源","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"none"}
 {"key":"T:603fa0e505d0c389","updatedAt":"2026-10-23T15:55:11.288Z","updatedBy":"we-clear-20261023","waiting":"none"}
 {"key":"G-925#守门77的一百一十五处dead-class圆角修","waiting":"human","owner":"机主","blocking":"真机/模拟器观感验证(修复已入库 枚1e96525416,门77 HEAD面 RC=0,镜像22/22+37/37绿)","updatedAt":"2026-10-23T18:31:00.817Z","updatedBy":"converge-recheck-20261024"}
-{"key":"G-09#活文档行union会把\"本侧已让号删掉的旧形态\"","owner":"union-converge 落地闸持有人","waiting":"none","updatedAt":"2026-10-24T16:53:48.262Z","updatedBy":"goal-主会话(机主授权合并)"}
-{"key":"G-90#取号器会把别席已占号当空闲发出⇒今天一次连发三个","owner":"取号器持有人","waiting":"none","updatedAt":"2026-10-24T16:53:48.262Z","updatedBy":"goal-主会话(机主授权合并)"}
-{"key":"G-05#G-05归属","owner":"端口注册表门持有人","waiting":"none","updatedAt":"2026-10-24T16:53:48.262Z","updatedBy":"goal-主会话(机主授权合并)"}
-{"key":"G-38#门94的R4射程对它自己守的那件事的消费者全盲","owner":"门 94 持有人","waiting":"none","updatedAt":"2026-10-24T16:53:48.262Z","updatedBy":"goal-主会话(机主授权合并)"}
+{"key":"G-08#合并落地闸拦下这一枚合并的真病灶是\"并集少带了本","waiting":"none","updatedAt":"2026-10-24T17:11:36.658Z","updatedBy":"goal-主会话(机主授权合并分批收敛)"}
+{"key":"G-25#〔副本·待并入L28868正身〕活文档行unio","waiting":"human","updatedAt":"2026-10-24T17:11:36.659Z","updatedBy":"goal-主会话(机主授权合并分批收敛)","owner":"L28868 正身持有人"}
+{"key":"G-30#G-30归属","waiting":"none","updatedAt":"2026-10-24T17:11:36.659Z","updatedBy":"goal-主会话(机主授权合并分批收敛)","owner":"union-converge 落地闸持有人"}
+{"key":"G-12#CSRF存在性判据的两门射程外形态登记","waiting":"none","updatedAt":"2026-10-24T17:13:58.363Z","updatedBy":"goal-主会话(机主授权合并分批收敛)"}
