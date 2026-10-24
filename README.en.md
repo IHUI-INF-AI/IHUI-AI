@@ -88,7 +88,7 @@ Headline claims (same source as the table below, all live-computed): **606 table
 | 工程守门 | 276 | `guardianGates` |
 | — blocking | 253 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 16061 | `trackedFiles` |
+| 跟踪文件 | 16065 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-24。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -99,6 +99,24 @@ Headline claims (same source as the table below, all live-computed): **606 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-25**
+- 📚 Docs:表格/tooltip/toast 一族给技术定论 —— 不是缺陷,不建门 (84db1779e9a)
+- 📚 Docs:README 中英双版数字对齐现算值(9 端 / 101 模型口径) (59d386cabed)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (710b4dd47f1)
+- 🐞 Fix:清 push 门两个 not-ours 红 —— 三处 spawnSync 补 stdio + api-client 桶补两个 D09 类型导出 (ece5ac5de3e)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (84dd513a8e7)
+- 🔧 Chore/Other:结清 L7742 —— 服务运行时代码新鲜度维已覆盖 dot-source 传递闭包(G-1080903 实现,自检 82/82) (8ea9394d1ba)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6d7cc488f25)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (887b256434e)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6ffbc09c106)
+- 🔧 Chore/Other:结清 G-41 三格(①0 违规②G-417②已落地判据③resolveGitBin 已接单源;三格逐条现读凭据见行内注记;摘 r25c+r25e 租约——②经核验无需再做) (97192f73de2)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (af84a1df58f)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2d6d07f65cd)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ed46cccb30a)
+- 🔧 Chore/Other:翻勾「deploy/prod-bundle/ 被 gitignore 导致 compose 链脚本全仓无入库源」——亲跑 check-prod-bundle-shadow rc=0 复验(本机 14 对逐字节等值/9 对部署机现场未判定按门设计/E1 枚举闭合),同文结清注记 3 份去重归并为 2 份 (782cbd2fbf9)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b18c2b0d6e1)
+- 🔧 Chore/Other:复结 prod-bundle 票孪生副本第二份(同凭据零改动,门 239 单调性) (8c5a366214b)
+
 **2026-10-25**
 - 🐞 Fix:修 F3 自检恒红 —— 落点判据跟上 G-158 仓内 .DevEnv (1f9deae5c65)
 - ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (58111ebfb00)
@@ -404,9 +422,6 @@ Headline claims (same source as the table below, all live-computed): **606 table
 **2026-10-24**
 - 🐞 Fix:MCP_WORKSPACE_ROOTS 空值回落 cwd —— 根治 patch_root 全量序 503 污染(生产配空值同病) (cdb68fbb360)
 - 🚀 Feature/Improvement:大屏读数不得断行 —— 号池面板「6天19小时」被切成两半的三层成因根治 (94234605561)
-
-**2026-10-24**
-- 🐞 Fix:大屏中文界面收口英文产品词(数据源/页脚/告警/数据层/号池/KPI) (5e212c0fbd5)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
