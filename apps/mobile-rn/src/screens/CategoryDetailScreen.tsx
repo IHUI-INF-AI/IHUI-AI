@@ -52,12 +52,12 @@ export default function CategoryDetailScreen() {
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请下拉刷新重试')
+      setError(detail.trim() ? toUserFriendlyMessage(e) : t('common.loadFailPullRetry'))
     } finally {
       setLoading(false)
       setLoadingMore(false)
     }
-  }, [page])
+  }, [page, t])
 
   useEffect(() => {
     void load()

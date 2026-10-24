@@ -48,7 +48,7 @@ function mapRecord(r: CommissionRecord): IncomeCommissionItem {
   const status = String(r.status ?? '')
   return {
     id: r.id,
-    title: r.userNickname || r.orderId || '佣金收益',
+    title: r.userNickname || r.orderId || t('income.commissionDefault'),
     amount: (r.amount ?? r.commissionAmount ?? 0) / 100,
     time: r.createdAt,
     settled: false,
@@ -62,7 +62,7 @@ function mapRecord(r: CommissionRecord): IncomeCommissionItem {
 function mapWithdrawRecord(r: CommissionWithdrawRecord): IncomeCommissionItem {
   return {
     id: r.id,
-    title: r.accountType === 'bank' ? '银行卡提现' : '提现记录',
+    title: r.accountType === 'bank' ? t('income.withdrawBank') : t('income.withdrawRecord'),
     amount: (r.amount ?? 0) / 100,
     time: r.processedAt ?? r.createdAt,
     settled: true,

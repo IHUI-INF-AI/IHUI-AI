@@ -20,6 +20,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
 import { rnRadiusFor } from '@ihui/design-tokens'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
+import { useI18n } from '../i18n'
 
 /** 波形指示条数(静态装饰条,点亮数 = 播放进度) */
 const VOICE_BUBBLE_BAR_COUNT = 16
@@ -40,6 +41,7 @@ export function VoiceBubble({
   durationSec,
   isUser = false,
 }: VoiceBubbleProps): React.JSX.Element {
+  const { t } = useI18n()
   const player = useAudioPlayer(url)
   const status = useAudioPlayerStatus(player)
 
@@ -68,7 +70,7 @@ export function VoiceBubble({
         onPress={onToggle}
         hitSlop={6}
         accessibilityRole="button"
-        accessibilityLabel={status.playing ? '暂停语音' : '播放语音'}
+        accessibilityLabel={status.playing ? t('chat.voicePause') : t('chat.voicePlay')}
       >
         {status.playing ? (
           <Pause size={13} color={btnFg} fill={btnFg} />

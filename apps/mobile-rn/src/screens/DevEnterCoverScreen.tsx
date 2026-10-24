@@ -67,7 +67,7 @@ export function DevEnterCoverScreen() {
     if (paying || submitting) return
     const amountCents = Math.round(price[selected] * 100)
     if (!amountCents || amountCents <= 0) {
-      appAlert(t('common.hint'), '套餐价格异常,请稍后重试')
+      appAlert(t('common.hint'), t('devEnterCover.priceAbnormal'))
       return
     }
     setSubmitting(true)
