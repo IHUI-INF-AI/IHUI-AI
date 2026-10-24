@@ -308,8 +308,13 @@ export function MemoryScreen({
         />
       )}
 
-      {/* 新建记忆 Modal */}
-      <Modal visible={createVisible} animationType="slide" transparent>
+      {/* 新建记忆 Modal(安卓返回键/onCancel 与右上角"取消"同语义关闭,不得让返回键穿透整屏) */}
+      <Modal
+        visible={createVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={onCloseCreate}
+      >
         <View style={styles.overlay}>
           <View style={styles.sheet}>
             <View style={styles.sheetHeaderRow}>
