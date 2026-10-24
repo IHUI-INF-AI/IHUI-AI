@@ -144,7 +144,6 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /docs - 文档列表
   server.get('/docs', { preHandler: [requireAuth] }, async (req, reply) => {
-    const q = (req.query as { ownerUuid?: string }) ?? {}
     const authUser = req.userId
     const owner = resolveOwner(authUser)
     try {
@@ -162,7 +161,6 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
     if (!Number.isInteger(id) || id <= 0) {
       return reply.status(400).send(error(400, 'doc_id 非法'))
     }
-    const q = (req.query as { ownerUuid?: string }) ?? {}
     const authUser = req.userId
     const owner = resolveOwner(authUser)
     try {
@@ -200,7 +198,6 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
     if (!Number.isInteger(id) || id <= 0) {
       return reply.status(400).send(error(400, 'doc_id 非法'))
     }
-    const q = (req.query as { ownerUuid?: string }) ?? {}
     const authUser = req.userId
     const owner = resolveOwner(authUser)
     try {
