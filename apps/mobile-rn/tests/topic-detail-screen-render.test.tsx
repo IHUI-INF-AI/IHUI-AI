@@ -55,6 +55,63 @@ vi.mock('react-native', () => {
     )
   }
   return {
+    // 2026-10-24:组件树启用 Animated(AgentList 等)而本工厂缺导出 ⇒ 渲染用例齐炸
+    // (27 份 react-native mock 各自漂移的同型;此块自包含零依赖,形态与 agent-screen.test.tsx 同源)。
+    Easing: {
+      // 链式形态:Easing.out(Easing.cubic()) —— 实参函数原样透传,无参调用返恒等桩
+      bezier: () => () => ({}),
+      cubic: () => ({}),
+      quad: () => ({}),
+      linear: () => ({}),
+      circle: () => ({}),
+      back: () => ({}),
+      elastic: () => ({}),
+      bounce: () => ({}),
+      out: (f: unknown) => f,
+      in: (f: unknown) => f,
+      inOut: (f: unknown) => f,
+      ease: () => ({}),
+      inout: (f: unknown) => f,
+    },
+    Animated: {
+      View: mk('div'),
+      Text: mk('span'),
+      createAnimatedComponent: (c: unknown) => c,
+      timing: () => ({ start: (cb?: () => void) => cb?.() }),
+      spring: () => ({ start: (cb?: () => void) => cb?.() }),
+      decay: () => ({ start: (cb?: () => void) => cb?.() }),
+      parallel: (anims: Array<{ start?: (cb?: () => void) => void }>) => ({
+        start: (cb?: () => void) => {
+          anims.forEach((a) => a?.start?.())
+          cb?.()
+        },
+      }),
+      sequence: (anims: Array<{ start?: (cb?: () => void) => void }>) => ({
+        start: (cb?: () => void) => {
+          anims.forEach((a) => a?.start?.())
+          cb?.()
+        },
+      }),
+      loop: (anim: { start?: (cb?: () => void) => void }) => ({
+        start: (cb?: () => void) => {
+          anim?.start?.()
+          cb?.()
+        },
+        stop: (cb?: (v: unknown) => void) => cb?.(0),
+        reset: () => {},
+      }),
+      event: () => () => {},
+      addListener: () => ({ remove: () => {} }),
+      removeAllListeners: () => {},
+      Value: class {
+        constructor(_v: number) {}
+        setValue(_v: number) {}
+        stopAnimation() {}
+        interpolate() {
+          return { __getValue: () => 0 }
+        }
+      },
+    },
     // 共享返回键核心按字体缩放取档(packages/shared back-chevron-core → useFontMultiplier)
     PixelRatio: {
       getFontScale: () => 1,
