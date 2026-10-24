@@ -21,6 +21,7 @@ import { runSelfHealing, type SelfHealingOutcome } from '@ihui/api-client/endpoi
 import NavBar from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { TextField } from '@ihui/rn-app'
+import Empty from '../components/common/Empty'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 
@@ -125,7 +126,7 @@ export function SelfHealingScreen() {
           <TouchableOpacity
             disabled={running || !task.trim() || !targetPath.trim()}
             onPress={run}
-            className={`mt-3 self-start rounded-sm px-4 py-2 ${
+            className={`mt-3 self-start rounded-sm px-4 py-2 min-h-[44px] ${
               running || !task.trim() || !targetPath.trim()
                 ? 'bg-neutral-300 dark:bg-neutral-800'
                 : 'bg-neutral-900 dark:bg-neutral-100'
@@ -160,8 +161,8 @@ export function SelfHealingScreen() {
         ) : null}
 
         {error ? (
-          <View className="mx-4 mb-3 rounded-xl border border-red-300 bg-red-50 p-3 dark:border-red-800 dark:bg-red-950">
-            <Text className="text-sm text-red-600 dark:text-red-400">{error}</Text>
+          <View className="mx-4 mb-3">
+            <Empty text={error} actionText={t('common.retry')} onAction={run} />
           </View>
         ) : null}
 
