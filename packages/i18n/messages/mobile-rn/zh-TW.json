@@ -250,7 +250,8 @@
     "pubVideo": "發布視頻",
     "pubGroup": "發布課程合集",
     "closePreview": "關閉預覽",
-    "recentUsed": "最近使用"
+    "recentUsed": "最近使用",
+    "shareBoardTitle": "智匯AI社群 - {name}"
   },
   "plaza": {
     "index": {
@@ -879,7 +880,11 @@
     "toolFail": "失敗",
     "diffCollapse": "收起流中 diff 預覽",
     "diffExpand": "展開流中 diff 預覽",
-    "imagePreview": "预览圖片"
+    "imagePreview": "预览圖片",
+    "notes": {
+      "loadFailShort": "載入失敗",
+      "recordNew": "新建錄音"
+    }
   },
   "settings": {
     "title": "設定",
@@ -1124,7 +1129,8 @@
     "panelCollapse": "收起面板",
     "panelExpand": "展開面板",
     "loadMore": "載入更多",
-    "user": "用戶"
+    "user": "用戶",
+    "retryShort": "重試"
   },
   "network": {
     "offline": "網路已中斷,部分功能不可用",
@@ -2180,7 +2186,10 @@
     "title": "排行榜",
     "wanSuffix": "{v}萬",
     "pointsUnit": "分",
-    "anonShort": "匿名"
+    "anonShort": "匿名",
+    "histFallback": "歷史會話",
+    "historyBoard": "歷史榜單",
+    "visitorName": "排行榜訪客"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -5410,5 +5419,53 @@
     "sandboxAutoRunDesc": "沙箱程式碼執行完成後自動執行",
     "errorReport": "錯誤上報",
     "errorReportDesc": "自動上報介面錯誤便於排查"
+  },
+  "globalBox": {
+    "collapse": "收起浮窗",
+    "expand": "展開浮窗",
+    "earn": "賺米",
+    "support": "客服",
+    "feedback": "反饋"
+  },
+  "hand": {
+    "memberPurchase": "會員購買"
+  },
+  "ia": {
+    "remainingPoints": "剩餘智匯值",
+    "recharge": "充值"
+  },
+  "uiCard": {
+    "inviteCodeBody": "邀請碼:{code}\n(長按複製)",
+    "userGreet": "AI IHUI丨{name}",
+    "growthA11y": "成長值進度條,點擊查看等級介紹",
+    "vipBenefitBody": "您當前為 VIP 會員，享受專屬權益。繼續累積成長值可升級至更高等級。",
+    "normalBenefitBody": "您當前為普通會員，升級 VIP 可享受更多權益。"
+  },
+  "earn": {
+    "tabToday": "今日",
+    "tabMonth": "本月",
+    "tabTotal": "累計",
+    "tabDayShort": "日",
+    "tabMonthShort": "月",
+    "tabTotalShort": "總",
+    "promoOrders": "{tab}推廣訂單",
+    "teamNew": "{tab}團隊新增人數",
+    "withdrawAmount": "{tab}提現金額"
+  },
+  "developerConversations": {
+    "title": "中轉會話記錄",
+    "title2": "會話",
+    "model": "模型",
+    "messages": "訊息",
+    "tokens": "Tokens",
+    "cost": "費用(元)",
+    "lastActive": "最近活躍"
+  },
+  "modelsPrompts": {
+    "title": "提示詞庫",
+    "name": "名稱",
+    "desc": "描述",
+    "version": "版本",
+    "updated": "更新時間"
   }
 }
