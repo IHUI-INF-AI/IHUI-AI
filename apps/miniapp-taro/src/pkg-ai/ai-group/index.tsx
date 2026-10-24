@@ -10,6 +10,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 type CategoryKey = 'all' | 'office' | 'writing' | 'coding' | 'education' | 'life'
 
@@ -167,26 +168,13 @@ export default function AiGroup() {
       </ScrollView>
       <View className="p-[32rpx]">
         {loading ? (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-muted-foreground text-[length:28rpx]">
-              {t('common.loading')}
-            </Text>
-          </View>
+          <ScreenSkeleton variant="list" count={4} />
         ) : error ? (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[length:28rpx] text-[var(--color-danger)]">
-              {tt('aiGroup.loadFailed', '加载失败')}
-            </Text>
-            <View
-              className="mt-[24rpx] py-[16rpx] px-[32rpx] bg-primary rounded-xl"
-              onClick={loadData}
-              hoverClass="opacity-60"
-            >
-              <Text className="text-[length:32rpx] text-[var(--color-primary-foreground)]">
-                {t('common.retry')}
-              </Text>
-            </View>
-          </View>
+          <ErrorState
+            message={tt('aiGroup.loadFailed', '加载失败')}
+            onRetry={() => void loadData()}
+            retryLabel={t('common.retry')}
+          />
         ) : filtered.length ? (
           <View className="flex flex-col gap-[24rpx]">
             {filtered.map((item) => {
@@ -243,11 +231,7 @@ export default function AiGroup() {
             })}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[length:28rpx] text-[var(--color-text-tertiary)]">
-              {t('aiGroup.empty')}
-            </Text>
-          </View>
+          <EmptyState title={t('aiGroup.empty')} />
         )}
       </View>
     </View>

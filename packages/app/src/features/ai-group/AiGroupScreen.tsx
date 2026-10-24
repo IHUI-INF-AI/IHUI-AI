@@ -4,7 +4,6 @@
 
 import { useMemo } from 'react'
 import {
-  ActivityIndicator,
   FlatList,
   RefreshControl,
   ScrollView,
@@ -14,6 +13,12 @@ import {
   View,
 } from 'react-native'
 import { TextField } from '../../components/TextField'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AiGroupItem, AiGroupScreenProps, AiGroupTab } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -51,19 +56,21 @@ export function AiGroupScreen({
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator color={tk.text.secondary} />
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error && items.length === 0) {
     return (
-      <View style={[styles.container, styles.center, { padding: 16 }]}>
-        <Text style={[styles.emptyText, { marginBottom: 12 }]}>{error}</Text>
-        <TouchableOpacity style={styles.enterMiniBtn} onPress={onRetry} activeOpacity={0.85}>
-          <Text style={styles.enterMiniText}>{t('common.retry')}</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -138,7 +145,7 @@ export function AiGroupScreen({
   const enterLabel = tab === 'mine' ? t('aiGroup.enterMine') : t('aiGroup.enterDiscover')
 
   const renderItem = ({ item }: { item: AiGroupItem }) => (
-    <TouchableOpacity style={styles.card} onPress={() => onPressItem(item)} activeOpacity={0.85}>
+    <PressableCard style={styles.card} onPress={() => onPressItem(item)} colorScheme={colorScheme}>
       <View style={styles.cardHead}>
         <View style={styles.cardIcon}>
           <Text style={styles.cardIconText}>{item.name.charAt(0)}</Text>
@@ -175,7 +182,7 @@ export function AiGroupScreen({
           <Text style={styles.enterMiniText}>{enterLabel}</Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </PressableCard>
   )
 
   return (
@@ -222,11 +229,7 @@ export function AiGroupScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('aiGroup.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('aiGroup.empty')} colorScheme={colorScheme} />}
         renderItem={renderItem}
       />
     </View>
@@ -236,7 +239,6 @@ export function AiGroupScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    center: { alignItems: 'center', justifyContent: 'center' },
     header: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 8 },
     headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
@@ -268,8 +270,6 @@ function createStyles(tk: AppThemeTokens) {
     tabItemActive: { backgroundColor: tk.surface.light },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.text.primary, fontWeight: '600' },
-    empty: { alignItems: 'center', paddingVertical: 48 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,

@@ -12,6 +12,7 @@ import { useUiField } from '@/lib/ui-field-registry'
 import { refund, getOrderDetail, type Order } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 
@@ -116,9 +117,7 @@ export default function OrderRefund() {
             {tt('order.refund.title', '申请退款')}
           </View>
           {loading ? (
-            <Text className="text-[length:28rpx] text-muted-foreground">
-              {tt('common.loading', '加载中…')}
-            </Text>
+            <ScreenSkeleton variant="list" count={4} />
           ) : (
             <View className="flex flex-col gap-[16rpx]">
               <View className="flex items-start justify-between gap-[24rpx]">

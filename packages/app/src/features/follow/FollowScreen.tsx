@@ -17,6 +17,7 @@ import type { FollowScreenProps, FollowTab, FollowUserItem } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 关注/粉丝列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FollowScreenProps, FollowTab, FollowUserItem }
@@ -82,7 +83,14 @@ export function FollowScreen({
         })}
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? (
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : null}
 
       <FlatList<FollowUserItem>
         data={items}
@@ -94,13 +102,9 @@ export function FollowScreen({
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('common.loading')}</Text>
-            </View>
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('follow.empty')}</Text>
-            </View>
+            <EmptyState title={t('follow.empty')} colorScheme={colorScheme} />
           )
         }
         ListFooterComponent={
@@ -177,11 +181,8 @@ function createStyles(tk: AppThemeTokens) {
     tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     listBody: { padding: 10, paddingBottom: 32 },
     separator: { height: 12 },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    emptyText: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     footer: { alignItems: 'center', paddingVertical: 16 },
     footerText: { fontSize: 11, color: tk.text.secondary },
     card: {
@@ -202,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
       overflow: 'hidden',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl']}, // 跟随见方容器:相对式即几何真圆(门 77 量得出等值宽高,不需要标记)保持圆形
+    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl'] }, // 跟随见方容器:相对式即几何真圆(门 77 量得出等值宽高,不需要标记)保持圆形
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     cardInfo: { flex: 1, marginLeft: 12 },
     cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },

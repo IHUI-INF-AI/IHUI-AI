@@ -3,21 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  RefreshControl,
-  Image,
-  StyleSheet,
-} from 'react-native'
+import { View, Text, FlatList, RefreshControl, Image, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { RankingItem, RankingRange, RankingScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 排行榜/Props 类型 re-export(单一来源 @ihui/types) */
 export type { RankingItem, RankingRange, RankingScreenProps }
@@ -67,17 +60,18 @@ export function RankingScreen({
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.emptyText}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={5} colorScheme={colorScheme} />
   }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('ranking.title')}</Text>
         <Text style={styles.subtitle}>{t('ranking.subtitle')}</Text>
       </View>
@@ -92,12 +86,12 @@ export function RankingScreen({
       />
 
       {error ? (
-        <View style={styles.errorBar}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={onRefresh}>
-            <Text style={styles.retryText}>{t('ranking.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('ranking.retry')}
+          colorScheme={colorScheme}
+        />
       ) : null}
 
       {top3.length > 0 ? (
@@ -129,11 +123,7 @@ export function RankingScreen({
         contentContainerStyle={styles.listBody}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          <View style={styles.center}>
-            <Text style={styles.emptyText}>{t('ranking.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('ranking.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
           <View style={[styles.card, item.isMe && styles.cardMe]}>
             <Text style={[styles.rankText, { color: rankColor(item.rank) }]}>#{item.rank}</Text>
@@ -164,21 +154,10 @@ export function RankingScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     backBtn: { marginBottom: 8 },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    errorBar: {
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    retryText: { fontSize: 14, color: tk.success.DEFAULT },
     podiumRow: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 12, gap: 8 },
     podiumItem: {
       flex: 1,

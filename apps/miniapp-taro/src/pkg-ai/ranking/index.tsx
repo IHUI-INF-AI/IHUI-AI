@@ -10,6 +10,8 @@ import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+// 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 /** AI 工具榜单条目(后端字段命名不统一,pick 函数兼容多命名) */
 interface ToolItem {
@@ -233,21 +235,9 @@ export default function RankingIndex() {
         </View>
       ) : null}
 
-      {!loading && !list.length ? (
-        <View className="flex justify-center py-[64rpx]">
-          <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
-            {tt('ranking.empty', '暂无数据')}
-          </Text>
-        </View>
-      ) : null}
+      {!loading && !list.length ? <EmptyState title={tt('ranking.empty', '暂无数据')} /> : null}
 
-      {loading ? (
-        <View className="flex justify-center py-[64rpx]">
-          <Text className="text-[length:28rpx] text-[var(--color-text-tertiary)]">
-            {tt('common.loading', '加载中...')}
-          </Text>
-        </View>
-      ) : null}
+      {loading ? <ScreenSkeleton variant="list" count={5} /> : null}
     </View>
   )
 }

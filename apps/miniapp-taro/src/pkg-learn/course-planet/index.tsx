@@ -15,6 +15,7 @@ import Carousel from '@/components/Carousel'
 import { SectionHeader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
 import CategoryBar from '@/components/CategoryBar'
+import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 interface PlanetCourse {
   id: string
@@ -187,9 +188,7 @@ export default function CoursePlanet() {
             </Text>
           </View>
           <View className="p-[20rpx]">
-            <Text className="block text-center text-muted-foreground py-[80rpx]">
-              {t('common.loading')}
-            </Text>
+            <ScreenSkeleton variant="card" count={4} />
           </View>
         </View>
       </ThemeRoot>
@@ -207,15 +206,11 @@ export default function CoursePlanet() {
           </View>
           <View className="p-[20rpx]">
             {/* 对齐 RN errorText:12dp→24rpx / danger.DEFAULT / 居中 / paddingY rpx(16) */}
-            <Text className="block text-center text-[length:24rpx] text-[var(--color-danger)] py-[16rpx]">
-              {tt('coursePlanet.loadFailed', '加载失败')}
-            </Text>
-            <Text
-              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-cta text-cta-foreground text-center rounded-md text-[length:28rpx]"
-              onClick={loadData}
-            >
-              {t('common.retry')}
-            </Text>
+            <ErrorState
+              message={tt('coursePlanet.loadFailed', '加载失败')}
+              onRetry={() => void loadData()}
+              retryLabel={t('common.retry')}
+            />
           </View>
         </View>
       </ThemeRoot>
@@ -315,17 +310,7 @@ export default function CoursePlanet() {
               </View>
             ))
           ) : (
-            <View className="flex flex-col items-center py-[120rpx]">
-              <LineIcon
-                name="globe"
-                size={80}
-                color="var(--color-muted-foreground)"
-                style={{ marginBottom: '16rpx' }}
-              />
-              <Text className="block text-center text-muted-foreground py-[40rpx]">
-                {t('coursePlanet.empty')}
-              </Text>
-            </View>
+            <EmptyState title={t('coursePlanet.empty')} />
           )}
           {hasMore && displayList.length > 0 ? (
             <Text className="block text-center text-muted-foreground text-[length:24rpx] py-[24rpx]">

@@ -11,6 +11,7 @@ import { getTeacherList, type Teacher } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import SearchBar from '@/components/SearchBar'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 export default function TeacherList() {
   const { t } = useI18n()
@@ -136,18 +137,8 @@ export default function TeacherList() {
             ))}
           </View>
         )}
-        {!loading && list.length === 0 && (
-          <View className="flex items-center justify-center py-[120rpx]">
-            <Text className="text-sm text-[var(--color-text-tertiary)]">
-              {t('teacher.list.empty')}
-            </Text>
-          </View>
-        )}
-        {loading && (
-          <View className="flex items-center justify-center py-[120rpx]">
-            <Text className="text-sm text-[var(--color-text-tertiary)]">{t('common.loading')}</Text>
-          </View>
-        )}
+        {!loading && list.length === 0 && <EmptyState title={t('teacher.list.empty')} />}
+        {loading && list.length === 0 && <ScreenSkeleton variant="list" count={4} />}
       </View>
     </ThemeRoot>
   )
