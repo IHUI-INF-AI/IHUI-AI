@@ -812,6 +812,8 @@
       "staleData": "Stale data",
       "statusOk": "All Systems Normal",
       "statusUnknown": "Status unknown",
+      "dutyMode": "Duty Mode",
+      "exitDutyMode": "Exit Duty Mode",
       "statusWarn": "Needs Attention",
       "subtitle": "Production Operations Wallboard · Live",
       "svcRunning": "{running}/{total} running",
