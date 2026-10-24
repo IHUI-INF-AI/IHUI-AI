@@ -1305,11 +1305,79 @@ export function historyMarkers(depth = historyDepth(), root = ROOT) {
   return seen
 }
 
+/**
+ * 编号纪元(2026-10-24):被审面自带 `<!-- 编号纪元:YYYY-MM-DD … map=<路径> -->` 时,
+ * 本门的身份尺从"编号字符串逐字"换成"编号按映射折算后的字符串"。
+ *
+ * 为什么必须换:全量重排后**同一任务的编号必然变**,而本门的基线(最近历史里的登记行)拿的是
+ * 旧号 —— 不折算就会把每一条在册行都读成"被别人吞了";后果不止报红:自愈层(`--heal`)会按
+ * 同一把尺子把旧号行**回插**进工作树,于是重排成果被自己的守护链反复回滚(本机 2026-10-24
+ * 实测:重排落盘后 5 分钟内被 heal 整篇还原成旧号混合态,三次)。
+ *
+ * 折算方向与门 211/234 一致:只换"号",正文其余逐字不动 ⇒ 正文改一个字仍判新/判丢。
+ * 无标记 ⇒ `null` ⇒ 与改动前逐字同行为(自测含反向锁)。
+ */
+export function epochMapOf(src) {
+  const m = /<!--\s*编号纪元[:：][^>]*?map=([^\s>)(]+)/.exec(String(src || ''))
+  if (!m) return null
+  try {
+    const doc = JSON.parse(readFileSync(path.resolve(ROOT, m[1]), 'utf8'))
+    const pairs = Object.entries(doc?.map ?? {})
+    return pairs.length ? new Map(pairs) : null
+  } catch {
+    // 映射读不到 ⇒ 不假装能折算(§0.3):照旧按逐字口径判,红也红得明白
+    return null
+  }
+}
+
+const EPOCH_ID_RE = /\b(?:G|WP|V3|D|O|A|B|P|W)-?\d{1,4}\b/g
+
+/**
+ * 抹掉退役标记、把编号按映射折算;正文其余字符一字不动。
+ *
+ * `bareIds` 是**方向**而不是风格:历史面(纪元前的原文)的号全是裸号 ⇒ 必须整体折算;
+ * 被审面(纪元后的正文)里**裸号是新号**,只有紧跟 `〔旧号〕` 的那些才是退役引用 ⇒
+ * 整体折算会把 `G-17` 这种"老号新用"的新号一起改掉,两端立刻对不上(实测 1 枚误报)。
+ */
+export function translateIds(text, map, { bareIds = null } = {}) {
+  if (!map) return String(text ?? '')
+  let s = String(text ?? '')
+  const hasMark = /〔旧号/.test(s)
+  s = s.replace(/((?:G|WP|V3|D|O|A|B|P|W)-?\d{1,4})〔旧号[^〕]*〕/g, (_m, id) => map.get(id) ?? id)
+  // 标记被 18 字截断时可能只剩 `〔旧号…` 或裸 `〔`(没有收口括号)⇒ 连未收口的尾括号一起抹,
+  // 否则折算后两端对不上(实测 5 枚误报全属这一型:标记截断点落在退役标记或注记中间)
+  s = s.replace(/〔旧号[^〕〕]*〕/g, '')
+  s = s.replace(/〔[^〕]*$/g, '')
+  // 裸号只在**整段都没有退役标记**时才整体折算(那段必是纪元前原文);一段里只要出现过
+  // `〔旧号〕`,它的裸号就是新号 —— 整体折算会改掉"老号新用"的新号(实测 1 枚误报)。
+  if (bareIds === true || (bareIds === null && !hasMark))
+    s = s.replace(EPOCH_ID_RE, (t) => map.get(t) ?? t)
+  return s
+}
+
 /** 历史登记行里在 targetSrc 中缺席的那些(归档过的正当移除自动排除) */
 export function missingFrom(seen, targetSrc, archived = archivedCopy, declared = declaredRowSet()) {
+  // 编号纪元下按映射折算两面(见 epochMapOf 头注);无标记时 map=null ⇒ 逐字旧行为
+  const map = epochMapOf(targetSrc)
+  const back = new Map()
+  const entries = [...seen.values()].map((v) => {
+    if (!map || !v) return v
+    const marker = translateIds(v.marker, map)
+    back.set(marker, v.marker)
+    return {
+      ...v,
+      marker,
+      id: v.id ? (map.get(v.id) ?? v.id) : v.id,
+      line: typeof v.line === 'string' ? translateIds(v.line, map) : v.line,
+    }
+  })
+  const target = map ? translateIds(targetSrc, map, { bareIds: false }) : targetSrc
   // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"
-  const lost = resolveRegistrationLoss([...seen.values()], targetSrc, declared)
-  return lost.filter((v) => !(archived(v.marker) || (v.id && archived(v.id))))
+  const lost = resolveRegistrationLoss(entries, target, declared)
+  // 归档件里存的是**旧号原文** ⇒ 归档通道用折算前的 marker 问,别拿新号去翻旧档
+  return lost
+    .filter((v) => !(archived(back.get(v.marker) ?? v.marker) || (v.id && archived(v.id))))
+    .map((v) => (back.has(v.marker) ? { ...v, marker: back.get(v.marker) } : v))
 }
 
 /**
