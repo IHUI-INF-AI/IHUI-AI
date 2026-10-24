@@ -2996,3 +2996,61 @@ test('G313-R2 留痕计划:原始落地 c1 与让号 c2 各恰一条、父链首
   assert.ok(atC2 > atLanding, 'c1 记账必须先于 `landed = c2`(否则记的是 c2、c1 永远没有记录)')
   assert.ok(atTail > atHealPush, '统一落账点必须在所有记账点之后')
 })
+
+// ── 声明式改桶(2026-10-25):机主令要求 agent 代裁结清"待拍板",而三维守恒禁止改桶 ──
+// 两条规矩结构上互斥 ⇒ 出口必须"逐条声明 + 同一把尺现算 + 陈旧不记通过",不得静默放行。
+test('T-reclassify 声明式改桶:声明与现算同形才放行,不同形/陈旧一律拒', () => {
+  const before = '- [ ] **R1** 该口径等机主拍板:机制能建、但接线前提不存在。'
+  const after = '- [ ] **R1** 该口径已裁(2026-10-25/agent 代裁):按默认口径执行,接线前提另行登记。'
+  const pairs = [{ before, after }]
+  const declared = [
+    { before, from: 'waiting-human', to: 'actionable', why: '机主令要求代裁结清待拍板存量' },
+  ]
+  const ok = __test__.judgeRowRewriteConservation({ pairs, reclassify: declared })
+  assert.equal(ok.ok, true, JSON.stringify(ok.violations))
+  assert.equal(ok.reclassified, 1)
+  assert.equal(ok.staleReclassify.length, 0)
+
+  const wrong = __test__.judgeRowRewriteConservation({
+    pairs,
+    reclassify: [{ before, from: 'waiting-env', to: 'actionable', why: '声明把来源桶写错了' }],
+  })
+  assert.equal(wrong.ok, false, '声明与现算不同形必须判违规(不许当"放行")')
+  assert.match(wrong.violations[0].bad[0], /不同形/)
+
+  const stale = __test__.judgeRowRewriteConservation({
+    pairs,
+    reclassify: [
+      { before: '- [ ] 无关行', from: 'waiting-human', to: 'actionable', why: '陈旧声明不记通过' },
+    ],
+  })
+  assert.equal(stale.staleReclassify.length, 1, '未命中的声明必须点名,不能被读成"放过了一件事"')
+})
+
+test('T-reclassify readInputs 校验:桶名/理由长度/from==to/陈旧 before 全拒', () => {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+  const dir = mkScratch('lde-reclass-')
+  try {
+    const pairsFile = join(dir, 'pairs.json')
+    writeFileSync(pairsFile, JSON.stringify([{ before: '- [ ] A', after: '- [ ] B' }]))
+    const recFile = join(dir, 'rec.json')
+    const run = (items) => {
+      writeFileSync(recFile, JSON.stringify(items))
+      return __test__.readInputs({
+        LIVE_DOC: 'PROJECT_PLAN.md',
+        LIVE_MSG: 'x',
+        LIVE_REPLACE_FILE: pairsFile,
+        LIVE_BUCKET_RECLASSIFY: recFile,
+        LIVE_ROOT: root,
+      })
+    }
+    const base = { before: '- [ ] A', from: 'waiting-human', to: 'actionable', why: '理由足够长的定向说明' }
+    assert.equal(run([base]).error, undefined, '合法声明必须通过')
+    assert.match(run([{ ...base, from: 'waiting-某某' }]).error, /不是归属桶名/)
+    assert.match(run([{ ...base, why: '太短' }]).error, /少于 10 字/)
+    assert.match(run([{ ...base, to: 'waiting-human' }]).error, /无事可做/)
+    assert.match(run([{ ...base, before: '- [ ] 不在本轮' }]).error, /陈旧\/串档/)
+  } finally {
+    rmScratch(dir, { bestEffort: true })
+  }
+})
