@@ -184,4 +184,38 @@ export {
   TARO_RPX_PER_PX,
   type GeometryStep,
 } from './geometry.js'
+
+// 间距档位唯一真相源(全端共用):RN 取 rnSpacing(dp 数值),小程序取 taroSpacing(已折 rpx)。
+// 立因与取值依据写在 spacing.ts 头注;跨端差异由守门 128 check-cross-end-ui-parity.mjs 复核。
+export {
+  SPACING_STEPS,
+  SPACING_ROLES,
+  rnSpacing,
+  taroSpacing,
+  rnSpacingFor,
+  taroSpacingFor,
+  type SpacingStep,
+  type SpacingRole,
+} from './spacing.js'
+// 字号档位唯一真相源(全端共用):RN 取 rnType(数值三件套),小程序取 taroType(rpx 字符串)。
+export {
+  TYPE_STEPS,
+  FONT_WEIGHTS,
+  rnType,
+  taroType,
+  type TypeStep,
+  type TypeStepName,
+  type FontWeightName,
+} from './typography.js'
+// 阴影 / 层级档位唯一真相源(全端共用):RN 取 rnElevation(ShadowStyle 四元组),
+// 小程序 / web 取 taroElevation / ELEVATION_CSS(box-shadow 字符串)。
+export {
+  ELEVATION_STEPS,
+  ELEVATION_CSS,
+  ELEVATION_CSS_VAR,
+  rnElevation,
+  taroElevation,
+  type RnElevation,
+  type ElevationStep,
+} from './elevation.js'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
