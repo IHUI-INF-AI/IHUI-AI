@@ -4032,6 +4032,11 @@ export const __test__ = {
   malformedReport,
   runCheck,
   historyMarkers,
+  // 已结清短留痕(2026-10-25):retired 落盘与读取,镜像测试直接用生产实现
+  lastHistoryRetired,
+  retiredMarkerSet,
+  recordRetiredMarkers,
+  RETIRED_LEDGER_REL,
   // 已勾形态身份(2026-10-18):镜像测试据此证明"什么算一条已勾销登记"只有一份实现
   closedRegistrationOf,
   // 「已收拢」第三形态(2026-10-24):漂移注释判活的唯一实现。镜像测试一律 import 这一组,
