@@ -326,16 +326,16 @@ route A 以 `x-internal-service-token` + `x-user-id` 代调，而 `apps/api` 只
 
 ## Use Cases(典型使用场景)
 
-> IHUI-AI 适用于以下 8 类核心场景,每个场景都可在 8 端中任一端运行(8-Platform AI Operating System)。
+> IHUI-AI 适用于以下 8 类核心场景,每个场景都可在 9 端中任一端运行(9-Platform AI Operating System)。
 
 1. **Enterprise AI Assistant(企业 AI 助手)** — 多租户 + RBAC + SSO,企业内部统一 AI 入口,部门隔离 + 审计日志
-2. **Multi-model LLM Gateway(多模型 LLM 网关)** — LiteLLM 统一 176 模型,智能路由 + 60% 缓存 + 成本管控,替代单一厂商锁定的 LLM Gateway
+2. **Multi-model LLM Gateway(多模型 LLM 网关)** — LiteLLM 统一 101 模型,智能路由 + 60% 缓存 + 成本管控,替代单一厂商锁定的 LLM Gateway
 3. **AI Agent Marketplace(AI Agent 市场)** — LangGraph + MCP + A2A 三栈协同,Agent 编排/发布/交易,构建垂直行业 Agent 生态
 4. **Knowledge Base Q&A(知识库问答)** — pgvector + RAG + 知识图谱 + 用户长期记忆,企业文档/代码/FAQ 智能问答
 5. **Code Generation Platform(代码生成平台)** — 自研 CLI 50 命令 + 36 工具 + ACP Server,对标 Claude Code / Cursor 的开源替代
 6. **Customer Service Bot(客服机器人)** — 多渠道 IM 接入 + 工作流编排 + 人工接管,7×24 自动应答
 7. **Education Tutor(教育辅导)** — AI 教育全栈(课程/题库/考试/直播/证书),开源版 Khan Academy
-8. **Developer Productivity(开发者生产力)** — 8 端开发模板 + 12 共享包 + 33+ 守门,Fork 即用,5 分钟启动全栈 AI SaaS
+8. **Developer Productivity(开发者生产力)** — 9 端开发模板 + 12 共享包 + 33+ 守门,Fork 即用,5 分钟启动全栈 AI SaaS
 
 ---
 
@@ -360,7 +360,7 @@ route A 以 `x-internal-service-token` + `x-user-id` 代调，而 `apps/api` 只
   规则面板按 kind 分节(命令前缀 / 网络目标),列表与撤销共用同一张表;
   主体只取令牌那份、目标只取发帧时存进待决条目那份,所以"批 A 连 B"和"自报别人的键去撤销"都进不来。
 - **MCP 连接状态到对话里**:连不上 / 重连中 / 失败会在对话流出现状态行,经 per-user 常连广播下发,
-  六端共用一份订阅出口;小程序与 App 端的管理入口在别处,所以状态行附一句去哪配的提示。
+  九端共用一份订阅出口;小程序与 App 端的管理入口在别处,所以状态行附一句去哪配的提示。
 - **会话目标(goal)服务化**:目标状态机(六态)存在会话元数据里,**零数据库迁移**;
 - **一次调用一个编号,库里查得到**:每条 provider 调用流水都带上本轮的 W3C trace id(与响应头 `X-Trace-Id` 同一个值),排查时给一个编号就能反查那次调用花了多少 token、错在哪一段;编号本身**不上界面**,也**不参与任何授权判定** —— 它只是关联键,拿不到本轮请求时宁可留空也不造一个看起来像的。
   跨端同一份状态词汇,不建第二份枚举。

@@ -23,7 +23,6 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve, join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { requireFlagValue } from './lib/flag-value.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -38,12 +37,8 @@ const DEFAULT_DRAFT_PATH = join(ROOT, '.ihui-agent', 'tmp', 'v2ex-post.md')
 // ---------- 参数解析 ----------
 const argv = process.argv.slice(2)
 function argValue(name) {
-  const f = requireFlagValue(argv, name, { noun: '值' })
-  if (f.error) {
-    console.error(`❌ ${f.error}`)
-    process.exit(2)
-  }
-  return f.value
+  const i = argv.indexOf(name)
+  return i >= 0 && i + 1 < argv.length ? argv[i + 1] : null
 }
 const DRY_RUN = argv.includes('--dry-run')
 const NODE_NAME = argValue('--node') || 'programmer' // 默认程序员节点
@@ -58,7 +53,7 @@ function parseDraft(path) {
   const titleMatch = /^##\s+标题\s*\n\s*\n(.+?)$/m.exec(raw)
   // 提取 ## 正文 下的内容作为 body
   const bodyMatch = /^##\s+正文\s*\n\s*\n([\s\S]+?)(?=\n---\n|\n##\s)/m.exec(raw)
-  const title = titleMatch ? titleMatch[1].trim() : 'IHUI AI — 8 端全栈 AI 操作系统'
+  const title = titleMatch ? titleMatch[1].trim() : 'IHUI AI — 9 端全栈 AI 操作系统'
   let body = bodyMatch ? bodyMatch[1].trim() : ''
   // 清理 markdown 注释占位
   body = body.replace(/\[截图占位[^\]]*\]/g, '').trim()

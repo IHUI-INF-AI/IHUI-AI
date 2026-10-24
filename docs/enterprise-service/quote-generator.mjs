@@ -34,7 +34,7 @@ const TIERS = {
     sla: '99.9%',
     response: '4h(工单+群)',
     support: '工单 + 专属客户群',
-    features: ['完整 AI 厂商接入(9 家)', '知识库(无限)', 'Agent + 工作流', '8 端覆盖', '工单+群支持 4h 响应'],
+    features: ['完整 AI 厂商接入(9 家)', '知识库(无限)', 'Agent + 工作流', '9 端覆盖', '工单+群支持 4h 响应'],
     deployment: 'SaaS 公有云',
   },
   enterprise: {

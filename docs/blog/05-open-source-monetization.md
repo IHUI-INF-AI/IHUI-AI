@@ -133,10 +133,10 @@ plans:
 | ChatGPT Team | ¥200/人 | 1(GPT 系) | ❌ | Web/iOS/Android |
 | Claude Pro | ¥150 | 1(Claude 系) | ❌ | Web |
 | Notion AI | ¥70 | 未知 | ❌ | Web/Desktop/Mobile |
-| **IHUI AI Pro** | **¥49** | **176** | ✅(企业版) | **8 端** |
-| **IHUI AI Team** | **¥199/人** | **176** | ✅(企业版) | **8 端** |
+| **IHUI AI Pro** | **¥49** | **101** | ✅(企业版) | **9 端** |
+| **IHUI AI Team** | **¥199/人** | **101** | ✅(企业版) | **9 端** |
 
-**核心卖点**:1/3 的价格,176 倍的模型,8 端覆盖,还支持私有部署。用户算账很简单。
+**核心卖点**:1/3 的价格,101 倍的模型,9 端覆盖,还支持私有部署。用户算账很简单。
 
 ### 3.3 套餐限制的工程实现
 
@@ -245,7 +245,7 @@ api_pricing:
   qwen-max:
     input_per_1k: 0.024
     output_per_1k: 0.096
-  # ... 176 模型
+  # ... 101 模型
   free_tier:
     monthly_credits: 100  # ¥100/月免费额度,需绑卡
 ```
@@ -394,7 +394,7 @@ agent_marketplace:
 社区版功能完整,企业版卖 SSO/审计/SLA/定制。**永远不要把核心功能锁在付费墙后面**——那会激怒社区,生态就死了。
 
 **原则 2:对标最贵的产品定价,然后打 1/3。**
-ChatGPT Team ¥200/人,我们 ¥199/人 但模型多 176 倍、端多 5 倍。**用户算账:** "我用 ChatGPT 一个模型 ¥200,用 IHUI 176 个模型 ¥199,傻子才不换。"
+ChatGPT Team ¥200/人,我们 ¥199/人 但模型多 101 倍、端多 5 倍。**用户算账:** "我用 ChatGPT 一个模型 ¥200,用 IHUI 101 个模型 ¥199,傻子才不换。"
 
 **原则 3:订阅是入口,定制/咨询是利润。**
 SaaS 毛利 35%(模型 API 成本占大头),私有化毛利 80%,咨询毛利 90%。**不要指望靠订阅暴富,订阅是用来获客的**。
@@ -445,12 +445,12 @@ IHUI AI 的 7 大盈利模式不是 PPT,是真实在跑的闭环:Apache 2.0 开�
 
 ## 关于 IHUI AI
 
-IHUI AI 是一站式 8 端全栈 AI 操作系统,Apache 2.0 开源。
+IHUI AI 是一站式 9 端全栈 AI 操作系统,Apache 2.0 开源。
 
 - 🌐 官网:https://aizhs.top
 - 💻 GitHub:https://github.com/IHUI-INF-AI/IHUI-AI(Star 支持一下 ⭐)
-- 📦 8 端同源:Web / API / CLI / Desktop / Extension / Mobile / Miniapp
-- 🤖 176 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama
+- 📦 9 端同源:Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 移动 Capacitor(mobile-cap) / 小程序 Taro
+- 🤖 101 模型:OpenAI / Claude / Gemini / 通义 / DeepSeek / 智谱 / 文心 / 豆包 / Kimi / Ollama
 - 💰 定价:Free / Pro ¥49/月 / Team ¥199/人/月 / Enterprise ¥2999/月起
 
 **5 分钟 Fork 到上线,替代 ChatGPT Team + Claude Code + Notion AI,月省 $60+。**

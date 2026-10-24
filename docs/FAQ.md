@@ -14,7 +14,7 @@
 
 ### Q1:本项目是什么?
 
-IHUI-AI 是一个**全栈 AI 平台**(TS Monorepo + pnpm workspace + Turborepo),包含 8 端应用(web / api / ai-service / desktop / extension / mobile-rn / miniapp-taro / cli)+ 13 共享包,提供对话、Agent、RAG、图像 / 视频 / 3D 生成、记忆、MCP 工具等完整 AI 能力。详见 [architecture.md](./architecture.md)。
+IHUI-AI 是一个**全栈 AI 平台**(TS Monorepo + pnpm workspace + Turborepo),包含 9 端应用(web / api / ai-service / desktop / extension / mobile-rn / miniapp-taro / cli)+ 13 共享包,提供对话、Agent、RAG、图像 / 视频 / 3D 生成、记忆、MCP 工具等完整 AI 能力。详见 [architecture.md](./architecture.md)。
 
 ### Q2:本项目不是什么?
 
@@ -28,7 +28,7 @@ IHUI-AI 是一个**全栈 AI 平台**(TS Monorepo + pnpm workspace + Turborepo),
 | 维度 | IHUI-AI | ChatGPT/Claude | Dify | Coze |
 | --- | --- | --- | --- | --- |
 | 定位 | 自部署全栈 AI 平台 | 托管聊天产品 | LLMOps 平台 | Bot 搭建平台 |
-| 多端 | 8 端 + 5 语言 SDK | 仅 Web/App | Web 为主 | Web 为主 |
+| 多端 | 9 端 + 5 语言 SDK | 仅 Web/App | Web 为主 | Web 为主 |
 | 后端 | Fastify + LangGraph + LiteLLM | 闭源 | Python | 闭源 |
 | 开源 | Apache 2.0 | 否 | 开源 | 闭源 |
 | 商业可用 | 是(可商用) | 否(SaaS) | 是 | 否(SaaS) |
@@ -71,7 +71,7 @@ LangGraph 提供显式的状态机 + 图结构编排,可控性强,适合复杂 A
 
 ### Q11:为什么 LiteLLM 不直接调 SDK?
 
-LiteLLM 统一 100+ 模型厂商的调用接口(OpenAI 兼容格式),避免每家 SDK 升级都要改代码,支持负载均衡 / 重试 / fallback。详见 [LLM_SETUP.md](./LLM_SETUP.md)。
+LiteLLM 统一 101 模型厂商的调用接口(OpenAI 兼容格式),避免每家 SDK 升级都要改代码,支持负载均衡 / 重试 / fallback。详见 [LLM_SETUP.md](./LLM_SETUP.md)。
 
 ### Q12:为什么 pnpm 不 yarn?
 
@@ -309,7 +309,7 @@ A2A(Agent-to-Agent)通过 `apps/api/src/routes/agents.ts` 的 pipeline / paralle
 
 ## 多端类
 
-### Q50:8 端是否必须全用?
+### Q50:9 端是否必须全用?
 
 不必。可只用 web + api 部署最小可用版本。但根 AGENTS.md §9 规定**开发任务默认全端同步**,新增功能需在受影响端同步落地。详见 [MULTI_END.md](./MULTI_END.md)。
 

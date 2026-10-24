@@ -91,7 +91,7 @@
 2. **显示名**:填 `IHUI-AI`
 3. **简介**:
    ```
-   IHUI-AI 是开源全栈 AI 平台（TS Monorepo + 8 端覆盖）。您的赞助支持我继续维护开源项目。
+   IHUI-AI 是开源全栈 AI 平台（TS Monorepo + 9 端覆盖）。您的赞助支持我继续维护开源项目。
    
    - GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
    - 官网: https://aizhs.top
