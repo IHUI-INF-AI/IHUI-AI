@@ -729,6 +729,7 @@
       "errRateWindow": "Last 5-minute window",
       "eventsTitle": "System Events",
       "footerSources": "Data sources · Prometheus {url} / Alertmanager / PostgreSQL / Redis · all collected live from production",
+      "footerDataAge": "Data age {duration}",
       "footerUptime": "Uptime · {list}",
       "gaugeCpu": "CPU",
       "gaugeMem": "Memory",
