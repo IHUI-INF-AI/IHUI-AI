@@ -63,24 +63,34 @@ const wsPaymentPlugin: FastifyPluginAsync = async (server) => {
     if (!userId) return
 
     // 2026-08-02 P0 安全审计修复:订单归属校验(IDOR)
-    // 风险:任何已认证用户均可监听任意订单状态变化 → 隐私泄露(订单存在性/状态/金额)
-    // 防护:查询订单 userId,与当前 JWT userId 不一致则 close(4003)
+    // 2026-10-25 收口这一族的**两个 fail-open 出口**(原实现两处都会把已付费订单的状态流漏给别人):
+    //  ① 查询异常时 catch 只 warn「降级放行」⇒ 库一抖,任何人都能订阅任意订单;
+    //  ② `order?.orderUserId &&` 短路 —— users 删除后 orders.userId 置 NULL,以及**根本不存在的
+    //    orderNo**,两种情况都让校验整段跳过(§5「认证不等于授权」:归属型入口查不到主体
+    //    只能是拒绝,不能是放行)。
+    let orderUserId: string | null | undefined
+    let found = false
     try {
       const [order] = await db
         .select({ orderUserId: orders.userId })
         .from(orders)
         .where(eq(orders.orderNo, orderNo))
         .limit(1)
-      if (order?.orderUserId && order.orderUserId !== userId) {
-        server.log.warn(
-          { orderNo, userId, orderUserId: order.orderUserId },
-          'ws-payment IDOR 拒绝:订单不属于当前用户',
-        )
-        socket.close(WS_CLOSE.INVALID_TOKEN, '无权访问此订单')
-        return
-      }
+      found = Boolean(order)
+      orderUserId = order?.orderUserId
     } catch (err) {
-      server.log.warn({ err, orderNo, userId }, 'ws-payment IDOR 校验异常,降级放行')
+      server.log.error({ err, orderNo, userId }, 'ws-payment 归属查询失败 ⇒ 拒绝(fail-closed)')
+      socket.close(WS_CLOSE.INVALID_TOKEN, '无权访问此订单')
+      return
+    }
+    // 「不存在」与「不属于你」同一应答:不回答这个单号到底存不存在(不给枚举面)
+    if (!found || orderUserId !== userId) {
+      server.log.warn(
+        { orderNo, userId, found },
+        'ws-payment IDOR 拒绝:订单不存在或不属于当前用户',
+      )
+      socket.close(WS_CLOSE.INVALID_TOKEN, '无权访问此订单')
+      return
     }
 
     let lastStatus: string | null | undefined = undefined
