@@ -340,6 +340,11 @@ function recordFailure(row: AiRelayAccountPool, kind: FailureKind, reason: strin
     // 会话彻底失效(如需人工重登):永久摘除,等 admin/重新导入恢复
     set.tempUnschedulable = true
     set.healthStatus = 'down'
+    // 与健康降级同一次写:到期列收敛到当下,不让未来时刻继续冒充可用证据
+    set.tokenExpiresAt = new Date()
+  } else if (kind === 'auth') {
+    // 上游明确拒收凭据(401/403);换票若也失败,到期列同样收敛到当下
+    set.tokenExpiresAt = new Date()
   } else if (kind === 'credit') {
     set.tempUnschedulable = true
     set.healthStatus = 'degraded'
@@ -505,6 +510,9 @@ async function doRefreshRowInPlace(
     // 失败也要落账:refreshFailureCount 是管理面「该补池了」的判据,不能永远为 0
     const failures = (row.refreshFailureCount ?? 0) + 1
     const msg = e instanceof Error ? e.message : String(e)
+    // 上游明确拒收换票(401/403 等结构化判定)→ 到期列收敛到当下,与失败计数同一次写;
+    // 网络/5xx 不确定失败不碰该列。
+    const authRejected = adapter.isAuthError?.(e) === true
     await db
       .update(aiRelayAccountPool)
       .set({
@@ -512,6 +520,7 @@ async function doRefreshRowInPlace(
         lastRefreshAt: startedAt,
         lastErrorMessage: msg.slice(0, 500),
         ...(failures >= 3 ? { healthStatus: 'degraded' } : {}),
+        ...(authRejected ? { tokenExpiresAt: new Date() } : {}),
         updatedAt: startedAt,
       })
       .where(eq(aiRelayAccountPool.id, row.id))

@@ -61,6 +61,40 @@ export interface SubagentPersona {
   instructionsFile?: string
 }
 
+/**
+ * G-395 出处层标识:四层短路链的层名(高 → 低)。
+ * 'parent' = 本链未给出值,由下游 shell spawn 继承父 session(或 isolation 的默认 'none')。
+ */
+export type PrecedenceLayer = 'explicit' | 'role' | 'persona' | 'parent'
+
+/**
+ * G-395 单字段出处标签:哪个层获胜 + 来自哪个覆盖项/配置项/来源文件。
+ * 生成只此一处(precedence.ts 的 resolveEffectiveOverrides),消费方读同一出口,不得复算。
+ */
+export interface ConfigFieldSource {
+  layer: PrecedenceLayer
+  /** 出处描述,如 'overrides.model' / 'role[coder].model' / 'persona[p1].instructionsFile:<路径>' */
+  origin: string
+}
+
+/**
+ * G-395 请求档 vs 实得档留痕:仅当请求档未被原样采纳(降档/非法枚举损耗)时非空。
+ * 'effective' 与 EffectiveRuntimeConfig.reasoningEffort 同值、同一出口生成(非第二份真相),
+ * 打包进本记录只为让日志/状态面一次读全 requested ≠ effective。
+ */
+export interface EffortDowngradeTrace {
+  /** 请求档原始值(最高优先给出非 undefined 的层,含非法枚举值,原样保留供归因) */
+  requested: string
+  /** 请求档出处(哪层/哪个配置项给的) */
+  requestedSource: ConfigFieldSource
+  /** 实得档(链解析后的最终值;undefined = 四层皆空) */
+  effective?: ReasoningEffort
+  /** 实得档出处(哪层/哪个配置项接手了) */
+  effectiveSource: ConfigFieldSource
+  /** 'invalid-enum' = 请求档非法枚举被容错丢弃;'rank-lower' = 实得档档位低于请求档 */
+  reason: 'invalid-enum' | 'rank-lower'
+}
+
 /** 解析后的有效运行时配置(四层短路链结果) */
 export interface EffectiveRuntimeConfig {
   model?: string
@@ -76,6 +110,19 @@ export interface EffectiveRuntimeConfig {
   personaError?: string
   /** role prompt 文件读取警告(soft degradation) */
   rolePromptWarning?: string
+  /** G-395:各生效字段的出处标签(哪层获胜、来自哪个覆盖项/配置项/来源文件) */
+  sources: {
+    model: ConfigFieldSource
+    reasoningEffort: ConfigFieldSource
+    capabilityMode: ConfigFieldSource
+    isolation: ConfigFieldSource
+    /** persona instructions 内容出处(无内容时缺省) */
+    personaInstructions?: ConfigFieldSource
+    /** role prompt 内容出处(无内容时缺省) */
+    rolePrompt?: ConfigFieldSource
+  }
+  /** G-395:请求档 vs 实得档留痕,仅降档发生时存在(消除静默降档) */
+  effortDowngrade?: EffortDowngradeTrace
 }
 
 /** persona 名 → persona 配置映射 */

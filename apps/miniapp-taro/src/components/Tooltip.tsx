@@ -12,6 +12,8 @@ export interface TooltipProps {
 }
 
 export default function Tooltip({ text, children, placement = 'top' }: TooltipProps) {
+  // 分歧标注:RN 端用 Modal + onLongPress 长按触发、按 measureInWindow 做 side 定位;
+  // 小程序端保留既有「点击/触摸切换 + absolute 定位」机制(API 不变),仅对齐视觉 token。
   const [show, setShow] = useState(false)
 
   return (
@@ -25,14 +27,14 @@ export default function Tooltip({ text, children, placement = 'top' }: TooltipPr
       </View>
       {show && (
         <View
-          className={`absolute z-20 left-1/2 px-2 py-1 bg-secondary rounded-md whitespace-nowrap ${
+          className={`absolute z-20 left-1/2 max-w-[240px] px-3 py-1.5 bg-popover border border-border rounded-md shadow-md line-clamp-2 ${
             placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
           style={{ transform: 'translateX(-50%)' }}
           onClick={() => setShow(false)}
           hoverClass="opacity-60"
         >
-          <Text className="text-xs text-secondary-foreground">{text}</Text>
+          <Text className="text-xs text-popover-foreground">{text}</Text>
         </View>
       )}
     </View>

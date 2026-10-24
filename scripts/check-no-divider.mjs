@@ -29,8 +29,10 @@
  * RN `{ height: 1, backgroundColor: tk.border.light }` 与单边描边是同一个视觉动作(线由背景色画),
  * 并入同一把差值棘轮。形状被三型结构件重载,全部在命中**之前**按可机械判定指纹排除(§12e:
  * 把这三型判红就是恒红门):菜单/下拉 `role="separator"`(含 Separator 组件定义行)、
- * 时间线/树 `absolute|h-full|flex-1` + `w-px` 竖向导引轨、`pane-split` 分割器的 `w-full h-px`。
+ * 时间线/树 `absolute`+上界成对 + `w-px` 竖向导引轨、`pane-split` 分割器的 `w-full h-px`;
+ * 三型指纹与 `check-hairline-separator.mjs` 共用 `structuralTypeOf`(§0.6,同一把尺子)。
  * 反向锁:裸 `h-px bg-border` 照判;`absolute` + `h-px` 横轴**不**享轨出口;
+ * 裸 `h-full|flex-1` + `w-px` 不享轨出口(尺子按 divider+railSuspect 计数,族 7 同判);
  * 彩色 bg(bg-primary)与文字色档(bg-muted-foreground 整名精确匹配,不吃词根)不判;
  * 带透明度档(`bg-border/50`)= WARN(与族 3 同档)。RN 面 `height: StyleSheet.hairlineWidth * 2` 这类
  * 表达式量不出宽度 ⇒ 未判定报数(SearchOverlay:481 实测那一型),不判也不冒充没命中(§0.3)。
@@ -117,7 +119,7 @@ check-no-divider.mjs — 分割线守门
   - .css 里的单边声明(border-top: 1px solid var(--color-border)):同一把差值棘轮 BLOCKING
   - RN/Taro 样式对象单边宽({ borderTopWidth: 1, ... }):同一把差值棘轮 BLOCKING
   - 背景色发丝线(h-px bg-border / RN { height: 1, backgroundColor: 中性 }):同一把差值棘轮 BLOCKING
-    排除:role="separator" 菜单线 / absolute|h-full|flex-1 + w-px 竖导引轨 / w-full h-px 分割器
+    排除:role="separator" 菜单线 / absolute+上界成对 + w-px 竖导引轨 / w-full h-px 分割器
   - 代码文件字符串里的生成式 CSS(邮件/落地页/第三方主题):WARN 逐条报数,不拦提交
   放过:整圈边框 / 双轴 / ≥2px 粗边 / 彩色或 transparent / 横竖同格(网格收口) /
         竖边+同轴 m?p? 缩进轨(引用块左条)/ 宽度 0 擦除(last:border-0、border-bottom:none) /
@@ -318,27 +320,207 @@ export function classifyBgToken(cls) {
   }
 }
 
+// ── 三型结构件的**唯一**指纹实现(§0.6)──────────────────────────────────────
+// `check-hairline-separator.mjs` 已 import 本段,两边不再是"两把尺子":
+// 同一枚发丝线在族 7 与本门得到同一判定。判据只认机械形状,不做语义猜测:
+//   型① role="separator" / 宿主 *Separator / `.Separator` 定义行;
+//   型② 竖轴 w-px + (absolute 且上界成对,或 h-full/flex-1 撑满);
+//   型③ cursor-col/row-resize / pane-split|resizer|*-handle / 通宽 w-full+h-px。
+// 反向锁:横向 absolute+h-px 不享轨出口;裸 h-px 照判(见 11d 自检 S60–S63)。
+
+/** `attr = <值>` 的值区间(引号串 / 按引号跳过的配平花括号)。取不到 ⇒ null */
+export function attributeValueSpan(text, afterKey) {
+  let i = afterKey
+  while (i < text.length && /\s/.test(text[i])) i++
+  if (text[i] !== '=') return null
+  i++
+  while (i < text.length && /\s/.test(text[i])) i++
+  const c = text[i]
+  if (c === '"' || c === "'") {
+    let j = i + 1
+    while (j < text.length) {
+      if (text[j] === '\\') {
+        j += 2
+        continue
+      }
+      if (text[j] === c) return { start: i + 1, end: j }
+      j++
+    }
+    return null
+  }
+  if (c === '{') {
+    let depth = 0
+    let quote = null
+    for (let j = i; j < text.length; j++) {
+      const ch = text[j]
+      if (quote) {
+        if (ch === '\\') j++
+        else if (ch === quote) quote = null
+        continue
+      }
+      if (ch === '"' || ch === "'" || ch === '`') {
+        quote = ch
+        continue
+      }
+      if (ch === '{') depth++
+      else if (ch === '}') {
+        depth--
+        if (depth === 0) return { start: i + 1, end: j }
+      }
+    }
+    return null
+  }
+  return null
+}
+
+/** 命中处所属的 className **值表达式**区间(多行 cn() 的形状要整体读,不能按物理行) */
+export function classNameValueSpan(text, idx) {
+  const at = text.lastIndexOf('className', idx)
+  if (at < 0) return null
+  const span = attributeValueSpan(text, at + 'className'.length)
+  if (!span) return null
+  return idx >= span.start && idx <= span.end ? span : null
+}
+
+/** 发丝维度档:`h-px`/`w-px` = hair;任意值只认数字+单位,粗档不进候选 */
+export function thinTokensOf(classText) {
+  const out = []
+  for (const m of classText.matchAll(CLASS_TOKEN_RE)) {
+    const head = stripVariantPrefix(m[0])
+    const px = /^([hw])-px$/.exec(head)
+    if (px) {
+      out.push({ axis: px[1], token: head, grade: 'hair' })
+      continue
+    }
+    const arb = /^([hw])-\[(?:length:)?([0-9.]+(?:px|rpx|rem|em|pt))\]$/.exec(head)
+    if (!arb) continue
+    const grade = cssHairlineGrade(arb[2])
+    if (grade === 'hair' || grade === 'unknown') out.push({ axis: arb[1], token: head, grade })
+  }
+  return out
+}
+
+/** 命中处的 JSX 开放标签起点;命中与 `<` 之间出现 `>` ⇒ 判不出(不猜) */
+export function jsxTagStart(text, idx) {
+  for (let i = idx; i >= 1; i--) {
+    if (text[i] !== '<') continue
+    if (!/[A-Za-z]/.test(text[i + 1] ?? '')) continue
+    if (text.slice(i + 1, idx).includes('>')) return null
+    return i
+  }
+  return null
+}
+
+/** 命中处的 JSX 标签名(`DropdownMenuPrimitive.Separator` 原样返回);取不到 ⇒ null */
+export function jsxTagNameAt(text, idx) {
+  const start = jsxTagStart(text, idx)
+  if (start === null) return null
+  const m = /^<([A-Za-z][\w.]*)/.exec(text.slice(start, start + 120))
+  return m ? m[1] : null
+}
+
+/** 宿主元素窗口:开放标签 → 命中所在行尾(`role=` 常写在命中行的上一行) */
+function elementWindow(text, idx) {
+  const start = jsxTagStart(text, idx)
+  const nl = text.indexOf('\n', idx)
+  const end = nl < 0 ? text.length : nl
+  return text.slice(start === null ? Math.max(0, idx - 300) : start, end)
+}
+
+/** 最近的 `const|let|var X =` 或块首 `X: {` —— 型③靠它认 RESIZER_CLASS.x.line */
+export function ownerNameOf(text, idx) {
+  const before = text.slice(Math.max(0, idx - 4000), idx)
+  const decls = [...before.matchAll(/(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?:=[^=]|:)/g)]
+  if (decls.length > 0) return decls[decls.length - 1][1]
+  const keys = [...before.matchAll(/(?:^|\n)\s*([A-Za-z_$][\w$]*)\s*:\s*[{(]/g)]
+  if (keys.length > 0) return keys[keys.length - 1][1]
+  return null
+}
+
+/**
+ * 三型结构件判定(族 7 与本门**共用**这一份)。
+ * @returns {{type:string, why:string}|null} null = 不属三型(交棘轮)
+ */
+export function structuralTypeOf({ relPath = '', text = '', idx = 0, surface = '' }) {
+  // 型① 语义分隔件(ARIA role / 宿主 *Separator / Separator 定义行)
+  if (
+    /role\s*=\s*["'{][^}]*\bseparator\b/.test(elementWindow(text, idx)) ||
+    EX_SEP_RE.test(surface)
+  ) {
+    return {
+      type: 'semantic-separator',
+      why: 'role="separator" / *Separator 原语 / Separator 定义行 ⇒ ARIA 语义分隔件',
+    }
+  }
+  const tag = jsxTagNameAt(text, idx)
+  if (tag && /(^|\.)[A-Za-z]*Separator$/.test(tag)) {
+    return {
+      type: 'semantic-separator',
+      why: `宿主组件是 ${tag} ⇒ Radix 分隔件原语(自带 role=separator)`,
+    }
+  }
+  const tokens = []
+  for (const m of surface.matchAll(CLASS_TOKEN_RE)) tokens.push(stripVariantPrefix(m[0]))
+  const has = (re) => tokens.some((t) => re.test(t))
+  const thin = thinTokensOf(surface)
+  // 型② 导引轨:发丝维度必须是**宽度**(横截面),长度靠 absolute 上界成对撑满。
+  // 只认 absolute:裸 `h-full|flex-1 + w-px` 在尺子里是 divider + railSuspect(照常计数、
+  // 单列待判),族 7 若在此放过就是两把尺子。
+  if (thin.some((t) => t.axis === 'w')) {
+    const verticalInset = has(/^top-/) && has(/^bottom-/)
+    const inset = has(/^inset-y-0$/) || has(/^inset-0$/)
+    const calcHeight = has(/^h-\[(calc|min|max)\(/)
+    const pinned = verticalInset || inset || (calcHeight && (has(/^top-/) || has(/^bottom-/)))
+    if (has(/^absolute$/) && pinned) {
+      return {
+        type: 'guide-rail',
+        why: 'absolute+竖轴上界成对 + w-px ⇒ 撑满长度方向的导引轨',
+      }
+    }
+  }
+  // 型③ 可拖拽分隔器
+  const probe = `${surface}\n${ownerNameOf(text, idx) ?? ''}\n${relPath}`
+  if (/cursor-(col|row)-resize/.test(probe)) {
+    return { type: 'draggable-splitter', why: '光标 cursor-col/row-resize ⇒ 可拖拽分割器手柄' }
+  }
+  if (/(pane-?split|resizer|split-?handle|drag-?handle)/i.test(probe)) {
+    return {
+      type: 'draggable-splitter',
+      why: '类名/拥有者声明名/文件路径命中 pane-split|resizer|*-handle ⇒ 可拖拽分割器',
+    }
+  }
+  if (has(/^w-full$/) && thin.some((t) => t.axis === 'h')) {
+    return {
+      type: 'draggable-splitter',
+      why: '通宽 w-full + h-px ⇒ 面板分割条(pane-split 拖拽柄的机械同形)',
+    }
+  }
+  return null
+}
+
 /**
  * 单行判定(族 7,纯函数;与 classifyDividerLine 同一入口、同一把棘轮尺)。
+ * `ctx` 提供完整文本/行首偏移时,三型指纹按 className 值表达式整体读(多行 cn() 也认得出)。
  * @returns {{level:'warn'|'blocking', label:string, col:number}|null}
  */
-export function classifyHairlineLine(line) {
-  if (EX_SEP_RE.test(line)) return null
-  // 导引轨:三型指纹都锁在**竖轴**(w-px)。absolute+h-px 横轴不享受这一出口 ——
-  // "加个 absolute 就遮红"正是 S29 给横边 border 堵掉的那一型。
-  if (
-    /\bw-px\b/.test(line) &&
-    (/\babsolute\b/.test(line) || /\bh-full\b/.test(line) || /\bflex-1\b/.test(line))
-  )
-    return null
-  // 分割器:通宽横条(pane-split 拖拽柄)
-  if (/\bw-full\b/.test(line) && /\bh-px\b/.test(line)) return null
+export function classifyHairlineLine(line, ctx = {}) {
+  const { relPath = '', text = line, lineStart = 0 } = ctx
   let axisCol = -1
+  let axisIdx = -1
   let bg = null
   for (const m of line.matchAll(CLASS_TOKEN_RE)) {
     const head = stripVariantPrefix(m[0])
-    if (axisCol < 0 && HAIRLINE_AXIS_RE.test(head)) axisCol = m.index + 1
+    if (axisCol < 0 && HAIRLINE_AXIS_RE.test(head)) {
+      axisCol = m.index + 1
+      axisIdx = m.index
+    }
     if (!bg && head.startsWith('bg-')) bg = classifyBgToken(head)
+  }
+  if (axisIdx >= 0) {
+    const at = lineStart + axisIdx
+    const span = classNameValueSpan(text, at)
+    const surface = span ? text.slice(span.start, span.end) : line
+    if (structuralTypeOf({ relPath, text, idx: at, surface })) return null
   }
   if (axisCol < 0 || !bg || !bg.neutral) return null
   if (bg.opacity !== null)
@@ -723,8 +905,12 @@ export function scanSource(relPath, text) {
   const single = []
   const isTsx = relPath.endsWith('.tsx')
   const isCss = relPath.endsWith('.css')
-  const lines = maskBlockComments(isCss ? maskCssAttributeSelectors(text) : text).split('\n')
+  const classText = maskBlockComments(isCss ? maskCssAttributeSelectors(text) : text)
+  const lines = classText.split('\n')
+  let lineStart = 0
   lines.forEach((line, idx) => {
+    const start = lineStart
+    lineStart += line.length + 1
     if (isExemptLine(line)) return
     const lineNumber = idx + 1
     const dm = VIOLATION_RE.exec(line)
@@ -750,7 +936,9 @@ export function scanSource(relPath, text) {
         return
       }
     }
-    const sd = classifyDividerLine(line) || classifyHairlineLine(line)
+    const sd =
+      classifyDividerLine(line) ||
+      classifyHairlineLine(line, { relPath, text: classText, lineStart: start })
     if (sd) {
       single.push({
         line: lineNumber,
@@ -1361,10 +1549,10 @@ export function selfTest() {
     // 反向锁:没有分隔件结构件的同一形状必须照判(排除不许被拿来遮红)
     ok(hit2('  <div className="h-px bg-muted" />')?.level === 'blocking')
   })
-  t('S62 族 7 排除②导引轨:absolute|h-full|flex-1 + w-px 放过;absolute+h-px 横轴不享出口', () => {
+  t('S62 族 7 排除②导引轨:absolute+上界成对 + w-px 放过;裸 h-full/flex-1 照判(与尺子 railSuspect 同判)', () => {
     ok(hit2('  <div className="absolute top-0 bottom-0 left-3 w-px bg-border" />') === null)
-    ok(hit2('  <div className="h-full w-px bg-muted" />') === null)
-    ok(hit2('  <div className="w-px flex-1 bg-border" />') === null)
+    ok(hit2('  <div className="h-full w-px bg-muted" />')?.level === 'blocking', '裸 h-full 不享轨出口')
+    ok(hit2('  <div className="w-px flex-1 bg-border" />')?.level === 'blocking', '裸 flex-1 不享轨出口')
     ok(
       hit2('  <div className="absolute h-px bg-border" />')?.level === 'blocking',
       '横轴不享轨出口',

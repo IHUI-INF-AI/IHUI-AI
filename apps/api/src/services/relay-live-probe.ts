@@ -75,8 +75,8 @@ export function probeTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
 
 /**
  * 凭据 JSON 形状(token 必填,其余可选):
- * { token, uid?, name?, refreshToken?, secrets?, extraMetadata?, proxyUrl?, model?, tokenExpiresAt? }
- * - Trae: token=Cloud-IDE-JWT;model 缺省 "auto"
+ * { token, uid?, name?, refreshToken?, cookies?, secrets?, extraMetadata?, proxyUrl?, model?, tokenExpiresAt? }
+ * - Trae: token=Cloud-IDE-JWT;model 缺省 "auto";web 号须带 cookies(含 sessionid)才测得全链路
  * - WorkBuddy: token=access token;extraMetadata.domain 决定 CN/global realm;model 必填
  * - CodeArts: token=security_token;secrets 需 accessKeyId/secretAccessKey/dpopPrivateKeyJwk/
  *   codeVerifier/domainId 等;model 必填(大小写敏感)
@@ -86,6 +86,7 @@ export interface ProbeCredential {
   uid?: string
   name?: string
   refreshToken?: string | null
+  cookies?: Array<Record<string, unknown>>
   secrets?: Record<string, unknown>
   extraMetadata?: Record<string, unknown>
   proxyUrl?: string | null
@@ -129,7 +130,10 @@ export function buildAccountContext(
     credentials: {
       token: cred.token.trim(),
       refreshToken: cred.refreshToken ?? null,
-      cookies: [],
+      // web 号(cookie 换票)必须带上 cookies,否则测不到续票/带 cookie 的转发全链路
+      cookies: Array.isArray(cred.cookies)
+        ? cred.cookies.filter((c) => c && typeof c === 'object')
+        : [],
       secrets: cred.secrets ?? {},
     },
   }
@@ -520,8 +524,13 @@ async function probeHealth(
       '健康检查',
     )
     const ms = Date.now() - t0
-    if (!res.ok)
+    if (!res.ok) {
+      // 未判定(上游 5xx/网络)不等于凭据失效:探针标 skip,不判 fail
+      if (res.indeterminate === true) {
+        return skipStep(`健康检查未判定(上游取不到): ${res.error ?? '无判定依据'}`)
+      }
       return failStep(ms, classifyHealthErrorText(res.error ?? ''), res.error ?? '健康检查失败')
+    }
     return passStep(ms)
   } catch (err) {
     return errorToStep(Date.now() - t0, err)

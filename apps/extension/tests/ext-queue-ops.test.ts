@@ -100,6 +100,50 @@ describe('D38 extension 许可门(共享层 queueInteractionPerms + interactionA
     )
     expect(v.allowed).toBe(true)
   })
+
+  // G-171a:awaitingApproval 真实来源已接 ChatPage 审批横幅(pendingApproval 非空)。
+  // 本端 runtime 支持位现为 false ⇒ 插话恒被 runtimeNoInterject 拦下(能力硬缺口优先);
+  // 下面两臂钉的是"喂入即生效 + 缺省不喂行为不变",为协商位落地后同一条链预接。
+  it('G-171a:awaitingApproval 喂入 + runtime 支持位为 true ⇒ 插话拒且出因 denied.cause.awaitingApproval;重排/撤回不牵连', () => {
+    const withApproval = facts({
+      hasQueuedMessages: true,
+      streaming: false,
+      ...RUNTIME_YES,
+      awaitingApproval: true,
+    })
+    const v = extQueueInteractionAllowed('interruptAndRun', withApproval)
+    expect(v.allowed).toBe(false)
+    expect(v.deniedKey).toBe('denied.interject')
+    expect(v.causeKey).toBe('denied.cause.awaitingApproval')
+    // 审批让行只锁插话族,不锁重排/撤回
+    expect(extQueueInteractionAllowed('reorder', withApproval).allowed).toBe(true)
+    expect(extQueueInteractionAllowed('undo', withApproval).allowed).toBe(true)
+    // 对照:同事实但无待批 ⇒ 插话放行
+    expect(
+      extQueueInteractionAllowed('interruptAndRun', {
+        ...withApproval,
+        awaitingApproval: false,
+      }).allowed,
+    ).toBe(true)
+  })
+
+  it('G-171a:宿主未喂 awaitingApproval(缺省)⇒ perms 取 false,行为与扩展前逐字一致(向后兼容)', () => {
+    const perms = extQueuePerms(facts({ hasQueuedMessages: true, ...RUNTIME_YES }))
+    expect(perms.awaitingApproval).toBe(false)
+    expect(
+      extQueueInteractionAllowed(
+        'interruptAndRun',
+        facts({ hasQueuedMessages: true, ...RUNTIME_YES }),
+      ).allowed,
+    ).toBe(true)
+    // 本端现状面:runtime=false 时即便有待批,出因仍是能力硬缺口(优先级不被掩盖)
+    const hardGap = extQueueInteractionAllowed(
+      'interruptAndRun',
+      facts({ hasQueuedMessages: true, awaitingApproval: true }),
+    )
+    expect(hardGap.allowed).toBe(false)
+    expect(hardGap.causeKey).toBe('denied.cause.runtimeNoInterject')
+  })
 })
 
 describe('D38 队列数组变换(仅委托 shared 纯函数,W27 不变式)', () => {

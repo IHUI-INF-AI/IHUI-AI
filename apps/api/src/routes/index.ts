@@ -23,6 +23,8 @@ import { chatRoutes } from './chat.js'
 import { chatModelRoutes } from './chat-models.js'
 // D179(2026-09-30 用户拍板立项):会话 Issue 绑定/解绑 + Issue 搜索转发
 import { chatIssueBindingRoutes } from './chat-issue-binding.js'
+// D125(2026-10-23,owner 2026-09-27 拍板):多用户协作会话 —— 邀请(只读)+ 逐消息评论
+import { chatCollabRoutes } from './chat-collab.js'
 import { chatSkillsRoutes } from './chat-skills.js'
 // 对话模板目录(2026-10-18 立服务端最小闭环):GET /api/chat/templates
 import { chatTemplateRoutes } from './chat-templates.js'
@@ -36,7 +38,6 @@ import { interactionsRoutes } from './interactions.js'
 import { promotionRoutes, adminPromotionRoutes } from './promotions.js'
 import { gamificationRoutes } from './gamification.js'
 import accountPoolRoutes from './account-pool.js'
-import checkinProxyRoutes from './checkin-proxy.js'
 import { creditsUsageRoutes } from './credits-usage.js'
 import { desktopPrefsRoutes } from './desktop-prefs.js'
 import { pointsTasksRoutes } from './points-tasks.js'
@@ -126,6 +127,8 @@ import systemExtendedRoutes, { adminCategoryDictionaryRoutes } from './system-ex
 import aiExtendedRoutes from './ai-extended.js'
 // D126 铺路:engine-voice 用户态代理(语音会话,上游 ai-service /api/engine/voice/*)
 import engineVoiceRoutes from './engine-voice.js'
+// 签到助手网关代理(2026-10-23 立):/api/checkin/* 透传 ai-service,移动端/桌面端共用
+import checkinProxyRoutes from './checkin-proxy.js'
 import { mcpExtendedRoutes } from './mcp-extended.js'
 import miscExtendedRoutes from './misc-extended.js'
 import aiGenerationRoutes from './ai-generation.js'
@@ -569,6 +572,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(chatRoutes, { prefix: '/api/chat' })
   // D179(2026-09-30 用户拍板立项):POST/DELETE /api/chat/conversations/:id/issue + POST /api/chat/issues/search
   server.register(chatIssueBindingRoutes, { prefix: '/api/chat' })
+  // D125:协作会话(邀请/评论)挂同一 /api/chat 前缀,与会话归属判定同域
+  server.register(chatCollabRoutes, { prefix: '/api/chat' })
   // Chat 多模型直连:deepseek/deepseek_ws/kling/multi/qwen/qwen_omni/zhipu/history/coze
   server.register(chatModelRoutes, { prefix: '/api/chat' })
   // 用户自定义 AI 对话框技能(2026-07-21 新增,Skill 库统一面板支撑):GET/POST/PATCH/DELETE /api/chat/skills
@@ -601,7 +606,6 @@ export function registerRoutes(server: FastifyInstance) {
   // 积分 / 等级 / 签到：/api/points /api/sign-in /api/levels /api/leaderboard
   server.register(gamificationRoutes, { prefix: '/api' })
   server.register(accountPoolRoutes)
-  server.register(checkinProxyRoutes)
   // 按日积分消耗聚合（只读，需登录）：/api/credits/usage/daily
   server.register(creditsUsageRoutes, { prefix: '/api/credits' })
   // 桌面端偏好跨设备漫游（需登录，整棵子树强制鉴权）：/api/desktop/prefs
@@ -807,6 +811,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiExtendedRoutes, { prefix: '/api/ai-ext' })
   // 语音会话用户态代理(上游 ai-service /engine/voice,requireAuth 后透传用户 JWT)
   server.register(engineVoiceRoutes, { prefix: '/api/engine/voice' })
+  // 签到助手网关代理(2026-10-23 立):/api/checkin/* 透传 ai-service(8803),路由自带绝对前缀;
+  // L7066:本层 checkAuth 先验会话,下游 401 ⇒ 502/UPSTREAM_AUTH_FAILED(不伪装会话死亡)
+  server.register(checkinProxyRoutes)
   // MCP 项目管理与集成扩展（projects/integrations）
   server.register(mcpExtendedRoutes, { prefix: '/api' })
   // 其他扩展（remote/user_agent_context/docs）
@@ -1346,7 +1353,7 @@ export function registerRoutes(server: FastifyInstance) {
   // Anthropic Messages 原生格式端点(POST /v1/anthropic/messages,内部转 OpenAI 格式走 relay 链路)
   // 注:用 /v1/anthropic 前缀而非 /v1,因 v1-knowledge-tools.ts:2380 已注册 POST /v1/messages(发布消息),
   // 同 method+path 会触发 FST_ERR_DUPLICATED_ROUTE 崩溃。Anthropic SDK 用户设
-  // ANTHROPIC_BASE_URL=https://new.x5m5x.com/v1/anthropic 即可走 /v1/anthropic/messages。
+  // 外部用户设 ANTHROPIC_BASE_URL 指向 IHUI 中转站即可走 /v1/anthropic/messages。
   server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
 
   // ===== P0 第二批次对外端点(2026-07-31 立,8 subagent 并行)=====

@@ -11,6 +11,7 @@ import {
 } from '@ihui/rn-app'
 import { Rocket, BookOpen, Brain, Compass, GraduationCap } from 'lucide-react-native'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -51,6 +52,7 @@ const ENTRIES = (navigation: NavigationProp): LearnDevelopEntry[] => [
 
 export function LearnDevelopScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
 
   // 直接联系李总 → 创客名片页(对齐原项目 learn_develop showDetails → /pages/carte/index)
@@ -63,7 +65,7 @@ export function LearnDevelopScreen() {
     onBack: () => navigation.goBack(),
     onContact,
     entries: ENTRIES(navigation),
-    colorScheme: 'light',
+    colorScheme: resolvedTheme,
   }
 
   return <SharedLearnDevelopScreen {...props} />

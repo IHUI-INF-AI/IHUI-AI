@@ -167,7 +167,8 @@ def _detect_build_commands(root: Path) -> list[str]:
             parsed = tomllib.loads(text)
         except Exception:  # noqa: BLE001 - tomllib 缺失/解析失败均降级为文本探测
             parsed = {}
-        tool = parsed.get("tool") if isinstance(parsed.get("tool"), dict) else {}
+        _tool = parsed.get("tool")
+        tool = _tool if isinstance(_tool, dict) else {}
         if "poetry" in tool:
             _add("poetry install")
             _add("poetry run pytest")
@@ -302,7 +303,8 @@ def _detect_project_identity(root: Path) -> tuple[str, str]:
             import tomllib
 
             parsed = tomllib.loads(_read_text(pyproject))
-            proj = parsed.get("project") if isinstance(parsed.get("project"), dict) else {}
+            _proj = parsed.get("project")
+            proj = _proj if isinstance(_proj, dict) else {}
             name = str(proj.get("name") or "").strip()
             desc = str(proj.get("description") or "").strip()
             if name or desc:

@@ -20,10 +20,13 @@
  *   计算的 Signature 头,服务端无法复现(直连实证 403 "Signature invalid")⇒
  *   单段式三件套(buildChatRequest/translateStreamChunk/translateNonStream)一律明确抛错,
  *   绝不返回假成功;
- * - CLI 桥接**已实证**:spawn Qoder 官方 CLI + SDK query() 取流(见 qoder-cli-bridge.ts),
- *   env 门控(QODER_BRIDGE_ENABLED=1,或非生产下 runner/SDK/CLI 路径齐备)启用时
- *   executeChat 走桥接;未启用时 executeChat 不定义,转发层落到三件套如实得到
- *   "契约未实证"错误 —— 两个口径都不冒充可用。
+ * - 本机桥接**已实证**(两条通路,共用同一条"绝不冒充可用"口径):
+ *   ① 常驻桥(默认):SDK 包成 127.0.0.1 上的 OpenAI 兼容端点,executeChat 转发
+ *      (见 qoder-bridge-client.ts / scripts/qoder-chat-bridge.mjs);
+ *   ② CLI 桥(显式选择):spawn 官方 CLI + SDK query() 取流(见 qoder-cli-bridge.ts),
+ *      门控(QODER_BRIDGE_ENABLED=1,或非生产下 runner/SDK/CLI 路径齐备)开启时优先;
+ * - QODER_BRIDGE_ENABLED=0 是 chat **总开关**:两条通路一并关闭,executeChat 不定义,
+ *   转发层落到三件套如实抛"契约未实证"(2026-10-23 合并两个独立实现时定的唯一口径)。
  * 接入号池的账号可被调度器续期/健康检查;转发链路调 chat 时按上述两条路径如实得到结果或错误。
  */
 import { ProxyAgent, fetch as undiciFetch } from 'undici'
@@ -97,7 +100,10 @@ function cosyValue(cosy: Record<string, unknown>, keys: readonly string[]): stri
       // HTTP 头必须 ASCII(RFC 7230):非 ASCII(如中文主机名"服务器")会被底层
       // encode('ascii') 抛 UnicodeEncodeError(ai-service 侧已因此致 id=5 每日签到
       // 全挂)。此处同样剔除非可打印 ASCII;清洗后为空则继续找下一个候选键。
-      const safe = v.trim().replace(/[^\x20-\x7e]/g, '').trim()
+      const safe = v
+        .trim()
+        .replace(/[^\x20-\x7e]/g, '')
+        .trim()
       if (safe) return safe
     }
   }
@@ -230,59 +236,70 @@ async function* parseBridgeSse(
 // 适配器(2026-10-23:chat 走 executeChat→本机桥;refresh/quota/健康检查仍直连 openapi)
 // =============================================================================
 
+/**
+ * chat 总开关(2026-10-23 合并两个独立实现时定的唯一口径):
+ * QODER_BRIDGE_ENABLED=0 显式关闭**全部** chat 通路(常驻桥 + CLI),适配器不定义
+ * executeChat,转发层落到三件套如实抛 QODER_CHAT_CONTRACT_UNVERIFIED。
+ */
+const QODER_CHAT_DISABLED = process.env.QODER_BRIDGE_ENABLED?.trim() === '0'
+
+/**
+ * 路径 ①:常驻本机桥(SDK 包成 127.0.0.1 的 OpenAI 兼容端点)。
+ * 转发层检测到 executeChat 就不会调三件套;桥未就绪时先等一次启动
+ * (Electron 冷启动 ~7s),仍失败则如实抛 503,绝不伪造成功。
+ */
+async function executeChatViaResidentBridge(
+  ctx: AdapterAccountContext,
+  req: NormalizedChatRequest,
+  opts: ChatExecuteOptions,
+): Promise<UpstreamChatResult> {
+  const ep = getQoderBridgeEndpoint() ?? (await ensureQoderBridge())
+  if (!ep) throw new QoderUpstreamError(503, describeQoderBridgeFailure())
+
+  const token = ctx.credentials.token
+  if (!token) throw new QoderUpstreamError(401, 'Qoder 账号缺少 device token')
+
+  // jobToken 的 expiresAt 只是 worker 侧本地预检(要求 >= 1e12 毫秒);
+  // 真实有效期由上游判定,过期会以 401 回来并触发 refresh —— 缺失时给 1h 占位。
+  const expRaw = ctx.row.tokenExpiresAt
+  const expiresAt =
+    expRaw instanceof Date && Number.isFinite(expRaw.getTime())
+      ? expRaw.getTime()
+      : Date.now() + 3_600_000
+
+  const doFetch = opts.fetchImpl ?? fetch
+  const res = await doFetch(`${ep.baseUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${token}`,
+      'x-qoder-token-exp': String(expiresAt),
+      'x-qoder-bridge-key': ep.key,
+      accept: req.stream ? 'text/event-stream' : 'application/json',
+    },
+    body: JSON.stringify(buildBridgeBody(req)),
+    signal: opts.signal,
+  })
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new QoderUpstreamError(
+      res.status,
+      `Qoder 桥 HTTP ${res.status}${text ? `: ${text}` : ''}`,
+    )
+  }
+
+  if (req.stream === true && res.body) {
+    return { stream: parseBridgeSse(res.body) }
+  }
+  return { completion: (await res.json()) as Record<string, unknown> }
+}
+
 export const qoderAdapter: RelayUpstreamAdapter = {
   providerCode: 'qoder',
 
-  /**
-   * chat 执行(路径 A:executeChat)。转发层检测到本方法就不会调三件套。
-   * 桥未就绪时先等一次启动(Electron 冷启动 ~7s),仍失败则如实抛 503,绝不伪造成功。
-   */
-  async executeChat(
-    ctx: AdapterAccountContext,
-    req: NormalizedChatRequest,
-    opts: ChatExecuteOptions,
-  ): Promise<UpstreamChatResult> {
-    const ep = getQoderBridgeEndpoint() ?? (await ensureQoderBridge())
-    if (!ep) throw new QoderUpstreamError(503, describeQoderBridgeFailure())
-
-    const token = ctx.credentials.token
-    if (!token) throw new QoderUpstreamError(401, 'Qoder 账号缺少 device token')
-
-    // jobToken 的 expiresAt 只是 worker 侧本地预检(要求 >= 1e12 毫秒);
-    // 真实有效期由上游判定,过期会以 401 回来并触发 refresh —— 缺失时给 1h 占位。
-    const expRaw = ctx.row.tokenExpiresAt
-    const expiresAt =
-      expRaw instanceof Date && Number.isFinite(expRaw.getTime())
-        ? expRaw.getTime()
-        : Date.now() + 3_600_000
-
-    const doFetch = opts.fetchImpl ?? fetch
-    const res = await doFetch(`${ep.baseUrl}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${token}`,
-        'x-qoder-token-exp': String(expiresAt),
-        'x-qoder-bridge-key': ep.key,
-        accept: req.stream ? 'text/event-stream' : 'application/json',
-      },
-      body: JSON.stringify(buildBridgeBody(req)),
-      signal: opts.signal,
-    })
-
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new QoderUpstreamError(
-        res.status,
-        `Qoder 桥 HTTP ${res.status}${text ? `: ${text}` : ''}`,
-      )
-    }
-
-    if (req.stream === true && res.body) {
-      return { stream: parseBridgeSse(res.body) }
-    }
-    return { completion: (await res.json()) as Record<string, unknown> }
-  },
+  // 路径 ① 常驻桥(默认)。QODER_BRIDGE_ENABLED=0 时两条通路都不定义 executeChat。
+  ...(QODER_CHAT_DISABLED ? {} : { executeChat: executeChatViaResidentBridge }),
 
   /** 鉴权失败判据:401/403 交给转发层触发 refresh 后重试 */
   isAuthError(err: unknown): boolean {
@@ -305,8 +322,8 @@ export const qoderAdapter: RelayUpstreamAdapter = {
     throw new Error(QODER_CHAT_CONTRACT_UNVERIFIED)
   },
 
-  // ── 路径 A:CLI 桥接(env 门控;未启用时不定义 executeChat,转发层落到上面三件套
-  //    如实抛"契约未实证" —— HTTP 直连仍未实证,不改口径)──
+  // ── 路径 ②:CLI 桥(显式门控开启时优先于常驻桥;两者都关则 executeChat 不定义,
+  //    转发层落到上面三件套如实抛"契约未实证" —— HTTP 直连仍未实证,不改口径)──
   ...(isQoderBridgeEnabled()
     ? {
         /**
@@ -447,7 +464,7 @@ export const qoderAdapter: RelayUpstreamAdapter = {
   async checkHealth(
     ctx: AdapterAccountContext,
     opts?: AdapterCallOptions,
-  ): Promise<{ ok: boolean; error?: string }> {
+  ): Promise<{ ok: boolean; error?: string; indeterminate?: boolean; authFailed?: boolean }> {
     try {
       const res = await resolveFetchImpl(opts ?? {})(`${QODER_QUOTA_BASE}${PATH_QUOTA}`, {
         method: 'GET',
@@ -455,14 +472,24 @@ export const qoderAdapter: RelayUpstreamAdapter = {
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
+        // 401 = 上游明确拒收凭据 → down + 收敛到期列;5xx/429 等属未判定,保留 unknown
+        const rejected = qoderAdapter.isAuthFailure(res.status, text)
         return {
           ok: false,
-          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+          indeterminate: !rejected,
+          authFailed: rejected,
+          error: `quota HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}${
+            rejected ? '' : '(未判定)'
+          }`,
         }
       }
       return { ok: true }
     } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+      return {
+        ok: false,
+        indeterminate: true,
+        error: `${e instanceof Error ? e.message : String(e)}(未判定)`,
+      }
     }
   },
 

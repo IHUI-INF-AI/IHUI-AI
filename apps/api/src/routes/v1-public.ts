@@ -822,7 +822,10 @@ async function streamChatCompletion(
         // 格②(2026-09-26):此行原把 stats.ttftMs 反推成墙钟 epoch 再喂给下方 ttft 差值;
         // 渠道分支在下方 return 收尾,该赋值对本函数唯一读者不可达,而 ttft 差值已改走单调钟,
         // 故删除(渠道路径自身的 ttftMs 仍按 stats.ttftMs 原样落库,未改)。
-        if (opts.streamUsageEnabled && (streamPromptTokens > 0 || streamCompletionTokens > 0)) {
+        if (
+          opts.streamUsageEnabled &&
+          (streamPromptTokens > 0 || streamCompletionTokens > 0 || stats.upstreamCredits !== null)
+        ) {
           // 复用上游帧 id：同一条流里出现两个 id 会让按 id 聚合/追踪的实现当成两条流
           raw.write(
             buildStreamUsageChunk(
@@ -830,6 +833,10 @@ async function streamChatCompletion(
               model,
               streamPromptTokens,
               streamCompletionTokens,
+              // 积分计费上游（Qoder）唯一真实计量；token 字段本就为 0，不能让 usage 只报 0
+              stats.upstreamCredits !== null
+                ? { credits: stats.upstreamCredits, credits_unit: 'qoder_credits' }
+                : undefined,
             ),
           )
         }
@@ -1826,8 +1833,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           if (top_p !== undefined) baseBody.top_p = top_p
           if (presence_penalty !== undefined) baseBody.presence_penalty = presence_penalty
           if (frequency_penalty !== undefined) baseBody.frequency_penalty = frequency_penalty
-          if (parallel_tool_calls !== undefined)
-            baseBody.parallel_tool_calls = parallel_tool_calls
+          if (parallel_tool_calls !== undefined) baseBody.parallel_tool_calls = parallel_tool_calls
           if (user !== undefined) baseBody.user = user
           if (service_tier !== undefined) baseBody.service_tier = service_tier
           if (n !== undefined) baseBody.n = n
@@ -1967,8 +1973,31 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
                     : 0,
                 total_tokens:
                   typeof rawUsage['total_tokens'] === 'number' ? rawUsage['total_tokens'] : 0,
+                // 积分计费上游（Qoder）token 恒 0，唯一真实扣减量是 credits；
+                // 原样带回，绝不填占位 0（0 会被读成"本次免费"）。
+                // 桥侧 credits 可能在 usage 内（流式）也可能在帧顶层（非流式）→ 两处都认。
+                ...(typeof rawUsage['credits'] === 'number'
+                  ? { credits: rawUsage['credits'], credits_unit: 'qoder_credits' }
+                  : typeof rawJson['x_qoder_credits'] === 'number'
+                    ? { credits: rawJson['x_qoder_credits'], credits_unit: 'qoder_credits' }
+                    : {}),
+                ...(typeof rawUsage['context_usage_ratio'] === 'number'
+                  ? { context_usage_ratio: rawUsage['context_usage_ratio'] }
+                  : typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
+                    ? { context_usage_ratio: rawJson['x_qoder_context_usage_ratio'] }
+                    : {}),
               }
             : undefined,
+          // 桥侧透传的 Qoder 专属计量/追踪字段（顶层，非 usage 内）
+          ...(typeof rawJson['x_qoder_credits'] === 'number'
+            ? { x_qoder_credits: rawJson['x_qoder_credits'] }
+            : {}),
+          ...(typeof rawJson['x_qoder_request_id'] === 'string'
+            ? { x_qoder_request_id: rawJson['x_qoder_request_id'] }
+            : {}),
+          ...(typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
+            ? { x_qoder_context_usage_ratio: rawJson['x_qoder_context_usage_ratio'] }
+            : {}),
         }
       } else {
         data = rawJson as {
@@ -2026,6 +2055,20 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       const safeCompletion = safeInt(completionTokens, (data.content ?? '').length)
       const safeTotal = safeInt(totalTokens, promptText.length + (data.content ?? '').length)
 
+      // 积分/上下文占用比例：usage 内优先；Qoder 桥把 credits 放在 usage 内（流式）
+      // 或帧/响应顶层 x_qoder_credits（非流式）；两处都认，且 usedChannel / ai-service
+      // 回退两种分支都要能拾起，绝不因分支差异漏掉真实扣减量。
+      const rawUsage = (rawJson['usage'] ?? null) as Record<string, unknown> | null
+      const usageCredits =
+        (typeof rawUsage?.['credits'] === 'number' ? rawUsage['credits'] : null) ??
+        (typeof rawJson['x_qoder_credits'] === 'number' ? rawJson['x_qoder_credits'] : null)
+      const usageRatio =
+        (typeof rawUsage?.['context_usage_ratio'] === 'number'
+          ? rawUsage['context_usage_ratio']
+          : null) ??
+        (typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
+          ? rawJson['x_qoder_context_usage_ratio']
+          : null)
       const result: V1ChatCompletionResponse = {
         id: `chatcmpl-${randomUUID()}`,
         object: 'chat.completion',
@@ -2042,7 +2085,25 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           prompt_tokens: safePrompt,
           completion_tokens: safeCompletion,
           total_tokens: safeTotal,
+          // 积分计费上游（Qoder）token 恒 0，唯一真实扣减量是 credits；原样带回。
+          ...(usageCredits !== null
+            ? { credits: usageCredits, credits_unit: 'qoder_credits' }
+            : {}),
+          ...(usageRatio !== null ? { context_usage_ratio: usageRatio } : {}),
         },
+        // 桥侧透传的 Qoder 专属计量/追踪字段（顶层，与桥自身响应形态一致；非 Qoder 上游无此类字段则不带）
+        ...(typeof rawJson['x_qoder_credits'] === 'number'
+          ? { x_qoder_credits: rawJson['x_qoder_credits'] }
+          : {}),
+        ...(typeof rawJson['x_qoder_request_id'] === 'string'
+          ? { x_qoder_request_id: rawJson['x_qoder_request_id'] }
+          : {}),
+        ...(typeof rawJson['x_qoder_context_usage_ratio'] === 'number'
+          ? { x_qoder_context_usage_ratio: rawJson['x_qoder_context_usage_ratio'] }
+          : {}),
+        ...(typeof rawJson['x_qoder_sdk_model'] === 'string'
+          ? { x_qoder_sdk_model: rawJson['x_qoder_sdk_model'] }
+          : {}),
       }
 
       // P0-5 中转站计费:调用成功,记录流水 + 扣减余额(两段式:结算预扣差额)

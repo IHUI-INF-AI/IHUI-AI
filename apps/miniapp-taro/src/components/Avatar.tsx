@@ -10,7 +10,7 @@ export interface AvatarProps {
   src?: string
   name?: string
   size?: AvatarSize
-  shape?: 'circle' | 'square'
+  shape?: 'circle' | 'square' | 'rounded'
   onClick?: () => void
 }
 
@@ -38,12 +38,22 @@ export default function Avatar({
   onClick,
 }: AvatarProps) {
   const sizeClass = SIZES[size]
-  const shapeClass = shape === 'circle' ? 'rounded-md' : 'rounded-lg'
+  // 圆角对齐 RN ui-native/avatar.tsx:circle→rounded-2xl,其余('square'|'rounded')→rounded-lg
+  const shapeClass = shape === 'circle' ? 'rounded-2xl' : 'rounded-lg'
+  // 首字母缩写对齐 RN:按空格分词、各词首字母、最多 2 个、大写(中文名无空格取首字;空名留空)
+  const initials = name
+    ? name
+        .split(' ')
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : ''
 
   if (src) {
     return (
       <Image
-        className={cn(sizeClass, shapeClass, 'bg-muted')}
+        className={cn(sizeClass, shapeClass, 'overflow-hidden bg-muted')}
         src={src}
         mode="aspectFill"
         onClick={onClick}
@@ -53,11 +63,11 @@ export default function Avatar({
 
   return (
     <View
-      className={cn('flex items-center justify-center', sizeClass, shapeClass, 'bg-primary/10')}
+      className={cn('flex items-center justify-center overflow-hidden', sizeClass, shapeClass, 'bg-muted')}
       onClick={onClick}
       hoverClass="opacity-60"
     >
-      <Text className="text-primary font-medium">{name.charAt(0) || '?'}</Text>
+      <Text className="text-muted-foreground font-medium">{initials}</Text>
     </View>
   )
 }

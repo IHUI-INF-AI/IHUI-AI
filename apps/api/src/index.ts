@@ -49,6 +49,8 @@ import {
   startRelayModelSyncScheduler,
   stopRelayModelSyncScheduler,
 } from './services/relay-model-sync.js'
+// 中继出网代理分流(被墙 host 走本地代理,其余直连;未配置 RELAY_PROXY_URL 时 no-op)
+import { installRelayOutboundProxy } from './services/relay-outbound-proxy.js'
 import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
 // 访客链路测速 + 边缘缓存预热(同一形态:进程内定时读方,不新增服务拓扑,2026-10-19 立)
 import { startEdgeAccessProbe } from './services/edge-access.js'
@@ -153,6 +155,10 @@ async function start() {
   // OpenTelemetry 追踪：在 buildServer 之前初始化，最大化 instrument 覆盖（含启动期代码）
   // 未配置 OTEL_EXPORTER_OTLP_ENDPOINT 且 OTEL_ENABLED!=true 时为 no-op，不阻塞启动
   initOtel()
+
+  // 中继出网代理分流:必须早于任何出站 fetch(健康巡检/上游转发都吃全局 dispatcher)。
+  // 未配置 RELAY_PROXY_URL 时为 no-op,行为与从前逐字节一致。
+  installRelayOutboundProxy()
 
   // 生产环境微信支付配置完整性检查(失败立即退出)
   checkProductionConfig()
@@ -345,7 +351,14 @@ async function start() {
   // 官方 Agent SDK worker 完成 ⇒ 包成 127.0.0.1 上的 OpenAI 兼容端点常驻。
   // 后台跑不阻塞就绪;未装 Qoder / QODER_BRIDGE_AUTOSTART=false 时静默跳过,
   // 首次 chat 仍会懒启动兜底。
-  if (process.env.QODER_BRIDGE_AUTOSTART !== 'false') startQoderBridge()
+  // QODER_BRIDGE_ENABLED=0 是 chat 总开关(见 qoder-adapter 的 QODER_CHAT_DISABLED),
+  // 此时不必白拉起 Electron 冷启动。
+  if (
+    process.env.QODER_BRIDGE_AUTOSTART !== 'false' &&
+    process.env.QODER_BRIDGE_ENABLED?.trim() !== '0'
+  ) {
+    startQoderBridge()
+  }
 
   // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
   // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)

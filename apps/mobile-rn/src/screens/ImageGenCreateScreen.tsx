@@ -166,11 +166,8 @@ export function ImageGenCreateScreen() {
               style={{ width: '100%', aspectRatio: 1, borderRadius: rnRadius.lg }}
               resizeMode="cover"
             />
-            {result.revisedPrompt ? (
-              <Text className="mt-2 text-xs text-gray-400" numberOfLines={2}>
-                {result.revisedPrompt}
-              </Text>
-            ) : null}
+            {/* revisedPrompt 是死字段(后端零产出通路,见 @ihui/types 的 ImageGenResult 注记)
+                ⇒ 死渲染腿于 2026-10-23 撤除,与 web /image-gen 同批;接通日两端一起改回。 */}
             <TouchableOpacity
               onPress={() => void onSave()}
               disabled={saving}

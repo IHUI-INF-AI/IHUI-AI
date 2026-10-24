@@ -51,6 +51,10 @@
       "types": "./dist/knowledge-team.d.ts",
       "import": "./dist/knowledge-team.js"
     },
+    "./chat-sync-contract": {
+      "types": "./dist/chat-sync-contract.d.ts",
+      "import": "./dist/chat-sync-contract.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

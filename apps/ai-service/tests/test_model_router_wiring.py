@@ -27,11 +27,11 @@ from app.core.llm_gateway import (
 )
 from app.services.model_router import ModelRouter
 
-# 真实 default_models.json 里稳定存在的三个条目(前缀决定 tier:flash→1 / glm-5→10)
+# 真实 default_models.json 里稳定存在的三个条目(前缀决定 tier:flash→1 / glm-4-plus→10)
 _POOL_IDS = [
     "stepfun/step-3.7-flash",
     "agnes/agnes-2.5-flash",
-    "ihui/glm-5.3",
+    "glm-4-plus",
 ]
 
 
