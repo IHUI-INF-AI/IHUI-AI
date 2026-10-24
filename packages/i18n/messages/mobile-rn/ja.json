@@ -594,7 +594,9 @@
       "hasbuy": "購入済み",
       "monthly": "毎月"
     },
-    "recharge": "チャージする"
+    "recharge": "チャージする",
+    "confirm": "支払確認",
+    "later": "あとで考える"
   },
   "order": {
     "title": "注文",
@@ -870,7 +872,12 @@
     },
     "voicePlay": "音声を再生",
     "voicePause": "音声暂停",
-    "actionRunA11y": "アクション実行：{label}"
+    "actionRunA11y": "アクション実行：{label}",
+    "toolRunning": "実行中…",
+    "toolOk": "成功",
+    "toolFail": "失敗",
+    "diffCollapse": "ストリーム diff を畳む",
+    "diffExpand": "ストリーム diff 展開"
   },
   "settings": {
     "title": "設定",
@@ -1842,7 +1849,10 @@
     "sales": "{count} 件販売",
     "loadFailed": "アフィリエイトの読み込みに失敗",
     "withdrawFailed": "出金に失敗",
-    "withdrawSuccess": "出金に成功"
+    "withdrawSuccess": "出金に成功",
+    "unsettled": "未精算",
+    "refunded": "返金済み",
+    "unknown": "不明"
   },
   "earnCommission": {
     "title": "コミッションプラン",
@@ -3314,7 +3324,10 @@
     "joinedAt": "参加日",
     "contact": "連絡",
     "viewOrders": "注文を見る",
-    "empty": "メンバー情報がありません"
+    "empty": "メンバー情報がありません",
+    "loadFail": "読み込み失敗。再試行",
+    "noPhone": "このメンバーは番号未登録",
+    "callFail": "発信できません。端末を確認"
   },
   "vip": {
     "benefitList": {
@@ -3766,7 +3779,9 @@
       "order": "注文",
       "social": "ソーシャル",
       "system": "システム"
-    }
+    },
+    "conversationFallback": "会話",
+    "searchPh": "チャット/連絡先を検索"
   },
   "messageDirect": {
     "empty": "ダイレクトメッセージなし",
@@ -4252,7 +4267,10 @@
     "knowledgePlanet": "ナレッジプラネット"
   },
   "knowledgePlanet": {
-    "title": "ナレッジプラネット"
+    "title": "ナレッジプラネット",
+    "newOfficial": "公式",
+    "newCommunity": "コミュニティ",
+    "enter": "プラネットへ"
   },
   "knowledgeRag": {
     "title": "RAG 知識ベース",
@@ -4796,7 +4814,11 @@
     "resend": "再送信",
     "confirm": "確定",
     "closeA11y": "認証コードのダイアログを閉じる",
-    "inputA11y": "認証コード入力"
+    "inputA11y": "認証コード入力",
+    "noPhoneBound": "電話番号未登録",
+    "bindFirst": "先に電話番号を登録してください",
+    "phoneOk": "電話番号を確認しました",
+    "codeWrong": "コードが違います。再試行"
   },
   "patrol": {
     "title": "パトロール",
@@ -5234,5 +5256,77 @@
   },
   "fenlei": {
     "closeOverlay": "分類シートを閉じる"
+  },
+  "llmSettings": {
+    "title": "モデルプロバイダー",
+    "empty": "プロバイダー未設定",
+    "emptyDesc": "右上のウィザードで 4 ステップ設定",
+    "enabled": "有効",
+    "disabled": "無効"
+  },
+  "byok": {
+    "fab": "クイック設定",
+    "title": "セットアップウィザード",
+    "step1Title": "プロバイダーを選択",
+    "step2Title": "API キーを入力",
+    "step3Title": "キーを検証",
+    "step4Title": "完了",
+    "keyPlaceholder": "API キーを貼り付け(sk-…)",
+    "showKey": "キーを表示",
+    "hideKey": "キーを隠す",
+    "verify": "検証",
+    "next": "次へ",
+    "activate": "有効化",
+    "verifyIdle": "検証待ち",
+    "verifying": "検証中…",
+    "verifySuccess": "検証成功",
+    "verifyFailed": "検証失敗",
+    "doneTitle": "設定完了",
+    "doneDesc": "プロバイダーを作成し、収益分配を有効化しました"
+  },
+  "pay": {
+    "alipayNotOpen": "支付宝は未対応です。WeChat Payをご利用ください."
+  },
+  "popularCourses": {
+    "tabHotIntro": "人気入門",
+    "tabHotPick": "人気厳選",
+    "lessonsCount": "· {n} レッスン",
+    "enrolled": "{n} 人在学习"
+  },
+  "modelConfig": {
+    "framesUnit": "{n} フレーム",
+    "inputPrefix": "{desc}を入力"
+  },
+  "bottomPopup": {
+    "selectLevel": "{name} を選択",
+    "payA11y": "決済シート閉じる"
+  },
+  "purchaseNotice": {
+    "title": "コミッション獲得",
+    "subtitle": "プロモーションに参加して収入アップ",
+    "cta": "会員登録へ",
+    "closeA11y": "ダイアログ閉じる"
+  },
+  "eduShop": {
+    "title": "教育ストア",
+    "courses": "コース商品",
+    "orders": "注文履歴",
+    "free": "無料",
+    "buy": "購入",
+    "lessons": "{n} レッスン",
+    "loadMore": "さらに読み込む",
+    "emptyCourses": "販売中のコースなし",
+    "emptyOrders": "注文なし",
+    "cancelOrder": "注文をキャンセル",
+    "cancelConfirmTitle": "注文のキャンセル",
+    "cancelConfirmDesc": "この注文をキャンセルしますか?",
+    "orderCreated": "注文を作成しました",
+    "status": {
+      "pending": "未払い",
+      "paid": "支払済み",
+      "cancelled": "キャンセル済み",
+      "completed": "完了",
+      "refunded": "返金済み"
+    }
   }
 }

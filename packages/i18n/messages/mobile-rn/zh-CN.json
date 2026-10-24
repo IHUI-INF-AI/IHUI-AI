@@ -594,7 +594,9 @@
       "hasbuy": "已购买",
       "monthly": "每月"
     },
-    "recharge": "去充值"
+    "recharge": "去充值",
+    "confirm": "确认支付",
+    "later": "再看看"
   },
   "order": {
     "title": "订单",
@@ -870,7 +872,12 @@
     },
     "voicePlay": "播放语音",
     "voicePause": "暂停语音",
-    "actionRunA11y": "执行动作：{label}"
+    "actionRunA11y": "执行动作：{label}",
+    "toolRunning": "执行中…",
+    "toolOk": "成功",
+    "toolFail": "失败",
+    "diffCollapse": "收起流中 diff 预览",
+    "diffExpand": "展开流中 diff 预览"
   },
   "settings": {
     "title": "设置",
@@ -1842,7 +1849,10 @@
     "sales": "已售 {count} 件",
     "loadFailed": "加载分销失败",
     "withdrawFailed": "提现失败",
-    "withdrawSuccess": "提现成功"
+    "withdrawSuccess": "提现成功",
+    "unsettled": "待结算",
+    "refunded": "退单",
+    "unknown": "未知"
   },
   "earnCommission": {
     "title": "分佣计划",
@@ -3314,7 +3324,10 @@
     "joinedAt": "加入时间",
     "contact": "联系",
     "viewOrders": "查看订单",
-    "empty": "暂无成员信息"
+    "empty": "暂无成员信息",
+    "loadFail": "加载失败，请重试",
+    "noPhone": "该成员未提供手机号",
+    "callFail": "无法拨号，请检查设备"
   },
   "vip": {
     "benefitList": {
@@ -3766,7 +3779,9 @@
       "order": "订单",
       "social": "互动",
       "system": "系统"
-    }
+    },
+    "conversationFallback": "对话",
+    "searchPh": "搜索聊天记录/联系人/服务号"
   },
   "messageDirect": {
     "empty": "暂无私信",
@@ -4296,7 +4311,10 @@
     "knowledgePlanet": "知识星球"
   },
   "knowledgePlanet": {
-    "title": "知识星球"
+    "title": "知识星球",
+    "newOfficial": "官方资讯",
+    "newCommunity": "星球社区",
+    "enter": "进入星球"
   },
   "knowledgeRag": {
     "title": "RAG 知识库",
@@ -4796,7 +4814,11 @@
     "resend": "重新发送",
     "confirm": "确定",
     "closeA11y": "关闭验证码弹窗",
-    "inputA11y": "验证码输入"
+    "inputA11y": "验证码输入",
+    "noPhoneBound": "未绑定手机号",
+    "bindFirst": "请先绑定手机号后再验证",
+    "phoneOk": "手机号验证成功",
+    "codeWrong": "验证码错误，请重试"
   },
   "patrol": {
     "title": "主动巡逻",
@@ -5234,5 +5256,77 @@
   },
   "fenlei": {
     "closeOverlay": "关闭分类弹层"
+  },
+  "llmSettings": {
+    "title": "模型服务商",
+    "empty": "还没有配置服务商",
+    "emptyDesc": "点击右上角向导,4 步配置 API Key",
+    "enabled": "已启用",
+    "disabled": "已停用"
+  },
+  "byok": {
+    "fab": "快速配置",
+    "title": "一键配置向导",
+    "step1Title": "选择厂商",
+    "step2Title": "填写 API Key",
+    "step3Title": "验证密钥",
+    "step4Title": "完成",
+    "keyPlaceholder": "粘贴 API Key(sk-…)",
+    "showKey": "显示密钥",
+    "hideKey": "隐藏密钥",
+    "verify": "验证",
+    "next": "下一步",
+    "activate": "激活并创建",
+    "verifyIdle": "待验证",
+    "verifying": "正在验证…",
+    "verifySuccess": "验证通过",
+    "verifyFailed": "验证未通过",
+    "doneTitle": "配置完成",
+    "doneDesc": "服务商已创建,平台抽成已按规则激活"
+  },
+  "pay": {
+    "alipayNotOpen": "支付宝支付暂未开通，请选择微信支付"
+  },
+  "popularCourses": {
+    "tabHotIntro": "爆款入门",
+    "tabHotPick": "爆款精选",
+    "lessonsCount": "· {n} 课时",
+    "enrolled": "{n} 人在学"
+  },
+  "modelConfig": {
+    "framesUnit": "{n} 帧",
+    "inputPrefix": "请输入{desc}"
+  },
+  "bottomPopup": {
+    "selectLevel": "选择 {name}",
+    "payA11y": "关闭支付弹窗"
+  },
+  "purchaseNotice": {
+    "title": "赚取佣金",
+    "subtitle": "加入我们的推广计划，获得额外收入",
+    "cta": "前往开启会员",
+    "closeA11y": "关闭弹窗"
+  },
+  "eduShop": {
+    "title": "教育商城",
+    "courses": "课程商品",
+    "orders": "我的订单",
+    "free": "免费",
+    "buy": "购买",
+    "lessons": "{n} 课时",
+    "loadMore": "加载更多",
+    "emptyCourses": "暂无在售课程",
+    "emptyOrders": "暂无订单",
+    "cancelOrder": "取消订单",
+    "cancelConfirmTitle": "取消订单",
+    "cancelConfirmDesc": "确定取消该订单吗?",
+    "orderCreated": "订单已创建",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "refunded": "已退款"
+    }
   }
 }
