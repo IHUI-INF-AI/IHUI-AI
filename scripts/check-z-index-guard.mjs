@@ -385,13 +385,16 @@ console.log('  [4/5] 检查 dialog.tsx 遮罩无 open 态 fade-in 动画...')
 if (existsSync(DIALOG_PATH)) {
   const tsx = readFileSync(DIALOG_PATH, 'utf8')
 
-  // 找 Overlay 的 className 行
-  const overlayMatch = tsx.match(/DialogPrimitive\.Overlay[^>]*className="([^"]+)"/)
+  // 找 Overlay 元素**整块**,不猜 className 的书写形态。
+  // 2026-10-25 实测:className 已改为 `className={cn('…', overlayClassName)}` 表达式,旧正则只认
+  // `className="..."` ⇒ 对当前代码完全失明,只在日志留一句"结构可能已变更"(等于没有判据)。
+  // 按元素块找标记串,字符串形态与表达式形态同判。
+  const overlayMatch = /<DialogPrimitive\.Overlay[\s\S]*?(?:\/>|<\/DialogPrimitive\.Overlay>)/.exec(tsx)
   if (!overlayMatch) {
     console.log(`${C.yellow}    ⚠️  未找到 DialogPrimitive.Overlay,可能 dialog.tsx 结构已变更${C.reset}`)
     console.log(`${C.dim}       请人工确认遮罩无 fade-in 动画${C.reset}`)
   } else {
-    const overlayClass = overlayMatch[1]
+    const overlayClass = overlayMatch[0]
 
     // 检测 open 态 fade-in: data-[state=open]:animate-in 或 data-[state=open]:fade-in-0
     const hasOpenFadeIn =
@@ -399,7 +402,7 @@ if (existsSync(DIALOG_PATH)) {
       /data-\[state=open\]:fade-in-0/.test(overlayClass)
 
     if (hasOpenFadeIn) {
-      console.log(`${C.red}    ❌ 遮罩含 open 态 fade-in 动画: ${overlayClass.substring(0, 80)}...${C.reset}`)
+      console.log(`${C.red}    ❌ 遮罩含 open 态 fade-in 动画: ${overlayClass.replace(/\s+/g, ' ').substring(0, 80)}...${C.reset}`)
       console.log(`${C.dim}       fade-in 让遮罩从 opacity:0 渐显,150ms 内 AI 面板全亮度暴露 = "发亮"${C.reset}`)
       console.log(`${C.dim}       修复:移除 data-[state=open]:animate-in 和 data-[state=open]:fade-in-0${C.reset}`)
       hasError = true
