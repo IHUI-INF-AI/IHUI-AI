@@ -5922,7 +5922,8 @@
       "fri": "금",
       "sat": "토",
       "sun": "일"
-    }
+    },
+    "title2": "학교 시간표"
   },
   "eduChildAttendance": {
     "title": "자녀 출석",
@@ -5947,5 +5948,37 @@
     "paid": "납부",
     "arrears": "미납",
     "nextDue": "다음 기한"
+  },
+  "eduChildStudyPlans": {
+    "title": "학습 계획",
+    "title2": "계획",
+    "planType": "유형",
+    "range": "기간",
+    "desc": "설명"
+  },
+  "eduFinance": {
+    "title": "납부 기록",
+    "student": "학생",
+    "className": "학급",
+    "fee": "비용",
+    "amount": "금액(위안)",
+    "date": "납부일",
+    "status": {
+      "paid": "납부됨",
+      "success": "성공",
+      "refunded": "환불됨",
+      "pending": "확인 대기"
+    }
+  },
+  "eduMeal": {
+    "title": "급식 템플릿",
+    "name": "템플릿명"
+  },
+  "eduScheduling": {
+    "title": "교사 배정 시간",
+    "teacher": "교사",
+    "availability": "가용 여부",
+    "available": "가능",
+    "busy": "불가"
   }
 }

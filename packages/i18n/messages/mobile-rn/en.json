@@ -5922,7 +5922,8 @@
       "fri": "Fri",
       "sat": "Sat",
       "sun": "Sun"
-    }
+    },
+    "title2": "Class Schedule"
   },
   "eduChildAttendance": {
     "title": "Child's Attendance",
@@ -5947,5 +5948,37 @@
     "paid": "Paid",
     "arrears": "Arrears",
     "nextDue": "Next due"
+  },
+  "eduChildStudyPlans": {
+    "title": "Study Plans",
+    "title2": "Plan",
+    "planType": "Type",
+    "range": "Period",
+    "desc": "Notes"
+  },
+  "eduFinance": {
+    "title": "Payment Records",
+    "student": "Student",
+    "className": "Class",
+    "fee": "Fee",
+    "amount": "Amount",
+    "date": "Date",
+    "status": {
+      "paid": "Paid",
+      "success": "Success",
+      "refunded": "Refunded",
+      "pending": "Pending"
+    }
+  },
+  "eduMeal": {
+    "title": "Meal Templates",
+    "name": "Template"
+  },
+  "eduScheduling": {
+    "title": "Teacher Slots",
+    "teacher": "Teacher",
+    "availability": "Availability",
+    "available": "Available",
+    "busy": "Busy"
   }
 }

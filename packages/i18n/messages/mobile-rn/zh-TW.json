@@ -5922,7 +5922,8 @@
       "fri": "週五",
       "sat": "週六",
       "sun": "週日"
-    }
+    },
+    "title2": "校園課表"
   },
   "eduChildAttendance": {
     "title": "孩子考勤",
@@ -5947,5 +5948,37 @@
     "paid": "已付",
     "arrears": "欠費",
     "nextDue": "下次到期"
+  },
+  "eduChildStudyPlans": {
+    "title": "學習計劃",
+    "title2": "計劃",
+    "planType": "類型",
+    "range": "週期",
+    "desc": "說明"
+  },
+  "eduFinance": {
+    "title": "繳費記錄",
+    "student": "學生",
+    "className": "班級",
+    "fee": "費用",
+    "amount": "金額(元)",
+    "date": "繳費日期",
+    "status": {
+      "paid": "已繳",
+      "success": "成功",
+      "refunded": "已退",
+      "pending": "待確認"
+    }
+  },
+  "eduMeal": {
+    "title": "餐次模板",
+    "name": "模板名"
+  },
+  "eduScheduling": {
+    "title": "教師排班時段",
+    "teacher": "教師",
+    "availability": "可用性",
+    "available": "可用",
+    "busy": "已佔"
   }
 }

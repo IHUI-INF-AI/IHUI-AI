@@ -66,6 +66,21 @@ import DeveloperNotificationsScreen from '../screens/DeveloperNotificationsScree
 import DeveloperSettingsScreen from '../screens/DeveloperSettingsScreen'
 import DeveloperConversationsScreen from '../screens/DeveloperConversationsScreen'
 import ModelsPromptsScreen from '../screens/ModelsPromptsScreen'
+import EduAttendanceScreen from '../screens/EduAttendanceScreen'
+import EduGradesScreen from '../screens/EduGradesScreen'
+import EduParentScreen from '../screens/EduParentScreen'
+import EduParentBindScreen from '../screens/EduParentBindScreen'
+import EduEnrollmentScreen from '../screens/EduEnrollmentScreen'
+import EduChildScheduleScreen from '../screens/EduChildScheduleScreen'
+import EduChildAttendanceScreen from '../screens/EduChildAttendanceScreen'
+import EduChildGradesScreen from '../screens/EduChildGradesScreen'
+import EduChildMealsScreen from '../screens/EduChildMealsScreen'
+import EduChildBillsScreen from '../screens/EduChildBillsScreen'
+import EduChildStudyPlansScreen from '../screens/EduChildStudyPlansScreen'
+import EduFinanceScreen from '../screens/EduFinanceScreen'
+import EduMealScreen from '../screens/EduMealScreen'
+import EduScheduleScreen from '../screens/EduScheduleScreen'
+import EduSchedulingScreen from '../screens/EduSchedulingScreen'
 import UserArticlesScreen from '../screens/UserArticlesScreen'
 import InvoicesScreen from '../screens/InvoicesScreen'
 import PurchaseScreen from '../screens/PurchaseScreen'
@@ -412,6 +427,21 @@ export type RootStackParamList = {
   DeveloperSettings: undefined
   DeveloperConversations: undefined
   ModelsPrompts: undefined
+  EduAttendance: undefined
+  EduGrades: undefined
+  EduParent: undefined
+  EduParentBind: undefined
+  EduEnrollment: undefined
+  EduChildSchedule: { childId: string }
+  EduChildAttendance: { childId: string }
+  EduChildGrades: { childId: string }
+  EduChildMeals: { childId: string }
+  EduChildBills: { childId: string }
+  EduChildStudyPlans: { childId: string }
+  EduFinance: undefined
+  EduMeal: undefined
+  EduSchedule: undefined
+  EduScheduling: undefined
   UserArticles: undefined
   Invoices: undefined
   Purchase: undefined
@@ -871,6 +901,21 @@ function RootNavigatorInner() {
               component={DeveloperConversationsScreen}
             />
             <RootStack.Screen name="ModelsPrompts" component={ModelsPromptsScreen} />
+            <RootStack.Screen name="EduAttendance" component={EduAttendanceScreen} />
+            <RootStack.Screen name="EduGrades" component={EduGradesScreen} />
+            <RootStack.Screen name="EduParent" component={EduParentScreen} />
+            <RootStack.Screen name="EduParentBind" component={EduParentBindScreen} />
+            <RootStack.Screen name="EduEnrollment" component={EduEnrollmentScreen} />
+            <RootStack.Screen name="EduChildSchedule" component={EduChildScheduleScreen} />
+            <RootStack.Screen name="EduChildAttendance" component={EduChildAttendanceScreen} />
+            <RootStack.Screen name="EduChildGrades" component={EduChildGradesScreen} />
+            <RootStack.Screen name="EduChildMeals" component={EduChildMealsScreen} />
+            <RootStack.Screen name="EduChildBills" component={EduChildBillsScreen} />
+            <RootStack.Screen name="EduChildStudyPlans" component={EduChildStudyPlansScreen} />
+            <RootStack.Screen name="EduFinance" component={EduFinanceScreen} />
+            <RootStack.Screen name="EduMeal" component={EduMealScreen} />
+            <RootStack.Screen name="EduSchedule" component={EduScheduleScreen} />
+            <RootStack.Screen name="EduScheduling" component={EduSchedulingScreen} />
             <RootStack.Screen name="UserArticles" component={UserArticlesScreen} />
             <RootStack.Screen name="Invoices" component={InvoicesScreen} />
             <RootStack.Screen name="Purchase" component={PurchaseScreen} />
