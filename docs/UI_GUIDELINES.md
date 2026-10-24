@@ -528,7 +528,10 @@ export function UserCard() {
 
 ```bash
 node scripts/verify-wallboard-readout.mjs --worktree --widths 1280,1440,1600,1920
+node scripts/verify-wallboard-readout.mjs --worktree --widths 1440 --locale ja   # 五语言都要跑
 ```
+
+**时长读数按语种取模板**(`durationDays` 渲染后填 d=365/h=23),不得写死中文形态——最初那个缺陷的成因就是「五语言最坏读数」,尺子只按中文量就等于没检验语言无关性。2026-10-24 实测:大屏 49 格在 zh-CN / zh-TW / en / ja / ko 五语言 × 1440 与 1920 两档下**实测量级零红**;仅 en 的 `999,999sessions`、ko 的 `99999.00위안` 等 1-2 格在保守上界下临界(英文/韩文 unit 词条比中文长),按下面第二条约束只报数。
 
 读它输出时必须同时看三条诚实约束:
 
@@ -554,6 +557,19 @@ RN 没有 `white-space`,但等分 `flex: 1` 同样会把读数压到断行。正
 锁:`scripts/tests/rn-readout-cell-guard.test.mjs`(8 例,含"摘掉 minWidth / 摘掉 flexWrap / 加回 numberOfLines"三条反向锁)。
 
 **未收口处如实登记,不装作已覆盖**:端侧没有可靠的静态判据。实测扫 `packages/app` + `apps/mobile-rn` + `apps/miniapp-taro` 的扁平 StyleSheet,得到 638 处「fontSize≥16 且 fontWeight 600/700 无 minWidth」——其中**绝大多数是标题不是读数**,而"这个 style 是否住在等分读数格里"只有 JSX 父子关系才知道。硬照 web 那套造门 = 一次造 638 枚假红(§12e)。端侧全量收口要 RN 真机逐屏渲染量,不是一道正则能替的。
+
+### 13.5 本条约束当前的覆盖边界(2026-10-24 现读,不是估计)
+
+| 面 | 状态 | 数 |
+| --- | --- | --- |
+| 运维大屏 49 格 | 已逐格实测(五语言 × 1440/1920 两档,实测量级零红) | 49/49 |
+| web 家族存量 | **只拦新增**(R8 差值棘轮),存量一处没量过 | 75 处 / 50 文件 |
+| R8 形态盲区 | 跨行 className、`cn()` 多参数、内联 `style={{fontSize}}` 三类当前实测均为 0;但判据写的是「同一行字面量内」,将来出现新写法就看不见 | 0 / 0 / 0 |
+| 表格单元格、列表行、tooltip、toast 里的数字 | **零覆盖** —— 判据只管「标签+读数」配对,这些形态断了同样难看 | — |
+| 端侧 UI 源文件 | `apps/mobile-rn` 411 + `apps/miniapp-taro` 288 + `apps/ui-native` 13 = **712 枚零覆盖**;`packages/app` 246 枚里只有 3 处被形状锁钉住 | 3 / 958 |
+| 尺子的 [实] 档 | 只有号池比例与流量 PV 两处按生产量级声明,其余落保守界 ⇒「实测量级零红」这句话的强度等于那张表 | 2 条 |
+
+**要扩面就先补这张表,别把「已装门」当成「已覆盖」。**
 
 ---
 
