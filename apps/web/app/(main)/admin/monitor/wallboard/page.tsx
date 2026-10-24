@@ -461,15 +461,26 @@ function StatCell({
   value,
   unit,
   tone,
+  hint,
 }: {
   label: string
   value: string
   unit?: string
   tone?: StatusTone | 'accent'
+  /** 口径说明:把「这数是怎么算出来的」收进悬停,标签本身只留能一眼读完的名字。 */
+  hint?: string
 }) {
   return (
     <div className="min-w-0 rounded-lg border border-border bg-muted/60 px-2.5 py-2">
-      <div className="text-[10px] tracking-[0.12em] text-muted-foreground">{label}</div>
+      <div className="text-[10px] tracking-[0.12em] text-muted-foreground">
+        {hint ? (
+          <Tooltip content={hint}>
+            <span>{label}</span>
+          </Tooltip>
+        ) : (
+          label
+        )}
+      </div>
       <div
         className={cn(
           'wb-num mt-0.5 text-[18px] leading-tight font-semibold whitespace-nowrap',
@@ -1748,6 +1759,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               />
               <StatCell
                 label={t('apiErrRateLabel')}
+                hint={t('apiErrRateHint')}
                 value={typeof biz?.apiErrRate === 'number' ? fmtPct(biz.apiErrRate, 2) : '—'}
                 tone={thresholdTone(biz?.apiErrRate, (n) =>
                   n > 5 ? 'bad' : n > 1 ? 'warn' : 'ok',
