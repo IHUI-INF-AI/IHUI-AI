@@ -25,10 +25,7 @@ import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
 import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
-import {
-  retryPendingCheckinSyncs,
-  type RetryPendingResult,
-} from './relay-account-pool-checkin-sync.js'
+import { retryPendingCheckinSyncs } from './relay-account-pool-checkin-sync.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
@@ -101,26 +98,12 @@ export interface AccountPoolSweepResult {
   refreshSkipped: number
   healthChecked: number
   healthRecovered: number
-  /** O64 对账收敛器结果(undefined = 未执行/被跳过;号池↔签到断链自愈) */
-  checkinReconcile?: {
-    ok: boolean
-    error: string | null
-    pushed: number
-    pushFailed: number
-    disabled: number
-    disableFailed: number
-    stateCalibrated: number
-    stateFailed: number
-    flushed: number
-    flushFailed: number
-    orphanNoPoolId: number
-    outOfScope: number
-    truncated: number
-  }
-  /** O64 断链待推重推结果(undefined = 未执行/被跳过;reconcile 仅按"缺/版本落后"补推,
-   *  读不到 pending 标记,覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending) */
-  checkinRetry?: RetryPendingResult
   /** true = 分布式锁被其他实例持有,本轮整体跳过(多实例不重复 sweep) */
+  // O64 checkinReconcile/checkinRetry 两键已摘(2026-10-24):099b843 定案"产出面键集以
+  // 真实消费面为准"并把 worker 的幻影取值摘除;5409747 恢复对账/重推调用时把对象键加回
+  // 产出面,却无任何消费方且违反"两分支同键 + 全标量"契约(三例回归锁齐红)。调用接线
+  // 保留(价值在真跑),明细改走调度日志;将来 worker 真要消费时:消费面先写读取、
+  // 产出面同批加键并登记白名单 —— relay-account-pool-sweep-result.test.ts 会钉住同批性。
   skipped: boolean
 }
 
@@ -386,8 +369,13 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   }
 
   // ── 4. O64 号池↔签到对账收敛(断链自愈;失败不中断 sweep,下轮继续) ──
+  // 结果走日志留痕,不进返回键集(见接口处 2026-10-24 摘键注记)。
   try {
-    out.checkinReconcile = await reconcileCheckinSync()
+    const reconciled = await reconcileCheckinSync()
+    logger.info(
+      '[relay-account-pool] O64 对账收敛完成',
+      reconciled as unknown as Record<string, unknown>,
+    )
   } catch (e) {
     logger.warn('[relay-account-pool] 对账收敛器异常(不影响巡检)', {
       error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
@@ -398,7 +386,11 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   //    reconcile(步骤4)仅按"缺/版本落后"补推、读不到 extraMetadata.checkinSync.pending,
   //    覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending。两者同在分布式锁内、幂等、互不冲突。
   try {
-    out.checkinRetry = await retryPendingCheckinSyncs()
+    const retried = await retryPendingCheckinSyncs()
+    logger.info(
+      '[relay-account-pool] O64 断链待推重推完成',
+      retried as unknown as Record<string, unknown>,
+    )
   } catch (e) {
     logger.warn('[relay-account-pool] 待推重推异常(不影响巡检)', {
       error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',

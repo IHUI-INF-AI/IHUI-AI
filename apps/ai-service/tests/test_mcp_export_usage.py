@@ -19,6 +19,7 @@ stdio 子进程拉起较慢,允许长超时;全部为真实运行,无桩。
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -34,10 +35,17 @@ APPS_DIR = Path(__file__).resolve().parents[1]
 
 
 def _stdio_params() -> StdioServerParameters:
+    # 环境钉 development:本机承载生产 .env(NODE_ENV=production,config 的
+    # _sync_env_file_to_os 还会把它同步进 os.environ)⇒ 子进程重读 .env 后无凭据
+    # 即 PrincipalAuthError(401),dev 回退主体不触发;CI 无 .env 才碰巧绿。
+    # 只覆盖子进程 env,不动磁盘 .env(2026-10-24 实测本机 2 例红即此型)。
+    env = dict(os.environ)
+    env["NODE_ENV"] = "development"
     return StdioServerParameters(
         command=sys.executable,
         args=["-m", mcp_export.MCP_EXPORT_RUN_MODULE, "--transport", "stdio"],
         cwd=str(APPS_DIR),
+        env=env,
     )
 
 
