@@ -89,3 +89,17 @@
 {"key":"64#AI消息可编辑+消息级pin/书签","waiting":"human","updatedAt":"2026-10-24T19:22:46.705Z","updatedBy":"plan-fields-extract"}
 {"key":"H02#承G-427第②步","waiting":"human","updatedAt":"2026-10-24T19:22:46.705Z","updatedBy":"plan-fields-extract"}
 {"key":"D18#多端遥控配对+每会话浏览器Tab状态","waiting":"human","updatedAt":"2026-10-24T19:22:46.710Z","updatedBy":"plan-fields-extract"}
+{"key":"G-03#活文档取号在\"并发批次带着旧底稿并入\"这一型下仍","waiting":"env","blocking":"本机没有","updatedAt":"2026-10-24T19:44:15.380Z","updatedBy":"plan-fields-extract"}
+{"key":"D03#会话内快捷笔记","waiting":"env","blocking":"等环境","updatedAt":"2026-10-24T19:44:15.381Z","updatedBy":"plan-fields-extract"}
+{"key":"G-47#G-47归属","owner":"端口注册表门 + ai-service ruff + 受保护检查 lint-typeche…","waiting":"none","updatedAt":"2026-10-24T19:44:15.382Z","updatedBy":"plan-fields-extract"}
+{"key":"G-48#F1不认重复登记副本注记","owner":"台账状态门持有人 `scripts/lib/plan-task-index.mjs` 的 …","waiting":"none","updatedAt":"2026-10-24T19:44:15.382Z","updatedBy":"plan-fields-extract"}
+{"key":"G-49#收敛链这一轮量到的四格","owner":"union-converge 落地闸 / git-sync-converge 转述层 / …","waiting":"none","updatedAt":"2026-10-24T19:44:15.383Z","updatedBy":"plan-fields-extract"}
+{"key":"D17#云端沙箱agent","waiting":"human","blocking":"机主授权装 docker","updatedAt":"2026-10-24T19:44:15.384Z","updatedBy":"plan-fields-extract"}
+{"key":"G-99#机主2026-09-28拍板四条","waiting":"human","blocking":"机主真机窗口","updatedAt":"2026-10-24T19:44:15.384Z","updatedBy":"plan-fields-extract"}
+{"key":"D19#电脑使用画中画","waiting":"human","blocking":"机主立项拍板","updatedAt":"2026-10-24T19:44:15.384Z","updatedBy":"plan-fields-extract"}
+{"key":"H01#冷启动抢跑全仓盘点余量","waiting":"human","blocking":"机主真机/扫码会话","updatedAt":"2026-10-24T19:44:15.384Z","updatedBy":"plan-fields-extract"}
+{"key":"H02#承G-427第②步","waiting":"human","blocking":"机主拍样表面","updatedAt":"2026-10-24T19:44:15.385Z","updatedBy":"plan-fields-extract"}
+{"key":"G-20#把file","waiting":"human","blocking":"机主微信开放平台","updatedAt":"2026-10-24T19:44:15.387Z","updatedBy":"plan-fields-extract"}
+{"key":"G-76#生产备份链日志的写入侧编码要改成UTF-8","waiting":"human","blocking":"机主核隧道","updatedAt":"2026-10-24T19:44:15.387Z","updatedBy":"plan-fields-extract"}
+{"key":"G-65#小程序/Web缺图的来源问题今天有了终判","waiting":"human","blocking":"机主素材交付","updatedAt":"2026-10-24T19:44:15.388Z","updatedBy":"plan-fields-extract"}
+{"key":"D18#多端遥控配对+每会话浏览器Tab状态","waiting":"human","blocking":"机主双端在线","updatedAt":"2026-10-24T19:44:15.388Z","updatedBy":"plan-fields-extract"}

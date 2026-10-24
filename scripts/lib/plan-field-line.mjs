@@ -44,17 +44,19 @@ function headerParts(rec) {
   return { owner, waitSeg }
 }
 
-/** 侧车记录 → 标头(不含标头时为 '')。owner 超长时截 owner,不牺牲等段。 */
+/**
+ * 侧车记录 → 标头(不含标头时为 '')。
+ *
+ * **不得截断**(2026-10-25 修,治"投影写得出、解析读不回"):旧实现按 MAX 截断并追加 `…`,
+ * 而 parseHeader 对含 `…` 的一律报 malformed(方向本身是对的 —— 截断后的 owner 无法充当权威)。
+ * 两者叠在一起 ⇒ 任何 owner 长度逼近上限的记录投影进台账后**永久**是 malformed:
+ * 门 234 A2 当场判红,而投影器物每次都会写出这种行(实测 G-47/G-71 等 3 行)。
+ * 标头是投影,投影必须无损;显示宽度(MAX)只用于诊断文案的 clip,不再参与渲染。
+ */
 export function renderHeader(rec) {
   if (!rec) return ''
   const { owner, waitSeg } = headerParts(rec)
-  const fixed = OWNER_PREFIX.length + owner.length + (waitSeg ? SEP.length + waitSeg.length : 0)
-  let shownOwner = owner
-  if (fixed > MAX) {
-    const room = Math.max(1, MAX - (fixed - owner.length) - 1)
-    shownOwner = owner.slice(0, room) + '…'
-  }
-  const parts = [OWNER_PREFIX + shownOwner]
+  const parts = [OWNER_PREFIX + owner]
   if (waitSeg) parts.push(waitSeg)
   return OPEN + parts.join(SEP) + CLOSE
 }
