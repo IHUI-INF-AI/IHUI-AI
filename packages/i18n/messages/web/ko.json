@@ -812,6 +812,8 @@
       "staleData": "데이터 지연",
       "statusOk": "전체 정상",
       "statusUnknown": "상태 미확인",
+      "dutyMode": "당직 전체 화면",
+      "exitDutyMode": "전체 화면 종료",
       "statusWarn": "주의 필요",
       "subtitle": "프로덕션 운영 월보드 · 라이브",
       "svcRunning": "{running}/{total} 실행 중",

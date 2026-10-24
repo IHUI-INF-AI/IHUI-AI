@@ -812,6 +812,8 @@
       "staleData": "データ遅延",
       "statusOk": "全システム正常",
       "statusUnknown": "状態不明",
+      "dutyMode": "当番全画面",
+      "exitDutyMode": "全画面を終了",
       "statusWarn": "要注意",
       "subtitle": "本番運用ウォールボード · ライブ",
       "svcRunning": "{running}/{total} 稼働中",
