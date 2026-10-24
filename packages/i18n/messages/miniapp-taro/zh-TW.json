@@ -4786,6 +4786,7 @@
     "title": "孩子成績"
   },
   "eduGrades": {
+    "student": "學生",
     "subject": "科目",
     "exam": "考試",
     "score": "分數",
@@ -4800,6 +4801,24 @@
       "late": "遲到",
       "absent": "缺勤",
       "leave": "請假"
+    }
+  },
+  "eduMgmt": {
+    "attendanceTitle": "考勤管理",
+    "gradesTitle": "成績管理",
+    "financeTitle": "繳費記錄"
+  },
+  "eduFinance": {
+    "student": "學生",
+    "className": "班級",
+    "fee": "費用",
+    "amount": "金額(元)",
+    "date": "繳費日期",
+    "status": {
+      "paid": "已繳",
+      "success": "成功",
+      "refunded": "已退",
+      "pending": "待確認"
     }
   }
 }

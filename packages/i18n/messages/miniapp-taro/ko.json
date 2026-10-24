@@ -4786,6 +4786,7 @@
     "title": "자녀 성적"
   },
   "eduGrades": {
+    "student": "학생",
     "subject": "과목",
     "exam": "시험",
     "score": "점수",
@@ -4800,6 +4801,24 @@
       "late": "지각",
       "absent": "결석",
       "leave": "조퇴"
+    }
+  },
+  "eduMgmt": {
+    "attendanceTitle": "출석 관리",
+    "gradesTitle": "성적 관리",
+    "financeTitle": "납부 기록"
+  },
+  "eduFinance": {
+    "student": "학생",
+    "className": "학급",
+    "fee": "비용",
+    "amount": "금액(위안)",
+    "date": "납부일",
+    "status": {
+      "paid": "납부됨",
+      "success": "성공",
+      "refunded": "환불됨",
+      "pending": "확인 대기"
     }
   }
 }
