@@ -453,4 +453,58 @@ test('⑰ G-960 classifyPublicLeg:快速 5xx 断流必须归"入口段",不得�
   assert.equal(stall.unavailable, 0)
   assert.equal(probe.classifyPublicLeg(stall, localFast).tag, '本机出口段')
 })
+
+// ───────────── 2026-10-24 新增(票 G-960 判据面):四端各自 hostname + 边缘可达/源站不可达两档 ─────────────
+
+test('⑱ G-960 四端靶形状锁:默认矩阵是 www/api/sso/ai 四个各自 hostname(只钉裸域或 www 一条腿 = 立案现场)', () => {
+  const eps = probe.PUBLIC_ENDPOINTS
+  assert.equal(eps.length, 4)
+  assert.deepEqual(eps.map((e) => e.id), ['www', 'api', 'sso', 'ai'])
+  assert.deepEqual(eps.map((e) => new URL(e.url).host), ['www.aizhs.top', 'api.aizhs.top', 'sso.aizhs.top', 'ai.aizhs.top'])
+  assert.deepEqual(eps.map((e) => e.host), eps.map((e) => new URL(e.url).host), 'host 字段必须与 url 的 host 逐字一致(防两套靶)')
+  assert.equal(new URL(probe.ENTRY_URL_DEFAULT).host, 'www.aizhs.top')
+  assert.equal(probe.ZERO_INFO_LEGACY_URL, 'https://aizhs.top/sso/login', '裸域旧靶只作夹具,不得回到默认矩阵')
+})
+
+test('⑲ G-960 两档判据正反照:522/530→红、301→边缘可达放过、200→绿、超时/DNS→未判定(夹具锁判据,不发网络)', () => {
+  const ep = (status, ms = 300) => probe.judgeEndpointSample('www', 'https://www.aizhs.top/sso/login', { status, ms })
+  // 正照:522/530/5xx 是"源站不可达",必须判红 —— 不许并进 3xx 那一档放过
+  for (const s of [522, 530, 500, 503]) {
+    const j = ep(s)
+    assert.equal(j.tier, 'origin-unreachable', `HTTP ${s} 必须落 origin-unreachable`)
+    assert.equal(j.verdict, 'breach', `HTTP ${s} 必须判红`)
+    assert.equal(j.stat.unavailable, 1, `HTTP ${s} 必须计入对端可归因失败(派发层的严重度档靠它)`)
+    assert.match(j.reasons.join(' '), /源站不可达/)
+  }
+  // 反照:3xx 只算边缘可达,放过但不冒充源站健康
+  for (const s of [301, 302, 307]) {
+    const j = ep(s, 668)
+    assert.equal(j.tier, 'edge-reachable')
+    assert.equal(j.verdict, 'ok', `HTTP ${s} 只证明边缘可达,不得判红`)
+    assert.equal(j.reasons.length, 0)
+    assert.match(j.numbers, /不证明源站健康/)
+  }
+  // 200 = 源站可达(绿)
+  const ok = ep(200, 120)
+  assert.equal(ok.tier, 'origin-ok')
+  assert.equal(ok.verdict, 'ok')
+  assert.equal(ok.reasons.length, 0)
+  // 探不到:超时 / DNS / 我方上限 ⇒ 未判定,不得冒充通过
+  for (const raw of [
+    { status: null, ms: 15_001, aborted: true, causeCode: 'ABORT_ERR' },
+    { status: null, ms: 5, causeCode: 'ENOTFOUND' },
+    { status: null, ms: 10_735, causeCode: 'UND_ERR_CONNECT_TIMEOUT' },
+  ]) {
+    const j = probe.judgeEndpointSample('www', 'https://www.aizhs.top/sso/login', raw)
+    assert.equal(j.tier, 'undetermined', `未采到状态行必须落 undetermined:${raw.causeCode}`)
+    assert.equal(j.verdict, 'unjudged', '探不到 ⇒ 未判定,不得写成"入口健康"')
+    assert.match(j.numbers, /未判定/)
+  }
+  // 反向锁:拒连/复位是走到了对端、对端可归因的失败 ⇒ 红,不得被"探不到"支洗成未判定
+  for (const code of ['ECONNREFUSED', 'ECONNRESET']) {
+    const j = probe.judgeEndpointSample('api', 'https://api.aizhs.top/api/health', { status: null, ms: 3, causeCode: code })
+    assert.equal(j.tier, 'origin-unreachable', `${code} 是对端可归因失败,必须红`)
+    assert.equal(j.verdict, 'breach')
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
