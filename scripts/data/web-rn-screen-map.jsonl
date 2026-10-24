@@ -141,3 +141,21 @@
 {"web":"share","status":"excluded","reason":"redirect 壳(web 现读重定向到 /);功能由目标路由承载","at":"2026-10-24"}
 {"web":"skills","status":"excluded","reason":"redirect 壳(web 现读重定向到 /skills/market);功能由目标路由承载","at":"2026-10-24"}
 {"web":"user","status":"excluded","reason":"redirect 壳(web 现读重定向到 /user/profile);功能由目标路由承载","at":"2026-10-24"}
+{"web":"edu/edu-management/attendance","rn":"apps/mobile-rn/src/screens/EduAttendanceScreen.tsx","status":"aligned","note":"按日考勤列表(开发即登记);开发即登记","at":"2026-10-24"}
+{"web":"edu/edu-management/grades","rn":"apps/mobile-rn/src/screens/EduGradesScreen.tsx","status":"aligned","note":"当前学期成绩列表;开发即登记","at":"2026-10-24"}
+{"web":"edu/edu-management/enrollment","rn":"apps/mobile-rn/src/screens/EduEnrollmentScreen.tsx","status":"aligned","note":"首版班级列表(线索/试听/报名记录后续);开发即登记","at":"2026-10-24"}
+{"web":"edu/edu-management/finance","rn":"apps/mobile-rn/src/screens/EduFinanceScreen.tsx","status":"aligned","note":"首版缴费记录(复合页其余实体后续);开发即登记","at":"2026-10-24"}
+{"web":"edu/edu-management/meal","rn":"apps/mobile-rn/src/screens/EduMealScreen.tsx","status":"aligned","note":"首版餐次模板(菜谱/排餐后续);开发即登记","at":"2026-10-24"}
+{"web":"edu/edu-management/schedule","rn":"apps/mobile-rn/src/screens/EduScheduleScreen.tsx","status":"aligned","note":"首版课表列表(排课编辑后续);开发即登记","at":"2026-10-24"}
+{"web":"edu/edu-management/scheduling","rn":"apps/mobile-rn/src/screens/EduSchedulingScreen.tsx","status":"aligned","note":"首版教师时段(规则/自动生成后续);开发即登记","at":"2026-10-24"}
+{"web":"edu/parent","rn":"apps/mobile-rn/src/screens/EduParentScreen.tsx","status":"aligned","note":"家长端首页(孩子列表+六键导航);开发即登记","at":"2026-10-24"}
+{"web":"edu/parent/bind","rn":"apps/mobile-rn/src/screens/EduParentBindScreen.tsx","status":"aligned","note":"绑定 CRUD(确认/拒绝/删除);开发即登记","at":"2026-10-24"}
+{"web":"edu/parent/children/[childId]/courses","rn":"apps/mobile-rn/src/screens/EduChildScheduleScreen.tsx","status":"aligned","note":"孩子课表;开发即登记","at":"2026-10-24"}
+{"web":"edu/parent/children/[childId]/attendance","rn":"apps/mobile-rn/src/screens/EduChildAttendanceScreen.tsx","status":"aligned","note":"孩子考勤;开发即登记","at":"2026-10-24"}
+{"web":"edu/parent/children/[childId]/grades","rn":"apps/mobile-rn/src/screens/EduChildGradesScreen.tsx","status":"aligned","note":"孩子成绩;开发即登记","at":"2026-10-24"}
+{"web":"edu/parent/children/[childId]/meals","rn":"apps/mobile-rn/src/screens/EduChildMealsScreen.tsx","status":"aligned","note":"孩子餐食;开发即登记","at":"2026-10-24"}
+{"web":"edu/parent/children/[childId]/bills","rn":"apps/mobile-rn/src/screens/EduChildBillsScreen.tsx","status":"aligned","note":"孩子账单(首版顶层字段);开发即登记","at":"2026-10-24"}
+{"web":"edu/parent/children/[childId]/study-plans","rn":"apps/mobile-rn/src/screens/EduChildStudyPlansScreen.tsx","status":"aligned","note":"孩子学习计划;开发即登记","at":"2026-10-24"}
+{"web":"user/[id]","rn":"apps/mobile-rn/src/screens/UserPublicScreen.tsx","status":"aligned","note":"他人主页(轮14 四件套,落地后补登);开发即登记","at":"2026-10-24"}
+{"web":"settings/llm","rn":"apps/mobile-rn/src/screens/LlmSettingsScreen.tsx","status":"aligned","note":"BYOK 供应商管理 MVP(轮17,落地后补登);开发即登记","at":"2026-10-24"}
+{"web":"edu/shop","rn":"apps/mobile-rn/src/screens/EduShopScreen.tsx","status":"aligned","note":"教育商城双 Tab(轮19,落地后补登);开发即登记","at":"2026-10-24"}
