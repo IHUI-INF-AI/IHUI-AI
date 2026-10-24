@@ -4786,6 +4786,7 @@
     "title": "子どもの成績"
   },
   "eduGrades": {
+    "student": "生徒",
     "subject": "科目",
     "exam": "試験",
     "score": "点数",
@@ -4800,6 +4801,24 @@
       "late": "遅刻",
       "absent": "欠席",
       "leave": "休み"
+    }
+  },
+  "eduMgmt": {
+    "attendanceTitle": "出席管理",
+    "gradesTitle": "成績管理",
+    "financeTitle": "支払い記録"
+  },
+  "eduFinance": {
+    "student": "生徒",
+    "className": "クラス",
+    "fee": "費用",
+    "amount": "金額(元)",
+    "date": "支払日",
+    "status": {
+      "paid": "支払済み",
+      "success": "成功",
+      "refunded": "返金済み",
+      "pending": "確認待ち"
     }
   }
 }
