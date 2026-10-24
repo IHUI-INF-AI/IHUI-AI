@@ -115,6 +115,8 @@ import { pathToFileURL, fileURLToPath } from 'node:url'
 // 正是"门脚本绕过这层自己派生 git 读内容");`readWorktreeFile` 只服务于"工作树档"那一支
 // (非 git 夹具 / 显式 --plan-face worktree)与落地后的磁盘对齐前置比较。
 import { catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+// git 可执行一律经 §5b 唯一出口解析(候选链 + 探活);不再写死本机 Git 安装位 —— 换机即 ENOENT。
+import { resolveGitBin } from './lib/gitdir.mjs'
 // 水印结构行的识别与注入器共用**同一份**实现(scripts/lib/watermark-lines.mjs):
 // 切片会把计划文档自己的尾部隐写行搬进归档正文,而"哪一行属于水印"这句话不许有两个答案。
 import { stripWatermarkStructure } from './lib/watermark-lines.mjs'
@@ -219,15 +221,8 @@ const GIT_BIN = (() => {
   // IHUI_GIT_BIN 与守门 71 同名:既是换机逃生舱,也让**失败路径可被执行验证**
   // (指向一个必然失败的可执行文件就能真跑到回滚分支,不靠静态断言)
   if (process.env.IHUI_GIT_BIN) return process.env.IHUI_GIT_BIN
-  for (const p of ['C:/Program Files/Git/bin/git.exe', 'git']) {
-    try {
-      execFileSync(p, ['--version'], { stdio: 'ignore', windowsHide: true, timeout: 15_000 })
-      return p
-    } catch {
-      /* 试下一个候选;全落空时退回 'git' 由调用处报错,不静默跳过 */
-    }
-  }
-  return 'git'
+  // 候选链与探活只在 §5b 唯一出口里有一份;全落空时退回 'git' 由调用处报错,不静默跳过
+  return resolveGitBin() || 'git'
 })()
 
 const C = {
