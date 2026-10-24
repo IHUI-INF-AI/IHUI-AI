@@ -28946,7 +28946,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 
 
-- [ ]（进行中@2026-10-24/goal-20261024-P） G-875 生产 admin 账号仍在使用仓内公开的 e2e 默认口令(离线比对散列命中,未发起登录以免触发锁定计数)—— 本仓同步到 Gitee/GitCode 镜像 ⇒ 任何能读仓库的人可登后台。等:机主定新口令;定后由本仓把 apps/web/e2e/fixtures.ts 的默认值改为仅从 env 取 〔进展@2026-10-24/goal-20261024-P: 仓内面已闭环 —— 前序 c1d6fea4ef 已加失效迁移并把 fixtures/seed 改从 E2E_ADMIN_PASSWORD 取;本轮新增 check-public-admin-default 守门(明文/散列落点 + 取值面必须环境变量 + 空扫描判死)与 6 用例镜像,三面 rc0、镜像 6/0;离线复核 ihui_dev 的 admin 散列仍命中 admin123(未发起登录)。余:生产库轮换五步(备份→migrate→reset:admin-password --generate→离线复验→回滚预案)属生产数据操作,清单留在票面〕
+- [ ]（进行中@2026-10-24/goal-20261024-P） G-875 生产 admin 账号仍在使用仓内公开的 e2e 默认口令(离线比对散列命中,未发起登录以免触发锁定计数)—— 本仓同步到 Gitee/GitCode 镜像 ⇒ 任何能读仓库的人可登后台。等:机主定新口令;定后由本仓把 apps/web/e2e/fixtures.ts 的默认值改为仅从 env 取 〔进展@2026-10-24/goal-20261024-P: 仓内面已闭环 —— 前序 c1d6fea4ef 已加失效迁移并把 fixtures/seed 改从 E2E_ADMIN_PASSWORD 取;本轮新增 check-public-admin-default 守门(明文/散列落点 + 取值面必须环境变量 + 空扫描判死)与 6 用例镜像,三面 rc0、镜像 6/0;离线复核 ihui_dev 的 admin 散列仍命中公开默认弱口令(值不在此复写)(未发起登录)。余:生产库轮换五步(备份→migrate→reset:admin-password --generate→离线复验→回滚预案)属生产数据操作,清单留在票面〕
 
   三种 kind 各自落一行 `.workbuddy/safe-commit-attestation.jsonl`（gitignore 内），使"跳了几道门、为什么跳"事后查得到。
   - **真实数据而非夹具**：`.workbuddy/hook-logs/pre-commit.log`（多轮追加的原始 runner 输出）实测解析出 `[26][29][41][44][57][76][30c][2n-web] …` 且 `batchReported=true` —— 我最初手搓的夹具正是被这份日志反过来校验的；该文件属机器运行态且被忽略，缺席时测试**记 skipped 不记通过**。
