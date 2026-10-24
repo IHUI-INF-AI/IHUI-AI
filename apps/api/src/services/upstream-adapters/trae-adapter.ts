@@ -831,6 +831,28 @@ export const traeAdapter: RelayUpstreamAdapter = {
       if (!res.ok) {
         const text = await res.text().catch(() => '')
         const rejected = res.status === 401 || res.status === 403
+        // 5xx = 元数据端点自身故障,不是"凭据死"的结论。2026-10-24 线上实证:
+        // model_list 对已认证请求恒 500,而同一枚 token 打 ent_usage 得 200 ⇒ 退到
+        // ent_usage 自证凭据活性;否则活号会被一轮轮写成 down(比"未判定"更糟:直接摘除)。
+        if (!rejected && res.status >= 500) {
+          const fallback = await doFetch(TRAE_ENT_USAGE_URL, {
+            method: 'GET',
+            headers: {
+              Authorization: `Cloud-IDE-JWT ${ctx.credentials.token}`,
+              Accept: 'application/json',
+            },
+          })
+          if (fallback.ok) return { ok: true }
+          const fbRejected = fallback.status === 401 || fallback.status === 403
+          return {
+            ok: false,
+            indeterminate: !fbRejected,
+            authFailed: fbRejected,
+            error: `model_list HTTP ${res.status};ent_usage HTTP ${fallback.status}${
+              fbRejected ? '' : '(未判定)'
+            }`,
+          }
+        }
         return {
           ok: false,
           indeterminate: !rejected,
