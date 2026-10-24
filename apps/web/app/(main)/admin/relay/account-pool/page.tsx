@@ -12,6 +12,7 @@ import { fetchApi } from '@/lib/api'
 import {
   Badge,
   Button,
+  CalendarCheck,
   Checkbox,
   ChevronLeft,
   ChevronRight,
@@ -25,6 +26,7 @@ import {
   Input,
   Label,
   Loader2,
+  PartyPopper,
   Pencil,
   Power,
   RefreshCw,
@@ -116,6 +118,15 @@ interface AccountRow {
   claimedBy?: string | null
   claimedAt?: string | null
   claimNote?: string | null
+  /** O64:extraMetadata.checkinSync 子键投影(号池↔签到同步态;后端只回该子键,cosy 等不回) */
+  checkinSync?: {
+    pending?: boolean
+    pendingKind?: 'cred' | 'state' | null
+    pendingAt?: string | null
+    lastError?: string | null
+    attempts?: number
+    lastSyncedAt?: string | null
+  } | null
 }
 interface ListData {
   list: AccountRow[]
@@ -123,6 +134,27 @@ interface ListData {
   page: number
   pageSize: number
   poolHealth?: PoolHealth | null
+}
+/** O64 签到点查视图(端点 22 回显;found=false 的两种形态:noEngine 平台无签到引擎 / 未同步) */
+interface CheckinStatusItem {
+  ok?: boolean
+  found: boolean
+  noEngine?: boolean
+  error?: string | null
+  accountId?: number | null
+  name?: string | null
+  enabled?: boolean | null
+  poolCredVersion?: number | null
+  poolSyncedAt?: string | null
+  poolDeletedAt?: string | null
+  pendingCred?: boolean
+  cooldownUntil?: string | null
+  lastRecord?: {
+    ok: boolean
+    action: string | null
+    credits: number | null
+    createdAt: string | null
+  } | null
 }
 interface ListEnvelope<T> {
   list?: T[] | null
@@ -214,24 +246,13 @@ function pickTotal<T>(data: T[] | ListEnvelope<T> | null | undefined): number {
 
 const EXAMPLE_JSON = `[
   {
-    "name": "Trae web 号A",
-    "token": "eyJ...(Cloud-IDE-JWT,必填)",
-    "refreshToken": "可选;web 号可留空,靠 cookie 换票续期",
+    "name": "账号A",
+    "token": "eyJ...",
+    "refreshToken": "eyJ...",
     "deviceId": "...",
     "machineId": "...",
     "enabled": true,
-    "cookies": [
-      {
-        "name": "sessionid",
-        "value": "...",
-        "domain": ".trae.cn",
-        "path": "/",
-        "expires_utc": 1790000000000000,
-        "httpOnly": true,
-        "secure": true,
-        "sameSite": "Lax"
-      }
-    ]
+    "cookies": "..."
   }
 ]`
 
@@ -377,6 +398,63 @@ export default function AdminRelayAccountPoolPage() {
   }, [usageQuery.data])
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['admin', 'relay', 'account-pool'] })
+
+  // ── O64 号池↔签到:页内 uid 批量点查(设计 §11 数据源;单页 ≤20,不做全表拉取) ──
+  const pageIdsKey = list.map((k) => k.id).join(',')
+  const checkinStatusQuery = useQuery({
+    queryKey: ['admin', 'relay', 'account-pool', 'checkin-status', pageIdsKey],
+    enabled: list.length > 0,
+    queryFn: async () => {
+      const r = await fetchApi<{ items: Record<string, CheckinStatusItem> }>(
+        '/api/admin/relay/account-pool/checkin-status',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: list.map((k) => k.id) }),
+        },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data.items
+    },
+    staleTime: 30_000,
+  })
+  const checkinItems = checkinStatusQuery.data ?? {}
+
+  const resyncMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<{ pushed: number; skipped: number }>(
+        `/api/admin/relay/accounts/${id}/checkin-resync`,
+        { method: 'POST' },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      toast.success(`已重推签到同步(成功 ${d.pushed} 条)`)
+      invalidate()
+      void checkinStatusQuery.refetch()
+    },
+    onError: (e: Error) => toast.error(e.message || '重推签到同步失败'),
+  })
+
+  const checkinRunMut = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await fetchApi<{ record: { ok?: boolean; credits?: number | null } | null }>(
+        `/api/admin/relay/accounts/${id}/checkin-run`,
+        { method: 'POST' },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      const credits = d.record?.credits
+      toast.success(
+        credits !== null && credits !== undefined ? `签到成功,积分 +${credits}` : '签到完成',
+      )
+      void checkinStatusQuery.refetch()
+    },
+    onError: (e: Error) => toast.error(e.message || '触发签到失败'),
+  })
 
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -597,18 +675,6 @@ export default function AdminRelayAccountPoolPage() {
       toast.error(`单次最多导入 500 条,当前 ${accounts.length} 条`)
       return
     }
-    // 导入前置校验:token 必填;cookies 若给必须是对象数组(旧示例曾误写成字符串,服务端只回一句 400)
-    for (const [i, acc] of accounts.entries()) {
-      const item = (acc ?? {}) as { token?: unknown; cookies?: unknown }
-      if (typeof item.token !== 'string' || item.token.trim() === '') {
-        toast.error(`第 ${i + 1} 条缺少 token(必填,Trae 为 Cloud-IDE-JWT)`)
-        return
-      }
-      if (item.cookies !== undefined && !Array.isArray(item.cookies)) {
-        toast.error(`第 ${i + 1} 条 cookies 必须是对象数组(Chrome 导出格式),不接受字符串`)
-        return
-      }
-    }
     importMut.mutate({ providerCode: importProvider, accounts })
   }
 
@@ -789,6 +855,7 @@ export default function AdminRelayAccountPoolPage() {
                     <th className="px-3 py-2 text-left">uid</th>
                     <th className="px-3 py-2 text-left">健康</th>
                     <th className="px-3 py-2 text-left">熔断</th>
+                    <th className="px-3 py-2 text-left">签到</th>
                     <th className="px-3 py-2 text-right">24h 用量</th>
                     <th className="px-3 py-2 text-left">token 到期</th>
                     <th className="px-3 py-2 text-right">优先级</th>
@@ -808,20 +875,20 @@ export default function AdminRelayAccountPoolPage() {
                   {isLoading ? (
                     Array.from({ length: 8 }).map((_, i) => (
                       <tr key={`sk-${i}`}>
-                        <td colSpan={19} className="px-3 py-2">
+                        <td colSpan={20} className="px-3 py-2">
                           <Skeleton className="h-6 w-full" />
                         </td>
                       </tr>
                     ))
                   ) : isError ? (
                     <tr>
-                      <td colSpan={19} className="px-3 py-8 text-center text-red-500">
+                      <td colSpan={20} className="px-3 py-8 text-center text-red-500">
                         加载失败:{error instanceof Error ? error.message : '未知错误'}
                       </td>
                     </tr>
                   ) : list.length === 0 ? (
                     <tr>
-                      <td colSpan={19} className="px-3 py-8 text-center text-muted-foreground">
+                      <td colSpan={20} className="px-3 py-8 text-center text-muted-foreground">
                         暂无数据
                       </td>
                     </tr>
@@ -834,6 +901,7 @@ export default function AdminRelayAccountPoolPage() {
                       const soon = k.expiresSoon === true || expiringSoon
                       const claimed = k.claimStatus === 'claimed'
                       const failPct = failRatePct(k.usageSummary?.failRate24h)
+                      const ci = checkinItems[k.id]
                       return (
                         <tr key={k.id} className={soon ? 'bg-amber-500/5' : undefined}>
                           <td className="px-3 py-2">
@@ -906,6 +974,50 @@ export default function AdminRelayAccountPoolPage() {
                               </Tooltip>
                             ) : (
                               <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {k.checkinSync?.pending === true ? (
+                              <Tooltip
+                                content={`${
+                                  k.checkinSync.pendingKind === 'state' ? '状态' : '凭证'
+                                }同步待重试(第 ${k.checkinSync.attempts ?? 0} 次)${
+                                  k.checkinSync.lastError ? `:${k.checkinSync.lastError}` : ''
+                                }`}
+                              >
+                                <span className="inline-flex">
+                                  <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-600 dark:text-amber-400">
+                                    待同步
+                                  </span>
+                                </span>
+                              </Tooltip>
+                            ) : ci && ci.found ? (
+                              <div className="flex flex-col gap-0.5 text-xs">
+                                <span
+                                  className={
+                                    ci.lastRecord?.ok
+                                      ? 'text-green-600 dark:text-green-400'
+                                      : 'text-muted-foreground'
+                                  }
+                                >
+                                  {ci.lastRecord?.ok ? '已签' : '未签'}
+                                </span>
+                                {ci.lastRecord?.credits !== null &&
+                                  ci.lastRecord?.credits !== undefined && (
+                                    <span className="tabular-nums text-muted-foreground">
+                                      积分 {ci.lastRecord.credits}
+                                    </span>
+                                  )}
+                                {ci.cooldownUntil && (
+                                  <span className="text-amber-600 dark:text-amber-400">
+                                    冷却至 {fmt.format(new Date(ci.cooldownUntil))}
+                                  </span>
+                                )}
+                              </div>
+                            ) : ci?.noEngine === true ? (
+                              <span className="text-xs text-muted-foreground">无签到引擎</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">未同步</span>
                             )}
                           </td>
                           <td className="px-3 py-2">
@@ -1009,6 +1121,40 @@ export default function AdminRelayAccountPoolPage() {
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
                                       <RefreshCw className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                              <Tooltip content="重推签到同步">
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    aria-label="重推签到同步"
+                                    disabled={resyncMut.isPending}
+                                    onClick={() => resyncMut.mutate(k.id)}
+                                  >
+                                    {resyncMut.isPending && resyncMut.variables === k.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <CalendarCheck className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                              <Tooltip content="立即签到">
+                                <span className="inline-flex">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    aria-label="立即签到"
+                                    disabled={checkinRunMut.isPending}
+                                    onClick={() => checkinRunMut.mutate(k.id)}
+                                  >
+                                    {checkinRunMut.isPending && checkinRunMut.variables === k.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <PartyPopper className="h-4 w-4" />
                                     )}
                                   </Button>
                                 </span>

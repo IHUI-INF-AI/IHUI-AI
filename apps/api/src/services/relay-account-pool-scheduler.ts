@@ -15,7 +15,7 @@
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
-import { and, eq, isNotNull, isNull, lt, lte, or, inArray } from 'drizzle-orm'
+import { and, eq, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
@@ -24,6 +24,11 @@ import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
+import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
+import {
+  retryPendingCheckinSyncs,
+  type RetryPendingResult,
+} from './relay-account-pool-checkin-sync.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
@@ -63,6 +68,25 @@ export interface AccountPoolSweepResult {
   refreshSkipped: number
   healthChecked: number
   healthRecovered: number
+  /** O64 对账收敛器结果(undefined = 未执行/被跳过;号池↔签到断链自愈) */
+  checkinReconcile?: {
+    ok: boolean
+    error: string | null
+    pushed: number
+    pushFailed: number
+    disabled: number
+    disableFailed: number
+    stateCalibrated: number
+    stateFailed: number
+    flushed: number
+    flushFailed: number
+    orphanNoPoolId: number
+    outOfScope: number
+    truncated: number
+  }
+  /** O64 断链待推重推结果(undefined = 未执行/被跳过;reconcile 仅按"缺/版本落后"补推,
+   *  读不到 pending 标记,覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending) */
+  checkinRetry?: RetryPendingResult
   /** true = 分布式锁被其他实例持有,本轮整体跳过(多实例不重复 sweep) */
   skipped: boolean
 }
@@ -162,6 +186,8 @@ export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
           ? { secretsEnc: encryptField(JSON.stringify(result.secrets)) }
           : {}),
         tokenExpiresAt: result.expiresAt,
+        // 换票成功 = 凭据版本原子前进(号池↔签到同步只按版本差补推)
+        credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
         lastRefreshAt: now,
         refreshFailureCount: 0,
         // 刷新成功即解除「凭证失效」型摘除;健康状态回 unknown 等巡检定级
@@ -308,6 +334,26 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) continue
     if (await refreshOne(row)) out.healthRecovered++
+  }
+
+  // ── 4. O64 号池↔签到对账收敛(断链自愈;失败不中断 sweep,下轮继续) ──
+  try {
+    out.checkinReconcile = await reconcileCheckinSync()
+  } catch (e) {
+    logger.warn('[relay-account-pool] 对账收敛器异常(不影响巡检)', {
+      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
+  }
+
+  // ── 4.5 O64 断链待推重推:retryPendingCheckinSyncs 直接读 pending 标记重推;
+  //    reconcile(步骤4)仅按"缺/版本落后"补推、读不到 extraMetadata.checkinSync.pending,
+  //    覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending。两者同在分布式锁内、幂等、互不冲突。
+  try {
+    out.checkinRetry = await retryPendingCheckinSyncs()
+  } catch (e) {
+    logger.warn('[relay-account-pool] 待推重推异常(不影响巡检)', {
+      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
   }
 
   return out
