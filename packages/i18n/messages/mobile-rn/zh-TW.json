@@ -335,7 +335,8 @@
     "progressLessons": "已學 {completed}/{total} 節",
     "free": "免費",
     "loadFailed": "載入課程失敗",
-    "playError": "播放出錯"
+    "playError": "播放出錯",
+    "moreTitle": "更多課程"
   },
   "teacher": {
     "list": {
@@ -877,7 +878,8 @@
     "toolOk": "成功",
     "toolFail": "失敗",
     "diffCollapse": "收起流中 diff 預覽",
-    "diffExpand": "展開流中 diff 預覽"
+    "diffExpand": "展開流中 diff 預覽",
+    "imagePreview": "预览圖片"
   },
   "settings": {
     "title": "設定",
@@ -1120,7 +1122,9 @@
     "closeOverlay": "關閉彈出層",
     "add": "新增",
     "panelCollapse": "收起面板",
-    "panelExpand": "展開面板"
+    "panelExpand": "展開面板",
+    "loadMore": "載入更多",
+    "user": "用戶"
   },
   "network": {
     "offline": "網路已中斷,部分功能不可用",
@@ -1464,7 +1468,13 @@
     },
     "title": "智匯值",
     "tokenUnit": "智匯值",
-    "totalCost": "總消費"
+    "totalCost": "總消費",
+    "range7d": "7天",
+    "range1m": "一個月",
+    "range1y": "近一年",
+    "rangeAll": "全部",
+    "unitYi": "{v}億",
+    "unitWan": "{v}萬"
   },
   "messageInput": {
     "document": "文件",
@@ -2169,7 +2179,8 @@
     "loadFailed": "載入排行榜失敗",
     "title": "排行榜",
     "wanSuffix": "{v}萬",
-    "pointsUnit": "分"
+    "pointsUnit": "分",
+    "anonShort": "匿名"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -3899,7 +3910,10 @@
     "sectionThirdParty": "第三方共用",
     "sectionThirdPartyBody": "我們不會出售您的個人資訊。在法律要求或為您提供服務所必要的情況下,我們可能與可信的合作夥伴共用必要的資訊,但我們會確保其遵守同等嚴格的資料保護標準。",
     "subtitle": "我們重視您的隱私",
-    "title": "隱私權政策"
+    "title": "隱私權政策",
+    "mustAgree": "需同意隱私政策才能使用本應用",
+    "disagreeA11y": "不同意隱私政策",
+    "agreeA11y": "同意隱私政策"
   },
   "refundDetail": {
     "amount": "退款金額",
@@ -5328,5 +5342,73 @@
       "completed": "已完成",
       "refunded": "已退款"
     }
+  },
+  "developerLimits": {
+    "title": "介面限額",
+    "item": "指標",
+    "usage": "用量"
+  },
+  "developerWebhooks": {
+    "title": "Webhooks",
+    "url": "地址",
+    "status": "狀態",
+    "events": "事件",
+    "lastTriggered": "最近觸發",
+    "active": "啟用",
+    "disabled": "停用",
+    "never": "未觸發",
+    "delete": "刪除",
+    "deleteConfirmTitle": "刪除 Webhook",
+    "deleteConfirmDesc": "確定刪除該 Webhook 嗎?"
+  },
+  "tabBar": {
+    "market": "AI應用商店",
+    "plaza": "廣場",
+    "chat": "智匯AI",
+    "feed": "動態",
+    "me": "我的"
+  },
+  "agentShop": {
+    "use": "使用 {n}",
+    "collect": "收藏 {n}",
+    "like": "點讚 {n}",
+    "likeA11y": "{name} 點讚",
+    "collectA11y": "{name} 收藏",
+    "catEmpty": "該分類下暫無智能體"
+  },
+  "career": {
+    "fillField": "請填寫：{name}",
+    "submitFail": "提交失敗，請稍後重試",
+    "doneTitle": "提交成功",
+    "doneBody": "問卷已提交，AI 學業建議生成後可在本頁查看。"
+  },
+  "pwd": {
+    "oldRequired": "請輸入舊密碼",
+    "minLen": "新密碼至少 {n} 位",
+    "okTitle": "修改成功",
+    "okBody": "密碼已更新",
+    "failRetry": "修改失敗",
+    "retryLater": "請稍後重試",
+    "netFail": "網路異常，請稍後重試"
+  },
+  "study": {
+    "learnA11y": "學習發展",
+    "careerA11y": "AI 學業規劃"
+  },
+  "developerNotifications": {
+    "title": "通知偏好",
+    "apiError": "API 異常通知",
+    "quotaWarning": "配額預警",
+    "webhookFailure": "Webhook 失敗通知",
+    "weeklyReport": "每週報告",
+    "versionUpdate": "版本更新",
+    "billingReminder": "帳單提醒"
+  },
+  "developerSettings": {
+    "title": "開發者設定",
+    "sandboxAutoRun": "沙箱自動執行",
+    "sandboxAutoRunDesc": "沙箱程式碼執行完成後自動執行",
+    "errorReport": "錯誤上報",
+    "errorReportDesc": "自動上報介面錯誤便於排查"
   }
 }
