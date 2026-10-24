@@ -1175,13 +1175,6 @@ pnpm turbo build typecheck lint test
 
 ## データベース
 
-- **単一データベース設計**:PostgreSQL 18、単一データベース `ihui`、schema で業務ドメインを分離
-- **598 テーブル**:100 個の schema モジュールファイル、30+ 業務ドメインを網羅
-- **128+ マイグレーション**:`packages/database/drizzle/`、drizzle-kit generate で生成 + 手動インクリメント
-- **7 ステップ冪等 seed**:`packages/database/seed/`、パターン化 + フォールトトレランス分離
-- **行レベルセキュリティ**:RLS(Row Level Security)をキーフィールドで有効化、マルチテナント分離
-- **読み取りレプリカ**:read-replica + tenant-router でクエリをルーティング
-- **型安全**:Drizzle ORM 0.38、TypeScript strict モード、エンドツーエンド型推導
 - **主要 schema モジュール**:users / auth-identity / oauth-private-keys / agents-extended / agent-commerce / ai-capabilities / ai-cost / learn(45 テーブル)/ exam / certificate / content / news-crawler / self-media / publish-platform / community / order / billing / wechat-pay-contracts / refund-audit / point / wallet / funds / commission / member / teams / tenant / rbac / workspace-permissions / system / canary / ab-tests / live / customer-service / business-cards / stock / trader / developer / sdks / webhooks / workflow / projects / knowledge-base / knowledge-rag / search-contents / cli-provider-imports / email-logs / sensitive-words / audit / visit-tracking / behavior / analytics-events / gamification
 
 ---
@@ -1251,26 +1244,13 @@ pnpm turbo build typecheck lint test
 
 | 次元                     | 実装                                                                                                                 |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| **認証**                 | JWT HS256 + token-family ローテーション(盗用防止)+ refresh token ブラックリスト                                      |
 | **SSO**                  | OAuth 2.0 + PKCE / Apple / Google / SSO 中継ログイン                                                                 |
-| **レートリミット**       | グローバル 100/min、auth login/register 10/min、階層化 rate-limit                                                    |
 | **暗号化**               | AES-256-GCM で credentials を暗号化(OSS ドライバ認証 + 教育設定認証 + 配信プラットフォームアカウント + OAuth 秘密鍵) |
-| **パスワード**           | bcryptjs ハッシュ(member テーブルは SHA256 で旧 Java データ互換)                                                     |
-| **データマスキング**     | password / passwordHash フィールドを API レスポンスで構造分解して除去                                                |
 | **GDPR**                 | データエクスポート / 削除 / ポータビリティ / gdpr ルート                                                             |
 | **機密語**               | 機密語フィルタ + コンテンツ審査 + admin-sensitive-words                                                              |
 | **監査ログ**             | ログインログ / 操作ログ / システム操作ログ / 監査トレース                                                            |
-| **トランザクション安全** | DB トランザクション化:order 支払/返金 + social tag + gamification ポイント + chat クリア                             |
-| **行ロック**             | `.for('update')` 行ロックで TOCTOU 競合防止                                                                          |
-| **CSRF**                 | `@fastify/csrf-protection` デュアルトークンモード                                                                    |
-| **XSS**                  | sanitizer バイパス検出スクリプトでゲート(pre-commit 第 6 項)                                                         |
-| **API key 漏洩**         | `check-api-key-leak.mjs` でゲート(pre-commit 第 1 項)                                                                |
-| **RBAC**                 | roleId >= 1 で admin ルートアクセス可能、plugin-level preHandler で統一認証 + data-scope 5 級                        |
 | **ワークスペース権限**   | 3 モード + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト                                                     |
 | **マルチテナント**       | テナント分離 + 組織 + 部門 + メニュー権限 + tenant-router + RLS                                                      |
-| **OAuth 秘密鍵**         | oauth-private-keys schema で暗号化保存                                                                               |
-| **2FA**                  | user-auth-info schema サポート                                                                                       |
-| **認証コード**           | auth-codes + captcha schema                                                                                          |
 
 ---
 
@@ -1437,7 +1417,6 @@ node apps/api/scripts/pg-backup.mjs
 
 ## 国際化
 
-5 言語 parity(キーセット強一貫性)、4 ゲートスクリプト + 19 i18n ツールチェーンで品質を保証:
 
 詳細リストは [コア能力 E3 セクション](#e3-国際化5-言語-parity) 参照。
 
@@ -1724,14 +1703,12 @@ pnpm は monorepo シナリオで優位性が顕著:厳密な依存分離(ファ
       <br/>
       <sub>スキャンして IHUI-AI App を体験</sub>
     </td>
-    <td align="center" width="33%">
       <img src="apps/web/public/footer/erweima/wechat-vx.png" width="180" alt="公式 WeChat QR コード" />
       <br/>
       <strong>公式 WeChat</strong>
       <br/>
       <sub>WeChat ID:<code>ok502319984</code></sub>
     </td>
-    <td align="center" width="33%">
       <img src="apps/web/public/footer/erweima/community-group.jpg" width="180" alt="企業 WeChat コミュニティグループ QR コード" />
       <br/>
       <strong>企業 WeChat コミュニティ</strong>
@@ -2418,7 +2395,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b50c378495)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5bcadb6b4a)
 - 🔧 その他:重施 G-877 旧副本【归并】注记(7e8bbb48c3 滞后副本回退了我席 3a8ab40d92 的注记,F4 副本行棘轮基线 0 被顶红;blob 档只动这一行) (27ea77fefe)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6c13581591)
 - 🔧 その他:结清 G-935 多窗格 e2e 真机核验(5/5 绿)+ 发丝线第一刀 17/19 进展注(租约保留) (7e8bbb48c3)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (00713950ff)
 - 🔧 その他:G-877 旧225处形态副本加【归并】注记(首次强制令落地时滞后副本带回,同主键以带155文件进度那条为准,F4副本行归零) (3a8ab40d92)
@@ -2547,7 +2523,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 🔧 その他:G-343 翻勾(盘根/PG 落点私有推导四处残余现读已闭环,镜像 59/59 反向锁在场) (8d2ac1a574)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f748dc87f4)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e78e341fc9)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9c77e05e29)
 - 🔧 その他:G-929 翻勾(旁路落地器镜像套件现读 76/76 全绿,他席已修本席复核) (a1959b4d3a)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3352407e2b)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ce1b8cf95b)
@@ -2588,7 +2563,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - 📚 ドキュメント:更正本席 13:34 写进 G-14 的错读数并补 O 族有空号这一实测事实(本票不翻勾,差的格子写明) (901f21bb30)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (eef5d3dc41)
 - 📚 ドキュメント:把同号多题存量今日重测就地并进持有行 (ca44c32ee3)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9338d10c44)
 - 🐞 修正:漂开副本归并(--merge-drifted,人工点名持有行后 N→1) (1a15e4841a)
 
 **2026-10-23**
@@ -2599,7 +2573,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3f1ec1e02d)
 - 🔧 その他:结清 G-79 的 31 枚内容红——所在 15 个文件现读 389/389 绿 (7b86a39b3d)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (aefb0b62b2)
-- ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4c82694a39)
 - 📚 ドキュメント:把 G-322 两站被镜像反向锁钉住的前置格就地并进持有行 (ddff78a208)
 - ♻️ リファクタ:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (bf3783fca2)
 - 📚 ドキュメント:§5b 自愈行点名"删除意图到期档"——先问留痕账再决定让路还是回盘 (89763f6d21)
