@@ -117,6 +117,7 @@ import { MoreTitles } from '../components/MoreTitles'
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
+import { VoiceNote } from '../components/chat/VoiceNote'
 import { AddPanel } from '../components/AddPanel'
 import { useVoiceRecorder } from '../hooks/use-voice-recorder'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
@@ -2450,6 +2451,14 @@ export function HomeScreen() {
          *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2)。
          *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。 */}
         <InputArea
+          // D43 语音笔记 RN 腿接线(2026-10-24 复挂:ChatScreen 同款经 voiceNoteNode 槽传入;
+          // 此前某轮 HomeScreen 重构把挂载丢了,voice-note-mount 契约三例钉红)
+          voiceNoteNode={
+            <VoiceNote
+              conversationId={null}
+              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+            />
+          }
           value={inputValue}
           onChangeText={setInputValue}
           placeholder={t('home.inputPlaceholder')}

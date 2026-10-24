@@ -18,8 +18,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 import app.tools as tools_pkg
 from app.tools.init_agents_md import init_agents_md
 
