@@ -28,8 +28,8 @@ export const RELAY_ACCOUNT_POOL_QUEUE_NAME = 'relay-account-pool-queue'
 const CRON_PATTERN = '*/5 * * * *'
 /** 每 10 分钟把本机 Trae 客户端会话回灌进号池(客户端为主策略的取数端;判据在 ts 落库脚本里) */
 const TRAE_SYNC_CRON_PATTERN = '*/10 * * * *'
-/** 仓根(scripts/sync-trae-client-session.mjs 的落点) */
-const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
+/** 仓根(scripts/sync-trae-client-session.mjs 的落点):workers→src→api→apps→root 共 4 级 */
+const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..')
 
 interface TraeSyncOutcome {
   code: number
@@ -45,7 +45,9 @@ async function runTraeSessionSync(): Promise<TraeSyncOutcome> {
     const child = spawn(process.execPath, [script, '--json'], {
       cwd: REPO_ROOT,
       windowsHide: true,
-      // 显式 stdio(§12g);凭据走 stdin,stdout 只回 JSON 汇总
+      // 显式 stdio(§12g);凭据走 stdin,stdout 只回 JSON 汇总。
+      // timeout 比编排器内层(120s)宽,防子进程挂死拖住 worker
+      timeout: 180_000,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let out = ''
