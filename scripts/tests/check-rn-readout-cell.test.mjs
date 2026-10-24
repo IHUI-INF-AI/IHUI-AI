@@ -106,6 +106,32 @@ it('读数表达式写成格式化函数(yuan(...))仍要报', () => {
   eq(r.violations.length, 1, '违规枚数')
 })
 
+it('satisfies 包装的样式表也要采集(否则整张样式表静默算绿)', () => {
+  // 反向锁:不剥 SatisfiesExpression 时实参不是 ObjectLiteral ⇒ styles=0 ⇒ 判据"看不见"却报绿。
+  // 实测射程内 17 个 `StyleSheet.create({…} satisfies …)`;剥开后立刻暴露出 3 处真缺口。
+  const src = `
+    const s = StyleSheet.create({
+      row: { flexDirection: 'row' },
+      cell: { flex: 1 },
+      val: { fontSize: 20, fontWeight: '700' },
+    } satisfies Record<string, unknown>);`
+  const r = analyze(src + jsx('row', 'cell', TEXT('val', '{info.totalDays}')))
+  eq(r.styles, 3, '样式条数')
+  eq(r.violations.length, 1, '违规枚数')
+})
+
+it('单个样式带 as 断言也要采集', () => {
+  const src = `
+    const s = StyleSheet.create({
+      row: { flexDirection: 'row' } as ViewStyle,
+      cell: { flex: 1 } as ViewStyle,
+      val: { fontSize: 20, fontWeight: '700' } as ViewStyle,
+    });`
+  const r = analyze(src + jsx('row', 'cell', TEXT('val', '{info.totalDays}')))
+  eq(r.styles, 3, '样式条数')
+  eq(r.violations.length, 1, '违规枚数')
+})
+
 it('真实仓库存量必须归零(整族不变量,不是逐处形状锁)', () => {
   const files = execFileSync('git', ['-c', 'core.quotePath=false', 'ls-files'], { cwd: ROOT, encoding: 'utf8' })
     .split('\n')

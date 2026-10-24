@@ -103,7 +103,7 @@ export default function InsightsPage() {
       </div>
 
       {summary && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 tablet:grid-cols-3">
           {(['critical', 'warning', 'info'] as const).map((s) => (
             <div key={s} className="rounded-lg border bg-card p-3 text-center">
               <p className="text-2xl font-medium tabular-nums">{summary[s]}</p>
