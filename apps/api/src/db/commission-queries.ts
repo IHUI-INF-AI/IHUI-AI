@@ -282,6 +282,56 @@ export async function listCommissionFlows(beneficiaryId: string, page: number, l
   return { items: rows, total: count }
 }
 
+/**
+ * 我的分销订单(2026-10-25 补建)。
+ *
+ * 为什么要有它:小程序「分销-我的订单」页一直在调 `GET /distribution/orders`,
+ * 而这个路径**后端从未注册**(现读:routes/distribution.ts 只有 overview/invited-users/tree/
+ * stats/commission-rates/levels/withdrawals/invite-info/list/withdraw-list/ranking/team/*),
+ * 页面 `catch {}` 把 404 吞成"暂无订单" ⇒ 用户以为自己没有分销订单,实际是屏幕坏了。
+ *
+ * 口径:一行 = 我作为受益人(beneficiaryId)产生过的一条佣金流水所挂的订单。
+ *  · 主体只取 `beneficiaryId = 调用者`,不接受任何客户端传的 userId(§5 认证不等于授权);
+ *  · `orders.amount` 与 `commission_flows.amount` 单位都是**分**(schema 注释口径),
+ *    由前端 formatPrice 统一转元,这里不做二次换算,免得两端各除一次 100;
+ *  · 已退款/已取消的订单照常返回并带其订单状态,由前端按 tab 过滤(与 withdrawals 同形态)。
+ */
+export async function listDistributionOrders(
+  beneficiaryId: string,
+  page: number,
+  limit: number,
+  status?: string,
+) {
+  const conditions = [eq(commissionFlows.beneficiaryId, beneficiaryId)]
+  if (status) conditions.push(eq(orders.status, status))
+  const where = and(...conditions)
+  const rows = await db
+    .select({
+      id: commissionFlows.id,
+      orderId: orders.id,
+      orderNo: orders.orderNo,
+      product: orders.targetTitle,
+      amount: orders.amount,
+      commission: commissionFlows.amount,
+      status: orders.status,
+      orderType: orders.orderType,
+      createdAt: commissionFlows.createdAt,
+      paidAt: orders.paidAt,
+    })
+    .from(commissionFlows)
+    .innerJoin(orders, eq(commissionFlows.orderId, orders.id))
+    .where(where)
+    .orderBy(desc(commissionFlows.createdAt))
+    .limit(limit)
+    .offset((page - 1) * limit)
+  const [countRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(commissionFlows)
+    .innerJoin(orders, eq(commissionFlows.orderId, orders.id))
+    .where(where)
+  return { items: rows, total: countRow?.count ?? 0 }
+}
+
 export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
   const windowStart = new Date(Date.now() - windowDays * 86400_000)
   const rows = await db
