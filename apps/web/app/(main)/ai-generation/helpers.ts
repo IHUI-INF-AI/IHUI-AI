@@ -30,6 +30,8 @@ export const SUB_TABS: Partial<Record<GenerationType, Array<{ value: string; lab
       { value: 'text', labelKey: 'tabText' },
       { value: 'agnes-chat', labelKey: 'tabAgnes' },
       { value: 'openai-compat', labelKey: 'tabOpenAICompat' },
+      { value: 'x5m5x', labelKey: 'tabX5m5x' },
+      { value: 'x5m5x-subscribe', labelKey: 'tabX5m5xSubscribe' },
       { value: 'code', labelKey: 'tabCode' },
     ],
     image: [
@@ -44,6 +46,7 @@ export const SUB_TABS: Partial<Record<GenerationType, Array<{ value: string; lab
       { value: 'fal', labelKey: 'tabFal' },
       { value: 'freepik', labelKey: 'tabFreepik' },
       { value: 'agnes', labelKey: 'tabAgnes' },
+      { value: 'x5m5x', labelKey: 'tabX5m5x' },
       { value: 'edit', labelKey: 'tabEdit' },
     ],
     video: [
