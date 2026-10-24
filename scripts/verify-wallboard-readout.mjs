@@ -63,15 +63,28 @@ export const WORST = {
   trafficPv: { text: '128,431', kind: '实' },
 }
 
+/**
+ * 时长读数的最坏形态**按语种取模板**(不能写死中文):
+ * 最初那个缺陷的成因就是「五语言最坏读数」,尺子若只按中文量,就等于没检验语言无关性。
+ * 取不到模板 ⇒ 回落中文双单位并标 kind='保'(不冒充实测)。
+ */
+function worstDurationText(msgs) {
+  const tpl = msgs?.durationDays
+  if (typeof tpl === 'string' && /\{\w+\}/.test(tpl)) {
+    return tpl.replace(/\{(\w+)\}/g, (_, k) => (k === 'd' ? '365' : k === 'h' ? '23' : '23'))
+  }
+  return '365天23小时'
+}
+
 /** 把一个 value 表达式映射成最坏读数文本(按特征,不解析语法)。 */
-export function worstReadout(expr, labelKey) {
+export function worstReadout(expr, labelKey, msgs) {
   const e = String(expr).replace(/\s+/g, ' ')
   const declared = []
   if (/poolKeySchedulable|poolAccountSchedulable/.test(labelKey ?? '')) {
     declared.push(WORST.poolRatio)
   }
   if (/\.toFixed\(/.test(e)) declared.push(WORST.toFixed)
-  if (/fmtDuration/.test(e)) declared.push(WORST.fmtDuration)
+  if (/fmtDuration/.test(e)) declared.push({ text: worstDurationText(msgs), kind: WORST.fmtDuration.kind })
   if (/fmtBytes/.test(e)) declared.push(WORST.fmtBytes)
   if (/fmtRate/.test(e)) declared.push(WORST.fmtRate)
   if (/fmtPct/.test(e)) declared.push(WORST.fmtPct)
@@ -193,7 +206,7 @@ export function unitLabel(expr, msgs) {
   if (!expr) return null
   const m = String(expr).match(/^\s*t\(\s*['"]([^'"]+)['"]\s*\)\s*$/)
   if (m) return msgs[m[1]] ?? m[1]
-  return worstReadout(expr, '').text
+  return worstReadout(expr, '', msgs).text
 }
 
 export function buildDoc({ builtCss, wallCss, msgs, panels, hostW }) {
@@ -207,7 +220,7 @@ export function buildDoc({ builtCss, wallCss, msgs, panels, hostW }) {
         .map((g) => {
           const cells = g.cells
             .map((c) => {
-              const w = worstReadout(c.valueExpr, c.labelKey)
+              const w = worstReadout(c.valueExpr, c.labelKey, zh)
               const uTxt = unitLabel(c.unitExpr, zh)
               const unit = uTxt ? `<span class="ml-0.5 text-[11px] text-muted-foreground">${esc(uTxt)}</span>` : ''
               return `<div class="min-w-0 rounded-lg border border-border bg-muted/60 px-2.5 py-2" data-line="${c.line}" data-kind="${w.kind}">
@@ -289,7 +302,7 @@ async function run({ face, widths, json, locale = 'zh-CN' }) {
   if (!built || built.css === null) return { status: 'unjudged', reason: built?.reason ?? '读不到 .next/static/chunks/*.css' }
   const wallCss = src.match(/const WALLBOARD_CSS = `([\s\S]*?)`\n/)?.[1]
   if (!wallCss) return { status: 'unjudged', reason: '被审面里解析不到 WALLBOARD_CSS 常量' }
-  const msgs = JSON.parse(readFileSync(resolve(REPO_ROOT, 'packages/i18n/messages/web/zh-CN.json'), 'utf8')).admin?.wallboard
+  const msgs = JSON.parse(readFileSync(resolve(REPO_ROOT, `packages/i18n/messages/web/${locale}.json`), 'utf8')).admin?.wallboard
   if (!msgs) return { status: 'unjudged', reason: '取不到 zh-CN 的 admin.wallboard 词条' }
 
   const panels = parsePanels(src)
@@ -398,7 +411,13 @@ async function main() {
     console.error('❌ --widths 解析不出任何数字')
     process.exit(2)
   }
-  const r = await run({ face, widths, json })
+  const li = args.indexOf('--locale')
+  const locale = li >= 0 ? args[li + 1] : 'zh-CN'
+  if (!/^(zh-CN|zh-TW|en|ja|ko)$/.test(locale)) {
+    console.error(`❌ --locale ${locale} 不在五语言清单里 ⇒ 未判定(不能凭猜取词)`)
+    process.exit(2)
+  }
+  const r = await run({ face, widths, json, locale })
   if (json) {
     console.log(JSON.stringify(r, null, 2))
     const hardCount =
@@ -412,7 +431,7 @@ async function main() {
     process.exit(2)
   }
   let hard = 0
-  console.log(`建模 ${r.parsedCells}/${r.declaredCells} 格(取材面=${r.face},构建 CSS ${r.cssChunks} 枚)`)
+  console.log(`建模 ${r.parsedCells}/${r.declaredCells} 格(取材面=${r.face},语言=${locale},构建 CSS ${r.cssChunks} 枚)`)
   for (const [w, bad] of Object.entries(r.perWidth)) {
     const h = bad.filter((b) => b.kind === '实')
     const s = bad.filter((b) => b.kind !== '实')

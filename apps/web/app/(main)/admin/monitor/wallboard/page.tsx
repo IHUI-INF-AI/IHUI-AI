@@ -4,6 +4,7 @@
 
 'use client'
 import { isNum, isUnset, thresholdTone, type StatusTone } from './unknown-state'
+import { tzParts } from './data-time'
 
 /**
  * 生产在线端监控大屏(/admin/monitor/wallboard)。
@@ -76,7 +77,7 @@ interface HostSnapshot {
 
 interface ServicesSnapshot {
   windows: Array<{ name: string; state: string; retired: boolean }>
-  targets: Array<{ job: string; instance: string; up: number }>
+  targets: Array<{ job: string; instance: string; up: number | null }>
   windowsTotal: number
   windowsRunning: number
   windowsExpectedTotal: number
@@ -168,14 +169,14 @@ interface BusinessSnapshot {
   ordersTodayAmountCents: number
   ordersYesterdayPaid: number
   apiCallsToday: number
-  apiErrRate: number
-  apiAvgLatencyMs: number
+  apiErrRate: number | null
+  apiAvgLatencyMs: number | null
   topEndpoints: Array<{ path: string; method: string; calls: number }>
   llmCallsToday: number
   llmTokensToday: number
   llmCostCentsToday: number
-  llmErrRate: number
-  llmP95LatencyMs: number
+  llmErrRate: number | null
+  llmP95LatencyMs: number | null
   llmTopModels: Array<{ model: string; calls: number }>
   /** 签到快照:后端取不到时为 null(渲染"—"),老版本后端无此字段(undefined 同样走"—") */
   signIn?: SignInSnapshot | null
@@ -294,9 +295,14 @@ function fmtPct(v: number | null | undefined, digits = 2): string {
   return `${v.toFixed(digits)}%`
 }
 
+/**
+ * 大屏的时间一律按**数据侧时区**显示与判定(实现与理由见 ./data-time:page.tsx 不能带
+ * 具名导出,判据住在一个可被测试 import 的模块里才不会漂移)。
+ */
+
 function fmtClockDigits(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+  const t = tzParts(d)
+  return `${t.dateKey} ${t.hms}`
 }
 
 /**
@@ -352,16 +358,16 @@ function makeFmt(locale: string, t: WallboardT) {
       if (!iso) return '—'
       const d = new Date(iso)
       if (Number.isNaN(d.getTime())) return '—'
-      return d.toLocaleTimeString(locale, { hour12: false })
+      return tzParts(d).hms
     },
     /** 事件流用:当天只显示时分秒,跨天补 MM-DD(否则隔夜事件看不出哪一天)。 */
     fmtStamp(iso: string | null | undefined): string {
       if (!iso) return '—'
       const d = new Date(iso)
       if (Number.isNaN(d.getTime())) return '—'
-      const time = d.toLocaleTimeString(locale, { hour12: false })
-      if (d.toDateString() === new Date().toDateString()) return time
-      return `${d.toLocaleDateString(locale, { month: '2-digit', day: '2-digit' })} ${time}`
+      const t = tzParts(d)
+      if (t.dateKey === tzParts(new Date()).dateKey) return t.hms
+      return `${t.dateKey.slice(5)} ${t.hms}`
     },
     fmtAgo(iso: string | null | undefined): string {
       if (!iso) return '—'
@@ -456,15 +462,26 @@ function StatCell({
   value,
   unit,
   tone,
+  hint,
 }: {
   label: string
   value: string
   unit?: string
   tone?: StatusTone | 'accent'
+  /** 口径说明:把「这数是怎么算出来的」收进悬停,标签本身只留能一眼读完的名字。 */
+  hint?: string
 }) {
   return (
     <div className="min-w-0 rounded-lg border border-border bg-muted/60 px-2.5 py-2">
-      <div className="text-[10px] tracking-[0.12em] text-muted-foreground">{label}</div>
+      <div className="text-[10px] tracking-[0.12em] text-muted-foreground">
+        {hint ? (
+          <Tooltip content={hint}>
+            <span>{label}</span>
+          </Tooltip>
+        ) : (
+          label
+        )}
+      </div>
       <div
         className={cn(
           'wb-num mt-0.5 text-[18px] leading-tight font-semibold whitespace-nowrap',
@@ -692,6 +709,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         ? null
         : (alerts.promActiveCount ?? 0) +
           (alerts.firingNames ?? []).filter((n) => !promAlertNames.has(n)).length
+  // AM 侧没量到、只有库内 firing ⇒ 上面这个数是**下界**,不得渲染成精确总数(会静默少报)。
+  const alertCountIsFloor =
+    alerts !== null && alerts.promActiveCount === null && (alertCount ?? 0) > 0
   // 退役服务(见路由 RETIRED_SERVICES)不计入健康度分母,避免状态灯恒黄。
   // alerts 块或 services 块不可达 ⇒ 'unknown'(§0.3:「没判」不得渲染成「全域正常 / 0 告警」)。
   // 核心数据源断掉时不能仍报「全域正常」:Prometheus / 业务库是这张屏的主判据,
@@ -1040,7 +1060,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   }, [trend, locale, t, isDark])
 
   // 只画到今天当前小时:把未到的时段画成 0 柱会被读成「这些时段没有流量」。
-  const nowHour = now.getHours()
+  // 小时必须按数据侧时区取(服务端分桶就是 Asia/Shanghai 的小时),否则非 +08 的机器
+  // 会把对侧已发生的小时整段截掉,剩下的空槽照样渲染成 0 柱。
+  const nowHour = tzParts(now).hour
   const hourlyOption = React.useMemo<EChartsOption>(() => {
     const hours = Array.from({ length: nowHour + 1 }, (_, i) => String(i).padStart(2, '0'))
     const byHour = new Map((trend?.hourlyCalls ?? []).map((r) => [r.hour, r.calls]))
@@ -1218,6 +1240,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   // 避免被圆角角色门按 panel 角色误判须 xl;该徽章自身无角色类名,落「未判定」射程外,不计入红。
   const no5xxBadge =
     trend &&
+    // 趋势查询本身已停摆时不得再发好消息:徽章读的是**上一份快照**,而快照会一直绿着
+    // (trendStale = 请求报错,或快照超 60s 未更新)。
+    !trendStale &&
     trend.qps.length > 0 &&
     // 空序列 ≠ 「窗口内没有 5xx」:查询无数据时不能凭 0 条样本发好消息(§0.3)。
     trend.errRate.length > 0 &&
@@ -1345,7 +1370,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <Bell className="h-3 w-3" />
               {alertCount === null
                 ? t('alertCountUnknown')
-                : t('alertCount', { count: alertCount })}
+                : alertCountIsFloor
+                  ? t('alertCountAtLeast', { count: alertCount })
+                  : t('alertCount', { count: alertCount })}
             </span>
             <div className="text-right">
               <LiveClock />
@@ -1647,26 +1674,34 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 })}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {(services?.targets ?? []).map((target) => (
-                  <Tooltip
-                    key={`${target.job}-${target.instance}`}
-                    content={`${target.instance} · ${stateWord(target.up === 1 ? 'up' : 'down')}`}
-                  >
-                    <button
-                      type="button"
-                      aria-label={`${target.job} ${stateWord(target.up === 1 ? 'up' : 'down')}`}
-                      className={cn(
-                        'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
-                        target.up === 1
-                          ? 'border-success/25 bg-success/10 text-success-text/90'
-                          : 'border-destructive/30 bg-destructive/10 text-danger-text',
-                      )}
+                {(services?.targets ?? []).map((target) => {
+                  // 三档:1=在线 / 0=确实抓取失败 / 其它=没有样本(未判定,不得染成红色)
+                  const tone: StatusTone =
+                    target.up === 1 ? 'ok' : target.up === 0 ? 'bad' : 'unknown'
+                  const word = stateWord(tone === 'ok' ? 'up' : tone === 'bad' ? 'down' : undefined)
+                  return (
+                    <Tooltip
+                      key={`${target.job}-${target.instance}`}
+                      content={`${target.instance} · ${word}`}
                     >
-                      <Dot tone={target.up === 1 ? 'ok' : 'bad'} />
-                      {target.job}
-                    </button>
-                  </Tooltip>
-                ))}
+                      <button
+                        type="button"
+                        aria-label={`${target.job} ${word}`}
+                        className={cn(
+                          'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
+                          tone === 'ok'
+                            ? 'border-success/25 bg-success/10 text-success-text/90'
+                            : tone === 'bad'
+                              ? 'border-destructive/30 bg-destructive/10 text-danger-text'
+                              : 'border-border bg-muted/60 text-muted-foreground',
+                        )}
+                      >
+                        <Dot tone={tone} />
+                        {target.job}
+                      </button>
+                    </Tooltip>
+                  )
+                })}
                 {(services?.targets ?? []).length === 0 && services !== null ? (
                   <span className="text-[10px] text-muted-foreground">{t('noScrapeTargets')}</span>
                 ) : null}
@@ -1725,6 +1760,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               />
               <StatCell
                 label={t('apiErrRateLabel')}
+                hint={t('apiErrRateHint')}
                 value={typeof biz?.apiErrRate === 'number' ? fmtPct(biz.apiErrRate, 2) : '—'}
                 tone={thresholdTone(biz?.apiErrRate, (n) =>
                   n > 5 ? 'bad' : n > 1 ? 'warn' : 'ok',
@@ -1737,7 +1773,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelQuality')}
             icon={<Gauge className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md order-1"
+            className="wb-c6 wb-c3-md order-1 self-start"
             bodyClassName="flex flex-col gap-1"
           >
             <div className="relative">
@@ -1756,11 +1792,15 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               {trendError ? (
                 <ChartEmpty text={t('trendLoadFailed')} />
               ) : trend && trend.hourlyCalls.length === 0 ? (
-                /* 分时数据来自业务库聚合(后端失败降级为 []);库不可达时不得把
-                   全零柱渲染成「今日无流量」(§0.3) */
+                /* 分时数据来自业务库聚合(后端失败降级为 []);库不可达、或聚合静默失败时
+                   不得把空数组渲染成「今日无流量」(§0.3)。只有当日调用数确实是 0 才敢这么说。 */
                 <ChartEmpty
                   text={
-                    ov?.sources?.database === 'down' ? t('sourceUnreachable') : t('noCallsToday')
+                    ov?.sources?.database === 'down'
+                      ? t('sourceUnreachable')
+                      : biz?.apiCallsToday === 0
+                        ? t('noCallsToday')
+                        : t('noTrendData')
                   }
                 />
               ) : null}
@@ -1985,7 +2025,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelDatastore')}
             icon={<Database className="h-3.5 w-3.5" />}
-            className="wb-c6 order-1"
+            className="wb-c6 order-1 self-start"
             bodyClassName="flex flex-col gap-2"
           >
             <div>
@@ -2138,24 +2178,25 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     label={t('signInToday')}
                     value={fmtInt(biz?.signIn?.todayUsers)}
                     unit={t('unitUser')}
-                    tone="ok"
+                    tone={isNum(biz?.signIn?.todayUsers) ? 'ok' : 'unknown'}
                   />
                   <StatCell
                     label={t('signInUnsigned')}
                     value={fmtInt(biz?.signIn?.unsignedActiveUsers)}
                     unit={t('unitUser')}
-                    tone="warn"
+                    tone={isNum(biz?.signIn?.unsignedActiveUsers) ? 'warn' : 'unknown'}
                   />
                   <StatCell
                     label={t('signInStreak')}
                     value={fmtInt(biz?.signIn?.maxStreakDays)}
                     unit={t('unitDay')}
+                    tone={isNum(biz?.signIn?.maxStreakDays) ? undefined : 'unknown'}
                   />
                   <StatCell
                     label={t('signInReward')}
                     value={fmtInt(biz?.signIn?.todayRewardPoints)}
                     unit={t('unitPoint')}
-                    tone="accent"
+                    tone={isNum(biz?.signIn?.todayRewardPoints) ? 'accent' : 'unknown'}
                   />
                 </div>
                 <div className="relative mt-1.5">
@@ -2293,7 +2334,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     label={t('edgeStatWorst')}
                     value={isNum(edge.stats.worstMs) ? fmtInt(edge.stats.worstMs) : '—'}
                     unit={t('unitMs')}
-                    tone={thresholdTone(edge.stats.worstMs, (n) => (n >= 5000 ? 'bad' : 'warn'))}
+                    tone={thresholdTone(edge.stats.worstMs, (n) =>
+                      // 三档:原实现是「<5000 一律 warn」⇒ 最差 12ms 也染黄,警告就成了常态噪声。
+                      n >= 5000 ? 'bad' : n >= 2000 ? 'warn' : 'ok',
+                    )}
                   />
                   <StatCell label={t('edgeStatSamples')} value={fmtInt(edge.stats.samples)} />
                 </div>
@@ -2466,8 +2510,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               relayPool === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
               ) : isNum(relayPool.staleAgeSec) ? (
-                <span className="text-[10px] text-muted-foreground">
-                  {t('poolStale')} {fmtDuration(relayPool.staleAgeSec)}
+                <span
+                  className={cn(
+                    'text-[10px]',
+                    // 「滞后」是结论,不是年龄:一两秒的缓存龄是这张板的正常节拍,
+                    // 常年挂着「号池刷新滞后 2秒」等于把警告喊成噪声(5e-1 可整改性)。
+                    relayPool.staleAgeSec >= 60 ? 'text-warning-text' : 'text-muted-foreground',
+                  )}
+                >
+                  {relayPool.staleAgeSec >= 60
+                    ? `${t('poolStale')} ${fmtDuration(relayPool.staleAgeSec)}`
+                    : t('footerDataAge', { duration: fmtDuration(relayPool.staleAgeSec) })}
                 </span>
               ) : null
             }
@@ -2559,13 +2612,19 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelUptime')}
             icon={<Clock3 className="h-3.5 w-3.5" />}
-            className="wb-c6 wb-c3-md order-1"
+            className="wb-c6 wb-c3-md order-1 self-start"
             right={http === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
             bodyClassName="max-h-[320px] overflow-y-auto"
           >
             {(http?.uptimeSeconds ?? []).length === 0 ? (
+              /* 只有 http 块**确实取不到**(null)才喊「数据源不可达」;
+                 源是好的、序列为空(或首轮还没回来)时这句是假指控 —— 页头数据源灯会同时亮绿。 */
               <div className="flex justify-center py-3">
-                <SourceGap text={t('sourceUnreachable')} />
+                {http === null ? (
+                  <SourceGap text={t('sourceUnreachable')} />
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">{t('noScrapeTargets')}</span>
+                )}
               </div>
             ) : (
               <div className="space-y-1">
@@ -2638,6 +2697,10 @@ const WALLBOARD_CSS = `
 .dark .wb-panel.ui-lift:hover {
   box-shadow: var(--wb-inset), var(--lift-shadow-dark);
 }
+/* 页头底部的扫描线:用 background-position 移动,**不用 transform:translateX(±30%)**。
+ * 后者会把这条 1px 线整条推到容器右边界之外(实测页头 scrollWidth 比 clientWidth 多 220px,
+ * 连带整块大屏多出 166px 横向可滚动区 —— 值班屏上就是「能左右拖、右边一片空白」)。
+ * 背景绘制天然被自身盒子裁切,视觉上仍是同一条从左扫到右的光带,零溢出。 */
 .wb-header::after {
   content: '';
   position: absolute;
@@ -2645,19 +2708,22 @@ const WALLBOARD_CSS = `
   right: 0;
   bottom: -1px;
   height: 1px;
-  background: linear-gradient(
+  background-image: linear-gradient(
     90deg,
     transparent,
     color-mix(in srgb, var(--color-info) 55%, transparent),
     color-mix(in srgb, var(--chart-5) 45%, transparent),
     transparent
   );
+  background-size: 55% 100%;
+  background-repeat: no-repeat;
+  background-position: -30% 0;
   animation: wb-scan 6s linear infinite;
 }
 @keyframes wb-scan {
-  0% { transform: translateX(-30%); opacity: 0.5; }
-  50% { transform: translateX(30%); opacity: 1; }
-  100% { transform: translateX(-30%); opacity: 0.5; }
+  0% { background-position: -30% 0; opacity: 0.5; }
+  50% { background-position: 100% 0; opacity: 1; }
+  100% { background-position: 130% 0; opacity: 0.5; }
 }
 /* 页头按容器判定,不按视口:三簇 nowrap 实测宽 326(标题)+251(数据源)+331(状态)=997,
  * 嵌进 ~900px 面板时视口 lg: 仍算"宽"⇒ 中文被逐字断行。996 取 N-1 防临界抖动;
@@ -2703,7 +2769,11 @@ const WALLBOARD_CSS = `
 @container (min-width: 600px) and (max-width: 899px) { .wb-cells-lg { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @container (max-width: 599px) { .wb-cells-lg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wb-hdr-title h1, .wb-hdr-title p, .wb-hdr-status, .wb-hdr-sources { white-space: nowrap; }
-@container (max-width: 996px) {
+/* ≤996 曾整簇隐掉数据源名,但 ≤1023 起状态簇已换到第二行 ⇒ 第一行只剩「标题 + 数据源」,
+ * 实测 326 + 12 + 267(四名全开)= 605 就够;996 那档在 620–995 之间白白把四个源退化成
+ * 四个无名字圆点(1440 值班屏正是这一带,四个点读不出哪个源掉了)。阈值改按第一行实需收到 605,
+ * 再窄才收名字(名字收掉后第一行只需 326 + 12 + 4×22 ≈ 426,由标题 truncate 兜底)。 */
+@container (max-width: 605px) {
   /* 窄容器只收掉文字、保留四个状态点(悬停 Tooltip 给全名),不再整块隐藏数据源 */
   .wb-src-name { display: none; }
 }

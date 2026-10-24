@@ -176,7 +176,8 @@ describe('PlazaScreen 需求广场', () => {
       expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
     })
     const props = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
-    expect(props.error).toContain('加载失败')
+    // i18n 清扫批后文案经 t() 取,本文件 i18n mock 为键回显 ⇒ 键名即"回退到本页通用文案"的身份
+    expect(props.error).toContain('plaza.index.loadFailedRefresh')
   })
 
   it('赛道分类 API 成功时覆盖 fallback 列表', async () => {
