@@ -27,7 +27,7 @@
  *    本仓 payment-gateway.ts:729 早已给出正确口径 `reply.code(500).send({code:'FAIL',
  *    message:'副作用处理失败,待重试'})`,这一处是同一仓内的口径异类。
  *
- * —— 两条判据 ——
+ * —— 判据条数(现读:G1/G2/G3/G4/G5 五条;G3/G4/G5 的条文写在各判据函数头上)——
  * G1 守卫式写入丢弃结果:db|tx|trx 发起的 .update()/.delete() 链,`.where(...)` 里带**数值守卫**
  *    (gt/gte/lt/lte 或 sql 里的 >/</>=/<= 比较),链上**没有 .returning(...)**,且整条语句的
  *    返回值没有被绑定成变量(没有 `const x = await ...`)⇒ 判红。
@@ -136,6 +136,73 @@ export function findAbsoluteQuantityWriteback(code, bodies = findFunctionBodies(
     out.push({ start: chain.start, setText: chain.setText.replace(/\s+/g, ' ').slice(0, 90) })
   }
   return { hits: out, lockedSafe: locked }
+}
+
+/**
+ * G5(2026-10-25 立):计数字段的"读出来 ±1 再把绝对值写回"。
+ *
+ * 为什么 G4 管不到它:G4 的键表是**额度列**(tokenQuantity/balance/stock/points…),
+ * 而 likeCount/viewCount/replyCount/retryCount 这些"计数列"当时没收 —— 于是同一型缺陷
+ * (事务外读一行 → JS 里 +1 → 写绝对值)在社交与设备链路上一路漏过:两个并发请求各自读到 N、
+ * 各自写 N+1 ⇒ **吞掉一次计数**;`remote-device` 的重试更 consequential:上限判定只住在
+ * 事务外的 if 里,并发两个请求都通过 ⇒ **绕过 maxRetries 白送一次设备重发**。
+ *
+ * 判据形态(刻意精确到不误伤):
+ *  · 只判 `.set({ <计数键>: <表达式> })` 且表达式是 **JS 算术**(含 `+ 1`/`- 1`/`Math.max(`/`Math.min(`)
+ *    或以标识符参与运算 —— 正解形态恒为库侧模板 `sql\`${t.col} + 1\``,即 set 值以 `sql\`` 开头 ⇒ 放过;
+ *  · 键名按 `…Count` / 计数语义表匹配,普通业务字段不收(避免误伤 `price`/`total` 这类合法绝对赋值);
+ *  · 与 G4 共用"锁内 FOR UPDATE 机器豁免"——事务里先 `for('update')` 读再回写是正解,不收。
+ */
+export const COUNTER_KEY_RE =
+  /\b(likeCount|dislikeCount|collectCount|commentCount|replyCount|viewCount|readCount|shareCount|favoriteCount|accessCount|invokeCount|usageCount|clickCount|downloadCount|playCount|retryCount|attemptCount|runCount|installCount|followerCount|followingCount|memberCount|postCount|reportCount|scoreCount|aiRounds|roundCount)\b\s*:/g
+
+/** 这个 set 值是不是"JS 侧算出来的绝对值"(而不是库侧表达式)。 */
+export function isJsArithmetic(valueText) {
+  const v = valueText.trim()
+  if (v.startsWith('sql') || v.startsWith('db.') || /^(?:\$\{|\d+$)/.test(v)) return false
+  if (/(?:^|[^\w.$)])\+\s*[\w.]+|(?:^|[^\w.$)])-\s*[\w.]+|Math\.(?:max|min)\(/.test(v)) return true
+  return /\b[\w.]+\s*[+\-]\s*\d/.test(v)
+}
+
+export function findAbsoluteCounterWriteback(code, bodies = findFunctionBodies(code)) {
+  const out = []
+  const locked = []
+  for (const chain of findWriteChains(code)) {
+    if (chain.names.indexOf('set') < 0) continue
+    if (chain.opaque) continue
+    const inner = chain.setText.replace(/^[^{]*\{/, '').replace(/\}\s*$/, '')
+    let hit = null
+    for (const km of inner.matchAll(COUNTER_KEY_RE)) {
+      const after = inner.slice((km.index ?? 0) + km[0].length)
+      const value = after.slice(0, topValueEnd(after))
+      if (isJsArithmetic(value)) hit = { key: km[1], value: value.trim().slice(0, 70) }
+    }
+    if (!hit) continue
+    const hasLock = bodies
+      .filter((b) => chain.start >= b.start && chain.start < b.end)
+      .some((b) => /\.for\s*\(\s*['"]update['"]\s*\)/.test(code.slice(b.start, b.end)))
+    if (hasLock) {
+      locked.push({ start: chain.start, key: hit.key, value: hit.value })
+      continue
+    }
+    out.push({ start: chain.start, key: hit.key, value: hit.value })
+  }
+  return { hits: out, lockedSafe: locked }
+}
+
+/** 取一个值表达式的结束位置:顶层逗号(括号/方括号/花括号/反引号内的逗号不算)。 */
+function topValueEnd(text) {
+  let depth = 0
+  let inTemplate = false
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === '`') inTemplate = !inTemplate
+    if (inTemplate) continue
+    if (c === '(' || c === '[' || c === '{') depth++
+    else if (c === ')' || c === ']' || c === '}') depth--
+    else if (c === ',' && depth === 0) return i
+  }
+  return text.length
 }
 
 /**
@@ -377,6 +444,33 @@ export function selfTest() {
   ok('G4 无函数体可证锁时不豁免', findAbsoluteQuantityWriteback('const [lk] = await tx.select().from(m).for("update")\nawait tx.update(m).set({ tokenQuantity: nb }).where(eq(m.id, 1))').hits.length === 1)
   ok('G4 不判 sql 侧自增', findAbsoluteQuantityWriteback('await db.update(m).set({ tokenQuantity: sql`x + 1` }).where(eq(m.id, 1))').hits.length === 0)
   ok('G4 不判流水快照列 balanceAfter', findAbsoluteQuantityWriteback('await db.update(f).set({ balanceAfter: x }).where(eq(f.id, 1))').hits.length === 0)
+  // G5:计数列的读改写(2026-10-25 立,存量 7 处实测于 community/business-card/remote-device/memory)
+  ok(
+    'G5 抓到计数字段的 JS 侧 +1 回写',
+    findAbsoluteCounterWriteback('await db.update(p).set({ likeCount: post.likeCount + 1, updatedAt: new Date() }).where(eq(p.id, 1))').hits
+      .length === 1
+  )
+  ok(
+    'G5 放过库侧自增(正解形态)',
+    findAbsoluteCounterWriteback('await db.update(p).set({ likeCount: sql`${p.likeCount} + 1`, updatedAt: new Date() }).where(eq(p.id, 1))').hits
+      .length === 0
+  )
+  ok(
+    'G5 抓到 Math.max 包起来的钳制回写(钳制不解决丢失更新)',
+    findAbsoluteCounterWriteback('await db.update(p).set({ likeCount: Math.max(0, post.likeCount - 1) }).where(eq(p.id, 1))').hits.length === 1
+  )
+  ok(
+    'G5 与 G4 同规:锁内 FOR UPDATE 给机器豁免',
+    (() => {
+      const src = 'async function f(tx) { const [r] = await tx.select().from(p).for("update"); await tx.update(p).set({ viewCount: r.viewCount + 1 }).where(eq(p.id, 1)) }'
+      const rr = findAbsoluteCounterWriteback(src)
+      return rr.hits.length === 0 && rr.lockedSafe.length === 1
+    })()
+  )
+  ok(
+    'G5 不收非计数键(price 的合法绝对赋值)',
+    findAbsoluteCounterWriteback('await db.update(c).set({ price: nextPrice }).where(eq(c.id, 1))').hits.length === 0
+  )
 
   const cbBad = `  server.post('/withdrawal/notify', async (request, reply) => {
     try { await handle() } catch (e) {
@@ -479,15 +573,17 @@ async function main() {
     const curG1 = findDiscardedGuardedWrites(g1)
     const curG3 = findUnguardedDecrement(g3)
     const g4 = findAbsoluteQuantityWriteback(g1)
+    const curG5 = findAbsoluteCounterWriteback(g1).hits
     const curG2 = findCallbackSwallowingFailure(g2)
     const curG4 = g4.hits
-    if (!curG1.length && !curG2.length && !curG3.length && !curG4.length) continue
+    if (!curG1.length && !curG2.length && !curG3.length && !curG4.length && !curG5.length) continue
     const aSrc = readRev(aRev, file)
     if (aSrc === null) {
       // 锚点面无此文件 = 本枚新建的文件 ⇒ 存量按 0 计,当前违规全算新增
       for (const h of curG1) findings.push({ dim: 'G1', file, line: locate1(h.whereFull), where: h.whereText })
       for (const h of curG3) findings.push({ dim: 'G3', file, line: locate3(h.whereFull), where: h.whereText })
       for (const h of curG4) findings.push({ dim: 'G4', file, line: locate4(h.setText), where: h.setText })
+      for (const h of curG5) findings.push({ dim: 'G5', file, line: locate4(h.value), where: `${h.key}: ${h.value}` })
       for (const h of curG2) findings.push({ dim: 'G2', file, line: locate2(h.route), route: h.route })
       continue
     }
@@ -497,6 +593,7 @@ async function main() {
       : findDiscardedGuardedWrites(a.g1).length +
         findUnguardedDecrement(a.g3).length +
         findAbsoluteQuantityWriteback(a.g1).hits.length +
+        findAbsoluteCounterWriteback(a.g1).hits.length +
         findCallbackSwallowingFailure(a.g2).length
     if (anchorCount === null) {
       undetermined.push({ file, reason: `锚点面(${aRev})词法残留,无法算存量` })
@@ -506,6 +603,7 @@ async function main() {
       ...curG1.map((h) => ({ dim: 'G1', file, line: locate1(h.whereFull), where: h.whereText })),
       ...curG3.map((h) => ({ dim: 'G3', file, line: locate3(h.whereFull), where: h.whereText })),
       ...curG4.map((h) => ({ dim: 'G4', file, line: locate4(h.setText), where: h.setText })),
+      ...curG5.map((h) => ({ dim: 'G5', file, line: locate4(h.value), where: `${h.key}: ${h.value}` })),
       ...curG2.map((h) => ({ dim: 'G2', file, line: locate2(h.route), route: h.route })),
     ]
     // 差值棘轮(§0.5/§12e):锚点 = 该文件在锚点面自身的违规数;只拦"本枚把数加上去"。
@@ -553,6 +651,7 @@ export const __test__ = {
   findDiscardedGuardedWrites,
   findUnguardedDecrement,
   findAbsoluteQuantityWriteback,
+  findAbsoluteCounterWriteback,
   findCallbackSwallowingFailure,
   guardsQuantityColumn,
   isQuantityRelative,

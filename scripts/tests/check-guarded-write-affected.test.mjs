@@ -78,6 +78,36 @@ ok(
   ).length === 0,
 )
 ok('额度列判定有牙(gt(stock) 算 / eq(id) 不算)', G.guardsQuantityColumn('gt(products.stock, 0)') && !G.guardsQuantityColumn('eq(a.id, 1)'))
+
+// —— G5:计数字列的读改写(2026-10-25 立;社交/设备/记忆链路实测 10 处)——
+ok(
+  'G5 命中:JS 侧 +1 回写绝对值',
+  G.findAbsoluteCounterWriteback('await db.update(p).set({ likeCount: post.likeCount + 1 }).where(eq(p.id, 1))').hits.length === 1
+)
+ok(
+  'G5 放过库侧自增(本仓唯一正解形态)',
+  G.findAbsoluteCounterWriteback('await db.update(p).set({ likeCount: sql`${p.likeCount} + 1` }).where(eq(p.id, 1))').hits.length === 0
+)
+ok(
+  'G5 命中钳制回写:Math.max(0, 旧值-1) 不解决丢失更新',
+  G.findAbsoluteCounterWriteback('await db.update(p).set({ likeCount: Math.max(0, post.likeCount - 1) }).where(eq(p.id, 1))').hits.length === 1
+)
+ok(
+  'G5 与 G4 同规:FOR UPDATE 锁内回写给机器豁免并计入 lockedSafe',
+  (() => {
+    const src = 'async function f(tx) { const [r] = await tx.select().from(p).for("update"); await tx.update(p).set({ viewCount: r.viewCount + 1 }).where(eq(p.id, 1)) }'
+    const rr = G.findAbsoluteCounterWriteback(src)
+    return rr.hits.length === 0 && rr.lockedSafe.length === 1
+  })()
+)
+ok(
+  'G5 不收非计数键(price 的合法绝对赋值不误伤)',
+  G.findAbsoluteCounterWriteback('await db.update(c).set({ price: nextPrice }).where(eq(c.id, 1))').hits.length === 0
+)
+ok(
+  'G5 一个 set 里多键时逐键判定(计数键红、别的键不收)',
+  G.findAbsoluteCounterWriteback('await db.update(p).set({ status: x, replyCount: p.replyCount + 1 }).where(eq(p.id, 1))').hits.length === 1
+)
 // 坐标锁:遮蔽面删注释字符 ⇒ 下标不可映射回原文;报表必须按锚定位,定不到就明说
 const shifted = `// 注释一\n// 注释二\n// 注释三\nawait db\n  .update(products)\n  .set({ stock: sql\`\${products.stock} - 1\` })\n  .where(and(eq(products.id, id), gt(products.stock, 0)))\n`
 const one = G.findDiscardedGuardedWrites(shifted)[0]
