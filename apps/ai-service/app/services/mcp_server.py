@@ -422,8 +422,15 @@ from .skills import skill_registry
 
 
 def _get_workspace_roots() -> list[str]:
-    """工作区根目录白名单(延迟读取 os.environ,确保 main.py 已同步 .env)。"""
-    raw = os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd())
+    """工作区根目录白名单(延迟读取 os.environ,确保 main.py 已同步 .env)。
+
+    空值回落 cwd(2026-10-24 根治):settings 未配置该键时 main.py 的 settings→env 同步
+    会写入**空串**(键存在、值为空),旧写法 `get(key, cwd)` 只兜"键不存在"⇒ raw="" ⇒
+    过滤空段后集合为空 ⇒ patch/file_editor 等全部消费方 fail-closed 503(生产配空值即
+    服务不可用;实测污染链:native_fc 系测试惰性导入 app.main 后,同 worker 的
+    patch_root 用例齐 503)。config 头注语义"空=用当前工作目录"在此处兑现。
+    """
+    raw = os.environ.get("MCP_WORKSPACE_ROOTS") or os.getcwd()
     return [os.path.abspath(r) for r in raw.split(os.pathsep) if r.strip()]
 
 
