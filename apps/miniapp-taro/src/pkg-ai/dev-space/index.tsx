@@ -138,7 +138,7 @@ export default function DevSpace() {
           </View>
 
           {/* ③ 四个功能入口(顺序即跨端表顺序) */}
-          <View className="mb-[20rpx] flex flex-row rounded-xl bg-card py-[24rpx]">
+          <View className="mb-[20rpx] flex flex-row rounded-lg bg-card py-[24rpx]">
             {DEVELOPER_SPACE_ENTRIES.map((entry) => (
               <View
                 key={entry.id}
@@ -186,7 +186,7 @@ export default function DevSpace() {
               </View>
             ))}
             <View
-              className="flex flex-col items-center rounded-sm bg-card p-[24rpx]"
+              className="flex flex-col items-center rounded-lg bg-card p-[24rpx]"
               onClick={openService}
               hoverClass="opacity-90"
             >

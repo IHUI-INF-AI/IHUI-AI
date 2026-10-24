@@ -117,6 +117,7 @@ import { MoreTitles } from '../components/MoreTitles'
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
+import { VoiceNote } from '../components/chat/VoiceNote'
 import { AddPanel } from '../components/AddPanel'
 import { useVoiceRecorder } from '../hooks/use-voice-recorder'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
@@ -2471,6 +2472,15 @@ export function HomeScreen() {
           selectedModelName={selectedModel?.name ?? null}
           onClearModel={handleClearModel}
           onOpenModelConfig={() => setShowModelConfig(true)}
+          // D43 票③ RN 大输入框挂载位(2026-10-23 强制令到终态的顺延格,与 ChatScreen
+          // L3025 同形):首页尚未开会话 ⇒ conversationId 恒 null,归档笔记标"无会话";
+          // 「插入对话」= 追加进本页输入框既有通道(setInputValue),提交时随消息带过去。
+          voiceNoteNode={
+            <VoiceNote
+              conversationId={null}
+              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
+            />
+          }
           transparentBackground
         />
         {/* 悬浮胶囊让位区:透明,停靠区玻璃透出;TabBar 绝对定位在其中浮起 */}
