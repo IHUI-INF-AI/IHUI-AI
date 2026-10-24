@@ -697,7 +697,9 @@ export function blobInAncestry(repoRoot, path, blob) {
     }
   let aw
   try {
-    aw = ancestorWindow(repoRoot, path)
+    // 深档:本函数只比 blob oid(不读祖先正文)⇒ 窗口用尽时回落全历史,
+    // 深于窗口的滞后副本也能判出并对齐(2026-10-25,与门 84 同一档开关)。
+    aw = ancestorWindow(repoRoot, path, { deep: true })
   } catch (e) {
     return {
       verdict: 'undetermined',

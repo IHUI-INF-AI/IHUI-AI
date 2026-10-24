@@ -575,6 +575,16 @@ RN 没有 `white-space`,但等分 `flex: 1` 同样会把读数压到断行。正
 
 **「有 flexWrap 就免疫」是错的**:没有 `minWidth` 时子项总宽永不超容器,`wrap` 一次都不触发。反过来只给 `minWidth` 也等于把折行换成溢出。这条是判据第一版的设计错误(把 wrap 当豁免条件),实测时被 23 处"全绿"暴露出来 —— 已改成两条并列判据,并在镜像测试里各配反向锁。
 
+**等分格不是唯一的宿主。** 读数还可能住在三种非等分布局里,它们同样会被压折,判据补了三档(2026-10-24,现读命中 29 处):
+
+| 档 | 宿主形态 | 判什么 | 为什么这样判 |
+| --- | --- | --- | --- |
+| V3 | `flexDirection:'row'` + `justifyContent:'space-between'` 且父级**不是** `flex:1` 格 | 读数 Text 自己带 `flexShrink: 0` 或 `minWidth` | 行内两个子项都没有 flex ⇒ 读数默认 `flexShrink: 1`,行宽不够时**先压读数**,标签反而完整 —— 正好压错了那一个 |
+| V4 | 祖先里有 `position: 'absolute'` | 同上 | 容器宽度由内容决定但受父宽约束,同样靠 `flexShrink: 0` 兜 |
+| V5 | 格是 `width: 'NN%'`(NN<100)或带 `flexBasis` | 格自己带 `minWidth` | `flexShrink` 是**纵向主轴**属性,对横向定宽**无效**;这类只能靠 `minWidth`,给它加 flexShrink 等于没加 |
+
+V3 与 V1 的边界刻意写死"父级不是 `flex:1`":否则同一个等分格会被 V1 和 V3 双报,而修法只需要一套。
+
 读数与文案的区分靠**属性名词表**,且词表只认标识符、不认字符串字面量:实测 `t('connectedAccounts.title')` 的 key 里有 `count`、`t('wallet.withdraw')` 有 `withdraw`、`t('pointHistory.title')` 有 `point`,不剥字符串就会把三个纯标题判成读数。判不出的形态进 `unjudged` 只报数,**不冒红也不算绿**(§0.3)。
 
 锁:`scripts/tests/check-rn-readout-cell.test.mjs`(10 例,含 V2 / 「只加 wrap」/ 「i18n key 里的 count」/ 「item.title」四条反向锁 + 一条"真实仓库存量必须归零"的整族不变量)。守门 `check-rn-readout-cell.mjs`(241,blocking,射程 `packages/app` + `apps/mobile-rn` + `apps/miniapp-taro`,869 枚文件全解析)。
@@ -584,12 +594,14 @@ RN 没有 `white-space`,但等分 `flex: 1` 同样会把读数压到断行。正
 | 面 | 状态 | 数 |
 | --- | --- | --- |
 | 运维大屏 49 格 | 已逐格实测(五语言 × 1440/1920 两档,实测量级零红) | 49/49 |
-| web 家族存量 | **已逐处算过最坏格宽**(2026-10-24,76 处):桌面档(1440/1920)**0 处会断**;仅手机档 375 会断 2 处;25 处网格不在同文件也不在可寻调用点 ⇒ 仍未判定 | 76 处 |
-| 断点语义陷阱 | 本仓 `--breakpoint-sm` = **375px**(不是 Tailwind 默认的 640),`md`=428、`lg`=576 ⇒ `sm:grid-cols-5` 等于"手机就 5 列"。现读这类写法 14 处(`sm:grid-cols-≥3` 10、`md:grid-cols-≥4` 2、`lg:grid-cols-≥5` 2),而用本仓语义档 `tablet:`/`laptop:` 的是 **0 处** | 14 处 |
+| web 家族存量 | **已逐处算过最坏格宽**(2026-10-24,76 处):桌面档(1440/1920)**0 处会断**、仅窄档会断**0 处**;51 处四档全安全;余 25 处"文件内找不到网格"**已逐处人工追出真实归属** —— 22 处四档全安全,3 处真缺陷已修(见下条) | 76 处,0 待判 |
+| 断点语义陷阱 | 本仓 `--breakpoint-sm` = **375px**(不是 Tailwind 默认的 640),`md`=428、`lg`=576 ⇒ `sm:grid-cols-5` 等于"手机就 5 列"。**格内有 ≥16px 读数的 8 处已全部收口**(2026-10-24):`ui-react/stat-card.tsx` 的 `STAT_GRID_COLS`(3/4 列档改 `tablet:`,一处治发布历史 / 发布监控 / 模型记录三页)、`agent-timeline`、`cost-dashboard`、`admin/ai-feed`、`agent-step-recorder`、`models/eval`、`publish/monitor/MonitorCard`(4 格指标改 `grid-cols-1 md:grid-cols-2`)、`admin/relay/insights`(无响应式 `grid-cols-3` 改 `grid-cols-1 tablet:grid-cols-3`)。剩余 `lg:grid-cols-3/4` 全在 `loading.tsx` 骨架屏与无读数的普通卡片上 | 8 处已修 |
 | R8 形态盲区 | 跨行 className、`cn()` 多参数、内联 `style={{fontSize}}` 三类当前实测均为 0;但判据写的是「同一行字面量内」,将来出现新写法就看不见 | 0 / 0 / 0 |
-| 表格单元格、列表行、tooltip、toast 里的数字 | **零覆盖** —— 判据只管「标签+读数」配对,这些形态断了同样难看 | — |
-| 端侧 UI 源文件 | **已有 AST 判据**(`check-rn-readout-cell.mjs`,869 枚全解析):识别「等分读数格」37 处,存量缺口 23 处已于 2026-10-24 全数收口 ⇒ 现为 0。**仍未覆盖**:非等分布局(`justifyContent` 挤压、绝对定位)、`numberOfLines` 顶替、`minWidth` 取值是否真的够(静态只判"有没有",不判"够不够",后者要真机量) | 0 缺口 / 3 类盲区 |
+| 表格单元格、列表行、tooltip、toast 里的数字 | **已定论:在正确布局下不产生本缺陷,不建门**。`Table` 原语是 `w-full` + **auto 布局**(无 `table-fixed`)+ 外层 `overflow-auto` ⇒ 列宽由内容决定:纯数字 / ID / 时间戳**没有断点,不会折行**;容器不够宽时浏览器先压缩**可断的文本列**(描述 / 标题折行是规范允许的),数字列被压到 min-content 就停止。会折的只剩含空格或中文单位的复合读数(`6天19小时`),这类在表格里极少且无法静态批量判。**因此不给 `TableCell` 盲加 `whitespace-nowrap`** —— 那会把描述列拉成千米长行,比折行更难看;`TableHead` 有 nowrap 而 `TableCell` 没有是**有意为之**(表头是短标签、单元格是内容)。`TooltipContent` 无 `max-w`/`truncate`,自动撑开;toast 宽度自适应且是瞬时提示(不是给人抄进故障单的读数)。判据覆盖面仍为 0,但原因是"该形态不产生该缺陷",不是"没来得及做" | 定论,不建门 |
+| 端侧 UI 源文件 | **已有 AST 判据**(`check-rn-readout-cell.mjs`,869 枚全解析):等分读数格 **40 处** + 非等分宿主(V3/V4/V5)**29 处**,合计 69 处,缺口已于 2026-10-24 全数收口 ⇒ 现为 0。收口分三批:23 处首批等分格、3 处剥开 `satisfies` 后暴露的等分格、29 处非等分宿主(26 个唯一位置)。三类盲区现读:① `numberOfLines={1}` 共 336 处,其中 fs≥16 的 114 处里 **111 处是标题 / 名称,读数只有 1 处**(`TopupSuccessScreen.tsx:88`,fs16 且无粗体)⇒ 补判据的收益极低;② 非等分形态已由 V3/V4/V5 覆盖,仍不覆盖的是 `FlatList` 的 `numColumns`(由 V5 的 `width%` 间接兜);③ `minWidth` 共 50 个样式带值,逐格按"字号×字符数×0.55"核算后**只有 2 处轻微不足**(Distribution 112 vs 121、DistributionCompany 128 vs 132),已分别抬到 128 / 136 | 0 缺口 / 3 类盲区 |
 | 尺子的 [实] 档 | 只有号池比例与流量 PV 两处按生产量级声明,其余落保守界 ⇒「实测量级零红」这句话的强度等于那张表 | 2 条 |
+
+**端侧判据的第四类盲区(已修,留档)**:`StyleSheet.create({…} satisfies X)` 或逐条 `as ViewStyle` 会让实参不是 `ObjectLiteral` —— 判据采不到整张样式表,里面的读数格**静默算绿**。实测射程内 17 个 `satisfies` 包装,剥开后立刻暴露出 3 处真缺口(`EarningsStatisticsCard.tsx` 的 `dataRow/dataItem`)。这是"没判写成判过"的典型形态:门是绿的,但绿的原因是它没看见。镜像测试已加两条反向锁(`satisfies` 包装 / 单样式 `as` 断言)。
 
 **要扩面就先补这张表,别把「已装门」当成「已覆盖」。**
 
@@ -602,7 +614,7 @@ RN 没有 `white-space`,但等分 `flex: 1` 同样会把读数压到断行。正
 - 拿不准就按「该档视口 ÷ 列数 ≥ 读数单行需求」现算(算式见 §13.1 那张表);
 - 侧栏只在 ≥1024 占布局宽,窄视口它是抽屉 —— 算手机档可用宽时**不要减侧栏**(2026-10-24 本条尺子第一版无脑减 160,一次造出 27 枚假红)。
 
-现存 14 处待收口(清单见 §13.5 那一行),本批已修最严重的一处(`media-tasks` 手机档每格 38.2px 而读数需 77)。
+格内有读数的 8 处已于 2026-10-24 全部收口(`media-tasks` 手机档每格 38.2px 而读数需 77 是最严重的一处)。剩余 `lg:grid-cols-3/4` 全落在 `loading.tsx` 骨架屏与无大字号读数的普通卡片上 —— **不要**为了"清零写法"去改它们:那只是把 `sm:` 换成 `tablet:` 的机械替换,与读数断行无关,改了等于给后续读者制造假信号。
 
 ---
 

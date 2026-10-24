@@ -245,7 +245,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sumTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     sumLabel: { fontSize: 14, color: tk.text.medium },
-    sumAmount: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    sumAmount: { flexShrink: 0, fontSize: 18, fontWeight: '700', color: tk.text.primary },
     withdrawBtn: {
       paddingHorizontal: 10,
       paddingVertical: 6,

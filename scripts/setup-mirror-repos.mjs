@@ -25,7 +25,7 @@ import { readFileSync } from 'node:fs';
 
 const REPO_NAME = 'IHUI-AI';
 const REPO_DESC =
-  '开源 AI 商业级一体化基座 · 8 端全覆盖 · 100+ 大模型 · LangGraph + MCP + A2A 三栈 · Apache 2.0';
+  '开源 AI 商业级一体化基座 · 9 端全覆盖 · 101 大模型 · LangGraph + MCP + A2A 三栈 · Apache 2.0';
 
 function readPkgDesc() {
   try {

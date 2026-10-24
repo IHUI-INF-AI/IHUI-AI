@@ -99,7 +99,7 @@ export default function CartePage() {
         return (
           <View
             key={seg.id}
-            className="mt-3 mb-4 flex flex-row items-center justify-center gap-1.5"
+            className="mt-3 mb-4 flex flex-row items-center justify-center gap-[12rpx]"
           >
             {glyph ? <LineIcon name={glyph} size={28} /> : null}
             {seg.textKeys.map((key) => (

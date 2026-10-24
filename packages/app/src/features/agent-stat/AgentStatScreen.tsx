@@ -97,7 +97,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 12,
     },
     label: { fontSize: 14, color: tk.text.secondary },
-    value: { fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT },
+    value: { flexShrink: 0, fontSize: 16, fontWeight: '600', color: tk.brand.DEFAULT },
     center: {
       flex: 1,
       alignItems: 'center',

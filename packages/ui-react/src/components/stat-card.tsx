@@ -76,10 +76,15 @@ export interface StatGridProps extends React.HTMLAttributes<HTMLDivElement> {
   cols?: 2 | 3 | 4
 }
 
+// 升列门槛必须 ≥ tablet(768)。本仓 `--breakpoint-sm` 是 **375px**(不是 Tailwind 默认 640),
+// `sm:grid-cols-4` 的实际含义是"手机 375px 就切 4 列":壳内容宽 343、gap-3 三档、Card p-3 两侧 24
+// ⇒ 每格只剩 52.8px,而 text-2xl 读数「999,999」需 92.4px ⇒ 必然折成两行。
+// 一处修复覆盖 StatGrid 全部调用点(发布历史 cols=4 / 发布监控 cols=3 / 模型记录 cols=4)。
+// 2 列档 375 下每格 165px 仍安全,保留 sm。
 const STAT_GRID_COLS: Record<NonNullable<StatGridProps['cols']>, string> = {
   2: 'grid-cols-1 sm:grid-cols-2',
-  3: 'grid-cols-1 sm:grid-cols-3',
-  4: 'grid-cols-2 sm:grid-cols-4',
+  3: 'grid-cols-1 tablet:grid-cols-3',
+  4: 'grid-cols-2 tablet:grid-cols-4',
 }
 
 export function StatGrid({ cols = 4, className, children, ...rest }: StatGridProps) {

@@ -172,7 +172,7 @@ console.log(report.insights)
 - **Browser Extension**: WXT (Manifest V3, bank statement scraping)
 - **Mobile**: React Native (iOS / Android)
 - **CLI**: Node.js + Commander
-- **8-platform coverage**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / CLI
+- **9-platform coverage**: Web / API / AI-Service / Tauri 2 / Taro 4 / WXT extension / React Native / Capacitor 7 / CLI
 - **OCR**: Baidu OCR / Alibaba Cloud OCR
 - **Bank APIs**: 50+ bank aggregation
 - **Blockchain**: AntChain / ZhixinChain / BSN (optional)

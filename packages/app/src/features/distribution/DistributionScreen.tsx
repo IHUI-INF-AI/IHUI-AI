@@ -177,9 +177,9 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
-    // 读数 22px,最坏「¥99999.99」⇒ minWidth 112。
+    // 读数 22px,最坏「¥99,999.99」(10 字符 × 22 × 0.55 = 121px)⇒ minWidth 128。
     earningsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
-    earningsItem: { alignItems: 'center', flex: 1, minWidth: 112 },
+    earningsItem: { alignItems: 'center', flex: 1, minWidth: 128 },
     earningsValue: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     pendingValue: { color: tk.success.DEFAULT },
     earningsLabel: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },

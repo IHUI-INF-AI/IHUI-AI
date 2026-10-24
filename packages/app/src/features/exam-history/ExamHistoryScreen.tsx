@@ -141,7 +141,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: 8,
     },
-    score: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
+    score: { flexShrink: 0, fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT },
     metaTime: { fontSize: 11, color: tk.text.tertiary },
   })
 }

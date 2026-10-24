@@ -307,7 +307,7 @@ export function MonitorCard({ item, onChanged }: { item: MonitorItem; onChanged:
           <Block icon={BarChart3} label={t('blockMetrics')}>
             {metrics ? (
               <>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                <div className="grid grid-cols-1 gap-x-3 gap-y-2 md:grid-cols-2">
                   <Metric label={t('metricsViews')} value={metrics.views} />
                   <Metric label={t('metricsLikes')} value={metrics.likes} />
                   <Metric label={t('metricsComments')} value={metrics.comments} />

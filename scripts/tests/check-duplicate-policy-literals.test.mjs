@@ -77,7 +77,12 @@ describe('render 崩溃回归锁(2026-10 实测 ReferenceError: strict is not de
   })
 
   it('腿二·默认全量档真 CLI:rc 不得是崩溃档,stderr 不得含 is not defined', () => {
-    const p = spawnSync(process.execPath, [GATE], { encoding: 'utf8', windowsHide: true, timeout: 180_000 })
+    const p = spawnSync(process.execPath, [GATE], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 180_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
     assert.equal(p.error, undefined, `CLI 腿自身失败:${p.error?.message}`)
     assert.doesNotMatch(String(p.stderr), /is not defined/, 'render 崩溃回潮(ReferenceError 逃逸到顶层 catch)')
     assert.ok(p.stdout.includes('判定面='), '结论行必须产出(render 正常走完)')
