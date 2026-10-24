@@ -7843,3 +7843,4 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] **G-865 摘掉 `packages/shared/src/constants/external-urls.ts` 里已零消费方的 `DEFAULT_AVATAR_URL` 死键**(它指向恒 502 的 `file.aizhs.top`)〔登记@2026-10-21〕:RN 三处头像兜底已在枚 `bafa2de7790a0361ece9a6333e8ab0dded71f96d` 改走本文件既有 initials 分支,`DeveloperScreen`/`SharedDemoScreen` 素材已改指实测 200 的活 CDN ⇒ 该键在 src 面消费数归 0(按 AGENTS「声明必须有消费者」门 121 与 G-80 先例该摘)。出路 = 删键时**同批**改掉两处仍钉着它的 RN 测试(`tests/__mocks__/ihui-shared.ts` 的 mock 行、`tests/shared-constants-alias-fidelity.test.ts` 那条 fidelity 断言,它们 import 的就是 shared 本体),否则摘键即破用例。
 
+
