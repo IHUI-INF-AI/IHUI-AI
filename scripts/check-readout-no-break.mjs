@@ -43,10 +43,11 @@
  *   node scripts/check-readout-no-break.mjs --self-test
  * 退出码:0 通过 / 1 判出缺口 / 2 未判定(取不到被审面、两面旗同给、常数解析不出)。
  */
-import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const REPO_ROOT = resolve(__dirname, '..')
@@ -247,22 +248,14 @@ export function r8Delta(baselineText, faceText) {
 
 function gitShow(rev, p) {
   try {
-    return execFileSync('git', ['show', `${rev}:${p}`], {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 64 * 1024 * 1024,
-    })
+    return gitRaw(['show', `${rev}:${p}`], REPO_ROOT, { maxBuffer: 64 * 1024 * 1024 })
   } catch {
     return null
   }
 }
 function existsAt(rev, p) {
   try {
-    execFileSync('git', ['cat-file', '-e', `${rev}:${p}`], {
-      cwd: REPO_ROOT,
-      stdio: ['ignore', 'ignore', 'ignore'],
-    })
+    gitRaw(['cat-file', '-e', `${rev}:${p}`], REPO_ROOT)
     return true
   } catch {
     return false
@@ -270,10 +263,7 @@ function existsAt(rev, p) {
 }
 function stagedChanged() {
   try {
-    return execFileSync('git', ['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
+    return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], REPO_ROOT, {
       maxBuffer: 64 * 1024 * 1024,
     })
       .split('\n')
@@ -328,12 +318,7 @@ function readFace(face) {
   }
   const rev = face === 'staged' ? ':!0' : 'HEAD'
   try {
-    return execFileSync('git', ['show', `${rev}:${TARGET_REL}`], {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 64 * 1024 * 1024,
-    })
+    return gitRaw(['show', `${rev}:${TARGET_REL}`], REPO_ROOT, { maxBuffer: 64 * 1024 * 1024 })
   } catch {
     return null
   }
@@ -363,7 +348,6 @@ function selfTest() {
     console.error('❌ 自检拿不到工作区文件 ⇒ 未判定')
     return 2
   }
-  const base = judge(real)
   const cases = [
     ['基准:当前文件应全绿', real, (r) => r.violations.length === 0 && r.unjudged.length === 0],
     [
