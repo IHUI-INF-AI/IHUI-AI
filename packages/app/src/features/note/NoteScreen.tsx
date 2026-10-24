@@ -5,12 +5,12 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, FlatList, RefreshControl, Modal, ActivityIndicator, StyleSheet } from 'react-native'
 import { TextField } from '../../components/TextField'
-import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NoteItem, NoteScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 笔记管理共享屏(含编辑 Modal)— props 注入式跨端组件 */
 export type { NoteItem, NoteScreenProps }
@@ -44,24 +44,21 @@ export function NoteScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.loadingText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error && notes.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity
-          style={styles.retryBtn}
-          onPress={onBack}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <ErrorState
+          message={error}
+          onRetry={onBack}
+          retryLabel={t('common.back')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -93,11 +90,7 @@ export function NoteScreen({
         data={notes}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('note.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('note.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.cardTitle} numberOfLines={1}>
@@ -183,14 +176,6 @@ export function NoteScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.light,
-      paddingHorizontal: 10,
-    },
-    loadingText: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
@@ -217,8 +202,6 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.danger.DEFAULT,
     },
     list: { flex: 1, paddingHorizontal: 10 },
-    empty: { paddingVertical: 40, alignItems: 'center' },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,
@@ -245,13 +228,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.danger.light,
     },
     deleteBtnText: { color: tk.danger.DEFAULT, fontSize: 14 },
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0,0,0,0.5)',

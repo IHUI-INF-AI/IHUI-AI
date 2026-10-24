@@ -10,6 +10,7 @@ import type { CheckInDay, CheckInInfo, CheckInScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 签到/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CheckInDay, CheckInInfo, CheckInScreenProps }
@@ -38,21 +39,17 @@ export function CheckInScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
   }
 
   if (error && !info) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
-          <Text style={styles.retryBtnText}>{t('checkIn.retry')}</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error}
+        onRetry={onRefresh}
+        retryLabel={t('checkIn.retry')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -130,9 +127,7 @@ export function CheckInScreen({
           {error ? <Text style={styles.errorInline}>{error}</Text> : null}
         </>
       ) : (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('checkIn.empty')}</Text>
-        </View>
+        <EmptyState title={t('checkIn.empty')} colorScheme={colorScheme} />
       )}
     </ScrollView>
   )
@@ -141,24 +136,6 @@ export function CheckInScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 14,
-    },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      height: 44,
-      justifyContent: 'center',
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
-    retryBtnText: { color: tk.surface.light, fontSize: 16 },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },

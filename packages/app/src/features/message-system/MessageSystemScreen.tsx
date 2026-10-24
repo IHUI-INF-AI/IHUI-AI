@@ -3,12 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { MessageSystemItem, MessageSystemScreenProps } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 系统消息列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { MessageSystemItem, MessageSystemScreenProps }
@@ -46,39 +47,31 @@ export function MessageSystemScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<MessageSystemItem>
           data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('messageSystem.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('messageSystem.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <PressableCard
               onPress={() => onPressItem(item)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              colorScheme={colorScheme}
+              style={[styles.card, !item.read && styles.unread, { borderWidth: 0 }]}
             >
-              <View style={[styles.card, !item.read && styles.unread]}>
-                <View style={styles.titleRow}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  {!item.read ? <View style={styles.dot} /> : null}
-                </View>
-                <Text style={styles.cardContent} numberOfLines={2}>
-                  {item.content}
+              <View style={styles.titleRow}>
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {item.title}
                 </Text>
-                <Text style={styles.cardTime}>{item.time}</Text>
+                {!item.read ? <View style={styles.dot} /> : null}
               </View>
-            </TouchableOpacity>
+              <Text style={styles.cardContent} numberOfLines={2}>
+                {item.content}
+              </Text>
+              <Text style={styles.cardTime}>{item.time}</Text>
+            </PressableCard>
           )}
         />
       )}
@@ -98,8 +91,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { gap: 10, padding: 10, paddingBottom: 32 },
     card: {
       padding: 12,

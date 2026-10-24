@@ -53,7 +53,7 @@ type Measurable = HTMLElement & {
 
 const mk = (tag: string) =>
   function MockComp(props: { children?: ReactNode; ref?: unknown; [k: string]: unknown }) {
-    const { style, onPress, onChangeText, onSubmitEditing, accessibilityLabel, ref, ...rest } =
+    const { style, onPress, onChangeText, onSubmitEditing, onLongPress, accessibilityLabel, ref, ...rest } =
       props
     /**
      * React 19 把 ref 当普通 prop 传给函数组件,而这里此前直接把它连同 `style` 一起
@@ -88,6 +88,17 @@ const mk = (tag: string) =>
         if (e.key === 'Enter') (onSubmitEditing as () => void)()
       }
     if (typeof accessibilityLabel === 'string') extra['aria-label'] = accessibilityLabel
+    /**
+     * RN 的 onLongPress 在 DOM 侧最近的对应事件是 contextMenu(桌面右键 / 移动长按)。
+     * 不映射则"长按二维码保存到相册"这一类判据在测试里根本点不着 —— 而"这枚二维码真的能长按"
+     * 正是必须量到、不能只写在注释里的能力(RecruitmentScreen / HomeScreen 社群码),
+     * 与上面 onChangeText / accessibilityLabel 同一条规矩:共享替身覆盖真身 API 面,不在各套件各自补。
+     */
+    if (typeof onLongPress === 'function')
+      extra.onContextMenu = (e: { preventDefault: () => void }) => {
+        e.preventDefault()
+        ;(onLongPress as () => void)()
+      }
     return createElement(
       tag,
       { ...rest, ...extra, ref: setRef, onClick: onPress, style: flattenStyle(style) },

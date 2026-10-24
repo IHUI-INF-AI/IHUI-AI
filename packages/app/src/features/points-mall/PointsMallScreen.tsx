@@ -10,6 +10,7 @@ import type { PointsMallItem, PointsMallScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 积分商城/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PointsMallItem, PointsMallScreenProps }
@@ -60,9 +61,7 @@ export function PointsMallScreen({
       ) : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<PointsMallItem>
           data={items}
@@ -71,11 +70,7 @@ export function PointsMallScreen({
           contentContainerStyle={styles.listBody}
           columnWrapperStyle={styles.columnWrapper}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('pointsMall.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('pointsMall.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => {
             const canRedeem = balance >= item.pointsCost && item.stock > 0
             const isRedeeming = redeemingId === item.id
@@ -139,8 +134,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     retryText: { fontSize: 14, color: tk.success.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 32 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     listBody: { padding: 14, paddingBottom: 32 },
     columnWrapper: { justifyContent: 'space-between', marginBottom: 10 },
     card: {

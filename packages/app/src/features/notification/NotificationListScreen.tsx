@@ -8,6 +8,7 @@ import { rnRadius } from '@ihui/design-tokens'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { NotificationCard, createCardStyles } from '../../components/NotificationCard'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import type {
   NotificationListItem,
   NotificationListScreenProps,
@@ -91,20 +92,17 @@ export function NotificationListScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {items.length === 0 ? (
-            <View style={styles.center}>
-              <Text style={styles.muted}>
-                {t(isArchivedView ? 'notificationList.emptyArchived' : 'notificationList.empty')}
-              </Text>
-            </View>
+            <EmptyState
+              title={t(isArchivedView ? 'notificationList.emptyArchived' : 'notificationList.empty')}
+              colorScheme={colorScheme}
+            />
           ) : (
             items.map((item: NotificationListItem) => {
               const st = rowStatus?.[item.id]
@@ -144,8 +142,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
     segment: {
       flexDirection: 'row',

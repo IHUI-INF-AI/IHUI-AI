@@ -16,6 +16,7 @@ import { rnGeometry, rnRadiusFor } from '@ihui/design-tokens'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * ConnectorsScreen — 跨端共享「连接器管理屏」(G-921 第二枚,2026-10-21)。
@@ -120,21 +121,14 @@ export function ConnectorsScreen({
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.solidBtn}
-            onPress={onRetry}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.retry')}
-          >
-            <Text style={styles.solidBtnText}>{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <ScrollView
           style={styles.body}
@@ -142,9 +136,7 @@ export function ConnectorsScreen({
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {items.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.muted}>{t('connectors.empty')}</Text>
-            </View>
+            <EmptyState title={t('connectors.empty')} colorScheme={colorScheme} />
           ) : (
             items.map((item) => {
               const busy = busyKey === item.key
@@ -234,24 +226,8 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-    muted: { fontSize: rnGeometry.textBody, color: tk.text.secondary },
-    errorText: {
-      marginBottom: 12,
-      fontSize: rnGeometry.textBody,
-      color: tk.text.primary,
-      textAlign: 'center',
-    },
-    solidBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: rnRadiusFor.control,
-      backgroundColor: tk.brand.DEFAULT,
-    },
-    solidBtnText: { fontSize: rnGeometry.textBody, color: tk.brand.foreground },
     body: { flex: 1 },
     bodyContent: { padding: 12 },
-    empty: { alignItems: 'center', paddingVertical: 64 },
     card: {
       marginBottom: 12,
       padding: 12,
