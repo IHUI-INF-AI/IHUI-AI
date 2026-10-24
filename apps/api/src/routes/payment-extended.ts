@@ -181,8 +181,14 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.send({ code: 'SUCCESS', message: 'OK' })
       } catch (e) {
         request.log.error({ err: e }, 'withdrawal notify processing failed')
-        // 即使出错也返回 SUCCESS，防止微信重复回调（错误已记录日志）
-        return reply.send({ code: 'SUCCESS', message: 'OK' })
+        // 处理失败必须回 FAIL 让微信按自己的重试曲线重投 —— 与本仓 payment-gateway.ts:729
+        // ("副作用处理失败,待重试")同口径。此前"即使出错也返回 SUCCESS 防止重复回调"把两件事
+        // 混成了一件:重复回调本就由上面的 status 守卫(只认 0/1)挡住,不需要用 SUCCESS 去换;
+        // 代价却是永久的 —— 流水停在 pending/processing、frozen_quantity 永不释放,而全仓
+        // jobs/services/workers 对 withdrawalFlows 零引用,没有任何对账兜底会来补这一步。
+        // 死锁/连接抖动这类瞬时故障因此有了自愈路径;真·持久故障会重试耗尽并留下逐次错误日志,
+        // 仍优于静默吞掉。
+        return reply.code(500).send({ code: 'FAIL', message: '副作用处理失败,待重试' })
       }
     },
   )

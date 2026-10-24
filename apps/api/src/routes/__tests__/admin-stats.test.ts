@@ -36,7 +36,11 @@ vi.mock('../../plugins/require-permission.js', () => ({
     if (!admin) {
       return reply.status(403).send({ code: 403, message: 'Admin required', data: null })
     }
-    request.user = admin
+    // 夹具必须填**生产会填的字段**:requireAdmin 经 authenticate 只写
+    // request.userId / request.jwtPayload;@fastify/jwt 的 request.user 恒为 null
+    // (本仓从不调 jwtVerify),给它赋值等于在测一条生产走不到的路径。
+    request.userId = admin.userId
+    request.jwtPayload = admin
   }),
 }))
 

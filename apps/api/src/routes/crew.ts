@@ -22,15 +22,17 @@
  * - POST /runs/:id/artifacts    手动添加产物
  */
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { crewOrchestrator } from '../services/crew-orchestrator.js'
 import { agentRegistry } from '../services/crew-agent-registry.js'
 import { getModelManager } from '../services/clawdbot/index.js'
+import { requireAuth, isSystemAdmin } from '../plugins/require-permission.js'
 
 const createSessionSchema = z.object({
-  userId: z.string().min(1),
+  /** 客户端自报的 userId 不再参与主体选择(身份唯一出口=令牌主体);保留键位仅为兼容既有调用方。 */
+  userId: z.string().optional(),
   inputMessage: z.string().min(1),
   title: z.string().optional(),
   config: z
@@ -49,8 +51,30 @@ const createArtifactSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
 
-function requireAuthUser(req: { user?: { userId?: string } | null }): string | undefined {
-  return req.user?.userId
+/**
+ * 令牌主体的唯一出口。
+ *
+ * 立因:此前读 req.user —— @fastify/jwt 把该字段 decorateRequest 成 null,而本仓
+ * authenticate() 走 jose 只写 request.userId(全仓对 req.user 零赋值点)⇒ 恒 undefined,
+ * 于是 13 个端点全部退化为"采信客户端自报 userId",等于匿名越权。
+ */
+function requireAuthUser(req: FastifyRequest): string | undefined {
+  return req.userId
+}
+
+/** admin 特权档:只认人用 JWT(internal 通道不得抬升,见 require-permission.ts O13b-③)。 */
+const ADMIN_JWT_ONLY = { includeInternalChannel: false } as const
+
+/**
+ * 会话可达性:属主本人或系统管理员可见,其余一律按「不存在」回应(不留枚举面)。
+ */
+async function accessibleSession(req: FastifyRequest, sessionId: string) {
+  const session = await crewOrchestrator.getSession(sessionId)
+  if (!session) return null
+  const principal = requireAuthUser(req)
+  if (!principal) return null
+  if (session.userId === principal) return session
+  return isSystemAdmin(req, ADMIN_JWT_ONLY) ? session : null
 }
 
 export const crewRoutes: FastifyPluginAsync = async (server) => {
@@ -71,19 +95,19 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /sessions - 创建会话
-  server.post('/sessions', async (req, reply) => {
+  server.post('/sessions', { preHandler: [requireAuth] }, async (req, reply) => {
     const parsed = createSessionSchema.safeParse(req.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const b = parsed.data
     const authUser = requireAuthUser(req)
-    if (!authUser && !b.userId) {
+    if (!authUser) {
       return reply.status(401).send(error(401, '未登录'))
     }
     try {
       const sessionId = await crewOrchestrator.createSession({
-        userId: authUser ?? b.userId,
+        userId: authUser,
         inputMessage: b.inputMessage,
         title: b.title,
         config: b.config,
@@ -96,11 +120,14 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /sessions - 会话列表
-  server.get('/sessions', async (req, reply) => {
+  server.get('/sessions', { preHandler: [requireAuth] }, async (req, reply) => {
     const q = (req.query as { userId?: string; limit?: string }) ?? {}
     const limit = q.limit ? Math.max(1, Math.min(100, Number(q.limit))) : 20
     const authUser = requireAuthUser(req)
-    const userId = q.userId || authUser || ''
+    if (!authUser) return reply.status(401).send(error(401, '未登录'))
+    // 管理员可按 userId 审查(缺省=全量,与既有 admin/crew 页口径一致);
+    // 普通用户只看自己的 —— 客户端参数不再参与主体选择。
+    const userId = isSystemAdmin(req, ADMIN_JWT_ONLY) ? q.userId || '' : authUser
     try {
       const sessions = await crewOrchestrator.listSessions(userId, limit)
       return reply.send(success(sessions))
@@ -111,10 +138,10 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /sessions/:id - 会话详情
-  server.get('/sessions/:id', async (req, reply) => {
+  server.get('/sessions/:id', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = (req.params as { id: string }).id
     try {
-      const session = await crewOrchestrator.getSession(id)
+      const session = await accessibleSession(req, id)
       if (!session) return reply.status(404).send(error(404, '会话不存在'))
       return reply.send(success(session))
     } catch (e) {
@@ -124,9 +151,11 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /sessions/:id/tasks - 会话任务列表
-  server.get('/sessions/:id/tasks', async (req, reply) => {
+  server.get('/sessions/:id/tasks', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = (req.params as { id: string }).id
     try {
+      if (!(await accessibleSession(req, id)))
+        return reply.status(404).send(error(404, '会话不存在'))
       const tasks = await crewOrchestrator.listTasks(id)
       return reply.send(success(tasks))
     } catch (e) {
@@ -136,9 +165,11 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /sessions/:id/messages - 会话消息日志
-  server.get('/sessions/:id/messages', async (req, reply) => {
+  server.get('/sessions/:id/messages', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = (req.params as { id: string }).id
     try {
+      if (!(await accessibleSession(req, id)))
+        return reply.status(404).send(error(404, '会话不存在'))
       const messages = await crewOrchestrator.listMessages(id)
       return reply.send(success(messages))
     } catch (e) {
@@ -148,9 +179,11 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /sessions/:id/runs - 触发同步执行 (runId == sessionId)
-  server.post('/sessions/:id/runs', async (req, reply) => {
+  server.post('/sessions/:id/runs', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = (req.params as { id: string }).id
     try {
+      if (!(await accessibleSession(req, id)))
+        return reply.status(404).send(error(404, '会话不存在'))
       const result = await crewOrchestrator.executeSession(id)
       // G7: 集中扣费(幂等键 crew:<sessionId>,重复执行不重复扣)
       if (result.success && result.usage && result.usage.totalTokens > 0 && result.userId) {
@@ -176,10 +209,10 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /runs/:id - 获取运行状态
-  server.get('/runs/:id', async (req, reply) => {
+  server.get('/runs/:id', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = (req.params as { id: string }).id
     try {
-      const session = await crewOrchestrator.getSession(id)
+      const session = await accessibleSession(req, id)
       if (!session) return reply.status(404).send(error(404, '运行不存在'))
       return reply.send(success({ runId: id, status: session.status, session }))
     } catch (e) {
@@ -189,8 +222,10 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /runs/:id/stream - SSE 流式执行
-  server.get('/runs/:id/stream', async (req, reply) => {
+  server.get('/runs/:id/stream', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = (req.params as { id: string }).id
+    if (!(await accessibleSession(req, id)))
+      return reply.status(404).send(error(404, '会话不存在'))
 
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -248,9 +283,11 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /runs/:id/artifacts - 运行产物列表
-  server.get('/runs/:id/artifacts', async (req, reply) => {
+  server.get('/runs/:id/artifacts', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = (req.params as { id: string }).id
     try {
+      if (!(await accessibleSession(req, id)))
+        return reply.status(404).send(error(404, '会话不存在'))
       const artifacts = await crewOrchestrator.listArtifacts(id)
       return reply.send(success(artifacts))
     } catch (e) {
@@ -260,7 +297,7 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /runs/:id/artifacts - 手动添加产物
-  server.post('/runs/:id/artifacts', async (req, reply) => {
+  server.post('/runs/:id/artifacts', { preHandler: [requireAuth] }, async (req, reply) => {
     const id = (req.params as { id: string }).id
     const parsed = createArtifactSchema.safeParse(req.body)
     if (!parsed.success) {
@@ -268,6 +305,8 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
     }
     const b = parsed.data
     try {
+      if (!(await accessibleSession(req, id)))
+        return reply.status(404).send(error(404, '会话不存在'))
       await crewOrchestrator.saveArtifact(id, b.name, b.type, b.content, b.metadata)
       return reply.send(success({ saved: true }))
     } catch (e) {
