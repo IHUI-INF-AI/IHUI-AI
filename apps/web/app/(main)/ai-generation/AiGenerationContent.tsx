@@ -17,7 +17,6 @@ import { ImageGenQwen } from '@/components/ai-generation/image-gen-qwen'
 import { ImageGenDoubao } from '@/components/ai-generation/image-gen-doubao'
 import { ImageGenJimeng } from '@/components/ai-generation/image-gen-jimeng'
 import { ImageGenAgnes } from '@/components/ai-generation/image-gen-agnes'
-import { ImageGenX5m5x } from '@/components/ai-generation/image-gen-x5m5x'
 import { ImageGenGemini } from '@/components/ai-generation/image-gen-gemini'
 import { ImageGenZhipu } from '@/components/ai-generation/image-gen-zhipu'
 import { ImageGenIdeogram } from '@/components/ai-generation/image-gen-ideogram'
@@ -39,8 +38,6 @@ import { VideoGenSora2 } from '@/components/ai-generation/video-gen-sora2'
 import { VideoGenAgnes } from '@/components/ai-generation/video-gen-agnes'
 import { ChatGenAgnes } from '@/components/ai-generation/chat-gen-agnes'
 import { ChatGenOpenAICompat } from '@/components/ai-generation/chat-gen-openai-compat'
-import { ChatGenX5m5x } from '@/components/ai-generation/chat-gen-x5m5x'
-import { ChatGenX5m5xSubscribe } from '@/components/ai-generation/chat-gen-x5m5x-subscribe'
 import { MusicGenSuno } from '@/components/ai-generation/music-gen-suno'
 import { MusicGenMureka } from '@/components/ai-generation/music-gen-mureka'
 import { MusicGenElevenlabs } from '@/components/ai-generation/music-gen-elevenlabs'
@@ -82,8 +79,6 @@ export function AiGenerationContent({
       if (autoMode === 'code') return <CodeGenerator onGenerate={onGenerateCode} />
       if (autoMode === 'agnes-chat') return <ChatGenAgnes />
       if (autoMode === 'openai-compat') return <ChatGenOpenAICompat />
-      if (autoMode === 'x5m5x') return <ChatGenX5m5x />
-      if (autoMode === 'x5m5x-subscribe') return <ChatGenX5m5xSubscribe />
       return <TextGenerator onGenerate={onGenerateText} />
     case 'image':
       switch (imageMode) {
@@ -107,8 +102,6 @@ export function AiGenerationContent({
           return <ImageGenFreepik />
         case 'agnes':
           return <ImageGenAgnes />
-        case 'x5m5x':
-          return <ImageGenX5m5x />
         case 'edit':
           return <ImageEditQwen />
         default:
