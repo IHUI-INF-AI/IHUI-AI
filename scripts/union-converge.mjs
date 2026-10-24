@@ -558,6 +558,12 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
     let byVerbatimCopies = 0
     let byFold = 0
     const unexplained = []
+    /**
+     * 逐行欠账的**机器可读**副本(G-62 恢复,c18ac45d98 那一版):上面 `unexplained` 是给人读的
+     * 字符串且只列前 5 条,`out.f5Deficit` 是同一批数据的结构化形态 —— `--json` 问责必须能拿到
+     * 全部行、每行欠几份、结果面还剩几份。两者同源(同一 `rest`),不得各算一遍。
+     */
+    const f5Deficit = []
     const verbatimCredited = []
     const foldCredited = []
     const foldUnattested = []
@@ -672,9 +678,19 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
           }
         }
       }
-      if (rest > 0) unexplained.push(`缺 ${rest} 份 :: ${l.slice(0, 70)}`)
+      if (rest > 0) {
+        unexplained.push(`缺 ${rest} 份 :: ${l.slice(0, 70)}`)
+        f5Deficit.push({ line: l.slice(0, 140), short: rest, carried: mm.get(l) || 0 })
+      }
       allowed += wantOcc - haveOcc - rest
     }
+    f5Deficit.sort((a, b) => b.short - a.short)
+    /**
+     * `--json` 可问责(G-62 恢复,c18ac45d98 那一版):欠账名单与"被本侧归档抑制"抵掉的份数
+     * 必须挂在返回值上,调用方不必再从中文红句里回解数字(那正是"猜"的入口)。
+     */
+    out.f5Deficit = f5Deficit
+    out.f5SuppressedCredit = byPlaceholder
     /**
      * 判红条件:总量下降(`noteMax - allowed`)与**逐行欠账**(`unexplained`)任一成立即红。
      * 逐行这一半是 ④ 档的**反向臂**(G-815405 硬要求):`sum(wantOcc) ≥ noteMax` 只在"同一侧对

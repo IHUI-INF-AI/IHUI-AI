@@ -520,7 +520,8 @@
     "home": "ホームへ戻る",
     "pickElement": "要素を選択",
     "picking": "選択中:ページ要素をクリックで選択、もう一度押すと解除",
-    "devtools": "開発者ツール"
+    "devtools": "開発者ツール",
+    "popout": "別ウィンドウで開く"
   },
   "a11y": {
     "previewLoadFailed": "プレビューの読み込みに失敗しました。",

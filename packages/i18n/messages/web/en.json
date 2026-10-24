@@ -520,7 +520,8 @@
     "home": "Go to home page",
     "pickElement": "Pick element",
     "picking": "Picking: click an element to select it; click the button again to cancel",
-    "devtools": "Developer tools"
+    "devtools": "Developer tools",
+    "popout": "Open in a separate window"
   },
   "a11y": {
     "previewLoadFailed": "Preview failed to load.",

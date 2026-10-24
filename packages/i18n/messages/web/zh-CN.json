@@ -520,7 +520,8 @@
     "home": "回到主页",
     "pickElement": "元素点选",
     "picking": "点选进行中,点击页面元素即选中;再点按钮取消",
-    "devtools": "开发者工具"
+    "devtools": "开发者工具",
+    "popout": "在独立窗口中打开"
   },
   "a11y": {
     "previewLoadFailed": "预览加载失败。",
