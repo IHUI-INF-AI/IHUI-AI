@@ -77,6 +77,12 @@
  *  不命中(那等于把"重复落地"这一型重新放开)。面判不出(台账取不到 / 归档件枚举失败 / 有件取不到)
  *  ⇒ exit 2 拒绝落地,**绝不退回窄面发号**。非 `PROJECT_PLAN.md`(AGENTS/README)⇒ 归档件不适用,
  *  面 = 该文档自身,与改动前逐字同形。
+ *  实时占用面再叠**工作树副本**那一维(G-35 形态 B,2026-10-25 主会话裁决采纳):他席未提交的
+ *  手填/令牌登记活在 `PROJECT_PLAN.md` 的工作树副本上,HEAD 宽面看不见 —— 第二发号出口
+ *  (`next-plan-id.mjs` 的 `scanWork`)早就扫了这一面,第一出口没扫 = 两出口同漂。现在 CAS 循环
+ *  每轮把工作树副本读出来交给 `resolveIdTokens`(opts.worktreeText),副本上**独有**的号一并算已占
+ *  (同一把尺 `scanFamilyIdHits`;并集方向:HEAD 宽面已含的号不损,工作树滞后只意味着少补几枚,
+ *  不会倒扣)。读不到 ⇒ 大声警告并退回 HEAD 宽面(与 next-plan-id 同一档,不造新硬闸)。
  *
  *  千段租约(G-916936 机主拍板,2026-10-07 落地):取号前先问"本机段" —— 台账里本机的
  *  `〔千段租约〕` 行(done 形态,主键=段尾号)内还有空闲 ⇒ **段内连号**;没有/段满 ⇒ **新占一段**
@@ -495,6 +501,13 @@ export function idBasisGate({ families = [], remote = null, allowUnaligned = fal
  * G-14 补完(2026-10-23):点名必须**逐枚带位置**(`scanFamilyIdHits`,票面出路①要求"哪个位置出现过"),
  * 且扫描面取不到 ⇒ **拒绝发号**(`id-scan-undetermined`)—— 扫不出号集时按段内空闲序照发,
  * 正是本缺陷的原形。
+ * G-35 形态 B(2026-10-25):opts.worktreeText 给出**工作树副本**正文 ⇒ 副本上独有的号(他席
+ * 手填/令牌已写工作树而未提交的登记)一并算已占 —— 与 next-plan-id 的 scanWork 同一面、同一把尺
+ * (`scanFamilyIdHits` 单源)。并集方向:HEAD 宽面已命中的号保留 HEAD 面证据(不删不减),只补
+ * 工作树多出的;工作树命中的号在明细里标注"工作树副本第 N 行…(未提交)"(行号按工作树文件,
+ * 不标注运维就会照行号去台账核到别人那一行上)。不给(undefined)/给 null(读不到)⇒ 本维缺席,
+ * 退回 HEAD 宽面 —— 警告由调用方在 catch 处带 path 与原因出声(§0.3),本函数不造新硬闸
+ * (失效方向 = 旧面,不得比改前更堵;缺省 undefined 时行为与该档加入前逐字同形,旧调用方零感知)。
  */
 /**
  * G-313 出路①(2026-10-23):插入档新登记行里**手填**的声明位编号(不带取号令牌的行)。
@@ -580,6 +593,21 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       .map((l) => (l.includes(LEASE_MARK) ? '' : l))
       .join('\n')
     const scanned = scanFamilyIdHits(scanText, f)
+    // G-35 形态 B(2026-10-25):工作树副本独有的号一并算已占 —— 同一把尺 scanFamilyIdHits,
+    // 不在本器抄第二份正则(§22c)。HEAD 面已命中的号保留 HEAD 证据(并集方向,不删不减);
+    // 工作树命中带 fromWorktree 标注 ⇒ 明细打印时点明来源面(行号按工作树文件)。
+    // 租约行同样先剔(预留位不是实占,与 HEAD 面同一口径)。
+    if (typeof opts?.worktreeText === 'string') {
+      const wtScan = scanFamilyIdHits(
+        opts.worktreeText
+          .split('\n')
+          .map((l) => (l.includes(LEASE_MARK) ? '' : l))
+          .join('\n'),
+        f,
+      )
+      if (wtScan)
+        for (const [n, rec] of wtScan) if (!scanned.has(n)) scanned.set(n, { ...rec, fromWorktree: true })
+    }
     // 扫不出号集(入参不是文本 / 族名取不出)⇒ 判「未判定」并拒绝发号,绝不按段内空闲序照发。
     // G-313 ①:仅手填族(本批无该族令牌)扫不出 ⇒ 行原样保留、不发号也不拒落(本票不为"判不出"造恒挡)。
     if (scanned === null) {
@@ -605,7 +633,7 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
       rawFree.push(n)
       const hit = scanned.get(n)
       if (!hit) return true
-      skipped.push({ id: lbl(n), sites: hit.sites })
+      skipped.push({ id: lbl(n), sites: hit.sites, fromWorktree: hit.fromWorktree === true })
       return false
     }
     let freeList
@@ -672,10 +700,15 @@ export function resolveIdTokens(lines, baseContent, remote = null, opts = {}) {
     if (rep.skipped.length === 0) continue
     const labels = rep.skipped.map((s) => s.id)
     scanNotes.push(
-      `G-14 全文件扫描:候选号 ${labels.join(', ')} 已在台账/归档件里出现过(别席已占,或只活在归档占位注释/正文引用里)⇒ 跳过换下一个`,
+      `G-14 全文件扫描:候选号 ${labels.join(', ')} 已在台账/归档件/工作树副本里出现过(别席已占,或只活在归档占位注释/正文引用/未提交副本里)⇒ 跳过换下一个`,
     )
     for (const s of rep.skipped) {
-      const shown = s.sites.slice(0, 3).map((x) => `第 ${x.line} 行「${x.snippet}」`)
+      // 工作树命中的行号是工作树文件的 ⇒ 必须点明来源面,否则运维照行号去台账核会核到别人那一行上。
+      const shown = s.sites
+        .slice(0, 3)
+        .map((x) =>
+          s.fromWorktree ? `工作树副本第 ${x.line} 行「${x.snippet}」(未提交)` : `第 ${x.line} 行「${x.snippet}」`,
+        )
       const more = s.sites.length > shown.length ? ` 等 ${s.sites.length} 处` : ''
       scanNotes.push(
         `G-14 全文件扫描:跳过 ${s.id} —— 命中 ${s.sites.length} 处:${shown.join('、')}${more};候选顺延取下一枚`,
@@ -2145,10 +2178,24 @@ async function main() {
     // 就是本次不许再发出去的那个号(判据 ①)。形状仍走 usedIdsOfPrefix 的同一份 template,不另立定义。
     const vacating =
       replacements && families.length ? vacatedIdsOf(replacements, baseContent, families) : []
+    // G-35 形态 B(2026-10-25):发号前把**工作树副本**的号也并进实时占用面 —— 他席未提交的
+    // 手填/令牌登记活在那一侧,HEAD 宽面看不见(与 next-plan-id 的 scanWork 同一面同一把尺;
+    // 并集方向:HEAD 已含的号不损,工作树滞后只意味着"少补几枚",不会倒扣)。读不到 ⇒
+    // 大声警告并退回 HEAD 宽面(与 next-plan-id 同一档,点名 path 与原因,不造新硬闸)。
+    let worktreeText = null
+    try {
+      worktreeText = readFileSync(resolve(root, doc), 'utf8')
+    } catch (e) {
+      console.error(
+        `⚠️ 工作树副本 ${doc} 读不到(${String(e?.message ?? e).split(/\r?\n/)[0].slice(0, 120)}) ⇒ ` +
+          `本轮实时占用面退回 HEAD 宽面,他席未提交的登记不在这一轮尺子里`,
+      )
+    }
     const tok = resolveIdTokens(targetLines, baseContent, remote, {
       machineId,
       vacating,
       manualCheck: !replacements,
+      worktreeText,
     })
     if (!tok.ok) {
       if (tok.reason === 'duplicate-title') {
