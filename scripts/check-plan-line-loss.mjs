@@ -1361,7 +1361,8 @@ export function translateIds(text, map, { bareIds = null } = {}) {
  */
 export function bodyKeyOf(text) {
   return String(text ?? '')
-    .replace(/^\s*-\s*\[[ xX]\]\s*/, '')
+    .replace(/^\s*[-*]\s*/, '')
+    .replace(/^\[[ xX]\]\s*/, '')
     .replace(/^\s*（[^）]*）\s*/, '')
     .replace(/^\s*〔[^〕]*〕\s*/, '')
     .replace(/〔旧号[^〕]*〕/g, '')
@@ -1392,7 +1393,7 @@ export function missingFrom(seen, targetSrc, archived = archivedCopy, declared =
   // 换号/标头增删都不影响,**正文真被吞掉仍会点名**。映射折算于是只服务于 message 还原,
   // 不再决定判活(映射文件每轮重排都会重写,拿它当判活尺子会把历史旧号折算成不存在的号)。
   const liveBodies = map
-    ? [...target.matchAll(/^\s*-\s*\[[ xX]\][^\n]*/gm)].map((m) => bodyKeyOf(m[0])).filter(Boolean)
+    ? [...target.matchAll(/^\s*[-*]\s[^\n]*/gm)].map((m) => bodyKeyOf(m[0])).filter(Boolean)
     : null
   // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"
   const lost = resolveRegistrationLoss(entries, target, declared)
@@ -1402,8 +1403,10 @@ export function missingFrom(seen, targetSrc, archived = archivedCopy, declared =
     .filter((v) => {
       if (!liveBodies) return true
       const mk = bodyKeyOf(v.marker)
-      // 短边 ≥6 字才认(再短就是"任一行都像",那种匹配等于把门关掉)
-      if (mk.length < 6) return true
+      // 抹号后只剩标点(如 `G-64~G-71` 这种**号段**标记)⇒ 这一枚无法判活:号段在全量重排后
+      // 逐个换成新号并加了 `〔旧号段,见快照〕`,按题面比必然找不到。短边 <6 字一律不判,
+      // 也不把"没判"写成"判过"(§0.3)—— 号段本身可从映射文件核对。
+      if (mk.replace(/[^\p{L}\p{N}]/gu, '').length < 6) return false
       return !liveBodies.some((k) => k.length >= 6 && (k.startsWith(mk) || mk.startsWith(k)))
     })
     .map((v) => (back.has(v.marker) ? { ...v, marker: back.get(v.marker) } : v))
