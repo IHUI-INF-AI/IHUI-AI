@@ -520,7 +520,8 @@
     "home": "홈으로 이동",
     "pickElement": "요소 선택",
     "picking": "선택 중:페이지 요소를 클릭하면 선택, 다시 누르면 취소",
-    "devtools": "개발자 도구"
+    "devtools": "개발자 도구",
+    "popout": "별도 창에서 열기"
   },
   "a11y": {
     "previewLoadFailed": "미리 보기를 로드하지 못했습니다.",
