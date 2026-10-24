@@ -34,7 +34,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { execFileSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = join(HERE, '..')
@@ -82,11 +82,7 @@ function faceList(face, dirPrefix) {
       ? ['ls-files', '-c', '--', dirPrefix]
       : ['ls-tree', '-r', '--name-only', 'HEAD', '--', dirPrefix]
   try {
-    return execFileSync('git', ['-C', ROOT, ...args], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      maxBuffer: 64 * 1024 * 1024,
-    })
+    return gitRaw(args, ROOT, { maxBuffer: 64 * 1024 * 1024 })
       .split('\n')
       .map((s) => s.trim().replace(/\\/g, '/'))
       .filter(Boolean)
@@ -108,11 +104,7 @@ function faceRead(face, rel) {
   }
   const spec = face === 'staged' ? `:${key}` : `HEAD:${key}`
   try {
-    return execFileSync('git', ['-C', ROOT, 'show', spec], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      maxBuffer: 64 * 1024 * 1024,
-    })
+    return gitRaw(['show', spec], ROOT, { maxBuffer: 64 * 1024 * 1024 })
   } catch {
     return null
   }
@@ -213,10 +205,7 @@ function rnConsumes(rn, sharedName) {
  */
 function gitGrep(pattern, pathspec) {
   try {
-    return execFileSync('git', ['-C', ROOT, 'grep', '-n', '-E', pattern, 'HEAD', '--', pathspec], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
+    return gitRaw(['grep', '-n', '-E', pattern, 'HEAD', '--', pathspec], ROOT)
   } catch {
     return ''
   }

@@ -23,15 +23,17 @@
  * 状态文件:.ihui-agent/state/index-unmerged-state.json(存 firstSeen + key)。
  */
 
-import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { gitRaw } from './lib/face-reader.mjs'
+
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 // 禁 process.cwd() 定根(§15):由脚本自身位置推导。本尺子判的是「此刻 index 的 unmerged
-// 元数据」与自身状态文件(机器状态),不判仓库内容面,故不挂 face-reader 取材层
+// 元数据」与自身状态文件(机器状态),不判仓库内容面,故不用 face-reader 的判面读取出口;
+// 但 git 派生仍走层的 `gitRaw`(绝对路径 git + stdio 接管),满足「裸 git 派生只减不增」棘轮
 // (门 118 头注钦定出路:判的不是仓库内容 ⇒ 不以仓库锚点形态读文件)。
 const REPO_TOP = join(SCRIPT_DIR, '..')
 const STATE_DIR = join(REPO_TOP, '.ihui-agent', 'state')
@@ -81,14 +83,10 @@ export function classifyUnmerged({ paths, state, now, staleMin = DEFAULT_STALE_M
 
 function runGitLsUnmerged() {
   try {
-    // §12g:派生 git 必须显式接管 stdio(本机不写稳定 EBUSY)。
-    const out = execFileSync('git', ['ls-files', '-u', '-z'], {
-      cwd: REPO_TOP,
-      encoding: 'utf8',
-      windowsHide: true,
+    // §12g:派生 git 必须显式接管 stdio(本机不写稳定 EBUSY);层 `gitRaw` 已统一接管。
+    const out = gitRaw(['ls-files', '-u', '-z'], REPO_TOP, {
       timeout: 30_000,
       maxBuffer: 1 << 22,
-      stdio: ['ignore', 'pipe', 'pipe'],
     })
     return { ok: true, raw: String(out ?? '') }
   } catch (e) {
