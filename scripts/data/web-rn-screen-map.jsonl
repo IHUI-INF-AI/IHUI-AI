@@ -1,0 +1,143 @@
+{"web":"admin/**","status":"excluded","reason":"管理后台(332 页),App/小程序不承载;RN 屏面现读无任何 Admin* 屏","at":"2026-10-24"}
+{"web":"sso/**","status":"excluded","reason":"OAuth 中转壳页;RN/desktop 走 ihui://sso/callback 深链,不是屏(AGENTS §9)","at":"2026-10-24"}
+{"web":"compare/**","status":"excluded","reason":"SEO 营销对比落地页(ihui-vs-XXX 共 37 页);App 不承载营销落地页,VipCompareScreen 是会员价格对比、非本段","at":"2026-10-24"}
+{"web":"settings","rn":"packages/app/src/features/security-settings/SecuritySettingsScreen.tsx","status":"aligned","note":"web securityCenter ↔ RN securitySettings 键空间双侧确认","at":"2026-10-24"}
+{"web":"settings/notifications","rn":"packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx","status":"aligned","note":"notificationSettings 键空间双侧直配","at":"2026-10-24"}
+{"web":"settings/account-deletion","rn":"packages/app/src/features/account-cancel/AccountCancelScreen.tsx","status":"aligned","note":"注销账户语义双侧确认(accountDeletionWarning ↔ AccountCancel)","at":"2026-10-24"}
+{"web":"member/addresses","rn":"apps/mobile-rn/src/screens/AddressesScreen.tsx","status":"aligned","note":"收货地址管理(AddressForm city/detailAddress ↔ AddressesScreen)","at":"2026-10-24"}
+{"web":"member/coupons","rn":"packages/app/src/features/coupon/CouponScreen.tsx","status":"aligned","note":"优惠券(discount 键 ↔ coupon 键空间)","at":"2026-10-24"}
+{"web":"user/fans","rn":"packages/app/src/features/user-fans/UserFansScreen.tsx","status":"aligned","note":"粉丝页(follow/anonymous ↔ userFans 键空间)","at":"2026-10-24"}
+{"web":"wallet","rn":"packages/app/src/features/wallet/WalletScreen.tsx","status":"aligned","note":"钱包(title/balance ↔ WalletScreen)","at":"2026-10-24"}
+{"web":"wallet/withdraw","rn":"packages/app/src/features/withdraw/WithdrawScreen.tsx","status":"aligned","note":"提现,钱包族名字直配","at":"2026-10-24"}
+{"web":"chat/templates","rn":"apps/mobile-rn/src/screens/ChatTemplatesScreen.tsx","status":"aligned","note":"对话模板,名字直配、语义单一","at":"2026-10-24"}
+{"web":"chat","rn":"packages/app/src/features/chat/ChatScreen.tsx","status":"aligned","note":"web /chat 是全局 AI 面板快捷入口(复用 home 工作区+docked AISidePanel);RN 独立 ChatScreen 承载对话,功能等价、形态平台化","at":"2026-10-24"}
+{"web":"user/profile","rn":"packages/app/src/features/profile-edit/ProfileEditScreen.tsx","status":"aligned","note":"web ProfileEditForm/AvatarCropper/ChangePhoneModal 编辑套件 ↔ RN ProfileEditScreen","at":"2026-10-24"}
+{"web":"member/benefits","rn":"packages/app/src/features/vip-benefit/VipBenefitScreen.tsx","status":"aligned","note":"web 会员等级权益列表(levelName/benefits/Crown)↔ RN VipBenefitScreen","at":"2026-10-24"}
+{"web":"member/favorites","rn":"packages/app/src/features/favorites/FavoritesScreen.tsx","status":"aligned","note":"我的收藏;RN 存在 favorite/FavoritesScreen 同义双实现(title 均为「我的收藏」),按路由段名选复数份,单数份冗余收口另票","at":"2026-10-24"}
+{"web":"user/follow","rn":"packages/app/src/features/following/FollowingScreen.tsx","status":"aligned","note":"web 我的关注 ↔ RN FollowingScreen(我的关注);FollowScreen 是「关注与粉丝」合并页,语义不同","at":"2026-10-24"}
+{"web":"edu/exam","rn":"packages/app/src/features/exam/ExamScreen.tsx","status":"aligned","note":"考试列表(backToList/duration ↔ exam:12)","at":"2026-10-24"}
+{"web":"edu/exam/[id]","rn":"packages/app/src/features/exam-question/ExamQuestionScreen.tsx","status":"aligned","note":"答题页(notExists/duration ↔ examQuestion:7)","at":"2026-10-24"}
+{"web":"edu/exam/[id]/result","rn":"packages/app/src/features/exam-result/ExamResultScreen.tsx","status":"aligned","note":"成绩页(totalScore ↔ examResult:8)","at":"2026-10-24"}
+{"web":"edu/courses/[id]","rn":"packages/app/src/features/course-detail/CourseDetailScreen.tsx","status":"aligned","note":"课程详情(backToDetail/notes ↔ courseDetail:10)","at":"2026-10-24"}
+{"web":"edu/courses/[id]/learn","rn":"packages/app/src/features/course-chapter/CourseChapterScreen.tsx","status":"aligned","note":"章节学习(courseChapter 键 + 名字直配)","at":"2026-10-24"}
+{"web":"edu/qa","rn":"packages/app/src/features/course-qa-list/CourseQAListScreen.tsx","status":"aligned","note":"课程问答(askPlaceholder/askBtn ↔ courseQAList:5)","at":"2026-10-24"}
+{"web":"edu/certificates","rn":"packages/app/src/features/cert-list/CertListScreen.tsx","status":"aligned","note":"证书列表,名字直配(certList:4)","at":"2026-10-24"}
+{"web":"edu/certificates/[id]","rn":"packages/app/src/features/cert-detail/CertDetailScreen.tsx","status":"aligned","note":"证书详情,名字直配(certDetail:9)","at":"2026-10-24"}
+{"web":"edu/notes","rn":"packages/app/src/features/note-list/NoteListScreen.tsx","status":"aligned","note":"笔记列表(noteList 键 + 名字直配;RN 另有 Note/Detail/Create 三件套)","at":"2026-10-24"}
+{"web":"edu/progress","rn":"packages/app/src/features/study-progress/StudyProgressScreen.tsx","status":"aligned","note":"学习进度(weeklyHours/categoryProgress ↔ studyProgress:7)","at":"2026-10-24"}
+{"web":"learn/[id]","rn":"packages/app/src/features/course-detail/CourseDetailScreen.tsx","status":"aligned","note":"web backToCourse ↔ courseDetail:10;与 edu/courses/[id] 同屏双承载(courses 已并入 learn canonical)","at":"2026-10-24"}
+{"web":"learn/[id]/homework","rn":"apps/mobile-rn/src/screens/LearnReviewScreen.tsx","status":"aligned","note":"submitBtn/status ↔ learnReview:29","at":"2026-10-24"}
+{"web":"learn/[id]/rate","rn":"packages/app/src/features/course-comment/CourseCommentScreen.tsx","status":"aligned","note":"课程评价(backToCourse ↔ courseComment)","at":"2026-10-24"}
+{"web":"learn/map","rn":"apps/mobile-rn/src/screens/LearnMapScreen.tsx","status":"aligned","note":"totalProgress ↔ learnMap:14(RN 端内层)","at":"2026-10-24"}
+{"web":"learn/review","rn":"apps/mobile-rn/src/screens/LearnReviewScreen.tsx","status":"aligned","note":"statDue ↔ learnReview:29;与 homework 同屏双承载,待复验拆分","at":"2026-10-24"}
+{"web":"learn/payment/confirm","rn":"packages/app/src/features/payment/PaymentScreen.tsx","status":"aligned","note":"fields/actions ↔ payment:12","at":"2026-10-24"}
+{"web":"member/feedback","rn":"packages/app/src/features/feedback/FeedbackScreen.tsx","status":"aligned","note":"typeBug/typeSuggestion ↔ feedback:15","at":"2026-10-24"}
+{"web":"member/history","rn":"packages/app/src/features/history/HistoryScreen.tsx","status":"aligned","note":"浏览历史,名字直配(history:9)","at":"2026-10-24"}
+{"web":"member/help","rn":"packages/app/src/features/help/HelpScreen.tsx","status":"aligned","note":"帮助,名字直配(help:2)","at":"2026-10-24"}
+{"web":"member/exam/record","rn":"packages/app/src/features/exam-history/ExamHistoryScreen.tsx","status":"aligned","note":"detail/table ↔ examHistory:4","at":"2026-10-24"}
+{"web":"member/subscription","rn":"packages/app/src/features/subscriptions/SubscriptionsScreen.tsx","status":"aligned","note":"noSubscription ↔ subscriptions:3","at":"2026-10-24"}
+{"web":"user/articles","rn":"apps/mobile-rn/src/screens/UserArticlesScreen.tsx","status":"aligned","note":"statusDraft/deleteSuccess ↔ userArticles:9","at":"2026-10-24"}
+{"web":"user/ask","rn":"packages/app/src/features/ask-list/AskListScreen.tsx","status":"aligned","note":"askList:4 + 名字直配","at":"2026-10-24"}
+{"web":"user/circle","rn":"packages/app/src/features/circle-member/CircleMemberScreen.tsx","status":"aligned","note":"circleMember:2 + 名字直配","at":"2026-10-24"}
+{"web":"user/security","rn":"packages/app/src/features/change-phone/ChangePhoneScreen.tsx","status":"aligned","note":"web 换手机页(newPhonePlaceholder/sendCode)↔ RN ChangePhoneScreen","at":"2026-10-24"}
+{"web":"user/subscription","rn":"packages/app/src/features/subscriptions/SubscriptionsScreen.tsx","status":"aligned","note":"subscription:32 ↔ subscriptions:3;与 member/subscription 同屏双承载","at":"2026-10-24"}
+{"web":"user/qr-code","rn":"packages/app/src/features/qr-code/QrCodeScreen.tsx","status":"aligned","note":"二维码,名字直配","at":"2026-10-24"}
+{"web":"edu/dashboard","rn":"packages/app/src/features/study-index/StudyIndexScreen.tsx","status":"aligned","note":"stats/coursesCard/examsCard ↔ 学习首页;RN 侧键证据不足,按功能语义直配登记(中置信)","at":"2026-10-24"}
+{"web":"settings/api-keys","rn":"apps/mobile-rn/src/screens/ApiKeysScreen.tsx","status":"aligned","note":"修正轮 10 误判:RN 端内层已有 508 行全功能屏(列表/创建/删除/usage);当时只对照了 ApiSettingsScreen(Coze 配置)漏了同名屏。残余小缺口=web 有 POST /keys/:id/reset 轮换而 RN 无,后续补","at":"2026-10-24"}
+{"web":"settings/activity","rn":"packages/app/src/features/activity/ActivityScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(eventLogin/Logout ↔ activity:6)","at":"2026-10-24"}
+{"web":"settings/connected-accounts","rn":"packages/app/src/features/connected-accounts/ConnectedAccountsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(unbind ↔ connectedAccounts:17)","at":"2026-10-24"}
+{"web":"settings/data-rights","rn":"apps/mobile-rn/src/screens/DataRightsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(downloadJson ↔ dataRights:45)","at":"2026-10-24"}
+{"web":"settings/icp-record","rn":"packages/app/src/features/icp-record/IcpRecordScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(icpRecord* ↔ icpRecord)","at":"2026-10-24"}
+{"web":"settings/privacy","rn":"packages/app/src/features/privacy/PrivacyScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(privacySave ↔ privacy:8)","at":"2026-10-24"}
+{"web":"settings/usage","rn":"packages/app/src/features/usage/UsageScreen.tsx","status":"aligned","note":"同名直配;web 页无 t 键,settings 域+名字双吻合","at":"2026-10-24"}
+{"web":"about","rn":"packages/app/src/features/about/AboutScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(hero* ↔ about:16)","at":"2026-10-24"}
+{"web":"account-pool","rn":"packages/app/src/features/account-pool/AccountPoolScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(checkinSuccess ↔ accountPool:13)","at":"2026-10-24"}
+{"web":"agreement","rn":"packages/app/src/features/agreement/AgreementScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(version/effectiveDate ↔ agreement*)","at":"2026-10-24"}
+{"web":"ai-world","rn":"packages/app/src/features/ai-world/AiWorldScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(toastCreated ↔ aiWorld:11)","at":"2026-10-24"}
+{"web":"automations","rn":"packages/app/src/features/automations/AutomationsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(schedule ↔ automations:13)","at":"2026-10-24"}
+{"web":"certificate","rn":"packages/app/src/features/certificate/CertificateScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(certNo/download ↔ certificate:7);与 edu/certificates(CertListScreen)是两套证书体系","at":"2026-10-24"}
+{"web":"connectors","rn":"packages/app/src/features/connectors/ConnectorsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(syncFailed ↔ connectors:17)","at":"2026-10-24"}
+{"web":"context","rn":"packages/app/src/features/context/ContextScreen.tsx","status":"aligned","note":"同名直配;web 页无 t 键,域单一(上下文管理)","at":"2026-10-24"}
+{"web":"deep-research","rn":"apps/mobile-rn/src/screens/DeepResearchScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(sourceTier ↔ deepResearch:23)","at":"2026-10-24"}
+{"web":"distribution","rn":"packages/app/src/features/distribution/DistributionScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(colStatus ↔ distribution:15)","at":"2026-10-24"}
+{"web":"exam","rn":"packages/app/src/features/exam/ExamScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(exam:12);与 edu/exam 同屏双承载","at":"2026-10-24"}
+{"web":"favorites","rn":"packages/app/src/features/favorites/FavoritesScreen.tsx","status":"aligned","note":"同名+键(favorites:2);与 member/favorites 同屏双承载","at":"2026-10-24"}
+{"web":"feedback","rn":"packages/app/src/features/feedback/FeedbackScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(unsupportedImage ↔ feedback:15);与 member/feedback 同屏双承载","at":"2026-10-24"}
+{"web":"following","rn":"packages/app/src/features/following/FollowingScreen.tsx","status":"aligned","note":"同名+键(following:3);与 user/follow 同屏双承载","at":"2026-10-24"}
+{"web":"groups","rn":"apps/mobile-rn/src/screens/GroupsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(groupName ↔ groups:25)","at":"2026-10-24"}
+{"web":"help","rn":"packages/app/src/features/help/HelpScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(searchPlaceholder ↔ help:2);与 member/help 同屏双承载","at":"2026-10-24"}
+{"web":"home","rn":"packages/app/src/features/home/HomeScreen.tsx","status":"aligned","note":"同名直配(home:8);web 工作区首页 ↔ RN 首页","at":"2026-10-24"}
+{"web":"knowledge-base","rn":"packages/app/src/features/knowledge-base/KnowledgeBaseScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(metaTitle ↔ knowledgeBase:8)","at":"2026-10-24"}
+{"web":"live","rn":"packages/app/src/features/live/LiveScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(liveNow/upcoming ↔ live:5)","at":"2026-10-24"}
+{"web":"login","rn":"packages/app/src/features/login/LoginScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(web 登录页 ↔ RN auth:65)","at":"2026-10-24"}
+{"web":"mcp-store","rn":"packages/app/src/features/mcp-store/McpStoreScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(installing ↔ mcpStore:16)","at":"2026-10-24"}
+{"web":"memory","rn":"packages/app/src/features/memory/MemoryScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(autoMemory* ↔ memory:19)","at":"2026-10-24"}
+{"web":"payment","rn":"packages/app/src/features/payment/PaymentScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(checkout ↔ payment:12);与 learn/payment/confirm 同屏双承载","at":"2026-10-24"}
+{"web":"points","rn":"packages/app/src/features/points/PointsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(pointsUnit ↔ points:32)","at":"2026-10-24"}
+{"web":"ranking","rn":"packages/app/src/features/ranking/RankingScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(col ↔ ranking:8)","at":"2026-10-24"}
+{"web":"search","rn":"packages/app/src/features/search/SearchScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(tabs ↔ search:3)","at":"2026-10-24"}
+{"web":"subscriptions","rn":"packages/app/src/features/subscriptions/SubscriptionsScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(subscriptions:3);与 member/user subscription 同屏多承载","at":"2026-10-24"}
+{"web":"vip","rn":"packages/app/src/features/vip/VipScreen.tsx","status":"aligned","note":"同名直配+键空间双确认(durationDays ↔ vip:12);member/benefits 对的是 VipBenefitScreen(权益),本条是 VIP 主页","at":"2026-10-24"}
+{"web":"agent-runtime","rn":"apps/mobile-rn/src/screens/AgentRuntimeScreen.tsx","status":"aligned","note":"同名+域(最近1小时运行时 ↔ 取消会话确认;智能体运行时会话)","at":"2026-10-24"}
+{"web":"invoices","rn":"apps/mobile-rn/src/screens/InvoicesScreen.tsx","status":"aligned","note":"标题双侧逐字相等「发票管理」","at":"2026-10-24"}
+{"web":"knowledge-rag","rn":"apps/mobile-rn/src/screens/KnowledgeRagScreen.tsx","status":"aligned","note":"同名+域(RAG 库管理,RN 复用 knowledgeBase 键)","at":"2026-10-24"}
+{"web":"patrol","rn":"apps/mobile-rn/src/screens/PatrolScreen.tsx","status":"aligned","note":"同名+RN 语义单一(新建巡检任务)","at":"2026-10-24"}
+{"web":"purchase","rn":"apps/mobile-rn/src/screens/PurchaseScreen.tsx","status":"aligned","note":"购买(购买 API 订阅与额度 ↔ purchase.title)","at":"2026-10-24"}
+{"web":"repo-wiki","rn":"apps/mobile-rn/src/screens/RepoWikiScreen.tsx","status":"aligned","note":"同名+域(deleteConfirm ↔ 请输入仓库名)","at":"2026-10-24"}
+{"web":"resources","rn":"apps/mobile-rn/src/screens/ResourcesScreen.tsx","status":"aligned","note":"同名+RN 语义(简介);web 动态路由套壳","at":"2026-10-24"}
+{"web":"self-healing","rn":"apps/mobile-rn/src/screens/SelfHealingScreen.tsx","status":"aligned","note":"同名+RN 语义单一(验证自愈引擎)","at":"2026-10-24"}
+{"web":"subagents","rn":"apps/mobile-rn/src/screens/SubagentsScreen.tsx","status":"aligned","note":"同名+域(派单取消;web 动态路由并入)","at":"2026-10-24"}
+{"web":"team-knowledge","rn":"apps/mobile-rn/src/screens/TeamKnowledgeScreen.tsx","status":"aligned","note":"同名+域(团队知识空间)","at":"2026-10-24"}
+{"web":"team-memory","rn":"apps/mobile-rn/src/screens/TeamMemoryScreen.tsx","status":"aligned","note":"同名+域(团队记忆)","at":"2026-10-24"}
+{"web":"tools/voice-stt","rn":"apps/mobile-rn/src/screens/VoiceSttScreen.tsx","status":"aligned","note":"强吻合(语音转写失败 ↔ 语音转文字)","at":"2026-10-24"}
+{"web":"workspace","rn":"apps/mobile-rn/src/screens/WorkspaceScreen.tsx","status":"aligned","note":"同名+域(项目名称;web 动态路由套壳)","at":"2026-10-24"}
+{"web":"developer","rn":"packages/app/src/features/developer/DeveloperScreen.tsx","status":"aligned","note":"同名+域(调用概览/BYOK/relay ↔ developerInfo);61 控制台入口页","at":"2026-10-24"}
+{"web":"image-gen","rn":"apps/mobile-rn/src/screens/ImageGenCreateScreen.tsx","status":"aligned","note":"键空间双确认(RN title=图像生成)","at":"2026-10-24"}
+{"web":"image-gen/gallery","rn":"packages/app/src/features/image-gen-gallery/ImageGenGalleryScreen.tsx","status":"aligned","note":"键空间双确认(公开画廊)","at":"2026-10-24"}
+{"web":"image-gen/history","rn":"packages/app/src/features/image-gen-history/ImageGenHistoryScreen.tsx","status":"aligned","note":"3 词直配(RN 复用 imageGen 键族)","at":"2026-10-24"}
+{"web":"image-gen/templates","rn":"packages/app/src/features/image-gen-templates/ImageGenTemplatesScreen.tsx","status":"aligned","note":"键空间双确认(提示词模板)","at":"2026-10-24"}
+{"web":"publish","rn":"packages/app/src/features/publish/PublishScreen.tsx","status":"aligned","note":"键空间双确认(accounts 概览 ↔ publish.title=内容发布)","at":"2026-10-24"}
+{"web":"publish/accounts","rn":"apps/mobile-rn/src/screens/PublishAccountsScreen.tsx","status":"aligned","note":"键空间双确认(accounts:28 ↔ publishAccounts:30)","at":"2026-10-24"}
+{"web":"publish/analytics","rn":"apps/mobile-rn/src/screens/PublishAnalyticsScreen.tsx","status":"aligned","note":"键空间双确认(发布数据)","at":"2026-10-24"}
+{"web":"publish/calendar","rn":"apps/mobile-rn/src/screens/PublishCalendarScreen.tsx","status":"aligned","note":"键空间双确认(发布日历)","at":"2026-10-24"}
+{"web":"publish/new","rn":"apps/mobile-rn/src/screens/PublishNewScreen.tsx","status":"aligned","note":"键空间双确认(new:9 ↔ publishNew:30)","at":"2026-10-24"}
+{"web":"tools/pdf","rn":"apps/mobile-rn/src/screens/PdfToolsScreen.tsx","status":"aligned","note":"键空间双确认(PDF 工具 ↔ 文档转 Markdown)","at":"2026-10-24"}
+{"web":"articles/hot","rn":"apps/mobile-rn/src/screens/ArticleHotScreen.tsx","status":"aligned","note":"键空间双确认(hotTitle ↔ title=热门文章)","at":"2026-10-24"}
+{"web":"wallet/recharge/fail","rn":"packages/app/src/features/topup-fail/TopupFailScreen.tsx","status":"aligned","note":"语义直配(rechargeFail ↔ TopupFail 充值失败);RN 键仅 common,中置信","at":"2026-10-24"}
+{"web":"wallet/recharge/success","rn":"packages/app/src/features/topup-success/TopupSuccessScreen.tsx","status":"aligned","note":"语义直配(rechargeSuccess ↔ TopupSuccess);中置信","at":"2026-10-24"}
+{"web":"distribution/company","rn":"apps/mobile-rn/src/screens/DistributionCompanyScreen.tsx","status":"aligned","note":"键空间双确认(dayEarnings ↔ 分销中心)","at":"2026-10-24"}
+{"web":"distribution/referrer","rn":"packages/app/src/features/referrer/ReferrerScreen.tsx","status":"aligned","note":"键空间双确认(bindSuccess ↔ referrer:8)","at":"2026-10-24"}
+{"web":"agents/categories","rn":"apps/mobile-rn/src/screens/AgentCategoriesScreen.tsx","status":"aligned","note":"键空间双确认(智能体分类)","at":"2026-10-24"}
+{"web":"agents/create","rn":"packages/app/src/features/agent-create/AgentCreateScreen.tsx","status":"aligned","note":"键空间双确认(createTitle/nameRequired ↔ agentCreate:13)","at":"2026-10-24"}
+{"web":"knowledge-base/edit","rn":"apps/mobile-rn/src/screens/KnowledgeBaseEditScreen.tsx","status":"aligned","note":"键空间双确认(titleRequired ↔ knowledgeBaseEdit:27)","at":"2026-10-24"}
+{"web":"ai-world/create","rn":"apps/mobile-rn/src/screens/AiWorldCreateScreen.tsx","status":"aligned","note":"键空间双确认(toastCreated 双侧同键)","at":"2026-10-24"}
+{"web":"student/my-articles","rn":"apps/mobile-rn/src/screens/UserArticlesScreen.tsx","status":"aligned","note":"学生视角复用;web loading/empty ↔ userArticles:9【我的文章】","at":"2026-10-24"}
+{"web":"student/my-asks","rn":"packages/app/src/features/ask-list/AskListScreen.tsx","status":"aligned","note":"学生我的提问 ↔ 提问列表(askList:4),中高置信","at":"2026-10-24"}
+{"web":"student/my-circles","rn":"packages/app/src/features/circle-member/CircleMemberScreen.tsx","status":"aligned","note":"学生我的圈子 ↔ circleMember,中置信","at":"2026-10-24"}
+{"web":"student/papers","rn":"apps/mobile-rn/src/screens/MyPapersScreen.tsx","status":"aligned","note":"键空间双确认(paperTitleField/deleteConfirm ↔ myPapers:17)","at":"2026-10-24"}
+{"web":"student/wrong-book","rn":"packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx","status":"aligned","note":"键空间双确认(wrongBookTitle ↔ 错题本 wrongQuestions:20)","at":"2026-10-24"}
+{"web":"student/notes","rn":"packages/app/src/features/note-list/NoteListScreen.tsx","status":"aligned","note":"键空间双确认(contentField ↔ noteList);与 edu/notes 同屏双承载","at":"2026-10-24"}
+{"web":"student/certificates","rn":"packages/app/src/features/cert-list/CertListScreen.tsx","status":"aligned","note":"键空间双确认(myCertsTitle ↔ certList);与 edu/certificates 同屏双承载","at":"2026-10-24"}
+{"web":"agents/stats","rn":"packages/app/src/features/agent-stat/AgentStatScreen.tsx","status":"aligned","note":"名字直配 stats↔Stat(agentStat:5)","at":"2026-10-24"}
+{"web":"agents","rn":"packages/app/src/features/agent-screen/AgentScreen.tsx","status":"aligned","note":"键空间双确认(free/marketTab/mineTab 双 Tab ↔ agentScreen)","at":"2026-10-24"}
+{"web":"agents/[id]","rn":"packages/app/src/features/agent-detail/AgentDetailScreen.tsx","status":"aligned","note":"键空间双确认(agentDetail:8,详情直配)","at":"2026-10-24"}
+{"web":"asks","rn":"packages/app/src/features/ask-list/AskListScreen.tsx","status":"aligned","note":"键空间双确认(required/loading ↔ askList);与 student/my-asks 同屏双承载","at":"2026-10-24"}
+{"web":"models/keys","rn":"apps/mobile-rn/src/screens/ApiKeysScreen.tsx","status":"aligned","note":"models 网关密钥 ↔ API 密钥屏(apiKeys:42);与 settings/api-keys 疑似同能力不同入口,中置信","at":"2026-10-24"}
+{"web":"agents/featured","rn":"packages/app/src/features/agent-market/AgentMarketScreen.tsx","status":"aligned","note":"Featured↔Market 精选/市场,中置信(agentMarket:6)","at":"2026-10-24"}
+{"web":"distribution/withdraw","rn":"packages/app/src/features/withdraw/WithdrawScreen.tsx","status":"aligned","note":"分销提现 ↔ 提现屏;与 wallet/withdraw 同屏双承载,中置信(分销/钱包走不同后端待复验)","at":"2026-10-24"}
+{"web":"distribution/team","rn":"packages/app/src/features/team/TeamScreen.tsx","status":"aligned","note":"分销团队 ↔ 我的团队(team:12),域吻合","at":"2026-10-24"}
+{"web":"spec/[id]","rn":"packages/app/src/features/spec/SpecScreen.tsx","status":"aligned","note":"规范详情;与 spec 同屏双承载","at":"2026-10-24"}
+{"web":"spec/generate","rn":"packages/app/src/features/spec/SpecScreen.tsx","status":"aligned","note":"规范生成;与 spec 同屏双承载","at":"2026-10-24"}
+{"web":"user/exam","rn":"packages/app/src/features/exam/ExamScreen.tsx","status":"aligned","note":"我的考试 ↔ 考试屏(exam:12);与 edu/exam 同屏多承载,中置信","at":"2026-10-24"}
+{"web":"settings/preferences","status":"excluded","reason":"web 桌面界面偏好(侧栏折叠/本地缓存清理,无后端 API);App 无侧栏形态,不适用","at":"2026-10-24"}
+{"web":"developer/keys","status":"excluded","reason":"legacy redirect 壳(web 端重定向到 /developer/relay/keys);功能归并于目标路由","at":"2026-10-24"}
+{"web":"article","status":"excluded","reason":"redirect 壳(web 现读重定向到 /articles);功能由目标路由承载","at":"2026-10-24"}
+{"web":"ask","status":"excluded","reason":"redirect 壳(web 现读重定向到 /asks);功能由目标路由承载","at":"2026-10-24"}
+{"web":"download","status":"excluded","reason":"redirect 壳(web 现读重定向到 /download/desktop);功能由目标路由承载","at":"2026-10-24"}
+{"web":"edu","status":"excluded","reason":"redirect 壳(web 现读重定向到 /edu/dashboard);功能由目标路由承载","at":"2026-10-24"}
+{"web":"edu-ai","status":"excluded","reason":"redirect 壳(web 现读重定向到 /edu-ai/certification);功能由目标路由承载","at":"2026-10-24"}
+{"web":"member","status":"excluded","reason":"redirect 壳(web 现读重定向到 /member/dashboard);功能由目标路由承载","at":"2026-10-24"}
+{"web":"messages","status":"excluded","reason":"redirect 壳(web 现读重定向到 /messages/notice);功能由目标路由承载","at":"2026-10-24"}
+{"web":"share","status":"excluded","reason":"redirect 壳(web 现读重定向到 /);功能由目标路由承载","at":"2026-10-24"}
+{"web":"skills","status":"excluded","reason":"redirect 壳(web 现读重定向到 /skills/market);功能由目标路由承载","at":"2026-10-24"}
+{"web":"user","status":"excluded","reason":"redirect 壳(web 现读重定向到 /user/profile);功能由目标路由承载","at":"2026-10-24"}
