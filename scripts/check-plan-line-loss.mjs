@@ -705,7 +705,16 @@ export function lostMarkers(baselineSrc, candidateSrc, declared = new Set()) {
  *
  * `to === 0` 的那一族(整个编号从面上消失)归 `lostMarkers` 判,**不在本维重复计债** ——
  * 两把尺子互相顶名额是本仓最贵的一类事故(见 resolveRegistrationLoss 头注)。
- * 只给判据,取值与放行由调用方(staged 档)做;全量/人工档不接(见 foldedFaceNote)。
+ * 只给判据,取值与放行由调用方(`runCheck` 的 staged 分支)做;全量/人工档**不接**本维 ——
+ * 旁路落地不跑钩子而它正是同号多行的主要生产者,挂上去就是把与本次提交无关的存量钉红(§12e)。
+ *
+ * ⚠️ 真拿本维落地一次归并时,**摘除要落两次**(2026-10-24 两轮对照实测,不是推理):
+ *   旁路落地器(`object-space-land` / `live-doc-edit`)在 CAS 成功后**立刻**补跑
+ *   `check-plan-line-loss --heal --commit` 当 post-commit 第 6 段的替身,而 §1 明令留痕必须排在
+ *   落地成功之后(先写后落会把"面上还在"说成"已删")⇒ 首轮摘除被自愈按历史面原样插回
+ *   (摘除 `e0df0b1edf` ⇒ 同一分钟 `df16afe6b4` 逐字回捞同一行);台账就位后同样内容再落一次才保持住
+ *   (`c1259a82800`,那一轮三档均报缺 0 条)。器物侧的正解是"跑自愈之前先按本票**显式声明**的
+ *   removed 写台账",而绝不得把行差集自动写成"已声明摘除" —— 那等于替旧基线吞行发免死牌。
  */
 export function foldedSlots(baselineSrc, candidateSrc) {
   const base = registrationSlots(baselineSrc)
