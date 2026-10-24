@@ -594,7 +594,9 @@
       "hasbuy": "구매 완료",
       "monthly": "매월"
     },
-    "recharge": "충전하기"
+    "recharge": "충전하기",
+    "confirm": "결제 확인",
+    "later": "나중에"
   },
   "order": {
     "title": "주문",
@@ -870,7 +872,12 @@
     },
     "voicePlay": "음성 재생",
     "voicePause": "음성 일시정지",
-    "actionRunA11y": "동작 실행: {label}"
+    "actionRunA11y": "동작 실행: {label}",
+    "toolRunning": "실행 중…",
+    "toolOk": "성공",
+    "toolFail": "실패",
+    "diffCollapse": "스트림 diff 접기",
+    "diffExpand": "스트림 diff 펼치기"
   },
   "settings": {
     "title": "설정",
@@ -1842,7 +1849,10 @@
     "sales": "{count}개 판매됨",
     "loadFailed": "유통 불러오기 실패",
     "withdrawFailed": "출금 실패",
-    "withdrawSuccess": "출금 완료"
+    "withdrawSuccess": "출금 완료",
+    "unsettled": "정산 대기",
+    "refunded": "환불됨",
+    "unknown": "알 수 없음"
   },
   "earnCommission": {
     "title": "커미션 플랜",
@@ -3314,7 +3324,10 @@
     "joinedAt": "가입 시간",
     "contact": "연락",
     "viewOrders": "주문 보기",
-    "empty": "멤버 정보가 없습니다"
+    "empty": "멤버 정보가 없습니다",
+    "loadFail": "불러오기 실패, 재시도",
+    "noPhone": "이 멤버는 번호 미등록",
+    "callFail": "통화 불가, 단말 확인"
   },
   "vip": {
     "benefitList": {
@@ -3766,7 +3779,9 @@
       "order": "주문",
       "social": "소셜",
       "system": "시스템"
-    }
+    },
+    "conversationFallback": "대화",
+    "searchPh": "대화·연락처 검색"
   },
   "messageDirect": {
     "empty": "쪽지가 없습니다",
@@ -4252,7 +4267,10 @@
     "knowledgePlanet": "지식 플래닛"
   },
   "knowledgePlanet": {
-    "title": "지식 플래닛"
+    "title": "지식 플래닛",
+    "newOfficial": "공지",
+    "newCommunity": "커뮤니티",
+    "enter": "플래닛 입장"
   },
   "knowledgeRag": {
     "title": "RAG 지식 베이스",
@@ -4796,7 +4814,11 @@
     "resend": "재전송",
     "confirm": "확인",
     "closeA11y": "인증 코드 대화상자 닫기",
-    "inputA11y": "인증 코드 입력"
+    "inputA11y": "인증 코드 입력",
+    "noPhoneBound": "휴대폰 미연결",
+    "bindFirst": "먼저 휴대폰 번호를 바인딩하세요",
+    "phoneOk": "휴대폰 확인 완료",
+    "codeWrong": "코도 오류, 재시도"
   },
   "patrol": {
     "title": "순찰",
@@ -5234,5 +5256,77 @@
   },
   "fenlei": {
     "closeOverlay": "분류 시트 닫기"
+  },
+  "llmSettings": {
+    "title": "모델 공급자",
+    "empty": "구성된 공급자 없음",
+    "emptyDesc": "오른쪽 상단 마법사로 4단계 설정",
+    "enabled": "활성화됨",
+    "disabled": "비활성화됨"
+  },
+  "byok": {
+    "fab": "빠른 설정",
+    "title": "설정 마법사",
+    "step1Title": "공급자 선택",
+    "step2Title": "API 키 입력",
+    "step3Title": "키 검증",
+    "step4Title": "완료",
+    "keyPlaceholder": "API 키 붙여넣기(sk-…)",
+    "showKey": "키 표시",
+    "hideKey": "키 숨기기",
+    "verify": "검증",
+    "next": "다음",
+    "activate": "활성화",
+    "verifyIdle": "검증 대기",
+    "verifying": "검증 중…",
+    "verifySuccess": "검증 성공",
+    "verifyFailed": "검증 실패",
+    "doneTitle": "설정 완료",
+    "doneDesc": "공급자가 생성되고 수익 배분이 활성화되었습니다"
+  },
+  "pay": {
+    "alipayNotOpen": "알리페이는 일시 미지원, 위챗 페이를 사용하세요"
+  },
+  "popularCourses": {
+    "tabHotIntro": "인기 입문",
+    "tabHotPick": "인기 추천",
+    "lessonsCount": "· {n}강의",
+    "enrolled": "{n}명 학습 중"
+  },
+  "modelConfig": {
+    "framesUnit": "{n}프레임",
+    "inputPrefix": "{desc} 입력"
+  },
+  "bottomPopup": {
+    "selectLevel": "{name} 선택",
+    "payA11y": "결제 창 닫기"
+  },
+  "purchaseNotice": {
+    "title": "커미션 획득",
+    "subtitle": "프로모션 참여로 추가 수입",
+    "cta": "멤버십 활성화",
+    "closeA11y": "창 닫기"
+  },
+  "eduShop": {
+    "title": "교육 스토어",
+    "courses": "강좌 상품",
+    "orders": "내 주문",
+    "free": "무료",
+    "buy": "구매",
+    "lessons": "{n}강",
+    "loadMore": "더 불러오기",
+    "emptyCourses": "판매 중인 강좌 없음",
+    "emptyOrders": "주문 없음",
+    "cancelOrder": "주문 취소",
+    "cancelConfirmTitle": "주문 취소",
+    "cancelConfirmDesc": "이 주문을 취소하시겠습니까?",
+    "orderCreated": "주문이 생성되었습니다",
+    "status": {
+      "pending": "결제 대기",
+      "paid": "결제 완료",
+      "cancelled": "취소됨",
+      "completed": "완료",
+      "refunded": "환불됨"
+    }
   }
 }

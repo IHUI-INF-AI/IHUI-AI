@@ -594,7 +594,9 @@
       "hasbuy": "Purchased",
       "monthly": "Monthly"
     },
-    "recharge": "Top up"
+    "recharge": "Top up",
+    "confirm": "Confirm payment",
+    "later": "Not now"
   },
   "order": {
     "title": "Orders",
@@ -870,7 +872,12 @@
     },
     "voicePlay": "Play voice",
     "voicePause": "Pause voice",
-    "actionRunA11y": "Run action: {label}"
+    "actionRunA11y": "Run action: {label}",
+    "toolRunning": "Running…",
+    "toolOk": "OK",
+    "toolFail": "Failed",
+    "diffCollapse": "Collapse streaming diff",
+    "diffExpand": "Expand streaming diff"
   },
   "settings": {
     "title": "Settings",
@@ -1842,7 +1849,10 @@
     "sales": "{count} sold",
     "loadFailed": "Failed to load distribution",
     "withdrawFailed": "Withdrawal failed",
-    "withdrawSuccess": "Withdrawal successful"
+    "withdrawSuccess": "Withdrawal successful",
+    "unsettled": "Unsettled",
+    "refunded": "Refunded",
+    "unknown": "Unknown"
   },
   "earnCommission": {
     "title": "Commission Program",
@@ -3314,7 +3324,10 @@
     "joinedAt": "Joined",
     "contact": "Contact",
     "viewOrders": "View Orders",
-    "empty": "No member info"
+    "empty": "No member info",
+    "loadFail": "Load failed. Retry.",
+    "noPhone": "No phone provided by this member",
+    "callFail": "Cannot dial. Check device."
   },
   "vip": {
     "benefitList": {
@@ -3766,7 +3779,9 @@
       "order": "Order",
       "social": "Social",
       "system": "System"
-    }
+    },
+    "conversationFallback": "Chat",
+    "searchPh": "Search chats, contacts, services"
   },
   "messageDirect": {
     "empty": "No direct messages",
@@ -4296,7 +4311,10 @@
     "knowledgePlanet": "Knowledge Planet"
   },
   "knowledgePlanet": {
-    "title": "Knowledge Planet"
+    "title": "Knowledge Planet",
+    "newOfficial": "Official",
+    "newCommunity": "Community",
+    "enter": "Enter planet"
   },
   "knowledgeRag": {
     "title": "RAG Knowledge Base",
@@ -4796,7 +4814,11 @@
     "resend": "Resend",
     "confirm": "Confirm",
     "closeA11y": "Close verification dialog",
-    "inputA11y": "Verification code input"
+    "inputA11y": "Verification code input",
+    "noPhoneBound": "No phone bound",
+    "bindFirst": "Bind your phone before verifying",
+    "phoneOk": "Phone verified",
+    "codeWrong": "Wrong code. Retry."
   },
   "patrol": {
     "title": "Proactive Patrol",
@@ -5234,5 +5256,77 @@
   },
   "fenlei": {
     "closeOverlay": "Close category sheet"
+  },
+  "llmSettings": {
+    "title": "Model Providers",
+    "empty": "No providers configured",
+    "emptyDesc": "Tap the wizard to set up an API key in 4 steps",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "byok": {
+    "fab": "Quick setup",
+    "title": "Setup Wizard",
+    "step1Title": "Choose a provider",
+    "step2Title": "Enter API key",
+    "step3Title": "Verify key",
+    "step4Title": "Done",
+    "keyPlaceholder": "Paste API key (sk-…)",
+    "showKey": "Show key",
+    "hideKey": "Hide key",
+    "verify": "Verify",
+    "next": "Next",
+    "activate": "Activate",
+    "verifyIdle": "Pending verification",
+    "verifying": "Verifying…",
+    "verifySuccess": "Verified",
+    "verifyFailed": "Verification failed",
+    "doneTitle": "All set",
+    "doneDesc": "Provider created and revenue share activated"
+  },
+  "pay": {
+    "alipayNotOpen": "Alipay is not available yet. Please use WeChat Pay."
+  },
+  "popularCourses": {
+    "tabHotIntro": "Popular intro",
+    "tabHotPick": "Popular picks",
+    "lessonsCount": "· {n} lessons",
+    "enrolled": "{n} learning"
+  },
+  "modelConfig": {
+    "framesUnit": "{n} frames",
+    "inputPrefix": "Enter {desc}"
+  },
+  "bottomPopup": {
+    "selectLevel": "Select {name}",
+    "payA11y": "Close payment sheet"
+  },
+  "purchaseNotice": {
+    "title": "Earn commission",
+    "subtitle": "Join our promotion plan for extra income",
+    "cta": "Activate membership",
+    "closeA11y": "Close dialog"
+  },
+  "eduShop": {
+    "title": "Edu Store",
+    "courses": "Courses",
+    "orders": "My Orders",
+    "free": "Free",
+    "buy": "Buy",
+    "lessons": "{n} lessons",
+    "loadMore": "Load more",
+    "emptyCourses": "No courses on sale",
+    "emptyOrders": "No orders yet",
+    "cancelOrder": "Cancel order",
+    "cancelConfirmTitle": "Cancel order",
+    "cancelConfirmDesc": "Cancel this order?",
+    "orderCreated": "Order created",
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "refunded": "Refunded"
+    }
   }
 }
