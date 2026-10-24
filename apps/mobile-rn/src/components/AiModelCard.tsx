@@ -78,11 +78,11 @@ export interface AiModelCardProps {
 }
 
 const USER_TYPE_LABEL: Record<AiModelUserType, string> = {
-  freevip: '会员免费',
-  freeuse: '免费使用',
-  freetime: '限时免费',
-  hasbuy: '已购买',
-  buymonth: '包月',
+  freevip: 'aiCard.tFreeVip',
+  freeuse: 'aiCard.tFreeUse',
+  freetime: 'aiCard.tFreeLimit',
+  hasbuy: 'aiCard.tBought',
+  buymonth: 'aiCard.tMonth',
   none: '',
 }
 
@@ -92,11 +92,11 @@ const GROUP_ACTIONS: Array<{
   glyph: LucideIcon
   label: string
 }> = [
-  { key: 'warning', glyph: AlertTriangle, label: '警告' },
-  { key: 'dislike', glyph: ThumbsDown, label: '踩' },
-  { key: 'favorite', glyph: Bookmark, label: '收藏' },
-  { key: 'info', glyph: Info, label: '信息' },
-  { key: 'share', glyph: Share2, label: '分享' },
+  { key: 'warning', glyph: AlertTriangle, label: t('aiCard.btnWarn') },
+  { key: 'dislike', glyph: ThumbsDown, label: t('aiCard.btnDislike') },
+  { key: 'favorite', glyph: Bookmark, label: t('aiCard.btnFav') },
+  { key: 'info', glyph: Info, label: t('aiCard.btnInfo') },
+  { key: 'share', glyph: Share2, label: t('aiCard.btnShare') },
 ]
 
 export default function AiModelCard({
@@ -212,7 +212,7 @@ export default function AiModelCard({
               <Text style={styles.groupLogoText}>{t('modelPlaza.officialBadge')}</Text>
             </View>
             <Text style={styles.groupFooterText} numberOfLines={1}>
-              {(data.authorName as string | undefined) ?? '智汇社区-官方'}
+              {(data.authorName as string | undefined) ?? t('aiCard.officialFallback')}
             </Text>
           </View>
           <View style={styles.groupFooterRight}>
@@ -281,8 +281,8 @@ export default function AiModelCard({
           {payid !== undefined ? <Text style={styles.detailText}>关联订单号：{payid}</Text> : null}
           {startTime || endTime ? (
             <Text style={styles.detailText}>
-              购买时间：{startTime ?? '-'}
-              {endTime ? `　到期时间：${endTime}` : ''}
+              {t('aiCard.buyTime', { t0: startTime ?? '-' })}
+              {endTime ? t('aiCard.expireTime', { t1: endTime }) : ''}
             </Text>
           ) : null}
           {money !== undefined ? (

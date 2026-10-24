@@ -20,39 +20,51 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /** VIP 操盘手价格(分),对齐 SharedVipTraderScreen TRADER_PRICE ¥9980 */
 const TRADER_PRICE_CENTS = 998000
-const TRADER_PRODUCT_NAME = 'VIP 操盘手'
+const TRADER_PRODUCT_NAME_KEY = 'viptrader.productName'
 
 function formatYuan(n: number): string {
   return `¥${n.toLocaleString()}`
 }
 
-function buildStats(o: CommissionOverview, invite?: InviteInfo): VipTraderStat[] {
+function buildStats(
+  o: CommissionOverview,
+  invite: InviteInfo | undefined,
+  t: (k: string, v?: Record<string, unknown>) => string,
+): VipTraderStat[] {
   const base: VipTraderStat[] = [
-    { label: '团队人数', value: String(o.invitedCount), trend: `活跃 ${o.activeCount}` },
-    { label: '累计佣金', value: formatYuan(o.totalCommission), trend: `排名 #${o.rank}` },
     {
-      label: '本月收益',
-      value: formatYuan(o.availableCommission),
-      trend: `已提现 ${formatYuan(o.withdrawnCommission)}`,
+      label: t('viptrader.teamCount'),
+      value: String(o.invitedCount),
+      trend: t('viptrader.activeTrend', { n: o.activeCount }),
     },
     {
-      label: '待结算',
+      label: t('viptrader.totalCommission'),
+      value: formatYuan(o.totalCommission),
+      trend: t('viptrader.rankTrend', { n: o.rank }),
+    },
+    {
+      label: t('viptrader.monthIncome'),
+      value: formatYuan(o.availableCommission),
+      trend: t('viptrader.withdrawnTrend', { v: formatYuan(o.withdrawnCommission) }),
+    },
+    {
+      label: t('viptrader.pendingIncome'),
       value: formatYuan(o.pendingCommission),
-      trend: `冻结 ${formatYuan(o.frozenCommission)}`,
+      trend: t('viptrader.frozenTrend', { v: formatYuan(o.frozenCommission) }),
     },
   ]
   // 邀请码 / 佣金比例 / 分销等级(对齐 Uniapp trader 页邀请信息展示)
   if (invite) {
     base.push(
       {
-        label: '我的邀请码',
+        label: t('viptrader.myInviteCode'),
         value: invite.inviteCode || '—',
-        trend: `已邀请 ${invite.inviteCount} 人`,
+        trend: t('viptrader.invitedTrend', { n: invite.inviteCount }),
       },
       {
-        label: '分销等级',
+        label: t('viptrader.distLevel'),
         value: invite.level || '—',
-        trend: `佣金比例 ${invite.commissionRate}%`,
+        trend: t('viptrader.rateTrend', { n: invite.commissionRate }),
       },
     )
   }
@@ -84,7 +96,7 @@ export default function VipTraderScreen() {
         inviteInfo = inviteRes.value.data
       }
       if (overviewRes.status === 'fulfilled' && overviewRes.value.success) {
-        setStats(buildStats(overviewRes.value.data, inviteInfo))
+        setStats(buildStats(overviewRes.value.data, inviteInfo, t))
       } else {
         setStats(
           inviteInfo
@@ -144,8 +156,8 @@ export default function VipTraderScreen() {
 
   const onConfirmPurchase = useCallback(() => {
     setConfirmVisible(false)
-    void pay(TRADER_PRICE_CENTS, TRADER_PRODUCT_NAME)
-  }, [pay])
+    void pay(TRADER_PRICE_CENTS, t(TRADER_PRODUCT_NAME_KEY))
+  }, [pay, t])
 
   return (
     <>
@@ -165,7 +177,7 @@ export default function VipTraderScreen() {
         visible={confirmVisible}
         title={t('vipTrader.title')}
         message={t('vipTrader.heroDesc', { price: '9,980', power: '1600W' })}
-        product={{ name: TRADER_PRODUCT_NAME, price: 9980, icon: Medal }}
+        product={{ name: t(TRADER_PRODUCT_NAME_KEY), price: 9980, icon: Medal }}
         onCancel={() => setConfirmVisible(false)}
         onConfirm={onConfirmPurchase}
         loading={paying}

@@ -66,12 +66,12 @@ const RANK_GOLD_TEXT = tokens.surface.light
 
 /** 模型类型分组标题(对齐 Uniapp ModelList.vue type 0-5) */
 const MODEL_TYPE_TITLES: Readonly<Record<number, string>> = {
-  0: '全能',
-  1: '对话',
-  2: '图片',
-  3: '视频',
-  4: '音频',
-  5: '数字人',
+  0: 'model.type0',
+  1: 'model.type1',
+  2: 'model.type2',
+  3: 'model.type3',
+  4: 'model.type4',
+  5: 'model.type5',
 }
 
 /** 单个模型条目 */
@@ -131,13 +131,13 @@ export interface ModelListProps {
   style?: StyleProp<ViewStyle>
 }
 
-function resolveTitle(group: ModelListGroup): string {
+function resolveTitle(group: ModelListGroup, t: (k: string) => string): string {
   if (group.title) return group.title
   if (group.type !== undefined && group.type !== null) {
-    const typed = MODEL_TYPE_TITLES[group.type]
+    const typed = t(MODEL_TYPE_TITLES[group.type])
     if (typed) return typed
   }
-  return group.vendor ?? '其他'
+  return group.vendor ?? 'model.catOther'
 }
 
 function EmptyState(): React.ReactElement {
@@ -258,7 +258,7 @@ function AgentModeRow({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel="Agent模式"
+      accessibilityLabel={t('model.agentMode')}
     >
       <View style={styles.iconWrap}>
         {/* Agent 行 logo 位的字形墨迹档:两端共用同一档(小程序端 LineIcon bot 同取该档 ×
@@ -268,7 +268,7 @@ function AgentModeRow({
         <Bot size={MODEL_LIST_AGENT_GLYPH_PX} color={tokens.text.secondary} />
       </View>
       <View style={styles.body}>
-        <Text style={styles.name}>Agent模式</Text>
+        <Text style={styles.name}>{t('model.agentMode')}</Text>
       </View>
       {selected ? <Check /> : null}
     </TouchableOpacity>
@@ -294,7 +294,7 @@ export default function ModelList({
     .filter((g) => g.models.length > 0)
     .map((g) => {
       const models = [...g.models].sort((a, b) => (b.isTop ? 1 : 0) - (a.isTop ? 1 : 0))
-      return { title: resolveTitle(g), data: models }
+      return { title: resolveTitle(g, t), data: models }
     })
 
   const handlePress = (id: string): void => {
