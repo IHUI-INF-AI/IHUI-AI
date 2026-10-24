@@ -42,6 +42,7 @@ import {
   parseTaskRows,
 } from './lib/plan-task-index.mjs'
 import { readFieldsFace, readPlan } from './plan-tasks.mjs'
+import { flagValue } from './lib/flag-value.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const MAX_LEN = 400
@@ -365,8 +366,10 @@ function main() {
   const p = planAll({ root: ROOT, face })
   const code = reportPlan(p, { limit: batch, showSkip: has('--dry-run') })
   if (code !== 0 || !has('--emit')) return code
-  const jsonPath = argv[argv.indexOf('--emit') + 1]
-  if (!jsonPath || jsonPath.startsWith('--')) {
+  // --emit 取值走 G-322 单源:紧邻 token 是旗标/结尾无值/空串一律算无效(与旧校验同语义,
+  // 值被旗标顶掉时不再经 startsWith 分支,统一按"没给合法值"点名)。
+  const jsonPath = flagValue(argv, '--emit').valid ? flagValue(argv, '--emit').value : null
+  if (!jsonPath) {
     console.log('❌ 用法错 —— --emit 需要紧跟一个 json 路径')
     return 2
   }
