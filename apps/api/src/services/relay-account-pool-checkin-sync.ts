@@ -443,6 +443,15 @@ export async function retryPendingCheckinSyncs(
       continue
     }
     const meta = parseCheckinSyncMeta(row.extraMetadata)
+    // 号池已停用行的 cred 类 pending:凭证不再补推,也不占重推位(2026-10-24 立,幽灵票
+    // 349 次连败的收口腿)—— 重新启用时由 reconcile 的 missing/version_behind 判据接回。
+    // state 类绝不随停用清腿:它是"把停用/删除态同步给签到侧"这一动作本身的载体,
+    // 清了就永远同步不上(reconcile 侧同一分支只挡"签到无引用"的格,两腿语义不串)。
+    if (!row.isEnabled && meta.pendingKind !== 'state') {
+      await clearCheckinSyncPending([row.id])
+      out.cleared++
+      continue
+    }
     out.retried++
     if (meta.pendingKind === 'state') {
       const state = meta.state ?? 'enabled'
