@@ -5438,6 +5438,34 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 读数零分母 / 定时器句柄覆盖(2026-10-25 立;支付轮询僵尸 + 看板 NaN% 上屏)(1 项,blocking)---
+  {
+    id: '244',
+    label:
+      '⏱️ 读数分母与定时器句柄卫生(blocking;D1 `<ref>.current = setInterval(` 前既无字面 clearInterval、也无一跳可验的具名停止函数 ⇒ 绝对零容忍 / D2 `A / B.length` 无 B 的零守卫 ⇒ 差值棘轮,存量现读 0)',
+    script: 'check-readout-and-timer-hygiene.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/', 'packages/'],
+    skipEnv: 'HUSKY_SKIP_READOUT_AND_TIMER_HYGIENE',
+    onFailHint: [
+      '',
+      '  💡 立因(两处均本枚实测修掉):',
+      "     D1 checkout/PageClient 两个组件 `pollRef.current = setInterval(...)` 起新前不停旧 ⇒ 旧句柄丢失,",
+      '        旧轮询带旧订单号继续跑(他人付款成功时再弹 toast 并 router.push);重生成二维码即多一只僵尸。',
+      "     D2 admin/i18n-dashboard `sum / d.languages.length` 而 EMPTY 的 languages=[] ⇒ 首屏与接口失败时",
+      "        明写「平均完成度 NaN%」(该读数渲染在 isLoading 分支之前);同仓 crew/skill-stats 都有守卫。",
+      '     修法:D1 起新前先 clearInterval(同一句柄)或交统一 stop();D2 分母为零时如实给 null/"—",',
+      '           别只加 Math.max(1,…) 把 NaN 换成假数,也不许用 0 冒充读数。',
+      '     合法形态不收:循环体内除法(基数为 0 时根本不执行)、字面量非空数组常量(离除法最近的同名绑定)。',
+      '     单独复验:node scripts/check-readout-and-timer-hygiene.mjs --staged',
+      '     自检:node scripts/check-readout-and-timer-hygiene.mjs --self-test(20 例,豁免各有成对反向锁)',
+      '     镜像:node scripts/tests/check-readout-and-timer-hygiene.test.mjs(判据 import 门体 __test__)',
+      '     紧急跳过(不推荐):HUSKY_SKIP_READOUT_AND_TIMER_HYGIENE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 额度守卫写入的影响行 / 回调吞失败(2026-10-25 立;积分兑换超卖 + 提现黑洞)(1 项,blocking)---
   {
     id: '243',
@@ -5461,7 +5489,7 @@ const checks = [
       '           G2 失败改 reply.code(500).send({code:\'FAIL\', message:\'副作用处理失败,待重试\'})。',
       '     合法形态不收:单调推进(lt(lastMessageAt))与范围删除(gt(createdAt))的 0 行本就是正解。',
       '     单独复验:node scripts/check-guarded-write-affected.mjs --staged',
-      '     自检:node scripts/check-guarded-write-affected.mjs --self-test(13 例,G1/G2/G3 各有成对反向锁)',
+      '     自检:node scripts/check-guarded-write-affected.mjs --self-test(24 例,G1/G2/G3/G4 各有成对反向锁)',
       '     镜像:node scripts/tests/check-guarded-write-affected.test.mjs(判据 import 门体 __test__)',
       '     紧急跳过(不推荐):HUSKY_SKIP_GUARDED_WRITE_AFFECTED=1 git commit ...',
       '',
@@ -5491,7 +5519,7 @@ const checks = [
       '            isSystemAdmin(req, { includeInternalChannel: false }) 显式特权判定,而不是 ?? 链。',
       '     【W3】测试夹具要填生产真会填的字段(request.userId / request.jwtPayload)。',
       '     单独复验:node scripts/check-identity-principal-source.mjs --staged(全量档不带旗)',
-      '     自检:node scripts/check-identity-principal-source.mjs --self-test(15 例,W1/W2/W3 与具名出口各有成对反向锁)',
+      '     自检:node scripts/check-identity-principal-source.mjs --self-test(19 例,W1/W2/W3 与具名出口各有成对反向锁)',
       '     镜像:node scripts/tests/check-identity-principal-source.test.mjs(判据 import 门体 __test__,不复制)',
       '     紧急跳过(不推荐):HUSKY_SKIP_IDENTITY_PRINCIPAL_SOURCE=1 git commit ...',
       '',
