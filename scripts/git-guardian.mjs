@@ -1277,13 +1277,27 @@ function currentRefs() {
   return map
 }
 
+/**
+ * 用**一份**批量快照(cur)判清单里哪些 ref 不满足期望;判据本身仍只有 lib 那一份
+ * (`refExpectationSatisfied`),这里只做集合运算。
+ *
+ * 为什么必须批量而不是逐条问:清单把 `refs/tags/lost-commit/*` 全部收在内(实测 24,582 枚,
+ * §29 的悬空 commit 备份族只增不减),逐条 `git rev-parse` 本机实测 177.9 ms/条 ⇒ 一轮
+ * `healRefs()` 要派 24,737 次进程(≈73 分钟),而计划任务每 2 分钟派一轮 ⇒ 守护无限堆积
+ * (2026-10-24 实测 54 枚常驻、各自挂一个 git.exe,连带把机器打成 fork 失败)。
+ * 同一份 `for-each-ref` 快照实测 119 ms 覆盖 25,399 条。
+ *
+ * 三态:`cur === null`(这一面问不到)⇒ 返回 null 判「未判定」,绝不折成"清单全缺"。
+ */
+function brokenRefsFromSnapshot(map, cur) {
+  if (cur === null) return null
+  return Object.entries(map).filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref]))
+}
+
 /** 清单中解析不到(或值与清单不符)的 ref;移动型 remote HEAD 由 lib 统一放过(见 refExpectationSatisfied) */
 function missingRefs() {
-  const cur = currentRefs()
-  if (cur === null) return null // 面问不到 ⇒ 未判定,不得把整张清单报成"缺失"
-  return Object.entries(readRefsManifest())
-    .filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref]))
-    .map(([ref]) => ref)
+  const broken = brokenRefsFromSnapshot(readRefsManifest(), currentRefs())
+  return broken === null ? null : broken.map(([ref]) => ref)
 }
 
 /** 把松散 ref 固化进 packed-refs(顶层单文件, 宿主清理不到) */
@@ -1372,10 +1386,8 @@ function healRefs() {
 
   // 合并后清单里"当前不可见或值不符"的即为待修复项
   // (移动型 refs/remotes/<remote>/HEAD 不比 sha,见 lib/gitdir.mjs refExpectationSatisfied)
-  const broken = Object.entries(map).filter(([ref, sha]) => {
-    const resolved = git(['rev-parse', '--verify', '--quiet', ref], true)
-    return !refExpectationSatisfied(ref, sha, resolved)
-  })
+  // 取上面**同一份** for-each-ref 快照判定:清单与内容同面同轮(§0.4),且不再逐条派 git
+  const broken = brokenRefsFromSnapshot(map, cur)
   if (broken.length === 0) return true
 
   // 先分流:清单值本身可能是死值(宿主抹过 objects/),死值一律不写 ref,
@@ -1403,9 +1415,15 @@ function healRefs() {
     }
   }
   packRefs()
-  const still = Object.entries(map)
-    .filter(([ref]) => !git(['rev-parse', '--verify', '--quiet', ref], true))
-    .map(([ref]) => ref)
+  // 复检口径与旧逐条档一致:旧写法问的是"这条 ref 现在解析得到吗"(值不符也算过),
+  // 所以这里按"快照里没有这条"判,不得换成 refExpectationSatisfied —— 那会把 origin/main
+  // 这类"清单值取 FETCH_HEAD、packed 值还在滞后"的正常形态每轮报成未达标,连到人通知一起刷。
+  const after = currentRefs()
+  if (after === null) {
+    log('❌ refs 修复后复检面取不到(for-each-ref 未产出)⇒ 本轮判「未判定」,不记成功')
+    return false
+  }
+  const still = Object.keys(map).filter((ref) => !after[ref])
   if (still.length) {
     log(`refs 修复未完全达标: ${still.join(', ')}`)
     return false
@@ -5985,6 +6003,8 @@ if (isDirectRun) {
 export const __test__ = {
   gitdirTargetVerdict,
   judgeRefsHealth,
+  // refs 存续判定的集合运算层(批量快照版):镜像测试要钉"一份快照判全清单"与旧逐条档等价
+  brokenRefsFromSnapshot,
   alertFingerprint,
   stableAlertFingerprint,
   auditDispatchSites,
