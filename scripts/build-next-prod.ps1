@@ -32,7 +32,11 @@ $ErrorActionPreference = "Stop"
 $Node22Candidates = @(
     "C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-3\node.exe",
     "C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2\node.exe",
-    "D:\DevEnv\runtimes\node22\node.exe"
+    "D:\DevEnv\runtimes\node22\node.exe",
+    # 2026-10-25:本机实际在位的 Node 22 是 node22-lts(前三条候选在本机全部不存在,
+    # 构建脚本因此 FATAL「Node 22 未找到」,生产 web 无法重建;该 exe 实测可正常跑
+    # next build,SWC 不再 STATUS_STACK_BUFFER_OVERRUN)。
+    "D:\DevEnv\runtimes\node22-lts\node.exe"
 )
 $Node22 = $Node22Candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $Node22) {
