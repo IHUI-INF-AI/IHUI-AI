@@ -1131,7 +1131,7 @@ function LedgerTab({ focusId }: { focusId: string | null }) {
     <div className="space-y-4">
       {/* 筛选栏 */}
       <Card>
-        <CardContent className="grid gap-3 py-4 md:grid-cols-3 lg:grid-cols-6">
+        <CardContent className="grid gap-3 py-4 md:grid-cols-3 xl:grid-cols-6">
           <div className="grid gap-1.5">
             <Label>{t('common.startDate')}</Label>
             <Input

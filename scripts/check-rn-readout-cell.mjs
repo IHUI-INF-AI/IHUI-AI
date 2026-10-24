@@ -25,7 +25,6 @@
  * 用法:node scripts/check-rn-readout-cell.mjs [--staged|--worktree] [--json]
  * 退出码:0 无缺口 / 1 有缺口 / 2 未判定(取不到被审面 / 空扫 / 解析全失败)。
  */
-import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
@@ -85,6 +84,21 @@ function boolish(map, key) {
 export function analyze(src) {
   const sf = ts.createSourceFile('x.tsx', src, ts.ScriptTarget.Latest, true)
   const styles = new Map() // name -> props Map
+  // `StyleSheet.create({…} satisfies Foo)` / `as Foo` / 括号包裹 都会让实参不是 ObjectLiteral。
+  // 不剥这层包装,那 17 个用 `satisfies` 的样式表就整张采不到 ⇒ 里面的读数格静默算绿
+  // (2026-10-24 实测:射程内 17 个)。这是"没判写成判过"的典型形态,必须剥。
+  const unwrap = (n) => {
+    let cur = n
+    for (let i = 0; i < 8 && cur; i += 1) {
+      const k = cur.kind
+      if (k === ts.SyntaxKind.SatisfiesExpression || k === ts.SyntaxKind.AsExpression || k === ts.SyntaxKind.ParenthesizedExpression) {
+        cur = cur.expression
+        continue
+      }
+      break
+    }
+    return cur
+  }
   const visit = (n) => {
     if (n.kind === ts.SyntaxKind.CallExpression) {
       const callee = n.expression
@@ -94,12 +108,13 @@ export function analyze(src) {
           : callee.kind === ts.SyntaxKind.PropertyAccessExpression
             ? callee.name?.text
             : null
-      if ((calleeName === 'create' || calleeName === 'stylesheet') && n.arguments?.[0]?.kind === ts.SyntaxKind.ObjectLiteralExpression) {
-        for (const p of n.arguments[0].properties) {
+      const arg0 = unwrap(n.arguments?.[0])
+      if ((calleeName === 'create' || calleeName === 'stylesheet') && arg0?.kind === ts.SyntaxKind.ObjectLiteralExpression) {
+        for (const p of arg0.properties) {
           if (p.kind !== ts.SyntaxKind.PropertyAssignment) continue
           const name = p.name?.text
-          if (name && p.initializer?.kind === ts.SyntaxKind.ObjectLiteralExpression) {
-            styles.set(name, objProps(p.initializer))
+          if (name && unwrap(p.initializer)?.kind === ts.SyntaxKind.ObjectLiteralExpression) {
+            styles.set(name, objProps(unwrap(p.initializer)))
           }
         }
       }

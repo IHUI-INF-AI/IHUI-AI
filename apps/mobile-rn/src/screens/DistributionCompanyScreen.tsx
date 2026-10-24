@@ -181,9 +181,9 @@ function makeStyles() {
     cardTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
     windowHint: { fontSize: 13, color: tokens.text.secondary },
     // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
-    // 读数 24px,最坏「999,999.99」⇒ minWidth 128。
+    // 读数 24px,最坏「999,999.99」(10 字符 × 24 × 0.55 = 132px)⇒ minWidth 136。
     statRow: { flexDirection: 'row', gap: 12, marginTop: 6, flexWrap: 'wrap' },
-    statCell: { flex: 1, minWidth: 128, gap: 2 },
+    statCell: { flex: 1, minWidth: 136, gap: 2 },
     statValue: { fontSize: 24, fontWeight: '700', color: tokens.brand.DEFAULT },
     statLabel: { fontSize: 12, color: tokens.text.tertiary },
     muted: { fontSize: 13, color: tokens.text.secondary },
