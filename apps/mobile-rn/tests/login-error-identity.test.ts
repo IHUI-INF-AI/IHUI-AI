@@ -79,7 +79,11 @@ describe('LoginScreen:服务端失败分支逐站接唯一出口', () => {
   })
 
   it("六站之外不再残留任何 `res.error ?? 'auth.loginFailed'` 直塞(除刻意保留的 OAuth 站)", () => {
-    const raw = source.match(/form\.setError\((?:res|apiRes)\.error \?\? 'auth\.loginFailed'\)/g)
+    // 2026-10 i18n 清扫批(37522b95e74)把 OAuth 站直塞里的裸字面量包进 t():
+    // 直塞语义未变(res.error 优先),正则随形态;仍钉"恰好一处且在 applyOAuthResult 之后"
+    const raw = source.match(
+      /form\.setError\((?:res|apiRes)\.error \?\? t\('auth\.loginFailed'\)\)/g,
+    )
     expect(raw).toHaveLength(1)
     const oauthFn = source.indexOf('const applyOAuthResult')
     const at = source.indexOf(raw![0]!)

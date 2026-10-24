@@ -9,8 +9,14 @@
 //
 // 为什么读落到元素上的样式:回归形态正是"往根 View 上再加一段行内 backgroundColor /
 // borderBottomWidth",只读 StyleSheet 对象会漏掉行内覆盖。
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
+
+// NavBar 接入 useI18n(文案国际化)后,不包 Provider/mock ⇒ 渲染即炸(fenlei 同款形态)
+vi.mock('../src/i18n', () => ({
+  I18nProvider: ({ children }: { children: unknown }) => children,
+  useI18n: () => ({ t: (key: string) => key }),
+}))
 
 import NavBar from '../src/components/NavBar'
 
