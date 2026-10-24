@@ -282,6 +282,12 @@ if (flags.has('--check')) {
   console.log(
     `✅ ${SOURCE} 无登记行重号(声明位 ${dup.rowDecls} 处 / 标题口径 ${count.size} 个号,最大 O${Math.max(...nums)})${headingNote}`,
   )
+  // 族射程必须自报:本器 `const FAMILY = 'O'`,上面那句只审 **O 族**登记行。2026-10-24 实测踩到 ——
+  // 台账里 G-35 的结清注记与本席别席的注记都拿"`--check` 绿"当**全族无重号**的凭据用了(族错配:
+  // 结论碰巧对,凭据不成立)。跨族口径的唯一尺子是守门 203 与 `plan-tasks.mjs --gate` 的 F9 撞号维。
+  console.log(
+    `   ℹ️ 本读数只审 **${FAMILY} 族**(本器发号器就是单族的);要按全台账问"同号多行",用 node scripts/check-plan-task-duplicates.mjs 或 node scripts/plan-tasks.mjs --gate`,
+  )
   process.exit(0)
 }
 
