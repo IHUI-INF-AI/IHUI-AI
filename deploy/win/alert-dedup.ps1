@@ -40,24 +40,95 @@ function Get-AlertDedupKey {
     }
 }
 
+function ConvertTo-AlertStableText {
+    <#
+      [2026-10-26 票 G-44] 读数归一:把"每轮都会变"的量折成占位符,得到**稳定语义骨架**。
+      为什么必须有:去重身份旧形 = 整条消息文案(G-44 票面缺陷),而文案/病因里常带轮次、条数、
+      GB、耗时、绝对路径、sha 与时刻 —— 每一格读数漂一个值就是一个新槽,4h 重发窗结构上永不
+      命中(48h/47 封、migrate 条数三槽、ihui-monitor 磁盘格全是这一型实测)。
+      §5e-1:去重键取"稳定语义身份 + 计数",不取会抖动的明细。
+      归一顺序不可换:时刻 → 盘符路径 → 长 hex → hh:mm → 最后才是裸数字。反过来先换数字会把
+      `<ts>`/`<path>` 这些占位符里的字母当成新形态再切一遍。
+      刻意不碰:中文文案、标点、URL 与相对路径(它们本身就是语义,"web 掉线"与"api 掉线"必须分开)。
+    #>
+    param([string]$Text)
+    if (-not $Text) { return '' }
+    $s = ($Text -replace '\s+', ' ').Trim()
+    $s = [regex]::Replace($s, '\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?', '<ts>')
+    $s = [regex]::Replace($s, '\d{1,2}/\d{1,2}/\d{4}( \d{1,2}:\d{2}(:\d{2})?)?', '<ts>')
+    $s = [regex]::Replace($s, '(?<![A-Za-z])[A-Za-z]:[\\/][^\s|,;)]*', '<path>')
+    $s = [regex]::Replace($s, '(?i)\b[0-9a-f]{7,40}\b', '<hex>')
+    $s = [regex]::Replace($s, '\b\d{1,2}:\d{2}(:\d{2})?\b', '<ts>')
+    $s = [regex]::Replace($s, '\d+(?:\.\d+)?', '<n>')
+    return $s
+}
+
+function Get-AlertCategory {
+    <#
+      [2026-10-26 票 G-44] 告警类别 = **稳定枚举**,身份的主轴取它,不再取整条消息文本。
+      为什么在去重层归类、不靠调用方传参:消息文案是调用方的固定常量(部署环十几种 Fail 文案),
+      新增参数要在 216KB 主脚本里逐调用点改,而"漏传就从主轴退化成整条文本"正是要修的失效型;
+      单点归类还保证类别清单只有一份(§0.6 单一真相源)。归不进枚举的落 `generic`,由身份侧用
+      归一骨架兜底 —— 新文案不会因为"忘了登记类别"而被静默并进别的族。
+      判定顺序:先具体后一般。"…挡住 ff"本身含 "git merge --ff-only 失败",倒过来判会把
+      "有未提交文件挡路"并进 ff-failed —— 两件事共用一个槽,正是 G-21 要防的反向风险。
+    #>
+    param([string]$Message, [string]$Reason = '')
+    # 两轮:第一轮只吃消息文案(调用方的固定常量 = 最稳的主轴),归不出再看"文案 + 原因"。
+    # 原因在若干调用点上是 `$_` 异常原文,让它参与第一轮分类会把"停服务失败"错归到异常文本里
+    # 恰好出现的某个词上 —— 类别主轴必须只被稳定文案决定。
+    foreach ($t in @([string]$Message, ("$Message $Reason"))) {
+        if ($t -match '健康门禁未取得全绿证明') { return 'health-unproven' }
+        if ($t -match '公网入口不可达') { return 'entry-broken' }
+        if ($t -match '健康门禁未过') { return 'health-failed' }
+        if ($t -match 'DB 迁移未落地') {
+            if ($t -match '(?i)TIMEOUT|超时') { return 'db-migrate-timeout' }
+            return 'db-migrate'
+        }
+        if ($t -match '构建失败') { return 'build-failed' }
+        if ($t -match '无法固化本轮远端 sha|本轮远端 sha 的对象取不到|无法计算 behind') { return 'remote-sha-unresolved' }
+        if ($t -match 'git fetch 全部来源失败') { return 'fetch-failed' }
+        if ($t -match '需人工收敛') { return 'diverged' }
+        if ($t -match '挡住 ff') { return 'wip-blocked' }
+        if ($t -match '未真正推进到本轮远端 tip') { return 'ff-not-advanced' }
+        if ($t -match 'git merge --ff-only 失败') { return 'ff-failed' }
+        if ($t -match '无可用 \.rollback') { return 'rollback-unavailable' }
+        if ($t -match '回滚后健康仍异常') { return 'rollback-unhealthy' }
+        if ($t -match '停止 IHUI-WEB 失败') { return 'svc-stop-failed' }
+        if ($t -match '启动 IHUI-WEB 失败') { return 'svc-start-failed' }
+    }
+    return 'generic'
+}
+
 function Get-AlertIdentitySig {
     <#
-      告警身份 = 消息文案 + **本轮原因**(2026-10-22 票 G-21 立)。
-      为什么必须有:部署环的失败消息有一型是**通用文案**("构建失败 → 保持当前在线版本…"),
-      病因只写在 -Detail(正文)里。身份只吃文案时,病因换了(上一轮是包 A 编译红、这一轮是
-      服务 B 起不来)照样落进旧槽位,被"同身份未到重发周期"静默压住 —— 实测 04:37 那轮落在
-      1.9h 前寄过的同名槽位上,原因换了也没人喊。这与头注修的"单槽抹时间戳"是同一禁令的
-      另一半:去重**不得吃明细清单**(会每轮换身份、48h/47 封那一型),但也**不得连病因都不吃**
-      (换病因被旧槽位压住)。折中形态:明细继续只进正文,身份加一段**结构化病因**(reason),
-      由调用方给出稳定类别/报错指纹,同原因重复照旧去重,原因变化另开槽位喊出。
-      reason 为空 ⇒ 返回与改动前逐字同形的消息身份(存量槽位不失效,不制造一轮重发风暴)。
+      告警身份 = **类别 + 归一化病因**(2026-10-26 票 G-44 改档)。
+      旧形(2026-09-28 立、2026-10-22 G-21 加病因)= 整条消息文案 + 本轮原因,票面缺陷在于:
+      文案里任何一格读数(轮次/条数/GB/耗时)、路径、sha、时刻漂一下就是一个新槽,4h 窗结构上
+      永不命中;而反过来,措辞相同的两件不同故障又共用一个槽。§5e-1:去重键必须是稳定语义身份。
+      新形:
+        类别=<固定枚举>|病因=<归一化原因>        ← 已知类别,枚举见 Get-AlertCategory
+        类别=generic|骨架=<归一化骨架>|病因=…    ← 归不进枚举的新文案,骨架兜底(仍不吃整条原文)
+      保留病因的理由 = G-21 的实测教训:通用文案换病因会被旧槽压住(04:37 那轮落在 1.9h 前的同名
+      槽上),类别回答"哪一族",病因回答"这一族里的哪一因",少任何一半都有静默压告警的方向。
+      计数**不进身份**:累计告警次数由 Test-AlertDueByIdentity 的 repeatNo 承载并写进正文;
+      把轮次折进键就是票面缺陷本身(ihui-deploy.ps1 里"$streak 不得进签名"那条即此实测教训)。
+      消息/病因里的读数经 ConvertTo-AlertStableText 折成 <n>/<hex>/<ts>/<path>,同族同因的持续
+      故障不因读数漂移换槽 —— 这就是"计数用归一化后的数字"在本层的落点。
+      存量槽位不兼容(键形换了):上线后每个族首个告警会重发一次,随后恢复 4h 窗,一次性代价。
     #>
     param([Parameter(Mandatory = $true)][string]$Message, [string]$Reason = '')
-    $m = ($Message -replace '\s+', ' ').Trim()
-    $r = ($Reason -replace '\s+', ' ').Trim()
-    if (-not $r) { return $m }
-    if ($r.Length -gt 160) { $r = $r.Substring(0, 160) + '…' }
-    return "$m | 本轮病因: $r"
+    $cat = Get-AlertCategory -Message $Message -Reason $Reason
+    $cause = ConvertTo-AlertStableText -Text $Reason
+    if ($cause.Length -gt 160) { $cause = $cause.Substring(0, 160) + '…' }
+    if ($cat -ne 'generic') {
+        if ($cause) { return "类别=$cat|病因=$cause" }
+        return "类别=$cat"
+    }
+    $skel = ConvertTo-AlertStableText -Text $Message
+    if ($skel.Length -gt 200) { $skel = $skel.Substring(0, 200) + '…' }
+    if ($cause) { return "类别=generic|骨架=$skel|病因=$cause" }
+    return "类别=generic|骨架=$skel"
 }
 
 function ConvertTo-AlertInstant {

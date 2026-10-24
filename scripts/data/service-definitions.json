@@ -1,0 +1,65 @@
+{
+  "$comment": "本机 Windows 服务定义的入库快照(真相源)。用途:给 scripts/check-service-binary-paths.mjs 等只读巡检器一份仓内基准 —— \"这台机本来应该跑什么、从哪跑\"不必每次靠人回忆。 射程 = Windows 服务注册表 HKLM:\\SYSTEM\\CurrentControlSet\\Services 下的项目服务;计划任务承载的执行体不在本文件内(那是另一层,见 IHUI-* 计划任务)。 字段:application = ImagePath 第一个 token(去引号);parameters = ImagePath 其余部分原样;appDirectory = parameters 里 `cd /d <路径> &&` 抽出的工作目录(没有则 null);startType 按注册表 Start 值映射 0=BOOT/1=SYSTEM/2=AUTOMATIC/3=MANUAL/4=DISABLED;source 只取 registry|nssm(本机三项均非 nssm 托管,ImagePath 即命令行)。 不含任何凭据/口令/env 值;服务运行账号类别不写入本文件。 重建方式:重跑 scripts/check-service-binary-paths.mjs 的 STATE/注册表通道取现值,再按本文件同形人工核对重写,同时刷新 generatedAt/host/ledger;不得手改单条而不复核 ledger.absentOnHost。",
+  "generatedAt": "2026-10-24T17:35:24.595Z",
+  "host": "lichunchuan",
+  "sourceChannel": "HKLM:\\SYSTEM\\CurrentControlSet\\Services(Get-ItemProperty:ImagePath/Start/DisplayName;与 Get-CimInstance Win32_Service 交叉核对)",
+  "notes": [
+    "台账立票(G-10)时的\"6 个把 D:\\IHUI-AI 绝对路径钉死\"在本机已不复现:D: 盘目录不存在,现存 3 个服务的 ImagePath 全部指向 G:\\IHUI-AI。",
+    "台账 21 个服务名中,本机注册表仅 3 个在册;其余 18 个无服务键(见 ledger.absentOnHost)。缺失不代表项目不需要它们,也不代表已裁撤 —— 本机另有 17 个 IHUI-* 计划任务承载部分执行体,二者不是同一层,不得互相代填。"
+  ],
+  "services": [
+    {
+      "name": "IHUI-AI-SERVICE",
+      "displayName": "IHUI AI Service",
+      "application": "cmd.exe",
+      "parameters": "/c \"cd /d G:\\IHUI-AI\\apps\\ai-service && G:\\IHUI-AI\\apps\\ai-service\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8803\"",
+      "appDirectory": "G:\\IHUI-AI\\apps\\ai-service",
+      "startType": "AUTOMATIC",
+      "source": "registry"
+    },
+    {
+      "name": "IHUI-API",
+      "displayName": "IHUI API Service",
+      "application": "cmd.exe",
+      "parameters": "/c \"cd /d G:\\IHUI-AI\\apps\\api && C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-6\\node.exe --require G:\\IHUI-AI\\node_modules\\.pnpm\\tsx@4.23.12\\node_modules\\tsx\\dist\\preflight.cjs --import file:///G:/IHUI-AI/node_modules/.pnpm/tsx@4.23.12/node_modules/tsx/dist/loader.mjs src/index.ts\"",
+      "appDirectory": "G:\\IHUI-AI\\apps\\api",
+      "startType": "AUTOMATIC",
+      "source": "registry"
+    },
+    {
+      "name": "IHUI-WEB",
+      "displayName": "IHUI Web Service",
+      "application": "cmd.exe",
+      "parameters": "/c \"cd /d G:\\IHUI-AI\\apps\\web && node G:\\IHUI-AI\\apps\\web\\node_modules\\next\\dist\\bin\\next dev --turbopack -p 8801\"",
+      "appDirectory": "G:\\IHUI-AI\\apps\\web",
+      "startType": "AUTOMATIC",
+      "source": "registry"
+    }
+  ],
+  "ledger": {
+    "source": "scripts/data/service-auto-restart.json",
+    "listedTotal": 21,
+    "presentOnHost": 3,
+    "absentOnHost": [
+      "ihui-alert-bridge",
+      "ihui-alertmanager",
+      "IHUI-DEPLOYLOOP",
+      "IHUI-GIT-GUARD",
+      "IHUI-IMAGE-CDN",
+      "ihui-loki",
+      "IHUI-MONITOR",
+      "IHUI-OLLAMA",
+      "IHUI-PG",
+      "IHUI-PG-BACKUP",
+      "ihui-pg-exporter",
+      "ihui-prometheus",
+      "ihui-promtail",
+      "IHUI-REDIS",
+      "ihui-redis-exporter",
+      "IHUI-RSSHUB",
+      "ihui-windows-exporter",
+      "Keycloak"
+    ],
+    "note": "ledger 只做\"名册 vs 本机\"对账:名册里的名字逐个在本机服务注册表查存在性;absentOnHost 是本机查无此服务键的那些(2026-10-24 实测)。本文件不收录它们的定义,因为它们在本机不存在。"
+  }
+}

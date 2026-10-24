@@ -28,7 +28,7 @@
   },
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/build-dist.mjs",
     "build:sea": "node scripts/build-sea.mjs",
     "build:npm": "node scripts/build-npm.mjs",
     "lint": "eslint .",

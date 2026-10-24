@@ -37,6 +37,9 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import CheckpointRewindPanel from '@/components/checkpoint/CheckpointRewindPanel'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
+// D04(2026-10-24 接线):模型输出里的白名单动作锚点(<action>/<detail>/<link>…)走
+// chat 侧唯一受控渲染器(与 t.rich 共用同一张表),**不**打开裸 HTML 通道。
+import { RichAnchorText } from '@/components/chat/rich-anchor-text'
 // D129:用户气泡的正文渲染器(附件拍平形态的止血;详见该文件头注)
 import { UserMessageBody } from './user-message-body'
 import { MessageVersionMenu, type MessageVersionEntry } from './message-version-menu'
@@ -58,7 +61,7 @@ import { HandoffPackageCard } from '@/components/ai/handoff-package-card'
 // O60i(2026-09-25):失败卡两份实现合一 —— 本文件的内联卡已删,唯一出口是这张组件卡
 import { MessageErrorCard } from '@/components/chat/message-list/MessageErrorCard'
 import { StreamGroup } from '@/components/chat/stream/stream-ui'
-import { describeToolCall, humanizeToolText } from '@ihui/shared/chat'
+import { describeToolCall, hasRichAnchors, humanizeToolText } from '@ihui/shared/chat'
 import {
   resolveViewFailure,
   VIEW_FAILURE_NAMESPACE,
@@ -942,6 +945,11 @@ const MessageItem = React.memo(function MessageItem({
     renderStreaming: streamingThis,
     mode: markdownRenderModeFor(codeCollapseLines),
   }
+  // D04 判据只在共享解析层算一次(hasRichAnchors),端内不再自带正则。
+  // 含锚点时走受控渲染器:MarkdownStream 默认丢弃裸 HTML,直接过它等于把整段动作锚点弄丢。
+  // 取舍:锚点消息走 RichAnchorText(白名单 → 组件映射),不做 markdown 重排 —— 这类正文是
+  // 状态/动作行,样式语义由锚点表承担,不引第二套解析。
+  const richAnchorsPresent = hasRichAnchors(m.content)
 
   return (
     <div
@@ -1316,11 +1324,19 @@ const MessageItem = React.memo(function MessageItem({
                   )
                 }}
               >
-                <MarkdownStream
-                  content={m.content}
-                  isStreaming={streamingThis}
-                  collapseLines={codeCollapseLines}
-                />
+                {richAnchorsPresent ? (
+                  <RichAnchorText
+                    text={m.content}
+                    className="whitespace-pre-wrap break-words px-3 py-2 text-[15px] leading-relaxed"
+                    data-testid={`message-rich-anchors-${m.id}`}
+                  />
+                ) : (
+                  <MarkdownStream
+                    content={m.content}
+                    isStreaming={streamingThis}
+                    collapseLines={codeCollapseLines}
+                  />
+                )}
               </ErrorBoundary>
             </ReplyAnnotationLayer>
             {/* D33 消息级降级交代行:顶部 FallbackBanner 是瞬态,历史态由水合把 metadata.fallback

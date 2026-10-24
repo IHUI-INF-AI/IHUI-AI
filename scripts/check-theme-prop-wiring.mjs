@@ -56,6 +56,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { requireFlagValue } from './lib/flag-value.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
@@ -1320,17 +1321,20 @@ if (isDirectRun) {
   const argv = process.argv.slice(2)
   // --root 是给测试用的显式注入位(§22d + 守门 70 的教训:只改 cwd 会被判据忽略,
   // 于是"扫夹具"静默变成"扫真仓")。生产调用一律不带,语义不变。
-  const rootAt = argv.indexOf('--root')
-  const code = argv.includes('--self-test')
-    ? selfTest()
-    : run({
-        staged: argv.includes('--staged'),
-        worktree: argv.includes('--worktree'),
-        json: argv.includes('--json'),
-        strict: argv.includes('--strict'),
-        updateBaseline: argv.includes('--update-baseline'),
-        root: rootAt >= 0 ? path.resolve(argv[rootAt + 1] ?? '') : undefined,
-      })
+  if (argv.includes('--self-test')) process.exit(selfTest())
+  const rootFlag = requireFlagValue(argv, '--root', { noun: '目录参数' })
+  if (rootFlag.error) {
+    console.error(`❌ 无法判定(exit 2): ${rootFlag.error}`)
+    process.exit(2)
+  }
+  const code = run({
+    staged: argv.includes('--staged'),
+    worktree: argv.includes('--worktree'),
+    json: argv.includes('--json'),
+    strict: argv.includes('--strict'),
+    updateBaseline: argv.includes('--update-baseline'),
+    root: rootFlag.present ? path.resolve(rootFlag.value) : undefined,
+  })
   process.exit(code)
 }
 

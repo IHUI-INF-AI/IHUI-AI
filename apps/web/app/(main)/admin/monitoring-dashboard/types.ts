@@ -3,11 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type * as React from 'react'
-import { Server, Database, Cpu, Brain } from 'lucide-react'
+import { Server, Database, Brain } from 'lucide-react'
 
 export interface ServiceItem {
   name: string
-  status: 'healthy' | 'unhealthy'
+  status: 'running' | 'healthy' | 'unhealthy'
   latency: number
 }
 
@@ -32,11 +32,13 @@ export interface LogSummary {
   recent: { id: string; level: string; message: string; time: string }[]
 }
 
+// 键与后端 checkServiceHealth 的 name 对齐(api/web/ai-service 标 running,postgres/redis 真实探活)
 export const SERVICE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  API: Server,
-  DB: Database,
-  Redis: Cpu,
-  'AI-Service': Brain,
+  api: Server,
+  web: Server,
+  'ai-service': Brain,
+  postgres: Database,
+  redis: Database,
 }
 
 export const ALERT_STYLE: Record<AlertItem['level'], { bg: string; text: string }> = {

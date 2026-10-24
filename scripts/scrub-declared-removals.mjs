@@ -54,6 +54,24 @@ export function rowStateOf(line) {
   return rows.length ? rows[0].state : null
 }
 
+/**
+ * 题面前缀指纹:抹掉行首编号、装饰与括号内引用后取正文前 16 个字。
+ *
+ * 为什么需要它(2026-10-25 实测):让号/清偿会把同一张票改成新号(同一条"生产备份链
+ * UTF-8"在半小时内出现过 G-65→G-87→G-63),而摘除台账的逐字维只认整行原文 ⇒
+ * `check-plan-line-loss --heal` 每次都能把改号后的同题行当"历史被抹掉"再回捞一次。
+ * 题面指纹只用于**已声明为 f11-purge 的摘除**这一族,不改变其它任何桶的逐字语义。
+ */
+export function titleFpOf(line) {
+  const body = bodyOfRow(String(line ?? '')) ?? String(line ?? '')
+  return body
+    .replace(/^\s*\**\s*/, '')
+    .replace(/^[A-Za-z]{1,8}-?\d+[a-z]?\s*[.、:：]?\s*/, '')
+    .replace(/（[^）]*）|\([^)]*\)/g, '')
+    .replace(/[^\p{L}\p{N}]/gu, '')
+    .slice(0, 16)
+}
+
 /** 台账整行原文 → 摘除声明索引。这是维二输入的**唯一构造出口**(self-test 与镜像测试都走它,
  *  不得在别处自己拼 `Map` —— 拼法一旦分叉,"测试绿而生产判据瞎"就是本仓记过的那一型)。 */
 export function buildDeclared(rowTexts) {
@@ -82,6 +100,7 @@ export function buildDeclared(rowTexts) {
  *  解不开的行长跳过并计数。 */
 export function declaredRows(root = ROOT, files = LEDGERS) {
   const rows = []
+  const dropRows = []
   let malformed = 0
   for (const f of files) {
     const p = path.join(root, f)
@@ -96,22 +115,29 @@ export function declaredRows(root = ROOT, files = LEDGERS) {
         continue
       }
       for (const key of ['rowBefore', 'before']) {
-        if (typeof o[key] === 'string' && /^\s*- \[[ xX]\]/.test(o[key])) rows.push(o[key])
+        if (typeof o[key] === 'string' && /^\s*- \[[ xX]\]/.test(o[key])) {
+          rows.push(o[key])
+          if (o.kind === 'f11-purge' || o.seat === 'f11-purge-20261025') dropRows.push(o[key])
+        }
       }
     }
   }
-  return { ...buildDeclared(rows), malformed }
+  return { ...buildDeclared(rows), dropTitleFps: new Set(dropRows.map(titleFpOf).filter(Boolean)), malformed }
 }
 
-/** 兼容旧调用方:只给 `Set` 的调用只有逐字维(维二输入为空 ⇒ 一条也不按正文剔)。 */
+/** 兼容旧调用方:只给 `Set` 的调用只有逐字维(维二/维三输入为空 ⇒ 不按正文/题面剔)。 */
 function declaredInputs(declared) {
-  if (declared instanceof Set) return { set: declared, closed: new Map() }
-  return { set: declared?.set ?? new Set(), closed: declared?.closed ?? new Map() }
+  if (declared instanceof Set) return { set: declared, closed: new Map(), dropTitleFps: new Set() }
+  return {
+    set: declared?.set ?? new Set(),
+    closed: declared?.closed ?? new Map(),
+    dropTitleFps: declared?.dropTitleFps ?? new Set(),
+  }
 }
 
 /** 纯函数:算出该剔哪些行(不写盘,便于自检)。`headText` = HEAD 面全文,`declared` = Set 或 `declaredRows()` 返回值。 */
 export function scrub(text, headText, declared) {
-  const { set: declaredSet, closed } = declaredInputs(declared)
+  const { set: declaredSet, closed, dropTitleFps } = declaredInputs(declared)
   const headLines = String(headText ?? '').split('\n')
   const head = new Set(headLines)
   /** HEAD 面在册的复合主键(维二的②'):同主键仍在册 ⇒ 别人真在写同题,绝不剔。 */
@@ -130,6 +156,19 @@ export function scrub(text, headText, declared) {
     if (declaredSet.has(l) && !head.has(l) && /^\s*- \[[ xX]\]/.test(l)) {
       dropped.push(l)
       via.set(l, 'verbatim')
+      continue
+    }
+    // 维三(题面前缀维,2026-10-25):声明为 f11-purge 的同题行即使让号/改号也剔;
+    // HEAD 仍有同题键 ⇒ 别人真在写同题,绝不剔(与维二同一条让路纪律)。
+    if (
+      /^\s*- \[[ xX]\]/.test(l) &&
+      !head.has(l) &&
+      dropTitleFps.size > 0 &&
+      dropTitleFps.has(titleFpOf(l)) &&
+      !headKeys.has(compositeKeyOf(l))
+    ) {
+      dropped.push(l)
+      via.set(l, 'title')
       continue
     }
     if (head.has(l)) {
@@ -272,5 +311,5 @@ function selfTest() {
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) process.exitCode = main(process.argv.slice(2))
 
-export const __test__ = { scrub, declaredRows, buildDeclared, rowStateOf, main, LEDGERS }
+export const __test__ = { scrub, declaredRows, buildDeclared, rowStateOf, titleFpOf, main, LEDGERS }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

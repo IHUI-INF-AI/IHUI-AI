@@ -23,8 +23,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.routers import voice_tts
-
 
 @pytest.fixture(autouse=True)
 def _bypass_jwt(monkeypatch):
