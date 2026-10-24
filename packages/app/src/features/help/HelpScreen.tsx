@@ -8,6 +8,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { HelpListItem, HelpScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 帮助列表共享屏 — props 注入式跨端组件 */
 export type { HelpListItem, HelpScreenProps }
@@ -48,13 +49,9 @@ export function HelpScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('common.loading')}</Text>
-            </View>
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('help.empty')}</Text>
-            </View>
+            <EmptyState title={t('help.empty')} colorScheme={colorScheme} />
           )
         }
         renderItem={({ item }) => (
@@ -99,8 +96,6 @@ function createStyles(tk: AppThemeTokens) {
     questionText: { flex: 1, fontSize: 16, fontWeight: '700', color: tk.text.primary },
     toggle: { fontSize: 20, color: tk.success.DEFAULT, marginLeft: 8 },
     answerText: { marginTop: 8, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

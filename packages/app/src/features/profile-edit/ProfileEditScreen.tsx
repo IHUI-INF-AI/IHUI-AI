@@ -20,6 +20,7 @@ import type { Gender, ProfileEditScreenProps } from '../../types'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 资料编辑共享屏 — props 注入式跨端组件(wrapper 负责 getProfile / updateProfile / Alert) */
 export type { ProfileEditScreenProps }
@@ -64,9 +65,8 @@ export function ProfileEditScreen({
 
   if (loading) {
     return (
-      <View style={styles.centerWrap}>
-        <ActivityIndicator color={tk.text.primary} />
-        <Text style={styles.emptyText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -74,12 +74,13 @@ export function ProfileEditScreen({
   // 初次加载失败(无任何资料数据)→ 展示 retry 视图
   if (error && !nickname && !avatar) {
     return (
-      <View style={styles.centerWrap}>
-        <Text style={styles.errorText}>{error}</Text>
-        <View style={{ height: 12 }} />
-        <TouchableOpacity onPress={onRetry} style={styles.retryBtn}>
-          <Text style={styles.retryText}>{t('profileEdit.retry')}</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('profileEdit.retry')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -91,7 +92,12 @@ export function ProfileEditScreen({
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('profileEdit.title')}</Text>
       </View>
 
@@ -214,7 +220,6 @@ export function ProfileEditScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.muted },
-    centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -281,16 +286,6 @@ function createStyles(tk: AppThemeTokens) {
     genderTextActive: { color: tk.surface.light },
     errorBar: { backgroundColor: tk.danger.light, borderRadius: rnRadius.lg, padding: 8 },
     errorText: { fontSize: 14, color: tk.error.text },
-    emptyText: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    retryBtn: {
-      paddingHorizontal: 10,
-      height: 44,
-      justifyContent: 'center',
-      borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-    },
-    retryText: { fontSize: 14, color: tk.text.secondary },
     saveBtn: {
       height: 50,
       justifyContent: 'center',

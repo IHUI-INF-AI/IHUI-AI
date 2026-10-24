@@ -17,6 +17,7 @@ import { rnRadius } from '@ihui/design-tokens'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * PointsScreen — 跨端共享「积分中心屏」(门 39 六屏共享化第二批)。
@@ -156,20 +157,14 @@ export function PointsScreen({
         <Text style={styles.subtitle}>{t('points.subtitle')}</Text>
 
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tk.text.tertiary} />
+          <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
         ) : failed ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.errorText}>{t('points.loadFailed')}</Text>
-            <TouchableOpacity
-              style={styles.textButton}
-              onPress={onRetryOverview}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.retry')}
-            >
-              <Text style={styles.retry}>{t('common.retry')}</Text>
-            </TouchableOpacity>
-          </View>
+          <ErrorState
+            message={t('points.loadFailed')}
+            onRetry={onRetryOverview}
+            retryLabel={t('common.retry')}
+            colorScheme={colorScheme}
+          />
         ) : (
           <>
             <View style={styles.statGrid}>
@@ -327,7 +322,6 @@ function createStyles(tk: AppThemeTokens) {
     title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
     body: { padding: 12, gap: 10, paddingBottom: 32 },
     subtitle: { fontSize: 12, color: tk.text.tertiary },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
     errorText: { fontSize: 13, color: tk.danger.DEFAULT },
     retry: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
     textButton: { paddingVertical: 4, paddingHorizontal: 8 },
