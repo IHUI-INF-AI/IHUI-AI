@@ -2632,7 +2632,7 @@ const checks = [
       '     单独复验:node scripts/check-merge-addition-loss.mjs --move <from>..<to>(G-939 原案 = 72b3a20c50..588a6342d8)',
       '     巡检档另带位移游标(A4):node scripts/check-merge-addition-loss.mjs --all-new —— 每枚新于游标的位移判恰好一次,',
       '     提交链窗口档只看最近 40 条(本仓实测 ≈53 分钟),旁路落地不跑钩子时靠这一档兜住滑出窗口的那一段。',
-      '     自检:node scripts/check-merge-addition-loss.mjs --self-test(33 例,真临时仓)',
+      '     自检:node scripts/check-merge-addition-loss.mjs --self-test(48 例,真临时仓;含生成块剥离正反两臂)',
       '     镜像测试:node --test scripts/tests/check-merge-addition-loss.test.mjs(含装车证明)',
       '     紧急跳过(不推荐):HUSKY_SKIP_MERGE_ADDITION_LOSS=1 git commit ...',
       '',
