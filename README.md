@@ -108,8 +108,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 606 | `dbTables` |
 | schema 文件 | 234 | `dbSchemaFiles` |
-| API 路由 | 4562 | `apiRoutes` |
-| 路由文件 | 624 | `apiRouteFiles` |
+| API 路由 | 4556 | `apiRoutes` |
+| 路由文件 | 623 | `apiRouteFiles` |
 | AI 服务路由 | 593 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 101 | `llmModels` |
@@ -121,17 +121,15 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3163 | `testFiles` |
+| 测试文件 | 3179 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 273 | `guardianGates` |
-| — blocking | 250 | `guardianBlocking` |
+| 工程守门 | 274 | `guardianGates` |
+| — blocking | 251 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15939 | `trackedFiles` |
-
+| 跟踪文件 | 16000 | `trackedFiles` |
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-24。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
@@ -9307,8 +9305,6 @@ A: Yes. ~14839+ tests / 3163 test files / 67 e2e spec / 4562 API 路由 / 606 �
 <p align="center">
   <strong>8 端全覆盖</strong> · <strong>118 大模型</strong> · <strong>LangGraph + MCP + A2A 三栈</strong> · <strong>38 平台自动发布</strong> · <strong>AI 教育全栈</strong> · <strong>完整商业闭环</strong> · <strong>P3 AI 工程深度层</strong> · <strong>5 语言 i18n(7 端 35 JSON)</strong>
 </p>
-    &nbsp;&nbsp;|&nbsp;&nbsp;
-    <strong>国内镜像</strong> · <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> · <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
 对外关键数字声明(与本页生成块同源,均现算):**603 张表 · 4538 API 路由 · 25 个 WebSocket 端点 ·
 118 入库模型 · 38 平台自动发布 · 3115 测试文件 · 271 道工程守门 · 50 CI workflows ·
 | 数据库表 | 603 | `dbTables` |
@@ -9323,9 +9319,7 @@ A: Yes. ~14839+ tests / 3163 test files / 67 e2e spec / 4562 API 路由 / 606 �
 | 跟踪文件 | 15805 | `trackedFiles` |
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-23。
   <strong>603 张表 · 4538 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 3115 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 50 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
-  <strong>国内镜像</strong> ·
-  <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> ·
-  <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
+  <strong>国内镜像</strong>:已于 2026-10-23 弃用并整仓删除,本项目只保留 GitHub 一处源。
   <br/>
   <sub>国内用户克隆/下载更快，与 GitHub 自动同步</sub>
 | **代码规模** | 8 端代码 / 205 schema 文件 / **603 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4538 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
@@ -11242,9 +11236,9 @@ A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 �
 > A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 > A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-> A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-> A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
