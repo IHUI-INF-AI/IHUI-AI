@@ -25063,17 +25063,6 @@
     "submitting": "Submitting…",
     "submit": "Submit"
   },
-  "recruitment": {
-    "title": "Recruitment",
-    "count": "{count} positions",
-    "empty": "No positions",
-    "applied": "Applied",
-    "close": "Close",
-    "description": "Job description",
-    "requirements": "Requirements",
-    "appliedWaiting": "Applied, pending review",
-    "applyNow": "Apply now"
-  },
   "studyProgress": {
     "loadFailed": "Failed to load",
     "title": "Study progress",

@@ -25066,17 +25066,6 @@
     "submitting": "제출 중…",
     "submit": "인증 제출"
   },
-  "recruitment": {
-    "title": "채용 정보",
-    "count": "총 {count}개 직위",
-    "empty": "채용 정보 없음",
-    "applied": "지원 완료",
-    "close": "닫기",
-    "description": "직무 설명",
-    "requirements": "자격 요건",
-    "appliedWaiting": "지원 완료, 검토 대기",
-    "applyNow": "지금 지원"
-  },
   "studyProgress": {
     "loadFailed": "불러오기 실패",
     "title": "학습 진행률",
