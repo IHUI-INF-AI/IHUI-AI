@@ -63,7 +63,9 @@ const PROVIDER_ORDER = [
 ]
 
 /**
- * Mock 数据 — API 失败或返回空时使用,保证视觉演示完整(对标原项目 modelPlazaData.js)。
+ * [已去 mock,2026-10-24 批注纠偏]旧注释曾称"Mock 数据…保证视觉演示完整",与实际不符:
+ * 本块是 FALLBACK_MODELS(共享层已验证兜底)派生的降级列表 —— 仅在 /llm/models 不可达/空时显示,
+ * 不造假型号、不造价格(价格字段固定 0/'-'+免费档),真实态由 normalizeModel 从后端字段映射。
  * 字段含 Input/Output 价格(¥/千token)、标签、计费模式。
  */
 /** 已验证兜底模型(仅后端 /llm/models 不可达或返回空时降级,映射自共享 FALLBACK_MODELS) */

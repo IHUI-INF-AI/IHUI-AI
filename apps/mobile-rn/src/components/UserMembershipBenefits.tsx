@@ -18,6 +18,7 @@ import type { ReactNode } from 'react'
 import { tokens } from '../theme/active-tokens'
 import { Check, CircleCheck, Crown, Sparkles, X, type LucideIcon } from 'lucide-react-native'
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 export interface BenefitItem {
   id: string
@@ -67,10 +68,11 @@ export interface UserMembershipBenefitsProps {
   comparisonRows?: readonly MembershipComparisonRow[]
 }
 
+// 等级徽章文案:i18n 键(§19),消费处 t(LEVEL_LABEL[level]) 解析
 const LEVEL_LABEL: Record<MembershipLevel, string> = {
-  normal: '普通会员',
-  vip: 'VIP 会员',
-  svip: 'SVIP 会员',
+  normal: 'memberBenefits.tnNormal',
+  vip: 'memberBenefits.tnVip',
+  svip: 'memberBenefits.tnSvip',
 }
 
 /** 会员金色(对齐 uniapp VIP 金色语义;禁用 purple/indigo) */
@@ -82,7 +84,7 @@ const LEVEL_COLOR: Record<MembershipLevel, string> = {
   svip: tokens.success.DEFAULT,
 }
 
-const DEFAULT_PROMO_TITLE = '享受权益'
+/** 「享受权益」标题走 i18n(§19):promoTitle 未注入时由组件内 t('memberBenefits.promoTitle') 兜底 */
 
 const DEFAULT_VIP_PRICE: MembershipPrice = {
   price: '588',
@@ -123,11 +125,14 @@ function renderCell(cell: MembershipCell): ReactNode {
 }
 
 function PriceLine({ price, color }: { price: MembershipPrice; color: string }) {
+  const { t } = useI18n()
   return (
     <Text style={styles.priceRow}>
-      <Text style={{ color }}>限时{price.price}元/</Text>
+      <Text style={{ color }}>{t('memberBenefits.limitedTime', { price: price.price })}</Text>
       {price.originalPrice ? (
-        <Text style={[styles.priceStrike, { color }]}>{price.originalPrice}元</Text>
+        <Text style={[styles.priceStrike, { color }]}>
+          {t('memberBenefits.yuanUnit', { price: price.originalPrice })}
+        </Text>
       ) : null}
       {price.label ? <Text style={{ color }}>{price.label}</Text> : null}
     </Text>
@@ -139,11 +144,12 @@ export function UserMembershipBenefits({
   expireAt,
   benefits,
   onPressUpgrade,
-  promoTitle = DEFAULT_PROMO_TITLE,
+  promoTitle,
   vipPrice = DEFAULT_VIP_PRICE,
   traderPrice = DEFAULT_TRADER_PRICE,
   comparisonRows = DEFAULT_COMPARISON_ROWS,
 }: UserMembershipBenefitsProps) {
+  const { t } = useI18n()
   const LevelIcon = level === 'svip' ? Sparkles : Crown
   const levelColor = LEVEL_COLOR[level]
   return (
@@ -152,9 +158,11 @@ export function UserMembershipBenefits({
       <View style={styles.header}>
         <View style={styles.levelBadge}>
           <LevelIcon size={16} color={levelColor} />
-          <Text style={[styles.levelText, { color: levelColor }]}>{LEVEL_LABEL[level]}</Text>
+          <Text style={[styles.levelText, { color: levelColor }]}>{t(LEVEL_LABEL[level])}</Text>
         </View>
-        {expireAt ? <Text style={styles.expireText}>到期:{expireAt}</Text> : null}
+        {expireAt ? (
+          <Text style={styles.expireText}>{`${t('memberBenefits.expirePrefix')}${expireAt}`}</Text>
+        ) : null}
       </View>
 
       {/* 当前等级权益列表(图标 + 名称 + 描述) */}
@@ -178,7 +186,7 @@ export function UserMembershipBenefits({
 
       {/* 权益对比表(对齐 Uniapp UserMembershipBenefits.vue) */}
       <View style={styles.compareSection}>
-        <Text style={styles.promoTitle}>{promoTitle}</Text>
+        <Text style={styles.promoTitle}>{promoTitle ?? t('memberBenefits.promoTitle')}</Text>
 
         {/* 价格(含划线价;后端依赖:价格文案可来自配置,预留 vipPrice/traderPrice 注入) */}
         <View style={styles.priceBlock}>
@@ -189,10 +197,18 @@ export function UserMembershipBenefits({
         {/* 三档对比表:普通用户 / 会员 / 操盘手 */}
         <View style={styles.table}>
           <View style={styles.tableRow}>
-            <Text style={[styles.colTitle, styles.headerCell]}>权益名称</Text>
-            <Text style={[styles.colTier, styles.headerCell, styles.tierNormal]}>普通用户</Text>
-            <Text style={[styles.colTier, styles.headerCell, styles.tierMember]}>会员</Text>
-            <Text style={[styles.colTier, styles.headerCell, styles.tierTrader]}>操盘手</Text>
+            <Text style={[styles.colTitle, styles.headerCell]}>
+              {t('memberBenefits.colBenefit')}
+            </Text>
+            <Text style={[styles.colTier, styles.headerCell, styles.tierNormal]}>
+              {t('memberBenefits.colNormal')}
+            </Text>
+            <Text style={[styles.colTier, styles.headerCell, styles.tierMember]}>
+              {t('memberBenefits.colMember')}
+            </Text>
+            <Text style={[styles.colTier, styles.headerCell, styles.tierTrader]}>
+              {t('memberBenefits.colTrader')}
+            </Text>
           </View>
           {comparisonRows.map((row, idx) => (
             <View key={`${row.title}-${idx}`} style={styles.tableRow}>
@@ -213,11 +229,11 @@ export function UserMembershipBenefits({
             style={styles.openBtn}
             onPress={onPressUpgrade}
             accessibilityRole="button"
-            accessibilityLabel="立即开通"
+            accessibilityLabel={t('memberBenefits.openNow')}
           >
             {({ pressed }) => (
               <View style={[styles.openBtnFace, pressed ? styles.pressed : null]}>
-                <Text style={styles.openBtnText}>立即开通</Text>
+                <Text style={styles.openBtnText}>{t('memberBenefits.openNow')}</Text>
               </View>
             )}
           </Pressable>

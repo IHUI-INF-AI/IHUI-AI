@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/course-planet/CoursePlanetScreen.tsx
-import { useI18n, type TtFn } from '@/i18n'
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
@@ -26,55 +26,6 @@ interface PlanetCourse {
   students?: number
   category?: string
 }
-
-// API 返回空数据时的 mock 降级(避免 Carousel 不渲染导致页面顶部空白)
-const MOCK_COURSES = (tt: TtFn): PlanetCourse[] => [
-  {
-    id: 'mock-1',
-    title: tt('courseplanet.d1', 'AI 绘画入门:从零到精通'),
-    coverUrl: '/pkg-learn/assets/courseplanet/cover-1.jpg',
-    teacher: tt('courseplanet.d2', 'AI 教研组'),
-    price: 0,
-    students: 1280,
-    category: 'recommend',
-  },
-  {
-    id: 'mock-2',
-    title: tt('courseplanet.d3', '短视频制作全流程实战'),
-    coverUrl: '/pkg-learn/assets/courseplanet/cover-2.jpg',
-    teacher: tt('courseplanet.d4', '实战导师'),
-    price: 99,
-    students: 856,
-    category: 'hot',
-  },
-  {
-    id: 'mock-3',
-    title: tt('courseplanet.d5', 'ChatGPT 提示词工程'),
-    coverUrl: '/pkg-learn/assets/courseplanet/cover-3.jpg',
-    teacher: tt('courseplanet.d6', 'AI 教研组'),
-    price: 199,
-    students: 2340,
-    category: 'recommend',
-  },
-  {
-    id: 'mock-4',
-    title: tt('courseplanet.d7', 'AI 办公效率提升指南'),
-    coverUrl: '/pkg-learn/assets/courseplanet/cover-4.jpg',
-    teacher: tt('courseplanet.d8', '效率专家'),
-    price: 0,
-    students: 1560,
-    category: 'free',
-  },
-  {
-    id: 'mock-5',
-    title: tt('courseplanet.d9', '大模型应用开发实战'),
-    coverUrl: '/pkg-learn/assets/courseplanet/cover-5.jpg',
-    teacher: tt('courseplanet.d10', '技术大牛'),
-    price: 299,
-    students: 678,
-    category: 'new',
-  },
-]
 
 const PAGE_SIZE = 10
 
@@ -136,12 +87,13 @@ export default function CoursePlanet() {
                 : undefined,
         category: (item.category as string) || (item.tag as string) || (item.type as string) || '',
       }))
-      setAllList(mapped.length > 0 ? mapped : MOCK_COURSES(tt))
+      // 空就空:不回填演示课程(RN CoursePlanetScreen 无兜底;本页 313 行已有 EmptyState 轨道)
+      setAllList(mapped)
       setDisplayCount(PAGE_SIZE)
     } catch (e) {
       logger.error('coursePlanet', '加载课程星球', e)
+      // 失败走 209 行 ErrorState 轨道:不再回填演示课程(对齐 RN 错误语义)
       setError(true)
-      setAllList(MOCK_COURSES(tt))
     } finally {
       setLoading(false)
       loadingRef.current = false

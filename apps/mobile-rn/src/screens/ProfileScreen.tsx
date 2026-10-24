@@ -136,11 +136,31 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 /** 首屏统计加载无响应多久后转为"超时+重试"(api-client 层无超时,不兜住就是无限转圈) */
 const PROFILE_LOAD_TIMEOUT_MS = 12000
 
-/** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310) */
-const MEMBERSHIP_BENEFITS: readonly BenefitItem[] = [
-  { id: 'ai-free', icon: Bot, title: 'AI助手免费次数增加', desc: '每日赠送免费对话次数' },
-  { id: 'course-free', icon: BookOpen, title: '部分课程免费学习', desc: '专享 VIP 课程资源' },
-  { id: 'knowledge-base', icon: Database, title: '建立专属知识库', desc: '私有知识库存储与管理' },
+/** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310;title/desc 存 i18n 键,消费处 t 解析) */
+const MEMBERSHIP_BENEFITS: readonly {
+  id: string
+  icon: Bot | BookOpen | Database
+  titleKey: string
+  descKey: string
+}[] = [
+  {
+    id: 'ai-free',
+    icon: Bot,
+    titleKey: 'profile.benefitAiFree',
+    descKey: 'profile.benefitAiFreeDesc',
+  },
+  {
+    id: 'course-free',
+    icon: BookOpen,
+    titleKey: 'profile.benefitCourse',
+    descKey: 'profile.benefitCourseDesc',
+  },
+  {
+    id: 'knowledge-base',
+    icon: Database,
+    titleKey: 'profile.benefitKb',
+    descKey: 'profile.benefitKbDesc',
+  },
 ]
 
 /**
@@ -285,14 +305,16 @@ export function ProfileScreen() {
   const loadDrawerConversations = useCallback(async () => {
     const res = await listConversations({ page: 1, pageSize: 50 })
     if (res.success) {
-      const items: DrawerConversationItem[] = res.data.conversations.map(mapConversationToDrawer)
+      const items: DrawerConversationItem[] = res.data.conversations.map((c) =>
+        mapConversationToDrawer(c, t('plaza.index.untitledConv')),
+      )
       setDrawerConversations(items)
     } else {
       // 静默失败:不弹错误(对齐 Uniapp loadHistoryChat catch 后 setGroupedData([]))
       setDrawerConversations([])
     }
     setDrawerConversationsLoaded(true)
-  }, [])
+  }, [t])
 
   // Drawer 首次打开时懒加载历史对话(对齐 Uniapp onShow + loadHistoryChat)
   useEffect(() => {
@@ -386,9 +408,9 @@ export function ProfileScreen() {
     setDrawerVisible(false)
     try {
       Clipboard.setString(FREE_RESOURCE_URL)
-      showFloat('链接已复制', 'success')
+      showFloat(t('plaza.index.linkCopied'), 'success')
     } catch {
-      showFloat('复制失败,请重试', 'warning')
+      showFloat(t('profile.copyFailRetry'), 'warning')
     }
   }
   const handleDrawerCreateNewChat = () => {
@@ -410,10 +432,10 @@ export function ProfileScreen() {
     })
   }
   const handleDrawerDeleteConversation = (id: string) => {
-    appAlert('删除对话', '确认删除此对话?', [
-      { text: '取消', style: 'cancel' },
+    appAlert(t('profile.dlgDelConvTitle'), t('profile.dlgDelConvBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '删除',
+        text: t('profile.deleteBtn'),
         style: 'destructive',
         onPress: () => {
           // 乐观删除:先从本地列表移除,API 失败时回滚(对齐 Uniapp 删除对话体验)
@@ -424,9 +446,9 @@ export function ProfileScreen() {
             if (!res.success) {
               // 回滚
               setDrawerConversations(snapshot)
-              showFloat('删除失败,请重试', 'warning')
+              showFloat(t('profile.delFailedRetry'), 'warning')
             } else {
-              showFloat('已删除', 'success')
+              showFloat(t('home.matDeletedOk'), 'success')
             }
           })()
         },
@@ -476,7 +498,7 @@ export function ProfileScreen() {
   /** Drawer user 映射(AuthUser → Drawer user) */
   const drawerUser = {
     avatar: user?.avatar,
-    nickname: user?.nickname ?? user?.username ?? '未登录',
+    nickname: user?.nickname ?? user?.username ?? t('home.notLoggedIn'),
     level: (user?.isVip ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
@@ -507,23 +529,23 @@ export function ProfileScreen() {
     try {
       const statusRes = await getSubscriptionStatus()
       if (!statusRes.success) {
-        showFloat(statusRes.error || '查询订阅状态失败', 'warning')
+        showFloat(statusRes.error || t('profile.subQueryFail'), 'warning')
         return
       }
       const contract = statusRes.data.contract
       if (contract && contract.status === 'active') {
         const cancelRes = await cancelRecurringContract(contract.id)
         if (cancelRes.success) {
-          showFloat('已取消自动续费,会员到期后不会续扣', 'success')
+          showFloat(t('profile.subCancelOk'), 'success')
         } else {
-          showFloat(cancelRes.error || '退订失败,请稍后重试', 'warning')
+          showFloat(cancelRes.error || t('profile.subCancelRetry'), 'warning')
         }
       } else {
-        showFloat('当前无自动续费订阅,无需退订', 'info')
+        showFloat(t('profile.subNoneNow'), 'info')
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      showFloat(detail.trim() ? toUserFriendlyMessage(e) : '网络错误,请稍后重试', 'warning')
+      showFloat(detail.trim() ? toUserFriendlyMessage(e) : t('profile.netRetry'), 'warning')
     }
   }
 
@@ -560,13 +582,13 @@ export function ProfileScreen() {
         {loading ? (
           loadTimedOut ? (
             <View style={styles.tabErrorWrap}>
-              <Text style={styles.tabErrorText}>加载超时,请检查网络后重试</Text>
+              <Text style={styles.tabErrorText}>{t('profile.loadTimeoutRetry')}</Text>
               <TouchableOpacity
                 onPress={() => void loadProfileStats()}
                 style={styles.tabRetryBtn}
                 activeOpacity={0.7}
               >
-                <Text style={styles.tabRetryText}>点击重试</Text>
+                <Text style={styles.tabRetryText}>{t('profile.clickRetry')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -593,9 +615,9 @@ export function ProfileScreen() {
                   style={styles.levelIntroBtn}
                   activeOpacity={0.7}
                   onPress={() => setLevelIntroVisible(true)}
-                  accessibilityLabel="等级介绍"
+                  accessibilityLabel={t('profile.levelIntro')}
                 >
-                  <Text style={styles.levelIntroBtnText}>等级介绍</Text>
+                  <Text style={styles.levelIntroBtnText}>{t('profile.levelIntro')}</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -606,9 +628,10 @@ export function ProfileScreen() {
               style={styles.membershipHeader}
               onPress={() => setShowMembershipBenefits((v) => !v)}
               activeOpacity={0.7}
-              accessibilityLabel="切换会员权益显示"
+              accessibilityLabel={t('profile.switchBenefit')}
+              accessibilityRole="button"
             >
-              <Text style={styles.membershipHeaderText}>会员权益</Text>
+              <Text style={styles.membershipHeaderText}>{t('profile.membershipSection')}</Text>
               <View
                 style={[
                   styles.membershipArrow,
@@ -622,7 +645,12 @@ export function ProfileScreen() {
               <View style={styles.membershipBenefitsWrap}>
                 <UserMembershipBenefits
                   level={(user?.isVip === 1 ? 'vip' : 'normal') as MembershipLevel}
-                  benefits={MEMBERSHIP_BENEFITS}
+                  benefits={MEMBERSHIP_BENEFITS.map<BenefitItem>((b) => ({
+                    id: b.id,
+                    icon: b.icon,
+                    title: t(b.titleKey),
+                    desc: t(b.descKey),
+                  }))}
                   onPressUpgrade={() => setLevelIntroVisible(true)}
                 />
               </View>
@@ -661,11 +689,11 @@ export function ProfileScreen() {
       </ScrollView>
       <LoginPopUp
         visible={loginPromptVisible}
-        title="登录已过期"
-        description="登录状态已失效,请重新登录以继续使用"
-        primaryLabel="立即登录"
+        title={t('profile.titleExpired')}
+        description={t('profile.expiredDesc')}
+        primaryLabel={t('profile.loginNowBtn')}
         onPrimary={navigateToLogin}
-        secondaryLabel="稍后再说"
+        secondaryLabel={t('profile.laterBtn')}
         onSecondary={() => setLoginPromptVisible(false)}
         onClose={() => setLoginPromptVisible(false)}
         agreeChecked={agreeChecked}
@@ -719,7 +747,7 @@ export function ProfileScreen() {
           onClose={() => setEditProfileVisible(false)}
           onSaved={() => {
             setEditProfileVisible(false)
-            showFloat('资料已保存', 'success')
+            showFloat(t('profile.profileSaved'), 'success')
           }}
         />
       ) : null}
@@ -759,6 +787,7 @@ function EditProfileModal({
   onSaved,
 }: EditProfileModalProps): React.JSX.Element {
   const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
   const [nickname, setNickname] = useState(user.nickname ?? user.username ?? '')
   const [avatarHint, setAvatarHint] = useState('')
   const [avatarUpdating, setAvatarUpdating] = useState(false)
@@ -766,7 +795,7 @@ function EditProfileModal({
   const [saveError, setSaveError] = useState('')
 
   useUiTextField({
-    label: '请输入昵称',
+    label: t('profile.nickPlaceholder'),
     value: nickname,
     setValue: setNickname,
     maxLength: 8,
@@ -790,7 +819,7 @@ function EditProfileModal({
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (perm.status !== 'granted') {
-        setAvatarHint('需要相册权限才能更换头像')
+        setAvatarHint(t('profile.avatarNeedPerm'))
         return
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -803,20 +832,20 @@ function EditProfileModal({
       if (!asset?.uri) return
 
       setAvatarUpdating(true)
-      setAvatarHint('头像上传中...')
+      setAvatarHint(t('profile.avatarUploading'))
       const uploadRes = await uploadFileMultipart({
         uri: asset.uri,
         type: asset.mimeType ?? 'image/jpeg',
         name: asset.fileName ?? `avatar_${Date.now()}.jpg`,
       })
       if (!uploadRes.success) {
-        setAvatarHint(uploadRes.error || '头像上传失败')
+        setAvatarHint(uploadRes.error || t('profile.avatarUploadFail'))
         return
       }
       const avatarUrl = resolveFileUrl(uploadRes.data.path)
       const updateRes = await updateProfile({ avatar: avatarUrl })
       if (!updateRes.success) {
-        setAvatarHint(updateRes.error || '头像更新失败')
+        setAvatarHint(updateRes.error || t('profile.avatarUpdateFail'))
         return
       }
       // 刷新认证用户态,同步到全局展示(头像/昵称等)
@@ -824,10 +853,10 @@ function EditProfileModal({
       if (meRes.success) {
         rnAuthStore.getState().setUser(meRes.data)
       }
-      setAvatarHint('头像已更新')
+      setAvatarHint(t('profile.avatarUpdated'))
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      setAvatarHint(detail.trim() ? toUserFriendlyMessage(e) : '网络错误,请稍后重试')
+      setAvatarHint(detail.trim() ? toUserFriendlyMessage(e) : t('profile.netRetry'))
     } finally {
       setAvatarUpdating(false)
     }
@@ -836,7 +865,7 @@ function EditProfileModal({
   const handleSave = async () => {
     const trimmed = nickname.trim()
     if (!trimmed) {
-      setSaveError('昵称不能为空')
+      setSaveError(t('profile.nickEmpty'))
       return
     }
     setSaving(true)
@@ -844,13 +873,13 @@ function EditProfileModal({
     try {
       const res = await updateProfile({ nickname: trimmed })
       if (!res.success) {
-        setSaveError(apiFailureToText(res, '保存失败,请稍后重试'))
+        setSaveError(apiFailureToText(res, t('profile.saveRetryLater')))
         return
       }
       onSaved()
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      setSaveError(detail.trim() ? toUserFriendlyMessage(e) : '网络错误,请稍后重试')
+      setSaveError(detail.trim() ? toUserFriendlyMessage(e) : t('profile.netRetry'))
     } finally {
       setSaving(false)
     }
@@ -860,7 +889,7 @@ function EditProfileModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.editProfileOverlay}>
         <View style={styles.editProfileCard}>
-          <Text style={styles.editProfileTitle}>编辑资料</Text>
+          <Text style={styles.editProfileTitle}>{t('profile.editProfile')}</Text>
 
           {/* 头像(点击更换 — 相册选图 → 上传 → 更新用户信息) */}
           <View style={styles.editProfileAvatarSection}>
@@ -869,7 +898,7 @@ function EditProfileModal({
               onPress={() => void handlePickAvatar()}
               disabled={avatarUpdating}
               style={styles.editProfileAvatarBtn}
-              accessibilityLabel="更换头像"
+              accessibilityLabel={t('profile.avatarModalTitle')}
             >
               {user.avatar ? (
                 <Image source={{ uri: user.avatar }} style={styles.editProfileAvatar} />
@@ -891,13 +920,13 @@ function EditProfileModal({
 
           {/* 昵称(可编辑) */}
           <View style={styles.editProfileField}>
-            <Text style={styles.editProfileLabel}>昵称</Text>
+            <Text style={styles.editProfileLabel}>{t('profile.nickLabel')}</Text>
             <TextField
               colorScheme={resolvedTheme}
               style={styles.editProfileInput}
               value={nickname}
               onChangeText={setNickname}
-              placeholder="请输入昵称"
+              placeholder={t('profile.nickPlaceholder')}
               placeholderTextColor={tokens.text.tertiary}
               maxLength={8}
             />
@@ -905,11 +934,11 @@ function EditProfileModal({
 
           {/* 邮箱(只读) */}
           <View style={styles.editProfileField}>
-            <Text style={styles.editProfileLabel}>邮箱</Text>
+            <Text style={styles.editProfileLabel}>{t('auth.email')}</Text>
             <TextField
               colorScheme={resolvedTheme}
               style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
-              value={user.email ?? '未绑定'}
+              value={user.email ?? t('profile.unbound')}
               editable={false}
               placeholderTextColor={tokens.text.tertiary}
             />
@@ -917,11 +946,11 @@ function EditProfileModal({
 
           {/* 手机号(只读) */}
           <View style={styles.editProfileField}>
-            <Text style={styles.editProfileLabel}>手机号</Text>
+            <Text style={styles.editProfileLabel}>{t('auth.phone')}</Text>
             <TextField
               colorScheme={resolvedTheme}
               style={[styles.editProfileInput, styles.editProfileInputReadOnly]}
-              value={user.phone ?? '未绑定'}
+              value={user.phone ?? t('profile.unbound')}
               editable={false}
               placeholderTextColor={tokens.text.tertiary}
             />
@@ -936,7 +965,7 @@ function EditProfileModal({
               onPress={onClose}
               disabled={saving}
             >
-              <Text style={styles.editProfileCancelBtnText}>取消</Text>
+              <Text style={styles.editProfileCancelBtnText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.editProfileSaveBtn, saving ? styles.editProfileSaveBtnDisabled : null]}
@@ -944,7 +973,9 @@ function EditProfileModal({
               onPress={handleSave}
               disabled={saving}
             >
-              <Text style={styles.editProfileSaveBtnText}>{saving ? '保存中...' : '保存'}</Text>
+              <Text style={styles.editProfileSaveBtnText}>
+                {saving ? t('profile.savingDots') : t('profile.saveBtn')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -960,31 +991,40 @@ interface LevelIntroModalProps {
   onClose: () => void
 }
 
-/** 等级体系 3 级(普通用户 / VIP / 操盘手),对齐 Uniapp level-intro 数据结构 */
+/** 等级体系 3 级(普通用户 / VIP / 操盘手),对齐 Uniapp level-intro 数据结构;文案存 i18n 键 */
 const LEVEL_INTRO_DATA: readonly {
-  readonly level: string
-  readonly desc: string
-  readonly benefits: readonly string[]
+  readonly levelKey: string
+  readonly descKey: string
+  readonly benefitKeys: readonly string[]
 }[] = [
   {
-    level: '普通用户',
-    desc: '注册即享基础功能',
-    benefits: ['AI 助手每日免费对话次数', '基础课程学习', '社区交流'],
+    levelKey: 'profile.levelRegular',
+    descKey: 'profile.levelRegularDesc',
+    benefitKeys: [
+      'profile.benefitListAiDaily',
+      'profile.benefitListCourse',
+      'profile.benefitListCommunity',
+    ],
   },
   {
-    level: 'VIP 会员',
-    desc: '付费升级,解锁进阶能力',
-    benefits: ['AI 助手免费次数大幅增加', '部分课程免费学习', '建立专属知识库', '专属客服支持'],
+    levelKey: 'profile.levelVip',
+    descKey: 'profile.levelProDesc',
+    benefitKeys: [
+      'profile.benefitListAiMore',
+      'profile.benefitCourse',
+      'profile.benefitListKb',
+      'profile.benefitSupport',
+    ],
   },
   {
-    level: '操盘手',
-    desc: '顶级会员,享受平台全部权益',
-    benefits: [
-      '无限 AI 助手对话',
-      '全部课程免费学习',
-      '专属操盘策略工具',
-      '1V1 专属顾问',
-      '高级数据分析报表',
+    levelKey: 'profile.levelTrader',
+    descKey: 'profile.levelTraderDesc',
+    benefitKeys: [
+      'profile.benefitAiUnlimited',
+      'profile.benefitAllCourses',
+      'profile.benefitTraderTools',
+      'profile.benefitOneToOne',
+      'profile.benefitDataReport',
     ],
   },
 ]
@@ -994,22 +1034,23 @@ const LEVEL_INTRO_DATA: readonly {
  * 对齐 Uniapp user/index.vue 等级介绍弹层,在 UserInfoCard 下方独立按钮触发。
  */
 function LevelIntroModal({ visible, onClose }: LevelIntroModalProps): React.JSX.Element {
+  const { t } = useI18n()
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.levelIntroOverlay}>
         <View style={styles.levelIntroCard}>
-          <Text style={styles.levelIntroTitle}>等级介绍</Text>
+          <Text style={styles.levelIntroTitle}>{t('profile.levelIntro')}</Text>
           <ScrollView style={styles.levelIntroScroll} showsVerticalScrollIndicator={false}>
             {LEVEL_INTRO_DATA.map((item) => (
-              <View key={item.level} style={styles.levelIntroItem}>
+              <View key={item.levelKey} style={styles.levelIntroItem}>
                 <View style={styles.levelIntroItemHeader}>
-                  <Text style={styles.levelIntroItemLevel}>{item.level}</Text>
-                  <Text style={styles.levelIntroItemDesc}>{item.desc}</Text>
+                  <Text style={styles.levelIntroItemLevel}>{t(item.levelKey)}</Text>
+                  <Text style={styles.levelIntroItemDesc}>{t(item.descKey)}</Text>
                 </View>
                 <View style={styles.levelIntroBenefitList}>
-                  {item.benefits.map((b) => (
-                    <Text key={b} style={styles.levelIntroBenefitItem}>
-                      · {b}
+                  {item.benefitKeys.map((k) => (
+                    <Text key={k} style={styles.levelIntroBenefitItem}>
+                      · {t(k)}
                     </Text>
                   ))}
                 </View>
@@ -1017,7 +1058,7 @@ function LevelIntroModal({ visible, onClose }: LevelIntroModalProps): React.JSX.
             ))}
           </ScrollView>
           <TouchableOpacity style={styles.levelIntroCloseBtn} activeOpacity={0.7} onPress={onClose}>
-            <Text style={styles.levelIntroCloseBtnText}>关闭</Text>
+            <Text style={styles.levelIntroCloseBtnText}>{t('home.closeBtn')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1042,6 +1083,7 @@ function UnsubscribeModal({
   onClose,
   onConfirm,
 }: UnsubscribeModalProps): React.JSX.Element {
+  const { t } = useI18n()
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.unsubscribeOverlay}>
@@ -1049,25 +1091,22 @@ function UnsubscribeModal({
           <View style={styles.unsubscribeIconWrap}>
             <TriangleAlert size={28} color={tokens.danger.DEFAULT} />
           </View>
-          <Text style={styles.unsubscribeTitle}>确认退订</Text>
-          <Text style={styles.unsubscribeDesc}>
-            退订后将无法享受会员权益,包括 AI
-            助手免费次数、专属课程、知识库等。退订操作不可撤销,请谨慎确认。
-          </Text>
+          <Text style={styles.unsubscribeTitle}>{t('profile.unsubTitle')}</Text>
+          <Text style={styles.unsubscribeDesc}>{t('profile.unsubDesc')}</Text>
           <View style={styles.unsubscribeBtnRow}>
             <TouchableOpacity
               style={styles.unsubscribeCancelBtn}
               activeOpacity={0.7}
               onPress={onClose}
             >
-              <Text style={styles.unsubscribeCancelBtnText}>取消</Text>
+              <Text style={styles.unsubscribeCancelBtnText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.unsubscribeConfirmBtn}
               activeOpacity={0.7}
               onPress={onConfirm}
             >
-              <Text style={styles.unsubscribeConfirmBtnText}>确认退订</Text>
+              <Text style={styles.unsubscribeConfirmBtnText}>{t('profile.unsubTitle')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1100,6 +1139,7 @@ interface VideoModalState {
  * 所有对话 fallback 到 text tab,其他 tab 显示空)。
  */
 function ProfileContentSection(): React.JSX.Element {
+  const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const [activeTab, setActiveTab] = useState<ProfileTabId>(1)
   const [textContentList, setTextContentList] = useState<readonly TextContent[]>(EMPTY_TEXT_LIST)
@@ -1126,7 +1166,7 @@ function ProfileContentSection(): React.JSX.Element {
     try {
       const res = await listConversations({ page: 1, pageSize: 20 })
       if (!res.success) {
-        setError(apiFailureToText(res, '加载失败'))
+        setError(apiFailureToText(res, t('profile.loadFailedShort')))
         if (tab === 1) setTextContentList([])
         else if (tab === 2) setImageContentList([])
         else if (tab === 3) setVideoContentList([])
@@ -1143,7 +1183,7 @@ function ProfileContentSection(): React.JSX.Element {
         const tabType = meta.contentType ?? 'text'
         // 本地化时间(Asia/Shanghai,复用共享 date-utils;裸 ISO 直接上屏是 bug)
         const time = formatDate(conv.updatedAt ?? conv.createdAt)
-        const title = conv.title?.trim() || '未命名对话'
+        const title = conv.title?.trim() || t('plaza.index.untitledConv')
         if (tabType === 'image') {
           const list = meta.imageList ?? (meta.thumbnailUrl ? [meta.thumbnailUrl] : [])
           imageContents.push({
@@ -1185,7 +1225,7 @@ function ProfileContentSection(): React.JSX.Element {
       else if (tab === 3) setVideoContentList(videoContents)
       else setAudioContentList(audioContents)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '加载失败')
+      setError(err instanceof Error ? err.message : t('profile.loadFailedShort'))
       if (tab === 1) setTextContentList([])
       else if (tab === 2) setImageContentList([])
       else if (tab === 3) setVideoContentList([])
@@ -1241,9 +1281,9 @@ function ProfileContentSection(): React.JSX.Element {
   const onCopyLink = useCallback(() => {
     try {
       Clipboard.setString(WEBSITE_URL)
-      showToast('success', '已复制官网地址，请在浏览器打开')
+      showToast('success', t('profile.copySiteOk'))
     } catch {
-      showToast('warning', '复制失败，请重试')
+      showToast('warning', t('profile.copyFailRetry'))
     }
   }, [showToast])
 
@@ -1267,7 +1307,7 @@ function ProfileContentSection(): React.JSX.Element {
           <View style={styles.tabErrorWrap}>
             <Text style={styles.tabErrorText}>{error}</Text>
             <TouchableOpacity onPress={onRetry} style={styles.tabRetryBtn} activeOpacity={0.7}>
-              <Text style={styles.tabRetryText}>重试</Text>
+              <Text style={styles.tabRetryText}>{t('profile.retryShort')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -1288,9 +1328,9 @@ function ProfileContentSection(): React.JSX.Element {
         onPress={onCopyLink}
         style={styles.copyLinkBtn}
         activeOpacity={0.7}
-        accessibilityLabel="复制官网链接"
+        accessibilityLabel={t('profile.copySite')}
       >
-        <Text style={styles.copyLinkText}>复制官网链接</Text>
+        <Text style={styles.copyLinkText}>{t('profile.copySite')}</Text>
       </TouchableOpacity>
       <ImagePreviewModal
         images={preview.images}
@@ -1321,8 +1361,9 @@ interface TextTabProps {
 }
 
 function TextTabContent({ list }: TextTabProps): React.JSX.Element {
+  const { t } = useI18n()
   if (list.length === 0) {
-    return <Empty text="暂无文本内容" icon={FileText} />
+    return <Empty text={t('profile.emptyTextCat')} icon={FileText} />
   }
   return (
     <View>
@@ -1336,7 +1377,7 @@ function TextTabContent({ list }: TextTabProps): React.JSX.Element {
           <View style={styles.contentItem}>
             <View style={styles.contentHeader}>
               <Text style={styles.contentTitle} numberOfLines={1}>
-                {item.title || '文本内容'}
+                {item.title || t('home.contentText')}
               </Text>
               <Text style={styles.contentTime}>{item.time}</Text>
             </View>
@@ -1361,8 +1402,9 @@ interface ImageTabProps {
 }
 
 function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element {
+  const { t } = useI18n()
   if (list.length === 0) {
-    return <Empty text="暂无图片内容" icon={ImageIcon} />
+    return <Empty text={t('profile.emptyImageCat')} icon={ImageIcon} />
   }
   return (
     <FlatList
@@ -1375,7 +1417,7 @@ function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element 
         <View style={styles.contentItem}>
           <View style={styles.contentHeader}>
             <Text style={styles.contentTitle} numberOfLines={1}>
-              {item.title || '图片内容'}
+              {item.title || t('home.contentImage')}
             </Text>
             <Text style={styles.contentTime}>{item.time}</Text>
           </View>
@@ -1408,13 +1450,14 @@ interface VideoTabProps {
 }
 
 function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
+  const { t } = useI18n()
   const screenWidth = useAppFrameWidth()
   // 视频封面宽度 = screenWidth - 32(容器 padding),高度默认 200(对齐 Uniapp 400rpx ≈ 200)
   const posterWidth = screenWidth - 32
   const posterHeight = 200
 
   if (list.length === 0) {
-    return <Empty text="暂无视频内容" icon={Film} />
+    return <Empty text={t('profile.emptyVideoCat')} icon={Film} />
   }
   return (
     <FlatList
@@ -1431,7 +1474,7 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
           <View style={styles.contentItem}>
             <View style={styles.contentHeader}>
               <Text style={styles.contentTitle} numberOfLines={1}>
-                {item.title || '视频内容'}
+                {item.title || t('home.contentVideo')}
               </Text>
               <Text style={styles.contentTime}>{item.time}</Text>
             </View>
@@ -1469,8 +1512,9 @@ interface AudioTabProps {
 }
 
 function AudioTabContent({ list }: AudioTabProps): React.JSX.Element {
+  const { t } = useI18n()
   if (list.length === 0) {
-    return <Empty text="暂无音频内容" icon={Music} />
+    return <Empty text={t('profile.emptyAudioCat')} icon={Music} />
   }
   return (
     <FlatList
@@ -1486,6 +1530,7 @@ function AudioTabContent({ list }: AudioTabProps): React.JSX.Element {
 
 /** 单条音频项 — 用 expo-audio useAudioPlayer 播放(对齐 Uniapp toggleAudioPlay 行 1180-1220) */
 function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
+  const { t } = useI18n()
   const player = useAudioPlayer(item.audioUrl)
   const status = useAudioPlayerStatus(player)
   const [barWidth, setBarWidth] = useState(0)
@@ -1520,7 +1565,7 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
 
   const onDownload = useCallback(async () => {
     if (!item.audioUrl) {
-      showToast('warning', '音频地址无效')
+      showToast('warning', t('profile.audioInvalid'))
       return
     }
     if (downloading) return
@@ -1528,7 +1573,7 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
     try {
       const perm = await MediaLibrary.requestPermissionsAsync()
       if (!perm.granted) {
-        showToast('warning', '需要媒体库权限才能保存音频')
+        showToast('warning', t('profile.audioNeedPerm'))
         return
       }
       const filename = `audio_${Date.now()}.mp3`
@@ -1537,13 +1582,13 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
         idempotent: true,
       })
       await MediaLibrary.saveToLibraryAsync(downloaded.uri)
-      showToast('success', '音频已保存到媒体库')
+      showToast('success', t('profile.audioSaved'))
     } catch {
-      showToast('error', '下载失败,请重试')
+      showToast('error', t('profile.downloadFailRetry'))
     } finally {
       setDownloading(false)
     }
-  }, [item.audioUrl, downloading, showToast])
+  }, [item.audioUrl, downloading, showToast, t])
 
   const progressRatio = status.duration > 0 ? Math.min(1, status.currentTime / status.duration) : 0
 
@@ -1551,20 +1596,20 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
     <View style={styles.contentItem}>
       <View style={styles.contentHeader}>
         <Text style={styles.contentTitle} numberOfLines={1}>
-          {item.title || '音频内容'}
+          {item.title || t('profile.audioContentShort')}
         </Text>
         <Text style={styles.contentTime}>{item.time}</Text>
       </View>
       <View style={styles.contentBody}>
         {!item.audioUrl ? (
-          <Text style={styles.tabErrorText}>音频地址无效，暂无可播放的音频</Text>
+          <Text style={styles.tabErrorText}>{t('profile.audioInvalidPlay')}</Text>
         ) : (
           <View style={styles.audioPlayer}>
             <TouchableOpacity
               onPress={togglePlay}
               style={styles.audioPlayBtn}
               activeOpacity={0.7}
-              accessibilityLabel={status.playing ? '暂停' : '播放'}
+              accessibilityLabel={status.playing ? t('player.pause') : t('player.play')}
             >
               {status.playing ? (
                 <Pause size={16} color={tokens.brand.foreground} style={{ marginLeft: rpx(4) }} />
@@ -1579,7 +1624,7 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
               onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
               onPress={onProgressBarTap}
               style={styles.audioProgressTrack}
-              accessibilityLabel="音频进度条"
+              accessibilityLabel={t('profile.audioProgress')}
             >
               <View
                 style={[styles.audioProgressFill, { width: `${Math.round(progressRatio * 100)}%` }]}
@@ -1590,7 +1635,7 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
               onPress={onDownload}
               style={styles.audioDownloadBtn}
               activeOpacity={0.7}
-              accessibilityLabel="下载音频"
+              accessibilityLabel={t('profile.downloadAudio')}
               disabled={downloading}
             >
               {downloading ? (
@@ -1627,6 +1672,7 @@ function ImagePreviewModal({
   visible,
   onClose,
 }: ImagePreviewModalProps): React.JSX.Element {
+  const { t } = useI18n()
   // 高度仍取视口高(== 框架高,#root 100dvh);宽取框架宽,理由见文件头 useAppFrameWidth 注释
   const { height: screenHeight } = useWindowDimensions()
   const screenWidth = useAppFrameWidth()
@@ -1646,9 +1692,9 @@ function ImagePreviewModal({
           onPress={onShare}
           style={styles.previewShareBtn}
           activeOpacity={0.7}
-          accessibilityLabel="分享图片"
+          accessibilityLabel={t('profile.shareImage')}
         >
-          <Text style={styles.previewShareText}>分享</Text>
+          <Text style={styles.previewShareText}>{t('profile.shareBtn')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose} style={styles.previewCloseBtn} activeOpacity={0.7}>
           <Text style={styles.previewCloseText}>×</Text>
@@ -1696,6 +1742,7 @@ interface ImageSharePopupProps {
  * - 分享:RN Share API(对齐 Uniapp handleAppShareClick)
  */
 function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): React.JSX.Element {
+  const { t } = useI18n()
   const shareViewRef = useRef<View>(null)
   const [saving, setSaving] = useState(false)
   const [toastVisible, setToastVisible] = useState(false)
@@ -1711,15 +1758,15 @@ function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): 
 
   const onShare = useCallback(async () => {
     if (!imageUrl) {
-      showToast('warning', '暂无可分享的图片')
+      showToast('warning', t('profile.noShareImage'))
       return
     }
     try {
-      await Share.share({ message: imageUrl, url: imageUrl, title: '分享图片' })
+      await Share.share({ message: imageUrl, url: imageUrl, title: t('profile.shareImage') })
     } catch {
-      showToast('warning', '分享失败，请重试')
+      showToast('warning', t('profile.shareFailRetry'))
     }
-  }, [imageUrl, showToast])
+  }, [imageUrl, showToast, t])
 
   const onSaveToAlbum = useCallback(async () => {
     if (saving) return
@@ -1727,22 +1774,22 @@ function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): 
     try {
       const perm = await MediaLibrary.requestPermissionsAsync()
       if (!perm.granted) {
-        showToast('warning', '需要相册权限才能保存图片')
+        showToast('warning', t('home.albumPermRequired'))
         return
       }
       if (!shareViewRef.current) {
-        showToast('error', '图片未渲染，请稍后重试')
+        showToast('error', t('profile.imgNotRendered'))
         return
       }
       const uri = await captureRef(shareViewRef, { format: 'png', quality: 1 })
       await MediaLibrary.saveToLibraryAsync(uri)
-      showToast('success', '图片已保存到相册')
+      showToast('success', t('home.imgSavedAlbum'))
     } catch {
-      showToast('error', '保存失败，请重试')
+      showToast('error', t('home.imgSaveRetry'))
     } finally {
       setSaving(false)
     }
-  }, [saving, showToast])
+  }, [saving, showToast, t])
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -1752,11 +1799,11 @@ function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): 
             onPress={onClose}
             style={styles.sharePopupClose}
             activeOpacity={0.7}
-            accessibilityLabel="关闭分享弹窗"
+            accessibilityLabel={t('profile.closeShare')}
           >
             <Text style={styles.sharePopupCloseText}>×</Text>
           </TouchableOpacity>
-          <Text style={styles.sharePopupTitle}>分享赚现金</Text>
+          <Text style={styles.sharePopupTitle}>{t('profile.shareEarnTitle')}</Text>
           {/* 分享图(截图目标容器,collapsible=false 保证 Android 可捕获) */}
           <View ref={shareViewRef} collapsable={false} style={styles.sharePopupImageWrap}>
             <Image source={source} style={styles.sharePopupImage} resizeMode="contain" />
@@ -1767,19 +1814,19 @@ function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): 
               activeOpacity={0.7}
               onPress={onSaveToAlbum}
               disabled={saving}
-              accessibilityLabel="保存到相册"
+              accessibilityLabel={t('profile.saveToAlbum')}
             >
               <Text style={styles.sharePopupSaveBtnText}>
-                {saving ? '保存中...' : '保存到相册'}
+                {saving ? t('profile.savingDots') : t('profile.saveToAlbum')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.sharePopupShareBtn}
               activeOpacity={0.7}
               onPress={onShare}
-              accessibilityLabel="分享"
+              accessibilityLabel={t('profile.shareBtn')}
             >
-              <Text style={styles.sharePopupShareBtnText}>分享</Text>
+              <Text style={styles.sharePopupShareBtnText}>{t('profile.shareBtn')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1803,6 +1850,7 @@ interface VideoPlayerModalProps {
 }
 
 function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): React.JSX.Element {
+  const { t } = useI18n()
   const screenWidth = useAppFrameWidth()
   // 视频容器宽度 = screenWidth - 32,高度按 16:9
   const videoWidth = screenWidth - 32
@@ -1829,7 +1877,7 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
                 ) : (
                   // 空态:视频源无效时弹窗内提示(替代系统 Alert,对齐 Uniapp video-popup 弹层)
                   <View style={styles.videoEmptyState}>
-                    <Text style={styles.videoEmptyText}>视频地址无效，暂无可播放的视频</Text>
+                    <Text style={styles.videoEmptyText}>{t('profile.videoInvalidPlay')}</Text>
                   </View>
                 )}
               </View>
@@ -1860,13 +1908,13 @@ const WEBSITE_URL = 'https://www.aizhs.top'
  * - modelConfig: 用 conversation.model 作为模型名(空则由 Drawer 内部回退 "默认模型")
  * - createdAt: 优先 lastMessageAt(最近活跃),回退 updatedAt → createdAt
  */
-function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem {
+function mapConversationToDrawer(c: ConversationDetail, untitled: string): DrawerConversationItem {
   const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
   const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
   const model = c.model ?? ''
   return {
     id: c.id,
-    title: c.title?.trim() || '未命名对话',
+    title: c.title?.trim() || untitled,
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
