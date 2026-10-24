@@ -46,10 +46,10 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type TabKey = 'overview' | 'dispatches' | 'topology'
 
-const TABS: ReadonlyArray<{ key: TabKey; label: string }> = [
-  { key: 'overview', label: '概览' },
-  { key: 'dispatches', label: '调度' },
-  { key: 'topology', label: '拓扑' },
+const TABS: ReadonlyArray<{ key: TabKey; labelKey: string }> = [
+  { key: 'overview', labelKey: 'subagents.tabOverview' },
+  { key: 'dispatches', labelKey: 'subagents.tabDispatches' },
+  { key: 'topology', labelKey: 'subagents.tabTopology' },
 ]
 
 interface StatItem {
@@ -84,27 +84,28 @@ function statusBadgeClass(status: string): string {
   return neutral
 }
 
-/** 非八态的端内兜底文案(不并入真相源:该态在八态之外,判据层刻意不认识它) */
-const OFF_SOURCE_LABELS: Readonly<Record<string, string>> = { paused: '已暂停' }
+/** 非八态的端内兜底文案 i18n 键(不并入真相源:该态在八态之外,判据层刻意不认识它) */
+const OFF_SOURCE_LABELS: Readonly<Record<string, string>> = { paused: 'subagents.pausedLabel' }
 
 /** 状态文案:八态 → ai.pane.elementPack.backgroundTask.state.*(shared 词包,RN i18n 已 merge) */
 function statusLabel(status: string, t: (key: string) => string): string {
   if (isBackgroundTaskState(status)) {
     return t(`${ELEMENT_PACK_NAMESPACE}.backgroundTask.${backgroundTaskView(status).titleKey}`)
   }
-  return OFF_SOURCE_LABELS[status] ?? status
+  const fallback = OFF_SOURCE_LABELS[status]
+  return fallback ? t(fallback) : status
 }
 
-function priorityLabel(priority: string): string {
+function priorityLabelKey(priority: string): string {
   switch (priority) {
     case 'urgent':
-      return '紧急'
+      return 'subagents.priorityUrgent'
     case 'high':
-      return '高'
+      return 'subagents.priorityHigh'
     case 'low':
-      return '低'
+      return 'subagents.priorityLow'
     default:
-      return '普通'
+      return 'subagents.priorityNormal'
   }
 }
 
@@ -174,7 +175,7 @@ export function SubagentsScreen() {
 
   const onCancelDispatch = useCallback(
     (d: SubagentDispatch) => {
-      appAlert('取消派单', `确认取消「${d.goal}」?`, [
+      appAlert(t('subagents.cancelTitle'), t('subagents.cancelBody', { goal: d.goal }), [
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.confirm'),
@@ -185,7 +186,10 @@ export function SubagentsScreen() {
               await cancelSubagentDispatch(d.id)
               setDispatches((prev) => prev.filter((x) => x.id !== d.id))
             } catch (e) {
-              appAlert(t('common.loadFailed'), e instanceof Error ? e.message : '取消失败')
+              appAlert(
+                t('common.loadFailed'),
+                e instanceof Error ? e.message : t('subagents.cancelFail'),
+              )
             } finally {
               setCancellingId('')
             }
@@ -201,10 +205,10 @@ export function SubagentsScreen() {
   const completedCount = stats?.completed ?? 0
   const successRate = total > 0 ? Math.round((completedCount / total) * 100) : 0
   const statItems: StatItem[] = [
-    { key: 'total', label: '总调度', value: total },
-    { key: 'active', label: '运行中', value: activeCount },
-    { key: 'successRate', label: '成功率', value: successRate, suffix: '%' },
-    { key: 'queue', label: '队列长度', value: queue.length },
+    { key: 'total', label: t('subagents.statTotal'), value: total },
+    { key: 'active', label: t('subagents.statActive'), value: activeCount },
+    { key: 'successRate', label: t('subagents.statSuccessRate'), value: successRate, suffix: '%' },
+    { key: 'queue', label: t('subagents.statQueue'), value: queue.length },
   ]
 
   const bgClass = resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'
@@ -259,7 +263,7 @@ export function SubagentsScreen() {
                       : 'text-gray-500'
                 }`}
               >
-                {item.label}
+                {t(item.labelKey)}
               </Text>
             </TouchableOpacity>
           )
@@ -300,9 +304,11 @@ export function SubagentsScreen() {
 
               {/* 队列概览 */}
               <View className="mt-2">
-                <Text className={`mb-2 text-sm font-medium ${textPrimary}`}>调度队列</Text>
+                <Text className={`mb-2 text-sm font-medium ${textPrimary}`}>
+                  {t('subagents.queueTitle')}
+                </Text>
                 {queue.length === 0 ? (
-                  <Text className={`text-sm ${textTertiary}`}>队列为空</Text>
+                  <Text className={`text-sm ${textTertiary}`}>{t('subagents.queueEmpty')}</Text>
                 ) : (
                   queue.map((entry) => (
                     <View
@@ -314,11 +320,14 @@ export function SubagentsScreen() {
                           {entry.goal}
                         </Text>
                         <Text className="ml-2 text-xs text-orange-500">
-                          {priorityLabel(entry.priority)}
+                          {t(priorityLabelKey(entry.priority))}
                         </Text>
                       </View>
                       <View className="mt-1 flex-row items-center justify-between">
-                        <Text className={`text-xs ${textTertiary}`}>位置 #{entry.position}</Text>
+                        <Text className={`text-xs ${textTertiary}`}>
+                          {t('subagents.positionLabel')}
+                          {entry.position}
+                        </Text>
                         <Text className={`text-xs ${textTertiary}`}>
                           {new Date(entry.createdAt).toLocaleString()}
                         </Text>
@@ -332,11 +341,15 @@ export function SubagentsScreen() {
 
           {tab === 'dispatches' ? (
             <>
-              <Text className={`mb-2 text-sm font-medium ${textPrimary}`}>活跃调度</Text>
+              <Text className={`mb-2 text-sm font-medium ${textPrimary}`}>
+                {t('subagents.activeTitle')}
+              </Text>
               {dispatches.length === 0 ? (
                 <View className="items-center py-16">
                   <Text className={`text-sm ${textSecondary}`}>{t('common.empty')}</Text>
-                  <Text className={`mt-1 text-xs ${textTertiary}`}>暂无运行中的子智能体调度</Text>
+                  <Text className={`mt-1 text-xs ${textTertiary}`}>
+                    {t('subagents.activeEmpty')}
+                  </Text>
                 </View>
               ) : (
                 dispatches.map((d) => (
@@ -353,7 +366,7 @@ export function SubagentsScreen() {
                       </View>
                     </View>
                     <Text className={`mt-1 text-xs ${textTertiary}`}>
-                      {d.agentRole ?? '默认智能体'}
+                      {d.agentRole ?? t('subagents.defaultAgent')}
                       {d.orchestration ? ` · ${d.orchestration}` : ''}
                     </Text>
                     {d.errorMessage ? (
@@ -371,7 +384,9 @@ export function SubagentsScreen() {
                         className="rounded-md border border-red-200 px-3 py-1"
                       >
                         <Text className="text-xs text-red-500">
-                          {cancellingId === d.id ? '取消中…' : '取消'}
+                          {cancellingId === d.id
+                            ? t('subagents.cancelling')
+                            : t('subagents.cancelBtn')}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -383,10 +398,12 @@ export function SubagentsScreen() {
 
           {tab === 'topology' ? (
             <>
-              <Text className={`mb-2 text-sm font-medium ${textPrimary}`}>Swarm 拓扑</Text>
+              <Text className={`mb-2 text-sm font-medium ${textPrimary}`}>
+                {t('subagents.topologyTitle')}
+              </Text>
               {!topology || topology.nodes.length === 0 ? (
                 <View className="items-center py-16">
-                  <Text className={`text-sm ${textSecondary}`}>暂无拓扑数据</Text>
+                  <Text className={`text-sm ${textSecondary}`}>{t('subagents.emptyTopology')}</Text>
                 </View>
               ) : (
                 <>
@@ -409,7 +426,9 @@ export function SubagentsScreen() {
                   ))}
                   {topology.edges.length > 0 ? (
                     <View className={`mt-2 rounded-lg border p-3 ${cardClass}`}>
-                      <Text className={`mb-2 text-xs font-medium ${textSecondary}`}>依赖关系</Text>
+                      <Text className={`mb-2 text-xs font-medium ${textSecondary}`}>
+                        {t('subagents.depsLabel')}
+                      </Text>
                       {topology.edges.map((edge, idx) => {
                         const fromName = topology.nodes.find((n) => n.id === edge.from) ?? null
                         const toName = topology.nodes.find((n) => n.id === edge.to) ?? null
