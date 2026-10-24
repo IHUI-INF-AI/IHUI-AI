@@ -1049,7 +1049,8 @@
     "catRpa": "RPA",
     "catCode": "Coding",
     "catMusic": "Music",
-    "catOther": "Other"
+    "catOther": "Other",
+    "catCopyShort": "Copy"
   },
   "drawer": {
     "newChat": "New Task",
@@ -1527,7 +1528,12 @@
     "toMomentsA11y": "Share to Moments",
     "copyLinkA11y": "Copy share link",
     "cancelA11y": "Cancel share",
-    "defaultDesc": "Join IHUI AI community"
+    "defaultDesc": "Join IHUI AI community",
+    "contentDefault": "Check out this AI content",
+    "okSent": "Shared",
+    "cancelled": "Share cancelled",
+    "fail": "Share failed",
+    "needAlbum": "Album permission required"
   },
   "vipScreen": {
     "plans": {
@@ -3523,7 +3529,8 @@
     "publish": "Publish",
     "subtitle": "My AIGC works",
     "title": "AIGC Works",
-    "videoBadge": "Video"
+    "videoBadge": "Video",
+    "catDoc": "Docs"
   },
   "announcement": {
     "empty": "No announcements",
@@ -5531,7 +5538,8 @@
     "realConnecting": "Connecting...",
     "realLive": "Live voice in progress",
     "reconnect": "Reconnect",
-    "realFailDefault": "Connection failed. Retry."
+    "realFailDefault": "Connection failed. Retry.",
+    "inputDone": "Voice input done"
   },
   "material": {
     "cText": "Text content",
@@ -5612,5 +5620,70 @@
   "contact": {
     "phoneLabel": "Tel: ",
     "wechatLabel": "WeChat: "
+  },
+  "account": {
+    "phoneRequired": "Enter phone number",
+    "phoneInvalid": "Invalid phone number",
+    "smsSent": "Code sent",
+    "smsFailRetry": "Failed to send code. Retry.",
+    "smsRequired": "Enter SMS code",
+    "smsMin": "Code needs 4+ chars",
+    "confirmHint": "Type “{s}” to confirm",
+    "failRetry": "Submit failed. Retry.",
+    "okTitle": "Account closed",
+    "okBody": "Your account has been closed"
+  },
+  "subPkg": {
+    "devTitle": "Developer onboarding",
+    "devDesc": "Publish models & apps",
+    "plazaTitle": "AI demand plaza",
+    "plazaDesc": "Demand matching",
+    "topupTitle": "Top-up center",
+    "topupDesc": "Recharge points",
+    "homeTitle": "Study home",
+    "homeDesc": "Progress & plans",
+    "groupTitle": "AI groups",
+    "groupDesc": "Multi-agent collab",
+    "aigcTitle": "AIGC studio",
+    "aigcDesc": "AI content generation",
+    "courseDesc": "Explore featured courses"
+  },
+  "annot": {
+    "penThin": "Thin",
+    "penMid": "Medium",
+    "penThick": "Bold",
+    "closeA11y": "Close annotation",
+    "imageA11y": "Image to annotate",
+    "composeA11y": "Composed annotation base",
+    "penToolA11y": "Pen tool",
+    "textToolA11y": "Text tool",
+    "undoA11y": "Undo",
+    "clearA11y": "Clear annotations",
+    "colorA11y": "Switch pen color",
+    "penLabel": "Pen {v}",
+    "markPh": "Enter label text",
+    "markInputA11y": "Label input",
+    "markAddA11y": "Add label",
+    "markDropA11y": "Discard label",
+    "modelEditSaveA11y": "Save annotation"
+  },
+  "lp": {
+    "member": "Member",
+    "trader": "Trader",
+    "normal": "Standard user",
+    "closeA11y": "Close sign-in sheet",
+    "oneLoginFail": "Carrier login failed. Enter phone manually.",
+    "nickRequired": "Enter nickname",
+    "nickTooLong": "Nickname too long (max 8)",
+    "phoneInvalid": "Invalid phone number",
+    "changeAvatarA11y": "Change avatar",
+    "usernamePh": "Enter username",
+    "upgradeA11y": "Upgrade now",
+    "phonePh": "Enter phone number",
+    "bindA11y": "Bind phone",
+    "rebind": "Rebind",
+    "bind": "Bind",
+    "saveA11y": "Save profile",
+    "logoutA11y": "Sign out"
   }
 }
