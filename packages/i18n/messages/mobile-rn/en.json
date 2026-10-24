@@ -250,7 +250,8 @@
     "pubVideo": "Publish Video",
     "pubGroup": "Publish Collection",
     "closePreview": "Close preview",
-    "recentUsed": "Recently used"
+    "recentUsed": "Recently used",
+    "shareBoardTitle": "IHUI AI community - {name}"
   },
   "plaza": {
     "index": {
@@ -879,7 +880,11 @@
     "toolFail": "Failed",
     "diffCollapse": "Collapse streaming diff",
     "diffExpand": "Expand streaming diff",
-    "imagePreview": "Preview image"
+    "imagePreview": "Preview image",
+    "notes": {
+      "loadFailShort": "Load failed",
+      "recordNew": "New recording"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -1124,7 +1129,8 @@
     "panelCollapse": "Collapse panel",
     "panelExpand": "Expand panel",
     "loadMore": "Load more",
-    "user": "User"
+    "user": "User",
+    "retryShort": "Retry"
   },
   "network": {
     "offline": "You're offline. Some features are unavailable.",
@@ -2180,7 +2186,10 @@
     "title": "Ranking",
     "wanSuffix": "{v}k",
     "pointsUnit": "pts",
-    "anonShort": "Anon"
+    "anonShort": "Anon",
+    "histFallback": "History chat",
+    "historyBoard": "Past charts",
+    "visitorName": "Chart visitor"
   },
   "rankingDetail": {
     "rank": "Rank",
@@ -5410,5 +5419,53 @@
     "sandboxAutoRunDesc": "Run sandbox code automatically after execution",
     "errorReport": "Error reporting",
     "errorReportDesc": "Report API errors automatically for diagnosis"
+  },
+  "globalBox": {
+    "collapse": "Collapse float",
+    "expand": "Expand float",
+    "earn": "Earn",
+    "support": "Support",
+    "feedback": "Feedback"
+  },
+  "hand": {
+    "memberPurchase": "Membership purchase"
+  },
+  "ia": {
+    "remainingPoints": "Remaining points",
+    "recharge": "Top up"
+  },
+  "uiCard": {
+    "inviteCodeBody": "Invite code: {code}\n(long press to copy)",
+    "userGreet": "AI IHUI丨{name}",
+    "growthA11y": "Growth progress. Tap for level info",
+    "vipBenefitBody": "You are a VIP member with exclusive benefits. Keep earning growth points to reach higher levels.",
+    "normalBenefitBody": "You are a standard member. Upgrade to VIP for more benefits."
+  },
+  "earn": {
+    "tabToday": "Today",
+    "tabMonth": "This month",
+    "tabTotal": "Total",
+    "tabDayShort": "D",
+    "tabMonthShort": "M",
+    "tabTotalShort": "T",
+    "promoOrders": "{tab} promo orders",
+    "teamNew": "{tab} new team members",
+    "withdrawAmount": "{tab} withdrawal amount"
+  },
+  "developerConversations": {
+    "title": "Relay Conversations",
+    "title2": "Conversation",
+    "model": "Model",
+    "messages": "Messages",
+    "tokens": "Tokens",
+    "cost": "Cost",
+    "lastActive": "Last active"
+  },
+  "modelsPrompts": {
+    "title": "Prompt Library",
+    "name": "Name",
+    "desc": "Description",
+    "version": "Version",
+    "updated": "Updated"
   }
 }
