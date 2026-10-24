@@ -729,6 +729,7 @@
       "errRateWindow": "直近 5 分間",
       "eventsTitle": "システムイベント",
       "footerSources": "データソース · Prometheus {url} / Alertmanager / PostgreSQL / Redis · すべて本番環境からリアルタイム収集",
+      "footerDataAge": "データ経過 {duration}",
       "footerUptime": "稼働時間 · {list}",
       "gaugeCpu": "CPU",
       "gaugeMem": "メモリ",
