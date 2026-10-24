@@ -24,10 +24,16 @@
  *   R5 wb-split-c3 的 @container 阈值必须逐字等于按源码自身常数复算的值:
  *      阈值 = 2×(每栏格数×列宽下限 + (格数-1)×列间距) + 栏间距,全部从被审面解析。
  *   R6 fmtDuration 的时长读数所在网格不得停在裸 auto-fit 档(下限 96 < 单行需求)。
- *      本门**不判**「够不够宽」—— 那取决于运行时值的长度,静态判必出假红;
- *      真判据在 scripts/check-wallboard-readout-overflow.mjs(离线渲染实测,量的是每格实际溢出像素)。
+ *      本门**不判**「够不够宽」—— 那取决于运行时值的长度,静态判必出假红
+ *      (曾把 unit 槽的 11px 小字也算成复合读数,24 枚误红)。那一维靠真机/真浏览器
+ *      截图核验(AGENTS §17),纯源码写不出不失真的判据,故不留脚本名。
+ *   R8 把 R1 那条形态判据推广到 **apps/web + packages/ui-react + apps/extension 全仓**:
+ *      凡「大字号(≥16px / lg|xl|2xl|3xl)+ 数值排版(tabular-nums|font-mono|wb-num)」的 class 串
+ *      缺 whitespace-nowrap ⇒ 净增即红。锚点 = 该文件 HEAD 自身的违规数(§0.5 差值棘轮);
+ *      存量实测 75 处 / 50 文件,升绝对零容忍就是逼人 --no-verify 的恒红门(§12e)⇒ 只拦新增。
+ *      只在 --staged 档生效(全量档无「本次改动」可言),其余档打印一行说明而非静默跳过(§0.3)。
  *
- * 档位:blocking;stagedTriggers 限定该 page.tsx(能造出该状态的那一面)。
+ * 档位:blocking;stagedTriggers = 大屏该页 + R8 三个前缀(能造出该状态的那一面)。
  * 应急放行:HUSKY_SKIP_READOUT_NO_BREAK=1 + HUSKY_SKIP_READOUT_NO_BREAK_REASON。
  *
  * 用法:
@@ -167,8 +173,8 @@ export function judge(text) {
   // R6 长读数所在网格必须离开裸 auto-fit 档。
   //    只判「fmtDuration 的中文双单位读数住在裸 wb-cells(下限 96)里」这一型 ——
   //    它是实测确认会断的;至于「够不够宽」取决于运行时值的长度,静态判必出假红
-  //    (曾把 unit 槽的 11px 小字也算成复合读数,24 枚误红),那把尺住在
-  //    scripts/check-wallboard-readout-overflow.mjs(离线渲染实测),不在本门。
+  //    (曾把 unit 槽的 11px 小字也算成复合读数,24 枚误红)。那一维靠真机/真浏览器
+  //    截图核验(AGENTS §17),纯源码写不出不失真的判据,故不留脚本名。
   const statCells = [...text.matchAll(/<StatCell\b/g)]
   if (statCells.length === 0) {
     u.push('R6 一枚 StatCell 都没枚举到 ⇒ 未判定(组件改名或被搬走要显式改这条判据)')
@@ -194,6 +200,121 @@ export function judge(text) {
   }
 
   return { violations: v, unjudged: u }
+}
+
+// ─── R8:全仓(web 家族)大字号数值读数必须 nowrap,差值棘轮只拦新增 ───
+/** 射程前缀(§12e:存量 75 处升绝对零容忍 = 恒红门,所以只拦"本次加回来的")。 */
+export const R8_SCOPE_PREFIXES = ['apps/web/', 'packages/ui-react/', 'apps/extension/']
+const R8_FILE_RE = /\.(tsx|jsx)$/
+const R8_EXCLUDE = /(\.next|node_modules|\/dist\/|\/build\/|\.test\.|\.spec\.|__tests__)/
+const R8_NUM = /tabular-nums|font-mono|wb-num/
+const R8_BIG_FONT = /(?:text-(?:lg|xl|2xl|3xl|4xl)\b|text-\[(?:1[6-9]|[2-9]\d)(?:\.\d+)?px\])/
+
+export function inR8Scope(p) {
+  const f = p.replace(/\\/g, '/')
+  return R8_FILE_RE.test(f) && !R8_EXCLUDE.test(f) && R8_SCOPE_PREFIXES.some((s) => f.startsWith(s))
+}
+
+/** 一枚文件文本里「大字号 + 数值排版」却缺 nowrap 的 class 串(返回行号与原文)。 */
+export function scanClassReadouts(text) {
+  const out = []
+  const lines = String(text).split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const L = lines[i]
+    if (/^\s*(?:\/\/|\*|\/\*)/.test(L)) continue
+    for (const m of L.matchAll(/['"`]([^'"`\n]{4,160})['"`]/g)) {
+      const cls = m[1]
+      if (!R8_NUM.test(cls) || !R8_BIG_FONT.test(cls)) continue
+      if (cls.includes('whitespace-nowrap')) continue
+      out.push({ line: i + 1, cls, truncatedOnly: cls.includes('truncate') })
+    }
+  }
+  return out
+}
+
+/**
+ * 差值棘轮:锚点 = 该文件基线(HEAD)自身的违规数。
+ * 只拦"本次把违规加回来";存量逐条报数不判红(§0.5 / §12e)。
+ * 基线读不到 ⇒ 未判定(不猜 0,否则等于给下一个改这文件的人判红)。
+ */
+export function r8Delta(baselineText, faceText) {
+  if (baselineText === null || baselineText === undefined) return { status: 'unjudged' }
+  const before = scanClassReadouts(baselineText).length
+  const after = scanClassReadouts(faceText).length
+  if (after <= before) return { status: 'ok', before, after }
+  return { status: 'red', before, after, added: after - before }
+}
+
+function gitShow(rev, p) {
+  try {
+    return execFileSync('git', ['show', `${rev}:${p}`], {
+      encoding: 'utf8',
+      cwd: REPO_ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+    })
+  } catch {
+    return null
+  }
+}
+function existsAt(rev, p) {
+  try {
+    execFileSync('git', ['cat-file', '-e', `${rev}:${p}`], {
+      cwd: REPO_ROOT,
+      stdio: ['ignore', 'ignore', 'ignore'],
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+function stagedChanged() {
+  try {
+    return execFileSync('git', ['-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
+      encoding: 'utf8',
+      cwd: REPO_ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+    })
+      .split('\n')
+      .filter(Boolean)
+  } catch {
+    return null
+  }
+}
+
+/** R8:只在 --staged 档生效(差值棘轮的"本次"只存在于提交链);其余档显式说明而非静默跳过。 */
+export function runR8(face, readAt) {
+  if (face !== 'staged') return { violations: [], notes: ['R8 差值棘轮只在 --staged 档生效(全量档无「本次改动」可言)'] }
+  const changed = stagedChanged()
+  if (changed === null) return { violations: [], unjudged: ['R8 取不到索引改动清单 ⇒ 未判定'] }
+  const inScope = changed.filter(inR8Scope)
+  const violations = []
+  const unjudged = []
+  for (const p of inScope) {
+    const faceText = readAt(':!0', p)
+    if (faceText === null) {
+      unjudged.push(`R8 取不到 ${p} 的索引面 ⇒ 未判定`)
+      continue
+    }
+    // 新文件 HEAD 里没有 ⇒ 基线取空串,文件里的违规按"新增"计
+    const baseline = existsAt('HEAD', p) ? gitShow('HEAD', p) : ''
+    if (baseline === null) {
+      unjudged.push(`R8 取不到 ${p} 的 HEAD 基线 ⇒ 未判定`)
+      continue
+    }
+    const d = r8Delta(baseline, faceText)
+    if (d.status === 'unjudged') unjudged.push(`R8 ${p} 基线读不到 ⇒ 未判定`)
+    else if (d.status === 'red')
+      violations.push({
+        rule: 'R8',
+        msg:
+          `${p} 把「大字号 + 数值排版」读数的无-nowrap 从 ${d.before} 处改到 ${d.after} 处(净增 ${d.added})` +
+          ` ⇒ 列宽一不足就把数字切成两半。补 whitespace-nowrap,并确认该格列宽 ≥ 读数单行需求` +
+          `(只补 nowrap 会把折行变成溢出压邻格 —— 大屏实测 51px)。`,
+      })
+  }
+  return { violations, unjudged, notes: [`R8 已按差值棘轮复核射程内改动的 ${inScope.length} 枚文件`] }
 }
 
 // ─── 取材面(§0.4 同面同轮)──────────────────────────────────
@@ -225,6 +346,10 @@ export const __test__ = {
   CELLS_PER_GROUP,
   DURATION_RE,
   gridClassBefore,
+  R8_SCOPE_PREFIXES,
+  inR8Scope,
+  scanClassReadouts,
+  r8Delta,
   parseCellMin,
   parseGapPx,
   expectedSplitThreshold,
@@ -260,7 +385,13 @@ function selfTest() {
       real.replace(/(wb-num mt-[0-9.]+ text-\[26px\] leading-none font-bold) whitespace-nowrap/, '$1'),
       (r) => r.violations.some((x) => x.rule === 'R1'),
     ],
-    ['摘掉 wb-split-c3 ⇒ R4 未判定不冒绿', real.replace(/bodyClassName="wb-split wb-split-c3"/, 'bodyClassName="wb-split"'), (r) => r.unjudged.some((x) => x.startsWith('R4'))],
+    // 必须把**所有**面板的 wb-split-c3 一起摘掉:大屏现在有三块用该档,只替第一处时
+    // splitPanels 仍非空 ⇒ R4 照判,这条反向锁会假报「未判定没生效」。
+    [
+      '摘掉 wb-split-c3 ⇒ R4 未判定不冒绿',
+      real.replace(/bodyClassName="([^"]*?)wb-split-c3 ?([^"]*)"/g, 'bodyClassName="$1$2"'),
+      (r) => r.unjudged.some((x) => x.startsWith('R4')),
+    ],
   ]
   let fail = 0
   for (const [name, text, assert] of cases) {
@@ -291,19 +422,23 @@ async function main() {
     process.exit(2)
   }
   const { violations, unjudged } = judge(text)
+  const r8 = runR8(face, (rev, p) => (rev === ':!0' ? gitShow(':!0', p) : gitShow('HEAD', p)))
+  const all = [...violations, ...r8.violations]
+  const allU = [...unjudged, ...(r8.unjudged ?? [])]
   const prefix = `[读数不断行 240]`
-  for (const m of unjudged) console.log(`⚠️  ${prefix} 未判定:${m}`)
-  if (violations.length === 0) {
-    if (unjudged.length > 0) {
+  for (const n of r8.notes ?? []) console.log(`   ${prefix} ${n}`)
+  for (const m of allU) console.log(`⚠️  ${prefix} 未判定:${m}`)
+  if (all.length === 0) {
+    if (allU.length > 0) {
       // §0.3:判据的输入集空了 ⇒ 既不记绿也不冒红(修复被整块删掉时不得静默通过)
-      console.log(`⚪ ${prefix} ${face} 面未判定(${unjudged.length} 条判据无输入)`)
+      console.log(`⚪ ${prefix} ${face} 面未判定(${allU.length} 条判据无输入)`)
       process.exit(2)
     }
-    console.log(`✅ ${prefix} ${face} 面通过(R1-R5 全绿)`)
+    console.log(`✅ ${prefix} ${face} 面通过(R1-R8 全绿)`)
     process.exit(0)
   }
-  console.error(`\n❌ ${prefix} ${face} 面判出 ${violations.length} 处缺口:`)
-  for (const x of violations) console.error(`   · ${x.rule} ${x.msg}`)
+  console.error(`\n❌ ${prefix} ${face} 面判出 ${all.length} 处缺口:`)
+  for (const x of all) console.error(`   · ${x.rule} ${x.msg}`)
   console.error(`   修法见 docs/UI_GUIDELINES.md「读数不得断行」与门体头注:列宽不足时该减的是栏数/列数,不是把读数折断。`)
   process.exit(1)
 }

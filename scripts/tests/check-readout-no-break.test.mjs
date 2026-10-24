@@ -54,9 +54,68 @@ const head = execFileSync('git', ['show', `HEAD:${G.TARGET_REL}`], {
 })
 
 it('形状锁:__test__ 出口的判据单元齐全(缺一个就说明源脚本被改薄)', () => {
-  for (const k of ['REPO_ROOT', 'TARGET_REL', 'CELLS_PER_GROUP', 'DURATION_RE', 'gridClassBefore', 'parseCellMin', 'parseGapPx', 'expectedSplitThreshold', 'judge']) {
+  for (const k of [
+    'REPO_ROOT',
+    'TARGET_REL',
+    'CELLS_PER_GROUP',
+    'DURATION_RE',
+    'gridClassBefore',
+    'R8_SCOPE_PREFIXES',
+    'inR8Scope',
+    'scanClassReadouts',
+    'r8Delta',
+    'parseCellMin',
+    'parseGapPx',
+    'expectedSplitThreshold',
+    'judge',
+  ]) {
     if (G[k] === undefined) throw new Error(`__test__ 缺 ${k}`)
   }
+})
+
+// ─── R8:全仓差值棘轮(§0.5 锚点=该文件 HEAD 自身;§12e 存量不得升绝对零容忍)───
+it('R8 净增一处无 nowrap 的大字号数值读数 ⇒ 判红', () => {
+  const base = '<div className="text-lg font-semibold tabular-nums">{v}</div>'
+  const face = `${base}\n<div className="text-xl font-mono">{v}</div>`
+  const d = G.r8Delta(base, face)
+  eq(d.status, 'red', 'status')
+  eq(d.added, 1, '净增数')
+})
+
+it('R8 存量原样搬动(数量不变)⇒ 不拦,免得造恒红门', () => {
+  const t = '<div className="text-lg font-semibold tabular-nums">{v}</div>'
+  eq(G.r8Delta(t, `${t}\n// 加一行注释`).status, 'ok', 'status')
+})
+
+it('R8 修好一处(数量下降)⇒ 绿 —— 棘轮不得反向咬人', () => {
+  const base = '<div className="text-lg tabular-nums">{v}</div>'
+  const face = '<div className="text-lg tabular-nums whitespace-nowrap">{v}</div>'
+  const d = G.r8Delta(base, face)
+  eq(d.status, 'ok', 'status')
+  eq(d.after, 0, '修好后计数')
+})
+
+it('R8 基线读不到 ⇒ 未判定,不得猜 0 再判红(§0.3)', () => {
+  eq(G.r8Delta(null, '<div className="text-lg tabular-nums">{v}</div>').status, 'unjudged', 'status')
+})
+
+it('R8 射程:web/ui-react/extension 进,形态不同的端与测试/构建产物不进', () => {
+  if (!G.inR8Scope('apps/web/app/(main)/x/page.tsx')) throw new Error('apps/web 未进射程')
+  if (!G.inR8Scope('packages/ui-react/src/components/x.tsx')) throw new Error('ui-react 未进射程')
+  if (!G.inR8Scope('apps/extension/entrypoints/x.tsx')) throw new Error('extension 未进射程')
+  if (G.inR8Scope('apps/miniapp-taro/src/x.tsx'))
+    throw new Error('miniapp 不该在本档射程(RN/Taro 无 class 串形态,判据须另立)')
+  if (G.inR8Scope('apps/web/src/x.test.tsx')) throw new Error('测试文件应排除')
+  if (G.inR8Scope('apps/web/.next/static/chunks/x.js')) throw new Error('构建产物应排除')
+})
+
+it('R8 只数真 class 串,注释行不得计入(否则存量数是假的)', () => {
+  eq(G.scanClassReadouts('// <div className="text-lg tabular-nums">示例</div>').length, 0, '注释行计数')
+  eq(G.scanClassReadouts('<div className="text-lg tabular-nums">{v}</div>').length, 1, '真代码计数')
+})
+
+it('R8 小字号数值(11px 列表读数)不算 —— 只量大字号读数格', () => {
+  eq(G.scanClassReadouts('<span className="wb-num text-[11px] text-muted-foreground">{v}</span>').length, 0, '小字号计数')
 })
 
 it('基准:工作区面(带修复)必须全绿且无未判定', () => {
