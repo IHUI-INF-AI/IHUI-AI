@@ -52,9 +52,9 @@ curl -X POST https://api.aizhs.top/v1/agents/agt_12345/chat \
   -d '{"message": "Hello"}'
 ```
 
-#### 2. TypeScript-first, shared types across 8 platforms
+#### 2. TypeScript-first, shared types across 9 platforms
 ```typescript
-// packages/types shared by all 8 clients
+// packages/types shared by all 9 clients
 import type { Agent, Message, KnowledgeBase } from '@ihui/types'
 
 const agent: Agent = {
@@ -138,7 +138,7 @@ Monitor:  Prometheus + Grafana + Sentry + Loki
 CI/CD:    GitHub Actions + Turborepo remote cache
 ```
 
-#### 2. 8-platform code source-sharing, 5 people do the work of 50
+#### 2. 9-platform code source-sharing, 5 people do the work of 50
 - Web/Desktop/Mini-program/Extension/Mobile/CLI/API/AI-Service share 1 codebase
 - packages/types / packages/auth / packages/ui reused across platforms
 - TypeScript strict mode, compile-time type safety
@@ -288,7 +288,7 @@ Template Market → Pick template → Configure KB → Connect channel → Launc
 #### 5. Ecosystem moat
 - Agent Marketplace (200+ templates): Network effects
 - MCP tool marketplace (100+ tools): Developer lock-in
-- Cross-8-platform distribution: Channel advantage
+- Cross-9-platform distribution: Channel advantage
 - Apache 2.0 open source: Community contributions
 
 ### Evaluation Checklist (CEO Edition)

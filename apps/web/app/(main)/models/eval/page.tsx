@@ -892,7 +892,7 @@ function RunDetailDialog({ run, onClose }: RunDetailDialogProps) {
               <h4 className="mb-2 text-xs font-medium text-muted-foreground">
                 {t('eval.runs.detail.summary')}
               </h4>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-4 tablet:grid-cols-4">
                 <div>
                   <p className="text-[10px] text-muted-foreground">
                     {t('eval.runs.detail.avgScore')}
