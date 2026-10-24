@@ -302,7 +302,15 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     .limit(BATCH_LIMIT)
   await runWithConcurrency(unknowns, SWEEP_CONCURRENCY, async (row) => {
     const adapter = getRelayAdapter(row.providerCode)
-    if (!adapter) return
+    if (!adapter) {
+      // 静默 return 会让"平台适配器没注册上"永远看不见(2026-10-24 实测:
+      // 号池三轮 sweep 都跑完、该号却一直停在 unknown,无任何日志可查)
+      logger.warn('[relay-account-pool] 健康检查跳过:平台适配器未注册', {
+        providerCode: row.providerCode,
+        accountId: row.id,
+      })
+      return
+    }
     try {
       const outcome = await adapter.checkHealth(ctxOf(row, decryptAccountCredentials(row)), {
         proxyUrl: row.proxyUrl,
