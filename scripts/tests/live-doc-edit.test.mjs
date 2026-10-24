@@ -23,6 +23,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ } from '../live-doc-edit.mjs'
+import { LEASE_POOL_MAX } from '../lib/plan-id-lease.mjs'
 import { git, headBlobOf, indexBlobOf, landsLedger, writeBlob } from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { copyScriptWithClosure } from '../lib/scratch-module-closure.mjs'
@@ -103,13 +104,13 @@ const DOC_BASE = ['# 标题', '段落一', '@@ANCHOR@@', '段落二', '']
 // 三条出口一律"取不到即红":报告版式漂了本文件必须当场喊,绝不把"没读到"折叠成"这一维不用读"
 // (本仓最高频失效型就是把没判写成判过了)。
 //
-// 换掉字面量的理由(不是"为了变绿"):池式取号(2026-10-14,硬上限 999)之后"下一个空闲号 = 该族
-// max+1"这个前提**不再成立** —— 无租约时号从池内空闲号升序表(1..999 的补集,含远端避让段)按序
+// 换掉字面量的理由(不是"为了变绿"):池式取号(2026-10-14,硬上限见 LEASE_POOL_MAX)之后"下一个空闲号 = 该族
+// max+1"这个前提**不再成立** —— 无租约时号从池内空闲号升序表(1..LEASE_POOL_MAX 的补集,含远端避让段)按序
 // 领,空洞优先回填;有租约时 claim 支占的是池内整段空闲的窗(窗首随窗走、候选窗按机器指纹错开),
 // 自有段内连号更可以远小于占用面 max(段尾号只是租约行的主键,不是实号)。所以能钉住的只有关系:
 //  ① 落地的号 == 这一次租约读数宣布的那一枚;
 //  ② claim 支:窗必须整段避开占用号与避让面 ⇒ 在"占用/避让面从池底起连续"的夹具形态下,
-//     号 > 当次基准的本地 max(远端 max ≤999 时还要 > 远端 max)—— 这就是 G-313 的"让号"语义;
+//     号 > 当次基准的本地 max(远端 max ≤LEASE_POOL_MAX 时还要 > 远端 max)—— 这就是 G-313 的"让号"语义;
 //  ③ in-lease 支:号落在自己段内且 < 段尾,并且严格大于上一次发出的号(绝不再发同一枚)。
 const ID_TOKEN_SHAPE = /^[A-Z]+-?\d+$/
 
@@ -812,14 +813,16 @@ test('N2 方向成对:远端 max 更大 ⇒ 池内避让远端已占号(避让�
       .includes('远端 r max=3 ⇒ 与本地同值)'),
     `同值态措辞:\n${__test__.describeIdBasis({ family: 'G', localMax: 3, remoteMax: 3, chosenMax: 3 }, { ref: 'r' })}`,
   )
-  // 池式新支:远端 max 在池外(>999)⇒ 读数如实报,但必须点名"池式不追" —— 绝不让号跳出三位数
+  // 池式新支:远端 max 在池外(>LEASE_POOL_MAX)⇒ 读数如实报,但必须点名"池式不追" —— 绝不让号跳出两位数
   assert.ok(
     __test__
       .describeIdBasis(
         { family: 'G', localMax: 3, remoteMax: 1500, chosenMax: 1500 },
         { ref: 'refs/heads/main' },
       )
-      .includes('远端 refs/heads/main max=1500 ⇒ 池外大号(>999),池式取号只认 1..999,不追池外)'),
+      .includes(
+        `远端 refs/heads/main max=1500 ⇒ 池外大号(>${LEASE_POOL_MAX}),池式取号只认 1..${LEASE_POOL_MAX},不追池外)`,
+      ),
     `池外态措辞:\n${__test__.describeIdBasis({ family: 'G', localMax: 3, remoteMax: 1500, chosenMax: 1500 }, { ref: 'refs/heads/main' })}`,
   )
   // 且行为上真的不追:池外大号不参与避让 ⇒ 发的号与"远端没参与"逐字同形
@@ -2735,4 +2738,253 @@ test('RS9 接线锁 + 单一实现锁:闸必须真挂在 CAS 循环之前,匹配
     !/new RegExp\(/.test(rsSection),
     'RS 段自造 new RegExp = 在本文件里写第二份匹配式(判据复制)',
   )
+})
+
+// ── G313 族:出路①"批次内禁手填号"的装车证明(2026-10-23 立,票面 G-313)──────────────
+// 票面现场:批 B 令牌现算先落、批 A 正文手填同号晚并入 ⇒ 同一号段被两批各自认领。三臂各钉一格:
+//  A) 批 A 手填撞批 B 已落号(不同题)⇒ F9 闸必须判红、零行落地(改判不得偷换这一拒绝面);
+//  B) 批内手填号撞本批令牌窗口 ⇒ 改判现算("取号只发生在落盘那一刻"的字面落地);
+//  C) 成对反例:不撞的手填号逐字保留,且纯手填登记不得被顺带烘进租约账面(免池短路)。
+// 号一律从同一次运行的 stdout 解析(不硬编码 claim 段号,与 N 族同一纪律)。
+const G313_BASE = ['# 标题', '', '- [ ] G-900800 既存事项甲. 正文', '', '段落', '']
+
+test('G313-A 端到端·批 B 令牌先落,批 A 手填撞其号(不同题)必被 F9 判红且零行落地', (t) => {
+  const { dir, inputs } = makeDocRepo(t, G313_BASE.join('\n'))
+  const docAtHead = () => {
+    const r = git(['show', 'HEAD:DOC.md'], { root: dir, allowFail: true })
+    return r === null ? '' : String(r)
+  }
+  const af = join(inputs, 'a.txt')
+  writeFileSync(af, '段落\n')
+  const bf = join(inputs, 'b.txt')
+  writeFileSync(
+    bf,
+    ['- [ ] {{NEXT_ID:G}} B批事一. 正文', '- [ ] {{NEXT_ID:G}} B批事二. 正文', '- [ ] {{NEXT_ID:G}} B批事三. 正文'].join('\n') + '\n',
+  )
+  const b = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(b.status, 0, `批 B 必须落地,rc=${b.status} out=${String(b.stdout + b.stderr).slice(0, 300)}`)
+  const idsB = assignedIdsFrom(b.stdout, 'G313-A·批B')
+  assert.equal(idsB.length, 3, '三枚令牌必须各发一号')
+  writeFileSync(bf, `- [ ] ${idsB[0]} A批事一. 晚并入的手填同号不同题\n`)
+  const a = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(
+    a.status,
+    1,
+    `手填撞本地已用号必须交 F9 判红(改判不得偷换拒绝面),rc=${a.status} out=${String(a.stdout + a.stderr).slice(0, 300)}`,
+  )
+  assert.match(`${a.stdout}${a.stderr}`, /被 2 个不同标题共用/, '必须点名 F9 那一格')
+  assert.doesNotMatch(`${a.stdout}${a.stderr}`, /手填号改判现算/, '本地已用号不在改判射程')
+  assert.equal(docAtHead().includes('A批事一'), false, '拦下后一行都不许落')
+})
+
+test('G313-B 端到端·批内手填号撞本批令牌窗口 ⇒ 改判现算,两路取号互斥共池', (t) => {
+  const { dir, inputs } = makeDocRepo(t, G313_BASE.join('\n'))
+  const docAtHead = () => {
+    const r = git(['show', 'HEAD:DOC.md'], { root: dir, allowFail: true })
+    return r === null ? '' : String(r)
+  }
+  const af = join(inputs, 'a.txt')
+  writeFileSync(af, '段落\n')
+  const bf = join(inputs, 'b.txt')
+  // 底稿 G 族 max=900800 ⇒ 本批 k=1 的未来窗口 = 900801;手填行恰好写了这个"作者猜的下一号"。
+  writeFileSync(
+    bf,
+    ['- [ ] {{NEXT_ID:G}} C批事一. 正文', '- [ ] G-900801 C批事二. 正文'].join('\n') + '\n',
+  )
+  const c = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(c.status, 0, `撞窗口必须改判放行,rc=${c.status} out=${String(c.stdout + c.stderr).slice(0, 300)}`)
+  const rw = String(c.stdout).match(/手填号改判现算\(G-313①\):G-900801 ⇒ ([A-Z]+-\d+)\(/)
+  assert.ok(rw, `必须逐枚打印改判读数(G-900801 ⇒ 现算号):\n${c.stdout}`)
+  const to = rw[1]
+  const idsC = assignedIdsFrom(c.stdout, 'G313-B·令牌')
+  assert.notEqual(idsC[0], to, '令牌与改判必须互斥(同池不同枚)')
+  const face = docAtHead()
+  const declared = (id) => face.split('\n').filter((l) => l.startsWith(`- [ ] ${id} `)).length
+  assert.equal((face.match(/G-900801/g) || []).length, 0, '改判后原手填号不得留在面上')
+  assert.equal(declared(idsC[0]), 1, '令牌号声明位恰一次')
+  assert.equal(declared(to), 1, '改判号声明位恰一次')
+  assert.ok(face.includes('C批事一') && face.includes('C批事二'), '两行都必须真落地')
+})
+
+test('G313-C 端到端·成对反例:不撞的手填号逐字保留、无改判读数、不烘租约行', (t) => {
+  const { dir, inputs } = makeDocRepo(t, G313_BASE.join('\n'))
+  const docAtHead = () => {
+    const r = git(['show', 'HEAD:DOC.md'], { root: dir, allowFail: true })
+    return r === null ? '' : String(r)
+  }
+  const af = join(inputs, 'a.txt')
+  writeFileSync(af, '段落\n')
+  const bf = join(inputs, 'b.txt')
+  writeFileSync(bf, '- [ ] G-900850 D批新事. 手填空闲号\n')
+  const r = runLive(dir, { blockFile: bf, anchorFile: af })
+  assert.equal(r.status, 0, `不撞的手填号必须放行,rc=${r.status} out=${String(r.stdout + r.stderr).slice(0, 300)}`)
+  assert.doesNotMatch(r.stdout, /手填号改判现算/, '不撞不得开火(成对反例)')
+  const face = docAtHead()
+  assert.equal(
+    face.split('\n').filter((l) => l.startsWith('- [ ] G-900850 ')).length,
+    1,
+    '手填号逐字保留且声明位恰一次',
+  )
+  assert.doesNotMatch(face, /〔千段租约〕/, '纯手填登记不得被顺带烘进租约账面(免池短路)')
+})
+
+// ── P1a/P1b 族(2026-10-25 修,来源 .ihui-agent/tmp/seat-plan/REPORT.md)────────────────────
+// §22c:判据一律从 `__test__` 出口拿;注入点(gitFn / record)只用于把"取不到面""每枚留痕"两型
+// 造出来,不复制生产判据。两条都带源码锁 —— 函数在而 main 不接线 = 提交链上一路绿灯(§0.9)。
+
+test('G313-R1 期末对账取材兜底:git show 取不到 ⇒ 不抛、不判红,只交 undetermined(旧实现 exit 2)', () => {
+  const H = 'a'.repeat(40)
+  // 第一臂:桩模拟"旧实现没给 allowFail ⇒ lib 的 git() 抛错"这一形态。
+  const calls = []
+  const fakeGit = (args, opts = {}) => {
+    calls.push({ args, opts })
+    if (!opts.allowFail) throw new Error('git show 失败(模拟:未给 allowFail)')
+    return null
+  }
+  let got
+  assert.doesNotThrow(() => {
+    got = __test__.readLandedDocText({ root: 'R', head: H, doc: 'DOC.md', gitFn: fakeGit })
+  }, '取材失败不得把异常漏到 main 顶层 catch(那会 exit 2,把已入库写成没落地)')
+  assert.equal(got.text, null)
+  assert.match(got.why, /没给出文本|抛错/, '未判定必须带原因,不许只喊一句"未判定"')
+  assert.equal(calls.length, 1)
+  assert.equal(
+    calls[0].opts.allowFail,
+    true,
+    '必须显式 allowFail:lib/bypass-git.mjs 的 git() 默认 allowFail=false 会抛(P1a 根因)',
+  )
+  const und = __test__.judgeLandedIdRecheck({ landedText: got.text, ourLines: [], families: ['G'] })
+  assert.equal(und.undetermined, true, '取不到面 ⇒ 对账走 undetermined 分支,只喊不拦')
+  assert.equal(und.collisions.length, 0, '未判定不得冒撞')
+  // 第二臂:桩在给了 allowFail 之后仍抛(派生故障)⇒ 同样只降级成未判定,不向外抛。
+  const boom = __test__.readLandedDocText({
+    root: 'R',
+    head: H,
+    doc: 'DOC.md',
+    gitFn: () => {
+      throw new Error('spawn ENOENT')
+    },
+  })
+  assert.equal(boom.text, null)
+  assert.match(boom.why, /spawn ENOENT/)
+  // 成对正控:面取得到 ⇒ 照常给文本(不得把整档永远读成未判定)。
+  const ok = __test__.readLandedDocText({
+    root: 'R',
+    head: H,
+    doc: 'DOC.md',
+    gitFn: () => 'line1\r\nline2\r\n',
+  })
+  assert.equal(ok.text, 'line1\nline2\n')
+  assert.equal(ok.why, '')
+  // 源码锁:main 必须走这个出口,旧写法(裸 norm(git(['show'…])) 无 allowFail)不得回潮。
+  const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
+  assert.doesNotMatch(src, /const landedText = norm\(git\(/, '期末对账不得再裸取面(旧实现即此型)')
+  assert.match(src, /readLandedDocText\(\{ root, head: curHead, doc \}\)/)
+})
+
+test('G313-R2 留痕计划:原始落地 c1 与让号 c2 各恰一条、父链首尾相接(旧实现丢 c1、双记 c2)', () => {
+  const P0 = '1'.repeat(40)
+  const C1 = '2'.repeat(40)
+  const C2 = '3'.repeat(40)
+  const calls = []
+  const record = (rec) => {
+    calls.push(rec)
+    return { ok: true, path: '.ihui-agent/state/commit-attestations.jsonl' }
+  }
+  const chain = __test__.recordBypassChain({
+    root: 'R',
+    doc: 'DOC.md',
+    landing: { sha: C1, parent: P0, reason: '旁路落地(原始)' },
+    heals: [{ sha: C2, parent: C1, reason: '期末对账自动让号' }],
+    record,
+  })
+  assert.deepEqual(chain.violations, [], '正常链不得报异常')
+  assert.equal(chain.results.length, 2, '两枚提交 ⇒ 恰两条记录(旧实现:c1 零条、c2 两条)')
+  assert.deepEqual(
+    calls.map((c) => c.landedSha),
+    [C1, C2],
+    '记录顺序 = 落地顺序(c1 在前)',
+  )
+  assert.deepEqual(
+    calls.map((c) => c.headBefore),
+    [P0, C1],
+    '父链必须首尾相接:c1 的父是原始父提交,c2 的父是 c1(旧实现尾部给的是原始父提交)',
+  )
+  assert.equal(new Set(calls.map((c) => c.landedSha)).size, calls.length, '每枚提交恰一条')
+  assert.equal(calls[0].source, 'live-doc-edit')
+  assert.deepEqual(calls[0].declaredFiles, ['DOC.md'])
+  // 反证一:父链断开 ⇒ 必须逐条点名(不得静默)。
+  const broken = __test__.planBypassAttestations({
+    landing: { sha: C1, parent: P0 },
+    heals: [{ sha: C2, parent: P0 }],
+  })
+  assert.equal(broken.entries.length, 2)
+  assert.ok(
+    broken.violations.some((v) => /父链断开/.test(v)),
+    'c2 的 headBefore 若不是 c1,必须点名(旧实现尾部即此型)',
+  )
+  // 反证二:同一枚提交被计划两次 ⇒ 只落第一条并点名(绝不写成两行)。
+  const dupCalls = []
+  const dup = __test__.recordBypassChain({
+    root: 'R',
+    doc: 'DOC.md',
+    landing: { sha: C1, parent: P0 },
+    heals: [
+      { sha: C2, parent: C1 },
+      { sha: C2, parent: C1 },
+    ],
+    record: (rec) => {
+      dupCalls.push(rec)
+      return { ok: true }
+    },
+  })
+  assert.equal(dupCalls.length, 2, '重复的那一枚不得写成第二行')
+  assert.ok(
+    dup.violations.some((v) => /出现两次/.test(v)),
+    '重复必须点名(违反项不是靠肉眼发现)',
+  )
+  // 反证三:缺 sha ⇒ 该枚不记账但其余照记,且点名。
+  const missing = __test__.planBypassAttestations({ landing: null, heals: [{ sha: C2, parent: C1 }] })
+  assert.equal(missing.entries.length, 1)
+  assert.ok(missing.violations.some((v) => /原始落地缺 sha/.test(v)))
+  // 记写口抛错 ⇒ 降级成一条失败结果,不向外抛(不改退出码)。
+  const throwing = __test__.recordBypassChain({
+    root: 'R',
+    doc: 'DOC.md',
+    landing: { sha: C1, parent: P0 },
+    heals: [],
+    record: () => {
+      throw new Error('磁盘不可写')
+    },
+  })
+  assert.equal(throwing.results.length, 1)
+  assert.equal(throwing.results[0].result.ok, false)
+  assert.match(throwing.results[0].result.why, /磁盘不可写/)
+  // 源码锁:main 里不得再有直接 recordBypassLanding({...}) 的调用点(旧实现两处、尾部父绑定错),
+  // 而且原始落地与让号必须真的分别交给计划(**函数在而 main 传错参数 = 没修**)。
+  const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
+  assert.doesNotMatch(src, /recordBypassLanding\(\{/, '直接调用 = 绕开"每枚恰一条"的计划出口')
+  assert.match(src, /recordBypassChain\(\{/)
+  assert.match(
+    src,
+    /const landingAttest = \{\s*sha: landed,\s*parent: parentSha,/,
+    '原始落地 c1 必须在期末对账之前、以 parentSha 为父进计划(旧实现从不记 c1)',
+  )
+  assert.match(
+    src,
+    /healAttests\.push\(\{\s*sha: c2,\s*parent: curHead,/,
+    '让号提交必须以 curHead(= c1)为父进计划(旧实现尾部给的是原始父提交)',
+  )
+  assert.match(src, /landing: landingAttest,/)
+  assert.match(src, /heals: healAttests,/)
+  // 位置锁:c1 的记账点必须在让号循环之前(此时 `landed` 还是 c1);旧实现的错位正是"尾部才记",
+  // 而那时 landed 已被改成 c2。
+  const atLanding = src.indexOf('const landingAttest = {')
+  const atHealPush = src.indexOf('healAttests.push({')
+  const atC2 = src.indexOf('landed = c2')
+  const atTail = src.indexOf('const chain = recordBypassChain({')
+  assert.ok(atLanding > 0, 'landingAttest 必须存在')
+  assert.ok(atHealPush > atLanding, '让号记账点必须在原始落地之后')
+  assert.ok(atC2 > atLanding, 'c1 记账必须先于 `landed = c2`(否则记的是 c2、c1 永远没有记录)')
+  assert.ok(atTail > atHealPush, '统一落账点必须在所有记账点之后')
 })
