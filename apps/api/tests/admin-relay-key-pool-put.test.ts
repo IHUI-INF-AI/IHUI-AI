@@ -24,7 +24,7 @@ const h = vi.hoisted(() => {
 })
 
 vi.mock('../src/db/index.js', () => {
-  const chain = (data?: Record<string, unknown>) => ({
+  const chain = () => ({
     from: () => ({
       where: () => ({ limit: () => Promise.resolve(h.selectResult) }),
     }),
@@ -61,10 +61,11 @@ vi.mock('../src/db/index.js', () => {
 vi.mock('../src/plugins/require-permission.js', () => ({ requireAdmin: async () => {} }))
 // 保留 CF_KEY 真值(不复制第二份字面量),只把"真敲上游"这一步换成桩
 vi.mock('../src/services/relay-health-check-service.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/services/relay-health-check-service.js')>()),
+  ...(await importOriginal<typeof RelayHealthCheckService>()),
   checkSingleKey: vi.fn(async () => ({ keyId: KEY_ID, status: 'healthy', latencyMs: null })),
 }))
 
+import type * as RelayHealthCheckService from '../src/services/relay-health-check-service.js'
 import { decryptJSON, encryptJSON, type EncryptedPayload } from '../src/utils/crypto.js'
 import relayKeyPoolRoutes from '../src/routes/admin/relay-key-pool.js'
 
@@ -81,7 +82,9 @@ async function buildApp(): Promise<FastifyInstance> {
 beforeEach(() => {
   h.writes.length = 0
   h.reads = 0
-  h.selectResult = [{ extraMetadata: { note: '保留字段', consecutiveFailures: 3, latencyTrusted: true } }]
+  h.selectResult = [
+    { extraMetadata: { note: '保留字段', consecutiveFailures: 3, latencyTrusted: true } },
+  ]
 })
 
 describe('号池 PUT 换 Key(handler 端到端)', () => {
@@ -110,7 +113,13 @@ describe('号池 PUT 换 Key(handler 端到端)', () => {
     expect(res.statusCode).toBe(200)
     const w = h.writes[0]
     expect(w.name).toBe('改名')
-    for (const untouched of ['apiKeyEnc', 'keyPrefix', 'healthStatus', 'healthCheckedAt', 'extraMetadata']) {
+    for (const untouched of [
+      'apiKeyEnc',
+      'keyPrefix',
+      'healthStatus',
+      'healthCheckedAt',
+      'extraMetadata',
+    ]) {
       expect(w, `不带 apiKey 却写了 ${untouched}`).not.toHaveProperty(untouched)
     }
     await app.close()
