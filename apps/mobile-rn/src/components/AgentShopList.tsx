@@ -191,11 +191,12 @@ export default function AgentShopList({
   onItemClick,
   onItemLike,
   onItemCollect,
-  emptyText = '该分类下暂无智能体',
+  emptyText: emptyTextProp,
   refreshing = false,
   onRefresh,
   scrollEnabled = true,
 }: AgentShopListProps): React.JSX.Element {
+  const emptyText = emptyTextProp ?? t('agentShop.catEmpty')
   const renderItem: ListRenderItem<AgentShopItem> = ({ item }) => (
     <ShopRow
       item={item}
