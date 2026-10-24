@@ -250,7 +250,7 @@ export default function RankingDetailPage() {
             </View>
             <View className="info-cell">
               <Text className="info-label">{tt('ranking.detail.price', '价格')}</Text>
-              <Text className="info-value">{data.price || '-'}</Text>
+              <Text className="info-value">{data.price ?? '-'}</Text>
             </View>
             <View className="info-cell">
               <Text className="info-label">{tt('ranking.detail.status', '状态')}</Text>
