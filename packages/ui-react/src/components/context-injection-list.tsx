@@ -5,7 +5,7 @@
 import * as React from 'react'
 import { ChevronDown, Layers } from 'lucide-react'
 
-import { injectionKindKey } from '@ihui/shared'
+import { injectionKindKey } from '@ihui/shared/constants/injection-kinds'
 
 import { cn } from '../lib/utils'
 
