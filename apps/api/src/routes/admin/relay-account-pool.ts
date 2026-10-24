@@ -48,6 +48,7 @@ import {
 } from '../../services/relay-account-pool-service.js'
 import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
+import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
 import {
   buildPoolSyncAccount,
   checkinPlatformFor,
@@ -480,17 +481,29 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
       const ctx = { row, credentials: decryptAccountCredentials(row) }
       const outcome = await adapter.checkHealth(ctx, { proxyUrl: row.proxyUrl })
       const now = new Date()
+      // 三态消费与调度器同源(healthStatusOf):未判定保留 unknown 不写 down,
+      // 否则 5xx/网络抖动一次就把活号摘除(§0.3 取不到 ≠ 失效)。
+      const status = healthStatusOf(outcome)
       await db
         .update(aiRelayAccountPool)
         .set({
-          healthStatus: outcome.ok ? 'healthy' : 'down',
+          healthStatus: status,
           healthCheckedAt: now,
-          lastErrorMessage: outcome.ok ? null : (outcome.error ?? '健康检查失败').slice(0, 500),
-          consecutiveFailures: outcome.ok ? 0 : row.consecutiveFailures,
+          lastErrorMessage:
+            status === 'healthy' ? null : (outcome.error ?? '健康检查失败').slice(0, 500),
+          consecutiveFailures: status === 'healthy' ? 0 : row.consecutiveFailures,
           updatedAt: now,
         })
         .where(eq(aiRelayAccountPool.id, row.id))
-      return reply.send(success({ id: row.id, ok: outcome.ok, error: outcome.error ?? null }))
+      return reply.send(
+        success({
+          id: row.id,
+          ok: outcome.ok,
+          status,
+          indeterminate: outcome.indeterminate === true,
+          error: outcome.error ?? null,
+        }),
+      )
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '健康检查失败'))
