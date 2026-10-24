@@ -92,7 +92,6 @@ export default function CourseDetailPage() {
   if (error || !data) {
     return (
       <div className="mx-auto w-full max-w-4xl space-y-4">
-        {/* back-label-exempt: 箭头位已是矢量 ArrowLeft,文字是标签 until 2026-12-31 */}
         <button
           type="button"
           onClick={() => router.push('/learn')}
@@ -123,7 +122,6 @@ export default function CourseDetailPage() {
 
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
-      {/* back-label-exempt: 箭头位已是矢量 ArrowLeft,文字是标签 until 2026-12-31 */}
       <Link
         href="/learn"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
