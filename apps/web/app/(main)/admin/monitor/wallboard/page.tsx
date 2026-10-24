@@ -561,7 +561,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const t = useTranslations('admin.wallboard')
   const locale = useLocale()
   const { resolvedTheme } = useTheme()
-  const isDark = resolvedTheme === 'dark'
+  // 值班态强制暗色(手动 class,见下方 duty 逻辑);图表配色沿用同一个 isDark。
+  const [dutyMode, setDutyMode] = React.useState(false)
+  const isDark = resolvedTheme === 'dark' || dutyMode
   const { fmtInt, fmtCompact, fmtRate, fmtDuration, fmtClock, fmtStamp, fmtAgo } = makeFmt(
     locale,
     t,
@@ -582,15 +584,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     }
   }, [t])
 
-  // ---------- 值班全屏:隐藏左侧 AI 工作区 + 浏览器全屏 ----------
-  const [dutyMode, setDutyMode] = React.useState(false)
+  // ---------- 值班全屏:隐藏左侧 AI 工作区 + 浏览器全屏 + 固定深色 ----------
   const prevAiPanelOpen = React.useRef(true)
+  const prevHadDarkClass = React.useRef(false)
   const dutyActiveRef = React.useRef(false)
 
-  // 退出值班的唯一回收口:任何一条退出路径(再点/Esc/切走)都走它。
+  // 退出值班的唯一回收口:面板、强制暗色、态三者一起还原,任何一条退出路径(再点/Esc/切走)都走它。
   const restoreDutyState = React.useCallback(() => {
     dutyActiveRef.current = false
     setDutyMode(false)
+    // 只在进入前本来不是深色时才摘 class(用户本来就是深色主题则保持)。
+    if (!prevHadDarkClass.current) document.documentElement.classList.remove('dark')
     if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
   }, [])
 
@@ -598,6 +602,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     if (!dutyActiveRef.current) {
       prevAiPanelOpen.current = useAiPanelStore.getState().open
       dutyActiveRef.current = true
+      // 手动加 class 而不调 next-themes.setTheme:实测该环境下 setTheme 调用后
+      // class/localStorage 均不变且会连带把刚关闭的 AI 面板重新打开(2026-10-24 取证),
+      // 值班只需一段临时暗色,不必改写用户的主题偏好。
+      prevHadDarkClass.current = document.documentElement.classList.contains('dark')
+      document.documentElement.classList.add('dark')
       useAiPanelStore.getState().closePanel()
       setDutyMode(true)
       try {
