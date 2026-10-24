@@ -2370,6 +2370,13 @@
       "when": 1792915200000,
       "tag": "20261025120000_chat_message_sync_revs",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 342,
+      "when": 1792980000000,
+      "tag": "20261026100000_command_ack_facts",
+      "breakpoints": true
     }
   ]
 }
