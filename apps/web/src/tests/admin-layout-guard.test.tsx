@@ -18,6 +18,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const replace = vi.fn()
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace, push: vi.fn(), prefetch: vi.fn() }),
+  // admin 布局后接入 usePathname(redirect 拼回跳地址),mock 缺导出 ⇒ 布局 import 期炸(2026-10-24)
+  usePathname: () => '/admin',
+  useSearchParams: () => new URLSearchParams(),
 }))
 
 import AdminLayout from '../../app/(main)/admin/layout'
@@ -60,7 +63,10 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
     await act(async () => {
       vi.advanceTimersByTime(100)
     })
-    expect(replace, `资料还没到就弹了 ⇒ 又把"未知"折成 0(实寄 calls=${JSON.stringify(replace.mock.calls)})`).not.toHaveBeenCalled()
+    expect(
+      replace,
+      `资料还没到就弹了 ⇒ 又把"未知"折成 0(实寄 calls=${JSON.stringify(replace.mock.calls)})`,
+    ).not.toHaveBeenCalled()
     act(() => {
       useAuthStore.setState({ user: ADMIN })
     })
@@ -105,13 +111,19 @@ describe('admin layout 守卫:角色未知 ≠ 角色不够', () => {
   it('形状锁:守卫不得再把"取不到角色"折成 0 参与比较(§0.3)', async () => {
     // 走 fileURLToPath(import.meta.url) 而不是 import.meta.dirname:后者在 TS 类型里是
     // string | undefined,而 vitest 下 import.meta.url 是 http: URL —— 两者都不能直接喂 readFileSync
-    const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../app/(main)/admin/layout.tsx'), 'utf8')
+    const src = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), '../../app/(main)/admin/layout.tsx'),
+      'utf8',
+    )
     const guard = src.slice(src.indexOf('已登录但非管理员'), src.indexOf('setChecked(true)'))
     expect(guard.length > 200, '切片没抓到守卫那一段 ⇒ 这把锁自己瞎了').toBe(true)
     // 取"完整 if 语句"而不是片段:注释里引用过旧写法 `(userRoleId ?? 0) < 1`,按片段比位置会被注释骗到
     const unknownBranch = guard.indexOf('if (userRoleId === undefined || userRoleId === null) {')
     const roleBranch = guard.indexOf('if ((userRoleId ?? 0) < ADMIN_ROLE_THRESHOLD)')
-    expect(unknownBranch, '缺「角色未知」那一支 ⇒ 「取不到」又会被折成 0 判成无权限(§0.3)').toBeGreaterThanOrEqual(0)
+    expect(
+      unknownBranch,
+      '缺「角色未知」那一支 ⇒ 「取不到」又会被折成 0 判成无权限(§0.3)',
+    ).toBeGreaterThanOrEqual(0)
     expect(roleBranch, '缺「角色不够」那一支 ⇒ 真非管理员被放进来').toBeGreaterThanOrEqual(0)
     expect(unknownBranch).toBeLessThan(roleBranch)
     expect(guard).toContain('clearTimeout(timer)') // 等待必须有终态,也不许在资料到位后还留着定时器
