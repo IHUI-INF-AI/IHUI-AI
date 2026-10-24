@@ -4,34 +4,44 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * archive-gc.mjs — 文档归档 `.ihui-agent/archive` 的回收器(G-24「双上限 + 最近 10 代」)
+ * archive-gc.mjs — G-24 事故归档回收器(「双上限 + 保留最近 10 代」)
  *
  * 票面原文(HEAD `PROJECT_PLAN.md`,逐字抄,不改写):
  *   “- **G-24 事故归档按"双上限 + 最近 10 代"回收。** 边界写死:回收对象**只有**
  *    `gitArchiveDir()` 下的事故现场归档;活 gitdir、本地恢复源、两目录的 `*.broken-*`
  *    **一律不碰**(§5b 明文禁删,与本案不冲突 —— 冲突的只是"要不要回收现场归档"这一层)。
  *    每次删除必须留 deleted/failed 双日志;量不确认(未先跑 dry-run)即拒绝执行。”
- *   “2026-09-27 用户拍板:**双上限 + 保留最近 10 代**,每次删除写日志、量不确认即拒跑”
+ *   “- **G-24 事故归档无"双上限"回收 —— 与 §5b 的禁删条款正面冲突,必须先由人定代数**
+ *    （归属:`.git` 存续线） 〔2026-09-27 用户拍板:**双上限 + 保留最近 10 代**,每次删除写日志、
+ *    量不确认即拒跑;§5b 禁删名单(活 gitdir / 恢复源 / `*.broken-*`)**一律不回收**,只回收
+ *    事故现场归档〕”
  *   票面唯一给出的具体量值(同一节的 ZCode 参照行):
  *   “ZCode 的归档回收是 `maxFiles=5 + maxTotalBytes=100MB` 双上限 + deleted/failed 留痕
  *    + mtime≥1s 稳定窗。”
  *
- * 射程(必须先看,免得把两棵树读成同一棵)
- * ────────────────────────────────────────
- * 本工具作用的归档面是**任务指定的** `.ihui-agent/archive`(文档/报告归档)。G-24 原文
- * 点名的 `gitArchiveDir()`(本机现指 `G:/IHUI-AI/.DevEnv/backups/git`)是**另一棵树**,
- * 那一棵已由 `scripts/retire-git-archive.mjs` 按同一句拍板实装。二者互不替代:
+ * 射程(票面只点名 `gitArchiveDir()`;本器不自带默认根)
+ * ────────────────────────────────────────────────────
+ * G-24 原文的回收对象**只有** `gitArchiveDir()` 下的事故现场归档(本机现指
+ * `G:/IHUI-AI/.DevEnv/backups/git`),那一棵已由 `scripts/retire-git-archive.mjs`
+ * (`package.json` 的 `archive:retire`)按同一句拍板实装。本器**不预置任何默认目录**:
+ * 本次射程一律由调用方 `--root <dir>` 指定,并在人读面打印“本次射程 × 该目录已有器物”。
  *   · `retire-git-archive.mjs` 只认 `.broken-<ts>` / `.stale-*` 事故签名,gc 对象是 gitdir 现场;
- *   · 本工具只认 `.ihui-agent/archive` 顶层**普通文件**,不递归、不碰目录。
+ *   · 本器只认指定目录顶层**普通文件**,不递归、不碰目录。
+ *   任务里用过的 `.ihui-agent/archive` 是**调用方显式指定的另一棵树**,不是票面射程;
+ *   二者互不替代,也不得把本器读数读成 gitArchiveDir 已收口。
  *
  * 双上限口径(票面 + 本票取法,差异照实报)
  * ─────────────────────────────────────────
- *   上限一 `maxFiles`      = 5     ← 票面 `maxFiles=5`(总数上限)
+ *   上限一 `maxFiles`      = 5     ← 票面 ZCode 参照行 `maxFiles=5`(总数上限)
  *   上限二 `maxItemBytes`  = 100MB ← 票面 `maxTotalBytes=100MB` 的**量值**;票面原词是
  *          “总量”,本票的三条判据要求的是“**单件**体积上限”,故口径落在单件。要换口径/档位
  *          不必改代码:`--max-files <n>` / `--max-item-bytes <bytes>`。
- *   保护   `keepGenerations` = 10  ← 用户拍板值“保留最近 10 代”,不是上限而是**地板**:
+ *   地板   `keepGenerations` = 10  ← 票面拍板值“保留最近 10 代”,不是上限而是**地板**:
  *          落在最新 10 代内的件,体积上限与总数上限都不得把它删掉(保护优先)。
+ *   两轴独立:地板与双上限是两条独立判据,任一超限即判;当地板高于上限(如 32 世代仓上
+ *   `maxFiles=5` 撞上“保留 10 代”),**地板胜出**,上限差额如实报 `capUnmet`,绝不越地板硬删。
+ *   这不是“5 与 10 矛盾”,而是“保留最近 10 代”优先于“最多 5 件”;按 ZCode 参照值把仓砍到
+ *   只剩 5 件会直接违反票面拍板的后半句。
  *
  * 三条判据与三条独立出口(哪条触发、为哪件,逐条写在行首的标签里)
  * ──────────────────────────────────────────────────────────────
@@ -45,6 +55,8 @@
  * 「文件名里没有 YYYY-MM-DD ⇒ 判不出世代」「lstat/realpath/体量量不到」「非普通文件」
  * 一律**保留 + 逐条报名**,计入末行 `未判定 Z`;未判定非空时退出码为 2(判定拿不到不记绿)。
  * 目录、重解析点、正在被写方引用的件(见 `IN_USE_NAMES`)同样保留并写明理由。
+ * 票面对 `.lintstagedrc.json` 这类无日期件**没有给判法**;本器不自造分类:一律保留 + 点名,
+ * 计入 `未判定 Z` 并 RC=2,不得当“保留”悄悄过关。
  *
  * 红线(代码层面钉死)
  * ──────────────────
@@ -55,12 +67,12 @@
  *   · 不派生任何子进程、不做任何 git 操作(git 历史与 `state/` 下在用的状态文件都不在射程)。
  *
  * 用法:
- *   node scripts/archive-gc.mjs                       # 默认 dry-run(只读档,零删除)
- *   node scripts/archive-gc.mjs --dry-run             # 同上,显式档
- *   node scripts/archive-gc.mjs --apply               # 真删(deleted/failed 双日志落 state/)
- *   node scripts/archive-gc.mjs --keep 10 --max-files 5 --max-item-bytes 104857600
- *   node scripts/archive-gc.mjs --root <dir> --ledger-dir <dir>   # 夹具/取证用换根
- * 退出码:0 = 正常且无未判定;1 = apply 有删除失败或日志写不进;2 = 未判定(参数/根/枚举/判不出的件)。
+ *   node scripts/archive-gc.mjs --root <dir>                       # 必填射程;默认 dry-run(零删除)
+ *   node scripts/archive-gc.mjs --root <dir> --dry-run             # 同上,显式档
+ *   node scripts/archive-gc.mjs --root <dir> --apply               # 真删(deleted/failed 双日志落 state/)
+ *   node scripts/archive-gc.mjs --root <dir> --keep 10 --max-files 5 --max-item-bytes 104857600
+ *   node scripts/archive-gc.mjs --root <dir> --ledger-dir <dir>     # 夹具/取证用换台账
+ * 退出码:0 = 正常且无未判定;1 = apply 有删除失败或日志写不进;2 = 未判定(未给射程/参数/根/枚举/判不出的件)。
  */
 
 import {
@@ -75,10 +87,21 @@ import {
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { gitArchiveRootFor } from './lib/gitdir.mjs'
+
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const REPO_ROOT = resolve(HERE, '..')
-/** 默认归档面 = 任务指定的 `.ihui-agent/archive`(与 `gitArchiveDir()` 不是同一棵树,见头注)。 */
-export const DEFAULT_ROOT = join(REPO_ROOT, '.ihui-agent', 'archive')
+/**
+ * 票面点名的 `gitArchiveDir()`(纯推导,显式传 REPO_ROOT 以零子进程)。
+ * 只用于人读面的“该目录已有器物”提示,绝不作默认射程。
+ */
+export const STD_GIT_ARCHIVE = (() => {
+  try {
+    return gitArchiveRootFor(REPO_ROOT)
+  } catch {
+    return null
+  }
+})()
 export const STATE_DIR = resolve(REPO_ROOT, '.ihui-agent', 'state')
 
 export const DEFAULT_KEEP_GENERATIONS = Number(process.env.IHUI_ARCHIVE_GC_KEEP || 10)
@@ -118,6 +141,28 @@ export function isInsideStateDir(p) {
   const s = norm(resolve(STATE_DIR)).toLowerCase().replace(/\/+$/, '')
   const q = norm(resolve(p)).toLowerCase().replace(/\/+$/, '')
   return q === s || q.startsWith(`${s}/`)
+}
+
+/**
+ * 人读面的射程说明:本次射程是谁指定的、该目录已有器物是谁。
+ * 纯函数(只做路径比较,零 I/O),测试可直接调。
+ * @returns {string}
+ */
+export function scopeNote(root) {
+  const r = norm(resolve(root)).toLowerCase().replace(/\/+$/, '')
+  const std = STD_GIT_ARCHIVE
+    ? norm(resolve(STD_GIT_ARCHIVE)).toLowerCase().replace(/\/+$/, '')
+    : null
+  if (std && r === std) {
+    return (
+      '该目录=票面点名的 gitArchiveDir() 事故现场归档;已有器物:' +
+      'scripts/retire-git-archive.mjs(package.json archive:retire)已按同一句拍板覆盖 ⇒ 本器不替代它'
+    )
+  }
+  return (
+    '该目录不是票面点名的 gitArchiveDir();本次射程由调用方 --root 显式指定 ⇒ ' +
+    '该目录已有器物(含 retire-git-archive 是否覆盖)由调用方自行确认'
+  )
 }
 
 /**
@@ -292,7 +337,10 @@ export function planGc({
   }
 
   const total = entries.length
-  const overflow = total - maxFiles
+  // 两轴独立不是“各删各的”:已被 itemBytes 判删的件已经离场,不能再算进总数差额,
+  // 否则总数轴会重复记它们、把保留数压到 maxFiles 以下(过删)。
+  const itemBytesRetired = out.filter((e) => e.criterion === 'itemBytes').length
+  const overflow = Math.max(0, total - itemBytesRetired - maxFiles)
   pool.sort(cmpGen)
   const take = Math.max(0, Math.min(overflow, pool.length))
   pool.forEach((e, i) => {
@@ -318,6 +366,7 @@ export function planGc({
     maxItemBytes,
     totalFiles: total,
     generations: gens,
+    itemBytesRetired,
     retire,
     keep,
     protected: protectedRows,
@@ -477,13 +526,19 @@ export function runMain({ argv, stdout = console.info, stderr = console.error })
     return 2
   }
 
-  const root = args.root ? resolve(args.root) : DEFAULT_ROOT
+  if (!args.root) {
+    stderr(
+      '❌ 未指定射程:票面只点名 gitArchiveDir(),本器不预置默认根;' +
+        '请用 --root <dir> 显式指定(例如 --root .ihui-agent/archive)⇒ 不记通过',
+    )
+    return 2
+  }
+  const root = resolve(args.root)
   const safe = assertSafeRoot(root)
   if (!safe.ok) {
     stderr(`❌ 无法判定:${safe.why} ⇒ 不冒删,也不记通过`)
     return 2
   }
-  if (args.root) stderr(`⚠️ 自定义归档根生效:${root}(默认档是 ${DEFAULT_ROOT})`)
 
   const now = Date.now()
   let names
@@ -496,9 +551,8 @@ export function runMain({ argv, stdout = console.info, stderr = console.error })
   const entries = names.map((name) => classifyEntry({ root, name, now }))
   const plan = planGc({ entries, keepGenerations: keep, maxFiles, maxItemBytes })
 
-  stdout(
-    `归档根:${root}`,
-  )
+  stdout(`本次射程:${root}`)
+  stdout(`射程说明:${scopeNote(root)}`)
   stdout(
     `档位:保留最近 ${plan.keepGenerations} 代 · 总数上限 ${plan.maxFiles} · 单件体积上限 ${fmtBytes(plan.maxItemBytes)}`,
   )
@@ -517,6 +571,11 @@ export function runMain({ argv, stdout = console.info, stderr = console.error })
   }
 
   const z = plan.undetermined.length
+  if (z) {
+    stdout(
+      `未判定 ${z} 件(不删、不记绿,点名:${plan.undetermined.map((e) => e.name).join(', ')})`,
+    )
+  }
   if (!args.apply) {
     stdout('[dry-run] 未发起任何删除。真删再加 --apply(三条判据在删除那一刻仍逐件复验)。')
     stdout(`保留 ${plan.retainedCount} / 待删 ${plan.retire.length} / 未判定 ${z}`)
@@ -547,7 +606,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   REPO_ROOT,
-  DEFAULT_ROOT,
+  STD_GIT_ARCHIVE,
   STATE_DIR,
   DEFAULT_KEEP_GENERATIONS,
   DEFAULT_MAX_FILES,
@@ -558,6 +617,7 @@ export const __test__ = {
   fmtBytes,
   isInsideRoot,
   isInsideStateDir,
+  scopeNote,
   assertSafeRoot,
   parseGeneration,
   listEntries,
