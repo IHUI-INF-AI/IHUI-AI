@@ -515,7 +515,12 @@
     "noLogsHint": "(暂无日志 — 在页面上点击操作后会显示坐标信息)",
     "runJs": "执行 JavaScript",
     "runJsPlaceholder": "document.title  —  输入 JS 后点执行(如: document.querySelector(\"button\").click())",
-    "run": "执行"
+    "run": "执行",
+    "browserTab": "浏览器",
+    "home": "回到主页",
+    "pickElement": "元素点选",
+    "picking": "点选进行中,点击页面元素即选中;再点按钮取消",
+    "devtools": "开发者工具"
   },
   "a11y": {
     "previewLoadFailed": "预览加载失败。",
@@ -8195,6 +8200,7 @@
       "injectionKindRepoWiki": "已注入 Repo Wiki 项目百科",
       "injectionKindAutoContext": "{count, plural, other {已自动检索并注入 {count} 段代码上下文}}",
       "injectionKindIterationExtension": "已续期轮次预算",
+      "injectionKindExpertPack": "已按意图匹配专家包",
       "thinkingCharCountTitle": "{n} 个字符",
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",
@@ -12166,7 +12172,17 @@
     "reasoningEffortHigh": "深思",
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
-    "analysisOpen": "查看场景分析"
+    "analysisOpen": "查看场景分析",
+    "reviewTargetGroupLabel": "审查对象选择",
+    "reviewTargetLabel": "审查对象",
+    "reviewTargetUncommitted": "未提交改动",
+    "reviewTargetFile": "指定文件",
+    "reviewTargetFileLabel": "要审查的文件路径",
+    "reviewTargetFilePlaceholder": "工作区相对路径,如 src/app.ts",
+    "reviewTargetSnippet": "粘贴片段",
+    "reviewTargetSnippetLabel": "要审查的代码片段",
+    "reviewTargetSnippetPlaceholder": "粘贴要审查的代码片段…",
+    "reviewTargetClear": "清除审查对象"
   },
   "chatHistory": {
     "moveToGroup": "移动到分组",
@@ -16669,6 +16685,27 @@
       "groupView": "视图",
       "noMatch": "无匹配项",
       "searchPlaceholder": "搜索视图..."
+    },
+    "agentsMd": {
+      "title": "AGENTS.md",
+      "hint": "扫描当前工作区生成协作约定草稿;生成不写盘,写入前还会再确认一次。",
+      "generate": "一键生成 AGENTS.md 草稿",
+      "generateConfirmTitle": "生成 AGENTS.md 草稿?",
+      "generateConfirmContent": "将扫描当前工作区并生成草稿。草稿只显示在这里,不会写盘。",
+      "generating": "正在扫描工作区…",
+      "generateFailed": "生成草稿失败",
+      "draftTitle": "AGENTS.md 草稿(可编辑,确认后才写盘)",
+      "draftNotice": "草稿尚未写盘",
+      "write": "写入 AGENTS.md",
+      "writeConfirmTitle": "写入 AGENTS.md?",
+      "writeConfirmContent": "将把上方内容写入工作区根目录的 AGENTS.md;同名文件会被覆盖。",
+      "writing": "正在写入…",
+      "writeFailed": "写入失败",
+      "written": "已写入 AGENTS.md",
+      "discard": "放弃草稿",
+      "errorEmptyWorkspace": "工作区路径为空",
+      "errorRequestFailed": "AI 服务请求失败",
+      "errorNoDraft": "工具未返回草稿"
     }
   },
   "imageGenPage": {
@@ -19755,7 +19792,10 @@
     "editDeviceMapTitle": "编辑设备指纹",
     "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。",
     "checkedInToday": "今日已签到",
-    "rename": "重命名"
+    "rename": "重命名",
+    "captureTraeWebWaiting": "已在右侧工作区的浏览器里打开 Trae 登录页,请在面板内完成登录(手机号/扫码);检测到登录态后会自动导入账号并回到签到页。",
+    "captureTraeWebDone": "Trae 网页登录导入完成(共 {count} 个账号)",
+    "captureTraeWebCancelled": "已取消 Trae 网页登录。重新点「网页登录」可再试。"
   },
   "accountPool": {
     "title": "个人号池",
@@ -22874,6 +22914,18 @@
       "advancedAiDesc": "记忆、子智能体、编排、上下文压缩等智能体框架能力",
       "experimental": "实验性功能",
       "experimentalDesc": "仍在验证阶段的能力，后续可能调整或下线"
+    },
+    "expertRoute": {
+      "title": "专家包自动路由",
+      "desc": "按本轮用户意图识别专家包,并决定命中结果的处理方式。",
+      "hint": "仅提示",
+      "hintDesc": "命中时只在回复中提示命中了哪个专家包,不改动工具与系统提示",
+      "auto": "自动应用",
+      "autoDesc": "命中时把专家包的工具白名单与系统提示并入本次请求",
+      "off": "关闭",
+      "offDesc": "不做意图识别,也不提示",
+      "default": "默认",
+      "envLockedNotice": "部署方已通过环境变量关闭该能力,此处只能查看,无法修改。"
     }
   },
   "shareContentPage": {
