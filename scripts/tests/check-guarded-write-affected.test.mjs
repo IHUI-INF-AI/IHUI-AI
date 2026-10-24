@@ -78,6 +78,18 @@ ok(
   ).length === 0,
 )
 ok('额度列判定有牙(gt(stock) 算 / eq(id) 不算)', G.guardsQuantityColumn('gt(products.stock, 0)') && !G.guardsQuantityColumn('eq(a.id, 1)'))
+// 坐标锁:遮蔽面删注释字符 ⇒ 下标不可映射回原文;报表必须按锚定位,定不到就明说
+const shifted = `// 注释一\n// 注释二\n// 注释三\nawait db\n  .update(products)\n  .set({ stock: sql\`\${products.stock} - 1\` })\n  .where(and(eq(products.id, id), gt(products.stock, 0)))\n`
+const one = G.findDiscardedGuardedWrites(shifted)[0]
+ok('遮蔽面上确有命中(坐标锁前置条件)', Boolean(one))
+ok('报表行号按原文锚定位(第 7 行,不是遮蔽面上的偏移)', G.locateLine(shifted, one.whereFull)?.line === 7)
+ok('同形锚两次命中给两个行号(不给重复错坐标)', (() => {
+  const locate = G.makeLocator(shifted + shifted)
+  const a = locate(one.whereFull)
+  const b = locate(one.whereFull)
+  return typeof a === 'number' && typeof b === 'number' && b > a
+})())
+ok('锚不在原文时报"未定位"而不是猜', String(G.makeLocator(shifted)('and(eq(nope.col, 1))')).includes('未定位'))
 
 ok(
   'G2 命中:回调 catch 回 SUCCESS',

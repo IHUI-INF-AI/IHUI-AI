@@ -561,14 +561,22 @@ export async function rejectWithdrawal(
     // ② 退还冻结余额到可用余额(tokenQuantity += amount, frozenQuantity -= amount)
     // flow.userId 可空(用户删除时 SET NULL),null 时无法退还(资金沉淀 frozen 等待人工处理)
     if (flow.userId) {
-      await tx
+      // 驳回即退钱:必须"冻结够才退"。此前只带 eq(userId),冻结不足时把 frozen 扣成负数、
+      // 同时凭空给 token 加一笔(铸钱)。空集 ⇒ 抛带 statusCode 的错,事务回滚,
+      // 审批不会留下"已驳回但账没退"的半截态(与本文件 428/444 行既有模式同口径)。
+      const refunded = await tx
         .update(userMargins)
         .set({
           tokenQuantity: sql`${userMargins.tokenQuantity} + ${flow.amount}`,
           frozenQuantity: sql`${userMargins.frozenQuantity} - ${flow.amount}`,
           updatedAt: new Date(),
         })
-        .where(eq(userMargins.userId, flow.userId))
+        .where(
+          and(eq(userMargins.userId, flow.userId), gte(userMargins.frozenQuantity, flow.amount)),
+        )
+        .returning({ userId: userMargins.userId })
+      if (!refunded[0])
+        throw Object.assign(new Error('冻结余额不足以退回提现金额,需人工对账'), { statusCode: 409 })
     }
     return flow
   })
