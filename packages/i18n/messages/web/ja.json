@@ -783,6 +783,8 @@
       "pgLabel": "PostgreSQL",
       "piePerSecSuffix": "/s",
       "recentAlerts": "最近のアラート記録 (DB)",
+      "moreActiveAlerts": "他に {count} 件のアクティブアラート",
+      "moreRecentAlerts": "他に {count} 件の記録",
       "redisClients": "クライアント",
       "redisEvicted": "破棄キー",
       "redisHit": "ヒット率",

@@ -783,6 +783,8 @@
       "pgLabel": "PostgreSQL",
       "piePerSecSuffix": "/s",
       "recentAlerts": "최근 알림 기록 (DB)",
+      "moreActiveAlerts": "활성 알림 {count}건 더 있음",
+      "moreRecentAlerts": "기록 {count}건 더 있음",
       "redisClients": "클라이언트",
       "redisEvicted": "축출 키",
       "redisHit": "적중률",
