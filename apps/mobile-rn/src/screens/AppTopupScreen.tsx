@@ -88,7 +88,9 @@ export default function AppTopupScreen() {
 
   const onSubmit = useCallback(() => {
     const selected = AMOUNT_OPTIONS.find((o) => o.id === selectedId)
-    const amount = selected ? selected.amount : Number(customAmount) * 100
+    // 浮点钱雷:9.9*100=990.0000000000002(Number 直乘把分算成小数,进 createPayment 的 amount
+    // 语义=分整数)。与 CartScreen L138 同法 Math.round 归分;NaN/0/负由下面判据兜住。
+    const amount = selected ? selected.amount : Math.round(Number(customAmount) * 100)
     if (!amount || amount <= 0) {
       return
     }
