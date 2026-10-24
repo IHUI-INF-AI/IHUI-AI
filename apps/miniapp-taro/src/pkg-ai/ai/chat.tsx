@@ -120,8 +120,10 @@ import AgentTipDialog from './AgentTipDialog'
 import './chat.css'
 import ThemeRoot from '@/components/ThemeRoot'
 
-const HISTORY_STORAGE_KEY = 'ai_chat_history'
-const FAVORITE_STORAGE_KEY = 'ai_favorite_messages'
+import { AI_CHAT_HISTORY_KEY, AI_FAVORITE_MESSAGES_KEY } from '@/constants/storage'
+
+const HISTORY_STORAGE_KEY = AI_CHAT_HISTORY_KEY
+const FAVORITE_STORAGE_KEY = AI_FAVORITE_MESSAGES_KEY
 const MAX_HISTORY_COUNT = 50
 
 interface MaterialItem {
