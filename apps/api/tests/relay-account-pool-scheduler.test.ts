@@ -68,6 +68,8 @@ import {
   SWEEP_LOCK_NAME,
   __test__,
   healthStatusOf,
+  renewalPolicyOf,
+  shouldDeferRefresh,
   sweepAccountPool,
 } from '../src/services/relay-account-pool-scheduler.js'
 import {
@@ -187,6 +189,105 @@ describe('sweepAccountPool 分布式锁', () => {
     const healthUpdate = updateCalls.find((s) => s.healthStatus !== undefined)
     expect(healthUpdate?.healthStatus).toBe('unknown')
     expect(String(healthUpdate?.lastErrorMessage)).toContain('500')
+  })
+})
+
+describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
+  function adapterWithRefresh(refreshToken: ReturnType<typeof vi.fn>): Record<string, unknown> {
+    return {
+      providerCode: 'trae',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      checkHealth: vi.fn(async () => ({ ok: true })),
+      refreshToken,
+      isAuthFailure: (status) => status === 401,
+    }
+  }
+
+  it('纯函数:trae=client-first;其他平台=server;开关 0/false/off 退回 server', () => {
+    expect(renewalPolicyOf('trae')).toBe('client-first')
+    expect(renewalPolicyOf('workbuddy')).toBe('server')
+    expect(renewalPolicyOf('qoder')).toBe('server')
+    expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: '0' })).toBe('server')
+    expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: 'false' })).toBe('server')
+    expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: 'off' })).toBe('server')
+    expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: '1' })).toBe('client-first')
+  })
+
+  it('纯函数:trae 票未过期 ⇒ 延迟;已过期 ⇒ 放行;无到期时刻 ⇒ 放行(无法证明客户端在养票,兜底)', () => {
+    const now = new Date('2026-10-24T12:00:00.000Z')
+    expect(
+      shouldDeferRefresh(
+        { providerCode: 'trae', tokenExpiresAt: new Date(now.getTime() + 60_000) },
+        now,
+      ),
+    ).toBe(true)
+    expect(
+      shouldDeferRefresh(
+        { providerCode: 'trae', tokenExpiresAt: new Date(now.getTime() - 60_000) },
+        now,
+      ),
+    ).toBe(false)
+    expect(shouldDeferRefresh({ providerCode: 'trae', tokenExpiresAt: null }, now)).toBe(false)
+    expect(
+      shouldDeferRefresh(
+        { providerCode: 'workbuddy', tokenExpiresAt: new Date(now.getTime() + 60_000) },
+        now,
+      ),
+    ).toBe(false)
+  })
+
+  it('trae 票未过期(临期窗口内)⇒ refreshToken 不被调用,refreshSkipped+1', async () => {
+    const refreshToken = vi.fn(async () => ({
+      token: 'x',
+      refreshToken: 'y',
+      expiresAt: new Date(),
+    }))
+    registerRelayAdapter(adapterWithRefresh(refreshToken) as never)
+    accountRows = [sweepRow({ tokenExpiresAt: new Date(Date.now() + 5 * 60_000) })]
+    const out = await sweepAccountPool()
+    expect(out.refreshed).toBe(0)
+    expect(out.refreshSkipped).toBe(1)
+    expect(refreshToken).not.toHaveBeenCalled()
+  })
+
+  it('trae 票已过期 ⇒ 池兜底刷新(refreshToken 恰好一次)', async () => {
+    const refreshToken = vi.fn(async () => ({
+      token: 'new-token',
+      refreshToken: 'new-rt',
+      expiresAt: new Date(Date.now() + 86_400_000),
+    }))
+    registerRelayAdapter(adapterWithRefresh(refreshToken) as never)
+    accountRows = [sweepRow({ tokenExpiresAt: new Date(Date.now() - 60_000) })]
+    const out = await sweepAccountPool()
+    expect(out.refreshed).toBe(1)
+    // mock 的 select 对三档查询返回同一行:该行同时命中"临期刷新"与"down 恢复"两档 ⇒ 2 次
+    expect(refreshToken).toHaveBeenCalledTimes(2)
+  })
+
+  it('阳性对照:workbuddy 临期未过期 ⇒ 照旧刷新(server 策略不受影响)', async () => {
+    const refreshToken = vi.fn(async () => ({
+      token: 'wb-new',
+      refreshToken: 'wb-rt',
+      expiresAt: new Date(Date.now() + 86_400_000),
+    }))
+    registerRelayAdapter({
+      providerCode: 'workbuddy',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      checkHealth: vi.fn(async () => ({ ok: true })),
+      refreshToken,
+      isAuthFailure: (status) => status === 401,
+    } as never)
+    accountRows = [
+      sweepRow({ providerCode: 'workbuddy', tokenExpiresAt: new Date(Date.now() + 5 * 60_000) }),
+    ]
+    const out = await sweepAccountPool()
+    expect(out.refreshed).toBe(1)
+    // 同上:mock 不筛查询,临期 + down 恢复各命中一次
+    expect(refreshToken).toHaveBeenCalledTimes(2)
   })
 })
 
