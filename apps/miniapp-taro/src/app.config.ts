@@ -66,6 +66,7 @@ export default defineAppConfig({
     {
       root: 'pkg-shop',
       pages: [
+        'edu-shop/index',
         'vip/index',
         'vip/privilege',
         'vip/upgrade',
@@ -119,6 +120,8 @@ export default defineAppConfig({
         'user/feedback',
         'favorites/index',
         'fans/index',
+        'user-public/index',
+        'llm-settings/index',
         'following/index',
         'subscriptions/index',
         'message/index',
