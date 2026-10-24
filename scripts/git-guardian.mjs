@@ -83,6 +83,7 @@ import {
   resolveBackupDir,
   gitdirArchivePath,
   refExpectationSatisfied,
+  brokenRefsFromSnapshot,
 } from './lib/gitdir.mjs'
 // 凭据形状脱敏的**唯一实现**住在 lib(G-334 / G-400):本文件原先自带一份逐字相同的副本,
 // 两份实现必漂移是本仓记过最多次的失效型,而这一族的失败形态是安静的 —— 漂了的一侧只会让
@@ -1279,11 +1280,8 @@ function currentRefs() {
 
 /** 清单中解析不到(或值与清单不符)的 ref;移动型 remote HEAD 由 lib 统一放过(见 refExpectationSatisfied) */
 function missingRefs() {
-  const cur = currentRefs()
-  if (cur === null) return null // 面问不到 ⇒ 未判定,不得把整张清单报成"缺失"
-  return Object.entries(readRefsManifest())
-    .filter(([ref, sha]) => !refExpectationSatisfied(ref, sha, cur[ref]))
-    .map(([ref]) => ref)
+  const broken = brokenRefsFromSnapshot(readRefsManifest(), currentRefs())
+  return broken === null ? null : broken.map(([ref]) => ref)
 }
 
 /** 把松散 ref 固化进 packed-refs(顶层单文件, 宿主清理不到) */
@@ -1372,10 +1370,8 @@ function healRefs() {
 
   // 合并后清单里"当前不可见或值不符"的即为待修复项
   // (移动型 refs/remotes/<remote>/HEAD 不比 sha,见 lib/gitdir.mjs refExpectationSatisfied)
-  const broken = Object.entries(map).filter(([ref, sha]) => {
-    const resolved = git(['rev-parse', '--verify', '--quiet', ref], true)
-    return !refExpectationSatisfied(ref, sha, resolved)
-  })
+  // 取上面**同一份** for-each-ref 快照判定:清单与内容同面同轮(§0.4),且不再逐条派 git
+  const broken = brokenRefsFromSnapshot(map, cur)
   if (broken.length === 0) return true
 
   // 先分流:清单值本身可能是死值(宿主抹过 objects/),死值一律不写 ref,
@@ -1403,9 +1399,15 @@ function healRefs() {
     }
   }
   packRefs()
-  const still = Object.entries(map)
-    .filter(([ref]) => !git(['rev-parse', '--verify', '--quiet', ref], true))
-    .map(([ref]) => ref)
+  // 复检口径与旧逐条档一致:旧写法问的是"这条 ref 现在解析得到吗"(值不符也算过),
+  // 所以这里按"快照里没有这条"判,不得换成 refExpectationSatisfied —— 那会把 origin/main
+  // 这类"清单值取 FETCH_HEAD、packed 值还在滞后"的正常形态每轮报成未达标,连到人通知一起刷。
+  const after = currentRefs()
+  if (after === null) {
+    log('❌ refs 修复后复检面取不到(for-each-ref 未产出)⇒ 本轮判「未判定」,不记成功')
+    return false
+  }
+  const still = Object.keys(map).filter((ref) => !after[ref])
   if (still.length) {
     log(`refs 修复未完全达标: ${still.join(', ')}`)
     return false
