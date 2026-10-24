@@ -6,17 +6,25 @@ import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
+import { formatDateByTemplate, formatPrice } from '@ihui/shared'
 import { getCommissionRecords, getDistributionInfo } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
 
+// 行形状对齐后端 /distribution/list 交出的 commission_flows 原始列(见 api/index.ts 同处注记)。
 interface CommissionRecord {
   id: string
+  /** 佣金金额,单位=分(不是元) */
   amount: number
-  type: string
-  time: string
-  nickname?: string
+  /** 佣金档位:整数(1/2…),不是字符串 */
+  type: number
+  status: number
+  remark: string | null
+  createdAt: string
 }
+
+// 档位名不在这里硬写中文(§19:端内禁止硬编码文案,新档位必须五语言同批补)。
+// 后端在每条佣金流水上带 remark(如 '管理员调整' / 订单来源说明),它就是这一行的标题。
 
 const PAGE_SIZE = 20
 
@@ -88,7 +96,7 @@ export default function DistributionCommission() {
           {t('distribution.commission.total')}
         </Text>
         <Text className="block text-[length:40rpx] text-foreground font-bold mt-[16rpx]">
-          ¥{totalCommission}
+          ¥{formatPrice(totalCommission)}
         </Text>
       </View>
       {list.length > 0 && (
@@ -99,17 +107,16 @@ export default function DistributionCommission() {
               className="bg-card border border-border rounded-lg p-[24rpx] mb-[16rpx]"
             >
               <Text className="block text-[length:32rpx] font-semibold text-foreground">
-                {r.type}
+                {r.remark || ''}
               </Text>
               <Text className="block text-[length:22rpx] text-[var(--color-text-tertiary)] mt-[12rpx]">
-                {r.time}
-                {r.nickname ? ` · ${r.nickname}` : ''}
+                {formatDateByTemplate(r.createdAt)}
               </Text>
               <View className="flex justify-end mt-[16rpx]">
                 <Text
                   className={`text-[length:32rpx] font-bold ${r.amount > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}
                 >
-                  {r.amount > 0 ? '+' : ''}¥{r.amount}
+                  {r.amount > 0 ? '+' : '-'}¥{formatPrice(Math.abs(r.amount))}
                 </Text>
               </View>
             </View>
