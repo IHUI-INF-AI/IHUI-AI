@@ -452,7 +452,9 @@ function Invoke-FailNotify {
     # 病因,病因换了照样落进旧槽位、被 4h 重发窗静默压住(票面实测:04:37 那轮压在 1.9h 前的同名槽上,
     # 日志只见 `ALERT 同身份失败告警本轮跳过`)。$Reason 是调用方给的**结构化病因**(稳定类别/报错
     # 指纹),与 $Detail 的分工是同一禁令的两半:漂移明细只进正文,身份至少吃"这是哪一因"。
-    # 空 $Reason ⇒ Get-AlertIdentitySig 返回与改动前逐字同形的消息身份(存量槽位不失效)。
+    # [2026-10-26 票 G-44] 身份已改档 = **类别 + 归一化病因**(类别枚举见 alert-dedup.ps1 的
+    # Get-AlertCategory):整条文案不再进键,文案里的读数/路径/sha 漂移不再另开槽;
+    # 空 $Reason ⇒ 身份只含类别。键形换了 ⇒ 上线后每族首个告警会重发一次,随后恢复 4h 窗。
     $dedupSig = Get-AlertIdentitySig -Message $m -Reason $Reason
     # 切流受阻类先过"持续够一个可发布周期才算停摆"的宽限窗(阈值出处见 $StallAlertGraceMinutes)。
     # 窗内只在日志留一行并写明"还差多久升级",绝不静默丢弃;超窗或判不出都照常往下走并发信。
