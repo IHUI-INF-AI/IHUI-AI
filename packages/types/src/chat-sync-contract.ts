@@ -132,6 +132,27 @@ export interface ChatSyncMessageSurface {
   reasoning?: string
 }
 
+/**
+ * resync 权威快照(契约 §7 第 3 项,2026-10-25 第三切片落地):
+ * `GET /conversations/:id/messages/:messageId/sync-snapshot` 的 data 形状。
+ *
+ * "rev=N 全量"语义:rev 即该消息当前修订链头,content/reasoning 是**链头时刻的全量自包含面**
+ * —— 契约 §2 第 3 条(snapshot 自包含判据)在传输面的投影。接收端把本形状折成
+ * created(判据面缺行时)+ patched(kind='snapshot', rev=N)两步喂内核 applyChatSyncEvent,
+ * 不经任何旁路写状态。
+ *
+ * rev=0 = 该消息从未广播过 patch(created 初面即权威;0 是 created 的链下哨兵,见下)。
+ */
+export interface ChatSyncMessageSnapshot {
+  conversationId: string
+  messageId: string
+  /** 当前修订链头;0 = 链上无 patch(created 初面即权威)。 */
+  rev: number
+  role: ChatSyncRole
+  content: string
+  reasoning?: string
+}
+
 /** 判据内核的状态面:每消息已应用到的 rev + 消息面。两处 Map 均按不可变更新。 */
 export interface ChatSyncState {
   messages: ReadonlyMap<string, ChatSyncMessageSurface>
