@@ -5461,7 +5461,7 @@ const checks = [
   {
     id: '243',
     label:
-      '💸 额度扣减必须读回影响行 + 资金回调不得用 SUCCESS 吞失败(blocking;G1 扣额度型守卫写入无 .returning 且结果被丢 / G3 相对扣减完全没有额度守卫 / G4 无锁的绝对值回写(锁内 FOR UPDATE 机器豁免) / G2 回调 catch 里回 code:SUCCESS)',
+      '💸 额度扣减必须读回影响行 + 资金回调不得用 SUCCESS 吞失败(blocking;G1 扣额度型守卫写入无 .returning 且结果被丢 / G3 相对扣减完全没有额度守卫 / G4 额度列无锁的绝对值回写(锁内 FOR UPDATE 机器豁免) / G5 计数字段(…Count/aiRounds)读出来±1再写绝对值 / G2 回调 catch 里回 code:SUCCESS)',
     script: 'check-guarded-write-affected.mjs',
     args: [],
     mode: 'blocking',
