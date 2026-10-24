@@ -79,20 +79,27 @@ type ViewMode = 'shared' | 'local'
 // API(getAgentCategories)失败时使用,避免列表为空
 //   第一行:agentCategory(赛道,首项"全公司" id='')—— 对应接口参数 agentCategory
 //   第二行:agentMainCategory(主分类,首项"全部" id='all')—— 对应接口参数 agentMainCategory
-const AGENT_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
-  { id: '', name: '全公司' },
-  { id: 'tech', name: '技术' },
-  { id: 'design', name: '设计' },
-  { id: 'market', name: '市场' },
-  { id: 'operation', name: '运营' },
+const AGENT_CATEGORY_FALLBACK: ReadonlyArray<{ id: string; nameKey: string }> = [
+  { id: '', nameKey: 'plaza.index.trackAll' },
+  { id: 'tech', nameKey: 'plaza.index.trackTech' },
+  { id: 'design', nameKey: 'plaza.index.trackDesign' },
+  { id: 'market', nameKey: 'plaza.index.trackMarket' },
+  { id: 'operation', nameKey: 'plaza.index.trackOperation' },
 ]
-const AGENT_MAIN_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
-  { id: 'all', name: '全部' },
-  { id: 'writing', name: '写作' },
-  { id: 'coding', name: '编程' },
-  { id: 'office', name: '办公' },
-  { id: 'learning', name: '学习' },
+const AGENT_MAIN_CATEGORY_FALLBACK: ReadonlyArray<{ id: string; nameKey: string }> = [
+  { id: 'all', nameKey: 'agent.mainAll' },
+  { id: 'writing', nameKey: 'agent.mainWriting' },
+  { id: 'coding', nameKey: 'agent.mainCoding' },
+  { id: 'office', nameKey: 'agent.mainOffice' },
+  { id: 'learning', nameKey: 'agent.mainLearning' },
 ]
+/** fallback 表(nameKey)→ 消费类型 AgentCategoryItem(展示词由调用处 t 解析) */
+function resolveFallback(
+  items: ReadonlyArray<{ id: string; nameKey: string }>,
+  t: (key: string) => string,
+): AgentCategoryItem[] {
+  return items.map((it) => ({ id: it.id, name: t(it.nameKey) }))
+}
 
 function mapToItem(a: Agent): AgentScreenItem {
   return {
@@ -131,10 +138,10 @@ function toModelListItem(m: AiModel): ModelListItem {
   }
 }
 
-function buildModelGroups(models: AiModel[]): ModelListGroup[] {
+function buildModelGroups(models: AiModel[], otherVendorLabel: string): ModelListGroup[] {
   const map = new Map<string, ModelListItem[]>()
   for (const m of models) {
-    const provider = m.provider || '其他'
+    const provider = m.provider || otherVendorLabel
     const list = map.get(provider) ?? []
     list.push(toModelListItem(m))
     map.set(provider, list)
@@ -200,11 +207,12 @@ export function AgentScreen() {
   const [activeCategory, setActiveCategory] = useState<string>('')
   const [activeMain, setActiveMain] = useState<string>('all')
   // 分类字典:初始用静态 fallback,API 成功后覆盖
-  const [agentCategoryList, setAgentCategoryList] =
-    useState<ReadonlyArray<AgentCategoryItem>>(AGENT_CATEGORY_FALLBACK)
+  const [agentCategoryList, setAgentCategoryList] = useState<ReadonlyArray<AgentCategoryItem>>(() =>
+    resolveFallback(AGENT_CATEGORY_FALLBACK, t),
+  )
   const [agentMainCategoryList, setAgentMainCategoryList] = useState<
     ReadonlyArray<AgentCategoryItem>
-  >(AGENT_MAIN_CATEGORY_FALLBACK)
+  >(() => resolveFallback(AGENT_MAIN_CATEGORY_FALLBACK, t))
 
   /** 最近使用智能体(对齐 HomeScreen loadRecentAgents:getAgentUseHistory → 并行查详情关联
    *  名称/头像;失败降级用智能体列表前 5 条) */
@@ -285,8 +293,11 @@ export function AgentScreen() {
       if (res.success && res.data) {
         const main = Array.isArray(res.data.agentMainCategory) ? res.data.agentMainCategory : []
         const sub = Array.isArray(res.data.agentCategory) ? res.data.agentCategory : []
-        setAgentMainCategoryList([{ id: 'all', name: '全部' }, ...main])
-        setAgentCategoryList([{ id: '', name: '全公司' }, ...sub])
+        setAgentMainCategoryList([
+          ...resolveFallback(AGENT_MAIN_CATEGORY_FALLBACK.slice(0, 1), t),
+          ...main,
+        ])
+        setAgentCategoryList([...resolveFallback(AGENT_CATEGORY_FALLBACK.slice(0, 1), t), ...sub])
       } else {
         // 分类加载失败不阻塞页面,toast 提示(分类弹层降级为静态 fallback)
         showToast(res?.error || t('agentScreen.loadFailed'), 'warning')
@@ -355,7 +366,11 @@ export function AgentScreen() {
     }
   }, [token])
 
-  const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroups(aiModels), [aiModels])
+  const modelGroups = useMemo<ModelListGroup[]>(
+    () => buildModelGroups(aiModels, t('agent.vendorOther')),
+
+    [aiModels, t],
+  )
 
   /** 已选模型名(消费 selectedModelIds,供"开始对话"入口展示;未命中回退 id) */
   const selectedModelName = useMemo<string>(() => {
@@ -392,7 +407,7 @@ export function AgentScreen() {
   const handleItemClick = useCallback(
     (id: string) => {
       if (!token) {
-        appAlert(t('common.hint'), '请先登录', [
+        appAlert(t('common.hint'), t('agentScreen.loginRequired'), [
           { text: t('common.cancel'), style: 'cancel' },
           { text: t('common.login'), onPress: () => navigation.navigate('Login') },
         ])
@@ -414,7 +429,7 @@ export function AgentScreen() {
   const handleMyAgentPress = useCallback(
     (item: MyAgentItem): void => {
       if (!token) {
-        appAlert(t('common.hint'), '请先登录', [
+        appAlert(t('common.hint'), t('agentScreen.loginRequired'), [
           { text: t('common.cancel'), style: 'cancel' },
           { text: t('common.login'), onPress: () => navigation.navigate('Login') },
         ])
@@ -467,8 +482,8 @@ export function AgentScreen() {
     try {
       const res = await listConversations({ page: 1, pageSize: 50 })
       if (res.success) {
-        const items: DrawerConversationItem[] = (res.data.conversations ?? []).map(
-          mapConversationToDrawer,
+        const items: DrawerConversationItem[] = (res.data.conversations ?? []).map((c) =>
+          mapConversationToDrawer(c, t('plaza.index.untitledConv')),
         )
         setDrawerConversations(items)
       } else {
@@ -480,7 +495,7 @@ export function AgentScreen() {
       setDrawerConversations([])
     }
     setDrawerConversationsLoaded(true)
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (drawerVisible && !drawerConversationsLoaded && token) {
@@ -517,9 +532,9 @@ export function AgentScreen() {
     setDrawerVisible(false)
     try {
       Clipboard.setString(FREE_RESOURCE_URL)
-      showToast('链接已复制到剪贴板', 'success')
+      showToast(t('agent.copyOkToast'), 'success')
     } catch {
-      showToast('复制失败,请重试', 'warning')
+      showToast(t('profile.copyFailRetry'), 'warning')
     }
   }, [showToast])
   const handleDrawerCreateNewChat = useCallback((): void => {
@@ -537,10 +552,10 @@ export function AgentScreen() {
   )
   const handleDrawerDeleteConversation = useCallback(
     (id: string): void => {
-      appAlert('删除对话', '确认删除此对话?', [
-        { text: '取消', style: 'cancel' },
+      appAlert(t('profile.dlgDelConvTitle'), t('profile.dlgDelConvBody'), [
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '删除',
+          text: t('profile.deleteBtn'),
           style: 'destructive',
           onPress: () => {
             // 乐观删除:先从本地列表移除,API 失败时回滚(对齐 ProfileScreen 删除对话体验)
@@ -550,9 +565,9 @@ export function AgentScreen() {
               const res = await deleteConversation(id)
               if (!res.success) {
                 setDrawerConversations(snapshot)
-                showToast('删除失败,请重试', 'warning')
+                showToast(t('profile.delFailedRetry'), 'warning')
               } else {
-                showToast('已删除', 'success')
+                showToast(t('home.matDeletedOk'), 'success')
               }
             })()
           },
@@ -604,7 +619,7 @@ export function AgentScreen() {
 
   const drawerUser = {
     avatar: user?.avatar,
-    nickname: user?.nickname ?? user?.username ?? '未登录',
+    nickname: user?.nickname ?? user?.username ?? t('home.notLoggedIn'),
     level: (user?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
@@ -634,8 +649,8 @@ export function AgentScreen() {
         <NavBar
           title={t('agentScreen.title')}
           leftActions={[
-            { icon: FolderOpen, label: '分类', onPress: handleCategoryPress },
-            { icon: PanelLeftRounded, a11yLabel: '菜单', onPress: handleMenuPress },
+            { icon: FolderOpen, label: t('plaza.index.navCategory'), onPress: handleCategoryPress },
+            { icon: PanelLeftRounded, a11yLabel: t('home.navMenu'), onPress: handleMenuPress },
           ]}
           rightActions={[
             { icon: Search, a11yLabel: t('common.search'), onPress: handleSearchPress },
@@ -666,7 +681,7 @@ export function AgentScreen() {
                 // 点击轮播跳转对应智能体对话(banner 派生自智能体列表,link 为智能体 id;
                 // 对齐 Uniapp banner_carousel @item-click → ai_assistant)
                 if (!token) {
-                  appAlert(t('common.hint'), '请先登录', [
+                  appAlert(t('common.hint'), t('agentScreen.loginRequired'), [
                     { text: t('common.cancel'), style: 'cancel' },
                     { text: t('common.login'), onPress: () => navigation.navigate('Login') },
                   ])
@@ -753,9 +768,9 @@ export function AgentScreen() {
                     activeOpacity={0.8}
                     onPress={handleStartModelChat}
                     accessibilityRole="button"
-                    accessibilityLabel="开始对话"
+                    accessibilityLabel={t('agent.startChat')}
                   >
-                    <Text style={styles.modelStartBtnText}>开始对话</Text>
+                    <Text style={styles.modelStartBtnText}>{t('agent.startChat')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -852,14 +867,15 @@ export function AgentScreen() {
   )
 }
 
-/** ConversationDetail → DrawerConversationItem 映射(对齐 ProfileScreen mapConversationToDrawer) */
-function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem {
+/** ConversationDetail → DrawerConversationItem 映射(对齐 ProfileScreen mapConversationToDrawer;
+ *  空标题兜底文案由调用方以 i18n 传入,禁止端内写死) */
+function mapConversationToDrawer(c: ConversationDetail, untitled: string): DrawerConversationItem {
   const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
   const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
   const model = c.model ?? ''
   return {
     id: c.id,
-    title: c.title?.trim() || '未命名对话',
+    title: c.title?.trim() || untitled,
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
