@@ -40,7 +40,7 @@ export function AgentReviewListScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<AgentReviewListItem[]>('/agent-reviews')
+      const res = await fetchApi<AgentReviewListItem[]>('/api/agent-reviews')
       if (!res.success) throw new Error()
       setItems((res.data ?? []).map((item) => ({ ...item, createdAt: formatTime(item.createdAt) })))
     } catch {
