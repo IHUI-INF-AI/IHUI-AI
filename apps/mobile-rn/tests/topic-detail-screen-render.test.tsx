@@ -11,7 +11,7 @@
  * 写法照 apps/mobile-rn/tests/about-screen-render.test.tsx。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createElement, type ReactNode } from 'react'
+import { createElement } from 'react'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 import { messages, getValueByPath, type Locale } from '../src/i18n'
 
@@ -21,118 +21,6 @@ const nav = vi.hoisted(() => ({
   routeId: '7',
 }))
 const api = vi.hoisted(() => ({ fetchApi: vi.fn(), appAlert: vi.fn() }))
-
-vi.mock('react-native', () => {
-  const flat = (v: unknown): unknown =>
-    Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
-  type MockProps = {
-    children?: ReactNode | ((state: { pressed: boolean }) => ReactNode)
-    style?: unknown
-    onPress?: () => void
-    [k: string]: unknown
-  }
-  const mk = (tag: string) =>
-    function MockComp(props: MockProps) {
-      const { style, onPress, children, ...rest } = props
-      const kids = typeof children === 'function' ? children({ pressed: false }) : children
-      return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, kids)
-    }
-  type ListProps = MockProps & {
-    data?: readonly unknown[]
-    renderItem?: (arg: { item: unknown; index: number }) => ReactNode
-  }
-  function MockList(props: ListProps) {
-    const { data, renderItem, ListEmptyComponent, ListFooterComponent } = props
-    const items = (data ?? []).map((item, index) => renderItem?.({ item, index }))
-    const slot = (C: unknown): ReactNode =>
-      typeof C === 'function' ? (C as () => ReactNode)() : ((C as ReactNode) ?? null)
-    return createElement(
-      'div',
-      { 'data-role': 'flatlist' },
-      ...items,
-      slot(ListEmptyComponent),
-      slot(ListFooterComponent),
-    )
-  }
-  return {
-    // 2026-10-24:组件树启用 Animated(AgentList 等)而本工厂缺导出 ⇒ 渲染用例齐炸
-    // (27 份 react-native mock 各自漂移的同型;此块自包含零依赖,形态与 agent-screen.test.tsx 同源)。
-    Easing: {
-      // 链式形态:Easing.out(Easing.cubic()) —— 实参函数原样透传,无参调用返恒等桩
-      bezier: () => () => ({}),
-      cubic: () => ({}),
-      quad: () => ({}),
-      linear: () => ({}),
-      circle: () => ({}),
-      back: () => ({}),
-      elastic: () => ({}),
-      bounce: () => ({}),
-      out: (f: unknown) => f,
-      in: (f: unknown) => f,
-      inOut: (f: unknown) => f,
-      ease: () => ({}),
-      inout: (f: unknown) => f,
-    },
-    Animated: {
-      View: mk('div'),
-      Text: mk('span'),
-      createAnimatedComponent: (c: unknown) => c,
-      timing: () => ({ start: (cb?: () => void) => cb?.() }),
-      spring: () => ({ start: (cb?: () => void) => cb?.() }),
-      decay: () => ({ start: (cb?: () => void) => cb?.() }),
-      parallel: (anims: Array<{ start?: (cb?: () => void) => void }>) => ({
-        start: (cb?: () => void) => {
-          anims.forEach((a) => a?.start?.())
-          cb?.()
-        },
-      }),
-      sequence: (anims: Array<{ start?: (cb?: () => void) => void }>) => ({
-        start: (cb?: () => void) => {
-          anims.forEach((a) => a?.start?.())
-          cb?.()
-        },
-      }),
-      loop: (anim: { start?: (cb?: () => void) => void }) => ({
-        start: (cb?: () => void) => {
-          anim?.start?.()
-          cb?.()
-        },
-        stop: (cb?: (v: unknown) => void) => cb?.(0),
-        reset: () => {},
-      }),
-      event: () => () => {},
-      addListener: () => ({ remove: () => {} }),
-      removeAllListeners: () => {},
-      Value: class {
-        constructor(_v: number) {}
-        setValue(_v: number) {}
-        stopAnimation() {}
-        interpolate() {
-          return { __getValue: () => 0 }
-        }
-      },
-    },
-    // 共享返回键核心按字体缩放取档(packages/shared back-chevron-core → useFontMultiplier)
-    PixelRatio: {
-      getFontScale: () => 1,
-      getPixelSizeForLayoutSize: (n: number) => n,
-      roundToNearestPixel: (n: number) => n,
-    },
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    useColorScheme: () => 'light',
-    View: mk('div'),
-    Text: mk('span'),
-    ScrollView: mk('div'),
-    Pressable: mk('button'),
-    TouchableOpacity: mk('button'),
-    FlatList: MockList,
-    Image: () => createElement('img', { 'data-role': 'image' }),
-    ActivityIndicator: () => createElement('div', { 'data-role': 'activity' }),
-    RefreshControl: () => null,
-    StyleSheet: { create: <T extends object>(s: T) => s, flatten: (s: unknown) => s },
-    Platform: { OS: 'web', select: (o: Record<string, unknown>) => o.web ?? o.ios },
-  }
-})
 
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),

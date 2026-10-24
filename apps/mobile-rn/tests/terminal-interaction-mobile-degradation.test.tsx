@@ -42,15 +42,7 @@ vi.mock('expo-audio', () => ({
   setAudioModeAsync: vi.fn(async () => {}),
   useAudioRecorder: () => ({}),
 }))
-vi.mock('react-native', async (importOriginal) => {
-  const mod = await importOriginal<Record<string, unknown>>()
-  const platform = mod['Platform'] as Record<string, unknown> | undefined
-  if (platform && typeof platform.select !== 'function') {
-    platform.select = (spec: Record<string, unknown>) =>
-      'web' in spec ? spec['web'] : (spec['android'] ?? Object.values(spec)[0])
-  }
-  return mod
-})
+
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
     navigate: vi.fn(),
@@ -266,9 +258,9 @@ describe('D151 判据自证：注释面不得被算成接线', () => {
     expect(lines.some((l) => /^\s+onTerminalInteraction:/.test(l))).toBe(false)
     expect(lines.some((l) => /^\s+onTerminalEnd:/.test(l))).toBe(false)
     // 而块注释内部那行(不以 * 开头)若不剥注释就会被行首筛当代码留下 —— 这正是本判据存在的理由
-    expect(commented.includes('setTerminalWaiting((prev) => applyTerminalInteraction(prev, event))')).toBe(
-      true,
-    )
+    expect(
+      commented.includes('setTerminalWaiting((prev) => applyTerminalInteraction(prev, event))'),
+    ).toBe(true)
     expect(lines.some((l) => l.includes('applyTerminalInteraction('))).toBe(false)
   })
 

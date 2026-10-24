@@ -10,7 +10,7 @@
  * ③回关真的发 POST 并弹提示;④空态/失败态/裸键三查。
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createElement, type ReactNode } from 'react'
+import { createElement } from 'react'
 import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react'
 import { messages, getValueByPath, type Locale } from '../src/i18n'
 import type * as ApiClient from '@ihui/api-client'
@@ -18,96 +18,6 @@ import type * as ApiClient from '@ihui/api-client'
 const nav = vi.hoisted(() => ({ navigate: vi.fn(), goBack: vi.fn() }))
 const appAlert = vi.hoisted(() => vi.fn())
 const fetchApi = vi.hoisted(() => vi.fn())
-
-vi.mock('react-native', () => {
-  const mk = (tag: string) =>
-    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-      const { style, onPress, children, ...rest } = props
-      const flat = (v: unknown): unknown =>
-        Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
-      return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
-    }
-  return {
-    // 2026-10-24:组件树启用 Animated(AgentList 等)而本工厂缺导出 ⇒ 渲染用例齐炸
-    // (27 份 react-native mock 各自漂移的同型;此块自包含零依赖,形态与 agent-screen.test.tsx 同源)。
-    Easing: {
-      // 链式形态:Easing.out(Easing.cubic()) —— 实参函数原样透传,无参调用返恒等桩
-      bezier: () => () => ({}),
-      cubic: () => ({}),
-      quad: () => ({}),
-      linear: () => ({}),
-      circle: () => ({}),
-      back: () => ({}),
-      elastic: () => ({}),
-      bounce: () => ({}),
-      out: (f: unknown) => f,
-      in: (f: unknown) => f,
-      inOut: (f: unknown) => f,
-      ease: () => ({}),
-      inout: (f: unknown) => f,
-    },
-    Animated: {
-      View: mk('div'),
-      Text: mk('span'),
-      createAnimatedComponent: (c: unknown) => c,
-      timing: () => ({ start: (cb?: () => void) => cb?.() }),
-      spring: () => ({ start: (cb?: () => void) => cb?.() }),
-      decay: () => ({ start: (cb?: () => void) => cb?.() }),
-      parallel: (anims: Array<{ start?: (cb?: () => void) => void }>) => ({
-        start: (cb?: () => void) => {
-          anims.forEach((a) => a?.start?.())
-          cb?.()
-        },
-      }),
-      sequence: (anims: Array<{ start?: (cb?: () => void) => void }>) => ({
-        start: (cb?: () => void) => {
-          anims.forEach((a) => a?.start?.())
-          cb?.()
-        },
-      }),
-      loop: (anim: { start?: (cb?: () => void) => void }) => ({
-        start: (cb?: () => void) => {
-          anim?.start?.()
-          cb?.()
-        },
-        stop: (cb?: (v: unknown) => void) => cb?.(0),
-        reset: () => {},
-      }),
-      event: () => () => {},
-      addListener: () => ({ remove: () => {} }),
-      removeAllListeners: () => {},
-      Value: class {
-        constructor(_v: number) {}
-        setValue(_v: number) {}
-        stopAnimation() {}
-        interpolate() {
-          return { __getValue: () => 0 }
-        }
-      },
-    },
-    // 共享返回键核心按字体缩放取档(packages/shared/src/ui/back-chevron-core → useFontMultiplier)
-    PixelRatio: {
-      getFontScale: () => 1,
-      getPixelSizeForLayoutSize: (n: number) => n,
-      roundToNearestPixel: (n: number) => n,
-    },
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    useColorScheme: () => 'light',
-    View: mk('div'),
-    Text: mk('span'),
-    Image: mk('div'),
-    ScrollView: mk('div'),
-    Pressable: mk('button'),
-    TouchableOpacity: mk('button'),
-    ActivityIndicator: () => createElement('div', { 'data-role': 'spinner' }),
-    StyleSheet: {
-      create: <T extends object>(s: T) => s,
-      flatten: (s: unknown) => s,
-      hairlineWidth: 0.5,
-    },
-    Platform: { OS: 'web', select: (o: Record<string, unknown>) => o.web ?? o.ios },
-  }
-})
 
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),

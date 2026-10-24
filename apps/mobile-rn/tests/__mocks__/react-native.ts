@@ -103,7 +103,12 @@ const mk = (tag: string) =>
       extra.onKeyDown = (e: { key: string }) => {
         if (e.key === 'Enter') (onSubmitEditing as () => void)()
       }
-    if (typeof accessibilityLabel === 'string') extra['aria-label'] = accessibilityLabel
+    if (typeof accessibilityLabel === 'string') {
+      extra['aria-label'] = accessibilityLabel
+      // 兼发裸属性:渲染族测试(cart/payment 等)历史工厂把 accessibilityLabel 原样落 DOM,
+      // 断言用 querySelector('button[accessibilitylabel="…"]');收归后两种查询都要能命中
+      extra['accessibilitylabel'] = accessibilityLabel
+    }
     return createElement(
       tag,
       {
@@ -118,7 +123,18 @@ const mk = (tag: string) =>
     )
   }
 
-export const Platform = { OS: 'web' as const }
+export const Platform = {
+  OS: 'web' as const,
+  // 2026-10-24 收归补齐:27 份历史文件内工厂全带 select(@react-navigation/native 等
+  // 真实包会调),此前靠文件内 mock 纸糊;收归后这里必须自足
+  select: (spec: Record<string, unknown>) =>
+    'web' in spec
+      ? spec['web']
+      : ((spec['ios'] ?? spec['android'] ?? Object.values(spec)[0]) as unknown),
+  Version: 0,
+  isPad: false,
+  isTV: false,
+}
 
 // 共享替身必须覆盖真身用到的 RN API:MoreLink 经 PixelRatio 换算 hairline/字号,替身缺这个出口时
 // 表现是"渲染即抛 No PixelRatio export",而它影响的不止一枚测试(端内 6 个文件从 @ihui/rn-app 引
@@ -185,7 +201,8 @@ export function FlatList(props: {
   onPress?: unknown
   [k: string]: unknown
 }) {
-  const { data, renderItem, keyExtractor, style, onPress, children, ...rest } = props
+  const { data, renderItem, keyExtractor, style, onPress, children, ListEmptyComponent, ...rest } =
+    props
   const rows = (data ?? []).map((item, index) =>
     createElement(
       'div',
@@ -196,7 +213,9 @@ export function FlatList(props: {
   return createElement(
     'div',
     { ...rest, onClick: onPress, style: flattenStyle(style) },
-    rows.length ? rows : (children as ReactNode | undefined),
+    // 2026-10-24 收归补齐:空数据时落 ListEmptyComponent(空态骨架/文案)——27 份历史
+    // 文件内工厂全处理它,渲染族(cart 等)的空态三分支用例钉的就是这一格
+    rows.length ? rows : ((children ?? ListEmptyComponent) as ReactNode | undefined),
   )
 }
 export const TextInput = mk('input')
@@ -294,6 +313,18 @@ export const Animated = {
 export const PanResponder = {
   create: () => ({ panHandlers: {} }),
 }
+// App.tsx 模块求值期注册组件 + 抑制黄框(2026-10-24 收归:此前 app-root-background-focused-route
+// 与 video-immersive-band 两份文件内 mock 各自扩展这两键,现收进单源替身)
+export const AppRegistry = {
+  registerComponent: () => ({}),
+  runApplication: () => {},
+}
+export const LogBox = {
+  ignoreAllLogs: () => {},
+  ignoreLogs: () => {},
+  install: () => {},
+}
+
 export const Easing = {
   linear: 'linear',
   ease: 'ease',
