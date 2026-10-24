@@ -265,7 +265,7 @@ function createStyles(tk: AppThemeTokens) {
     stateGlyphCircle: {
       width: 64,
       height: 64,
-      borderRadius: 64 / 2, // C6 几何真圆:半径=正方盒边长一半,与 64 同形
+      borderRadius: '50%', // C6 几何真圆:64×64 正方盒写 50%,不吃字面档
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.light,
