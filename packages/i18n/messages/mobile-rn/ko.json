@@ -4093,6 +4093,18 @@
     "collapse": "접기",
     "score": "관련도"
   },
+  "changePhone": {
+    "phoneRequired": "휴대폰 번호를 입력하세요",
+    "phoneInvalid": "올바른 휴대폰 번호를 입력하세요",
+    "codeSent": "인증코드가 전송되었습니다",
+    "codeSendFailRetry": "인증코드 전송 실패, 잠시 후 다시 시도해 주세요",
+    "codeSendFail": "인증코드 전송 실패",
+    "codeRequired": "인증코드를 입력하세요",
+    "bindFail": "연동 실패",
+    "bindOk": "연동 성공",
+    "netBusy": "네트워크 오류",
+    "netBusyRetry": "네트워크 오류, 잠시 후 다시 시도해 주세요"
+  },
   "subagents": {
     "tabOverview": "개요",
     "tabDispatches": "디스패치",
