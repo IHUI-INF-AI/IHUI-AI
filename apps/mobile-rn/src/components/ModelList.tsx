@@ -25,6 +25,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { tokens } from '../theme/active-tokens'
+import { useI18n } from '../i18n'
 import { Bot, Check as CheckIcon, type LucideIcon } from 'lucide-react-native'
 import { BrandIcon } from './brand-icon'
 import type { ModelTier, ModelUsageCategory } from '@ihui/types'
@@ -134,8 +135,11 @@ export interface ModelListProps {
 function resolveTitle(group: ModelListGroup, t: (k: string) => string): string {
   if (group.title) return group.title
   if (group.type !== undefined && group.type !== null) {
-    const typed = t(MODEL_TYPE_TITLES[group.type])
-    if (typed) return typed
+    const key = MODEL_TYPE_TITLES[group.type]
+    if (key) {
+      const typed = t(key)
+      if (typed) return typed
+    }
   }
   return group.vendor ?? 'model.catOther'
 }
@@ -251,6 +255,7 @@ function AgentModeRow({
   selected: boolean
   onPress?: () => void
 }): React.ReactElement {
+  const { t } = useI18n()
   return (
     <TouchableOpacity
       style={[styles.row, selected ? styles.rowSelected : null]}
@@ -287,6 +292,7 @@ export default function ModelList({
   animateEntrance = true,
   style,
 }: ModelListProps): React.ReactElement {
+  const { t } = useI18n()
   const selectedSet = new Set(selectedIds)
 
   /** 列表分组 section 数据(组内按 isTop 排序,RN SectionList 要求 data 字段为 ItemT[]) */

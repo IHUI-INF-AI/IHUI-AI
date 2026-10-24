@@ -87,16 +87,17 @@ const USER_TYPE_LABEL: Record<AiModelUserType, string> = {
 }
 
 // group 底部操作栏 5 图标(对齐原版 warning/unlike/unstore/uninfo/unshare)
+// label 存 i18n 键:顶层表调用 t() 在模块求值期执行,I18nProvider 尚未挂载 ⇒ 运行必炸;消费处解析
 const GROUP_ACTIONS: Array<{
   key: 'warning' | 'dislike' | 'favorite' | 'info' | 'share'
   glyph: LucideIcon
   label: string
 }> = [
-  { key: 'warning', glyph: AlertTriangle, label: t('aiCard.btnWarn') },
-  { key: 'dislike', glyph: ThumbsDown, label: t('aiCard.btnDislike') },
-  { key: 'favorite', glyph: Bookmark, label: t('aiCard.btnFav') },
-  { key: 'info', glyph: Info, label: t('aiCard.btnInfo') },
-  { key: 'share', glyph: Share2, label: t('aiCard.btnShare') },
+  { key: 'warning', glyph: AlertTriangle, label: 'aiCard.btnWarn' },
+  { key: 'dislike', glyph: ThumbsDown, label: 'aiCard.btnDislike' },
+  { key: 'favorite', glyph: Bookmark, label: 'aiCard.btnFav' },
+  { key: 'info', glyph: Info, label: 'aiCard.btnInfo' },
+  { key: 'share', glyph: Share2, label: 'aiCard.btnShare' },
 ]
 
 export default function AiModelCard({
@@ -118,7 +119,8 @@ export default function AiModelCard({
   const { t } = useI18n()
   const [details, setDetails] = useState(false)
   const userType = data.userType ?? 'none'
-  const userLabel = USER_TYPE_LABEL[userType]
+  const userLabelKey = USER_TYPE_LABEL[userType]
+  const userLabel = userLabelKey ? t(userLabelKey) : ''
   const hasTags = data.tags && data.tags.length > 0
 
   // 购买详情字段(legacy 动态字段,通过 AiModelData 索引签名读取)
@@ -223,7 +225,7 @@ export default function AiModelCard({
                 style={styles.actionBtn}
                 onPress={stopBubble(() => actionCallbacks[action.key]?.(data))}
                 accessibilityRole="button"
-                accessibilityLabel={action.label}
+                accessibilityLabel={t(action.label)}
               >
                 <action.glyph
                   size={16}

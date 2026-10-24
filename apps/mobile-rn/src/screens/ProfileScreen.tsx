@@ -95,6 +95,7 @@ import {
   FileText,
   Film,
   Image as ImageIcon,
+  type LucideIcon,
   MoreHorizontal,
   Music,
   Pause,
@@ -139,7 +140,7 @@ const PROFILE_LOAD_TIMEOUT_MS = 12000
 /** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310;title/desc 存 i18n 键,消费处 t 解析) */
 const MEMBERSHIP_BENEFITS: readonly {
   id: string
-  icon: Bot | BookOpen | Database
+  icon: LucideIcon
   titleKey: string
   descKey: string
 }[] = [

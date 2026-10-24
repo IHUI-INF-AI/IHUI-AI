@@ -9,6 +9,7 @@ import { TextField } from '../../components/TextField'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * 压缩事件(结构对齐 @ihui/api-client ContextCompressionEvent)。
@@ -120,7 +121,7 @@ export function ContextScreen({
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {loading ? (
-          <Text style={styles.loadingText}>{t('common.loading')}</Text>
+          <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
         ) : stats ? (
           <>
             {/* 统计卡片 */}
@@ -239,12 +240,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingBottom: 16,
       paddingHorizontal: 16,
       paddingTop: 16,
-    },
-    loadingText: {
-      marginTop: 32,
-      fontSize: 14,
-      textAlign: 'center',
-      color: tk.text.tertiary,
     },
     /* 统计卡片 */
     statRow: {

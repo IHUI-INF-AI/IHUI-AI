@@ -221,6 +221,18 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/constants/storage-keys.ts',
       ),
+      // 开发者空间屏的跨端分段表(条目构成/顺序/i18n 键)同上一条规矩:纯常量直指真实源码,
+      // 给它写 mock 测的就是 mock。子路径别名必须排在父别名之前(最长匹配优先)。
+      '@ihui/shared/constants/developer-space': resolve(
+        __dirname,
+        '../../packages/shared/src/constants/developer-space.ts',
+      ),
+      // 操盘手计划宣传页的跨端段表(段落构成/顺序/i18n 键/图片槽位)同上一条规矩:纯常量直指真实
+      // 源码,给它写 mock 测的就是 mock。子路径别名必须排在父别名之前(最长匹配优先)。
+      '@ihui/shared/constants/trader-plan-promo': resolve(
+        __dirname,
+        '../../packages/shared/src/constants/trader-plan-promo.ts',
+      ),
       '@ihui/shared/constants': resolve(__dirname, '../../packages/shared/src/constants/index.ts'),
       // D111:权限档展示为纯逻辑模块(chat barrel 无 DOM/RN 依赖),指向真实源码而非 mock ——
       // 档位取词的价值就是"三端同源",给它写 mock 测的就是 mock。子路径 alias 必须在根 alias 前。
@@ -261,14 +273,6 @@ export default defineConfig({
       '@ihui/shared/chat/slash-command-ids': resolve(
         __dirname,
         '../../packages/shared/src/chat/slash-command-ids.ts',
-      ),
-      // D43 票③ RN 腿(2026-10-23):语音笔记 12 相机消费点(src/components/chat/VoiceNote.tsx)
-      // 按深路径引共享出口(与 web 组件同形)。必须排在 '@ihui/shared/chat' 父别名之前 ——
-      // 父别名按 startsWith(pattern+'/') 会把子路径吞成 <chat/index.ts>/voice-note
-      // (收集期 MODULE_NOT_FOUND,本文件已登记过三次同型死法)。指真实源码:测的就是这台机。
-      '@ihui/shared/chat/voice-note': resolve(
-        __dirname,
-        '../../packages/shared/src/chat/voice-note.ts',
       ),
       '@ihui/shared/chat': resolve(__dirname, '../../packages/shared/src/chat/index.ts'),
       // O81 票③:shared 包新增 './ui' 子路径导出(barrel + 纯 spec 模块,无 DOM/RN 依赖),

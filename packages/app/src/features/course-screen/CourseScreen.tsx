@@ -3,11 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { FlatList, Pressable, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { FlatList, Pressable, Text, View, StyleSheet } from 'react-native'
 import { TextField } from '../../components/TextField'
 import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseScreenProps } from '../../types'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 import { rnRadius } from '@ihui/design-tokens'
 
@@ -57,21 +58,13 @@ export function CourseScreen({
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.empty}>
-              <Text style={styles.muted}>{t('common.loading')}</Text>
-            </View>
+            <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.empty}>
-              <Text style={styles.muted}>{t('courseScreen.empty')}</Text>
-            </View>
+            <EmptyState title={t('courseScreen.empty')} colorScheme={colorScheme} />
           )
         }
         renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => onPressItem(item.id)}
-            activeOpacity={0.7}
-            style={styles.card}
-          >
+          <PressableCard onPress={() => onPressItem(item.id)} style={styles.card} colorScheme={colorScheme}>
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.title}
             </Text>
@@ -92,7 +85,7 @@ export function CourseScreen({
                 {t('courseScreen.studentCount', { count: item.studentCount })}
               </Text>
             </View>
-          </TouchableOpacity>
+          </PressableCard>
         )}
         ListFooterComponent={
           totalPages > 1 ? (
@@ -152,8 +145,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     errorWrap: { paddingHorizontal: 10, paddingVertical: 8 },
     error: { fontSize: 14, color: tk.danger.DEFAULT },
-    empty: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,

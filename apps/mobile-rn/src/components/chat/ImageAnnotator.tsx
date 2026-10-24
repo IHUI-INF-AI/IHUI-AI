@@ -626,16 +626,18 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
           </View>
 
           <View style={styles.toolRow}>
-            {PEN_WIDTHS.map((penWidth, i) => (
+            {PEN_WIDTHS.map((penWidth, i) => {
+              const widthLabelKey = PEN_WIDTH_LABELS[i] ?? ''
+              return (
               <Pressable
                 key={`width-${i}`}
                 onPress={() => setWidthIndex(i)}
                 style={[styles.toolBtn, widthIndex === i && styles.toolBtnActive]}
                 accessibilityRole="button"
-                accessibilityLabel={t('annot.penLabel', { v: t(PEN_WIDTH_LABELS[i]) })}
+                accessibilityLabel={t('annot.penLabel', { v: t(widthLabelKey) })}
               >
                 <Text style={[styles.toolBtnText, widthIndex === i && styles.toolBtnActiveText]}>
-                  {t(PEN_WIDTH_LABELS[i])}
+                  {t(widthLabelKey)}
                 </Text>
                 <View
                   style={{
@@ -646,7 +648,8 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
                   }}
                 />
               </Pressable>
-            ))}
+              )
+            })}
           </View>
 
           {pendingText ? (

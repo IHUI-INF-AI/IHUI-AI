@@ -229,7 +229,7 @@ describe('collab C 解析侧与构造侧同一套规则', () => {
 })
 
 describe('collab D 扩档不挤掉旧档', () => {
-  it('事件清单齐在(既有三档 + collab 三档,另批收口加 collab:lock,票71 加 chat 消息面两档)', () => {
+  it('事件清单六档齐在(既有三档 + collab 三档,另批收口加 collab:lock)', () => {
     expect([...USER_BROADCAST_EVENT_NAMES].sort()).toEqual(
       [
         'checkpoint:availability',
@@ -238,9 +238,6 @@ describe('collab D 扩档不挤掉旧档', () => {
         'collab:lock',
         'conversation:updated',
         'mcp:status',
-        // 票71(V2 #23)第二切片(2026-10-24):chat 消息面房间广播
-        'message:created',
-        'message:patched',
       ].sort(),
     )
   })

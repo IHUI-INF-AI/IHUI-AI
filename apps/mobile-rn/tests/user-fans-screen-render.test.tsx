@@ -27,7 +27,45 @@ vi.mock('react-native', () => {
         Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
       return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
     }
+  /**
+   * 屏幕状态四件套(ScreenStates,枚 d723f8bc9b37 起为共享屏的 Shimmer/按压动画)在渲染期
+   * 使用 Animated.loop/sequence/timing/spring/Value/View + Easing。内联 mock 缺这组导出
+   * ⇒ 整文件加载/渲染期抛「No "Animated" export is defined on the "react-native" mock」。
+   * 与真实 RN 的 Animated 面同形的 no-op 桩(start 回调带 finished:true,保证 useEffect 清理可达)。
+   */
+  const anim = {
+    start: (cb?: (r: { finished: boolean }) => void) => {
+      cb?.({ finished: true })
+      return anim
+    },
+    stop: () => {},
+  }
+  const mkAnimValue = () => ({
+    setValue: () => {},
+    interpolate: (cfg: { outputRange?: number[] }) => cfg.outputRange?.[0] ?? 1,
+  })
+  function AnimatedValue() {
+    return mkAnimValue()
+  }
+  const Animated = {
+    View: (props: { children?: ReactNode; style?: unknown }) => createElement('div', { 'data-role': 'shimmer' }, props.children),
+    Value: AnimatedValue,
+    timing: () => anim,
+    spring: () => anim,
+    loop: () => anim,
+    sequence: () => anim,
+    parallel: () => anim,
+  }
+  const Easing = {
+    ease: (t: number) => t,
+    linear: (t: number) => t,
+    in: (f: (t: number) => number) => f,
+    out: (f: (t: number) => number) => f,
+    inOut: (f: (t: number) => number) => f,
+  }
   return {
+    Animated,
+    Easing,
     // 共享返回键核心按字体缩放取档(packages/shared/src/ui/back-chevron-core → useFontMultiplier)
     PixelRatio: {
       getFontScale: () => 1,
@@ -36,10 +74,10 @@ vi.mock('react-native', () => {
     },
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
     useColorScheme: () => 'light',
-    View: mk('div'),
+    View: (props: { children?: ReactNode; style?: unknown }) => createElement('div', { 'data-role': 'shimmer' }, props.children),
     Text: mk('span'),
     Image: mk('div'),
-    ScrollView: mk('div'),
+    ScrollView: (props: { children?: ReactNode; style?: unknown }) => createElement('div', { 'data-role': 'shimmer' }, props.children),
     Pressable: mk('button'),
     TouchableOpacity: mk('button'),
     ActivityIndicator: () => createElement('div', { 'data-role': 'spinner' }),
@@ -166,7 +204,7 @@ describe('UserFansScreen 渲染委托与内容', () => {
   it('空态三分支:loading 指示 → 空文案;接口失败 → 加载失败 + 重试', async () => {
     fetchApi.mockImplementation(() => new Promise(() => {})) // 挂起,首帧仍在加载
     const { unmount } = renderScreen()
-    expect(document.querySelector('[data-role="spinner"]')).not.toBeNull()
+    expect(document.querySelector('[data-role="shimmer"]')).not.toBeNull()
     unmount()
 
     cleanup()

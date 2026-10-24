@@ -78,7 +78,7 @@ function deriveInitial(nickname: string, fallback: string | undefined): string {
 /** 关注度万格式化:>=10000 → 1.2万,其余原值(对齐原版 formatAttention) */
 function formatAttention(
   value: number,
-  t: (k: string, v?: Record<string, unknown>) => string,
+  t: (k: string, v?: Record<string, string | number>) => string,
 ): string {
   if (value >= 10000) {
     let v = (value / 10000).toFixed(1)
@@ -138,7 +138,8 @@ function Row({
 }: {
   item: FullRankingItem
   onPress: ((id: string) => void) | undefined
-  valueLabel: string
+  /** 数值单位标签(已由父级解析的展示文案;缺省由 Row 取 t('ranking.pointsUnit')) */
+  valueLabel?: string
 }): React.ReactElement {
   const { t } = useI18n()
   const badge = rankBadgeStyle(item.rank)
@@ -186,7 +187,7 @@ function Row({
       {item.attention !== undefined ? (
         <View style={styles.attentionCol}>
           <Text style={styles.attentionValue}>{formatAttention(item.attention, t)}</Text>
-          <Text style={styles.attentionLabel}>关注度</Text>
+          <Text style={styles.attentionLabel}>{t('ranking.attention')}</Text>
         </View>
       ) : null}
 
@@ -202,6 +203,7 @@ function Row({
 export default function FullRankingList({
   items,
   onPress,
+  valueLabel,
 }: FullRankingListProps): React.ReactElement {
   const renderItem: ListRenderItem<FullRankingItem> = ({ item }) => (
     <Row item={item} onPress={onPress} valueLabel={valueLabel} />

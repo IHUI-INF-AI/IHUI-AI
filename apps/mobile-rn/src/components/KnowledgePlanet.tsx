@@ -100,7 +100,7 @@ const PLANET_TAB_KEYS: ReadonlyArray<string> = [
 ]
 
 /** 大数字缩略展示(万),保留 1 位小数 */
-function formatCount(value: number, t: (k: string, v?: Record<string, unknown>) => string): string {
+function formatCount(value: number, t: (k: string, v?: Record<string, string | number>) => string): string {
   if (value >= 10000) {
     const w = value / 10000
     return t('ranking.wanSuffix', { v: w >= 100 ? Math.round(w) : w.toFixed(1) })
@@ -115,6 +115,7 @@ interface StatProps {
 
 /** 单个社交计数:图标 + 数字(无值时整体不渲染) */
 function Stat({ icon: Icon, value }: StatProps) {
+  const { t } = useI18n()
   if (value === undefined) return null
   return (
     <View style={styles.stat}>
