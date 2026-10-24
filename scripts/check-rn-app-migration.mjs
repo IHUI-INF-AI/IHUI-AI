@@ -143,7 +143,7 @@ export const WHITELIST_ENTRIES = new Map(
       expires: '2027-06-30',
     },
     'WebPortalScreen.tsx': {
-      why: 'Web 门户屏:RN WebView 全屏容器加载 web portal,RN 端独占 webview 壳',
+      why: '2026-10-24 按现读订正旧描述(原文写"WebView 全屏容器",实际是分组折叠的门户入口清单 + 逐条跳 WebViewScreen):容器形态是本端平台特有(ScrollView/Pressable + 本端 WebView 路由),不适合共享;但**条目清单**不在端内 —— 唯一真相源是 packages/shared/src/constants/web-portal.ts(13 组 91 条,经 lib/webview-portal-config 绑底座),小程序端读同一份。本屏因此按"平台特有容器"豁免,不按"缺共享屏"豁免。',
       expires: '2027-06-30',
     },
     // ── 2026-10-24 摘除 CartScreen.tsx:购物车已新立 cart 共享屏族

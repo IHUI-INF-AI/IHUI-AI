@@ -8,11 +8,12 @@
  * 背景:移动端无法原生实现的复杂功能域(edu-ai/教务家长/开发者平台/自媒体/知识图谱/模型管理)
  * 通过本门户按细分 URL 打开 WebViewScreen(替代此前"网页版"整站入口)。
  * 数据源:packages/shared/src/constants/web-portal.ts(经 lib/webview-portal-config.ts 绑底座,
- * 现读 13 组 91 条;两端同源,清单只许那一份)。
- * 平台特有:依赖 RN SectionList/Pressable,不适合共享。
+ * 现读 13 组 91 条;两端同源,清单只许那一份 —— 本端不得再抄第二份)。
  */
+// 平台特有:依赖 RN react-native 原语(ScrollView/Pressable)与本端 WebView 路由容器,不适合共享。
 import { useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
+import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -21,6 +22,7 @@ import { NavBar } from '../components/NavBar'
 import { WEB_PORTAL_SECTIONS, buildWebUrl, type WebPortalEntry } from '../lib/webview-portal-config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { NavChrome } from '../components/NavChrome'
+import { tokens } from '../theme/active-tokens'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -76,9 +78,18 @@ export function WebPortalScreen() {
                 >
                   {t(section.titleKey)}
                 </Text>
-                <Text className={`text-[12px] ${dark ? 'text-neutral-500' : 'text-gray-400'}`}>
-                  {isOpen ? '收起 ▴' : '展开 ▾'}（{section.entries.length}）
-                </Text>
+                <View className="flex-row items-center">
+                  <Text
+                    className={`mr-1.5 text-[12px] ${dark ? 'text-neutral-500' : 'text-gray-400'}`}
+                  >
+                    {section.entries.length}
+                  </Text>
+                  {isOpen ? (
+                    <ChevronUp size={14} color={tokens.text.tertiary} />
+                  ) : (
+                    <ChevronDown size={14} color={tokens.text.tertiary} />
+                  )}
+                </View>
               </Pressable>
               {isOpen ? (
                 <View className="mt-1 gap-1">
@@ -96,11 +107,8 @@ export function WebPortalScreen() {
                       >
                         {t(entry.titleKey)}
                       </Text>
-                      <Text
-                        className={`ml-2 text-[12px] ${dark ? 'text-neutral-500' : 'text-gray-400'}`}
-                      >
-                        {entry.path}
-                      </Text>
+                      {/* 行尾与小程序端同形:chevron-right 矢量图标;path 只进跳转 URL,不上屏 */}
+                      <ChevronRight size={16} color={tokens.text.tertiary} />
                     </Pressable>
                   ))}
                 </View>
