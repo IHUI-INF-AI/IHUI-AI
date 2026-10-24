@@ -5922,7 +5922,8 @@
       "fri": "金",
       "sat": "土",
       "sun": "日"
-    }
+    },
+    "title2": "学校の時間割"
   },
   "eduChildAttendance": {
     "title": "子どもの出席",
@@ -5947,5 +5948,37 @@
     "paid": "支払済み",
     "arrears": "未納",
     "nextDue": "次回期限"
+  },
+  "eduChildStudyPlans": {
+    "title": "学習計画",
+    "title2": "計画",
+    "planType": "種類",
+    "range": "期間",
+    "desc": "メモ"
+  },
+  "eduFinance": {
+    "title": "支払い記録",
+    "student": "生徒",
+    "className": "クラス",
+    "fee": "費用",
+    "amount": "金額(元)",
+    "date": "支払日",
+    "status": {
+      "paid": "支払済み",
+      "success": "成功",
+      "refunded": "返金済み",
+      "pending": "確認待ち"
+    }
+  },
+  "eduMeal": {
+    "title": "給食テンプレート",
+    "name": "テンプレート名"
+  },
+  "eduScheduling": {
+    "title": "教師の枠",
+    "teacher": "教師",
+    "availability": "空き状況",
+    "available": "空き",
+    "busy": "埋まり"
   }
 }
