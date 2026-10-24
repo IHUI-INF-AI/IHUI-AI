@@ -53,7 +53,7 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { findWriteChains, maskText, closeParen, closeBrace } from './lib/batch-write-lexer.mjs'
+import { findWriteChains, findFunctionBodies, maskText, closeParen, closeBrace } from './lib/batch-write-lexer.mjs'
 import { maskComments } from './lib/code-mask.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -100,6 +100,42 @@ export function isQuantityRelative(setText) {
 export function guardsQuantityColumn(whereText) {
   if (!whereText) return false
   return GUARD_QTY_RE.test(whereText)
+}
+
+/**
+ * G4:额度列被**绝对值回写**(set 里赋的是一个 JS 变量,而不是数据库侧表达式)。
+ * 这是结构性丢更新:那个值来自先前的一次读(实测还读的是副本),读写之间任何并发变动都被抹掉。
+ * 成因样本(本枚修掉):miniapp 兼容层"支付历史"把 `Math.max(0, 副本余额 - 数额)` 直接
+ * `.set({ tokenQuantity: balanceAfter })` 回写 ⇒ 既丢并发,又在余额不足时把用户全部余额
+ * 静默清零、照样记一笔全额流水、照样回 200。
+ * 排除面:`set({ balanceAfter: x })` 这种**流水快照列**不算(它记的是那一笔之后的余额,
+ * 不是可变额度本身)—— 靠 QTY_COL 的整词边界把 balanceAfter 挡在外面。
+ */
+const ABS_WRITE_RE = new RegExp(
+  '[{,]\\s*(?:' +
+    QTY_COL +
+    ')\\s*:\\s*(?!sql\\s*`)(?![\\d"-])([A-Za-z_$][\\w$]*)\\s*[,}]',
+)
+
+export function findAbsoluteQuantityWriteback(code, bodies = findFunctionBodies(code)) {
+  const out = []
+  const locked = []
+  for (const chain of findWriteChains(code)) {
+    if (chain.names.indexOf('set') < 0) continue
+    if (!ABS_WRITE_RE.test(chain.setText)) continue
+    if (chain.opaque) continue
+    // 豁免(机器现验,不是行内标记):本链所在的任一外层函数体内存在 `FOR UPDATE` 行锁读
+    // ⇒ 绝对值回写安全(锁住了并发窗口,写回的值不会覆盖别人已提交的变动)。查不到锁才定罪。
+    const hasLock = bodies
+      .filter((b) => chain.start >= b.start && chain.start < b.end)
+      .some((b) => /\.for\s*\(\s*['"]update['"]\s*\)/.test(code.slice(b.start, b.end)))
+    if (hasLock) {
+      locked.push({ start: chain.start, setText: chain.setText.replace(/\s+/g, ' ').slice(0, 90) })
+      continue
+    }
+    out.push({ start: chain.start, setText: chain.setText.replace(/\s+/g, ' ').slice(0, 90) })
+  }
+  return { hits: out, lockedSafe: locked }
 }
 
 /**
@@ -319,6 +355,28 @@ export function selfTest() {
   ok('G3 抓到"无守卫的余额扣减"', findUnguardedDecrement(g3Bad).length === 1)
   ok('G3 放过带余额守卫的扣减', findUnguardedDecrement(g3Guarded).length === 0)
   ok('额度列判定本身有牙', guardsQuantityColumn('gt(products.stock, 0)') && !guardsQuantityColumn('eq(a.id, 1)'))
+  // G4 成对锁:同样写绝对值,锁外判红、锁内(同函数有 FOR UPDATE)给机器豁免 ——
+  // 豁免必须现验,不是行内标记;而 sql 侧自增与流水快照列都不该被判。
+  const absNoLock = [
+    '      const nb = cur + amount',
+    '      await db.update(margins).set({ tokenQuantity: nb, updatedAt: new Date() }).where(eq(margins.userId, uid))',
+  ].join('\n')
+  const absLocked = [
+    "    await db.transaction(async (tx) => {",
+    "      const [lk] = await tx.select().from(margins).where(eq(margins.id, 1)).for('update')",
+    '      const nb = lk.tokenQuantity + amount',
+    '      await tx.update(margins).set({ tokenQuantity: nb, updatedAt: new Date() }).where(eq(margins.userId, uid))',
+    '    })',
+  ].join('\n')
+  ok('G4 抓到无锁的绝对值回写', findAbsoluteQuantityWriteback(absNoLock).hits.length === 1)
+  ok('G4 对锁内回写给机器豁免(计入 lockedSafe)', (() => {
+    const r = findAbsoluteQuantityWriteback(absLocked)
+    return r.hits.length === 0 && r.lockedSafe.length >= 1
+  })())
+  // 反向锁:找不到任何函数体 ⇒ 无法证明有锁 ⇒ 保守判红(豁免只能"验过才免",不能默认成立)
+  ok('G4 无函数体可证锁时不豁免', findAbsoluteQuantityWriteback('const [lk] = await tx.select().from(m).for("update")\nawait tx.update(m).set({ tokenQuantity: nb }).where(eq(m.id, 1))').hits.length === 1)
+  ok('G4 不判 sql 侧自增', findAbsoluteQuantityWriteback('await db.update(m).set({ tokenQuantity: sql`x + 1` }).where(eq(m.id, 1))').hits.length === 0)
+  ok('G4 不判流水快照列 balanceAfter', findAbsoluteQuantityWriteback('await db.update(f).set({ balanceAfter: x }).where(eq(f.id, 1))').hits.length === 0)
 
   const cbBad = `  server.post('/withdrawal/notify', async (request, reply) => {
     try { await handle() } catch (e) {
@@ -411,6 +469,7 @@ async function main() {
     const locate1 = makeLocator(src)
     const locate3 = makeLocator(src)
     const locate2 = makeLocator(src)
+    const locate4 = makeLocator(src)
     // 词法机没走干净 ⇒ 本文件的判据是瞎的:落「未判定」逐条点名,既不记绿也不冒红(§0.3)。
     // 拿"扫不出违规"当通过,正是守门 134 头注点名的"从字符串里 harvest 假用量"那一族的反面。
     if (leaks.length) {
@@ -419,13 +478,16 @@ async function main() {
     }
     const curG1 = findDiscardedGuardedWrites(g1)
     const curG3 = findUnguardedDecrement(g3)
+    const g4 = findAbsoluteQuantityWriteback(g1)
     const curG2 = findCallbackSwallowingFailure(g2)
-    if (!curG1.length && !curG2.length && !curG3.length) continue
+    const curG4 = g4.hits
+    if (!curG1.length && !curG2.length && !curG3.length && !curG4.length) continue
     const aSrc = readRev(aRev, file)
     if (aSrc === null) {
       // 锚点面无此文件 = 本枚新建的文件 ⇒ 存量按 0 计,当前违规全算新增
       for (const h of curG1) findings.push({ dim: 'G1', file, line: locate1(h.whereFull), where: h.whereText })
       for (const h of curG3) findings.push({ dim: 'G3', file, line: locate3(h.whereFull), where: h.whereText })
+      for (const h of curG4) findings.push({ dim: 'G4', file, line: locate4(h.setText), where: h.setText })
       for (const h of curG2) findings.push({ dim: 'G2', file, line: locate2(h.route), route: h.route })
       continue
     }
@@ -434,6 +496,7 @@ async function main() {
       ? null
       : findDiscardedGuardedWrites(a.g1).length +
         findUnguardedDecrement(a.g3).length +
+        findAbsoluteQuantityWriteback(a.g1).hits.length +
         findCallbackSwallowingFailure(a.g2).length
     if (anchorCount === null) {
       undetermined.push({ file, reason: `锚点面(${aRev})词法残留,无法算存量` })
@@ -442,6 +505,7 @@ async function main() {
     const all = [
       ...curG1.map((h) => ({ dim: 'G1', file, line: locate1(h.whereFull), where: h.whereText })),
       ...curG3.map((h) => ({ dim: 'G3', file, line: locate3(h.whereFull), where: h.whereText })),
+      ...curG4.map((h) => ({ dim: 'G4', file, line: locate4(h.setText), where: h.setText })),
       ...curG2.map((h) => ({ dim: 'G2', file, line: locate2(h.route), route: h.route })),
     ]
     // 差值棘轮(§0.5/§12e):锚点 = 该文件在锚点面自身的违规数;只拦"本枚把数加上去"。
@@ -488,6 +552,7 @@ if (isDirectRun) {
 export const __test__ = {
   findDiscardedGuardedWrites,
   findUnguardedDecrement,
+  findAbsoluteQuantityWriteback,
   findCallbackSwallowingFailure,
   guardsQuantityColumn,
   isQuantityRelative,
