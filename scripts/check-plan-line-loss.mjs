@@ -1355,6 +1355,21 @@ export function translateIds(text, map, { bareIds = null } = {}) {
   return s
 }
 
+/**
+ * 题面前缀身份(纪元档专用):抹掉复选框、注记、行内标头、退役标记与所有任务号,再去掉
+ * 标点/加粗/空白,取前 12 字。号与标头怎么变都不影响,**正文首句一变就换身份**。
+ */
+export function bodyKeyOf(text) {
+  return String(text ?? '')
+    .replace(/^\s*-\s*\[[ xX]\]\s*/, '')
+    .replace(/^\s*（[^）]*）\s*/, '')
+    .replace(/^\s*〔[^〕]*〕\s*/, '')
+    .replace(/〔旧号[^〕]*〕/g, '')
+    .replace(/(?:G|WP|V3|D|O|A|B|P|W)-?\d{1,4}/g, '')
+    .replace(/[*`\s]/g, '')
+    .slice(0, 12)
+}
+
 /** 历史登记行里在 targetSrc 中缺席的那些(归档过的正当移除自动排除) */
 export function missingFrom(seen, targetSrc, archived = archivedCopy, declared = declaredRowSet()) {
   // 编号纪元下按映射折算两面(见 epochMapOf 头注);无标记时 map=null ⇒ 逐字旧行为
@@ -1372,11 +1387,25 @@ export function missingFrom(seen, targetSrc, archived = archivedCopy, declared =
     }
   })
   const target = map ? translateIds(targetSrc, map, { bareIds: false }) : targetSrc
+  // 纪元档按"题面还在不在"判活(2026-10-24):全量重排会把旧号换掉,也允许旧号被新票复用,
+  // 于是"号 + 18 字题面逐字相同"不再是同一任务的判据。这里把两面都抹掉号与标头后按题面前缀比 ——
+  // 换号/标头增删都不影响,**正文真被吞掉仍会点名**。映射折算于是只服务于 message 还原,
+  // 不再决定判活(映射文件每轮重排都会重写,拿它当判活尺子会把历史旧号折算成不存在的号)。
+  const liveBodies = map
+    ? [...target.matchAll(/^\s*-\s*\[[ xX]\][^\n]*/gm)].map((m) => bodyKeyOf(m[0])).filter(Boolean)
+    : null
   // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"
   const lost = resolveRegistrationLoss(entries, target, declared)
   // 归档件里存的是**旧号原文** ⇒ 归档通道用折算前的 marker 问,别拿新号去翻旧档
   return lost
     .filter((v) => !(archived(back.get(v.marker) ?? v.marker) || (v.id && archived(v.id))))
+    .filter((v) => {
+      if (!liveBodies) return true
+      const mk = bodyKeyOf(v.marker)
+      // 短边 ≥6 字才认(再短就是"任一行都像",那种匹配等于把门关掉)
+      if (mk.length < 6) return true
+      return !liveBodies.some((k) => k.length >= 6 && (k.startsWith(mk) || mk.startsWith(k)))
+    })
     .map((v) => (back.has(v.marker) ? { ...v, marker: back.get(v.marker) } : v))
 }
 
