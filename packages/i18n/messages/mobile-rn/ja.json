@@ -402,7 +402,8 @@
     "chatError": "接続に失敗しました",
     "chatDisconnected": "切断しました",
     "chatNotReady": "チャット準備中",
-    "loadFailed": "ライブの読み込みに失敗"
+    "loadFailed": "ライブの読み込みに失敗",
+    "hostMode": "配信者モード"
   },
   "profile": {
     "levelIntro": "レベルの説明",
@@ -543,7 +544,8 @@
     "myOrders": "マイ注文",
     "editProfile": "プロフィール編集",
     "notLoggedIn": "未ログアウト",
-    "cfgVoiceLongyue": "龙悦 · 女 · 活泼"
+    "cfgVoiceLongyue": "龙悦 · 女 · 活泼",
+    "clickRetry": "タップして再試行"
   },
   "payResult": {
     "title": "支払い結果",
@@ -860,7 +862,11 @@
     "menuVoiceNote": "语音笔记",
     "menuWebLink": "网页链接",
     "menuFileUpload": "文件上传",
-    "menuHistory": "历史对话"
+    "menuHistory": "历史对话",
+    "terminal": {
+      "waitingInput": "入力待ち",
+      "mobileUnsupported": "端末ではターミナル未対応"
+    }
   },
   "settings": {
     "title": "設定",
@@ -1097,7 +1103,8 @@
     "save": "保存",
     "search": "検索",
     "searchPlaceholder": "ドキュメントを検索...",
-    "deleted": "削除しました"
+    "deleted": "削除しました",
+    "loadFailPullRetry": "読み込み失敗。下に引いて再試行"
   },
   "network": {
     "offline": "ネットワークが切断されました。一部の機能は利用できません",
@@ -1131,7 +1138,11 @@
     "catPrivate": "私域運營",
     "catContent": "內容創作",
     "catData": "數據分析",
-    "catAll2": "全部"
+    "catAll2": "全部",
+    "chat": {
+      "title": "チャットを開始",
+      "message": "「{name}」とのチャットを開始します"
+    }
   },
   "aiAssistantN8n": {
     "title": "AIアシスタント",
@@ -1178,7 +1189,8 @@
     "loading": "読み込み中...",
     "subtitle": "表紙を選択または生成",
     "title": "表紙",
-    "workTitleDefault": "名称未設定の作品"
+    "workTitleDefault": "名称未設定の作品",
+    "labelDefault": "作品"
   },
   "aigcPublish": {
     "success": {
@@ -1382,7 +1394,10 @@
     "namePlaceholder": "ワークフロー名を入力",
     "nameRequired": "名前を入力してください",
     "operationFailed": "操作に失敗しました。もう一度お試しください",
-    "title": "n8n モデル"
+    "title": "n8n モデル",
+    "vendorName": "n8n ワークフロー",
+    "groupBrowse": "グループ表示",
+    "listView": "リスト表示"
   },
   "modelPlaza": {
     "officialBadge": "智",
@@ -1403,7 +1418,10 @@
     "priceUnit": "価格",
     "providerTotal": "プロバイダーから {count} モデル",
     "selectProviderLabel": "プロバイダーを選択",
-    "title": "モデルプラザ"
+    "title": "モデルプラザ",
+    "groupBrowse": "グループ表示",
+    "listView": "リスト表示",
+    "workflowTab": "ワークフロー"
   },
   "tokenValue": {
     "recharge": {
@@ -1916,7 +1934,10 @@
     "relatedOrder": "関連注文:{orderNo}",
     "copy": "注文番号をコピー",
     "copySuccess": "注文番号をコピーしました",
-    "loadFailed": "収入の読み込みに失敗"
+    "loadFailed": "収入の読み込みに失敗",
+    "withdrawBank": "銀行カード出金",
+    "withdrawRecord": "出金履歴",
+    "commissionDefault": "コミッション"
   },
   "invite": {
     "title": "友達招待",
@@ -3484,7 +3505,8 @@
     "resendCode": "再送",
     "termsOfService": "利用規約",
     "thirdPartyLogin": "他の方法でログイン",
-    "ssoFailed": "Web認証ログインに失敗しました。再試行するか、アカウントとパスワードでログインしてください。"
+    "ssoFailed": "Web認証ログインに失敗しました。再試行するか、アカウントとパスワードでログインしてください。",
+    "loginFailed": "ログインに失敗しました。再試行"
   },
   "bookmark": {
     "empty": "しおりがありません",
@@ -4656,6 +4678,9 @@
           "rejected": "却下済み",
           "failed": "送信に失敗しました。再試行してください"
         }
+      },
+      "branch": {
+        "ariaLabel": "会話ブランチ"
       }
     }
   },
@@ -5159,5 +5184,15 @@
     "deleteTitle": "素材削除",
     "deleteBody": "「{title}」を削除しますか？",
     "detailLabel": "素材詳細"
+  },
+  "topup": {
+    "failDefault": "チャージ未完了。後で再試行"
+  },
+  "devEnterCover": {
+    "priceAbnormal": "プラン価格エラー。後で再試行"
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
   }
 }

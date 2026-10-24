@@ -402,7 +402,8 @@
     "chatError": "연결 실패",
     "chatDisconnected": "연결이 끊어졌습니다",
     "chatNotReady": "채팅 준비 중",
-    "loadFailed": "라이브 불러오기 실패"
+    "loadFailed": "라이브 불러오기 실패",
+    "hostMode": "호스트 모드"
   },
   "profile": {
     "levelIntro": "등급 소개",
@@ -543,7 +544,8 @@
     "logout": "로그아웃",
     "myOrders": "내 주문",
     "editProfile": "프로필 편집",
-    "notLoggedIn": "미로그인"
+    "notLoggedIn": "미로그인",
+    "clickRetry": "탭하여 재시도"
   },
   "payResult": {
     "title": "결제 결과",
@@ -860,7 +862,11 @@
     "qrSaveFail": "저장 실패, 재시도",
     "favOn": "즐겨찾기됨",
     "favOff": "즐겨찾기 해제",
-    "annotHint": "주석을 입력창에 삽입했습니다"
+    "annotHint": "주석을 입력창에 삽입했습니다",
+    "terminal": {
+      "waitingInput": "입력 대기",
+      "mobileUnsupported": "모바일 터미널 미지원"
+    }
   },
   "settings": {
     "title": "설정",
@@ -1097,7 +1103,8 @@
     "save": "저장",
     "search": "검색",
     "searchPlaceholder": "문서 검색...",
-    "deleted": "삭제됨"
+    "deleted": "삭제됨",
+    "loadFailPullRetry": "불러오기 실패, 당겨서 새로고침 재시도"
   },
   "network": {
     "offline": "네트워크가 연결되지 않아 일부 기능을 사용할 수 없습니다",
@@ -1131,7 +1138,11 @@
     "copyOkToast": "링크를 클립보드에 복사했습니다",
     "catAll2": "전체",
     "catStudy": "Study",
-    "loadFailed": "Load failed"
+    "loadFailed": "Load failed",
+    "chat": {
+      "title": "대화 시작",
+      "message": "「{name}」와(과) 대화를 시작합니다"
+    }
   },
   "aiAssistantN8n": {
     "title": "AI 어시스턴트",
@@ -1178,7 +1189,8 @@
     "loading": "불러오는 중...",
     "subtitle": "표지 선택 또는 생성",
     "title": "표지",
-    "workTitleDefault": "이름 없는 작품"
+    "workTitleDefault": "이름 없는 작품",
+    "labelDefault": "작품"
   },
   "aigcPublish": {
     "success": {
@@ -1382,7 +1394,10 @@
     "namePlaceholder": "워크플로우 이름 입력",
     "nameRequired": "이름을 입력하세요",
     "operationFailed": "작업에 실패했습니다. 잠시 후 다시 시도해 주세요",
-    "title": "n8n 모델"
+    "title": "n8n 모델",
+    "vendorName": "n8n 워크플로",
+    "groupBrowse": "그룹 보기",
+    "listView": "목록 보기"
   },
   "modelPlaza": {
     "officialBadge": "IH",
@@ -1403,7 +1418,10 @@
     "priceUnit": "가격",
     "providerTotal": "공급사의 모델 {count}개",
     "selectProviderLabel": "공급사 선택",
-    "title": "모델 플라자"
+    "title": "모델 플라자",
+    "groupBrowse": "그룹 보기",
+    "listView": "목록 보기",
+    "workflowTab": "워크플로"
   },
   "tokenValue": {
     "recharge": {
@@ -1916,7 +1934,10 @@
     "relatedOrder": "관련 주문:{orderNo}",
     "copy": "주문 번호 복사",
     "copySuccess": "주문 번호 복사 완료",
-    "loadFailed": "수익 불러오기 실패"
+    "loadFailed": "수익 불러오기 실패",
+    "withdrawBank": "은행 카드 출금",
+    "withdrawRecord": "출금 기록",
+    "commissionDefault": "커미션"
   },
   "invite": {
     "title": "친구 초대",
@@ -3484,7 +3505,8 @@
     "resendCode": "재전송",
     "termsOfService": "이용약관",
     "thirdPartyLogin": "다른 방식으로 로그인",
-    "ssoFailed": "웹 인증 로그인에 실패했습니다. 재시도하거나 계정과 비밀번호로 로그인하세요."
+    "ssoFailed": "웹 인증 로그인에 실패했습니다. 재시도하거나 계정과 비밀번호로 로그인하세요.",
+    "loginFailed": "로그인 실패, 재시도"
   },
   "bookmark": {
     "empty": "북마크가 없습니다",
@@ -4656,6 +4678,9 @@
           "rejected": "거부됨",
           "failed": "제출에 실패했습니다. 다시 시도해 주세요"
         }
+      },
+      "branch": {
+        "ariaLabel": "대화 분기"
       }
     }
   },
@@ -5159,5 +5184,15 @@
     "deleteTitle": "소재 삭제",
     "deleteBody": "「{title}」 삭제할까요?",
     "detailLabel": "소재 상세"
+  },
+  "topup": {
+    "failDefault": "충전 미완료, 잠시 후 재시도"
+  },
+  "devEnterCover": {
+    "priceAbnormal": "요금제 가격 오류, 잠시 후 재시도"
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
   }
 }
