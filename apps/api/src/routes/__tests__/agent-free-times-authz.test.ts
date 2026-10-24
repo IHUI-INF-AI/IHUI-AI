@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import type * as DrizzleOrm from 'drizzle-orm'
 
 vi.hoisted(() => {
   process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
@@ -32,7 +33,7 @@ const { TOKENS, eqCalls, dbTouched } = vi.hoisted(() => ({
 
 // 把 eq 的第一参(列)按 symbol/name 归一成可比字符串,记录 (列, 值) 实参对
 vi.mock('drizzle-orm', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('drizzle-orm')>()
+  const actual = await importOriginal<typeof DrizzleOrm>()
   return {
     ...actual,
     eq: (col: any, value: unknown) => {
@@ -99,8 +100,16 @@ describe('agent-free-times:匿名一律拒,归属只认令牌', () => {
     const reqs = [
       { method: 'GET' as const, url: '/api/agent-free-times/' },
       { method: 'GET' as const, url: '/api/agent-free-times/remaining?agentId=a1' },
-      { method: 'POST' as const, url: '/api/agent-free-times/', payload: { userUuid: 'v', agentId: 'a1', freeTimes: 9 } },
-      { method: 'POST' as const, url: '/api/agent-free-times/consume', payload: { userUuid: 'v', agentId: 'a1' } },
+      {
+        method: 'POST' as const,
+        url: '/api/agent-free-times/',
+        payload: { userUuid: 'v', agentId: 'a1', freeTimes: 9 },
+      },
+      {
+        method: 'POST' as const,
+        url: '/api/agent-free-times/consume',
+        payload: { userUuid: 'v', agentId: 'a1' },
+      },
       { method: 'POST' as const, url: '/api/agent-free-times/reset', payload: {} },
     ]
     for (const r of reqs) {
@@ -113,7 +122,12 @@ describe('agent-free-times:匿名一律拒,归属只认令牌', () => {
 
   it('POST /reset 空 body 时,普通主体的过滤条件恒等于自己的身份(不再退化成整表)', async () => {
     reset()
-    await app.inject({ method: 'POST', url: '/api/agent-free-times/reset', headers: auth('tok-a'), payload: {} })
+    await app.inject({
+      method: 'POST',
+      url: '/api/agent-free-times/reset',
+      headers: auth('tok-a'),
+      payload: {},
+    })
     const uuidFilter = eqCalls.filter((e) => e.col === 'user_uuid')
     expect(uuidFilter.length, 'reset 必须带主体过滤').toBeGreaterThan(0)
     expect(uuidFilter.every((e) => e.value === 'user-a')).toBe(true)
@@ -128,7 +142,9 @@ describe('agent-free-times:匿名一律拒,归属只认令牌', () => {
       payload: { userUuid: 'victim' },
     })
     expect(eqCalls.some((e) => e.value === 'victim')).toBe(false)
-    expect(eqCalls.filter((e) => e.col === 'user_uuid').every((e) => e.value === 'user-a')).toBe(true)
+    expect(eqCalls.filter((e) => e.col === 'user_uuid').every((e) => e.value === 'user-a')).toBe(
+      true,
+    )
   })
 
   it('正向对照:管理员不填 userUuid 仍可整表重置(既有 admin 语义逐字保留)', async () => {
@@ -153,14 +169,22 @@ describe('agent-free-times:匿名一律拒,归属只认令牌', () => {
     })
     expect(grant.statusCode).toBe(403)
     reset()
-    const del = await app.inject({ method: 'DELETE', url: '/api/agent-free-times/7', headers: auth('tok-a') })
+    const del = await app.inject({
+      method: 'DELETE',
+      url: '/api/agent-free-times/7',
+      headers: auth('tok-a'),
+    })
     expect(del.statusCode).toBe(403)
     expect(eqCalls, '闸门在 preHandler 就拒,不该构造语句').toHaveLength(0)
   })
 
   it('GET /remaining 与 /consume 的归属取令牌,不接受 body/query 自报的别人', async () => {
     reset()
-    await app.inject({ method: 'GET', url: '/api/agent-free-times/remaining?userUuid=victim&agentId=a1', headers: auth('tok-a') })
+    await app.inject({
+      method: 'GET',
+      url: '/api/agent-free-times/remaining?userUuid=victim&agentId=a1',
+      headers: auth('tok-a'),
+    })
     expect(eqCalls.some((e) => e.value === 'victim')).toBe(false)
     expect(eqCalls.filter((e) => e.col === 'user_uuid').map((e) => e.value)).toContain('user-a')
 
