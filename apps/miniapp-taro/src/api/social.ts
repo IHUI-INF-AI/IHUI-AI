@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { get, del } from './index'
+import { get, post, del } from './index'
 import type { PageData, PageQuery, FavoriteItem, SubscriptionItem } from '@ihui/api-client'
 
 // 向后兼容别名:PaginationQuery → PageQuery(api-client canonical 名)
@@ -38,6 +38,21 @@ export const getFollowing = (query?: PaginationQuery) =>
   get<PaginatedList<FollowingItem>>('/follows/following', query)
 
 export const unfollowUser = (userId: string) => del(`/follows/${userId}`)
+
+/** 粉丝列表项:后端 followers 的 select 只有 id/userId/nickname/avatar/createdAt(没有 bio) */
+export interface FollowerItem {
+  id: string
+  userId: string
+  nickname?: string | null
+  avatar?: string | null
+  createdAt?: string | null
+}
+
+export const getFollowers = (query?: PaginationQuery) =>
+  get<PaginatedList<FollowerItem>>('/follows/followers', query)
+
+/** 回关(与 unfollow 同一组端点;后端回 201 { followed, isMutual }) */
+export const followUser = (userId: string) => post(`/follows/${userId}`, {})
 
 export const getSubscriptions = (query?: PaginationQuery & { targetType?: string }) =>
   get<PaginatedList<SubscriptionItem>>('/subscriptions', query)

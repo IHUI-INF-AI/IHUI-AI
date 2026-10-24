@@ -9,6 +9,19 @@ import { Bitcoin, Copy, Check, QrCode } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import { Button, Card } from '@ihui/ui-react'
+import { fetchApi } from '@/lib/api'
+
+/**
+ * G-944 fail-closed:USDT 收款方式的可用性以服务端 env 为权威。
+ * 权威值未配置(或形态非法)⇒ GET /api/payment/usdt/public-config 回 available=false
+ * ⇒ 本页隐藏该卡片,避免"平台没配 TRC20 收款地址、页面却引导用户往该链打款"。
+ * 查询失败(网络/服务不可用)按"未知"处理,维持展示 —— 拒的是"明确未配置",
+ * 不是"问不出答案";下单侧仍由 createUsdtPayment 的「未配置 500」兜底拒单。
+ */
+const USDT_WALLET_NETWORK: Record<string, 'TRC20' | 'ERC20'> = {
+  usdtTrc20: 'TRC20',
+  usdtErc20: 'ERC20',
+}
 
 // Public donation addresses (safe to commit — these can only receive funds).
 // Private keys live in .ihui-agent/tmp/crypto-wallets/wallet-secrets.json (gitignored).
@@ -81,6 +94,31 @@ export function CryptoDonation(): React.JSX.Element {
   const t = useTranslations('crypto')
   const { copiedId, copy } = useCopyAddress()
 
+  // null = 尚未问到答案(未知 ⇒ 全展示);否则为「明确未配置」的钱包 id 集合
+  const [unconfiguredIds, setUnconfiguredIds] = React.useState<Set<string> | null>(null)
+  React.useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const res = await fetchApi<{
+        networks: Record<'TRC20' | 'ERC20', { available: boolean }>
+      }>('/api/payment/usdt/public-config')
+      if (cancelled) return
+      if (!res.success || !res.data?.networks) return // 未知:维持展示
+      const hidden = new Set<string>()
+      for (const [walletId, network] of Object.entries(USDT_WALLET_NETWORK)) {
+        if (res.data.networks[network]?.available !== true) hidden.add(walletId)
+      }
+      setUnconfiguredIds(hidden)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const visibleWallets = unconfiguredIds
+    ? WALLETS.filter((w) => !unconfiguredIds.has(w.id))
+    : WALLETS
+
   return (
     <section className="mt-16">
       <div className="text-center">
@@ -91,7 +129,7 @@ export function CryptoDonation(): React.JSX.Element {
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 min-[640px]:grid-cols-2">
-        {WALLETS.map((w) => {
+        {visibleWallets.map((w) => {
           const Icon = w.icon
           const copied = copiedId === w.id
           return (

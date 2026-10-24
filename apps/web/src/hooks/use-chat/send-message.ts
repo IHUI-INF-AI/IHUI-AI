@@ -96,6 +96,8 @@ import { estimateLiveUsage } from './live-usage'
 import { hydrateHistoryMessage } from './history-message'
 // V3 #69:budget 命名帧的唯一落点(输入框上方 ContextBudgetBar 读它;toast 照旧)
 import { clearBudgetEvent, noteBudgetTrustedZeroPhase, setBudgetEvent } from './budget-state'
+// 79 号票:请求级权限双轴的唯一取值实现(显式双轴优先,否则按单轴映射派生)
+import { resolveRequestAxes } from '@/lib/permission-axes'
 // D155(2026-09-29 立):下行告警三档(config-warning/deprecation-notice/guardian-warning)
 // 的落点(输入框上方 StreamAlertBar 读它)。契约见 shared contract.ts SSE_ALERT_EVENTS 段。
 import { setStreamAlert } from './stream-alerts'
@@ -523,6 +525,8 @@ export function createSendMessage(
     const permState = useAiPanelStore.getState()
     const currentMode: WorkspacePermissionMode | undefined =
       permState.activeWorkspace?.mode ?? permState.pendingPermissionMode ?? undefined
+    // 79 号票:双轴与单轴取**同一时刻快照**(两次读 store 会把两代表示读岔)
+    const currentAxes = resolveRequestAxes(permState.permissionAxes, currentMode)
     // 票59(3/3):sibling 占位行**按族尾插入且自带坐标**(与票64 编辑链的
     // mergeVersionMessage 同构),而不是 addMessage 追加到列表末尾 ——
     // 新回复要出现在被再生那条回复的位置(读投影随即把旧回复压成"上一版"),
@@ -745,6 +749,9 @@ export function createSendMessage(
         // 决定高危工具是否弹审批(bypass-permissions 不拦截;accept-edits 放行
         // 文件编辑类;缺省按 default 处理)。currentMode 即消息徽章同源的档位快照。
         permissionMode: currentMode,
+        // 79 号票(2026-10-23 立):权限双轴随请求透传。undefined = api-client 不写 body
+        // ⇒ 后端按单轴映射自己派生(与这里显式派生逐字节等价,故本格不改变既有行为)。
+        ...currentAxes,
         workspacePath,
         workspaceContext,
         // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩

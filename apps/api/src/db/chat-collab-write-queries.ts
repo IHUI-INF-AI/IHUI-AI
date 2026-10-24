@@ -181,9 +181,9 @@ export async function updateCollaboratorTier(input: {
   userId: string
   tier: string
 }): Promise<ChatConversationCollaborator | null> {
-  const rows = await db
-    .update(chatConversationCollaborators)
-    .set({ tier: input.tier, updatedAt: new Date() })
+  const current = await db
+    .select()
+    .from(chatConversationCollaborators)
     .where(
       and(
         eq(chatConversationCollaborators.conversationId, input.conversationId),
@@ -191,6 +191,17 @@ export async function updateCollaboratorTier(input: {
         ne(chatConversationCollaborators.status, 'revoked'),
       ),
     )
+    .limit(1)
+  const row = current[0]
+  if (!row) return null
+  // 档位没变 ⇒ 没有真变化:不发 UPDATE、不盖 updatedAt;仍返回当前行,
+  // 路由(chat-collab.ts:304)拿它作 404 判据与失效帧 state 的语义不变。
+  if (row.tier === input.tier) return row
+  const changed: { tier: string } = { tier: input.tier }
+  const rows = await db
+    .update(chatConversationCollaborators)
+    .set({ ...changed, updatedAt: new Date() })
+    .where(eq(chatConversationCollaborators.id, row.id))
     .returning()
   return rows[0] ?? null
 }

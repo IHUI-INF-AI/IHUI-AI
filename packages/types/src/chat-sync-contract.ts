@@ -52,8 +52,18 @@ export interface ChatSyncRoom {
 /**
  * 消息角色。刻意不 import './chat.js' 的 ChatRole(2026-10-08 现读:该文件工作树副本
  * 正被并发会话持有,本切片不与之建立编译耦合;字面量完全同形,接线票收敛时一并归并)。
+ *
+ * 2026-10-24(票71 第二切片):由裸类型升级为「封闭集 + 判据」—— 服务端发射口要按同一张表
+ * 把库里的 role 字符串折成契约角色,消费端也要按同一张表判帧;两处各写一份必然漂移。
  */
-export type ChatSyncRole = 'user' | 'assistant' | 'system'
+export const CHAT_SYNC_ROLES = ['user', 'assistant', 'system'] as const
+
+export type ChatSyncRole = (typeof CHAT_SYNC_ROLES)[number]
+
+/** 不可识别的角色 ⇒ false(发射口据此跳过并点名,消费端据此判「未判定」) */
+export function isChatSyncRole(v: unknown): v is ChatSyncRole {
+  return typeof v === 'string' && (CHAT_SYNC_ROLES as readonly string[]).includes(v)
+}
 
 /** patch 幂等主键。chatPatchKey() 给出它的 canonical 字符串形态(判重缓存/日志用)。 */
 export interface ChatPatchIdempotencyKey {
@@ -67,6 +77,13 @@ export interface ChatPatchIdempotencyKey {
  * - `snapshot`:全量替换。自包含,跨 gap 也可安全应用(恢复路径靠它)。
  */
 export type ChatPatchKind = 'delta' | 'snapshot'
+
+/** patch 形态封闭集 + 判据(同 CHAT_SYNC_ROLES:生产面与消费面共用一张表) */
+export const CHAT_PATCH_KINDS = ['delta', 'snapshot'] as const
+
+export function isChatPatchKind(v: unknown): v is ChatPatchKind {
+  return typeof v === 'string' && (CHAT_PATCH_KINDS as readonly string[]).includes(v)
+}
 
 /** 双通道公共封套字段。channel/room/emittedAt 都是投递元数据,不参与幂等判定(时钟不可信)。 */
 interface ChatSyncEventBase {

@@ -33,6 +33,7 @@ import test from 'node:test'
 
 import { judgeRowIdDuplicates } from '../lib/plan-id-duplicates.mjs'
 import { smallestFreeId } from '../lib/plan-id-lease.mjs'
+import { maskComments } from '../lib/code-mask.mjs'
 import { scanFamilyIds } from '../lib/plan-id-face.mjs'
 import { git } from '../lib/bypass-git.mjs'
 
@@ -241,5 +242,58 @@ test('T9 新增撞号仍判红、指针被引号不算声明(G-955 判红维正�
   const branch = TOOL_SRC.slice(checkBranch, TOOL_SRC.indexOf('const headingNote', checkBranch))
   assert.match(branch, /dup\.rowDups\.length/, '--check 必须吃 rowDups 判红')
   assert.match(branch, /process\.exit\(1\)/, '新增撞号必须以 exit 1 收场(存量不顶死 ≠ 新增不红)')
+})
+
+/**
+ * T10 —— 结论必须与判据同形(2026-10-23 立)。本器旧措辞把"发不出号"一律念成
+ * "号池 1..999 已满 ⇒ 先归档已完成条目腾号",而现读证明真因可以是**「没有连续段容量的租约窗」**
+ * (G 族:池内已占 815 / 空闲 184 / 最长可落窗游程 32 < 段容量 50)。两种成因的出路相反
+ * (无窗型靠散点让位腾不出窗),归因念错 = 把台账里的票全引向无效出路(AGENTS §0.3/§0.8/§10)。
+ *  ⇒ ①② 源码形状锁:拒绝行只能由 lib 那一份渲染器给、必须带机读 reason、出口代码不得再出现
+ *    "已满"断言,且本器只**读**租约窗做报告(段容量/池上限一个都不自赋 = 分配语义未动);
+ *    ③ 端到端:把段容量顶到 999(池内只要有一枚已占号就必然无 999 宽窗)⇒ stderr 必须念
+ *    "NO_CONTIGUOUS_LEASE_WINDOW / 但无连续 999 号租约窗",且一个"已满"都不许出现。
+ */
+test('T10 发不出号的两种成因必须分开念(结论与判据同形,2026-10-23)', () => {
+  const CODE = maskComments(TOOL_SRC)
+  assert.match(
+    CODE,
+    /describePoolExhaustion\(leaseView\)/,
+    '拒绝发号/警示行必须走 lib 的单源渲染器(出口各拼一句就是第二份口径,§0.6)',
+  )
+  assert.match(CODE, /reason=\$\{leaseView\.reason/, '机读 reason 必须随结论交出,调用方才分得了两档')
+  assert.doesNotMatch(
+    CODE,
+    /已满/,
+    '出口代码(遮注释后)不得再出现"已满"断言 —— 无窗型念成池已满就是假话',
+  )
+  assert.doesNotMatch(
+    CODE,
+    /leaseCursor\(\{[^}]*segmentSize/,
+    '本器不得自赋段容量(改了就是动分配语义,超出本票射程)',
+  )
+  assert.doesNotMatch(CODE, /leaseCursor\(\{[^}]*poolMax/, '本器不得自赋池上限(同上)')
+  assert.match(
+    CODE,
+    /leaseView\.mode === 'pool-exhausted'/,
+    '两出口口径分歧必须被真判出来并喊出来(静默给号 = 读不出第一出口会拒发)',
+  )
+  // ③ 真跑:段容量顶到 999 ⇒ 本器按最小空闲照样发号,而租约窗尺子必须点名"无连续窗"
+  const r = spawnSync(process.execPath, [CLI, '--source', 'origin/main'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 300_000,
+    env: { ...process.env, IHUI_LEASE_SEGMENT_SIZE: '999' },
+  })
+  assert.equal(r.status, 0, `结论层改动不得影响发号(本器按池内最小空闲给号):\n${r.stderr}`)
+  const err = String(r.stderr)
+  assert.match(
+    err,
+    /NO_CONTIGUOUS_LEASE_WINDOW/,
+    `池内确有闲号却无 999 宽窗 ⇒ 必须点名无窗型,实得 stderr:\n${err.slice(0, 600)}`,
+  )
+  assert.match(err, /但无连续 999 号租约窗/, '可读行必须把"空闲 N 枚 / 无连续 M 号窗"这一对念出来')
+  assert.doesNotMatch(err, /已满/, `无窗型的结论行不得念成"已满",实得:\n${err.slice(0, 600)}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

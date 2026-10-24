@@ -1,5 +1,5 @@
 {
-  "$schemaNote": "守门 8「未判定(前缀假设命中)」两腿(主腿 assumptionUndetermined + BP 腿 bareAssumption)的裁决台账(唯一一份,票 G-962 续作 2026-10-22 立)。主腿按 method|path 全局去重 ⇒ 匹配键 leg=main 用 method|path;BP 腿按 method|path|file 去重 ⇒ 匹配键 leg=bare 用 method|path|file。verdict ∈ {alive,dead,human-review}:alive=经判据证实可达(如 next.config.ts rewrite 转发面),dead=真值面重建(index.ts 注册表×export 块归属,3567 条全路径)证实无此注册,human-review=静态判据天然失明、须人定档的形态(e2e 夹具、placeholder、拼接基址)。三型判红:AJ1 条目形状不全(leg/method/path/verdict/reason/owner/reviewBy 缺一不可,bare 另需 file)或 reason/owner 为空、reviewBy 非 YYYY-MM-DD ⇒ 红;AJ2 reviewBy 已过 ⇒ 红,该站点打回未判定桶;AJ3 台账有而本轮被审面(仅 head 整仓面;staged/worktree 记未判定不冒红)找不到对应键 ⇒ 清单腐烂红(站点已删/已改对必须了结本条)。禁消音:已裁条目不退回未判定桶,但必须在「已裁决(台账)」块逐条点名,一条都不能少。锚点用内容键不用行号(site 字段仅溯源展示用)。〔2026-10-23 批7:13 条逐条复核实读,verdict 分布仍 3 alive / 5 dead / 5 human-review,**零条可裁** —— 能真正出桶的三条路(改前端源文件 / 补后端腿 / 扩提取器豁免面)全在本席允许清单外;本轮刷新全部证据行号(知识图谱 rewrite 真行是 next.config.ts:488-489,原记 484-486 是注释),并把三条 alive 的「提取器盲区」与五条 dead 的「后端无通用代理入口」写进 reason。〕",
+  "$schemaNote": "守门 8「未判定(前缀假设命中)」两腿(主腿 assumptionUndetermined + BP 腿 bareAssumption)的裁决台账(唯一一份,票 G-962 续作 2026-10-22 立)。主腿按 method|path 全局去重 ⇒ 匹配键 leg=main 用 method|path;BP 腿按 method|path|file 去重 ⇒ 匹配键 leg=bare 用 method|path|file。verdict ∈ {alive,dead,human-review}:alive=经判据证实可达(如 next.config.ts rewrite 转发面),dead=真值面重建(index.ts 注册表×export 块归属,3567 条全路径)证实无此注册,human-review=静态判据天然失明、须人定档的形态(e2e 夹具、placeholder、拼接基址)。三型判红:AJ1 条目形状不全(leg/method/path/verdict/reason/owner/reviewBy 缺一不可,bare 另需 file)或 reason/owner 为空、reviewBy 非 YYYY-MM-DD ⇒ 红;AJ2 reviewBy 已过 ⇒ 红,该站点打回未判定桶;AJ3 台账有而本轮被审面(仅 head 整仓面;staged/worktree 记未判定不冒红)找不到对应键 ⇒ 清单腐烂红(站点已删/已改对必须了结本条)。禁消音:已裁条目不退回未判定桶,但必须在「已裁决(台账)」块逐条点名,一条都不能少。锚点用内容键不用行号(site 字段仅溯源展示用)。〔2026-10-23 批7:13 条逐条复核实读,verdict 分布仍 3 alive / 5 dead / 5 human-review,**零条可裁** —— 能真正出桶的三条路(改前端源文件 / 补后端腿 / 扩提取器豁免面)全在本席允许清单外;本轮刷新全部证据行号(知识图谱 rewrite 真行是 next.config.ts:488-489,原记 484-486 是注释),并把三条 alive 的「提取器盲区」与五条 dead 的「后端无通用代理入口」写进 reason。〕〔2026-10-24 批8(票 G-962 续作·收窗,只动 reviewBy/reason):复审窗按 verdict 分档并全部压进 30–60 天 —— dead 30 天 ⇒ 2026-11-23(真 404,三档最短)、human-review 34 天 ⇒ 2026-11-27(等端持有人动手,与本族已收窗两条同档)、alive 60 天 ⇒ 2026-12-23(只取决于 next.config.ts 那条 rewrite 存续,稳定配置取最长)。本批未增删条目、未改 verdict/leg/method/path/file/owner,条目数现读仍 13(3 alive / 5 dead / 5 human-review)。窗的消费方是守门 8 自身的 AJ2(reviewBy < today ⇒ 台账问题判红 + 站点退回未判定桶),守门 108 check-exemption-expiry.mjs 不读这本台账(它只扫行内 *-exempt 标记与 lint 抑制面)。〕〔2026-10-24 批9(票 G-962 收口):5 条 dead 的前端代理回退已删(third-party-config 五个 proxyPath 移除 + startLogin 无代理入口即报未配置),按 AJ3 了结本条 ⇒ 条目数 13→8(3 alive / 0 dead / 5 human-review)。〕",
   "items": [
     {
       "leg": "main",
@@ -9,9 +9,9 @@
       "site": "apps/web/app/(main)/admin/edu/finance/helpers.ts:38",
       "verdict": "human-review",
       "evidence": "现读(2026-10-23):apps/web/app/(main)/admin/edu/finance/helpers.ts:38 `export const EDU_AI_BASE = '/api/edu-ai-management'`,提取器按 const 声明行判 ANY(isPathConstDecl),该常量不是调用点;真实调用为 ${EDU_AI_BASE}/student-roster 与 /payment-record。子路径后端在册:GET /api/edu-ai-management/payment-record [apps/api/src/routes/edu-ai-management.ts:4160] | POST /payment-record [4250] | GET /student-roster [5043]",
-      "reason": "逐条复核(2026-10-23 批7):全仓无对裸基址 /api/edu-ai-management 的 fetch,只拼子路径 ⇒ 非调用点,不产生 404;子路径已在册,无需后端腿。不可裁原因:要出桶只能改 helpers.ts(把基址常量改成不产出裸 /api 字面量的形态)或给守门加基址常量判据,两者都不在本席允许清单。等 apps/web 端持有人处置;子路径迁移时同步改档。",
+      "reason": "逐条复核(2026-10-23 批7):全仓无对裸基址 /api/edu-ai-management 的 fetch,只拼子路径 ⇒ 非调用点,不产生 404;子路径已在册,无需后端腿。不可裁原因:要出桶只能改 helpers.ts(把基址常量改成不产出裸 /api 字面量的形态)或给守门加基址常量判据,两者都不在本席允许清单。等 apps/web 端持有人处置;子路径迁移时同步改档。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-11-27(自 2026-10-24 起 34 天)。为什么是这个窗:human-review 等的是端持有人动手(改 apps/** / packages/** 源文件,或给提取器加基址常量判据),本席与门都代做不了,所以比 dead 略长一档才不至于到期即无人能续;但「静态判据天然失明」这一格必须按月被重问,取 34 天 = 与本族已被前席收窗的两条(2026-11-27)同档,不放宽既有最严的一档。〕",
       "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
+      "reviewBy": "2026-11-27"
     },
     {
       "leg": "main",
@@ -21,9 +21,9 @@
       "site": "apps/web/app/(main)/knowledge-graph/page.tsx:93",
       "verdict": "alive",
       "evidence": "现读(2026-10-23):apps/web/app/(main)/knowledge-graph/page.tsx:93 `apiOrThrow<GraphData>('/api/ai/knowledge-graph/data')`;apps/web/next.config.ts:488-489 `source: '/api/ai/knowledge-graph/:path*'` → `destination: ${IHUI_AI_PROXY_TARGET}/api/v1/ai/knowledge-graph/:path*`(规则排在 /api/:path* 兜底之前)",
-      "reason": "该前缀整体在 next rewrites 的 ai-service 转发面内 ⇒ 活(浏览器同源请求经 rewrite 命中 ai-service 8803,不经 apps/api 注册面)。**提取器盲区**(为什么它仍落前缀假设桶):主腿 policy REWRITE_EXEMPTION_CLAIMS 只登记 /api/llm/:path* 与 /api/voice/:path*,不含本条;假设面命中来自 compositePrefixes 的 /api/ai(apps/api/src/routes/index.ts:743 等)× v1-knowledge-tools 的 local /knowledge-graph/data(1323)笛卡尔拼接 —— 拼出的 /api/ai/... 是假路径;apps/api 真注册是 /api/v1/knowledge-graph/data(API Key 鉴权面,不适配页面登录态)。不改提取器(本席射程外)。到期复裁:rewrite 规则删/改窄 ⇒ 本条即死。",
+      "reason": "该前缀整体在 next rewrites 的 ai-service 转发面内 ⇒ 活(浏览器同源请求经 rewrite 命中 ai-service 8803,不经 apps/api 注册面)。**提取器盲区**(为什么它仍落前缀假设桶):主腿 policy REWRITE_EXEMPTION_CLAIMS 只登记 /api/llm/:path* 与 /api/voice/:path*,不含本条;假设面命中来自 compositePrefixes 的 /api/ai(apps/api/src/routes/index.ts:743 等)× v1-knowledge-tools 的 local /knowledge-graph/data(1323)笛卡尔拼接 —— 拼出的 /api/ai/... 是假路径;apps/api 真注册是 /api/v1/knowledge-graph/data(API Key 鉴权面,不适配页面登录态)。不改提取器(本席射程外)。到期复裁:rewrite 规则删/改窄 ⇒ 本条即死。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-12-23(自 2026-10-24 起 60 天)。为什么是这个窗:alive 成立与否只取决于 apps/web/next.config.ts:488-489 那条 rewrite 是否仍在册且没被人改窄 ——一份低频变更的稳定配置,复裁动作是「核对一次改写面」而不是补路由,所以取三档最长;但 rewrite 一旦被删这三条页面立刻变成真 404,窗也不得越过 60 天上限。〕",
       "owner": "apps/web next.config.ts 知识图谱转发规则持有人",
-      "reviewBy": "2027-01-22"
+      "reviewBy": "2026-12-23"
     },
     {
       "leg": "main",
@@ -33,9 +33,9 @@
       "site": "apps/web/app/(main)/knowledge-graph/page.tsx:100",
       "verdict": "alive",
       "evidence": "现读(2026-10-23):apps/web/app/(main)/knowledge-graph/page.tsx:100 `apiOrThrow<BuildResult>('/api/ai/knowledge-graph/build', { method: 'POST', ... })`;apps/web/next.config.ts:488-489 同一条 rewrite 覆盖 :path*",
-      "reason": "同 GET /api/ai/knowledge-graph/data:前缀在 next rewrites 的 ai-service 转发面内 ⇒ 活。提取器盲区同上(policy 只两条前缀;/api/ai × local /knowledge-graph/build(1298)的笛卡尔拼接是假路径,apps/api 真注册 /api/v1/knowledge-graph/build 是 API Key 面)。到期复裁:规则删/改窄 ⇒ 本条即死。",
+      "reason": "同 GET /api/ai/knowledge-graph/data:前缀在 next rewrites 的 ai-service 转发面内 ⇒ 活。提取器盲区同上(policy 只两条前缀;/api/ai × local /knowledge-graph/build(1298)的笛卡尔拼接是假路径,apps/api 真注册 /api/v1/knowledge-graph/build 是 API Key 面)。到期复裁:规则删/改窄 ⇒ 本条即死。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-12-23(自 2026-10-24 起 60 天)。为什么是这个窗:alive 成立与否只取决于 apps/web/next.config.ts:488-489 那条 rewrite 是否仍在册且没被人改窄 ——一份低频变更的稳定配置,复裁动作是「核对一次改写面」而不是补路由,所以取三档最长;但 rewrite 一旦被删这三条页面立刻变成真 404,窗也不得越过 60 天上限。〕",
       "owner": "apps/web next.config.ts 知识图谱转发规则持有人",
-      "reviewBy": "2027-01-22"
+      "reviewBy": "2026-12-23"
     },
     {
       "leg": "main",
@@ -45,9 +45,9 @@
       "site": "apps/web/app/(main)/knowledge-graph/page.tsx:119",
       "verdict": "alive",
       "evidence": "现读(2026-10-23):apps/web/app/(main)/knowledge-graph/page.tsx:119 `apiOrThrow<unknown>('/api/ai/knowledge-graph/data', { method: 'DELETE' })`;apps/web/next.config.ts:488-489 同一条 rewrite 覆盖 :path*",
-      "reason": "同 GET /api/ai/knowledge-graph/data:前缀在 next rewrites 的 ai-service 转发面内 ⇒ 活。提取器盲区同上(policy 只两条前缀;/api/ai × local /knowledge-graph/data(1378)的笛卡尔拼接是假路径)。到期复裁:规则删/改窄 ⇒ 本条即死。",
+      "reason": "同 GET /api/ai/knowledge-graph/data:前缀在 next rewrites 的 ai-service 转发面内 ⇒ 活。提取器盲区同上(policy 只两条前缀;/api/ai × local /knowledge-graph/data(1378)的笛卡尔拼接是假路径)。到期复裁:规则删/改窄 ⇒ 本条即死。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-12-23(自 2026-10-24 起 60 天)。为什么是这个窗:alive 成立与否只取决于 apps/web/next.config.ts:488-489 那条 rewrite 是否仍在册且没被人改窄 ——一份低频变更的稳定配置,复裁动作是「核对一次改写面」而不是补路由,所以取三档最长;但 rewrite 一旦被删这三条页面立刻变成真 404,窗也不得越过 60 天上限。〕",
       "owner": "apps/web next.config.ts 知识图谱转发规则持有人",
-      "reviewBy": "2027-01-22"
+      "reviewBy": "2026-12-23"
     },
     {
       "leg": "main",
@@ -57,9 +57,9 @@
       "site": "apps/web/app/(main)/settings/llm/helpers-v2.ts:34",
       "verdict": "human-review",
       "evidence": "现读(2026-10-23):apps/web/app/(main)/settings/llm/helpers-v2.ts:34 `const BASE = '/api/v2/user'`(提取器按 isPathConstDecl 判 ANY);子路径后端在册:GET /api/v2/user/llm-providers/templates [apps/api/src/routes/user-llm-configs-v2.ts:380] | GET /llm-providers [387] | POST /llm-providers [514] | POST /llm-providers/fetch-models [703]",
-      "reason": "逐条复核(2026-10-23 批7):裸根 /api/v2/user 从不被单独 fetch(全部为模板串 ${BASE}/...) ⇒ 非调用点,无 404 风险。不可裁原因:要出桶只能改 helpers-v2.ts 或给守门加基址常量判据,两者都不在本席允许清单。等 apps/web 端持有人处置;子路径迁移时同步改档。",
+      "reason": "逐条复核(2026-10-23 批7):裸根 /api/v2/user 从不被单独 fetch(全部为模板串 ${BASE}/...) ⇒ 非调用点,无 404 风险。不可裁原因:要出桶只能改 helpers-v2.ts 或给守门加基址常量判据,两者都不在本席允许清单。等 apps/web 端持有人处置;子路径迁移时同步改档。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-11-27(自 2026-10-24 起 34 天)。为什么是这个窗:human-review 等的是端持有人动手(改 apps/** / packages/** 源文件,或给提取器加基址常量判据),本席与门都代做不了,所以比 dead 略长一档才不至于到期即无人能续;但「静态判据天然失明」这一格必须按月被重问,取 34 天 = 与本族已被前席收窗的两条(2026-11-27)同档,不放宽既有最严的一档。〕",
       "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
+      "reviewBy": "2026-11-27"
     },
     {
       "leg": "main",
@@ -69,7 +69,7 @@
       "site": "apps/web/e2e/annotation-flow.spec.ts:54",
       "verdict": "human-review",
       "evidence": "现读(2026-10-23):apps/web/e2e/annotation-flow.spec.ts:54 是字符串数组元素 `'  const WS_MARK = \"/api/browser/ws/\";',` —— 假 WebSocket 拦截标记(FAKE_WS_INIT_SCRIPT 的脚本正文),不是可执行声明也不是 REST 调用(method 由 inferMethodAtLine 默认推断成 GET);真实 WS 在 apps/ai-service/app/routers/browser_hub.py:18 /browser/ws/{session_id};next.config.ts 注释 WS 直连 8803",
-      "reason": "结论(复裁 2026-10-23):WS 升级腿,不属 REST 对账面,不产生 REST 404,也不该补 REST 路由;按 schemaNote 以 human-review 登记豁免。不可裁原因:改 e2e 套件或给守门加 WS 腿都不在本席射程。复裁:若 e2e 改走 REST 轮询或 WS 面迁到 apps/api,本条改判。",
+      "reason": "结论(复裁 2026-10-23):WS 升级腿,不属 REST 对账面,不产生 REST 404,也不该补 REST 路由;按 schemaNote 以 human-review 登记豁免。不可裁原因:改 e2e 套件或给守门加 WS 腿都不在本席射程。复裁:若 e2e 改走 REST 轮询或 WS 面迁到 apps/api,本条改判。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):本条前席已收到 2026-11-27,窗档不变,此处只补齐同族理由。为什么是这个窗:human-review 等的是端持有人动手(改 apps/** / packages/** 源文件,或给提取器加基址常量判据),本席与门都代做不了,所以比 dead 略长一档才不至于到期即无人能续;但「静态判据天然失明」这一格必须按月被重问,取 34 天 = 与本族已被前席收窗的两条(2026-11-27)同档,不放宽既有最严的一档。〕",
       "owner": "apps/web e2e 套件持有人",
       "reviewBy": "2026-11-27"
     },
@@ -81,69 +81,9 @@
       "site": "apps/web/src/lib/api-registry.ts:20",
       "verdict": "human-review",
       "evidence": "现读(2026-10-23):apps/web/src/lib/api-registry.ts:20 `const BASE = '/api/registry'`(提取器按 isPathConstDecl 判 ANY),真实调用为 ${BASE}/items、/sync-logs、/sync、/install、/upgrade-all、/config-drift、/config-migrate、/worker-stats;子路径后端在册:GET /api/registry/items [apps/api/src/routes/registry-sync.ts:282] | GET /registry/items/:id [300] | GET /registry/sync-logs [316]",
-      "reason": "结论(复裁 2026-10-23):裸根 /api/registry 从不被单独 fetch ⇒ 非调用点。不可裁原因:要出桶只能改 api-registry.ts 或给守门加基址常量判据,两者都不在本席允许清单(原 owner 记的『提取器持有人』那一格也需该席拍)。等对应持有人处置;子路径迁移时同步改档。",
+      "reason": "结论(复裁 2026-10-23):裸根 /api/registry 从不被单独 fetch ⇒ 非调用点。不可裁原因:要出桶只能改 api-registry.ts 或给守门加基址常量判据,两者都不在本席允许清单(原 owner 记的『提取器持有人』那一格也需该席拍)。等对应持有人处置;子路径迁移时同步改档。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):本条前席已收到 2026-11-27,窗档不变,此处只补齐同族理由。为什么是这个窗:human-review 等的是端持有人动手(改 apps/** / packages/** 源文件,或给提取器加基址常量判据),本席与门都代做不了,所以比 dead 略长一档才不至于到期即无人能续;但「静态判据天然失明」这一格必须按月被重问,取 34 天 = 与本族已被前席收窗的两条(2026-11-27)同档,不放宽既有最严的一档。〕",
       "owner": "守门 8 提取器持有人(拼接型 URL 基址形态判据)",
       "reviewBy": "2026-11-27"
-    },
-    {
-      "leg": "main",
-      "method": "GET",
-      "path": "/api/auth/google",
-      "file": "apps/web/src/lib/third-party-config.ts",
-      "site": "apps/web/src/lib/third-party-config.ts:120",
-      "verdict": "dead",
-      "evidence": "现读(2026-10-23):apps/web/src/lib/third-party-config.ts:120 `proxyPath: '/api/auth/google'`;触发点是 apps/web/src/hooks/use-third-party-auth.ts:364 `window.location.href = `${config.proxyPath}?state=...``(仅当 canDirectRedirect=false,即 NEXT_PUBLIC_GOOGLE_CLIENT_ID 缺失时命中)。后端现读无 GET /api/auth/google:同族仅 /auth/google/pc/wxCode [apps/api/src/routes/auth-extended.ts:1107] 与 /auth/google/android/wxCode [1115];通用代理入口 /auth/oauth/:provider/redirect [3749] 的 z.enum 白名单仅 oidc/discord",
-      "reason": "逐条复核(2026-10-23 批7):proxyPath 是真导航目标,缺 clientId 时浏览器整页跳到后端 ⇒ 现读无此注册 = 真 404,不是提取器误报。不可裁原因:两条正路都在本席允许清单外 —— ①后端补 /api/auth/<platform> 通用代理入口(apps/api/src/routes/**,票内批 7);②hook 腿改成未配置即提示(use-third-party-auth.ts)。把 proxyPath 改成拼接/空串只会把 404 藏起来(§0.10 失效方向不能是多放一次跳门),本席不做。等批 7 后端腿。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "GET",
-      "path": "/api/auth/apple",
-      "file": "apps/web/src/lib/third-party-config.ts",
-      "site": "apps/web/src/lib/third-party-config.ts:133",
-      "verdict": "dead",
-      "evidence": "现读(2026-10-23):apps/web/src/lib/third-party-config.ts:133 `proxyPath: '/api/auth/apple'`;触发点同 google(use-third-party-auth.ts:364,缺 NEXT_PUBLIC_APPLE_CLIENT_ID 时走该回退)。后端现读 zero:auth/apple —— apps/api/src/routes/*.ts 里没有任何 `server.get('/auth/apple'` 形态注册,通用代理入口白名单仅 oidc/discord(auth-extended.ts:3749)",
-      "reason": "同 GET /api/auth/google:真 404,不是误报。不可裁原因同上(后端腿批 7 / hook 腿均在本席允许清单外);Apple 连同族具体动作端点都没有 ⇒ 后端腿工作量最大。等批 7。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "GET",
-      "path": "/api/auth/dingtalk",
-      "file": "apps/web/src/lib/third-party-config.ts",
-      "site": "apps/web/src/lib/third-party-config.ts:150",
-      "verdict": "dead",
-      "evidence": "现读(2026-10-23):apps/web/src/lib/third-party-config.ts:150 `proxyPath: '/api/auth/dingtalk'`;触发点同 google(use-third-party-auth.ts:364,缺 NEXT_PUBLIC_DINGTALK_CLIENT_ID/APP_ID 时走该回退)。后端同族仅 GET /auth/dingtalk/auth-url [apps/api/src/routes/auth-extended.ts:1414](回 JSON)与 GET /auth/dingtalk/login [1427],无 302 代理入口",
-      "reason": "同 GET /api/auth/google:真 404。不可裁原因同上;把 proxyPath 改成 /auth/dingtalk/auth-url 会让整页导航落到 JSON 响应上,比 404 更难排查 ⇒ 不做。等批 7 补代理入口。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "GET",
-      "path": "/api/auth/github",
-      "file": "apps/web/src/lib/third-party-config.ts",
-      "site": "apps/web/src/lib/third-party-config.ts:193",
-      "verdict": "dead",
-      "evidence": "现读(2026-10-23):apps/web/src/lib/third-party-config.ts:193 `proxyPath: '/api/auth/github'`;触发点同 google(use-third-party-auth.ts:364,缺 NEXT_PUBLIC_GITHUB_CLIENT_ID 时命中)。后端现读 zero:auth/github,通用代理入口白名单仅 oidc/discord(auth-extended.ts:3749)",
-      "reason": "同 GET /api/auth/google:真 404。不可裁原因同上(后端腿批 7 / hook 腿均在本席允许清单外)。等批 7。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
-    },
-    {
-      "leg": "main",
-      "method": "GET",
-      "path": "/api/auth/feishu",
-      "file": "apps/web/src/lib/third-party-config.ts",
-      "site": "apps/web/src/lib/third-party-config.ts:207",
-      "verdict": "dead",
-      "evidence": "现读(2026-10-23):apps/web/src/lib/third-party-config.ts:207 `proxyPath: '/api/auth/feishu'`;触发点同 google(use-third-party-auth.ts:364,缺 NEXT_PUBLIC_FEISHU_CLIENT_ID/APP_ID 时命中)。后端现读 zero:auth/feishu,通用代理入口白名单仅 oidc/discord(auth-extended.ts:3749)",
-      "reason": "同 GET /api/auth/google:真 404。不可裁原因同上。等批 7 后端腿。",
-      "owner": "apps/web 端持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
     },
     {
       "leg": "main",
@@ -153,9 +93,9 @@
       "site": "packages/api-client/src/endpoints/agent.ts:177",
       "verdict": "human-review",
       "evidence": "现读(2026-10-23):packages/api-client/src/endpoints/agent.ts:177 `const WITHDRAWAL_BASE = '/api/agent-ext/withdrawal'`(提取器按 isPathConstDecl 判 ANY);子路径后端均在册:GET /list [apps/api/src/routes/agent-extended.ts:644] | /summary [664] | POST /create [688] | GET /:id [712] | /stats/overview [870],挂载前缀 /api/agent-ext(routes/index.ts:789)",
-      "reason": "结论(复裁 2026-10-23):裸根从不单独 fetch(全部 ${WITHDRAWAL_BASE}/...),且该组导出全仓源码零消费方(只有 packages/api-client/dist/*.d.ts 构建产物留名;src/index.ts:242 仍 export *)⇒ 非调用点、无 404 风险。不可裁原因:零消费方的正解是摘导出,但 agent.ts 不在本席允许清单。等 packages/api-client 端点持有人摘除或补消费方时复裁。",
+      "reason": "结论(复裁 2026-10-23):裸根从不单独 fetch(全部 ${WITHDRAWAL_BASE}/...),且该组导出全仓源码零消费方(只有 packages/api-client/dist/*.d.ts 构建产物留名;src/index.ts:242 仍 export *)⇒ 非调用点、无 404 风险。不可裁原因:零消费方的正解是摘导出,但 agent.ts 不在本席允许清单。等 packages/api-client 端点持有人摘除或补消费方时复裁。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-11-27(自 2026-10-24 起 34 天)。为什么是这个窗:human-review 等的是端持有人动手(改 apps/** / packages/** 源文件,或给提取器加基址常量判据),本席与门都代做不了,所以比 dead 略长一档才不至于到期即无人能续;但「静态判据天然失明」这一格必须按月被重问,取 34 天 = 与本族已被前席收窗的两条(2026-11-27)同档,不放宽既有最严的一档。〕",
       "owner": "packages/api-client 端点持有人(票 G-962 续作代裁,复裁归该端)",
-      "reviewBy": "2027-01-22"
+      "reviewBy": "2026-11-27"
     }
   ]
 }

@@ -557,6 +557,32 @@ describe('retryPendingCheckinSyncs', () => {
     expect(extra.__vals).toContain('cred')
   })
 
+  it('停用行的 cred pending → 直接清腿:零 fetch、零 retried(停用不占重推位)', async () => {
+    hoisted.pendingRows.push(pendingCredRow({ isEnabled: false }))
+    const fetchMock = makeFetchMock({})
+    const r = await retryPendingCheckinSyncs(10, fetchMock)
+    expect(r).toEqual({ retried: 0, cleared: 1, stillPending: 0, droppedNoEngine: 0 })
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(hoisted.updateCalls).toHaveLength(1) // 仅 clear
+  })
+
+  it('停用行的 state pending → 照常重推(停用/删除态载体绝不随停用清腿)', async () => {
+    hoisted.pendingRows.push(
+      pendingCredRow({
+        isEnabled: false,
+        extraMetadata: {
+          checkinSync: { pending: true, pendingKind: 'state', state: 'disabled', attempts: 1 },
+        },
+      }),
+    )
+    const fetchMock = makeFetchMock({
+      state: () => jsonResponse({ results: [{ uid: 'uid-1', found: true }] }),
+    })
+    const r = await retryPendingCheckinSyncs(10, fetchMock)
+    expect(r).toMatchObject({ retried: 1, cleared: 1, stillPending: 0 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('state 行按 meta.state 原样重推(pool_deleted 也认)', async () => {
     hoisted.pendingRows.push(
       pendingCredRow({

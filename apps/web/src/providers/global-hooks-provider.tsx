@@ -34,15 +34,11 @@ const SETTINGS_PATH = '/settings'
 /** 浮层层栈 id(见 @/lib/overlay-stack):Ctrl+/ 帮助面板是全页最上层 */
 const SHORTCUT_HELP_OVERLAY_ID = 'global-shortcut-help-panel'
 
-/**
- * Ctrl+K 命令面板的层栈 id(2026-09-25,Radix 协作桥):
- * CommandPalette 是 Radix Dialog(@ihui/ui-react),自带 Esc 关闭但不注册层栈。
- * 若不桥接,"帮助面板 + 命令面板"叠开时栈顶仍是先注册的帮助面板,
- * 一次 Esc 会被 Radix(关命令面板)与帮助面板的 window 监听(判栈顶 true)双消费。
- * 桥接只做注册(open → push,close → pop):Radix 的关闭逻辑自理,
- * 注册仅让其它已注册层让位(fail-open 语义不变)。
- */
-const COMMAND_PALETTE_OVERLAY_ID = 'global-command-palette'
+// (2026-10-23 摘除)Ctrl+K 命令面板曾有"Radix 协作桥"(pushOverlay('global-command-palette')):
+// 该桥建于 Dialog 家族内建层栈注册(use-esc-stack mergeEscStackRef)之前。内建注册落地后,
+// 桥接的 passive effect 反而晚于 Content 的 ref push 入栈,把自家 Content 压成"非栈顶",
+// guardEscKeyDown 拦死 Radix dismiss ⇒ 命令面板 Esc 永远关不掉(单层/叠层均中招,
+// e2e/overlay-stack-esc.spec.ts 真机取证)。Radix 侧 Esc 注册已由内建机制自理,桥不再需要。
 
 const SHORTCUT_ROUTES: Record<string, string> = {
   'global-shortcut:search': '/search',
@@ -175,14 +171,6 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   const { resolvedTheme, setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
 
-  // 命令面板(Radix Dialog)桥接层栈:打开时成为栈顶,关闭时退出。
-  // Esc 仍由 Radix 自理;本注册只让帮助面板等已注册层在命令面板之上时让位。
-  React.useEffect(() => {
-    if (!showCommandPalette) return
-    pushOverlay(COMMAND_PALETTE_OVERLAY_ID)
-    return () => popOverlay(COMMAND_PALETTE_OVERLAY_ID)
-  }, [showCommandPalette])
-
   // 主题跨标签页同步:其他标签页修改 localStorage('theme')时,通过 setTheme 跟随
   // next-themes 自带 localStorage 持久化但不监听 storage 事件,需手动桥接。
   React.useEffect(() => {
@@ -312,6 +300,8 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       {showHelpPanel && (
         <div
           role="presentation"
+          // Esc 无层栈协议真机逐层断言的把手(见 e2e/overlay-stack-esc.spec.ts)
+          data-testid="shortcut-help-overlay"
           // className 的 fixed/inset-0 是给 modal-overlay-watcher 的选择器认的:
           // 该 watcher 只遍历 [class~="fixed"][class~="inset-0"] 候选,纯内联 style 写的全屏遮罩
           // 会被漏检 ⇒ 本面板打开期间三按钮不被等效压暗(全站模态都压、唯独它不压,视觉不一致)。

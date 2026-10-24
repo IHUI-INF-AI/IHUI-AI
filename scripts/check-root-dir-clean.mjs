@@ -304,6 +304,12 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   // "未跟踪根条目"形态让守门 44 在 --staged 下 exit 2(归属无从判定)⇒ 批量按 blocking 计
   // ⇒ 每枚提交都被逼走应急旁路(连带跳过全部守门)—— §12e 恒红门同型,登记即解除。
   '.runtime',
+  // 2026-10-24 登记:Loomy 会话附件目录(用户上传的附件/图片落 `<workspace>/.loomy-attachments/ses_*/`,
+  // 跨会话长期驻留,后续上传仍会在根重建同名目录 ⇒ 搬/删无效,与 `.spec-mode`/`.runtime`/
+  // `.codeartsdoer` 同类:只登记、不搬不删)。解除 §12e 同型恒红:本条缺失时守门 44 在 --staged 面
+  // 对"未跟踪、非忽略"的它报"无法判定"(exit 2),safe-commit 归因算法证明不了差分 ⇒ 每枚提交都被
+  // 逼走应急旁路 —— 2026-10-24 实测:提交 f2962f1ef91a 即由此走 `--no-verify` 留痕(undetermined-red)。
+  '.loomy-attachments',
   // 2026-10-12 登记:IDE 工具态家目录(backups/cache/tools/Temp,实测 16GB,2026-09-30 起在盘)。
   // 与 `.vscode`/`.qoder`/`.workbuddy` 同类:只登记、不搬不删(删了会打断他人正在用的工具态)。
   // 本条同时解除守门 44 在 --staged 下点名该目录 ⇒ 提交链被迫 --no-verify 的系统性风险(§12e 同型)。

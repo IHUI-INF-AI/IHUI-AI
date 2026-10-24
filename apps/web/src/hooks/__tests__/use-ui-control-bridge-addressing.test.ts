@@ -123,4 +123,35 @@ describe('web UI 桥 assignment 定址', () => {
     expect(warnSpy.mock.calls.flat().join(' ')).not.toContain('req-other-cat')
   })
 })
+
+describe('web UI 桥协议 ordinal 接线(G-86,取值来源=服务端派发序号)', () => {
+  function wsFrameOrd(requestId: string, ordinal: number) {
+    return {
+      type: 'notification',
+      data: {
+        type: 'agent.action',
+        request: { requestId, category: 'ui', action: 'describe', params: {}, ordinal },
+      },
+    } as never
+  }
+
+  it('同 ordinal + 同 requestId 重投 → 水位判 duplicate,只执行一次', async () => {
+    const ordinal = Date.now()
+    handleWsMessage(wsFrameOrd('req-ui-ord-replay', ordinal))
+    handleWsMessage(wsFrameOrd('req-ui-ord-replay', ordinal))
+    await vi.waitFor(() => expect(executeUiActionMock).toHaveBeenCalledTimes(1))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(executeUiActionMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('低 ordinal 残帧 → 水位判 stale 静默丢,不执行(残帧 id 从未见过,id 集拦不住)', async () => {
+    const base = Date.now()
+    handleWsMessage(wsFrameOrd('req-ui-ord-new', base + 10))
+    await vi.waitFor(() => expect(executeUiActionMock).toHaveBeenCalledTimes(1))
+    executeUiActionMock.mockClear()
+    handleWsMessage(wsFrameOrd('req-ui-ord-old', base))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(executeUiActionMock).not.toHaveBeenCalled()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

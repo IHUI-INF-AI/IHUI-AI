@@ -343,13 +343,8 @@ export default function Bill() {
               {tt('bill.paymentHistory', '缴费记录')}
             </Text>
             <View className="mt-[16rpx] rounded-lg border border-[var(--color-border)] bg-card px-[24rpx]">
-              {data.payments.map((p, idx) => (
-                <View
-                  key={p.id}
-                  className={`flex items-center justify-between py-[20rpx] ${
-                    idx > 0 ? 'border-t border-[var(--color-border)]' : ''
-                  }`}
-                >
+              {data.payments.map((p) => (
+                <View key={p.id} className="flex items-center justify-between py-[20rpx]">
                   <View className="flex-1">
                     <Text className="block text-[length:26rpx] text-foreground">
                       {codeText(PAY_METHOD_KEY, p.paymentMethod)}

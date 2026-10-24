@@ -160,6 +160,17 @@ vi.mock('../src/config/index.js', () => ({
 import { authRoutes } from '../src/routes/auth.js'
 import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store.js'
 
+/** G-876:register 只认 register 场景发出的短信码;夹具按发送端同口径备一枚。 */
+async function seedRegisterCode(phone: string, code = '123456'): Promise<void> {
+  const now = Date.now()
+  await putCodeEntry(phone, {
+    code,
+    expiresAt: now + 10 * 60 * 1000,
+    sentAt: now,
+    scene: 'register',
+  } as never)
+}
+
 const NOW = new Date('2026-07-26T00:00:00Z')
 
 function makeUser(overrides: Record<string, unknown> = {}) {
@@ -216,6 +227,8 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await codeStoreTest.reset()
+    // G-876:短信通道未配置时 register 一律 503;本文件测权限解析,用代理档(死端口)点亮判据。
+    process.env.SMS_API_BASE_URL = 'http://127.0.0.1:1'
     // 默认鉴权失败(401)
     mockAuthenticate.mockImplementation(() => {
       const err = new Error('Authentication required')
@@ -469,10 +482,11 @@ describe('auth-permission — 权限/角色/2FA/偏好高风险路由', () => {
       mockFindUserByPhone.mockResolvedValueOnce(null)
       mockCreateUser.mockResolvedValueOnce(makeUser({ roleId: 0 }))
       mockGetUserPermissions.mockResolvedValueOnce([])
+      await seedRegisterCode('13800000001')
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/register',
-        payload: { phone: '13800000001', password: 'pass1234' },
+        payload: { phone: '13800000001', password: 'pass1234', code: '123456' },
       })
       expect(res.statusCode).toBe(200)
       expect(res.json().data.user.permissions).toEqual([])

@@ -90,15 +90,17 @@ const PLAZA_TASK_STATUS = {
 const FLOAT_BOX_DEFAULT = { visible: false, type: 'info' as FloatBoxType, message: '' }
 
 /**
- * 需求赛道 fallback(对齐原项目 plaza/index.vue category(1) → categorySaidao 首项"全公司";
- * 与 HomeScreen AGENT_CATEGORY_FALLBACK 同源语义,API 失败时兜底避免筛选弹层为空)。
+ * 需求赛道 fallback(对齐原项目 plaza/index.vue category(1) → categorySaidao 首项「全公司」;
+ * RN 无中文赛道名接口 ⇒ 兜底 5 项走 i18n 键,消费侧 makePlazaCategoryFallback 解析)
+ * [2026-10-24 修复头尾脱节]原定义名 FALLBACK_TRACKS 与两处引用名 PLAZA_CATEGORY_FALLBACK
+ * 改名改半(HEAD 即 TS2304 悬空引用),本次一并接正。
  */
-const PLAZA_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
-  { id: '', name: '全公司' },
-  { id: 'tech', name: '技术' },
-  { id: 'design', name: '设计' },
-  { id: 'market', name: '市场' },
-  { id: 'operation', name: '运营' },
+const PLAZA_TRACK_FALLBACK_KEYS: ReadonlyArray<{ id: string; nameKey: string }> = [
+  { id: '', nameKey: 'plaza.index.trackAll' },
+  { id: 'tech', nameKey: 'plaza.index.trackTech' },
+  { id: 'design', nameKey: 'plaza.index.trackDesign' },
+  { id: 'market', nameKey: 'plaza.index.trackMarket' },
+  { id: 'operation', nameKey: 'plaza.index.trackOperation' },
 ]
 
 /**
@@ -111,14 +113,15 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
   }
 }
 
-/** ConversationDetail → DrawerConversationItem 映射(对齐 ProfileScreen mapConversationToDrawer) */
-function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem {
+/** ConversationDetail → DrawerConversationItem 映射(对齐 ProfileScreen mapConversationToDrawer;
+ *  空标题兜底文案由调用方以 i18n 传入,禁止端内写死) */
+function mapConversationToDrawer(c: ConversationDetail, untitled: string): DrawerConversationItem {
   const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
   const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
   const model = c.model ?? ''
   return {
     id: c.id,
-    title: c.title?.trim() || '未命名对话',
+    title: c.title?.trim() || untitled,
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
@@ -132,6 +135,13 @@ export function PlazaScreen() {
   const rootNav = navigation.getParent<RootNav>()
   // 悬浮 TabBar 让位(2026-10-16):内容滚到底部时仍完整露在胶囊之上,可继续滚到玻璃底下
   const insets = useSafeAreaInsets()
+
+  /** 赛道兜底 5 项(nameKey→展示词,语言切换后新拉取自然用新语言) */
+  const makePlazaCategoryFallback = useCallback(
+    (): AgentCategoryItem[] =>
+      PLAZA_TRACK_FALLBACK_KEYS.map((f) => ({ id: f.id, name: t(f.nameKey) })),
+    [t],
+  )
 
   /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;Plaza 为 RootStack 独立路由,经 Main 聚焦 Tab) */
   const handleTabChange = (key: TabBarKey): void => {
@@ -166,8 +176,9 @@ export function PlazaScreen() {
   const [showSearch, setShowSearch] = useState(false)
   const [floatBox, setFloatBox] = useState(FLOAT_BOX_DEFAULT)
   // 需求赛道筛选(对齐原项目 plaza/index.vue:顶栏 showFenLei 分类按钮 → categorySaidao 赛道弹层)
-  const [trackCategories, setTrackCategories] =
-    useState<ReadonlyArray<AgentCategoryItem>>(PLAZA_CATEGORY_FALLBACK)
+  const [trackCategories, setTrackCategories] = useState<ReadonlyArray<AgentCategoryItem>>(() =>
+    makePlazaCategoryFallback(),
+  )
   const [selectedCategory, setSelectedCategory] = useState('')
   const [categoryVisible, setCategoryVisible] = useState(false)
   // 身份切换弹窗(对齐原项目 plaza/index.vue L78-108:切换身份 Modal)
@@ -227,7 +238,7 @@ export function PlazaScreen() {
       } catch (e: unknown) {
         // 透出服务端的具体原因(如 429 需人机验证);错误体无可用信息时才回退本页通用文案
         const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-        const errMsg = detail.trim() ? toUserFriendlyMessage(e) : '加载失败,请下拉刷新重试'
+        const errMsg = detail.trim() ? toUserFriendlyMessage(e) : t('plaza.index.loadFailedRefresh')
         setError(errMsg)
         showFloat(errMsg)
       } finally {
@@ -236,7 +247,7 @@ export function PlazaScreen() {
         setLoadingMore(false)
       }
     },
-    [status, search, selectedCategory, user?.id, showFloat],
+    [status, search, selectedCategory, user?.id, showFloat, t],
   )
 
   useEffect(() => {
@@ -275,14 +286,14 @@ export function PlazaScreen() {
     try {
       const res = await getAgentCategories()
       if (res.success && res.data && Array.isArray(res.data.agentCategory)) {
-        setTrackCategories([{ id: '', name: '全公司' }, ...res.data.agentCategory])
+        setTrackCategories([{ id: '', name: t('plaza.index.trackAll') }, ...res.data.agentCategory])
         return
       }
     } catch {
       // 分类加载失败:保持兜底列表,不阻塞主流程
     }
-    setTrackCategories(PLAZA_CATEGORY_FALLBACK)
-  }, [])
+    setTrackCategories(makePlazaCategoryFallback())
+  }, [makePlazaCategoryFallback, t])
 
   useEffect(() => {
     void loadTrackCategories()
@@ -298,13 +309,15 @@ export function PlazaScreen() {
   const loadDrawerConversations = useCallback(async () => {
     const res = await listConversations({ page: 1, pageSize: 50 })
     if (res.success) {
-      const list: DrawerConversationItem[] = res.data.conversations.map(mapConversationToDrawer)
+      const list: DrawerConversationItem[] = res.data.conversations.map((c) =>
+        mapConversationToDrawer(c, t('plaza.index.untitledConv')),
+      )
       setDrawerConversations(list)
     } else {
       setDrawerConversations([])
     }
     setDrawerConversationsLoaded(true)
-  }, [])
+  }, [t])
 
   useEffect(() => {
     if (drawerVisible && !drawerConversationsLoaded && user) {
@@ -334,7 +347,7 @@ export function PlazaScreen() {
     setDrawerVisible(false)
     // 真复制资料链接后再提示(对齐原项目 lingqu → setClipboardData)
     Clipboard.setString(FREE_RESOURCE_URL)
-    showFloat('链接已复制', 'success')
+    showFloat(t('plaza.index.linkCopied'), 'success')
   }
 
   const handleDrawerCreateNewChat = () => {
@@ -352,6 +365,10 @@ export function PlazaScreen() {
     } as never)
   }
 
+  // [2026-10-24 修复并发写拼接残骸]原 376-385 把「删除会话」与一段引用不存在
+  // (setPendingDeleteId/drawerTab 在本组件无声明)的「删帖子」IIFE 尾块焊在一起,
+  // 属另一会话旧基线回写事故。按本组件可查证符号(load/showFloat/loadDrawerConversations)
+  // 重建为 ProfileScreen 同型语义:删除失败回滚+toast,成功刷新+toast。
   const handleDrawerDeleteConversation = (id: string) => {
     const snapshot = drawerConversations
     setDrawerConversations((prev) => prev.filter((c) => c.id !== id))
@@ -359,10 +376,11 @@ export function PlazaScreen() {
       const res = await deleteConversation(id)
       if (!res.success) {
         setDrawerConversations(snapshot)
-        showFloat('删除失败,请重试', 'warning')
-      } else {
-        showFloat('删除成功', 'success')
+        showFloat(t('plaza.index.delFailedRetry'), 'warning')
+        return
       }
+      void load({ reset: true })
+      showFloat(t('plaza.index.delOk'), 'success')
     })()
   }
 
@@ -415,32 +433,38 @@ export function PlazaScreen() {
 
   const drawerUser = {
     avatar: user?.avatar,
-    nickname: user?.nickname ?? user?.username ?? '未登录',
+    nickname: user?.nickname ?? user?.username ?? t('plaza.index.notLoggedIn'),
     level: ((user as { isVip?: boolean } | null)?.isVip ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
   const leftActions = useMemo<ReadonlyArray<NavBarAction>>(
-    () => [{ icon: PanelLeftRounded, a11yLabel: '菜单', onPress: () => setDrawerVisible(true) }],
-    [],
+    () => [
+      {
+        icon: PanelLeftRounded,
+        a11yLabel: t('common.menu'),
+        onPress: () => setDrawerVisible(true),
+      },
+    ],
+    [t],
   )
 
   return (
     <View style={styles.container}>
       <NavChrome>
         <NavBar
-          title="AI需求广场"
+          title={t('plaza.index.title')}
           leftActions={leftActions}
           onBack={() => navigation.goBack()}
           rightActions={[
             {
               icon: FolderOpen,
-              label: '分类',
+              label: t('plaza.index.navCategory'),
               // 对齐原项目 navigation-bars showFenLei → 赛道筛选弹层(ScrollTitle + Tab)
               onPress: () => setCategoryVisible(true),
             },
             {
               icon: User,
-              label: '身份',
+              label: t('plaza.index.identityLabel'),
               // 对齐原项目 plaza/index.vue setshowBottom → 切换身份弹窗
               onPress: () => setIdentityVisible(true),
             },
@@ -450,7 +474,7 @@ export function PlazaScreen() {
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               onPress={() => setShowSearch((v) => !v)}
               accessibilityRole="button"
-              accessibilityLabel="搜索"
+              accessibilityLabel={t('common.search')}
             >
               {showSearch ? (
                 <X size={20} color={tokens.text.medium} />
@@ -513,8 +537,8 @@ export function PlazaScreen() {
         visible={categoryVisible}
         onVisibleChange={setCategoryVisible}
         hideTrigger
-        panelTitle="选择需求赛道"
-        backdropA11yLabel="关闭赛道筛选"
+        panelTitle={t('plaza.index.trackPanelTitle')}
+        backdropA11yLabel={t('plaza.index.closeTrackFilter')}
         testID="plaza-track-dropdown"
       />
       {/* 身份切换弹窗(对齐原项目 plaza/index.vue L78-108:
@@ -528,10 +552,10 @@ export function PlazaScreen() {
         <Pressable
           style={styles.categoryMask}
           onPress={() => setIdentityVisible(false)}
-          accessibilityLabel="关闭身份切换"
+          accessibilityLabel={t('plaza.index.closeIdentity')}
         >
           <Pressable style={styles.identityCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.identityTitle}>切换身份</Text>
+            <Text style={styles.identityTitle}>{t('plaza.index.identityTitle')}</Text>
             {/* 身份用户区(对齐原项目 plaza/index.vue identity-user:头像 + 昵称 + 副文案) */}
             <View style={styles.identityUser}>
               {user?.avatar ? (
@@ -543,9 +567,9 @@ export function PlazaScreen() {
               )}
               <View style={styles.identityUserInfo}>
                 <Text style={styles.identityNickname}>
-                  {user?.nickname || user?.username || '未登录用户'}
+                  {user?.nickname || user?.username || t('plaza.index.notLoggedInUser')}
                 </Text>
-                <Text style={styles.identitySubtext}>选择合适的身份，更好地发布或承接需求</Text>
+                <Text style={styles.identitySubtext}>{t('plaza.index.identitySub')}</Text>
               </View>
             </View>
             <View style={styles.identityButtons}>
@@ -557,9 +581,11 @@ export function PlazaScreen() {
                   void AsyncStorage.setItem('userStatus', 'nomal')
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="找大佬开发"
+                accessibilityLabel={t('plaza.index.identityFindDemander')}
               >
-                <Text style={styles.identityBtnTextOutline}>找大佬开发</Text>
+                <Text style={styles.identityBtnTextOutline}>
+                  {t('plaza.index.identityFindDemander')}
+                </Text>
               </Pressable>
               <Pressable
                 style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
@@ -571,9 +597,9 @@ export function PlazaScreen() {
                   })
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="我是开发者"
+                accessibilityLabel={t('plaza.index.identityImDev')}
               >
-                <Text style={styles.identityBtnTextPrimary}>我是开发者</Text>
+                <Text style={styles.identityBtnTextPrimary}>{t('plaza.index.identityImDev')}</Text>
               </Pressable>
             </View>
             <Pressable
@@ -583,12 +609,10 @@ export function PlazaScreen() {
                 setNoticeVisible(true)
               }}
               accessibilityRole="button"
-              accessibilityLabel="开发者须知"
+              accessibilityLabel={t('plaza.index.devNoticeTitle')}
             >
-              <Text style={styles.identityFooterTitle}>开发者须知</Text>
-              <Text style={styles.identityFooterText}>
-                成为开发者前，请先阅读并确认开发者须知。
-              </Text>
+              <Text style={styles.identityFooterTitle}>{t('plaza.index.devNoticeTitle')}</Text>
+              <Text style={styles.identityFooterText}>{t('plaza.index.footerDesc')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -603,39 +627,39 @@ export function PlazaScreen() {
         <Pressable
           style={styles.categoryMask}
           onPress={() => setNoticeVisible(false)}
-          accessibilityLabel="关闭开发者须知"
+          accessibilityLabel={t('plaza.index.closeDevNotice')}
         >
           <Pressable style={styles.identityCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.identityTitle}>开发者须知</Text>
+            <Text style={styles.identityTitle}>{t('plaza.index.devNoticeTitle')}</Text>
             <View style={styles.noticeList}>
               <Text style={styles.noticeItem}>
-                <Text style={styles.noticeBold}>1. 开发者责任 </Text>
-                开发者应当确保所提供的技术服务符合相关法律法规，不得提供违法违规的技术支持。
+                <Text style={styles.noticeBold}>{t('plaza.index.n1t')}</Text>
+                {t('plaza.index.n1b')}
               </Text>
               <Text style={styles.noticeItem}>
-                <Text style={styles.noticeBold}>2. 知识产权 </Text>
-                开发者应当尊重知识产权，不得侵犯他人的专利权、著作权、商标权等合法权益。
+                <Text style={styles.noticeBold}>{t('plaza.index.n2t')}</Text>
+                {t('plaza.index.n2b')}
               </Text>
               <Text style={styles.noticeItem}>
-                <Text style={styles.noticeBold}>3. 交易规范 </Text>
-                开发者与需求方的交易应当遵循公平、公正、诚信的原则，确保交易过程的透明化。
+                <Text style={styles.noticeBold}>{t('plaza.index.n3t')}</Text>
+                {t('plaza.index.n3b')}
               </Text>
               <Text style={styles.noticeItem}>
-                <Text style={styles.noticeBold}>4. 隐私保护 </Text>
-                开发者应当严格保护用户隐私，不得泄露、出售或非法使用用户个人信息。
+                <Text style={styles.noticeBold}>{t('plaza.index.n4t')}</Text>
+                {t('plaza.index.n4b')}
               </Text>
               <Text style={styles.noticeItem}>
-                <Text style={styles.noticeBold}>5. 技术标准 </Text>
-                开发者应当提供符合行业标准的技术服务，确保技术方案的可行性和可靠性。
+                <Text style={styles.noticeBold}>{t('plaza.index.n5t')}</Text>
+                {t('plaza.index.n5b')}
               </Text>
             </View>
             <Pressable
               style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
               onPress={() => setNoticeVisible(false)}
               accessibilityRole="button"
-              accessibilityLabel="我知道了"
+              accessibilityLabel={t('common.gotIt')}
             >
-              <Text style={styles.identityBtnTextPrimary}>我知道了</Text>
+              <Text style={styles.identityBtnTextPrimary}>{t('common.gotIt')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -655,7 +679,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: tokens.gray.black,
   } as TextStyle,
-  // 需求赛道筛选弹层样式(圆角守门:仅 8/12)
+  // 通用弹层遮罩(身份切换 / 开发者须知共用;赛道筛选已迁统一 CategoryDropdown)
   categoryMask: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

@@ -33,7 +33,7 @@ import { webhookSubscriptions, webhookDeliveryLogs } from '@ihui/database'
 import { requireAuth } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import { generateWebhookSecret } from '../../services/webhook-relay-notifier.js'
-import { ensureSafeFetchUrl } from '../../utils/ssrf-guard.js'
+import { ensureSafeFetchUrl, safeFetch } from '../../utils/ssrf-guard.js'
 
 // =============================================================================
 // 常量与 Zod schemas
@@ -154,7 +154,8 @@ async function deliverOnce(
   try {
     // 2026-08-02 SSRF 防护:fetch 前再次校验(防 DNS rebinding,创建时校验后 IP 可能已变)
     await ensureSafeFetchUrl(url)
-    const resp = await fetch(url, {
+    // 重定向落点逐跳复检:订阅 URL 用户可控,裸 fetch 默认 follow 会绕过首跳检查。
+    const resp = await safeFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

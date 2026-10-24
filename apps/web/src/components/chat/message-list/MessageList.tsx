@@ -23,6 +23,7 @@ import { QueryThumbRail } from './query-thumb-rail'
 import { StreamingSkeleton, shouldShowStreamingSkeleton } from './streaming-skeleton'
 import { ScrollJumpButtons } from './scroll-jump-buttons'
 import { DetailModeSwitcher } from './detail-mode-switcher'
+import { PictureInPictureSection } from '../picture-in-picture-section'
 import { applyConversationDetailMode } from './detail-mode-filter'
 import { usePaneConversationDetailModeStore } from '@/stores/conversation-detail-mode'
 // 票64(2026-10-18 立):版本族读投影 —— regenerate/edit 的多版本 sibling
@@ -610,6 +611,8 @@ export function MessageList({
       ) : null}
       {/* D45 档位切换胶囊(2026-09-24 立):消息流顶部工具区,紧凑三选一,持久化 */}
       <DetailModeSwitcher />
+      {/* D181 电脑使用画中画(2026-10-23 立项落地):会话面设置节,开关+持久化+空态占位 */}
+      <PictureInPictureSection conversationId={conversationId} />
       {inlinePanelNode}
       {/* W18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问。
           2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,

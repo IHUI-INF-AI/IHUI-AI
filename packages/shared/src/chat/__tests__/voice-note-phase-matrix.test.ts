@@ -295,8 +295,15 @@ describe('矩阵全扫 + 结构锁① 终态不得被非法事件再跃迁', () 
 describe('结构锁② 转换表只有一份 · 消费点同源', () => {
   const SHARED_SOURCE = 'packages/shared/src/chat/voice-note.ts'
   const SELF_SOURCE = 'packages/shared/src/chat/__tests__/voice-note-phase-matrix.test.ts'
-  /** 已登记的端侧消费点 —— 现读全仓只有 web 这一处真的在推进这台机 */
-  const WIRED_CONSUMER = 'apps/web/src/components/chat/voice-note.tsx'
+  /**
+   * 已登记的端侧消费点。web 2026-10-18 起;mobile-rn 2026-10-23 D43 票③ RN 腿接线起
+   * (apps/mobile-rn/src/components/chat/VoiceNote.tsx)。
+   * 文件头注释原话兑现:接线新消费点必须搬进 WIRED_CONSUMERS 登记位,逐文件校验引共享出口。
+   */
+  const WIRED_CONSUMERS = [
+    'apps/web/src/components/chat/voice-note.tsx',
+    'apps/mobile-rn/src/components/chat/VoiceNote.tsx',
+  ]
   /**
    * 票面点名的另两处(现读**尚未接线**:既不引 12 相机,也就没有第二份 switch)。
    * 接线那一刻必须把它们搬进上面的 WIRED_CONSUMER,本组用例随即转为要求它引共享出口;
@@ -324,22 +331,24 @@ describe('结构锁② 转换表只有一份 · 消费点同源', () => {
     expect(body).toContain('TRANSITIONS[phase]')
   })
 
-  it(`端侧消费点(${WIRED_CONSUMER})只准引共享出口推进:引到入口、不留本地表/switch`, () => {
-    const src = readSource(WIRED_CONSUMER)
-    expect(/transitionVoiceNotePhase/.test(src), '没有引共享推进入口').toBe(true)
-    expect(
-      /from '@ihui\/shared\/chat(?:\/voice-note)?'/.test(src),
-      '引的不是 @ihui/shared/chat 这条唯一出口',
-    ).toBe(true)
-    expect(LOCAL_SWITCH_RE.test(src), '端内自立了 switch (phase)').toBe(false)
-    expect(LOCAL_RECORD_TABLE_RE.test(src), '端内自立了 phase 判定表').toBe(false)
-    expect(countMatches(src, TABLE_DECL_RE)).toBe(0)
-    // 反空转:这个文件确实按 12 相词表起相(初始必须是 ready),不是"根本没用到"
-    expect(
-      /useState<VoiceNotePhase>\('ready'\)/.test(src),
-      '初始相不是 ready 或根本没消费词表',
-    ).toBe(true)
-  })
+  for (const file of WIRED_CONSUMERS) {
+    it(`端侧消费点(${file})只准引共享出口推进:引到入口、不留本地表/switch`, () => {
+      const src = readSource(file)
+      expect(/transitionVoiceNotePhase/.test(src), '没有引共享推进入口').toBe(true)
+      expect(
+        /from '@ihui\/shared\/chat(?:\/voice-note)?'/.test(src),
+        '引的不是 @ihui/shared/chat 这条唯一出口',
+      ).toBe(true)
+      expect(LOCAL_SWITCH_RE.test(src), '端内自立了 switch (phase)').toBe(false)
+      expect(LOCAL_RECORD_TABLE_RE.test(src), '端内自立了 phase 判定表').toBe(false)
+      expect(countMatches(src, TABLE_DECL_RE)).toBe(0)
+      // 反空转:这个文件确实按 12 相词表起相(初始必须是 ready),不是"根本没用到"
+      expect(
+        /useState<VoiceNotePhase>\('ready'\)/.test(src),
+        '初始相不是 ready 或根本没消费词表',
+      ).toBe(true)
+    })
+  }
 
   it('共享层对外只有一条出口:chat barrel 再导出 voice-note 恰一枚', () => {
     expect(

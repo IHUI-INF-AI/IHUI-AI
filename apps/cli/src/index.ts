@@ -945,8 +945,10 @@ skillsCmd
     } else {
       console.info(formatShadowReport(agg));
     }
-    // 取不到台账 = 无法判定,不是"没有冲突"。退出码 2 与姊妹出口同一条约定。
-    if (read.missing) process.exitCode = 2;
+    // G-175 机械裁决档:取不到台账**或证据不足**都 = 无法判定,不是"没有冲突"。
+    // insufficient ⇒ 退出码 2(与姊妹出口同一条约定),样本为 0 的报告不得冒充绿灯;
+    // 样本 ≥1 ⇒ 0,报告里带冲突率与逐对建议,裁决(开不开真门控)仍是单独一票的事。
+    if (agg.insufficient) process.exitCode = 2;
   });
 
 // settings 子命令组

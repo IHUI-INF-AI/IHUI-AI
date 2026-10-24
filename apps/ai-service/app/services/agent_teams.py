@@ -20,6 +20,12 @@
 3. `TeamOrchestrator.run_multi_rounds`:多轮团队协作,每轮把上一轮的聚合摘要
    作为 `round_context` 注入下一轮的每个 subagent — 即"聚合结果回传主循环"的闭环。
 
+D121 片一新增(团队共享任务列表,2026-10-23):
+4. `TeamTaskBoard`:`id/title/status/owner/updatedAt` 五字段的团队级任务板,
+   内存为主副本 + 既有 `ttl_json_store` 存档(带保留期);认领是"检查并置位"
+   在同一临界区完成,故并发认领只有一个赢家。owner 变更即发 `subagent.handoff`
+   事件(走既有编排事件总线,不新开 SSE 帧族 —— 票面 D121 明令)。
+
 设计原则:
 - 聚合逻辑为纯函数,不做 IO,便于确定性单测
 - fan-out runner 可注入(测试注入 fake,生产默认 `invoke_parallel`),不依赖真实 LLM
@@ -29,12 +35,16 @@
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 from .agent_orchestrator import agent_orchestrator
+from .dag_scheduler import KANBAN_TASK_STATUSES
+from .ttl_json_store import iso_now, load_ttl_records, resolve_retention_days, write_json_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -436,6 +446,331 @@ class TeamOrchestrator:
         }
 
 
+# =============================================================================
+# 团队共享任务列表(D121 片一)
+# =============================================================================
+
+# 换手事件的对外事件名。**不是新的 SSE 帧族**:票面 D121 明令"SSE 复用 subagent_*
+# 帧族扩 event 子类型,禁新帧族",而本仓既有的跨支柱事件总线(PillarEventBus)已经用
+# `subagent.dispatched/completed/failed/evolved` 这一族承载 subagent 侧事件,故换手
+# 作为该族的一个新子类型登记(orchestration_hub.PILLAR_EVENTS),不新增帧名。
+# 读出口因此是既有的 `GET /api/orchestration/events?event_type=subagent.handoff`。
+TEAM_HANDOFF_EVENT_TYPE = "subagent.handoff"
+
+# 任务板存档:与 agent_longterm_memory / audit_log 同一套 TTL JSON 落盘件(§数据出域
+# 合规整改),不新开存储。保留期默认 30 天,可由 env 覆盖(纯数字,非法值回落并告警)。
+_TEAM_TASK_FILE = Path(__file__).resolve().parents[2] / "data" / "team_tasks.json"
+_TEAM_TASK_RETENTION_DAYS = resolve_retention_days("TEAM_TASKS_RETENTION_DAYS", 30)
+_TEAM_TASK_MAX_ITEMS = 2000
+
+# 事件投递出口:签名对齐 orchestration_hub.emit(event_type, payload) → event_id。
+TeamEventSink = Callable[[str, dict[str, Any]], Awaitable[str]]
+
+
+async def _emit_team_event_to_hub(event_type: str, payload: dict[str, Any]) -> str:
+    """默认事件出口:投到既有编排事件总线(惰性 import,避免服务层循环依赖)。"""
+    from .orchestration_hub import orchestration_hub
+
+    event_id: str = await orchestration_hub.emit(
+        event_type=event_type,
+        source_pillar="subagent",
+        payload=payload,
+    )
+    return event_id
+
+
+@dataclass
+class TeamTaskItem:
+    """团队任务板的一条任务(字段对齐票面:id/title/status/owner/updatedAt)。"""
+
+    id: str
+    team_id: str
+    title: str
+    status: str
+    owner: str
+    created_at: str
+    updated_at: str
+
+    def to_wire(self) -> dict[str, Any]:
+        """对外形状(camelCase,与 packages/types `AgentTask` 同风格)。
+
+        `owner` 为空串表示"无人持有"(不用 null:两端都不必为可选值写分支)。
+        """
+        return {
+            "id": self.id,
+            "teamId": self.team_id,
+            "title": self.title,
+            "status": self.status,
+            "owner": self.owner,
+            "createdAt": self.created_at,
+            "updatedAt": self.updated_at,
+        }
+
+
+@dataclass
+class TeamTaskMutation:
+    """任务板写操作的结果。`reason` 是机器可读的封闭取值,路由据此映射业务码。"""
+
+    ok: bool
+    reason: str = ""
+    task: TeamTaskItem | None = None
+
+
+def build_team_handoff_payload(
+    task: TeamTaskItem,
+    from_owner: str,
+    to_owner: str,
+    reason: str = "",
+) -> dict[str, Any]:
+    """换手事件载荷的唯一构造函数(形状单源,测试与路由都从这里取)。
+
+    为什么载荷自带 team_id/task_id/task_title:事件总线上是**全局**流,
+    消费方(未来的 Fleet 仪表盘)只能靠载荷过滤;少一个字段就得回查任务板,
+    而那时的任务板可能已经被改写 —— 事件变成了它自己都无法自证的东西。
+    """
+    return {
+        "handoff_id": f"ho-{uuid.uuid4().hex[:8]}",
+        "team_id": task.team_id,
+        "task_id": task.id,
+        "task_title": task.title,
+        "from_owner": from_owner,
+        "to_owner": to_owner,
+        "status": task.status,
+        "reason": reason,
+        "at": iso_now(),
+    }
+
+
+def _is_valid_task_record(record: Any) -> bool:
+    """存档记录结构校验:五字段缺一即按坏记录剔除(fail-closed,不猜)。"""
+    if not isinstance(record, dict):
+        return False
+    return bool(record.get("id")) and bool(record.get("team_id")) and isinstance(
+        record.get("title"), str
+    )
+
+
+class TeamTaskBoard:
+    """团队级共享任务板(内存主副本 + TTL JSON 存档)。
+
+    并发认领的唯一性怎么保证:认领是"读当前 owner + 判定 + 置位"三步,三步在
+    同一个 `threading.RLock` 临界区里完成,临界区内**没有任何 await**
+    (asyncio 只在 await 处让出),所以 N 个协程并发 claim 时只有一个能把空 owner
+    置成自己。为此 `_claim_locked` 刻意保持同步,发事件放在锁外。
+    """
+
+    def __init__(
+        self,
+        file_path: str | Path | None = None,
+        sink: TeamEventSink | None = None,
+        retention_days: int | None = None,
+    ) -> None:
+        self._file = Path(file_path) if file_path is not None else _TEAM_TASK_FILE
+        self._sink: TeamEventSink = sink or _emit_team_event_to_hub
+        self._retention_days = (
+            _TEAM_TASK_RETENTION_DAYS if retention_days is None else retention_days
+        )
+        self._records: dict[str, dict[str, Any]] = {}
+        self._loaded = False
+        self._lock = threading.RLock()
+
+    # ---- 存档 ----
+
+    def _ensure_loaded(self) -> None:
+        """惰性读盘一次;读不到按空表(不抛错),坏了也不覆盖磁盘原文件。"""
+        if self._loaded:
+            return
+        self._loaded = True
+        try:
+            raw, dropped = load_ttl_records(
+                self._file,
+                retention_days=self._retention_days,
+                shape="mapping",
+                max_items=_TEAM_TASK_MAX_ITEMS,
+                validate=_is_valid_task_record,
+            )
+        except Exception as e:  # noqa: BLE001 - 存档坏不该让任务板不可用
+            logger.warning("[agent_teams] 团队任务板读盘失败(按空表继续): %s", e)
+            return
+        if dropped:
+            logger.info("[agent_teams] 团队任务板加载:清理过期/坏记录 %d 条", dropped)
+        self._records = {
+            str(key): dict(value) for key, value in raw.items() if isinstance(value, dict)
+        }
+
+    def _persist(self) -> None:
+        """全量写回(原子写,失败只告警:内存副本仍在,下次变更再试)。"""
+        write_json_atomic(self._file, self._records, indent=2)
+
+    # ---- 读 ----
+
+    def _find(self, team_id: str, task_id: str) -> dict[str, Any] | None:
+        record = self._records.get(task_id)
+        if record is None or str(record.get("team_id", "")) != team_id:
+            return None
+        return record
+
+    @staticmethod
+    def _to_item(record: dict[str, Any]) -> TeamTaskItem:
+        return TeamTaskItem(
+            id=str(record.get("id", "")),
+            team_id=str(record.get("team_id", "")),
+            title=str(record.get("title", "")),
+            status=str(record.get("status", "todo")),
+            owner=str(record.get("owner", "") or ""),
+            created_at=str(record.get("created_at", "")),
+            updated_at=str(record.get("updated_at", "")),
+        )
+
+    def list_tasks(self, team_id: str) -> list[TeamTaskItem]:
+        """列某团队全部任务(按创建时刻、再按 id 稳定排序)。"""
+        with self._lock:
+            self._ensure_loaded()
+            records = [
+                record
+                for record in self._records.values()
+                if str(record.get("team_id", "")) == team_id
+            ]
+        records.sort(key=lambda r: (str(r.get("created_at", "")), str(r.get("id", ""))))
+        return [self._to_item(r) for r in records]
+
+    def get_task(self, team_id: str, task_id: str) -> TeamTaskItem | None:
+        with self._lock:
+            self._ensure_loaded()
+            record = self._find(team_id, task_id)
+            return self._to_item(record) if record is not None else None
+
+    # ---- 写 ----
+
+    def create(
+        self,
+        team_id: str,
+        title: str,
+        owner: str = "",
+        status: str = "todo",
+        task_id: str | None = None,
+    ) -> TeamTaskItem:
+        """新建任务。status 必须是 kanban 词汇之一(单一真相源 KANBAN_TASK_STATUSES)。"""
+        if status not in KANBAN_TASK_STATUSES:
+            raise ValueError(f"status 不在 kanban 词汇表内: {status}")
+        now = iso_now()
+        with self._lock:
+            self._ensure_loaded()
+            new_id = task_id or f"tt-{uuid.uuid4().hex[:12]}"
+            record: dict[str, Any] = {
+                "id": new_id,
+                "team_id": team_id,
+                "title": title,
+                "status": status,
+                "owner": owner or "",
+                "created_at": now,
+                "updated_at": now,
+            }
+            self._records[new_id] = record
+            self._persist()
+            return self._to_item(record)
+
+    def _claim_locked(self, team_id: str, task_id: str, owner: str) -> TeamTaskMutation:
+        record = self._find(team_id, task_id)
+        if record is None:
+            return TeamTaskMutation(ok=False, reason="not_found")
+        current = str(record.get("owner", "") or "")
+        if current == owner:
+            # 幂等:同一持有者重复认领不是失败,也不再发换手事件(owner 没变)。
+            return TeamTaskMutation(ok=True, reason="already_owned", task=self._to_item(record))
+        if current:
+            return TeamTaskMutation(
+                ok=False, reason="already_claimed", task=self._to_item(record)
+            )
+        record["owner"] = owner
+        record["updated_at"] = iso_now()
+        # 认领即开工:待执行档推进到 in_progress(已是其它档则不动,不覆盖人工设定)。
+        if str(record.get("status", "")) in ("triage", "todo", "ready"):
+            record["status"] = "in_progress"
+        self._persist()
+        return TeamTaskMutation(ok=True, reason="claimed", task=self._to_item(record))
+
+    async def claim(self, team_id: str, task_id: str, owner: str) -> TeamTaskMutation:
+        """认领任务(并发安全:临界区内无 await,只有一个赢家)。"""
+        with self._lock:
+            self._ensure_loaded()
+            outcome = self._claim_locked(team_id, task_id, owner)
+        if outcome.ok:
+            task = outcome.task
+            if task is not None and outcome.reason == "claimed":
+                await self._emit_handoff(task, "", owner, "claim")
+        return outcome
+
+    async def update(
+        self,
+        team_id: str,
+        task_id: str,
+        *,
+        title: str | None = None,
+        status: str | None = None,
+        owner: str | None = None,
+        reason: str = "",
+    ) -> TeamTaskMutation:
+        """改标题/状态/持有者。**owner 发生变更**时发换手事件(改标题/状态不发)。"""
+        if status is not None and status not in KANBAN_TASK_STATUSES:
+            raise ValueError(f"status 不在 kanban 词汇表内: {status}")
+        with self._lock:
+            self._ensure_loaded()
+            record = self._find(team_id, task_id)
+            if record is None:
+                return TeamTaskMutation(ok=False, reason="not_found")
+            before_owner = str(record.get("owner", "") or "")
+            changed = False
+            if title is not None and title != record.get("title"):
+                record["title"] = title
+                changed = True
+            if status is not None and status != record.get("status"):
+                record["status"] = status
+                changed = True
+            if owner is not None and owner != before_owner:
+                record["owner"] = owner
+                changed = True
+            if not changed:
+                # 无变化也刷新 updated_at? 不刷 —— "没变"不该看起来像"刚动过"。
+                return TeamTaskMutation(ok=True, reason="unchanged", task=self._to_item(record))
+            record["updated_at"] = iso_now()
+            self._persist()
+            task = self._to_item(record)
+        if owner is not None and owner != before_owner:
+            await self._emit_handoff(task, before_owner, owner, reason or "handoff")
+        return TeamTaskMutation(ok=True, reason="updated", task=task)
+
+    def delete(self, team_id: str, task_id: str) -> bool:
+        with self._lock:
+            self._ensure_loaded()
+            if self._find(team_id, task_id) is None:
+                return False
+            self._records.pop(task_id, None)
+            self._persist()
+            return True
+
+    async def _emit_handoff(
+        self,
+        task: TeamTaskItem,
+        from_owner: str,
+        to_owner: str,
+        reason: str,
+    ) -> None:
+        """发换手事件。投递失败只告警:owner 已经改了,不能因为事件没发出去回滚状态。"""
+        payload = build_team_handoff_payload(task, from_owner, to_owner, reason)
+        try:
+            await self._sink(TEAM_HANDOFF_EVENT_TYPE, payload)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                "[agent_teams] 换手事件投递失败(task=%s, %s→%s): %s",
+                task.id,
+                from_owner or "(none)",
+                to_owner or "(none)",
+                e,
+            )
+
+
 # 模块级单例
 team_orchestrator = TeamOrchestrator()
+team_task_board = TeamTaskBoard()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

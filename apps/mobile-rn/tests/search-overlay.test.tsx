@@ -6,15 +6,20 @@
  * SearchOverlay 顶栏搜索弹层测试(2026-10-15 用户定:三入口统一弹窗、弹窗内直接出结果)
  *
  * 覆盖:
- * - 无输入三段:历史段(预置 AsyncStorage 'searchHistory')+ 清空按钮 + 分隔线 + 热门段(POPULAR_SEARCHES)
+ * - 无输入三段:历史段(预置 AsyncStorage 'searchHistory')+ 清空按钮 + 段间留白 + 热门段(POPULAR_SEARCHES)
  * - 有输入切联想段:quickSuggestions 过滤(忽略大小写/includes)
  * - 提交:写历史(AsyncStorage 'searchHistory',与 web 同 key)+ fetchApi('/api/search?keyword=') + 结果卡
  * - 结果卡点击 → 按类型映射进详情页 + 关弹窗(routeForResult)
  * - 遮罩点击 → 关闭(backdrop 全屏可点关闭)
+ * - 无分割线回归锁(2026-10-23 跨端同批撤线,AGENTS §4 禁分割线):组件源码不得再出现
+ *   divider 样式键 / 单边描边 / hairlineWidth 取宽
  *
  * 说明:历史写入是 fire-and-forget(addHistory 内 void push),故对持久化断言用 waitFor。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 import { render, waitFor, fireEvent, act } from '@testing-library/react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
@@ -59,8 +64,8 @@ vi.mock('../src/i18n', async (importOriginal) => {
 
 // react-native 走共享替身 tests/__mocks__/react-native.ts —— 它已覆盖本组件全部 API 面:
 // Pressable children 渲染函数、onChangeText/onSubmitEditing(Enter) 受控接线、
-// accessibilityLabel → aria-label(遮罩/清空/词条行靠它检索)、StyleSheet.hairlineWidth /
-// absoluteFillObject(divider 高度与遮罩铺满)。不在此另建替身(各建一份即各测一份)。
+// accessibilityLabel → aria-label(遮罩/清空/词条行靠它检索)。
+// 不在此另建替身(各建一份即各测一份)。
 
 import { SearchOverlay } from '../src/components/SearchOverlay'
 import type { SearchScreenItem } from '@ihui/rn-app'
@@ -263,6 +268,27 @@ describe('SearchOverlay 关闭', () => {
     expect(document.body.textContent).not.toContain('残留标题')
     const reopened = document.querySelector('input') as HTMLInputElement
     expect(reopened.value).toBe('')
+  })
+})
+
+/**
+ * 撤线回归锁(2026-10-23,与 web 侧 search-suggestions-no-divider.test.tsx 对位):
+ * 段间节奏已改为纯留白(sectionGap 8px,web `SectionDivider` 的 `h-2` 档)。若有人把线写回来,
+ * 形态必落三型之一 —— ① divider 样式键(守门 check-no-divider 的 RN 样式对象判据面)、
+ * ② 单边 border 宽度键(分割线的 RN 书写形态)、③ StyleSheet.hairlineWidth 取宽(本组件原线宽来源);
+ * 三者任一命中即红,回退无法安静通过。分组可辨性由两段可见标题承担(上方「无输入三段」用例已钉)。
+ */
+describe('SearchOverlay 段间无分割线(撤线回归锁)', () => {
+  it('组件源码不得再出现 divider 样式键 / 单边描边 / hairlineWidth 取宽', () => {
+    // 路径解析照 tests/api-client-alias-fidelity.test.ts 既有样板(fileURLToPath,非裸 new URL →
+    // jsdom 环境下 readFileSync(URL) 报「The URL must be of scheme file」)
+    const src = readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../src/components/SearchOverlay.tsx'),
+      'utf8',
+    )
+    expect(src).not.toMatch(/\bdivider\b/)
+    expect(src).not.toMatch(/border(Top|Bottom|Left|Right)Width/)
+    expect(src).not.toMatch(/hairlineWidth/)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
