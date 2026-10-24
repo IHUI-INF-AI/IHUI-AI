@@ -15,7 +15,12 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { __test__ as X } from '../plan-fields-extract.mjs'
-import { compositeKeyOf, dispositionOf } from '../lib/plan-task-index.mjs'
+import {
+  compositeKeyOf,
+  dispositionFace,
+  dispositionOf,
+  ownedElsewhereRe,
+} from '../lib/plan-task-index.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 describe('侧车抽取:逐行取值', () => {
@@ -194,6 +199,91 @@ describe('侧车抽取:不复制判据(§0.6/§22c)', () => {
     assert.match(src, /ownedElsewhereRe/, '必须问 plan-task-index 要那份词表')
     for (const lit of ['本票不认领', '不代裁', '他人账', '不归本机'])
       assert.ok(!src.includes(lit), `抽取器里出现 "${lit}" = 抄了第二把尺子`)
+  })
+})
+
+/**
+ * 2026-10-24 漂移桶:侧车已按标头 `〔归:X〕` 落了 owner,散文词表只认
+ * `归.{0,10}持有者` / `归属:`,把 `持有人` 与更长的值全漏掉 ⇒ 逐行判成可做。
+ * 下面三类锁:真实写法要判成归他人 / 普通散文不得误判 / 抽取器与漂移 before 必须
+ * 走同一份 `dispositionOf`(不是另抄一份词表)。
+ */
+describe('侧车抽取:归属词表补洞(2026-10-24 漂移桶)', () => {
+  // 原文取自漂移桶:括号标头里的持有人写法(含反引号路径 / 斜线 / 尾部括号噪声)
+  const REAL_POSITIVE = [
+    ['- [ ] 〔归:活文档归并线持有人〕 **G-931 那一格今日拿到硬证据**', '活文档归并线持有人'],
+    ['- [ ] 〔归:台账状态判据 / 收敛落地闸持有人〕 G-606 台账畸形登记号', '台账状态判据 / 收敛落地闸持有人'],
+    [
+      '- [ ] 〔归:`scripts/lib/commit-gate-attribution.mjs` 持有人)〕 G-24 safe-commit',
+      '`scripts/lib/commit-gate-attribution.mjs` 持有人)',
+    ],
+    ['- [ ] 〔归:门 94 持有人〕 G-78 门 94 的 R4', '门 94 持有人'],
+    [
+      '- [ ] 〔归:git 写锁与部署锁同源机制的持有人)**〕 G-57 git-lock',
+      'git 写锁与部署锁同源机制的持有人)**',
+    ],
+  ]
+
+  it('① 正例:真实 `〔归:X持有人〕` 标头都判归他人,且抽得出 owner(反引号路径不被抹掉)', () => {
+    for (const [line, owner] of REAL_POSITIVE) {
+      assert.equal(dispositionOf(line), 'owned-elsewhere', `未判归他人:${line}`)
+      const rec = X.extractFromLine(line)
+      assert.equal(rec?.owner, owner, `owner 取值不对:${line}`)
+    }
+  })
+
+  it('② 正例:`归:X｜等:Y` / `归属会话=` / `持有者:` 三种本仓写法', () => {
+    const cases = [
+      ['- [ ] 〔归:台账判据线｜等:—〕 G-313 活文档取号', '台账判据线'],
+      ['- [ ] 归属会话=原会话,这条 G-400 交接', '原会话'],
+      ['- [ ] G-401 持有者：门 130,这条线', '门 130'],
+    ]
+    for (const [line, owner] of cases) {
+      assert.equal(dispositionOf(line), 'owned-elsewhere', `未判归他人:${line}`)
+      assert.equal(X.extractFromLine(line)?.owner, owner, `owner 取值不对:${line}`)
+    }
+    // `由…持有者` 是归属声明,但没有可搬的正值(宁缺:不替散文编 owner)
+    const by = '- [ ] G-402 由安全线持有者接管这条线'
+    assert.equal(dispositionOf(by), 'owned-elsewhere')
+    assert.equal(X.extractFromLine(by), null)
+  })
+
+  it('③ 反例:含「归并/归档/归还」或非归属的持有句不得命中', () => {
+    for (const line of [
+      '- [ ] G-900 归档器把归并结果归还到旧档',
+      '- [ ] G-901 归并/归档/归零都不改变归属与归还顺序',
+      '- [ ] G-902 门由该会话持有,本票不改判据',
+      '- [ ] 〔归:—｜等:机主授权装 docker〕 D14 云端沙箱',
+      '- [ ] 〔归:未派〕 G-398 第八轮剩余六格',
+    ]) {
+      assert.notEqual(dispositionOf(line), 'owned-elsewhere', `普通散文被误判成归属:${line}`)
+      assert.equal(X.extractFromLine(line)?.owner, undefined, `不该造 owner:${line}`)
+    }
+  })
+
+  it('④ 侧车错的两行保持 actionable:词表不为它们放宽(G-937 认领已释放 / G-398 未派)', () => {
+    const released =
+      '- [ ] 〔归:本席续做〕 （认领已释放@2026-10-18/goal-leasegc:租约超龄 75h 未清账,按 §1 交回派单面;登记内容一字未动） **G-937 归档器 B 档**'
+    assert.equal(dispositionOf(released), 'actionable')
+    assert.equal(X.extractFromLine(released), null)
+    const unassigned = '- [ ] 〔归:未派〕 G-398 第八轮剩余六格候选清单(等各线排期)'
+    assert.equal(dispositionOf(unassigned), 'actionable')
+    assert.equal(X.extractFromLine(unassigned), null)
+  })
+
+  it('⑤ 装车锁:抽取桶闸与漂移 before 共用 `dispositionOf` 那一份词表', () => {
+    const re = ownedElsewhereRe()
+    assert.match(re.source, /持有\[者人\]/, '词表没有持有人写法 = 漂移桶原样复现')
+    assert.match(re.source, /归\[:：\]/, '词表没有 `归:` 标头写法 = 漂移桶原样复现')
+    for (const [line] of REAL_POSITIVE) {
+      assert.ok(re.test(dispositionFace(line)), `抽取器问的词表没认出:${line}`)
+      const rec = X.extractFromLine(line)
+      assert.deepEqual(
+        X.batchBucketDrift([line], new Map([[rec.key, rec]])),
+        [],
+        `同一词表下忠实抽取却漂移:${line}`,
+      )
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
