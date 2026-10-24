@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { getFileColor, getFileIcon } from './file-icons'
+import { AgentsMdGenerator } from './agents-md-generator'
 import { cn } from '@/lib/utils'
 import { usePrompt } from '@/hooks/use-confirm'
 import type { FileNode } from '@ihui/types'
@@ -55,6 +56,12 @@ export function EditorEmptyState() {
   } = useIDEWorkspace()
   const t = useTranslations('ide')
   const { prompt, PromptDialogRenderer } = usePrompt()
+
+  // 顶层已有 AGENTS.md ⇒ 不再展示一键生成入口(避免覆盖既有约定文档)
+  const hasAgentsMd = React.useMemo(
+    () => fileTree.some((n) => n.type === 'file' && n.name.toLowerCase() === 'agents.md'),
+    [fileTree],
+  )
 
   // 最近打开的文件:openTabs 优先,不足时从文件树补齐(最多 5 项)
   const recentFiles = React.useMemo<RecentFile[]>(() => {
@@ -141,6 +148,11 @@ export function EditorEmptyState() {
                 </button>
               ))}
             </div>
+            {workspacePath && !hasAgentsMd && (
+              <div className="w-full max-w-sm">
+                <AgentsMdGenerator workspacePath={workspacePath} />
+              </div>
+            )}
           </div>
 
           {/* 右侧:最近打开文件 + 快捷键提示 */}
