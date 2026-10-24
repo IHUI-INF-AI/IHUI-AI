@@ -11,7 +11,7 @@
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
-import { ensureSafeFetchUrl } from '../../utils/ssrf-guard.js'
+import { ensureSafeFetchUrl, safeFetch } from '../../utils/ssrf-guard.js'
 import { startStopwatch } from '../../utils/elapsed-ms.js'
 
 /** 转义字符串中的正则元字符,防止用户输入注入 ReDoS(2026-08-02 安全加固) */
@@ -62,7 +62,8 @@ export class BrowserAutomation extends EventEmitter {
     // 2026-08-02 SSRF 防护:fetch 前校验 URL,拒绝内网/保留地址
     await ensureSafeFetchUrl(url)
     try {
-      const response = await fetch(url, {
+      // 重定向落点逐跳复检:裸 fetch 默认 follow,会把已校验地址换成未校验的内网落点。
+      const response = await safeFetch(url, {
         headers: { 'User-Agent': 'Clawdbot/1.0', ...options?.headers },
         signal: options?.timeout ? AbortSignal.timeout(options.timeout) : undefined,
       })
@@ -129,7 +130,7 @@ export class BrowserAutomation extends EventEmitter {
       // 2026-08-02 SSRF 防护:fetch 前校验 URL,拒绝内网/保留地址
       await ensureSafeFetchUrl(options.url)
       // 降级模式：使用 fetch 发送表单数据
-      const response = await fetch(options.url, {
+      const response = await safeFetch(options.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(options.fields).toString(),

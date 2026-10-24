@@ -31,7 +31,7 @@ import { z } from 'zod'
 import { sql } from 'drizzle-orm'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
-import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
+import { ensureSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
 // issue #71:n8n **基址**的 env 读取只有一个出口(本面历史上读 N8N_DOMAIN,故以它为主名,
 // N8N_BASE_URL 只作别名兜底)。禁止在本文件再直接写 process.env.N8N_DOMAIN / N8N_BASE_URL;
 // N8N_API_KEY 只有一个名字、两侧同值,不属这一型,仍就地读。
@@ -110,7 +110,8 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
               .status(400)
               .send(error(400, `n8n domain blocked: ${(ssrfErr as Error).message}`))
           }
-          const resp = await fetch(url, {
+          // 重定向落点逐跳复检:裸 fetch 默认 follow,n8n_domain 用户可控,落点不可不查。
+          const resp = await safeFetch(url, {
             method: 'GET',
             headers: {
               'X-N8N-API-KEY': key,
@@ -304,7 +305,7 @@ export const n8nProxyRoutes: FastifyPluginAsync = async (server) => {
   ) => {
     const url = `${env.origin}/api/v1${path}`
     await ensureSafeFetchUrl(url)
-    return fetch(url, {
+    return safeFetch(url, {
       method: init?.method ?? 'GET',
       headers: {
         'X-N8N-API-KEY': env.key,
