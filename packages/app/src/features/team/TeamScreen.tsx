@@ -103,7 +103,12 @@ export function TeamScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('team.title')}</Text>
         <Text style={styles.subtitle}>{t('team.subtitle')}</Text>
       </View>
@@ -245,8 +250,10 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.success.light,
     },
-    statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    statItem: { alignItems: 'center', flex: 1 },
+    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
+    // 读数 20px,最坏「9999」+ 标签「间接邀请」⇒ minWidth 112。
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
+    statItem: { alignItems: 'center', flex: 1, minWidth: 112 },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: { marginTop: 8, fontSize: 10, color: tk.success.deepText, textAlign: 'center' },
     contributionBox: {
@@ -289,7 +296,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl']}, // 跟随见方父容器:相对式即几何真圆(不需要标记)
+    avatarImg: { width: '100%', height: '100%', borderRadius: rnRadius['2xl'] }, // 跟随见方父容器:相对式即几何真圆(不需要标记)
     avatarInitial: { fontSize: 18, fontWeight: '600', color: tk.text.secondary },
     memberInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
     nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
