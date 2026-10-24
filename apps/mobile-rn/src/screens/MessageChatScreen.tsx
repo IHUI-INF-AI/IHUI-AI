@@ -42,7 +42,7 @@ export function MessageChatScreen() {
       setLoading(true)
       setError('')
       const res = await fetchApi<{ list: Array<PrivateLetterRow> }>(
-        `/messages/private/list?peerId=${encodeURIComponent(peerId)}`,
+        `/api/messages/private/list?peerId=${encodeURIComponent(peerId)}`,
       )
       if (cancelled) return
       if (res.success) {
@@ -68,7 +68,7 @@ export function MessageChatScreen() {
     const text = input.trim()
     if (!text) return
     setSending(true)
-    const res = await fetchApi<{ message?: PrivateLetterRow }>('/messages/private', {
+    const res = await fetchApi<{ message?: PrivateLetterRow }>('/api/messages/private', {
       method: 'POST',
       body: JSON.stringify({ receiverId: peerId, content: text }),
     })

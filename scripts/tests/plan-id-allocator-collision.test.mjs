@@ -212,4 +212,89 @@ test('⑦ 形状锁:扫描只有一份实现,且跳过明细必须真打到 stdo
     'scanFamilyIds 必须是带位置视图的投影(两个视图共用一条正则)',
   )
 })
+
+/**
+ * ⑧/⑧b/⑧c —— G-35 形态 B(2026-10-25 主会话裁决采纳):第一发号出口也吃**工作树副本**那一维。
+ *
+ * 病型:他席手写工作树副本(未提交)登记了 G-92,HEAD 台账上 92 仍空闲 ⇒ 旧口径(只扫 HEAD 宽面)
+ * 把它当空闲发出,他席一提交就是同号两行 —— 第二出口(next-plan-id 的 scanWork)早扫了这一面,
+ * 第一出口没扫 = 两出口同漂。修法:resolveIdTokens 吃 opts.worktreeText,副本上独有的号一并算已占
+ * (同一把尺 scanFamilyIdHits);并集方向(HEAD 已含的不损),缺省 undefined 行为逐字同形(旧调用方零感知),
+ * null(读不到)⇒ 警告由调用方 catch 出声、本函数不造新硬闸。
+ */
+test('⑧ 形态 B 阳性对照:工作树手填未提交的号不当作空闲发出(G-35 主会话裁决采纳档)', () => {
+  const { face } = occupiedFixture([])
+  const wtLines = ['# 工作树副本(他席未提交的现场)', '- [ ] G-92 **他席手填未提交题** 正文', '']
+  const r = __test__.resolveIdTokens([TOKEN('新登记甲')], face, null, {
+    machineId: MACHINE,
+    worktreeText: wtLines.join('\n'),
+  })
+  assert.equal(r.ok, true, `夹具必须能发号;实得 ${JSON.stringify({ reason: r.reason })}`)
+  assert.equal(r.assigned, 'G-93', '工作树上未提交的 G-92 必须被顶掉 ⇒ 顺延 G-93')
+  assert.equal(r.scanReport[0].skipped.length, 1)
+  const skip = r.scanReport[0].skipped[0]
+  assert.equal(skip.id, 'G-92')
+  assert.equal(skip.fromWorktree, true, '命中来源必须标注工作树(行号按工作树文件,不标注会核错行)')
+  assert.equal(skip.sites[0].line, 2, '行号必须是工作树文件的真实行号')
+  // 明细必须点明来源面:运维照"第 2 行"去 HEAD 台账核会核到别人那一行上。
+  const detail = r.scanNotes.filter((n) => n.includes('跳过 G-92'))
+  assert.equal(detail.length, 1, `必须逐枚给出跳过明细;实得 ${JSON.stringify(r.scanNotes)}`)
+  assert.ok(detail[0].includes('工作树副本第 2 行'), `明细必须带工作树来源;实得 ${detail[0]}`)
+  assert.ok(detail[0].includes('(未提交)'), `明细必须写明未提交;实得 ${detail[0]}`)
+  // 落地的号绝不能是工作树号集里的号(本票判据本体)。
+  assert.ok(!scanFamilyIdHits(wtLines.join('\n'), 'G').has(93))
+})
+
+test('⑧b 形态 B 双向对照:HEAD 证据优先、缺省 undefined 与 null 都退回旧行为(不造新硬闸)', () => {
+  // ① HEAD 宽面已命中的号保留 HEAD 证据(并集方向:不删不减,fromWorktree 不得误标)
+  const prose = ['承 G-92 的取证:这一号在 HEAD 台账正文里,也在工作树副本里。']
+  const { face, ledgerText } = occupiedFixture(prose)
+  const wt = ['- [ ] G-92 **工作树同号行** 正文', ''].join('\n')
+  const r = __test__.resolveIdTokens([TOKEN('新登记甲')], face, null, {
+    machineId: MACHINE,
+    worktreeText: wt,
+  })
+  assert.equal(r.assigned, 'G-93')
+  const skip = r.scanReport[0].skipped[0]
+  assert.equal(skip.fromWorktree, false, 'HEAD 面已命中的号保留 HEAD 证据(行号按台账,并集方向不倒扣)')
+  const expectedLine = ledgerText.split('\n').findIndex((l) => l.includes('承 G-92')) + 1
+  assert.equal(skip.sites[0].line, expectedLine, '来自 HEAD 面的命中必须报台账行号')
+  // ② 缺省 undefined(旧调用方)⇒ 行为与该档加入前逐字同形:G-92 照发、零噪声(不得比改前更堵)
+  const legacy = __test__.resolveIdTokens([TOKEN('新登记甲')], occupiedFixture([]).face, null, {
+    machineId: MACHINE,
+  })
+  assert.equal(legacy.assigned, 'G-92', '缺省 undefined ⇒ 本维缺席,行为逐字同形')
+  assert.deepEqual(legacy.scanNotes, [])
+  // ③ null(调用方读不到,警告已由调用方 catch 出声)⇒ 退回 HEAD 宽面,不造新硬闸
+  const nulled = __test__.resolveIdTokens([TOKEN('新登记甲')], occupiedFixture([]).face, null, {
+    machineId: MACHINE,
+    worktreeText: null,
+  })
+  assert.equal(nulled.assigned, 'G-92')
+  assert.deepEqual(nulled.scanNotes, [])
+})
+
+test('⑧c 形态 B 装车形状锁:CAS 循环必须真读工作树副本并传参,警告必须点名 path 与原因', () => {
+  const src = readFileSync(join(HERE, '..', 'live-doc-edit.mjs'), 'utf8')
+  assert.match(
+    src,
+    /worktreeText = readFileSync\(resolve\(root, doc\), 'utf8'\)/,
+    'CAS 循环必须真读工作树副本(只加参数不传值 = 没装车,造好没装车那一型)',
+  )
+  assert.match(
+    src,
+    /manualCheck: !replacements,\s*worktreeText,/,
+    'resolveIdTokens 的调用点必须真传 worktreeText',
+  )
+  assert.match(
+    src,
+    /工作树副本 \$\{doc\} 读不到\(/,
+    '读不到的警告必须点名 path(§0.3:失效方向是多要一次定向说明,不是安静退回)',
+  )
+  assert.match(
+    src,
+    /本轮实时占用面退回 HEAD 宽面/,
+    '警告必须写明退回后的面(与 next-plan-id 同一档措辞,两出口同话)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

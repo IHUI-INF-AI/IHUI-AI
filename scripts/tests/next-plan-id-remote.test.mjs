@@ -23,6 +23,10 @@
  *      夹具单元 + 真仓端到端:--next-only 给的号在 HEAD 台账 ⊕ 工作树副本上必须零命中)。
  *  T9  G-955「新增撞号仍须红」:登记行声明位同号多行 ⇒ judgeRowIdDuplicates 判红,且 --check 分支
  *      以 exit 1 收场;括注内被引号(指针行)不算声明(G-955 病根的反证)。
+ *  T11 G-35(2026-10-25)「远端那一维不能只交 max」:第二出口必须把远端已用号集
+ *      (remote.ids[族],readRemoteIdBasis 的 G-454② 产出)并进实时占用面 —— poolBlocked 的
+ *      远端避让只盖 lowMax+1..baseMax,远端**低位**独占号(本地面已让空/已推未并)旧口径会当空闲
+ *      发出(第一出口 2026-10-16 已修,本器当时没跟上 = 两出口漂移)。夹具级正证 + 装车形状锁。
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -32,7 +36,7 @@ import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 
 import { judgeRowIdDuplicates } from '../lib/plan-id-duplicates.mjs'
-import { smallestFreeId } from '../lib/plan-id-lease.mjs'
+import { smallestFreeId, remoteIdNumsOf, poolBlocked } from '../lib/plan-id-lease.mjs'
 import { maskComments } from '../lib/code-mask.mjs'
 import { scanFamilyIds } from '../lib/plan-id-face.mjs'
 import { git } from '../lib/bypass-git.mjs'
@@ -295,5 +299,50 @@ test('T10 发不出号的两种成因必须分开念(结论与判据同形,2026-
   )
   assert.match(err, /但无连续 99 号租约窗/, '可读行必须把"空闲 N 枚 / 无连续 M 号窗"这一对念出来')
   assert.doesNotMatch(err, /已满/, `无窗型的结论行不得念成"已满",实得:\n${err.slice(0, 600)}`)
+})
+
+/**
+ * T11 —— G-35(2026-10-25)「远端那一维不能只交 max」夹具级正证。
+ *
+ * 病型:本地面占 1..4 与 10(lowMax=10),远端台账登记了 G-05 而那一行本地还没并进来
+ * (或本地面已把 05 让空)。`poolBlocked` 的远端避让只盖 `lowMax+1..baseMax` = 11..10(空段)⇒
+ * 旧口径(只吃 remote.max)把 O5 当空闲发出,与远端已占号相撞 —— 这正是第一出口
+ * resolveIdTokens 在 G-454②(2026-10-16 实测撞号)修掉、第二出口当时没跟上的那一型。
+ *
+ * 判据全部 import 生产出口(§22c):投影 = lib/plan-id-lease.mjs 的 `remoteIdNumsOf`,
+ * 建议号算术 = 同文件的 `smallestFreeId`(两出口共用那一份),本测试不写第二份。
+ */
+test('T11a 夹具阳性对照:远端低位独占号必须顶掉建议号(G-35 病型,修复前会撞号)', () => {
+  // 投影单源:标签 → 号数(输入形状 = usedIdsOfPrefix 的 ids 产出,恒为"族+分隔符+数字",无字母后缀)
+  assert.deepEqual(remoteIdNumsOf(['G-05', 'G-42']), [5, 42], '投影必须取数字段且剥前导零')
+  assert.deepEqual(remoteIdNumsOf(null), [], '输入不是数组 ⇒ 空数组(远端那一维缺席,不猜)')
+  const localUsed = [1, 2, 3, 4, 10]
+  const remoteWide = 10 // 远端 max 与本地同值 ⇒ baseMax 避让段 11..10 为空,低位号全靠号集本身
+  // ① 修复前行为实证:只吃 max 的旧口径确实把 O5 当空闲发出(撞号正病)
+  const before = smallestFreeId({ usedNumbers: localUsed, baseMax: remoteWide })
+  assert.equal(before, 5, '旧口径(不含远端号集)的建议号 = O5 —— 这一条就是"改动前会撞号"的取证')
+  assert.ok(poolBlocked({ usedNumbers: localUsed, baseMax: remoteWide }).blocked.has(5) === false, 'poolBlocked 的远端避让段(11..10)盖不住低位号 ⇒ 结构性漏,不是边界抖动')
+  // ② 修复后行为:远端号集并进实时占用面 ⇒ O5 被顶掉,顺延 O6
+  const remoteIds = ['G-05']
+  const after = smallestFreeId({ usedNumbers: [...localUsed, ...remoteIdNumsOf(remoteIds)], baseMax: remoteWide })
+  assert.equal(after, 6, '远端已占的 O5 必须被顶掉,顺延 O6(第一出口 G-454② 同一行为)')
+  // ③ 恒等并反证:远端与本地同号集(无新增)⇒ 建议号与改动前逐字同形(不得给正常路径加噪声)
+  const sameAsLocal = smallestFreeId({ usedNumbers: [...localUsed, ...remoteIdNumsOf(['G-01', 'G-02', 'G-03', 'G-04', 'G-10'])], baseMax: remoteWide })
+  assert.equal(sameAsLocal, before, '远端号集是本地面子集时必须恒等并(行为逐字同形)')
+})
+
+test('T11b 装车形状锁:发号路径必须真吃远端号集并逐枚点名(造好没装车 = 没有)', () => {
+  assert.match(
+    TOOL_SRC,
+    /import\s*\{[^}]*remoteIdNumsOf[^}]*\}\s*from\s*'\.\/lib\/plan-id-lease\.mjs'/,
+    '投影必须 import lib 那一份(在 CLI 里再写一条 (\\d+)$ 提取就是第二份尺子,§22c)',
+  )
+  assert.match(TOOL_SRC, /const remoteIdNums = remoteIdNumsOf\(remote\?\.ids\?\.\[FAMILY\]\)/, '远端号集必须从 readRemoteIdBasis 的 G-454② 产出取')
+  assert.match(TOOL_SRC, /liveUsed\.push\(\.\.\.remoteIdNums\)/, '实时占用面必须真并入远端号集(只声明不消费 = 没装车)')
+  assert.match(TOOL_SRC, /const skippedByRemote/, '被远端顶掉的号必须点名(票面出路①:命中即换号并打印)')
+  // --check 契约不变:远端号集消费必须在发号路径上,--check 分岔之后才出现
+  const checkBranch = TOOL_SRC.indexOf("flags.has('--check')")
+  const consume = TOOL_SRC.indexOf('liveUsed.push(...remoteIdNums)')
+  assert.ok(consume > checkBranch, '--check 不发号 ⇒ 远端号集消费必须在其后(契约逐字不变)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

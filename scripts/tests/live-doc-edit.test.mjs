@@ -1559,10 +1559,18 @@ test('I10 反向锁:幂等判据必须在 CAS 循环体内、且在拼块之前�
   const at = body.indexOf('blockInPlaceCheck(')
   const asm = body.indexOf('assemble(baseLines, effBlock, anchorLines)')
   assert.ok(at > 0 && asm > at, '票面 ① 要求"拼块之前"判;放到 assemble 之后就已经晚了')
+  // G-35 形态 B(2026-10-25)前,本锁按整个循环体字面扫 readFileSync —— 那时循环内唯一的磁盘
+  // 取材就是幂等判据,字面与意图同形。形态 B 在循环内新增了一处**合法**的 readFileSync
+  // (取号占用面的工作树维:他席未提交的登记正活在那一边,HEAD 看不见;next-plan-id 的
+  // scanWork 同一面同一把尺,主会话裁决采纳),它不被幂等判据消费 ⇒ 本锁收窄到立法意图:
+  // **幂等判据区段**(compileBlockMatchers → assemble)零磁盘取材 —— "本块在不在位"只能看
+  // 本轮 HEAD 底稿,磁盘副本滞后会把"已在位"读成"不在位"⇒ 重复落地。工作树维的装车与
+  // 让路档另由 scripts/tests/plan-id-allocator-collision.test.mjs 的 ⑧/⑧b/⑧c 锁住。
+  const idem = body.slice(body.indexOf('compileBlockMatchers(block,'), asm)
   assert.doesNotMatch(
-    body,
+    idem,
     /readFileSync\(/,
-    '判据只看被审面;循环里出现 readFileSync 就是把它换成了磁盘面(共享工作树常年滞后 HEAD)',
+    '幂等判据只看被审面;判据区段出现 readFileSync 就是把它换成了磁盘面(共享工作树常年滞后 HEAD)',
   )
 })
 

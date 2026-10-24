@@ -1885,6 +1885,80 @@ test('端到端 --staged 阳性对照:吞掉唯一登记行照旧判红(新维�
   }
 })
 
+test('已结清短留痕:窗口外不再把已翻勾的票复插成未勾(G-61 型)', () => {
+  const base = '- [ ] **G-61. 一条足够长的测试登记行正文内容 abcdefghijklmnop**'
+  const entries = G.registeredLines(base)
+  const marker = entries[0].marker
+  assert.equal(
+    G.resolveRegistrationLoss(entries, '- [ ] G-999 别的票', new Set(), null).length,
+    1,
+    '未给 retired ⇒ 仍判丢(旧行为,防恒免)',
+  )
+  assert.equal(
+    G.resolveRegistrationLoss(entries, '- [ ] G-999 别的票', new Set(), null, new Set([marker])).length,
+    0,
+    'retired 命中 ⇒ 不判丢/不回捞',
+  )
+})
+
+test('已结清短留痕:落盘/去重/TTL 三态', () => {
+  const dir = mkScratch('retired-ledger-')
+  try {
+    assert.equal(G.retiredMarkerSet(dir).size, 0, '无台账 ⇒ 空集,不得当"全已结清"')
+    assert.equal(G.recordRetiredMarkers(new Set(['G-61 一条已翻勾的票']), dir), 1)
+    assert.equal(G.recordRetiredMarkers(new Set(['G-61 一条已翻勾的票']), dir), 0, '同 marker 不重复写')
+    const set = G.retiredMarkerSet(dir)
+    assert.equal(set.size, 1)
+    assert.ok(set.has('G-61 一条已翻勾的票'))
+    // TTL:把台账里的 at 改成 31 天前 ⇒ 该条不再生效
+    const abs = join(dir, G.RETIRED_LEDGER_REL)
+    const old = new Date(Date.now() - 31 * 24 * 3600 * 1000).toISOString()
+    writeFileSync(abs, `${JSON.stringify({ at: old, marker: 'G-61 一条已翻勾的票' })}\n`, 'utf8')
+    assert.equal(G.retiredMarkerSet(dir).size, 0, '过期条目必须失效(短留痕不是永久档案)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端:翻勾提交被旧基线抹出谱后,短留痕阻止复插(无留痕则旧实现复插)', () => {
+  const OPEN = '- [ ] **G-610. 一条足够长的测试登记行正文内容 abcdefghijklmnop**'
+  const CLOSED = '- [x] ✅(2026-10-25) **G-610. 一条足够长的测试登记行正文内容 abcdefghijklmnop**'
+  const OTHERS = Array.from(
+    { length: 5 },
+    (_, i) => `- [ ] **G-${900 + i}. 另一条足够长的登记行内容 ${'xyz'.repeat(4)}${i}**`,
+  ).join('\n')
+  const dir = tempPlanRepo(`${OPEN}\n${OTHERS}`)
+  try {
+    const a = git(dir, 'rev-parse', 'HEAD').trim()
+    // 翻勾提交 B(随后会被旧基线挤出当前祖先链)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `${CLOSED}\n${OTHERS}\n`, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'flip G-610')
+    // 并发旧基线 C:从 A 起一条不含该行的提交 ⇒ B 不在当前祖先链;窗口只剩 A 的开放形态
+    git(dir, 'reset', '--hard', a)
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), `${OTHERS}\n`, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'old baseline erase')
+    const marker = G.registrationOf(OPEN).marker
+    assert.ok(marker, '夹具行必须能被登记尺认出')
+    const ledger = join(dir, G.RETIRED_LEDGER_REL)
+    mkdirSync(dirname(ledger), { recursive: true })
+    // 阳性对照:无留痕 ⇒ 旧实现必须复插
+    writeFileSync(ledger, '', 'utf8')
+    const r1 = runGateEnv(dir, ['--heal'], { IHUI_PLAN_LOSS_HISTORY_DEPTH: '10' })
+    const after1 = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.match(after1, /G-610/, `无留痕时旧实现必须复插(阳性对照);stdout=${r1.stdout}${r1.stderr}`)
+    // 复位后写留痕 ⇒ 不得复插
+    git(dir, 'checkout', '--', 'PROJECT_PLAN.md')
+    writeFileSync(ledger, `${JSON.stringify({ at: new Date().toISOString(), marker })}\n`, 'utf8')
+    const r2 = runGateEnv(dir, ['--heal'], { IHUI_PLAN_LOSS_HISTORY_DEPTH: '10' })
+    const after2 = readFileSync(join(dir, 'PROJECT_PLAN.md'), 'utf8')
+    assert.doesNotMatch(after2, /G-610/, `有留痕时不得复插;stdout=${r2.stdout}${r2.stderr}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('题面前缀维:f11-purge 声明的同题行让号/改号后不被判丢(旧实现必红)', () => {
   const base = '- [ ] **G-63. 生产备份链日志的写入侧编码要改成 UTF-8:第一段取证**'
   const declared = { set: new Set(), dropTitleFps: new Set([titleFpOf(base)]) }
