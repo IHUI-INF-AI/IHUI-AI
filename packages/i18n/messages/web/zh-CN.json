@@ -6838,6 +6838,8 @@
       "namePlaceholder": "请输入名称",
       "nameRequired": "名称不能为空",
       "noData": "暂无数据",
+      "permissionHint": "选择该密钥可访问的 API 权限",
+      "permissionLabel": "权限点",
       "sdkDownloads": "SDK 下载",
       "subtitle": "管理 API Key 与 Webhook",
       "title": "开发者中心",

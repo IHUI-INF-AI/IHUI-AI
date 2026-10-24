@@ -6838,6 +6838,8 @@
       "namePlaceholder": "名称を入力してください",
       "nameRequired": "ごエージェント",
       "noData": "なしデータ",
+      "permissionHint": "このキーがアクセスできる API 権限を選択",
+      "permissionLabel": "権限",
       "sdkDownloads": "SDKダウンロード",
       "subtitle": "のなドキュメントとAPIリファレンス",
       "title": "センター",

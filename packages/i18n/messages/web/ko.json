@@ -6838,6 +6838,8 @@
       "namePlaceholder": "이름을 입력하세요",
       "nameRequired": "에이전트 이름을 입력하세요",
       "noData": "없음데이마음",
+      "permissionHint": "이 키가 액세스할 수 있는 API 권한을 선택",
+      "permissionLabel": "권한",
       "sdkDownloads": "SDK 다운로드",
       "subtitle": "포괄적인의개발문서및API참조",
       "title": "개발게중간마음",
