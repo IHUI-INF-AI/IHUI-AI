@@ -22,6 +22,8 @@ import {
   chooseScratchRoot,
   countScratchSegments,
   evaluateDeleteTarget,
+  gitFaceEscapesToRepo,
+  isAllowedScratchRoot,
   mkScratch,
   rmScratch,
   scanForNestedScratchRoot,
@@ -36,27 +38,31 @@ const SCRIPTS_DIR = resolve(HERE, '..')
 test('G-158:mkScratch 落点 = 仓内 .DevEnv 批准根,且 git 面逃逸被边界阻断(否则"非 git"夹具恒红)', () => {
   const dir = mkScratch('abspath-')
   try {
-    const approved = resolve(join(REPO_ROOT, '.DevEnv'))
-    assert.ok(
-      dir.startsWith(approved + '\\') || dir.startsWith(approved + '/'),
-      `落点不在批准的 .DevEnv 根下: ${dir}`,
-    )
-    // 不变量的实质半边:夹具里 git 问不出祖先仓(无边界时实测 toplevel=真仓 ⇒ E5a 型用例恒红)
-    const r = spawnSync('git', ['rev-parse', '--show-toplevel'], {
-      cwd: dir,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 15_000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    if (!r.error) {
-      assert.notEqual(r.status, 0, `夹具逃逸到真仓库: ${String(r.stdout).trim()}`)
-    } else {
-      console.log(`ℹ 本机 PATH 上无 git ⇒ 逃逸半边未判定,不计为通过(${r.error.code})`)
+    // 判据单源:落点合法性 + git 面逃逸都取自 scratch-dir(§0.6/§22c,这里不再抄第二份)
+    assert.equal(isAllowedScratchRoot(dir), true, `落点不合法(既非仓外,也非批准的 .DevEnv): ${dir}`)
+    if (process.platform === 'win32') {
+      const approved = resolve(join(REPO_ROOT, '.DevEnv'))
+      assert.ok(
+        dir.startsWith(approved + '\\') || dir.startsWith(approved + '/'),
+        `落点不在批准的 .DevEnv 根下: ${dir}`,
+      )
     }
+    // 不变量的实质半边:夹具里 git 问不出祖先仓(无边界时实测 toplevel=真仓 ⇒ E5a 型用例恒红)
+    const face = gitFaceEscapesToRepo(dir)
+    assert.equal(face.state, 'measured', `git 面不得未判定(没量到不等于不逃逸):${face.why}`)
+    assert.equal(face.escapes, false, `夹具逃逸到真仓库: ${face.top}`)
   } finally {
     rmScratch(dir)
   }
+})
+
+test('isAllowedScratchRoot:仓内非 .DevEnv 拒建、批准的 .DevEnv 放行(结构维不是恒真式)', () => {
+  assert.equal(isAllowedScratchRoot(join(REPO_ROOT, 'scripts', SCRATCH_DIR_NAME)), false, '仓内非批准目录必须拒建')
+  assert.equal(
+    isAllowedScratchRoot(join(REPO_ROOT, '.DevEnv', 'Temp', SCRATCH_DIR_NAME)),
+    true,
+    'G-158 批准的 .DevEnv 根必须放行',
+  )
 })
 
 test('mkScratch 不跟随进程 TEMP(把 TEMP 指向一个钉在 C 盘的旧值也必须不理它)', () => {
