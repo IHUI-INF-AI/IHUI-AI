@@ -6838,6 +6838,8 @@
       "namePlaceholder": "Enter name",
       "nameRequired": "Name is required",
       "noData": "No data",
+      "permissionHint": "Choose which API permissions this key can access",
+      "permissionLabel": "Permissions",
       "sdkDownloads": "SDK Downloads",
       "subtitle": "Manage API Keys and Webhooks",
       "title": "Developer Center",
