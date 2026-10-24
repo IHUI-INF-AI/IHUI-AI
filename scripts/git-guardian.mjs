@@ -4820,6 +4820,109 @@ export function auditOrphanDeletionRefs(opts = {}) {
   }
 }
 
+const MIGRATION_GAPS_TICK = join(WORKTREE, '.ihui-agent', 'state', 'migration-gaps-tick.ts')
+const MIGRATION_GAPS_INTERVAL_MS = Number(process.env.IHUI_MIGRATION_GAPS_INTERVAL_MS || 30 * 60 * 1000)
+const MIGRATION_GAPS_TIMEOUT_MS = Number(process.env.IHUI_MIGRATION_GAPS_TIMEOUT_MS || 120_000)
+
+/**
+ * 迁移账本「中间缺口」巡检(尺子 = `scripts/check-db-migration-gaps.mjs`,2026-10-25 立)。
+ *
+ * 为什么必须常驻: `drizzle-kit migrate` 只应用 `when > max(账本.created_at)` 的迁移,一个带旧 when
+ * 的迁移晚到(并发合并/重排)会被**永久跳过**且 migrate 仍 exit 0;部署侧只看条数差,把“永不补的
+ * 中间缺口”与“下轮会补的待应用”混成一档。实测 2026-10-25:D125 协作两表在生产缺建表,日志只报
+ * “1-3 档”。本格 30 分钟量一次,缺口集合进 dedupKey(新缺口=新事实该重报,单纯条数抖动不重报)。
+ */
+export function migrationGapsDue(nowMs, tickMs, intervalMs = MIGRATION_GAPS_INTERVAL_MS) {
+  if (!Number.isFinite(tickMs)) return true
+  return nowMs - tickMs >= intervalMs
+}
+
+export function auditMigrationGaps(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = MIGRATION_GAPS_INTERVAL_MS,
+    tickFile = MIGRATION_GAPS_TICK,
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-db-migration-gaps.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ 迁移缺口审计:尺子脚本不在位(scripts/check-db-migration-gaps.mjs)⇒ 本轮跳过,不记为已巡检')
+    return { ran: false, why: '尺子脚本不在位' }
+  }
+  let lastTick = NaN
+  try {
+    lastTick = Date.parse(String(readFileSync(tickFile, 'utf8')).trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (!migrationGapsDue(now, lastTick, intervalMs)) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
+    const call =
+      typeof runner === 'function'
+        ? runner()
+        : (() => {
+            try {
+              const out = execFileSync(process.execPath, [script, '--json'], {
+                cwd: WORKTREE,
+                encoding: 'utf8',
+                windowsHide: true, // §5b
+                timeout: MIGRATION_GAPS_TIMEOUT_MS, // 守门 80
+                maxBuffer: 1 << 22,
+                stdio: ['ignore', 'pipe', 'pipe'], // §12g
+              })
+              return { status: 0, stdout: String(out || ''), stderr: '' }
+            } catch (e) {
+              return {
+                status: typeof e.status === 'number' ? e.status : 2,
+                stdout: String(e.stdout || ''),
+                stderr: String(e.stderr || e.message || ''),
+              }
+            }
+          })()
+    const lines = String(call.stdout || '').split(/[\r\n]+/).filter((x) => x.trim())
+    let p = null
+    try {
+      p = JSON.parse(lines[lines.length - 1] || '')
+    } catch {
+      p = null
+    }
+    if (!p || !Array.isArray(p.lateGap)) {
+      logger(
+        `ℹ️ 迁移缺口审计:未判定(rc=${call.status},读数不可解析)—— ${String(call.stderr || call.stdout || '(无输出)').split(/[\r\n]+/)[0].slice(0, 140)}`,
+      )
+      return { ran: true, judged: false, why: '读数不可解析' }
+    }
+    const late = p.lateGap
+    const pending = Array.isArray(p.pending) ? p.pending : []
+    const drift = Array.isArray(p.hashDrift) ? p.hashDrift : []
+    if (late.length === 0) {
+      logger(
+        `✅ 迁移缺口审计:无中间缺口(applied=${p.applied ?? '?'} / pending=${pending.length} / hashDrift=${drift.length} 只报数)`,
+      )
+      return { ran: true, judged: true, ok: true }
+    }
+    const tags = late.map((x) => (x && x.tag) || '(无名)').sort()
+    const outcome = notify(
+      'DB 迁移账本存在中间缺口(drizzle 永不应用)',
+      `缺口 ${late.length} 条:${tags.join(', ')}\npending=${pending.length}(下轮会补)/ hashDrift=${drift.length}(内容后改或水印,已应用)。\n处置:node scripts/check-db-migration-gaps.mjs --repair --yes(先快照账本,再逐条单事务应用+补账本);不要手改 drizzle.__drizzle_migrations。\n取证:node scripts/check-db-migration-gaps.mjs --json`,
+      { severity: 'critical', dedupKey: `migration-gap;set=${tags.join('+').slice(0, 600)}` },
+    )
+    logger(
+      outcome && outcome.suppressed
+        ? `ℹ️ 迁移缺口审计:同一缺口窗口内已通报,本轮压住 —— ${tags.join(', ').slice(0, 140)}`
+        : `❌ 迁移缺口审计:已派发到邮件通道 —— ${tags.join(', ').slice(0, 140)}`,
+    )
+    return { ran: true, judged: true, ok: false, lateGap: late.length }
+  } catch (e) {
+    logger('⚠️ 迁移缺口审计派发失败(不阻断其余守护): ' + String((e && e.message) || e).slice(0, 160))
+    return { ran: false, why: '派发异常' }
+  }
+}
+
 /**
  * 把本守护的计划任务确保为 S4U(幂等;已是 S4U 时脚本自己秒退)。
  * 为什么必须做:两个看门任务原先是 InteractiveToken ⇒ **无人登录时它们根本不跑**,
@@ -5512,6 +5615,9 @@ function main() {
     if (!CHECK_ONLY) auditDeployStall()
     // 不能进提交链,而"手动问责"等于只有人在跑 —— 本行是它唯一的调度器。挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY) auditOrphanDeletionRefs()
+    // 迁移账本「中间缺口」:drizzle 只按 when>max 应用,晚到的旧 when 会被永久跳过且 migrate exit 0
+    // (实测 chat_collab 生产缺建表、部署只报档位)。尺子 = check-db-migration-gaps.mjs;30min 节流。
+    if (!CHECK_ONLY) auditMigrationGaps()
     // TEMP 夹具清扫器同理:判据/保护面/镜像测试全在,唯独没人调度 ⇒ 本项目命名的残留过完账龄就永久留着。
     // 节流 24h、失败只写 ⚠️ 不改本守护退出码(它是动作层不是判据),挂点语义与上面各层同格。
     if (!CHECK_ONLY) scrubTempFixtures()
@@ -5930,6 +6036,8 @@ export const __test__ = {
   noteUndeterminedStreak,
   clearUndeterminedStreak,
   auditDeployStall,
+  auditMigrationGaps,
+  migrationGapsDue,
   shouldAlertAlignStall,
   checkConvergeAlignStall,
   // 对齐停摆的自动修复(2026-10-04):与 checkConvergeAlignStall 配套导出,镜像测试据此
