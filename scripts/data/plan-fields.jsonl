@@ -70,14 +70,14 @@
 {"key":"G-75#「登录态出内容」端到端复量——在等什么","waiting":"env","blocking":"等 dev 栈机器级依赖被拉回","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-96#小程序登录页接微信手机号一键验证","waiting":"env","blocking":"开发者工具","updatedAt":"2026-10-24T17:49:01.836Z","updatedBy":"plan-fields-extract"}
 {"key":"H05#D135现读复核","waiting":"env","blocking":"模拟器","updatedAt":"2026-10-24T17:49:01.836Z","updatedBy":"plan-fields-extract"}
-{"key":"G-20#把file","waiting":"human","blocking":"机主微信开放平台","updatedAt":"2026-10-24T19:44:15.387Z","updatedBy":"plan-fields-extract"}
-{"key":"G-76#生产备份链日志的写入侧编码要改成UTF-8","waiting":"human","blocking":"机主核隧道","updatedAt":"2026-10-24T19:44:15.387Z","updatedBy":"plan-fields-extract"}
+{"key":"G-100#把file","waiting":"env","blocking":"机主微信开放平台","updatedAt":"2026-10-24T23:10:11.532Z","updatedBy":"plan-fields-reclassify"}
+{"key":"G-101#生产备份链日志的写入侧编码要改成UTF-8","waiting":"env","blocking":"机主核隧道","updatedAt":"2026-10-24T23:10:11.532Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-65#小程序/Web缺图的来源问题今天有了终判","waiting":"human","blocking":"机主素材交付","updatedAt":"2026-10-24T19:44:15.388Z","updatedBy":"plan-fields-extract"}
 {"key":"G-47#G-47归属","owner":"端口注册表门 + ai-service ruff + 受保护检查 lint-typecheck-","waiting":"none","updatedAt":"2026-10-24T19:52:45.248Z","updatedBy":"plan-fields-extract"}
-{"key":"G-60#长会话渲染成本","waiting":"none","updatedAt":"2026-10-24T22:54:50.439Z","updatedBy":"plan-fields-reclassify","blocking":""}
+{"key":"G-60#长会话渲染成本","waiting":"none","blocking":"","updatedAt":"2026-10-24T22:54:50.439Z","updatedBy":"plan-fields-reclassify"}
 {"key":"G-71#第三十三批标题段","waiting":"human","updatedAt":"2026-10-24T19:22:46.703Z","updatedBy":"plan-fields-extract"}
 {"key":"G-72#VideoPlayerScreen全屏纯黑⇒黑页","waiting":"human","updatedAt":"2026-10-24T19:22:46.704Z","updatedBy":"plan-fields-extract"}
-{"key":"G-74#USDTTRC20ADDRESS仍空","waiting":"env","updatedAt":"2026-10-24T22:54:50.439Z","updatedBy":"plan-fields-reclassify","blocking":""}
+{"key":"G-74#USDTTRC20ADDRESS仍空","waiting":"env","blocking":"","updatedAt":"2026-10-24T22:54:50.439Z","updatedBy":"plan-fields-reclassify"}
 {"key":"D17#云端沙箱agent","waiting":"human","blocking":"机主授权装 docker","updatedAt":"2026-10-24T19:44:15.384Z","updatedBy":"plan-fields-extract"}
 {"key":"G-99#机主2026-09-28拍板四条","waiting":"human","blocking":"机主真机窗口","updatedAt":"2026-10-24T19:44:15.384Z","updatedBy":"plan-fields-extract"}
 {"key":"D19#电脑使用画中画","waiting":"env","blocking":"Computer-Use 会话可视化立项","updatedAt":"2026-10-24T22:54:50.439Z","updatedBy":"plan-fields-reclassify"}
