@@ -6,7 +6,7 @@ import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
-import type { AppThemeTokens } from '../../theme/tokens'
+import { darkTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import {
   EmptyState,
@@ -66,13 +66,27 @@ export function WorkflowsScreen({
   onRefresh,
 }: WorkflowsScreenProps) {
   const styles = useMemo(() => createStyles(tk), [tk])
+  /**
+   * 状态四件套 / 入口卡是主题驱动组件(`colorScheme` 形参默认 'light')。本屏不另建主题来源:
+   * 调用方注入的 `tk` 就是它按 `resolvedTheme` 解析出的 token 集,而 `getTokens` 只可能返回
+   * `lightTokens` / `darkTokens` 两个单例(identity 契约由 dark-mode.test.tsx 钉住),
+   * 故由 `tk` 反推出来的档案与屏幕自身配色必然同档 —— 这正是门 91 要的不"同屏两套档案"。
+   */
+  const colorScheme: 'light' | 'dark' = tk === darkTokens ? 'dark' : 'light'
 
   if (loading && items.length === 0) {
-    return <ScreenSkeleton variant="list" count={4} />
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
   }
 
   if (error) {
-    return <ErrorState message={error} onRetry={onRefresh} retryLabel={t('common.retry')} />
+    return (
+      <ErrorState
+        message={error}
+        onRetry={onRefresh}
+        retryLabel={t('common.retry')}
+        colorScheme={colorScheme}
+      />
+    )
   }
 
   if (items.length === 0) {
@@ -81,6 +95,7 @@ export function WorkflowsScreen({
         title={t('workflows.empty')}
         actionLabel={onRefresh ? t('common.retry') : undefined}
         onAction={onRefresh}
+        colorScheme={colorScheme}
       />
     )
   }
@@ -94,7 +109,12 @@ export function WorkflowsScreen({
       }
     >
       {items.map((item) => (
-        <PressableCard key={item.id} style={styles.card} onPress={() => onOpen(item.id)}>
+        <PressableCard
+          key={item.id}
+          style={styles.card}
+          onPress={() => onOpen(item.id)}
+          colorScheme={colorScheme}
+        >
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.name}
