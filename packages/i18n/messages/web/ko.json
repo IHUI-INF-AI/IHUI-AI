@@ -8193,6 +8193,7 @@
       "injectionKindRepoWiki": "Repo Wiki 프로젝트 백과를 주입했습니다",
       "injectionKindAutoContext": "{count, plural, other {자동 검색한 코드 컨텍스트 {count}개를 주입했습니다}}",
       "injectionKindIterationExtension": "이터레이션 예산을 연장했습니다",
+      "injectionKindExpertPack": "의도에 따라 전문가 팩을 적용했습니다",
       "thinkingCharCountTitle": "{n}자",
       "thinkingChars": "자",
       "thinkingElapsedTitle": "{time} 동안 사고 중",

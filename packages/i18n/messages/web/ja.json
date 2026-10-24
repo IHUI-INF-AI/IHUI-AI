@@ -8193,6 +8193,7 @@
       "injectionKindRepoWiki": "Repo Wiki プロジェクト百科を注入しました",
       "injectionKindAutoContext": "{count, plural, other {自動検索したコードコンテキスト {count} 件を注入しました}}",
       "injectionKindIterationExtension": "イテレーション予算を延長しました",
+      "injectionKindExpertPack": "意図に基づいてエキスパートパックを適用しました",
       "thinkingCharCountTitle": "{n} 文字",
       "thinkingChars": "文字",
       "thinkingElapsedTitle": "{time} 思考中",
