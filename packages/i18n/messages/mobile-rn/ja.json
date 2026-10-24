@@ -884,7 +884,8 @@
     "notes": {
       "loadFailShort": "読み込み失敗",
       "recordNew": "新しい録音"
-    }
+    },
+    "thinkingShort": "思考中"
   },
   "settings": {
     "title": "設定",
@@ -1514,7 +1515,19 @@
     "remarkPlaceholder": "備考を入力",
     "shareNow": "今すぐ共有",
     "title": "共有",
-    "url": "URL"
+    "url": "URL",
+    "brandCommunity": "智汇AIコミュニティ",
+    "copiedWx": "リンクコピー済み。WeChat に貼り付けて",
+    "linkCopied": "リンクをコピー",
+    "copyFailManual": "コピー失敗。{url} へ",
+    "sentFriend": "WeChat に共有",
+    "sentMoments": "モーメントに共有",
+    "sheetCloseA11y": "共有パネルを閉じる",
+    "toFriendA11y": "WeChat に共有",
+    "toMomentsA11y": "モーメント共有",
+    "copyLinkA11y": "リンクをコピー",
+    "cancelA11y": "共有キャンセル",
+    "defaultDesc": "智汇AIコミュニティへ"
   },
   "vipScreen": {
     "plans": {
@@ -3902,7 +3915,16 @@
     "paidAt": "支払日時",
     "product": "商品",
     "status": "ステータス",
-    "title": "注文詳細"
+    "title": "注文詳細",
+    "contactSeller": "出品者に連絡",
+    "contactBody": "問題は WeChat: aizhs_kefu",
+    "payNow": "今すぐ支払い",
+    "buyAgain": "再購入",
+    "paidTitle": "購入完了",
+    "paidSub": "購入規約を一読し特典を",
+    "paidLine1": "支払完了。証書を保管。",
+    "paidLine2": "返金は7日以内",
+    "paidLine3": "24時間サポート"
   },
   "pointHistory": {
     "balance": "残高",
@@ -5265,7 +5287,8 @@
     "unknown": "不明なエラー",
     "deleteTitle": "素材削除",
     "deleteBody": "「{title}」を削除しますか？",
-    "detailLabel": "素材詳細"
+    "detailLabel": "素材詳細",
+    "btnDetail": "詳細"
   },
   "topup": {
     "failDefault": "チャージ未完了。後で再試行"
@@ -5503,6 +5526,91 @@
     "holdToTalk": "長押しで話しかけて",
     "clearResult": "結果をクリア",
     "releaseEnd": " 離すと終了",
-    "transcribing": "文字化中…"
+    "transcribing": "文字化中…",
+    "realStart": "リアルタイム音声開始",
+    "realConnecting": "接続中...",
+    "realLive": "通話中",
+    "reconnect": "再接続",
+    "realFailDefault": "接続失敗。再試行"
+  },
+  "material": {
+    "cText": "テキスト内容",
+    "cImage": "画像内容",
+    "cVideo": "動画内容",
+    "cAudio": "音声内容",
+    "cDefault": "素材内容",
+    "eText": "テキストなし",
+    "eImage": "画像なし",
+    "eVideo": "動画なし",
+    "eAudio": "音声素材なし",
+    "eDefault": "内容なし",
+    "detailA11y": "詳細を見る"
+  },
+  "article": {
+    "commentPh": "コメントを書く…",
+    "loadCommentsFail": "コメント読込失敗",
+    "commentFail": "コメント失敗",
+    "send": "送信",
+    "commentFailRetry": "コメント失敗。再試行"
+  },
+  "comment": {
+    "send": "コメント投稿",
+    "empty": "コメントはまだです",
+    "close": "コメント閉じる"
+  },
+  "businesscard": {
+    "unnamed": "名無し",
+    "loadFailBody": "読込失敗",
+    "shareWechat": "WeChat フレンド",
+    "shareMoments": "モーメント",
+    "needAlbum": "アルバム権限が必要",
+    "uploadFail": "画像アップロード失敗",
+    "okTitle": "成功",
+    "updated": "名刺更新済み",
+    "submitFail": "送信失敗",
+    "customFail": "名刺カスタマイズ失敗"
+  },
+  "model": {
+    "type0": "全能",
+    "type1": "会話",
+    "type2": "画像",
+    "type3": "動画",
+    "type4": "音声",
+    "type5": "デジタルヒューマン",
+    "agentMode": "Agent モード"
+  },
+  "aiCard": {
+    "tFreeVip": "会員無料",
+    "tFreeUse": "無料利用",
+    "tFreeLimit": "期間限定無料",
+    "tBought": "購入済み",
+    "tMonth": "月額",
+    "btnWarn": "警告",
+    "btnDislike": "低評価",
+    "btnFav": "收藏",
+    "btnInfo": "情報",
+    "btnShare": "共有",
+    "officialFallback": "智汇コミュニティ-公式",
+    "buyTime": "購入時期：{t0}",
+    "expireTime": "　有効期限：{t1}"
+  },
+  "viptrader": {
+    "productName": "VIP トレーダー",
+    "teamCount": "チーム人数",
+    "activeTrend": "アクティブ {n}",
+    "totalCommission": "累計コミッション",
+    "rankTrend": "ランク #{n}",
+    "monthIncome": "今月収益",
+    "withdrawnTrend": "出金済 {v}",
+    "pendingIncome": "未精算",
+    "frozenTrend": "凍結 {v}",
+    "myInviteCode": "招待コード",
+    "invitedTrend": "招待済み {n} 名",
+    "distLevel": "分销ランク",
+    "rateTrend": "歩合 {n}%"
+  },
+  "contact": {
+    "phoneLabel": "電話: ",
+    "wechatLabel": "WeChat: "
   }
 }
