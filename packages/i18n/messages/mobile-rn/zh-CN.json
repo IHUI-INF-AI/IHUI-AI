@@ -626,6 +626,21 @@
     "runtimeSend": "发送"
   },
   "chat": {
+    "assetCatText": "文本",
+    "assetCatImage": "图片",
+    "assetCatVideo": "视频",
+    "assetCatAudio": "音频",
+    "menuSwitchModel": "切换模型",
+    "menuClear": "清空对话",
+    "menuExport": "导出对话",
+    "menuShare": "分享对话",
+    "menuToVoice": "转语音",
+    "menuFavorite": "收藏",
+    "menuMaterial": "素材库",
+    "menuVoiceNote": "语音笔记",
+    "menuWebLink": "网页链接",
+    "menuFileUpload": "文件上传",
+    "menuHistory": "历史对话",
     "modelSwitchStopped": "已切换到 {model},本轮回答已终止",
     "meta": {
       "pullOnly": "该会话的改动将在下次打开列表时同步"
