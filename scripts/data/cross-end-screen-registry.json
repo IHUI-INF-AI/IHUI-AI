@@ -355,6 +355,21 @@
       "shared": "packages/app/src/features/vip/VipScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/AppTopupScreen.tsx",
       "miniapp": "pkg-shop/vip/index"
+    },
+    {
+      "shared": "packages/app/src/features/user-public/UserPublicScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/UserPublicScreen.tsx",
+      "miniapp": "pkg-user/user-public/index"
+    },
+    {
+      "shared": "packages/app/src/features/llm-settings/LlmSettingsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LlmSettingsScreen.tsx",
+      "miniapp": "pkg-user/llm-settings/index"
+    },
+    {
+      "shared": "packages/app/src/features/edu-shop/EduShopScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/EduShopScreen.tsx",
+      "miniapp": "pkg-shop/edu-shop/index"
     }
   ]
 }
