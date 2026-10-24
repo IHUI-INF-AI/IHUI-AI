@@ -48,6 +48,7 @@ import { db, dbRead } from '../db/index.js'
 import { encryptField } from '../utils/crypto.js'
 import { startStopwatch } from '../utils/elapsed-ms.js'
 import { decryptAccountCredentials } from './relay-account-pool-service.js'
+import { accountSchedulableCondition } from './relay-account-pool-scheduler.js'
 import { isRelayProviderCode, type RelayProviderCode } from './relay-account-format.js'
 import {
   clearAccountCooldown,
@@ -242,8 +243,8 @@ async function selectAccountCandidates(
       and(
         ownerCond,
         inArray(aiRelayAccountPool.providerCode, providerCodes),
-        eq(aiRelayAccountPool.isEnabled, true),
-        eq(aiRelayAccountPool.tempUnschedulable, false),
+        // 「能不能被选中」与巡检同一条判据(单源):巡检判 down 的号当场不再进入候选。
+        accountSchedulableCondition(),
       ),
     )
     .orderBy(
