@@ -39,11 +39,11 @@ const PAGE_SIZE = 20
 type AigcCategoryOptionWithIcon = AigcCategoryOption & { icon?: LucideIcon }
 
 const CATEGORIES: AigcCategoryOptionWithIcon[] = [
-  { key: 'all', label: '全部', icon: Sparkles },
-  { key: 'image', label: '图片', fileType: 0, icon: Image },
-  { key: 'video', label: '视频', fileType: 1, icon: Film },
-  { key: 'audio', label: '音频', fileType: 3, icon: Music },
-  { key: 'text', label: '文案', fileType: 4, icon: FileText },
+  { key: 'all', label: 'home.matAll', icon: Sparkles },
+  { key: 'image', label: 'chat.assetCatImage', fileType: 0, icon: Image },
+  { key: 'video', label: 'chat.assetCatVideo', fileType: 1, icon: Film },
+  { key: 'audio', label: 'chat.assetCatAudio', fileType: 3, icon: Music },
+  { key: 'text', label: 'menu.catCopyShort', fileType: 4, icon: FileText },
 ]
 
 /** 按分类 key 解析对应的 fileType(供 API 查询用,'all' 不传 fileType) */
@@ -52,10 +52,10 @@ function fileTypeForCategory(key: AigcCategoryOption['key']): AigcFileType | und
 }
 
 const MATERIAL_CATEGORIES: MaterialCategory[] = [
-  { key: 'all', label: '全部' },
-  { key: 'image', label: '图片' },
-  { key: 'video', label: '视频' },
-  { key: 'doc', label: '文档' },
+  { key: 'all', label: 'home.matAll' },
+  { key: 'image', label: 'chat.assetCatImage' },
+  { key: 'video', label: 'chat.assetCatVideo' },
+  { key: 'doc', label: 'aigcList.catDoc' },
 ]
 
 type ViewMode = 'shared' | 'local'
@@ -89,7 +89,7 @@ function toAigcWork(task: AigcTask): AigcListItem {
   const r = isRecord(task.result) ? task.result : {}
   return {
     id: task.taskId,
-    title: asString(r.title) ?? '未命名作品',
+    title: asString(r.title) ?? t('aigcCover.workTitleDefault'),
     subtitle: asString(r.subtitle),
     prompt: asString(r.prompt),
     content: asString(r.content),
@@ -161,16 +161,16 @@ export default function AigcListScreen() {
         setPage(1)
         setHasMore(res.data.list.length >= PAGE_SIZE)
       } else {
-        setError(res.error || '加载失败')
+        setError(res.error || t('chat.notes.loadFailShort'))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败')
+      setError(detail.trim() ? toUserFriendlyMessage(e) : t('chat.notes.loadFailShort'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [t])
 
   /** 上拉加载下一页(对齐 Uniapp scrolltolower + pushData) */
   const loadMore = useCallback(async () => {
@@ -264,7 +264,7 @@ export default function AigcListScreen() {
   const sharedListProps: AigcListScreenProps = {
     t,
     items,
-    categories: CATEGORIES,
+    categories: CATEGORIES.map((c) => ({ ...c, label: t(c.label) })),
     category,
     loading,
     refreshing,
@@ -287,14 +287,18 @@ export default function AigcListScreen() {
           onPress={() => setViewMode('shared')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>作品</Text>
+          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
+            {t('aigcCover.labelDefault')}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, viewMode === 'local' && styles.tabActive]}
           onPress={() => setViewMode('local')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>素材库</Text>
+          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
+            {t('chat.menuMaterial')}
+          </Text>
         </TouchableOpacity>
       </View>
       <View style={styles.viewport}>
@@ -307,7 +311,7 @@ export default function AigcListScreen() {
           </View>
         ) : (
           <MaterialList
-            categories={MATERIAL_CATEGORIES}
+            categories={MATERIAL_CATEGORIES.map((c) => ({ ...c, label: t(c.label) }))}
             activeCategory={materialCategory}
             onCategoryChange={setMaterialCategory}
             items={filteredMaterialItems}
