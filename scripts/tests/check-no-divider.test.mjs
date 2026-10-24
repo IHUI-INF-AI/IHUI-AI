@@ -541,4 +541,56 @@ test('D26 staged 装车:RN 对象块 height:hairlineWidth + 中性底 ⇒ exit 1
     rmScratch(dir)
   }
 })
+
+// ─── 族 4 任意值色档(G-879 第三条盲区)装车 ───
+
+test('D27 staged 装车:border-t border-[var(--color-border)] ⇒ exit 1;彩色变量反向放过', () => {
+  const REL = 'apps/miniapp-taro/src/pages/user/index.tsx'
+  const dir = createRepo({
+    [REL]: 'export const Row = () => <View className="p-[24rpx]">a</View>\n',
+  })
+  try {
+    stage(
+      dir,
+      REL,
+      'export const Row = () => (\n  <View className="p-[24rpx]">\n    <View className="border-t border-[var(--color-border)] px-[24rpx]" />\n  </View>\n)\n',
+    )
+    const r = runStaged(dir)
+    assert.equal(r.status, 1, `任意值中性变量单边必须拦提交\n${r.stdout}`)
+    assert.equal(
+      (r.stdout.match(/\[single-side divider\]/g) || []).length,
+      1,
+      `只许点名那一条真分隔线\n${r.stdout}`,
+    )
+    // 反向对照:同一形状换彩色变量 ⇒ 强调线,放过
+    stage(
+      dir,
+      REL,
+      'export const Row = () => (\n  <View className="p-[24rpx]">\n    <View className="border-t border-[var(--color-primary)] px-[24rpx]" />\n  </View>\n)\n',
+    )
+    const r2 = runStaged(dir)
+    assert.equal(r2.status, 0, `彩色任意值不该拦\n${r2.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('D28 全量档锁:只报数不判两族(h-px bg-border / role="separator")不得冒红', () => {
+  const dir = createRepo({
+    'apps/web/app/x/page.tsx':
+      'export function P() {\n  return (\n    <div>\n      <div className="h-px bg-border" />\n      <div role="separator" className="h-px bg-border" />\n    </div>\n  )\n}\n',
+  })
+  try {
+    const r = runHead(dir)
+    assert.equal(r.status, 0, `全量档两族只报数不判,exit 必须 0\n${r.stdout}`)
+    assert.equal(
+      (r.stdout.match(/\[bg hairline divider\]/g) || []).length,
+      1,
+      `裸 h-px 报数 1 条;role="separator" 必须维持放过,不许改成红\n${r.stdout}`,
+    )
+    assert.match(r.stdout, /存量/, '只报数:落在存量档而非拦截档')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
