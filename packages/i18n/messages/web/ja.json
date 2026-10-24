@@ -702,6 +702,7 @@
       "aiSessions": "AI アクティブセッション",
       "alertCount": "アラート {count}",
       "alertCountUnknown": "アラート数不明",
+      "alertCountAtLeast": "アラート ≥{count}",
       "alertStateActive": "アクティブ",
       "alertStateSuppressed": "抑制済み",
       "alertStateUnprocessed": "未処理",

@@ -702,6 +702,7 @@
       "aiSessions": "AI 활성 세션",
       "alertCount": "알림 {count}",
       "alertCountUnknown": "알림 수 미확인",
+      "alertCountAtLeast": "알림 ≥{count}",
       "alertStateActive": "활성",
       "alertStateSuppressed": "억제됨",
       "alertStateUnprocessed": "미처리",

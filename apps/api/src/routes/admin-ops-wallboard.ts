@@ -125,6 +125,12 @@ function firstNum(list: PromSample[] | null): number | null {
   return sampleNum(list?.[0])
 }
 
+/** 百分比保留两位;无样本(SQL 聚合出 NULL)一律落 null ——
+ *  「今天还没有请求」写成 0.00% 会被大屏读成「零错误率」,那是 §0.3 禁止的顶替。 */
+function pct2(v: number | null | undefined): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? Number(v.toFixed(2)) : null
+}
+
 /** range 序列 → [[epochMs, value], …],值不合法的点直接丢弃。 */
 function rangeToSeries(list: PromRangeSample[] | null): Array<[number, number]> {
   const s = list?.[0]
@@ -220,7 +226,7 @@ async function buildHost(): Promise<HostSnapshot | null> {
 
 interface ServicesSnapshot {
   windows: Array<{ name: string; state: string; retired: boolean }>
-  targets: Array<{ job: string; instance: string; up: number }>
+  targets: Array<{ job: string; instance: string; up: number | null }>
   windowsTotal: number
   windowsRunning: number
   /** 非退役服务总数(健康度分母;退役服务见 RETIRED_SERVICES) */
@@ -248,7 +254,9 @@ async function buildServices(): Promise<ServicesSnapshot | null> {
       .map((s) => ({
         job: s.metric?.job ?? '',
         instance: s.metric?.instance ?? '',
-        up: sampleNum(s) ?? 0,
+        // 取不到样本 ⇒ null(未判定),不得 `?? 0`:0 在大屏上会把「从没上报过的目标」
+        // 画成红色「down」,那是把「没量到」冒充成「量到了坏结论」。
+        up: sampleNum(s),
       }))
       .filter((t) => t.job)
       .sort((a, b) => a.job.localeCompare(b.job))
@@ -552,14 +560,14 @@ interface BusinessSnapshot {
   ordersTodayAmountCents: number
   ordersYesterdayPaid: number
   apiCallsToday: number
-  apiErrRate: number
-  apiAvgLatencyMs: number
+  apiErrRate: number | null
+  apiAvgLatencyMs: number | null
   topEndpoints: Array<{ path: string; method: string; calls: number }>
   llmCallsToday: number
   llmTokensToday: number
   llmCostCentsToday: number
-  llmErrRate: number
-  llmP95LatencyMs: number
+  llmErrRate: number | null
+  llmP95LatencyMs: number | null
   llmTopModels: Array<{ model: string; calls: number }>
   signIn: SignInSnapshot | null
 }
@@ -609,8 +617,12 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       dbRead
         .select({
           calls: sql<number>`count(*)::int`,
-          errRate: sql<number>`coalesce(avg(case when ${apiLogs.statusCode} >= 500 then 1 else 0 end) * 100, 0)::float8`,
-          avgLatency: sql<number>`coalesce(avg(${apiLogs.duration}), 0)::int`,
+          // 不得 coalesce 成 0:今天一条请求都没有时,0.00% 会被大屏读成「零错误率」(§0.3)。
+          // 无行 ⇒ avg 为 NULL ⇒ 大屏落「—/未判定」。
+          errRate: sql<
+            number | null
+          >`(avg(case when ${apiLogs.statusCode} >= 500 then 1 else 0 end) * 100)::float8`,
+          avgLatency: sql<number | null>`avg(${apiLogs.duration})::int`,
         })
         .from(apiLogs)
         .where(gte(apiLogs.createdAt, todayStart)),
@@ -630,8 +642,12 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
           calls: sql<number>`count(*)::int`,
           tokens: sql<number>`coalesce(sum(${llmCallLogs.totalTokens}), 0)::bigint::int`,
           costCents: sql<number>`coalesce(sum(((${llmCallLogs.metadata}->>'costCents')::numeric)), 0)::int`,
-          errRate: sql<number>`coalesce(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100, 0)::float8`,
-          p95Latency: sql<number>`coalesce(percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int, 0)`,
+          errRate: sql<
+            number | null
+          >`(avg(case when ${llmCallLogs.status} = 'error' then 1 else 0 end) * 100)::float8`,
+          p95Latency: sql<
+            number | null
+          >`percentile_cont(0.95) WITHIN GROUP (ORDER BY ${llmCallLogs.latencyMs})::int`,
         })
         .from(llmCallLogs)
         .where(gte(llmCallLogs.createdAt, todayStart)),
@@ -702,8 +718,8 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       ordersTodayAmountCents: o?.amountCents ?? 0,
       ordersYesterdayPaid: oy?.paid ?? 0,
       apiCallsToday: a?.calls ?? 0,
-      apiErrRate: Number((a?.errRate ?? 0).toFixed(2)),
-      apiAvgLatencyMs: a?.avgLatency ?? 0,
+      apiErrRate: pct2(a?.errRate),
+      apiAvgLatencyMs: a?.avgLatency ?? null,
       topEndpoints: apiTop.map((r) => ({
         path: r.path,
         method: r.method,
@@ -712,8 +728,8 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       llmCallsToday: l?.calls ?? 0,
       llmTokensToday: l?.tokens ?? 0,
       llmCostCentsToday: l?.costCents ?? 0,
-      llmErrRate: Number((l?.errRate ?? 0).toFixed(2)),
-      llmP95LatencyMs: l?.p95Latency ?? 0,
+      llmErrRate: pct2(l?.errRate),
+      llmP95LatencyMs: l?.p95Latency ?? null,
       llmTopModels: llmModels.map((r) => ({ model: r.model, calls: r.calls })),
       signIn,
     }
