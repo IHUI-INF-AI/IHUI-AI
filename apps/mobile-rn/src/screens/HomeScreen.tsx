@@ -1649,7 +1649,7 @@ export function HomeScreen() {
               name: m.name,
               description:
                 m.model_tier && MODEL_TIER_LABELS[m.model_tier]
-                  ? t(MODEL_TIER_LABELS[m.model_tier])
+                  ? t(MODEL_TIER_LABELS[m.model_tier]!)
                   : '',
               // 厂商品牌图标优先:vendor 有值时 ModelList 渲染 BrandIcon 真实矢量
               // (web 同源 @lobehub/icons);provider 缺失按 inferVendor 从模型 id 推断
