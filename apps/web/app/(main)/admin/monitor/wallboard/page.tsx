@@ -28,6 +28,8 @@ import {
   Gauge,
   Globe,
   HardDrive,
+  Maximize2,
+  Minimize2,
   Radio,
   Server,
   ShieldAlert,
@@ -40,6 +42,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'
 import { cn } from '@/lib/utils'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { BackButton } from '@/components/common'
 // 悬停提示一律走项目 Tooltip(守门 18:禁用原生 HTML title 属性)
 import { Tooltip, TooltipProvider } from '@/components/feedback'
@@ -567,6 +570,58 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     }
   }, [t])
 
+  // ---------- 值班全屏:隐藏左侧 AI 工作区 + 浏览器全屏 ----------
+  const [dutyMode, setDutyMode] = React.useState(false)
+  const prevAiPanelOpen = React.useRef(true)
+  const dutyActiveRef = React.useRef(false)
+
+  const toggleDutyMode = React.useCallback(async () => {
+    if (!dutyActiveRef.current) {
+      prevAiPanelOpen.current = useAiPanelStore.getState().open
+      dutyActiveRef.current = true
+      useAiPanelStore.getState().closePanel()
+      setDutyMode(true)
+      try {
+        await document.documentElement.requestFullscreen?.()
+      } catch {
+        // 浏览器拒绝全屏时仍保持「隐藏 AI 面板」的紧凑态,按钮可再次点击退出。
+      }
+      return
+    }
+    dutyActiveRef.current = false
+    setDutyMode(false)
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen()
+    } catch {
+      // 已经不在全屏时忽略
+    }
+    if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
+  }, [])
+
+  // 用户按 Esc 退出全屏时把值班态一并回收(不能留下「面板被关着」的残局)。
+  React.useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement && dutyActiveRef.current) {
+        dutyActiveRef.current = false
+        setDutyMode(false)
+        if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
+      }
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
+  // 切走视图(TabsContent 卸载)同样回收。
+  React.useEffect(
+    () => () => {
+      if (dutyActiveRef.current) {
+        dutyActiveRef.current = false
+        if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
+      }
+    },
+    [],
+  )
+
   const {
     data: ov,
     dataUpdatedAt,
@@ -721,6 +776,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           smooth: true,
           showSymbol: false,
           data: (trend?.errRate ?? []).map(([, v]) => Number((v * 100).toFixed(3))),
+          // 轴被隐藏(错误率走独立刻度),数值只能从 tooltip 读 ⇒ 必须带百分号。
+          tooltip: { valueFormatter: (v) => `${v}%` },
           ...seriesGlow(CHART_RED),
         },
         {
@@ -730,6 +787,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           smooth: true,
           showSymbol: false,
           data: (trend?.p95Ms ?? []).map(([, v]) => Number(v.toFixed(1))),
+          tooltip: { valueFormatter: (v) => `${v} ${t('unitMs')}` },
           ...seriesGlow(CHART_AMBER),
         },
       ],
@@ -809,57 +867,53 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       '5xx': CHART_RED,
       other: chartText(isDark),
     }
-    // 零占比类目不进环图(否则 legend/标签里挤出一串 0%);占比读数统一由右侧 legend 承担,
-    // 环内只标 ≥10% 的类目 —— 2xx 常占 99%+,原先四个标签全挤在环外左上角且互相压字。
+    // 横向条形替代环图:2xx 常占 99%+,环图里 3/4/5xx 只剩肉眼不可辨的细缝,标签还得靠
+    // 引线挤出图外互相压字;逐行条形的长度差异 + 端点数字都能直接读。
     const rows = (http?.statusRates ?? []).filter((s) => s.rate > 0)
     const total = rows.reduce((acc, s) => acc + s.rate, 0)
-    const data = rows.map((s) => ({
-      name: s.klass,
-      value: Number(s.rate.toFixed(3)),
-      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark) },
+    // y 轴自下而上排列,倒序后 2xx 落在最上方(占比最大的先读到)。
+    const ordered = [...rows].reverse()
+    const data = ordered.map((s) => ({
+      value: total > 0 ? Number(((s.rate / total) * 100).toFixed(2)) : 0,
+      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: 3 },
     }))
     return {
+      grid: { left: 44, right: 56, top: 10, bottom: 20 },
       tooltip: {
-        trigger: 'item',
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
         backgroundColor: chartBg(isDark),
         borderColor: chartAxis(isDark),
         textStyle: { color: fg(isDark), fontSize: 11 },
+        valueFormatter: (v) => `${v}%`,
       },
-      legend: {
-        orient: 'vertical',
-        right: 4,
-        top: 'middle',
-        itemWidth: 8,
-        itemHeight: 8,
-        itemGap: 8,
-        textStyle: { color: chartText(isDark), fontSize: 10 },
-        formatter: (name: string) => {
-          const item = data.find((d) => d.name === name)
-          const pct = item && total > 0 ? (item.value / total) * 100 : 0
-          return `${name}  ${pct.toFixed(pct >= 10 ? 1 : 2)}%`
-        },
+      xAxis: {
+        type: 'value',
+        min: 0,
+        max: 100,
+        ...AXIS(isDark),
+        axisLabel: { color: chartText(isDark), fontSize: 9, formatter: '{value}%' },
+      },
+      yAxis: {
+        type: 'category',
+        data: ordered.map((s) => s.klass),
+        ...AXIS(isDark),
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
       },
       series: [
         {
-          type: 'pie',
-          radius: ['42%', '66%'],
-          center: ['38%', '52%'],
+          type: 'bar',
+          data,
+          barWidth: 14,
           label: {
             show: true,
-            position: 'inside',
-            color: fg(true),
+            position: 'right',
+            color: chartText(isDark),
             fontSize: 10,
-            // 与 legend 共用同一张 total 表:ECharts 的 p.percent 与图例口径在 99.5/99.6
-            // 这类边界上会差 0.1,两块读数同屏必须逐字一致。
-            formatter: (p) => {
-              const item = data.find((d) => d.name === p.name)
-              const pct = item && total > 0 ? (item.value / total) * 100 : 0
-              return pct >= 10 ? `${pct.toFixed(1)}%` : ''
-            },
+            formatter: '{c}%',
           },
-          labelLine: { show: false },
-          itemStyle: { borderColor: chartBg(isDark), borderWidth: 2 },
-          data,
         },
       ],
     }
@@ -911,6 +965,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           smooth: true,
           showSymbol: false,
           data: (trend?.cpuPct ?? []).map(([, v]) => Number(v.toFixed(2))),
+          tooltip: { valueFormatter: (v) => `${v}%` },
           ...seriesGlow(CHART_CYAN),
         },
         {
@@ -919,6 +974,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           smooth: true,
           showSymbol: false,
           data: (trend?.memPct ?? []).map(([, v]) => Number(v.toFixed(2))),
+          tooltip: { valueFormatter: (v) => `${v}%` },
           ...seriesGlow(CHART_VIOLET),
         },
       ],
@@ -1088,6 +1144,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             value: ms,
             itemStyle: { color: hit ? CHART_GREEN : CHART_AMBER },
           })),
+          tooltip: { valueFormatter: (v) => `${v} ${t('unitMs')}` },
           ...seriesGlow(CHART_CYAN),
         },
       ],
@@ -1233,6 +1290,23 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 })}
               </div>
             </div>
+            <Tooltip content={dutyMode ? t('exitDutyMode') : t('dutyMode')}>
+              <button
+                type="button"
+                onClick={() => void toggleDutyMode()}
+                aria-pressed={dutyMode}
+                className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:bg-muted"
+              >
+                {dutyMode ? (
+                  <Minimize2 className="h-3 w-3" />
+                ) : (
+                  <Maximize2 className="h-3 w-3" />
+                )}
+                <span className="wb-src-name">
+                  {dutyMode ? t('exitDutyMode') : t('dutyMode')}
+                </span>
+              </button>
+            </Tooltip>
             {headerExtra}
           </div>
         </header>
@@ -1580,7 +1654,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelQuality')}
             icon={<Gauge className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 order-1"
             bodyClassName="flex flex-col gap-1"
           >
             <div className="relative">
@@ -1614,7 +1688,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelAlerts')}
             icon={<AlertTriangle className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 order-1"
             right={
               <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
@@ -1799,7 +1873,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelDatastore')}
             icon={<Database className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 order-1"
             bodyClassName="flex flex-col gap-2"
           >
             <div>
@@ -2027,7 +2101,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelEdge')}
             icon={<Globe className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 order-1"
             right={
               edge ? (
                 <span className="text-[10px] text-muted-foreground">
@@ -2177,7 +2251,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTrafficRobot')}
             icon={<Users className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 order-1"
             right={
               traffic === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2264,7 +2338,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelRelayPool')}
             icon={<Sparkles className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 order-1"
             right={
               relayPool === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2362,7 +2436,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelUptime')}
             icon={<Clock3 className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 order-1"
             right={http === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
             bodyClassName="max-h-[320px] overflow-y-auto"
           >
@@ -2390,14 +2464,6 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
 
         <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 pt-1 pb-2 text-[10px] text-muted-foreground">
           <span>{t('footerSources', { url: ov?.prometheusUrl ?? '—' })}</span>
-          <span className="wb-num">
-            {t('footerUptime', {
-              list:
-                (http?.uptimeSeconds ?? [])
-                  .map((u) => `${u.job} ${fmtDuration(u.seconds)}`)
-                  .join('  |  ') || '—',
-            })}
-          </span>
         </footer>
       </div>
     </TooltipProvider>
