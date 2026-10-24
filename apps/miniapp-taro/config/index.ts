@@ -102,6 +102,9 @@ export default defineConfig(async (merge) => {
         { from: 'src/pages/member/assets/', to: `${outputRoot}/pages/member/assets/` },
         { from: 'src/pkg-learn/assets/', to: `${outputRoot}/pkg-learn/assets/` },
         { from: 'src/pkg-about/assets/', to: `${outputRoot}/pkg-about/assets/` },
+        // 社群宣传卡(carte)两张图:与 RN 端 assets/images/carousel/ 同一副本(字节等值),
+        // 只被 pkg-content/carte 一页引用 ⇒ 停放包 assets 目录并整目录派生,不占主包 2MB 硬上限。
+        { from: 'src/pkg-content/assets/', to: `${outputRoot}/pkg-content/assets/` },
         { from: 'src/mini.project.json', to: `${outputRoot}/mini.project.json` },
         // 微信原生 darkmode:Taro vite-runner 从 src/theme.json 读取,copy 保证与 dist/app.json 同级(themeLocation 引用)
         { from: 'src/theme.json', to: `${outputRoot}/theme.json` },

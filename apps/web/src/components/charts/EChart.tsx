@@ -19,9 +19,24 @@ export interface EChartProps {
   className?: string
   height?: number | string
   loading?: boolean
+  /**
+   * true = 走 setOption 增量合并(notMerge=false)。高频轮询的看板用它保住过渡动画:
+   * 默认 notMerge 会在每次轮询时重建实例,入场动画从头重播(实测大屏每 20s 整片重画)。
+   * 默认 false 保持既有调用方行为不变。
+   */
+  merge?: boolean
+  /** 供读屏使用的图表名称:canvas 内容不可读,至少让容器有一个语义标签。 */
+  ariaLabel?: string
 }
 
-export function EChart({ option, className, height = 300, loading }: EChartProps) {
+export function EChart({
+  option,
+  className,
+  height = 300,
+  loading,
+  merge = false,
+  ariaLabel,
+}: EChartProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
   const textColor = chartText(isDark)
@@ -68,10 +83,16 @@ export function EChart({ option, className, height = 300, loading }: EChartProps
   }
 
   return (
-    <div ref={wrapRef} className={cn('w-full', className)} style={{ height: heightStyle }}>
+    <div
+      ref={wrapRef}
+      role={ariaLabel ? 'img' : undefined}
+      aria-label={ariaLabel}
+      className={cn('w-full', className)}
+      style={{ height: heightStyle }}
+    >
       <ReactECharts
         option={themedOption}
-        notMerge
+        notMerge={!merge}
         lazyUpdate
         style={{ height: '100%', width: '100%' }}
         opts={{ renderer: 'canvas' }}

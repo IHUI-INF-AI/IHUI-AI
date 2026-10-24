@@ -16,6 +16,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { MoreLink } from '../../components/MoreLink'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Smartphone, Users, PenLine, BarChart3, BookOpen } from 'lucide-react-native'
 import type { LearnCategory, LearnScreenProps } from '../../types'
 
@@ -80,16 +81,14 @@ export function LearnScreen({
         <Text style={styles.title}>学习</Text>
       </View>
       {loading ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.loadingText}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       ) : error && !progress ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onOpenBrowse}>
-            <Text style={styles.retryText}>{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onOpenBrowse}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <ScrollView
           style={styles.scroll}
@@ -114,9 +113,7 @@ export function LearnScreen({
           <View style={styles.section}>
             {renderSectionHeader('学习路径', onOpenBrowse)}
             {paths.length === 0 ? (
-              <View style={styles.emptyWrap}>
-                <Text style={styles.emptyText}>暂无学习路径</Text>
-              </View>
+              <EmptyState title="暂无学习路径" colorScheme={colorScheme} />
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.horizontalList}>
@@ -172,9 +169,7 @@ export function LearnScreen({
           <View style={styles.section}>
             {renderSectionHeader('推荐课程', onOpenBrowse)}
             {recommended.length === 0 ? (
-              <View style={styles.emptyWrap}>
-                <Text style={styles.emptyText}>暂无推荐</Text>
-              </View>
+              <EmptyState title="暂无推荐" colorScheme={colorScheme} />
             ) : (
               <View style={styles.courseList}>
                 {recommended.map((item) => {
@@ -246,22 +241,6 @@ function createStyles(tk: AppThemeTokens) {
     scrollContent: {
       paddingBottom: 24,
     } as ViewStyle,
-    centerWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-    } as ViewStyle,
-    loadingText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
-    errorText: { fontSize: 16, color: tk.danger.DEFAULT, textAlign: 'center' } as TextStyle,
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    } as ViewStyle,
-    retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
 
     progressOverview: {
       flexDirection: 'row',
@@ -409,12 +388,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 11,
       color: tk.text.secondary,
     } as TextStyle,
-
-    emptyWrap: {
-      paddingVertical: 24,
-      alignItems: 'center',
-    } as ViewStyle,
-    emptyText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

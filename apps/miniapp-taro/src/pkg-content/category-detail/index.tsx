@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/category-detail/CategoryDetailScreen.tsx
 import { useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -10,6 +11,7 @@ import type { Agent } from '@ihui/api-client'
 import { getAgentList } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { EmptyState, PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 /** 本地视图模型:id 由 @/api 的 getAgentList 把后端主键 agentId 映射而来(对齐 mobile-rn AgentShopItem.id) */
 type AgentItem = Pick<Agent, 'name'> & {
@@ -91,30 +93,15 @@ export default function CategoryDetailPage() {
         </View>
 
         {loading ? (
-          <View className="px-[20rpx] py-[32rpx]">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <View key={i} className="flex items-center gap-[24rpx] py-[24rpx] animate-pulse">
-                <View className="w-[96rpx] h-[96rpx] rounded-md bg-muted" />
-                <View className="flex-1 space-y-2">
-                  <View className="h-3 w-1/3 rounded bg-muted" />
-                  <View className="h-[20rpx] w-2/3 rounded bg-muted" />
-                </View>
-              </View>
-            ))}
-          </View>
+          <ScreenSkeleton variant="list" count={4} />
         ) : list.length === 0 ? (
-          <View className="flex items-center justify-center py-[56rpx]">
-            <Text className="text-[length:32rpx] text-muted-foreground">
-              {t('categoryDetail.empty')}
-            </Text>
-          </View>
+          <EmptyState title={t('categoryDetail.empty')} />
         ) : (
           <View className="px-[20rpx] pb-[48rpx]">
             {list.map((agent) => (
-              <View
+              <PressableCard
                 key={agent.id}
                 className="flex items-center gap-[24rpx] p-[24rpx] mb-[24rpx] bg-card border border-[var(--color-border)] rounded-lg"
-                hoverClass="opacity-60"
                 onClick={() => handleSelect(agent)}
               >
                 {agent.avatar ? (
@@ -157,7 +144,7 @@ export default function CategoryDetailPage() {
                 )}
                 {/* RN itemArrow '›': fontSize 20dp=40rpx, color text.tertiary */}
                 <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-              </View>
+              </PressableCard>
             ))}
           </View>
         )}

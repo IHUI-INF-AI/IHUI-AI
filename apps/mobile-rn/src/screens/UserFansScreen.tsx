@@ -2,26 +2,27 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/**
+ * UserFansScreen 我的粉丝页(mobile-rn 端)—— 薄壳,渲染真相源在共享层
+ * `packages/app/src/features/user-fans/UserFansScreen.tsx`(经 `@ihui/rn-app` 具名导出),
+ * 本文件只管平台侧:取数、导航、取词、主题、回关请求与 appAlert 提示、Intl 日期格式化。
+ *
+ * 端点按 apps/api/src/routes/social.ts 现读:
+ *  - GET  /api/follows/followers?page&pageSize ⇒ { list, total, page, pageSize }
+ *  - GET  /api/follows/following?pageSize=100  ⇒ { list: { userId, ... }[] }
+ *  - POST /api/follows/:userId                 ⇒ 201 { followed, isMutual }
+ * 列表实列(followers 的 select)只有 id/userId/nickname/avatar/createdAt,
+ * 没有 bio —— web 侧接口声明的 bio 是假字段,共享屏不渲染。
+ */
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import { View } from 'react-native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { UserCheck, UserPlus, Users } from 'lucide-react-native'
+import { useNavigation } from '@react-navigation/native'
 import { fetchApi } from '@ihui/api-client'
-import { rnRadius } from '@ihui/design-tokens'
-import { tokens } from '../theme/active-tokens'
-import { NavBar } from '../components/NavBar'
-import { NavChrome } from '../components/NavChrome'
+import { UserFansScreen as SharedUserFansScreen, type UserFansRowView } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -30,16 +31,6 @@ const PAGE_SIZE = 20
 // 后端 paginationOnlyQuery 的 pageSize 上限为 100(web 侧传 200 会被 400 拒绝),此处取上限。
 const FOLLOWING_PAGE_SIZE = 100
 
-/**
- * 我的粉丝 —— 对齐 web `/user/fans`。
- *
- * 端点按 apps/api/src/routes/social.ts 现读:
- *  - GET  /api/follows/followers?page&pageSize ⇒ { list, total, page, pageSize }
- *  - GET  /api/follows/following?pageSize=100  ⇒ { list: { userId, ... }[] }
- *  - POST /api/follows/:userId                 ⇒ 201 { followed, isMutual }
- * 列表实列(followers 的 select)只有 id/userId/nickname/avatar/createdAt,
- * 没有 bio —— web 侧接口声明的 bio 是假字段,本屏不渲染。
- */
 interface FanRow {
   id: string
   userId: string
@@ -48,8 +39,9 @@ interface FanRow {
   createdAt: string | null
 }
 
-export default function UserFansScreen() {
+export function UserFansScreen() {
   const { t, locale } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
 
   const [rows, setRows] = useState<FanRow[]>([])
@@ -142,145 +134,34 @@ export default function UserFansScreen() {
     setPage(next)
   }
 
-  const styles = makeStyles()
+  const viewRows: UserFansRowView[] = rows.map((fan) => ({
+    id: fan.id,
+    userId: fan.userId,
+    nickname: fan.nickname ?? t('userFans.anonymous'),
+    avatarUrl: fan.avatar,
+    followedAtText: fmtDate(fan.createdAt),
+    followed: followedIds.has(fan.userId),
+  }))
 
   return (
-    <View style={styles.container}>
-      <NavChrome>
-        <NavBar title={t('userFans.title')} onBack={() => navigation.goBack()} />
-      </NavChrome>
-
-      <ScrollView contentContainerStyle={styles.body}>
-        {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tokens.text.tertiary} />
-        ) : failed ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.errorText}>{t('userFans.loadFailed')}</Text>
-            <TouchableOpacity onPress={() => void loadFans(1, false)} activeOpacity={0.7}>
-              <Text style={styles.retry}>{t('common.retry')}</Text>
-            </TouchableOpacity>
-          </View>
-        ) : rows.length === 0 ? (
-          <View style={styles.stateBox}>
-            <Users size={28} color={tokens.text.tertiary} />
-            <Text style={styles.muted}>{t('userFans.empty')}</Text>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.total}>{t('userFans.total', { total })}</Text>
-            {rows.map((fan) => {
-              const followed = followedIds.has(fan.userId)
-              return (
-                <View key={fan.id} style={styles.row}>
-                  {fan.avatar ? (
-                    <Image source={{ uri: fan.avatar }} style={styles.avatar} />
-                  ) : (
-                    <View style={[styles.avatar, styles.avatarFallback]}>
-                      <Text style={styles.avatarText}>
-                        {(fan.nickname ?? t('userFans.anonymous')).slice(0, 1)}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.rowMain}>
-                    <Text style={styles.nickname} numberOfLines={1}>
-                      {fan.nickname ?? t('userFans.anonymous')}
-                    </Text>
-                    <Text style={styles.muted}>
-                      {t('userFans.followedAt')} {fmtDate(fan.createdAt)}
-                    </Text>
-                  </View>
-                  {followed ? (
-                    <View style={styles.followedTag}>
-                      <UserCheck size={13} color={tokens.success.DEFAULT} />
-                      <Text style={styles.followedText}>{t('userFans.followed')}</Text>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={[styles.followBtn, pendingId === fan.userId && styles.btnDisabled]}
-                      onPress={() => void onFollowBack(fan.userId)}
-                      disabled={pendingId !== null}
-                      activeOpacity={0.7}
-                    >
-                      <UserPlus size={13} color={tokens.brand.ctaForeground} />
-                      <Text style={styles.followBtnText}>{t('userFans.follow')}</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )
-            })}
-            {rows.length < total ? (
-              <TouchableOpacity
-                style={styles.moreBtn}
-                onPress={() => void loadMore()}
-                disabled={loadingMore}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.moreText}>
-                  {loadingMore
-                    ? t('common.loading')
-                    : t('userFans.loadMore', { loaded: rows.length, total })}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
-          </>
-        )}
-      </ScrollView>
+    <View style={{ flex: 1 }}>
+      <SharedUserFansScreen
+        t={t}
+        colorScheme={resolvedTheme}
+        rows={viewRows}
+        total={total}
+        loading={loading}
+        loadingMore={loadingMore}
+        failed={failed}
+        pendingUserId={pendingId}
+        onBack={() => navigation.goBack()}
+        onRetry={() => void loadFans(1, false)}
+        onLoadMore={() => void loadMore()}
+        onFollowBack={(userId: string) => void onFollowBack(userId)}
+      />
     </View>
   )
 }
 
-function makeStyles() {
-  return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tokens.surface.bg },
-    body: { padding: 12, gap: 8, paddingBottom: 32 },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
-    errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    muted: { fontSize: 12, color: tokens.text.secondary },
-    total: { fontSize: 12, color: tokens.text.tertiary, paddingHorizontal: 4 },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      padding: 12,
-      borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: tokens.border.light,
-      backgroundColor: tokens.surface.card,
-    },
-    avatar: {
-      width: 44,
-      height: 44,
-      borderRadius: rnRadius['2xl'],
-      backgroundColor: tokens.surface.muted,
-      overflow: 'hidden',
-    },
-    avatarFallback: { alignItems: 'center', justifyContent: 'center' },
-    avatarText: { fontSize: 18, fontWeight: '600', color: tokens.text.secondary },
-    rowMain: { flex: 1, gap: 3 },
-    nickname: { fontSize: 14, fontWeight: '600', color: tokens.text.primary },
-    followedTag: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 4 },
-    followedText: { fontSize: 12, fontWeight: '600', color: tokens.success.DEFAULT },
-    followBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      height: 32,
-      paddingHorizontal: 12,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tokens.brand.cta,
-    },
-    btnDisabled: { opacity: 0.5 },
-    followBtnText: { fontSize: 12, fontWeight: '600', color: tokens.brand.ctaForeground },
-    moreBtn: {
-      height: 40,
-      borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tokens.border.medium,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    moreText: { fontSize: 13, color: tokens.text.primary },
-  })
-}
+export default UserFansScreen
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

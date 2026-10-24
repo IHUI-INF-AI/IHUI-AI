@@ -3407,6 +3407,33 @@ const checks = [
     ]
   },
   {
+    id: '237',
+    label:
+      '🧭 跨端页面覆盖对账(blocking,共享屏→小程序镜像数与 RN 下沉数只增不减 —— 拦「RN 加页面、小程序不跟随」这类分叉回潮)',
+    script: 'check-cross-end-screen-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_SCREEN_COVERAGE',
+    stagedTriggers: [
+      'packages/app/src/features/',
+      'packages/app/src/components/',
+      'apps/mobile-rn/src/screens/',
+      'apps/miniapp-taro/src/',
+      'scripts/check-cross-end-screen-coverage.mjs',
+      'scripts/data/cross-end-screen-registry.json',
+    ],
+    onFailHint: [
+      '',
+      '  💡 本门是「两端一模一样」的正向推进尺:存量只报数,**只拦本次带进来的倒退**(§12e)。',
+      '     ① 看缺口在哪:node scripts/check-cross-end-screen-coverage.mjs(结论行自带"共享屏被小程序显式镜像 x/N",N 由门体现读,别在提示里钉死计数 —— §0.1);',
+      '     ② 小程序页声明对齐目标,只需在文件顶部写一行注释:',
+      '        // 对齐目标(RN 共享屏): packages/app/src/features/<domain>/<Name>Screen.tsx',
+      '     ③ 禁止靠删条目或改判据去消红 —— 那是把尺子锯短,不是收口;棘轮锚点是 HEAD 面(无基线文件可维护),确需放行时用 skipEnv 并把理由写进提交信息;',
+      '     ④ 「小程序端没有这一页」≠ 缺口:本门把无标记的记为**未判定**,既不记已对齐也不判红。',
+      '',
+    ]
+  },
+  {
     id: '129',
     label:
       '🛡️ 提示注入登记对账(blocking,"以宿主名义进模型提示"的每段必须有登记的 producer 与记账出口;拦 登记没生产 / 生产没消费 / 裸 [系统提醒] 前缀 三型)',

@@ -594,6 +594,26 @@ def derive_account_identity(
 # ---------------------------------------------------------------------------
 
 
+async def clear_open_cooldowns_conn(conn: "asyncpg.Connection", account_id: int) -> str:
+    """把该账号**未到期**的冷却记录置回 NULL,返回 asyncpg 状态串(如 'UPDATE 2')。
+
+    冷却不单独建表(见 get_active_cooldowns:取 max(cooldown_until) > now()),所以
+    "解冷却"的正解就是清这一列 —— 历史行、ok、credits 一个都不动。
+    立因:SessionDead 落的是 `_PERMANENT_COOLDOWN_DAYS=3650`,而冷却按**账号**算、
+    不看凭证 ⇒ 号池把好票换进来以后,这枚号仍被十年前那次死会话拦在签到窗口外,
+    全仓零解冷却出口,等于永久判死(2026-10-23 dev 实测 cooldown_until=2036-10-20)。
+    """
+    status: str = await conn.execute(
+        """
+        UPDATE checkin_records
+        SET cooldown_until = NULL
+        WHERE account_id = $1 AND cooldown_until > now()
+        """,
+        account_id,
+    )
+    return status
+
+
 async def create_account(
     owner_user_id: str,
     name: str,
@@ -694,6 +714,20 @@ async def create_account(
                     platform,
                     identity_key,
                 )
+                # 号池换票即解冷却(2026-10-23 立):SessionDead 落的是 3650 天冷却,而冷却按
+                # 账号算、不看凭证 ⇒ 票换好了也永远进不了签到窗口,等于永久判死(dev 实测
+                # cooldown_until=2036-10-20 那枚)。只在这一支清:incoming/existing 两枚版本号
+                # 齐备 = 号池同步账号且版本确实前进;用户手工录入与首次建行都不经此路。
+                # 与号池侧 refreshOne 成功即解除摘除是同一条语义。
+                if incoming_ver is not None and existing_ver is not None:
+                    cleared = await clear_open_cooldowns_conn(conn, existing["id"])
+                    logger.info(
+                        "[checkin_store] 号池换票解除未到期冷却 id=%s ver=%s→%s %s",
+                        existing["id"],
+                        existing_ver,
+                        incoming_ver,
+                        cleared,
+                    )
                 return _account_row(row)
         try:
             row = await conn.fetchrow(
@@ -864,6 +898,58 @@ async def get_account_platform(account_id: int, owner_user_id: str) -> str | Non
             owner_user_id,
         )
     return row["platform"] if row else None
+
+
+async def list_accounts_by_platform(platform: str) -> list[dict[str, Any]]:
+    """跨 owner 列出某平台的签到账号(本机凭据同步器用;只回 id/owner/device_map)。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, owner_user_id, name, device_map
+            FROM checkin_accounts
+            WHERE platform = $1
+            ORDER BY id
+            """,
+            platform,
+        )
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        dm = r["device_map"]
+        if isinstance(dm, str):
+            try:
+                dm = json.loads(dm or "{}")
+            except (json.JSONDecodeError, ValueError):
+                dm = {}
+        elif not isinstance(dm, dict):
+            dm = {}
+        out.append(
+            {
+                "id": r["id"],
+                "owner_user_id": r["owner_user_id"],
+                "name": r["name"],
+                "device_map": dict(dm),
+            }
+        )
+    return out
+
+
+async def clear_open_cooldowns(account_id: int) -> int:
+    """清该账号未到期冷却(换票后调用)。返回清除行数;解析不了按 0。"""
+    pool = await get_shared_pool()
+    async with pool.acquire() as conn:
+        tag = await conn.execute(
+            """
+            UPDATE checkin_records
+            SET cooldown_until = NULL
+            WHERE account_id = $1 AND cooldown_until > now()
+            """,
+            account_id,
+        )
+    try:
+        return int(str(tag).rsplit(" ", 1)[-1])
+    except (TypeError, ValueError):
+        return 0
 
 
 async def update_jwt(account_id: int, owner_user_id: str, jwt: str) -> bool:

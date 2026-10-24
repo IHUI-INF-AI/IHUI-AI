@@ -27,6 +27,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { TextField } from '../../components/TextField'
+import { EmptyState } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { ChevronRight, Settings } from 'lucide-react-native'
@@ -159,11 +160,7 @@ export function AiAssistantN8nScreen({
             </View>
           ) : null
         }
-        ListEmptyComponent={
-          <View style={styles.centerWrap}>
-            <Text style={styles.emptyText}>{emptyText}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={emptyText} colorScheme={colorScheme} />}
       />
 
       {/* 快捷操作区 */}
@@ -398,18 +395,6 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary,
     } as TextStyle,
     // 空态/加载态
-    centerWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-      gap: 12,
-    } as ViewStyle,
-    emptyText: {
-      fontSize: 16,
-      color: tk.text.tertiary,
-      textAlign: 'center',
-    } as TextStyle,
     loadingText: {
       fontSize: 16,
       color: tk.text.secondary,

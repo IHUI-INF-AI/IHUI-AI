@@ -6,6 +6,8 @@ fastapi>=0.141.0
 uvicorn[standard]>=0.52.0
 pydantic>=2.13.0
 pydantic-settings>=2.14.0
+# WorkBuddy 本机凭据抽取经 CDP 读 Chrome cookie(2026-10-24 起直接 import,显式声明)
+websockets>=15.0.0
 
 # --- Socket.IO 兼容协议层(2026-07-20 新增)---
 # 兼容历史 coze_zhs_py 客户端通过 Socket.IO 协议连接新 ai-service。

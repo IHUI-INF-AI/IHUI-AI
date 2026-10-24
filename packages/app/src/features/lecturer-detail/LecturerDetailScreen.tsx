@@ -4,7 +4,6 @@
 
 import { useMemo, useState } from 'react'
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -17,6 +16,7 @@ import {
 } from 'react-native'
 import { Star } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 import type {
   LecturerDetailCourse,
@@ -82,7 +82,7 @@ export function LecturerDetailScreen({
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
+      <View style={styles.container}>
         <Header
           title={t('teacher.list.title')}
           onBack={onBack}
@@ -90,7 +90,7 @@ export function LecturerDetailScreen({
           colorScheme={colorScheme}
           styles={styles}
         />
-        <ActivityIndicator color={tk.text.secondary} />
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -105,9 +105,7 @@ export function LecturerDetailScreen({
           colorScheme={colorScheme}
           styles={styles}
         />
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>{error}</Text>
-        </View>
+        <ErrorState message={error} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -203,7 +201,7 @@ export function LecturerDetailScreen({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('teacher.detail.courseSection')}</Text>
           {courses.length === 0 ? (
-            <Text style={styles.emptyText}>{t('teacher.detail.noCourses')}</Text>
+            <EmptyState title={t('teacher.detail.noCourses')} colorScheme={colorScheme} />
           ) : (
             courses.map((c) => (
               // 同上(守门 131):courseCard 在 section(column,默认 stretch)里撑满宽度,
@@ -247,7 +245,7 @@ export function LecturerDetailScreen({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('teacher.detail.reviewSection')}</Text>
           {reviews.length === 0 ? (
-            <Text style={styles.emptyText}>{t('teacher.detail.noReviews')}</Text>
+            <EmptyState title={t('teacher.detail.noReviews')} colorScheme={colorScheme} />
           ) : (
             reviews.map((r, idx) => {
               const stars = Math.round(r.rating ?? 0)
@@ -357,12 +355,6 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-    },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8, // rpx(16)
     },
     scrollContent: {
       padding: 12, // rpx(24)
@@ -599,10 +591,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 15,
       fontWeight: '600',
       color: tk.surface.light,
-    },
-    emptyText: {
-      fontSize: 13,
-      color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)
 }

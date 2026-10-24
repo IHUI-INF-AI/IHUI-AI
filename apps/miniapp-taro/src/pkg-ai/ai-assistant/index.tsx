@@ -7,6 +7,7 @@
  * 改用 Taro 现有 chatStream(SSE 流式),保留核心交互:思考进度条 + 消息列表 + 复制/预览/可见性切换 + 快捷问题 + 分享。
  * 路由注册:需在 app.config.ts pages 追加 'pages/ai-assistant/index'。
  */
+// 对齐目标(RN 共享屏): packages/app/src/features/ai-assistant/AiAssistantScreen.tsx
 import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, ScrollView, Image, Video } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
@@ -17,6 +18,7 @@ import { getToken, getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
+import { EmptyState } from '@/components/ScreenStates.taro'
 
 interface QAItem {
   question: string
@@ -266,11 +268,7 @@ export default function AiAssistantPage() {
 
           {/* 对齐 RN Empty:py 48dp=96rpx / px 24dp=48rpx / 文字 14dp=28rpx 次级色 */}
           {list.length === 0 ? (
-            <View className="flex flex-col items-center py-[96rpx] px-[48rpx]">
-              <Text className="text-[length:28rpx] text-muted-foreground">
-                {tt('aiassistant.text3', '请在下方输入您的问题')}
-              </Text>
-            </View>
+            <EmptyState title={tt('aiassistant.text3', '请在下方输入您的问题')} />
           ) : (
             list.map((item, idx) => (
               <View key={idx} className="mb-[16rpx]">

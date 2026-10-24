@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/distribution-order-list/DistributionOrderListScreen.tsx
 import { useTt, useI18n, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
@@ -9,6 +10,7 @@ import { useState, useRef } from 'react'
 import * as api from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ErrorState, PressableCard } from '@/components/ScreenStates.taro'
 
 interface OrderItem {
   id: string
@@ -197,11 +199,10 @@ export default function DistributionOrderList() {
               cls: 'bg-[var(--color-text-tertiary)] text-[var(--color-surface-light)]',
             }
             return (
-              <View
+              <PressableCard
                 key={o.id}
                 className="rounded-lg bg-card p-[28rpx] flex flex-col gap-[16rpx]"
                 onClick={() => onItemClick(o.id)}
-                hoverClass="opacity-60"
               >
                 <View className="flex flex-row justify-between items-center gap-[16rpx]">
                   <Text className="flex-1 text-[length:28rpx] text-foreground truncate">
@@ -229,35 +230,22 @@ export default function DistributionOrderList() {
                     </Text>
                   </View>
                 </View>
-              </View>
+              </PressableCard>
             )
           })}
         </View>
       )}
 
       {list.length === 0 && !loading && !error && (
-        <View className="py-[96rpx] text-center">
-          <Text className="text-[length:32rpx] text-muted-foreground">
-            {t('distribution.orderList.empty')}
-          </Text>
-        </View>
+        <EmptyState title={t('distribution.orderList.empty')} />
       )}
 
       {error && !loading && (
-        <View className="flex flex-col items-center py-[48rpx] gap-[24rpx]">
-          <Text className="text-[length:28rpx] text-muted-foreground text-center">
-            {tt('distribution.orderList.error', '加载失败')}
-          </Text>
-          <View
-            className="px-[40rpx] h-[72rpx] rounded-lg bg-primary flex items-center justify-center"
-            onClick={() => load(true)}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-[length:28rpx] font-medium text-[var(--color-primary-foreground)]">
-              {tt('distribution.orderList.retry', '点击重试')}
-            </Text>
-          </View>
-        </View>
+        <ErrorState
+          message={tt('distribution.orderList.error', '加载失败')}
+          onRetry={() => load(true)}
+          retryLabel={tt('distribution.orderList.retry', '点击重试')}
+        />
       )}
 
       {loading && (

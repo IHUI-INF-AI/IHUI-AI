@@ -121,4 +121,43 @@ export type {
 // 不得另写假实现。
 export { SearchInput } from '../../../../packages/app/src/components/SearchInput'
 export type { SearchInputProps } from '../../../../packages/app/src/components/SearchInput'
+// CarteScreen 同上一条纪律:替身必须转发**真实共享屏**,不得另写假实现 ——
+// apps/mobile-rn/src/screens/CarteScreen.tsx 是薄壳,渲染的就是这一份;
+// 若此处缺席或写假组件,"RN 端渲染共享层那份"这一格就没有任何一层能判。
+export { CarteScreen } from '../../../../packages/app/src/features/carte/CarteScreen'
+// RecruitmentScreen 同一条纪律(操盘手计划宣传页,2026-10-24 收敛):薄壳渲染的就是共享层那一份;
+// 本替身此前根本不导出这个名字 ⇒ 不补上,壳会渲染 undefined,而"RN 端渲染共享层"这一格零判据。
+export { RecruitmentScreen } from '../../../../packages/app/src/features/recruitment/RecruitmentScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// 2026-10-23:About 薄壳接的是真实共享屏,本替身必须把真件透出来,否则 About 测的是虚构组件
+export { AboutScreen } from '../../../../packages/app/src/features/about/AboutScreen'
+export type {
+  AboutEntry,
+  SharedAboutScreenProps,
+} from '../../../../packages/app/src/features/about/AboutScreen'
+// 2026-10-23:Developer 薄壳同样接真实共享屏(开发者空间页)。同 CarteScreen/AboutScreen 那条
+// 纪律:替身只转发、不另写假实现 —— 写假的等于「RN 端渲染共享层那一份」这一格零覆盖。
+export { DeveloperScreen } from '../../../../packages/app/src/features/developer/DeveloperScreen'
+// 2026-10-24:TopicDetail 薄壳接真实共享屏(话题详情页)。同 CarteScreen/AboutScreen 纪律:
+// 替身只转发、不另写假实现 —— 否则「RN 端渲染共享层那一份」这一格零判据。
+export { TopicDetailScreen } from '../../../../packages/app/src/features/topic-detail/TopicDetailScreen'
+export type {
+  TopicDetailPostView,
+  TopicDetailView,
+  TopicDetailScreenProps,
+} from '../../../../packages/app/src/features/topic-detail/TopicDetailScreen'
+// 2026-10-24:Cart 薄壳接真实共享屏(购物车页)。同上方纪律:re-export 真实组件,
+// 不得另写假实现 —— 缺席则壳渲染 undefined,"RN 端渲染共享层那一份"判不到。
+export { CartScreen } from '../../../../packages/app/src/features/cart/CartScreen'
+export type {
+  CartItemView,
+  CartScreenProps,
+} from '../../../../packages/app/src/features/cart/CartScreen'
+// 2026-10-24:UserFans 薄壳接真实共享屏(粉丝列表页)。同上方纪律:re-export 真实组件,
+// 不得另写假实现 —— 缺席则壳渲染 undefined,"RN 端渲染共享层那一份"判不到。
+export { UserFansScreen } from '../../../../packages/app/src/features/user-fans/UserFansScreen'
+export type {
+  UserFansRowView,
+  UserFansScreenProps,
+} from '../../../../packages/app/src/features/user-fans/UserFansScreen'

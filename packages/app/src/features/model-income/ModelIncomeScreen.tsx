@@ -11,13 +11,13 @@ import {
   Modal,
   StyleSheet,
   RefreshControl,
-  ActivityIndicator,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ModelIncomeItem, ModelIncomeScreenProps, ModelIncomeTab } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** ModelIncome 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ModelIncomeItem, ModelIncomeScreenProps, ModelIncomeTab }
@@ -67,21 +67,17 @@ export function ModelIncomeScreen({
   )
 
   if (loading) {
-    return (
-      <View style={styles.centerLoad}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={5} colorScheme={colorScheme} />
   }
 
   if (error) {
     return (
-      <View style={styles.centerErr}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onRefresh} activeOpacity={0.8}>
-          <Text style={styles.retryText}>{t('modelIncome.retry')}</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error}
+        onRetry={onRefresh}
+        retryLabel={t('modelIncome.retry')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -150,11 +146,7 @@ export function ModelIncomeScreen({
         contentContainerStyle={{ padding: 10 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('modelIncome.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('modelIncome.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => {
           const settled = isSettled(item.status)
           return (
@@ -245,27 +237,6 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     },
     headerTitle: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    centerLoad: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-    },
-    centerErr: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 16,
-    },
-    errorText: { color: tk.text.secondary, marginBottom: 12, textAlign: 'center' },
-    retryBtn: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
-    retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     summaryCard: {
       marginHorizontal: 10,
       padding: 12,
@@ -325,8 +296,6 @@ function createStyles(tk: AppThemeTokens) {
     tabItemActive: { backgroundColor: tk.surface.light },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.text.primary, fontWeight: '600' },
-    empty: { alignItems: 'center', paddingVertical: 48 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 12,
       borderRadius: rnRadius.lg,

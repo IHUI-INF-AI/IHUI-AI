@@ -9,6 +9,7 @@ import type { VipLevelItem2, VipMembershipInfo, VipScreenProps } from '../../typ
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** VIP/Props 类型 re-export(单一来源 @ihui/types) */
 export type { VipLevelItem2, VipMembershipInfo, VipScreenProps }
@@ -43,21 +44,17 @@ export function VipScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading) {
-    return (
-      <View style={styles.fullCenter}>
-        <Text style={styles.emptyText}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
   }
 
   if (error && levels.length === 0) {
     return (
-      <View style={styles.fullCenter}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
-          <Text style={styles.retryBtnText}>{t('vip.retry')}</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error}
+        onRetry={onRefresh}
+        retryLabel={t('vip.retry')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -103,9 +100,7 @@ export function VipScreen({
       <View style={styles.levelsSection}>
         <Text style={styles.levelsTitle}>{t('vip.levelsTitle')}</Text>
         {levels.length === 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.emptyText}>{t('vip.empty')}</Text>
-          </View>
+          <EmptyState title={t('vip.empty')} colorScheme={colorScheme} />
         ) : (
           levels.map((level) => {
             const isCurrent = membership?.level === level.levelValue
@@ -159,7 +154,6 @@ export function VipScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    fullCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
     body: { paddingBottom: 32 },
     header: { paddingHorizontal: 16, paddingBottom: 8 },
     title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
@@ -168,17 +162,6 @@ function createStyles(tk: AppThemeTokens) {
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     toastBar: { paddingHorizontal: 16, paddingVertical: 8 },
     toastText: { fontSize: 12, color: tk.success.deepText },
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      height: 44,
-      borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    retryBtnText: { fontSize: 16, color: tk.text.primary },
     membershipCard: {
       marginHorizontal: 16,
       marginTop: 16,
@@ -242,7 +225,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     purchaseBtnDisabled: { opacity: 0.6 },
     purchaseBtnText: { fontSize: 16, fontWeight: '700', color: VIP_GOLD_TEXT },
-    emptyText: { fontSize: 14, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

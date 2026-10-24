@@ -40,6 +40,7 @@ from zoneinfo import ZoneInfo
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.logging import get_logger
 from app.services import (
@@ -50,6 +51,7 @@ from app.services import (
     checkin_qoder,
     checkin_store,
     checkin_workbuddy,
+    checkin_workbuddy_local,
 )
 from app.services.checkin_engine import client_for, status_check
 from app.services.checkin_outbound import (
@@ -61,6 +63,14 @@ from app.services.checkin_outbound import (
 
 _BATCH_JITTER_MIN = float(os.environ.get("CHECKIN_BATCH_JITTER_MIN", "8"))
 _BATCH_JITTER_MAX = float(os.environ.get("CHECKIN_BATCH_JITTER_MAX", "45"))
+# WorkBuddy 本机重抽节流:失败/无效时至少隔这么久再拉起一次无头 Chrome
+_WB_EXTRACT_INTERVAL_SECONDS = float(os.environ.get("CHECKIN_WB_EXTRACT_INTERVAL_SECONDS", "1800"))
+# WorkBuddy 客户端内存令牌扫描节流(默认 6h;一次约 5s,只在临期时触发)
+_WB_MEMORY_SCAN_INTERVAL_SECONDS = float(
+    os.environ.get("CHECKIN_WB_MEMORY_SCAN_SECONDS", "21600")
+)
+# Bearer 剩余有效期低于该值才去客户端内存里捞新令牌(28 天票,提前 7 天足够)
+_WB_TOKEN_REFRESH_AHEAD_HOURS = 24 * 7
 from app.services.checkin_engine import checkin_account
 
 logger = get_logger(__name__)
@@ -85,6 +95,11 @@ _JOB_ID_QODER = "checkin_daily_qoder"
 # —— 半夜 0 点平台重置后用户常已在对应程序里手动签完,等 08:05 主窗口才落
 # 记录 = UI 一早上都亮着可点按钮。探针只读不 claim,未签账号不落任何记录。
 _JOB_ID_PROBE = "checkin_daily_status_probe"
+# 本机客户端凭据同步(2026-10-24 立):第三方 access token 由客户端签发并自动刷新;
+# 客户端与 ai-service 同机时,直接取客户端刷新后的凭据写回,客户端登录在 ⇒ 平台侧不过期。
+_JOB_ID_LOCAL_SYNC = "checkin_local_creds_sync"
+# MiniMax OAuth 换票端点(2026-10-24 抓包确认,客户端不在时的服务端续期出口)
+_MINIMAX_TOKEN_URL = "https://account.minimax.cn/oauth2/token"
 
 # 日级起批漂移(2026-10-16 风控第四件套):CronTrigger jitter = uniform(0, jitter)
 # 加到触发时刻,每天起批时间在窗口内随机(08:05~08:12 / 10:05~10:10 / 08:10~08:15),
@@ -130,6 +145,23 @@ def partition_platforms(
     return main_side, qoder_side
 
 
+def classify_checkin_result(result: dict[str, Any]) -> str:
+    """签到结果三分类(可观测性口径唯一实现):claimed / skipped / failed。
+
+    ok=true 同时覆盖「本次真的领取成功」与「平台侧今日已签、本次跳过」——
+    前者引擎 action=checkin/claim,后者 action=skip_already。把两者都算「成功」
+    会让运营面看不出自动签到到底有没有真领到东西(2026-10-24 实测:8 条 ok=true
+    全是 skip_already、0 条 claim,汇总却报「成功 8」)。判定自动签到是否好使,
+    只认 claimed 且 credits_delta > 0。
+    """
+    if not result.get("ok"):
+        return "failed"
+    action = str(result.get("action") or "")
+    if action == "skip_already":
+        return "skipped"
+    return "claimed"
+
+
 def _cooldown_end(cooldown_seconds: int | None) -> datetime | None:
     """由引擎给的 cooldown_seconds 计算冷却结束时刻。0/None → 不冷却(None)。"""
     if not cooldown_seconds or cooldown_seconds <= 0:
@@ -150,6 +182,10 @@ class CheckinScheduler:
     def __init__(self) -> None:
         self._scheduler: AsyncIOScheduler | None = None
         self._started: bool = False
+        # WorkBuddy 本机重抽节流(秒):失败也等这么久再试,避免每轮都拉起无头 Chrome
+        self._wb_extract_at: float = 0.0
+        # WorkBuddy 客户端内存令牌扫描节流(秒)
+        self._wb_memory_scan_at: float = 0.0
 
     # ===== 启停(lifespan 钩子) =====
 
@@ -196,6 +232,13 @@ class CheckinScheduler:
             self._daily_credits_snapshot,
             trigger=CronTrigger(hour=8, minute=10, timezone=_CN_TZ, jitter=_CRON_JITTER),
             id=_CREDITS_JOB_ID,
+            replace_existing=True,
+        )
+        # 本机凭据同步:与每日签到开关同一个门;客户端不在同机时任务内部直接跳过(不假装成功)
+        self._scheduler.add_job(
+            self._sync_local_credentials,
+            trigger=IntervalTrigger(minutes=15),
+            id=_JOB_ID_LOCAL_SYNC,
             replace_existing=True,
         )
         self._scheduler.start()
@@ -320,7 +363,9 @@ class CheckinScheduler:
         多个真人各自操作无法区分。
         """
         now = datetime.now(UTC)
-        ok_count = 0
+        claimed = 0
+        skipped = 0
+        failed = 0
         shuffled = list(accounts)
         random.shuffle(shuffled)
         accounts = shuffled
@@ -344,16 +389,23 @@ class CheckinScheduler:
             try:
                 result = await self.checkin_one(acc)
                 await self.record_result(acc["id"], result)
-                if result.get("ok"):
-                    ok_count += 1
+                kind = classify_checkin_result(result)
+                if kind == "claimed":
+                    claimed += 1
+                elif kind == "skipped":
+                    skipped += 1
+                else:
+                    failed += 1
             except OutboundPaused as e:
                 # 风控铁律:平台限流全局暂停中,整批立即中止(绝不换个账号继续打)
                 logger.warning(
-                    "[checkin_scheduler] %s出站限流暂停中(剩 %.0fs),整批中止: 共 %d 个账号,已签 %d",
+                    "[checkin_scheduler] %s出站限流暂停中(剩 %.0fs),整批中止: 共 %d 个账号,已领 %d / 已签跳过 %d / 失败 %d",
                     label,
                     e.remaining,
                     len(accounts),
-                    ok_count,
+                    claimed,
+                    skipped,
+                    failed,
                 )
                 break
             except Exception as e:
@@ -361,7 +413,12 @@ class CheckinScheduler:
                     "[checkin_scheduler] 账号 %s 签到异常(继续下一个): %s", acc.get("name"), e
                 )
         logger.info(
-            "[checkin_scheduler] %s本轮签到完成: 共 %d 个账号,成功 %d", label, len(accounts), ok_count
+            "[checkin_scheduler] %s本轮签到完成: 共 %d 个账号,领取成功 %d / 今日已签跳过 %d / 失败 %d",
+            label,
+            len(accounts),
+            claimed,
+            skipped,
+            failed,
         )
 
     async def _probe_platform(
@@ -398,6 +455,265 @@ class CheckinScheduler:
             name, acc["jwt"], device_map, client=client
         )
         return ok_s, checked_in, credits, msg_s or ""
+
+    async def _refresh_minimax_token(self, rec: dict[str, Any]) -> dict[str, Any] | None:
+        """用 refreshToken 换新令牌 —— 客户端不在时的服务端续期。
+
+        端点 2026-10-24 抓包确认:`POST https://account.minimax.cn/oauth2/token`
+        (`grant_type=refresh_token` + `client_id` + `scope` + `audience`)。
+        refreshToken 会轮换,成功结果必须写回 auth.json,否则下一次续期
+        直接 invalid_grant(实测过的失效路径)。
+        """
+        rt = rec.get("refreshToken")
+        if not isinstance(rt, str) or not rt:
+            return None
+        payload: dict[str, str] = {
+            "grant_type": "refresh_token",
+            "refresh_token": rt,
+            "client_id": str(rec.get("clientId") or "mcode-public"),
+        }
+        scopes = rec.get("scopes")
+        if isinstance(scopes, list) and scopes:
+            payload["scope"] = " ".join(str(s) for s in scopes)
+        audience = rec.get("audience")
+        if isinstance(audience, str) and audience:
+            payload["audience"] = audience
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(_MINIMAX_TOKEN_URL, data=payload)
+            if resp.status_code >= 400:
+                logger.warning(
+                    "[checkin_scheduler] MiniMax 令牌续期失败 HTTP %s: %s",
+                    resp.status_code,
+                    resp.text[:160],
+                )
+                return None
+            body = resp.json()
+        except Exception as e:
+            logger.warning("[checkin_scheduler] MiniMax 令牌续期异常: %s", e)
+            return None
+        token = body.get("access_token") if isinstance(body, dict) else None
+        return body if isinstance(token, str) and token else None
+
+    async def _sync_local_credentials(self) -> None:
+        """本机凭据同步(每 15 分钟)。两条腿互相独立,任一条失败不影响另一条。"""
+        for leg in (self._sync_minimax_local, self._sync_workbuddy_local):
+            try:
+                await leg()
+            except Exception as e:  # noqa: BLE001 — 单腿异常不得拖垮另一条
+                logger.warning("[checkin_scheduler] 本机凭据同步腿 %s 失败: %s", leg.__name__, e)
+
+    async def _sync_minimax_local(self) -> None:
+        """MiniMax 服务端续期 + 客户端凭据同步。
+
+        1. **服务端续期**(客户端不在也生效):MiniMax 的 refreshToken 在
+           `auth.json` 明文可读,临期(≤5 分钟)时直接调 OAuth 换新并写回文件;
+        2. **客户端同步**:读取客户端刷新后的凭据写回签到账号并解除冷却。
+        """
+        path = os.path.expanduser("~/.minimax/auth/prod/cn/mcode-public/auth.json")
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            return
+        records = data.get("records") or {}
+        if not records:
+            return
+        rec = next(iter(records.values()))
+        if not isinstance(rec, dict):
+            return
+        token = rec.get("accessToken")
+        exp_ms = rec.get("expiresAtMs")
+        exp = int(exp_ms / 1000) if isinstance(exp_ms, (int, float)) and exp_ms > 0 else None
+        now = int(datetime.now(UTC).timestamp())
+        if (not isinstance(token, str) or not token or exp is None or exp - now < 300) and rec.get(
+            "refreshToken"
+        ):
+            refreshed = await self._refresh_minimax_token(rec)
+            if refreshed:
+                rec["accessToken"] = refreshed["access_token"]
+                if isinstance(refreshed.get("refresh_token"), str) and refreshed["refresh_token"]:
+                    rec["refreshToken"] = refreshed["refresh_token"]
+                if isinstance(refreshed.get("expires_in"), (int, float)):
+                    rec["expiresAtMs"] = (now + int(refreshed["expires_in"])) * 1000
+                token = rec["accessToken"]
+                exp_ms = rec.get("expiresAtMs")
+                exp = (
+                    int(exp_ms / 1000)
+                    if isinstance(exp_ms, (int, float)) and exp_ms > 0
+                    else exp
+                )
+                try:
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, ensure_ascii=False, indent=2)
+                    logger.info(
+                        "[checkin_scheduler] MiniMax 令牌已服务端续期并写回 auth.json(exp=%s)",
+                        exp,
+                    )
+                except OSError as e:
+                    logger.warning("[checkin_scheduler] MiniMax 续期结果写回失败: %s", e)
+        if not isinstance(token, str) or not token:
+            return
+        rows = await checkin_store.list_accounts_by_platform("minimax")
+        updated = 0
+        for row in rows:
+            dm = row["device_map"]
+            if exp is not None and dm.get("expires_at") == exp:
+                continue
+            if not await checkin_store.update_jwt(row["id"], row["owner_user_id"], token):
+                continue
+            if exp is not None:
+                dm["expires_at"] = exp
+            refresh = rec.get("refreshToken")
+            if isinstance(refresh, str) and refresh:
+                dm["refresh_token"] = refresh
+            await checkin_store.save_device_map(row["id"], dm)
+            await checkin_store.clear_open_cooldowns(row["id"])
+            updated += 1
+        if updated:
+            logger.info(
+                "[checkin_scheduler] 本机 MiniMax 凭据已同步 %d 个账号(exp=%s)",
+                updated,
+                exp,
+            )
+
+    async def _sync_workbuddy_local(self) -> None:
+        """WorkBuddy 凭据保活:客户端内存令牌(主)+ 网页会话 cookie(备)。
+
+        客户端自己会持续自动刷新(用户实证:从不需要重登),运行期明文令牌就在
+        主进程/守护进程堆上。故主路 = **只读**采集客户端当前 Bearer(28 天),
+        临期 7 天内才扫一次;不拿它的 Offline refresh token 去换票 —— 那可能
+        触发 Keycloak 轮换,反把客户端挤下线。
+
+        备路 = 网页 `session` cookie(7 天,客户端长期不开时用):每 15 分钟探活,
+        临期(<24h)或失效才重抽(VSS + 无头 Chrome 自解密 ABE);失败 30 分钟节流。
+        两条路都只在探活/解出真令牌后才写库并解冷却;取不到只记日志,不冒充成功。
+        """
+        rows = await checkin_store.list_accounts_by_platform("workbuddy")
+        if not rows:
+            return
+        now = datetime.now(UTC).timestamp()
+
+        # ---- 主路:客户端内存令牌(只读) -------------------------------------
+        need_tokens: list[dict[str, Any]] = []
+        for row in rows:
+            # dev-anonymous 是历史占位账号,uid 不在客户端令牌里,扫了也只会白跑
+            if row["owner_user_id"] == "dev-anonymous":
+                continue
+            dm = row["device_map"]
+            if not str(dm.get("uid") or ""):
+                continue
+            _, remaining = checkin_workbuddy.workbuddy_session_expiry(dm)
+            if remaining is not None and remaining >= _WB_TOKEN_REFRESH_AHEAD_HOURS:
+                continue
+            need_tokens.append(row)
+        if need_tokens and now - self._wb_memory_scan_at >= _WB_MEMORY_SCAN_INTERVAL_SECONDS:
+            self._wb_memory_scan_at = now
+            found = await checkin_workbuddy_local.extract_workbuddy_memory_tokens()
+            updated = 0
+            for row in need_tokens:
+                dm = row["device_map"]
+                uid = str(dm.get("uid") or "")
+                entry = found.get(uid)
+                if not isinstance(entry, dict):
+                    continue
+                bearer = entry.get("bearer")
+                exp = int(entry.get("bearer_exp") or 0)
+                if not isinstance(bearer, str) or not bearer or not exp:
+                    continue
+                _, cur_remaining = checkin_workbuddy.workbuddy_session_expiry(dm)
+                cur_exp = int(now + cur_remaining * 3600) if cur_remaining is not None else 0
+                if exp <= cur_exp:
+                    continue
+                if not await checkin_store.update_jwt(row["id"], row["owner_user_id"], bearer):
+                    continue
+                dm["expires_at"] = exp
+                dm["token_source"] = "client-memory"
+                offline = entry.get("offline")
+                if isinstance(offline, str) and offline:
+                    dm["refresh_token"] = offline
+                    dm["refresh_expires_at"] = int(entry.get("offline_exp") or 0)
+                await checkin_store.save_device_map(row["id"], dm)
+                await checkin_store.clear_open_cooldowns(row["id"])
+                updated += 1
+            if updated:
+                logger.info(
+                    "[checkin_scheduler] WorkBuddy 客户端令牌已采集 %d 个账号(内存只读)",
+                    updated,
+                )
+
+        # ---- 备路:网页会话 cookie -------------------------------------------
+        need_extract = False
+        for row in rows:
+            dm = row["device_map"]
+            cookie = checkin_workbuddy.workbuddy_web_cookie("", dm)
+            if not cookie:
+                # 纯 Bearer 账号(未声明网页登录)不强制拉起浏览器;只有显式
+                # login_type=web 却没 cookie 才视为缺口(用户刚加号、尚未登录)。
+                if checkin_workbuddy.workbuddy_is_web_mode(dm):
+                    need_extract = True
+                continue
+            exp = dm.get("web_cookie_expires_at")
+            if isinstance(exp, (int, float)) and 0 < exp - now < 86400:
+                need_extract = True
+                continue
+            ok, alive_uid, http_status = await checkin_workbuddy.workbuddy_check_session(cookie, dm)
+            if ok:
+                if alive_uid and dm.get("uid") != alive_uid:
+                    dm["uid"] = alive_uid
+                    await checkin_store.save_device_map(row["id"], dm)
+                continue
+            if http_status in (302, 401, 403):
+                logger.info(
+                    "[checkin_scheduler] WorkBuddy 网页会话已失效(HTTP %s),准备本机重抽",
+                    http_status,
+                )
+                need_extract = True
+        if not need_extract:
+            return
+        if now - self._wb_extract_at < _WB_EXTRACT_INTERVAL_SECONDS:
+            return
+        self._wb_extract_at = now
+        extracted = await checkin_workbuddy_local.extract_workbuddy_cookie()
+        if not extracted:
+            logger.info("[checkin_scheduler] WorkBuddy 网页会话重抽未取到(浏览器未登录或 Chrome 未运行)")
+            return
+        ok, alive_uid, http_status = await checkin_workbuddy.workbuddy_check_session(
+            extracted["cookie"], {"user_agent": extracted.get("user_agent")}
+        )
+        if not ok or not alive_uid:
+            logger.warning(
+                "[checkin_scheduler] WorkBuddy 重抽凭据探活失败(HTTP %s),不写库", http_status
+            )
+            return
+        updated = 0
+        for row in rows:
+            dm = row["device_map"]
+            if str(dm.get("uid") or "") != alive_uid:
+                continue
+            dm["web_cookie"] = extracted["cookie"]
+            if extracted.get("user_agent"):
+                dm["user_agent"] = extracted["user_agent"]
+            if extracted.get("expires_at"):
+                dm["web_cookie_expires_at"] = extracted["expires_at"]
+            dm["web_cookie_synced_at"] = int(now)
+            await checkin_store.save_device_map(row["id"], dm)
+            await checkin_store.clear_open_cooldowns(row["id"])
+            updated += 1
+        if updated:
+            logger.info(
+                "[checkin_scheduler] WorkBuddy 网页会话已同步 %d 个账号(uid=%s, exp=%s)",
+                updated,
+                uid,
+                extracted.get("expires_at"),
+            )
+        else:
+            logger.info(
+                "[checkin_scheduler] WorkBuddy 抽到 uid=%s 的会话,但签到账号无对应 uid,未写库",
+                uid,
+            )
 
     async def _daily_run(self) -> None:
         """08:05 主窗口:遍历非 Qoder 账号(Qoder 账号走 10:05 独立窗口)。"""

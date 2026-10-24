@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/lecturer-detail/LecturerDetailScreen.tsx
 import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
@@ -10,6 +11,7 @@ import { getTeacherDetail, get, post, type Teacher } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import './detail.css'
 
 interface TeacherCourse {
@@ -156,7 +158,7 @@ export default function TeacherDetail() {
 
   return (
     <View className="tdetail-page">
-      {loading && <Text className="tdetail-skeleton">{tt('common.loading', '加载中...')}</Text>}
+      {loading && <ScreenSkeleton variant="card" count={4} />}
 
       {!loading && teacher && (
         <>
@@ -268,7 +270,7 @@ export default function TeacherDetail() {
                 })}
               </View>
             ) : (
-              <Text className="tdetail-empty">{tt('teacher.detail.noCourses', '暂无课程')}</Text>
+              <EmptyState title={tt('teacher.detail.noCourses', '暂无课程')} />
             )}
           </View>
 
@@ -318,7 +320,7 @@ export default function TeacherDetail() {
                 })}
               </View>
             ) : (
-              <Text className="tdetail-empty">{tt('teacher.detail.noReviews', '暂无评价')}</Text>
+              <EmptyState title={tt('teacher.detail.noReviews', '暂无评价')} />
             )}
           </View>
 
@@ -334,9 +336,7 @@ export default function TeacherDetail() {
         </>
       )}
 
-      {!loading && !teacher && (
-        <Text className="tdetail-skeleton">{tt('teacher.detail.notFound', '讲师不存在')}</Text>
-      )}
+      {!loading && !teacher && <EmptyState title={tt('teacher.detail.notFound', '讲师不存在')} />}
     </View>
   )
 }

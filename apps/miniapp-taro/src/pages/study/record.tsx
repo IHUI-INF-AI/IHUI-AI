@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/study-record/StudyRecordScreen.tsx
 import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
@@ -10,6 +11,12 @@ import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 import ThemeRoot from '@/components/ThemeRoot'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '@/components/ScreenStates.taro'
 
 type FilterTab = 'all' | 'learning' | 'completed' | 'abandoned'
 
@@ -224,9 +231,8 @@ export default function StudyRecord() {
             const st = deriveStatus(r.progress)
             return (
               <ThemeRoot key={r.id}>
-                <View
+                <PressableCard
                   className="flex bg-card border border-border rounded-lg p-[28rpx]"
-                  hoverClass="opacity-60"
                   onClick={() => goCourse(r.courseId)}
                 >
                   {r.coverUrl ? (
@@ -264,7 +270,7 @@ export default function StudyRecord() {
                       </Text>
                     </View>
                   </View>
-                </View>
+                </PressableCard>
               </ThemeRoot>
             )
           })}
@@ -273,23 +279,16 @@ export default function StudyRecord() {
 
       {/* 状态文案 */}
       {displayList.length === 0 && !loading && !error && (
-        <Text className={STATE_TEXT}>{tt('study.recordPage.empty', '暂无学习记录')}</Text>
+        <EmptyState title={tt('study.recordPage.empty', '暂无学习记录')} />
       )}
       {error && !loading && (
-        <View
-          className="flex flex-col items-center py-[60rpx]"
-          hoverClass="opacity-60"
-          onClick={() => load(true)}
-        >
-          <Text className="text-[length:28rpx] text-[var(--color-danger)]">
-            {tt('common.failed', '加载失败')}
-          </Text>
-          <Text className="text-[length:28rpx] text-success mt-[16rpx]">
-            {tt('common.retry', '点击重试')}
-          </Text>
-        </View>
+        <ErrorState
+          message={tt('common.failed', '加载失败')}
+          onRetry={() => load(true)}
+          retryLabel={tt('common.retry', '点击重试')}
+        />
       )}
-      {loading && <Text className={STATE_TEXT}>{tt('common.loading', '加载中...')}</Text>}
+      {loading && <ScreenSkeleton variant="list" count={4} />}
       {!loading && !hasMore && displayList.length > 0 && (
         <Text className={STATE_TEXT}>{tt('common.noMore', '没有更多了')}</Text>
       )}

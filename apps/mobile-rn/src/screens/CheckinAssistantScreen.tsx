@@ -202,7 +202,9 @@ export default function CheckinAssistantScreen() {
               {acc.last_record ? (
                 <Text style={styles.muted}>
                   {acc.last_record.ok
-                    ? t('checkinAssistant.lastOk', { credits: acc.last_record.credits ?? 0 })
+                    ? typeof acc.last_record.credits === 'number'
+                      ? t('checkinAssistant.lastOk', { credits: acc.last_record.credits })
+                      : t('accountPool.checkinSuccess')
                     : t('checkinAssistant.lastFailed')}
                 </Text>
               ) : null}

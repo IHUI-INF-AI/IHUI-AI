@@ -29,7 +29,11 @@ test('① AAD 前缀与字段帧形状锁定(WB-AAD\\0 + WBEV1 + sym-v1)', () =>
 test('② 字段信封加解密往返(含嵌套与非加密字段原样)', () => {
   const { key, keyId } = W.normalizeAtRestKey('unit-test-secret')
   const wrapper = W.sealFieldForTest('智汇AI教育丨官方教务', key, keyId)
-  const tree = W.decryptSessionTree({ account: { nickname: wrapper, uid: 'u-1' }, plain: 42 }, key, keyId)
+  const tree = W.decryptSessionTree(
+    { account: { nickname: wrapper, uid: 'u-1' }, plain: 42 },
+    key,
+    keyId,
+  )
   assert.equal(tree.account.nickname, '智汇AI教育丨官方教务')
   assert.equal(tree.account.uid, 'u-1')
   assert.equal(tree.plain, 42)
@@ -67,7 +71,9 @@ test('⑤ 国际版令牌没有 workbuddy.ai 域声明 ⇒ 拒绝入池', () => 
     () => W.assertRealmMatchesEdition('workbuddy-ai', { domain: 'www.workbuddy.cn' }),
     /未携带 workbuddy\.ai 域声明/,
   )
-  assert.doesNotThrow(() => W.assertRealmMatchesEdition('workbuddy-ai', { domain: 'www.workbuddy.ai' }))
+  assert.doesNotThrow(() =>
+    W.assertRealmMatchesEdition('workbuddy-ai', { domain: 'www.workbuddy.ai' }),
+  )
   assert.doesNotThrow(() => W.assertRealmMatchesEdition('workbuddy', {}))
 })
 
@@ -84,7 +90,7 @@ test('⑦ 编排器参数面:两入口互斥 / 未知来源 / 缺输入一律未
   assert.deepEqual(C.parseArgs(['--file', 'a.json', '--provider', 'trae']).error, null)
   assert.match(C.parseArgs(['--from', 'workbuddy', '--file', 'a.json']).error ?? '', /只能二选一/)
   assert.match(C.parseArgs([]).error ?? '', /缺少输入/)
-  assert.match(C.parseArgs(['--from', 'trae']).error ?? '', /暂不支持/)
+  assert.match(C.parseArgs(['--from', 'codearts']).error ?? '', /暂不支持/)
   assert.match(C.parseArgs(['--bogus']).error ?? '', /未知参数/)
   assert.equal(C.parseArgs(['--help']).options.help, true)
 })
@@ -93,14 +99,34 @@ test('⑧ 主进程定位:用户数据目录只挂在子进程上,须上溯到�
   const cn = 'C:\\Users\\x\\.workbuddy\\app'
   const ai = 'C:\\Users\\x\\.workbuddy-ai\\app'
   const rows = [
-    { ProcessId: 99, ParentProcessId: 1, CommandLine: '"C:\\Apps\\WorkBuddy.exe" "app.asar\\main\\daemon.js" --stdio' },
+    {
+      ProcessId: 99,
+      ParentProcessId: 1,
+      CommandLine: '"C:\\Apps\\WorkBuddy.exe" "app.asar\\main\\daemon.js" --stdio',
+    },
     { ProcessId: 100, ParentProcessId: 99, CommandLine: '"C:\\Apps\\WorkBuddy.exe" ' },
-    { ProcessId: 101, ParentProcessId: 100, CommandLine: `"...exe" --type=gpu-process --user-data-dir="${cn}"` },
-    { ProcessId: 102, ParentProcessId: 101, CommandLine: `"...exe" --type=renderer --user-data-dir="${cn}"` },
+    {
+      ProcessId: 101,
+      ParentProcessId: 100,
+      CommandLine: `"...exe" --type=gpu-process --user-data-dir="${cn}"`,
+    },
+    {
+      ProcessId: 102,
+      ParentProcessId: 101,
+      CommandLine: `"...exe" --type=renderer --user-data-dir="${cn}"`,
+    },
     { ProcessId: 200, ParentProcessId: 1, CommandLine: '"C:\\Apps\\WorkBuddy.exe" ' },
-    { ProcessId: 201, ParentProcessId: 200, CommandLine: `"...exe" --type=utility --user-data-dir="${ai}"` },
+    {
+      ProcessId: 201,
+      ParentProcessId: 200,
+      CommandLine: `"...exe" --type=utility --user-data-dir="${ai}"`,
+    },
     // crashpad 的参数没有引号,旧正则会吞掉后续 /prefetch 等开关,造出第二个"主进程"
-    { ProcessId: 202, ParentProcessId: 200, CommandLine: `"...exe" --type=crashpad-handler --user-data-dir=${ai} /prefetch:4 --no-rate-limit` },
+    {
+      ProcessId: 202,
+      ParentProcessId: 200,
+      CommandLine: `"...exe" --type=crashpad-handler --user-data-dir=${ai} /prefetch:4 --no-rate-limit`,
+    },
   ]
   const mains = W.resolveMainProcessesFromRows(rows)
   assert.equal(mains.length, 2, '两个版本各一条,同目录多子进程必须去重')

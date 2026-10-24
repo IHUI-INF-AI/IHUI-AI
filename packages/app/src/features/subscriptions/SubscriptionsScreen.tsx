@@ -8,6 +8,7 @@ import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } fr
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { SubscriptionsItem, SubscriptionsScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 订阅列表共享屏 — props 注入式跨端组件 */
 export type { SubscriptionsItem, SubscriptionsScreenProps }
@@ -46,11 +47,11 @@ export function SubscriptionsScreen({
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
-          <View style={styles.center}>
-            <Text style={styles.muted}>
-              {loading ? t('common.loading') : t('subscriptions.empty')}
-            </Text>
-          </View>
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('subscriptions.empty')} colorScheme={colorScheme} />
+          )
         }
         ListFooterComponent={
           loadingMore ? (
@@ -104,7 +105,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     listBody: { padding: 10, paddingBottom: 32 },
     separator: { height: 12 },
-    center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary },
     footer: { alignItems: 'center', paddingVertical: 16 },
     card: {

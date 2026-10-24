@@ -15,7 +15,7 @@
  * 刷新连续失败 REFRESH_FAILURE_LIMIT 次 → tempUnschedulable=true(自动摘除,admin 可见原因)。
  * 与 relay-channel-router 的进程级熔断互补:这里是「账号凭证生命周期」,那里是「渠道调用质量」。
  */
-import { and, eq, isNotNull, isNull, lt, lte, or, inArray } from 'drizzle-orm'
+import { and, eq, isNotNull, isNull, lt, lte, or, inArray, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { aiRelayAccountPool, type AiRelayAccountPool } from '@ihui/database'
 import { decryptAccountCredentials, type AccountCredentials } from './relay-account-pool-service.js'
@@ -24,11 +24,49 @@ import { encryptField } from '../utils/crypto.js'
 import { logger } from '../utils/logger.js'
 import { getRelayAdapter, type AdapterAccountContext } from './relay-upstream-adapters.js'
 import { purgeAccountUsage } from './relay-account-usage.js'
+import { reconcileCheckinSync } from './relay-account-pool-reconcile.js'
+import {
+  retryPendingCheckinSyncs,
+  type RetryPendingResult,
+} from './relay-account-pool-checkin-sync.js'
 
 /** 临期刷新窗口:距过期 15 分钟内触发(上游 token 寿命 ~14 天,窗口足够宽) */
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
 /** 连续刷新失败摘除阈值 */
 const REFRESH_FAILURE_LIMIT = 3
+
+/**
+ * 平台续期归属(2026-10-24 立):'server' = 池负责续期;'client-first' = 客户端负责续期,
+ * 池只在 access token **已过期**后兜底刷新。
+ *
+ * 立因:Trae 的 ExchangeToken 每次都轮换 refreshToken,而本机 Trae 客户端与号池共用
+ * 同一枚 rt —— 池先刷,客户端手里的票当场作废(2026-10-24 实测:池 02:20 续期,
+ * 02:26 客户端 `[updateUserInfo] {}` 登录态被清)。客户端在跑时它会自己续期,另有
+ * scripts/sync-trae-client-session.mjs 每 10 分钟把客户端新票回灌进池;池内票一旦真的
+ * 过期,说明客户端已不在续期,此时兜底刷新不会再顶掉谁。
+ * RELAY_TRAE_CLIENT_FIRST_REFRESH=0/false/off 可整体退回 server 策略。
+ */
+export type RelayRenewalPolicy = 'server' | 'client-first'
+
+export function renewalPolicyOf(
+  providerCode: string,
+  env: NodeJS.ProcessEnv = process.env,
+): RelayRenewalPolicy {
+  if (providerCode !== 'trae') return 'server'
+  const flag = (env.RELAY_TRAE_CLIENT_FIRST_REFRESH ?? '').trim().toLowerCase()
+  if (['0', 'false', 'off'].includes(flag)) return 'server'
+  return 'client-first'
+}
+
+/** client-first 且票尚未过期 ⇒ 本轮不许刷(刷了就是和客户端抢轮换);票已过期 ⇒ 兜底放行。 */
+export function shouldDeferRefresh(
+  row: { providerCode: string; tokenExpiresAt: Date | null },
+  now: Date,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (renewalPolicyOf(row.providerCode, env) !== 'client-first') return false
+  return row.tokenExpiresAt !== null && row.tokenExpiresAt.getTime() > now.getTime()
+}
 /** 单轮最多处理的账号数(防刷新风暴打爆上游) */
 const BATCH_LIMIT = 50
 /** 单轮刷新/健康检查的并发上限(手写 worker pool,不引依赖) */
@@ -63,6 +101,25 @@ export interface AccountPoolSweepResult {
   refreshSkipped: number
   healthChecked: number
   healthRecovered: number
+  /** O64 对账收敛器结果(undefined = 未执行/被跳过;号池↔签到断链自愈) */
+  checkinReconcile?: {
+    ok: boolean
+    error: string | null
+    pushed: number
+    pushFailed: number
+    disabled: number
+    disableFailed: number
+    stateCalibrated: number
+    stateFailed: number
+    flushed: number
+    flushFailed: number
+    orphanNoPoolId: number
+    outOfScope: number
+    truncated: number
+  }
+  /** O64 断链待推重推结果(undefined = 未执行/被跳过;reconcile 仅按"缺/版本落后"补推,
+   *  读不到 pending 标记,覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending) */
+  checkinRetry?: RetryPendingResult
   /** true = 分布式锁被其他实例持有,本轮整体跳过(多实例不重复 sweep) */
   skipped: boolean
 }
@@ -162,6 +219,8 @@ export async function refreshOne(row: AiRelayAccountPool): Promise<boolean> {
           ? { secretsEnc: encryptField(JSON.stringify(result.secrets)) }
           : {}),
         tokenExpiresAt: result.expiresAt,
+        // 换票成功 = 凭据版本原子前进(号池↔签到同步只按版本差补推)
+        credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
         lastRefreshAt: now,
         refreshFailureCount: 0,
         // 刷新成功即解除「凭证失效」型摘除;健康状态回 unknown 等巡检定级
@@ -246,6 +305,13 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     .where(expiringRefreshWhere(deadline))
     .limit(BATCH_LIMIT)
   await runWithConcurrency(expiring, SWEEP_CONCURRENCY, async (row) => {
+    if (shouldDeferRefresh(row, now)) {
+      // client-first:票还没过期,刷新 = 和本机客户端抢轮换(会把客户端顶下线)。
+      // 客户端新票由 scripts/sync-trae-client-session.mjs 每 10 分钟回灌;
+      // 票一旦真过期(客户端已不在续期)这里不再拦,池兜底刷。
+      out.refreshSkipped++
+      return
+    }
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) {
       out.refreshSkipped++
@@ -276,7 +342,15 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     .limit(BATCH_LIMIT)
   await runWithConcurrency(unknowns, SWEEP_CONCURRENCY, async (row) => {
     const adapter = getRelayAdapter(row.providerCode)
-    if (!adapter) return
+    if (!adapter) {
+      // 静默 return 会让"平台适配器没注册上"永远看不见(2026-10-24 实测:
+      // 号池三轮 sweep 都跑完、该号却一直停在 unknown,无任何日志可查)
+      logger.warn('[relay-account-pool] 健康检查跳过:平台适配器未注册', {
+        providerCode: row.providerCode,
+        accountId: row.id,
+      })
+      return
+    }
     try {
       const outcome = await adapter.checkHealth(ctxOf(row, decryptAccountCredentials(row)), {
         proxyUrl: row.proxyUrl,
@@ -305,9 +379,30 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   const downs = await dbRead.select().from(aiRelayAccountPool).where(downRecoveryWhere()).limit(10)
   for (const row of downs) {
     if (row.refreshFailureCount >= REFRESH_FAILURE_LIMIT) continue
+    if (shouldDeferRefresh(row, now)) continue // 同上:票未过期不抢客户端的轮换权
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) continue
     if (await refreshOne(row)) out.healthRecovered++
+  }
+
+  // ── 4. O64 号池↔签到对账收敛(断链自愈;失败不中断 sweep,下轮继续) ──
+  try {
+    out.checkinReconcile = await reconcileCheckinSync()
+  } catch (e) {
+    logger.warn('[relay-account-pool] 对账收敛器异常(不影响巡检)', {
+      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
+  }
+
+  // ── 4.5 O64 断链待推重推:retryPendingCheckinSyncs 直接读 pending 标记重推;
+  //    reconcile(步骤4)仅按"缺/版本落后"补推、读不到 extraMetadata.checkinSync.pending,
+  //    覆盖不到响应丢失但已同步/state 待推/无引擎平台等 sticky-pending。两者同在分布式锁内、幂等、互不冲突。
+  try {
+    out.checkinRetry = await retryPendingCheckinSyncs()
+  } catch (e) {
+    logger.warn('[relay-account-pool] 待推重推异常(不影响巡检)', {
+      error: e instanceof Error ? e.message.slice(0, 200) : '未知错误',
+    })
   }
 
   return out

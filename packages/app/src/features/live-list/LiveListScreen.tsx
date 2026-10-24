@@ -9,6 +9,12 @@ import type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus } from 
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
 
 /** 直播列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LiveListItem, LiveListScreenProps, LiveListTab, LiveStatus }
@@ -54,7 +60,12 @@ export function LiveListScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('liveList.title')}</Text>
         <Text style={styles.subtitle}>{t('liveList.subtitle')}</Text>
       </View>
@@ -77,18 +88,16 @@ export function LiveListScreen({
       </View>
 
       {showError ? (
-        <View style={styles.errorBar}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={onRefresh}>
-            <Text style={styles.retryText}>{t('liveList.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('liveList.retry')}
+          colorScheme={colorScheme}
+        />
       ) : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<LiveListItem>
           data={items}
@@ -97,14 +106,10 @@ export function LiveListScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            showError ? null : (
-              <View style={styles.center}>
-                <Text style={styles.emptyText}>{t('liveList.empty')}</Text>
-              </View>
-            )
+            showError ? null : <EmptyState title={t('liveList.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => onPressItem(item)} activeOpacity={0.7}>
+            <PressableCard onPress={() => onPressItem(item)} colorScheme={colorScheme}>
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
@@ -128,7 +133,7 @@ export function LiveListScreen({
                   </Text>
                 </View>
               </View>
-            </TouchableOpacity>
+            </PressableCard>
           )}
         />
       )}
@@ -153,17 +158,6 @@ function createStyles(tk: AppThemeTokens) {
     tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light },
-    errorBar: {
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    retryText: { fontSize: 14, color: tk.brand.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 32 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     listBody: { padding: 10, paddingBottom: 32 },
     separator: { height: 12 },
     card: {

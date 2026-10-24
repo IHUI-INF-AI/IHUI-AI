@@ -753,17 +753,22 @@ export interface CarteWork {
   likes: number
 }
 
-/** CarteScreen props */
+/**
+ * CarteScreen props —— 社群宣传卡(与 pagesA/carte/index.vue 同物)。
+ *
+ * 2026-10-24 收口:这一屏在 RN/共享层/小程序三处各有一份实现,共享层那份被写成
+ * 「创客名片 + 作品列表」(creator/works/skills),而**没有任何一端供得起这份数据**
+ * (RN 的 Carte 路由是静态宣传卡,小程序的 carte 页当时抄的是 pkg-ai/business-card)。
+ * 现按"语义基准取 RN/web 都在用的社群宣传卡"改写:图片资源本体按端注入
+ * (RN 用 require() 的数字句柄、web/小程序用 URL 或分包静态路径),
+ * 段落构成与取词键的真相源在 `@ihui/shared/constants` 的 CARTE_SEGMENTS。
+ */
 export interface CarteScreenProps {
   t: TFunction
-  creator: CarteCreator | null
-  works: CarteWork[]
-  skills: string[]
-  loading: boolean
-  refreshing: boolean
-  error: string
-  onRefresh: () => void
-  onRetry: () => void
+  /** 推荐人头像(槽位名见 CARTE_IMAGE_SLOTS 的 'avatar') */
+  avatarSource: number | { uri: string }
+  /** 社群二维码(槽位名见 CARTE_IMAGE_SLOTS 的 'qrcode') */
+  qrcodeSource: number | { uri: string }
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }

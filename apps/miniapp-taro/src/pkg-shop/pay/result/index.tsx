@@ -4,6 +4,7 @@
 
 // 平台页面:镜像 apps/mobile-rn PayResultScreen 状态机与信息结构(端内重写渲染层,
 // Taro 无法直接渲染 RN 原语);收敛 miniapp 端支付/充值/VIP 三处结果呈现到统一页
+// 对齐目标(RN 共享屏): packages/app/src/features/pay-result/PayResultScreen.tsx
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'

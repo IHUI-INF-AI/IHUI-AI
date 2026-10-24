@@ -1262,17 +1262,12 @@
     "missingUrl": "連結缺失,無法開啟網頁"
   },
   "carte": {
-    "shareHint": "請先儲存圖片再分享",
-    "noQrcode": "暫無 QR code",
-    "anonymous": "匿名使用者",
-    "cardSuffix": "的名片",
-    "introLabel": "簡介",
-    "phone": "電話",
-    "email": "郵箱",
-    "scanHint": "掃一掃,查看名片",
-    "shareCard": "分享名片",
-    "saveQrcode": "儲存 QR code",
-    "title": "電子名片"
+    "title": "智匯社社群",
+    "founder": "AI智匯社 | 私董會創始人 | 李總",
+    "recommend": "為您推薦",
+    "inviteHint": "掃描下方二維碼,可免費進入智匯社社群,群內定期免費分享AI資訊並有專屬客服為您服務",
+    "scanHint": "掃碼加入,和 1000+ 同行一起交流 AI",
+    "introLabel": "簡介"
   },
   "exam": {
     "tabs": {
@@ -1391,6 +1386,19 @@
     "tabPost": "帖子",
     "tabAigc": "AI作品",
     "tabNews": "資訊"
+  },
+  "userFans": {
+    "title": "我的粉絲",
+    "anonymous": "匿名使用者",
+    "empty": "還沒有粉絲",
+    "follow": "回關",
+    "followed": "已關注",
+    "followedAt": "關注於",
+    "followSuccess": "已回關",
+    "actionFailed": "操作失敗，請稍後重試",
+    "loadFailed": "粉絲列表載入失敗",
+    "total": "共 {total} 位粉絲",
+    "loadMore": "載入更多（{loaded}/{total}）"
   },
   "distribution": {
     "withdraw": {
@@ -1850,7 +1858,7 @@
       "title": "隱私權政策"
     },
     "help": {
-      "title": "幫助中心",
+      "title": "說明中心",
       "search": "搜尋幫助",
       "empty": "暫無幫助內容",
       "phoneRequired": "請輸入聯絡方式",
@@ -1871,7 +1879,7 @@
       "submitting": "提交中..."
     },
     "contact": {
-      "title": "聯絡我們",
+      "title": "聯絡客服",
       "phone": "電話",
       "email": "郵箱",
       "qq": "QQ",
@@ -2008,7 +2016,7 @@
         "p2": "本規範的訂立、履行、解釋及爭議解決，均適用中華人民共和國法律（港澳臺地區法律除外）。",
         "title": "九、爭議解決"
       },
-      "title": "使用規則"
+      "title": "使用規範"
     },
     "appPermission": {
       "names": [
@@ -2094,6 +2102,7 @@
   },
   "cart": {
     "title": "購物車",
+    "selectAll": "全選",
     "checkout": "去結算",
     "loading": "載入中…",
     "product": "商品",
@@ -2260,6 +2269,26 @@
       "mockSuccess": "介面暫未開放,已模擬提交"
     }
   },
+  "devSpace": {
+    "title": "開發者詳情",
+    "notLoggedIn": "未登入",
+    "renew": "續費",
+    "linkCopied": "連結已複製,請在瀏覽器中開啟",
+    "linkCopyFailed": "複製失敗,請重試",
+    "entryMyAgents": "我的智能體",
+    "entryAgentIncome": "智能體收益",
+    "entryN8nModel": "n8n智能體",
+    "entryBusinessCard": "創客名片",
+    "faqHeading": "相關開發者的一系列問題解答?",
+    "faqIncentiveTitle": "開發者激勵計劃",
+    "faqIncentiveDesc": "發布 AI 智能體,獲取分成收益",
+    "faqIncentiveBtn": "查看詳情",
+    "faqGuideTitle": "上架指南",
+    "faqGuideDesc": "建立智能體、配置模型、提交審核",
+    "faqGuideBtn": "去了解",
+    "contactHeading": "其他問題?",
+    "contactDesc": "諮詢客服,獲得多對一線上答疑"
+  },
   "developer": {
     "withdrawal": {
       "title": "提現記錄",
@@ -2345,7 +2374,8 @@
       "editBtn2": "修改",
       "editBtn": "設定",
       "noMore": "沒有更多了"
-    }
+    },
+    "becomeDeveloper": "成為開發者"
   },
   "modelPlaza": {
     "title": "模型廣場",
@@ -2413,7 +2443,7 @@
       "save": "儲存"
     },
     "index": {
-      "title": "模型廣場",
+      "title": "AI需求廣場",
       "untitled": "未命名",
       "anonymous": "匿名",
       "emptyMain": "暫無內容",
@@ -2524,17 +2554,8 @@
     "noData": "暫無排行數據"
   },
   "recruitment": {
-    "applied": "申請已提交",
-    "empty": "暫無招募資訊",
-    "defaultTitle": "加入我們",
-    "subtitle": "與智匯 AI 一起成長",
-    "requirements": "崗位要求",
-    "privileges": "專屬福利",
-    "incomeEstimate": "預估收入",
-    "monthlyIncome": "月收入",
-    "yearlyIncome": "年收入",
-    "submitting": "提交中…",
-    "apply": "立即申請"
+    "title": "操盤手計劃",
+    "defaultTitle": "加入我們"
   },
   "register": {
     "enterPhone": "請輸入手機號碼",
@@ -3121,6 +3142,11 @@
     "text6": "等級介紹頁未設定",
     "menu": {
       "subscriptions": "我的訂閱"
+    }
+  },
+  "vipScreen": {
+    "qr": {
+      "hint": "長按二維碼儲存至相簿"
     }
   },
   "vipTrader": {
@@ -4608,6 +4634,39 @@
     "knowledgeCards": "知識卡片",
     "knowledgePlanet": "知識星球"
   },
+  "accountPool": {
+    "title": "個人號池",
+    "subtitle": "你自己的第三方 AI 帳號池：與簽到助手同一批帳號，支援每日自動簽到，並優先服務你自己的轉發請求。",
+    "add": "新增帳號",
+    "provider": "平台",
+    "name": "名稱",
+    "namePlaceholder": "給帳號起個名字",
+    "token": "Token（存取憑證）",
+    "refreshToken": "Refresh Token",
+    "optional": "選填",
+    "save": "儲存",
+    "cancel": "取消",
+    "loading": "載入中…",
+    "empty": "還沒有帳號",
+    "emptyHint": "在簽到助手中新增帳號後會自動同步到這裡。",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "enable": "啟用",
+    "disable": "停用",
+    "checkin": "立即簽到",
+    "delete": "刪除",
+    "confirmDelete": "確認刪除",
+    "syncPending": "待同步",
+    "uid": "帳號識別",
+    "checkinSuccess": "簽到成功",
+    "addSuccess": "帳號已新增",
+    "actionFailed": "操作失敗",
+    "loginRequired": "登入後管理你的個人號池",
+    "addTitle": "新增帳號",
+    "adding": "新增中…",
+    "deleteConfirm": "確認刪除 {name}？",
+    "summary": "共 {total} 個帳號 · 已啟用 {enabled}"
+  },
   "checkinAssistant": {
     "title": "簽到助手",
     "subtitle": "管理第三方帳號並自動簽到；與個人號池互通，轉發時優先使用你自己的帳號。",
@@ -4633,5 +4692,20 @@
     "lastOk": "上次簽到成功 +{credits}",
     "lastFailed": "上次簽到失敗",
     "actionFailed": "操作失敗"
+  },
+  "developerInfo": {
+    "title": "開發者資訊",
+    "nameLabel": "名稱",
+    "descLabel": "簡介",
+    "statusLabel": "申請狀態",
+    "statusApproved": "已通過",
+    "statusRejected": "已拒絕",
+    "statusPending": "待審核",
+    "accountLabel": "帳號",
+    "apiKeyLabel": "API 金鑰",
+    "apiKeyCount": "已建立 {count} 個",
+    "apiKeyNone": "未建立",
+    "urlLabel": "網址",
+    "expiryLabel": "到期時間"
   }
 }

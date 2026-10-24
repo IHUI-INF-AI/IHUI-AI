@@ -4,10 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePlaybackItem, LivePlaybackListScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 直播回放/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LivePlaybackItem, LivePlaybackListScreenProps }
@@ -46,9 +47,7 @@ export function LivePlaybackListScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<LivePlaybackItem>
           data={items}
@@ -57,15 +56,13 @@ export function LivePlaybackListScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('livePlaybackList.empty')}</Text>
-            </View>
+            <EmptyState title={t('livePlaybackList.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <PressableCard
               style={styles.card}
               onPress={() => onPressItem(item)}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              colorScheme={colorScheme}
             >
               <Text style={styles.cardTitle} numberOfLines={1}>
                 {item.title}
@@ -80,7 +77,7 @@ export function LivePlaybackListScreen({
                 </Text>
                 <Text style={styles.cardAction}>{t('livePlaybackList.play')}</Text>
               </View>
-            </TouchableOpacity>
+            </PressableCard>
           )}
         />
       )}
@@ -100,8 +97,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { flex: 1, fontSize: 20, fontWeight: '700', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
     separator: { height: 12 },
     card: {

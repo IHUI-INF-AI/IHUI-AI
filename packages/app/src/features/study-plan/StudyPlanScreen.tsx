@@ -5,10 +5,11 @@ import { rnRadius } from '@ihui/design-tokens'
 import { clampPercent } from '@ihui/shared/utils/clamp-percent'
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PlanStatus, StudyPlanItem, StudyPlanScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 学习计划/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PlanStatus, StudyPlanItem, StudyPlanScreenProps }
@@ -73,27 +74,23 @@ export function StudyPlanScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {items.length === 0 ? (
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('studyPlan.empty')}</Text>
-            </View>
+            <EmptyState title={t('studyPlan.empty')} colorScheme={colorScheme} />
           ) : (
             items.map((item) => {
               const clamped = clampPercent(item.progress)
               return (
-                <TouchableOpacity
+                <PressableCard
                   key={item.id}
                   style={styles.card}
                   onPress={() => onPressItem(item)}
-                  activeOpacity={0.7}
+                  colorScheme={colorScheme}
                 >
                   <View style={styles.cardHead}>
                     <Text style={styles.cardTitle} numberOfLines={1}>
@@ -120,7 +117,7 @@ export function StudyPlanScreen({
                       {t('studyPlan.deadline')}: {item.deadline}
                     </Text>
                   </View>
-                </TouchableOpacity>
+                </PressableCard>
               )
             })
           )}
@@ -142,8 +139,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 14 },
     card: {
       padding: 14,

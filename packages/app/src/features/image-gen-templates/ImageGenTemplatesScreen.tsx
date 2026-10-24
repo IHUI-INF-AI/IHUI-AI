@@ -4,7 +4,6 @@
 
 import { useMemo } from 'react'
 import {
-  ActivityIndicator,
   FlatList,
   Modal,
   Pressable,
@@ -15,12 +14,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { LayoutTemplate, Sparkles, X } from 'lucide-react-native'
+import { Sparkles, X } from 'lucide-react-native'
 import { rnRadius } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * ImageGenTemplatesScreen — 跨端共享「提示词模板屏」(门 39 六屏共享化第二批)。
@@ -187,7 +187,7 @@ export function ImageGenTemplatesScreen({
           <View style={styles.listHeader}>
             <Text style={styles.subtitle}>{t('imageGenTemplates.subtitle')}</Text>
             {loading ? (
-              <ActivityIndicator style={styles.loading} color={tk.text.tertiary} />
+              <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
             ) : errorText ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{errorText}</Text>
@@ -205,10 +205,7 @@ export function ImageGenTemplatesScreen({
               renderChips()
             )}
             {empty ? (
-              <View style={styles.emptyBox}>
-                <LayoutTemplate size={32} color={tk.text.tertiary} />
-                <Text style={styles.emptyText}>{t('imageGenTemplates.empty')}</Text>
-              </View>
+              <EmptyState title={t('imageGenTemplates.empty')} colorScheme={colorScheme} />
             ) : null}
           </View>
         }
@@ -296,7 +293,6 @@ function createStyles(tk: AppThemeTokens) {
     column: { gap: 10 },
     listHeader: { gap: 10, paddingBottom: 2 },
     subtitle: { fontSize: 13, color: tk.text.secondary },
-    loading: { paddingVertical: 24 },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     chip: {
       paddingHorizontal: 12,
@@ -326,8 +322,6 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
     },
     retryText: { fontSize: 13, color: tk.text.primary },
-    emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-    emptyText: { fontSize: 13, color: tk.text.secondary },
     card: {
       flex: 1,
       padding: 16,

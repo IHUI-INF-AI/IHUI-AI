@@ -27,6 +27,8 @@ export const linking: LinkingOptions<RootStackParamList> = {
       },
       // 共享组件 Demo(对齐 web 端 /shared-demo 路由,跨端 deep link 一致)
       SharedDemo: 'shared-demo',
+      // 个人号池:路径与 web 端 /account-pool 逐字一致(三端同一组用户态端点,URL 也对齐)
+      AccountPool: 'account-pool',
       // 登录/注册
       Login: 'login',
       Register: 'register',
