@@ -35,7 +35,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { auditFace, readFieldsFace } from './plan-tasks.mjs'
 import { FIELDS_REL, normalizeRecord } from './lib/plan-fields.mjs'
-import { parseHeader } from './lib/plan-field-line.mjs'
+import { parseHeader, stripHeader } from './lib/plan-field-line.mjs'
 import {
   bucketFromFields,
   compositeKeyOf,
@@ -67,6 +67,10 @@ const UPDATED_BY = 'plan-fields-extract'
 export function cleanOwner(raw) {
   const cut = String(raw ?? '')
     .split(OWNER_CUT_RE)[0]
+    // `…` 是"原文已被截断"的痕迹,绝不能进侧车:记录 owner 里带它 ⇒ 每次投影都写出含 `…` 的标头,
+    // 而 parseHeader 对 `…` 一律 malformed(截断后的 owner 不能充当权威)⇒ 门 234 A2 永久红
+    // (2026-10-25 实测 G-47/G-48/G-49 三行正是这么来的)。去掉省略号、保留已知前缀。
+    .replace(/…/g, '')
     .trim()
   if (cut.length < 2) return null
   if (OWNER_PLACEHOLDER_RE.test(cut)) return null
@@ -110,11 +114,27 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
   if (bucket === 'owned-elsewhere') {
     // 命中若只存在于反引号里,那是转述别人的理由(G-1058610 病②),不是本行的归属表态
     if (!ownedElsewhereRe().test(face)) return null
-    const m = OWNER_VALUE_RE.exec(face)
+    // **散文优先于标头**(2026-10-25 修):标头是投影,它的 owner 可能已被截断/带 `…`;
+    // 而正文里的 `归属:` 句才是现读原文。先剥掉行首标头再取值,取不到才退回整行
+    // (投影行把归属句换成标头时,标头是唯一证据)。
+    const headerless = stripHeader(line)
+    let m = null
+    let src = headerless
+    if (headerless !== line) {
+      const masked = dispositionFace(headerless)
+      if (ownedElsewhereRe().test(masked)) {
+        m = OWNER_VALUE_RE.exec(masked)
+        src = headerless
+      }
+    }
+    if (!m) {
+      src = line
+      m = OWNER_VALUE_RE.exec(face)
+    }
     if (!m) return null
     // 同一起点改在原行上取第二遍:face 与 line 等长(反引号遮成等长空白),这样带反引号的路径名
     // 不会被 `\s*` 吃掉;而"命中只在反引号里"仍由上面那次 face 判定挡住。
-    const tail = OWNER_VALUE_RE.exec(line.slice(m.index))
+    const tail = OWNER_VALUE_RE.exec(src.slice(m.index))
     if (!tail) return null
     const owner = cleanOwner(tail[1])
     if (owner === null) return null
@@ -126,15 +146,13 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
   }
   const blocking = blockingOf(face, bucket)
   if (blocking !== '') rec.blocking = blocking
-  // 行内标头是这条键位上一次的投影(或人手写的等价声明):`等:X` 的那段文本必须能原样搬回侧车,
-  // 否则投影永远少一段 —— 门 234 A2 实测:侧车投影 〔归:—〕 vs 行内 〔归:—｜等:机主…〕,
-  // 且这类行会被投影器物判"记录里没有可渲染的信息"永远跳过。只在会渲染等段的档位采用
-  // (waiting !== 'none'),不给 owned-elsewhere 行塞无意义的 blocking。
-  if (rec.waiting !== 'none' && !rec.blocking) {
-    const h = parseHeader(line)
-    if (h.rec && !h.malformed && String(h.rec.blocking ?? '').trim() !== '') {
-      rec.blocking = String(h.rec.blocking).trim().slice(0, MAX_BLOCKING)
-    }
+  // 行内标头的 `等:X` 的 X 必须能原样搬回侧车,否则投影永远少一段(门 234 A2 的另一半)。
+  // **只搬等段,不搬归属**:归属的权威在侧车;标头里的 owner 若与侧车不一致,由投影器物
+  // 按侧车重渲染/摘除(改抽取一侧会把桶悄悄改判 —— 那是三维守恒禁止的事)。
+  const h = parseHeader(line)
+  if (h.rec && !h.malformed && rec.waiting !== 'none' && !rec.blocking) {
+    const text = String(h.rec.blocking ?? '').trim()
+    if (text !== '') rec.blocking = text.slice(0, MAX_BLOCKING)
   }
   return rec
 }
@@ -343,6 +361,8 @@ const sigOf = (rec) => SEMANTIC_KEYS.map((k) => `${k}=${String(rec?.[k] ?? '')}`
  * 返回 null = 不该动这条记录。
  */
 export function enrichRecord(existing, candidate) {
+  // 桶不同一律不覆盖(双向):改桶 = 改派单判定,必须由投影器物按侧车权威重写标头,
+  // 不能借"抽取"这一步偷偷完成(三维守恒与门 234 都把这条当红线)。
   if (bucketFromFields(existing) !== bucketFromFields(candidate)) return null
   const next = { ...existing }
   let changed = false
