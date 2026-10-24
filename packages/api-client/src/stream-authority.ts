@@ -11,7 +11,8 @@
 //  · 一旦出现权威信封,进入 fail-closed:
 //      - 只有 deliveryKind === 'recovery' 能解门;
 //      - RPC 响应先到不构成解门凭据(本层结构上不接收时序信息);
-//      - 门关着时后续帧不投递,直到 recovery 重新授予权威;
+//      - 门关着时后续帧不投递,直到 recovery 重新授予权威(非对象帧同受此约束,
+//        不得用顶层数组/字符串/数字绕过 fail-closed);
 //  · reasonCode 命中重订阅档 ⇒ 报 resubscribe(调用方中止本轮 attempt 触发重连);
 //    未知码 ⇒ 只记未判定,既不默认重订阅也不默认不用;
 //  · 带 assembler ordinal 的片走 acceptChunk;drop-late 不得重置既有序号。
@@ -78,7 +79,15 @@ export function createStreamAuthorityRouter(): StreamAuthorityRouter {
   let authorityAware = false
 
   const observeFrame = (frame: unknown): StreamAuthorityVerdict => {
-    if (!isRecord(frame)) return ALLOW
+    if (!isRecord(frame)) {
+      // 非对象帧不可能是权威信封(读不出 deliveryKind/reasonCode),因此既不解门也不该
+      // 成为 fail-closed 的绕过口:权威感知流的门关着时,顶层数组/字符串/数字/null
+      // 一律不投递。从未见过权威字段的 legacy 流仍照旧放行(旧生产端零行为变化)。
+      if (authorityAware && !gate.snapshot().open) {
+        return { drop: true, resubscribe: false, authority: false, reason: 'authority-closed' }
+      }
+      return ALLOW
+    }
 
     const hasDelivery = DELIVERY_KEYS.some((key) => hasOwn(frame, key))
     const hasReason = REASON_KEYS.some((key) => hasOwn(frame, key))
