@@ -77,44 +77,44 @@ export function DistributionScreen() {
   /** 复制邀请链接到剪贴板(对齐 Uniapp 分销页 copyInviteLink,非阻断 Toast 反馈) */
   const handleCopyInviteLink = useCallback(() => {
     if (!inviteLink) {
-      showFloat('暂无邀请码', 'warning')
+      showFloat(t('dist.noInviteCode'), 'warning')
       return
     }
     try {
       Clipboard.setString(inviteLink)
-      showFloat('已复制邀请链接', 'success')
+      showFloat(t('dist.linkCopied'), 'success')
     } catch {
-      showFloat('复制失败,请重试', 'warning')
+      showFloat(t('profile.copyFailRetry'), 'warning')
     }
-  }, [inviteLink, showFloat])
+  }, [inviteLink, showFloat, t])
 
   /** 分享给好友(对齐 Uniapp <button open-type="share">,RN 用 Share API 跨平台分享) */
   const handleShareToFriend = useCallback(async () => {
     if (!inviteLink) {
-      showFloat('暂无邀请码', 'warning')
+      showFloat(t('dist.noInviteCode'), 'warning')
       return
     }
     try {
       const result = await Share.share({
-        title: '邀请你加入 AI 智汇社',
+        title: t('dist.inviteTitle'),
         message: inviteLink,
       })
       if (result.action === Share.sharedAction) {
-        showFloat('已分享', 'success')
+        showFloat(t('dist.shared'), 'success')
       }
     } catch {
-      showFloat('分享失败,请重试', 'warning')
+      showFloat(t('dist.shareFail'), 'warning')
     }
-  }, [inviteLink, showFloat])
+  }, [inviteLink, showFloat, t])
 
   /** 保存二维码到相册(view-shot 截图 → expo-media-library 保存) */
   const handleSaveQrToAlbum = useCallback(async () => {
     if (!inviteLink) {
-      showFloat('暂无邀请码', 'warning')
+      showFloat(t('dist.noInviteCode'), 'warning')
       return
     }
     if (!qrRef.current) {
-      showFloat('二维码未就绪,请稍后重试', 'warning')
+      showFloat(t('dist.qrNotReady'), 'warning')
       return
     }
     setSavingQr(true)
@@ -126,17 +126,17 @@ export function DistributionScreen() {
       })
       const { status } = await requestPermissionsAsync()
       if (status !== 'granted') {
-        appAlert('提示', '未获得相册权限,无法保存')
+        appAlert(t('home.pubTip'), t('dist.needAlbum'))
         return
       }
       await Asset.create(localUri)
-      showFloat('已保存到相册', 'success')
+      showFloat(t('dist.savedAlbum'), 'success')
     } catch (err) {
-      showFloat(err instanceof Error ? err.message : '保存失败,请稍后重试', 'warning')
+      showFloat(err instanceof Error ? err.message : t('dist.saveFail'), 'warning')
     } finally {
       setSavingQr(false)
     }
-  }, [inviteLink, showFloat])
+  }, [inviteLink, showFloat, t])
 
   /**
    * FunctionBlockColumn 分销功能块(逐项对齐历史 FunctionBlockColumn/index.vue
@@ -152,15 +152,20 @@ export function DistributionScreen() {
    * 5 项目标路由在 RN RootStack 均已注册,无需「功能开发中」降级。
    */
   const functionBlocks: FunctionBlock[] = [
-    { id: 'company_team', title: '公司团队', icon: Users, description: '查看我的公司团队' },
-    { id: 'ai_team', title: 'AI团队', icon: Bot, description: '查看智能体团队' },
-    { id: 'business_card', title: '我的名片', icon: IdCard, description: '查看我的个人信息' },
-    { id: 'my_qrcode', title: '我的二维码', icon: QrCode, description: '推广专属二维码' },
+    {
+      id: 'company_team',
+      title: t('dist.teamCompany'),
+      icon: Users,
+      description: t('dist.teamCompanyD'),
+    },
+    { id: 'ai_team', title: t('dist.teamAi'), icon: Bot, description: t('dist.teamAiD') },
+    { id: 'business_card', title: t('dist.card'), icon: IdCard, description: t('dist.cardD') },
+    { id: 'my_qrcode', title: t('dist.qr'), icon: QrCode, description: t('dist.qrD') },
     {
       id: 'distribution_orders',
-      title: '分销订单',
+      title: t('dist.orders'),
       icon: Package,
-      description: '查看我的分销订单',
+      description: t('dist.ordersD'),
     },
   ]
 
@@ -179,9 +184,9 @@ export function DistributionScreen() {
       }
       const route = routeMap[id]
       if (route) navigation.navigate(route as never)
-      else showFloat('功能开发中', 'warning')
+      else showFloat(t('dist.devSoon'), 'warning')
     },
-    [navigation, showFloat],
+    [navigation, showFloat, t],
   )
 
   const load = useCallback(
@@ -283,12 +288,12 @@ export function DistributionScreen() {
             avatar={user?.avatar}
             nickname={user?.nickname || user?.username}
             inviteCode={user?.inviteCode}
-            level={info ? '分销商' : undefined}
+            level={info ? t('dist.dealer') : undefined}
           />
         </View>
         <View style={shellStyles.statsWrap}>
           <EarningsStatisticsCard
-            label="分销收益概览"
+            label={t('dist.earningsLabel')}
             title={info ? fenToYuan(info.totalCommission) : 0}
             todayAmount={0}
             monthAmount={0}
@@ -307,7 +312,7 @@ export function DistributionScreen() {
           <Pressable
             onPress={() => setShareQrVisible(true)}
             accessibilityRole="button"
-            accessibilityLabel="分享二维码"
+            accessibilityLabel={t('dist.shareQrA11y')}
           >
             {({ pressed }) => (
               <View style={[shellStyles.shareBtn, pressed ? shellStyles.pressed : null]}>
@@ -337,7 +342,7 @@ export function DistributionScreen() {
       {/* HandPlatePops 提现详情弹层(对齐 Uniapp hand-plate-pups/index.vue) */}
       <HandPlatePops
         visible={withdrawDetailVisible}
-        title="提现详情"
+        title={t('dist.withdrawDetail')}
         onClose={() => setWithdrawDetailVisible(false)}
       >
         <View style={shellStyles.withdrawDetailContent}>
@@ -354,7 +359,7 @@ export function DistributionScreen() {
       <BottomPops
         visible={shareQrVisible}
         onClose={() => setShareQrVisible(false)}
-        title="分享二维码"
+        title={t('dist.shareQrA11y')}
       >
         <View style={shellStyles.qrContent}>
           {inviteLink ? (
@@ -376,7 +381,7 @@ export function DistributionScreen() {
               <Pressable
                 onPress={handleCopyInviteLink}
                 accessibilityRole="button"
-                accessibilityLabel="复制邀请链接"
+                accessibilityLabel={t('dist.copyLinkA11y')}
               >
                 {({ pressed }) => (
                   <View style={[shellStyles.qrLinkBtn, pressed ? shellStyles.pressed : null]}>
@@ -393,7 +398,7 @@ export function DistributionScreen() {
                 onPress={handleSaveQrToAlbum}
                 disabled={savingQr}
                 accessibilityRole="button"
-                accessibilityLabel="保存到相册"
+                accessibilityLabel={t('dist.saveQrA11y')}
               >
                 {({ pressed }) => (
                   <View
@@ -404,7 +409,7 @@ export function DistributionScreen() {
                     ]}
                   >
                     <Text style={shellStyles.saveBtnText}>
-                      {savingQr ? '保存中...' : '保存到相册'}
+                      {savingQr ? t('dist.saving') : t('dist.saveQrA11y')}
                     </Text>
                   </View>
                 )}
@@ -413,7 +418,7 @@ export function DistributionScreen() {
                 style={shellStyles.btnStretchWrap}
                 onPress={handleShareToFriend}
                 accessibilityRole="button"
-                accessibilityLabel="分享给好友"
+                accessibilityLabel={t('dist.shareFriendA11y')}
               >
                 {({ pressed }) => (
                   <View style={[shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}>
@@ -425,7 +430,7 @@ export function DistributionScreen() {
                 style={shellStyles.btnStretchWrap}
                 onPress={handleCopyInviteLink}
                 accessibilityRole="button"
-                accessibilityLabel="复制邀请链接"
+                accessibilityLabel={t('dist.copyLinkA11y')}
               >
                 {({ pressed }) => (
                   <View style={[shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}>

@@ -112,7 +112,7 @@ const OVERLAY_COLOR = 'rgba(0,0,0,0.5)'
  * 更贴近原版 highlight 色 #ff5722;如改纯金可替换为 tokens.vip.gold。
  */
 const DEFAULT_PAYMENT_METHODS: ConfirmPaymentMethod[] = [
-  { id: 'wxpay', name: '微信支付', icon: '微' },
+  { id: 'wxpay', name: 'purchase.wechat', icon: '微' },
 ]
 
 function formatPrice(price: number): string {
@@ -133,8 +133,8 @@ export function ConfirmPurchasePopUp({
   onCancel,
   onConfirm,
   loading = false,
-  cancelText = '取消',
-  confirmText = '确认',
+  cancelText,
+  confirmText,
   benefits,
   paymentMethod,
   paymentMethods,
@@ -146,6 +146,9 @@ export function ConfirmPurchasePopUp({
   onAgreementPress,
   onPay,
 }: ConfirmPurchasePopUpProps) {
+  const { t } = useI18n()
+  const cancelLabel = cancelText ?? t('common.cancel')
+  const confirmLabel = confirmText ?? t('common.confirm')
   const [internalPayMethod, setInternalPayMethod] = useState<string | null>(null)
   const [internalAgreed, setInternalAgreed] = useState(false)
 
@@ -166,7 +169,11 @@ export function ConfirmPurchasePopUp({
     (benefits && benefits.length > 0) || hasPaymentOptions || hasAgreement,
   )
   const payDisabled = loading || (hasAgreement && !isAgreed)
-  const payButtonLabel = isMembership ? `立即支付 ¥${formatYuan(product.price)}` : confirmText
+  const payButtonLabel = isMembership
+    ? product.price === 0
+      ? t('purchase.payNow')
+      : t('confirm.payFmt', { v: formatYuan(product.price) })
+    : confirmLabel
 
   const selectPayMethod = (methodId: string) => {
     if (payMethod === undefined) setInternalPayMethod(methodId)
@@ -197,7 +204,7 @@ export function ConfirmPurchasePopUp({
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={loading ? undefined : onCancel}
-          accessibilityLabel="关闭弹窗"
+          accessibilityLabel={t('purchaseNotice.closeA11y')}
         />
         <View style={styles.card}>
           <View style={styles.iconWrap}>
@@ -259,7 +266,7 @@ export function ConfirmPurchasePopUp({
           {/* 支付方式(对齐 Uniapp payment-options,单选 radio,微信支付) */}
           {hasPaymentOptions ? (
             <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>{'支付方式'}</Text>
+              <Text style={styles.paymentLabel}>{t('payment.method')}</Text>
               {payOptions.map((m) => {
                 const active = m.id === selectedPayMethod
                 return (
@@ -295,7 +302,7 @@ export function ConfirmPurchasePopUp({
               onPress={onCancel}
               disabled={loading}
               accessibilityRole="button"
-              accessibilityLabel={cancelText}
+              accessibilityLabel={cancelLabel}
             >
               {({ pressed }) => (
                 <View
@@ -304,7 +311,7 @@ export function ConfirmPurchasePopUp({
                     pressed && !loading ? styles.cancelButtonPressed : null,
                   ]}
                 >
-                  <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                  <Text style={styles.cancelButtonText}>{cancelLabel}</Text>
                 </View>
               )}
             </Pressable>
