@@ -18,24 +18,31 @@
  *      `expected` 那一支装整张枚举表。两者都不得进台账 —— 落 `observed`(形态类别)与
  *      `expected`(枚举表折成 `enum(count=N)`)。这不是洁癖:台账是要被复制进 issue/邮件的
  *      东西,而"把用户数据写进诊断出口"在本仓已被记成缺陷型(守门 67/115 同族)。
- *   ② **默认零副作用**:落盘只在显式设了 env `IHUI_TOOL_ARG_VALIDATION_LEDGER` 时发生;
- *      校验档位默认仍是 `off`(那行在 telemetry 里,本票一个字不动 —— 翻默认是第③步)。
+ *   ② **默认零副作用**:落盘只在显式开了 env `IHUI_TOOL_ARG_VALIDATION_LEDGER` 时发生
+ *      (A36 第②步接线,2026-10-24:开关认三态 —— 开关词 `1|on|true|yes|default` 即开且落
+ *      默认账、显式词 `0|off|false|no` 或未设即一行不写、其余值按改道路径处理)。
+ *      翻默认**不在这格**:那仍要等真实样本(第③步),本模块绝不自作主张无条件写盘。
+ *      写侧落点受 `ledgerWritePathAllowed` 纪律约束(只许仓库根内 `.ihui-agent/` 管辖面,
+ *      §15/§15b:不落仓库树外、不在仓库根一级造散文件);拒绝一律报名,不静默回落。
+ *      校验档位默认仍是 `off`(那行在 telemetry 里,本票一个字不动)。
  *   ③ **判不出的必须报名**:样本不足、路径解析不到、必填判定本身不成立
  *      (`undeterminedRequired`)、描述有毒(`validatorThrew`)的字段一律落 `undetermined`
  *      并逐条点名,绝不静默折进"看起来没问题"的行(本仓最高频失效型是"把没判写成判过了")。
  *
  * 用法:
+ *   IHUI_TOOL_ARG_VALIDATION_LEDGER=1 pnpm --filter ihui-cli dev   # 显式开账(落默认台账,日常使用自然累积)
  *   pnpm report:tool-arg-rejections                      # 读默认台账,聚合 top-N
  *   pnpm report:tool-arg-rejections --ledger <path>      # 指定 JSONL 台账
  *   pnpm report:tool-arg-rejections --snapshot <file>    # 读一份 dump 的进程内快照(粗粒度)
  *   pnpm report:tool-arg-rejections --json / --top N / --self-test
+ *   IHUI_TOOL_ARG_VALIDATION_LEDGER=0 …                  # 显式关账(可回退,与未设同效)
  * 退出码:0 报告已出(含"样本不足以排期"这一有效结论)/ 2 输入取不到 = 无法判定。
  *
  * 输出面一律 ASCII(含中文串会让守门 70 把本文件判成"新增硬编码中文",它不在基线里)。
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDirectRunMain } from '../util/main-module.js';
 
@@ -44,8 +51,20 @@ import type { ToolParameter, ToolSchema } from './index.js';
 
 // ==================== 常量 ====================
 
-/** 台账落点开关。**未设即一次都不写盘** —— 影子档跑在生产会话里,默认必须零副作用。 */
+/**
+ * 台账落点开关。**未设 / 显式关词 ⇒ 一次都不写盘** —— 影子档跑在生产会话里,默认必须零副作用。
+ * 三态语义见 `interpretLedgerEnv`(读写共用唯一一把尺子,§0.6 单一真相源)。
+ */
 export const TOOL_ARG_LEDGER_ENV = 'IHUI_TOOL_ARG_VALIDATION_LEDGER';
+
+/**
+ * 开关"开"词表:与姊妹出口 `allowed-tools-shadow` 的关闭词表同形(两套开关不得各立一套词汇)。
+ * 命中即落 `DEFAULT_LEDGER_RELATIVE_PATH` —— 开账的人不必知道路径,这正是"接线"缺的那格。
+ */
+export const LEDGER_ON_VALUES: readonly string[] = ['1', 'on', 'true', 'yes', 'default'];
+
+/** 开关"关"词表:显式关闭;即便未来默认翻了,这几个值仍是一行都不写的档位(可回退)。 */
+export const LEDGER_OFF_VALUES: readonly string[] = ['0', 'off', 'false', 'no'];
 
 /** 默认台账相对路径(仓库内,§15b);调用方没给 `--ledger` 也没设 env 时用它。 */
 export const DEFAULT_LEDGER_RELATIVE_PATH = '.ihui-agent/tmp/tool-arg-shadow.jsonl';
@@ -216,8 +235,65 @@ function recordOne(schema: ToolSchema, args: unknown, err: ValidationError): Arg
 
 // ==================== 台账读写(默认不写)====================
 
+export interface LedgerSwitchReading {
+  /** true = 开账(显式开关词或改道路径);false = 一行都不写 */
+  on: boolean;
+  /** on=true 时非空:开关词已归一到 `DEFAULT_LEDGER_RELATIVE_PATH`,路径值原样透传(由写侧再验落点) */
+  path: string | null;
+  /** on=false 时的具名原因(关也要关得可查,不得留空) */
+  reason: string | null;
+}
+
 /**
- * 影子/enforce 判定点调它:env 未设 ⇒ 一次都不碰文件系统。
+ * env 开关值的**唯一**解析(写侧 `appendArgRejectionLedger` 与读侧 `resolveLedgerPath` 共用,
+ * 不许出现第二份同值判定 —— §0.6;两把尺子漂移过一次:用 `=1` 开账、报告却去找名叫 `1` 的文件)。
+ *
+ * 三态:
+ *   未设 / 空白        ⇒ 关(维持"默认零副作用"的原口径,reason 逐字保留供既有断言锚定)
+ *   `0|off|false|no`   ⇒ 显式关(可回退档;与"未设"同效但原因不同)
+ *   `1|on|true|yes|default` ⇒ 开,落点 = 默认账(接线交付的主形态:开账零知识门槛)
+ *   其余任何值         ⇒ 开,按改道路径处理(写侧仍受 `ledgerWritePathAllowed` 落点纪律约束)
+ */
+export function interpretLedgerEnv(value: string | undefined | null): LedgerSwitchReading {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (raw === '') return { on: false, path: null, reason: `${TOOL_ARG_LEDGER_ENV} not set` };
+  const lower = raw.toLowerCase();
+  if (LEDGER_OFF_VALUES.includes(lower)) {
+    return { on: false, path: null, reason: `${TOOL_ARG_LEDGER_ENV} explicitly disabled (${raw})` };
+  }
+  if (LEDGER_ON_VALUES.includes(lower)) {
+    return { on: true, path: DEFAULT_LEDGER_RELATIVE_PATH, reason: null };
+  }
+  return { on: true, path: raw, reason: null };
+}
+
+/**
+ * 写侧落点纪律(§15/§15b,纯函数、零 IO):只许落在**仓库根内的 `.ihui-agent/` 管辖面**
+ * (默认档 `.ihui-agent/tmp/…`,临时夹具也在 `tmp/` 下)。
+ * 拒三种,且逐条报名、绝不静默回落默认路径(回落会把"改道"读成"没改道"):
+ *   · 仓库树外(含 `os.tmpdir()` 与其他盘根/盘路径);
+ *   · 仓库根一级散文件(裸文件名 `env=x.jsonl` 曾把垃圾直接造在根目录);
+ *   · `..` 路径逃逸。
+ * 读侧不受此约束(读别的位置的账本没有副作用),只有落盘这一维收紧。
+ */
+export function ledgerWritePathAllowed(file: string, repoRoot: string): { ok: boolean; reason: string | null } {
+  const rel = relative(resolve(repoRoot), resolve(file));
+  if (rel === '') return { ok: false, reason: 'ledger target is the repo root itself' };
+  if (isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`) || rel.startsWith('../')) {
+    return { ok: false, reason: 'ledger target escapes the repo root (§15b: no ledger writes outside the tree)' };
+  }
+  const first = rel.split(/[/\\]/)[0] ?? '';
+  if (first !== '.ihui-agent') {
+    return {
+      ok: false,
+      reason: `ledger target must live under .ihui-agent/ (scratch/state discipline), got first-level "${first}"`,
+    };
+  }
+  return { ok: true, reason: null };
+}
+
+/**
+ * 影子/enforce 判定点调它:env 未设/显式关 ⇒ 一次都不碰文件系统。
  * 返回值供测试断言"默认零副作用"。**任何 IO 失败都不冒泡** —— 诊断出口不得把工具执行拖下水
  * (telemetry 影子档吞掉校验器异常是同一条理由)。
  */
@@ -227,9 +303,9 @@ export function appendArgRejectionLedger(
   result: ValidationResult,
   env: Record<string, string | undefined> = process.env,
 ): { appended: number; skippedReason: string | null } {
-  const target = env[TOOL_ARG_LEDGER_ENV];
-  if (target === undefined || target.trim() === '') {
-    return { appended: 0, skippedReason: `${TOOL_ARG_LEDGER_ENV} not set` };
+  const reading = interpretLedgerEnv(env[TOOL_ARG_LEDGER_ENV]);
+  if (!reading.on || reading.path === null) {
+    return { appended: 0, skippedReason: reading.reason ?? `${TOOL_ARG_LEDGER_ENV} ledger switch off` };
   }
   const records = recordsForValidation(schema, args, result);
   if (records.length === 0) return { appended: 0, skippedReason: 'no rejection to record' };
@@ -237,7 +313,12 @@ export function appendArgRejectionLedger(
     // 相对路径一律锚在**仓库根**(与 `resolveLedgerPath` 同一条规则)。锚在 cwd 的话,
     // `pnpm --filter exec` 会把 cwd 设成包目录 ⇒ 写在 `apps/cli/.ihui-agent/…`,
     // 而报告按仓库根去找 ⇒ 表现为"记了却说没台账"(实测踩过一次,故由判据而非文档兜)。
-    const file = resolve(repoRootOf(import.meta.url), target.trim());
+    const root = repoRootOf(import.meta.url);
+    const file = resolve(root, reading.path);
+    const guard = ledgerWritePathAllowed(file, root);
+    if (!guard.ok) {
+      return { appended: 0, skippedReason: `refused: ${guard.reason ?? 'ledger write path not allowed'}` };
+    }
     mkdirSync(dirname(file), { recursive: true });
     appendFileSync(file, `${records.map((r) => JSON.stringify(r)).join('\n')}\n`, 'utf-8');
     return { appended: records.length, skippedReason: null };
@@ -631,17 +712,19 @@ export const USAGE = `usage: ihui tool-arg-report [--ledger <jsonl>] [--snapshot
 
 Aggregates tool-argument rejections into a schedulable list of {tool, field path, expected shape}.
 Never prints any argument value - only shape classes and counts (see file header).
-Set ${TOOL_ARG_LEDGER_ENV}=<path> to make the shadow/enforce path record rejections at all.`;
+Ledger switch ${TOOL_ARG_LEDGER_ENV}: unset/0/off/false/no = never writes;
+1/on/true/yes/default = record to the default ledger; any other value = redirect path
+(write target must stay under .ihui-agent/ inside the repo; anything else is refused and named).`;
 
-/** 台账路径解析优先级:`--ledger` > env > 仓库内默认。纯函数,便于测试钉住优先级。 */
+/** 台账路径解析优先级:`--ledger` > env(经 `interpretLedgerEnv` 归一,读写同尺) > 仓库内默认。纯函数,便于测试钉住优先级。 */
 export function resolveLedgerPath(
   explicit: string | null,
   env: Record<string, string | undefined>,
   repoRoot: string,
 ): string {
   if (explicit !== null && explicit.trim() !== '') return resolve(repoRoot, explicit.trim());
-  const fromEnv = env[TOOL_ARG_LEDGER_ENV];
-  if (fromEnv !== undefined && fromEnv.trim() !== '') return resolve(repoRoot, fromEnv.trim());
+  const reading = interpretLedgerEnv(env[TOOL_ARG_LEDGER_ENV]);
+  if (reading.on && reading.path !== null) return resolve(repoRoot, reading.path);
   return resolve(repoRoot, DEFAULT_LEDGER_RELATIVE_PATH);
 }
 
@@ -882,6 +965,35 @@ export function runSelfTest(): number {
     'ledger: env unset => zero writes and the reason is named',
     noEnv.appended === 0 && noEnv.skippedReason === `${TOOL_ARG_LEDGER_ENV} not set`,
   );
+
+  // 开关三态(A36 接线):正控 = 开关词归一到默认账;否定侧 = 显式关词零写入且报名。
+  t(
+    'switch: unset reads off with the legacy reason string (byte-identical anchor)',
+    interpretLedgerEnv(undefined).on === false &&
+      interpretLedgerEnv(undefined).reason === `${TOOL_ARG_LEDGER_ENV} not set`,
+  );
+  t(
+    'switch: every on-word resolves to the default ledger path',
+    LEDGER_ON_VALUES.every((v) => {
+      const r = interpretLedgerEnv(v);
+      return r.on === true && r.path === DEFAULT_LEDGER_RELATIVE_PATH;
+    }),
+  );
+  t(
+    'switch: every off-word reads as explicitly disabled (named, not silent)',
+    LEDGER_OFF_VALUES.every((v) => {
+      const r = interpretLedgerEnv(v);
+      return r.on === false && (r.reason ?? '').includes('explicitly disabled');
+    }),
+  );
+  t('switch: an arbitrary value keeps redirect semantics verbatim', interpretLedgerEnv('.ihui-agent/tmp/x.jsonl').path === '.ihui-agent/tmp/x.jsonl');
+  const offWrite = appendArgRejectionLedger(schema, { mode: nonce }, rejectedResult, { [TOOL_ARG_LEDGER_ENV]: '0' });
+  t('switch: env=0 writes nothing and names why (positive control for the off leg)', offWrite.appended === 0 && /explicitly disabled/.test(offWrite.skippedReason ?? ''));
+  t('path guard: outside the repo root is refused', ledgerWritePathAllowed(resolve('/elsewhere', 'x.jsonl'), '/repo').ok === false);
+  t('path guard: a repo-root stray file is refused', ledgerWritePathAllowed(resolve('/repo', 'x.jsonl'), '/repo').ok === false);
+  t('path guard: parent-dir escape is refused', ledgerWritePathAllowed(resolve('/repo', '..', 'x.jsonl'), '/repo').ok === false);
+  t('path guard: .ihui-agent scratch is allowed', ledgerWritePathAllowed(resolve('/repo', '.ihui-agent', 'tmp', 'x.jsonl'), '/repo').ok === true);
+  t('ledger path: an on-word resolves to the default file (read side uses the same ruler)', resolveLedgerPath(null, { [TOOL_ARG_LEDGER_ENV]: '1' }, '/repo') === resolve('/repo', DEFAULT_LEDGER_RELATIVE_PATH));
 
   const absent = readArgLedger(resolve('__definitely-not-a-real-ledger-7f3a9c.jsonl'));
   t('ledger: a missing file reads as missing (not "0 samples")', absent.missing === true && absent.records.length === 0);

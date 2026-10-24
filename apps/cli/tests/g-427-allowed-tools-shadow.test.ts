@@ -29,7 +29,18 @@ import {
 } from '../src/skills/allowed-tools-shadow.js';
 import { shadowSelfTestCases } from '../src/skills/allowed-tools-shadow.selftest.js';
 import { formatSkillsForPrompt, type Skill } from '../src/skills/index.js';
-import { clearTools, executeToolCall, registerTools, resetRateLimiter, type Tool, type ToolContext } from '../src/tools/index.js';
+import { setSkillCatalog } from '../src/skills/session.js';
+import { SKILL_TOOLS } from '../src/tools/skill-tool.js';
+import {
+  clearTools,
+  disableToolHub,
+  enableToolHub,
+  executeToolCall,
+  registerTools,
+  resetRateLimiter,
+  type Tool,
+  type ToolContext,
+} from '../src/tools/index.js';
 
 let scratch = '';
 let ledger = '';
@@ -144,6 +155,43 @@ describe('G-427 allowed-tools 影子记账(只记不挡)', () => {
     const res = await executeToolCall({ name: 'read_file', arguments: {} }, ctx);
     expect(res.success).toBe(true);
     expect(ledgerLines().filter((l) => l.includes('"hit"'))).toHaveLength(0);
+  });
+
+  it('hub 分支装车(G-175 扩面):hub 模式下白名单外的调用照常跑完并记一笔,不双记', async () => {
+    registerTools([makeTool('hub_outside')]);
+    enableToolHub();
+    try {
+      declareShadowSurfaces([{ name: 'demo', allowed: ['read_file'] }]);
+      const res = await executeToolCall({ name: 'hub_outside', arguments: { note: 'h' } }, ctx);
+      expect(res.success).toBe(true);
+      const hits = ledgerLines().filter((l) => l.includes('"hit"'));
+      expect(hits).toHaveLength(1);
+      expect(hits[0]).toContain('hub_outside');
+    } finally {
+      disableToolHub();
+    }
+  });
+
+  it('显式单点装车(G-175 扩面):Skill 工具加载技能后其白名单对后续调用生效 —— 只记不挡', async () => {
+    const skill: Skill = {
+      name: 'on-demand',
+      source: '/tmp/on-demand.md',
+      description: 'declares a whitelist, loaded only via the Skill tool',
+      body: 'follow me',
+      priority: 0,
+      frontmatter: { allowedTools: ['only_this'] },
+    };
+    setSkillCatalog([skill]);
+    registerTools([...SKILL_TOOLS, makeTool('only_this'), makeTool('other_tool')]);
+    const load = await executeToolCall({ name: 'Skill', arguments: { name: 'on-demand' } }, ctx);
+    expect(load.success).toBe(true);
+    const use = await executeToolCall({ name: 'other_tool', arguments: {} }, ctx);
+    expect(use.success).toBe(true);
+    const hits = ledgerLines().filter((l) => l.includes('"hit"'));
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toContain('"skill":"on-demand"');
+    expect(hits[0]).toContain('other_tool');
+    expect(ledgerLines().some((l) => l.includes('"surface"') && l.includes('on-demand'))).toBe(true);
   });
 
   it('被权限规则拒掉的调用不记:一件事不得算两遍', async () => {

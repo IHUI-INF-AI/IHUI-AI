@@ -20,7 +20,7 @@ import { execFile } from 'node:child_process'
 import { logger } from './clawdbot/logger.js'
 import { callRealLlm } from './crew-llm-adapter.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
-import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
+import { ensureSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
 import type { ToolDefinition, ToolHandler, ToolContext } from './clawdbot/tools.js'
 
 // 2026-07-21 安全审计加固:移除 exec(shell),统一改用 execFile
@@ -187,7 +187,8 @@ export const CREW_TOOLS: CrewTool[] = [
       } catch (err) {
         return { success: false, error: (err as Error).message, duration: 0 }
       }
-      const resp = await fetch(url, {
+      // 重定向落点逐跳复检:裸 fetch 默认 follow,会把已校验地址换成未校验的内网落点。
+      const resp = await safeFetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
         signal: AbortSignal.timeout(20000),
       })

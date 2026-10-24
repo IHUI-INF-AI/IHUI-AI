@@ -1025,7 +1025,7 @@ export function resolveLoadedScript(paramsTexts) {
   return unmeasured(`AppParameters 里没有判得出的加载目标(既无 -File <脚本>,也无绝对路径的 .mjs/.cjs/.js 词元):${texts.join(' ⎯ ').slice(0, 200)}`)
 }
 
-/** dot-source 条数上限:超出即如实报"未跟完"(与 TREE_MAX_* 同一条取向 —— 封顶必须可见,不得静默截断)。 */
+/** 每个文件的静态加载边(dot-source + Import-Module)条数上限:超出即如实报"未跟完"(与 TREE_MAX_* 同一条取向 —— 封顶必须可见,不得静默截断)。 */
 export const DOT_SOURCE_MAX = 32
 /** dot-source 传递闭包的文件总数上限(2026-10-13 按票 G-1080903 从"深度封顶 1"扩成全闭包时配套加的):
  *  递归跟"被 dot-source 文件自身的 dot-source"必须有总量闸,否则一条病态长链(或两条互相引用的长链)
@@ -1153,13 +1153,23 @@ function cutTrailingComment(s) {
   return s
 }
 
-/** 从一份 PowerShell 脚本文本里抽出它 dot-source 的仓内脚本。
- *  **只认点号族与 Dot-Source,不认 `&`**(2026-10-11 票 G-1080903 的取舍,不是漏):`&` 是调用不是载入,
+/** Import-Module 的参数里挑出被导入的模块操作数:跳过 `-Name`/`-Path` 这类取值参数与 `-Global` 等开关。
+ *  挑不到 ⇒ 带 why 返回(不猜)。 */
+function pickImportModuleOperand(parts) {
+  for (const t of parts) if (!/^-[A-Za-z][\w-]*:?$/.test(t)) return { tok: t }
+  return { why: 'Import-Module 没有可解析的模块操作数' }
+}
+
+/** 从一份 PowerShell 脚本文本里抽出它**启动时静态载入**的仓内模块:
+ *  dot-source 点号族(`. ` / `Dot-Source`)与 `Import-Module`(含官方别名 `ipmo`)的路径操作数。
+ *  **不认 `&`**(2026-10-11 票 G-1080903 的取舍,不是漏):`&` 是调用不是载入,
  *  被它调的子脚本按**调用时刻**读取、改了立刻生效 —— 把 `&` 也收进来会把这类正常形态错算成"必须重启才生效",
  *  产出的不是少判而是**假 stale**(与本文件 resolveLoadedScript 那段"模糊匹配产出假 stale"同一条禁令)。
- *  已知看不见形态(如实登记,不得读成"已确认没有"):here-string(`@' … '@`)与块注释中部起始不在行首的
- *  `<#` 里的 dot-source。**这一漏的代价是有界的**:抽错出来的假路径下一步必然走 statFile 失败 ⇒ 落未判定并点名,
- *  不会被读成"新鲜";而抽漏的那一条只是这一维没覆盖到,不是给仓库发合格证。 */
+ *  `Import-Module` 只收静态路径操作数(`.psm1`):按模块名导入(落点由 PSModulePath 与已装模块决定)
+ *  与 `.psd1` 清单(RootModule 未静态解析)一律落**未判定**并点名 —— 解析不出不许静默放行。
+ *  已知看不见形态(如实登记,不得读成"已确认没有"):here-string(`@' … '@`)、块注释中部起始不在行首的
+ *  `<#` 里的加载行、`using module` 语句。**这一漏的代价是有界的**:抽错出来的假路径下一步必然走 statFile 失败
+ *  ⇒ 落未判定并点名,不会被读成"新鲜";而抽漏的那一条只是这一维没覆盖到,不是给仓库发合格证。 */
 export function extractDotSourcedScripts({ text, scriptDir }) {
   if (typeof text !== 'string' || text === '')
     return unmeasured(
@@ -1183,15 +1193,60 @@ export function extractDotSourcedScripts({ text, scriptDir }) {
       continue
     }
     if (line.startsWith('#')) continue
-    const m = /^(?:\.|Dot-Source)\s+(\S.*)$/i.exec(line)
-    if (!m) continue
-    const arg = cutTrailingComment(m[1]).trim()
+    const dm = /^(?:\.|Dot-Source)\s+(\S.*)$/i.exec(line)
+    const im = dm ? null : /^(?:Import-Module|ipmo)\s+(\S.*)$/i.exec(line)
+    if (!dm && !im) continue
+    const arg = cutTrailingComment((dm ?? im)[1]).trim()
     if (arg === '') {
-      items.push({ raw: m[1].trim(), path: null, why: '点号后没有参数' })
+      items.push({ raw: (dm ?? im)[1].trim(), path: null, why: dm ? '点号后没有参数' : 'Import-Module 后没有参数' })
+      continue
+    }
+    const parts = splitPowerShellArgs(arg)
+    if (im) {
+      const picked = pickImportModuleOperand(parts)
+      if (picked.why) {
+        items.push({ raw: arg, path: null, why: picked.why })
+        continue
+      }
+      const bare = picked.tok.replace(/^['"]/, '').replace(/['"]$/, '')
+      const nameLike =
+        !/^\$|^\(/.test(picked.tok) && !/[\\/]/.test(bare) && !/^[A-Za-z]:/.test(bare) &&
+        !/\.(?:psm1|psd1)$/i.test(bare)
+      if (nameLike) {
+        items.push({
+          raw: arg,
+          path: null,
+          why: `Import-Module 按模块名导入(${bare})⇒ 落点由 PSModulePath 与已安装模块决定,本维不猜`,
+        })
+        continue
+      }
+      const r = resolveDotSourceOperand(picked.tok, scriptDir)
+      if (r.why) {
+        items.push({ raw: arg, path: null, why: r.why })
+        continue
+      }
+      if (/\.psd1$/i.test(r.path)) {
+        items.push({
+          raw: arg,
+          path: null,
+          why: `Import-Module 目标是模块清单(${r.path})⇒ RootModule 未静态解析,这一份没量到`,
+        })
+        continue
+      }
+      if (!/\.psm1$/i.test(r.path)) {
+        items.push({
+          raw: arg,
+          path: null,
+          why: `Import-Module 目标不是 .psm1(${r.path})⇒ 不在本维射程`,
+          ignored: true,
+        })
+        continue
+      }
+      items.push({ raw: arg, path: r.path })
       continue
     }
     // 一条行只取第一个操作数;多操作数(`. (Join-Path a b c)`)整体交给 resolveDotSourceOperand。
-    const first = splitPowerShellArgs(arg)[0] ?? arg
+    const first = parts[0] ?? arg
     const r = resolveDotSourceOperand(first, scriptDir)
     if (r.why) {
       items.push({ raw: arg, path: null, why: r.why })
@@ -1226,17 +1281,17 @@ export function extractDotSourcedScripts({ text, scriptDir }) {
   })
 }
 
-/** dot-source 层的取材与比较(**传递闭包**:2026-10-13 按票 G-1080903 从"深度封顶 1"扩全 ——
+/** dot-source / Import-Module 层的取材与比较(**传递闭包**:2026-10-13 按票 G-1080903 从"深度封顶 1"扩全 ——
  *  只跟直接 dot-source 而把第二层报名"已知未覆盖"的那一版,正是票面要修的洞:闭包里任何一层
- *  没进 mtime 账,"模块比进程新"就能藏在第二层之下全程绿着。现在递归跟每个被 dot-source 模块
- *  自身的 dot-source,链上**每份文件**的 mtime 一并纳入与进程启动时刻的比较)。
+ *  没进 mtime 账,"模块比进程新"就能藏在第二层之下全程绿着。现在递归跟每个被 dot-source / Import-Module
+ *  模块自身的加载边,链上**每份文件**的 mtime 一并纳入与进程启动时刻的比较)。
  *  三条工程闸,缺一不可:
- *  ① 每份脚本自身 dot-source 条数仍受 DOT_SOURCE_MAX 封顶(超限如实报 truncated,不静默截断);
+ *  ① 每份脚本自身加载边条数仍受 DOT_SOURCE_MAX 封顶(超限如实报 truncated,不静默截断);
  *  ② 闭包文件总数受 DOT_SOURCE_CLOSURE_MAX 封顶(超限落未判定并点名 —— 没跟完 = 没量到,不得读成新鲜);
  *  ③ 环保护:visited 集合按规范化路径去重,a→b→a 不无限递归,环上每份文件仍各计一次 mtime 账;
- *     同一模块被两条边重复 dot-source(菱形)也只计一次账(scanned 不得重复计数)。
+ *     同一模块被两条边重复加载(菱形)也只计一次账(scanned 不得重复计数)。
  *  失效出口全部落 undetermined 并各带原因:没有读取出口 / 读不到正文 / 模块 mtime 读不到 / 抽取判不出。
- *  而"量到的空"与"没量到"分档:根脚本确实没有 dot-source ⇒ note(量到的空),加载目标不是 .ps1 ⇒ note(不适用)
+ *  而"量到的空"与"没量到"分档:根脚本确实没有加载边 ⇒ note(量到的空),加载目标不是 .ps1 ⇒ note(不适用)
  *  —— 两者都不是"这一维失明",把它们写成失明会让每台 PowerShell 服务都拿不到合格证。
  *  兼容注:`nested` 字段随封顶 1 一起退役(闭包之下不再有"已知未覆盖"层),恒为空数组,仅为既有
  *  JSON 输出形状兼容保留;超限/环路等闭包现象分别走 undetermined(没量到)与"不另立新档"。
@@ -1290,15 +1345,15 @@ function collectDotSourceLayer({ scriptPath, startMs, statFile, readScriptText }
     const found = ex.value
     for (const it of found.items) {
       if (it.path) continue
-      if (it.ignored) out.notes.push(`抽到一个点号目标但不在射程:${it.raw} —— ${it.why}`)
-      else out.undetermined.push(`抽到一个 dot-source 而路径读不出:${it.raw} —— ${it.why}`)
+      if (it.ignored) out.notes.push(`抽到一个加载目标但不在射程:${it.raw} —— ${it.why}`)
+      else out.undetermined.push(`抽到一个加载边而路径读不出:${it.raw} —— ${it.why}`)
     }
     if (found.truncated)
       out.undetermined.push(
-        `${sp} 的 dot-source 超过上限 ${DOT_SOURCE_MAX}(共 ${found.declaredTotal} 条)⇒ 只跟前 ${DOT_SOURCE_MAX} 份,其余这一轮没量到`,
+        `${sp} 的静态加载边(dot-source / Import-Module)超过上限 ${DOT_SOURCE_MAX}(共 ${found.declaredTotal} 条)⇒ 只跟前 ${DOT_SOURCE_MAX} 份,其余这一轮没量到`,
       )
     if (isRoot && found.paths.length === 0 && out.undetermined.length === 0)
-      out.notes.push(`${sp} 未 dot-source 任何 .ps1 ⇒ 这一维没有对象(量到的空,不是没量到)`)
+      out.notes.push(`${sp} 未 dot-source / Import-Module 任何可解析模块 ⇒ 这一维没有对象(量到的空,不是没量到)`)
     for (const mp of found.paths) {
       const mKey = norm(mp)
       // 回边(环路或菱形的已处理侧)先挡:这份的账已有归属 —— 回到 -File 根的那条由本维外的
@@ -1387,7 +1442,7 @@ export function judgeRuntimeFreshness({
     modulesNotes: layer.notes,
   }
   const moduleTail = layer.stale.length
-    ? `;另有 ${layer.stale.length} 份被 dot-source 进来的共享模块同样新于进程:` +
+    ? `;另有 ${layer.stale.length} 份被 dot-source / Import-Module 载入的共享模块同样新于进程:` +
       layer.stale.map((m) => `${m.path}(旧 ${m.mins} 分钟)`).join('、')
     : ''
   if (deltaMs > 0)
@@ -1406,7 +1461,7 @@ export function judgeRuntimeFreshness({
       verdict: 'stale',
       path,
       detail:
-        `运行中的进程比它 dot-source 进来的共享模块旧 ⇒ 线上跑的是旧代码,且**该模块是被 dot-source 进去的、不是 -File 那一份**:` +
+        `运行中的进程比它 dot-source / Import-Module 载入的共享模块旧 ⇒ 线上跑的是旧代码,且**该模块是启动时载入的、不是 -File 那一份**:` +
         layer.stale
           .map((m) => `${m.path}(进程启动 ${stamp(startMs)} / 模块改写后 ${m.mins} 分钟)`)
           .join('、') +

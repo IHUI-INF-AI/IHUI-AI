@@ -25,6 +25,8 @@ import IORedis, { type Redis } from 'ioredis'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { config } from '../config/index.js'
+// 票71 第二切片:帧载荷的构造器唯一源在 @ihui/types(与契约事件逐字同源,不另造形状)
+import { messageCreatedEvent, messagePatchedEvent } from '@ihui/types'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -37,6 +39,15 @@ declare module 'fastify' {
       // 仅当推导不出时声明值作收窄提示生效,与推导矛盾 ⇒ 以推导为准 + warn。
       opts?: { eventClass?: BroadcastEventClass },
     ): BroadcastResult
+    /** 票71 第二切片:新消息的房间广播(收件人由调用方给出的会话成员集合钉死) */
+    broadcastChatMessageCreated(input: ChatMessageCreatedBroadcastInput): ChatSyncBroadcastResult
+    /**
+     * 票71 第二切片:消息修订的房间广播。异步是因为 rev 要现分配
+     * (Redis INCR 是跨实例单一写入方;不可用时回落壁钟单调序号,绝不进程内从 1 重数)。
+     */
+    broadcastChatMessagePatched(
+      input: ChatMessagePatchedBroadcastInput,
+    ): Promise<ChatSyncBroadcastResult>
   }
 }
 
@@ -83,6 +94,10 @@ export function broadcastEventClassOf(event: string): BroadcastEventClass | null
   if (event.startsWith('mcp:')) return 'mcp'
   // D125 协作事件族前缀约定(与上面两发射口同一口径)
   if (event.startsWith('collab:')) return 'collab'
+  // 票71(V2 #23)第二切片(2026-10-24):chat 消息面房间广播。
+  // 归入既有的 'conversation' 类而不是新开一类 —— 消息本就是会话房间内的事件,
+  // 而新增类别要同步 CONNECTION_ROLES / ceiling 表,那属于改帧分类面(本片不做)。
+  if (event.startsWith('message:')) return 'conversation'
   return null
 }
 
@@ -94,6 +109,59 @@ export function parseBroadcastConnectionRole(raw: string | undefined): Broadcast
   return CONNECTION_ROLES.includes(raw as BroadcastConnectionRole)
     ? (raw as BroadcastConnectionRole)
     : 'all'
+}
+
+// =============================================================================
+// 票71(V2 #23)第二切片(2026-10-24):会话房间键 + 房间投递
+//
+// 现读结论:本仓**没有**通用房间/订阅机制 —— 这条通道是按 userId 分组的
+// (connections: userId → Set<WebSocket>),没有任何"按会话订阅"的结构。
+// 所以本片不发明订阅协议(那要房间成员协议 + 鉴权,契约 §7 第 2 项另票),
+// 只做最小可用的两件事:
+//   ① 房间键统一为 `conv:<conversationId>`(与 chat-sync-contract 的
+//      `room.kind='conversation'` 一一对应),帧内 `room` 由契约事件本体携带;
+//   ② 投递面 = 调用方给出的会话成员 userId 集合(本片 = 会话属主),逐个走既有
+//      per-user 投递 —— 房间隔离因此是**收件人集合**上的隔离,不是新协议。
+// 房间成员扩展(accepted 协作者)属下一片,接线点只有 memberUserIds 一处。
+// =============================================================================
+
+/** 会话房间键(唯一推导出口;消费端不得自己拼 `conv:` 前缀) */
+export function conversationRoomKey(conversationId: string): string {
+  return `conv:${conversationId}`
+}
+
+/** 房间投递结果:matched/delivered/gated 是各成员连接账之和,recipients 是成员数 */
+export interface ChatSyncBroadcastResult {
+  room: string
+  recipients: number
+  matched: number
+  delivered: number
+  gated: number
+}
+
+/** `message:created` 的发射入参(载荷由 @ihui/types 的构造器捏,路由不手拼帧) */
+export interface ChatMessageCreatedBroadcastInput {
+  conversationId: string
+  /** 收件人 = 该会话的成员(本片 = 会话属主) */
+  memberUserIds: readonly string[]
+  messageId: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  reasoning?: string
+  at?: Date | string
+}
+
+/** `message:patched` 的发射入参;rev 由服务端分配(调用方不得传) */
+export interface ChatMessagePatchedBroadcastInput {
+  conversationId: string
+  memberUserIds: readonly string[]
+  messageId: string
+  /** 默认 snapshot(全量自包含,可跨 gap 应用);delta = 追加增量 */
+  kind?: 'delta' | 'snapshot'
+  content?: string
+  textDelta?: string
+  reasoning?: string
+  at?: Date | string
 }
 
 // =============================================================================
@@ -393,6 +461,120 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
         }
       }
       return deliverLocal(userId, event, data, cls)
+    },
+  )
+
+  // ── 票71(V2 #23)第二切片:会话房间投递(2026-10-24)────────────────────────
+  // rev 分配点 = 服务端唯一写入方。Redis INCR 在跨实例/跨重启下严格递增;
+  // Redis 不可用时回落"壁钟毫秒 + 本机已发最大值 +1"——**绝不**用"进程内从 1 重数"
+  // 的计数器:那会在进程重启后把 rev 打回 1,端侧按 stale 丢弃新内容,症状是
+  // "另一台设备停在半截回复,而账面全绿"。回落值只保证单调,不保证跨实例严格递增,
+  // 该缺口由端侧 resync(下一片接 REST 拉权威快照)兜底。
+  const chatSyncRevFloor = new Map<string, number>()
+  const CHAT_SYNC_REV_KEY_PREFIX = 'chat-sync:rev:'
+
+  const nextChatSyncRev = async (messageId: string): Promise<number> => {
+    const prev = chatSyncRevFloor.get(messageId) ?? 0
+    const publisher = (server as unknown as { redis?: Redis }).redis
+    if (publisher) {
+      try {
+        const n = await publisher.incr(`${CHAT_SYNC_REV_KEY_PREFIX}${messageId}`)
+        if (typeof n === 'number' && Number.isInteger(n) && n > 0) {
+          const rev = Math.max(n, prev + 1)
+          chatSyncRevFloor.set(messageId, rev)
+          return rev
+        }
+      } catch (err) {
+        server.log.warn(
+          { err, messageId },
+          'ws-broadcast rev 分配(redis incr)失败,回落壁钟单调序号(端侧靠 resync 收敛)',
+        )
+      }
+    }
+    const rev = Math.max(Date.now(), prev + 1)
+    chatSyncRevFloor.set(messageId, rev)
+    return rev
+  }
+
+  /**
+   * 房间投递体:房间键由 `input.conversationId` 唯一推导,帧里的 `room` 必须与之一致
+   * —— 不一致说明生产面把两个会话的载荷拼混了,属于构造点该拒的坏值,不是"发出去让端上过滤"。
+   * 收件人 = 去重后的会话成员;空集合 ⇒ 一帧不发(拿不到成员时不得退化成"发给所有人")。
+   */
+  const fanoutToConversationRoom = (input: {
+    conversationId: string
+    memberUserIds: readonly string[]
+    evt: ReturnType<typeof messageCreatedEvent> | ReturnType<typeof messagePatchedEvent>
+  }): ChatSyncBroadcastResult => {
+    const roomOfFrame = input.evt.data.room.conversationId
+    if (roomOfFrame !== input.conversationId) {
+      throw new Error(
+        `ws-broadcast 房间投递:帧房间(${roomOfFrame})与目标会话(${input.conversationId})不一致`,
+      )
+    }
+    const members = Array.from(
+      new Set(input.memberUserIds.filter((u) => typeof u === 'string' && u.length > 0)),
+    )
+    let matched = 0
+    let delivered = 0
+    let gated = 0
+    for (const member of members) {
+      const r = server.broadcastToUser(member, input.evt.event, input.evt.data)
+      matched += r.matched
+      delivered += r.delivered
+      gated += r.gated
+    }
+    return {
+      room: conversationRoomKey(input.conversationId),
+      recipients: members.length,
+      matched,
+      delivered,
+      gated,
+    }
+  }
+
+  server.decorate('broadcastChatMessageCreated', (input: ChatMessageCreatedBroadcastInput) => {
+    const evt = messageCreatedEvent({
+      conversationId: input.conversationId,
+      messageId: input.messageId,
+      role: input.role,
+      content: input.content,
+      ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+      ...(input.at !== undefined ? { at: input.at } : {}),
+    })
+    return fanoutToConversationRoom({
+      conversationId: input.conversationId,
+      memberUserIds: input.memberUserIds,
+      evt,
+    })
+  })
+
+  server.decorate(
+    'broadcastChatMessagePatched',
+    async (input: ChatMessagePatchedBroadcastInput) => {
+      const kind = input.kind ?? 'snapshot'
+      // 空载荷 = 消耗一个 rev 却不改内容(端侧判 duplicate 后再也等不到内容),构造点直接拒
+      if (kind === 'delta' && typeof input.textDelta !== 'string') {
+        throw new Error('broadcastChatMessagePatched: kind=delta 必须带 textDelta')
+      }
+      if (kind === 'snapshot' && typeof input.content !== 'string') {
+        throw new Error('broadcastChatMessagePatched: kind=snapshot 必须带 content')
+      }
+      const rev = await nextChatSyncRev(input.messageId)
+      const evt = messagePatchedEvent({
+        conversationId: input.conversationId,
+        messageId: input.messageId,
+        rev,
+        kind,
+        ...(kind === 'delta' ? { textDelta: input.textDelta } : { content: input.content }),
+        ...(input.reasoning !== undefined ? { reasoning: input.reasoning } : {}),
+        ...(input.at !== undefined ? { at: input.at } : {}),
+      })
+      return fanoutToConversationRoom({
+        conversationId: input.conversationId,
+        memberUserIds: input.memberUserIds,
+        evt,
+      })
     },
   )
 

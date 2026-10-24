@@ -434,7 +434,7 @@ export default function PeakPricingPage() {
                   id="peak-provider"
                   value={form.providerCode}
                   onChange={(e) => setForm((f) => ({ ...f, providerCode: e.target.value }))}
-                  placeholder="如 swiftapi"
+                  placeholder="如 newapi"
                 />
               </div>
             </div>

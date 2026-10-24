@@ -30,6 +30,8 @@
  */
 import {
   parseUserBroadcastFrame,
+  type MessageCreatedEvent,
+  type MessagePatchedEvent,
   type UserBroadcastEvent,
   type UserBroadcastEventName,
 } from '@ihui/types'
@@ -89,6 +91,24 @@ export interface UserBroadcastHandlers {
   'checkpoint:availability'?: (
     evt: Extract<UserBroadcastEvent, { event: 'checkpoint:availability' }>,
   ) => void
+  /**
+   * D125 协作会话事件族(设计稿 docs/d125-session-collab-design.md)。
+   * 与上面几条同一条纪律:端内只接自己声明过的事件;帧守卫在 @ihui/types。
+   */
+  'collab:invitation'?: (evt: Extract<UserBroadcastEvent, { event: 'collab:invitation' }>) => void
+  'collab:comment'?: (evt: Extract<UserBroadcastEvent, { event: 'collab:comment' }>) => void
+  /**
+   * D125 另批(2026-10-23):写锁/接管发言下行。与上面几条同一条纪律 ——
+   * 端内只接自己声明过的事件;收到不认识的事件走 `onUndetermined` 计数。
+   */
+  'collab:lock'?: (evt: Extract<UserBroadcastEvent, { event: 'collab:lock' }>) => void
+  /**
+   * 票71(V2 #23)第二切片:chat 消息面房间广播。载荷是 chat-sync-contract 的事件本体,
+   * 端侧唯一消费出口 = `applyChatSyncEvent`(apps/web 的 chat store),
+   * 不许在回调里各自去重 —— 那样两条通道各有一份裁定了。
+   */
+  'message:created'?: (evt: MessageCreatedEvent) => void
+  'message:patched'?: (evt: MessagePatchedEvent) => void
   /** 收到对象形态但解不出已知事件的帧 ⇒ 「未判定」,必须计数/点名,不得静默丢弃 */
   onUndetermined?: (raw: unknown) => void
   /** 连接状态变化(`'injected'` 档恒为 `idle`,因为它不拥有连接) */
@@ -316,6 +336,36 @@ export function subscribeUserBroadcast(
 }
 
 /**
+ * 票71(V2 #23)第二切片(2026-10-24):按**会话房间**订阅 chat 同步帧的唯一辅助出口。
+ *
+ * 为什么要这层而不是让端各自挂两个 handler:房间过滤(`room.conversationId` 是否等于
+ * 当前会话)是"这条帧该不该进本端 store"的唯一判据,散落两处就必然有一处忘判,
+ * 忘了的表现是"切到别的会话,旧会话的 token 还在往当前列表里长"。
+ *
+ * `conversationId` 在建订阅时钉死:切会话 = 先 close 再重新订阅(本模块不做会跟随的
+ * 可变房间 —— 那需要一条"切房"协议,属契约 §7 第 2 项)。未命中当前房间的帧交给
+ * `onOtherRoom`(调用方据此计数/忽略),**不得**静默丢弃。
+ */
+export function subscribeChatSync(
+  config: UserBroadcastConfig,
+  conversationId: string,
+  onEvent: (evt: MessageCreatedEvent | MessagePatchedEvent) => void,
+  onOtherRoom?: (evt: MessageCreatedEvent | MessagePatchedEvent) => void,
+): UserBroadcastSubscription {
+  const handle = (evt: MessageCreatedEvent | MessagePatchedEvent): void => {
+    if (evt.data.room.conversationId !== conversationId) {
+      onOtherRoom?.(evt)
+      return
+    }
+    onEvent(evt)
+  }
+  return subscribeUserBroadcast(config, {
+    'message:created': handle,
+    'message:patched': handle,
+  })
+}
+
+/**
  * 注入出口:宿主已经有一条 per-user 连接(小程序由 use-ui-control-bridge 统一持有)时,
  * 把收到的原始消息转进来 —— 零新建连接,判据与自建那条路**同一个** `channel.ingest`。
  * 找不到通道 ⇒ 返回 null 并如实报"无人订阅"(不冒判"已处理")。
@@ -375,6 +425,14 @@ export const USER_BROADCAST_SUBSCRIBABLE_EVENTS: readonly UserBroadcastEventName
   'conversation:updated',
   'mcp:status',
   'checkpoint:availability',
+  // D125 协作会话事件族(与 USER_BROADCAST_EVENT_NAMES 等值,d153 测试硬断言)
+  'collab:invitation',
+  'collab:comment',
+  // D125 另批收口(2026-10-23):写锁/接管发言事件
+  'collab:lock',
+  // 票71(V2 #23)第二切片(2026-10-24):chat 消息面房间广播
+  'message:created',
+  'message:patched',
 ]
 
 // ===================== 宿主绑定工厂(端内适配器的唯一入口) =====================

@@ -28,7 +28,11 @@
  */
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { subscribeUserBroadcast, type UserBroadcastConfig } from '@ihui/api-client'
+import {
+  subscribeChatSync,
+  subscribeUserBroadcast,
+  type UserBroadcastConfig,
+} from '@ihui/api-client'
 import type { QueryClient } from '@tanstack/react-query'
 import type { ConversationMetaField, ConversationUpdatedEvent } from '@ihui/types'
 import { useChatStore } from '@/stores/chat'
@@ -246,6 +250,9 @@ export function useConversationBroadcastSync(): {
 } {
   const t = useTranslations('chat')
   const token = useAuthStore((s) => s.token)
+  // 票71 第二切片:消息面房间同步的订阅键。`subscribeChatSync` 在建订阅时把
+  // conversationId 钉死(它不做会跟随的可变房间),所以切会话 = 本 effect 重建订阅。
+  const conversationId = useChatStore((s) => s.conversationId)
   const [undetermined, setUndetermined] = React.useState(0)
   const [connected, setConnected] = React.useState(false)
 
@@ -292,8 +299,19 @@ export function useConversationBroadcastSync(): {
       onUndetermined: () => setUndetermined((n) => n + 1),
       onState: (s) => setConnected(s === 'open'),
     })
-    return () => sub.close()
-  }, [token])
+    // 票71 第二切片:消息面同步只走契约内核 —— 房间过滤与 (messageId,rev) 幂等裁定
+    // 都在 `applyChatSync` 里(store 侧单点),本处不做第二份去重。被拒(duplicate/
+    // stale/gap)时 store 不写 messages 数组;gap 会置 resync 旗,由后续切片拉快照。
+    const chatSub = conversationId
+      ? subscribeChatSync(config, conversationId, (evt) =>
+          useChatStore.getState().applyChatSync(evt),
+        )
+      : null
+    return () => {
+      sub.close()
+      chatSub?.close()
+    }
+  }, [token, conversationId])
 
   return { connected, undetermined }
 }

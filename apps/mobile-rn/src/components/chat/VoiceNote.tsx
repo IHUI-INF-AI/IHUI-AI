@@ -374,7 +374,9 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                   accessibilityRole="button"
                   testID="voice-note-group-chip-all"
                 >
-                  <Text style={styles.chipText}>{t('chat.voiceNote.groupAll')}</Text>
+                  <Text style={[styles.chipText, groupKey === null && styles.chipActiveText]}>
+                    {t('chat.voiceNote.groupAll')}
+                  </Text>
                 </Pressable>
                 {groups.map((facet) => (
                   <Pressable
@@ -384,7 +386,12 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
                     accessibilityRole="button"
                     testID="voice-note-group-chip"
                   >
-                    <Text style={styles.chipText}>
+                    <Text
+                      style={[
+                        styles.chipText,
+                        groupKey === facet.groupKey && styles.chipActiveText,
+                      ]}
+                    >
                       {facet.groupKey} {facet.count}
                     </Text>
                   </Pressable>
@@ -449,8 +456,8 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: tokens.overlay.modal, justifyContent: 'flex-end' },
   panel: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius.lg, // panel 档 lg(8)
-    borderTopRightRadius: rnRadius.lg,
+    borderTopLeftRadius: rnRadius.xl, // panel 档 xl(12)
+    borderTopRightRadius: rnRadius.xl,
     padding: 12,
     maxHeight: '70%',
   },
@@ -466,7 +473,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // chip 档 md(6)
     paddingHorizontal: 8,
     paddingVertical: 4,
     marginBottom: 8,
@@ -526,11 +533,14 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // chip 档 md(6)
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  chipActive: { backgroundColor: tokens.surface.light },
+  // 选中胶囊走 RN 既有范式(ChatTemplatesScreen/ArticleEditScreen 同尺):brand.cta 底 +
+  // ctaForeground 字,两态自适应;不得用 surface.light(两态恒白 ⇒ 白卡上选中态不可见)
+  chipActive: { backgroundColor: tokens.brand.cta, borderColor: tokens.brand.cta },
+  chipActiveText: { color: tokens.brand.ctaForeground },
   chipText: { fontSize: 11, color: tokens.text.secondary },
   archiveList: { maxHeight: 220 },
   archiveItem: {

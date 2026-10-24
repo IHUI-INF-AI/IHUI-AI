@@ -59,6 +59,14 @@ from ..core.reasoning_effort_pin import (
     reasoning_effort_for_request,
 )
 
+# D115(2026-10-23,G-229):review 模式结构化结论帧的判据单源(严重度枚举 / 块标记 /
+# 解析与帧构造)。本路由只负责"在 review 模式的流收尾把帧发出去",不复制解析逻辑。
+from ..core.review_findings import (
+    REVIEW_FINDING_EVENT,
+    REVIEW_FINDING_INSTRUCTION,
+    build_review_finding_frames,
+)
+
 # D174:帧级 traceId 注入点只有一份实现,住在 `core/sse_frames.py`(取值经 core/trace_context
 # 的那份投影,载体仍是 middleware 那一个 ContextVar);本路由不解析 traceparent、不自建 trace 上下文。
 from ..core.sse_frames import with_frame_trace_id
@@ -301,9 +309,26 @@ _PREVIEW_MAX_CHARS = 32 * 1024
 
 # D120(2026-09-27,G-234):轮次预算弹性续跑 —— 接近 max_iterations 上限时自动
 # 注入"进度交代 + 续期"轮,防止长任务被硬断(对标 GPT-5.3 Codex 长时运行定位)。
-# 续期次数有限(默认 2,env LLM_ITERATION_EXTEND_LIMIT 可调,0 = 关闭),每次
-# 续 +max_iterations 轮;成本守门(预算门/扣费)不因续期绕过。
-_ITERATION_EXTEND_LIMIT = max(0, int(os.getenv("LLM_ITERATION_EXTEND_LIMIT", "2")))
+# 续期次数有限(默认取 settings.agent_budget_renewals = 2,env AGENT_BUDGET_RENEWALS
+# 或旧名 LLM_ITERATION_EXTEND_LIMIT 均可调,0 = 关闭);每次续期追加
+# settings.agent_budget_renewal_turns 轮(默认 +2,env AGENT_BUDGET_RENEWAL_TURNS)。
+# 成本守门(预算门/扣费)不因续期绕过 —— 进度总结走 llm_gateway.astream 同一通道。
+_ITERATION_EXTEND_LIMIT = max(
+    0,
+    int(
+        os.getenv(
+            "MAX_AGENT_BUDGET_RENEWALS",
+            os.getenv("LLM_ITERATION_EXTEND_LIMIT", str(settings.agent_budget_renewals)),
+        )
+    ),
+)
+# 每次续期追加的轮数。下限 1:续期必须是真实预算,不允许"续了等于没续"的空转。
+_ITERATION_EXTEND_TURNS = max(
+    1,
+    int(os.getenv("AGENT_BUDGET_RENEWAL_TURNS", str(settings.agent_budget_renewal_turns))),
+)
+# 进度总结提示词的识别标记(测试替身据此区分"总结调用"与主循环轮次调用)
+_D120_SUMMARY_MARKER = "[D120_PROGRESS_SUMMARY]"
 
 # G-815971(2026-10-07):限额/配额收口 ⇒ 禁止续期。D120 的方向是"接近上限主动
 # 注入续跑轮";但"本轮因限额/配额收口"时,任何"会重新打开模型请求"的续跑通道
@@ -361,6 +386,123 @@ def _d120_should_extend(
         and extensions_used < _ITERATION_EXTEND_LIMIT
         and tool_executed_last_round
     )
+
+
+def _d120_activity_digest(tool_calls_history: list[dict[str, Any]], limit: int = 8) -> str:
+    """D120:把最近 N 次工具调用折成给总结模型的简短事实清单(不搬运大段工具原文)。"""
+    lines: list[str] = []
+    for tc in tool_calls_history[-limit:]:
+        if not isinstance(tc, dict):
+            continue
+        name = str(tc.get("toolName") or "unknown")
+        try:
+            args_text = json.dumps(tc.get("args"), ensure_ascii=False)[:200]
+        except (TypeError, ValueError):
+            args_text = str(tc.get("args"))[:200]
+        status = "失败" if tc.get("isError") else "成功"
+        lines.append(f"- 第{tc.get('iteration', '?')}轮 {name}({args_text}) → {status}")
+    return "\n".join(lines) or "(尚无工具调用记录)"
+
+
+def _d120_last_tool_names(
+    tool_calls_history: list[dict[str, Any]], limit: int = 4
+) -> str:
+    """D120:总结模型不可用时的本地兜底文案所需(最近使用的工具名)。"""
+    names = [
+        str(tc.get("toolName"))
+        for tc in tool_calls_history[-limit:]
+        if isinstance(tc, dict) and tc.get("toolName")
+    ]
+    return "、".join(names) or "无"
+
+
+async def _d120_generate_progress_summary(
+    *,
+    tool_calls_history: list[dict[str, Any]],
+    model: str | None,
+    owner_uuid: str | None,
+    billing_kwargs: dict[str, Any],
+    rounds: int,
+) -> tuple[str | None, dict[str, Any] | None, str | None]:
+    """D120 进度总结的唯一模型调用出口。
+
+    走 `llm_gateway.astream`(与主链路同一个模型选择/计费/流水/限额通道),
+    不为总结另开直连:限流、退避重试、provider 配额守门与主链路完全一致。
+    返回 (summary, usage, error);error 非空表示总结失败,由调用方按
+    "限额收口 ⇒ 不续期 / 普通失败 ⇒ 本地兜底总结"两档处置。
+    流内 chunk 只收集不 yield —— 总结只经交代帧与 messages 呈现。
+    """
+    digest = _d120_activity_digest(tool_calls_history)
+    prompt: list[dict[str, Any]] = [
+        {
+            "role": "system",
+            "content": (
+                f"{_D120_SUMMARY_MARKER} 你是长任务进度记录员。只输出一段不超过 150 字的"
+                "中文进度总结:已完成什么、关键结果、剩余步骤;不要复述工具参数原文。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"任务已执行 {rounds} 轮工具调用,即将触及单期轮次预算。\n{digest}",
+        },
+    ]
+    parts: list[str] = []
+    usage: dict[str, Any] | None = None
+    try:
+        async for evt in llm_gateway.astream(
+            prompt, model=model, owner_uuid=owner_uuid, **billing_kwargs
+        ):
+            etype = evt.get("type", "")
+            if etype == "chunk":
+                parts.append(str(evt.get("content") or ""))
+            elif etype == "done":
+                usage = evt.get("usage")
+            elif etype == "error":
+                return (None, usage, f"{evt.get('errorCode')}: {evt.get('message')}")
+            elif etype == "fallback" and str(evt.get("reason") or "").startswith("quota"):
+                return (None, usage, f"PROVIDER_QUOTA_EXHAUSTED: {evt.get('reason')}")
+    except Exception as e:  # noqa: BLE001 - 总结失败不打断主链,由调用方降级
+        return (None, usage, str(e))
+    text = "".join(parts).strip()
+    return (text or None, usage, None)
+
+
+def _metadata_with_iteration_extensions(
+    metadata: dict[str, Any] | None,
+    extensions: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    """D120:把续期总结并入响应 metadata;无续期时原样返回入参(旧路径逐字节不变)。"""
+    if not extensions:
+        return metadata
+    return {**(metadata or {}), "iterationExtensions": [dict(x) for x in extensions]}
+
+
+def _d120_extension_frame(
+    *,
+    tool_iter: int,
+    extension_index: int,
+    extension_limit: int,
+    note: str,
+) -> dict[str, Any]:
+    """D120 续期交代帧唯一构造出口(G-234 票面「总结落 metadata 供回放」)。
+
+    字段按 `injection_applied` 事件族惯例:`collapsed`(折叠态一行)+ `fullText`
+    (展开全文)是契约必带两键(见 app/core/sse_contract.py 的 payload_fields),
+    缺 `collapsed` 时 API 侧 `persistedInjectionSchema` 校验不过、整帧落不了库,
+    前端 `appendMessageInjection` 也拿不到兜底文本 ⇒ 续期交代条刷新即消失。
+    `round` / `extensionIndex` / `extensionLimit` 是续期专有记账,API 侧 loose 透传
+    进 `chat_messages.metadata.injections`。刻意不带 `type`(SSE 判别字,持久化层剥掉)
+    与 `messageId`(按消息行寻址,与其余 injection_frames 同形)。
+    """
+    return {
+        "kind": "iteration_extension",
+        "collapsed": f"已续期轮次预算(第 {extension_index}/{extension_limit} 次)",
+        "fullText": note,
+        "text": note,
+        "round": tool_iter,
+        "extensionIndex": extension_index,
+        "extensionLimit": extension_limit,
+    }
 
 
 def _file_edit_preview_text(tool_name: str, args: dict[str, Any]) -> str | None:
@@ -1096,6 +1238,37 @@ def _sse_contract_warn(msg: str) -> None:
     import warnings
 
     warnings.warn(msg, RuntimeWarning, stacklevel=3)
+
+
+async def _with_review_findings(
+    source: AsyncIterator[str],
+    accumulated: dict[str, Any],
+    target: str | None = None,
+) -> AsyncIterator[str]:
+    """D115(2026-10-23,G-229):review 模式的流收尾投影。
+
+    review 模式的输出仍是人读的三档 Markdown(照旧逐 token 走 chunk);本包装只在
+    `event: done` 之前把同一段文本的 `<review-findings>` 块投影成逐条 finding 帧。
+    刻意做成**流外层包装**而不是在 done 的三个产出点各插一段:done 有三处产出点,
+    抄三份必然漂移(§0.6 判据单源),而这里只认帧首行,与产出点数量无关。
+
+    降级纪律:取不到正文 / 解析异常 / 没有 finding ⇒ 一帧都不发(端上走空态),
+    绝不为了"看起来有数据"补造条目。
+    """
+    emitted = False
+    async for frame in source:
+        if not emitted and frame.startswith("event: done\n"):
+            emitted = True
+            try:
+                payloads = build_review_finding_frames(
+                    str(accumulated.get("content") or ""), target=target
+                )
+            except Exception as e:  # noqa: BLE001 — 投影失败不得拖垮流收尾
+                logger.warning("review findings 投影失败(降级跳过): %s", e)
+                payloads = []
+            for payload in payloads:
+                yield _sse(REVIEW_FINDING_EVENT, payload)
+        yield frame
 
 
 # 终端输出随帧/随记录落库的字符上限(超出必须带 truncated + totalChars 交代)
@@ -2013,6 +2186,9 @@ _CHAT_MODE_PROMPTS: dict[str, str] = {
         "Every bullet MUST cite evidence as path:line (or path for whole-file issues),\n"
         "state the concrete risk, and end with a one-line actionable fix suggestion.\n"
         "If a section has no findings, write None. End with a one-paragraph overall verdict."
+        # D115(2026-10-23,G-229):同一段人读结论之后再补一个机器可读块,
+        # 供流收尾投影成 review-finding 帧(说明文本与解析器同源:core/review_findings.py)。
+        + REVIEW_FINDING_INSTRUCTION
     ),
     "spec": (
         "## Spec Mode Active\n"
@@ -3230,6 +3406,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # (SSE steer phase=injected 同一循环)逐条累积,随终局 _fire_callback 落库,
     # 刷新/重拉历史后「⚡ 引导已生效」badge 仍可回放。空列表不写字段(与"本轮无引导"语义区分)。
     steer_applied: list[dict[str, Any]] = []
+    # D120(2026-10-24):逐次续期的进度总结记录(响应 done.metadata.iterationExtensions
+    # 与持久化 metadata.injections 同源;非工具循环路径恒为空 ⇒ 旧行为逐字节不变)。
+    _iteration_extension_records: list[dict[str, Any]] = []
     # kind 是**前端本地化的键**(措辞由 5 语言词表给出),collapsed 只作未知 kind 的兜底文本。
     # 因此:① kind 必须逐场景互不相同(曾把 Repo Wiki 与自动检索都写成 environments,
     # 前端无法区分);② 改 kind 必须同步 apps/web 的 INJECTION_KIND_KEYS 与词表。
@@ -3643,9 +3822,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         # G-815971 追加排除条款:本轮因限额/配额收口(budget_exhausted)
                         # ⇒ 一票否决,续期与 hook 注入条目一并归零 —— 上限命中后只允许
                         # 这一轮纯文本说明,不得把已收口的 turn 延长成新的恢复循环。
-                        # 动作:注入进度交代消息(天然随对话上下文持久化,回放可见) +
-                        # _iter_budget += max_iterations(与 steer 的预算延长同一机制)+
-                        # injection_applied 帧(kind=iteration_extension,开放字符串枚举)。
+                        # 动作:注入进度交代消息(随对话上下文继续任务) +
+                        # _iter_budget += _ITERATION_EXTEND_TURNS(与 steer 的预算延长同一机制)+
+                        # injection_applied 帧(kind=iteration_extension,开放字符串枚举),
+                        # 同一帧进 injection_frames ⇒ 落 chat_messages.metadata.injections
+                        # (票面「总结落 metadata 供回放」;只发 SSE 的话刷新即丢)。
                         if _d120_should_extend(
                             tool_iter=_tool_iter,
                             iter_budget=_iter_budget,
@@ -3653,25 +3834,69 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             tool_executed_last_round=bool(tool_exec_tracker),
                             budget_exhausted=_budget_exhausted_this_turn,
                         ):
-                            _iteration_extensions_used += 1
-                            _iter_budget += max_iterations
-                            _ext_note = (
-                                f"[系统] 已执行 {_tool_iter} 轮工具调用,接近轮次预算上限({max_iterations})。"
-                                f"任务若尚未完成请继续;系统已追加续期预算"
-                                f"(第 {_iteration_extensions_used}/{_ITERATION_EXTEND_LIMIT} 次)。"
+                            # D120:续期前先让模型做一次进度总结。走 llm_gateway.astream
+                            # (与主循环同一模型/计费/流水/限额通道),不新增直连;
+                            # 总结调用本身撞限额 ⇒ 本轮不续期(原语义停,不再开模型请求)。
+                            _ext_summary, _ext_usage, _ext_error = (
+                                await _d120_generate_progress_summary(
+                                    tool_calls_history=tool_calls_history,
+                                    model=req.model,
+                                    owner_uuid=owner_uuid,
+                                    billing_kwargs=_billing_kwargs,
+                                    rounds=_tool_iter,
+                                )
                             )
-                            messages.append({"role": "user", "content": _ext_note})
-                            _ext_evt: dict[str, Any] = {
-                                "type": SSE_INJECTION_APPLIED,
-                                "kind": "iteration_extension",
-                                "text": _ext_note,
-                                "round": _tool_iter,
-                                "extensionIndex": _iteration_extensions_used,
-                                "extensionLimit": _ITERATION_EXTEND_LIMIT,
-                            }
-                            if message_id:
-                                _ext_evt["messageId"] = message_id
-                            yield _sse(SSE_INJECTION_APPLIED, _ext_evt)
+                            if _ext_usage and owner_uuid:
+                                _ext_tokens = int(_ext_usage.get("total_tokens", 0) or 0)
+                                if _ext_tokens > 0:
+                                    asyncio.create_task(
+                                        user_trial_quota.consume(owner_uuid, _ext_tokens)
+                                    )
+                            if _ext_error:
+                                logger.warning(
+                                    "D120 进度总结失败(round=%s): %s", _tool_iter, _ext_error
+                                )
+                                if _is_budget_exhaustion_error(None, _ext_error):
+                                    # G-815971:总结调用撞限额 ⇒ 本轮惜不续期。
+                                    _budget_exhausted_this_turn = True
+                            if not _budget_exhausted_this_turn:
+                                _iteration_extensions_used += 1
+                                _iter_budget += _ITERATION_EXTEND_TURNS
+                                if not _ext_summary:
+                                    # 普通总结失败(非限额)⇒ 本地兜底总结,续期照常
+                                    _ext_summary = (
+                                        f"已完成 {_tool_iter} 轮工具调用,"
+                                        f"最近使用的工具:{_d120_last_tool_names(tool_calls_history)}。"
+                                    )
+                                _ext_note = (
+                                    f"[系统] 进度总结:{_ext_summary}\n"
+                                    f"已执行 {_tool_iter} 轮工具调用,接近轮次预算上限({max_iterations})。"
+                                    f"任务若尚未完成请继续;系统已追加 {_ITERATION_EXTEND_TURNS} 轮续期预算"
+                                    f"(第 {_iteration_extensions_used}/{_ITERATION_EXTEND_LIMIT} 次)。"
+                                )
+                                messages.append({"role": "user", "content": _ext_note})
+                                _iteration_extension_records.append({
+                                    "index": _iteration_extensions_used,
+                                    "round": _tool_iter,
+                                    "summary": _ext_summary,
+                                    "at": datetime.now(UTC).isoformat(),
+                                })
+                                _ext_frame = _d120_extension_frame(
+                                    tool_iter=_tool_iter,
+                                    extension_index=_iteration_extensions_used,
+                                    extension_limit=_ITERATION_EXTEND_LIMIT,
+                                    note=_ext_note,
+                                )
+                                # 总结全文进 fullText(交代条可展开),metadata 同源回放
+                                _ext_frame["summary"] = _ext_summary
+                                injection_frames.append(_ext_frame)
+                                _ext_evt: dict[str, Any] = {
+                                    "type": SSE_INJECTION_APPLIED,
+                                    **_ext_frame,
+                                }
+                                if message_id:
+                                    _ext_evt["messageId"] = message_id
+                                yield _sse(SSE_INJECTION_APPLIED, _ext_evt)
 
                         # ===== 第一轮:流式化(2026-08-29 修复)=====
                         # 根因:tool loop 第一轮此前用非流式 complete(),LLM 无 tool_calls
@@ -3795,8 +4020,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # G-425:finishReason 透传(缺席不带键,不造值)
                                 if accumulated.get("finishReason"):
                                     done_event["finishReason"] = accumulated["finishReason"]
-                                if req.metadata:
-                                    done_event["metadata"] = req.metadata
+                                _done_meta = _metadata_with_iteration_extensions(
+                                    req.metadata, _iteration_extension_records
+                                )
+                                if _done_meta:
+                                    done_event["metadata"] = _done_meta
                                 # W1(2026-09-12 立):最终回答前发一次 plan 快照(全部步骤已完成)
                                 yield _format_plan_updated_event(
                                     tool_calls_history,
@@ -3978,8 +4206,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # G-425:finishReason 透传(缺席不带键,不造值)
                                 if accumulated.get("finishReason"):
                                     done_event["finishReason"] = accumulated["finishReason"]
-                                if req.metadata:
-                                    done_event["metadata"] = req.metadata
+                                _done_meta = _metadata_with_iteration_extensions(
+                                    req.metadata, _iteration_extension_records
+                                )
+                                if _done_meta:
+                                    done_event["metadata"] = _done_meta
                                 # W1(2026-09-12 立):最终回答前发一次 plan 快照(全部步骤已完成)
                                 yield _format_plan_updated_event(
                                     tool_calls_history,
@@ -5323,8 +5554,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # 要交代,缺一格端上就只剩猜)。
                                 "capabilities": _capabilities_payload(session_id),
                             }
-                            if req.metadata:
-                                done_event["metadata"] = req.metadata
+                            _done_meta = _metadata_with_iteration_extensions(
+                                req.metadata, _iteration_extension_records
+                            )
+                            if _done_meta:
+                                done_event["metadata"] = _done_meta
                             # W1(2026-09-12 立):全部失败收尾前发 plan 快照(每步 result 已写回)
                             yield _format_plan_updated_event(
                                 tool_calls_history,
@@ -5498,9 +5732,12 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 user_trial_quota.consume(owner_uuid, _trial_tokens)
                             )
                     accumulated["stub"] = event.get("stub", False)
-                    # 在 done 事件中透传 metadata
-                    if req.metadata:
-                        event["metadata"] = req.metadata
+                    # 在 done 事件中透传 metadata(D120:附上续期总结记录,无续期时原样)
+                    _done_meta = _metadata_with_iteration_extensions(
+                        req.metadata, _iteration_extension_records
+                    )
+                    if _done_meta:
+                        event["metadata"] = _done_meta
                     # W1(2026-09-12 立):tool loop 结束走 astream 时,最终 done 前发 plan 快照
                     # (tool_calls_history 为空时返回空串,no-op)
                     yield _format_plan_updated_event(
@@ -5747,8 +5984,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             _pending_callbacks.add(task)
             task.add_done_callback(_pending_callbacks.discard)
 
+    # D115(2026-10-23,G-229):review 模式的流只有一处收尾投影点(见 _with_review_findings)。
+    # 其它模式逐字节保持 gen() 原形 —— 不接包装 = 帧与旧版完全同形。
+    _stream_body: AsyncIterator[str] = gen()
+    if chat_mode == "review":
+        _review_target: str | None = None
+        if isinstance(req.metadata, dict):
+            _raw_target = req.metadata.get("reviewTarget")
+            if isinstance(_raw_target, str) and _raw_target.strip():
+                _review_target = _raw_target.strip()
+        _stream_body = _with_review_findings(_stream_body, accumulated, _review_target)
+
     return StreamingResponse(
-        gen(),
+        _stream_body,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

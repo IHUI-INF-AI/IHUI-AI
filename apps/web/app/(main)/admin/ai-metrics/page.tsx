@@ -33,6 +33,7 @@ import {
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatNumber as fmtNum } from '@/lib/date-utils'
+import { fimRowKey, fimScene } from './fim-metrics'
 
 interface SseMetrics {
   timeouts: number
@@ -54,9 +55,11 @@ interface VipMetrics {
   byLevel: Record<string, number>
 }
 
-/** FIM 补全接受率单模型汇总(P1-9,来自 ai-service /api/llm/fim/metrics/summary) */
+/** FIM 补全接受率 model × scene 汇总(P1-9,来自 ai-service /api/llm/fim/metrics/summary) */
 interface FimModelMetrics {
   model: string
+  /** 补全场景;缺省(含旧 Redis 快照无该键)按 completion 展示 */
+  scene?: string
   requests: number
   suggestions: number
   accepted: number
@@ -296,8 +299,8 @@ export default function AiMetricsPage() {
                   <div className="space-y-1">
                     <p>{t('fimAlert')}</p>
                     {fimAlerts.map((m) => (
-                      <p key={m.model} className="text-xs">
-                        {m.model}: {m.alertReason}
+                      <p key={fimRowKey(m.model, m.scene)} className="text-xs">
+                        {m.model} · {fimScene(m.scene)}: {m.alertReason}
                       </p>
                     ))}
                   </div>
@@ -320,8 +323,13 @@ export default function AiMetricsPage() {
                     </TableHeader>
                     <TableBody>
                       {fim.map((m) => (
-                        <TableRow key={m.model}>
-                          <TableCell className="font-mono text-xs">{m.model}</TableCell>
+                        <TableRow key={fimRowKey(m.model, m.scene)}>
+                          <TableCell className="font-mono text-xs">
+                            {m.model}
+                            <span className="ml-1.5 text-muted-foreground">
+                              · {fimScene(m.scene)}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-right tabular-nums">
                             {fmtNum(m.requests)}
                           </TableCell>

@@ -33,15 +33,17 @@ import {
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 33 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction;D152: + goal_updated)', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(33)
-    expect(SSE_EVENT_NAMES).toHaveLength(33)
+  it('包含全部 34 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction;D152: + goal_updated;D115: + review-finding)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(34)
+    expect(SSE_EVENT_NAMES).toHaveLength(34)
     // 光有计数会放过"删了别的、加了这个",新帧必须点名在位:
     expect(SSE_EVENTS.TERMINAL_INTERACTION).toBe('terminal_interaction')
     // D152(2026-09-29):目标状态单帧(cleared 由 status 承载,无 goal_cleared 第二帧)
     expect(SSE_EVENTS.GOAL_UPDATED).toBe('goal_updated')
     // G-815976(2026-10-04):流式中断标记帧入契约(此前只有生产者,端上静默丢弃)
     expect(SSE_EVENTS.PARTIAL_DONE).toBe('partial_done')
+    // D115(2026-10-23,G-229):review 模式结构化 finding 帧入契约
+    expect(SSE_EVENTS.REVIEW_FINDING).toBe('review-finding')
     expect(SSE_EVENT_NAMES as readonly string[]).not.toContain('goal_cleared')
   })
 
@@ -158,6 +160,8 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   FORM_REQUEST: 'form_request',
   // D152(2026-09-29):会话目标状态的下行帧(单帧,cleared 由 status 承载)
   GOAL_UPDATED: 'goal_updated',
+  // D115(2026-10-23,G-229):review 模式结构化 finding 帧
+  REVIEW_FINDING: 'review-finding',
   DONE: 'done',
   ERROR: 'error',
   COMPACTION: 'compaction',
@@ -219,6 +223,8 @@ const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
   'tool-result': 'tool-result',
   'tool-summary': 'tool-summary',
   usage: 'usage',
+  // D115(2026-10-23,G-229):review 模式结构化 finding 帧(判别联合成员见 contract.ts)
+  'review-finding': 'review-finding',
 }
 
 describe('SSEEventPayload 判别联合对齐', () => {

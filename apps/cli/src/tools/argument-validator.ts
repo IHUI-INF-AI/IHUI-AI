@@ -197,7 +197,9 @@ export function validateToolArguments(
   schema: ToolSchema,
 ): ValidationResult {
   const result = runValidation(args, schema);
-  // 台账出口(G-240 第②步的数据源):env `IHUI_TOOL_ARG_VALIDATION_LEDGER` 未设 ⇒ **一次都不写盘**,
+  // 台账出口(G-240 第②步的数据源):env `IHUI_TOOL_ARG_VALIDATION_LEDGER` 未设或显式关词
+  // (`0|off|false|no`)⇒ **一次都不写盘**;开关词 `1|on|true|yes|default` 即开账、落默认台账
+  // (三态解析唯一实现 = report 侧 `interpretLedgerEnv`,本处不复算)。
   // 内部吞掉所有 IO 失败 ⇒ 判定结果与引入前逐字相同。影子档默认关,所以这条在默认配置下不执行。
   appendArgRejectionLedger(schema, args, result);
   return result;

@@ -6,36 +6,12 @@
  * B 端 admin 工具代码生成器 API client。
  * 对接后端 admin/tool/gen(GET 元信息 + POST 生成代码)。
  */
-import type { ApiResult } from '@ihui/types'
+import type { ApiResult, GenField, GenInput, GenResult, GenType } from '@ihui/types'
 
 import { fetchApi } from '../client.js'
 
-export type GenType = 'list' | 'page' | 'detail' | 'dialog'
-
-export interface GenField {
-  name: string
-  type: 'string' | 'number' | 'boolean' | 'date'
-  label?: string
-  required?: boolean
-}
-
-export interface GenInput {
-  type: GenType
-  name: string
-  fields: GenField[]
-  options?: {
-    withSearch?: boolean
-    withPagination?: boolean
-    withActions?: boolean
-  }
-}
-
-export interface GenResult {
-  type: GenType
-  moduleName: string
-  files: Array<{ path: string; content: string }>
-  combined: string
-}
+// 四枚契约 + 运行期 GEN_TYPES 数组的单源在 @ihui/types(tool-gen.ts),本文件只消费、不再抄一份。
+export type { GenField, GenInput, GenResult, GenType }
 
 export interface GenTypeMeta {
   type: GenType

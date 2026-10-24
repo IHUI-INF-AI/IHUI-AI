@@ -28,12 +28,13 @@
 //
 // 覆盖面如实登记(不得读成"全通道都记到了"):
 //   · 记的是**实际执行的调用** —— 观察点在 executeToolCall 本地分支、所有既有闸门(参数校验 /
-//     权限规则 / 限流 / 危险确认)放行之后、executeWithRetry 之前。已被别的闸拒掉的调用
-//     不记:白名单真生效时它们同样是"被拒",记下来只会把一件事算两遍。
-//   · hub 分支(hubEnabled && hubResolver)在拿到本地 Tool 对象之前就 return,与姊妹出口
-//     shadowValidateToolArguments 的已知缺口同型,本票不扩面。
-//   · 显式单点调用技能不经过 formatSkillsForPrompt,其调用点在 commands/repl.ts,所以
-//     **未被观察** —— 见报告的 unobserved 行,不得把"零命中"读成"没有冲突"。
+//     权限规则 / 限流 / 危险确认)放行之后、executeWithRetry 之前;hub 分支(G-175 扩面,
+//     2026-10-24)在入参校验与 remote 批准闸放行之后、dispatch 之前记账 —— 记的同样是
+//     "这一趟真会跑",remote MCP 工具按 call.name 记(记账只需要工具名,不需要 Tool 对象)。
+//     已被别的闸拒掉的调用不记:白名单真生效时它们同样是"被拒",记下来只会把一件事算两遍。
+//   · 显式单点技能调用(模型调 Skill 工具按需取正文)经 augmentShadowSurfaceForSkill()
+//     在加载成功时把该技能**增量**并入当前面(仍只记不挡),其后续调用按该面被观察。
+//     repl.ts 的 /skill 只展示正文、不执行任何工具,没有可记账的调用。
 //   · 白名单集取"进自动加载面的那批技能"(safeToAutoLoad === false 的不算)。被单条/总预算
 //     截掉正文的技能**仍然计入声明面**:这只会多记一条证据,不会少记 —— 影子账的失效方向
 //     必须是"多要一次人工裁决",不是"提前给出干净结论"。
@@ -155,6 +156,10 @@ interface SurfaceEntry {
 let surfaces: SurfaceEntry[] = [];
 /** 上一次声明的签名:同面重复声明不再落 surface 行(见 declareShadowSurfaces 的注记)。 */
 let lastSignature = '';
+/** 上一次签名对应的完整条目(含 undetermined):augment 并入后要重算签名用,不得只从 surfaces 反推。 */
+let lastSignatureEntries: SurfaceEntry[] = [];
+/** 显式单点调用增量并入的面(名字 → 声明与签名);同名同表幂等,不再落行。 */
+const augmentedSurfaces = new Map<string, { allowed: string[] | null; sig: string }>();
 const pairCounts = new Map<string, number>();
 const lastBuckets = { silent: 0, undetermined: 0, invalid: 0 };
 let observedCalls = 0;
@@ -200,6 +205,8 @@ export function drainShadowAlerts(): string[] {
 export function resetShadowAllowedTools(): void {
   surfaces = [];
   lastSignature = '';
+  lastSignatureEntries = [];
+  augmentedSurfaces.clear();
   pairCounts.clear();
   lastBuckets.silent = 0;
   lastBuckets.undetermined = 0;
@@ -338,8 +345,17 @@ export function declareShadowSurfaces(
     const allowed = Array.from(new Set(s.allowed.map((t) => String(t)).filter((t) => t !== '')));
     next.push({ skill: name, allowed, kind: 'declared' });
   }
+  // G-175 扩面:显式单点并入的面要**活过提示词重建** —— 整块替换前先把它们合进新面,
+  // 否则一次 formatSkillsForPrompt 重跑就把 Skill 工具记下的技能静默抹掉(少记一条证据,
+  // 方向错)。同名以自动面为准(同一份 frontmatter,值不可能不同)。
+  for (const [name, val] of augmentedSurfaces) {
+    if (val.allowed === null) continue; // undetermined 不进判定面(与 declareShadowSurfaces 同档)
+    if (next.some((e) => e.skill === name)) continue; // 同名以自动面为准
+    next.push({ skill: name, allowed: val.allowed, kind: 'declared' });
+  }
   const nextSignature = signatureOf(next, invalid);
   surfaces = next.filter((e) => e.kind === 'declared');
+  lastSignatureEntries = next;
   lastBuckets.silent = silent;
   lastBuckets.undetermined = undetermined;
   lastBuckets.invalid = invalid;
@@ -369,6 +385,57 @@ export function declareShadowSurfaces(
         skillsOmitted: Math.max(0, names.length - SURFACE_NAME_LIST_MAX),
       },
     ],
+    env,
+  );
+}
+
+/**
+ * G-175 扩面(2026-10-24):**增量**声明一个"显式单点技能调用"的面 —— 模型调 Skill 工具按需取
+ * 正文时,该技能没经过 formatSkillsForPrompt(它只声明自动加载面),其 allowed-tools 承诺今天
+ * 起也进影子账。与 declareShadowSurfaces 的"整块替换 + 清运行计数"不同,本入口只把这一条并进
+ * 当前面(同名覆盖),不动其他技能、不清计数 —— 一次显式调用不得抹掉会话的自动面。
+ * 仍只记不挡:并入后 observeShadowToolCall 才会对它判命中,执行链拿不到任何拦截信号。
+ * 三档处置与 declareShadowSurfaces 同口径:silent 不落行(什么都没说)、undetermined 落行计档
+ * 不进判定、declared 落行并进面;invalid 名取不出 ⇒ 进程内计档,不落无名行。
+ * 同名同表幂等(重复加载不注水 runs);同名换表 ⇒ 替换并落新行(这是一条变了的事实)。
+ */
+export function augmentShadowSurfaceForSkill(
+  skill: ShadowSkillInput,
+  env: Record<string, string | undefined> = process.env,
+): void {
+  const name = safeToken(skill.name);
+  if (name === null) {
+    lastBuckets.invalid += 1;
+    return;
+  }
+  if (skill.allowed === undefined) return;
+  if (skill.allowed === null) {
+    const cur = augmentedSurfaces.get(name);
+    if (cur && cur.sig === '~undetermined') return;
+    augmentedSurfaces.set(name, { allowed: null, sig: '~undetermined' });
+    lastBuckets.undetermined += 1;
+    appendRows(
+      [{ v: SHADOW_SCHEMA_VERSION, kind: 'surface', ts: nowIso(), declared: 0, silent: 0, undetermined: 1, invalid: 0, skills: [], skillsOmitted: 0 }],
+      env,
+    );
+    return;
+  }
+  const allowed = Array.from(new Set(skill.allowed.map((t) => String(t)).filter((t) => t !== '')));
+  const sig = allowed.slice().sort().join(',');
+  const cur = augmentedSurfaces.get(name);
+  if (cur && cur.sig === sig) return;
+  augmentedSurfaces.set(name, { allowed, sig });
+  const entry: SurfaceEntry = { skill: name, allowed, kind: 'declared' };
+  const idx = surfaces.findIndex((e) => e.skill === name);
+  if (idx >= 0) surfaces[idx] = entry;
+  else surfaces.push(entry);
+  const lIdx = lastSignatureEntries.findIndex((e) => e.skill === name);
+  if (lIdx >= 0) lastSignatureEntries[lIdx] = entry;
+  else lastSignatureEntries.push(entry);
+  // 签名同步并入:随后一次同表提示词重建会命中去重,不会把这张面重复落行/清计数。
+  lastSignature = signatureOf(lastSignatureEntries, lastBuckets.invalid);
+  appendRows(
+    [{ v: SHADOW_SCHEMA_VERSION, kind: 'surface', ts: nowIso(), declared: 1, silent: 0, undetermined: 0, invalid: 0, skills: [name], skillsOmitted: 0 }],
     env,
   );
 }
@@ -577,12 +644,15 @@ export function aggregateShadowLedger(read: ShadowLedgerRead, source: string): S
   if (read.missing) {
     insufficient = true;
     reason = `ledger unreadable (${read.unreadableReason ?? 'unknown reason'}) at ${read.path}`;
-  } else if (read.surfaceRows === 0) {
+  } else if (read.surfaceRows === 0 && read.hitRows === 0) {
     insufficient = true;
-    reason = 'no run ever declared an allowed-tools surface, so "zero hits" proves nothing';
-  } else if (read.declaredSum === 0 && runsWithDeclaredSurfaces < MIN_RUNS_FOR_VERDICT) {
+    reason = `no surface row and no hit row: "zero hits" proves nothing (need >= ${MIN_RUNS_FOR_VERDICT} surface row(s))`;
+  } else if (read.declaredSum === 0 && read.hitRows === 0) {
+    // G-175 裁决对齐:surface 行只含 silent/undetermined/invalid 桶时,"零命中"不是结论 ——
+    // 没有任何白名单真生效过,挡不住任何东西。旧式判据(surfaceRows>0 即够)会把这张
+    // 空面读成干净,正是本模块头注禁止的"提前给出干净结论"方向。
     insufficient = true;
-    reason = `only ${runsWithDeclaredSurfaces} run(s) with declared surfaces (need >= ${MIN_RUNS_FOR_VERDICT})`;
+    reason = `surface rows exist but declared sum is 0 (silent ${read.silentSum}, undetermined ${read.undeterminedSum}, invalid ${read.invalidSum}) -- no whitelist was ever in effect`;
   }
   return {
     source,
@@ -617,29 +687,38 @@ export function formatShadowReport(a: ShadowAggregate): string {
   if (r.invalidSum > 0) {
     out.push(`  NOTE: ${r.invalidSum} skill(s) had no usable name -- excluded from the surface, listed as invalid`);
   }
-  out.push('  NOT OBSERVED: explicit single-skill invocation (repl path) and the hub dispatch branch (no local Tool object).');
-  out.push('              Zero hits below therefore means "none among auto-loaded skills in instrumented runs".');
+  out.push('  OBSERVED: local dispatch, hub dispatch (remote MCP by call name), and explicit');
+  out.push('              single-skill loads (the Skill tool augments the surface at load time).');
+  out.push('  NOT OBSERVED: calls rejected by earlier gates (arg validation / permission / rate');
+  out.push('              limit / confirmation) -- with enforcement on they would be rejected there.');
   if (a.insufficient) {
     out.push(`  INSUFFICIENT EVIDENCE: ${a.insufficientReason}`);
     return out.join('\n');
   }
+  const denom = r.totalLines > 0 ? r.totalLines : 1;
+  const rate = ((r.hitRows / denom) * 100).toFixed(1);
   if (a.rows.length === 0) {
     out.push(`  verdict: 0 would-be-blocked calls across ${a.runsWithDeclaredSurfaces} instrumented run(s) with surfaces`);
+    out.push(`  conflict rate: ${r.hitRows}/${r.totalLines} ledger line(s) = ${rate}%`);
     out.push('  this IS a conclusion (surfaces were in effect and nothing outside them was called).');
+    out.push('  suggestion: enforcement (a separate ticket) can be decided on this evidence -- no pair needs review.');
     return out.join('\n');
   }
-  out.push(`  would-be-blocked pairs (skill, tool) -- decide per skill, enforcement is a separate ticket:`);
+  out.push(`  conflict rate: ${r.hitRows}/${r.totalLines} ledger line(s) = ${rate}%`);
+  out.push('  would-be-blocked pairs (skill, tool) -- decide per skill, enforcement is a separate ticket:');
   for (const row of a.rows) {
     out.push(`    ${row.skill} -> ${row.tool}  x${row.count}`);
   }
+  out.push(`  suggestion: ${a.rows.length} pair(s) would be blocked by their own surfaces -- review each listed`);
+  out.push('              pair before enforcement; widening a surface or staying record-only are both valid exits.');
   return out.join('\n');
 }
 
 export const USAGE = `usage: ihui skills shadow-report [--ledger <jsonl>] [--json] [--self-test]
   reads the allowed-tools shadow ledger (record-only, never enforced)
   default file: ~/.ihui/${SHADOW_LEDGER_FILE_NAME}
-  exit codes: 0 report produced (incl. "insufficient evidence", a valid conclusion)
-              2 input unavailable = undetermined (never read as "clean")`;
+  exit codes: 0 verdict produced: clean run, or conflicts listed for per-skill review
+              2 UNDETERMINED: ledger unavailable OR insufficient evidence (never read as "clean")`;
 
 /** 相对路径一律锚在**用户状态根或显式路径**,不得锚 cwd(pnpm --filter 会把 cwd 设成包目录)。 */
 export function resolveShadowLedgerPath(explicit: string | undefined, env: Record<string, string | undefined> = process.env): string {

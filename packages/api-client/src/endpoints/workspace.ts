@@ -355,6 +355,39 @@ export async function getGitStatus(params: {
 }
 
 /**
+ * D115(2026-10-23,G-229):/review 审查对象采集结果。
+ * 三个 target 由后端解析成统一 diff 文本(端内不跑 git):
+ * uncommitted = 工作区+暂存相对 HEAD;branch = 相对基线分支的三点 diff;
+ * commit = 指定 commit 的补丁。diff 超 maxChars 被截断时 truncated=true。
+ */
+export interface ReviewDiffTarget {
+  target: 'uncommitted' | 'branch' | 'commit'
+  /** 人读的审查对象描述(uncommitted / branch:<base> / commit:<sha 前 12 位>) */
+  range: string
+  diff: string
+  truncated: boolean
+  totalChars: number
+  fileCount: number
+  /** 受影响文件(最多 200 条,供卡片头部展示) */
+  files: string[]
+  lineStats: { additions: number; deletions: number }
+}
+
+/** 拉取审查对象 diff(只读;参数不合法或不是 git 仓库时 success=false 并带后端说明)。 */
+export async function getReviewDiff(params: {
+  workspacePath: string
+  target: ReviewDiffTarget['target']
+  base?: string
+  commit?: string
+  maxChars?: number
+}): Promise<ApiResult<ReviewDiffTarget>> {
+  return fetchApi<ReviewDiffTarget>('/api/workspace/git/review-diff', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/**
  * GitHub 集成(2026-08-17 立,用户需求"GitHub 仓库配置"):
  * - 检测当前工作区是否为 GitHub 仓库 + 是否已配置 token
  * - 保存/清除 token(存 ~/.ihui/github_token)

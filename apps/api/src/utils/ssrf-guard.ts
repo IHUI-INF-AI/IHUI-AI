@@ -174,4 +174,47 @@ export async function ensureSafeFetchUrl(
     throw new Error(`SSRF blocked: ${result.reason}`)
   }
 }
+
+/** 安全出站 fetch 的重定向跟随上限(与浏览器默认量级对齐,不无限续跳)。 */
+const SAFE_FETCH_MAX_REDIRECTS = 5
+
+/**
+ * 安全出站 fetch:每一次实际请求(含每个重定向落点)前都过 ensureSafeFetchUrl。
+ *
+ * 裸 fetch 默认 redirect:'follow' —— 传输层会替我们把已校验的公网地址换成重定向落点,
+ * 落点本身不再经过守卫(302 → 内网即可绕过首跳校验)。本出口改 manual 逐跳复检,
+ * 口径与 url-preview 的手动跟随一致;方法语义按 fetch 标准降级(303 与 301/302 的 POST 转 GET)。
+ */
+export async function safeFetch(
+  rawUrl: string,
+  init: RequestInit = {},
+  opts?: { allowPrivate?: boolean; maxRedirects?: number },
+): Promise<Response> {
+  const maxRedirects = opts?.maxRedirects ?? SAFE_FETCH_MAX_REDIRECTS
+  let currentUrl = rawUrl
+  let currentInit = init
+  for (let hop = 0; ; hop++) {
+    await ensureSafeFetchUrl(currentUrl, opts)
+    const res = await fetch(currentUrl, { ...currentInit, redirect: 'manual' })
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null
+    if (!location) return res
+    if (hop >= maxRedirects) throw new Error('SSRF blocked: too many redirects')
+    let nextUrl: string
+    try {
+      nextUrl = new URL(location, currentUrl).toString()
+    } catch {
+      throw new Error('SSRF blocked: invalid redirect location')
+    }
+    const method = (currentInit.method ?? 'GET').toUpperCase()
+    if (res.status === 303 || ((res.status === 301 || res.status === 302) && method === 'POST')) {
+      currentInit = { ...currentInit, method: 'GET', body: undefined }
+    }
+    try {
+      await res.body?.cancel()
+    } catch {
+      // 中间跳响应体回收失败不影响落点判定
+    }
+    currentUrl = nextUrl
+  }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

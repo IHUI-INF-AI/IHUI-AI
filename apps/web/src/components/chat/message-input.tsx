@@ -59,6 +59,8 @@ import { runManualCompact } from '@/hooks/use-chat/manual-compact'
 // 任务进度常驻状态条:输入框上方动态显示"在做什么 / 第几步 / 改了多少文件",plan_updated 驱动
 import { TaskStatusBar } from '@/components/ai/task-status-bar'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
+// D124(G-238):发送前位图标注 —— 图片附件可进 canvas 标注编辑器,结果回填为新附件
+import { ImageAnnotator, dataUrlToFile } from '@/components/chat/image-annotator'
 import { INPUT_ATTACHMENT_BAR_CLASS } from '@/lib/nav-styles'
 import { usePermissionAutoRevert } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
@@ -347,6 +349,26 @@ export function MessageInput({
     removeReference(last.id)
     return true
   }, [references, removeReference])
+
+  // D124:位图标注目标(按 id 跟随 references,附件被移除时对话框自动关闭)
+  const [annotateTargetId, setAnnotateTargetId] = React.useState<string | null>(null)
+  const annotateTarget = React.useMemo(
+    () => (annotateTargetId ? (references.find((r) => r.id === annotateTargetId) ?? null) : null),
+    [annotateTargetId, references],
+  )
+  // 标注结果回填:先摘原附件、再走 commitFileReference 既有上传通道 —— 不新造上传逻辑,
+  // 且不经过三档数量校验(一摘一补,总数不变)。新文件名带 -annotated 便于识别。
+  const handleApplyAnnotation = React.useCallback(
+    (dataUrl: string) => {
+      if (!annotateTarget) return
+      const baseName = annotateTarget.label.replace(/\.[^.]+$/, '') || 'image'
+      const file = dataUrlToFile(dataUrl, `${baseName}-annotated.png`)
+      removeReference(annotateTarget.id)
+      commitFileReference(file)
+      setAnnotateTargetId(null)
+    },
+    [annotateTarget, removeReference, commitFileReference],
+  )
 
   const allReferences = React.useMemo(() => {
     const visibleAgentRefs = agentMdRefs.filter((r) => !dismissedAgentIds.has(r.id))
@@ -1042,6 +1064,7 @@ export function MessageInput({
           references={allReferences}
           onRemoveReference={handleRemoveReference}
           onRetryReference={retryReference}
+          onAnnotateReference={setAnnotateTargetId}
           tools={selectedToolItems}
           onRemoveTool={removeSelectedTool}
           quoted={quotedMessage}
@@ -1054,6 +1077,14 @@ export function MessageInput({
           onSendPastePreview={(text) => void submitAndDismissLinkPreview(text)}
           queueItems={pendingMessages}
           onQueueRemove={handleQueueRemove}
+        />
+        {/* D124:图片位图标注编辑器(全局单实例,open 由 annotateTarget 决定;
+            标注结果经 handleApplyAnnotation 摘旧附件 + commitFileReference 回填) */}
+        <ImageAnnotator
+          open={annotateTarget !== null}
+          imageUrl={annotateTarget?.thumbnail ?? null}
+          onClose={() => setAnnotateTargetId(null)}
+          onApply={handleApplyAnnotation}
         />
         {/* D166 链接预览卡(2026-10-02 接线):粘贴 URL 的可达性三态提示 —— 竞品
             previewLoading / previewUnavailable 之外补"未判定"态(需登录/超时/内网,

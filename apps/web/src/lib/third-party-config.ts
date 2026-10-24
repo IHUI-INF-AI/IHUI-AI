@@ -98,9 +98,9 @@ export interface ThirdPartyPlatformConfig {
   redirectUri: string
   /** 授权范围 */
   scope?: string
-  /** 后端代理入口（相对路径，由后端代理到各厂商授权页） */
-  proxyPath: string
-  /** 授权端点（直接跳转时使用，留空则走 proxyPath） */
+  /** 后端代理入口（相对路径，由后端代理到各厂商授权页；无真实后端入口的平台不填） */
+  proxyPath?: string
+  /** 授权端点（直接跳转时使用；留空且无法直连时由调用方明确报未配置） */
   authUrl?: string
   /** 企业微信 agentid（自建应用 ID，仅 enterpriseWechat 使用） */
   agentId?: string
@@ -117,7 +117,6 @@ export const GOOGLE_CONFIG: ThirdPartyPlatformConfig = {
   clientId: getEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID'),
   redirectUri: getEnv('NEXT_PUBLIC_GOOGLE_REDIRECT_URI', `${getOrigin()}/google/callback`),
   scope: getEnv('NEXT_PUBLIC_GOOGLE_SCOPE', 'openid email profile'),
-  proxyPath: '/api/auth/google',
   authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
 }
 
@@ -130,7 +129,6 @@ export const APPLE_CONFIG: ThirdPartyPlatformConfig = {
   clientId: getEnv('NEXT_PUBLIC_APPLE_CLIENT_ID'),
   redirectUri: getEnv('NEXT_PUBLIC_APPLE_REDIRECT_URI', `${getOrigin()}/apple/callback`),
   scope: getEnv('NEXT_PUBLIC_APPLE_SCOPE', 'name email'),
-  proxyPath: '/api/auth/apple',
   authUrl: 'https://appleid.apple.com/auth/authorize',
 }
 
@@ -147,7 +145,6 @@ export const DINGTALK_CONFIG: ThirdPartyPlatformConfig = {
     `${getOrigin()}/callback?platform=dingtalk`,
   ),
   scope: getEnv('NEXT_PUBLIC_DINGTALK_SCOPE', 'openid corpid'),
-  proxyPath: '/api/auth/dingtalk',
   authUrl: 'https://login.dingtalk.com/oauth2/auth',
 }
 
@@ -190,7 +187,6 @@ export const GITHUB_CONFIG: ThirdPartyPlatformConfig = {
   clientId: getEnv('NEXT_PUBLIC_GITHUB_CLIENT_ID'),
   redirectUri: getEnv('NEXT_PUBLIC_GITHUB_REDIRECT_URI', `${getOrigin()}/callback?platform=github`),
   scope: getEnv('NEXT_PUBLIC_GITHUB_SCOPE', 'read:user user:email'),
-  proxyPath: '/api/auth/github',
   authUrl: 'https://github.com/login/oauth/authorize',
 }
 
@@ -204,7 +200,6 @@ export const FEISHU_CONFIG: ThirdPartyPlatformConfig = {
   clientId: getEnv('NEXT_PUBLIC_FEISHU_CLIENT_ID'),
   redirectUri: getEnv('NEXT_PUBLIC_FEISHU_REDIRECT_URI', `${getOrigin()}/callback?platform=feishu`),
   scope: getEnv('NEXT_PUBLIC_FEISHU_SCOPE', 'contact:user.base:readonly'),
-  proxyPath: '/api/auth/feishu',
   authUrl: 'https://passport.feishu.cn/suite/passport/oauth/authorize',
 }
 

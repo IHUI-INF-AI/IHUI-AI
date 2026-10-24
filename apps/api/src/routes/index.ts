@@ -318,6 +318,7 @@ import { aiFrontendRoutes } from './ai-frontend-routes.js'
 import { eduFrontendRoutes } from './edu-frontend-routes.js'
 import { courseMobileRoutes } from './course-mobile-routes.js'
 import { circleMobileRoutes } from './circle-mobile-routes.js'
+import { mobileChatRoutes } from './mobile-chat-routes.js'
 import { userSecurityRoutes } from './user-security-routes.js'
 import { userSecurityConfigRoutes } from './user/security-config-routes.js'
 import { otherRoutes } from './other/index.js'
@@ -1103,6 +1104,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(courseMobileRoutes, { prefix: '/api' })
   // 移动端圈子推荐关注(/api/circles/users/recommend)与账号安全读数(/api/user/security)
   server.register(circleMobileRoutes, { prefix: '/api' })
+  // 移动端聊天收发(/api/agents|live|circles/:id/messages,G-962 死端点簇模板串三族)
+  server.register(mobileChatRoutes, { prefix: '/api' })
   server.register(userSecurityRoutes, { prefix: '/api' })
   // 账号级安全配置读写面(IP 白名单 / agent 护栏)：整条要登录，不开公开读面
   server.register(userSecurityConfigRoutes, { prefix: '/api' })
@@ -1353,7 +1356,7 @@ export function registerRoutes(server: FastifyInstance) {
   // Anthropic Messages 原生格式端点(POST /v1/anthropic/messages,内部转 OpenAI 格式走 relay 链路)
   // 注:用 /v1/anthropic 前缀而非 /v1,因 v1-knowledge-tools.ts:2380 已注册 POST /v1/messages(发布消息),
   // 同 method+path 会触发 FST_ERR_DUPLICATED_ROUTE 崩溃。Anthropic SDK 用户设
-  // 外部用户设 ANTHROPIC_BASE_URL 指向 IHUI 中转站即可走 /v1/anthropic/messages。
+  // ANTHROPIC_BASE_URL=https://<本服务域名>/v1/anthropic 即可走 /v1/anthropic/messages。
   server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
 
   // ===== P0 第二批次对外端点(2026-07-31 立,8 subagent 并行)=====

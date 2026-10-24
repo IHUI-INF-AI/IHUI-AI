@@ -183,6 +183,9 @@ export type { WebSocketClientOptions, WebSocketClientHandlers, WebSocketLike } f
 // 端内不得自己 new WebSocket 再解析一遍帧形态(第二份真相;事件联合在 @ihui/types)
 export {
   subscribeUserBroadcast,
+  // 票71(V2 #23)第二切片:按会话房间订阅 chat 同步帧的唯一辅助出口
+  // (房间过滤 + 只挂 message:created/patched 两个事件)
+  subscribeChatSync,
   feedUserBroadcastFrame,
   buildBroadcastWsUrl,
   refreshUserBroadcastConnection,

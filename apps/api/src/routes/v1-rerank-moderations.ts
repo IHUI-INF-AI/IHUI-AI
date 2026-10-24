@@ -5,7 +5,7 @@
 /**
  * /v1/rerank + /v1/moderations 路由(2026-07-31 立)。
  *
- * 补齐 SwiftAPI + New API 已有但 IHUI-AI 缺失的两个 OpenAI/Cohere 兼容端点:
+ * 补齐主流聚合中转站(New API 等)已有但 IHUI-AI 缺失的两个 OpenAI/Cohere 兼容端点:
  * 1. POST /v1/rerank      — Cohere/Jina 兼容重排序(rerank-* 模型)
  * 2. POST /v1/moderations — OpenAI 兼容内容审核(text-moderation-* 模型)
  *
