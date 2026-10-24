@@ -386,14 +386,19 @@ const strField = (it: MyCreationItem, key: string): string => {
 }
 
 /** MyCreationItem → MaterialItem(对齐 Uniapp loadMaterialContent 各 tab 字段映射:
- *  agent=文本(text 预览)/plugin=图片(agentUrl 缩略图)/workflow=视频(poster/cover 缩略图)) */
-const mapMyCreationItem = (it: MyCreationItem, category: string): MaterialItem => {
+ *  agent=文本(text 预览)/plugin=图片(agentUrl 缩略图)/workflow=视频(poster/cover 缩略图);
+ *  空标题回退词由调用方以 t 透传,禁止端内写死) */
+const mapMyCreationItem = (
+  it: MyCreationItem,
+  category: string,
+  t: (key: string) => string,
+): MaterialItem => {
   // agents 表主键是 agentId(非 id),getMyCreation('agent') 返回原始 agents 行 → id 用 agentId 回退 id
   const itemId = strField(it, 'agentId') || it.id
   if (category === 'image') {
     return {
       id: itemId,
-      title: it.name || '图片内容',
+      title: it.name || t('home.contentImage'),
       type: 'image' as const,
       url: strField(it, 'agentUrl') || strField(it, 'url') || undefined,
       createdAt: it.createdAt,
@@ -402,7 +407,7 @@ const mapMyCreationItem = (it: MyCreationItem, category: string): MaterialItem =
   if (category === 'video') {
     return {
       id: itemId,
-      title: it.name || '视频内容',
+      title: it.name || t('home.contentVideo'),
       type: 'video' as const,
       url:
         strField(it, 'posterUrl') ||
@@ -416,31 +421,33 @@ const mapMyCreationItem = (it: MyCreationItem, category: string): MaterialItem =
   }
   return {
     id: itemId,
-    title: it.name || '文本内容',
+    title: it.name || t('home.contentText'),
     type: 'text' as const,
     text: it.description ?? '',
     createdAt: it.createdAt,
   }
 }
 
-/** 素材详情通用字段展示定义(agent/workflow/plugin 三类型字段并集,仅展示存在且有值的字段) */
+/** 素材详情通用字段展示定义(agent/workflow/plugin 三类型字段并集,仅展示存在且有值的字段;
+ *  label 存 home.detailLabel* i18n 键,消费处 t 解析) */
 const MATERIAL_DETAIL_FIELDS: ReadonlyArray<{ key: string; label: string }> = [
-  { key: 'name', label: '名称' },
-  { key: 'displayName', label: '显示名' },
-  { key: 'description', label: '描述' },
-  { key: 'status', label: '状态' },
-  { key: 'author', label: '作者' },
-  { key: 'version', label: '版本' },
-  { key: 'category', label: '分类' },
-  { key: 'createdBy', label: '创建者' },
-  { key: 'createdAt', label: '创建时间' },
-  { key: 'updatedAt', label: '更新时间' },
+  { key: 'name', label: 'home.dtName' },
+  { key: 'displayName', label: 'home.dtDisplayName' },
+  { key: 'description', label: 'home.dtDesc' },
+  { key: 'status', label: 'home.dtStatus' },
+  { key: 'author', label: 'home.dtAuthor' },
+  { key: 'version', label: 'home.dtVersion' },
+  { key: 'category', label: 'home.dtCategory' },
+  { key: 'createdBy', label: 'home.dtCreatedBy' },
+  { key: 'createdAt', label: 'home.dtCreatedAt' },
+  { key: 'updatedAt', label: 'home.dtUpdatedAt' },
 ]
 
-/** 详情字段值 → 展示文本(boolean/对象转字符串;null/undefined/空串返回 '' 隐藏) */
-const formatDetailValue = (v: unknown): string => {
+/** 详情字段值 → 展示文本(boolean/对象转字符串;null/undefined/空串返回 '' 隐藏;
+ *  布尔文案由调用方以 i18n 传入) */
+const formatDetailValue = (v: unknown, yesLabel: string, noLabel: string): string => {
   if (v === null || v === undefined || v === '') return ''
-  if (typeof v === 'boolean') return v ? '是' : '否'
+  if (typeof v === 'boolean') return v ? yesLabel : noLabel
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
 }
@@ -1337,26 +1344,29 @@ export function ChatScreen() {
   // ── 模型类型按钮点击(对齐 Uniapp handleModelTypeClick) ──
   /** 按分类加载素材库(对齐 Uniapp loadMaterialContent;数据源 getMyCreation,按分类映射 API type;
    *  audio 无对应类型 → 空态) */
-  const loadMaterials = useCallback((category: string): void => {
-    setMaterialLoading(true)
-    const apiType = materialApiTypeForCategory(category)
-    if (apiType === null) {
-      // 音频无对应后端类型,直接空态(对齐 Uniapp tab4 加载空列表)
-      setMaterialItems([])
-      setMaterialLoading(false)
-      return
-    }
-    void getMyCreation(apiType, { page: 1, pageSize: 50 })
-      .then((res) => {
-        if (res.success) {
-          setMaterialItems(res.data.list.map((it) => mapMyCreationItem(it, category)))
-        } else {
-          setMaterialItems([])
-        }
-      })
-      .catch(() => setMaterialItems([]))
-      .finally(() => setMaterialLoading(false))
-  }, [])
+  const loadMaterials = useCallback(
+    (category: string): void => {
+      setMaterialLoading(true)
+      const apiType = materialApiTypeForCategory(category)
+      if (apiType === null) {
+        // 音频无对应后端类型,直接空态(对齐 Uniapp tab4 加载空列表)
+        setMaterialItems([])
+        setMaterialLoading(false)
+        return
+      }
+      void getMyCreation(apiType, { page: 1, pageSize: 50 })
+        .then((res) => {
+          if (res.success) {
+            setMaterialItems(res.data.list.map((it) => mapMyCreationItem(it, category, t)))
+          } else {
+            setMaterialItems([])
+          }
+        })
+        .catch(() => setMaterialItems([]))
+        .finally(() => setMaterialLoading(false))
+    },
+    [t],
+  )
 
   /** 切素材分类:先切 tab 再加载对应类型数据(对齐 Uniapp handleMaterialTabChange → loadMaterialContent) */
   const handleMaterialCategoryChange = useCallback(
@@ -1817,7 +1827,7 @@ export function ChatScreen() {
   const functionPanelItems: readonly PanelItem[] = [
     {
       key: 'switch-model',
-      label: '切换模型',
+      label: t('chat.menuSwitchModel'),
       Icon: RefreshCw,
       onPress: () => {
         setFunctionPanelVisible(false)
@@ -1826,13 +1836,13 @@ export function ChatScreen() {
     },
     {
       key: 'clear-messages',
-      label: '清空对话',
+      label: t('chat.menuClear'),
       Icon: Trash2,
       onPress: confirmClearMessages,
     },
     {
       key: 'export',
-      label: '导出对话',
+      label: t('chat.menuExport'),
       Icon: Download,
       onPress: () => {
         void handleExportMessages()
@@ -1840,7 +1850,7 @@ export function ChatScreen() {
     },
     {
       key: 'share',
-      label: '分享对话',
+      label: t('chat.menuShare'),
       Icon: Share2,
       onPress: () => {
         void handleShareChat()
@@ -1848,13 +1858,13 @@ export function ChatScreen() {
     },
     {
       key: 'tts',
-      label: '转语音',
+      label: t('chat.menuToVoice'),
       Icon: Volume2,
       onPress: openTtsPanel,
     },
     {
       key: 'favorite',
-      label: '收藏',
+      label: t('chat.menuFavorite'),
       Icon: Star,
       onPress: toggleFavorite,
     },
@@ -1872,7 +1882,7 @@ export function ChatScreen() {
   const sourcePanelItems: readonly PanelItem[] = [
     {
       key: 'material',
-      label: '素材库',
+      label: t('chat.menuMaterial'),
       Icon: BookOpen,
       onPress: () => {
         // P1.3:素材库弹窗(2026-10-18 起与「+」面板「我的创作」主入口共用 showMyCreation)
@@ -1882,7 +1892,7 @@ export function ChatScreen() {
     },
     {
       key: 'voice-notes',
-      label: '语音笔记',
+      label: t('chat.menuVoiceNote'),
       Icon: Mic,
       onPress: () => {
         // D43③:语音笔记面板(列表回填输入框 / 新建录音)
@@ -1892,7 +1902,7 @@ export function ChatScreen() {
     },
     {
       key: 'web-link',
-      label: '网页链接',
+      label: t('chat.menuWebLink'),
       Icon: Link,
       onPress: () => {
         // P1.4:打开 URL 输入 Modal
@@ -1902,7 +1912,7 @@ export function ChatScreen() {
     },
     {
       key: 'file-upload',
-      label: '文件上传',
+      label: t('chat.menuFileUpload'),
       Icon: Paperclip,
       onPress: () => {
         // P1.5:打开文件选择 Modal(DocumentPicker + uploadFileMultipart 真实上传)
@@ -1912,7 +1922,7 @@ export function ChatScreen() {
     },
     {
       key: 'history',
-      label: '历史对话',
+      label: t('chat.menuHistory'),
       Icon: MessageSquare,
       onPress: () => {
         setSourcePanelVisible(false)
@@ -3056,11 +3066,15 @@ export function ChatScreen() {
               ) : materialDetailData ? (
                 <ScrollView style={styles.detailDialogScroll}>
                   {MATERIAL_DETAIL_FIELDS.map((f) => {
-                    const value = formatDetailValue(materialDetailData[f.key])
+                    const value = formatDetailValue(
+                      materialDetailData[f.key],
+                      t('home.boolYes'),
+                      t('home.boolNo'),
+                    )
                     if (!value) return null
                     return (
                       <View key={f.key} style={styles.detailDialogFieldRow}>
-                        <Text style={styles.detailDialogFieldLabel}>{f.label}</Text>
+                        <Text style={styles.detailDialogFieldLabel}>{t(f.label)}</Text>
                         <Text style={styles.detailDialogFieldValue}>{value}</Text>
                       </View>
                     )

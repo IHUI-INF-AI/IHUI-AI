@@ -626,6 +626,21 @@
     "runtimeSend": "傳送"
   },
   "chat": {
+    "assetCatText": "文本",
+    "assetCatImage": "圖片",
+    "assetCatVideo": "視頻",
+    "assetCatAudio": "音頻",
+    "menuSwitchModel": "切換模型",
+    "menuClear": "清空對話",
+    "menuExport": "匯出對話",
+    "menuShare": "分享對話",
+    "menuToVoice": "轉語音",
+    "menuFavorite": "收藏",
+    "menuMaterial": "素材庫",
+    "menuVoiceNote": "語音筆記",
+    "menuWebLink": "網頁連結",
+    "menuFileUpload": "檔案上傳",
+    "menuHistory": "歷史對話",
     "modelSwitchStopped": "已切換到 {model},本輪回答已終止",
     "meta": {
       "pullOnly": "該對話的改動將在下次開啟清單時同步"

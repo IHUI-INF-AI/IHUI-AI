@@ -626,6 +626,21 @@
     "runtimeSend": "전송"
   },
   "chat": {
+    "assetCatText": "텍스트",
+    "assetCatImage": "이미지",
+    "assetCatVideo": "동영상",
+    "assetCatAudio": "오디오",
+    "menuSwitchModel": "모델 전환",
+    "menuClear": "대화 비우기",
+    "menuExport": "대화 내보내기",
+    "menuShare": "대화 공유",
+    "menuToVoice": "음성 변환",
+    "menuFavorite": "즐겨찾기",
+    "menuMaterial": "소재 라이브러리",
+    "menuVoiceNote": "음성 메모",
+    "menuWebLink": "웹 링크",
+    "menuFileUpload": "파일 업로드",
+    "menuHistory": "대화 기록",
     "modelSwitchStopped": "{model}(으)로 전환하여 이번 응답을 중단했습니다",
     "meta": {
       "pullOnly": "이 대화는 다음에 목록을 열 때 동기화됩니다"

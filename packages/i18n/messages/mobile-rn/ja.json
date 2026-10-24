@@ -1008,7 +1008,22 @@
     "vendorOther": "その他",
     "copyOkToast": "リンクをクリップボードにコピーしました",
     "loadFailed": "読み込み失敗",
-    "chat": {
+  "chat": {
+    "assetCatText": "テキスト",
+    "assetCatImage": "画像",
+    "assetCatVideo": "動画",
+    "assetCatAudio": "音声",
+    "menuSwitchModel": "モデル切替",
+    "menuClear": "会話をクリア",
+    "menuExport": "会話をエクスポート",
+    "menuShare": "会話をシェア",
+    "menuToVoice": "音声化",
+    "menuFavorite": "お気に入り",
+    "menuMaterial": "素材ライブラリ",
+    "menuVoiceNote": "ボイスメモ",
+    "menuWebLink": "Webリンク",
+    "menuFileUpload": "ファイルアップロード",
+    "menuHistory": "会話履歴",
       "title": "チャットを開始",
       "message": "「{name}」とのチャットを開始します"
     }
