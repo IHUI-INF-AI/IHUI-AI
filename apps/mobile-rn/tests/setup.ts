@@ -11,10 +11,17 @@
  * - RTL cleanup:globals 未开启时 RTL v16 不会自动注册 afterEach,
  *   必须显式清理渲染 DOM,否则多个用例的组件叠加在同一 document.body,
  *   导致 getByText 等查询命中多元素而失败(waitFor 超时)。
+ * - asyncUtilTimeout:RTL 的 waitFor/findBy 默认每段只给 1000ms,而这条预算在本机不是
+ *   测试判据、是负载读数 —— 2026-10-24 实测同一条链:事件循环空闲时 fireEvent→首跳 3ms,
+ *   被同步占死 1200ms 后同一跳 1201ms ⇒ 默认预算必被打穿(全仓 29 枚 mobile-rn 用例同型暴露,
+ *   且这台机常年并发 200+ 道守门)。抬到 4000ms:仍远低于 testTimeout 10s(最坏 2 段也吃得下),
+ *   断言一条不减、真断链照样翻红,只是红得慢一点(见 e4989cbb9e 的反向牙实测)。
  */
 import { afterEach, beforeEach, vi } from 'vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { resetAsyncStorageMock } from './__mocks__/async-storage'
+
+configure({ asyncUtilTimeout: 4000 })
 
 beforeEach(() => {
   resetAsyncStorageMock()
