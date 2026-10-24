@@ -695,8 +695,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   // alerts 块或 services 块不可达 ⇒ 'unknown'(§0.3:「没判」不得渲染成「全域正常 / 0 告警」)。
   // 核心数据源断掉时不能仍报「全域正常」:Prometheus / 业务库是这张屏的主判据,
   // 它们不可达等于「没判」,按 §0.3 落 unknown 而不是把其余绿灯当成结论。
-  const coreSourceDown =
-    ov?.sources?.prometheus === 'down' || ov?.sources?.database === 'down'
+  const coreSourceDown = ov?.sources?.prometheus === 'down' || ov?.sources?.database === 'down'
   const overallTone: StatusTone =
     ov === undefined || alerts === null || coreSourceDown
       ? 'unknown'
@@ -834,7 +833,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           min: 0,
           max: 100,
           // 取不到读数时不画进度环:环停在 0 会被读成「空闲且健康」(detail 已显示 —)。
-          progress: { show: cpuValue !== null, width: 8, itemStyle: { color: meterColor(cpuValue, CHART_CYAN) } },
+          progress: {
+            show: cpuValue !== null,
+            width: 8,
+            itemStyle: { color: meterColor(cpuValue, CHART_CYAN) },
+          },
           axisLine: { lineStyle: { width: 8, color: [[1, chartAxis(isDark)]] } },
           axisTick: { show: false },
           splitLine: { show: false },
@@ -860,7 +863,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           endAngle: -30,
           min: 0,
           max: 100,
-          progress: { show: memValue !== null, width: 8, itemStyle: { color: meterColor(memValue, CHART_VIOLET) } },
+          progress: {
+            show: memValue !== null,
+            width: 8,
+            itemStyle: { color: meterColor(memValue, CHART_VIOLET) },
+          },
           axisLine: { lineStyle: { width: 8, color: [[1, chartAxis(isDark)]] } },
           axisTick: { show: false },
           splitLine: { show: false },
@@ -898,7 +905,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     const ordered = [...rows].reverse()
     const data = ordered.map((s) => ({
       value: total > 0 ? Number(((s.rate / total) * 100).toFixed(2)) : 0,
-      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: 3 },
+      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: 2 },
     }))
     return {
       grid: { left: 44, right: 56, top: 10, bottom: 20 },
@@ -1133,7 +1140,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           type: 'bar',
           data: rows.map((r) => r.users),
           barWidth: 9,
-          tooltip: { valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitUser')}` },
+          tooltip: {
+            valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitUser')}`,
+          },
           itemStyle: { borderRadius: [3, 3, 0, 0], color: withAlpha(CHART_GREEN, 0.85) },
           label: { show: true, position: 'top', color: chartText(isDark), fontSize: 9 },
         },
@@ -1336,14 +1345,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 aria-label={dutyMode ? t('exitDutyMode') : t('dutyMode')}
                 className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:bg-muted"
               >
-                {dutyMode ? (
-                  <Minimize2 className="h-3 w-3" />
-                ) : (
-                  <Maximize2 className="h-3 w-3" />
-                )}
-                <span className="wb-src-name">
-                  {dutyMode ? t('exitDutyMode') : t('dutyMode')}
-                </span>
+                {dutyMode ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                <span className="wb-src-name">{dutyMode ? t('exitDutyMode') : t('dutyMode')}</span>
               </button>
             </Tooltip>
             {headerExtra}
@@ -1420,7 +1423,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ].map((k) => (
             <div
               key={k.label}
-              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2"
+              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-xl border border-border bg-card/80 px-3 py-2"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
                 <span className="text-info-text/70">{k.icon}</span>
@@ -1495,7 +1498,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {t('cpuMemTrendTitle')}
               </div>
               <div className="relative">
-                <EChart option={hostTrendOption} height={96} merge ariaLabel={t('cpuMemTrendTitle')} />
+                <EChart
+                  option={hostTrendOption}
+                  height={96}
+                  merge
+                  ariaLabel={t('cpuMemTrendTitle')}
+                />
                 {!trend || trend.cpuPct.length === 0 ? (
                   <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noHostTrendData')} />
                 ) : null}
