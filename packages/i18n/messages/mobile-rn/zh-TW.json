@@ -4094,6 +4094,18 @@
     "collapse": "收起",
     "score": "相關度"
   },
+  "changePhone": {
+    "phoneRequired": "請輸入手機號碼",
+    "phoneInvalid": "請輸入正確的手機號碼",
+    "codeSent": "驗證碼已發送",
+    "codeSendFailRetry": "驗證碼發送失敗,請稍後重試",
+    "codeSendFail": "驗證碼發送失敗",
+    "codeRequired": "請輸入驗證碼",
+    "bindFail": "綁定失敗",
+    "bindOk": "綁定成功",
+    "netBusy": "網路異常",
+    "netBusyRetry": "網路異常,請稍後重試"
+  },
   "subagents": {
     "tabOverview": "概覽",
     "tabDispatches": "調度",

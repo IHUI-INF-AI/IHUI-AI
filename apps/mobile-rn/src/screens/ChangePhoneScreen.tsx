@@ -16,12 +16,13 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+// 国家区号表:title 存 loginCountry.* i18n 键,消费处(SharedChangePhoneScreen nations)前 t 解析
 const NATIONS: NationOption[] = [
-  { title: '美国', content: '+1', id: 1 },
-  { title: '台湾', content: '+886', id: 2 },
-  { title: '香港', content: '+852', id: 3 },
-  { title: '韩国', content: '+82', id: 4 },
-  { title: '日本', content: '+81', id: 5 },
+  { title: 'loginCountry.us', content: '+1', id: 1 },
+  { title: 'loginCountry.tw', content: '+886', id: 2 },
+  { title: 'loginCountry.hk', content: '+852', id: 3 },
+  { title: 'loginCountry.kr', content: '+82', id: 4 },
+  { title: 'loginCountry.jp', content: '+81', id: 5 },
 ]
 
 /**
@@ -81,13 +82,13 @@ export function ChangePhoneScreen() {
 
   const sendCode = async () => {
     if (!phoneNumber) {
-      setTip('请输入手机号码!')
-      showToast('warning', '请输入手机号码')
+      setTip(t('changePhone.phoneRequired'))
+      showToast('warning', t('changePhone.phoneRequired'))
       return
     }
     if (phoneNumber.length !== 11) {
-      setTip('请输入正确电话号码!')
-      showToast('warning', '请输入正确电话号码')
+      setTip(t('changePhone.phoneInvalid'))
+      showToast('warning', t('changePhone.phoneInvalid'))
       return
     }
     setTip('')
@@ -98,24 +99,24 @@ export function ChangePhoneScreen() {
       })
       if (!res.success) throw apiFailureToError(res)
       startCountdown()
-      showToast('success', '验证码已发送')
+      showToast('success', t('changePhone.codeSent'))
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
       const friendly = detail.trim() ? toUserFriendlyMessage(e) : ''
-      setTip(friendly || '验证码发送失败,请稍后重试')
-      showToast('error', friendly || '验证码发送失败')
+      setTip(friendly || t('changePhone.codeSendFailRetry'))
+      showToast('error', friendly || t('changePhone.codeSendFail'))
     }
   }
 
   const handleSubmit = async () => {
     if (!phoneNumber) {
-      setTip('请输入手机号码!')
-      showToast('warning', '请输入手机号码')
+      setTip(t('changePhone.phoneRequired'))
+      showToast('warning', t('changePhone.phoneRequired'))
       return
     }
     if (!codeValue) {
-      setTip('请输入验证码!')
-      showToast('warning', '请输入验证码')
+      setTip(t('changePhone.codeRequired'))
+      showToast('warning', t('changePhone.codeRequired'))
       return
     }
     setSubmitting(true)
@@ -126,12 +127,12 @@ export function ChangePhoneScreen() {
         body: JSON.stringify({ newPhone: phoneNumber, code: codeValue }),
       })
       if (!res.success) {
-        setTip(res.error || '绑定失败')
-        showToast('error', res.error || '绑定失败')
+        setTip(res.error || t('changePhone.bindFail'))
+        showToast('error', res.error || t('changePhone.bindFail'))
         return
       }
-      setTip('绑定成功!')
-      showToast('success', '绑定成功')
+      setTip(t('changePhone.bindOk'))
+      showToast('success', t('changePhone.bindOk'))
       const tm = setTimeout(() => {
         clearTimeout(tm)
         navigation.goBack()
@@ -139,8 +140,8 @@ export function ChangePhoneScreen() {
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
       const friendly = detail.trim() ? toUserFriendlyMessage(e) : ''
-      setTip(friendly || '网络异常,请稍后重试')
-      showToast('error', friendly || '网络异常')
+      setTip(friendly || t('changePhone.netBusyRetry'))
+      showToast('error', friendly || t('changePhone.netBusy'))
     } finally {
       setSubmitting(false)
     }
@@ -159,7 +160,7 @@ export function ChangePhoneScreen() {
           sendCodeShow={sendCodeShow}
           tip={tip}
           submitting={submitting}
-          nations={NATIONS}
+          nations={NATIONS.map((n) => ({ ...n, title: t(n.title) }))}
           onPhoneChange={setPhoneNumber}
           onCodeChange={setCodeValue}
           onToggleNationShow={() => setNationShow((v) => !v)}

@@ -4093,6 +4093,18 @@
     "collapse": "折りたたむ",
     "score": "関連度"
   },
+  "changePhone": {
+    "phoneRequired": "電話番号を入力してください",
+    "phoneInvalid": "正しい電話番号を入力してください",
+    "codeSent": "認証コードを送信しました",
+    "codeSendFailRetry": "認証コードの送信に失敗しました。しばらくして再試行",
+    "codeSendFail": "認証コードの送信に失敗しました",
+    "codeRequired": "認証コードを入力してください",
+    "bindFail": "紐付けに失敗しました",
+    "bindOk": "紐付けました",
+    "netBusy": "通信エラー",
+    "netBusyRetry": "通信エラー、しばらくして再試行してください"
+  },
   "subagents": {
     "tabOverview": "概要",
     "tabDispatches": "ディスパッチ",
