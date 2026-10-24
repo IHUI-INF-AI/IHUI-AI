@@ -22,6 +22,10 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 // 词法层住在 scripts/lib/batch-write-lexer.mjs(门 103 C1 拆出,判据本体不动)
 import { maskText, lineAt, closeParen, closeBrace, findWriteChains, findFunctionBodies, enclosingBody, DB_CONFIRMED_RE, statementEnd, resolveConfirmed, sendSuccessObjects, WRITE_RECEIVERS } from './lib/batch-write-lexer.mjs'
+// 拆层把词法函数搬进 lib 后老消费者(check-state-transition-guard / check-write-owner-predicate /
+// check-batch-write-count-probe)仍按旧出口面从本文件 import ⇒ 必须显式转发保住旧出口,否则
+// 消费方模块加载即炸(rc 1,不是判据红而是加载崩,§12f:判据失效的表现永远是安静)。不回抄第二份实现(§22c)。
+export { maskText, findWriteChains, findFunctionBodies }
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..') // ROOT 由脚本自身位置推导(§15,不写死盘符)
