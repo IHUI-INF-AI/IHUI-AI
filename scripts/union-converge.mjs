@@ -123,6 +123,9 @@ import { resolveRemoteHead, catBatch } from './lib/face-reader.mjs'
 import { resolveGitBin } from './lib/gitdir.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
+// G-113(2026-10-23):旁路落地不跑钩子 ⇒ 落地后必须自带"复跑受影响判据"(与 object-space-land
+// 头注④同一出口;开工时本器被 G-815913 折叠层在飞持有,那一格如实登记未闭环,本轮补上)。
+import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
 import {
   auditPlan,
   malformedLine,
@@ -147,7 +150,7 @@ import {
 import { resurrectAnalysis } from './lib/stale-content-analysis.mjs'
 // 同题去重(2026-10-15,根治 union 重复再生):union 产出后、落地前按标题指纹折叠 PROJECT_PLAN 的
 // 同题行 —— 同一件事物理上只留一行,被丢弃行的独有注记/票号并入保留行(信息守恒)。
-import { dedupeByFingerprint, dedupeGroups, uniqueNotes, selfIdOf } from './lib/dedupe-ledger.mjs'
+import { dedupeByFingerprint, dedupeGroups, uniqueNotes, selfIdOf, noteSegments } from './lib/dedupe-ledger.mjs'
 // 折叠去向的举证只用**这一把**指纹尺子(与 dedupe-ledger / 守门 194 / 守门 203 同一个来源):
 // 自证侧问"被折掉的那一行,产物面里还有没有同一件事的那一行",问的是**身份**而不是**策略** ——
 // 折谁、注记怎么并、保留行怎么选全都住在 lib/dedupe-ledger,本器一处也不重写(§22c)。
@@ -511,7 +514,18 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
    * 而 F1-F4 与门 71 对此**同时全绿**(退回的是同态行、编号标记也还在)。
    * 合并提交不跑 pre-commit,所以只能在落地闸这里拦。
    */
-  const noteMax = Math.max(...sides.map((t) => auditPlan(t).counts.mergeNotes))
+  /**
+   * F5 的比较集只用"合并本可以带的两侧"(G-815913 代裁,票面改法①):基底面不是合并的"一侧",
+   * base 上两侧都已没有的历史缩量不得计入"本可以保住却少带了"的差额(实测:base 进比较集把
+   * 报告从 13 涨成 36,而部署环调用点本就不含基线 ⇒ 两个调用点对着两套集合判同一维,两把尺子
+   * 不同形的另一半)。`noteCredits.f5SideTexts` 由调用点传 [ours, theirs];不传时回退全部面
+   * (部署环传的就是 [local, remote],行为逐字不变)。
+   */
+  const f5Sides =
+    noteCredits && Array.isArray(noteCredits.f5SideTexts) && noteCredits.f5SideTexts.length
+      ? noteCredits.f5SideTexts.filter((t) => typeof t === 'string' && t.trim() !== '')
+      : sides
+  const noteMax = Math.max(...f5Sides.map((t) => auditPlan(t).counts.mergeNotes))
   if (m.mergeNotes < noteMax) {
     /**
      * F5 判的是"注记**份数**不得降",而 G-814386 这一票要做的恰恰是"让带副本指针的行少带几份"
@@ -525,7 +539,7 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
      */
     const occOf = (l) => lineNoteCount(l)
     const mm = counter(mergedText)
-    const sideCounters = sides.map((t) => counter(t))
+    const sideCounters = f5Sides.map((t) => counter(t))
     /**
      * 遍历域必须是**所有面的并**(2026-09-29 修,原先遍历结果面 `mm`):一条注记行如果在归并结果里
      * 一份都没剩下(`have=0`),它就不在 `mm` 里 ⇒ 结构上永远进不了额度 ⇒ 无论机制如何解释都恒红。
@@ -542,8 +556,29 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
     let byOwnShrink = 0
     let byDupPointer = 0
     let byVerbatimCopies = 0
+    let byFold = 0
     const unexplained = []
     const verbatimCredited = []
+    const foldCredited = []
+    const foldUnattested = []
+    /**
+     * 折叠去向的两条取材路(⑤ 档,见循环内注释):调用点喂来的折叠台账 pairs 优先
+     * (foldLedgerOf 的"折叠自己记的去向"—— 并入注记改变保留行指纹时,事后回查会落空);
+     * 没有台账(部署环调用点拿不到台账)才按**产物面**回查同指纹/同主键的保留行。
+     */
+    const foldPairOf = new Map(
+      (noteCredits && Array.isArray(noteCredits.foldPairs) ? noteCredits.foldPairs : [])
+        .filter((x) => x && typeof x.dropped === 'string')
+        .map((x) => [x.dropped, x]),
+    )
+    // 去向候选 = 整个产物面(折叠的保留行**吸收注记后自己就带注记**,不得按"带注记"排除 ——
+    // foldLedgerOf 的回查环同样问的是整个产物面,两处必须同形)。**只按指纹回查**:主键回查会把
+    // "同号不同题"(F9 那一族)误配成折叠去向 —— 折叠层本来就只按指纹分组,回查不得比折叠更宽。
+    const keptByFp = new Map()
+    for (const l of mm.keys()) {
+      const fp = extractTaskFingerprint(l)
+      if (fp && !keptByFp.has(fp)) keptByFp.set(fp, l)
+    }
     for (const l of universe) {
       const occ = occOf(l)
       if (!occ) continue
@@ -598,6 +633,45 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
         verbatimCredited.push(`折 ${cov} 份(结果里剩 ${mm.get(l) || 0} 份)← ${l.slice(0, 140)}`)
         rest -= cov
       }
+      /**
+       * ⑤ 折叠层(G-815913 代裁,票面嫌疑①的落点):同题行按标题指纹折叠、被折行的独有注记/票号
+       * 并入保留行 —— 信息守恒、少的只是行份数。verifyUnion 早已认这本账(attestFoldPair 四问销账),
+       * 而 F5 此前不接收折叠台账 ⇒ 同一件事自证侧绿、落地闸红("两把尺子不同形"),实测 7 条合法
+       * 折叠全被判成"未被任何机制解释的少带",部署环 BLOCKED-DIVERGED 连续 120+ 轮。
+       * 额度**不削牙**:仍必须过**同一份** attestFoldPair 四问(去向行真在产物面、同一件事、
+       * 独有注记与票号被接住),证不出去向 ⇒ 一分不给,照旧进 unexplained 判红并带失败原因。
+       * 有台账时额度封顶在台账申报的份数(与 verifyUnion 的 `short > pair.droppedCopies` 同形);
+       * 回查路(部署环无台账)封顶在 rest,但过四问本身就是"信息守恒"的完整证明。
+       */
+      if (rest > 0) {
+        const ledgerPair = foldPairOf.get(l) || null
+        let pair = ledgerPair
+        if (!pair) {
+          const fp = extractTaskFingerprint(l)
+          const kept = fp ? keptByFp.get(fp) ?? null : null
+          if (kept !== null && kept !== l) pair = { dropped: l, kept }
+        }
+        /**
+         * Q4 防空心守卫:份数尺子 `MERGE_NOTE_RE` **不要求闭合 `〕`**(跨行/残缺注记也计数),
+         * 而 uniqueNotes 的段尺子 `NOTE_RE` 要求闭合 —— 一条带未闭合注记的行在 Q4 上"无段可丢"、
+         * 空心通过,去向行哪怕一个注记都没接住也算"信息守恒"。所以 ⑤ 只认**被计入的注记全部是
+         * 闭合段**的行;有残缺注记 ⇒ 这一档一分不给,照旧交 unexplained(§0.2 宁可多要一次说明)。
+         */
+        if (pair && noteSegments(l).length >= occ) {
+          const att = attestFoldPair(pair, mm)
+          if (att.status === 'attested') {
+            const cap =
+              ledgerPair && Number.isFinite(ledgerPair.droppedCopies)
+                ? Math.min(rest, ledgerPair.droppedCopies * occ)
+                : rest
+            byFold += cap
+            foldCredited.push(`折 ${cap} 份 → 去向行 ${String(att.kept).slice(0, 60)} ← ${l.slice(0, 80)}`)
+            rest -= cap
+          } else {
+            foldUnattested.push(`${att.status}(${att.reason}):: ${l.slice(0, 60)}`)
+          }
+        }
+      }
       if (rest > 0) unexplained.push(`缺 ${rest} 份 :: ${l.slice(0, 70)}`)
       allowed += wantOcc - haveOcc - rest
     }
@@ -612,13 +686,19 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
       const named = unexplained.length
         ? `;未被任何机制解释的 ${unexplained.length} 条(列前 5):${unexplained.slice(0, 5).join(' | ')}`
         : ''
-      // 报数必须报名(与 formatPointerCapReport 同规矩):④ 档扣了谁、每行扣了几份,逐行点名(列前 5)。
+      // 报数必须报名(与 formatPointerCapReport 同规矩):④⑤ 档扣了谁、每行扣了几份,逐行点名(列前 5)。
       const credited = verbatimCredited.length
         ? `;逐字副本折半名单(共 ${verbatimCredited.length} 行,前 5):${verbatimCredited.slice(0, 5).join(' | ')}`
         : ''
+      const foldNamed = foldCredited.length
+        ? `;折叠去向吸收名单(共 ${foldCredited.length} 行,前 5):${foldCredited.slice(0, 5).join(' | ')}`
+        : ''
+      const foldFail = foldUnattested.length
+        ? `;折叠举证未过(不记额度,列前 3):${foldUnattested.slice(0, 3).join(' | ')}`
+        : ''
       out.push(
         `F5 归并落账注记 各侧最多 ${noteMax} 条,归并结果只剩 ${m.mergeNotes} 条` +
-          `(已按行扣除四类**有据**额度共 ${allowed} 条:归档占位代表 ${byPlaceholder} / 本侧相对基底自缩 ${byOwnShrink} / 副本指针有意少带 ${byDupPointer} / 逐字副本折半 ${byVerbatimCopies};扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)${named}${credited}`,
+          `(已按行扣除五类**有据**额度共 ${allowed} 条:归档占位代表 ${byPlaceholder} / 本侧相对基底自缩 ${byOwnShrink} / 副本指针有意少带 ${byDupPointer} / 逐字副本折半 ${byVerbatimCopies} / 折叠去向举证吸收 ${byFold};扣完仍差 ${noteMax - allowed - m.mergeNotes} 条)${named}${credited}${foldNamed}${foldFail}`,
       )
     }
   }
@@ -631,7 +711,7 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
    *    由 `mergeNoteCrossLineCaliber` 报名;行不在了 = 真被抹掉,这里判红并点名行原文。
    */
   const mergedLines = counter(mergedText)
-  for (const t of sides) {
+  for (const t of f5Sides) {
     const units = mergeNoteUnits(t)
     if (units.crossLine === 0) continue
     const src = t.split('\n')
@@ -1742,6 +1822,10 @@ export function buildUnion(
           suppress: ma.suppress,
           baseText: bt,
           oursText: a,
+          // G-815913: F5 这一维的比较集 = 合并本可以带的两侧;折叠台账随同喂进(⑤ 档与
+          // verifyUnion 认同一本账,两把尺子同形)。growth 维(F1-F4/F6/F9)仍看全部面。
+          f5SideTexts: [a, b],
+          foldPairs: built0.ledger?.pairs || null,
         })
         for (const msg of __rg) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
         for (const msg of __rg.accepted || []) acceptedGrowth.push(msg)
@@ -2000,6 +2084,8 @@ export function buildUnion(
         suppress: null,
         baseText: __sideBlobs[0],
         oursText: __sideBlobs[1],
+        // G-815913: 同活文档调用点 —— F5 维只看两侧(此路是三方 merge-file,无折叠 ⇒ 不传 foldPairs)
+        f5SideTexts: [__sideBlobs[1], __sideBlobs[2]].filter((t) => typeof t === 'string' && t !== ''),
       })
       for (const msg of __rg2) violations.push(`${p} 归并放大任务状态分叉:${msg}`)
       for (const msg of __rg2.accepted || []) acceptedGrowth.push(msg)
@@ -2922,8 +3008,9 @@ function selfTest() {
         })(),
       )
       ok(
-        'F5 额度:三类有据额度必须由**调用点**喂进内容(搬运感知表 / 基底面 / 本侧面)—— ' +
-          '只在判据函数里读形参而没人传,等价于这一维从未生效过(守门 70/76/81/105/115 同族)',
+        'F5 额度:有据额度与比较集必须由**调用点**喂进内容(搬运感知表 / 基底面 / 本侧面 / ' +
+          'F5 两侧集合 / 折叠台账)—— 只在判据函数里读形参而没人传,等价于这一维从未生效过' +
+          '(守门 70/76/81/105/115 同族)',
         (() => {
           const src = readFileSync(new URL(import.meta.url), 'utf8')
           return (
@@ -2931,7 +3018,11 @@ function selfTest() {
             src.includes('baseText: bt') &&
             src.includes('oursText: a') &&
             src.includes('baseText: __sideBlobs[0]') &&
-            src.includes('oursText: __sideBlobs[1]')
+            src.includes('oursText: __sideBlobs[1]') &&
+            // G-815913:活文档调用点必须把 F5 比较集收到两侧、并把折叠台账一起喂进来
+            src.includes('f5SideTexts: [a, b]') &&
+            src.includes('foldPairs: built0.ledger?.pairs || null') &&
+            src.includes('f5SideTexts: [__sideBlobs[1], __sideBlobs[2]]')
           )
         })(),
       )
@@ -3289,6 +3380,57 @@ function selfTest() {
           oursText: 'x\n',
         }).join('')
           .includes('F5') === true,
+    )
+    // ── G-815913 代裁:F5 ⑤ 档(折叠去向举证)与比较集只看两侧 ──
+    // 立因:折叠层(dedupeGroups)按标题指纹折同题行、把独有注记并入保留行 —— verifyUnion 早已认
+    // 这本账(attestFoldPair 四问销账),F5 却不认 ⇒ 合法折叠被判"未被任何机制解释的少带"(实测 7 条
+    // ⇒ 恒红,部署环 BLOCKED-DIVERGED 连续 120+ 轮)。成对纪律:举证的折叠必须放过,真少带
+    // (无去向/去向没接住注记/台账少报)照旧判红 —— 修红不削牙。
+    const FD77 = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 落账:复测 2026-09-26〕'
+    const FK77 = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 落账:复测 2026-09-26〕〔【归并】G-900077 补记:第二注〕'
+    const FK77X = '- [x] ✅(2026-09-20) **折叠去向举证吸收例 G-900077**:做完了。〔【归并】G-900077 补记:第二注〕'
+    const SIDE77 = `# 侧\n${FD77}\n${FD77}\n${FK77}\n`
+    const MERGED77 = `# 果\n${FK77}\n`
+    ok(
+      'F5 额度⑤:同题行被折、保留行接住了独有注记(四问全过)⇒ 不得判红(原恒红形状的落点)',
+      planStateRegressions(MERGED77, [SIDE77, 'z\n']).join('') === '' &&
+        planStateRegressions(MERGED77, [SIDE77, 'z\n'], null, {
+          foldPairs: [{ dropped: FD77, kept: FK77, droppedCopies: 2 }],
+        }).join('') === '',
+    )
+    ok(
+      'F5 ⑤ 有牙:去向行同题却**没接住**被折行的独有注记(Q4 信息守恒不过)⇒ 照旧判"未被任何机制解释"',
+      planStateRegressions(`# 果\n${FK77X}\n`, [SIDE77, 'z\n']).join('').includes('未被任何机制解释'),
+    )
+    ok(
+      'F5 ⑤ 有牙:被折行在结果面没有同指纹去向(真删除,不是折叠)⇒ 照常判红',
+      planStateRegressions('# 果\n无\n', [SIDE77, 'z\n']).join('').includes('F5'),
+    )
+    ok(
+      'F5 ⑤ 有牙:折叠台账少报(报折 1 份、结果面缺 2 份)⇒ 超出部分不记额度照常红(与 verifyUnion 的 droppedCopies 封顶同形)',
+      planStateRegressions(MERGED77, [SIDE77, 'z\n'], null, {
+        foldPairs: [{ dropped: FD77, kept: FK77, droppedCopies: 1 }],
+      }).join('').includes('F5'),
+    )
+    // 比较集(票面改法①):base 上两侧都已没有的历史缩量不得计入 F5 的"少带"差额
+    const CN78 = '- [x] ✅(2026-09-20) **G-900078 比较集例**:做完了。〔【归并】G-900078 落账:复测 2026-09-26〕'
+    const OLD79 = '- [x] ✅(2026-09-20) **G-900079 历史缩量例**:做完了。〔【归并】G-900079 落账:复测 2026-09-26〕'
+    const BASE78 = `# B\n${OLD79}\n${CN78}\n`
+    const OURS78 = `# O\n${CN78}\n`
+    const THEIRS78 = `# T\n${CN78}\n`
+    ok(
+      'F5 比较集:调用点声明 f5SideTexts=[ours,theirs] 后,base 历史缩量不计入差额 ⇒ 持平不红;' +
+        '反向对照:不传该参仍按旧口径判红(放宽只长在显式声明两侧的调用点上)',
+      planStateRegressions(`# M\n${CN78}\n`, [BASE78, OURS78, THEIRS78], null, {
+        f5SideTexts: [OURS78, THEIRS78],
+      }).join('') === '' &&
+        planStateRegressions(`# M\n${CN78}\n`, [BASE78, OURS78, THEIRS78]).join('').includes('F5'),
+    )
+    ok(
+      'F5 比较集有牙:某一侧独有的注记行被归并结果顶掉 ⇒ 换两侧集合后仍必须判红',
+      planStateRegressions('# M\n无\n', [BASE78, OURS78, THEIRS78], null, {
+        f5SideTexts: [OURS78, THEIRS78],
+      }).join('').includes('F5'),
     )
     // ── G-977960 ①:跨行注记不得再造"无论怎么合并都差 N 条"的死局,但真抹掉行仍必须判红 ──
     // `MERGE_NOTE_RE` 的字符类含换行 ⇒ 一条注记可以横写两行;旧写法拿"整面命中数"当份数,
@@ -4624,7 +4766,26 @@ async function main() {
   } catch (e) {
     console.log(`  ⚠️ 落地后对齐未派成(不影响本轮结论):${String(e?.message ?? e).slice(0, 160)}`)
   }
-  process.exit(lost.lost.length ? 1 : 0)
+  /**
+   * G-113(2026-10-23,补 object-space-land 头注④登记的未闭环格):落地、回读、对齐全部完成后
+   * **复跑受影响判据**。位置纪律与 object-space-land 同形 —— 必须在 CAS 成功且主索引/工作区
+   * 对齐派过之后(tsc --files 档读盘上那份)。声明面 = 本器构造出内容的路径(活文档 ∪ 取对侧
+   * 版本的路径),与 recordBypassLanding 的 declaredFiles 同一集合。语义:不回滚(落地是既成
+   * 事实),但拒绝静默 —— blocking 臂判红 ⇒ 大声 exit 1;有臂无法判定 ⇒ exit 2(未判定≠通过);
+   * lost 复核的红保持原有优先级。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(lib 内打留痕行)。
+   */
+  const affected = rerunAffectedGates({ root: ROOT, paths: [...new Set([...LIVE_DOCS, ...p.tookTheirs])] })
+  if (affected.verdict === 1) {
+    console.error(
+      `❌ 落地后受影响判据复跑判红(blocking ${affected.failed.length} 臂)⇒ 本枚合并已在 HEAD ${sha.slice(0, 11)}(不回滚),但拒绝报绿静默;修复后请就地再落一次更正提交`,
+    )
+  }
+  if (affected.verdict === 2) {
+    console.error(
+      `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚合并已在 HEAD ${sha.slice(0, 11)}(不回滚),请人工复跑点名臂`,
+    )
+  }
+  process.exit(lost.lost.length || affected.verdict === 1 ? 1 : affected.verdict === 2 ? 2 : 0)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
