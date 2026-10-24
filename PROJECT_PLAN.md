@@ -7334,7 +7334,7 @@ next dev / expo 这类 supervisor 内部 spawn worker 时**不带** windowsHide(
 
 
 
-- [ ] （未取号:同上） 共享信封解析层对"裸对象"具体给 res.data 还是 undefined,本轮未逐层验证 ⇒ 不写成结论,留给接手电的人现读 （不挂进行中:改 GET /api/health 的返回形态是对外契约变更,按 §24 须人定档）**GET /api/health 回裸对象(不走 success() 信封),而 web 管理端按 ServiceStatus[] 读** web 的 admin/backend-health 页写 api<ServiceStatus[]>('/api/health')(把整条响应当数组),而 RN 侧只把这条当连通性探针(看响应到达与否,不读 body)⇒ **这一格是 web 与后端的分叉,不是移动端落后** 〔压缩@2026-10-22〕
+- [ ] （未取号:同上） 共享信封解析层对"裸对象"具体给 res.data 还是 undefined,本轮未逐层验证 ⇒ 不写成结论,留给接手电的人现读 （不挂进行中:改 GET /api/health 的返回形态是对外契约变更,按 §24 须人定档）**GET /api/health 回裸对象(不走 success() 信封),而 web 管理端按 ServiceStatus[] 读** web 的 admin/backend-health 页写 api<ServiceStatus[]>('/api/health')(把整条响应当数组),而 RN 侧只把这条当连通性探针(看响应到达与否,不读 body)⇒ **这一格是 web 与后端的分叉,不是移动端落后** 〔压缩@2026-10-22〕 〔验证半结清@2026-10-24/goal-b15:裸对象语义已逐层现读——信封层 client.ts:812-814 !inbound.matched(非信封形态)⇒ {success:true,data:rawJson as T}(整条 body 作 data,非 undefined);实测 GET /api/health(8802 真服务)回**对象**{status:ok,service,timestamp,uptime} 非数组 ⇒ web admin/backend-health 页按 ServiceStatus[] 读法拿到对象当数组用,分叉实锤(运行时 .map 族必失败/渲染空);主格(改 health 返回形态=对外契约变更)维持等机主 §24 定档不代裁,验证半不再『留给接手者』〕
 
 
 
