@@ -1491,3 +1491,74 @@ test("T- WD 判红文案取单源 over[],不得复算维度", () => {
   assert.ok(/r.over.join/.test(win), "打印语句不再引用单源 over[] ⇒ 又会自算维度:" + win.slice(0, 120))
   assert.ok(!/圆角 ${r.radiusCount}/.test(win), "打印层复算了圆角维度 ⇒ 会把几何分叉念成圆角分叉")
 })
+
+/**
+ * G-16(ii) 类臂解析维(2026-10-24,只报数档)。
+ * 立因:门此前只比"两端取值",className 写了个**谁也没定义**的名字仍照样对账通过 ——
+ * 它被 `blindClasses` 一并归成"落在全局表",与"真的定义在 app.css"长得一模一样。
+ * 三条用例互为对照:查无定义必须点名 / 唯一单类定义必须通过 / 判不出的形态必须未判定
+ * (未判定不是通过,也不是查无定义 —— 用 `!==` 型断言会把三者混成一个)。
+ */
+test('T42 类臂解析维:查无定义必点名 / 已定义必通过 / 判不出必未判定(不折成过)', () => {
+  const css = '.box-shell { height: 80rpx; }'
+  const defs = src.classDefScan(css, new Set(['box-shell', 'box-ghost']))
+  // a) 取用未定义 class ⇒ 点名
+  const miss = src.classArmVerdicts(
+    new Map([['box-ghost', { conditional: false }]]),
+    new Map(),
+    new Map(),
+    'miniapp',
+  )
+  assert.equal(miss.length, 1)
+  assert.equal(miss[0].verdict, 'undefined', `未定义类名必须点名,实得 ${JSON.stringify(miss)}`)
+  // b) 取用已定义(唯一单类选择器 + 无条件) ⇒ 通过
+  const hit = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: false }]]),
+    defs,
+    new Map(),
+    'miniapp',
+  )
+  assert.equal(hit[0].verdict, 'resolved', `已定义类名必须通过,实得 ${JSON.stringify(hit)}`)
+  // c) 判不出的形态 ⇒ 未判定(三型各一:多处定义 / !important 状态覆盖 / 条件取用)
+  const multi = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: false }]]),
+    new Map(),
+    new Map([['box-shell', { count: 2, important: false, complex: 0 }]]),
+    'miniapp',
+  )
+  const imp = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: false }]]),
+    new Map([['box-shell', { count: 1, important: true, complex: 0 }]]),
+    new Map(),
+    'miniapp',
+  )
+  const cond = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: true }]]),
+    defs,
+    new Map(),
+    'miniapp',
+  )
+  // web 侧查不到不得记成"查无定义"(工具类由构建期生成,本门无 Tailwind 配置可解析)
+  const web = src.classArmVerdicts(
+    new Map([['box-shell', { conditional: false }]]),
+    new Map(),
+    new Map(),
+    'web',
+  )
+  for (const [label, r] of [
+    ['多处定义', multi],
+    ['!important', imp],
+    ['条件取用', cond],
+    ['web 未建模', web],
+  ])
+    assert.equal(r[0].verdict, 'undetermined', `${label} 必须判未判定,不得折成通过:${JSON.stringify(r)}`)
+  // 枚举值(`mode === 'voice'`)不是类名 —— 它会让"查无定义"喊错
+  const refs = src.usedClassRefs("<View className={cn('a-box', mode === 'voice' ? 'b-box' : '')} />")
+  assert.ok(refs.has('a-box') && refs.has('b-box'), '条件分支里的类名仍须被看见')
+  assert.ok(!refs.has('voice'), '比较运算符后的字面量被当成类名 ⇒ 会喊错的披露')
+  // 装车锁:算出来必须真接进 collect 并被人读面打印(算完丢掉 = 提交链上一路绿灯)
+  const gate = flat(readFileSync(SELF, 'utf8'))
+  assert.ok(/classArmVerdicts\(l\.refs/.test(gate), 'collect 未调用 classArmVerdicts ⇒ 新维没接线')
+  assert.ok(/collected\.classArm/.test(gate), 'collect 未登记 classArm ⇒ 打印面读不到')
+  assert.ok(/类臂解析/.test(gate), '人读面没有类臂解析读数 ⇒ "0"与"没看见"分不开')
+})

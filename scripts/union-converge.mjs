@@ -600,6 +600,8 @@ export function planStateRegressions(mergedText, sideTexts, accepted = null, not
       }
       // ② 本侧相对**共同基底**自己缩了量 ⇒ `liveDocExpectedCounts` 的约定"基底有而本侧清了 ⇒ 处置权
       //    仍在本侧",这一部分本就不该从对侧补回。刻意要求 `o < b`:只有对侧加过的行永不进这一档。
+      //    G-62 票面所称第二版"额度基准改用生成器自己的期望值"即本档:`liveDocExpectedCounts` 的
+      //    `max(基底, 本侧)` 项在这里以 `b - o` 逐行结算,同一语义只留这一份实现,不得再调期望表。
       if (rest > 0 && oursC && baseC) {
         const o = (oursC.get(l) || 0) * occ
         const b = (baseC.get(l) || 0) * occ
