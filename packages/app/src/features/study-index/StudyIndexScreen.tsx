@@ -31,6 +31,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { SearchInput } from '../../components/SearchInput'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { MoreLink } from '../../components/MoreLink'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
@@ -346,10 +347,7 @@ export function StudyIndexScreen({
           </View>
         </ScrollView>
       ) : initialLoading ? (
-        <View style={styles.centerWrap}>
-          <ActivityIndicator color={tk.brand.DEFAULT} />
-          <Text style={styles.loadingText}>{loadingText}</Text>
-        </View>
+        <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList
           data={items}
@@ -369,16 +367,14 @@ export function StudyIndexScreen({
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
             error ? (
-              <View style={styles.centerWrap}>
-                <Text style={styles.errorText}>{error}</Text>
-                <Pressable style={styles.retryBtn} onPress={() => void onRefresh()}>
-                  <Text style={styles.retryText}>{retryText}</Text>
-                </Pressable>
-              </View>
+              <ErrorState
+                message={error}
+                onRetry={() => void onRefresh()}
+                retryLabel={retryText || undefined}
+                colorScheme={colorScheme}
+              />
             ) : (
-              <View style={styles.centerWrap}>
-                <Text style={styles.emptyText}>{emptyText}</Text>
-              </View>
+              <EmptyState title={emptyText} colorScheme={colorScheme} />
             )
           }
           ListFooterComponent={
@@ -676,22 +672,6 @@ function createStyles(tk: AppThemeTokens) {
       padding: 24,
       gap: 12,
     } as ViewStyle,
-    errorText: {
-      fontSize: 16,
-      color: tk.error.text,
-      textAlign: 'center',
-    } as TextStyle,
-    retryBtn: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    } as ViewStyle,
-    retryText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: tk.surface.light,
-    } as TextStyle,
     emptyText: {
       fontSize: 16,
       color: tk.text.tertiary,

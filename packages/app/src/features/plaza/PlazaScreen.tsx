@@ -24,6 +24,7 @@ import type { TFunction } from '../../types'
 import type { PlazaItem, StatusChip } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 export interface PlazaScreenProps {
   t: TFunction
@@ -297,9 +298,7 @@ export function PlazaScreen({
       />
       {/* 列表 */}
       {initialLoading ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.loadingText}>{t('common.loading') || '加载中...'}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={5} colorScheme={colorScheme} />
       ) : (
         <FlatList
           data={items.length > 0 ? COLUMN_ROW_DATA : []}
@@ -317,12 +316,12 @@ export function PlazaScreen({
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
             error ? (
-              <View style={styles.centerWrap}>
-                <Text style={styles.errorText}>{error}</Text>
-                <Pressable style={styles.retryBtn} onPress={onRefresh}>
-                  <Text style={styles.retryText}>{t('common.ok') || '重试'}</Text>
-                </Pressable>
-              </View>
+              <ErrorState
+                message={error}
+                onRetry={onRefresh}
+                retryLabel={t('common.ok') || '重试'}
+                colorScheme={colorScheme}
+              />
             ) : (
               <View style={styles.emptyWrap}>
                 <Globe size={48} color={tk.text.medium} />
@@ -398,35 +397,11 @@ function createStyles(tk: AppThemeTokens) {
     column: {
       flex: 1,
     } as ViewStyle,
-    centerWrap: {
-      alignItems: 'center',
-      paddingVertical: 48,
-    } as ViewStyle,
-    loadingText: {
-      fontSize: 16,
-      color: tk.text.secondary,
-    } as TextStyle,
     loadingMoreText: {
       textAlign: 'center',
       paddingVertical: 16,
       fontSize: 14,
       color: tk.text.secondary,
-    } as TextStyle,
-    errorText: {
-      fontSize: 14,
-      color: tk.danger.DEFAULT,
-      textAlign: 'center',
-    } as TextStyle,
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 24,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    } as ViewStyle,
-    retryText: {
-      fontSize: 16,
-      color: tk.brand.ctaForeground,
     } as TextStyle,
     emptyWrap: {
       alignItems: 'center',

@@ -11,19 +11,12 @@
  * 时间相对化两端共用 @ihui/shared/utils/date-utils(≤24h 相对,>24h 日期),禁止端内另写一份。
  */
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Pressable,
-  RefreshControl,
-  Text,
-  View,
-} from 'react-native'
+import { FlatList, Image, Pressable, RefreshControl, Text, View } from 'react-native'
 import { Heart, MessageCircle, PenLine } from 'lucide-react-native'
 import { formatDateByTemplate, formatRelativeTime } from '@ihui/shared/utils/date-utils'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createTopicDetailStyles } from './topic-detail-styles'
 
 export interface TopicDetailPostView {
@@ -209,14 +202,9 @@ export function TopicDetailScreen({
         }
         ListEmptyComponent={
           loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator color={tk.text.secondary} />
-              <Text style={styles.stateText}>{t('topic.detail.loading')}</Text>
-            </View>
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.center}>
-              <Text style={styles.stateText}>{t('topic.detail.empty')}</Text>
-            </View>
+            <EmptyState title={t('topic.detail.empty')} colorScheme={colorScheme} />
           )
         }
         ListFooterComponent={

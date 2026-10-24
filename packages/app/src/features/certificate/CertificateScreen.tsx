@@ -4,10 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertificateItem, CertificateScreenProps, CertificateStatus } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 证书状态/列表项/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CertificateItem, CertificateScreenProps, CertificateStatus }
@@ -68,25 +69,21 @@ export function CertificateScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {items.length === 0 ? (
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('certificate.empty')}</Text>
-            </View>
+            <EmptyState title={t('certificate.empty')} colorScheme={colorScheme} />
           ) : (
             items.map((item: CertificateItem) => (
-              <TouchableOpacity
+              <PressableCard
                 key={item.id}
                 style={styles.card}
                 onPress={() => onPressItem(item)}
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                colorScheme={colorScheme}
               >
                 <View style={styles.titleRow}>
                   <Text style={styles.cardTitle} numberOfLines={2}>
@@ -107,7 +104,7 @@ export function CertificateScreen({
                     {t('certificate.expiryDate')}: {item.expiryDate}
                   </Text>
                 ) : null}
-              </TouchableOpacity>
+              </PressableCard>
             ))
           )}
         </ScrollView>
@@ -128,8 +125,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
     card: {
       padding: 12,

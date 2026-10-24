@@ -3,12 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CircleMemberItem, CircleMemberScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 圈子成员列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { CircleMemberItem, CircleMemberScreenProps }
@@ -50,9 +51,7 @@ export function CircleMemberScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<CircleMemberItem>
           data={items}
@@ -61,40 +60,36 @@ export function CircleMemberScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('circleMember.empty')}</Text>
-            </View>
+            <EmptyState title={t('circleMember.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <PressableCard
               onPress={() => onPressItem(item.id)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              colorScheme={colorScheme}
+              style={styles.card}
             >
-              <View style={styles.card}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
-                </View>
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.cardTime}>{item.joinedAt}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.roleBadge,
-                    item.role === 'owner'
-                      ? styles.roleBadgeOwner
-                      : item.role === 'admin'
-                        ? styles.roleBadgeAdmin
-                        : styles.roleBadgeMember,
-                  ]}
-                >
-                  <Text style={styles.roleText}>{t(ROLE_KEYS[item.role])}</Text>
-                </View>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
               </View>
-            </TouchableOpacity>
+              <View style={styles.cardBody}>
+                <Text style={styles.cardName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.cardTime}>{item.joinedAt}</Text>
+              </View>
+              <View
+                style={[
+                  styles.roleBadge,
+                  item.role === 'owner'
+                    ? styles.roleBadgeOwner
+                    : item.role === 'admin'
+                      ? styles.roleBadgeAdmin
+                      : styles.roleBadgeMember,
+                ]}
+              >
+                <Text style={styles.roleText}>{t(ROLE_KEYS[item.role])}</Text>
+              </View>
+            </PressableCard>
           )}
         />
       )}
@@ -114,8 +109,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10, paddingBottom: 32 },
     separator: { height: 12 },
     card: {

@@ -4,7 +4,6 @@
 
 import { useMemo } from 'react'
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -15,6 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
@@ -157,9 +157,7 @@ export function PublishScreen({
           colorScheme={colorScheme}
           styles={styles}
         />
-        <View style={styles.center}>
-          <ActivityIndicator color={tk.text.secondary} />
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -193,23 +191,12 @@ export function PublishScreen({
       </View>
 
       {error ? (
-        <View style={styles.errorWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          {/* 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
-              cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,按钮底色/圆角/内边距静默消失。
-              errorWrap 是 column + alignItems center ⇒ 外层 hug 内容,整档下移后盒子逐像素不变。 */}
-          <Pressable
-            onPress={onRetryLoad}
-            accessibilityRole="button"
-            accessibilityLabel={t('publish.retry')}
-          >
-            {({ pressed }) => (
-              <View style={[styles.retryBtn, pressed ? styles.pressed : null]}>
-                <Text style={styles.retryBtnText}>{t('publish.retry')}</Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRetryLoad}
+          retryLabel={t('publish.retry')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <FlatList
           data={tasks}
@@ -223,10 +210,11 @@ export function PublishScreen({
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>{t('publish.empty')}</Text>
-              <Text style={styles.emptyHint}>{t('publish.emptyHint')}</Text>
-            </View>
+            <EmptyState
+              title={t('publish.empty')}
+              desc={t('publish.emptyHint')}
+              colorScheme={colorScheme}
+            />
           }
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => {
@@ -357,11 +345,6 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
     },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     pressed: {
       opacity: 0.7,
     },
@@ -417,45 +400,9 @@ function createStyles(tk: AppThemeTokens) {
     statValueFailed: {
       color: tk.danger.DEFAULT, // text-red-700 dark:text-red-300
     },
-    /* 错误态 */
-    errorWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24, // px-6
-    },
-    errorText: {
-      marginBottom: 12, // mb-3
-      textAlign: 'center',
-      fontSize: 14, // text-sm
-      color: tk.text.secondary, // text-gray-500
-    },
-    retryBtn: {
-      borderRadius: rnRadius.sm, // rounded-sm
-      paddingHorizontal: 16, // px-4
-      paddingVertical: 8, // py-2
-      backgroundColor: tk.gray[200], // bg-gray-200
-    },
-    retryBtnText: {
-      fontSize: 14, // text-sm
-      color: tk.text.primary,
-    },
     /* 列表 */
     listContent: {
       padding: 16,
-    },
-    emptyWrap: {
-      alignItems: 'center',
-      paddingVertical: 64, // py-16
-    },
-    emptyText: {
-      fontSize: 14, // text-sm
-      color: tk.text.secondary, // text-gray-500
-    },
-    emptyHint: {
-      fontSize: 12, // text-xs
-      marginTop: 4, // mt-1
-      color: tk.text.tertiary, // text-gray-400
     },
     /* 任务卡 */
     card: {

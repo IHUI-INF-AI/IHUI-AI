@@ -3,23 +3,18 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
+import { FlatList, Image, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentScreenProps, AgentScreenItem } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
 
 /** Agent 列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentScreenProps }
@@ -45,29 +40,38 @@ export function AgentScreen({
 
   if (loading && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
   if (error && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
-        </TouchableOpacity>
+      <View style={styles.container}>
+        {/* 错误态仍保留返回入口(原错误分支的返回钮语义不变) */}
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
 
   /** 单张 Agent 卡片(nestedInScrollView 与 FlatList renderItem 共用,样式一致) */
   const renderCard = (item: AgentScreenItem, index?: number) => (
-    <Pressable
+    <PressableCard
       key={item.id ?? `idx-${index ?? 0}`}
       onPress={() => onPressItem(item.id)}
+      colorScheme={colorScheme}
       style={styles.card}
-      accessibilityRole="button"
     >
       {item.avatar ? (
         <Image source={{ uri: item.avatar }} style={styles.avatar} resizeMode="cover" />
@@ -102,7 +106,7 @@ export function AgentScreen({
           </Text>
         ) : null}
       </View>
-    </Pressable>
+    </PressableCard>
   )
 
   // 嵌套模式:宿主外层已是 ScrollView,FlatList 再嵌套会触发
@@ -114,9 +118,7 @@ export function AgentScreen({
         <View style={styles.nestedList}>
           {items.map((item, index) => renderCard(item, index))}
           {items.length === 0 ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>{t('common.empty')}</Text>
-            </View>
+            <EmptyState title={t('common.empty')} colorScheme={colorScheme} />
           ) : null}
         </View>
       </View>
@@ -138,11 +140,7 @@ export function AgentScreen({
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('common.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('common.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => renderCard(item)}
       />
     </View>
@@ -155,21 +153,6 @@ function createStyles(tk: AppThemeTokens) {
     // nestedInScrollView 模式:对齐 FlatList 模式的 contentContainerStyle
     // (padding:16/paddingBottom:32)+ ItemSeparator 高度 12(用 gap 实现)
     nestedList: { gap: 12, padding: 16, paddingBottom: 32 },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 16,
-    },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-    btn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
     backBtn: { paddingHorizontal: 10, paddingTop: 12 },
     title: {
       paddingHorizontal: 10,
@@ -179,8 +162,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.text.primary,
     },
-    empty: { alignItems: 'center', paddingVertical: 48 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       flexDirection: 'row',
       alignItems: 'center',

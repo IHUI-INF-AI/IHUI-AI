@@ -3,11 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
+import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ActivityDetailItem, ActivityDetailScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 活动详情共享屏 — props 注入式跨端组件 */
 export type { ActivityDetailItem, ActivityDetailScreenProps }
@@ -30,31 +30,19 @@ export function ActivityDetailScreen({
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('activityDetail.title')}</Text>
         </View>
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error || !item) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-          <Text style={styles.title}>{t('activityDetail.title')}</Text>
-        </View>
-        <View style={styles.center}>
-          <Text style={styles.error}>{error || t('activityDetail.empty')}</Text>
-          <TouchableOpacity
-            onPress={onBack}
-            style={styles.retryBtn}
-            accessibilityLabel={t('common.back')}
-          >
-            <ChevronLeft size={16} color={tk.text.medium} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <ErrorState
+        message={error || t('activityDetail.empty')}
+        onRetry={onBack}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -95,15 +83,6 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    center: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 48,
-      paddingHorizontal: 10,
-    },
-    muted: { fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
-    retryBtn: { marginTop: 12 },
     body: { padding: 14 },
     itemTitle: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     metaRow: {

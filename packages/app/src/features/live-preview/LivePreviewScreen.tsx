@@ -4,12 +4,12 @@
 
 import { useMemo } from 'react'
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePreviewItem, LivePreviewScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 直播预告共享屏 — props 注入式跨端组件(纯 UI,API 调用由 wrapper 注入) */
 export type { LivePreviewItem, LivePreviewScreenProps }
@@ -29,22 +29,29 @@ export function LivePreviewScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error || t('livePreview.empty')}</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={onBack}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.text.medium} />
-        </TouchableOpacity>
+      <View style={styles.container}>
+        {error ? (
+          <ErrorState
+            message={error}
+            onRetry={onBack}
+            retryLabel={t('common.back')}
+            colorScheme={colorScheme}
+          />
+        ) : (
+          <EmptyState
+            title={t('livePreview.empty')}
+            actionLabel={t('common.back')}
+            onAction={onBack}
+            colorScheme={colorScheme}
+          />
+        )}
       </View>
     )
   }
@@ -87,16 +94,6 @@ export function LivePreviewScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 16,
-      backgroundColor: tk.surface.bg,
-    },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
-    backBtn: { marginTop: 12 },
     header: {
       flexDirection: 'row',
       alignItems: 'center',

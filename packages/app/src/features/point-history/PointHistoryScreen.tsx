@@ -8,6 +8,7 @@ import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PointHistoryItem, PointHistoryScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 积分历史/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PointHistoryItem, PointHistoryScreenProps }
@@ -43,9 +44,7 @@ export function PointHistoryScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<PointHistoryItem>
           data={items}
@@ -54,9 +53,7 @@ export function PointHistoryScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('pointHistory.empty')}</Text>
-            </View>
+            <EmptyState title={t('pointHistory.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -100,8 +97,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 14 },
     separator: { height: 8 },
     card: {

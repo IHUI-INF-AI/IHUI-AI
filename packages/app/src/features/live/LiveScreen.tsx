@@ -4,10 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LiveScreenItem, LiveScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 直播屏/Props 类型 re-export(单一来源 @ihui/types) */
 export type { LiveScreenItem, LiveScreenProps }
@@ -60,33 +61,24 @@ export function LiveScreen({
       {showError ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<LiveScreenItem>
           data={items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={[
-            styles.listBody,
-            { paddingBottom: contentBottomPadding },
-          ]}
+          contentContainerStyle={[styles.listBody, { paddingBottom: contentBottomPadding }]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            showError ? null : (
-              <View style={styles.center}>
-                <Text style={styles.muted}>{t('live.empty')}</Text>
-              </View>
-            )
+            showError ? null : <EmptyState title={t('live.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => {
             const key = statusKey(item)
             return (
-              <TouchableOpacity
-                style={styles.card}
+              <PressableCard
+                style={[styles.card, { backgroundColor: 'transparent' }]}
                 onPress={() => onPressItem(item.id)}
-                activeOpacity={0.7}
+                colorScheme={colorScheme}
               >
                 <View style={styles.titleRow}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
@@ -109,7 +101,7 @@ export function LiveScreen({
                     {t('live.viewerCount', { count: item.viewCount })}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </PressableCard>
             )
           }}
         />
@@ -130,8 +122,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     errorText: { paddingHorizontal: 16, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { paddingHorizontal: 10, paddingVertical: 16 },
     separator: { height: 12 },
     card: {
