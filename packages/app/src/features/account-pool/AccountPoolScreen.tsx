@@ -3,18 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { Plus, Wallet } from 'lucide-react-native'
 import { getTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
 import { createAccountPoolStyles } from './account-pool-styles'
 import { AccountPoolRowCard } from './account-pool-row'
@@ -112,17 +106,15 @@ export function AccountPoolScreen({
         </View>
 
         {loading ? (
-          <ActivityIndicator color={tk.brand.DEFAULT ?? tk.text.secondary} />
+          <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
         ) : rows.length === 0 ? (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{t('accountPool.empty')}</Text>
-            <Text style={styles.muted}>{t('accountPool.emptyHint')}</Text>
-            {onBackToCheckin ? (
-              <TouchableOpacity style={styles.linkBtn} onPress={onBackToCheckin}>
-                <Text style={styles.linkText}>{t('accountPool.backToCheckin')}</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
+          <EmptyState
+            title={t('accountPool.empty')}
+            desc={t('accountPool.emptyHint')}
+            actionLabel={onBackToCheckin ? t('accountPool.backToCheckin') : undefined}
+            onAction={onBackToCheckin}
+            colorScheme={colorScheme}
+          />
         ) : (
           rows.map((row) => (
             <AccountPoolRowCard

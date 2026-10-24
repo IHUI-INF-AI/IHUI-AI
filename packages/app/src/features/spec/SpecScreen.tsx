@@ -18,6 +18,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * SpecScreen 规范模板库(共享层)
@@ -100,9 +101,9 @@ export function SpecScreen({
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {loading ? (
-          <Text style={styles.hintCenter}>{t('common.loading')}</Text>
+          <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
         ) : templates.length === 0 ? (
-          <Text style={styles.hintCenter}>{t('spec.empty')}</Text>
+          <EmptyState title={t('spec.empty')} colorScheme={colorScheme} />
         ) : (
           <View style={styles.stackGapLg}>
             {templates.map((tpl) => (
@@ -234,12 +235,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     stackGapLg: {
       gap: 12, // gap-3
-    },
-    hintCenter: {
-      marginTop: 32, // mt-8
-      textAlign: 'center',
-      fontSize: 14, // text-sm
-      color: tk.text.tertiary, // text-gray-400
     },
     /* 模板卡 */
     card: {

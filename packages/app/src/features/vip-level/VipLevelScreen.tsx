@@ -9,11 +9,11 @@
  * 以及 loading / error 态。平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
  */
 import { useMemo } from 'react'
-import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
+import { ScrollView, Text, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipLevelScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 export function VipLevelScreen({
   t,
@@ -28,25 +28,20 @@ export function VipLevelScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error || t('vipLevel.empty')}</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={onBack}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.text.medium} />
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error || t('vipLevel.empty')}
+        onRetry={onBack}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -99,10 +94,6 @@ function createStyles(tk: AppThemeTokens) {
     value: { fontSize: 14, color: tk.text.primary, fontWeight: '500' },
     benefitsTitle: { marginTop: 16, fontSize: 16, fontWeight: '700', color: tk.text.primary },
     benefits: { marginTop: 8, fontSize: 14, color: tk.text.medium, lineHeight: 22 },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 14 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
-    backBtn: { marginTop: 12 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

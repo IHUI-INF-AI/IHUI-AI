@@ -6,10 +6,10 @@ import { rnRadius } from '@ihui/design-tokens'
 /** 证书详情共享屏 — props 注入式跨端组件 */
 import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CertDetailScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * 证书详情共享屏 — 平台无关 UI 渲染。
@@ -32,24 +32,22 @@ export function CertDetailScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error || t('certDetail.loadFailed')}</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={onBack}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.text.medium} />
-        </TouchableOpacity>
+      <View style={styles.container}>
+        {/* 原错误/空态只有「返回」一个动作,这里如实沿用该动作(不新增键) */}
+        <ErrorState
+          message={error || t('certDetail.loadFailed')}
+          onRetry={onBack}
+          retryLabel={t('common.back')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -132,10 +130,6 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
     },
     verifyText: { fontSize: 16, fontWeight: '600', color: tk.success.DEFAULT },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
-    backBtn: { marginTop: 12 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

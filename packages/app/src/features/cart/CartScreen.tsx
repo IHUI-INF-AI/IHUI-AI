@@ -3,10 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native'
-import { Check, Minus, Package, Plus, ShoppingCart, Trash2 } from 'lucide-react-native'
+import { FlatList, Image, Pressable, Text, View } from 'react-native'
+import { Check, Minus, Package, Plus, Trash2 } from 'lucide-react-native'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createCartStyles } from './cart-styles'
 
 /**
@@ -140,21 +141,16 @@ export function CartScreen({
   )
 
   const emptyState = loading ? (
-    <View style={styles.center}>
-      <ActivityIndicator color={tk.text.secondary} />
-    </View>
+    <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
   ) : error ? (
-    <View style={styles.center}>
-      <Text style={styles.emptyText}>{t('cart.loadFailed')}</Text>
-      <Pressable style={styles.retryBtn} onPress={onRetry}>
-        <Text style={styles.retryText}>{t('common.retry')}</Text>
-      </Pressable>
-    </View>
+    <ErrorState
+      message={t('cart.loadFailed')}
+      onRetry={onRetry}
+      retryLabel={t('common.retry')}
+      colorScheme={colorScheme}
+    />
   ) : (
-    <View style={styles.center}>
-      <ShoppingCart size={40} color={tk.text.tertiary} strokeWidth={2} />
-      <Text style={styles.emptyText}>{t('cart.empty')}</Text>
-    </View>
+    <EmptyState title={t('cart.empty')} colorScheme={colorScheme} />
   )
 
   return (

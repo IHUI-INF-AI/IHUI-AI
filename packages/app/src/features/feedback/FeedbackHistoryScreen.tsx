@@ -4,10 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import type { FeedbackHistoryScreenProps, FeedbackStatus } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 export function FeedbackHistoryScreen({
   t,
@@ -40,24 +41,21 @@ export function FeedbackHistoryScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {items.length === 0 ? (
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('feedbackHistory.empty')}</Text>
-            </View>
+            <EmptyState title={t('feedbackHistory.empty')} colorScheme={colorScheme} />
           ) : (
             items.map((item) => (
-              <TouchableOpacity
+              <PressableCard
                 key={item.id}
                 style={styles.card}
                 onPress={() => onPressItem(item.id)}
+                colorScheme={colorScheme}
               >
                 <View style={styles.titleRow}>
                   <Text style={styles.cardType}>{item.type}</Text>
@@ -71,7 +69,7 @@ export function FeedbackHistoryScreen({
                 <Text style={styles.cardTime}>
                   {t('feedbackHistory.createdAt')}: {item.createdAt}
                 </Text>
-              </TouchableOpacity>
+              </PressableCard>
             ))
           )}
         </ScrollView>
@@ -92,8 +90,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 14 },
     card: {
       padding: 14,

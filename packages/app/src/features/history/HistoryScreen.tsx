@@ -8,6 +8,7 @@ import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { HistoryItem, HistoryScreenProps, HistoryTargetType } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * 浏览历史共享屏 — props 注入式跨端组件
@@ -62,25 +63,21 @@ export function HistoryScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {items.length === 0 ? (
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('history.empty')}</Text>
-            </View>
+            <EmptyState title={t('history.empty')} colorScheme={colorScheme} />
           ) : (
             items.map((item: HistoryItem) => (
-              <TouchableOpacity
+              <PressableCard
                 key={item.id}
                 style={styles.card}
                 onPress={() => onPressItem(item)}
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                colorScheme={colorScheme}
               >
                 <View style={styles.cardHead}>
                   <Text style={styles.cardType}>{typeLabel(item.targetType)}</Text>
@@ -89,7 +86,7 @@ export function HistoryScreen({
                 <Text style={styles.cardTitle} numberOfLines={2}>
                   {item.title}
                 </Text>
-              </TouchableOpacity>
+              </PressableCard>
             ))
           )}
         </ScrollView>
@@ -111,8 +108,6 @@ function createStyles(tk: AppThemeTokens) {
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     refreshText: { fontSize: 14, color: tk.success.DEFAULT },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
     card: {
       padding: 12,

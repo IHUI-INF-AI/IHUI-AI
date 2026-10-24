@@ -4,18 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
+import { ScrollView, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * 文档详情(结构对齐 @ihui/api-client KnowledgeDocDetail,wrapper 直接传其值)。
@@ -88,8 +81,8 @@ export function KnowledgeDocScreen({
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <Text style={styles.loadingText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -107,12 +100,12 @@ export function KnowledgeDocScreen({
 
       <ScrollView style={styles.scroll}>
         {error ? (
-          <View style={styles.errorWrap}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
-              <Text style={styles.retryText}>{t('knowledgeDoc.retry')}</Text>
-            </TouchableOpacity>
-          </View>
+          <ErrorState
+            message={error}
+            onRetry={onRetry}
+            retryLabel={t('knowledgeDoc.retry')}
+            colorScheme={colorScheme}
+          />
         ) : doc ? (
           <>
             <Text style={styles.metaText}>
@@ -150,15 +143,6 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-    },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    loadingText: {
-      fontSize: 14,
-      color: tk.text.secondary,
     },
     /* 顶部导航行 */
     headerBar: {
@@ -216,27 +200,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 14,
       lineHeight: 24,
       color: tk.text.medium,
-    },
-    /* 错误态 */
-    errorWrap: {
-      alignItems: 'center',
-      paddingVertical: 64,
-    },
-    errorText: {
-      fontSize: 14,
-      textAlign: 'center',
-      color: tk.text.secondary,
-    },
-    retryBtn: {
-      marginTop: 12,
-      borderRadius: rnRadius.sm,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      backgroundColor: tk.surface.muted,
-    },
-    retryText: {
-      fontSize: 14,
-      color: tk.text.primary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

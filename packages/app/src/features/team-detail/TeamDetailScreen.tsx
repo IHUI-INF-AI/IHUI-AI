@@ -3,12 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TeamDetailScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** TeamDetailScreen props re-export(单一来源 @ihui/types) */
 export type { TeamDetailScreenProps }
@@ -64,30 +65,23 @@ export function TeamDetailScreen({
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('teamDetail.title') || '团队成员详情'}</Text>
         </View>
-        <View style={styles.center}>
-          {loading ? (
-            <ActivityIndicator size="small" color={tk.brand.DEFAULT} />
-          ) : (
-            <>
-              <Text style={styles.emptyText}>
-                {error || t('teamDetail.empty') || '暂无成员信息'}
-              </Text>
-              {onRetry ? (
-                // 按压态样式**不得写在 Pressable 的 style 上**(守门 131 那一型):Pressable 注册过
-                // cssInterop,函数形态声明被 `{ ...declaration }` 清成 `{}`,整份内联样式静默消失。
-                // retryBtn 的 padding/height 自己定义盒子,外层在 center(column,alignItems center)
-                // 里 hug 内容 ⇒ 内层承载后盒子尺寸与位置逐像素不变。
-                <Pressable onPress={onRetry} accessibilityRole="button">
-                  {({ pressed }) => (
-                    <View style={[styles.retryBtn, pressed ? styles.pressed : null]}>
-                      <Text style={styles.retryText}>{t('common.retry') || '重试'}</Text>
-                    </View>
-                  )}
-                </Pressable>
-              ) : null}
-            </>
-          )}
-        </View>
+        {loading ? (
+          <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
+        ) : error ? (
+          <ErrorState
+            message={error}
+            onRetry={onRetry}
+            retryLabel={t('common.retry')}
+            colorScheme={colorScheme}
+          />
+        ) : (
+          <EmptyState
+            title={t('teamDetail.empty') || '暂无成员信息'}
+            actionLabel={t('common.retry')}
+            onAction={onRetry}
+            colorScheme={colorScheme}
+          />
+        )}
       </View>
     )
   }
@@ -220,17 +214,6 @@ function createStyles(tk: AppThemeTokens) {
     actionBtnText: { fontSize: 16, fontWeight: '500', color: tk.text.primary },
     actionBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     pressed: { opacity: 0.85 },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
-    emptyText: { fontSize: 14, color: tk.text.secondary, textAlign: 'center' },
-    retryBtn: {
-      paddingHorizontal: 20,
-      height: 36,
-      borderRadius: rnRadius.sm,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.brand.cta,
-    },
-    retryText: { fontSize: 14, fontWeight: '500', color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

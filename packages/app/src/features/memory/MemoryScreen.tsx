@@ -21,6 +21,7 @@ import type { TFunction } from '../../types'
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** MemoryScreen props(注入式:wrapper 保留 fetchApi/Alert/导航/登录态) */
 export interface MemoryScreenProps {
@@ -212,11 +213,7 @@ export function MemoryScreen({
   }
 
   if (loading) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <Text style={styles.mutedText}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
   }
 
   if (!loggedIn) {
@@ -238,12 +235,12 @@ export function MemoryScreen({
       </View>
 
       {error ? (
-        <View style={styles.errorWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
-            <Text style={styles.retryText}>{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <FlatList
           data={entries}
@@ -300,10 +297,11 @@ export function MemoryScreen({
             </View>
           }
           ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>{t('memory.empty')}</Text>
-              <Text style={styles.emptyHint}>{t('memory.emptyHint')}</Text>
-            </View>
+            <EmptyState
+              title={t('memory.empty')}
+              desc={t('memory.emptyHint')}
+              colorScheme={colorScheme}
+            />
           }
           contentContainerStyle={styles.listContent}
           renderItem={renderEntry}
@@ -438,29 +436,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '500',
       color: tk.brand.DEFAULT,
     },
-    /* 错误态 */
-    errorWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-    },
-    errorText: {
-      marginBottom: 12,
-      textAlign: 'center',
-      fontSize: 14,
-      color: tk.text.secondary,
-    },
-    retryBtn: {
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.surface.muted,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-    },
-    retryText: {
-      fontSize: 14,
-      color: tk.text.primary,
-    },
     listContent: {
       padding: 16,
     },
@@ -577,20 +552,6 @@ function createStyles(tk: AppThemeTokens) {
     detailText: {
       fontSize: 12,
       color: tk.text.secondary,
-    },
-    /* 空态 */
-    emptyWrap: {
-      alignItems: 'center',
-      paddingVertical: 64,
-    },
-    emptyText: {
-      fontSize: 14,
-      color: tk.text.secondary,
-    },
-    emptyHint: {
-      marginTop: 4,
-      fontSize: 12,
-      color: tk.text.tertiary,
     },
     /* 新建记忆弹层 */
     overlay: {
