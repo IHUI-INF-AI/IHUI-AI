@@ -884,7 +884,8 @@
     "notes": {
       "loadFailShort": "加载失败",
       "recordNew": "新建录音"
-    }
+    },
+    "thinkingShort": "思考中"
   },
   "settings": {
     "title": "设置",
@@ -1514,7 +1515,19 @@
     "remarkPlaceholder": "请输入备注",
     "shareNow": "立即分享",
     "title": "分享",
-    "url": "链接"
+    "url": "链接",
+    "brandCommunity": "智汇AI社区",
+    "copiedWx": "已复制链接,请在微信中粘贴分享",
+    "linkCopied": "链接已复制",
+    "copyFailManual": "复制失败,请手动访问 {url}",
+    "sentFriend": "已分享给微信好友",
+    "sentMoments": "已分享到朋友圈",
+    "sheetCloseA11y": "点击关闭分享面板",
+    "toFriendA11y": "分享到微信好友",
+    "toMomentsA11y": "分享到朋友圈",
+    "copyLinkA11y": "复制分享链接",
+    "cancelA11y": "取消分享",
+    "defaultDesc": "来智汇AI社区，一起玩转 AI"
   },
   "vipScreen": {
     "plans": {
@@ -3902,7 +3915,16 @@
     "paidAt": "支付时间",
     "product": "商品",
     "status": "订单状态",
-    "title": "订单详情"
+    "title": "订单详情",
+    "contactSeller": "联系卖家",
+    "contactBody": "如有问题请联系客服微信：aizhs_kefu",
+    "payNow": "立即支付",
+    "buyAgain": "再次购买",
+    "paidTitle": "购买成功",
+    "paidSub": "请仔细阅读购买须知，享受您的权益",
+    "paidLine1": "订单已支付成功，请妥善保管凭证",
+    "paidLine2": "如需退款请在 7 天内申请",
+    "paidLine3": "专属客服 24 小时在线服务"
   },
   "pointHistory": {
     "balance": "积分余额",
@@ -5265,7 +5287,8 @@
     "unknown": "未知错误",
     "deleteTitle": "删除素材",
     "deleteBody": "确认删除「{title}」？",
-    "detailLabel": "素材详情"
+    "detailLabel": "素材详情",
+    "btnDetail": "详情"
   },
   "topup": {
     "failDefault": "充值未完成，请稍后重试"
@@ -5503,6 +5526,91 @@
     "holdToTalk": "按住说话",
     "clearResult": "清除结果",
     "releaseEnd": " 松开结束",
-    "transcribing": "转写中…"
+    "transcribing": "转写中…",
+    "realStart": "开始实时语音",
+    "realConnecting": "连接中...",
+    "realLive": "实时语音进行中",
+    "reconnect": "重新连接",
+    "realFailDefault": "连接失败,请重试"
+  },
+  "material": {
+    "cText": "文本内容",
+    "cImage": "图片内容",
+    "cVideo": "视频内容",
+    "cAudio": "音频内容",
+    "cDefault": "素材内容",
+    "eText": "暂无文本内容",
+    "eImage": "暂无图片内容",
+    "eVideo": "暂无视频内容",
+    "eAudio": "暂无音频素材",
+    "eDefault": "暂无内容",
+    "detailA11y": "查看详情"
+  },
+  "article": {
+    "commentPh": "写下你的评论...",
+    "loadCommentsFail": "评论加载失败",
+    "commentFail": "评论失败",
+    "send": "发送",
+    "commentFailRetry": "评论失败，请重试"
+  },
+  "comment": {
+    "send": "发表评论",
+    "empty": "暂无评论,快来抢沙发",
+    "close": "关闭评论"
+  },
+  "businesscard": {
+    "unnamed": "未命名",
+    "loadFailBody": "加载失败",
+    "shareWechat": "微信好友",
+    "shareMoments": "朋友圈",
+    "needAlbum": "需要相册权限才能选择名片图片",
+    "uploadFail": "名片图片上传失败",
+    "okTitle": "成功",
+    "updated": "名片已更新",
+    "submitFail": "名片提交失败",
+    "customFail": "名片定制失败，请重试"
+  },
+  "model": {
+    "type0": "全能",
+    "type1": "对话",
+    "type2": "图片",
+    "type3": "视频",
+    "type4": "音频",
+    "type5": "数字人",
+    "agentMode": "Agent模式"
+  },
+  "aiCard": {
+    "tFreeVip": "会员免费",
+    "tFreeUse": "免费使用",
+    "tFreeLimit": "限时免费",
+    "tBought": "已购买",
+    "tMonth": "包月",
+    "btnWarn": "警告",
+    "btnDislike": "踩",
+    "btnFav": "收藏",
+    "btnInfo": "信息",
+    "btnShare": "分享",
+    "officialFallback": "智汇社区-官方",
+    "buyTime": "购买时间：{t0}",
+    "expireTime": "　到期时间：{t1}"
+  },
+  "viptrader": {
+    "productName": "VIP 操盘手",
+    "teamCount": "团队人数",
+    "activeTrend": "活跃 {n}",
+    "totalCommission": "累计佣金",
+    "rankTrend": "排名 #{n}",
+    "monthIncome": "本月收益",
+    "withdrawnTrend": "已提现 {v}",
+    "pendingIncome": "待结算",
+    "frozenTrend": "冻结 {v}",
+    "myInviteCode": "我的邀请码",
+    "invitedTrend": "已邀请 {n} 人",
+    "distLevel": "分销等级",
+    "rateTrend": "佣金比例 {n}%"
+  },
+  "contact": {
+    "phoneLabel": "电话：",
+    "wechatLabel": "微信："
   }
 }
