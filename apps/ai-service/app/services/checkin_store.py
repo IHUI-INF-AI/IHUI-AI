@@ -594,7 +594,7 @@ def derive_account_identity(
 # ---------------------------------------------------------------------------
 
 
-async def clear_open_cooldowns_conn(conn: "asyncpg.Connection", account_id: int) -> str:
+async def clear_open_cooldowns_conn(conn: asyncpg.Connection, account_id: int) -> str:
     """把该账号**未到期**的冷却记录置回 NULL,返回 asyncpg 状态串(如 'UPDATE 2')。
 
     冷却不单独建表(见 get_active_cooldowns:取 max(cooldown_until) > now()),所以
