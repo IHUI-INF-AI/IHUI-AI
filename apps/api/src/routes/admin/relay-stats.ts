@@ -15,6 +15,7 @@
  * 时区:业务"今日"按 Asia/Shanghai 计算日界,避免 UTC 漏算。
  */
 import type { FastifyPluginAsync } from 'fastify'
+import { bizDayStartUtc } from '../../utils/biz-day.js'
 import { z } from 'zod'
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm'
 import { dbRead } from '../../db/index.js'
@@ -39,19 +40,7 @@ interface RangeAggregate {
   errorRate: number
 }
 
-// ===== 时区工具:Asia/Shanghai 日界(UTC 表示)=====
-// Shanghai = UTC+8。Shanghai 当天 00:00 对应的 UTC 时间 = Date.UTC(y,m,d) - 8h。
-function shanghaiDayStartUtc(daysAgo = 0): Date {
-  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() - daysAgo,
-    ) -
-      8 * 3600 * 1000,
-  )
-}
+// 业务日界唯一出口在 utils/biz-day.ts(守门 246 拦第二份副本)
 
 // ===== 聚合查询:指定 [start, end) 区间 =====
 async function aggregatePeriod(start: Date, end: Date): Promise<PeriodAggregate> {
@@ -117,10 +106,10 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
   // ===== 1. GET /relay/stats/overview =====
   server.get('/relay/stats/overview', async (request, reply) => {
     try {
-      const todayStart = shanghaiDayStartUtc(0)
-      const yesterdayStart = shanghaiDayStartUtc(1)
-      const last7dStart = shanghaiDayStartUtc(6)
-      const last30dStart = shanghaiDayStartUtc(29)
+      const todayStart = bizDayStartUtc(0)
+      const yesterdayStart = bizDayStartUtc(1)
+      const last7dStart = bizDayStartUtc(6)
+      const last30dStart = bizDayStartUtc(29)
       // 区间上界用"现在"(实时监控),下界用对应天数前的 Shanghai 日界
       const now = new Date()
 
@@ -153,7 +142,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
   // ===== 2. GET /relay/stats/model-distribution =====
   server.get('/relay/stats/model-distribution', async (request, reply) => {
     try {
-      const todayStart = shanghaiDayStartUtc(0)
+      const todayStart = bizDayStartUtc(0)
       const now = new Date()
       const rows = await dbRead
         .select({
@@ -205,7 +194,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { days } = q.data
     try {
-      const start = shanghaiDayStartUtc(days - 1)
+      const start = bizDayStartUtc(days - 1)
       const now = new Date()
       const dayCol = sql<string>`to_char(${llmCallLogs.createdAt} AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`
       const rows = await dbRead
@@ -233,7 +222,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
         avgLatencyMs: number
       }> = []
       for (let i = days - 1; i >= 0; i--) {
-        const d = shanghaiDayStartUtc(i)
+        const d = bizDayStartUtc(i)
         const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
         const r = byDate.get(key)
         const callCount = r?.callCount ?? 0
@@ -261,7 +250,7 @@ const relayStatsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
     const { limit } = q.data
     try {
-      const todayStart = shanghaiDayStartUtc(0)
+      const todayStart = bizDayStartUtc(0)
       const now = new Date()
       const rows = await dbRead
         .select({
