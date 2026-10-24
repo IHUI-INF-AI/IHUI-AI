@@ -1,7 +1,7 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-import { rnRadius, rnRadiusFor, rnGeometry } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnGeometry, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -314,14 +314,19 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: pageBg },
     bodyScroll: { flex: 1 },
-    body: { paddingHorizontal: 10, paddingTop: 12, paddingBottom: 24, gap: 16 },
+    body: {
+      paddingHorizontal: 10,
+      paddingTop: rnSpacing.md,
+      paddingBottom: rnSpacing['2xl'],
+      gap: rnSpacing.lg,
+    },
     userCard: {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.muted,
-      gap: 12,
+      gap: rnSpacing.md,
     },
     avatar: {
       width: 48,
@@ -331,12 +336,16 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    avatarText: { fontSize: 20, fontWeight: '700', color: tk.brandAccent.foreground },
+    avatarText: {
+      fontSize: rnType.heading.size,
+      fontWeight: '700',
+      color: tk.brandAccent.foreground,
+    },
     userMeta: { flex: 1, gap: 2 },
-    nickname: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    subText: { fontSize: 14, color: tk.text.secondary },
-    section: { gap: 8 },
-    sectionTitle: { fontSize: 14, color: sectionTitleColor },
+    nickname: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    subText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    section: { gap: rnSpacing.sm },
+    sectionTitle: { fontSize: rnType.body.size, color: sectionTitleColor },
     sectionCard: {
       borderRadius: rnRadius.lg,
       backgroundColor: divider,
@@ -349,35 +358,40 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       justifyContent: 'space-between',
       minHeight: 60,
       paddingVertical: 14,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       backgroundColor: cardBg,
     },
-    rowLabel: { fontSize: 16, color: rowLabelColor },
-    checkMark: { fontSize: 16, color: tk.brandAccent.deep, fontWeight: '700' },
+    rowLabel: { fontSize: rnType.title.size, color: rowLabelColor },
+    checkMark: { fontSize: rnType.title.size, color: tk.brandAccent.deep, fontWeight: '700' },
     switchRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       minHeight: 60,
       paddingVertical: 14,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       backgroundColor: cardBg,
     },
     logoutBtn: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       height: 50,
       borderRadius: rnRadius.sm,
       backgroundColor: cardBg,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    logoutText: { fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
-    versionText: { textAlign: 'center', fontSize: 12, color: tk.text.tertiary, marginTop: 4 },
+    logoutText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.danger.DEFAULT },
+    versionText: {
+      textAlign: 'center',
+      fontSize: rnType.label.size,
+      color: tk.text.tertiary,
+      marginTop: rnSpacing.xs,
+    },
     modalOverlay: {
       flex: 1,
       backgroundColor: tk.overlay.modal,
       justifyContent: 'center',
-      padding: 24,
+      padding: rnSpacing['2xl'],
     },
     modalCard: {
       backgroundColor: tk.surface.bg,
@@ -385,14 +399,19 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       padding: 14,
       gap: 10,
     },
-    modalTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 4 },
+    modalTitle: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      marginBottom: rnSpacing.xs,
+    },
     pwdInput: {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     },
     modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
@@ -404,9 +423,17 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       justifyContent: 'center',
     },
     modalBtnSecondary: { backgroundColor: tk.surface.card },
-    modalBtnSecondaryText: { fontSize: 16, fontWeight: '600', color: tk.text.medium },
+    modalBtnSecondaryText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.medium,
+    },
     modalBtnPrimary: { backgroundColor: tk.brandAccent.DEFAULT },
-    modalBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: tk.brandAccent.foreground },
+    modalBtnPrimaryText: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.brandAccent.foreground,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -34,7 +34,7 @@ import {
   Zap,
 } from 'lucide-react-native'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -226,12 +226,12 @@ export function VipTraderScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.light },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    title: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    subtitle: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
     heroCard: {
-      marginHorizontal: 16,
-      marginTop: 8,
+      marginHorizontal: rnSpacing.lg,
+      marginTop: rnSpacing.sm,
       padding: 14,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.dark,
@@ -239,16 +239,20 @@ function createStyles(tk: AppThemeTokens) {
     heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     heroBadge: {
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.md,
       backgroundColor: 'rgba(255,215,0,0.18)',
     },
-    heroBadgeText: { fontSize: 11, fontWeight: '600', color: tk.warning.amber },
-    heroPrice: { fontSize: 24, fontWeight: '700', color: tk.warning.amber },
-    heroDesc: { marginTop: 8, fontSize: 14, color: 'rgba(255,255,255,0.7)' },
+    heroBadgeText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.warning.amber },
+    heroPrice: { fontSize: rnType.display.size, fontWeight: '700', color: tk.warning.amber },
+    heroDesc: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: 'rgba(255,255,255,0.7)',
+    },
     statCard: {
-      marginHorizontal: 16,
-      marginTop: 12,
+      marginHorizontal: rnSpacing.lg,
+      marginTop: rnSpacing.md,
       padding: 14,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
@@ -257,29 +261,34 @@ function createStyles(tk: AppThemeTokens) {
       flexWrap: 'wrap',
     },
     statCol: { width: '50%', paddingVertical: 6 },
-    statLabel: { fontSize: 11, color: tk.text.secondary },
-    statValue: { marginTop: 8, fontSize: 18, fontWeight: '700', color: tk.text.primary },
-    statTrend: { marginTop: 8, fontSize: 11, color: tk.brand.DEFAULT },
-    entryRow: { marginHorizontal: 16, marginTop: 12, flexDirection: 'row' },
+    statLabel: { fontSize: rnType.caption.size, color: tk.text.secondary },
+    statValue: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    statTrend: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.brand.DEFAULT },
+    entryRow: { marginHorizontal: rnSpacing.lg, marginTop: rnSpacing.md, flexDirection: 'row' },
     entryBtn: {
       flex: 1,
-      marginHorizontal: 8,
+      marginHorizontal: rnSpacing.sm,
       paddingVertical: 14,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
     },
-    entryIcon: { fontSize: 20 },
-    entryText: { marginTop: 8, fontSize: 14, color: tk.text.medium },
+    entryIcon: { fontSize: rnType.heading.size },
+    entryText: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.medium },
     sectionHead: {
-      marginHorizontal: 16,
+      marginHorizontal: rnSpacing.lg,
       marginTop: 18,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
-    sectionTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    sectionCount: { fontSize: 11, color: tk.text.tertiary },
+    sectionTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
+    sectionCount: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     featureList: { paddingHorizontal: 10, paddingTop: 10 },
     featureGap: { height: 12 },
     featureItem: {
@@ -299,8 +308,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       marginRight: 10,
     },
-    featureIconText: { fontSize: 18 },
-    featureTitle: { flex: 1, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
+    featureIconText: { fontSize: rnType.subtitle.size },
+    featureTitle: { flex: 1, fontSize: rnType.body.size, color: tk.text.medium, lineHeight: 18 },
     footPlaceholder: { height: 88 },
     footer: {
       position: 'absolute',
@@ -311,7 +320,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'space-between',
       paddingHorizontal: 10,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       backgroundColor: tk.surface.light,
       shadowColor: tk.gray.black,
       shadowOpacity: 0.06,
@@ -320,9 +329,9 @@ function createStyles(tk: AppThemeTokens) {
       elevation: 8,
     },
     footLeft: { flexDirection: 'row', alignItems: 'baseline' },
-    footSymbol: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    footSymbol: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     footPrice: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    footHint: { fontSize: 11, color: tk.text.tertiary },
+    footHint: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     buyBtn: {
       paddingHorizontal: 22,
       height: 44,
@@ -332,7 +341,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     buyBtnDone: { backgroundColor: tk.text.tertiary },
-    buyBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    buyBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
