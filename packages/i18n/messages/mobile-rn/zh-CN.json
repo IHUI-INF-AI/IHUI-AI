@@ -1049,7 +1049,8 @@
     "catRpa": "RPA",
     "catCode": "编程",
     "catMusic": "音乐",
-    "catOther": "其他"
+    "catOther": "其他",
+    "catCopyShort": "文案"
   },
   "drawer": {
     "newChat": "新建任务",
@@ -1527,7 +1528,12 @@
     "toMomentsA11y": "分享到朋友圈",
     "copyLinkA11y": "复制分享链接",
     "cancelA11y": "取消分享",
-    "defaultDesc": "来智汇AI社区，一起玩转 AI"
+    "defaultDesc": "来智汇AI社区，一起玩转 AI",
+    "contentDefault": "来看看这个 AI 内容",
+    "okSent": "分享成功",
+    "cancelled": "已取消分享",
+    "fail": "分享失败",
+    "needAlbum": "需要相册权限才能选择图片"
   },
   "vipScreen": {
     "plans": {
@@ -3523,7 +3529,8 @@
     "publish": "发布",
     "subtitle": "我的 AIGC 作品",
     "title": "AIGC 作品",
-    "videoBadge": "视频"
+    "videoBadge": "视频",
+    "catDoc": "文档"
   },
   "announcement": {
     "empty": "暂无公告",
@@ -5531,7 +5538,8 @@
     "realConnecting": "连接中...",
     "realLive": "实时语音进行中",
     "reconnect": "重新连接",
-    "realFailDefault": "连接失败,请重试"
+    "realFailDefault": "连接失败,请重试",
+    "inputDone": "语音输入完成"
   },
   "material": {
     "cText": "文本内容",
@@ -5612,5 +5620,70 @@
   "contact": {
     "phoneLabel": "电话：",
     "wechatLabel": "微信："
+  },
+  "account": {
+    "phoneRequired": "请输入手机号",
+    "phoneInvalid": "请输入正确的手机号",
+    "smsSent": "验证码已发送",
+    "smsFailRetry": "验证码发送失败，请稍后重试",
+    "smsRequired": "请输入短信验证码",
+    "smsMin": "验证码至少 4 位",
+    "confirmHint": "请输入「{s}」确认注销",
+    "failRetry": "提交失败，请稍后重试",
+    "okTitle": "注销成功",
+    "okBody": "您的账号已注销"
+  },
+  "subPkg": {
+    "devTitle": "开发者入驻",
+    "devDesc": "发布模型与应用",
+    "plazaTitle": "AI 需求广场",
+    "plazaDesc": "需求对接平台",
+    "topupTitle": "充值中心",
+    "topupDesc": "智汇值充值",
+    "homeTitle": "学习首页",
+    "homeDesc": "学习进度与计划",
+    "groupTitle": "AI 群组",
+    "groupDesc": "多 Agent 协作",
+    "aigcTitle": "AIGC 创作",
+    "aigcDesc": "AI 内容生成",
+    "courseDesc": "探索精选课程"
+  },
+  "annot": {
+    "penThin": "细",
+    "penMid": "中",
+    "penThick": "粗",
+    "closeA11y": "关闭标注",
+    "imageA11y": "待标注图片",
+    "composeA11y": "标注合成底图",
+    "penToolA11y": "画笔工具",
+    "textToolA11y": "文字工具",
+    "undoA11y": "撤销上一步",
+    "clearA11y": "清空标注",
+    "colorA11y": "切换画笔颜色",
+    "penLabel": "画笔{v}",
+    "markPh": "输入标记文字",
+    "markInputA11y": "标记文字输入",
+    "markAddA11y": "添加标记文字",
+    "markDropA11y": "放弃标记文字",
+    "modelEditSaveA11y": "保存标注"
+  },
+  "lp": {
+    "member": "会员",
+    "trader": "操盘手",
+    "normal": "普通用户",
+    "closeA11y": "关闭登录弹窗",
+    "oneLoginFail": "运营商一键登录失败，请手动输入手机号",
+    "nickRequired": "请输入昵称",
+    "nickTooLong": "昵称过长，不能超过 8 个字符",
+    "phoneInvalid": "请输入正确的手机号码",
+    "changeAvatarA11y": "更换头像",
+    "usernamePh": "请输入用户名",
+    "upgradeA11y": "立即升级",
+    "phonePh": "请输入电话号码",
+    "bindA11y": "绑定手机号",
+    "rebind": "重绑",
+    "bind": "绑定",
+    "saveA11y": "保存信息",
+    "logoutA11y": "登出"
   }
 }

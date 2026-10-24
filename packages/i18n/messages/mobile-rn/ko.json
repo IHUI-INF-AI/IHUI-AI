@@ -1049,7 +1049,8 @@
     "catRpa": "RPA",
     "catCode": "코딩",
     "catMusic": "음악",
-    "catOther": "기타"
+    "catOther": "기타",
+    "catCopyShort": "카피"
   },
   "drawer": {
     "newChat": "새 작업",
@@ -1527,7 +1528,12 @@
     "toMomentsA11y": "모멘트 공유",
     "copyLinkA11y": "링크 복사",
     "cancelA11y": "공유 취소",
-    "defaultDesc": "IHUI AI 커뮤니티 함께"
+    "defaultDesc": "IHUI AI 커뮤니티 함께",
+    "contentDefault": "이 AI 콘텐츠 보기",
+    "okSent": "공유됨",
+    "cancelled": "공유 취소됨",
+    "fail": "공유 실패",
+    "needAlbum": "앨범 권한 필요"
   },
   "vipScreen": {
     "plans": {
@@ -3523,7 +3529,8 @@
     "publish": "게시",
     "subtitle": "내 AIGC 작품",
     "title": "AIGC 작품",
-    "videoBadge": "비디오"
+    "videoBadge": "비디오",
+    "catDoc": "문서"
   },
   "announcement": {
     "empty": "공지사항이 없습니다",
@@ -5531,7 +5538,8 @@
     "realConnecting": "연결 중...",
     "realLive": "통화 중",
     "reconnect": "재연결",
-    "realFailDefault": "연결 실패 재시도"
+    "realFailDefault": "연결 실패 재시도",
+    "inputDone": "음성 입력 완료"
   },
   "material": {
     "cText": "텍스트 내용",
@@ -5612,5 +5620,70 @@
   "contact": {
     "phoneLabel": "전화: ",
     "wechatLabel": "위챗: "
+  },
+  "account": {
+    "phoneRequired": "번호 입력",
+    "phoneInvalid": "올바른 번호 입력",
+    "smsSent": "코드 발송됨",
+    "smsFailRetry": "코드 발송 실패 재시도",
+    "smsRequired": "SMS 코드 입력",
+    "smsMin": "코드는 4자 이상",
+    "confirmHint": "“{s}” 입력하여 해지",
+    "failRetry": "제출 실패 재시도",
+    "okTitle": "해지 완료",
+    "okBody": "계정이 해지되었습니다"
+  },
+  "subPkg": {
+    "devTitle": "개발자 입점",
+    "devDesc": "모델·앱 게시",
+    "plazaTitle": "AI 수요 광장",
+    "plazaDesc": "수요 매칭",
+    "topupTitle": "충전소",
+    "topupDesc": "포인트 충전",
+    "homeTitle": "학습 홈",
+    "homeDesc": "진도·계획",
+    "groupTitle": "AI 그룹",
+    "groupDesc": "다중 Agent 협업",
+    "aigcTitle": "AIGC 창작",
+    "aigcDesc": "AI 콘텐츠 생성",
+    "courseDesc": "추천 강의 탐색"
+  },
+  "annot": {
+    "penThin": "얇게",
+    "penMid": "보통",
+    "penThick": "굵게",
+    "closeA11y": "주석 닫기",
+    "imageA11y": "주석 대상 이미지",
+    "composeA11y": "합성 베이스",
+    "penToolA11y": "펜 도구",
+    "textToolA11y": "텍스트 도구",
+    "undoA11y": "실행 취소",
+    "clearA11y": "주석 지우기",
+    "colorA11y": "펜 색상 전환",
+    "penLabel": "펜 {v}",
+    "markPh": "라벨 입력",
+    "markInputA11y": "라벨 입력",
+    "markAddA11y": "라벨 추가",
+    "markDropA11y": "라벨 취소",
+    "modelEditSaveA11y": "주석 저장"
+  },
+  "lp": {
+    "member": "멤버",
+    "trader": "트레이더",
+    "normal": "일반 사용자",
+    "closeA11y": "로그인 창 닫기",
+    "oneLoginFail": "통신사 원클릭 실패, 직접 입력",
+    "nickRequired": "닉네임 입력",
+    "nickTooLong": "닉네임 너무 김(8자 이하)",
+    "phoneInvalid": "올바른 번호 입력",
+    "changeAvatarA11y": "아바타 변경",
+    "usernamePh": "사용자명 입력",
+    "upgradeA11y": "지금 업그레이드",
+    "phonePh": "번호 입력",
+    "bindA11y": "번호 연결",
+    "rebind": "재연결",
+    "bind": "연결",
+    "saveA11y": "정보 저장",
+    "logoutA11y": "로그아웃"
   }
 }

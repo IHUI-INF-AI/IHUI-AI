@@ -1049,7 +1049,8 @@
     "catRpa": "RPA",
     "catCode": "コーディング",
     "catMusic": "音楽",
-    "catOther": "その他"
+    "catOther": "その他",
+    "catCopyShort": "コピー"
   },
   "drawer": {
     "newChat": "新しいタスク",
@@ -1527,7 +1528,12 @@
     "toMomentsA11y": "モーメント共有",
     "copyLinkA11y": "リンクをコピー",
     "cancelA11y": "共有キャンセル",
-    "defaultDesc": "智汇AIコミュニティへ"
+    "defaultDesc": "智汇AIコミュニティへ",
+    "contentDefault": "この AI コンテンツを見る",
+    "okSent": "共有完了",
+    "cancelled": "共有をキャンセル",
+    "fail": "共有失敗",
+    "needAlbum": "アルバム権限が必要"
   },
   "vipScreen": {
     "plans": {
@@ -3523,7 +3529,8 @@
     "publish": "公開",
     "subtitle": "マイ AIGC 作品",
     "title": "AIGC 作品",
-    "videoBadge": "動画"
+    "videoBadge": "動画",
+    "catDoc": "ドキュメント"
   },
   "announcement": {
     "empty": "お知らせがありません",
@@ -5531,7 +5538,8 @@
     "realConnecting": "接続中...",
     "realLive": "通話中",
     "reconnect": "再接続",
-    "realFailDefault": "接続失敗。再試行"
+    "realFailDefault": "接続失敗。再試行",
+    "inputDone": "音声入力完了"
   },
   "material": {
     "cText": "テキスト内容",
@@ -5612,5 +5620,70 @@
   "contact": {
     "phoneLabel": "電話: ",
     "wechatLabel": "WeChat: "
+  },
+  "account": {
+    "phoneRequired": "電話番号を入力",
+    "phoneInvalid": "正しい電話番号を入力",
+    "smsSent": "コード送信済み",
+    "smsFailRetry": "コード送信失敗。再試行",
+    "smsRequired": "SMS コードを入力",
+    "smsMin": "コードは4文字以上",
+    "confirmHint": "「{s}」を入力して解約確認",
+    "failRetry": "送信失敗。再試行",
+    "okTitle": "解約完了",
+    "okBody": "アカウントを解約しました"
+  },
+  "subPkg": {
+    "devTitle": "開発者登録",
+    "devDesc": "モデルとアプリ公開",
+    "plazaTitle": "AI 需要プラザ",
+    "plazaDesc": "需要マッチング",
+    "topupTitle": "チャージ",
+    "topupDesc": "ポイント充值",
+    "homeTitle": "学習ホーム",
+    "homeDesc": "進捗と計画",
+    "groupTitle": "AI グループ",
+    "groupDesc": "複数Agent連携",
+    "aigcTitle": "AIGC 制作",
+    "aigcDesc": "AI コンテンツ生成",
+    "courseDesc": "おすすめ講座を探索"
+  },
+  "annot": {
+    "penThin": "細",
+    "penMid": "中",
+    "penThick": "太",
+    "closeA11y": "注釈を閉じる",
+    "imageA11y": "注釈対象画像",
+    "composeA11y": "合成ベース画像",
+    "penToolA11y": "ペンツール",
+    "textToolA11y": "テキストツール",
+    "undoA11y": "元に戻す",
+    "clearA11y": "注釈クリア",
+    "colorA11y": "Pen 色切替",
+    "penLabel": "ペン{v}",
+    "markPh": "ラベル入力",
+    "markInputA11y": "ラベル入力欄",
+    "markAddA11y": "ラベル追加",
+    "markDropA11y": "ラベル中止",
+    "modelEditSaveA11y": "注釈保存"
+  },
+  "lp": {
+    "member": "会員",
+    "trader": "トレーダー",
+    "normal": "一般会員",
+    "closeA11y": "ログイン閉じる",
+    "oneLoginFail": "キャリアログイン失敗。手動で番号入力",
+    "nickRequired": "ニックネームを入力",
+    "nickTooLong": "ニックネームが長すぎ(8文字まで)",
+    "phoneInvalid": "正しい電話番号を入力",
+    "changeAvatarA11y": "アバター変更",
+    "usernamePh": "ユーザー名を入力",
+    "upgradeA11y": "今すぐアップグレード",
+    "phonePh": "電話番号を入力",
+    "bindA11y": "電話番号紐付け",
+    "rebind": "再紐付け",
+    "bind": "紐付け",
+    "saveA11y": "情報を保存",
+    "logoutA11y": "ログアウト"
   }
 }
