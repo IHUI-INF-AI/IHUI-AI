@@ -1002,7 +1002,22 @@
     "catOffice": "Office",
     "catStudy": "Study",
     "loadFailed": "Load failed",
-    "chat": {
+  "chat": {
+    "assetCatText": "Text",
+    "assetCatImage": "Image",
+    "assetCatVideo": "Video",
+    "assetCatAudio": "Audio",
+    "menuSwitchModel": "Switch model",
+    "menuClear": "Clear chat",
+    "menuExport": "Export chat",
+    "menuShare": "Share chat",
+    "menuToVoice": "To voice",
+    "menuFavorite": "Favorite",
+    "menuMaterial": "Materials",
+    "menuVoiceNote": "Voice notes",
+    "menuWebLink": "Web link",
+    "menuFileUpload": "Upload file",
+    "menuHistory": "Chat history",
       "title": "Start Chat",
       "message": "Starting a chat with \"{name}\""
     }
