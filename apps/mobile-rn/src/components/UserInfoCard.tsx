@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -125,6 +126,7 @@ function UserInfoCardNew({
   onCopyInviteCode,
   onLevelIntro,
 }: UserInfoCardProps) {
+  const { t } = useI18n()
   const [levelModalVisible, setLevelModalVisible] = useState(false)
 
   // 未登录态:显示一键登录按钮
@@ -163,7 +165,7 @@ function UserInfoCardNew({
     if (onCopyInviteCode) {
       onCopyInviteCode(inviteCode)
     } else {
-      appAlert('邀请码', `邀请码:${inviteCode}\n(长按复制)`)
+      appAlert(t('invite.inviteCode'), t('uiCard.inviteCodeBody', { code: inviteCode }))
     }
   }
 
@@ -188,7 +190,9 @@ function UserInfoCardNew({
         <View style={newStyles.infoWrap}>
           <TouchableOpacity style={newStyles.nameRow} activeOpacity={0.7} onPress={onEdit}>
             <Text style={newStyles.name} numberOfLines={1} ellipsizeMode="tail">
-              {userInfo.username ? `AI IHUI丨${userInfo.username}` : '用户'}
+              {userInfo.username
+                ? t('uiCard.userGreet', { name: userInfo.username })
+                : t('common.user')}
             </Text>
             {showRechargeBtn ? <Text style={newStyles.editText}>编辑</Text> : null}
           </TouchableOpacity>
@@ -214,7 +218,7 @@ function UserInfoCardNew({
           activeOpacity={0.7}
           onPress={onLevelIntro}
           disabled={!onLevelIntro}
-          accessibilityLabel="成长值进度条,点击查看等级介绍"
+          accessibilityLabel={t('uiCard.growthA11y')}
           accessibilityRole="button"
         >
           <View style={newStyles.growthLabelWrap}>
@@ -282,15 +286,13 @@ function UserInfoCardNew({
         >
           <View style={newStyles.modalCard}>
             <Text style={newStyles.modalTitle}>
-              {vipLevel || (isVip ? 'VIP 会员' : '普通会员')}
+              {vipLevel || (isVip ? t('profile.levelVip') : t('memberBenefits.tnNormal'))}
             </Text>
             {isVip && vipExpireAt ? (
               <Text style={newStyles.modalExpireText}>到期时间:{formatDateTime(vipExpireAt)}</Text>
             ) : null}
             <Text style={newStyles.modalDesc}>
-              {isVip
-                ? '您当前为 VIP 会员,享受专属权益。继续积累成长值可升级至更高等级。'
-                : '您当前为普通会员,升级 VIP 可享受更多权益。'}
+              {isVip ? t('uiCard.vipBenefitBody') : t('uiCard.normalBenefitBody')}
             </Text>
             <View style={newStyles.modalBenefitList}>
               <Text style={newStyles.modalBenefitItem}>· AI 助手免费次数增加</Text>

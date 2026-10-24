@@ -1569,13 +1569,16 @@ export function HomeScreen() {
   )
 
   /** 智能体卡分享 → ShareSheet(标题随卡片) */
-  const handleAgentCardShare = useCallback((data: AiModelData) => {
-    setCardShareTarget({
-      title: `智汇AI社区 - ${data.name}`,
-      description: String(data.subname || ''),
-    })
-    setAssistantShareVisible(true)
-  }, [])
+  const handleAgentCardShare = useCallback(
+    (data: AiModelData) => {
+      setCardShareTarget({
+        title: t('home.shareBoardTitle', { name: data.name }),
+        description: String(data.subname || ''),
+      })
+      setAssistantShareVisible(true)
+    },
+    [t],
+  )
 
   /** FunctionBlockColumn 点击路由映射 */
   const onFunctionBlockPress = (id: string) => {
