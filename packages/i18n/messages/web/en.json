@@ -16228,6 +16228,27 @@
     "hostLocalAvailable": "Local Git channel still available"
   },
   "ide": {
+      "agentsMd": {
+        "title": "AGENTS.md",
+        "hint": "Scan the current workspace to draft collaboration conventions. Generating does not write to disk; you will be asked once more before writing.",
+        "generate": "Generate AGENTS.md draft",
+        "generateConfirmTitle": "Generate an AGENTS.md draft?",
+        "generateConfirmContent": "The current workspace will be scanned and a draft produced. The draft is shown here only; nothing is written to disk.",
+        "generating": "Scanning workspace…",
+        "generateFailed": "Failed to generate draft",
+        "draftTitle": "AGENTS.md draft (editable; written only after confirmation)",
+        "draftNotice": "Draft not yet written to disk",
+        "write": "Write AGENTS.md",
+        "writeConfirmTitle": "Write AGENTS.md?",
+        "writeConfirmContent": "This writes the content above to AGENTS.md in the workspace root; an existing file with the same name will be overwritten.",
+        "writing": "Writing…",
+        "writeFailed": "Write failed",
+        "written": "AGENTS.md written",
+        "discard": "Discard draft",
+        "errorEmptyWorkspace": "Workspace path is empty",
+        "errorRequestFailed": "AI service request failed",
+        "errorNoDraft": "The tool did not return a draft"
+      },
     "activityBar": {
       "applications": "Applications",
       "debug": "Debug",
@@ -22311,6 +22332,12 @@
     "title": "Services"
   },
   "settings": {
+      "expertRoute": {
+        "title": "Expert pack auto-routing",
+        "desc": "Detect the matching expert pack from this turn's intent, and choose how matches are handled.",
+        "default": "Default",
+        "envLockedNotice": "The deployment has disabled this capability through an environment variable, so it can only be viewed here and cannot be changed."
+      },
     "event2faDisabled": "Two-factor authentication disabled",
     "eventIpBlocked": "Login blocked by IP allowlist",
     "accountDeletionCancel": "Cancel Deletion",

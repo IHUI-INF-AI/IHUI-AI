@@ -16232,6 +16232,27 @@
     "hostLocalAvailable": "本地 Git 通道仍可用"
   },
   "ide": {
+      "agentsMd": {
+        "title": "AGENTS.md",
+        "hint": "掃描目前工作區產生協作約定草稿;產生不寫盤,寫入前還會再確認一次。",
+        "generate": "一鍵產生 AGENTS.md 草稿",
+        "generateConfirmTitle": "產生 AGENTS.md 草稿?",
+        "generateConfirmContent": "將掃描目前工作區並產生草稿。草稿只顯示在這裡,不會寫盤。",
+        "generating": "正在掃描工作區…",
+        "generateFailed": "產生草稿失敗",
+        "draftTitle": "AGENTS.md 草稿(可編輯,確認後才寫盤)",
+        "draftNotice": "草稿尚未寫盤",
+        "write": "寫入 AGENTS.md",
+        "writeConfirmTitle": "寫入 AGENTS.md?",
+        "writeConfirmContent": "將把上方內容寫入工作區根目錄的 AGENTS.md;同名檔案會被覆蓋。",
+        "writing": "正在寫入…",
+        "writeFailed": "寫入失敗",
+        "written": "已寫入 AGENTS.md",
+        "discard": "放棄草稿",
+        "errorEmptyWorkspace": "工作區路徑為空",
+        "errorRequestFailed": "AI 服務請求失敗",
+        "errorNoDraft": "工具未回傳草稿"
+      },
     "activityBar": {
       "applications": "應用",
       "debug": "調試",
@@ -22286,6 +22307,12 @@
     "title": "服務"
   },
   "settings": {
+      "expertRoute": {
+        "title": "專家包自動路由",
+        "desc": "依本輪使用者意圖辨識專家包,並決定命中結果的處理方式。",
+        "default": "預設",
+        "envLockedNotice": "部署方已透過環境變數關閉此能力,此處僅供檢視,無法修改。"
+      },
     "event2faDisabled": "已關閉兩步驗證",
     "eventIpBlocked": "登入被 IP 白名單封鎖",
     "accountDeletionCancel": "取消刪除",
