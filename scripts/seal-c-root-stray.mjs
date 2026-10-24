@@ -87,20 +87,43 @@ const REPO = resolve(HERE, '..')
  * (判据只此一份,`lib/gitdir.mjs` 吃的是同一个出口)拒绝"仓本身在夹具里"——那种情况下安静返回一个
  * 落在夹具内的 DevEnv 等于把 §26 唯一批准的临时物落点当成真外置根,错推导必须喊出来而不是被用下去。
  */
-export function devEnvRoot(repoRoot = REPO) {
-  const override = process.env.IHUI_DEVENV_ROOT
+/**
+ * 「机器级 DevEnv 根」的识别标记(2026-10-25 立,治"假根顶掉真根"):
+ * 只要命中任意一项,就说明这份根承载着**机器实体**(运行时/工具/凭据/缓存/日志/生产签出),
+ * 而不是某个器物临时建出来的空壳。
+ *
+ * 立因(当次实测):`mkScratch` 会主动创建 `<repo>/.DevEnv/Temp/ihui-scratch`(见
+ * lib/scratch-dir.mjs 的 G-158),于是"<repo>/.DevEnv 存在"**不再等于**搬迁已完成。
+ * 旧推导把"存在"当唯一前件 ⇒ scratch 自己把假根抬成真根,连带 `prodCheckoutRoot()` 解析成
+ * `D:/IHUI-AI/.DevEnv/ihui-prod`(不存在),部署停摆/凭据巡检永远「未判定」;git 锁归档
+ * 也从 `D:/DevEnv/backups/git` 滑进仓内。判"哪一份是机器根"必须看**内容证据**,不看目录在不在。
+ */
+export const MACHINE_DEV_ENV_MARKERS = ['runtimes', 'tools', 'secrets', 'cache', 'logs', 'ihui-prod']
+
+/**
+ * 根的**唯一**推导判据(纯函数;`exists` 可注入 ⇒ §22c 构造面可证):
+ *   env 覆盖 > 仓内 .DevEnv(且带机器标记) > 盘根 DevEnv(存在) > 仓内 .DevEnv(legacy) > 盘根。
+ * 迁移完成的机器(仓内根已有 runtimes/tools/…)仍走仓内;半迁移机器(仓内只有 scratch 空壳、
+ * 机器实体仍在盘根)回到盘根。两种布局都不改行为,且不再被 scratch 自建的目录劫持。
+ */
+export function chooseDevEnvRoot({ repoRoot = REPO, override = '', exists = existsSync } = {}) {
   if (override) return resolve(override)
   if (countScratchSegments(repoRoot) > 0)
     throw new Error(
       `devEnvRoot 拒绝推导:仓库根本身位于 scratch 夹具内(${repoRoot})—— ` +
         `此时"盘根 + DevEnv"会落在夹具里,而 §26 批准的临时物落点与真外置根是两回事。先修调用方的 ROOT 推导,别换路径继续跑。`,
     )
-  // 双形态推导(2026-09-30,G-814433 搬迁前置):DevEnv 搬入项目内(<repoRoot>/.DevEnv)后
-  // 外置根换了地方;搬迁前老机器仍是 <盘根>/DevEnv。优先项目内形态(存在才选),
-  // 否则回落盘根形态 —— 搬迁前后两条机器都不改行为,搬迁本身成为纯 fs 操作。
   const inRepo = join(repoRoot, '.DevEnv')
-  if (existsSync(inRepo)) return inRepo
-  return join(parse(repoRoot).root, 'DevEnv')
+  const driveRoot = join(parse(repoRoot).root, 'DevEnv')
+  const hasInRepo = exists(inRepo)
+  const inRepoIsMachine = hasInRepo && MACHINE_DEV_ENV_MARKERS.some((name) => exists(join(inRepo, name)))
+  if (inRepoIsMachine) return inRepo
+  if (exists(driveRoot)) return driveRoot
+  return hasInRepo ? inRepo : driveRoot
+}
+
+export function devEnvRoot(repoRoot = REPO) {
+  return chooseDevEnvRoot({ repoRoot, override: process.env.IHUI_DEVENV_ROOT })
 }
 
 /**
@@ -771,6 +794,8 @@ export const __test__ = {
   classifyEntry,
   fingerprint,
   devEnvRoot,
+  chooseDevEnvRoot,
+  MACHINE_DEV_ENV_MARKERS,
   devEnvTargetRoots,
   pathsFor,
   SEALED_DIRS,
