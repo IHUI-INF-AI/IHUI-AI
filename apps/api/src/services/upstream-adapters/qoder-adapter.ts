@@ -430,7 +430,8 @@ export const qoderAdapter: RelayUpstreamAdapter = {
         const token = pickTokenField(body, ['device_token', 'token', 'accessToken', 'access_token'])
         if (!token) throw new QoderUpstreamError(0, 'Qoder refresh 响应无 token')
         const newRt = pickTokenField(body, ['refresh_token', 'refreshToken']) || rt
-        // 到期真源优先级:响应 expires_at(真实 ISO)> 新票 JWT exp(没有)> 保守 24h
+        // 到期真源优先级:响应 expires_at(真实 ISO)> 新票 JWT exp(没有)> null(未知)。
+        // 不许编造兜底时刻:之前给 now+24h,于是"上游没给"和"上游给了"在库里长得一样。
         const expFrom = (b: unknown, keys: readonly string[]): Date | null => {
           const o = b !== null && typeof b === 'object' ? (b as Record<string, unknown>) : {}
           for (const k of keys) {
@@ -443,9 +444,7 @@ export const qoderAdapter: RelayUpstreamAdapter = {
           return null
         }
         const expiresAt =
-          expFrom(body, ['expires_at', 'expiresAt']) ??
-          extractTokenExpiry(token) ??
-          new Date(Date.now() + 24 * 3600_000)
+          expFrom(body, ['expires_at', 'expiresAt']) ?? extractTokenExpiry(token) ?? null
         return {
           token,
           refreshToken: newRt,

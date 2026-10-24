@@ -49,6 +49,7 @@ import {
 import { isRelayProviderCode, RELAY_PROVIDERS } from '../../services/relay-account-format.js'
 import { getRelayAdapter } from '../../services/relay-upstream-adapters.js'
 import { healthStatusOf } from '../../services/relay-account-pool-scheduler.js'
+import { markAccountAuthRejected } from '../../services/relay-account-pool-scheduler.js'
 import {
   buildPoolSyncAccount,
   checkinPlatformFor,
@@ -1013,6 +1014,12 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           { row: live, credentials: decryptAccountCredentials(live) },
           { proxyUrl: live.proxyUrl },
         )
+      }
+      // 上游**当场**明确拒收(不管有没有换票、换票后是否仍被拒)⇒ 到期列收敛到当下 + 健康降级,
+      // 与巡检/刷新失败同一口径(明确拒收 ⇒ down)。否则"换票成功写了新未来时刻、余额仍 401"
+      // 会让该列继续冒充「票仍可用」—— 这正是本票的立因现场。实现单点在 scheduler。
+      if (!outcome.ok && outcome.authFailed) {
+        await markAccountAuthRejected(p.data.id, outcome.error ?? null)
       }
       return reply.send(
         success({
