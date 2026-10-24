@@ -16,41 +16,23 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockInsertValues, mockUpdateSet } = vi.hoisted(() => ({
+const { mockInsertValues } = vi.hoisted(() => ({
   mockInsertValues: vi.fn(),
-  mockUpdateSet: vi.fn(),
 }))
 
-/**
- * db mock 必须补 `returning()` 这一环(2026-10-23 修,此前 HEAD 面 6 例恒红)。
- * 生产代码自 O64 起走 `.values(...).returning({id, credVersion})` 与
- * `.set(...).where(...).returning(...)` 取原子自增后的版本号;旧 mock 的 values() 直接返回
- * Promise,Promise 上没有 returning ⇒ TypeError 被 importAccounts 的逐条 try/catch 吞成
- * "导入失败",测试读出 imported=0。那是尺子坏,不是产品坏 —— 而账面看着像产品坏。
- */
 vi.mock('../src/db/index.js', () => ({
   db: {
     select: () => ({
       from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }),
     }),
+    // importAccounts 现在走 `.values(...).returning({id, credVersion})`(O64 凭证版本回写);
+    // mock 必须返一行,否则 service 判"未取到回写行"→ 计入 failed。
     insert: () => ({
-      values: (v: unknown) => {
-        mockInsertValues(v)
-        return {
-          returning: () => Promise.resolve([{ id: 'acct-inserted', credVersion: 1 }]),
-        }
-      },
+      values: mockInsertValues.mockImplementation(() => ({
+        returning: () => Promise.resolve([{ id: 'row-qoder', credVersion: 1 }]),
+      })),
     }),
-    update: () => ({
-      set: (s: unknown) => {
-        mockUpdateSet(s)
-        return {
-          where: () => ({
-            returning: () => Promise.resolve([{ id: 'acct-updated', credVersion: 2 }]),
-          }),
-        }
-      },
-    }),
+    update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
   },
   dbRead: { select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }) },
   dbClient: {},
