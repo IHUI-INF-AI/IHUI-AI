@@ -922,7 +922,8 @@
     "account": "アカウントとセキュリティ",
     "version": "バージョン",
     "language": "言語",
-    "theme": "テーマ"
+    "theme": "テーマ",
+    "logoutConfirmBody": "このアカウントからログアウトしますか？"
   },
   "menu": {
     "about": "私たちについて",
@@ -1921,7 +1922,10 @@
     "tabCourse": "コース",
     "tabLive": "ライブ",
     "tabArticle": "記事",
-    "empty": "お気に入りはありません"
+    "empty": "お気に入りはありません",
+    "loadFailed": "お気に入り読込失敗",
+    "deleteTitle": "お気に入り削除",
+    "deleteFailed": "削除失敗"
   },
   "finance": {
     "title": "財務",
@@ -1997,7 +2001,16 @@
   },
   "learnDevelop": {
     "title": "学習開発",
-    "contactLabel": "直接 李総 に連絡"
+    "contactLabel": "直接 李総 に連絡",
+    "courseTitle": "コースプラネット",
+    "courseDesc": "人気講座を閲覧",
+    "planDesc": "学習計画を見る",
+    "kTitle": "知識プラネット",
+    "kDesc": "知識を閲覧",
+    "videoTitle": "学習動画",
+    "videoDesc": "最新講座動画",
+    "centerTitle": "学習センター",
+    "centerDesc": "系統的学習ルート"
   },
   "liveChat": {
     "title": "ライブチャット",
