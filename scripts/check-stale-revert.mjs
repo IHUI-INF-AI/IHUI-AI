@@ -14,6 +14,11 @@
  *
  * R1(blocking):暂存内容 != HEAD 内容,且**字节级等于该路径某个祖先提交的版本**
  *   → 本次提交不是新工作,而是把历史版本原样写回。真新编辑不可能恰好等于历史 blob,误报率极低。
+ *   **面纪律(2026-10-23,G-417②)**:R1 判红只认**索引面**(--staged)。全量档(默认)比的是盘上
+ *   工作树副本 —— 那是机器状态,不是本次提交的内容;共享工作区里别席在飞文件只要恰好等于某历史
+ *   blob,全量档就恒红,红得与任何提交无关(§12e,与 R1r"只判索引面"同一条理由)。现分流:全量档
+ *   命中**只报数并逐条点名**(⚠️ 前缀 + 结论行尾注),不置 failed;--staged 面文案与判红逐字不变。
+ *   失效方向钉死为"多要一次定向说明"(盘点时看得见、提交链仍由 --staged 拦),绝不"多放一次跳门"。
  * R1r(blocking,**差值棘轮**):**复活行**。R1 的前提是"暂存内容 == 某个祖先版本",而真实事故里
  *   调用方**还在陈旧副本上又改了自己的东西**(活文档追加、语言包补键)⇒ 暂存 blob = `祖先 ⊕ 新增`
  *   ⇒ 逐字节不等于任何祖先 ⇒ R1 的条件**永不成立** ⇒ 整型隐身。2026-09-28 用私有探针索引实测过
@@ -1038,11 +1043,14 @@ function renderResurrect(rr) {
 /** 结论行:有未判定/未覆盖/窗口不足时**必须带着它**,否则账面读起来像"全部判过且干净"。
  *  `r1WindowLoss` 是 G-806 ② 的那一维:R1 侧"窗口用尽而没命中"的路径数 —— 它既不是红也不许被读成绿。
  *  `r1WatermarkPass` 是 G-926 的那一维:整 blob 命中祖先、但按水印补回档放行的路径数 —— 它是**判过**的,
- *  只是结论是"放行";不写进结论行的话,一次带横幅补回的提交在账面上与"什么都没发生"同形。 */
-function verdictLine(modifiedCount, rr, r1WindowLoss = 0, r1WatermarkPass = 0) {
+ *  只是结论是"放行";不写进结论行的话,一次带横幅补回的提交在账面上与"什么都没发生"同形。
+ *  `r1WorktreeStock` 是 G-417② 的那一维:全量档工作树副本等于历史 blob 的路径数 —— 只报数不拦
+ *  (机器状态,提交链由 --staged 面负责),但结论行必须带着它,不得读成"无历史版本回写"。 */
+function verdictLine(modifiedCount, rr, r1WindowLoss = 0, r1WatermarkPass = 0, r1WorktreeStock = 0) {
   const tail = []
   if (r1WindowLoss) tail.push(`${r1WindowLoss} 处窗口不足未判定(R1)`)
   if (r1WatermarkPass) tail.push(`${r1WatermarkPass} 处水印补回型放行(R1,见上)`)
+  if (r1WorktreeStock) tail.push(`${r1WorktreeStock} 处工作树副本等于历史版本只报数(全量档)`)
   if (rr?.undetermined.length) tail.push(`${rr.undetermined.length} 处未判定`)
   if (rr?.uncovered.length) tail.push(`${rr.uncovered.length} 处未覆盖`)
   if (rr?.stock.length) tail.push(`${rr.stock.length} 处复活只报数(存量)`)
@@ -1272,9 +1280,14 @@ function auditInner(repoRoot, { staged }) {
     lines.push('ℹ️  [R1r] 复活行判据只判索引面(--staged);全量档的工作树副本属机器状态,判红即恒红门')
   }
   if (violations.length) {
-    failed = true
+    // G-417②(2026-10-23)面纪律:R1 判红只认索引面。全量档比的是盘上工作树副本 —— 机器状态,
+    // 与 R1r"只判索引面"(见上)同一条 §12e 理由:别席在飞文件只要恰好等于某历史 blob,
+    // 全量档就恒红、红得与任何提交无关。全量档命中只报数并逐条点名;--staged 面文案与判红逐字不变。
+    if (staged) failed = true
     lines.push(
-      `❌ 检出 ${violations.length} 个文件的暂存内容等于其**历史提交版本**(= 把别人的改动写回旧态):`,
+      staged
+        ? `❌ 检出 ${violations.length} 个文件的暂存内容等于其**历史提交版本**(= 把别人的改动写回旧态):`
+        : `⚠️  [全量档·只报数不拦] ${violations.length} 个路径的工作树副本等于其历史提交版本(盘上副本属机器状态,非本次提交内容;提交门禁由 --staged 面按索引 blob 拦,§12e,与 R1r 同一条面纪律)—— 待各路径持有人自行处置:`,
     )
     for (const v of violations.slice(0, 30)) lines.push(`   - ${v.path}  ==  ${v.commit}`)
     if (violations.length > 30) lines.push(`   ... 另有 ${violations.length - 30} 个`)
@@ -1346,7 +1359,16 @@ function auditInner(repoRoot, { staged }) {
     for (const [p, w] of costMeter.truncated) lines.push(`   - ${p}: 窗口 ${w} 枚用尽`)
   }
   if (deleted.length) lines.push(...deleteWarn(deleted))
-  if (!failed) lines.push(verdictLine(modified.length, rr, windowLoss.length, watermarkPass.length))
+  if (!failed)
+    lines.push(
+      verdictLine(
+        modified.length,
+        rr,
+        windowLoss.length,
+        watermarkPass.length,
+        staged ? 0 : violations.length,
+      ),
+    )
   return { code: failed ? 1 : 0, lines }
 }
 
