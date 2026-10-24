@@ -265,7 +265,7 @@ function createStyles(tk: AppThemeTokens) {
     stateGlyphCircle: {
       width: 64,
       height: 64,
-      borderRadius: 64 / 2,
+      borderRadius: rnRadius['2xl'],
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.surface.light,
