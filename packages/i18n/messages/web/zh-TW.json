@@ -8433,6 +8433,10 @@
           "title": "帳戶受限",
           "action": "聯絡管理員"
         },
+        "ALREADY_CLAIMED": {
+          "title": "該任務已被他人認領",
+          "action": "改領其他任務，或等對方釋放後再試"
+        },
         "API_BRIDGE_ERROR": {
           "title": "介面橋接呼叫失敗",
           "action": "稍後重試"
@@ -8440,6 +8444,10 @@
         "BAD_PARAMS": {
           "title": "參數不完整或無效",
           "action": "修改後重試"
+        },
+        "BOARD_FULL": {
+          "title": "團隊任務表已滿",
+          "action": "清理已完成條目後再新增"
         },
         "BUDGET_EXHAUSTED": {
           "title": "額度已用盡",
@@ -8577,6 +8585,10 @@
           "title": "檔案過大",
           "action": "精簡檔案後重試"
         },
+        "FORBIDDEN": {
+          "title": "無權更新該任務",
+          "action": "先認領該任務，或聯絡目前持有者"
+        },
         "FORM_CHANNEL_UNAVAILABLE": {
           "title": "業務表單請求僅在對話流內可用",
           "action": "請勿重試該工具;需要這些資訊時,直接在回覆裡向使用者提問"
@@ -8644,6 +8656,10 @@
         "INVALID_REPO": {
           "title": "參數不完整或無效",
           "action": "修改後重試"
+        },
+        "INVALID_STATUS": {
+          "title": "任務狀態無效",
+          "action": "改用 pending、claimed、done 或 blocked"
         },
         "INVALID_TRIGGER": {
           "title": "定時設定無效",
@@ -8801,9 +8817,17 @@
           "title": "子任務執行失敗",
           "action": "重試"
         },
+        "TASK_CLOSED": {
+          "title": "該任務已結束或受阻",
+          "action": "選擇其他任務"
+        },
         "TASK_FAILED": {
           "title": "子任務執行失敗",
           "action": "重試"
+        },
+        "TASK_NOT_FOUND": {
+          "title": "找不到該任務",
+          "action": "重新整理任務列表後重試"
         },
         "TEXT_TOO_LONG": {
           "title": "上下文過長",
