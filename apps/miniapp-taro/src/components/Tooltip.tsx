@@ -27,7 +27,7 @@ export default function Tooltip({ text, children, placement = 'top' }: TooltipPr
       </View>
       {show && (
         <View
-          className={`absolute z-20 left-1/2 max-w-[240px] px-3 py-1.5 bg-popover border border-border rounded-md shadow-md line-clamp-2 ${
+          className={`absolute z-20 left-1/2 max-w-[240px] px-3 py-[12rpx] bg-popover border border-border rounded-md shadow-md line-clamp-2 ${
             placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
           style={{ transform: 'translateX(-50%)' }}
