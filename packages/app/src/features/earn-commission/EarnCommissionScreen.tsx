@@ -7,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { EarnCommissionScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 
 /** 分佣计划/Props 类型 re-export(单一来源 @ihui/types) */
@@ -136,38 +136,53 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
-    scrollContent: { padding: 14, gap: 12, paddingBottom: 32 },
+    scrollContent: { padding: 14, gap: rnSpacing.md, paddingBottom: rnSpacing['3xl'] },
     introCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       padding: 14,
-      gap: 12,
+      gap: rnSpacing.md,
       alignItems: 'center',
     },
-    introTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary, textAlign: 'center' },
-    introDesc: { fontSize: 14, lineHeight: 20, color: tk.text.secondary, textAlign: 'center' },
+    introTitle: {
+      fontSize: rnType.subtitle.size,
+      fontWeight: '700',
+      color: tk.text.primary,
+      textAlign: 'center',
+    },
+    introDesc: {
+      fontSize: rnType.body.size,
+      lineHeight: 20,
+      color: tk.text.secondary,
+      textAlign: 'center',
+    },
     statsArea: {
       flexDirection: 'row',
       justifyContent: 'space-around',
       width: '100%',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
     statsItem: { alignItems: 'center', gap: 6 },
     statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
-    statsLabel: { fontSize: 14, color: tk.text.secondary },
+    statsLabel: { fontSize: rnType.body.size, color: tk.text.secondary },
     sectionCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
       padding: 14,
-      gap: 12,
+      gap: rnSpacing.md,
     },
-    sectionTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary, textAlign: 'center' },
-    ruleItem: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    sectionTitle: {
+      fontSize: rnType.title.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+      textAlign: 'center',
+    },
+    ruleItem: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.md },
     ruleNum: {
       width: 22,
       height: 22,
@@ -176,23 +191,28 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    ruleNumText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
-    ruleText: { flex: 1, fontSize: 14, lineHeight: 19, color: tk.text.primary },
+    ruleNumText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    ruleText: { flex: 1, fontSize: rnType.body.size, lineHeight: 19, color: tk.text.primary },
     rateRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: rnSpacing.md,
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.xl,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 10,
     },
-    rateLevel: { flex: 1, fontSize: 14, fontWeight: '500', color: tk.text.primary },
-    rateValue: { fontSize: 16, fontWeight: '700', color: tk.brand.DEFAULT, minWidth: 44 },
-    rateDesc: { flex: 2, fontSize: 14, color: tk.text.secondary },
+    rateLevel: { flex: 1, fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
+    rateValue: {
+      fontSize: rnType.title.size,
+      fontWeight: '700',
+      color: tk.brand.DEFAULT,
+      minWidth: 44,
+    },
+    rateDesc: { flex: 2, fontSize: rnType.body.size, color: tk.text.secondary },
     // 外层 = 排下一块的布局档(守门 131:按压态不得写在 Pressable 的 style 上);
     // 钮面档在下面的 bottomBtn,由内层 View 承载。数值逐字搬移、未新增。
-    bottomBtnBox: { marginTop: 8 },
+    bottomBtnBox: { marginTop: rnSpacing.sm },
     bottomBtn: {
       height: 50,
       borderRadius: rnRadius.sm,
@@ -200,7 +220,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    bottomBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
+    bottomBtnText: { fontSize: rnType.title.size, fontWeight: '600', color: tk.surface.light },
     pressed: { opacity: 0.85 },
   })
 }

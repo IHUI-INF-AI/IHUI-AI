@@ -17,7 +17,7 @@ import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
 
 /**
@@ -368,7 +368,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerTitle: {
       flex: 1,
-      fontSize: 18,
+      fontSize: rnType.subtitle.size,
       fontWeight: '700',
       color: tk.brand.DEFAULT,
       textAlign: 'center',
@@ -379,8 +379,8 @@ function createStyles(tk: AppThemeTokens) {
     /* tab 切换 */
     tabRow: {
       flexDirection: 'row',
-      gap: 8, // gap-2
-      marginHorizontal: 16, // mx-4
+      gap: rnSpacing.sm, // gap-2
+      marginHorizontal: rnSpacing.lg, // mx-4
     },
     // 外层只留"在 tabRow 里各占一半"的布局档(守门 131:按压态不得写在 Pressable 的 style 上);
     // 面档在下面的 tabBtn,由内层 View 承载。数值逐字搬移、未新增。
@@ -389,11 +389,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     tabBtn: {
       borderRadius: rnRadius.sm, // rounded-md
-      paddingVertical: 8, // py-2
+      paddingVertical: rnSpacing.sm, // py-2
       alignItems: 'center',
     },
     tabBtnText: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       textAlign: 'center',
       color: tk.text.secondary, // text-gray-600 dark:text-neutral-300
     },
@@ -403,10 +403,10 @@ function createStyles(tk: AppThemeTokens) {
     },
     /* 滚动区 */
     scrollContent: {
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     stackGapLg: {
-      gap: 12, // gap-3
+      gap: rnSpacing.md, // gap-3
     },
     stackGapMd: {
       gap: 10, // gap-2.5
@@ -416,17 +416,17 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg, // rounded-lg
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
-      padding: 12, // p-3
+      padding: rnSpacing.md, // p-3
       backgroundColor: tk.surface.card,
     },
     /* 技能卡 */
     skillHeadRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8, // gap-2
+      gap: rnSpacing.sm, // gap-2
     },
     skillName: {
-      fontSize: 14, // text-sm
+      fontSize: rnType.body.size, // text-sm
       fontWeight: '500', // font-medium
       color: tk.text.primary, // dark:text-neutral-100
     },
@@ -439,12 +439,12 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 10, // text-[10px]
     },
     skillDesc: {
-      fontSize: 12, // text-xs
-      marginTop: 4, // mt-1
+      fontSize: rnType.label.size, // text-xs
+      marginTop: rnSpacing.xs, // mt-1
       color: tk.text.secondary, // text-gray-500 dark:text-neutral-400
     },
     skillBody: {
-      marginTop: 8, // mt-2
+      marginTop: rnSpacing.sm, // mt-2
     },
     promptInput: {
       minHeight: 64, // min-h-[64px]
@@ -452,13 +452,13 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light, // border-gray-200
       padding: 10, // p-2.5
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.text.primary, // dark:text-neutral-100
       textAlignVertical: 'top',
     } satisfies TextStyle & ViewStyle,
     // 同上:marginTop 留外层(排下一块的布局档),钮面档落内层。
     invokeBtnBox: {
-      marginTop: 8, // mt-2
+      marginTop: rnSpacing.sm, // mt-2
     },
     invokeBtn: {
       alignItems: 'center',
@@ -470,13 +470,13 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.5, // bg-orange-400 降级的等价禁用态
     },
     invokeBtnText: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       fontWeight: '500', // font-medium
       color: tk.brand.ctaForeground, // text-white
     },
     /* 结果卡 */
     resultCard: {
-      marginTop: 8, // mt-2
+      marginTop: rnSpacing.sm, // mt-2
       borderRadius: rnRadius.lg, // rounded-md
       padding: 10, // p-2.5
       backgroundColor: tk.surface.inputBg, // bg-gray-50 dark:bg-neutral-800
@@ -491,12 +491,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.tertiary, // text-gray-400
     },
     resultShare: {
-      fontSize: 12, // text-xs
+      fontSize: rnType.label.size, // text-xs
       color: tk.brandAccent.deep, // text-orange-600 dark:text-orange-400 → 共享层强调色
     },
     resultOutput: {
-      marginTop: 4, // mt-1
-      fontSize: 12, // text-xs
+      marginTop: rnSpacing.xs, // mt-1
+      fontSize: rnType.label.size, // text-xs
       lineHeight: 16, // leading-4
       color: tk.text.primary, // text-gray-700 dark:text-neutral-200
     },
@@ -505,17 +505,17 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     recordTitle: {
       flex: 1,
-      fontSize: 14, // text-sm
+      fontSize: rnType.body.size, // text-sm
       fontWeight: '500', // font-medium
       color: tk.text.primary, // dark:text-neutral-100
     },
     recordMeta: {
       fontSize: 10, // text-[10px]
-      marginTop: 4, // mt-1
+      marginTop: rnSpacing.xs, // mt-1
       color: tk.text.tertiary, // text-gray-400
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
