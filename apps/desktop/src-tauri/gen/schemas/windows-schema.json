@@ -2517,6 +2517,12 @@
           "markdownDescription": "Enables the embedded_browser_dock_close command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_dock_close_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-close-tab",
+          "markdownDescription": "Enables the embedded_browser_dock_close_tab command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_dock_devtools command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-dock-devtools",
@@ -2529,10 +2535,22 @@
           "markdownDescription": "Enables the embedded_browser_dock_forward command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_dock_home command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-home",
+          "markdownDescription": "Enables the embedded_browser_dock_home command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_dock_navigate command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-dock-navigate",
           "markdownDescription": "Enables the embedded_browser_dock_navigate command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_new_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-new-tab",
+          "markdownDescription": "Enables the embedded_browser_dock_new_tab command without any pre-configured scope."
         },
         {
           "description": "Enables the embedded_browser_dock_open command without any pre-configured scope.",
@@ -2541,10 +2559,40 @@
           "markdownDescription": "Enables the embedded_browser_dock_open command without any pre-configured scope."
         },
         {
+          "description": "Enables the embedded_browser_dock_pick command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-pick",
+          "markdownDescription": "Enables the embedded_browser_dock_pick command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_popout command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-popout",
+          "markdownDescription": "Enables the embedded_browser_dock_popout command without any pre-configured scope."
+        },
+        {
           "description": "Enables the embedded_browser_dock_reload command without any pre-configured scope.",
           "type": "string",
           "const": "allow-embedded-browser-dock-reload",
           "markdownDescription": "Enables the embedded_browser_dock_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_stop command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-stop",
+          "markdownDescription": "Enables the embedded_browser_dock_stop command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_switch_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-switch-tab",
+          "markdownDescription": "Enables the embedded_browser_dock_switch_tab command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_tabs command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-tabs",
+          "markdownDescription": "Enables the embedded_browser_dock_tabs command without any pre-configured scope."
         },
         {
           "description": "Enables the embedded_browser_dock_url command without any pre-configured scope.",
@@ -3117,6 +3165,12 @@
           "markdownDescription": "Denies the embedded_browser_dock_close command without any pre-configured scope."
         },
         {
+          "description": "Denies the embedded_browser_dock_close_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-close-tab",
+          "markdownDescription": "Denies the embedded_browser_dock_close_tab command without any pre-configured scope."
+        },
+        {
           "description": "Denies the embedded_browser_dock_devtools command without any pre-configured scope.",
           "type": "string",
           "const": "deny-embedded-browser-dock-devtools",
@@ -3129,10 +3183,22 @@
           "markdownDescription": "Denies the embedded_browser_dock_forward command without any pre-configured scope."
         },
         {
+          "description": "Denies the embedded_browser_dock_home command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-home",
+          "markdownDescription": "Denies the embedded_browser_dock_home command without any pre-configured scope."
+        },
+        {
           "description": "Denies the embedded_browser_dock_navigate command without any pre-configured scope.",
           "type": "string",
           "const": "deny-embedded-browser-dock-navigate",
           "markdownDescription": "Denies the embedded_browser_dock_navigate command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_new_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-new-tab",
+          "markdownDescription": "Denies the embedded_browser_dock_new_tab command without any pre-configured scope."
         },
         {
           "description": "Denies the embedded_browser_dock_open command without any pre-configured scope.",
@@ -3141,10 +3207,40 @@
           "markdownDescription": "Denies the embedded_browser_dock_open command without any pre-configured scope."
         },
         {
+          "description": "Denies the embedded_browser_dock_pick command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-pick",
+          "markdownDescription": "Denies the embedded_browser_dock_pick command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_popout command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-popout",
+          "markdownDescription": "Denies the embedded_browser_dock_popout command without any pre-configured scope."
+        },
+        {
           "description": "Denies the embedded_browser_dock_reload command without any pre-configured scope.",
           "type": "string",
           "const": "deny-embedded-browser-dock-reload",
           "markdownDescription": "Denies the embedded_browser_dock_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_stop command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-stop",
+          "markdownDescription": "Denies the embedded_browser_dock_stop command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_switch_tab command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-switch-tab",
+          "markdownDescription": "Denies the embedded_browser_dock_switch_tab command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_tabs command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-tabs",
+          "markdownDescription": "Denies the embedded_browser_dock_tabs command without any pre-configured scope."
         },
         {
           "description": "Denies the embedded_browser_dock_url command without any pre-configured scope.",

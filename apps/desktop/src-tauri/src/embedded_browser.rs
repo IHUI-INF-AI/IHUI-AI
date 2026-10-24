@@ -278,7 +278,10 @@ const BAR_JS: &str = r#"(function () {
 
 /// 元素点选安装/卸载脚本。`window.__ihuiPick(on)` 开关;点选命中后走哨兵
 /// `/picked?d=<encodeURIComponent(json)>` 回传(见模块头 §4)。同样只用 CSSOM。
-const PICK_JS: &str = r#"(function () {
+///
+/// `pub(crate)`(2026-10-24):右侧工作区停靠浏览器复用同一份脚本,保证两档
+/// 点选行为/回传格式完全一致。
+pub(crate) const PICK_JS: &str = r#"(function () {
   window.__ihuiPick = function (on) {
     if (!on) { if (window.__ihuiPickOff) { window.__ihuiPickOff(); } return; }
     if (window.__ihuiPickActive) return;
@@ -361,6 +364,8 @@ pub enum SentinelAction {
     Devtools,
     Pick(bool),
     Picked(String),
+    /// 页面标题回传(停靠档的标签栏是 React 的,拿不到 DOM,只能由页内脚本带回)。
+    Title(String),
     CloseWindow,
     /// 签到页(内嵌 tab 里的 aizhs.top/checkin)请求「浏览器登录 WorkBuddy」:
     /// 内容页无 IPC,只能借哨兵导航把意图带出来(2026-10-17 立)。
@@ -395,6 +400,7 @@ pub fn parse_sentinel(url: &Url) -> Option<SentinelAction> {
         "devtools" => SentinelAction::Devtools,
         "pick" => SentinelAction::Pick(q("on").as_deref() == Some("1")),
         "picked" => SentinelAction::Picked(q("d").unwrap_or_default()),
+        "title" => SentinelAction::Title(q("t").unwrap_or_default()),
         "close-window" => SentinelAction::CloseWindow,
         "wb-checkin-login" => SentinelAction::WbCheckinLogin,
         _ => return None,
@@ -622,6 +628,17 @@ fn push_bar_state(app: &AppHandle, webview_label: &str, s: &Session) {
         );
         let _ = wv.eval(js);
     }
+}
+
+/// 更新当前标签标题(`title` 哨兵回传;BAR_JS 直读 DOM,这里保持会话一致)。
+fn update_active_tab_title(app: &AppHandle, title: String) {
+    app.state::<BrowserManager>().with(|s| {
+        if let Some(id) = s.active {
+            if let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) {
+                t.title = title;
+            }
+        }
+    });
 }
 
 /// 把状态推给当前活动标签页(不持锁调用,避免在锁内做 eval)。
@@ -927,6 +944,15 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             let decoded = percent_decode(&payload);
             let _ = app.emit_to("main", "embedded-browser://element-picked", decoded);
         }
+        SentinelAction::Title(t) => {
+            // 独立窗口的标签栏在页内(BAR_JS 直接读 document.title),不需要这个;
+            // 真正用到的是停靠档(React 标签栏)。这里只更新会话标题保持两套一致。
+            let title = percent_decode(&t);
+            if !title.trim().is_empty() {
+                update_active_tab_title(&app, title);
+                refresh_active_bar(&app);
+            }
+        }
         SentinelAction::WbCheckinLogin => {
             // 签到页(内容页无 IPC)请求「浏览器登录 WorkBuddy」(2026-10-17 立):
             // 建登录页标签 + 起看护轮询,结果经 #wb_import= 导航回签到页
@@ -1195,7 +1221,7 @@ async fn run_wb_checkin_login_watch(app: AppHandle, login_tab: Option<u64>, retu
 }
 
 /// 最小 percent-decode(`%XX` + `+`),用于解点选负载。
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
     let mut i = 0;

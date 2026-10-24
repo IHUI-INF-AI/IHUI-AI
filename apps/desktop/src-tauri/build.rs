@@ -25,7 +25,7 @@ fn main() {
             "embedded_browser_state",
             "embedded_browser_new_tab",
             "embedded_browser_devtools",
-            // 2026-10-24 立:右侧工作区「停靠浏览器」(src/embedded_browser_dock.rs)9 枚命令。
+            // 2026-10-24 立:右侧工作区「停靠浏览器」(src/embedded_browser_dock.rs)12 枚命令。
             // 远程页(https://aizhs.top)要能 invoke 这几枚,必须同时落在本表与
             // capabilities/default.json 的 allow-*(缺一即运行期 Plugin not found,见文件头注)。
             "embedded_browser_dock_open",
@@ -35,8 +35,16 @@ fn main() {
             "embedded_browser_dock_back",
             "embedded_browser_dock_forward",
             "embedded_browser_dock_reload",
+            "embedded_browser_dock_stop",
+            "embedded_browser_dock_home",
+            "embedded_browser_dock_pick",
             "embedded_browser_dock_devtools",
             "embedded_browser_dock_url",
+            "embedded_browser_dock_new_tab",
+            "embedded_browser_dock_switch_tab",
+            "embedded_browser_dock_close_tab",
+            "embedded_browser_dock_tabs",
+            "embedded_browser_dock_popout",
             "get_admin_window_info",
             "toggle_devtools",
             "quit_app",

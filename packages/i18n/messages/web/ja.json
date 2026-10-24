@@ -515,7 +515,12 @@
     "noLogsHint": "(ログなし — ページ上でクリックすると座標情報が表示されます)",
     "runJs": "JavaScript 実行",
     "runJsPlaceholder": "document.title — JS を入力して実行をクリック(例: document.querySelector(\"button\").click())",
-    "run": "実行"
+    "run": "実行",
+    "browserTab": "ブラウザ",
+    "home": "ホームへ戻る",
+    "pickElement": "要素を選択",
+    "picking": "選択中:ページ要素をクリックで選択、もう一度押すと解除",
+    "devtools": "開発者ツール"
   },
   "a11y": {
     "previewLoadFailed": "プレビューの読み込みに失敗しました。",
@@ -12165,7 +12170,17 @@
     "reasoningEffortHigh": "熟考",
     "reasoningEffortUnsupported": "このモデルでは推論の深さを選択できません",
     "reasoningEffortFallback": "推論の深さはサーバー側で調整されました: {requested} → {effective}",
-    "analysisOpen": "シナリオ分析を見る"
+    "analysisOpen": "シナリオ分析を見る",
+    "reviewTargetGroupLabel": "レビュー対象の選択",
+    "reviewTargetLabel": "レビュー対象",
+    "reviewTargetUncommitted": "未コミットの変更",
+    "reviewTargetFile": "特定ファイル",
+    "reviewTargetFileLabel": "レビューするファイルパス",
+    "reviewTargetFilePlaceholder": "ワークスペース相対パス(例: src/app.ts)",
+    "reviewTargetSnippet": "貼り付けスニペット",
+    "reviewTargetSnippetLabel": "レビューするコードスニペット",
+    "reviewTargetSnippetPlaceholder": "レビューするコードを貼り付け…",
+    "reviewTargetClear": "レビュー対象をクリア"
   },
   "chatHistory": {
     "moveToGroup": "グループへ移動",
@@ -16667,6 +16682,27 @@
       "groupView": "ビュー",
       "noMatch": "一致なし",
       "searchPlaceholder": "ビューを検索..."
+    },
+    "agentsMd": {
+      "title": "AGENTS.md",
+      "hint": "現在のワークスペースをスキャンして協働ルールの下書きを生成します。生成時に書き込みは行わず、書き込み前にもう一度確認します。",
+      "generate": "AGENTS.md の下書きを生成",
+      "generateConfirmTitle": "AGENTS.md の下書きを生成しますか?",
+      "generateConfirmContent": "現在のワークスペースをスキャンして下書きを生成します。下書きはここに表示されるだけで、ディスクには書き込まれません。",
+      "generating": "ワークスペースをスキャン中…",
+      "generateFailed": "下書きの生成に失敗しました",
+      "draftTitle": "AGENTS.md の下書き(編集可能、確認後に書き込み)",
+      "draftNotice": "下書きはまだ書き込まれていません",
+      "write": "AGENTS.md に書き込む",
+      "writeConfirmTitle": "AGENTS.md に書き込みますか?",
+      "writeConfirmContent": "上記の内容をワークスペース直下の AGENTS.md に書き込みます。同名ファイルは上書きされます。",
+      "writing": "書き込み中…",
+      "writeFailed": "書き込みに失敗しました",
+      "written": "AGENTS.md を書き込みました",
+      "discard": "下書きを破棄",
+      "errorEmptyWorkspace": "ワークスペースのパスが空です",
+      "errorRequestFailed": "AI サービスへのリクエストに失敗しました",
+      "errorNoDraft": "ツールが下書きを返しませんでした"
     }
   },
   "imageGenPage": {
@@ -19753,7 +19789,10 @@
     "editDeviceMapTitle": "デバイスフィンガープリントを編集",
     "editDeviceMapDescription": "{platform} アカウントのデバイスフィンガープリントを編集します（JSON オブジェクト。空のまま保存すると自動生成されます）。",
     "checkedInToday": "本日は出席済み",
-    "rename": "名前を変更"
+    "rename": "名前を変更",
+    "captureTraeWebWaiting": "右側のワークパネルのブラウザで Trae のログインページを開きました。パネル内でログイン(電話番号/QR)してください。ログイン状態を検出すると自動でアカウントを取り込み、チェックインページに戻ります。",
+    "captureTraeWebDone": "Trae Web ログインの取り込みが完了しました(合計 {count} 件)",
+    "captureTraeWebCancelled": "Trae の Web ログインをキャンセルしました。「Web ログイン」を再度クリックするとやり直せます。"
   },
   "accountPool": {
     "title": "マイアカウントプール",
@@ -22872,6 +22911,18 @@
       "advancedAiDesc": "記憶、サブエージェント、オーケストレーション、コンテキスト圧縮などのエージェント機能",
       "experimental": "試験的な機能",
       "experimentalDesc": "検証中の機能です。今後変更または廃止される場合があります"
+    },
+    "expertRoute": {
+      "title": "エキスパートパックの自動ルーティング",
+      "desc": "今回のユーザー意図からエキスパートパックを判定し、一致時の扱いを選択します。",
+      "hint": "ヒントのみ",
+      "hintDesc": "一致時に、どのエキスパートパックに一致したかを返信内で示すだけで、ツールとシステムプロンプトは変更しません",
+      "auto": "自動適用",
+      "autoDesc": "一致時に、エキスパートパックのツール許可リストとシステムプロンプトを今回のリクエストに統合します",
+      "off": "オフ",
+      "offDesc": "意図判定もヒントも行いません",
+      "default": "デフォルト",
+      "envLockedNotice": "デプロイ側が環境変数でこの機能を無効化しているため、ここでは表示のみで変更できません。"
     }
   },
   "shareContentPage": {
