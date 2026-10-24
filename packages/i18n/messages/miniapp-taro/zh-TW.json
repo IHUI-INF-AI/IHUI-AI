@@ -4777,5 +4777,29 @@
       "rejected": "已拒絕",
       "cancelled": "已解除"
     }
+  },
+  "eduChildAttendance": {
+    "title": "孩子考勤",
+    "date": "日期"
+  },
+  "eduChildGrades": {
+    "title": "孩子成績"
+  },
+  "eduGrades": {
+    "subject": "科目",
+    "exam": "考試",
+    "score": "分數",
+    "date": "日期"
+  },
+  "eduAttendance": {
+    "statusTitle": "狀態",
+    "checkIn": "簽到",
+    "checkOut": "簽退",
+    "status": {
+      "present": "正常",
+      "late": "遲到",
+      "absent": "缺勤",
+      "leave": "請假"
+    }
   }
 }

@@ -4777,5 +4777,29 @@
       "rejected": "Rejected",
       "cancelled": "Cancelled"
     }
+  },
+  "eduChildAttendance": {
+    "title": "Child's Attendance",
+    "date": "Date"
+  },
+  "eduChildGrades": {
+    "title": "Child's Grades"
+  },
+  "eduGrades": {
+    "subject": "Subject",
+    "exam": "Exam",
+    "score": "Score",
+    "date": "Date"
+  },
+  "eduAttendance": {
+    "statusTitle": "Status",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "status": {
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent",
+      "leave": "Leave"
+    }
   }
 }

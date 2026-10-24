@@ -4777,5 +4777,29 @@
       "rejected": "거부됨",
       "cancelled": "해제됨"
     }
+  },
+  "eduChildAttendance": {
+    "title": "자녀 출석",
+    "date": "날짜"
+  },
+  "eduChildGrades": {
+    "title": "자녀 성적"
+  },
+  "eduGrades": {
+    "subject": "과목",
+    "exam": "시험",
+    "score": "점수",
+    "date": "날짜"
+  },
+  "eduAttendance": {
+    "statusTitle": "상태",
+    "checkIn": "등교",
+    "checkOut": "하교",
+    "status": {
+      "present": "정상",
+      "late": "지각",
+      "absent": "결석",
+      "leave": "조퇴"
+    }
   }
 }
