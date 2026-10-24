@@ -244,7 +244,12 @@ function main() {
   }
 
   if (!repair) {
-    console.log(`GAPS-RESULT state=${g.lateGap.length ? 'red' : 'ok'} lateGap=${g.lateGap.length} pending=${g.pending.length} hashDrift=${g.hashDrift.length}`)
+    // `--json` 契约:**只输出一行 JSON**,不再追加人读摘要 —— 调用方(守护/部署)按“最后一行”解析,
+    // 多一行摘要就等于把可解析读数永远判成"未判定"(2026-10-25 实测踩中)。
+    if (!json)
+      console.log(
+        `GAPS-RESULT state=${g.lateGap.length ? 'red' : 'ok'} lateGap=${g.lateGap.length} pending=${g.pending.length} hashDrift=${g.hashDrift.length}`,
+      )
     return g.lateGap.length ? 1 : 0
   }
   if (!has('--yes')) {
