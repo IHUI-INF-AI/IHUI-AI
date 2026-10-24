@@ -177,7 +177,7 @@ export function RepoWikiScreen() {
           </View>
           {loadingDetail ? (
             <View className="items-center py-10">
-              <Text className="text-sm text-neutral-500">{t('repoWiki.loadingDetail')}</Text>
+              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('repoWiki.loadingDetail')}</Text>
             </View>
           ) : (
             <ScrollView className="flex-1">
@@ -217,7 +217,7 @@ export function RepoWikiScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-            <Text className="mt-2 text-xs text-neutral-500">{t('repoWiki.generateHint')}</Text>
+            <Text className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{t('repoWiki.generateHint')}</Text>
           </View>
 
           {error ? (
@@ -228,11 +228,11 @@ export function RepoWikiScreen() {
 
           {loading && docs.length === 0 ? (
             <View className="items-center py-16">
-              <Text className="text-sm text-neutral-500">{t('repoWiki.loadingDocs')}</Text>
+              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('repoWiki.loadingDocs')}</Text>
             </View>
           ) : docs.length === 0 ? (
             <View className="items-center py-16">
-              <Text className="text-sm text-neutral-500">{t('repoWiki.emptyList')}</Text>
+              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('repoWiki.emptyList')}</Text>
             </View>
           ) : (
             <View className="px-4 pb-6 pt-3">
@@ -255,9 +255,9 @@ export function RepoWikiScreen() {
                     </View>
                   </View>
                   {doc.modulePath ? (
-                    <Text className="mt-1 text-xs text-neutral-500">{doc.modulePath}</Text>
+                    <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{doc.modulePath}</Text>
                   ) : null}
-                  <Text className="mt-1 text-xs text-neutral-500">
+                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {t('repoWiki.generatedAt', { time: formatStamp(doc.generatedAt) })}
                     {' · '}
                     {t('repoWiki.fileCount', { count: doc.fileCount })}

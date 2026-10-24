@@ -371,7 +371,7 @@ export function PatrolScreen() {
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <Text className="text-sm text-neutral-500">{t('patrol.loading')}</Text>
+          <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('patrol.loading')}</Text>
         </View>
       ) : error ? (
         <View className="flex-1 items-center justify-center px-6">
@@ -390,7 +390,7 @@ export function PatrolScreen() {
         >
           {items.length === 0 ? (
             <View className="items-center py-16">
-              <Text className="text-sm text-neutral-500">{t('patrol.empty')}</Text>
+              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('patrol.empty')}</Text>
             </View>
           ) : (
             items.map((task) => (
@@ -497,9 +497,9 @@ export function PatrolScreen() {
                       {t('patrol.historyTitle')}
                     </Text>
                     {runsLoading ? (
-                      <Text className="text-xs text-neutral-500">{t('common.loading')}</Text>
+                      <Text className="text-xs text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
                     ) : runs.length === 0 ? (
-                      <Text className="text-xs text-neutral-500">{t('patrol.historyEmpty')}</Text>
+                      <Text className="text-xs text-neutral-500 dark:text-neutral-400">{t('patrol.historyEmpty')}</Text>
                     ) : (
                       runs.map((run) => (
                         <View key={run.id} className="mb-1">

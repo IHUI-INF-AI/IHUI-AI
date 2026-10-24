@@ -371,11 +371,11 @@ export function TeamMemoryScreen() {
 
         {loading && rows.length === 0 ? (
           <View className="items-center py-16">
-            <Text className="text-sm text-neutral-500">{t('teamMemory.loading')}</Text>
+            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('teamMemory.loading')}</Text>
           </View>
         ) : rows.length === 0 ? (
           <View className="items-center py-16">
-            <Text className="text-sm text-neutral-500">{t('teamMemory.empty')}</Text>
+            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('teamMemory.empty')}</Text>
           </View>
         ) : (
           <View className="px-4 pb-6 pt-2">
@@ -401,7 +401,7 @@ export function TeamMemoryScreen() {
                   {row.content}
                 </Text>
                 {row.tags.length > 0 ? (
-                  <Text className="mt-1 text-xs text-neutral-500">{row.tags.join(' · ')}</Text>
+                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{row.tags.join(' · ')}</Text>
                 ) : null}
                 <View className="mt-3 flex-row items-center">
                   <TouchableOpacity

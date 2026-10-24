@@ -393,7 +393,7 @@ export function WorkspaceScreen() {
 
             {loading ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
               </View>
             ) : error ? (
               <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
@@ -409,7 +409,7 @@ export function WorkspaceScreen() {
               </View>
             ) : projects.length === 0 ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500">{t('workspace.empty')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('workspace.empty')}</Text>
               </View>
             ) : (
               projects.map((item) => (
@@ -432,7 +432,7 @@ export function WorkspaceScreen() {
                       {item.description}
                     </Text>
                   ) : null}
-                  <Text className="mt-1 text-xs text-neutral-500">
+                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {t('workspace.files', { count: item.fileCount })} ·{' '}
                     {t('workspace.members', {
                       count: item.memberCount,
@@ -466,7 +466,7 @@ export function WorkspaceScreen() {
 
             {permLoading ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
               </View>
             ) : permError ? (
               <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
@@ -482,7 +482,7 @@ export function WorkspaceScreen() {
               </View>
             ) : permissions.length === 0 ? (
               <View className="items-center py-12">
-                <Text className="text-sm text-neutral-500">{t('workspace.permEmpty')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('workspace.permEmpty')}</Text>
               </View>
             ) : (
               permissions.map((perm) => {
@@ -502,11 +502,11 @@ export function WorkspaceScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Text className="mt-1 text-xs text-neutral-500" numberOfLines={1}>
+                    <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400" numberOfLines={1}>
                       {t('workspace.permPath')}: {perm.workspacePath}
                     </Text>
                     {perm.techStack ? (
-                      <Text className="mt-1 text-xs text-neutral-500">
+                      <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                         {t('workspace.permStack')}: {perm.techStack}
                       </Text>
                     ) : null}

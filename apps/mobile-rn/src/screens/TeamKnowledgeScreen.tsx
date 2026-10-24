@@ -379,11 +379,11 @@ export function TeamKnowledgeScreen() {
           </Text>
           {loading && spaces.length === 0 ? (
             <View className="items-center py-8">
-              <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
+              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
             </View>
           ) : spaces.length === 0 ? (
             <View className="items-center py-8">
-              <Text className="text-sm text-neutral-500">{t('teamKnowledge.emptySpaces')}</Text>
+              <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('teamKnowledge.emptySpaces')}</Text>
             </View>
           ) : (
             <View className="mt-2 flex-row flex-wrap">
@@ -402,7 +402,7 @@ export function TeamKnowledgeScreen() {
                     <Text className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                       {space.name}
                     </Text>
-                    <Text className="mt-0.5 text-xs text-neutral-500">
+                    <Text className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
                       {roleLabel(t, space.myRole)}
                       {' · '}
                       {t(
@@ -424,7 +424,7 @@ export function TeamKnowledgeScreen() {
               {t('teamKnowledge.membersTitle')}
             </Text>
             {members.length === 0 ? (
-              <Text className="mt-1 text-xs text-neutral-500">
+              <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                 {t('teamKnowledge.emptyMembers')}
               </Text>
             ) : (
@@ -519,7 +519,7 @@ export function TeamKnowledgeScreen() {
 
             {items.length === 0 ? (
               <View className="items-center py-8">
-                <Text className="text-sm text-neutral-500">{t('teamKnowledge.emptyItems')}</Text>
+                <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('teamKnowledge.emptyItems')}</Text>
               </View>
             ) : (
               items.map((item) => (
@@ -531,7 +531,7 @@ export function TeamKnowledgeScreen() {
                     <Text className="flex-1 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                       {item.title}
                     </Text>
-                    <Text className="text-xs text-neutral-500">{statusLabel(t, item.status)}</Text>
+                    <Text className="text-xs text-neutral-500 dark:text-neutral-400">{statusLabel(t, item.status)}</Text>
                   </View>
                   {item.plainText ? (
                     <Text
@@ -541,7 +541,7 @@ export function TeamKnowledgeScreen() {
                       {item.plainText}
                     </Text>
                   ) : null}
-                  <Text className="mt-1 text-xs text-neutral-500">
+                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {kindLabel(t, item.kind)}
                     {' · '}v{item.revision}
                   </Text>
