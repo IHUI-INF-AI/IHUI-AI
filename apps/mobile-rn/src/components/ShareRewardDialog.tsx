@@ -84,6 +84,7 @@ function BenefitRow(props: { icon: React.ReactNode; text: string }): React.JSX.E
 
 export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Element | null {
   const { visible, reward, onClaim, onClose, secondaryLabel, onSecondaryPress } = props
+  const { t } = useI18n()
 
   // ── 入场"左右翻转 360°"动效:rotateY 绕纵轴整圈翻入 ──
   // timing(cubic-out 800ms)匀减速完成 0°→360° 翻转,伴随缩放 0.7→1 与淡入;
@@ -121,7 +122,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}
-          accessibilityLabel="点击关闭"
+          accessibilityLabel={t('sr.closeA11y')}
         />
         <Animated.View
           style={[
@@ -150,7 +151,7 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
             onPress={onClose}
             style={styles.close}
             accessibilityRole="button"
-            accessibilityLabel="关闭"
+            accessibilityLabel={t('common.close')}
           >
             <X size={18} color={tokens.text.tertiary} />
           </Pressable>
@@ -217,22 +218,22 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
 
           <Text style={styles.rewardNum}>
             +{reward}
-            <Text style={styles.rewardUnit}> 智汇值</Text>
+            <Text style={styles.rewardUnit}>{t('sr.rewardUnit')}</Text>
           </Text>
-          <Text style={styles.title}>分享领智汇值</Text>
+          <Text style={styles.title}>{t('chat.sharePoints')}</Text>
 
           {/* 权益行(原整段说明结构化) */}
           <View style={styles.benefits}>
             <BenefitRow
               icon={<Sparkles size={15} color={tokens.brandAccent.deep} />}
-              text={`首次分享成功,获得 ${reward} 智汇值奖励`}
+              text={t('sr.firstBonus', { n: reward })}
             />
             <BenefitRow
               icon={<UserPlus size={15} color={tokens.brandAccent.deep} />}
-              text="邀请好友加入智汇AI社区,注册成功后双方均可再获智汇值"
+              text={t('sr.inviteNote')}
             />
           </View>
-          <Text style={styles.footnote}>智汇值可用于兑换模型算力、会员权益等</Text>
+          <Text style={styles.footnote}>{t('sr.footnote')}</Text>
 
           {/* 主 CTA:brand.cta 实底(IntroducePopup primaryButton 房规;
            *  按压态走「外框拿盒,面层拿 pressed」形态,守门 131) */}
@@ -240,12 +241,12 @@ export function ShareRewardDialog(props: ShareRewardDialogProps): React.JSX.Elem
             style={styles.primaryButton}
             onPress={onClaim}
             accessibilityRole="button"
-            accessibilityLabel={`领取 ${reward} 智汇值`}
+            accessibilityLabel={t('sr.claimBtn', { n: reward })}
           >
             {({ pressed }) => (
               <View style={[styles.buttonFace, pressed ? styles.buttonPressed : null]}>
                 <Text style={styles.primaryButtonText} allowFontScaling={false}>
-                  领取 {reward} 智汇值
+                  {t('sr.claimBtn', { n: reward })}
                 </Text>
               </View>
             )}
