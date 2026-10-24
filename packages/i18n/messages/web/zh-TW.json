@@ -702,6 +702,7 @@
       "aiSessions": "AI 活躍工作階段",
       "alertCount": "告警 {count}",
       "alertCountUnknown": "告警數未知",
+      "alertCountAtLeast": "告警 ≥{count}",
       "alertStateActive": "活躍",
       "alertStateSuppressed": "已抑制",
       "alertStateUnprocessed": "未處理",

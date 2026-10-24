@@ -705,6 +705,7 @@
       "aiSessions": "AI 活跃会话",
       "alertCount": "告警 {count}",
       "alertCountUnknown": "告警数未知",
+      "alertCountAtLeast": "告警 ≥{count}",
       "alertStateActive": "活跃",
       "alertStateSuppressed": "已抑制",
       "alertStateUnprocessed": "未处理",

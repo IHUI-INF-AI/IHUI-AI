@@ -702,6 +702,7 @@
       "aiSessions": "AI Active Sessions",
       "alertCount": "Alerts {count}",
       "alertCountUnknown": "Alert count unknown",
+      "alertCountAtLeast": "Alerts ≥{count}",
       "alertStateActive": "Active",
       "alertStateSuppressed": "Suppressed",
       "alertStateUnprocessed": "Unprocessed",
