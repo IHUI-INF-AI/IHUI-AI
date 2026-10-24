@@ -327,6 +327,7 @@ function createStyles(tk: AppThemeTokens) {
     textButton: { paddingVertical: 4, paddingHorizontal: 8 },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     statCard: {
+      minWidth: 96,
       width: '48%',
       flexGrow: 1,
       padding: 12,

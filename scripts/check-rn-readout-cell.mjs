@@ -13,9 +13,14 @@
  *     <View style={CELL}>                   CELL: flex:1
  *       <Text style={VAL}>…</Text>          VAL:  fontSize ≥ 16 且 600/700
  *
- * 判定两条,缺一不可(§13.4 唯一写法的两半):
- *   V1 格必须有 minWidth —— `flex:1` 的 flexBasis 是 0,永远等分压缩,读数必折行;
- *   V2 行必须有 flexWrap:'wrap' —— minWidth 生效后不换行,就是溢出压到邻居。
+ * 判定五条,按宿主形态分档(§13.4 唯一写法):
+ *   V1 等分格必须有 minWidth —— `flex:1` 的 flexBasis 是 0,永远等分压缩,读数必折行;
+ *   V2 等分行必须有 flexWrap:'wrap' —— minWidth 生效后不换行,就是溢出压到邻居;
+ *   V3 space-between 行内的读数必须有 flexShrink:0 —— 行内两个子项都没 flex 时,
+ *      读数默认 flexShrink:1,行宽不够**先压读数**,标签反而完整(压错了那一个);
+ *   V4 absolute 容器内的读数同上;
+ *   V5 定宽格(width:NN% / flexBasis)必须有 minWidth —— flexShrink 是纵向主轴属性,
+ *      对横向定宽无效,给它加 flexShrink 等于没加。
  * 「有 flexWrap 就免疫」是错的:没有 minWidth 时子项总宽永不超容器,wrap 一次都不触发。
  *
  * 读数与文案的分档:数值词(readout) / 标题名类词(text) / 都不像(unknown)。
@@ -126,6 +131,7 @@ export function analyze(src) {
   const violations = []
   const triples = []
   const unjudged = []
+  const squeezed = [] // V3/V4/V5:非等分宿主的读数(space-between 行 / absolute 容器 / 定宽格)
   let jsxNodes = 0
   const lineOf = (n) => sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1
   // 「这行 Text 写的是读数还是文案」——本尺唯一的语义判据,写错就是造几百枚假红。
@@ -165,7 +171,8 @@ export function analyze(src) {
     return { kind: 'text', text: lit }
   }
   // 遍历 JSX:找 <X style={styles.ROW}> → 子 <View style={styles.CELL}> → 子树 <Text style={styles.VAL}>
-  const walkJsx = (n) => {
+  // ancestors = 从最近父级往上的 [{tag, name, props}],用于判"读数住在什么宿主里"。
+  const walkJsx = (n, ancestors = []) => {
     if (n.kind === ts.SyntaxKind.JsxElement || n.kind === ts.SyntaxKind.JsxSelfClosingElement) {
       jsxNodes += 1
       const open = n.kind === ts.SyntaxKind.JsxElement ? n.openingElement : n
@@ -173,8 +180,97 @@ export function analyze(src) {
       const styleArg = open.attributes?.properties?.find(
         (a) => a.kind === ts.SyntaxKind.JsxAttribute && a.name?.text === 'style',
       )
-      const rowName = styleArg ? styleNameOf(styleArg.initializer) : null
-      if (tag && /^(View|ScrollView)$/.test(tag) && rowName && styles.has(rowName)) {
+      const stName = styleArg ? styleNameOf(styleArg.initializer) : null
+      const st = stName && styles.has(stName) ? styles.get(stName) : null
+      const nextAnc = [{ tag, name: stName, props: st }, ...ancestors]
+
+      const isReadoutText = (styleMap) => {
+        const f = numProp(styleMap, 'fontSize')
+        const fw = String(boolish(styleMap, 'fontWeight') ?? '')
+        return f && f >= 16 && /600|700|800|bold/i.test(fw) ? f : null
+      }
+      // 子树里找第一个读数型 Text(与等分判据同一套读数/文案词表)
+      const firstReadoutIn = (root, rowName, cellName) => {
+        let found = null
+        const chWalk = (m) => {
+          if (found) return
+          if (m.kind === ts.SyntaxKind.JsxSelfClosingElement || m.kind === ts.SyntaxKind.JsxElement) {
+            const mo = m.kind === ts.SyntaxKind.JsxElement ? m.openingElement : m
+            if (mo.tagName?.getText() === 'Text') {
+              const sa = mo.attributes?.properties?.find((a) => a.kind === ts.SyntaxKind.JsxAttribute && a.name?.text === 'style')
+              const sn = sa ? styleNameOf(sa.initializer) : null
+              const sv = sn ? styles.get(sn) : null
+              const f = sv ? isReadoutText(sv) : null
+              if (f) {
+                const kind = textKindOf(m, rowName, cellName)
+                if (kind.kind === 'readout') found = { fs: f, text: kind.text, line: lineOf(m), textStyle: sn }
+                else if (kind.kind === 'unknown') unjudged.push({ row: rowName, cell: cellName, fs: f, text: kind.text, line: lineOf(m) })
+              }
+            }
+          }
+          m.forEachChild(chWalk)
+        }
+        chWalk(root)
+        return found
+      }
+
+      // ── V3 / V4:非等分宿主。判据覆盖不到 flex:1 格,但读数同样会被压缩 ──
+      // V3 行是 `space-between`(标签左 / 读数右):两个子项都没有 flex,读数默认 flexShrink:1,
+      //    行宽不够时先压读数 ⇒ 折行。免疫条件 = 读数 Text 自己带 flexShrink:0 或 minWidth。
+      // V4 读数住在 position:'absolute' 的容器里(角标 / 悬浮层):容器宽度由内容决定但受父宽约束,
+      //    同样靠 flexShrink:0 兜。两者判同一个属性,所以合成一条 why。
+      if (tag === 'Text' && st) {
+        const f = isReadoutText(st)
+        if (f) {
+          const kind = textKindOf(n, stName ?? '', stName ?? '')
+          if (kind.kind === 'readout') {
+            const parentView = ancestors.find((a) => a.tag === 'View')
+            const pv = parentView?.props
+            const pvRow = pv && /row/.test(String(boolish(pv, 'flexDirection') ?? ''))
+            const sbRow = pvRow && boolish(pv, 'justifyContent') === 'space-between' && numProp(pv, 'flex') !== 1
+            const absHost = ancestors.find((a) => a.props && boolish(a.props, 'position') === 'absolute')
+            const immune = numProp(st, 'flexShrink') === 0 || st.has('minWidth')
+            if ((sbRow || absHost) && !immune) {
+              squeezed.push({
+                host: sbRow ? 'space-between' : 'absolute',
+                row: parentView?.name ?? '(无 style)',
+                cell: absHost?.name ?? parentView?.name ?? '',
+                textStyle: stName,
+                maxFs: f,
+                text: kind.text,
+                line: lineOf(n),
+                why: sbRow
+                  ? 'space-between 行内的读数缺 flexShrink:0:行宽不够时先压读数 ⇒ 折行'
+                  : 'absolute 容器内的读数缺 flexShrink:0:容器受父宽约束时读数被压 ⇒ 折行',
+              })
+            }
+          }
+        }
+      }
+      // ── V5:定宽格(width:NN% / flexBasis)。flexShrink 是纵向主轴属性,对横向定宽无效,
+      //    所以这类只能靠格自己 minWidth 兜。父级若是 FlatList numColumns 就没有 wrap 概念,不判 V2。
+      if (tag === 'View' && st) {
+        const w = st.get('width')
+        const pct = w && w.kind === ts.SyntaxKind.StringLiteral ? /^(\d+(?:\.\d+)?)%$/.exec(w.text) : null
+        const fixedCell = (pct && Number(pct[1]) < 100) || st.has('flexBasis')
+        if (fixedCell && !st.has('minWidth')) {
+          const hit = firstReadoutIn(n, stName ?? '', stName ?? '')
+          if (hit) {
+            squeezed.push({
+              host: 'fixed-width',
+              row: stName ?? '',
+              cell: stName ?? '',
+              maxFs: hit.fs,
+              text: hit.text,
+              line: hit.line,
+              why: '定宽格(width%/flexBasis)缺 minWidth:flexShrink 对横向定宽无效,读数会被压折',
+            })
+          }
+        }
+      }
+
+      if (tag && /^(View|ScrollView)$/.test(tag) && stName && styles.has(stName)) {
+        const rowName = stName
         const row = styles.get(rowName)
         const rowDir = boolish(row, 'flexDirection')
         const rowWrap = row.has('flexWrap')
@@ -195,29 +291,7 @@ export function analyze(src) {
             // 子树里找「读数型」Text:字号 ≥16 且粗体,且内容形态是读数而非文案。
             // 只按字号判会造大量假红 —— 实测 WalletScreen 的「充值/提现」按钮、StudyRecordScreen 的
             // 「学习记录」标题都是 fontSize 16-20 + 粗体,它们住在 flex:1 的格里却不是读数。
-            let hit = null
-            const chWalk = (m) => {
-              if (hit) return
-              if (m.kind === ts.SyntaxKind.JsxSelfClosingElement || m.kind === ts.SyntaxKind.JsxElement) {
-                const mo = m.kind === ts.SyntaxKind.JsxElement ? m.openingElement : m
-                if (mo.tagName?.getText() === 'Text') {
-                  const sa = mo.attributes?.properties?.find((a) => a.kind === ts.SyntaxKind.JsxAttribute && a.name?.text === 'style')
-                  const sn = sa ? styleNameOf(sa.initializer) : null
-                  const sv = sn ? styles.get(sn) : null
-                  if (sv) {
-                    const f = numProp(sv, 'fontSize')
-                    const fw = String(boolish(sv, 'fontWeight') ?? '')
-                    if (f && f >= 16 && /600|700|800|bold/i.test(fw)) {
-                      const kind = textKindOf(m, rowName, cellName)
-                      if (kind.kind === 'readout') hit = { fs: f, text: kind.text, line: lineOf(m) }
-                      else if (kind.kind === 'unknown') unjudged.push({ row: rowName, cell: cellName, fs: f, text: kind.text, line: lineOf(m) })
-                    }
-                  }
-                }
-              }
-              m.forEachChild(chWalk)
-            }
-            chWalk(ch)
+            const hit = firstReadoutIn(ch, rowName, cellName)
             if (hit) {
               const rec = { row: rowName, cell: cellName, maxFs: hit.fs, text: hit.text, line: hit.line }
               triples.push(rec)
@@ -231,11 +305,13 @@ export function analyze(src) {
           }
         }
       }
+      n.forEachChild((c) => walkJsx(c, nextAnc))
+      return
     }
-    n.forEachChild(walkJsx)
+    n.forEachChild((c) => walkJsx(c, ancestors))
   }
   sf.forEachChild(walkJsx)
-  return { violations, triples, unjudged, styles: styles.size, jsxNodes }
+  return { violations, triples, unjudged, squeezed, styles: styles.size, jsxNodes }
 }
 
 export function readFace(root, face) {
@@ -320,6 +396,7 @@ async function main() {
   const hits = []
   const totalTriples = []
   const suspicious = [] // styles 认到了但 JSX 一个也没解析出来 ⇒ 未判定,不许算绿
+  const squeezedHits = []
   const failed = []
   for (const { file, src } of files) {
     try {
@@ -327,6 +404,7 @@ async function main() {
       parsed += 1
       for (const v of r.violations) hits.push({ file, ...v })
       for (const t of r.triples) totalTriples.push({ file, ...t })
+      for (const s of r.squeezed) squeezedHits.push({ file, ...s })
       if (r.styles > 0 && r.jsxNodes === 0) suspicious.push(file)
     } catch (e) {
       failed.push({ file, why: e?.message ?? String(e) })
@@ -334,14 +412,16 @@ async function main() {
   }
   console.log(`端侧 AST 尺:射程 ${files.length} 枚,解析 ${parsed} 枚,解析失败 ${failed.length} 枚`)
   console.log(`识别「等分读数格」三元组 ${totalTriples.length} 处,其中缺 minWidth 保护 ${hits.length} 处`)
+  console.log(`非等分宿主(space-between 行 / absolute 容器 / 定宽格)里的读数 ${squeezedHits.length} 处缺 flexShrink:0 或 minWidth`)
   if (suspicious.length) console.log(`⚪ 可疑未判定 ${suspicious.length} 枚(StyleSheet 认到但 JSX 为 0):${suspicious.slice(0, 5).join(' / ')}${suspicious.length > 5 ? ' …' : ''}`)
   if (failed.length) console.log(`⚪ 解析失败 ${failed.length} 枚:${failed.slice(0, 3).map((x) => `${x.file}(${x.why})`).join(' / ')}`)
   const per = new Map()
-  for (const h of hits) per.set(h.file, (per.get(h.file) ?? 0) + 1)
+  for (const h of [...hits, ...squeezedHits]) per.set(h.file, (per.get(h.file) ?? 0) + 1)
   for (const [f, n] of [...per.entries()].sort((a, b) => b[1] - a[1]).slice(0, 20))
     console.log(`  ${String(n).padStart(3)}  ${f}`)
+  if (args.includes('--json')) console.log(JSON.stringify({ triples: totalTriples, violations: hits, squeezed: squeezedHits }, null, 2))
   // 判定分档:有缺口 ⇒ 1;一枚射程文件都没解析成功 ⇒ 2(未判定,不冒绿)
-  if (hits.length > 0) process.exit(1)
+  if (hits.length + squeezedHits.length > 0) process.exit(1)
   if (parsed === 0) {
     console.log('⚪ [端侧读数格] 0 枚文件解析成功 ⇒ 未判定')
     process.exit(2)

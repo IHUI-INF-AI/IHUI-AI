@@ -90,7 +90,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 10,
     },
     label: { fontSize: 14, color: tk.text.secondary },
-    price: { fontSize: 20, fontWeight: '600', color: tk.danger.DEFAULT },
+    price: { flexShrink: 0, fontSize: 20, fontWeight: '600', color: tk.danger.DEFAULT },
     value: { fontSize: 14, color: tk.text.primary, fontWeight: '500' },
     benefitsTitle: { marginTop: 16, fontSize: 16, fontWeight: '700', color: tk.text.primary },
     benefits: { marginTop: 8, fontSize: 14, color: tk.text.medium, lineHeight: 22 },

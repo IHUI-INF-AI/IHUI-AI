@@ -258,7 +258,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       marginTop: 8,
     },
-    amountValue: { fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
+    amountValue: { flexShrink: 0, fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
     actionWrap: { marginTop: 12, gap: 8 },
     primaryBtn: {
       height: 50,
