@@ -1141,7 +1141,8 @@
     "panelExpand": "展開面板",
     "loadMore": "載入更多",
     "user": "用戶",
-    "retryShort": "重試"
+    "retryShort": "重試",
+    "known": "知道了"
   },
   "network": {
     "offline": "網路已中斷,部分功能不可用",
@@ -3410,7 +3411,27 @@
     "orderCreated": "訂單已建立",
     "purchase": "開通會員",
     "purchaseFailed": "開通失敗",
-    "title": "會員中心"
+    "title": "會員中心",
+    "month": "包月",
+    "quarter": "包季",
+    "halfYear": "半年",
+    "year": "包年",
+    "renewM": "每月自動續費，可隨時取消",
+    "renewQ": "每季自動續費，節省 25%",
+    "renewY": "每年自動續費，最划算",
+    "onceN": "一次性購買，{n} 天有效",
+    "continuous": "連續{c}",
+    "discountN": "{n} 折",
+    "trial7": "7 天試用",
+    "lvMonth": "月度會員",
+    "lvQuarter": "季度會員",
+    "lvYear": "年度會員",
+    "benefitsA11y": "會員權益介紹",
+    "traderA11y": "操盤手權益介紹",
+    "advisorA11y": "私人顧問介紹",
+    "popTitle": "VIP 會員權益",
+    "popSub": "解鎖全部高級內容與專屬服務",
+    "viewNow": "立即查看"
   },
   "vipBenefit": {
     "title": "會員權益",
@@ -5685,5 +5706,89 @@
     "bind": "綁定",
     "saveA11y": "保存資訊",
     "logoutA11y": "登出"
+  },
+  "need": {
+    "titleRequired": "請輸入需求標題",
+    "titleMin2": "需求標題至少 2 個字元",
+    "descRequired": "請輸入需求描述",
+    "descMin": "需求描述至少 {n} 個字元",
+    "priceLowRequired": "請輸入有效的起步價",
+    "priceHighRequired": "請輸入有效的最高價",
+    "priceOrder": "起步價不能高於最高價",
+    "priceMin100": "起步價不能低於 100 元",
+    "contactRequired": "請輸入聯絡方式",
+    "timeRequired": "請設置任務截止時間",
+    "timeInvalid": "截止時間格式無效",
+    "timePast": "截止時間必須晚於當前時間",
+    "cycleRequired": "請設置有效的開發週期",
+    "publishedTitle": "提交成功",
+    "publishedBody": "需求已發布，稍後將在廣場展示",
+    "okBtn": "好的",
+    "submitFail": "提交失敗，請稍後重試",
+    "netFail": "網路異常，請稍後重試",
+    "cycleUnitWeek": "周"
+  },
+  "news": {
+    "catAi": "人工智慧",
+    "catMl": "機器學習",
+    "catCv": "計算機視覺",
+    "catNlp": "自然語言",
+    "catChip": "AI 晶片",
+    "catRec": "智能推薦",
+    "title": "AI資訊",
+    "anonAuthor": "佚名",
+    "netFail": "網路異常"
+  },
+  "iaa": {
+    "expandFab": "展開提問輸入",
+    "removeAttach": "刪除附件",
+    "stop": "停止",
+    "collapseArea": "收起輸入區",
+    "holdAsk": "按住說出你的問題",
+    "zoomOut": "縮小輸入框",
+    "zoomIn": "放大輸入框",
+    "switchKeyboard": "切換到鍵盤",
+    "switchVoice": "切換到語音",
+    "holdEnd": "按住說話，鬆開結束",
+    "addFile": "添加圖片或文件",
+    "addParam": "添加參數圖片"
+  },
+  "bab": {
+    "camera": "相機",
+    "album": "相簿",
+    "localFile": "本地文件",
+    "wxFile": "微信文件",
+    "knowledge": "知識庫",
+    "memory": "記憶",
+    "pickModel": "選擇模型",
+    "modelA11y": "模型：{name}",
+    "modelConfig": "模型配置",
+    "voiceInput": "語音輸入",
+    "feature2": "功能",
+    "source": "來源",
+    "enlarge": "放大",
+    "agentAssist": "智能體輔"
+  },
+  "eduAttendance": {
+    "title": "考勤管理",
+    "student": "學生",
+    "statusTitle": "狀態",
+    "checkIn": "簽到",
+    "checkOut": "簽退",
+    "remark": "備註",
+    "status": {
+      "present": "正常",
+      "late": "遲到",
+      "absent": "缺勤",
+      "leave": "請假"
+    }
+  },
+  "eduGrades": {
+    "title": "成績管理",
+    "student": "學生",
+    "subject": "科目",
+    "exam": "考試",
+    "score": "分數",
+    "date": "日期"
   }
 }

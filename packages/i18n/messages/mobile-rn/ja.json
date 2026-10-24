@@ -1141,7 +1141,8 @@
     "panelExpand": "パネル展开",
     "loadMore": "さらに読み込む",
     "user": "ユーザー",
-    "retryShort": "再試行"
+    "retryShort": "再試行",
+    "known": "了解"
   },
   "network": {
     "offline": "ネットワークが切断されました。一部の機能は利用できません",
@@ -3410,7 +3411,27 @@
     "orderCreated": "注文が作成されました",
     "purchase": "会員になる",
     "purchaseFailed": "購入に失敗",
-    "title": "会員センター"
+    "title": "会員センター",
+    "month": "月額",
+    "quarter": "季間隔",
+    "halfYear": "半年",
+    "year": "年間",
+    "renewM": "毎月月額自動更新。いつでも解除。",
+    "renewQ": "四半期ごと自動更新、25% お得。",
+    "renewY": "年次自動更新、最オトク。",
+    "onceN": "都度購入、{n}日間有効",
+    "continuous": "連続{c}",
+    "discountN": "{n}割引",
+    "trial7": "7日トライアル",
+    "lvMonth": "月額会員",
+    "lvQuarter": "四半期会員",
+    "lvYear": "年額会員",
+    "benefitsA11y": "会員特典紹介",
+    "traderA11y": "トレーダー特典",
+    "advisorA11y": "アドバイザー紹介",
+    "popTitle": "VIP 特典",
+    "popSub": "上位コンテンツと専用サービスを解放",
+    "viewNow": "今すぐ見る"
   },
   "vipBenefit": {
     "title": "会員権益",
@@ -5685,5 +5706,89 @@
     "bind": "紐付け",
     "saveA11y": "情報を保存",
     "logoutA11y": "ログアウト"
+  },
+  "need": {
+    "titleRequired": "タイトルを入力",
+    "titleMin2": "タイトルは2文字以上",
+    "descRequired": "説明を入力",
+    "descMin": "説明は{n}文字以上",
+    "priceLowRequired": "最低価格を入力",
+    "priceHighRequired": "最高価格を入力",
+    "priceOrder": "最低が最高を超えられない",
+    "priceMin100": "最低は100元以上",
+    "contactRequired": "連絡先を入力",
+    "timeRequired": "締切を設定",
+    "timeInvalid": "締切形式不正",
+    "timePast": "締切は現在時刻以降",
+    "cycleRequired": "開発期間を設定",
+    "publishedTitle": "送信完了",
+    "publishedBody": "发布されました。プラザに掲載予定。",
+    "okBtn": "了解",
+    "submitFail": "送信失敗。再試行",
+    "netFail": "ネットワークエラー。再試行",
+    "cycleUnitWeek": "週"
+  },
+  "news": {
+    "catAi": "AI",
+    "catMl": "機械学習",
+    "catCv": "コンピュータビジョン",
+    "catNlp": "自然言語",
+    "catChip": "AI チップ",
+    "catRec": "レコメンド",
+    "title": "AI ニュース",
+    "anonAuthor": "匿名",
+    "netFail": "ネットワークエラー"
+  },
+  "iaa": {
+    "expandFab": "入力を広げる",
+    "removeAttach": "添付削除",
+    "stop": "停止",
+    "collapseArea": "入力欄を畳む",
+    "holdAsk": "長押しで話す",
+    "zoomOut": "入力縮小",
+    "zoomIn": "入力拡大",
+    "switchKeyboard": "キーボード切替",
+    "switchVoice": "音声切替",
+    "holdEnd": "長押し話話、離すと終了",
+    "addFile": "画像/ファイル追加",
+    "addParam": "パラメータ画像追加"
+  },
+  "bab": {
+    "camera": "カメラ",
+    "album": "アルバム",
+    "localFile": "ローカルファイル",
+    "wxFile": "WeChat ファイル",
+    "knowledge": "知識ベース",
+    "memory": "メモリ",
+    "pickModel": "モデル選択",
+    "modelA11y": "モデル：{name}",
+    "modelConfig": "モデル設定",
+    "voiceInput": "音声入力",
+    "feature2": "機能",
+    "source": "ソース",
+    "enlarge": "拡大",
+    "agentAssist": "Agent補助"
+  },
+  "eduAttendance": {
+    "title": "出席管理",
+    "student": "生徒",
+    "statusTitle": "状態",
+    "checkIn": "登校",
+    "checkOut": "下校",
+    "remark": "備考",
+    "status": {
+      "present": "出席",
+      "late": "遅刻",
+      "absent": "欠席",
+      "leave": "休み"
+    }
+  },
+  "eduGrades": {
+    "title": "成績管理",
+    "student": "生徒",
+    "subject": "科目",
+    "exam": "試験",
+    "score": "点数",
+    "date": "日付"
   }
 }
