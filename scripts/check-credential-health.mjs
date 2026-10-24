@@ -11,6 +11,12 @@
  * 被 `catch {}` 吞掉,现象是"LLM 网关不可达",与凭据毫无字面关联,故两天无人知。
  * 同类形态第二次:我把 git PAT 读错(同步盘冲突副本)也差点被判成"凭据已失效"。
  *
+ * 2026-10-25 修:真登录探针**默认关闭**(显式 `IHUI_CREDENTIAL_LOGIN_PROBE=1` 才跑)。
+ *   权威源 `admin-password.txt` 是**备份口令**,不等于现役口令(用户可随时在 UI 改密);
+ *   拿备份口令去真登录 = 把"备份件≠现役"误报成"凭据失效",且每跑一次就消耗一次
+ *   `account-lockout` 失败预算(5 次/15 分钟,达阈值锁 15 分钟)—— 监控自己制造故障。
+ *   默认落 `unknown` 并点名原因;①仍对账「部署环 env ↔ 权威源」这个自动化真正的输入面。
+ *
  * 本脚本把这两类"凭据过期"从**静默下游失败**变成**独立可告警签名**,并区分
  * `401/不匹配`(凭据本身失效,需处理)与 `429/超时`(被限流或网络,不是凭据问题)——
  * 混为一谈是当天排查最大的干扰源。
@@ -300,6 +306,18 @@ export function readFileSyncOr(path) {
 }
 
 /**
+ * key 读取的三态出口(2026-09-24 立;2026-10-25 补回缺失实现):
+ * 缺失(null)/形状不合 ⇒ ''(不抛错、不拿冲突副本去联网),形状合 ⇒ 去空白原值。
+ * 立因原本就在这里:同步盘会写出"名字相近、内容是几把 key 粘在一起"的冲突副本,
+ * 直接当 token 用会让巡检拿垃圾去撞外部 API。缺了它自检当场 ReferenceError,
+ * 而 --self-test 不在提交链上 ⇒ 腐烂没有任何门会看见(本次即这样被发现)。
+ */
+export function pickKey(raw, shape) {
+  const v = String(raw ?? '').trim()
+  return v !== '' && shape.test(v) ? v : ''
+}
+
+/**
  * ⑥ 应用 .env 关键凭据**齐备性**(2026-09-27 立)。
  *
  * 为什么本门原有各条都看不见它:①②③④判的是"凭据在不在、还有效吗",全部指向**外部**凭据
@@ -412,15 +430,23 @@ export async function runChecks() {
     detail: `${cmp.why};服务在位 ${installed === null ? '?' : installed ? 'Y' : 'N'} / 服务侧 ${fingerprint(adminInSvc)} / 权威源 ${fingerprint(adminAuthority)}`,
   })
 
-  // ② 真登录一次(与门禁同一入口)。127.0.0.1 自有桶,单轮 1 次不撞限流。
-  // **但①已判不一致时必须跳过**:拿必错的口令去撞登录 = 巡检自己消耗"剩余 N 次即锁定"预算,
-  // 那会把"发现故障"变成"制造故障"(本脚本首次自测就真实触发了 401 + 剩余次数递减)。
-  if (adminAuthority && cmp.level !== 'fail') {
+  // ② 真登录探针(**默认关闭**,2026-10-25 改,理由见文件头):权威源是备份口令,
+  // 不等于现役口令;拿它真登录既会误报,又会消耗 account-lockout 的失败预算
+  // (5 次/15 分钟 ⇒ 锁 15 分钟)。历史:①不一致时跳过;现在:只有显式开关才探,
+  // 默认落 unknown 并点名"为什么没探"(§0.3 不把没量到写成量到)。
+  const LOGIN_PROBE_ON = process.env.IHUI_CREDENTIAL_LOGIN_PROBE === '1'
+  if (adminAuthority && cmp.level !== 'fail' && LOGIN_PROBE_ON) {
     const r = await loginProbe('admin', adminAuthority)
     out.push({
       name: '后端登录探针 /api/auth/login/username',
       level: classifyHttpStatus(r.sc),
       detail: `http=${r.sc} ${r.sc >= 400 ? String(r.txt).slice(0, 60).replace(/\s+/g, ' ') : '(成功)'}`,
+    })
+  } else if (adminAuthority && cmp.level !== 'fail') {
+    out.push({
+      name: '后端登录探针 /api/auth/login/username',
+      level: 'unknown',
+      detail: '默认不探:权威源是备份口令,真登录可能误报并消耗账号锁定预算(5 次/15 分钟);确需探测:IHUI_CREDENTIAL_LOGIN_PROBE=1 node scripts/check-credential-health.mjs',
     })
   }
   // ③ GitHub 凭据(同步盘里那把):先看能不能取到仓库权限,再判断"是否被同步盘写成冲突副本"
@@ -450,20 +476,28 @@ export async function runChecks() {
   // ④ Gitee token(代码镜像仓已弃用,但**桌面端安装包资产仍由 Gitee release 直链分发** ——
   //    线上 /desktop-feed.json 的 Windows 包 href 就指向它,实测 HTTP 200 ⇒ 这把 key 仍须有效,
   //    失效会让每次发版的资产补传静默失败。判据只查"这把 token 还能用吗",不再关联任何镜像仓。)
-  const gitee = readFileSyncOr(join(GIT_KEY_DIR, 'gitee apikey.txt'))
-  if (gitee) {
-    const p = await probeHttps('gitee.com', '/api/v5/user?access_token=' + encodeURIComponent(gitee))
-    let login = ''
-    try {
-      login = JSON.parse(p.body).login || ''
-    } catch {
-      login = ''
-    }
+  const giteeRaw = readFileSyncOr(join(GIT_KEY_DIR, 'gitee apikey.txt'))
+  if (giteeRaw) {
+    const gitee = pickKey(giteeRaw, /^[0-9a-f]{32}$/)
     out.push({
-      name: 'Gitee token 有效性',
-      level: p.sc === 200 && login ? 'ok' : classifyHttpStatus(p.sc),
-      detail: `http=${p.sc} login=${login || '-'}`,
+      name: 'Gitee token 形态',
+      level: gitee ? 'ok' : 'fail',
+      detail: gitee ? '形状合法(32 位十六进制)' : '形状不合(疑同步盘冲突副本/含杂散字符)⇒ 已跳过联网校验',
     })
+    if (gitee) {
+      const p = await probeHttps('gitee.com', '/api/v5/user?access_token=' + encodeURIComponent(gitee))
+      let login = ''
+      try {
+        login = JSON.parse(p.body).login || ''
+      } catch {
+        login = ''
+      }
+      out.push({
+        name: 'Gitee token 有效性',
+        level: p.sc === 200 && login ? 'ok' : classifyHttpStatus(p.sc),
+        detail: `http=${p.sc} login=${login || '-'}`,
+      })
+    }
   }
   // ⑤ 部署停摆(测结果,不猜原因):线上构建 sha 落后 origin/main 且超过阈值即红。
   //    为什么测结果而不是查 ff/凭据/构建:今天停摆有两层原因(口令过期 + 脏树挡 ff),

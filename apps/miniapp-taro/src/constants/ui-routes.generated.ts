@@ -8,8 +8,8 @@
 
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/miniapp-taro/scripts/generate-ui-routes.mjs
-// sourceCommit: 423183f3cca7d0dbdfb603f628fd8cab8e2aa7cc
-// inputsSha256: db5e7c419910ebe9a8be19810fa8b1f0e6b873f8f77364030425476ec9d191f3
+// sourceCommit: 6c96fc422609ab6d82be708863a31b8169656546
+// inputsSha256: e30428b3cd19f2fb0d37d3aef1ef868ce0a0738319a35d58c924f5e9234af125
 // input: apps/miniapp-taro/src/api/index.ts 906678d9feb2dabe632a4a45b2a75ace7e081d020944f31357aa249f64c7ab2e
 // input: apps/miniapp-taro/src/api/social.ts fa4082d8a4569c36c0a776a74c58a5f5f9c77aba888c1e740fd8131a488ce3c8
 // input: apps/miniapp-taro/src/app.config.ts 9430063facda1128d6734623264d65eecb1b86ba1f8d11b606253a2ee8d5b977
@@ -150,7 +150,7 @@
 // input: apps/miniapp-taro/src/pages/ask/list.config.ts 9c44f19d24466e90e80c2e61f3c12589a2e30f6c8f5c7d6e3ef0ee1d430389a5
 // input: apps/miniapp-taro/src/pages/ask/list.tsx b1057ae931b56aef7a1d258d5c48e92d84d54aef46692da99b1ea8988db53d33
 // input: apps/miniapp-taro/src/pages/circle/create.config.ts 49e399da33dde0f9b488c4eae4da9cfa85198acb9251490f0808704b276b2280
-// input: apps/miniapp-taro/src/pages/circle/create.tsx f1c1ff7b4d18c220e1c9f33e77a294675b37e85e903a484666552ccce70a1b6b
+// input: apps/miniapp-taro/src/pages/circle/create.tsx 7564cf7d117f93f1070b3a933df649f3a1511c8df2004219e77994046086e9ff
 // input: apps/miniapp-taro/src/pages/circle/detail.config.ts 02a99a996fe88e037152bfe6d517bfbc4297dfba5e99bfcdcc09434000a3ec3d
 // input: apps/miniapp-taro/src/pages/circle/detail.tsx 0095e13c865b76ad9ac09f3261da403c6b6cd37821857afb680af9527425c118
 // input: apps/miniapp-taro/src/pages/circle/index.config.ts 972c14a2ead723b0d5b89a04f414b4cb577dba7d3b34a7a6b738238a21c2384e
@@ -365,7 +365,7 @@
 // input: apps/miniapp-taro/src/pkg-content/topic/list.tsx ebca08343e9e0f964529fbb1162a7a79faf8a60fc8242abda4f8a86531e8a5d8
 // input: apps/miniapp-taro/src/pkg-learn/course-planet/index.tsx 923b2657f86b87c0beeca34617293af27f55efeb5590b7c867b2a4855c05b8fd
 // input: apps/miniapp-taro/src/pkg-learn/course/detail.config.ts b9c8acdd8b76e754305e30be809e0b0ab393f67d11467895e563b58e48c2b26c
-// input: apps/miniapp-taro/src/pkg-learn/course/detail.tsx 663e2f4af6258c59926b2bc420de3e47e2ea72134bfa49aab0fe71cbce9a10b2
+// input: apps/miniapp-taro/src/pkg-learn/course/detail.tsx 182d4ddfb137adbd895d8a514390ffa6c985ad5cb6d5d89120b14d50304ab41d
 // input: apps/miniapp-taro/src/pkg-learn/course/list.config.ts 92547aaf062806dd63ce73d01a4d76cb7cba26864c64a4b8811b12f97dac1e29
 // input: apps/miniapp-taro/src/pkg-learn/course/list.tsx 38fc484c9cbff71f15c29e097113d9c19404af207bf2efae16b82c303caa4442
 // input: apps/miniapp-taro/src/pkg-learn/learn-develop/index.tsx 4de350c43c2dfcc3467af4896d2b613fae232083be4a69fcb6723017e00fe6a0
@@ -499,7 +499,7 @@
 // input: apps/miniapp-taro/src/utils/wechat-login.ts 08992a45fbbfb70b37f5a3518c5a82d2c55b9337f6ece0e0192b3c8d9c29470e
 // scanned: 365 source files(navigateTo url 参数探测,requiresParams 的依据)
 // skipped: pagesWithoutOwnConfig=38(标题回落 app window / tabBar 文案)
-// generatedAt: 2026-10-24T16:55:32.340Z
+// generatedAt: 2026-10-24T19:16:33.924Z
 // IHUI-GEN-PIN-END
 
 /** AI 可导航页面条目:path 为 Taro 导航全路径(含前导斜杠,分包已拼 root) */

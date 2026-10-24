@@ -15326,3 +15326,5 @@ A: Yes. ~14839+ tests / 3194 test files / 67 e2e spec / 4557 API 路由 / 606 �
 A: Yes. ~14839+ tests / 3194 test files / 67 e2e spec / 4557 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 A: Yes. ~14839+ tests / 3194 test files / 67 e2e spec / 4557 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 > A: Yes. ~14839+ tests / 3194 test files / 67 e2e spec / 4557 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+node scripts/check-identity-principal-source.mjs --staged  # 「身份主体取自 auth 层从不填充的 request.user」对账(2026-10-25 立;crew/knowledge 匿名越权族根治;W1/W3 绝对零容忍 + W2 差值棘轮)
+node scripts/check-guarded-write-affected.mjs --staged   # 「额度扣减不读回影响行 / 资金回调用 SUCCESS 吞掉失败」对账(2026-10-25 立;积分兑换超卖 + 提现冻结黑洞根治)
