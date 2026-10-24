@@ -66,6 +66,15 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { hostname } from 'node:os'
 import { resolve } from 'node:path'
+// §0.6 单一真相源:PowerShell 解释器候选复用 check-service-binary-paths 的出口,禁抄第二份
+// (2026-10-25:为换掉 reg.exe 通道而引入,理由见下方 readMachineGuid 头注)。
+import { pickPowerShell, PS_CANDIDATES } from '../check-service-binary-paths.mjs'
+
+/** 候选解释器按存在性择一后带其余备选;一把都不在位 ⇒ 空数组(调用方走降级/兜底)。 */
+function psBins() {
+  const picked = pickPowerShell()
+  return picked ? [picked.bin, ...PS_CANDIDATES.map((c) => c.bin).filter((b) => b !== picked.bin)] : []
+}
 
 import { keyOfRow, parseTaskRows } from './plan-task-index.mjs'
 
@@ -116,25 +125,66 @@ let machineGuidCache
 
 /**
  * 机器 GUID:Windows 走注册表 MachineGuid,Linux 走 /etc/machine-id;读不到降级 ''。
- * 为什么模块级缓存:reg query 一次子进程数十 ms,批量令牌多次取号不重复付这个钱。
+ * 为什么模块级缓存:一次子进程数十 ms,批量令牌多次取号不重复付这个钱。
+ *
+ * ⚠️ 2026-10-25 换通道(lesson 见 scripts/check-c-drive-pollution.mjs 的 pwshRegQuery 头注):
+ * 本机 reg.exe 在程序黑名单里 —— spawn 它的那一刻,安全策略杀的是**整个 node 进程**(RC=143
+ * = 128+SIGTERM),不是抛异常 ⇒ 这里的 try/catch 根本够不着。而本文件被 `live-doc-edit.mjs`
+ * 引入 ⇒ 整条台账落地链断在"取机器指纹"这一格上。改走 PowerShell 读同一枚注册表值;
+ * reg.exe 通道保留但默认关闭。
  */
 function readMachineGuid() {
   if (machineGuidCache !== undefined) return machineGuidCache
   let guid = ''
-  try {
-    if (process.platform === 'win32') {
-      const out = execFileSync(
-        'reg',
-        ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid'],
-        { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', windowsHide: true, timeout: 5000 },
-      )
-      guid = /MachineGuid\s+REG_SZ\s+(\S+)/.exec(out)?.[1] ?? ''
-    } else {
-      guid = readFileSync('/etc/machine-id', 'utf8').trim()
+  const key = 'HKLM\\SOFTWARE\\Microsoft\\Cryptography'
+  if (process.platform === 'win32') {
+    // 通道一:PowerShell(活跃通道,读的是同一枚 MachineGuid)
+    const psScript = [
+      `try {`,
+      `  $v = (Get-ItemProperty -Path '${key.replace(/^HKLM\\/i, 'HKLM:\\')}' -Name 'MachineGuid' -ErrorAction Stop).MachineGuid`,
+      `  if ($null -eq $v) { '' } else { [string]$v }`,
+      `} catch { '' }`,
+    ].join('\n')
+    for (const bin of psBins()) {
+      try {
+        const out = execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', psScript], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10000,
+        })
+        const hit = /([0-9a-fA-F-]{8,})/.exec(String(out || ''))?.[1] ?? ''
+        if (hit) {
+          guid = hit
+          break
+        }
+      } catch {
+        /* 换下一个候选;全落空则走下面的 reg.exe 兜底(默认关) */
+      }
     }
-  } catch {
-    guid = '' // 降级:无 GUID 时指纹退回主机名+路径,机制不失效,只是熵变少
+    // 通道二:reg.exe(**默认关** —— 黑名单机器上 spawn 它等于自杀)
+    if (!guid && process.env.IHUI_ALLOW_REG_EXE === '1') {
+      try {
+        const out = execFileSync('reg', ['query', key, '/v', 'MachineGuid'], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 5000,
+        })
+        guid = /MachineGuid\s+REG_SZ\s+(\S+)/.exec(out)?.[1] ?? ''
+      } catch {
+        guid = ''
+      }
+    }
+  } else {
+    try {
+      guid = readFileSync('/etc/machine-id', 'utf8').trim()
+    } catch {
+      guid = ''
+    }
   }
+  // 读不到 ⇒ 降级 '':无 GUID 时指纹退回主机名+路径,机制不失效,只是熵变少(刻意不抛 ——
+  // 它只贡献熵,不承载任何"有没有这台机"的判定,因此没有"未判定"这一格的语义负担)。
   machineGuidCache = guid
   return guid
 }
@@ -203,6 +253,22 @@ export function poolFreeList({ usedNumbers = [], baseMax = null, poolMax = LEASE
   const out = []
   for (let n = 1; n <= poolMax; n += 1) if (!blocked.has(n)) out.push(n)
   return out
+}
+
+/**
+ * 远端已用号集的**数字段投影**(G-35,2026-10-25):`readRemoteIdBasis` 交出的 `ids[族]` 是
+ * `usedIdsOfPrefix` 形态的标签(`G-05`/`O13b`),发号侧要的是号数。第一出口
+ * (`live-doc-edit.mjs` 的 `resolveIdTokens`)自 G-454②(2026-10-16)起把这份号集从空闲清单里
+ * 扣掉 —— "池式取号会复用本地已让空的洞,而对侧可能仍占着那个号";第二出口
+ * (`next-plan-id.mjs`)当时只吃了 `remote.max`,`poolBlocked` 的远端避让又只盖
+ * `lowMax+1..baseMax` 段 ⇒ 远端**低位**独占号(本地面已让空/未并)被当空闲发出,两出口口径漂移。
+ * 投影只此一份:两个出口都 import 本函数,不在各自文件里再写一条 `(\d+)$` 提取(§22c)。
+ * 输入不是数组 ⇒ 空数组(调用方按"远端那一维缺席"处理,不猜)。
+ */
+export function remoteIdNumsOf(ids) {
+  return (Array.isArray(ids) ? ids : [])
+    .map((l) => Number(/(\d+)$/.exec(String(l))?.[1] ?? Number.NaN))
+    .filter(Number.isFinite)
 }
 
 /** 构造一行租约登记。template 取自 usedIdsOfPrefix 的该族形状(如 `G-%d`),不另写编号语法。 */

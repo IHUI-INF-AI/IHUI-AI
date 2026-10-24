@@ -93,6 +93,16 @@
  * (改用既有号 / 换标题后再取),不等到并集落地才在 F9 里看见。指纹判据 import 守门 194 的
  * `extractTaskFingerprint`(`check-plan-task-duplicates.mjs` 一份实现,本器不另写"什么算同题")。
  * 不给这两个旗标 = 沿用旧行为(第二出口仍可只问号);`--check` 不发号,同样不查这一维。
+ *
+ * 第六条(2026-10-25,票 G-35 收口:远端那一维不能只交 max 给本器):
+ * 上一批翻新后本器只吃 `remote.max`,`poolBlocked` 的远端避让又只盖 `lowMax+1..baseMax` 这段
+ * "本地盲区" ⇒ 远端**低位**已占号(本地面已让空、或远端已推未并还没 fetch 下来的那一行)落不进
+ * 任何一面,`smallestFreeId` 会把它当空闲发出 —— 而第一出口(live-doc-edit 的 resolveIdTokens)
+ * 自 G-454②(2026-10-16,实测撞号当票)起就把远端"已用号集合"从空闲清单里扣掉了,本器当时
+ * 没跟上,两出口同一件事两种口径(§22c 漂移型)。现在 import lib/plan-id-lease.mjs 的
+ * `remoteIdNumsOf`(投影只此一份)把 `remote.ids[族]` 并进实时占用面;远端与本地同号集时
+ * 本行是恒等并(建议号与改动前逐字同形),只有远端多出本地看不见的号才顺延,顺延的号逐枚点名
+ * (`skippedByRemote`,与 G-14 扫描点名同一对照臂、去重不重复报)。`--check` 不发号 ⇒ 本档不作用。
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -113,6 +123,7 @@ import {
   smallestFreeId,
   poolFreeList,
   poolBlocked,
+  remoteIdNumsOf,
   LEASE_POOL_MAX,
 } from './lib/plan-id-lease.mjs'
 // 重号判据(G-927,2026-10-21):**登记行的编号声明位**同号多行才判红;历史小节标题同 id 只报数不判红。
@@ -403,6 +414,16 @@ if (titleFp || kwKey) {
   }
 }
 const liveUsed = [...new Set([...poolUsed, ...scanHead, ...scanWork])]
+// ── G-454 ② 对齐(2026-10-25,票 G-35):远端那一维不能只交 max 给本器 ──────────────────────
+// `poolBlocked` 的远端避让只盖 `lowMax+1..baseMax` 这段"本地盲区";远端**低位**已占号
+// (本地面已让空 / 远端已推未并)落不进那一段 ⇒ `smallestFreeId` 会把它当空闲发出。
+// 第一出口(live-doc-edit 的 resolveIdTokens)自 2026-10-16 起已把远端号集从空闲清单里扣掉,
+// 本器当时没跟上 —— 两出口同一件事两种口径(§22c 漂移型)。现在 import 同一份投影
+// (lib/plan-id-lease.mjs 的 remoteIdNumsOf)把远端已用号集并进实时占用面,行为与第一出口对齐:
+// 远端与本地同号集时本行是恒等并(建议号与改动前逐字同形),只有远端多出本地看不见的号才顺延。
+// `--check` 不发号(在远端读取之前分岔)、`--source` 显式指面(不问远端)⇒ remote 为 null ⇒ 空数组。
+const remoteIdNums = remoteIdNumsOf(remote?.ids?.[FAMILY])
+if (remoteIdNums.length) liveUsed.push(...remoteIdNums)
 const nextNarrow = smallestFreeId({ usedNumbers: poolUsed, baseMax: remoteWide })
 const next = smallestFreeId({ usedNumbers: liveUsed, baseMax: remoteWide })
 // 「命中即换号」里被扫描顶掉的号:旧口径判空闲、全文件扫描判已占(撞号正病;走 stderr,
@@ -417,6 +438,18 @@ if (skippedByScan.length)
   console.error(
     `ℹ G-14 全文件扫描顶掉 ${skippedByScan.length} 个旧口径"空闲"号(实为已占,点名):` +
       skippedByScan.map((n) => `O${n}`).join(', '),
+  )
+// G-454 ② 对齐(G-35):远端号集顶掉的号同样点名(同一对照臂,但剔除已被扫描点过名的,不重复报)。
+const skippedByRemote =
+  next === null || nextNarrow === null
+    ? []
+    : [...new Set(remoteIdNums)]
+        .filter((n) => n >= nextNarrow && n < next && !skippedByScan.includes(n))
+        .sort((a, b) => a - b)
+if (skippedByRemote.length)
+  console.error(
+    `ℹ 远端已用号集顶掉 ${skippedByRemote.length} 个旧口径"空闲"号(对面仍占着而本地面上已让空/未并,点名):` +
+      skippedByRemote.map((n) => `O${n}`).join(', '),
   )
 const { lowMax: poolLowMax } = poolBlocked({ usedNumbers: liveUsed, baseMax: remoteWide })
 // ── 租约窗读数(2026-10-23 立,只读不改分配)────────────────────────────────────────────
@@ -472,10 +505,12 @@ console.log(
 )
 console.log(`已占用的最大号 = ${fmt(maxWide)}   下一个号 = O${next}(池内最小空闲)`)
 console.log(
-  `  G-14 实时占用面:全文件扫描 HEAD 宽面 ${scanHead.size} 号 ⊕ 工作树副本 ${scanWork.size} 号 ⇒ ` +
+  `  G-14 实时占用面:全文件扫描 HEAD 宽面 ${scanHead.size} 号 ⊕ 工作树副本 ${scanWork.size} 号` +
+    ` ⊕ 远端已用号集 ${remoteIdNums.length} 号(G-454② 对齐,票 G-35)⇒ ` +
     `池内占用 ${liveUsed.filter((n) => n >= 1 && n <= LEASE_POOL_MAX).length} 号(旧口径 ${poolUsed.length});` +
-    `本轮顶掉 ${skippedByScan.length} 个旧口径假空闲号` +
-    `${skippedByScan.length ? `(${skippedByScan.map((n) => `O${n}`).join(', ')})` : ''}`,
+    `本轮顶掉 ${skippedByScan.length + skippedByRemote.length} 个旧口径假空闲号` +
+    `${skippedByScan.length ? `(扫描:${skippedByScan.map((n) => `O${n}`).join(', ')})` : ''}` +
+    `${skippedByRemote.length ? `(远端:${skippedByRemote.map((n) => `O${n}`).join(', ')})` : ''}`,
 )
 console.log(
   `  取号口径:池式 1..${LEASE_POOL_MAX}(2026-10-14 硬上限)⇒ 池内空闲 ${freeList.length} 号;` +
