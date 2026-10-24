@@ -1039,7 +1039,15 @@
     "noteCreate": "새 노트",
     "sectionSettings": "설정",
     "subscriptions": "내 구독",
-    "settings": "설정"
+    "settings": "설정",
+    "catImage": "이미지",
+    "catVideo": "영상",
+    "catCopy": "카피",
+    "catAgent": "에이전트",
+    "catRpa": "RPA",
+    "catCode": "코딩",
+    "catMusic": "음악",
+    "catOther": "기타"
   },
   "drawer": {
     "newChat": "새 작업",
@@ -4687,7 +4695,12 @@
     "vividTail": ", 금방 끝납니다"
   },
   "notification": {
-    "pushBannerTitle": "새 메시지"
+    "pushBannerTitle": "새 메시지",
+    "justNow": "방금",
+    "minAgo": "{n}분 전",
+    "hourAgo": "{n}시간 전",
+    "newTitle": "새 메시지",
+    "markAllRead": "모두 읽음"
   },
   "ai": {
     "pane": {
@@ -5467,5 +5480,16 @@
     "desc": "설명",
     "version": "버전",
     "updated": "업데이트"
+  },
+  "voice": {
+    "cam": "카메라",
+    "album": "앨범",
+    "file": "파일",
+    "closeImgMenu": "이미지 메뉴 닫기",
+    "addImage": "이미지 추가",
+    "holdToTalk": "길게 눌러 말하기",
+    "clearResult": "결과 지우기",
+    "releaseEnd": " 놓으면 종료",
+    "transcribing": " 변환 중…"
   }
 }

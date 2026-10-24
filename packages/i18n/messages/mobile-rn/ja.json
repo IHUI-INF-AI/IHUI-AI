@@ -1039,7 +1039,15 @@
     "noteCreate": "新しいノート",
     "sectionSettings": "設定",
     "subscriptions": "マイサブスクリプション",
-    "settings": "設定"
+    "settings": "設定",
+    "catImage": "画像",
+    "catVideo": "動画",
+    "catCopy": "コピー",
+    "catAgent": "エージェント",
+    "catRpa": "RPA",
+    "catCode": "コーディング",
+    "catMusic": "音楽",
+    "catOther": "その他"
   },
   "drawer": {
     "newChat": "新しいタスク",
@@ -4687,7 +4695,12 @@
     "vividTail": "、まもなくです"
   },
   "notification": {
-    "pushBannerTitle": "新着メッセージ"
+    "pushBannerTitle": "新着メッセージ",
+    "justNow": "たった今",
+    "minAgo": "{n}分前",
+    "hourAgo": "{n}時間前",
+    "newTitle": "新着メッセージ",
+    "markAllRead": "すべて既読"
   },
   "ai": {
     "pane": {
@@ -5467,5 +5480,16 @@
     "desc": "説明",
     "version": "バージョン",
     "updated": "更新日時"
+  },
+  "voice": {
+    "cam": "カメラ",
+    "album": "アルバム",
+    "file": "ファイル",
+    "closeImgMenu": "画像メニューを閉じる",
+    "addImage": "画像を追加",
+    "holdToTalk": "長押しで話しかけて",
+    "clearResult": "結果をクリア",
+    "releaseEnd": " 離すと終了",
+    "transcribing": "文字化中…"
   }
 }

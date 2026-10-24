@@ -1039,7 +1039,15 @@
     "noteCreate": "新建笔记",
     "sectionSettings": "设置",
     "subscriptions": "我的订阅",
-    "settings": "设置"
+    "settings": "设置",
+    "catImage": "图片",
+    "catVideo": "视频",
+    "catCopy": "文案",
+    "catAgent": "智能体",
+    "catRpa": "RPA",
+    "catCode": "编程",
+    "catMusic": "音乐",
+    "catOther": "其他"
   },
   "drawer": {
     "newChat": "新建任务",
@@ -4687,7 +4695,12 @@
     "vividTail": "，马上就好"
   },
   "notification": {
-    "pushBannerTitle": "新消息"
+    "pushBannerTitle": "新消息",
+    "justNow": "刚刚",
+    "minAgo": "{n}分钟前",
+    "hourAgo": "{n}小时前",
+    "newTitle": "新消息",
+    "markAllRead": "全部已读"
   },
   "ai": {
     "pane": {
@@ -5467,5 +5480,16 @@
     "desc": "描述",
     "version": "版本",
     "updated": "更新时间"
+  },
+  "voice": {
+    "cam": "相机",
+    "album": "相册",
+    "file": "文件",
+    "closeImgMenu": "关闭图片菜单",
+    "addImage": "添加图片",
+    "holdToTalk": "按住说话",
+    "clearResult": "清除结果",
+    "releaseEnd": " 松开结束",
+    "transcribing": "转写中…"
   }
 }
