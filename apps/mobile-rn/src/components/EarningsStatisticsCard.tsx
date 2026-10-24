@@ -263,12 +263,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   // ── 数据行 ──
+  // 等分读数格:放不下就整格换行,绝不把「¥12,345.67」折成两行(docs/UI_GUIDELINES.md §13.4)。
+  // minWidth 按最坏读数「¥999,999.99」(12 字符 @16px ≈ 105px)+ 余量取 112。
   dataRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     marginBottom: 12,
   } as ViewStyle,
   dataItem: {
     flex: 1,
+    minWidth: 112,
     alignItems: 'center',
   } as ViewStyle,
   dataValue: {
