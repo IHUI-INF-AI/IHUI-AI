@@ -685,9 +685,63 @@ export function lostMarkers(baselineSrc, candidateSrc, declared = new Set()) {
   }))
 }
 
-/** 归档豁免的目录(相对仓库根);清单与内容**同面**取,见 archivedCopy。 */
-const ARCHIVE_REL = '.ihui-agent/archive'
 /**
+ * 归并名额维(2026-10-24 立):同一 `(形态,编号)` 在面上占的**行首名额**变少,但该编号仍活着。
+ *
+ * 立因是实测而非读码推断(2026-10-24 清 G-871/G-873 同题副本时量出来):`lostMarkers` 的组内
+ * 判活按 marker 命中算,而**同题副本两行的 marker 逐字相同**(题面直到第一个分界符才分岔)——
+ * 于是基线组里两条 entries 都 `head.has(marker)` ⇒ `present=2`、`absent=0` ⇒ 删掉**任意一份**
+ * 都读成"没丢"。真仓 HEAD 面成对实测:`lostMarkers(HEAD, HEAD−副本)` 与
+ * `lostMarkers(HEAD, HEAD−信息更全那份)` **两支都返回空集** ⇒ 本闸对"留过时那份、删带进展那份"
+ * 结构上失明,而那恰是正当归并每天在做的动作(§1 同题副本清偿、门 71 头注 multiSlot 同型)。
+ *
+ * 本维刻意**不判"哪一份该留"** —— 被吞与正当归并在内容上不可区分(门 71 头注同一条理由),
+ * 所以两份删法一视同仁,只要求当次提交给一次定向说明(§0.10 失效方向恒为"多要一次说明",
+ * 绝不是"多放一次跳门")。凭据取 `IHUI_PLAN_MERGE_FOLD` 当次声明,理由有三:
+ *  ① 与 `--staged` 的输入面(索引 vs HEAD)同轮同面,不是跨轮可腐烂的白名单;
+ *  ② 不新增盘上台账 —— 摘除台账是 gitignored 的,`lostMarkers` 头注已写明提交链一律不得认它
+ *     (一份被读写到的 jsonl 就能让任意登记行被误免);
+ *  ③ 与"完成即删不留档"(2026-10-16 机主令)不冲突 —— 不要求谁去补归档件。
+ *
+ * `to === 0` 的那一族(整个编号从面上消失)归 `lostMarkers` 判,**不在本维重复计债** ——
+ * 两把尺子互相顶名额是本仓最贵的一类事故(见 resolveRegistrationLoss 头注)。
+ * 只给判据,取值与放行由调用方(staged 档)做;全量/人工档不接(见 foldedFaceNote)。
+ */
+export function foldedSlots(baselineSrc, candidateSrc) {
+  const base = registrationSlots(baselineSrc)
+  const target = registrationSlots(candidateSrc)
+  const out = []
+  for (const [key, slot] of base) {
+    const slot2 = target.get(key)
+    const to = slot2 ? slot2.count : 0
+    if (to === 0 || to >= slot.count) continue
+    const sep = key.indexOf(SHAPE_ID_SEP)
+    // 归因:目标面里不再出现的那些 marker 才是"这次没掉的行";而同题副本的 marker 本就逐字相同
+    // (这正是本维立项的原因),此时归因不出具体哪一行 ⇒ 留整族 marker,由调用方按既有归档豁免口径问。
+    const gone = slot2 ? [...slot.markers].filter((m) => !slot2.markers.has(m)) : [...slot.markers]
+    out.push({
+      shape: key.slice(0, sep),
+      id: key.slice(sep + SHAPE_ID_SEP.length),
+      from: slot.count,
+      to,
+      dropped: slot.count - to,
+      markers: gone.length ? gone : [...slot.markers],
+    })
+  }
+  return out
+}
+
+/**
+ * 归并声明解析:`IHUI_PLAN_MERGE_FOLD` 的逗号/空白清单收成编号集(去重、保持给出顺序)。
+ * 缺失/空串 ⇒ 空集 —— 声明必须逐号给出,**环境变量本身不是开关**(给了没命中的号由调用方判红)。
+ */
+export function parseMergeFoldDeclaration(raw) {
+  if (typeof raw !== 'string') return []
+  return [...new Set(raw.split(/[,，\s]+/).map((s) => s.trim()).filter(Boolean))]
+}
+
+/** 归档豁免的目录(相对仓库根);清单与内容**同面**取,见 archivedCopy。 */
+const ARCHIVE_REL = '.ihui-agent/archive'/**
  * 归档副本文件名射程。两种:
  *  ① `PROJECT_PLAN_*.md` —— §1 归档两步走搬走的登记段(既有射程);
  *  ② `plan-pointer-purge-*.md` —— plan-pointer-purge --apply 的清偿台账,内含**被删行的逐字原文**。
@@ -914,6 +968,14 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
   let prose = null
   let malformed
   let scanned = 0
+  /** 归并名额维的结果(2026-10-24 立,**刻意只挂提交链**):
+   *  folded=本次掉了名额的编号;foldUndeclared=其中没拿到当次声明的;foldUnused=声明了但本次没掉名额的。
+   *  不接全量/人工档:旁路落地(§1 的 live-doc-edit / union-converge / 自愈)不跑钩子,而它们正是
+   *  同号多行的主要生产者 ⇒ 挂上去就是把与本次提交内容无关的存量钉红(§12e 恒红门禁令)。 */
+  let folded = []
+  let foldUndeclared = []
+  let foldUnused = []
+  let foldDeclaredIds = []
   if (face === 'staged') {
     const baseline = readSpec(`HEAD:${PLAN}`, root)
     lost = dropArchivedLost(lostMarkers(baseline, candidate), archive)
@@ -921,6 +983,15 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
     prose = proseLossReport(baseline, candidate)
     // 编号形态维(G-722):同一对输入(索引 ⊖ HEAD),只判本次新增
     malformed = malformedReport(face, candidate, baseline)
+    folded = foldedSlots(baseline, candidate).filter(
+      // 归档豁免**先行**,且用的是与丢失维 dropArchivedLost 同一把尺子(§0.6 单源):原文在**已入库**
+      // 归档件里逐字可寻、或该编号在归档件里出现过 ⇒ 已有正当移除凭据,不得再收第二次费(§12e)。
+      (f) => !f.markers.some((m) => archive(m)) && !archive(f.id),
+    )
+    foldDeclaredIds = parseMergeFoldDeclaration(process.env.IHUI_PLAN_MERGE_FOLD)
+    foldUndeclared = folded.filter((f) => !foldDeclaredIds.includes(f.id))
+    // 空声明也点名:声明必须是"当次真掉了名额"的那些编号,否则这个 env 就成了万能跳门(§0.10)。
+    foldUnused = foldDeclaredIds.filter((d) => !folded.some((f) => f.id === d))
   } else {
     // 全量档问的是本来那个问题:**最近历史里已入库的登记行,在被审面上是否仍在**
     // (与 --heal 共用同一把尺子 missingFrom,不另写一份判据;豁免面同样是当次面)
@@ -968,7 +1039,11 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
     malformed = malformedReport(face, candidate, base)
   }
   return {
-    ok: lost.length === 0 && !(malformed && malformed.red),
+    ok:
+      lost.length === 0 &&
+      !(malformed && malformed.red) &&
+      foldUndeclared.length === 0 &&
+      foldUnused.length === 0,
     lost,
     face,
     prose,
@@ -976,6 +1051,10 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
     scanned,
     window: lastHistoryWindow(),
     reportOnly,
+    folded,
+    foldUndeclared,
+    foldUnused,
+    foldDeclaredIds,
   }
 }
 
@@ -2832,6 +2911,37 @@ function selfTest() {
     }
   })
 
+  // 归并名额维(2026-10-24 立):纯函数 + 构造面自证,不碰仓库瞬时状态(承 1863 行那条纪律)
+  t('归并名额维(判活):同题副本删任意一份都点名,唯一行被吞归丢失维不点名', () => {
+    const A = '- [ ] G-70 同题副本甲态:已接线未配置,凭据已核实填入环境文件(剩余卡点是实名资质零条)'
+    const B = '- [ ] G-70 同题副本乙态:待控制台建应用取 AppId 并报签名与四枚场景模板后再填环境键'
+    const L = '- [ ] G-71 唯一登记行:整份面上只有这一条带着这个编号,它消失属丢失维而非名额维。'
+    const both = ['# 计划', '', A, B, '', L, ''].join('\n')
+    const f1 = foldedSlots(both, both.split('\n').filter((l) => l !== B).join('\n'))
+    const f2 = foldedSlots(both, both.split('\n').filter((l) => l !== A).join('\n'))
+    const f3 = foldedSlots(both, both.split('\n').filter((l) => l !== L).join('\n'))
+    return (
+      f1.length === 1 &&
+      f1[0].id === 'G-70' &&
+      f1[0].from === 2 &&
+      f1[0].to === 1 &&
+      f2.length === 1 &&
+      f2[0].id === 'G-70' &&
+      f3.length === 0
+    )
+  })
+
+  t('归并名额维(声明解析):空与缺失得空集,清单去重保序;声明本身不是开关', () => {
+    const d1 = parseMergeFoldDeclaration('G-70, G-71')
+    const d2 = parseMergeFoldDeclaration('G-70,G-70 G-71')
+    return (
+      d1.join(',') === 'G-70,G-71' &&
+      d2.join(',') === 'G-70,G-71' &&
+      parseMergeFoldDeclaration('').length === 0 &&
+      parseMergeFoldDeclaration(undefined).length === 0
+    )
+  })
+
   let failed = 0
   for (const c of cases) {
     console.log(`${c.pass ? '✅' : '❌'} ${c.name}`)
@@ -3176,7 +3286,20 @@ if (isDirectRun) {
   const notice = faceNoticeFor(face)
   if (notice) console.warn(notice)
   try {
-    const { ok, lost, prose, malformed, undetermined, reason, scanned, window, reportOnly } = runCheck(
+    const {
+      ok,
+      lost,
+      prose,
+      malformed,
+      undetermined,
+      reason,
+      scanned,
+      window,
+      reportOnly,
+      folded,
+      foldUndeclared,
+      foldUnused,
+    } = runCheck(
       face === 'staged',
       face,
       { root: ROOT, strict: args.includes('--strict') },
@@ -3266,12 +3389,49 @@ if (isDirectRun) {
             `     · ${x.shape}/${x.id}: ${x.marker} —— ${x.line.trim().slice(0, 80)}…`,
           )
       }
+      // 归并名额维放行也必须留声(§0.3"没判"绝不写成"判过"的对偶:判过了就得说判了什么)
+      if (folded?.length) {
+        console.log(
+          `ℹ️  [plan-line-loss] 本次归并掉 ${folded.length} 个同编号的行首名额,已由 IHUI_PLAN_MERGE_FOLD 声明:` +
+            folded.map((f) => ` ${f.id}(${f.from}→${f.to})`).join('、'),
+        )
+      }
       reportProse()
       printMalformedStock()
       process.exit(0)
     }
     // 红灯路径:先点名"本次新增的畸形编号"(可能与登记行丢失同轮出现),再走原有丢失报告。
     printMalformedAdded()
+    // 归并名额维红点(2026-10-24 立):先点名、再给单命令出路,不与丢失维混成同一份报告
+    if (foldUndeclared.length || foldUnused.length) {
+      const undeclaredNote = foldUndeclared
+        .map(
+          (f) =>
+            `   · ${f.shape}/${f.id}:行首名额 ${f.from} → ${f.to}(少 ${f.dropped} 行)—— 未声明本次归并`,
+        )
+        .join('\n')
+      const unusedNote = foldUnused.length
+        ? `\n   · 声明里这些编号本次并没有掉名额:${foldUnused.join('、')} —— 空声明不算凭据`
+        : ''
+      const foldIds = foldUndeclared.map((f) => f.id).join(',') || '<本次实际归并的编号>'
+      console.error(
+        '❌ [plan-line-loss] 归并名额维(提交链)判红 —— 同一编号在面上占的行首名额变少了,而这次没给说明:\n' +
+          undeclaredNote +
+          unusedNote +
+          '\n' +
+          '  💡 这一维补的是丢失维看不见的一格:同题副本两行的 marker 逐字相同(题面到第一个分界符才\n' +
+          '     分岔),丢失维把"删掉带进展那一份"与"没删"读成同一张脸(2026-10-24 真仓成对实测 0 报)。\n' +
+          '     正解:把两份的进展并成一行、删掉过时那份,并当次逐号给一次定向说明——\n' +
+          `       IHUI_PLAN_MERGE_FOLD="${foldIds}" node scripts/safe-commit.mjs --file PROJECT_PLAN.md …\n` +
+          '     声明必须与本次改动同轮:没掉名额却声明 ⇒ 同样判红(§0.10 失效方向只能是"多要一次说明")。\n' +
+          '     若这次不是归并而是误删 ⇒ 按下面的取回三步从 HEAD 逐行补回。\n',
+      )
+      if (lost.length === 0) {
+        reportProse()
+        printMalformedStock()
+        process.exit(1)
+      }
+    }
     if (lost.length === 0) {
       // 登记行一条没丢,只有编号形态这一维判红(本次带进来的新账)——不得打"0 条丢失"的丢失报告
       console.error(
@@ -3360,6 +3520,9 @@ export const __test__ = {
   // 判活唯一实现与其取材(镜像测试据此证明"名额判活"只有一份,§22c 禁止再抄一份)
   registrationSlots,
   resolveRegistrationLoss,
+  // 归并名额维(2026-10-24 立):名额差值判据与当次声明解析,镜像测试直接用生产实现
+  foldedSlots,
+  parseMergeFoldDeclaration,
   registrationAlreadyPresent,
   idExistsOnFace,
   shapeOfRegistration,
