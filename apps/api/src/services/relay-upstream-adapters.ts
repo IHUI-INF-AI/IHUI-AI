@@ -105,7 +105,12 @@ export interface UpstreamHttpRequest {
 export interface TokenRefreshResult {
   token: string
   refreshToken?: string | null
-  expiresAt: Date
+  /**
+   * access token 到期时刻,**只许取上游响应当场给出的值**。
+   * 上游未给/解析不出 ⇒ null(= 未知,库里就写 null);禁止沿用旧值或编造兜底时刻 ——
+   * 该列曾被用来冒充「票仍可用」(2026-10-23 票:列记未来时刻而上游回 401)。
+   */
+  expiresAt: Date | null
   /**
    * 平台扩展敏感凭证整包(可选)。CodeArts 刷新会轮转**整套** STS 凭据(AK/SK/security_token),
    * 调度器据此 encryptField(JSON.stringify(...)) 回写 secretsEnc。
