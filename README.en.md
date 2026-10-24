@@ -60,7 +60,7 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **606 tables · 4557 API routes ·
-25 WebSocket endpoints · 101 catalogued LLMs · 38 platforms auto-publishing · 3191 test files ·
+25 WebSocket endpoints · 101 catalogued LLMs · 38 platforms auto-publishing · 3194 test files ·
 273 engineering gates · 50 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
@@ -82,18 +82,16 @@ Headline claims (same source as the table below, all live-computed): **606 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3191 | `testFiles` |
+| 测试文件 | 3194 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 276 | `guardianGates` |
 | — blocking | 253 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 16058 | `trackedFiles` |
+| 跟踪文件 | 16061 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-24。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
-> ⚠️ 未判定 1 项:`aiServiceRoutes`(apps/ai-service/app 有 1 个 .py 取不到内容)
 
 <!-- END GENERATED NUMBERS -->
 
@@ -101,6 +99,79 @@ Headline claims (same source as the table below, all live-computed): **606 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-10-25**
+- 🐞 Fix:修 F3 自检恒红 —— 落点判据跟上 G-158 仓内 .DevEnv (1f9deae5c65)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (58111ebfb00)
+- 📚 Docs:英文 README 数字对齐现算值 + 9 端/101 模型口径 (6d490805713)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1142cf1807d)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (fb7072816bf)
+- 🔧 Chore/Other:清 F11 等人拍板存量 24 条(强制令代裁/摘行;逐条留证) (eb35b31d15d)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (62280da2286)
+- 🔧 Chore/Other:D06 派发预填对话框用例(2 例) (2718e8749ce)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e3686744ce8)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (60c64ebf80d)
+- 🔧 Chore/Other:复结 5 条并集回捞复活体票(prod-bundle/G-33/G-34/桌面log/活动时钟;结清凭据均已在 plan-row-drop.jsonl,按门 239 单调性零改动复结) (508d7b632cb)
+- 📚 Docs:全站口径对齐到 9 端 / 101 模型（对外文档+工程文档+发射器） (73d1ed177b8)
+- 🚀 Feature/Improvement:D06 审查卡一键派发修复(DispatchSubagentDialog 加 preset 预填,复用既有 dispatch 腿)+ 3 例测试 (f5be4c99b64)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a58f8399d47)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1793b07844f)
+- 🔧 Chore/Other:复结 L7657 键名对齐票(并集回捞复活体;2026-10-23 已有完整结清凭据,零改动按门 239 单调性复结) (3dbc8547e45)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ab006eaae77)
+- 🔧 Chore/Other:结清 G-61 僵尸票(套件两轮 76/76;heal 第三形态前置已由 da26f3624a 补齐,遂按票面自写终态摘除) (ec713677807)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e5324f86b3b)
+- 🔧 Chore/Other:翻勾结清 D13 主聊天并行工具调用票(行内已有 2 条结清注记:D119 只读并行预取在 HEAD、test 5 passed;goal-r1 主会话僵尸行清偿) (7ae7b2995b3)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f210e8fd3ff)
+- 🔧 Chore/Other:翻勾结清 G-25 工具结果三投影票(行内已有 3 条结清注记:result-tri-projection.test.mjs 6/6;goal-r1 主会话僵尸行清偿) (8c3e989381f)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b0418b09bbc)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0f52a79625f)
+- 🔧 Chore/Other:结清 line-loss 第三形态判活票(门71 已补该形态并入库 da26f3624a;HEAD 面 RC=0、self-test 73/73、镜像 81/81,A/B 证明未造恒红门) (7494794a005)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e531eb4367c)
+- 🔧 Chore/Other:goal-r1 认领 5 票加租约(r25a/r25b/r25c+r25e/r25d/r25f@2026-10-25,主会话派单防打架前置) (f881ee1c233)
+- 🐞 Fix:门 55 修复第二次落地 —— 前次 d32263e707c 被 920fff8deb7 整体重写吞掉 (1cdbe49d9a6)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cfa5c9ec9dc)
+- 🚀 Feature/Improvement:D08 ② agent 换手结构化事件(kind/agent_id/summary/token_usage/ts,复用 subagent_* 帧)+ 14 例测试 + 端内覆盖登记 (35aa933f806)
+- 🐞 Fix:live-doc-edit G-313 期末对账三缺陷修补(取材兜底/留痕链/手填号射程/正则泄漏) (cc0f35a4334)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ae64a8112b0)
+- 🔧 Chore/Other:复结 9 张被并集回捞的已结清票(origin 同步止血) (acbc383068b)
+- 🚀 Feature/Improvement:G-62 恢复 F5 欠账名单问责出口(f5Deficit/f5SuppressedCredit 结构化返回,五档判据原样共存)+ 四臂测试 (c9684235f5e)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (db8223555c1)
+- ♻️ Refactor:G-29 第二十批 10 站接 flag-value 单源(发布/运维脚本 requireFlagValue,语义未动) (a790c0d0a37)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (21a03a92fa5)
+- 🚀 Feature/Improvement:端侧读数判据补 V3-V5(非等分宿主)+ 29 处收口 (b83d50c6344)
+- 📚 Docs:端侧读数约束补 V3-V5(space-between 行 / absolute 容器 / 定宽格) —— 存量 23→69 处已归零 (10905ec50cc)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (49791979997)
+- 🔧 Chore/Other:结清发丝线两尺合一票(hairline 尺 HEAD 面真分隔线存量 0 枚;a88793d3d1 已入库,凭据见行内注记) (38f0580dfca)
+- 🐞 Fix:补 workPanel.popout 五语键(work-panel 独立窗口按钮引用缺键,i18n 全量档 rc=1 已复绿) (479d43bd68f)
+
+**2026-10-24**
+- 🐞 Fix:发丝尺严格指纹整体上收进分割线门族7(scanHairlineFaces 单源),hairline 门退化为适配层、旧 RN 循环与 classifyBgToken/HAIRLINE_AXIS_RE 退役 —— 两尺对同一枚文件读同一组枚数,等积清偿后计数只降不升,棘轮天然放行,零豁免零削尺;清偿最后一枚 RN 发丝线 HomeScreen.modelModalHairline(背景色画改等积单边描边,同中性档)。主席自证:两把尺 --self-test RC=0(64/64、19/19),镜像 49/49(hairline 20 + no-divider 29),与 HEAD 版同场对账 hairline 输出逐字零差异、no-divider 唯一差异=预筛面 1172→1465(覆盖面变宽,结论行不变);改名一处局部变量 sd→dividerHit 以避开与祖先行逐字撞车的复活判据(行为零变化,已复跑三件) (a88793d3d1d)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (aad49b8ece0)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (75f91b11f67)
+- 🔧 Chore/Other:复结 G-29(并集回捞;blocking 口径已清) (18b6e8a5951)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (536ea8dd1c1)
+- 🔧 Chore/Other:翻勾三条已带结清证据的存量(G-25 三投影 6/6 · prod-bundle 入库源 rc=0 · D13 只读并行 5 passed) (88f0c680baa)
+- 🐞 Fix:剥开 satisfies 后暴露的 3 处端侧缺口 + web 断点陷阱 8 处收口 (00c9eb7343c)
+- 🐞 Fix:收口 CI Build 唯一的红 —— community 入口桶文件 import 次序回归(票 G-948) (02bba4c2db9)
+- 🐞 Fix:门 55 存量红归零 88/89 → 89/89 —— init_agents_md 补显示名映射与五语言文案 (d32263e707c)
+- 🚀 Feature/Improvement:编辑器空态一键生成 AGENTS.md(双确认 + 失败明示 + 不带 output_path) (04cfdb7704f)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2ad9065cdea)
+- 🔧 Chore/Other:waitFor/findBy 等待预算从"机器负载读数"改回"测试判据"—— RTL 出厂默认每段 1000ms,实测同一条链空闲 3ms／事件循环被占 1200ms 时首跳 1201ms,本机常年并发 200+ 道守门 ⇒ 122 枚 P1 用例 + 168 处无预算 findBy 的红绿由负载决定。单点杠杆 configure({asyncUtilTimeout:4000}) 落 mobile-rn/web 两端 setup(此前全仓零先例),两处手搓 helper 分身同步抬档;成对自证(旧预算红/新默认绿)+反向牙(永不为真仍红 4008ms)+回归 66 例全绿;g-469 那条 vi.setConfig 注释纠偏(它只抬墙上时间,一分不加给 waitFor 段预算)。落选方案:逐枚改 122 条用例 —— 足迹过大且与兄弟席在飞面撞车 (43ce93f1a80)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8d5b040ddba)
+- 🔧 Chore/Other:结清 G-73(④a 根窗格续传回归已修,8813 clean 服务 8/8) (530e9116c74)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ce9e0407489)
+- 🚀 Feature/Improvement:流式 TTS 打断(VAD RMS + policy 驱动 abort) + CodeEditorPane 注册 store 级 reveal 出口 (12e5594f051)
+- 🐞 Fix:根窗格续传 await 缓存后台复核 —— 修 ④a tail 静默丢弃 (cd7fb541cf6)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1ce426b999b)
+- 🔧 Chore/Other:补挂本席认领牌(前枚只改到句子未插上牌,String.replace 收字符串时 ^ 是字面量) (fb1436f9ef2)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (94a236c6763)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f15f35e92c3)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cdfe4c03f8e)
+- 🔧 Chore/Other:认领 line-loss 第三形态判活票(机主令全部收口,原注"属他人射程"让位) (761b1c7618b)
+- 🔧 Chore/Other:复结 4 张被并集回捞的票 + D-07 同题行(D42046 已结清) (80332d96882)
+- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1003b2a6b57)
+- 🔧 Chore/Other:结清 16 票(A 档零改动;承载命令/测试已复跑) (058dd42d258)
+- ♻️ Refactor:门 8 方法推导判据抽到 lib 单源 —— 补齐悬空 import 并钉 T7-T10 (88a9e46d799)
+
 **2026-10-24**
 - 🔧 Chore/Other:C8 死规则锚点下调 fractional 3→0 / total 14→11 —— fractional 族根治后重锚 (f09d1cbeb19)
 
@@ -336,102 +407,6 @@ Headline claims (same source as the table below, all live-computed): **606 table
 
 **2026-10-24**
 - 🐞 Fix:大屏中文界面收口英文产品词(数据源/页脚/告警/数据层/号池/KPI) (5e212c0fbd5)
-
-**2026-10-24**
-- 🐞 Fix:清偿测试面 40 例真红(4 族根因)+ 摘除 sweep 产出面无消费对象键 (be797ebccef)
-- 🚀 Feature/Improvement:公告全端统一+按端定向;首页能力文案对齐 9 端实测 (db47d154c04)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5d04402908b)
-- 🐞 Fix:大屏第八轮补正 —— 上一枚 f96d979 误取自动收编换主前的旧页面 blob (a5cffb137b7)
-- 🚀 Feature/Improvement:大屏第八轮(无障碍补强/窄档页头/对比度/缩放触发面) (f96d9798446)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e60115643c5)
-- 🔧 Chore/Other:goal-b15 轮4 WP-01 结清翻勾 —— 浏览器语义快照已入库(f2121db10b 主力+句柄族 b8eab3c8b0),测试 8/8 绿;归档注记 sha 引用勘正(9f404d0 是收尾枚) (dda5f2e549c)
-- 📚 Docs:守门 207 体积清偿第二轮 —— 删 4 行同题重复副本(「git 网络与推送」原有 3 份只留最新最全一份 / 只读尺子旧版被新版全覆盖 / 常驻工具清单为已归档件回插),98,838B→95,226B(预算 96,000);逐字留档 AGENTS_trim-2026-10-24.md 附录 2 (ced824b7f7e)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cead297f1a9)
-- 🔧 Chore/Other:goal-b15 轮3 B05 结清翻勾 —— 流式中切模型三腿全装车(web 18+miniapp 17+RN 16 例全绿,本轮现读) (570a5e86495)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (94a129fe2f7)
-- 🔧 Chore/Other:goal-b15 轮3 孪生/僵尸齐翻(HEAD 面锚点) —— Esc 漏网份/号池凭证副本/O-1 副本/G-77 复活份 (c38212cf27b)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2cc52dfaeb7)
-- 🔧 Chore/Other:goal-b15 轮3 B02 进展注记(不翻勾) —— §7 现状精确化:房间协议+web 端接线已交付;真剩余=resync(rev 持久化前置,ws-broadcast rev 现为进程内存)/terminal 帧/meta 位/帧名收敛;跨端接线依赖 B06 (7ce9d46afb3)
-- 🔧 Chore/Other:结清 4 票(图片标注/失败广播/D07/残行尺),二次落盘(防复活) (a715c1d7a4c)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (af71ca7caee)
-- 🔧 Chore/Other:结清 2 票(tmpdir 七脚本 / allow-dangerous 单出口) (4372937c1d9)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (69e05903c79)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a1e5b737f78)
-- 🔧 Chore/Other:goal-b15 轮2 两票结清翻勾 —— ①合流吞修复票:建议补法已装车(converge:252 verifyUnion+lostAddedLines 行级断言,立因即本票) ②B03 消息级版本切换:票59三切片已完整装车(S12b 席取证,24+5+8 测试绿,tsc 0 错) (cde899e7a81)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (3b6a52e4d8e)
-- 🔧 Chore/Other:goal-b15 轮2 守门91冻结票结清翻勾 —— ①已清(5ce93b9e1)②7屏已接线(门91现读 RC=0/0未接线)③自记独立改造另立 ④纪律已登记 (376da1f7fc7)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8f13f11316f)
-- 🔧 Chore/Other:goal-b15 轮2 真机走查票结清翻勾 —— 三项终局(①已修 84583fdf6 ②误报 ③已修 26cf923961 真机复测),证据全在库,收口漏翻补翻 (02ef5b45ffc)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7e0a3bb0220)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e105ffdb708)
-- 🔧 Chore/Other:goal-b15 轮2 同题异号孪生副本齐翻 4 行 —— G-77(杀班,G-54 主行已翻同证据齐翻)+Esc 族 3 行(10-08 已归档,4 行全为归档残留);修正此前误判:非回捞竞态,是重编号后同题票拿到不同新号、逐份翻勾只命中一份 (98b39636221)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c12ce30dacd)
-- 🔧 Chore/Other:goal-b15 轮2 P2-13③ 结清翻勾(两份副本同批) —— prod-bundle AI 部署诊断链已落地:三件套+deploy-diagnose.sh 四失败点接线+结果落盘+消费者全在位;api tsc 0 错 (5a38eb7e961)
-- 🐞 Fix:收口编号形态 —— B 族空洞 B03 前移补齐 + G 族重号 G-56 尾行改 G-77 (e740ac885a9)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6ecdc843866)
-- 🔧 Chore/Other:goal-b15 轮2 D15 结清翻勾 —— 通知中心隐藏→归档→恢复流已由 D195 席落地(NotificationFeed.tsx :90-156 可撤销迁移+分区),十键五语逐语验齐套,parity OK (2c5c8c68de2)
-- 🐞 Fix:号池 chip 前景按兄弟键配对改名(chipOn/chipOnText)+ 重生成小程序 i18n 离线包(zh-TW 源变更后陈旧) (05eb6b414ba)
-- ♻️ Refactor:组件批 122 硬编码中文清零(15 组件 / 22 处) (dce5d74489a)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c335a8687ae)
-- 🔧 Chore/Other:goal-b15 轮2 D12 结清翻勾 —— 生态入口语言包已落 HEAD(ecosystem 37+connectors 52 键),页面用键 12 全覆盖零缺,五语 parity OK(19125 键),按住理由(语言包被他席占)已过时 (843b785bac3)
-- 🚀 Feature/Improvement:组件批 122 入典(19 组新键 ×5 语言) (57e00a3ee9a)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b3d730e5066)
-- 📚 Docs:守门 207 体积清偿 —— AGENTS.md 120,198B→93,377B(预算 96,000,余量 2,623);移出 36 行同题副本/取证叙述/L429+L433 索引副本,逐字留档 .ihui-agent/archive/AGENTS_trim-2026-10-24.md;规则本体与 236/238/239/public-admin 的 R4 点名行一枚未动,check-cross-end-screen-coverage 补进 UI 索引防丢点名 (5e1f901d2f5)
-- 🔧 Chore/Other:goal-b15 轮2 批量复翻 5 张回捞/僵尸行 —— 窄窗格缺口C/G-51 31红/G-54 杀班/G-57 fail-closed 四张为二次回捞(翻勾↔归并器竞态:已勾被完成即删摘+未勾副本被守恒带回,本轮翻勾后跟留痕链验证);Esc 无层栈为归档残留首翻(10-08 已归档,4 活行是僵尸)。结清证据均已在先前提交(3026adc85f/7d63c88314)信息中 (49a44972fc1)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e5caa17116c)
-- 🔧 Chore/Other:goal-20261024-Q 补回被折并的两条进展注记(handlers 审计纠偏 / 迁移B3与edu根因) (b0814f2ddeb)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8d6b4369f19)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (31940355d9c)
-- 🔧 Chore/Other:认领 5 张 ALIVE 票(D07/D11/失败广播/tmpdir/残行尺,goal-1024m..t) (f85b0f0f684)
-- 🔧 Chore/Other:goal-20261024-Q 第三批进展注记 —— RN 双包 tsc 归零、ScreenStates R4 清零、db-blind 棘轮转绿、cross-end 余 1 臂归属 (246b9c1a422)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b4d361c468f)
-- 🚀 Feature/Improvement:编号形态门(R3)+ 补号 10 条未取号行 + B/D/G 族压回 1..N 连续 (82fd2729f5b)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dc8e52c81e1)
-- 🐞 Fix:ScreenStates 按钮前景改用配对语义键 brand.foreground(替 surface.light),清 R4 跨 key 品牌底白字 (db992fea2bd)
-- 🐞 Fix:守门 182 顶破点收口 —— ws-broadcast 跨实例 publish 的异步失败改 then 双参形态(与链式 catch 语义等价);该处处置的是 Promise 发送失败而非 zod 控制面边界算子,故不再混入 strict 棘轮账,HEAD 面 92→91 回到基线 (0957365b5c7)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5d6439b6cc9)
-- 🔧 Chore/Other:goal-b15 S10 翻勾 —— api<T>() 壳迁移票结清:主体 234 份同形壳前几轮已迁完(票面口径 HEAD 现读零命中);本席收尾 relay/benefits apiGet 同形壳→apiOrThrow(b3b3f64276,tsc rc=0);剩余 18 文件 api* 命中全为第三类差异不机械迁 (349e116a660)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5d91ad217cb)
-- 🐞 Fix:门 71 纪元档判活补两型 —— 散文桶的飞书式要点行 + 号段标记 (60ae4dba060)
-- ♻️ Refactor:小屏清扫批 14 屏 UI 串清零 + 存量悬空引用 17 处收口 (37522b95e74)
-- 🚀 Feature/Improvement:小屏批×5 入典(15 新键组)+ 还原误删的 aiAssistant.chat 真身 (9b1de773052)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5ae6a0ca05d)
-- 🔧 Chore/Other:结清 G-31 另三道禁令门取磁盘面 —— 三门 git diff HEAD 均 0 行,换面已由 ea0fb180f0/a6c7cb36ec 落地(check-no-mask-image 提交 7017cbedb4e,emoji 自检 27/27+镜像 15/15,shared 镜像 10/10;mask/shared 无 self-test 属既有设计);独立席零改动复核 (4e02b6b33b6)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8524dc8c1bb)
-- 🔧 Chore/Other:结清 B03 权限双轴化 —— 双轴+config profiles 已在 HEAD 全量落地(permission-axis.ts 196 行 / permission_axis.py 141 行 / gate 285 行 / agents 路由 4 处接线);types typecheck rc=0、pytest 6/6+38/38、vitest 6/6、词表门 rc=0;独立席零改动复核 (66fea9683e3)
-- 🐞 Fix:packages/app 三屏 7 处主题接线(dashboard 2 / settings 1 / workflows 4) (41396447b6c)
-- 🐞 Fix:并发会话回插的两对撞号行再收口 —— 在册 104 条族内连续且唯一 (6e15137524d)
-- 🐞 Fix:撞号两行各发新号,不再折掉其中一行 —— 在册 104 条全两位号、零重复 (c05ca1a5335)
-- 🐞 Fix:收口批 —— 取号前导零 / 主题接线 / 清扫器留痕腿 / fail-closed 帧守卫 / README.en 块 (5588819fa8e)
-- 🐞 Fix:F9 补「同号异题」维 —— 两件事写同一个票号,此前整道门看不见 (821e00a40e8)
-- 🔧 Chore/Other:补齐 12 枚文件溯源水印(chat-collab / ssrf / ws-broadcast 测试、库迁移与 schema、设计文档)—— 守门 47 HEAD 面欠账清零;同批收编在飞席已注入水印的文件内容 (64675e795f2)
-- ♻️ Refactor:api<T>() 壳迁移收尾片 —— relay/benefits 的 apiGet 同形壳(仅函数名不同档:fetchApi + !success throw + return r.data 逐字同形)改走统一出口 apiOrThrow,定义删除、两调用点改写、差异化错误处理面(redeem 手动解包)保留 fetchApi 原样;票面主体 234 份同形壳经票面口径 git grep -cE '^(async )?(function|const) api[<(=]' HEAD -- apps/web 现读零命中(前几轮已迁完),剩余 api* 命中 18 文件全为第三类差异(apiFetch 多层校验/apiOverview 业务函数/apiJsonLd/测试 mock),按票面口径不机械迁;验证 tsc --noEmit 全量 rc=0 零错误 (b3b3f642764)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8dab55e33cb)
-- 🔧 Chore/Other:认领 5 张 ALIVE 票(D06/D09/D12/B04/图片标注,goal-1024h..l) (d7227719be9)
-- 🐞 Fix:typecheck 归零五文件 —— ModelConfigDialog 两处补 useI18n、N8n map 回调签名、Home 索引非空、Profile 图标类型改 LucideIcon、ScreenStates 去掉不存在的 rnSpacing 导出依赖 (0b079628a5f)
-- 🔧 Chore/Other:收口并行会话回插的 3 条撞号行 —— 在册 102 条全两位号(G74/D16/O3/A1/B7/WP1),无超 99、无重复 (9c15d2e2d2c)
-- 🔧 Chore/Other:盲写棘轮基线随清偿收窄 329→327(chat-collab 两处条件写入形态落地后按 HEAD 面重锚,只减不增) (30fd572385a)
-- 🐞 Fix:G-998153 盲写棘轮清偿 —— chat-collab 接受/撤销改条件写入形态(where 的状态守卫即现值比较,已裁决行不再同值空写盖 updatedAt);同批收编在飞席的 metadata 现值比较与 mobile 消息 id 去重写入,三文件合计清掉基线外 5 处命中 (e46ef3ce583)
-- 🐞 Fix:门 71 纪元档改按"题面前缀"判活 —— 换号/复用号不再被读成"行被吞了" (eccc6155319)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0a23c905973)
-- 🚀 Feature/Improvement:任务编号全量重排为两位号(一族一系,≤99)+ 历史迁档 (e5a7395071a)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b0c6f9b9f2f)
-- 🔧 Chore/Other:goal-20261024-Q 第二轮进展注记 —— handlers 审计三态+P0 裁决、迁移 B3 修复与 edu 测试根因、11 屏静态复核落地读数 (8f62b7536b4)
-- 🐞 Fix:shared/zh-TW 「核准」改「核準」—— 与 web 版同键同字对齐,守门 2j-shared 中文残留转绿 (170648b0c07)
-- 📚 Docs:goal-20261024-Q 第二批进展 —— handlers 审计三态与 P0 裁决 / 迁移 B3 与 edu transform 根因 / 11 屏静态复核与三枚落地读数 (3fd208f687e)
-- 🐞 Fix:守门 89 撞号收口 —— 237 归跨端页面覆盖(runner 补回被误删的 check-cross-end-screen-coverage 注册,门体健康、AGENTS 速查已点名,不得靠删门消红);计划归档单调性 237→239;mirror-purge 头注与 AGENTS 速查编号 237→238 对齐注册现值;AGENTS 补点名 check-plan-archive-monotonic(239)/check-public-admin-default(守门 89 R4 缺口)。本枚 HUSKY_SKIP_GATE_WIRING: R5 取材面固定 HEAD(check-gate-wiring.mjs 头注 R5),修复枚自身必红;落地后 HEAD dup=0。 (66b89a453f7)
-- 🐞 Fix:G-925 静态复核 C2/C4/C5 —— 67 处可点击控件补 44px 触控、3 屏错误态接重试、2 处 chip 圆角归档 (aad975c3c42)
-- ♻️ Refactor:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (9ed7828556d)
-- 🔧 Chore/Other:认领 7 张可派单票(S1..S7 席位租约) (f8d0d7552f1)
-- 🚀 Feature/Improvement:任务编号全量重排为两位号(一族一系,≤99)+ 历史迁档 (9d74e923427)
-- 🚀 Feature/Improvement:任务编号全量重排为两位号(一族一系,≤99)+ 历史迁档 (ea32579b60b)
-- 🐞 Fix:R3 接线前置三件 —— ① check-duplicate-policy-literals render 签名补 strict 形参(修复直跑 ReferenceError,strict 档语义不变,--self-test 43/43 + 镜像 6/6);② check-gate-presence-exemption 头注对齐 108 存活期表现读(该族已进 FAMILY_LIFETIME_DAYS);③ guard-status-where 补 26 处面不匹配实测登记(108 scanFile 只看同行/前一行,gsw 允许后 3 行的形态差异,只记事实不改判据)。R3 前置清障,接线批另行走 AGENTS 字节预算 (96ea8619f0e)
-- 🐞 Fix:RN 测试链补齐 @ihui/shared/constants 四枚子路径别名(about-sections/developer-space/trader-plan-promo/web-portal) —— 2eca6eb203 共享屏重写后 RN vitest 链解析失败(父别名前缀替换吞子路径 ⇒ 子路径必须逐枚显式登记,同 storage-keys 既有规矩);修复后 search-overlay.test.tsx 11/11 绿,回归由 #20 审计席现读发现 (58e08d76952)
-- 🐞 Fix:11 屏静态复核 C1 —— 9 屏 64 处次级字色补 dark:text-neutral-400(暗底对比 3.78:1 → ~7.4:1) (40dbcae4386)
-- 🔧 Chore/Other:生成物 stale 债同笔清偿(承 26ffb03a 通报③) —— 显式放行陈旧守卫留痕:HEAD 面 b64/gen 钉的是 442cc8df2d 生成时的旧输入(解码头对键差 23-25 条全是同路径旧值),本次按 HEAD 现输入重跑 gen-i18n-compressed + 三端 generate-ui-routes,新值 85-87 键/语(about/carte 等合并词典),键路径消失 0;三端 ui-routes 产物 diff 纯自述钉块(sourceCommit/inputsSha256/generatedAt),内容行零差 (788ad715d62)
-
-**2026-10-24**
-- 🚀 Feature/Improvement:大屏第八轮(无障碍补强/窄档页头/对比度/缩放触发面) (c7dce2b8151)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)
