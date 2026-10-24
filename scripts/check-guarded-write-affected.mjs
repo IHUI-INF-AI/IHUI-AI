@@ -40,9 +40,11 @@
  * —— 档位与取材 ——
  * 取材面纪律(§0.4):全量档判 HEAD blob、`--staged` 判索引 blob、`--worktree` 仅人工逃生舱;
  * 两面旗同给 ⇒ exit 2;取不到 ⇒ 未判定(§0.3),不记绿也不冒红;枚举 0 个候选 ⇒ 判死。
- * G1/G2 的档位**由现读存量决定**:本枚已把两处已知缺陷修掉,若全仓归零则升绝对零容忍;
- * 否则按该文件在锚点面(HEAD 面判 HEAD^、索引面判 HEAD)的自身存量做差值棘轮,
- * 只拦"本次带进来的新增"(§12e 恒红门禁令)。
+ * G1/G3 的档位:差值棘轮(锚点 = 该文件在锚点面自身的存量)。**2026-10-25 本枚实测现读存量为 0**
+ * (G1 由 points-mall 兑换归零;G3 三处 userMargins 释放/退回冻结补齐 gte(frozen,amount) +
+ *  .returning() 后归零),所以在当前账面上等价于零容忍;仍保留棘轮形态而非硬编码 0,是因为
+ *  一旦有人 --no-verify 把旧形态塞回来,门应当只拦增量、而不是变成一台与本次内容无关的恒红门(§12e)。
+ * G2 同口径:回 FAIL 让上游重投是本仓 payment-gateway 既有写法,现读存量 0。
  *
  * 用法:node scripts/check-guarded-write-affected.mjs [--staged|--worktree] [--json] [--self-test]
  * 退出码:0 无判红 / 1 判红 / 2 未判定(含"锚点取不到")
@@ -51,7 +53,7 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { findWriteChains, lineAt, maskText, closeParen, closeBrace } from './lib/batch-write-lexer.mjs'
+import { findWriteChains, maskText, closeParen, closeBrace } from './lib/batch-write-lexer.mjs'
 import { maskComments } from './lib/code-mask.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -113,7 +115,7 @@ export function findDiscardedGuardedWrites(code) {
     if (chain.hasReturning) continue
     if (chain.opaque) continue // 分不清就不判(§0.3),不拿"看着像"定罪
     if (isResultTaken(code, chain.start)) continue
-    out.push({ start: chain.start, whereText: chain.whereText.slice(0, 90) })
+    out.push({ start: chain.start, whereText: chain.whereText.slice(0, 90), whereFull: chain.whereText })
   }
   return out
 }
@@ -132,7 +134,7 @@ export function findUnguardedDecrement(code) {
     if (chain.names.indexOf('where') < 0) continue // 无 where 的全表写另有判据(门 134/30a)
     if (guardsQuantityColumn(chain.whereText)) continue
     if (chain.opaque) continue
-    out.push({ start: chain.start, whereText: chain.whereText.slice(0, 90) })
+    out.push({ start: chain.start, whereText: chain.whereText.slice(0, 90), whereFull: chain.whereText })
   }
   return out
 }
@@ -165,6 +167,42 @@ export function findCallbackSwallowingFailure(code) {
     }
   }
   return out
+}
+
+/**
+ * 报表坐标:遮蔽面的下标不能直接映射回原文 —— maskComments 是**删字符**而非等长抹平
+ * (实测把 565 行的额度写报成 482 行)。错坐标比没坐标更贵,所以改用 where 原文当锚在**原文**里定位;
+ * 锚找不到 ⇒ 如实写"未定位",不猜一个行号给人跟着改错地方。
+ */
+export function locateLine(src, needle, from = 0) {
+  if (!needle) return -1
+  const flat = needle.replace(/\s+/g, ' ').trim()
+  const firstWord = flat.split(' ')[0]
+  if (!firstWord) return -1
+  let searchFrom = from
+  for (let guard = 0; guard < 400 && searchFrom < src.length; guard++) {
+    const at = src.indexOf(firstWord, searchFrom)
+    if (at < 0) return -1
+    const window = src.slice(at, at + flat.length + 400).replace(/\s+/g, ' ')
+    if (window.includes(flat)) return { line: src.slice(0, at).split('\n').length, at }
+    searchFrom = at + firstWord.length
+  }
+  return -1
+}
+
+/**
+ * 报表游标:同一文件里两处 where 写法逐字相同时(实测 payment-extended 的两处余额释放),
+ * 每次都找第一次出现 ⇒ 两条报同一个行号,跟着改会改错那一处。链本身是按出现顺序返回的,
+ * 所以游标单调前进即可把坐标分对。定位不到 ⇒ 如实写"未定位",不猜。
+ */
+export function makeLocator(src) {
+  let cursor = 0
+  return (needle) => {
+    const hit = locateLine(src, needle, cursor)
+    if (hit === -1) return '未定位(锚不在原文)'
+    cursor = hit.at + 1
+    return hit.line
+  }
 }
 
 function git(args, opts = {}) {
@@ -311,6 +349,22 @@ export function selfTest() {
     'G2 对带 config 对象的 FAIL 档不误报',
     findCallbackSwallowingFailure(cbConfig.replace("code: 'SUCCESS'", "code: 'FAIL'")).length === 0,
   )
+  // 坐标锁(实测踩过):遮蔽面删注释字符 ⇒ 遮蔽下标映射回原文会整体偏几十行,
+  // 报出"看着像行号的错数"比不报更贵 —— 定位必须以原文里的 where 原文为锚。
+  const withComments =
+    `// 说明一\n// 说明二\n// 说明三\n// 说明四\n` +
+    `      await db\n        .update(products)\n        .set({ stock: sql\`\${products.stock} - 1\` })\n        .where(and(eq(products.id, id), gt(products.stock, 0)))\n`
+  const hit = findDiscardedGuardedWrites(withComments)[0]
+  ok('遮蔽面上确有命中', Boolean(hit))
+  ok('报表行号必须落在守卫子句那一行(第 8 行)', locateLine(withComments, hit.whereFull)?.line === 8)
+  ok('锚找不到时不猜行号', locateLine(withComments, 'and(eq(never.exists.col, 1))') === -1)
+  // 同形锚的成对锁:两处逐字相同的 where(实测 payment-extended 的两处余额释放),
+  // 不带游标会都报第一次出现 ⇒ 两条指同一个位置,跟着改会改错那一处。
+  const dup = withComments + withComments.replace(/products\.id, id/g, 'products.id, id')
+  const locate = makeLocator(dup)
+  const l1 = locate('and(eq(products.id, id), gt(products.stock, 0))')
+  const l2 = locate('and(eq(products.id, id), gt(products.stock, 0))')
+  ok('同形锚的两次命中必须给出两个不同行号', typeof l1 === 'number' && typeof l2 === 'number' && l2 > l1)
   ok('词法层复用同一台(未回抄分词器)', typeof findWriteChains === 'function' && typeof maskText === 'function')
 
   let rc = 0
@@ -353,6 +407,10 @@ async function main() {
       continue
     }
     const { leaks, g1, g2, g3 } = auditText(src)
+    // 每个维度各用自己的单调游标(混用会让靠前的锚报成未定位)
+    const locate1 = makeLocator(src)
+    const locate3 = makeLocator(src)
+    const locate2 = makeLocator(src)
     // 词法机没走干净 ⇒ 本文件的判据是瞎的:落「未判定」逐条点名,既不记绿也不冒红(§0.3)。
     // 拿"扫不出违规"当通过,正是守门 134 头注点名的"从字符串里 harvest 假用量"那一族的反面。
     if (leaks.length) {
@@ -366,9 +424,9 @@ async function main() {
     const aSrc = readRev(aRev, file)
     if (aSrc === null) {
       // 锚点面无此文件 = 本枚新建的文件 ⇒ 存量按 0 计,当前违规全算新增
-      for (const h of curG1) findings.push({ dim: 'G1', file, line: lineAt(src, h.start), where: h.whereText })
-      for (const h of curG3) findings.push({ dim: 'G3', file, line: lineAt(src, h.start), where: h.whereText })
-      for (const h of curG2) findings.push({ dim: 'G2', file, line: lineAt(src, h.start), route: h.route })
+      for (const h of curG1) findings.push({ dim: 'G1', file, line: locate1(h.whereFull), where: h.whereText })
+      for (const h of curG3) findings.push({ dim: 'G3', file, line: locate3(h.whereFull), where: h.whereText })
+      for (const h of curG2) findings.push({ dim: 'G2', file, line: locate2(h.route), route: h.route })
       continue
     }
     const a = auditText(aSrc)
@@ -382,9 +440,9 @@ async function main() {
       continue
     }
     const all = [
-      ...curG1.map((h) => ({ dim: 'G1', file, line: lineAt(src, h.start), where: h.whereText })),
-      ...curG3.map((h) => ({ dim: 'G3', file, line: lineAt(src, h.start), where: h.whereText })),
-      ...curG2.map((h) => ({ dim: 'G2', file, line: lineAt(src, h.start), route: h.route })),
+      ...curG1.map((h) => ({ dim: 'G1', file, line: locate1(h.whereFull), where: h.whereText })),
+      ...curG3.map((h) => ({ dim: 'G3', file, line: locate3(h.whereFull), where: h.whereText })),
+      ...curG2.map((h) => ({ dim: 'G2', file, line: locate2(h.route), route: h.route })),
     ]
     // 差值棘轮(§0.5/§12e):锚点 = 该文件在锚点面自身的违规数;只拦"本枚把数加上去"。
     if (all.length > anchorCount) for (const f of all) findings.push(f)
@@ -433,6 +491,8 @@ export const __test__ = {
   findCallbackSwallowingFailure,
   guardsQuantityColumn,
   isQuantityRelative,
+  locateLine,
+  makeLocator,
   SCOPE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
