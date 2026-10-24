@@ -1039,7 +1039,15 @@
     "noteCreate": "New Note",
     "sectionSettings": "Settings",
     "subscriptions": "My Subscriptions",
-    "settings": "Settings"
+    "settings": "Settings",
+    "catImage": "Image",
+    "catVideo": "Video",
+    "catCopy": "Copywriting",
+    "catAgent": "Agents",
+    "catRpa": "RPA",
+    "catCode": "Coding",
+    "catMusic": "Music",
+    "catOther": "Other"
   },
   "drawer": {
     "newChat": "New Task",
@@ -4687,7 +4695,12 @@
     "vividTail": ", almost there"
   },
   "notification": {
-    "pushBannerTitle": "New message"
+    "pushBannerTitle": "New message",
+    "justNow": "Just now",
+    "minAgo": "{n}m ago",
+    "hourAgo": "{n}h ago",
+    "newTitle": "New message",
+    "markAllRead": "Mark all read"
   },
   "ai": {
     "pane": {
@@ -5467,5 +5480,16 @@
     "desc": "Description",
     "version": "Version",
     "updated": "Updated"
+  },
+  "voice": {
+    "cam": "Camera",
+    "album": "Album",
+    "file": "File",
+    "closeImgMenu": "Close image menu",
+    "addImage": "Add image",
+    "holdToTalk": "Hold to talk",
+    "clearResult": "Clear result",
+    "releaseEnd": " release to end",
+    "transcribing": "Transcribing…"
   }
 }
