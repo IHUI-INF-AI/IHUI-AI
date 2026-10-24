@@ -34,6 +34,39 @@ import {
 const REFRESH_AHEAD_MS = 15 * 60 * 1000
 /** 连续刷新失败摘除阈值 */
 const REFRESH_FAILURE_LIMIT = 3
+
+/**
+ * 平台续期归属(2026-10-24 立):'server' = 池负责续期;'client-first' = 客户端负责续期,
+ * 池只在 access token **已过期**后兜底刷新。
+ *
+ * 立因:Trae 的 ExchangeToken 每次都轮换 refreshToken,而本机 Trae 客户端与号池共用
+ * 同一枚 rt —— 池先刷,客户端手里的票当场作废(2026-10-24 实测:池 02:20 续期,
+ * 02:26 客户端 `[updateUserInfo] {}` 登录态被清)。客户端在跑时它会自己续期,另有
+ * scripts/sync-trae-client-session.mjs 每 10 分钟把客户端新票回灌进池;池内票一旦真的
+ * 过期,说明客户端已不在续期,此时兜底刷新不会再顶掉谁。
+ * RELAY_TRAE_CLIENT_FIRST_REFRESH=0/false/off 可整体退回 server 策略。
+ */
+export type RelayRenewalPolicy = 'server' | 'client-first'
+
+export function renewalPolicyOf(
+  providerCode: string,
+  env: NodeJS.ProcessEnv = process.env,
+): RelayRenewalPolicy {
+  if (providerCode !== 'trae') return 'server'
+  const flag = (env.RELAY_TRAE_CLIENT_FIRST_REFRESH ?? '').trim().toLowerCase()
+  if (['0', 'false', 'off'].includes(flag)) return 'server'
+  return 'client-first'
+}
+
+/** client-first 且票尚未过期 ⇒ 本轮不许刷(刷了就是和客户端抢轮换);票已过期 ⇒ 兜底放行。 */
+export function shouldDeferRefresh(
+  row: { providerCode: string; tokenExpiresAt: Date | null },
+  now: Date,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (renewalPolicyOf(row.providerCode, env) !== 'client-first') return false
+  return row.tokenExpiresAt !== null && row.tokenExpiresAt.getTime() > now.getTime()
+}
 /** 单轮最多处理的账号数(防刷新风暴打爆上游) */
 const BATCH_LIMIT = 50
 /** 单轮刷新/健康检查的并发上限(手写 worker pool,不引依赖) */
@@ -272,6 +305,13 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
     .where(expiringRefreshWhere(deadline))
     .limit(BATCH_LIMIT)
   await runWithConcurrency(expiring, SWEEP_CONCURRENCY, async (row) => {
+    if (shouldDeferRefresh(row, now)) {
+      // client-first:票还没过期,刷新 = 和本机客户端抢轮换(会把客户端顶下线)。
+      // 客户端新票由 scripts/sync-trae-client-session.mjs 每 10 分钟回灌;
+      // 票一旦真过期(客户端已不在续期)这里不再拦,池兜底刷。
+      out.refreshSkipped++
+      return
+    }
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) {
       out.refreshSkipped++
@@ -339,6 +379,7 @@ async function runSweepOnce(): Promise<AccountPoolSweepResult> {
   const downs = await dbRead.select().from(aiRelayAccountPool).where(downRecoveryWhere()).limit(10)
   for (const row of downs) {
     if (row.refreshFailureCount >= REFRESH_FAILURE_LIMIT) continue
+    if (shouldDeferRefresh(row, now)) continue // 同上:票未过期不抢客户端的轮换权
     const adapter = getRelayAdapter(row.providerCode)
     if (!adapter?.refreshToken) continue
     if (await refreshOne(row)) out.healthRecovered++
