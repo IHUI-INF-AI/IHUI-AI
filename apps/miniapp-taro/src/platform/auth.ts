@@ -82,9 +82,11 @@ export async function getUserProfile(): Promise<MiniProgramUserProfile> {
     // 支付宝返回 response 为 JSON 字符串 —— 但取消/失败时该字段可能是非 JSON 甚至 undefined,
     // 裸 JSON.parse 会把整条登录链打崩成 SyntaxError(对用户只剩"登录失败")。
     // 坏回包降级为"无资料对象",由调用方走既有的手动补昵称/头像路径(对齐微信分支失败语义)。
-    let info: { response?: { nickName?: string; avatar?: string } } | null = null
+    let info: { nickName?: string; avatar?: string } | null = null
     try {
-      info = JSON.parse(res.response)?.response ?? null
+      info =
+        (JSON.parse(res.response) as { response?: { nickName?: string; avatar?: string } })
+          ?.response ?? null
     } catch {
       info = null
     }
