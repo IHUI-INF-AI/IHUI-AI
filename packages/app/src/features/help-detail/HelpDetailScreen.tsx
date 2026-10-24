@@ -4,11 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
+import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { HelpDetailItem, HelpDetailScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 export type { HelpDetailItem, HelpDetailScreenProps }
 
@@ -32,22 +32,29 @@ export function HelpDetailScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error || t('helpDetail.empty')}</Text>
-        <TouchableOpacity
-          onPress={onBack}
-          style={styles.backBtn}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.text.medium} />
-        </TouchableOpacity>
+      <View style={styles.container}>
+        {error ? (
+          <ErrorState
+            message={error}
+            onRetry={onBack}
+            retryLabel={t('common.back')}
+            colorScheme={colorScheme}
+          />
+        ) : (
+          <EmptyState
+            title={t('helpDetail.empty')}
+            actionLabel={t('common.back')}
+            onAction={onBack}
+            colorScheme={colorScheme}
+          />
+        )}
       </View>
     )
   }
@@ -95,10 +102,6 @@ function createStyles(tk: AppThemeTokens) {
     question: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     answerTitle: { marginTop: 16, fontSize: 14, fontWeight: '600', color: tk.text.secondary },
     answer: { marginTop: 8, fontSize: 16, color: tk.text.medium, lineHeight: 22 },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 14 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
-    backBtn: { marginTop: 12 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

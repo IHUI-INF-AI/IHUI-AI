@@ -13,12 +13,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { CheckCircle2, FileText, Sparkles, X } from 'lucide-react-native'
+import { CheckCircle2, Sparkles, X } from 'lucide-react-native'
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * WrongQuestionsScreen — 跨端共享「错题本屏」(门 39 六屏共享化第二批)。
@@ -178,25 +179,16 @@ export function WrongQuestionsScreen({
         contentContainerStyle={styles.listBody}
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator style={styles.stateBox} color={tk.text.tertiary} />
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : failed ? (
-            <View style={styles.stateBox}>
-              <Text style={styles.errorText}>{t('wrongQuestions.loadFailed')}</Text>
-              <TouchableOpacity
-                style={styles.textButton}
-                onPress={onRetry}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel={t('common.retry')}
-              >
-                <Text style={styles.retry}>{t('common.retry')}</Text>
-              </TouchableOpacity>
-            </View>
+            <ErrorState
+              message={t('wrongQuestions.loadFailed')}
+              onRetry={onRetry}
+              retryLabel={t('common.retry')}
+              colorScheme={colorScheme}
+            />
           ) : (
-            <View style={styles.stateBox}>
-              <FileText size={28} color={tk.text.tertiary} />
-              <Text style={styles.muted}>{t('wrongQuestions.empty')}</Text>
-            </View>
+            <EmptyState title={t('wrongQuestions.empty')} colorScheme={colorScheme} />
           )
         }
         renderItem={({ item }) => (
@@ -357,11 +349,6 @@ function createStyles(tk: AppThemeTokens) {
     actions: { flexDirection: 'row', gap: 16, paddingTop: 4 },
     actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
     actionText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
-    stateBox: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 48 },
-    muted: { fontSize: 13, color: tk.text.secondary },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
-    textButton: { paddingVertical: 4, paddingHorizontal: 8 },
     moreBtn: {
       height: 40,
       borderRadius: rnRadius.sm,

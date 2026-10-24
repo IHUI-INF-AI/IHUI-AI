@@ -3,18 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo, type ReactNode } from 'react'
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { rnRadius } from '@ihui/design-tokens'
 import type { AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 指标项:label/value 均为端内已求值文本(t()、数字/日期格式化在平台侧完成后传入,共享层不做本地化) */
 export interface DashboardMetricItem {
@@ -89,12 +82,7 @@ export function DashboardScreen({
 
   if (loading && items.length === 0) {
     if (renderLoading) return <>{renderLoading()}</>
-    return (
-      <View style={styles.centerWrap}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="grid" count={4} />
   }
 
   const isEmpty = items.length === 0
@@ -118,9 +106,7 @@ export function DashboardScreen({
         renderEmpty ? (
           renderEmpty()
         ) : (
-          <View style={styles.centerWrap}>
-            <Text style={styles.muted}>{t('common.empty')}</Text>
-          </View>
+          <EmptyState title={t('common.empty')} />
         )
       ) : (
         groups.map((group) => (
@@ -164,8 +150,6 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { padding: 16, paddingBottom: 24, gap: 16 },
-    centerWrap: { alignItems: 'center', paddingVertical: 48 },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     errorWrap: { gap: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     retryBtn: {

@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/ai-career/AiCareerScreen.tsx
 import { useTt, useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
@@ -9,6 +10,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 /** 从智能体描述中提取前 2 个关键词作为标签 */
 function extractTags(name: string, desc: string): string[] {
@@ -75,25 +77,13 @@ export default function AiCareer() {
       {/* 对齐 RN FlatList contentContainer:padding 16dp=32rpx / paddingBottom 32dp=64rpx;separator 12dp=24rpx */}
       <View className="px-[32rpx] pt-[32rpx] pb-[64rpx]">
         {loading ? (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[length:28rpx] text-[var(--color-text-tertiary)]">
-              {t('common.loading')}
-            </Text>
-          </View>
+          <ScreenSkeleton variant="list" count={4} />
         ) : error ? (
-          <View className="px-[20rpx] py-[16rpx] bg-[var(--color-danger-light)]">
-            <View className="flex flex-row items-center justify-between">
-              <Text className="flex-1 text-[length:28rpx] text-destructive">
-                {tt('aiCareer.loadFailed', '加载失败')}
-              </Text>
-              <Text
-                className="ml-[16rpx] text-[length:28rpx] font-semibold text-[var(--color-brand)]"
-                onClick={loadData}
-              >
-                {t('common.retry')}
-              </Text>
-            </View>
-          </View>
+          <ErrorState
+            message={tt('aiCareer.loadFailed', '加载失败')}
+            onRetry={loadData}
+            retryLabel={t('common.retry')}
+          />
         ) : list.length ? (
           <View className="flex flex-col gap-[24rpx]">
             {list.map((item) => {
@@ -159,11 +149,7 @@ export default function AiCareer() {
             })}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[length:28rpx] text-[var(--color-text-tertiary)]">
-              {t('aiCareer.empty')}
-            </Text>
-          </View>
+          <EmptyState title={t('aiCareer.empty')} />
         )}
       </View>
     </View>

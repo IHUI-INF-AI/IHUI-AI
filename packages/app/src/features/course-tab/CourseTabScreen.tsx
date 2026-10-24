@@ -19,6 +19,7 @@ import {
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { SearchInput } from '../../components/SearchInput'
 import { MoreLink } from '../../components/MoreLink'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import type { TFunction } from '../../types'
 import type {
   AppIcon,
@@ -132,9 +133,7 @@ export function CourseTabScreen({
         <View style={styles.section}>
           {renderSectionHeader('学习路径', onPressMoreCourses)}
           {paths.length === 0 ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>暂无学习路径</Text>
-            </View>
+            <EmptyState title="暂无学习路径" colorScheme={colorScheme} />
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.horizontalList}>
@@ -240,13 +239,9 @@ export function CourseTabScreen({
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : loading ? (
-            <View style={styles.centerWrap}>
-              <Text style={styles.loadingText}>{t('common.loading') || '加载中...'}</Text>
-            </View>
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : courses.length === 0 ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>暂无课程</Text>
-            </View>
+            <EmptyState title="暂无课程" colorScheme={colorScheme} />
           ) : (
             <View style={styles.courseList}>
               {courses.map((c) => (
@@ -532,22 +527,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 14,
       color: tk.danger.DEFAULT,
       textAlign: 'center',
-    } as TextStyle,
-    centerWrap: {
-      alignItems: 'center',
-      paddingVertical: 48,
-    } as ViewStyle,
-    loadingText: {
-      fontSize: 16,
-      color: tk.text.secondary,
-    } as TextStyle,
-    emptyWrap: {
-      alignItems: 'center',
-      paddingVertical: 48,
-    } as ViewStyle,
-    emptyText: {
-      fontSize: 14,
-      color: tk.text.secondary,
     } as TextStyle,
     courseList: {
       gap: 12,

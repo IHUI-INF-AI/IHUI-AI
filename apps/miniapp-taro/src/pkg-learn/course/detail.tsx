@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/course-detail/CourseDetailScreen.tsx
 import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import LineIcon from '@/components/LineIcon'
@@ -9,6 +10,7 @@ import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/t
 import { useState, useEffect, useCallback } from 'react'
 import { getCourseDetail, post, type Course } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import {
   CourseHeader,
   CourseCatalog,
@@ -134,8 +136,8 @@ export default function CourseDetail() {
   if (!course) {
     return (
       <ThemeRoot>
-        <View className="flex items-center justify-center h-screen text-muted-foreground">
-          <Text>{t('common.loading')}</Text>
+        <View className="min-h-screen bg-background">
+          <ScreenSkeleton variant="list" count={4} />
         </View>
       </ThemeRoot>
     )

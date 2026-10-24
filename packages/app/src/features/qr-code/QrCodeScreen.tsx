@@ -9,6 +9,7 @@ import type { QrCodeItem, QrCodeScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 二维码共享屏 — props 注入式跨端组件 */
 export type { QrCodeItem, QrCodeScreenProps }
@@ -32,9 +33,7 @@ export function QrCodeScreen({
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('qrCode.title')}</Text>
         </View>
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="card" count={2} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -46,9 +45,11 @@ export function QrCodeScreen({
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('qrCode.title')}</Text>
         </View>
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error || t('common.empty')}</Text>
-        </View>
+        {error ? (
+          <ErrorState message={error} colorScheme={colorScheme} />
+        ) : (
+          <EmptyState title={t('common.empty')} colorScheme={colorScheme} />
+        )}
       </View>
     )
   }
@@ -78,7 +79,6 @@ export function QrCodeScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -128,8 +128,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     shareText: { fontSize: 14, color: tk.surface.light, fontWeight: '600' },
-    muted: { fontSize: 14, color: tk.text.secondary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

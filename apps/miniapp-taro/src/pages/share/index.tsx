@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/share/ShareScreen.tsx
 import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, {
@@ -29,6 +30,7 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState } from '@/components/ScreenStates.taro'
 import CategoryBar from '@/components/CategoryBar'
 import { getTopBarMetrics } from '@/utils/system-info'
 import { rpx } from '@/utils/rpx'
@@ -804,9 +806,7 @@ export default function ShareIndexPage() {
               />
             ))
           ) : !loading ? (
-            <View className="share-empty">
-              <Text className="share-empty-text">{tt('news.empty', '暂无资讯')}</Text>
-            </View>
+            <EmptyState title={tt('news.empty', '暂无资讯')} />
           ) : null}
           {loading ? (
             <View className="share-loading">

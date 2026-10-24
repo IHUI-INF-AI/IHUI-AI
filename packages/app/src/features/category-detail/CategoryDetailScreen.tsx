@@ -15,6 +15,12 @@ import {
 import { ChevronRight } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
 
 import { rnRadius } from '@ihui/design-tokens'
 import type { CategoryDetailScreenProps } from '@ihui/types'
@@ -39,10 +45,10 @@ export function CategoryDetailScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   const renderItem: ListRenderItem<(typeof items)[number]> = ({ item }) => (
-    <TouchableOpacity
+    <PressableCard
       style={styles.itemCard}
       onPress={() => onAgentPress(item.id)}
-      activeOpacity={0.7}
+      colorScheme={colorScheme}
     >
       <View style={styles.itemBody}>
         <Text style={styles.itemName} numberOfLines={1}>
@@ -55,7 +61,7 @@ export function CategoryDetailScreen({
         ) : null}
       </View>
       <ChevronRight size={20} color={tk.text.tertiary} />
-    </TouchableOpacity>
+    </PressableCard>
   )
 
   return (
@@ -76,16 +82,14 @@ export function CategoryDetailScreen({
         ))}
       </View>
       {loading ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.loadingText}>加载中...</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : error ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onLoadMore}>
-            <Text style={styles.retryText}>重试</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onLoadMore}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <FlatList
           data={items}
@@ -94,11 +98,7 @@ export function CategoryDetailScreen({
           contentContainerStyle={styles.listContent}
           onEndReached={onLoadMore}
           onEndReachedThreshold={0.3}
-          ListEmptyComponent={
-            <View style={styles.centerWrap}>
-              <Text style={styles.emptyText}>暂无数据</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title="暂无数据" colorScheme={colorScheme} />}
           ListFooterComponent={
             hasMore ? (
               <View style={styles.footerLoading}>
@@ -161,25 +161,6 @@ function createStyles(tk: AppThemeTokens) {
     itemBody: { flex: 1, minWidth: 0 },
     itemName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     itemDesc: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    centerWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 14,
-      gap: 12,
-    },
-    loadingText: { fontSize: 16, color: tk.text.secondary },
-    errorText: { fontSize: 16, color: tk.danger.DEFAULT, textAlign: 'center' },
-    retryBtn: {
-      paddingHorizontal: 10,
-      height: 44,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brandAccent.DEFAULT,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    retryText: { fontSize: 14, fontWeight: '600', color: tk.brandAccent.foreground },
-    emptyText: { fontSize: 16, color: tk.text.secondary },
     footerLoading: { paddingVertical: 12, alignItems: 'center' },
     footerText: { fontSize: 14, color: tk.text.secondary },
   })

@@ -5,11 +5,11 @@ import { rnRadius } from '@ihui/design-tokens'
 
 /** 订单详情共享屏 — props 注入式跨端组件 */
 import { useMemo } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { OrderDetailScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * 订单详情共享屏 — 平台无关渲染层。
@@ -33,26 +33,17 @@ export function OrderDetailScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
   }
 
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error || t('orderDetail.loadFailed')}</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={onBack}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.text.medium} />
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error || t('orderDetail.loadFailed')}
+        onRetry={onBack}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -108,10 +99,6 @@ function createStyles(tk: AppThemeTokens) {
     label: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     value: { marginTop: 8, fontSize: 16, color: tk.text.primary },
     price: { marginTop: 8, fontSize: 22, fontWeight: '700', color: tk.success.DEFAULT },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
-    backBtn: { marginTop: 12 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

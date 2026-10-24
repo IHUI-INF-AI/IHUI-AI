@@ -9,6 +9,7 @@ import type { TaskCenterItem, TaskCenterScreenProps, TaskCenterTab } from '../..
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 任务中心共享屏 — props 注入式跨端组件 */
 export type { TaskCenterItem, TaskCenterScreenProps, TaskCenterTab }
@@ -42,8 +43,8 @@ export function TaskCenterScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emptyText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -87,9 +88,7 @@ export function TaskCenterScreen({
 
       <View style={styles.list}>
         {filtered.length === 0 ? (
-          <View style={styles.center}>
-            <Text style={styles.emptyText}>{t('taskCenter.empty')}</Text>
-          </View>
+          <EmptyState title={t('taskCenter.empty')} colorScheme={colorScheme} />
         ) : (
           filtered.map((task) => {
             const progressPct =
@@ -152,8 +151,6 @@ export function TaskCenterScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: { alignItems: 'center', paddingVertical: 32 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },

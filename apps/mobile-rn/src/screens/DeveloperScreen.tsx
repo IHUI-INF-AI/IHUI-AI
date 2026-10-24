@@ -2,86 +2,76 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * DeveloperScreen 开发者空间/详情页(mobile-rn 端)
- *
- * 对齐历史项目 pagesA/plaza/developer.vue(1018 行,标题「开发者详情」):
- * - 导航栏「开发者详情」+ 返回
- * - header_card:头像 + 昵称 + (非开发者)「成为开发者」入口 → DevEnterCover(开通封面)
- * - dev_list 三功能入口(图标竖排):
- *   ① 我的智能体 → DevEnter(原 /pagesA/dev_enter/index)
- *   ② 智能体收入 → ModelIncome(原 /pagesA/dev_enter/model_income)
- *   ③ n8n智能体   → N8nModel(原 /pagesA/dev_enter/nbn_model)
- * - 开发者信息(账号/API密钥/网址/到期时间 + 续费):由 getDeveloperDevInfo
- *   (GET /api/developer/dev-info 聚合端点)单次拉取:账号 + 订阅 + 密钥摘要 + 网址
- *   (developer_applications.website,无值显示 '—')
- * - 非开发者问题区(开发者须知/联系团长):问题解答卡(handleOpenWeb)+ 咨询客服按钮(handleContactLeader,展示团长二维码/引导联系客服)
- *
- * 注:历史版本把本路由误实现为「开发者套餐开通订阅页」(FEATURES+plans+微信支付)——
- * 该开通支付语义已由 DevEnterCoverScreen(原 dev_enter/cover.vue)承接,本路由恢复为开发者空间页。
- */
-import { useEffect, useState } from 'react'
-import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  type ImageStyle,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
-import { appAlert } from '../components/BottomPops'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { View } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getDeveloperDevInfo, type DeveloperDevInfo } from '@ihui/api-client'
-import { tokens } from '../theme/active-tokens'
+import type { DeveloperSpaceEntryId, DeveloperSpaceInfo } from '@ihui/types'
+import { DeveloperScreen as SharedDeveloperScreen } from '@ihui/rn-app'
+import { appAlert } from '../components/BottomPops'
 import { NavBar } from '../components/NavBar'
+import { NavChrome } from '../components/NavChrome'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
 
-import { rnRadius } from '@ihui/design-tokens'
-import { NavChrome } from '../components/NavChrome'
+/**
+ * DeveloperScreen 开发者空间页(mobile-rn 端薄壳)
+ *
+ * 渲染层与段落构成一律住在共享屏 `packages/app/src/features/developer/DeveloperScreen.tsx`
+ * (跨端唯一真相源);本壳只做四件事:取数(GET /api/developer/dev-info 单次聚合)、i18n 取词、
+ * 主题接线、导航/剪贴板等端能力注入。禁止在这里再写一份版式 —— 那是守门
+ * `check-cross-end-screen-coverage.mjs` R4「RN 下沉率」要拦的形态。
+ *
+ * 端能力标注:依赖 @react-native-clipboard/clipboard 与 Native Stack 导航(RN 特有)。
+ */
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/**
- * 原 dev_list 三入口图标(CDN,与 Uniapp 一致)。
- * 2026-10-21:原 file.aizhs.top 域名恒 502(Cloudflare 记录指向他应用死源站),
- * 改指活 CDN `https://aizhs.top`(web 端 rewrite 回源本机 cdn-server,路径映射与
- * 小程序端 apps/miniapp-taro/src/constants/remote-icons.ts 的 aizhsUrl(...) 同形,逐条实测 200)。
- */
-const ICON_MY_MODEL = 'https://aizhs.top/sys-mini/xtk/my_model.png'
-const ICON_INCOME = 'https://aizhs.top/sys-mini/xtk/my_input.png'
-const ICON_N8N = 'https://aizhs.top/remote-images/n8n.png'
-const ICON_BUSINESS_CARD = 'https://aizhs.top/remote-images/geren-icon.png'
-const DEFAULT_LOGO = 'https://aizhs.top/sys-mini/xtk/devlogo.png'
-
-/** 非开发者问题解答卡(对齐 Uniapp problems 数据) */
-const PROBLEMS: readonly { title: string; context: string; btn: string; url: string }[] = [
-  {
-    title: '开发者激励计划',
-    context: '发布 AI 智能体,获取分成收益',
-    btn: '查看详情',
-    url: 'https://blurb.kou.aizhs.top/',
-  },
-  {
-    title: '上架指南',
-    context: '创建智能体、配置模型、提交审核',
-    btn: '去了解',
-    url: 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh',
-  },
-]
+/** 由聚合数据派生信息卡原料(取词与占位交共享屏,日期在本端按 locale 格式化) */
+function buildInfo(
+  data: DeveloperDevInfo | null,
+  fallback: { email?: string; phone?: string; nickname?: string; username?: string },
+  formatExpiry: (iso: string) => string,
+): DeveloperSpaceInfo | null {
+  const subscription = data?.subscription ?? null
+  if (!subscription) return null
+  const account = data?.account ?? null
+  const developer = data?.developer ?? null
+  return {
+    application: developer
+      ? {
+          name: developer.name ?? '',
+          description: developer.description ?? '',
+          status: developer.status,
+        }
+      : null,
+    account:
+      account?.email ??
+      account?.phone ??
+      account?.nickname ??
+      account?.username ??
+      fallback.email ??
+      fallback.phone ??
+      fallback.nickname ??
+      fallback.username ??
+      '',
+    apiKeyCount: data?.apiKeys.count ?? 0,
+    // 明文 secret 后端只在创建时返回一次,这里只能是首个可用密钥的公开标识
+    copyableApiKey: data?.apiKeys.firstActiveKey ?? null,
+    website: developer?.website ?? '',
+    expiry: subscription.endTime ? formatExpiry(subscription.endTime) : null,
+  }
+}
 
 export default function DeveloperScreen() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
-  // 开发者信息聚合(2026-09-05:GET /api/developer/dev-info,一次拉取账号/订阅/密钥摘要/申请信息)
   const [devData, setDevData] = useState<DeveloperDevInfo | null>(null)
   const [infoLoaded, setInfoLoaded] = useState(false)
 
@@ -90,10 +80,9 @@ export default function DeveloperScreen() {
     void (async () => {
       try {
         const res = await getDeveloperDevInfo().catch(() => null)
-        if (cancelled) return
-        if (res?.success) setDevData(res.data)
+        if (!cancelled && res?.success) setDevData(res.data)
       } catch {
-        // 信息加载失败不阻塞页面
+        // 信息加载失败不阻塞页面:信息卡按「无有效订阅」不渲染
       } finally {
         if (!cancelled) setInfoLoaded(true)
       }
@@ -103,392 +92,88 @@ export default function DeveloperScreen() {
     }
   }, [])
 
-  // 由聚合数据派生信息区各字段
-  const subscription = devData?.subscription ?? null
-  const developer = devData?.developer ?? null
-  const account = devData?.account ?? null
-  const apiKeysCount = devData?.apiKeys.count ?? 0
-  /** 首个可用密钥的公开标识(非 secret),供"秘密"行展示与复制 */
-  const firstApiKey: string | null = devData?.apiKeys.firstActiveKey ?? null
+  const formatExpiry = useCallback(
+    (iso: string): string => new Intl.DateTimeFormat(locale).format(new Date(iso)),
+    [locale],
+  )
 
-  /** 复制文本(对齐原 copyText) */
-  const handleCopy = (text: string): void => {
-    if (!text) return
-    try {
-      Clipboard.setString(text)
-      appAlert(t('common.hint'), '已复制')
-    } catch {
-      appAlert(t('common.hint'), '复制失败')
-    }
-  }
+  const info = useMemo(
+    () => (infoLoaded ? buildInfo(devData, user ?? {}, formatExpiry) : null),
+    [infoLoaded, devData, user, formatExpiry],
+  )
 
-  const handleOpenCover = (): void => {
-    // 成为开发者 → 开通封面(选套餐 + 一键开通支付)
-    navigation.navigate('DevEnterCover')
-  }
+  const notify = useCallback(
+    (messageKey: string): void => appAlert(t('common.hint'), t(messageKey)),
+    [t],
+  )
 
-  const handleOpenWeb = (url: string): void => {
-    try {
-      Clipboard.setString(url)
-      appAlert(t('common.hint'), '链接已复制,请在浏览器中打开')
-    } catch {
-      appAlert(t('common.hint'), '复制失败,请重试')
-    }
-  }
+  /** 成为开发者 / 续费同为开通封面页(选套餐 + 一键开通支付) */
+  const openCover = useCallback((): void => navigation.navigate('DevEnterCover'), [navigation])
 
-  const handleContactLeader = (): void => {
-    // 原 showCode → 展示团长二维码;APP 端引导联系客服
-    navigation.navigate('CustomerService')
-  }
+  const copyApiKey = useCallback(
+    (apiKey: string): void => {
+      try {
+        Clipboard.setString(apiKey)
+        notify('devSpace.copied')
+      } catch {
+        notify('devSpace.copyFailed')
+      }
+    },
+    [notify],
+  )
+
+  const openProblem = useCallback(
+    (url: string): void => {
+      try {
+        Clipboard.setString(url)
+        notify('devSpace.linkCopied')
+      } catch {
+        notify('devSpace.linkCopyFailed')
+      }
+    },
+    [notify],
+  )
+
+  const pressEntry = useCallback(
+    (id: DeveloperSpaceEntryId): void => {
+      switch (id) {
+        case 'myAgents':
+          navigation.navigate('DevEnter')
+          break
+        case 'agentIncome':
+          navigation.navigate('ModelIncome', { agentId: undefined })
+          break
+        case 'n8nModel':
+          navigation.navigate('N8nModel')
+          break
+        case 'businessCard':
+          navigation.navigate('BusinessCard', {})
+          break
+      }
+    },
+    [navigation],
+  )
 
   return (
-    <View style={styles.shell}>
+    <View style={{ flex: 1 }}>
       <NavChrome>
-        <NavBar title="开发者详情" onBack={() => navigation.goBack()} />
+        <NavBar title={t('devSpace.title')} onBack={() => navigation.goBack()} />
       </NavChrome>
-
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* header_card 用户信息卡(对齐 Uniapp header_card:头像 + 昵称 + 成为开发者) */}
-        <View style={styles.headerCard}>
-          <View style={styles.logoBody}>
-            {user?.avatar ? (
-              <Image source={{ uri: user.avatar }} style={styles.logo} resizeMode="cover" />
-            ) : (
-              <Image source={{ uri: DEFAULT_LOGO }} style={styles.logo} resizeMode="cover" />
-            )}
-          </View>
-          <Text style={styles.userName} numberOfLines={1}>
-            {user?.nickname ?? user?.username ?? '未登录'}
-          </Text>
-          <TouchableOpacity style={styles.entryBtn} onPress={handleOpenCover} activeOpacity={0.8}>
-            <Text style={styles.entryBtnText}>{subscription ? '续费' : '成为开发者'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 开发者信息区(对齐原 developer_info_body:账号/密钥/网址/到期时间 + 续费;
-         *  数据源 getDeveloperDevInfo(GET /api/developer/dev-info)单次聚合,仅在有效订阅时展示;
-         *  secret 后端仅创建时返回一次,此处展示密钥概览并复制公开 key;网址数据源 developer_applications.website) */}
-        {infoLoaded && subscription ? (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>开发者信息</Text>
-            {/* 开发者名称/简介/申请状态(dev-info.developer,数据源 developer_applications) */}
-            {developer ? (
-              <>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>名称</Text>
-                  <Text style={styles.infoValue} numberOfLines={1}>
-                    {developer.name || '-'}
-                  </Text>
-                </View>
-                {developer.description ? (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>简介</Text>
-                    <Text style={styles.infoValue} numberOfLines={2}>
-                      {developer.description}
-                    </Text>
-                  </View>
-                ) : null}
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>申请状态</Text>
-                  <Text style={styles.infoValue} numberOfLines={1}>
-                    {developer.status === 1
-                      ? '已通过'
-                      : developer.status === 2
-                        ? '已拒绝'
-                        : '待审核'}
-                  </Text>
-                </View>
-              </>
-            ) : null}
-            {/* 账号 = 邮箱/手机号,兜底昵称/用户名(dev-info.account,兜底登录用户信息) */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>账号</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {account?.email ??
-                  account?.phone ??
-                  account?.nickname ??
-                  account?.username ??
-                  user?.email ??
-                  user?.phone ??
-                  user?.nickname ??
-                  user?.username ??
-                  '-'}
-              </Text>
-            </View>
-            {/* 秘密 = API 密钥概览(明文 secret 不可回取;复制公开 key) */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>API 密钥</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {apiKeysCount > 0 ? `已创建 ${apiKeysCount} 个` : '未创建'}
-              </Text>
-              {firstApiKey ? (
-                <TouchableOpacity onPress={() => handleCopy(firstApiKey)} hitSlop={8}>
-                  <Text style={styles.infoCopy}>复制</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            {/* 网址:数据源 developer_applications.website(GET /api/developer/dev-info),无值时占位 '—' */}
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>{t('developerInfo.urlLabel')}</Text>
-              <Text style={styles.infoValue} numberOfLines={1}>
-                {developer?.website || '—'}
-              </Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: tokens.danger.bright }]}>到期时间</Text>
-              <Text style={[styles.infoValue, { color: tokens.danger.bright }]} numberOfLines={1}>
-                {subscription.endTime ? new Date(subscription.endTime).toLocaleDateString() : '-'}
-              </Text>
-              <TouchableOpacity onPress={handleOpenCover} hitSlop={8}>
-                <Text style={styles.infoRenew}>续费</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
-
-        {/* dev_list 三功能入口(对齐 Uniapp dev_list:我的智能体/智能体收入/n8n智能体) */}
-        <View style={styles.devList}>
-          <TouchableOpacity
-            style={styles.devItem}
-            onPress={() => navigation.navigate('DevEnter')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBody}>
-              <Image source={{ uri: ICON_MY_MODEL }} style={styles.devIcon} resizeMode="contain" />
-            </View>
-            <Text style={styles.devItemText}>我的智能体</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.devItem}
-            onPress={() => navigation.navigate('ModelIncome', { agentId: undefined })}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBody}>
-              <Image source={{ uri: ICON_INCOME }} style={styles.devIcon} resizeMode="contain" />
-            </View>
-            <Text style={styles.devItemText}>智能体收入</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.devItem}
-            onPress={() => navigation.navigate('N8nModel')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBody}>
-              <Image source={{ uri: ICON_N8N }} style={styles.devIcon} resizeMode="contain" />
-            </View>
-            <Text style={styles.devItemText}>n8n智能体</Text>
-          </TouchableOpacity>
-          {/* 创客名片入口(孤儿路由修复:BusinessCard 注册无入口,开发者空间补挂) */}
-          <TouchableOpacity
-            style={styles.devItem}
-            onPress={() => navigation.navigate('BusinessCard', {})}
-            activeOpacity={0.7}
-          >
-            <View style={styles.iconBody}>
-              <Image
-                source={{ uri: ICON_BUSINESS_CARD }}
-                style={styles.devIcon}
-                resizeMode="contain"
-              />
-            </View>
-            <Text style={styles.devItemText}>创客名片</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 非开发者问题区(对齐 Uniapp un_developer:问题解答卡 + 联系团长) */}
-        <View style={styles.unDeveloper}>
-          <Text style={styles.unTitle}>相关开发者的一系列问题解答?</Text>
-          {PROBLEMS.map((p) => (
-            <TouchableOpacity
-              key={p.title}
-              style={styles.problemCard}
-              onPress={() => handleOpenWeb(p.url)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.problemTitle}>{p.title}</Text>
-              <Text style={styles.problemContext}>{p.context}</Text>
-              <View style={styles.problemBtn}>
-                <Text style={styles.problemBtnText}>{p.btn}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-          <TouchableOpacity
-            style={styles.bigBtn}
-            onPress={handleContactLeader}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.bigBtnTop}>其他问题?</Text>
-            <Text style={styles.bigBtnBot}>咨询客服,获得多对一在线答疑</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+      <SharedDeveloperScreen
+        t={t}
+        colorScheme={resolvedTheme}
+        avatarUrl={user?.avatar ?? ''}
+        displayName={user?.nickname ?? user?.username ?? t('devSpace.notLoggedIn')}
+        subscribed={Boolean(devData?.subscription)}
+        info={info}
+        onBecomeDeveloper={openCover}
+        onRenew={openCover}
+        onCopyApiKey={copyApiKey}
+        onEntryPress={pressEntry}
+        onProblemPress={openProblem}
+        onContactService={() => navigation.navigate('CustomerService')}
+      />
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  shell: {
-    flex: 1,
-    backgroundColor: tokens.surface.bg,
-  } as ViewStyle,
-  scroll: {
-    flex: 1,
-  } as ViewStyle,
-  scrollContent: {
-    padding: rpx(20),
-    paddingBottom: rpx(48),
-  } as ViewStyle,
-  headerCard: {
-    backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.lg,
-    padding: rpx(28),
-    alignItems: 'center',
-    marginBottom: rpx(20),
-  } as ViewStyle,
-  logoBody: {
-    marginBottom: rpx(16),
-  } as ViewStyle,
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: rnRadius['2xl'],
-  } as ImageStyle,
-  userName: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginBottom: rpx(16),
-  } as TextStyle,
-  entryBtn: {
-    paddingHorizontal: rpx(40),
-    paddingVertical: rpx(10),
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.brand.cta,
-  } as ViewStyle,
-  entryBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: tokens.brand.ctaForeground,
-  } as TextStyle,
-  // ── 开发者信息区 ──
-  infoCard: {
-    backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.lg,
-    padding: rpx(24),
-    marginBottom: rpx(20),
-  } as ViewStyle,
-  infoTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginBottom: rpx(12),
-  } as TextStyle,
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: rpx(8),
-  } as ViewStyle,
-  infoLabel: {
-    width: 76,
-    fontSize: 13,
-    color: tokens.text.secondary,
-  } as TextStyle,
-  infoValue: {
-    flex: 1,
-    fontSize: 13,
-    color: tokens.text.primary,
-  } as TextStyle,
-  infoCopy: {
-    fontSize: 12,
-    color: tokens.brand.DEFAULT,
-    paddingHorizontal: 4,
-  } as TextStyle,
-  infoRenew: {
-    fontSize: 12,
-    color: tokens.danger.bright,
-    fontWeight: '600',
-    paddingHorizontal: 4,
-  } as TextStyle,
-  devList: {
-    flexDirection: 'row',
-    backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.xl,
-    paddingVertical: rpx(24),
-    marginBottom: rpx(20),
-  } as ViewStyle,
-  devItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: rpx(8),
-  } as ViewStyle,
-  iconBody: {
-    width: 48,
-    height: 48,
-    borderRadius: rnRadius['2xl'],
-    backgroundColor: tokens.surface.muted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  devIcon: {
-    width: 28,
-    height: 28,
-  } as ImageStyle,
-  devItemText: {
-    fontSize: 13,
-    color: tokens.text.primary,
-  } as TextStyle,
-  unDeveloper: {
-    gap: rpx(16),
-  } as ViewStyle,
-  unTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginBottom: rpx(8),
-  } as TextStyle,
-  problemCard: {
-    backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.lg,
-    padding: rpx(24),
-  } as ViewStyle,
-  problemTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginBottom: rpx(8),
-  } as TextStyle,
-  problemContext: {
-    fontSize: 13,
-    color: tokens.text.secondary,
-    marginBottom: rpx(16),
-  } as TextStyle,
-  problemBtn: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(8),
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.brand.cta,
-  } as ViewStyle,
-  problemBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: tokens.brand.ctaForeground,
-  } as TextStyle,
-  bigBtn: {
-    backgroundColor: tokens.surface.card,
-    borderRadius: rnRadius.sm,
-    padding: rpx(24),
-    alignItems: 'center',
-  } as ViewStyle,
-  bigBtnTop: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: tokens.text.primary,
-  } as TextStyle,
-  bigBtnBot: {
-    fontSize: 12,
-    color: tokens.text.secondary,
-    marginTop: rpx(6),
-  } as TextStyle,
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

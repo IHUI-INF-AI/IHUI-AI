@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/live-detail/LiveDetailScreen.tsx
 import { useI18n, useTt } from '@/i18n'
 import { View, Text, Video } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
@@ -9,6 +10,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { getLiveDetail, subscribeLive, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 const STATUS_KEY: Record<Live['status'], { key: string; fb: string }> = {
   living: { key: 'live.liveNow', fb: '直播中' },
@@ -77,8 +79,8 @@ export default function LiveDetail() {
   if (!live) {
     return (
       <ThemeRoot>
-        <View className="flex items-center justify-center h-screen p-[32rpx] text-muted-foreground">
-          <Text>{t('live.detail.loading')}</Text>
+        <View className="min-h-screen bg-[var(--color-background)]">
+          <ScreenSkeleton variant="list" count={4} />
         </View>
       </ThemeRoot>
     )

@@ -98,10 +98,10 @@ export const WHITELIST_ENTRIES = new Map(
       why: '用量统计屏:模型用量条 + 周期切换,共享层无同名屏,RN 端独占统计视图',
       expires: '2027-06-30',
     },
-    'UserFansScreen.tsx': {
-      why: '粉丝列表屏:Image 头像 + ScrollView 分页 + 关注态切换,共享层无同名屏,RN 端独占列表交互',
-      expires: '2027-06-30',
-    },
+    // ── 2026-10-24 摘除 UserFansScreen.tsx:粉丝列表已新立 user-fans 共享屏族
+    //    (packages/app/src/features/user-fans/UserFansScreen.tsx),RN 端改为薄壳。
+    //    注:小程序端**没有**粉丝页(pkg-user/following 是「我的关注」,其同物是 features/follow),
+    //    "两端同屏"这一格属新功能,归人拍板,不在本门射程。──
     'ArticleHotScreen.tsx': {
       why: '热门文章屏:ScrollView 排行列表 + 热度排序,共享层无同名屏,RN 端独占列表交互',
       expires: '2027-06-30',
@@ -111,7 +111,7 @@ export const WHITELIST_ENTRIES = new Map(
       expires: '2027-06-30',
     },
     'DistributionCompanyScreen.tsx': {
-      why: '分销公司屏:公司信息表单 + 审核状态,共享层无同名屏,RN 端独占表单交互',
+      why: '2026-10-24 按被描述文件订正旧账(原文"公司信息表单 + 审核状态…独占表单交互"与文件内容不符:全文 TextInput/validate/onSubmit/audit 命中 0)。实读 = 佣金窗口卡 + 下线列表卡 + 两个跳转,取数 /finance/commission/summary 与 /finance/distribution/subordinates;共享层无同名屏。小程序 pkg-ai/distribution/company 是另一件事(取 getDistributionInfo/getDistributionTeam + 成员列表,其自述对齐 TeamScreen),web 还有第三套。强行合屏必失真,归人拍板承载什么。',
       expires: '2027-06-30',
     },
     'ImageGenGalleryScreen.tsx': {
@@ -134,38 +134,28 @@ export const WHITELIST_ENTRIES = new Map(
       why: '更多课程:KnowledgePlanet + BottomFigure + CommissionFloatingIcon,RN 端独占课程列表',
       expires: '2027-06-30',
     },
-    'CarteScreen.tsx': {
-      why: '社群宣传卡纯静态页:无 JS 逻辑,CDN 图片展示,对齐 Uniapp pagesA/carte/index.vue,无跨端需求',
-      expires: '2027-06-30',
-    },
-    'DeveloperScreen.tsx': {
-      why: '开发者空间页:标题+三功能入口+开发者信息占位,对齐 Uniapp pagesA/plaza/developer.vue,无跨端需求',
-      expires: '2027-06-30',
-    },
-    'RecruitmentScreen.tsx': {
-      why: '操盘手计划宣传页:全屏背景+底部卡片+二维码,对齐 Uniapp pagesA/recruitment/index.vue,无跨端需求',
-      expires: '2027-06-30',
-    },
+    // ── 2026-10-24 摘除 CarteScreen.tsx / DeveloperScreen.tsx 两枚:两屏渲染已收进
+    //    packages/app 同名共享屏(RN 端改为薄壳 import @ihui/rn-app),豁免无的放矢。──
+    // ── 2026-10-24 摘除 RecruitmentScreen.tsx:渲染已收进 packages/app 同名共享屏,
+    //    宣传表提到 packages/shared/src/constants/trader-plan-promo.ts(RN 端已真委托)。──
     'SubagentsScreen.tsx': {
       why: '子智能体屏:RN 独占 FlatList 队列交互 + api-client subagents 流,Web 端有独立实现',
       expires: '2027-06-30',
     },
     'WebPortalScreen.tsx': {
-      why: 'Web 门户屏:RN WebView 全屏容器加载 web portal,RN 端独占 webview 壳',
+      why: '2026-10-24 按现读订正旧描述(原文写"WebView 全屏容器",实际是分组折叠的门户入口清单 + 逐条跳 WebViewScreen):容器形态是本端平台特有(ScrollView/Pressable + 本端 WebView 路由),不适合共享;但**条目清单**不在端内 —— 唯一真相源是 packages/shared/src/constants/web-portal.ts(13 组 91 条,经 lib/webview-portal-config 绑底座),小程序端读同一份。本屏因此按"平台特有容器"豁免,不按"缺共享屏"豁免。',
       expires: '2027-06-30',
     },
-    'CartScreen.tsx': {
-      why: '购物车页:RN 端独占 WeChat 支付流程 + Native Stack 导航,Web/Miniapp 有独立 cart 实现',
-      expires: '2027-06-30',
-    },
-    'TopicDetailScreen.tsx': {
-      why: '话题详情:RN 端独占关注翻转 + 时间相对化 + 帖子详情流,Web/Miniapp 有独立实现',
-      expires: '2027-06-30',
-    },
-    'AboutScreen.tsx': {
-      why: '关于页:2026-09-05 产品定稿恢复历史合规跳转列表(对齐 Uniapp about.vue),7 条目跳转 RN 端合规屏集合;共享层 app-info 卡版 UI 不适用,曾接 SharedAboutScreen 后有意移除',
-      expires: '2027-06-30',
-    },
+    // ── 2026-10-24 摘除 CartScreen.tsx:购物车已新立 cart 共享屏族
+    //    (packages/app/src/features/cart/CartScreen.tsx),RN 端改为薄壳,
+    //    取词与字段兜底收单源(CTA 改 brand.cta/ctaForeground 成对)。──
+    // ── 2026-10-24 摘除 TopicDetailScreen.tsx:话题详情已新立 topic-detail 共享屏族
+    //    (packages/app/src/features/topic-detail/TopicDetailScreen.tsx),RN 端改为薄壳,
+    //    时间相对化收进 @ihui/shared/utils/date-utils 单源。──
+    // ── 2026-10-23 摘除 AboutScreen.tsx 与 aboutPageSections.ts 两枚:富版已提升为共享真相源
+    //    (packages/app/src/features/about/AboutScreen.tsx + 分段表
+    //     packages/shared/src/constants/about-sections.ts),RN 端改为薄壳委托,端内分段数据件已删
+    //    ⇒ 白名单无的放矢(留着即 §0.7 清单腐烂)。──
     // ── 2026-10-21 补登(HEAD 面 V1 红 3 条,逐条按现读判"无低成本真迁移";
     //     原块上方另有三枚同名的历史短账,重名静默覆盖 = 名单腐烂,已去重只留本份详账)──
     'AgentCategoriesScreen.tsx': {
@@ -174,10 +164,6 @@ export const WHITELIST_ENTRIES = new Map(
     },
     'PublishAccountsScreen.tsx': {
       why: '平台账号屏(443 行):扫码重新授权走 /api/publish/scan-login/start + 2.5s 轮询 + 关闭时 cancel(第 141-183 行),二维码用 RN Image 的 headers 带 Bearer(第 246-251/341-346 行,依赖 getToken 与 API_BASE_URL),解绑走本地 appAlert;packages/app 只有 PublishScreen(发布任务列表),web /publish/accounts 是 DOM 实现且另带批量导入/分组,无同名共享屏',
-      expires: '2027-06-30',
-    },
-    'aboutPageSections.ts': {
-      why: '数据模块不是屏:AboutScreen 的分段数据源(ABOUT_VALUES/ABOUT_PLATFORMS/ABOUT_STATS/ABOUT_COMPLIANCE 四张表 + AboutFeature/ComplianceTarget 类型),图标取 lucide-react-native 的 LucideIcon,只被 RN AboutScreen.tsx 第 22 行 import;其宿主屏 AboutScreen.tsx 因 2026-09-05 产品定稿已在本表登记为 RN 独占,小程序端另有同形 aboutSections.ts(图标走本地 LineIcon),本文件无 UI 可共享,随宿主屏留在端内',
       expires: '2027-06-30',
     },
   }),

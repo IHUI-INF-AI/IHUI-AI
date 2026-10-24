@@ -16,23 +16,41 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockInsertValues } = vi.hoisted(() => ({
+const { mockInsertValues, mockUpdateSet } = vi.hoisted(() => ({
   mockInsertValues: vi.fn(),
+  mockUpdateSet: vi.fn(),
 }))
 
+/**
+ * db mock 必须补 `returning()` 这一环(2026-10-23 修,此前 HEAD 面 6 例恒红)。
+ * 生产代码自 O64 起走 `.values(...).returning({id, credVersion})` 与
+ * `.set(...).where(...).returning(...)` 取原子自增后的版本号;旧 mock 的 values() 直接返回
+ * Promise,Promise 上没有 returning ⇒ TypeError 被 importAccounts 的逐条 try/catch 吞成
+ * "导入失败",测试读出 imported=0。那是尺子坏,不是产品坏 —— 而账面看着像产品坏。
+ */
 vi.mock('../src/db/index.js', () => ({
   db: {
     select: () => ({
       from: () => ({ where: () => ({ limit: () => Promise.resolve([]) }) }),
     }),
-    // importAccounts 现在走 `.values(...).returning({id, credVersion})`(O64 凭证版本回写);
-    // mock 必须返一行,否则 service 判"未取到回写行"→ 计入 failed。
     insert: () => ({
-      values: mockInsertValues.mockImplementation(() => ({
-        returning: () => Promise.resolve([{ id: 'row-qoder', credVersion: 1 }]),
-      })),
+      values: (v: unknown) => {
+        mockInsertValues(v)
+        return {
+          returning: () => Promise.resolve([{ id: 'acct-inserted', credVersion: 1 }]),
+        }
+      },
     }),
-    update: () => ({ set: () => ({ where: () => Promise.resolve() }) }),
+    update: () => ({
+      set: (s: unknown) => {
+        mockUpdateSet(s)
+        return {
+          where: () => ({
+            returning: () => Promise.resolve([{ id: 'acct-updated', credVersion: 2 }]),
+          }),
+        }
+      },
+    }),
   },
   dbRead: { select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }) },
   dbClient: {},
@@ -119,6 +137,46 @@ describe('Qoder 导入映射', () => {
     expect(r.imported).toBe(1)
     // 1769505600 = 2026-01-27T09:20:00Z
     expect((lastInsert()['tokenExpiresAt'] as Date).toISOString()).toBe('2026-01-27T09:20:00.000Z')
+  })
+
+  /**
+   * 入口归一化(2026-10-23 立)。dev 库实测的失败链:用户从 JSON 整段复制凭据,把包裹引号
+   * 一起粘进表单 ⇒ 落库本体是 `"drt-…`(比正常值长 2 字符)⇒ 上游 DeviceRefreshTokenPrefixInvalid
+   * ⇒ 号池自刷新连撞 3 次被摘除(down)⇒ 签到侧天天「活动查询失败 HTTP 401」,
+   * 而用户界面只看得到"签到失败"。归一化必须发生在加密落库之前,两枚分支(mapped/裸值)同盖。
+   */
+  it('粘贴值带包裹引号 ⇒ 剥净后入库(不是拒收,也不是原样存坏票)', async () => {
+    const r = await importAccounts('qoder', [
+      {
+        token: ' "dt-lHpaPB9p7cSvTrsA1FEAoaci" ',
+        refreshToken: '"drt-7nB5JVVDDBFezao2OEdPvaey"',
+        uid: '"01a16367-b9e2-7ac3-9943-8974fb16ca2d"',
+      },
+    ])
+    expect(r.imported).toBe(1)
+    const row = lastInsert()
+    expect(row['tokenEnc']).toBe('enc:dt-lHpaPB9p7cSvTrsA1FEAoaci')
+    expect(row['refreshTokenEnc']).toBe('enc:drt-7nB5JVVDDBFezao2OEdPvaey')
+    // uid 同样归一:带引号的 uid 会造出"同上游号两行"的身份分裂
+    expect(row['uid']).toBe('01a16367-b9e2-7ac3-9943-8974fb16ca2d')
+  })
+
+  it('归一后仍不合形(qoder refreshToken 非 drt- 前缀)⇒ 当场拒并给可执行原因', async () => {
+    const r = await importAccounts('qoder', [
+      { token: 'dt-x', refreshToken: 'dX-7nB5JVVDDBFezao2OEdPvaey', uid: 'u-shape' },
+    ])
+    expect(r.imported).toBe(0)
+    expect(r.failed).toBe(1)
+    expect(r.items[0]?.status).toBe('failed')
+    expect(String(r.items[0]?.reason)).toContain('drt-')
+    // 拒收即零写入(坏票不许进池,免得两天后以 401 的形式回来找用户)
+    expect(mockInsertValues).not.toHaveBeenCalled()
+  })
+
+  it('阳性对照:同一形态判据不外溢到其他平台(trae 的 rt 无 drt- 约束)', async () => {
+    const r = await importAccounts('trae', [{ token: 'eyJx.eyJy.z', refreshToken: 'rt-trae' }])
+    expect(r.imported).toBe(1)
+    expect(lastInsert()['refreshTokenEnc']).toBe('enc:rt-trae')
   })
 
   it('Cosy 设备头族落 extraMetadata.cosy(蛇形键,对齐 checkin_qoder 契约)', async () => {

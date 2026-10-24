@@ -4,18 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 支付订单状态(字段对齐 mobile-rn PaymentScreen PaymentStatus) */
 export type PaymentOrderStatus = 'pending' | 'paid' | 'failed' | 'cancelled' | 'refunded'
@@ -119,14 +112,9 @@ export function PaymentScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.emptyWrap}>
-              <ActivityIndicator color={tk.success.DEFAULT} />
-              <Text style={styles.muted}>{t('common.loading')}</Text>
-            </View>
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.muted}>{t('payment.empty')}</Text>
-            </View>
+            <EmptyState title={t('payment.empty')} colorScheme={colorScheme} />
           )
         }
         renderItem={({ item }) => {
@@ -283,8 +271,6 @@ function createStyles(tk: AppThemeTokens) {
     secondaryActions: { flexDirection: 'row', gap: 8 },
     flexBtn: { flex: 1 },
     btnDisabled: { opacity: 0.5 },
-    emptyWrap: { alignItems: 'center', paddingVertical: 48 },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

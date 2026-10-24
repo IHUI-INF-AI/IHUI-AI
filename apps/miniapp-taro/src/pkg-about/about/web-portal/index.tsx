@@ -13,6 +13,9 @@
  *   绝对 URL 会被服务端 400 拒,见 toWebSsoRedirectUri 注释)
  * - 未登录 / 取码失败: 降级直开,由 web 端自行引导登录
  */
+// 平台特有:依赖 Taro @tarojs/components + 本端 pages/webview 承载页,不适合共享。
+// 条目清单的唯一真相源在 packages/shared/src/constants/web-portal.ts(经 @/constants/web-portal 绑底座),
+// 端内不得再抄第二份清单。
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text } from '@tarojs/components'
@@ -45,7 +48,9 @@ export default function WebPortalPage() {
   )
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: tt('webViewPortal.title', '网页版功能') })
+    // 五语言词包齐备(packages/i18n/messages/miniapp-taro/*),不再挂端内中文兜底串:
+    // 旧兜底 '网页版功能' 与词包的「Web 功能门户」已经漂开,留着等于第二份标题真相源。
+    Taro.setNavigationBarTitle({ title: t('webViewPortal.title') })
   })
 
   const openEntry = useCallback(
@@ -78,7 +83,7 @@ export default function WebPortalPage() {
       <View className="min-h-screen bg-background pb-[48rpx] pt-[24rpx]">
         <View className="mx-[20rpx] mt-[8rpx] rounded-lg bg-muted p-[24rpx]">
           <Text className="text-[length:24rpx] text-muted-foreground">
-            {tt('webViewPortal.hint', '以下为网页版功能入口,将在内置浏览器中打开')}
+            {t('webViewPortal.hint')}
           </Text>
         </View>
 

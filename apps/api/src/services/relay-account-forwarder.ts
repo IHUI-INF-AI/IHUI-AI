@@ -490,6 +490,10 @@ async function doRefreshRowInPlace(
         tokenExpiresAt: result.expiresAt,
         lastRefreshAt: startedAt,
         refreshFailureCount: 0,
+        // 换票成功 = 凭据版本前进(与 relay-account-pool-scheduler.refreshOne 同口径):
+        // 号池↔签到同步只按版本差补推,不涨版本 ⇒ 签到侧永远拿不到新票。
+        credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
+        lastErrorMessage: null,
         updatedAt: startedAt,
       })
       .where(eq(aiRelayAccountPool.id, row.id))
@@ -500,6 +504,7 @@ async function doRefreshRowInPlace(
       refreshTokenEnc,
       tokenExpiresAt: result.expiresAt,
       lastRefreshAt: startedAt,
+      credVersion: (row.credVersion ?? 0) + 1,
     }
   } catch (e) {
     // 失败也要落账:refreshFailureCount 是管理面「该补池了」的判据,不能永远为 0

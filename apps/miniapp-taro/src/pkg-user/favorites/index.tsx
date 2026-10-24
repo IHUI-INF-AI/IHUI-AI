@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/favorite/FavoriteScreen.tsx
 import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
@@ -11,6 +12,8 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+// 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import LineIcon from '@/components/LineIcon'
 import SearchBar from '@/components/SearchBar'
 import CategoryBar from '@/components/CategoryBar'
@@ -329,12 +332,8 @@ export default function FavoritesPage() {
         </View>
       ) : null}
 
-      {/* 加载状态(对齐 RN footerText 11dp/paddingVertical 16dp) */}
-      {loading && displayList.length === 0 ? (
-        <View className="text-center py-[32rpx] text-[length:22rpx] text-muted-foreground">
-          <Text>{tt('common.loading', '加载中…')}</Text>
-        </View>
-      ) : null}
+      {/* 首屏加载:骨架屏,与 RN 端 ScreenSkeleton 同形同周期 */}
+      {loading && displayList.length === 0 ? <ScreenSkeleton variant="list" count={4} /> : null}
       {loading && displayList.length > 0 ? (
         <View className="text-center py-[32rpx] text-[length:22rpx] text-muted-foreground">
           <Text>{tt('favorites.loadMore', '加载更多')}</Text>

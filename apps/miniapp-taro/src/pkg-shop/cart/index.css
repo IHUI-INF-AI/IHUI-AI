@@ -4,7 +4,7 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-/* 样式对齐 RN 端 apps/mobile-rn/src/screens/CartScreen.tsx(rpx 1:1,dp×2) */
+/* 样式对齐共享屏 packages/app/src/features/cart/CartScreen.tsx + cart-styles.ts(rpx 1:1,dp×2) */
 
 .page-container {
   min-height: 100vh;
@@ -60,42 +60,24 @@
   opacity: 0.5;
 }
 
-/* 购物车商品项(RN card:row / center / gap20 / padding24 / 圆角16) */
-.cart-item-wrapper {
-  position: relative;
-  margin-bottom: 24rpx;
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-}
+/* 购物车商品项(共享屏 card:row / center / gap20rpx / padding24 / 圆角 lg;
+   删除位为行内常驻图标按钮,滑动删除形态已随共享屏收敛移除) */
 .cart-item {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: center;
   gap: 20rpx;
   padding: 24rpx;
+  margin-bottom: 24rpx;
   background: var(--color-card);
   border-radius: var(--radius-lg);
-  transition: transform 0.2s ease;
 }
-.cart-item.swiped {
-  transform: translateX(-140rpx);
-}
-.cart-item-delete-action {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 140rpx;
+.cart-item-delete {
+  width: 56rpx;
+  height: 56rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-danger);
-  border-radius: var(--radius-lg);
-}
-.delete-action-text {
-  color: var(--color-surface-light);
-  font-size: 28rpx;
+  flex-shrink: 0;
 }
 
 /* 复选框(RN checkboxChecked:success 绿底白勾 + border-medium 描边;
@@ -222,16 +204,16 @@
   color: var(--color-danger);
   font-weight: 700;
 }
-/* 去结算(RN checkoutBtn:success 绿底白字 72rpx 高;圆角按角色档 control→sm,
-   RN 原为 36rpx 胶囊,按 AGENTS §4 不保留胶囊形态) */
+/* 去结算(共享屏 checkoutBtn:品牌 CTA 成对 --color-cta/--color-cta-foreground,高 72rpx;
+   圆角按角色档 control→sm,项目不允许胶囊) */
 .checkout-btn {
   margin-top: 0;
   height: 72rpx;
   line-height: 72rpx;
   padding: 0 36rpx;
   flex-shrink: 0;
-  background: var(--color-success);
-  color: var(--color-surface-light);
+  background: var(--color-cta);
+  color: var(--color-cta-foreground);
   border-radius: var(--radius-sm);
   font-weight: 600;
 }

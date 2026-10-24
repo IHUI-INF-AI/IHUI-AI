@@ -1262,17 +1262,12 @@
     "missingUrl": "リンクなし、開けません"
   },
   "carte": {
-    "shareHint": "画像を保存してから共有",
-    "noQrcode": "QRコードなし",
-    "anonymous": "匿名ユーザー",
-    "cardSuffix": "の名刺",
-    "introLabel": "紹介",
-    "phone": "電話",
-    "email": "メール",
-    "scanHint": "スキャンして名刺を見る",
-    "shareCard": "名刺を共有",
-    "saveQrcode": "QRコードを保存",
-    "title": "デジタル名刺"
+    "title": "ZHIHUI コミュニティ",
+    "founder": "AI ZHIHUI コミュニティ | 経営助言会創設者 | 李",
+    "recommend": "あなたへのおすすめ",
+    "inviteHint": "下のQRコードをスキャンすると無料でZHIHUIコミュニティに参加できます。AI情報を定期的に共有し、専任担当がサポートします",
+    "scanHint": "スキャンして参加し、1000人以上の仲間とAIを語り合いましょう",
+    "introLabel": "紹介"
   },
   "exam": {
     "tabs": {
@@ -1391,6 +1386,19 @@
     "tabPost": "投稿",
     "tabAigc": "AI作品",
     "tabNews": "ニュース"
+  },
+  "userFans": {
+    "title": "フォロワー",
+    "anonymous": "匿名ユーザー",
+    "empty": "フォロワーはまだいません",
+    "follow": "フォローを返す",
+    "followed": "フォロー中",
+    "followedAt": "フォロー日",
+    "followSuccess": "フォローしました",
+    "actionFailed": "操作に失敗しました。後でもう一度お試しください",
+    "loadFailed": "フォロワーの読み込みに失敗しました",
+    "total": "フォロワー {total} 人",
+    "loadMore": "さらに読み込む（{loaded}/{total}）"
   },
   "distribution": {
     "withdraw": {
@@ -1871,7 +1879,7 @@
       "submitting": "送信中..."
     },
     "contact": {
-      "title": "お問い合わせ",
+      "title": "カスタマーサポートに連絡",
       "phone": "電話",
       "email": "メール",
       "qq": "QQ",
@@ -1905,7 +1913,7 @@
       "scopeTitle": "事業範囲",
       "footer": "参考用、登記が優先",
       "tapToView": "タップして営業許可証を表示",
-      "title": "事業許可証"
+      "title": "営業許可証"
     },
     "icpRecord": {
       "footer": "MIIT登録システムより",
@@ -1918,7 +1926,7 @@
       "query": "MIITで照会",
       "icpLabel": "ICP登録/ライセンス番号",
       "copyHint": "番号をクリックしてコピー",
-      "title": "ICP 備案"
+      "title": "ICP備案"
     },
     "usageRules": {
       "s2": {
@@ -2008,7 +2016,7 @@
         "p2": "本規範の締結、履行、解釈および紛争解決には、中華人民共和国の法律が適用されます（香港、マカオ、台湾地域の法律を除く）。",
         "title": "九、紛争解決"
       },
-      "title": "利用規則"
+      "title": "利用規範"
     },
     "appPermission": {
       "names": [
@@ -2094,6 +2102,7 @@
   },
   "cart": {
     "title": "カート",
+    "selectAll": "すべて選択",
     "checkout": "精算",
     "loading": "読み込み中…",
     "product": "商品",
@@ -2260,6 +2269,26 @@
       "mockSuccess": "APIは未対応です。モック送信が完了しました"
     }
   },
+  "devSpace": {
+    "title": "開発者詳細",
+    "notLoggedIn": "未ログイン",
+    "renew": "継続利用",
+    "linkCopied": "リンクをコピーしました。ブラウザで開いてください",
+    "linkCopyFailed": "コピーに失敗しました。もう一度お試しください",
+    "entryMyAgents": "マイエージェント",
+    "entryAgentIncome": "エージェント収益",
+    "entryN8nModel": "n8n エージェント",
+    "entryBusinessCard": "クリエイター名刺",
+    "faqHeading": "開発者の方によくある質問",
+    "faqIncentiveTitle": "開発者インセンティブ計画",
+    "faqIncentiveDesc": "AI エージェントを公開して収益分配を得る",
+    "faqIncentiveBtn": "詳細を見る",
+    "faqGuideTitle": "公開ガイド",
+    "faqGuideDesc": "エージェント作成、モデル設定、審査提出",
+    "faqGuideBtn": "詳しく見る",
+    "contactHeading": "その他の質問はありますか?",
+    "contactDesc": "サポートに連絡して1対1の回答を得る"
+  },
   "developer": {
     "withdrawal": {
       "title": "出金記録",
@@ -2345,7 +2374,8 @@
       "editBtn2": "編集",
       "editBtn": "設定",
       "noMore": "これ以上ありません"
-    }
+    },
+    "becomeDeveloper": "開発者になる"
   },
   "modelPlaza": {
     "title": "モデル広場",
@@ -2413,7 +2443,7 @@
       "save": "保存"
     },
     "index": {
-      "title": "モデル広場",
+      "title": "AIニーズ広場",
       "untitled": "無題",
       "anonymous": "匿名",
       "emptyMain": "コンテンツなし",
@@ -2524,17 +2554,8 @@
     "noData": "ランキングデータなし"
   },
   "recruitment": {
-    "applied": "応募送信済み",
-    "empty": "募集なし",
-    "defaultTitle": "参加する",
-    "subtitle": "IHUI AIと共に成長",
-    "requirements": "応募要件",
-    "privileges": "特典",
-    "incomeEstimate": "想定収入",
-    "monthlyIncome": "月収",
-    "yearlyIncome": "年収",
-    "submitting": "送信中…",
-    "apply": "今すぐ応募"
+    "title": "トレーダー計画",
+    "defaultTitle": "参加する"
   },
   "register": {
     "enterPhone": "電話番号を入力",
@@ -3121,6 +3142,11 @@
     "text6": "レベル紹介ページ未設定",
     "menu": {
       "subscriptions": "マイ購読"
+    }
+  },
+  "vipScreen": {
+    "qr": {
+      "hint": "QRコードを長押しで保存"
     }
   },
   "vipTrader": {
@@ -4608,6 +4634,39 @@
     "knowledgeCards": "ナレッジカード",
     "knowledgePlanet": "ナレッジプラネット"
   },
+  "accountPool": {
+    "title": "マイアカウントプール",
+    "subtitle": "あなた専用のサードパーティ AI アカウントプール。チェックインアシスタントと同じアカウントで毎日自動チェックインし、自分のリレーリクエストで優先的に使用されます。",
+    "add": "アカウントを追加",
+    "provider": "プラットフォーム",
+    "name": "名前",
+    "namePlaceholder": "アカウントに名前を付ける",
+    "token": "トークン（アクセス資格情報）",
+    "refreshToken": "リフレッシュトークン",
+    "optional": "任意",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "loading": "読み込み中…",
+    "empty": "アカウントがありません",
+    "emptyHint": "チェックインアシスタントで追加したアカウントは自動的にここへ同期されます。",
+    "enabled": "有効",
+    "disabled": "無効",
+    "enable": "有効化",
+    "disable": "無効化",
+    "checkin": "今すぐチェックイン",
+    "delete": "削除",
+    "confirmDelete": "削除を確認",
+    "syncPending": "同期待ち",
+    "uid": "アカウント ID",
+    "checkinSuccess": "チェックインしました",
+    "addSuccess": "アカウントを追加しました",
+    "actionFailed": "操作に失敗しました",
+    "loginRequired": "ログインしてアカウントプールを管理",
+    "addTitle": "アカウントを追加",
+    "adding": "追加中…",
+    "deleteConfirm": "{name} を削除しますか？",
+    "summary": "アカウント {total} 件 · 有効 {enabled}"
+  },
   "checkinAssistant": {
     "title": "チェックインアシスタント",
     "subtitle": "サードパーティアカウントを管理して毎日自動チェックイン。個人アカウントプールと連携し、自分のリレーリクエストで優先使用されます。",
@@ -4633,5 +4692,20 @@
     "lastOk": "前回のチェックイン成功 +{credits}",
     "lastFailed": "前回のチェックイン失敗",
     "actionFailed": "操作に失敗しました"
+  },
+  "developerInfo": {
+    "title": "開発者情報",
+    "nameLabel": "名前",
+    "descLabel": "紹介",
+    "statusLabel": "申請ステータス",
+    "statusApproved": "承認済み",
+    "statusRejected": "却下されました",
+    "statusPending": "審査待ち",
+    "accountLabel": "アカウント",
+    "apiKeyLabel": "API キー",
+    "apiKeyCount": "{count} 件作成済み",
+    "apiKeyNone": "まだ作成していません",
+    "urlLabel": "URL",
+    "expiryLabel": "有効期限"
   }
 }

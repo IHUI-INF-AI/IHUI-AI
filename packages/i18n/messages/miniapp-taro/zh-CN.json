@@ -1262,17 +1262,12 @@
     "missingUrl": "链接缺失,无法打开网页"
   },
   "carte": {
-    "shareHint": "请先保存图片再分享",
-    "noQrcode": "暂无二维码",
-    "anonymous": "匿名用户",
-    "cardSuffix": "的名片",
-    "introLabel": "简介",
-    "phone": "电话",
-    "email": "邮箱",
-    "scanHint": "扫一扫,查看名片",
-    "shareCard": "分享名片",
-    "saveQrcode": "保存二维码",
-    "title": "电子名片"
+    "title": "智汇社社群",
+    "founder": "AI智汇社 | 私董会创始人 | 李总",
+    "recommend": "为您推荐",
+    "inviteHint": "扫描下方二维码,可免费进入智汇社社群,群内定期免费分享AI信息并有专属客服为您服务",
+    "scanHint": "扫码加入,和 1000+ 同行一起交流 AI",
+    "introLabel": "简介"
   },
   "exam": {
     "tabs": {
@@ -1391,6 +1386,19 @@
     "tabPost": "帖子",
     "tabAigc": "AI作品",
     "tabNews": "资讯"
+  },
+  "userFans": {
+    "title": "我的粉丝",
+    "anonymous": "匿名用户",
+    "empty": "还没有粉丝",
+    "follow": "回关",
+    "followed": "已关注",
+    "followedAt": "关注于",
+    "followSuccess": "已回关",
+    "actionFailed": "操作失败，请稍后重试",
+    "loadFailed": "粉丝列表加载失败",
+    "total": "共 {total} 位粉丝",
+    "loadMore": "加载更多（{loaded}/{total}）"
   },
   "distribution": {
     "withdraw": {
@@ -1871,7 +1879,7 @@
       "submitting": "提交中..."
     },
     "contact": {
-      "title": "联系我们",
+      "title": "联系客服",
       "phone": "电话",
       "email": "邮箱",
       "qq": "QQ",
@@ -2008,7 +2016,7 @@
         "p2": "本规范的订立、履行、解释及争议解决，均适用中华人民共和国法律（港澳台地区法律除外）。",
         "title": "九、争议解决"
       },
-      "title": "使用规则"
+      "title": "使用规范"
     },
     "appPermission": {
       "names": [
@@ -2094,6 +2102,7 @@
   },
   "cart": {
     "title": "购物车",
+    "selectAll": "全选",
     "checkout": "去结算",
     "loading": "加载中…",
     "product": "商品",
@@ -2260,6 +2269,26 @@
       "mockSuccess": "接口暂未开放,已模拟提交"
     }
   },
+  "devSpace": {
+    "title": "开发者详情",
+    "notLoggedIn": "未登录",
+    "renew": "续费",
+    "linkCopied": "链接已复制,请在浏览器中打开",
+    "linkCopyFailed": "复制失败,请重试",
+    "entryMyAgents": "我的智能体",
+    "entryAgentIncome": "智能体收入",
+    "entryN8nModel": "n8n智能体",
+    "entryBusinessCard": "创客名片",
+    "faqHeading": "相关开发者的一系列问题解答?",
+    "faqIncentiveTitle": "开发者激励计划",
+    "faqIncentiveDesc": "发布 AI 智能体,获取分成收益",
+    "faqIncentiveBtn": "查看详情",
+    "faqGuideTitle": "上架指南",
+    "faqGuideDesc": "创建智能体、配置模型、提交审核",
+    "faqGuideBtn": "去了解",
+    "contactHeading": "其他问题?",
+    "contactDesc": "咨询客服,获得多对一在线答疑"
+  },
   "developer": {
     "withdrawal": {
       "title": "提现记录",
@@ -2345,7 +2374,8 @@
       "editBtn2": "修改",
       "editBtn": "设置",
       "noMore": "没有更多了"
-    }
+    },
+    "becomeDeveloper": "成为开发者"
   },
   "modelPlaza": {
     "title": "模型广场",
@@ -2413,7 +2443,7 @@
       "save": "保存"
     },
     "index": {
-      "title": "模型广场",
+      "title": "AI需求广场",
       "untitled": "未命名",
       "anonymous": "匿名",
       "emptyMain": "暂无内容",
@@ -2524,17 +2554,8 @@
     "noData": "暂无排行数据"
   },
   "recruitment": {
-    "applied": "申请已提交",
-    "empty": "暂无招募信息",
-    "defaultTitle": "加入我们",
-    "subtitle": "与智汇 AI 一起成长",
-    "requirements": "岗位要求",
-    "privileges": "专属福利",
-    "incomeEstimate": "预估收入",
-    "monthlyIncome": "月收入",
-    "yearlyIncome": "年收入",
-    "submitting": "提交中…",
-    "apply": "立即申请"
+    "title": "操盘手计划",
+    "defaultTitle": "加入我们"
   },
   "register": {
     "enterPhone": "请输入手机号",
@@ -3121,6 +3142,11 @@
     "text6": "等级介绍页未配置",
     "menu": {
       "subscriptions": "我的订阅"
+    }
+  },
+  "vipScreen": {
+    "qr": {
+      "hint": "长按二维码保存到相册"
     }
   },
   "vipTrader": {
@@ -4608,6 +4634,39 @@
     "knowledgeCards": "知识卡片",
     "knowledgePlanet": "知识星球"
   },
+  "accountPool": {
+    "title": "个人号池",
+    "subtitle": "你自己的第三方 AI 账号池：与签到助手同一批账号，支持每日自动签到，并优先用于你自己的转发请求。",
+    "add": "添加账号",
+    "provider": "平台",
+    "name": "名称",
+    "namePlaceholder": "给账号起个名字",
+    "token": "Token（访问凭证）",
+    "refreshToken": "Refresh Token",
+    "optional": "可选",
+    "save": "保存",
+    "cancel": "取消",
+    "loading": "加载中…",
+    "empty": "还没有账号",
+    "emptyHint": "在签到助手里录入账号后会自动同步到这里。",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "enable": "启用",
+    "disable": "停用",
+    "checkin": "立即签到",
+    "delete": "删除",
+    "confirmDelete": "确认删除",
+    "syncPending": "待同步",
+    "uid": "账号标识",
+    "checkinSuccess": "签到成功",
+    "addSuccess": "账号已添加",
+    "actionFailed": "操作失败",
+    "loginRequired": "登录后管理你的个人号池",
+    "addTitle": "添加账号",
+    "adding": "添加中…",
+    "deleteConfirm": "确认删除 {name}？",
+    "summary": "共 {total} 个账号 · 已启用 {enabled}"
+  },
   "checkinAssistant": {
     "title": "签到助手",
     "subtitle": "管理第三方账号并自动签到；与个人号池互通，转发时优先使用你自己的账号。",
@@ -4633,5 +4692,20 @@
     "lastOk": "上次签到成功 +{credits}",
     "lastFailed": "上次签到失败",
     "actionFailed": "操作失败"
+  },
+  "developerInfo": {
+    "title": "开发者信息",
+    "nameLabel": "名称",
+    "descLabel": "简介",
+    "statusLabel": "申请状态",
+    "statusApproved": "已通过",
+    "statusRejected": "已拒绝",
+    "statusPending": "待审核",
+    "accountLabel": "账号",
+    "apiKeyLabel": "API 密钥",
+    "apiKeyCount": "已创建 {count} 个",
+    "apiKeyNone": "未创建",
+    "urlLabel": "网址",
+    "expiryLabel": "到期时间"
   }
 }

@@ -185,6 +185,24 @@ describe('planReconciliation', () => {
     expect(plan.truncated).toBe(0)
   })
 
+  it('号池停用 + 签到无此行 → 不补推,计 skippedDisabledMissing(停用行不自动实体化)', () => {
+    const plan = planReconciliation([poolRow({ isEnabled: false })], [])
+    expect(plan.actions).toEqual([])
+    expect(plan.skippedDisabledMissing).toBe(1)
+    expect(plan.truncated).toBe(0)
+  })
+
+  it('号池停用 + 签到有引用 → 仍产 state disabled(停用态同步载体不被新分支吞)', () => {
+    const plan = planReconciliation(
+      [poolRow({ isEnabled: false })],
+      [checkinRow({ enabled: true })],
+    )
+    expect(plan.actions).toEqual([
+      { kind: 'state', pool: poolRow({ isEnabled: false }), state: 'disabled' },
+    ])
+    expect(plan.skippedDisabledMissing).toBe(0)
+  })
+
   it('签到有、号池无 → disable(pool_deleted,带签到侧 platform/identityKey)', () => {
     const plan = planReconciliation([], [checkinRow()])
     expect(plan.actions).toEqual([

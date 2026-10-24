@@ -459,6 +459,36 @@ def _isolate_model_sync_db(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _isolate_checkin_pool_bridge(monkeypatch):
+    """隔离「签到账号 → 用户个人号池」反向桥的真实 HTTP 旁路(2026-10-24 立)。
+
+    同一型缺陷的第二现场(前一次是 2026-09-12 的 model_sync 直连生产库,见上一个夹具):
+    桥在 8e6f8fe101dd 落地后,`POST /api/checkin/accounts` 会顺带真打本机 apps/api:8802
+    的 /api/internal/relay/user-pool/upsert 并**真写库**。取证:同一用例跑两次,
+    回写的 `device_map.pool_account_id` 是**同一个 UUID** —— 说明它落在真库里,
+    而不是每次新生成。后果两条:
+      ① 断言随机器态换形态:api 在听 ⇒ 多出 pool_account_id/pool_uid/pool_synced_at;
+         把 API_INTERNAL_BASE_URL 指死端口 ⇒ 变成 pool_bridge_pending。
+         test_checkin_api 的两条用例因此在 HEAD 面恒红,且换台机红法不同。
+      ② 违反 AGENTS §5 测试隔离铁律(测试不得连真库、不得产生真实副作用)。
+
+    打桩取 (False, 原 device_map):调用方 `routers/checkin.py:283` 只在 changed=True 时
+    才 save_device_map,故桩既不写库也不注入 pool_* 键,断言回到确定值;
+    桥自身的契约留在 test_checkin_pool_writeback.py / test_internal_checkin_pool.py 里测。
+    """
+    from app.services import checkin_user_pool_bridge as _bridge
+
+    async def _stub_upsert(**kwargs):
+        return False, dict(kwargs.get("device_map") or {})
+
+    async def _stub_delete(**kwargs):
+        return None
+
+    monkeypatch.setattr(_bridge, "sync_upsert", _stub_upsert)
+    monkeypatch.setattr(_bridge, "sync_delete", _stub_delete)
+
+
+@pytest.fixture(autouse=True)
 def _isolate_jwt_auth(monkeypatch, request):
     """隔离 JWT 中间件:清空 jwt_secret → middleware 走跳过路径(node_env=development)。
 

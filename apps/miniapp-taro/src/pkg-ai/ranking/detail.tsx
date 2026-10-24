@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/ranking-detail/RankingDetailScreen.tsx
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
@@ -10,6 +11,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import { DrawerComponent } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import './detail.css'
 
 /** 排行榜详情数据(字段从列表项中筛选,后端无单条详情接口时走列表 find) */
@@ -177,7 +179,7 @@ export default function RankingDetailPage() {
           <View className="detail-nav">
             <Text className="detail-nav-title">{tt('ranking.detailTitle', '详情页')}</Text>
           </View>
-          <Text className="loading-text">{tt('common.loading', '加载中...')}</Text>
+          <ScreenSkeleton variant="card" count={3} />
         </View>
       </ThemeRoot>
     )

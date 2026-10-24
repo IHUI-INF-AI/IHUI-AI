@@ -12,6 +12,7 @@ dependencies = [
     "uvicorn[standard]>=0.52.0",
     "pydantic>=2.13.0",
     "pydantic-settings>=2.14.0",
+    "websockets>=15.0.0",
     "asyncpg>=0.31.0",
     "cryptography>=50.0.0",
     "redis[hiredis]>=8.1.0",

@@ -4,18 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
+import { ScrollView, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** AI 技能详情数据(平台无关,由 wrapper 从 AiSkillMeta 映射) */
 export interface AiSkillDetailData {
@@ -68,8 +61,8 @@ export function AiSkillDetailScreen({
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <Text style={styles.hintText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -87,26 +80,12 @@ export function AiSkillDetailScreen({
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {error ? (
-          <View style={styles.errorWrap}>
-            <Text style={[styles.hintText, styles.errorText]}>{error}</Text>
-            {/* 按压态样式不得写在 Pressable 的 style 上(守门 131 那一型):Pressable 注册过
-                cssInterop,函数形态声明被展开成空对象,整份内联样式静默消失。
-                marginTop 是外层在 errorWrap(column + 居中)里占槽位的布局档,留在外层 ⇒
-                按钮仍水平居中、命中区仍只有按钮本身(移到内层会让上方那段间距也可点)。
-                底色与圆角含绘制,故整盒下移到内层 View 的数组形态。 */}
-            <Pressable
-              style={styles.retryBtnBox}
-              onPress={onRetry}
-              accessibilityRole="button"
-              accessibilityLabel={t('aiSkillDetail.retry')}
-            >
-              {({ pressed }) => (
-                <View style={[styles.retryBtn, pressed ? styles.pressed : null]}>
-                  <Text style={styles.retryText}>{t('aiSkillDetail.retry')}</Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
+          <ErrorState
+            message={error}
+            onRetry={onRetry}
+            retryLabel={t('aiSkillDetail.retry')}
+            colorScheme={colorScheme}
+          />
         ) : skill ? (
           <>
             <Text style={styles.description}>{skill.description}</Text>
@@ -158,19 +137,6 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
     },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    pressed: {
-      opacity: 0.85,
-    },
-    hintText: {
-      fontSize: 14, // text-sm
-      color: tk.text.secondary,
-      textAlign: 'center',
-    },
     /* 顶部导航行 */
     headerBar: {
       flexDirection: 'row',
@@ -197,29 +163,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 16, // px-4
       paddingTop: 8, // pt-2
       paddingBottom: 24,
-    },
-    /* 错误态 */
-    errorWrap: {
-      alignItems: 'center',
-      paddingVertical: 64, // py-16
-    },
-    errorText: {
-      marginBottom: 12, // mt-3 对称间距
-    },
-    // 外框:只承接槽位档(与下方 retryBtn 逐字同一组数值,未新增数字档)
-    retryBtnBox: {
-      marginTop: 12, // mt-3
-    },
-    // 面层:绘制档(底色/圆角)与内边距,按压态与它同数组配对
-    retryBtn: {
-      borderRadius: rnRadius.sm, // rounded-sm
-      paddingHorizontal: 16, // px-4
-      paddingVertical: 8, // py-2
-      backgroundColor: tk.surface.muted,
-    },
-    retryText: {
-      fontSize: 14, // text-sm
-      color: tk.text.primary,
     },
     /* 详情内容 */
     description: {

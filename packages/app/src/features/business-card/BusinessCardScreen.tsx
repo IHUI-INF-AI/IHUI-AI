@@ -9,6 +9,7 @@ import type { BusinessCardItem, BusinessCardScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 电子名片共享屏 — props 注入式跨端组件 */
 export type { BusinessCardItem, BusinessCardScreenProps }
@@ -53,13 +54,9 @@ export function BusinessCardScreen({
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{error}</Text>
-        </View>
+        <ErrorState message={error} colorScheme={colorScheme} />
       ) : card ? (
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -131,8 +128,6 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    muted: { fontSize: 14, color: tk.text.secondary },
     card: {
       marginHorizontal: 16,
       padding: 14,

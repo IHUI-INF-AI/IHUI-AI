@@ -9,6 +9,7 @@ import type { SearchScreenItem, SearchScreenProps } from '../../types'
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 搜索共享屏 — props 注入式跨端组件 */
 export type { SearchScreenItem, SearchScreenProps }
@@ -61,13 +62,11 @@ export function SearchScreen({
         </TouchableOpacity>
       </View>
 
-      {loading ? <Text style={styles.muted}>{t('common.loading')}</Text> : null}
+      {loading ? <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {!loading && searched && results.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.muted}>{t('search.empty')}</Text>
-        </View>
+        <EmptyState title={t('search.empty')} colorScheme={colorScheme} />
       ) : null}
 
       <FlatList<SearchScreenItem>
@@ -120,9 +119,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     searchText: { color: tk.surface.light, fontSize: 16 },
-    muted: { fontSize: 14, color: tk.text.secondary },
     error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
-    empty: { paddingVertical: 40, alignItems: 'center' },
     separator: { height: 12 },
     card: {
       padding: 12,

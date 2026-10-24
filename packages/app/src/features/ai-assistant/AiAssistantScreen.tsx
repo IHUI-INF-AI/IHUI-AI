@@ -17,6 +17,7 @@ import type { AiAssistantScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
 
 /** AI 助手共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
@@ -104,20 +105,16 @@ export function AiAssistantScreen({
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>{t('common.loading')}</Text>
-            </View>
+            <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>{t('aiAssistant.empty')}</Text>
-            </View>
+            <EmptyState title={t('aiAssistant.empty')} colorScheme={colorScheme} />
           )
         }
         renderItem={({ item }) => (
-          <TouchableOpacity
+          <PressableCard
             style={styles.card}
             onPress={() => onPressItem(item)}
-            activeOpacity={0.85}
+            colorScheme={colorScheme}
           >
             <View style={styles.cardHead}>
               <View style={styles.avatar}>
@@ -150,7 +147,7 @@ export function AiAssistantScreen({
                 <Text style={styles.ctaText}>{t('aiAssistant.startChat')}</Text>
               </View>
             </View>
-          </TouchableOpacity>
+          </PressableCard>
         )}
       />
     </View>
@@ -199,8 +196,6 @@ function createStyles(tk: AppThemeTokens) {
     catMoreText: { fontSize: 14, color: tk.text.secondary },
     errorBar: { paddingHorizontal: 10, paddingVertical: 8, backgroundColor: tk.danger.light },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    empty: { alignItems: 'center', paddingVertical: 48 },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,

@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/live-list/LiveListScreen.tsx
 import { useTt, useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, {
@@ -13,6 +14,8 @@ import Taro, {
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+// 屏幕状态四件套的小程序镜像件(对齐 RN 端 packages/app/src/components/ScreenStates.tsx)
+import { EmptyState, PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 const STATUS_KEY: Record<Live['status'], string> = {
   living: 'live.liveNow',
@@ -151,11 +154,10 @@ export default function LiveList() {
         {list.length > 0 && (
           <View>
             {list.map((item) => (
-              <View
+              <PressableCard
                 key={item.id}
                 className="rounded-md border border-[var(--color-border)] p-[28rpx] mb-[24rpx]"
                 onClick={() => goDetail(item.id)}
-                hoverClass="opacity-60"
               >
                 {/* 对齐 RN titleRow:标题(flex1, numberOfLines 1)+ 状态徽章 */}
                 <View className="flex items-center justify-between gap-[16rpx]">
@@ -197,22 +199,14 @@ export default function LiveList() {
                     </Text>
                   )}
                 </View>
-              </View>
+              </PressableCard>
             ))}
           </View>
         )}
 
-        {!loading && list.length === 0 && (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">{t('live.empty')}</Text>
-          </View>
-        )}
+        {!loading && list.length === 0 && <EmptyState title={t('live.empty')} />}
 
-        {loading && (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">{t('common.loading')}</Text>
-          </View>
-        )}
+        {loading && <ScreenSkeleton variant="list" count={4} />}
       </View>
     </ThemeRoot>
   )

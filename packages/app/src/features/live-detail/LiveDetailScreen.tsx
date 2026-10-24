@@ -3,9 +3,18 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useEffect, useMemo, useRef } from 'react'
-import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { TextField } from '../../components/TextField'
-import { ChevronLeft, Play, Check } from 'lucide-react-native'
+import { Play, Check } from 'lucide-react-native'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   LiveDetailChatStatus,
@@ -86,24 +95,16 @@ export function LiveDetailScreen({
   }, [messages.length])
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
   }
   if (error || !live) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error || t('liveDetail.empty')}</Text>
-        <TouchableOpacity
-          style={styles.btnPrimary}
-          onPress={onBack}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error || t('liveDetail.empty')}
+        onRetry={onBack}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -189,9 +190,7 @@ export function LiveDetailScreen({
             keyExtractor={(m) => m.id}
             contentContainerStyle={styles.chatListBody}
             ListEmptyComponent={
-              <View style={styles.chatEmpty}>
-                <Text style={styles.muted}>{t('liveDetail.chatEmpty')}</Text>
-              </View>
+              <EmptyState title={t('liveDetail.chatEmpty')} colorScheme={colorScheme} />
             }
             renderItem={({ item }) => (
               <View style={styles.chatItem}>
@@ -210,7 +209,8 @@ export function LiveDetailScreen({
       </View>
 
       <View style={styles.inputRow}>
-        <TextField colorScheme={colorScheme}
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={input}
           onChangeText={onInputChange}
@@ -239,15 +239,6 @@ export function LiveDetailScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 16,
-    },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     btnPrimary: {
       paddingHorizontal: 10,
       paddingVertical: 10,
@@ -303,7 +294,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     chatListBody: { padding: 4 },
-    chatEmpty: { alignItems: 'center', paddingVertical: 24 },
     chatItem: {
       marginBottom: 8,
       padding: 8,

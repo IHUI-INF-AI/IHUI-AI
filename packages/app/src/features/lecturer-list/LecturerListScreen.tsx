@@ -23,6 +23,7 @@ import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/t
 
 import { rnRadius } from '@ihui/design-tokens'
 import { TextField } from '../../components/TextField'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 讲师列表条目(平台无关,由 wrapper 从各端数据源映射) */
 export interface LecturerListItem {
@@ -170,13 +171,9 @@ export function LecturerListScreen({
         }
         ListEmptyComponent={
           loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator color={tk.text.secondary} />
-            </View>
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('teacher.list.empty')}</Text>
-            </View>
+            <EmptyState title={t('teacher.list.empty')} colorScheme={colorScheme} />
           )
         }
         ListFooterComponent={
@@ -332,17 +329,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 12,
       color: tk.text.tertiary,
     },
-    /* 空态 / 加载更多 */
-    center: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 60, // rpx(120)
-      gap: 8, // rpx(16)
-    },
-    emptyText: {
-      fontSize: 14,
-      color: tk.text.tertiary,
-    },
+    /* 加载更多 */
     footer: {
       paddingVertical: 12, // rpx(24)
       alignItems: 'center',

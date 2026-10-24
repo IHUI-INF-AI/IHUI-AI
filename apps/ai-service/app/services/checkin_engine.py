@@ -287,11 +287,21 @@ def get_device_for(user_id: str, device_map: dict[str, dict[str, Any]]) -> dict[
     device_map 缺失时生成确定性 ID，跨进程可复现。
     """
     rec = device_map.get(user_id)
-    if rec is None or rec.get("gen", 1) < DEVICE_GEN:
+    # 2026-10-23 风控对齐:号池推送会带上该账号在**真实客户端**里的设备指纹
+    # (pool_device_id / pool_machine_id / pool_uid)。上游按设备维度做风控,
+    # 服务端自造的确定性指纹与客户端不是同一台设备 ⇒ 同一账号被读成多设备。
+    # 真实指纹在场时优先使用;缺失时才回落到按 user_id 确定性生成(跨进程可复现)。
+    real_device = device_map.get("pool_device_id")
+    real_machine = device_map.get("pool_machine_id")
+    real_uid = device_map.get("pool_uid")
+    stale = rec is None or rec.get("gen", 1) < DEVICE_GEN
+    if real_device and rec is not None and str(rec.get("device_id")) != str(real_device):
+        stale = True
+    if stale:
         device_map[user_id] = {
-            "device_id": rand_digits(15, seed=user_id),
-            "market_user_id": gen_market_uuid(user_id),
-            "session_id": rand_hex(64, seed=user_id),
+            "device_id": str(real_device) if real_device else rand_digits(15, seed=user_id),
+            "market_user_id": str(real_uid) if real_uid else gen_market_uuid(user_id),
+            "session_id": str(real_machine) if real_machine else rand_hex(64, seed=user_id),
             "created": datetime.datetime.now().isoformat(timespec="seconds"),
             "gen": DEVICE_GEN,
         }
