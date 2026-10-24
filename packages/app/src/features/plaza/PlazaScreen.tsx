@@ -23,7 +23,7 @@ import { Globe, User } from 'lucide-react-native'
 import type { TFunction } from '../../types'
 import type { PlazaItem, StatusChip } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 export interface PlazaScreenProps {
@@ -369,7 +369,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     searchBar: {
       paddingHorizontal: 10,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
       backgroundColor: tk.surface.light,
     } as ViewStyle,
     searchInput: {
@@ -377,9 +377,9 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.surface.muted,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 14,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
     } as TextStyle,
     chipsBar: {
@@ -392,46 +392,46 @@ function createStyles(tk: AppThemeTokens) {
     columnsRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: 12,
+      gap: rnSpacing.md,
     } as ViewStyle,
     column: {
       flex: 1,
     } as ViewStyle,
     loadingMoreText: {
       textAlign: 'center',
-      paddingVertical: 16,
-      fontSize: 14,
+      paddingVertical: rnSpacing.lg,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     } as TextStyle,
     emptyWrap: {
       alignItems: 'center',
-      paddingVertical: 48,
-      gap: 12,
+      paddingVertical: rnSpacing['5xl'],
+      gap: rnSpacing.md,
     } as ViewStyle,
     emptyIcon: {
       fontSize: 48,
     } as TextStyle,
     emptyText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.secondary,
       textAlign: 'center',
     } as TextStyle,
     // 强调行(对齐原项目 empty .font_big:40rpx bold #847CFF)
     emptyTextStrong: {
-      fontSize: 20,
+      fontSize: rnType.heading.size,
       fontWeight: '700',
       color: tk.brandAccent.deep,
       textAlign: 'center',
     } as TextStyle,
     emptyBtn: {
-      marginTop: 12,
-      paddingHorizontal: 24,
+      marginTop: rnSpacing.md,
+      paddingHorizontal: rnSpacing['2xl'],
       paddingVertical: 10,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
     emptyBtnText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.brand.ctaForeground,
       fontWeight: '600',
     } as TextStyle,
@@ -441,7 +441,7 @@ function createStyles(tk: AppThemeTokens) {
       marginBottom: 9,
     } as ViewStyle,
     card: {
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
@@ -451,37 +451,37 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     cardTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     } as TextStyle,
     cardImage: {
       width: '100%',
       height: 160,
       borderRadius: rnRadius.lg,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     } as ImageStyle,
     cardDesc: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     } as TextStyle,
     cardDate: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.tertiary,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     } as TextStyle,
     cardCycle: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.secondary,
-      marginBottom: 8,
+      marginBottom: rnSpacing.sm,
     } as TextStyle,
     cardMeta: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      marginBottom: 8,
+      gap: rnSpacing.sm,
+      marginBottom: rnSpacing.sm,
     } as ViewStyle,
     avatarWrap: {
       width: 24,
@@ -497,11 +497,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     } as ViewStyle,
     avatarText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
     } as TextStyle,
     author: {
       flex: 1,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     } as TextStyle,
     cardFooter: {
@@ -510,12 +510,12 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
     } as ViewStyle,
     price: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
     priceUnit: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       fontWeight: '400',
     } as TextStyle,
     priceDone: {
@@ -523,7 +523,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     chatBtn: {
       paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingVertical: rnSpacing.xs,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     } as ViewStyle,
@@ -531,16 +531,16 @@ function createStyles(tk: AppThemeTokens) {
       opacity: 0.75,
     } as ViewStyle,
     chatBtnText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.brand.ctaForeground,
       fontWeight: '600',
     } as TextStyle,
     statusDone: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.success.DEFAULT,
     } as TextStyle,
     statusDev: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       color: tk.text.secondary,
     } as TextStyle,
     fabWrap: {

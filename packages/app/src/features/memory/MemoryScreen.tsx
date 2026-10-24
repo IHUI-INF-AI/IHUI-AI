@@ -18,7 +18,7 @@ import type { MemoryEntry, MemoryEntryType, MemoryScope } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
@@ -414,7 +414,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     mutedText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     /* 头部(返回/标题/新建) */
@@ -422,50 +422,50 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 16, // px-4
-      paddingTop: 12, // pt-3
-      paddingBottom: 8, // pb-2
+      paddingHorizontal: rnSpacing.lg, // px-4
+      paddingTop: rnSpacing.md, // pt-3
+      paddingBottom: rnSpacing.sm, // pb-2
     },
     headerTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     createText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '500',
       color: tk.brand.DEFAULT,
     },
     listContent: {
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     filterHeader: {
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
     },
     searchInput: {
       height: 36, // h-9
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      paddingHorizontal: 12,
-      fontSize: 14,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     chipsRow: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     chipsRowTight: {
       marginTop: 6, // mt-1.5
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     chip: {
       borderRadius: rnRadius.md,
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       paddingVertical: 6,
     },
     chipActive: {
@@ -475,21 +475,21 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     chipTextActive: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.brand.ctaForeground,
     },
     chipTextInactive: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
     /* 记忆条目卡片 */
     card: {
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     entryHeadRow: {
       flexDirection: 'row',
@@ -498,7 +498,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: 6,
     },
     categoryText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -513,14 +513,14 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     },
     entryText: {
-      marginTop: 4,
-      fontSize: 12,
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.label.size,
       lineHeight: 19,
       color: tk.text.secondary,
     },
     metaText: {
-      marginTop: 8,
-      fontSize: 11,
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.caption.size,
       color: tk.text.tertiary,
     },
     deleteBtn: {
@@ -528,29 +528,29 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.danger.light,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
     },
     deleteText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.danger.DEFAULT,
     },
     rowActions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
-      marginTop: 8,
+      gap: rnSpacing.sm,
+      marginTop: rnSpacing.sm,
     },
     detailBtn: {
       alignSelf: 'flex-start',
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.medium,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: rnSpacing.sm,
+      paddingVertical: rnSpacing.xs,
     },
     detailText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
     /* 新建记忆弹层 */
@@ -563,21 +563,21 @@ function createStyles(tk: AppThemeTokens) {
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
-      padding: 16,
+      padding: rnSpacing.lg,
     },
     sheetHeaderRow: {
-      marginBottom: 12,
+      marginBottom: rnSpacing.md,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
     },
     sheetTitle: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
     cancelText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
     },
     textInput: {
@@ -585,35 +585,35 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      padding: 12,
-      fontSize: 14,
+      padding: rnSpacing.md,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
       textAlignVertical: 'top',
     },
     categoryInput: {
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
       height: 36,
       borderRadius: rnRadius.sm,
       borderWidth: 1,
       borderColor: tk.border.light,
-      paddingHorizontal: 12,
-      fontSize: 14,
+      paddingHorizontal: rnSpacing.md,
+      fontSize: rnType.body.size,
       color: tk.text.primary,
     },
     fieldLabel: {
-      marginTop: 12,
-      fontSize: 12,
+      marginTop: rnSpacing.md,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
     },
     saveBtn: {
-      marginTop: 16,
+      marginTop: rnSpacing.lg,
       alignItems: 'center',
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
-      paddingVertical: 12,
+      paddingVertical: rnSpacing.md,
     },
     saveBtnText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '500',
       color: tk.brand.ctaForeground,
     },

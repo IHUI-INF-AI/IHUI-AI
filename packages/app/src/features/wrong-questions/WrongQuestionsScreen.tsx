@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native'
 import { CheckCircle2, Sparkles, X } from 'lucide-react-native'
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
@@ -292,24 +292,29 @@ export function WrongQuestionsScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    title: { marginTop: 8, fontSize: 24, fontWeight: '600', color: tk.text.primary },
-    filterZone: { paddingHorizontal: 12, paddingTop: 8, gap: 8 },
-    statRow: { flexDirection: 'row', gap: 8 },
+    header: { paddingHorizontal: 10, paddingBottom: rnSpacing.sm },
+    title: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.display.size,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    filterZone: { paddingHorizontal: rnSpacing.md, paddingTop: rnSpacing.sm, gap: rnSpacing.sm },
+    statRow: { flexDirection: 'row', gap: rnSpacing.sm },
     statCard: {
       flex: 1,
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
       gap: 2,
     },
-    statLabel: { fontSize: 11, color: tk.text.tertiary },
-    statValue: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
-    filterRow: { flexDirection: 'row', gap: 8 },
+    statLabel: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    statValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
+    filterRow: { flexDirection: 'row', gap: rnSpacing.sm },
     chip: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 30,
       justifyContent: 'center',
       borderRadius: rnRadiusFor.chip,
@@ -318,21 +323,21 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     chipOn: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
-    chipText: { fontSize: 12, color: tk.text.secondary },
+    chipText: { fontSize: rnType.label.size, color: tk.text.secondary },
     chipOnText: { color: tk.brand.ctaForeground, fontWeight: '600' },
-    listBody: { padding: 12, gap: 10, paddingBottom: 32 },
+    listBody: { padding: rnSpacing.md, gap: 10, paddingBottom: rnSpacing['3xl'] },
     card: {
-      padding: 16,
+      padding: rnSpacing.lg,
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.card,
       gap: 6,
     },
-    itemHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+    itemHead: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
     itemTitle: {
       flex: 1,
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
       lineHeight: 20,
@@ -343,12 +348,17 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
-    badgeText: { fontSize: 11, color: tk.text.tertiary },
+    badgeText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     badgeTextOk: { color: tk.success.DEFAULT },
-    meta: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
-    actions: { flexDirection: 'row', gap: 16, paddingTop: 4 },
-    actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 },
-    actionText: { fontSize: 12, fontWeight: '600', color: tk.text.secondary },
+    meta: { fontSize: rnType.label.size, color: tk.text.secondary, lineHeight: 18 },
+    actions: { flexDirection: 'row', gap: rnSpacing.lg, paddingTop: rnSpacing.xs },
+    actionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: rnSpacing.xs,
+      paddingVertical: rnSpacing.xs,
+    },
+    actionText: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.secondary },
     moreBtn: {
       height: 40,
       borderRadius: rnRadius.sm,
@@ -356,7 +366,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 4,
+      marginTop: rnSpacing.xs,
     },
     moreText: { fontSize: 13, color: tk.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
@@ -370,15 +380,15 @@ function createStyles(tk: AppThemeTokens) {
     },
     sheet: {
       maxHeight: '70%',
-      padding: 16,
+      padding: rnSpacing.lg,
       gap: 10,
       borderTopLeftRadius: rnRadius.xl,
       borderTopRightRadius: rnRadius.xl,
       backgroundColor: tk.surface.card,
     },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    sheetTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    explainText: { fontSize: 14, lineHeight: 22, color: tk.text.secondary },
+    sheetTitle: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
+    explainText: { fontSize: rnType.body.size, lineHeight: 22, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
