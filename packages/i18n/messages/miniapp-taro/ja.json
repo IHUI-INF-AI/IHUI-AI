@@ -4763,5 +4763,19 @@
     "verifySuccess": "検証成功",
     "verifyFailed": "検証失敗",
     "doneDesc": "プロバイダーを作成し、収益分配を有効化しました"
+  },
+  "eduParent": {
+    "title": "保護者センター",
+    "child": "子ども",
+    "relationship": "続柄",
+    "statusTitle": "状態",
+    "empty": "紐付けた子どもがいません",
+    "status": {
+      "pending": "確認待ち",
+      "confirmed": "確認済み",
+      "active": "有効",
+      "rejected": "拒否済み",
+      "cancelled": "解除済み"
+    }
   }
 }
