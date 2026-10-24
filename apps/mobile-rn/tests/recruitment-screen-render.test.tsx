@@ -13,8 +13,9 @@
  *  ② 上屏段落的构成与顺序 = 跨端单一源 TRADER_PLAN_SEGMENTS(RN 与小程序读同一张表);
  *  ③ 六个取词键五语言齐备、取到的是真文案而不是键名;
  *  ④ 购买 CTA 真跳到在册屏 VipTrader,长按二维码真调系统相册保存 —— 两枚都不是假按钮;
- *  ⑤ 迁移门(守门 check-rn-app-migration)判据按 §22c 直接 import 源脚本 `__test__`,本壳零违规,
- *     白名单被发起人摘掉后链子仍有牙。
+ *  ⑤ 迁移门(守门 check-rn-app-migration)对本壳的判据断言(零违规、白名单被摘掉后链子仍有牙、
+ *     抹掉 import 必翻 V1 红)住在 `scripts/tests/check-rn-app-migration.test.mjs` T11;端内不 import
+ *     门体,以免留下 apps/mobile-rn(rank 40)→ repo-tooling(rank 90) 的反向依赖(门 103 判 D1+D2)。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement } from 'react'
@@ -27,7 +28,6 @@ import {
   TRADER_PLAN_PROMO_KEYS,
   TRADER_PLAN_SEGMENTS,
 } from '@ihui/shared/constants/trader-plan-promo'
-import { __test__ as rnAppGate } from '../../../scripts/check-rn-app-migration.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -118,23 +118,6 @@ describe('RecruitmentScreen 渲染的是共享层那一份', () => {
     expect(miniappText).not.toMatch(/=\s*\[\s*'hero',\s*'founder'/)
   })
 
-  it('迁移门判据(源脚本 __test__,不复制判据)对本壳零违规;摘掉豁免同样零违规', () => {
-    const run = (whitelist: Map<string, { why: string; expires: string }>, text: string) =>
-      rnAppGate.verdict({
-        screens: [{ name: 'RecruitmentScreen.tsx', text }],
-        baseline: new Map([['RecruitmentScreen.tsx', text]]),
-        sharedNames: new Set([rnAppGate.stemOf('RecruitmentScreen.tsx')]),
-        headScreenNames: new Set(['RecruitmentScreen.tsx']),
-        whitelist,
-        today: rnAppGate.isoToday(),
-      })
-    expect(run(rnAppGate.WHITELIST_ENTRIES, shellText).violations).toEqual([])
-    // 阳性对照 1:白名单被摘掉后,真壳仍判绿(靠的是真 import)
-    expect(run(new Map(), shellText).violations).toEqual([])
-    // 阳性对照 2:同一把尺子把 import 抹掉必须判 V1 红(否则上一条断言是恒真的)
-    const stripped = shellText.replace(/'@ihui\/rn-app'/g, "'../screens/RecruitmentScreenLocal'")
-    expect(run(new Map(), stripped).violations.map((v: { code: string }) => v.code)).toEqual(['V1'])
-  })
 })
 
 describe('段落顺序与取词键 = 跨端单一源', () => {

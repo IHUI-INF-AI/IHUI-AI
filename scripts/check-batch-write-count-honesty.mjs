@@ -26,6 +26,8 @@
  *   E1b 计数根标识符可追到库确认的集合(归属预查询 `select … where inArray(…)` / returning 结果,
  *       ≤2 跳)。必须有这一条:唯一出口自己的定义就是"affected 由库确认的集合(… / **归属预查询
  *       命中集**)推出",只看 `.returning(` 会把 `business-card-routes.ts` 那种正确写法判成红。
+ *       **2026-10-24 收窄(F1)**:证据以被审的那条写调用为单位 —— 计数根若来自**另一条**写链的
+ *       `.returning(` 结果,那是那条调用的答复,不替这条的 `.length` 发合格证;库读(归属预查询)照旧。
  *   E2 该文件 import 了 `utils/batch-outcome`(已在唯一出口上);
  *   E3 命中行或其紧邻上一行有行内豁免 `batch-count-exempt: <原因>` —— **必须带非空原因**,裸标记
  *       不算(与门 102/108 同规矩),且必须在注释里(否则把标记写进字符串就能冒充豁免)。
@@ -95,12 +97,15 @@
  *   判据一条:同一**函数体**内 ① 有一条 `db|tx|trx` 发起的 `.delete(`/`.update(` 链(不要求 inArray ——
  *     B1 只问"这一屏真的发了写",不问命中集算法),② 有 `.send(<X>success({ … deleted: true … }))`
  *     字面量(与 V1 **共用同一份取材**:`sendSuccessObjects` + `findBooleanAckSends`,两处各扫一遍必漂移,
- *     M13 的 send-success 扫描式单点锁同时管住这一族),③ 体内没有 `.returning(`、也没有 `batchWriteOutcome(`
- *     ⇒ 违规。判据只在**响应对象面**里找 `deleted: true` —— select 结果映射、类型注解、注释、字符串里的
+ *     M13 的 send-success 扫描式单点锁同时管住这一族),③ **被审的那条写链**(ack 之前最近的一条)
+ *     自己既没有 `.returning(`、返回值也没喂给 `batchWriteOutcome(` ⇒ 违规。判据只在**响应对象面**里找
+ *     `deleted: true` —— select 结果映射、类型注解、注释、字符串里的
  *     同字样一律不算(所以它不是整行 grep,`B1r` 用例钉死这一点)。
  *   两条放过通道(与违规判据同一次扫描内判定,各配正反用例):
- *     F1 同函数体有 `.returning(` 或 `batchWriteOutcome(` 调用 —— 已是库确认口径(注释/字符串里的这两个
- *        字样不算:判据跑在遮蔽后的代码面上);
+ *     F1 **该条写调用自带的库答复** —— 以被审的那条写链为单位(函数体内 ack 之前最近的一条写链,
+ *        含裸 SQL 写链):它自己带 `.returning(`(裸 SQL 则 SQL 文本带 `RETURNING`),或它的返回值
+ *        喂给了 `batchWriteOutcome(`,才算放过。同函数体里**另一条**写链带 `.returning(` 不再替这一条
+ *        发合格证(注释/字符串里的字样同样不算:判据跑在遮蔽后的代码面上);
  *     F2 行内豁免 `delete-ack-exempt: <原因>` —— **必须带非空原因**(裸标记不计,同门 102/108 的
  *        "注释闭合符冒充原因"教训)、**必须落在注释里**(字符串里的标记不算)、**只命中本行生效**(比
  *        `batch-count-exempt` 的"本行或紧邻上一行"更严:假 ack 的标记写在上一行是直觉动作,那条通道
@@ -363,10 +368,11 @@ const COUNT_KEYS = 'deleted|affected|restored|removed|count'
 const FILE_RE = /\.(ts|mts|cts)$/
 const SKIP_RE = /(^|\/)(?:tests?|__tests__|e2e)\//
 const SPEC_RE = /(?:from|require\()\s*['"][^'"]*utils\/batch-outcome(?:\.js)?['"]/
-// B1 放过通道 F1:同函数体内出现库确认调用。跑在**遮蔽后的代码面**上,所以注释/字符串里的
-// `.returning(` 或 `batchWriteOutcome(` 不配放过(否则一句解释性注释就能给假 ack 发合格证)。
-const RETURNING_IN_BODY_RE = /\.\s*returning\s*\(/
+// B1 放过通道 F1(2026-10-24 收窄):证据必须落在**被审的那条写链**上,不再按整段函数体放行。
+// 跑在**遮蔽后的代码面**上,所以注释/字符串里的 `.returning(` 或 `batchWriteOutcome(` 不配放过
+// (否则一句解释性注释就能给假 ack 发合格证)。
 const BATCH_OUTCOME_IN_BODY_RE = /\bbatchWriteOutcome\s*\(/
+const OUTLET_CALL_RE = /\bbatchWriteOutcome\s*\(/g
 
 /* ------------------------------- 词法遮噪 ------------------------------- */
 
@@ -782,20 +788,32 @@ function initializersOf(code, span, name) {
   while ((m = re.exec(code)) !== null) {
     if (m.index < span.start || m.index >= span.end) continue
     const eq = m.index + m[0].length - 1
-    out.push(code.slice(eq + 1, statementEnd(code, eq + 1, span.end)))
+    const end = statementEnd(code, eq + 1, span.end)
+    out.push({ text: code.slice(eq + 1, end), start: eq + 1, end })
   }
   return out
 }
 
-/** E1b:计数根标识符是否可追到库确认的集合(≤2 跳)。查不到声明 ⇒ 不放过(参数/请求侧解构都是这种)。 */
-function resolveConfirmed(code, span, name, depth) {
+/**
+ * E1b:计数根标识符是否可追到库确认的集合(≤2 跳)。查不到声明 ⇒ 不放过(参数/请求侧解构都是这种)。
+ * `scope`(可选,只有计数判据传 `{chain, chains}`):初始化式若来自**另一条**写链的返回值,那是那条
+ * 调用自己的证据,不替被审这条发合格证(2026-10-24 F1 收窄 —— 证据以被审的写调用为单位)。
+ */
+function resolveConfirmed(code, span, name, depth, scope = null) {
   if (depth > 2) return false
   for (const rhs of initializersOf(code, span, name)) {
-    if (rhs.length > 4000) continue
-    if (DB_CONFIRMED_RE.test(rhs)) return true
+    if (rhs.text.length > 4000) continue
+    if (
+      scope &&
+      scope.chains.some(
+        (c) => c.start !== scope.chain.start && c.start >= rhs.start && c.end <= rhs.end,
+      )
+    )
+      continue
+    if (DB_CONFIRMED_RE.test(rhs.text)) return true
     if (depth >= 2) continue
-    for (const mm of rhs.matchAll(/[A-Za-z_$][\w$]*/g)) {
-      if (!NOT_IDENT.has(mm[0]) && resolveConfirmed(code, span, mm[0], depth + 1)) return true
+    for (const mm of rhs.text.matchAll(/[A-Za-z_$][\w$]*/g)) {
+      if (!NOT_IDENT.has(mm[0]) && resolveConfirmed(code, span, mm[0], depth + 1, scope)) return true
     }
   }
   return false
@@ -1174,8 +1192,59 @@ export function hasRawSqlReturning(nonBlankCode, bodyStart, bodyEnd) {
 }
 
 /**
+ * 写链的结果绑定名(≤1 跳,只用于"这条链的返回值有没有喂给唯一出口"):
+ * `const rows = await db.delete(…)` / `const [row] = …` / `const { id } = …`。
+ * 拿不到绑定名 ⇒ 空数组(出口证据不成立,不猜)。
+ * 2026-10-24(F1 收窄配套):`=` 之后只许 `await` + 接收者标识符,不得用 `[^;{}]*` 吞掉整段 ——
+ * 本仓源码省分号,`const cached = …` 与下一行 `await db.delete(…)` 之间没有 `;`,旧写法会把上一条
+ * 语句的结果名错绑到这条链上(于是 `batchWriteOutcome(ids, cached)` 被当成"本链喂了出口"),
+ * 给 F1 的出口证据开一道静默假绿。新判据:证据必须是**这条链自己的**返回值。
+ */
+function chainResultNames(code, chain) {
+  let i = chain.start - 1
+  while (i >= 0 && !/[;{}]/.test(code[i])) i--
+  const seg = code.slice(i + 1, chain.start)
+  const plain =
+    /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;{}]+)?=\s*(?:await\s+)?[A-Za-z_$][\w$]*\s*$/.exec(
+      seg,
+    )
+  if (plain) return [plain[1]]
+  const destr =
+    /(?:const|let|var)\s*[{[]([\s\S]*?)[}\]]\s*=\s*(?:await\s+)?[A-Za-z_$][\w$]*\s*$/.exec(seg)
+  return destr ? [...destr[1].matchAll(/[A-Za-z_$][\w$]*/g)].map((m) => m[0]) : []
+}
+
+/** 这条写链自己的返回值是否被喂给了 `batchWriteOutcome(`(唯一出口只在**这次调用**上算证据)。 */
+function chainFeedsOutlet(code, chain, limit) {
+  const names = chainResultNames(code, chain)
+  if (!names.length) return false
+  OUTLET_CALL_RE.lastIndex = 0
+  const win = code.slice(chain.end, limit)
+  let m
+  while ((m = OUTLET_CALL_RE.exec(win)) !== null) {
+    const open = chain.end + m.index + m[0].length - 1
+    const end = closeParen(code, open)
+    if (end < 0 || end > limit) continue
+    const args = code.slice(open + 1, end - 1)
+    if (names.some((n) => new RegExp(`\\b${n}\\b`).test(args))) return true
+  }
+  return false
+}
+
+/** ack 之前**最近的一条**写链(drizzle 与裸 SQL 同池)—— F1 的被审单位就是它。 */
+function lastWriteChainBefore(allChains, body, limit) {
+  let best = null
+  for (const c of allChains) {
+    if (c.start < body.start || c.end > body.end || c.end > limit) continue
+    if (!best || c.start > best.start) best = c
+  }
+  return best
+}
+
+/**
  * B1(2026-09-27):布尔 ack 中**可判的那一子集** —— 同一函数体内有 `db|tx|trx` 的 `.delete(`/`.update(`
- * 写链、且体内无库确认(`.returning(` / `batchWriteOutcome(`)、且命中行无带原因豁免 ⇒ 假 ack 违规。
+ * 写链、且**被审的那条写链**(ack 之前最近的一条,见 F1)自身没有库答复、且命中行无带原因豁免
+ * ⇒ 假 ack 违规。
  *
  * 三条设计决定,每条都有用例钉住(改任何一条前先读它的反例):
  *  ① **落点取材与 V1 共用 `findBooleanAckSends`**(同一处 `sendSuccessObjects` 扫描,扫描式在源码里
@@ -1229,19 +1298,20 @@ export function findBoolAckB1Sites(
     const site = { file: relPath, line, key: b.key, receiver: chain.receiver }
     if (chain.rawSql) site.via = 'raw-sql'
     out.candidates.push(site)
-    const bodyText = code.slice(body.start, body.end)
-    if (RETURNING_IN_BODY_RE.test(bodyText) || BATCH_OUTCOME_IN_BODY_RE.test(bodyText)) {
+    // F1(2026-10-24 收窄):证据只认**被审的那条调用** —— ack 之前最近的一条写链(drizzle 与裸 SQL
+    // 同池)。它之后的写链、同体别处的写链都不替它发合格证:同体 A 链带 `.returning(` 不能让裸写的 B 链
+    // 过关(旧实现按整段函数体放行,那一格里 B 的假 ack 是静默失真的)。
+    const audited = lastWriteChainBefore([...chains, ...rawChains], body, b.index) || chain
+    const evidence = audited.hasReturning
+      ? audited.rawSql
+        ? 'raw-sql-returning'
+        : 'chain-returning'
+      : chainFeedsOutlet(code, audited, b.index)
+        ? 'chain-outlet'
+        : ''
+    if (evidence) {
       site.disposition = 'db-confirmed'
-      out.exempt.confirmed++
-      continue
-    }
-    // 放过通道之二/之三(2026-09-27 第二十九批,认"证据在别处"):原始 SQL 的 RETURNING 与同响应里的
-    // 诚实行数载体。两者都**折进 confirmed 这一桶**(与 F1 同族:它们说的是"库答复在别处已存在",
-    // 不是"有人给了豁免"),所以 b1*/b2* 的既有键与取值形态一字不变;具体是哪一种由 confirmWhy 带出,
-    // 复核 --explain 时才分得开 —— "放过"与"没看见"必须能各自被问到。
-    if (nonBlankCode && hasRawSqlReturning(nonBlankCode, body.start, body.end)) {
-      site.disposition = 'db-confirmed'
-      site.confirmWhy = 'raw-sql-returning'
+      site.confirmWhy = evidence
       out.exempt.confirmed++
       continue
     }
@@ -2316,7 +2386,11 @@ export function scanFileText(relPath, text, opts = {}) {
     const marked = mk.state === 'ok' || prev.state === 'ok'
     if (mk.state === 'bare' || prev.state === 'bare') res.bareExempt++
     const root = /^([A-Za-z_$][\w$]*)/.exec(s.expr)?.[1] || ''
-    const dbDerived = !!root && resolveConfirmed(code, body, root, 0)
+    // E1b 的取材收窄(2026-10-24):计数根只许追到**被审这条写调用**的结果或库读(归属预查询),
+    // 同体另一条写链的 .returning( 不再替这条的请求侧 .length 发合格证。
+    const dbDerived =
+      !!root &&
+      resolveConfirmed(code, body, root, 0, { chain, chains: [...batchChains, ...rawPool.chains] })
     // 四条放过通道按" cheapest 且最能说明意图"排序;每支各有反面对照(见 selfTest 的 P1b/P2)。
     const kind = usesOutlet
       ? 'outlet'
@@ -3002,7 +3076,7 @@ export function formatReport(out) {
   }
   if (out.face !== 'staged' && c.b1Violations) {
     L.push(
-      `${out.strict ? '❌' : '⚠️'} 全量档现读 B1 假 ack ${c.b1Violations} 处 / ${c.b1Files} 文件(同函数体有 db/tx 写链、回 deleted: true 字面量、体内无 .returning()/batchWriteOutcome())${out.strict ? ' —— --strict 判红' : ' —— 存量只报数不拦提交;提交链走差值棘轮,新增即红(§12e)'}`,
+      `${out.strict ? '❌' : '⚠️'} 全量档现读 B1 假 ack ${c.b1Violations} 处 / ${c.b1Files} 文件(同函数体有 db/tx 写链、回字面量、被审那条写链无 .returning()/batchWriteOutcome() 证据)${out.strict ? ' —— --strict 判红' : ' —— 存量只报数不拦提交;提交链走差值棘轮,新增即红(§12e)'}`,
     )
     for (const v of b1v.slice(0, 40))
       L.push(`   ${v.file}:${v.line}  (写链=${v.receiver}.delete/update,响应布尔档键=${v.key})`)
@@ -3211,7 +3285,8 @@ const USAGE = `用法: node scripts/${GATE}.mjs [--staged|--worktree] [--strict]
     放过:链带 .returning( / 计数根可追到库确认集 / import ${UNIQUE_OUTLET} / 行内 ${EXEMPT_TOKEN}: <原因>(须带原因)
   判据二(B1 假 ack,2026-09-27):同函数体内 db|tx|trx .delete(/.update( 写链 + 响应对象里布尔档键取字面值
     (键族:${BOOL_ACK_KEYS.join(' | ')})
-    放过:体内 .returning( / 体内 batchWriteOutcome( / 同次 db.execute 的原生 SQL 里有 RETURNING /
+    放过:**被审那条写调用**自带 .returning( / 它的返回值喂给 batchWriteOutcome( /
+          同次 db.execute 的原生 SQL 里有 RETURNING(证据不跨调用:同体另一条写链带 .returning( 不算)/
           同响应另有诚实行数载体 / **同行**行内 ${DELETE_ACK_EXEMPT_TOKEN}: <原因>(须带原因)
   判据三(B2 委托假 ack,2026-09-27):ack 体内**无**直接写链(那一子集归 B1),但 await 了经 import 解析到
     ${API_SRC_DIR} 内某文件的具名导出函数,而被调函数体有带 .where( 的写链却无 .returning( / batchWriteOutcome(
@@ -3436,6 +3511,19 @@ const FIX = {
     '  await db.delete(table).where(inArray(table.id, idList))',
     '  return reply.send(success({ deleted: idList.length }))',
   ]),
+  /** F1 收窄(2026-10-24)(a):A 链带 .returning(、B 链裸写、计数取 **A** 的返回集 ⇒ 证据不跨调用,
+   *  B 的 `.length` 必红(旧实现按"同体任一处 .returning("放过)。 */
+  countReturningWrongChain: h([
+    '  const rows = await db.delete(a).where(inArray(a.id, ids)).returning({ id: a.id })',
+    '  await db.delete(b).where(inArray(b.id, ids))',
+    '  return reply.send(success({ affected: rows.length }))',
+  ]),
+  /** 同一形状把计数换成**被审链自己**(最后一条,自带 .returning() )的返回集 ⇒ 真证据链仍放过。 */
+  countReturningOwnChain: h([
+    '  await db.delete(a).where(inArray(a.id, ids))',
+    '  const rows = await db.delete(b).where(inArray(b.id, ids)).returning({ id: b.id })',
+    '  return reply.send(success({ affected: rows.length }))',
+  ]),
   returning: h([
     '  const deleted = await db',
     '    .delete(table)',
@@ -3586,15 +3674,43 @@ const FIX = {
       '  return reply.send(success({ deleted: true }))',
     ],
   ),
-  /** 放过 F1a:链上 .returning( —— 体内有库确认调用即放过,不追问这条 ack 用的是不是它。 */
+  /** 放过 F1a:被审的那条链自己带 .returning( —— 库答复就在这次调用的返回值上。 */
   b1ConfirmedReturning: h([
     '  await db.delete(table).where(eq(table.id, id)).returning({ id: table.id })',
     '  return reply.send(success({ id, deleted: true }))',
   ]),
-  /** 放过 F1b:体内 batchWriteOutcome( 调用(即便这处仍回字面量,已在迁移途中,不算"新写假 ack")。 */
+  /** 放过 F1b:被审那条链的返回值喂给了 batchWriteOutcome( 调用(这处仍回字面量,已在迁移途中)。 */
   b1ConfirmedOutletCall: h([
     '  const rows = await db.delete(table).where(eq(table.id, id))',
     '  const o = batchWriteOutcome(idList, rows)',
+    '  return reply.send(success({ id, deleted: true }))',
+  ]),
+  /** F1 收窄(2026-10-24)①:A 链带 .returning(、B 链裸写、ack 在 B 之后 ⇒ 证据不得跨调用,B 必红
+   *  (旧实现按"同函数体任一处 .returning("放行,这一格是静默失真)。 */
+  b1ReturningWrongChain: h([
+    '  const rows = await db.delete(a).where(eq(a.id, id)).returning({ id: a.id })',
+    '  await db.delete(b).where(eq(b.id, id2))',
+    '  return reply.send(success({ id, deleted: true }))',
+  ]),
+  /** F1 收窄②:A 裸写、最后一条 B 带 .returning( ⇒ 被审的是 B,真证据链仍放过。 */
+  b1ReturningOwnChainLast: h([
+    '  await db.delete(a).where(eq(a.id, id))',
+    '  const rows = await db.delete(b).where(eq(b.id, id2)).returning({ id: b.id })',
+    '  return reply.send(success({ deleted: true }))',
+  ]),
+  /** F1 收窄③:唯一出口喂的是 A 链的结果、B 链裸写 ⇒ B 不被 A 的出口证据放行,必红。 */
+  b1OutletWrongChain: h([
+    '  const rows = await db.delete(a).where(eq(a.id, id))',
+    '  const o = batchWriteOutcome(idList, rows)',
+    '  await db.delete(b).where(eq(b.id, id2))',
+    '  return reply.send(success({ deleted: true }))',
+  ]),
+  /** F1 收窄④:上一条语句的结果名不得被错绑到本链(省分号代码里 `const cached = …` 与下一行写链之间
+   *  没有 `;`)。出口实参是 cached、不是这条 delete 的结果 ⇒ 证据不成立,必红(旧绑定判法会放过)。 */
+  b1OutletStaleBinding: h([
+    '  const cached = await cache.get(key)',
+    '  await db.delete(table).where(eq(table.id, id))',
+    '  const o = batchWriteOutcome(idList, cached)',
     '  return reply.send(success({ id, deleted: true }))',
   ]),
   /** F1 的反面:.returning( 只活在注释里 ⇒ 不配放过(判据跑在遮蔽后的代码面上)。 */
@@ -4199,6 +4315,16 @@ function selfTest(argv) {
     return [r.candidates.length, r.violations.length, r.exempt]
   }
   eq('P1 自算 count ⇒ 候选 1 违规 1', st(FIX.selfCount), [1, 1, 0])
+  eq(
+    'P1c F1 收窄(a):A 链的 .returning( 不再替裸写的 B 链的 .length 发合格证 ⇒ B 必红(旧实现放过)',
+    st(FIX.countReturningWrongChain),
+    [1, 1, 0],
+  )
+  eq(
+    'P1d F1 收窄(b):计数根来自被审链自己的 .returning( ⇒ 违规 0(真证据链仍放过)',
+    trip(FIX.countReturningOwnChain),
+    [1, 0, { returning: 1, db: 0, outlet: 0, marker: 0 }],
+  )
   eq('N1 链带 .returning( ⇒ 违规 0(库确认放过)', trip(FIX.returning), [
     1,
     0,
@@ -4365,8 +4491,33 @@ function selfTest(argv) {
     [1, 1, 0, 0, 0, 0],
   )
   eq('B1b update 链同判(set().where() 也是写)', b1(FIX.b1FalseAckTwice), [2, 2, 0, 0, 0, 0])
-  eq('B1p①a 体内 .returning( ⇒ 放过(库确认口径)', b1(FIX.b1ConfirmedReturning), [1, 0, 1, 0, 0, 0])
-  eq('B1p①b 体内 batchWriteOutcome( ⇒ 放过', b1(FIX.b1ConfirmedOutletCall), [1, 0, 1, 0, 0, 0])
+  eq('B1p①a 被审链自带 .returning( ⇒ 放过(库确认口径)', b1(FIX.b1ConfirmedReturning), [1, 0, 1, 0, 0, 0])
+  eq('B1p①b 被审链返回值喂给 batchWriteOutcome( ⇒ 放过', b1(FIX.b1ConfirmedOutletCall), [1, 0, 1, 0, 0, 0])
+  eq(
+    'B1p①c F1 收窄:A 链的 .returning( 不再替裸写的 B 链发合格证(旧实现同体放过,现必红)',
+    b1(FIX.b1ReturningWrongChain),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq(
+    'B1p①d F1 收窄:被审链(最后一条)自带 .returning( ⇒ 真证据链仍放过,同体另一条裸写不牵连',
+    b1(FIX.b1ReturningOwnChainLast),
+    [1, 0, 1, 0, 0, 0],
+  )
+  eq(
+    'B1p①d2 放过来自被审链自己的 .returning( 且可被问到(confirmWhy=chain-returning,不混进"没看见")',
+    v(FIX.b1ReturningOwnChainLast).b1.candidates[0]?.confirmWhy,
+    'chain-returning',
+  )
+  eq(
+    'B1p①e F1 收窄:出口证据只认喂给 batchWriteOutcome 的那条链;B 链裸写 ⇒ 必红',
+    b1(FIX.b1OutletWrongChain),
+    [1, 1, 0, 0, 0, 0],
+  )
+  eq(
+    'B1p①f F1 收窄:上一条语句的结果名不得被错绑到本链(省分号 ASI)⇒ 出口证据不成立,必红',
+    b1(FIX.b1OutletStaleBinding),
+    [1, 1, 0, 0, 0, 0],
+  )
   eq(
     'B1f① .returning( 只活在注释里 ⇒ 不放行(判据跑在遮蔽后的代码面上,反向锁)',
     b1(FIX.b1ReturningOnlyInComment),
