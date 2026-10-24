@@ -30,10 +30,6 @@ vi.mock('@ihui/api-client', () => ({
 }))
 
 // ChatDisclosure 静态引了 Linking(全局桩没导出)⇒ 这里在原型上补齐,不改他人桩。
-vi.mock('react-native', async (importOriginal) => {
-  const actual = await importOriginal()
-  return { ...(actual as object), Linking: { openURL: vi.fn(async () => true) } }
-})
 
 import {
   PermissionTierRow,

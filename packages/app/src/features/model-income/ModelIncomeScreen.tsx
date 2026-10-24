@@ -253,8 +253,10 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     withdrawBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
-    sumRow: { flexDirection: 'row', marginTop: 16 },
-    sumCol: { flex: 1 },
+    // 等分读数格:放不下就整格换行,绝不把 `123.45` 折成两行(docs/UI_GUIDELINES.md §13.4)。
+    // minWidth 按最坏读数「999999.99」(9 字符 @18px ≈ 89px)+ 格内余量取 96。
+    sumRow: { flexDirection: 'row', marginTop: 16, flexWrap: 'wrap' },
+    sumCol: { flex: 1, minWidth: 96 },
     sumSubLabel: { fontSize: 14, color: tk.text.secondary },
     sumSubAmount: {
       marginTop: 8,
@@ -264,12 +266,13 @@ function createStyles(tk: AppThemeTokens) {
     },
     sumFooter: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       marginTop: 14,
       padding: 10,
       borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.muted,
     },
-    sumFooterItem: { flex: 1 },
+    sumFooterItem: { flex: 1, minWidth: 96 },
     sumFooterLabel: { fontSize: 11, color: tk.text.secondary },
     sumFooterVal: {
       marginTop: 8,
