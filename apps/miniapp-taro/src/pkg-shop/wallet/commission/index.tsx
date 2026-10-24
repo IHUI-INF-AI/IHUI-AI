@@ -9,16 +9,19 @@ import { useState, useRef, useEffect } from 'react'
 import { getDistributionInfo, getCommissionRecords } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 // P2-F 接线:SectionHeader 切换为 Taro 适配层导出(props 契约与旧实现一致)
+import { formatDateByTemplate, formatPrice } from '@ihui/shared'
 import { SectionHeader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 interface CommissionRecord {
+  /** 佣金金额,单位=分(后端 commission_flows.amount 的口径) */
   id: string
   amount: number
-  type: string
-  time: string
-  nickname?: string
+  type: number
+  status: number
+  remark: string | null
+  createdAt: string
 }
 
 const PAGE_SIZE = 20
@@ -27,7 +30,7 @@ function sumToday(items: CommissionRecord[]): number {
   const today = new Date().toDateString()
   let sum = 0
   for (const r of items) {
-    const d = new Date(r.time)
+    const d = new Date(r.createdAt)
     if (!isNaN(d.getTime()) && d.toDateString() === today && r.amount > 0) {
       sum += r.amount
     }
@@ -114,15 +117,15 @@ export default function CommissionPage() {
           <View className="wc-summary-row">
             <View className="wc-summary-item">
               <Text className="wc-stat-label">{t('wallet.commission.today')}</Text>
-              <Text className="wc-stat-value">¥{todayCommission}</Text>
+              <Text className="wc-stat-value">¥{formatPrice(todayCommission)}</Text>
             </View>
             <View className="wc-summary-item">
               <Text className="wc-stat-label">{t('distribution.commission.total')}</Text>
-              <Text className="wc-stat-value">¥{totalCommission}</Text>
+              <Text className="wc-stat-value">¥{formatPrice(totalCommission)}</Text>
             </View>
             <View className="wc-summary-item">
               <Text className="wc-stat-label">{t('wallet.commission.available')}</Text>
-              <Text className="wc-stat-value">¥{available}</Text>
+              <Text className="wc-stat-value">¥{formatPrice(available)}</Text>
             </View>
           </View>
           <Button className="wc-withdraw-btn" onClick={goWithdraw}>
@@ -137,14 +140,14 @@ export default function CommissionPage() {
               {list.map((r) => (
                 <View key={r.id} className="wc-item">
                   <View className="wc-item-info">
-                    <Text className="wc-item-type">{r.type}</Text>
+                    <Text className="wc-item-type">{r.remark || ''}</Text>
                     <Text className="wc-item-time">
-                      {r.time}
-                      {r.nickname ? ` · ${r.nickname}` : ''}
+                      
+                      {formatDateByTemplate(r.createdAt)}
                     </Text>
                   </View>
                   <Text className={`wc-item-amount ${r.amount > 0 ? 'positive' : 'negative'}`}>
-                    {r.amount > 0 ? '+' : ''}¥{r.amount}
+                    {r.amount > 0 ? '+' : '-'}¥{formatPrice(Math.abs(r.amount))}
                   </Text>
                 </View>
               ))}
