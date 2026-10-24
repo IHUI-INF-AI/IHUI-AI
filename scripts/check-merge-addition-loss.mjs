@@ -63,6 +63,16 @@
  *   (不归因给这次位移)。`atRef` 上 blob 已离开基底 ⇒ 记 `repaired`(与 A1/A3 同口径)。
  *   取材仍走层的 `catBatchOids`(`blobMapAt`),不新增第二套 git 封装。
  *
+ * ── A6(2026-10-24 立,票 G-85:并发提交被合并吞掉的内容维)──────────────────────
+ *   G-85 现场那枚已推送的提交被并发合并整批吞掉,而 A1/A2 只看**路径成员性**:被吞的改动若发生在
+ *   **已存在的文件**上(路径仍在、blob 却退回共同基底,例如 PROJECT_PLAN.md 的已闭行被回捞成未闭),
+ *   两条判据结构上都是绿的。A5 只覆盖**引用位移**那一型,合并提交这一型仍是盲区。
+ *   **A6** 对每一父 p 与基底 B:`blob(P,p) ≠ blob(P,B)` ∧ `P ∈ M` ∧ `blob(P,M) == blob(P,B)`
+ *   ⇒ 该侧改动被这枚合并静默回退 ⇒ 判红;`atRef` 上 blob 已离开基底 ⇒ 记 `repaired`(与 A1/A5 同口径)。
+ *   `blob(P,M)` 与两端都不同 ⇒ 别人在该路径上继续演进过,不归因给这枚合并(不制造误伤)。
+ *   内容面取不到(`diff` 或 `catBatchOids` 失败)⇒ 该行 `contentUndetermined` 点名并 exit 2,
+ *   绝不把"没量到"折成 0(§12e/§0.3)。
+ *
  * 用法:
  *   node scripts/check-merge-addition-loss.mjs                 # 提交链口径:未进入 origin/main 的合并 + 当前分支最近 40 次引用位移(A3)
  *   node scripts/check-merge-addition-loss.mjs --staged        # runner 统一下发的档(如实记录,判据读同一份提交图)
@@ -153,10 +163,12 @@ export function basesOf(parents, cwd = ROOT) {
  *  atRef 已有 ⇒ 记 `repaired`(照常点名、不参与退出码),这样"补回了什么"在账面上仍是可见的,
  *  不会因为加了豁免就把一次真吞并洗成无声。
  *  atRef 取不到 ⇒ 退回"算 lost"并点名,绝不拿"量不到"冒绿(§0.3)。 */
-export function auditOne(rev, cwd = ROOT, atRef = 'HEAD') {
+export function auditOne(rev, cwd = ROOT, atRef = 'HEAD', deps = {}) {
+  const blobAt = deps.blobMapAt ?? blobMapAt
   const ps = parentsOf(rev, cwd)
-  if (ps.length < 2) return { rev, merge: false, bases: [], lost: [], repaired: [], atRefUndetermined: '' }
+  if (ps.length < 2) return { rev, merge: false, bases: [], lost: [], repaired: [], atRefUndetermined: '', contentUndetermined: '' }
   const bases = basesOf(ps, cwd)
+  const contentUndetermined = []
   const mine = treePaths(rev, cwd)
   let alive = null
   let atRefUndetermined = ''
@@ -189,7 +201,48 @@ export function auditOne(rev, cwd = ROOT, atRef = 'HEAD') {
     if (alive && alive.has(path)) repaired.push({ path, addedBy: p0, restoredAt: atRef, byAllParents: true })
     else lost.push({ path, addedBy: p0, byAllParents: true })
   }
-  return { rev, merge: true, bases, lost, repaired, atRefUndetermined }
+  // ── A6(见文件头):该侧改过、结果却恰好退回共同基底 ⇒ 并发提交的改动被这枚合并吞掉 ──
+  if (bases.length > 0) {
+    const b = bases[0]
+    for (const p of ps) {
+      let changed
+      try {
+        changed = git(['diff', '--name-only', '-z', `${b}..${p}`], cwd).split('\0').filter(Boolean)
+      } catch (e) {
+        contentUndetermined.push(`父 ${p.slice(0, 11)} 相对基底 ${b.slice(0, 11)} 的改动清单取不到(${String(e?.message ?? e).split('\n')[0].slice(0, 60)})`)
+        continue
+      }
+      if (changed.length === 0) continue
+      const onParent = blobAt(p, changed, cwd)
+      const onBase = blobAt(b, changed, cwd)
+      const onMerge = blobAt(rev, changed, cwd)
+      if (onParent.failed || onBase.failed || onMerge.failed) {
+        contentUndetermined.push(`合并 ${rev.slice(0, 11)} 与父 ${p.slice(0, 11)} 的内容面问不到(${changed.length} 条)`)
+        continue
+      }
+      if (onParent.skipped > 0) contentUndetermined.push(`合并 ${rev.slice(0, 11)} 有 ${onParent.skipped} 条路径含换行,无法作为 batch 规格`)
+      let onAt = null
+      if (alive) {
+        const view = blobAt(atRef, changed, cwd)
+        if (view.failed) {
+          if (!atRefUndetermined) atRefUndetermined = `${atRef} 树内容取不到 ⇒ 后手补回维不判,退回按合并结果判丢失`
+        } else onAt = view
+      }
+      for (const path of changed) {
+        if (seen.has(path)) continue
+        const pb = onParent.map.get(path)
+        const bb = onBase.map.get(path)
+        const mb = onMerge.map.get(path)
+        // 新增/删除由 A1/A2 判;这一侧没改、或结果既非基底(改动存活/别人演进过)⇒ 不归因给这枚合并
+        if (!pb || !bb || !mb || pb === bb || mb !== bb) continue
+        seen.add(path)
+        if (onAt && onAt.map.get(path) && onAt.map.get(path) !== bb)
+          repaired.push({ path, addedBy: p, restoredAt: atRef, contentReverted: true })
+        else lost.push({ path, addedBy: p, contentReverted: true })
+      }
+    }
+  }
+  return { rev, merge: true, bases, lost, repaired, atRefUndetermined, contentUndetermined: contentUndetermined.join('；') }
 }
 
 /** 从 startRef 往回找合并提交并逐枚审计 */
@@ -627,7 +680,8 @@ export function auditUnseen(limit = 400, cwd = ROOT, p = markerPath(cwd)) {
       continue
     }
     const r = auditOne(sha, cwd)
-    seen[sha] = r.lost.length
+    // 内容面取不到 ⇒ 不记账(下一轮重判)。记成 0 等于把"没量到"永久洗成"没有丢失"。
+    if (!r.contentUndetermined) seen[sha] = r.lost.length
     fresh.push(r)
   }
   try {
@@ -1013,6 +1067,66 @@ function selfTest() {
       healedA.repaired.some((x) => x.path === 'content-a.txt' && x.contentReverted === true) && !healedA.lost.some((x) => x.path === 'content-a.txt'),
       JSON.stringify({ lost: healedA.lost, repaired: healedA.repaired }),
     )
+
+    // ── A6(2026-10-24,G-85:并发提交被合并吞掉的内容维)──────────────────────
+    // 现场形态:并发提交改的是**已有文件**(路径仍在),并集落地把该文件拿回旧基线 ⇒ A1/A2 都判绿。
+    writeFileSync(join(dir, 'row.txt'), 'row: open\n', 'utf8')
+    run('add', 'row.txt')
+    run('commit', '-qm', 'A6 基底:row.txt=open')
+    const a6Base = run('rev-parse', 'HEAD').trim()
+    run('checkout', '-qb', 'a6-side')
+    writeFileSync(join(dir, 'a6-side.txt'), 'side\n', 'utf8')
+    run('add', 'a6-side.txt')
+    run('commit', '-qm', 'A6 对侧:只动另一个文件')
+    const a6Theirs = run('rev-parse', 'HEAD').trim()
+    run('checkout', '-q', 'main')
+    writeFileSync(join(dir, 'row.txt'), 'row: closed\n', 'utf8')
+    run('add', 'row.txt')
+    run('commit', '-qm', 'A6 本侧:并发闭行')
+    const a6Ours = run('rev-parse', 'HEAD').trim()
+    // 结果树 = 本侧树 + 对侧新增,唯独 row.txt 拿回基底那版(等价"拿旧基线当结果")
+    run('checkout', '-q', a6Theirs, '--', 'a6-side.txt')
+    run('checkout', '-q', a6Base, '--', 'row.txt')
+    run('add', 'a6-side.txt', 'row.txt')
+    const a6StaleTree = run('write-tree').trim()
+    const a6Merge = run('commit-tree', a6StaleTree, '-p', a6Ours, '-p', a6Theirs, '-m', 'merge(union): 内容拿旧基线').trim()
+    const a6 = auditOne(a6Merge, dir, a6Merge)
+    ok(
+      'A6:并发提交改过的内容被合并退回基底 ⇒ 必红并点名(A1/A2 只判路径成员性,这一型结构上全绿)',
+      a6.lost.some((x) => x.path === 'row.txt' && x.contentReverted === true) && a6.repaired.length === 0,
+      JSON.stringify(a6.lost),
+    )
+    ok('A6 反向对照:新增路径不归这一维(由 A1 判,不重复记账)', !a6.lost.some((x) => x.path === 'a6-side.txt'), JSON.stringify(a6.lost.map((x) => x.path)))
+    // 反向:正常三路合并保住并发改动 ⇒ 判绿
+    run('reset', '-q', '--hard', a6Ours)
+    run('merge', '-q', '--no-edit', 'a6-side')
+    const a6GoodMerge = run('rev-parse', 'HEAD').trim()
+    const a6g = auditOne(a6GoodMerge, dir, a6GoodMerge)
+    ok('A6 反向对照:正常三路合并保住并发改动 ⇒ 判绿', !a6g.lost.some((x) => x.contentReverted === true) && a6g.lost.length === 0, JSON.stringify(a6g.lost))
+    // 反向:结果内容与基底不同(对侧继续演进过)⇒ 不归因给这枚合并(§12e 不误伤)
+    run('checkout', '-q', 'a6-side')
+    writeFileSync(join(dir, 'row.txt'), 'row: evolved by side\n', 'utf8')
+    run('add', 'row.txt')
+    run('commit', '-qm', 'A6 对侧演进 row.txt')
+    const a6Theirs2 = run('rev-parse', 'HEAD').trim()
+    run('checkout', '-q', 'main')
+    run('checkout', '-q', a6Theirs2, '--', 'row.txt')
+    run('add', 'row.txt')
+    const a6EvolvedTree = run('write-tree').trim()
+    const a6EvolvedMerge = run('commit-tree', a6EvolvedTree, '-p', 'HEAD', '-p', a6Theirs2, '-m', 'merge: 取对侧演进版').trim()
+    const a6b = auditOne(a6EvolvedMerge, dir, a6EvolvedMerge)
+    ok('A6 反向对照:结果与基底不同(对侧继续演进过)⇒ 不得归因给这枚合并', !a6b.lost.some((x) => x.path === 'row.txt'), JSON.stringify(a6b.lost))
+    // 取不到面 ⇒ 未判定(exit 2),绝不把"没量到"折成 0
+    const a6u = auditOne(a6Merge, dir, a6Merge, { blobMapAt: () => ({ map: new Map(), failed: true, skipped: 0 }) })
+    ok(
+      'A6:内容面取不到 ⇒ 该行点名未判定(不冒绿)',
+      Boolean(a6u.contentUndetermined) && !a6u.lost.some((x) => x.contentReverted === true),
+      JSON.stringify(a6u.contentUndetermined),
+    )
+    ok(
+      'A6 未判定 ⇒ exit 2(丢失优先 1;两者皆无才 0)',
+      exitCodeFor({ lost: 0, undetermined: true }) === 2 && exitCodeFor({ lost: 0, undetermined: false }) === 0 && exitCodeFor({ lost: 1, undetermined: true }) === 1,
+    )
   } finally {
     treeCache.clear()
     rmScratch(dir)
@@ -1139,6 +1253,8 @@ async function main() {
   const nLost = bad.reduce((s, r) => s + r.lost.length, 0) + badMoves.reduce((s, r) => s + r.lost.length, 0)
   const nRepaired =
     rows.reduce((s, r) => s + ((r.repaired || []).length), 0) + moveRows.reduce((s, r) => s + ((r.repaired || []).length), 0)
+  // A6 的内容面取不到 ⇒ 未判定(不并进丢失数,也不折成 0):取数失败绝不冒"没有吞并"的绿。
+  const contentUndetermined = [...rows, ...moveRows].map((r) => r.contentUndetermined).filter(Boolean)
   console.log(
     `[merge-addition-loss] 口径=${scope} / 面=${face}(判据读提交图) / 审计合并 ${rows.length} 枚 / 吞并 ${bad.length} 枚 / 丢失路径或回退内容 ${nLost} / 已被后手补回 ${nRepaired}(照常点名,不计丢失) / 引用位移 ${moveAudit.judged} 次(判红 ${badMoves.length})${
       moveAudit.swept === undefined ? '' : ` / 位移游标扫描 ${moveAudit.swept} 对(游标 ${String(moveAudit.cursor || '').slice(0, 11)})`
@@ -1150,9 +1266,14 @@ async function main() {
   if (moveAudit.missing) console.log(`  ⚠️ 引用位移维有 ${moveAudit.missing} 次位移的对象已不在本仓(问不到,不记绿也不冒红)`)
   if (moveAudit.degraded) console.log(`  ⚠️ 位移游标档退化:${moveAudit.degraded}`)
   if (moveAudit.pending) console.log(`  ⚠️ 位移游标档本轮判 ${moveAudit.swept} 对,仍有 ${moveAudit.pending} 对新位移未判 ⇒ 下一轮从最旧那段继续(不静默丢弃)`)
+  for (const why of contentUndetermined) console.log(`  ❔ 未判定:${why}(内容回退维;不记绿,exit 2)`)
   for (const r of bad)
     for (const l of r.lost)
-      console.log(`  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 引入,合并提交 ${r.rev.slice(0, 11)} 的树里没有`)
+      console.log(
+        l.contentReverted
+          ? `  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 改动的内容在合并提交 ${r.rev.slice(0, 11)} 里静默退回共同基底(路径还在、blob 回到合并前;并发提交的改动被这枚合并吞掉)`
+          : `  ❌ ${l.path}  —— 由 ${l.addedBy.slice(0, 11)} 引入,合并提交 ${r.rev.slice(0, 11)} 的树里没有`,
+      )
   for (const r of badMoves)
     for (const l of r.lost)
       console.log(
@@ -1168,7 +1289,13 @@ async function main() {
         '  确要删除,请在合并之后单独 `git rm` 并写明理由(那时所有父提交都不含它,本判据放过)。',
     )
   if (hardUndetermined && !nLost) console.error(`❌ 未判定(exit 2):${hardUndetermined}`)
-  process.exit(nLost ? 1 : hardUndetermined ? 2 : 0)
+  if (contentUndetermined.length && !nLost) console.error(`❌ 未判定(exit 2):内容回退维有 ${contentUndetermined.length} 条取不到`)
+  process.exit(exitCodeFor({ lost: nLost, undetermined: Boolean(hardUndetermined) || contentUndetermined.length > 0 }))
+}
+
+/** 退出码归并(纯函数,构造面可证):丢失优先;其次"没判完"(未判定);两者都没有才是 0。 */
+export function exitCodeFor({ lost = 0, undetermined = false } = {}) {
+  return lost > 0 ? 1 : undetermined ? 2 : 0
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -1196,6 +1323,7 @@ export const __test__ = {
   commitExists,
   faceFromArgv,
   unknownFlags,
+  exitCodeFor,
   // A2/A3(2026-10-22,G-939):镜像测试只能用门的实现,不得另写一份判据
   isAncestor,
   presentIn,
