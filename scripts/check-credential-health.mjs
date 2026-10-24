@@ -53,6 +53,9 @@ import { redactAlertDetail, redactChildOutput } from './lib/secret-shape-redact.
 import { resolveKeyDir, firstExisting } from './lib/key-dir.mjs'
 // .env 解析复用现役实现(该脚本有 §22d isDirectRun 守卫,被 import 时不触发 CLI 副作用)
 import { parseEnvText } from './check-env-drift.mjs'
+// §0.6 单一真相源:PowerShell 解释器择一器复用 check-service-binary-paths 的出口(绝对路径、
+// 按当次存在性择一、不依赖 PATH / process.env.ProgramFiles),本文件不另造第二份候选表。
+import { pickPowerShell, PS_CANDIDATES } from './check-service-binary-paths.mjs'
 // 状态/心跳件的**原子替换**唯一出口(2026-09-29 立,台账 G-653)。裸 `writeFileSync` 覆盖写一个
 // 已存在的文件是"truncate → 再写"两步,而下一轮巡检读 `STATE` 判据恰好落得在这两步之间 ——
 // 本文件对"JSON 读不出"的既有处置是 `unreadable ⇒ 本轮按无记录寄一次`,于是**一次写盘竞态会被
@@ -103,12 +106,65 @@ export function readServiceEnv(service, key) {
   }
 }
 
-/** 服务是否装机(三态:true/false/null=探测本身不可用)。
- *  1060 = ERROR_SERVICE_DOES_NOT_EXIST,是唯一能断定"没有这个服务"的退出码;
- *  其余失败(sc.exe 被策略挡、路径异常)一律返回 null,不得当成"服务不存在"。 */
-export function serviceExists(name, scBin = 'C:/Windows/System32/sc.exe') {
+// ─────────────────────────────────────────────────────────────────────────────
+// 服务存在性探测的通道(2026-10-25 立,治"常跑守护链被安全策略杀进程")。
+//
+// **事故同族**:本函数原先直接 `execFileSync('sc.exe', ['query', name])`。本机装了程序黑名单
+// (台账实证:`reg.exe` / `schtasks.exe` / `sc.exe` 均在列,见 PROJECT_PLAN 编号纪元行注记),
+// spawn 黑名单程序的那一刻**安全策略杀掉的是整个 node 进程**(实测 RC=143 = 128+SIGTERM),
+// 不是抛异常 ⇒ try/catch 完全救不了。而 `IHUI credential-health` 计划任务每 6 小时跑一次
+// `--json`(git-guardian 的 watchdog kick 亦同)⇒ 那一整条凭据巡检腿**每轮静默消失**,
+// 现象是"心跳件不更新",而不是"门判红" —— 比判红严重一档。
+//
+// **修法是换通道,不是跳门**:服务存在性还有一条不 spawn sc.exe 的路 —— `Get-Service`。
+// 同一个 SCM、同一个结论,只是不碰那个被拦的可执行文件。三态契约**一字未改**:
+// true / false / null(探测本身不可用 ⇒ 不误判,由调用方落 `unknown`)。
+// sc.exe 通道不删除,但默认关闭,只在显式 `IHUI_ALLOW_SC_EXE=1` 时启用。
+// ─────────────────────────────────────────────────────────────────────────────
+const DEFAULT_SC_BIN = 'C:/Windows/System32/sc.exe'
+const ALLOW_SC_EXE = process.env.IHUI_ALLOW_SC_EXE === '1'
+
+/** §0.6 单一真相源:解释器候选复用 check-service-binary-paths 的出口,禁抄第二份(本机
+ *  `process.env.ProgramFiles` 为空 ⇒ 靠它拼路径会全部落空、通道静默退化成"未判定")。 */
+function psCandidates() {
+  const picked = pickPowerShell()
+  if (!picked) return []
+  return [picked.bin, ...PS_CANDIDATES.map((c) => c.bin).filter((b) => b !== picked.bin)]
+}
+
+/** PowerShell 通道问服务在不在。返回 '__PRESENT__' / '__ABSENT__' / ''(= 通道本身不可用)。 */
+function psServiceExists(name) {
+  const safe = String(name).replace(/'/g, "''")
+  // 脚本串必须用**换行** join:`].join(' ')` 会把 `try {` / `if …` 挤进同一行 ⇒ ParserError
+  // ⇒ 被空 catch 吞掉 ⇒ 本函数恒返回 ''。表面"已换通道",实际一次都没真读到(换壳没换血)。
+  const script = [
+    `try {`,
+    `  if (@(Get-Service -Name '${safe}' -ErrorAction SilentlyContinue).Count -gt 0) { '__PRESENT__' } else { '__ABSENT__' }`,
+    `} catch { '' }`,
+  ].join('\n')
+  for (const bin of psCandidates()) {
+    try {
+      const out = execFileSync(bin, ['-NoProfile', '-NonInteractive', '-Command', script], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 20000,
+        // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      const s = String(out || '').trim()
+      if (s === '__PRESENT__') return true
+      if (s === '__ABSENT__') return false
+    } catch {
+      /* 换下一个候选;全落空 ⇒ 返回 null(探测不可用,不误判) */
+    }
+  }
+  return null
+}
+
+/** sc.exe 兜底通道(默认关,见上方头注)。1060 = ERROR_SERVICE_DOES_NOT_EXIST。 */
+function scExeExists(name, scBin) {
   try {
-    execFileSync(scBin, ['query', name], {
+    execFileSync(scBin || DEFAULT_SC_BIN, ['query', name], {
       stdio: ['ignore', 'ignore', 'pipe'],
       windowsHide: true,
       timeout: 15000,
@@ -117,6 +173,18 @@ export function serviceExists(name, scBin = 'C:/Windows/System32/sc.exe') {
   } catch (e) {
     return e && e.status === 1060 ? false : null
   }
+}
+
+/** 服务是否装机(三态:true/false/null=探测本身不可用)。
+ *  1060 = ERROR_SERVICE_DOES_NOT_EXIST,是唯一能断定"没有这个服务"的退出码;
+ *  其余失败(sc.exe 被策略挡、路径异常)一律返回 null,不得当成"服务不存在"。
+ *  `scBin` 显式传入 ⇒ 离线注入口,测试要的就是"某个可执行文件不可用"这条分支本身,照原样直跑。 */
+export function serviceExists(name, scBin) {
+  if (scBin) return scExeExists(name, scBin)
+  const viaPs = psServiceExists(name)
+  if (viaPs !== null) return viaPs
+  if (!ALLOW_SC_EXE) return null
+  return scExeExists(name, DEFAULT_SC_BIN)
 }
 
 /** 告警标题的环境标签(§5e:开发机【开发环境】/ 生产机【生产环境】)。
