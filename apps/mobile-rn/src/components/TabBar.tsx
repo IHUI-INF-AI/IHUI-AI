@@ -25,6 +25,7 @@ import { TAB_BAR_FLOAT_GAP_BOTTOM_MIN, tabBarStyleSheet } from './TabBar.styles'
 // 的行级复活判据定责为本票红(它结构上分不出"有意重加"与"陈旧回写");为省 74KB 去绕一道
 // blocking 门不值当。要清这层,请在**下一次真正改动本文件的票**里顺带替换,别单独回退。
 import { TABBAR_ICON_DATA } from './tabbarIconData'
+import { useI18n } from '../i18n'
 
 // ── tabbar 图标(对齐 history static/tabbar/ 11 图标,语义与 customTabBar/index.vue 一致) ──
 // 原 5 Tab:AI应用商店(tabbar_1)/广场(tabbar_2)/智汇AI(tabbar_3)/动态(tabbar_4)/我的(tabbar_5)
@@ -53,37 +54,38 @@ const TABS: readonly TabBarItemConfig[] = [
   // 对齐原 customTabBar 5 主 Tab 顺序:AI应用商店/广场/智汇AI/动态/我的
   {
     key: 'aiShop',
-    label: 'AI应用商店',
+    label: 'tabBar.market',
     iconInactive: TABBAR_ICON_DATA.AI_SHOP_INACTIVE,
     iconActive: TABBAR_ICON_DATA.AI_SHOP_ACTIVE,
   },
   {
     key: 'plaza',
-    label: '广场',
+    label: 'tabBar.plaza',
     iconInactive: TABBAR_ICON_DATA.PLAZA_INACTIVE,
     iconActive: TABBAR_ICON_DATA.PLAZA_ACTIVE,
   },
   {
     key: 'home',
-    label: '智汇AI',
+    label: 'tabBar.chat',
     iconInactive: TABBAR_ICON_DATA.HOME_INACTIVE,
     iconActive: TABBAR_ICON_DATA.HOME_ACTIVE,
   },
   {
     key: 'news',
-    label: '动态',
+    label: 'tabBar.feed',
     iconInactive: TABBAR_ICON_DATA.NEWS_INACTIVE,
     iconActive: TABBAR_ICON_DATA.NEWS_ACTIVE,
   },
   {
     key: 'mine',
-    label: '我的',
+    label: 'tabBar.me',
     iconInactive: TABBAR_ICON_DATA.MINE_INACTIVE,
     iconActive: TABBAR_ICON_DATA.MINE_ACTIVE,
   },
 ] as const
 
 export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
+  const { t } = useI18n()
   const insets = useSafeAreaInsets()
 
   const handlePress = useCallback((key: TabBarKey) => () => onChange(key), [onChange])
@@ -104,7 +106,7 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
               key={tab.key}
               accessibilityRole="button"
               accessibilityState={{ selected: isActive }}
-              accessibilityLabel={tab.label}
+              accessibilityLabel={t(tab.label)}
               onPress={handlePress(tab.key)}
               style={tabBarStyleSheet.item}
             >
@@ -119,7 +121,7 @@ export default function TabBar({ activeTab, onChange, labels }: TabBarProps) {
                 ]}
                 numberOfLines={1}
               >
-                {labels?.[tab.key] ?? tab.label}
+                {labels?.[tab.key] ?? t(tab.label)}
               </Text>
             </Pressable>
           )

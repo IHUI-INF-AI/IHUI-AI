@@ -32,28 +32,30 @@ export function ChangePwdScreen() {
 
   const onSubmit = async () => {
     if (!oldPwd) {
-      appAlert('提示', '请输入旧密码')
+      appAlert(t('home.pubTip'), t('pwd.oldRequired'))
       return
     }
     if (newPwd.length < MIN_PWD_LEN) {
-      appAlert('提示', `新密码至少 ${MIN_PWD_LEN} 位`)
+      appAlert(t('home.pubTip'), t('pwd.minLen', { n: MIN_PWD_LEN }))
       return
     }
     if (newPwd !== confirmPwd) {
-      appAlert('提示', '两次输入的密码不一致')
+      appAlert(t('home.pubTip'), t('settings.pwdNotMatch'))
       return
     }
     setSubmitting(true)
     try {
       const res = await updatePassword({ oldPassword: oldPwd, newPassword: newPwd })
       if (res.success) {
-        appAlert('修改成功', '密码已更新', [{ text: '确定', onPress: () => navigation.goBack() }])
+        appAlert(t('pwd.okTitle'), t('pwd.okBody'), [
+          { text: t('common.confirm'), onPress: () => navigation.goBack() },
+        ])
       } else {
-        appAlert('修改失败', res.error || '请稍后重试')
+        appAlert(t('pwd.failRetry'), res.error || t('pwd.retryLater'))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      appAlert('修改失败', detail.trim() ? toUserFriendlyMessage(e) : '网络异常,请稍后重试')
+      appAlert('修改失败', detail.trim() ? toUserFriendlyMessage(e) : t('pwd.netFail'))
     } finally {
       setSubmitting(false)
     }

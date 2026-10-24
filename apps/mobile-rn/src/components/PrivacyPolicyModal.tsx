@@ -35,6 +35,7 @@ import { tokens } from '../theme/active-tokens'
 import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/privacyPolicy'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 export interface PrivacyPolicyModalProps {
   /** 是否显示弹窗 */
@@ -66,13 +67,14 @@ const BUTTON_FONT_SIZE = 15
 const BUTTON_GAP = 8
 
 export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps) {
+  const { t } = useI18n()
   const { height: windowHeight } = useWindowDimensions()
   // 固定卡片高度 = 屏幕 80%,内部 flexbox 明确分配,按钮必然可见
   const CARD_HEIGHT = Math.round(windowHeight * 0.8)
 
   const handleDisagree = () => {
     // 复刻 Uniapp preventClose:不允许关闭,RN 用 Alert 提示
-    appAlert('提示', '需同意隐私政策才能使用本应用', [{ text: '我知道了' }])
+    appAlert(t('home.pubTip'), t('privacy.mustAgree'), [{ text: t('common.gotIt') }])
   }
 
   const handleAgree = () => {
@@ -122,7 +124,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
               onPress={handleDisagree}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="不同意隐私政策"
+              accessibilityLabel={t('privacy.disagreeA11y')}
             >
               <Text style={styles.disagreeText}>不同意</Text>
             </TouchableOpacity>
@@ -131,7 +133,7 @@ export function PrivacyPolicyModal({ visible, onAgree }: PrivacyPolicyModalProps
               onPress={handleAgree}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="同意隐私政策"
+              accessibilityLabel={t('privacy.agreeA11y')}
             >
               <CornerDownLeft size={14} color={tokens.surface.light} strokeWidth={2.25} />
               <Text style={styles.agreeText}>同意并继续</Text>

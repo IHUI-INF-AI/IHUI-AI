@@ -27,6 +27,7 @@ import {
 } from 'react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 /** 单个 Agent 条目(与 AgentList 弹出选择列表共用契约) */
 export interface AgentShopItem {
@@ -95,6 +96,7 @@ function ShopRow({
   onItemLike?: (id: string) => void
   onItemCollect?: (id: string) => void
 }): React.JSX.Element {
+  const { t } = useI18n()
   const hasMeta =
     item.usageCount !== undefined || item.collectCount !== undefined || item.likeCount !== undefined
 
@@ -124,11 +126,13 @@ function ShopRow({
         ) : null}
         {hasMeta ? (
           <Text style={styles.meta} numberOfLines={1}>
-            {item.usageCount !== undefined ? `使用 ${item.usageCount}` : ''}
+            {item.usageCount !== undefined ? t('agentShop.use', { n: item.usageCount }) : ''}
             {item.usageCount !== undefined && item.collectCount !== undefined ? ' · ' : ''}
-            {item.collectCount !== undefined ? `收藏 ${item.collectCount}` : ''}
+            {item.collectCount !== undefined
+              ? t('agentShop.collect', { n: item.collectCount })
+              : ''}
             {item.collectCount !== undefined && item.likeCount !== undefined ? ' · ' : ''}
-            {item.likeCount !== undefined ? `点赞 ${item.likeCount}` : ''}
+            {item.likeCount !== undefined ? t('agentShop.like', { n: item.likeCount }) : ''}
           </Text>
         ) : null}
         {onItemLike || onItemCollect ? (
@@ -139,7 +143,7 @@ function ShopRow({
                 activeOpacity={0.6}
                 onPress={() => onItemLike(item.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name} 点赞`}
+                accessibilityLabel={t('agentShop.likeA11y', { name: item.name })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <ThumbsUp
@@ -160,7 +164,7 @@ function ShopRow({
                 activeOpacity={0.6}
                 onPress={() => onItemCollect(item.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name} 收藏`}
+                accessibilityLabel={t('agentShop.collectA11y', { name: item.name })}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Star
