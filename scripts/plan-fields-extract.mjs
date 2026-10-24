@@ -43,6 +43,7 @@ import {
   dispositionOf,
   dispositionOfV2,
   ownedElsewhereRe,
+  sidecarHeaderParts,
   waitingEnvRe,
   waitingEnvSlotRe,
 } from './lib/plan-task-index.mjs'
@@ -110,10 +111,14 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
   const bucket = dispositionOf(line)
   if (bucket === 'actionable') return null
   const face = dispositionFace(line)
+  // 含标头的遮码面:face 现在剥侧车标头(判定层不该读投影),而"这条键位只有标头一个证据"时
+  // owner 仍要从它取 —— 取法必须与判定分开,否则标头-only 行会被抽成空记录。
+  const fullFace = String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
   const rec = { key, waiting: 'none', updatedAt: nowIso, updatedBy: UPDATED_BY }
   if (bucket === 'owned-elsewhere') {
     // 命中若只存在于反引号里,那是转述别人的理由(G-1058610 病②),不是本行的归属表态
-    if (!ownedElsewhereRe().test(face)) return null
+    const headerOwner = sidecarHeaderParts(line)?.owner ?? ''
+    if (!ownedElsewhereRe().test(face) && !headerOwner) return null
     // **散文优先于标头**(2026-10-25 修):标头是投影,它的 owner 可能已被截断/带 `…`;
     // 而正文里的 `归属:` 句才是现读原文。先剥掉行首标头再取值,取不到才退回整行
     // (投影行把归属句换成标头时,标头是唯一证据)。
@@ -129,7 +134,7 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
     }
     if (!m) {
       src = line
-      m = OWNER_VALUE_RE.exec(face)
+      m = OWNER_VALUE_RE.exec(fullFace)
     }
     if (!m) return null
     // 同一起点改在原行上取第二遍:face 与 line 等长(反引号遮成等长空白),这样带反引号的路径名
