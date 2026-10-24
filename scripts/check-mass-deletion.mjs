@@ -27,11 +27,11 @@
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;不写死本机 Git 安装位)。
+import { resolveGitBin } from './lib/gitdir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const GIT =
-  process.env.IHUI_GIT_BIN ||
-  (process.platform === 'win32' ? 'C:\\Program Files\\Git\\cmd\\git.exe' : 'git')
+const GIT = process.env.IHUI_GIT_BIN || resolveGitBin() || 'git'
 const ABS_LIMIT = 1000
 const RATIO = 0.2
 
