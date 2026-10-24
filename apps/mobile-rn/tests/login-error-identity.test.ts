@@ -78,8 +78,12 @@ describe('LoginScreen:服务端失败分支逐站接唯一出口', () => {
     expect(source.slice(next, next + site.length)).toBe(site)
   })
 
-  it("六站之外不再残留任何 `res.error ?? 'auth.loginFailed'` 直塞(除刻意保留的 OAuth 站)", () => {
-    const raw = source.match(/form\.setError\((?:res|apiRes)\.error \?\? 'auth\.loginFailed'\)/g)
+  it("六站之外不再残留任何 `res.error ?? t('auth.loginFailed')` 直塞(除刻意保留的 OAuth 站)", () => {
+    // 形态随 token 化更新(2026-10-24):字面量 'auth.loginFailed' 已改 t('auth.loginFailed'),
+    // 判据不变 —— OAuth 站(applyOAuthResult 内)之外的直塞必须清零。
+    const raw = source.match(
+      /form\.setError\((?:res|apiRes)\.error \?\? t\('auth\.loginFailed'\)\)/g,
+    )
     expect(raw).toHaveLength(1)
     const oauthFn = source.indexOf('const applyOAuthResult')
     const at = source.indexOf(raw![0]!)

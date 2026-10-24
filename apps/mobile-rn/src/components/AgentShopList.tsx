@@ -196,6 +196,7 @@ export default function AgentShopList({
   onRefresh,
   scrollEnabled = true,
 }: AgentShopListProps): React.JSX.Element {
+  const { t } = useI18n()
   const emptyText = emptyTextProp ?? t('agentShop.catEmpty')
   const renderItem: ListRenderItem<AgentShopItem> = ({ item }) => (
     <ShopRow

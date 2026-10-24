@@ -52,7 +52,7 @@ export interface IntelligentAssistantProps {
 
 function formatTokenValue(
   value: number,
-  t: (k: string, v?: Record<string, unknown>) => string,
+  t: (k: string, v?: Record<string, string | number>) => string,
 ): string {
   if (!value || value <= 0) return '0'
   if (value >= 10000) return t('ranking.wanSuffix', { v: (value / 10000).toFixed(1) })

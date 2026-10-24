@@ -66,6 +66,7 @@ const CONTENT_PADDING_H = 20
 const CONTENT_PADDING_B = 16
 
 export function BottomPops({ visible, onClose, children, title, height }: BottomPopsProps) {
+  const { t } = useI18n()
   const insets = useSafeAreaInsets()
   const [rendered, setRendered] = useState(visible)
   const translateY = useRef(new Animated.Value(SHEET_HIDDEN_OFFSET)).current

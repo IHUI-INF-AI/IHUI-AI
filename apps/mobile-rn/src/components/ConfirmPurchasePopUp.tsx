@@ -35,7 +35,7 @@ import {
 } from 'react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
-
+import { useI18n } from '../i18n'
 export interface ConfirmPurchaseProduct {
   name: string
   price: number

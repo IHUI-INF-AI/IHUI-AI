@@ -89,7 +89,7 @@ export function EduParentScreen() {
           | 'EduChildMeals'
           | 'EduChildBills'
           | 'EduChildStudyPlans',
-      ) => navigation.navigate(screen as never, { childId: child.studentId } as never)
+      ) => navigation.navigate(screen, { childId: child.studentId })
       void appAlert(child.student?.nickname ?? child.studentId, t('eduParent.chooseView'), [
         { text: t('common.cancel'), style: 'cancel' },
         { text: t('eduSchedule.title'), onPress: () => nav('EduChildSchedule') },

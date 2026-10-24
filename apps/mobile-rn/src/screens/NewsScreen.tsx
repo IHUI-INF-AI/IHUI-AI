@@ -144,7 +144,9 @@ export default function NewsScreenWrapper() {
     try {
       const res = await listConversations({ page: 1, pageSize: 20 })
       if (res.success) {
-        const list: DrawerConversationItem[] = res.data.conversations.map(mapConversationToDrawer)
+        const list: DrawerConversationItem[] = res.data.conversations.map((c) =>
+          mapConversationToDrawer(c, t),
+        )
         setDrawerConversations(list)
       } else {
         setDrawerConversations([])
@@ -154,7 +156,7 @@ export default function NewsScreenWrapper() {
     } finally {
       setDrawerConversationsLoaded(true)
     }
-  }, [user])
+  }, [user, t])
 
   useEffect(() => {
     if (drawerVisible && !drawerConversationsLoaded && user) {
@@ -471,14 +473,18 @@ const styles = StyleSheet.create({
   } as ViewStyle,
 })
 
-/** ConversationDetail → DrawerConversationItem 映射(对齐 PlazaScreen/ProfileScreen 写法) */
-function mapConversationToDrawer(item: ConversationDetail): DrawerConversationItem {
+/** ConversationDetail → DrawerConversationItem 映射(对齐 PlazaScreen/ProfileScreen 写法)
+ *  tr 由调用方注入:模块顶层不调 t()(求值早于 I18nProvider 挂载,运行必炸) */
+function mapConversationToDrawer(
+  item: ConversationDetail,
+  tr: (key: string) => string,
+): DrawerConversationItem {
   const tsStr = item.lastMessageAt ?? item.updatedAt ?? item.createdAt
   const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
   const model = item.model ?? ''
   return {
     id: item.id,
-    title: item.title?.trim() || t('plaza.index.untitledConv'),
+    title: item.title?.trim() || tr('plaza.index.untitledConv'),
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: item.favorite === true,

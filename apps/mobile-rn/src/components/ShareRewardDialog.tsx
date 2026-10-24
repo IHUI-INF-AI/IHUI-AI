@@ -34,6 +34,7 @@ import type { TextStyle, ViewStyle } from 'react-native'
 import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg'
 import { Gift, Sparkles, UserPlus, X } from 'lucide-react-native'
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 import { tokens } from '../theme/active-tokens'
 
 // ── 尺寸常量(对齐 IntroducePopup 命名常量惯例) ──

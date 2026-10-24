@@ -106,6 +106,7 @@ interface CourseCardProps {
 }
 
 function CourseCard({ item, width, onPress }: CourseCardProps): React.JSX.Element {
+  const { t } = useI18n()
   const showFree = item.isFree
   const showVip = item.isVip
   const instructorInitial = firstChar(item.instructor).toUpperCase()
