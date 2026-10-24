@@ -783,7 +783,11 @@ test.describe('G-1162551 同一会话双窗格:流式 / 工具面板 / 滚动位
           return text.includes(filler(paneDelta(DELTA_COUNT)))
         },
         {
-          timeout: 30_000,
+          // 2026-10-24 真跑取证(8801):共享机高负载下三次 pumpPush 的 delta 间隔实测
+          // ~4.6–5.8s(SSE-DEBUG),末帧落到 DOM 又在末帧 ~30s 后才聚齐 —— 恰与 api-client
+          // 的 30s 空闲读超时重连同刻。30s poll 与这条重连赛跑,实测连续咬到 deadline;
+          // 判据不动,只把窗口放宽一倍(测试级 timeout 180s 仍兜底)。
+          timeout: 60_000,
           message: 'pane-1 末帧始终未落完(收束前)',
         },
       )
@@ -832,7 +836,8 @@ test.describe('G-1162551 同一会话双窗格:流式 / 工具面板 / 滚动位
           return text.includes(filler(rootDelta(DELTA_COUNT)))
         },
         {
-          timeout: 30_000,
+          // 同甲腿注记:30s 窗口与 api-client 的空闲读超时重连同刻,判据不动只放宽窗口。
+          timeout: 60_000,
           message: '根格末帧始终未落完(收束前)',
         },
       )

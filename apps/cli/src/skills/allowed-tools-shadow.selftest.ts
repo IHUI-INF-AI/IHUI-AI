@@ -20,6 +20,7 @@ import {
   SHADOW_LEDGER_MAX_ROWS_PER_PROCESS,
   SHADOW_SCHEMA_VERSION,
   aggregateShadowLedger,
+  augmentShadowSurfaceForSkill,
   declareShadowSurfaces,
   drainShadowAlerts,
   formatShadowReport,
@@ -184,6 +185,79 @@ const SELF_CASES: SelfCase[] = [
       const b = observeShadowToolCall({}, env);
       const c = observeShadowToolCall('run_command', env);
       return a.hits === 0 && b.hits === 0 && c.hits === 1 && fs.existsSync(path.join(dir, 'nested', 'j.jsonl'));
+    },
+  },
+  {
+    name: 'augment merges an explicit single-skill surface without wiping the auto surface or its counters (G-175)',
+    run: (dir) => {
+      const file = path.join(dir, 'k.jsonl');
+      const env = { [SHADOW_LEDGER_ENV]: file };
+      resetShadowAllowedTools();
+      declareShadowSurfaces([{ name: 'auto', allowed: ['read_file'] }], env);
+      observeShadowToolCall('read_file', env);
+      augmentShadowSurfaceForSkill({ name: 'explicit', allowed: ['run_command'] }, env);
+      const snap = snapshotShadowAllowedTools(env);
+      const hit = observeShadowToolCall('run_command', env);
+      const lines = fs.readFileSync(file, 'utf-8').trim().split('\n');
+      return (
+        snap.declaredSkills.join(',') === 'auto,explicit' &&
+        snap.observedCalls === 1 &&
+        hit.hits === 1 &&
+        lines.length === 3
+      );
+    },
+  },
+  {
+    name: 'augment is idempotent and survives a same-table prompt rebuild without extra rows or counter reset (G-175)',
+    run: (dir) => {
+      const file = path.join(dir, 'l.jsonl');
+      const env = { [SHADOW_LEDGER_ENV]: file };
+      resetShadowAllowedTools();
+      declareShadowSurfaces([{ name: 'auto', allowed: ['read_file'] }], env);
+      augmentShadowSurfaceForSkill({ name: 'explicit', allowed: ['run_command'] }, env);
+      augmentShadowSurfaceForSkill({ name: 'explicit', allowed: ['run_command'] }, env);
+      observeShadowToolCall('run_command', env);
+      declareShadowSurfaces([{ name: 'auto', allowed: ['read_file'] }], env);
+      const snap = snapshotShadowAllowedTools(env);
+      const lines = fs.readFileSync(file, 'utf-8').trim().split('\n');
+      return snap.declaredSkills.join(',') === 'auto,explicit' && snap.observedCalls === 1 && lines.length === 3;
+    },
+  },
+  {
+    name: 'hit rows alone are evidence; surface rows with declared sum 0 are not (G-175 verdict alignment)',
+    run: (dir) => {
+      const hitsOnly = path.join(dir, 'm1.jsonl');
+      fs.writeFileSync(hitsOnly, `${row({ kind: 'hit', ts: '2026-10-24T00:00:00.000Z', skill: 's', tool: 't' })}\n`, 'utf-8');
+      const aggHits = aggregateShadowLedger(readShadowLedger(hitsOnly), hitsOnly);
+      const blankSurface = path.join(dir, 'm2.jsonl');
+      fs.writeFileSync(
+        blankSurface,
+        `${row({ kind: 'surface', ts: '2026-10-24T00:00:00.000Z', declared: 0, silent: 0, undetermined: 1, invalid: 0, skills: [], skillsOmitted: 0 })}\n`,
+        'utf-8',
+      );
+      const aggBlank = aggregateShadowLedger(readShadowLedger(blankSurface), blankSurface);
+      return (
+        aggHits.insufficient === false &&
+        aggHits.rows.length === 1 &&
+        aggBlank.insufficient === true &&
+        (aggBlank.insufficientReason ?? '').includes('no whitelist was ever in effect')
+      );
+    },
+  },
+  {
+    name: 'sufficient evidence prints a conflict rate and a suggestion line (G-175)',
+    run: (dir) => {
+      const file = path.join(dir, 'n.jsonl');
+      fs.writeFileSync(
+        file,
+        [
+          row({ kind: 'surface', ts: '2026-10-24T00:00:00.000Z', declared: 1, silent: 0, undetermined: 0, invalid: 0, skills: ['s'], skillsOmitted: 0 }),
+          row({ kind: 'hit', ts: '2026-10-24T00:00:01.000Z', skill: 's', tool: 't' }),
+        ].join('\n') + '\n',
+        'utf-8',
+      );
+      const text = formatShadowReport(aggregateShadowLedger(readShadowLedger(file), file));
+      return text.includes('conflict rate: 1/2 ledger line(s) = 50.0%') && text.includes('suggestion:');
     },
   },
 ];

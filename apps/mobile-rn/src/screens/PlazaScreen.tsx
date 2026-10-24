@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: tokens.gray.black,
   } as TextStyle,
-  // 需求赛道筛选弹层样式(圆角守门:仅 8/12)
+  // 通用弹层遮罩(身份切换 / 开发者须知共用;赛道筛选已迁统一 CategoryDropdown)
   categoryMask: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

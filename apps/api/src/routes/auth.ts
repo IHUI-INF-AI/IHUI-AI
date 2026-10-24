@@ -48,6 +48,7 @@ import {
   CODE_RESEND_INTERVAL_MS,
   generateCode,
   verifyCode,
+  type CodeEntry,
 } from '../utils/code-store.js'
 import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/totp-service.js'
 // G-192:验证码回显收敛闸 + 按「标识 + IP」的发送频控(详见 utils/code-echo-guard.ts)
@@ -57,7 +58,8 @@ import {
   sendCodePreSerialization,
 } from '../utils/code-echo-guard.js'
 import { deliverSmsCode, smsCodeTtlMs, isSmsConfigured } from '../services/sms.js'
-import { config } from '../config/index.js'
+import type { SmsScene } from '../services/sms-types.js'
+import { ErrorCode } from '../errors/codes.js'
 import { sendVerificationEmail } from '../services/email-service.js'
 import {
   evaluateLoginRisk,
@@ -94,13 +96,20 @@ export function normalizeDeviceFingerprint(raw: unknown): string | undefined {
 const registerSchema = z.object({
   phone: z.string().length(11, '手机号必须为 11 位'),
   password: z.string().min(8, '密码至少 8 位').max(72, '密码最多 72 位'),
-  // G-876:带上 code 就必须是 6 位数字(schema 档);是否必填由通道配置档决定(见 handler)。
-  code: z
-    .string()
-    .regex(/^\d{6}$/, '验证码必须为 6 位')
-    .optional(),
+  // G-876:手机号真实性核验 —— code 必填(不许匿名占号),且必须是 register 场景发出的那枚。
+  code: z.string({ error: '请填写短信验证码' }).regex(/^\d{6}$/, '验证码必须为 6 位'),
   invitationCode: z.string().optional(),
 })
+
+/** G-876:注册失败体带稳定 errorCode(落进 errors/codes.ts 既有枚举),客户端按码分型而非文本匹配。 */
+const registerErrorResponseSchema = {
+  type: 'object',
+  properties: {
+    code: { type: 'number' },
+    message: { type: 'string' },
+    errorCode: { type: 'string' },
+  },
+} as const
 import { buildResponseSchema } from '../utils/api-schemas.js'
 
 const loginSchema = z.object({
@@ -410,7 +419,16 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 有效期按场景取 —— 必须等于该场景模板文案里对用户的承诺
       const ttlMs = smsCodeTtlMs(parsed.data.scene)
       const code = generateCode()
-      await putCodeEntry(phone, { code, expiresAt: now + ttlMs, sentAt: now })
+      // G-876:把「用途场景」随码一起落库,注册路径据此只认 register 场景发出的码。
+      // CodeEntry 本身不带 scene(utils/code-store 不在本票改动面),这里以扩展字段写入;
+      // Redis 存的是整条 JSON,读取端按扩展字段判定即可。
+      const entry: CodeEntry & { scene: SmsScene } = {
+        code,
+        expiresAt: now + ttlMs,
+        sentAt: now,
+        scene: parsed.data.scene,
+      }
+      await putCodeEntry(phone, entry)
 
       // 2026-10-22 根治:这里过去只写一行"验证码已生成"的日志,从不投递 ——
       // 响应却回"已发送",于是用户永远在等那条根本不会来的短信。现在真发,且发不出去就如实报错。
@@ -497,19 +515,27 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: {
         summary: '用户注册',
-        description: '手机号 + 密码注册,可选邀请码',
+        description: '手机号 + 短信验证码 + 密码注册,可选邀请码',
         tags: ['auth'],
         body: {
           type: 'object',
+          // 注:code 的「必填」由下面的 registerSchema(zod)判,不挂到 Fastify 原生 required ——
+          // Fastify 的校验错误体是 {statusCode,error,message:string code},与本路由 400 信封
+          // (code 为 number)不同形,交给序列化会变成 500 FST_ERR_FAILED_ERROR_SERIALIZATION。
           required: ['phone', 'password'],
           properties: {
             phone: { type: 'string', description: '手机号(11 位)' },
             password: { type: 'string', description: '密码(>=6 位,<=72 位)' },
-            code: { type: 'string', description: '验证码(可选)' },
+            code: { type: 'string', description: '短信验证码(6 位,必填;由 zod 判)' },
             invitationCode: { type: 'string', description: '邀请码(可选)' },
           },
         },
-        response: buildResponseSchema(400, 409),
+        response: {
+          ...buildResponseSchema(400, 403, 409),
+          400: registerErrorResponseSchema,
+          409: registerErrorResponseSchema,
+          503: registerErrorResponseSchema,
+        } as Record<number | string, unknown>,
       },
       config: {
         // 2026-08-02 安全加固:注册端点收紧到 3 次/小时,防机器人批量刷号。
@@ -519,38 +545,52 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const parsed = registerSchema.safeParse(request.body)
       if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+        return reply.status(400).send({
+          ...error(400, parsed.error.issues[0]?.message ?? '参数错误'),
+          errorCode: ErrorCode.VALIDATION_FAILED.code,
+        })
       }
       const { phone, password, code } = parsed.data
 
-      // G-876(2026-10-23):手机号真实性核验。
-      //  - 短信通道已配置(isSmsConfigured 生产出口判据,§22c 不在测试复制):code 必填且必须
-      //    先过 code-store verifyCode(一次性消费),未验过不落库;
-      //  - 通道未配置:code 可选(改必填会当场关死注册),但带上就必须验真(防绕过);
+      // G-876(2026-10-24):手机号真实性核验。
+      //  - 短信通道未配置 ⇒ 按同族既有「未配置态」契约 503 响亮失败(fail-closed),
+      //    绝不静默放行无码注册(票面 §5「未验过不落库」);
+      //  - 码必须一次性消费且限定 register 用途:非 register 场景发出的码不得拿来注册;
       //  - 校验先于 409 查询:未验码者不得借 409 文案枚举号码归属。
-      // fail-soft 开关(config.AUTH_REGISTER_CODE_FAIL_SOFT,默认关):开启时核验不过仅告警放行,
-      // 供通道切换/客户端灰度期的回退窗口;关闭即 fail-hard(400 拒)。
-      const smsConfigured = isSmsConfigured()
-      const codeFailSoft = config.AUTH_REGISTER_CODE_FAIL_SOFT === true
-      if (!code && smsConfigured) {
-        if (!codeFailSoft) {
-          return reply.status(400).send(error(400, '请填写短信验证码'))
-        }
-        request.log.warn({ ip: request.ip }, 'G-876 注册缺验证码(fail-soft 放行)')
-      } else if (code) {
-        const codeOk = await verifyCode(phone, code)
-        if (!codeOk) {
-          if (!codeFailSoft) {
-            return reply.status(400).send(error(400, '验证码错误或已过期'))
-          }
-          request.log.warn({ ip: request.ip }, 'G-876 注册验证码核验未通过(fail-soft 放行)')
-        }
+      if (!isSmsConfigured()) {
+        return reply.status(503).send({
+          ...error(
+            503,
+            '短信通道未配置:缺 ALI_SMS_* / TENCENT_SMS_* / SMS_API_BASE_URL ⇒ 注册当前不可用',
+          ),
+          errorCode: ErrorCode.CAPABILITY_UNAVAILABLE.code,
+        })
+      }
+
+      const entry = await getCodeEntry(phone)
+      // 用途锁:有未过期码但场景不是 register ⇒ 拒(不消费,不影响该码在原场景使用)
+      if (entry && (entry as CodeEntry & { scene?: SmsScene }).scene !== 'register') {
+        return reply.status(400).send({
+          ...error(400, '验证码错误或已过期'),
+          errorCode: ErrorCode.VALIDATION_FAILED.code,
+        })
+      }
+
+      // 一次性 + 过期:verifyCode 在 Redis 用原子脚本比对并删除,内存兜底同一判据
+      if (!(await verifyCode(phone, code))) {
+        return reply.status(400).send({
+          ...error(400, '验证码错误或已过期'),
+          errorCode: ErrorCode.VALIDATION_FAILED.code,
+        })
       }
 
       // 检查手机号是否已注册
       const existing = await findUserByPhone(phone)
       if (existing) {
-        return reply.status(409).send(error(409, '该手机号已注册'))
+        return reply.status(409).send({
+          ...error(409, '该手机号已注册'),
+          errorCode: ErrorCode.CONFLICT.code,
+        })
       }
 
       // P0 资金安全修复(2026-09-06):注册接入风控,注入 IP/设备指纹 +
@@ -1578,7 +1618,16 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
       const ttlMs = smsCodeTtlMs(parsed.data.scene)
       const code = generateCode()
-      await putCodeEntry(phone, { code, expiresAt: now + ttlMs, sentAt: now })
+      // G-876:把「用途场景」随码一起落库,注册路径据此只认 register 场景发出的码。
+      // CodeEntry 本身不带 scene(utils/code-store 不在本票改动面),这里以扩展字段写入;
+      // Redis 存的是整条 JSON,读取端按扩展字段判定即可。
+      const entry: CodeEntry & { scene: SmsScene } = {
+        code,
+        expiresAt: now + ttlMs,
+        sentAt: now,
+        scene: parsed.data.scene,
+      }
+      await putCodeEntry(phone, entry)
       // 与 /send-code 同口径:真投递,失败如实报错(这支是小程序登录实际在打的端点)
       const delivery = await deliverSmsCode(phone, code, parsed.data.scene)
       if (!delivery.sent) {

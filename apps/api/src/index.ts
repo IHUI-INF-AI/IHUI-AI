@@ -45,10 +45,6 @@ import {
   startLiteLLMPriceSyncScheduler,
   stopLiteLLMPriceSyncScheduler,
 } from './services/litellm-price-sync.js'
-import {
-  startRelayModelSyncScheduler,
-  stopRelayModelSyncScheduler,
-} from './services/relay-model-sync.js'
 // 中继出网代理分流(被墙 host 走本地代理,其余直连;未配置 RELAY_PROXY_URL 时 no-op)
 import { installRelayOutboundProxy } from './services/relay-outbound-proxy.js'
 import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
@@ -200,7 +196,6 @@ async function start() {
       syncStopPhase('stopTrendingScheduler', stopTrendingScheduler),
       syncStopPhase('stopSourceProbeScheduler', stopSourceProbeScheduler),
       syncStopPhase('stopLiteLLMPriceSyncScheduler', stopLiteLLMPriceSyncScheduler),
-      syncStopPhase('stopRelayModelSyncScheduler', stopRelayModelSyncScheduler),
       syncStopPhase('stopHotWordsScheduler', stopHotWordsScheduler),
       syncStopPhase('stopPiiRetentionScheduler', stopPiiRetentionScheduler),
       syncStopPhase('stopAuditEvidenceRetentionScheduler', stopAuditEvidenceRetentionScheduler),
@@ -324,12 +319,6 @@ async function start() {
   // EDGE_PROBE_INTERVAL_MS 覆盖节奏,ENABLE_EDGE_ACCESS_PROBE=false 禁用,2026-10-19 立)
   if (process.env.ENABLE_EDGE_ACCESS_PROBE !== 'false') {
     startEdgeAccessProbe()
-  }
-
-  // 启动中转站上游模型自动同步(启动 30s 后首跑,之后每 6h 一次,
-  // 默认开启,RELAY_MODEL_SYNC_ENABLED=false 禁用,2026-10-09 立)
-  if (process.env.RELAY_MODEL_SYNC_ENABLED !== 'false') {
-    startRelayModelSyncScheduler()
   }
 
   // 启动异步图片任务 worker(每 30 秒扫描 pending,2026-09-17 立)

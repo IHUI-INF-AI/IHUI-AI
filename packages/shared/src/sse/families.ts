@@ -119,6 +119,9 @@ export const SSE_FAMILY_CROSS_REFERENCES: {
   goal_updated: null,
   // G-815976(2026-10-04):流式中断标记帧是对话流独有(agent 任务流无同义帧),如实标 null
   partial_done: null,
+  // D115(2026-10-23,G-229):review 模式结构化 finding 帧同样只在对话流上有
+  // (agent 任务流不产审查结论),如实标 null —— 不编一个看起来像的对应物充数
+  'review-finding': null,
 }
 // 2026-10-05 更正:上面这行曾被 `d81011c4ec` 删掉,理由是"SSE_EVENTS.PARTIAL_DONE 已从
 // contract.ts 移除 ⇒ SSEEventName 联合里不再有它"。**该前提在当次面上不成立**:

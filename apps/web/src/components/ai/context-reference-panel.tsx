@@ -18,6 +18,7 @@ import {
   Loader2,
   TriangleAlert,
   RotateCw,
+  Pencil,
 } from 'lucide-react'
 
 import { Button } from '@ihui/ui-react'
@@ -30,6 +31,8 @@ interface ContextReferencePanelProps {
   onRemove?: (id: string) => void
   /** b75-5#1:失败附件重试回调 */
   onRetry?: (id: string) => void
+  /** D124:打开位图标注编辑器(仅图片附件;标注结果由宿主回填为发送附件) */
+  onAnnotate?: (id: string) => void
 }
 
 const TYPE_META: Record<
@@ -47,6 +50,7 @@ export function ContextReferencePanel({
   references,
   onRemove,
   onRetry,
+  onAnnotate,
 }: ContextReferencePanelProps) {
   const t = useTranslations('chat')
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
@@ -165,6 +169,22 @@ export function ContextReferencePanel({
                         isOpen && 'rotate-180',
                       )}
                     />
+                  )}
+                  {/* D124:图片附件在发送前可进位图标注编辑器(圈选框/箭头/画笔/文字),
+                      结果由宿主回填为新的图片附件,复用既有上传通道 */}
+                  {onAnnotate && ref.type === 'image' && ref.thumbnail && (
+                    <Tooltip content={t('contextUsage.annotateImage')}>
+                      <Button
+                        variant="ghost"
+                        size="icon-2xs"
+                        className="text-muted-foreground hover:text-primary"
+                        onClick={() => onAnnotate(ref.id)}
+                        aria-label={t('contextUsage.annotateImage')}
+                        data-testid={`annotate-image-${ref.id}`}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </Tooltip>
                   )}
                   {onRemove && (
                     <Button

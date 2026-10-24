@@ -37,6 +37,8 @@ export interface ContextChipsRowProps {
   onRemoveReference: (id: string) => void
   /** b75-5#1:失败附件重试(走同一上传端点) */
   onRetryReference?: (id: string) => void
+  /** D124:图片附件打开位图标注编辑器(宿主在发送前回填标注结果) */
+  onAnnotateReference?: (id: string) => void
   /** 已选 MCP 工具 chips */
   tools: SelectedToolItem[]
   onRemoveTool: (id: string) => void
@@ -67,6 +69,7 @@ export function ContextChipsRow({
   references,
   onRemoveReference,
   onRetryReference,
+  onAnnotateReference,
   tools,
   onRemoveTool,
   quoted,
@@ -98,6 +101,7 @@ export function ContextChipsRow({
           references={references}
           onRemove={onRemoveReference}
           onRetry={onRetryReference}
+          onAnnotate={onAnnotateReference}
         />
       )}
       {/* 已选工具卡(重形态保留) */}
