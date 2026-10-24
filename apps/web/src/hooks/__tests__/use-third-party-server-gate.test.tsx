@@ -25,6 +25,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, renderHook, waitFor } from '@testing-library/react'
 
 const statusRef = { current: null as Record<string, boolean> | null | 'FAIL' }
+const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }))
 
 vi.mock('@/lib/api', () => ({
   fetchApi: vi.fn(async (url: string) => {
@@ -52,7 +53,13 @@ vi.mock('@/lib/third-party-config', () => ({
 }))
 
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: { error: vi.fn(), success: vi.fn() } }),
+  useToast: () => ({
+    toast: { error: toastError, success: vi.fn() },
+    error: toastError,
+    success: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+  }),
 }))
 
 async function loadHook() {
@@ -96,6 +103,42 @@ describe('第三方按钮 enabled = 本地开关 ∧ 服务器答复', () => {
     const { result } = await loadHook()
     await waitFor(() => expect(result.current.isPlatformEnabled('github')).toBe(false))
     expect(result.current.isPlatformEnabled('oidc')).toBe(true)
+  })
+
+  it('未配置且无 proxyPath ⇒ 不导航,明确报未配置(G-962:不再跳不存在的 /api/auth/<platform>)', async () => {
+    statusRef.current = { github: true }
+    const hrefSetter = vi.fn()
+    const originalLocation = window.location
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      writable: true,
+      value: {
+        ...originalLocation,
+        get href() {
+          return ''
+        },
+        set href(v: string) {
+          hrefSetter(v)
+        },
+      },
+    })
+    try {
+      const { result } = await loadHook()
+      await waitFor(() => expect(result.current.isPlatformEnabled('github')).toBe(true))
+      const ok = await result.current.startLogin('github')
+      expect(ok).toBe(false)
+      expect(hrefSetter).not.toHaveBeenCalled()
+      expect(toastError).toHaveBeenCalledWith(
+        expect.stringContaining('GitHub'),
+        expect.stringContaining('未配置'),
+      )
+    } finally {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        writable: true,
+        value: originalLocation,
+      })
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
