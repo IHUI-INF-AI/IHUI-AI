@@ -17,6 +17,15 @@ import { create } from 'zustand'
 
 import { BUSINESS_FORM_KINDS, type BusinessFormKind } from '@ihui/shared/chat/business-forms'
 
+/**
+ * D77 收口格(2026-10-23):表单应答的**持久裁决态**,来自 ai-service 读口
+ * `GET /llm/complete/stream/{session_id}/form-response?request_id=…` 的回显。
+ * 与 `status`(本地回传通道成败)是两个正交事实:status 说"应答发出去了没有",
+ * responseState 说"库里到底存了哪一条裁决"。undefined = 还没查到/查询失败
+ * (fail-soft 下卡片保持可填,绝不假造终态)。
+ */
+export type FormResponseStatus = 'pending' | 'approved' | 'rejected'
+
 /** 一条待应答/已应答的表单请求(message 级) */
 export interface BusinessFormEntry {
   /** 应答锚点,原样回给 form_response */
@@ -34,6 +43,8 @@ export interface BusinessFormEntry {
   status: 'pending' | 'sent' | 'failed'
   /** 失败原因(界面不直出后端文本,仅留痕供诊断) */
   error?: string
+  /** 读口回显的持久裁决态(见 FormResponseStatus);undefined=未查到/查询失败 */
+  responseState?: FormResponseStatus
 }
 
 interface BusinessFormState {
@@ -41,6 +52,8 @@ interface BusinessFormState {
   byMessage: Record<string, BusinessFormEntry[]>
   appendFormRequest: (entry: BusinessFormEntry) => void
   markFormResponse: (requestId: string, status: 'sent' | 'failed', error?: string) => void
+  /** 写读口回显的持久裁决态(D77 收口格:刷新/重进会话后卡片据此显终态) */
+  setFormResponseState: (requestId: string, state: FormResponseStatus) => void
   /**
    * 回收"本窗格本会话刚离开的那批消息"上的表单。
    *
@@ -78,6 +91,17 @@ export const useBusinessFormStore = create<BusinessFormState>((set) => ({
       for (const [messageId, list] of Object.entries(state.byMessage)) {
         byMessage[messageId] = list.map((e) =>
           e.requestId === requestId ? { ...e, status, ...(error ? { error } : {}) } : e,
+        )
+      }
+      return { byMessage }
+    }),
+
+  setFormResponseState: (requestId, responseState) =>
+    set((state) => {
+      const byMessage: Record<string, BusinessFormEntry[]> = {}
+      for (const [messageId, list] of Object.entries(state.byMessage)) {
+        byMessage[messageId] = list.map((e) =>
+          e.requestId === requestId ? { ...e, responseState } : e,
         )
       }
       return { byMessage }

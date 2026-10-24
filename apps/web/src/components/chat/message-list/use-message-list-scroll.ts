@@ -39,15 +39,21 @@ import {
   type RestoreGrace,
   type ScrollSessionState,
 } from './scroll-session-restore'
+// G-828 代裁(2026-10-23):窗口化挂载的纯判据统一接回 ../windowing —— 2026-10-04 立该模块时
+// 只接了 windowPaddings 半条腿,本文件仍留着手写二分(无挂载上限、无脏测量防护)与"数组首行"
+// 锚点(窗口化下该行大概率未挂载 ⇒ 前插补偿链断裂)。判据单一真相源自此在本文件不再第二份。
+import {
+  WINDOW_THRESHOLD,
+  buildOffsets,
+  historyAnchorCandidates,
+  resolveVisibleWindow,
+  shouldWindow,
+} from '../windowing'
 
-// #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染
-// - ESTIMATED_ITEM_HEIGHT:消息平均高度估计值,用于初始 padding 计算
-// - VIRTUAL_THRESHOLD:超过此条数启用虚拟滚动(60 条以下全量渲染,保留流畅性)
-// - BUFFER:上下各多渲染的缓冲条数,减少快速滚动时的白屏
+// #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染。
+// G-828 代裁(2026-10-23):估计高/阈值/缓冲三个数值搬入 ../windowing(同值:
+// ESTIMATED_ITEM_HEIGHT=160 / WINDOW_THRESHOLD=60 / WINDOW_BUFFER_ITEMS=6),本文件不再重复定义。
 // - heightMap:ResizeObserver 测量的真实高度映射,滚动时用真实累积高度精确定位
-const ESTIMATED_ITEM_HEIGHT = 160
-const VIRTUAL_THRESHOLD = 60
-const BUFFER = 6
 // 2026-09-27 改:补页触发不再写死 60px —— 见 scroll-authority.historyPrefetchTriggerPx
 // (按视口高推两屏,网络与渲染应在用户抵达窗口边界前完成;60px 那一档用户必然先撞到边界)
 
@@ -156,7 +162,10 @@ export function useMessageListScroll({
   const partialDiffLength = lastPartialDiffLength(messages)
 
   // #7 虚拟滚动状态
-  const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
+  const [visibleRange, setVisibleRange] = React.useState({ start: 0, end: WINDOW_THRESHOLD - 1 })
+  // G-828 代裁:区间镜像 ref。handleScroll 是高频回调,visibleRange state 不得进它的 deps
+  // (区间每帧都在动,进了就是整回调每帧重建);锚点候选取值读这份镜像。
+  const visibleRangeRef = React.useRef(visibleRange)
   // heightMap:messageId → 真实高度(px)。ResizeObserver 持续更新,用于精确计算累积 offset
   const heightMapRef = React.useRef<Map<string, number>>(new Map())
   // 2026-09-27 改:卸载不再删测量值(删了重挂就回落 ESTIMATED_ITEM_HEIGHT 重测 ⇒ 滚动条逐帧跳),
@@ -357,7 +366,7 @@ export function useMessageListScroll({
     timer: null,
   })
 
-  const enableVirtual = messages.length > VIRTUAL_THRESHOLD
+  const enableVirtual = shouldWindow(messages.length)
 
   // P1-3 修复(2026-07-28):缓存 offsets/total,仅在 messages.length 或 heightMap 版本变化时重算,
   // 避免每次 scroll 都 O(n) 全量计算(虚拟滚动下 handleScroll 高频触发)。
@@ -378,16 +387,13 @@ export function useMessageListScroll({
     ) {
       return { offsets: offsetsCacheRef.current, total: totalCacheRef.current }
     }
+    // G-828 代裁:改走 windowing.buildOffsets —— 脏测量(NaN/Infinity)按**单行**回落估计高、
+    // 负高钳 0;旧写法 `+= map.get(id) ?? ESTIMATED` 遇脏值会把整条 offset 链 NaN 化。
     const map = heightMapRef.current
-    let total = 0
-    const offsets = new Array(messages.length + 1)
-    for (let i = 0; i < messages.length; i++) {
-      const msg = messages[i]
-      if (!msg) continue
-      offsets[i] = total
-      total += map.get(msg.id) ?? ESTIMATED_ITEM_HEIGHT
-    }
-    offsets[messages.length] = total
+    const { offsets, total } = buildOffsets(messages.length, (index) => {
+      const msg = messages[index]
+      return msg ? map.get(msg.id) : undefined
+    })
     // 写入缓存,供下次 scroll 命中
     offsetsCacheRef.current = offsets
     totalCacheRef.current = total
@@ -502,56 +508,50 @@ export function useMessageListScroll({
           loading: Boolean(loadingMoreHistory),
         })
       ) {
-        const anchorKey = messagesRef.current[0]?.id
-        const anchorEl = anchorKey
-          ? (el.querySelector(`[data-message-id="${anchorKey}"]`) as HTMLElement | null)
-          : null
-        if (anchorKey && anchorEl) {
+        // G-828 代裁:锚点候选改走 windowing.historyAnchorCandidates —— 优先"当前窗口首行"
+        // (它一定挂在 DOM 里、一定量得到),回落数组首行。旧写法只认数组首行:窗口化下
+        // 该行大概率未挂载 ⇒ querySelector 落空 ⇒ 整条补偿链断裂(scroll-authority 的契约
+        // 注释本就写着"窗口首行",这次是把调用侧接回契约语义)。
+        const msgs = messagesRef.current
+        const containerTop = el.getBoundingClientRect().top
+        for (const candidateIndex of historyAnchorCandidates(
+          msgs.length,
+          visibleRangeRef.current.start,
+        )) {
+          const anchorKey = msgs[candidateIndex]?.id
+          if (!anchorKey) continue
+          const anchorEl = el.querySelector(
+            `[data-message-id="${anchorKey}"]`,
+          ) as HTMLElement | null
+          if (!anchorEl) continue
           pendingAnchorRef.current = {
             anchorKey,
-            savedOffset: anchorEl.getBoundingClientRect().top - el.getBoundingClientRect().top,
+            savedOffset: anchorEl.getBoundingClientRect().top - containerTop,
             commitsLeft: PENDING_ANCHOR_MAX_COMMITS,
           }
+          break
         }
         onLoadMoreHistory?.()
       }
 
       // #7 虚拟滚动:计算可见范围
+      // G-828 代裁:改走 windowing.resolveVisibleWindow(登记的单一真相源)。旧手写二分
+      // 有三处缺陷:① 无 MAX_MOUNTED_ITEMS 兜底 —— 行高塌缩(量到 1px)时"视口±缓冲"会圈住
+      // 整表,一次 commit 挂满整表 ⇒ 窗口化等于没生效;② `total === 0` 早退让区间停在初值,
+      // 滚到底也换不过来;③ 底部缓冲按像素(BUFFER*160)而顶部按行数,语义不一致。
+      // resolveVisibleWindow 的 bufferItems 默认 WINDOW_BUFFER_ITEMS=6,与旧顶部缓冲同值。
       if (!enableVirtual) return
-      const { offsets, total } = computeCumulative()
-      if (total === 0) return
-
-      // 二分查找找到 startIndex(第一个 offset > scrollTop - buffer*ESTIMATED)
-      const scrollPos = metrics.scrollTop
-      const viewportBottom = scrollPos + el.clientHeight
-      let start = 0
-      let lo = 0,
-        hi = messages.length - 1
-      while (lo <= hi) {
-        const mid = (lo + hi) >> 1
-        if (offsets[mid + 1] < scrollPos - BUFFER * ESTIMATED_ITEM_HEIGHT) lo = mid + 1
-        else if (offsets[mid] > scrollPos) hi = mid - 1
-        else {
-          start = mid
-          if (offsets[mid + 1] < scrollPos) lo = mid + 1
-          else hi = mid - 1
-        }
-      }
-      start = Math.max(0, start - BUFFER)
-
-      // 找到 endIndex(第一个 offset > viewportBottom + buffer*ESTIMATED)
-      let end = start
-      while (
-        end < messages.length - 1 &&
-        offsets[end + 1] < viewportBottom + BUFFER * ESTIMATED_ITEM_HEIGHT
-      ) {
-        end++
-      }
-      end = Math.min(messages.length - 1, end + BUFFER)
-
+      const { offsets } = computeCumulative()
+      const win = resolveVisibleWindow({
+        count: messages.length,
+        offsets,
+        scrollTop: metrics.scrollTop,
+        viewportHeight: el.clientHeight,
+      })
+      visibleRangeRef.current = win
       setVisibleRange((prev) => {
-        if (prev.start === start && prev.end === end) return prev
-        return { start, end }
+        if (prev.start === win.start && prev.end === win.end) return prev
+        return win
       })
     },
     [
@@ -736,9 +736,11 @@ export function useMessageListScroll({
       isFarFromBottomRef.current = false
       setIsFarFromTop(false)
       setIsFarFromBottom(false)
-      setVisibleRange({ start: 0, end: VIRTUAL_THRESHOLD - 1 })
-    } else if (messages.length <= VIRTUAL_THRESHOLD) {
-      setVisibleRange({ start: 0, end: messages.length - 1 })
+      visibleRangeRef.current = { start: 0, end: WINDOW_THRESHOLD - 1 }
+      setVisibleRange(visibleRangeRef.current)
+    } else if (messages.length <= WINDOW_THRESHOLD) {
+      visibleRangeRef.current = { start: 0, end: messages.length - 1 }
+      setVisibleRange(visibleRangeRef.current)
     }
     // setUserScrolledUp 是 zustand store 稳定引用,无需列入依赖
   }, [messages.length, applyAuthority])
@@ -980,8 +982,19 @@ export function useMessageListScroll({
   // 用 window keydown 监听确保焦点在 message 容器内任意子元素都能响应
   // 2026-09-22 键位归属:↑/↓/Home/End 的唯一持有者是本 hook。首页整屏翻页
   // (use-full-page-scroll)曾同时监听这组键,在 /chat 上双触发,现已让出,只保留 PageUp/PageDown。
+  // 2026-10-23 修(Esc 无层栈协议 e2e flaky,真机栈读数 ["slash-command-palette","message-list-keyboard-nav"] 实锤):
+  // 键盘导航是常驻监听、不是浮层。此前在挂载 effect 里无条件 pushOverlay,MessageList 每次重挂载
+  // (G-934 滚动位重挂、流式重建)都会 pop+re-push 把它顶回栈顶,压住之后打开的浮层
+  // (slash/help/palette)⇒ 浮层 Esc 被自家 isTopOverlay 守卫拦死,关不掉。
+  // 现仅当键盘导航真正激活(focusedIndex>=0,即有 Esc 可关的"层")时才占栈;
+  // 浮层叠在其上时栈顶归属仍由 isTopOverlay 逐层判定,原互斥语义不丢。
   React.useEffect(() => {
+    if (focusedIndex < 0) return
     pushOverlay(MESSAGE_LIST_KEYBOARD_NAV_OVERLAY_ID)
+    return () => popOverlay(MESSAGE_LIST_KEYBOARD_NAV_OVERLAY_ID)
+  }, [focusedIndex])
+
+  React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // 2026-08-02 修复 P1(问题 6-1):用 messagesRef.current 读最新 messages,
       // effect 依赖仅 [setFocusedIndexBoth](稳定引用),listener 仅挂载一次,
@@ -1055,7 +1068,6 @@ export function useMessageListScroll({
     }
     window.addEventListener('keydown', onKey)
     return () => {
-      popOverlay(MESSAGE_LIST_KEYBOARD_NAV_OVERLAY_ID)
       window.removeEventListener('keydown', onKey)
     }
     // paneId 进依赖:窗格归属变更(理论不发生,防御性)即重挂派发闭包,不吃 stale 窗格身份
