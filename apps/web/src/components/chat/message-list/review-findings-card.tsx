@@ -4,6 +4,7 @@
 
 'use client'
 
+// i18n-content-exempt-file: 中文均为审查 finding 的派单 payload/模板内容(问题/说明/建议/约束),不是界面 chrome;UI 文案走 t()
 // D115(2026-10-23,G-229):review 模式的审查结论卡。消费 `@ihui/api-client` 的
 // `onReviewFinding` 已解析的 finding 帧(一 finding 一帧,载荷契约唯一事实源在
 // `packages/shared/src/sse/contract.ts` 的 `review-finding` 成员;生产点
@@ -14,12 +15,19 @@
 // 与 file-chips / diff-file-list 同一条腿)。`line > 0` 时再调 store 上的编辑器揭示入口
 // (`revealAt`,由 CodeEditorPane 挂载期注册 → CodeEditor 的 pendingReveal 单点消费),
 // 目标 tab 内容加载完成后滚动定位到该行;`line = 0` 是整文件级 finding,只开文件不揭示。
+//
+// 「派发修复」按票面口径**不新造派发实现**:每条 finding 一个按钮,点击把
+// `buildFixDispatchPreset` 的预填值交给**既有** `DispatchSubagentDialog`
+// (其提交腿即 `/api/subagents/dispatch`,即票面要求的 dispatch_subagent;
+// 成功/失败的可见反馈沿用该对话框既有成功面板与 toast),由用户确认后派单。
 
 import * as React from 'react'
+import { Wrench } from 'lucide-react'
 
 import type { SSEEventPayload } from '@ihui/shared'
 import type { FileNode } from '@ihui/types'
 
+import type { DispatchPreset } from '@/components/ai/dispatch-subagent-dialog'
 import { cn } from '@/lib/utils'
 import { EXT_LANG, useIDEWorkspace } from '@/stores/ide-workspace'
 
@@ -52,17 +60,50 @@ export function reviewFindingLocation(finding: ReviewFinding): string {
   return finding.line > 0 ? `${finding.file}:${finding.line}` : finding.file
 }
 
+/**
+ * 「派发修复」的派单正文(goal):只投影 finding 自身已有字段,不补推断内容。
+ * 顺序固定(严重度+位置 / 问题 / 说明 / 建议)便于用例逐字断言。
+ */
+export function buildFixDispatchPrompt(finding: ReviewFinding): string {
+  const lines = [`修复审查发现(${finding.severity}):${reviewFindingLocation(finding)}`]
+  lines.push(`问题:${finding.title}`)
+  if (finding.detail !== '') lines.push(`说明:${finding.detail}`)
+  if (finding.suggestion !== '') lines.push(`修复建议:${finding.suggestion}`)
+  return lines.join('\n')
+}
+
+/**
+ * 「派发修复」的派单预填值 —— 交给既有 `DispatchSubagentDialog`(本仓唯一派发表单,
+ * 其提交即 `/api/subagents/dispatch`),不另造派发链路。只投影该条 finding 自身字段:
+ * 摘要/文件行进 goal 与 affectedFiles,严重度进 priority,其余 finding 一概不参与。
+ */
+export function buildFixDispatchPreset(finding: ReviewFinding): DispatchPreset {
+  return {
+    goal: buildFixDispatchPrompt(finding),
+    affectedFiles: [normalizePath(finding.file)],
+    priority: finding.severity === 'P1' ? 'urgent' : finding.severity === 'P2' ? 'high' : 'low',
+    constraints: `只修 ${reviewFindingLocation(finding)} 这一处,不改无关代码,不引入新依赖`,
+    deliverables: '修复该 finding,并自验(typecheck / lint / 相关用例)通过',
+  }
+}
+
 export interface ReviewFindingsCardProps {
   findings: readonly ReviewFinding[]
   /** 点击 finding 的落点出口;缺省走 IDE 面板(与 file-chips 同一条腿)。 */
   onOpenFinding?: (finding: ReviewFinding) => void
+  /** 「派发修复」出口;缺省不渲染按钮(纯展示卡不擅自派单)。 */
+  onDispatchFix?: (finding: ReviewFinding) => void
 }
 
 /**
  * 按严重度分组的审查卡:组序恒为 P1 → P2 → Nit(空档不渲染),组内保持帧到达顺序。
  * 无 finding 时整卡不渲染(不占位)。
  */
-export function ReviewFindingsCard({ findings, onOpenFinding }: ReviewFindingsCardProps) {
+export function ReviewFindingsCard({
+  findings,
+  onOpenFinding,
+  onDispatchFix,
+}: ReviewFindingsCardProps) {
   const groups = React.useMemo(
     () =>
       SEVERITY_ORDER.map((severity) => ({
@@ -152,6 +193,21 @@ export function ReviewFindingsCard({ findings, onOpenFinding }: ReviewFindingsCa
                       <p className="mt-0.5 pl-1 text-muted-foreground/60 break-words">
                         {finding.suggestion}
                       </p>
+                    )}
+                    {onDispatchFix && (
+                      <button
+                        type="button"
+                        data-testid={`review-dispatch-${finding.findingId}`}
+                        aria-label={`dispatch-fix:${location}`}
+                        onClick={() => onDispatchFix(finding)}
+                        className={cn(
+                          'mt-0.5 inline-flex items-center gap-1 rounded-sm px-1 py-0.5',
+                          'text-[10px] text-muted-foreground/80 transition-colors',
+                          'hover:bg-accent/40 hover:text-foreground focus-visible:bg-accent/40 focus-visible:outline-none',
+                        )}
+                      >
+                        <Wrench className="h-3 w-3 shrink-0" aria-hidden="true" />
+                      </button>
                     )}
                   </li>
                 )
