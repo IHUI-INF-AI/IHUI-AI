@@ -129,6 +129,10 @@
     "VoiceInput": {
       "reason": "语音输入条的结构几何差异属设计/平台裁决项,单一源 packages/shared/src/ui/voice-input-spec.ts 头注已逐条记载并明确\"未收进来\":波形条数 7 vs 12、条宽 4 vs 3、条间距 4 vs 2、高度包络(h-5 的 60% vs 6..28 插值)、按钮内边距 16/12 vs 12/8、字号 14 vs 12、禁用透明度 0.5 vs 0.4。分叉与两端动画通道(小程序 CSS keyframes 固定高度脉冲 vs RN Animated 逐条高度插值)和录音链路(小程序流式识别 streamingRecognizer partial/final vs RN 整段上传 STT)耦合,不是\"改一端另一端不跟随\"。现读:diffCount=8(仅小程序 4/8,仅 RN 2/6)、radiusCount=3(仅小程序 8,仅 RN 2/6)、elementRadiusCount=0(RE 维仅 RN 具名 bar/clearBtn/imagePopup/imageToggleBtn/voiceBtn,两侧无同名元素故零判据)。收敛前置 = 两端录音链路统一后再收编几何,不靠给单端补数字凑平。",
       "until": "2027-03-27"
+    },
+    "ScreenStates": {
+      "reason": "小程序 .ihui-sk-wrap 的 min-height:400rpx(门读到几何档 200)是 ListEmpty 占位高台,防 loading 期容器塌零;RN ScreenSkeleton 在 ListEmptyComponent 里靠行内容自然高,无对应元素 → “仅小程序 200”是一端多元素档,不是同元素取不同值。“仅 RN 8/12/16/44/92”为枚 a1de25ce 对齐前旧 HEAD 面读数(本枚已把 taro 镜像 dp 除 2 的半尺病灶修掉);RD“仅 RN 6”系 taro shimmer 走 css 类与 inline 两层,门不解析 cascade。下一轮按新 HEAD 复量后按实际残余差下调本条。",
+      "until": "2026-11-24"
     }
   },
   "webWaivers": {
