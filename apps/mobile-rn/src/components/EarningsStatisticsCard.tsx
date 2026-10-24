@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -61,9 +62,9 @@ const TREND_ARROW: Record<EarningsTrendDirection, string> = {
 }
 
 const TABS: ReadonlyArray<{ key: EarningsTab; label: string; tabLabel: string }> = [
-  { key: 'today', label: '今日', tabLabel: '日' },
-  { key: 'month', label: '本月', tabLabel: '月' },
-  { key: 'total', label: '累计', tabLabel: '总' },
+  { key: 'today', label: 'earn.tabToday', tabLabel: 'earn.tabDayShort' },
+  { key: 'month', label: 'earn.tabMonth', tabLabel: 'earn.tabMonthShort' },
+  { key: 'total', label: 'earn.tabTotal', tabLabel: 'earn.tabTotalShort' },
 ]
 
 const EMPTY_STAT: EarningsStat = {
@@ -92,6 +93,7 @@ export default function EarningsStatisticsCard({
   sumStatistics,
   onTabChange,
 }: EarningsStatisticsCardProps) {
+  const { t } = useI18n()
   const [currentTab, setCurrentTab] = useState<EarningsTab>('today')
 
   const trendColor = trend?.direction === 'up' ? tokens.success.DEFAULT : tokens.danger.DEFAULT
@@ -104,7 +106,7 @@ export default function EarningsStatisticsCard({
     total: sumStatistics ?? { ...EMPTY_STAT, amount: totalAmount },
   }
   const current = statMap[currentTab]
-  const tabLabel = TABS.find((t) => t.key === currentTab)?.tabLabel ?? '日'
+  const tabLabelKey = TABS.find((x) => x.key === currentTab)?.tabLabel ?? 'earn.tabDayShort'
 
   const switchTab = (tab: EarningsTab) => {
     setCurrentTab(tab)
@@ -170,18 +172,22 @@ export default function EarningsStatisticsCard({
       <View style={styles.bottomStats}>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{String(current.order)}</Text>
-          <Text style={styles.statLabel}>{`${tabLabel}推广订单`}</Text>
+          <Text
+            style={styles.statLabel}
+          >{`${t('earn.promoOrders', { tab: t(tabLabelKey) })}`}</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{String(current.strength)}</Text>
-          <Text style={styles.statLabel}>{`${tabLabel}团队新增人数`}</Text>
+          <Text style={styles.statLabel}>{`${t('earn.teamNew', { tab: t(tabLabelKey) })}`}</Text>
         </View>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>
             {currency}
             {formatAmount(current.endAmount)}
           </Text>
-          <Text style={styles.statLabel}>{`${tabLabel}提现金额`}</Text>
+          <Text
+            style={styles.statLabel}
+          >{`${t('earn.withdrawAmount', { tab: t(tabLabelKey) })}`}</Text>
         </View>
       </View>
 
