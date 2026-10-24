@@ -66,7 +66,7 @@ export default function AccountCancelScreen() {
       appAlert(t('home.pubTip'), t('account.smsSent'))
       setCountdown(60)
     } else {
-      appAlert('提示', res.error ?? t('account.smsFailRetry'))
+      appAlert(t('home.pubTip'), res.error ?? t('account.smsFailRetry'))
     }
   }, [inputPhone, t])
 
@@ -91,7 +91,7 @@ export default function AccountCancelScreen() {
       // 真实注销接口(对齐原项目 accountCancel → DELETE /login/cancel;RN 后端为 POST /api/settings/delete-account)
       const res = await deleteAccount(smsCode.trim(), '用户主动申请注销')
       if (!res.success) {
-        appAlert('提示', res.error ?? t('account.failRetry'))
+        appAlert(t('home.pubTip'), res.error ?? t('account.failRetry'))
         return
       }
       appAlert(t('account.okTitle'), t('account.okBody'), [
@@ -104,7 +104,7 @@ export default function AccountCancelScreen() {
       ])
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      appAlert('提示', detail.trim() ? toUserFriendlyMessage(e) : t('account.failRetry'))
+      appAlert(t('home.pubTip'), detail.trim() ? toUserFriendlyMessage(e) : t('account.failRetry'))
     } finally {
       setSubmitting(false)
     }
