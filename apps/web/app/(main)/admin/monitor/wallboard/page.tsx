@@ -402,10 +402,10 @@ function Panel({
       <header className="flex shrink-0 items-center gap-2 px-3 pt-2 pb-1">
         <span className="h-3 w-[3px] rounded-full bg-info shadow-[0_0_8px_color-mix(in_srgb,var(--color-info)_80%,transparent)]" />
         {icon ? <span className="text-info-text/70">{icon}</span> : null}
-        <h2 className="wb-display text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
+        <h2 className="wb-display min-w-0 truncate text-[13px] font-semibold tracking-[0.18em] text-foreground uppercase">
           {title}
         </h2>
-        <div className="ml-auto flex items-center gap-2">{right}</div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">{right}</div>
       </header>
       <div className={cn('min-h-0 flex-1 overflow-hidden p-3', bodyClassName)}>{children}</div>
     </section>
@@ -898,6 +898,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     const ordered = [...rows].reverse()
     const data = ordered.map((s) => ({
       value: total > 0 ? Number(((s.rate / total) * 100).toFixed(2)) : 0,
+      rate: s.rate,
       itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: 3 },
     }))
     return {
@@ -908,7 +909,25 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         backgroundColor: chartBg(isDark),
         borderColor: chartAxis(isDark),
         textStyle: { color: fg(isDark), fontSize: 11 },
-        valueFormatter: (v) => `${v}%`,
+        // 条形长度是占比,速率(次/秒)只在 tooltip 里给 —— 值班排障时两个读数都要。
+        formatter: (params) => {
+          const list = Array.isArray(params) ? params : [params]
+          return list
+            .map((raw) => {
+              const p = raw as {
+                marker?: string
+                name?: string
+                value?: number | string
+                data?: { rate?: number }
+              }
+              const rate =
+                p.data && typeof p.data.rate === 'number'
+                  ? `${p.data.rate.toFixed(3)}${t('piePerSecSuffix')}`
+                  : '—'
+              return `${p.marker ?? ''}${p.name ?? ''}  ${p.value ?? '—'}% · ${rate}`
+            })
+            .join('<br/>')
+        },
       },
       xAxis: {
         type: 'value',
@@ -940,7 +959,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [http?.statusRates, isDark])
+  }, [http?.statusRates, isDark, t])
 
   // 主机 CPU / 内存走势(补齐 trend.cpuPct / trend.memPct 两个已返回未上屏的序列)
   const hostTrendOption = React.useMemo<EChartsOption>(() => {
@@ -1222,7 +1241,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
 
         {/* overview/trend 整体失败(网络/500):顶部横幅 + 一键重试,避免整屏「—」或旧快照无解释 */}
         {ovError || trendError ? (
-          <div className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-danger-text">
+          <div
+            role="alert"
+            className="mx-4 mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/[0.08] px-3 py-2 text-[11px] text-danger-text"
+          >
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             <span>{t('loadFailed')}</span>
             <button
@@ -1264,10 +1286,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 [t('srcEdge'), ov?.sources?.edge],
               ] as Array<[string, string | undefined]>
             ).map(([name, state]) => (
-              <Tooltip key={name} content={name}>
+              <Tooltip key={name} content={`${name} · ${state ?? 'unknown'}`}>
                 <span
                   role="img"
-                  aria-label={name}
+                  aria-label={`${name} ${state ?? 'unknown'}`}
                   className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
                 >
                   <Dot tone={sourceTone(state)} />
@@ -1296,6 +1318,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   : t('statusUnknown')}
             </span>
             <span
+              aria-live="polite"
               className={cn(
                 'flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px]',
                 alertCount === null
@@ -1314,7 +1337,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <LiveClock />
               <div
                 className={cn(
-                  'text-[9px] tracking-[0.2em]',
+                  'wb-hdr-refresh text-[9px] tracking-[0.2em]',
                   dataStale ? 'text-warning-text/90' : 'text-muted-foreground',
                 )}
               >
@@ -1612,8 +1635,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {(services?.targets ?? []).map((target) => (
-                  <Tooltip key={`${target.job}-${target.instance}`} content={target.instance}>
-                    <span
+                  <Tooltip
+                    key={`${target.job}-${target.instance}`}
+                    content={`${target.instance} · ${target.up === 1 ? 'up' : 'down'}`}
+                  >
+                    <button
+                      type="button"
+                      aria-label={`${target.job} ${target.up === 1 ? 'up' : 'down'}`}
                       className={cn(
                         'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]',
                         target.up === 1
@@ -1623,7 +1651,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     >
                       <Dot tone={target.up === 1 ? 'ok' : 'bad'} />
                       {target.job}
-                    </span>
+                    </button>
                   </Tooltip>
                 ))}
                 {(services?.targets ?? []).length === 0 && services !== null ? (
@@ -1864,9 +1892,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       </span>
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-muted-foreground">
-                      <span className="shrink-0 text-info-text/70">{a.source}</span>
+                      <span className="shrink-0 text-info-text">{a.source}</span>
                       {a.resolvedAt ? (
-                        <span className="truncate text-success-text/80">
+                        <span className="truncate text-success-text">
                           {t('resolvedAgo', { ago: fmtAgo(a.resolvedAt) })}
                         </span>
                       ) : a.message ? (
@@ -1913,7 +1941,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                               : 'ok'
                         }
                       />
-                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-info-text/80 uppercase">
+                      <span className="shrink-0 text-[9px] tracking-[0.12em] text-info-text uppercase">
                         {e.type}
                       </span>
                       <span className="ml-auto shrink-0 text-[9px] text-muted-foreground">
@@ -2056,7 +2084,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     className="flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1"
                   >
                     <span className="wb-num w-4 text-[10px] text-muted-foreground">{i + 1}</span>
-                    <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text/90">
+                    <span className="shrink-0 rounded-md border border-info/25 px-1 text-[9px] text-info-text">
                       {e.method}
                     </span>
                     <Tooltip content={e.path}>
@@ -2287,7 +2315,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       key={legKey}
                       content={`HTTP ${leg.status ?? '—'} · TTFB ${leg.ttfbMs ?? '—'}ms${leg.encoding ? ` · ${leg.encoding}` : ''}`}
                     >
-                      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5">
+                      <button
+                        type="button"
+                        aria-label={`${t(EDGE_LEG_LABEL[legKey])} ${leg.ok ? 'up' : 'down'} ${isNum(leg.totalMs) ? `${leg.totalMs}ms` : ''}`}
+                        className="flex w-full items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5 text-left"
+                      >
                         <Dot tone={leg.ok ? 'ok' : 'bad'} />
                         <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
                           {t(EDGE_LEG_LABEL[legKey])}
@@ -2303,7 +2335,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                             {t('unitMs')}
                           </span>
                         </span>
-                      </div>
+                      </button>
                     </Tooltip>
                   ))}
                 </div>
@@ -2680,6 +2712,12 @@ const WALLBOARD_CSS = `
   .wb-header { flex-wrap: wrap; }
   .wb-hdr-status { width: 100%; justify-content: flex-end; }
 }
+/* 极窄容器(<=699):状态区允许换行,并收起"刷新于"这行 —— 否则总体状态+告警+时钟+
+   值班键+视图切换器约 450px,超过可用宽会被裁掉左侧徽章。 */
+@container (max-width: 699px) {
+  .wb-hdr-status { flex-wrap: wrap; }
+  .wb-hdr-refresh { display: none; }
+}
 /* fill-mode 用 backwards 而不是 both:both 会在动画结束后**永久占住 transform**
  * (动画优先级高于普通作者声明),把 hover 浮起的 transform 整个吃掉 —— 实测这些卡片
  * 内联 !important 都改不动 scale/transform。backwards 只在延迟期套首帧,结束即交还。 */
@@ -2701,9 +2739,9 @@ const WALLBOARD_CSS = `
   border-radius: var(--radius-xs);
 }
 .wb-root ::-webkit-scrollbar-track, .wb-scroll-host::-webkit-scrollbar-track { background: transparent; }
-/* 4K/超宽值班屏:视口 ≥2200 时整体放大 12%,字号与图表一起变,不用逐类改 px。
- * 常规 1920/1440 不触发;不支持 zoom 的浏览器自动退化为当前密度(不做第二套布局)。 */
-@media (min-width: 2200px) {
+/* 4K/超宽值班屏:按可用容器宽(不是视口)放大 12% —— 侧栏展开时视口 2560 的可用宽
+ * 只有 ~1906,同样需要放大;1440(786)不触发。不支持 zoom 的浏览器退化为当前密度。 */
+@container (min-width: 1700px) {
   .wb-root { zoom: 1.12; }
 }
 `
