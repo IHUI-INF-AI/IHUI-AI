@@ -4763,5 +4763,19 @@
     "verifySuccess": "검증 성공",
     "verifyFailed": "검증 실패",
     "doneDesc": "공급자가 생성되고 수익 배분이 활성화되었습니다"
+  },
+  "eduParent": {
+    "title": "학부모 센터",
+    "child": "자녀",
+    "relationship": "관계",
+    "statusTitle": "상태",
+    "empty": "연결된 자녀가 없습니다",
+    "status": {
+      "pending": "확인 대기",
+      "confirmed": "확인됨",
+      "active": "활성",
+      "rejected": "거부됨",
+      "cancelled": "해제됨"
+    }
   }
 }

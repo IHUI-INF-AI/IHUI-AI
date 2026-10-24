@@ -4763,5 +4763,19 @@
     "verifySuccess": "验证通过",
     "verifyFailed": "验证未通过",
     "doneDesc": "服务商已创建,平台抽成已按规则激活"
+  },
+  "eduParent": {
+    "title": "家长端",
+    "child": "孩子",
+    "relationship": "关系",
+    "statusTitle": "状态",
+    "empty": "还没有绑定的孩子",
+    "status": {
+      "pending": "待确认",
+      "confirmed": "已确认",
+      "active": "生效",
+      "rejected": "已拒绝",
+      "cancelled": "已解除"
+    }
   }
 }

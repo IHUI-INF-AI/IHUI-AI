@@ -122,6 +122,7 @@ export default defineAppConfig({
         'fans/index',
         'user-public/index',
         'llm-settings/index',
+        'edu-parent/index',
         'following/index',
         'subscriptions/index',
         'message/index',
