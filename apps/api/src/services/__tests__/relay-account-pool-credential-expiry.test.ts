@@ -161,7 +161,7 @@ describe('号池到期列与上游接受态同口径', () => {
       },
       { fetchImpl: fetchImpl as unknown as typeof fetch },
     )
-    expect(parsed?.expiresAt.toISOString()).toBe(UPSTREAM_EXPIRES_AT)
+    expect(parsed?.expiresAt?.toISOString()).toBe(UPSTREAM_EXPIRES_AT)
 
     // 2) 调度刷新回写同一时刻
     registerQoder({
@@ -180,6 +180,37 @@ describe('号池到期列与上游接受态同口径', () => {
     expect(write).toBeTruthy()
     expect((write!.tokenExpiresAt as Date).toISOString()).toBe(UPSTREAM_EXPIRES_AT)
     expect(write!.lastRefreshAt).toBeInstanceOf(Date)
+  })
+
+  it('换票成功但上游没给 expires_at:写 null(未知),不得编造未来时刻', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(200, { device_token: 'dt-opaque-new', refresh_token: 'drt-new' }),
+    )
+    // qoder 新票是 opaque 字符串(非 JWT),响应缺 expires_at 时解不出任何到期。
+    const parsed = await qoderAdapter.refreshToken!(
+      {
+        row: poolRow(),
+        credentials: { token: 'dt-old', refreshToken: 'drt-old', cookies: [], secrets: {} },
+      },
+      { fetchImpl: fetchImpl as unknown as typeof fetch },
+    )
+    expect(parsed?.expiresAt).toBeNull()
+
+    registerQoder({
+      refreshToken: (ctx: unknown, opts: unknown) =>
+        qoderAdapter.refreshToken!(
+          ctx as never,
+          {
+            ...(opts as Record<string, unknown>),
+            fetchImpl: fetchImpl as unknown as typeof fetch,
+          } as never,
+        ),
+    })
+    expect(await refreshOne(poolRow())).toBe(true)
+    const write = updateCalls.find((s) => 'tokenExpiresAt' in s)
+    expect(write).toBeTruthy()
+    // 「未知」必须如实落 null;任何未来时刻(旧值/now+Nh 兜底)都是编造可用证据。
+    expect(write!.tokenExpiresAt).toBeNull()
   })
 
   it('上游 401 明确拒收:tokenExpiresAt 收敛到当下,并与健康降级同一次写', async () => {
