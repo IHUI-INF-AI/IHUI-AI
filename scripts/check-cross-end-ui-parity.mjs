@@ -2029,6 +2029,8 @@ export function collect(
    * 只扫小程序端:RN 侧盒档走 StyleSheet,不存在"落在全局表"这一型。
    */
   const globalDefined = new Set()
+  /** 同面取到的全局样式表正文(miniapp 一份给盲区交集域,也给下面类臂解析维用同一次取数)。 */
+  const globalCssText = new Map()
   const listM = listFace(repoRoot, face, 'apps/miniapp-taro/src')
   if (listM === null)
     undeterminedEdges.push({
@@ -2047,6 +2049,7 @@ export function collect(
     for (const rel of cssG) {
       const t = gotG.get(preG + rel)
       if (t === null || t === undefined) continue
+      globalCssText.set(rel, t)
       for (const m of t.matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)\s*[{,:]/gi))
         globalDefined.add(m[1])
     }
@@ -2058,6 +2061,141 @@ export function collect(
     const miss = unresolvedClassNames(text[f], styles[f] ?? '', globalDefined)
     if (miss.length) blindClasses.push({ name: p.name, side: 'miniapp', file: f, classes: miss })
   }
+  /**
+   * ── 类臂解析维(票面 G-16(ii);本轮**只报数、不进退出码**)──────────────────
+   * 上一条 `blindClasses` 只回答"定义不在本组件样式表里",于是"定义在 app.css"与
+   * "这个类名谁也没定义(写错了)"在账面上长得一模一样 —— 后者是本维要报的新信号。
+   *
+   * 口径按票面定档(不是本轮新裁):**只有"唯一无覆盖定义 + 无条件使用"才算解析成功**;
+   * 多处定义 / 带 `!important` / 选择器不是单类 / 条件取用 一律未判定、不选边
+   * (状态类让同一元素有两套盒值,"哪一态才是可比对象"是缺的语义裁决,猜一个就是假同值)。
+   * web / rn 侧查不到不得记成"查无定义":那两侧可能是构建期生成的工具类,本门没有可解析的
+   * Tailwind 配置 ⇒ 判不出就报名,绝不折成通过。
+   *
+   * 取数**惰性**:只扫配对腿实际用到的类名(`classDefScan` 的第二参),不给全部 CSS 建全索引 ——
+   * 上一版 10 枚出口的实现建全索引后本门从 28s 劣化到 >300s,在 pre-commit blocking 下不可用。
+   */
+  const classLegs = []
+  {
+    const seen = new Set()
+    const add = (name, side, file) => {
+      if (text[file] === undefined) return
+      const k = `${name}|${side}|${file}`
+      if (seen.has(k)) return
+      seen.add(k)
+      classLegs.push({ name, side, file })
+    }
+    for (const p of pairs.pairs ?? []) {
+      add(p.name, 'miniapp', p.miniapp)
+      add(p.name, 'rn', p.rn)
+    }
+    for (const p of webPairs ?? []) {
+      add(p.name, 'miniapp', p.miniapp)
+      add(p.name, 'web', p.rn)
+    }
+  }
+  const classRefs = classLegs.map((l) => ({ ...l, refs: usedClassRefs(text[l.file]) }))
+  const classWanted = new Set()
+  for (const l of classRefs) for (const k of l.refs.keys()) classWanted.add(k)
+  // web 样式源:只取被审面里**入库**的 css/scss/less(`ls-tree` 天然不含 .next / node_modules)。
+  const cssBySide = { miniapp: globalCssText, web: new Map() }
+  const listW = listFace(repoRoot, face, 'apps/web')
+  if (listW === null)
+    undeterminedEdges.push({
+      from: '(清单)',
+      spec: 'apps/web',
+      reason: `${FACE_TXT[face]}取不到目录清单 ⇒ web 侧类臂解析判不出`,
+    })
+  else {
+    const cssW = listW.filter((x) => /\.(css|scss|less)$/i.test(x))
+    if (cssW.length) {
+      const preW = face === 'staged' ? ':' : 'HEAD:'
+      const gotW = catBatch(
+        repoRoot,
+        cssW.map((rel) => preW + rel),
+        { maxBuffer: 1 << 28 },
+      )
+      for (const rel of cssW) {
+        const t = gotW.get(preW + rel)
+        if (t === null || t === undefined) {
+          undeterminedEdges.push({
+            from: '(样式表)',
+            spec: rel,
+            reason: `${FACE_TXT[face]}取不到 web 样式表 ⇒ 该侧类臂判不出`,
+          })
+          continue
+        }
+        cssBySide.web.set(rel, t)
+      }
+    }
+  }
+  const defsByFile = { miniapp: new Map(), web: new Map() }
+  const defsByName = { miniapp: new Map(), web: new Map() }
+  if (classWanted.size) {
+    for (const side of ['miniapp', 'web'])
+      for (const [rel, css] of cssBySide[side]) {
+        const m = classDefScan(css, classWanted)
+        defsByFile[side].set(rel, m)
+        for (const [n, d] of m) {
+          const arr = defsByName[side].get(n) ?? []
+          arr.push({ rel, ...d })
+          defsByName[side].set(n, arr)
+        }
+      }
+  }
+  const addDef = (map, n, d) => {
+    const cur = map.get(n) ?? { count: 0, important: false, complex: 0 }
+    cur.count += d.count
+    cur.important = cur.important || d.important
+    cur.complex += d.complex
+    map.set(n, cur)
+  }
+  const mergeDefs = (list) => {
+    const acc = { count: 0, important: false, complex: 0 }
+    for (const d of list) {
+      acc.count += d.count
+      acc.important = acc.important || d.important
+      acc.complex += d.complex
+    }
+    return acc
+  }
+  const classArmLegs = []
+  const classArmTotals = { legs: 0, legsWithClasses: 0, resolved: 0, undefined: 0, undetermined: 0 }
+  for (const l of classRefs) {
+    classArmTotals.legs++
+    if (!l.refs.size) continue
+    classArmTotals.legsWithClasses++
+    const own = new Map()
+    const glob = new Map()
+    if (l.side === 'miniapp' || l.side === 'web') {
+      const ownRels = new Set((styleSources[l.file]?.specs ?? []).map((s) => s.rel))
+      for (const rel of ownRels) {
+        const m = defsByFile[l.side].get(rel)
+        if (!m) continue
+        for (const n of l.refs.keys()) if (m.has(n)) addDef(own, n, m.get(n))
+      }
+      for (const n of l.refs.keys()) {
+        const rest = (defsByName[l.side].get(n) ?? []).filter((e) => !ownRels.has(e.rel))
+        if (rest.length) addDef(glob, n, mergeDefs(rest))
+      }
+    }
+    const rows = classArmVerdicts(l.refs, own, glob, l.side)
+    const miss = rows.filter((r) => r.verdict === 'undefined').map((r) => r.class)
+    const unk = rows.filter((r) => r.verdict === 'undetermined')
+    const ok = rows.filter((r) => r.verdict === 'resolved')
+    classArmTotals.resolved += ok.length
+    classArmTotals.undefined += miss.length
+    classArmTotals.undetermined += unk.length
+    classArmLegs.push({
+      name: l.name,
+      side: l.side,
+      file: l.file,
+      resolved: ok.length,
+      undefined: miss,
+      undetermined: unk.map((u) => ({ class: u.class, reason: u.reason })),
+    })
+  }
+  const classArm = { legs: classArmLegs, totals: classArmTotals, zeroReach: classWanted.size === 0 }
   /**
    * 具名档表与组件正文**同面同轮**取:清单来自被审面,内容也来自被审面。
    * 取不到任何一份 ⇒ Undetermined。空表不等于"没有单源档",那是一台瞎了的尺子 ——
@@ -2137,6 +2275,8 @@ export function collect(
     text,
     styles,
     blindClasses,
+    // 类臂解析维(G-16(ii)):与 blindClasses 分开登记 —— 前者是"读不到",后者是"解不出/查无"。
+    classArm,
     // CS 维的登记面(自检 ㉗ 钉 `styles,` 与 `blindClasses,` 必须相邻 —— 新增键放它们后面,
     // 不是为了让锁让步,而是这两键同属"取材面",顺序本身在表达这件事)。
     styleSources,
@@ -2671,11 +2811,12 @@ export function resolveRel(fromFile, spec) {
 }
 
 /**
- * 组件"声明会用到哪些类名"—— 只从**字符串字面量**里取(引号与模板串),因为小程序的盒档
- * 是通过类名落地的(`className="textarea-int"` / `cn('item', active && 'item--on')`)。
- * 刻意剥掉 Tailwind 形态的类名:那些由 `readGeometry` 的刻度档判据直接读,不需要样式表。
+ * 组件"声明会用到哪些类名"—— **带取用上下文**的唯一提取式。返回值 `Map<类名,{conditional}>`:
+ * `conditional` 记的是这枚类名出现在三元 / `&&` / `cn()` 里(取用与否取决于运行态)。
+ * 类臂解析维(`classArmVerdicts`)要判"无条件使用",而另写一份提取式必然与 `usedClassNames` 漂移
+ * —— 两份对"哪里是 className 语境"的分歧会变成安静错读,所以这里只留一份。
  */
-export function usedClassNames(src) {
+function usedClassRefs(src) {
   // 前缀表**必须要求后接连字符或结尾**:少了这道边界,`textarea-int` 会被 `text` 前缀误杀,
   // 而它正是本门最需要看见的那一类自定义类名(实测 InputArea 的 `.textarea-int{height:80rpx}`)。
   const TW =
@@ -2686,7 +2827,7 @@ export function usedClassNames(src) {
   // 而早先"整属性到 }\n"的正则因 400 字上限 + 换行要求**全部落空**(实测这条披露一次都没触发,
   // 而"没触发"在报告里读起来和"没有盲区"一模一样)。
   const code2 = stripComments(src)
-  const out = new Set()
+  const out = new Map()
   for (const at of code2.matchAll(/className\s*=\s*/g)) {
     const i = at.index + at[0].length
     const quote = code2[i]
@@ -2708,15 +2849,126 @@ export function usedClassNames(src) {
       }
     }
     const attr = code2.slice(i, end)
+    // 条件取用:同一 className 里出现三元 / 逻辑与或或 / cn(clsx/classNames) 调用。
+    // 记在属性粒度而不是逐个 token 上 —— 一个三元里的两个分支都是"有条件才落到元素上"。
+    const conditional = /\?|&&|\|\||\b(?:cn|clsx|classNames)\s*\(/.test(attr)
     for (const q of attr.matchAll(/['"`]([^'"`\n]{2,200})['"`]/g)) {
+      // 比较运算符后的字面量是**枚举值**(`mode === 'voice'`),不是类名。
+      // 既有 blindClasses 靠"全局表里有没有同名定义"把这类值筛掉,而类臂解析维会把它读成
+      // "查无定义" —— 会喊错的披露和没有披露一样没人信,所以在取材这一层直接排除。
+      if (/(?:===|!==|==|!=)\s*$/.test(attr.slice(0, q.index))) continue
       for (const t of q[1].split(/[\s,]+/)) {
         if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(t)) continue
         if (t.length <= 3 || TW.test(t)) continue
-        out.add(t)
+        const seen = out.get(t)
+        // 同一类名出现多次时,只要有一次是无条件取用,就仍按无条件算(不因另一处的三元而变未判定)
+        out.set(t, { conditional: seen ? seen.conditional && conditional : conditional })
       }
     }
   }
   return out
+}
+
+/** 组件声明用到的类名集合(既有调用面;取用上下文由 `usedClassRefs` 保留)。 */
+export function usedClassNames(src) {
+  return new Set(usedClassRefs(src).keys())
+}
+
+/**
+ * 一份样式表内 `wanted` 里那些类名的定义情况 —— **只扫想要的类名**(而不是给全部 CSS 建索引)。
+ * 上一版实现给 69 份表逐条建 `class -> 属性/值` 全索引,实测把本门从 28s 拖到 >300s
+ * (G-16(ii) 只读探针记录),在 pre-commit blocking 下等于逼人 `--no-verify`。
+ *
+ * 记三件事,对应"唯一无覆盖定义 + 无条件使用"里三个会改变结论的事实:
+ *  - `count`:该名字出现在几个选择器里(>1 = 多处定义,不选边);
+ *  - `important`:规则体里出现过 `!important`(状态覆盖,不选边);
+ *  - `complex`:选择器不是**恰好** `.name` 的次数(`.a .b` / `.a:hover` / `.a.b` 都算条件覆盖)。
+ */
+export function classDefScan(cssText, wanted) {
+  const out = new Map()
+  if (!cssText || !wanted?.size) return out
+  // 去掉 `@media/@supports/@layer` 的**外层壳**(保留里面的规则块):不剥壳时,配平式
+  // `([^{}]+)\{([^{}]*)\}` 会把外壳行与内层选择器拼成一个选择器,于是"恰好 .name"永远不成立
+  // —— 定义明明只有一处也被判成"条件覆盖"。外壳留下的一枚多余 `}` 不参与匹配,无害。
+  const body = stripComments(String(cssText)).replace(
+    /@(?:media|supports|layer|container|keyframes|-webkit-keyframes)[^{]*\{/g,
+    '',
+  )
+  for (const m of body.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = m[1]
+    if (!selector.includes('.')) continue
+    const important = /!\s*important/i.test(m[2])
+    for (const part of selector.split(',')) {
+      const p = part.trim()
+      if (!p.includes('.')) continue
+      for (const c of p.matchAll(/\.([a-z][a-z0-9]*(?:-[a-z0-9]+)*)/gi)) {
+        const name = c[1]
+        if (!wanted.has(name)) continue
+        const cur = out.get(name) ?? { count: 0, important: false, complex: 0 }
+        cur.count++
+        if (important) cur.important = true
+        if (p !== `.${name}`) cur.complex++
+        out.set(name, cur)
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * 类臂解析维的判定(纯函数,与取材分家 —— 夹具可单测)。
+ *
+ * 口径按票面机主定档:**只有"唯一无覆盖定义 + 无条件使用"才算解析成功**;
+ * 多处定义 / 带 `!important` / 选择器不是单类 / 条件取用 一律**未判定**、不选边。
+ * 查无定义 = `undefined`(这才是本维要报的新信号:className 写了个谁也没定义的名字,
+ * 过去会被 `blindClasses` 一并归成"落在全局表"),绝不折成通过。
+ * web / rn 侧查不到时**不得**记成 `undefined`:那两侧的字符串可能是构建期生成的工具类,
+ * 本门没有可解析的 Tailwind 配置 ⇒ 一律 `undetermined`(判不出就报名)。
+ */
+export function classArmVerdicts(refs, ownDefs = new Map(), globalDefs = new Map(), side = 'miniapp') {
+  // 工具类 / 标记名的形态判据(只用于"查不到定义时"的归类,不做提取):
+  // `max-w-sm` / `min-w-0` / `line-clamp-1` 与 `ui-card` / `ui-panel` 这类标记名在样式源里
+  // 本就查不到单一定义(由构建期生成或是纯标记),把它们报成"写错类名"就是会喊错的披露。
+  const UTILITY_SHAPE =
+    /^(?:min|max|line|aspect|columns|divide|space|object|isolate|mix|blend|sr|not|placeholder|accent|caret|decoration|prose|ui|flex|grid|items|justify|self|order|col|row|gap|w|h|p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|bg|text|border|rounded|shadow|ring|font|leading|tracking|whitespace|overflow|inset|top|right|bottom|left|z|opacity|transition|duration|delay|animate|scale|rotate|translate|skew|origin|transform|filter|backdrop|touch|cursor|select|pointer|align|content|basis|grow|shrink|wrap|nowrap|truncate|italic|hidden|block|inline|absolute|relative|static|fixed|sticky|group|from|via|to|outline)(?:-|$)/
+  const rows = []
+  for (const [name, meta] of refs ?? []) {
+    const own = ownDefs.get(name)
+    const glob = globalDefs.get(name)
+    const count = (own?.count ?? 0) + (glob?.count ?? 0)
+    const important = Boolean(own?.important || glob?.important)
+    const complex = (own?.complex ?? 0) + (glob?.complex ?? 0)
+    if (count === 0) {
+      rows.push(
+        side === 'miniapp'
+          ? UTILITY_SHAPE.test(name)
+            ? {
+                class: name,
+                verdict: 'undetermined',
+                reason: '工具类 / 标记名未建模(样式源里没有单一定义)',
+              }
+            : { class: name, verdict: 'undefined', reason: '样式源里查无此类名的定义' }
+          : {
+              class: name,
+              verdict: 'undetermined',
+              reason:
+                side === 'web'
+                  ? 'web 工具类未建模(无可解析的 Tailwind 配置)'
+                  : 'RN 侧 className 由构建期生成,静态查不到',
+            },
+      )
+      continue
+    }
+    if (count > 1) rows.push({ class: name, verdict: 'undetermined', reason: '多处定义' })
+    else if (important)
+      rows.push({ class: name, verdict: 'undetermined', reason: '带 !important 的状态覆盖' })
+    else if (complex > 0)
+      rows.push({ class: name, verdict: 'undetermined', reason: '选择器不是单类(条件覆盖)' })
+    else if (meta?.conditional)
+      rows.push({ class: name, verdict: 'undetermined', reason: '条件取用' })
+    else rows.push({ class: name, verdict: 'resolved', reason: null })
+  }
+  return rows.sort((a, b) => a.class.localeCompare(b.class))
 }
 
 /**
@@ -3446,6 +3698,9 @@ export function main(argv, repoRoot = ROOT) {
         // 早已认裸档、128 锚点零位移),这两份名单是复裁结论与后续审计的机器可读输入 ——
         // 只印人读面就等于把取证退回复制粘贴终端输出。
         bareRounded: collected.bareRounded ?? null,
+        // 类臂解析维(G-16(ii),只报数):机器面要能读到"查无定义 / 未判定"两份名单 ——
+        // 只印人读面的话,下一票(转判红)又得抄终端输出当数据源。
+        classArm: collected.classArm ?? null,
         // web 腿也要能被机器读:只有人读面的话,下一票(把 web 的几何也纳进来)就得抄终端输出当数据源。
         web: {
           pairCount: web.findings.length,
@@ -3517,6 +3772,34 @@ export function main(argv, repoRoot = ROOT) {
             (b.classes.length > 8 ? ` …另 ${b.classes.length - 8} 个` : ''),
         )
       if (blind.length > 6) console.log(`     · 其余 ${blind.length - 6} 条同上(不静默省略计数)`)
+    }
+    /**
+     * 类臂解析维(G-16(ii)):**只报数、不进退出码**(本批是接线档,判红口径未动)。
+     * 三条读数必须分开:可解析(唯一无覆盖定义 + 无条件使用)/ 查无定义(本维新信号)/ 未判定
+     * (判不出就报名)。逐腿逐名打印 —— 只报总数的话,"0"与"这一维没看见任何类名"分不开。
+     */
+    const ca = collected.classArm ?? { legs: [], totals: null, zeroReach: true }
+    if (ca.zeroReach)
+      console.log(
+        '  ⓘ 类臂解析:0 条配对腿用到可解析类名 ⇒ 本维本轮零射程(不得读成"所有类名都解析得到")',
+      )
+    else {
+      const tt = ca.totals
+      console.log(
+        `  ⓘ 类臂解析(只报数,不进退出码):${tt.legsWithClasses}/${tt.legs} 条腿用到类名;` +
+          `唯一无覆盖定义 ${tt.resolved} / 查无定义 ${tt.undefined} / 未判定 ${tt.undetermined}`,
+      )
+      for (const l of ca.legs) {
+        const parts = []
+        if (l.undefined.length) parts.push(`查无定义:${l.undefined.join(' ')}`)
+        if (l.undetermined.length)
+          parts.push(`未判定:${l.undetermined.map((u) => `${u.class}(${u.reason})`).join(' ')}`)
+        if (parts.length) console.log(`     · ${l.name}[${l.side}] ${l.file} —— ${parts.join(' | ')}`)
+      }
+      console.log(
+        '     ⇒ 转判红的条件(尚未生效):① 小程序侧"查无定义"类名数超台账锚点;' +
+          '② web/rn 侧补上可解析的 Tailwind 配置 / 样式源,把"未判定"降到可判;两项都须先钉锚点再判红',
+      )
     }
     for (const o of off) console.log(`  ⊘ ${o.name} —— ${o.reason}`)
     if (collected.coverageNote) console.log(`  ⚠ ${collected.coverageNote}`)
@@ -4116,6 +4399,9 @@ export const __test__ = {
   rootSlotRadiiOf,
   rootSlotAudit,
   rootSlotDelta,
+  usedClassRefs,
+  classDefScan,
+  classArmVerdicts,
   elementRadiusDiff,
   elementRadiusCount,
   waiverProblem,
