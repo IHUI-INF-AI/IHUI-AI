@@ -4133,6 +4133,18 @@
     "collapse": "收起",
     "score": "相关度"
   },
+  "changePhone": {
+    "phoneRequired": "请输入手机号码",
+    "phoneInvalid": "请输入正确的手机号码",
+    "codeSent": "验证码已发送",
+    "codeSendFailRetry": "验证码发送失败,请稍后重试",
+    "codeSendFail": "验证码发送失败",
+    "codeRequired": "请输入验证码",
+    "bindFail": "绑定失败",
+    "bindOk": "绑定成功",
+    "netBusy": "网络异常",
+    "netBusyRetry": "网络异常,请稍后重试"
+  },
   "subagents": {
     "tabOverview": "概览",
     "tabDispatches": "调度",

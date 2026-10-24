@@ -4146,6 +4146,18 @@
     "collapse": "Collapse",
     "score": "Score"
   },
+  "changePhone": {
+    "phoneRequired": "Enter your phone number",
+    "phoneInvalid": "Enter a valid phone number",
+    "codeSent": "Verification code sent",
+    "codeSendFailRetry": "Failed to send the code, please retry later",
+    "codeSendFail": "Failed to send the code",
+    "codeRequired": "Enter the verification code",
+    "bindFail": "Binding failed",
+    "bindOk": "Phone bound",
+    "netBusy": "Network error",
+    "netBusyRetry": "Network error, please retry later"
+  },
   "subagents": {
     "tabOverview": "Overview",
     "tabDispatches": "Dispatch",
