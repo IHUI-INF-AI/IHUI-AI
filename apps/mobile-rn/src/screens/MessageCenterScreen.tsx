@@ -110,7 +110,7 @@ export function MessageCenterScreen() {
         setConversations(
           convList.map((c) => ({
             id: c.id,
-            name: c.title || '对话',
+            name: c.title || t('messageCenter.conversationFallback'),
             lastMessage: c.lastMessage,
             time:
               (c.lastMessageAt ?? c.updatedAt)
@@ -129,7 +129,7 @@ export function MessageCenterScreen() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [activeTab, uniappT])
+  }, [activeTab, uniappT, t])
 
   useEffect(() => {
     setLoading(true)
@@ -193,7 +193,7 @@ export function MessageCenterScreen() {
         <SearchInput
           value={searchKeyword}
           onChangeText={setSearchKeyword}
-          placeholder="搜索聊天记录/联系人/服务号"
+          placeholder={t('messageCenter.searchPh')}
           colorScheme={resolvedTheme}
           voiceEnabled={false}
         />
