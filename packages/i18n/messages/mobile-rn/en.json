@@ -1141,7 +1141,8 @@
     "panelExpand": "Expand panel",
     "loadMore": "Load more",
     "user": "User",
-    "retryShort": "Retry"
+    "retryShort": "Retry",
+    "known": "OK"
   },
   "network": {
     "offline": "You're offline. Some features are unavailable.",
@@ -3410,7 +3411,27 @@
     "orderCreated": "Order created",
     "purchase": "Become VIP",
     "purchaseFailed": "Failed to purchase",
-    "title": "VIP Center"
+    "title": "VIP Center",
+    "month": "Monthly",
+    "quarter": "Quarterly",
+    "halfYear": "Half year",
+    "year": "Yearly",
+    "renewM": "Auto-renews monthly. Cancel anytime.",
+    "renewQ": "Auto-renews quarterly, save 25%",
+    "renewY": "Auto-renews yearly. Best value.",
+    "onceN": "One-time purchase, valid {n} days",
+    "continuous": "Continuous {c}",
+    "discountN": "{n}0% off",
+    "trial7": "7-day trial",
+    "lvMonth": "Monthly member",
+    "lvQuarter": "Quarterly member",
+    "lvYear": "Annual member",
+    "benefitsA11y": "Membership benefits",
+    "traderA11y": "Trader benefits",
+    "advisorA11y": "Personal advisor",
+    "popTitle": "VIP benefits",
+    "popSub": "Unlock premium content & services",
+    "viewNow": "View now"
   },
   "vipBenefit": {
     "title": "Membership Benefits",
@@ -5685,5 +5706,89 @@
     "bind": "Bind",
     "saveA11y": "Save profile",
     "logoutA11y": "Sign out"
+  },
+  "need": {
+    "titleRequired": "Enter demand title",
+    "titleMin2": "Title needs 2+ chars",
+    "descRequired": "Enter description",
+    "descMin": "Description needs {n}+ chars",
+    "priceLowRequired": "Enter valid min price",
+    "priceHighRequired": "Enter valid max price",
+    "priceOrder": "Min price must not exceed max",
+    "priceMin100": "Min price must be ≥100",
+    "contactRequired": "Enter contact info",
+    "timeRequired": "Set deadline",
+    "timeInvalid": "Invalid deadline",
+    "timePast": "Deadline must be future",
+    "cycleRequired": "Set valid dev cycle",
+    "publishedTitle": "Submitted",
+    "publishedBody": "Demand published; it will appear in the plaza.",
+    "okBtn": "OK",
+    "submitFail": "Submit failed. Retry.",
+    "netFail": "Network error. Retry.",
+    "cycleUnitWeek": "Week"
+  },
+  "news": {
+    "catAi": "AI",
+    "catMl": "Machine Learning",
+    "catCv": "Computer Vision",
+    "catNlp": "NLP",
+    "catChip": "AI chips",
+    "catRec": "Recommendation",
+    "title": "AI News",
+    "anonAuthor": "Anonymous",
+    "netFail": "Network error"
+  },
+  "iaa": {
+    "expandFab": "Expand input",
+    "removeAttach": "Remove attachment",
+    "stop": "Stop",
+    "collapseArea": "Collapse input",
+    "holdAsk": "Hold to speak",
+    "zoomOut": "Shrink input",
+    "zoomIn": "Expand input",
+    "switchKeyboard": "Switch to keyboard",
+    "switchVoice": "Switch to voice",
+    "holdEnd": "Hold to talk, release to end",
+    "addFile": "Add image or file",
+    "addParam": "Add parameter image"
+  },
+  "bab": {
+    "camera": "Camera",
+    "album": "Album",
+    "localFile": "Local file",
+    "wxFile": "WeChat files",
+    "knowledge": "Knowledge",
+    "memory": "Memory",
+    "pickModel": "Choose model",
+    "modelA11y": "Model: {name}",
+    "modelConfig": "Model settings",
+    "voiceInput": "Voice input",
+    "feature2": "Features",
+    "source": "Sources",
+    "enlarge": "Enlarge",
+    "agentAssist": "Agent assist"
+  },
+  "eduAttendance": {
+    "title": "Attendance",
+    "student": "Student",
+    "statusTitle": "Status",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "remark": "Remark",
+    "status": {
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent",
+      "leave": "Leave"
+    }
+  },
+  "eduGrades": {
+    "title": "Grades",
+    "student": "Student",
+    "subject": "Subject",
+    "exam": "Exam",
+    "score": "Score",
+    "date": "Date"
   }
 }

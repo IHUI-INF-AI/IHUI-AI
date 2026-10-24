@@ -1141,7 +1141,8 @@
     "panelExpand": "展开面板",
     "loadMore": "加载更多",
     "user": "用户",
-    "retryShort": "重试"
+    "retryShort": "重试",
+    "known": "知道了"
   },
   "network": {
     "offline": "网络已断开,部分功能不可用",
@@ -3410,7 +3411,27 @@
     "orderCreated": "订单已创建",
     "purchase": "开通会员",
     "purchaseFailed": "开通失败",
-    "title": "会员中心"
+    "title": "会员中心",
+    "month": "包月",
+    "quarter": "包季",
+    "halfYear": "半年",
+    "year": "包年",
+    "renewM": "每月自动续费，可随时取消",
+    "renewQ": "每季自动续费，节省 25%",
+    "renewY": "每年自动续费，最划算",
+    "onceN": "一次性购买，{n} 天有效",
+    "continuous": "连续{c}",
+    "discountN": "{n} 折",
+    "trial7": "7 天试用",
+    "lvMonth": "月度会员",
+    "lvQuarter": "季度会员",
+    "lvYear": "年度会员",
+    "benefitsA11y": "会员权益介绍",
+    "traderA11y": "操盘手权益介绍",
+    "advisorA11y": "私人顾问介绍",
+    "popTitle": "VIP 会员权益",
+    "popSub": "解锁全部高级内容与专属服务",
+    "viewNow": "立即查看"
   },
   "vipBenefit": {
     "title": "会员权益",
@@ -5685,5 +5706,89 @@
     "bind": "绑定",
     "saveA11y": "保存信息",
     "logoutA11y": "登出"
+  },
+  "need": {
+    "titleRequired": "请输入需求标题",
+    "titleMin2": "需求标题至少 2 个字符",
+    "descRequired": "请输入需求描述",
+    "descMin": "需求描述至少 {n} 个字符",
+    "priceLowRequired": "请输入有效的起步价",
+    "priceHighRequired": "请输入有效的最高价",
+    "priceOrder": "起步价不能高于最高价",
+    "priceMin100": "起步价不能低于 100 元",
+    "contactRequired": "请输入联系方式",
+    "timeRequired": "请设置任务截止时间",
+    "timeInvalid": "截止时间格式无效",
+    "timePast": "截止时间必须晚于当前时间",
+    "cycleRequired": "请设置有效的开发周期",
+    "publishedTitle": "提交成功",
+    "publishedBody": "需求已发布，稍后将在广场展示",
+    "okBtn": "好的",
+    "submitFail": "提交失败，请稍后重试",
+    "netFail": "网络异常，请稍后重试",
+    "cycleUnitWeek": "周"
+  },
+  "news": {
+    "catAi": "人工智能",
+    "catMl": "机器学习",
+    "catCv": "计算机视觉",
+    "catNlp": "自然语言",
+    "catChip": "AI 芯片",
+    "catRec": "智能推荐",
+    "title": "AI资讯",
+    "anonAuthor": "佚名",
+    "netFail": "网络异常"
+  },
+  "iaa": {
+    "expandFab": "展开提问输入",
+    "removeAttach": "删除附件",
+    "stop": "停止",
+    "collapseArea": "收起输入区",
+    "holdAsk": "按住说出你的问题",
+    "zoomOut": "缩小输入框",
+    "zoomIn": "放大输入框",
+    "switchKeyboard": "切换到键盘",
+    "switchVoice": "切换到语音",
+    "holdEnd": "按住说话，松开结束",
+    "addFile": "添加图片或文件",
+    "addParam": "添加参数图片"
+  },
+  "bab": {
+    "camera": "相机",
+    "album": "相册",
+    "localFile": "本地文件",
+    "wxFile": "微信文件",
+    "knowledge": "知识库",
+    "memory": "记忆",
+    "pickModel": "选择模型",
+    "modelA11y": "模型：{name}",
+    "modelConfig": "模型配置",
+    "voiceInput": "语音输入",
+    "feature2": "功能",
+    "source": "来源",
+    "enlarge": "放大",
+    "agentAssist": "智能体辅"
+  },
+  "eduAttendance": {
+    "title": "考勤管理",
+    "student": "学生",
+    "statusTitle": "状态",
+    "checkIn": "签到",
+    "checkOut": "签退",
+    "remark": "备注",
+    "status": {
+      "present": "正常",
+      "late": "迟到",
+      "absent": "缺勤",
+      "leave": "请假"
+    }
+  },
+  "eduGrades": {
+    "title": "成绩管理",
+    "student": "学生",
+    "subject": "科目",
+    "exam": "考试",
+    "score": "分数",
+    "date": "日期"
   }
 }

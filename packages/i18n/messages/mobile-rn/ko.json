@@ -1141,7 +1141,8 @@
     "panelExpand": "패널 펼치기",
     "loadMore": "더 불러오기",
     "user": "사용자",
-    "retryShort": "재시도"
+    "retryShort": "재시도",
+    "known": "확인"
   },
   "network": {
     "offline": "네트워크가 연결되지 않아 일부 기능을 사용할 수 없습니다",
@@ -3410,7 +3411,27 @@
     "orderCreated": "주문이 생성되었습니다",
     "purchase": "회원 가입",
     "purchaseFailed": "구매 실패",
-    "title": "회원 센터"
+    "title": "회원 센터",
+    "month": "월간",
+    "quarter": "분기",
+    "halfYear": "반년",
+    "year": "연간",
+    "renewM": "매월 자동 갱신, 해지 가능",
+    "renewQ": "분기 자동 갱신, 25% 절약",
+    "renewY": "연간 자동 갱신, 최고 가성비",
+    "onceN": "일회 구매, {n}일 유효",
+    "continuous": "연속 {c}",
+    "discountN": "{n}할인",
+    "trial7": "7일 체험",
+    "lvMonth": "월간 멤버",
+    "lvQuarter": "분기 멤버",
+    "lvYear": "연간 멤버",
+    "benefitsA11y": "멤버십 혜택 안내",
+    "traderA11y": "트레이더 혜택 안내",
+    "advisorA11y": "전담 어드바이저",
+    "popTitle": "VIP 혜택",
+    "popSub": "프리미엄 콘텐츠·전용 서비스 잠금 해제",
+    "viewNow": "지금 보기"
   },
   "vipBenefit": {
     "title": "멤버십 혜택",
@@ -5685,5 +5706,89 @@
     "bind": "연결",
     "saveA11y": "정보 저장",
     "logoutA11y": "로그아웃"
+  },
+  "need": {
+    "titleRequired": "제목 입력",
+    "titleMin2": "제목 2자 이상",
+    "descRequired": "설명 입력",
+    "descMin": "설명 {n}자 이상",
+    "priceLowRequired": "유효한 최소가 입력",
+    "priceHighRequired": "유효한 최대가 입력",
+    "priceOrder": "최소가가 최대가 초과",
+    "priceMin100": "최소가 100元以上",
+    "contactRequired": "연락처 입력",
+    "timeRequired": "마감 설정",
+    "timeInvalid": "마감 형식 오류",
+    "timePast": "마감은 이후로",
+    "cycleRequired": "개발 주기 설정",
+    "publishedTitle": "제출 완료",
+    "publishedBody": "등록 완료, 곧 광장에 게시",
+    "okBtn": "확인",
+    "submitFail": "제출 실패 재시도",
+    "netFail": "네트워크 오류 재시도",
+    "cycleUnitWeek": "주"
+  },
+  "news": {
+    "catAi": "AI",
+    "catMl": "머신러닝",
+    "catCv": "컴퓨터 비전",
+    "catNlp": "자연어",
+    "catChip": "AI 칩",
+    "catRec": "추천",
+    "title": "AI 소식",
+    "anonAuthor": "익명",
+    "netFail": "네트워크 오류"
+  },
+  "iaa": {
+    "expandFab": "입력 펼치기",
+    "removeAttach": "첨부 삭제",
+    "stop": "정지",
+    "collapseArea": "입력 접기",
+    "holdAsk": "길게 눌러 말하기",
+    "zoomOut": "입력 축소",
+    "zoomIn": "입력 확대",
+    "switchKeyboard": "키보드로 전환",
+    "switchVoice": "음성으로 전환",
+    "holdEnd": "누르고 놓으면 종료",
+    "addFile": "이미지·파일 추가",
+    "addParam": "파라미터 이미지"
+  },
+  "bab": {
+    "camera": "카메라",
+    "album": "앨범",
+    "localFile": "로컬 파일",
+    "wxFile": "위챗 파일",
+    "knowledge": "지식베이스",
+    "memory": "기억",
+    "pickModel": "모델 선택",
+    "modelA11y": "모델: {name}",
+    "modelConfig": "모델 설정",
+    "voiceInput": "음성 입력",
+    "feature2": "기능",
+    "source": "출처",
+    "enlarge": "확대",
+    "agentAssist": "Agent 보조"
+  },
+  "eduAttendance": {
+    "title": "출석 관리",
+    "student": "학생",
+    "statusTitle": "상태",
+    "checkIn": "등교",
+    "checkOut": "하교",
+    "remark": "비고",
+    "status": {
+      "present": "정상",
+      "late": "지각",
+      "absent": "결석",
+      "leave": "조퇴"
+    }
+  },
+  "eduGrades": {
+    "title": "성적 관리",
+    "student": "학생",
+    "subject": "과목",
+    "exam": "시험",
+    "score": "점수",
+    "date": "날짜"
   }
 }
