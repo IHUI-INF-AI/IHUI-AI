@@ -1029,7 +1029,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             ...(i === hours.length - 1 ? { itemStyle: { color: CHART_CYAN } } : {}),
           })),
           barWidth: '62%',
-          tooltip: { valueFormatter: (v) => `${v} ${t('unitPv')}` },
+          tooltip: { valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitPv')}` },
           itemStyle: {
             borderRadius: [2, 2, 0, 0],
             color: {
@@ -1047,7 +1047,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [trend?.hourlyCalls, isDark, nowHour, t])
+  }, [trend?.hourlyCalls, isDark, nowHour, t, locale])
 
   const modelOption = React.useMemo<EChartsOption>(() => {
     const models = [...(biz?.llmTopModels ?? [])].reverse()
@@ -1077,7 +1077,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           type: 'bar',
           data: models.map((m) => m.calls),
           barWidth: 12,
-          tooltip: { valueFormatter: (v) => `${v} ${t('unitPv')}` },
+          tooltip: { valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitPv')}` },
           label: { show: true, position: 'right', color: chartText(isDark), fontSize: 10 },
           itemStyle: {
             borderRadius: [0, 6, 6, 0],
@@ -1096,7 +1096,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [biz?.llmTopModels, isDark, t])
+  }, [biz?.llmTopModels, isDark, t, locale])
 
   // 近 7 日签到人数:纯柱形,横轴只留 MM-DD,纵轴标签隐藏(格子小,数字已标在柱顶)
   const signInOption = React.useMemo<EChartsOption>(() => {
@@ -1126,13 +1126,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           type: 'bar',
           data: rows.map((r) => r.users),
           barWidth: 9,
-          tooltip: { valueFormatter: (v) => `${v} ${t('unitUser')}` },
+          tooltip: { valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitUser')}` },
           itemStyle: { borderRadius: [3, 3, 0, 0], color: withAlpha(CHART_GREEN, 0.85) },
           label: { show: true, position: 'top', color: chartText(isDark), fontSize: 9 },
         },
       ],
     }
-  }, [biz?.signIn?.last7d, isDark, t])
+  }, [biz?.signIn?.last7d, isDark, t, locale])
 
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
@@ -1619,6 +1619,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </span>
                   </Tooltip>
                 ))}
+                {(services?.targets ?? []).length === 0 && services !== null ? (
+                  <span className="text-[10px] text-muted-foreground">{t('noScrapeTargets')}</span>
+                ) : null}
               </div>
             </div>
           </Panel>
@@ -2384,6 +2387,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </span>
                   </div>
                 ))}
+                {(traffic?.families.length ?? 0) > 6 ? (
+                  <div className="px-2 py-1 text-center text-[10px] text-muted-foreground">
+                    {t('moreFamilies', { count: (traffic?.families.length ?? 0) - 6 })}
+                  </div>
+                ) : null}
                 {traffic === null ? (
                   <div className="flex justify-center px-2 py-3">
                     <SourceGap text={t('sourceUnreachable')} />
