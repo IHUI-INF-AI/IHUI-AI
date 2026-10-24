@@ -59,6 +59,9 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
         return null
       }
       const result = await sweepAccountPool()
+      // 日志取值面 = sweepAccountPool 的产出面(AccountPoolSweepResult 的 6 枚键),不得多读:
+      // 签到对账 / 断链待推重推当前不在 sweep 产出里(sweep 单轮只做临期刷新 + unknown 定级
+      // + down 恢复),读它们只会得到 undefined。要恢复该族埋点,先让生产端真发键(见本票回报)。
       server.log.info(
         {
           skipped: result.skipped,
@@ -67,25 +70,6 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           refreshSkipped: result.refreshSkipped,
           healthChecked: result.healthChecked,
           healthRecovered: result.healthRecovered,
-          checkinReconcile: result.checkinReconcile
-            ? {
-                ok: result.checkinReconcile.ok,
-                pushed: result.checkinReconcile.pushed,
-                pushFailed: result.checkinReconcile.pushFailed,
-                disabled: result.checkinReconcile.disabled,
-                stateCalibrated: result.checkinReconcile.stateCalibrated,
-                flushed: result.checkinReconcile.flushed,
-                truncated: result.checkinReconcile.truncated,
-              }
-            : null,
-          checkinRetry: result.checkinRetry
-            ? {
-                retried: result.checkinRetry.retried,
-                cleared: result.checkinRetry.cleared,
-                stillPending: result.checkinRetry.stillPending,
-                droppedNoEngine: result.checkinRetry.droppedNoEngine,
-              }
-            : null,
         },
         'relay-account-pool sweep done',
       )

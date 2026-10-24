@@ -464,6 +464,80 @@ test('A4 反向对照:正常前进 + 正常三路合并 ⇒ 游标档 0 行 0 �
 })
 
 /**
+ * A5(2026-10-24,G-939 判据缺口③):内容存续维。
+ * 侧移丢掉的那条线改的是**已存在的文件**(路径还在、blob 回退到共同基底)⇒ 路径成员性维看不见,
+ * 这一臂证明同一判据改读 blob oid 后必须判红;同时三臂反向:正常前进 / 内容被别人演进过 /
+ * 后手重落,三种形态都不得判红。
+ */
+test('A5:路径还在但内容退回基底必须判红;正常前进/被演进/已重落三臂不得判红', () => {
+  const { dir, run } = repo()
+  try {
+    writeFileSync(join(dir, 'content-a.txt'), 'v0\n', 'utf8')
+    run('add', 'content-a.txt')
+    run('commit', '-qm', '基底')
+    const cBase = run('rev-parse', 'HEAD')
+    writeFileSync(join(dir, 'content-a.txt'), 'v1 by dropped line\n', 'utf8')
+    run('add', 'content-a.txt')
+    run('commit', '-qm', 'feat: 改已有文件内容')
+    const cFrom = run('rev-parse', 'HEAD')
+    run('update-ref', '-m', 'relay align(旁路落地)', 'HEAD', cBase)
+    run('reset', '-q', '--hard', cBase)
+
+    const hit = G.auditRefMove(cFrom, cBase, dir, cBase)
+    assert.equal(hit.lost.length, 1, `路径还在、内容回退也必须判红:${JSON.stringify(hit)}`)
+    assert.equal(hit.lost[0].path, 'content-a.txt')
+    assert.equal(hit.lost[0].contentReverted, true, '必须标出这是内容面命中,而不是路径被删')
+    assert.ok(hit.droppedCommits >= 1)
+
+    // 反向①:正常前进(from 是 to 的祖先)一律放过
+    assert.equal(G.auditRefMove(cBase, cFrom, dir, cFrom).lost.length, 0)
+    // 反向②:结果内容与基底/该线都不同 ⇒ 别人演进过,不得归因给位移
+    writeFileSync(join(dir, 'content-b.txt'), 'b0\n', 'utf8')
+    run('add', 'content-b.txt')
+    run('commit', '-qm', '基底 b')
+    const bBase = run('rev-parse', 'HEAD')
+    writeFileSync(join(dir, 'content-b.txt'), 'from side\n', 'utf8')
+    run('add', 'content-b.txt')
+    run('commit', '-qm', '改 b')
+    const bFrom = run('rev-parse', 'HEAD')
+    run('reset', '-q', '--hard', bBase)
+    writeFileSync(join(dir, 'content-b.txt'), 'to side evolved\n', 'utf8')
+    run('add', 'content-b.txt')
+    run('commit', '-qm', '另一侧也改 b')
+    const bTo = run('rev-parse', 'HEAD')
+    assert.equal(G.auditRefMove(bFrom, bTo, dir, bTo).lost.length, 0, '内容被演进过不得判红')
+    // 反向③:后手重落(blob 离开基底)⇒ repaired,不重复喊人补
+    writeFileSync(join(dir, 'content-a.txt'), 'v1 re-landed by hand\n', 'utf8')
+    run('add', 'content-a.txt')
+    run('commit', '-qm', '重落 content-a')
+    const healed = G.auditRefMove(cFrom, cBase, dir, 'HEAD')
+    assert.ok(healed.repaired.some((x) => x.path === 'content-a.txt' && x.contentReverted === true), JSON.stringify(healed))
+    assert.ok(!healed.lost.some((x) => x.path === 'content-a.txt'), '已重落不得再判红')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('blobMapAt 与 presentIn 同源:成员性面与内容面必须取自同一份派生(不得两套取数)', () => {
+  const { dir, run } = repo()
+  try {
+    writeFileSync(join(dir, 'only-here.txt'), 'x\n', 'utf8')
+    run('add', 'only-here.txt')
+    run('commit', '-qm', 'add')
+    const set = G.treePaths('HEAD', dir)
+    const pres = G.presentIn('HEAD', ['base.txt', 'only-here.txt', 'nope.txt'], dir)
+    const blobs = G.blobMapAt('HEAD', ['base.txt', 'only-here.txt', 'nope.txt'], dir)
+    assert.equal(blobs.failed, false)
+    for (const p of ['base.txt', 'only-here.txt', 'nope.txt']) {
+      assert.equal(blobs.map.get(p) !== null, pres.map.get(p), `对 ${p} 成员性与内容面不一致`)
+      assert.equal(blobs.map.get(p) !== null, set.has(p), `对 ${p} 与 treePaths 不一致`)
+    }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+/**
  * A4 阳性对照用**真仓历史**(票 G-939 原案):`72b3a20c50 → 588a6342d8`(reflog 消息 `g921c relay align`)。
  * 这一型在 2026-10-21 当场没响,是因为门只有 A1、而 A1 的被审对象是"合并提交"—— 现场根本没有合并提交。
  * 夹具会随仓演进消失(对象被 GC / 别的 checkout 没有这两枚)⇒ 先问可达性,取不到就如实跳过并说明,
@@ -484,6 +558,20 @@ test('A4 阳性对照(真仓 G-939 原案):侧移必须被点名,内容已重落
   assert.ok(r.droppedCommits >= 1, `被丢提交数应 ≥1,实得 ${r.droppedCommits}`)
   const named = [...r.lost, ...r.repaired].map((x) => x.path)
   assert.ok(named.length > 0, `位移两侧的差异必须被点名(lost+repaired 皆空 = 判据没问到东西):${JSON.stringify(r)}`)
+  // A5 票面事实③:原枚改了 11 枚文件,其中 5 枚新增(A3 面)、6 枚改已有文件且 blob 退回基底(A5 面)。
+  // 修复前 `--move` 只报 5 条 repaired —— 那 6 枚在路径成员性维上"还在",当场判绿。
+  assert.equal(named.length, 11, `票面 11 枚文件必须全部被点名(A5 缺位时只剩 5 条):${JSON.stringify(named)}`)
+  const contentReverted = r.repaired.filter((x) => x.contentReverted === true)
+  assert.equal(contentReverted.length, 6, `改已有文件的 6 枚必须由 A5 点名:${JSON.stringify(r.repaired)}`)
+  for (const p of [
+    'apps/web/src/components/ai/ai-side-panel-tools.tsx',
+    'apps/web/src/components/ai/ai-side-panel.tsx',
+    'apps/web/src/components/ai/chat-pane-body.tsx',
+    'apps/web/src/components/ai/import-analysis-dialog.tsx',
+    'apps/web/src/hooks/use-chat/resume-stream.ts',
+    'apps/web/src/stores/ai-tools-panel.ts',
+  ])
+    assert.ok(contentReverted.some((x) => x.path === p), `${p} 的内容回退未被 A5 点名`)
   // 票面事实②:内容已被 d3541dc2 重落 ⇒ 必须落 repaired,不得冒红(红了收信人只能重复补回,§5e-1)
   assert.equal(r.lost.length, 0, `内容已重落却被判丢失:${JSON.stringify(r.lost)}`)
   assert.ok(G.isAncestor('d3541dc2670cec8634a57d04bcfbe5ff2b47c093', 'HEAD', REPO), '票面事实② 失准:重落枚不在 HEAD 祖先链')

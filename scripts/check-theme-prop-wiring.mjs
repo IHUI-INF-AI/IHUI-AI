@@ -22,7 +22,10 @@
  *  渲染点 = 扫 apps/mobile-rn|desktop|cli + packages/app 的 .tsx 里这些组件的 JSX 开标签体。
  *
  * 两类红点分别报:`未接线(漏传 colorScheme)` / `写死字面量(colorScheme="light|dark")`。
- * `{...spread}` 转发的渲染点单列为「不确定」并如实报数(不静默放过、也不误判为红),由人工核。
+ * 顶层 `{...spread}` 转发:能解析回同文件 `const props[: XxxProps] = {…}` 的,按该 props
+ * 对象的**顶层 colorScheme** 判三态(传了=ok / 写死字面量=红 / 没传=红);解析不出的
+ * (函数形参、跨文件、对象内继续展开、多展开源)单列为「不确定」并如实报数,由人工核。
+ * 属性表达式内部的 `{ ...a, ...b }`(setState 合并)不是整标签转发,不得计入不确定。
  *
  * ⚠️ 假阳性的唯一来源是**同名不同物**:apps/mobile-rn/src/components 下有 NavBar / TabBar /
  * Carousel / UserInfoCard … 端内自绘版(它们根本不吃 colorScheme)。首跑不限定说明符时
@@ -201,36 +204,37 @@ const RESERVED_LEAD = new Set(['as', 'from', 'keyof', 'readonly', 'type'])
  *    主题驱动组件根本进不了组件集,这正是本门自己会犯的假绿);
  *  - 串内逗号不切分。
  */
-export function topLevelBindingNames(objText) {
+export function topLevelEntries(objText) {
   const open = objText.indexOf('{')
   if (open === -1) return []
   const close = matchDelimited(objText, open)
   if (close === -1) return []
-  const names = []
+  const entries = []
   let depth = 0
-  let token = ''
-  const flush = () => {
-    const m = /^\s*([A-Za-z_$][\w$]*)/.exec(token)
-    if (m && !RESERVED_LEAD.has(m[1])) names.push(m[1])
-    token = ''
-  }
+  let start = open + 1
   for (let i = open + 1; i < close; i++) {
     const c = objText[i]
     if (c === "'" || c === '"' || c === '`') {
-      const end = skipStrOr(objText, i)
-      token += objText.slice(i, end + 1)
-      i = end
+      i = skipStrOr(objText, i)
       continue
     }
     if (c === '{' || c === '(' || c === '[') depth++
     else if (c === '}' || c === ')' || c === ']') depth--
     if (c === ',' && depth === 0) {
-      flush()
-      continue
+      entries.push(objText.slice(start, i))
+      start = i + 1
     }
-    token += c
   }
-  flush()
+  entries.push(objText.slice(start, close))
+  return entries.map((e) => e.trim()).filter(Boolean)
+}
+
+export function topLevelBindingNames(objText) {
+  const names = []
+  for (const entry of topLevelEntries(objText)) {
+    const m = /^\s*([A-Za-z_$][\w$]*)/.exec(entry)
+    if (m && !RESERVED_LEAD.has(m[1])) names.push(m[1])
+  }
   return names
 }
 
@@ -367,11 +371,36 @@ export function maskNonTopLevel(attrs) {
 }
 
 /**
+ * 开标签属性体里**顶层**的 `{...expr}` 展开 → expr 文本(已 trim)。
+ * 必须按顶层判:属性表达式内部的 `{ ...prev, ...patch }`(setState 合并写法)不是
+ * "整标签转发",旧判据对**原文**做 /\{\s*\.\.\./ 会把它误报成 spread-unknown,
+ * 于是真正漏传 colorScheme 的站点反而以"判不出"逃过红判。
+ */
+export function findTopLevelSpreads(attrs) {
+  const out = []
+  for (let i = 0; i < attrs.length; i++) {
+    const c = attrs[i]
+    if (c === "'" || c === '"' || c === '`') {
+      i = skipStrOr(attrs, i)
+      continue
+    }
+    if (c !== '{') continue
+    const close = matchDelimited(attrs, i)
+    if (close === -1) continue
+    const inner = attrs.slice(i + 1, close).trim()
+    if (inner.startsWith('...')) out.push(inner.slice(3).trim())
+    i = close
+  }
+  return out
+}
+
+/**
  * 检查开标签属性体里的主题透线。
  * 返回 { kind: 'ok' | 'missing' | 'literal' | 'spread-unknown', detail }
  *  - literal:`colorScheme="light|dark"` 或 `colorScheme={'light'|'dark'}` —— 字面量永远是错的
  *  - missing:整标签顶层没有该属性(形参默认值 'light' 静默生效)
- *  - spread-unknown:只有 `{...x}` 转发,判不出来 ⇒ 单列报数,不判红也不静默放过
+ *  - spread-unknown:只有顶层 `{...x}` 转发,判不出来 ⇒ 单列报数,不判红也不静默放过
+ *    (展开源可在同文件解析时由 resolveSpreadObject 升级为三态)
  * 属性名带前缀(`data-colorScheme`)或嵌在表达式里的,一律不算本属性。
  */
 const THEME_PROP_DECL = new RegExp(`(^|[^\\w$.\\-])${THEME_PROP}\\s*\\??=`, '')
@@ -380,8 +409,8 @@ export function inspectThemeAttr(attrs) {
   const masked = maskNonTopLevel(attrs)
   const m = THEME_PROP_DECL.exec(masked)
   if (!m) {
-    // 转发形态在掩码里会被抹平(它在 {} 内),故对**原文**判
-    if (/\{\s*\.\.\./.test(attrs)) {
+    // 只认**顶层**展开;`onChange={() => setX({ ...a })}` 里的花括号是属性值,不是转发
+    if (findTopLevelSpreads(attrs).length > 0) {
       return { kind: 'spread-unknown', detail: '整标签走 {...} 转发,判不出 colorScheme' }
     }
     return { kind: 'missing', detail: `渲染 ${THEME_PROP} 驱动组件而未传该 prop` }
@@ -473,6 +502,50 @@ export function findLocalComponentDecls(src) {
   const set = new Set()
   for (const m of stripComments(src).matchAll(LOCAL_DECL_RE)) set.add(m[1])
   return set
+}
+
+/**
+ * 端内 wrapper 的 props **类型事实**:同文件里
+ *   `const props: XxxScreenProps = { … }`(或 `const props = { … }`)
+ * 是唯一可静态读出的 props 载体。把展开源解析回这个对象字面量,再看其**顶层**
+ * 是否含 `colorScheme`:
+ *  - 含,值为 'light'/'dark' ⇒ literal(与写死字面量同罪)
+ *  - 含,值为表达式/简写 ⇒ ok(值由调用方解析)
+ *  - 不含 ⇒ missing(形参默认值 'light' 静默生效)
+ * 判不出的(非裸标识符、声明不唯一、对象字面量内还有展开、let/var 再赋值)
+ * 一律返回 undefined ⇒ 上层继续如实报 spread-unknown,绝不猜。
+ */
+export function resolveSpreadObject(src, expr) {
+  const name = expr.trim()
+  if (!/^[A-Za-z_$][\w$]*$/.test(name)) return undefined
+  const clean = stripComments(src)
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const decls = [
+    ...clean.matchAll(new RegExp(`(?:^|[^\\w$.])(?:const|let|var)\\s+${esc}\\s*(?::[^=;\\n]*)?=\\s*\\{`, 'g')),
+  ]
+  // 声明不唯一 ⇒ 无法确定渲染点用的是哪一份
+  if (decls.length !== 1) return undefined
+  // 只认 const:let/var 可能被再赋值,字面量不再代表展开时的值 ⇒ 判不出
+  if (!/const\s+/.test(decls[0][0])) return undefined
+  const open = (decls[0].index ?? 0) + decls[0][0].length - 1
+  const close = matchDelimited(clean, open)
+  if (close === -1) return undefined
+  const literal = clean.slice(open, close + 1)
+  // 字面量自己还在展开别的对象 ⇒ 顶层键不全,判不出
+  if (findTopLevelSpreads(literal).length > 0) return undefined
+  for (const entry of topLevelEntries(literal)) {
+    const m = /^(?:'([^']*)'|"([^"]*)"|([A-Za-z_$][\w$]*))\s*(?::\s*([\s\S]*))?$/.exec(entry)
+    if (!m) continue
+    if ((m[1] ?? m[2] ?? m[3]) !== THEME_PROP) continue
+    const value = (m[4] ?? '').trim()
+    if (!value) return { kind: 'ok', detail: null } // 简写属性 = 同名变量,等价于传值
+    const lit = /^(?:'([^']*)'|"([^"]*)"|`([^`]*)`)(?:\s+as\s+const)?$/.exec(value)
+    if (lit && LITERAL_ARCHIVES.has(lit[1] ?? lit[2] ?? lit[3])) {
+      return { kind: 'literal', detail: `${THEME_PROP}: ${value}` }
+    }
+    return { kind: 'ok', detail: null }
+  }
+  return { kind: 'missing', detail: `展开对象 {...${name}} 的顶层没有 ${THEME_PROP}` }
 }
 
 /**
@@ -645,7 +718,13 @@ export function judgeFile(rel, src, sharedNames) {
   for (const site of findJsxElementSites(src)) {
     const r = resolveRenderedName(site, imports, localDecls, rel, sharedNames)
     if (r.why === 'shared' && sharedNames.has(r.shared)) {
-      const verdict = inspectThemeAttr(site.attrs)
+      let verdict = inspectThemeAttr(site.attrs)
+      // 单个顶层展开源能解析回本文件 props 对象字面量 ⇒ 升级为三态;
+      // 多个展开源 / 非裸标识符 / 找不到唯一字面量 ⇒ 保持 spread-unknown 如实报
+      if (verdict.kind === 'spread-unknown') {
+        const spreads = findTopLevelSpreads(site.attrs)
+        if (spreads.length === 1) verdict = resolveSpreadObject(src, spreads[0]) ?? verdict
+      }
       const { line, col } = lineCol(clean, site.index)
       const rec = {
         file: rel,
@@ -996,6 +1075,38 @@ export function selfTest() {
     verdictOf(' {...rest} ') === 'spread-unknown',
     '仅 {...} 转发 = 单列不确定,不判红也不静默放过',
   )
+  // 顶层/非顶层必须分清:属性表达式内部的展开不是整标签转发(否则真漏传会伪装成"判不出")
+  assert(
+    verdictOf(' onChange={() => setX({ ...a, ...b })} ') === 'missing',
+    '属性表达式内部的 {...} 不得掩盖漏传(旧判据在此假绿)',
+  )
+  assert(
+    findTopLevelSpreads(' {...props} onChange={() => setX({ ...a })} ').join() === 'props',
+    '只认顶层展开源',
+  )
+  // --- 端内 wrapper 的 props 类型事实:展开源 → 同文件对象字面量 ---
+  const PROPS_SRC = `
+export function A() {
+  const withTheme: FooProps = { t, colorScheme: resolvedTheme }
+  const withLiteral: FooProps = { t, colorScheme: 'light' }
+  const without: FooProps = { t }
+  const forwarded = { ...base, t }
+  let reassigned = { colorScheme: resolvedTheme }
+  reassigned = { t }
+}
+`
+  assert(resolveSpreadObject(PROPS_SRC, 'withTheme')?.kind === 'ok', '展开源传了真主题 = ok')
+  assert(
+    resolveSpreadObject(PROPS_SRC, 'withLiteral')?.kind === 'literal',
+    '展开源里写死 colorScheme: "light" = 红(与直接写属性同罪)',
+  )
+  assert(
+    resolveSpreadObject(PROPS_SRC, 'without')?.kind === 'missing',
+    '展开源顶层没有 colorScheme = 漏传红',
+  )
+  assert(resolveSpreadObject(PROPS_SRC, 'forwarded') === undefined, '对象内继续展开 = 判不出')
+  assert(resolveSpreadObject(PROPS_SRC, 'reassigned') === undefined, '再赋值 = 判不出')
+  assert(resolveSpreadObject(PROPS_SRC, 'propsFromParam') === undefined, '形参来源 = 判不出')
   assert(
     verdictOf(' colorScheme={c} onPress={() => a > b} ') === 'ok',
     '属性表达式不得干扰 colorScheme 识别',
@@ -1229,6 +1340,9 @@ export const __test__ = {
   stripComments,
   matchDelimited,
   topLevelBindingNames,
+  topLevelEntries,
+  findTopLevelSpreads,
+  resolveSpreadObject,
   findDestructuredParams,
   findThemeDrivenComponents,
   findJsxElementSites,

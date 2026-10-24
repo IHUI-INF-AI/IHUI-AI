@@ -504,7 +504,44 @@
     "unpin": "Unpin",
     "bookmark": "Bookmark",
     "unbookmark": "Remove bookmark",
-    "flagFailed": "Failed to save marker"
+    "flagFailed": "Failed to save marker",
+    "voiceNote": {
+      "title": "Voice note",
+      "phase": {
+        "ready": "Ready",
+        "recording": "Recording",
+        "waitingTranscript": "Awaiting transcription",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "failed": "Recording failed",
+        "error": "Something went wrong",
+        "interrupted": "Interrupted",
+        "requestingPermission": "Requesting microphone permission",
+        "preparingMedia": "Preparing recording device",
+        "connecting": "Connecting to transcription service",
+        "stopping": "Stopping recording"
+      },
+      "errors": {
+        "permission": "Microphone permission was denied. Allow it in your browser settings and try again.",
+        "noMicrophone": "No microphone device found",
+        "startFailed": "Could not start recording. Please try again.",
+        "saveFailed": "Could not save the recording",
+        "recognitionFailed": "Speech recognition was interrupted",
+        "emptyTranscript": "Nothing was recognized",
+        "sttPending": "Transcription is not available right now. Try again later, or save the audio only.",
+        "loadFailed": "Could not load your notes. Please try again."
+      },
+      "action": {
+        "start": "Start recording",
+        "stop": "Stop recording",
+        "retry": "Retry",
+        "saveAudioOnly": "Save audio only",
+        "insertToInput": "Insert into message",
+        "dismiss": "Close"
+      },
+      "searchPlaceholder": "Search notes",
+      "groupAll": "All"
+    }
   },
   "settings": {
     "title": "Settings",

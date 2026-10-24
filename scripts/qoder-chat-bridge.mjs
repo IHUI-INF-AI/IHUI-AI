@@ -31,6 +31,21 @@
  *
  * 说明：上游不返回 token 计量（usage 恒为 0），只返回 credits 计费。
  *      本桥**如实透传 0** 并把 credits 放进 x_qoder_credits，绝不编造 token 数。
+ *
+ * 2026-10-23 计量取证结论（三层全量转储，见 outputs/qoder-usage-*-*.json）：
+ *   ① SDK 帧 schema 齐全 —— assistant/result 帧带 Anthropic 式 usage
+ *      (input_tokens/output_tokens/cache_read_input_tokens/cache_creation_*)、
+ *      modelUsage{<model>:{inputTokens,...,credits}}、total_cost_usd、total_credits；
+ *      但**网关恒填 0**（worker 自身日志 `model.response.completed input_tokens=0 ...` 同为零，
+ *      换 auto/kmodel/qmodel_38max 均 0），故零值源头在上游解码层，不是本桥丢字段。
+ *   ② 配额端点 GET /api/v2/quota/usage 回 usageType="credits"，
+ *      只有 userQuota/addOnQuota 的 credits 总数/已用/剩余；7 个候选 token 计量端点全 404。
+ *   ③ 官方 IDE 包内消费的也仅 credits 字段（userQuota/addOnQuota/totalUsagePercentage），
+ *      全站无 token 计量 UI —— 产品口径就是积分，不暴露 token。
+ *   ④ usage.context_usage_ratio 存在但**不是真实 token 数**：与 prompt 字数严格线性
+ *      且恒为 2 字符/token（0.01392→0.033925→0.093925 对应 7/8008/32008 字），
+ *      属本地启发式估算 ⇒ 只原样透传，绝不拿它反推 prompt_tokens。
+ *   结论：唯一真实可得的计量是 credits（含 original_credits/billable/request_id）。
  */
 import { spawn } from 'node:child_process'
 import crypto from 'node:crypto'
@@ -218,6 +233,7 @@ async function runQuery({ token, expiresAt, prompt, model, signal, onEvent }) {
   let finish = 'stop'
   let credits
   let requestId
+  let contextUsageRatio
   let stopReason
   let errored = false
   let errorText = ''
@@ -257,6 +273,9 @@ async function runQuery({ token, expiresAt, prompt, model, signal, onEvent }) {
       if (msg.message.usage?.credits !== undefined) credits = msg.message.usage.credits
       // request_id 在 assistant 帧的 usage 里（result 帧未必带）
       if (msg.message.usage?.request_id) requestId = msg.message.usage.request_id
+      if (typeof msg.message.usage?.context_usage_ratio === 'number') {
+        contextUsageRatio = msg.message.usage.context_usage_ratio
+      }
     } else if (msg.type === 'result') {
       if (msg.is_error) {
         errored = true
@@ -265,15 +284,29 @@ async function runQuery({ token, expiresAt, prompt, model, signal, onEvent }) {
       }
       if (typeof msg.result === 'string' && msg.result && !text) text = msg.result
       if (msg.total_credits !== undefined) credits = msg.total_credits
+      // 计量取证(2026-10-23 全帧转储)：result 帧的 modelUsage{<model>:{…,credits,context_usage_ratio}}
+      // 也携带真实扣减量；非流式态上游有时只在 modelUsage 给 credits（assistant.usage.credits /
+      // total_credits 为 undefined），不扫这里就会把本次真实计费丢成 null。
+      if (msg.modelUsage && typeof msg.modelUsage === 'object') {
+        for (const mv of Object.values(msg.modelUsage)) {
+          if (mv && typeof mv === 'object') {
+            if (typeof mv.credits === 'number') credits = mv.credits
+            if (typeof mv.context_usage_ratio === 'number') contextUsageRatio = mv.context_usage_ratio
+          }
+        }
+      }
       if (msg.request_id) requestId = msg.request_id
       if (msg.stop_reason) stopReason = msg.stop_reason
+      if (typeof msg.usage?.context_usage_ratio === 'number') {
+        contextUsageRatio = msg.usage.context_usage_ratio
+      }
     }
   }
 
   if (stopReason === 'end_turn' || stopReason === 'stop_sequence') finish = errored ? 'error' : 'stop'
   if (stopReason === 'max_tokens') finish = 'length'
 
-  return { text, thinking, finish, credits, requestId, errored, errorText, sdkModel }
+  return { text, thinking, finish, credits, requestId, contextUsageRatio, errored, errorText, sdkModel }
 }
 
 /** 并发闸：超过上限排队 */
@@ -427,7 +460,18 @@ const server = http.createServer(async (req, res) => {
           `data: ${JSON.stringify({ error: { message: result.errorText, type: 'qoder_upstream_error', code: 'upstream' } })}\n\n`,
         )
       } else {
-        res.write(`data: ${JSON.stringify(toChunk(id, reqModel, created, {}, result.finish))}\n\n`)
+        const terminal = toChunk(id, reqModel, created, {}, result.finish)
+        // 流式终止帧同样携带上游唯一真实计量：
+        //   credits = 本次请求扣减的积分（上游 token 字段恒 0，见文件头说明，绝不编造）；
+        //   context_usage_ratio = 上游给的上下文占用比例原值（语义未全证，原样透传不换算）。
+        terminal.usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+        if (typeof result.credits === 'number') terminal.usage.credits = result.credits
+        if (typeof result.contextUsageRatio === 'number') {
+          terminal.usage.context_usage_ratio = result.contextUsageRatio
+        }
+        terminal.x_qoder_credits = result.credits ?? null
+        terminal.x_qoder_request_id = result.requestId ?? null
+        res.write(`data: ${JSON.stringify(terminal)}\n\n`)
       }
       res.write('data: [DONE]\n\n')
       res.end()
@@ -465,6 +509,7 @@ const server = http.createServer(async (req, res) => {
         usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
         x_qoder_credits: result.credits ?? null,
         x_qoder_request_id: result.requestId ?? null,
+        x_qoder_context_usage_ratio: result.contextUsageRatio ?? null,
         x_qoder_sdk_model: result.sdkModel,
       })
     }

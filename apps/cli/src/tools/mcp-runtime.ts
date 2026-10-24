@@ -1018,11 +1018,12 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
         //   10s 超时与断连清理兜底);
         // - 异常路径:流自身死亡(网络断/对端重置等),打一条带上下文的告警,并把连接
         //   降档为不可用(复用既有 `connected` 字段,状态上报 `connected: !!conn.connected`
-        //   可见)。设计取向未拍板:不加 Retry、不做自动重连(禁为吞错加 Retry 藏红)。
+        //   可见)。O46 拍板 B:不在后台加 Retry 自动重连(禁为吞错加 Retry 藏红),
+        //   恢复入口是命令层手动重连(ACP `x.ai/mcp/reconnect`),降档告警指向该入口。
         if (classifySseStreamExit(err, conn.sseAbortController?.signal) === 'aborted') return;
         const detail = err instanceof Error ? err.message : String(err);
         console.warn(
-          `[mcp-runtime] SSE 流异常终止(非取消路径),连接降档为不可用(无自动重连): server=${server.name}: ${detail}`,
+          `[mcp-runtime] SSE 流异常终止(非取消路径),连接降档为不可用(无自动重连,可手动重连恢复: ACP x.ai/mcp/reconnect serverName=${server.name}): server=${server.name}: ${detail}`,
         );
         conn.connected = false;
       });

@@ -229,6 +229,7 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   { href: '/publish/new', spec: { ns: 'publish', key: 'new.title' } },
   { href: '/search/history', spec: { ns: 'search', key: 'history' } },
   { href: '/settings/authorizations', spec: { ns: 'settings', key: 'authorizationsTitle' } },
+  { href: '/settings/data-rights', spec: { ns: 'settings', key: 'dataRightsTitle' } },
   { href: '/settings/icp-record', spec: { ns: 'settings', key: 'icpRecordTitle' } },
   { href: '/settings/login-security', spec: { ns: 'settings', key: 'loginSecurity.title' } },
   { href: '/settings/model-record', spec: { ns: 'settings', key: 'modelRecordTitle' } },

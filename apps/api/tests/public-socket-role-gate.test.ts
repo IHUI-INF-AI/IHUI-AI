@@ -12,6 +12,10 @@
  * G-1080905:帧类别改由服务端按 `broadcastEventClassOf(event)` 推导 ——
  * 调用方自报的 role 只许在事件名推导不出类别时作收窄提示;自报与 event
  * 矛盾或自报 'all' 想放宽 ⇒ 一律以服务端推导为准。
+ *
+ * G-201:判定收口到 plugins/ws-broadcast.ts 的统一出口(resolveBroadcastFrameClass /
+ * resolveBroadcastRole),与 /ws/broadcast 同一口径;register 的 role 也经服务端
+ * 身份推导(admin-session/public-socket,ceiling='all'),自报只许收窄。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Fastify from 'fastify'
@@ -208,6 +212,66 @@ describe('G-1080905 帧类别由服务端按事件名推导,自报只许收窄�
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toMatchObject({ sent: 1, total: 1, gatedRole: 0 })
+    await app.close()
+  })
+})
+
+/**
+ * G-201 register 族:自报 role 经服务端身份判定出口
+ * (admin-session/public-socket,ceiling='all')—— 集内收窄生效、集外值入口即拒。
+ * ⑤ 已覆盖"自报 mcp 收窄生效 + 查询面可见";本族补入口拒绝与缺省形态。
+ */
+describe('G-201 public-socket register 角色经服务端身份判定出口', () => {
+  const U_REG = 'ffffffff-1111-4111-8111-111111111111'
+
+  beforeEach(() => {
+    _publicSocketInternal.activeConnections.clear()
+    _publicSocketInternal.eventHistory.length = 0
+  })
+
+  it('⑩ 封闭集外自报 role ⇒ 入口 400 拒,不落连接(自选放宽被挡)', async () => {
+    const app = await buildApp()
+    const res = await app.inject({
+      method: 'POST',
+      url: '/public-socket/register',
+      payload: { userId: U_REG, modelId: 'm', chatId: 'c', role: 'everything' },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(_publicSocketInternal.activeConnections.size).toBe(0)
+    await app.close()
+  })
+
+  it('⑪ 未声明 role ⇒ 服务端 ceiling all(既有语义不变)', async () => {
+    const app = await buildApp()
+    const reg = await app.inject({
+      method: 'POST',
+      url: '/public-socket/register',
+      payload: { userId: U_REG, modelId: 'm', chatId: 'c' },
+    })
+    expect(reg.statusCode).toBe(201)
+    const list = await app.inject({
+      method: 'GET',
+      url: `/public-socket/connections?userId=${U_REG}`,
+    })
+    expect(list.json().data.list[0]?.role).toBe('all')
+    await app.close()
+  })
+
+  it('⑫ 经出口登记的 mcp 收窄真实生效:conversation 帧对该连接 no-op', async () => {
+    const app = await buildApp()
+    const reg = await app.inject({
+      method: 'POST',
+      url: '/public-socket/register',
+      payload: { userId: U_REG, modelId: 'm', chatId: 'c', role: 'mcp' },
+    })
+    expect(reg.statusCode).toBe(201)
+    const res = await app.inject({
+      method: 'POST',
+      url: '/public-socket/send-message',
+      payload: { userId: U_REG, event: 'conversation:updated', data: {} },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().data).toMatchObject({ sent: 0, total: 1, gatedRole: 1 })
     await app.close()
   })
 })

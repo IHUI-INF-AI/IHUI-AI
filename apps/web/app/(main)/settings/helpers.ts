@@ -23,6 +23,7 @@ import {
   Bot,
   Lock,
   ShieldCheck,
+  UserShield,
 } from 'lucide-react'
 
 export const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -59,6 +60,7 @@ export const NAV_GROUPS: readonly SettingsNavGroup[] = [
       { href: '/settings/authorizations', labelKey: 'authorizationsTitle', icon: Lock },
       { href: '/settings/security-log', labelKey: 'securityLogTitle', icon: FileText },
       { href: '/settings/privacy', labelKey: 'privacyTitle', icon: Shield },
+      { href: '/settings/data-rights', labelKey: 'dataRightsTitle', icon: UserShield },
       { href: '/settings/agent-security', labelKey: 'agentSecurityTitle', icon: ShieldCheck },
     ],
   },

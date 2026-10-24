@@ -105,10 +105,11 @@ export function resolveQoderBridgePaths(): QoderBridgePaths {
 }
 
 /**
- * 桥接总开关(qoder-adapter 模块加载时判定,决定 executeChat 是否定义):
+ * CLI 通路门控(qoder-adapter 模块加载时判定,决定路径 ② 是否挂载):
  * - QODER_BRIDGE_ENABLED=1 显式开 / =0 显式关;
  * - 未显式表态时 production 一律关(生产必须显式 env,防误走探测默认路径);
  * - 其余(非生产)按 runner/SDK/CLI 路径齐备(存在)判定。
+ * 注意:=0 同时是 chat 总开关(常驻桥也一并关闭),见 qoder-adapter 的 QODER_CHAT_DISABLED。
  */
 export function isQoderBridgeEnabled(): boolean {
   const flag = process.env.QODER_BRIDGE_ENABLED?.trim()
