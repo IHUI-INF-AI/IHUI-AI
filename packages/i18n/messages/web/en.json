@@ -820,6 +820,7 @@
       "signInTitle": "Check-in",
       "signInToday": "Checked in today",
       "signInUnsigned": "Not checked in",
+      "userGrowth14d": "User Growth (14d)",
       "sourceUnreachable": "Data source unreachable",
       "srcAlertmanager": "Alertmanager",
       "srcDatabase": "Database",
