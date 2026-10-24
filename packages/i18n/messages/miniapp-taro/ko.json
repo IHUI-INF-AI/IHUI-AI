@@ -3308,7 +3308,8 @@
       "duration": "회원 기간",
       "monthlyPlan": "월간 회원",
       "payMethod": "결제 수단",
-      "yearlyPlan": "연간 회원"
+      "yearlyPlan": "연간 회원",
+      "daysUnit": "{n}일"
     },
     "benefitsTitle": "멤버 혜택",
     "upgradeNow": "지금 업그레이드",
