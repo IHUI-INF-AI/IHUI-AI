@@ -8433,6 +8433,10 @@
           "title": "Account is restricted",
           "action": "Contact the administrator"
         },
+        "ALREADY_CLAIMED": {
+          "title": "This task has already been claimed",
+          "action": "Claim another task, or wait for the holder to release it"
+        },
         "API_BRIDGE_ERROR": {
           "title": "API bridge call failed",
           "action": "Retry later"
@@ -8440,6 +8444,10 @@
         "BAD_PARAMS": {
           "title": "Parameters are incomplete or invalid",
           "action": "Fix and retry"
+        },
+        "BOARD_FULL": {
+          "title": "Team task board is full",
+          "action": "Clear completed entries and try again"
         },
         "BUDGET_EXHAUSTED": {
           "title": "Quota exhausted",
@@ -8581,6 +8589,10 @@
           "title": "File is too large",
           "action": "Shrink the file and retry"
         },
+        "FORBIDDEN": {
+          "title": "You cannot update this task",
+          "action": "Claim the task first, or contact its current holder"
+        },
         "FORM_CHANNEL_UNAVAILABLE": {
           "title": "Business form requests are only available in the main chat flow",
           "action": "Do not retry this tool; ask the user directly in your reply instead"
@@ -8648,6 +8660,10 @@
         "INVALID_REPO": {
           "title": "Parameters are incomplete or invalid",
           "action": "Fix and retry"
+        },
+        "INVALID_STATUS": {
+          "title": "Invalid task status",
+          "action": "Use pending, claimed, done, or blocked"
         },
         "INVALID_TRIGGER": {
           "title": "Schedule configuration is invalid",
@@ -8809,9 +8825,17 @@
           "title": "Subtask execution failed",
           "action": "Retry"
         },
+        "TASK_CLOSED": {
+          "title": "This task is already closed or blocked",
+          "action": "Choose another task"
+        },
         "TASK_FAILED": {
           "title": "Subtask execution failed",
           "action": "Retry"
+        },
+        "TASK_NOT_FOUND": {
+          "title": "Task not found",
+          "action": "Refresh the task list and retry"
         },
         "TEXT_TOO_LONG": {
           "title": "Context is too long",

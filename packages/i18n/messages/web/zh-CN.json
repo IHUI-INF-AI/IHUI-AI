@@ -8433,6 +8433,10 @@
           "title": "账户受限",
           "action": "联系管理员"
         },
+        "ALREADY_CLAIMED": {
+          "title": "该任务已被他人认领",
+          "action": "改领其他任务，或等对方释放后再试"
+        },
         "API_BRIDGE_ERROR": {
           "title": "接口桥接调用失败",
           "action": "稍后重试"
@@ -8440,6 +8444,10 @@
         "BAD_PARAMS": {
           "title": "参数不完整或无效",
           "action": "修改后重试"
+        },
+        "BOARD_FULL": {
+          "title": "团队任务表已满",
+          "action": "清理已完成条目后再添加"
         },
         "BUDGET_EXHAUSTED": {
           "title": "额度已用尽",
@@ -8577,6 +8585,10 @@
           "title": "文件过大",
           "action": "精简文件后重试"
         },
+        "FORBIDDEN": {
+          "title": "无权更新该任务",
+          "action": "先认领该任务，或联系当前持有者"
+        },
         "FORM_CHANNEL_UNAVAILABLE": {
           "title": "业务表单请求仅在对话流内可用",
           "action": "请勿重试该工具;需要这些信息时,直接在回复里向用户提问"
@@ -8644,6 +8656,10 @@
         "INVALID_REPO": {
           "title": "参数不完整或无效",
           "action": "修改后重试"
+        },
+        "INVALID_STATUS": {
+          "title": "任务状态无效",
+          "action": "改用 pending、claimed、done 或 blocked"
         },
         "INVALID_TRIGGER": {
           "title": "定时配置无效",
@@ -8801,9 +8817,17 @@
           "title": "子任务执行失败",
           "action": "重试"
         },
+        "TASK_CLOSED": {
+          "title": "该任务已结束或受阻",
+          "action": "选择其他任务"
+        },
         "TASK_FAILED": {
           "title": "子任务执行失败",
           "action": "重试"
+        },
+        "TASK_NOT_FOUND": {
+          "title": "未找到该任务",
+          "action": "刷新任务列表后重试"
         },
         "TEXT_TOO_LONG": {
           "title": "上下文过长",
