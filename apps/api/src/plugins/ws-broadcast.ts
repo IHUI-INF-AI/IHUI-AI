@@ -25,6 +25,7 @@ import IORedis, { type Redis } from 'ioredis'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { config } from '../config/index.js'
+import { allocateChatSyncRev } from '../db/chat-sync-rev-queries.js'
 // 票71 第二切片:帧载荷的构造器唯一源在 @ihui/types(与契约事件逐字同源,不另造形状)
 import { messageCreatedEvent, messagePatchedEvent } from '@ihui/types'
 
@@ -43,7 +44,8 @@ declare module 'fastify' {
     broadcastChatMessageCreated(input: ChatMessageCreatedBroadcastInput): ChatSyncBroadcastResult
     /**
      * 票71 第二切片:消息修订的房间广播。异步是因为 rev 要现分配
-     * (Redis INCR 是跨实例单一写入方;不可用时回落壁钟单调序号,绝不进程内从 1 重数)。
+     * (B02 第三切片改 PG `chat_message_sync_revs` UPSERT 原子递增:跨实例单一写入方、
+     * 持久可续 —— 已退役的 Redis INCR 档在 Redis 被清/无持久化时重启归零)。
      */
     broadcastChatMessagePatched(
       input: ChatMessagePatchedBroadcastInput,
@@ -471,37 +473,18 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ── 票71(V2 #23)第二切片:会话房间投递(2026-10-24)────────────────────────
-  // rev 分配点 = 服务端唯一写入方。Redis INCR 在跨实例/跨重启下严格递增;
-  // Redis 不可用时回落"壁钟毫秒 + 本机已发最大值 +1"——**绝不**用"进程内从 1 重数"
-  // 的计数器:那会在进程重启后把 rev 打回 1,端侧按 stale 丢弃新内容,症状是
-  // "另一台设备停在半截回复,而账面全绿"。回落值只保证单调,不保证跨实例严格递增,
-  // 该缺口由端侧 resync(下一片接 REST 拉权威快照)兜底。
-  const chatSyncRevFloor = new Map<string, number>()
-  const CHAT_SYNC_REV_KEY_PREFIX = 'chat-sync:rev:'
-
-  const nextChatSyncRev = async (messageId: string): Promise<number> => {
-    const prev = chatSyncRevFloor.get(messageId) ?? 0
-    const publisher = (server as unknown as { redis?: Redis }).redis
-    if (publisher) {
-      try {
-        const n = await publisher.incr(`${CHAT_SYNC_REV_KEY_PREFIX}${messageId}`)
-        if (typeof n === 'number' && Number.isInteger(n) && n > 0) {
-          const rev = Math.max(n, prev + 1)
-          chatSyncRevFloor.set(messageId, rev)
-          return rev
-        }
-      } catch (err) {
-        server.log.warn(
-          { err, messageId },
-          'ws-broadcast rev 分配(redis incr)失败,回落壁钟单调序号(端侧靠 resync 收敛)',
-        )
-      }
-    }
-    const rev = Math.max(Date.now(), prev + 1)
-    chatSyncRevFloor.set(messageId, rev)
-    return rev
-  }
+  // ── 票71 第二切片:会话房间投递(2026-10-24)────────────────────────
+  // B02 第三切片(2026-10-25):rev 分配点改 PG 权威账本(chat_message_sync_revs,
+  // UPSERT 原子递增,见 db/chat-sync-rev-queries.ts 头注)。此前的两档都已退役:
+  //  - Redis INCR `chat-sync:rev:<messageId>`:Redis 被清/无持久化配置时重启归零,
+  //    rev 从 1 重数 ⇒ 端侧按 stale 丢弃新内容;
+  //  - 壁钟毫秒回落:值一旦进链,重启后小数字链(无论 Redis 还是 PG)必然回退,
+  //    端侧全判 stale —— 症状是"另一台设备停在半截回复,而账面全绿"。
+  // PG 不可用 ⇒ allocateChatSyncRev 抛错 ⇒ broadcastChatMessagePatched 原样上抛,
+  // 调用方已有 catch(出声、不改写路径响应)。**没有回落档**:伪造的服务端坐标比
+  // 广播失败更糟;失败端侧退回打开会话拉取,或走快照端点 resync(契约 §7 第 3 项)。
+  const nextChatSyncRev = async (messageId: string): Promise<number> =>
+    allocateChatSyncRev(messageId)
 
   /**
    * 房间投递体:房间键由 `input.conversationId` 唯一推导,帧里的 `room` 必须与之一致
