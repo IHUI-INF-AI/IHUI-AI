@@ -339,13 +339,13 @@ export function AgentRuntimeScreen() {
               </Text>
             </View>
           ) : (
-            <Text className="mt-2 text-xs text-neutral-500">{t('agentRuntime.probeHint')}</Text>
+            <Text className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{t('agentRuntime.probeHint')}</Text>
           )}
         </View>
 
         {loading ? (
           <View className="items-center py-12">
-            <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
+            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
           </View>
         ) : error ? (
           <View className="mx-4 mb-3 rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
@@ -361,7 +361,7 @@ export function AgentRuntimeScreen() {
           </View>
         ) : sessions.length === 0 ? (
           <View className="items-center py-12">
-            <Text className="text-sm text-neutral-500">{t('agentRuntime.empty')}</Text>
+            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('agentRuntime.empty')}</Text>
           </View>
         ) : (
           sessions.map((session) => {
@@ -385,7 +385,7 @@ export function AgentRuntimeScreen() {
                   </View>
                 </View>
 
-                <Text className="mt-1 text-xs text-neutral-500">
+                <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                   {t('agentRuntime.messages', { count: live?.count ?? session.messages.length })}
                   {session.model ? ` · ${t('agentRuntime.model')}: ${session.model}` : ''}
                 </Text>
@@ -396,7 +396,7 @@ export function AgentRuntimeScreen() {
                 ) : null}
 
                 {expanded && live ? (
-                  <Text className="mt-1 text-xs text-neutral-500">
+                  <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                     {t('agentRuntime.liveStatus')}: {t(sessionStatusKey(live.status))}
                   </Text>
                 ) : null}
