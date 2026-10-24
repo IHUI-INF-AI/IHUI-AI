@@ -3,13 +3,17 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * G-876:POST /api/auth/register 手机号真实性核验。
- * 票面判据两档(通道在/不在配置态)各有成对夹具:
- *  - 配置态:code 必填 + 先过 code-store verifyCode 再落库(未验过不落库),
- *    校验先于 409 查询(无码者不得借 409 枚举号码归属),验证码一次性消费(重放必红)。
- *  - 未配置态:code 可选(改必填会当场关死注册),但带上就必须验真(防绕过)。
- * 配置态判据直接用生产出口 isSmsConfigured()(经 SMS_API_BASE_URL 代理档点亮),
- * 测试不复制一份判定逻辑(§22c)。
+ * G-876:POST /api/auth/register 手机号真实性核验(黑盒 inject 真跑路由)。
+ *
+ * 票面判据:
+ *  - 正确 code 注册成功,且码被一次性消费;
+ *  - 错码 / 过期码 / 复用码 / 缺码各拒(400),均不落库;
+ *  - 码限定 register 用途:login 场景发出的码不得拿来注册;
+ *  - 短信通道未配置 ⇒ 503(与本仓认证类「未配置态」同形:绝不静默放行,errorCode 落枚举);
+ *  - 校验先于 409 查询(未验码者不得借 409 枚举号码归属)。
+ *
+ * 通道判据直接用生产出口 isSmsConfigured()(经 SMS_API_BASE_URL 代理档点亮),
+ * 测试不复制判定逻辑(§22c)。存储侧用 code-store 的 __test__ 出口重置与探活。
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
@@ -133,15 +137,24 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 import { authRoutes } from '../src/routes/auth.js'
-import { config } from '../src/config/index.js'
 import {
   __test__ as codeStoreTest,
   putCodeEntry,
   CODE_TTL_REGISTER_MS,
+  type CodeEntry,
 } from '../src/utils/code-store.js'
 
-const NOW = new Date('2026-10-23T00:00:00Z')
+const NOW = new Date('2026-10-24T00:00:00Z')
 const PHONE = '13800000001'
+const UNCONFIGURED_ENV_KEYS = [
+  'SMS_API_BASE_URL',
+  'ALI_SMS_ACCESS_KEY_ID',
+  'ALI_SMS_ACCESS_KEY_SECRET',
+  'TENCENT_SMS_SECRET_ID',
+  'TENCENT_SMS_SECRET_KEY',
+  'TENCENT_SMS_SDK_APP_ID',
+  'TENCENT_SMS_SIGN_NAME',
+] as const
 
 function makeUser(overrides: Record<string, unknown> = {}) {
   return {
@@ -169,9 +182,20 @@ function makeUser(overrides: Record<string, unknown> = {}) {
   }
 }
 
-async function seedRegisterCode(phone: string, code: string): Promise<void> {
+/** 按发送端真实写入口径存一枚码:场景随码落库(register 才有用途资格)。 */
+async function seedCode(
+  phone: string,
+  code: string,
+  scene: 'register' | 'login' = 'register',
+  ttlMs = CODE_TTL_REGISTER_MS,
+): Promise<void> {
   const now = Date.now()
-  await putCodeEntry(phone, { code, expiresAt: now + CODE_TTL_REGISTER_MS, sentAt: now })
+  await putCodeEntry(phone, {
+    code,
+    expiresAt: now + ttlMs,
+    sentAt: now,
+    scene,
+  } as CodeEntry)
 }
 
 let app: FastifyInstance
@@ -181,6 +205,8 @@ async function postRegister(payload: Record<string, unknown>) {
 }
 
 describe('G-876 register 验证码校验', () => {
+  const savedEnv: Record<string, string | undefined> = {}
+
   beforeAll(async () => {
     app = Fastify({ logger: false })
     await app.register(cookie)
@@ -197,6 +223,10 @@ describe('G-876 register 验证码校验', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     await codeStoreTest.reset()
+    for (const k of UNCONFIGURED_ENV_KEYS) {
+      savedEnv[k] = process.env[k]
+      delete process.env[k]
+    }
     mockCreateFamilyId.mockReturnValue('fam-mock')
     mockIssueTokenPair.mockResolvedValue({
       accessToken: 'access-token',
@@ -210,39 +240,20 @@ describe('G-876 register 验证码校验', () => {
     mockRecentRiskHitsByIp.mockResolvedValue(0)
   })
 
+  afterEach(() => {
+    for (const k of UNCONFIGURED_ENV_KEYS) {
+      if (savedEnv[k] === undefined) delete process.env[k]
+      else process.env[k] = savedEnv[k]
+    }
+  })
+
   describe('短信通道已配置(SMS_API_BASE_URL 代理档点亮 isSmsConfigured)', () => {
-    const saved = { proxy: process.env.SMS_API_BASE_URL }
     beforeEach(() => {
       process.env.SMS_API_BASE_URL = 'http://127.0.0.1:1'
     })
-    afterAll(() => {
-      if (saved.proxy === undefined) delete process.env.SMS_API_BASE_URL
-      else process.env.SMS_API_BASE_URL = saved.proxy
-    })
 
-    it('不带 code ⇒ 400,不落库、不查 409(校验先于枚举面)', async () => {
-      const res = await postRegister({ phone: PHONE, password: 'password123' })
-      expect(res.statusCode).toBe(400)
-      expect(res.json().message).toContain('验证码')
-      expect(mockCreateUser).not.toHaveBeenCalled()
-      expect(mockFindUserByPhone).not.toHaveBeenCalled()
-    })
-
-    it('带错码(存储无此号)⇒ 400,不落库', async () => {
-      const res = await postRegister({ phone: PHONE, password: 'password123', code: '999999' })
-      expect(res.statusCode).toBe(400)
-      expect(res.json().message).toContain('验证码错误或已过期')
-      expect(mockCreateUser).not.toHaveBeenCalled()
-    })
-
-    it('code 非 6 位 ⇒ 400(schema 档)', async () => {
-      const res = await postRegister({ phone: PHONE, password: 'password123', code: '12345' })
-      expect(res.statusCode).toBe(400)
-      expect(mockCreateUser).not.toHaveBeenCalled()
-    })
-
-    it('正确码 ⇒ 200 发 token,且验证码被一次性消费', async () => {
-      await seedRegisterCode(PHONE, '246810')
+    it('正例:正确 code(register 场景)⇒ 200 发 token,码被一次性消费', async () => {
+      await seedCode(PHONE, '246810')
       const res = await postRegister({ phone: PHONE, password: 'password123', code: '246810' })
       expect(res.statusCode).toBe(200)
       expect(res.json().data.accessToken).toBe('access-token')
@@ -250,8 +261,36 @@ describe('G-876 register 验证码校验', () => {
       expect(await codeStoreTest.exists(PHONE)).toBe(false)
     })
 
-    it('同一枚码重放 ⇒ 第二次 400(一次性)', async () => {
-      await seedRegisterCode(PHONE, '135790')
+    it('反例:缺码 ⇒ 400 且 errorCode 落枚举,不落库、不查 409', async () => {
+      const res = await postRegister({ phone: PHONE, password: 'password123' })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().errorCode).toBe('VALIDATION_FAILED')
+      expect(res.json().message).toContain('验证码')
+      expect(mockCreateUser).not.toHaveBeenCalled()
+      expect(mockFindUserByPhone).not.toHaveBeenCalled()
+    })
+
+    it('反例:错码 ⇒ 400 且不消费原码、不落库', async () => {
+      await seedCode(PHONE, '246810')
+      const res = await postRegister({ phone: PHONE, password: 'password123', code: '999999' })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().errorCode).toBe('VALIDATION_FAILED')
+      expect(res.json().message).toContain('验证码错误或已过期')
+      expect(await codeStoreTest.exists(PHONE)).toBe(true)
+      expect(mockCreateUser).not.toHaveBeenCalled()
+    })
+
+    it('反例:过期码 ⇒ 400 且不落库', async () => {
+      await seedCode(PHONE, '246810', 'register', -1000)
+      const res = await postRegister({ phone: PHONE, password: 'password123', code: '246810' })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().errorCode).toBe('VALIDATION_FAILED')
+      expect(mockCreateUser).not.toHaveBeenCalled()
+    })
+
+    it('反例:同一枚码复用 ⇒ 第二次 400(一次性)', async () => {
+      vi.mocked(mockFindUserByPhone).mockResolvedValueOnce(null)
+      await seedCode(PHONE, '135790')
       const first = await postRegister({ phone: PHONE, password: 'password123', code: '135790' })
       expect(first.statusCode).toBe(200)
       const second = await postRegister({
@@ -260,17 +299,28 @@ describe('G-876 register 验证码校验', () => {
         code: '135790',
       })
       expect(second.statusCode).toBe(400)
+      expect(second.json().errorCode).toBe('VALIDATION_FAILED')
     })
 
-    it('已注册号码 + 正确码 ⇒ 409(核验通过后仍拒重复注册)', async () => {
-      mockFindUserByPhone.mockResolvedValue(makeUser())
-      await seedRegisterCode(PHONE, '246813')
-      const res = await postRegister({ phone: PHONE, password: 'password123', code: '246813' })
-      expect(res.statusCode).toBe(409)
+    it('用途锁:login 场景发出的码 ⇒ 400,且不消费该码', async () => {
+      await seedCode(PHONE, '112233', 'login')
+      const res = await postRegister({ phone: PHONE, password: 'password123', code: '112233' })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().errorCode).toBe('VALIDATION_FAILED')
+      expect(await codeStoreTest.exists(PHONE)).toBe(true)
       expect(mockCreateUser).not.toHaveBeenCalled()
     })
 
-    it('已注册号码 + 不带码 ⇒ 400 而非 409(未验过不得借 409 探号)', async () => {
+    it('已注册号码 + 正确码 ⇒ 409(核验通过后仍拒重复注册,errorCode 落枚举)', async () => {
+      mockFindUserByPhone.mockResolvedValue(makeUser())
+      await seedCode(PHONE, '246813')
+      const res = await postRegister({ phone: PHONE, password: 'password123', code: '246813' })
+      expect(res.statusCode).toBe(409)
+      expect(res.json().errorCode).toBe('CONFLICT')
+      expect(mockCreateUser).not.toHaveBeenCalled()
+    })
+
+    it('已注册号码 + 缺码 ⇒ 400 而非 409(未验过不得借 409 探号)', async () => {
       mockFindUserByPhone.mockResolvedValue(makeUser())
       const res = await postRegister({ phone: PHONE, password: 'password123' })
       expect(res.statusCode).toBe(400)
@@ -278,78 +328,23 @@ describe('G-876 register 验证码校验', () => {
     })
   })
 
-  describe('短信通道未配置(三档全缺)', () => {
-    beforeEach(() => {
-      delete process.env.SMS_API_BASE_URL
-      delete process.env.ALI_SMS_ACCESS_KEY_ID
-      delete process.env.ALI_SMS_ACCESS_KEY_SECRET
-      delete process.env.TENCENT_SMS_SECRET_ID
-      delete process.env.TENCENT_SMS_SECRET_KEY
-      delete process.env.TENCENT_SMS_SDK_APP_ID
-      delete process.env.TENCENT_SMS_SIGN_NAME
-    })
-
-    it('不带 code ⇒ 200(必填会当场关死注册,票面明令等通道)', async () => {
-      const res = await postRegister({ phone: PHONE, password: 'password123' })
-      expect(res.statusCode).toBe(200)
-      expect(mockCreateUser).toHaveBeenCalledTimes(1)
-    })
-
-    it('带错码 ⇒ 400,不落库(防绕过:带了就必须验,不得静默忽略)', async () => {
-      const res = await postRegister({ phone: PHONE, password: 'password123', code: '000000' })
-      expect(res.statusCode).toBe(400)
-      expect(res.json().message).toContain('验证码错误或已过期')
-      expect(mockCreateUser).not.toHaveBeenCalled()
-    })
-
-    it('带正确码 ⇒ 200(未配置态走 dev 回显码同样可注册)', async () => {
-      await seedRegisterCode(PHONE, '864210')
+  describe('短信通道未配置(三档全缺)⇒ 503 响亮失败,绝不静默放行', () => {
+    it('带正确码 ⇒ 503 且 errorCode=CAPABILITY_UNAVAILABLE,不落库', async () => {
+      await seedCode(PHONE, '864210')
       const res = await postRegister({ phone: PHONE, password: 'password123', code: '864210' })
-      expect(res.statusCode).toBe(200)
-      expect(mockCreateUser).toHaveBeenCalledTimes(1)
-    })
-  })
-
-  // G-876 续:fail-soft 开关(config.AUTH_REGISTER_CODE_FAIL_SOFT,环境变量/配置控制,默认关)。
-  // 开启 = 核验不过仅告警放行(通道切换/客户端灰度期回退窗口);关闭 = fail-hard(上面两档已钉)。
-  describe('fail-soft 开关(AUTH_REGISTER_CODE_FAIL_SOFT)', () => {
-    const cfg = config as typeof config & { AUTH_REGISTER_CODE_FAIL_SOFT?: boolean }
-    const saved = { proxy: process.env.SMS_API_BASE_URL, soft: cfg.AUTH_REGISTER_CODE_FAIL_SOFT }
-    beforeEach(() => {
-      process.env.SMS_API_BASE_URL = 'http://127.0.0.1:1' // 通道已配置档(严格面本应 400)
-      cfg.AUTH_REGISTER_CODE_FAIL_SOFT = true
-    })
-    afterEach(() => {
-      cfg.AUTH_REGISTER_CODE_FAIL_SOFT = saved.soft
-    })
-    afterAll(() => {
-      if (saved.proxy === undefined) delete process.env.SMS_API_BASE_URL
-      else process.env.SMS_API_BASE_URL = saved.proxy
+      expect(res.statusCode).toBe(503)
+      expect(res.json().code).toBe(503)
+      expect(res.json().errorCode).toBe('CAPABILITY_UNAVAILABLE')
+      expect(String(res.json().message)).toContain('短信通道未配置')
+      expect(mockCreateUser).not.toHaveBeenCalled()
+      // 未配置态不消费码:通道恢复后这枚码仍在(不被注册路径半消费)
+      expect(await codeStoreTest.exists(PHONE)).toBe(true)
     })
 
-    it('开关开 + 缺码 ⇒ 200 放行(fail-soft 不拦)', async () => {
-      const res = await postRegister({ phone: PHONE, password: 'password123' })
-      expect(res.statusCode).toBe(200)
-      expect(mockCreateUser).toHaveBeenCalledTimes(1)
-    })
-
-    it('开关开 + 错码 ⇒ 200 放行(核验不过仅告警)', async () => {
-      const res = await postRegister({ phone: PHONE, password: 'password123', code: '999999' })
-      expect(res.statusCode).toBe(200)
-      expect(mockCreateUser).toHaveBeenCalledTimes(1)
-    })
-
-    it('开关关(默认档)⇒ 同场景仍 400(反向锁:开关是唯一变量)', async () => {
-      cfg.AUTH_REGISTER_CODE_FAIL_SOFT = false
+    it('不带码 ⇒ 400(schema 必填先于通道判据,不是 503/200)', async () => {
       const res = await postRegister({ phone: PHONE, password: 'password123' })
       expect(res.statusCode).toBe(400)
-      expect(mockCreateUser).not.toHaveBeenCalled()
-    })
-
-    it('开关开不改变 409 语义:已注册号码仍 409', async () => {
-      mockFindUserByPhone.mockResolvedValue(makeUser())
-      const res = await postRegister({ phone: PHONE, password: 'password123' })
-      expect(res.statusCode).toBe(409)
+      expect(res.json().errorCode).toBe('VALIDATION_FAILED')
       expect(mockCreateUser).not.toHaveBeenCalled()
     })
   })
