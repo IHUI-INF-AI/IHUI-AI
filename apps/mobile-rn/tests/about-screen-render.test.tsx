@@ -16,36 +16,6 @@ import { messages, getValueByPath, type Locale } from '../src/i18n'
 
 const nav = vi.hoisted(() => ({ navigate: vi.fn(), goBack: vi.fn() }))
 
-vi.mock('react-native', () => {
-  const mk = (tag: string) =>
-    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-      const { style, onPress, children, ...rest } = props
-      const flat = (v: unknown): unknown =>
-        Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
-      return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
-    }
-  return {
-    // 共享返回键的核心会按字体缩放取档(packages/shared/src/ui/back-chevron-core → useFontMultiplier)
-    PixelRatio: {
-      getFontScale: () => 1,
-      getPixelSizeForLayoutSize: (n: number) => n,
-      roundToNearestPixel: (n: number) => n,
-    },
-    // 主题单例在模块求值期调 Appearance.getColorScheme(),缺它整份文件一条用例都不跑
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    // 薄壳接 useTheme() 后走的是 ThemeContext,它按 useColorScheme 解析 'system' ⇒ 替身必须给这个钩子
-    useColorScheme: () => 'light',
-    View: mk('div'),
-    Text: mk('span'),
-    ScrollView: mk('div'),
-    // 共享屏的页头返回键走 packages/app BackChevron,它用的是 Pressable(不是 TouchableOpacity)
-    Pressable: mk('button'),
-    TouchableOpacity: mk('button'),
-    StyleSheet: { create: <T extends object>(s: T) => s, flatten: (s: unknown) => s },
-    Platform: { OS: 'web', select: (o: Record<string, unknown>) => o.web ?? o.ios },
-  }
-})
-
 vi.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: nav.navigate, goBack: nav.goBack }),
 }))

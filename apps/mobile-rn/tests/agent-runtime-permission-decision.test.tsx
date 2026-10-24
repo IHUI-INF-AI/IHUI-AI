@@ -34,7 +34,7 @@ vi.mock('@ihui/api-client', () => ({
   executeAgentRuntimeStream: vi.fn().mockResolvedValue(undefined),
 }))
 
-// 不在此重写 `vi.mock('react-native')`:vitest.config 已把 react-native alias 到
+// 不在此重写 ``:vitest.config 已把 react-native alias 到
 // tests/__mocks__/react-native.ts(含 Appearance/Platform/Animated/ref)。本文件曾自带
 // 一份 6 键 stub,主题层一旦在模块求值期取 Appearance 就整文件加载失败(0 用例、红而不响)。
 vi.mock('@ihui/ui-native', () => ({

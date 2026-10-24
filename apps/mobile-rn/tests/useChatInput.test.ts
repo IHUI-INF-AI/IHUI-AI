@@ -52,13 +52,7 @@ vi.mock('expo-image-picker', () => ({
   MediaTypeOptions: { Images: 'Images', All: 'All' },
   launchImageLibraryAsync: vi.fn(),
 }))
-
-// useChatInput 只从 react-native 具名导入 Platform;确认提示已迁移为共享 appAlert
-// (见 components/BottomPops),故在 BottomPops 替身里注入 appAlert spy,react-native 替身不变。
-vi.mock('react-native', async () => {
-  const rn = await import('./__mocks__/react-native')
-  return { ...rn }
-})
+// 共享确认弹层 appAlert 用 spy 替身接管,断言"录音失败兜底提示"走的是 appAlert 而非原生 Alert。
 
 // 共享确认弹层 appAlert 用 spy 替身接管,断言"录音失败兜底提示"走的是 appAlert 而非原生 Alert。
 vi.mock('../src/components/BottomPops', () => ({ appAlert: mocks.alert }))

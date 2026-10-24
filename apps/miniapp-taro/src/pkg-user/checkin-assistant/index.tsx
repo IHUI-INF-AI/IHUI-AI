@@ -145,7 +145,7 @@ export default function CheckinAssistant() {
               {t('common.loading')}
             </Text>
           ) : list.length === 0 ? (
-            <View className="mt-[24rpx] rounded-xl border border-border bg-card p-[28rpx]">
+            <View className="mt-[24rpx] rounded-lg border border-border bg-card p-[28rpx]">
               <Text className="block text-[length:30rpx] font-semibold text-foreground">
                 {t('checkinAssistant.empty')}
               </Text>
@@ -157,7 +157,7 @@ export default function CheckinAssistant() {
             list.map((acc) => (
               <View
                 key={acc.id}
-                className="mt-[20rpx] rounded-xl border border-border bg-card p-[24rpx]"
+                className="mt-[20rpx] rounded-lg border border-border bg-card p-[24rpx]"
               >
                 <View className="flex flex-wrap items-center justify-between gap-[12rpx]">
                   <Text className="text-[length:30rpx] font-semibold text-foreground">
@@ -208,7 +208,7 @@ export default function CheckinAssistant() {
             ))
           )}
 
-          <View className="mt-[28rpx] rounded-xl border border-border bg-card p-[28rpx]">
+          <View className="mt-[28rpx] rounded-lg border border-border bg-card p-[28rpx]">
             <Text className="block text-[length:30rpx] font-semibold text-foreground">
               {t('checkinAssistant.addTitle')}
             </Text>

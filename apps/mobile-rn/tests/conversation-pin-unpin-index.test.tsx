@@ -20,7 +20,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import type { ReactNode } from 'react'
 import type * as BottomPopsModule from '../src/components/BottomPops'
 
 const { apiMocks } = vi.hoisted(() => ({
@@ -109,29 +108,6 @@ vi.mock('@ihui/rn-app', async () => {
           ),
         ),
       ]),
-  }
-})
-
-vi.mock('react-native', async () => {
-  const { createElement: h } = await import('react')
-  const mk = (tag: string) =>
-    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-      return h(tag, null, props.children)
-    }
-  return {
-    View: mk('div'),
-    Text: mk('span'),
-    TouchableOpacity: mk('button'),
-    TextInput: mk('input'),
-    Pressable: mk('button'),
-    ScrollView: mk('div'),
-    Image: mk('img'),
-    RefreshControl: () => null,
-    // BottomPops(经 MessageCenterScreen 的 appAlert 导入拉入)模块求值期读窗口高;
-    // 主题单例(active-tokens)求值期读 Appearance.getColorScheme,两者缺一整文件加载即炸。
-    Dimensions: { get: () => ({ width: 375, height: 812, scale: 1, fontScale: 1 }) },
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    StyleSheet: { create: (s: Record<string, unknown>) => s },
   }
 })
 

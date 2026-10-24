@@ -5407,6 +5407,32 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 端侧等分读数格(2026-10-24 立;§13.4 的端侧分支,存量已归零才升 blocking)---
+  {
+    id: '241',
+    label:
+      '📏 端侧(RN / 共享源)「等分读数格」形状不变量(blocking;V1 格缺 minWidth ⇒ flex:1 等分压缩折行 / V2 行缺 flexWrap ⇒ minWidth 生效后溢出压邻格;AST 判 JSX 父子关系,存量 23 处已归零)',
+    script: 'check-rn-readout-cell.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['packages/app/', 'apps/mobile-rn/', 'apps/miniapp-taro/'],
+    skipEnv: 'HUSKY_SKIP_RN_READOUT_CELL',
+    onFailHint: [
+      '',
+      '  💡 端侧没有 white-space,等分 `flex: 1` 一样会把读数压成两行。修法只有一条(docs/UI_GUIDELINES.md §13.4):',
+      '       1) 行加 flexWrap: \'wrap\'  —— 放不下就**整格换行**;',
+      '       2) 格加 minWidth = 该格最坏读数的单行宽 —— 没有它 flexWrap 一次都不触发',
+      '          (flex:1 的 flexBasis 是 0,子项总宽永不超容器,只会等分压缩)。',
+      '     两条缺一不可:只给 minWidth 是溢出压邻居,只给 flexWrap 等于没改。',
+      '     minWidth 取值按字号档(实测):16-18px → 96 / 20-22px → 112 / 24px → 128。',
+      '     禁止用 numberOfLines={1} 顶替 —— 那是把断行换成省略号,同样违反本条。',
+      '     自检:node scripts/check-rn-readout-cell.mjs --self-test(8 例,含 V2 与「只加 wrap」两条反向锁)',
+      '     复跑:node scripts/check-rn-readout-cell.mjs --worktree',
+      '     紧急跳过(不推荐):HUSKY_SKIP_RN_READOUT_CELL=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 镜像 purge 内容完好(2026-10-23 立)(1 项,blocking)---
   {
     id: '238',

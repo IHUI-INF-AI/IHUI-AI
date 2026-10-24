@@ -176,8 +176,10 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    earningsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    earningsItem: { alignItems: 'center', flex: 1 },
+    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
+    // 读数 22px,最坏「¥99999.99」⇒ minWidth 112。
+    earningsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
+    earningsItem: { alignItems: 'center', flex: 1, minWidth: 112 },
     earningsValue: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
     pendingValue: { color: tk.success.DEFAULT },
     earningsLabel: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
