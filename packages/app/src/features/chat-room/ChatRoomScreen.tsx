@@ -15,8 +15,9 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { ChevronLeft, FileText, Music, Video, X } from 'lucide-react-native'
+import { FileText, Music, Video, X } from 'lucide-react-native'
 import { SearchInput } from '../../components/SearchInput'
+import { BackChevron } from '../../components/BackChevron'
 import { EmptyState } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
@@ -218,7 +219,7 @@ export function ChatRoomScreen({
   if (mode === 'chat' && activeRoom) {
     return (
       <View style={styles.shell}>
-        <Header title={activeRoom.name} onBack={onCloseChat} styles={styles} />
+        <Header title={activeRoom.name} onBack={onCloseChat} colorScheme={colorScheme} styles={styles} />
         <FlatList
           style={styles.chatList}
           contentContainerStyle={styles.chatListContent}
@@ -260,7 +261,7 @@ export function ChatRoomScreen({
 
   return (
     <View style={styles.shell}>
-      <Header title="消息" onBack={onExit} styles={styles} />
+      <Header title="消息" onBack={onExit} colorScheme={colorScheme} styles={styles} />
       <View style={styles.searchBar}>
         <SearchInput
           value={searchKeyword}
@@ -311,17 +312,17 @@ export function ChatRoomScreen({
 function Header({
   title,
   onBack,
+  colorScheme,
   styles,
 }: {
   title: string
   onBack: () => void
+  colorScheme: 'light' | 'dark'
   styles: ReturnType<typeof createStyles>
 }) {
   return (
     <View style={styles.headerBar}>
-      <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.7}>
-        <ChevronLeft size={22} color={styles.headerIcon.color} />
-      </TouchableOpacity>
+      <BackChevron onPress={onBack} label="返回" colorScheme={colorScheme} />
       <Text style={styles.headerTitle} numberOfLines={1}>
         {title}
       </Text>
@@ -378,15 +379,6 @@ function createStyles(tk: AppThemeTokens) {
       height: 44,
       paddingHorizontal: 10,
       backgroundColor: tk.surface.bg,
-    },
-    headerBackBtn: {
-      width: 32,
-      height: 32,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    headerIcon: {
-      color: tk.brand.DEFAULT,
     },
     headerTitle: {
       flex: 1,
