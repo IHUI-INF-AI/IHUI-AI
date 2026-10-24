@@ -113,7 +113,7 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
 // 摘除台账单源(与 auto-commit 复洁器同一份解析):整行已被声明摘除的行,本门不得判丢、不得回捞。
 // 否则"删副本 → 门 71 判丢 → 自动回捞 → 再删"永不收敛(2026-10-22 实测 G-56 回捞提交 ec4171d119)。
-import { declaredRows } from './scrub-declared-removals.mjs'
+import { declaredRows, titleFpOf } from './scrub-declared-removals.mjs'
 // G-722:编号形态判据(畸形号 = 族名在编号段出现两次)的**唯一实现**住在活文档编辑器里 ——
 // 判据住在 `scripts/lib/plan-task-index.mjs` 的下沉方案因该文件正被并发会话在飞编辑而未采,
 // 按票面指定的 import 方案接。两处各抄一遍形态正则必然漂移(§22c 同一条纪律),镜像形状锁钉死。
@@ -510,9 +510,9 @@ let _declaredRowsCache = null
 function declaredRowSet() {
   if (_declaredRowsCache) return _declaredRowsCache
   try {
-    _declaredRowsCache = declaredRows().set
+    _declaredRowsCache = declaredRows()
   } catch {
-    _declaredRowsCache = new Set()
+    _declaredRowsCache = { set: new Set(), dropTitleFps: new Set() }
   }
   return _declaredRowsCache
 }
@@ -634,6 +634,8 @@ export function collectedInDriftComment(entry, corpus) {
 }
 
 export function resolveRegistrationLoss(entries, targetSrc, declared = new Set(), collectedSink = null) {
+  const declaredSet = declared instanceof Set ? declared : (declared?.set ?? new Set())
+  const dropTitleFps = declared instanceof Set ? new Set() : (declared?.dropTitleFps ?? new Set())
   const groups = new Map()
   const textOnly = []
   for (const e of entries) {
@@ -677,7 +679,9 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()
   // 声明摘除豁免(2026-10-22):整行逐字在摘除台账中 ⇒ 这是被主动删掉的副本/结清行,
   // 不判丢、不回捞。方向从严:只认整行逐字相等,不做指纹/相似度;台账取不到 ⇒ declared 为空,
   // 一切照旧(不误免)。与 pointerExempt 并存:两条通道互不替代。
-  const declaredExempt = (e) => typeof e.line === 'string' && declared.has(e.line)
+  const declaredExempt = (e) =>
+    typeof e.line === 'string' &&
+    (declaredSet.has(e.line) || (dropTitleFps.size > 0 && dropTitleFps.has(titleFpOf(e.line))))
   /**
    * 第三形态(见 `COLLECTED_TITLE_SPAN` 头注):其余通道都判"这行没了"时,再问一次
    * "它的原文是不是被收拢进漂移注释了"。放在最后一条 = 它只会**减少**误判回捞,
