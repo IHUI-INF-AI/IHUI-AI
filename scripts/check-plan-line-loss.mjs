@@ -1330,7 +1330,7 @@ export function epochMapOf(src) {
   }
 }
 
-const EPOCH_ID_RE = /\b(?:G|WP|V3|D|O|A|B|P|W)-?\d{1,4}\b/g
+const EPOCH_ID_RE = /\b(?:G|WP|V3|D|O|A|B|P|W)-?\d{1,6}\b/g
 
 /**
  * 抹掉退役标记、把编号按映射折算;正文其余字符一字不动。
@@ -1343,7 +1343,7 @@ export function translateIds(text, map, { bareIds = null } = {}) {
   if (!map) return String(text ?? '')
   let s = String(text ?? '')
   const hasMark = /〔旧号/.test(s)
-  s = s.replace(/((?:G|WP|V3|D|O|A|B|P|W)-?\d{1,4})〔旧号[^〕]*〕/g, (_m, id) => map.get(id) ?? id)
+  s = s.replace(/((?:G|WP|V3|D|O|A|B|P|W)-?\d{1,6})〔旧号[^〕]*〕/g, (_m, id) => map.get(id) ?? id)
   // 标记被 18 字截断时可能只剩 `〔旧号…` 或裸 `〔`(没有收口括号)⇒ 连未收口的尾括号一起抹,
   // 否则折算后两端对不上(实测 5 枚误报全属这一型:标记截断点落在退役标记或注记中间)
   s = s.replace(/〔旧号[^〕〕]*〕/g, '')
@@ -1371,7 +1371,11 @@ export function bodyKeyOf(text) {
     // 与历史标记(已抹旧号)前缀对不上 ⇒ 门 71/自愈把**正常改名**读成"整行丢失",按旧号回捞,
     // 于是同一任务在台账里出现两份(实测 G-38/H04、G-46/H05、G-865/H06 三对,并引出重复登记清偿轮次)。
     // 抹号表与编号纪元实际使用的族表必须同一份;I 是 D 族满池后的溢出族(暂未用,先备齐)。
-    .replace(/(?:WP|V3|G|D|O|A|B|P|W|H|I)-?\d{1,4}/g, '')
+    // 位数上限同日从 4 放到 6:`D42046` 这类六位号在 {1,4} 下只被吃掉前 5 个字(`D4204`),
+    // 余下的末位 `6` 留在题面前缀首位 ⇒ 该行换成 D14 后两面 key 变成 `6断线…` vs `断线…`,
+    // 前缀判活当场判"丢失",自愈再按旧号回插(2026-10-24 实测:换号提交被 3f459f3ba4 回捞还原)。
+    // ID 族表本身(`TASK_ID_PATTERN`)用的是无上限 `\d+`,此处与之对齐,不再自留一个更窄的位数。
+    .replace(/(?:WP|V3|G|D|O|A|B|P|W|H|I)-?\d{1,6}/g, '')
     .replace(/[*`\s]/g, '')
     .slice(0, 12)
 }

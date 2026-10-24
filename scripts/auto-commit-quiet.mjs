@@ -400,6 +400,8 @@ function main() {
         cwd: ROOT,
         encoding: 'utf8',
         maxBuffer: 64 << 20,
+        // §12g:派生必须显式接管 stdio(不吃 stdin ⇒ 首通道 ignore,stdout 要回读 ⇒ 管道)
+        stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
         env: { ...process.env, AGENT_SCOPE: '' },
       },

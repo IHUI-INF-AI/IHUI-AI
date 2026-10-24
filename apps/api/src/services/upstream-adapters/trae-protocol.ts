@@ -375,11 +375,12 @@ export function extractThoughtSnapshot(obj: Record<string, unknown>): string | n
 /**
  * GetUserToken(web 官网 cookie 换票)响应解析。
  * 线上实证(2026-10-23)形状:{ Result: { Token: <JWT>, ExpiredAt, UserID, TenantID } }。
- * ExpiredAt 兼容 unix 秒/毫秒/ISO 字符串;全解不出时用 JWT payload.exp;再兜底 6h。
+ * ExpiredAt 兼容 unix 秒/毫秒/ISO 字符串;全解不出时用 JWT payload.exp;仍解不出 ⇒ null(未知),
+ * 不再兜底 6h —— 猜出来的未来时刻会被当成"票仍可用"的证据。
  */
 export function extractGetUserTokenPayload(
   body: unknown,
-): { token: string; expiresAt: Date } | null {
+): { token: string; expiresAt: Date | null } | null {
   const top = body !== null && typeof body === 'object' ? (body as Record<string, unknown>) : null
   const result =
     top && top['Result'] !== null && typeof top['Result'] === 'object'
@@ -414,7 +415,7 @@ export function extractGetUserTokenPayload(
       /* JWT 形态不合法,走兜底 */
     }
   }
-  return { token, expiresAt: expiresAt ?? new Date(Date.now() + 6 * 3600_000) }
+  return { token, expiresAt }
 }
 
 /** OpenAI usage 形状(reasoning/cached 为 Trae 帧字段归一注入,便于网关 tap 统一提取) */

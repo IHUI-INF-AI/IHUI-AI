@@ -2451,6 +2451,12 @@
           "markdownDescription": "Enables the checkin_snapshot_restore command without any pre-configured scope."
         },
         {
+          "description": "Enables the checkin_trae_web_login_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-checkin-trae-web-login-probe",
+          "markdownDescription": "Enables the checkin_trae_web_login_probe command without any pre-configured scope."
+        },
+        {
           "description": "Enables the checkin_workbuddy_web_login_probe command without any pre-configured scope.",
           "type": "string",
           "const": "allow-checkin-workbuddy-web-login-probe",
@@ -2491,6 +2497,60 @@
           "type": "string",
           "const": "allow-embedded-browser-devtools",
           "markdownDescription": "Enables the embedded_browser_devtools command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_back command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-back",
+          "markdownDescription": "Enables the embedded_browser_dock_back command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_bounds command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-bounds",
+          "markdownDescription": "Enables the embedded_browser_dock_bounds command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-close",
+          "markdownDescription": "Enables the embedded_browser_dock_close command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_devtools command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-devtools",
+          "markdownDescription": "Enables the embedded_browser_dock_devtools command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_forward command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-forward",
+          "markdownDescription": "Enables the embedded_browser_dock_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_navigate command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-navigate",
+          "markdownDescription": "Enables the embedded_browser_dock_navigate command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-open",
+          "markdownDescription": "Enables the embedded_browser_dock_open command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_reload command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-reload",
+          "markdownDescription": "Enables the embedded_browser_dock_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the embedded_browser_dock_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-embedded-browser-dock-url",
+          "markdownDescription": "Enables the embedded_browser_dock_url command without any pre-configured scope."
         },
         {
           "description": "Enables the embedded_browser_new_tab command without any pre-configured scope.",
@@ -2991,6 +3051,12 @@
           "markdownDescription": "Denies the checkin_snapshot_restore command without any pre-configured scope."
         },
         {
+          "description": "Denies the checkin_trae_web_login_probe command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-checkin-trae-web-login-probe",
+          "markdownDescription": "Denies the checkin_trae_web_login_probe command without any pre-configured scope."
+        },
+        {
           "description": "Denies the checkin_workbuddy_web_login_probe command without any pre-configured scope.",
           "type": "string",
           "const": "deny-checkin-workbuddy-web-login-probe",
@@ -3031,6 +3097,60 @@
           "type": "string",
           "const": "deny-embedded-browser-devtools",
           "markdownDescription": "Denies the embedded_browser_devtools command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_back command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-back",
+          "markdownDescription": "Denies the embedded_browser_dock_back command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_bounds command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-bounds",
+          "markdownDescription": "Denies the embedded_browser_dock_bounds command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_close command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-close",
+          "markdownDescription": "Denies the embedded_browser_dock_close command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_devtools command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-devtools",
+          "markdownDescription": "Denies the embedded_browser_dock_devtools command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_forward command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-forward",
+          "markdownDescription": "Denies the embedded_browser_dock_forward command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_navigate command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-navigate",
+          "markdownDescription": "Denies the embedded_browser_dock_navigate command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_open command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-open",
+          "markdownDescription": "Denies the embedded_browser_dock_open command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_reload command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-reload",
+          "markdownDescription": "Denies the embedded_browser_dock_reload command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the embedded_browser_dock_url command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-embedded-browser-dock-url",
+          "markdownDescription": "Denies the embedded_browser_dock_url command without any pre-configured scope."
         },
         {
           "description": "Denies the embedded_browser_new_tab command without any pre-configured scope.",
