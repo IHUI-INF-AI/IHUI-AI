@@ -12,7 +12,7 @@
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
 // sourceCommit: 0d73c8bf3eb9af6e1b5f6084a547a0e83b5c0311
-// inputsSha256: e017be63e7ec2d23b78ece6de958e77d3276ab89c09926c0d691e7b61462f27a
+// inputsSha256: 81539c9bf5ef9fe6d3e0d9688f6611607b21acb84d39b21828efa74d4cad71ad
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx 3d3cf195c8dcb8ec142e08a1d50b9016687a48c3503839f0db0dff7f9bbce67e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -424,7 +424,7 @@
 // input: apps/web/app/(main)/chat/settings/page.tsx 67d6c95fb2ac59cb7d2b01988a06c726698c226eef592a5fd189be4addd48b18
 // input: apps/web/app/(main)/chat/share/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/chat/templates/page.tsx 39e208297dfffae123ddc54deaeb8bce5429862cf0d9b15ffb21ef8b2bd7e246
-// input: apps/web/app/(main)/checkin/page.tsx e9e29927564a75135bd5ec20771ad9f257668977fdc6f817fa8f497a03f3eb00
+// input: apps/web/app/(main)/checkin/page.tsx 741624e4e8128d399f4c1e565ebe7dcfaf05ddc07038a0ede0546fb2edab1905
 // input: apps/web/app/(main)/circles/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/circles/page.tsx 5dc5b147cc4e060a352c51f9480deb7b0063dfeae971c07933cd0a4fbbfd9cdd
 // input: apps/web/app/(main)/circles/post/page.tsx b82f38759624befa67e2fd86cdef60b6f4d1130702bf5cc94d1bd40a179dad36
@@ -799,7 +799,7 @@
 // input: apps/web/app/(main)/settings/model-record/page.tsx 14fbf795ca1be17902174485c347fbd5a968c8fef2c7e0a6f9f51f0f90cbabbc
 // input: apps/web/app/(main)/settings/notifications/page.tsx 0d55007275996e6dc6ae202244b7692f6ced73e2354eeabc864a0852606d4a29
 // input: apps/web/app/(main)/settings/page.tsx cd858cf8ddf233183ee7ac6eb877f7987436aed3099e0a34a92f6c0a7e867f27
-// input: apps/web/app/(main)/settings/preferences/page.tsx cd29e7d109a5406cb5db7fec4c05e74478b5d7a7a9d4a33a22b4f2c340d2f0a6
+// input: apps/web/app/(main)/settings/preferences/page.tsx d7fb42b7704272649bb9a92b968102931e530dc7bef651375519b20a2c17b179
 // input: apps/web/app/(main)/settings/privacy/page.tsx 49d1461e35d3cfe2d70a4a2757713f1fc3e0a1ac84e8c31e55703a93a4fda401
 // input: apps/web/app/(main)/settings/security-log/page.tsx 3bc34ec087b95c50f9d8eb89aa18ab9ae1ae973fa92023f9c63361cd6423e507
 // input: apps/web/app/(main)/settings/usage/page.tsx 5e7da09d44d1df492f41dc82b8aa04525dc3ba5982030172e8496abff8b557bc
