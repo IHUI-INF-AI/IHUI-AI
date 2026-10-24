@@ -18,6 +18,7 @@
 import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
 import { MoreLink } from '@ihui/rn-app'
 import { tokens as tk, currentRnTheme } from '../theme/active-tokens'
+import { useI18n } from '../i18n'
 
 export interface MoreTitlesProps {
   title: string
@@ -25,18 +26,22 @@ export interface MoreTitlesProps {
   onMore?: () => void
 }
 
-const DEFAULT_MORE_TEXT = '更多'
 const TITLE_FONT_SIZE = 14
 const CONTAINER_PADDING_V = 10
 
-export function MoreTitles({ title, moreText = DEFAULT_MORE_TEXT, onMore }: MoreTitlesProps) {
+export function MoreTitles({ title, moreText, onMore }: MoreTitlesProps) {
+  const { t } = useI18n()
   return (
     <View style={styles.container}>
       <Text style={styles.title} numberOfLines={1}>
         {title}
       </Text>
       {onMore ? (
-        <MoreLink label={moreText} onPress={onMore} colorScheme={currentRnTheme()} />
+        <MoreLink
+          label={moreText ?? t('common.more')}
+          onPress={onMore}
+          colorScheme={currentRnTheme()}
+        />
       ) : null}
     </View>
   )

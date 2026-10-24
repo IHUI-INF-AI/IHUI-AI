@@ -22,6 +22,7 @@ import { useTheme } from '../context/ThemeContext'
 import { tokens } from '../theme/active-tokens'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 /** 面板自身留白(与状态栏避让无关,单列以免和 `insets.top` 混成一个数) */
 const PANEL_PADDING_TOP = 12
@@ -50,6 +51,7 @@ export function FenLeiOverlay({
   selectedMainId,
   onConfirm,
 }: FenLeiOverlayProps): React.JSX.Element {
+  const { t } = useI18n()
   // 弹层内临时选中态(对齐 uniapp fenlei_active / agentCategory_active,确定时才提交)
   const [tempTrackId, setTempTrackId] = useState(selectedTrackId)
   const [tempMainId, setTempMainId] = useState(selectedMainId)
@@ -91,7 +93,7 @@ export function FenLeiOverlay({
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}
-          accessibilityLabel="关闭分类弹层"
+          accessibilityLabel={t('fenlei.closeOverlay')}
         />
         {/* 弹层面板:顶部对齐(对齐 uniapp s_t_b 紧贴导航栏下方下拉)。
          *  顶距必须自己加 `insets.top`:`statusBarTranslucent` 让本 Modal 的窗口铺满整屏,
@@ -124,7 +126,7 @@ export function FenLeiOverlay({
             onPress={handleConfirm}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="确定"
+            accessibilityLabel={t('common.confirm')}
           >
             <Text style={styles.confirmText}>确定</Text>
           </TouchableOpacity>

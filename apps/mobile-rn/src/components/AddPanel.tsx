@@ -28,6 +28,7 @@ import { tokens } from '../theme/active-tokens'
 import { BottomPops } from './BottomPops'
 
 import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 // ── PlusButton 统一加号按钮 ──────────────────────────────────────────────
 
@@ -56,7 +57,7 @@ export function PlusButton({
       disabled={disabled}
       hitSlop={4}
       accessibilityRole="button"
-      accessibilityLabel={label ?? (active ? '收起面板' : '展开面板')}
+      accessibilityLabel={label ?? (active ? t('common.panelCollapse') : t('common.panelExpand'))}
       accessibilityState={{ expanded: active, disabled }}
     >
       <View style={{ transform: [{ rotate: active ? '45deg' : '0deg' }] }}>
@@ -96,7 +97,14 @@ export interface AddPanelProps {
   title?: string
 }
 
-export function AddPanel({ visible, onClose, heroItem, items, title = '添加' }: AddPanelProps) {
+export function AddPanel({
+  visible,
+  onClose,
+  heroItem,
+  items,
+  title: titleProp = '',
+}: AddPanelProps) {
+  const { t } = useI18n()
   /** 点按任意项执行业务后即收起面板(收敛 HomeScreen 各处理器自带的 setPlusPanelVisible(false)) */
   const pressItem = (item: AddPanelItem): void => {
     item.onPress()
@@ -104,7 +112,7 @@ export function AddPanel({ visible, onClose, heroItem, items, title = '添加' }
   }
 
   return (
-    <BottomPops visible={visible} onClose={onClose} title={title}>
+    <BottomPops visible={visible} onClose={onClose} title={titleProp ?? t('common.add')}>
       {heroItem ? (
         <Pressable
           disabled={heroItem.disabled}
