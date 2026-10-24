@@ -156,7 +156,7 @@ export function LiveDetailScreen() {
           style={styles.entryBtnHit}
           onPress={() => navigation.navigate('LivePreview', { id })}
           accessibilityRole="button"
-          accessibilityLabel="直播预告"
+          accessibilityLabel={t('livePreview.title')}
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
@@ -168,7 +168,7 @@ export function LiveDetailScreen() {
           style={styles.entryBtnHit}
           onPress={() => navigation.navigate('LiveHost')}
           accessibilityRole="button"
-          accessibilityLabel="主播端"
+          accessibilityLabel={t('liveDetail.hostMode')}
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
