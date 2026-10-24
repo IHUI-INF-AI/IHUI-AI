@@ -346,7 +346,7 @@ test('patch-id 等价: 树已并入他改的同补丁副本(cherry-pick 到主�
     writeFileSync(join(dir, 'a.txt'), 'content-a\n')
     execSync('git add a.txt', { cwd: dir, stdio: 'ignore' })
     execSync('git commit -qm "feat: add a"', { cwd: dir, stdio: 'ignore' })
-    const featOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+    const featOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
     // 主线先岔开(加 b.txt)再 cherry-pick 同一补丁 ⇒ 补丁已在主线,但落地树与副本树**不同**
     // ⇒ ③"树+题逐字同"盖不住(正是票面②点名的 9 枚那一型),必须由 ④ 接住。
     execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
@@ -535,7 +535,7 @@ test('范式豁免·单亲暂存枚: CAS 重试滞留枚(题与主线孪生同�
     writeFileSync(join(dir, 'a.txt'), 'v1\n')
     execSync('git add a.txt', { cwd: dir, stdio: 'ignore' })
     execSync('git commit -qm "land: X"', { cwd: dir, stdio: 'ignore' })
-    const sideOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+    const sideOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
     execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
     writeFileSync(join(dir, 'b.txt'), 'v2\n')
     execSync('git add b.txt', { cwd: dir, stdio: 'ignore' })
@@ -570,7 +570,7 @@ test('范式豁免·merge 中间态: 双父均在册且题有主线孪生 → �
     // 旁路支先合一次(滞留枚 P1:父 = M1 与 T1,题 "union merge")
     execSync('git checkout -qb mbranch', { cwd: dir, stdio: 'ignore' })
     execSync('git merge -m "union merge" theirs', { cwd: dir, stdio: 'ignore' })
-    const p1Oid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+    const p1Oid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
     // 主线岔开后落地同题合并(孪生,树不同)
     execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
     writeFileSync(join(dir, 'c.txt'), 'advance2\n')
@@ -597,7 +597,7 @@ test('范式豁免·空枚: 树与在册父枚逐字同且题有孪生 → 豁�
   try {
     execSync('git checkout -qb side', { cwd: dir, stdio: 'ignore' })
     execSync('git commit -qm "chore(auto): 收编" --allow-empty', { cwd: dir, stdio: 'ignore' })
-    const eOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+    const eOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
     execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
     writeFileSync(join(dir, 'a.txt'), 'landed\n')
     execSync('git add a.txt', { cwd: dir, stdio: 'ignore' })
@@ -645,7 +645,7 @@ test('真悬空仍判红: 悬空链(父枚本身不在册)→ 即便题有孪生
     writeFileSync(join(dir, 'y.txt'), 'y\n')
     execSync('git add y.txt', { cwd: dir, stdio: 'ignore' })
     execSync('git commit -qm "land: Z"', { cwd: dir, stdio: 'ignore' })
-    const topOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+    const topOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
     // 主线只有 "land: Z" 的孪生(顶枚题有出处),但它的父(第一枚)不在册 ⇒ 整链无出处
     execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
     writeFileSync(join(dir, 'w.txt'), 'w\n')
@@ -688,7 +688,7 @@ test('清单出口·范式豁免: --list-paradigm-exempt 逐枚交完整 oid,行
     writeFileSync(join(dir, 'a.txt'), 'v1\n')
     execSync('git add a.txt', { cwd: dir, stdio: 'ignore' })
     execSync('git commit -qm "land: X"', { cwd: dir, stdio: 'ignore' })
-    const sideOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8' }).trim()
+    const sideOid = execSync('git rev-parse HEAD', { cwd: dir, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }).trim()
     execSync('git checkout -q main', { cwd: dir, stdio: 'ignore' })
     writeFileSync(join(dir, 'b.txt'), 'v2\n')
     execSync('git add b.txt', { cwd: dir, stdio: 'ignore' })
