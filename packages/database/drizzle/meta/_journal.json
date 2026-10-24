@@ -2356,6 +2356,13 @@
       "when": 1792821600000,
       "tag": "20261024020000_tool_invocation_ledger",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 340,
+      "when": 1792828800000,
+      "tag": "20261024160000_announcement_platforms",
+      "breakpoints": true
     }
   ]
 }
