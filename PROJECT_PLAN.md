@@ -6991,6 +6991,7 @@ HEAD `6aa9403ba3` 出 arm64 release 包 versionCode=30 → `install -r` 到 `c12
 
 
 ## 号段租约登记区(取号器专用,千段租约制)
+- [x] B76 〔千段租约〕 本机=lichunchuan-96818d62 段=B67~B76(取号器专用行:占用面只取本行主键=段尾号 ⇒ 无租约感知的 max+1 落在段外;段内连号自段首起、由持有机取号器递增;段满由取号器另立下一段,占段撞号由 CAS 终止,不是让号自我循环)
 
 
 
@@ -7574,6 +7575,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] P1 **把 `packages/api-client` 加进守门 8 射程后实测出一台"假绿灯",扩面必须连它一起修(2026-09-26 量;本票不改判据,门由该会话持有)**:我按门现有 `FRONTEND_ENDS` 表加一行 `api-client` 后全量跑 ⇒ 104 文件 / 711 调用 / 4 处未判定 / **36 处判死(15 文件)**,但我今天用 401/404 差分探针实测从未通过的三条(`/api/user/token-balance`、`/api/statistics/user-center`、`/cozeZhsApi/cache/agent-category-dict/categories`)**一条都不在这 36 里** ⇒ 门的路由集合把这三条认成了活着,而它们真值 404。三条待查清的产生路径:① 抽 〔压缩@2026-10-22〕〔进行中@2026-10-22/goal-r52:席位在飞〕
 ## 2026-10-22 台账字段结构化 P2(行内投影 + 强制档)
 ## 2026-10-22 CF 收尾轮(机主拍板"都要做";五件全部完成 ✅,取证面=本轮落地提交+公网现读)
+- [ ] B67 e2e esc-overlay-stack 用 SKIP_SEED 跑法特有失败——globalSetup 副作用(高嫌疑 seed-e2e-knowledge)缺失致 ①③ 协议弹窗不叠开(2026-10-24 goal-b15 采样矩阵:带 seed 三次 3 passed / SKIP 三次 2 failed 零反例) 〔登记@2026-10-24/goal-b15〕出路 = 二选一:①修 SKIP 路径把 esc 依赖的 globalSetup 副作用补齐(global-setup.ts 增量 seed);②esc spec 头注钉死"必须带 seed 跑"并在 CI 配置显式化。验收 = SKIP 路径下 esc 5/5 绿(方案①)或 CI 无 SKIP 保证(方案②)。落点 = apps/web/e2e/global-setup.ts 或 esc spec 头注。
 - 自建 CF API Token `ihui-cf-automation-20261022`(verify active;值只落 HKCU 环境变量 `CLOUDFLARE_API_TOKEN` 与 `apps/ai-service/.env`,不入提交面)——拆掉"没有令牌动不了 CF API"的借口。
 - `api.aizhs.top` `/api/*` GET Cache Rule(尊重源站头)落地:公开端点实测 `cf-cache-status: HIT`,无缓存头端点 DYNAMIC 不缓存。
 - Workers AI 接入 ai-service:`.env` 的 `LLM_PROVIDERS` 增 cloudflare 条目,schema 守门过,网关实测走通 `@cf/meta/llama-3.2-1b-instruct`。
