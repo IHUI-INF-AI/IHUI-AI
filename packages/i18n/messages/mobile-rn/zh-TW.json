@@ -131,7 +131,6 @@
     "navJoinGroup": "加入群",
     "navMenu": "菜單",
     "navShare": "分享",
-    "closeDrawer": "關閉抽屜",
     "closeBtn": "關閉",
     "qrHint": "掃描二維碼加入社區",
     "shareRewardLater": "稍後再說",
@@ -268,7 +267,6 @@
       "notLoggedInUser": "未登入用戶",
       "navCategory": "分類",
       "identityLabel": "身份",
-      "searchNeedDesc": "搜索需求或描述",
       "trackPanelTitle": "選擇需求賽道",
       "closeTrackFilter": "關閉賽道篩選",
       "closeIdentity": "關閉身份切換",
@@ -453,7 +451,6 @@
     "benefitListAiMore": "AI 助手免費次數大幅增加",
     "benefitListKb": "建立專屬知識庫",
     "benefitSupport": "專屬客服支持",
-    "benefitTraderAll": "享受平臺全部權益",
     "levelVip": "VIP 會員",
     "dlgDelConvTitle": "刪除對話",
     "dlgDelConvBody": "確認刪除此對話?",
@@ -1110,7 +1107,6 @@
     "deleted": "已刪除",
     "loadFailPullRetry": "載入失敗，請下拉重新整理重試",
     "emptyContent": "暫無內容",
-    "closeOverlay": "關閉彈出層",
     "add": "新增",
     "panelCollapse": "收起面板",
     "panelExpand": "展開面板"
@@ -1130,20 +1126,9 @@
     "favoriteCount": "{count} 收藏",
     "startChat": "開始對話",
     "catAll": "全部",
-    "catDouyin": "抖音運營",
-    "catPrivate": "私域運營",
-    "catContent": "內容創作",
-    "catData": "數據分析",
-    "catAll2": "全部",
     "catWriting": "寫作",
     "catCoding": "編程",
     "catOffice": "辦公",
-    "catLearning": "學習",
-    "mainAll": "全部",
-    "mainWriting": "寫作",
-    "mainCoding": "編程",
-    "mainOffice": "辦公",
-    "mainLearning": "學習",
     "vendorOther": "其他",
     "copyOkToast": "連結已複製到剪貼板",
     "catStudy": "Study",
@@ -1307,13 +1292,7 @@
     "kindAutoContext": "自動檢索上下文"
   },
   "developer": {
-    "title": "開發者入口",
-    "becomeDeveloper": "成為開發者",
-    "subtitle": "發布智能體,獲取收益",
-    "selectService": "請選擇所需的服務",
-    "processing": "處理中...",
-    "openNow": "一鍵開通",
-    "agreementHint": "開通即表示同意《開發者服務協議》"
+    "becomeDeveloper": "成為開發者"
   },
   "liveHost": {
     "error": {
@@ -1336,7 +1315,6 @@
     "productAddBtn": "新增商品",
     "productEmpty": "暫無商品",
     "productLoadFailed": "載入商品失敗",
-    "productLoading": "載入中...",
     "productManage": "商品管理",
     "pushUrl": "推流地址",
     "startLive": "開始直播",
@@ -1405,7 +1383,6 @@
     "operationFailed": "操作失敗，請稍後重試",
     "title": "n8n 模型",
     "vendorName": "n8n 工作流",
-    "groupBrowse": "分組瀏覽",
     "listView": "列表視圖"
   },
   "modelPlaza": {
@@ -1429,7 +1406,6 @@
     "selectProviderLabel": "選擇供應商",
     "title": "模型廣場",
     "groupBrowse": "分組瀏覽",
-    "listView": "列表視圖",
     "workflowTab": "工作流"
   },
   "tokenValue": {
@@ -1517,13 +1493,6 @@
     "payFailed": "支付失敗"
   },
   "about": {
-    "title": "關於",
-    "appName": "應用名稱",
-    "version": "版本",
-    "description": "應用介紹",
-    "officialSite": "官方網站",
-    "contactEmail": "聯絡信箱",
-    "license": "開放原始碼授權",
     "heroBadge": "關於智匯 AI",
     "heroTitle": "一碼九端,一站 AI",
     "heroSubtitle": "智匯 AI(IHUI AI)是開源的全棧 AI 操作系統,把 Agent 設計、知識庫、多模型調度、跨端協作和團隊運營裝進同一個平臺。",
@@ -2157,9 +2126,7 @@
     "studyHours": "學習 {count} 小時",
     "empty": "暫無排行",
     "loadFailed": "載入排行榜失敗",
-    "title": "排行榜",
-    "wanSuffix": "{v}萬",
-    "pointsUnit": "分"
+    "title": "排行榜"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -3214,29 +3181,7 @@
     "loading": "加載中..."
   },
   "studyIndex": {
-    "title": "AI 視頻",
-    "catAll": "全部",
-    "catDouyin": "抖音運營",
-    "catPrivate": "私域運營",
-    "catContent": "內容創作",
-    "catData": "數據分析",
-    "tipMarquee": "智匯AI 雲教育/短視頻  歡迎所有AI相關視頻上傳分享",
-    "myCollection": "我的合集",
-    "searchPh": "搜索視頻",
-    "loadMoreHint": "加載更多...",
-    "noMoreText": "沒有更多了",
-    "emptyVideos": "暫無學習視頻",
-    "emptyModels": "暫無模型",
-    "paidCollection": "推薦課程合集",
-    "latestCourses": "最新課程",
-    "viewMoreModels": "查看更多模型",
-    "viewMoreCourses": "查看更多課程",
-    "tagPaid": "付費",
-    "tagFree": "免費",
-    "publishVidBtn": "發布視頻",
-    "authorFallback": "智匯社區-官方",
-    "receiveFreeTitle": "領取免費資料",
-    "receiveFreeBody": "連結已複製到剪貼板,可在瀏覽器粘貼打開"
+    "title": "AI 視頻"
   },
   "studyProgress": {
     "title": "學習進度",
@@ -3387,23 +3332,7 @@
     "price": "價格",
     "rating": "評分",
     "startChat": "開始對話",
-    "uses": "使用次數",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "uses": "使用次數"
   },
   "agentMarket": {
     "empty": "暫無智慧體",
@@ -4356,7 +4285,6 @@
     },
     "detail": {
       "pageTitle": "話題詳情",
-      "loading": "載入中…",
       "loadFailed": "載入失敗",
       "followers": "{n} 人關注",
       "follow": "關注",
@@ -4369,9 +4297,6 @@
       "empty": "暫無帖子,快來發布第一條吧",
       "loadingMore": "載入中…",
       "noMore": "沒有更多了",
-      "justNow": "剛剛",
-      "minutesAgo": "{n} 分鐘前",
-      "hoursAgo": "{n} 小時前",
       "anonymous": "匿名用戶"
     }
   },
@@ -5134,16 +5059,11 @@
     "calls": "呼叫次數",
     "title": "個人號池",
     "subtitle": "你自己的第三方 AI 帳號池：與簽到助手同一批帳號，支援每日自動簽到，並優先服務你自己的轉發請求。",
-    "add": "新增帳號",
-    "provider": "平臺",
-    "name": "名稱",
     "namePlaceholder": "給帳號起個名字",
     "token": "Token（存取憑證）",
     "refreshToken": "Refresh Token",
     "optional": "選填",
     "save": "儲存",
-    "cancel": "取消",
-    "loading": "載入中…",
     "empty": "還沒有帳號",
     "emptyHint": "在簽到助手中新增帳號後會自動同步到這裡。",
     "enabled": "已啟用",
@@ -5152,13 +5072,10 @@
     "disable": "停用",
     "checkin": "立即簽到",
     "delete": "刪除",
-    "confirmDelete": "確認刪除",
     "syncPending": "待同步",
     "uid": "帳號識別",
     "checkinSuccess": "簽到成功",
-    "addSuccess": "帳號已新增",
     "actionFailed": "操作失敗",
-    "loginRequired": "登入後管理你的個人號池",
     "addTitle": "新增帳號",
     "adding": "新增中…",
     "deleteConfirm": "確認刪除 {name}？",
@@ -5206,24 +5123,9 @@
     "addedCount": "+{n}",
     "removedCount": "-{n}"
   },
-  "userPublic": {
-    "title": "用戶主頁",
-    "notFound": "用戶不存在",
-    "follow": "關注",
-    "following": "已關注",
-    "message": "發訊息",
-    "followingCount": "關注",
-    "followersCount": "粉絲",
-    "favoritesCount": "收藏",
-    "joined": "加入於"
-  },
   "commission": {
     "myLabel": "我的佣金",
     "label": "佣金"
-  },
-  "courseSwiper": {
-    "tabHotIntro": "爆款入門課程",
-    "tabHotPick": "爆款精選課程"
   },
   "agentList": {
     "emptyText": "暫無 Agent"

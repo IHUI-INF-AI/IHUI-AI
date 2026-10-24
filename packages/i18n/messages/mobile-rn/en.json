@@ -131,7 +131,6 @@
     "navJoinGroup": "Join Group",
     "navMenu": "Menu",
     "navShare": "Share",
-    "closeDrawer": "Close drawer",
     "closeBtn": "Close",
     "qrHint": "Scan the QR code to join the community",
     "shareRewardLater": "Maybe later",
@@ -268,7 +267,6 @@
       "notLoggedInUser": "Guest user",
       "navCategory": "Category",
       "identityLabel": "Identity",
-      "searchNeedDesc": "Search needs or descriptions",
       "trackPanelTitle": "Select a demand track",
       "closeTrackFilter": "Close track filter",
       "closeIdentity": "Close identity switch",
@@ -453,7 +451,6 @@
     "benefitListAiMore": "Much more free AI assistant quota",
     "benefitListKb": "Private knowledge base",
     "benefitSupport": "Dedicated support",
-    "benefitTraderAll": "All platform benefits included",
     "levelVip": "VIP Member",
     "dlgDelConvTitle": "Delete conversation",
     "dlgDelConvBody": "Delete this conversation?",
@@ -1110,7 +1107,6 @@
     "deleted": "Deleted",
     "loadFailPullRetry": "Failed to load. Pull down to refresh and retry.",
     "emptyContent": "Nothing here",
-    "closeOverlay": "Close sheet",
     "add": "Add",
     "panelCollapse": "Collapse panel",
     "panelExpand": "Expand panel"
@@ -1135,19 +1131,8 @@
     "catOffice": "Office",
     "catStudy": "Study",
     "loadFailed": "Load failed",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
     "vendorOther": "Other",
     "copyOkToast": "Link copied to clipboard",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Analytics",
-    "catAll2": "All",
     "chat": {
       "title": "Start Chat",
       "message": "Starting a chat with \"{name}\""
@@ -1307,13 +1292,7 @@
     "kindAutoContext": "Auto-retrieved context"
   },
   "developer": {
-    "title": "Developer Portal",
-    "becomeDeveloper": "Become a Developer",
-    "subtitle": "Publish agents and earn revenue",
-    "selectService": "Select a service plan",
-    "processing": "Processing...",
-    "openNow": "Activate Now",
-    "agreementHint": "By activating, you agree to the Developer Service Agreement"
+    "becomeDeveloper": "Become a Developer"
   },
   "liveHost": {
     "error": {
@@ -1336,7 +1315,6 @@
     "productAddBtn": "Add product",
     "productEmpty": "No products",
     "productLoadFailed": "Failed to load products",
-    "productLoading": "Loading...",
     "productManage": "Product manager",
     "pushUrl": "Push URL",
     "startLive": "Start live",
@@ -1405,7 +1383,6 @@
     "operationFailed": "Operation failed, please try again",
     "title": "n8n Models",
     "vendorName": "n8n Workflows",
-    "groupBrowse": "Grouped",
     "listView": "List view"
   },
   "modelPlaza": {
@@ -1429,7 +1406,6 @@
     "selectProviderLabel": "Choose provider",
     "title": "Model Plaza",
     "groupBrowse": "Grouped",
-    "listView": "List view",
     "workflowTab": "Workflows"
   },
   "tokenValue": {
@@ -1517,13 +1493,6 @@
     "payFailed": "Payment failed"
   },
   "about": {
-    "title": "About",
-    "appName": "App Name",
-    "version": "Version",
-    "description": "Description",
-    "officialSite": "Official Website",
-    "contactEmail": "Contact Email",
-    "license": "License",
     "heroBadge": "About IHUI AI",
     "heroTitle": "One codebase, nine ends, one AI",
     "heroSubtitle": "IHUI AI is an open-source full-stack AI operating system that brings Agent design, knowledge base, multi-model dispatch, cross-platform collaboration and team operations into a single platform.",
@@ -2157,9 +2126,7 @@
     "studyHours": "{count} hrs studied",
     "empty": "No rankings",
     "loadFailed": "Failed to load ranking",
-    "title": "Ranking",
-    "wanSuffix": "{v}k",
-    "pointsUnit": "pts"
+    "title": "Ranking"
   },
   "rankingDetail": {
     "rank": "Rank",
@@ -3214,29 +3181,7 @@
     "loading": "Loading..."
   },
   "studyIndex": {
-    "title": "AI Videos",
-    "catAll": "All",
-    "catDouyin": "Douyin operations",
-    "catPrivate": "Private domain",
-    "catContent": "Content creation",
-    "catData": "Data analysis",
-    "tipMarquee": "IHUI AI cloud education & short video — all AI-related video uploads welcome",
-    "myCollection": "My collections",
-    "searchPh": "Search videos",
-    "loadMoreHint": "Loading more...",
-    "noMoreText": "No more items",
-    "emptyVideos": "No learning videos yet",
-    "emptyModels": "No models",
-    "paidCollection": "Recommended course collections",
-    "latestCourses": "Latest courses",
-    "viewMoreModels": "View more models",
-    "viewMoreCourses": "View more courses",
-    "tagPaid": "Paid",
-    "tagFree": "Free",
-    "publishVidBtn": "Publish video",
-    "authorFallback": "IHUI Community · Official",
-    "receiveFreeTitle": "Claim free materials",
-    "receiveFreeBody": "Link copied; paste it in a browser to open"
+    "title": "AI Videos"
   },
   "studyProgress": {
     "title": "Study Progress",
@@ -3387,22 +3332,6 @@
     "price": "Price",
     "rating": "Rating",
     "startChat": "Start chat",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard",
     "uses": "Uses"
   },
   "agentMarket": {
@@ -4400,7 +4329,6 @@
     },
     "detail": {
       "pageTitle": "Topic Detail",
-      "loading": "Loading…",
       "loadFailed": "Failed to load",
       "followers": "{n} followers",
       "follow": "Follow",
@@ -4413,9 +4341,6 @@
       "empty": "No posts yet. Be the first to post!",
       "loadingMore": "Loading…",
       "noMore": "No more items",
-      "justNow": "Just now",
-      "minutesAgo": "{n} min ago",
-      "hoursAgo": "{n} hr ago",
       "anonymous": "Anonymous"
     }
   },
@@ -5134,16 +5059,11 @@
     "calls": "Calls",
     "title": "My Account Pool",
     "subtitle": "Your own third-party AI account pool — the same accounts as Check-in Assistant, signed in daily, and used first for your own relay requests.",
-    "add": "Add account",
-    "provider": "Platform",
-    "name": "Name",
     "namePlaceholder": "Name this account",
     "token": "Token (access credential)",
     "refreshToken": "Refresh token",
     "optional": "Optional",
     "save": "Save",
-    "cancel": "Cancel",
-    "loading": "Loading…",
     "empty": "No accounts yet",
     "emptyHint": "Accounts you add in Check-in Assistant will sync here automatically.",
     "enabled": "Enabled",
@@ -5152,13 +5072,10 @@
     "disable": "Disable",
     "checkin": "Check in now",
     "delete": "Delete",
-    "confirmDelete": "Confirm delete",
     "syncPending": "Pending sync",
     "uid": "Account ID",
     "checkinSuccess": "Checked in",
-    "addSuccess": "Account added",
     "actionFailed": "Action failed",
-    "loginRequired": "Sign in to manage your account pool",
     "addTitle": "Add account",
     "adding": "Adding…",
     "deleteConfirm": "Delete {name}?",
@@ -5206,24 +5123,9 @@
     "addedCount": "+{n}",
     "removedCount": "-{n}"
   },
-  "userPublic": {
-    "title": "User Profile",
-    "notFound": "User not found",
-    "follow": "Follow",
-    "following": "Following",
-    "message": "Message",
-    "followingCount": "Following",
-    "followersCount": "Followers",
-    "favoritesCount": "Favorites",
-    "joined": "Joined"
-  },
   "commission": {
     "myLabel": "My commission",
     "label": "Commission"
-  },
-  "courseSwiper": {
-    "tabHotIntro": "Popular starter courses",
-    "tabHotPick": "Popular featured courses"
   },
   "agentList": {
     "emptyText": "No agents yet"

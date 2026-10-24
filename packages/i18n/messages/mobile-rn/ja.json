@@ -131,7 +131,6 @@
     "navJoinGroup": "グループ参加",
     "navMenu": "メニュー",
     "navShare": "共有",
-    "closeDrawer": "ドロワーを閉じる",
     "closeBtn": "閉じる",
     "qrHint": "QRコードをスキャンしてコミュニティに参加",
     "shareRewardLater": "あとで",
@@ -268,7 +267,6 @@
       "notLoggedInUser": "未ログインユーザー",
       "navCategory": "カテゴリー",
       "identityLabel": "身分",
-      "searchNeedDesc": "ニーズや説明を検索",
       "trackPanelTitle": "ニーズトラックを選択",
       "closeTrackFilter": "トラック絞り込みを閉じる",
       "closeIdentity": "身分切替を閉じる",
@@ -453,7 +451,6 @@
     "benefitListAiMore": "AIアシスタント無料回数大幅増",
     "benefitListKb": "専用ナレッジベース構築",
     "benefitSupport": "専属カスタマーサポート",
-    "benefitTraderAll": "プラットフォーム全特典を享受",
     "levelVip": "VIP会員",
     "dlgDelConvTitle": "会話を削除",
     "dlgDelConvBody": "この会話を削除しますか？",
@@ -1110,7 +1107,6 @@
     "deleted": "削除しました",
     "loadFailPullRetry": "読み込み失敗。下に引いて再試行",
     "emptyContent": "まだ内容がありません",
-    "closeOverlay": "シートを閉じる",
     "add": "追加",
     "panelCollapse": "パネルを畳む",
     "panelExpand": "パネル展開"
@@ -1134,20 +1130,9 @@
     "catCoding": "プログラミング",
     "catOffice": "オフィス",
     "catStudy": "学習",
-    "mainAll": "全て",
-    "mainWriting": "文章作成",
-    "mainCoding": "プログラミング",
-    "mainOffice": "オフィス",
-    "mainLearning": "学習",
     "vendorOther": "その他",
     "copyOkToast": "リンクをクリップボードにコピーしました",
     "loadFailed": "読み込み失敗",
-    "catLearning": "学習",
-    "catDouyin": "抖音運營",
-    "catPrivate": "私域運營",
-    "catContent": "內容創作",
-    "catData": "數據分析",
-    "catAll2": "全部",
     "chat": {
       "title": "チャットを開始",
       "message": "「{name}」とのチャットを開始します"
@@ -1307,13 +1292,7 @@
     "kindAutoContext": "自動取得したコンテキスト"
   },
   "developer": {
-    "title": "開発者ポータル",
-    "becomeDeveloper": "開発者になる",
-    "subtitle": "エージェントを公開して収益を得る",
-    "selectService": "サービスプランを選択",
-    "processing": "処理中...",
-    "openNow": "今すぐ有効化",
-    "agreementHint": "有効化により《開発者サービス規約》に同意したものとみなされます"
+    "becomeDeveloper": "開発者になる"
   },
   "liveHost": {
     "error": {
@@ -1336,7 +1315,6 @@
     "productAddBtn": "商品を追加",
     "productEmpty": "商品がありません",
     "productLoadFailed": "商品の読み込みに失敗",
-    "productLoading": "読み込み中...",
     "productManage": "商品管理",
     "pushUrl": "プッシュ URL",
     "startLive": "ライブを開始",
@@ -1405,7 +1383,6 @@
     "operationFailed": "操作に失敗しました。もう一度お試しください",
     "title": "n8n モデル",
     "vendorName": "n8n ワークフロー",
-    "groupBrowse": "グループ表示",
     "listView": "リスト表示"
   },
   "modelPlaza": {
@@ -1429,7 +1406,6 @@
     "selectProviderLabel": "プロバイダーを選択",
     "title": "モデルプラザ",
     "groupBrowse": "グループ表示",
-    "listView": "リスト表示",
     "workflowTab": "ワークフロー"
   },
   "tokenValue": {
@@ -1517,13 +1493,6 @@
     "payFailed": "支払いに失敗しました"
   },
   "about": {
-    "title": "について",
-    "appName": "アプリ名",
-    "version": "バージョン",
-    "description": "アプリ紹介",
-    "officialSite": "公式サイト",
-    "contactEmail": "お問い合わせメールアドレス",
-    "license": "オープンソースライセンス",
     "heroBadge": "智匯 AI について",
     "heroTitle": "1コード6クライアント、1つの AI",
     "heroSubtitle": "IHUI AI はオープンソースのフルスタック AI オペレーティングシステムで、Agent 設計、ナレッジベース、マルチモデルスケジューリング、クロスプラットフォーム協業とチーム運営を1つのプラットフォームに統合します。",
@@ -2157,9 +2126,7 @@
     "studyHours": "{count} 時間学習",
     "empty": "ランキングなし",
     "loadFailed": "ランキングの読み込みに失敗",
-    "title": "ランキング",
-    "wanSuffix": "{v}万",
-    "pointsUnit": "ポイント"
+    "title": "ランキング"
   },
   "rankingDetail": {
     "rank": "ランキング",
@@ -3214,29 +3181,7 @@
     "loading": "読み込み中..."
   },
   "studyIndex": {
-    "title": "AI動画",
-    "catAll": "すべて",
-    "catDouyin": "Douyin運用",
-    "catPrivate": "プライベートドメイン",
-    "catContent": "コンテンツ制作",
-    "catData": "データ分析",
-    "tipMarquee": "智汇AI クラウド教育/ショート動画 — AI関連動画のアップロード・共有を歓迎",
-    "myCollection": "マイコレクション",
-    "searchPh": "動画を検索",
-    "loadMoreHint": "読み込み中...",
-    "noMoreText": "これ以上ありません",
-    "emptyVideos": "学習動画がありません",
-    "emptyModels": "モデルなし",
-    "paidCollection": "おすすめ講座コレクション",
-    "latestCourses": "最新講座",
-    "viewMoreModels": "モデルをもっと見る",
-    "viewMoreCourses": "講座をもっと見る",
-    "tagPaid": "有料",
-    "tagFree": "無料",
-    "publishVidBtn": "動画を投稿",
-    "authorFallback": "智汇コミュニティ・公式",
-    "receiveFreeTitle": "無料資料を受け取る",
-    "receiveFreeBody": "リンクをコピーしました。ブラウザに貼り付けて開けます"
+    "title": "AI動画"
   },
   "studyProgress": {
     "title": "学習進捗",
@@ -3387,23 +3332,7 @@
     "price": "価格",
     "rating": "評価",
     "startChat": "チャットを開始",
-    "uses": "利用回数",
-    "catAll": "All",
-    "catDouyin": "Douyin ops",
-    "catPrivate": "Private ops",
-    "catContent": "Content",
-    "catData": "Data",
-    "catWriting": "Writing",
-    "catCoding": "Coding",
-    "catOffice": "Office",
-    "catLearning": "Learning",
-    "mainAll": "All",
-    "mainWriting": "Writing",
-    "mainCoding": "Coding",
-    "mainOffice": "Office",
-    "mainLearning": "Learning",
-    "vendorOther": "Other",
-    "copyOkToast": "Link copied to clipboard"
+    "uses": "利用回数"
   },
   "agentMarket": {
     "empty": "エージェントがありません",
@@ -4356,7 +4285,6 @@
     },
     "detail": {
       "pageTitle": "トピック詳細",
-      "loading": "読み込み中…",
       "loadFailed": "読み込みに失敗しました",
       "followers": "{n} 人がフォロー中",
       "follow": "フォロー",
@@ -4369,9 +4297,6 @@
       "empty": "まだ投稿がありません。最初の投稿をしてみましょう",
       "loadingMore": "読み込み中…",
       "noMore": "これ以上ありません",
-      "justNow": "たった今",
-      "minutesAgo": "{n} 分前",
-      "hoursAgo": "{n} 時間前",
       "anonymous": "匿名ユーザー"
     }
   },
@@ -5134,16 +5059,11 @@
     "calls": "呼び出し回数",
     "title": "マイアカウントプール",
     "subtitle": "あなた専用のサードパーティ AI アカウントプール。チェックインアシスタントと同じアカウントで毎日自動チェックインし、自分のリレーリクエストで優先的に使用されます。",
-    "add": "アカウントを追加",
-    "provider": "プラットフォーム",
-    "name": "名前",
     "namePlaceholder": "アカウントに名前を付ける",
     "token": "トークン（アクセス資格情報）",
     "refreshToken": "リフレッシュトークン",
     "optional": "任意",
     "save": "保存",
-    "cancel": "キャンセル",
-    "loading": "読み込み中…",
     "empty": "アカウントがありません",
     "emptyHint": "チェックインアシスタントで追加したアカウントは自動的にここへ同期されます。",
     "enabled": "有効",
@@ -5152,13 +5072,10 @@
     "disable": "無効化",
     "checkin": "今すぐチェックイン",
     "delete": "削除",
-    "confirmDelete": "削除を確認",
     "syncPending": "同期待ち",
     "uid": "アカウント ID",
     "checkinSuccess": "チェックインしました",
-    "addSuccess": "アカウントを追加しました",
     "actionFailed": "操作に失敗しました",
-    "loginRequired": "ログインしてアカウントプールを管理",
     "addTitle": "アカウントを追加",
     "adding": "追加中…",
     "deleteConfirm": "{name} を削除しますか？",
@@ -5206,24 +5123,9 @@
     "addedCount": "+{n}",
     "removedCount": "-{n}"
   },
-  "userPublic": {
-    "title": "ユーザープロフィール",
-    "notFound": "ユーザーが見つかりません",
-    "follow": "フォロー",
-    "following": "フォロー中",
-    "message": "メッセージ",
-    "followingCount": "フォロー",
-    "followersCount": "フォロワー",
-    "favoritesCount": "お気に入り",
-    "joined": "登録日"
-  },
   "commission": {
     "myLabel": "私のコミッション",
     "label": "コミッション"
-  },
-  "courseSwiper": {
-    "tabHotIntro": "人気入門講座",
-    "tabHotPick": "人気厳選講座"
   },
   "agentList": {
     "emptyText": "Agent がいません"
