@@ -35,7 +35,16 @@
  * 第四条(2026-10-14,池式硬上限):建议号不再 = max+1,而是**池内最小空闲号** ——
  * 每族号池 = 1..999(三位数拍板),池内占用 = 条目标题号 ∪ 登记行号 ∪ 远端避让段;
  * "最小空闲"这一把尺只住在 `scripts/lib/plan-id-lease.mjs`(与第一发号出口共用,不抄第二份)。
- * 池满 ⇒ **拒绝发号**(exit 1)—— 绝不发 1000+;>999 的归档大号不占池(存量债不挡新号)。
+ * 发不出 ⇒ **拒绝发号**(exit 1)—— 绝不发 1000+;>999 的归档大号不占池(存量债不挡新号)。
+ * 〔更正@2026-10-23,取代上一条里"池满 ⇒ 拒绝发号"这一句归因;上一条只作改判留痕读〕:
+ *   "发不出号"有**两种完全不同的成因**,旧措辞一律念成"号池已满 ⇒ 归档腾号",而本席现读
+ *   (G 族:池内已占 815 / 空闲 184,最长可落窗连续游程 32 < 段容量 50)证明真因是
+ *   **「没有连续 50 号的租约窗」** —— 散点让位对这一型无效(腾不出连续窗)。该措辞已污染台账
+ *   (≥6 行票头照抄"1..999 池已满;腾号靠归档已完成条目")。⇒ 现在两型由 `lib/plan-id-lease.mjs`
+ *   的机读字段 `reason`(`POOL_FULL` / `NO_CONTIGUOUS_LEASE_WINDOW`)分开判,可读行由
+ *   `describePoolExhaustion` 一处渲染(本器不另拼句子,§0.6);本器报告还把"第二出口按最小空闲可发"
+ *   与"第一出口的租约窗尺子挡住"这一对相反读数一起打出来(两出口口径不同,不得混成"池已满")。
+ *   **分配语义一字未动**(段容量/池上限/取号算法全沿用),改的只有结论的可读文本与机读字段。
  * `--check` 的重号对账按**归一化后的条目标题 key**(含系列小后缀)判,退出码语义不变(有真重号仍 exit 1)。
  *
  * 用法:
@@ -85,7 +94,17 @@ import { collectIdFace, scanFamilyIds } from './lib/plan-id-face.mjs'
 // 基准读取与硬闸门都只住在那一份实现里 —— 这里只做出口接线,不抄任何判据。
 import { readRemoteIdBasis, idBasisGate } from './live-doc-edit.mjs'
 // 池式取号(2026-10-14):"池内最小空闲"的尺与 live-doc-edit 同住 lib/plan-id-lease.mjs 一份。
-import { smallestFreeId, poolFreeList, poolBlocked, LEASE_POOL_MAX } from './lib/plan-id-lease.mjs'
+// 2026-10-23:结论渲染与租约窗读数也走那一份 —— 本器不拼"池已满"的句子,也不另数空闲位。
+import {
+  POOL_EXHAUST_REASON,
+  describePoolExhaustion,
+  leaseCursor,
+  parseLeases,
+  smallestFreeId,
+  poolFreeList,
+  poolBlocked,
+  LEASE_POOL_MAX,
+} from './lib/plan-id-lease.mjs'
 // 重号判据(G-927,2026-10-21):**登记行的编号声明位**同号多行才判红;历史小节标题同 id 只报数不判红。
 // 尺同住这一份 lib(它内部用 plan-task-index 的 parseTaskRows),本器不另写"什么算一条登记行"。
 // 标题口径那把尺(带 `附①/续三/补` 子模式)不动 —— 号段 max 吃它,本 lib 也不复制它。
@@ -299,13 +318,36 @@ if (skippedByScan.length)
       skippedByScan.map((n) => `O${n}`).join(', '),
   )
 const { lowMax: poolLowMax } = poolBlocked({ usedNumbers: liveUsed, baseMax: remoteWide })
+// ── 租约窗读数(2026-10-23 立,只读不改分配)────────────────────────────────────────────
+// "发不出号"有两种完全不同的成因,旧措辞把它们一律念成"号池已满 ⇒ 先归档腾号":
+//  ① POOL_FULL = 池内一个空闲号都没有(这一型让位才真能腾出号);
+//  ② NO_CONTIGUOUS_LEASE_WINDOW = 池内仍有空闲号,却没有连续 segmentSize 个可落窗位
+//     (2026-10-23 现读 G 族:已占 815 / 空闲 184 / 最长可落窗游程 32 < 段容量 50)。
+// ② 靠散点让位腾不出连续窗 ⇒ 旧归因把台账里的票全引向无效出路。这里让**判据自己**把两型量出来
+// (尺住 lib/plan-id-lease.mjs,本器不另数空闲位、不拼句子,§0.6),段容量/池上限/算法一字未动。
+const leaseView = leaseCursor({
+  usedNumbers: liveUsed,
+  leases: parseLeases(wideText, FAMILY),
+  family: FAMILY,
+  baseMax: remoteWide,
+})
 if (next === null) {
+  console.error(`❌ ${FAMILY} 族:${describePoolExhaustion(leaseView)}`)
   console.error(
-    `❌ ${FAMILY} 族号池 1..${LEASE_POOL_MAX} 已满(池式硬上限,2026-10-14 立)⇒ 拒绝发号。` +
-      `出路:先归档已完成条目腾号(号随归档自动回收),或经人拍板扩池;绝不发 1000+。`,
+    `   机读: reason=${leaseView.reason ?? 'UNDETERMINED'} freeInPool=${leaseView.freeInPool ?? '未量到'}` +
+      ` largestRun=${leaseView.largestRun ?? '未量到'} segmentSize=${leaseView.segmentSize}` +
+      ` poolMax=${leaseView.poolMax}`,
   )
   process.exit(1)
 }
+// 本器(第二出口)按"池内最小空闲"给号,第一出口按"连续租约窗"给号 ⇒ 两者此刻可以给出相反结论。
+// 这个分歧必须喊出来:否则读到本器绿灯的人会以为租约发号也不会挡,而票面上写的"池已满"又是假的。
+if (leaseView.mode === 'pool-exhausted')
+  console.error(
+    `⚠️ ${FAMILY} 族租约窗尺子:${describePoolExhaustion(leaseView)}` +
+      ` —— 本器按池内最小空闲仍可发 O${next}` +
+      `(两出口口径不同:"无连续租约窗"不等于"池内无闲号",两型出路也不相同)`,
+  )
 const freeList = poolFreeList({ usedNumbers: liveUsed, baseMax: remoteWide })
 
 // 两面(标题口径 + 登记行口径)与两文件(台账 + 归档件)都读不到任何 O 记录 ⇒ maxWide = -Infinity。
@@ -335,7 +377,11 @@ console.log(
     `${skippedByScan.length ? `(${skippedByScan.map((n) => `O${n}`).join(', ')})` : ''}`,
 )
 console.log(
-  `  取号口径:池式 1..${LEASE_POOL_MAX}(2026-10-14 硬上限)⇒ 池内空闲 ${freeList.length} 号,池满 ⇒ 拒绝发号(绝不发 1000+;>999 的归档大号不占池)`,
+  `  取号口径:池式 1..${LEASE_POOL_MAX}(2026-10-14 硬上限)⇒ 池内空闲 ${freeList.length} 号;` +
+    `拒绝发号按成因分档(机读 reason 单源 lib/plan-id-lease.mjs):` +
+    `${POOL_EXHAUST_REASON.poolFull}=池内一个空闲号都没有 / ` +
+    `${POOL_EXHAUST_REASON.noContiguousWindow}=仍有空闲号却无连续租约窗` +
+    `(绝不发 >${LEASE_POOL_MAX} 的号;>${LEASE_POOL_MAX} 的归档大号不占池)`,
 )
 console.log(
   `  两面对账:仅台账 max=${fmt(maxLedger)} / 台账⊕归档件 max=${fmt(maxWide)} ⇒ 差 ${Number.isFinite(maxWide) && Number.isFinite(maxLedger) ? maxWide - maxLedger : '?'} 档(只看台账会少让这么多)`,

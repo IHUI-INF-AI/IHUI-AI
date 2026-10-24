@@ -13,7 +13,8 @@
  *      畸形登记编号判据不误伤(主键 + 正文段引用都不命中"族名出现两次")。
  *  T2  parseLeases:三读数(主键/段/机)齐且互洽才算;主键≠段尾号的漂移行不认(失效方向 = 走新占段)。
  *  T3  leaseCursor 池式(2026-10-14):无租约→池内最小空闲窗;自有池内段→段内连号(剔除本行
- *      主键);段满→池内下一窗(不再越过 max);池外旧段(end>999)不可续;池满→拒绝发号;
+ *      主键);段满→池内下一窗(不再越过 max);池外旧段(end>999)不可续;装不下一段→拒绝发号
+ *      (机读 reason 分两档:POOL_FULL / NO_CONTIGUOUS_LEASE_WINDOW —— 见 T3b,2026-10-23);
  *      baseMax(远端只抬高)≤999 参与避让、>999 池外大号不参与。
  *  T4  resolveIdTokens 接线:给 machineId ⇒ 段内空闲序/池内新占段两态取号正确且 leaseClaims 齐全;
  *      不给 machineId ⇒ 池内最小空闲(池式新基准;旧"与旧口径逐字同形"锁随池式改造废除)。
@@ -35,10 +36,12 @@ import test from 'node:test'
 import {
   LEASE_MARK,
   LEASE_SECTION_TITLE,
+  POOL_EXHAUST_REASON,
   appendLeaseRows,
   buildLeaseRow,
   claimOffset,
   decideLease,
+  describePoolExhaustion,
   machineIdentity,
   parseLeases,
   leaseCursor,
@@ -126,7 +129,7 @@ test('T3 leaseCursor 池式:最小窗/碎窗/池满 + 段内连号 + 段满滑�
     { start: 50, end: 99 },
     '窗必须是连续空闲段,49 处的碎片把首窗顶到 50',
   )
-  // ①c 整池装不下一段 ⇒ 池满拒绝,绝不越界发号
+  // ①c 池内仍有空闲号、却装不下一段 ⇒ 拒绝,绝不越界发号(这一型的真因是"无连续窗",不是"池已满")
   const c1c = leaseCursor({
     usedNumbers: [1, 2],
     leases: [],
@@ -135,9 +138,24 @@ test('T3 leaseCursor 池式:最小窗/碎窗/池满 + 段内连号 + 段满滑�
     poolMax: 4,
   })
   assert.deepEqual(
-    { mode: c1c.mode, poolMax: c1c.poolMax, segmentSize: c1c.segmentSize },
-    { mode: 'pool-exhausted', poolMax: 4, segmentSize: 3 },
-    '池内找不出连续 segmentSize 个空闲 ⇒ pool-exhausted(调用方必须拒绝发号)',
+    {
+      mode: c1c.mode,
+      poolMax: c1c.poolMax,
+      segmentSize: c1c.segmentSize,
+      reason: c1c.reason,
+      freeInPool: c1c.freeInPool,
+      largestRun: c1c.largestRun,
+    },
+    {
+      mode: 'pool-exhausted',
+      poolMax: 4,
+      segmentSize: 3,
+      reason: POOL_EXHAUST_REASON.noContiguousWindow,
+      freeInPool: 2,
+      largestRun: 2,
+    },
+    '池内找不出连续 segmentSize 个空闲 ⇒ pool-exhausted(调用方必须拒绝发号);' +
+      '空闲 2 枚却无 3 号窗 ⇒ reason 必须是 NO_CONTIGUOUS_LEASE_WINDOW,不得念成池已满',
   )
   // ② 自有池内段段内连号:主键(段尾=50)剔除,1/2/3 已用 ⇒ 下一号 4
   const mine = { primaryKeyNum: 50, primaryKey: 'G-50', machine: 'hostA-fp', start: 1, end: 50 }
@@ -211,6 +229,99 @@ test('T3 leaseCursor 池式:最小窗/碎窗/池满 + 段内连号 + 段满滑�
     { start: 6, end: 55 },
     '池外大号不参与(双方号域不相交,结构性不撞)',
   )
+})
+
+/**
+ * T3b(2026-10-23 立)—— `pool-exhausted` 的**两种真成因必须分开念**。
+ * 立因:旧实现只交出 `{ mode:'pool-exhausted', poolMax, segmentSize }`,于是所有出口都把它念成
+ * "号池已满 ⇒ 先归档腾号";而 2026-10-23 现读 G 族 = 池内已占 815 / 空闲 184 / 最长可落窗游程 32
+ * (段容量 50)—— 真因是「没有连续 50 号的租约窗」,散点归档腾不出窗,旧归因把 ≥6 行台账票
+ * 引向无效出路(AGENTS §0.3「没判绝不写成判过」/§0.8「不得写跑不通的出路」/§10 交付一致性)。
+ * 四组夹具互不相同,任何"两种成因给同一个说法"的实现都会在 ①' 或 ③' 上红。
+ */
+test('T3b pool-exhausted 两种成因分档:POOL_FULL vs NO_CONTIGUOUS_LEASE_WINDOW(2026-10-23)', () => {
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i)
+  // ① 真池满:1..12 全被占 ⇒ 池内一个空闲号都没有
+  const full = leaseCursor({ usedNumbers: range(1, 12), leases: [], family: 'G', segmentSize: 5, poolMax: 12 })
+  assert.equal(full.mode, 'pool-exhausted')
+  assert.equal(full.reason, POOL_EXHAUST_REASON.poolFull, '池内 0 空闲 ⇒ reason 必须是 POOL_FULL')
+  assert.equal(full.freeInPool, 0, 'freeInPool 必须是量出来的 0')
+  assert.equal(full.largestRun, 0)
+  // ①b 散点占用:仍有 3 枚空闲,却没有连续 5 号窗(旧实现在这里也只念"已满" ⇒ 本断言即红)
+  const scattered = leaseCursor({
+    usedNumbers: [...range(1, 2), ...range(4, 8), ...range(10, 14), ...range(16, 20)],
+    leases: [],
+    family: 'G',
+    segmentSize: 5,
+    poolMax: 20,
+  })
+  assert.equal(scattered.mode, 'pool-exhausted')
+  assert.equal(
+    scattered.reason,
+    POOL_EXHAUST_REASON.noContiguousWindow,
+    '空闲 3 枚却无连续窗 ⇒ reason 必须是 NO_CONTIGUOUS_LEASE_WINDOW,不得冒充池已满',
+  )
+  assert.equal(scattered.freeInPool, 3)
+  assert.equal(scattered.largestRun, 1)
+  // ①' 两种成因必须给出**不同**的机读值(旧实现两处都只有 mode ⇒ reason 同为 undefined ⇒ 此断言红)
+  assert.notEqual(
+    full.reason,
+    scattered.reason,
+    'POOL_FULL 与 NO_CONTIGUOUS_LEASE_WINDOW 必须是两个可区分的取值',
+  )
+  // ② 正控:几乎全满(1..20 只用掉 15 枚)但留了一段连续 5 号窗 ⇒ 必须真判得出"能发",不许误报无窗
+  const withWindow = leaseCursor({
+    usedNumbers: [...range(1, 10), ...range(16, 20)],
+    leases: [],
+    family: 'G',
+    segmentSize: 5,
+    poolMax: 20,
+  })
+  assert.deepEqual(
+    { mode: withWindow.mode, start: withWindow.start, end: withWindow.end },
+    { mode: 'claim', start: 11, end: 15 },
+    '留有一段连续窗 ⇒ 必须落 claim(把这一型也判成"发不出"就是过度报警)',
+  )
+  // ③ 空闲号全落在租约保留位里:一格都落不下,却远非池满 ⇒ 仍属无窗型(不是"已满")
+  const allReserved = leaseCursor({
+    usedNumbers: [],
+    leases: [{ start: 1, end: 20, machine: 'hostB-fp', primaryKeyNum: 20 }],
+    family: 'G',
+    segmentSize: 5,
+    poolMax: 20,
+  })
+  assert.equal(allReserved.mode, 'pool-exhausted')
+  assert.equal(allReserved.reason, POOL_EXHAUST_REASON.noContiguousWindow, '被租约保留位挡死 ≠ 池已满')
+  assert.equal(allReserved.freeInPool, 20, '池内其实一格未用,念成"已满"就是假话')
+  assert.equal(allReserved.largestRun, 0, '可落窗游程 = 0(空闲号全在保留位内)')
+  // ④ 可读行必须与判据同形:把两个读数念出来,出路按成因分档
+  const textFull = describePoolExhaustion(full)
+  assert.match(textFull, /reason=POOL_FULL/, '可读行要带机读成因')
+  assert.match(textFull, /池 1\.\.12 内空闲 0 枚/, '可读行要念出量到的空闲枚数')
+  const textScattered = describePoolExhaustion(scattered)
+  assert.match(textScattered, /reason=NO_CONTIGUOUS_LEASE_WINDOW/)
+  assert.match(
+    textScattered,
+    /池内空闲 3 枚[,，]但无连续 5 号租约窗/,
+    `必须明写"池内空闲 N 枚,但无连续 M 号租约窗",实得:${textScattered}`,
+  )
+  assert.doesNotMatch(textScattered, /已满/, `无窗型的结论里不得出现"已满",实得:${textScattered}`)
+  assert.match(textScattered, /出路不是散点让位/, '必须点名"散点让位/归档"对该型无效(旧归因的病根)')
+  // ④b reason 缺失 ⇒ 显式未判定,绝不回落成任何"池状态"断言(§0.3)
+  const undet = describePoolExhaustion({ mode: 'pool-exhausted', poolMax: 999, segmentSize: 50 })
+  assert.match(undet, /reason=UNDETERMINED/, '拿不到成因就写未判定')
+  assert.doesNotMatch(undet, /已满/, '未判定不得冒充"池已满"')
+  // ④c 渲染器在任何分支都不得再吐"已满"这个断言(旧归因的字面载体)
+  for (const [label, text] of [
+    ['POOL_FULL', textFull],
+    ['NO_CONTIGUOUS', textScattered],
+    ['UNDETERMINED', undet],
+  ])
+    assert.doesNotMatch(text, /已满/, `${label} 档的结论行不得出现"已满"断言,实得:${text}`)
+  // ⑤ 分配语义不得被本次改动动到:段容量仍来自同一个入参,pool-exhausted 这个 mode 名仍在
+  //    (live-doc-edit 与镜像 T4b 按 mode 分岔;改名=改判据,超出本票射程)
+  assert.equal(scattered.mode, 'pool-exhausted', 'mode 取值一字未改')
+  assert.equal(scattered.segmentSize, 5, '段容量沿用入参,未被结论层改写')
 })
 
 test('T4a decideLease 胶水:真实台账面上解析+判定一次给全', () => {
