@@ -402,6 +402,46 @@ def _get_subagent_timeout() -> int:
         return 300
 
 
+# D08②(2026-10-24):agent 间换手消息(完成/受阻/求助)的结构化事件。
+# 票面要求 SSE **复用既有 subagent_* 帧族、禁新帧**,故这里只产出一条消息的**载荷字段**;
+# 帧名仍由 llm.py 的 subagent_progress / subagent_end 承载。字段集:
+#   kind(done|blocked|help) / agent_id / summary / [token_usage] / ts
+# agent_id 由调用层给定(llm.py 持有真正的子代理实例 id);token_usage 仅在真实拿到时写入,
+# 不用 0 冒充"有用量"(与仓内"取不到必须显式缺席"口径一致)。
+_SUBAGENT_HANDOFF_KINDS: Final = ("done", "blocked", "help")
+
+
+def _subagent_handoff_event(
+    kind: str,
+    agent_id: str,
+    summary: str,
+    *,
+    token_usage: dict[str, Any] | None = None,
+    ts: str | None = None,
+) -> dict[str, Any]:
+    """构造一条子 agent 换手消息(纯函数,不写帧、不产生副作用)。"""
+    if kind not in _SUBAGENT_HANDOFF_KINDS:
+        raise ValueError(f"unknown subagent handoff kind: {kind!r}")
+    from datetime import UTC, datetime
+
+    evt: dict[str, Any] = {
+        "kind": kind,
+        "agent_id": agent_id,
+        "summary": str(summary or "")[:200],
+        "ts": ts or datetime.now(UTC).isoformat(),
+    }
+    if token_usage is not None:
+        evt["token_usage"] = token_usage
+    return evt
+
+
+def _subagent_handoff_kind(*, ok: bool, needs_help: bool = False) -> str:
+    """完成/受阻/求助三档的唯一映射:显式求助优先,其次按成败分 done / blocked。"""
+    if needs_help:
+        return "help"
+    return "done" if ok else "blocked"
+
+
 import contextlib
 
 from .skills import skill_registry
@@ -5160,11 +5200,29 @@ async def _tool_dispatch_subagent(
                     )
                 finally:
                     _subagent_depth.reset(_dtok)
+            _par_total = result.get("total", 0)
+            _par_succeeded = result.get("succeeded", 0)
+            _par_failed = result.get("failed", 0)
+            _par_results = result.get("results")
+            _par_needs_help = any(
+                bool(r.get("needs_help") or r.get("needsHelp"))
+                for r in (_par_results if isinstance(_par_results, list) else [])
+                if isinstance(r, dict)
+            )
+            # D08②:完成/受阻/求助换手消息 —— 复用既有 subagent_progress 帧的载荷,不新造帧。
             _emit({
                 "phase": "parallel_done",
-                "total": result.get("total", 0),
-                "succeeded": result.get("succeeded", 0),
-                "failed": result.get("failed", 0),
+                "total": _par_total,
+                "succeeded": _par_succeeded,
+                "failed": _par_failed,
+                **_subagent_handoff_event(
+                    _subagent_handoff_kind(
+                        ok=bool(result.get("ok", False)) and not _par_failed,
+                        needs_help=_par_needs_help,
+                    ),
+                    "",
+                    result.get("message", "") or f"{_par_succeeded}/{_par_total} 成功",
+                ),
             })
             _payload = {
                 "tool": "dispatch_subagent", "mode": "parallel",
@@ -5175,6 +5233,9 @@ async def _tool_dispatch_subagent(
                 "results": result.get("results", []),
                 "message": result.get("message", ""),
             }
+            # D08②:任一份子任务显式求助 ⇒ 结束帧 kind 判为 help(与单模式同口)。
+            if _par_needs_help:
+                _payload["needs_help"] = True
             # 0-6 单子代理输出限额:复用 0-2 截断助手
             return _truncate_tool_output(_payload)
         except Exception as e:
@@ -5214,11 +5275,20 @@ async def _tool_dispatch_subagent(
                 )
             finally:
                 _subagent_depth.reset(_dtok)
+        _single_ok = step_result.status == "completed"
+        _single_needs_help = bool(getattr(step_result, "needs_help", False))
+        # D08②:完成/受阻/求助换手消息 —— 复用既有 subagent_progress 帧的载荷,不新造帧。
         _emit({
             "phase": "single_done",
             "agentName": name,
             "iterations": step_result.iterations,
-            "ok": step_result.status == "completed",
+            "ok": _single_ok,
+            **_subagent_handoff_event(
+                _subagent_handoff_kind(ok=_single_ok, needs_help=_single_needs_help),
+                name,
+                step_result.output if _single_ok else (step_result.error or step_result.output),
+                token_usage=getattr(step_result, "token_usage", None),
+            ),
         })
         _payload = {
             "tool": "dispatch_subagent", "mode": "single",
@@ -5231,6 +5301,9 @@ async def _tool_dispatch_subagent(
             "error": step_result.error,
             "ok": step_result.status == "completed",
         }
+        # D08②:子代理显式求助位 —— 仅在置位时加键,供 subagent_end 帧的 kind 判为 help。
+        if _single_needs_help:
+            _payload["needs_help"] = True
         # D145①:未知名回包补 availableAgents —— 撞"Agent 不存在"后调用方(模型)能
         # 自我纠正,而不是照猜再撞第二次。判据与 invoke 的落空同源(registry.get 为空);
         # 对拿不到 registry 的替身(既有测试的 _FakeOrchestrator)不判也不加键 ——
