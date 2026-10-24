@@ -78,7 +78,14 @@ import { MemoryNoticeBar } from '@/components/ai/progress-sections/memory-notice
 // Steer(中途引导,2026-09-19 立):消息级「已引导」提示条(store 旁路 steerNoticesByMessageId)
 import { SteerNoticeBar } from '@/components/ai/progress-sections/steer-notice-bar'
 // D115(G-229,2026-10-24 立):review 结论卡(store 旁路 reviewFindingsByMessageId)
-import { ReviewFindingsCard } from '@/components/chat/message-list/review-findings-card'
+import {
+  ReviewFindingsCard,
+  buildFixDispatchPreset,
+  type ReviewFinding,
+} from '@/components/chat/message-list/review-findings-card'
+// D06(G-229,2026-10-25 立):「派发修复」复用既有派发对话框(提交即 /api/subagents/dispatch),
+// 不新造第二套派发入口;对话框成功面板 + toast 即本动作的可见反馈。
+import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 // 2026-09-19 立:上下文压缩分隔线(compaction 命名帧 → onCompaction → store setMessageCompaction)
 import { CompressionDivider } from '@/components/ai/progress-sections/compression-divider'
 // P3 #36(2026-09-16 立):消息流内 best-of 并排对比卡(按 meta.bestOfRunId 关联)
@@ -257,6 +264,13 @@ const MessageItem = React.memo(function MessageItem({
   const reviewFindings = chatStore(
     React.useCallback((s) => s.reviewFindingsByMessageId[m.id] ?? null, [m.id]),
   )
+  // D06 一键派发修复(2026-10-25):点某条 finding ⇒ 用该条自身字段预填**既有**
+  // `DispatchSubagentDialog`,由用户在既有表单里确认后走既有 `/api/subagents/dispatch`
+  // (票面 ③ 的 dispatch_subagent)。只改被点那一条,不动其他 finding 的状态。
+  const [fixDispatchFinding, setFixDispatchFinding] = React.useState<ReviewFinding | null>(null)
+  const dispatchFix = React.useCallback((finding: ReviewFinding) => {
+    setFixDispatchFinding(finding)
+  }, [])
   // D64 ⑤(2026-09-26 接线):右键点踩(use-message-list-context-menu)派发的展开事件。
   // 票已在点踩瞬间落库(D49① 语义不变),问卷只是点踩的结构化细化,故只监听不重放。
   const [surveyOpen, setSurveyOpen] = React.useState(false)
@@ -1366,10 +1380,19 @@ const MessageItem = React.memo(function MessageItem({
                 不落 ChatMessage 字段),展开可回看每条引导文本预览。 */}
             {steerNotices && steerNotices.length > 0 && <SteerNoticeBar notices={steerNotices} />}
             {/* D115 review 结论卡:一 finding 一帧累积在 store,按 P1/P2/Nit 分组;
-                点击落点由卡片自己走 IDE 出口(只开文件,行级揭示仍未接)。 */}
+                点击落点由卡片自己走 IDE 出口(行级揭示经 revealAt);每条可一键派发修复。 */}
             {!isUser && reviewFindings && reviewFindings.length > 0 && (
               <div data-testid={`message-review-findings-${m.id}`}>
-                <ReviewFindingsCard findings={reviewFindings} />
+                <ReviewFindingsCard findings={reviewFindings} onDispatchFix={dispatchFix} />
+                {fixDispatchFinding && (
+                  <DispatchSubagentDialog
+                    open
+                    onOpenChange={(next) => {
+                      if (!next) setFixDispatchFinding(null)
+                    }}
+                    preset={buildFixDispatchPreset(fixDispatchFinding)}
+                  />
+                )}
               </div>
             )}
             {/* P3 #36 多模型并排对比(2026-09-16 立):/bestof 的 assistant 消息按
