@@ -33,6 +33,7 @@ import { rpx } from '../utils/rpx'
 import { Check } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 /** 单个 Agent 条目(对齐 Uniapp AgentListItem 核心字段) */
 export interface AgentListItem {
@@ -172,10 +173,12 @@ export default function AgentList({
   selectedId,
   isLoading = false,
   hasMore = true,
-  emptyText = '暂无 Agent',
+  emptyText: emptyTextProp,
   style,
   subtitleField,
 }: AgentListProps): React.JSX.Element {
+  const { t } = useI18n()
+  const emptyText = emptyTextProp ?? t('agentList.emptyText')
   const slide = useRef(new Animated.Value(60)).current
   const opacity = useRef(new Animated.Value(0)).current
   useEffect(() => {
@@ -209,7 +212,7 @@ export default function AgentList({
           })}
           {isLoading ? <Text style={styles.loadingText}>{'加载中...'}</Text> : null}
           {!hasMore && items.length > 0 ? (
-            <Text style={styles.noMoreText}>{'没有更多了'}</Text>
+            <Text style={styles.noMoreText}>{t('order.noMore')}</Text>
           ) : null}
           {items.length === 0 && !isLoading ? (
             <Text style={styles.emptyText}>{emptyText}</Text>

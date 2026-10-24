@@ -97,7 +97,7 @@ export function FeedbackScreen() {
       <Pressable
         onPress={() => navigation.navigate('FeedbackHistory')}
         accessibilityRole="button"
-        accessibilityLabel="查看反馈记录"
+        accessibilityLabel={t('feedbackHistory.title')}
       >
         {({ pressed }) => (
           <View style={[styles.historyBtn, pressed ? styles.historyBtnPressed : null]}>

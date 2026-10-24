@@ -111,7 +111,7 @@ export function CircleDetailScreen() {
           })
         }
         accessibilityRole="button"
-        accessibilityLabel="进入群聊"
+        accessibilityLabel={t('aiGroup.detailEnter')}
       >
         {({ pressed }) => (
           <View style={[styles.chatBtn, pressed ? styles.chatBtnPressed : null]}>

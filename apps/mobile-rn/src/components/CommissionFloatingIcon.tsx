@@ -27,6 +27,7 @@ import { tokens as tk } from '../theme/active-tokens'
 import { Banknote } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 export interface CommissionFloatingIconProps {
   amount?: string | number
@@ -44,10 +45,10 @@ const RIGHT_OFFSET = 16
 const Z_INDEX = 100
 
 const ICON = Banknote
-const LABEL = '我的佣金'
 const CURRENCY = '¥'
 
 export function CommissionFloatingIcon({ amount, onPress }: CommissionFloatingIconProps) {
+  const { t } = useI18n()
   const displayAmount =
     amount === undefined ? null : typeof amount === 'number' ? amount.toFixed(2) : amount
 
@@ -57,12 +58,12 @@ export function CommissionFloatingIcon({ amount, onPress }: CommissionFloatingIc
       onPress={onPress}
       style={styles.container}
       accessibilityRole="button"
-      accessibilityLabel={LABEL}
+      accessibilityLabel={t('commission.myLabel')}
     >
       <ICON size={18} color={tk.brand.ctaForeground} />
       <View style={styles.textWrap}>
         <Text style={styles.label} numberOfLines={1}>
-          {LABEL}
+          {t('commission.myLabel')}
         </Text>
         {displayAmount !== null ? (
           <Text style={styles.amount} numberOfLines={1}>

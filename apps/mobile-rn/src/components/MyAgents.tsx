@@ -19,6 +19,7 @@ import { tokens, currentRnTheme } from '../theme/active-tokens'
 import { MoreLink } from '@ihui/rn-app'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 export interface MyAgentItem {
   /** 智能体 ID(对齐原项目 agentId;兼容短字段 id) */
@@ -52,17 +53,18 @@ export default function MyAgents({
   onItemClick,
   onTeamPress,
   defaultAvatar,
-  emptyText = '暂无智能体',
+  emptyText: emptyTextProp,
 }: MyAgentsProps) {
+  const { t } = useI18n()
   const list = items && items.length > 0 ? items : null
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{'我的AI APP'}</Text>
+        <Text style={styles.title}>{t('myAgents.title')}</Text>
         {onTeamPress ? (
           <MoreLink
-            label="我的AI员工"
+            label={t('myAgents.staff')}
             onPress={onTeamPress}
             colorScheme={currentRnTheme()}
             style={styles.teamButton}
@@ -105,7 +107,7 @@ export default function MyAgents({
           })
         ) : (
           <View style={styles.emptyItem}>
-            <Text style={styles.emptyText}>{emptyText}</Text>
+            <Text style={styles.emptyText}>{emptyTextProp ?? t('home.noAgentsHint')}</Text>
           </View>
         )}
       </ScrollView>

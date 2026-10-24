@@ -376,7 +376,7 @@ export function PlazaScreen() {
       const res = await deleteConversation(id)
       if (!res.success) {
         setDrawerConversations(snapshot)
-        showFloat(t('plaza.index.delFailedRetry'), 'warning')
+        showFloat(t('profile.delFailedRetry'), 'warning')
         return
       }
       void load({ reset: true })
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: tokens.gray.black,
   } as TextStyle,
-  // 通用弹层遮罩(身份切换 / 开发者须知共用;赛道筛选已迁统一 CategoryDropdown)
+  // 需求赛道筛选弹层样式(圆角守门:仅 8/12)
   categoryMask: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

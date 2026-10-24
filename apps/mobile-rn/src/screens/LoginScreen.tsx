@@ -534,7 +534,7 @@ export function LoginScreen() {
         form.setError(apiFailureToText(res, t('auth.loginFailed')))
       }
     } catch {
-      form.setError('auth.loginFailed')
+      form.setError(t('auth.loginFailed'))
     } finally {
       setEmailCodeSending(false)
     }
@@ -563,7 +563,7 @@ export function LoginScreen() {
         form.setError(apiFailureToText(res, t('auth.loginFailed')))
       }
     } catch {
-      form.setError('auth.loginFailed')
+      form.setError(t('auth.loginFailed'))
     } finally {
       setEmailLoading(false)
     }
@@ -592,7 +592,7 @@ export function LoginScreen() {
         form.setError(apiFailureToText(res, t('auth.loginFailed')))
       }
     } catch {
-      form.setError('auth.loginFailed')
+      form.setError(t('auth.loginFailed'))
     } finally {
       setPhoneCodeSending(false)
     }
@@ -622,7 +622,7 @@ export function LoginScreen() {
         form.setError(apiFailureToText(res, t('auth.loginFailed')))
       }
     } catch {
-      form.setError('auth.loginFailed')
+      form.setError(t('auth.loginFailed'))
     } finally {
       setPhoneLoading(false)
     }
@@ -682,7 +682,7 @@ export function LoginScreen() {
           form.setError(err.message)
         }
       } else {
-        form.setError('auth.loginFailed')
+        form.setError(t('auth.loginFailed'))
       }
     } finally {
       setCarrierLoading(false)
@@ -800,10 +800,10 @@ export function LoginScreen() {
         // OAuthRedirectResult 只有 error 字符串(无 status / errorCode)—— 身份已在上游
         // oauth-redirect.ts 构造该结果时丢失,此处 apiFailureToText 拿不到 HTTP status 也无从判序,
         // 真正收口需给 OAuthRedirectResult 补 status 字段(属 lib/oauth-redirect 契约,另计)。
-        form.setError(res.error ?? 'auth.loginFailed')
+        form.setError(res.error ?? t('auth.loginFailed'))
       }
     },
-    [form, navigation, navigateAfterLogin],
+    [form, navigation, navigateAfterLogin, t],
   )
 
   // ===== 第三方登录回调 =====

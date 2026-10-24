@@ -10,6 +10,7 @@ import { MousePointerClick } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
 import { rnRadius } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
+import { useI18n } from '../../i18n'
 
 /**
  * D99 动作锚点 —— 模型在**正文**里下发的「可点击动作」。
@@ -190,6 +191,7 @@ export function ActionAnchorChip({
   textStyle,
   onActionAnchor,
 }: ActionAnchorChipProps): ReactNode {
+  const { t } = useI18n()
   if (!onActionAnchor) {
     return <Text style={[textStyle, styles.anchorFallbackText]}>{anchor.label}</Text>
   }
@@ -202,7 +204,7 @@ export function ActionAnchorChip({
         onActionAnchor(anchor)
       }}
       accessibilityRole="button"
-      accessibilityLabel={`执行动作:${anchor.label}`}
+      accessibilityLabel={t('chat.actionRunA11y', { label: anchor.label })}
     >
       <MousePointerClick size={13} color={ink} />
       <Text style={[textStyle, styles.anchorChipLabel, isUser ? styles.anchorChipLabelUser : null]}>
