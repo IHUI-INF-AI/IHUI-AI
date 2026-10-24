@@ -19,11 +19,11 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /** 常见问题弹窗文案(对齐 Uniapp topup-success 页面的到账/订单答疑) */
 const TOPUP_FAQ_ITEMS: readonly string[] = [
-  '充值成功后智汇值一般实时到账,如余额未更新,可在「我的智汇值」页下拉刷新',
-  '微信扣款成功但停留在结果页时,请先到订单列表查看订单状态,请勿重复充值',
-  '订单编号是查询与售后的重要凭证,请妥善保留',
-  '如长时间未到账,请联系客服并提供订单编号与充值时间',
-  '充值金额不支持退款与转让',
+  'topup.tip1',
+  'topup.tip2',
+  'topup.tip3',
+  'topup.tip4',
+  'topup.tip5',
 ]
 
 export default function TopupSuccessScreen() {
@@ -47,7 +47,7 @@ export default function TopupSuccessScreen() {
         time={time}
         onViewOrder={goOrder}
         onGoHome={goHome}
-        faqItems={TOPUP_FAQ_ITEMS}
+        faqItems={TOPUP_FAQ_ITEMS.map((k) => t(k))}
         onFaqVisibleChange={setFaqVisible}
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
@@ -56,11 +56,11 @@ export default function TopupSuccessScreen() {
         visible={faqVisible}
         onClose={() => setFaqVisible(false)}
         variant="index"
-        title="常见问题"
-        content="关于充值到账与订单的常见问题"
-        benefits={[...TOPUP_FAQ_ITEMS]}
+        title={t('topup.faqTitle')}
+        content={t('topup.faqContent')}
+        benefits={[...TOPUP_FAQ_ITEMS].map((k) => t(k))}
         moreBenefits=""
-        confirmText="我知道了"
+        confirmText={t('topup.faqOk')}
         onConfirm={() => setFaqVisible(false)}
       />
     </>
