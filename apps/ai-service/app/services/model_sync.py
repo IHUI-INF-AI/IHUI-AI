@@ -870,9 +870,9 @@ class ModelSyncService:
         恢复后两处都真正生效:gauge 启动即有正确样本,禁用名单也能跨重启被提示。
 
         误报防护(三条,缺一不可):
-        ① **只恢复本服务自己配置的 provider**。ai_model_sync_log 也会被 apps/api 的
-           relay-model-sync 写入 provider_code='swiftapi'(由 api 侧负责,本服务从不
-           同步它)。若不按本服务的配置清单收敛,就会凭空给 swiftapi 打 gauge=0,
+        ① **只恢复本服务自己配置的 provider**。ai_model_sync_log 也会被 apps/api 侧的
+           relay 模型同步写入其他 provider_code(由 api 侧负责,本服务从不同步它们)。
+           若不按本服务的配置清单收敛,就会凭空给这些外部 provider 打 gauge=0,
            造出一条本服务修不了的假告警。
         ② 只看每个 provider 最近 FAILURE_THRESHOLD 条里的**尾部连续**失败,
            遇到任意 success=true 立即截断(不把"失败-成功-失败"累计成 2)。
