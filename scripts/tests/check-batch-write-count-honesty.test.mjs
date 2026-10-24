@@ -553,7 +553,11 @@ test('M13 反向锁:惯例计数不得进退出码、两个计数器不得各写
     throw new Error(
       'decide 里出现了惯例计数标识符 ⇒ 可见性数被接进了退出码,那就是把惯例当债问责(恒红门之始)',
     )
-  const n = SRC.split('[Ss]uccess').length - 1
+  // 取材面 = 门体 ∪ 词法层(2026-10-24 词法层按门 103 的 C1 行上限拆到 scripts/lib/batch-write-lexer.mjs)。
+  // 这条锁问的是"全仓只有一份 send 信封扫描式",所以搬家后必须两面一起数:只数门体会把
+  // "已经搬到别处"读成"没有第二份",而后者才是本锁要防的事 —— 判据读不到就等于没判(§0.3)。
+  const LEXER = readFileSync(join(SCRIPTS_DIR, 'lib', 'batch-write-lexer.mjs'), 'utf8')
+  const n = SRC.split('[Ss]uccess').length - 1 + (LEXER.split('[Ss]uccess').length - 1)
   if (n !== 1)
     throw new Error(
       `.send(<X>success({ 的扫描式出现 ${n} 次(应为 1)⇒ 违规判据与惯例计数各写一遍必然漂移(§22c)`,
