@@ -4786,6 +4786,7 @@
     "title": "Child's Grades"
   },
   "eduGrades": {
+    "student": "Student",
     "subject": "Subject",
     "exam": "Exam",
     "score": "Score",
@@ -4800,6 +4801,24 @@
       "late": "Late",
       "absent": "Absent",
       "leave": "Leave"
+    }
+  },
+  "eduMgmt": {
+    "attendanceTitle": "Attendance",
+    "gradesTitle": "Grades",
+    "financeTitle": "Payments"
+  },
+  "eduFinance": {
+    "student": "Student",
+    "className": "Class",
+    "fee": "Fee",
+    "amount": "Amount",
+    "date": "Date",
+    "status": {
+      "paid": "Paid",
+      "success": "Success",
+      "refunded": "Refunded",
+      "pending": "Pending"
     }
   }
 }
