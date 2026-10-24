@@ -476,7 +476,7 @@ export function InputArea({
           }}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={collapsedFabLabel ?? '展开提问输入'}
+          accessibilityLabel={collapsedFabLabel ?? t('iaa.expandFab')}
           accessibilityState={{ expanded: false }}
         >
           <Plus size={INPUT_AREA_GLYPH_LG_PX} color={tokens.brand.ctaForeground} />
@@ -527,7 +527,7 @@ export function InputArea({
             right: INPUT_AREA_CLOSE_HIT_SLOP_PX,
           }}
           accessibilityRole="button"
-          accessibilityLabel="删除附件"
+          accessibilityLabel={t('iaa.removeAttach')}
         >
           <X size={INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX} color={tokens.text.secondary} />
         </TouchableOpacity>
@@ -545,7 +545,7 @@ export function InputArea({
         accessibilityRole="button"
         accessibilityLabel={stopLabel ?? 'stop'}
       >
-        <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
+        <Text style={styles.sendIcon}>{stopLabel ?? t('iaa.stop')}</Text>
       </TouchableOpacity>
     ) : (
       <TouchableOpacity
@@ -582,7 +582,7 @@ export function InputArea({
           activeOpacity={0.7}
           hitSlop={INPUT_AREA_CONTROL_HIT_SLOP_PX}
           accessibilityRole="button"
-          accessibilityLabel={collapseButtonLabel ?? '收起输入区'}
+          accessibilityLabel={collapseButtonLabel ?? t('iaa.collapseArea')}
         >
           <X size={14} color={tokens.text.secondary} />
         </TouchableOpacity>
@@ -618,7 +618,7 @@ export function InputArea({
               disabled={disabled || voiceTranscribing}
               hitSlop={4}
               accessibilityRole="button"
-              accessibilityLabel="按住说出你的问题"
+              accessibilityLabel={t('iaa.holdAsk')}
             >
               {voiceTranscribing ? (
                 <ActivityIndicator size="small" color={tokens.text.secondary} />
@@ -644,7 +644,7 @@ export function InputArea({
                 if (voiceRecording || voiceTranscribing) onVoiceEnd?.()
               }}
               onPress={() => inputRef.current?.focus()}
-              accessibilityLabel={placeholder ?? '请输入您的问题,或长按说话'}
+              accessibilityLabel={placeholder ?? t('home.inputPlaceholder')}
             >
               {voiceRecording || voiceTranscribing ? (
                 <View style={styles.voiceAreaInShell}>
@@ -707,7 +707,7 @@ export function InputArea({
                   right: INPUT_AREA_CONTROL_HIT_SLOP_PX,
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={isExpanded ? '缩小输入框' : '放大输入框'}
+                accessibilityLabel={isExpanded ? t('iaa.zoomOut') : t('iaa.zoomIn')}
               >
                 <Text style={styles.expandBtnIcon}>{isExpanded ? '⤡' : '⤢'}</Text>
               </TouchableOpacity>
@@ -788,7 +788,9 @@ export function InputArea({
                 onPress={onVoiceToggle}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel={voiceActive || voiceInput ? '切换到键盘' : '切换到语音'}
+                accessibilityLabel={
+                  voiceActive || voiceInput ? t('iaa.switchKeyboard') : t('iaa.switchVoice')
+                }
               >
                 {voiceActive || voiceInput ? (
                   <Keyboard size={INPUT_AREA_GLYPH_MD_PX} color={tokens.text.secondary} />
@@ -804,7 +806,7 @@ export function InputArea({
                   style={styles.voiceWaveWrap}
                   onPressIn={onVoiceAnimationStart}
                   onPressOut={onVoiceAnimationStop}
-                  accessibilityLabel="按住说话,松开结束"
+                  accessibilityLabel={t('iaa.holdEnd')}
                 >
                   <VoiceWave />
                 </Pressable>
@@ -813,9 +815,9 @@ export function InputArea({
                   style={styles.voiceWaveWrap}
                   onPressIn={onVoiceAnimationStart}
                   onPressOut={onVoiceAnimationStop}
-                  accessibilityLabel="按住说话,松开结束"
+                  accessibilityLabel={t('iaa.holdEnd')}
                 >
-                  <Text style={styles.voiceHint}>按住说话</Text>
+                  <Text style={styles.voiceHint}>{t('voice.holdToTalk')}</Text>
                 </Pressable>
               ) : (
                 <TextField
@@ -858,7 +860,7 @@ export function InputArea({
                     right: INPUT_AREA_CONTROL_HIT_SLOP_PX,
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={isExpanded ? '缩小输入框' : '放大输入框'}
+                  accessibilityLabel={isExpanded ? t('iaa.zoomOut') : t('iaa.zoomIn')}
                 >
                   <Text style={styles.expandBtnIcon}>{isExpanded ? '⤡' : '⤢'}</Text>
                 </TouchableOpacity>
@@ -867,7 +869,7 @@ export function InputArea({
 
             {/* 添加文件按钮(search-box2,functionHandle;视觉统一走共享 PlusButton,
               点击回调 onImageAdd 由调用方注入——弹统一 AddPanel 或直接选图) */}
-            {showAddBtn ? <PlusButton onPress={onImageAdd} label="添加图片或文件" /> : null}
+            {showAddBtn ? <PlusButton onPress={onImageAdd} label={t('iaa.addFile')} /> : null}
           </View>
         )}
 
@@ -890,7 +892,7 @@ export function InputArea({
                         style={styles.paramAddBtn}
                         onPress={() => onParamImageAdd?.(gi, ci)}
                         accessibilityRole="button"
-                        accessibilityLabel="添加参数图片"
+                        accessibilityLabel={t('iaa.addParam')}
                       >
                         <Plus size={16} color={tokens.text.secondary} />
                       </TouchableOpacity>
@@ -922,7 +924,7 @@ export function InputArea({
             accessibilityRole="button"
             accessibilityLabel={stopLabel ?? 'stop'}
           >
-            <Text style={styles.sendIcon}>{stopLabel ?? '停止'}</Text>
+            <Text style={styles.sendIcon}>{stopLabel ?? t('iaa.stop')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity

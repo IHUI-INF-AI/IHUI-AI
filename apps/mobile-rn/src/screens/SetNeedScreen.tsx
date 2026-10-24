@@ -37,7 +37,7 @@ const INITIAL_FORM: FormState = {
   peakPrice: '',
   contact: '',
   cycle: '1',
-  cycleUnit: '周',
+  cycleUnit: t('need.cycleUnitWeek'),
   types: '',
   categories: '',
   closingTime: '',
@@ -47,7 +47,7 @@ const INITIAL_FORM: FormState = {
 const DESC_MIN = 10
 
 function showAlert(message: string): void {
-  appAlert('提示', message, [{ text: '知道了' }])
+  appAlert(t('home.pubTip'), message, [{ text: t('common.known') }])
 }
 
 export function SetNeedScreen() {
@@ -62,22 +62,22 @@ export function SetNeedScreen() {
   }
 
   const validate = (): string => {
-    if (!form.title.trim()) return '请输入需求标题'
-    if (form.title.trim().length < 2) return '需求标题至少 2 个字符'
-    if (!form.description.trim()) return '请输入需求描述'
-    if (form.description.trim().length < DESC_MIN) return `需求描述至少 ${DESC_MIN} 个字符`
+    if (!form.title.trim()) return t('need.titleRequired')
+    if (form.title.trim().length < 2) return t('need.titleMin2')
+    if (!form.description.trim()) return t('need.descRequired')
+    if (form.description.trim().length < DESC_MIN) return t('need.descMin', { n: DESC_MIN })
     const low = Number(form.lowestPrice)
     const peak = Number(form.peakPrice)
-    if (!form.lowestPrice || Number.isNaN(low) || low <= 0) return '请输入有效的起步价'
-    if (!form.peakPrice || Number.isNaN(peak) || peak <= 0) return '请输入有效的最高价'
-    if (low > peak) return '起步价不能高于最高价'
-    if (low < 100) return '起步价不能低于 100 元'
-    if (!form.contact.trim()) return '请输入联系方式'
-    if (!form.closingTime.trim()) return '请设置任务截止时间'
+    if (!form.lowestPrice || Number.isNaN(low) || low <= 0) return t('need.priceLowRequired')
+    if (!form.peakPrice || Number.isNaN(peak) || peak <= 0) return t('need.priceHighRequired')
+    if (low > peak) return t('need.priceOrder')
+    if (low < 100) return t('need.priceMin100')
+    if (!form.contact.trim()) return t('need.contactRequired')
+    if (!form.closingTime.trim()) return t('need.timeRequired')
     const closingTime = new Date(form.closingTime)
-    if (Number.isNaN(closingTime.getTime())) return '截止时间格式无效'
-    if (closingTime.getTime() <= Date.now()) return '截止时间必须晚于当前时间'
-    if (!form.cycle.trim() || Number(form.cycle) <= 0) return '请设置有效的开发周期'
+    if (Number.isNaN(closingTime.getTime())) return t('need.timeInvalid')
+    if (closingTime.getTime() <= Date.now()) return t('need.timePast')
+    if (!form.cycle.trim() || Number(form.cycle) <= 0) return t('need.cycleRequired')
     return ''
   }
 
@@ -106,15 +106,15 @@ export function SetNeedScreen() {
         categories: form.categories.trim() ? [form.categories.trim()] : undefined,
       })
       if (res.success) {
-        appAlert('提交成功', '需求已发布,稍后将在广场展示', [
-          { text: '好的', onPress: () => navigation.goBack() },
+        appAlert(t('need.publishedTitle'), t('need.publishedBody'), [
+          { text: t('need.okBtn'), onPress: () => navigation.goBack() },
         ])
       } else {
-        showAlert(res.error || '提交失败,请稍后重试')
+        showAlert(res.error || t('need.submitFail'))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      showAlert(detail.trim() ? toUserFriendlyMessage(e) : '网络异常,请稍后重试')
+      showAlert(detail.trim() ? toUserFriendlyMessage(e) : t('need.netFail'))
     } finally {
       setSubmitting(false)
     }
