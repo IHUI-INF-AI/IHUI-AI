@@ -82,6 +82,7 @@ import {
   createToolCallHandler,
   createToolDeltaHandler,
   createToolSummaryHandler,
+  createReviewFindingHandler,
   createUsageHandler,
   createDeltaBatcher,
   createAgentDeltaBatcher,
@@ -108,6 +109,7 @@ import { useBusinessFormStore } from '@/stores/business-forms'
 import {
   tryHandlePlanModeSlash,
   tryHandleChatModeSlash,
+  tryHandleReviewTargetSlash,
   tryHandlePermissionSlash,
   tryAutoDetectMode,
   tryHandleSelfMediaSlash,
@@ -201,10 +203,15 @@ export function createSendMessage(
     // 但 setStreaming(true) 在网络往返之后才执行,存在竞态窗口)。
     if (sendInFlightRef.current) return false
 
+    // D06 审查对象选择器(2026-10-24):`/review uncommitted|branch <ref>|commit <sha>`
+    // 先把目标变更只读地收集成一段 diff 再发送;未命中返回 null = 走原链路。
+    // 放在这里(而不是 tryHandleChatModeSlash 之后)是因为后者会把整行当"纯切模式"吞掉,
+    // 而目标参数必须进入本轮请求正文才可能被审。命中时下方跳过 ChatMode 拦截。
+    const reviewPrompt = isRegenerate ? null : await tryHandleReviewTargetSlash(text, t, modeStore)
     // W25(2026-09-14):#Rule token 展开 —— 正文含 #Rule 时把规则 YAML 内联进发送文本,
     // 仅影响发给 LLM 的内容,store/持久化仍保留原始用户输入(避免展开块污染历史气泡)。
     // 四竞品对标 V2 #18(2026-09-15):#Codebase/#Terminal/#Docs/@目录:<路径> 语义源展开。
-    const baseLlmText = await expandContextTokens(expandRuleToken(text))
+    const baseLlmText = await expandContextTokens(expandRuleToken(reviewPrompt ?? text))
     // P3 #30(2026-09-16 立):diff 评审意见定向注入 —— 用户对上一轮代码改动的意见格式化为
     // `<diff_review>` 块追加到发给 LLM 的文本尾部(同样只影响发给 LLM 的内容)。
     // 重新生成模式跳过:该路径发送的是历史上下文,llmText 不参与请求,
@@ -233,7 +240,9 @@ export function createSendMessage(
     // /build /review /spec 动作型斜杠命令拦截(2026-07-28 立,补全 ChatMode 4态三通道):
     // - 纯 ChatMode 切换,不需要登录,不调用 LLM,不创建会话
     // - 命中即清空输入框 + toast 反馈(返回 true 与 tryHandlePlanModeSlash 一致)
-    if (!isRegenerate && tryHandleChatModeSlash(text, t, modeStore)) {
+    // - D06:`/review <target>` 已由上方 tryHandleReviewTargetSlash 接管(要发正文),
+    //   此处跳过,否则目标 diff 会被"纯切模式"吞掉。
+    if (!isRegenerate && reviewPrompt === null && tryHandleChatModeSlash(text, t, modeStore)) {
       sendInFlightRef.current = false
       return true
     }
@@ -722,6 +731,9 @@ export function createSendMessage(
         // 与"界面显示的档"分叉,而两边都读不出错。undefined = 不发该字段(api-client 侧同形判空),
         // 后端按默认档处理 ⇒ 没碰过这条轴的用户零行为变化。
         reasoningEffort: samplingParams.reasoningEffort,
+        // D09(2026-10-24 立):专家包自动路由档位(设置页三档)。发送时快照,与上面几轴同姿势;
+        // null/undefined = 用户未表态 ⇒ 不发该字段,后端按 env / 默认 hint 档处理。
+        expertAutoRoute: chatStore.getState().expertAutoRoute ?? undefined,
         // P1 #26(2026-09-16 立):知识库默认注入开关。
         // undefined = 后端默认开(top-3 检索注入);false = 显式关闭(api-client 仅在 false 时写入 body)。
         knowledgeContext: samplingParams.knowledgeContext,
@@ -966,6 +978,9 @@ export function createSendMessage(
         },
         // 2026-07-31 立,AI 对话可视化深度接入:SSE 流末尾 tool-summary 事件落地
         onToolSummary: createToolSummaryHandler(assistantId, chatStore),
+        // D115(2026-10-24,与 send-answer 对称):review 结论帧逐条落 store,
+        // MessageItem 按 message.id 订阅渲染 ReviewFindingsCard。
+        onReviewFinding: createReviewFindingHandler(assistantId, chatStore),
         // 2026-08-01 Phase 4a:消息级 plan/terminal 事件落地(inline 到消息气泡)
         // subagent 事件无需新增回调:store 的 addSubagentSpawn/markSubagentEnd/updateSubagentProgress
         // 已内部判断 event.messageId 同步写入 message.subagentActivities。
