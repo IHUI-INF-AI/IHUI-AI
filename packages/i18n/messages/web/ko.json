@@ -515,7 +515,13 @@
     "noLogsHint": "(로그 없음 — 페이지에서 클릭하면 좌표 정보가 표시됩니다)",
     "runJs": "JavaScript 실행",
     "runJsPlaceholder": "document.title — JS를 입력하고 실행을 누르세요 (예: document.querySelector(\"button\").click())",
-    "run": "실행"
+    "run": "실행",
+    "browserTab": "브라우저",
+    "home": "홈으로 이동",
+    "pickElement": "요소 선택",
+    "picking": "선택 중:페이지 요소를 클릭하면 선택, 다시 누르면 취소",
+    "devtools": "개발자 도구",
+    "popout": "별도 창에서 열기"
   },
   "a11y": {
     "previewLoadFailed": "미리 보기를 로드하지 못했습니다.",
@@ -9062,7 +9068,8 @@
           "emptyDraft": "초안이 비어 있습니다. 내용을 입력한 뒤 다듬어 주세요."
         },
         "restartHint": "다시 시작한 뒤 적용됩니다. 초안은 그대로 보관되었습니다."
-      }
+      },
+      "injectionKindExpertPack": "의도에 따라 전문가 팩을 적용했습니다"
     },
     "permissionConfirm": {
       "allow": "허용",
@@ -12166,7 +12173,17 @@
     "reasoningEffortHigh": "심층",
     "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
-    "analysisOpen": "시나리오 분석 보기"
+    "analysisOpen": "시나리오 분석 보기",
+    "reviewTargetGroupLabel": "리뷰 대상 선택",
+    "reviewTargetLabel": "리뷰 대상",
+    "reviewTargetUncommitted": "커밋되지 않은 변경 사항",
+    "reviewTargetFile": "특정 파일",
+    "reviewTargetFileLabel": "리뷰할 파일 경로",
+    "reviewTargetFilePlaceholder": "워크스페이스 상대 경로(예: src/app.ts)",
+    "reviewTargetSnippet": "붙여넣은 스니펫",
+    "reviewTargetSnippetLabel": "리뷰할 코드 스니펫",
+    "reviewTargetSnippetPlaceholder": "리뷰할 코드를 붙여넣으세요…",
+    "reviewTargetClear": "리뷰 대상 지우기"
   },
   "chatHistory": {
     "moveToGroup": "그룹으로 이동",
@@ -16231,27 +16248,27 @@
     "hostLocalAvailable": "로컬 Git 채널은 계속 사용 가능"
   },
   "ide": {
-      "agentsMd": {
-        "title": "AGENTS.md",
-        "hint": "현재 워크스페이스를 스캔하여 협업 규칙 초안을 생성합니다. 생성 시 디스크에 쓰지 않으며, 쓰기 전에 한 번 더 확인합니다.",
-        "generate": "AGENTS.md 초안 생성",
-        "generateConfirmTitle": "AGENTS.md 초안을 생성할까요?",
-        "generateConfirmContent": "현재 워크스페이스를 스캔하여 초안을 생성합니다. 초안은 여기에만 표시되며 디스크에 쓰지 않습니다.",
-        "generating": "워크스페이스 스캔 중…",
-        "generateFailed": "초안 생성 실패",
-        "draftTitle": "AGENTS.md 초안(편집 가능, 확인 후에만 기록)",
-        "draftNotice": "초안이 아직 디스크에 기록되지 않았습니다",
-        "write": "AGENTS.md에 쓰기",
-        "writeConfirmTitle": "AGENTS.md에 쓸까요?",
-        "writeConfirmContent": "위 내용을 워크스페이스 루트의 AGENTS.md에 씁니다. 같은 이름의 파일은 덮어씁니다.",
-        "writing": "쓰는 중…",
-        "writeFailed": "쓰기 실패",
-        "written": "AGENTS.md에 기록했습니다",
-        "discard": "초안 버리기",
-        "errorEmptyWorkspace": "워크스페이스 경로가 비어 있습니다",
-        "errorRequestFailed": "AI 서비스 요청 실패",
-        "errorNoDraft": "도구가 초안을 반환하지 않았습니다"
-      },
+    "agentsMd": {
+      "title": "AGENTS.md",
+      "hint": "현재 워크스페이스를 스캔하여 협업 규칙 초안을 생성합니다. 생성 시 디스크에 쓰지 않으며, 쓰기 전에 한 번 더 확인합니다.",
+      "generate": "AGENTS.md 초안 생성",
+      "generateConfirmTitle": "AGENTS.md 초안을 생성할까요?",
+      "generateConfirmContent": "현재 워크스페이스를 스캔하여 초안을 생성합니다. 초안은 여기에만 표시되며 디스크에 쓰지 않습니다.",
+      "generating": "워크스페이스 스캔 중…",
+      "generateFailed": "초안 생성 실패",
+      "draftTitle": "AGENTS.md 초안(편집 가능, 확인 후에만 기록)",
+      "draftNotice": "초안이 아직 디스크에 기록되지 않았습니다",
+      "write": "AGENTS.md에 쓰기",
+      "writeConfirmTitle": "AGENTS.md에 쓸까요?",
+      "writeConfirmContent": "위 내용을 워크스페이스 루트의 AGENTS.md에 씁니다. 같은 이름의 파일은 덮어씁니다.",
+      "writing": "쓰는 중…",
+      "writeFailed": "쓰기 실패",
+      "written": "AGENTS.md에 기록했습니다",
+      "discard": "초안 버리기",
+      "errorEmptyWorkspace": "워크스페이스 경로가 비어 있습니다",
+      "errorRequestFailed": "AI 서비스 요청 실패",
+      "errorNoDraft": "도구가 초안을 반환하지 않았습니다"
+    },
     "activityBar": {
       "applications": "앱",
       "debug": "디버그",
@@ -19775,7 +19792,10 @@
     "editDeviceMapTitle": "기기 지문 편집",
     "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨).",
     "checkedInToday": "오늘 출석 완료",
-    "rename": "이름 변경"
+    "rename": "이름 변경",
+    "captureTraeWebWaiting": "오른쪽 작업 패널의 브라우저에서 Trae 로그인 페이지를 열었습니다. 패널 안에서 로그인(전화번호/QR)하세요. 로그인 상태가 감지되면 계정을 자동으로 가져온 뒤 체크인 페이지로 돌아갑니다.",
+    "captureTraeWebDone": "Trae 웹 로그인 가져오기 완료(총 {count}개 계정)",
+    "captureTraeWebCancelled": "Trae 웹 로그인이 취소되었습니다. \"웹 로그인\"을 다시 누르면 재시도할 수 있습니다."
   },
   "accountPool": {
     "title": "내 계정 풀",
@@ -22335,12 +22355,18 @@
     "title": "봉사"
   },
   "settings": {
-      "expertRoute": {
-        "title": "전문가 팩 자동 라우팅",
-        "desc": "이번 사용자 의도에서 전문가 팩을 식별하고, 일치 시 처리 방식을 선택합니다.",
-        "default": "기본",
-        "envLockedNotice": "배포 측이 환경 변수로 이 기능을 비활성화했으므로 여기에서는 보기만 가능하고 변경할 수 없습니다."
-      },
+    "expertRoute": {
+      "title": "전문가 팩 자동 라우팅",
+      "desc": "이번 사용자 의도에서 전문가 팩을 식별하고, 일치 시 처리 방식을 선택합니다.",
+      "default": "기본",
+      "envLockedNotice": "배포 측이 환경 변수로 이 기능을 비활성화했으므로 여기에서는 보기만 가능하고 변경할 수 없습니다.",
+      "hint": "힌트만",
+      "hintDesc": "일치 시 어떤 전문가 팩이 일치했는지만 답변에 표시하고, 도구와 시스템 프롬프트는 변경하지 않습니다",
+      "auto": "자동 적용",
+      "autoDesc": "일치 시 전문가 팩의 도구 허용 목록과 시스템 프롬프트를 이번 요청에 병합합니다",
+      "off": "끄기",
+      "offDesc": "의도 식별도, 힌트도 하지 않습니다"
+    },
     "event2faDisabled": "2단계 인증 해제",
     "eventIpBlocked": "IP 허용 목록에 의해 로그인 차단",
     "accountDeletionCancel": "삭제 취소",
