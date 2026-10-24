@@ -73,7 +73,7 @@ import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:
 import path from 'node:path'
 import { hostname } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+import { gitFaceEscapesToRepo, isAllowedScratchRoot, mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 /** 解释器候选(合并自对侧):装了 PS7 优先它(AGENTS §27),in-box 兜底。
  *  ⚠ 本机 2026-09-28 现读 $PSVersionTable:**两者都是 7.6.2**,所以这条不是"两套引擎取其一",
@@ -2330,10 +2330,19 @@ function selfTest(opts) {
       rmSync(bin)
       ok('F2 真夹具:同一路径删掉后 ⇒ missing(证明 missing 来自文件系统,不是硬编码)',
         judge({ appExists: measured(depsFileKind(bin)) }).level === 'issue')
-      // 本模块就在 <repo>/scripts/ 下 ⇒ 上一级就是仓库根;写成两级会把"父目录"当仓库根,
-      // 于是这条锁在任何机器上都恒假(夹具永远"在仓库内")—— 永假断言与永真断言同样没用。
-      const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-      ok('F3 夹具落点不得在仓库树内(§26 唯一夹具落点)', !dir.startsWith(repo))
+      // G-158 之后"仓内"不等于"在真仓 git 面内":批准的 `<repo>/.DevEnv` 靠坏 gitfile 边界
+      // 把 discovery 挡在真仓之外。旧判据 `!dir.startsWith(repo)` 没跟上这次搬家 ⇒ 恒红。
+      // 现在两维都判,且判据只从 scratch-dir 取(§0.6 单一真相源):
+      //   ① 结构:仓外,或仓内唯一批准的 .DevEnv;
+      //   ② 行为:从这里问 `git rev-parse --show-toplevel` 必须问不出真仓(边界真的在生效)。
+      // 行为维未判定(git 不可达等)按未通过记 —— 没量到不得写成量过。
+      const allowed = isAllowedScratchRoot(dir)
+      const face = gitFaceEscapesToRepo(dir)
+      const faceNote = face.state === 'undetermined' ? `;git 面未判定:${face.why}` : ''
+      ok(
+        `F3 夹具落点=仓外或批准的 .DevEnv,且不在真仓 git 面内(§26/§15b,G-158)${faceNote}`,
+        allowed && face.state === 'measured' && face.escapes === false,
+      )
       fixtureNote = `\n  (真夹具 3 条已跑;落点 ${dir})`
     } finally {
       rmScratch(dir)
