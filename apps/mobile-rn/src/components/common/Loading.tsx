@@ -21,6 +21,7 @@ import {
   LOADING_LABEL_GAP_PX,
   loadingSpinnerBoxStyle,
 } from '@ihui/shared/ui/loading-spec'
+import { useI18n } from '../../i18n'
 
 export interface LoadingProps {
   text?: string
@@ -28,9 +29,11 @@ export interface LoadingProps {
 }
 
 export default function Loading({
-  text = '加载中...',
+  text: textProp,
   fullscreen = false,
 }: LoadingProps): React.JSX.Element {
+  const { t } = useI18n()
+  const text = textProp === undefined ? t('common.loading') : textProp
   return (
     <View style={[styles.root, fullscreen && styles.fullscreen]}>
       {/* 原生指示器的字形尺寸由平台控件决定(数值档在 Android 不生效),这里只对齐它占的盒子 */}
