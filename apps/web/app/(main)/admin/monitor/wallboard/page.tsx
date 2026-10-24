@@ -1595,7 +1595,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTraffic')}
             icon={<Radio className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-flow-first"
             right={
               <span className="flex items-center gap-2">
                 {no5xxBadge}
@@ -1654,7 +1654,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelQuality')}
             icon={<Gauge className="h-3.5 w-3.5" />}
-            className="wb-c6 order-1"
+            className="wb-c6 wb-c3-md order-1"
             bodyClassName="flex flex-col gap-1"
           >
             <div className="relative">
@@ -1688,7 +1688,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelAlerts')}
             icon={<AlertTriangle className="h-3.5 w-3.5" />}
-            className="wb-c6 order-1"
+            className="wb-c6 wb-c3-md order-1"
             right={
               <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1">
@@ -1971,7 +1971,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelBusiness')}
             icon={<Wallet className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-business-early"
             bodyClassName="wb-split overflow-y-auto"
           >
             <div>
@@ -2101,7 +2101,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelEdge')}
             icon={<Globe className="h-3.5 w-3.5" />}
-            className="wb-c6 order-1"
+            className="wb-c6 wb-c3-md order-1"
             right={
               edge ? (
                 <span className="text-[10px] text-muted-foreground">
@@ -2166,7 +2166,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                   </div>
                 </div>
-                <div className="wb-cells grid gap-2">
+                <div className="wb-cells wb-cells-4 grid gap-2">
                   <StatCell
                     label={t('edgeStatP50')}
                     value={isNum(edge.stats.p50Ms) ? fmtInt(edge.stats.p50Ms) : '—'}
@@ -2251,7 +2251,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTrafficRobot')}
             icon={<Users className="h-3.5 w-3.5" />}
-            className="wb-c6 order-1"
+            className="wb-c6 wb-c3-md order-1"
             right={
               traffic === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2338,7 +2338,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelRelayPool')}
             icon={<Sparkles className="h-3.5 w-3.5" />}
-            className="wb-c6 order-1"
+            className="wb-c6 wb-c3-md order-1"
             right={
               relayPool === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2436,7 +2436,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelUptime')}
             icon={<Clock3 className="h-3.5 w-3.5" />}
-            className="wb-c6 order-1"
+            className="wb-c6 wb-c3-md order-1"
             right={http === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
             bodyClassName="max-h-[320px] overflow-y-auto"
           >
@@ -2535,6 +2535,8 @@ const WALLBOARD_CSS = `
  * 这里固定 3 列 ×2 行(总行数与 5+1 相同,但不再出现孤格);<480 落 2 列。 */
 .wb-cells-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @container (max-width: 479px) { .wb-cells-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 4 格组(边缘分位):窄面板下 auto-fit 会排成 3+1,孤格单独一行;固定 2×2。 */
+@container (max-width: 479px) { .wb-cells-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wb-cells-lg { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
 /* KPI 带按容器宽分档:1440 视口下容器 ~786px,auto-fit(135) 只排 5 列,第 6 张会单独
  * 占一行的 1/5(实测 2026-10-24)。≥900 六列一行、600–899 三列两行、<600 两列。 */
@@ -2568,6 +2570,18 @@ const WALLBOARD_CSS = `
   .wb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .wb-c3 { grid-column: span 3; }
   .wb-c6 { grid-column: span 6; }
+  /* 620–1149 档:这几块内容在 ~370px 半宽里仍可读,两两配对后整页从 4.3 屏压到 ~3.5 屏
+   * (质量+告警 / 边缘+访客 / 号池+运行时长)。≥1150 保持全宽,大屏宽度足够时不压缩。 */
+  .wb-c3-md { grid-column: span 3; }
+  /* 1440 档首屏:流量趋势与业务数据先读(值班第一眼),主机/服务退到第三行;
+   * ≥1150 不设 order,保持原顺序。 */
+  .wb-flow-first { order: -2; }
+  .wb-business-early { order: -1; }
+}
+/* 620–699:两栏各只剩 ~300px,主机仪表/服务列表会被压成逐字换行 ⇒ 退回单列。
+ * 只在这一段生效(≤619 已是单列网格,再给 span 6 会造出隐式列)。 */
+@container (min-width: 620px) and (max-width: 699px) {
+  .wb-c3, .wb-c3-md, .wb-c6 { grid-column: span 6; }
 }
 @container (max-width: 619px) {
   .wb-grid { grid-template-columns: minmax(0, 1fr); }
