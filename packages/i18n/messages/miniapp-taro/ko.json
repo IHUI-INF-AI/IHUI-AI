@@ -1387,6 +1387,19 @@
     "tabAigc": "AI 작품",
     "tabNews": "뉴스"
   },
+  "userFans": {
+    "title": "내 팬",
+    "anonymous": "익명 사용자",
+    "empty": "아직 팬이 없습니다",
+    "follow": "맞팔로우",
+    "followed": "팔로잉",
+    "followedAt": "팔로우 날짜",
+    "followSuccess": "맞팔로우했습니다",
+    "actionFailed": "작업에 실패했습니다. 잠시 후 다시 시도해 주세요",
+    "loadFailed": "팬 목록을 불러오지 못했습니다",
+    "total": "팬 {total}명",
+    "loadMore": "더 불러오기({loaded}/{total})"
+  },
   "distribution": {
     "withdraw": {
       "methodWechat": "WeChat",
@@ -2430,7 +2443,7 @@
       "save": "저장"
     },
     "index": {
-      "title": "모델 광장",
+      "title": "AI 수요 광장",
       "untitled": "제목 없음",
       "anonymous": "익명",
       "emptyMain": "콘텐츠 없음",

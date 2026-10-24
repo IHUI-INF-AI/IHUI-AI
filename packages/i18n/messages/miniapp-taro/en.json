@@ -1387,6 +1387,19 @@
     "tabAigc": "AI Works",
     "tabNews": "News"
   },
+  "userFans": {
+    "title": "My Followers",
+    "anonymous": "Anonymous",
+    "empty": "No followers yet",
+    "follow": "Follow back",
+    "followed": "Following",
+    "followedAt": "Followed on",
+    "followSuccess": "Followed back",
+    "actionFailed": "Action failed, please try again later",
+    "loadFailed": "Failed to load followers",
+    "total": "{total} followers",
+    "loadMore": "Load more ({loaded}/{total})"
+  },
   "distribution": {
     "withdraw": {
       "methodWechat": "WeChat",
@@ -2430,7 +2443,7 @@
       "save": "Save"
     },
     "index": {
-      "title": "Model plaza",
+      "title": "AI Needs Plaza",
       "untitled": "Untitled",
       "anonymous": "Anonymous",
       "emptyMain": "No content",

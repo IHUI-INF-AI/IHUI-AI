@@ -118,6 +118,7 @@ export default defineAppConfig({
         'user/realname',
         'user/feedback',
         'favorites/index',
+        'fans/index',
         'following/index',
         'subscriptions/index',
         'message/index',

@@ -122,6 +122,12 @@ const menus: ReadonlyArray<{ icon: string; key: string; path: string; fallback?:
     key: 'setting.notification.myBills',
     path: '/pkg-user/bill/index',
   },
+  // 我的粉丝:对齐 RN profileMenuData 的 UserFans 项(page 头注指向共享屏 features/user-fans)
+  {
+    icon: 'users',
+    key: 'userFans.title',
+    path: '/pkg-user/fans/index',
+  },
 ]
 
 // 会员权益项:对齐原项目 UserMembershipBenefits 3 项数据(原项目 index.vue:297-310)

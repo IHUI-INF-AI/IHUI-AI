@@ -1387,6 +1387,19 @@
     "tabAigc": "AI作品",
     "tabNews": "资讯"
   },
+  "userFans": {
+    "title": "我的粉丝",
+    "anonymous": "匿名用户",
+    "empty": "还没有粉丝",
+    "follow": "回关",
+    "followed": "已关注",
+    "followedAt": "关注于",
+    "followSuccess": "已回关",
+    "actionFailed": "操作失败，请稍后重试",
+    "loadFailed": "粉丝列表加载失败",
+    "total": "共 {total} 位粉丝",
+    "loadMore": "加载更多（{loaded}/{total}）"
+  },
   "distribution": {
     "withdraw": {
       "methodWechat": "微信",
@@ -2430,7 +2443,7 @@
       "save": "保存"
     },
     "index": {
-      "title": "模型广场",
+      "title": "AI需求广场",
       "untitled": "未命名",
       "anonymous": "匿名",
       "emptyMain": "暂无内容",
