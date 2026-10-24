@@ -18,7 +18,6 @@
  * db 桩照 admin-agreements.test.ts(vi.mock('../src/db/index.js'))。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import Fastify from 'fastify'
 
 const { revReturnQueue, snapshotRowsQueue, bus } = vi.hoisted(() => ({
   /** allocateChatSyncRev 的 RETURNING 队列:每项 = 一次 UPSERT 的返回行数组 */
@@ -218,7 +217,10 @@ type PatchedBroadcast = (input: {
   content?: string
 }) => Promise<unknown>
 
-async function buildInstance(): Promise<{ patched: PatchedBroadcast; connect: () => Promise<FakeSocket> }> {
+async function buildInstance(): Promise<{
+  patched: PatchedBroadcast
+  connect: () => Promise<FakeSocket>
+}> {
   let patchedFn: PatchedBroadcast | null = null
   let routeHandler:
     ((socket: FakeSocket, request: { query: Record<string, string> }) => Promise<void>) | null =
@@ -233,7 +235,10 @@ async function buildInstance(): Promise<{ patched: PatchedBroadcast; connect: ()
       if (name === 'broadcastChatMessagePatched') patchedFn = fn as PatchedBroadcast
     },
     get(_url: string, _opts: unknown, handler: unknown): void {
-      routeHandler = handler as (socket: FakeSocket, request: { query: Record<string, string> }) => Promise<void>
+      routeHandler = handler as (
+        socket: FakeSocket,
+        request: { query: Record<string, string> },
+      ) => Promise<void>
     },
     addHook(): void {},
     redis: new IORedis(),
@@ -318,7 +323,9 @@ describe('B02③ ws-broadcast rev 分配接线(PG 单源)', () => {
       kind: 'snapshot',
       content: 'reborn',
     })
-    const frames = sock.sent.map((m) => JSON.parse(m) as { data: { rev?: number; content?: string } })
+    const frames = sock.sent.map(
+      (m) => JSON.parse(m) as { data: { rev?: number; content?: string } },
+    )
     expect(frames[0]?.data.rev).toBe(10)
     expect(frames[0]?.data.content).toBe('reborn')
   })
