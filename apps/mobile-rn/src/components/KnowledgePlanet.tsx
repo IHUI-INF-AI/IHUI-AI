@@ -34,6 +34,7 @@ import { formatRelativeTime } from '@ihui/shared'
 import { Eye, MessageCircle, Share2, ThumbsUp, type LucideIcon } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { useI18n } from '../i18n'
 
 export interface KnowledgePlanetItem {
   id: string
@@ -93,13 +94,16 @@ const STAT_TEXT_SIZE = 11
 const EMPTY_FONT_SIZE = 14
 
 /** 星球 Tab(对齐原项目 popular-courses-tab:官方资讯 / 星球社区) */
-const PLANET_TABS: ReadonlyArray<string> = ['官方资讯', '星球社区']
+const PLANET_TAB_KEYS: ReadonlyArray<string> = [
+  'knowledgePlanet.newOfficial',
+  'knowledgePlanet.newCommunity',
+]
 
 /** 大数字缩略展示(万),保留 1 位小数 */
-function formatCount(value: number): string {
+function formatCount(value: number, t: (k: string, v?: Record<string, unknown>) => string): string {
   if (value >= 10000) {
     const w = value / 10000
-    return `${w >= 100 ? Math.round(w) : w.toFixed(1)}万`
+    return t('ranking.wanSuffix', { v: w >= 100 ? Math.round(w) : w.toFixed(1) })
   }
   return String(value)
 }
@@ -116,7 +120,7 @@ function Stat({ icon: Icon, value }: StatProps) {
     <View style={styles.stat}>
       <Icon size={STAT_ICON_SIZE} color={tokens.text.secondary} strokeWidth={1.8} />
       <Text style={styles.statText} allowFontScaling={false}>
-        {formatCount(value)}
+        {formatCount(value, t)}
       </Text>
     </View>
   )
@@ -132,6 +136,7 @@ export function KnowledgePlanet({
   onTabChange,
 }: KnowledgePlanetProps) {
   const [selectedTab, setSelectedTab] = useState(0)
+  const { t } = useI18n()
 
   // 资讯 Tab 用 items;社区 Tab 优先 communityItems,缺省复用 items(向后兼容单列表调用方)
   const activeItems = selectedTab === 0 ? items : (communityItems ?? items)
@@ -220,19 +225,23 @@ export function KnowledgePlanet({
           <View style={styles.headerIcon} />
           <Text style={styles.headerTitle}>知识星球</Text>
         </View>
-        <MoreLink label="进入星球" onPress={onEnter} colorScheme={currentRnTheme()} />
+        <MoreLink
+          label={t('knowledgePlanet.enter')}
+          onPress={onEnter}
+          colorScheme={currentRnTheme()}
+        />
       </View>
 
       {/* Tab 切换(对齐原项目 popular-courses-tab-box) */}
       <View style={styles.tabBox}>
-        {PLANET_TABS.map((tab, idx) => (
+        {PLANET_TAB_KEYS.map((tabKey, idx) => (
           <Pressable
-            key={tab}
+            key={tabKey}
             style={styles.tabItem}
             onPress={() => handleTabPress(idx)}
             accessibilityRole="button"
             accessibilityState={{ selected: selectedTab === idx }}
-            accessibilityLabel={tab}
+            accessibilityLabel={t(tabKey)}
           >
             {/* 同上(守门 131 那一型):按压态落到子 View 的数组形态,外层只留占槽位的布局档 */}
             {({ pressed }) => (
@@ -243,7 +252,7 @@ export function KnowledgePlanet({
                     selectedTab === idx ? styles.tabTextActive : styles.tabTextNormal,
                   ]}
                 >
-                  {tab}
+                  {t(tabKey)}
                 </Text>
               </View>
             )}

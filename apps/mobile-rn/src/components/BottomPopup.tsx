@@ -27,6 +27,7 @@ import {
 } from 'react-native'
 import { tokens } from '../theme/active-tokens'
 import type { VipLevelItem2 } from '@ihui/rn-app'
+import { useI18n } from '../i18n'
 
 export interface BottomPopupProps {
   visible: boolean
@@ -60,6 +61,7 @@ const BUTTON_FONT_SIZE = 15
 const EMPTY_TEXT_FONT_SIZE = 13
 
 export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopupProps) {
+  const { t } = useI18n()
   const [selectedId, setSelectedId] = useState<string>('')
 
   const handleConfirm = () => {
@@ -85,7 +87,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={handleClose}
-          accessibilityLabel="关闭支付弹窗"
+          accessibilityLabel={t('bottomPopup.payA11y')}
         />
         <View style={styles.sheet}>
           <View style={styles.header}>
@@ -100,7 +102,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
               onPress={handleClose}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel="关闭"
+              accessibilityLabel={t('common.close')}
             >
               {({ pressed }) => (
                 <View style={pressed ? styles.closeButtonPressed : null}>
@@ -131,7 +133,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
                     key={level.id}
                     onPress={() => setSelectedId(level.id)}
                     accessibilityRole="button"
-                    accessibilityLabel={`选择 ${level.levelName}`}
+                    accessibilityLabel={t('bottomPopup.selectLevel', { name: level.levelName })}
                     accessibilityState={{ selected }}
                   >
                     {({ pressed }) => (
@@ -168,7 +170,7 @@ export function BottomPopup({ visible, onClose, levels, onConfirm }: BottomPopup
             onPress={handleConfirm}
             disabled={!selectedId}
             accessibilityRole="button"
-            accessibilityLabel="立即开通"
+            accessibilityLabel={t('vipScreen.subscribe')}
           >
             {({ pressed }) => (
               <View

@@ -155,7 +155,7 @@ export function RegisterScreen() {
       />
       <VerifyCodeModal
         visible={verifyVisible}
-        phone={verifyPhone || '未绑定手机号'}
+        phone={verifyPhone || t('verify.noPhoneBound')}
         onClose={() => setVerifyVisible(false)}
         onResend={async () => {
           if (verifyPhone) {
@@ -164,16 +164,16 @@ export function RegisterScreen() {
         }}
         onSubmit={async (code) => {
           if (!verifyPhone) {
-            showToast('warning', '请先绑定手机号后再验证')
+            showToast('warning', t('verify.bindFirst'))
             setVerifyVisible(false)
             return
           }
           const res = await verifyAuthCode({ mobile: verifyPhone, code })
           if (res.success && res.data.valid) {
-            showToast('success', '手机号验证成功')
+            showToast('success', t('verify.phoneOk'))
             setVerifyVisible(false)
           } else {
-            showToast('error', res.error ?? '验证码错误,请重试')
+            showToast('error', res.error ?? t('verify.codeWrong'))
           }
         }}
       />
