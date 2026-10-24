@@ -2,38 +2,10 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
 import { type ReactNode } from 'react'
 import { I18nProvider } from '../src/i18n'
-
-vi.mock('react-native', async () => {
-  const { createElement: h } = await import('react')
-  const mk = (name: string) =>
-    function MockComp(props: {
-      children?: ReactNode
-      style?: unknown
-      onPress?: () => void
-      [k: string]: unknown
-    }) {
-      const { style, onPress, ...rest } = props
-      const mergedStyle = Array.isArray(style)
-        ? Object.assign({}, ...(style.filter(Boolean) as Record<string, unknown>[]))
-        : style
-      return h(name, { ...rest, onClick: onPress, style: mergedStyle }, props.children)
-    }
-  return {
-    // 主题单例(src/theme/active-tokens.ts)在模块求值时调 Appearance.getColorScheme(),
-    // 缺这个导出会让整个测试文件加载失败 ⇒ 该文件的断言一条都不会跑。
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    DevSettings: { reload: () => {} },
-    View: mk('div'),
-    Text: mk('span'),
-    TouchableOpacity: mk('button'),
-    Image: mk('img'),
-    StyleSheet: { create: (s: Record<string, unknown>) => s },
-  }
-})
 
 import IntelligentAssistant from '../src/components/IntelligentAssistant'
 
