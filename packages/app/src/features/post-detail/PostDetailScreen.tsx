@@ -14,11 +14,12 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { ChevronLeft, Heart, MessageCircle } from 'lucide-react-native'
+import { Heart, MessageCircle } from 'lucide-react-native'
 import type { PostDetailScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * 动态详情共享屏 — props 注入式跨端组件
@@ -47,25 +48,20 @@ export function PostDetailScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error || t('postDetail.loadFailed')}</Text>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={onBack}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.text.secondary} />
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error || t('postDetail.loadFailed')}
+        onRetry={onBack}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -142,15 +138,6 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 10,
       paddingBottom: 32,
     },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 16,
-    },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
     title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 12 },
     author: { fontSize: 14, color: tk.text.secondary, fontWeight: '500' },
@@ -176,7 +163,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     statText: { fontSize: 12, color: tk.text.medium },
-    backBtn: { marginTop: 12 },
     imageRow: { flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' } as ViewStyle,
     detailImage: { width: 100, height: 100, borderRadius: rnRadius.lg } as ImageStyle,
   })

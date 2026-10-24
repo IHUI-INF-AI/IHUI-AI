@@ -90,6 +90,14 @@ export interface ReconcilePlan {
   outOfScope: number
   /** 被单轮配额挤掉的动作数(>0 表示本轮未处理完,下轮继续) */
   truncated: number
+  /**
+   * 号池已停用且签到侧无此行的行数:跳过 missing 补链(2026-10-24 立)。
+   * pool-sync 是 upsert —— 对被弃用的账号执行补推,等于把它的身份在签到侧自动
+   * 实体化(幽灵票 349 次连败即此型的现场:凭证解得开、建得出来才叫失败循环)。
+   * 重新启用后由 missing/version_behind 两判据自然接回;state 动作不受此分支
+   * 影响(那是"已存在签到引用"的行,停用态本身必须同步过去)。
+   */
+  skippedDisabledMissing: number
 }
 
 /**
@@ -117,6 +125,7 @@ export function planReconciliation(
   const actions: ReconcileAction[] = []
   let outOfScope = 0
   let truncated = 0
+  let skippedDisabledMissing = 0
   const taken = { push: 0, disable: 0, state: 0, flush: 0 }
   const canTake = (kind: keyof typeof taken): boolean => taken[kind] < quota
 
@@ -129,6 +138,12 @@ export function planReconciliation(
     }
     const c = checkinByPoolAccountId.get(p.id)
     if (!c) {
+      // 停用行不补 missing 链(见 ReconcilePlan.skippedDisabledMissing 注释):
+      // 只挡"签到侧无引用"这一格;有引用的停用行继续走 state 校准,停用态照同步。
+      if (!p.isEnabled) {
+        skippedDisabledMissing++
+        continue
+      }
       if (canTake('push')) {
         actions.push({ kind: 'push', pool: p, reason: 'missing' })
         taken.push++
@@ -176,7 +191,7 @@ export function planReconciliation(
     taken.disable++
   }
 
-  return { actions, orphanNoPoolId, outOfScope, truncated }
+  return { actions, orphanNoPoolId, outOfScope, truncated, skippedDisabledMissing }
 }
 
 // =============================================================================
@@ -379,6 +394,11 @@ export async function reconcileCheckinSync(opts?: {
   if (plan.orphanNoPoolId > 0) {
     logger.warn('[checkin-reconcile] 签到侧存在系统 owner 脏账号(无 pool_account_id),已忽略', {
       count: plan.orphanNoPoolId,
+    })
+  }
+  if (plan.skippedDisabledMissing > 0) {
+    logger.info('[checkin-reconcile] 号池停用行跳过 missing 补链(不补推、不回落 pending)', {
+      count: plan.skippedDisabledMissing,
     })
   }
   if (plan.actions.length === 0) return out

@@ -3,41 +3,29 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * CartScreen 购物车页(mobile-rn 端)
+ * CartScreen 购物车页(mobile-rn 端)—— 薄壳,渲染真相源在共享层
+ * `packages/app/src/features/cart/CartScreen.tsx`(经 `@ihui/rn-app` 具名导出),
+ * 本文件只管平台侧:取数、导航、取词、主题,以及 RN 独占的微信支付结算腿
+ * (isWeChatInstalled → createWechatAppPayment → openWeChatPayment,与 OrderDetailScreen
+ *  /PaymentScreen 同款)和删除确认(appAlert,对齐小程序 Taro.showModal 语义)。
  *
- * 镜像 miniapp-taro pages/cart/index(P0 交易闭环补齐):
- * - 数据源:复用共享层 @ihui/api-client selectGoods(GET /goods/select,page=1&pageSize=50 对齐小程序),
- *   商品字段兜底收敛进共享 normalizeCartGoods 适配层;展示型 CartItemView 端内定义
- * - 交互:单选/全选 → 数量增减(下限 1)→ 删除(Alert 确认)→ 底部合计栏去结算
- * - 结算:复用 RN 现有微信支付链路(isWeChatInstalled → createWechatAppPayment → openWeChatPayment,
- *   与 OrderDetailScreen/PaymentScreen 同款),支付成功 navigate PayResult(orderNo)对齐统一支付结果页
- * - 样式:getRnTokens 语义 token(零 hex,过 check:rn-parity);图标 lucide-react-native(无 emoji)
+ * 数据源:共享层 @ihui/api-client selectGoods(GET /goods/select,page=1&pageSize=50
+ * 对齐小程序),字段兜底收敛进共享 normalizeCartGoods(与小程序 pkg-shop/cart 同一份)。
+ * 结算成功后 navigate PayResult(orderNo) 对齐统一支付结果页。
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
-import { appAlert } from '../components/BottomPops'
+import { useCallback, useEffect, useState } from 'react'
+import { View } from 'react-native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation } from '@react-navigation/native'
-import { Check, Minus, Package, Plus, ShoppingCart, Trash2 } from 'lucide-react-native'
+import { ShoppingCart } from 'lucide-react-native'
 import {
   createWechatAppPayment,
   normalizeCartGoods,
   selectGoods,
   type CartGoods,
 } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens, rnRadius } from '@ihui/design-tokens'
-import { NavBar } from '../components/NavBar'
+import { CartScreen as SharedCartScreen, type CartItemView } from '@ihui/rn-app'
+import { appAlert } from '../components/BottomPops'
 import {
   ConfirmPurchasePopUp,
   type ConfirmPurchaseProduct,
@@ -45,33 +33,14 @@ import {
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { rpx } from '../utils/rpx'
 import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
-import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-/** 展示型购物车项(端内局部类型,仅 UI 用) */
-interface CartItemView {
-  id: string
-  title: string
-  coverUrl: string
-  price: number
-  quantity: number
-  selected: boolean
-}
-
-/** 后端记录 → 展示项映射(兜底规则收敛在共享 normalizeCartGoods,对齐 miniapp pages/cart/index) */
-function toCartItem(item: CartGoods, fallbackTitle: string): CartItemView {
-  return { ...normalizeCartGoods(item, fallbackTitle), selected: true }
-}
 
 export function CartScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const tk = getRnTokens(resolvedTheme)
-  const styles = useMemo(() => createStyles(tk), [tk])
 
   const [items, setItems] = useState<CartItemView[]>([])
   const [loading, setLoading] = useState(true)
@@ -89,7 +58,12 @@ export function CartScreen() {
       const res = await selectGoods({ page: 1, pageSize: 50 })
       if (res.success) {
         const rawList = res.data?.list ?? []
-        setItems(rawList.map((item) => toCartItem(item, t('cart.product'))))
+        setItems(
+          rawList.map((item: CartGoods) => ({
+            ...normalizeCartGoods(item, t('cart.product')),
+            selected: true,
+          })),
+        )
       } else {
         setError(true)
       }
@@ -105,7 +79,6 @@ export function CartScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /** 数量增减(下限 1,对齐 miniapp onQuantityChange) */
   const onQuantityChange = (id: string, delta: number) => {
     setItems((prev) =>
       prev.map((it) => (it.id === id ? { ...it, quantity: Math.max(1, it.quantity + delta) } : it)),
@@ -121,29 +94,27 @@ export function CartScreen() {
     setItems((prev) => prev.map((it) => ({ ...it, selected: !allSelected })))
 
   /** 删除(Alert 二次确认,对齐 miniapp Taro.showModal) */
-  const onRemove = (item: CartItemView) => {
+  const onRemove = (id: string) => {
     appAlert(t('common.hint'), t('cart.deleteConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.delete'),
         style: 'destructive',
-        onPress: () => setItems((prev) => prev.filter((it) => it.id !== item.id)),
+        onPress: () => setItems((prev) => prev.filter((it) => it.id !== id)),
       },
     ])
   }
 
-  // 已选合计(仅统计 selected 项,对齐 miniapp useMemo 统计)
-  const { totalCount, totalPrice } = useMemo(() => {
-    let count = 0
-    let price = 0
-    items.forEach((it) => {
-      if (it.selected) {
-        count += it.quantity
-        price += it.quantity * it.price
-      }
-    })
-    return { totalCount: count, totalPrice: price }
-  }, [items])
+  const { totalCount, totalPrice } = items.reduce(
+    (acc, it) =>
+      it.selected
+        ? {
+            totalCount: acc.totalCount + it.quantity,
+            totalPrice: acc.totalPrice + it.quantity * it.price,
+          }
+        : acc,
+    { totalCount: 0, totalPrice: 0 },
+  )
 
   const onCheckout = () => {
     if (totalCount === 0) {
@@ -157,13 +128,12 @@ export function CartScreen() {
   const executeCheckout = async () => {
     setPaying(true)
     try {
-      // 1. 检查微信客户端
       const installed = await isWeChatInstalled()
       if (!installed) {
         appAlert(t('payment.wechatNotInstalled'))
         return
       }
-      // 2. 创建微信 APP 支付订单(amount 单位:分,后端契约)
+      // 创建微信 APP 支付订单(amount 单位:分,后端契约)
       const res = await createWechatAppPayment({
         amount: Math.round(totalPrice * 100),
         description: t('cart.title'),
@@ -172,7 +142,7 @@ export function CartScreen() {
         appAlert(res.error || t('payment.createFailed'))
         return
       }
-      // 3. DEV mock(无微信支付配置):后端已落单,直接进结果页轮询状态
+      // DEV mock(无微信支付配置):后端已落单,直接进结果页轮询状态
       if (res.data.mock && res.data.outTradeNo) {
         setCheckoutVisible(false)
         navigation.navigate('PayResult', { orderNo: res.data.outTradeNo })
@@ -182,11 +152,9 @@ export function CartScreen() {
         appAlert(t('payment.nativeUnavailable'))
         return
       }
-      // 4. 调起微信 APP 支付
       const paid = await openWeChatPayment(res.data.prepayData)
       setCheckoutVisible(false)
       if (paid && res.data.outTradeNo) {
-        // 支付成功 → 统一支付结果页(PayResult 内部轮询订单状态)
         navigation.navigate('PayResult', { orderNo: res.data.outTradeNo })
       } else if (!paid) {
         appAlert(t('payment.payCancelled'))
@@ -203,133 +171,24 @@ export function CartScreen() {
     }
   }
 
-  const renderItem = ({ item }: { item: CartItemView }) => (
-    <View style={styles.card}>
-      {/* 勾选框(选中态 success 底 + Check 图标,对齐 miniapp checkbox) */}
-      <Pressable
-        style={[styles.checkbox, item.selected ? styles.checkboxChecked : null]}
-        onPress={() => onToggleItem(item.id)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: item.selected }}
-        accessibilityLabel={item.title}
-      >
-        {item.selected ? <Check size={rpx(24)} color={tk.surface.light} /> : null}
-      </Pressable>
-      {item.coverUrl ? (
-        <Image source={{ uri: item.coverUrl }} style={styles.cover} />
-      ) : (
-        <View style={[styles.cover, styles.coverFallback]}>
-          <Package size={rpx(44)} color={tk.text.tertiary} />
-        </View>
-      )}
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={styles.price}>¥{item.price.toFixed(2)}</Text>
-        <View style={styles.qtyRow}>
-          <Pressable
-            style={[styles.qtyBtn, item.quantity <= 1 ? styles.qtyBtnDisabled : null]}
-            disabled={item.quantity <= 1}
-            onPress={() => onQuantityChange(item.id, -1)}
-            accessibilityRole="button"
-            accessibilityLabel="-"
-          >
-            <Minus
-              size={rpx(28)}
-              color={item.quantity <= 1 ? tk.text.tertiary : tk.text.secondary}
-            />
-          </Pressable>
-          <Text style={styles.qtyValue}>{item.quantity}</Text>
-          <Pressable
-            style={styles.qtyBtn}
-            onPress={() => onQuantityChange(item.id, 1)}
-            accessibilityRole="button"
-            accessibilityLabel="+"
-          >
-            <Plus size={rpx(28)} color={tk.text.secondary} />
-          </Pressable>
-        </View>
-      </View>
-      <Pressable
-        style={styles.deleteBtn}
-        onPress={() => onRemove(item)}
-        accessibilityRole="button"
-        accessibilityLabel={t('common.delete')}
-      >
-        <Trash2 size={rpx(36)} color={tk.danger.DEFAULT} />
-      </Pressable>
-    </View>
-  )
-
   return (
-    <View style={styles.container}>
-      <NavChrome>
-        <NavBar title={t('cart.title')} onBack={() => navigation.goBack()} />
-      </NavChrome>
-      <FlatList
-        data={items}
-        keyExtractor={(it) => it.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => load(true)}
-            tintColor={tk.text.secondary}
-          />
-        }
-        ListEmptyComponent={
-          loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator color={tk.text.secondary} />
-            </View>
-          ) : error ? (
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('cart.loadFailed')}</Text>
-              <Pressable style={styles.retryBtn} onPress={() => void load()}>
-                <Text style={styles.retryText}>{t('common.retry')}</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.center}>
-              <ShoppingCart size={rpx(80)} color={tk.text.tertiary} />
-              <Text style={styles.emptyText}>{t('cart.empty')}</Text>
-            </View>
-          )
-        }
+    <View style={{ flex: 1 }}>
+      <SharedCartScreen
+        t={t}
+        colorScheme={resolvedTheme}
+        items={items}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onBack={() => navigation.goBack()}
+        onRetry={() => void load()}
+        onRefresh={() => void load(true)}
+        onToggleItem={onToggleItem}
+        onToggleAll={onToggleAll}
+        onQuantityChange={onQuantityChange}
+        onRemove={onRemove}
+        onCheckout={onCheckout}
       />
-      {/* 底部合计栏:全选 + 合计 + 去结算(对齐 miniapp cart-footer) */}
-      {items.length > 0 && (
-        <View style={styles.footer}>
-          <Pressable
-            style={[styles.checkbox, allSelected ? styles.checkboxChecked : null]}
-            onPress={onToggleAll}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: allSelected }}
-            accessibilityLabel={t('cart.selectAll')}
-          >
-            {allSelected ? <Check size={rpx(24)} color={tk.surface.light} /> : null}
-          </Pressable>
-          <Text style={styles.selectAll} onPress={onToggleAll}>
-            {t('cart.selectAll')}
-          </Text>
-          <View style={styles.totalWrap}>
-            <Text style={styles.totalLabel}>{t('cart.total')}:</Text>
-            <Text style={styles.totalPrice}>¥{totalPrice.toFixed(2)}</Text>
-          </View>
-          <Pressable
-            style={[styles.checkoutBtn, totalCount === 0 ? styles.checkoutBtnDisabled : null]}
-            onPress={onCheckout}
-            accessibilityRole="button"
-            accessibilityLabel={t('cart.checkout')}
-          >
-            <Text style={styles.checkoutText}>
-              {t('cart.checkout')}({totalCount})
-            </Text>
-          </Pressable>
-        </View>
-      )}
       <ConfirmPurchasePopUp
         visible={checkoutVisible}
         title={t('cart.checkout')}
@@ -351,157 +210,5 @@ export function CartScreen() {
   )
 }
 
-const createStyles = (tk: RnThemeTokens) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: tk.surface.bg,
-    },
-    listContent: {
-      paddingBottom: rpx(40),
-    },
-    card: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: rpx(20),
-      marginHorizontal: rpx(24),
-      marginTop: rpx(24),
-      padding: rpx(24),
-      borderRadius: rnRadius.lg,
-      backgroundColor: tk.surface.card,
-    },
-    checkbox: {
-      width: rpx(40),
-      height: rpx(40),
-      borderRadius: rnRadius.sm,
-      borderWidth: 1.5,
-      borderColor: tk.border.medium,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    checkboxChecked: {
-      backgroundColor: tk.success.DEFAULT,
-      borderColor: tk.success.DEFAULT,
-    },
-    cover: {
-      width: rpx(140),
-      height: rpx(140),
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.surface.muted,
-    },
-    coverFallback: {
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    info: {
-      flex: 1,
-      gap: rpx(10),
-    },
-    title: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: tk.text.primary,
-    },
-    price: {
-      fontSize: 15,
-      fontWeight: '600',
-      color: tk.success.DEFAULT,
-    },
-    qtyRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: rpx(16),
-      alignSelf: 'flex-start',
-    },
-    qtyBtn: {
-      width: rpx(48),
-      height: rpx(48),
-      borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-    },
-    qtyBtnDisabled: {
-      opacity: 0.5,
-    },
-    qtyValue: {
-      minWidth: rpx(40),
-      textAlign: 'center',
-      fontSize: 14,
-      color: tk.text.primary,
-    },
-    deleteBtn: {
-      width: rpx(56),
-      height: rpx(56),
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    footer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: rpx(16),
-      paddingHorizontal: rpx(24),
-      paddingVertical: rpx(20),
-      paddingBottom: rpx(40),
-      backgroundColor: tk.surface.card,
-    },
-    selectAll: {
-      fontSize: 14,
-      color: tk.text.primary,
-    },
-    totalWrap: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      justifyContent: 'flex-end',
-      gap: rpx(8),
-    },
-    totalLabel: {
-      fontSize: 13,
-      color: tk.text.secondary,
-    },
-    totalPrice: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: tk.danger.DEFAULT,
-    },
-    checkoutBtn: {
-      paddingHorizontal: rpx(36),
-      height: rpx(72),
-      borderRadius: rnRadius.sm, // 结算按钮是控件 ⇒ control 档 sm(项目不允许胶囊)
-      backgroundColor: tk.success.DEFAULT,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    checkoutBtnDisabled: {
-      opacity: 0.5,
-    },
-    checkoutText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: tk.brand.foreground,
-    },
-    center: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: rpx(160),
-      gap: rpx(20),
-    },
-    emptyText: {
-      fontSize: 14,
-      color: tk.text.tertiary,
-    },
-    retryBtn: {
-      paddingHorizontal: rpx(40),
-      paddingVertical: rpx(14),
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.surface.card,
-    },
-    retryText: {
-      fontSize: 14,
-      color: tk.text.secondary,
-    },
-  } satisfies Record<string, ViewStyle | TextStyle>)
+export default CartScreen
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

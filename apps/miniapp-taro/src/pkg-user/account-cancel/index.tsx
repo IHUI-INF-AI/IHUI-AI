@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/account-cancel/AccountCancelScreen.tsx
 import { useI18n } from '@/i18n'
 import { goToLogin } from '@/utils/auth'
 import { logger } from '@/utils/logger'
@@ -12,6 +13,7 @@ import { useState, useCallback, useRef, useEffect, type CSSProperties } from 're
 import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { rnRadius } from '@ihui/design-tokens'
 
 const CONSEQUENCE_KEYS = [
@@ -262,9 +264,7 @@ export default function AccountCancel() {
         </View>
         <View className="p-[28rpx] pb-[64rpx]">
           {loading ? (
-            <Text className="text-center text-muted-foreground py-[96rpx] text-[length:28rpx]">
-              {t('common.loading')}
-            </Text>
+            <ScreenSkeleton variant="card" count={3} />
           ) : info ? (
             <View>
               <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.consequenceTitle')}</Text>
@@ -321,9 +321,7 @@ export default function AccountCancel() {
               </View>
             </View>
           ) : (
-            <Text className="text-center text-muted-foreground py-[96rpx] text-[length:28rpx]">
-              {t('accountCancel.noInfo')}
-            </Text>
+            <EmptyState title={t('accountCancel.noInfo')} />
           )}
         </View>
       </View>

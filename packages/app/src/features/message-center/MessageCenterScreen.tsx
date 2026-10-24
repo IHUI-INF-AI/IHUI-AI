@@ -25,6 +25,7 @@ import type {
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 消息中心 Tab/Item/Props 类型 re-export(单一来源 @ihui/types) */
 export type { MessageCenterItem, MessageConversationItem, MessageCenterScreenProps, MessageTab }
@@ -115,9 +116,7 @@ export function MessageCenterScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <ScrollView
           contentContainerStyle={styles.listBody}
@@ -191,9 +190,7 @@ export function MessageCenterScreen({
             </View>
           ) : null}
           {items.length === 0 ? (
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('messageCenter.empty')}</Text>
-            </View>
+            <EmptyState title={t('messageCenter.empty')} colorScheme={colorScheme} />
           ) : (
             items.map((item: MessageCenterItem) => (
               <NotificationCard
@@ -235,8 +232,6 @@ function createStyles(tk: AppThemeTokens) {
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
     // ── 会话列表区块(对齐 Uniapp message 页聊天列表) ──
     convSection: { marginBottom: 6 },

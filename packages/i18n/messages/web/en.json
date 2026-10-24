@@ -783,6 +783,8 @@
       "pgLabel": "PostgreSQL",
       "piePerSecSuffix": "/s",
       "recentAlerts": "Recent Alerts (DB)",
+      "moreActiveAlerts": "{count} more active alerts",
+      "moreRecentAlerts": "{count} more records",
       "redisClients": "Clients",
       "redisEvicted": "Evicted Keys",
       "redisHit": "Hit Ratio",

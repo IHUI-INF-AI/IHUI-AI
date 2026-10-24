@@ -1,0 +1,360 @@
+{
+  "comment": "跨端页面覆盖登记表 —— (shared 真相源, rn 薄壳, miniapp 镜像页) 三元组。门 scripts/check-cross-end-screen-coverage.mjs 的 R1 逐条核验:三处文件必须真实存在、shared 必须在 packages/app/src/index.ts 有同名导出、小程序页必须含指向该 shared 路径的「对齐目标(RN 共享屏)」标记。字段形态:shared/rn 是仓库相对文件路径;miniapp 是 app.config.ts 里 root+pages 拼出的路由(段数不固定,实测两段与三段并存,照原样逐字抄)。本表只登记「标记链完整」的条目,登记口径逐条可复验、不依赖任何临时脚本:该小程序路由在 app.config.ts 在册 ∧ 页面(或其同目录伴生 css)含指向该共享屏的标记行 ∧ 共享屏文件真在 ∧ 该符号在 packages/app/src/index.ts 有导出 ∧ 有 RN 屏 import @ihui/rn-app 且使用该符号(RN 腿按符号找、不按同名文件 —— 实测 RN 文件名 TeacherListScreen 委托的共享符号是 LecturerListScreen)。它证明的是声明链,不证明像素同物;同页异名的假同物仍需逐屏人工复核。",
+  "entries": [
+    {
+      "shared": "packages/app/src/features/about/AboutScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AboutScreen.tsx",
+      "miniapp": "pkg-about/about/index"
+    },
+    {
+      "shared": "packages/app/src/features/account-cancel/AccountCancelScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AccountCancelScreen.tsx",
+      "miniapp": "pkg-user/account-cancel/index"
+    },
+    {
+      "shared": "packages/app/src/features/account-pool/AccountPoolScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AccountPoolScreen.tsx",
+      "miniapp": "pkg-user/account-pool/index"
+    },
+    {
+      "shared": "packages/app/src/features/activity/ActivityScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ActivityScreen.tsx",
+      "miniapp": "pkg-content/activity/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-assistant-n8n/AiAssistantN8nScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiAssistantN8nScreen.tsx",
+      "miniapp": "pkg-ai/ai-assistant-n8n/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-assistant/AiAssistantScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiAssistantScreen.tsx",
+      "miniapp": "pkg-ai/ai-assistant/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-career/AiCareerScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiCareerScreen.tsx",
+      "miniapp": "pkg-ai/ai-career/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-group/AiGroupScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiGroupScreen.tsx",
+      "miniapp": "pkg-ai/ai-group/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-skill/AiSkillDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiSkillDetailScreen.tsx",
+      "miniapp": "pkg-ai/ai-skill/detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/ai-skill/AiSkillScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AiSkillScreen.tsx",
+      "miniapp": "pkg-ai/ai-skill/index"
+    },
+    {
+      "shared": "packages/app/src/features/aigc-list/AigcListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AigcListScreen.tsx",
+      "miniapp": "pkg-ai/aigc/list"
+    },
+    {
+      "shared": "packages/app/src/features/aigc-publish/AigcPublishScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AigcPublishScreen.tsx",
+      "miniapp": "pkg-ai/aigc/publish"
+    },
+    {
+      "shared": "packages/app/src/features/announcement-detail/AnnouncementDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AnnouncementDetailScreen.tsx",
+      "miniapp": "pkg-content/announcement/detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/announcement/AnnouncementScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AnnouncementScreen.tsx",
+      "miniapp": "pkg-content/announcement/index"
+    },
+    {
+      "shared": "packages/app/src/features/article-detail/ArticleDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ArticleDetailScreen.tsx",
+      "miniapp": "pkg-content/news/detail"
+    },
+    {
+      "shared": "packages/app/src/features/article-list/ArticleListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ArticleListScreen.tsx",
+      "miniapp": "pkg-content/news/list"
+    },
+    {
+      "shared": "packages/app/src/features/ask-create/AskCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AskCreateScreen.tsx",
+      "miniapp": "pages/ask/create"
+    },
+    {
+      "shared": "packages/app/src/features/ask-detail/AskDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AskDetailScreen.tsx",
+      "miniapp": "pages/ask/detail"
+    },
+    {
+      "shared": "packages/app/src/features/ask-list/AskListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AskListScreen.tsx",
+      "miniapp": "pages/ask/list"
+    },
+    {
+      "shared": "packages/app/src/features/business-card/BusinessCardScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/BusinessCardScreen.tsx",
+      "miniapp": "pkg-ai/business-card/index"
+    },
+    {
+      "shared": "packages/app/src/features/cart/CartScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CartScreen.tsx",
+      "miniapp": "pkg-shop/cart/index"
+    },
+    {
+      "shared": "packages/app/src/features/carte/CarteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CarteScreen.tsx",
+      "miniapp": "pkg-content/carte/index"
+    },
+    {
+      "shared": "packages/app/src/features/category-detail/CategoryDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CategoryDetailScreen.tsx",
+      "miniapp": "pkg-content/category-detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/check-in/CheckInScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CheckInScreen.tsx",
+      "miniapp": "pkg-user/check-in/index"
+    },
+    {
+      "shared": "packages/app/src/features/circle-create/CircleCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CircleCreateScreen.tsx",
+      "miniapp": "pages/circle/create"
+    },
+    {
+      "shared": "packages/app/src/features/circle-detail/CircleDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CircleDetailScreen.tsx",
+      "miniapp": "pages/circle/detail"
+    },
+    {
+      "shared": "packages/app/src/features/course-detail/CourseDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CourseDetailScreen.tsx",
+      "miniapp": "pkg-learn/course/detail"
+    },
+    {
+      "shared": "packages/app/src/features/course-planet/CoursePlanetScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CarteScreen.tsx",
+      "miniapp": "pkg-learn/course-planet/index"
+    },
+    {
+      "shared": "packages/app/src/features/dev-enter-cover/DevEnterCoverScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/DevEnterCoverScreen.tsx",
+      "miniapp": "pkg-ai/dev-enter/cover/index"
+    },
+    {
+      "shared": "packages/app/src/features/developer/DeveloperScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/DevEnterCoverScreen.tsx",
+      "miniapp": "pkg-ai/dev-space/index"
+    },
+    {
+      "shared": "packages/app/src/features/distribution-order-list/DistributionOrderListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/DistributionOrderListScreen.tsx",
+      "miniapp": "pages/distribution/order-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/distribution/DistributionScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/DistributionScreen.tsx",
+      "miniapp": "pages/distribution/index"
+    },
+    {
+      "shared": "packages/app/src/features/exam-result/ExamResultScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ExamResultScreen.tsx",
+      "miniapp": "pages/exam/result"
+    },
+    {
+      "shared": "packages/app/src/features/favorite/FavoriteScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FavoriteScreen.tsx",
+      "miniapp": "pkg-user/favorites/index"
+    },
+    {
+      "shared": "packages/app/src/features/follow/FollowScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/FollowScreen.tsx",
+      "miniapp": "pkg-user/following/index"
+    },
+    {
+      "shared": "packages/app/src/features/learn-develop/LearnDevelopScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LearnDevelopScreen.tsx",
+      "miniapp": "pkg-learn/learn-develop/index"
+    },
+    {
+      "shared": "packages/app/src/features/lecturer-detail/LecturerDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeacherDetailScreen.tsx",
+      "miniapp": "pkg-learn/teacher/detail"
+    },
+    {
+      "shared": "packages/app/src/features/lecturer-list/LecturerListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeacherListScreen.tsx",
+      "miniapp": "pkg-learn/teacher/list"
+    },
+    {
+      "shared": "packages/app/src/features/live-detail/LiveDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LiveDetailScreen.tsx",
+      "miniapp": "pkg-learn/live/detail"
+    },
+    {
+      "shared": "packages/app/src/features/live-host/LiveHostScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LiveHostScreen.tsx",
+      "miniapp": "pkg-learn/live/host/index"
+    },
+    {
+      "shared": "packages/app/src/features/live-list/LiveListScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/LiveListScreen.tsx",
+      "miniapp": "pkg-learn/live/list"
+    },
+    {
+      "shared": "packages/app/src/features/model-edit/ModelEditScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ModelEditScreen.tsx",
+      "miniapp": "pkg-ai/dev-enter/model-edit/index"
+    },
+    {
+      "shared": "packages/app/src/features/model-plaza/ModelPlazaScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ModelPlazaScreen.tsx",
+      "miniapp": "pkg-ai/model-plaza/index"
+    },
+    {
+      "shared": "packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NotificationSettingsScreen.tsx",
+      "miniapp": "pages/setting/notification"
+    },
+    {
+      "shared": "packages/app/src/features/order-detail/OrderDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/CartScreen.tsx",
+      "miniapp": "pkg-shop/order/detail"
+    },
+    {
+      "shared": "packages/app/src/features/order-refund/OrderRefundScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/OrderRefundScreen.tsx",
+      "miniapp": "pkg-shop/order/refund"
+    },
+    {
+      "shared": "packages/app/src/features/pay-result/PayResultScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PayResultScreen.tsx",
+      "miniapp": "pkg-shop/pay/result/index"
+    },
+    {
+      "shared": "packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PlazaCoverScreen.tsx",
+      "miniapp": "pkg-content/plaza/cover/index"
+    },
+    {
+      "shared": "packages/app/src/features/plaza/PlazaScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NewsScreen.tsx",
+      "miniapp": "pages/plaza/index/index"
+    },
+    {
+      "shared": "packages/app/src/features/post-create/PostCreateScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PostCreateScreen.tsx",
+      "miniapp": "pkg-content/community/create/index"
+    },
+    {
+      "shared": "packages/app/src/features/post-detail/PostDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/PostDetailScreen.tsx",
+      "miniapp": "pkg-content/plaza/detail/index"
+    },
+    {
+      "shared": "packages/app/src/features/ranking-detail/RankingDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RankingDetailScreen.tsx",
+      "miniapp": "pkg-ai/ranking/detail"
+    },
+    {
+      "shared": "packages/app/src/features/ranking/RankingScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RankingDetailScreen.tsx",
+      "miniapp": "pkg-ai/ranking/index"
+    },
+    {
+      "shared": "packages/app/src/features/recruitment/RecruitmentScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RecruitmentScreen.tsx",
+      "miniapp": "pkg-content/recruitment/index/index"
+    },
+    {
+      "shared": "packages/app/src/features/register/RegisterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/RegisterScreen.tsx",
+      "miniapp": "pages/register/index"
+    },
+    {
+      "shared": "packages/app/src/features/search/SearchScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SearchScreen.tsx",
+      "miniapp": "pkg-content/search/index"
+    },
+    {
+      "shared": "packages/app/src/features/set-need/SetNeedScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SetNeedScreen.tsx",
+      "miniapp": "pkg-content/plaza/set-need/index"
+    },
+    {
+      "shared": "packages/app/src/features/settings/SettingsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SettingsScreen.tsx",
+      "miniapp": "pages/setting/index"
+    },
+    {
+      "shared": "packages/app/src/features/share/ShareScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ShareScreen.tsx",
+      "miniapp": "pages/share/index"
+    },
+    {
+      "shared": "packages/app/src/features/study-plan/StudyPlanScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudyPlanScreen.tsx",
+      "miniapp": "pages/study/plan"
+    },
+    {
+      "shared": "packages/app/src/features/study-publish/StudyPublishScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudyPublishScreen.tsx",
+      "miniapp": "pages/study/publish/index"
+    },
+    {
+      "shared": "packages/app/src/features/study-record/StudyRecordScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudyRecordScreen.tsx",
+      "miniapp": "pages/study/record"
+    },
+    {
+      "shared": "packages/app/src/features/subscriptions/SubscriptionsScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/SubscriptionsScreen.tsx",
+      "miniapp": "pkg-user/subscriptions/index"
+    },
+    {
+      "shared": "packages/app/src/features/task-center/TaskCenterScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TaskCenterScreen.tsx",
+      "miniapp": "pkg-user/task-center/index"
+    },
+    {
+      "shared": "packages/app/src/features/team/TeamScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TeamScreen.tsx",
+      "miniapp": "pages/distribution/company/index"
+    },
+    {
+      "shared": "packages/app/src/features/topic-detail/TopicDetailScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/TopicDetailScreen.tsx",
+      "miniapp": "pkg-content/topic/detail"
+    },
+    {
+      "shared": "packages/app/src/features/user-fans/UserFansScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/UserFansScreen.tsx",
+      "miniapp": "pkg-user/fans/index"
+    },
+    {
+      "shared": "packages/app/src/features/vip-benefit/VipBenefitScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VipBenefitScreen.tsx",
+      "miniapp": "pages/member/benefits"
+    },
+    {
+      "shared": "packages/app/src/features/vip-trader/VipTraderScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/VipTraderScreen.tsx",
+      "miniapp": "pkg-shop/vip-trader/index/index"
+    },
+    {
+      "shared": "packages/app/src/features/vip/VipScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AppTopupScreen.tsx",
+      "miniapp": "pages/member/index"
+    },
+    {
+      "shared": "packages/app/src/features/vip/VipScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/AppTopupScreen.tsx",
+      "miniapp": "pkg-shop/vip/index"
+    }
+  ]
+}

@@ -4,6 +4,7 @@
 
 // 平台页面:镜像 apps/mobile-rn AiSkillDetailScreen(AI 技能详情:prompt 模板与来源信息)
 // 端内重写渲染层(Taro 无法直接渲染 RN 原语)
+// 对齐目标(RN 共享屏): packages/app/src/features/ai-skill/AiSkillDetailScreen.tsx
 import { useCallback, useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
@@ -14,6 +15,7 @@ import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -26,14 +28,6 @@ const viewStyles = {
   container: (_tk: RnThemeTokens, isDark: boolean): CSSProperties => ({
     display: 'flex',
     flexDirection: 'column',
-    height: '100vh',
-    backgroundColor: isDark ? 'var(--color-surface-dark)' : 'var(--color-surface-light)',
-  }),
-  center: (isDark: boolean): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
     height: '100vh',
     backgroundColor: isDark ? 'var(--color-surface-dark)' : 'var(--color-surface-light)',
   }),
@@ -55,23 +49,6 @@ const viewStyles = {
     paddingLeft: toRpx(16),
     paddingRight: toRpx(16),
     paddingTop: toRpx(8),
-  }),
-  errorBox: (): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingTop: toRpx(64),
-    paddingBottom: toRpx(64),
-  }),
-  // 重试按钮对齐 RN:bg-gray-200(rounded-md 6px→12rpx;#E5E5E5 ≈ --color-border)
-  retryBtn: (_tk: RnThemeTokens): CSSProperties => ({
-    marginTop: toRpx(12),
-    borderRadius: toRpx(6),
-    backgroundColor: 'var(--color-border)',
-    paddingLeft: toRpx(16),
-    paddingRight: toRpx(16),
-    paddingTop: toRpx(8),
-    paddingBottom: toRpx(8),
   }),
   badgeRow: (): CSSProperties => ({
     marginTop: toRpx(12),
@@ -113,11 +90,6 @@ const viewStyles = {
 }
 
 const textStyles = {
-  // text.secondary #666666/#A3A3A3 ↔ --color-muted-foreground(亮暗成对)
-  muted: (_tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
-    color: 'var(--color-muted-foreground)',
-  }),
   headerTitle: (_tk: RnThemeTokens): CSSProperties => ({
     maxWidth: '60%',
     overflow: 'hidden',
@@ -157,15 +129,6 @@ const textStyles = {
   sourceText: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(14),
     color: 'var(--color-muted-foreground)',
-  }),
-  errorText: (_tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
-    color: 'var(--color-muted-foreground)',
-    textAlign: 'center',
-  }),
-  retryText: (_tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
-    color: 'var(--color-foreground)',
   }),
 }
 
@@ -212,8 +175,8 @@ export default function AiSkillDetail() {
   if (loading) {
     return (
       <ThemeRoot>
-        <View style={viewStyles.center(isDark)}>
-          <Text style={textStyles.muted(tk)}>{tt('common.loading', '加载中...')}</Text>
+        <View style={viewStyles.container(tk, isDark)}>
+          <ScreenSkeleton variant="card" count={3} />
         </View>
       </ThemeRoot>
     )
@@ -230,12 +193,11 @@ export default function AiSkillDetail() {
         <ScrollView scrollY style={viewStyles.bodyScroll()}>
           <View style={viewStyles.body()}>
             {error ? (
-              <View style={viewStyles.errorBox()}>
-                <Text style={textStyles.errorText(tk)}>{error}</Text>
-                <View style={viewStyles.retryBtn(tk)} onTap={retry} hoverClass="opacity-60">
-                  <Text style={textStyles.retryText(tk)}>{tt('aiSkillDetail.retry', '重试')}</Text>
-                </View>
-              </View>
+              <ErrorState
+                message={error}
+                onRetry={retry}
+                retryLabel={tt('aiSkillDetail.retry', '重试')}
+              />
             ) : skill ? (
               <View>
                 <Text style={textStyles.description(tk)}>{skill.description}</Text>

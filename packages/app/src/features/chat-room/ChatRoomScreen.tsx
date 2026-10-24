@@ -17,6 +17,7 @@ import {
 } from 'react-native'
 import { ChevronLeft, FileText, Music, Video, X } from 'lucide-react-native'
 import { SearchInput } from '../../components/SearchInput'
+import { EmptyState } from '../../components/ScreenStates'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 
 import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
@@ -299,7 +300,7 @@ export function ChatRoomScreen({
             </View>
           </TouchableOpacity>
         )}
-        ListEmptyComponent={<Text style={styles.emptyText}>未找到相关结果</Text>}
+        ListEmptyComponent={<EmptyState title="未找到相关结果" colorScheme={colorScheme} />}
       />
     </View>
   )
@@ -561,12 +562,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 13, // rpx(26)
       color: tk.text.secondary,
       marginTop: 4, // rpx(8)
-    },
-    emptyText: {
-      textAlign: 'center',
-      marginTop: 60, // rpx(120)
-      fontSize: 13, // rpx(26)
-      color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle | ImageStyle>)
 }

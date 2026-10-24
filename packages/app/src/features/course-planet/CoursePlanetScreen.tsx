@@ -9,6 +9,7 @@ import { BookOpen } from 'lucide-react-native'
 import { BackChevron } from '../../components/BackChevron'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import type { CoursePlanetScreenProps } from '@ihui/types'
 export type { CoursePlanetScreenProps }
 
@@ -72,12 +73,12 @@ export function CoursePlanetScreen({
         <Text style={styles.title}>课程星球</Text>
       </View>
       {error ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
-            <Text style={styles.retryText}>重试</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel="重试"
+          colorScheme={colorScheme}
+        />
       ) : (
         <ScrollView
           style={styles.scroll}
@@ -107,9 +108,7 @@ export function CoursePlanetScreen({
           </View>
 
           {loading ? (
-            <View style={styles.centerWrap}>
-              <Text style={styles.loadingText}>加载中...</Text>
-            </View>
+            <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
           ) : (
             <>
               {data.hot.length > 0 && (selectedType === 'all' || selectedType === 'paid') && (
@@ -141,9 +140,7 @@ export function CoursePlanetScreen({
               {data.hot.length === 0 &&
                 data.beginner.length === 0 &&
                 data.selected.length === 0 && (
-                  <View style={styles.centerWrap}>
-                    <Text style={styles.emptyText}>暂无课程</Text>
-                  </View>
+                  <EmptyState title="暂无课程" colorScheme={colorScheme} />
                 )}
             </>
           )}
@@ -165,22 +162,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     scroll: { flex: 1 },
-    centerWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-    },
-    loadingText: { fontSize: 16, color: tk.text.secondary },
-    errorText: { fontSize: 16, color: tk.danger.DEFAULT, textAlign: 'center' },
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
-    retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     typeTabsRow: {
       flexDirection: 'row',
       paddingHorizontal: 10,
@@ -255,7 +236,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '700',
       color: tk.brand.DEFAULT,
     },
-    emptyText: { fontSize: 16, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

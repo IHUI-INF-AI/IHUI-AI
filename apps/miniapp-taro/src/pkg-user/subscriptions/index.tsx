@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/subscriptions/SubscriptionsScreen.tsx
 import { useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
@@ -10,6 +11,7 @@ import { getSubscriptions, cancelSubscription, type SubscriptionItem } from '@/a
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useSocialList } from '@/hooks/use-social-list'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 const PAGE_SIZE = 20
 
@@ -72,11 +74,7 @@ export default function SubscriptionsPage() {
   return (
     // 对齐 RN SubscriptionsScreen:根容器 surface.bg;header(返回+标题)由原生导航栏承载
     <View className="min-h-screen bg-background">
-      {items.length === 0 && !loading && (
-        <View className="flex flex-col items-center py-[96rpx]">
-          <Text className="text-[length:28rpx] text-muted-foreground">{t('subscriptions.empty')}</Text>
-        </View>
-      )}
+      {items.length === 0 && !loading && <EmptyState title={t('subscriptions.empty')} />}
       {items.length > 0 && (
         <View className="p-[20rpx] pb-[64rpx]">
           {items.map((item) => {
@@ -119,7 +117,9 @@ export default function SubscriptionsPage() {
           })}
           <View className="flex items-center justify-center py-[32rpx]">
             {loading ? (
-              <Text className="text-[length:28rpx] text-muted-foreground">{t('common.loading')}</Text>
+              <Text className="text-[length:28rpx] text-muted-foreground">
+                {t('common.loading')}
+              </Text>
             ) : hasMore ? (
               <Text className="text-[length:28rpx] text-muted-foreground">
                 {t('subscriptions.loadMore')}
@@ -132,11 +132,7 @@ export default function SubscriptionsPage() {
           </View>
         </View>
       )}
-      {loading && items.length === 0 && (
-        <View className="flex flex-col items-center py-[96rpx]">
-          <Text className="text-[length:28rpx] text-muted-foreground">{t('common.loading')}</Text>
-        </View>
-      )}
+      {loading && items.length === 0 && <ScreenSkeleton variant="list" count={4} />}
     </View>
   )
 }

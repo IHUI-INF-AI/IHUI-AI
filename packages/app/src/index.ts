@@ -35,6 +35,18 @@ export { RefundDetailScreen } from './features/refund-detail/RefundDetailScreen'
 export { OrderDetailScreen } from './features/order-detail/OrderDetailScreen'
 export { CertDetailScreen } from './features/cert-detail/CertDetailScreen'
 export { PostDetailScreen } from './features/post-detail/PostDetailScreen'
+export { CartScreen, type CartItemView, type CartScreenProps } from './features/cart/CartScreen'
+export {
+  UserFansScreen,
+  type UserFansRowView,
+  type UserFansScreenProps,
+} from './features/user-fans/UserFansScreen'
+export {
+  TopicDetailScreen,
+  type TopicDetailPostView,
+  type TopicDetailView,
+  type TopicDetailScreenProps,
+} from './features/topic-detail/TopicDetailScreen'
 export { AnnouncementDetailScreen } from './features/announcement-detail/AnnouncementDetailScreen'
 export { LegalDocScreen } from './features/legal-doc/LegalDocScreen'
 export { HelpScreen } from './features/help/HelpScreen'
@@ -193,6 +205,10 @@ export { LiveChatScreen } from './features/live-chat/LiveChatScreen'
 export { MessageChatScreen } from './features/message-chat/MessageChatScreen'
 export { OrderRefundScreen } from './features/order-refund/OrderRefundScreen'
 export { PaymentScreen } from './features/payment/PaymentScreen'
+export {
+  AccountPoolScreen,
+  ACCOUNT_POOL_PROVIDERS,
+} from './features/account-pool/AccountPoolScreen'
 export { DomainHubScreen } from './features/domain-hub/DomainHubScreen'
 /** G-921(2026-10-21)屏级共享第二批:连接器管理屏(RN 端 ConnectorsScreen 的 UI 下沉)。
  *  `canSyncConnector` 是"未配置不允许同步"的共享判据,随屏一起导出 —— 两端共用一枚,不各写一份。 */
@@ -710,6 +726,11 @@ export type {
   PaymentOrderItem,
   PaymentScreenProps,
 } from './features/payment/PaymentScreen'
+export type {
+  AccountPoolRow,
+  AccountPoolDraft,
+  AccountPoolScreenProps,
+} from './features/account-pool/AccountPoolScreen'
 export type { DomainHubItem, DomainHubScreenProps } from './features/domain-hub/DomainHubScreen'
 export type { ConnectorItem, ConnectorsScreenProps } from './features/connectors/ConnectorsScreen'
 export type {

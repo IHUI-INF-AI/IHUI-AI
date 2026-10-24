@@ -783,6 +783,8 @@
       "pgLabel": "PostgreSQL",
       "piePerSecSuffix": "/s",
       "recentAlerts": "最近告警記錄(庫內)",
+      "moreActiveAlerts": "另有 {count} 條活躍告警",
+      "moreRecentAlerts": "另有 {count} 條記錄",
       "redisClients": "客戶端",
       "redisEvicted": "淘汰鍵",
       "redisHit": "命中率",

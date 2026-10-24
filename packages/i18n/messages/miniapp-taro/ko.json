@@ -1262,17 +1262,12 @@
     "missingUrl": "링크 없음, 열 수 없습니다"
   },
   "carte": {
-    "shareHint": "이미지 저장 후 공유",
-    "noQrcode": "QR 코드 없음",
-    "anonymous": "익명 사용자",
-    "cardSuffix": "의 명함",
-    "introLabel": "소개",
-    "phone": "전화",
-    "email": "이메일",
-    "scanHint": "스캔하여 명함 보기",
-    "shareCard": "명함 공유",
-    "saveQrcode": "QR 코드 저장",
-    "title": "디지털 명함"
+    "title": "ZHIHUI 커뮤니티",
+    "founder": "AI ZHIHUI 커뮤니티 | 자문위원회 창립자 | 리 선생님",
+    "recommend": "당신에게 추천합니다",
+    "inviteHint": "아래 QR 코드를 스캔하면 ZHIHUI 커뮤니티에 무료 가입할 수 있고 AI 정보를 정기적으로 공유하며 전담 상담원이 도와드립니다",
+    "scanHint": "QR 코드를 스캔하고 1000명 이상 동료와 AI를 이야기하세요",
+    "introLabel": "소개"
   },
   "exam": {
     "tabs": {
@@ -1391,6 +1386,19 @@
     "tabPost": "게시물",
     "tabAigc": "AI 작품",
     "tabNews": "뉴스"
+  },
+  "userFans": {
+    "title": "내 팬",
+    "anonymous": "익명 사용자",
+    "empty": "아직 팬이 없습니다",
+    "follow": "맞팔로우",
+    "followed": "팔로잉",
+    "followedAt": "팔로우 날짜",
+    "followSuccess": "맞팔로우했습니다",
+    "actionFailed": "작업에 실패했습니다. 잠시 후 다시 시도해 주세요",
+    "loadFailed": "팬 목록을 불러오지 못했습니다",
+    "total": "팬 {total}명",
+    "loadMore": "더 불러오기({loaded}/{total})"
   },
   "distribution": {
     "withdraw": {
@@ -1871,7 +1879,7 @@
       "submitting": "제출 중..."
     },
     "contact": {
-      "title": "문의하기",
+      "title": "고객 지원 문의",
       "phone": "전화",
       "email": "이메일",
       "qq": "QQ",
@@ -1918,7 +1926,7 @@
       "query": "MIIT에서 조회",
       "icpLabel": "ICP 신고/허가증 번호",
       "copyHint": "번호를 클릭하여 복사",
-      "title": "ICP 비안"
+      "title": "ICP 신고"
     },
     "usageRules": {
       "s2": {
@@ -2008,7 +2016,7 @@
         "p2": "본 규범의 체결, 이행, 해석 및 분쟁 해결에는 모두 중화인민공화국 법률이 적용됩니다(홍콩, 마카오, 대만 지역 법률 제외).",
         "title": "9. 분쟁 해결"
       },
-      "title": "사용 규칙"
+      "title": "이용 규정"
     },
     "appPermission": {
       "names": [
@@ -2049,7 +2057,7 @@
       "tableTitle": "대형 모델 신고 정보",
       "imageUnavailable": "신고 이미지가 아직 업로드되지 않았습니다",
       "noticeText": "본 앱은 인공지능 기술을 사용합니다. 다음은 사용된 모델에 대한 정보입니다",
-      "title": "모델 비안"
+      "title": "모델 신고"
     },
     "apiSettings": {
       "apiUrl": "API URL",
@@ -2094,6 +2102,7 @@
   },
   "cart": {
     "title": "장바구니",
+    "selectAll": "전체 선택",
     "checkout": "결제",
     "loading": "로딩 중…",
     "product": "상품",
@@ -2260,6 +2269,26 @@
       "mockSuccess": "API가 아직 열리지 않았습니다. 모의 제출 완료"
     }
   },
+  "devSpace": {
+    "title": "개발자 상세",
+    "notLoggedIn": "로그인되지 않음",
+    "renew": "갱신",
+    "linkCopied": "링크를 복사했습니다. 브라우저에서 열어 주세요",
+    "linkCopyFailed": "복사 실패했습니다. 다시 시도해 주세요",
+    "entryMyAgents": "내 에이전트",
+    "entryAgentIncome": "에이전트 수익",
+    "entryN8nModel": "n8n 에이전트",
+    "entryBusinessCard": "크리에이터 명함",
+    "faqHeading": "개발자에게 자주 있는 질문",
+    "faqIncentiveTitle": "개발자 인센티브 프로그램",
+    "faqIncentiveDesc": "AI 에이전트를 게시하고 수익 배분을 받으세요",
+    "faqIncentiveBtn": "자세히 보기",
+    "faqGuideTitle": "등록 가이드",
+    "faqGuideDesc": "에이전트 생성, 모델 구성, 심사 제출",
+    "faqGuideBtn": "살펴보기",
+    "contactHeading": "다른 질문이 있으신가요?",
+    "contactDesc": "고객 센터에 문의해 1:1 상담을 받으세요"
+  },
   "developer": {
     "withdrawal": {
       "title": "출금 기록",
@@ -2345,7 +2374,8 @@
       "editBtn2": "수정",
       "editBtn": "설정",
       "noMore": "더 이상 없음"
-    }
+    },
+    "becomeDeveloper": "개발자 되기"
   },
   "modelPlaza": {
     "title": "모델 광장",
@@ -2413,7 +2443,7 @@
       "save": "저장"
     },
     "index": {
-      "title": "모델 광장",
+      "title": "AI 수요 광장",
       "untitled": "제목 없음",
       "anonymous": "익명",
       "emptyMain": "콘텐츠 없음",
@@ -2524,17 +2554,8 @@
     "noData": "랭킹 데이터 없음"
   },
   "recruitment": {
-    "applied": "지원 제출됨",
-    "empty": "채용 정보 없음",
-    "defaultTitle": "참여하기",
-    "subtitle": "IHUI AI와 함께 성장",
-    "requirements": "지원 자격",
-    "privileges": "혜택",
-    "incomeEstimate": "예상 수입",
-    "monthlyIncome": "월 수입",
-    "yearlyIncome": "연 수입",
-    "submitting": "제출 중…",
-    "apply": "지금 지원"
+    "title": "트레이더 계획",
+    "defaultTitle": "참여하기"
   },
   "register": {
     "enterPhone": "전화번호 입력",
@@ -3121,6 +3142,11 @@
     "text6": "등급 소개 페이지 미구성",
     "menu": {
       "subscriptions": "내 구독"
+    }
+  },
+  "vipScreen": {
+    "qr": {
+      "hint": "QR코드 길게 눌러 저장"
     }
   },
   "vipTrader": {
@@ -4608,6 +4634,39 @@
     "knowledgeCards": "지식 카드",
     "knowledgePlanet": "지식 플래닛"
   },
+  "accountPool": {
+    "title": "내 계정 풀",
+    "subtitle": "나만의 서드파티 AI 계정 풀입니다. 체크인 도우미와 동일한 계정으로 매일 자동 체크인되며, 내 릴레이 요청에 우선 사용됩니다.",
+    "add": "계정 추가",
+    "provider": "플랫폼",
+    "name": "이름",
+    "namePlaceholder": "계정 이름 입력",
+    "token": "토큰(액세스 자격 증명)",
+    "refreshToken": "리프레시 토큰",
+    "optional": "선택 사항",
+    "save": "저장",
+    "cancel": "취소",
+    "loading": "불러오는 중…",
+    "empty": "아직 계정이 없습니다",
+    "emptyHint": "체크인 도우미에서 추가한 계정이 여기로 자동 동기화됩니다.",
+    "enabled": "사용 중",
+    "disabled": "사용 안 함",
+    "enable": "사용",
+    "disable": "사용 안 함",
+    "checkin": "지금 체크인",
+    "delete": "삭제",
+    "confirmDelete": "삭제 확인",
+    "syncPending": "동기화 대기",
+    "uid": "계정 ID",
+    "checkinSuccess": "체크인 완료",
+    "addSuccess": "계정이 추가되었습니다",
+    "actionFailed": "작업 실패",
+    "loginRequired": "로그인 후 계정 풀을 관리하세요",
+    "addTitle": "계정 추가",
+    "adding": "추가 중…",
+    "deleteConfirm": "{name}을(를) 삭제할까요?",
+    "summary": "계정 {total}개 · 활성 {enabled}"
+  },
   "checkinAssistant": {
     "title": "체크인 도우미",
     "subtitle": "서드파티 계정을 관리하고 매일 자동 체크인합니다. 개인 계정 풀과 연동되며 내 릴레이 요청에 우선 사용됩니다.",
@@ -4633,5 +4692,20 @@
     "lastOk": "지난 체크인 성공 +{credits}",
     "lastFailed": "지난 체크인 실패",
     "actionFailed": "작업 실패"
+  },
+  "developerInfo": {
+    "title": "개발자 정보",
+    "nameLabel": "이름",
+    "descLabel": "소개",
+    "statusLabel": "신청 상태",
+    "statusApproved": "승인됨",
+    "statusRejected": "거절됨",
+    "statusPending": "심사 대기",
+    "accountLabel": "계정",
+    "apiKeyLabel": "API 키",
+    "apiKeyCount": "{count}개 생성됨",
+    "apiKeyNone": "생성되지 않음",
+    "urlLabel": "웹사이트",
+    "expiryLabel": "만료일"
   }
 }

@@ -28,6 +28,8 @@ import {
   Gauge,
   Globe,
   HardDrive,
+  Maximize2,
+  Minimize2,
   Radio,
   Server,
   ShieldAlert,
@@ -40,6 +42,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'
 import { cn } from '@/lib/utils'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { BackButton } from '@/components/common'
 // 悬停提示一律走项目 Tooltip(守门 18:禁用原生 HTML title 属性)
 import { Tooltip, TooltipProvider } from '@/components/feedback'
@@ -296,6 +299,23 @@ function fmtClockDigits(d: Date): string {
 }
 
 /**
+ * 秒级时钟独立成件:原先父组件每秒 setState,整棵树(17 个面板 + 全部图表容器)跟着
+ * 重渲染;数据年龄与「今天第几小时」只需要 5s 粒度,秒级刷新收在时钟自己身上。
+ */
+function LiveClock() {
+  const [now, setNow] = React.useState(() => new Date())
+  React.useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+  return (
+    <div className="wb-num text-[13px] leading-tight font-semibold tabular-nums text-foreground">
+      {fmtClockDigits(now)}
+    </div>
+  )
+}
+
+/**
  * 随语言变化的展示工具(人读文案走 t 的字面量键,数字走 locale)。
  * 每次渲染重建即可,调用点都在渲染期,不进依赖数组。
  */
@@ -317,11 +337,15 @@ function makeFmt(locale: string, t: WallboardT) {
     },
     fmtDuration(seconds: number | null | undefined): string {
       if (typeof seconds !== 'number' || !Number.isFinite(seconds)) return '—'
+      // <60s 必须落到秒档:原实现直接落到「N分」⇒ 3 秒聚合龄显示成「0分」。
+      if (seconds < 60) return t('durationSecs', { s: Math.max(0, Math.floor(seconds)) })
       const d = Math.floor(seconds / 86400)
       const h = Math.floor((seconds % 86400) / 3600)
-      if (d > 0) return t('durationDays', { d, h })
+      // 0 位不写出来:「1天0小时」「3天0小时」在运行时长/临期里读着像精度丢失。
+      if (d > 0) return h > 0 ? t('durationDays', { d, h }) : t('durationDaysOnly', { d })
       const m = Math.floor((seconds % 3600) / 60)
-      return h > 0 ? t('durationHours', { h, m }) : t('durationMins', { m })
+      if (h > 0) return m > 0 ? t('durationHours', { h, m }) : t('durationHoursOnly', { h })
+      return t('durationMins', { m })
     },
     fmtClock(iso: string | null | undefined): string {
       if (!iso) return '—'
@@ -391,6 +415,11 @@ function Dot({ tone }: { tone: StatusTone | 'idle' }) {
             ? 'bg-muted-foreground/60'
             : 'bg-muted-foreground'
   return <span className={cn('inline-block h-1.5 w-1.5 rounded-full', color)} />
+}
+
+/** 数据源状态三态:未到数(undefined)必须落灰,不得默认染红(§0.3 未判定不冒充故障)。 */
+function sourceTone(state: string | undefined): StatusTone | 'idle' {
+  return state === 'up' ? 'ok' : state === 'down' ? 'bad' : 'unknown'
 }
 
 function MiniBar({ pct, tone }: { pct: number; tone?: 'ok' | 'warn' | 'bad' }) {
@@ -527,9 +556,71 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const { fmtInt, fmtCompact, fmtRate, fmtDuration, fmtClock, fmtAgo } = makeFmt(locale, t)
   const [now, setNow] = React.useState(() => new Date())
   React.useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000)
+    // 只服务数据年龄(15s 阈值)与当前小时;秒级刷新由 <LiveClock /> 自己承担。
+    const timer = setInterval(() => setNow(new Date()), 5000)
     return () => clearInterval(timer)
   }, [])
+
+  // 浏览器标签跟随视图:承载页的 metadata 是「监控面板」,大屏挂机时标签仍读作面板页。
+  React.useEffect(() => {
+    const prev = document.title
+    document.title = t('title')
+    return () => {
+      document.title = prev
+    }
+  }, [t])
+
+  // ---------- 值班全屏:隐藏左侧 AI 工作区 + 浏览器全屏 ----------
+  const [dutyMode, setDutyMode] = React.useState(false)
+  const prevAiPanelOpen = React.useRef(true)
+  const dutyActiveRef = React.useRef(false)
+
+  const toggleDutyMode = React.useCallback(async () => {
+    if (!dutyActiveRef.current) {
+      prevAiPanelOpen.current = useAiPanelStore.getState().open
+      dutyActiveRef.current = true
+      useAiPanelStore.getState().closePanel()
+      setDutyMode(true)
+      try {
+        await document.documentElement.requestFullscreen?.()
+      } catch {
+        // 浏览器拒绝全屏时仍保持「隐藏 AI 面板」的紧凑态,按钮可再次点击退出。
+      }
+      return
+    }
+    dutyActiveRef.current = false
+    setDutyMode(false)
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen()
+    } catch {
+      // 已经不在全屏时忽略
+    }
+    if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
+  }, [])
+
+  // 用户按 Esc 退出全屏时把值班态一并回收(不能留下「面板被关着」的残局)。
+  React.useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement && dutyActiveRef.current) {
+        dutyActiveRef.current = false
+        setDutyMode(false)
+        if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
+      }
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
+  // 切走视图(TabsContent 卸载)同样回收。
+  React.useEffect(
+    () => () => {
+      if (dutyActiveRef.current) {
+        dutyActiveRef.current = false
+        if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
+      }
+    },
+    [],
+  )
 
   const {
     data: ov,
@@ -575,20 +666,32 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const alertCount: number | null =
     alerts === null
       ? null
-      : (alerts.promActiveCount ?? 0) +
-        (alerts.firingNames ?? []).filter((n) => !promAlertNames.has(n)).length
+      : // Alertmanager 不可达(promActiveCount=null)且库内也没有 firing 时,只能算「未判定」:
+        // 0 在这里会被读成「确认没有告警」,与下方面板的 alertmanagerDown 自相矛盾。
+        alerts.promActiveCount === null && (alerts.firingNames ?? []).length === 0
+        ? null
+        : (alerts.promActiveCount ?? 0) +
+          (alerts.firingNames ?? []).filter((n) => !promAlertNames.has(n)).length
   // 退役服务(见路由 RETIRED_SERVICES)不计入健康度分母,避免状态灯恒黄。
   // alerts 块或 services 块不可达 ⇒ 'unknown'(§0.3:「没判」不得渲染成「全域正常 / 0 告警」)。
+  // 核心数据源断掉时不能仍报「全域正常」:Prometheus / 业务库是这张屏的主判据,
+  // 它们不可达等于「没判」,按 §0.3 落 unknown 而不是把其余绿灯当成结论。
+  const coreSourceDown =
+    ov?.sources?.prometheus === 'down' || ov?.sources?.database === 'down'
   const overallTone: StatusTone =
-    ov === undefined || alerts === null
+    ov === undefined || alerts === null || coreSourceDown
       ? 'unknown'
       : alertCount !== null && alertCount > 0
         ? 'warn'
-        : services === null
+        : // 告警面不可达(Alertmanager 没回数据)时同样不能落「正常」。
+          alerts.promActive === null
           ? 'unknown'
-          : services.windowsRunning < services.windowsExpectedTotal
-            ? 'warn'
-            : 'ok'
+          : services === null
+            ? 'unknown'
+            : services.windowsRunning < services.windowsExpectedTotal ||
+                services.targetsUp < services.targetsTotal
+              ? 'warn'
+              : 'ok'
   // overview 5s 轮询;数据年龄超过 3 个周期视为延迟,「刷新于」转琥珀提示
   const dataAgeMs = dataUpdatedAt ? now.getTime() - dataUpdatedAt : null
   const dataStale = dataAgeMs !== null && dataAgeMs > 15000
@@ -605,6 +708,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         hour12: false,
       }),
     )
+    // 错误率与 P95 量纲差三个数量级:共用一个右轴时错误率恒贴底(实测不可见)。
+    // 错误率走隐藏的第三轴(0..实测峰值×1.2),只由 tooltip 读数,不占轴标签。
+    const errPctMax = Math.max(0.1, ...(trend?.errRate ?? []).map(([, v]) => v * 100)) * 1.2
     return {
       grid: { left: 42, right: 46, top: 26, bottom: 22 },
       legend: {
@@ -634,6 +740,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ...AXIS(isDark),
           splitLine: { show: false },
         },
+        {
+          type: 'value',
+          min: 0,
+          max: Number(errPctMax.toFixed(3)),
+          show: false,
+        },
       ],
       series: [
         {
@@ -660,10 +772,12 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         {
           name: t('legendErrRate'),
           type: 'line',
-          yAxisIndex: 1,
+          yAxisIndex: 2,
           smooth: true,
           showSymbol: false,
           data: (trend?.errRate ?? []).map(([, v]) => Number((v * 100).toFixed(3))),
+          // 轴被隐藏(错误率走独立刻度),数值只能从 tooltip 读 ⇒ 必须带百分号。
+          tooltip: { valueFormatter: (v) => `${v}%` },
           ...seriesGlow(CHART_RED),
         },
         {
@@ -673,6 +787,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           smooth: true,
           showSymbol: false,
           data: (trend?.p95Ms ?? []).map(([, v]) => Number(v.toFixed(1))),
+          tooltip: { valueFormatter: (v) => `${v} ${t('unitMs')}` },
           ...seriesGlow(CHART_AMBER),
         },
       ],
@@ -685,6 +800,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       typeof host?.cpuPct === 'number' && Number.isFinite(host.cpuPct) ? host.cpuPct : null
     const memValue =
       typeof host?.memPct === 'number' && Number.isFinite(host.memPct) ? host.memPct : null
+    // 与磁盘/迷你条同一套阈值语义:70% 转琥珀、90% 转红;无读数时保留基色(进度环本身不画)。
+    const meterColor = (v: number | null, base: string) =>
+      v === null ? base : v >= 90 ? CHART_RED : v >= 70 ? CHART_AMBER : base
     return {
       series: [
         {
@@ -695,7 +813,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           endAngle: -30,
           min: 0,
           max: 100,
-          progress: { show: true, width: 8, itemStyle: { color: CHART_CYAN } },
+          // 取不到读数时不画进度环:环停在 0 会被读成「空闲且健康」(detail 已显示 —)。
+          progress: { show: cpuValue !== null, width: 8, itemStyle: { color: meterColor(cpuValue, CHART_CYAN) } },
           axisLine: { lineStyle: { width: 8, color: [[1, chartAxis(isDark)]] } },
           axisTick: { show: false },
           splitLine: { show: false },
@@ -721,7 +840,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           endAngle: -30,
           min: 0,
           max: 100,
-          progress: { show: true, width: 8, itemStyle: { color: CHART_VIOLET } },
+          progress: { show: memValue !== null, width: 8, itemStyle: { color: meterColor(memValue, CHART_VIOLET) } },
           axisLine: { lineStyle: { width: 8, color: [[1, chartAxis(isDark)]] } },
           axisTick: { show: false },
           splitLine: { show: false },
@@ -751,35 +870,57 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       '5xx': CHART_RED,
       other: chartText(isDark),
     }
-    const data = (http?.statusRates ?? []).map((s) => ({
-      name: s.klass,
-      value: Number(s.rate.toFixed(3)),
-      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark) },
+    // 横向条形替代环图:2xx 常占 99%+,环图里 3/4/5xx 只剩肉眼不可辨的细缝,标签还得靠
+    // 引线挤出图外互相压字;逐行条形的长度差异 + 端点数字都能直接读。
+    const rows = (http?.statusRates ?? []).filter((s) => s.rate > 0)
+    const total = rows.reduce((acc, s) => acc + s.rate, 0)
+    // y 轴自下而上排列,倒序后 2xx 落在最上方(占比最大的先读到)。
+    const ordered = [...rows].reverse()
+    const data = ordered.map((s) => ({
+      value: total > 0 ? Number(((s.rate / total) * 100).toFixed(2)) : 0,
+      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: 3 },
     }))
     return {
+      grid: { left: 44, right: 56, top: 10, bottom: 20 },
       tooltip: {
-        trigger: 'item',
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
         backgroundColor: chartBg(isDark),
         borderColor: chartAxis(isDark),
         textStyle: { color: fg(isDark), fontSize: 11 },
+        valueFormatter: (v) => `${v}%`,
+      },
+      xAxis: {
+        type: 'value',
+        min: 0,
+        max: 100,
+        ...AXIS(isDark),
+        axisLabel: { color: chartText(isDark), fontSize: 9, formatter: '{value}%' },
+      },
+      yAxis: {
+        type: 'category',
+        data: ordered.map((s) => s.klass),
+        ...AXIS(isDark),
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
       },
       series: [
         {
-          type: 'pie',
-          radius: ['42%', '68%'],
-          center: ['50%', '52%'],
+          type: 'bar',
+          data,
+          barWidth: 14,
           label: {
+            show: true,
+            position: 'right',
             color: chartText(isDark),
             fontSize: 10,
-            formatter: `{b}\n{c}${t('piePerSecSuffix')}`,
+            formatter: '{c}%',
           },
-          labelLine: { lineStyle: { color: withAlpha(chartText(isDark), 0.5) } },
-          itemStyle: { borderColor: chartBg(isDark), borderWidth: 2 },
-          data,
         },
       ],
     }
-  }, [http?.statusRates, t, isDark])
+  }, [http?.statusRates, isDark])
 
   // 主机 CPU / 内存走势(补齐 trend.cpuPct / trend.memPct 两个已返回未上屏的序列)
   const hostTrendOption = React.useMemo<EChartsOption>(() => {
@@ -811,7 +952,15 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         boundaryGap: false,
         axisLabel: { show: false },
       },
-      yAxis: { type: 'value', min: 0, max: 100, ...AXIS(isDark), splitLine: { show: false } },
+      yAxis: {
+        type: 'value',
+        min: 0,
+        max: 100,
+        splitNumber: 2,
+        ...AXIS(isDark),
+        axisLabel: { color: chartText(isDark), fontSize: 9 },
+        splitLine: { show: false },
+      },
       series: [
         {
           name: t('cpuLegend'),
@@ -819,6 +968,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           smooth: true,
           showSymbol: false,
           data: (trend?.cpuPct ?? []).map(([, v]) => Number(v.toFixed(2))),
+          tooltip: { valueFormatter: (v) => `${v}%` },
           ...seriesGlow(CHART_CYAN),
         },
         {
@@ -827,14 +977,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           smooth: true,
           showSymbol: false,
           data: (trend?.memPct ?? []).map(([, v]) => Number(v.toFixed(2))),
+          tooltip: { valueFormatter: (v) => `${v}%` },
           ...seriesGlow(CHART_VIOLET),
         },
       ],
     }
   }, [trend, locale, t, isDark])
 
+  // 只画到今天当前小时:把未到的时段画成 0 柱会被读成「这些时段没有流量」。
+  const nowHour = now.getHours()
   const hourlyOption = React.useMemo<EChartsOption>(() => {
-    const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+    const hours = Array.from({ length: nowHour + 1 }, (_, i) => String(i).padStart(2, '0'))
     const byHour = new Map((trend?.hourlyCalls ?? []).map((r) => [r.hour, r.calls]))
     return {
       grid: { left: 40, right: 12, top: 16, bottom: 22 },
@@ -849,7 +1002,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       series: [
         {
           type: 'bar',
-          data: hours.map((h) => byHour.get(h) ?? 0),
+          // 最后一根 = 当前小时(未来时段已截掉),单独用纯色提亮,方便一眼定位「现在」。
+          data: hours.map((h, i) => ({
+            value: byHour.get(h) ?? 0,
+            ...(i === hours.length - 1 ? { itemStyle: { color: CHART_CYAN } } : {}),
+          })),
           barWidth: '62%',
           itemStyle: {
             borderRadius: [2, 2, 0, 0],
@@ -868,7 +1025,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [trend?.hourlyCalls, isDark])
+  }, [trend?.hourlyCalls, isDark, nowHour])
 
   const modelOption = React.useMemo<EChartsOption>(() => {
     const models = [...(biz?.llmTopModels ?? [])].reverse()
@@ -977,6 +1134,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         name: t('unitMs'),
         nameTextStyle: { color: chartText(isDark) },
         ...AXIS(isDark),
+        splitNumber: 3,
+        axisLabel: { color: chartText(isDark), fontSize: 9 },
       },
       series: [
         {
@@ -988,6 +1147,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             value: ms,
             itemStyle: { color: hit ? CHART_GREEN : CHART_AMBER },
           })),
+          tooltip: { valueFormatter: (v) => `${v} ${t('unitMs')}` },
           ...seriesGlow(CHART_CYAN),
         },
       ],
@@ -999,7 +1159,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const no5xxBadge =
     trend &&
     trend.qps.length > 0 &&
-    (trend.errRate.length === 0 || trend.errRate.every(([, v]) => v === 0)) ? (
+    // 空序列 ≠ 「窗口内没有 5xx」:查询无数据时不能凭 0 条样本发好消息(§0.3)。
+    trend.errRate.length > 0 &&
+    trend.errRate.every(([, v]) => v === 0) ? (
       <span className="flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-1.5 py-0.5 text-[10px] text-success-text">
         <Dot tone="ok" />
         {t('no5xxWindow', { minutes: trend.minutes })}
@@ -1065,19 +1227,22 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <div className="wb-hdr-sources flex items-center gap-1.5">
             {(
               [
-                [t('srcPrometheus'), ov?.sources.prometheus],
-                [t('srcAlertmanager'), ov?.sources.alertmanager],
-                [t('srcDatabase'), ov?.sources.database],
-                [t('srcEdge'), ov?.sources.edge],
+                [t('srcPrometheus'), ov?.sources?.prometheus],
+                [t('srcAlertmanager'), ov?.sources?.alertmanager],
+                [t('srcDatabase'), ov?.sources?.database],
+                [t('srcEdge'), ov?.sources?.edge],
               ] as Array<[string, string | undefined]>
             ).map(([name, state]) => (
-              <span
-                key={name}
-                className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
-              >
-                <Dot tone={state === 'up' ? 'ok' : 'bad'} />
-                {name}
-              </span>
+              <Tooltip key={name} content={name}>
+                <span
+                  role="img"
+                  aria-label={name}
+                  className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
+                >
+                  <Dot tone={sourceTone(state)} />
+                  <span className="wb-src-name">{name}</span>
+                </span>
+              </Tooltip>
             ))}
           </div>
 
@@ -1104,7 +1269,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 'flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px]',
                 alertCount === null
                   ? 'border-border bg-muted/60 text-muted-foreground'
-                  : 'border-destructive/30 bg-destructive/10 text-danger-text',
+                  : alertCount > 0
+                    ? 'border-destructive/30 bg-destructive/10 text-danger-text'
+                    : 'border-border bg-muted/60 text-muted-foreground',
               )}
             >
               <Bell className="h-3 w-3" />
@@ -1113,9 +1280,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 : t('alertCount', { count: alertCount })}
             </span>
             <div className="text-right">
-              <div className="wb-num text-[13px] leading-tight font-semibold tabular-nums text-foreground">
-                {fmtClockDigits(now)}
-              </div>
+              <LiveClock />
               <div
                 className={cn(
                   'text-[9px] tracking-[0.2em]',
@@ -1132,6 +1297,24 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 })}
               </div>
             </div>
+            <Tooltip content={dutyMode ? t('exitDutyMode') : t('dutyMode')}>
+              <button
+                type="button"
+                onClick={() => void toggleDutyMode()}
+                aria-pressed={dutyMode}
+                aria-label={dutyMode ? t('exitDutyMode') : t('dutyMode')}
+                className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:bg-muted"
+              >
+                {dutyMode ? (
+                  <Minimize2 className="h-3 w-3" />
+                ) : (
+                  <Maximize2 className="h-3 w-3" />
+                )}
+                <span className="wb-src-name">
+                  {dutyMode ? t('exitDutyMode') : t('dutyMode')}
+                </span>
+              </button>
+            </Tooltip>
             {headerExtra}
           </div>
         </header>
@@ -1151,7 +1334,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               label: t('kpiErrRate'),
               value: typeof http?.errRate === 'number' ? fmtPct(http.errRate * 100, 3) : '—',
               sub: t('errRateWindow'),
-              tone: thresholdTone(http?.errRate, (n) => (n > 0.01 ? 'bad' : 'ok')),
+              tone: thresholdTone(http?.errRate, (n) =>
+                n > 0.01 ? 'bad' : n > 0.001 ? 'warn' : 'ok',
+              ),
             },
             {
               icon: <Clock3 className="h-4 w-4" />,
@@ -1161,7 +1346,16 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               sub: t('kpiApiP95Sub', {
                 value: typeof http?.p95AiMs === 'number' ? fmtInt(http.p95AiMs) : '—',
               }),
-              tone: http === null ? ('unknown' as const) : ('ok' as const),
+              // 延迟是中性读数:正常取前景色,超 500ms 转琥珀、超 1s 转红 —— 原来恒绿,
+              // 绿色在大屏上同时承担「成交/用户/正常」三种含义,异常色反而失去对比。
+              tone:
+                typeof http?.p95ApiMs !== 'number' || !Number.isFinite(http.p95ApiMs)
+                  ? ('unknown' as const)
+                  : http.p95ApiMs >= 1000
+                    ? ('bad' as const)
+                    : http.p95ApiMs >= 500
+                      ? ('warn' as const)
+                      : ('default' as const),
             },
             {
               icon: <Users className="h-4 w-4" />,
@@ -1173,10 +1367,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             {
               icon: <Wallet className="h-4 w-4" />,
               label: t('kpiTurnover'),
-              value: biz ? (biz.ordersTodayAmountCents / 100).toLocaleString(locale) : '—',
+              // 金额 ≥1 万元走紧凑记法(避免 6 位整数把卡片撑破);其余保留至多两位小数。
+              value: biz
+                ? biz.ordersTodayAmountCents >= 1_000_000
+                  ? fmtCompact(biz.ordersTodayAmountCents / 100)
+                  : (biz.ordersTodayAmountCents / 100).toLocaleString(locale, {
+                      maximumFractionDigits: 2,
+                    })
+                : '—',
               unit: t('unitYuan'),
               sub: t('kpiTurnoverSub', { count: fmtInt(biz?.ordersTodayPaid) }),
-              tone: biz ? ('ok' as const) : ('unknown' as const),
+              tone: biz ? ('default' as const) : ('unknown' as const),
             },
             {
               icon: <Sparkles className="h-4 w-4" />,
@@ -1199,11 +1400,15 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   'wb-num mt-1 text-[26px] leading-none font-bold',
                   k.tone === 'bad'
                     ? 'text-danger-text'
-                    : k.tone === 'accent'
-                      ? 'text-info-text'
-                      : k.tone === 'unknown'
-                        ? 'text-muted-foreground'
-                        : 'text-success-text',
+                    : k.tone === 'warn'
+                      ? 'text-warning-text'
+                      : k.tone === 'accent'
+                        ? 'text-info-text'
+                        : k.tone === 'unknown'
+                          ? 'text-muted-foreground'
+                          : k.tone === 'default'
+                            ? 'text-foreground'
+                            : 'text-success-text',
                 )}
               >
                 {k.value}
@@ -1237,7 +1442,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             bodyClassName="overflow-y-auto"
           >
             <div className="relative">
-              <EChart option={gaugeOption} height={150} />
+              <EChart option={gaugeOption} height={150} merge ariaLabel={t('panelHost')} />
               {ov !== undefined && !isNum(host?.cpuPct) && !isNum(host?.memPct) ? (
                 <ChartEmpty text={t('sourceUnreachable')} />
               ) : null}
@@ -1259,7 +1464,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {t('cpuMemTrendTitle')}
               </div>
               <div className="relative">
-                <EChart option={hostTrendOption} height={96} />
+                <EChart option={hostTrendOption} height={96} merge ariaLabel={t('cpuMemTrendTitle')} />
                 {!trend || trend.cpuPct.length === 0 ? (
                   <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noHostTrendData')} />
                 ) : null}
@@ -1294,6 +1499,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 </div>
               ))}
+              {host !== null && ov !== undefined && (host.disks ?? []).length === 0 ? (
+                <div className="py-1 text-[10px] text-muted-foreground">{t('noDiskData')}</div>
+              ) : null}
             </div>
           </Panel>
 
@@ -1314,7 +1522,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <SourceGap text={t('sourceUnreachable')} />
               )
             }
-            bodyClassName="max-h-[540px] overflow-y-auto"
+            bodyClassName="flex max-h-[540px] flex-col overflow-y-auto"
           >
             <div className="space-y-1">
               {ov !== undefined && services === null ? (
@@ -1364,7 +1572,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </div>
               ))}
             </div>
-            <div className="mt-4">
+            <div className="mt-auto pt-4">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('scrapeTargets', {
                   up: services ? String(services.targetsUp) : '—',
@@ -1395,7 +1603,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTraffic')}
             icon={<Radio className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-flow-first"
             right={
               <span className="flex items-center gap-2">
                 {no5xxBadge}
@@ -1411,7 +1619,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             bodyClassName="flex flex-col gap-2"
           >
             <div className="relative min-h-[220px] flex-1">
-              <EChart option={trendOption} height="100%" />
+              <EChart option={trendOption} height="100%" merge ariaLabel={t('panelTraffic')} />
               {!trend || trend.qps.length === 0 ? (
                 <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noTrendData')} />
               ) : null}
@@ -1443,7 +1651,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <StatCell
                 label={t('apiErrRateLabel')}
                 value={typeof biz?.apiErrRate === 'number' ? fmtPct(biz.apiErrRate, 2) : '—'}
-                tone={thresholdTone(biz?.apiErrRate, (n) => (n > 5 ? 'bad' : 'ok'))}
+                tone={thresholdTone(biz?.apiErrRate, (n) =>
+                  n > 5 ? 'bad' : n > 1 ? 'warn' : 'ok',
+                )}
               />
             </div>
           </Panel>
@@ -1452,11 +1662,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelQuality')}
             icon={<Gauge className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-c3-md order-1"
             bodyClassName="flex flex-col gap-1"
           >
             <div className="relative">
-              <EChart option={statusOption} height={172} />
+              <EChart option={statusOption} height={172} merge ariaLabel={t('panelQuality')} />
               {!http || http.statusRates.length === 0 ? (
                 <ChartEmpty
                   text={ov !== undefined && !http ? t('sourceUnreachable') : t('noStatusData')}
@@ -1467,7 +1677,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               {t('hourlyTitle')}
             </div>
             <div className="relative">
-              <EChart option={hourlyOption} height={116} />
+              <EChart option={hourlyOption} height={116} merge ariaLabel={t('hourlyTitle')} />
               {trendError ? (
                 <ChartEmpty text={t('trendLoadFailed')} />
               ) : trend && trend.hourlyCalls.length === 0 ? (
@@ -1475,7 +1685,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                    全零柱渲染成「今日无流量」(§0.3) */
                 <ChartEmpty
                   text={
-                    ov?.sources.database === 'down' ? t('sourceUnreachable') : t('noCallsToday')
+                    ov?.sources?.database === 'down' ? t('sourceUnreachable') : t('noCallsToday')
                   }
                 />
               ) : null}
@@ -1486,10 +1696,19 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelAlerts')}
             icon={<AlertTriangle className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-c3-md order-1"
             right={
               <span className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                <span>
+                <span className="flex items-center gap-1">
+                  <Dot
+                    tone={
+                      isUnset(bridge?.mailUndelivered)
+                        ? 'unknown'
+                        : bridge.mailUndelivered
+                          ? 'bad'
+                          : 'ok'
+                    }
+                  />
                   {isUnset(bridge?.mailUndelivered)
                     ? t('statusUnknown')
                     : bridge.mailUndelivered === false
@@ -1509,7 +1728,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {(alerts?.promActive ?? []).slice(0, 5).map((a, i) => (
                   <div
                     key={`${a.name}-${i}`}
-                    className="rounded-md border border-destructive/25 bg-destructive/[0.08] px-2 py-1.5"
+                    className="rounded-md border border-destructive/25 bg-destructive/[0.08] px-2 py-1.5 transition-colors hover:bg-destructive/[0.12]"
                   >
                     <div className="flex items-center gap-1.5">
                       <Dot tone={a.severity === 'critical' ? 'bad' : 'warn'} />
@@ -1535,12 +1754,21 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       </span>
                     </div>
                     {a.summary ? (
-                      <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                        {a.summary}
-                      </div>
+                      <Tooltip content={a.summary}>
+                        <div className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                          {a.summary}
+                        </div>
+                      </Tooltip>
                     ) : null}
                   </div>
                 ))}
+                {(alerts?.promActiveCount ?? alerts?.promActive?.length ?? 0) > 5 ? (
+                  <div className="px-2 py-1 text-center text-[10px] text-muted-foreground">
+                    {t('moreActiveAlerts', {
+                      count: (alerts?.promActiveCount ?? alerts?.promActive?.length ?? 0) - 5,
+                    })}
+                  </div>
+                ) : null}
                 {alerts?.promActiveCount === 0 ? (
                   <div className="rounded-md border border-success/20 bg-success/[0.06] px-2 py-3 text-center text-[11px] text-success-text/90">
                     {t('noActiveAlerts')}
@@ -1559,7 +1787,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {(alerts?.recent ?? []).slice(0, 4).map((a, i) => (
                   <div
                     key={`${a.name}-${i}`}
-                    className="rounded-md border border-transparent bg-muted/50 px-2 py-1"
+                    className="rounded-md border border-transparent bg-muted/50 px-2 py-1 transition-colors hover:bg-muted"
                   >
                     <div className="flex items-center gap-1.5 text-[10px]">
                       <Dot tone={a.status === 'firing' ? 'bad' : 'ok'} />
@@ -1591,11 +1819,18 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                           {t('resolvedAgo', { ago: fmtAgo(a.resolvedAt) })}
                         </span>
                       ) : a.message ? (
-                        <span className="truncate">{a.message}</span>
+                        <Tooltip content={a.message}>
+                          <span className="truncate">{a.message}</span>
+                        </Tooltip>
                       ) : null}
                     </div>
                   </div>
                 ))}
+                {(alerts?.recent.length ?? 0) > 4 ? (
+                  <div className="px-2 py-1 text-center text-[10px] text-muted-foreground">
+                    {t('moreRecentAlerts', { count: (alerts?.recent.length ?? 0) - 4 })}
+                  </div>
+                ) : null}
                 {alerts === null ? (
                   <div className="flex justify-center rounded-md border border-border bg-muted/50 px-2 py-3">
                     <SourceGap text={t('sourceUnreachable')} />
@@ -1615,7 +1850,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {(events ?? []).map((e, i) => (
                   <div
                     key={`${e.createdAt}-${i}`}
-                    className="rounded-md border border-transparent bg-muted/50 px-2 py-1.5"
+                    className="rounded-md border border-transparent bg-muted/50 px-2 py-1.5 transition-colors hover:bg-muted"
                   >
                     <div className="flex items-center gap-1.5">
                       <Dot
@@ -1634,9 +1869,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         {fmtClock(e.createdAt)}
                       </span>
                     </div>
-                    <div className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
-                      {e.message}
-                    </div>
+                    <Tooltip content={e.message}>
+                      <div className="mt-0.5 line-clamp-2 text-[10px] text-muted-foreground">
+                        {e.message}
+                      </div>
+                    </Tooltip>
                   </div>
                 ))}
                 {events === null ? (
@@ -1656,7 +1893,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelDatastore')}
             icon={<Database className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 order-1"
             bodyClassName="flex flex-col gap-2"
           >
             <div>
@@ -1695,7 +1932,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </span>
                 )}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-6 grid gap-1.5">
                 <StatCell label={t('redisClients')} value={fmtInt(redis?.clients)} tone="accent" />
                 <StatCell label={t('redisKeys')} value={fmtInt(redis?.keys)} />
                 <StatCell
@@ -1711,8 +1948,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               </div>
             </div>
             <div>
-              <div className="mb-1 text-[10px] tracking-[0.14em] text-muted-foreground">
-                {t('llmBridge')}
+              <div className="mb-1 flex items-center justify-between text-[10px] tracking-[0.14em] text-muted-foreground">
+                <span>{t('llmBridge')}</span>
+                {biz === null && ov !== undefined ? (
+                  <SourceGap text={t('sourceUnreachable')} />
+                ) : null}
               </div>
               <div className="wb-cells grid gap-1.5">
                 <StatCell
@@ -1723,7 +1963,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <StatCell
                   label={t('llmErrRate')}
                   value={biz ? fmtPct(biz.llmErrRate, 2) : '—'}
-                  tone={thresholdTone(biz?.llmErrRate, (n) => (n > 5 ? 'bad' : 'ok'))}
+                  tone={thresholdTone(biz?.llmErrRate, (n) =>
+                    n > 5 ? 'bad' : n > 1 ? 'warn' : 'ok',
+                  )}
                 />
                 <StatCell
                   label={t('llmP95')}
@@ -1749,7 +1991,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelBusiness')}
             icon={<Wallet className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-business-early"
             bodyClassName="wb-split overflow-y-auto"
           >
             <div>
@@ -1828,7 +2070,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <div className="mb-0.5 text-[9px] tracking-[0.12em] text-muted-foreground">
                     {t('signIn7d')}
                   </div>
-                  <EChart option={signInOption} height={62} />
+                  <EChart option={signInOption} height={62} merge ariaLabel={t('signIn7d')} />
                   {!biz?.signIn || biz.signIn.last7d.length === 0 ? (
                     <ChartEmpty text={biz?.signIn ? t('noSignIn7d') : t('sourceUnreachable')} />
                   ) : null}
@@ -1840,7 +2082,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {t('topModels')}
               </div>
               <div className="relative">
-                <EChart option={modelOption} height={148} />
+                <EChart option={modelOption} height={148} merge ariaLabel={t('topModels')} />
                 {!biz || biz.llmTopModels.length === 0 ? (
                   <ChartEmpty
                     text={ov !== undefined && !biz ? t('sourceUnreachable') : t('noModelCalls')}
@@ -1879,7 +2121,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelEdge')}
             icon={<Globe className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-c3-md order-1"
             right={
               edge ? (
                 <span className="text-[10px] text-muted-foreground">
@@ -1944,7 +2186,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                   </div>
                 </div>
-                <div className="wb-cells grid gap-2">
+                <div className="wb-cells wb-cells-4 grid gap-2">
                   <StatCell
                     label={t('edgeStatP50')}
                     value={isNum(edge.stats.p50Ms) ? fmtInt(edge.stats.p50Ms) : '—'}
@@ -2017,7 +2259,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     {t('edgeSparkTitle')}
                   </div>
                   <div className="relative">
-                    <EChart option={edgeOption} height={116} />
+                    <EChart option={edgeOption} height={116} merge ariaLabel={t('panelEdge')} />
                     {edge.series.length === 0 ? <ChartEmpty text={t('edgeNoSeries')} /> : null}
                   </div>
                 </div>
@@ -2029,7 +2271,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelTrafficRobot')}
             icon={<Users className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-c3-md order-1"
             right={
               traffic === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2042,7 +2284,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             bodyClassName="wb-split"
           >
             <div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-6 grid gap-1.5">
                 <StatCell
                   label={t('pv24h')}
                   value={fmtInt(traffic?.pv24h)}
@@ -2116,7 +2358,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelRelayPool')}
             icon={<Sparkles className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-c3-md order-1"
             right={
               relayPool === null ? (
                 <SourceGap text={t('sourceUnreachable')} />
@@ -2214,7 +2456,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           <Panel
             title={t('panelUptime')}
             icon={<Clock3 className="h-3.5 w-3.5" />}
-            className="wb-c6"
+            className="wb-c6 wb-c3-md order-1"
             right={http === null ? <SourceGap text={t('sourceUnreachable')} /> : null}
             bodyClassName="max-h-[320px] overflow-y-auto"
           >
@@ -2240,16 +2482,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           </Panel>
         </section>
 
-        <footer className="flex items-center justify-between px-5 pt-1 pb-2 text-[10px] text-muted-foreground">
+        <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 pt-1 pb-2 text-[10px] text-muted-foreground">
           <span>{t('footerSources', { url: ov?.prometheusUrl ?? '—' })}</span>
-          <span className="wb-num">
-            {t('footerUptime', {
-              list:
-                (http?.uptimeSeconds ?? [])
-                  .map((u) => `${u.job} ${fmtDuration(u.seconds)}`)
-                  .join('  |  ') || '—',
-            })}
-          </span>
         </footer>
       </div>
     </TooltipProvider>
@@ -2316,11 +2550,23 @@ const WALLBOARD_CSS = `
 /* 均匀列网格:列数由容器宽决定,不再用视口断点(实测容器宽与视口不同步)。
  * 104 = 实测最大标签需求 99px + 余量;135 = 反算自原设计(容器 914 时 6 栏、gap 10 ⇒ 6×135+5×10=860≤882)。
  * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。 */
-.wb-cells { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+.wb-cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+/* 6 格一组(Redis / 访客):auto-fit 在半宽面板里只能排 5 列 ⇒ 第 6 格单独一行。
+ * 这里固定 3 列 ×2 行(总行数与 5+1 相同,但不再出现孤格);<480 落 2 列。 */
+.wb-cells-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@container (max-width: 479px) { .wb-cells-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 4 格组(边缘分位):窄面板下 auto-fit 会排成 3+1,孤格单独一行;固定 2×2。 */
+@container (max-width: 479px) { .wb-cells-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wb-cells-lg { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
+/* KPI 带按容器宽分档:1440 视口下容器 ~786px,auto-fit(135) 只排 5 列,第 6 张会单独
+ * 占一行的 1/5(实测 2026-10-24)。≥900 六列一行、600–899 三列两行、<600 两列。 */
+@container (min-width: 900px) { .wb-cells-lg { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@container (min-width: 600px) and (max-width: 899px) { .wb-cells-lg { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@container (max-width: 599px) { .wb-cells-lg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .wb-hdr-title h1, .wb-hdr-title p, .wb-hdr-status, .wb-hdr-sources { white-space: nowrap; }
 @container (max-width: 996px) {
-  .wb-hdr-sources { display: none; }
+  /* 窄容器只收掉文字、保留四个状态点(悬停 Tooltip 给全名),不再整块隐藏数据源 */
+  .wb-src-name { display: none; }
 }
 /* .wb-scroll-host 的 container-type 已迁 app/globals.css(与 .ai-input-toolbar/.account-card 同族);
  * 它原本住在这里 ⇒ 只在 wallboard 视图挂载,面板视图没有容器,@container 会退回按视口判定。
@@ -2333,11 +2579,13 @@ const WALLBOARD_CSS = `
  * 面板内部的两栏(告警/业务)也按面板自身宽度判定(.wb-panel 是容器),不再按视口 md:。 */
 .wb-panel { container-type: inline-size; }
 .wb-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+/* 首屏编排(全宽度生效):流量趋势与业务数据先读,主机/服务、质量/告警顺次后移。
+ * 1920 下一行刚好是流量 6 + 业务 6,首屏即可读完这两块;负 order 只改视觉顺序,
+ * DOM 顺序不变(读屏仍按 DOM 读,视觉优先是大屏的既定取舍)。 */
+.wb-flow-first { order: -2; }
+.wb-business-early { order: -1; }
 .wb-c3 { grid-column: span 3; }
-.wb-c4 { grid-column: span 4; }
-.wb-c5 { grid-column: span 5; }
 .wb-c6 { grid-column: span 6; }
-.wb-c7 { grid-column: span 7; }
 .wb-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -2345,8 +2593,16 @@ const WALLBOARD_CSS = `
 }
 @container (max-width: 1149px) {
   .wb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .wb-c3, .wb-c4, .wb-c5 { grid-column: span 3; }
-  .wb-c6, .wb-c7 { grid-column: span 6; }
+  .wb-c3 { grid-column: span 3; }
+  .wb-c6 { grid-column: span 6; }
+  /* 620–1149 档:这几块内容在 ~370px 半宽里仍可读,两两配对后整页从 4.3 屏压到 ~3.5 屏
+   * (质量+告警 / 边缘+访客 / 号池+运行时长)。≥1150 保持全宽,大屏宽度足够时不压缩。 */
+  .wb-c3-md { grid-column: span 3; }
+}
+/* 620–699:两栏各只剩 ~300px,主机仪表/服务列表会被压成逐字换行 ⇒ 退回单列。
+ * 只在这一段生效(≤619 已是单列网格,再给 span 6 会造出隐式列)。 */
+@container (min-width: 620px) and (max-width: 699px) {
+  .wb-c3, .wb-c3-md, .wb-c6 { grid-column: span 6; }
 }
 @container (max-width: 619px) {
   .wb-grid { grid-template-columns: minmax(0, 1fr); }
@@ -2369,11 +2625,18 @@ const WALLBOARD_CSS = `
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }
 }
-.wb-root ::-webkit-scrollbar { width: 6px; height: 6px; }
-.wb-root ::-webkit-scrollbar-thumb {
+/* 大屏的纵向滚动发生在承载它的 .wb-scroll-host 上(它是 .wb-root 的祖先,不在射程内),
+ * 原来只写 .wb-root ::-webkit-scrollbar ⇒ 外层滚动条一直是系统默认宽度/配色。
+ * 这里把宿主机一并纳入同一档;面板内部滚动条仍由 .wb-root 那条负责。 */
+.wb-scroll-host {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 55%, transparent) transparent;
+}
+.wb-root ::-webkit-scrollbar, .wb-scroll-host::-webkit-scrollbar { width: 6px; height: 6px; }
+.wb-root ::-webkit-scrollbar-thumb, .wb-scroll-host::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--color-muted-foreground) 55%, transparent);
   border-radius: var(--radius-xs);
 }
-.wb-root ::-webkit-scrollbar-track { background: transparent; }
+.wb-root ::-webkit-scrollbar-track, .wb-scroll-host::-webkit-scrollbar-track { background: transparent; }
 `
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -19,6 +19,7 @@ import type { TFunction } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
 
 /** AI 世界 Tab key(工具/应用/资讯/榜单) */
@@ -155,8 +156,8 @@ export function AiWorldScreen({
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <Text style={styles.errorText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -204,12 +205,12 @@ export function AiWorldScreen({
       </View>
 
       {error ? (
-        <View style={styles.errorWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
-            <Text style={styles.retryText}>{t('common.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       ) : tab === 'rankings' ? (
         <View style={styles.pane}>
           {/* leaderboard 横向 chips */}
@@ -250,12 +251,12 @@ export function AiWorldScreen({
             ) : null}
           </View>
           {rankError ? (
-            <View style={styles.errorWrap}>
-              <Text style={styles.errorText}>{rankError}</Text>
-              <TouchableOpacity style={styles.retryBtn} onPress={onRetryRankings}>
-                <Text style={styles.retryText}>{t('common.retry')}</Text>
-              </TouchableOpacity>
-            </View>
+            <ErrorState
+              message={rankError}
+              onRetry={onRetryRankings}
+              retryLabel={t('common.retry')}
+              colorScheme={colorScheme}
+            />
           ) : (
             <FlatList
               data={rankings}
@@ -269,9 +270,7 @@ export function AiWorldScreen({
               }
               ListEmptyComponent={
                 rankLoading ? null : (
-                  <View style={styles.empty}>
-                    <Text style={styles.emptyText}>{t('aiWorld.rankEmpty')}</Text>
-                  </View>
+                  <EmptyState title={t('aiWorld.rankEmpty')} colorScheme={colorScheme} />
                 )
               }
               contentContainerStyle={styles.listContent}
@@ -330,10 +329,11 @@ export function AiWorldScreen({
             }
             ListEmptyComponent={
               filterLoading ? null : (
-                <View style={styles.empty}>
-                  <Text style={styles.emptyText}>{t('aiWorld.empty')}</Text>
-                  <Text style={styles.emptyHint}>{t('aiWorld.emptyHint')}</Text>
-                </View>
+                <EmptyState
+                  title={t('aiWorld.empty')}
+                  desc={t('aiWorld.emptyHint')}
+                  colorScheme={colorScheme}
+                />
               )
             }
             contentContainerStyle={styles.listContent}
@@ -463,12 +463,6 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
     },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-    },
     pane: {
       flex: 1,
     },
@@ -575,19 +569,6 @@ function createStyles(tk: AppThemeTokens) {
     /* 列表 */
     listContent: {
       padding: 16,
-    },
-    empty: {
-      alignItems: 'center',
-      paddingVertical: 64,
-    },
-    emptyText: {
-      fontSize: 14,
-      color: tk.text.secondary,
-    },
-    emptyHint: {
-      marginTop: 4,
-      fontSize: 12,
-      color: tk.text.tertiary,
     },
     /* 条目卡片 */
     entryCard: {
@@ -707,29 +688,6 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 2,
       fontSize: 11,
       color: tk.text.tertiary,
-    },
-    /* 错误/重试 */
-    errorWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-    },
-    errorText: {
-      marginBottom: 12,
-      textAlign: 'center',
-      fontSize: 14,
-      color: tk.text.secondary,
-    },
-    retryBtn: {
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.surface.muted,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-    },
-    retryText: {
-      fontSize: 14,
-      color: tk.text.primary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

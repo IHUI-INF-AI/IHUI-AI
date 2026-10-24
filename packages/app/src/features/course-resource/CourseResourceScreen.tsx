@@ -4,10 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, FlatList, RefreshControl, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseResourceItem, CourseResourceScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 课程资源共享屏 — props 注入式跨端组件 */
 export type { CourseResourceItem, CourseResourceScreenProps }
@@ -41,10 +42,7 @@ export function CourseResourceScreen({
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<CourseResourceItem>
           data={items}
@@ -53,9 +51,7 @@ export function CourseResourceScreen({
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('courseResource.empty')}</Text>
-            </View>
+            <EmptyState title={t('courseResource.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
@@ -89,8 +85,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     error: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
     separator: { height: 12 },
     card: {

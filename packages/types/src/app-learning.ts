@@ -654,10 +654,17 @@ export interface ExamQuestionScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
+/**
+ * 开发者套餐三型(2026-10-23 起**无消费方**):原 `packages/app` 那份 DeveloperScreen 是
+ * 「套餐开通订阅页」,该语义已由 `features/dev-enter-cover/DevEnterCoverScreen.tsx` 承接,
+ * 本屏恢复为「开发者空间页」⇒ 下面 DeveloperScreenProps 不再引用这三型。
+ * 名字留着是因为 `packages/app/src/index.ts` 的对外 re-export 面仍点名它们(该文件由发起人
+ * 统一维护,不在本屏改动范围内);摘除须与那份 re-export 同批走。
+ */
 /** 开发者套餐类型 */
 export type DeveloperPlanType = 'month' | 'year'
 
-/** 开发者套餐条目(平台注入,字段对齐 mobile-rn DeveloperScreen PayPlan) */
+/** 开发者套餐条目 */
 export interface DeveloperPlan {
   type: DeveloperPlanType
   label: string
@@ -672,19 +679,57 @@ export interface DeveloperFeature {
   desc: string
 }
 
-/** DeveloperScreen props(平台无关,wrapper 注入数据+回调) */
+/** 开发者申请信息(数据源 developer_applications;无申请记录时整块不渲染) */
+export interface DeveloperSpaceApplication {
+  name: string
+  description: string
+  /** 审核状态码:1 = 已通过,2 = 已拒绝,其余 = 待审核 */
+  status: number
+}
+
+/**
+ * 开发者空间页的信息卡数据(平台注入,由 GET /api/developer/dev-info 单次聚合派生)。
+ * 只给**原料**不给成品文案:取词与占位由共享屏按 i18n 键做,日期格式化由端侧做
+ * (Intl.DateTimeFormat 需要本端 locale)。
+ */
+export interface DeveloperSpaceInfo {
+  application: DeveloperSpaceApplication | null
+  /** 账号(邮箱 → 手机 → 昵称 → 用户名 逐级兜底后的结果);空串 ⇒ 该行显示占位 */
+  account: string
+  apiKeyCount: number
+  /** 可复制的公开密钥标识(明文 secret 后端只在创建时返回一次);null ⇒ 不出复制钮 */
+  copyableApiKey: string | null
+  /** developer_applications.website;空串 ⇒ 显示占位 */
+  website: string
+  /** 到期时间(端侧已格式化的日期文案);null ⇒ 显示占位 */
+  expiry: string | null
+}
+
+/** 四个功能入口的分派键(与 @ihui/shared/constants/developer-space 同集合) */
+export type DeveloperSpaceEntryId = 'myAgents' | 'agentIncome' | 'n8nModel' | 'businessCard'
+
+/**
+ * DeveloperScreen props(平台无关,wrapper 注入数据+回调)
+ *
+ * 2026-10-23 换形:本屏的真实语义是「开发者空间页」(头部用户卡 + 开发者信息 + 四入口 +
+ * 问题解答卡),不是套餐订阅页;三处现状里最完整的一份住在 mobile-rn,共享层这次收为真相源。
+ */
 export interface DeveloperScreenProps {
   t: TFunction
-  features: DeveloperFeature[]
-  plans: DeveloperPlan[]
-  selected: DeveloperPlanType
-  loading: boolean
-  refreshing: boolean
-  error: string
-  submitting: boolean
-  onSelectChange: (type: DeveloperPlanType) => void
-  onRefresh: () => void
-  onSubmit: () => void
+  /** 用户头像 URL;空串 ⇒ 共享屏回落 DEVELOPER_DEFAULT_LOGO_URL */
+  avatarUrl: string
+  /** 昵称/用户名,未登录时由端侧传入已取词的「未登录」 */
+  displayName: string
+  /** 有有效订阅 ⇒ 头部 CTA 取「续费」,否则取「成为开发者」 */
+  subscribed: boolean
+  /** null ⇒ 未加载完或无有效订阅 ⇒ 不渲染开发者信息卡 */
+  info: DeveloperSpaceInfo | null
+  onBecomeDeveloper: () => void
+  onRenew: () => void
+  onCopyApiKey: (apiKey: string) => void
+  onEntryPress: (id: DeveloperSpaceEntryId) => void
+  onProblemPress: (url: string) => void
+  onContactService: () => void
   colorScheme?: 'light' | 'dark'
 }
 

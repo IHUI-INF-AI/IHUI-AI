@@ -9,6 +9,7 @@ import { View, Text, Switch, TouchableOpacity, Modal, StyleSheet, ScrollView } f
 import { Check, ChevronRight } from 'lucide-react-native'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { PressableCard } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
 
 type NotifKey = keyof SharedNotificationToggles
@@ -103,7 +104,7 @@ export function SettingsScreen({
           此前是裸 View,在手机上"账号"分区及其下全部内容被裁掉且滚不到(实测滚动手势零响应)。 */}
       <ScrollView style={styles.bodyScroll} contentContainerStyle={styles.body}>
         {user && onEditProfile ? (
-          <TouchableOpacity style={styles.userCard} onPress={onEditProfile}>
+          <PressableCard style={styles.userCard} onPress={onEditProfile}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>{user.nickname?.charAt(0).toUpperCase() || 'U'}</Text>
             </View>
@@ -112,7 +113,7 @@ export function SettingsScreen({
               <Text style={styles.subText}>{t('profile.editProfile')}</Text>
             </View>
             <ChevronRight size={20} color={tk.text.tertiary} />
-          </TouchableOpacity>
+          </PressableCard>
         ) : null}
 
         <Section title={t('settings.language')} styles={styles}>
@@ -378,7 +379,12 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       justifyContent: 'center',
       padding: 24,
     },
-    modalCard: { backgroundColor: tk.surface.bg, borderRadius: rnRadiusFor.panel, padding: 14, gap: 10 },
+    modalCard: {
+      backgroundColor: tk.surface.bg,
+      borderRadius: rnRadiusFor.panel,
+      padding: 14,
+      gap: 10,
+    },
     modalTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 4 },
     pwdInput: {
       borderWidth: 1,

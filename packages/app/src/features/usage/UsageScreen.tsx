@@ -3,20 +3,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { BarChart3, Gauge, Zap } from 'lucide-react-native'
 import { rnRadius } from '@ihui/design-tokens'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * UsageScreen — 跨端共享「Token 用量统计屏」(门 39 六屏共享化第一批)。
@@ -120,21 +114,14 @@ export function UsageScreen({
 
       <ScrollView contentContainerStyle={styles.body}>
         {loading ? (
-          <View style={styles.card}>
-            <ActivityIndicator style={styles.loading} color={tk.text.tertiary} />
-          </View>
+          <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
         ) : error ? (
-          <View style={styles.card}>
-            <Text style={styles.error}>{error}</Text>
-            <TouchableOpacity
-              style={styles.outlineButton}
-              onPress={onRetry}
-              accessibilityRole="button"
-              accessibilityLabel={t('usage.retry')}
-            >
-              <Text style={styles.outlineText}>{t('usage.retry')}</Text>
-            </TouchableOpacity>
-          </View>
+          <ErrorState
+            message={error}
+            onRetry={onRetry}
+            retryLabel={t('usage.retry')}
+            colorScheme={colorScheme}
+          />
         ) : (
           <>
             <View style={styles.card}>
@@ -289,8 +276,6 @@ function createStyles(tk: AppThemeTokens) {
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     meta: { fontSize: 12, color: tk.text.tertiary },
     muted: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
-    error: { fontSize: 13, color: tk.danger.DEFAULT },
-    loading: { paddingVertical: 24 },
     quotaRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
     quotaCell: { flex: 1, gap: 2 },
     metric: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
@@ -322,17 +307,6 @@ function createStyles(tk: AppThemeTokens) {
     modelRow: { gap: 3 },
     modelHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     modelName: { flex: 1, fontSize: 12, color: tk.text.primary },
-    outlineButton: {
-      height: 36,
-      paddingHorizontal: 16,
-      borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tk.border.medium,
-      alignItems: 'center',
-      justifyContent: 'center',
-      alignSelf: 'flex-start',
-    },
-    outlineText: { fontSize: 14, color: tk.text.primary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

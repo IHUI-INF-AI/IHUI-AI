@@ -25,11 +25,21 @@ vi.mock('react-native', () => {
       return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
     }
   return {
+    // 共享返回键的核心会按字体缩放取档(packages/shared/src/ui/back-chevron-core → useFontMultiplier)
+    PixelRatio: {
+      getFontScale: () => 1,
+      getPixelSizeForLayoutSize: (n: number) => n,
+      roundToNearestPixel: (n: number) => n,
+    },
     // 主题单例在模块求值期调 Appearance.getColorScheme(),缺它整份文件一条用例都不跑
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
+    // 薄壳接 useTheme() 后走的是 ThemeContext,它按 useColorScheme 解析 'system' ⇒ 替身必须给这个钩子
+    useColorScheme: () => 'light',
     View: mk('div'),
     Text: mk('span'),
     ScrollView: mk('div'),
+    // 共享屏的页头返回键走 packages/app BackChevron,它用的是 Pressable(不是 TouchableOpacity)
+    Pressable: mk('button'),
     TouchableOpacity: mk('button'),
     StyleSheet: { create: <T extends object>(s: T) => s, flatten: (s: unknown) => s },
     Platform: { OS: 'web', select: (o: Record<string, unknown>) => o.web ?? o.ios },
@@ -53,6 +63,8 @@ vi.mock('lucide-react-native', () => {
     [
       'BookOpen',
       'ChevronRight',
+      // packages/app 的 BackChevron 用 ChevronLeft —— 薄壳接共享屏后本页会渲染到它
+      'ChevronLeft',
       'Rocket',
       'Sparkles',
       'Globe',
@@ -142,7 +154,7 @@ describe('AboutScreen 渲染与跳转', () => {
     expect(r2.container.textContent).toMatch(/\b(?:about|menu)\.[A-Za-z][\w.]*/)
   })
 
-  it('7 条合规入口逐条跳到已注册屏', () => {
+  it('10 条合规/帮助入口逐条跳到已注册屏(条目与顺序由共享分段表 ABOUT_ENTRY_IDS 定)', () => {
     renderScreen()
     const rows: Array<[string, string]> = [
       ['menu.agreement', 'Agreement'],
@@ -152,6 +164,9 @@ describe('AboutScreen 渲染与跳转', () => {
       ['menu.businessLicense', 'BusinessLicense'],
       ['menu.icpRecord', 'IcpRecord'],
       ['menu.modelRecord', 'ModelRecord'],
+      ['menu.apiSettings', 'ApiSettings'],
+      ['help.title', 'Help'],
+      ['customerService.title', 'CustomerService'],
     ]
     for (const [key, target] of rows) {
       fireEvent.click(screen.getByText(val(key)))

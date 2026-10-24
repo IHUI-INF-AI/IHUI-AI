@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 对齐目标(RN 共享屏): packages/app/src/features/learn-develop/LearnDevelopScreen.tsx
 import { aizhsUrl } from '@/constants/icon-urls'
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
@@ -16,6 +17,12 @@ const rankoneIcon = aizhsUrl('remote-images/rankone.png')
 const useNumIcon = aizhsUrl('remote-images/useNum.png')
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '@/components/ScreenStates.taro'
 
 // chuangke.png 已外置到 CDN(与 src/assets/remote/images/chuangke.png 字节一致),
 // 通过 aizhsUrl 运行时加载,不再复制进主包。
@@ -155,27 +162,18 @@ export default function LearnDevelop() {
             </Text>
           </View>
           {loading && courseList.length === 0 ? (
-            <Text className="block text-center text-muted-foreground py-[80rpx]">
-              {t('common.loading')}
-            </Text>
+            <ScreenSkeleton variant="list" count={4} />
           ) : error && courseList.length === 0 ? (
-            <View className="flex flex-col items-center py-[40rpx]">
-              <Text className="block text-center text-muted-foreground py-[40rpx]">
-                {tt('learnDevelop.loadFailed', '加载失败')}
-              </Text>
-              <Text
-                className="inline-block mt-[24rpx] py-[16rpx] px-[48rpx] bg-cta text-cta-foreground text-center rounded-md text-[length:28rpx]"
-                onClick={loadData}
-              >
-                {t('common.retry')}
-              </Text>
-            </View>
+            <ErrorState
+              message={tt('learnDevelop.loadFailed', '加载失败')}
+              onRetry={loadData}
+              retryLabel={t('common.retry')}
+            />
           ) : courseList.length > 0 ? (
             courseList.map((item) => (
-              <View
+              <PressableCard
                 key={item.id}
                 className="flex bg-card rounded-lg border border-border overflow-hidden mb-[16rpx]"
-                hoverClass="opacity-60"
                 onClick={() => onItemClick(item.id)}
               >
                 {item.coverUrl ? (
@@ -208,18 +206,15 @@ export default function LearnDevelop() {
                     </Text>
                   ) : null}
                 </View>
-              </View>
+              </PressableCard>
             ))
           ) : (
-            <Text className="block text-center text-muted-foreground py-[40rpx]">
-              {t('learnDevelop.empty')}
-            </Text>
+            <EmptyState title={t('learnDevelop.empty')} />
           )}
 
           {/* 学习排行榜入口(RN 无对应区,保留业务;卡片语言同上) */}
-          <View
+          <PressableCard
             className="flex items-center justify-between p-[28rpx] bg-card rounded-lg border border-border mt-[24rpx]"
-            hoverClass="opacity-60"
             onClick={onGoRank}
           >
             <View className="flex items-center">
@@ -233,7 +228,7 @@ export default function LearnDevelop() {
               </Text>
             </View>
             <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
-          </View>
+          </PressableCard>
         </View>
       </View>
     </ThemeRoot>

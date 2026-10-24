@@ -36,6 +36,7 @@ import {
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** VIP 操盘手统计项(由 wrapper 从 CommissionOverview 构建) */
 export interface VipTraderStat {
@@ -147,21 +148,26 @@ export function VipTraderScreen({
         </Text>
       </View>
 
-      <View style={styles.statCard}>
-        {loading ? (
-          <Text style={styles.statHint}>{t('common.loading')}</Text>
-        ) : error ? (
-          <Text style={styles.statHint}>{error}</Text>
-        ) : (
-          stats.map((it) => (
+      {loading ? (
+        <ScreenSkeleton variant="grid" count={4} colorScheme={colorScheme} />
+      ) : error ? (
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : (
+        <View style={styles.statCard}>
+          {stats.map((it) => (
             <View key={it.label} style={styles.statCol}>
               <Text style={styles.statLabel}>{it.label}</Text>
               <Text style={styles.statValue}>{it.value}</Text>
               <Text style={styles.statTrend}>{it.trend}</Text>
             </View>
-          ))
-        )}
-      </View>
+          ))}
+        </View>
+      )}
 
       <View style={styles.entryRow}>
         <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
@@ -254,13 +260,6 @@ function createStyles(tk: AppThemeTokens) {
     statLabel: { fontSize: 11, color: tk.text.secondary },
     statValue: { marginTop: 8, fontSize: 18, fontWeight: '700', color: tk.text.primary },
     statTrend: { marginTop: 8, fontSize: 11, color: tk.brand.DEFAULT },
-    statHint: {
-      width: '100%',
-      paddingVertical: 16,
-      fontSize: 14,
-      color: tk.text.tertiary,
-      textAlign: 'center',
-    },
     entryRow: { marginHorizontal: 16, marginTop: 12, flexDirection: 'row' },
     entryBtn: {
       flex: 1,

@@ -2,129 +2,47 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * CarteScreen 社群宣传卡页(mobile-rn 端)
- *
- * 对齐历史项目 pagesA/carte/index.vue(82 行纯静态宣传卡,无 JS 逻辑):
- * - 白底全屏(type-container background #fff)
- * - 顶部渐变卡(type-bottom-top,#f4f4fb → #9395e4,上圆角 30rpx):
- *   头像(100rpx) + 「AI智汇社 | 私董会创始人 | 李总」(34rpx bold black) + 「为您推荐」
- * - 棕色介绍文字(32rpx bold):扫描二维码免费进智汇社社群
- * - 社群二维码(ewm@2x.png,380rpx)
- * - 购买按钮在原页面为注释状态,不复刻
- *
- * 注:历史版本曾把本路由误实现为「创作者名片」(getAgents/getProfile)——本路由
- * 语义为社群宣传卡,已按用户确认「跟原来一样」恢复对齐原项目。
- */
-import {
-  Image,
-  StyleSheet,
-  Text,
-  View,
-  type ImageStyle,
-  type TextStyle,
-  type ViewStyle,
-} from 'react-native'
-import { rpx } from '../utils/rpx'
-import { tokens } from '../theme/active-tokens'
-import { rnRadius } from '@ihui/design-tokens'
+import { CarteScreen as SharedCarteScreen } from '@ihui/rn-app'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useTheme } from '../context/ThemeContext'
 
-// 2026-10-15 本地化:原 bspapp 云存储 CDN(mp-aab956eb-…)整体不可达(HTTP 000),
-// 2 张图按原 CDN 路径打包进应用(文件副本与 apps/web/public 本地化批次同源):
-//   recruitment/xuancai@2x.png → assets/images/carousel/xuancai@2x.png
-//   recruitment/ewm@2x.png     → assets/images/carousel/ewm@2x.png
-// RN 静态资源打包必须用 require(Metro asset 插件契约),此处豁免 no-require-imports;
-// 写法与 ModelRecordScreen/ProfileScreen 同档(块级 disable,只罩资源声明行)。
+/**
+ * CarteScreen 社群宣传卡页(mobile-rn 端薄壳)
+ *
+ * 渲染真相源在共享层 `packages/app/src/features/carte/CarteScreen.tsx`(段落构成/顺序/取词键
+ * 同住 `@ihui/shared/constants` 的 CARTE_SEGMENTS)。本壳只做三件端内的事:
+ * ① 导航接线(goBack);② 取词与主题注入;③ 图片资源句柄注入。
+ *
+ * 图片为什么在本壳:RN 静态资源打包必须走 require()(Metro asset 插件契约),共享屏拿不到;
+ * 2026-10-15 本地化批次把原 bspapp 云存储 CDN(mp-aab956eb-…,整体不可达 HTTP 000)的
+ * 两张图按原 CDN 路径打包进应用,文件副本与 apps/web/public 同源:
+ *   recruitment/xuancai@2x.png → assets/images/carousel/xuancai@2x.png
+ *   recruitment/ewm@2x.png     → assets/images/carousel/ewm@2x.png
+ * 写法与 BusinessLicenseScreen/CoursePlanetScreen 同档(块级 disable,只罩资源声明行)。
+ */
 /* eslint-disable @typescript-eslint/no-require-imports */
 const AVATAR_IMAGE = require('../../assets/images/carousel/xuancai@2x.png')
-const QR_IMAGE = require('../../assets/images/carousel/ewm@2x.png')
+const QRCODE_IMAGE = require('../../assets/images/carousel/ewm@2x.png')
 /* eslint-enable @typescript-eslint/no-require-imports */
 
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
 export default function CarteScreen() {
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
+  const navigation = useNavigation<NavigationProp>()
+
   return (
-    <View style={styles.container}>
-      <View style={styles.bottom}>
-        <View style={styles.bottomTop}>
-          <View>
-            <Image source={AVATAR_IMAGE} style={styles.avatar} resizeMode="cover" />
-          </View>
-          <View style={styles.bottomTopText}>
-            <Text style={styles.founder}>AI智汇社 | 私董会创始人 | 李总</Text>
-            <Text style={styles.recommend}>为您推荐</Text>
-          </View>
-        </View>
-
-        <Text style={styles.intro}>
-          扫描下方二维码,可免费进入智汇社社群,群内定期免费分享AI信息并有专属客服为您服务
-        </Text>
-
-        <View style={styles.qrWrap}>
-          <Image source={QR_IMAGE} style={styles.qr} resizeMode="cover" />
-        </View>
-      </View>
-    </View>
+    <SharedCarteScreen
+      t={t}
+      avatarSource={AVATAR_IMAGE}
+      qrcodeSource={QRCODE_IMAGE}
+      onBack={() => navigation.goBack()}
+      colorScheme={resolvedTheme}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: tokens.surface.bg,
-  } as ViewStyle,
-  bottom: {
-    position: 'absolute',
-    top: rpx(100),
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: rpx(30),
-    paddingBottom: rpx(60),
-  } as ViewStyle,
-  bottomTop: {
-    paddingHorizontal: rpx(30),
-    paddingVertical: rpx(10),
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopLeftRadius: rnRadius['2xl'],
-    borderTopRightRadius: rnRadius['2xl'],
-    backgroundColor: '#9395E4',
-  } as ViewStyle,
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: rnRadius['2xl'],
-  } as ImageStyle,
-  bottomTopText: {
-    flex: 1,
-    paddingLeft: rpx(24),
-  } as ViewStyle,
-  founder: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: tokens.gray.black,
-    marginTop: rpx(12),
-  } as TextStyle,
-  recommend: {
-    fontSize: 13,
-    color: tokens.text.medium,
-    marginTop: 2,
-  } as TextStyle,
-  intro: {
-    marginTop: rpx(20),
-    paddingHorizontal: rpx(40),
-    color: tokens.danger.DEFAULT,
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  } as TextStyle,
-  qrWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: rpx(16),
-  } as ViewStyle,
-  qr: {
-    width: 190,
-    height: 190,
-  } as ImageStyle,
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

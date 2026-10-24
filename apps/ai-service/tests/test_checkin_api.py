@@ -461,6 +461,12 @@ async def test_create_and_list_masked(client, fake_store):
     acc = body["accounts"][0]
     assert "jwt" not in acc
     assert "jwt_enc" not in acc
+    # 本用例的原意是"脱敏":钉凭据族不出现在响应里(含 device_map 内层)。
+    # 不锁 device_map 的键集精确等值之外再多要什么 —— 号池同步旁路会往里写簿记键,
+    # 那族键的契约由 test_internal_checkin_pool.py 管,凭据外泄由本行管。
+    for _secret in ("jwt", "jwt_enc", "refresh_token", "proxy", "cosy"):
+        assert _secret not in acc, f"凭据族键外泄:{_secret}"
+        assert _secret not in acc["device_map"], f"device_map 内层外泄凭据:{_secret}"
     assert acc["device_map"] == {"u-1001": {"device_id": "d1"}}
 
 

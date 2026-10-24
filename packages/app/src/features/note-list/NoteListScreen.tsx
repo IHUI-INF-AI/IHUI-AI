@@ -9,6 +9,7 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { Heart } from 'lucide-react-native'
 import type { NoteListItem, NoteListScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, PressableCard, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 笔记列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { NoteListItem, NoteListScreenProps }
@@ -51,9 +52,7 @@ export function NoteListScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<NoteListItem>
           data={items}
@@ -61,16 +60,12 @@ export function NoteListScreen({
           contentContainerStyle={styles.listBody}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('noteList.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('noteList.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <PressableCard
               style={styles.card}
               onPress={() => onPressItem(item)}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              colorScheme={colorScheme}
             >
               <Text style={styles.cardTitle} numberOfLines={1}>
                 {item.title}
@@ -88,7 +83,7 @@ export function NoteListScreen({
                   </Text>
                 </View>
               </View>
-            </TouchableOpacity>
+            </PressableCard>
           )}
         />
       )}
@@ -109,8 +104,6 @@ function createStyles(tk: AppThemeTokens) {
     title: { flex: 1, fontSize: 20, fontWeight: '700', color: tk.text.primary },
     createText: { fontSize: 24, fontWeight: '600', color: tk.brand.DEFAULT },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 10 },
     separator: { height: 12 },
     card: {

@@ -68,6 +68,8 @@ import {
   SWEEP_LOCK_NAME,
   __test__,
   healthStatusOf,
+  renewalPolicyOf,
+  shouldDeferRefresh,
   sweepAccountPool,
 } from '../src/services/relay-account-pool-scheduler.js'
 import {
@@ -164,6 +166,128 @@ describe('sweepAccountPool 分布式锁', () => {
     expect(out.healthChecked).toBe(1) // unknown → checkHealth 定级
     await vi.waitFor(() => expect(updateCalls.length).toBeGreaterThan(0))
     expect(updateCalls.some((s) => s.healthStatus === 'healthy')).toBe(true)
+  })
+
+  it('健康检查未判定(上游 5xx/网络)→ 保留 unknown,不写 down', async () => {
+    const checkHealth = vi.fn(async () => ({
+      ok: false,
+      indeterminate: true,
+      error: 'model_list HTTP 500: Internal Server Error',
+    }))
+    registerRelayAdapter({
+      providerCode: 'trae',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      checkHealth,
+      isAuthFailure: (status) => status === 401,
+    } as never)
+    accountRows = [sweepRow()]
+    const out = await sweepAccountPool()
+    expect(out.healthChecked).toBe(1)
+    await vi.waitFor(() => expect(updateCalls.length).toBeGreaterThan(0))
+    const healthUpdate = updateCalls.find((s) => s.healthStatus !== undefined)
+    expect(healthUpdate?.healthStatus).toBe('unknown')
+    expect(String(healthUpdate?.lastErrorMessage)).toContain('500')
+  })
+})
+
+describe('client-first 续期策略(trae 池不与客户端抢轮换)', () => {
+  function adapterWithRefresh(refreshToken: ReturnType<typeof vi.fn>): Record<string, unknown> {
+    return {
+      providerCode: 'trae',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      checkHealth: vi.fn(async () => ({ ok: true })),
+      refreshToken,
+      isAuthFailure: (status) => status === 401,
+    }
+  }
+
+  it('纯函数:trae=client-first;其他平台=server;开关 0/false/off 退回 server', () => {
+    expect(renewalPolicyOf('trae')).toBe('client-first')
+    expect(renewalPolicyOf('workbuddy')).toBe('server')
+    expect(renewalPolicyOf('qoder')).toBe('server')
+    expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: '0' })).toBe('server')
+    expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: 'false' })).toBe('server')
+    expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: 'off' })).toBe('server')
+    expect(renewalPolicyOf('trae', { RELAY_TRAE_CLIENT_FIRST_REFRESH: '1' })).toBe('client-first')
+  })
+
+  it('纯函数:trae 票未过期 ⇒ 延迟;已过期 ⇒ 放行;无到期时刻 ⇒ 放行(无法证明客户端在养票,兜底)', () => {
+    const now = new Date('2026-10-24T12:00:00.000Z')
+    expect(
+      shouldDeferRefresh(
+        { providerCode: 'trae', tokenExpiresAt: new Date(now.getTime() + 60_000) },
+        now,
+      ),
+    ).toBe(true)
+    expect(
+      shouldDeferRefresh(
+        { providerCode: 'trae', tokenExpiresAt: new Date(now.getTime() - 60_000) },
+        now,
+      ),
+    ).toBe(false)
+    expect(shouldDeferRefresh({ providerCode: 'trae', tokenExpiresAt: null }, now)).toBe(false)
+    expect(
+      shouldDeferRefresh(
+        { providerCode: 'workbuddy', tokenExpiresAt: new Date(now.getTime() + 60_000) },
+        now,
+      ),
+    ).toBe(false)
+  })
+
+  it('trae 票未过期(临期窗口内)⇒ refreshToken 不被调用,refreshSkipped+1', async () => {
+    const refreshToken = vi.fn(async () => ({
+      token: 'x',
+      refreshToken: 'y',
+      expiresAt: new Date(),
+    }))
+    registerRelayAdapter(adapterWithRefresh(refreshToken) as never)
+    accountRows = [sweepRow({ tokenExpiresAt: new Date(Date.now() + 5 * 60_000) })]
+    const out = await sweepAccountPool()
+    expect(out.refreshed).toBe(0)
+    expect(out.refreshSkipped).toBe(1)
+    expect(refreshToken).not.toHaveBeenCalled()
+  })
+
+  it('trae 票已过期 ⇒ 池兜底刷新(refreshToken 恰好一次)', async () => {
+    const refreshToken = vi.fn(async () => ({
+      token: 'new-token',
+      refreshToken: 'new-rt',
+      expiresAt: new Date(Date.now() + 86_400_000),
+    }))
+    registerRelayAdapter(adapterWithRefresh(refreshToken) as never)
+    accountRows = [sweepRow({ tokenExpiresAt: new Date(Date.now() - 60_000) })]
+    const out = await sweepAccountPool()
+    expect(out.refreshed).toBe(1)
+    // mock 的 select 对三档查询返回同一行:该行同时命中"临期刷新"与"down 恢复"两档 ⇒ 2 次
+    expect(refreshToken).toHaveBeenCalledTimes(2)
+  })
+
+  it('阳性对照:workbuddy 临期未过期 ⇒ 照旧刷新(server 策略不受影响)', async () => {
+    const refreshToken = vi.fn(async () => ({
+      token: 'wb-new',
+      refreshToken: 'wb-rt',
+      expiresAt: new Date(Date.now() + 86_400_000),
+    }))
+    registerRelayAdapter({
+      providerCode: 'workbuddy',
+      buildChatRequest: () => ({ url: 'https://x.test', method: 'POST', headers: {}, body: {} }),
+      translateStreamChunk: () => null,
+      translateNonStream: (_c, body) => (body ?? {}) as Record<string, unknown>,
+      checkHealth: vi.fn(async () => ({ ok: true })),
+      refreshToken,
+      isAuthFailure: (status) => status === 401,
+    } as never)
+    accountRows = [
+      sweepRow({ providerCode: 'workbuddy', tokenExpiresAt: new Date(Date.now() + 5 * 60_000) }),
+    ]
+    const out = await sweepAccountPool()
+    expect(out.refreshed).toBe(1)
+    // 同上:mock 不筛查询,临期 + down 恢复各命中一次
+    expect(refreshToken).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -323,6 +447,53 @@ describe('refreshOne 失败原因必须带出来', () => {
     expect(String(last.lastErrorMessage)).toContain('GetUserToken 失败(HTTP 401)')
     expect(String(last.lastErrorMessage)).toContain('已自动摘除')
     expect(last.tempUnschedulable).toBe(true)
+  })
+})
+
+/**
+ * 刷新成功必须涨 cred_version(2026-10-23 立)。
+ * 对账收敛器只在「号池 cred_version > 签到 pool_cred_version」时补推 ⇒ 适配器换出来的新票
+ * 若不涨版本,签到侧会永远持有导入那一刻的旧凭证,而号池自己看着 healthy:两面都绿、
+ * 上游天天 401。涨版本与写凭证必须是同一笔 UPDATE;失败档不涨(凭证没变,无新东西可推)。
+ */
+describe('refreshOne 成功必须涨 credVersion', () => {
+  const renderSql = (frag: unknown) => new PgDialect().sqlToQuery(frag as never).sql.toLowerCase()
+
+  it('刷新成功 ⇒ 同一笔 UPDATE 里写新凭证 + cred_version 原子自增', async () => {
+    const { refreshOne } = await import('../src/services/relay-account-pool-scheduler.js')
+    registerRelayAdapter({
+      providerCode: 'trae',
+      refreshToken: vi.fn(async () => ({
+        token: 'new-jwt',
+        refreshToken: 'new-rt',
+        expiresAt: new Date(Date.now() + 86_400_000),
+      })),
+    } as never)
+
+    const ok = await refreshOne(sweepRow({ refreshTokenEnc: 'enc:rt' }) as never)
+    expect(ok).toBe(true)
+    const written = updateCalls[updateCalls.length - 1] as Record<string, unknown>
+    expect(String(written.tokenEnc)).toBe('enc:new-jwt')
+    expect(written.credVersion).toBeTruthy()
+    const text = renderSql(written.credVersion)
+    expect(text).toContain('cred_version')
+    expect(text).toContain('+ 1')
+  })
+
+  it('刷新失败 ⇒ 不涨版本(凭证没变就不许制造版本差)', async () => {
+    const { refreshOne } = await import('../src/services/relay-account-pool-scheduler.js')
+    registerRelayAdapter({
+      providerCode: 'trae',
+      refreshToken: vi.fn(async () => {
+        throw new Error('Qoder deviceToken/refresh HTTP 400')
+      }),
+    } as never)
+    updateCalls.length = 0
+
+    const ok = await refreshOne(sweepRow({ refreshTokenEnc: 'enc:rt' }) as never)
+    expect(ok).toBe(false)
+    const written = updateCalls[updateCalls.length - 1] as Record<string, unknown>
+    expect(written.credVersion).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

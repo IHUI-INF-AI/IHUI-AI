@@ -2,281 +2,239 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+/**
+ * 操盘手计划宣传页 — 跨端唯一真相源(RN 渲染这一份;小程序端逐元素同形重写)。
+ *
+ * 版面(段构成、顺序、取词键、图片槽位全部读 `@ihui/shared/constants/trader-plan-promo` 的
+ * `TRADER_PLAN_SEGMENTS`,本屏不自己拿主意;小程序端按同一张表出段):
+ *   hero     全屏背景图 + 压在背景上的居中标题
+ *   founder  底部色块卡片第一行:创始人头像 + 身份行 + 推荐语
+ *   intro    扫码进社群的邀请语
+ *   qrcode   社群二维码(长按即落相册的在册能力,不是装饰图)
+ *   purchase 购买 CTA
+ *
+ * 可读性靠**显式色块卡片**(brandAccent.light 底 + 随主题翻转的墨色字)达成:不用渐变遮罩、
+ * 不用 mask-image 边缘淡出(AGENTS §4 禁用)。标题的浅色字取不随主题翻转的 `gray[50]` ——
+ * 底(照片)不翻 ⇒ 前景也不翻,与 FloatBox 那条不变量同一条判序(surface.light 在深色档案翻成
+ * #262626,压在照片上就是隐形字)。
+ *
+ * 平台无关:本屏只渲染,不导航、不取词、不读系统相册。注入点:
+ *   - `t` 取词(RN useI18n / 小程序 @/i18n)
+ *   - `backgroundSource` / `avatarSource` / `qrcodeSource` 图片句柄(RN 端 require 打进包;
+ *     小程序端用本端分包静态路径与在册 CDN 键 —— 同一批官方素材,不同装载形态)
+ *   - `onPurchase` 购买落点(RN navigation.navigate('VipTrader') / 小程序 navigateTo vip-trader)
+ *   - `onQrcodeLongPress` 长按二维码保存(RN expo-media-library / 小程序 saveNetworkImageToAlbum)
+ *
+ * 历史(2026-10-24 收敛):本文件此前躺着一份**没人渲染的招聘列表屏**(FlatList + 分类 tabs +
+ * 详情 Modal,props 要 jobs/activeTab/selected/appliedIds),与 `features/ai-career/AiCareerScreen`
+ * 同题,还引用了 mobile-rn 词包里根本不存在的 `recruitment.tab_*` 键;而 RN 路由实际渲染的是端内
+ * 自带的这份宣传页,小程序端又是第三份(API 驱动的「岗位要求/专属福利/预估收入」页,其
+ * `privileges`/`incomeEstimates` 字段与 `POST /recruitment/apply` 后端都不存在)。三处没有一处
+ * 是这个语义的真相 ⇒ 以完整实现提升为真相源(AGENTS §0.6)。
+ */
 import { useMemo } from 'react'
 import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  ScrollView,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  type ImageSourcePropType,
 } from 'react-native'
+import {
+  TRADER_PLAN_PROMO_KEYS,
+  TRADER_PLAN_SEGMENTS,
+  type TraderPlanImageSlot,
+  type TraderPlanSegment,
+} from '@ihui/shared/constants/trader-plan-promo'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
-import type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps } from '../../types'
 
-import { rnRadius, rnRadiusFor } from '@ihui/design-tokens'
-import { BackChevron } from '../../components/BackChevron'
+import { rnRadius } from '@ihui/design-tokens'
 
-export type { RecruitmentCategory, RecruitmentJob, RecruitmentScreenProps }
+export type { TraderPlanImageSlot, TraderPlanSegment }
 
-const TABS: { key: RecruitmentCategory; labelKey: string }[] = [
-  { key: 'all', labelKey: 'recruitment.tab_all' },
-  { key: 'tech', labelKey: 'recruitment.tab_tech' },
-  { key: 'product', labelKey: 'recruitment.tab_product' },
-  { key: 'design', labelKey: 'recruitment.tab_design' },
-  { key: 'ops', labelKey: 'recruitment.tab_ops' },
-]
+export interface TraderPlanPromoProps {
+  readonly t: (key: string) => string
+  readonly backgroundSource: ImageSourcePropType
+  readonly avatarSource: ImageSourcePropType
+  readonly qrcodeSource: ImageSourcePropType
+  readonly colorScheme?: 'light' | 'dark'
+  readonly onPurchase: () => void
+  readonly onQrcodeLongPress: () => void
+}
 
-/**
- * 招聘共享屏 — props 注入式跨端组件
- *
- * 平台无关:渲染 header + 分类 tabs + 职位 FlatList + 职位详情 Modal。
- * 平台特定(导航 / API 调用)由 wrapper 通过 props 注入。
- */
 export function RecruitmentScreen({
   t,
-  jobs,
-  activeTab,
-  appliedIds,
-  selected,
-  loading,
-  error,
-  onSelectTab,
-  onSelectJob,
-  onApply,
-  onBack,
+  backgroundSource,
+  avatarSource,
+  qrcodeSource,
   colorScheme = 'light',
-}: RecruitmentScreenProps) {
+  onPurchase,
+  onQrcodeLongPress,
+}: TraderPlanPromoProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const tabItems = useMemo(() => TABS.map((tab) => ({ id: tab.key, label: t(tab.labelKey) })), [t])
 
-  const filtered = activeTab === 'all' ? jobs : jobs.filter((j) => j.category === activeTab)
+  /** 槽位 → 本端注入的资源句柄(资源本体不住在共享层,与 carte 屏同一分工) */
+  const sources = useMemo<Record<TraderPlanImageSlot, ImageSourcePropType>>(
+    () => ({
+      background: backgroundSource,
+      founderAvatar: avatarSource,
+      groupQrcode: qrcodeSource,
+    }),
+    [backgroundSource, avatarSource, qrcodeSource],
+  )
 
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateWrap}>
-          <ActivityIndicator color={tk.brand.DEFAULT} />
-          <Text style={styles.stateText}>{t('common.loading')}</Text>
-        </View>
-      </View>
-    )
-  }
+  const hero = TRADER_PLAN_SEGMENTS.find((seg) => seg.id === 'hero')
+  const cardSegments = TRADER_PLAN_SEGMENTS.filter((seg) => seg.id !== 'hero')
 
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.stateWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      </View>
-    )
-  }
+  const renderTexts = (seg: TraderPlanSegment) =>
+    seg.textKeys.map((key, row) => (
+      <Text key={key} style={textStyleOf(seg.id, row, styles)}>
+        {t(key)}
+      </Text>
+    ))
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
-        <Text style={styles.title}>{t('recruitment.title')}</Text>
-        <Text style={styles.subtitle}>{t('recruitment.count', { count: filtered.length })}</Text>
-      </View>
+      {hero?.imageSlot ? (
+        <Image source={sources[hero.imageSlot]} style={styles.background} resizeMode="cover" />
+      ) : null}
 
-      <CategoryInlineBar
-        items={tabItems}
-        selectedId={activeTab}
-        onSelect={(id) => onSelectTab(id as RecruitmentCategory)}
-        colorScheme={colorScheme}
-        contentPaddingHorizontal={10}
-        itemGap={6}
-      />
-
-      <FlatList<RecruitmentJob>
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listBody}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('recruitment.empty')}</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.jobCard}
-            onPress={() => onSelectJob(item)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.jobHead}>
-              <Text style={styles.jobPosition} numberOfLines={1}>
-                {item.position}
-              </Text>
-              <Text style={styles.jobSalary}>{item.salary}</Text>
-            </View>
-            <Text style={styles.jobCompany}>
-              {item.company} · {item.location}
+      {hero ? (
+        <View style={styles.heroWrap}>
+          {hero.textKeys.map((key) => (
+            <Text key={key} style={styles.heroTitle}>
+              {t(key)}
             </Text>
-            <View style={styles.jobMeta}>
-              <Text style={styles.jobMetaText}>{item.experience}</Text>
-              <Text style={styles.jobMetaText}>{item.education}</Text>
-              {item.tags.map((tg) => (
-                <View key={tg} style={styles.miniTag}>
-                  <Text style={styles.miniTagText}>{tg}</Text>
-                </View>
-              ))}
-              {appliedIds.has(item.id) ? (
-                <View style={styles.appliedBadge}>
-                  <Text style={styles.appliedText}>{t('recruitment.applied')}</Text>
-                </View>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-        )}
-      />
-
-      <Modal
-        visible={!!selected}
-        transparent
-        animationType="slide"
-        onRequestClose={() => onSelectJob(null)}
-      >
-        <View style={styles.modalMask}>
-          <View style={styles.modalCard}>
-            {selected ? (
-              <>
-                <View style={styles.modalHead}>
-                  <Text style={styles.modalTitle} numberOfLines={1}>
-                    {selected.position}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => onSelectJob(null)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={styles.modalClose}>{t('recruitment.close')}</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.modalSalary}>
-                  {selected.salary} · {selected.company} · {selected.location}
-                </Text>
-                <Text style={styles.modalSection}>{t('recruitment.description')}</Text>
-                <ScrollView style={styles.modalDescWrap}>
-                  <Text style={styles.modalDesc}>{selected.description}</Text>
-                </ScrollView>
-                <Text style={styles.modalSection}>{t('recruitment.requirements')}</Text>
-                {selected.requirements.map((r, i) => (
-                  <Text key={i} style={styles.modalReq}>
-                    · {r}
-                  </Text>
-                ))}
-                <TouchableOpacity
-                  style={[styles.applyBtn, appliedIds.has(selected.id) && styles.applyBtnDisabled]}
-                  onPress={() => onApply(selected)}
-                  disabled={appliedIds.has(selected.id)}
-                >
-                  <Text style={styles.applyText}>
-                    {appliedIds.has(selected.id)
-                      ? t('recruitment.appliedWaiting')
-                      : t('recruitment.applyNow')}
-                  </Text>
-                </TouchableOpacity>
-              </>
-            ) : null}
-          </View>
+          ))}
         </View>
-      </Modal>
+      ) : null}
+
+      <View style={styles.card} testID="trader-plan-promo-card">
+        {cardSegments.map((seg) => {
+          if (seg.id === 'purchase') {
+            return (
+              <TouchableOpacity
+                key={seg.id}
+                style={styles.buyBtn}
+                activeOpacity={0.85}
+                onPress={onPurchase}
+              >
+                <Text style={styles.buyText}>{t(TRADER_PLAN_PROMO_KEYS.purchase)}</Text>
+              </TouchableOpacity>
+            )
+          }
+          if (seg.id === 'qrcode') {
+            return (
+              <View key={seg.id} style={styles.qrBlock}>
+                {seg.imageSlot ? (
+                  <TouchableOpacity
+                    style={styles.qrWrap}
+                    testID="trader-plan-qrcode"
+                    activeOpacity={0.9}
+                    delayLongPress={300}
+                    onLongPress={onQrcodeLongPress}
+                    accessibilityRole="image"
+                    accessibilityLabel={t(TRADER_PLAN_PROMO_KEYS.qrcodeHint)}
+                  >
+                    <Image
+                      source={sources[seg.imageSlot]}
+                      style={styles.qrcode}
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                ) : null}
+                {renderTexts(seg)}
+              </View>
+            )
+          }
+          if (seg.id === 'founder') {
+            return (
+              <View key={seg.id} style={styles.founderRow}>
+                {seg.imageSlot ? (
+                  <Image source={sources[seg.imageSlot]} style={styles.avatar} resizeMode="cover" />
+                ) : null}
+                <View style={styles.founderText}>{renderTexts(seg)}</View>
+              </View>
+            )
+          }
+          return (
+            <View key={seg.id} style={styles.segmentBlock}>
+              {renderTexts(seg)}
+            </View>
+          )
+        })}
+      </View>
     </View>
   )
 }
 
+/** 段内文字档:founder 段两行分档(身份行 / 推荐语),其余段一段一档 */
+function textStyleOf(
+  id: TraderPlanSegment['id'],
+  row: number,
+  styles: ReturnType<typeof createStyles>,
+) {
+  if (id === 'founder') return row === 0 ? styles.founder : styles.recommend
+  if (id === 'intro') return styles.intro
+  return styles.auxText
+}
+
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: tk.surface.light },
-    stateWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 14 },
-    stateText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT },
-    header: { paddingHorizontal: 10, paddingBottom: 8 },
-    backBtn: { paddingVertical: 4, marginBottom: 8 },
-    title: { fontSize: 22, fontWeight: '600', color: tk.text.primary },
-    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.tertiary },
-    listBody: { padding: 14, paddingBottom: 32 },
-    separator: { height: 12 },
-    empty: { paddingVertical: 40, alignItems: 'center' },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
-    jobCard: {
+    container: { flex: 1, backgroundColor: tk.surface.bg },
+    background: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: '100%',
+      height: '100%',
+    },
+    heroWrap: { position: 'absolute', top: 10, left: 15, right: 15 },
+    heroTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      textAlign: 'center',
+      color: tk.gray[50],
+    },
+    card: {
+      position: 'absolute',
+      left: 15,
+      right: 15,
+      bottom: 30,
       padding: 14,
       borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      backgroundColor: tk.surface.light,
+      backgroundColor: tk.brandAccent.light,
     },
-    jobHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    jobPosition: {
-      flex: 1,
-      fontSize: 16,
-      fontWeight: '600',
-      color: tk.text.primary,
-      marginRight: 8,
-    },
-    jobSalary: { fontSize: 16, fontWeight: '600', color: tk.danger.bright },
-    jobCompany: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    jobMeta: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-    jobMetaText: { fontSize: 11, color: tk.text.tertiary },
-    miniTag: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.surface.card,
-    },
-    miniTagText: { fontSize: 10, color: tk.text.secondary },
-    appliedBadge: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.success.light,
-    },
-    appliedText: { fontSize: 10, color: tk.brand.DEFAULT },
-    modalMask: { flex: 1, backgroundColor: tk.overlay.modal, justifyContent: 'flex-end' },
-    modalCard: {
-      backgroundColor: tk.surface.light,
-      borderTopLeftRadius: rnRadiusFor.panel,
-      borderTopRightRadius: rnRadiusFor.panel,
-      padding: 14,
-      paddingBottom: 32,
-      maxHeight: '85%',
-    },
-    modalHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    modalTitle: {
-      flex: 1,
-      fontSize: 20,
-      fontWeight: '600',
-      color: tk.text.primary,
-      marginRight: 8,
-    },
-    modalClose: { fontSize: 16, color: tk.text.secondary },
-    modalSalary: { marginTop: 8, fontSize: 14, color: tk.brand.DEFAULT },
-    modalSection: {
-      marginTop: 16,
-      marginBottom: 8,
+    segmentBlock: { marginTop: 12 },
+    founderRow: { flexDirection: 'row', alignItems: 'center' },
+    avatar: { width: 50, height: 50, borderRadius: rnRadius['2xl'] },
+    founderText: { flex: 1, marginLeft: 12 },
+    founder: { fontSize: 16, fontWeight: '700', color: tk.text.primary },
+    recommend: { marginTop: 2, fontSize: 13, color: tk.text.secondary },
+    intro: {
       fontSize: 14,
+      lineHeight: 20,
       fontWeight: '600',
-      color: tk.text.primary,
+      textAlign: 'center',
+      color: tk.danger.DEFAULT,
     },
-    modalDescWrap: { maxHeight: 200 },
-    modalDesc: { fontSize: 14, color: tk.text.medium, lineHeight: 20 },
-    modalReq: { marginTop: 8, fontSize: 14, color: tk.text.medium, lineHeight: 20 },
-    applyBtn: {
-      marginTop: 20,
-      height: 50,
+    qrBlock: { marginTop: 12, alignItems: 'center' },
+    qrWrap: { alignItems: 'center' },
+    qrcode: { width: 176, height: 176 },
+    auxText: { marginTop: 6, fontSize: 11, textAlign: 'center', color: tk.text.secondary },
+    buyBtn: {
+      marginTop: 14,
+      height: 44,
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    applyBtnDisabled: { backgroundColor: tk.text.tertiary },
-    applyText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    buyText: { fontSize: 16, fontWeight: '700', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
