@@ -5326,6 +5326,196 @@ async def _tool_dispatch_subagent(
         }
 
 
+# ===== D08①(2026-10-25):团队共享任务列表(子 agent 可认领/更新条目)=====
+# 派发面原本是"派发-回收"一次性往返,子 agent 之间没有共同的事实源:谁领了哪条、
+# 做到哪一步,只能靠各自的回包倒推。这里补一张**每队一份**的条目表作为共享事实源,
+# 子 agent 认领/更新都写同一张表,回包即当前条目状态。
+#
+# 边界(照实写,不夸大):表在**进程内**共享 —— 与 dispatch_subagent 同进程的子 agent
+# 派发面天然可见;跨进程/跨节点要照 `artifacts_store` 那份 Redis 化另立一票,
+# 本条不拿进程内实现冒充分布式共享。
+# SSE 口径:票面硬约束「复用既有 subagent_* 帧族、禁新帧族」⇒ 本条**不新造帧**,
+# 看板状态一律走工具回包,不抢 subagent_progress / subagent_end 两个既有帧。
+_TEAM_TASK_STATUS: Final = ("pending", "claimed", "done", "blocked")
+_TEAM_TASK_BOARD_LIMIT: Final = 500
+_TEAM_TASK_BOARD: dict[str, dict[str, dict[str, Any]]] = {}
+_TEAM_TASK_LOCK = asyncio.Lock()
+
+
+def _team_task_now() -> str:
+    """条目时间戳(与 D08② 换手事件同一口径:UTC ISO8601)。"""
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat()
+
+
+def _team_task_board(team_id: str) -> dict[str, dict[str, Any]]:
+    return _TEAM_TASK_BOARD.setdefault(team_id, {})
+
+
+def _team_task_add(team_id: str, title: str, *, detail: str = "", created_by: str = "") -> dict[str, Any]:
+    """新增一条待办(进入 pending,谁都可领)。"""
+    board = _team_task_board(team_id)
+    if len(board) >= _TEAM_TASK_BOARD_LIMIT:
+        return {
+            "ok": False, "errorCode": "BOARD_FULL",
+            "error": f"团队 {team_id} 任务表已达上限({_TEAM_TASK_BOARD_LIMIT})",
+        }
+    import uuid
+
+    now = _team_task_now()
+    entry: dict[str, Any] = {
+        "id": uuid.uuid4().hex[:12],
+        "title": str(title),
+        "detail": str(detail or ""),
+        "status": "pending",
+        "claimed_by": "",
+        "created_by": str(created_by or ""),
+        "created_ts": now,
+        "updated_ts": now,
+        "note": "",
+    }
+    board[entry["id"]] = entry
+    return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
+
+
+def _team_task_claim(team_id: str, task_id: str, agent_id: str) -> dict[str, Any]:
+    """独占认领:已被他人领走则拒绝并回带持有者(调用方据此换领别条)。"""
+    if not agent_id:
+        return {
+            "ok": False, "errorCode": "MISSING_PARAMS",
+            "error": "claim 需要 agent_id(认领者身份)",
+        }
+    board = _team_task_board(team_id)
+    entry = board.get(task_id)
+    if entry is None:
+        return {
+            "ok": False, "errorCode": "TASK_NOT_FOUND",
+            "error": f"团队 {team_id} 内没有条目 {task_id}",
+        }
+    holder = entry.get("claimed_by") or ""
+    # 生命周期优先于持有者判定:已完结/已受阻的条目谁都不可再领(领了也没人更新,只会污染看板)。
+    # 先判 closed 再判 holder —— 否则"他人已做完的条目"会被报成"被他人领着",把"已完结"
+    # 这条更要紧的信息盖掉。
+    if entry.get("status") in ("done", "blocked"):
+        return {
+            "ok": False, "errorCode": "TASK_CLOSED",
+            "error": f"条目 {task_id} 已处于 {entry.get('status')},不可再认领",
+            "claimed_by": holder,
+            "task": dict(entry),
+        }
+    if holder and holder != agent_id:
+        return {
+            "ok": False, "errorCode": "ALREADY_CLAIMED",
+            "error": f"条目 {task_id} 已被 {holder} 认领",
+            "claimed_by": holder,
+            "task": dict(entry),
+        }
+    entry["claimed_by"] = agent_id
+    entry["status"] = "claimed"
+    entry["updated_ts"] = _team_task_now()
+    return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
+
+
+def _team_task_update(
+    team_id: str, task_id: str, agent_id: str, *, status: str | None = None, note: str | None = None
+) -> dict[str, Any]:
+    """更新条目:只有持有者可改;status 非法值整条拒绝(不静默吞掉)。"""
+    if not agent_id:
+        return {
+            "ok": False, "errorCode": "MISSING_PARAMS",
+            "error": "update 需要 agent_id(认领者身份)",
+        }
+    if status is not None and status not in _TEAM_TASK_STATUS:
+        return {
+            "ok": False, "errorCode": "INVALID_STATUS",
+            "error": f"status 必须是 {list(_TEAM_TASK_STATUS)} 之一,实得 {status!r}",
+        }
+    board = _team_task_board(team_id)
+    entry = board.get(task_id)
+    if entry is None:
+        return {
+            "ok": False, "errorCode": "TASK_NOT_FOUND",
+            "error": f"团队 {team_id} 内没有条目 {task_id}",
+        }
+    holder = entry.get("claimed_by") or ""
+    if holder != agent_id:
+        return {
+            "ok": False, "errorCode": "FORBIDDEN",
+            "error": f"条目 {task_id} 的持有者是 {holder or '(无人认领)'},非本人不得更新",
+            "claimed_by": holder,
+            "task": dict(entry),
+        }
+    if status is not None:
+        entry["status"] = status
+    if note is not None:
+        entry["note"] = str(note)[:500]
+    entry["updated_ts"] = _team_task_now()
+    return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
+
+
+def _team_task_list(team_id: str) -> dict[str, Any]:
+    """整表快照(按创建序;只读,不改任何条目)。"""
+    board = _team_task_board(team_id)
+    return {
+        "ok": True, "tool": "team_task", "team_id": team_id,
+        "total": len(board),
+        "tasks": [dict(t) for t in board.values()],
+    }
+
+
+async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
+    """team_task:团队共享任务列表(add/claim/update/list)。
+
+    与 dispatch_subagent 的关系:派发是一次性"派发-回收",本表给同一次协作里的多个
+    子 agent 一个共同事实源 —— 领了哪条、做到哪一步写同一张表,谁都能 list 读到。
+    认领是 check-and-set(持锁),并发抢同一条必有一个拿到 ALREADY_CLAIMED。
+    """
+    action = arguments.get("action", "")
+    team_id = str(arguments.get("team_id") or "default")
+    agent_id = str(arguments.get("agent_id") or "")
+    task_id = str(arguments.get("task_id") or "")
+    # 全表操作串行化:claim 的"读-判-写"必须原子,否则并发下两人都能领到同一条。
+    async with _TEAM_TASK_LOCK:
+        if action == "add":
+            title = str(arguments.get("title") or "")
+            if not title:
+                return {
+                    "tool": "team_task", "ok": False, "errorCode": "MISSING_PARAMS",
+                    "error": "add 需要 title",
+                }
+            return _team_task_add(
+                team_id, title,
+                detail=str(arguments.get("detail") or ""),
+                created_by=agent_id,
+            )
+        if action == "claim":
+            if not task_id:
+                return {
+                    "tool": "team_task", "ok": False, "errorCode": "MISSING_PARAMS",
+                    "error": "claim 需要 task_id",
+                }
+            return _team_task_claim(team_id, task_id, agent_id)
+        if action == "update":
+            if not task_id:
+                return {
+                    "tool": "team_task", "ok": False, "errorCode": "MISSING_PARAMS",
+                    "error": "update 需要 task_id",
+                }
+            _status = arguments.get("status")
+            return _team_task_update(
+                team_id, task_id, agent_id,
+                status=str(_status) if _status is not None else None,
+                note=arguments.get("note"),
+            )
+        if action == "list":
+            return _team_task_list(team_id)
+    return {
+        "tool": "team_task", "ok": False, "errorCode": "INVALID_PARAMS",
+        "error": f"不支持的 action: {action}(add/claim/update/list)",
+    }
+
+
 # ---------------------------------------------------------------------------
 # 扩展工具(2026-07-24 新增,自研核心能力)
 # 6 个工具:fetch_url / image_generation / review_pr /
@@ -9288,6 +9478,48 @@ _TOOLS: list[MCPTool] = [
             },
         },
     ),
+    # ===== D08①(2026-10-25):团队共享任务列表(子 agent 可认领/更新条目)=====
+    MCPTool(
+        name="team_task",
+        description=(
+            "团队共享任务列表:同一次协作里的多个子 agent 共用的待办表。"
+            "add 建条目(pending)→ claim 认领(独占,已被他人领走则回 ALREADY_CLAIMED 并带持有者)"
+            "→ update 更新状态/备注(仅持有者可改)→ list 读整表快照。"
+            "与 dispatch_subagent 搭配用:派发是一次性往返,本表补上共同事实源。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["add", "claim", "update", "list"],
+                    "description": "操作:add 建条目 / claim 认领 / update 更新 / list 读整表",
+                },
+                "team_id": {
+                    "type": "string",
+                    "description": "团队标识(默认 default);不同 team_id 的条目表互相隔离",
+                    "default": "default",
+                },
+                "agent_id": {
+                    "type": "string",
+                    "description": "子 agent 自身标识;claim/update 必填(认领者身份与写权限判据)",
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "条目 id;claim/update 必填",
+                },
+                "title": {"type": "string", "description": "add:条目标题(必填)"},
+                "detail": {"type": "string", "description": "add:条目详情(可选)"},
+                "status": {
+                    "type": "string",
+                    "enum": ["pending", "claimed", "done", "blocked"],
+                    "description": "update:目标状态;非法值整条拒绝",
+                },
+                "note": {"type": "string", "description": "update:备注(可选,截断 500 字)"},
+            },
+            "required": ["action"],
+        },
+    ),
     # ===== 扩展工具(2026-07-24 新增,自研)=====
     MCPTool(
         name="fetch_url",
@@ -10944,6 +11176,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "vision_analyze": _tool_vision_analyze,
     # ===== 子智能体派发(2026-07-24 新增)=====
     "dispatch_subagent": _tool_dispatch_subagent,
+    # ===== D08①(2026-10-25):团队共享任务列表(与派发面同一协作域)=====
+    "team_task": _tool_team_task,
     # ===== 扩展工具(2026-07-24 新增,自研)=====
     "fetch_url": _tool_fetch_url,
     "image_generation": _tool_image_generation,
