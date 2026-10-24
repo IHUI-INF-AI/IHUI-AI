@@ -5,17 +5,15 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import type { AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
 
 /** 工作流运行状态(对齐 @ihui/api-client AutomationStatus;徽章配色由共享层按状态计算) */
 export type WorkflowStatus = 'active' | 'paused'
@@ -69,36 +67,21 @@ export function WorkflowsScreen({
 }: WorkflowsScreenProps) {
   const styles = useMemo(() => createStyles(tk), [tk])
 
-  const retryBtn = onRefresh ? (
-    <TouchableOpacity style={styles.outlineBtn} onPress={onRefresh}>
-      <Text style={styles.outlineBtnText}>{t('common.retry')}</Text>
-    </TouchableOpacity>
-  ) : null
-
   if (loading && items.length === 0) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={4} />
   }
 
   if (error) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        {retryBtn}
-      </View>
-    )
+    return <ErrorState message={error} onRetry={onRefresh} retryLabel={t('common.retry')} />
   }
 
   if (items.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('workflows.empty')}</Text>
-        {retryBtn}
-      </View>
+      <EmptyState
+        title={t('workflows.empty')}
+        actionLabel={onRefresh ? t('common.retry') : undefined}
+        onAction={onRefresh}
+      />
     )
   }
 
@@ -111,14 +94,7 @@ export function WorkflowsScreen({
       }
     >
       {items.map((item) => (
-        <TouchableOpacity
-          key={item.id}
-          style={styles.card}
-          activeOpacity={0.7}
-          onPress={() => onOpen(item.id)}
-          accessibilityRole="button"
-          accessibilityLabel={item.name}
-        >
+        <PressableCard key={item.id} style={styles.card} onPress={() => onOpen(item.id)}>
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.name}
@@ -141,7 +117,7 @@ export function WorkflowsScreen({
               ? `${t('automations.lastRun')}: ${item.lastResultText}`
               : t('automations.noResult')}
           </Text>
-        </TouchableOpacity>
+        </PressableCard>
       ))}
     </ScrollView>
   )
@@ -151,17 +127,7 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     listBody: { padding: 16, paddingBottom: 24, gap: 12 },
-    center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 },
     muted: { fontSize: 14, color: tk.text.secondary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
-    outlineBtn: {
-      paddingVertical: 6,
-      paddingHorizontal: 12,
-      borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-    },
-    outlineBtnText: { fontSize: 14, color: tk.text.secondary },
     card: {
       padding: 12,
       borderRadius: rnRadius.lg,

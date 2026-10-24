@@ -17,6 +17,7 @@ import type { CourseFilterScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 课程筛选共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 
@@ -165,10 +166,7 @@ export function CourseFilterScreen({
       ) : null}
 
       {loading && items.length === 0 ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={tk.brand.DEFAULT} />
-          <Text style={styles.emptyText}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList
           data={items}
@@ -188,9 +186,7 @@ export function CourseFilterScreen({
             ) : null
           }
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('courseFilter.empty')}</Text>
-            </View>
+            <EmptyState title={t('courseFilter.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => (
             <View style={styles.card}>

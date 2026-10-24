@@ -4,7 +4,6 @@
 
 import { useMemo } from 'react'
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { getTokens, type AppThemeMode, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '@ihui/types'
 
@@ -163,13 +163,11 @@ export function SelfMediaScreen({
 
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {loading ? (
-          <View style={styles.loadingWrap}>
-            <ActivityIndicator size="small" color={tk.text.secondary} />
-          </View>
+          <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
         ) : tab === 'skills' ? (
           <View style={styles.stackGapLg}>
             {skills.length === 0 ? (
-              <Text style={styles.hintCenter}>{t('spec.empty')}</Text>
+              <EmptyState title={t('spec.empty')} colorScheme={colorScheme} />
             ) : (
               skills.map((skill) => {
                 const expanded = activeSkillId === skill.id
@@ -267,7 +265,7 @@ export function SelfMediaScreen({
             )}
           </View>
         ) : records.length === 0 ? (
-          <Text style={styles.hintCenter}>{t('selfMedia.empty')}</Text>
+          <EmptyState title={t('selfMedia.empty')} colorScheme={colorScheme} />
         ) : (
           <View style={styles.stackGapMd}>
             {records.map((rec) => {
@@ -407,21 +405,11 @@ function createStyles(tk: AppThemeTokens) {
     scrollContent: {
       padding: 16,
     },
-    loadingWrap: {
-      marginTop: 32, // mt-8
-      alignItems: 'center',
-    },
     stackGapLg: {
       gap: 12, // gap-3
     },
     stackGapMd: {
       gap: 10, // gap-2.5
-    },
-    hintCenter: {
-      marginTop: 32, // mt-8
-      textAlign: 'center',
-      fontSize: 14, // text-sm
-      color: tk.text.tertiary, // text-gray-400
     },
     /* 卡片(技能/记录通用) */
     card: {

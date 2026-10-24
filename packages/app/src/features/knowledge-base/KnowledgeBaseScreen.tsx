@@ -17,6 +17,7 @@ import {
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /**
  * 列表项(结构对齐 @ihui/api-client KnowledgeDocSummary,wrapper 直接传其值)。
@@ -112,11 +113,7 @@ export function KnowledgeBaseScreen({
   )
 
   if (loading) {
-    return (
-      <View style={[styles.container, styles.center]}>
-        <Text style={styles.loadingText}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
   }
 
   return (
@@ -131,22 +128,23 @@ export function KnowledgeBaseScreen({
       </View>
 
       {error ? (
-        <View style={styles.errorWrap}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
-            <Text style={styles.retryText}>{t('knowledgeBase.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('knowledgeBase.retry')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <FlatList<KnowledgeDocListItem>
           data={docs}
           keyExtractor={(item) => String(item.id)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>{t('knowledgeBase.empty')}</Text>
-              <Text style={styles.emptyHint}>{t('knowledgeBase.emptyHint')}</Text>
-            </View>
+            <EmptyState
+              title={t('knowledgeBase.empty')}
+              desc={t('knowledgeBase.emptyHint')}
+              colorScheme={colorScheme}
+            />
           }
           contentContainerStyle={styles.listContent}
           renderItem={renderItem}
@@ -166,15 +164,6 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
     },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    loadingText: {
-      fontSize: 14,
-      color: tk.text.secondary,
-    },
     /* 顶部导航行 */
     headerBar: {
       flexDirection: 'row',
@@ -193,29 +182,6 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 14,
       fontWeight: '500',
       color: tk.brandAccent.deep,
-    },
-    /* 错误态 */
-    errorWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-    },
-    errorText: {
-      marginBottom: 12,
-      fontSize: 14,
-      textAlign: 'center',
-      color: tk.text.secondary,
-    },
-    retryBtn: {
-      borderRadius: rnRadius.sm,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      backgroundColor: tk.surface.muted,
-    },
-    retryText: {
-      fontSize: 14,
-      color: tk.text.primary,
     },
     /* 文档列表 */
     listContent: {
@@ -251,20 +217,6 @@ function createStyles(tk: AppThemeTokens) {
     deleteText: {
       fontSize: 12,
       color: tk.danger.DEFAULT,
-    },
-    /* 空态 */
-    empty: {
-      alignItems: 'center',
-      paddingVertical: 64,
-    },
-    emptyText: {
-      fontSize: 14,
-      color: tk.text.secondary,
-    },
-    emptyHint: {
-      marginTop: 4,
-      fontSize: 12,
-      color: tk.text.tertiary,
     },
   } satisfies Record<string, ViewStyle | TextStyle>)
 }

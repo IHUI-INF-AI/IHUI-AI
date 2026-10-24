@@ -5,12 +5,17 @@
 import { useMemo } from 'react'
 import { FlatList, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
 import { TextField } from '../../components/TextField'
-import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentMarketScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
 
 /** Agent 市场共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AgentMarketScreenProps }
@@ -32,19 +37,19 @@ export function AgentMarketScreen({
 
   if (loading && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
   if (error && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error}
+        onRetry={onBack}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -53,7 +58,8 @@ export function AgentMarketScreen({
       <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
       <Text style={styles.title}>{t('agentMarket.title')}</Text>
       <View style={styles.searchRow}>
-        <TextField colorScheme={colorScheme}
+        <TextField
+          colorScheme={colorScheme}
           style={styles.input}
           value={keyword}
           onChangeText={onKeywordChange}
@@ -69,13 +75,13 @@ export function AgentMarketScreen({
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.muted}>{t('agentMarket.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('agentMarket.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => onPressItem(item.id)} style={styles.card}>
+          <PressableCard
+            onPress={() => onPressItem(item.id)}
+            style={styles.card}
+            colorScheme={colorScheme}
+          >
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.name}
             </Text>
@@ -92,7 +98,7 @@ export function AgentMarketScreen({
                 {item.isFree ? t('agentMarket.free') : t('agentMarket.paid')}
               </Text>
             </View>
-          </TouchableOpacity>
+          </PressableCard>
         )}
       />
     </View>
@@ -105,22 +111,6 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
-    },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 16,
-    },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-    btn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
     },
     btnText: { color: tk.brand.ctaForeground, fontSize: 16 },
     title: {
@@ -150,7 +140,6 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,

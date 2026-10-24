@@ -6,7 +6,6 @@ import { useMemo } from 'react'
 import {
   View,
   Text,
-  TouchableOpacity,
   FlatList,
   RefreshControl,
   Pressable,
@@ -21,6 +20,7 @@ import type { MoreCourseScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** MoreCourseScreen props re-export(单一来源 @ihui/types) */
 export type { MoreCourseScreenProps }
@@ -94,9 +94,7 @@ export function MoreCourseScreen({
         {total > 0 ? <Text style={styles.countText}>{`共${total}门`}</Text> : null}
       </View>
       {initialLoading ? (
-        <View style={styles.centerWrap}>
-          <Text style={styles.loadingText}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList
           data={items}
@@ -114,16 +112,14 @@ export function MoreCourseScreen({
           onEndReachedThreshold={0.3}
           ListEmptyComponent={
             error ? (
-              <View style={styles.centerWrap}>
-                <Text style={styles.errorText}>{error}</Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
-                  <Text style={styles.retryText}>重试</Text>
-                </TouchableOpacity>
-              </View>
+              <ErrorState
+                message={error}
+                onRetry={onRefresh}
+                retryLabel={t('common.retry')}
+                colorScheme={colorScheme}
+              />
             ) : (
-              <View style={styles.centerWrap}>
-                <Text style={styles.emptyText}>暂无课程,敬请期待</Text>
-              </View>
+              <EmptyState title="暂无课程,敬请期待" colorScheme={colorScheme} />
             )
           }
           ListFooterComponent={
@@ -179,24 +175,6 @@ function createStyles(tk: AppThemeTokens) {
     lessonCount: { fontSize: 12, color: tk.text.tertiary } as TextStyle,
     price: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT } as TextStyle,
     studentCount: { fontSize: 12, color: tk.text.tertiary } as TextStyle,
-    centerWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-      gap: 12,
-    } as ViewStyle,
-    loadingText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
-    errorText: { fontSize: 16, color: tk.error.text, textAlign: 'center' } as TextStyle,
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    } as ViewStyle,
-    retryText: { fontSize: 14, fontWeight: '600', color: tk.surface.light } as TextStyle,
-    emptyText: { fontSize: 16, color: tk.text.secondary } as TextStyle,
     footerLoading: { paddingVertical: 12, alignItems: 'center' } as ViewStyle,
     footerText: { fontSize: 14, color: tk.text.secondary } as TextStyle,
   })

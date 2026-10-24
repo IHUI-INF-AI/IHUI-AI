@@ -3,10 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native'
-import { UserCheck, UserPlus, Users } from 'lucide-react-native'
+import { Image, Pressable, ScrollView, Text, View } from 'react-native'
+import { UserCheck, UserPlus } from 'lucide-react-native'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { createUserFansStyles } from './user-fans-styles'
 
 /**
@@ -81,19 +82,16 @@ export function UserFansScreen({
 
       <ScrollView contentContainerStyle={styles.body}>
         {loading ? (
-          <ActivityIndicator style={styles.stateBox} color={tk.text.tertiary} />
+          <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
         ) : failed ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.errorText}>{t('userFans.loadFailed')}</Text>
-            <Pressable onPress={onRetry} accessibilityRole="button">
-              <Text style={styles.retry}>{t('common.retry')}</Text>
-            </Pressable>
-          </View>
+          <ErrorState
+            message={t('userFans.loadFailed')}
+            onRetry={onRetry}
+            retryLabel={t('common.retry')}
+            colorScheme={colorScheme}
+          />
         ) : rows.length === 0 ? (
-          <View style={styles.stateBox}>
-            <Users size={28} color={tk.text.tertiary} />
-            <Text style={styles.muted}>{t('userFans.empty')}</Text>
-          </View>
+          <EmptyState title={t('userFans.empty')} colorScheme={colorScheme} />
         ) : (
           <>
             <Text style={styles.total}>{t('userFans.total', { total })}</Text>

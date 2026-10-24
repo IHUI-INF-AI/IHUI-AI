@@ -4,18 +4,11 @@
 import { rnRadius } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import type { FinanceSummary, FinanceScreenProps } from '../../types'
+import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 export type { FinanceSummary, FinanceScreenProps }
 
@@ -39,34 +32,25 @@ export function FinanceScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.success.DEFAULT} />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity
-          onPress={onBack}
-          style={styles.backBtn}
-          accessibilityLabel={t('common.back')}
-        >
-          <ChevronLeft size={16} color={tk.success.DEFAULT} />
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error}
+        onRetry={onBack}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
   if (!summary) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('finance.empty')}</Text>
-      </View>
-    )
+    return <EmptyState title={t('finance.empty')} colorScheme={colorScheme} />
   }
 
   const cards: Array<{ label: string; value: number; primary?: boolean }> = [
@@ -97,14 +81,7 @@ export function FinanceScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: {
-      flex: 1,
-      backgroundColor: tk.surface.bg,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, gap: 12 },
-    backBtn: { marginTop: 12 },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     card: {
       padding: 12,
@@ -117,8 +94,6 @@ function createStyles(tk: AppThemeTokens) {
     label: { fontSize: 14, color: tk.text.secondary },
     value: { marginTop: 8, fontSize: 22, fontWeight: '600', color: tk.text.primary },
     valuePrimary: { color: tk.success.DEFAULT },
-    muted: { fontSize: 14, color: tk.text.secondary },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

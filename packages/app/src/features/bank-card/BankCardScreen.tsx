@@ -9,6 +9,7 @@ import type { BankCardItem, BankCardScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 银行卡列表共享屏 — props 注入式跨端组件 */
 export type { BankCardItem, BankCardScreenProps }
@@ -48,9 +49,11 @@ export function BankCardScreen({
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
-          <View style={styles.center}>
-            <Text style={styles.muted}>{loading ? t('common.loading') : t('bankCard.empty')}</Text>
-          </View>
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('bankCard.empty')} colorScheme={colorScheme} />
+          )
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -87,8 +90,6 @@ function createStyles(tk: AppThemeTokens) {
     error: { paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: tk.danger.DEFAULT },
     listBody: { padding: 10 },
     separator: { height: 12 },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary },
     card: {
       padding: 12,
       borderRadius: rnRadius.lg,

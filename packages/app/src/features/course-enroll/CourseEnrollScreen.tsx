@@ -9,6 +9,7 @@ import type { CourseEnrollItem, CourseEnrollScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 import { TextField } from '../../components/TextField'
 
 /** 课程报名共享屏 — props 注入式跨端组件 */
@@ -73,11 +74,11 @@ export function CourseEnrollScreen({
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>
-              {loading ? t('common.loading') : t('courseEnroll.empty')}
-            </Text>
-          </View>
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title={t('courseEnroll.empty')} colorScheme={colorScheme} />
+          )
         }
         renderItem={({ item }) => {
           const isEnrolling = enrollingId === item.id
@@ -173,8 +174,6 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.danger.DEFAULT,
     },
     list: { flex: 1, paddingHorizontal: 10 },
-    empty: { paddingVertical: 40, alignItems: 'center' },
-    emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,

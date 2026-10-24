@@ -9,6 +9,7 @@ import type { IncomeCommissionItem, IncomeData, IncomeScreenProps } from '@ihui/
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 收益记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { IncomeCommissionItem, IncomeData, IncomeScreenProps }
@@ -89,9 +90,7 @@ export function IncomeScreen({
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('income.title')}</Text>
         </View>
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -103,9 +102,7 @@ export function IncomeScreen({
           <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
           <Text style={styles.title}>{t('income.title')}</Text>
         </View>
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
+        <ErrorState message={error} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -184,11 +181,7 @@ export function IncomeScreen({
           keyExtractor={(item) => item.id}
           scrollEnabled={false}
           contentContainerStyle={{ gap: 12 }}
-          ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('income.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('income.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => {
             const st = statusOf(item)
             return (
@@ -244,9 +237,6 @@ function createStyles(tk: AppThemeTokens) {
       gap: 12,
     },
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
     body: { padding: 10, paddingBottom: 32 },
     summaryCard: {
       padding: 12,

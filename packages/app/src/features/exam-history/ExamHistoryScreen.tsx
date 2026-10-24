@@ -3,13 +3,18 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { FlatList, RefreshControl, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
+import { FlatList, RefreshControl, Text, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamHistoryItem, ExamHistoryScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
 
 /** ExamHistory 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ExamHistoryItem, ExamHistoryScreenProps }
@@ -30,18 +35,22 @@ export function ExamHistoryScreen({
 
   if (loading && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
   if (error && items.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error}</Text>
-        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
-        </TouchableOpacity>
+      <View style={styles.container}>
+        {/* 错误态仍保留返回入口(原错误分支的返回钮语义不变) */}
+        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -54,32 +63,30 @@ export function ExamHistoryScreen({
         data={items}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.muted}>{t('examHistory.empty')}</Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyState title={t('examHistory.empty')} colorScheme={colorScheme} />}
         renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => onPressItem(item.id)}>
-            <View style={styles.card}>
-              <View style={styles.cardHead}>
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                  {item.examTitle}
+          <PressableCard
+            onPress={() => onPressItem(item.id)}
+            colorScheme={colorScheme}
+            style={styles.card}
+          >
+            <View style={styles.cardHead}>
+              <Text style={styles.cardTitle} numberOfLines={1}>
+                {item.examTitle}
+              </Text>
+              <View style={[styles.badge, item.passed ? styles.badgePassed : styles.badgeFailed]}>
+                <Text style={item.passed ? styles.badgePassedText : styles.badgeFailedText}>
+                  {item.passed ? t('examHistory.passed') : t('examHistory.failed')}
                 </Text>
-                <View style={[styles.badge, item.passed ? styles.badgePassed : styles.badgeFailed]}>
-                  <Text style={item.passed ? styles.badgePassedText : styles.badgeFailedText}>
-                    {item.passed ? t('examHistory.passed') : t('examHistory.failed')}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.metaRow}>
-                <Text style={styles.score}>
-                  {item.score}/{item.totalScore}
-                </Text>
-                <Text style={styles.metaTime}>{item.submittedAt}</Text>
               </View>
             </View>
-          </TouchableOpacity>
+            <View style={styles.metaRow}>
+              <Text style={styles.score}>
+                {item.score}/{item.totalScore}
+              </Text>
+              <Text style={styles.metaTime}>{item.submittedAt}</Text>
+            </View>
+          </PressableCard>
         )}
       />
     </View>
@@ -93,22 +100,6 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       paddingHorizontal: 10,
     },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 16,
-    },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-    btn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
     title: {
       marginTop: 8,
       marginBottom: 12,
@@ -116,7 +107,6 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    empty: { paddingVertical: 40, alignItems: 'center' },
     card: {
       padding: 14,
       borderRadius: rnRadius.lg,

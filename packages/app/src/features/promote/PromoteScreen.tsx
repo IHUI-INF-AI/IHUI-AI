@@ -3,15 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   PromoteStatus,
@@ -22,6 +14,7 @@ import type {
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 export type { PromoteStatus, PromoteInfo, PromoteInviteRecord, PromoteScreenProps }
 
@@ -55,20 +48,21 @@ export function PromoteScreen({
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.brand.DEFAULT} />
-        <Text style={styles.emptyText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
 
   if (error && !info) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
-          <Text style={styles.retryBtnText}>{t('promote.retry')}</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('promote.retry')}
+          colorScheme={colorScheme}
+        />
       </View>
     )
   }
@@ -79,7 +73,12 @@ export function PromoteScreen({
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} style={styles.backBtn} />
+        <BackChevron
+          onPress={onBack}
+          label={t('common.back')}
+          colorScheme={colorScheme}
+          style={styles.backBtn}
+        />
         <Text style={styles.title}>{t('promote.title')}</Text>
         <Text style={styles.subtitle}>{t('promote.subtitle')}</Text>
       </View>
@@ -139,9 +138,7 @@ export function PromoteScreen({
           <Text style={styles.sectionTitle}>{t('promote.inviteRecords')}</Text>
           <View style={styles.recordsList}>
             {records.length === 0 ? (
-              <View style={styles.center}>
-                <Text style={styles.emptyText}>{t('promote.empty')}</Text>
-              </View>
+              <EmptyState title={t('promote.empty')} colorScheme={colorScheme} />
             ) : (
               records.map((item) => (
                 <View key={item.id} style={styles.recordCard}>
@@ -174,7 +171,6 @@ export function PromoteScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: { alignItems: 'center', paddingVertical: 32 },
     emptyText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center', marginTop: 8 },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
@@ -249,15 +245,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     statusActive: { backgroundColor: tk.success.light },
     recordStatusText: { fontSize: 10, color: tk.text.secondary },
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      height: 44,
-      justifyContent: 'center',
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
-    retryBtnText: { color: tk.surface.light, fontSize: 14 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

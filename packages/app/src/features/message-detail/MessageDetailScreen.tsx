@@ -4,12 +4,11 @@
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { MessageDetailData, MessageDetailScreenProps } from '@ihui/types'
 
-import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 消息详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { MessageDetailData, MessageDetailScreenProps }
@@ -49,21 +48,14 @@ export function MessageDetailScreen({
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : error || !message ? (
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error || t('messageDetail.notFound')}</Text>
-          <TouchableOpacity
-            onPress={onBack}
-            style={styles.backBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityLabel={t('common.back')}
-          >
-            <ChevronLeft size={16} color={tk.text.primary} />
-          </TouchableOpacity>
-        </View>
+        <ErrorState
+          message={error || t('messageDetail.notFound')}
+          onRetry={onBack}
+          retryLabel={t('common.back')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <ScrollView contentContainerStyle={styles.body}>
           <Text style={styles.subject}>{message.subject}</Text>
@@ -94,19 +86,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     title: { flex: 1, fontSize: 20, fontWeight: '600', color: tk.text.primary },
     replyText: { fontSize: 16, color: tk.text.primary, fontWeight: '600' },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center' },
-    backBtn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      height: 44,
-      borderRadius: rnRadius.sm,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
     body: { padding: 10, paddingBottom: 32 },
     subject: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     metaRow: {
