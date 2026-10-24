@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   dedupeByFingerprint,
+  dedupeGroups,
   pickBest,
   uniqueNotes,
   latestNoteDate,
@@ -267,6 +268,51 @@ describe('G-240 族:同题组的注记不得按成员重复追加(旧写法一�
     assert.equal(collapseDuplicateNotes('x 〔甲〕 〔乙〕'), 'x 〔甲〕 〔乙〕')
     assert.equal(collapseDuplicateNotes('a 〔甲〕 b 〔甲〕 c 〔乙〕'), 'a 〔甲〕 b  c 〔乙〕')
     assert.equal(collapseDuplicateNotes('无注记的一行'), '无注记的一行')
+  })
+})
+
+describe('2026-10-25:仅投影标头 / 尾部注记差异的两版由本层裁定(跨机合并 F4 放大的止口)', () => {
+  // 立因(main 与 origin/main 实测):两侧同期各动同一行 —— 本侧补侧车投影标头、对侧富化正文;
+  // 两行指纹相同、都 ≠ 基底、同票号 ⇒ 旧写法判 clash ⇒ 整组 ambiguous ⇒ 一条不折 ⇒
+  // 落地闸 F4「同一件事多条待办」各侧 0 / 归并 2,而 merge-tree 没有内容冲突 ⇒ 分叉只能人工删行。
+  const TITLE = '**短信通道资质报备准备与凭据核实专项工作**'
+  const HEADER = '〔归:—｜等:等环境〕'
+  const base = `# 台账\n- [ ] G-20 ${TITLE} 旧版正文\n`
+
+  it('正文逐字相同、仅本侧多投影标头 ⇒ 折成带标头那一份', () => {
+    const headed = `- [ ] ${HEADER} G-20 ${TITLE} 新版正文`
+    const plain = `- [ ] G-20 ${TITLE} 新版正文`
+    const { text, ambiguous } = dedupeGroups(`# 台账\n${headed}\n${plain}\n`, base)
+    const kept = text.split('\n').filter((l) => l.includes(TITLE))
+    assert.equal(kept.length, 1, `两版只差投影标头 ⇒ 必须折成 1 行,实得 ${kept.length}`)
+    assert.ok(kept[0].includes(HEADER), '标头是侧车投影(可重生成),保留带标头那份')
+    assert.equal(ambiguous.length, 0, '这不是"两侧各改写一版",不得交人工')
+  })
+
+  it('长份带标头 ∧ 短份是它的前缀(尾部注记差异) ⇒ 折叠且注记仍在', () => {
+    const headed = `- [ ] ${HEADER} G-20 ${TITLE} 新版正文 〔进展@2026-10-25:已复核〕`
+    const plain = `- [ ] G-20 ${TITLE} 新版正文`
+    const { text } = dedupeGroups(`# 台账\n${headed}\n${plain}\n`, base)
+    const kept = text.split('\n').filter((l) => l.includes(TITLE))
+    assert.equal(kept.length, 1)
+    assert.ok(kept[0].includes('〔进展@2026-10-25:已复核〕'), '长份的注记不得丢')
+    assert.ok(kept[0].includes(HEADER))
+  })
+
+  it('反向对照:带标头那份不是最长 ⇒ 不折(两版各有对方没有的内容 ⇒ 交人工)', () => {
+    const headed = `- [ ] ${HEADER} G-20 ${TITLE} 甲`
+    const plain = `- [ ] G-20 ${TITLE} 甲 〔对侧独有注记〕`
+    const { text, ambiguous } = dedupeGroups(`# 台账\n${headed}\n${plain}\n`, base)
+    assert.equal(text.split('\n').filter((l) => l.includes(TITLE)).length, 2, '不得擅自替人裁定')
+    assert.equal(ambiguous.length, 1, '机器判不出的组必须点名,不许静默')
+  })
+
+  it('反向对照:两版正文互不为前缀 ⇒ 不折', () => {
+    const a = `- [ ] ${HEADER} G-20 ${TITLE} 甲种说法`
+    const b = `- [ ] G-20 ${TITLE} 乙种说法`
+    const { text, ambiguous } = dedupeGroups(`# 台账\n${a}\n${b}\n`, base)
+    assert.equal(text.split('\n').filter((l) => l.includes(TITLE)).length, 2)
+    assert.equal(ambiguous.length, 1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
