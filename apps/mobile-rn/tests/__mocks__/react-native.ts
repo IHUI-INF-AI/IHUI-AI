@@ -53,8 +53,16 @@ type Measurable = HTMLElement & {
 
 const mk = (tag: string) =>
   function MockComp(props: { children?: ReactNode; ref?: unknown; [k: string]: unknown }) {
-    const { style, onPress, onChangeText, onSubmitEditing, accessibilityLabel, ref, ...rest } =
-      props
+    const {
+      style,
+      onPress,
+      onLongPress,
+      onChangeText,
+      onSubmitEditing,
+      accessibilityLabel,
+      ref,
+      ...rest
+    } = props
     /**
      * React 19 把 ref 当普通 prop 传给函数组件,而这里此前直接把它连同 `style` 一起
      * spread 到 DOM 上 —— 结果 ref 被静默丢弃,`triggerRef.current` 恒为 null,
@@ -90,7 +98,14 @@ const mk = (tag: string) =>
     if (typeof accessibilityLabel === 'string') extra['aria-label'] = accessibilityLabel
     return createElement(
       tag,
-      { ...rest, ...extra, ref: setRef, onClick: onPress, style: flattenStyle(style) },
+      {
+        onContextMenu: onLongPress,
+        ...rest,
+        ...extra,
+        ref: setRef,
+        onClick: onPress,
+        style: flattenStyle(style),
+      },
       resolveChildren(props.children),
     )
   }
@@ -227,6 +242,22 @@ export const Animated = {
       if (typeof cb === 'function') (cb as () => void)()
     },
   }),
+  // 2026-10-24:ScreenStates 骨架屏 shimmer 走 Animated.loop(Animated.sequence([...]))
+  // —— 缺 sequence 时凡渲染骨架屏的屏(用本全局替身的全部测试)挂载即崩(g-469 七例即此型)
+  sequence: (anims: readonly { start: () => void }[]) => ({
+    start: (cb?: unknown) => {
+      anims.forEach((a) => a.start())
+      if (typeof cb === 'function') (cb as () => void)()
+    },
+  }),
+  loop: (anim: { start: () => void }) => ({
+    start: () => anim.start(),
+    stop: () => {},
+    reset: () => {},
+  }),
+  event: () => () => {},
+  addListener: () => ({ remove: () => {} }),
+  removeAllListeners: () => {},
   Value: class {
     // 不能写 private:导出的匿名类带私有成员会触发 TS4094(声明无法 emit)
     current: number
