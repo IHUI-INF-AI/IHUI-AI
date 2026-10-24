@@ -222,7 +222,7 @@ export default function EduShopPage() {
                       )}
                       <Button
                         size="mini"
-                        className="bg-cta text-cta-foreground rounded-md"
+                        className="bg-cta text-cta-foreground rounded-sm"
                         onClick={() => void onBuy(c)}
                       >
                         {t('eduShop.buy')}

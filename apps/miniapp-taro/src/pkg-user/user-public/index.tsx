@@ -184,14 +184,14 @@ export default function UserPublicPage() {
 
             <View className="flex gap-2 mt-1">
               <Button
-                className="flex-1 bg-cta text-cta-foreground rounded-md text-sm font-semibold"
+                className="flex-1 bg-cta text-cta-foreground rounded-sm text-sm font-semibold"
                 disabled={pending || following === null}
                 onClick={() => void onToggleFollow()}
               >
                 {following ? t('userPublic.following') : t('userPublic.follow')}
               </Button>
               <Button
-                className="flex-1 bg-muted rounded-md text-sm font-semibold text-foreground"
+                className="flex-1 bg-muted rounded-sm text-sm font-semibold text-foreground"
                 onClick={() => void onMessage()}
               >
                 {t('userPublic.message')}
