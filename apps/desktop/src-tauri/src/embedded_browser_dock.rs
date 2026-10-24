@@ -72,26 +72,26 @@ struct DockTab {
     title: String,
 }
 
-/// 停靠会话:标签列表 + 当前标签 + 宿位矩形(逻辑 px)。
+/// 停靠浏览器 UI 状态:标签列表 + 当前标签 + 宿位矩形(逻辑 px)。
 ///
-/// 矩形留在会话里而不是只用于建窗那一瞬:新标签必须落在**同一个**宿位矩形上,
+/// 矩形留在 UI 状态里而不是只用于建窗那一瞬:新标签必须落在**同一个**宿位矩形上,
 /// 否则第二个标签会铺在默认位置(0,0)。
 #[derive(Debug, Clone, Default)]
-struct DockSession {
+struct DockChrome {
     next_id: u64,
     tabs: Vec<DockTab>,
     active: Option<u64>,
     rect: Option<(f64, f64, f64, f64)>,
 }
 
-static SESSION: OnceLock<Mutex<DockSession>> = OnceLock::new();
+static DOCK_CHROME: OnceLock<Mutex<DockChrome>> = OnceLock::new();
 
-fn session() -> &'static Mutex<DockSession> {
-    SESSION.get_or_init(|| Mutex::new(DockSession::default()))
+fn chrome() -> &'static Mutex<DockChrome> {
+    DOCK_CHROME.get_or_init(|| Mutex::new(DockChrome::default()))
 }
 
-fn with_session<R>(f: impl FnOnce(&mut DockSession) -> R) -> R {
-    let mut g = session().lock().unwrap_or_else(|e| e.into_inner());
+fn with_chrome<R>(f: impl FnOnce(&mut DockChrome) -> R) -> R {
+    let mut g = chrome().lock().unwrap_or_else(|e| e.into_inner());
     f(&mut g)
 }
 
@@ -99,17 +99,17 @@ fn with_session<R>(f: impl FnOnce(&mut DockSession) -> R) -> R {
 ///
 /// 不能只按 label 查:标签可能已被销毁而句柄短暂可查。会话里还有标签才是权威。
 pub fn docked_webview(app: &AppHandle) -> Option<Webview> {
-    let id = with_session(|s| if s.tabs.is_empty() { None } else { s.active })?;
+    let id = with_chrome(|s| if s.tabs.is_empty() { None } else { s.active })?;
     app.get_webview(&tab_label(id))
 }
 
 /// 把标签列表推给工作面板 React 标签栏(listen `embedded-browser://dock-tabs`)。
 fn emit_tabs(app: &AppHandle) {
-    let payload = with_session(|s| tabs_json(s));
+    let payload = with_chrome(|s| tabs_json(s));
     let _ = app.emit_to("main", "embedded-browser://dock-tabs", payload);
 }
 
-fn tabs_json(s: &DockSession) -> serde_json::Value {
+fn tabs_json(s: &DockChrome) -> serde_json::Value {
     serde_json::json!({
         "tabs": s.tabs.iter().map(|t| DockTabInfo {
             id: t.id,
@@ -240,7 +240,7 @@ fn build_tab_builder(app: &AppHandle, id: u64, url: Url) -> WebviewBuilder<tauri
                         // 页内 window.open / target=_blank:开成停靠档自己的新标签
                         let app = app_for_nav.clone();
                         tauri::async_runtime::spawn(async move {
-                            let full = with_session(|s| s.tabs.len() >= MAX_DOCK_TABS);
+                            let full = with_chrome(|s| s.tabs.len() >= MAX_DOCK_TABS);
                             if full {
                                 return;
                             }
@@ -262,7 +262,7 @@ fn build_tab_builder(app: &AppHandle, id: u64, url: Url) -> WebviewBuilder<tauri
             let app = app_for_load.clone();
             let url = payload.url().to_string();
             tauri::async_runtime::spawn(async move {
-                let changed = with_session(|s| {
+                let changed = with_chrome(|s| {
                     if let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) {
                         t.url = url.clone();
                         if t.title.is_empty() {
@@ -290,7 +290,7 @@ fn update_tab_title(app: &AppHandle, id: u64, title: String) {
     if title.trim().is_empty() {
         return;
     }
-    let changed = with_session(|s| {
+    let changed = with_chrome(|s| {
         if let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) {
             t.title = title;
             true
@@ -308,7 +308,7 @@ async fn create_tab(app: &AppHandle, url: Url, activate: bool) -> Result<u64, Ip
     let window = app
         .get_window("main")
         .ok_or_else(|| IpcError::internal("主窗口不存在(停靠浏览器只能挂在主窗上)"))?;
-    let (id, rect) = with_session(|s| {
+    let (id, rect) = with_chrome(|s| {
         if s.next_id == 0 {
             s.next_id = 1;
         } else {
@@ -327,7 +327,7 @@ async fn create_tab(app: &AppHandle, url: Url, activate: bool) -> Result<u64, Ip
         .add_child(builder, pos, size)
         .map_err(|e| IpcError::internal(format!("创建停靠标签失败: {e}")))?;
 
-    let prev = with_session(|s| {
+    let prev = with_chrome(|s| {
         s.tabs.push(DockTab {
             id,
             url: url.to_string(),
@@ -372,11 +372,11 @@ pub async fn embedded_browser_dock_open(
     height: f64,
 ) -> Result<(), IpcError> {
     let parsed = Url::parse(&url).map_err(|e| IpcError::internal(format!("URL 解析失败: {e}")))?;
-    with_session(|s| s.rect = Some((x, y, width, height)));
+    with_chrome(|s| s.rect = Some((x, y, width, height)));
 
     if let Some(wv) = docked_webview(&app) {
         apply_rect(&wv, (x, y, width, height))?;
-        let current = with_session(|s| {
+        let current = with_chrome(|s| {
             s.active
                 .and_then(|id| s.tabs.iter().find(|t| t.id == id))
                 .map(|t| t.url.clone())
@@ -384,7 +384,7 @@ pub async fn embedded_browser_dock_open(
         if current.as_deref() != Some(url.as_str()) {
             wv.navigate(parsed)
                 .map_err(|e| IpcError::internal(format!("停靠浏览器导航失败: {e}")))?;
-            with_session(|s| {
+            with_chrome(|s| {
                 if let Some(id) = s.active {
                     if let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) {
                         t.url = url.clone();
@@ -410,7 +410,7 @@ pub async fn embedded_browser_dock_bounds(
     width: f64,
     height: f64,
 ) -> Result<(), IpcError> {
-    let ids = with_session(|s| {
+    let ids = with_chrome(|s| {
         s.rect = Some((x, y, width, height));
         s.tabs.iter().map(|t| t.id).collect::<Vec<_>>()
     });
@@ -425,9 +425,9 @@ pub async fn embedded_browser_dock_bounds(
 /// 关闭整个停靠浏览器(销毁全部标签 webview;再次 open 会重新建)。
 #[tauri::command]
 pub async fn embedded_browser_dock_close(app: AppHandle) -> Result<(), IpcError> {
-    let ids = with_session(|s| {
+    let ids = with_chrome(|s| {
         let ids = s.tabs.iter().map(|t| t.id).collect::<Vec<_>>();
-        *s = DockSession::default();
+        *s = DockChrome::default();
         ids
     });
     for id in ids {
@@ -442,7 +442,7 @@ pub async fn embedded_browser_dock_close(app: AppHandle) -> Result<(), IpcError>
 /// 新建标签页(对齐独立窗口「+」)。不传 url 时开主页。
 #[tauri::command]
 pub async fn embedded_browser_dock_new_tab(app: AppHandle, url: Option<String>) -> Result<(), IpcError> {
-    let full = with_session(|s| s.tabs.len() >= MAX_DOCK_TABS);
+    let full = with_chrome(|s| s.tabs.len() >= MAX_DOCK_TABS);
     if full {
         return Err(IpcError::internal("标签页数量已达上限"));
     }
@@ -457,7 +457,7 @@ pub async fn embedded_browser_dock_new_tab(app: AppHandle, url: Option<String>) 
 /// 切换标签(隐藏旧标签、显示新标签,页面状态不丢)。
 #[tauri::command]
 pub async fn embedded_browser_dock_switch_tab(app: AppHandle, id: u64) -> Result<(), IpcError> {
-    let prev = with_session(|s| {
+    let prev = with_chrome(|s| {
         if !s.tabs.iter().any(|t| t.id == id) {
             return None;
         }
@@ -477,7 +477,7 @@ pub async fn embedded_browser_dock_switch_tab(app: AppHandle, id: u64) -> Result
     }
     if let Some(wv) = app.get_webview(&tab_label(id)) {
         // 先摆正再显示:隐藏期间宿位可能变过(标签栏出现/消失)
-        if let Some(r) = with_session(|s| s.rect) {
+        if let Some(r) = with_chrome(|s| s.rect) {
             apply_rect(&wv, r)?;
         }
         let _ = wv.show();
@@ -493,7 +493,7 @@ pub async fn embedded_browser_dock_close_tab(app: AppHandle, id: u64) -> Result<
     if let Some(wv) = app.get_webview(&tab_label(id)) {
         let _ = wv.close();
     }
-    let next = with_session(|s| {
+    let next = with_chrome(|s| {
         s.tabs.retain(|t| t.id != id);
         if s.active == Some(id) {
             s.active = s.tabs.last().map(|t| t.id);
@@ -512,7 +512,7 @@ pub async fn embedded_browser_dock_close_tab(app: AppHandle, id: u64) -> Result<
 /// 当前标签列表(前端标签栏首帧渲染 + 事件丢失时兜底拉取)。
 #[tauri::command]
 pub fn embedded_browser_dock_tabs() -> serde_json::Value {
-    with_session(|s| tabs_json(s))
+    with_chrome(|s| tabs_json(s))
 }
 
 // ---------------------------------------------------------------------------
@@ -537,7 +537,7 @@ pub async fn embedded_browser_dock_navigate(app: AppHandle, url: String) -> Resu
     require_webview(&app)?
         .navigate(parsed)
         .map_err(|e| IpcError::internal(format!("停靠浏览器导航失败: {e}")))?;
-    with_session(|s| {
+    with_chrome(|s| {
         if let Some(id) = s.active {
             if let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) {
                 t.url = url.clone();
@@ -584,7 +584,7 @@ pub async fn embedded_browser_dock_home(app: AppHandle) -> Result<(), IpcError> 
     require_webview(&app)?
         .navigate(parsed)
         .map_err(|e| IpcError::internal(format!("停靠浏览器回主页失败: {e}")))?;
-    with_session(|s| {
+    with_chrome(|s| {
         if let Some(id) = s.active {
             if let Some(t) = s.tabs.iter_mut().find(|t| t.id == id) {
                 t.url = HOME_URL.to_string();
@@ -624,16 +624,16 @@ pub fn embedded_browser_dock_url(app: AppHandle) -> Option<String> {
 /// 全部停靠 webview 并通知前端收起停靠标签 —— 两套形态不会同时存在。
 #[tauri::command]
 pub async fn embedded_browser_dock_popout(app: AppHandle) -> Result<(), IpcError> {
-    let url = with_session(|s| {
+    let url = with_chrome(|s| {
         s.active
             .and_then(|id| s.tabs.iter().find(|t| t.id == id))
             .map(|t| t.url.clone())
     })
     .ok_or_else(|| IpcError::internal("当前没有可弹出的页面"))?;
     crate::embedded_browser::open_or_navigate(app.clone(), url, None).await?;
-    let ids = with_session(|s| {
+    let ids = with_chrome(|s| {
         let ids = s.tabs.iter().map(|t| t.id).collect::<Vec<_>>();
-        *s = DockSession::default();
+        *s = DockChrome::default();
         ids
     });
     for id in ids {
