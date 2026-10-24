@@ -680,6 +680,56 @@ test('GA8 不得复用 back-label 的三位置宽档(它借的是 GA1 那条逐�
   assert.equal(nowOut, 0, 'GA8 的合法出口必须是 glyph-arrow-exempt(带原因、逐行)')
 })
 
+// ── GA4 同格矢量箭头(2026-10-24):判据只看文案时,「矢量图标 + span 标签」被误判成文字返回 ──
+// 这条臂的存在理由是**正例曾在旧判据下恒红**:旧判据看不见同格的图标兄弟 ⇒ 合规写法被迫加临时
+// 豁免。下面三条同时钉住"认得图标兄弟"与"没有整体放宽"(判不出的边界仍按原规则报)。
+test('GA4 同格矢量箭头:图标与文案同属一个可点容器 ⇒ 文案是标签;纯文字/判不出的仍报', () => {
+  const FILE = 'apps/web/app/(main)/learn/[id]/PageClient.tsx'
+  const ICON_LABEL = [
+    "import { ArrowLeft } from 'lucide-react'",
+    'export const P = ({ t }) => (',
+    '  <Link href="/learn" className="inline-flex items-center gap-1.5">',
+    '    <ArrowLeft className="h-4 w-4" />',
+    "    <span>{t('detail.back')}</span>",
+    '  </Link>',
+    ')',
+    '',
+  ].join('\n')
+  const labeled = gate.auditFile(FILE, ICON_LABEL)
+  assert.equal(
+    labeled.findings.filter((f) => f.rule === 'GA4' || f.rule === 'GA5').length,
+    0,
+    `矢量图标 + 文案标签被判成文字返回(本票立项的那一处误报):${labeled.findings
+      .map((f) => `${f.rule}@${f.line}`)
+      .join(' | ')}`,
+  )
+  assert.equal(
+    labeled.notes.vectorBackLabel,
+    1,
+    '放过必须记在"同格矢量箭头"判据名下 —— 否则无法区分"判据认得图标"与"恰好没扫到"',
+  )
+  // 反例①:纯文字「‹ 返回」没有图标兄弟 ⇒ 仍按 GA5 报
+  const pure = gate.auditFile(
+    'apps/web/app/vec-only-glyph.tsx',
+    "export const P = ({ go }) => <button onClick={go}><span>‹ 返回</span></button>\n",
+  )
+  assert.equal(
+    pure.findings.filter((f) => f.rule === 'GA5').length,
+    1,
+    '纯文字返回会因新判据被整体放宽(本就是本门要拦的那一型)',
+  )
+  // 反例②:图标在可点容器**之外**(文案元素自己可点)⇒ 同格不成立,仍按 GA4 报
+  const outside = gate.auditFile(
+    'apps/web/app/vec-outside.tsx',
+    "export const P = ({ t }) => <div><ArrowLeft /><span onClick={() => {}}>{t('detail.back')}</span></div>\n",
+  )
+  assert.equal(
+    outside.findings.filter((f) => f.rule === 'GA4').length,
+    1,
+    '判不出同格时不得豁免 —— 否则页面级容器里别处的图标能给任意文案伪造"箭头位"',
+  )
+})
+
 // ── GA7 属性扫描窗 + renderHeader 抑制语义(票「GA7 对 render-prop 宿主组合失明」的成对验收臂)──
 // 取材面 = git 提交面(blob 逐字),不读工作树:这条臂锁的是"真文件喂真判据"的行为,工作树副本被别的
 // 会话占着时它仍按当次 HEAD/指定提交现读,不会闪红也不会假绿。取不到 ⇒ 断言失败并点名,不记通过。
