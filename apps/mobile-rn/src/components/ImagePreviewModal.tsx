@@ -40,7 +40,10 @@ import {
 } from '@ihui/shared/chat/element-pack'
 // G-853 平移判据的唯一出口 —— 与 web 端 `FilePreview.tsx` 同一份算式(§3:两处算同一件事
 // 必须共用一份实现)。走子路径导入:`src/utils/index.ts` 那份 barrel 此刻被并行会话持有。
-import { clampImagePreviewOffset, imagePreviewPanApplies } from '@ihui/shared/utils/image-preview-offset'
+import {
+  clampImagePreviewOffset,
+  imagePreviewPanApplies,
+} from '@ihui/shared/utils/image-preview-offset'
 import { tokens } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 
@@ -58,10 +61,7 @@ export interface ImagePreviewBox {
  * 差异,不是两套算法。这里只把"自然尺寸 + 盒子"折成 contain 尺寸,越界判据仍整份交给共享层。
  * 任一维度量不到(≤0 / 非有限)一律回 0 尺寸 ⇒ 共享层判"不平移",不把未测读成可拖。
  */
-export function containedImageBox(
-  natural: ImagePreviewBox,
-  box: ImagePreviewBox,
-): ImagePreviewBox {
+export function containedImageBox(natural: ImagePreviewBox, box: ImagePreviewBox): ImagePreviewBox {
   const num = (value: number) => (Number.isFinite(value) ? value : 0)
   const w = num(natural.width)
   const h = num(natural.height)
@@ -71,7 +71,6 @@ export function containedImageBox(
   const fit = Math.min(bw / w, bh / h)
   return { width: w * fit, height: h * fit }
 }
-
 
 /** 悬浮控件前景(黑遮罩上取亮色前景;非品牌实底 CTA,不走成对档) */
 const HUD_COLOR = tokens.surface.light
@@ -147,7 +146,10 @@ export default function ImagePreviewModal({
     if (!drag) return
     setOffset(
       clampImagePreviewOffset(
-        panGeometryAt(drag.ox + (event.nativeEvent.pageX - drag.x0), drag.oy + (event.nativeEvent.pageY - drag.y0)),
+        panGeometryAt(
+          drag.ox + (event.nativeEvent.pageX - drag.x0),
+          drag.oy + (event.nativeEvent.pageY - drag.y0),
+        ),
       ),
     )
   }
@@ -177,7 +179,6 @@ export default function ImagePreviewModal({
   useEffect(() => {
     setNatural({ width: 0, height: 0 })
   }, [index])
-
 
   // 成败提示 2.2s 自动消失(成败都要显式,但常驻会挡图)
   useEffect(() => {
@@ -212,7 +213,7 @@ export default function ImagePreviewModal({
             onPress={onClose}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="关闭"
+            accessibilityLabel={t('common.close')}
           >
             <X size={30} color={HUD_COLOR} />
           </Pressable>
@@ -244,7 +245,9 @@ export default function ImagePreviewModal({
               source={current}
               style={[
                 styles.image,
-                { transform: [{ translateX: offset.x }, { translateY: offset.y }, { scale: zoom }] },
+                {
+                  transform: [{ translateX: offset.x }, { translateY: offset.y }, { scale: zoom }],
+                },
               ]}
               resizeMode="contain"
               onLoad={(event) =>
@@ -254,7 +257,7 @@ export default function ImagePreviewModal({
                 })
               }
               testID="image-preview-modal-image"
-              accessibilityLabel="预览图片"
+              accessibilityLabel={t('chat.imagePreview')}
             />
           ) : null}
         </View>

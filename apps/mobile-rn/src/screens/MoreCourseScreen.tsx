@@ -139,12 +139,12 @@ export function MoreCourseScreen() {
       setItems(res.data.list ?? [])
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      setError(detail.trim() ? toUserFriendlyMessage(e) : '加载失败,请下拉刷新重试')
+      setError(detail.trim() ? toUserFriendlyMessage(e) : t('common.loadFailPullRetry'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [t])
 
   /** 知识星球资讯加载(api 层 newsArticles 数据源;失败静默,区块走空态) */
   const loadPlanet = useCallback(async () => {
@@ -209,7 +209,7 @@ export function MoreCourseScreen() {
 
   return (
     <View style={styles.root}>
-      <NavBar title="更多课程" onBack={() => navigation.goBack()} />
+      <NavBar title={t('course.moreTitle')} onBack={() => navigation.goBack()} />
       {/* 悬浮佣金入口(对齐原 MoreCourse.vue:CommissionFloatingIcon 位于 main-container 层,
           渲染在滚动区外;RN 组件无拖拽 props,按其现有 onPress 跳 EarnCommission 分销页) */}
       <CommissionFloatingIcon onPress={() => navigation.navigate('EarnCommission')} />

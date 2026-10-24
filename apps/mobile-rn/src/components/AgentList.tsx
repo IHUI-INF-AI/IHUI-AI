@@ -210,7 +210,7 @@ export default function AgentList({
               />
             )
           })}
-          {isLoading ? <Text style={styles.loadingText}>{'加载中...'}</Text> : null}
+          {isLoading ? <Text style={styles.loadingText}>{t('common.loading')}</Text> : null}
           {!hasMore && items.length > 0 ? (
             <Text style={styles.noMoreText}>{t('order.noMore')}</Text>
           ) : null}

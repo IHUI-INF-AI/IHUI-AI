@@ -118,7 +118,7 @@ export function PersonalInformationCard({
       {/* 顶部:昵称 + 头像 */}
       <View style={styles.header}>
         <Text style={styles.nickname} numberOfLines={1} ellipsizeMode="tail">
-          {nickname || '用户'}
+          {nickname || t('common.user')}
         </Text>
         {hasAvatarUrl ? (
           <Image source={{ uri: avatarUrl }} style={styles.avatar} resizeMode="cover" />

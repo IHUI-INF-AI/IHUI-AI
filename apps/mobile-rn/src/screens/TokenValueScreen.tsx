@@ -33,19 +33,19 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 /** 记录时间范围 key(对齐 Uniapp token_value.vue barList 的 value: w/m/y/a) */
 type RangeKey = 'w' | 'm' | 'y' | 'a'
 
-const RANGE_ITEMS: readonly { key: RangeKey; label: string }[] = [
-  { key: 'w', label: '7天' },
-  { key: 'm', label: '一个月' },
-  { key: 'y', label: '近一年' },
-  { key: 'a', label: '全部' },
+const RANGE_ITEMS: readonly { key: RangeKey; labelKey: string }[] = [
+  { key: 'w', labelKey: 'tokenValue.range7d' },
+  { key: 'm', labelKey: 'tokenValue.range1m' },
+  { key: 'y', labelKey: 'tokenValue.range1y' },
+  { key: 'a', labelKey: 'tokenValue.rangeAll' },
 ]
 
 /** 各范围的天数(a=全部不设限) */
 const RANGE_DAYS: Record<RangeKey, number> = { w: 7, m: 30, y: 365, a: Number.POSITIVE_INFINITY }
 
-function formatToken(n: number): string {
-  if (Math.abs(n) >= 100000000) return `${(n / 100000000).toFixed(2)}亿`
-  if (Math.abs(n) >= 10000) return `${(n / 10000).toFixed(1)}万`
+function formatToken(n: number, t: (k: string, v?: Record<string, unknown>) => string): string {
+  if (Math.abs(n) >= 100000000) return t('tokenValue.unitYi', { v: (n / 100000000).toFixed(2) })
+  if (Math.abs(n) >= 10000) return t('tokenValue.unitWan', { v: (n / 10000).toFixed(1) })
   return `${n}`
 }
 
@@ -131,7 +131,7 @@ export default function TokenValueScreen() {
   const handleRecharge = (p: TokenValuePackage) =>
     appAlert(
       t('tokenValue.recharge.title'),
-      t('tokenValue.recharge.message', { tokens: formatToken(p.tokens), price: p.price }),
+      t('tokenValue.recharge.message', { tokens: formatToken(p.tokens, t), price: p.price }),
       [
         { text: t('common.cancel') },
         {
@@ -140,7 +140,7 @@ export default function TokenValueScreen() {
             appAlert(
               t('tokenValue.recharge.success.title'),
               t('tokenValue.recharge.success.message', {
-                tokens: formatToken(p.tokens + p.bonus),
+                tokens: formatToken(p.tokens + p.bonus, t),
               }),
             ),
         },
@@ -159,7 +159,7 @@ export default function TokenValueScreen() {
       {/* 记录时间范围切换(统一分类条;对齐 Uniapp token_value.vue TabBar barList: 7天/一个月/近一年/全部) */}
       <View style={styles.studyBarWrap}>
         <CategoryInlineBar
-          items={RANGE_ITEMS.map((item) => ({ id: item.key, label: item.label }))}
+          items={RANGE_ITEMS.map((item) => ({ id: item.key, label: t(item.labelKey) }))}
           selectedId={range}
           onSelect={(id) => setRange(id as RangeKey)}
           colorScheme={resolvedTheme}
