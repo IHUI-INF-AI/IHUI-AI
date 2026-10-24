@@ -8,7 +8,7 @@ import { sql, and, eq, inArray } from 'drizzle-orm'
 // D153(2026-09-29 立):会话元数据变更的 per-user 下行广播。
 // 事件形态与构造的唯一出口在 @ihui/types(三个消费面共用一份描述),
 // 路由内不得手拼 `{event,data}` 字面量,也不得把"哪些字段真的变了"照抄请求体键名。
-import { conversationUpdatedEvent, type ConversationMetaField } from '@ihui/types'
+import { conversationUpdatedEvent, isChatSyncRole, type ConversationMetaField } from '@ihui/types'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
@@ -1238,6 +1238,37 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
       reasoning: parsed.data.reasoning,
     })
 
+    // 票71(V2 #23)第二切片:消息面房间广播(多端/多标签实时同步)。
+    // 与下面那条 pushNotification 的分工:后者是"去轮询"的失效信号(旧信封、无幂等键),
+    // 本帧带 (messageId, rev) — 端侧按契约内核去重,重复投递零变化。
+    // 三条纪律与 broadcastConversationMeta 同源:写库成功之后发、失败不改响应、必须出声。
+    // TODO(下一片):收件人扩到 accepted 协作者(listAcceptedCollaboratorUserIds),
+    // 本片只发会话属主 —— 成员协议属契约 §7 第 2 项,与本帧形状无关。
+    try {
+      const syncRole = isChatSyncRole(message.role) ? message.role : null
+      if (syncRole) {
+        server.broadcastChatMessageCreated({
+          conversationId: id,
+          memberUserIds: [conversationForFloor.userId],
+          messageId: message.id,
+          role: syncRole,
+          content: message.content,
+          ...(message.reasoning ? { reasoning: message.reasoning } : {}),
+          at: message.createdAt,
+        })
+      } else {
+        request.log.warn(
+          { conversationId: id, messageId: message.id, role: message.role },
+          'chat 消息房间广播跳过:角色不在契约封闭集内(消费端无从应用)',
+        )
+      }
+    } catch (err) {
+      request.log.warn(
+        { err, conversationId: id, messageId: message.id },
+        'chat 消息房间广播发射失败(写库已成功,另一端退回打开会话时拉取)',
+      )
+    }
+
     // WebSocket 实时推送：新消息即时通知客户端刷新（多端同步）
     // 通过 server.pushNotification 自动处理本机 + 多实例广播
     try {
@@ -1402,6 +1433,27 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         parsed.data.messageId,
         parsed.data.content,
       )
+      // 票71 第二切片:编辑是**同一条消息的内容修订**(不是新版本行),故发 message:patched。
+      // 载荷用 snapshot(全量自包含)—— 本路径的修订粒度是"整段重写",不是流式增量。
+      // 刻意不 await:rev 分配要过 Redis,断网时 ioredis 会把命令排队 ⇒ 等它等于把
+      // 一个下行信号的可用性绑到写接口的时延上。失败出声、不改响应(与 D153 同一条纪律)。
+      void server
+        .broadcastChatMessagePatched({
+          conversationId: id,
+          memberUserIds: [owned.conversation.userId],
+          messageId: message.id,
+          kind: 'snapshot',
+          content: message.content,
+          ...(message.reasoning ? { reasoning: message.reasoning } : {}),
+          // 刻意不带 at:emittedAt 是"本次变更的生产时刻"(仅诊断),而 message.createdAt
+          // 是这条消息的创建时刻 —— 拿它冒充修订时刻,诊断时会把"刚改的"读成"很久以前"。
+        })
+        .catch((err: unknown) => {
+          request.log.warn(
+            { err, conversationId: id, messageId: message.id },
+            'chat 消息修订房间广播发射失败(写库已成功,另一端退回打开会话时拉取)',
+          )
+        })
       return reply.send(success({ message: serializeMessage(message) }))
     } catch (err) {
       request.log.error({ err }, '编辑重跑失败')

@@ -15,35 +15,12 @@
  * 不依赖任何运行时状态,纯函数,易于单元测试。
  */
 
-export type GenType = 'list' | 'page' | 'detail' | 'dialog'
+// 契约与运行期类型清单的单源在 @ihui/types(tool-gen.ts);本文件只消费 + 原样转出,
+// 不再抄第二份(旧形态:此文件与 packages/api-client 各写一份,加一个 type 要改五处且无门会响)。
+import type { GenField, GenInput, GenResult, GenType } from '@ihui/types'
 
-export const GEN_TYPES: GenType[] = ['list', 'page', 'detail', 'dialog']
-
-export interface GenField {
-  name: string
-  type: 'string' | 'number' | 'boolean' | 'date'
-  label?: string
-  required?: boolean
-}
-
-export interface GenInput {
-  type: GenType
-  name: string
-  fields: GenField[]
-  options?: {
-    withSearch?: boolean
-    withPagination?: boolean
-    withActions?: boolean
-  }
-}
-
-export interface GenResult {
-  type: GenType
-  moduleName: string
-  files: { path: string; content: string }[]
-  /** 合并所有文件,方便前端单预览框展示 */
-  combined: string
-}
+export { GEN_TYPES } from '@ihui/types'
+export type { GenField, GenInput, GenResult, GenType }
 
 const DEFAULT_OPTIONS: Required<NonNullable<GenInput['options']>> = {
   withSearch: true,
