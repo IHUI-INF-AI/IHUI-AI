@@ -213,7 +213,7 @@ import { compositeKeyOf, auditPlan, f9GroupLine } from './lib/plan-task-index.mj
 import { narrowF9Face, readFieldsFace } from './plan-tasks.mjs'
 // G-965 写盘闸改造(2026-10-22):改写整行时的三维守恒断言**只有这一份实现**(规格 §2),
 // 本器只做接线;翻勾/删行是活文档编辑器的合法动作,断言刻意拒绝它们(故只在 open→open 时施加)。
-import { assertRowRewriteConservation, leaseTransitionOf } from './lib/plan-row-conservation.mjs'
+import { assertRowRewriteConservation, bucketOf, leaseTransitionOf } from './lib/plan-row-conservation.mjs'
 import { fieldsFor } from './lib/plan-fields.mjs'
 // G-725:旁路留痕的唯一出口(键名/落点与 safe-commit 那本台账同形,不在本器里另拼 JSON)。
 import { recordBypassLanding } from './lib/commit-attestation.mjs'
@@ -1062,7 +1062,46 @@ export function readInputs(env = process.env) {
     }
     if (!resolveHeadRef({ root }))
       return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
-    return { root, doc, msg, block: null, anchorLines: null, replacements: pairs }
+    // 声明式改桶(2026-10-25 立):机主 2026-10-23 强制令要求 agent 代裁结清"待拍板"存量,
+    // 而三维守恒禁止 open→open 改写改归属桶 ⇒ 两条规矩结构上互斥(器物与指令打架)。
+    // 出口与 §0.10 同向:不静默放行,而是**逐条**声明 from/to/why,并用同一把尺 `bucketOf`
+    // 现算前后桶 —— 声明与现实不同形照旧判违规;声明里的 before 必须真在本次改写集里(陈旧不记通过)。
+    const reclassifyFile = env.LIVE_BUCKET_RECLASSIFY ?? ''
+    let reclassify = []
+    if (reclassifyFile !== '') {
+      let items
+      try {
+        items = JSON.parse(readFileSync(reclassifyFile, 'utf8'))
+      } catch (e) {
+        return { error: `读不到/解析不了 LIVE_BUCKET_RECLASSIFY(${reclassifyFile}):${e?.message ?? e}` }
+      }
+      if (!Array.isArray(items))
+        return { error: 'LIVE_BUCKET_RECLASSIFY 必须是数组 [{before, from, to, why}]' }
+      const known = new Set(pairs.map((p) => p.before))
+      const BUCKETS = new Set(['owned-elsewhere', 'waiting-human', 'waiting-env', 'actionable'])
+      for (const [i, it] of items.entries()) {
+        if (
+          typeof it?.before !== 'string' ||
+          typeof it?.from !== 'string' ||
+          typeof it?.to !== 'string' ||
+          typeof it?.why !== 'string'
+        )
+          return { error: `LIVE_BUCKET_RECLASSIFY 第 ${i + 1} 项缺 before/from/to/why ⇒ 拒绝执行` }
+        if (!BUCKETS.has(it.from) || !BUCKETS.has(it.to))
+          return {
+            error: `第 ${i + 1} 项 from/to 不是归属桶名(可选 ${[...BUCKETS].join(' / ')})`,
+          }
+        if (it.from === it.to) return { error: `第 ${i + 1} 项 from == to ⇒ 无事可做` }
+        if (it.why.trim().length < 10)
+          return { error: `第 ${i + 1} 项 why 少于 10 字 ⇒ 不说明理由的改桶等于替人猜(§0.10)` }
+        if (!known.has(it.before))
+          return {
+            error: `第 ${i + 1} 项的 before 不在本次 LIVE_REPLACE_FILE 里 ⇒ 陈旧/串档声明,不记通过`,
+          }
+      }
+      reclassify = items
+    }
+    return { root, doc, msg, block: null, anchorLines: null, replacements: pairs, reclassify }
   }
   if (!blockFile) return { error: '缺 LIVE_BLOCK_FILE(或改用 LIVE_REPLACE_FILE 走整行改写档)' }
   let block
@@ -1351,12 +1390,15 @@ export function applyReplacements(baseLines, pairs) {
  * 侧车记录按同一面(HEAD)读取;取不到面时回落散文口径,但必须打印一行"未含侧车"。
  * `baseLines` 只用来给违规点名行号;不改动任何判据输入。
  */
-export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields = null } = {}) {
+export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields = null, reclassify = null } = {}) {
   const openRe = /^\s*- \[ \]/
   const doneRe = /^\s*- \[[xX]\]/
   const violations = []
   const notes = []
+  const recMap = new Map((reclassify ?? []).map((d) => [d.before, d]))
+  const usedReclassify = new Set()
   let checked = 0
+  let reclassified = 0
   for (const [i, p] of pairs.entries()) {
     const oldLine = String(p.before ?? '')
     const newLine = String(p.after ?? '')
@@ -1374,6 +1416,26 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
     checked++
     const oldRec = fields ? fieldsFor({ line: oldLine, map: fields.map }).rec : null
     const newRec = fields ? fieldsFor({ line: newLine, map: fields.map }).rec : null
+    // 声明式改桶:前后桶必须与声明**逐字**相同(同一把尺 bucketOf),否则按违规拒写。
+    const decl = recMap.get(oldLine)
+    if (decl) {
+      usedReclassify.add(oldLine)
+      const from = bucketOf(oldLine, oldRec)
+      const to = bucketOf(newLine, newRec)
+      if (from === decl.from && to === decl.to) {
+        reclassified++
+        notes.push(
+          `ℹ 三维守恒第 ${i + 1} 项:声明式改桶 ${from} → ${to} 放行(原因:${decl.why})`,
+        )
+        continue
+      }
+      violations.push({
+        item: i + 1,
+        at: [],
+        bad: [`声明改桶 ${decl.from}→${decl.to} 与现算 ${from}→${to} 不同形 ⇒ 声明陈旧或改错了行`],
+      })
+      continue
+    }
     let bad = assertRowRewriteConservation({ oldLine, newLine, oldRec, newRec })
     const fp0 = extractTaskFingerprint(oldLine)
     if (fp0 && fp0 === extractTaskFingerprint(newLine)) {
@@ -1397,7 +1459,7 @@ export function judgeRowRewriteConservation({ baseLines = [], pairs = [], fields
     for (let k = 0; k < baseLines.length; k++) if (baseLines[k] === oldLine) at.push(k + 1)
     violations.push({ item: i + 1, at, bad })
   }
-  return { ok: violations.length === 0, checked, violations, notes }
+  return { ok: violations.length === 0, checked, violations, notes, reclassified, staleReclassify: [...recMap.keys()].filter((k) => !usedReclassify.has(k)) }
 }
 
 // ---------------------------------------------------------------------------
@@ -2353,8 +2415,20 @@ async function main() {
         baseLines,
         pairs: effReplacements ?? [],
         fields: fields?.undetermined ? null : fields,
+        reclassify: inputs.reclassify ?? null,
       })
       for (const n of cons.notes) console.log(n)
+      if (cons.staleReclassify?.length) {
+        console.error(
+          `❌ 声明式改桶有 ${cons.staleReclassify.length} 条未命中本轮改写(陈旧或串档)⇒ 拒绝写盘`,
+        )
+        for (const b of cons.staleReclassify) console.error(`   · ${String(b).slice(0, 140)}`)
+        process.exit(1)
+      }
+      if (cons.reclassified > 0)
+        console.log(
+          `✅ 声明式改桶:${cons.reclassified} 项已放行(逐条原因见上;commit message 须同步抄录,声明不得静默)`,
+        )
       if (!cons.ok) {
         console.error(
           `❌ 改写未过三维守恒(主键/租约/归属桶任一不得变)⇒ 拒绝写盘(${cons.violations.length} 项违规):`,
