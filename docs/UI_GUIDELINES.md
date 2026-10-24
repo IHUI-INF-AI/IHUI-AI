@@ -545,18 +545,39 @@ node scripts/verify-wallboard-readout.mjs --worktree --widths 1440 --locale ja  
 
 RN 没有 `white-space`,但等分 `flex: 1` 同样会把读数压到断行。正解同构:**父行 `flexWrap: 'wrap'` + 每格 `minWidth = 最坏读数的单行宽`** ⇒ 放不下就整格换行,数字始终完整。
 
-已收口三处(均在 `packages/app` 共享源,改一次 RN 全端愈):
+已收口六处(三处在 `packages/app` 共享源,改一次 RN 全端愈;2026-10-24 第二批把 AST 尺跑出的 23 处全数收口):
 
 | 位置 | 最坏读数 | minWidth |
 | --- | --- | --- |
 | `features/income/IncomeScreen.tsx` 汇总行 | `¥999999.99`(10 字符 @20px) | 112 |
 | `features/usage/UsageScreen.tsx` 配额行 / 统计行 | `123.4万` / `$0.0000` | 96 |
 | `features/dashboard/DashboardScreen.tsx` 读数卡 | 22px 整数 | 150 |
+| `features/study-record`、`check-in`、`team`、`promote`、`invite`、`distribution`、`model-income` 七屏统计行 | 20-22px 金额 / 天数 / 计数 | 112 |
+| `apps/mobile-rn/…/DistributionCompanyScreen.tsx` 统计行 | 24px `999,999.99` | 128 |
+| `features/model-income` 汇总页脚 | 16-18px `999999.99` | 96 |
 
 第三处原先靠 `numberOfLines={1}` 防断行 = **把断行换成省略号**,同样违反本条 ⇒ 已摘掉,改由 minWidth 兜。
-锁:`scripts/tests/rn-readout-cell-guard.test.mjs`(8 例,含"摘掉 minWidth / 摘掉 flexWrap / 加回 numberOfLines"三条反向锁)。
 
-**未收口处如实登记,不装作已覆盖**:端侧没有可靠的静态判据。实测扫 `packages/app` + `apps/mobile-rn` + `apps/miniapp-taro` 的扁平 StyleSheet,得到 638 处「fontSize≥16 且 fontWeight 600/700 无 minWidth」——其中**绝大多数是标题不是读数**,而"这个 style 是否住在等分读数格里"只有 JSX 父子关系才知道。硬照 web 那套造门 = 一次造 638 枚假红(§12e)。端侧全量收口要 RN 真机逐屏渲染量,不是一道正则能替的。
+**判据已经存在,不是"只能靠真机逐屏渲染"**:`scripts/check-rn-readout-cell.mjs` 用 TypeScript AST 判 JSX 父子关系,识别真三元组
+
+```
+<View style={ROW}>            ROW: flexDirection:'row'
+  <View style={CELL}>         CELL: flex: 1
+    <Text style={VAL}>…       VAL: fontSize ≥ 16 且 fontWeight 600/700
+```
+
+判定两条,缺一不可(这是"唯一写法"的两半,不是两个建议):
+
+| 档 | 判什么 | 缺了的后果 |
+| --- | --- | --- |
+| V1 | 格必须有 `minWidth` | `flex: 1` 的 `flexBasis` 是 0 ⇒ 永远等分压缩,读数必折行 |
+| V2 | 行必须有 `flexWrap: 'wrap'` | `minWidth` 生效后不换行 ⇒ 溢出压到邻居 / 出屏 |
+
+**「有 flexWrap 就免疫」是错的**:没有 `minWidth` 时子项总宽永不超容器,`wrap` 一次都不触发。反过来只给 `minWidth` 也等于把折行换成溢出。这条是判据第一版的设计错误(把 wrap 当豁免条件),实测时被 23 处"全绿"暴露出来 —— 已改成两条并列判据,并在镜像测试里各配反向锁。
+
+读数与文案的区分靠**属性名词表**,且词表只认标识符、不认字符串字面量:实测 `t('connectedAccounts.title')` 的 key 里有 `count`、`t('wallet.withdraw')` 有 `withdraw`、`t('pointHistory.title')` 有 `point`,不剥字符串就会把三个纯标题判成读数。判不出的形态进 `unjudged` 只报数,**不冒红也不算绿**(§0.3)。
+
+锁:`scripts/tests/check-rn-readout-cell.test.mjs`(10 例,含 V2 / 「只加 wrap」/ 「i18n key 里的 count」/ 「item.title」四条反向锁 + 一条"真实仓库存量必须归零"的整族不变量)。守门 `check-rn-readout-cell.mjs`(241,blocking,射程 `packages/app` + `apps/mobile-rn` + `apps/miniapp-taro`,869 枚文件全解析)。
 
 ### 13.5 本条约束当前的覆盖边界(2026-10-24 现读,不是估计)
 
@@ -567,7 +588,7 @@ RN 没有 `white-space`,但等分 `flex: 1` 同样会把读数压到断行。正
 | 断点语义陷阱 | 本仓 `--breakpoint-sm` = **375px**(不是 Tailwind 默认的 640),`md`=428、`lg`=576 ⇒ `sm:grid-cols-5` 等于"手机就 5 列"。现读这类写法 14 处(`sm:grid-cols-≥3` 10、`md:grid-cols-≥4` 2、`lg:grid-cols-≥5` 2),而用本仓语义档 `tablet:`/`laptop:` 的是 **0 处** | 14 处 |
 | R8 形态盲区 | 跨行 className、`cn()` 多参数、内联 `style={{fontSize}}` 三类当前实测均为 0;但判据写的是「同一行字面量内」,将来出现新写法就看不见 | 0 / 0 / 0 |
 | 表格单元格、列表行、tooltip、toast 里的数字 | **零覆盖** —— 判据只管「标签+读数」配对,这些形态断了同样难看 | — |
-| 端侧 UI 源文件 | `apps/mobile-rn` 411 + `apps/miniapp-taro` 288 + `apps/ui-native` 13 = **712 枚零覆盖**;`packages/app` 246 枚里只有 3 处被形状锁钉住 | 3 / 958 |
+| 端侧 UI 源文件 | **已有 AST 判据**(`check-rn-readout-cell.mjs`,869 枚全解析):识别「等分读数格」37 处,存量缺口 23 处已于 2026-10-24 全数收口 ⇒ 现为 0。**仍未覆盖**:非等分布局(`justifyContent` 挤压、绝对定位)、`numberOfLines` 顶替、`minWidth` 取值是否真的够(静态只判"有没有",不判"够不够",后者要真机量) | 0 缺口 / 3 类盲区 |
 | 尺子的 [实] 档 | 只有号池比例与流量 PV 两处按生产量级声明,其余落保守界 ⇒「实测量级零红」这句话的强度等于那张表 | 2 条 |
 
 **要扩面就先补这张表,别把「已装门」当成「已覆盖」。**

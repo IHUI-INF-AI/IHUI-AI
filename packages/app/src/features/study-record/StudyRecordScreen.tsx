@@ -181,11 +181,14 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       marginBottom: 12,
     },
+    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
+    // minWidth 按最坏读数「123小时45分」(≈110px @20px)+ 余量取 112。
     statsRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       marginBottom: 8,
     },
-    statItem: { flex: 1, alignItems: 'center' },
+    statItem: { flex: 1, minWidth: 112, alignItems: 'center' },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
     statLabel: { marginTop: 8, fontSize: 11, color: tk.text.secondary, textAlign: 'center' },
     card: {
