@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -24,14 +25,14 @@ export type RealtimeVoiceState = 'idle' | 'connecting' | 'live' | 'error'
 
 /** 实时语音按钮文案(硬编码中文,与 TTS 口径一致;不新增 i18n key) */
 const REALTIME_BTN_LABEL: Record<RealtimeVoiceState, string> = {
-  idle: '开始实时语音',
-  connecting: '连接中...',
-  live: '实时语音进行中',
-  error: '重新连接',
+  idle: 'voice.realStart',
+  connecting: 'voice.realConnecting',
+  live: 'voice.realLive',
+  error: 'voice.reconnect',
 }
 
 /** 实时语音失败兜底文案(realtimeErrorText 缺省值) */
-const DEFAULT_REALTIME_ERROR_TEXT = '连接失败,请重试'
+const DEFAULT_REALTIME_ERROR_TEXT = 'voice.realFailDefault'
 
 const styles = StyleSheet.create({
   // ── 二维码弹窗 / 列表弹窗共用容器 ──
@@ -216,10 +217,12 @@ export function VoicePanel({
   turnBusy = false,
   turnNote,
 }: VoicePanelProps) {
+  const { t } = useI18n()
+  const errText = realtimeErrorText ?? t(DEFAULT_REALTIME_ERROR_TEXT)
   if (!visible) return null
   // connecting/live 期间禁止重复发起;error 态允许再点重试
   const realtimeBusy = realtimeState === 'connecting' || realtimeState === 'live'
-  const realtimeLabel = REALTIME_BTN_LABEL[realtimeState]
+  const realtimeLabel = t(REALTIME_BTN_LABEL[realtimeState])
   return (
     <Modal
       visible={visible}
@@ -252,7 +255,7 @@ export function VoicePanel({
           <View style={styles.realtimeSection}>
             <Text style={styles.realtimeTitle}>实时语音对话</Text>
             {realtimeState === 'error' ? (
-              <Text style={styles.realtimeErrorText}>{realtimeErrorText}</Text>
+              <Text style={styles.realtimeErrorText}>{errText}</Text>
             ) : null}
             <Pressable
               onPress={() => {
@@ -288,7 +291,7 @@ export function VoicePanel({
                   onPressOut={() => onTalkPress?.(false)}
                   disabled={turnBusy}
                   accessibilityRole="button"
-                  accessibilityLabel={turnBusy ? '思考中' : '按住说话'}
+                  accessibilityLabel={turnBusy ? t('chat.thinkingShort') : t('voice.holdToTalk')}
                 >
                   {({ pressed }) => (
                     <View
@@ -304,7 +307,7 @@ export function VoicePanel({
                         <Mic size={18} color={tokens.text.primary} />
                       )}
                       <Text style={styles.realtimeBtnText}>
-                        {turnBusy ? '思考中…' : '按住说话'}
+                        {turnBusy ? t('chat.thinking') : t('voice.holdToTalk')}
                       </Text>
                     </View>
                   )}
@@ -345,9 +348,9 @@ export function VoicePanel({
               onPress={onClose}
               style={[styles.panelCancelBtn, styles.ttsCancelBtn]}
               accessibilityRole="button"
-              accessibilityLabel="取消"
+              accessibilityLabel={t('common.cancel')}
             >
-              <Text style={styles.panelCancelText}>取消</Text>
+              <Text style={styles.panelCancelText}>{t('common.cancel')}</Text>
             </Pressable>
           ) : null}
         </Pressable>

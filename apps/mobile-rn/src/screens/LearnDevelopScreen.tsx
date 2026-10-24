@@ -17,35 +17,35 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 // 学习功能导航入口由端侧注入真实跳转(替代原有的「开发中」占位)
-const ENTRIES = (navigation: NavigationProp): LearnDevelopEntry[] => [
+const ENTRIES = (navigation: NavigationProp, t: (k: string) => string): LearnDevelopEntry[] => [
   {
     icon: Rocket,
-    title: '课程星球',
-    desc: '热门/精选课程浏览',
+    title: t('learnDevelop.courseTitle'),
+    desc: t('learnDevelop.courseDesc'),
     onPress: () => navigation.navigate('CoursePlanet'),
   },
   {
     icon: BookOpen,
-    title: '学习计划',
-    desc: '查看我的学习计划',
+    title: t('studyPlan.title'),
+    desc: t('learnDevelop.planDesc'),
     onPress: () => navigation.navigate('StudyPlan'),
   },
   {
     icon: Brain,
-    title: '知识星球',
-    desc: '知识内容浏览',
+    title: t('learnDevelop.kTitle'),
+    desc: t('learnDevelop.kDesc'),
     onPress: () => navigation.navigate('KnowledgePlanet'),
   },
   {
     icon: Compass,
-    title: '学习视频',
-    desc: '最新课程视频',
+    title: t('learnDevelop.videoTitle'),
+    desc: t('learnDevelop.videoDesc'),
     onPress: () => navigation.navigate('StudyIndex'),
   },
   {
     icon: GraduationCap,
-    title: '学习中心',
-    desc: '系统化学习路径',
+    title: t('learnDevelop.centerTitle'),
+    desc: t('learnDevelop.centerDesc'),
     onPress: () => navigation.navigate('Learn'),
   },
 ]
@@ -64,7 +64,7 @@ export function LearnDevelopScreen() {
     t,
     onBack: () => navigation.goBack(),
     onContact,
-    entries: ENTRIES(navigation),
+    entries: ENTRIES(navigation, t),
     colorScheme: resolvedTheme,
   }
 
