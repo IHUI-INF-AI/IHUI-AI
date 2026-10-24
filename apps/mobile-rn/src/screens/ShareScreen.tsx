@@ -140,9 +140,9 @@ export function ShareScreen() {
     setDrawerVisible(false)
     try {
       Clipboard.setString(FREE_RESOURCE_URL)
-      setFloatBox({ visible: true, type: 'success', message: '链接已复制到剪贴板' })
+      setFloatBox({ visible: true, type: 'success', message: t('aiAssistant.copyOkToast') })
     } catch {
-      setFloatBox({ visible: true, type: 'error', message: '复制失败,请重试' })
+      setFloatBox({ visible: true, type: 'error', message: t('profile.copyFailRetry') })
     }
   }
   const handleDrawerCreateNewChat = (): void => {
@@ -162,9 +162,9 @@ export function ShareScreen() {
       const res = await deleteConversation(id)
       if (!res.success) {
         setDrawerConversations(snapshot)
-        setFloatBox({ visible: true, type: 'warning', message: '删除失败,请重试' })
+        setFloatBox({ visible: true, type: 'warning', message: t('profile.delFailedRetry') })
       } else {
-        setFloatBox({ visible: true, type: 'success', message: '删除成功' })
+        setFloatBox({ visible: true, type: 'success', message: t('plaza.index.delOk') })
       }
     })()
   }
@@ -208,26 +208,26 @@ export function ShareScreen() {
 
   const drawerUser = {
     avatar: user?.avatar,
-    nickname: user?.nickname ?? user?.username ?? '未登录',
+    nickname: user?.nickname ?? user?.username ?? t('profile.notLoggedIn'),
     level: (user?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
   const doShare = async (): Promise<void> => {
     const lines = [remark, voiceText, imageUri].filter(Boolean)
-    const message = lines.length > 0 ? lines.join('\n') : '来看看这个 AI 内容'
+    const message = lines.length > 0 ? lines.join('\n') : t('share.contentDefault')
     setSharing(true)
     try {
-      const result = await Share.share({ title: '分享', message })
+      const result = await Share.share({ title: t('share.title'), message })
       if (result.action === Share.sharedAction) {
-        setFloatBox({ visible: true, type: 'success', message: '分享成功' })
+        setFloatBox({ visible: true, type: 'success', message: t('share.okSent') })
       } else {
-        setFloatBox({ visible: true, type: 'info', message: '已取消分享' })
+        setFloatBox({ visible: true, type: 'info', message: t('share.cancelled') })
       }
     } catch (err) {
       setFloatBox({
         visible: true,
         type: 'error',
-        message: err instanceof Error ? err.message : '分享失败',
+        message: err instanceof Error ? err.message : t('share.fail'),
       })
     } finally {
       setSharing(false)
@@ -252,7 +252,7 @@ export function ShareScreen() {
   const pickImage = async (): Promise<void> => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      appAlert('提示', '需要相册权限才能选择图片')
+      appAlert(t('home.pubTip'), t('share.needAlbum'))
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -272,7 +272,7 @@ export function ShareScreen() {
   const handleVoiceComplete = (text: string): void => {
     setVoiceText(text)
     if (text) {
-      setFloatBox({ visible: true, type: 'info', message: '语音输入完成' })
+      setFloatBox({ visible: true, type: 'info', message: t('voice.inputDone') })
     }
   }
 
@@ -303,7 +303,7 @@ export function ShareScreen() {
               leftActions={[
                 {
                   icon: PanelLeftRounded,
-                  a11yLabel: '菜单',
+                  a11yLabel: t('common.menu'),
                   onPress: () => setDrawerVisible(true),
                 },
               ]}
@@ -345,7 +345,7 @@ export function ShareScreen() {
                     style={styles.clearBtn}
                     onPress={() => setImageUri('')}
                     accessibilityRole="button"
-                    accessibilityLabel="删除图片"
+                    accessibilityLabel={t('chat.imageDelete')}
                   >
                     {({ pressed }) => (
                       <View style={[styles.clearBtnFace, pressed ? styles.clearBtnPressed : null]}>
@@ -359,7 +359,7 @@ export function ShareScreen() {
                 <Pressable
                   onPress={pickImage}
                   accessibilityRole="button"
-                  accessibilityLabel="选择图片"
+                  accessibilityLabel={t('home.pubPermAlbumImage')}
                 >
                   {({ pressed }) => (
                     <View style={[styles.pickerBox, pressed ? styles.pickerBoxPressed : null]}>
@@ -439,7 +439,7 @@ function mapConversationToDrawer(item: ConversationDetail): DrawerConversationIt
   const model = item.model ?? ''
   return {
     id: item.id,
-    title: item.title?.trim() || '未命名对话',
+    title: item.title?.trim() || t('plaza.index.untitledConv'),
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
     favorited: item.favorite === true,
