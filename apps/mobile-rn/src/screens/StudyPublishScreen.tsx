@@ -8,7 +8,7 @@ import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as ImagePicker from 'expo-image-picker'
-import { getCategories, type CourseCategory } from '@ihui/api-client/endpoints/course'
+import { getCategories } from '@ihui/api-client/endpoints/course'
 import { createPublishTask } from '@ihui/api-client'
 import {
   StudyPublishScreen as SharedStudyPublishScreen,
@@ -24,13 +24,9 @@ import { NavChrome } from '../components/NavChrome'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type PublishMode = 'group' | 'video'
 
-/** mock 赛道兜底(getCategories API 失败时降级,对齐 Uniapp category(0)) */
-const MOCK_CATEGORIES: readonly CourseCategory[] = [
-  { id: '1', name: 'AI 实战', icon: '', sort: 0, courseCount: 0 },
-  { id: '2', name: '副业变现', icon: '', sort: 1, courseCount: 0 },
-  { id: '3', name: '职场技能', icon: '', sort: 2, courseCount: 0 },
-  { id: '4', name: '短视频运营', icon: '', sort: 3, courseCount: 0 },
-]
+// [2026-10-24 假赛道兜底已去]原 MOCK_CATEGORIES(4 条假赛道 id)在 getCategories 失败时会被
+// 当真实赛道塞进发布表单 ⇒ 用户提交的 categoryId 后端不认识,发布静默错赛道。失败改走空列表,
+// 校验分支(t('home.pubSelectTrack'))自然挡住无赛道提交,不再假成功。
 
 /**
  * mobile-rn 课程发布(wrapper 层,保留 RN 独占逻辑)
@@ -74,7 +70,8 @@ export default function StudyPublishScreen() {
         if (res.success && res.data) {
           setGroupCategories(res.data.map((c) => ({ id: c.id, name: c.name })))
         } else {
-          setGroupCategories(MOCK_CATEGORIES.map((c) => ({ id: c.id, name: c.name })))
+          // 失败/空 ⇒ 空列表(见顶注:假 id 会随表单静默提交,不做假兜底)
+          setGroupCategories([])
         }
         setGroupLoadingCategories(false)
       }
@@ -87,7 +84,7 @@ export default function StudyPublishScreen() {
   const pickImage = useCallback(async (): Promise<string> => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      appAlert('提示', '需要相册权限才能选择封面')
+      appAlert(t('home.pubTip'), t('home.pubPermAlbumImage'))
       return ''
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -103,12 +100,13 @@ export default function StudyPublishScreen() {
       }
     }
     return ''
-  }, [])
+    // deps 含 t:两个 pick 回调内有 appAlert(t(…))(exhaustive-deps 纪律)
+  }, [t])
 
   const pickVideo = useCallback(async (): Promise<string> => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      appAlert('提示', '需要相册权限才能选择视频')
+      appAlert(t('home.pubTip'), t('home.pubPermAlbumVideo'))
       return ''
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -124,7 +122,8 @@ export default function StudyPublishScreen() {
       }
     }
     return ''
-  }, [])
+    // deps 含 t:两个 pick 回调内有 appAlert(t(…))(exhaustive-deps 纪律)
+  }, [t])
 
   const handleGroupCoverPick = useCallback(async () => {
     const uri = await pickImage()
@@ -149,11 +148,11 @@ export default function StudyPublishScreen() {
 
   const handleGroupSubmit = useCallback(async () => {
     if (!groupTitle.trim()) {
-      appAlert('提示', '请输入合集标题')
+      appAlert(t('home.pubTip'), t('home.pubRequireGroupTitle'))
       return
     }
     if (!groupCategory) {
-      appAlert('提示', '请选择赛道')
+      appAlert(t('home.pubTip'), t('home.pubSelectTrack'))
       return
     }
     setSubmitting(true)
@@ -165,26 +164,26 @@ export default function StudyPublishScreen() {
         platforms: [],
       })
       if (res.success) {
-        appAlert('提示', '提交成功,等待审核', [
-          { text: '知道了', onPress: () => navigation.goBack() },
+        appAlert(t('home.pubTip'), t('home.pubSubmittedReview'), [
+          { text: t('home.pubOk'), onPress: () => navigation.goBack() },
         ])
       } else {
-        appAlert('提示', res.error)
+        appAlert(t('home.pubTip'), res.error)
       }
     } catch (err) {
-      appAlert('提示', err instanceof Error ? err.message : '提交失败')
+      appAlert(t('home.pubTip'), err instanceof Error ? err.message : t('home.pubSubmitFailed'))
     } finally {
       setSubmitting(false)
     }
-  }, [groupTitle, groupContent, groupCategory, navigation])
+  }, [groupTitle, groupContent, groupCategory, navigation, t])
 
   const handleVideoSubmit = useCallback(async () => {
     if (!videoTitle.trim()) {
-      appAlert('提示', '请输入课程标题')
+      appAlert(t('home.pubTip'), t('home.pubRequireCourseTitle'))
       return
     }
     if (!videoUri) {
-      appAlert('提示', '请选择视频')
+      appAlert(t('home.pubTip'), t('home.pubSelectVideo'))
       return
     }
     setSubmitting(true)
@@ -196,18 +195,18 @@ export default function StudyPublishScreen() {
         platforms: [],
       })
       if (res.success) {
-        appAlert('提示', '提交成功,等待审核', [
-          { text: '知道了', onPress: () => navigation.goBack() },
+        appAlert(t('home.pubTip'), t('home.pubSubmittedReview'), [
+          { text: t('home.pubOk'), onPress: () => navigation.goBack() },
         ])
       } else {
-        appAlert('提示', res.error)
+        appAlert(t('home.pubTip'), res.error)
       }
     } catch (err) {
-      appAlert('提示', err instanceof Error ? err.message : '提交失败')
+      appAlert(t('home.pubTip'), err instanceof Error ? err.message : t('home.pubSubmitFailed'))
     } finally {
       setSubmitting(false)
     }
-  }, [videoTitle, videoContent, videoUri, navigation])
+  }, [videoTitle, videoContent, videoUri, navigation, t])
 
   const sharedProps: StudyPublishScreenProps = {
     t,
@@ -251,7 +250,7 @@ export default function StudyPublishScreen() {
       {/* 对齐 Uniapp pagesA/study/publish.vue 双态标题(发布课程合集/发布视频)+ 返回 */}
       <NavChrome>
         <NavBar
-          title={mode === 'video' ? '发布视频' : '发布课程合集'}
+          title={mode === 'video' ? t('home.pubVideo') : t('home.pubGroup')}
           onBack={() => navigation.goBack()}
         />
       </NavChrome>

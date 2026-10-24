@@ -3,12 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/aigc-list/AigcListScreen.tsx
-import { useI18n, t } from '@/i18n'
+import { useI18n } from '@/i18n'
 import { View, Text, Image, ScrollView, Video } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAigcList } from '@/api'
-import { domesticImageAt } from '@ihui/shared/constants'
 import './list.css'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
@@ -39,125 +38,6 @@ const FILE_TYPE_TO_CATEGORY: Record<number, Category> = {
   3: 'audio',
   4: 'text',
 }
-
-/**
- * Mock 数据 — API 失败或返回空时使用,保证视觉演示完整。
- * 真实数据由 getAigcList 返回,字段对齐原项目(coverUrl/fileUrl/fileType/likes/context/prompt/time)。
- */
-const MOCK_LIST: AigcItem[] = [
-  {
-    id: 'm1',
-    title: t('aigcList.d1'),
-    author: t('aigcList.d2'),
-    coverUrl: domesticImageAt(100),
-    fileUrl: '',
-    fileType: 0,
-    content: '',
-    context: '',
-    prompt: '',
-    time: '2026-07-15 10:24',
-    likes: 128,
-    duration: 0,
-  },
-  {
-    id: 'm2',
-    title: t('aigcList.d3'),
-    author: t('aigcList.d4'),
-    coverUrl: domesticImageAt(101),
-    fileUrl: '',
-    fileType: 0,
-    content: '',
-    context: '',
-    prompt: '',
-    time: '2026-07-14 18:30',
-    likes: 256,
-    duration: 0,
-  },
-  {
-    id: 'm3',
-    title: t('aigcList.d5'),
-    author: t('aigcList.d6'),
-    coverUrl: domesticImageAt(102),
-    fileUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
-    fileType: 1,
-    content: '',
-    context: '',
-    prompt: '',
-    time: '2026-07-13 22:10',
-    likes: 89,
-    duration: 0,
-  },
-  {
-    id: 'm4',
-    title: t('aigcList.d7'),
-    author: t('aigcList.d2'),
-    coverUrl: '',
-    fileUrl: '',
-    fileType: 4,
-    content: t('aigcList.r1'),
-    context: t('tail.16'),
-    prompt: t('aigcList.d10'),
-    time: '2026-07-12 09:15',
-    likes: 67,
-    duration: 0,
-  },
-  {
-    id: 'm5',
-    title: t('aigcList.d11'),
-    author: t('aigcList.d12'),
-    coverUrl: domesticImageAt(103),
-    fileUrl: 'https://www.w3schools.com/html/horse.mp3',
-    fileType: 3,
-    content: '',
-    context: '',
-    prompt: '',
-    time: '2026-07-11 14:00',
-    likes: 145,
-    duration: 183,
-  },
-  {
-    id: 'm6',
-    title: t('aigcList.d13'),
-    author: t('aigcList.d14'),
-    coverUrl: domesticImageAt(104),
-    fileUrl: '',
-    fileType: 0,
-    content: '',
-    context: '',
-    prompt: '',
-    time: '2026-07-10 11:45',
-    likes: 312,
-    duration: 0,
-  },
-  {
-    id: 'm7',
-    title: t('aigcList.d15'),
-    author: t('aigcList.d2'),
-    coverUrl: '',
-    fileUrl: '',
-    fileType: 4,
-    content: t('tail.18'),
-    context: t('aigcList.d17'),
-    prompt: t('aigcList.d18'),
-    time: '2026-07-09 20:30',
-    likes: 198,
-    duration: 0,
-  },
-  {
-    id: 'm8',
-    title: t('aigcList.d19'),
-    author: t('aigcList.d12'),
-    coverUrl: domesticImageAt(105),
-    fileUrl: 'https://www.w3schools.com/html/horse.mp3',
-    fileType: 3,
-    content: '',
-    context: '',
-    prompt: '',
-    time: '2026-07-08 16:20',
-    likes: 92,
-    duration: 240,
-  },
-]
 
 function asString(v: unknown): string {
   return typeof v === 'string' ? v : ''
@@ -243,7 +123,8 @@ export default function AigcList() {
         const res = await getAigcList({ page: curPage, pageSize: PAGE_SIZE })
         const newList = ((res?.list as Record<string, unknown>[]) || []).map(normalizeItem)
         if (newList.length === 0 && reset) {
-          setList(MOCK_LIST)
+          // 空就是空:与原 mock 回填不同,对齐 RN AigcListScreen 语义(无数据即空态"暂无作品",不造演示数据)
+          setList([])
           setHasMore(false)
         } else {
           setList((prev) => (reset ? newList : [...prev, ...newList]))
@@ -254,7 +135,8 @@ export default function AigcList() {
         }
       } catch {
         if (reset) {
-          setList(MOCK_LIST)
+          // 失败退空态(与素材库页同纪律:静默、不回填假数据;错误横幅差异见交接待账)
+          setList([])
           setHasMore(false)
         }
       } finally {
