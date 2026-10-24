@@ -34,6 +34,7 @@ import {
 import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -123,6 +124,7 @@ export default function AssistantScreen() {
   const route = useRoute<AssistantRoute>()
   const { user } = useAuth()
   const { resolvedTheme } = useTheme()
+  const { t } = useI18n()
 
   const params = route.params
   // 支持路由参数直达聊天室(对齐历史 onLoad options:roomId/room_name/receiver_uuid/avatar)
@@ -266,6 +268,7 @@ export default function AssistantScreen() {
       onOpenRoom={openRoom}
       onCloseChat={() => setMode('list')}
       onOpenUrl={handleOpenUrl}
+      backLabel={t('common.back')}
       colorScheme={resolvedTheme}
     />
   )
