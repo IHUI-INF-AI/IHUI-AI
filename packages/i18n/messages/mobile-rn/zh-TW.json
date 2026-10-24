@@ -922,7 +922,8 @@
     "account": "帳號與安全",
     "version": "版本",
     "language": "語言",
-    "theme": "主題"
+    "theme": "主題",
+    "logoutConfirmBody": "確認退出當前帳號？"
   },
   "menu": {
     "about": "關於我們",
@@ -1921,7 +1922,10 @@
     "tabCourse": "課程",
     "tabLive": "直播",
     "tabArticle": "文章",
-    "empty": "暫無收藏"
+    "empty": "暫無收藏",
+    "loadFailed": "載入收藏失敗",
+    "deleteTitle": "刪除收藏",
+    "deleteFailed": "刪除失敗"
   },
   "finance": {
     "title": "財務",
@@ -1997,7 +2001,16 @@
   },
   "learnDevelop": {
     "title": "學習開發",
-    "contactLabel": "直接聯繫李總"
+    "contactLabel": "直接聯繫李總",
+    "courseTitle": "課程星球",
+    "courseDesc": "熱門/精選課程瀏覽",
+    "planDesc": "查看我的學習計劃",
+    "kTitle": "知識星球",
+    "kDesc": "知識內容瀏覽",
+    "videoTitle": "學習視頻",
+    "videoDesc": "最新課程視頻",
+    "centerTitle": "學習中心",
+    "centerDesc": "系統化學習路線"
   },
   "liveChat": {
     "title": "直播間互動",

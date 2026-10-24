@@ -922,7 +922,8 @@
     "account": "账号与安全",
     "version": "版本",
     "language": "语言",
-    "theme": "主题"
+    "theme": "主题",
+    "logoutConfirmBody": "确认退出当前账号？"
   },
   "menu": {
     "about": "关于我们",
@@ -1921,7 +1922,10 @@
     "tabCourse": "课程",
     "tabLive": "直播",
     "tabArticle": "文章",
-    "empty": "暂无收藏"
+    "empty": "暂无收藏",
+    "loadFailed": "加载收藏失败",
+    "deleteTitle": "删除收藏",
+    "deleteFailed": "删除失败"
   },
   "finance": {
     "title": "财务",
@@ -1997,7 +2001,16 @@
   },
   "learnDevelop": {
     "title": "学习开发",
-    "contactLabel": "直接联系李总"
+    "contactLabel": "直接联系李总",
+    "courseTitle": "课程星球",
+    "courseDesc": "热门/精选课程浏览",
+    "planDesc": "查看我的学习计划",
+    "kTitle": "知识星球",
+    "kDesc": "知识内容浏览",
+    "videoTitle": "学习视频",
+    "videoDesc": "最新课程视频",
+    "centerTitle": "学习中心",
+    "centerDesc": "系统化学习路线"
   },
   "liveChat": {
     "title": "直播间互动",
