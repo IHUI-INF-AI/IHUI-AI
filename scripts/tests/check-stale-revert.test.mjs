@@ -574,6 +574,50 @@ test('R1r 只判索引面:同一份混合体,索引面判红、工作树面只�
   }
 })
 
+// G-417②(2026-10-23):R1 的全量档分流 —— 工作树副本 == 历史 blob 属**机器状态**,全量档判红
+// 就是一台与任何提交无关的恒红门(§12e,与上一条 R1r"只判索引面"同一条理由);提交链仍由
+// --staged 面拦。双向钉:同一份内容 worktree 面 rc=0 + 点名 + 结论行尾注,staged 面 rc=1 + 原文案逐字。
+test('R1 全量档分流:工作树副本==历史 blob ⇒ 全量档只报数并点名,同一内容进索引 ⇒ --staged 照判红', () => {
+  const { dir, run } = repo()
+  try {
+    put(dir, 'a.txt', 'v1\n')
+    run('add', '-A')
+    run('commit', '-qm', 'a v1')
+    put(dir, 'a.txt', 'v2\n')
+    run('add', '-A')
+    run('commit', '-qm', 'a v2')
+    put(dir, 'a.txt', 'v1\n') // 写回旧版,**只脏工作树**(索引仍等于 HEAD)
+    const full = G.audit(dir, { staged: false })
+    const fullText = full.lines.join('\n')
+    assert.equal(
+      full.code,
+      0,
+      `全量档因机器状态判红 = 每台每次必红:${fullText.slice(0, 300)}`,
+    )
+    assert.match(fullText, /\[全量档·只报数不拦\]/, '全量档命中必须可见,不得静默')
+    assert.match(fullText, /a\.txt\s+==/, '必须逐条点名路径')
+    assert.match(
+      fullText,
+      /1 处工作树副本等于历史版本只报数\(全量档\)/,
+      '结论行必须带尾注,不得读成"无历史版本回写"',
+    )
+    run('add', '--', 'a.txt') // 同一份内容进了索引 ⇒ 提交面必须判红
+    const st = G.audit(dir, { staged: true })
+    assert.equal(
+      st.code,
+      1,
+      `--staged 面必须仍判红,否则提交链被削窄:${st.lines.join('\n').slice(0, 300)}`,
+    )
+    assert.match(
+      st.lines.join('\n'),
+      /❌ 检出 1 个文件的暂存内容等于其\*\*历史提交版本\*\*/,
+      'staged 面文案必须逐字不变',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 test('R1r 在合并上下文走与 R1m 同一条窄判据:两父一致照判,两父不同让路', () => {
   const { dir, run, ancestor9 } = localeRepoCtx()
   const gitDir = join(dir, run('rev-parse', '--git-dir'))
