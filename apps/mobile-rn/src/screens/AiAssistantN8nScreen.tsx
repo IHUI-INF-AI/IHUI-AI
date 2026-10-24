@@ -236,11 +236,11 @@ interface N8nMessage {
  * 无消息时输入区上方横向 chip,点击直接发送。RN Agent 契约暂无 suggestedQuestions
  * 字段,使用与 miniapp-taro ai.suggestions 一致的通用兜底文案。
  */
-const QUICK_SUGGESTIONS: readonly string[] = [
-  '帮我写一首诗',
-  '解释量子力学',
-  '写一段代码',
-  '翻译这段话',
+const QUICK_SUGGESTION_KEYS: readonly string[] = [
+  'profile.n8nSug1',
+  'profile.n8nSug2',
+  'profile.n8nSug3',
+  'profile.n8nSug4',
 ]
 
 // ── 图片 URL 提取(对齐 Uniapp processContent + isValidImageUrl)──
@@ -286,13 +286,13 @@ function imageExtFromUrl(url: string): string {
 }
 
 /** 把 API 返回的 ConversationDetail 映射为 DrawerConversationItem(对齐 ChatScreen) */
-function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem {
+function mapConversationToDrawer(c: ConversationDetail, untitled: string): DrawerConversationItem {
   const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
   const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
   const mdl = c.model ?? ''
   return {
     id: c.id,
-    title: c.title?.trim() || '未命名对话',
+    title: c.title?.trim() || untitled,
     modelConfig: mdl ? { id: mdl, name: mdl, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
@@ -709,9 +709,9 @@ function MessageBubble({
     if (!text) return
     try {
       Clipboard.setString(text)
-      onToast('success', '复制成功')
+      onToast('success', t('profile.n8nCopyOk'))
     } catch {
-      onToast('error', '复制失败')
+      onToast('error', t('profile.n8nCopyFail'))
     }
   }
 
@@ -724,7 +724,7 @@ function MessageBubble({
     try {
       const perm = await MediaLibrary.requestPermissionsAsync()
       if (!perm.granted) {
-        onToast('warning', '需要相册权限才能保存图片')
+        onToast('warning', t('home.albumPermRequired'))
         return
       }
       const filename = `ai_image_${Date.now()}.${imageExtFromUrl(url)}`
@@ -733,9 +733,9 @@ function MessageBubble({
         idempotent: true,
       })
       await MediaLibrary.saveToLibraryAsync(downloaded.uri)
-      onToast('success', '图片已保存到相册')
+      onToast('success', t('home.imgSavedAlbum'))
     } catch {
-      onToast('error', '下载失败,请重试')
+      onToast('error', t('profile.downloadFailRetry'))
     } finally {
       setDownloading(false)
     }
@@ -744,7 +744,9 @@ function MessageBubble({
   // 分享回答(对齐 Uniapp share + onShareAppMessage,RN 用 Share API 分享 content)
   const handleShare = (): void => {
     if (!message.content) return
-    void Share.share({ message: message.content }).catch(() => onToast('error', '分享失败'))
+    void Share.share({ message: message.content }).catch(() =>
+      onToast('error', t('profile.n8nShareFail')),
+    )
   }
 
   const hasTokens = message.totalTokens !== undefined
@@ -842,7 +844,7 @@ function MessageBubble({
           <View style={[bubbleStyles.actionRow, hasTokens ? null : bubbleStyles.actionRowNoLabel]}>
             {answerVisible && tokensText ? (
               <Text style={bubbleStyles.tokensText} numberOfLines={1}>
-                {'智汇AI生成 消耗智汇值:'}
+                {t('profile.n8nGenBadge')}
                 {tokensText}
               </Text>
             ) : null}
@@ -853,7 +855,9 @@ function MessageBubble({
                 hitSlop={6}
                 onPress={() => setAnswerVisible((v) => !v)}
                 accessibilityRole="button"
-                accessibilityLabel={answerVisible ? '隐藏回答' : '显示回答'}
+                accessibilityLabel={
+                  answerVisible ? t('profile.n8nHideAnswer') : t('profile.n8nShowAnswer')
+                }
               >
                 {answerVisible ? (
                   <EyeOff size={16} color={tokens.text.secondary} />
@@ -868,7 +872,7 @@ function MessageBubble({
                   hitSlop={6}
                   onPress={() => setSikaoOpen((v) => !v)}
                   accessibilityRole="button"
-                  accessibilityLabel="思考过程"
+                  accessibilityLabel={t('profile.n8nThinking')}
                 >
                   <Brain
                     size={16}
@@ -882,7 +886,7 @@ function MessageBubble({
                 hitSlop={6}
                 onPress={handleCopy}
                 accessibilityRole="button"
-                accessibilityLabel="复制回答"
+                accessibilityLabel={t('profile.n8nCopyAnswer')}
               >
                 <Copy size={16} color={tokens.text.secondary} />
               </TouchableOpacity>
@@ -906,7 +910,7 @@ function MessageBubble({
                   onPress={() => void handleDownloadImages()}
                   disabled={downloading}
                   accessibilityRole="button"
-                  accessibilityLabel="下载图片"
+                  accessibilityLabel={t('profile.n8nDownloadImg')}
                 >
                   <Download size={16} color={tokens.text.secondary} />
                 </TouchableOpacity>
@@ -919,7 +923,7 @@ function MessageBubble({
                   hitSlop={6}
                   onPress={handleShare}
                   accessibilityRole="button"
-                  accessibilityLabel="分享"
+                  accessibilityLabel={t('profile.shareBtn')}
                 >
                   <Share2 size={16} color={tokens.text.secondary} />
                 </TouchableOpacity>
@@ -970,7 +974,7 @@ export default function AiAssistantN8nScreen() {
   /** 相机(对齐 ChatScreen handleIconClick('camera'):相机拍摄待接入,占位提示) */
   const handleAddCamera = (): void => {
     setAddPanelVisible(false)
-    showToast('warning', '相机拍摄待接入,请先用相册上传图片')
+    showToast('warning', t('home.camSoonHint'))
   }
   /** 相册选图 → 上传 → 拼入输入框 */
   const handleAddAlbum = async (): Promise<void> => {
@@ -992,12 +996,12 @@ export default function AiAssistantN8nScreen() {
       })
       if (up.success && up.data?.path) {
         setInput((p) => `${p ? `${p}\n` : ''}[图片] ${resolveFileUrl(up.data!.path)}`)
-        showToast('success', '图片已上传,发送后可在对话中使用')
+        showToast('success', t('home.imgUploadedHint'))
       } else {
-        showToast('warning', '图片上传失败')
+        showToast('warning', t('home.imgUploadFailed'))
       }
     } catch {
-      showToast('warning', '图片选择失败,请重试')
+      showToast('warning', t('home.imgPickRetry'))
     } finally {
       setAddUploading(false)
     }
@@ -1028,14 +1032,14 @@ export default function AiAssistantN8nScreen() {
         name: asset.name ?? `file-${Date.now()}`,
       })
       if (up.success && up.data?.path) {
-        const fileName = asset.name ?? '文件'
+        const fileName = asset.name ?? t('home.fallbackFileName')
         setInput((p) => `${p ? `${p}\n` : ''}[文件] ${fileName} ${resolveFileUrl(up.data!.path)}`)
-        showToast('success', `已上传:${fileName}`)
+        showToast('success', t('home.uploadedNameToast', { name: fileName }))
       } else {
-        showToast('warning', '文件上传失败')
+        showToast('warning', t('home.fileUploadFailed'))
       }
     } catch {
-      showToast('warning', '文件选择失败,请重试')
+      showToast('warning', t('home.filePickRetry'))
     } finally {
       setAddUploading(false)
     }
@@ -1807,9 +1811,9 @@ export default function AiAssistantN8nScreen() {
     // 领取免费资料:复制飞书链接 + FloatBox 提示(对齐 Uniapp lingqu → setClipboardData)
     try {
       Clipboard.setString(FREE_RESOURCE_URL)
-      showToast('success', '链接已复制,请在浏览器中打开')
+      showToast('success', t('home.linkCopiedBrowser'))
     } catch {
-      showToast('error', '复制失败,请重试')
+      showToast('error', t('profile.copyFailRetry'))
     }
   }
   const handleDrawerCreateNewChat = (): void => {
@@ -1825,10 +1829,10 @@ export default function AiAssistantN8nScreen() {
     void loadConversationMessages(id)
   }
   const handleDrawerDeleteConversation = (id: string): void => {
-    appAlert('删除对话', '确认删除此对话?', [
-      { text: '取消', style: 'cancel' },
+    appAlert(t('profile.dlgDelConvTitle'), t('profile.dlgDelConvBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '确认',
+        text: t('home.btnConfirm'),
         style: 'destructive',
         onPress: () => {
           const snapshot = drawerConversations
@@ -1881,7 +1885,7 @@ export default function AiAssistantN8nScreen() {
   // Drawer user 映射(AuthUser → Drawer user)
   const drawerUser = {
     avatar: authUser?.avatar,
-    nickname: authUser?.nickname ?? authUser?.username ?? '未登录',
+    nickname: authUser?.nickname ?? authUser?.username ?? t('home.notLoggedIn'),
     level: (authUser?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
@@ -1950,27 +1954,30 @@ export default function AiAssistantN8nScreen() {
         />
         {/* 快捷操作区(对齐 Uniapp ai_assistant_n8n quick-actions-container:
             无消息时输入区上方横向 suggestedQuestions chip,点击直接发送) */}
-        {messages.length === 0 && QUICK_SUGGESTIONS.length > 0 ? (
+        {messages.length === 0 && QUICK_SUGGESTION_KEYS.length > 0 ? (
           <View style={styles.quickWrap}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.quickScrollContent}
             >
-              {QUICK_SUGGESTIONS.map((question) => (
-                <TouchableOpacity
-                  key={question}
-                  style={styles.quickChip}
-                  activeOpacity={0.75}
-                  onPress={() => void onSend(question)}
-                  accessibilityRole="button"
-                  accessibilityLabel={question}
-                >
-                  <Text style={styles.quickChipText} numberOfLines={1}>
-                    {question}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {QUICK_SUGGESTION_KEYS.map((qKey) => {
+                const question = t(qKey)
+                return (
+                  <TouchableOpacity
+                    key={qKey}
+                    style={styles.quickChip}
+                    activeOpacity={0.75}
+                    onPress={() => void onSend(question)}
+                    accessibilityRole="button"
+                    accessibilityLabel={question}
+                  >
+                    <Text style={styles.quickChipText} numberOfLines={1}>
+                      {question}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
             </ScrollView>
           </View>
         ) : null}
@@ -2003,7 +2010,7 @@ export default function AiAssistantN8nScreen() {
             :isVoiceInput + @toggle-voice-input:语音转文字回填输入框,随发送提交) */}
         <View style={styles.voiceInputWrap}>
           <VoiceInput
-            placeholder="按住说出你的问题"
+            placeholder={t('profile.n8nHoldToTalk')}
             onComplete={(text) => {
               if (text) setInput(text)
             }}
@@ -2036,13 +2043,13 @@ export default function AiAssistantN8nScreen() {
           items={[
             {
               key: 'camera',
-              label: '相机',
+              label: t('home.addCamera'),
               icon: <Camera size={24} color={tokens.text.secondary} />,
               onPress: handleAddCamera,
             },
             {
               key: 'album',
-              label: '相册',
+              label: t('home.addAlbum'),
               icon: addUploading ? (
                 <ActivityIndicator size="small" color={tokens.text.secondary} />
               ) : (
@@ -2052,13 +2059,13 @@ export default function AiAssistantN8nScreen() {
             },
             {
               key: 'file',
-              label: '本地文件',
+              label: t('home.addLocalFile'),
               icon: <Folder size={24} color={tokens.text.secondary} />,
               onPress: () => void handleAddFile(),
             },
             {
               key: 'wxfile',
-              label: '微信文件',
+              label: t('home.addWxFile'),
               icon: <MessageCircle size={24} color={tokens.text.secondary} />,
               onPress: () => void handleAddFile(),
             },
@@ -2088,7 +2095,7 @@ export default function AiAssistantN8nScreen() {
                 onPress={() => setShowModelPicker(false)}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel="关闭"
+                accessibilityLabel={t('home.closeBtn')}
               >
                 <Text style={pickerStyles.close}>{'×'}</Text>
               </TouchableOpacity>
