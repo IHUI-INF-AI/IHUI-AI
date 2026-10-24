@@ -98,7 +98,10 @@ export default function CoursePlanet() {
       setLoading(false)
       loadingRef.current = false
     }
-  }, [t, tt])
+    // 依赖数组如实反映体内实际读取:loadData 只调 t(见 70 行 fallback),
+    // 从未调用 tt ⇒ tt 属多余依赖,按本仓既有形态(exam/list.tsx、study/plan.tsx
+    // 体内只用 t 就只写 [t];coupon.tsx 体内真用 tt 才写 [tt])摘掉,不用 disable。
+  }, [t])
 
   useDidShow(() => {
     loadData()

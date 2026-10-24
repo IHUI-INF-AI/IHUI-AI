@@ -23,6 +23,13 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaFrame: () => ({ x: 0, y: 0, width: 375, height: 812 }),
 }))
 
+// FenLeiOverlay 接入 useI18n(文案国际化)后,不包 Provider/mock ⇒ 渲染即炸
+// (app-root-background-focused-route.test.tsx 同款形态)。
+vi.mock('../src/i18n', () => ({
+  I18nProvider: ({ children }: { children: unknown }) => children,
+  useI18n: () => ({ t: (key: string) => key }),
+}))
+
 import { FenLeiOverlay } from '../src/components/FenLeiOverlay'
 
 const TRACK = [
