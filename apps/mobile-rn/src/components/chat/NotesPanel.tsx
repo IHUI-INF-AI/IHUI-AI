@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -179,6 +180,7 @@ export function NotesPanel({
   onRecordNew,
   onClose,
 }: NotesPanelProps) {
+  const { t } = useI18n()
   const [notes, setNotes] = useState<VoiceNoteItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -190,14 +192,14 @@ export function NotesPanel({
       // 信封解包同 ActivityScreen/WorkflowsScreen:`{ code,message,data }` 里要的是 data.list,
       // 把整个信封当数组会让列表永远空且不抛错。
       const res = await listVoiceNotes({})
-      if (!res.success) throw new Error(res.error || '加载失败')
+      if (!res.success) throw new Error(res.error || t('chat.notes.loadFailShort'))
       setNotes(res.data?.list ?? [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : '加载失败')
+      setError(e instanceof Error ? e.message : t('chat.notes.loadFailShort'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     void load()
@@ -216,7 +218,7 @@ export function NotesPanel({
               onPress={onClose}
               style={styles.listDialogClose}
               accessibilityRole="button"
-              accessibilityLabel="关闭"
+              accessibilityLabel={t('common.close')}
             >
               <X size={20} color={tokens.text.primary} />
             </Pressable>
@@ -226,7 +228,7 @@ export function NotesPanel({
             style={styles.newRecordSlot}
             onPress={onRecordNew}
             accessibilityRole="button"
-            accessibilityLabel="新建录音"
+            accessibilityLabel={t('chat.notes.recordNew')}
           >
             {({ pressed }) => (
               <View style={[styles.newRecordBtn, pressed && styles.panelItemPressed]}>
@@ -245,7 +247,7 @@ export function NotesPanel({
                 onPress={() => void load()}
                 style={styles.retryBtn}
                 accessibilityRole="button"
-                accessibilityLabel="重试"
+                accessibilityLabel={t('common.retryShort')}
               >
                 <Text style={styles.retryText}>重试</Text>
               </Pressable>
@@ -283,7 +285,7 @@ export function NotesPanel({
             onPress={onClose}
             style={[styles.panelCancelBtn, styles.notesCancelBtn]}
             accessibilityRole="button"
-            accessibilityLabel="取消"
+            accessibilityLabel={t('common.cancel')}
           >
             <Text style={styles.panelCancelText}>取消</Text>
           </Pressable>

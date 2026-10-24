@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -49,9 +50,12 @@ export interface IntelligentAssistantProps {
   robotImage?: string
 }
 
-function formatTokenValue(value: number): string {
+function formatTokenValue(
+  value: number,
+  t: (k: string, v?: Record<string, unknown>) => string,
+): string {
   if (!value || value <= 0) return '0'
-  if (value >= 10000) return `${(value / 10000).toFixed(1)}万`
+  if (value >= 10000) return t('ranking.wanSuffix', { v: (value / 10000).toFixed(1) })
   return String(value)
 }
 
@@ -60,6 +64,7 @@ export default function IntelligentAssistant({
   onRecharge,
   robotImage,
 }: IntelligentAssistantProps) {
+  const { t } = useI18n()
   return (
     <View style={styles.container}>
       {robotImage ? (
@@ -79,8 +84,8 @@ export default function IntelligentAssistant({
         <View style={styles.limitInfo}>
           <View style={styles.limitContent}>
             <View style={styles.limitText}>
-              <Text style={styles.limitLabel}>{'剩余智汇值:'}</Text>
-              <Text style={styles.limitCount}>{formatTokenValue(tokenQuantity)}</Text>
+              <Text style={styles.limitLabel}>{t('ia.remainingPoints') + ':'}</Text>
+              <Text style={styles.limitCount}>{formatTokenValue(tokenQuantity, t)}</Text>
             </View>
             {onRecharge ? (
               <TouchableOpacity
@@ -88,10 +93,10 @@ export default function IntelligentAssistant({
                 onPress={onRecharge}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="充值"
+                accessibilityLabel={t('ia.recharge')}
               >
                 <View style={styles.tokenButton}>
-                  <Text style={styles.tokenButtonText}>{'充值'}</Text>
+                  <Text style={styles.tokenButtonText}>{t('ia.recharge')}</Text>
                 </View>
               </TouchableOpacity>
             ) : null}
