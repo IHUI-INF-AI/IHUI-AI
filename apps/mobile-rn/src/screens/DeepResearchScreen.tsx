@@ -190,7 +190,7 @@ export function DeepResearchScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => clampIterations(iterations - 1)}
-              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800"
+              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800 min-h-[44px]"
             >
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">-</Text>
             </TouchableOpacity>
@@ -199,7 +199,7 @@ export function DeepResearchScreen() {
             </Text>
             <TouchableOpacity
               onPress={() => clampIterations(iterations + 1)}
-              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800"
+              className="rounded-sm bg-neutral-200 px-2.5 py-1 dark:bg-neutral-800 min-h-[44px]"
             >
               <Text className="text-xs text-neutral-700 dark:text-neutral-300">+</Text>
             </TouchableOpacity>
@@ -207,7 +207,7 @@ export function DeepResearchScreen() {
             <TouchableOpacity
               disabled={starting || query.trim().length === 0}
               onPress={onStart}
-              className={`rounded-sm px-4 py-2 ${
+              className={`rounded-sm px-4 py-2 min-h-[44px] ${
                 starting || query.trim().length === 0
                   ? 'bg-neutral-300 dark:bg-neutral-800'
                   : 'bg-neutral-900 dark:bg-neutral-100'

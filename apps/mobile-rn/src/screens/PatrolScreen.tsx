@@ -276,7 +276,7 @@ export function PatrolScreen() {
           onPress={() => {
             setFormOpen((v) => !v)
           }}
-          className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+          className="mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100 min-h-[44px]"
         >
           <Text className="text-xs text-neutral-50 dark:text-neutral-900">
             {t('patrol.create')}
@@ -285,7 +285,7 @@ export function PatrolScreen() {
         <TouchableOpacity
           disabled={loading}
           onPress={onRefresh}
-          className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+          className="rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
         >
           <Text className="text-xs text-neutral-700 dark:text-neutral-300">
             {t('patrol.refresh')}
@@ -318,7 +318,7 @@ export function PatrolScreen() {
                 <TouchableOpacity
                   key={k}
                   onPress={() => setFormType(k)}
-                  className={`mb-1 mr-1 rounded-sm px-2 py-1 ${
+                  className={`mb-1 mr-1 rounded-sm px-2 py-1 min-h-[44px] ${
                     active
                       ? 'bg-neutral-900 dark:bg-neutral-100'
                       : 'bg-neutral-200 dark:bg-neutral-800'
@@ -360,7 +360,7 @@ export function PatrolScreen() {
           <TouchableOpacity
             disabled={submitting}
             onPress={onSubmit}
-            className="mt-3 self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100"
+            className="mt-3 self-start rounded-sm bg-neutral-900 px-4 py-2 dark:bg-neutral-100 min-h-[44px]"
           >
             <Text className="text-xs text-neutral-50 dark:text-neutral-900">
               {t('patrol.formSubmit')}
@@ -378,7 +378,7 @@ export function PatrolScreen() {
           <Text className="mb-3 text-sm text-neutral-600 dark:text-neutral-300">{error}</Text>
           <TouchableOpacity
             onPress={() => void load()}
-            className="rounded-sm bg-neutral-900 px-4 py-2"
+            className="rounded-sm bg-neutral-900 px-4 py-2 min-h-[44px]"
           >
             <Text className="text-sm text-neutral-50">{t('common.retry')}</Text>
           </TouchableOpacity>
@@ -456,7 +456,7 @@ export function PatrolScreen() {
                   <TouchableOpacity
                     disabled={busyId === task.id}
                     onPress={() => onRunNow(task)}
-                    className="mb-1 mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100"
+                    className="mb-1 mr-2 rounded-sm bg-neutral-900 px-3 py-1.5 dark:bg-neutral-100 min-h-[44px]"
                   >
                     <Text className="text-xs text-neutral-50 dark:text-neutral-900">
                       {t('patrol.actionRunNow')}
@@ -465,7 +465,7 @@ export function PatrolScreen() {
                   <TouchableOpacity
                     disabled={busyId === task.id}
                     onPress={() => onToggleStatus(task)}
-                    className="mb-1 mr-2 rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                    className="mb-1 mr-2 rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
                   >
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {t(task.status === 'active' ? 'patrol.actionPause' : 'patrol.actionResume')}
@@ -474,7 +474,7 @@ export function PatrolScreen() {
                   <TouchableOpacity
                     disabled={busyId === task.id}
                     onPress={() => onToggleHistory(task)}
-                    className="mb-1 mr-2 rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700"
+                    className="mb-1 mr-2 rounded-sm border border-neutral-300 px-3 py-1.5 dark:border-neutral-700 min-h-[44px]"
                   >
                     <Text className="text-xs text-neutral-700 dark:text-neutral-300">
                       {t('patrol.actionHistory')}
@@ -483,7 +483,7 @@ export function PatrolScreen() {
                   <TouchableOpacity
                     disabled={busyId === task.id}
                     onPress={() => onDelete(task)}
-                    className="mb-1 rounded-sm border border-red-300 px-3 py-1.5 dark:border-red-800"
+                    className="mb-1 rounded-sm border border-red-300 px-3 py-1.5 dark:border-red-800 min-h-[44px]"
                   >
                     <Text className="text-xs text-red-600 dark:text-red-400">
                       {t('patrol.actionDelete')}

@@ -245,6 +245,7 @@ function createStyles(tk: AppThemeTokens) {
     solidBtn: {
       paddingHorizontal: 16,
       paddingVertical: 8,
+      minHeight: 44,
       borderRadius: rnRadiusFor.control,
       backgroundColor: tk.brand.DEFAULT,
     },
@@ -280,6 +281,7 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: 8,
       paddingHorizontal: 12,
       paddingVertical: 6,
+      minHeight: 44,
       borderRadius: rnRadiusFor.control,
     },
     actionSolid: { backgroundColor: tk.brand.DEFAULT },
