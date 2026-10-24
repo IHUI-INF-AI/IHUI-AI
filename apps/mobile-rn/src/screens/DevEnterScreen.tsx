@@ -55,29 +55,29 @@ import { NavChrome } from '../components/NavChrome'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/** 一级 Tab(对齐 Uniapp headTypes:待发布/审核中/已发布) */
-const HEAD_TABS: readonly { id: AgentStatus; label: string }[] = [
-  { id: 'draft', label: '待发布' },
-  { id: 'pending', label: '审核中' },
-  { id: 'published', label: '已发布' },
+/** 一级 Tab(对齐 Uniapp headTypes:待发布/审核中/已发布;label 存 i18n 键) */
+const HEAD_TABS: readonly { id: AgentStatus; labelKey: string }[] = [
+  { id: 'draft', labelKey: 'devEnter.tabDraft' },
+  { id: 'pending', labelKey: 'devEnter.tabPending' },
+  { id: 'published', labelKey: 'devEnter.tabPublished' },
 ]
 
 /** 二级 Tab(对齐 Uniapp tabbarList:全部/审核失败/已下架,仅待发布状态组显示) */
-const SUB_TABS: readonly { id: AgentStatus; label: string }[] = [
-  { id: 'draft', label: '全部' },
-  { id: 'rejected', label: '审核失败' },
-  { id: 'offline', label: '已下架' },
+const SUB_TABS: readonly { id: AgentStatus; labelKey: string }[] = [
+  { id: 'draft', labelKey: 'devEnter.tabAll' },
+  { id: 'rejected', labelKey: 'devEnter.tabRejected' },
+  { id: 'offline', labelKey: 'devEnter.tabOffline' },
 ]
 
 const PAGE_SIZE = 10
 
-/** 状态 → 中文标签(卡片右侧操作文案) */
+/** 状态 → i18n 键(卡片右侧操作文案;消费处 t 解析) */
 const STATUS_TEXT: Record<AgentStatus, string> = {
-  draft: '待发布',
-  pending: '审核中',
-  published: '已发布',
-  rejected: '审核失败',
-  offline: '已下架',
+  draft: 'devEnter.tabDraft',
+  pending: 'devEnter.tabPending',
+  published: 'devEnter.tabPublished',
+  rejected: 'devEnter.tabRejected',
+  offline: 'devEnter.tabOffline',
 }
 
 /** 时间格式化(YYYY-MM-DD HH:mm) */
@@ -130,13 +130,13 @@ export default function DevEnterScreen() {
           setHasMore(items.length >= PAGE_SIZE)
           setPage(pageNum)
         } else {
-          appAlert(t('common.hint'), res.error || '加载失败，请重试')
+          appAlert(t('common.hint'), res.error || t('devEnter.loadFailRetry'))
         }
       } catch (e: unknown) {
         const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
         appAlert(
           t('common.hint'),
-          detail.trim() ? toUserFriendlyMessage(e) : '加载失败，请检查网络',
+          detail.trim() ? toUserFriendlyMessage(e) : t('devEnter.loadFailNet'),
         )
       } finally {
         setLoading(false)
@@ -183,11 +183,14 @@ export default function DevEnterScreen() {
         setTotal((n) => Math.max(0, n - 1))
         setOfflineTarget(null)
       } else {
-        appAlert(t('common.hint'), res.error || '下架失败，请重试')
+        appAlert(t('common.hint'), res.error || t('devEnter.offlineFailRetry'))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      appAlert(t('common.hint'), detail.trim() ? toUserFriendlyMessage(e) : '下架失败，请检查网络')
+      appAlert(
+        t('common.hint'),
+        detail.trim() ? toUserFriendlyMessage(e) : t('devEnter.offlineFailNet'),
+      )
     } finally {
       setOfflining(false)
     }
@@ -214,15 +217,15 @@ export default function DevEnterScreen() {
                 {item.name}
               </Text>
               <Text style={styles.cardDesc} numberOfLines={2}>
-                {item.description || '暂无简介'}
+                {item.description || t('devEnter.noDesc')}
               </Text>
               <View style={styles.cardFooter}>
                 {isPublished ? (
                   <TouchableOpacity onPress={() => setOfflineTarget(item)} activeOpacity={0.7}>
-                    <Text style={styles.offlineBtn}>下架</Text>
+                    <Text style={styles.offlineBtn}>{t('devEnter.offlineBtn')}</Text>
                   </TouchableOpacity>
                 ) : isPending ? (
-                  <Text style={styles.statusText}>审核中</Text>
+                  <Text style={styles.statusText}>{t('devEnter.tabPending')}</Text>
                 ) : (
                   <>
                     {item.status === 'draft' ? (
@@ -231,10 +234,10 @@ export default function DevEnterScreen() {
                         activeOpacity={0.7}
                         style={styles.setBtn}
                       >
-                        <Text style={styles.setBtnText}>设置</Text>
+                        <Text style={styles.setBtnText}>{t('devEnter.setBtn')}</Text>
                       </TouchableOpacity>
                     ) : (
-                      <Text style={styles.statusText}>{STATUS_TEXT[item.status]}</Text>
+                      <Text style={styles.statusText}>{t(STATUS_TEXT[item.status])}</Text>
                     )}
                   </>
                 )}
@@ -243,14 +246,20 @@ export default function DevEnterScreen() {
           </View>
           {isPublished ? (
             <View style={styles.publishedMeta}>
-              <Text style={styles.metaLine}>所属类别：{item.categoryId || '未分类'}</Text>
-              <Text style={styles.metaLine}>上架时间：{formatTime(item.createdAt) || '—'}</Text>
+              <Text style={styles.metaLine}>
+                {t('devEnter.categoryLabel')}
+                {item.categoryId || t('devEnter.uncategorized')}
+              </Text>
+              <Text style={styles.metaLine}>
+                {t('devEnter.publishTimeLabel')}
+                {formatTime(item.createdAt) || '—'}
+              </Text>
             </View>
           ) : null}
         </View>
       )
     },
-    [navigation],
+    [navigation, t],
   )
 
   const items = useMemo(() => list, [list])
@@ -258,7 +267,7 @@ export default function DevEnterScreen() {
   return (
     <View style={styles.shell}>
       <NavChrome>
-        <NavBar title="我的智能体" onBack={() => navigation.goBack()} />
+        <NavBar title={t('devEnter.myAgents')} onBack={() => navigation.goBack()} />
       </NavChrome>
 
       {/* 一级 Tab(对齐 Uniapp models_bar headTypes) */}
@@ -273,7 +282,7 @@ export default function DevEnterScreen() {
               activeOpacity={0.8}
             >
               <Text style={active ? styles.headTabTextActive : styles.headTabText}>
-                {tab.label}
+                {t(tab.labelKey)}
               </Text>
             </TouchableOpacity>
           )
@@ -286,14 +295,14 @@ export default function DevEnterScreen() {
           <SearchInput
             value={searchInput}
             onChangeText={setSearchInput}
-            placeholder="搜索智能体名称"
+            placeholder={t('devEnter.searchPh')}
             onSubmit={handleSearch}
             colorScheme={resolvedTheme}
             voiceEnabled={false}
           />
         </View>
         <TouchableOpacity style={styles.searchBtn} onPress={handleSearch} activeOpacity={0.8}>
-          <Text style={styles.searchBtnText}>搜索</Text>
+          <Text style={styles.searchBtnText}>{t('devEnter.searchBtn')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -310,7 +319,7 @@ export default function DevEnterScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={active ? styles.subTabTextActive : styles.subTabText}>
-                  {tab.label}
+                  {t(tab.labelKey)}
                 </Text>
               </TouchableOpacity>
             )
@@ -327,12 +336,14 @@ export default function DevEnterScreen() {
         onEndReachedThreshold={0.3}
         onEndReached={onLoadMore}
         ListEmptyComponent={
-          loading ? null : <Empty text={keyword ? '未找到匹配的智能体' : '暂无智能体'} />
+          loading ? null : (
+            <Empty text={keyword ? t('devEnter.emptyNoMatch') : t('devEnter.emptyAgents')} />
+          )
         }
         ListFooterComponent={
           list.length > 0 ? (
             <Text style={styles.footerText}>
-              {loading ? '加载中...' : hasMore ? '' : `共 ${total} 条，已全部加载`}
+              {loading ? t('devEnter.loading') : hasMore ? '' : t('devEnter.footerDone', { total })}
             </Text>
           ) : null
         }
@@ -347,21 +358,23 @@ export default function DevEnterScreen() {
       >
         <View style={styles.mask}>
           <View style={styles.promptDialog}>
-            <Text style={styles.promptContent}>是否确定下架此智能体？</Text>
+            <Text style={styles.promptContent}>{t('devEnter.offlineConfirmBody')}</Text>
             <View style={styles.promptFooter}>
               <Pressable
                 style={[styles.promptBtn, styles.promptCancel]}
                 onPress={() => setOfflineTarget(null)}
                 disabled={offlining}
               >
-                <Text style={styles.promptCancelText}>取消</Text>
+                <Text style={styles.promptCancelText}>{t('common.cancel')}</Text>
               </Pressable>
               <Pressable
                 style={[styles.promptBtn, styles.promptConfirm]}
                 onPress={() => void confirmOffline()}
                 disabled={offlining}
               >
-                <Text style={styles.promptConfirmText}>{offlining ? '处理中...' : '确定'}</Text>
+                <Text style={styles.promptConfirmText}>
+                  {offlining ? t('devEnter.processing') : t('devEnter.confirmOk')}
+                </Text>
               </Pressable>
             </View>
           </View>
