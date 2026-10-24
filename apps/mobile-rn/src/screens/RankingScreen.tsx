@@ -95,7 +95,11 @@ export function RankingScreen() {
     <View style={shellStyles.root}>
       <ScrollView style={shellStyles.scroll} contentContainerStyle={shellStyles.scrollContent}>
         <View style={shellStyles.rankingWrap}>
-          <FullRankingList items={fullItems} valueLabel="积分" onPress={onItemPress} />
+          <FullRankingList
+            items={fullItems}
+            valueLabel={t('menu.sectionPoints')}
+            onPress={onItemPress}
+          />
         </View>
         <SharedRankingScreen
           t={t}

@@ -248,7 +248,9 @@
     "pubRequireCourseTitle": "請輸入課程標題",
     "pubSelectVideo": "請選擇視頻",
     "pubVideo": "發布視頻",
-    "pubGroup": "發布課程合集"
+    "pubGroup": "發布課程合集",
+    "closePreview": "關閉預覽",
+    "recentUsed": "最近使用"
   },
   "plaza": {
     "index": {
@@ -401,7 +403,8 @@
     "chatError": "連線失敗",
     "chatDisconnected": "已斷開",
     "chatNotReady": "聊天未就緒",
-    "loadFailed": "載入直播詳情失敗"
+    "loadFailed": "載入直播詳情失敗",
+    "hostMode": "主播端"
   },
   "profile": {
     "levelIntro": "等級介紹",
@@ -541,7 +544,9 @@
     "nickname": "未設定暱稱",
     "logout": "登出",
     "myOrders": "我的訂單",
-    "editProfile": "編輯資料"
+    "editProfile": "編輯資料",
+    "notLoggedIn": "未登入",
+    "clickRetry": "點擊重試"
   },
   "payResult": {
     "title": "支付結果",
@@ -626,6 +631,40 @@
     "runtimeSend": "傳送"
   },
   "chat": {
+    "assetCatText": "文本",
+    "assetCatImage": "圖片",
+    "assetCatVideo": "視頻",
+    "assetCatAudio": "音頻",
+    "loginToSend": "請先登入後再發送訊息",
+    "vipOnlyModel": "該模型為 VIP 專屬,開通會員後可使用",
+    "openVipBtn": "開通會員",
+    "reloginBtn": "重新登入",
+    "connectFailRetry": "連線失敗,請重試",
+    "noMsgToTts": "暫無訊息可轉換",
+    "ttsFailRetry": "語音生成失敗,請重試",
+    "noMsgToFav": "暫無訊息可收藏",
+    "favFailRetry": "收藏失敗,請稍後重試",
+    "currentChatEmpty": "當前對話為空",
+    "clearChatBody": "確認清空當前對話的所有訊息?",
+    "clearGoBtn": "清空",
+    "exportMe": "我",
+    "qrNeedPerm": "需要相簿權限才能儲存QR Code",
+    "qrNotRendered": "QR Code 未渲染,請稍後重試",
+    "qrSaved": "QR Code 已儲存到相簿",
+    "histLoadFailRetry": "載入歷史對話失敗,請重試",
+    "annotImgAdded": "標註圖已加入輸入框",
+    "annotAdded": "標註已加入輸入框",
+    "menuClear": "清空對話",
+    "menuExport": "匯出對話",
+    "menuShare": "分享對話",
+    "menuToVoice": "轉語音",
+    "menuFavorite": "收藏",
+    "menuMaterial": "素材庫",
+    "menuVoiceNote": "語音筆記",
+    "menuWebLink": "網頁連結",
+    "menuFileUpload": "檔案上傳",
+    "menuHistory": "歷史對話",
+    "menuSwitchModel": "切換模型",
     "modelSwitchStopped": "已切換到 {model},本輪回答已終止",
     "meta": {
       "pullOnly": "該對話的改動將在下次開啟清單時同步"
@@ -744,7 +783,94 @@
       },
       "searchPlaceholder": "搜尋筆記內容",
       "groupAll": "全部"
-    }
+    },
+    "viewCard": "查看卡片",
+    "closeCard": "關閉卡片",
+    "materialTitle": "素材庫",
+    "materialDesc": "查看您上傳的圖片等素材",
+    "sharePoints": "分享領智匯值",
+    "matAddTitle": "新增素材",
+    "matListTitle": "素材列表",
+    "matNoDetail": "尚無素材詳情",
+    "matDeleteTitle": "刪除素材",
+    "matDeleteBody": "確認刪除該素材？",
+    "matNone": "尚無素材",
+    "voiceNoteCreate": "新建語音筆記",
+    "voiceNoteSelect": "選擇既有筆記",
+    "voiceNoteDelete": "刪除語音筆記",
+    "annotPreviewTitle": "標註預覽",
+    "annotHintLong": "點擊畫筆後在圖片上標註，拖動/雙指縮放後可儲存；儲存後會自動插入到輸入框。",
+    "annotSave": "儲存標註",
+    "annotCancel": "取消標註",
+    "annotFailed": "標註儲存失敗",
+    "annotSavedNote": "標註圖已產生",
+    "assetCatSkills": "技能",
+    "assetCatTalk": "對話",
+    "assetCatVideoAudio": "視音",
+    "assetCatOther": "其他",
+    "imageOpen": "點擊查看圖片",
+    "imageDelete": "刪除圖片",
+    "webLinkPlaceholder": "請輸入網頁連結（https://...）",
+    "micPermHint": "無法存取麥克風，請檢查權限設定",
+    "micInitFailed": "錄音啟動失敗，請重試",
+    "modelDegrade": "模型降級：{from} → {to}",
+    "reconnecting": "網路波動，正在第 {attempt} 次重新連線（{countdown}s 後）",
+    "roundFailed": "語音回合失敗，請重試",
+    "ttsSuccess": "語音生成成功（{voice}）",
+    "favOpFail": "收藏操作失敗：{reason}",
+    "chatEmptyToast": "目前對話為空",
+    "clearDialogTitle": "清空對話",
+    "clearDialogBody": "確認清空目前對話的所有訊息？",
+    "clearOk": "清空",
+    "exportEmptyTitle": "智匯AI 對話（空）",
+    "exportHeader": "智匯AI 對話記錄",
+    "exportMeLabel": "我",
+    "camSoonHint": "相機拍攝待接入，請先用相簿上傳圖片",
+    "shareClaimed": "已領取 {points} 智匯值",
+    "shareClaimedOnce": "已領取過首次分享獎勵",
+    "shareClaimFailed": "領取失敗，請稍後重試",
+    "inviteShareBody": "智匯AI社群 — 邀請你加入，一起探索 AI 對話！",
+    "matTypePrefix": "類別",
+    "matNoDetailHint": "該素材暫不支持查看詳情",
+    "loadDetailFail": "載入詳情失敗",
+    "netLoadFail": "網路異常，載入失敗",
+    "linkCopied": "連結已複製到剪貼簿，可在瀏覽器貼上開啟",
+    "historyLoadFail": "載入歷史對話失敗，請重試",
+    "delConvTitle": "刪除對話",
+    "delConvBody": "確認刪除此對話？",
+    "chatDeleteFail": "刪除失敗，請重試",
+    "topBarMenu": "開啟選單",
+    "topBarAgent": "選擇 Agent",
+    "topBarProfile": "個人中心",
+    "topBarCommunity": "加入社群",
+    "exitTitle": "退出",
+    "shareInviteNow": "立即分享邀請好友",
+    "fnTitle": "功能",
+    "sourceTitlePanel": "知識來源",
+    "selectFile": "選擇檔案",
+    "uploadingShort": "上傳中…",
+    "imagePreviewTitle": "圖片預覽",
+    "untitledChat": "未命名對話",
+    "closeCardShort": "關閉",
+    "viewCardShort": "查看",
+    "cardWord": "卡片",
+    "matDeleteA11y": "刪除素材",
+    "matFallback": "素材",
+    "sendLink": "發送連結",
+    "imagePreviewA11y": "圖片預覽",
+    "menuAnnotateImage": "標註此圖",
+    "chatDeleteFailed2": "刪除失敗",
+    "qrSaveFail": "保存失败，请重试",
+    "favOn": "已收藏",
+    "favOff": "已取消收藏",
+    "annotHint": "标注图已插入输入框",
+    "terminal": {
+      "waitingInput": "等待輸入",
+      "mobileUnsupported": "終端功能暫不支持行動端"
+    },
+    "voicePlay": "播放語音",
+    "voicePause": "暫停語音",
+    "actionRunA11y": "執行動作：{label}"
   },
   "settings": {
     "title": "設定",
@@ -980,7 +1106,14 @@
     "retry": "重試",
     "save": "儲存",
     "search": "搜尋",
-    "searchPlaceholder": "搜尋文件..."
+    "searchPlaceholder": "搜尋文件...",
+    "deleted": "已刪除",
+    "loadFailPullRetry": "載入失敗，請下拉重新整理重試",
+    "emptyContent": "暫無內容",
+    "closeOverlay": "關閉彈出層",
+    "add": "新增",
+    "panelCollapse": "收起面板",
+    "panelExpand": "展開面板"
   },
   "network": {
     "offline": "網路已中斷,部分功能不可用",
@@ -1012,7 +1145,13 @@
     "mainOffice": "辦公",
     "mainLearning": "學習",
     "vendorOther": "其他",
-    "copyOkToast": "連結已複製到剪貼板"
+    "copyOkToast": "連結已複製到剪貼板",
+    "catStudy": "Study",
+    "loadFailed": "Load failed",
+    "chat": {
+      "title": "進入對話",
+      "message": "即將與「{name}」開始對話"
+    }
   },
   "aiAssistantN8n": {
     "title": "AI 助手",
@@ -1059,7 +1198,8 @@
     "loading": "載入中...",
     "subtitle": "選擇或生成封面",
     "title": "封面",
-    "workTitleDefault": "未命名作品"
+    "workTitleDefault": "未命名作品",
+    "labelDefault": "作品"
   },
   "aigcPublish": {
     "success": {
@@ -1263,7 +1403,10 @@
     "namePlaceholder": "請輸入工作流名稱",
     "nameRequired": "請輸入名稱",
     "operationFailed": "操作失敗，請稍後重試",
-    "title": "n8n 模型"
+    "title": "n8n 模型",
+    "vendorName": "n8n 工作流",
+    "groupBrowse": "分組瀏覽",
+    "listView": "列表視圖"
   },
   "modelPlaza": {
     "officialBadge": "智",
@@ -1284,7 +1427,10 @@
     "priceUnit": "價格",
     "providerTotal": "供應商共 {count} 個模型",
     "selectProviderLabel": "選擇供應商",
-    "title": "模型廣場"
+    "title": "模型廣場",
+    "groupBrowse": "分組瀏覽",
+    "listView": "列表視圖",
+    "workflowTab": "工作流"
   },
   "tokenValue": {
     "recharge": {
@@ -1797,7 +1943,10 @@
     "relatedOrder": "關聯訂單:{orderNo}",
     "copy": "複製訂單號",
     "copySuccess": "已複製訂單號",
-    "loadFailed": "載入收益失敗"
+    "loadFailed": "載入收益失敗",
+    "withdrawBank": "銀行卡提現",
+    "withdrawRecord": "提現記錄",
+    "commissionDefault": "佣金收益"
   },
   "invite": {
     "title": "邀請好友",
@@ -2008,7 +2157,9 @@
     "studyHours": "學習 {count} 小時",
     "empty": "暫無排行",
     "loadFailed": "載入排行榜失敗",
-    "title": "排行榜"
+    "title": "排行榜",
+    "wanSuffix": "{v}萬",
+    "pointsUnit": "分"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -3034,6 +3185,34 @@
     "limitedTime": "限時{price}元/",
     "yuanUnit": "{price}元"
   },
+  "devEnter": {
+    "tabDraft": "待發布",
+    "tabPending": "審核中",
+    "tabPublished": "已發布",
+    "tabAll": "全部",
+    "tabRejected": "審核失敗",
+    "tabOffline": "已下架",
+    "noDesc": "暫無簡介",
+    "offlineBtn": "下架",
+    "setBtn": "設置",
+    "categoryLabel": "所屬類別：",
+    "uncategorized": "未分類",
+    "publishTimeLabel": "上架時間：",
+    "myAgents": "我的智能體",
+    "searchPh": "搜索智能體名稱",
+    "searchBtn": "搜索",
+    "emptyNoMatch": "未找到匹配的智能體",
+    "emptyAgents": "暫無智能體",
+    "footerDone": "共 {total} 條，已全部加載",
+    "offlineConfirmBody": "是否確定下架此智能體？",
+    "processing": "處理中...",
+    "confirmOk": "確定",
+    "loadFailRetry": "載入失敗，請重試",
+    "loadFailNet": "載入失敗，請檢查網絡",
+    "offlineFailRetry": "下架失敗，請重試",
+    "offlineFailNet": "下架失敗，請檢查網絡",
+    "loading": "加載中..."
+  },
   "studyIndex": {
     "title": "AI 視頻",
     "catAll": "全部",
@@ -3208,7 +3387,23 @@
     "price": "價格",
     "rating": "評分",
     "startChat": "開始對話",
-    "uses": "使用次數"
+    "uses": "使用次數",
+    "catAll": "All",
+    "catDouyin": "Douyin ops",
+    "catPrivate": "Private ops",
+    "catContent": "Content",
+    "catData": "Data",
+    "catWriting": "Writing",
+    "catCoding": "Coding",
+    "catOffice": "Office",
+    "catLearning": "Learning",
+    "mainAll": "All",
+    "mainWriting": "Writing",
+    "mainCoding": "Coding",
+    "mainOffice": "Office",
+    "mainLearning": "Learning",
+    "vendorOther": "Other",
+    "copyOkToast": "Link copied to clipboard"
   },
   "agentMarket": {
     "empty": "暫無智慧體",
@@ -3321,7 +3516,8 @@
     "resendCode": "重新發送",
     "termsOfService": "服務條款",
     "thirdPartyLogin": "第三方登入",
-    "ssoFailed": "網頁授權登入失敗,請重試或使用帳密登入"
+    "ssoFailed": "網頁授權登入失敗,請重試或使用帳密登入",
+    "loginFailed": "登入失敗，請重試"
   },
   "bookmark": {
     "empty": "暫無收藏",
@@ -4066,7 +4262,45 @@
     "collapse": "收起",
     "score": "相關度"
   },
+  "changePhone": {
+    "phoneRequired": "請輸入手機號碼",
+    "phoneInvalid": "請輸入正確的手機號碼",
+    "codeSent": "驗證碼已發送",
+    "codeSendFailRetry": "驗證碼發送失敗,請稍後重試",
+    "codeSendFail": "驗證碼發送失敗",
+    "codeRequired": "請輸入驗證碼",
+    "bindFail": "綁定失敗",
+    "bindOk": "綁定成功",
+    "netBusy": "網路異常",
+    "netBusyRetry": "網路異常,請稍後重試"
+  },
   "subagents": {
+    "tabOverview": "概覽",
+    "tabDispatches": "調度",
+    "tabTopology": "拓撲",
+    "priorityUrgent": "緊急",
+    "priorityHigh": "高",
+    "priorityLow": "低",
+    "priorityNormal": "普通",
+    "pausedLabel": "已暫停",
+    "cancelTitle": "取消派單",
+    "cancelBody": "確認取消「{goal}」？",
+    "cancelFail": "取消失敗",
+    "statTotal": "總調度",
+    "statActive": "運行中",
+    "statSuccessRate": "成功率",
+    "statQueue": "佇列長度",
+    "queueTitle": "調度佇列",
+    "queueEmpty": "佇列為空",
+    "positionLabel": "位置 #",
+    "activeTitle": "活躍調度",
+    "activeEmpty": "暫無運行中的子智能體調度",
+    "defaultAgent": "默認智能體",
+    "cancelling": "取消中…",
+    "cancelBtn": "取消",
+    "topologyTitle": "Swarm 拓撲",
+    "emptyTopology": "暫無拓撲數據",
+    "depsLabel": "依賴關係",
     "title": "子智能體"
   },
   "developerInfo": {
@@ -4455,6 +4689,9 @@
           "rejected": "已拒絕",
           "failed": "提交失敗，請重試"
         }
+      },
+      "branch": {
+        "ariaLabel": "對話分支"
       }
     }
   },
@@ -4952,5 +5189,50 @@
     "lastOk": "上次簽到成功 +{credits}",
     "lastFailed": "上次簽到失敗",
     "actionFailed": "操作失敗"
+  },
+  "mat": {
+    "unknown": "未知錯誤",
+    "deleteTitle": "刪除素材",
+    "deleteBody": "確認刪除「{title}」？",
+    "detailLabel": "素材詳情"
+  },
+  "topup": {
+    "failDefault": "充值未完成，請稍後重試"
+  },
+  "devEnterCover": {
+    "priceAbnormal": "套餐價格異常，請稍後重試"
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
+  },
+  "userPublic": {
+    "title": "用戶主頁",
+    "notFound": "用戶不存在",
+    "follow": "關注",
+    "following": "已關注",
+    "message": "發訊息",
+    "followingCount": "關注",
+    "followersCount": "粉絲",
+    "favoritesCount": "收藏",
+    "joined": "加入於"
+  },
+  "commission": {
+    "myLabel": "我的佣金",
+    "label": "佣金"
+  },
+  "courseSwiper": {
+    "tabHotIntro": "爆款入門課程",
+    "tabHotPick": "爆款精選課程"
+  },
+  "agentList": {
+    "emptyText": "暫無 Agent"
+  },
+  "myAgents": {
+    "title": "我的AI APP",
+    "staff": "我的AI員工"
+  },
+  "fenlei": {
+    "closeOverlay": "關閉分類彈層"
   }
 }

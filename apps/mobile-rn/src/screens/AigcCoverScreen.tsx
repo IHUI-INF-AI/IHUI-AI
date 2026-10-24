@@ -46,7 +46,7 @@ function mapTaskToCover(task: AigcTask): AigcCoverOption | null {
     id: task.taskId,
     url: r.url,
     source: r.source || 'work',
-    label: r.label || '作品',
+    label: r.label || t('aigcCover.labelDefault'),
   }
 }
 

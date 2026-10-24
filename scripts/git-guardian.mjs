@@ -4452,6 +4452,90 @@ export function auditSweeperLiveness(opts = {}) {
   }
 }
 
+const INDEX_UNMERGED_INTERVAL_MS = Number(process.env.IHUI_INDEX_UNMERGED_INTERVAL_MS || 15 * 60 * 1000)
+
+/**
+ * index 烂尾(unmerged 条目)滞留哨兵(2026-10-24 立):凌晨一次违规 stash + rebase +
+ * stash pop 冲突会话逃逸,index 挂 2 枚 unmerged + 91 个被删文件 12 小时无人察觉,最终靠
+ * foreign-work 对账间接发现。本层把这一格变成专职判据(尺子 = scripts/check-index-unmerged-age.mjs):
+ *   clean 静默;fresh(未超龄,正常合并进行中)只写 ℹ️;stale(同批条目滞留 ≥15 分钟)
+ *   到人(§5e-1:文案自带可执行下一步);undetermined 只写 ⚠️ 不猜(§0.3)。
+ * 判机器状态 ⇒ 不进提交链;不改本守护退出码(§12e)。15 分钟节流,间隔内零派生。
+ */
+export function auditIndexUnmerged(opts = {}) {
+  const {
+    now = Date.now(),
+    intervalMs = INDEX_UNMERGED_INTERVAL_MS,
+    tickFile = join(dirname(LOG), 'index-unmerged-tick.json'),
+    logger = log,
+    notify = notifyGuardRed,
+    runner = null,
+  } = opts
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'check-index-unmerged-age.mjs')
+  if (!existsSync(script)) {
+    logger('ℹ️ index 烂尾哨兵:尺子不在位(scripts/check-index-unmerged-age.mjs)⇒ 本轮跳过,不记为已探测')
+    return { ran: false, why: '尺子不在位' }
+  }
+  let last = NaN
+  try {
+    last = Date.parse(String(JSON.parse(readFileSync(tickFile, 'utf8')).attemptAt ?? '').trim())
+  } catch {
+    /* 没跑过 */
+  }
+  if (Number.isFinite(last) && now - last < intervalMs) return { ran: false, why: '未到节流窗口' }
+  try {
+    mkdirSync(dirname(tickFile), { recursive: true })
+    writeFileSync(tickFile, JSON.stringify({ attemptAt: new Date(now).toISOString() }), 'utf8')
+  } catch (e) {
+    logger(`⚠️ index 烂尾哨兵:节流台账写入失败(${String(e?.message ?? e).slice(0, 90)})—— 下轮照旧派发`)
+  }
+  const run =
+    typeof runner === 'function'
+      ? runner
+      : () => {
+          try {
+            const out = execFileSync(process.execPath, [script, '--json'], {
+              cwd: WORKTREE,
+              encoding: 'utf8',
+              windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+              timeout: 60_000,
+              maxBuffer: 1 << 22,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            })
+            return { ok: true, out: String(out ?? ''), status: 0 }
+          } catch (e) {
+            // stale 就 exit 1、未判定 exit 2:非零退出不是尺子坏了,结论整份在 stdout。
+            return {
+              ok: false,
+              out: String(e?.stdout ?? ''),
+              err: String(e?.stderr ?? ''),
+              status: typeof e?.status === 'number' ? e.status : null,
+            }
+          }
+        }
+  const r = run()
+  const v = readProbeVerdict({ status: r.status ?? null, stdout: r.out, stderr: r.err ?? '' })
+  if (!v.parsed) {
+    logger(`⚠️ index 烂尾哨兵:尺子结论不可用:未判定 —— ${v.why ?? '原因未取到'},不影响自愈与退出码`)
+    return { ran: true, ok: false, why: v.why ?? 'unparsed' }
+  }
+  const overall = String(v.parsed.overall ?? 'undetermined')
+  const detail = String(v.parsed.detail ?? '')
+  if (overall === 'stale') {
+    logger(`❌ index 烂尾哨兵:unmerged 条目滞留超龄(${v.parsed.count ?? '?'} 枚 / ${v.parsed.ageMin ?? '?'} 分钟)⇒ 到人`)
+    notify('index 烂尾(unmerged)滞留', detail, { dedupKey: 'index-unmerged-stale' })
+  } else if (overall === 'fresh') {
+    logger(`ℹ️ index 烂尾哨兵:出现 ${v.parsed.count ?? '?'} 枚未合并条目(${v.parsed.ageMin ?? '?'} 分钟,未超龄)—— 若无合并进行中将转 stale 到人`)
+  } else if (overall === 'clean') {
+    // 心跳证据:全绿也写行(auditSweeperLiveness 同族 —— 这一格判的是"别人的烂尾",
+    // 它自己哑了同样没人知道)。
+    logger('✅ index 烂尾哨兵:无未合并条目')
+  } else {
+    logger(`⚠️ index 烂尾哨兵:未判定(${detail.slice(0, 120) || '原因未取到'})—— 只报数不喊人`)
+  }
+  return { ran: true, ok: r.ok, overall, count: v.parsed.count ?? null, ageMin: v.parsed.ageMin ?? null }
+}
+
 export function auditTunnelLegHealth(opts = {}) {
   const {
     now = Date.now(),
@@ -5506,6 +5590,10 @@ function main() {
     // (10-22 护栏③整批让路 / 10-23 摘除不写留痕,两度实证)。只读探针,不改退出码、不喊人
     // (§12e);挂在两族 tick 刚刷新的这一轮之后,同轮即可验证健康。自带 30 分钟节流。
     if (!CHECK_ONLY) auditSweeperLiveness()
+    // index 烂尾哨兵(2026-10-24 立,尺子 = scripts/check-index-unmerged-age.mjs):stash pop
+    // 冲突/merge 中断逃逸会让 index 挂 unmerged 条目数小时(实测 12h)。同一挂点语义 ——
+    // 判机器状态绝不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。15 分钟节流。
+    if (!CHECK_ONLY) auditIndexUnmerged()
     if (!CHECK_ONLY) auditTunnelMetrics()
     // 部署停摆:判据写 45 分钟阈值,而凭据巡检那支班每 6 小时才量一趟(现读 09:37/15:37)⇒ 阈值与
     // 节律差两个数量级等于没有判据。本格按 15 分钟量,身份 = tip + 最近一次成功部署时刻。
@@ -5903,6 +5991,7 @@ export const __test__ = {
   auditPublicPathProbe,
   auditTunnelLegHealth,
   auditSweeperLiveness,
+  auditIndexUnmerged,
   sweepStaleClosedRows,
   sweepStaleClaimMarks,
   auditTunnelMetrics,

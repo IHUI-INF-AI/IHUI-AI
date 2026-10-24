@@ -172,7 +172,9 @@ export default function ModelPlazaScreen() {
           onPress={() => setViewMode('local')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>分组浏览</Text>
+          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
+            {t('modelPlaza.groupBrowse')}
+          </Text>
         </TouchableOpacity>
       </View>
       <View style={styles.viewport}>

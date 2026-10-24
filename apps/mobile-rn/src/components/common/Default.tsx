@@ -15,6 +15,7 @@
 import { tokens } from '../../theme/active-tokens'
 import { Image, StyleSheet, Text, View } from 'react-native'
 import { Bot, type LucideIcon } from 'lucide-react-native'
+import { useI18n } from '../../i18n'
 
 export interface DefaultProps {
   text?: string
@@ -23,16 +24,17 @@ export interface DefaultProps {
 }
 
 const DEFAULT_ICON = Bot
-const DEFAULT_TEXT = '暂无内容'
 
 function isUrl(value: string): boolean {
   return value.startsWith('http://') || value.startsWith('https://')
 }
 
 export default function Default({
-  text = DEFAULT_TEXT,
+  text: textProp,
   icon = DEFAULT_ICON,
 }: DefaultProps): React.JSX.Element {
+  const { t } = useI18n()
+  const text = textProp ?? t('common.emptyContent')
   const IconNode = typeof icon === 'string' ? null : icon
   return (
     <View style={styles.root}>

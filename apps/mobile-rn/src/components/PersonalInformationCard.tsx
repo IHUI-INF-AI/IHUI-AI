@@ -31,6 +31,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { useI18n } from '../i18n'
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BG_IMAGE = require('../../assets/images/common/bjcspNew.jpg')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -99,6 +100,7 @@ export function PersonalInformationCard({
   currentAmount,
   onWithdraw,
 }: PersonalInformationCardProps) {
+  const { t } = useI18n()
   const hasAvatarUrl = Boolean(avatar)
   // 无头像 URL 时走下方 initials 兜底(原 DEFAULT_AVATAR_URL 指向已失效的 file.aizhs.top,2026-10-21 摘除)
   const avatarUrl = avatar ?? ''
@@ -145,7 +147,7 @@ export function PersonalInformationCard({
         <Pressable
           onPress={onWithdraw}
           accessibilityRole="button"
-          accessibilityLabel="提现"
+          accessibilityLabel={t('menu.withdraw')}
           style={styles.withdrawBtn}
         >
           {({ pressed }) => (
@@ -163,7 +165,7 @@ export function PersonalInformationCard({
           {inviteCode ? <Text style={styles.legacyText}>邀请码 {inviteCode}</Text> : null}
           {commissionRate !== undefined ? (
             <Text style={styles.legacyText}>
-              佣金{' '}
+              {t('commission.label')}{' '}
               {typeof commissionRate === 'number'
                 ? `${(commissionRate * 100).toFixed(1)}%`
                 : commissionRate}
