@@ -493,6 +493,8 @@ export type AgentActionErrorCode =
   | 'COORD_OUT_OF_BOUNDS'
   | 'NO_ELEMENT_AT_POINT'
   | 'PARAM_INVALID'
+  /** G-21 格⑤:同 requestId 仍在对飞时再次 /execute,拒第二次派发(在飞记录不得被静默覆盖) */
+  | 'DUPLICATE_REQUEST_ID'
 
 // ================== 投递定址信封(2026-09-26 立)==================
 
