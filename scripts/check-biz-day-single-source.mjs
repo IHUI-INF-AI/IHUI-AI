@@ -45,13 +45,15 @@
  * 退出码:0 无判红 / 1 判红 / 2 未判定
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 遮罩复用全仓唯一那把尺(§22c:自造一份遮罩必然与别的门判得不一致)
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 // 括号配平同样复用那台分词器(§22c:分词只许一台)
 import { closeBrace } from './lib/batch-write-lexer.mjs'
+// 取材复用面读取层:清单与内容同面同轮,一次 cat-file --batch 读满(逐文件派生=fork 风暴)
+import { catBatch, gitErrText } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPE = 'apps/api/src'
@@ -114,55 +116,70 @@ export function findImporters(files) {
   )
 }
 
-function listFiles(face) {
+/** 清单枚举:head=HEAD 树、staged=索引、worktree=盘上(人工逃生舱)。三档都排除测试目录。 */
+function listScope(face) {
   if (face === 'worktree') {
     const out = []
-    const walk = (dir) => {
-      for (const ent of spawnSync('cmd', ['/c', 'dir', '/b', '/s', dir], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).stdout
-        .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter((s) => s.endsWith('.ts') && !s.includes('__tests__'))) {
-        const rel = ent.replace(/\\/g, '/')
-        const idx = rel.indexOf('apps/api/src')
-        if (idx < 0) continue
-        const relPath = rel.slice(idx)
-        if (!existsSync(path.join(ROOT, relPath))) continue
-        out.push({ rel: relPath, code: readFileSync(path.join(ROOT, relPath), 'utf8') })
+    const walk = (dir, prefix) => {
+      for (const ent of readdirSync(dir, { withFileTypes: true })) {
+        const rel = prefix ? `${prefix}/${ent.name}` : ent.name
+        if (ent.isDirectory()) {
+          if (ent.name === '__tests__' || ent.name === 'node_modules' || ent.name === 'dist') continue
+          walk(path.join(dir, ent.name), rel)
+        } else if (rel.endsWith('.ts')) out.push(`${SCOPE}/${rel}`)
       }
     }
-    walk(path.join(ROOT, SCOPE))
-    return out
+    walk(path.join(ROOT, SCOPE), '')
+    return out.sort()
   }
-  const ref = face === 'staged' ? './' : 'HEAD'
-  const ls = spawnSync('git', ['ls-tree', '-r', '--name-only', ref, SCOPE], {
+  const args =
+    face === 'staged'
+      ? ['ls-files', '--', SCOPE]
+      : ['ls-tree', '-r', '--name-only', 'HEAD', '--', SCOPE]
+  const r = spawnSync('git', args, {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     shell: false,
   })
-  if (ls.status !== 0) return null
-  const rels = ls.stdout.split(/\r?\n/).filter((s) => s.endsWith('.ts') && !s.includes('__tests__'))
+  if (r.status !== 0) return null
+  return r.stdout
+    .split(/\r?\n/)
+    .filter((s) => s.endsWith('.ts') && !s.includes('__tests__'))
+    .sort()
+}
+
+function listFiles(face) {
+  if (face === 'worktree') {
+    const rels = listScope(face)
+    return rels.map((rel) => ({ rel, code: existsSync(path.join(ROOT, rel)) ? readFileSync(path.join(ROOT, rel), 'utf8') : null }))
+  }
+  const rels = listScope(face)
+  if (rels === null) return null
   if (rels.length === 0) return []
-  const show = spawnSync('git', ['show', ...rels.map((r) => `${face === 'staged' ? ':' : 'HEAD:'}${r}`)], {
-    cwd: ROOT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1 << 28,
-    encoding: 'utf8',
-    shell: false,
-  })
-  if (show.status !== 0) return null
-  // 批量取值按 \x00 分隔更稳,但本仓 git show 多 ref 直接串联 ⇒ 用逐路径 re-read 保配对(§22c 教训:清单面与内容面必须同轮)
-  return rels.map((rel, i) => {
-    const one = spawnSync('git', ['show', `${face === 'staged' ? ':' : 'HEAD:'}${rel}`], {
-      cwd: ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 1 << 26,
-      encoding: 'utf8',
-      shell: false,
-    })
-    if (one.status !== 0) return { rel, code: null, i }
-    return { rel, code: one.stdout, i }
-  })
+  // 清单与内容**同面同轮**:一次 cat-file --batch 读满整批正文(逐文件派生 git 在真仓是上千次
+  // 进程创建,§5b fork 风暴同型;`git show <一堆 rev:path>` 在 Windows 还会撞 32k 命令行上限)
+  const prefix = face === 'staged' ? ':' : 'HEAD:'
+  const specs = rels.map((r) => prefix + r)
+  let got
+  try {
+    got = catBatch(ROOT, specs, { maxBuffer: 1 << 29 })
+  } catch (e) {
+    console.error(`❌ 取材失败 ⇒ 未判定:${gitErrText(e)}`)
+    return null
+  }
+  return rels.map((rel, i) => ({ rel, code: got.get(specs[i]) ?? null }))
+}
+
+/** 一次 cat-file --batch 读一批路径的**锚点面**正文(差值棘轮的锚点计数用),取不到记 null。 */
+function readAnchorContents(paths, anchorRef) {
+  if (paths.length === 0) return new Map()
+  const specs = paths.map((p) => `${anchorRef}:${p}`)
+  try {
+    return catBatch(ROOT, specs, { maxBuffer: 1 << 29 })
+  } catch {
+    return null
+  }
 }
 
 function lineOf(text, at) {
@@ -234,28 +251,40 @@ function main() {
   }
   const findings = []
   let b2Stock = 0
+  const perFileUtc = new Map()
   for (const f of files) {
     for (const h of findPrivateDayBoundaryImpls(f.code, f.rel))
       findings.push({ dim: 'B1', rel: f.rel, line: lineOf(f.code, h.at), why: h.why })
     const utc = findUtcDayKeys(f.code)
-    if (utc.length) b2Stock += utc.length
-    if (face === 'worktree') continue // 人工逃生舱:只看绝对零容忍档,差值维无锚点可比
+    if (utc.length) {
+      b2Stock += utc.length
+      perFileUtc.set(f.rel, utc)
+    }
+  }
+  // B2 差值棘轮:只给"本面确有 UTC 日键"的文件量锚点(锚点面一次 batch 读完,不逐文件派生)
+  if (face !== 'worktree' && perFileUtc.size > 0) {
     const anchorRef = face === 'staged' ? 'HEAD' : 'HEAD^'
-    const anchor = spawnSync('git', ['show', `${anchorRef}:${f.rel}`], {
-      cwd: ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      maxBuffer: 1 << 26,
-      encoding: 'utf8',
-      shell: false,
-    })
-    const anchorCount = anchor.status === 0 ? findUtcDayKeys(anchor.stdout).length : 0
-    if (utc.length > anchorCount)
-      findings.push({
-        dim: 'B2',
-        rel: f.rel,
-        line: lineOf(f.code, utc[anchorCount]?.at ?? utc[0].at),
-        why: `日键型 toISOString().slice(0,10) 比锚点面(${anchorRef})多 ${utc.length - anchorCount} 处 ⇒ 新写的日界请调 biz-day.ts`,
-      })
+    const paths = [...perFileUtc.keys()]
+    const anchorContents = readAnchorContents(paths, anchorRef)
+    if (anchorContents === null) {
+      console.error('❌ 锚点面取不到 ⇒ 未判定(不拿 0 冒充"锚上没违规")')
+      return 2
+    }
+    for (const rel of paths) {
+      const utc = perFileUtc.get(rel)
+      const text = anchorContents.get(`${anchorRef}:${rel}`)
+      // catBatch 对整批失败会抛(上面已兜成未判定);单条 null = 锚点面上**确实没有这个对象**
+      // ⇒ 那是"基线为 0"的已知事实(本次新建的文件),不是"取不到"。两种状态不能混。
+      const anchorCount = text === null || text === undefined ? null : findUtcDayKeys(text).length
+      const base = anchorCount ?? 0
+      if (utc.length > base)
+        findings.push({
+          dim: 'B2',
+          rel,
+          line: lineOf(files.find((f) => f.rel === rel).code, utc[base]?.at ?? utc[0].at),
+          why: `日键型 toISOString().slice(0,10) 比锚点面(${anchorRef})多 ${utc.length - base} 处 ⇒ 新写的日界请调 biz-day.ts`,
+        })
+    }
   }
   const importers = findImporters(files)
   if (importers.length === 0)
