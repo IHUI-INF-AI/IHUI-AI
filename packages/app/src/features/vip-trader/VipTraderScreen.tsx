@@ -244,7 +244,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: 'rgba(255,215,0,0.18)',
     },
     heroBadgeText: { fontSize: 11, fontWeight: '600', color: tk.warning.amber },
-    heroPrice: { fontSize: 24, fontWeight: '700', color: tk.warning.amber },
+    heroPrice: { flexShrink: 0, fontSize: 24, fontWeight: '700', color: tk.warning.amber },
     heroDesc: { marginTop: 8, fontSize: 14, color: 'rgba(255,255,255,0.7)' },
     statCard: {
       marginHorizontal: 16,
@@ -256,7 +256,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       flexWrap: 'wrap',
     },
-    statCol: { width: '50%', paddingVertical: 6 },
+    statCol: { minWidth: 96, width: '50%', paddingVertical: 6 },
     statLabel: { fontSize: 11, color: tk.text.secondary },
     statValue: { marginTop: 8, fontSize: 18, fontWeight: '700', color: tk.text.primary },
     statTrend: { marginTop: 8, fontSize: 11, color: tk.brand.DEFAULT },
@@ -320,8 +320,8 @@ function createStyles(tk: AppThemeTokens) {
       elevation: 8,
     },
     footLeft: { flexDirection: 'row', alignItems: 'baseline' },
-    footSymbol: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    footPrice: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
+    footSymbol: { flexShrink: 0, fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    footPrice: { flexShrink: 0, fontSize: 22, fontWeight: '700', color: tk.text.primary },
     footHint: { fontSize: 11, color: tk.text.tertiary },
     buyBtn: {
       paddingHorizontal: 22,

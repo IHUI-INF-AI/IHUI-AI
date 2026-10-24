@@ -144,7 +144,7 @@ export function AgentsMdGenerator({ workspacePath }: AgentsMdGeneratorProps) {
               onClick={handleWrite}
               disabled={busy !== null || !draft.trim()}
               className={cn(
-                'flex items-center gap-1.5 rounded-sm bg-primary px-3 py-1.5 text-xs text-primary-foreground transition-opacity hover:opacity-90',
+                'flex items-center gap-1.5 rounded-sm bg-cta px-3 py-1.5 text-xs text-cta-foreground transition-colors hover:bg-cta/90',
                 (busy !== null || !draft.trim()) && 'cursor-not-allowed opacity-60',
               )}
             >

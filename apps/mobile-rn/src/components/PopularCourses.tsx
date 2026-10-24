@@ -385,6 +385,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   pricePaid: {
+    flexShrink: 0,
     fontSize: 16,
     fontWeight: '700',
     color: tokens.success.DEFAULT,

@@ -305,6 +305,7 @@ function makeStyles() {
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     statCard: {
+      minWidth: 96,
       width: '48%',
       padding: 12,
       borderRadius: rnRadius.lg,

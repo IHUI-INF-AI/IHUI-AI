@@ -21,16 +21,16 @@
 | 项目名 | IHUI AI(智汇 AI) |
 | GitHub | https://github.com/IHUI-INF-AI/IHUI-AI |
 | 官网 / Demo | https://aizhs.top |
-| 定位 | 8 端全栈 AI 操作系统,Apache 2.0 开源 |
-| 亮点 | 8 端同源 / 176 模型 / LangGraph+MCP+A2A / P3 深度层 |
+| 定位 | 9 端全栈 AI 操作系统,Apache 2.0 开源 |
+| 亮点 | 9 端同源 / 101 模型 / LangGraph+MCP+A2A / P3 深度层 |
 | 对标 | Dify / Coze / FastGPT / n8n / ChatGPT Team / Claude Code |
 | 定价 | Free / Pro ¥49/月 / Team ¥199/人/月 / Enterprise ¥2999/月起 |
 | 技术栈 | Next.js 16 + Fastify 5 + FastAPI + LangGraph + LiteLLM + MCP + Taro 4 |
-| 数据 | 340 表 / 144 迁移 / 1300+ API / 5346 测试 / 176 模型 |
+| 数据 | 340 表 / 144 迁移 / 1300+ API / 5346 测试 / 101 模型 |
 | License | Apache-2.0(商业可用) |
 | 国内镜像 | 无(2026-10-23 起停止对外镜像,代码只托管在 GitHub;旧镜像仓已弃用,勿再引用) |
 | 联系方式 | 微信 `ok502319984` · 邮箱 [REDACTED-EMAIL] |
-| 一句话 | 一个仓库,干翻 40+ 商业产品 — 8 端 / 176 模型 / LangGraph+MCP+A2A / 340 表 / 1300+ API / Apache 2.0 |
+| 一句话 | 一个仓库,干翻 40+ 商业产品 — 9 端 / 101 模型 / LangGraph+MCP+A2A / 340 表 / 1300+ API / Apache 2.0 |
 
 ---
 
@@ -45,7 +45,7 @@
 
 #### 标题模板(三选一)
 1. 《花了 X 个月,我把 40+ 商业 AI 产品整合进了 1 个开源仓库》
-2. 《8 端同源 + 176 模型 + LangGraph+MCP+A2A:这个开源 AI 平台把 Dify/Coze/Cursor 都对标了》
+2. 《9 端同源 + 101 模型 + LangGraph+MCP+A2A:这个开源 AI 平台把 Dify/Coze/Cursor 都对标了》
 3. 《340 张表 · 1300+ API · 5346 测试:一个 Apache 2.0 开源 AI 商业平台是怎么炼成的》
 
 #### 正文模板(直接复制)
@@ -55,7 +55,7 @@
 
 ## 一句话介绍
 
-IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai-service/cli/desktop/extension/mobile/miniapp),176 大模型统一调度,LangGraph + MCP + A2A 三栈,340 张表,1300+ API,Apache 2.0 商业可用。
+IHUI-AI 是一个开源 AI 商业级一体化超级平台,9 端同源(web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp),101 大模型统一调度,LangGraph + MCP + A2A 三栈,340 张表,1300+ API,Apache 2.0 商业可用。
 
 ## 为什么造这个轮子
 
@@ -71,18 +71,18 @@ IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai
 
 **所以我做 IHUI-AI 的核心思路是:"整车下线",不是"造车框架"**。非技术团队 clone 下来,改改配置就能上线,能直接收钱。
 
-一年多时间,从 0 做到了 8 端同源(web/api/ai-service/cli/desktop/extension/mobile/miniapp)+ 176 大模型统一调度 + LangGraph+MCP+A2A 三栈 + 340 张表 + 1300+ API + 5346 测试 + 32 个 pre-commit 守门脚本。
+一年多时间,从 0 做到了 9 端同源(web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp)+ 101 大模型统一调度 + LangGraph+MCP+A2A 三栈 + 340 张表 + 1300+ API + 5346 测试 + 32 个 pre-commit 守门脚本。
 
 ## 6 大类能力对标
 
 | 类别 | 对标产品 | IHUI-AI 优势 |
 | --- | --- | --- |
-| AI 编程 CLI | Claude Code / Cursor / Aider | 8 端同源 + 176 模型 |
+| AI 编程 CLI | Claude Code / Cursor / Aider | 9 端同源 + 101 模型 |
 | AI 应用平台 | Dify / Coze / FastGPT | Apache 2.0 + 自部署 |
 | Agent 框架 | LangGraph / CrewAI / AutoGen | 内置 MCP + A2A |
 | 商业 SaaS | ChatGPT Team / Notion AI | ¥49/月 vs $25/月,省 70% |
 | AI 教育 | Coursera / Udemy | 内置课程 + SRS 间隔重复 |
-| 多端框架 | Taro / uni-app | AI 原生 8 端 |
+| 多端框架 | Taro / uni-app | AI 原生 9 端 |
 
 ## 核心架构
 
@@ -94,11 +94,11 @@ IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai
 
 ## 三个最值得说的技术点
 
-### 1. 8 端同源:一个 packages/ 目录喂饱所有端
+### 1. 9 端同源:一个 packages/ 目录喂饱所有端
 
 [展开 200-400 字,讲 packages/types / sdk / design-tokens / ui-react / api-client 共享策略]
 
-### 2. 176 大模型统一调度:LiteLLM + 成本追踪
+### 2. 101 大模型统一调度:LiteLLM + 成本追踪
 
 [展开 200-400 字,讲 LiteLLM 适配层 + token 计费 + 模型 leaderboard]
 
@@ -111,7 +111,7 @@ IHUI-AI 是一个开源 AI 商业级一体化超级平台,8 端同源(web/api/ai
 - 5346 个测试用例,CI 全绿
 - 1300+ API endpoint
 - 340 张表(单库),含 RLS 多租户隔离
-- 176 大模型支持(OpenAI / Anthropic / Gemini / 通义千问 / 智谱 / DeepSeek / Ollama 本地等)
+- 101 大模型支持(OpenAI / Anthropic / Gemini / 通义千问 / 智谱 / DeepSeek / Ollama 本地等)
 
 ## 价格对比(国内开发者最关心)
 
@@ -136,8 +136,8 @@ Apache 2.0,商业可用,可二次销售。
 ---
 
 如果觉得有用,给个 ⭐ Star 支持一下。后续会分享:
-- 8 端同源的具体实现
-- 176 模型调度内幕
+- 9 端同源的具体实现
+- 101 模型调度内幕
 - P3 深度层的 Agent 元认知设计
 - 从 0 到 5346 测试的工程经验
 ```
@@ -146,7 +146,7 @@ Apache 2.0,商业可用,可二次销售。
 `AI` `人工智能` `开源` `LangGraph` `大模型` `Agent` `前端` `全栈` `Next.js` `Fastify`
 
 #### 配图建议
-- **首图**:架构图(8 端拓扑 + 模型调度层),可用 Excalidraw 画
+- **首图**:架构图(9 端拓扑 + 模型调度层),可用 Excalidraw 画
 - **图 2**:价格对比表截图(突出"省 70%")
 - **图 3**:终端运行 `pnpm dev` 启动 3 端的 GIF
 - **图 4**:仓库 README 截图(显示 5346 测试 badge)
@@ -170,7 +170,7 @@ Apache 2.0,商业可用,可二次销售。
 - **最佳发帖时间**:工作日 9:00-11:00、20:00-23:00
 
 #### 标题模板(三选一)
-1. 《如何评价 IHUI-AI 这个 8 端同源的开源 AI 平台?对标 Dify/Coze 有优势吗?》
+1. 《如何评价 IHUI-AI 这个 9 端同源的开源 AI 平台?对标 Dify/Coze 有优势吗?》
 2. 《2026 年了,为什么我选择 Apache 2.0 开源一个全栈 AI 操作系统而不是 SaaS?》
 3. 《340 张表 + 1300+ API + 5346 测试:商业级 AI 平台的工程实践》
 
@@ -181,7 +181,7 @@ Apache 2.0,商业可用,可二次销售。
 
 ## TL;DR
 
-IHUI-AI 是一个 8 端同源(web/api/ai-service/cli/desktop/extension/mobile/miniapp)的开源 AI 操作系统,176 大模型统一调度,LangGraph + MCP + A2A 三栈协议,340 张表,1300+ API,5346 测试,Apache 2.0 商业可用,定价 Free / Pro ¥49 / Team ¥199 / Enterprise ¥2999。
+IHUI-AI 是一个 9 端同源(web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp)的开源 AI 操作系统,101 大模型统一调度,LangGraph + MCP + A2A 三栈协议,340 张表,1300+ API,5346 测试,Apache 2.0 商业可用,定价 Free / Pro ¥49 / Team ¥199 / Enterprise ¥2999。
 
 国内 ChatGPT Team ¥180/月,我做了个 ¥49/月 的开源替代。
 
@@ -189,7 +189,7 @@ IHUI-AI 是一个 8 端同源(web/api/ai-service/cli/desktop/extension/mobile/mi
 
 我是 [作者背景一句话],过去 X 个月全职开发 IHUI-AI。期间被问最多的 3 个问题:
 1. 为什么不直接用 Dify / Coze / FastGPT?
-2. 8 端同源是不是 PPT?真做出来了吗?
+2. 9 端同源是不是 PPT?真做出来了吗?
 3. Apache 2.0 开源怎么赚钱?
 
 本文就这 3 个问题展开。
@@ -202,16 +202,16 @@ IHUI-AI 是一个 8 端同源(web/api/ai-service/cli/desktop/extension/mobile/mi
 - **Dify**:工作流编排强,但只有 web 端,无 CLI/desktop/extension
 - **Coze**:字节闭源,数据不在你手里,合规风险
 - **FastGPT**:知识库强,但不是 Agent 框架,无 MCP/A2A
-- **IHUI-AI**:8 端 + 176 模型 + LangGraph+MCP+A2A + 商业化(订阅/钱包/积分/分销)开箱即用
+- **IHUI-AI**:9 端 + 101 模型 + LangGraph+MCP+A2A + 商业化(订阅/钱包/积分/分销)开箱即用
 
-## 二、8 端同源是真的吗
+## 二、9 端同源是真的吗
 
 [架构图 + 代码示例。300-500 字]
 
 核心:packages/ 目录下 7 个共享包(types / sdk / api-client / design-tokens / ui-react / ui-native / auth),8 个 apps/ 各自实现端特定逻辑。
 
 ```ts
-// 8 端共用同一个 SDK
+// 9 端共用同一个 SDK
 import { IhuiClient } from '@ihui/sdk';
 
 const client = new IhuiClient({ apiKey: process.env.IHUI_API_KEY });
@@ -237,7 +237,7 @@ const response = await client.chat.completions.create({
 
 ## 四、技术细节(给工程师看)
 
-### 1. 176 大模型统一调度
+### 1. 101 大模型统一调度
 
 LiteLLM 适配层,统一 OpenAI / Anthropic / Gemini / 通义千问 / 智谱 / DeepSeek / Ollama / vLLM 接口。
 
@@ -278,7 +278,7 @@ Apache 2.0,商业可用。定价见上。
 
 #### 配图建议
 - **首图**:价格对比表(ChatGPT Team ¥180 vs IHUI-AI ¥49)
-- **图 2**:架构图(8 端 + 模型调度)
+- **图 2**:架构图(9 端 + 模型调度)
 - **图 3**:GitHub 仓库截图(star 数 + 测试 badge)
 - **图 4**:在线 Demo 截图
 
@@ -300,14 +300,14 @@ Apache 2.0,商业可用。定价见上。
 - **最佳发帖时间**:工作日 9:00-11:00、14:00-17:00
 
 #### 标题模板(三选一)
-1. 《8 端同源 AI 平台架构实践:从 packages 共享到 apps 分发》
-2. 《LangGraph + LiteLLM + MCP 实现 176 大模型统一调度的工程经验》
+1. 《9 端同源 AI 平台架构实践:从 packages 共享到 apps 分发》
+2. 《LangGraph + LiteLLM + MCP 实现 101 大模型统一调度的工程经验》
 3. 《PostgreSQL 340 表 + RLS 多租户:商业级 AI 平台的数据库设计》
 
 #### 正文模板(直接复制)
 
 ```
-> 项目背景:IHUI-AI 是一个 Apache 2.0 开源的全栈 AI 操作系统,8 端同源(web/api/ai-service/cli/desktop/extension/mobile/miniapp),176 大模型,340 张表。GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
+> 项目背景:IHUI-AI 是一个 Apache 2.0 开源的全栈 AI 操作系统,9 端同源(web/api/ai-service/cli/desktop/extension/mobile/mobile-cap/miniapp),101 大模型,340 张表。GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
 ## 架构总览
 
@@ -326,17 +326,17 @@ packages/
 ├── types/          共享 TS 类型
 ├── sdk/            JS/TS SDK
 ├── api-client/     1300+ endpoint 客户端
-├── design-tokens/  设计令牌(8 端共享)
+├── design-tokens/  设计令牌(9 端共享)
 ├── ui-react/       React 19 组件库
 ├── ui-native/      React Native 组件库
 └── auth/           JWT + OAuth2 + 多租户
 ```
 
-## 1. 8 端同源:packages/ 设计
+## 1. 9 端同源:packages/ 设计
 
 ### 1.1 类型共享(types 包)
 
-[200-300 字 + 代码示例,讲 types 包如何让 8 端用同一份契约]
+[200-300 字 + 代码示例,讲 types 包如何让 9 端用同一份契约]
 
 ### 1.2 SDK 双形式:ESM + CJS
 
@@ -346,7 +346,7 @@ packages/
 
 [200-300 字 + design-tokens 的 JS 对象 + CSS 变量双形式,如何同时喂给 web 和 react-native]
 
-## 2. 176 大模型统一调度
+## 2. 101 大模型统一调度
 
 ### 2.1 LiteLLM 适配层
 
@@ -380,7 +380,7 @@ export * from './agents-extended';
 
 ## 总结
 
-8 端同源 + 176 模型 + 商业级工程实践,Apache 2.0 商业可用。
+9 端同源 + 101 模型 + 商业级工程实践,Apache 2.0 商业可用。
 
 - GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 - Demo:https://aizhs.top
@@ -397,7 +397,7 @@ export * from './agents-extended';
 
 #### 配图建议
 - **首图**:仓库目录结构截图(apps/ + packages/)
-- **图 2**:架构图(8 端 + 共享层)
+- **图 2**:架构图(9 端 + 共享层)
 - **图 3**:数据库 ER 图片段(选 5-10 张核心表)
 - **图 4**:CI 绿色截图(5346 测试)
 
@@ -419,21 +419,21 @@ export * from './agents-extended';
 - **最佳发帖时间**:工作日 9:00-11:00、19:00-22:00;周末流量也行
 
 #### 标题模板(三选一)
-1. 《2026 最值得关注的 8 端开源 AI 平台:IHUI-AI 完整部署教程》
-2. 《Apache 2.0 开源 AI 商业平台 IHUI-AI:176 大模型 + 8 端同源 + 商业化开箱即用》
+1. 《2026 最值得关注的 9 端开源 AI 平台:IHUI-AI 完整部署教程》
+2. 《Apache 2.0 开源 AI 商业平台 IHUI-AI:101 大模型 + 9 端同源 + 商业化开箱即用》
 3. 《替代 ChatGPT Team 的开源方案:IHUI-AI 自部署教程(省 70% 成本)》
 
 #### 正文模板(直接复制)
 
 ```
-> 关键词:开源 AI 平台 / 8 端同源 / 176 大模型 / LangGraph / MCP / A2A / Apache 2.0 / 自部署 / 商业级 AI / Dify 替代 / Coze 替代 / ChatGPT Team 替代
+> 关键词:开源 AI 平台 / 9 端同源 / 101 大模型 / LangGraph / MCP / A2A / Apache 2.0 / 自部署 / 商业级 AI / Dify 替代 / Coze 替代 / ChatGPT Team 替代
 
 ## 一、IHUI-AI 是什么
 
-IHUI-AI 是一个 Apache 2.0 开源的 8 端全栈 AI 操作系统,核心特性:
+IHUI-AI 是一个 Apache 2.0 开源的 9 端全栈 AI 操作系统,核心特性:
 
-- **8 端同源**:web / api / ai-service / cli / desktop / extension / mobile / miniapp
-- **176 大模型**:OpenAI / Anthropic / Gemini / 通义千问 / 智谱 / DeepSeek / Ollama / vLLM
+- **9 端同源**:web / api / ai-service / cli / desktop / extension / mobile / mobile-cap / miniapp
+- **101 大模型**:OpenAI / Anthropic / Gemini / 通义千问 / 智谱 / DeepSeek / Ollama / vLLM
 - **三栈协议**:LangGraph + MCP + A2A
 - **商业级**:340 表 / 144 迁移 / 1300+ API / 5346 测试
 - **License**:Apache 2.0(商业可用,可二次销售)
@@ -453,12 +453,12 @@ GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
 ### 2.2 对标 Dify / Coze / FastGPT
 
-| 平台 | 闭源 | 8 端 | 商业化 | 自部署 |
+| 平台 | 闭源 | 9 端 | 商业化 | 自部署 |
 | --- | --- | --- | --- | --- |
 | Dify | 开源 | 仅 web | 无 | ✅ |
 | Coze | 闭源 | 仅 web | 无 | ❌ |
 | FastGPT | 开源 | 仅 web | 部分 | ✅ |
-| **IHUI-AI** | **Apache 2.0** | **8 端** | **完整(订阅/钱包/积分/分销)** | ✅ |
+| **IHUI-AI** | **Apache 2.0** | **9 端** | **完整(订阅/钱包/积分/分销)** | ✅ |
 
 ## 三、5 分钟本地部署
 
@@ -501,7 +501,7 @@ pnpm dev
 
 ## 四、核心功能演示
 
-### 4.1 176 大模型聊天
+### 4.1 101 大模型聊天
 
 [截图 + 步骤说明]
 
@@ -532,7 +532,7 @@ IHUI-AI 内置完整商业化模块:
 
 ## 七、相关推荐
 
-- [8 端同源架构详解]
+- [9 端同源架构详解]
 - [LangGraph 多 Agent 编排教程]
 - [PostgreSQL RLS 多租户实战]
 
@@ -547,7 +547,7 @@ IHUI-AI 内置完整商业化模块:
 `AI` `人工智能` `开源` `大模型` `LangGraph` `Next.js` `Fastify` `PostgreSQL` `Drizzle` `Taro` `ChatGPT 替代` `Dify 替代`
 
 #### 配图建议
-- **首图**:Logo + "8 端 / 176 模型 / Apache 2.0" 大字
+- **首图**:Logo + "9 端 / 101 模型 / Apache 2.0" 大字
 - **图 2**:部署流程截图(git clone → pnpm install → pnpm dev)
 - **图 3**:聊天界面截图
 - **图 4**:价格对比表
@@ -571,14 +571,14 @@ IHUI-AI 内置完整商业化模块:
 - **最佳发帖时间**:工作日 7:30-9:00(通勤)、12:00-13:00(午休)、20:00-22:00(晚间)
 
 #### 标题模板(三选一)
-1. 《我花 X 个月做了个开源 AI 平台,8 端同源,干翻 40+ 商业产品》
+1. 《我花 X 个月做了个开源 AI 平台,9 端同源,干翻 40+ 商业产品》
 2. 《ChatGPT Team ¥180/月?我做了个 ¥49/月 的开源替代》
 3. 《340 表 / 1300+ API / 5346 测试:一个 Apache 2.0 开源 AI 商业平台的诞生》
 
 #### 正文模板(直接复制)
 
 ```
-> 头图建议:仓库 README 截图 + 大字标题"8 端同源 / 176 模型 / Apache 2.0"
+> 头图建议:仓库 README 截图 + 大字标题"9 端同源 / 101 模型 / Apache 2.0"
 
 如果你在做 AI 应用,大概率遇到过这些痛点:
 
@@ -586,15 +586,15 @@ IHUI-AI 内置完整商业化模块:
 - Coze 闭源,数据不在自己手里,合规过不了
 - ChatGPT Team ¥180/月,团队 10 人一年 ¥2.16 万
 - n8n 是工作流,不是 AI 操作系统
-- 自己从 0 搭,8 端 + 176 模型 + 商业化,至少 6 个月
+- 自己从 0 搭,9 端 + 101 模型 + 商业化,至少 6 个月
 
 过去 X 个月,我做了一件事:
 
 **把这 5 个痛点,用一个开源仓库解决了。**
 
-## 01 一个仓库,8 端同源
+## 01 一个仓库,9 端同源
 
-IHUI-AI,Apache 2.0 开源,8 端全栈 AI 操作系统:
+IHUI-AI,Apache 2.0 开源,9 端全栈 AI 操作系统:
 
 - web(Next.js 16 + React 19)
 - api(Fastify 5 + Drizzle ORM + PostgreSQL)
@@ -605,11 +605,11 @@ IHUI-AI,Apache 2.0 开源,8 端全栈 AI 操作系统:
 - mobile(React Native)
 - cli(Commander.js)
 
-8 端共用 7 个 packages(types / sdk / api-client / design-tokens / ui-react / ui-native / auth),一处修改 8 端生效。
+9 端共用 7 个 packages(types / sdk / api-client / design-tokens / ui-react / ui-native / auth),一处修改 9 端生效。
 
 GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
-## 02 176 大模型,统一调度
+## 02 101 大模型,统一调度
 
 支持的模型(部分):
 
@@ -664,8 +664,8 @@ await client.chat.completions.create({ model: 'ollama/llama3.3', ... });
 - **5346 个测试**,CI 全绿
 - **1300+ API**,覆盖 30+ 业务域
 - **340 张表**,含 RLS 多租户隔离
-- **176 大模型**,统一调度 + 成本追踪
-- **8 端同源**,packages 共享
+- **101 大模型**,统一调度 + 成本追踪
+- **9 端同源**,packages 共享
 
 ## 06 怎么开始
 
@@ -691,11 +691,11 @@ GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 ```
 
 #### 标签 / 话题
-- 公众号不支持标签,但标题和摘要里堆关键词:`开源 AI` `8 端` `LangGraph` `替代 ChatGPT`
+- 公众号不支持标签,但标题和摘要里堆关键词:`开源 AI` `9 端` `LangGraph` `替代 ChatGPT`
 
 #### 配图建议
-- **头图**:仓库 README 截图 + 大字"8 端同源 / 176 模型 / Apache 2.0"
-- **图 2**:8 端架构图
+- **头图**:仓库 README 截图 + 大字"9 端同源 / 101 模型 / Apache 2.0"
+- **图 2**:9 端架构图
 - **图 3**:价格对比表(突出省 70%)
 - **图 4**:Demo 截图(聊天界面)
 - **图 5**:微信群二维码
@@ -724,14 +724,14 @@ GitHub:https://github.com/IHUI-INF-AI/IHUI-AI
 
 | Subreddit | 订阅数 | 风格 | IHUI-AI 角度 |
 | --- | --- | --- | --- |
-| r/LocalLLaMA | 250K+ | 本地 LLM 自部署,反 OpenAI | Ollama / vLLM 集成 + 176 模型 |
-| r/selfhosted | 400K+ | 自部署一切,反 SaaS | Apache 2.0 + 8 端自部署 |
+| r/LocalLLaMA | 250K+ | 本地 LLM 自部署,反 OpenAI | Ollama / vLLM 集成 + 101 模型 |
+| r/selfhosted | 400K+ | 自部署一切,反 SaaS | Apache 2.0 + 9 端自部署 |
 | r/MachineLearning | 3M+ | 学术 + 工业 ML | LangGraph + MCP + P3 Agent 元认知 |
-| r/programming | 5M+ | 通用编程,语言/架构 | 8 端 monorepo + 5346 测试 |
+| r/programming | 5M+ | 通用编程,语言/架构 | 9 端 monorepo + 5346 测试 |
 
 #### 标题模板(r/LocalLLaMA 三选一)
-1. `[Open Source] IHUI-AI — Full-stack AI platform with 176 LLMs (incl. Ollama/vLLM), LangGraph+MCP+A2A, 8-platform support (Apache 2.0)`
-2. `I built an open-source self-hosted AI OS supporting 176 LLMs (local + cloud) — 8 platforms, 340 tables, 5346 tests. Apache 2.0.`
+1. `[Open Source] IHUI-AI — Full-stack AI platform with 101 LLMs (incl. Ollama/vLLM), LangGraph+MCP+A2A, 9-platform support (Apache 2.0)`
+2. `I built an open-source self-hosted AI OS supporting 101 LLMs (local + cloud) — 9 platforms, 340 tables, 5346 tests. Apache 2.0.`
 3. `Show & Tell: LocalLLM-friendly AI platform with built-in LiteLLM + Ollama + vLLM adapters, 1300+ APIs, Apache 2.0`
 
 #### 正文模板(直接复制 — r/LocalLLaMA)
@@ -743,19 +743,19 @@ I've been building an open-source full-stack AI platform for the past [X months]
 
 ## What it is
 
-**IHUI-AI** — Apache 2.0 licensed AI operating system, 8-platform monorepo:
+**IHUI-AI** — Apache 2.0 licensed AI operating system, 9-platform monorepo:
 
 - **API**: Fastify 5 + Drizzle ORM 0.38 + PostgreSQL (340 tables / 144 migrations)
 - **Web**: Next.js 16 + React 19 + Tailwind 4
 - **AI Service**: FastAPI + LangGraph + LiteLLM + MCP
-- **8 platforms**: web, api, ai-service, cli, desktop (Electron), extension (Chrome MV3), mobile (React Native), miniapp (Taro 4)
+- **9 platforms**: web, api, ai-service, cli, desktop (Electron), extension (Chrome MV3), mobile (React Native), miniapp (Taro 4)
 
 GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 Live demo: https://aizhs.top
 
 ## Why r/LocalLLaMA might care
 
-- **176 LLMs supported via LiteLLM adapter layer** — OpenAI / Anthropic / Gemini / Qwen / DeepSeek / Kimi / **Ollama** / **vLLM** / **LM Studio** / Llama 3.3 / Mistral
+- **101 LLMs supported via LiteLLM adapter layer** — OpenAI / Anthropic / Gemini / Qwen / DeepSeek / Kimi / **Ollama** / **vLLM** / **LM Studio** / Llama 3.3 / Mistral
 - **Self-hosted everything**: PostgreSQL (with RLS multi-tenant isolation), Redis, ai-service — no cloud lock-in
 - **Local model cost tracking**: per-request token accounting + model leaderboard (cost vs quality)
 - **MCP + A2A native**: not bolted-on, designed from day 1
@@ -765,8 +765,8 @@ Live demo: https://aizhs.top
 
 ```
 packages/
-├── types/          Shared TS types (8-platform contracts)
-├── sdk/            JS/TS SDK (176 LLMs, 1300+ endpoints)
+├── types/          Shared TS types (9-platform contracts)
+├── sdk/            JS/TS SDK (101 LLMs, 1300+ endpoints)
 ├── api-client/     Full API client with circuit breaker + WS
 ├── design-tokens/  Design tokens (web + RN dual)
 ├── ui-react/       React 19 components (Radix-based)
@@ -774,7 +774,7 @@ packages/
 └── auth/           JWT + OAuth2 + multi-tenant
 ```
 
-8 platforms share 7 packages. One change → all 8 platforms updated.
+9 platforms share 7 packages. One change → all 9 platforms updated.
 
 ## Scale
 
@@ -782,7 +782,7 @@ packages/
 - **144 migrations** (drizzle-kit managed)
 - **1300+ API endpoints** across 30+ business domains
 - **5346 tests** (vitest + pytest), CI green
-- **176 LLMs** unified via LiteLLM
+- **101 LLMs** unified via LiteLLM
 
 ## What's the catch
 
@@ -818,7 +818,7 @@ Reddit 不支持标签,但标题 prefix `[Open Source]` / `[Show & Tell]` 是惯
 
 #### 配图建议
 - Reddit 偏好纯文本 + 代码块,**少图**
-- 可选 1 张:架构图(8 端 + LiteLLM 适配层)
+- 可选 1 张:架构图(9 端 + LiteLLM 适配层)
 - 不要 marketing 截图,会被删
 
 #### 发布时间
@@ -845,8 +845,8 @@ Reddit 不支持标签,但标题 prefix `[Open Source]` / `[Show & Tell]` 是惯
 - **最佳发帖时间**:Tue-Thu 08:00-10:00 PST(= 16:00-18:00 UTC)
 
 #### 标题模板(三选一,严格遵守 "Show HN: Name – tagline" 格式)
-1. `Show HN: IHUI-AI – Open-source 8-platform AI OS with 176 LLMs, LangGraph+MCP+A2A (Apache 2.0)`
-2. `Show HN: I built a self-hostable AI platform supporting 176 LLMs across 8 platforms (web/cli/desktop/extension/mobile/miniapp)`
+1. `Show HN: IHUI-AI – Open-source 9-platform AI OS with 101 LLMs, LangGraph+MCP+A2A (Apache 2.0)`
+2. `Show HN: I built a self-hostable AI platform supporting 101 LLMs across 9 platforms (web/cli/desktop/extension/mobile/mobile-cap/miniapp)`
 3. `Show HN: IHUI-AI – Full-stack AI platform, 340 tables, 1300+ APIs, 5346 tests, Apache 2.0`
 
 #### 正文模板(直接复制 — Show HN)
@@ -854,15 +854,15 @@ Reddit 不支持标签,但标题 prefix `[Open Source]` / `[Show & Tell]` 是惯
 ```
 Hi HN,
 
-I've been building IHUI-AI for the past [X months]. It's an open-source full-stack AI operating system — Apache 2.0, 8-platform monorepo, 176 LLMs unified via LiteLLM.
+I've been building IHUI-AI for the past [X months]. It's an open-source full-stack AI operating system — Apache 2.0, 9-platform monorepo, 101 LLMs unified via LiteLLM.
 
 GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 Live demo: https://aizhs.top
 
 ## What it does
 
-- **8 platforms** from one monorepo: web (Next.js 16), API (Fastify 5), ai-service (FastAPI + LangGraph), CLI, desktop (Electron), browser extension (Chrome MV3), mobile (React Native), miniapp (Taro 4 for WeChat)
-- **176 LLMs** supported via LiteLLM adapter — OpenAI, Anthropic, Gemini, Qwen, DeepSeek, Kimi, plus local via Ollama / vLLM / LM Studio
+- **9 platforms** from one monorepo: web (Next.js 16), API (Fastify 5), ai-service (FastAPI + LangGraph), CLI, desktop (Electron), browser extension (Chrome MV3), mobile (React Native), miniapp (Taro 4 for WeChat)
+- **101 LLMs** supported via LiteLLM adapter — OpenAI, Anthropic, Gemini, Qwen, DeepSeek, Kimi, plus local via Ollama / vLLM / LM Studio
 - **Native MCP + A2A support** — not bolted on, designed from day 1
 - **Built-in commercial layer**: subscriptions, wallet, credits, 3-tier affiliate, payment (WeChat Pay, Alipay, Stripe)
 
@@ -875,7 +875,7 @@ Existing options each cover a slice:
 - n8n: workflow, not AI OS
 - ChatGPT Team: hosted only, $25/user/mo
 
-I wanted one repo covering all 8 platforms + 176 LLMs + commercial layer, Apache 2.0 so anyone can self-host and sell.
+I wanted one repo covering all 9 platforms + 101 LLMs + commercial layer, Apache 2.0 so anyone can self-host and sell.
 
 ## Technical highlights
 
@@ -955,7 +955,7 @@ Tue/Wed/Thu 08:00-10:00 PST(= 16:00-18:00 UTC = 北京时间 00:00-02:00)
 ```
 Spent [X months] building an open-source AI platform.
 
-8 platforms. 176 LLMs. LangGraph + MCP + A2A. 340 tables. 5346 tests. Apache 2.0.
+9 platforms. 101 LLMs. LangGraph + MCP + A2A. 340 tables. 5346 tests. Apache 2.0.
 
 One repo to replace 40+ commercial products.
 
@@ -968,9 +968,9 @@ Demo: https://aizhs.top
 #### 模板 B:Thread(8-12 条,完整故事)
 
 ```
-1/ I built an open-source 8-platform AI operating system.
+1/ I built an open-source 9-platform AI operating system.
 
-Apache 2.0. 176 LLMs. LangGraph + MCP + A2A.
+Apache 2.0. 101 LLMs. LangGraph + MCP + A2A.
 
 One repo to replace: Dify, Coze, FastGPT, n8n, Cursor, Claude Code, ChatGPT Team.
 
@@ -983,19 +983,19 @@ Here's the story 👇
 - ChatGPT Team: $25/user/mo, no self-host
 - n8n: workflow, not AI OS
 
-I wanted ONE repo covering all 8 platforms + 176 LLMs + commercial layer.
+I wanted ONE repo covering all 9 platforms + 101 LLMs + commercial layer.
 
 3/ The solution: IHUI-AI
 
-8 platforms from one monorepo:
+9 platforms from one monorepo:
 - web (Next.js 16)
 - api (Fastify 5)
 - ai-service (FastAPI + LangGraph)
-- cli, desktop, extension, mobile, miniapp
+- cli, desktop, extension, mobile, mobile-cap, miniapp
 
 Apache 2.0. Self-hostable. Commercial-friendly.
 
-4/ 176 LLMs unified via LiteLLM
+4/ 101 LLMs unified via LiteLLM
 
 - OpenAI (GPT-4o, o1, o3)
 - Anthropic (Claude 4 Opus)
@@ -1006,13 +1006,13 @@ Apache 2.0. Self-hostable. Commercial-friendly.
 
 One SDK, swap models in 1 line.
 
-5/ Architecture: 8 platforms, 7 shared packages
+5/ Architecture: 9 platforms, 7 shared packages
 
 packages/types, sdk, api-client, design-tokens, ui-react, ui-native, auth
 
-One change → all 8 platforms updated.
+One change → all 9 platforms updated.
 
-This is what "8-platform same-source" actually looks like.
+This is what "9-platform same-source" actually looks like.
 
 6/ Scale:
 
@@ -1071,8 +1071,8 @@ EOF
 `#OpenSource` `#AI` `#LangGraph` `#MCP` `#SelfHosted` `#Apache2` `#BuildInPublic` `#LLM`
 
 #### 配图建议
-- **第 1 条**:架构图(8 端拓扑)
-- **第 4 条**:176 模型 logo 矩阵
+- **第 1 条**:架构图(9 端拓扑)
+- **第 4 条**:101 模型 logo 矩阵
 - **第 7 条**:价格对比表
 - **第 8 条**:Demo 聊天截图
 
@@ -1096,16 +1096,16 @@ Tue/Wed/Thu 09:00-11:00 EST(= 北京时间 22:00-00:00)
 - **最佳发帖时间**:Tue-Thu 08:00-10:00 EST(= 14:00-16:00 UTC)
 
 #### 标题模板(三选一,LinkedIn 没有标题字段,放正文开头)
-1. `I open-sourced an 8-platform AI operating system. Apache 2.0, commercial-friendly.`
+1. `I open-sourced an 9-platform AI operating system. Apache 2.0, commercial-friendly.`
 2. `How we cut our AI tooling costs by 70% by open-sourcing our own platform`
-3. `Building an 8-platform AI OS: lessons from 340 tables, 1300+ APIs, and 5346 tests`
+3. `Building an 9-platform AI OS: lessons from 340 tables, 1300+ APIs, and 5346 tests`
 
 #### 正文模板(直接复制)
 
 ```
-I open-sourced an 8-platform AI operating system. Apache 2.0, commercial-friendly.
+I open-sourced an 9-platform AI operating system. Apache 2.0, commercial-friendly.
 
-After [X months] of building, I'm excited to share IHUI-AI — a full-stack AI platform that runs across 8 platforms (web, API, AI service, CLI, desktop, browser extension, mobile, miniapp) from a single monorepo.
+After [X months] of building, I'm excited to share IHUI-AI — a full-stack AI platform that runs across 9 platforms (web, API, AI service, CLI, desktop, browser extension, mobile, Capacitor (mobile-cap), miniapp) from a single monorepo.
 
 GitHub: https://github.com/IHUI-INF-AI/IHUI-AI
 Live demo: https://aizhs.top
@@ -1118,19 +1118,19 @@ Most AI platforms cover a single slice:
 - ChatGPT Team: $25/user/month, no self-host
 - n8n: workflow automation, not an AI OS
 
-For teams needing 8-platform coverage + 176 LLM support + commercial layer (subscriptions, billing, affiliate), the options were: stitch together 5+ tools, or build from scratch.
+For teams needing 9-platform coverage + 101 LLM support + commercial layer (subscriptions, billing, affiliate), the options were: stitch together 5+ tools, or build from scratch.
 
 I chose option 3: build once, open-source it, let everyone benefit.
 
 ## What's included
 
-**8 platforms** from one monorepo:
+**9 platforms** from one monorepo:
 - Web (Next.js 16 + React 19)
 - API (Fastify 5 + Drizzle ORM + PostgreSQL)
 - AI Service (FastAPI + LangGraph + LiteLLM + MCP)
-- CLI, Desktop (Electron), Extension (Chrome MV3), Mobile (React Native), Miniapp (Taro 4)
+- CLI, Desktop (Electron), Extension (Chrome MV3), Mobile (React Native), Capacitor (mobile-cap), Miniapp (Taro 4)
 
-**176 LLMs unified via LiteLLM**:
+**101 LLMs unified via LiteLLM**:
 - OpenAI, Anthropic, Google Gemini
 - China: Qwen, DeepSeek, Kimi, Zhipu
 - Open-source: Llama 3.3, Mistral
@@ -1154,7 +1154,7 @@ I chose option 3: build once, open-source it, let everyone benefit.
 - 144 migrations (drizzle-kit managed)
 - 1300+ API endpoints across 30+ business domains
 - 5346 tests (vitest + pytest), CI green
-- 176 LLMs supported
+- 101 LLMs supported
 
 ## Why Apache 2.0
 
@@ -1213,8 +1213,8 @@ If you're evaluating AI platforms for your team, I'd love to hear your use case.
 `#OpenSource` `#AI` `#ArtificialIntelligence` `#LangGraph` `#MCP` `#SelfHosted` `#Apache2` `#BuildInPublic` `#EnterpriseAI` `#SaaS` `#OpenSourceSoftware`
 
 #### 配图建议
-- **首图**:Logo + 大字"8 Platforms / 176 LLMs / Apache 2.0"
-- **图 2**:架构图(8 端 + 共享层)
+- **首图**:Logo + 大字"8 Platforms / 101 LLMs / Apache 2.0"
+- **图 2**:架构图(9 端 + 共享层)
 - **图 3**:价格对比表
 - **图 4**:Demo 截图
 
@@ -1238,14 +1238,14 @@ Tue/Wed/Thu 08:00-10:00 EST(= 14:00-16:00 UTC = 北京时间 22:00-00:00)
 - **最佳发帖时间**:Mon-Wed 00:01 PST(= 08:01 UTC = 北京时间 16:01)
 
 #### 标题模板(三选一,严格 ≤ 60 字符)
-1. `IHUI-AI — Open-source 8-platform AI OS with 176 LLMs`
-2. `IHUI-AI — Apache 2.0 AI platform: 8 platforms, 176 LLMs, self-hostable`
+1. `IHUI-AI — Open-source 9-platform AI OS with 101 LLMs`
+2. `IHUI-AI — Apache 2.0 AI platform: 9 platforms, 101 LLMs, self-hostable`
 3. `IHUI-AI — Full-stack AI OS replacing 40+ commercial products`
 
 #### 描述模板(Product Hunt "Description" 字段,≤ 260 字符)
 
 ```
-Open-source 8-platform AI operating system. Apache 2.0. 176 LLMs via LiteLLM. LangGraph + MCP + A2A. 340 tables, 1300+ APIs, 5346 tests. Self-host or use hosted (Pro $7/mo, Team $28/user/mo).
+Open-source 9-platform AI operating system. Apache 2.0. 101 LLMs via LiteLLM. LangGraph + MCP + A2A. 340 tables, 1300+ APIs, 5346 tests. Self-host or use hosted (Pro $7/mo, Team $28/user/mo).
 ```
 
 #### 第一评论(Maker Comment,直接复制)
@@ -1257,11 +1257,11 @@ I'm [your name], maker of IHUI-AI. After [X months] of building, I'm excited to 
 
 ## What is IHUI-AI?
 
-An open-source full-stack AI operating system. Apache 2.0. 8 platforms from one monorepo.
+An open-source full-stack AI operating system. Apache 2.0. 9 platforms from one monorepo.
 
-**8 platforms**: web, API, AI service, CLI, desktop (Electron), browser extension, mobile (React Native), miniapp (Taro 4 for WeChat).
+**9 platforms**: web, API, AI service, CLI, desktop (Electron), browser extension, mobile (React Native), Capacitor (mobile-cap), miniapp (Taro 4 for WeChat).
 
-**176 LLMs unified** via LiteLLM: OpenAI, Anthropic, Google Gemini, Qwen, DeepSeek, Kimi, plus local via Ollama / vLLM.
+**101 LLMs unified** via LiteLLM: OpenAI, Anthropic, Google Gemini, Qwen, DeepSeek, Kimi, plus local via Ollama / vLLM.
 
 **Native protocols**: LangGraph (multi-agent), MCP (model context), A2A (agent-to-agent).
 
@@ -1273,11 +1273,11 @@ Existing AI platforms each cover a slice:
 - ChatGPT Team: $25/user/mo, no self-host
 - n8n: workflow, not AI OS
 
-I wanted ONE repo covering all 8 platforms + 176 LLMs + commercial layer (subscriptions, wallet, affiliate). Apache 2.0 so anyone can self-host and sell.
+I wanted ONE repo covering all 9 platforms + 101 LLMs + commercial layer (subscriptions, wallet, affiliate). Apache 2.0 so anyone can self-host and sell.
 
 ## What's included
 
-- **8 platforms** from one monorepo (Turborepo + pnpm workspace)
+- **9 platforms** from one monorepo (Turborepo + pnpm workspace)
 - **7 shared packages**: types, SDK, API client, design tokens, UI (React + Native), auth
 - **340 tables** in PostgreSQL with Row-Level Security (multi-tenant)
 - **1300+ API endpoints** across 30+ business domains
@@ -1323,12 +1323,12 @@ Product Hunt 支持选 4 个 Topics,推荐:
 - `SaaS`
 
 #### 配图建议(Product Hunt 必需)
-- **Gallery 图 1**(必需):Logo + "8 Platforms / 176 LLMs / Apache 2.0" 大字
-- **Gallery 图 2**:架构图(8 端 + 共享层)
+- **Gallery 图 1**(必需):Logo + "8 Platforms / 101 LLMs / Apache 2.0" 大字
+- **Gallery 图 2**:架构图(9 端 + 共享层)
 - **Gallery 图 3**:Demo 截图(web 端聊天界面)
 - **Gallery 图 4**:价格对比表
 - **Gallery 图 5**:GitHub 仓库截图(star + 测试 badge)
-- **Gallery 图 6**:8 端运行 GIF(web + desktop + extension + mobile)
+- **Gallery 图 6**:9 端运行 GIF(web + desktop + extension + mobile)
 
 #### 发布时间
 **关键**:Product Hunt 一天 24h 周期,PST 00:01 开启新一天

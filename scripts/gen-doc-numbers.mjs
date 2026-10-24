@@ -560,7 +560,7 @@ export function toMarkdown(result, { date = new Date().toISOString().slice(0, 10
 
 export function toDescription(result) {
   const n = result.numbers
-  return `Eight-platform full-stack AI operating system - unifies ${n.llmModels} catalogued LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over ${n.dbTables} tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.`
+  return `Nine-platform full-stack AI operating system - unifies ${n.llmModels} catalogued LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over ${n.dbTables} tables, RAG knowledge base, agent marketplace. Web/API/AI service/CLI/Desktop/Extension/Mobile/Capacitor/Miniapp. Apache 2.0.`
 }
 
 function main(argv) {

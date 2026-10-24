@@ -104,10 +104,14 @@
  *  ① 三本活文档(`PROJECT_PLAN|AGENTS|README.md`,`windowFor`)走深窗口 `ANCESTOR_WINDOW_HOT = 400`
  *    (回看 ≈8 小时;实测增量成本:git log 401 枚 182–346ms + 400 条规格一次 batch-check 133ms,
  *    且只对"与 HEAD 不等"的可疑路径才付 —— 普通路径保持浅窗口,深窗口对它们是白付钱)。
- *  ② **底线**:窗口"确证用尽"(取 window+1 枚探针,拿满即窗外还有)而未命中 ⇒ 显式点名
- *    `❓ [R1 未判定] … 窗口不足`,并计入结论行尾注;不判红(窗口外没有证据,判红=凭空定罪),
- *    **但绝不记绿**。R1r 侧同样把"窗口用尽"作为独立一维写进 uncovered/报名(与预算截断分开)。
- *    2,744 > 400 ⇒ 深窗口只压低 ② 的触发频率、不可能根除 —— 这正是 ② 必须先于 ① 存在的原因。
+ *  ② **底线**:窗口"确证用尽"(取 window+1 枚探针,拿满即窗外还有)而未命中 ⇒ 旧行为是显式点名
+ *    `❓ [R1 未判定] … 窗口不足` 并计入结论行尾注(**绝不记绿**)。2026-10-25 起 R1 这一半升级为
+ *    **深档**:窗口用尽时回落全历史(实测 PROJECT_PLAN 9,465 枚祖先 0.73s、README 821 枚 ——
+ *    只比 blob oid、不读正文,成本与旧档同量级),窗外回写因此可取证并**照判红**;
+ *    取不到全历史(超时/坏 ref)才落回"未判定",不把失败读成判过。
+ *    R1r(整块通道,读祖先**正文**)**仍保持窗口** —— 全历史读正文是 GB 级 I/O,它的
+ *    `❓ [R1 未判定]` 与 uncovered/报名照旧独立成块(与预算截断分开),不得静默绿。
+ *    2,744 > 400 ⇒ 深窗口只压低"未判定"的频率、不可能根除 —— 这正是 ② 必须先于 ① 存在的原因。
  *  ③ **巡检档**(2026-09-30,G-806 续):扩容的前置是先量成本,而量成本的第一步是门**自己**每轮
  *    报账 —— 输出尾行固定多一行机器可 grep 的成本读数(`[成本读数] mode=… paths=… elapsed_ms=…
  *    git_log=… ancestor_commits=… window_truncated=…`,git_log = 逐路径祖先取材次数);凡路径的
@@ -244,7 +248,7 @@ export function resolveBlobs(repoRoot, specs) {
  * 语义与旧出口一致:非 Undetermined 的派生失败折成空清单(浅历史同形,由调用方按"没抓到"处理),
  * Undetermined(读不到:超时/坏 ref)**照旧上抛** —— "没有祖先提交"与"这次没读到"是两件事。
  */
-export function ancestorWindow(repoRoot, path) {
+export function ancestorWindow(repoRoot, path, { deep = false } = {}) {
   const window = windowFor(path)
   // 巡检档(G-806 ③):一次"逐路径祖先取材" = 一次 git log。meter 只在 audit 运行期非空,
   // 外部消费者(object-space-land / check-baseline-freshness)的直接调用不记到门的账上。
@@ -276,6 +280,37 @@ export function ancestorWindow(repoRoot, path) {
     costMeter.ancestorCommits += truncated ? window : shas.length
     // 截断报名的收集口:同一路径经 R1 与 R1r 两条通道各取一次,按路径只记一次(Map)。
     if (truncated) costMeter.truncated.set(path, window)
+  }
+  if (truncated && deep) {
+    /**
+     * **深档(2026-10-25)**:窗口用尽 ⇒ 回落到全历史,把"没判"变成"判过"。
+     *
+     * 立因是当天一次实测:`check-stale-revert` 报"127 个文件无历史回写",但其中 8 个路径
+     * (README×4 / PROJECT_PLAN / layout / ui-routes.generated / last-sha)的祖先清单被窗口
+     * 上限截断 ⇒ 它们的"无回写"其实是**没判**,而这几本正是最容易被旧副本回写的大文件。
+     *
+     * 只在 `deep` 调用点开启(判据明确**只比 blob oid** 的那几处:classifyWorktree / analyze /
+     * analyzeMerge / heal 的 blobInAncestry)。读祖先**正文**的调用点(object-space-land 的
+     * ancestorCommits → catBatch、heal 的整块通道)必须保持窗口 —— 对 PROJECT_PLAN(现读 9,465 枚
+     * 祖先提交)全历史读正文是 GB 级 I/O,那不是判得更准,是把落地器拖死。
+     * 成本实测:PROJECT_PLAN 全历史 `git log --format=%H` 0.73s、README 0.3s 量级。
+     *
+     * 取不到 ⇒ 保持 truncated=true(仍是"未判定"),绝不把失败读成"判过"。
+     */
+    if (costMeter) costMeter.gitLog++
+    try {
+      const all = git(['-C', repoRoot, 'log', '--format=%H', 'HEAD', '--', path])
+        .split('\n')
+        .filter(Boolean)
+      if (costMeter) {
+        costMeter.ancestorCommits += Math.max(0, all.length - window)
+        costMeter.truncated.delete(path)
+      }
+      return { shas: all, truncated: false, window }
+    } catch (e) {
+      if (e instanceof Undetermined) throw e
+      // 全历史取不到(超时/坏 ref):维持窗口态与 truncated 标记,由调用方按"未判定"处理。
+    }
   }
   return { shas: truncated ? shas.slice(0, window) : shas, truncated, window }
 }
@@ -353,11 +388,11 @@ export function classifyWorktree(repoRoot, p) {
   if (!wtB) return 'missing'
   if (wtB === idxB) return 'same-as-index'
   if (wtB === headB) return 'ahead-of-index'
-  // G-806 后窗口对热档更深,但**仍可能用尽**。用尽而未命中时这里给出 'uncommitted-novel' ——
-  // 该标签的下游语义是"禁止建议 --worktree 对齐"(保守方向),把"可能是更早祖先"归进"别动工作树"
-  // 只会少给一条出路的建议,不会删别人的内容 ⇒ 失效方向安全,不另造标签。窗口是否用尽由
-  // `analyze` 的 windowLoss 那一支显式点名,不靠本分类冒充结论。
-  const aw = ancestorWindow(repoRoot, p)
+  // 2026-10-25 起本分类走深档(窗口用尽即回落全历史):深于窗口的滞后副本也判得出
+  // 'lagging-ancestor' —— 这正是"共享工作区滞后能被安全对齐"的前提(heal 的 blobInAncestry 同档)。
+  // 只有全历史也取不到时才落 'uncommitted-novel':该标签的下游语义是"禁止建议 --worktree 对齐"
+  // (保守方向),把"可能是更早祖先"归进"别动工作树"只会少给一条出路的建议,不会删别人的内容。
+  const aw = ancestorWindow(repoRoot, p, { deep: true })
   if (aw.shas.length) {
     const ab = resolveBlobs(
       repoRoot,
@@ -418,7 +453,7 @@ export function analyze(
     suspects.push({ p, cur })
   }
 
-  const ancestry = new Map(suspects.map(({ p }) => [p, ancestorWindow(repoRoot, p)]))
+  const ancestry = new Map(suspects.map(({ p }) => [p, ancestorWindow(repoRoot, p, { deep: true })]))
   const more = []
   for (const { p } of suspects) for (const c of ancestry.get(p).shas) more.push(`${c}:${p}`)
   if (more.length) for (const [k, v] of resolveBlobs(repoRoot, more)) blobs.set(k, v)
@@ -536,7 +571,7 @@ export function analyzeMerge(
   const wt = source === 'worktree' ? worktreeBlobs(repoRoot, present) : new Map()
   if (source === 'worktree' && wt.size !== present.length) return []
 
-  const ancestry = new Map(present.map((p) => [p, ancestorWindow(repoRoot, p)]))
+  const ancestry = new Map(present.map((p) => [p, ancestorWindow(repoRoot, p, { deep: true })]))
   const specs = []
   for (const p of present) {
     specs.push(`:${p}`, `HEAD:${p}`, `${mergeHead}:${p}`)
@@ -1237,8 +1272,9 @@ function auditInner(repoRoot, { staged }) {
   const src = staged ? 'index' : 'worktree'
   let violations = []
   /**
-   * G-806 ② 的收集口:R1/R1m 里"与 HEAD 不等、窗口内未命中、且窗口确证用尽"的路径。
-   * 它们不判红(窗口外无从取证,判红就是凭空定罪),但**必须逐条点名并带进结论行** ——
+   * G-806 ② 的收集口:窗口内未命中、且窗口确证用尽、**深档也没取到全历史**(取不到才落这一档)的路径。
+   * 2026-10-25 起 R1/R1m 默认走深档(窗口用尽即回落全历史),所以这一档只剩"全历史也读不到"的
+   * 真·未判定;它**不判红**(没取证就定罪等于冤判),但**必须逐条点名并带进结论行** ——
    * 旧行为是让这一型安静地通过,账面与"真新编辑"完全同形,而"把没判写成判过了"是本仓
    * 最高频的失效型(§12e/守门 94/103/118 一脉)。
    */
@@ -1541,14 +1577,24 @@ function selfTestRun() {
     g(['add', '-A'])
     const deep = audit(repo, { staged: true })
     const deepOut = deep.lines.join('\n')
-    check('9 窗口外回写不判红(窗外无从取证,判红=凭空定罪)', deep.code === 0)
+    // 2026-10-25 语义升级:窗外回写从"无从取证所以不判"改为"深档可取证 ⇒ 必须判红"。
+    // 立因:ancestorWindow 的 deep 档在窗口用尽时回落全历史(PROJECT_PLAN 现读 9,465 枚祖先
+    // 提交、实测 0.73s),旧断言的前提"窗外没有证据"已不成立;继续不判就是把能判的红放走。
+    // R1r 那半条(整块通道,读祖先**正文**)仍保持窗口 —— 全历史读正文是 GB 级 I/O,
+    // 所以它的覆盖边界仍在,9b/9c/9d 钉的就是这条边界必须如实报名(不许静默绿)。
     check(
-      '9b 截断报名点名路径与窗口值',
+      '9 窗口外回写(深档)必须判红并点名路径',
+      deep.code === 1 &&
+        deepOut.includes('暂存内容等于其**历史提交版本**') &&
+        deepOut.includes('deep.ts'),
+    )
+    check(
+      '9b 截断报名仍点名路径与窗口值(R1r 覆盖边界仍在,不得静默)',
       deepOut.includes('deep.ts') && deepOut.includes('窗口 40 枚用尽'),
     )
     check(
-      '9c 截断报名块与 R1 未判定块都在场(不得静默绿)',
-      deepOut.includes('⚠️  [窗口截断]') && deepOut.includes('❓ [R1 未判定]'),
+      '9c 边界报名块与回写块都在场(两条读数都不得静默)',
+      deepOut.includes('⚠️  [窗口截断]') && deepOut.includes('暂存内容等于其**历史提交版本**'),
     )
     check(
       '9d 成本读数行在输出且机器可 grep(耗时/取材次数/截断数)',
@@ -1556,7 +1602,11 @@ function selfTestRun() {
         deepOut,
       ),
     )
-    check('9e 结论行带"窗口不足"尾注(不是光秃秃的通过)', deepOut.includes('窗口不足未判定(R1)'))
+    check('9e 结论行不得写成"通过"(有回写就红)', !deepOut.includes('✅ 反回退守门通过'))
+    // 夹具隔离:9 把 deep.ts 留在暂存区,而 11/11c 用 audit 审**全部暂存路径** ⇒ 会连带审到
+    // 这段故意造的窗外回写(HEAD 版靠"窗外不判"侥幸绿,深档后当场露出来)。清暂存,让后面
+    // 每条用例只面对自己那块夹具。
+    g(['reset', '-q'])
 
     // 10:probe 三档输出形态(临时仓小档演练 —— 档位、读数形状、深档取到更多)。
     const probe = runWindowProbe(repo, ['deep.ts'], [5, 10, 20])

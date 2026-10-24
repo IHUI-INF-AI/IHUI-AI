@@ -112,7 +112,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'space-between',
       alignItems: 'center',
     },
-    cardAmount: { fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
+    cardAmount: { flexShrink: 0, fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
     cardStatus: { fontSize: 14, color: tk.success.DEFAULT },
     cardReason: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     cardTime: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
