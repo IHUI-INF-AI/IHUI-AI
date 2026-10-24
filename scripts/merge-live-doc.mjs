@@ -73,10 +73,22 @@ export { anchorKey, classifyMissing }
  * 把 HEAD 里"连续的 lost 段"(段尾空行一并带上,保排版)插回工作树的锚点之后。
  * 锚点 = 该段之前最后一个仍存在于工作树的 HEAD 行;找不到锚点则追加末尾并如实计数,
  * 绝不静默丢弃 —— 静默正是这类工具最危险的失效模式。
+ *
+ * ② 无锚点追加必须**逐条先问"这一行在工作树里已经有了吗"**(2026-10-24 立,README 尾部
+ * 腐坏的根治)。原判据把整段 `out.push(...block)` 无条件甩到文件末尾,而 CLI 的长行重复
+ * 守卫(`dupsAfter > base ⇒ exit 1`)排在 `writeFileSync` **之后** —— 于是每轮归并都先把
+ * 重复段落盘、再红着脸退出("先写盘、后判定")。多会话共享工作树下 README 的工作树副本
+ * 常年滞后 HEAD ⇒ 同一批 HEAD 行被一轮一轮追加,2026-10-24 实测尾部堆到 3385 行、
+ * 逐字重复 2202 份(单种最多 98 份),门 173 的 2651 条点名里 2649 条出自这里。
+ * 现在同段内与跨轮都只落第一份,被跳过的那些计入 `dupSkipped` 并在结论行**点名报数** ——
+ * 失效方向仍是"多要一次定向说明"(AGENTS §0.10),不是静默:`dupSkipped` 的每一种文本
+ * 都逐字存活在结果里,所以这不是丢弃,而是不再抄第二遍。锚点搜索用的 `wtSet` 保持纯净
+ * (追加进来的行不是工作树原有行,不得反过来当锚点用,否则后段的插回位置会被本轮自己改动)。
  */
 export function mergeByAnchors(headLines, wtLines, verdict) {
   const out = wtLines.slice()
   const wtSet = new Set(wtLines.map(trim).filter(Boolean))
+  const present = new Set(wtSet)
   const wtIndexOf = new Map()
   wtLines.forEach((l, i) => {
     const t = trim(l)
@@ -88,6 +100,7 @@ export function mergeByAnchors(headLines, wtLines, verdict) {
   let segments = 0
   let lines = 0
   let unanchored = 0
+  let dupSkipped = 0
   while (i < headLines.length) {
     if (!isLost(trim(headLines[i]))) {
       i += 1
@@ -107,16 +120,29 @@ export function mergeByAnchors(headLines, wtLines, verdict) {
     }
     if (anchor === undefined) {
       unanchored += 1
-      out.push(...block)
+      for (const l of block) {
+        const t = trim(l)
+        if (t && present.has(t)) {
+          dupSkipped += 1
+          continue
+        }
+        out.push(l)
+        if (t) present.add(t)
+        lines += 1
+      }
     } else {
       out.splice(anchor + 1, 0, ...block)
       for (const [key, val] of wtIndexOf) if (val > anchor) wtIndexOf.set(key, val + block.length)
+      lines += block.length
+      for (const l of block) {
+        const t = trim(l)
+        if (t) present.add(t)
+      }
     }
     segments += 1
-    lines += block.length
     i = j
   }
-  return { out, segments, lines, unanchored }
+  return { out, segments, lines, unanchored, dupSkipped }
 }
 
 export function dupLong(lines, min = 60) {
@@ -432,6 +458,23 @@ function selfTest() {
     )
   })
 
+  ck('⑳ HEAD 自带逐字重复的 lost 行 ⇒ 无锚点追加只落第一份(README 尾部腐坏的根治锁)', () => {
+    const dup = '- 同一件事在 HEAD 尾部被上一轮无锚点追加抄了两遍的长行,本轮再归并不得抄成三遍 zzzz'
+    const fresh = '- 这一段里既有已在的重复长行,也有工作树还没有的那一行,后者必须照样进来 yyyy'
+    const head = [fresh, dup, dup]
+    const wt = ['工作树自己的一行,与 HEAD 这几行都不逐字相同 xxxx']
+    const v = classifyMissing(head, wt)
+    assert(v.get(trim(head[0])) === 'lost' && v.get(trim(dup)) === 'lost', '对照组失效:三行都必须是 lost')
+    const r = mergeByAnchors(head, wt, v)
+    const landed = r.out.filter((l) => l === dup).length
+    assert(landed === 1, `同一文本落了 ${landed} 份(应只落第一份;尾部堆叠正是这一型)`)
+    assert(r.out.includes(fresh), '唯一那份新行被去重逻辑一起吃掉了 ⇒ 归并职责不得被洗掉')
+    assert(r.lines === 2 && r.dupSkipped === 1 && r.unanchored === 1, `计数异常 lines=${r.lines} skip=${r.dupSkipped} un=${r.unanchored}`)
+    // 反向对照:幂等 —— 拿本轮结果当工作树再归并一次,一行都不该再加
+    const again = mergeByAnchors(head, r.out, classifyMissing(head, r.out))
+    assert(again.lines === 0 && again.out.length === r.out.length, '第二轮归并仍在往末尾加行(不幂等)')
+  })
+
   for (const [mark, name] of cases) console.log(`${mark} ${name}`)
   const bad = cases.filter(([m]) => m === '✗').length
   console.log(
@@ -529,7 +572,9 @@ const dupsBefore = dupLong(wtLines).length
 const headDups = dupLong(headLines).length
 const dupsAfter = dupLong(after).length
 const base = Math.max(dupsBefore, headDups)
-console.log(`已写回:段=${r.segments} 插入行=${r.lines} 无锚点(追加到末尾)=${r.unanchored}`)
+console.log(
+  `已写回:段=${r.segments} 插入行=${r.lines} 无锚点(追加到末尾)=${r.unanchored} 逐字已在·不再抄第二遍=${r.dupSkipped}`,
+)
 console.log(
   `  行数 ${wtLines.length} → ${after.length}(空行数 ${wtLines.filter((l) => !trim(l)).length} → ${after.filter((l) => !trim(l)).length})`,
 )
