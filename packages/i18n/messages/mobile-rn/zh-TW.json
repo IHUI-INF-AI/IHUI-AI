@@ -402,7 +402,8 @@
     "chatError": "連線失敗",
     "chatDisconnected": "已斷開",
     "chatNotReady": "聊天未就緒",
-    "loadFailed": "載入直播詳情失敗"
+    "loadFailed": "載入直播詳情失敗",
+    "hostMode": "主播端"
   },
   "profile": {
     "levelIntro": "等級介紹",
@@ -543,7 +544,8 @@
     "logout": "登出",
     "myOrders": "我的訂單",
     "editProfile": "編輯資料",
-    "notLoggedIn": "未登入"
+    "notLoggedIn": "未登入",
+    "clickRetry": "點擊重試"
   },
   "payResult": {
     "title": "支付結果",
@@ -860,7 +862,11 @@
     "qrSaveFail": "保存失败，请重试",
     "favOn": "已收藏",
     "favOff": "已取消收藏",
-    "annotHint": "标注图已插入输入框"
+    "annotHint": "标注图已插入输入框",
+    "terminal": {
+      "waitingInput": "等待輸入",
+      "mobileUnsupported": "終端功能暫不支持行動端"
+    }
   },
   "settings": {
     "title": "設定",
@@ -1097,7 +1103,8 @@
     "save": "儲存",
     "search": "搜尋",
     "searchPlaceholder": "搜尋文件...",
-    "deleted": "已刪除"
+    "deleted": "已刪除",
+    "loadFailPullRetry": "載入失敗，請下拉重新整理重試"
   },
   "network": {
     "offline": "網路已中斷,部分功能不可用",
@@ -1131,7 +1138,11 @@
     "vendorOther": "其他",
     "copyOkToast": "連結已複製到剪貼板",
     "catStudy": "Study",
-    "loadFailed": "Load failed"
+    "loadFailed": "Load failed",
+    "chat": {
+      "title": "進入對話",
+      "message": "即將與「{name}」開始對話"
+    }
   },
   "aiAssistantN8n": {
     "title": "AI 助手",
@@ -1178,7 +1189,8 @@
     "loading": "載入中...",
     "subtitle": "選擇或生成封面",
     "title": "封面",
-    "workTitleDefault": "未命名作品"
+    "workTitleDefault": "未命名作品",
+    "labelDefault": "作品"
   },
   "aigcPublish": {
     "success": {
@@ -1382,7 +1394,10 @@
     "namePlaceholder": "請輸入工作流名稱",
     "nameRequired": "請輸入名稱",
     "operationFailed": "操作失敗，請稍後重試",
-    "title": "n8n 模型"
+    "title": "n8n 模型",
+    "vendorName": "n8n 工作流",
+    "groupBrowse": "分組瀏覽",
+    "listView": "列表視圖"
   },
   "modelPlaza": {
     "officialBadge": "智",
@@ -1403,7 +1418,10 @@
     "priceUnit": "價格",
     "providerTotal": "供應商共 {count} 個模型",
     "selectProviderLabel": "選擇供應商",
-    "title": "模型廣場"
+    "title": "模型廣場",
+    "groupBrowse": "分組瀏覽",
+    "listView": "列表視圖",
+    "workflowTab": "工作流"
   },
   "tokenValue": {
     "recharge": {
@@ -1916,7 +1934,10 @@
     "relatedOrder": "關聯訂單:{orderNo}",
     "copy": "複製訂單號",
     "copySuccess": "已複製訂單號",
-    "loadFailed": "載入收益失敗"
+    "loadFailed": "載入收益失敗",
+    "withdrawBank": "銀行卡提現",
+    "withdrawRecord": "提現記錄",
+    "commissionDefault": "佣金收益"
   },
   "invite": {
     "title": "邀請好友",
@@ -3484,7 +3505,8 @@
     "resendCode": "重新發送",
     "termsOfService": "服務條款",
     "thirdPartyLogin": "第三方登入",
-    "ssoFailed": "網頁授權登入失敗,請重試或使用帳密登入"
+    "ssoFailed": "網頁授權登入失敗,請重試或使用帳密登入",
+    "loginFailed": "登入失敗，請重試"
   },
   "bookmark": {
     "empty": "暫無收藏",
@@ -4656,6 +4678,9 @@
           "rejected": "已拒絕",
           "failed": "提交失敗，請重試"
         }
+      },
+      "branch": {
+        "ariaLabel": "對話分支"
       }
     }
   },
@@ -5159,5 +5184,15 @@
     "deleteTitle": "刪除素材",
     "deleteBody": "確認刪除「{title}」？",
     "detailLabel": "素材詳情"
+  },
+  "topup": {
+    "failDefault": "充值未完成，請稍後重試"
+  },
+  "devEnterCover": {
+    "priceAbnormal": "套餐價格異常，請稍後重試"
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
   }
 }
