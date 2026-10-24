@@ -249,7 +249,8 @@
     "pubSelectVideo": "Select a video",
     "pubVideo": "Publish Video",
     "pubGroup": "Publish Collection",
-    "closePreview": "Close preview"
+    "closePreview": "Close preview",
+    "recentUsed": "Recently used"
   },
   "plaza": {
     "index": {
@@ -866,7 +867,10 @@
     "terminal": {
       "waitingInput": "Waiting for input",
       "mobileUnsupported": "Terminal is not supported on mobile"
-    }
+    },
+    "voicePlay": "Play voice",
+    "voicePause": "Pause voice",
+    "actionRunA11y": "Run action: {label}"
   },
   "settings": {
     "title": "Settings",
@@ -1104,7 +1108,12 @@
     "search": "Search",
     "searchPlaceholder": "Search documents...",
     "deleted": "Deleted",
-    "loadFailPullRetry": "Failed to load. Pull down to refresh and retry."
+    "loadFailPullRetry": "Failed to load. Pull down to refresh and retry.",
+    "emptyContent": "Nothing here",
+    "closeOverlay": "Close sheet",
+    "add": "Add",
+    "panelCollapse": "Collapse panel",
+    "panelExpand": "Expand panel"
   },
   "network": {
     "offline": "You're offline. Some features are unavailable.",
@@ -2148,7 +2157,9 @@
     "studyHours": "{count} hrs studied",
     "empty": "No rankings",
     "loadFailed": "Failed to load ranking",
-    "title": "Ranking"
+    "title": "Ranking",
+    "wanSuffix": "{v}k",
+    "pointsUnit": "pts"
   },
   "rankingDetail": {
     "rank": "Rank",
@@ -5194,5 +5205,34 @@
   "taskStatus": {
     "addedCount": "+{n}",
     "removedCount": "-{n}"
+  },
+  "userPublic": {
+    "title": "User Profile",
+    "notFound": "User not found",
+    "follow": "Follow",
+    "following": "Following",
+    "message": "Message",
+    "followingCount": "Following",
+    "followersCount": "Followers",
+    "favoritesCount": "Favorites",
+    "joined": "Joined"
+  },
+  "commission": {
+    "myLabel": "My commission",
+    "label": "Commission"
+  },
+  "courseSwiper": {
+    "tabHotIntro": "Popular starter courses",
+    "tabHotPick": "Popular featured courses"
+  },
+  "agentList": {
+    "emptyText": "No agents yet"
+  },
+  "myAgents": {
+    "title": "My AI Apps",
+    "staff": "My AI staff"
+  },
+  "fenlei": {
+    "closeOverlay": "Close category sheet"
   }
 }

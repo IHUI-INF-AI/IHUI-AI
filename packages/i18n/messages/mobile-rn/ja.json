@@ -249,7 +249,8 @@
     "pubSelectVideo": "動画を選択してください",
     "pubVideo": "動画を公開",
     "pubGroup": "コレクションを公開",
-    "closePreview": "プレビューを閉じる"
+    "closePreview": "プレビューを閉じる",
+    "recentUsed": "最近使ったもの"
   },
   "plaza": {
     "index": {
@@ -866,7 +867,10 @@
     "terminal": {
       "waitingInput": "入力待ち",
       "mobileUnsupported": "端末ではターミナル未対応"
-    }
+    },
+    "voicePlay": "音声を再生",
+    "voicePause": "音声暂停",
+    "actionRunA11y": "アクション実行：{label}"
   },
   "settings": {
     "title": "設定",
@@ -1104,7 +1108,12 @@
     "search": "検索",
     "searchPlaceholder": "ドキュメントを検索...",
     "deleted": "削除しました",
-    "loadFailPullRetry": "読み込み失敗。下に引いて再試行"
+    "loadFailPullRetry": "読み込み失敗。下に引いて再試行",
+    "emptyContent": "まだ内容がありません",
+    "closeOverlay": "シートを閉じる",
+    "add": "追加",
+    "panelCollapse": "パネルを畳む",
+    "panelExpand": "パネル展开"
   },
   "network": {
     "offline": "ネットワークが切断されました。一部の機能は利用できません",
@@ -2148,7 +2157,9 @@
     "studyHours": "{count} 時間学習",
     "empty": "ランキングなし",
     "loadFailed": "ランキングの読み込みに失敗",
-    "title": "ランキング"
+    "title": "ランキング",
+    "wanSuffix": "{v}万",
+    "pointsUnit": "ポイント"
   },
   "rankingDetail": {
     "rank": "ランキング",
@@ -5194,5 +5205,34 @@
   "taskStatus": {
     "addedCount": "+{n}",
     "removedCount": "-{n}"
+  },
+  "userPublic": {
+    "title": "ユーザープロフィール",
+    "notFound": "ユーザーが見つかりません",
+    "follow": "フォロー",
+    "following": "フォロー中",
+    "message": "メッセージ",
+    "followingCount": "フォロー",
+    "followersCount": "フォロワー",
+    "favoritesCount": "お気に入り",
+    "joined": "登録日"
+  },
+  "commission": {
+    "myLabel": "私のコミッション",
+    "label": "コミッション"
+  },
+  "courseSwiper": {
+    "tabHotIntro": "人気入門講座",
+    "tabHotPick": "人気厳選講座"
+  },
+  "agentList": {
+    "emptyText": "Agent がいません"
+  },
+  "myAgents": {
+    "title": "我的AIアプリ",
+    "staff": "我的AIスタッフ"
+  },
+  "fenlei": {
+    "closeOverlay": "分類シートを閉じる"
   }
 }
