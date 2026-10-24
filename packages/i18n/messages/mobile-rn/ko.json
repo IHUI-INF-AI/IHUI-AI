@@ -249,7 +249,8 @@
     "pubSelectVideo": "영상을 선택하세요",
     "pubVideo": "영상 공개",
     "pubGroup": "컬렉션 공개",
-    "closePreview": "미리보기 닫기"
+    "closePreview": "미리보기 닫기",
+    "recentUsed": "최근 사용"
   },
   "plaza": {
     "index": {
@@ -866,7 +867,10 @@
     "terminal": {
       "waitingInput": "입력 대기",
       "mobileUnsupported": "모바일 터미널 미지원"
-    }
+    },
+    "voicePlay": "음성 재생",
+    "voicePause": "음성 일시정지",
+    "actionRunA11y": "동작 실행: {label}"
   },
   "settings": {
     "title": "설정",
@@ -1104,7 +1108,12 @@
     "search": "검색",
     "searchPlaceholder": "문서 검색...",
     "deleted": "삭제됨",
-    "loadFailPullRetry": "불러오기 실패, 당겨서 새로고침 재시도"
+    "loadFailPullRetry": "불러오기 실패, 당겨서 새로고침 재시도",
+    "emptyContent": "내용 없음",
+    "closeOverlay": "시트 닫기",
+    "add": "추가",
+    "panelCollapse": "패널 접기",
+    "panelExpand": "패널 펼치기"
   },
   "network": {
     "offline": "네트워크가 연결되지 않아 일부 기능을 사용할 수 없습니다",
@@ -2148,7 +2157,9 @@
     "studyHours": "{count}시간 학습",
     "empty": "순위가 없습니다",
     "loadFailed": "순위 불러오기 실패",
-    "title": "순위"
+    "title": "순위",
+    "wanSuffix": "{v}만",
+    "pointsUnit": "점"
   },
   "rankingDetail": {
     "rank": "순위",
@@ -5194,5 +5205,34 @@
   "taskStatus": {
     "addedCount": "+{n}",
     "removedCount": "-{n}"
+  },
+  "userPublic": {
+    "title": "사용자 프로필",
+    "notFound": "사용자를 찾을 수 없습니다",
+    "follow": "팔로우",
+    "following": "팔로잉",
+    "message": "메시지",
+    "followingCount": "팔로잉",
+    "followersCount": "팔로워",
+    "favoritesCount": "즐겨찾기",
+    "joined": "가입일"
+  },
+  "commission": {
+    "myLabel": "내 커미션",
+    "label": "커미션"
+  },
+  "courseSwiper": {
+    "tabHotIntro": "인기 입문 강의",
+    "tabHotPick": "인기 추천 강의"
+  },
+  "agentList": {
+    "emptyText": "Agent 없음"
+  },
+  "myAgents": {
+    "title": "내 AI 앱",
+    "staff": "내 AI 직원"
+  },
+  "fenlei": {
+    "closeOverlay": "분류 시트 닫기"
   }
 }

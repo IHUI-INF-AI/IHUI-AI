@@ -249,7 +249,8 @@
     "pubSelectVideo": "請選擇視頻",
     "pubVideo": "發布視頻",
     "pubGroup": "發布課程合集",
-    "closePreview": "關閉預覽"
+    "closePreview": "關閉預覽",
+    "recentUsed": "最近使用"
   },
   "plaza": {
     "index": {
@@ -866,7 +867,10 @@
     "terminal": {
       "waitingInput": "等待輸入",
       "mobileUnsupported": "終端功能暫不支持行動端"
-    }
+    },
+    "voicePlay": "播放語音",
+    "voicePause": "暫停語音",
+    "actionRunA11y": "執行動作：{label}"
   },
   "settings": {
     "title": "設定",
@@ -1104,7 +1108,12 @@
     "search": "搜尋",
     "searchPlaceholder": "搜尋文件...",
     "deleted": "已刪除",
-    "loadFailPullRetry": "載入失敗，請下拉重新整理重試"
+    "loadFailPullRetry": "載入失敗，請下拉重新整理重試",
+    "emptyContent": "暫無內容",
+    "closeOverlay": "關閉彈出層",
+    "add": "新增",
+    "panelCollapse": "收起面板",
+    "panelExpand": "展開面板"
   },
   "network": {
     "offline": "網路已中斷,部分功能不可用",
@@ -2148,7 +2157,9 @@
     "studyHours": "學習 {count} 小時",
     "empty": "暫無排行",
     "loadFailed": "載入排行榜失敗",
-    "title": "排行榜"
+    "title": "排行榜",
+    "wanSuffix": "{v}萬",
+    "pointsUnit": "分"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -5194,5 +5205,34 @@
   "taskStatus": {
     "addedCount": "+{n}",
     "removedCount": "-{n}"
+  },
+  "userPublic": {
+    "title": "用戶主頁",
+    "notFound": "用戶不存在",
+    "follow": "關注",
+    "following": "已關注",
+    "message": "發訊息",
+    "followingCount": "關注",
+    "followersCount": "粉絲",
+    "favoritesCount": "收藏",
+    "joined": "加入於"
+  },
+  "commission": {
+    "myLabel": "我的佣金",
+    "label": "佣金"
+  },
+  "courseSwiper": {
+    "tabHotIntro": "爆款入門課程",
+    "tabHotPick": "爆款精選課程"
+  },
+  "agentList": {
+    "emptyText": "暫無 Agent"
+  },
+  "myAgents": {
+    "title": "我的AI APP",
+    "staff": "我的AI員工"
+  },
+  "fenlei": {
+    "closeOverlay": "關閉分類彈層"
   }
 }
