@@ -544,22 +544,28 @@ export function classifyHairlineLine(line, ctx = {}) {
   const { relPath = '', text = line, lineStart = 0 } = ctx
   let axisCol = -1
   let axisIdx = -1
-  let bg = null
   for (const m of line.matchAll(CLASS_TOKEN_RE)) {
     const head = stripVariantPrefix(m[0])
     if (axisCol < 0 && HAIRLINE_AXIS_RE.test(head)) {
       axisCol = m.index + 1
       axisIdx = m.index
     }
-    if (!bg && head.startsWith('bg-')) bg = classifyBgToken(head)
   }
-  if (axisIdx >= 0) {
-    const at = lineStart + axisIdx
-    const span = classNameValueSpan(text, at)
-    const surface = span ? text.slice(span.start, span.end) : line
-    if (structuralTypeOf({ relPath, text, idx: at, surface })) return null
+  if (axisIdx < 0) return null
+  const at = lineStart + axisIdx
+  const span = classNameValueSpan(text, at)
+  // 底色按 **className 值表达式整体**读:多行 cn() 里 `h-px` 与 `bg-border` 分行书写是同一枚线
+  // (尺子早按整段表达式读;只读物理行会让族 7 漏掉这一半形态 ⇒ 又成两把尺子)
+  const surface = span ? text.slice(span.start, span.end) : line
+  if (structuralTypeOf({ relPath, text, idx: at, surface })) return null
+  let bg = null
+  for (const m of surface.matchAll(CLASS_TOKEN_RE)) {
+    const head = stripVariantPrefix(m[0])
+    if (!head.startsWith('bg-')) continue
+    bg = classifyBgToken(head)
+    break
   }
-  if (axisCol < 0 || !bg || !bg.neutral) return null
+  if (!bg || !bg.neutral) return null
   if (bg.opacity !== null)
     return { level: 'warn', label: 'low-opacity bg hairline divider', col: axisCol }
   return { level: 'blocking', label: 'bg hairline divider', col: axisCol }
@@ -1686,6 +1692,37 @@ export function selfTest() {
         rn('const s = {\n  hero: { height: "100%", backgroundColor: tk.background },\n}').length ===
           0,
         '量不到的普通高度不冒充未判定',
+      )
+    },
+  )
+
+  t(
+    'S67 族 7 跨行:轴 token 与中性底分行写在同一 className 表达式 ⇒ 照判;结构件/彩色仍放过',
+    () => {
+      const r = scanSource(
+        'apps/web/f.tsx',
+        "export const P = () => (\n  <div className={cn('h-px', 'bg-border')} />\n)\n",
+      )
+      ok(
+        countOpaqueSingles(r) === 1 && r.single[0].label === 'bg hairline divider',
+        JSON.stringify(r.single),
+      )
+      const rail = scanSource(
+        'apps/web/g.tsx',
+        "export const P = () => (\n  <span className={cn('absolute top-0 bottom-0 w-px', 'bg-border')} />\n)\n",
+      )
+      ok(rail.single.length === 0, `跨行导引轨仍属型②\n${JSON.stringify(rail.single)}`)
+      const accent = scanSource(
+        'apps/web/h.tsx',
+        "export const P = () => (\n  <span className={cn('h-px', 'bg-primary')} />\n)\n",
+      )
+      ok(accent.single.length === 0, JSON.stringify(accent.single))
+      // 反向锁:轴 token 不在 className 值表达式里 ⇒ 不跨行借邻近元素的底色
+      ok(
+        classifyHairlineLine("  const w = 'h-px'", {
+          text: "  const w = 'h-px'\n  const c = 'bg-border'",
+        }) === null,
+        '表达式外的底色不许被借来判红',
       )
     },
   )

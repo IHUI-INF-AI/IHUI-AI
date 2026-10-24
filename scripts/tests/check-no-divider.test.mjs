@@ -542,6 +542,33 @@ test('D26 staged 装车:RN 对象块 height:hairlineWidth + 中性底 ⇒ exit 1
   }
 })
 
+test('D29 跨行形态:轴 token 与中性底分行写 ⇒ 仍拦;分行导引轨放过(反向对照)', () => {
+  const REL = 'apps/web/app/x/page.tsx'
+  const dir = createRepo({
+    [REL]: 'export function P() {\n  return <div className="p-3 space-y-1">a</div>\n}\n',
+  })
+  try {
+    stage(
+      dir,
+      REL,
+      'export function P() {\n  return (\n    <div className="p-3 space-y-1">a</div>\n    <div className={cn("h-px", "bg-border")} />\n  )\n}\n',
+    )
+    const r = runStaged(dir)
+    assert.equal(r.status, 1, `分行书写不能成为漏网口\n${r.stdout}`)
+    assert.match(r.stdout, /\[bg hairline divider\]/, `必须点名到发丝线\n${r.stdout}`)
+    // 反向对照:同一跨行写法若属型②导引轨,既有出口照旧放过
+    stage(
+      dir,
+      REL,
+      'export function P() {\n  return (\n    <div className="p-3 space-y-1">a</div>\n    <span className={cn("absolute top-0 bottom-0 w-px", "bg-border")} />\n  )\n}\n',
+    )
+    const r2 = runStaged(dir)
+    assert.equal(r2.status, 0, `结构件出口不许被跨行补丁收窄\n${r2.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
 // ─── 族 4 任意值色档(G-879 第三条盲区)装车 ───
 
 test('D27 staged 装车:border-t border-[var(--color-border)] ⇒ exit 1;彩色变量反向放过', () => {
