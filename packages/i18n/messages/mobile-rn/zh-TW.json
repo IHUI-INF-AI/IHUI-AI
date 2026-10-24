@@ -594,7 +594,9 @@
       "hasbuy": "已購買",
       "monthly": "每月"
     },
-    "recharge": "去充值"
+    "recharge": "去充值",
+    "confirm": "確認支付",
+    "later": "再看看"
   },
   "order": {
     "title": "訂單",
@@ -870,7 +872,12 @@
     },
     "voicePlay": "播放語音",
     "voicePause": "暫停語音",
-    "actionRunA11y": "執行動作：{label}"
+    "actionRunA11y": "執行動作：{label}",
+    "toolRunning": "執行中…",
+    "toolOk": "成功",
+    "toolFail": "失敗",
+    "diffCollapse": "收起流中 diff 預覽",
+    "diffExpand": "展開流中 diff 預覽"
   },
   "settings": {
     "title": "設定",
@@ -1842,7 +1849,10 @@
     "sales": "已售 {count} 件",
     "loadFailed": "載入分銷失敗",
     "withdrawFailed": "提現失敗",
-    "withdrawSuccess": "提現成功"
+    "withdrawSuccess": "提現成功",
+    "unsettled": "待結算",
+    "refunded": "退單",
+    "unknown": "未知"
   },
   "earnCommission": {
     "title": "分傭計畫",
@@ -3314,7 +3324,10 @@
     "joinedAt": "加入時間",
     "contact": "聯繫",
     "viewOrders": "查看訂單",
-    "empty": "暫無成員資訊"
+    "empty": "暫無成員資訊",
+    "loadFail": "載入失敗，請重試",
+    "noPhone": "該成員未提供手機號",
+    "callFail": "無法撥號，請檢查裝置"
   },
   "vip": {
     "benefitList": {
@@ -3766,7 +3779,9 @@
       "order": "訂單",
       "social": "互動",
       "system": "系統"
-    }
+    },
+    "conversationFallback": "對話",
+    "searchPh": "搜尋對話記錄/聯絡人/服務號"
   },
   "messageDirect": {
     "empty": "暫無私訊",
@@ -4252,7 +4267,10 @@
     "knowledgePlanet": "知識星球"
   },
   "knowledgePlanet": {
-    "title": "知識星球"
+    "title": "知識星球",
+    "newOfficial": "官方資訊",
+    "newCommunity": "星球社群",
+    "enter": "進入星球"
   },
   "knowledgeRag": {
     "title": "RAG 知識庫",
@@ -4796,7 +4814,11 @@
     "resend": "重新發送",
     "confirm": "確定",
     "closeA11y": "關閉驗證碼彈窗",
-    "inputA11y": "驗證碼輸入"
+    "inputA11y": "驗證碼輸入",
+    "noPhoneBound": "未綁定手機號",
+    "bindFirst": "請先綁定手機號後再驗證",
+    "phoneOk": "手機號驗證成功",
+    "codeWrong": "驗證碼錯誤，請重試"
   },
   "patrol": {
     "title": "主動巡邏",
@@ -5234,5 +5256,77 @@
   },
   "fenlei": {
     "closeOverlay": "關閉分類彈層"
+  },
+  "llmSettings": {
+    "title": "模型服務商",
+    "empty": "還沒有配置服務商",
+    "emptyDesc": "點擊右上角嚮導,4 步配置 API Key",
+    "enabled": "已啟用",
+    "disabled": "已停用"
+  },
+  "byok": {
+    "fab": "快速配置",
+    "title": "一鍵配置嚮導",
+    "step1Title": "選擇廠商",
+    "step2Title": "填寫 API Key",
+    "step3Title": "驗證密鑰",
+    "step4Title": "完成",
+    "keyPlaceholder": "貼上 API Key(sk-…)",
+    "showKey": "顯示密鑰",
+    "hideKey": "隱藏密鑰",
+    "verify": "驗證",
+    "next": "下一步",
+    "activate": "啟用並建立",
+    "verifyIdle": "待驗證",
+    "verifying": "正在驗證…",
+    "verifySuccess": "驗證通過",
+    "verifyFailed": "驗證未通過",
+    "doneTitle": "配置完成",
+    "doneDesc": "服務商已建立,平台分潤已啟用"
+  },
+  "pay": {
+    "alipayNotOpen": "支付寶 payment 暂未開通，請選擇微信支付"
+  },
+  "popularCourses": {
+    "tabHotIntro": "爆款入門",
+    "tabHotPick": "爆款精選",
+    "lessonsCount": "· {n} 課時",
+    "enrolled": "{n} 人在學"
+  },
+  "modelConfig": {
+    "framesUnit": "{n} 幀",
+    "inputPrefix": "請輸入{desc}"
+  },
+  "bottomPopup": {
+    "selectLevel": "選擇 {name}",
+    "payA11y": "關閉支付彈窗"
+  },
+  "purchaseNotice": {
+    "title": "賺取佣金",
+    "subtitle": "加入我們的推廣計劃，獲得額外收入",
+    "cta": "前往開啟會員",
+    "closeA11y": "關閉彈窗"
+  },
+  "eduShop": {
+    "title": "教育商城",
+    "courses": "課程商品",
+    "orders": "我的訂單",
+    "free": "免費",
+    "buy": "購買",
+    "lessons": "{n} 課時",
+    "loadMore": "載入更多",
+    "emptyCourses": "暫無在售課程",
+    "emptyOrders": "暫無訂單",
+    "cancelOrder": "取消訂單",
+    "cancelConfirmTitle": "取消訂單",
+    "cancelConfirmDesc": "確定取消該訂單嗎?",
+    "orderCreated": "訂單已建立",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "refunded": "已退款"
+    }
   }
 }
