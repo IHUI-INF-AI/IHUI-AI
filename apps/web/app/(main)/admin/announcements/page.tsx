@@ -38,6 +38,7 @@ export default function AdminAnnouncementsPage() {
         content: form.content,
         isPinned: form.isPinned,
         isPublished: form.isPublished,
+        platforms: form.platforms,
       }
       return editing
         ? api(`/api/admin/announcements/${editing.id}`, {

@@ -47,6 +47,7 @@ export function AnnouncementTable({
           <tr>
             <th className={th}>{t('colTitle')}</th>
             <th className={th}>{t('colType')}</th>
+            <th className={th}>{t('colPlatforms')}</th>
             <th className={th}>{t('colPinned')}</th>
             <th className={th}>{t('colPublished')}</th>
             <th className={th}>{t('colPublishedAt')}</th>
@@ -56,20 +57,20 @@ export function AnnouncementTable({
         <tbody>
           {isError ? (
             <tr>
-              <td colSpan={6} className="px-4 py-10 text-center text-destructive">
+              <td colSpan={7} className="px-4 py-10 text-center text-destructive">
                 {t('noData')}
               </td>
             </tr>
           ) : isLoading ? (
             <tr>
-              <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+              <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                 {t('loading')}
               </td>
             </tr>
           ) : list.length === 0 ? (
             <tr>
-              <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+              <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                 {t('noData')}
               </td>
             </tr>
@@ -91,6 +92,22 @@ export function AnnouncementTable({
                   >
                     {t(ANN_TYPE_KEY[a.type] ?? 'types.unknown')}
                   </span>
+                </td>
+                <td className="px-4 py-2.5">
+                  {a.platforms && a.platforms.length > 0 ? (
+                    <span className="flex flex-wrap gap-1">
+                      {a.platforms.map((p) => (
+                        <span
+                          key={p}
+                          className="inline-flex rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                        >
+                          {t(`platforms.${p}`)}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">{t('platformsAll')}</span>
+                  )}
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">
                   {a.isPinned ? t('yes') : t('no')}
