@@ -982,6 +982,14 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           showSymbol: false,
           data: (trend?.cpuPct ?? []).map(([, v]) => Number(v.toFixed(2))),
           tooltip: { valueFormatter: (v) => `${v}%` },
+          // 90% 是仪表转红的同一道线,画出来让「离红线还有多远」不必心算。
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            label: { show: false },
+            lineStyle: { color: withAlpha(CHART_RED, 0.55), type: 'dashed', width: 1 },
+            data: [{ yAxis: 90 }],
+          },
           ...seriesGlow(CHART_CYAN),
         },
         {
@@ -1751,6 +1759,23 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       <span className="truncate text-[11px] font-medium text-danger-text">
                         {a.name}
                       </span>
+                      {/* severity 不能只靠圆点颜色区分(色盲不可辨),补文字徽章;复用最近告警那三档文案。 */}
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-md border px-1 text-[9px]',
+                          a.severity === 'critical'
+                            ? 'border-destructive/40 bg-destructive/10 text-danger-text'
+                            : a.severity === 'info'
+                              ? 'border-info/40 bg-info/10 text-info-text'
+                              : 'border-warning/40 bg-warning/10 text-warning-text',
+                        )}
+                      >
+                        {a.severity === 'critical'
+                          ? t('sevCritical')
+                          : a.severity === 'info'
+                            ? t('sevInfo')
+                            : t('sevWarning')}
+                      </span>
                       <span
                         className={cn(
                           'shrink-0 rounded-md border px-1 text-[9px]',
@@ -2248,26 +2273,28 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       ['edgeStatic', edge.legs.edgeStatic],
                     ] as const
                   ).map(([legKey, leg]) => (
-                    <div
+                    <Tooltip
                       key={legKey}
-                      className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5"
+                      content={`HTTP ${leg.status ?? '—'} · TTFB ${leg.ttfbMs ?? '—'}ms${leg.encoding ? ` · ${leg.encoding}` : ''}`}
                     >
-                      <Dot tone={leg.ok ? 'ok' : 'bad'} />
-                      <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
-                        {t(EDGE_LEG_LABEL[legKey])}
-                      </span>
-                      <span
-                        className={cn(
-                          'wb-num ml-auto text-[13px] font-semibold',
-                          isNum(leg.totalMs) ? 'text-foreground' : 'text-muted-foreground',
-                        )}
-                      >
-                        {isNum(leg.totalMs) ? fmtInt(leg.totalMs) : '—'}
-                        <span className="ml-0.5 text-[10px] text-muted-foreground">
-                          {t('unitMs')}
+                      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5">
+                        <Dot tone={leg.ok ? 'ok' : 'bad'} />
+                        <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
+                          {t(EDGE_LEG_LABEL[legKey])}
                         </span>
-                      </span>
-                    </div>
+                        <span
+                          className={cn(
+                            'wb-num ml-auto text-[13px] font-semibold',
+                            isNum(leg.totalMs) ? 'text-foreground' : 'text-muted-foreground',
+                          )}
+                        >
+                          {isNum(leg.totalMs) ? fmtInt(leg.totalMs) : '—'}
+                          <span className="ml-0.5 text-[10px] text-muted-foreground">
+                            {t('unitMs')}
+                          </span>
+                        </span>
+                      </div>
+                    </Tooltip>
                   ))}
                 </div>
                 <div className="min-h-0 flex-1">
