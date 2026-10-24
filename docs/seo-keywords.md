@@ -34,7 +34,7 @@
 低竞争 + 高转化,布局在 README 正文、Use Cases、博客文章 H2/H3。
 
 1. open source ai agent platform with multi-tenant
-2. self-hosted chatgpt alternative with 176 llms
+2. self-hosted chatgpt alternative with 101 llms
 3. langgraph mcp a2a triple stack ai framework
 4. ai operating system 9 platforms monorepo
 5. litellm gateway with rag knowledge base

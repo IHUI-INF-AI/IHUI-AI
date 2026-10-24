@@ -162,7 +162,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **新模型适配**:接入更多 LLM 厂商(Replicate / Together AI / DeepInfra 等)
 - **新发布平台**:接入更多内容发布平台(TikTok / Instagram / LinkedIn 等)
 - **新语言**:新增 i18n locale(阿拉伯语 / 葡萄牙语 / 西班牙语等)
-- **新端适配**:增强现有 8 端 + 新增端(鸿蒙 HarmonyOS / 鸿蒙 Next)
+- **新端适配**:增强现有 9 端 + 新增端(鸿蒙 HarmonyOS / 鸿蒙 Next)
 - **AI 工作流**:贡献 LangGraph 工作流模板 / MCP 工具 / A2A Agent
 - **企业级能力**:多租户隔离增强 / 审计日志完善 / SSO 集成(Okta / Keycloak)
 - **测试覆盖**:增加边界用例 / E2E 场景 / 性能基准

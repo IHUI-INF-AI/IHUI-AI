@@ -663,7 +663,7 @@ A: Yes. ~14839+ tests / 719 test files / 67 e2e spec / 4393 API 路由 / 542 数
 ### Long-tail Keywords
 
 - open source ai agent platform with multi-tenant
-- self-hosted chatgpt alternative with 176 llms
+- self-hosted chatgpt alternative with 101 llms
 - langgraph mcp a2a triple stack ai framework
 - ai operating system 9 platforms monorepo
 - litellm gateway with rag knowledge base
