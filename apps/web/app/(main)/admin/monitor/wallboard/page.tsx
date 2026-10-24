@@ -57,6 +57,7 @@ import {
   chartAxis,
   chartBg,
   chartText,
+  rnRadius,
   withAlpha,
 } from '@ihui/design-tokens'
 import type { EChartsOption } from 'echarts'
@@ -926,7 +927,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     const data = ordered.map((s) => ({
       value: total > 0 ? Number(((s.rate / total) * 100).toFixed(2)) : 0,
       rate: s.rate,
-      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: 3 },
+      itemStyle: { color: klassColor[s.klass] ?? chartText(isDark), borderRadius: rnRadius.xs },
     }))
     return {
       grid: { left: 44, right: 56, top: 10, bottom: 20 },
@@ -1477,7 +1478,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           ].map((k) => (
             <div
               key={k.label}
-              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-lg border border-border bg-card/80 px-3 py-2"
+              className="ui-lift wb-panel wb-rise relative overflow-hidden rounded-xl border border-border bg-card/80 px-3 py-2"
             >
               <div className="flex items-center gap-2 text-[10px] tracking-[0.16em] text-muted-foreground">
                 <span className="text-info-text/70">{k.icon}</span>
@@ -1687,7 +1688,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         type="button"
                         aria-label={`${target.job} ${word}`}
                         className={cn(
-                          'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
+                          'flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
                           tone === 'ok'
                             ? 'border-success/25 bg-success/10 text-success-text/90'
                             : tone === 'bad'
@@ -2374,7 +2375,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       <button
                         type="button"
                         aria-label={`${t(EDGE_LEG_LABEL[legKey])} ${stateWord(leg.ok ? 'up' : 'down')} ${isNum(leg.totalMs) ? `${leg.totalMs}ms` : ''}`}
-                        className="flex w-full items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5 text-left focus-visible:ring-1 focus-visible:ring-ring"
+                        className="flex w-full items-center gap-2 rounded-sm border border-border bg-muted/60 px-2.5 py-1.5 text-left focus-visible:ring-1 focus-visible:ring-ring"
                       >
                         <Dot tone={leg.ok ? 'ok' : 'bad'} />
                         <span className="text-[10px] tracking-[0.12em] text-muted-foreground">

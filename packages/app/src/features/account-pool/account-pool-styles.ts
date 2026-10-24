@@ -35,7 +35,7 @@ export function createAccountPoolStyles(tk: AppThemeTokens) {
       fontSize: 11,
       color: tk.text.secondary,
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       paddingHorizontal: 6,
       paddingVertical: 2,
       overflow: 'hidden',
