@@ -108,8 +108,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | ---- | ---- | ------ |
 | 数据库表 | 606 | `dbTables` |
 | schema 文件 | 234 | `dbSchemaFiles` |
-| API 路由 | 4562 | `apiRoutes` |
-| 路由文件 | 624 | `apiRouteFiles` |
+| API 路由 | 4556 | `apiRoutes` |
+| 路由文件 | 623 | `apiRouteFiles` |
 | AI 服务路由 | 593 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 101 | `llmModels` |
@@ -121,17 +121,15 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 3163 | `testFiles` |
+| 测试文件 | 3179 | `testFiles` |
 | CI 工作流 | 50 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 273 | `guardianGates` |
-| — blocking | 250 | `guardianBlocking` |
+| 工程守门 | 274 | `guardianGates` |
+| — blocking | 251 | `guardianBlocking` |
 | — warn | 26 | `guardianWarn` |
-| 跟踪文件 | 15939 | `trackedFiles` |
-
+| 跟踪文件 | 16000 | `trackedFiles` |
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-10-24。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
@@ -11238,9 +11236,9 @@ A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 �
 > A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
 > A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-> A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
-> A: Yes. ~14839+ tests / 3129 test files / 67 e2e spec / 4551 API 路由 / 603 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
+> A: Yes. ~14839+ tests / 3179 test files / 67 e2e spec / 4556 API 路由 / 606 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 Grafana 仪表盘可观测。
