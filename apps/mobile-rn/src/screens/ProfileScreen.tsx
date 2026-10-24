@@ -1117,6 +1117,7 @@ function UnsubscribeModal({
 
 // ============ 4 Tab 内容区(对齐 Uniapp 行 59-191) ============
 
+// 模块顶层无法取 t(键存表内,消费组件内解析)
 const TAB_BAR_ITEMS: CategoryItem[] = PROFILE_TAB_LIST.map((tab) => ({
   id: String(tab.id),
   label: tab.name,
@@ -1294,7 +1295,7 @@ function ProfileContentSection(): React.JSX.Element {
     <View style={styles.contentSection}>
       <View style={styles.tabBarWrap}>
         <CategoryInlineBar
-          items={TAB_BAR_ITEMS}
+          items={TAB_BAR_ITEMS.map((it) => ({ ...it, label: t(it.label) }))}
           selectedId={String(activeTab)}
           onSelect={onTabChange}
           colorScheme={resolvedTheme}

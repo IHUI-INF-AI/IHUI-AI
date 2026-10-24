@@ -41,6 +41,7 @@ import { BookOpen } from 'lucide-react-native'
 // 430,useWindowDimensions 返回整窗 ~586 → 双卡行按 562 算总宽超壳被 #root 裁掉右侧一张;
 // 原生无 #root 回退窗口宽行为不变(与 SearchOverlay/ProfileScreen 同轨)。
 import { useAppFrameWidth } from './Carousel'
+import { useI18n } from '../i18n'
 
 /** 单门课程数据(对齐历史 PopularCourses 关键字段) */
 export interface PopularCourse {
@@ -80,10 +81,12 @@ const GRID_GAP = 8
 const THUMB_HEIGHT = 100
 const VIP_BADGE_PADDING = 4
 const DEFAULT_BOOK_ICON = BookOpen
-const DEFAULT_MORE_TEXT = '更多'
 
 /** 双 Tab(对齐原项目 popular-courses-tab:爆款入门 / 爆款精选) */
-const COURSE_TABS: ReadonlyArray<string> = ['爆款入门', '爆款精选']
+const COURSE_TAB_KEYS: ReadonlyArray<string> = [
+  'popularCourses.tabHotIntro',
+  'popularCourses.tabHotPick',
+]
 
 /** 取字符串首字符(中英文/表情兼容);空串回退 ? */
 function firstChar(text: string): string {
@@ -138,7 +141,7 @@ function CourseCard({ item, width, onPress }: CourseCardProps): React.JSX.Elemen
             {item.instructor}
           </Text>
           <Text style={styles.lessonCount} numberOfLines={1}>
-            {`· ${item.lessons} 课时`}
+            {t('popularCourses.lessonsCount', { n: item.lessons })}
           </Text>
         </View>
 
@@ -150,7 +153,7 @@ function CourseCard({ item, width, onPress }: CourseCardProps): React.JSX.Elemen
             <Text style={styles.pricePaid}>¥{item.price}</Text>
           )}
           <Text style={styles.studentCount} numberOfLines={1}>
-            {`${item.studentCount} 人在学`}
+            {t('popularCourses.enrolled', { n: item.studentCount })}
           </Text>
         </View>
       </View>
@@ -164,10 +167,11 @@ export default function PopularCourses({
   title,
   subtitle,
   onMore,
-  moreText = DEFAULT_MORE_TEXT,
+  moreText: moreTextProp,
   featuredCourses,
   onTabChange,
 }: PopularCoursesProps): React.JSX.Element {
+  const { t } = useI18n()
   const screenWidth = useAppFrameWidth()
   const cardWidth = (screenWidth - CONTAINER_PADDING * 2 - GRID_GAP) / 2
   const hasHeader = Boolean(title) || Boolean(subtitle) || Boolean(onMore)
@@ -195,7 +199,7 @@ export default function PopularCourses({
           </View>
           {onMore ? (
             <MoreLink
-              label={moreText}
+              label={moreTextProp ?? t('common.more')}
               onPress={onMore}
               colorScheme={currentRnTheme()}
               style={styles.moreBtn}
@@ -206,17 +210,17 @@ export default function PopularCourses({
 
       {/* 双 Tab(对齐原项目 popular-courses-tab-box) */}
       <View style={styles.tabBox}>
-        {COURSE_TABS.map((tab, idx) => (
+        {COURSE_TAB_KEYS.map((tabKey, idx) => (
           // 按压态不得写成「函数形态 style」挂在 Pressable 上:Pressable 注册过 cssInterop,
           // interop 对非数组声明执行「展开函数」得到空对象 ⇒ 整份内联 style 静默消失(守门 131
           // 那一型)。外框拿 padding 槽位,面层撑满内容盒并只拿 pressed。
           <Pressable
-            key={tab}
+            key={tabKey}
             style={styles.tabItem}
             onPress={() => handleTabPress(idx)}
             accessibilityRole="button"
             accessibilityState={{ selected: selectedTab === idx }}
-            accessibilityLabel={tab}
+            accessibilityLabel={t(tabKey)}
           >
             {({ pressed }) => (
               <View style={[styles.tabFace, pressed ? styles.tabItemPressed : null]}>
@@ -226,7 +230,7 @@ export default function PopularCourses({
                     selectedTab === idx ? styles.tabTextActive : styles.tabTextNormal,
                   ]}
                 >
-                  {tab}
+                  {t(tabKey)}
                 </Text>
               </View>
             )}

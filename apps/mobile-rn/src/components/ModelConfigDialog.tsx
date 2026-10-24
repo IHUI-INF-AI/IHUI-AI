@@ -449,7 +449,7 @@ function DynamicVariables({
                 colorScheme={currentRnTheme()}
                 value={String(cur ?? '')}
                 onChangeText={(t) => emit({ [v.name]: t })}
-                placeholder={`请输入${v.desc}`}
+                placeholder={t('modelConfig.inputPrefix', { desc: String(v.desc) })}
                 className="rounded-sm text-xs"
                 style={{
                   ...modelConfigInputBoxStyle(MODEL_CONFIG_INPUT_PAD_X_PX, toUnit),
@@ -644,7 +644,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
             {FRAME_COUNTS.map((f) => (
               <Chip
                 key={f}
-                label={`${f} 帧`}
+                label={t('modelConfig.framesUnit', { n: f })}
                 active={config.frameCount === f}
                 onPress={() => update({ frameCount: f })}
               />
