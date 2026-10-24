@@ -79,7 +79,7 @@
 .ihui-state-btn {
   margin-top: 12rpx;
   padding: 18rpx 36rpx;
-  border-radius: 12rpx;
+  border-radius: 8rpx;
   background-color: var(--color-brand);
 }
 
@@ -97,10 +97,12 @@
 .ihui-press-card {
   box-sizing: border-box;
   padding: 28rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
   background-color: var(--color-card);
-  transition: transform 120ms ease, opacity 120ms ease;
+  transition:
+    transform 120ms ease,
+    opacity 120ms ease;
 }
 
 .ihui-press-card:active {
