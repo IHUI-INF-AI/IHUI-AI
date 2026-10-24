@@ -173,7 +173,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     instructor: { fontSize: 14, color: tk.text.medium, flex: 1 } as TextStyle,
     lessonCount: { fontSize: 12, color: tk.text.tertiary } as TextStyle,
-    price: { fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT } as TextStyle,
+    price: { flexShrink: 0, fontSize: 18, fontWeight: '700', color: tk.brand.DEFAULT } as TextStyle,
     studentCount: { fontSize: 12, color: tk.text.tertiary } as TextStyle,
     footerLoading: { paddingVertical: 12, alignItems: 'center' } as ViewStyle,
     footerText: { fontSize: 14, color: tk.text.secondary } as TextStyle,

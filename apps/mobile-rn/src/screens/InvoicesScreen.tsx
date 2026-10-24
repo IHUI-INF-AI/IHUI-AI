@@ -379,7 +379,7 @@ function makeStyles() {
     retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     muted: { fontSize: 12, color: tokens.text.secondary },
     rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    amount: { fontSize: 17, fontWeight: '700', color: tokens.text.primary },
+    amount: { flexShrink: 0, fontSize: 17, fontWeight: '700', color: tokens.text.primary },
     statusBadge: {
       paddingHorizontal: 8,
       paddingVertical: 2,

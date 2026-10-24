@@ -264,7 +264,7 @@ function createStyles(tk: AppThemeTokens) {
     btnDisabled: { opacity: 0.5 },
     actionBtnText: { color: tk.brand.ctaForeground, fontSize: 16, fontWeight: '600' },
     statsRow: { flexDirection: 'row', flexWrap: 'wrap' },
-    statItem: { width: '50%', marginBottom: 8 },
+    statItem: { minWidth: 96, width: '50%', marginBottom: 8 },
     statLabel: { fontSize: 14, color: tk.text.tertiary },
     statValue: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     productHeader: {
@@ -294,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 8,
     },
     productName: { flex: 1, fontSize: 16, color: tk.text.primary, marginRight: 8 },
-    productPrice: { fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
+    productPrice: { flexShrink: 0, fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

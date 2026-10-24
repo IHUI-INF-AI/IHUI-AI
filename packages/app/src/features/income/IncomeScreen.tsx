@@ -319,7 +319,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 8,
     },
     cardTime: { fontSize: 11, color: tk.text.tertiary },
-    cardAmount: { fontSize: 16, fontWeight: '700', color: tk.success.DEFAULT },
+    cardAmount: { flexShrink: 0, fontSize: 16, fontWeight: '700', color: tk.success.DEFAULT },
     // 关联订单 + 复制按钮
     copyRow: {
       flexDirection: 'row',
