@@ -820,6 +820,7 @@
       "signInTitle": "チェックイン",
       "signInToday": "本日チェックイン",
       "signInUnsigned": "未チェックイン",
+      "userGrowth14d": "ユーザー成長·14日",
       "sourceUnreachable": "データソースに接続不可",
       "srcAlertmanager": "Alertmanager",
       "srcDatabase": "データベース",

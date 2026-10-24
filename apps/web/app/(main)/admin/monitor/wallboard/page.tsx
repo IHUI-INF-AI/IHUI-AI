@@ -180,6 +180,8 @@ interface BusinessSnapshot {
   llmTopModels: Array<{ model: string; calls: number }>
   /** 签到快照:后端取不到时为 null(渲染"—"),老版本后端无此字段(undefined 同样走"—") */
   signIn?: SignInSnapshot | null
+  /** 近 14 日每日新增用户(上海日界,含今天);后端查询失败或老后端无此字段 ⇒ null/undefined */
+  userGrowth?: Array<{ date: string; count: number }> | null
 }
 
 interface TrafficSnapshot {
@@ -1192,6 +1194,59 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
     }
   }, [biz?.signIn?.last7d, isDark, t, locale])
 
+  // 用户增长:近 14 日每日新增(上海日界,与面板里「今日新增」同口径)。后端取不到 ⇒ 空数组
+  // ⇒ 图表空态 + ChartEmpty(§0.3:没判不得画成 14 根 0 柱)
+  const userGrowthOption = React.useMemo<EChartsOption>(() => {
+    const rows = biz?.userGrowth ?? []
+    return {
+      grid: { left: 4, right: 4, top: 12, bottom: 2, containLabel: true },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: chartBg(isDark),
+        borderColor: chartAxis(isDark),
+        textStyle: { color: fg(isDark), fontSize: 11 },
+      },
+      xAxis: {
+        type: 'category',
+        data: rows.map((r) => r.date.slice(5)),
+        ...AXIS(isDark),
+        axisLabel: { color: chartText(isDark), fontSize: 9 },
+      },
+      yAxis: {
+        type: 'value',
+        ...AXIS(isDark),
+        splitLine: { show: false },
+        axisLabel: { show: false },
+      },
+      series: [
+        {
+          type: 'line',
+          smooth: true,
+          showSymbol: true,
+          symbolSize: 5,
+          data: rows.map((r) => r.count),
+          tooltip: {
+            valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitUser')}`,
+          },
+          ...seriesGlow(CHART_CYAN),
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0,
+              y: 0,
+              x2: 0,
+              y2: 1,
+              colorStops: [
+                { offset: 0, color: withAlpha(CHART_CYAN, 0.35) },
+                { offset: 1, color: withAlpha(CHART_CYAN, 0.02) },
+              ],
+            },
+          },
+        },
+      ],
+    }
+  }, [biz?.userGrowth, isDark, t, locale])
+
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
     const rows = edge?.series ?? []
@@ -2141,6 +2196,17 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 />
                 <StatCell label={t('usersActive')} value={fmtInt(biz?.usersActive)} />
                 <StatCell label={t('usersNewToday')} value={fmtInt(biz?.usersTodayNew)} tone="ok" />
+              </div>
+              {/* 用户增长:近 14 日每日新增(上海日界,与上面「今日新增」同口径)。
+                  取不到 ⇒ 空态,不得把"没量到"画成 14 根 0 柱(§0.3)。 */}
+              <div className="relative mt-2">
+                <div className="mb-0.5 text-[9px] tracking-[0.12em] text-muted-foreground">
+                  {t('userGrowth14d')}
+                </div>
+                <EChart option={userGrowthOption} height={62} merge ariaLabel={t('userGrowth14d')} />
+                {!biz?.userGrowth || biz.userGrowth.length === 0 ? (
+                  <ChartEmpty text={t('sourceUnreachable')} />
+                ) : null}
               </div>
               {/* 签到:数据来自 sign_in_records(与积分体系同源);取不到 ⇒ 各格渲染"—",不写 0 */}
               <div className="mt-2">
