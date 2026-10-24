@@ -13,7 +13,7 @@
  *      windowsHide(§12g);
  *   ④ 未判定(退出码 2)不进失败重试:走 warn 而不是 throw。
  */
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
