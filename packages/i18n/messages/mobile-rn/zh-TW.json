@@ -885,7 +885,22 @@
       "loadFailShort": "載入失敗",
       "recordNew": "新建錄音"
     },
-    "thinkingShort": "思考中"
+    "thinkingShort": "思考中",
+    "msg": {
+      "thinkingA11y": "收起/展開思考過程",
+      "collapse": "收起",
+      "expand": "展開",
+      "imgA11y": "訊息圖片，點擊預覽",
+      "copied": "已複製",
+      "copyCode": "複製代碼",
+      "collapseCode": "收起代碼",
+      "expandCode": "展開代碼",
+      "thinkingNow": "正在思考…",
+      "copy": "複製",
+      "share2": "分享",
+      "agree": "贊同",
+      "disagree": "反對"
+    }
   },
   "settings": {
     "title": "設定",
@@ -5319,7 +5334,15 @@
     "btnDetail": "詳情"
   },
   "topup": {
-    "failDefault": "充值未完成，請稍後重試"
+    "failDefault": "充值未完成，請稍後重試",
+    "faqTitle": "常見問題",
+    "faqContent": "關於充值到賬與訂單的常見問題",
+    "faqOk": "我知道了",
+    "tip1": "充值成功後智匯值一般即時到賬，如餘額未更新，可在「我的智匯值」頁下拉刷新",
+    "tip2": "微信支付成功但結果頁に留まる場合、注文一覧で状態を確認し、二重チャージを避けてください",
+    "tip3": "訂單編號是查詢與售後的重要憑證，請妥善保留",
+    "tip4": "如長時間未到賬，請聯繫客服並提供訂單編號與充值時間",
+    "tip5": "充值金額不支持退款與轉讓"
   },
   "devEnterCover": {
     "priceAbnormal": "套餐價格異常，請稍後重試"
@@ -5790,5 +5813,139 @@
     "exam": "考試",
     "score": "分數",
     "date": "日期"
+  },
+  "toolbar": {
+    "svcTraffic": "流量運營陪跑",
+    "svcDevice": "一站式設備應用",
+    "svcOther": "AI 其他技術服務",
+    "aiImage": "AI 圖片創作",
+    "aiImageD": "輕鬆創作圖片",
+    "aiVideo": "AI 視頻創作",
+    "aiVideoD": "輕鬆創作視頻",
+    "aiCopy": "AI 文案創作",
+    "aiCopyD": "輕鬆創作文案",
+    "aiClip": "AI 自動剪輯",
+    "aiClipD": "輕鬆創作剪輯",
+    "aiLive": "AI 直播",
+    "aiLiveD": "AI 直播服務",
+    "aiAvatar": "AI 數碼人",
+    "aiAvatarD": "製作數碼人",
+    "more2": "更多",
+    "viewMoreA11y": "查看更多 AI Agent 應用",
+    "oneClickA11y": "獨家一鍵生成运营內容",
+    "customA11y": "AI 定製服務"
+  },
+  "confirm": {
+    "defaultCancel": "取消",
+    "defaultOk": "確認",
+    "payFmt": "立即支付 ¥{v}"
+  },
+  "sr": {
+    "closeA11y": "點擊關閉",
+    "firstBonus": "首次分享成功，獲得 {n} 智匯值獎勵",
+    "inviteNote": "邀請好友加入智匯AI社群，註冊成功後雙方均可再獲智匯值",
+    "claimA11y": "領取 {n} 智匯值",
+    "rewardUnit": " 智匯值",
+    "footnote": "智匯值可用於兌換模型算力、會員權益等",
+    "claimBtn": "領取 {n} 智匯值"
+  },
+  "dist": {
+    "noInviteCode": "暫無邀請碼",
+    "linkCopied": "已複製邀請連結",
+    "inviteTitle": "邀請你加入 AI 智匯社",
+    "shared": "已分享",
+    "shareFail": "分享失敗，請重試",
+    "qrNotReady": "二維碼未就緒，請稍後重試",
+    "needAlbum": "未獲得相簿權限，無法儲存",
+    "savedAlbum": "已保存到相簿",
+    "saveFail": "儲存失敗，請稍後重試",
+    "teamCompany": "公司團隊",
+    "teamCompanyD": "查看我的公司團隊",
+    "teamAi": "AI 團隊",
+    "teamAiD": "查看智能體團隊",
+    "card": "我的名片",
+    "cardD": "查看我的個人信息",
+    "qr": "我的二維碼",
+    "qrD": "推廣專用二維碼",
+    "orders": "分銷訂單",
+    "ordersD": "查看我的分銷訂單",
+    "devSoon": "功能開發中",
+    "dealer": "分銷商",
+    "earningsLabel": "分銷收益概覽",
+    "shareQrA11y": "分享二維碼",
+    "withdrawDetail": "提現詳情",
+    "copyLinkA11y": "複製邀請連結",
+    "saveQrA11y": "保存到相簿",
+    "saving": "儲存中...",
+    "shareFriendA11y": "分享給好友"
+  },
+  "eduParent": {
+    "title": "家長端",
+    "child": "孩子",
+    "relationship": "關係",
+    "statusTitle": "狀態",
+    "status": {
+      "pending": "待確認",
+      "confirmed": "已確認",
+      "active": "生效",
+      "rejected": "已拒絕",
+      "cancelled": "已解除"
+    },
+    "chooseView": "選擇查看內容"
+  },
+  "eduParentBind": {
+    "title": "綁定管理",
+    "student": "學生",
+    "created": "申請時間",
+    "confirm": "確認綁定",
+    "reject": "拒絕",
+    "delete": "刪除",
+    "actionTitle": "綁定操作"
+  },
+  "eduEnrollment": {
+    "title": "班級",
+    "className": "班級",
+    "grade": "年級"
+  },
+  "eduSchedule": {
+    "title": "孩子課表",
+    "weekdayTitle": "星期",
+    "course": "課程",
+    "teacher": "教師",
+    "time": "時段",
+    "classroom": "教室",
+    "weekday": {
+      "mon": "週一",
+      "tue": "週二",
+      "wed": "週三",
+      "thu": "週四",
+      "fri": "週五",
+      "sat": "週六",
+      "sun": "週日"
+    }
+  },
+  "eduChildAttendance": {
+    "title": "孩子考勤",
+    "date": "日期"
+  },
+  "eduChildGrades": {
+    "title": "孩子成績"
+  },
+  "eduChildMeals": {
+    "title": "孩子餐食",
+    "date": "日期",
+    "mealType": "餐類",
+    "dish": "菜品",
+    "ingredients": "食材",
+    "nutrition": "營養"
+  },
+  "eduChildBills": {
+    "title": "孩子帳單",
+    "className": "班級",
+    "term": "學期",
+    "total": "總額",
+    "paid": "已付",
+    "arrears": "欠費",
+    "nextDue": "下次到期"
   }
 }

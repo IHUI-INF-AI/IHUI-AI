@@ -885,7 +885,22 @@
       "loadFailShort": "読み込み失敗",
       "recordNew": "新しい録音"
     },
-    "thinkingShort": "思考中"
+    "thinkingShort": "思考中",
+    "msg": {
+      "thinkingA11y": "思考プロセス切替",
+      "collapse": "畳む",
+      "expand": "展開",
+      "imgA11y": "画像メッセージ、タップでプレビュー",
+      "copied": "コピー済み",
+      "copyCode": "コードをコピー",
+      "collapseCode": "コード閉じる",
+      "expandCode": "コード展開",
+      "thinkingNow": "思考中…",
+      "copy": "コピー",
+      "share2": "共有",
+      "agree": "賛同",
+      "disagree": "反対"
+    }
   },
   "settings": {
     "title": "設定",
@@ -5319,7 +5334,15 @@
     "btnDetail": "詳細"
   },
   "topup": {
-    "failDefault": "チャージ未完了。後で再試行"
+    "failDefault": "チャージ未完了。後で再試行",
+    "faqTitle": "よくある質問",
+    "faqContent": "チャージと注文のFAQ",
+    "faqOk": "わかった",
+    "tip1": "ポイントは即時反映。更新されない場合は再読込",
+    "tip2": "支払い完了で結果ページに留まる場合、注文一覧を確認。二重支払いAvoid.",
+    "tip3": "注文番号は問い合わせに必要です",
+    "tip4": "未着続なら注文番号を書き合わせてサポートへ",
+    "tip5": "チャージは返金不可"
   },
   "devEnterCover": {
     "priceAbnormal": "プラン価格エラー。後で再試行"
@@ -5790,5 +5813,139 @@
     "exam": "試験",
     "score": "点数",
     "date": "日付"
+  },
+  "toolbar": {
+    "svcTraffic": "流量運用伴走",
+    "svcDevice": "デバイス一括アプリ",
+    "svcOther": "その他AIサービス",
+    "aiImage": "AI画像作成",
+    "aiImageD": "かんたん画像制作",
+    "aiVideo": "AI動画作成",
+    "aiVideoD": "かんたん動画制作",
+    "aiCopy": "AIコピーライティング",
+    "aiCopyD": "かんたん文案",
+    "aiClip": "AI自動編集",
+    "aiClipD": "かんたん編集",
+    "aiLive": "AIライブ",
+    "aiLiveD": "AIライブ配信",
+    "aiAvatar": "AIアバター",
+    "aiAvatarD": "アバター制作",
+    "more2": "もっと",
+    "viewMoreA11y": "もっと見る",
+    "oneClickA11y": "ワンクリック生成",
+    "customA11y": "AIカスタマイズ"
+  },
+  "confirm": {
+    "defaultCancel": "キャンセル",
+    "defaultOk": "確認",
+    "payFmt": "今すぐ支払い ¥{v}"
+  },
+  "sr": {
+    "closeA11y": "タップで閉じる",
+    "firstBonus": "初回シェア特典 {n}",
+    "inviteNote": "友達を招待すると双方にポイント",
+    "claimA11y": "{n} を受け取る",
+    "rewardUnit": " ポイント",
+    "footnote": "ポイントは計算力や会員特典と交換可",
+    "claimBtn": "{n} を受け取る"
+  },
+  "dist": {
+    "noInviteCode": "招待コードなし",
+    "linkCopied": "招待リンクコピー済み",
+    "inviteTitle": "AI智汇へ招待",
+    "shared": "共有済み",
+    "shareFail": "共有失敗。再試行",
+    "qrNotReady": "QR準備中…",
+    "needAlbum": "アルバム権限なく保存不可",
+    "savedAlbum": "アルバムへ保存済",
+    "saveFail": "保存失敗。後で再試行",
+    "teamCompany": "会社チーム",
+    "teamCompanyD": "会社チームを見る",
+    "teamAi": "AIチーム",
+    "teamAiD": "エージェントチーム",
+    "card": "名刺",
+    "cardD": "個人情報を表示",
+    "qr": "マイQR",
+    "qrD": "専用QRを宣伝",
+    "orders": "分销注文",
+    "ordersD": "分销注文を見る",
+    "devSoon": "機能開発中",
+    "dealer": "分销業者",
+    "earningsLabel": "分销収益概要",
+    "shareQrA11y": "QR共有",
+    "withdrawDetail": "出金詳細",
+    "copyLinkA11y": "招待リンクコピー",
+    "saveQrA11y": "アルバム保存",
+    "saving": "保存中…",
+    "shareFriendA11y": "友達に共有"
+  },
+  "eduParent": {
+    "title": "保護者センター",
+    "child": "子ども",
+    "relationship": "続柄",
+    "statusTitle": "状態",
+    "status": {
+      "pending": "確認待ち",
+      "confirmed": "確認済み",
+      "active": "有効",
+      "rejected": "拒否済み",
+      "cancelled": "解除済み"
+    },
+    "chooseView": "表示を選択"
+  },
+  "eduParentBind": {
+    "title": "紐付け管理",
+    "student": "生徒",
+    "created": "申請日時",
+    "confirm": "確認",
+    "reject": "拒否",
+    "delete": "削除",
+    "actionTitle": "紐付け操作"
+  },
+  "eduEnrollment": {
+    "title": "クラス",
+    "className": "クラス",
+    "grade": "学年"
+  },
+  "eduSchedule": {
+    "title": "子どもの時間割",
+    "weekdayTitle": "曜日",
+    "course": "科目",
+    "teacher": "担当",
+    "time": "時間",
+    "classroom": "教室",
+    "weekday": {
+      "mon": "月",
+      "tue": "火",
+      "wed": "水",
+      "thu": "木",
+      "fri": "金",
+      "sat": "土",
+      "sun": "日"
+    }
+  },
+  "eduChildAttendance": {
+    "title": "子どもの出席",
+    "date": "日付"
+  },
+  "eduChildGrades": {
+    "title": "子どもの成績"
+  },
+  "eduChildMeals": {
+    "title": "子どもの給食",
+    "date": "日付",
+    "mealType": "食事",
+    "dish": "料理",
+    "ingredients": "食材",
+    "nutrition": "栄養"
+  },
+  "eduChildBills": {
+    "title": "子どもの請求",
+    "className": "クラス",
+    "term": "学期",
+    "total": "合計",
+    "paid": "支払済み",
+    "arrears": "未納",
+    "nextDue": "次回期限"
   }
 }

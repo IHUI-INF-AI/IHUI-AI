@@ -885,7 +885,22 @@
       "loadFailShort": "Load failed",
       "recordNew": "New recording"
     },
-    "thinkingShort": "Thinking"
+    "thinkingShort": "Thinking",
+    "msg": {
+      "thinkingA11y": "Toggle reasoning",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "imgA11y": "Message image, tap to preview",
+      "copied": "Copied",
+      "copyCode": "Copy code",
+      "collapseCode": "Collapse code",
+      "expandCode": "Expand code",
+      "thinkingNow": "Thinking…",
+      "copy": "Copy",
+      "share2": "Share",
+      "agree": "Agree",
+      "disagree": "Dislike"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -5319,7 +5334,15 @@
     "btnDetail": "Details"
   },
   "topup": {
-    "failDefault": "Top-up not completed. Try again later."
+    "failDefault": "Top-up not completed. Try again later.",
+    "faqTitle": "FAQ",
+    "faqContent": "FAQ about top-up & orders",
+    "faqOk": "Got it",
+    "tip1": "Points usually arrive instantly; pull to refresh if not",
+    "tip2": "If payment completed but stuck, check orders first; do not pay twice",
+    "tip3": "Keep your order number for support",
+    "tip4": "If delayed, contact support with order details",
+    "tip5": "Top-ups are non-refundable"
   },
   "devEnterCover": {
     "priceAbnormal": "Plan price error. Try again later."
@@ -5790,5 +5813,139 @@
     "exam": "Exam",
     "score": "Score",
     "date": "Date"
+  },
+  "toolbar": {
+    "svcTraffic": "Traffic ops support",
+    "svcDevice": "One-stop device apps",
+    "svcOther": "Other AI services",
+    "aiImage": "AI image studio",
+    "aiImageD": "Create images easily",
+    "aiVideo": "AI video studio",
+    "aiVideoD": "Create videos easily",
+    "aiCopy": "AI copywriting",
+    "aiCopyD": "Write copy easily",
+    "aiClip": "AI auto-edit",
+    "aiClipD": "Edit easily",
+    "aiLive": "AI live",
+    "aiLiveD": "AI live services",
+    "aiAvatar": "AI avatar",
+    "aiAvatarD": "Make avatars",
+    "more2": "More",
+    "viewMoreA11y": "More AI agent apps",
+    "oneClickA11y": "One-click content",
+    "customA11y": "AI custom service"
+  },
+  "confirm": {
+    "defaultCancel": "Cancel",
+    "defaultOk": "Confirm",
+    "payFmt": "Pay now ¥{v}"
+  },
+  "sr": {
+    "closeA11y": "Tap to close",
+    "firstBonus": "First share bonus: {n} points",
+    "inviteNote": "Invite friends; both earn points after signup",
+    "claimA11y": "Claim {n} points",
+    "rewardUnit": " points",
+    "footnote": "Points can be redeemed for compute & membership perks",
+    "claimBtn": "Claim {n} points"
+  },
+  "dist": {
+    "noInviteCode": "No invite code",
+    "linkCopied": "Invite link copied",
+    "inviteTitle": "Join AI 智汇 community",
+    "shared": "Shared",
+    "shareFail": "Share failed. Retry.",
+    "qrNotReady": "QR not ready yet",
+    "needAlbum": "No album permission, cannot save",
+    "savedAlbum": "Saved to album",
+    "saveFail": "Save failed. Retry later.",
+    "teamCompany": "Company team",
+    "teamCompanyD": "View company team",
+    "teamAi": "AI team",
+    "teamAiD": "View agent team",
+    "card": "My card",
+    "cardD": "View my profile",
+    "qr": "My QR code",
+    "qrD": "Promo QR code",
+    "orders": "Commission orders",
+    "ordersD": "View commission orders",
+    "devSoon": "Coming soon",
+    "dealer": "Dealer",
+    "earningsLabel": "Commission overview",
+    "shareQrA11y": "Share QR",
+    "withdrawDetail": "Withdrawal details",
+    "copyLinkA11y": "Copy invite link",
+    "saveQrA11y": "Save to album",
+    "saving": "Saving…",
+    "shareFriendA11y": "Share to friends"
+  },
+  "eduParent": {
+    "title": "Parent Center",
+    "child": "Child",
+    "relationship": "Relationship",
+    "statusTitle": "Status",
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "active": "Active",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "chooseView": "Choose a view"
+  },
+  "eduParentBind": {
+    "title": "Bindings",
+    "student": "Student",
+    "created": "Requested",
+    "confirm": "Confirm",
+    "reject": "Reject",
+    "delete": "Delete",
+    "actionTitle": "Binding actions"
+  },
+  "eduEnrollment": {
+    "title": "Classes",
+    "className": "Class",
+    "grade": "Grade"
+  },
+  "eduSchedule": {
+    "title": "Child's Schedule",
+    "weekdayTitle": "Day",
+    "course": "Course",
+    "teacher": "Teacher",
+    "time": "Time",
+    "classroom": "Room",
+    "weekday": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
+  },
+  "eduChildAttendance": {
+    "title": "Child's Attendance",
+    "date": "Date"
+  },
+  "eduChildGrades": {
+    "title": "Child's Grades"
+  },
+  "eduChildMeals": {
+    "title": "Child's Meals",
+    "date": "Date",
+    "mealType": "Meal",
+    "dish": "Dish",
+    "ingredients": "Ingredients",
+    "nutrition": "Nutrition"
+  },
+  "eduChildBills": {
+    "title": "Child's Bills",
+    "className": "Class",
+    "term": "Term",
+    "total": "Total",
+    "paid": "Paid",
+    "arrears": "Arrears",
+    "nextDue": "Next due"
   }
 }
