@@ -36,7 +36,7 @@
 1. open source ai agent platform with multi-tenant
 2. self-hosted chatgpt alternative with 176 llms
 3. langgraph mcp a2a triple stack ai framework
-4. ai operating system 8 platforms monorepo
+4. ai operating system 9 platforms monorepo
 5. litellm gateway with rag knowledge base
 6. multi-tenant row level security ai platform
 7. agent marketplace open source apache 2.0
@@ -112,7 +112,7 @@
 
 ## 5. Platform-specific Keywords(平台专属关键词 · 30 个)
 
-按 8 端拆分,每端 3-5 个,布局在各端文档与对应平台搜索(LangChain Hub / Tauri Apps / WXT Docs 等)。
+按 9 端拆分,每端 3-5 个,布局在各端文档与对应平台搜索(LangChain Hub / Tauri Apps / WXT Docs 等)。
 
 ### Web(Next.js 16)
 1. next.js 15 ai saas template
