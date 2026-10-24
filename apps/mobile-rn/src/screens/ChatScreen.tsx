@@ -345,21 +345,21 @@ const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
 /** 7 种模型类型按钮(对齐 Uniapp ai_index.vue 的 model-type-btn;
  *  2026-10-18:原第 8 项「素材」(sck/我的创作)移入输入行「+」面板主入口行) */
 const MODEL_TYPES: readonly ModelTypeConfig[] = [
-  { key: 'skills', label: '技能', Icon: Sparkles },
-  { key: 'talk', label: '对话', Icon: MessageCircle },
-  { key: 'image', label: '图片', Icon: ImageIcon },
-  { key: 'video', label: '视频', Icon: Video },
-  { key: 'audio', label: '音频', Icon: Music },
-  { key: 'videoa', label: '视音', Icon: Clapperboard },
-  { key: 'other', label: '其他', Icon: Cpu },
+  { key: 'skills', label: 'chat.assetCatSkills', Icon: Sparkles },
+  { key: 'talk', label: 'chat.assetCatTalk', Icon: MessageCircle },
+  { key: 'image', label: 'chat.assetCatImage', Icon: ImageIcon },
+  { key: 'video', label: 'chat.assetCatVideo', Icon: Video },
+  { key: 'audio', label: 'chat.assetCatAudio', Icon: Music },
+  { key: 'videoa', label: 'chat.assetCatVideoAudio', Icon: Clapperboard },
+  { key: 'other', label: 'chat.assetCatOther', Icon: Cpu },
 ] as const
 
 /** 素材库分类(对齐 Uniapp MaterialList 的 4 tab:文本/图片/视频/音频) */
-const MATERIAL_CATEGORIES: readonly MaterialCategory[] = [
-  { key: 'text', label: '文本' },
-  { key: 'image', label: '图片' },
-  { key: 'video', label: '视频' },
-  { key: 'audio', label: '音频' },
+const MATERIAL_CATEGORY_KEYS: readonly MaterialCategory[] = [
+  { key: 'text', label: 'chat.assetCatText' },
+  { key: 'image', label: 'chat.assetCatImage' },
+  { key: 'video', label: 'chat.assetCatVideo' },
+  { key: 'audio', label: 'chat.assetCatAudio' },
 ] as const
 
 /** 素材分类 tab → getMyCreation API type(对齐 Uniapp getMaterialApiType:
@@ -541,7 +541,12 @@ export function ChatScreen() {
     route.params?.conversationId ?? null,
   )
   const [prompt, setPrompt] = useState('')
-  useUiTextField({ label: '请输入内容...', value: prompt, setValue: setPrompt, multiline: true })
+  useUiTextField({
+    label: t('chat.inputPlaceholder'),
+    value: prompt,
+    setValue: setPrompt,
+    multiline: true,
+  })
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   // 消息富内容状态:代码块展开(msgId-partIndex) + 图片全屏预览(对齐 ai_index2 toggleCodeBlock/previewImage)
@@ -596,7 +601,7 @@ export function ChatScreen() {
   const [urlInputVisible, setUrlInputVisible] = useState(false)
   const [urlInputValue, setUrlInputValue] = useState('')
   useUiTextField({
-    label: '请输入网页链接(https://...)',
+    label: t('chat.webLinkPlaceholder'),
     value: urlInputValue,
     setValue: setUrlInputValue,
     keyboardType: 'url',
@@ -685,12 +690,10 @@ export function ChatScreen() {
       showToast(
         'warning',
         message ||
-          (reason === 'permission-denied'
-            ? '无法访问麦克风,请检查权限设置'
-            : '录音启动失败,请重试'),
+          (reason === 'permission-denied' ? t('chat.micPermHint') : t('chat.micInitFailed')),
       )
     },
-    [showToast],
+    [showToast, t],
   )
 
   // ── D135 执行帧接线状态(承 V4 #93) ──
@@ -854,14 +857,14 @@ export function ChatScreen() {
     // 不再自动登录 —— 而此刻根本没有会话可退,只是在提示一个未登录的人去登录。
     // 未登录分支本来就挂着 Login(`RootNavigator` 两端都注册),直达即可。
     if (!authUser) {
-      appAlert('提示', '请先登录后再发送消息', [
+      appAlert(t('common.hint'), t('chat.loginToSend'), [
         {
           text: t('chatAlert.loginBtn'),
           onPress: () => {
             navigateTo('Login')
           },
         },
-        { text: '取消', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
       ])
       return
     }
@@ -870,9 +873,12 @@ export function ChatScreen() {
     const isPaidModel = currentModelInfo ? currentModelInfo.input_price > 0 : false
     const isVip = authUser.isVip === 1
     if (isPaidModel && !isVip) {
-      appAlert('提示', '该模型为 VIP 专享,开通会员后可使用', [
-        { text: '开通会员', onPress: () => navigation.navigate('Vip', { type: 'IntroducePopup' }) },
-        { text: '取消', style: 'cancel' },
+      appAlert(t('common.hint'), t('chat.vipOnlyModel'), [
+        {
+          text: t('chat.openVipBtn'),
+          onPress: () => navigation.navigate('Vip', { type: 'IntroducePopup' }),
+        },
+        { text: t('common.cancel'), style: 'cancel' },
       ])
       return
     }
@@ -1060,7 +1066,10 @@ export function ChatScreen() {
       },
       // 模型降级(P4-2):本端无横幅位,FloatBox 是既有瞬时提示出口
       onFallback: (event) => {
-        showToast('info', `模型降级:${event.primaryModel} → ${event.backupModel}`)
+        showToast(
+          'info',
+          t('chat.modelDegrade', { from: event.primaryModel, to: event.backupModel }),
+        )
       },
       // 流式中断标记帧(G-815976 收口入契约):llm_gateway astream 异常中断且已发过
       // chunk 时发出,此后流终止不会再有 done —— 半截回答必须如实告知截断,
@@ -1110,7 +1119,7 @@ export function ChatScreen() {
       onReconnect: (attempt, delayMs) => {
         showToast(
           'info',
-          `网络波动,正在第 ${attempt} 次重连(${Math.max(1, Math.round(delayMs / 1000))}s 后)`,
+          t('chat.reconnecting', { attempt, countdown: Math.max(1, Math.round(delayMs / 1000)) }),
         )
       },
       // response 已到达(冷启动 watchdog 信号):本端无该 watchdog,最小态 = 计数
@@ -1159,7 +1168,7 @@ export function ChatScreen() {
         if (formatted.severity === 'auth') {
           appAlert(formatted.title, formatted.message, [
             {
-              text: '重新登录',
+              text: t('chat.reloginBtn'),
               onPress: () => {
                 // 服务端把这次会话判死了 ⇒ 走**被动失效**出口:先跳(同步可达),再清本地
                 // 凭据。`expireAuth()` 不落登出标记(那是用户主动退出的语义),否则一次
@@ -1168,7 +1177,7 @@ export function ChatScreen() {
                 void expireAuth()
               },
             },
-            { text: '取消', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
           ])
         } else {
           showToast('error', formatted.message)
@@ -1531,18 +1540,20 @@ export function ChatScreen() {
         name: asset.name ?? `file-${Date.now()}`,
       })
       if (up.success && up.data?.path) {
-        const fileName = asset.name ?? '文件'
-        setPrompt((p) => `${p ? `${p}\n` : ''}[文件] ${fileName} ${resolveFileUrl(up.data!.path)}`)
-        showToast('success', `已上传:${fileName}`)
+        const fileName = asset.name ?? t('home.fallbackFileName')
+        setInput((p) =>
+          p ? `${p}\n[文件] ${fileName} ${res.url}` : `[文件] ${fileName} ${res.url}`,
+        )
+        showToast('success', t('home.uploadedNameToast', { name: fileName }))
       } else {
-        showToast('warning', '文件上传失败')
+        showToast('warning', t('home.fileUploadFailed'))
       }
     } catch {
-      showToast('warning', '文件选择失败,请重试')
+      showToast('warning', t('home.filePickRetry'))
     } finally {
       setFileUploading(false)
     }
-  }, [showToast, setPrompt])
+  }, [showToast, setPrompt, t])
 
   /** 关闭功能/来源面板 */
   const closeFunctionPanel = (): void => setFunctionPanelVisible(false)
@@ -1567,13 +1578,13 @@ export function ChatScreen() {
           const url = resolveFileUrl(up.data.path)
           void sendRef.current(`[语音] ${url} ${durationSec}`)
         } else {
-          showToast('warning', '语音上传失败,请重试')
+          showToast('warning', t('home.voiceUploadRetry'))
         }
       } catch {
-        showToast('warning', '语音上传失败,请重试')
+        showToast('warning', t('home.voiceUploadRetry'))
       }
     },
-    [showToast],
+    [showToast, t],
   )
 
   // ── D126 实时语音(回合式):建会话 → live → 按住说话(原始录音)→ 松手 turn → 播响应 ──
@@ -1607,12 +1618,12 @@ export function ChatScreen() {
           setPrompt((p) => (p ? `${p}\n${result.responseText}` : result.responseText))
         }
       } catch (e) {
-        showToast('warning', e instanceof Error ? e.message : '语音回合失败,请重试')
+        showToast('warning', e instanceof Error ? e.message : t('chat.roundFailed'))
       } finally {
         setTurnBusy(false)
       }
     },
-    [showToast, ttsPlayer],
+    [showToast, ttsPlayer, t],
   )
   // 原始录音模式:跳过 STT,松手把录音文件交给 handleRealtimeTurn(面板为 Modal,与输入条录音天然互斥)
   const realtimeRecorder = useVoiceRecorder({
@@ -1631,9 +1642,9 @@ export function ChatScreen() {
       setRealtimeVoiceState('live')
     } catch (e) {
       setRealtimeVoiceState('error')
-      setRealtimeErrorText(e instanceof Error ? e.message : '连接失败,请重试')
+      setRealtimeErrorText(e instanceof Error ? e.message : t('chat.connectFailRetry'))
     }
-  }, [realtimeVoiceState])
+  }, [realtimeVoiceState, t])
   const handleRealtimeTalkPress = useCallback(
     (pressed: boolean): void => {
       if (pressed) {
@@ -1666,7 +1677,7 @@ export function ChatScreen() {
       .find((message) => message.role === 'assistant' && message.content.trim())
     if (!lastAi) {
       setTtsVisible(false)
-      showToast('info', '暂无消息可转换')
+      showToast('info', t('chat.noMsgToTts'))
       return
     }
 
@@ -1680,9 +1691,9 @@ export function ChatScreen() {
       ttsPlayer.replace(audioFile.uri)
       ttsPlayer.play()
       setTtsVisible(false)
-      showToast('success', `语音生成成功(${voiceType})`)
+      showToast('success', t('chat.ttsSuccess', { voice: voiceType }))
     } catch {
-      showToast('error', '语音生成失败,请重试')
+      showToast('error', t('chat.ttsFailRetry'))
     } finally {
       setTtsLoading(false)
     }
@@ -1698,7 +1709,7 @@ export function ChatScreen() {
     setFunctionPanelVisible(false)
     const lastAi = [...messages].reverse().find((m) => m.role === 'assistant' && m.content.trim())
     if (!lastAi) {
-      showToast('info', '暂无消息可收藏')
+      showToast('info', t('chat.noMsgToFav'))
       return
     }
     const isFavorited = favoritedMessageIds.has(lastAi.id)
@@ -1713,20 +1724,20 @@ export function ChatScreen() {
     // 无 conversationId(未关联后端对话)时降级:仅本地 UI 状态,不调 API
     if (!conversationId) {
       applyLocalToggle()
-      showToast('success', isFavorited ? '已取消收藏' : '已收藏')
+      showToast('success', isFavorited ? t('chat.favOff') : t('chat.favOn'))
       return
     }
     void batchOperateConversations(isFavorited ? 'unfavorite' : 'favorite', [conversationId])
       .then((res) => {
         if (res.success) {
           applyLocalToggle()
-          showToast('success', isFavorited ? '已取消收藏' : '已收藏')
+          showToast('success', isFavorited ? t('chat.favOff') : t('chat.favOn'))
         } else {
-          showToast('error', `收藏操作失败:${res.error ?? '未知错误'}`)
+          showToast('error', t('chat.favOpFail', { reason: res.error ?? t('mat.unknown') }))
         }
       })
-      .catch(() => showToast('error', '收藏失败,请稍后重试'))
-  }, [conversationId, favoritedMessageIds, messages, showToast])
+      .catch(() => showToast('error', t('chat.favFailRetry')))
+  }, [conversationId, favoritedMessageIds, messages, showToast, t])
 
   /**
    * P1.4 网页链接确认:将输入的 URL 作为消息发送。
@@ -1744,13 +1755,13 @@ export function ChatScreen() {
   const confirmClearMessages = (): void => {
     setFunctionPanelVisible(false)
     if (messages.length === 0) {
-      showToast('warning', '当前对话为空')
+      showToast('warning', t('chat.chatEmptyToast'))
       return
     }
-    appAlert('清空对话', '确认清空当前对话的所有消息?', [
-      { text: '取消', style: 'cancel' },
+    appAlert(t('chat.clearDialogTitle'), t('chat.clearDialogBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '清空',
+        text: t('chat.clearOk'),
         style: 'destructive',
         onPress: () => {
           setMessages([])
@@ -1762,19 +1773,20 @@ export function ChatScreen() {
           setConversationId(null)
         },
       },
+      t,
     ])
   }
 
   /** 把当前消息列表格式化为可分享文本(对齐 Uniapp 导出对话格式) */
   const formatMessagesText = useCallback((): string => {
-    if (messages.length === 0) return '智汇AI 对话(空)'
-    const lines: string[] = ['智汇AI 对话记录', '================']
+    if (messages.length === 0) return t('chat.exportEmptyTitle')
+    const lines: string[] = [t('chat.exportHeader'), '================']
     messages.forEach((m) => {
       const speaker = m.role === 'user' ? '我' : m.role === 'assistant' ? 'AI' : m.role
       lines.push(`【${speaker}】${m.content}`)
     })
     return lines.join('\n')
-  }, [messages])
+  }, [messages, t])
 
   // ── 分享领智汇值弹窗(对齐 Uniapp showSharePointsPopup / first/share/show) ──
   // 触发:任意分享动作成功后自动检查首次分享奖励(未领取则弹窗);领取走 /api/share/first-claim(幂等)。
@@ -1941,7 +1953,7 @@ export function ChatScreen() {
       return
     }
     if (type === 'camera') {
-      showToast('info', '相机拍摄待接入,请先用相册上传图片')
+      showToast('info', t('chat.camSoonHint'))
       return
     }
     // file / wxfile → 文件选择上传(复用 handleFileUpload DocumentPicker 流程)
@@ -2002,13 +2014,13 @@ export function ChatScreen() {
       const res = await claimShareFirstReward()
       hideSharePoints()
       if (res.success) {
-        showToast('success', `已领取 ${res.data.points} 智汇值`)
+        showToast('success', t('chat.shareClaimed', { points: res.data.points }))
       } else {
-        showToast('info', res.error ?? '已领取过首次分享奖励')
+        showToast('info', res.error ?? t('chat.shareClaimedOnce'))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      showToast('error', detail.trim() ? toUserFriendlyMessage(e) : '领取失败,请稍后重试')
+      showToast('error', detail.trim() ? toUserFriendlyMessage(e) : t('chat.shareClaimFailed'))
     }
   }
 
@@ -2171,9 +2183,12 @@ export function ChatScreen() {
           onPress={() => setTishiShow((v) => !v)}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={tishiShow ? '关闭卡片' : '查看卡片'}
+          accessibilityLabel={tishiShow ? t('chat.closeCard') : t('chat.viewCard')}
         >
-          <Text style={styles.tishiBtnText}>{tishiShow ? '关闭' : '查看'}卡片</Text>
+          <Text style={styles.tishiBtnText}>
+            {tishiShow ? t('chat.closeCardShort') : t('chat.viewCardShort')}
+            {t('chat.cardWord')}
+          </Text>
         </Pressable>
         {tishiShow ? (
           <View style={styles.tishiCardWrap}>
@@ -2233,7 +2248,7 @@ export function ChatScreen() {
                 hitSlop={8}
                 onPress={() => removeMaterialCard(card.id)}
                 style={styles.materialCardClose}
-                accessibilityLabel="删除素材"
+                accessibilityLabel={t('chat.matDeleteA11y')}
               >
                 <X size={12} color={tokens.surface.light} />
               </Pressable>
@@ -2241,7 +2256,9 @@ export function ChatScreen() {
                 {card.title}
               </Text>
               <Text style={styles.materialCardPreview} numberOfLines={1}>
-                {card.content ? card.content.slice(0, 20) : `类型${card.type}`}
+                {card.content
+                  ? card.content.slice(0, 20)
+                  : t('chat.matTypePrefix') + `${card.type}`}
               </Text>
             </View>
           ))}
@@ -2262,7 +2279,7 @@ export function ChatScreen() {
                 hitSlop={8}
                 onPress={() => removeImage(file.id)}
                 style={styles.imgsListClose}
-                accessibilityLabel="删除图片"
+                accessibilityLabel={t('chat.imageDelete')}
               >
                 <X size={10} color={tokens.surface.light} />
               </Pressable>
@@ -2296,23 +2313,24 @@ export function ChatScreen() {
       >
         {MODEL_TYPES.map(({ key, label, Icon }) => {
           const active = currentModelType === key
+          const labelTxt = t(label)
           return (
             <Pressable
               key={key}
               onPress={() => handleModelTypeClick(key)}
               style={[styles.modelTypeBtn, active ? styles.modelTypeBtnActive : null]}
-              accessibilityLabel={label}
+              accessibilityLabel={labelTxt}
             >
               <Icon size={24} color={active ? tokens.brand.DEFAULT : tokens.text.secondary} />
               <Text style={[styles.modelTypeLabel, active ? styles.modelTypeLabelActive : null]}>
-                {label}
+                {labelTxt}
               </Text>
             </Pressable>
           )
         })}
       </ScrollView>
     )
-  }, [currentModelType, handleModelTypeClick])
+  }, [currentModelType, handleModelTypeClick, t])
 
   // ── 二维码弹窗(对齐 Uniapp showQrCode / hideQrCode) ──
   const showQrCode = (): void => setQrCodeVisible(true)
@@ -2321,18 +2339,18 @@ export function ChatScreen() {
     try {
       const perm = await MediaLibrary.requestPermissionsAsync()
       if (!perm.granted) {
-        showToast('warning', '需要相册权限才能保存二维码')
+        showToast('warning', t('chat.qrNeedPerm'))
         return
       }
       if (!qrCodeViewRef.current) {
-        showToast('error', '二维码未渲染,请稍后重试')
+        showToast('error', t('chat.qrNotRendered'))
         return
       }
       const uri = await captureRef(qrCodeViewRef, { format: 'png', quality: 1 })
       await MediaLibrary.saveToLibraryAsync(uri)
-      showToast('success', '二维码已保存到相册')
+      showToast('success', t('chat.qrSaved'))
     } catch {
-      showToast('error', '保存失败,请重试')
+      showToast('error', t('chat.qrSaveFail'))
     }
   }
 
@@ -2342,7 +2360,7 @@ export function ChatScreen() {
   }
   const handleShareClick = async (): Promise<void> => {
     try {
-      await Share.share({ message: '智汇AI社区 — 邀请你加入,一起探索 AI 对话!' })
+      await Share.share({ message: t('chat.inviteShareBody') })
     } catch {
       // 用户取消分享,静默处理
     }
@@ -2360,7 +2378,7 @@ export function ChatScreen() {
       id: nextMaterialCardId(),
       type: cardType,
       // item 在列表中找不到时回退占位标题(仅理论边界,勿伪造接口)
-      title: item?.title ?? `素材 ${id}`,
+      title: item?.title ?? `${t('chat.matFallback')} ${id}`,
       content: item?.text ?? '',
     }
     setMaterialCards((prev) => [...prev, card])
@@ -2369,27 +2387,27 @@ export function ChatScreen() {
   /** 素材长按删除(对齐 Uniapp MaterialList 删除;后端 DELETE /agents/:agentId) */
   const handleMaterialDelete = useCallback(
     (item: MaterialItem): void => {
-      appAlert('删除素材', `确认删除「${item.title}」？`, [
-        { text: '取消', style: 'cancel' },
+      appAlert(t('mat.deleteTitle'), t('mat.deleteBody', { title: item.title }), [
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '删除',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             void deleteAgent(item.id)
               .then((res) => {
                 if (res.success) {
                   setMaterialItems((prev) => prev.filter((m) => m.id !== item.id))
-                  showToast('success', '已删除')
+                  showToast('success', t('common.deleted'))
                 } else {
-                  showToast('warning', '删除失败')
+                  showToast('warning', t('chat.chatDeleteFailed2'))
                 }
               })
-              .catch(() => showToast('warning', '删除失败'))
+              .catch(() => showToast('warning', t('chat.chatDeleteFailed2')))
           },
         },
       ])
     },
-    [showToast],
+    [showToast, t],
   )
   /** 素材详情弹窗:按当前分类 tab 推导 API type,getMyCreationDetail 拉取单条后展示
    *  audio 无对应类型 → toast 提示;失败置 error,弹窗内提供重试 */
@@ -2397,7 +2415,7 @@ export function ChatScreen() {
     (item: MaterialItem): void => {
       const apiType = materialApiTypeForCategory(materialTab)
       if (apiType === null) {
-        showToast('info', '该素材暂不支持查看详情')
+        showToast('info', t('chat.matNoDetailHint'))
         return
       }
       setMaterialDetailItem(item)
@@ -2409,13 +2427,13 @@ export function ChatScreen() {
           if (res.success) {
             setMaterialDetailData(res.data)
           } else {
-            setMaterialDetailError(apiFailureToText(res, '加载详情失败'))
+            setMaterialDetailError(apiFailureToText(res, t('chat.loadDetailFail')))
           }
         })
-        .catch(() => setMaterialDetailError('网络异常,加载失败'))
+        .catch(() => setMaterialDetailError(t('chat.netLoadFail')))
         .finally(() => setMaterialDetailLoading(false))
     },
-    [materialTab, showToast],
+    [materialTab, showToast, t],
   )
 
   /** 关闭素材详情弹窗并清空数据 */
@@ -2455,7 +2473,7 @@ export function ChatScreen() {
     const feishuUrl =
       'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
     Clipboard.setString(feishuUrl)
-    showToast('success', '链接已复制到剪贴板,可在浏览器粘贴打开')
+    showToast('success', t('chat.linkCopied'))
   }
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
@@ -2546,10 +2564,10 @@ export function ChatScreen() {
           listRef.current?.scrollToEnd({ animated: true })
         })
       } else {
-        showToast('error', '加载历史对话失败,请重试')
+        showToast('error', t('chat.historyLoadFail'))
       }
     },
-    [showToast],
+    [showToast, t],
   )
 
   // 从 ProfileScreen Drawer 跳转时携带 conversationId,自动加载对应对话
@@ -2670,10 +2688,10 @@ export function ChatScreen() {
     void loadConversationMessages(id)
   }
   const handleDrawerDeleteConversation = (id: string): void => {
-    appAlert('删除对话', '确认删除此对话?', [
-      { text: '取消', style: 'cancel' },
+    appAlert(t('chat.delConvTitle'), t('chat.delConvBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: '确认',
+        text: t('common.confirm'),
         style: 'destructive',
         onPress: () => {
           // 乐观删除:先从本地列表移除,API 失败时回滚
@@ -2683,7 +2701,7 @@ export function ChatScreen() {
             const res = await deleteConversation(id)
             if (!res.success) {
               setDrawerConversations(snapshot)
-              showToast('error', '删除失败,请重试')
+              showToast('error', t('chat.chatDeleteFail'))
             }
           })()
         },
@@ -2725,7 +2743,7 @@ export function ChatScreen() {
   // ── Drawer user 映射(AuthUser → Drawer user) ──
   const drawerUser = {
     avatar: authUser?.avatar,
-    nickname: authUser?.nickname ?? authUser?.username ?? '未登录',
+    nickname: authUser?.nickname ?? authUser?.username ?? t('profile.notLoggedIn'),
     level: (authUser?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
@@ -2805,17 +2823,29 @@ export function ChatScreen() {
               <Pressable
                 hitSlop={8}
                 onPress={() => setDrawerVisible(true)}
-                accessibilityLabel="打开菜单"
+                accessibilityLabel={t('chat.topBarMenu')}
               >
                 <PanelLeftRounded size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
-              <Pressable hitSlop={8} onPress={showAgentList} accessibilityLabel="选择 Agent">
+              <Pressable
+                hitSlop={8}
+                onPress={showAgentList}
+                accessibilityLabel={t('chat.topBarAgent')}
+              >
                 <Bot size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
-              <Pressable hitSlop={8} onPress={goToMyPage} accessibilityLabel="个人中心">
+              <Pressable
+                hitSlop={8}
+                onPress={goToMyPage}
+                accessibilityLabel={t('chat.topBarProfile')}
+              >
                 <Share2 size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
-              <Pressable hitSlop={8} onPress={showQrCode} accessibilityLabel="加入社区">
+              <Pressable
+                hitSlop={8}
+                onPress={showQrCode}
+                accessibilityLabel={t('chat.topBarCommunity')}
+              >
                 <QrCode size={NAVBAR_ACTION_GLYPH_PX} color={tokens.text.medium} />
               </Pressable>
             </View>
@@ -3018,7 +3048,7 @@ export function ChatScreen() {
           <Pressable style={styles.modalMask} onPress={closeMaterialList}>
             <Pressable style={styles.materialPopup} onPress={(e) => e.stopPropagation()}>
               <MaterialList
-                categories={[...MATERIAL_CATEGORIES]}
+                categories={MATERIAL_CATEGORY_KEYS.map((c) => ({ ...c, label: t(c.label) }))}
                 activeCategory={materialTab}
                 onCategoryChange={handleMaterialCategoryChange}
                 items={materialItems}
@@ -3044,7 +3074,7 @@ export function ChatScreen() {
           <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle} numberOfLines={1}>
-                {materialDetailItem?.title ?? '素材详情'}
+                {materialDetailItem?.title ?? t('mat.detailLabel')}
               </Text>
               <Pressable hitSlop={8} onPress={closeMaterialDetail} style={styles.listDialogClose}>
                 <X size={18} color={tokens.text.secondary} />
@@ -3117,7 +3147,7 @@ export function ChatScreen() {
         reward={shareFirstReward}
         onClaim={handleClaimShareReward}
         onClose={hideSharePoints}
-        secondaryLabel="立即分享邀请好友"
+        secondaryLabel={t('chat.shareInviteNow')}
         onSecondaryPress={handleShareClick}
       />
 
@@ -3177,7 +3207,7 @@ export function ChatScreen() {
                 style={styles.urlInputField}
                 value={urlInputValue}
                 onChangeText={setUrlInputValue}
-                placeholder="请输入网页链接(https://...)"
+                placeholder={t('chat.webLinkPlaceholder')}
                 placeholderTextColor={tokens.text.tertiary}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -3190,7 +3220,7 @@ export function ChatScreen() {
                 }}
                 style={styles.urlInputConfirmBtn}
                 accessibilityRole="button"
-                accessibilityLabel="发送链接"
+                accessibilityLabel={t('chat.sendLink')}
               >
                 <Text style={styles.urlInputConfirmText}>发送</Text>
               </Pressable>
@@ -3232,10 +3262,10 @@ export function ChatScreen() {
                 onPress={() => void handleFileUpload()}
                 style={styles.fileUploadConfirmBtn}
                 accessibilityRole="button"
-                accessibilityLabel="选择文件"
+                accessibilityLabel={t('chat.selectFile')}
               >
                 <Text style={styles.fileUploadConfirmText}>
-                  {fileUploading ? '上传中…' : '选择文件'}
+                  {fileUploading ? t('chat.uploadingShort') : t('chat.selectFile')}
                 </Text>
               </Pressable>
             </View>
@@ -3303,7 +3333,11 @@ export function ChatScreen() {
       />
 
       {/* 功能面板(对齐 Uniapp function-handle 子组件,底部上滑 6 项 AI 功能) */}
-      <BottomPops visible={functionPanelVisible} onClose={closeFunctionPanel} title="功能">
+      <BottomPops
+        visible={functionPanelVisible}
+        onClose={closeFunctionPanel}
+        title={t('chat.fnTitle')}
+      >
         {functionPanelItems.map((item) => (
           // 守门 131 改型:panelItem 无边距、有定高 ⇒ 外层不设 style(父列默认拉伸+内容定高,
           // 命中盒与原 Pressable 全等),可视行盒 + pressed 淡出落内层。
@@ -3327,7 +3361,7 @@ export function ChatScreen() {
           onPress={closeFunctionPanel}
           style={styles.panelCancelBtnSlot}
           accessibilityRole="button"
-          accessibilityLabel="取消"
+          accessibilityLabel={t('common.cancel')}
         >
           {({ pressed }) => (
             <View style={[styles.panelCancelBtnFace, pressed && styles.panelItemPressed]}>
@@ -3338,7 +3372,11 @@ export function ChatScreen() {
       </BottomPops>
 
       {/* 来源面板(对齐 Uniapp source-handle 子组件,底部上滑 4 项知识来源) */}
-      <BottomPops visible={sourcePanelVisible} onClose={closeSourcePanel} title="知识来源">
+      <BottomPops
+        visible={sourcePanelVisible}
+        onClose={closeSourcePanel}
+        title={t('chat.sourceTitlePanel')}
+      >
         {sourcePanelItems.map((item) => (
           // 守门 131 改型:同功能面板 —— 外层不设 style,可视行盒 + pressed 落内层。
           <Pressable
@@ -3361,7 +3399,7 @@ export function ChatScreen() {
           onPress={closeSourcePanel}
           style={styles.panelCancelBtnSlot}
           accessibilityRole="button"
-          accessibilityLabel="取消"
+          accessibilityLabel={t('common.cancel')}
         >
           {({ pressed }) => (
             // 与功能面板同形:取消是"卡片式按钮"而非"列表行"(此前两个并排面板观感割裂)
@@ -3412,7 +3450,7 @@ export function ChatScreen() {
             style={styles.fangdaInput}
             value={prompt}
             onChangeText={setPrompt}
-            placeholder="请输入内容..."
+            placeholder={t('chat.inputPlaceholder')}
             placeholderTextColor={tokens.text.tertiary}
             multiline
             autoFocus
@@ -3446,7 +3484,7 @@ export function ChatScreen() {
               source={{ uri: previewImageUrl }}
               style={styles.imagePreviewFull}
               resizeMode="contain"
-              accessibilityLabel="图片预览"
+              accessibilityLabel={t('chat.imagePreviewA11y')}
             />
           ) : null}
           <Pressable
@@ -3454,7 +3492,7 @@ export function ChatScreen() {
             onPress={() => setPreviewImageUrl(null)}
             style={styles.imagePreviewClose}
             accessibilityRole="button"
-            accessibilityLabel="关闭预览"
+            accessibilityLabel={t('home.closePreview')}
           >
             {/* 底改实底白后字形必须换档:白底配 text.primary(亮近黑 / 暗近白),不再用 surface.light 白字 */}
             <X size={rnGeometry.glyphMd} color={tokens.text.primary} />
@@ -3466,7 +3504,7 @@ export function ChatScreen() {
             }}
             style={styles.imagePreviewAnnotate}
             accessibilityRole="button"
-            accessibilityLabel="标注此图"
+            accessibilityLabel={t('chat.menuAnnotateImage')}
           >
             {/* D124:图片标注编辑器入口(与关闭钮同一行,左移一个按钮位) */}
             <PenLine size={rnGeometry.glyphMd} color={tokens.text.primary} />
@@ -3494,7 +3532,7 @@ export function ChatScreen() {
                 if (up.success && up.data?.path) {
                   const url = resolveFileUrl(up.data.path)
                   setPrompt((p) => (p ? `${p}\n${url}` : url))
-                  showToast('success', '标注图已加入输入框')
+                  showToast('success', t('chat.annotAdded'))
                   setAnnotatorUri(null)
                   return
                 }
@@ -3507,7 +3545,7 @@ export function ChatScreen() {
               }`
               setPrompt((p) => (p ? `${p}\n${summary}` : summary))
               setAnnotatorUri(null)
-              showToast('success', '标注已加入输入框')
+              showToast('success', t('chat.annotAdded'))
             })()
             return
           }
@@ -3517,7 +3555,7 @@ export function ChatScreen() {
           }`
           setPrompt((p) => (p ? `${p}\n${summary}` : summary))
           setAnnotatorUri(null)
-          showToast('success', '标注已加入输入框')
+          showToast('success', t('chat.annotAdded'))
         }}
       />
     </View>
@@ -3544,7 +3582,7 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
   const mdl = c.model ?? ''
   return {
     id: c.id,
-    title: c.title?.trim() || '未命名对话',
+    title: c.title?.trim() || t('chat.untitledChat'),
     modelConfig: mdl ? { id: mdl, name: mdl, icon: undefined } : undefined,
     createdAt,
     favorited: c.favorite === true,
