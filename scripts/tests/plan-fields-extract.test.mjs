@@ -394,3 +394,27 @@ describe('侧车去重:同键多条只留最新,解析映射零变化(门 234 �
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+describe('声明式改判(2026-10-25):判据修正后侧车旧桶必须能被逐条改判', () => {
+  const recs = [
+    { key: 'G-1#长会话渲染成本', waiting: 'human', blocking: '', updatedAt: '2026-10-24T00:00:00.000Z', updatedBy: 'x' },
+    { key: 'G-2#USDTTRC20ADDRESS仍空', waiting: 'human', blocking: '', updatedAt: '2026-10-24T00:00:00.000Z', updatedBy: 'x' },
+  ]
+  it('合法声明 ⇒ 只改声明的字段,并留 updatedBy=plan-fields-reclassify', () => {
+    const r = X.applyReclassify(recs, [{ key: 'G-1#长会话渲染成本', waiting: 'none', blocking: '', why: '机主已两次拍板,决策已定只剩实施' }])
+    assert.equal(r.error, undefined)
+    assert.equal(r.changes.length, 1)
+    assert.equal(r.changes[0].rec.waiting, 'none')
+    assert.equal(r.changes[0].rec.updatedBy, 'plan-fields-reclassify')
+  })
+  it('陈旧 key / 理由过短 / waiting 非法 ⇒ 整批拒(不做部分应用)', () => {
+    assert.match(X.applyReclassify(recs, [{ key: 'G-9#不存在', waiting: 'none', why: '理由足够长的定向说明' }]).error, /不在侧车面/)
+    assert.match(X.applyReclassify(recs, [{ key: 'G-1#长会话渲染成本', waiting: 'none', why: '短' }]).error, /少于 10 字/)
+    assert.match(X.applyReclassify(recs, [{ key: 'G-1#长会话渲染成本', waiting: 'maybe', why: '理由足够长的定向说明' }]).error, /只能/)
+  })
+  it('声明与现状同形 ⇒ 不产生 change(不制造"改过"的假账)', () => {
+    const r = X.applyReclassify(recs, [{ key: 'G-1#长会话渲染成本', waiting: 'human', why: '与现状同形的声明应被跳过' }])
+    assert.equal(r.error, undefined)
+    assert.equal(r.changes.length, 0)
+  })
+})

@@ -500,6 +500,33 @@ function selfTest() {
   return fails === 0 ? 0 : 1
 }
 
+/**
+ * 纯函数:声明式改判的**唯一判据**(main 的 `--reclassify` 档只做 I/O 与打印)。
+ * 逐条校验 key 在面 / why ≥10 字 / waiting 合法;与现状同形 ⇒ 跳过(不制造"改过"的假账);
+ * 任一不合格 ⇒ 整批 `{error}`(不做部分应用)。
+ */
+export function applyReclassify(records, items, nowIso = new Date().toISOString()) {
+  const byKey = new Map((records ?? []).map((r) => [r.key, r]))
+  const WAITING = new Set(['none', 'env', 'human'])
+  const changes = []
+  for (const [k, it] of (items ?? []).entries()) {
+    if (!it || typeof it.key !== 'string' || typeof it.why !== 'string' || it.why.trim().length < 10)
+      return { error: `第 ${k + 1} 项缺 key / why 或理由少于 10 字(不说明理由的改判等于替人猜)` }
+    const rec = byKey.get(it.key)
+    if (!rec) return { error: `第 ${k + 1} 项 key 不在侧车面(陈旧声明不记通过):${it.key}` }
+    if (it.waiting !== undefined && !WAITING.has(it.waiting))
+      return { error: `第 ${k + 1} 项 waiting 只能是 none/env/human,实际 ${JSON.stringify(it.waiting)}` }
+    const next = { ...rec }
+    if (it.waiting !== undefined) next.waiting = it.waiting
+    if (it.blocking !== undefined) next.blocking = String(it.blocking)
+    if (sigOf(next) === sigOf(rec)) continue
+    next.updatedAt = nowIso
+    next.updatedBy = 'plan-fields-reclassify'
+    changes.push({ key: it.key, from: sigOf(rec), to: sigOf(next), why: it.why, rec: next })
+  }
+  return { changes }
+}
+
 function main() {
   const argv = process.argv.slice(2)
   const has = (f) => argv.includes(f)
@@ -522,6 +549,56 @@ function main() {
       const w = writeDedupedRecords(ROOT, r.records)
       console.log(`已去重:${w.before} → ${w.after} 条 → ${path.relative(ROOT, w.path)}`)
     } else console.log('   无需去重(同键至多一条)')
+    return 0
+  }
+  // 声明式改判(2026-10-25 立):抽取器的桶来自**当时的散文判据**,判据修正后侧车会把旧桶钉住
+  // (v2 尺侧车优先)⇒ 机主令要求代裁结清"待拍板"时,改行也改不动桶。出口 = 逐条声明 key/waiting/
+  // blocking/why,与 live-doc-edit 的 LIVE_BUCKET_RECLASSIFY 同一条纪律(逐条、带原因、陈旧不记通过)。
+  if (has('--reclassify')) {
+    const i = argv.indexOf('--reclassify')
+    const file = argv[i + 1]
+    const apply = has('--apply')
+    if (!file || file.startsWith('--')) {
+      console.log('❌ 用法:--reclassify <声明档 JSON> [--apply](缺省 dry-run)')
+      return 2
+    }
+    const d = dedupeRecords(ROOT)
+    if (d.state === 'refused' || d.state === 'undetermined') {
+      console.log(`⚠️ 未判定/拒绝 —— ${d.why}`)
+      console.log('RECLASSIFY-RESULT state=undetermined changed=0')
+      return 2
+    }
+    let items
+    try {
+      items = JSON.parse(readFileSync(file, 'utf8'))
+    } catch (e) {
+      console.log(`❌ 读不到/解析不了声明档(${file}):${String(e?.message ?? e).split('\n')[0]}`)
+      return 2
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      console.log('❌ 声明档必须是非空数组 [{key, waiting?, blocking?, why}]')
+      return 2
+    }
+    const records = d.records ?? []
+    const byKey = new Map(records.map((r) => [r.key, r]))
+    const res = applyReclassify(records, items)
+    if (res.error) {
+      console.log(`❌ ${res.error}`)
+      return 2
+    }
+    const changes = res.changes
+    for (const c of changes) console.log(`  ⟳ ${c.key}: ${c.from} → ${c.to}(原因:${c.why})`)
+    console.log(`RECLASSIFY-RESULT changed=${changes.length} declared=${items.length}`)
+    if (!apply) {
+      console.log('   (dry-run:零写盘 —— 侧车文件一个字节都不动)')
+      return changes.length ? 1 : 0
+    }
+    if (changes.length) {
+      for (const c of changes) byKey.set(c.key, c.rec)
+      const nextRecords = records.map((r) => byKey.get(r.key) ?? r)
+      const w = writeDedupedRecords(ROOT, nextRecords)
+      console.log(`已改判 ${changes.length} 条 → ${path.relative(ROOT, w.path)}`)
+    }
     return 0
   }
   const modes = ['--check', '--dry-run', '--apply'].filter(has)
@@ -578,6 +655,7 @@ export const __test__ = {
   extractFromLine,
   enrichRecord,
   batchBucketDrift,
+  applyReclassify,
   writeRecords,
   readBackCount,
   dedupeRecords,
