@@ -15,10 +15,9 @@
  */
 import { type ReactNode } from 'react'
 import { Image, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native'
-import { tokens } from '../theme/active-tokens'
-import { ChevronLeft } from 'lucide-react-native'
+import { currentRnTheme, tokens } from '../theme/active-tokens'
 import type { AppIcon } from '@ihui/types'
-import { backChevronBoxStyle, backChevronGlyphPx } from '@ihui/shared/ui/back-chevron-spec'
+import { BackChevron } from '@ihui/rn-app'
 import {
   NAVBAR_ACTION_GLYPH_PX,
   NAVBAR_ACTION_LABEL_FONT_PX,
@@ -61,8 +60,7 @@ export interface NavBarProps {
 
 /// 行高/侧占位/按钮盒/字号不在本文件取数 —— 唯一源是 @ihui/shared/ui/navbar-spec(与小程序端同档);
 /// RN 单位是 dp,与逻辑 px 1:1,故换算取恒等。hitSlop 是 RN 独有命中扩张通道(waiver,数值对齐)。
-const BACK_BUTTON_STYLE = backChevronBoxStyle((px: number) => px)
-const BACK_HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 } as const
+/// 返回键本体走共享 `<BackChevron>`(与小程序端 NavBar 同一个核心),本文件不再自绘箭头与方块。
 const ACTION_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 } as const
 
 /**
@@ -98,16 +96,7 @@ export function NavBar({
         {/* 左侧:back + leftActions */}
         <View style={styles.leftSection}>
           {onBack ? (
-            <TouchableOpacity
-              onPress={onBack}
-              hitSlop={BACK_HIT_SLOP}
-              style={styles.backBtn}
-              activeOpacity={0.6}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.back')}
-            >
-              <ChevronLeft size={backChevronGlyphPx()} color={tokens.text.primary} />
-            </TouchableOpacity>
+            <BackChevron onPress={onBack} label={t('common.back')} colorScheme={currentRnTheme()} />
           ) : null}
           {leftActions?.map((action, index) => (
             <NavBarActionButton key={index} action={action} />
@@ -202,7 +191,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backBtn: BACK_BUTTON_STYLE,
   center: {
     flex: 1,
     alignItems: 'center',

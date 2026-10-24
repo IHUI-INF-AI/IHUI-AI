@@ -2363,6 +2363,13 @@
       "when": 1792828800000,
       "tag": "20261024160000_announcement_platforms",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 341,
+      "when": 1792915200000,
+      "tag": "20261025120000_chat_message_sync_revs",
+      "breakpoints": true
     }
   ]
 }

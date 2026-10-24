@@ -35,9 +35,11 @@ import type { ToolCallSummary, PlanStep, TerminalTask, CitationEntry } from '@ih
 // 票71(V2 #23)第二切片(2026-10-24):chat 多端同步 —— 裁定的唯一实现是契约内核,
 // 端内不得再抄一份去重(AGENTS §0.6:第二份必然漂移)。
 import {
+  CHAT_SYNC_PROTOCOL_VERSION,
   EMPTY_CHAT_SYNC_STATE,
   applyChatSyncEvent,
   type ChatSyncApplyResult,
+  type ChatSyncMessageSnapshot,
   type ChatSyncState,
   type MessageCreatedEvent,
   type MessagePatchedEvent,
@@ -305,6 +307,18 @@ export interface TerminalInteractionState {
 export type ChatSyncStoreOutcome =
   ChatSyncApplyResult | { applied: false; reason: 'room-mismatch'; messageId: string }
 
+/**
+ * B02 第三切片:gap 坐标表的唯一增口(去重;封顶防无界 —— 同 hook 里 noticeSeen 的 200 档)。
+ * 封顶语义:坐标表爆掉说明 gap 风暴(服务端回退/房间错乱),此时坐标已不可信,
+ * 丢最旧的坐标 + 旗仍在账 ⇒ 宁可少拉一次快照,不让表吃内存。
+ */
+const CHAT_SYNC_GAP_IDS_LIMIT = 200
+function appendGapMessageId(ids: string[], messageId: string): string[] {
+  if (ids.includes(messageId)) return ids
+  const next = [...ids, messageId]
+  return next.length > CHAT_SYNC_GAP_IDS_LIMIT ? next.slice(next.length - CHAT_SYNC_GAP_IDS_LIMIT) : next
+}
+
 /** 票60 第一切片:状态形状导出,供 chat-panes 注册表与多实例消费面取型 */
 export interface ChatState {
   messages: ChatMessage[]
@@ -326,10 +340,18 @@ export interface ChatState {
   chatSync: ChatSyncState
   /**
    * 缺口标志:内核裁出 gap(缺 rev / created 未达)时置位,表示"需要一次 resync"。
-   * TODO(下一片):resync 传输 = 拉服务端权威快照(契约 §7 第 3 项),本片只置旗不拉取 ——
-   * 宁可把"还没补"写在账上,也不能让界面装作已经对齐。
+   * B02 第三切片(2026-10-25):resync 传输已接 —— gap 的**精确坐标**记在
+   * `chatSyncGapMessageIds`,消费面(hook)按坐标拉权威快照后走 `applyChatSyncSnapshot`
+   * 喂内核;全部已知缺口补齐后两键一并复位。旗保留作粗粒度账面("还有没对齐的"),
+   * 坐标表才是拉取的输入,两者不可互替。
    */
   chatSyncResyncPending: boolean
+  /**
+   * B02 第三切片:gap 的精确坐标(messageId 去重表)。
+   * 会话局部坐标(与 chatSync 同命),不进 partialize、切会话即清 ——
+   * 旧会话的缺口对当前会话没有意义,带过去只会让 hook 对新会话拉旧消息(404 浪费)。
+   */
+  chatSyncGapMessageIds: string[]
   currentModel: string
   isStreaming: boolean
   error: string | null
@@ -688,8 +710,19 @@ export interface ChatState {
    * 本动作据此不 set,避免"拒绝也触发重渲染"。
    */
   applyChatSync: (evt: MessageCreatedEvent | MessagePatchedEvent) => ChatSyncStoreOutcome
-  /** resync 拉取成功(或确认无缺口)后清旗;本片无 REST 调用方(见 chatSyncResyncPending 的 TODO) */
+  /** resync 拉取成功(或确认无缺口)后清旗;消费面 = use-conversation-broadcast-sync 的 gap 拉取 effect */
   markChatSyncResynced: () => void
+  /**
+   * B02 第三切片(2026-10-25):把 resync 拉回的权威快照(`ChatSyncMessageSnapshot`)
+   * 应用进状态面。**两步全走契约内核,零旁路**(契约 §4:created 补达 → 链恢复,用例⑧):
+   * ① 判据面缺行 ⇒ 先喂 created(已有时内核判 duplicate,不覆盖已收面 —— 用例①);
+   * ② 再喂 patched(kind='snapshot', rev=N):自包含全量,N > lastAppliedRev 应用、
+   *    否则 duplicate/stale 零变化。rev=0(链上无 patch)时 ② 恒被拒,面 = created 初面。
+   * 投影纪律与 applyChatSync 同款:内核面有行而渲染面缺行 ⇒ 按内核面增行(修 m-ghost 型
+   * 两面不一致),不凭快照字段另造;两步全拒且渲染面已有行 ⇒ 零变化。
+   * 无论内核裁了什么,服务端已给出权威回答 ⇒ 本消息的 gap 坐标摘除;全部补齐 ⇒ 清旗。
+   */
+  applyChatSyncSnapshot: (snap: ChatSyncMessageSnapshot) => ChatSyncStoreOutcome
   /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):只改内容不改时间线,配合 truncateMessagesFrom 使用 */
   editMessageContent: (messageId: string, content: string) => void
   /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用,保留该消息之前的历史) */
@@ -857,6 +890,8 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // 刷新后由服务端快照重建;把旧 rev 带进新会话只会让内核把新事件误判成 stale。
   chatSync: EMPTY_CHAT_SYNC_STATE,
   chatSyncResyncPending: false,
+  // B02 第三切片:gap 坐标表(会话局部,不进 partialize,理由见 ChatState 头注)
+  chatSyncGapMessageIds: [],
   // D38 队列交互模式偏好(2026-09-24 立):默认排队优先;steer 在 Runtime 不支持插话时
   // 由渲染层 effectiveMode 降级为 queue 执行,偏好保留(持久化,见 partialize)
   followUpQueueMode: 'queue',
@@ -1083,7 +1118,13 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     if (!result.applied) {
       // 被拒一律不写 messages(内核返回原 state 引用);只有 gap 需要一次 resync ——
       // duplicate/stale 是正常的幂等与乱序,置旗会让每帧都去拉快照。
-      if (result.reason === 'gap') set({ chatSyncResyncPending: true })
+      // B02 第三切片:gap 同时记下精确坐标(hook 按坐标拉权威快照),旗保留作粗账面。
+      if (result.reason === 'gap') {
+        set({
+          chatSyncResyncPending: true,
+          chatSyncGapMessageIds: appendGapMessageId(get().chatSyncGapMessageIds, result.messageId),
+        })
+      }
       return result
     }
     const surface = state.messages.get(result.messageId)
@@ -1108,7 +1149,12 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     if (idx === -1) {
       // 内核裁"应用"而渲染面没有这一行 ⇒ 两面判据面已经不一致,置旗交给 resync,
       // 绝不在这里凭帧字段造一行(那等于绕开内核另立一份真相)。
-      set({ chatSync: state, chatSyncResyncPending: true })
+      // B02 第三切片:同样记下坐标 —— 快照拉回后 applyChatSyncSnapshot 按内核面补行。
+      set({
+        chatSync: state,
+        chatSyncResyncPending: true,
+        chatSyncGapMessageIds: appendGapMessageId(get().chatSyncGapMessageIds, surface.id),
+      })
       return result
     }
     const next = messages.slice()
@@ -1121,6 +1167,81 @@ const buildChatState: ChatStateCreator = (set, get) => ({
     return result
   },
   markChatSyncResynced: () => set({ chatSyncResyncPending: false }),
+  applyChatSyncSnapshot: (snap) => {
+    const { conversationId, chatSync, messages } = get()
+    if (snap.conversationId !== conversationId) {
+      // 与 applyChatSync 同一款房间过滤:别的会话的快照连判据面都不该碰。
+      return { applied: false, reason: 'room-mismatch', messageId: snap.messageId }
+    }
+    // 两步全走内核(见动作声明处的逐条理由)。channel 是投递元数据、内核刻意不读
+    // (契约 §3);REST resync 借 'ws' 标 —— 换通道重投必须判 duplicate 本就是契约的一部分。
+    const envelope = {
+      protocolVersion: CHAT_SYNC_PROTOCOL_VERSION,
+      channel: 'ws' as const,
+      room: { kind: 'conversation' as const, conversationId: snap.conversationId },
+    }
+    let state = chatSync
+    let createdApplied = false
+    if (!state.messages.has(snap.messageId)) {
+      const created = applyChatSyncEvent(state, {
+        ...envelope,
+        type: 'message:created',
+        messageId: snap.messageId,
+        role: snap.role,
+        content: snap.content,
+        ...(snap.reasoning !== undefined ? { reasoning: snap.reasoning } : {}),
+      })
+      createdApplied = created.result.applied
+      state = created.state
+    }
+    const patched = applyChatSyncEvent(state, {
+      ...envelope,
+      type: 'message:patched',
+      messageId: snap.messageId,
+      rev: snap.rev,
+      kind: 'snapshot',
+      content: snap.content,
+      ...(snap.reasoning !== undefined ? { reasoning: snap.reasoning } : {}),
+    })
+    state = patched.state
+
+    const surface = state.messages.get(snap.messageId)
+    const idx = messages.findIndex((m) => m.id === snap.messageId)
+    let nextMessages = messages
+    if (surface && idx === -1) {
+      // 渲染面缺行而内核面有行(created 补达 / m-ghost 型两面不一致)⇒ 按内核面增行。
+      nextMessages = [
+        ...messages,
+        {
+          id: surface.id,
+          role: surface.role,
+          content: surface.content,
+          ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+          createdAt: Date.now(),
+        },
+      ]
+    } else if (surface && idx !== -1 && (createdApplied || patched.result.applied)) {
+      // 内核真改了面(created 不可能,created 只在缺行时喂;这里实际是 snapshot 应用)⇒ 就地替换。
+      const next = messages.slice()
+      next[idx] = {
+        ...messages[idx]!,
+        content: surface.content,
+        ...(surface.reasoning !== undefined ? { reasoning: surface.reasoning } : {}),
+      }
+      nextMessages = next
+    }
+    // 服务端已给出权威回答 ⇒ 本消息的 gap 摘除(即使内核判 duplicate/stale ——
+    // duplicate 说明端侧已在链头,stale 说明服务端权威比端侧旧,都没有"再拉一次"可做);
+    // 全部已知缺口补齐 ⇒ 清旗(与 markChatSyncResynced 同一语义,此处是坐标驱动的自动清)。
+    const remainingGaps = get().chatSyncGapMessageIds.filter((id) => id !== snap.messageId)
+    set({
+      chatSync: state,
+      messages: nextMessages,
+      chatSyncGapMessageIds: remainingGaps,
+      ...(remainingGaps.length === 0 ? { chatSyncResyncPending: false } : {}),
+    })
+    return patched.result
+  },
   /** 编辑用户消息内容(2026-09-12 立,四竞品对标 P0-1):
    *  只更新目标消息 content,引用替换配合 React.memo 精准重渲染。 */
   editMessageContent: (messageId, content) =>
@@ -1180,7 +1301,11 @@ const buildChatState: ChatStateCreator = (set, get) => ({
 
   setError: (e) => set({ error: e }),
 
-  setConversationId: (id) => set({ conversationId: id }),
+  // B02 第三切片:gap 坐标随会话切换清空 —— 旧会话的缺口坐标对当前会话没有意义,
+  // 带过去只会让 hook 对新会话拉旧消息(归属校验 404,纯浪费)。旗(resyncPending)
+  // 与 chatSync 判据面的会话切换语义属既有切片,不在本片射程,保持原样。
+  setConversationId: (id) =>
+    set(id === get().conversationId ? { conversationId: id } : { conversationId: id, chatSyncGapMessageIds: [] }),
 
   setUserScrolledUp: (v) => set({ userScrolledUp: v }),
 

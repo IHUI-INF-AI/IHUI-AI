@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import Link from 'next/link'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface NavChapter {
   href: string
@@ -23,12 +24,16 @@ export function ManualNav({ prev, next }: ManualNavProps) {
           href={prev.href}
           className="group rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
         >
-          <div className="text-xs font-mono text-muted-foreground">← 第 {prev.num} 章</div>
+          <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground">
+            <ChevronLeft size={14} aria-hidden="true" /> 第 {prev.num} 章
+          </div>
           <div className="mt-1 text-sm font-medium">{prev.title}</div>
         </Link>
       ) : (
         <div className="rounded-xl border bg-muted/20 p-3 opacity-50">
-          <div className="text-xs font-mono text-muted-foreground">← 已是第一章</div>
+          <div className="flex items-center gap-1 text-xs font-mono text-muted-foreground">
+            <ChevronLeft size={14} aria-hidden="true" /> 已是第一章
+          </div>
           <div className="mt-1 text-sm">无</div>
         </div>
       )}
@@ -37,12 +42,16 @@ export function ManualNav({ prev, next }: ManualNavProps) {
           href={next.href}
           className="group rounded-lg border bg-card p-3 text-right transition-colors hover:bg-accent"
         >
-          <div className="text-xs font-mono text-muted-foreground">第 {next.num} 章 →</div>
+          <div className="flex items-center justify-end gap-1 text-xs font-mono text-muted-foreground">
+            第 {next.num} 章 <ChevronRight size={14} aria-hidden="true" />
+          </div>
           <div className="mt-1 text-sm font-medium">{next.title}</div>
         </Link>
       ) : (
         <div className="rounded-xl border bg-muted/20 p-3 text-right opacity-50">
-          <div className="text-xs font-mono text-muted-foreground">已是最后一章 →</div>
+          <div className="flex items-center justify-end gap-1 text-xs font-mono text-muted-foreground">
+            已是最后一章 <ChevronRight size={14} aria-hidden="true" />
+          </div>
           <div className="mt-1 text-sm">无</div>
         </div>
       )}
