@@ -209,4 +209,83 @@ describe('G-816031 两侧同形与装车锁', () => {
     expect(src).toContain('onRecoveryGateLedger?.(streamAuthority.ledger())')
   })
 })
+
+// ============================================================================
+// G-60 票面验证第 3 条:时序乱序不得误关 / 真丢信封仍 fail-closed
+// ============================================================================
+// 上游锚点(topicWireDecoder.ts:80-92)的判据是"deliveryKind 是 publisher 权威信封事实,
+// 只有 exact recovery 可原子解 gate,绝不按 RPC 时序猜测"。本块只把闸门当黑盒喂到达序,
+// 不复制任何判据:乱序键(arrivedFirst / arrivalIndex)是**干扰项**,不是更高优先级的证据。
+describe('G-60 时序乱序不得影响解门(信封权威优先)', () => {
+  it('乱序正例:内容片自称先到、RPC 响应后到,recovery 最后到仍解门(时序键不改变结论)', () => {
+    const router = createStreamAuthorityRouter()
+    // 1) 权威字段首次出现即进入权威感知;rpc-response 自称"后到"仍是 hold,不解门
+    const lateRpc = router.observeFrame({
+      deliveryKind: 'rpc-response',
+      arrivedFirst: false,
+      arrivalIndex: 9,
+    })
+    expect(lateRpc.drop).toBe(true)
+    expect(router.snapshot().open).toBe(false)
+    // 2) 内容片自称"最先到"(arrivalIndex 更小)也不得穿过仍闭的门 —— 时序不构成证据
+    const earlyContent = router.observeFrame({
+      type: 'delta',
+      content: 'a',
+      arrivedFirst: true,
+      arrivalIndex: 0,
+    })
+    expect(earlyContent.drop).toBe(true)
+    expect(earlyContent.reason).toBe('authority-closed')
+    expect(router.snapshot().open).toBe(false)
+    // 3) 唯一解门的是权威信封自己 —— 即便时序键声称它最后到,也不得被误关
+    const recovery = router.observeFrame({
+      deliveryKind: 'recovery',
+      arrivedFirst: false,
+      arrivalIndex: 10,
+    })
+    expect(recovery.drop).toBe(false)
+    expect(router.snapshot().open).toBe(true)
+    // 4) 解门后内容片恢复投递(门开不是"一次性放行")
+    expect(router.observeFrame({ type: 'delta', content: 'b' }).drop).toBe(false)
+    // 5) 迟到的非权威帧不得把门关回去(乱序的另一向:不误关)
+    const staleRpc = router.observeFrame({
+      deliveryKind: 'rpc-response',
+      arrivedFirst: true,
+      arrivalIndex: 0,
+    })
+    expect(staleRpc.drop).toBe(false)
+    expect(router.snapshot().open).toBe(true)
+    expect(router.observeFrame({ type: 'delta', content: 'c' }).drop).toBe(false)
+    expect(router.ledger()).toMatchObject({ released: 1, held: 2 })
+  })
+
+  it('阴性对照:recovery 曾解门后换代关门,此后真丢信封 ⇒ 恒 drop、门不得自己重开', () => {
+    const router = createStreamAuthorityRouter()
+    expect(router.observeFrame({ deliveryKind: 'recovery' }).drop).toBe(false)
+    expect(router.snapshot().open).toBe(true)
+    router.observeGap('generation-change')
+    expect(router.snapshot().open).toBe(false)
+    // 服务端此后只发普通帧(恢复信封丢了)⇒ 一律不投递,且门保持闭
+    for (let i = 0; i < 3; i += 1) {
+      const verdict = router.observeFrame({ type: 'delta', content: `lost-${i}` })
+      expect(verdict.drop).toBe(true)
+      expect(verdict.reason).toBe('authority-closed')
+    }
+    expect(router.snapshot().open).toBe(false)
+    expect(router.ledger()).toMatchObject({ released: 1, held: 0 })
+  })
+
+  it('阴性对照:门关着时非对象帧也不得投递(fail-closed 不得被顶层数组/字符串/数字绕过)', () => {
+    const router = createStreamAuthorityRouter()
+    router.observeFrame({ deliveryKind: 'recovery' })
+    router.observeGap('generation-change')
+    expect(router.snapshot().open).toBe(false)
+    for (const frame of [['array-frame'], 'raw-string', 42, null]) {
+      expect(router.observeFrame(frame).drop, String(frame)).toBe(true)
+    }
+    // legacy(从未见过权威字段)流零行为变化:非对象帧照旧放行
+    const legacy = createStreamAuthorityRouter()
+    expect(legacy.observeFrame(['array-frame']).drop).toBe(false)
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
