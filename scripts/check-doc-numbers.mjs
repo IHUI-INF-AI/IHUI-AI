@@ -57,6 +57,14 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
 const ROOT = resolve(HERE, '..')
 
+/**
+ * README 的「最近更新」块标记。机器自动把提交标题抄进来 ⇒ 里面必然出现
+ * 「旧值 → 新值」("176 llms → 101 llms"),那是**历史陈述**不是当前总量声明,
+ * 不进 DN2 散文判据(与派生块同型,按块挖掉)。
+ */
+export const UPDATES_BEGIN = '<!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->'
+export const UPDATES_END = '<!-- END RECENT UPDATES -->'
+
 export const SELF_SKIP = 'HUSKY_SKIP_DOC_NUMBERS'
 /** 带对外数字、必须被审的文档(新增一份就加一行,别在别处再抄清单) */
 export const AUDITED_DOCS = ['README.md', 'README.en.md']
@@ -233,17 +241,27 @@ export function toInt(text) {
  */
 export function findStaleClaims(text, numbers, { blockBegin = BLOCK_BEGIN, blockEnd = BLOCK_END } = {}) {
   const lines = text.split(/\r?\n/)
-  // 先把生成块整段挖掉(用等长空行占位,行号不得漂移 —— 本门按行报点)
+  // 先把机器维护的块整段挖掉(用等长空行占位,行号不得漂移 —— 本门按行报点)。
+  // 两类块都必须挖:
+  //  ① 生成块 —— 块内是"当前值",过期由 DN1 管,否则派生块自己顶自己(S3 已锁);
+  //  ② RECENT UPDATES 块 —— 块内是"历史陈述",记录的是**已完成动作**
+  //     ("补齐 176 llms → 101 llms"),把 176 读成"当前总量声明"是假阳:
+  //     它是被修掉的那个数。逐行豁免会与"自动维护、禁止手改"的标记冲突,
+  //     所以按块挖 —— 与 ① 同型同机制,不 invent 第二套出口。
   const masked = [...lines]
-  let open = -1
-  for (let i = 0; i < lines.length; i += 1) {
-    if (open < 0 && lines[i].includes(blockBegin)) open = i
-    else if (open >= 0 && lines[i].includes(blockEnd)) {
-      for (let k = open; k <= i; k += 1) masked[k] = ''
-      open = -1
+  const blocks = [[blockBegin, blockEnd], [UPDATES_BEGIN, UPDATES_END]]
+  let dangling = false
+  for (const [begin, end] of blocks) {
+    let open = -1
+    for (let i = 0; i < lines.length; i += 1) {
+      if (open < 0 && lines[i].includes(begin)) open = i
+      else if (open >= 0 && lines[i].includes(end)) {
+        for (let k = open; k <= i; k += 1) masked[k] = ''
+        open = -1
+      }
     }
+    if (open >= 0) dangling = true
   }
-  const dangling = open >= 0
   const violations = []
   let checked = 0
   for (let i = 0; i < masked.length; i += 1) {
@@ -445,6 +463,16 @@ export function selfTest() {
   // S13 悬空块(有 begin 无 end)必须点名,不得静默把整篇当块内
   const dangling = `${BLOCK_BEGIN}\n542 张表\n`
   ok('S13 块未闭合 ⇒ 点名 danglingBlock', findStaleClaims(dangling, numbers).danglingBlock === true)
+  // S16 RECENT UPDATES 块内是历史陈述:"176 llms → 101 llms" 记的是**已被修掉的那个数**,
+  //     把它读成当前总量声明是本门自己制造假阳(自动块抄提交标题,人手改不得)。
+  const updates = `${UPDATES_BEGIN}\n- 📚 Docs:补齐对外 SEO/roadmap 漏网口径(176 llms → 101 llms) (333fd912418)\n${UPDATES_END}\n`
+  ok('S16 更新块内 "176 llms" 是历史陈述 ⇒ 不判红', findStaleClaims(updates, numbers).violations.length === 0)
+  // S16b 反向护栏:屏蔽只作用于块内,块外的真违规照红(否则这道屏蔽就是新的瞎子)
+  const outside = `补齐对外 SEO/roadmap 漏网口径(176 llms → 101 llms)\n${UPDATES_BEGIN}\nx\n${UPDATES_END}\n`
+  ok(
+    'S16b 更新块**外**的 176 照判红(屏蔽不吞真违规)',
+    findStaleClaims(outside, numbers).violations.some((v) => v.key === 'llmModels' && v.found === 176),
+  )
   // S14 specOf:索引档必须带前导冒号(漏了就 --staged 恒"取不到")
   ok('S14 索引 spec 带前导冒号', specOf('staged', 'README.md') === ':README.md' && specOf('head', 'README.md') === 'HEAD:README.md')
   // S15 收窄的反向护栏:子量级 / 相邻不同义的写法不得被当成总量声明(第一版就是在真 README 上
