@@ -117,6 +117,8 @@ from ..services.form_responses import (
 from ..services.mcp_server import (
     _FORM_REQUEST_TOOL_NAME,
     _TOOL_ALIASES,
+    _subagent_handoff_event,
+    _subagent_handoff_kind,
     _tool_dispatch_subagent,
     _tool_vision_analyze,
     build_form_request_frame,
@@ -2407,6 +2409,63 @@ def _build_subagent_orchestration_prompt() -> str:
     不在每轮 iteration 重复注入。返回模块级常量,避免每次请求重新构造。
     """
     return _SUBAGENT_ORCHESTRATION_PROMPT
+
+
+def _build_subagent_end_event(
+    subagent_id: str,
+    ok: bool,
+    exec_result: dict[str, Any],
+    *,
+    ts: str | None = None,
+) -> dict[str, Any]:
+    """D08②:构造 subagent_end 帧载荷(复用既有帧族,禁新帧)。
+
+    原有 id/status/timestamp/failureReason 语义一字不动,仅**加键**:
+    kind(done|blocked|help) / agent_id / summary / [token_usage] / ts。
+    三档判定与字段拼装唯一来源是 mcp_server 的 `_subagent_handoff_kind` /
+    `_subagent_handoff_event`,此处只负责把工具结果接到既有帧上。
+    """
+    _now = ts or datetime.now(UTC).isoformat()
+    if ok:
+        _summary = (
+            exec_result.get("summary")
+            or exec_result.get("output")
+            or exec_result.get("message")
+            or ""
+        )
+    else:
+        _summary = (
+            exec_result.get("summary")
+            or exec_result.get("error")
+            or exec_result.get("message")
+            or "subagent 执行失败(无详细错误信息)"
+        )
+    _raw_usage = exec_result.get("token_usage") or exec_result.get("tokenUsage")
+    _usage = _raw_usage if isinstance(_raw_usage, dict) and _raw_usage else None
+    _evt: dict[str, Any] = {
+        "type": "subagent_end",
+        "id": subagent_id,
+        "status": "done" if ok else "failed",
+        "timestamp": _now,
+        **_subagent_handoff_event(
+            _subagent_handoff_kind(
+                ok=ok,
+                needs_help=bool(exec_result.get("needs_help") or exec_result.get("needsHelp")),
+            ),
+            subagent_id,
+            str(_summary),
+            token_usage=_usage,
+            ts=_now,
+        ),
+    }
+    if not ok:
+        # 旧行为逐字保留:失败原因优先取 error,其次 message,最后给默认文案。
+        _evt["failureReason"] = str(
+            exec_result.get("error")
+            or exec_result.get("message")
+            or "subagent 执行失败(无详细错误信息)"
+        )[:500]
+    return _evt
 
 
 def _load_default_models() -> list[dict[str, Any]]:
@@ -5303,9 +5362,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "phase": evt.get("phase", ""),
                                         "timestamp": datetime.now(UTC).isoformat(),
                                     }
-                                    for _fk in ("iteration", "tool", "ok", "output_preview"):
+                                    for _fk in (
+                                        "iteration", "tool", "ok", "output_preview",
+                                        # D08②:换手消息字段 —— 复用 subagent_progress 帧下发。
+                                        "kind", "summary", "token_usage", "ts",
+                                    ):
                                         if _fk in evt:
                                             _sse_evt[_fk] = evt[_fk]
+                                    # agent_id 以本流真实子代理实例 id 为准(mcp 层只有角色名)。
+                                    if "kind" in _sse_evt:
+                                        _sse_evt["agent_id"] = _sa_id
                                     if _agent_name:
                                         _sse_evt["agentName"] = _agent_name
                                     _progress_queue.put_nowait(_sse_evt)
@@ -5487,23 +5553,16 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             # 重复调用分支(dedup)不发 end 事件:subagent 在首次调用时已发过 spawn+end,
                             # 重复调用只是 LLM 决策被去重跳过,不应重复触发前端生命周期展示。
                             if tool_name == "dispatch_subagent" and _spawned_sub_ids:
-                                _sa_status = "done" if ok else "failed"
-                                _sa_error_msg = None
-                                if not ok:
-                                    # 2026-08-02 补充默认错误信息:当 error/message 都为空时,
-                                    # 前端 markSubagentEnd 会显示"执行失败"(无原因),用户无法排查
-                                    _sa_error_msg = exec_result.get("error") or exec_result.get("message") or "subagent 执行失败(无详细错误信息)"
                                 _end_now = datetime.now(UTC).isoformat()
                                 for _sa_id in _spawned_sub_ids:
-                                    _end_evt = {
-                                        "type": "subagent_end",
-                                        "id": _sa_id,
-                                        "status": _sa_status,
-                                        "timestamp": _end_now,
-                                    }
-                                    if _sa_error_msg:
-                                        _end_evt["failureReason"] = str(_sa_error_msg)[:500]
-                                    yield _sse(SSE_SUBAGENT_END, _end_evt)
+                                    # D08②:完成/受阻/求助换手消息与结束帧**同帧**下发
+                                    # (复用 subagent_end,不新造帧;失败原因默认文案在 helper 内保留)。
+                                    yield _sse(
+                                        SSE_SUBAGENT_END,
+                                        _build_subagent_end_event(
+                                            _sa_id, ok, exec_result, ts=_end_now
+                                        ),
+                                    )
 
                             # 回灌工具结果(失败时显式标注,防止 LLM 幻觉"已完成")
                             result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
