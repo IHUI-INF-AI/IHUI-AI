@@ -77,6 +77,10 @@ export const WHITELIST_ENTRIES = new Map(
       why: '数据文件:非 screen 组件,导出 ProfileScreen 4 Tab 内容类型定义',
       expires: '2027-06-30',
     },
+    'aboutPageSections.ts': {
+      why: '数据文件:非 screen 组件(75 行),只导出「关于我们」页三段数据表(图标 + i18n 键),不含任何渲染;与 web AboutContent.tsx 同一份内容,共享屏组件本身在 packages/app',
+      expires: '2027-06-30',
+    },
     // ── RN 独占 screen(无跨端需求,深度依赖 RN 特定 API/组件) ──
     'LearnMapScreen.tsx': {
       why: '学习地图屏:ScrollView 节点地图 + 进度环,共享层无同名屏,RN 端独占视觉交互',

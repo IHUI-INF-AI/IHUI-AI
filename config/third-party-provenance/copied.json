@@ -31,9 +31,7 @@
           }
         ]
       },
-      "roots": [
-        "apps/web/public/pdfjs/pdf.worker.min.mjs"
-      ],
+      "roots": ["apps/web/public/pdfjs/pdf.worker.min.mjs"],
       "modification": "unmodified-copy",
       "modificationNote": "实测为上游构建产物的原样副本(minified),1,081,755 字节,无本仓编辑痕迹(CR 字节 0)。",
       "attributionBoundary": "apps/web/public/pdfjs/ 目录内除本条目列出的文件外,新增文件须另立条目或证明为自研;当前该目录只有 1 个跟踪文件。",
@@ -51,9 +49,7 @@
         "version": null,
         "gitRevision": null,
         "gitRevisionNote": "wrapper 脚本本身不携带 Gradle 版本常量,真正的版本锚点在同目录 gradle/wrapper/gradle-wrapper.properties 的 distributionUrl(实测 gradle-8.11.1-all.zip);脚本内容在上游按 Gradle 大版本长期稳定,故此处 version 留 null 并指向该 properties,不猜脚本对应的 commit。",
-        "companionAnchors": [
-          "apps/mobile-cap/android/gradle/wrapper/gradle-wrapper.properties"
-        ]
+        "companionAnchors": ["apps/mobile-cap/android/gradle/wrapper/gradle-wrapper.properties"]
       },
       "license": {
         "spdx": "Apache-2.0",
@@ -65,10 +61,7 @@
           }
         ]
       },
-      "roots": [
-        "apps/mobile-cap/android/gradlew",
-        "apps/mobile-cap/android/gradlew.bat"
-      ],
+      "roots": ["apps/mobile-cap/android/gradlew", "apps/mobile-cap/android/gradlew.bat"],
       "modification": "unmodified-copy",
       "modificationNote": "两文件均无本仓改动(仅上游版权头 + 标准 wrapper 引导逻辑)。",
       "attributionBoundary": "apps/mobile-cap/android/** 的其余 60 个跟踪文件属 Capacitor 模板生成 + 本仓自研配置(含 MainActivity.java、AndroidManifest.xml 等),不主张来自 gradle 上游;本条只覆盖两个 wrapper 脚本自身。",
@@ -98,11 +91,12 @@
         ]
       },
       "roots": [
-        "apps/miniapp-taro/src/static/images/icons/triangle-alert.svg"
+        "apps/miniapp-taro/src/static/images/icons/triangle-alert.svg",
+        "apps/miniapp-taro/src/static/images/icons/minus.svg"
       ],
       "modification": "unmodified-copy",
       "modificationNote": "生成器只做名称/别名解析与 stroke 颜色改写(端内约定 stroke 用 #6366F1 或本文件的 #000 原值),几何路径未手改。",
-      "attributionBoundary": "apps/miniapp-taro/src/static/images/icons/ 目录当前**只有这 1 个跟踪文件**(实测 git ls-files 计数 1);其余图标只存在于本机工作树、未入库,故不构成台账对象。新增该目录的跟踪图标必须由生成器产出并在此登记。",
+      "attributionBoundary": "apps/miniapp-taro/src/static/images/icons/ 目录当前有 2 个跟踪文件(实测 git ls-tree 计数 2:triangle-alert.svg、minus.svg,两份产物首行都是同一枚 \"<!-- @license lucide-static v1.31.0 - ISC -->\");其余图标只存在于本机工作树、未入库,故不构成台账对象。新增该目录的跟踪图标必须由生成器产出并在此登记(或并入本条 roots)。",
       "obligations": "待补登记:① 生成器应在产物注释里落 lucide 版本(否则每条素材的 revision 永远不可考);② 若后续批量入库现有工作树图标,须一并补登记。"
     },
     {
@@ -137,9 +131,7 @@
           }
         ]
       },
-      "roots": [
-        "apps/ai-service/app/services/checkin_qoder.py"
-      ],
+      "roots": ["apps/ai-service/app/services/checkin_qoder.py"],
       "modification": "derived-rewrite",
       "modificationNote": "逐行按 Qoder 实测语义重写(鉴权走 Bearer token、领取走 campaignId/CLAIMABLE 判据、风控走 Cosy-* 头族),并补了 token 到期自刷新与结构化 dict 契约对齐;不是逐字节拷贝,但契约与常量集合平移自上游,故整文件按第三方归属登记。",
       "attributionBoundary": "本条目只覆盖 checkin_qoder.py 一个文件;apps/ai-service/app/services/ 其余签到相关文件(checkin_engine.py 的 TRAE 引擎、调度器、records)为本仓自研,不在本条目 roots 内。",
