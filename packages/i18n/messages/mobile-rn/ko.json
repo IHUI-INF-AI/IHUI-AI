@@ -885,7 +885,22 @@
       "loadFailShort": "불러오기 실패",
       "recordNew": "새 녹음"
     },
-    "thinkingShort": "생각 중"
+    "thinkingShort": "생각 중",
+    "msg": {
+      "thinkingA11y": "사고 과정 토글",
+      "collapse": "접기",
+      "expand": "펼치기",
+      "imgA11y": "이미지 메시지, 탭 미리보기",
+      "copied": "복사됨",
+      "copyCode": "코드 복사",
+      "collapseCode": "코드 접기",
+      "expandCode": "코드 펼치기",
+      "thinkingNow": "생각 중…",
+      "copy": "복사",
+      "share2": "공유",
+      "agree": "동의",
+      "disagree": "반대"
+    }
   },
   "settings": {
     "title": "설정",
@@ -5319,7 +5334,15 @@
     "btnDetail": "상세"
   },
   "topup": {
-    "failDefault": "충전 미완료, 잠시 후 재시도"
+    "failDefault": "충전 미완료, 잠시 후 재시도",
+    "faqTitle": "자주 묻는 질문",
+    "faqContent": "충전·주문 FAQ",
+    "faqOk": "알겠어요",
+    "tip1": "포인트는 즉시 적립, 미갱신 시 새로고침",
+    "tip2": "결제 완료 후 화면 멈춤 시 주문 내역 확인, 중복 결제 금지",
+    "tip3": "주문번호를 보관하세요",
+    "tip4": "미적립 시 주문번호를客服에게",
+    "tip5": "충전은 환불·양도 불가"
   },
   "devEnterCover": {
     "priceAbnormal": "요금제 가격 오류, 잠시 후 재시도"
@@ -5790,5 +5813,139 @@
     "exam": "시험",
     "score": "점수",
     "date": "날짜"
+  },
+  "toolbar": {
+    "svcTraffic": "트래픽운영 동행",
+    "svcDevice": "원스톱 기기 앱",
+    "svcOther": "기타 AI 서비스",
+    "aiImage": "AI 이미지",
+    "aiImageD": "간편 이미지 창작",
+    "aiVideo": "AI 영상",
+    "aiVideoD": "간편 영상 창작",
+    "aiCopy": "AI 카피",
+    "aiCopyD": "간편 카피 창작",
+    "aiClip": "AI 자동 편집",
+    "aiClipD": "간편 편집",
+    "aiLive": "AI 라이브",
+    "aiLiveD": "AI 방송 서비스",
+    "aiAvatar": "AI 아바타",
+    "aiAvatarD": "아바타 제작",
+    "more2": "더보기",
+    "viewMoreA11y": "더 많은 Agent 앱",
+    "oneClickA11y": "원클릭 생성",
+    "customA11y": "AI 맞춤"
+  },
+  "confirm": {
+    "defaultCancel": "취소",
+    "defaultOk": "확인",
+    "payFmt": "지금 결제 ¥{v}"
+  },
+  "sr": {
+    "closeA11y": "탭하여 닫기",
+    "firstBonus": "첫 공유 보상 {n}",
+    "inviteNote": "초대 시 양쪽 적립",
+    "claimA11y": "{n} 수령",
+    "rewardUnit": " 포인트",
+    "footnote": "포인트는 연산력·멤버십 특전 교환 가능",
+    "claimBtn": "{n} 수령"
+  },
+  "dist": {
+    "noInviteCode": "초대코드 없음",
+    "linkCopied": "초대 링크 복사됨",
+    "inviteTitle": "AI智汇로 초대",
+    "shared": "공유됨",
+    "shareFail": "공유 실패 재시도",
+    "qrNotReady": "QR 준비 중",
+    "needAlbum": "앨범 권한 없음",
+    "savedAlbum": "앨범 저장됨",
+    "saveFail": "저장 실패 재시도",
+    "teamCompany": "회사 팀",
+    "teamCompanyD": "회사 팀 보기",
+    "teamAi": "AI 팀",
+    "teamAiD": "에이전트 팀",
+    "card": "내 명함",
+    "cardD": "내 정보 보기",
+    "qr": "내 QR",
+    "qrD": "전용 QR 홍보",
+    "orders": "分销 주문",
+    "ordersD": "分销 주문 보기",
+    "devSoon": "기능 준비 중",
+    "dealer": "分销상",
+    "earningsLabel": "分销 수익 요약",
+    "shareQrA11y": "QR 공유",
+    "withdrawDetail": "출금 상세",
+    "copyLinkA11y": "초대 링크 복사",
+    "saveQrA11y": "앨범 저장",
+    "saving": "저장 중…",
+    "shareFriendA11y": "친구에게 공유"
+  },
+  "eduParent": {
+    "title": "학부모 센터",
+    "child": "자녀",
+    "relationship": "관계",
+    "statusTitle": "상태",
+    "status": {
+      "pending": "확인 대기",
+      "confirmed": "확인됨",
+      "active": "활성",
+      "rejected": "거부됨",
+      "cancelled": "해제됨"
+    },
+    "chooseView": "항목 선택"
+  },
+  "eduParentBind": {
+    "title": "연결 관리",
+    "student": "학생",
+    "created": "신청 시각",
+    "confirm": "확인",
+    "reject": "거부",
+    "delete": "삭제",
+    "actionTitle": "연결 작업"
+  },
+  "eduEnrollment": {
+    "title": "학급",
+    "className": "학급",
+    "grade": "학년"
+  },
+  "eduSchedule": {
+    "title": "자녀 시간표",
+    "weekdayTitle": "요일",
+    "course": "과목",
+    "teacher": "담당",
+    "time": "시간",
+    "classroom": "교실",
+    "weekday": {
+      "mon": "월",
+      "tue": "화",
+      "wed": "수",
+      "thu": "목",
+      "fri": "금",
+      "sat": "토",
+      "sun": "일"
+    }
+  },
+  "eduChildAttendance": {
+    "title": "자녀 출석",
+    "date": "날짜"
+  },
+  "eduChildGrades": {
+    "title": "자녀 성적"
+  },
+  "eduChildMeals": {
+    "title": "자녀 급식",
+    "date": "날짜",
+    "mealType": "식사",
+    "dish": "메뉴",
+    "ingredients": "재료",
+    "nutrition": "영양"
+  },
+  "eduChildBills": {
+    "title": "자녀 청구",
+    "className": "학급",
+    "term": "학기",
+    "total": "총액",
+    "paid": "납부",
+    "arrears": "미납",
+    "nextDue": "다음 기한"
   }
 }
