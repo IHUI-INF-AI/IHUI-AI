@@ -614,8 +614,8 @@
     "ctaTitle": "30분 만에 AI 여정을 시작하세요",
     "heroBadge": "지후이 AI 소개",
     "heroSubtitle": "IHUI AI는 오픈 소스 풀스택 AI 운영 체제로, Agent 설계, 지식 베이스, 다중 모델 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합합니다.",
-    "heroTitle": "하나의 코드, 6개 클라이언트, 하나의 AI",
-    "metaDescription": "IHUI AI(지후이 AI)는 원스톱 풀스택 AI 운영 체제: Agent 마켓, 지식 베이스 RAG, 다중 모델 통합 스케줄링, MCP 도구 프로토콜을 통합하며, Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / CLI 6개 클라이언트를 하나의 코드베이스로 지원, Apache 2.0 오픈 소스.",
+    "heroTitle": "하나의 코드, 7개 클라이언트, 하나의 AI",
+    "metaDescription": "IHUI AI(지후이 AI)는 원스톱 풀스택 AI 운영 체제: Agent 마켓, 지식 베이스 RAG, 다중 모델 통합 스케줄링, MCP 도구 프로토콜을 통합하며, Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / Capacitor 네이티브 쉘 / CLI 7개 클라이언트를 하나의 코드베이스로 지원, Apache 2.0 오픈 소스.",
     "numbersTitle": "숫자가 증명합니다",
     "platformAgentsDesc": "시각적 드래그 앤 드롭으로 AI Agent 구축, 200+ 템플릿, 플러그인/MCP 도구, 원클릭 배포.",
     "platformAgentsTitle": "Agent 마켓플레이스 & 오케스트레이션",
@@ -642,11 +642,11 @@
     "storyP1": "2024년, 우리는 기업이 AI를 도입할 때 보편적으로 직면하는 '4대 난제'를 발견했습니다: 모델 선택의 어려움, 지식 베이스 연동의 어려움, 크로스 플랫폼 배포의 어려움, 팀 협업 및 과금의 어려움. 시중의 제품들은 하나만 해결하거나, 클로즈드 소스로 종속되거나, 너무 비싸서 사용하기 어렵습니다.",
     "storyP2": "그래서 우리는 IHUI AI를 만들었습니다: 오픈 소스, 통합, 크로스 플랫폼, 자체 호스팅 가능. 12~18개월의 자체 개발 시간을 30분 가입으로 압축했습니다.",
     "storyTitle": "왜 IHUI AI를 만들었나요?",
-    "valueCrossDesc": "Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / CLI, 하나의 코드베이스, 한 번의 배포, 모든 플랫폼 도달.",
-    "valueCrossTitle": "6개 클라이언트, 하나의 코드",
+    "valueCrossDesc": "Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / Capacitor 네이티브 쉘 / CLI, 하나의 코드베이스, 한 번의 배포, 모든 플랫폼 도달.",
+    "valueCrossTitle": "7개 클라이언트, 하나의 코드",
     "valueEnterpriseDesc": "SSO/OAuth, 감사 로그, 역할 기반 권한, 자체 호스팅, 다수의 상장 기업 서비스.",
     "valueEnterpriseTitle": "엔터프라이즈급 보안",
-    "valueFreeDesc": "월 1,000 크레딧, 모든 모델, 6개 클라이언트 모두 사용 가능. Pro ¥49/월부터, Enterprise는 자체 호스팅 지원.",
+    "valueFreeDesc": "월 1,000 크레딧, 모든 모델, 7개 클라이언트 모두 사용 가능. Pro ¥49/월부터, Enterprise는 자체 호스팅 지원.",
     "valueFreeTitle": "개인용 영구 무료",
     "valueOpenDesc": "Apache 2.0 라이선스, 핵심 코드 공개, 상업적 사용 허용, 자체 호스팅 비용 0원.",
     "valueOpenTitle": "완전 오픈 소스",
@@ -800,6 +800,9 @@
       "rowsPerSec": "행/초",
       "scrapeTargets": "수집 대상 ({up}/{total} 온라인)",
       "noScrapeTargets": "스크레이프 대상 없음",
+      "stateUp": "정상",
+      "stateDown": "비정상",
+      "stateUnknown": "미상",
       "sevCritical": "심각",
       "sevInfo": "정보",
       "sevWarning": "경고",
@@ -1315,6 +1318,7 @@
     "announcements": {
       "colActions": "작업",
       "colPinned": "고정됨",
+      "colPlatforms": "게시 플랫폼",
       "colPublished": "게시됨",
       "colPublishedAt": "게시 시간",
       "colTitle": "제목",
@@ -1330,6 +1334,7 @@
       "editTitle": "편집변화수량",
       "fieldContent": "콘텐츠",
       "fieldPinned": "고정됨",
+      "fieldPlatforms": "게시 플랫폼",
       "fieldPublished": "게시됨",
       "fieldTitle": "제목",
       "fieldType": "유형",
@@ -1355,6 +1360,17 @@
       },
       "no": "아니오",
       "noData": "없음데이마음",
+      "platforms": {
+        "cli": "CLI",
+        "desktop": "데스크톱",
+        "extension": "확장 프로그램",
+        "miniapp": "미니앱",
+        "mobile-cap": "모바일 수집",
+        "rn": "모바일 앱",
+        "web": "웹"
+      },
+      "platformsAll": "전체 플랫폼",
+      "platformsHint": "선택하지 않으면 모든 플랫폼에 표시됩니다. 선택한 플랫폼에만 표시됩니다",
       "published": "게시됨",
       "save": "저장",
       "subtitle": "포괄적인의개발문서및API참조",
@@ -15547,14 +15563,14 @@
     "q12Question": "IHUI AI가 내 데이터로 모델을 학습하나요?",
     "q1Answer": "IHUI AI(중국어: 지후이 AI)는 원스톱 풀스택 AI 운영 체제입니다. Agent 설계, 지식 베이스 RAG, 다중 모델 통합 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합하며, Web, Desktop, 미니프로그램, 브라우저 확장, React Native, CLI 등 6개 클라이언트를 하나의 코드베이스로 지원하고, Apache 2.0 오픈 소스 코어 및 자체 호스팅을 지원합니다.",
     "q1Question": "IHUI AI란 무엇인가요?",
-    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); Coze는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q&A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 6개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 드문 오픈 소스 플랫폼으로, Dify + Coze + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
+    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); Coze는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q&A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 7개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 드문 오픈 소스 플랫폼으로, Dify + Coze + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
     "q2Question": "IHUI AI는 Dify, Coze, FastGPT와 어떻게 다른가요?",
-    "q3Answer": "세 가지 사용자가 가장 큰 혜택을 봅니다: AI 개발자(Agent를 빠르게 구축/배포/수익화, 6개 클라이언트 원클릭 게시), 엔터프라이즈 IT(데이터 주권 및 통합 AI 역량 허브를 위한 자체 호스팅), 팀 리더(다중 사용자 협업, 통합 지식 베이스, 통합 과금).",
+    "q3Answer": "세 가지 사용자가 가장 큰 혜택을 봅니다: AI 개발자(Agent를 빠르게 구축/배포/수익화, 7개 클라이언트 원클릭 게시), 엔터프라이즈 IT(데이터 주권 및 통합 AI 역량 허브를 위한 자체 호스팅), 팀 리더(다중 사용자 협업, 통합 지식 베이스, 통합 과금).",
     "q3Question": "IHUI AI는 누구를 위한 제품인가요?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1), Anthropic Claude(Opus 4/Sonnet 4), Google Gemini, Alibaba Qwen(Qwen-Max/Plus), DeepSeek(V3/R1), Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, Ollama 및 모든 OpenAI 호환 엔드포인트. 통합 과금, 자동 폴백, 비용 기반 라우팅.",
     "q4Question": "어떤 AI 모델이 지원되나요?",
-    "q5Answer": "Web, Desktop(Tauri 2), WeChat/Alipay/Douyin 미니프로그램(Taro 4), 브라우저 확장(WXT MV3), iOS/Android(React Native), CLI(Node.js/Bun) 등 6개 클라이언트가 동일한 React 컴포넌트 라이브러리, 동일한 API 계약 및 동일한 비즈니스 로직을 공유합니다. 한 번 작성하고 6개 클라이언트에 게시 — 각 플랫폼마다 다시 작성할 필요 없음.",
-    "q5Question": "\"6개 클라이언트, 하나의 코드\"는 무엇을 의미하나요?",
+    "q5Answer": "Web, Desktop(Tauri 2), WeChat/Alipay/Douyin 미니프로그램(Taro 4), 브라우저 확장(WXT MV3), iOS/Android(React Native), CLI(Node.js/Bun), Capacitor 네이티브 쉘(iOS/Android) 등 7개 클라이언트가 동일한 React 컴포넌트 라이브러리, 동일한 API 계약 및 동일한 비즈니스 로직을 공유합니다. 한 번 작성하고 7개 클라이언트에 게시 — 각 플랫폼마다 다시 작성할 필요 없음.",
+    "q5Question": "\"7개 클라이언트, 하나의 코드\"는 무엇을 의미하나요?",
     "q6Answer": "세 가지 방법: ① OpenAPI 3.1 REST API(TypeScript/Python/Go SDK 제공); ② Webhook 이벤트 구독; ③ MCP 도구 프로토콜(내부 시스템을 MCP Server로 노출하여 IHUI AI Agent가 호출). Enterprise 버전은 SSO/SAML 2.0/OIDC SSO도 지원합니다.",
     "q6Question": "기존 시스템과 어떻게 통합하나요?",
     "q7Answer": "예, 개인 플랜은 영원히 무료입니다: 월 1,000 크레딧, 모든 모델, 6개 클라이언트 모두, API 액세스 모두 포함. Pro는 ¥49/월(10,000 크레딧 + 우선순위 대기열), Team은 ¥299/월/사용자(공유 크레딧 풀 + 감사 로그), Enterprise는 맞춤(자체 호스팅 + SLA).",
@@ -17539,7 +17555,7 @@
       "row1Claude": "CLI",
       "row1Cursor": "데스크톱",
       "row1Feature": "플랫폼 지원",
-      "row1Us": "8플랫폼 전면 지원",
+      "row1Us": "9플랫폼 전면 지원",
       "row2Chatgpt": "OpenAI 모델",
       "row2Claude": "Claude 모델",
       "row2Cursor": "다중 모델 선택",
@@ -17575,7 +17591,7 @@
       "row8Cursor": "없음",
       "row8Feature": "에이전트 마켓",
       "row8Us": "5+ 직무",
-      "subtitle": "지후이 AI vs Claude Code vs Cursor vs ChatGPT · 8플랫폼 전체 커버 + 100+ LLM + 트리플 스택결합 + 에이전트 광장",
+      "subtitle": "지후이 AI vs Claude Code vs Cursor vs ChatGPT · 9플랫폼 전체 커버 + 100+ LLM + 트리플 스택결합 + 에이전트 광장",
       "title": "경쟁사 대비 · 다차원 비교",
       "titleEn": "COMPETITIVE COMPARISON"
     },
@@ -17612,9 +17628,9 @@
         "title": "AI 교육 풀스택"
       },
       "modelIntegration": {
-        "benefit": "8배 중복 구매 비용 절약 · 1개 계정으로 8플랫폼 공용 · 데이터 마이그레이션 제로",
-        "description": "Web/Desktop/Mobile/미니앱/CLI/Extension 6 + API/AI-Service 2, 풀스택 지원, 통합 계정으로 원활한 전환",
-        "title": "8플랫폼 전체 커버 아키텍처"
+        "benefit": "8배 중복 구매 비용 절약 · 1개 계정으로 9플랫폼 공용 · 데이터 마이그레이션 제로",
+        "description": "Web/Desktop/Mobile/미니앱/CLI/Extension/Capacitor 7 + API/AI-Service 2, 풀스택 지원, 통합 계정으로 원활한 전환",
+        "title": "9플랫폼 전체 커버 아키텍처"
       },
       "multimodal": {
         "benefit": "¥5만/년 디자인비 절약 · 5대 모달 전체 연동 · 콘텐츠 생산 10× 가속",
@@ -17626,7 +17642,7 @@
         "description": "3 권한 모드 + 7 런타임 인터셉트 엔드포인트 + 60s 타임아웃 거부 + RBAC 세분화 액세스 제어 + 99.9% SLA",
         "title": "기업급 워크스페이스"
       },
-      "subtitle": "8플랫폼 전체 커버 기업급 AI 플랫폼 · 100+ LLM · 자체 개발 CLI · 공업급 엔지니어링 엄격함 · 의사결정자가 원스톱으로 모든 AI 능력 획득",
+      "subtitle": "9플랫폼 전체 커버 기업급 AI 플랫폼 · 100+ LLM · 자체 개발 CLI · 공업급 엔지니어링 엄격함 · 의사결정자가 원스톱으로 모든 AI 능력 획득",
       "title": "8 대 핵심 능력 · 풀스택 커버",
       "titleEn": "POWERFUL FEATURES",
       "workflow": {
@@ -17830,7 +17846,7 @@
     "typewriter": {
       "brand": "자체 개발 CLI, Claude Code 대안",
       "connect": "LangGraph + MCP + A2A 트리플 스택",
-      "content": "8플랫폼 전체 커버리지 · 업계 최초",
+      "content": "9플랫폼 전체 커버리지 · 업계 최초",
       "ctaPrimary": "지금 체험",
       "ctaSecondary": "더 알아보기",
       "explore": "100+ LLM 원스톱 액세스",
@@ -17853,13 +17869,13 @@
         "benefit5": "AI 어시스턴트 우선 체험",
         "benefit6": "불만족 시 전액 환불"
       },
-      "brandSubtitle": "8플랫폼 기업급 AI 플랫폼",
-      "description": "Zhihui AI는 Agent 마켓플레이스, 지식 베이스 RAG, 다중 모델 통합 디스패치, MCP 도구 프로토콜을 통합합니다. Web / Desktop / 미니 프로그램 / 브라우저 확장 / React Native / CLI 6개 플랫폼을 지원하며 Apache 2.0 오픈소스, 프라이빗 배포를 지원합니다.",
+      "brandSubtitle": "9플랫폼 기업급 AI 플랫폼",
+      "description": "Zhihui AI는 Agent 마켓플레이스, 지식 베이스 RAG, 다중 모델 통합 디스패치, MCP 도구 프로토콜을 통합합니다. Web / Desktop / 미니 프로그램 / 브라우저 확장 / React Native / Capacitor 네이티브 쉘 / CLI 7개 플랫폼을 지원하며 Apache 2.0 오픈소스, 프라이빗 배포를 지원합니다.",
       "earlyBird": "얼리버드 ¥6000/년",
-      "multiEnd": "8플랫폼 전체 커버리지",
+      "multiEnd": "9플랫폼 전체 커버리지",
       "perYear": "/년",
       "seats": "18석 한정 의사결정자",
-      "subtitle": "풀스택 AI OS · 8개 플랫폼 지원 · 원스톱 에이전트 협업",
+      "subtitle": "풀스택 AI OS · 9개 플랫폼 지원 · 원스톱 에이전트 협업",
       "title": "지후이 AI 커뮤니티에 오신 것을 환영합니다"
     }
   },
@@ -20935,7 +20951,7 @@
     "comparison": {
       "agentMarket": "Agent 마켓",
       "apache2": "Apache 2.0",
-      "eightEnds": "8개 엔드 지원",
+      "eightEnds": "9개 엔드 지원",
       "feature": "기능",
       "llmCount": "176+ LLM 어댑터",
       "multiTenant": "다중 테넌트 격리",
@@ -22159,7 +22175,7 @@
         "desc": "소스를 서버에 배포",
         "features": [
           "PostgreSQL + Redis 설정",
-          "8플랫폼 빌드",
+          "9플랫폼 빌드",
           "2시간 온라인 교육",
           "30일 이메일 지원",
           "3-5영업일 납품"
@@ -23731,7 +23747,7 @@
     "courseWorkload": "학습 분량",
     "description": "설명",
     "endDate": "종료일",
-    "metaDescription": "IHUI AI 풀스택 AI OS로 구축하는 AI 교육 Agent: 코스 구조화 설계, 지능형 Q&A, 자동 채점, 개인화 학습 경로, 학습 대시보드, 8단 동시 배포.",
+    "metaDescription": "IHUI AI 풀스택 AI OS로 구축하는 AI 교육 Agent: 코스 구조화 설계, 지능형 Q&A, 자동 채점, 개인화 학습 경로, 학습 대시보드, 9엔드 동시 배포.",
     "metaTitle": "AI 교육 Agent 사용 사례 — 코스 설계/지능형 Q&A/학습 추천 | IHUI AI",
     "name": "강좌명",
     "provider": "제공자",
@@ -25734,7 +25750,7 @@
     },
     "seats": "18석 한정 · 의사결정자 전용",
     "earlyBird": "얼리버드 ¥6000/년 · 3.3할",
-    "multiEnd": "8개 엔드 전 지원 · 넓은 범위"
+    "multiEnd": "9개 엔드 전 지원 · 넓은 범위"
   },
   "typewriter": {
     "ctaPrimary": "지금 문의",
