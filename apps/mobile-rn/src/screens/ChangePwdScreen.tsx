@@ -55,7 +55,7 @@ export function ChangePwdScreen() {
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      appAlert('修改失败', detail.trim() ? toUserFriendlyMessage(e) : t('pwd.netFail'))
+      appAlert(t('pwd.failRetry'), detail.trim() ? toUserFriendlyMessage(e) : t('pwd.netFail'))
     } finally {
       setSubmitting(false)
     }
