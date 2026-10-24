@@ -39,7 +39,7 @@ function readResult(raw: unknown): AigcCoverResult {
   return { url, label, source }
 }
 
-function mapTaskToCover(task: AigcTask): AigcCoverOption | null {
+function mapTaskToCover(task: AigcTask, t: (key: string) => string): AigcCoverOption | null {
   const r = readResult(task.result)
   if (!r.url) return null
   return {
@@ -70,7 +70,7 @@ export default function AigcCoverScreen() {
         if (cancelled) return
         if (res.success) {
           const mapped = res.data.list
-            .map(mapTaskToCover)
+            .map((task) => mapTaskToCover(task, t))
             .filter((c): c is AigcCoverOption => c !== null)
           setCovers(mapped)
         } else {

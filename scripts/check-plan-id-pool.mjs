@@ -59,7 +59,7 @@ const C = { red: '\x1b[31m', green: '\x1b[32m', yellow: '\x1b[33m', cyan: '\x1b[
 const isRow = (l) => /^\s*(?:[-*]\s*)?\[[ xX]\]/.test(l) && !/^\s*<!--/.test(l)
 
 /**
- * 一面上的"超池声明"清单:取每行**声明位**号(keyOfRow 那一份判据),按 ID_HEAD_RE 取族与数字段,
+ * 一面上的"超池声明"清单:取每行**声明位**号(plan-task-index 的 declaredKeyOf 那一份判据),按 ID_HEAD_RE 取族与数字段,
  * 数字段 > poolMax 即违规。返回 [{key, family, num, line}]。
  */
 export function overPoolDeclarations(text, poolMax = LEASE_POOL_MAX) {

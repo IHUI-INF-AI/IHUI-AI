@@ -65,12 +65,16 @@ test('P5 单源锁:池上限 / 编号头形状 / 声明位判据都只许有一�
   assert.match(code, /from '\.\/lib\/plan-id-lease\.mjs'/, '池上限与编号头形状必须来自 plan-id-lease')
   assert.match(code, /LEASE_POOL_MAX/, '池上限不得写死第二个数')
   assert.match(code, /ID_HEAD_RE/, '编号头形状必须复用 plan-id-lease 那一份,不得在门里再抄一份正则')
-  // 诚实边界(2026-10-15 评审):"哪些形态算声明位"由 keyOfRow 一家说了算,本门不扩口。
-  // `G1038426` / `G_1038426` 这类 keyOfRow 认不出的写法**结构上不进本门射程** —— 那是声明位判据的
-  // 口径,不是本门的漏判;要收那一型得改 keyOfRow,并让所有共用它的门一起复核。
+  // 诚实边界(2026-10-15 评审):"哪些形态算声明位"由 plan-task-index 一家说了算,本门不扩口。
+  // `G1038426` / `G_1038426` 这类声明位判据认不出的写法**结构上不进本门射程** —— 那是声明位判据的
+  // 口径,不是本门的漏判;要收那一型得改声明位判据,并让所有共用它的门一起复核。
+  //
+  // 2026-10-24 改判据(原为 keyOfRow,现为 declaredKeyOf):keyOfRow 在**未取号行**上会退化成
+  // "行内第一个历史引用",于是 `- [ ] （待派）见 G-1000000 …` 这类叙述行被算成一次超池声明
+  // (实测本仓 3 条假超池);declaredKeyOf 只认行首声明窗口内的号,正是"声明位"这三个字的本义。
   assert.equal(overPoolDeclarations('- [ ] G1038426 无分隔符形态').length, 0)
   assert.equal(overPoolDeclarations(row('G-1038426')).length, 1)
-  assert.match(code, /idx\.keyOfRow\(/, '声明位判据必须用 plan-task-index 的 keyOfRow')
+  assert.match(code, /idx\.declaredKeyOf\(/, '声明位判据必须用 plan-task-index 的 declaredKeyOf')
   assert.ok(!masked.includes('^([A-Za-z]+)'), '门内不得再抄一份编号头正则(第二份实现必漂开)')
   // 上限只许有一个来源:不得出现 `poolMax = 99` / `> 99` 这类把上限写死的形状
   // (self-test 夹具里的 'G-99' 是被判的数据,不是判据,所以按形状判而不按"出现过 99"判)

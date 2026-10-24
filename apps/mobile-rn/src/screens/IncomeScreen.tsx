@@ -40,7 +40,7 @@ function todayKey(): string {
   return `${d.getFullYear()}-${m}-${day}`
 }
 
-function mapRecord(r: CommissionRecord): IncomeCommissionItem {
+function mapRecord(r: CommissionRecord, t: (key: string) => string): IncomeCommissionItem {
   // 后端 /distribution/list 返回 commission_flows 原始行:status 数字 0=invalid 1=active,
   // amount 单位「分」。数据模型无「待结算/已结算」独立状态:
   // status=1(active)=佣金生效中,展示为「待结算」;status=0(invalid)=佣金无效,映射「取消结算」;
@@ -59,7 +59,7 @@ function mapRecord(r: CommissionRecord): IncomeCommissionItem {
 }
 
 /** 提现记录 → 已结算条目(对齐 Uniapp accumulation「已结算=已提现」语义;仅 completed(status=2)计入) */
-function mapWithdrawRecord(r: CommissionWithdrawRecord): IncomeCommissionItem {
+function mapWithdrawRecord(r: CommissionWithdrawRecord, t: (key: string) => string): IncomeCommissionItem {
   return {
     id: r.id,
     title: r.accountType === 'bank' ? t('income.withdrawBank') : t('income.withdrawRecord'),
@@ -104,7 +104,7 @@ export function IncomeScreen() {
       }
       // 「已结算」= 已成功提现的记录(completed status=2);佣金行与提现记录无字段关联,无法逐条标记
       const settledItems = withdrawRes.success
-        ? withdrawRes.data.list.filter((w) => String(w.status) === '2').map(mapWithdrawRecord)
+        ? withdrawRes.data.list.filter((w) => String(w.status) === '2').map((w) => mapWithdrawRecord(w, t))
         : []
       setData({
         totalEarnings: overviewRes.data.totalCommission,
@@ -113,7 +113,7 @@ export function IncomeScreen() {
         balance: overviewRes.data.availableCommission,
         pendingCommission: overviewRes.data.pendingCommission,
         withdrawnCommission: overviewRes.data.withdrawnCommission,
-        list: [...listRes.data.list.map(mapRecord), ...settledItems],
+        list: [...listRes.data.list.map((r) => mapRecord(r, t)), ...settledItems],
       })
     } catch {
       setError(t('income.loadFailed'))
