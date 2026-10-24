@@ -26,6 +26,17 @@
  *    `git-sync-converge` 补同一条时的原话)。补跑失败只喊一行、不改本器退出码;
  *    未闭环的一格:`scripts/plan-tasks-merge.mjs` 是第四台旁路落地器,同样需要自带补跑,
  *    本票开工时它正被他人持有(` M`)⇒ 未动,登记在这里而不是装作已全覆盖。
+ *  - ④ (G-113,2026-10-23)落地、回读、主索引对齐全部完成后,**复跑受影响判据**
+ *    (`lib/land-gate-rerun.mjs`,与 ③ 同一条"判据必须在真跑它的那一刻才成立"的纪律,
+ *    但退出码语义不同):按落地面路径选门 —— 内置最低三件(python 面 mypy、ts 面 tsc、
+ *    同名函数族重复定义扫描)+ 注册表映射(guardian-runner 里 stagedTriggers 被触及的
+ *    门,复跑其全量档)。blocking 臂判红 ⇒ 大声报数后 exit 1;有臂无法判定 ⇒ exit 2。
+ *    **不回滚**(落地是既成事实,替身无权撤销),但拒绝静默 —— 2026-09-29 枚 f57e0c9983
+ *    那一型("干净合并"把两份同名函数族一起送进 HEAD,mypy 10 条红是部署环先看见的)
+ *    正是本档要当场咬住的。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(跳过必打留痕行)。
+ *    同档接线已闭环(2026-10-23 续席):`scripts/union-converge.mjs` 已在落地+对齐之后接同一
+ *    出口(声明面 = 活文档 ∪ 取对侧版本的路径,与它 recordBypassLanding 的 declaredFiles 同集);
+ *    形状锁见 scripts/tests/land-gate-rerun.test.mjs T12。
  *
  * CLI 契约(env 驱动,无参数):
  *  LAND_PATHS  必填,以 `;` 分隔的仓库相对路径清单
@@ -114,6 +125,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { dirname, join, normalize, resolve } from 'node:path'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
+import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import {
@@ -1953,6 +1965,28 @@ async function main() {
     console.log(
       `⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`,
     )
+  }
+
+  /**
+   * G-113(头注④,2026-10-23):落地后复跑受影响判据。位置与 ③ 同一条理由链 —— 必须在
+   * CAS 成功且提交面回读通过之后(没落地的东西没有"落地那一刻"可补),且在主索引对齐之后
+   * (tsc --files 档读盘上那份,对齐后索引=落地面,盘的漂已由 notes 点名,不静默)。
+   * 与 ③ 不同的一点:③ 失败只喊一行不改退出码(自愈替身无权判红一次零丢失自证已通过的落地),
+   * 本档是**判据本身** —— 票面纪律:复跑失败 ⇒ 大声报数 + exit 非 0;不回滚(既成事实),
+   * 但拒绝静默。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(lib 内打留痕行)。
+   */
+  const affected = rerunAffectedGates({ root, paths: paths.concat(removePaths) })
+  if (affected.verdict === 1) {
+    console.error(
+      `❌ 落地后受影响判据复跑判红(blocking ${affected.failed.length} 臂)⇒ 本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),但拒绝报绿静默;修复后请就地再落一次更正提交`,
+    )
+    process.exit(1)
+  }
+  if (affected.verdict === 2) {
+    console.error(
+      `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),请人工复跑点名臂`,
+    )
+    process.exit(2)
   }
   process.exit(0)
 }
