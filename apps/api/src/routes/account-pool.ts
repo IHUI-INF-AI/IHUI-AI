@@ -168,20 +168,28 @@ const accountPoolRoutes: FastifyPluginAsync = async (server) => {
         id: aiRelayAccountPool.id,
         providerCode: aiRelayAccountPool.providerCode,
         uid: aiRelayAccountPool.uid,
+        name: aiRelayAccountPool.name,
         isEnabled: aiRelayAccountPool.isEnabled,
       })
       .from(aiRelayAccountPool)
       .where(and(eq(aiRelayAccountPool.id, p.data.id), eq(aiRelayAccountPool.ownerUserId, userId)))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '账号不存在'))
-    await db
-      .update(aiRelayAccountPool)
-      .set({ ...body.data, updatedAt: new Date() })
-      .where(eq(aiRelayAccountPool.id, row.id))
+    // 只写真实变化:与现值按键比较,无变化不发 UPDATE、不盖 updatedAt(增量读不被同值空写污染)
+    const changed: { name?: string; isEnabled?: boolean } = {}
+    if (body.data.name !== undefined && body.data.name !== row.name) changed.name = body.data.name
+    if (body.data.isEnabled !== undefined && body.data.isEnabled !== row.isEnabled)
+      changed.isEnabled = body.data.isEnabled
+    if (changed.name !== undefined || changed.isEnabled !== undefined) {
+      await db
+        .update(aiRelayAccountPool)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(eq(aiRelayAccountPool.id, row.id))
+    }
     // 启用态联动签到侧(与 admin toggle 同一语义)
     const platform = checkinPlatformFor(row.providerCode)
-    if (platform && body.data.isEnabled !== undefined) {
-      const nextState: PoolAccountState = body.data.isEnabled ? 'enabled' : 'disabled'
+    if (platform && changed.isEnabled !== undefined) {
+      const nextState: PoolAccountState = changed.isEnabled ? 'enabled' : 'disabled'
       const push = await pushPoolState(
         platform,
         { poolAccountId: row.id, ownerUserId: userId, uid: row.uid },

@@ -65,7 +65,7 @@ import {
 } from '@ihui/database'
 import { formatMediaTime } from '@ihui/shared'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
-import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
+import { ensureSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
 import { isUuidString } from '../utils/uuid.js'
 
 /**
@@ -1246,7 +1246,8 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
           .status(400)
           .send(error(400, `n8n domain blocked: ${(ssrfErr as Error).message}`))
       }
-      const resp = await fetch(url, {
+      // 重定向落点逐跳复检:domain 用户可控,裸 fetch 默认 follow 会绕过首跳检查。
+      const resp = await safeFetch(url, {
         method: 'GET',
         headers: { 'X-N8N-API-KEY': key, Accept: 'application/json' },
         signal: AbortSignal.timeout(8000),
