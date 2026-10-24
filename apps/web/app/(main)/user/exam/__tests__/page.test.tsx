@@ -54,6 +54,13 @@ vi.mock('lucide-react', () => {
 
 vi.mock('@/components/common', () => ({ BackButton: () => <button>back</button> }))
 
+// 登录态门(2026-10-15 页面接入 useAuthGate,enabled: allow && !!user.id):不 mock 时
+// 真身判 allow=false ⇒ query 永不启用 ⇒ fetchApi 不被调,7 例齐红(checkin 测试同款形态)。
+const authGate = vi.hoisted(() => ({ state: { ready: true, allow: true } }))
+vi.mock('@/hooks/use-auth-gate', () => ({
+  useAuthGate: () => authGate.state,
+}))
+
 vi.mock('@/stores/auth', () => {
   const state = { token: 'jwt', user: { id: 'u-1' } }
   const useAuthStore: any = (selector?: (s: typeof state) => unknown) =>
