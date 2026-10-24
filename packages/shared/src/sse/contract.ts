@@ -28,6 +28,9 @@ import type { GoalStatus } from '@ihui/types'
 // b76-13 票2:帧级字段 schema 用(本文件下方 SSE_FRAME_SCHEMAS;shared 的既有依赖)
 import { z as zod } from 'zod'
 
+// D120:注入来源 kind 闭集只在本包 constants 声明一份,此处只取类型(§0.6 单一真相源)
+import type { InjectionKind } from '../constants/injection-kinds'
+
 /** SSE 事件名常量(单一事实源)。值即实际 wire 上的事件判别名。 */
 export const SSE_EVENTS = {
   CHUNK: 'chunk',
@@ -44,6 +47,13 @@ export const SSE_EVENTS = {
   PLAN_STEP: 'plan-step',
   THINKING: 'thinking',
   PLAN_UPDATED: 'plan_updated',
+  // D115(2026-10-23,G-229):review 模式结构化审查结论帧。生产点
+  // `apps/ai-service/app/routers/llm.py` 的流收尾包装(gen() 外层,只在
+  // ChatMode=review 时挂),载荷由 `app/core/review_findings.py` 从模型输出的
+  // `<review-findings>` JSON 块投影而来,一 finding 一帧、按严重度 P1/P2/Nit 标注
+  // 文件:行。人读的三档 Markdown 仍照旧走 chunk,本帧是**同一段输出的第二投影**,
+  // 不是第二套协议。必须与 apps/ai-service/app/core/sse_contract.py 同步。
+  REVIEW_FINDING: 'review-finding',
   TERMINAL_START: 'terminal_start',
   TERMINAL_END: 'terminal_end',
   // V3 #48(2026-09-26)补登:终端命令逐行增量。生产在 mcp_server._emit_terminal_delta
@@ -309,12 +319,14 @@ export type SSEEventPayload =
       type: 'injection_applied'
       /** 被注入/生效的上下文类别 —— **与后端一一对应**
        *  (apps/ai-service `app/routers/llm.py` 的 injection_frames 四处 +
-       *  apps/web `components/ai/progress-sections/injection-bar.tsx` 的 INJECTION_KIND_KEYS)。
+       *  条件产出的 `iteration_extension`,见 `_d120_extension_frame`)。
+       *  闭集唯一声明 = `packages/shared/src/constants/injection-kinds.ts`;此处只取类型,
+       *  ui-react / web 的词表键也从那里取,禁止再抄一份字面量。
        *  kind 只当"取哪个本地化文案"的键用,界面措辞一律出自 5 语言词表,
        *  不渲染后端中文文本(collapsed 仅作未知 kind 的兜底)。
        *  历史值 agents_md / environments 已于第 42 轮拆分:二者曾共用 environments,
        *  前端无法区分"Repo Wiki 百科"与"自动检索上下文"。 */
-      kind: 'developer_instructions' | 'workspace_memory' | 'repo_wiki' | 'auto_context'
+      kind: InjectionKind
       /** 折叠态一行摘要(界面默认显示;未知 kind 时的兜底文本) */
       collapsed: string
       /** 展开全文;后端在超出可携带上限时**整字段省略**,界面据此不给"展开"控件
@@ -700,6 +712,31 @@ export type SSEEventPayload =
       reason: string
       /** 本轮实际使用的模型(可缺省) */
       model?: string
+    }>
+  // D115(2026-10-23,G-229):review 模式的结构化 finding。字段与 ai-service
+  // `app/core/review_findings.py::build_review_finding_frames` 的输出逐字对齐;
+  // line = 新文件里的 1-based 行号,0 表示整文件级(端上只显示文件、不给行)。
+  | SSEEventWithMeta<{
+      type: 'review-finding'
+      /** 本帧在本次审查内的稳定标识(`rf-<序号>`,重连重放时同序) */
+      findingId: string
+      /** 1-based 序号与总数(端上据此显示"第 i/n 条",total=0 的帧不存在) */
+      index: number
+      total: number
+      /** 严重度三档封闭集(P1 阻塞 / P2 建议 / Nit 细节) */
+      severity: 'P1' | 'P2' | 'Nit'
+      /** 仓库相对路径 */
+      file: string
+      /** 新文件里的 1-based 行号;0 = 整文件级 finding */
+      line: number
+      /** 一句话结论 */
+      title: string
+      /** 为什么是问题(可为空串,端点不可猜) */
+      detail: string
+      /** 一行修复建议(可为空串) */
+      suggestion: string
+      /** 审查对象描述(如 `uncommitted` / `branch:main` / `commit:abc1234`),可缺省 */
+      target?: string
     }>
 
 /** 事件名数组(去重,用于契约对账/测试)。 */

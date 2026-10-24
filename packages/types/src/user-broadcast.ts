@@ -23,6 +23,16 @@
  * 谁要加 `fields: 'permissionMode' | 'sampling'`,前置是先把档位服务端主副本化(另计一票)。
  */
 
+import {
+  CHAT_SYNC_PROTOCOL_VERSION,
+  isChatPatchKind,
+  isChatSyncRole,
+  type ChatMessageCreatedEvent,
+  type ChatMessagePatchedEvent,
+  type ChatPatchKind,
+  type ChatSyncRole,
+} from './chat-sync-contract.js'
+
 // ===================== 事件名 =====================
 
 /**
@@ -42,6 +52,12 @@ export const USER_BROADCAST_EVENT_NAMES = [
   'collab:comment',
   // D125 另批收口(2026-10-23):写锁/接管发言事件,设计稿 §6 预留的"同三步追加"落地。
   'collab:lock',
+  // 票71(V2 #23)第二切片(2026-10-24):chat 消息面房间广播。
+  // 载荷**就是** chat-sync-contract 的事件本体(不另定义第二份形状)—— 契约 §6 要求
+  // 同一逻辑变更在两条通道上携带逐字相同的 `(messageId, rev, kind, 载荷)`,
+  // 另起一份"投递用载荷"就必然在两份之间漂移,故这里只做载体声明 + 房间校验。
+  'message:created',
+  'message:patched',
 ] as const
 
 export type UserBroadcastEventName = (typeof USER_BROADCAST_EVENT_NAMES)[number]
@@ -345,6 +361,172 @@ function isCollabLockData(v: unknown): v is CollabLockData {
   return true
 }
 
+// ===================== message:created / message:patched(票71 第二切片)=====================
+
+/**
+ * 投递载体声明:data **就是**契约事件本体(`ChatMessageCreatedEvent` / `ChatMessagePatchedEvent`)。
+ *
+ * 为什么不另写一份 `{conversationId, messageId, content, …}`:
+ * 契约 §6「生产端义务」要求同一逻辑变更在 sse/ws 两条通道上携带逐字相同的
+ * `(messageId, rev, kind, 载荷)`;第二份形状一旦落地,两端各读一份,漂移的第一个表现
+ * 不是报错,而是"另一台设备上看到的是半截回复"。
+ *
+ * `channel` 在本载体上恒为 `'ws'`(它只是投递元数据,不参与幂等判定,见契约 §3),
+ * 守卫据此拒收"通道标错"的帧 —— 那说明生产面有两个发射口。
+ */
+export type MessageCreatedData = ChatMessageCreatedEvent
+export type MessagePatchedData = ChatMessagePatchedEvent
+
+export interface MessageCreatedEvent {
+  event: 'message:created'
+  data: MessageCreatedData
+}
+
+export interface MessagePatchedEvent {
+  event: 'message:patched'
+  data: MessagePatchedData
+}
+
+/** 房间必须是 conversation 房间且 id 非空 —— 空房间键没人能订阅,等于一帧发给空气 */
+function isChatSyncRoom(v: unknown): boolean {
+  if (typeof v !== 'object' || v === null) return false
+  const r = v as Record<string, unknown>
+  return (
+    r.kind === 'conversation' && typeof r.conversationId === 'string' && r.conversationId.length > 0
+  )
+}
+
+/** `{protocolVersion, channel:'ws', room, emittedAt?}` 四格封套的公共判据 */
+function isChatSyncEnvelope(d: Record<string, unknown>): boolean {
+  if (d.protocolVersion !== CHAT_SYNC_PROTOCOL_VERSION) return false
+  // 本载体只发 ws 面;收到别家通道的帧 ⇒ 生产面有两个发射口,整帧判「未判定」
+  if (d.channel !== 'ws') return false
+  if (!isChatSyncRoom(d.room)) return false
+  if (d.emittedAt !== undefined) {
+    if (typeof d.emittedAt !== 'string' || Number.isNaN(Date.parse(d.emittedAt))) return false
+  }
+  if ('userId' in d || 'user_id' in d) return false
+  return true
+}
+
+function isMessageCreatedData(v: unknown): v is MessageCreatedData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (d.type !== 'message:created') return false
+  if (!isChatSyncEnvelope(d)) return false
+  if (typeof d.messageId !== 'string' || d.messageId.length === 0) return false
+  if (!isChatSyncRole(d.role)) return false
+  if (typeof d.content !== 'string') return false
+  if (d.reasoning !== undefined && typeof d.reasoning !== 'string') return false
+  return true
+}
+
+function isMessagePatchedData(v: unknown): v is MessagePatchedData {
+  if (typeof v !== 'object' || v === null) return false
+  const d = v as Record<string, unknown>
+  if (d.type !== 'message:patched') return false
+  if (!isChatSyncEnvelope(d)) return false
+  if (typeof d.messageId !== 'string' || d.messageId.length === 0) return false
+  // rev 由服务端分配、从 1 起(0 是 created 的哨兵,链上不存在 rev 0 的 patch)
+  if (typeof d.rev !== 'number' || !Number.isInteger(d.rev) || d.rev < 1) return false
+  if (!isChatPatchKind(d.kind)) return false
+  // 载荷形态与 kind 必须同域:delta 缺 textDelta / snapshot 缺 content 都无人能应用
+  if (d.kind === 'delta') {
+    if (typeof d.textDelta !== 'string') return false
+  } else if (typeof d.content !== 'string') {
+    return false
+  }
+  if (d.textDelta !== undefined && typeof d.textDelta !== 'string') return false
+  if (d.content !== undefined && typeof d.content !== 'string') return false
+  if (d.reasoning !== undefined && typeof d.reasoning !== 'string') return false
+  return true
+}
+
+/**
+ * 生产侧构造 `message:created` 的唯一出口(路由内不得手拼 `{event,data}` 字面量)。
+ * 空 id / 空会话 / 未知角色 ⇒ 构造点直接拒(与另几个构造器同一条纪律):
+ * 这种帧推上线,接收端只会把它计成「未判定」,用户看到的是"另一台设备没同步"。
+ */
+export function messageCreatedEvent(input: {
+  conversationId: string
+  messageId: string
+  role: ChatSyncRole
+  content: string
+  reasoning?: string
+  at?: Date | string
+}): MessageCreatedEvent {
+  if (!input.conversationId) throw new Error('messageCreatedEvent: conversationId 不得为空')
+  if (!input.messageId) throw new Error('messageCreatedEvent: messageId 不得为空')
+  if (!isChatSyncRole(input.role)) {
+    throw new Error(`messageCreatedEvent: 未知角色 ${String(input.role)}`)
+  }
+  const data: MessageCreatedData = {
+    protocolVersion: CHAT_SYNC_PROTOCOL_VERSION,
+    channel: 'ws',
+    room: { kind: 'conversation', conversationId: input.conversationId },
+    type: 'message:created',
+    messageId: input.messageId,
+    role: input.role,
+    content: input.content,
+  }
+  if (input.at !== undefined) data.emittedAt = toIsoAt('messageCreatedEvent', input.at)
+  if (input.reasoning !== undefined) data.reasoning = input.reasoning
+  return { event: 'message:created', data }
+}
+
+/**
+ * 生产侧构造 `message:patched` 的唯一出口。
+ * `rev` 必须由服务端分配(调用方传入):端侧自造 rev 混入同一条链 = 契约 §2 第 2 条违约。
+ */
+export function messagePatchedEvent(input: {
+  conversationId: string
+  messageId: string
+  rev: number
+  kind: ChatPatchKind
+  textDelta?: string
+  content?: string
+  reasoning?: string
+  at?: Date | string
+}): MessagePatchedEvent {
+  if (!input.conversationId) throw new Error('messagePatchedEvent: conversationId 不得为空')
+  if (!input.messageId) throw new Error('messagePatchedEvent: messageId 不得为空')
+  if (!Number.isInteger(input.rev) || input.rev < 1) {
+    throw new Error(`messagePatchedEvent: rev 必须是 ≥1 的整数(实际 ${String(input.rev)})`)
+  }
+  if (!isChatPatchKind(input.kind)) {
+    throw new Error(`messagePatchedEvent: 未知 patch 形态 ${String(input.kind)}`)
+  }
+  const data: MessagePatchedData = {
+    protocolVersion: CHAT_SYNC_PROTOCOL_VERSION,
+    channel: 'ws',
+    room: { kind: 'conversation', conversationId: input.conversationId },
+    type: 'message:patched',
+    messageId: input.messageId,
+    rev: input.rev,
+    kind: input.kind,
+  }
+  if (input.kind === 'delta') {
+    if (typeof input.textDelta !== 'string') {
+      throw new Error('messagePatchedEvent: kind=delta 必须带 textDelta')
+    }
+    data.textDelta = input.textDelta
+  } else {
+    if (typeof input.content !== 'string') {
+      throw new Error('messagePatchedEvent: kind=snapshot 必须带 content')
+    }
+    data.content = input.content
+  }
+  if (input.at !== undefined) data.emittedAt = toIsoAt('messagePatchedEvent', input.at)
+  if (input.reasoning !== undefined) data.reasoning = input.reasoning
+  return { event: 'message:patched', data }
+}
+
+function toIsoAt(fn: string, at: Date | string): string {
+  const iso = typeof at === 'string' ? at : at.toISOString()
+  if (Number.isNaN(Date.parse(iso))) throw new Error(`${fn}: at 不是时间:${iso}`)
+  return iso
+}
+
 // ===================== 联合本体与线上帧形态 =====================
 
 export type UserBroadcastEvent =
@@ -354,6 +536,8 @@ export type UserBroadcastEvent =
   | CollabInvitationEvent
   | CollabCommentEvent
   | CollabLockEvent
+  | MessageCreatedEvent
+  | MessagePatchedEvent
 
 /** 传输线上的裸帧形态:`/ws/broadcast` 推送的就是这个对象 */
 export interface UserBroadcastFrame {
@@ -440,6 +624,9 @@ const DATA_GUARDS: Record<UserBroadcastEventName, (v: unknown) => boolean> = {
   'collab:invitation': isCollabInvitationData,
   'collab:comment': isCollabCommentData,
   'collab:lock': isCollabLockData,
+  // 票71 第二切片:chat 消息面房间广播(形状与 chat-sync-contract 逐字同源)
+  'message:created': isMessageCreatedData,
+  'message:patched': isMessagePatchedData,
 }
 
 /**

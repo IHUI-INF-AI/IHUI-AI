@@ -5,6 +5,8 @@
 import * as React from 'react'
 import { ChevronDown, Layers } from 'lucide-react'
 
+import { injectionKindKey } from '@ihui/shared'
+
 import { cn } from '../lib/utils'
 
 /**
@@ -31,13 +33,11 @@ export interface ContextInjectionListProps {
   className?: string
 }
 
-/** 与后端 `llm.py` injection_frames 四处发射点一一对应;加 kind 必须同时加五语言词表 */
-const INJECTION_KIND_KEYS: Record<string, string> = {
-  developer_instructions: 'injectionKindDeveloper',
-  workspace_memory: 'injectionKindWorkspace',
-  repo_wiki: 'injectionKindRepoWiki',
-  auto_context: 'injectionKindAutoContext',
-}
+/**
+ * kind→词表键取自 `@ihui/shared`(`constants/injection-kinds.ts`,单一真相源):
+ * 此前本组件自持一份 4 值常量,D120 给 web 补了 iteration_extension 后这里仍判未知,
+ * 同一份交代在 web 聚合条上出中文、在单条交代条上回落后端文本(跨包漂移)。
+ */
 
 function InjectionItemRow({
   injection,
@@ -47,7 +47,7 @@ function InjectionItemRow({
   t: ContextInjectionListProps['t']
 }) {
   const [open, setOpen] = React.useState(false)
-  const kindKey = INJECTION_KIND_KEYS[injection.kind]
+  const kindKey = injectionKindKey(injection.kind)
   const label = kindKey
     ? injection.kind === 'auto_context'
       ? t(kindKey, { count: injection.count ?? 0 })
