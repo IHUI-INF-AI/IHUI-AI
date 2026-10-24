@@ -151,11 +151,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     codeLabel: { fontSize: 14, color: tk.text.secondary },
     codeValue: { fontSize: 18, fontWeight: '700', color: tk.text.primary },
+    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
+    // 读数 20px,最坏「¥99999.99」⇒ minWidth 112。
     statsRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       marginTop: 12,
     },
-    statItem: { flex: 1, alignItems: 'center' },
+    statItem: { flex: 1, minWidth: 112, alignItems: 'center' },
     statValue: { fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
     statLabel: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
     shareBtn: {

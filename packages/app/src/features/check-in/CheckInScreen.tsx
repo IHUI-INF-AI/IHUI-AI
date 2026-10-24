@@ -168,8 +168,10 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
-    statsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-    statsCol: { flex: 1, alignItems: 'center' },
+    // 等分读数格:放不下就整格换行,绝不把读数折成两行(docs/UI_GUIDELINES.md §13.4)。
+    // 读数 22px,最坏「999」+ 标签「连续打卡」⇒ minWidth 112。
+    statsRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap' },
+    statsCol: { flex: 1, minWidth: 112, alignItems: 'center' },
     statsValue: { fontSize: 22, fontWeight: '700', color: tk.brand.DEFAULT },
     statsLabel: { marginTop: 8, fontSize: 11, color: tk.brand.DEFAULT },
     signBtn: {

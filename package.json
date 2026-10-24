@@ -165,6 +165,7 @@
     "tag:sync:push": "node scripts/sync-lost-commit-tags.mjs --auto-push",
     "nativewind:status": "node scripts/check-nativewind-status.mjs",
     "check:button-wrap": "node scripts/check-shrinkable-text-button.mjs",
+    "check:rn-readout-cell": "node scripts/check-rn-readout-cell.mjs --worktree",
     "footer:guard": "node scripts/check-site-footer.mjs",
     "seo:indexnow": "node scripts/notify-indexnow.mjs",
     "social-preview": "node scripts/generate-social-preview.mjs",
