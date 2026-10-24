@@ -295,7 +295,7 @@ function probeServer(port) {
   })
 }
 
-async function run({ face, widths, json, locale = 'zh-CN' }) {
+async function run({ face, widths, json: _json, locale = 'zh-CN' }) {
   const src = readFace(face)
   if (src === null) return { status: 'unjudged', reason: `取不到被审面 ${face}:${TARGET_REL}` }
   const built = loadBuiltCss()
