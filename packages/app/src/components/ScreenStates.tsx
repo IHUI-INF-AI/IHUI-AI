@@ -263,7 +263,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.brand.DEFAULT,
     },
-    stateBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    stateBtnText: { fontSize: 14, fontWeight: '600', color: tk.brand.foreground },
     // 按压卡片
     pressCard: {
       padding: 14,
