@@ -12,8 +12,10 @@
  *     —— 替身按既有纪律转发真身(同一函数对象),而壳里一个 <Text> 都没有、也没有样式表;
  *  ② 四入口与两张问题卡的构成/顺序 = 跨端单一源 `@ihui/shared/constants/developer-space`;
  *  ③ 上屏的是真文案而不是裸 i18n 键,且 devSpace.* + developerInfo.* 五语言齐备;
- *  ④ 迁移门判据(守门 check-rn-app-migration 的 `__test__`,§22c 不复制判据)对本壳零违规,
- *     **白名单那行「无跨端需求」豁免被摘掉后仍判绿** ⇒ 发起人可以放心摘线。
+ *  ④ 迁移门判据对本壳的断言(零违规 + **白名单那行「无跨端需求」豁免被摘掉后仍判绿** + 抹掉
+ *     import 必翻 V1 红)住在 `scripts/tests/check-rn-app-migration.test.mjs` T11 —— 端内 import
+ *     门体是一条 rank 40→90 的反向依赖(门 103 判 D1+D2),策略表禁补 requires、禁对 D 用
+ *     `arch-exempt`,唯一合规出路是把测判据源的用例放在不反向的那一层。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement, type ReactNode } from 'react'
@@ -27,7 +29,6 @@ import {
   DEVELOPER_SPACE_ENTRIES,
   DEVELOPER_SPACE_PROBLEMS,
 } from '@ihui/shared/constants/developer-space'
-import { __test__ as rnAppGate } from '../../../scripts/check-rn-app-migration.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const shellText = readFileSync(resolve(HERE, '../src/screens/DeveloperScreen.tsx'), 'utf8')
@@ -128,24 +129,6 @@ describe('DeveloperScreen 渲染的是共享层那一份', () => {
     // 任何 <Text>/<View> 版式或第二份样式表都是"把版式又抄回端内"的那一型
     expect(shellText).not.toMatch(/<Text|<ScrollView|StyleSheet\.create/)
     expect(sharedText).toMatch(/StyleSheet\.create/)
-  })
-
-  it('迁移门判据(源脚本 __test__,不复制判据)对本壳零违规;摘掉豁免同样零违规', () => {
-    const run = (whitelist: Map<string, { why: string; expires: string }>, text: string) =>
-      rnAppGate.verdict({
-        screens: [{ name: 'DeveloperScreen.tsx', text }],
-        baseline: new Map([['DeveloperScreen.tsx', text]]),
-        sharedNames: new Set([rnAppGate.stemOf('DeveloperScreen.tsx')]),
-        headScreenNames: new Set(['DeveloperScreen.tsx']),
-        whitelist,
-        today: rnAppGate.isoToday(),
-      })
-    expect(run(rnAppGate.WHITELIST_ENTRIES, shellText).violations).toEqual([])
-    // 阳性对照 1:白名单那行「开发者空间页…无跨端需求」被摘掉后,真壳仍判绿(靠的是真 import)
-    expect(run(new Map(), shellText).violations).toEqual([])
-    // 阳性对照 2:同一把尺子把 import 抹掉必须判 V1 红(否则上一条断言是恒真的)
-    const stripped = shellText.replace(/'@ihui\/rn-app'/g, "'../screens/DeveloperScreenLocal'")
-    expect(run(new Map(), stripped).violations.map((v: { code: string }) => v.code)).toEqual(['V1'])
   })
 
   it('开发者信息卡逐行上屏(名称/简介/状态/账号/密钥插值/网址/到期时间)', async () => {
