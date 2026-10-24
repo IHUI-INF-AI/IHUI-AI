@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { NotificationSettingsItem, NotificationSettingsScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
@@ -110,38 +110,38 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing.lg,
+      paddingVertical: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
-    body: { padding: 10 },
+    title: { fontSize: rnType.heading.size, fontWeight: '600', color: tk.text.primary },
+    body: { padding: rnSpacing.lg },
     card: {
-      padding: 12,
-      marginBottom: 12,
+      padding: rnSpacing.md,
+      marginBottom: rnSpacing.md,
       borderRadius: rnRadius.lg,
       backgroundColor: tk.surface.light,
     },
-    desc: { fontSize: 14, color: tk.text.secondary },
+    desc: { ...rnType.body, color: tk.text.secondary },
     row: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: 10,
+      paddingVertical: rnSpacing.md,
     },
-    label: { fontSize: 14, color: tk.text.medium },
-    errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8 },
-    successText: { fontSize: 14, color: tk.success.DEFAULT, marginBottom: 8 },
+    label: { ...rnType.body, color: tk.text.medium },
+    errorText: { ...rnType.body, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
+    successText: { ...rnType.body, color: tk.success.DEFAULT, marginBottom: rnSpacing.sm },
     saveBtn: {
-      marginTop: 8,
-      borderRadius: rnRadius.sm,
+      marginTop: rnSpacing.sm,
+      borderRadius: rnRadius.md,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: tk.brand.cta,
     },
     saveBtnDisabled: { backgroundColor: tk.text.tertiary },
-    saveBtnText: { color: tk.surface.light, fontSize: 16, fontWeight: '600' },
+    saveBtnText: { color: tk.surface.light, ...rnType.title },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

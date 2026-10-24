@@ -111,7 +111,8 @@
     "uploading": "上傳中…",
     "user": "使用者",
     "more": "更多",
-    "discountAmount": "優惠"
+    "discountAmount": "優惠",
+    "loadFailed": "載入失敗"
   },
   "login": {
     "loginSuccess": "登入成功",
@@ -4707,5 +4708,59 @@
     "apiKeyNone": "未建立",
     "urlLabel": "網址",
     "expiryLabel": "到期時間"
+  },
+  "userPublic": {
+    "title": "用戶主頁",
+    "notFound": "用戶不存在",
+    "follow": "關注",
+    "following": "已關注",
+    "message": "發訊息",
+    "followingCount": "關注",
+    "followersCount": "粉絲",
+    "favoritesCount": "收藏",
+    "joined": "加入於"
+  },
+  "eduShop": {
+    "title": "教育商城",
+    "courses": "課程商品",
+    "orders": "我的訂單",
+    "free": "免費",
+    "buy": "購買",
+    "lessons": "{n} 課時",
+    "loadMore": "載入更多",
+    "emptyCourses": "暫無在售課程",
+    "emptyOrders": "暫無訂單",
+    "cancelOrder": "取消訂單",
+    "orderCreated": "訂單已建立",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "completed": "已完成",
+      "refunded": "已退款"
+    }
+  },
+  "llmSettings": {
+    "title": "模型服務商",
+    "empty": "還沒有配置服務商",
+    "emptyDesc": "點擊右上角嚮導,4 步配置 API Key",
+    "enabled": "已啟用",
+    "disabled": "已停用"
+  },
+  "byok": {
+    "fab": "快速配置",
+    "title": "一鍵配置嚮導",
+    "step1Title": "選擇廠商",
+    "step2Title": "填寫 API Key",
+    "step3Title": "驗證密鑰",
+    "step4Title": "完成",
+    "keyPlaceholder": "貼上 API Key(sk-…)",
+    "verify": "驗證",
+    "next": "下一步",
+    "activate": "啟用並建立",
+    "verifying": "正在驗證…",
+    "verifySuccess": "驗證通過",
+    "verifyFailed": "驗證未通過",
+    "doneDesc": "服務商已建立,平台分潤已啟用"
   }
 }

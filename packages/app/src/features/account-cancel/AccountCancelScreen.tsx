@@ -7,7 +7,7 @@ import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet } from 'rea
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AccountCancelScreenProps } from '../../types'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { TextField } from '../../components/TextField'
 
@@ -136,54 +136,52 @@ function createStyles(tk: AppThemeTokens) {
     header: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingBottom: 12,
-      gap: 12,
+      paddingHorizontal: rnSpacing.lg,
+      paddingBottom: rnSpacing.md,
+      gap: rnSpacing.md,
     },
-    title: { fontSize: 20, fontWeight: '700', color: tk.text.primary },
+    title: { ...rnType.heading, color: tk.text.primary },
     scrollContent: {
-      padding: 14,
-      paddingBottom: 32,
-      gap: 12,
+      padding: rnSpacing.lg,
+      paddingBottom: rnSpacing['3xl'],
+      gap: rnSpacing.lg,
     },
     desc: {
-      fontSize: 14,
+      ...rnType.body,
       color: tk.text.secondary,
-      lineHeight: 18,
       backgroundColor: tk.surface.light,
-      padding: 12,
+      padding: rnSpacing.md,
       borderRadius: rnRadius.xl,
     },
     fieldGroup: {
-      gap: 8,
+      gap: rnSpacing.sm,
     },
     label: {
-      fontSize: 16,
-      fontWeight: '600',
+      ...rnType.title,
       color: tk.text.primary,
     },
     input: {
       backgroundColor: tk.surface.muted,
-      borderRadius: rnRadius.sm,
-      paddingHorizontal: 12,
+      borderRadius: rnRadius.md,
+      paddingHorizontal: rnSpacing.md,
       height: 50,
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.primary,
       borderWidth: 1,
       borderColor: tk.border.light,
     },
     smsRow: {
       flexDirection: 'row',
-      gap: 8,
+      gap: rnSpacing.sm,
       alignItems: 'center',
     },
     smsInput: {
       flex: 1,
     },
     smsBtn: {
-      paddingHorizontal: 12,
+      paddingHorizontal: rnSpacing.md,
       height: 44,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
       justifyContent: 'center',
@@ -192,7 +190,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     smsBtnText: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.surface.light,
     },
@@ -202,17 +200,16 @@ function createStyles(tk: AppThemeTokens) {
     submitBtn: {
       height: 50,
       justifyContent: 'center',
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
-      marginTop: 8,
+      marginTop: rnSpacing.sm,
     },
     btnDisabled: {
       opacity: 0.6,
     },
     submitBtnText: {
-      fontSize: 18,
-      fontWeight: '600',
+      ...rnType.subtitle,
       color: tk.surface.light,
     },
     modalOverlay: {
@@ -220,41 +217,40 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: 'rgba(0,0,0,0.5)',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 24,
+      padding: rnSpacing['2xl'],
     },
     modalContent: {
       width: '100%',
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius['2xl'],
-      padding: 24,
-      gap: 12,
+      padding: rnSpacing['2xl'],
+      gap: rnSpacing.md,
     },
     modalTitle: {
-      fontSize: 20,
-      fontWeight: '600',
+      fontSize: rnType.heading.size,
       color: tk.text.primary,
       textAlign: 'center',
     },
     modalBody: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       color: tk.text.secondary,
       textAlign: 'center',
       lineHeight: 20,
     },
     modalActions: {
       flexDirection: 'row',
-      gap: 12,
+      gap: rnSpacing.md,
     },
     modalCancel: {
       flex: 1,
       height: 44,
       justifyContent: 'center',
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
       alignItems: 'center',
     },
     modalCancelText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.secondary,
     },
@@ -262,7 +258,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       height: 44,
       justifyContent: 'center',
-      borderRadius: rnRadius.xl,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.danger.DEFAULT,
       alignItems: 'center',
     },
@@ -270,7 +266,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     modalConfirmText: {
-      fontSize: 16,
+      fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.surface.light,
     },

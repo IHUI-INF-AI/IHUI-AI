@@ -111,7 +111,8 @@
     "uploading": "アップロード中…",
     "user": "ユーザー",
     "more": "もっと見る",
-    "discountAmount": "割引"
+    "discountAmount": "割引",
+    "loadFailed": "読み込みに失敗しました"
   },
   "login": {
     "loginSuccess": "ログイン成功",
@@ -4707,5 +4708,59 @@
     "apiKeyNone": "まだ作成していません",
     "urlLabel": "URL",
     "expiryLabel": "有効期限"
+  },
+  "userPublic": {
+    "title": "ユーザープロフィール",
+    "notFound": "ユーザーが見つかりません",
+    "follow": "フォロー",
+    "following": "フォロー中",
+    "message": "メッセージ",
+    "followingCount": "フォロー",
+    "followersCount": "フォロワー",
+    "favoritesCount": "お気に入り",
+    "joined": "登録日"
+  },
+  "eduShop": {
+    "title": "教育ストア",
+    "courses": "コース商品",
+    "orders": "注文履歴",
+    "free": "無料",
+    "buy": "購入",
+    "lessons": "{n} レッスン",
+    "loadMore": "さらに読み込む",
+    "emptyCourses": "販売中のコースなし",
+    "emptyOrders": "注文なし",
+    "cancelOrder": "注文をキャンセル",
+    "orderCreated": "注文を作成しました",
+    "status": {
+      "pending": "未払い",
+      "paid": "支払済み",
+      "cancelled": "キャンセル済み",
+      "completed": "完了",
+      "refunded": "返金済み"
+    }
+  },
+  "llmSettings": {
+    "title": "モデルプロバイダー",
+    "empty": "プロバイダー未設定",
+    "emptyDesc": "右上のウィザードで 4 ステップ設定",
+    "enabled": "有効",
+    "disabled": "無効"
+  },
+  "byok": {
+    "fab": "クイック設定",
+    "title": "セットアップウィザード",
+    "step1Title": "プロバイダーを選択",
+    "step2Title": "API キーを入力",
+    "step3Title": "キーを検証",
+    "step4Title": "完了",
+    "keyPlaceholder": "API キーを貼り付け(sk-…)",
+    "verify": "検証",
+    "next": "次へ",
+    "activate": "有効化",
+    "verifying": "検証中…",
+    "verifySuccess": "検証成功",
+    "verifyFailed": "検証失敗",
+    "doneDesc": "プロバイダーを作成し、収益分配を有効化しました"
   }
 }

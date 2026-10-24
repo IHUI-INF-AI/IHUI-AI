@@ -42,6 +42,37 @@ export {
   type UserFansScreenProps,
 } from './features/user-fans/UserFansScreen'
 export {
+  UserPublicScreen,
+  type UserPublicView,
+  type UserPublicStats,
+  type UserPublicScreenProps,
+} from './features/user-public/UserPublicScreen'
+export {
+  LlmSettingsScreen,
+  type LlmProviderRowView,
+  type ByokProviderOption,
+  type ByokVerifyState,
+  type LlmSettingsScreenProps,
+} from './features/llm-settings/LlmSettingsScreen'
+export {
+  EduShopScreen,
+  type EduShopCourseView,
+  type EduShopOrderView,
+  type EduShopScreenProps,
+} from './features/edu-shop/EduShopScreen'
+export {
+  ConsoleTableScreen,
+  type ConsoleColumn,
+  type ConsoleRowView,
+  type ConsoleBadgeTone,
+  type ConsoleTableScreenProps,
+} from './features/console-table/ConsoleTableScreen'
+export {
+  SwitchPrefsScreen,
+  type SwitchPrefItem,
+  type SwitchPrefsScreenProps,
+} from './features/switch-prefs/SwitchPrefsScreen'
+export {
   TopicDetailScreen,
   type TopicDetailPostView,
   type TopicDetailView,
