@@ -1,3 +1,4 @@
+import { useI18n } from '../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -51,12 +52,13 @@ export interface ShareSheetProps {
 }
 
 export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
+  const { t } = useI18n()
   const { visible, onClose, shareUrl, shareTitle, shareDescription, onNotify } = props
   if (!visible) return null
 
   const url = shareUrl ?? 'https://aizhs.top'
-  const title = shareTitle ?? '智汇AI社区'
-  const description = shareDescription ?? '来智汇AI社区,一起玩转 AI'
+  const title = shareTitle ?? t('share.brandCommunity')
+  const description = shareDescription ?? t('share.defaultDesc')
 
   /** 动作收口:通知 + 关面板(选完即收,微信系 action sheet 惯例) */
   const finishWith = (type: 'success' | 'error' | 'info', message: string): void => {
@@ -95,8 +97,11 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
   const copyLink = async (reason?: string): Promise<void> => {
     const ok = await copyText()
     if (ok)
-      finishWith('success', reason ? `已复制链接,请在微信中粘贴分享(${reason})` : '链接已复制')
-    else finishWith('error', `复制失败,请手动访问 ${url}`)
+      finishWith(
+        'success',
+        reason ? `${t('share.copiedWx').replace('{reason}', reason)}` : t('share.linkCopied'),
+      )
+    else finishWith('error', t('share.copyFailManual', { url }))
   }
 
   /** 微信分享统一入口:SDK 不可用或分享失败时诚实降级为复制链接;取消静默收口 */
@@ -107,7 +112,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
       } else {
         await shareWebPageToTimeline({ title, description, webpageUrl: url })
       }
-      finishWith('success', target === 'session' ? '已分享给微信好友' : '已分享到朋友圈')
+      finishWith('success', target === 'session' ? t('share.sentFriend') : t('share.sentMoments'))
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       if (message === 'USER_CANCEL') {
@@ -124,7 +129,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
         <Pressable
           style={StyleSheet.absoluteFill}
           onPress={onClose}
-          accessibilityLabel="点击关闭分享面板"
+          accessibilityLabel={t('share.sheetCloseA11y')}
         />
         <View style={styles.sheet}>
           <Text style={styles.title}>分享到</Text>
@@ -134,7 +139,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
               style={styles.option}
               onPress={() => void shareToWechat('session')}
               accessibilityRole="button"
-              accessibilityLabel="分享到微信好友"
+              accessibilityLabel={t('share.toFriendA11y')}
             >
               {({ pressed }) => (
                 <View style={[styles.optionFace, pressed ? styles.pressed : null]}>
@@ -150,7 +155,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
               style={styles.option}
               onPress={() => void shareToWechat('timeline')}
               accessibilityRole="button"
-              accessibilityLabel="分享到朋友圈"
+              accessibilityLabel={t('share.toMomentsA11y')}
             >
               {({ pressed }) => (
                 <View style={[styles.optionFace, pressed ? styles.pressed : null]}>
@@ -166,7 +171,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
               style={styles.option}
               onPress={() => void copyLink()}
               accessibilityRole="button"
-              accessibilityLabel="复制分享链接"
+              accessibilityLabel={t('share.copyLinkA11y')}
             >
               {({ pressed }) => (
                 <View style={[styles.optionFace, pressed ? styles.pressed : null]}>
@@ -183,7 +188,7 @@ export function ShareSheet(props: ShareSheetProps): React.JSX.Element | null {
             style={styles.cancelButton}
             onPress={onClose}
             accessibilityRole="button"
-            accessibilityLabel="取消分享"
+            accessibilityLabel={t('share.cancelA11y')}
           >
             {({ pressed }) => (
               <View style={[styles.cancelFace, pressed ? styles.pressed : null]}>

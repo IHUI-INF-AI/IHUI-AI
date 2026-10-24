@@ -66,7 +66,7 @@ export function ArticleDetailScreen() {
   const [commentLoading, setCommentLoading] = useState(false)
   const [commentText, setCommentText] = useState('')
   useUiTextField({
-    label: '写下你的评论...',
+    label: t('article.commentPh'),
     value: commentText,
     setValue: setCommentText,
     multiline: true,
@@ -114,15 +114,15 @@ export function ArticleDetailScreen() {
           setComments(res.data.list)
         } else {
           setComments([])
-          setCommentError(apiFailureToText(res, '评论加载失败'))
+          setCommentError(apiFailureToText(res, t('article.loadCommentsFail')))
         }
       })
       .catch(() => {
         setComments([])
-        setCommentError('评论加载失败')
+        setCommentError(t('article.loadCommentsFail'))
       })
       .finally(() => setCommentLoading(false))
-  }, [id])
+  }, [id, t])
 
   /** 发表评论(对齐 news/comment 提交) */
   const handleCommentSubmit = useCallback(async (): Promise<void> => {
@@ -136,15 +136,15 @@ export function ArticleDetailScreen() {
         setComments((prev) => [res.data, ...prev])
         setCommentText('')
       } else {
-        setCommentError(apiFailureToText(res, '评论失败'))
+        setCommentError(apiFailureToText(res, t('article.commentFail')))
       }
     } catch (e: unknown) {
       const detail = e instanceof Error ? e.message : typeof e === 'string' ? e : ''
-      setCommentError(detail.trim() ? toUserFriendlyMessage(e) : '评论失败,请重试')
+      setCommentError(detail.trim() ? toUserFriendlyMessage(e) : t('article.commentFailRetry'))
     } finally {
       setCommentSubmitting(false)
     }
-  }, [commentText, id])
+  }, [commentText, id, t])
 
   /** 分享(对齐 handleShare:uni.share → RN Share API) */
   const handleShare = useCallback((): void => {
@@ -206,7 +206,7 @@ export function ArticleDetailScreen() {
                 hitSlop={8}
                 onPress={() => setCommentVisible(false)}
                 accessibilityRole="button"
-                accessibilityLabel="关闭评论"
+                accessibilityLabel={t('comment.close')}
               >
                 <Text style={styles.commentClose}>×</Text>
               </Pressable>
@@ -220,20 +220,19 @@ export function ArticleDetailScreen() {
                 style={styles.commentList}
                 contentContainerStyle={comments.length === 0 ? styles.commentListEmpty : undefined}
                 ListEmptyComponent={
-                  <Text style={styles.commentEmptyText}>
-                    {commentError || '暂无评论,快来抢沙发'}
-                  </Text>
+                  <Text style={styles.commentEmptyText}>{commentError || t('comment.empty')}</Text>
                 }
                 renderItem={({ item }) => (
                   <View style={styles.commentItem}>
                     <View style={styles.commentAvatar}>
                       <Text style={styles.commentAvatarText}>
-                        {(item.author.nickname || '用')[0] ?? '用'}
+                        {(item.author.nickname || t('common.user'))[0] ??
+                          t('common.user').slice(0, 1)}
                       </Text>
                     </View>
                     <View style={styles.commentBody}>
                       <Text style={styles.commentNickname} numberOfLines={1}>
-                        {item.author.nickname || '匿名用户'}
+                        {item.author.nickname || t('ranking.anonymous')}
                       </Text>
                       <Text style={styles.commentContent}>{item.content}</Text>
                       <Text style={styles.commentTime}>
@@ -249,7 +248,7 @@ export function ArticleDetailScreen() {
                 colorScheme={resolvedTheme}
                 value={commentText}
                 onChangeText={setCommentText}
-                placeholder="写下你的评论..."
+                placeholder={t('article.commentPh')}
                 placeholderTextColor={tokens.text.tertiary}
                 style={styles.commentInput}
                 multiline
@@ -263,9 +262,11 @@ export function ArticleDetailScreen() {
                 disabled={!commentText.trim() || commentSubmitting}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="发表评论"
+                accessibilityLabel={t('comment.send')}
               >
-                <Text style={styles.commentSendText}>{commentSubmitting ? '…' : '发送'}</Text>
+                <Text style={styles.commentSendText}>
+                  {commentSubmitting ? '…' : t('article.send')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

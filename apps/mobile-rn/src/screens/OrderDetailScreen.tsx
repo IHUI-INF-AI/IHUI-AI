@@ -162,8 +162,8 @@ export function OrderDetailScreen() {
 
   // 联系卖家:客户端行为(无后端接口)
   const handleContact = useCallback(() => {
-    appAlert('联系卖家', '如有问题请联系客服微信：aizhs_kefu')
-  }, [])
+    appAlert(t('orderDetail.contactSeller'), t('orderDetail.contactBody'))
+  }, [t])
 
   // 再次购买:跳转 VIP 页(无后端接口)
   const handleRebuy = useCallback(() => {
@@ -188,7 +188,7 @@ export function OrderDetailScreen() {
           ...wrap('pay', () => {
             void handlePay()
           }),
-          label: '立即支付',
+          label: t('orderDetail.payNow'),
           primary: true,
         },
       ]
@@ -202,7 +202,7 @@ export function OrderDetailScreen() {
           ...wrap('contact', () => {
             handleContact()
           }),
-          label: '联系卖家',
+          label: t('orderDetail.contactSeller'),
           primary: true,
         },
       ]
@@ -213,7 +213,7 @@ export function OrderDetailScreen() {
           ...wrap('rebuy', () => {
             handleRebuy()
           }),
-          label: '再次购买',
+          label: t('orderDetail.buyAgain'),
           primary: true,
         },
       ]
@@ -224,13 +224,13 @@ export function OrderDetailScreen() {
           ...wrap('rebuy', () => {
             handleRebuy()
           }),
-          label: '再次购买',
+          label: t('orderDetail.buyAgain'),
           primary: true,
         },
       ]
     }
     return []
-  }, [order, actionLoading, callOrderAction, handlePay, handleContact, handleRebuy])
+  }, [order, actionLoading, callOrderAction, handlePay, handleContact, handleRebuy, t])
 
   return (
     <View style={styles.container}>
@@ -247,14 +247,14 @@ export function OrderDetailScreen() {
       {actions.length > 0 ? <BottomActionBar actions={actions} /> : null}
       <PurchaseNoticePopUp
         visible={noticeVisible}
-        title="购买成功"
-        subtitle="请仔细阅读购买须知,享受您的权益"
+        title={t('orderDetail.paidTitle')}
+        subtitle={t('orderDetail.paidSub')}
         bullets={[
-          '订单已支付成功,请妥善保管凭证',
-          '如需退款请在 7 天内申请',
-          '专属客服 24 小时在线服务',
+          t('orderDetail.paidLine1'),
+          t('orderDetail.paidLine2'),
+          t('orderDetail.paidLine3'),
         ]}
-        primaryLabel="我知道了"
+        primaryLabel={t('common.gotIt')}
         onClose={() => setNoticeVisible(false)}
         onPrimary={() => setNoticeVisible(false)}
       />

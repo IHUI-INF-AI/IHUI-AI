@@ -97,39 +97,40 @@ function previewText(text?: string): string {
 }
 
 /** 类型 → 默认标题(对齐原版) */
-function defaultTitleForType(type: MaterialType): string {
+function defaultTitleForType(type: MaterialType, t: (k: string) => string): string {
   switch (type) {
     case 'text':
-      return '文本内容'
+      return t('material.cText')
     case 'image':
-      return '图片内容'
+      return t('material.cImage')
     case 'video':
-      return '视频内容'
+      return t('material.cVideo')
     case 'audio':
-      return '音频内容'
+      return t('material.cAudio')
     default:
-      return '素材内容'
+      return t('material.cDefault')
   }
 }
 
 /** 分类 → 空态文案(对齐原版 per-tab 空态) */
-function emptyTextForCategory(key: string): string {
+function emptyTextForCategory(key: string, t: (k: string) => string): string {
   switch (key) {
     case 'text':
-      return '暂无文本内容'
+      return t('material.eText')
     case 'image':
-      return '暂无图片内容'
+      return t('material.eImage')
     case 'video':
-      return '暂无视频内容'
+      return t('material.eVideo')
     case 'audio':
-      return '暂无音频素材'
+      return t('material.eAudio')
     default:
-      return '暂无内容'
+      return t('material.eDefault')
   }
 }
 
 /** 行内「详情」小按钮(点击触发 onDetail,stopPropagation 避免触发外层 onPress) */
 function DetailButton({ onPress }: { onPress?: () => void }): React.JSX.Element {
+  const { t } = useI18n()
   return (
     <Pressable
       hitSlop={6}
@@ -139,9 +140,9 @@ function DetailButton({ onPress }: { onPress?: () => void }): React.JSX.Element 
       }}
       style={styles.detailBtn}
       accessibilityRole="button"
-      accessibilityLabel="查看详情"
+      accessibilityLabel={t('material.detailA11y')}
     >
-      <Text style={styles.detailBtnText}>详情</Text>
+      <Text style={styles.detailBtnText}>{t('mat.btnDetail')}</Text>
     </Pressable>
   )
 }
@@ -158,7 +159,7 @@ function MaterialRow({
   onDelete?: (item: MaterialItem) => void
   onDetail?: (item: MaterialItem) => void
 }): React.JSX.Element {
-  const title = item.title || defaultTitleForType(item.type)
+  const title = item.title || defaultTitleForType(item.type, t)
   const time = item.createdAt ? formatDate(item.createdAt) : ''
 
   // 文本:标题 + 时间 + 30 字预览(无缩略图)
@@ -258,7 +259,7 @@ export default function MaterialList({
     [onPress, onDelete, onDetail],
   )
 
-  const emptyText = emptyTextForCategory(activeCategory)
+  const emptyText = emptyTextForCategory(activeCategory, t)
 
   const footer = loading ? (
     <View style={styles.footer}>
