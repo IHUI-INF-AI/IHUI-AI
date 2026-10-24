@@ -156,6 +156,22 @@ function shanghaiDayStartUtc(daysAgo = 0): Date {
   )
 }
 
+/** 上海日界的 YYYY-MM-DD 日期串(daysAgo=0 即上海今天)。与 usersTodayNew 同口径:
+ *  新增用户按上海日界切分,增长曲线若按 UTC 切日,16:00 后的注册会被算进"明天",
+ *  与同一张屏上的「今日新增」读数自相矛盾。 */
+function shanghaiDateString(daysAgo = 0): string {
+  const shanghaiNow = new Date(Date.now() + 8 * 3600 * 1000)
+  return new Date(
+    Date.UTC(
+      shanghaiNow.getUTCFullYear(),
+      shanghaiNow.getUTCMonth(),
+      shanghaiNow.getUTCDate() - daysAgo,
+    ),
+  )
+    .toISOString()
+    .slice(0, 10)
+}
+
 // ===== 各数据面聚合(每块独立 try/catch ⇒ 失败置 null)=====
 
 interface HostSnapshot {
@@ -570,6 +586,8 @@ interface BusinessSnapshot {
   llmP95LatencyMs: number | null
   llmTopModels: Array<{ model: string; calls: number }>
   signIn: SignInSnapshot | null
+  /** 近 14 日每日新增用户(上海日界,含今天,后端逐日补齐);查询失败为 null */
+  userGrowth: Array<{ date: string; count: number }> | null
 }
 
 async function buildBusiness(): Promise<BusinessSnapshot | null> {
@@ -589,6 +607,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       llmModels,
       signToday,
       signWeek,
+      userGrowthRows,
     ] = await Promise.all([
       dbRead
         .select({
@@ -682,6 +701,18 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         .groupBy(signInRecords.signInDate)
         .orderBy(signInRecords.signInDate)
         .catch(() => null),
+      // 近 14 日每日新增用户(上海日界,与 usersTodayNew 同口径:createdAt + 8h 后按日切分)。
+      // 这张表出问题不拖垮整块业务纵深 ⇒ 同样单表独立 catch(null)。
+      dbRead
+        .select({
+          date: sql<string>`to_char(${users.createdAt} + interval '8 hours', 'YYYY-MM-DD')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(users)
+        .where(gte(users.createdAt, shanghaiDayStartUtc(13)))
+        .groupBy(sql`1`)
+        .orderBy(sql`1`)
+        .catch(() => null),
     ])
     const u = userRows[0]
     const o = orderToday[0]
@@ -710,6 +741,17 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
         last7d,
       }
     }
+    // 用户增长:查询失败 ⇒ null(整块不渲染,不把"没量到"画成 14 根 0 柱);
+    // 查询成功 ⇒ 按上海日界逐日补齐 14 天 —— 无行的日期是"当天确实 0 注册"这一真实读数。
+    let userGrowth: BusinessSnapshot['userGrowth'] = null
+    if (userGrowthRows !== null) {
+      const byDate = new Map(userGrowthRows.map((r) => [r.date, r.count]))
+      userGrowth = []
+      for (let i = 13; i >= 0; i--) {
+        const date = shanghaiDateString(i)
+        userGrowth.push({ date, count: byDate.get(date) ?? 0 })
+      }
+    }
     return {
       usersTotal: u?.total ?? 0,
       usersTodayNew: u?.todayNew ?? 0,
@@ -732,6 +774,7 @@ async function buildBusiness(): Promise<BusinessSnapshot | null> {
       llmP95LatencyMs: l?.p95Latency ?? null,
       llmTopModels: llmModels.map((r) => ({ model: r.model, calls: r.calls })),
       signIn,
+      userGrowth,
     }
   } catch (e) {
     console.error('[ops-wallboard] buildBusiness failed:', e)
