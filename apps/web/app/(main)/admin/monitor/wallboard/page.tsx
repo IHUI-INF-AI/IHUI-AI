@@ -2334,10 +2334,7 @@ const WALLBOARD_CSS = `
 .wb-panel { container-type: inline-size; }
 .wb-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
 .wb-c3 { grid-column: span 3; }
-.wb-c4 { grid-column: span 4; }
-.wb-c5 { grid-column: span 5; }
 .wb-c6 { grid-column: span 6; }
-.wb-c7 { grid-column: span 7; }
 .wb-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -2345,8 +2342,8 @@ const WALLBOARD_CSS = `
 }
 @container (max-width: 1149px) {
   .wb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .wb-c3, .wb-c4, .wb-c5 { grid-column: span 3; }
-  .wb-c6, .wb-c7 { grid-column: span 6; }
+  .wb-c3 { grid-column: span 3; }
+  .wb-c6 { grid-column: span 6; }
 }
 @container (max-width: 619px) {
   .wb-grid { grid-template-columns: minmax(0, 1fr); }
