@@ -236,16 +236,34 @@ export function isHiddenInParentListing(lines, name) {
 /**
  * 纯判据:一个盘根名字当前是什么形态。抽成纯函数是为了让 --self-test 不碰真盘也能钉死它 ——
  * 本工具唯一危险的分支就是"把别人的真目录当链接删"或"对着已有链接再套一层"。
+ *
+ * 搬迁过渡期双根(2026-10-24 立):G-814433/G-158 把外置根迁入 <repoRoot>/.DevEnv,但该票
+ * 执行清单第 2 步(C 盘 junction 重建指向新根)从未执行 —— 现存 C 盘 junction 仍指向
+ * 搬迁前旧根(<盘>/DevEnv),而它是 §26 在册批准落点,改道本身合法。此前单目标判据把
+ * 这批 junction 永判 FOREIGN-LINK ⇒ 恒红 + 自愈 touch-nothing 死锁(guardian 每轮 ⚠)。
+ * 现 acceptableTargets 传"新旧两根"候选,匹配任一即 SEALED;真·别处才 FOREIGN-LINK。
  */
-export function classifyEntry({ exists, isLink, linkTarget, expectedTarget, isDir }) {
+export function classifyEntry({ exists, isLink, linkTarget, expectedTarget, isDir, acceptableTargets }) {
   if (!exists) return 'MISSING'
   if (isLink) {
     if (!linkTarget) return 'UNREADABLE-LINK'
-    if (resolve(linkTarget) === resolve(expectedTarget)) return 'SEALED'
+    const candidates = [...(Array.isArray(acceptableTargets) ? acceptableTargets : []), expectedTarget].filter(Boolean)
+    if (candidates.some((c) => resolve(c) === resolve(linkTarget))) return 'SEALED'
     return 'FOREIGN-LINK'
   }
   if (isDir) return 'REAL-DIR'
   return 'REAL-FILE'
+}
+
+/** 搬迁过渡期的合法封口根候选:[新根 <repoRoot>/.DevEnv, 旧根 <盘>/DevEnv](去重)。
+ *  新根优先(devEnvRoot 同一优先级):自愈真要新建/搬迁时仍落新根;旧根只用于"认账"
+ *  —— 判现存 junction 是否合法,绝不往旧根新写。scratch 夹具形态与 devEnvRoot 同拒。 */
+export function devEnvTargetRoots(repoRoot = REPO) {
+  if (countScratchSegments(repoRoot) > 0)
+    throw new Error(`devEnvTargetRoots 拒绝推导:仓库根在 scratch 夹具内(${repoRoot})—— 先修调用方 ROOT 推导`)
+  const inRepo = join(repoRoot, '.DevEnv')
+  const legacy = join(parse(repoRoot).root, 'DevEnv')
+  return resolve(inRepo) === resolve(legacy) ? [inRepo] : [inRepo, legacy]
 }
 
 /**
@@ -270,7 +288,7 @@ function fingerprint(dir) {
  * 硬护栏:① 链接路径不得在仓库树内;② 目标不得落在链接内部;③ 真目录必须先
  * "复制 → 逐文件对账 → 才删源",对账不过就拒绝封口并保留原样(绝不丢数据)。
  */
-function sealOne(entry, root, devEnv, dryRun) {
+function sealOne(entry, root, devEnv, dryRun, acceptableRoots = []) {
   const { link, target } = pathsFor(entry, root, devEnv)
   let st = null
   try {
@@ -291,6 +309,7 @@ function sealOne(entry, root, devEnv, dryRun) {
     isLink: !!st && st.isSymbolicLink(),
     linkTarget,
     expectedTarget: target,
+    acceptableTargets: acceptableRoots.map((r) => join(r, ...entry.target.split('/'))),
     isDir: !!st && !st.isSymbolicLink() && st.isDirectory(),
   })
 
@@ -439,7 +458,7 @@ export function run(opts = {}) {
   const root = opts.root ?? 'C:'
   const devEnv = opts.devEnv ?? devEnvRoot()
   const mode = opts.mode ?? 'check'
-  const sealed = SEALED_DIRS.map((e) => sealOne(e, root, devEnv, mode !== 'apply'))
+  const sealed = SEALED_DIRS.map((e) => sealOne(e, root, devEnv, mode !== 'apply', devEnvTargetRoots()))
   const orphans = mode === 'apply' ? removeOrphans(root, false) : probeOrphans(root)
   const needsAction =
     sealed.some((s) => !s.ok || s.action !== 'skip') || orphans.some((o) => o.action === 'present')
@@ -490,6 +509,20 @@ function selfTest() {
         isLink: true,
         linkTarget: 'D:\\DevEnv\\Temp\\c-root-tmp',
         expectedTarget: 'D:\\DevEnv\\Temp\\c-root-tmp',
+        isDir: false,
+      }),
+      'SEALED',
+      '形态',
+    ),
+  )
+  t('classifyEntry:指向搬迁前旧根形态 → SEALED(过渡期双根认账,2026-10-24)', () =>
+    eq(
+      classifyEntry({
+        exists: true,
+        isLink: true,
+        linkTarget: 'D:\\DevEnv\\Temp\\c-root-tmp',
+        expectedTarget: 'D:\\IHUI-AI\\.DevEnv\\Temp\\c-root-tmp',
+        acceptableTargets: ['D:\\IHUI-AI\\.DevEnv\\Temp\\c-root-tmp', 'D:\\DevEnv\\Temp\\c-root-tmp'],
         isDir: false,
       }),
       'SEALED',
@@ -738,6 +771,7 @@ export const __test__ = {
   classifyEntry,
   fingerprint,
   devEnvRoot,
+  devEnvTargetRoots,
   pathsFor,
   SEALED_DIRS,
   ORPHAN_FILES,
