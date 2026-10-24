@@ -898,7 +898,7 @@ function EditProfileModal({
               onPress={() => void handlePickAvatar()}
               disabled={avatarUpdating}
               style={styles.editProfileAvatarBtn}
-              accessibilityLabel={t('profile.avatarModalTitle')}
+              accessibilityLabel={t('profileEdit.avatarModalTitle')}
             >
               {user.avatar ? (
                 <Image source={{ uri: user.avatar }} style={styles.editProfileAvatar} />
@@ -1160,80 +1160,83 @@ function ProfileContentSection(): React.JSX.Element {
    * 后端未返回时所有对话归入 text tab,image/video/audio tab 显示空。
    * 每次只更新当前 tab 对应的列表,避免覆盖其他 tab 的缓存。
    */
-  const loadTabContent = useCallback(async (tab: ProfileTabId): Promise<void> => {
-    setLoading(true)
-    setError('')
-    try {
-      const res = await listConversations({ page: 1, pageSize: 20 })
-      if (!res.success) {
-        setError(apiFailureToText(res, t('profile.loadFailedShort')))
+  const loadTabContent = useCallback(
+    async (tab: ProfileTabId): Promise<void> => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await listConversations({ page: 1, pageSize: 20 })
+        if (!res.success) {
+          setError(apiFailureToText(res, t('profile.loadFailedShort')))
+          if (tab === 1) setTextContentList([])
+          else if (tab === 2) setImageContentList([])
+          else if (tab === 3) setVideoContentList([])
+          else setAudioContentList([])
+          return
+        }
+        const all = res.data.conversations
+        const textContents: TextContent[] = []
+        const imageContents: ImageContent[] = []
+        const videoContents: VideoContent[] = []
+        const audioContents: AudioContent[] = []
+        for (const conv of all) {
+          const meta = extractConversationMetadata(conv)
+          const tabType = meta.contentType ?? 'text'
+          // 本地化时间(Asia/Shanghai,复用共享 date-utils;裸 ISO 直接上屏是 bug)
+          const time = formatDate(conv.updatedAt ?? conv.createdAt)
+          const title = conv.title?.trim() || t('plaza.index.untitledConv')
+          if (tabType === 'image') {
+            const list = meta.imageList ?? (meta.thumbnailUrl ? [meta.thumbnailUrl] : [])
+            imageContents.push({
+              id: conv.id,
+              title,
+              time,
+              imageList: list,
+            })
+          } else if (tabType === 'video') {
+            videoContents.push({
+              id: conv.id,
+              title,
+              time,
+              videoUrl: meta.videoUrl ?? '',
+              posterUrl: meta.posterUrl,
+              width: meta.width,
+              height: meta.height,
+            })
+          } else if (tabType === 'audio') {
+            audioContents.push({
+              id: conv.id,
+              title,
+              time,
+              audioUrl: meta.audioUrl ?? '',
+            })
+          } else {
+            // text tab(含 contentType 缺失 fallback)
+            textContents.push({
+              id: conv.id,
+              title,
+              time,
+              content: meta.lastMessage ?? '',
+            })
+          }
+        }
+        // 只更新当前 tab 的内容,保留其他 tab 缓存(切回时无需重新请求)
+        if (tab === 1) setTextContentList(textContents)
+        else if (tab === 2) setImageContentList(imageContents)
+        else if (tab === 3) setVideoContentList(videoContents)
+        else setAudioContentList(audioContents)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('profile.loadFailedShort'))
         if (tab === 1) setTextContentList([])
         else if (tab === 2) setImageContentList([])
         else if (tab === 3) setVideoContentList([])
         else setAudioContentList([])
-        return
+      } finally {
+        setLoading(false)
       }
-      const all = res.data.conversations
-      const textContents: TextContent[] = []
-      const imageContents: ImageContent[] = []
-      const videoContents: VideoContent[] = []
-      const audioContents: AudioContent[] = []
-      for (const conv of all) {
-        const meta = extractConversationMetadata(conv)
-        const tabType = meta.contentType ?? 'text'
-        // 本地化时间(Asia/Shanghai,复用共享 date-utils;裸 ISO 直接上屏是 bug)
-        const time = formatDate(conv.updatedAt ?? conv.createdAt)
-        const title = conv.title?.trim() || t('plaza.index.untitledConv')
-        if (tabType === 'image') {
-          const list = meta.imageList ?? (meta.thumbnailUrl ? [meta.thumbnailUrl] : [])
-          imageContents.push({
-            id: conv.id,
-            title,
-            time,
-            imageList: list,
-          })
-        } else if (tabType === 'video') {
-          videoContents.push({
-            id: conv.id,
-            title,
-            time,
-            videoUrl: meta.videoUrl ?? '',
-            posterUrl: meta.posterUrl,
-            width: meta.width,
-            height: meta.height,
-          })
-        } else if (tabType === 'audio') {
-          audioContents.push({
-            id: conv.id,
-            title,
-            time,
-            audioUrl: meta.audioUrl ?? '',
-          })
-        } else {
-          // text tab(含 contentType 缺失 fallback)
-          textContents.push({
-            id: conv.id,
-            title,
-            time,
-            content: meta.lastMessage ?? '',
-          })
-        }
-      }
-      // 只更新当前 tab 的内容,保留其他 tab 缓存(切回时无需重新请求)
-      if (tab === 1) setTextContentList(textContents)
-      else if (tab === 2) setImageContentList(imageContents)
-      else if (tab === 3) setVideoContentList(videoContents)
-      else setAudioContentList(audioContents)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('profile.loadFailedShort'))
-      if (tab === 1) setTextContentList([])
-      else if (tab === 2) setImageContentList([])
-      else if (tab === 3) setVideoContentList([])
-      else setAudioContentList([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    },
+    [t],
+  )
 
   // 切 Tab 触发加载(对齐 Uniapp onTabChange → loadContentByTab)
   useEffect(() => {
@@ -1285,7 +1288,7 @@ function ProfileContentSection(): React.JSX.Element {
     } catch {
       showToast('warning', t('profile.copyFailRetry'))
     }
-  }, [showToast])
+  }, [showToast, t])
 
   return (
     <View style={styles.contentSection}>
@@ -1814,10 +1817,10 @@ function ImageSharePopup({ visible, imageUrl, onClose }: ImageSharePopupProps): 
               activeOpacity={0.7}
               onPress={onSaveToAlbum}
               disabled={saving}
-              accessibilityLabel={t('profile.saveToAlbum')}
+              accessibilityLabel={t('imageGen.saveToAlbum')}
             >
               <Text style={styles.sharePopupSaveBtnText}>
-                {saving ? t('profile.savingDots') : t('profile.saveToAlbum')}
+                {saving ? t('profile.savingDots') : t('imageGen.saveToAlbum')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity

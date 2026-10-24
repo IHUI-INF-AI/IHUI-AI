@@ -72,8 +72,8 @@ function toModelListItem(w: N8nWorkflow): ModelListItem {
   }
 }
 
-function buildModelGroup(items: N8nWorkflow[]): ModelListGroup[] {
-  return [{ vendor: 'n8n 工作流', models: items.map(toModelListItem) }]
+function buildModelGroup(items: N8nWorkflow[], t: (k: string) => string): ModelListGroup[] {
+  return [{ vendor: t('n8nModel.vendorName'), models: items.map(toModelListItem) }]
 }
 
 export default function N8nModelScreen() {
@@ -213,7 +213,7 @@ export default function N8nModelScreen() {
     openCreate()
   }
 
-  const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroup(workflows), [workflows])
+  const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroup(workflows, t), [workflows, t])
 
   return (
     <View style={styles.shell}>
@@ -223,14 +223,18 @@ export default function N8nModelScreen() {
           onPress={() => setViewMode('shared')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>工作流</Text>
+          <Text style={viewMode === 'shared' ? styles.tabTextActive : styles.tabText}>
+            {t('modelPlaza.workflowTab')}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, viewMode === 'local' && styles.tabActive]}
           onPress={() => setViewMode('local')}
           activeOpacity={0.8}
         >
-          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>列表视图</Text>
+          <Text style={viewMode === 'local' ? styles.tabTextActive : styles.tabText}>
+            {t('n8nModel.listView')}
+          </Text>
         </TouchableOpacity>
       </View>
       <View style={styles.viewport}>
