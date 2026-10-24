@@ -124,6 +124,9 @@ test('§22c 装车证明:判据符号必须来自源文件导出(__test__ 或具
     // 编号形态维(G-722):按面选基准的编排出口
     'malformedReport',
     'idExistsOnFace',
+    // 归并名额维(2026-10-24 立):同编号少一行而 marker 仍在 ⇒ 名额差值判据与声明解析
+    'foldedSlots',
+    'parseMergeFoldDeclaration',
   ])
     assert.equal(typeof G[fn], 'function', `源导出缺判据 ${fn}(§22c 锚点漂移,或该判据被整块删掉)`)
 })
@@ -1523,4 +1526,136 @@ test('entry.id 为 null ⇒ 不触发 idExistsOnFace 兜底,照旧插入(向后�
   assert.equal(result.skippedExistingId, 0, 'id 为 null ⇒ 不计 skippedExistingId')
   assert.ok(result.inserted + result.appended === 1, 'id 为 null ⇒ 旧路径照旧插入一条(向后兼容)')
   assert.ok(result.out.includes(BULLET), '输出必须包含原行')
+})
+
+// ══ 归并名额维(2026-10-24 立,票面=清理 G-871/G-873 同题副本时量出来的盲区) ══════════════
+// 立因是**实测**而不是读码推断:真仓 HEAD 面跑 `lostMarkers(HEAD, HEAD 删掉一份副本)` 与
+// `lostMarkers(HEAD, HEAD 删掉信息更全那一份)` 两支**都返回空集** —— 因为 G-871 那两行的 marker
+// 逐字相同(题面直到 `:` 才分岔),基线组里两条 entries 的 marker 都命中目标面行首 ⇒ present=2、
+// absent=0 ⇒ 一条不判。后果是门 71 对"把带最新进展的那份删了、留下过时那份"**结构上失明**,
+// 而这正是正当归并每天在做的动作。补的维度是**名额数**:同一 (形态,编号) 在面上占几行掉了,
+// 就必须有一次定向说明(§0.10 失效方向恒为"多要一次说明",绝不是"多放一次跳门")。
+// 刻意不判"哪份该留" —— 机器无从区分被吞与正当归并(门 71 头注 multiSlot 同一条理由),
+// 所以两份删法都要求声明,凭据由人给。
+const TWIN_A =
+  '- [ ] G-871 腾讯云短信第二通道已接线、处于未配置态:应用与凭据均已核实并填入 apps/api/.env(剩余卡点=实名资质 0 条)'
+const TWIN_B =
+  '- [ ] G-871 腾讯云短信第二通道已接线、处于未配置态:待控制台建应用取 SmsSdkAppId 并报签名与四枚场景模板'
+const LONE_ROW =
+  '- [ ] G-872 单行登记:整份面上只有这一行带着这个编号,吞掉它必须照旧走丢失维判红,不得被名额维吞掉。'
+const TWIN_PLAN = ['# 计划', '', TWIN_A, TWIN_B, '', LONE_ROW, ''].join('\n')
+const FOLD_COPY = TWIN_PLAN.split('\n').filter((l) => l !== TWIN_B).join('\n')
+const FOLD_SURVIVOR = TWIN_PLAN.split('\n').filter((l) => l !== TWIN_A).join('\n')
+
+const runGateEnv = (dir, args, env) =>
+  spawnSync(process.execPath, [join(dir, 'scripts', 'check-plan-line-loss.mjs'), ...args], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: dir,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+    env: { ...process.env, ...env },
+  })
+
+test('归并名额维:同编号两行删一份 ⇒ foldedSlots 点名该编号(from=2/to=1)', () => {
+  const f = G.foldedSlots(TWIN_PLAN, FOLD_COPY)
+  assert.equal(f.length, 1, `应恰好点名 1 个编号,实测 ${f.length}`)
+  assert.equal(f[0].id, 'G-871')
+  assert.equal(f[0].from, 2, '基线面名额数必须是 2')
+  assert.equal(f[0].to, 1, '目标面名额数必须是 1')
+})
+
+test('归并名额维:删掉信息更全那一份同样点名(旧判据在此处 0 报 = 本次立项的失明)', () => {
+  const f = G.foldedSlots(TWIN_PLAN, FOLD_SURVIVOR)
+  assert.equal(f.length, 1, '删幸存份也必须点名,否则"留过时删新鲜"依旧无人喊')
+  assert.equal(f[0].id, 'G-871')
+})
+
+test('归并名额维:面不变 / 唯一行被吞 都不进名额账(不得与丢失维双计)', () => {
+  assert.deepEqual(G.foldedSlots(TWIN_PLAN, TWIN_PLAN), [], '面没动 ⇒ 0 项')
+  const onlyOneGone = TWIN_PLAN.split('\n').filter((l) => l !== LONE_ROW).join('\n')
+  assert.deepEqual(G.foldedSlots(TWIN_PLAN, onlyOneGone), [], '唯一行被吞归 lost 维,名额账必须为 0')
+})
+
+test('归并名额维:改写整行而名额不变 ⇒ 不点名(正当改写文案不得被钉红)', () => {
+  const rewritten = TWIN_PLAN.replace(TWIN_B, TWIN_B + ' —— 本席补充了一句现状')
+  assert.deepEqual(G.foldedSlots(TWIN_PLAN, rewritten), [], '两行都还在 ⇒ 名额没掉')
+})
+
+test('声明解析:逗号清单收成编号集,空串收成空集(声明不得当万能跳门)', () => {
+  assert.deepEqual(G.parseMergeFoldDeclaration('G-871, G-873'), ['G-871', 'G-873'])
+  assert.deepEqual(G.parseMergeFoldDeclaration(''), [])
+  assert.deepEqual(G.parseMergeFoldDeclaration(undefined), [])
+})
+
+test('端到端 --staged:同题副本删一行而未声明 ⇒ 判红并点名编号', () => {
+  const dir = tempPlanRepo(TWIN_PLAN)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), FOLD_COPY, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const r = runGateEnv(dir, ['--staged'], { IHUI_PLAN_MERGE_FOLD: '' })
+    assert.equal(r.status, 1, `未声明的归并必须红,实测 RC=${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.match(r.stdout + r.stderr, /G-871/, '红字必须点名被归并的编号')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 --staged:带 IHUI_PLAN_MERGE_FOLD=G-871 ⇒ 放行,且点名"已声明归并"', () => {
+  const dir = tempPlanRepo(TWIN_PLAN)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), FOLD_COPY, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const r = runGateEnv(dir, ['--staged'], { IHUI_PLAN_MERGE_FOLD: 'G-871' })
+    assert.equal(r.status, 0, `已声明的正当归并必须绿,实测 RC=${r.status}\n${r.stdout}\n${r.stderr}`)
+    assert.match(r.stdout, /归并/, '放行也必须留声,不得静默')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 --staged:声明里的编号本次并没有归并 ⇒ 判红(声明不得长成白名单)', () => {
+  const dir = tempPlanRepo(TWIN_PLAN)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), TWIN_PLAN.replace(TWIN_A, TWIN_A + ' 补一句'), 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const r = runGateEnv(dir, ['--staged'], { IHUI_PLAN_MERGE_FOLD: 'G-999' })
+    assert.equal(r.status, 1, `空声明必须红,否则 env 就成了万能跳门,实测 RC=${r.status}`)
+    assert.match(r.stdout + r.stderr, /G-999/, '红字必须点名那条没命中的声明')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 --staged 阳性对照:吞掉唯一登记行照旧判红(新维不得削原牙)', () => {
+  const dir = tempPlanRepo(TWIN_PLAN)
+  try {
+    // 只吞 G-872 这一条唯一行,两份副本都留着 ⇒ 名额维无项,红点必须完全来自丢失维
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), TWIN_PLAN.split('\n').filter((l) => l !== LONE_ROW).join('\n'), 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    const r = runGateEnv(dir, ['--staged'], { IHUI_PLAN_MERGE_FOLD: 'G-871' })
+    assert.equal(r.status, 1, '唯一行被吞必须红(声明只覆盖归并维,管不到丢失维)')
+    assert.match(r.stdout + r.stderr, /G-872/, '红字必须点名被吞的 G-872')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('端到端 全量档:同编号名额由 2 掉到 1 的历史存量不得判红(§12e 防恒红)', () => {
+  // 名额维刻意**只挂提交链**:旁路落地(live-doc-edit/union-converge/自愈)不跑钩子,
+  // 而它们正是历史上把同号多行折成一份的主要生产者 ⇒ 挂到全量档就是与人无关的恒红门。
+  const dir = tempPlanRepo(TWIN_PLAN)
+  try {
+    writeFileSync(join(dir, 'PROJECT_PLAN.md'), FOLD_COPY, 'utf8')
+    git(dir, 'add', 'PROJECT_PLAN.md')
+    git(dir, 'commit', '-m', 'fold twin without hook')
+    const r = runGateEnv(dir, [], { IHUI_PLAN_MERGE_FOLD: '' })
+    assert.equal(
+      r.status,
+      0,
+      `缺省档对未声明的存量归并不得判红,实测 RC=${r.status}\n${r.stdout}\n${r.stderr}`,
+    )
+  } finally {
+    rmScratch(dir)
+  }
 })
