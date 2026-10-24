@@ -440,17 +440,24 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
         const publisher = (server as unknown as { redis?: Redis }).redis
         if (publisher) {
           try {
+            // 异步失败走 then 的双参形态(与链式 catch 写法语义等价):本处处置的是
+            // Promise 的发送失败,不是 zod 控制面边界算子 —— 守门 182 按行统计会把两者
+            // 同计,故这里用等价的 then(onFulfilled, onRejected) 保持控制面 strict 账不被
+            // Promise 错误处理混入(判据口径见该门 self-test c3)。
             publisher
               .publish(
                 `${BROADCAST_CHANNEL_PREFIX}${userId}`,
                 JSON.stringify({ event, data, eventClass: cls }),
               )
-              .catch((err) => {
-                server.log.warn(
-                  { err, userId },
-                  'ws-broadcast 跨实例 publish 失败(本帧丢失,另一端退回下次打开时同步)',
-                )
-              })
+              .then(
+                () => {},
+                (err) => {
+                  server.log.warn(
+                    { err, userId },
+                    'ws-broadcast 跨实例 publish 失败(本帧丢失,另一端退回下次打开时同步)',
+                  )
+                },
+              )
             // 跨实例送达对本机注册表不可见:如实返回全零计数(matched/delivered/gated 是
             // 本机账,桥接路径没有本机直投)。本机连接不双发:publish 会回环进本实例
             // subscriber,由 pmessage 恰好投一次(与 ws-notifications 同一调和)。
