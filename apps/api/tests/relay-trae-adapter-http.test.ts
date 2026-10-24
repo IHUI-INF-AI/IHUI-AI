@@ -416,6 +416,7 @@ describe('Trae 健康检查 · 三态定级(真 HTTP)', () => {
   afterEach(() => {
     modelListStatus = 200
     userTokenStatus = 200
+    entUsageStatus = 200
     seen.length = 0
   })
 
@@ -460,9 +461,30 @@ describe('Trae 健康检查 · 三态定级(真 HTTP)', () => {
     expect(health.error).toContain('500')
   })
 
-  it('IDE 号(无 cookie)model_list 500 → 未判定', async () => {
+  it('IDE 号(无 cookie)model_list 500 → 退 ent_usage 自证 200 ⇒ healthy', async () => {
     const { traeAdapter } = await loadAdapter()
     modelListStatus = 500
+    const health = await traeAdapter.checkHealth(makeCtx() as never, {})
+    expect(health.ok).toBe(true)
+    expect(health.indeterminate).toBeUndefined()
+    expect(seen.some((s) => s.path.includes('web_user_ent_usage'))).toBe(true)
+  })
+
+  it('IDE 号 model_list 500 且 ent_usage 401 → 明确 down(凭据真死了)', async () => {
+    const { traeAdapter } = await loadAdapter()
+    modelListStatus = 500
+    entUsageStatus = 401
+    const health = await traeAdapter.checkHealth(makeCtx() as never, {})
+    expect(health.ok).toBe(false)
+    expect(health.indeterminate).toBe(false)
+    expect(health.authFailed).toBe(true)
+    expect(health.error).toContain('ent_usage HTTP 401')
+  })
+
+  it('IDE 号 model_list 500 且 ent_usage 500 → 未判定(两侧都拿不到结论)', async () => {
+    const { traeAdapter } = await loadAdapter()
+    modelListStatus = 500
+    entUsageStatus = 500
     const health = await traeAdapter.checkHealth(makeCtx() as never, {})
     expect(health.ok).toBe(false)
     expect(health.indeterminate).toBe(true)
