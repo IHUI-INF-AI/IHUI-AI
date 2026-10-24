@@ -45,6 +45,26 @@ export function migrateLine(line) {
   return { line: out, hits }
 }
 
+/** 确保 @ihui/design-tokens import 含指定名字(单行/多行块/无 import 三形态都安全;LoginScreen 事故的根治) */
+export function ensureImport(text, names) {
+  // 检测只在 design-tokens 的 import 语句内做:正文里的 rnSpacing 是转写器刚写进去的,不算已导入
+  const dtImport = text.match(/import \{[\s\S]*?\} from '@ihui\/design-tokens'/)?.[0] ?? ''
+  const missing = names.filter((x) => !dtImport.includes(x))
+  if (missing.length === 0) return text
+  const single = /import \{([^}]*)\} from '@ihui\/design-tokens'/
+  if (single.test(text)) {
+    return text.replace(single, (_m, g) => `import {${g.replace(/\s*,\s*$/, '')}, ${missing.join(', ')} } from '@ihui/design-tokens'`)
+  }
+  const multi = /import \{([\s\S]*?)\n\} from '@ihui\/design-tokens'/
+  if (multi.test(text)) {
+    return text.replace(multi, (_m, g) => `import {${g.replace(/\s*,\s*$/, '')},\n  ${missing.join(',\n  ')},\n} from '@ihui/design-tokens'`)
+  }
+  const firstImport = text.search(/^import /m)
+  const line = `import { ${missing.join(', ')} } from '@ihui/design-tokens'\n`
+  if (firstImport < 0) return line + text
+  return text.slice(0, firstImport) + line + text.slice(firstImport)
+}
+
 /** 全文转写;返回 { text, hits, byKind } */
 export function migrateText(text) {
   const lines = text.split('\n')
@@ -71,11 +91,13 @@ function run() {
     const needsImport = !/\brnSpacing\b/.test(text)
     if (needsImport) console.log('提示:文件尚无 rnSpacing/rnType import,--apply 后需补 import(或本工具下次增强)')
   }
-  if (apply && hits > 0) writeFileSync(file, next)
+  let finalText = next
+  if (hits > 0) finalText = ensureImport(next, ['rnSpacing', 'rnType'])
+  if (apply && hits > 0) writeFileSync(file, finalText)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) run()
 
-export const __test__ = { migrateLine, migrateText }
+export const __test__ = { migrateLine, migrateText, ensureImport }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
