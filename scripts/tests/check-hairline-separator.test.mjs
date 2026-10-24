@@ -417,4 +417,101 @@ test('H17 两把尺子合一:同一枚发丝线在 11d 族 7 与本门同一判�
   expectHit('<div className="h-full w-px bg-border" />\n', 'w-px')
   expectExempt('<div className="w-full h-px bg-border" />\n', 'h-px', 'draggable-splitter')
 })
+
+test('H18 顺序即判据:≥3px 彩色块不落 accent 桶(粗尺寸过滤在彩色底判定之前)+ 阳性对照', () => {
+  // 站点原文取自 HEAD 面实测(2026-10-23 账面「彩色底」96 枚里 92 枚即此型:尺寸块被记成发丝线)
+  // neutralTwin = 同一枚站点把底色换成中性档(逐字手抄,不用正则加工夹具)
+  const sites = [
+    {
+      rel: 'apps/miniapp-taro/src/components/MessageTabs.tsx',
+      cls: 'ml-[8rpx] min-w-[32rpx] h-[32rpx] px-[6rpx] rounded-md bg-destructive flex items-center justify-center',
+      neutralTwin:
+        'ml-[8rpx] min-w-[32rpx] h-[32rpx] px-[6rpx] rounded-md bg-border flex items-center justify-center',
+    },
+    {
+      rel: 'apps/miniapp-taro/src/pkg-about/about/contact.tsx',
+      cls: 'w-full h-[100rpx] leading-[100rpx] bg-primary text-[length:32rpx] font-semibold rounded-sm',
+      neutralTwin:
+        'w-full h-[100rpx] leading-[100rpx] bg-border text-[length:32rpx] font-semibold rounded-sm',
+    },
+    {
+      rel: 'apps/web/app/(main)/admin/monitor/panels/panel-render.tsx',
+      cls: 'h-3 w-[3px] shrink-0 rounded-full bg-info/70',
+      neutralTwin: 'h-3 w-[3px] shrink-0 rounded-full bg-border',
+    },
+    {
+      rel: 'apps/web/app/(main)/edu/edu-management/meal/page.tsx',
+      cls: 'min-h-[80px] border-b border-r p-1 transition-colors hover:bg-accent/30',
+      neutralTwin: 'min-h-[80px] border-b border-r p-1 transition-colors hover:bg-border',
+    },
+  ]
+
+  for (const { rel, cls, neutralTwin } of sites) {
+    const body = `<View className="${cls}" />\n`
+    const produced = gate.scanSource(rel, body)
+    // ① 门体现实现:连放过行都不该有(它根本不是线)
+    assert.deepEqual(produced.hits, [], `${rel} 粗块仍被记账:${JSON.stringify(produced.hits)}`)
+    assert.equal(gate.excuseCounts(produced.hits)['accent-background'], 0, rel)
+    assert.equal(gate.countDividers(produced), 0, rel)
+    assert.equal(produced.undetermined.length, 0, rel)
+
+    // ② 阳性对照:**用门体自己的两把谓词**按旧顺序(先问底色 → 后问粗细)复算同一枚站点。
+    //    这里不写任何本地形态清单/正则(§22c),只是把"顺序"这一维单独拎出来:
+    //    同一枚站点、同一批判据,旧顺序必然落进 accent 桶 ⇒ 账面 96 与实测 4 的差只可能来自顺序。
+    const bgs = gate.bgTokensOf(cls)
+    assert.ok(bgs.length > 0 && !bgs.some((b) => b.neutral), `${rel} 底色判据必须判得出"非中性"`)
+    assert.equal(gate.thinTokensOf(cls).length, 0, `${rel} 尺寸判据必须量不出发丝档`)
+    const oldOrderVerdict = bgs.some((b) => b.neutral)
+      ? 'divider-or-structural'
+      : 'accent-background'
+    assert.equal(oldOrderVerdict, 'accent-background', `${rel} 旧顺序的失真正是这一格`)
+
+    // ③ 同形尺寸的**中性底**站点照常是 0 命中(改动前后一致)⇒ 减掉的只有"粗细"这一维,
+    //    与底色立场无关 ⇒ 真分隔线的识别面没有因为收窄而变小
+    assert.equal(
+      gate.scanSource(rel, `<View className="${neutralTwin}" />\n`).hits.length,
+      0,
+      `${rel} 同形中性底也必须 0 命中`,
+    )
+  }
+
+  // ④ 反向锁:真发丝 + 彩色底仍留 accent 桶(收窄不许把这一族一起吞掉)
+  const hairAccent = gate.scanSource('apps/web/a.tsx', '<span className="h-px w-8 bg-primary/60" />')
+    .hits[0]
+  assert.equal(hairAccent?.type, 'accent-background', JSON.stringify(hairAccent))
+  assert.equal(gate.excuseCounts([hairAccent])['accent-background'], 1)
+
+  // ⑤ 顺序锁(形状锁):面 A 里 `thinTokensOf(surface)` 必须写在彩色底 push 之前。
+  //    行为对照只覆盖夹具这几枚,顺序一旦被换回去、新的粗块形态照样会静默进桶 —— 这一条钉写法。
+  const gateSrc = readFileSync(SCRIPT_PATH, 'utf8')
+  // 锚点用**循环体内的分节注释**(与文件顶部的横幅注释不同字,不会命中横幅)
+  const faceA = gateSrc.slice(
+    gateSrc.indexOf('面 A:Tailwind 类名(h-px'),
+    gateSrc.indexOf('面 B:RN / 内联样式对象(height|width'),
+  )
+  assert.ok(faceA.length > 200, `面 A 区段定位失败(分节注释被改字?)\n${faceA.slice(0, 120)}`)
+  const thinAt = faceA.indexOf('const thin = thinTokensOf(surface)')
+  const accentAt = faceA.indexOf("type: 'accent-background'")
+  assert.ok(thinAt >= 0, `面 A 里找不到粗尺寸过滤这一行\n${faceA.slice(0, 200)}`)
+  assert.ok(accentAt >= 0, '面 A 里找不到彩色底 push 这一行')
+  assert.ok(
+    thinAt < accentAt,
+    `粗尺寸过滤必须排在彩色底判定之前(thinTokensOf@${thinAt} vs accent@${accentAt})`,
+  )
+  // 底色"没写就不归本门"这一格仍须在粗筛之前(射程边界,自检 T04/T17 靠它)
+  assert.ok(faceA.indexOf('const bgs = bgTokensOf(surface)') < thinAt, '射程边界不许被挪到粗筛之后')
+
+  // ⑥ 兄弟门 11d 族 7 对同一枚粗块同样不判(它先认发丝 HAIRLINE_AXIS_RE 才看底色)⇒ 两门同口径
+  for (const { cls } of sites) {
+    assert.equal(
+      dividerGate.classifyHairlineLine(`<View className="${cls}" />`, {
+        relPath: 'apps/web/a.tsx',
+        text: `<View className="${cls}" />`,
+        lineStart: 0,
+      }),
+      null,
+      '11d 族 7 也不该把粗块当发丝线',
+    )
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

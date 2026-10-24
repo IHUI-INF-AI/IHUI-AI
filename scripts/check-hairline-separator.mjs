@@ -56,6 +56,10 @@
  *     而"背景色画线"取墨档在白底上根本看不见,不构成同一个问题。
  *   · **粗于发丝的尺寸根本不进候选**(`h-[4px]`、`h-[20rpx]`、`w-[300px]`):那是尺寸块不是线,
  *     收进来只会把报告淹掉(第一版实测放进 586 文件里 159 枚「厚度≥3px」纯噪声);
+ *     **这一档的判定顺序是判据的一部分**:它必须排在彩色底(accent)判定之前(面 A 里由
+ *     `thinTokensOf(surface).length === 0 ⇒ continue` 承担)。顺序放反时粗块会被 accent 先收下,
+ *     报告里的「彩色底放过」于是全是 5–48px 的徽标/按钮/头像(2026-10-23 实测账面 96 枚里 92 枚即此型),
+ *     数量失真且与 11d 族 7 分叉;
  *     本族只认 1–2px —— RN 侧 `hairlineWidth * 2` 是真实写法(见 SearchOverlay:481),故 2px 仍算发丝;
  *   · 0 / `h-0` / `StyleSheet.hairlineWidth * 0` ⇒ 擦除动作,放过;
  *   · 同一行 / 同一 className 表达式里同时有描边画的边 ⇒ 不归本门(归 11d),不重复报。
@@ -308,6 +312,14 @@ export function scanSource(relPath, rawText) {
     // 没写底色 ⇒ 这条线不是背景色画的,不归本门
     const bgs = bgTokensOf(surface)
     if (bgs.length === 0) continue
+    // ⚠️ 顺序即口径:**粗尺寸过滤必须排在彩色底(accent)判定之前**(头注"粗于发丝的尺寸根本不进候选")。
+    // thinTokensOf 自己就把 thick 档丢掉 ⇒ `thin.length === 0` ⇔ 这枚在 h/w 两维上都量不出发丝 ⇒
+    // 它是尺寸块(徽标/按钮/头像/骨架条),连"放过行"都不该有。反过来先问底色,就会把 `h-[100rpx] bg-cta`
+    // 这类 50px 高的按钮记成「彩色底发丝线」—— 标签失真(账面上"彩色底"里躺着的全是粗块),
+    // 而且与兄弟门 11d 族 7 不同口径(那边 HAIRLINE_AXIS_RE 先认出发丝才看底色)。§22c:一把尺子。
+    // 排在底色**之后**的那一格(没底色不判)不动:那是"不归本门"的射程边界,与粗细无关(自检 T04/T17)。
+    const thin = thinTokensOf(surface)
+    if (thin.length === 0) continue
     if (!bgs.some((b) => b.neutral)) {
       push({
         line,
@@ -319,7 +331,6 @@ export function scanSource(relPath, rawText) {
       })
       continue
     }
-    const thin = thinTokensOf(surface)
     const hair = thin.filter((t) => t.grade === 'hair')
     if (hair.length === 0) {
       const unknown = thin.filter((t) => t.grade === 'unknown')
@@ -820,6 +831,34 @@ export function selfTest() {
   t('T18 疑似连接轨带标记但照常计数(判据不替人下结论)', () => {
     const h = kindOf('<span className="mt-0.5 h-full w-px bg-border" />\n')
     ok(h && h.kind === 'divider' && h.railSuspect === true, JSON.stringify(h))
+  })
+  t('T19 顺序即判据:≥3px 彩色块不得落进 accent 桶(粗尺寸过滤排在彩色底判定之前)', () => {
+    // 立因:实测「彩色底放过」96 枚里 92 枚是 h-[100rpx] bg-cta / w-[32rpx] bg-destructive 这类
+    // 尺寸块 —— 它们既不是线也不该出现在任何放过账上。旧顺序(先问底色再问粗细)把它们记成发丝线。
+    const fixtures = [
+      '<View className="ml-[8rpx] min-w-[32rpx] h-[32rpx] rounded-md bg-destructive" />\n',
+      '<View className="h-[100rpx] leading-[100rpx] bg-cta rounded-sm" />\n',
+      '<span className="h-3 w-[3px] shrink-0 rounded-full bg-info/70" />\n',
+      '<div className="min-h-[80px] bg-accent/30" />\n',
+    ]
+    for (const body of fixtures) {
+      const res = scan(body)
+      ok(res.hits.length === 0, `粗块连放过行都不该有:${JSON.stringify(res.hits)} <- ${body}`)
+      ok(excuseCounts(res.hits)['accent-background'] === 0, `不得进 accent 桶:${body}`)
+      ok(countDividers(res) === 0, `粗块不是分隔线:${body}`)
+      ok(res.undetermined.length === 0, `粗块也不是未判定:${body}`)
+    }
+    // 同形彩色块但底是中性档 ⇒ 同样 0 命中(证明减的是"粗细这一维",与底色立场无关)
+    ok(scan('<View className="h-[100rpx] bg-border" />\n').hits.length === 0)
+    // 真发丝 + 彩色底仍留 accent(收窄只切粗块,不吞这一族)
+    const hairAccent = kindOf('<span className="h-px w-8 bg-primary/60" />\n')
+    ok(
+      hairAccent && hairAccent.kind === 'exempt' && hairAccent.type === 'accent-background',
+      JSON.stringify(hairAccent),
+    )
+    // 未判定那一格不因收窄而搬家:量不出物理像素 + 彩色底 仍是判得出的那一档(accent)
+    const remAccent = kindOf('<span className="w-[0.125rem] bg-primary" />\n')
+    ok(remAccent && remAccent.kind === 'exempt', JSON.stringify(remAccent))
   })
 
   let pass = 0
