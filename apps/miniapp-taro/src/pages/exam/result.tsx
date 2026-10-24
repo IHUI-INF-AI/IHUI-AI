@@ -13,6 +13,7 @@ import { getExamResult, get } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import './result.css'
 
 interface ExamResultInfo {
@@ -139,11 +140,7 @@ export default function ExamResult() {
       <View className="exam-result-page">
         <NavBar title={tt('exam.result.pageTitle', '考试结果')} showBack />
         <ScrollView scrollY className="exam-result-body">
-          {loading ? (
-            <View className="exam-result-loading">
-              <Text>{tt('exam.result.loading', '加载中…')}</Text>
-            </View>
-          ) : null}
+          {loading ? <ScreenSkeleton variant="list" count={4} /> : null}
 
           {!loading ? (
             <View>
@@ -258,9 +255,7 @@ export default function ExamResult() {
                     </View>
                   ))
                 ) : (
-                  <Text className="exam-result-review-empty">
-                    {tt('exam.result.noReview', '暂无题目回顾')}
-                  </Text>
+                  <EmptyState title={tt('exam.result.noReview', '暂无题目回顾')} />
                 )}
               </View>
             </View>

@@ -11,6 +11,7 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 /** n8n 工作流状态映射(对齐 RN N8nModelScreen badgeRun/badgeStop + dotRun/dotStop) */
 function getStatusInfo(
@@ -100,26 +101,13 @@ export default function AiAssistantN8n() {
       {/* 对齐 RN listBody:padding 10dp=20rpx;separator 12dp=24rpx */}
       <View className="p-[20rpx]">
         {loading ? (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[length:28rpx] text-[var(--color-text-tertiary)]">
-              {t('common.loading')}
-            </Text>
-          </View>
+          <ScreenSkeleton variant="list" count={4} />
         ) : error ? (
-          <View className="mt-[16rpx] px-[24rpx] py-[16rpx] rounded-xl bg-[var(--color-danger-light)]">
-            {/* 对齐 RN errorBar:px12 py8 dp / 12dp=24rpx 圆角 / danger.light 底 / 14dp=28rpx destructive 文字 + brand 重试 */}
-            <View className="flex flex-row items-center justify-between">
-              <Text className="flex-1 text-[length:28rpx] text-destructive">
-                {tt('aiAssistantN8n.loadFailed', '加载失败')}
-              </Text>
-              <Text
-                className="ml-[16rpx] text-[length:28rpx] font-semibold text-[var(--color-brand)]"
-                onClick={loadData}
-              >
-                {t('common.retry')}
-              </Text>
-            </View>
-          </View>
+          <ErrorState
+            message={tt('aiAssistantN8n.loadFailed', '加载失败')}
+            onRetry={() => void loadData()}
+            retryLabel={t('common.retry')}
+          />
         ) : list.length ? (
           <View className="flex flex-col gap-[24rpx]">
             {list.map((item, idx) => {
@@ -167,11 +155,7 @@ export default function AiAssistantN8n() {
             })}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-[length:28rpx] text-[var(--color-text-tertiary)]">
-              {t('aiAssistantN8n.empty')}
-            </Text>
-          </View>
+          <EmptyState title={t('aiAssistantN8n.empty')} />
         )}
       </View>
     </View>

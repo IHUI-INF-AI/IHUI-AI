@@ -12,6 +12,7 @@ import {
 } from '@ihui/shared/constants/developer-space'
 import { getTokens } from '../../theme/tokens'
 import type { DeveloperScreenProps, DeveloperSpaceInfo } from '../../types'
+import { PressableCard } from '../../components/ScreenStates'
 import { createDeveloperStyles } from './developer-styles'
 
 /**
@@ -167,27 +168,27 @@ export function DeveloperScreen({
       <View style={styles.faqSection}>
         <Text style={styles.faqHeading}>{t('devSpace.faqHeading')}</Text>
         {DEVELOPER_SPACE_PROBLEMS.map((problem) => (
-          <TouchableOpacity
+          <PressableCard
             key={problem.id}
             style={styles.problemCard}
             onPress={() => onProblemPress(problem.url)}
-            activeOpacity={0.8}
+            colorScheme={colorScheme}
           >
             <Text style={styles.problemTitle}>{t(problem.titleKey)}</Text>
             <Text style={styles.problemDesc}>{t(problem.descKey)}</Text>
             <View style={styles.problemBtn}>
               <Text style={styles.problemBtnText}>{t(problem.btnKey)}</Text>
             </View>
-          </TouchableOpacity>
+          </PressableCard>
         ))}
-        <TouchableOpacity
+        <PressableCard
           style={styles.contactCard}
           onPress={onContactService}
-          activeOpacity={0.85}
+          colorScheme={colorScheme}
         >
           <Text style={styles.contactTitle}>{t('devSpace.contactHeading')}</Text>
           <Text style={styles.contactDesc}>{t('devSpace.contactDesc')}</Text>
-        </TouchableOpacity>
+        </PressableCard>
       </View>
     </ScrollView>
   )

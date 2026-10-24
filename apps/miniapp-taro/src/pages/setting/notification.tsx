@@ -12,6 +12,7 @@ import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import LineIcon from '@/components/LineIcon'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
@@ -109,18 +110,9 @@ export default function NotificationPage() {
               (RN 暗色仍用白色卡面导致浅字不可读,按语义 token 修正为 --color-card 随主题) */}
           <View className="rounded-lg bg-card p-[24rpx]">
             {loading ? (
-              <View className="py-[60rpx] text-center">
-                {/* muted 对齐 RN: 14dp→28rpx + text.secondary */}
-                <Text className="text-[length:28rpx] text-muted-foreground">
-                  {tt('common.loading', '加载中…')}
-                </Text>
-              </View>
+              <ScreenSkeleton variant="list" count={4} />
             ) : list.length === 0 ? (
-              <View className="py-[60rpx] text-center">
-                <Text className="text-[length:28rpx] text-muted-foreground">
-                  {tt('setting.notification.empty', '暂无通知设置项')}
-                </Text>
-              </View>
+              <EmptyState title={tt('setting.notification.empty', '暂无通知设置项')} />
             ) : (
               list.map((item) => (
                 <View key={item.key} className="flex items-center justify-between py-[20rpx]">

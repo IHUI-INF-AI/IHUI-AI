@@ -3,20 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { DistributionProduct, DistributionInfo, DistributionScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 export type { DistributionProduct, DistributionInfo, DistributionScreenProps }
 
@@ -48,31 +41,22 @@ export function DistributionScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={tk.success.DEFAULT} />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
   }
 
   if (error && !info) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
-          <Text style={styles.retryBtnText}>{t('distribution.retry')}</Text>
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error}
+        onRetry={onRefresh}
+        retryLabel={t('distribution.retry')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
   if (!info) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('distribution.empty')}</Text>
-      </View>
-    )
+    return <EmptyState title={t('distribution.empty')} colorScheme={colorScheme} />
   }
 
   const canWithdraw = info.pendingCommission >= (info.withdrawMin ?? 0) && !withdrawing
@@ -139,9 +123,7 @@ export function DistributionScreen({
       <Text style={styles.sectionTitle}>{t('distribution.products')}</Text>
       <View style={styles.productsList}>
         {(info.products ?? []).length === 0 ? (
-          <View style={styles.center}>
-            <Text style={styles.muted}>{t('distribution.empty')}</Text>
-          </View>
+          <EmptyState title={t('distribution.empty')} colorScheme={colorScheme} />
         ) : (
           (info.products ?? []).map((item) => (
             <View key={item.id} style={styles.productCard}>
@@ -170,8 +152,6 @@ export function DistributionScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
-    center: { alignItems: 'center', paddingVertical: 32 },
-    muted: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT, textAlign: 'center', marginTop: 8 },
     header: { paddingHorizontal: 10, paddingBottom: 8 },
     title: { fontSize: 24, fontWeight: '700', color: tk.text.primary },
@@ -240,15 +220,6 @@ function createStyles(tk: AppThemeTokens) {
     productPrice: { fontSize: 14, fontWeight: '600', color: tk.success.DEFAULT },
     productCommission: { fontSize: 11, color: tk.text.secondary },
     productSales: { fontSize: 11, color: tk.text.tertiary },
-    retryBtn: {
-      marginTop: 12,
-      paddingHorizontal: 10,
-      height: 44,
-      justifyContent: 'center',
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
-    retryBtnText: { color: tk.surface.light, fontSize: 14 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -11,6 +11,7 @@ import { getTeacherDetail, get, post, type Teacher } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import './detail.css'
 
 interface TeacherCourse {
@@ -157,7 +158,7 @@ export default function TeacherDetail() {
 
   return (
     <View className="tdetail-page">
-      {loading && <Text className="tdetail-skeleton">{tt('common.loading', '加载中...')}</Text>}
+      {loading && <ScreenSkeleton variant="card" count={4} />}
 
       {!loading && teacher && (
         <>
@@ -269,7 +270,7 @@ export default function TeacherDetail() {
                 })}
               </View>
             ) : (
-              <Text className="tdetail-empty">{tt('teacher.detail.noCourses', '暂无课程')}</Text>
+              <EmptyState title={tt('teacher.detail.noCourses', '暂无课程')} />
             )}
           </View>
 
@@ -319,7 +320,7 @@ export default function TeacherDetail() {
                 })}
               </View>
             ) : (
-              <Text className="tdetail-empty">{tt('teacher.detail.noReviews', '暂无评价')}</Text>
+              <EmptyState title={tt('teacher.detail.noReviews', '暂无评价')} />
             )}
           </View>
 
@@ -335,9 +336,7 @@ export default function TeacherDetail() {
         </>
       )}
 
-      {!loading && !teacher && (
-        <Text className="tdetail-skeleton">{tt('teacher.detail.notFound', '讲师不存在')}</Text>
-      )}
+      {!loading && !teacher && <EmptyState title={tt('teacher.detail.notFound', '讲师不存在')} />}
     </View>
   )
 }

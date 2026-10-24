@@ -11,6 +11,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import { DrawerComponent } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import './detail.css'
 
 /** 排行榜详情数据(字段从列表项中筛选,后端无单条详情接口时走列表 find) */
@@ -178,7 +179,7 @@ export default function RankingDetailPage() {
           <View className="detail-nav">
             <Text className="detail-nav-title">{tt('ranking.detailTitle', '详情页')}</Text>
           </View>
-          <Text className="loading-text">{tt('common.loading', '加载中...')}</Text>
+          <ScreenSkeleton variant="card" count={3} />
         </View>
       </ThemeRoot>
     )

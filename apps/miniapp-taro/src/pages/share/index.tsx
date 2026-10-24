@@ -30,6 +30,7 @@ import { aizhsUrl } from '@/constants/icon-urls'
 import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
 import ScrollJumpButton, { pxToTaroRpx, scrollJumpInsetRpx } from '@/components/ScrollJumpButton'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState } from '@/components/ScreenStates.taro'
 import CategoryBar from '@/components/CategoryBar'
 import { getTopBarMetrics } from '@/utils/system-info'
 import { rpx } from '@/utils/rpx'
@@ -805,9 +806,7 @@ export default function ShareIndexPage() {
               />
             ))
           ) : !loading ? (
-            <View className="share-empty">
-              <Text className="share-empty-text">{tt('news.empty', '暂无资讯')}</Text>
-            </View>
+            <EmptyState title={tt('news.empty', '暂无资讯')} />
           ) : null}
           {loading ? (
             <View className="share-loading">

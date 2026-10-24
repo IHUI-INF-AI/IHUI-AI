@@ -13,6 +13,7 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
 import { REMOTE_ICONS, icon } from '@/constants/remote-icons'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 // 会员权益主题图标(2026-07-30 生成,扁平化设计统一风格)
 // 用字符串路径让 Taro copy 到 dist/static/ 而非打包进 benefits.js chunk(11 个图标 ~1MB,base64 内联会让 chunk 暴涨)
 const shoppingIcon = '/pages/member/assets/benefits/shopping.png'
@@ -319,19 +320,13 @@ export default function BenefitsPage() {
           {tt('member.benefits.myBenefits', '我的专属权益')}
         </View>
         {loading ? (
-          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[length:28rpx]">
-            <Text>{t('common.loading')}</Text>
-          </View>
+          <ScreenSkeleton variant="list" count={4} />
         ) : error ? (
-          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[length:28rpx]">
-            <Text>{tt('member.benefits.loadFailed', '加载失败')}</Text>
-            <Text
-              className="mt-[16rpx] px-[32rpx] py-[8rpx] text-[length:28rpx] text-primary"
-              onClick={load}
-            >
-              {t('common.retry')}
-            </Text>
-          </View>
+          <ErrorState
+            message={tt('member.benefits.loadFailed', '加载失败')}
+            onRetry={load}
+            retryLabel={t('common.retry')}
+          />
         ) : list.length ? (
           <View className="flex flex-col gap-[24rpx]">
             {list.map((b) => (
@@ -363,9 +358,7 @@ export default function BenefitsPage() {
             ))}
           </View>
         ) : (
-          <View className="flex flex-col items-center py-[64rpx] text-muted-foreground text-[length:28rpx]">
-            <Text>{tt('member.benefits.empty', '暂无权益')}</Text>
-          </View>
+          <EmptyState title={tt('member.benefits.empty', '暂无权益')} />
         )}
 
         <View className="text-[length:32rpx] font-bold text-foreground mt-[32rpx] mb-[24rpx]">

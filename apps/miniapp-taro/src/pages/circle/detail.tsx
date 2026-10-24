@@ -12,6 +12,7 @@ import { useState, useCallback, useRef } from 'react'
 import { getCircleDetail, get, post, type Circle } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { EmptyState } from '@/components/ScreenStates.taro'
 import './detail.css'
 
 interface Comment {
@@ -354,9 +355,7 @@ export default function CircleDetailPage() {
                 ))}
               </View>
             ) : (
-              <View className="cd-comments-empty">
-                <Text>{tt('circle.detail.noComments', '暂无评论,快来抢沙发')}</Text>
-              </View>
+              <EmptyState title={tt('circle.detail.noComments', '暂无评论,快来抢沙发')} />
             )}
           </View>
         </ScrollView>

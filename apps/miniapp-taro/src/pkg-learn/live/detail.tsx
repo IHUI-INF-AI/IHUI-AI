@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { getLiveDetail, subscribeLive, type Live } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 
 const STATUS_KEY: Record<Live['status'], { key: string; fb: string }> = {
   living: { key: 'live.liveNow', fb: '直播中' },
@@ -78,8 +79,8 @@ export default function LiveDetail() {
   if (!live) {
     return (
       <ThemeRoot>
-        <View className="flex items-center justify-center h-screen p-[32rpx] text-muted-foreground">
-          <Text>{t('live.detail.loading')}</Text>
+        <View className="min-h-screen bg-[var(--color-background)]">
+          <ScreenSkeleton variant="list" count={4} />
         </View>
       </ThemeRoot>
     )

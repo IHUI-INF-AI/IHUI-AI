@@ -10,8 +10,8 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { getNewsList, type News } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon from '@/components/LineIcon'
 import SearchBar from '@/components/SearchBar'
+import { EmptyState, PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import './list.css'
 
 /** 防御式扩展:后端如返回 category/source/isTop 字段则使用,否则降级 */
@@ -233,10 +233,9 @@ export default function NewsListPage() {
             const isRead = readIds.has(String(n.id))
             return (
               <ThemeRoot key={n.id}>
-                <View
+                <PressableCard
                   className={`item${isRead ? ' item-read' : ''}`}
                   onClick={() => goDetail(n.id)}
-                  hoverClass="opacity-60"
                 >
                   <View className="body">
                     <View className="title-row">
@@ -254,7 +253,7 @@ export default function NewsListPage() {
                     </View>
                     {n.source ? <Text className="source">{n.source}</Text> : null}
                   </View>
-                </View>
+                </PressableCard>
               </ThemeRoot>
             )
           })}
@@ -263,22 +262,10 @@ export default function NewsListPage() {
 
       {/* 状态 */}
       {!loading && !pinnedVisible && visibleList.length === 0 ? (
-        <View className="empty">
-          <LineIcon
-            name="inbox"
-            size={56}
-            className="empty-icon"
-            color="var(--color-muted-foreground)"
-          />
-          <Text>{tt('news.empty', '暂无资讯')}</Text>
-        </View>
+        <EmptyState title={tt('news.empty', '暂无资讯')} />
       ) : null}
 
-      {loading ? (
-        <View className="loading">
-          <Text>{tt('common.loading', '加载中…')}</Text>
-        </View>
-      ) : null}
+      {loading && visibleList.length === 0 ? <ScreenSkeleton variant="list" count={4} /> : null}
 
       {!loading && !hasMore && visibleList.length > 0 ? (
         <View className="no-more">

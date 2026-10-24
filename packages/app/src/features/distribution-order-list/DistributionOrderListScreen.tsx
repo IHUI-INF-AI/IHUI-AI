@@ -19,6 +19,7 @@ import type { DistributionOrderListScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** DistributionOrderListScreen props re-export(单一来源 @ihui/types) */
 export type { DistributionOrderListScreenProps }
@@ -147,10 +148,10 @@ export function DistributionOrderListScreen({
         onEndReached={onEndReached}
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
-          loading ? null : (
-            <View style={styles.centerWrap}>
-              <Text style={styles.emptyText}>暂无订单数据</Text>
-            </View>
+          loading ? (
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
+          ) : (
+            <EmptyState title="暂无订单数据" colorScheme={colorScheme} />
           )
         }
         ListFooterComponent={
@@ -252,14 +253,6 @@ function createStyles(tk: AppThemeTokens) {
     commissionValue: { fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
     timeText: { fontSize: 14, color: tk.text.tertiary },
     footerLoading: { paddingVertical: 12, alignItems: 'center' },
-    centerWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 24,
-      gap: 12,
-    } as ViewStyle,
-    emptyText: { fontSize: 16, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
