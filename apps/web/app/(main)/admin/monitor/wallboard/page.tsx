@@ -1222,6 +1222,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const edgeLastTone = thresholdTone(edge?.stats.lastMs, (n) =>
     n >= 3000 ? 'bad' : n >= 1500 ? 'warn' : 'ok',
   )
+  // 数据源/抓取目标/探测腿的状态词:后端给的是 up/down/undefined 这三档协议值,
+  // 直接渲染会在中文界面里留下 "up"——机主 2026-10-24 指认的同一族缺陷,统一走文案。
+  const stateWord = (s: string | undefined) =>
+    s === 'up' ? t('stateUp') : s === 'down' ? t('stateDown') : t('stateUnknown')
   const edgeHitTone = thresholdTone(edge?.stats.hitRatio, (n) => (n >= 0.8 ? 'ok' : 'warn'))
   // 边缘探测三条腿的标签键(官网首页 / 根域名跳转 / 静态资源);对照腿 originViaCf 已有专属文案
   const EDGE_LEG_LABEL: Record<
@@ -1253,7 +1257,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 void refetchOv()
                 void refetchTrend()
               }}
-              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-danger-text transition-colors hover:bg-destructive/20"
+              className="ml-auto shrink-0 rounded-sm border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[10px] text-danger-text transition-colors hover:bg-destructive/20 focus-visible:ring-1 focus-visible:ring-ring"
             >
               {t('retry')}
             </button>
@@ -1286,10 +1290,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 [t('srcEdge'), ov?.sources?.edge],
               ] as Array<[string, string | undefined]>
             ).map(([name, state]) => (
-              <Tooltip key={name} content={`${name} · ${state ?? 'unknown'}`}>
+              <Tooltip key={name} content={`${name} · ${stateWord(state)}`}>
                 <span
                   role="img"
-                  aria-label={`${name} ${state ?? 'unknown'}`}
+                  aria-label={`${name} ${stateWord(state)}`}
                   className="flex items-center gap-1.5 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground"
                 >
                   <Dot tone={sourceTone(state)} />
@@ -1357,7 +1361,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 onClick={() => void toggleDutyMode()}
                 aria-pressed={dutyMode}
                 aria-label={dutyMode ? t('exitDutyMode') : t('dutyMode')}
-                className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:bg-muted"
+                className="flex items-center gap-1 rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:bg-muted focus-visible:ring-1 focus-visible:ring-ring"
               >
                 {dutyMode ? (
                   <Minimize2 className="h-3 w-3" />
@@ -1451,7 +1455,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               </div>
               <div
                 className={cn(
-                  'wb-num mt-1 text-[26px] leading-none font-bold',
+                  'wb-num mt-1 text-[26px] leading-none font-bold whitespace-nowrap',
                   k.tone === 'bad'
                     ? 'text-danger-text'
                     : k.tone === 'warn'
@@ -1501,7 +1505,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <ChartEmpty text={t('sourceUnreachable')} />
               ) : null}
             </div>
-            <div className="mt-2 wb-cells grid gap-2">
+            <div className="mt-2 wb-cells wb-cells-wide grid gap-2">
               <StatCell
                 label={t('memPhysical')}
                 value={`${fmtBytes(typeof host?.memTotalBytes === 'number' && typeof host?.memFreeBytes === 'number' ? host.memTotalBytes - host.memFreeBytes : null)} / ${fmtBytes(host?.memTotalBytes)}`}
@@ -1637,13 +1641,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 {(services?.targets ?? []).map((target) => (
                   <Tooltip
                     key={`${target.job}-${target.instance}`}
-                    content={`${target.instance} · ${target.up === 1 ? 'up' : 'down'}`}
+                    content={`${target.instance} · ${stateWord(target.up === 1 ? 'up' : 'down')}`}
                   >
                     <button
                       type="button"
-                      aria-label={`${target.job} ${target.up === 1 ? 'up' : 'down'}`}
+                      aria-label={`${target.job} ${stateWord(target.up === 1 ? 'up' : 'down')}`}
                       className={cn(
-                        'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px]',
+                        'flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] focus-visible:ring-1 focus-visible:ring-ring',
                         target.up === 1
                           ? 'border-success/25 bg-success/10 text-success-text/90'
                           : 'border-destructive/30 bg-destructive/10 text-danger-text',
@@ -1686,7 +1690,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 <ChartEmpty text={trendError ? t('trendLoadFailed') : t('noTrendData')} />
               ) : null}
             </div>
-            <div className="wb-cells grid gap-2">
+            <div className="wb-cells wb-cells-5 grid gap-2">
               <StatCell
                 label={t('wsConnections')}
                 value={fmtInt(http?.wsConnections)}
@@ -1986,7 +1990,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </span>
                 )}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-5 grid gap-1.5">
                 <StatCell label={t('dbSize')} value={fmtBytes(pg?.sizeBytes)} tone="accent" />
                 <StatCell
                   label={t('bufferHit')}
@@ -2033,7 +2037,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <SourceGap text={t('sourceUnreachable')} />
                 ) : null}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-5 grid gap-1.5">
                 <StatCell
                   label={t('llmCallsToday')}
                   value={fmtCompact(biz?.llmCallsToday)}
@@ -2071,9 +2075,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             title={t('panelBusiness')}
             icon={<Wallet className="h-3.5 w-3.5" />}
             className="wb-c6 wb-business-early"
-            bodyClassName="wb-split overflow-y-auto"
+            bodyClassName="wb-split wb-split-c3 overflow-y-auto"
           >
-            <div>
+            <div className="wb-col">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('topEndpoints')}
               </div>
@@ -2105,7 +2109,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   </div>
                 ) : null}
               </div>
-              <div className="mt-2 wb-cells grid gap-1.5">
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('usersRegistered')}
                   value={fmtInt(biz?.usersTotal)}
@@ -2120,7 +2124,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   <span>{t('signInTitle')}</span>
                   {biz && !biz.signIn ? <SourceGap text={t('sourceUnreachable')} /> : null}
                 </div>
-                <div className="wb-cells grid gap-1.5">
+                <div className="wb-cells wb-cells-4 grid gap-1.5">
                   <StatCell
                     label={t('signInToday')}
                     value={fmtInt(biz?.signIn?.todayUsers)}
@@ -2168,7 +2172,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                   />
                 ) : null}
               </div>
-              <div className="mt-2 wb-cells grid gap-1.5">
+              <div className="mt-2 wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('ordersToday')}
                   value={fmtInt(biz?.ordersTodayPaid)}
@@ -2227,7 +2231,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                     <div
                       className={cn(
-                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
+                        'wb-num mt-0.5 text-[26px] leading-none font-bold whitespace-nowrap',
                         edgeLastTone === 'bad'
                           ? 'text-danger-text'
                           : edgeLastTone === 'warn'
@@ -2251,7 +2255,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </div>
                     <div
                       className={cn(
-                        'wb-num mt-0.5 text-[26px] leading-none font-bold',
+                        'wb-num mt-0.5 text-[26px] leading-none font-bold whitespace-nowrap',
                         edgeHitTone === 'bad'
                           ? 'text-danger-text'
                           : edgeHitTone === 'warn'
@@ -2317,8 +2321,8 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     >
                       <button
                         type="button"
-                        aria-label={`${t(EDGE_LEG_LABEL[legKey])} ${leg.ok ? 'up' : 'down'} ${isNum(leg.totalMs) ? `${leg.totalMs}ms` : ''}`}
-                        className="flex w-full items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5 text-left"
+                        aria-label={`${t(EDGE_LEG_LABEL[legKey])} ${stateWord(leg.ok ? 'up' : 'down')} ${isNum(leg.totalMs) ? `${leg.totalMs}ms` : ''}`}
+                        className="flex w-full items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5 text-left focus-visible:ring-1 focus-visible:ring-ring"
                       >
                         <Dot tone={leg.ok ? 'ok' : 'bad'} />
                         <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
@@ -2366,7 +2370,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </span>
               ) : null
             }
-            bodyClassName="wb-split"
+            bodyClassName="wb-split wb-split-c3"
           >
             <div>
               <div className="wb-cells wb-cells-6 grid gap-1.5">
@@ -2460,7 +2464,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             }
             bodyClassName="wb-split wb-split-c3"
           >
-            <div>
+            <div className="wb-col">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolKey')}
               </div>
@@ -2494,7 +2498,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 />
               </div>
             </div>
-            <div>
+            <div className="wb-col">
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolAccount')}
               </div>
@@ -2596,6 +2600,9 @@ const WALLBOARD_CSS = `
    * 读数一旦折行就是"数字被切成两半"(机主 2026-10-24 指认的号池面板缺陷),
    * 所以这条下限是硬约束:宁可少列,不可断读数。 */
   --wb-cell-min: 143px;
+  /* 复合读数(「12.3 GB / 15.6 GB」「↓ 1.5 MB/s ↑ 1.5 MB/s」= 两个量并排 + unit 槽)
+   * 实测单行需 224px。这类格必须走 .wb-cells-wide,否则 nowrap 会把它压成溢出(实测溢出 51px)。 */
+  --wb-cell-min-wide: 224px;
   /* 刻意不给底:大屏直接坐在工作区自己的背景上(机主 2026-10-20 定档:灰底 + 网格线是多余的一层壳)。 */
 }
 .wb-display { font-family: var(--wb-font-display); }
@@ -2656,12 +2663,28 @@ const WALLBOARD_CSS = `
 /* 读数为「中文时长/带单位」等长形态的组:列宽下限 = 单行放下的最小格宽(--wb-cell-min)。
  * 与 auto-fit 配合 ⇒ 宽度不够时**减列**,而不是把读数折断或让它溢出压到邻格。 */
 .wb-cells-c3 { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min), 1fr)); }
+/* 复合读数组(两个量并排 / 带 unit 槽):列宽下限更高,窄面板下自动落成单列一行一格。 */
+.wb-cells-wide { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min-wide), 1fr)); }
+/* 三格一组的长读数档:auto-fit 在「只够排 2 列」这一带会留下 2+1 的空洞(1440 实测号池面板
+ * 单栏 365 ⇒ 2 列 + 第 3 格独占半行)。441 = 3 格下限 + 2 个格间距的临界值:装不下 3 列
+ * 就整组竖排 —— 该减的是列数,不是把网格排坏。必须写在上面那条基档之后(门 240 R3 取首个
+ * .wb-cells-c3 块判下限来源)。 */
+@container (max-width: 440px) { .wb-cells-c3 { grid-template-columns: minmax(0, 1fr); } }
 /* 6 格一组(Redis / 访客):auto-fit 在半宽面板里只能排 5 列 ⇒ 第 6 格单独一行。
  * 这里固定 3 列 ×2 行(总行数与 5+1 相同,但不再出现孤格);<480 落 2 列。 */
 .wb-cells-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @container (max-width: 479px) { .wb-cells-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-/* 4 格组(边缘分位):窄面板下 auto-fit 会排成 3+1,孤格单独一行;固定 2×2。 */
-@container (max-width: 479px) { .wb-cells-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 5 格一组(流量摘要 / 数据库 / LLM):5 是质数,除了 5 列一行就必在末行留空位。
+ * 手机档固定 2 列并让第 5 格吃满整行 ⇒ 2+2+一整行,不留半个空洞。 */
+@container (max-width: 479px) {
+  .wb-cells-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wb-cells-5 > :last-child:nth-child(5) { grid-column: 1 / -1; }
+}
+/* 4 格一组(边缘分位 / 签到):必须固定列数。auto-fit 在 3~4 格之间只会排 3 列
+ * ⇒ 第 4 格孤零零占满一行 1/3(实测 1920 业务纵深左栏 390、边缘面板 762 各撞一次)。
+ * 408 = 4×列宽下限 96 + 3×最大格间距 8(gap-1.5 那组只要 402,按保守档走)。 */
+.wb-cells-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container (min-width: 408px) { .wb-cells-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .wb-cells-lg { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
 /* KPI 带按容器宽分档:1440 视口下容器 ~786px,auto-fit(135) 只排 5 列,第 6 张会单独
  * 占一行的 1/5(实测 2026-10-24)。≥900 六列一行、600–899 三列两行、<600 两列。 */
@@ -2696,6 +2719,10 @@ const WALLBOARD_CSS = `
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
 }
+/* 两栏 .wb-split 的某一栏需要「按自己这一栏的宽度」分档时,把这一栏标成容器再挂档。
+ * 不加它,栏内的 @container 会一路向上找到 .wb-panel ⇒ 面板 788 却只有 390 可用宽,
+ * 4 格组被排成 4 列挤到 91px/格(读数断行那一族的同一成因)。 */
+.wb-col { container-type: inline-size; }
 @container (max-width: 1149px) {
   .wb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .wb-c3 { grid-column: span 3; }

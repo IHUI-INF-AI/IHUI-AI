@@ -54,7 +54,7 @@ const head = execFileSync('git', ['show', `HEAD:${G.TARGET_REL}`], {
 })
 
 it('形状锁:__test__ 出口的判据单元齐全(缺一个就说明源脚本被改薄)', () => {
-  for (const k of ['REPO_ROOT', 'TARGET_REL', 'CELLS_PER_GROUP', 'parseCellMin', 'parseGapPx', 'expectedSplitThreshold', 'judge']) {
+  for (const k of ['REPO_ROOT', 'TARGET_REL', 'CELLS_PER_GROUP', 'DURATION_RE', 'gridClassBefore', 'parseCellMin', 'parseGapPx', 'expectedSplitThreshold', 'judge']) {
     if (G[k] === undefined) throw new Error(`__test__ 缺 ${k}`)
   }
 })
@@ -95,11 +95,23 @@ it('反向锁 R4:wb-split-c3 面板内某组退回裸 wb-cells ⇒ 翻红', () =
   if (!rules(r).includes('R4')) throw new Error(`未翻红:${rules(r).join(',') || '无'}`)
 })
 
-it('未判定不冒绿 R4:整块 wb-split-c3 被摘掉 ⇒ 不得判成通过', () => {
-  const r = G.judge(worktree.replace(/bodyClassName="wb-split wb-split-c3"/, 'bodyClassName="wb-split"'))
+it('未判定不冒绿 R4:把所有 wb-split-c3 标记整块摘掉 ⇒ 不得判成通过', () => {
+  const stripped = worktree.replace(/wb-split-c3 /g, '').replace(/ wb-split-c3/g, '')
+  const r = G.judge(stripped)
   if (r.violations.length === 0 && r.unjudged.length === 0)
     throw new Error('修复被整块删除却报绿 ⇒ 判据输入集空了必须喊未判定')
   if (!r.unjudged.some((x) => x.startsWith('R4'))) throw new Error(`未点名为 R4 无输入:${r.unjudged.join(' | ') || '无'}`)
+})
+
+it('反向锁 R6:时长读数所在网格退回裸 auto-fit ⇒ 翻红', () => {
+  const r = G.judge(worktree.replace('className="wb-cells wb-cells-6 grid gap-1.5"', 'className="wb-cells grid gap-1.5"'))
+  if (!rules(r).includes('R6')) throw new Error(`未翻红:${rules(r).join(',') || '无'}`)
+})
+
+it('R6 只认「值表达式里真的出现 fmtDuration」的格(不得靠 class 名猜)', () => {
+  const withDuration = G.judge(worktree)
+  if (withDuration.violations.some((x) => x.rule === 'R6'))
+    throw new Error('当前面已收口却报 R6 ⇒ 判据在误报,查 gridClassBefore 是否漏了 mt-2 前缀')
 })
 
 it('反向锁 R5:只改列宽下限、不改栏阈值 ⇒ 翻红(两者必须同源)', () => {
@@ -135,12 +147,16 @@ it('空文本不得冒绿(§0.3 枚举到 0 判死不记绿)', () => {
   if (r.violations.length === 0 && r.unjudged.length === 0) throw new Error('空面被判成通过')
 })
 
-it('HEAD 面若仍缺修复,门必须点名同一批规则(证明本档测的是真缺口,不是自造夹具)', () => {
-  const r = G.judge(head)
-  const fixed = new Set(rules(r))
-  const expect = worktree === head ? true : fixed.has('R1') && fixed.has('R2')
-  if (!expect)
-    throw new Error(`HEAD 面应报 R1/R2,实报 ${[...fixed].join(',') || '无'}(说明修复已进 HEAD 或夹具失真)`)
+it('HEAD 面必须比工作区多报至少一条规则(证明本档测的是真缺口,不是自造夹具)', () => {
+  if (worktree === head) {
+    console.log('    ℹ 工作面 == HEAD(修复已全部入库),本例无从对照,跳过')
+    return
+  }
+  const h = new Set(rules(G.judge(head)))
+  const w = new Set(rules(G.judge(worktree)))
+  const extra = [...h].filter((x) => !w.has(x))
+  if (extra.length === 0)
+    throw new Error(`HEAD 报 [${[...h].join(',') || '无'}] 与工作区 [${[...w].join(',') || '无'}] 无差 ⇒ 判据测不出"未修"与"已修"`)
 })
 
 console.log(`\n${fail === 0 ? '✅' : '❌'} check-readout-no-break 镜像测试 ${pass}/${pass + fail} 通过`)
