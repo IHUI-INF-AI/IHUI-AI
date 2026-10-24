@@ -2682,9 +2682,11 @@ const WALLBOARD_CSS = `
 }
 /* 4 格一组(边缘分位 / 签到):必须固定列数。auto-fit 在 3~4 格之间只会排 3 列
  * ⇒ 第 4 格孤零零占满一行 1/3(实测 1920 业务纵深左栏 390、边缘面板 762 各撞一次)。
- * 408 = 4×列宽下限 96 + 3×最大格间距 8(gap-1.5 那组只要 402,按保守档走)。 */
+ * 472 = 4×112 + 3×8:单格 112px 是离线实测尺(verify-wallboard-readout.mjs)量出的
+ * 「六位读数 + 单位槽」单行下限(999,999人 实测需 111.9,108.6 时溢出 3.3px),8 是这两组
+ * 里更大的格间距(gap-2)。低于 472 就退回 2×2 —— 宁可两行,不要溢出也不要孤格。 */
 .wb-cells-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@container (min-width: 408px) { .wb-cells-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@container (min-width: 472px) { .wb-cells-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .wb-cells-lg { grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); }
 /* KPI 带按容器宽分档:1440 视口下容器 ~786px,auto-fit(135) 只排 5 列,第 6 张会单独
  * 占一行的 1/5(实测 2026-10-24)。≥900 六列一行、600–899 三列两行、<600 两列。 */
