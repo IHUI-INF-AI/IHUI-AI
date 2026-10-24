@@ -117,7 +117,7 @@ export default function CartePage() {
     <ThemeRoot>
       <View className="min-h-screen bg-background px-4 py-4">
         <Text className="text-lg font-semibold text-foreground">{t(CARTE_I18N_KEYS.title)}</Text>
-        <View className="mt-2 overflow-hidden rounded-2xl border border-border bg-card">
+        <View className="mt-2 overflow-hidden rounded-lg border border-border bg-card">
           {CARTE_SEGMENTS.map((seg) => renderSegment(seg))}
         </View>
       </View>
