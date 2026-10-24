@@ -614,8 +614,8 @@
     "ctaTitle": "30 分鐘開始你的 AI 之旅",
     "heroBadge": "關於智匯 AI",
     "heroSubtitle": "智匯 AI(IHUI AI)是開源的全棧 AI 操作系統,把 Agent 設計、知識庫、多模型調度、跨端協作和團隊運營裝進同一個平臺。",
-    "heroTitle": "一碼六端,一站 AI",
-    "metaDescription": "IHUI AI（智匯 AI）是一站式全端 AI 操作系統：整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議，支持 Web / 桌面 / 小程序 / 瀏覽器擴展 / React Native / CLI 六端同源，Apache 2.0 開源。",
+    "heroTitle": "一碼七端,一站 AI",
+    "metaDescription": "IHUI AI（智匯 AI）是一站式全端 AI 操作系統：整合 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議，支持 Web / 桌面 / 小程序 / 瀏覽器擴展 / React Native / Capacitor 原生殼 / CLI 七端同源，Apache 2.0 開源。",
     "numbersTitle": "數字見證",
     "platformAgentsDesc": "可視化拖拽搭建 AI Agent,200+ 模板,插件/MCP 工具,一鍵發布到任意端。",
     "platformAgentsTitle": "Agent 市場與編排",
@@ -642,11 +642,11 @@
     "storyP1": "2024 年,我們發現企業在落地 AI 時普遍面臨\"四件套難題\":選模型難、接知識庫難、跨端分發難、協作計費難。市面上的產品要麼只解決一件,要麼閉源鎖死,要麼貴到用不起。",
     "storyP2": "於是我們做了智匯 AI:開源、統一、跨端、可私有化。把 12-18 個月的自研時間,壓縮到 30 分鐘開通賬號。",
     "storyTitle": "為什麼做智匯 AI?",
-    "valueCrossDesc": "Web / 桌面 / 小程序 / 瀏覽器插件 / React Native / CLI,一套代碼,一次發布,全端觸達。",
-    "valueCrossTitle": "六端同源",
+    "valueCrossDesc": "Web / 桌面 / 小程序 / 瀏覽器插件 / React Native / Capacitor 原生殼 / CLI,一套代碼,一次發布,全端觸達。",
+    "valueCrossTitle": "七端同源",
     "valueEnterpriseDesc": "SSO/OAuth、審計日誌、角色權限、私有化部署,服務多家上市公司。",
     "valueEnterpriseTitle": "企業級安全",
-    "valueFreeDesc": "每月 1000 積分,全模型可用,六端同發。Pro 版 ¥49/月起,企業版支持私有化。",
+    "valueFreeDesc": "每月 1000 積分,全模型可用,七端同發。Pro 版 ¥49/月起,企業版支持私有化。",
     "valueFreeTitle": "個人版永久免費",
     "valueOpenDesc": "Apache 2.0 協議,核心代碼公開,商業可用,Self-host 零成本。",
     "valueOpenTitle": "完全開源",
@@ -1315,6 +1315,7 @@
     "announcements": {
       "colActions": "操作",
       "colPinned": "置頂",
+      "colPlatforms": "投放端",
       "colPublished": "發布狀態",
       "colPublishedAt": "發布時間",
       "colTitle": "標題",
@@ -1330,6 +1331,7 @@
       "editTitle": "編輯公告",
       "fieldContent": "內容",
       "fieldPinned": "置頂",
+      "fieldPlatforms": "投放端",
       "fieldPublished": "已發布",
       "fieldTitle": "標題",
       "fieldType": "類型",
@@ -1355,6 +1357,17 @@
       },
       "no": "否",
       "noData": "暫無公告",
+      "platforms": {
+        "cli": "命令列",
+        "desktop": "桌面端",
+        "extension": "瀏覽器插件",
+        "miniapp": "小程序",
+        "mobile-cap": "行動採集端",
+        "rn": "行動端 App",
+        "web": "網頁端"
+      },
+      "platformsAll": "全端",
+      "platformsHint": "不選擇任何端 = 全端通用顯示；勾選後僅所選端可見",
       "published": "已發布",
       "save": "保存",
       "subtitle": "管理平臺公告與通知",
@@ -15548,14 +15561,14 @@
     "q12Question": "智匯 AI 會被用於訓練你們的模型嗎?",
     "q1Answer": "智匯 AI(英文名 IHUI AI)是一站式全棧 AI 操作系統。它把 Agent 設計、知識庫 RAG、多模型統一調度、跨端協作和團隊運營裝進同一個平臺,支持 Web、桌面、小程序、瀏覽器插件、React Native、CLI 共六個客戶端同源分發,核心代碼 Apache 2.0 開源,可私有化部署。",
     "q1Question": "智匯 AI 是什麼?",
-    "q2Answer": "Dify 偏 LLM 應用開發(僅 Web);Coze 閉源(不支持私有化);FastGPT 偏知識庫 Q&A。智匯 AI 是當前少數同時覆蓋 Agent 市場 + 知識庫 + 六端分發 + 團隊協作 + 積分計費的開源平臺,一個平臺頂 Dify + Coze + FastGPT 三件套。",
+    "q2Answer": "Dify 偏 LLM 應用開發(僅 Web);Coze 閉源(不支持私有化);FastGPT 偏知識庫 Q&A。智匯 AI 是當前少數同時覆蓋 Agent 市場 + 知識庫 + 七端分發 + 團隊協作 + 積分計費的開源平臺,一個平臺頂 Dify + Coze + FastGPT 三件套。",
     "q2Question": "智匯 AI 與 Dify、Coze、FastGPT 的區別?",
-    "q3Answer": "三類用戶最受益:AI 開發者(快速搭建/分發/變現 Agent,六端一鍵發布)、企業 IT(私有化部署,數據不出域,統一 AI 能力中心)、團隊 Leader(多人協作,統一知識庫,統一計費)。",
+    "q3Answer": "三類用戶最受益:AI 開發者(快速搭建/分發/變現 Agent,七端一鍵發布)、企業 IT(私有化部署,數據不出域,統一 AI 能力中心)、團隊 Leader(多人協作,統一知識庫,統一計費)。",
     "q3Question": "智匯 AI 適合誰?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1)、Anthropic Claude(Opus 4/Sonnet 4)、Google Gemini、阿裡通義千問(Qwen-Max/Plus)、DeepSeek(V3/R1)、智譜 GLM-4、文心一言、豆包、Kimi,以及 Ollama 等本地模型和任何 OpenAI 兼容端點。統一計費、自動 fallback、成本路由。",
     "q4Question": "支持哪些 AI 模型?",
-    "q5Answer": "Web、桌面(Tauri 2)、微信/支付寶/抖音小程序(Taro 4)、瀏覽器插件(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)六個客戶端共享同一套 React 組件庫、同一套 API 契約、同一套業務邏輯。你寫一次,六端同步發布,不用為每個端重寫。",
-    "q5Question": "\"六端同源\"是什麼意思?",
+    "q5Answer": "Web、桌面(Tauri 2)、微信/支付寶/抖音小程序(Taro 4)、瀏覽器插件(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)、Capacitor 原生殼(iOS/Android)七個客戶端共享同一套 React 組件庫、同一套 API 契約、同一套業務邏輯。你寫一次,七端同步發布,不用為每個端重寫。",
+    "q5Question": "\"七端同源\"是什麼意思?",
     "q6Answer": "三種方式:① OpenAPI 3.1 REST API(SDK 覆蓋 TypeScript/Python/Go);② Webhook 事件訂閱;③ MCP 工具協議(你的內部系統可以發布為 MCP Server,被智匯 AI 的 Agent 調用)。企業版還支持 SSO/SAML 2.0/OIDC 單點登錄。",
     "q6Question": "怎麼和已有的業務系統集成?",
     "q7Answer": "是的,個人版永久免費:每月 1000 積分、所有模型、所有 6 個客戶端、API 訪問全部包含。Pro 版 ¥49/月(10000 積分 + 優先級隊列),Team 版 ¥299/月/user(共享積分池 + 審計日誌),企業版定製(私有化 + SLA)。",
@@ -17540,7 +17553,7 @@
       "row1Claude": "CLI",
       "row1Cursor": "桌面端",
       "row1Feature": "端覆蓋",
-      "row1Us": "8 端全覆蓋",
+      "row1Us": "9 端全覆蓋",
       "row2Chatgpt": "OpenAI 模型",
       "row2Claude": "Claude 模型",
       "row2Cursor": "多模型可選",
@@ -17576,7 +17589,7 @@
       "row8Cursor": "無",
       "row8Feature": "智能體廣場",
       "row8Us": "5+ 職能",
-      "subtitle": "智匯 AI vs Claude Code vs Cursor vs ChatGPT · 8 端 + 100+ LLM + 三棧合一 + 智能體廣場",
+      "subtitle": "智匯 AI vs Claude Code vs Cursor vs ChatGPT · 9 端 + 100+ LLM + 三棧合一 + 智能體廣場",
       "title": "競品對比 · 多維對標",
       "titleEn": "COMPETITIVE COMPARISON"
     },
@@ -17613,9 +17626,9 @@
         "title": "AI 教育"
       },
       "modelIntegration": {
-        "benefit": "1 賬號 8 端",
-        "description": "Web/Desktop/Mobile/小程序/CLI/Extension 6 + API/AI-Service 2,全棧覆蓋,統一賬號無縫切換",
-        "title": "8 端全覆蓋"
+        "benefit": "1 賬號 9 端",
+        "description": "Web/Desktop/Mobile/小程序/CLI/Extension/Capacitor 7 + API/AI-Service 2,全棧覆蓋,統一賬號無縫切換",
+        "title": "9 端全覆蓋"
       },
       "multimodal": {
         "benefit": "省 ¥5 萬/年",
@@ -17627,7 +17640,7 @@
         "description": "3 大權限模式 + 7 大運行時攔截端點 + 60s 超時拒絕 + RBAC 細粒度訪問控制 + 99.9% SLA",
         "title": "企業安全"
       },
-      "subtitle": "8 端全覆蓋 · 100+ 大模型 · 自研 CLI · 工業級工程嚴謹",
+      "subtitle": "9 端全覆蓋 · 100+ 大模型 · 自研 CLI · 工業級工程嚴謹",
       "title": "核心能力 · 全棧覆蓋",
       "titleEn": "POWERFUL FEATURES",
       "workflow": {
@@ -17831,7 +17844,7 @@
     "typewriter": {
       "brand": "自研 CLI 多維對標 Claude Code · ACP 嵌入 Zed/VSCode/Cursor",
       "connect": "LangGraph + MCP + A2A 三棧 · 1029+ API 端點 · 工業級嚴謹",
-      "content": "8 端全覆蓋 · 覆蓋較廣的全棧 AI 平臺",
+      "content": "9 端全覆蓋 · 覆蓋較廣的全棧 AI 平臺",
       "ctaPrimary": "立即體驗",
       "ctaSecondary": "瞭解更多",
       "explore": "100+ LLM 大模型 · 一個 API Key 全部訪問 · 省 ¥18 萬/年",
@@ -17854,13 +17867,13 @@
         "benefit5": "AI 助手優先體驗",
         "benefit6": "不滿意全額退款"
       },
-      "brandSubtitle": "8 端全覆蓋 · 100+ 大模型 · 1029+ API · 省 ¥18 萬/年",
-      "description": "智匯 AI 集成 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議,支持 Web / 桌面 / 小程序 / 瀏覽器插件 / React Native / CLI 六端同源,Apache 2.0 開源,支持私有化部署。",
+      "brandSubtitle": "9 端全覆蓋 · 100+ 大模型 · 4557+ API · 省 ¥18 萬/年",
+      "description": "智匯 AI 集成 Agent 市場、知識庫 RAG、多模型統一調度、MCP 工具協議,支持 Web / 桌面 / 小程序 / 瀏覽器插件 / React Native / Capacitor 原生殼 / CLI 七端同源,Apache 2.0 開源,支持私有化部署。",
       "earlyBird": "早鳥價 ¥6000/年 · 3.3 折",
-      "multiEnd": "8 端全覆蓋 · 覆蓋範圍較廣",
+      "multiEnd": "9 端全覆蓋 · 覆蓋範圍較廣",
       "perYear": "/年",
       "seats": "限 18 席 · 決策者專屬",
-      "subtitle": "全棧 AI 操作系統,8 端同源,一站式智能體協作",
+      "subtitle": "全棧 AI 操作系統,9 端同源,一站式智能體協作",
       "title": "歡迎來到智匯 AI 社區"
     }
   },
@@ -20907,7 +20920,7 @@
     "comparison": {
       "agentMarket": "Agent 市場",
       "apache2": "Apache 2.0",
-      "eightEnds": "8 端覆蓋",
+      "eightEnds": "9 端覆蓋",
       "feature": "功能",
       "llmCount": "176+ LLM 適配",
       "multiTenant": "多租戶隔離",
@@ -22131,7 +22144,7 @@
         "desc": "源碼部署到您的服務器",
         "features": [
           "PostgreSQL + Redis 配置",
-          "8 端構建",
+          "9 端構建",
           "2 小時線上培訓",
           "30 天郵件支持",
           "3-5 工作日交付"
@@ -23703,7 +23716,7 @@
     "courseWorkload": "學習時長",
     "description": "課程描述",
     "endDate": "結束日期",
-    "metaDescription": "基於 IHUI AI 全棧 AI 操作系統搭建的 AI 教育 Agent:課程結構化編排、智能答疑、作業批改、個性化學習路徑、學習數據看板,8 端同源分發。",
+    "metaDescription": "基於 IHUI AI 全棧 AI 操作系統搭建的 AI 教育 Agent:課程結構化編排、智能答疑、作業批改、個性化學習路徑、學習數據看板,9 端同源分發。",
     "metaTitle": "AI 教育 Agent 用例 — 課程編排/智能答疑/學習推薦 | IHUI AI",
     "name": "課程名稱",
     "provider": "提供方",
@@ -25706,7 +25719,7 @@
     },
     "seats": "限 18 席 · 決策者專屬",
     "earlyBird": "早鳥價 ¥6000/年 · 3.3 折",
-    "multiEnd": "8 端全覆蓋 · 覆蓋範圍較廣"
+    "multiEnd": "9 端全覆蓋 · 覆蓋範圍較廣"
   },
   "typewriter": {
     "ctaPrimary": "立即諮詢",
