@@ -20,7 +20,7 @@ export default function AnnouncementsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['announcements'],
-    queryFn: () => api<{ list: Announcement[] }>('/api/announcements').then((d) => d.list ?? []),
+    queryFn: () => api<{ list: Announcement[] }>('/api/announcements?platform=web').then((d) => d.list ?? []),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {

@@ -9,8 +9,10 @@ import { useTranslations } from 'next-intl'
 import {
   Boxes,
   FileImage,
+  GraduationCap,
   Laptop,
   ShieldCheck,
+  Store,
   Terminal,
   Workflow,
   type LucideIcon,
@@ -19,7 +21,9 @@ import { RevealOnView } from '@/components/common'
 
 /**
  * 第 2 页:核心能力 — Bento 数字网格
- * v4 重构:8 features + 4 advantages(12 项)→ 6 个 Bento 大数字卡片
+ * v4 重构:8 features + 4 advantages(12 项)→ Bento 大数字卡片
+ * 2026-10-24:6 卡 → 8 卡,补齐「智能体广场」与「AI 教育」两项旗舰能力
+ * (与 marketing.features i18n 的 8 个 feature 键一一对应,桌面端 4×2)
  * 极简:每卡只有 icon + title(大号 gradient) + benefit(一行小字)
  */
 
@@ -32,10 +36,12 @@ interface BentoItem {
 const BENTO_KEYS = [
   { key: 'modelIntegration', icon: Laptop },
   { key: 'appStore', icon: Boxes },
+  { key: 'agentSquare', icon: Store },
   { key: 'contentCreation', icon: Terminal },
   { key: 'navigation', icon: ShieldCheck },
   { key: 'workflow', icon: Workflow },
   { key: 'multimodal', icon: FileImage },
+  { key: 'edu', icon: GraduationCap },
 ] as const
 
 export function HomeFeatureGrid() {
@@ -63,8 +69,8 @@ export function HomeFeatureGrid() {
         </h3>
       </RevealOnView>
 
-      {/* Bento 3×2 网格 — 大数字 + 极简标签 */}
-      <div className="mx-auto grid w-full max-w-4xl grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[768px]:grid-cols-3">
+      {/* Bento 网格 — 大数字 + 极简标签(8 卡:桌面 4×2) */}
+      <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[768px]:grid-cols-4">
         {items.map(({ icon: Icon, title, benefit }, i) => (
           <RevealOnView
             key={title}
