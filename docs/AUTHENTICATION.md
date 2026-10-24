@@ -35,7 +35,7 @@
 
 ### 1.1 @ihui/auth 包定位
 
-`@ihui/auth` 是 IHUI-AI 跨端共享的认证授权核心包,被 `apps/api`、`apps/ai-service`、`apps/web`、`apps/desktop`、`apps/extension`、`apps/mobile-rn`、`apps/miniapp-taro` 8 端共同引用,职责:
+`@ihui/auth` 是 IHUI-AI 跨端共享的认证授权核心包,被 `apps/api`、`apps/ai-service`、`apps/web`、`apps/desktop`、`apps/extension`、`apps/mobile-rn`、`apps/miniapp-taro` 9 端共同引用,职责:
 
 | 模块 | 文件 | 职责 |
 | --- | --- | --- |

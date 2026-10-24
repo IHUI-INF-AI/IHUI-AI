@@ -515,13 +515,7 @@
     "noLogsHint": "(로그 없음 — 페이지에서 클릭하면 좌표 정보가 표시됩니다)",
     "runJs": "JavaScript 실행",
     "runJsPlaceholder": "document.title — JS를 입력하고 실행을 누르세요 (예: document.querySelector(\"button\").click())",
-    "run": "실행",
-    "browserTab": "브라우저",
-    "home": "홈으로 이동",
-    "pickElement": "요소 선택",
-    "picking": "선택 중:페이지 요소를 클릭하면 선택, 다시 누르면 취소",
-    "devtools": "개발자 도구",
-    "popout": "별도 창에서 열기"
+    "run": "실행"
   },
   "a11y": {
     "previewLoadFailed": "미리 보기를 로드하지 못했습니다.",
@@ -620,8 +614,8 @@
     "ctaTitle": "30분 만에 AI 여정을 시작하세요",
     "heroBadge": "지후이 AI 소개",
     "heroSubtitle": "IHUI AI는 오픈 소스 풀스택 AI 운영 체제로, Agent 설계, 지식 베이스, 다중 모델 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합합니다.",
-    "heroTitle": "하나의 코드, 7개 클라이언트, 하나의 AI",
-    "metaDescription": "IHUI AI(지후이 AI)는 원스톱 풀스택 AI 운영 체제: Agent 마켓, 지식 베이스 RAG, 다중 모델 통합 스케줄링, MCP 도구 프로토콜을 통합하며, Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / Capacitor 네이티브 쉘 / CLI 7개 클라이언트를 하나의 코드베이스로 지원, Apache 2.0 오픈 소스.",
+    "heroTitle": "하나의 코드, 9개 클라이언트, 하나의 AI",
+    "metaDescription": "IHUI AI(지후이 AI)는 원스톱 풀스택 AI 운영 체제: Agent 마켓, 지식 베이스 RAG, 다중 모델 통합 스케줄링, MCP 도구 프로토콜을 통합하며, Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / Capacitor 네이티브 쉘 / CLI, API 및 AI 서비스를 포함한 9개 클라이언트를 하나의 코드베이스로 지원, Apache 2.0 오픈 소스.",
     "numbersTitle": "숫자가 증명합니다",
     "platformAgentsDesc": "시각적 드래그 앤 드롭으로 AI Agent 구축, 200+ 템플릿, 플러그인/MCP 도구, 원클릭 배포.",
     "platformAgentsTitle": "Agent 마켓플레이스 & 오케스트레이션",
@@ -649,10 +643,10 @@
     "storyP2": "그래서 우리는 IHUI AI를 만들었습니다: 오픈 소스, 통합, 크로스 플랫폼, 자체 호스팅 가능. 12~18개월의 자체 개발 시간을 30분 가입으로 압축했습니다.",
     "storyTitle": "왜 IHUI AI를 만들었나요?",
     "valueCrossDesc": "Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / Capacitor 네이티브 쉘 / CLI, 하나의 코드베이스, 한 번의 배포, 모든 플랫폼 도달.",
-    "valueCrossTitle": "7개 클라이언트, 하나의 코드",
+    "valueCrossTitle": "9개 클라이언트, 하나의 코드",
     "valueEnterpriseDesc": "SSO/OAuth, 감사 로그, 역할 기반 권한, 자체 호스팅, 다수의 상장 기업 서비스.",
     "valueEnterpriseTitle": "엔터프라이즈급 보안",
-    "valueFreeDesc": "월 1,000 크레딧, 모든 모델, 7개 클라이언트 모두 사용 가능. Pro ¥49/월부터, Enterprise는 자체 호스팅 지원.",
+    "valueFreeDesc": "월 1,000 크레딧, 모든 모델, 9개 클라이언트 모두 사용 가능. Pro ¥49/월부터, Enterprise는 자체 호스팅 지원.",
     "valueFreeTitle": "개인용 영구 무료",
     "valueOpenDesc": "Apache 2.0 라이선스, 핵심 코드 공개, 상업적 사용 허용, 자체 호스팅 비용 0원.",
     "valueOpenTitle": "완전 오픈 소스",
@@ -8201,7 +8195,6 @@
       "injectionKindRepoWiki": "Repo Wiki 프로젝트 백과를 주입했습니다",
       "injectionKindAutoContext": "{count, plural, other {자동 검색한 코드 컨텍스트 {count}개를 주입했습니다}}",
       "injectionKindIterationExtension": "이터레이션 예산을 연장했습니다",
-      "injectionKindExpertPack": "의도에 따라 전문가 팩을 적용했습니다",
       "thinkingCharCountTitle": "{n}자",
       "thinkingChars": "자",
       "thinkingElapsedTitle": "{time} 동안 사고 중",
@@ -12173,17 +12166,7 @@
     "reasoningEffortHigh": "심층",
     "reasoningEffortUnsupported": "이 모델은 추론 강도를 선택할 수 없습니다",
     "reasoningEffortFallback": "추론 강도가 서버에서 조정되었습니다: {requested} → {effective}",
-    "analysisOpen": "시나리오 분석 보기",
-    "reviewTargetGroupLabel": "리뷰 대상 선택",
-    "reviewTargetLabel": "리뷰 대상",
-    "reviewTargetUncommitted": "커밋되지 않은 변경 사항",
-    "reviewTargetFile": "특정 파일",
-    "reviewTargetFileLabel": "리뷰할 파일 경로",
-    "reviewTargetFilePlaceholder": "워크스페이스 상대 경로(예: src/app.ts)",
-    "reviewTargetSnippet": "붙여넣은 스니펫",
-    "reviewTargetSnippetLabel": "리뷰할 코드 스니펫",
-    "reviewTargetSnippetPlaceholder": "리뷰할 코드를 붙여넣으세요…",
-    "reviewTargetClear": "리뷰 대상 지우기"
+    "analysisOpen": "시나리오 분석 보기"
   },
   "chatHistory": {
     "moveToGroup": "그룹으로 이동",
@@ -15580,19 +15563,19 @@
     "q11Question": "내 데이터는 안전한가요?",
     "q12Answer": "절대 그렇지 않습니다. 당사는 자체 모델을 학습하지 않으며, 사용자 데이터를 사용하여 제3자 모델을 학습하지도 않습니다. OpenAI/Anthropic 등 API 제공자의 데이터 보존 정책은 해당 공식 문서를 참조하시기 바랍니다(모두 기본적으로 학습하지 않음, API 모드에서는 30일 후 데이터 자동 삭제).",
     "q12Question": "IHUI AI가 내 데이터로 모델을 학습하나요?",
-    "q1Answer": "IHUI AI(중국어: 지후이 AI)는 원스톱 풀스택 AI 운영 체제입니다. Agent 설계, 지식 베이스 RAG, 다중 모델 통합 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합하며, Web, Desktop, 미니프로그램, 브라우저 확장, React Native, CLI 등 6개 클라이언트를 하나의 코드베이스로 지원하고, Apache 2.0 오픈 소스 코어 및 자체 호스팅을 지원합니다.",
+    "q1Answer": "IHUI AI(중국어: 지후이 AI)는 원스톱 풀스택 AI 운영 체제입니다. Agent 설계, 지식 베이스 RAG, 다중 모델 통합 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합하며, Web, Desktop, 미니프로그램, 브라우저 확장, React Native, Capacitor 네이티브 쉘, CLI, API 및 AI 서비스를 포함한 9개 클라이언트를 하나의 코드베이스로 지원하고, Apache 2.0 오픈 소스 코어 및 자체 호스팅을 지원합니다.",
     "q1Question": "IHUI AI란 무엇인가요?",
-    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); Coze는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q&A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 7개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 드문 오픈 소스 플랫폼으로, Dify + Coze + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
+    "q2Answer": "Dify는 LLM 앱 개발에 중점(Web만); Coze는 클로즈드 소스(자체 호스팅 불가); FastGPT는 지식 베이스 Q&A에 중점. IHUI AI는 Agent 마켓플레이스 + 지식 베이스 + 9개 클라이언트 배포 + 팀 협업 + 크레딧 과금을 동시에 지원하는 드문 오픈 소스 플랫폼으로, Dify + Coze + FastGPT 3종 세트를 하나의 플랫폼으로 대체합니다.",
     "q2Question": "IHUI AI는 Dify, Coze, FastGPT와 어떻게 다른가요?",
-    "q3Answer": "세 가지 사용자가 가장 큰 혜택을 봅니다: AI 개발자(Agent를 빠르게 구축/배포/수익화, 7개 클라이언트 원클릭 게시), 엔터프라이즈 IT(데이터 주권 및 통합 AI 역량 허브를 위한 자체 호스팅), 팀 리더(다중 사용자 협업, 통합 지식 베이스, 통합 과금).",
+    "q3Answer": "세 가지 사용자가 가장 큰 혜택을 봅니다: AI 개발자(Agent를 빠르게 구축/배포/수익화, 9개 클라이언트 원클릭 게시), 엔터프라이즈 IT(데이터 주권 및 통합 AI 역량 허브를 위한 자체 호스팅), 팀 리더(다중 사용자 협업, 통합 지식 베이스, 통합 과금).",
     "q3Question": "IHUI AI는 누구를 위한 제품인가요?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1), Anthropic Claude(Opus 4/Sonnet 4), Google Gemini, Alibaba Qwen(Qwen-Max/Plus), DeepSeek(V3/R1), Zhipu GLM-4, Baidu ERNIE, ByteDance Doubao, Moonshot Kimi, Ollama 및 모든 OpenAI 호환 엔드포인트. 통합 과금, 자동 폴백, 비용 기반 라우팅.",
     "q4Question": "어떤 AI 모델이 지원되나요?",
-    "q5Answer": "Web, Desktop(Tauri 2), WeChat/Alipay/Douyin 미니프로그램(Taro 4), 브라우저 확장(WXT MV3), iOS/Android(React Native), CLI(Node.js/Bun), Capacitor 네이티브 쉘(iOS/Android) 등 7개 클라이언트가 동일한 React 컴포넌트 라이브러리, 동일한 API 계약 및 동일한 비즈니스 로직을 공유합니다. 한 번 작성하고 7개 클라이언트에 게시 — 각 플랫폼마다 다시 작성할 필요 없음.",
-    "q5Question": "\"7개 클라이언트, 하나의 코드\"는 무엇을 의미하나요?",
+    "q5Answer": "Web, Desktop(Tauri 2), WeChat/Alipay/Douyin 미니프로그램(Taro 4), 브라우저 확장(WXT MV3), iOS/Android(React Native), CLI(Node.js/Bun), Capacitor 네이티브 쉘(iOS/Android), API 및 AI 서비스 등 9개 클라이언트가 동일한 React 컴포넌트 라이브러리, 동일한 API 계약 및 동일한 비즈니스 로직을 공유합니다. 한 번 작성하고 9개 클라이언트에 게시 — 각 플랫폼마다 다시 작성할 필요 없음.",
+    "q5Question": "\"9개 클라이언트, 하나의 코드\"는 무엇을 의미하나요?",
     "q6Answer": "세 가지 방법: ① OpenAPI 3.1 REST API(TypeScript/Python/Go SDK 제공); ② Webhook 이벤트 구독; ③ MCP 도구 프로토콜(내부 시스템을 MCP Server로 노출하여 IHUI AI Agent가 호출). Enterprise 버전은 SSO/SAML 2.0/OIDC SSO도 지원합니다.",
     "q6Question": "기존 시스템과 어떻게 통합하나요?",
-    "q7Answer": "예, 개인 플랜은 영원히 무료입니다: 월 1,000 크레딧, 모든 모델, 6개 클라이언트 모두, API 액세스 모두 포함. Pro는 ¥49/월(10,000 크레딧 + 우선순위 대기열), Team은 ¥299/월/사용자(공유 크레딧 풀 + 감사 로그), Enterprise는 맞춤(자체 호스팅 + SLA).",
+    "q7Answer": "예, 개인 플랜은 영원히 무료입니다: 월 1,000 크레딧, 모든 모델, 9개 클라이언트 모두, API 액세스 모두 포함. Pro는 ¥49/월(10,000 크레딧 + 우선순위 대기열), Team은 ¥299/월/사용자(공유 크레딧 풀 + 감사 로그), Enterprise는 맞춤(자체 호스팅 + SLA).",
     "q7Question": "개인 플랜이 무료인가요?",
     "q8Answer": "크레딧은 모델 호출당 청구되며, 모델마다 소비율이 다릅니다(가격 페이지 참조). 충전 크레딧: 미사용 시 7일 이내 전액 환불, 사용분은 비례 환불. 구독 플랜: 미사용 월은 비례 환불. 자세한 내용은 환불 정책 참조.",
     "q8Question": "크레딧은 어떻게 계산되나요? 환불 가능한가요?",
@@ -15958,7 +15941,7 @@
     "contactWechatHint": "QR 코드로 고객 서비스 WeChat 추가 또는 ID ok502319984 검색",
     "copyFailed": "복사 실패,수동으로 복사하세요",
     "copyRepoUrl": "저장소 URL 복사",
-    "copyright": "© 2025 Zhihui AI 그룹 · 중국",
+    "copyright": "© 2026 Zhihui AI 그룹 · 중국",
     "databases": {
       "mongodb": "화산 엔진",
       "mysql": "알리바바 클라우드",
@@ -16685,27 +16668,6 @@
       "groupView": "보기",
       "noMatch": "일치 항목 없음",
       "searchPlaceholder": "보기 검색..."
-    },
-    "agentsMd": {
-      "title": "AGENTS.md",
-      "hint": "현재 워크스페이스를 스캔하여 협업 규칙 초안을 생성합니다. 생성 시 디스크에 쓰지 않으며, 쓰기 전에 한 번 더 확인합니다.",
-      "generate": "AGENTS.md 초안 생성",
-      "generateConfirmTitle": "AGENTS.md 초안을 생성할까요?",
-      "generateConfirmContent": "현재 워크스페이스를 스캔하여 초안을 생성합니다. 초안은 여기에만 표시되며 디스크에 쓰지 않습니다.",
-      "generating": "워크스페이스 스캔 중…",
-      "generateFailed": "초안 생성 실패",
-      "draftTitle": "AGENTS.md 초안(편집 가능, 확인 후에만 기록)",
-      "draftNotice": "초안이 아직 디스크에 기록되지 않았습니다",
-      "write": "AGENTS.md에 쓰기",
-      "writeConfirmTitle": "AGENTS.md에 쓸까요?",
-      "writeConfirmContent": "위 내용을 워크스페이스 루트의 AGENTS.md에 씁니다. 같은 이름의 파일은 덮어씁니다.",
-      "writing": "쓰는 중…",
-      "writeFailed": "쓰기 실패",
-      "written": "AGENTS.md에 기록했습니다",
-      "discard": "초안 버리기",
-      "errorEmptyWorkspace": "워크스페이스 경로가 비어 있습니다",
-      "errorRequestFailed": "AI 서비스 요청 실패",
-      "errorNoDraft": "도구가 초안을 반환하지 않았습니다"
     }
   },
   "imageGenPage": {
@@ -17571,7 +17533,7 @@
         "title": "트리플 스택결합 · 업계 프론티어"
       },
       "professional": {
-        "description": "17개 pre-commit 가드 + 4 husky 훅 + 122+ migrations + 12 공유 packages, 코드 품질 동류 95% 프로젝트 초과",
+        "description": "275개 머신 게이트 + 8개 git 훅 + 340 migrations + 16 공유 packages, 코드 품질 동류 95% 프로젝트 초과",
         "evidence": "증거:17 가드 > 업계 평균 3개 / 122 migrations > 평균 30 / 12 packages > 평균 4 → 99.9% 무오류",
         "title": "엔지니어링 엄격 · 업계 벤치마크"
       },
@@ -17600,7 +17562,7 @@
       "row2Claude": "Claude 모델",
       "row2Cursor": "다중 모델 선택",
       "row2Feature": "LLM 수",
-      "row2Us": "100+ LLM",
+      "row2Us": "101 LLM",
       "row3Chatgpt": "없음",
       "row3Claude": "MCP 단일 스택",
       "row3Cursor": "MCP 단일 스택",
@@ -17610,7 +17572,7 @@
       "row4Claude": "없음",
       "row4Cursor": "없음",
       "row4Feature": "API 엔드포인트",
-      "row4Us": "7 엔드포인트",
+      "row4Us": "4557+ 엔드포인트",
       "row5Chatgpt": "없음",
       "row5Claude": "없음",
       "row5Cursor": "없음",
@@ -17631,7 +17593,7 @@
       "row8Cursor": "없음",
       "row8Feature": "에이전트 마켓",
       "row8Us": "5+ 직무",
-      "subtitle": "지후이 AI vs Claude Code vs Cursor vs ChatGPT · 9플랫폼 전체 커버 + 100+ LLM + 트리플 스택결합 + 에이전트 광장",
+      "subtitle": "지후이 AI vs Claude Code vs Cursor vs ChatGPT · 9플랫폼 전체 커버 + 101 LLM + 트리플 스택결합 + 에이전트 광장",
       "title": "경쟁사 대비 · 다차원 비교",
       "titleEn": "COMPETITIVE COMPARISON"
     },
@@ -17654,8 +17616,8 @@
       },
       "appStore": {
         "benefit": "종합 ¥18만/년 절약 · Claude Pro + GPT Plus + Cursor + 다중 모델 API 대체",
-        "description": "해외 30+ (OpenAI/Claude/Gemini/Llama) + 국산 15+ (Tongyi/GLM/DeepSeek) + 클라우드 40+, 1개 키로 모두 접속",
-        "title": "100+ LLM 대모델"
+        "description": "OpenAI / Claude / Gemini / Llama + Tongyi / GLM / DeepSeek + 클라우드 공급자 전체 — 101개 등록 모델, 1개 키로 모두 접속",
+        "title": "101 LLM 대모델"
       },
       "contentCreation": {
         "benefit": "Claude Pro ¥17000/년 절약 · 개발 효율 10× 향상 · 6 소스 설정 원클릭 가져오기",
@@ -17682,12 +17644,12 @@
         "description": "3 권한 모드 + 7 런타임 인터셉트 엔드포인트 + 60s 타임아웃 거부 + RBAC 세분화 액세스 제어 + 99.9% SLA",
         "title": "기업급 워크스페이스"
       },
-      "subtitle": "9플랫폼 전체 커버 기업급 AI 플랫폼 · 100+ LLM · 자체 개발 CLI · 공업급 엔지니어링 엄격함 · 의사결정자가 원스톱으로 모든 AI 능력 획득",
+      "subtitle": "9플랫폼 전체 커버 기업급 AI 플랫폼 · 101 LLM · 자체 개발 CLI · 공업급 엔지니어링 엄격함 · 의사결정자가 원스톱으로 모든 AI 능력 획득",
       "title": "8 대 핵심 능력 · 풀스택 커버",
       "titleEn": "POWERFUL FEATURES",
       "workflow": {
         "benefit": "복잡 작업 자동화 · 5+ SaaS 도구 대체 · 트리플 스택결합 업계에서도 드문",
-        "description": "2개 LangGraph 워크플로 + 11 MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 3스택 통합은 업계에서 희귀",
+        "description": "2개 LangGraph 워크플로 + 90+ MCP 도구 + 5 A2A 엔드포인트 + 6 ACP 확장, 3스택 통합은 업계에서 희귀",
         "title": "LangGraph 워크플로우"
       }
     },
@@ -17716,7 +17678,7 @@
     "marquee": {
       "items": [
         "🎉 새 AI 교육 모듈 출시: 강의·라이브·시험 통합",
-        "🚀 모델 마켓에 GPT-5 / Claude 4.5 / Gemini 2.5 Pro 추가",
+        "🚀 모델 마켓 101개 모델: Gemini 3.8 / Step 3.7 / DeepSeek V4 / GLM 4.7 / Qwen Max / Kimi K2 등 플래그십 지속 추가",
         "💎 VIP 회원 30% 할인, 100+ 에이전트 무제한",
         "🌍 다국어 지원: 5개 언어 실시간 번역",
         "🎨 테마 센터 50+ 테마, 원클릭 전환",
@@ -17777,7 +17739,7 @@
         "description": "성장하는 팀, 우선 지원",
         "feature1": "월 50000 크레딧",
         "feature2": "고급 모델(GPT-4o/Claude Opus)",
-        "feature3": "전 6 클라이언트",
+        "feature3": "전 9 클라이언트",
         "feature4": "팀 협업(10석)",
         "feature5": "이메일 지원",
         "name": "프로페셔널"
@@ -17796,7 +17758,7 @@
         "value": "60% 적중률"
       },
       "cost": {
-        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥500",
+        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥50000 = 연간 ¥70200 절약",
         "description": "Claude Pro + GPT Plus + Cursor + 다중 모델 API 등 다중 구독 대체",
         "title": "종합 비용 절감",
         "value": "연 18-30만 절약"
@@ -17808,14 +17770,14 @@
         "value": "연 10만 절약"
       },
       "models": {
-        "calculation": "해외 30+ 국내 15+ 클라우드 40+ = 100+ 모델 하나의 API 키로 접근",
+        "calculation": "101개 등록 모델 · 해외 + 국내 + 클라우드 공급자, 하나의 API 키로 접근",
         "description": "해외+국내+클라우드 완전 지원, 하나의 API 키로 통합 접근",
         "title": "LLM 커버리지",
-        "value": "100+ LLM"
+        "value": "101 LLM"
       },
       "quality": {
-        "calculation": "17 가드 + 4 훅 + 122 migrations = 99.9% 무오류",
-        "description": "17개 pre-commit 가드 + 4 husky 훅 + 122+ migrations",
+        "calculation": "275개 머신 게이트 + 3180개 테스트 파일 + 340 migrations = 99.9% 무오류",
+        "description": "275개 엔지니어링 게이트 + 8개 git 훅 + 340 migrations",
         "title": "엔지니어링 품질",
         "value": "99.9% 무오류"
       },
@@ -17885,11 +17847,11 @@
     "title": "제목",
     "typewriter": {
       "brand": "자체 개발 CLI, Claude Code 대안",
-      "connect": "LangGraph + MCP + A2A 트리플 스택",
+      "connect": "LangGraph + MCP + A2A 트리플 스택 · 4557+ API 라우트 · 산업 수준의 엄격함",
       "content": "9플랫폼 전체 커버리지 · 업계 최초",
       "ctaPrimary": "지금 체험",
       "ctaSecondary": "더 알아보기",
-      "explore": "100+ LLM 원스톱 액세스",
+      "explore": "101 LLM 원스톱 액세스",
       "miniappBtn": "WeChat 미니프로그램",
       "qrAlt": "미니프로그램 QR코드",
       "scanTip": "스캔하여 미니프로그램 체험",
@@ -17909,8 +17871,8 @@
         "benefit5": "AI 어시스턴트 우선 체험",
         "benefit6": "불만족 시 전액 환불"
       },
-      "brandSubtitle": "9플랫폼 기업급 AI 플랫폼",
-      "description": "Zhihui AI는 Agent 마켓플레이스, 지식 베이스 RAG, 다중 모델 통합 디스패치, MCP 도구 프로토콜을 통합합니다. Web / Desktop / 미니 프로그램 / 브라우저 확장 / React Native / Capacitor 네이티브 쉘 / CLI 7개 플랫폼을 지원하며 Apache 2.0 오픈소스, 프라이빗 배포를 지원합니다.",
+      "brandSubtitle": "9플랫폼 · 100+ 대모델 · 4557+ API · 연간 ¥18만 절약",
+      "description": "Zhihui AI는 Agent 마켓플레이스, 지식 베이스 RAG, 다중 모델 통합 디스패치, MCP 도구 프로토콜을 통합합니다. Web / Desktop / 미니 프로그램 / 브라우저 확장 / React Native / Capacitor 네이티브 쉘 / CLI, 그리고 API와 AI 서비스까지 9개 플랫폼을 지원하며 Apache 2.0 오픈소스, 프라이빗 배포를 지원합니다.",
       "earlyBird": "얼리버드 ¥6000/년",
       "multiEnd": "9플랫폼 전체 커버리지",
       "perYear": "/년",
@@ -19792,10 +19754,7 @@
     "editDeviceMapTitle": "기기 지문 편집",
     "editDeviceMapDescription": "{platform} 계정의 기기 지문을 편집합니다(JSON 객체, 비워 두고 저장하면 자동 생성됨).",
     "checkedInToday": "오늘 출석 완료",
-    "rename": "이름 변경",
-    "captureTraeWebWaiting": "오른쪽 작업 패널의 브라우저에서 Trae 로그인 페이지를 열었습니다. 패널 안에서 로그인(전화번호/QR)하세요. 로그인 상태가 감지되면 계정을 자동으로 가져온 뒤 체크인 페이지로 돌아갑니다.",
-    "captureTraeWebDone": "Trae 웹 로그인 가져오기 완료(총 {count}개 계정)",
-    "captureTraeWebCancelled": "Trae 웹 로그인이 취소되었습니다. \"웹 로그인\"을 다시 누르면 재시도할 수 있습니다."
+    "rename": "이름 변경"
   },
   "accountPool": {
     "title": "내 계정 풀",
@@ -20767,7 +20726,7 @@
         "features": [
           "월 1000 크레딧",
           "모든 AI 모델",
-          "모든 6 클라이언트",
+          "모든 9 클라이언트",
           "API 접근",
           "커뮤니티 지원"
         ],
@@ -22914,18 +22873,6 @@
       "advancedAiDesc": "메모리, 하위 에이전트, 오케스트레이션, 컨텍스트 압축 등 에이전트 기능",
       "experimental": "실험적 기능",
       "experimentalDesc": "아직 검증 중인 기능으로, 이후 변경되거나 중단될 수 있습니다"
-    },
-    "expertRoute": {
-      "title": "전문가 팩 자동 라우팅",
-      "desc": "이번 사용자 의도에서 전문가 팩을 식별하고, 일치 시 처리 방식을 선택합니다.",
-      "hint": "힌트만",
-      "hintDesc": "일치 시 어떤 전문가 팩이 일치했는지만 답변에 표시하고, 도구와 시스템 프롬프트는 변경하지 않습니다",
-      "auto": "자동 적용",
-      "autoDesc": "일치 시 전문가 팩의 도구 허용 목록과 시스템 프롬프트를 이번 요청에 병합합니다",
-      "off": "끄기",
-      "offDesc": "의도 식별도, 힌트도 하지 않습니다",
-      "default": "기본",
-      "envLockedNotice": "배포 측이 환경 변수로 이 기능을 비활성화했으므로 여기에서는 보기만 가능하고 변경할 수 없습니다."
     }
   },
   "shareContentPage": {

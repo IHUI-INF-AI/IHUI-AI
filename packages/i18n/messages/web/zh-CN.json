@@ -515,13 +515,7 @@
     "noLogsHint": "(暂无日志 — 在页面上点击操作后会显示坐标信息)",
     "runJs": "执行 JavaScript",
     "runJsPlaceholder": "document.title  —  输入 JS 后点执行(如: document.querySelector(\"button\").click())",
-    "run": "执行",
-    "browserTab": "浏览器",
-    "home": "回到主页",
-    "pickElement": "元素点选",
-    "picking": "点选进行中,点击页面元素即选中;再点按钮取消",
-    "devtools": "开发者工具",
-    "popout": "在独立窗口中打开"
+    "run": "执行"
   },
   "a11y": {
     "previewLoadFailed": "预览加载失败。",
@@ -620,8 +614,8 @@
     "ctaTitle": "30 分钟开始你的 AI 之旅",
     "heroBadge": "关于智汇 AI",
     "heroSubtitle": "智汇 AI(IHUI AI)是开源的全栈 AI 操作系统,把 Agent 设计、知识库、多模型调度、跨端协作和团队运营装进同一个平台。",
-    "heroTitle": "一码七端,一站 AI",
-    "metaDescription": "IHUI AI（智汇 AI）是一站式全端 AI 操作系统：整合 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议，支持 Web / 桌面 / 小程序 / 浏览器扩展 / React Native / Capacitor 原生壳 / CLI 七端同源，Apache 2.0 开源。",
+    "heroTitle": "一码九端,一站 AI",
+    "metaDescription": "IHUI AI（智汇 AI）是一站式全端 AI 操作系统：整合 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议，支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI,另有 API 与 AI 服务,九端同源，Apache 2.0 开源。",
     "numbersTitle": "数字见证",
     "platformAgentsDesc": "可视化拖拽搭建 AI Agent,200+ 模板,插件/MCP 工具,一键发布到任意端。",
     "platformAgentsTitle": "Agent 市场与编排",
@@ -649,10 +643,10 @@
     "storyP2": "于是我们做了智汇 AI:开源、统一、跨端、可私有化。把 12-18 个月的自研时间,压缩到 30 分钟开通账号。",
     "storyTitle": "为什么做智汇 AI?",
     "valueCrossDesc": "Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI,一套代码,一次发布,全端触达。",
-    "valueCrossTitle": "七端同源",
+    "valueCrossTitle": "九端同源",
     "valueEnterpriseDesc": "SSO/OAuth、审计日志、角色权限、私有化部署,服务多家上市公司。",
     "valueEnterpriseTitle": "企业级安全",
-    "valueFreeDesc": "每月 1000 积分,全模型可用,七端同发。Pro 版 ¥49/月起,企业版支持私有化。",
+    "valueFreeDesc": "每月 1000 积分,全模型可用,九端同发。Pro 版 ¥49/月起,企业版支持私有化。",
     "valueFreeTitle": "个人版永久免费",
     "valueOpenDesc": "Apache 2.0 协议,核心代码公开,商业可用,Self-host 零成本。",
     "valueOpenTitle": "完全开源",
@@ -8201,7 +8195,6 @@
       "injectionKindRepoWiki": "已注入 Repo Wiki 项目百科",
       "injectionKindAutoContext": "{count, plural, other {已自动检索并注入 {count} 段代码上下文}}",
       "injectionKindIterationExtension": "已续期轮次预算",
-      "injectionKindExpertPack": "已按意图匹配专家包",
       "thinkingCharCountTitle": "{n} 个字符",
       "thinkingChars": "字",
       "thinkingElapsedTitle": "已思考 {time}",
@@ -12173,17 +12166,7 @@
     "reasoningEffortHigh": "深思",
     "reasoningEffortUnsupported": "该模型不支持选择推理强度",
     "reasoningEffortFallback": "推理强度已由后端调整为 {requested} → {effective}",
-    "analysisOpen": "查看场景分析",
-    "reviewTargetGroupLabel": "审查对象选择",
-    "reviewTargetLabel": "审查对象",
-    "reviewTargetUncommitted": "未提交改动",
-    "reviewTargetFile": "指定文件",
-    "reviewTargetFileLabel": "要审查的文件路径",
-    "reviewTargetFilePlaceholder": "工作区相对路径,如 src/app.ts",
-    "reviewTargetSnippet": "粘贴片段",
-    "reviewTargetSnippetLabel": "要审查的代码片段",
-    "reviewTargetSnippetPlaceholder": "粘贴要审查的代码片段…",
-    "reviewTargetClear": "清除审查对象"
+    "analysisOpen": "查看场景分析"
   },
   "chatHistory": {
     "moveToGroup": "移动到分组",
@@ -15581,19 +15564,19 @@
     "q11Question": "我的数据安全吗?",
     "q12Answer": "绝对不会。我们既不训练自有模型,也不会用你的数据训练任何第三方模型。OpenAI/Anthropic 等 API 提供商的 data retention 政策请参考其官方文档(均默认不训练,API 模式下数据 30 天后自动删除)。",
     "q12Question": "智汇 AI 会被用于训练你们的模型吗?",
-    "q1Answer": "智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统。它把 Agent 设计、知识库 RAG、多模型统一调度、跨端协作和团队运营装进同一个平台,支持 Web、桌面、小程序、浏览器插件、React Native、CLI 共六个客户端同源分发,核心代码 Apache 2.0 开源,可私有化部署。",
+    "q1Answer": "智汇 AI(英文名 IHUI AI)是一站式全栈 AI 操作系统。它把 Agent 设计、知识库 RAG、多模型统一调度、跨端协作和团队运营装进同一个平台,支持 Web、桌面、小程序、浏览器插件、React Native、Capacitor 原生壳、CLI,另有 API 与 AI 服务,共九个客户端同源分发,核心代码 Apache 2.0 开源,可私有化部署。",
     "q1Question": "智汇 AI 是什么?",
-    "q2Answer": "Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 七端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。",
+    "q2Answer": "Dify 偏 LLM 应用开发(仅 Web);Coze 闭源(不支持私有化);FastGPT 偏知识库 Q&A。智汇 AI 是当前少数同时覆盖 Agent 市场 + 知识库 + 九端分发 + 团队协作 + 积分计费的开源平台,一个平台顶 Dify + Coze + FastGPT 三件套。",
     "q2Question": "智汇 AI 与 Dify、Coze、FastGPT 的区别?",
-    "q3Answer": "三类用户最受益:AI 开发者(快速搭建/分发/变现 Agent,七端一键发布)、企业 IT(私有化部署,数据不出域,统一 AI 能力中心)、团队 Leader(多人协作,统一知识库,统一计费)。",
+    "q3Answer": "三类用户最受益:AI 开发者(快速搭建/分发/变现 Agent,九端一键发布)、企业 IT(私有化部署,数据不出域,统一 AI 能力中心)、团队 Leader(多人协作,统一知识库,统一计费)。",
     "q3Question": "智汇 AI 适合谁?",
     "q4Answer": "OpenAI(GPT-4o/o1/GPT-4.1)、Anthropic Claude(Opus 4/Sonnet 4)、Google Gemini、阿里通义千问(Qwen-Max/Plus)、DeepSeek(V3/R1)、智谱 GLM-4、文心一言、豆包、Kimi,以及 Ollama 等本地模型和任何 OpenAI 兼容端点。统一计费、自动 fallback、成本路由。",
     "q4Question": "支持哪些 AI 模型?",
-    "q5Answer": "Web、桌面(Tauri 2)、微信/支付宝/抖音小程序(Taro 4)、浏览器插件(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)、Capacitor 原生壳(iOS/Android)七个客户端共享同一套 React 组件库、同一套 API 契约、同一套业务逻辑。你写一次,七端同步发布,不用为每个端重写。",
-    "q5Question": "\"七端同源\"是什么意思?",
+    "q5Answer": "Web、桌面(Tauri 2)、微信/支付宝/抖音小程序(Taro 4)、浏览器插件(WXT MV3)、iOS/Android(React Native)、CLI(Node.js/Bun)、Capacitor 原生壳(iOS/Android),另有 API 与 AI 服务,九个客户端共享同一套 React 组件库、同一套 API 契约、同一套业务逻辑。你写一次,九端同步发布,不用为每个端重写。",
+    "q5Question": "\"九端同源\"是什么意思?",
     "q6Answer": "三种方式:① OpenAPI 3.1 REST API(SDK 覆盖 TypeScript/Python/Go);② Webhook 事件订阅;③ MCP 工具协议(你的内部系统可以发布为 MCP Server,被智汇 AI 的 Agent 调用)。企业版还支持 SSO/SAML 2.0/OIDC 单点登录。",
     "q6Question": "怎么和已有的业务系统集成?",
-    "q7Answer": "是的,个人版永久免费:每月 1000 积分、所有模型、所有 6 个客户端、API 访问全部包含。Pro 版 ¥49/月(10000 积分 + 优先级队列),Team 版 ¥299/月/user(共享积分池 + 审计日志),企业版定制(私有化 + SLA)。",
+    "q7Answer": "是的,个人版永久免费:每月 1000 积分、所有模型、所有 9 个客户端、API 访问全部包含。Pro 版 ¥49/月(10000 积分 + 优先级队列),Team 版 ¥299/月/user(共享积分池 + 审计日志),企业版定制(私有化 + SLA)。",
     "q7Question": "个人版是免费的吗?",
     "q8Answer": "积分按模型调用计费,不同模型消耗不同(详见定价页)。充值积分 7 天内未使用可全额退款,已使用部分按比例退;订阅版未使用月份按比例退。具体见退款政策页。",
     "q8Question": "积分怎么算?能退款吗?",
@@ -15959,7 +15942,7 @@
     "contactWechatHint": "扫码添加客服微信,或搜索微信号 ok502319984",
     "copyFailed": "复制失败,请手动复制",
     "copyRepoUrl": "复制仓库地址",
-    "copyright": "© 2025 智汇AI集团 · 中国",
+    "copyright": "© 2026 智汇AI集团 · 中国",
     "databases": {
       "mongodb": "火山引擎",
       "mysql": "阿里云",
@@ -16686,27 +16669,6 @@
       "groupView": "视图",
       "noMatch": "无匹配项",
       "searchPlaceholder": "搜索视图..."
-    },
-    "agentsMd": {
-      "title": "AGENTS.md",
-      "hint": "扫描当前工作区生成协作约定草稿;生成不写盘,写入前还会再确认一次。",
-      "generate": "一键生成 AGENTS.md 草稿",
-      "generateConfirmTitle": "生成 AGENTS.md 草稿?",
-      "generateConfirmContent": "将扫描当前工作区并生成草稿。草稿只显示在这里,不会写盘。",
-      "generating": "正在扫描工作区…",
-      "generateFailed": "生成草稿失败",
-      "draftTitle": "AGENTS.md 草稿(可编辑,确认后才写盘)",
-      "draftNotice": "草稿尚未写盘",
-      "write": "写入 AGENTS.md",
-      "writeConfirmTitle": "写入 AGENTS.md?",
-      "writeConfirmContent": "将把上方内容写入工作区根目录的 AGENTS.md;同名文件会被覆盖。",
-      "writing": "正在写入…",
-      "writeFailed": "写入失败",
-      "written": "已写入 AGENTS.md",
-      "discard": "放弃草稿",
-      "errorEmptyWorkspace": "工作区路径为空",
-      "errorRequestFailed": "AI 服务请求失败",
-      "errorNoDraft": "工具未返回草稿"
     }
   },
   "imageGenPage": {
@@ -17572,7 +17534,7 @@
         "title": "三栈合一"
       },
       "professional": {
-        "description": "17 守门 · 122 migrations",
+        "description": "275 守门 · 340 migrations",
         "evidence": "超 95% 同类项目",
         "title": "工程严谨"
       },
@@ -17601,7 +17563,7 @@
       "row2Claude": "Claude 模型",
       "row2Cursor": "多模型可选",
       "row2Feature": "大模型数量",
-      "row2Us": "100+ LLM",
+      "row2Us": "101 模型",
       "row3Chatgpt": "无",
       "row3Claude": "MCP 单栈",
       "row3Cursor": "MCP 单栈",
@@ -17611,7 +17573,7 @@
       "row4Claude": "无",
       "row4Cursor": "无",
       "row4Feature": "API 端点",
-      "row4Us": "7 端点",
+      "row4Us": "4557+ 端点",
       "row5Chatgpt": "无",
       "row5Claude": "无",
       "row5Cursor": "无",
@@ -17632,7 +17594,7 @@
       "row8Cursor": "无",
       "row8Feature": "智能体广场",
       "row8Us": "5+ 职能",
-      "subtitle": "智汇 AI vs Claude Code vs Cursor vs ChatGPT · 9 端 + 100+ LLM + 三栈合一 + 智能体广场",
+      "subtitle": "智汇 AI vs Claude Code vs Cursor vs ChatGPT · 9 端 + 101 模型 + 三栈合一 + 智能体广场",
       "title": "竞品对比 · 多维对标",
       "titleEn": "COMPETITIVE COMPARISON"
     },
@@ -17655,8 +17617,8 @@
       },
       "appStore": {
         "benefit": "省 ¥18 万/年",
-        "description": "国际 30+ (OpenAI/Claude/Gemini/Llama) + 国产 15+ (通义/GLM/DeepSeek) + 云厂商 40+ ,一 key 走天下",
-        "title": "100+ LLM"
+        "description": "OpenAI / Claude / Gemini / Llama + 通义 / GLM / DeepSeek + 云厂商全链路,101 个入库模型一 key 走天下",
+        "title": "101 模型"
       },
       "contentCreation": {
         "benefit": "省 ¥17000/年",
@@ -17688,7 +17650,7 @@
       "titleEn": "POWERFUL FEATURES",
       "workflow": {
         "benefit": "替代 5+ SaaS",
-        "description": "2 大 LangGraph 工作流 + 11 个 MCP 工具 + 5 个 A2A 端点 + 6 个 ACP 扩展,三栈合一行业罕见",
+        "description": "2 大 LangGraph 工作流 + 90+ 个 MCP 工具 + 5 个 A2A 端点 + 6 个 ACP 扩展,三栈合一行业罕见",
         "title": "工作流引擎"
       }
     },
@@ -17717,7 +17679,7 @@
     "marquee": {
       "items": [
         "🎉 全新 AI 教育模块上线,支持课程学习 / 直播 / 考试一体化",
-        "🚀 模型市场新增 GPT-5 / Claude 4.5 / Gemini 2.5 Pro 等旗舰模型",
+        "🚀 模型市场 101 款大模型: Gemini 3.8 / Step 3.7 / DeepSeek V4 / GLM 4.7 / Qwen Max / Kimi K2 等旗舰持续上新",
         "💎 VIP 会员限时 7 折,享 100+ 智能体无限使用",
         "🌍 多语言支持升级:新增 5 种语言实时翻译",
         "🎨 主题中心 50+ 套主题,一键切换视觉风格",
@@ -17778,7 +17740,7 @@
         "description": "适合成长型团队,优先支持",
         "feature1": "每月 50000 积分",
         "feature2": "高级模型(GPT-4o/Claude Opus)",
-        "feature3": "全 6 端访问",
+        "feature3": "全 9 端访问",
         "feature4": "团队协作(10 席位)",
         "feature5": "邮件支持",
         "name": "专业版"
@@ -17797,7 +17759,7 @@
         "value": "60% 命中"
       },
       "cost": {
-        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥50000 = 省 ¥68200/年",
+        "calculation": "Claude Pro ¥17000 + GPT Plus ¥1600 + Cursor ¥1600 + API ¥50000 = 省 ¥70200/年",
         "description": "替代 Claude Pro + GPT Plus + Cursor + 多模型 API 等多项订阅",
         "title": "综合省成本",
         "value": "省 ¥18-30 万/年"
@@ -17809,14 +17771,14 @@
         "value": "省 ¥10 万/年"
       },
       "models": {
-        "calculation": "国际 30+ 国产 15+ 云 40+ = 100+ 模型一个 API Key 全访问",
+        "calculation": "101 个入库模型 · 国际 + 国产 + 云厂商全覆盖,一个 API Key 全访问",
         "description": "国际 + 国产 + 云厂商全覆盖,一个 API Key 统一访问",
         "title": "大模型覆盖",
-        "value": "100+ LLM"
+        "value": "101 模型"
       },
       "quality": {
-        "calculation": "17 守门 + 4 钩子 + 122 migrations = 99.9% 不出错",
-        "description": "17 项 pre-commit 守门 + 4 husky 钩子 + 122+ migrations",
+        "calculation": "275 道机器守门 + 3180 测试文件 + 340 次迁移 = 99.9% 不出错",
+        "description": "275 道工程守门 + 8 个 git 钩子 + 340 次数据库迁移",
         "title": "工程质量",
         "value": "99.9% 不出错"
       },
@@ -17846,7 +17808,7 @@
     "scenarios": {
       "costReduction": {
         "benefit": "省 ¥18-30 万/年",
-        "description": "100+ 模型智能路由 · 替代多项订阅",
+        "description": "101 模型智能路由 · 替代多项订阅",
         "painPoint": "年费数万",
         "title": "智能降本"
       },
@@ -17886,11 +17848,11 @@
     "title": "标题",
     "typewriter": {
       "brand": "自研 CLI 多维对标 Claude Code · ACP 嵌入 Zed/VSCode/Cursor",
-      "connect": "LangGraph + MCP + A2A 三栈 · 1029+ API 端点 · 工业级严谨",
+      "connect": "LangGraph + MCP + A2A 三栈 · 4557+ API 路由 · 工业级严谨",
       "content": "9 端全覆盖 · 覆盖较广的全栈 AI 平台",
       "ctaPrimary": "立即体验",
       "ctaSecondary": "了解更多",
-      "explore": "100+ LLM 大模型 · 一个 API Key 全部访问 · 省 ¥18 万/年",
+      "explore": "101 模型 大模型 · 一个 API Key 全部访问 · 省 ¥18 万/年",
       "miniappBtn": "微信小程序",
       "qrAlt": "小程序二维码",
       "scanTip": "扫码体验小程序",
@@ -17911,7 +17873,7 @@
         "benefit6": "不满意全额退款"
       },
       "brandSubtitle": "9 端全覆盖 · 100+ 大模型 · 4557+ API · 省 ¥18 万/年",
-      "description": "智汇 AI 集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI 七端同源,Apache 2.0 开源,支持私有化部署。",
+      "description": "智汇 AI 集成 Agent 市场、知识库 RAG、多模型统一调度、MCP 工具协议,支持 Web / 桌面 / 小程序 / 浏览器插件 / React Native / Capacitor 原生壳 / CLI,另有 API 与 AI 服务,九端同源,Apache 2.0 开源,支持私有化部署。",
       "earlyBird": "早鸟价 ¥6000/年 · 3.3 折",
       "multiEnd": "9 端全覆盖 · 覆盖范围较广",
       "perYear": "/年",
@@ -19793,10 +19755,7 @@
     "editDeviceMapTitle": "编辑设备指纹",
     "editDeviceMapDescription": "为 {platform} 账号编辑设备指纹（JSON 对象；留空保存将自动生成）。",
     "checkedInToday": "今日已签到",
-    "rename": "重命名",
-    "captureTraeWebWaiting": "已在右侧工作区的浏览器里打开 Trae 登录页,请在面板内完成登录(手机号/扫码);检测到登录态后会自动导入账号并回到签到页。",
-    "captureTraeWebDone": "Trae 网页登录导入完成(共 {count} 个账号)",
-    "captureTraeWebCancelled": "已取消 Trae 网页登录。重新点「网页登录」可再试。"
+    "rename": "重命名"
   },
   "accountPool": {
     "title": "个人号池",
@@ -20768,7 +20727,7 @@
         "features": [
           "每月 1000 积分",
           "所有 AI 模型",
-          "所有 6 个客户端",
+          "所有 9 个客户端",
           "API 访问",
           "社区支持"
         ],
@@ -22915,18 +22874,6 @@
       "advancedAiDesc": "记忆、子智能体、编排、上下文压缩等智能体框架能力",
       "experimental": "实验性功能",
       "experimentalDesc": "仍在验证阶段的能力，后续可能调整或下线"
-    },
-    "expertRoute": {
-      "title": "专家包自动路由",
-      "desc": "按本轮用户意图识别专家包,并决定命中结果的处理方式。",
-      "hint": "仅提示",
-      "hintDesc": "命中时只在回复中提示命中了哪个专家包,不改动工具与系统提示",
-      "auto": "自动应用",
-      "autoDesc": "命中时把专家包的工具白名单与系统提示并入本次请求",
-      "off": "关闭",
-      "offDesc": "不做意图识别,也不提示",
-      "default": "默认",
-      "envLockedNotice": "部署方已通过环境变量关闭该能力,此处只能查看,无法修改。"
     }
   },
   "shareContentPage": {

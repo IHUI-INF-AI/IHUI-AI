@@ -66,8 +66,8 @@ IndexNow 预期在提交后 24 小时内加速 Bing / Yandex / Naver 对新页�
 ### 3. HackerNews "Show HN" 草稿
 
 - **草稿位置**:`.ihui-agent/tmp/show-hn-post.md`(内部草稿,待人工 review 后提交)
-- **标题**:`Show HN: IHUI-AI — Open-source 8-platform AI OS with 176 LLMs (LangGraph + MCP + A2A)`
-- **正文**:~290 字英文,涵盖痛点(多端重复造轮子)→ 创新(8 端 + 176 LLM + 三协议栈)→ 技术栈(Next.js 16 / Fastify 5 / FastAPI / Tauri / WXT)→ 差异化(vs LangChain / Dify / OpenWebUI)→ 结尾抛具体问题引导技术讨论
+- **标题**:`Show HN: IHUI-AI — Open-source 9-platform AI OS with 101 LLMs (LangGraph + MCP + A2A)`
+- **正文**:~290 字英文,涵盖痛点(多端重复造轮子)→ 创新(9 端 + 101 LLM + 三协议栈)→ 技术栈(Next.js 16 / Fastify 5 / FastAPI / Tauri / WXT)→ 差异化(vs LangChain / Dify / OpenWebUI)→ 结尾抛具体问题引导技术讨论
 - **遵循 HN 规范**:标题以 `Show HN:` 开头、无营销话术、主动暴露 trade-off、首小时互动计划
 
 ### 4. 下一步社区运营计划
@@ -115,8 +115,8 @@ IndexNow 预期在提交后 24 小时内加速 Bing / Yandex / Naver 对新页�
 
 | # | 标题 | 分类 | 链接 |
 |---|------|------|------|
-| 26 | 8 端 monorepo 共享层设计:我们如何把 70.3% 代码复用率做到位 | Show and tell | [discussions/26](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/26) |
-| 27 | v1.3 Roadmap 征集:你最想看到的 8 端 AI 平台新功能? | Ideas | [discussions/27](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/27) |
+| 26 | 9 端 monorepo 共享层设计:我们如何把 70.3% 代码复用率做到位 | Show and tell | [discussions/26](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/26) |
+| 27 | v1.3 Roadmap 征集:你最想看到的 9 端 AI 平台新功能? | Ideas | [discussions/27](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/27) |
 | 28 | 踩坑分享:Tauri 2 + React 19 桌面端集成遇到的问题与解决方案 | Show and tell | [discussions/28](https://github.com/IHUI-INF-AI/IHUI-AI/discussions/28) |
 
 - **#26** 拆解共享层设计(工厂模式 + 依赖注入 / 端内 re-export / 类型单一来源 / 守门机制),展示 70.3% 复用率实现路径,吸引架构向技术讨论。
@@ -128,7 +128,7 @@ IndexNow 预期在提交后 24 小时内加速 Bing / Yandex / Naver 对新页�
 | # | 标题 | 标签 | 链接 |
 |---|------|------|------|
 | 29 | good-first-issue: 为 CLI 端添加 --version 和 --help 输出测试 | `good-first-issue` `documentation` | [issues/29](https://github.com/IHUI-INF-AI/IHUI-AI/issues/29) |
-| 30 | good-first-issue: 文档改进 - 补充 8 端架构图的中文注释 | `good-first-issue` `documentation` `community` | [issues/30](https://github.com/IHUI-INF-AI/IHUI-AI/issues/30) |
+| 30 | good-first-issue: 文档改进 - 补充 9 端架构图的中文注释 | `good-first-issue` `documentation` `community` | [issues/30](https://github.com/IHUI-INF-AI/IHUI-AI/issues/30) |
 | 31 | help wanted: 寻求 v2.0 AI 操作系统愿景的社区反馈 | `help wanted` `community` | [issues/31](https://github.com/IHUI-INF-AI/IHUI-AI/issues/31) |
 
 - **#29 / #30** 为 good-first-issue,降低新人贡献门槛,附验收标准 + 入门指引,适合首次贡献者认领。
