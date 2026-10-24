@@ -402,7 +402,8 @@
     "chatError": "Connection failed",
     "chatDisconnected": "Disconnected",
     "chatNotReady": "Chat not ready",
-    "loadFailed": "Failed to load live"
+    "loadFailed": "Failed to load live",
+    "hostMode": "Host mode"
   },
   "profile": {
     "levelIntro": "Level details",
@@ -543,7 +544,8 @@
     "logout": "Log Out",
     "myOrders": "My Orders",
     "editProfile": "Edit Profile",
-    "notLoggedIn": "Not signed in"
+    "notLoggedIn": "Not signed in",
+    "clickRetry": "Tap to retry"
   },
   "payResult": {
     "title": "Payment Result",
@@ -860,7 +862,11 @@
     "menuVoiceNote": "Voice notes",
     "menuWebLink": "Web link",
     "menuFileUpload": "Upload file",
-    "menuHistory": "History"
+    "menuHistory": "History",
+    "terminal": {
+      "waitingInput": "Waiting for input",
+      "mobileUnsupported": "Terminal is not supported on mobile"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -1097,7 +1103,8 @@
     "save": "Save",
     "search": "Search",
     "searchPlaceholder": "Search documents...",
-    "deleted": "Deleted"
+    "deleted": "Deleted",
+    "loadFailPullRetry": "Failed to load. Pull down to refresh and retry."
   },
   "network": {
     "offline": "You're offline. Some features are unavailable.",
@@ -1131,7 +1138,11 @@
     "catPrivate": "Private ops",
     "catContent": "Content",
     "catData": "Analytics",
-    "catAll2": "All"
+    "catAll2": "All",
+    "chat": {
+      "title": "Start Chat",
+      "message": "Starting a chat with \"{name}\""
+    }
   },
   "aiAssistantN8n": {
     "title": "AI Assistant",
@@ -1178,7 +1189,8 @@
     "loading": "Loading...",
     "subtitle": "Choose or generate a cover",
     "title": "Cover",
-    "workTitleDefault": "Untitled work"
+    "workTitleDefault": "Untitled work",
+    "labelDefault": "Work"
   },
   "aigcPublish": {
     "success": {
@@ -1382,7 +1394,10 @@
     "namePlaceholder": "Enter workflow name",
     "nameRequired": "Please enter a name",
     "operationFailed": "Operation failed, please try again",
-    "title": "n8n Models"
+    "title": "n8n Models",
+    "vendorName": "n8n Workflows",
+    "groupBrowse": "Grouped",
+    "listView": "List view"
   },
   "modelPlaza": {
     "officialBadge": "IH",
@@ -1403,7 +1418,10 @@
     "priceUnit": "Price",
     "providerTotal": "{count} models from providers",
     "selectProviderLabel": "Choose provider",
-    "title": "Model Plaza"
+    "title": "Model Plaza",
+    "groupBrowse": "Grouped",
+    "listView": "List view",
+    "workflowTab": "Workflows"
   },
   "tokenValue": {
     "recharge": {
@@ -1916,7 +1934,10 @@
     "relatedOrder": "Order: {orderNo}",
     "copy": "Copy Order No.",
     "copySuccess": "Order number copied",
-    "loadFailed": "Failed to load income"
+    "loadFailed": "Failed to load income",
+    "withdrawBank": "Bank withdrawal",
+    "withdrawRecord": "Withdrawal history",
+    "commissionDefault": "Commission"
   },
   "invite": {
     "title": "Invite Friends",
@@ -3484,7 +3505,8 @@
     "resendCode": "Resend",
     "termsOfService": "Terms of Service",
     "thirdPartyLogin": "Continue with",
-    "ssoFailed": "Web authorization sign-in failed. Please retry or use your account and password."
+    "ssoFailed": "Web authorization sign-in failed. Please retry or use your account and password.",
+    "loginFailed": "Login failed. Please try again."
   },
   "bookmark": {
     "empty": "No bookmarks",
@@ -4656,6 +4678,9 @@
           "rejected": "Rejected",
           "failed": "Submission failed, please retry"
         }
+      },
+      "branch": {
+        "ariaLabel": "Chat branch"
       }
     }
   },
@@ -5159,5 +5184,15 @@
     "deleteTitle": "Delete material",
     "deleteBody": "Delete \"{title}\"?",
     "detailLabel": "Material details"
+  },
+  "topup": {
+    "failDefault": "Top-up not completed. Try again later."
+  },
+  "devEnterCover": {
+    "priceAbnormal": "Plan price error. Try again later."
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
   }
 }

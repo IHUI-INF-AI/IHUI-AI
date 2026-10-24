@@ -402,7 +402,8 @@
     "chatError": "连接失败",
     "chatDisconnected": "已断开",
     "chatNotReady": "聊天未就绪",
-    "loadFailed": "加载直播详情失败"
+    "loadFailed": "加载直播详情失败",
+    "hostMode": "主播端"
   },
   "profile": {
     "levelIntro": "等级介绍",
@@ -543,7 +544,8 @@
     "logout": "退出登录",
     "myOrders": "我的订单",
     "editProfile": "编辑资料",
-    "notLoggedIn": "未登录"
+    "notLoggedIn": "未登录",
+    "clickRetry": "点击重试"
   },
   "payResult": {
     "title": "支付结果",
@@ -860,7 +862,11 @@
     "sendLink": "发送链接",
     "imagePreviewA11y": "图片预览",
     "menuAnnotateImage": "标注此图",
-    "chatDeleteFailed2": "删除失败"
+    "chatDeleteFailed2": "删除失败",
+    "terminal": {
+      "waitingInput": "等待输入",
+      "mobileUnsupported": "终端功能暂不支持移动端"
+    }
   },
   "settings": {
     "title": "设置",
@@ -1097,7 +1103,8 @@
     "save": "保存",
     "search": "搜索",
     "searchPlaceholder": "搜索文档...",
-    "deleted": "已删除"
+    "deleted": "已删除",
+    "loadFailPullRetry": "加载失败，请下拉刷新重试"
   },
   "network": {
     "offline": "网络已断开,部分功能不可用",
@@ -1131,7 +1138,11 @@
     "catData": "數據分析",
     "catAll2": "全部",
     "catStudy": "Study",
-    "loadFailed": "Load failed"
+    "loadFailed": "Load failed",
+    "chat": {
+      "title": "进入对话",
+      "message": "即将与「{name}」开始对话"
+    }
   },
   "aiAssistantN8n": {
     "title": "AI 助手",
@@ -1178,7 +1189,8 @@
     "loading": "加载中...",
     "subtitle": "选择或生成封面",
     "title": "封面",
-    "workTitleDefault": "未命名作品"
+    "workTitleDefault": "未命名作品",
+    "labelDefault": "作品"
   },
   "aigcPublish": {
     "success": {
@@ -1382,7 +1394,10 @@
     "namePlaceholder": "请输入工作流名称",
     "nameRequired": "请输入名称",
     "operationFailed": "操作失败，请稍后重试",
-    "title": "n8n 模型"
+    "title": "n8n 模型",
+    "vendorName": "n8n 工作流",
+    "groupBrowse": "分组浏览",
+    "listView": "列表视图"
   },
   "modelPlaza": {
     "officialBadge": "智",
@@ -1403,7 +1418,10 @@
     "priceUnit": "价格",
     "providerTotal": "供应商共 {count} 个模型",
     "selectProviderLabel": "选择供应商",
-    "title": "模型广场"
+    "title": "模型广场",
+    "groupBrowse": "分组浏览",
+    "listView": "列表视图",
+    "workflowTab": "工作流"
   },
   "tokenValue": {
     "recharge": {
@@ -1916,7 +1934,10 @@
     "relatedOrder": "关联订单:{orderNo}",
     "copy": "复制订单号",
     "copySuccess": "已复制订单号",
-    "loadFailed": "加载收益失败"
+    "loadFailed": "加载收益失败",
+    "withdrawBank": "银行卡提现",
+    "withdrawRecord": "提现记录",
+    "commissionDefault": "佣金收益"
   },
   "invite": {
     "title": "邀请好友",
@@ -3484,7 +3505,8 @@
     "resendCode": "重新发送",
     "termsOfService": "服务条款",
     "thirdPartyLogin": "第三方登录",
-    "ssoFailed": "网页授权登录失败,请重试或使用账密登录"
+    "ssoFailed": "网页授权登录失败,请重试或使用账密登录",
+    "loginFailed": "登录失败，请重试"
   },
   "bookmark": {
     "empty": "暂无收藏",
@@ -4656,6 +4678,9 @@
           "rejected": "已拒绝",
           "failed": "提交失败，请重试"
         }
+      },
+      "branch": {
+        "ariaLabel": "对话分支"
       }
     }
   },
@@ -5159,5 +5184,15 @@
     "deleteTitle": "删除素材",
     "deleteBody": "确认删除「{title}」？",
     "detailLabel": "素材详情"
+  },
+  "topup": {
+    "failDefault": "充值未完成，请稍后重试"
+  },
+  "devEnterCover": {
+    "priceAbnormal": "套餐价格异常，请稍后重试"
+  },
+  "taskStatus": {
+    "addedCount": "+{n}",
+    "removedCount": "-{n}"
   }
 }
