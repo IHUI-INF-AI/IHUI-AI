@@ -51,6 +51,14 @@ type Measurable = HTMLElement & {
   measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => void
 }
 
+/**
+ * 这是 RN 测试的**全局单源替身**(vitest.config.ts 的 resolve.alias 把 'react-native'
+ * 指到本文件)——新测试一律直接吃它,**禁止**再在测试文件里写 `vi.mock('react-native', …)`
+ * 覆盖式文件内 mock(仓内尚存 27 份历史文件内 mock:文件内工厂优先于本替身,导致组件新用
+ * 的 API(Animated.sequence/Easing.inOut/onLongPress 等)只在部分文件生效、其余齐崩
+ * ——2026-10-24 实测 45 例红即此型)。组件新增 react-native API 消费时:补本文件,
+ * 一处生效;确需文件内特化时用 importOriginal 部分覆盖,勿整厂复制。
+ */
 const mk = (tag: string) =>
   function MockComp(props: { children?: ReactNode; ref?: unknown; [k: string]: unknown }) {
     const {
