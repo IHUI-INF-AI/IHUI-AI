@@ -57,7 +57,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { git } from './bypass-git.mjs'
 import { mkScratch, rmScratch } from './scratch-dir.mjs'
 import { usedIdsOfPrefix } from './plan-task-index.mjs'
-// 池上限只许有一个来源(§22c):这里原先自带一份 `poolMax = 999` 的字面量,而裁决住在
+// 池上限只许有一个来源(§22c):这里原先自带一份 `poolMax` 的字面量,而裁决住在
 // plan-id-lease.mjs —— 两处各写一遍,改一处漏一处(2026-10-15 独立评审抓到)。
 import { LEASE_POOL_MAX } from './plan-id-lease.mjs'
 
@@ -371,8 +371,8 @@ export function scanFamilyIdHits(text, family) {
 }
 
 /**
- * 池式派生视图(2026-10-14,"编号压缩到三位数"枚 A):该族在给定文本上 **≤poolMax** 的
- * 已用号升序表。>999 的大号不进视图 —— 它们是归档件里的存量债,不占池、不挡新号
+ * 池式派生视图(2026-10-14,"编号压缩到两位数"枚 A):该族在给定文本上 **≤poolMax** 的
+ * 已用号升序表。>LEASE_POOL_MAX 的大号不进视图 —— 它们是归档件里的存量债,不占池、不挡新号
  * (占用的裁决住在 `lib/plan-id-lease.mjs` 的 poolBlocked/leaseCursor;本层只把面按池口径
  * 收窄给报告与人工核对用)。null = 该族一条都没有(判不出),不是空池。
  */
@@ -482,16 +482,16 @@ function selfTest() {
         'P7 报名不影响面的可用性(它是射程边界声明,不是"没判到")',
         face.ok === true && face.undetermined.length === 0,
       )
-      // P8 池式派生视图(2026-10-14):≤999 收进 usedLowIds(O5/O9/O13/O90 都 ≤999);
+      // P8 池式派生视图(2026-10-14):≤LEASE_POOL_MAX 的号收进 usedLowIds(O5/O9/O13/O90 都在池内);
       // O9999 型大号不进视图(夹具里它只活在 .txt 与子目录件,本就不在面里,这里验的是口径形状)
       ok(
-        'P8 usedLowIds 收 ≤999 的占用号(台账面 [5,13] / 宽面 [5,9,13,90])',
+        'P8 usedLowIds 收 ≤LEASE_POOL_MAX 的占用号(台账面 [5,13] / 宽面 [5,9,13,90])',
         JSON.stringify(usedLowIds(face.text)) === JSON.stringify([5, 9, 13, 90]) &&
           JSON.stringify(usedLowIds(face.ledgerText)) === JSON.stringify([5, 13]),
         `wide=${JSON.stringify(usedLowIds(face.text))} ledger=${JSON.stringify(usedLowIds(face.ledgerText))}`,
       )
       ok(
-        'P8b >999 的大号不进视图(给宽面塞一枚四位数 ⇒ 不出现在 usedLowIds,familyMax 仍看见)',
+        'P8b >LEASE_POOL_MAX 的大号不进视图(给宽面塞一枚四位数 ⇒ 不出现在 usedLowIds,familyMax 仍看见)',
         (() => {
           const wide2 = `${face.text}\n- [ ] O1001 池外大号`
           return (
@@ -775,7 +775,7 @@ function main() {
             text: Buffer.byteLength(face.text, 'utf8'),
           },
           familyMax: { ledger: familyMaxOn(face.ledgerText), wide: familyMaxOn(face.text) },
-          // 池式派生视图(2026-10-14):≤999 的占用号分布,给"编号压缩到三位数"的对账用。
+          // 池式派生视图(2026-10-14):≤LEASE_POOL_MAX 的占用号分布,给"编号压缩到两位数"的对账用。
           usedLowIds: { ledger: usedLowIds(face.ledgerText), wide: usedLowIds(face.text) },
         },
         null,
