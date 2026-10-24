@@ -288,7 +288,10 @@ describe('侧车抽取:归属词表补洞(2026-10-24 漂移桶)', () => {
     assert.match(re.source, /持有\[者人\]/, '词表没有持有人写法 = 漂移桶原样复现')
     assert.match(re.source, /归\[:：\]/, '词表没有 `归:` 标头写法 = 漂移桶原样复现')
     for (const [line] of REAL_POSITIVE) {
-      assert.ok(re.test(dispositionFace(line)), `抽取器问的词表没认出:${line}`)
+      // 面必须与判定层同形:`dispositionFace` 现在剥侧车标头(标头是投影、不参与正文措辞),
+      // 而本断言问的是"词表认不认这种**标头**写法" ⇒ 用含标头的遮码面。
+      const fullFace = String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
+      assert.ok(re.test(fullFace), `抽取器问的词表没认出:${line}`)
       const rec = X.extractFromLine(line)
       assert.deepEqual(
         X.batchBucketDrift([line], new Map([[rec.key, rec]])),

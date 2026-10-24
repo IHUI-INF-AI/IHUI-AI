@@ -23,7 +23,7 @@
  *   同键多条但读数逐字相同(抽取器重跑只换 `updatedAt` 的那种同义追加)⇒ 照旧正常投影,不制造噪声;
  *   单条记录 ⇒ 输出与改动前 `renderHeader(rec)` 逐字节相同(阳性对照由镜像测试钉住)。
  */
-import { codeSpanRangesOf, insideCodeSpan } from './plan-task-index.mjs'
+import { codeSpanRangesOf, insideCodeSpan, stripSidecarHeader } from './plan-task-index.mjs'
 
 export const MAX = 48
 const OPEN = '〔'
@@ -118,12 +118,9 @@ export function parseHeader(line) {
   return { rec: fields, malformed: false }
 }
 
-/** 剥掉本层生成的那一段;其它括号(注记、正文)一字不动。 */
-export function stripHeader(line) {
-  const m = /^(\s*-\s*\[[ xX]\]\s*)〔归[:：][^〕]*〕[ \t]*(.*)$/s.exec(String(line ?? ''))
-  if (!m) return String(line ?? '')
-  return m[1] + m[2]
-}
+/** 剥掉本层生成的那一段;其它括号(注记、正文)一字不动。
+ *  实现已下移到 `plan-task-index.stripSidecarHeader`(判定层也必须剥它,两处各写一份会漂),此处只留出口名。 */
+export const stripHeader = stripSidecarHeader
 
 /** 投影自检:无标头 = true(不是失败);有标头但读不回 = false。 */
 export function roundTripOk(line) {
