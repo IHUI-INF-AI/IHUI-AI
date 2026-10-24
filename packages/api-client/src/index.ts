@@ -155,7 +155,11 @@ export type {
   StreamBodyReader,
 } from './stream-transport.js'
 export { runResumableSSEStream, appendResumeEventIdHeader } from './client.js'
-export type { ResumableSSEStreamOptions } from './client.js'
+export type {
+  ResumableSSEStreamOptions,
+  ExpertAutoRouteMode,
+  ReviewFindingEvent,
+} from './client.js'
 
 // 模型上下文容量映射(跨端共享:web/desktop/extension/mobile-rn/miniapp-taro)
 export {
