@@ -367,7 +367,7 @@ export function AgentScreen() {
   }, [token])
 
   const modelGroups = useMemo<ModelListGroup[]>(
-    () => buildModelGroups(aiModels, t('agent.vendorOther')),
+    () => buildModelGroups(aiModels, t('aiAssistant.vendorOther')),
 
     [aiModels, t],
   )
@@ -407,7 +407,7 @@ export function AgentScreen() {
   const handleItemClick = useCallback(
     (id: string) => {
       if (!token) {
-        appAlert(t('common.hint'), t('agentScreen.loginRequired'), [
+        appAlert(t('common.hint'), t('profile.userCard.loginRequired'), [
           { text: t('common.cancel'), style: 'cancel' },
           { text: t('common.login'), onPress: () => navigation.navigate('Login') },
         ])
@@ -429,7 +429,7 @@ export function AgentScreen() {
   const handleMyAgentPress = useCallback(
     (item: MyAgentItem): void => {
       if (!token) {
-        appAlert(t('common.hint'), t('agentScreen.loginRequired'), [
+        appAlert(t('common.hint'), t('profile.userCard.loginRequired'), [
           { text: t('common.cancel'), style: 'cancel' },
           { text: t('common.login'), onPress: () => navigation.navigate('Login') },
         ])
@@ -532,11 +532,11 @@ export function AgentScreen() {
     setDrawerVisible(false)
     try {
       Clipboard.setString(FREE_RESOURCE_URL)
-      showToast(t('agent.copyOkToast'), 'success')
+      showToast(t('aiAssistant.copyOkToast'), 'success')
     } catch {
       showToast(t('profile.copyFailRetry'), 'warning')
     }
-  }, [showToast])
+  }, [showToast, t])
   const handleDrawerCreateNewChat = useCallback((): void => {
     setDrawerVisible(false)
     // 对齐 Uniapp addNewChat → ai_index2/ai_assistant 对话页;带默认标题进入全新对话
@@ -574,7 +574,7 @@ export function AgentScreen() {
         },
       ])
     },
-    [drawerConversations, showToast],
+    [drawerConversations, showToast, t],
   )
   const handleDrawerOpenSettings = useCallback((): void => {
     setDrawerVisible(false)
@@ -681,7 +681,7 @@ export function AgentScreen() {
                 // 点击轮播跳转对应智能体对话(banner 派生自智能体列表,link 为智能体 id;
                 // 对齐 Uniapp banner_carousel @item-click → ai_assistant)
                 if (!token) {
-                  appAlert(t('common.hint'), t('agentScreen.loginRequired'), [
+                  appAlert(t('common.hint'), t('profile.userCard.loginRequired'), [
                     { text: t('common.cancel'), style: 'cancel' },
                     { text: t('common.login'), onPress: () => navigation.navigate('Login') },
                   ])
@@ -768,9 +768,9 @@ export function AgentScreen() {
                     activeOpacity={0.8}
                     onPress={handleStartModelChat}
                     accessibilityRole="button"
-                    accessibilityLabel={t('agent.startChat')}
+                    accessibilityLabel={t('aiAssistant.startChat')}
                   >
-                    <Text style={styles.modelStartBtnText}>{t('agent.startChat')}</Text>
+                    <Text style={styles.modelStartBtnText}>{t('aiAssistant.startChat')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}

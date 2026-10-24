@@ -157,7 +157,7 @@ export function CourseDetailScreen() {
           style={styles.entryBtnHit}
           onPress={() => navigation.navigate('CourseCatalog', { courseId: id })}
           accessibilityRole="button"
-          accessibilityLabel="课程目录"
+          accessibilityLabel={t('courseDetail.lessons')}
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
@@ -169,7 +169,7 @@ export function CourseDetailScreen() {
           style={styles.entryBtnHit}
           onPress={() => navigation.navigate('CourseComment', { courseId: id })}
           accessibilityRole="button"
-          accessibilityLabel="课程评论"
+          accessibilityLabel={t('courseComment.title')}
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
@@ -181,7 +181,7 @@ export function CourseDetailScreen() {
           style={styles.entryBtnHit}
           onPress={() => navigation.navigate('TeacherList')}
           accessibilityRole="button"
-          accessibilityLabel="讲师"
+          accessibilityLabel={t('teacher.list.title')}
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
