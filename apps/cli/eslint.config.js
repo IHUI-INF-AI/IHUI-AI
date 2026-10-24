@@ -7,7 +7,7 @@ import base from '@ihui/eslint-config'
 export default [
   ...base,
   {
-    ignores: ['dist/**', 'coverage/**'],
+    ignores: ['dist/**', 'dist-sea/**', 'coverage/**'],
   },
   {
     // CLI 的输出通道即 stdout/stderr,console 是本包的设计用法(基准脚本/命令输出)。
