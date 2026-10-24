@@ -321,8 +321,22 @@ export function clobberedPaths(paths, baseMap, headNow, { root }) {
  *  - 不在射程(报数不判红):基线里没有这条(新增文件无行可消失)/ 基线该路径 ≠ 当下 HEAD
  *    (守门 84 的祖先链以 HEAD 为锚,那条链此刻不是本次落地的基准)/ 二进制正文(行级判据按定义
  *    不适用,而 A 仍照判)。三种都**报名**,不静默。
+ *
+ * **blob 模式(`blobOf` 非空)**:判据面换成**构造提交的对象库 blob**,正文取 `git cat-file blob
+ * <oid>`,不再读工作树(盘上那份属于别人的在飞改动,拿它做证就是替别人的内容签字)。整 blob
+ * 命中祖先那一支**只报名、不重复拒**:它由上一步的祖先对账(`blobAncestorClash`,含逐行声明
+ * 出口)判决;这里若照搬"命中祖先 + 有消失 ⇒ 拒"会把那份显式放行重新判红,两条判据互锁。
+ * 本维在 blob 模式下专判它结构上看不见的另一半:构造内容**不等于任何祖先**、却把基线已删的
+ * 行搬回来。报告带 `face` 字段(`worktree` / `blob`),渲染层据此说清判的是哪一面。
  */
-export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonStructure = false }) {
+export function detectStaleLanding({
+  root,
+  paths,
+  baseRef = 'HEAD',
+  head,
+  jsonStructure = false,
+  blobOf = null,
+}) {
   const headRef = head ?? git(['rev-parse', 'HEAD'], { root })
   const notes = []
   const judged = []
@@ -341,7 +355,9 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
   }
   let hits
   try {
-    hits = staleAncestorAnalysis(root, judged, { source: 'worktree' })
+    hits = blobOf
+      ? blobFaceAncestorHits({ root, paths: judged, blobOf })
+      : staleAncestorAnalysis(root, judged, { source: 'worktree' })
   } catch (e) {
     return {
       ok: false,
@@ -352,6 +368,7 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
         }),
       ),
       notes,
+      face: blobOf ? 'blob' : 'worktree',
       reason: `陈旧判据未能运行:${firstLine(e)}`,
     }
   }
@@ -363,12 +380,24 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
   const shasBy = new Map()
   const logFailed = new Set()
   const sizeExceeded = new Set()
-  const worktreeOf = new Map()
+  const contentOf = new Map()
   for (const p of judged) {
+    if (blobOf) {
+      // blob 模式:判的是**构造提交的那份字节**,从对象库取;盘上那份是谁的不重要,反正不采用。
+      const oid = blobOf.get(p)
+      const text = isOidLike(oid)
+        ? git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+        : null
+      contentOf.set(
+        p,
+        text === null ? new Error(`构造 blob ${oid || '(清单里没有)'} 的正文取不到`) : text,
+      )
+      continue
+    }
     try {
-      worktreeOf.set(p, readWorktreeFile(root, p))
+      contentOf.set(p, readWorktreeFile(root, p))
     } catch (e) {
-      worktreeOf.set(p, e) // 留错误对象:报告要能区分"读不到"与"读出来是 null(二进制/不存在)"
+      contentOf.set(p, e) // 留错误对象:报告要能区分"读不到"与"读出来是 null(二进制/不存在)"
     }
   }
   let texts = new Map()
@@ -383,7 +412,7 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
   }
   if (!batchError) {
     for (const p of judged) {
-      const wt = worktreeOf.get(p)
+      const wt = contentOf.get(p)
       const base = texts.get(`${baseRef}:${p}`)
       if (
         typeof wt === 'string' &&
@@ -414,11 +443,24 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
 
   const offenders = []
   for (const p of judged) {
-    const wt = worktreeOf.get(p)
+    const wt = contentOf.get(p)
     const newText = wt instanceof Error ? null : wt
     const baseText = batchError ? null : (texts.get(`${baseRef}:${p}`) ?? null)
     let delta = lineDelta(baseText, newText)
     const wholeHit = hitBy.get(p) ?? null
+    /**
+     * blob 模式:整 blob 命中祖先这一格已由祖先对账(`blobAncestorClash`,含逐行声明出口)判过,
+     * 本维只报名、不重复拒。这里若照搬"命中祖先 + 有消失 ⇒ 拒",会把那一闸**显式放行**的
+     * 声明件重新判红 —— 两条判据互锁,合法出口一次都走不通。
+     */
+    if (blobOf && wholeHit && !(wt instanceof Error)) {
+      notes.push({
+        path: p,
+        kind: 'blob-face-delegated',
+        why: `构造内容命中祖先 ${String(wholeHit).slice(0, 9)} ⇒ 整 blob 面已由祖先对账判决(含行级声明出口),本维不重复拒`,
+      })
+      continue
+    }
     let line
     // G-814414:.json/.jsonl 后缀的路径在"判据真的读到了东西"的格子里改走键路径对账;
     // 其余格子(批量读取失败/超尺寸/取不到祖先清单)与判不出(非可解析 JSON)一律退回
@@ -478,7 +520,11 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
       }
     }
     if (wt instanceof Error)
-      notes.push({ path: p, kind: 'undetermined', why: `工作树正文读不到:${firstLine(wt)}` })
+      notes.push({
+        path: p,
+        kind: 'undetermined',
+        why: `${blobOf ? '构造 blob 正文取不到' : '工作树正文读不到'}:${firstLine(wt)}`,
+      })
     const entry = mkEntry(p, wholeHit, delta, line)
     // 未覆盖必须**逐条报名**,且与"是否参与拒绝"无关 —— 一台只在放行时才沉默的守卫,
     // 读报告的人会把"没判"当成"判过了"(本仓最高频失效型)。
@@ -553,7 +599,32 @@ export function detectStaleLanding({ root, paths, baseRef = 'HEAD', head, jsonSt
           `且新增行都不在该祖先版本里(复活 0 行)⇒ 只报不拦`,
       })
   }
-  return { ok: offenders.length === 0, offenders, notes }
+  return { ok: offenders.length === 0, offenders, notes, face: blobOf ? 'blob' : 'worktree' }
+}
+
+/**
+ * `detectStaleLanding` 的 blob 模式整 blob 判据:把"要落的内容"换成**清单里的构造 oid**,
+ * 再与该路径的祖先后选逐个比。与 `blobAncestorClash` 判的是同一件事,但这里只产出
+ * `[{path, commit}]`(本维只拿它决定"这一格是否交给上游那闸"),不在这里另立声明面。
+ * 取不到 oid / 祖先清单 / 祖先正文 ⇒ 抛错,由调用方折成"未判定"(不写成"不等于任何祖先")。
+ */
+function blobFaceAncestorHits({ root, paths, blobOf }) {
+  const out = []
+  for (const p of paths) {
+    const oid = blobOf.get(p)
+    if (!isOidLike(oid)) throw new Error(`${p}: 内容清单里没有可判定的 blob oid`)
+    const anc = ancestorCommits(root, p)
+    if (!anc.length) throw new Error(`${p}: 祖先清单为空/取不到 ⇒ 整 blob 对账无从做起`)
+    const ab = resolveBlobs(
+      root,
+      anc.map((c) => `${c}:${p}`),
+    )
+    if (ab.size !== anc.length)
+      throw new Error(`${p}: 祖先正文只取到 ${ab.size}/${anc.length} 个 ⇒ 对账不完整`)
+    const hit = anc.find((c) => ab.get(`${c}:${p}`) === oid)
+    if (hit) out.push({ path: p, commit: hit })
+  }
+  return out
 }
 
 /** 报告条目的一份子:两条判据的读数并排放,渲染层不再各自判一次。countUnit 标计数口径(G-814414 起有键路径档)。 */
@@ -916,9 +987,12 @@ function staleReport(guard, { allowStale }) {
     return lines
   }
   const unjudged = guard.offenders.filter((o) => o.lineStatus === 'undetermined').length
+  const blobFace = guard.face === 'blob'
   const head = allowStale
     ? `⚠️ LAND_ALLOW_STALE=1 ⇒ 放行 ${guard.offenders.length} 处陈旧落地(其中 ${unjudged} 处判据未判定 —— 放行不等于判过;这一枚提交确实会把下面这些行写回旧态,该行输出即留痕)`
-    : `❌ 陈旧落地守卫:这些声明路径的盘上副本**等于该文件某个祖先版本**,或会把基线里已被删掉的行**搬回**落地内容 ⇒ 拒绝落地${guard.reason ? '(' + guard.reason + ')' : ''}`
+    : blobFace
+      ? `❌ 陈旧落地守卫(判定面=构造提交的对象库 blob,非工作树):这些构造内容**不等于任何祖先**,却把基线里已被删掉的行**搬回**落地内容 ⇒ 拒绝落地${guard.reason ? '(' + guard.reason + ')' : ''}`
+      : `❌ 陈旧落地守卫:这些声明路径的盘上副本**等于该文件某个祖先版本**,或会把基线里已被删掉的行**搬回**落地内容 ⇒ 拒绝落地${guard.reason ? '(' + guard.reason + ')' : ''}`
   lines.push(head)
   for (const o of guard.offenders) {
     const v = o.vanished === null ? '消失行数未判定' : `消失 ${o.vanished} 行`
@@ -939,16 +1013,26 @@ function staleReport(guard, { allowStale }) {
     appendSamples(lines, o)
   }
   if (!allowStale) {
-    lines.push(
-      '   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),',
-    )
-    lines.push(
-      '   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。',
-    )
-    lines.push('   出口 ① 取 HEAD 形态重新施加改动(先看判据再动手,别覆盖别人的在飞现场):')
-    lines.push(
-      '            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用',
-    )
+    if (blobFace) {
+      lines.push(
+        '   成因:构造内容以某枚滞后祖先版本为底,又在本票改动之外把基线已删的行带了回来(整 blob 不等于任何祖先,只有行级复活看得见)。',
+      )
+      lines.push('   出口 ① 以父提交 blob 为底重新施加本票行,再取号落地(判据面是对象库那份,不是盘上):')
+      lines.push(
+        '            R=$(git rev-parse HEAD:<path>); <重算内容> | git hash-object -w --stdin  → 写回 LAND_BLOBS',
+      )
+    } else {
+      lines.push(
+        '   最常见成因:共享工作树副本滞后 HEAD ⇒ 落地器取的是磁盘字节(走 pathspec 只会更糟),',
+      )
+      lines.push(
+        '   而调用方又在这份滞后副本上补了自己的改动(所以整 blob 判据看不见,只有行级复活看得见)。',
+      )
+      lines.push('   出口 ① 取 HEAD 形态重新施加改动(先看判据再动手,别覆盖别人的在飞现场):')
+      lines.push(
+        '            git cat-file blob HEAD:<path> > <path>   ← 覆盖工作树副本,确认其中没有你自己的未提交内容才用',
+      )
+    }
     lines.push('   出口 ② 确属有意重生成 ⇒ LAND_ALLOW_STALE=1 重跑本器(会大声留痕,不会静默放行)')
     lines.push(
       '   标了"未判定"的行是**判据没读到东西**(浅历史 / 超过尺寸护栏 / git 派生失败),不是"检查过且干净";',
@@ -1750,27 +1834,27 @@ async function main() {
    * 陈旧落地守卫:放在 CAS **与水印预检之前** —— 拒绝路径上对象库、ref、索引都没被碰过,
    * 也不必先花一次 verify 派生去为一个注定不落地的内容做证。
    * 判据本身不在此重述(见 detectStaleLanding),这里只接线。
-   * **blob 模式不走这一段**:它的两条判据都以"盘上那份 = 要落的内容"为前提,而 blob 模式的
-   * 盘上那份属于别人;上面已换成祖先对账 + 横幅保持 + 调用方出具的证明,三条各自大声报数。
+   * G-04 补格(2026-10-24):两档都走,但**判据面不同** —— 工作树模式仍比盘面(那条路的语义没变);
+   * blob 模式传 `blobOf`,由 `detectStaleLanding` 改读构造提交的对象库 blob,不再拿盘上那份
+   * (属于别人的在飞改动)替自己的内容做证。上一版整段跳过 blob 模式,于是"构造内容搬回基线
+   * 已删行"这一型在 blob 模式结构上没有判据 —— 正是本次补的那一半。
    */
   const allowStale = process.env.LAND_ALLOW_STALE === '1'
-  if (!blobOf) {
-    if (allowStale)
-      console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
-    const guard = detectStaleLanding({ root, paths, baseRef, head: head0, jsonStructure })
-    const refusing = !guard.ok && !allowStale
-    for (const line of staleReport(guard, { allowStale })) {
-      if (refusing) console.error(line)
-      else console.log(line)
-    }
-    if (guard.notes.some((n) => n.kind === 'json-structure-exempt'))
-      console.log(
-        'ℹ️ 结构档生效说明(G-816037):上面标了"结构等值成立"的路径**不是**被放宽,而是行级判据的量纲对不上' +
-          '机器格式化 JSON(数组追加会让前一个末元素多一个逗号 ⇒ 那一行文字变化被读成"消失/复活")。' +
-          '豁免依据是"基线键路径与数组元素零丢失"的结构判据;不带 LAND_JSON_STRUCTURE=1 时本档不启用,行为与改前逐字同形。',
-      )
-    if (refusing) process.exit(1)
+  if (allowStale)
+    console.log('⚠️ LAND_ALLOW_STALE=1 ⇒ 陈旧落地守卫只做报告、不参与拒绝(该行输出即留痕)')
+  const guard = detectStaleLanding({ root, paths, baseRef, head: head0, jsonStructure, blobOf })
+  const refusing = !guard.ok && !allowStale
+  for (const line of staleReport(guard, { allowStale })) {
+    if (refusing) console.error(line)
+    else console.log(line)
   }
+  if (guard.notes.some((n) => n.kind === 'json-structure-exempt'))
+    console.log(
+      'ℹ️ 结构档生效说明(G-816037):上面标了"结构等值成立"的路径**不是**被放宽,而是行级判据的量纲对不上' +
+        '机器格式化 JSON(数组追加会让前一个末元素多一个逗号 ⇒ 那一行文字变化被读成"消失/复活")。' +
+        '豁免依据是"基线键路径与数组元素零丢失"的结构判据;不带 LAND_JSON_STRUCTURE=1 时本档不启用,行为与改前逐字同形。',
+    )
+  if (refusing) process.exit(1)
 
   let landed = ''
   let parentSha = ''
