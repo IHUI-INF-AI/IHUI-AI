@@ -2495,7 +2495,7 @@
               "runtimeNoInterject": "此 Runtime 不支援插入語句，訊息將留在佇列依序處理",
               "queueChanged": "佇列已被並行操作改動，當前順序已失效",
               "controlCommand": "控制命令無法插入執行中的 Turn，訊息將留在佇列依序處理",
-              "awaitingApproval": "有待核准的高風險操作，插話將暫讓，請先完成決策"
+              "awaitingApproval": "有待核準的高風險操作，插話將暫讓，請先完成決策"
             }
           }
         }
