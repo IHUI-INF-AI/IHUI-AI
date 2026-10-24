@@ -46,7 +46,9 @@ interface WrapperRoom extends ChatRoomItem {
   receiverUuid: string
 }
 
-// ── MOCK 数据(待接后端:GET /cozeZhsApi/chat-room/users/{userUuid}/rooms) ──
+// ── ⚠️ @demo-data MOCK 数据(待接后端:GET /cozeZhsApi/chat-room/users/{userUuid}/rooms)──
+// 本区块整页为演示态(假房间/假消息含"您的退款申请已提交"等业务内容),不得作为真实客服数据展示;
+// 端点接线(与 buildMockHistory 同标记)后整块移除(2026-10-24 全端 mock 审计定性)。
 
 const MOCK_ROOMS: WrapperRoom[] = [
   {

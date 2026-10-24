@@ -195,12 +195,13 @@ const APPLE_ICON_WHITE = require('../../assets/images/common/apple-white.svg')
 function buildThirdPartyOptions(
   _locale: string,
   colorScheme: 'light' | 'dark',
+  t: (key: string) => string,
 ): ThirdPartyLoginOption[] {
   const isIOS = Platform.OS === 'ios'
   const options: ThirdPartyLoginOption[] = [
     {
       platform: 'wechat',
-      label: '微信',
+      label: t('login.platformWechat'),
       iconNode: THIRD_PARTY_ICON_NODES.wechat,
       enabled: true,
       brandColor: OAUTH_BRAND_COLORS.wechat,
@@ -221,28 +222,28 @@ function buildThirdPartyOptions(
     },
     {
       platform: 'feishu',
-      label: '飞书',
+      label: t('login.platformLark'),
       iconNode: THIRD_PARTY_ICON_NODES.feishu,
       enabled: true,
       brandColor: OAUTH_BRAND_COLORS.feishu,
     },
     {
       platform: 'dingtalk',
-      label: '钉钉',
+      label: t('login.platformDingTalk'),
       iconNode: THIRD_PARTY_ICON_NODES.dingtalk,
       enabled: true,
       brandColor: OAUTH_BRAND_COLORS.dingtalk,
     },
     {
       platform: 'enterpriseWechat',
-      label: '企业微信',
+      label: t('login.platformWeCom'),
       iconNode: THIRD_PARTY_ICON_NODES.enterpriseWechat,
       enabled: true,
       brandColor: OAUTH_BRAND_COLORS.enterpriseWechat,
     },
     {
       platform: 'alipay',
-      label: '支付宝',
+      label: t('login.platformAlipay'),
       iconNode: THIRD_PARTY_ICON_NODES.alipay,
       enabled: true,
       brandColor: OAUTH_BRAND_COLORS.alipay,
@@ -274,18 +275,18 @@ const CODE_COUNTDOWN_SECONDS = 60
 // G-958:H5(web 预览)不支持第三方/一键授权登录时的唯一如实提示。
 // 不得提及"网页授权/跳转网页端"——该出路被本文件 ssoLogin 的 web 分支明令拒绝,
 // 指向它即自相矛盾死路(用例:tests/g958-web-login-no-dead-end.test.tsx)。
-const WEB_PREVIEW_LOGIN_HINT = '网页预览暂不支持微信及第三方登录,请使用手机号验证码或账号密码登录。'
+// [2026-10-24 i18n]原 WEB_PREVIEW_LOGIN_HINT 顶层常量已去重至 login.webPreviewHint 键。
 
 // 区号选择列表(对齐原 uniapp login.vue nationData:中国 +86/美国 +1/中国台湾 +886/中国香港 +852/韩国 +82/日本 +81,
 // 另加中国澳门 +853;默认中国 +86 由 phoneHead state 持有,列表同样含中国供再次选择)
 const NATIONS: NationOption[] = [
-  { title: '中国', content: '+86', id: 1 },
-  { title: '美国', content: '+1', id: 2 },
-  { title: '中国台湾', content: '+886', id: 3 },
-  { title: '中国香港', content: '+852', id: 4 },
-  { title: '中国澳门', content: '+853', id: 5 },
-  { title: '韩国', content: '+82', id: 6 },
-  { title: '日本', content: '+81', id: 7 },
+  { title: 'loginCountry.cn', content: '+86', id: 1 },
+  { title: 'loginCountry.us', content: '+1', id: 2 },
+  { title: 'loginCountry.tw', content: '+886', id: 3 },
+  { title: 'loginCountry.hk', content: '+852', id: 4 },
+  { title: 'loginCountry.mo', content: '+853', id: 5 },
+  { title: 'loginCountry.kr', content: '+82', id: 6 },
+  { title: 'loginCountry.jp', content: '+81', id: 7 },
 ]
 
 // 登录成功后回跳 returnUrl:token 写入后 RootNavigator 条件渲染切到已登录分支
@@ -340,8 +341,8 @@ export function LoginScreen() {
   // 第三方登录方式:按平台 + locale 动态生成
   // 国内安卓:微信/飞书/钉钉/企微(4);国内 iOS:苹果为主 + 微信/飞书/钉钉/企微(5);国际版:Google/GitHub(2)
   const thirdPartyOptions = useMemo(
-    () => buildThirdPartyOptions(locale, resolvedTheme),
-    [locale, resolvedTheme],
+    () => buildThirdPartyOptions(locale, resolvedTheme, t),
+    [locale, resolvedTheme, t],
   )
 
   // ===== 历史账号记录(各 tab 登录成功后写入;供账号/邮箱/手机号输入框历史下拉展示) =====
@@ -400,15 +401,15 @@ export function LoginScreen() {
       if (Platform.OS === 'web') {
         return {
           success: false,
-          error: '网页预览暂不支持一键授权登录,请使用手机 App,或直接在下方输入账密登录',
+          error: t('login.webSsoNotSupported'),
         }
       }
       const redirectUrl = await openSsoLogin()
-      if (!redirectUrl) return { success: false, error: '用户取消授权' }
+      if (!redirectUrl) return { success: false, error: t('login.ssoCancelled') }
       const code = extractSsoCode(redirectUrl)
-      if (!code) return { success: false, error: 'SSO 回跳未包含 code' }
+      if (!code) return { success: false, error: t('login.ssoNoCode') }
       const data = await exchangeSsoCode(code)
-      if (!data) return { success: false, error: 'SSO 换取 token 失败' }
+      if (!data) return { success: false, error: t('login.ssoTokenFail') }
       fullUserRef.current = data.user
       return {
         success: true,
@@ -676,7 +677,7 @@ export function LoginScreen() {
           // 未配置 → 降级切换"短信验证码登录",自动回填最近手机号
           const recent = getRecentPhone()
           if (recent) setPhone(recent)
-          showToast('info', '运营商一键登录未配置,已切换到短信验证码登录')
+          showToast('info', t('login.carrierNotConfigured'))
         } else {
           form.setError(err.message)
         }
@@ -709,11 +710,11 @@ export function LoginScreen() {
         disabled={carrierLoading}
         activeOpacity={0.8}
         accessibilityRole="button"
-        accessibilityLabel="本机号码一键登录"
+        accessibilityLabel={t('login.carrierOneClick')}
       >
         {carrierLoading ? <ActivityIndicator size="small" color={onCarrierColor} /> : null}
         <Text style={[styles.carrierOneKeyText, { color: onCarrierColor }]}>
-          {carrierLoading ? '正在拉起运营商授权...' : '本机号码一键登录'}
+          {carrierLoading ? t('login.carrierLaunching') : t('login.carrierOneClick')}
         </Text>
       </TouchableOpacity>
     )
@@ -823,20 +824,16 @@ export function LoginScreen() {
         if (Platform.OS === 'web') {
           // G-958:本文件 ssoLogin 在 web 平台直接返回「网页预览暂不支持一键授权登录」,
           // 弹窗不得再把用户指向那条被同一函数拒绝的"前往网页端"出路;给 H5 真实可行的路径。
-          appAlert(t('auth.thirdPartyLogin'), WEB_PREVIEW_LOGIN_HINT, [
-            { text: '知道了', style: 'cancel' },
+          appAlert(t('auth.thirdPartyLogin'), t('login.webPreviewHint'), [
+            { text: t('common.gotIt'), style: 'cancel' },
           ])
           return
         }
         if (!isWechatAvailable()) {
-          appAlert(
-            t('auth.thirdPartyLogin'),
-            '微信登录请在原生 App 中使用(需安装微信 App)。\n您可以使用"智汇AI网页授权登录"按钮跳转网页端授权。',
-            [
-              { text: '取消', style: 'cancel' },
-              { text: '前往网页端', onPress: () => void form.ssoLoginAction() },
-            ],
-          )
+          appAlert(t('auth.thirdPartyLogin'), t('login.wechatH5Hint'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('login.goWeb'), onPress: () => void form.ssoLoginAction() },
+          ])
           return
         }
 
@@ -844,7 +841,7 @@ export function LoginScreen() {
         try {
           const installed = await isWechatInstalled()
           if (!installed) {
-            showToast('error', '未安装微信 App,请先安装微信')
+            showToast('error', t('login.wechatNotInstalled'))
             return
           }
 
@@ -881,8 +878,8 @@ export function LoginScreen() {
       // G-958:提示只准如实说明"网页预览不支持"+给出 H5 可行路径 —— 此前引导"前往网页端"
       // 但该出路被本文件 ssoLogin 的 web 分支明令拒绝,是用户点下去必撞的自我矛盾死路。
       if (Platform.OS === 'web') {
-        appAlert(t('auth.thirdPartyLogin'), WEB_PREVIEW_LOGIN_HINT, [
-          { text: '知道了', style: 'cancel' },
+        appAlert(t('auth.thirdPartyLogin'), t('login.webPreviewHint'), [
+          { text: t('common.gotIt'), style: 'cancel' },
         ])
         return
       }
@@ -890,10 +887,7 @@ export function LoginScreen() {
       // 苹果:iOS 优先原生 SDK,Android 走 web OAuth 跳转
       if (platform === 'apple') {
         if (!isAppleLoginAvailable()) {
-          showToast(
-            'error',
-            'Apple 登录未配置,请在 .env 设置 EXPO_PUBLIC_APPLE_CLIENT_ID,或安装 expo-apple-authentication(iOS)。',
-          )
+          showToast('error', t('login.appleNotConfigured'))
           return
         }
         setThirdPartyLoadingPlatform(platform)
@@ -928,7 +922,7 @@ export function LoginScreen() {
       // Google:Android/iOS 优先原生 SDK,fallback 到 web OAuth 跳转
       if (platform === 'google') {
         if (!isGoogleLoginAvailable()) {
-          showToast('error', 'Google 登录未配置,请在 .env 设置 EXPO_PUBLIC_GOOGLE_CLIENT_ID。')
+          showToast('error', t('login.googleNotConfigured'))
           return
         }
         setThirdPartyLoadingPlatform(platform)
@@ -990,20 +984,20 @@ export function LoginScreen() {
 
       // 其余未知平台:引导走网页端 SSO
       setThirdPartyLoadingPlatform(platform)
-      appAlert(
-        t('auth.thirdPartyLogin'),
-        `${option.label} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用"智汇AI网页授权登录"按钮跳转网页端授权。`,
-        [
-          { text: '取消', onPress: () => setThirdPartyLoadingPlatform(null), style: 'cancel' },
-          {
-            text: '前往网页端',
-            onPress: () => {
-              setThirdPartyLoadingPlatform(null)
-              void form.ssoLoginAction()
-            },
+      appAlert(t('auth.thirdPartyLogin'), t('login.sdkPending', { name: option.label }), [
+        {
+          text: t('common.cancel'),
+          onPress: () => setThirdPartyLoadingPlatform(null),
+          style: 'cancel',
+        },
+        {
+          text: t('login.goWeb'),
+          onPress: () => {
+            setThirdPartyLoadingPlatform(null)
+            void form.ssoLoginAction()
           },
-        ],
-      )
+        },
+      ])
     },
     [t, form, thirdPartyOptions, applyOAuthResult, showToast, navigateAfterLogin, navigation],
   )
@@ -1095,7 +1089,7 @@ export function LoginScreen() {
           phoneCodeSending={phoneCodeSending}
           phoneCountdown={phoneCountdown}
           // 区号选择器(对齐原 uniapp login 的 nation-box:默认 +86,点击展开区号列表,选中高亮)
-          nations={NATIONS}
+          nations={NATIONS.map((n) => ({ ...n, title: t(n.title) }))}
           phoneHead={phoneHead}
           nationShow={nationShow}
           onToggleNationShow={() => setNationShow((v) => !v)}
@@ -1145,7 +1139,7 @@ export function LoginScreen() {
             <TouchableOpacity
               onPress={() => setCarrierWebUrl(null)}
               hitSlop={8}
-              accessibilityLabel="关闭运营商登录"
+              accessibilityLabel={t('login.closeCarrier')}
             >
               <Text
                 style={[styles.carrierWebClose, { color: getTokens(resolvedTheme).text.secondary }]}
@@ -1179,7 +1173,7 @@ export function LoginScreen() {
           {/* 内层 Pressable 拦截卡片区域点击,避免点卡片误关弹窗(对齐历史 @click.stop) */}
           <Pressable style={styles.agreementModalCard} onPress={() => {}}>
             <View style={styles.agreementModalHeader}>
-              <Text style={styles.agreementModalTitle}>确认同意服务条款</Text>
+              <Text style={styles.agreementModalTitle}>{t('login.agreeTermsTitle')}</Text>
             </View>
             <View style={styles.agreementModalBody}>
               <Text style={styles.agreementModalText}>
@@ -1189,7 +1183,7 @@ export function LoginScreen() {
                 <Text style={styles.agreementModalLink} onPress={openAgreementFromModal}>
                   服务条款
                 </Text>
-                <Text style={styles.agreementModalLinkSeparator}>和</Text>
+                <Text style={styles.agreementModalLinkSeparator}>{t('auth.and')}</Text>
                 <Text style={styles.agreementModalLink} onPress={openPrivacyFromModal}>
                   隐私政策
                 </Text>
@@ -1201,18 +1195,18 @@ export function LoginScreen() {
                 onPress={closeAgreementModal}
                 activeOpacity={0.85}
                 accessibilityRole="button"
-                accessibilityLabel="取消"
+                accessibilityLabel={t('common.cancel')}
               >
-                <Text style={styles.agreementModalCancelText}>取消</Text>
+                <Text style={styles.agreementModalCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.agreementModalConfirmBtn}
                 onPress={confirmAgreement}
                 activeOpacity={0.85}
                 accessibilityRole="button"
-                accessibilityLabel="同意"
+                accessibilityLabel={t('login.agree')}
               >
-                <Text style={styles.agreementModalConfirmText}>同意</Text>
+                <Text style={styles.agreementModalConfirmText}>{t('login.agree')}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
