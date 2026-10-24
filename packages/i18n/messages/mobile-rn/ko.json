@@ -250,7 +250,8 @@
     "pubVideo": "영상 공개",
     "pubGroup": "컬렉션 공개",
     "closePreview": "미리보기 닫기",
-    "recentUsed": "최근 사용"
+    "recentUsed": "최근 사용",
+    "shareBoardTitle": "IHUI AI 커뮤니티 - {name}"
   },
   "plaza": {
     "index": {
@@ -879,7 +880,11 @@
     "toolFail": "실패",
     "diffCollapse": "스트림 diff 접기",
     "diffExpand": "스트림 diff 펼치기",
-    "imagePreview": "이미지 미리보기"
+    "imagePreview": "이미지 미리보기",
+    "notes": {
+      "loadFailShort": "불러오기 실패",
+      "recordNew": "새 녹음"
+    }
   },
   "settings": {
     "title": "설정",
@@ -1124,7 +1129,8 @@
     "panelCollapse": "패널 접기",
     "panelExpand": "패널 펼치기",
     "loadMore": "더 불러오기",
-    "user": "사용자"
+    "user": "사용자",
+    "retryShort": "재시도"
   },
   "network": {
     "offline": "네트워크가 연결되지 않아 일부 기능을 사용할 수 없습니다",
@@ -2180,7 +2186,10 @@
     "title": "순위",
     "wanSuffix": "{v}만",
     "pointsUnit": "점",
-    "anonShort": "익명"
+    "anonShort": "익명",
+    "histFallback": "기록 대화",
+    "historyBoard": "과거 랭킹",
+    "visitorName": "랭킹 게스트"
   },
   "rankingDetail": {
     "rank": "순위",
@@ -5410,5 +5419,53 @@
     "sandboxAutoRunDesc": "샌드박스 코드 실행 후 자동 실행",
     "errorReport": "오류 보고",
     "errorReportDesc": "API 오류를 자동 보고하여 조사에 활용"
+  },
+  "globalBox": {
+    "collapse": "플로팅 접기",
+    "expand": "플로팅 펼치기",
+    "earn": "벌기",
+    "support": "상담",
+    "feedback": "피드백"
+  },
+  "hand": {
+    "memberPurchase": "멤버십 구매"
+  },
+  "ia": {
+    "remainingPoints": "남은 포인트",
+    "recharge": "충전"
+  },
+  "uiCard": {
+    "inviteCodeBody": "초대 코드: {code}\n(길게 눌러 복사)",
+    "userGreet": "AI IHUI丨{name}",
+    "growthA11y": "성장치 바. 탭하면 등급 정보",
+    "vipBenefitBody": "현재 VIP 회원입니다. 성장치를 모아 상위 등급으로 upgrades 가능",
+    "normalBenefitBody": "일반 회원입니다. VIP 업그레이드로 추가 혜택"
+  },
+  "earn": {
+    "tabToday": "오늘",
+    "tabMonth": "이번 달",
+    "tabTotal": "누적",
+    "tabDayShort": "일",
+    "tabMonthShort": "월",
+    "tabTotalShort": "총",
+    "promoOrders": "{tab} 홍보 주문",
+    "teamNew": "{tab} 팀원 증가",
+    "withdrawAmount": "{tab} 출금 금액"
+  },
+  "developerConversations": {
+    "title": "릴레이 대화 기록",
+    "title2": "대화",
+    "model": "모델",
+    "messages": "메시지",
+    "tokens": "Tokens",
+    "cost": "비용(위안)",
+    "lastActive": "최근 활동"
+  },
+  "modelsPrompts": {
+    "title": "프롬프트 라이브러리",
+    "name": "이름",
+    "desc": "설명",
+    "version": "버전",
+    "updated": "업데이트"
   }
 }

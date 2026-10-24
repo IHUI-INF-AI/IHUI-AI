@@ -250,7 +250,8 @@
     "pubVideo": "動画を公開",
     "pubGroup": "コレクションを公開",
     "closePreview": "プレビューを閉じる",
-    "recentUsed": "最近使ったもの"
+    "recentUsed": "最近使ったもの",
+    "shareBoardTitle": "智汇AIコミュニティ - {name}"
   },
   "plaza": {
     "index": {
@@ -879,7 +880,11 @@
     "toolFail": "失敗",
     "diffCollapse": "ストリーム diff を畳む",
     "diffExpand": "ストリーム diff 展開",
-    "imagePreview": "画像プレビュー"
+    "imagePreview": "画像プレビュー",
+    "notes": {
+      "loadFailShort": "読み込み失敗",
+      "recordNew": "新しい録音"
+    }
   },
   "settings": {
     "title": "設定",
@@ -1124,7 +1129,8 @@
     "panelCollapse": "パネルを畳む",
     "panelExpand": "パネル展开",
     "loadMore": "さらに読み込む",
-    "user": "ユーザー"
+    "user": "ユーザー",
+    "retryShort": "再試行"
   },
   "network": {
     "offline": "ネットワークが切断されました。一部の機能は利用できません",
@@ -2180,7 +2186,10 @@
     "title": "ランキング",
     "wanSuffix": "{v}万",
     "pointsUnit": "ポイント",
-    "anonShort": "匿名"
+    "anonShort": "匿名",
+    "histFallback": "履歴会話",
+    "historyBoard": "過去ランキング",
+    "visitorName": "ランキングのゲスト"
   },
   "rankingDetail": {
     "rank": "ランキング",
@@ -5410,5 +5419,53 @@
     "sandboxAutoRunDesc": "サンドボックスコードを完了後自動実行",
     "errorReport": "エラー報告",
     "errorReportDesc": "API エラーを自動報告して調査に役立てる"
+  },
+  "globalBox": {
+    "collapse": "フロート畳む",
+    "expand": "フロート展開",
+    "earn": "稼ぐ",
+    "support": "サポート",
+    "feedback": "フィードバック"
+  },
+  "hand": {
+    "memberPurchase": "会員購入"
+  },
+  "ia": {
+    "remainingPoints": "残りポイント",
+    "recharge": "チャージ"
+  },
+  "uiCard": {
+    "inviteCodeBody": "招待コード:{code}\n(長押しでコピー)",
+    "userGreet": "AI IHUI丨{name}",
+    "growthA11y": "成長値バー。タップで等級説明",
+    "vipBenefitBody": "あなたは VIP メンバーです。成長値を積んで上位ランクへ。",
+    "normalBenefitBody": "あなたは一般会員です。VIP でさらなる特典。"
+  },
+  "earn": {
+    "tabToday": "本日",
+    "tabMonth": "今月",
+    "tabTotal": "累計",
+    "tabDayShort": "日",
+    "tabMonthShort": "月",
+    "tabTotalShort": "計",
+    "promoOrders": "{tab} プロモ注文",
+    "teamNew": "{tab} 新規チーム人数",
+    "withdrawAmount": "{tab} 出金額"
+  },
+  "developerConversations": {
+    "title": "リレー会話ログ",
+    "title2": "会話",
+    "model": "モデル",
+    "messages": "メッセージ",
+    "tokens": "Tokens",
+    "cost": "費用(元)",
+    "lastActive": "最終アクティブ"
+  },
+  "modelsPrompts": {
+    "title": "プロンプトライブラリ",
+    "name": "名前",
+    "desc": "説明",
+    "version": "バージョン",
+    "updated": "更新日時"
   }
 }
