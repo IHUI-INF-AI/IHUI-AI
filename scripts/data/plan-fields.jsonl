@@ -74,3 +74,6 @@
 {"key":"G-75#「登录态出内容」端到端复量——在等什么","waiting":"env","blocking":"等 dev 栈机器级依赖被拉回","updatedAt":"2026-10-24T17:49:01.835Z","updatedBy":"plan-fields-extract"}
 {"key":"G-96#小程序登录页接微信手机号一键验证","waiting":"env","blocking":"开发者工具","updatedAt":"2026-10-24T17:49:01.836Z","updatedBy":"plan-fields-extract"}
 {"key":"H05#D135现读复核","waiting":"env","blocking":"模拟器","updatedAt":"2026-10-24T17:49:01.836Z","updatedBy":"plan-fields-extract"}
+{"key":"G-20#把file","waiting":"human","updatedAt":"2026-10-24T17:54:00.256Z","updatedBy":"plan-fields-extract"}
+{"key":"G-76#生产备份链日志的写入侧编码要改成UTF-8","waiting":"human","updatedAt":"2026-10-24T17:54:00.256Z","updatedBy":"plan-fields-extract"}
+{"key":"G-65#小程序/Web缺图的来源问题今天有了终判","waiting":"human","updatedAt":"2026-10-24T17:54:00.257Z","updatedBy":"plan-fields-extract"}
