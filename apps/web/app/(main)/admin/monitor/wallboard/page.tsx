@@ -587,6 +587,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const prevAiPanelOpen = React.useRef(true)
   const dutyActiveRef = React.useRef(false)
 
+  // 退出值班的唯一回收口:任何一条退出路径(再点/Esc/切走)都走它。
+  const restoreDutyState = React.useCallback(() => {
+    dutyActiveRef.current = false
+    setDutyMode(false)
+    if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
+  }, [])
+
   const toggleDutyMode = React.useCallback(async () => {
     if (!dutyActiveRef.current) {
       prevAiPanelOpen.current = useAiPanelStore.getState().open
@@ -600,38 +607,29 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       }
       return
     }
-    dutyActiveRef.current = false
-    setDutyMode(false)
     try {
       if (document.fullscreenElement) await document.exitFullscreen()
     } catch {
       // 已经不在全屏时忽略
     }
-    if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
-  }, [])
+    restoreDutyState()
+  }, [restoreDutyState])
 
-  // 用户按 Esc 退出全屏时把值班态一并回收(不能留下「面板被关着」的残局)。
+  // 用户按 Esc 退出全屏时把值班态一并回收(不能留下「面板被关着/主题被改」的残局)。
   React.useEffect(() => {
     const onFullscreenChange = () => {
-      if (!document.fullscreenElement && dutyActiveRef.current) {
-        dutyActiveRef.current = false
-        setDutyMode(false)
-        if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
-      }
+      if (!document.fullscreenElement && dutyActiveRef.current) restoreDutyState()
     }
     document.addEventListener('fullscreenchange', onFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
-  }, [])
+  }, [restoreDutyState])
 
   // 切走视图(TabsContent 卸载)同样回收。
   React.useEffect(
     () => () => {
-      if (dutyActiveRef.current) {
-        dutyActiveRef.current = false
-        if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
-      }
+      if (dutyActiveRef.current) restoreDutyState()
     },
-    [],
+    [restoreDutyState],
   )
 
   const {
@@ -2694,5 +2692,10 @@ const WALLBOARD_CSS = `
   border-radius: var(--radius-xs);
 }
 .wb-root ::-webkit-scrollbar-track, .wb-scroll-host::-webkit-scrollbar-track { background: transparent; }
+/* 4K/超宽值班屏:视口 ≥2200 时整体放大 12%,字号与图表一起变,不用逐类改 px。
+ * 常规 1920/1440 不触发;不支持 zoom 的浏览器自动退化为当前密度(不做第二套布局)。 */
+@media (min-width: 2200px) {
+  .wb-root { zoom: 1.12; }
+}
 `
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
