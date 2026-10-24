@@ -462,11 +462,11 @@ function StatCell({
   tone?: StatusTone | 'accent'
 }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/60 px-2.5 py-2">
+    <div className="min-w-0 rounded-lg border border-border bg-muted/60 px-2.5 py-2">
       <div className="text-[10px] tracking-[0.12em] text-muted-foreground">{label}</div>
       <div
         className={cn(
-          'wb-num mt-0.5 text-[18px] leading-tight font-semibold',
+          'wb-num mt-0.5 text-[18px] leading-tight font-semibold whitespace-nowrap',
           tone === 'bad'
             ? 'text-danger-text'
             : tone === 'warn'
@@ -2458,13 +2458,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                 </span>
               ) : null
             }
-            bodyClassName="wb-split"
+            bodyClassName="wb-split wb-split-c3"
           >
             <div>
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolKey')}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('poolKeySchedulable')}
                   value={`${fmtInt(relayPool?.keySchedulable)} / ${fmtInt(relayPool?.keyTotal)}`}
@@ -2498,7 +2498,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
               <div className="mb-1.5 text-[10px] tracking-[0.14em] text-muted-foreground">
                 {t('poolAccount')}
               </div>
-              <div className="wb-cells grid gap-1.5">
+              <div className="wb-cells wb-cells-c3 grid gap-1.5">
                 <StatCell
                   label={t('poolAccountSchedulable')}
                   value={`${fmtInt(relayPool?.accountsSchedulable)} / ${fmtInt(relayPool?.accountsTotal)}`}
@@ -2591,6 +2591,11 @@ const WALLBOARD_CSS = `
 .wb-root {
   --wb-font-display: 'Bahnschrift', 'DIN Alternate', 'Oswald', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --wb-font-num: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Bahnschrift', monospace;
+  /* 「一格一读数」网格的列宽下限 = 读数**单行**放下的最小格宽(真 Chromium + 自托管字体实测):
+   * 五语言最坏读数是 ko「365일 23시간」内容 120.5px,加 px-2.5(20) 与边框(2) ⇒ 143。
+   * 读数一旦折行就是"数字被切成两半"(机主 2026-10-24 指认的号池面板缺陷),
+   * 所以这条下限是硬约束:宁可少列,不可断读数。 */
+  --wb-cell-min: 143px;
   /* 刻意不给底:大屏直接坐在工作区自己的背景上(机主 2026-10-20 定档:灰底 + 网格线是多余的一层壳)。 */
 }
 .wb-display { font-family: var(--wb-font-display); }
@@ -2644,8 +2649,13 @@ const WALLBOARD_CSS = `
 .wb-header { container-type: inline-size; }
 /* 均匀列网格:列数由容器宽决定,不再用视口断点(实测容器宽与视口不同步)。
  * 104 = 实测最大标签需求 99px + 余量;135 = 反算自原设计(容器 914 时 6 栏、gap 10 ⇒ 6×135+5×10=860≤882)。
- * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。 */
+ * 缺这两条定义 ⇒ display:grid 无列模板会退化成单列竖排(本仓 2026-10-21 实测回归)。
+ * 注意:96 只兜得住「纯数字读数」的组(实测 128,431 单行 92px)。读数里带中文时长/单位的组
+ * 必须改用 .wb-cells-c3,否则读数会被切成两半 —— 见下方 --wb-cell-min 的算式。 */
 .wb-cells { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+/* 读数为「中文时长/带单位」等长形态的组:列宽下限 = 单行放下的最小格宽(--wb-cell-min)。
+ * 与 auto-fit 配合 ⇒ 宽度不够时**减列**,而不是把读数折断或让它溢出压到邻格。 */
+.wb-cells-c3 { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min), 1fr)); }
 /* 6 格一组(Redis / 访客):auto-fit 在半宽面板里只能排 5 列 ⇒ 第 6 格单独一行。
  * 这里固定 3 列 ×2 行(总行数与 5+1 相同,但不再出现孤格);<480 落 2 列。 */
 .wb-cells-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -2705,7 +2715,16 @@ const WALLBOARD_CSS = `
 }
 /* 半宽面板(约 440px)内部两栏会把 11px 文本挤成 2-3 字一行 ⇒ 只有面板自身够宽才开两栏 */
 @container (min-width: 620px) {
-  .wb-split { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wb-split:not(.wb-split-c3) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* 分组里还要再排「一格一读数」网格的面板(号池:两组各 3 格)必须另开一栏档。
+ * 620 对它们是错的阈值:两栏后每栏只剩 ~333、3 格各 107 < --wb-cell-min(143)
+ * ⇒ 「6天19小时」被切成「6天19小 / 时」(机主 2026-10-24 指认的号池面板缺陷)。
+ * 列宽不足时该减的是**栏数**,不是把读数折断。
+ * 890 = 2×(3×143 + 2×6) + 8,即两栏各自放得下 3 格单行读数所需的面板**内容宽**
+ * (@container 按 content box 判,不含 p-3 的 24 与边框 2)。门 240 R5 复算这条算式。 */
+@container (min-width: 890px) {
+  .wb-split-c3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 /* 窄容器:状态区落到第二行右对齐,标题不再被逐字挤压 */
 @container (max-width: 1023px) {

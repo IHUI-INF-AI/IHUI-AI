@@ -81,6 +81,10 @@ IHUI-AI 全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端(2026-10
 - web `globals.css` 已有 vcenter 补偿(0.3px,text-xs 0.7px);button/a 内 icon + 文字必须包 `<span>`(`<Button>` 已内置 `wrapRawTextChildren`;手写原生元素须自包);**严禁** `-mt-px` 反向 hack;flex/inline-flex span 豁免补偿。守门 `apps/web/e2e/icon-text-alignment.spec.ts`(|delta| ≤ 0.15px)。
 - **数字计数徽章模板(强制)**:`inline-flex h-4 min-w-4 items-center justify-center rounded-md bg-*/… px-1 text-[10px] font-semibold leading-none tabular-nums`,禁止裸 span 手搓。
 
+### 读数不得断行(强制)
+
+- 「一格一读数」格子的**读数必须整条单行**;放不下只能减列/减栏,禁折行、禁截断、禁缩字号。只补 `nowrap` 会把折行变成溢出压邻格(实测 61px),列宽下限与栏阈值须与它同批改(算式与量法见 `docs/UI_GUIDELINES.md` §13)。守门 `check-readout-no-break.mjs`(240,blocking),镜像测试 15 例含"摘掉即翻红"成对夹具。
+
 ### 页头返回键 / 「更多」入口单一源头(强制)
 
 - 三端唯一实现(S0 机制清单,摘线或无人 import 即红,守门 102 S0):小程序返回键 `apps/miniapp-taro/src/components/BackChevron.tsx`、RN/共享屏返回键 `packages/app/src/components/BackChevron.tsx`(`colorScheme` 必填 prop)、RN 更多 `packages/app/src/components/MoreLink.tsx`、web 更多 `apps/web/src/components/common/view-more-link.tsx`、小程序更多/返回箭头复用 `apps/miniapp-taro/src/components/LineIcon/icons.ts` 素材、共享输入框 `packages/app/src/components/TextField.tsx`。web 返回键唯一实现 = `GlobalTopBar.tsx` 的 `TopBarBackButton`(守门 46 拦私接 `router.back()`)。
