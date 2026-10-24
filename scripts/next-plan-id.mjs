@@ -84,6 +84,15 @@
  * ② 命中即换号,并把被旧口径放行、被扫描顶掉的号**点名打印**;工作树副本读不到 ⇒ 大声警告并退回
  *    HEAD 宽面(新增维度缺席不得比改前更堵,失效方向=旧面+警告,不是新硬闸)。
  * `--check` 不发号 ⇒ 本档只作用于发号路径,G-955 的 --check 契约逐字不变。
+ *
+ * 第五条(2026-10-24,活文档取号在"并发批次带着旧底稿并入"这一型下仍会撞号):
+ * 上一档只扫**号**,扫不到"同一件事被另一批带着旧底稿登过、并入后各领一个号"这一型 ——
+ * 那一批的号是正文手填的,对象并入前本机任何一面都看不见,等它并进来时号早已发出。
+ * 现发号路径新增 `--title <标题原文>` / `--keyword <关键词>`:给了就以**目标文件现读正文**
+ * (工作树副本 ⊕ HEAD 宽面)按同题指纹查重,命中即**当场拒绝发号**并点名既有行与既有号
+ * (改用既有号 / 换标题后再取),不等到并集落地才在 F9 里看见。指纹判据 import 守门 194 的
+ * `extractTaskFingerprint`(`check-plan-task-duplicates.mjs` 一份实现,本器不另写"什么算同题")。
+ * 不给这两个旗标 = 沿用旧行为(第二出口仍可只问号);`--check` 不发号,同样不查这一维。
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -110,6 +119,9 @@ import {
 // 尺同住这一份 lib(它内部用 plan-task-index 的 parseTaskRows),本器不另写"什么算一条登记行"。
 // 标题口径那把尺(带 `附①/续三/补` 子模式)不动 —— 号段 max 吃它,本 lib 也不复制它。
 import { judgeRowIdDuplicates } from './lib/plan-id-duplicates.mjs'
+// 同题指纹的唯一实现住在守门 194(文件头明写"导出供取号器与镜像测试复用",§22c)——
+// 本器只 import,不另写一份"什么算同一条登记行 / 什么算同题"。
+import { extractTaskFingerprint } from './check-plan-task-duplicates.mjs'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const PLAN_PATH = 'PROJECT_PLAN.md'
@@ -135,6 +147,31 @@ const headingNum = (key) => Number(/^O(\d+)/.exec(key)[1])
 /** 只把 `O<number>` 的数字段取出来(族名与连字符两种书写都由 usedIdsOfPrefix 认) */
 const FAMILY = 'O'
 
+/**
+ * 「同题已在册」查重(2026-10-24,第五条):把每一行喂给守门 194 的指纹判据,
+ * 命中即带回既有行号与既有号 —— "什么算同题"全在 `extractTaskFingerprint` 那一份里,
+ * 本函数只做遍历与取值(§22c:不另写一份标题归一化)。
+ * 关键词档用同一份归一化面(小写 + 去空白/标点/符号)做子串匹配。
+ */
+const keywordKey = (raw) => String(raw ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '')
+function findSameTitleRows(body, { fp, keyword }) {
+  if (!fp && !keyword) return []
+  const hits = []
+  const lines = String(body ?? '').split('\n')
+  for (let i = 0; i < lines.length; i += 1) {
+    const raw = lines[i]
+    const rowFp = extractTaskFingerprint(raw)
+    if (!rowFp) continue
+    if (fp ? rowFp !== fp : !rowFp.includes(keyword)) continue
+    hits.push({
+      line: i + 1,
+      id: /^-\s*\[[ x]\]\s*(?:[（(〔][^）)〕]*[）)〕]\s*)*([A-Z]+-?\d+)/.exec(raw)?.[1] ?? null,
+      preview: raw.trim().slice(0, 120),
+    })
+  }
+  return hits
+}
+
 const argv = process.argv.slice(2)
 const flags = new Set(argv.filter((a) => a.startsWith('--')))
 // G-322(**取号入口**):`--source` 指定的是"发号依据的那一面"。旧写法 `srcIdx >= 0 && argv[srcIdx+1] ? ...`
@@ -147,22 +184,36 @@ if (srcFlag.error) {
   process.exit(2)
 }
 const SOURCE = srcFlag.value ?? 'HEAD'
+// 第五条(2026-10-24):发号前同题查重的两个输入,取值一律走带值旗标的唯一出口(G-322),
+// 给了却没值 ⇒ 判死在任何取号动作之前(不得静默退回"没给")。
+const titleFlag = requireFlagValue(argv, '--title', { noun: '标题原文(发号前对目标文件现读正文查同题)' })
+if (titleFlag.error) {
+  console.error(`❌ ${titleFlag.error}`)
+  process.exit(2)
+}
+const keywordFlag = requireFlagValue(argv, '--keyword', { noun: '关键词(发号前对目标文件现读正文查同题)' })
+if (keywordFlag.error) {
+  console.error(`❌ ${keywordFlag.error}`)
+  process.exit(2)
+}
 
 if (flags.has('--help') || flags.has('-h')) {
   console.log(
     [
-      '用法: node scripts/next-plan-id.mjs [--next-only] [--check] [--source <rev>]',
+      '用法: node scripts/next-plan-id.mjs [--next-only] [--check] [--source <rev>] [--title <标题>] [--keyword <词>]',
       '  默认从 `git show HEAD:PROJECT_PLAN.md` 取权威条目号(不看工作树副本 —— 理由见文件头)。',
       '  占用面 = 台账 ⊕ .ihui-agent/archive/PROJECT_PLAN*.md(归档器搬走的那一侧也算已占用)。',
       '  发号路径另含远端那一维(与 live-doc-edit 同一把尺):远端 tip 对象经一次有界自补救 fetch',
       '  仍读不到 ⇒ 拒绝发号;离线 ⇒ 警告着按本地宽面发号;--source 显式指面 / --check 不发号 ⇒ 不问远端。',
+      '  --title / --keyword:发号前对目标文件现读正文(工作树副本 ⊕ HEAD 宽面)按同题指纹查重,',
+      '  命中 ⇒ 当场拒绝发号并点名既有行与既有号(改用既有号或换标题后再取)。',
     ].join('\n'),
   )
   process.exit(0)
 }
 
 for (const f of flags) {
-  if (!['--next-only', '--check', '--source'].includes(f)) {
+  if (!['--next-only', '--check', '--source', '--title', '--keyword'].includes(f)) {
     console.error(`✗ 未知参数 ${f}(拒绝把它当编号继续跑;可用项见 --help)`)
     process.exit(2)
   }
@@ -302,6 +353,49 @@ try {
   )
 }
 const scanWork = scanFamilyIds(worktreeText, FAMILY)
+// ── 发号前对目标文件现读正文查同题(第五条,2026-10-24)────────────────────────────────
+// 上一档查的是**号**:并发那批正文手填号的登记,并入前在哪个面都不存在 ⇒ 号发出去,撞号在
+// 并集落地那一刻才发生。这里补"同一件事已经在册"那一半:给了 --title / --keyword 就按同题指纹
+// 在**现读正文**里查一遍,命中即当场拒绝发号并点名既有行/既有号(改用既有号或换标题后再取)。
+// 面 = 工作树副本(他席未提交的登记)⊕ HEAD 宽面(台账 ⊕ 归档件,已并入的旧底稿在这一侧)。
+// 两处可能命中同一行 ⇒ 按 (既有号, 行首预览) 去重,只报一处,免得把"一处命中"读成"两组冲突"。
+const titleFp = titleFlag.value
+  ? extractTaskFingerprint(/^-\s*\[[ x]\]/.test(titleFlag.value) ? titleFlag.value : `- [ ] ${titleFlag.value}`)
+  : null
+const kwKey = keywordFlag.value ? keywordKey(keywordFlag.value) : ''
+if (titleFlag.value && !titleFp)
+  console.error(
+    '⚠️ --title 算不出同题指纹(标题过短 / 无标题段,权重 < 16)⇒ 这一维**未判定**,' +
+      '不得把"没拦"读成"已查过";要把这一格判到底,请给含标题正文的整行或更长的标题',
+  )
+if (keywordFlag.value && !kwKey) console.error('⚠️ --keyword 归一化后为空 ⇒ 这一维**未判定**(关键词须含文字或数字)')
+if (titleFp || kwKey) {
+  const seenHits = new Map()
+  for (const f of [
+    { label: '工作树副本(现读)', body: worktreeText },
+    { label: `${SOURCE} 宽面(台账 ⊕ 归档件)`, body: wideText },
+  ]) {
+    for (const h of findSameTitleRows(f.body, { fp: titleFp, keyword: kwKey })) {
+      const k = `${h.id ?? '无号'}\u0000${h.preview}`
+      if (!seenHits.has(k)) seenHits.set(k, { ...h, face: f.label })
+    }
+  }
+  const titleHits = [...seenHits.values()]
+  if (titleHits.length) {
+    const cause = [titleFp ? `--title 指纹=${titleFp}` : '', kwKey ? `--keyword 含「${keywordFlag.value}」` : '']
+      .filter(Boolean)
+      .join(' / ')
+    console.error(`❌ 发号前现读正文查重命中「同题已在册」${titleHits.length} 处(${cause}):`)
+    for (const h of titleHits.slice(0, 5))
+      console.error(`   第 ${h.line} 行(${h.face})既有号 ${h.id ?? '无号'}:${h.preview}`)
+    if (titleHits.length > 5) console.error(`   …另 ${titleHits.length - 5} 处`)
+    console.error(
+      '   ⇒ 拒绝发号:并发批次带着旧底稿并入后,同一件事再按新号登一遍就是撞号 / 同题多号的源头。' +
+        '改用上面点名的既有号(不要新取号);若确属另一件事,先换标题(或换关键词)再重跑本命令。',
+    )
+    process.exit(1)
+  }
+}
 const liveUsed = [...new Set([...poolUsed, ...scanHead, ...scanWork])]
 const nextNarrow = smallestFreeId({ usedNumbers: poolUsed, baseMax: remoteWide })
 const next = smallestFreeId({ usedNumbers: liveUsed, baseMax: remoteWide })

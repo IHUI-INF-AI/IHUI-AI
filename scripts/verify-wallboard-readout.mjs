@@ -32,11 +32,12 @@
  * 退出码:0 无断行无溢出 / 1 判出缺口 / 2 未判定(取不到被审面、取不到构建 CSS、
  *         解析到的格数 ≠ 源码 <StatCell 枚数、浏览器起不来)。
  */
-import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { createConnection } from 'node:net'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const REPO_ROOT = resolve(__dirname, '..')
@@ -174,10 +175,7 @@ export function readFace(face) {
     }
   }
   try {
-    return execFileSync('git', ['show', `${face === 'staged' ? ':!0' : 'HEAD'}:${TARGET_REL}`], {
-      encoding: 'utf8',
-      cwd: REPO_ROOT,
-      stdio: ['ignore', 'pipe', 'pipe'],
+    return gitRaw(['show', `${face === 'staged' ? ':!0' : 'HEAD'}:${TARGET_REL}`], REPO_ROOT, {
       maxBuffer: 64 * 1024 * 1024,
     })
   } catch {

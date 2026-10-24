@@ -1012,4 +1012,139 @@ test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未�
     rmScratch(base)
   }
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// P13(2026-10-24 补):守门 8 前缀假设裁决台账(`api-routes-assumption-adjudications.json`)
+// 的**临期点名**。一律 import 源文件的尺子(§22c):到期红归守门 8 的 AJ2 独判,本维只提前点名
+// ⇒ 这里只锁「临期必点名 / 未临期不点名 / 台账取不到落未判定」三条语义,不锁此刻有没有条目
+// 真临期(锁颜色 = 恒红门,与 T3 同一条理由)。
+// ─────────────────────────────────────────────────────────────────────────────
+const { assumptionLedgerDueSoon, checkAssumptionLedgerDueSoon, ASSUMPTION_ADJ_LEDGER_REL, ASSUMPTION_DUE_SOON_DAYS } = mod.__test__
+const P13_NOW = Date.parse('2026-10-24T00:00:00Z')
+const p13ledger = (items) => JSON.stringify({ $schemaNote: '夹具', items })
+
+test('TAS1 P13 临期点名:≤7 天(含已到期)逐条点名,8 天外不点名;只报数不判红', () => {
+  const r = assumptionLedgerDueSoon({
+    text: p13ledger([
+      { leg: 'main', method: 'GET', path: '/api/due-soon', reviewBy: '2026-10-29' },
+      { leg: 'main', method: 'ANY', path: '/api/expired', reviewBy: '2026-10-20' },
+      { leg: 'main', method: 'POST', path: '/api/far', reviewBy: '2026-11-01' },
+      { leg: 'main', method: 'GET', path: '/api/bad-shape', reviewBy: '不是日期' },
+    ]),
+    now: P13_NOW,
+  })
+  assert.equal(r.state, 'ok', '临期点名只报数不判红 —— 判红就是替守门 8 的 AJ2 重复发信(同一条债两处计)')
+  assert.equal(r.due.length, 2, `应点名 2 条(临期 1 + 已到期 1),实得 ${r.due.length}`)
+  assert.ok(r.detail.includes('main|GET|/api/due-soon') && r.detail.includes('剩 5 天'), `临期条目要带条目键与剩余天数:${r.detail}`)
+  assert.ok(r.detail.includes('main|ANY|/api/expired') && r.detail.includes('已到期'), `已到期条目更要点名(它离 AJ2 拦爆最近):${r.detail}`)
+  assert.ok(r.detail.includes('错峰或结清'), '建议动作必须在场')
+  assert.ok(!r.detail.includes('/api/far'), '8 天外的条目不得被点名(口径外点名 = 噪声风暴)')
+  assert.equal(r.invalid, 1)
+  assert.ok(r.detail.includes('形态非法'), 'reviewBy 形态非法必须报名(AJ1 的地盘,但静默跳过 = 第二个盲区)')
+})
+
+test('TAS2 P13 未临期不点名:第 8 天外一条不点名;第 7 天(含)算临期 —— 口径与 AJ2 同族、阈值只此一份', () => {
+  const far = assumptionLedgerDueSoon({
+    text: p13ledger([{ leg: 'main', method: 'GET', path: '/api/edge-8d', reviewBy: '2026-11-01' }]),
+    now: P13_NOW,
+  })
+  assert.equal(far.state, 'ok')
+  assert.equal(far.due.length, 0)
+  assert.ok(!far.detail.includes('/api/edge-8d'), '口径外条目不得出现在任何文案里')
+  assert.match(far.detail, /1 条全读/, '绿档也要报"台账全读了多少条" —— 否则读不出"零"的凭据(§0.3)')
+  const edge = assumptionLedgerDueSoon({
+    text: p13ledger([{ leg: 'main', method: 'GET', path: '/api/edge-7d', reviewBy: '2026-10-31' }]),
+    now: P13_NOW,
+  })
+  assert.equal(edge.due.length, 1, '第 7 天必须算临期(日历日差口径,与 AJ2 的 reviewBy < today 字符串比较同族)')
+  assert.match(edge.detail, /剩 7 天/)
+  assert.equal(ASSUMPTION_DUE_SOON_DAYS, 7, '阈值常量只此一份 —— 测试里另立第二个 7 就是判据副本(§22c)')
+})
+
+test('TAS3 P13 台账取不到 ⇒ 未判定并点名原因,不得拿 0 冒充「没有临期」(§0.3)', () => {
+  for (const [label, text] of [
+    ['HEAD 面读不出', null],
+    ['坏 JSON', '{bad json'],
+    ['形状变(无 items)', JSON.stringify({ entries: [] })],
+  ]) {
+    const r = assumptionLedgerDueSoon({ text, now: P13_NOW })
+    assert.equal(r.state, 'undetermined', `${label} 却没落未判定`)
+    assert.match(r.detail, /未判定/)
+    assert.match(r.detail, /不拿 0 冒充/)
+    assert.ok(
+      r.detail.includes(ASSUMPTION_ADJ_LEDGER_REL),
+      `未判定必须点名是哪一份台账,实得:${r.detail}`,
+    )
+  }
+})
+
+test('TAS4 P13 必须真被 patrol 接上(装配锚点走门自己的名单),且端到端落在四桶之一、永不落红档', async () => {
+  const gateSrc = src('scripts/check-ops-patrol.mjs')
+  const assembly = gate.patrolAssemblyText(gateSrc)
+  assert.ok(assembly !== null, 'patrol 装配段取不到 ⇒ 装车锁无从证明,不得当成通过')
+  assert.deepEqual(gate.patrolWiringGaps(assembly, ['P13']), [], 'P13 写了没接线 = 复核台账临期永远没人提前看见')
+  const r = await patrol({})
+  const all = [...r.findings, ...r.undetermined, ...r.adjudicated, ...r.ok]
+  const rows = all.filter((x) => String(x.id).startsWith('P13'))
+  assert.equal(rows.length, 1, `P13 应恰好一行,实得 ${rows.length}:${all.map((x) => x.id).join(',')}`)
+  assert.ok(['ok', 'undetermined'].includes(rows[0].state), `P13 状态 ${rows[0].state} 越纲 —— 判红 = 替 AJ2 重复发信,并发被污染 = 冒充判过`)
+  if (rows[0].state === 'undetermined') assert.match(rows[0].detail, /未判定/, '落未判定必须带原因')
+})
+
+test('TAS5 取材口:HEAD 面注入可判,读取异常/取不到必须落未判定且带原因(静默当空 = 把没判写成判过)', () => {
+  const ok = checkAssumptionLedgerDueSoon({
+    now: P13_NOW,
+    readHeadText: () => p13ledger([{ leg: 'main', method: 'GET', path: '/api/due', reviewBy: '2026-10-29' }]),
+  })
+  assert.equal(ok.state, 'ok')
+  assert.ok(ok.detail.includes('main|GET|/api/due'), ok.detail)
+  const miss = checkAssumptionLedgerDueSoon({ now: P13_NOW, readHeadText: () => null })
+  assert.equal(miss.state, 'undetermined')
+  assert.match(miss.detail, /HEAD 面读不出内容/)
+  const boom = checkAssumptionLedgerDueSoon({
+    now: P13_NOW,
+    readHeadText: () => {
+      throw new Error('模拟 git 派生失败')
+    },
+  })
+  assert.equal(boom.state, 'undetermined', '读取异常被吞掉 = 这一维从此安静瞎掉')
+  assert.match(boom.detail, /模拟 git 派生失败/)
+})
+
+// ── 装车锁的牙(2026-10-24 补):TAS4 只证"维在 ⇒ 锁绿"那一臂。原实现
+// `PATROL_WIRING.filter((w) => ids.includes(w.id))` 在**维被整段洗掉**(名单里没有那一条 ⇒
+// 候选空集)时返回 `[]`,于是装车锁在最该红的一刻判假绿 —— P13 上次就是这么"绿着消失"的。
+// 下面两例把两臂钉死:删掉 add 那一行 ⇒ 锁红且点名;名单里没有请求的 id ⇒ 锁红且点名。
+test('TAS6 装车锁两臂:维在 ⇒ 锁绿;装配段里删掉那一行 add ⇒ 锁红且点名 P13', () => {
+  const gateSrc = src('scripts/check-ops-patrol.mjs')
+  const assembly = gate.patrolAssemblyText(gateSrc)
+  assert.ok(assembly !== null, 'patrol 装配段取不到 ⇒ 锁无从证明,不得当成通过')
+  const needle = 'add(checkAssumptionLedgerDueSoon({ now }))'
+  assert.ok(assembly.includes(needle), `装配段里没有 P13 的调用锚点 ⇒ 正例根本没在判真实源码:${ASSUMPTION_ADJ_LEDGER_REL} 那格仍是空的`)
+  assert.equal([...assembly.matchAll(/\badd\(checkAssumptionLedgerDueSoon\(/g)].length, 1, '调用锚点必须恰好一处:两处各 add 会让 P13 在同一轮里计两遍')
+  assert.deepEqual(gate.patrolWiringGaps(assembly, ['P13']), [], 'P13 在位时锁必须绿(绿的那一臂也要真测)')
+  const gaps = gate.patrolWiringGaps(assembly.replace(needle, '// 摘线对照(夹具,不落盘)'), ['P13'])
+  assert.equal(gaps.length, 1, `摘掉 add 后必须只剩这一条缺项,实得 ${JSON.stringify(gaps.map((g) => g.id))}`)
+  assert.equal(gaps[0].id, 'P13')
+})
+
+test('TAS7 装车锁不得拿"名单里没有这一条"判假绿(整维被洗掉那一型的牙,§0.3 枚举到 0 判死不记绿)', () => {
+  const gateSrc = src('scripts/check-ops-patrol.mjs')
+  const assembly = gate.patrolAssemblyText(gateSrc)
+  assert.ok(assembly !== null, 'patrol 装配段取不到 ⇒ 无从证明')
+  const ghost = 'P13-假想的未登记维'
+  // 阳性对照:先量出"旧写法会数到 0 个候选" —— 不证这一条,这一例就只是在读新实现的结果。
+  const oldCandidates = gate.PATROL_WIRING.filter((w) => [ghost].includes(w.id)).length
+  assert.equal(oldCandidates, 0, '旧写法必须恰好数空 ⇒ 否则本例打不到"空集被判成接线没问题"那一型')
+  const gaps = gate.patrolWiringGaps(assembly, ['P13', ghost])
+  assert.equal(gaps.length, 1, `未登记的 id 必须成为缺项,实得 ${JSON.stringify(gaps.map((g) => g.id))}`)
+  assert.equal(gaps[0].id, ghost, '缺项必须点名是哪个 id,只说"没过"没人能修')
+  assert.match(gaps[0].why, /PATROL_WIRING 名单里没有/)
+  // 反向锁:名单里真登记的每一维都必须在装配段里打得中(防止"登记了 needle 但摘掉了调用")
+  assert.deepEqual(
+    gate.patrolWiringGaps(assembly, gate.PATROL_WIRING.map((w) => w.id)),
+    [],
+    '全名单必须零缺项 —— 有缺项就是某维写了没接线(§0.9 造好没装车 = 没有)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
