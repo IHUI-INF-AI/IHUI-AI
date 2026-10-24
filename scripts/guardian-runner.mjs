@@ -5380,6 +5380,30 @@ const checks = [
     ].join('\n'),
   },
 
+  // --- 大屏读数不得断行(2026-10-24 立,机主指认号池面板「6天19小时」被切成两半)---
+  {
+    id: '240',
+    label:
+      '📏 大屏「一格一读数」网格的读数不得断行(blocking;R1 读数 nowrap / R2 --wb-cell-min 定义且被消费 / R3 c3 档引用常数 / R4 wb-split-c3 面板内每组同档 / R5 栏阈值按源码常数复算)',
+    script: 'check-readout-no-break.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['apps/web/app/(main)/admin/monitor/wallboard/page.tsx'],
+    skipEnv: 'HUSKY_SKIP_READOUT_NO_BREAK',
+    onFailHint: [
+      '',
+      '  💡 读数被折成两行(如「6天19小 / 时」)的成因是三层常数脱钩。修法只有一条:',
+      '     列宽不足时**减列/减栏**,不得让读数折行、不得截断数字、不得缩字号。',
+      '       1) 长读数组用 .wb-cells.wb-cells-c3(下限 = var(--wb-cell-min),实测 143px);',
+      '       2) 该组住在 wb-split 里时,面板须带 wb-split-c3(两栏阈值由同一批常数复算);',
+      '       3) 改了 --wb-cell-min 必须让 R5 的复算式仍成立(阈值=2×(3×下限+2×列间距)+栏间距)。',
+      '     自检:node scripts/check-readout-no-break.mjs --self-test(7 例,每条判据各有反向锁)',
+      '     规范:docs/UI_GUIDELINES.md「读数不得断行」',
+      '     紧急跳过(不推荐):HUSKY_SKIP_READOUT_NO_BREAK=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
+
   // --- 镜像 purge 内容完好(2026-10-23 立)(1 项,blocking)---
   {
     id: '238',
