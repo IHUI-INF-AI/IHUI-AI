@@ -884,7 +884,8 @@
     "notes": {
       "loadFailShort": "불러오기 실패",
       "recordNew": "새 녹음"
-    }
+    },
+    "thinkingShort": "생각 중"
   },
   "settings": {
     "title": "설정",
@@ -1514,7 +1515,19 @@
     "remarkPlaceholder": "비고 입력",
     "shareNow": "지금 공유",
     "title": "공유",
-    "url": "URL"
+    "url": "URL",
+    "brandCommunity": "IHUI AI 커뮤니티",
+    "copiedWx": "링크 복사됨, 위챗에 붙여넣기",
+    "linkCopied": "링크 복사됨",
+    "copyFailManual": "복사 실패, {url} 직접 방문",
+    "sentFriend": "위친에게 공유됨",
+    "sentMoments": "모멘트에 공유됨",
+    "sheetCloseA11y": "공유 패널 닫기",
+    "toFriendA11y": "위친 공유",
+    "toMomentsA11y": "모멘트 공유",
+    "copyLinkA11y": "링크 복사",
+    "cancelA11y": "공유 취소",
+    "defaultDesc": "IHUI AI 커뮤니티 함께"
   },
   "vipScreen": {
     "plans": {
@@ -3902,7 +3915,16 @@
     "paidAt": "결제 시간",
     "product": "상품",
     "status": "상태",
-    "title": "주문 상세"
+    "title": "주문 상세",
+    "contactSeller": "판매자 contact",
+    "contactBody": "문제 시 WeChat: aizhs_kefu",
+    "payNow": "지금 결제",
+    "buyAgain": "다시 구매",
+    "paidTitle": "구매 성공",
+    "paidSub": "구매 유의사항 확인 후 혜택",
+    "paidLine1": "결제 완료, 증빙 보관",
+    "paidLine2": "환불은 7일 내 신청",
+    "paidLine3": "24시간 전담 상담"
   },
   "pointHistory": {
     "balance": "잔액",
@@ -5265,7 +5287,8 @@
     "unknown": "알 수 없는 오류",
     "deleteTitle": "소재 삭제",
     "deleteBody": "「{title}」 삭제할까요?",
-    "detailLabel": "소재 상세"
+    "detailLabel": "소재 상세",
+    "btnDetail": "상세"
   },
   "topup": {
     "failDefault": "충전 미완료, 잠시 후 재시도"
@@ -5503,6 +5526,91 @@
     "holdToTalk": "길게 눌러 말하기",
     "clearResult": "결과 지우기",
     "releaseEnd": " 놓으면 종료",
-    "transcribing": " 변환 중…"
+    "transcribing": " 변환 중…",
+    "realStart": "실시간 음성 시작",
+    "realConnecting": "연결 중...",
+    "realLive": "통화 중",
+    "reconnect": "재연결",
+    "realFailDefault": "연결 실패 재시도"
+  },
+  "material": {
+    "cText": "텍스트 내용",
+    "cImage": "이미지 내용",
+    "cVideo": "영상 내용",
+    "cAudio": "음성 내용",
+    "cDefault": "소재 내용",
+    "eText": "텍스트 없음",
+    "eImage": "이미지 없음",
+    "eVideo": "영상 없음",
+    "eAudio": "음성 소재 없음",
+    "eDefault": "내용 없음",
+    "detailA11y": "상세 보기"
+  },
+  "article": {
+    "commentPh": "댓글 쓰기...",
+    "loadCommentsFail": "댓글 로드 실패",
+    "commentFail": "댓글 실패",
+    "send": "보내기",
+    "commentFailRetry": "댓글 실패 재시도"
+  },
+  "comment": {
+    "send": "댓글 등록",
+    "empty": "댓글 없음",
+    "close": "댓글 닫기"
+  },
+  "businesscard": {
+    "unnamed": "미상",
+    "loadFailBody": "로드 실패",
+    "shareWechat": "위친 친구",
+    "shareMoments": "모멘트",
+    "needAlbum": "앨범 권한 필요",
+    "uploadFail": "이미지 업로드 실패",
+    "okTitle": "성공",
+    "updated": "명함 업데이트됨",
+    "submitFail": "제출 실패",
+    "customFail": "명함 제작 실패, 재시도"
+  },
+  "model": {
+    "type0": "만능",
+    "type1": "대화",
+    "type2": "이미지",
+    "type3": "영상",
+    "type4": "음성",
+    "type5": "디지털 휴먼",
+    "agentMode": "Agent 모드"
+  },
+  "aiCard": {
+    "tFreeVip": "멤버 무료",
+    "tFreeUse": "무료 사용",
+    "tFreeLimit": "한시 무료",
+    "tBought": "구매됨",
+    "tMonth": "월정액",
+    "btnWarn": "경고",
+    "btnDislike": "비추천",
+    "btnFav": "收藏",
+    "btnInfo": "정보",
+    "btnShare": "공유",
+    "officialFallback": "IHUI 커뮤니티-공식",
+    "buyTime": "구매 시점: {t0}",
+    "expireTime": "　만료: {t1}"
+  },
+  "viptrader": {
+    "productName": "VIP 트레이더",
+    "teamCount": "팀 규모",
+    "activeTrend": "활성 {n}",
+    "totalCommission": "누적 커미션",
+    "rankTrend": "순위 #{n}",
+    "monthIncome": "이번 달 수익",
+    "withdrawnTrend": "출금 {v}",
+    "pendingIncome": "정산 대기",
+    "frozenTrend": "동결 {v}",
+    "myInviteCode": "내 초대 코드",
+    "invitedTrend": "초대 {n}명",
+    "distLevel": "分销 등급",
+    "rateTrend": "수수료 {n}%"
+  },
+  "contact": {
+    "phoneLabel": "전화: ",
+    "wechatLabel": "위챗: "
   }
 }

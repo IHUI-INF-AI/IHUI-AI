@@ -884,7 +884,8 @@
     "notes": {
       "loadFailShort": "Load failed",
       "recordNew": "New recording"
-    }
+    },
+    "thinkingShort": "Thinking"
   },
   "settings": {
     "title": "Settings",
@@ -1514,7 +1515,19 @@
     "remarkPlaceholder": "Enter a remark",
     "shareNow": "Share now",
     "title": "Share",
-    "url": "URL"
+    "url": "URL",
+    "brandCommunity": "IHUI AI community",
+    "copiedWx": "Link copied. Paste it in WeChat",
+    "linkCopied": "Link copied",
+    "copyFailManual": "Copy failed. Visit {url}",
+    "sentFriend": "Shared to WeChat friends",
+    "sentMoments": "Shared to Moments",
+    "sheetCloseA11y": "Close share sheet",
+    "toFriendA11y": "Share to WeChat",
+    "toMomentsA11y": "Share to Moments",
+    "copyLinkA11y": "Copy share link",
+    "cancelA11y": "Cancel share",
+    "defaultDesc": "Join IHUI AI community"
   },
   "vipScreen": {
     "plans": {
@@ -3902,7 +3915,16 @@
     "paidAt": "Paid at",
     "product": "Product",
     "status": "Status",
-    "title": "Order Details"
+    "title": "Order Details",
+    "contactSeller": "Contact seller",
+    "contactBody": "For issues contact us on WeChat: aizhs_kefu",
+    "payNow": "Pay now",
+    "buyAgain": "Buy again",
+    "paidTitle": "Purchase successful",
+    "paidSub": "Read the purchase notice to enjoy benefits",
+    "paidLine1": "Order paid. Keep the receipt.",
+    "paidLine2": "Refund within 7 days",
+    "paidLine3": "24/7 dedicated support"
   },
   "pointHistory": {
     "balance": "Balance",
@@ -5265,7 +5287,8 @@
     "unknown": "Unknown error",
     "deleteTitle": "Delete material",
     "deleteBody": "Delete \"{title}\"?",
-    "detailLabel": "Material details"
+    "detailLabel": "Material details",
+    "btnDetail": "Details"
   },
   "topup": {
     "failDefault": "Top-up not completed. Try again later."
@@ -5503,6 +5526,91 @@
     "holdToTalk": "Hold to talk",
     "clearResult": "Clear result",
     "releaseEnd": " release to end",
-    "transcribing": "Transcribing…"
+    "transcribing": "Transcribing…",
+    "realStart": "Start live voice",
+    "realConnecting": "Connecting...",
+    "realLive": "Live voice in progress",
+    "reconnect": "Reconnect",
+    "realFailDefault": "Connection failed. Retry."
+  },
+  "material": {
+    "cText": "Text content",
+    "cImage": "Image content",
+    "cVideo": "Video content",
+    "cAudio": "Audio content",
+    "cDefault": "Material content",
+    "eText": "No text content",
+    "eImage": "No images",
+    "eVideo": "No videos",
+    "eAudio": "No audio materials",
+    "eDefault": "Nothing here",
+    "detailA11y": "View details"
+  },
+  "article": {
+    "commentPh": "Write a comment...",
+    "loadCommentsFail": "Failed to load comments",
+    "commentFail": "Comment failed",
+    "send": "Send",
+    "commentFailRetry": "Comment failed. Retry."
+  },
+  "comment": {
+    "send": "Post comment",
+    "empty": "No comments yet",
+    "close": "Close comments"
+  },
+  "businesscard": {
+    "unnamed": "Unnamed",
+    "loadFailBody": "Load failed",
+    "shareWechat": "WeChat friends",
+    "shareMoments": "Moments",
+    "needAlbum": "Album permission required to pick card image",
+    "uploadFail": "Card image upload failed",
+    "okTitle": "Success",
+    "updated": "Business card updated",
+    "submitFail": "Submit failed",
+    "customFail": "Card customization failed. Retry."
+  },
+  "model": {
+    "type0": "All-round",
+    "type1": "Chat",
+    "type2": "Image",
+    "type3": "Video",
+    "type4": "Audio",
+    "type5": "Digital human",
+    "agentMode": "Agent mode"
+  },
+  "aiCard": {
+    "tFreeVip": "Free for members",
+    "tFreeUse": "Free to use",
+    "tFreeLimit": "Limited free",
+    "tBought": "Purchased",
+    "tMonth": "Monthly",
+    "btnWarn": "Warn",
+    "btnDislike": "Dislike",
+    "btnFav": "Save",
+    "btnInfo": "Info",
+    "btnShare": "Share",
+    "officialFallback": "IHUI community - Official",
+    "buyTime": "Purchased: {t0}",
+    "expireTime": "  Expires: {t1}"
+  },
+  "viptrader": {
+    "productName": "VIP Trader",
+    "teamCount": "Team size",
+    "activeTrend": "Active {n}",
+    "totalCommission": "Total commission",
+    "rankTrend": "Rank #{n}",
+    "monthIncome": "Month income",
+    "withdrawnTrend": "Withdrawn {v}",
+    "pendingIncome": "Unsettled",
+    "frozenTrend": "Frozen {v}",
+    "myInviteCode": "My invite code",
+    "invitedTrend": "Invited {n}",
+    "distLevel": "Commission tier",
+    "rateTrend": "Rate {n}%"
+  },
+  "contact": {
+    "phoneLabel": "Tel: ",
+    "wechatLabel": "WeChat: "
   }
 }
