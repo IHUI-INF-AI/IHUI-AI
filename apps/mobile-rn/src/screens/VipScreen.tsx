@@ -94,11 +94,11 @@ const CONTINUOUS_DISCOUNT_RATE = 0.8
 /**
  * 根据 durationDays 生成周期标签(对齐 Uniapp 周期命名)。
  */
-function cycleLabel(days: number): string {
-  if (days <= 31) return '包月'
-  if (days <= 93) return '包季'
-  if (days <= 186) return '半年'
-  return '包年'
+function cycleLabel(days: number, t: (k: string) => string): string {
+  if (days <= 31) return t('vip.month')
+  if (days <= 93) return t('vip.quarter')
+  if (days <= 186) return t('vip.halfYear')
+  return t('vip.year')
 }
 
 /**
@@ -106,20 +106,21 @@ function cycleLabel(days: number): string {
  */
 function detailText(days: number, continuous: boolean): string {
   if (continuous) {
-    if (days <= 31) return '每月自动续费,可随时取消'
-    if (days <= 93) return '每季自动续费,节省 25%'
-    return '每年自动续费,最划算'
+    if (days <= 31) return t('vip.renewM')
+    if (days <= 93) return t('vip.renewQ')
+    return t('vip.renewY')
   }
-  if (days <= 31) return `一次性购买,${days} 天有效`
-  if (days <= 93) return `一次性购买,${days} 天有效`
-  return `一次性购买,${days} 天有效`
+  return t('vip.onceN', { n: days })
 }
 
 /**
  * 从 getVipLevels() 返回数据动态生成价格档位(对齐 Uniapp getvipPrice 个性化定价)。
  * 每个 VipLevel 生成 2 条:连续(折扣价)+ 按月(原价)。
  */
-function buildPricePlans(levels: readonly VipLevel[]): PricePlan[] {
+function buildPricePlans(
+  levels: readonly VipLevel[],
+  t: (k: string, v?: Record<string, unknown>) => string,
+): PricePlan[] {
   if (levels.length === 0) return []
   const plans: PricePlan[] = []
   for (const lv of levels) {
@@ -127,29 +128,33 @@ function buildPricePlans(levels: readonly VipLevel[]): PricePlan[] {
     const baseAmount = lv.price
     const defAmount = baseAmount
     const contAmount = Math.round(baseAmount * CONTINUOUS_DISCOUNT_RATE)
-    const cycle = cycleLabel(lv.durationDays)
+    const cycle = cycleLabel(lv.durationDays, t)
     // 连续订阅档(折扣价)
     plans.push({
       id: `cont-${lv.id}`,
       tab: 'continuous',
-      cycle: `连续${cycle}`,
-      discount: `${Math.round(CONTINUOUS_DISCOUNT_RATE * 10)}折`,
-      trial: lv.durationDays >= 365 ? '7天试用' : undefined,
+      cycle: t('vip.continuous', { c: cycle }),
+      discount: t('vip.discountN', { n: Math.round(CONTINUOUS_DISCOUNT_RATE * 10) }),
+      trial: lv.durationDays >= 365 ? t('vip.trial7') : undefined,
       amount: contAmount,
       defAmount,
-      detail: detailText(lv.durationDays, true),
+      detail: detailText(lv.durationDays, true, t),
       durationDays: lv.durationDays,
     })
     // 按月购买档(原价)
     const monthlyCycle =
-      lv.durationDays <= 31 ? '月度会员' : lv.durationDays <= 93 ? '季度会员' : '年度会员'
+      lv.durationDays <= 31
+        ? t('vip.lvMonth')
+        : lv.durationDays <= 93
+          ? t('vip.lvQuarter')
+          : t('vip.lvYear')
     plans.push({
       id: `month-${lv.id}`,
       tab: 'monthly',
       cycle: monthlyCycle,
       amount: baseAmount,
       defAmount,
-      detail: detailText(lv.durationDays, false),
+      detail: detailText(lv.durationDays, false, t),
       durationDays: lv.durationDays,
     })
   }
@@ -203,7 +208,7 @@ export function VipScreen() {
         const mapped = levelsRes.data.map(toVipLevel)
         setLevels(mapped)
         // 从 VipLevel 动态生成价格档位(对齐 Uniapp getvipPrice 个性化定价)
-        setPricePlans(buildPricePlans(levelsRes.data))
+        setPricePlans(buildPricePlans(levelsRes.data, t))
       } else {
         setError(apiFailureToText(levelsRes, t('vip.loadFailed')))
       }
@@ -431,7 +436,7 @@ export function VipScreen() {
             style={styles.entryButtonSlot}
             onPress={() => setIntroIndexVisible(true)}
             accessibilityRole="button"
-            accessibilityLabel="会员权益介绍"
+            accessibilityLabel={t('vip.benefitsA11y')}
           >
             {({ pressed }) => (
               <View style={[styles.entryButton, pressed ? styles.entryButtonPressed : null]}>
@@ -443,7 +448,7 @@ export function VipScreen() {
             style={styles.entryButtonSlot}
             onPress={() => setIntroIndexsVisible(true)}
             accessibilityRole="button"
-            accessibilityLabel="操盘手权益介绍"
+            accessibilityLabel={t('vip.traderA11y')}
           >
             {({ pressed }) => (
               <View style={[styles.entryButton, pressed ? styles.entryButtonPressed : null]}>
@@ -455,7 +460,7 @@ export function VipScreen() {
             style={styles.entryButtonSlot}
             onPress={() => setPrivateAdvisoryVisible(true)}
             accessibilityRole="button"
-            accessibilityLabel="私人顾问介绍"
+            accessibilityLabel={t('vip.advisorA11y')}
           >
             {({ pressed }) => (
               <View style={[styles.entryButton, pressed ? styles.entryButtonPressed : null]}>
@@ -599,15 +604,15 @@ export function VipScreen() {
       />
       <PurchaseNoticePopUp
         visible={introVisible}
-        title="VIP 会员权益"
-        subtitle="解锁全部高级内容与专属服务"
+        title={t('vip.popTitle')}
+        subtitle={t('vip.popSub')}
         bullets={[
           '畅享全站 VIP 课程与直播',
           '专属客服优先响应',
           '每月赠送积分,可兑换礼品',
           '专享会员折扣与活动',
         ]}
-        primaryLabel="立即查看"
+        primaryLabel={t('vip.viewNow')}
         onClose={() => setIntroVisible(false)}
         onPrimary={() => setIntroVisible(false)}
       />
