@@ -217,7 +217,7 @@ export function ResourcesScreen() {
     if (loading) {
       return (
         <View className="flex-1 items-center justify-center">
-          <Text className="text-sm text-neutral-500">{t('common.loading')}</Text>
+          <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('common.loading')}</Text>
         </View>
       )
     }
@@ -241,7 +241,7 @@ export function ResourcesScreen() {
       >
         {items.length === 0 && !hasMore ? (
           <View className="items-center py-16">
-            <Text className="text-sm text-neutral-500">{t('resources.empty')}</Text>
+            <Text className="text-sm text-neutral-500 dark:text-neutral-400">{t('resources.empty')}</Text>
           </View>
         ) : null}
 
@@ -261,15 +261,15 @@ export function ResourcesScreen() {
               ) : null}
               <View className="mt-2 flex-row flex-wrap items-center">
                 {item.fileType ? (
-                  <Text className="mr-3 text-xs text-neutral-500">{item.fileType}</Text>
+                  <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">{item.fileType}</Text>
                 ) : null}
-                <Text className="mr-3 text-xs text-neutral-500">
+                <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">
                   {t('resources.fileSize')}: {formatFileSize(item.fileSize)}
                 </Text>
-                <Text className="mr-3 text-xs text-neutral-500">
+                <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">
                   {t('resources.viewCount')}: {item.viewCount ?? 0}
                 </Text>
-                <Text className="text-xs text-neutral-500">
+                <Text className="text-xs text-neutral-500 dark:text-neutral-400">
                   {t('resources.downloadCount')}: {item.downloadCount ?? 0}
                 </Text>
               </View>
@@ -317,23 +317,23 @@ export function ResourcesScreen() {
 
           <View className="mt-3 flex-row flex-wrap items-center">
             {categoryName ? (
-              <Text className="mr-3 text-xs text-neutral-500">{categoryName}</Text>
+              <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">{categoryName}</Text>
             ) : null}
             {resource.fileType ? (
-              <Text className="mr-3 text-xs text-neutral-500">{resource.fileType}</Text>
+              <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">{resource.fileType}</Text>
             ) : null}
-            <Text className="mr-3 text-xs text-neutral-500">
+            <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">
               {t('resources.fileSize')}: {formatFileSize(resource.fileSize)}
             </Text>
-            <Text className="mr-3 text-xs text-neutral-500">
+            <Text className="mr-3 text-xs text-neutral-500 dark:text-neutral-400">
               {t('resources.viewCount')}: {resource.viewCount ?? 0}
             </Text>
-            <Text className="text-xs text-neutral-500">
+            <Text className="text-xs text-neutral-500 dark:text-neutral-400">
               {t('resources.downloadCount')}: {resource.downloadCount ?? 0}
             </Text>
           </View>
 
-          <Text className="mt-2 text-xs text-neutral-500">
+          <Text className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
             {t('resources.publishedAt', { date: formatDay(resource.createdAt) })}
           </Text>
 
@@ -362,7 +362,7 @@ export function ResourcesScreen() {
             </Text>
           </TouchableOpacity>
         ) : (
-          <Text className="mx-4 mb-6 text-xs text-neutral-500">{t('resources.noFile')}</Text>
+          <Text className="mx-4 mb-6 text-xs text-neutral-500 dark:text-neutral-400">{t('resources.noFile')}</Text>
         )}
       </ScrollView>
     )
@@ -379,7 +379,7 @@ export function ResourcesScreen() {
       ) : (
         <>
           <View className="px-4 pb-2">
-            <Text className="mb-1 text-xs text-neutral-500">{t('resources.subtitle')}</Text>
+            <Text className="mb-1 text-xs text-neutral-500 dark:text-neutral-400">{t('resources.subtitle')}</Text>
             <TextField
               colorScheme={resolvedTheme}
               value={search}
