@@ -25,6 +25,7 @@
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { describeFlagToken, flagValue } from './lib/flag-value.mjs'
 
 const ALGORITHM = 'aes-256-gcm'
 const KEY_LENGTH = 32
@@ -120,9 +121,27 @@ function loadKeyFromFile(filePath, label) {
 
 function parseArgs(argv) {
   const args = new Set(argv)
-  const pool = args.has('--pool')
-    ? (() => { const eq = argv.find((a) => a.startsWith('--pool=')); if (eq) return eq.split('=')[1]; const i = argv.indexOf('--pool'); return argv[i + 1] || 'key' })()
-    : 'key'
+  // --pool 取值走 G-322 单源:给了旗标但值无效(吞掉紧邻 --apply 当池名、结尾无值)必须点名
+  // 非零退出,不得静默回落 'key'(旧写法 `argv[i+1] || 'key'` 正是本票要消的静默降级形态)。
+  const poolF = flagValue(argv, '--pool')
+  let pool = 'key'
+  if (poolF.present && !poolF.valid) {
+    console.error(`❌ 用法错:--pool 需要一个池名(key|account),紧邻的 token 实得:${describeFlagToken(poolF)}(不得静默退回默认)`)
+    process.exit(2)
+  }
+  // 等号形与空格形都认:单独给 `--pool=account` 旧写法完全不识别(静默按 key 池跑 = 错池),
+  // 等号后为空旧写法与"没给"同形 ⇒ 两型都判死/收编,不猜意图。
+  const eq = argv.find((a) => a.startsWith('--pool='))
+  if (eq !== undefined) {
+    const v = eq.slice('--pool='.length)
+    if (v === '') {
+      console.error('❌ 用法错:--pool= 需要一个池名(key|account) —— 等号后为空(不得静默退回默认)')
+      process.exit(2)
+    }
+    pool = v
+  } else if (poolF.valid) {
+    pool = poolF.value
+  }
   if (pool !== 'key' && pool !== 'account') { console.error(`❌ 未知 --pool 值: ${pool}`); process.exit(2) }
   return { pool, apply: args.has('--apply'), enableOnSuccess: args.has('--enable-on-success') }
 }
