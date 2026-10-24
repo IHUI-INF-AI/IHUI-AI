@@ -53,6 +53,13 @@ export const LEDGER_FILES = [
 
 const GIT_TIMEOUT_MS = 30000
 
+/**
+ * git 明确回"这里不是仓库"(含 scratch 夹具在 `.DevEnv` 层落的坏 gitfile 边界)。
+ * 这类回答**不是**"问不到":非仓库里根本不存在 `git ls-files` 面 ⇒ 跟踪清单可判定为空。
+ * 超时 / maxBuffer / 二进制缺失等派生故障不在此列,照旧判"无法判定"。
+ */
+const NOT_A_REPOSITORY_RE = /not a git repository|gitfile does not point to a valid repository/i
+
 /** 台账读不了 / git 问不到 —— 上层必须"无法判定"，不得按"没有第三方"继续跑。 */
 export class LedgerUnavailable extends Error {}
 
@@ -140,10 +147,18 @@ export function thirdPartyExcludedPaths(repoRoot, trackedFiles) {
         .map((s) => s.trim())
         .filter(Boolean)
     } catch (e) {
-      throw new LedgerUnavailable(
-        `取不到 git 跟踪清单(${String(e?.message ?? e).split('\n')[0]})—— ` +
-          '第三方排除面算不出来时**拒绝**按"没有第三方内容"继续跑水印层',
-      )
+      const message = String(e?.message ?? e)
+      if (NOT_A_REPOSITORY_RE.test(message)) {
+        // 票面 G-09:脚本树被整树复制进 scratch 夹具后,watermark 的 ROOT 跟着副本走,
+        // 旧写法把"这里没有仓库"误读成"git 坏了",归档器每写一次归档件就被水印层拒一次。
+        // 非仓库没有已跟踪文件,清单为空;台账 roots 的前缀排除不依赖它,仍照常生效。
+        files = []
+      } else {
+        throw new LedgerUnavailable(
+          `取不到 git 跟踪清单(${message.split('\n')[0]})—— ` +
+            '第三方排除面算不出来时**拒绝**按"没有第三方内容"继续跑水印层',
+        )
+      }
     }
   }
   const roots = [...new Map(declared.map((d) => [d.root, d])).values()]
