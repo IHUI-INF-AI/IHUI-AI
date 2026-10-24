@@ -15,13 +15,17 @@
  * 只补 ① 会把「折行」变成「溢出压到邻格」(实测最多 61px),比折行更糟 —— 三者必须同批。
  *
  * 判据(全部纯源码,零浏览器依赖,每次提交都真跑):
- *   R1 StatCell 原语的读数 class 串必须含 whitespace-nowrap。
+ *   R1 凡「wb-num + 大字号(≥16px / lg|xl|2xl|3xl)」的读数 class 串必须含 whitespace-nowrap。
+ *      原判据只正则 StatCell 原语函数体 ⇒ 大屏另有 3 处手写 26px 读数在射程外(2026-10-24 补)。
  *   R2 --wb-cell-min 必须定义,且至少被一条 minmax() 消费(悬空常数=没上车)。
  *   R3 长读数档 .wb-cells-c3 的 minmax 下限必须引用 var(--wb-cell-min),不得另写数字。
  *   R4 凡 bodyClassName 带 wb-split-c3 的面板,其内每组 .wb-cells 必须同时带 wb-cells-c3
  *      (栏数与列宽必须同源;只改一边就会回到"两栏×3格=107px"那一档)。
  *   R5 wb-split-c3 的 @container 阈值必须逐字等于按源码自身常数复算的值:
  *      阈值 = 2×(每栏格数×列宽下限 + (格数-1)×列间距) + 栏间距,全部从被审面解析。
+ *   R6 fmtDuration 的时长读数所在网格不得停在裸 auto-fit 档(下限 96 < 单行需求)。
+ *      本门**不判**「够不够宽」—— 那取决于运行时值的长度,静态判必出假红;
+ *      真判据在 scripts/check-wallboard-readout-overflow.mjs(离线渲染实测,量的是每格实际溢出像素)。
  *
  * 档位:blocking;stagedTriggers 限定该 page.tsx(能造出该状态的那一面)。
  * 应急放行:HUSKY_SKIP_READOUT_NO_BREAK=1 + HUSKY_SKIP_READOUT_NO_BREAK_REASON。
@@ -70,22 +74,34 @@ export function expectedSplitThreshold(text) {
   return { value: 2 * perGroup + gapSplit, cellMin, gapCells, gapSplit, perGroup }
 }
 
+/** 时长读数 = fmtDuration 的「N天N小时」形态(单行需求实测 133-143px,裸档 96 放不下)。 */
+export const DURATION_RE = /fmtDuration/
+const BIG_NUM_RE = /['"`]([^'"`]*wb-num[^'"`]*)['"`]/g
+const BIG_FONT_RE = /(?:text-(?:lg|xl|2xl|3xl|4xl)\b|text-\[(?:1[6-9]|[2-9]\d)(?:\.\d+)?px\])/
+
+/** 某位置所属的网格 class 串(向上找最近的 className="…wb-cells…";必须允许 `mt-2 wb-cells` 这类前缀,
+ *  否则带 margin 的网格会整组从射程里静默消失 —— 2026-10-24 实测漏掉 5 枚)。 */
+function gridClassBefore(text, idx) {
+  const back = text.slice(0, idx)
+  const m = [...back.matchAll(/className="([^"]*\bwb-cells\b[^"]*)"/g)].pop()
+  return m ? m[1] : null
+}
+
 export function judge(text) {
   const v = []
   const u = []
 
-  // R1 StatCell 读数必须 nowrap
-  const stat = text.match(/function StatCell\([\s\S]*?\n\}\n/)
-  if (!stat) {
-    u.push('R1 找不到 StatCell 原语定义 ⇒ 未判定(原语被搬走要显式改这条判据)')
+  // R1 凡「wb-num + 大字号」的读数 class 串必须 nowrap(不再只认 StatCell 原语 ——
+  //    大屏另有 3 处手写 26px 读数,原判据结构上打不到)
+  const bigNums = [...text.matchAll(BIG_NUM_RE)].filter((m) => BIG_FONT_RE.test(m[1]))
+  if (bigNums.length === 0) {
+    u.push('R1 射程内一枚大字号 wb-num 读数都没枚举到 ⇒ 未判定(原语被搬走/改名要显式改这条判据)')
   } else {
-    const readout = [...stat[0].matchAll(/'(wb-num[^']*)'/g)].map((m) => m[1])
-    if (readout.length === 0) {
-      u.push('R1 StatCell 内找不到 wb-num 读数 class 串 ⇒ 未判定')
-    } else if (!readout.every((c) => c.includes('whitespace-nowrap'))) {
+    const bare = bigNums.filter((m) => !m[1].includes('whitespace-nowrap'))
+    if (bare.length > 0) {
       v.push({
         rule: 'R1',
-        msg: `StatCell 读数缺 whitespace-nowrap ⇒ 列宽一窄就把数字切成两半(现值 "${readout.join('" / "')}"）`,
+        msg: `${bare.length}/${bigNums.length} 枚大字号读数 class 串缺 whitespace-nowrap ⇒ 列宽一窄就把数字切成两半:① ${bare[0][1].slice(0, 90)}`,
       })
     }
   }
@@ -120,8 +136,9 @@ export function judge(text) {
       const start = p.index
       const next = text.indexOf('bodyClassName=', start + 1)
       const body = text.slice(start, next < 0 ? text.length : next)
-      const plain = [...body.matchAll(/className="wb-cells grid/g)].length
-      const fitted = [...body.matchAll(/className="wb-cells wb-cells-c3 grid/g)].length
+      const grids = [...body.matchAll(/className="([^"]*\bwb-cells\b[^"]*)"/g)].map((m) => m[1])
+      const plain = grids.filter((g) => !/\bwb-cells-(?:c3|wide|6|4)\b/.test(g)).length
+      const fitted = grids.length - plain
       if (plain > 0) {
         v.push({
           rule: 'R4',
@@ -145,6 +162,35 @@ export function judge(text) {
         `(=2×(${CELLS_PER_GROUP}×${exp.cellMin}+${CELLS_PER_GROUP - 1}×${exp.gapCells})+${exp.gapSplit})` +
         ` ⇒ 改了下限忘了改栏数档,两栏后每格会窄于读数单行需求`,
     })
+  }
+
+  // R6 长读数所在网格必须离开裸 auto-fit 档。
+  //    只判「fmtDuration 的中文双单位读数住在裸 wb-cells(下限 96)里」这一型 ——
+  //    它是实测确认会断的;至于「够不够宽」取决于运行时值的长度,静态判必出假红
+  //    (曾把 unit 槽的 11px 小字也算成复合读数,24 枚误红),那把尺住在
+  //    scripts/check-wallboard-readout-overflow.mjs(离线渲染实测),不在本门。
+  const statCells = [...text.matchAll(/<StatCell\b/g)]
+  if (statCells.length === 0) {
+    u.push('R6 一枚 StatCell 都没枚举到 ⇒ 未判定(组件改名或被搬走要显式改这条判据)')
+  } else {
+    const badDuration = []
+    for (let i = 0; i < statCells.length; i++) {
+      const c = statCells[i]
+      const end = i + 1 < statCells.length ? statCells[i + 1].index : c.index + 400
+      const blk = text.slice(c.index, Math.min(end, c.index + 400))
+      const valueM = blk.match(/value=\{([\s\S]*?)\n?\s*(?:tone|unit=|\/>)/)
+      const valueExpr = valueM ? valueM[1] : ''
+      if (!DURATION_RE.test(valueExpr)) continue
+      const grid = gridClassBefore(text, c.index) ?? ''
+      // 固定列档(3/4 列)与 c3/wide 都算合格;不合格的只有裸 auto-fit 96 档
+      if (!/wb-cells-(?:c3|wide|6|4)/.test(grid)) badDuration.push({ grid, value: valueExpr.replace(/\s+/g, ' ').slice(0, 60) })
+    }
+    for (const x of badDuration) {
+      v.push({
+        rule: 'R6',
+        msg: `时长读数(fmtDuration 的「N天N小时」形态)住在「${x.grid || '找不到所属网格'}」里 ⇒ 裸档下限 96 < 单行需求,该网格须用 .wb-cells-c3。值 = ${x.value}`,
+      })
+    }
   }
 
   return { violations: v, unjudged: u }
@@ -177,6 +223,8 @@ export const __test__ = {
   REPO_ROOT,
   TARGET_REL,
   CELLS_PER_GROUP,
+  DURATION_RE,
+  gridClassBefore,
   parseCellMin,
   parseGapPx,
   expectedSplitThreshold,
@@ -202,6 +250,16 @@ function selfTest() {
     ['minmax 写死数字 ⇒ R3', real.replace('minmax(var(--wb-cell-min), 1fr)', 'minmax(143px, 1fr)'), (r) => r.violations.some((x) => x.rule === 'R3')],
     ['面板组退回裸 wb-cells ⇒ R4', real.replace(/className="wb-cells wb-cells-c3 grid/g, 'className="wb-cells grid'), (r) => r.violations.some((x) => x.rule === 'R4')],
     ['只改下限不改栏阈值 ⇒ R5', real.replace(/--wb-cell-min:\s*\d+px/, '--wb-cell-min: 160px'), (r) => r.violations.some((x) => x.rule === 'R5')],
+    [
+      '时长读数组退回裸 auto-fit ⇒ R6',
+      real.replace('className="wb-cells wb-cells-6 grid gap-1.5"', 'className="wb-cells grid gap-1.5"'),
+      (r) => r.violations.some((x) => x.rule === 'R6'),
+    ],
+    [
+      '大字号读数被摘掉 nowrap ⇒ R1(手写 26px 那三处也在射程内)',
+      real.replace(/(wb-num mt-[0-9.]+ text-\[26px\] leading-none font-bold) whitespace-nowrap/, '$1'),
+      (r) => r.violations.some((x) => x.rule === 'R1'),
+    ],
     ['摘掉 wb-split-c3 ⇒ R4 未判定不冒绿', real.replace(/bodyClassName="wb-split wb-split-c3"/, 'bodyClassName="wb-split"'), (r) => r.unjudged.some((x) => x.startsWith('R4'))],
   ]
   let fail = 0

@@ -499,14 +499,38 @@ export function UserCard() {
 .wb-root { --wb-cell-min: 143px; }
 /* 2) 长读数组用这一档 ⇒ 宽度不足时 auto-fit 自动减列,而不是折断读数 */
 .wb-cells-c3 { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min), 1fr)); }
+/* 2b) 复合读数(「12.3 GB / 15.6 GB」「↓ 1.5 MB/s ↑ 1.5 MB/s」= 两个量并排 + unit 槽)
+       另开一档:实测单行需 224px,用 c3 仍会溢出 51px。 */
+.wb-root { --wb-cell-min-wide: 224px; }
+.wb-cells-wide { grid-template-columns: repeat(auto-fit, minmax(var(--wb-cell-min-wide), 1fr)); }
 /* 3) 该组住在两栏分组里时,栏阈值由同一批常数复算,不得另写数字
       890 = 2×(3×143 + 2×6) + 8   // 每栏格数×下限 + (格数-1)×列间距,再乘 2 栏 + 栏间距 */
 @container (min-width: 890px) { .wb-split-c3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 ```
 
-读数容器同时必须带 `whitespace-nowrap`(`StatCell` 原语已内置)。
+读数容器必须带 `whitespace-nowrap`——不只 `StatCell` 原语,**手写的 `wb-num` 大字号读数同样在册**(大屏里有 3 处 26px 手写读数,原判据只正则原语函数体,结构上打不到它们)。
+**用了 `wb-split-c3` 的面板,其内每一组网格都必须落在 c3 / wide / 固定列档上**:只改栏数不改列宽,等于把折行换成溢出。
 
-守门:`check-readout-no-break.mjs`(240,blocking)—— R1 原语 nowrap / R2 常数定义且被消费 / R3 c3 档引用常数 / R4 用了 `wb-split-c3` 的面板内每组必须同档 / R5 栏阈值等于按被审面自身常数复算的值。镜像测试 `scripts/tests/check-readout-no-break.test.mjs`(15 例,每条判据各有"摘掉即翻红"的成对夹具)。
+守门:`check-readout-no-break.mjs`(240,blocking)—— R1 大字号读数 nowrap / R2 常数定义且被消费 / R3 c3 档引用常数 / R4 用了 `wb-split-c3` 的面板内每组必须同档 / R5 栏阈值等于按被审面自身常数复算的值 / R6 时长读数所在网格不得停在裸 auto-fit 档。镜像测试 `scripts/tests/check-readout-no-break.test.mjs`(17 例,每条判据各有"摘掉即翻红"的成对夹具)。
+
+### 13.3 「够不够宽」必须真渲染,所以另有一把尺
+
+「够不够宽」取决于**运行时值的长度**,静态判必出假红(实测:把 11px 的 unit 槽也算成复合读数,一次造出 24 枚假红)。所以分两层:
+
+| 层 | 工具 | 判什么 | 挂哪 |
+| --- | --- | --- | --- |
+| 结构不变量 | `scripts/check-readout-no-break.mjs` | nowrap、常数同源、栏档与列档配套 | 提交链 blocking |
+| 像素够不够 | `scripts/verify-wallboard-readout.mjs` | 离线渲染(真实构建 CSS + 自托管字体)逐格量折行与溢出像素 | 只读尺子,不进提交链也不进守护巡检 |
+
+```bash
+node scripts/verify-wallboard-readout.mjs --worktree --widths 1280,1440,1600,1920
+```
+
+读它输出时必须同时看三条诚实约束:
+
+- **建模取自被审文件本身**(面板 class / 网格 class / 每格 label+value 表达式全解析),不接受手工清单——手工副本会与被审面漂移(本尺第一版就因此漏掉 wide 档);解析到的格数 ≠ 源码 `<StatCell` 枚数 ⇒ 直接 exit 2 拒绝判定。
+- 读数最坏形态分两档:**[实]** = 生产现读量级、**[保]** = 保守上界(999,999 这类)。**只有 [实] 档放不下才定红**,[保] 档只报数——不能拿没发生的数据逼人改布局。
+- 取不到 `.next/static/chunks/*.css`,或产物里没有 `whitespace-nowrap` 工具类 ⇒ 未判定,不冒绿。
 
 **本条无行内豁免。** 需要更窄的格子请改用纯数字读数(先格式化,如 `365天23小时` → `365d`),而不是放宽下限——格式化是数据表达决策,断行不是。
 
