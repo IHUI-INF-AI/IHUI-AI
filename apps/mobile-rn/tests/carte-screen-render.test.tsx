@@ -11,9 +11,9 @@
  *     —— 替身按既有纪律转发真身,卡片的 testID 只住在共享屏,壳里没有;
  *  ② 上屏段落的构成与顺序 = 跨端单一源 `CARTE_SEGMENTS`(RN 与小程序读同一张表),
  *     两端按表出段即同形,漂一段/换一次序当场判红;
- *  ③ 迁移门(守门 check-rn-app-migration)的判据按 §22c 直接 import 源脚本 `__test__`,
- *     本壳零违规;阳性对照证明"没有 import 共享层"这一型仍会被判 V1 红 ——
- *     即白名单被发起人摘掉之后,这条链子仍有牙。
+ *  ③ 迁移门(守门 check-rn-app-migration)对本壳的判据断言住在 `scripts/tests/check-rn-app-migration.test.mjs`
+ *     的 T11(零违规 + 摘掉白名单仍零违规 + 抹掉共享层 import 必翻 V1 红)。端内不再 import 门体:
+ *     那是一条 apps/mobile-rn(rank 40)→ repo-tooling(rank 90) 的反向依赖,门 103 当场判 D1+D2。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createElement } from 'react'
@@ -23,7 +23,6 @@ import { fileURLToPath } from 'node:url'
 import { render, screen, cleanup } from '@testing-library/react'
 import { messages, getValueByPath, I18nProvider, type Locale } from '../src/i18n'
 import { CARTE_I18N_KEYS, CARTE_SEGMENTS } from '@ihui/shared/constants'
-import { __test__ as rnAppGate } from '../../../scripts/check-rn-app-migration.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -85,24 +84,6 @@ describe('CarteScreen 渲染的是共享层那一份', () => {
     expect(container.querySelector('[testid="__no_such_card__"]')).toBeNull()
     expect(sharedText).toContain('carte-promo-card')
     expect(shellText).not.toContain('carte-promo-card')
-  })
-
-  it('迁移门判据(源脚本 __test__,不复制判据)对本壳零违规;摘掉豁免同样零违规', () => {
-    const run = (whitelist: Map<string, { why: string; expires: string }>, text: string) =>
-      rnAppGate.verdict({
-        screens: [{ name: 'CarteScreen.tsx', text }],
-        baseline: new Map([['CarteScreen.tsx', text]]),
-        sharedNames: new Set([rnAppGate.stemOf('CarteScreen.tsx')]),
-        headScreenNames: new Set(['CarteScreen.tsx']),
-        whitelist,
-        today: rnAppGate.isoToday(),
-      })
-    expect(run(rnAppGate.WHITELIST_ENTRIES, shellText).violations).toEqual([])
-    // 阳性对照 1:白名单被摘掉后,真壳仍判绿(靠的是真 import)
-    expect(run(new Map(), shellText).violations).toEqual([])
-    // 阳性对照 2:同一把尺子把 import 抹掉必须判 V1 红(否则上一条断言是恒真的)
-    const stripped = shellText.replace(/'@ihui\/rn-app'/g, "'../screens/CarteScreenLocal'")
-    expect(run(new Map(), stripped).violations.map((v: { code: string }) => v.code)).toEqual(['V1'])
   })
 
   it('壳里没有第二份样式表 —— 版式只住在共享屏', () => {
