@@ -262,6 +262,14 @@ export default defineConfig({
         __dirname,
         '../../packages/shared/src/chat/slash-command-ids.ts',
       ),
+      // D43 票③ RN 腿(2026-10-23):语音笔记 12 相机消费点(src/components/chat/VoiceNote.tsx)
+      // 按深路径引共享出口(与 web 组件同形)。必须排在 '@ihui/shared/chat' 父别名之前 ——
+      // 父别名按 startsWith(pattern+'/') 会把子路径吞成 <chat/index.ts>/voice-note
+      // (收集期 MODULE_NOT_FOUND,本文件已登记过三次同型死法)。指真实源码:测的就是这台机。
+      '@ihui/shared/chat/voice-note': resolve(
+        __dirname,
+        '../../packages/shared/src/chat/voice-note.ts',
+      ),
       '@ihui/shared/chat': resolve(__dirname, '../../packages/shared/src/chat/index.ts'),
       // O81 票③:shared 包新增 './ui' 子路径导出(barrel + 纯 spec 模块,无 DOM/RN 依赖),
       // 当时漏配别名 ⇒ 父别名 '@ihui/shared' 按 startsWith(pattern+'/') 吞掉 '@ihui/shared/ui',

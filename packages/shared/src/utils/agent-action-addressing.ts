@@ -120,10 +120,10 @@ export function withRespondedIdentity(
  * 复杂度:每路由一条 {lastOrdinal, lastId} 墓碑,O(1) 常量内存,不随条目数增长 ——
  * 与 id 集合的 O(capacity) 且「淘汰即复活」形成对照。
  *
- * 序号来源:上游协议帧自带 ordinal;我方载荷暂无序号字段,接线端先以端内到达计数作
- * provisional ordinal(此时水位器恒判 fresh,去重由既有 id 集承担),协议一旦下发序号,
- * 只需替换取值来源,判定语义与测试已就位 —— 已淘汰 id 的重放与新指令在纯端内计数下
- * 字节同构,这是信息边界,不是实现缺口。
+ * 序号来源:G-86(拍板@2026-10-09)已入库 —— AgentActionRequest.ordinal 由服务端派发时盖写
+ * (同 requestId 重投复用同值),接线端(use-agent-control / use-ui-control-bridge)以它为取值
+ * 来源;载荷无该字段(旧服务端)时回退端内到达计数作 provisional ordinal(此时水位器恒判
+ * fresh,去重由既有 id 集承担)。判定语义与测试两档共用,不随取值来源改变。
  */
 
 /** 每路由 settled 墓碑:单调水位 + 该序号上的身份 */

@@ -1891,6 +1891,12 @@
       ],
       "reason": "同 zh-CN:26 枚 login.* 随枚 ae95d930e0 删除登录页成孤儿,全仓零引用、无动态拼接/命名空间消费、无契约测试钉住;同批五语言等量删除保持 parity,派生载荷由 gen-i18n-compressed 重派。回潮判据:恢复登录页/验证码登录须另票并按当次措辞补齐五语言。",
       "until": "2027-10-23"
+    },
+    {
+      "file": "packages/i18n/messages/web/zh-TW.json",
+      "keys": ["openOnGitcode", "openOnGitee"],
+      "reason": "Gitee/GitCode 镜像入口已于 d10db9132d 按机主令整体清除,本对键是 b4e3d74076(2026-10-24 繁中补 64 键)误补回的镜像残留;现读全仓零消费方(除 packages/i18n/messages 自身外 git grep 无命中,SiteFooter 只剩 openOnGithub),且其余四语言均无此二键 ⇒ 删之才 parity。回潮判据:若重新引入镜像入口须先推翻弃用令,不得只补词条。",
+      "until": "2027-10-24"
     }
   ]
 }
