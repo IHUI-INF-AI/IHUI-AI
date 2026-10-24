@@ -85,12 +85,6 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     postFooter: { flexDirection: 'row', gap: 16 },
     stat: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     statNum: { fontSize: 12, color: tk.text.tertiary },
-    center: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 60,
-      gap: 8,
-    },
     stateText: { fontSize: 13, color: tk.text.tertiary },
     footer: { alignItems: 'center', paddingVertical: 12 },
   } satisfies Record<string, ViewStyle | TextStyle>)
