@@ -6,7 +6,6 @@ import { rnRadius } from '@ihui/design-tokens'
 import { useMemo } from 'react'
 import {
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -17,6 +16,12 @@ import {
 import type { TFunction } from '@ihui/types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '../../components/ScreenStates'
 
 /** AI 技能列表条目(平台无关,由 wrapper 从 AiSkillMeta 映射) */
 export interface AiSkillListItem {
@@ -70,8 +75,8 @@ export function AiSkillScreen({
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <Text style={styles.loadingText}>{t('common.loading')}</Text>
+      <View style={styles.container}>
+        <ScreenSkeleton variant="card" count={4} colorScheme={colorScheme} />
       </View>
     )
   }
@@ -88,23 +93,12 @@ export function AiSkillScreen({
       </View>
 
       {error ? (
-        <View style={[styles.center, styles.errorWrap]}>
-          <Text style={[styles.hintText, styles.errorText]}>{error}</Text>
-          {/* 守门 131 那一型:函数形态 style 落在 Pressable 上会被 cssInterop 展开成空对象,
-              整份内联样式静默消失。retryBtn 含底色与圆角(有绘制),故整盒下移到子 View 数组形态;
-              外层裸 Pressable 只承接交互。宽度原本由内容决定(父层 alignItems center),故不补百分比宽。 */}
-          <Pressable
-            onPress={onRetry}
-            accessibilityRole="button"
-            accessibilityLabel={t('aiSkill.retry')}
-          >
-            {({ pressed }) => (
-              <View style={[styles.retryBtn, pressed ? styles.pressed : null]}>
-                <Text style={styles.retryText}>{t('aiSkill.retry')}</Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
+        <ErrorState
+          message={error}
+          onRetry={onRetry}
+          retryLabel={t('aiSkill.retry')}
+          colorScheme={colorScheme}
+        />
       ) : (
         <FlatList
           data={items}
@@ -117,48 +111,40 @@ export function AiSkillScreen({
               tintColor={tk.text.secondary}
             />
           }
-          ListEmptyComponent={
-            <View style={styles.emptyWrap}>
-              <Text style={styles.hintText}>{t('aiSkill.empty')}</Text>
-            </View>
-          }
+          ListEmptyComponent={<EmptyState title={t('aiSkill.empty')} colorScheme={colorScheme} />}
           renderItem={({ item }) => (
-            // 同上(守门 131 那一型):卡片盒含描边/圆角/底色(有绘制),整盒下移到子 View;
-            // 改前宽度由列表列的父级 stretch 撑出,故内层用 cardFace 把宽度显式还给盒子。
-            <Pressable
+            // 卡片盒由 PressableCard 承接(描边/圆角/底色 + 按压缩放反馈);
+            // 宽度仍由 cardFace 显式还给盒子(改前由列表列的父级 stretch 撑出)。
+            <PressableCard
               onPress={() => onOpenSkill(item)}
-              accessibilityRole="button"
-              accessibilityLabel={item.name}
+              colorScheme={colorScheme}
+              style={[styles.cardFace, styles.card]}
             >
-              {({ pressed }) => (
-                <View style={[styles.cardFace, styles.card, pressed ? styles.pressed : null]}>
-                  <View style={styles.cardHeader}>
-                    <Text style={styles.cardName} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryText} numberOfLines={1}>
-                        {item.category}
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <View style={styles.categoryBadge}>
+                  <Text style={styles.categoryText} numberOfLines={1}>
+                    {item.category}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.cardDescription} numberOfLines={2}>
+                {item.description}
+              </Text>
+              {item.tags.length > 0 ? (
+                <View style={styles.tagRow}>
+                  {item.tags.slice(0, 4).map((tag) => (
+                    <View key={tag} style={styles.tagChip}>
+                      <Text style={styles.tagText} numberOfLines={1}>
+                        {tag}
                       </Text>
                     </View>
-                  </View>
-                  <Text style={styles.cardDescription} numberOfLines={2}>
-                    {item.description}
-                  </Text>
-                  {item.tags.length > 0 ? (
-                    <View style={styles.tagRow}>
-                      {item.tags.slice(0, 4).map((tag) => (
-                        <View key={tag} style={styles.tagChip}>
-                          <Text style={styles.tagText} numberOfLines={1}>
-                            {tag}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
+                  ))}
                 </View>
-              )}
-            </Pressable>
+              ) : null}
+            </PressableCard>
           )}
         />
       )}
@@ -175,18 +161,6 @@ function createStyles(tk: AppThemeTokens) {
     container: {
       flex: 1,
       backgroundColor: tk.surface.bg,
-    },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    pressed: {
-      opacity: 0.85,
-    },
-    loadingText: {
-      fontSize: 14, // text-sm
-      color: tk.text.secondary,
     },
     /* 顶部导航行 */
     headerBar: {
@@ -206,35 +180,9 @@ function createStyles(tk: AppThemeTokens) {
     headerSidePlaceholder: {
       width: 40, // w-10
     },
-    /* 错误态 */
-    errorWrap: {
-      paddingHorizontal: 24, // px-6
-    },
-    hintText: {
-      fontSize: 14, // text-sm
-      color: tk.text.secondary,
-      textAlign: 'center',
-    },
-    errorText: {
-      marginBottom: 12, // mb-3
-    },
-    retryBtn: {
-      borderRadius: rnRadius.sm, // rounded-md
-      paddingHorizontal: 16, // px-4
-      paddingVertical: 8, // py-2
-      backgroundColor: tk.surface.muted,
-    },
-    retryText: {
-      fontSize: 14, // text-sm
-      color: tk.text.primary,
-    },
     /* 列表 */
     listContent: {
       padding: 16, // p-4
-    },
-    emptyWrap: {
-      alignItems: 'center',
-      paddingVertical: 64, // py-16
     },
     /* 技能卡片 */
     // 守门 131 转换新增:卡片盒下移到子 View 后,宽度由该档显式还给盒子

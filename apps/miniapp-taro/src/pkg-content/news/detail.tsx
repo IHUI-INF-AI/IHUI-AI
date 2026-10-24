@@ -12,6 +12,7 @@ import * as api from '@/api'
 import { getNewsDetail, type News } from '@/api'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
+import { EmptyState, PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import LineIcon from '@/components/LineIcon'
 
 // 防御式扩展:likeNews / getRelatedNews 当前 @/api 未导出,运行时若存在则调用,否则静默 fallback
@@ -118,13 +119,7 @@ export default function NewsDetailPage() {
       {/* 页面底色对齐 RN shell/共享屏 surface.bg;内容布局对齐 SharedArticleDetailScreen */}
       <View className="min-h-screen bg-background pb-[140rpx]">
         <NavBar showBack />
-        {loading ? (
-          <View className="flex items-center justify-center py-[240rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
-              {tt('common.loading', '加载中…')}
-            </Text>
-          </View>
-        ) : null}
+        {loading ? <ScreenSkeleton variant="card" count={3} /> : null}
 
         {!loading && news.title ? (
           <View className="px-[20rpx] pt-[24rpx]">
@@ -166,11 +161,10 @@ export default function NewsDetailPage() {
             </Text>
             <View className="flex flex-col gap-[16rpx]">
               {related.map((r) => (
-                <View
+                <PressableCard
                   key={r.id}
                   className="flex gap-[20rpx] p-[20rpx] bg-card rounded-lg"
                   onClick={() => goRelated(r.id)}
-                  hoverClass="opacity-60"
                 >
                   {r.coverUrl ? (
                     <Image
@@ -192,19 +186,13 @@ export default function NewsDetailPage() {
                       </Text>
                     </View>
                   </View>
-                </View>
+                </PressableCard>
               ))}
             </View>
           </View>
         ) : null}
 
-        {!loading && !news.title ? (
-          <View className="flex items-center justify-center py-[240rpx]">
-            <Text className="text-[length:28rpx] text-muted-foreground">
-              {tt('common.empty', '暂无数据')}
-            </Text>
-          </View>
-        ) : null}
+        {!loading && !news.title ? <EmptyState title={tt('common.empty', '暂无数据')} /> : null}
 
         {/* 底部操作栏:对齐 RN wrapper bottomBar(space-around + hairline 上边框 + 白底) */}
         {!loading && news.title ? (

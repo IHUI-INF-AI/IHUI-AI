@@ -14,6 +14,7 @@ import type {
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 学习记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { StudyRecordItem, StudyRecordScreenProps, StudyRecordStats, StudyRecordStatus }
@@ -113,9 +114,7 @@ export function StudyRecordScreen({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading ? (
-        <View style={styles.center}>
-          <Text style={styles.muted}>{t('common.loading')}</Text>
-        </View>
+        <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
         <FlatList<StudyRecordItem>
           data={records}
@@ -125,9 +124,7 @@ export function StudyRecordScreen({
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListHeaderComponent={stats ? renderStats(stats) : null}
           ListEmptyComponent={
-            <View style={styles.center}>
-              <Text style={styles.muted}>{t('studyRecord.empty')}</Text>
-            </View>
+            <EmptyState title={t('studyRecord.empty')} colorScheme={colorScheme} />
           }
           renderItem={({ item }) => {
             const title = item.courseTitle || item.lessonTitle || t('studyRecord.untitled')
@@ -174,8 +171,6 @@ function createStyles(tk: AppThemeTokens) {
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary },
     subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     listBody: { padding: 14, paddingBottom: 32 },
     separator: { height: 8 },
     statsCard: {

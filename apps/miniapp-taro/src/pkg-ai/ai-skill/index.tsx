@@ -15,6 +15,12 @@ import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import {
+  EmptyState,
+  ErrorState,
+  PressableCard,
+  ScreenSkeleton,
+} from '@/components/ScreenStates.taro'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -30,24 +36,6 @@ const viewStyles = {
     height: '100vh',
     backgroundColor: isDark ? 'var(--color-surface-dark)' : 'var(--color-surface-light)',
   }),
-  center: (isDark: boolean): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    paddingLeft: toRpx(24),
-    paddingRight: toRpx(24),
-    backgroundColor: isDark ? 'var(--color-surface-dark)' : 'var(--color-surface-light)',
-  }),
-  // 列表内空态(RN ListEmptyComponent: items-center py-16,py 64px→128rpx,非全屏)
-  emptyInline: (): CSSProperties => ({
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    paddingTop: toRpx(64),
-    paddingBottom: toRpx(64),
-  }),
   header: (): CSSProperties => ({
     display: 'flex',
     flexDirection: 'row',
@@ -56,15 +44,6 @@ const viewStyles = {
     paddingLeft: toRpx(16),
     paddingRight: toRpx(16),
     paddingTop: toRpx(12),
-    paddingBottom: toRpx(8),
-  }),
-  // 重试按钮对齐 RN:bg-gray-200(rounded-md 6px→12rpx;亮 #E5E5E5 ≈ --color-border)
-  retryBtn: (_tk: RnThemeTokens): CSSProperties => ({
-    borderRadius: toRpx(6),
-    backgroundColor: 'var(--color-border)',
-    paddingLeft: toRpx(16),
-    paddingRight: toRpx(16),
-    paddingTop: toRpx(8),
     paddingBottom: toRpx(8),
   }),
   listBody: (): CSSProperties => ({
@@ -121,24 +100,9 @@ const viewStyles = {
 }
 
 const textStyles = {
-  // text.secondary #666666/#A3A3A3 ↔ --color-muted-foreground(亮暗成对)
-  muted: (_tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
-    color: 'var(--color-muted-foreground)',
-  }),
   headerTitle: (_tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(16),
     fontWeight: '500',
-    color: 'var(--color-foreground)',
-  }),
-  errorText: (_tk: RnThemeTokens): CSSProperties => ({
-    marginBottom: toRpx(12),
-    fontSize: toRpx(14),
-    color: 'var(--color-muted-foreground)',
-    textAlign: 'center',
-  }),
-  retryText: (_tk: RnThemeTokens): CSSProperties => ({
-    fontSize: toRpx(14),
     color: 'var(--color-foreground)',
   }),
   cardName: (_tk: RnThemeTokens): CSSProperties => ({
@@ -225,8 +189,8 @@ export default function AiSkillList() {
   if (loading) {
     return (
       <ThemeRoot>
-        <View style={viewStyles.center(isDark)}>
-          <Text style={textStyles.muted(tk)}>{tt('common.loading', '加载中...')}</Text>
+        <View style={viewStyles.container(tk, isDark)}>
+          <ScreenSkeleton variant="card" count={4} />
         </View>
       </ThemeRoot>
     )
@@ -241,26 +205,18 @@ export default function AiSkillList() {
         </View>
 
         {error ? (
-          <View style={viewStyles.center(isDark)}>
-            <Text style={textStyles.errorText(tk)}>{error}</Text>
-            <View style={viewStyles.retryBtn(tk)} onTap={retry} hoverClass="opacity-60">
-              <Text style={textStyles.retryText(tk)}>{tt('aiSkill.retry', '重试')}</Text>
-            </View>
-          </View>
+          <ErrorState message={error} onRetry={retry} retryLabel={tt('aiSkill.retry', '重试')} />
         ) : (
           <ScrollView scrollY style={viewStyles.listBody()}>
             <View style={viewStyles.listPadding()}>
               {items.length === 0 ? (
-                <View style={viewStyles.emptyInline()}>
-                  <Text style={textStyles.muted(tk)}>{tt('aiSkill.empty', '暂无技能')}</Text>
-                </View>
+                <EmptyState title={tt('aiSkill.empty', '暂无技能')} />
               ) : (
                 items.map((item) => (
-                  <View
+                  <PressableCard
                     key={item.id}
                     style={viewStyles.card(tk, isDark)}
-                    onTap={() => onOpen(item)}
-                    hoverClass="opacity-60"
+                    onClick={() => onOpen(item)}
                   >
                     <View style={viewStyles.cardTitleRow()}>
                       <Text style={textStyles.cardName(tk)}>{item.name}</Text>
@@ -278,7 +234,7 @@ export default function AiSkillList() {
                         ))}
                       </View>
                     ) : null}
-                  </View>
+                  </PressableCard>
                 ))
               )}
             </View>

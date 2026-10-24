@@ -3,13 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useMemo } from 'react'
-import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
-import { ChevronLeft } from 'lucide-react-native'
+import { ScrollView, Text, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ExamResultItem, ExamResultScreenProps } from '../../types'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** ExamResult 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ExamResultItem, ExamResultScreenProps }
@@ -26,20 +26,16 @@ export function ExamResultScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.muted}>{t('common.loading')}</Text>
-      </View>
-    )
+    return <ScreenSkeleton variant="card" count={3} colorScheme={colorScheme} />
   }
   if (error || !item) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error || t('examResult.loadFailed')}</Text>
-        <TouchableOpacity style={styles.btn} onPress={onBack} accessibilityLabel={t('common.back')}>
-          <ChevronLeft size={16} color={tk.brand.ctaForeground} />
-        </TouchableOpacity>
-      </View>
+      <ErrorState
+        message={error || t('examResult.loadFailed')}
+        onRetry={onBack}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -96,22 +92,6 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     content: { paddingHorizontal: 10, paddingBottom: 32 },
-    center: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: tk.surface.bg,
-      padding: 16,
-    },
-    muted: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    error: { fontSize: 14, color: tk.danger.DEFAULT, marginBottom: 8, textAlign: 'center' },
-    btn: {
-      marginTop: 12,
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
     title: {
       marginTop: 8,
       marginBottom: 12,

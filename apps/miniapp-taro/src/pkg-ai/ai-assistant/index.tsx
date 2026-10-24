@@ -18,6 +18,7 @@ import { getToken, getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
 import BackChevron from '@/components/BackChevron'
+import { EmptyState } from '@/components/ScreenStates.taro'
 
 interface QAItem {
   question: string
@@ -267,11 +268,7 @@ export default function AiAssistantPage() {
 
           {/* 对齐 RN Empty:py 48dp=96rpx / px 24dp=48rpx / 文字 14dp=28rpx 次级色 */}
           {list.length === 0 ? (
-            <View className="flex flex-col items-center py-[96rpx] px-[48rpx]">
-              <Text className="text-[length:28rpx] text-muted-foreground">
-                {tt('aiassistant.text3', '请在下方输入您的问题')}
-              </Text>
-            </View>
+            <EmptyState title={tt('aiassistant.text3', '请在下方输入您的问题')} />
           ) : (
             list.map((item, idx) => (
               <View key={idx} className="mb-[16rpx]">

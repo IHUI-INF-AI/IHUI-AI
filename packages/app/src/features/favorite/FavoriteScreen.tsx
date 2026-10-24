@@ -18,6 +18,7 @@ import { Star } from 'lucide-react-native'
 
 import { rnRadius } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
+import { EmptyState, ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 收藏列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FavoriteFilterTab, FavoriteItemRow, FavoriteScreenProps }
@@ -88,7 +89,14 @@ export function FavoriteScreen({
         })}
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? (
+        <ErrorState
+          message={error}
+          onRetry={onRefresh}
+          retryLabel={t('common.retry')}
+          colorScheme={colorScheme}
+        />
+      ) : null}
 
       <FlatList<FavoriteItemRow>
         data={items}
@@ -100,13 +108,9 @@ export function FavoriteScreen({
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
           loading ? (
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('common.loading')}</Text>
-            </View>
+            <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
           ) : (
-            <View style={styles.center}>
-              <Text style={styles.emptyText}>{t('favorite.empty')}</Text>
-            </View>
+            <EmptyState title={t('favorite.empty')} colorScheme={colorScheme} />
           )
         }
         ListFooterComponent={
@@ -174,11 +178,8 @@ function createStyles(tk: AppThemeTokens) {
     tabActive: { backgroundColor: tk.brand.cta },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     listBody: { padding: 10, paddingBottom: 32 },
     separator: { height: 12 },
-    center: { alignItems: 'center', paddingVertical: 48 },
-    emptyText: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
     footer: { alignItems: 'center', paddingVertical: 16 },
     footerText: { fontSize: 11, color: tk.text.secondary },
     card: {

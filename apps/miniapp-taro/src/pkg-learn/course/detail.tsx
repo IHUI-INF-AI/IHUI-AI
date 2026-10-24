@@ -10,6 +10,7 @@ import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/t
 import { useState, useEffect, useCallback } from 'react'
 import { getCourseDetail, post, type Course } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import { ScreenSkeleton } from '@/components/ScreenStates.taro'
 import {
   CourseHeader,
   CourseCatalog,
@@ -135,8 +136,8 @@ export default function CourseDetail() {
   if (!course) {
     return (
       <ThemeRoot>
-        <View className="flex items-center justify-center h-screen text-muted-foreground">
-          <Text>{t('common.loading')}</Text>
+        <View className="min-h-screen bg-background">
+          <ScreenSkeleton variant="list" count={4} />
         </View>
       </ThemeRoot>
     )
