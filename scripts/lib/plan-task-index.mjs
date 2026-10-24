@@ -1595,7 +1595,7 @@ const DISPOSITION_RULES = [
  * 与 `DISPOSITION_RULES` 共享同一份正则,所以"搬进侧车"这一步不可能因为词表分家而静默改判(§0.6)。
  */
 const WAITING_ENV_BARE_RE =
-  /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)|不可执行|排后/
+  /本机结构性缺|本机(无|没有|未装|起不来)|需真机|需 macOS|模拟器|开发者工具|阻塞(主体|在|于)|生产侧|暂留本地|需建表|等(并行|对端|环境|新装机)|外部(条件|服务)|线上(仍是|未|无)|不可执行|排后|等(?:机主|用户|持有人)(?!\s*(?:拍|裁决|定夺|确认|决策))|待用户(?!\s*(?:拍|裁决|定夺|确认|决策))/
 /** 作者自述槽:`在等什么:` / `在等:` 后面跟着他写明的等待对象。 */
 const WAITING_ENV_SLOT_RE = /在等(?:什么)?[:：]\s*([^,，。;：:（）()\n]{1,40})/
 export function waitingEnvRe() {
@@ -1713,6 +1713,27 @@ export function waitingEnvVerdict(line) {
 /** 槽内「等的是人」:`等` 与身份词之间只许夹虚词/指示词。 */
 const WAITING_HUMAN_SLOT_HUMAN_RE =
   /等[^。；;]{0,4}?(?:人|用户|机主|产品|持有人|人工|对方|各方|上面|领导|owner)/
+/**
+ * 侧车投影标头的语法(唯一实现;`lib/plan-field-line.mjs` 的 stripHeader 从这里取,§0.6 只此一份)。
+ * 2026-10-25 下移到本文件,因为**判定层也必须剥它**:投影不是正文。
+ * 立因(现读实测):`〔归:—｜等:机主真机窗口〕` 这类标头被 waiting-human 的措辞判据当成
+ * "等机主"命中 ⇒ F11 把 19 条条件等待判成"等人拍板",而它的语义来自侧车 `waiting: env`,
+ * 标头只是投影。判定层与渲染层必须同一份剥法,否则同一行在两个面上是两个归属。
+ */
+export function stripSidecarHeader(line) {
+  const m = /^(\s*-\s*\[[ xX]\]\s*)〔归[:：][^〕]*〕[ \t]*(.*)$/s.exec(String(line ?? ''))
+  return m ? m[1] + m[2] : String(line ?? '')
+}
+/** 标头两段原文(归 / 等);无标头 ⇒ null。`等` 段文案是**归属桶的唯一投影证据**(见 dispositionOf)。 */
+export function sidecarHeaderParts(line) {
+  const m = /^\s*-\s*\[[ xX]\]\s*〔归[:：]([^〕]*)〕/.exec(String(line ?? ''))
+  if (!m) return null
+  const body = m[1]
+  const mm = /[｜|]等[:：]([\s\S]*)$/.exec(body)
+  const owner = (mm ? body.slice(0, mm.index) : body).trim()
+  const wait = mm ? mm[1].trim() : ''
+  return { owner, wait }
+}
 /** 通道 B 的自述槽(`在等什么` / `在等:` / `它在等什么`)—— **导出是因为它是验收面**:
  *  镜像测试要按它逐条核"槽内确实点明了等的是人",而判据面之外的读者(人)也要能 grep 到它。
  *  ⚠️ 它在 2026-10-07 一度只剩**使用**没有**定义**(判据直接 ReferenceError,自测与 CLI 全挂),
@@ -1722,9 +1743,17 @@ const WAITING_HUMAN_SLOT_HUMAN_RE =
  *  ⇒ 这条与"证据入口自己读 0"(`prefixNestedCopies` 那次)是同一个病:**入口读 0 极易被读成"通过"。** */
 export const WAITING_HUMAN_SLOT_RE = /(?:在等什么|它在等什么|在等|等什么\*\*|它在哪等)/
 
-/** 通道 A 的候选点(词形只用于**定位**,真假由护栏定)。 */
+/** 通道 A 的候选点(词形只用于**定位**,真假由护栏定)。
+ *
+ *  ⚠️ 2026-10-25 收窄:只认"等人的**决断**",不再把裸 `等机主`/`等用户`/`等机主给值` 算进来。
+ *  立因(现读):F11 存量 24 条里 19 条是**条件等待**(等机主供值/真实账号/真机窗口/授权装 docker/
+ *  微信开放平台/核隧道/素材交付/双端在线)——它们既不是机主 2026-10-23 强制令点名的
+ *  「待拍板/等人拍板/需拍板/待用户确认」,也不该被派单(agent 拿不到凭据/账号/真机)。
+ *  旧词表把两者混成一桶 ⇒ 合并带进远端台账后 F11 恒红(§12e),而条件等待的归宿应是
+ *  `waiting-env`(等外部资源,判据在 WAITING_ENV_BARE_RE 的同族负向前瞻里)。
+ *  `等机主拍"…"`(K1 形态)仍命中的原因:`拍(?!板)` 覆盖"等 X 拍 + 引号/普通宾语"。 */
 export const WAITING_HUMAN_PHRASE_RE =
-  /等人拍板|等用户拍板|等产品拍板|等持有人拍板|等人工拍板|等机主拍板|等任何人拍板|等拍板|等机主给值|等机主|等用户|等尺子持有人裁决/
+  /等人拍板|等用户拍板|等产品拍板|等持有人拍板|等人工拍板|等机主拍板|等任何人拍板|等拍板|等尺子持有人裁决|等(?:机主|用户|持有人|产品|人工)(?:拍(?!板)|裁决|定夺|确认|决策)/
 
 /**
  * 第一把尺子的候选点(`需/待 + 人 + 决断动词` 措辞族)。
@@ -1735,7 +1764,7 @@ export const WAITING_HUMAN_PHRASE_RE =
  * **别再把它改回裸 `.test()`** —— 那会把四道护栏静默退回「见措辞就算」。
  */
 const WAITING_HUMAN_DIRECT_RE =
-  /需\s?[A-Za-z\u4e00-\u9fa5]{0,6}\s?拍板|需(产品|业务|运营)决策|待(产品|业务)决策|等待.{0,4}决策|需人定|需用户|待用户|待拍板|需用户确认|属 §24|请重新决定|未决决策|交人定|人来定|需人(定|拍板)/
+  /需\s?[A-Za-z\u4e00-\u9fa5]{0,6}\s?拍板|需(产品|业务|运营)决策|待(产品|业务)决策|等待.{0,4}决策|需人定|(?:需|待)用户(?:拍板|确认|决策|定夺)|待拍板|需用户确认|属 §24|请重新决定|未决决策|交人定|人来定|需人(定|拍板)/
 
 /**
  * 护栏①否定紧邻:negator **直接管辖**被否谓语 —— negator 与被否谓语之间只可夹虚词/功能词,
@@ -1917,12 +1946,24 @@ export function waitingHumanSelfVerdict(line) {
  *  ("台账明写「属 §24 需拍板」"),把它们一起遮掉就等于给判据摘牙(§12f:修红不得顺手削判据)。
  *  等长替换:列位不变,后续任何按列取窗的逻辑不受影响。 */
 export function dispositionFace(line) {
-  return String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
+  // 先剥侧车投影标头(2026-10-25):标头是投影,不参与正文措辞判定 —— 否则
+  // `〔归:—｜等:机主真机窗口〕` 会被"等机主"词形命中,把 env 等待读成"等人拍板"(F11 误判 19 条)。
+  const body = stripSidecarHeader(line)
+  return body.replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
 }
 export function dispositionOf(line) {
   const face = dispositionFace(line)
   for (const [kind, re] of DISPOSITION_RULES) {
     if (typeof re === 'function' ? re(line) : re.test(face)) return kind
+  }
+  // 正文判不出时按标头字段补一档(标头是侧车的投影,信息同源):
+  //   归属判据与正文用**同一份词表**,只是在含标头的遮码面上跑(口径不分家;`〔归:未派〕` 这类
+  //   占位读数由词表自己的负向前瞻排除);等 段含决断动词 ⇒ 等人拍板,否则有 等 段 ⇒ 等环境。
+  const h = sidecarHeaderParts(line)
+  if (h) {
+    const fullFace = String(line).replace(/`[^`\n]*`/g, (m) => ' '.repeat(m.length))
+    if (ownedElsewhereRe().test(fullFace)) return 'owned-elsewhere'
+    if (h.wait) return /拍|裁决|定夺|确认|决策/.test(h.wait) ? 'waiting-human' : 'waiting-env'
   }
   return 'actionable'
 }
