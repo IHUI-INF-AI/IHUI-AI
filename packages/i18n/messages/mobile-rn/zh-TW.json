@@ -1049,7 +1049,8 @@
     "catRpa": "RPA",
     "catCode": "編程",
     "catMusic": "音樂",
-    "catOther": "其他"
+    "catOther": "其他",
+    "catCopyShort": "文案"
   },
   "drawer": {
     "newChat": "新建任務",
@@ -1527,7 +1528,12 @@
     "toMomentsA11y": "分享到朋友圈",
     "copyLinkA11y": "複製分享連結",
     "cancelA11y": "取消分享",
-    "defaultDesc": "來智匯AI社群，一起玩转 AI"
+    "defaultDesc": "來智匯AI社群，一起玩转 AI",
+    "contentDefault": "來看看這個 AI 內容",
+    "okSent": "分享成功",
+    "cancelled": "已取消分享",
+    "fail": "分享失敗",
+    "needAlbum": "需要相簿權限才能選擇圖片"
   },
   "vipScreen": {
     "plans": {
@@ -3523,7 +3529,8 @@
     "publish": "發布",
     "subtitle": "我的 AIGC 作品",
     "title": "AIGC 作品",
-    "videoBadge": "影片"
+    "videoBadge": "影片",
+    "catDoc": "文檔"
   },
   "announcement": {
     "empty": "暫無公告",
@@ -5531,7 +5538,8 @@
     "realConnecting": "連接中...",
     "realLive": "即時語音進行中",
     "reconnect": "重新連線",
-    "realFailDefault": "連線失敗,請重試"
+    "realFailDefault": "連線失敗,請重試",
+    "inputDone": "語音輸入完成"
   },
   "material": {
     "cText": "文本內容",
@@ -5612,5 +5620,70 @@
   "contact": {
     "phoneLabel": "電話：",
     "wechatLabel": "微信："
+  },
+  "account": {
+    "phoneRequired": "請輸入手機號",
+    "phoneInvalid": "請輸入正確的手机号",
+    "smsSent": "驗證碼已發送",
+    "smsFailRetry": "驗證碼發送失敗，請稍後重試",
+    "smsRequired": "請輸入簡訊驗證碼",
+    "smsMin": "驗證碼至少 4 位",
+    "confirmHint": "請輸入「{s}」確認註銷",
+    "failRetry": "提交失敗，請稍後重試",
+    "okTitle": "註銷成功",
+    "okBody": "您的帳號已註銷"
+  },
+  "subPkg": {
+    "devTitle": "開發者進駐",
+    "devDesc": "發布模型與應用",
+    "plazaTitle": "AI 需求廣場",
+    "plazaDesc": "需求對接平台",
+    "topupTitle": "充值中心",
+    "topupDesc": "智匯值充值",
+    "homeTitle": "學習首頁",
+    "homeDesc": "學習進度與計劃",
+    "groupTitle": "AI 群組",
+    "groupDesc": "多 Agent 協作",
+    "aigcTitle": "AIGC 創作",
+    "aigcDesc": "AI 內容生成",
+    "courseDesc": "探索精選課程"
+  },
+  "annot": {
+    "penThin": "細",
+    "penMid": "中",
+    "penThick": "粗",
+    "closeA11y": "關閉標註",
+    "imageA11y": "待標註圖片",
+    "composeA11y": "標註合成底圖",
+    "penToolA11y": "畫筆工具",
+    "textToolA11y": "文字工具",
+    "undoA11y": "撤銷上一步",
+    "clearA11y": "清空標註",
+    "colorA11y": "切換畫筆顏色",
+    "penLabel": "畫筆{v}",
+    "markPh": "輸入標記文字",
+    "markInputA11y": "標記文字輸入",
+    "markAddA11y": "添加標記文字",
+    "markDropA11y": "放棄標記文字",
+    "modelEditSaveA11y": "儲存標註"
+  },
+  "lp": {
+    "member": "會員",
+    "trader": "操盤手",
+    "normal": "普通用戶",
+    "closeA11y": "關閉登入彈窗",
+    "oneLoginFail": "運營商一鍵登入失敗，請手動輸入手機號",
+    "nickRequired": "請輸入暱稱",
+    "nickTooLong": "暱稱過長，不能超過 8 字元",
+    "phoneInvalid": "請輸入正確的手機號碼",
+    "changeAvatarA11y": "更換頭像",
+    "usernamePh": "請輸入用戶名",
+    "upgradeA11y": "立即升級",
+    "phonePh": "請輸入電話號碼",
+    "bindA11y": "綁定手機號",
+    "rebind": "重綁",
+    "bind": "綁定",
+    "saveA11y": "保存資訊",
+    "logoutA11y": "登出"
   }
 }
