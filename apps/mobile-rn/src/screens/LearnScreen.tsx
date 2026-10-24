@@ -25,10 +25,10 @@ export type { LearnCategory }
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export const CATEGORIES: readonly LearnCategory[] = [
-  { id: 'douyin', name: '抖音运营', icon: Smartphone },
-  { id: 'private', name: '私域运营', icon: Users },
-  { id: 'content', name: '内容创作', icon: PenLine },
-  { id: 'data', name: '数据分析', icon: BarChart3 },
+  { id: 'douyin', name: 'studyIndex.catDouyin', icon: Smartphone },
+  { id: 'private', name: 'studyIndex.catPrivate', icon: Users },
+  { id: 'content', name: 'studyIndex.catContent', icon: PenLine },
+  { id: 'data', name: 'studyIndex.catData', icon: BarChart3 },
 ] as const
 
 export function LearnScreen() {
@@ -74,7 +74,7 @@ export function LearnScreen() {
   const openCourse = (id: string) => navigation.navigate('CourseDetail', { id })
   const openBrowse = () => navigation.navigate('CourseFilter')
   const openCategory = (cat: LearnCategory) =>
-    navigation.navigate('CategoryDetail', { categoryId: cat.id, title: cat.name })
+    navigation.navigate('CategoryDetail', { categoryId: cat.id, title: t(cat.name) })
 
   return (
     <View style={styles.container}>
@@ -87,7 +87,7 @@ export function LearnScreen() {
           style={styles.entryBtnHit}
           onPress={() => navigation.navigate('LearnDevelop')}
           accessibilityRole="button"
-          accessibilityLabel="学习发展"
+          accessibilityLabel={t('study.learnA11y')}
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>
@@ -99,7 +99,7 @@ export function LearnScreen() {
           style={styles.entryBtnHit}
           onPress={() => navigation.navigate('AiCareer')}
           accessibilityRole="button"
-          accessibilityLabel="AI 学业规划"
+          accessibilityLabel={t('study.careerA11y')}
         >
           {({ pressed }) => (
             <View style={[styles.entryBtn, pressed ? styles.entryBtnPressed : null]}>

@@ -178,7 +178,7 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={handleClose}
-            accessibilityLabel="关闭弹出层"
+            accessibilityLabel={t('common.closeOverlay')}
           />
         </Animated.View>
 
@@ -203,7 +203,7 @@ export function BottomPops({ visible, onClose, children, title, height }: Bottom
                 onPress={handleClose}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel="关闭"
+                accessibilityLabel={t('common.close')}
               >
                 {({ pressed }) => (
                   <View style={pressed ? styles.closeButtonPressed : null}>
