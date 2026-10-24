@@ -43,8 +43,10 @@ import {
 } from './lib/plan-task-index.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-/** 只取 `归属:` 后面的**值**;词表(整族判据)在 `plan-task-index`,这里不复制。 */
-const OWNER_VALUE_RE = /归属[:：]\s*([^,，。;；\n]{1,120})/
+/** 只取归属声明后面的**值**;词表(整族判据)在 `plan-task-index`,这里不复制。
+ *  认 `归属:` / `归:` 标头投影、`归属会话=` 与 `持有者:` 三种本仓真实写法。 */
+const OWNER_VALUE_RE =
+  /(?:归属[:：]|归[:：]|归属会话\s*[=＝]|持有[者人][:：])\s*([^,，。;；\n〕｜]{1,120})/
 const MAX_OWNER = 48
 const MAX_BLOCKING = 24
 /** 归属值里这些形态一定是"别的话"混进来:破折号后的叙述、连续空白(台账排版分隔两件事)、括号补充。 */
@@ -52,6 +54,8 @@ const OWNER_CUT_RE = /(?:\s*[—–]{1,2}\s+|\s{2,}|[（(])/
 /** 截完还以虚词开头/结尾的,是被人句子的中段顶出来的假持有人 ⇒ 整条不造。 */
 const OWNER_LEAD_PARTICLE_RE = /^[的与和及是在为把对跟]/
 const OWNER_TAIL_PARTICLE_RE = /[的和与及了]$/
+/** 占位值不是归属:不替"未派/待认领"造一条 owner(侧车记录必须指名一个可寻址的持有人)。 */
+const OWNER_PLACEHOLDER_RE = /^(?:[—–-]+|未派|待认领|无主|无人|未定)$/
 const UPDATED_BY = 'plan-fields-extract'
 
 /** owner 归一(单源出口):投影器要问同一把尺子,否则"等价"判断会与抽取时的截断规则分家。 */
@@ -60,6 +64,7 @@ export function cleanOwner(raw) {
     .split(OWNER_CUT_RE)[0]
     .trim()
   if (cut.length < 2) return null
+  if (OWNER_PLACEHOLDER_RE.test(cut)) return null
   if (OWNER_LEAD_PARTICLE_RE.test(cut)) return null
   if (OWNER_TAIL_PARTICLE_RE.test(cut)) return null
   return cut.slice(0, MAX_OWNER)
@@ -102,7 +107,11 @@ export function extractFromLine(line, nowIso = new Date().toISOString()) {
     if (!ownedElsewhereRe().test(face)) return null
     const m = OWNER_VALUE_RE.exec(face)
     if (!m) return null
-    const owner = cleanOwner(m[1])
+    // 同一起点改在原行上取第二遍:face 与 line 等长(反引号遮成等长空白),这样带反引号的路径名
+    // 不会被 `\s*` 吃掉;而"命中只在反引号里"仍由上面那次 face 判定挡住。
+    const tail = OWNER_VALUE_RE.exec(line.slice(m.index))
+    if (!tail) return null
+    const owner = cleanOwner(tail[1])
     if (owner === null) return null
     rec.owner = owner
   } else if (bucket === 'waiting-human') {
