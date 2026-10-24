@@ -456,8 +456,8 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: tokens.overlay.modal, justifyContent: 'flex-end' },
   panel: {
     backgroundColor: tokens.surface.card,
-    borderTopLeftRadius: rnRadius.lg, // panel 档 lg(8)
-    borderTopRightRadius: rnRadius.lg,
+    borderTopLeftRadius: rnRadius.xl, // panel 档 xl(12)
+    borderTopRightRadius: rnRadius.xl,
     padding: 12,
     maxHeight: '70%',
   },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // chip 档 md(6)
     paddingHorizontal: 8,
     paddingVertical: 4,
     marginBottom: 8,
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
     borderColor: tokens.border.medium,
-    borderRadius: rnRadius.sm, // control 档 sm(4)
+    borderRadius: rnRadius.md, // chip 档 md(6)
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
