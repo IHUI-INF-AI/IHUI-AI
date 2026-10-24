@@ -507,18 +507,26 @@ async function run({ argv }) {
     return 2
   }
   const reportPath = reportFlag.value ? resolve(reportFlag.value) : null
-  const get = (name, dflt) => {
-    const i = argv.indexOf(name)
-    return i >= 0 ? argv[i + 1] : dflt
+  // G-322(续):--since/--until 旧走本地 get(),空串 `--until ""` 被 falsy 静默折成 today、
+  // 被顶值(`--until --json`)把旗标当日期报"不是 YYYY-MM-DD"—— 形态不佳且缺值文案不点名实得 token。
+  // 判死只加在 CLI 入口,DAY_RE 域校验照旧。
+  const sinceFlag = requireFlagValue(argv, '--since', { noun: 'YYYY-MM-DD' })
+  if (sinceFlag.error) {
+    console.error(`❌ ${sinceFlag.error}`)
+    return 2
   }
-  const since = get('--since', DEFAULT_SINCE)
-  const until = get('--until', null)
+  const untilFlag = requireFlagValue(argv, '--until', { noun: 'YYYY-MM-DD' })
+  if (untilFlag.error) {
+    console.error(`❌ ${untilFlag.error}`)
+    return 2
+  }
+  const since = sinceFlag.value ?? DEFAULT_SINCE
   const today = localDay(Date.now())
   if (!DAY_RE.test(since)) {
     console.error(`❌ --since 不是 YYYY-MM-DD:${since}`)
     return 2
   }
-  const untilDay = until ? (DAY_RE.test(until) ? until : (console.error(`❌ --until 不是 YYYY-MM-DD:${until}`), null)) : today
+  const untilDay = untilFlag.value ? (DAY_RE.test(untilFlag.value) ? untilFlag.value : (console.error(`❌ --until 不是 YYYY-MM-DD:${untilFlag.value}`), null)) : today
   if (!untilDay || untilDay < since) {
     console.error(`❌ 窗口非法:since=${since} until=${untilDay}`)
     return 2
