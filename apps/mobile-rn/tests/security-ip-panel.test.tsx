@@ -11,33 +11,12 @@
  * 取词走真的 I18nProvider:断言的是词包里的文案,不是替身返回的键名。
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createElement, type ReactNode } from 'react'
+import { createElement } from 'react'
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react'
 // @typescript-eslint/consistent-type-imports 禁止内联 import() 类型注解 ⇒ 用顶层 type 别名
 import type * as I18nModule from '../src/i18n'
 
 const api = vi.hoisted(() => ({ fetchApi: vi.fn() }))
-
-vi.mock('react-native', () => {
-  const mk = (tag: string) =>
-    function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-      const { style, onPress, children, ...rest } = props
-      const flat = (v: unknown): unknown =>
-        Array.isArray(v) ? Object.assign({}, ...v.filter(Boolean).map(flat)) : v
-      return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
-    }
-  return {
-    Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
-    // ThemeContext 走 useThemeStore(useSelector([...])) + useColorScheme(),缺它整个 hook 调用即抛
-    useColorScheme: () => 'light',
-    View: mk('div'),
-    Text: mk('span'),
-    TouchableOpacity: mk('button'),
-    ActivityIndicator: mk('i'),
-    TextInput: mk('input'),
-    StyleSheet: { create: <T extends object>(s: T) => s, flatten: (s: unknown) => s },
-  }
-})
 
 vi.mock('@ihui/api-client', () => ({ fetchApi: api.fetchApi }))
 vi.mock('lucide-react-native', () => ({ ShieldCheck: () => createElement('i', null) }))

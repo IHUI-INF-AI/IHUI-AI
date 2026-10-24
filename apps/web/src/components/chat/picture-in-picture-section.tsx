@@ -89,7 +89,7 @@ export function PictureInPictureSection({ conversationId }: { conversationId: st
     <section
       data-testid="pip-section"
       aria-label={t('pictureInPicture.sectionLabel')}
-      className="mx-auto mb-2 max-w-2xl rounded-md border bg-card p-3 text-sm"
+      className="mx-auto mb-2 max-w-2xl rounded-lg border bg-card p-3 text-sm"
     >
       <div className="mb-2 flex items-center gap-2 font-semibold">
         <PictureInPicture2 className="h-4 w-4 text-primary" aria-hidden />
