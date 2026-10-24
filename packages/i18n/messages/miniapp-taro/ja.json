@@ -4777,5 +4777,29 @@
       "rejected": "拒否済み",
       "cancelled": "解除済み"
     }
+  },
+  "eduChildAttendance": {
+    "title": "子どもの出席",
+    "date": "日付"
+  },
+  "eduChildGrades": {
+    "title": "子どもの成績"
+  },
+  "eduGrades": {
+    "subject": "科目",
+    "exam": "試験",
+    "score": "点数",
+    "date": "日付"
+  },
+  "eduAttendance": {
+    "statusTitle": "状態",
+    "checkIn": "登校",
+    "checkOut": "下校",
+    "status": {
+      "present": "出席",
+      "late": "遅刻",
+      "absent": "欠席",
+      "leave": "休み"
+    }
   }
 }
