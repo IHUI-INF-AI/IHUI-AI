@@ -45,7 +45,8 @@ const selectClass =
   'h-8 rounded-md border border-input bg-transparent px-2 py-1 text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 interface KeyRow {
-  id: number
+  /** 后端是 uuid 列(原标 number 是错的,只是各处都拿它拼 URL 才没暴露) */
+  id: string
   providerCode: string
   name: string
   keyPrefix: string
@@ -152,6 +153,34 @@ export default function AdminRelayKeyPoolPage() {
       qc.invalidateQueries({ queryKey: ['admin', 'relay', 'key-pool'] })
     },
     onError: (e: Error) => toast.error(e.message || '添加失败'),
+  })
+
+  const [rotateTarget, setRotateTarget] = React.useState<{ id: string; name: string } | null>(null)
+  const [rotateKey, setRotateKey] = React.useState('')
+
+  const rotateMutation = useMutation({
+    mutationFn: async (vars: { id: string; apiKey: string }) => {
+      const r = await fetchApi(`/api/admin/relay/key-pool/${vars.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: vars.apiKey }),
+      })
+      if (!r.success) throw new Error(r.error)
+      // 换完当场真敲一次上游:让"这把新 key 能不能用"立刻出结论,而不是等 5 分钟巡检轮
+      const h = await fetchApi<{ healthStatus?: string; lastErrorMessage?: string | null }>(
+        `/api/admin/relay/key-pool/${vars.id}/health`,
+        { method: 'POST' },
+      )
+      return h.success ? h.data : null
+    },
+    onSuccess: (d) => {
+      setRotateTarget(null)
+      setRotateKey('')
+      qc.invalidateQueries({ queryKey: ['admin', 'relay', 'key-pool'] })
+      if (d?.healthStatus === 'healthy') toast.success('已替换,上游鉴权通过')
+      else toast.warning(`已替换,但上游未通过${d?.lastErrorMessage ? `：${d.lastErrorMessage}` : ''}`)
+    },
+    onError: (e: Error) => toast.error(e.message || '替换失败'),
   })
 
   const submitAdd = (e: React.FormEvent) => {
@@ -335,6 +364,21 @@ export default function AdminRelayKeyPoolPage() {
                             </Button>
                           </span>
                         </Tooltip>
+                        <Tooltip content="替换 Key">
+                          <span className="inline-flex">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={act.isPending}
+                              onClick={() => {
+                                setRotateKey('')
+                                setRotateTarget({ id: k.id, name: k.name })
+                              }}
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </Button>
+                          </span>
+                        </Tooltip>
                         <Tooltip content="删除">
                           <span className="inline-flex">
                             <Button
@@ -482,6 +526,50 @@ export default function AdminRelayKeyPoolPage() {
               <Button type="submit" disabled={addMutation.isPending}>
                 {addMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 添加
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={rotateTarget !== null} onOpenChange={(o) => !o && setRotateTarget(null)}>
+        <DialogContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              const next = rotateKey.trim()
+              if (!rotateTarget || !next) {
+                toast.error('新 Key 不能为空')
+                return
+              }
+              rotateMutation.mutate({ id: rotateTarget.id, apiKey: next })
+            }}
+            className="space-y-4"
+          >
+            <DialogHeader>
+              <DialogTitle>替换 Key「{rotateTarget?.name}」</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="rotate-api-key">新 Key</Label>
+              <Input
+                id="rotate-api-key"
+                type="password"
+                autoComplete="off"
+                value={rotateKey}
+                onChange={(e) => setRotateKey(e.target.value)}
+                placeholder="粘贴上游 API Key，保存后立即验证"
+              />
+              <p className="text-xs text-muted-foreground">
+                就地覆盖旧密文，并复位健康态与连续失败计数——不会留下一条退役记录继续拉红大屏。
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setRotateTarget(null)}>
+                取消
+              </Button>
+              <Button type="submit" disabled={rotateMutation.isPending}>
+                {rotateMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                替换并验证
               </Button>
             </DialogFooter>
           </form>
