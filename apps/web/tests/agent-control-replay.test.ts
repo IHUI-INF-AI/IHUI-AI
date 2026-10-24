@@ -140,4 +140,36 @@ describe('桌面桥重放接线(use-agent-control handleWsMessage)', () => {
     expect(calls.every(([url]) => String(url).includes('/api/agent-control/result'))).toBe(true)
   })
 })
+
+describe('桌面桥协议 ordinal 接线(G-86,取值来源=服务端派发序号)', () => {
+  function wsFrameOrd(requestId: string, ordinal: number) {
+    return {
+      type: 'notification',
+      data: {
+        type: 'agent.action',
+        request: { requestId, category: 'computer', action: 'clipboard_get', params: {}, ordinal },
+      },
+    } as never
+  }
+
+  it('同 ordinal + 同 requestId 重投 → 水位判 duplicate,只执行一次', async () => {
+    const ordinal = Date.now()
+    desktopBridge.handleWsMessage(wsFrameOrd('req-ord-replay', ordinal))
+    desktopBridge.handleWsMessage(wsFrameOrd('req-ord-replay', ordinal))
+    await vi.waitFor(() => expect(fetchApiMock).toHaveBeenCalledTimes(1))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(fetchApiMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('低 ordinal 残帧 → 水位判 stale 静默丢,不执行(旧连接残帧不得复活执行)', async () => {
+    const base = Date.now()
+    desktopBridge.handleWsMessage(wsFrameOrd('req-ord-new', base + 10))
+    await vi.waitFor(() => expect(fetchApiMock).toHaveBeenCalledTimes(1))
+    fetchApiMock.mockClear()
+    // 残帧的 requestId 从未见过(id 集拦不住),只有协议 ordinal 能拦 —— 这正是换源的意义
+    desktopBridge.handleWsMessage(wsFrameOrd('req-ord-old', base))
+    await new Promise((r) => setTimeout(r, 20))
+    expect(fetchApiMock).not.toHaveBeenCalled()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -28,6 +28,7 @@ import {
   PinOff,
   Bookmark,
   BookmarkCheck,
+  MessagesSquare,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, Button } from '@ihui/ui-react'
@@ -118,6 +119,8 @@ import {
 // stores/d180-selection-annotations(conversationId+messageId 归属,刷新可重放)。
 import { SelectionAnnotationBar } from './d180-selection-annotations'
 import { useSelectionAnnotationsStore } from '@/stores/d180-selection-annotations'
+// D125(2026-10-23 立):逐消息评论面板 —— 协作会话最小纵向切片的 web 消费面
+import { MessageCommentPanel } from './MessageCommentPanel'
 
 // W16(2026-09-13):文件修改类工具集合(与 tool-call-summary-card 口径一致,前后端并集)。
 // 用于编辑重跑 Dialog 判断"该消息之后是否产生了文件改动",决定是否展示文件回滚勾选项。
@@ -200,6 +203,8 @@ const MessageItem = React.memo(function MessageItem({
   onSelectMessageVersion,
 }: MessageItemProps) {
   const t = useTranslations('chat')
+  // D125:评论开关按钮取词走既有 `comments` 顶层命名空间(零新增键)
+  const tComments = useTranslations('comments')
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
   const chatStore = usePaneChatStore()
   const paneId = useOptionalPaneId()
@@ -264,6 +269,8 @@ const MessageItem = React.memo(function MessageItem({
   const failedDraftStatus = chatStore((s) => s.failedDraftStatus)
   // 2026-09-12 立:Checkpoint 回退弹窗开关
   const [rewindDialogOpen, setRewindDialogOpen] = React.useState(false)
+  // D125(2026-10-23 立):逐消息评论面板开关(会话级开关在服务端,这里只管展开)
+  const [commentsOpen, setCommentsOpen] = React.useState(false)
   // #17:折叠中间步骤(工具卡 + plan 步骤)。D21(2026-09-19 立):初始态改由折叠策略驱动 —
   // 用户配置 auto(自适应:字数/工具数/耗时)/ collapsed(强制折叠)/ expanded(强制展开,
   // 参考 Qoder 0.2.1);竞品默认口径已分化故不强制。用户显式展开/收起后 stepsOverrideRef
@@ -1684,6 +1691,25 @@ const MessageItem = React.memo(function MessageItem({
                 <MessageCircle className="h-4 w-4" aria-hidden />
               </button>
             </Tooltip>
+            {/* D125(2026-10-23 立):逐消息评论开关 —— 协作会话消费面入口。
+                无会话 id(未落库的新会话)时禁用;授权判定在服务端,这里不做第二套。 */}
+            <Tooltip content={tComments('title')} side="top">
+              <button
+                type="button"
+                onClick={() => setCommentsOpen((v) => !v)}
+                disabled={!conversationId}
+                data-testid={`message-comments-toggle-${m.id}`}
+                aria-label={tComments('title')}
+                aria-expanded={commentsOpen}
+                className={cn(
+                  ACTION_BTN_CLASS,
+                  commentsOpen && 'text-primary bg-muted/60',
+                  'disabled:opacity-40 disabled:cursor-not-allowed',
+                )}
+              >
+                <MessagesSquare className="h-4 w-4" aria-hidden />
+              </button>
+            </Tooltip>
             {/* 用户消息:Delete(删除)— 原项目 deleteMessage,hover 红色 */}
             {isUser && (
               <Tooltip content={t('message.delete')} side="top">
@@ -1710,6 +1736,16 @@ const MessageItem = React.memo(function MessageItem({
         >
           <UsageBreakdown usage={m.meta?.usage} model={m.model} />
         </div>
+      )}
+
+      {/* D125(2026-10-23 立):逐消息评论面板(评论开关触发)— 挂操作区之下,
+          与元数据面板/问卷卡同一挂载带;conversationId 缺失时不渲染(未落库会话无处评论)。 */}
+      {commentsOpen && conversationId && (
+        <MessageCommentPanel
+          conversationId={conversationId}
+          messageId={m.id}
+          onClose={() => setCommentsOpen(false)}
+        />
       )}
 
       {/* D64 ⑤(2026-09-26 挂载):反馈问卷卡 —— 点踩后展开,挂在消息反馈位(操作区之下)。

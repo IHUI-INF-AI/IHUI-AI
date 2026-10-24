@@ -3,6 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeEach } from 'vitest'
+import {
+  EMPTY_CHAT_SYNC_STATE,
+  type MessageCreatedEvent,
+  type MessagePatchedEvent,
+} from '@ihui/types'
 import { useChatStore } from '../chat'
 
 describe('useChatStore', () => {
@@ -535,6 +540,190 @@ describe('useChatStore', () => {
       expect(useChatStore.getState()).toBe(before)
       useChatStore.getState().setFollowUpQueueMode('queue')
       expect(useChatStore.getState().followUpQueueMode).toBe('queue')
+    })
+  })
+
+  // G-171b 终态台账(2026-10-23 立):发送 promise settle 点(成功→sent / 失败→failed)
+  // 与撤回入口(被撤回→deferred)的落账契约。枚举本体在 shared QUEUE_SEND_OUTCOMES,
+  // 这里只钉 store 行为:按会话分桶、同项覆盖为最新终态、每桶上限 20、不持久化。
+  describe('G-171b queueSendOutcomes 终态台账', () => {
+    beforeEach(() => {
+      useChatStore.setState({ queueSendOutcomes: {} })
+    })
+
+    it('三终态各落一条:outcome 原样入桶,at 为毫秒时戳', () => {
+      useChatStore.getState().recordQueueSendOutcome('conv-1', 'i-sent', 'sent')
+      useChatStore.getState().recordQueueSendOutcome('conv-1', 'i-failed', 'failed')
+      useChatStore.getState().recordQueueSendOutcome('conv-1', 'i-deferred', 'deferred')
+      const bucket = useChatStore.getState().queueSendOutcomes['conv-1']
+      expect(bucket?.map((e) => [e.itemId, e.outcome])).toEqual([
+        ['i-sent', 'sent'],
+        ['i-failed', 'failed'],
+        ['i-deferred', 'deferred'],
+      ])
+      for (const e of bucket ?? []) expect(typeof e.at).toBe('number')
+    })
+
+    it('同一 itemId 重复登记 ⇒ 只留最新终态(失败后重发成功不双计)', () => {
+      useChatStore.getState().recordQueueSendOutcome('conv-1', 'i-1', 'failed')
+      useChatStore.getState().recordQueueSendOutcome('conv-1', 'i-1', 'sent')
+      const bucket = useChatStore.getState().queueSendOutcomes['conv-1']
+      expect(bucket).toHaveLength(1)
+      expect(bucket?.[0]?.outcome).toBe('sent')
+    })
+
+    it('按会话分桶互不影响;未知会话直接建桶', () => {
+      useChatStore.getState().recordQueueSendOutcome('conv-1', 'i-1', 'sent')
+      useChatStore.getState().recordQueueSendOutcome('conv-2', 'i-2', 'deferred')
+      const map = useChatStore.getState().queueSendOutcomes
+      expect(map['conv-1']?.map((e) => e.outcome)).toEqual(['sent'])
+      expect(map['conv-2']?.map((e) => e.outcome)).toEqual(['deferred'])
+    })
+
+    it('每桶上限 20:第 21 条落账时最旧条目淘汰(与 sideQueue 桶 slice(-20) 同纪律)', () => {
+      for (let i = 0; i < 21; i++) {
+        useChatStore.getState().recordQueueSendOutcome('conv-1', `i-${i}`, 'sent')
+      }
+      const bucket = useChatStore.getState().queueSendOutcomes['conv-1']
+      expect(bucket).toHaveLength(20)
+      expect(bucket?.[0]?.itemId).toBe('i-1')
+      expect(bucket?.[19]?.itemId).toBe('i-20')
+    })
+
+    it('台账不进持久化 partialize(会话级瞬态,刷新即作废 —— 队列本体才是持久面)', async () => {
+      const mod = await import('../chat')
+      const storeApi = mod.useChatStore as unknown as {
+        persist?: { getOptions?: () => { partialize?: (s: unknown) => Record<string, unknown> } }
+      }
+      const partialize = storeApi.persist?.getOptions?.()?.partialize
+      if (!partialize) throw new Error('chat store 持久化必须存在 partialize')
+      useChatStore.getState().recordQueueSendOutcome('conv-1', 'i-1', 'sent')
+      const persisted = partialize(useChatStore.getState())
+      expect('queueSendOutcomes' in persisted).toBe(false)
+    })
+  })
+
+  // 票71(V2 #23)第二切片:store 侧接线 —— 判序只走契约内核(ChatSyncState),
+  // 内容真值投影进 messages。这一组只钉"接线",裁定表本体由
+  // packages/types/tests/chat-sync-contract-idempotency.test.ts 定点(不在端内抄第二份)。
+  describe('票71 消息面同步:applyChatSync 接线', () => {
+    const ROOM = { kind: 'conversation' as const, conversationId: 'conv-sync' }
+    const base = { protocolVersion: 'chat-sync.v1' as const, channel: 'ws' as const, room: ROOM }
+
+    function created(messageId: string, content = 'hi'): MessageCreatedEvent {
+      return {
+        event: 'message:created',
+        data: { ...base, type: 'message:created', messageId, role: 'assistant', content },
+      }
+    }
+    function delta(messageId: string, rev: number, textDelta: string): MessagePatchedEvent {
+      return {
+        event: 'message:patched',
+        data: { ...base, type: 'message:patched', messageId, rev, kind: 'delta', textDelta },
+      }
+    }
+    function snapshot(messageId: string, rev: number, content: string): MessagePatchedEvent {
+      return {
+        event: 'message:patched',
+        data: { ...base, type: 'message:patched', messageId, rev, kind: 'snapshot', content },
+      }
+    }
+
+    beforeEach(() => {
+      useChatStore.setState({
+        messages: [],
+        conversationId: 'conv-sync',
+        chatSync: EMPTY_CHAT_SYNC_STATE,
+        chatSyncResyncPending: false,
+      })
+    })
+
+    it('房间不匹配 ⇒ room-mismatch,渲染面与判据面都不动', () => {
+      useChatStore.setState({ conversationId: 'other-conv' })
+      const before = useChatStore.getState().messages
+      const out = useChatStore.getState().applyChatSync(created('m-1'))
+      expect(out).toEqual({ applied: false, reason: 'room-mismatch', messageId: 'm-1' })
+      expect(useChatStore.getState().messages).toBe(before)
+      expect(useChatStore.getState().chatSync.appliedRevs.size).toBe(0)
+    })
+
+    it('created ⇒ 增行(内容/角色来自内核),并在判据面记下这一消息', () => {
+      const out = useChatStore.getState().applyChatSync(created('m-1', '初面'))
+      expect(out.applied).toBe(true)
+      const msg = useChatStore.getState().messages.find((m) => m.id === 'm-1')
+      expect(msg?.content).toBe('初面')
+      expect(msg?.role).toBe('assistant')
+      expect(useChatStore.getState().chatSync.messages.has('m-1')).toBe(true)
+    })
+
+    it('created 重投(双通道)⇒ duplicate,不增第二行、不换数组引用', () => {
+      useChatStore.getState().applyChatSync(created('m-1'))
+      const before = useChatStore.getState().messages
+      const out = useChatStore.getState().applyChatSync(created('m-1'))
+      expect(out).toEqual(expect.objectContaining({ applied: false, reason: 'duplicate' }))
+      expect(useChatStore.getState().messages).toBe(before)
+      expect(useChatStore.getState().messages).toHaveLength(1)
+    })
+
+    it('patched delta rev=1 ⇒ 内容追加到既有行', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      expect(useChatStore.getState().messages.find((m) => m.id === 'm-1')?.content).toBe('AB')
+    })
+
+    it('同 rev 重投 ⇒ duplicate(内容不变);更低 rev ⇒ stale(不回退)', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      const dup = useChatStore.getState().applyChatSync(delta('m-1', 1, 'B'))
+      expect(dup).toEqual(expect.objectContaining({ applied: false, reason: 'duplicate' }))
+      useChatStore.getState().applyChatSync(delta('m-1', 2, 'C'))
+      const stale = useChatStore.getState().applyChatSync(delta('m-1', 1, 'X'))
+      expect(stale).toEqual(expect.objectContaining({ applied: false, reason: 'stale' }))
+      expect(useChatStore.getState().messages.find((m) => m.id === 'm-1')?.content).toBe('ABC')
+    })
+
+    it('delta 跳号 ⇒ gap:置 resync 旗,内容不半截落地', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      const out = useChatStore.getState().applyChatSync(delta('m-1', 3, 'D'))
+      expect(out).toEqual(expect.objectContaining({ applied: false, reason: 'gap' }))
+      expect(useChatStore.getState().chatSyncResyncPending).toBe(true)
+      expect(useChatStore.getState().messages.find((m) => m.id === 'm-1')?.content).toBe('A')
+    })
+
+    it('snapshot 自包含 ⇒ 可跨 gap 应用(恢复路径),应用后清不掉旗是调用方的责任', () => {
+      useChatStore.getState().applyChatSync(created('m-1', 'A'))
+      useChatStore.getState().applyChatSync(delta('m-1', 3, 'D'))
+      const out = useChatStore.getState().applyChatSync(snapshot('m-1', 5, '全量'))
+      expect(out.applied).toBe(true)
+      expect(useChatStore.getState().messages.find((m) => m.id === 'm-1')?.content).toBe('全量')
+      useChatStore.getState().markChatSyncResynced()
+      expect(useChatStore.getState().chatSyncResyncPending).toBe(false)
+    })
+
+    it('patched 打不到渲染面(该行未在 messages)⇒ 置 resync 旗,不凭帧字段造行', () => {
+      useChatStore.setState({
+        chatSync: {
+          messages: new Map([['m-ghost', { id: 'm-ghost', role: 'assistant', content: 'A' }]]),
+          appliedRevs: new Map(),
+        },
+      })
+      const out = useChatStore.getState().applyChatSync(delta('m-ghost', 1, 'B'))
+      expect(out.applied).toBe(true)
+      expect(useChatStore.getState().messages).toHaveLength(0)
+      expect(useChatStore.getState().chatSyncResyncPending).toBe(true)
+    })
+
+    it('判据面与附件都随会话重置:不进 partialize(rev 是会话局部坐标)', async () => {
+      const mod = await import('../chat')
+      const storeApi = mod.useChatStore as unknown as {
+        persist?: { getOptions?: () => { partialize?: (s: unknown) => Record<string, unknown> } }
+      }
+      const partialize = storeApi.persist?.getOptions?.()?.partialize
+      if (!partialize) throw new Error('chat store 持久化必须存在 partialize')
+      useChatStore.getState().applyChatSync(created('m-1'))
+      const persisted = partialize(useChatStore.getState())
+      expect('chatSync' in persisted).toBe(false)
+      expect('chatSyncResyncPending' in persisted).toBe(false)
     })
   })
 
