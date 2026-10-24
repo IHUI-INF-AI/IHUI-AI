@@ -14,8 +14,12 @@
 //     本脚本对它们不再有任何调用点;镜像分支仍保留,供将来任一真实镜像远端使用。
 import { spawnSync } from 'node:child_process'
 import { appendFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+// git 可执行一律经 §5b 唯一出口解析(候选链 + 探活;不写死本机 Git 安装位)。
+import { resolveGitBin } from './lib/gitdir.mjs'
 
-const G = 'C:/Program Files/Git/cmd/git.exe'
+const G = resolveGitBin() || 'git'
 const cwd = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LOG = 'push_tags.log'
 const log = (s) => {
