@@ -16,6 +16,7 @@ import { seedCourses } from './courses-seed.js'
 import { seedAiCostRecords } from './ai-cost-records-seed.js'
 import { seedRelayPricing } from './relay-pricing-seed.js'
 import { seedLegacyVideos } from './legacy-videos.js'
+import { seedAnnouncements } from './announcements-seed.js'
 
 interface SeedStep {
   /** 步骤编号(1-based) */
@@ -124,6 +125,12 @@ const STEPS: SeedStep[] = [
     name: '历史存档课程视频',
     description: '22 门课 / 867 小节,时长与分辨率实测自 mp4 容器头,视频指向云端对象存储(幂等;草稿态,不上架)',
     fn: () => seedLegacyVideos({ apply: true, publish: false }).then(() => undefined),
+  },
+  {
+    index: 15,
+    name: '公告基线数据',
+    description: '首页跑马灯/公告条动态源:8 条已发布公告(3 置顶,幂等按 title 去重,后台可改)',
+    fn: seedAnnouncements,
   },
 ]
 
