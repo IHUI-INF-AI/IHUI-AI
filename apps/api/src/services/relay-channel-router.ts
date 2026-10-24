@@ -537,7 +537,7 @@ async function selectByStrategy(
  *
  * 流程(2026-09-13 多上游同模型改造):
  * 1. 查 aiModelConfigModels 找该 model 对应的**全部** configId(需 enabled + isRelayPublic;
- *    同一 modelId 可在多个 provider/config 上架,如 token6688 与 swiftapi 同时供同一模型)
+ *    同一 modelId 可在多个 provider/config 上架,如 token6688 与另一上游同时供同一模型)
  * 2. 查 aiModelConfig 找这些 configId 的 providerCode + baseUrl(需 enabled)
  * 3. 查 aiRelayKeyPool 找这些 providerCode 的可用 key(需 isEnabled=true;
  *    key 级 extraMetadata.baseUrl 覆盖 config.baseUrl——同一聚合上游多端点各自成渠,按 key 粒度测速/熔断/切换)
@@ -670,7 +670,7 @@ export async function selectChannelCandidates(
 
   /**
    * 解析候选上游 baseUrl:key 级 extraMetadata.baseUrl 覆盖 > config.baseUrl。
-   * 同一聚合上游(如 swiftapi)的多端点各建一条 key_pool 条目、各自覆写 baseUrl,
+   * 同一聚合上游的多端点各建一条 key_pool 条目、各自覆写 baseUrl,
    * 即得以 key 粒度参与测速(least-latency)/熔断/自动切换。
    */
   const resolveCandidateTarget = (

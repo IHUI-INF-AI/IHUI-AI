@@ -12,19 +12,23 @@
 //   ① 计数徽章形态的聚合条(默认收起,折叠默认态与 D21 fold-policy 联动:
 //      'expanded' 偏好全程可见 → 初始展开,'auto'/'collapsed' → 收起让位正文)
 //   ② 展开后 = 上下文装配查看器:逐条 kind 本地化标签(取词口径与
-//      ContextInjectionList 的 INJECTION_KIND_KEYS 同源,复用 ai.pane 既有词表键,
-//      不新增第二份文案)+ fullText 可展开 + "本轮上下文来源"分组
+//      ContextInjectionList 同源,复用 ai.pane 既有词表键,不新增第二份文案)
+//      + fullText 可展开 + "本轮上下文来源"分组
 //      (citations/steerNotices/retryNotice 等旁路型过程信息,可选 props;
 //      MessageItem 处这些信息已有 CitationBar/SteerNoticeBar/RetryNoticeBar
 //      专属条,故接线时不传,避免同屏重复渲染)。
 //
-// kind→词表键映射与后端 llm.py injection_frames 四发射点一一对应
-// (developer_instructions / workspace_memory / repo_wiki / auto_context,
-// 见 packages/shared/src/sse/contract.ts);未知 kind 回落后端 collapsed 兜底。
+// kind 闭集与 kind→词表键的唯一真相源 = `@ihui/shared` 的
+// `constants/injection-kinds.ts`(INJECTION_KINDS / injectionKindKey):与
+// `packages/ui-react` 的 ContextInjectionList 共用同一份,不再"两处同步"——
+// D120 只补一侧造成的那次漂移(iteration_extension 在聚合条出中文、单条条回落)即此型。
+// 未知 kind 仍回落后端 collapsed 兜底。
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronDown, Layers } from 'lucide-react'
+
+import { injectionKindKey } from '@ihui/shared'
 
 import { cn } from '@/lib/utils'
 import { readFoldPolicyMode, type FoldPolicyMode } from '@/components/chat/message-list/fold-policy'
@@ -44,14 +48,6 @@ export interface ContextAssemblyBarProps {
   className?: string
 }
 
-/** 与 packages/ui-react context-injection-list.tsx 的 INJECTION_KIND_KEYS 同源(改 kind 两处同步) */
-const KIND_KEYS: Record<string, string> = {
-  developer_instructions: 'injectionKindDeveloper',
-  workspace_memory: 'injectionKindWorkspace',
-  repo_wiki: 'injectionKindRepoWiki',
-  auto_context: 'injectionKindAutoContext',
-}
-
 /**
  * 聚合条默认态与 D21 fold-policy 联动:'expanded'(全程可见偏好)→ 初始展开;
  * 'auto'/'collapsed' → 默认收起(计数徽章形态,让位正文)。纯函数可单测。
@@ -64,7 +60,7 @@ export function resolveAssemblyInitialOpen(mode: FoldPolicyMode): boolean {
 function AssemblyInjectionRow({ injection }: { injection: ContextAssemblyInjection }) {
   const tPane = useTranslations('ai.pane')
   const [open, setOpen] = React.useState(false)
-  const kindKey = KIND_KEYS[injection.kind]
+  const kindKey = injectionKindKey(injection.kind)
   const label = kindKey
     ? injection.kind === 'auto_context'
       ? tPane(kindKey, { count: injection.count ?? 0 })

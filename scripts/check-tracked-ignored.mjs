@@ -39,10 +39,11 @@
  * 应急:`HUSKY_SKIP_TRACKED_IGNORED=1`(会进跳门留痕)。
  */
 
-import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+
+import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const GIT_TIMEOUT = 120_000
@@ -51,27 +52,19 @@ const GIT_TIMEOUT = 120_000
  * 跑一条 git。`okCodes` 之外的退出码一律抛(调用方落 exit 2)。
  *
  * `git check-ignore` **一条都不命中时退出码是 1**(不是错误),所以它必须把 1 当合法值 ——
- * 用 execFileSync 会把"全仓没有命中"读成"取不到输入",那正是 §0.3 最怕的"没判当判过"。
+ * 用只认 exit 0 的派生会把"全仓没有命中"读成"取不到输入",那正是 §0.3 最怕的"没判当判过"。
+ *
+ * 派生一律走 `scripts/lib/face-reader.mjs` 的 `gitRaw`(G-927):绝对路径 git、safe.directory、
+ * quotepath、windowsHide、stdio 两态与 EBUSY 兜底都在层里,本文件不再自拼子进程。
  */
 function git(args, { input, okCodes = [0] } = {}, root = ROOT) {
-  const r = spawnSync('git', args, {
-    cwd: root,
-    encoding: 'utf8',
-    input,
-    // 一律三管接管(带 input 必须 pipe;不带时也 pipe,由进程退出关闭)—— 写成三元分支会让
-    // 守门 193 读不出 stdio 值,落进"判不出"桶(实测该桶第一次出现就是本文件)。
-    stdio: ['pipe', 'pipe', 'pipe'],
-    windowsHide: true,
-    timeout: GIT_TIMEOUT,
-  })
-  if (r.error) throw r.error
-  if (!okCodes.includes(r.status))
-    throw new Error(
-      `git ${args[0]} exit ${r.status}:${String(r.stderr ?? '')
-        .trim()
-        .slice(0, 160)}`,
-    )
-  return r.stdout ?? ''
+  try {
+    return gitRaw(args, root, { input, timeout: GIT_TIMEOUT })
+  } catch (e) {
+    // 合法非零码是**结论**不是故障(exit 1 的 check-ignore 没有 stdout,恒为空)。
+    if (typeof e?.status === 'number' && okCodes.includes(e.status)) return ''
+    throw e
+  }
 }
 
 /**

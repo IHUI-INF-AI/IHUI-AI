@@ -148,7 +148,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pkg-user/user/password')}
             >
@@ -158,7 +158,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pkg-user/user/realname')}
             >
@@ -168,7 +168,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pkg-user/user/email')}
             >
@@ -178,7 +178,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pkg-user/account-cancel/index')}
             >
@@ -204,7 +204,7 @@ export default function Settings() {
               <Switch checked={notifEnabled} color={switchAccentDeep} onChange={onNotifChange} />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pages/setting/language')}
             >
@@ -214,7 +214,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pages/setting/theme')}
             >
@@ -224,7 +224,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pages/setting/cache')}
             >
@@ -253,7 +253,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pkg-about/about/index')}
             >
@@ -263,7 +263,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pkg-content/announcement/index')}
             >
@@ -273,7 +273,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pkg-content/activity/index')}
             >
@@ -283,7 +283,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pkg-ai/ai-skill/index')}
             >
@@ -312,7 +312,7 @@ export default function Settings() {
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
             <View
-              className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]"
+              className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]"
               hoverClass="opacity-60"
               onClick={() => navigate('/pkg-about/about/protocol')}
             >
@@ -340,7 +340,7 @@ export default function Settings() {
               </Text>
               <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
             </View>
-            <View className="flex min-h-[120rpx] items-center justify-between border-t border-[var(--color-border)] px-[24rpx] py-[28rpx]">
+            <View className="flex min-h-[120rpx] items-center justify-between px-[24rpx] py-[28rpx]">
               <Text className="flex-1 text-[length:32rpx] text-[var(--color-text-medium)] dark:text-foreground">
                 {tt('setting.version', '当前版本号')}
               </Text>

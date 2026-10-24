@@ -4,6 +4,8 @@
 import { create } from 'zustand'
 // 权限档 wire 类型唯一来源(G-164:本文件此前自抄了 3 份三值联合,补第四档时漏改即静默失配)
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
+// 79 号票:权限双轴(sandbox_mode × approval_policy)取值对,真源在 @ihui/types
+import type { AxisPair } from '@ihui/types'
 import { persist } from 'zustand/middleware'
 
 import { createPersistConfig } from './persist-helpers'
@@ -75,6 +77,16 @@ interface AiPanelState {
    * - 不持久化(会话级,刷新丢失可接受,与原 sessionStorage 行为一致)
    */
   pendingPermissionMode: WorkspacePermissionMode | null
+  /**
+   * 请求级权限双轴(79 号票,2026-10-23 立):用户在权限弹层里显式选的
+   * sandbox_mode × approval_policy。
+   * - `null` = 跟随单轴模式(后端按 PERMISSION_MODE_TO_AXIS 派生),这是默认态;
+   * - 非 null = 双轴覆盖单轴(后端裁决器里显式双轴的优先级高于 Legacy 单轴);
+   * - 与单轴**互斥**:切换单轴档位即清回 null,否则用户点了单轴却仍按旧双轴跑,
+   *   是"界面显示 A、实际生效 B"那一型静默失效。
+   * - 不持久化:请求级偏好,刷新回到跟随单轴(与 pendingPermissionMode 同档)。
+   */
+  permissionAxes: AxisPair | null
   /** 浮窗模式:docked(flex 流)→ floating(fixed 可拖拽) */
   floatMode: boolean
   /** 浮窗最小化:只显示 FAB 按钮,点击展开完整面板 */
@@ -104,6 +116,8 @@ interface AiPanelState {
   ) => void
   setPendingFullAccess: (v: boolean) => void
   setPendingPermissionMode: (v: WorkspacePermissionMode | null) => void
+  /** 显式双轴写入;传 null = 回到"跟随单轴模式" */
+  setPermissionAxes: (v: AxisPair | null) => void
   setFloatMode: (v: boolean) => void
   setFloatMinimized: (v: boolean) => void
   toggleWorkAreaCollapsed: () => void
@@ -130,6 +144,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       pendingPermissionSetup: null,
       pendingFullAccess: false,
       pendingPermissionMode: null,
+      permissionAxes: null,
       floatMode: false,
       floatMinimized: false,
       floatCollapsed: false,
@@ -169,6 +184,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       setPendingPermissionSetup: (v) => set({ pendingPermissionSetup: v }),
       setPendingFullAccess: (v: boolean) => set({ pendingFullAccess: v }),
       setPendingPermissionMode: (v) => set({ pendingPermissionMode: v }),
+      setPermissionAxes: (v) => set({ permissionAxes: v }),
       setFloatMode: (v: boolean) => set({ floatMode: v }),
       setFloatMinimized: (v: boolean) => set({ floatMinimized: v }),
       toggleWorkAreaCollapsed: () => set((s) => ({ workAreaCollapsed: !s.workAreaCollapsed })),
@@ -209,6 +225,9 @@ export const useAiPanelStore = create<AiPanelState>()(
         floatMode: false,
         // D182 工作面全屏同为会话级:rehydrate 后强制回默认,防旧残留把工作面锁在全屏
         workAreaFullscreen: false,
+        // 79 号票:双轴是请求级偏好,未进 partialize;此处再强制一次,
+        // 防旧版本/手改的 localStorage 把高危双轴残留到刷新之后
+        permissionAxes: null,
         // 强制非最小化/非折叠:防旧版本 localStorage 残留 floatMinimized:true
         // 导致 AI 对话框默认收成 FAB(用户规则:默认展开正常态)
         floatMinimized: false,

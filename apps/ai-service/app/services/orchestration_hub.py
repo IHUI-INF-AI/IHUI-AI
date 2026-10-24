@@ -96,6 +96,10 @@ PILLAR_EVENTS: dict[str, str] = {
     "subagent.completed": "Subagent 完成",
     "subagent.failed": "Subagent 失败",
     "subagent.evolved": "Subagent 演化",
+    # D121(2026-10-23):团队成员换手(任务板 owner 变更,agent_teams.TeamTaskBoard)。
+    # 票面明令"SSE 复用 subagent_* 帧族扩 event 子类型,禁新帧族",故它是本族的一个
+    # 子类型而不是新帧名;无匹配 playbook ⇒ 决策为 skipped(不触发任何支柱联动)。
+    "subagent.handoff": "Subagent 换手",
     "terminal.command_failed": "命令失败",
     "terminal.command_succeeded": "命令成功",
     "terminal.ai_diagnosed": "AI 诊断完成",

@@ -562,6 +562,25 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
         return row
       })
       if (!created) return reply.status(500).send(error(500, '消息发送失败'))
+      // 票71(V2 #23)第二切片:消息面房间广播(多端/多标签实时同步)。
+      // 与 chat.ts 的 POST /conversations/:id/messages 同一出口、同一条纪律:
+      // 写库成功之后发、失败不改响应、必须出声。收件人本片 = 会话属主(即请求主体),
+      // 协作者集合属下一片(listAcceptedCollaboratorUserIds 的 fan-out)。
+      try {
+        server.broadcastChatMessageCreated({
+          conversationId,
+          memberUserIds: [userId],
+          messageId: created.id,
+          role: 'user',
+          content: created.content,
+          at: created.createdAt,
+        })
+      } catch (err) {
+        request.log.warn(
+          { err, conversationId, messageId: created.id },
+          'chat 消息房间广播发射失败(写库已成功,另一端退回打开会话时拉取)',
+        )
+      }
       return reply.status(201).send(
         success({
           message: {

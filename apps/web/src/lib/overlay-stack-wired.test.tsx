@@ -15,7 +15,7 @@
  */
 
 import * as React from 'react'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('next-intl', () => ({
@@ -108,11 +108,11 @@ describe('Esc 无层栈协议 · 已接线代表浮层', () => {
     expect(getOverlayStack()).not.toContain(SLASH_ID)
   })
 
-  it('三层叠开按一次 Esc 只关最上层(历史搜索条 + 统一建议面板 + 上层)', () => {
+  it('三层叠开按一次 Esc 只关最上层,关闭后下层仍响应下一次 Esc', async () => {
     const historyClose = vi.fn()
     const panelClose = vi.fn()
     renderHistory(historyClose)
-    render(
+    const panel = render(
       <UnifiedSuggestionPanel
         open
         anchorRef={{ current: null } as React.RefObject<HTMLElement | null>}
@@ -134,6 +134,20 @@ describe('Esc 无层栈协议 · 已接线代表浮层', () => {
     fireEvent.keyDown(panelInput(), { key: 'Escape' })
     expect(panelClose).toHaveBeenCalled()
     expect(historyClose).not.toHaveBeenCalled()
+
+    // 中间层真正关闭出栈后,底层成为栈顶 → 下一次 Esc 由它消费
+    panel.rerender(
+      <UnifiedSuggestionPanel
+        open={false}
+        anchorRef={{ current: null } as React.RefObject<HTMLElement | null>}
+        onClose={panelClose}
+        states={[]}
+        onSelect={noop}
+      />,
+    )
+    await waitFor(() => expect(getOverlayStack()).toEqual([HISTORY_ID]))
+    fireEvent.keyDown(historyInput(), { key: 'Escape' })
+    expect(historyClose).toHaveBeenCalledTimes(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

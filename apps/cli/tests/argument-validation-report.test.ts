@@ -4,22 +4,27 @@
 
 // A36 第②步「影子台账 → 可排期清单」单测(G-240)。
 //
-// 钉五件事,每件都是"没有它就会静默失效"的那一型:
+// 钉六件事,每件都是"没有它就会静默失效"的那一型:
 //  ① 隐私:含唯一 nonce 的入参原值与整张枚举表都不得出现在记录/序列化结果里
 //     (positive control —— 只测"看起来没打印"等于没测);
 //  ② 默认零副作用:env 未设 ⇒ 台账一次都不写(与影子档"默认 off"是同一条纪律);
 //  ③ 判据三态各有正反例:单一形态 ⇒ description-suspect、混杂 ⇒ caller-error、
 //     样本不足/被剔证 ⇒ undetermined 且**必须报名**;
 //  ④ "文件不存在"读成未判定而不是"样本为 0"—— 把没判写成判过了是本仓最高频失效型;
-//  ⑤ 粗粒度快照投影永远产不出可排期行(它是"数据源缺席"这句话的出处,不是结论)。
+//  ⑤ 粗粒度快照投影永远产不出可排期行(它是"数据源缺席"这句话的出处,不是结论);
+//  ⑥ 开关三态与写侧落点纪律(A36 接线):on 词归一到默认账(读侧同尺)、off 词与未设零写入
+//     且报名、仓库外/根一级散文件/`..` 逃逸三种落点被拒 —— 否定侧与正控成对(§5884)。
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_LEDGER_RELATIVE_PATH,
+  LEDGER_OFF_VALUES,
+  LEDGER_ON_VALUES,
   MIN_FIELD_SAMPLES_FOR_VERDICT,
   MIN_SAMPLES_FOR_SCHEDULING,
   TOOL_ARG_LEDGER_ENV,
@@ -27,6 +32,8 @@ import {
   appendArgRejectionLedger,
   expectedShapeOf,
   formatArgRejectionReport,
+  interpretLedgerEnv,
+  ledgerWritePathAllowed,
   observedShapeOf,
   readArgLedger,
   recordsForValidation,
@@ -41,8 +48,14 @@ import type { ToolSchema } from '../src/tools/index.js';
 
 const NONCE = 'NONCE-7f3a9c-user-raw-value';
 
-/** 临时夹具落仓库内 gitignored 的 .ihui-agent/tmp(§15/§26:不往家目录与盘根随手写)。 */
-const SCRATCH_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../.ihui-agent/tmp/tool-arg-report-tests');
+/**
+ * 临时夹具落**仓库根**的 gitignored `.ihui-agent/tmp`(§15/§26:不往家目录与盘根随手写)。
+ * 锚点修正(2026-10-24,A36 接线):此前 `../../` 从 apps/cli/tests 只上跳两级,
+ * 落点其实是 `apps/.ihui-agent/tmp/…`(不在根忽略面、也不在写侧纪律的放行面);
+ * 写侧 `ledgerWritePathAllowed` 一上线就把它拒了 —— 这正是该纪律要抓的"落点漂移"型,
+ * 故改三级上跳锚到真仓库根,夹具与生产默认账同在一块管辖面上。
+ */
+const SCRATCH_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../../../.ihui-agent/tmp/tool-arg-report-tests');
 
 const takenDirs: string[] = [];
 afterEach(() => {
@@ -200,6 +213,90 @@ describe('appendArgRejectionLedger:默认零副作用,显式才落盘', () => {
     const read = readArgLedger(join(scratchDir(), 'nope.jsonl'));
     expect(read.missing).toBe(true);
     expect(read.records).toHaveLength(0);
+  });
+});
+
+// A36 第②步「接线」:开关三态 + 写侧落点纪律。
+// 方法论债(§5884):"env 没设一行都不写"这类否定性结论必须有正控配对 ——
+// 同一判定点"env 设了确实写得出行"的用例必须成对在同一个文件里,否则否定侧是假绿。
+describe('开关三态(A36 接线:默认可开可关、可回退)', () => {
+  const oneError = () =>
+    invalid([{ field: 'mode', reason: 'enum_mismatch', expected: 'enum(alpha|beta)', actual: NONCE }]);
+
+  it('开关词表:每个 on 词都归一到默认账,读侧同尺(用 =1 开账后报告能找对文件)', () => {
+    for (const v of LEDGER_ON_VALUES) {
+      const reading = interpretLedgerEnv(v);
+      expect(reading.on).toBe(true);
+      expect(reading.path).toBe(DEFAULT_LEDGER_RELATIVE_PATH);
+    }
+    const root = repoRootOf(new URL('../src/tools/argument-validation-report.ts', import.meta.url).href);
+    expect(resolveLedgerPath(null, { [TOOL_ARG_LEDGER_ENV]: '1' }, root)).toBe(
+      resolve(root, DEFAULT_LEDGER_RELATIVE_PATH),
+    );
+  });
+
+  it('显式关词 ⇒ 零写入且报名(与"未设"同效、不同原因;可回退档)', () => {
+    for (const v of LEDGER_OFF_VALUES) {
+      const out = appendArgRejectionLedger(schema, { mode: NONCE }, oneError(), {
+        [TOOL_ARG_LEDGER_ENV]: v,
+      });
+      expect(out.appended).toBe(0);
+      expect(out.skippedReason).toMatch(/explicitly disabled/);
+    }
+  });
+
+  it('正控(写得出行):on 档在 .ihui-agent 内显式路径真的落一行,且无原值', () => {
+    const target = join(scratchDir(), 'switch-on.jsonl');
+    const out = appendArgRejectionLedger(schema, { mode: NONCE }, oneError(), {
+      [TOOL_ARG_LEDGER_ENV]: target,
+    });
+    expect(out.appended).toBe(1);
+    expect(existsSync(target)).toBe(true);
+    expect(readFileSync(target, 'utf-8')).not.toContain(NONCE);
+  });
+
+  it('=1 的开账形态不在此真写:真实默认台账只由日常使用自然累积(票面禁夹具冒充真实统计)', () => {
+    // 若这里真去 append 默认路径,就等于往生产账里造样本 —— 用纯函数断言归一结果代替 IO。
+    const reading = interpretLedgerEnv('1');
+    expect(reading.on).toBe(true);
+    expect(reading.path).toBe(DEFAULT_LEDGER_RELATIVE_PATH);
+  });
+});
+
+describe('写侧落点纪律(§15/§15b:仓库根内 .ihui-agent/ 管辖面,拒绝必须报名)', () => {
+  const oneError = () =>
+    invalid([{ field: 'mode', reason: 'enum_mismatch', expected: 'enum(alpha|beta)', actual: NONCE }]);
+  const realRoot = repoRootOf(new URL('../src/tools/argument-validation-report.ts', import.meta.url).href);
+
+  it('仓库树外(os.tmpdir)改道被拒 ⇒ 零 IO,文件不存在', () => {
+    const outside = join(tmpdir(), `ihui-a36-never-written-${process.pid}.jsonl`);
+    const out = appendArgRejectionLedger(schema, { mode: NONCE }, oneError(), {
+      [TOOL_ARG_LEDGER_ENV]: outside,
+    });
+    expect(out.appended).toBe(0);
+    expect(out.skippedReason).toMatch(/refused:/);
+    expect(existsSync(outside)).toBe(false);
+  });
+
+  it('仓库根一级散文件被拒(治 env=<裸文件名> 在根目录造垃圾那一型)', () => {
+    const stray = resolve(realRoot, `a36-stray-${process.pid}.jsonl`);
+    const out = appendArgRejectionLedger(schema, { mode: NONCE }, oneError(), {
+      [TOOL_ARG_LEDGER_ENV]: stray,
+    });
+    expect(out.appended).toBe(0);
+    expect(out.skippedReason).toMatch(/must live under \.ihui-agent/);
+    expect(existsSync(stray)).toBe(false);
+  });
+
+  it('`..` 逃逸被拒;`.ihui-agent/` 深路径放行(纯函数正反例)', () => {
+    expect(ledgerWritePathAllowed(resolve(realRoot, '..', 'escape.jsonl'), realRoot).ok).toBe(false);
+    expect(ledgerWritePathAllowed(realRoot, realRoot).ok).toBe(false);
+    expect(ledgerWritePathAllowed(join(scratchDir(), 'ok', 'deep.jsonl'), realRoot).ok).toBe(true);
+  });
+
+  it('读侧不受写纪律约束(读仓库外的账本没有副作用,两维不并档)', () => {
+    const outside = join(tmpdir(), `ihui-a36-read-only-${process.pid}.jsonl`);
+    expect(readArgLedger(outside).missing).toBe(true);
   });
 });
 

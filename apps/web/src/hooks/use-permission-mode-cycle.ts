@@ -12,7 +12,10 @@ import { switchPermissionMode } from '@/components/ai/permission-mode-popover'
 import { isFullAccessConfirmSuppressed } from '@/components/ai/full-access-confirm-dialog'
 import { recordModeChange, updateLatestRecordSource } from '@/lib/permission-mode-history'
 // 上次主动选择档位的读写单一出口(票 G-414 ②:此前只写不读)
-import { rememberPreferredPermissionMode, resolveCycleStartMode } from '@/lib/permission-mode-memory'
+import {
+  rememberPreferredPermissionMode,
+  resolveCycleStartMode,
+} from '@/lib/permission-mode-memory'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 // 读侧归一(G-164)现在住在 @/lib/permission-mode-memory:循环起点要归一 store/localStorage 两种拼写,
@@ -34,7 +37,6 @@ const PERMISSION_CYCLE: WorkspacePermissionMode[] = [
   'bypass-permissions',
   'plan',
 ]
-
 
 /**
  * 上次主动选择的权限模式:键、写侧、读侧都在 `@/lib/permission-mode-memory`(票 G-414 ②)。
@@ -96,6 +98,11 @@ export function usePermissionModeCycle(): {
   // - Shift+/ 也算,避免不同键盘布局下 ? 在不同位置
   // - 排除 textarea/input/contenteditable 内,用户打字时不应该误触
   // - 再按一次关闭(toggle),与常见 ? 文档快捷键行为一致
+  // - 2026-10-23 修(Esc 无层栈协议 e2e 实锤):排除 Ctrl/Meta/Alt 修饰键。
+  //   此前 Ctrl+Shift+/(斜杠命令面板快捷键)在浏览器报 e.key='?' 时被本监听一并认领,
+  //   权限模态被误开成第四层 —— 其 toggle 关闭动画窗口把 id 顶回层栈栈顶,
+  //   劫持后续 Esc(overlay-stack-esc.spec.ts 复开格 flaky 的真根因)。
+  //   裸 ?/Shift+/ 语义保持不变。
   React.useEffect(() => {
     if (typeof window === 'undefined') return
     const onKey = (e: KeyboardEvent) => {
@@ -106,6 +113,7 @@ export function usePermissionModeCycle(): {
       ) {
         return
       }
+      if (e.ctrlKey || e.metaKey || e.altKey) return
       if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault()
         setShortcutsOpen((v) => !v)

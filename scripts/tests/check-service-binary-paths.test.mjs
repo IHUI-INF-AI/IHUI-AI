@@ -1101,5 +1101,61 @@ test('DS-5 闭包里跟不到 ⇒ 未判定并点名(票面验收②):变量目�
   assert.equal(c.value.modulesUndetermined.length, 0)
 })
 
+// ──────────────────────────────────────────────────────────────────────────────
+// Import-Module 静态加载边(2026-10-24 补):`Import-Module` 载入的 .psm1 同样是启动那一刻
+// 读进内存的 —— 与 dot-source 同一型"改了模块、没重启、账面仍 fresh"。按名导入(落点由
+// PSModulePath 决定)与 .psd1 清单(RootModule 未静态解析)必须落未判定并点名,不许静默放行。
+// ──────────────────────────────────────────────────────────────────────────────
+const IM_MODULE = 'C:\\app\\shared-helper.psm1'
+
+test('DS-6 Import-Module 抽取层:Join-Path/-Name/ipmo 认出;按名与 .psd1 清单落未判定,绝不静默放行', () => {
+  const ex = (text, dir = 'C:\\app') => extractDotSourcedScripts({ text, scriptDir: dir })
+  const a = ex("Import-Module (Join-Path $PSScriptRoot 'shared-helper.psm1')\n")
+  assert.equal(a.kind, 'measured')
+  assert.deepEqual(a.value.paths, [IM_MODULE])
+  // `-Name` 是取值参数,不得被当成模块名(否则会凭空造出 C:\app\-Name 这条假路径)
+  assert.deepEqual(ex("Import-Module -Name 'lib\\x.psm1'").value.paths, ['C:\\app\\lib\\x.psm1'])
+  // ipmo 是 Import-Module 的官方别名
+  assert.deepEqual(ex("ipmo 'y.psm1'").value.paths, ['C:\\app\\y.psm1'])
+  // 按名导入:落点由 PSModulePath 决定 ⇒ 未判定(不是"没有加载边")
+  const named = ex('Import-Module Posh-SSH')
+  assert.equal(named.kind, 'measured')
+  assert.deepEqual(named.value.paths, [])
+  assert.equal(named.value.items[0].path, null)
+  assert.match(named.value.items[0].why, /PSModulePath/)
+  // .psd1 清单:RootModule 未静态解析 ⇒ 未判定并点名
+  const man = ex("Import-Module 'm\\x.psd1'")
+  assert.deepEqual(man.value.paths, [])
+  assert.match(man.value.items[0].why, /RootModule/)
+  // 反向:注释里的 Import-Module 不算加载边
+  assert.deepEqual(ex("# Import-Module 'x.psm1'").value.paths, [])
+})
+
+test('DS-7 端到端主判据:入口脚本是新的,但 Import-Module 载入的 .psm1 比进程新 ⇒ stale;模块旧于进程 ⇒ fresh', () => {
+  // 主臂:入口(DS_SCRIPT)早于进程启动,被 Import-Module 的模块晚 60 分钟
+  const positive = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [IM_MODULE]: DS_NEW_MS },
+      { [DS_SCRIPT]: "Import-Module (Join-Path $PSScriptRoot 'shared-helper.psm1')\n", [IM_MODULE]: '# 夹具模块:psm1,无更深层\n' },
+    ),
+  )
+  assert.equal(positive.kind, 'measured')
+  assert.equal(positive.value.verdict, 'stale', '只看 -File 会报 fresh 的那一型:Import-Module 进来的模块没进过这个进程')
+  assert.deepEqual(positive.value.modulesStale.map((m) => m.path), [IM_MODULE])
+  assert.equal(positive.value.modulesUndetermined.length, 0, '主臂必须是完全量到的场景')
+  // 反臂:同一结构,模块也早于进程 ⇒ fresh(证明不是"有 Import-Module 就红"的恒真式)
+  const negative = dsJudge(
+    dsDeps(
+      { [DS_SCRIPT]: DS_OLD_MS, [IM_MODULE]: DS_OLD_MS },
+      { [DS_SCRIPT]: "Import-Module -Name 'shared-helper.psm1'\n", [IM_MODULE]: '# 夹具模块:psm1,无更深层\n' },
+    ),
+  )
+  assert.equal(negative.kind, 'measured')
+  assert.equal(negative.value.verdict, 'fresh')
+  assert.equal(negative.value.modulesScanned, 1)
+  assert.equal(negative.value.modulesStale.length, 0)
+  assert.equal(negative.value.modulesUndetermined.length, 0, '反臂同样必须是完全量到的场景')
+})
+
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

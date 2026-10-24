@@ -7,7 +7,7 @@
  *
  * 对齐历史项目 pagesA/studyindex/index.vue(AI 视频 / 学习视频列表):
  * - 顶部 NavBar(标题「AI 视频」+ 返回)+ 右侧搜索开关 + 菜单入口(打开 Drawer)
- * - ScrollTitle 赛道分类切换(复用 SingleTypeBar 共享组件,对齐 Uniapp ScrollTitle)
+ * - 赛道分类切换(统一分类栏 CategoryInlineBar,对齐 Uniapp ScrollTitle)
  * - pageType 三态切换(对齐 Uniapp pageType:index 预览 / model 模型全屏 / study 课程全屏)
  * - index 预览态:ModelList 前 3 条 + StudyList 前 3 条 + 各自「更多」切全屏
  * - study 全屏态:双列视频卡片(封面 / 标题 / 时长徽章 / 讲师 / 相对时间)
@@ -531,7 +531,7 @@ export function StudyIndexScreen() {
         </View>
       ) : null}
 
-      {/* 赛道分类切换(对齐 Uniapp scroll_title,复用 SingleTypeBar 共享组件) */}
+      {/* 赛道分类切换(对齐 Uniapp scroll_title,统一分类栏 CategoryInlineBar) */}
       <View style={styles.scrollTitleWrap}>
         <CategoryInlineBar
           items={TRACK_CATEGORIES.map((c) => ({ id: c.id, label: c.name }))}
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(16),
     backgroundColor: tk.surface.card,
   } as ViewStyle,
-  // 赛道分类容器(复用 SingleTypeBar 共享组件)
+  // 赛道分类容器(统一分类栏 CategoryInlineBar)
   scrollTitleWrap: {
     backgroundColor: tk.surface.card,
     paddingVertical: rpx(16),

@@ -212,6 +212,17 @@ import {
 } from '../src/db/content-queries'
 import { __test__ as codeStoreTest, putCodeEntry } from '../src/utils/code-store'
 
+/** G-876:register 只认 register 场景发出的短信码;夹具按发送端同口径备一枚。 */
+async function seedRegisterCode(phone: string, code = '123456'): Promise<void> {
+  const now = Date.now()
+  await putCodeEntry(phone, {
+    code,
+    expiresAt: now + 10 * 60 * 1000,
+    sentAt: now,
+    scene: 'register',
+  } as never)
+}
+
 // =============================================================================
 // 常量与测试数据
 // =============================================================================
@@ -324,6 +335,9 @@ describe('success paths', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // G-876:register 在短信通道未配置时 503;本文件测的是注册成功/409 业务路径,
+    // 用代理档(指向死端口,不会真发)点亮「已配置」判据。
+    process.env.SMS_API_BASE_URL = 'http://127.0.0.1:1'
     // 重置 password-crypto 默认实现（可能被前一个测试覆盖）
     vi.mocked(hashPassword).mockResolvedValue('$argon2id$mockedhashvalue')
     vi.mocked(verifyPassword).mockResolvedValue(true)
@@ -336,11 +350,12 @@ describe('success paths', () => {
     it('POST /api/auth/register 成功注册返回 200 与 token', async () => {
       vi.mocked(findUserByPhone).mockResolvedValue(undefined)
       vi.mocked(createUser).mockResolvedValue(mockUser)
+      await seedRegisterCode('13800000001')
 
       const res = await server.inject({
         method: 'POST',
         url: '/api/auth/register',
-        body: { phone: '13800000001', password: 'password123' },
+        body: { phone: '13800000001', password: 'password123', code: '123456' },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()
@@ -353,11 +368,12 @@ describe('success paths', () => {
 
     it('POST /api/auth/register 重复手机号返回 409', async () => {
       vi.mocked(findUserByPhone).mockResolvedValue(mockUser)
+      await seedRegisterCode('13800000001')
 
       const res = await server.inject({
         method: 'POST',
         url: '/api/auth/register',
-        body: { phone: '13800000001', password: 'password123' },
+        body: { phone: '13800000001', password: 'password123', code: '123456' },
       })
       expect(res.statusCode).toBe(409)
       const body = res.json()

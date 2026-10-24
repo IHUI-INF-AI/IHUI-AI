@@ -42,6 +42,9 @@ import { Tooltip } from '@/components/feedback'
 import { PortalPanel } from '@/components/feedback/portal-panel'
 // 权限模式历史(2026-09-30 底栏单行化):内嵌进本弹层底部,独立时钟触发器退役
 import { PermissionHistoryPanel } from './permission-history-panel'
+// 79 号票:请求级权限双轴(sandbox_mode × approval_policy)。与上方单轴卡片互斥 ——
+// 选单轴即清回"跟随单轴",选双轴即覆盖单轴(后端裁决器同序)。
+import { PermissionAxesPicker } from './permission-axes-picker'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
@@ -237,6 +240,9 @@ export function PermissionModePopover({
       const previousMode: WorkspacePermissionMode | undefined =
         store.activeWorkspace?.mode ?? store.pendingPermissionMode ?? undefined
       const previousPath = store.activeWorkspace?.path
+      // 79 号票:切单轴 = 放弃显式双轴(否则界面上单轴已变、请求仍按旧双轴发,
+      // 后端显式双轴优先级更高 ⇒ 静默不生效)
+      store.setPermissionAxes(null)
       // 乐观更新:立即写 store,失败回滚
       if (store.activeWorkspace) {
         store.setActiveWorkspace({ ...store.activeWorkspace, mode })
@@ -427,7 +433,10 @@ export function PermissionModePopover({
             )}
           />
           {currentMode === 'bypass-permissions' && (
-            <TriangleAlert className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 text-amber-500" aria-hidden="true" />
+            <TriangleAlert
+              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 text-amber-500"
+              aria-hidden="true"
+            />
           )}
         </button>
       </Tooltip>
@@ -599,6 +608,10 @@ export function PermissionModePopover({
             {currentMode === 'bypass-permissions' && <Check className="h-3 w-3 text-amber-500" />}
           </button>
 
+          {/* 79 号票:请求级权限双轴(与上方单轴卡片互斥;选择结果随请求透传
+              sandboxMode / approvalPolicy,未显式选择时按单轴映射派生) */}
+          <PermissionAxesPicker disabled={updateMode.isPending} />
+
           {/* P3 3-3 权限继承:把当前模式设为用户全局默认(未显式配置的工作区沿用) */}
           <Tooltip content={t('setDefaultHint')}>
             <span className="inline-flex w-full">
@@ -696,6 +709,8 @@ export async function switchPermissionMode(
     if (mode === previousMode) {
       return { ok: true, previousMode }
     }
+    // 79 号票:与弹层同一条互斥规矩(单轴切换 ⇒ 显式双轴作废)
+    store.setPermissionAxes(null)
     // 乐观更新
     if (store.activeWorkspace) {
       store.setActiveWorkspace({ ...store.activeWorkspace, mode })

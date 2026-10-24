@@ -1405,6 +1405,11 @@ async function executeToolCallInner(
       const gateRejection = await gateRemoteHubTool(hubResolved.handle, call, ctx);
       if (gateRejection) return gateRejection;
     }
+    // G-175 扩面(2026-10-24):hub 分支的 allowed-tools 影子记账点。记账只需要工具名 ——
+    // 本地可解析时取 canonical(与本地分支同形,别名不双记),remote 工具按 call.name 记。
+    // 位置与本地分支同一语义:入参校验闸与 remote 批准闸都已放行、dispatch 之前,记的是
+    // "这一趟真会跑";返回值必须丢弃 —— 它不是任何判定的输入,拿它分支就是 enforce。
+    observeShadowToolCall(hubTool ? hubTool.name : call.name);
     try {
       // hub 路径同样收进唯一出口:拿不到本地 Tool 对象时(remote 工具)按**默认档**
       // 约束墙钟预算 —— 特性开关不得成为绕过墙钟预算的第二条执行路径。
@@ -1594,8 +1599,8 @@ async function executeToolCallInner(
   // 位置刻意在**所有既有闸门放行之后、真正执行之前** —— 记的是"这一趟真会跑"。已被权限规则 /
   // 限流 / 确认窗拒掉的调用不记:白名单真生效时它们同样被拒,记两遍等于把一件事算两次。
   // 返回值必须丢弃 —— 它不是任何判定的输入,拿它分支就是 enforce(本票明令禁止)。
-  // 永不抛、永不改 args、不改返回值;hub 分支拿不到本地 Tool 对象,与上方
-  // shadowValidateToolArguments 的已知覆盖面缺口同型,本票不扩面。
+  // 永不抛、永不改 args、不改返回值;hub 分支的对应记账点在上方 dispatch 之前
+  // (G-175 扩面,2026-10-24),两条路径共用同一本影子账。
   observeShadowToolCall(tool.name);
   // P1-5 Error recovery:read 工具失败自动重试 1 次 + 100ms 退避;write/dangerous 不重试(避免副作用)
   const executed = await executeWithRetry(tool, call.arguments, ctx);

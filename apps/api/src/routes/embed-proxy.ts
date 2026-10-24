@@ -137,6 +137,41 @@ async function isForbiddenResolved(hostname: string): Promise<boolean> {
   }
 }
 
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
+const MAX_REDIRECT_HOPS = 5
+
+/**
+ * 逐跳跟随重定向:每个落点必须**先**过 SSRF 判定再发请求。
+ * 原实现用 redirect:'follow' + 事后检查 upstream.url —— 检查时内网请求已经发出,
+ * 属于真实盲 SSRF;此处改为 manual 逐跳前置复检。
+ */
+async function fetchFollowingRedirects(startUrl: string, init: RequestInit): Promise<Response> {
+  let url = startUrl
+  let req: RequestInit = init
+  for (let hop = 0; ; hop++) {
+    const resp = await fetch(url, { ...req, redirect: 'manual' })
+    if (!REDIRECT_STATUSES.has(resp.status)) return resp
+    const location = resp.headers.get('location')
+    if (!location) return resp
+    if (hop >= MAX_REDIRECT_HOPS) throw new Error('重定向次数过多')
+    const next = new URL(location, url)
+    if (!/^https?:$/.test(next.protocol)) throw new Error('重定向目标协议不受支持')
+    if (isForbiddenHost(next.hostname) || (await isForbiddenResolved(next.hostname))) {
+      throw new Error('目标重定向到了内网地址,已被拦截')
+    }
+    const method = (req.method ?? 'GET').toUpperCase()
+    if (resp.status === 303 || ((resp.status === 301 || resp.status === 302) && method === 'POST')) {
+      req = { ...req, method: 'GET', body: undefined }
+    }
+    try {
+      await resp.body?.cancel()
+    } catch {
+      // 中间跳响应体回收失败不影响落点判定
+    }
+    url = next.href
+  }
+}
+
 /** 简单内存限流(每 IP 滑窗) */
 const rateBuckets = new Map<string, { count: number; resetAt: number }>()
 function isRateLimited(key: string): boolean {
@@ -349,7 +384,8 @@ export const embedProxyRoutes: FastifyPluginAsync = async (server) => {
         'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
       }
       const init: RequestInit = {
-        redirect: 'follow',
+        // 由 fetchFollowingRedirects 逐跳跟随并前置复检落点
+        redirect: 'manual',
         signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
         headers: fetchHeaders,
       }
@@ -398,7 +434,7 @@ export const embedProxyRoutes: FastifyPluginAsync = async (server) => {
 
       let upstream: Response
       try {
-        upstream = await fetch(target.href, init)
+        upstream = await fetchFollowingRedirects(target.href, init)
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         reply.type('text/html; charset=utf-8')

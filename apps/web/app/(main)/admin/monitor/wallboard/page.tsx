@@ -353,6 +353,15 @@ function makeFmt(locale: string, t: WallboardT) {
       if (Number.isNaN(d.getTime())) return '—'
       return d.toLocaleTimeString(locale, { hour12: false })
     },
+    /** 事件流用:当天只显示时分秒,跨天补 MM-DD(否则隔夜事件看不出哪一天)。 */
+    fmtStamp(iso: string | null | undefined): string {
+      if (!iso) return '—'
+      const d = new Date(iso)
+      if (Number.isNaN(d.getTime())) return '—'
+      const time = d.toLocaleTimeString(locale, { hour12: false })
+      if (d.toDateString() === new Date().toDateString()) return time
+      return `${d.toLocaleDateString(locale, { month: '2-digit', day: '2-digit' })} ${time}`
+    },
     fmtAgo(iso: string | null | undefined): string {
       if (!iso) return '—'
       const ts = new Date(iso).getTime()
@@ -553,7 +562,10 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const locale = useLocale()
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
-  const { fmtInt, fmtCompact, fmtRate, fmtDuration, fmtClock, fmtAgo } = makeFmt(locale, t)
+  const { fmtInt, fmtCompact, fmtRate, fmtDuration, fmtClock, fmtStamp, fmtAgo } = makeFmt(
+    locale,
+    t,
+  )
   const [now, setNow] = React.useState(() => new Date())
   React.useEffect(() => {
     // 只服务数据年龄(15s 阈值)与当前小时;秒级刷新由 <LiveClock /> 自己承担。
@@ -575,6 +587,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
   const prevAiPanelOpen = React.useRef(true)
   const dutyActiveRef = React.useRef(false)
 
+  // 退出值班的唯一回收口:任何一条退出路径(再点/Esc/切走)都走它。
+  const restoreDutyState = React.useCallback(() => {
+    dutyActiveRef.current = false
+    setDutyMode(false)
+    if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
+  }, [])
+
   const toggleDutyMode = React.useCallback(async () => {
     if (!dutyActiveRef.current) {
       prevAiPanelOpen.current = useAiPanelStore.getState().open
@@ -588,38 +607,29 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
       }
       return
     }
-    dutyActiveRef.current = false
-    setDutyMode(false)
     try {
       if (document.fullscreenElement) await document.exitFullscreen()
     } catch {
       // 已经不在全屏时忽略
     }
-    if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
-  }, [])
+    restoreDutyState()
+  }, [restoreDutyState])
 
-  // 用户按 Esc 退出全屏时把值班态一并回收(不能留下「面板被关着」的残局)。
+  // 用户按 Esc 退出全屏时把值班态一并回收(不能留下「面板被关着/主题被改」的残局)。
   React.useEffect(() => {
     const onFullscreenChange = () => {
-      if (!document.fullscreenElement && dutyActiveRef.current) {
-        dutyActiveRef.current = false
-        setDutyMode(false)
-        if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
-      }
+      if (!document.fullscreenElement && dutyActiveRef.current) restoreDutyState()
     }
     document.addEventListener('fullscreenchange', onFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
-  }, [])
+  }, [restoreDutyState])
 
   // 切走视图(TabsContent 卸载)同样回收。
   React.useEffect(
     () => () => {
-      if (dutyActiveRef.current) {
-        dutyActiveRef.current = false
-        if (prevAiPanelOpen.current) useAiPanelStore.getState().openPanel()
-      }
+      if (dutyActiveRef.current) restoreDutyState()
     },
-    [],
+    [restoreDutyState],
   )
 
   const {
@@ -754,6 +764,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           smooth: true,
           showSymbol: false,
           data: (trend?.qps ?? []).map(([, v]) => Number(v.toFixed(2))),
+          tooltip: { valueFormatter: (v) => `${v} ${t('axisReqPerSec')}` },
           ...seriesGlow(CHART_CYAN),
           areaStyle: {
             color: {
@@ -969,6 +980,14 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           showSymbol: false,
           data: (trend?.cpuPct ?? []).map(([, v]) => Number(v.toFixed(2))),
           tooltip: { valueFormatter: (v) => `${v}%` },
+          // 90% 是仪表转红的同一道线,画出来让「离红线还有多远」不必心算。
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            label: { show: false },
+            lineStyle: { color: withAlpha(CHART_RED, 0.55), type: 'dashed', width: 1 },
+            data: [{ yAxis: 90 }],
+          },
           ...seriesGlow(CHART_CYAN),
         },
         {
@@ -1008,6 +1027,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
             ...(i === hours.length - 1 ? { itemStyle: { color: CHART_CYAN } } : {}),
           })),
           barWidth: '62%',
+          tooltip: { valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitPv')}` },
           itemStyle: {
             borderRadius: [2, 2, 0, 0],
             color: {
@@ -1025,7 +1045,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [trend?.hourlyCalls, isDark, nowHour])
+  }, [trend?.hourlyCalls, isDark, nowHour, t, locale])
 
   const modelOption = React.useMemo<EChartsOption>(() => {
     const models = [...(biz?.llmTopModels ?? [])].reverse()
@@ -1055,6 +1075,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           type: 'bar',
           data: models.map((m) => m.calls),
           barWidth: 12,
+          tooltip: { valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitPv')}` },
           label: { show: true, position: 'right', color: chartText(isDark), fontSize: 10 },
           itemStyle: {
             borderRadius: [0, 6, 6, 0],
@@ -1073,7 +1094,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
         },
       ],
     }
-  }, [biz?.llmTopModels, isDark])
+  }, [biz?.llmTopModels, isDark, t, locale])
 
   // 近 7 日签到人数:纯柱形,横轴只留 MM-DD,纵轴标签隐藏(格子小,数字已标在柱顶)
   const signInOption = React.useMemo<EChartsOption>(() => {
@@ -1103,12 +1124,13 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
           type: 'bar',
           data: rows.map((r) => r.users),
           barWidth: 9,
+          tooltip: { valueFormatter: (v) => `${Number(v).toLocaleString(locale)} ${t('unitUser')}` },
           itemStyle: { borderRadius: [3, 3, 0, 0], color: withAlpha(CHART_GREEN, 0.85) },
           label: { show: true, position: 'top', color: chartText(isDark), fontSize: 9 },
         },
       ],
     }
-  }, [biz?.signIn?.last7d, isDark])
+  }, [biz?.signIn?.last7d, isDark, t, locale])
 
   // 访客首页访问耗时走势:点色 = 该次是否命中边缘缓存(绿 HIT / 黄 MISS),线 = 耗时 ms
   const edgeOption = React.useMemo<EChartsOption>(() => {
@@ -1595,6 +1617,9 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </span>
                   </Tooltip>
                 ))}
+                {(services?.targets ?? []).length === 0 && services !== null ? (
+                  <span className="text-[10px] text-muted-foreground">{t('noScrapeTargets')}</span>
+                ) : null}
               </div>
             </div>
           </Panel>
@@ -1735,6 +1760,23 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       <span className="truncate text-[11px] font-medium text-danger-text">
                         {a.name}
                       </span>
+                      {/* severity 不能只靠圆点颜色区分(色盲不可辨),补文字徽章;复用最近告警那三档文案。 */}
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-md border px-1 text-[9px]',
+                          a.severity === 'critical'
+                            ? 'border-destructive/40 bg-destructive/10 text-danger-text'
+                            : a.severity === 'info'
+                              ? 'border-info/40 bg-info/10 text-info-text'
+                              : 'border-warning/40 bg-warning/10 text-warning-text',
+                        )}
+                      >
+                        {a.severity === 'critical'
+                          ? t('sevCritical')
+                          : a.severity === 'info'
+                            ? t('sevInfo')
+                            : t('sevWarning')}
+                      </span>
                       <span
                         className={cn(
                           'shrink-0 rounded-md border px-1 text-[9px]',
@@ -1866,7 +1908,7 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                         {e.type}
                       </span>
                       <span className="ml-auto shrink-0 text-[9px] text-muted-foreground">
-                        {fmtClock(e.createdAt)}
+                        {fmtStamp(e.createdAt)}
                       </span>
                     </div>
                     <Tooltip content={e.message}>
@@ -2232,26 +2274,28 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                       ['edgeStatic', edge.legs.edgeStatic],
                     ] as const
                   ).map(([legKey, leg]) => (
-                    <div
+                    <Tooltip
                       key={legKey}
-                      className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5"
+                      content={`HTTP ${leg.status ?? '—'} · TTFB ${leg.ttfbMs ?? '—'}ms${leg.encoding ? ` · ${leg.encoding}` : ''}`}
                     >
-                      <Dot tone={leg.ok ? 'ok' : 'bad'} />
-                      <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
-                        {t(EDGE_LEG_LABEL[legKey])}
-                      </span>
-                      <span
-                        className={cn(
-                          'wb-num ml-auto text-[13px] font-semibold',
-                          isNum(leg.totalMs) ? 'text-foreground' : 'text-muted-foreground',
-                        )}
-                      >
-                        {isNum(leg.totalMs) ? fmtInt(leg.totalMs) : '—'}
-                        <span className="ml-0.5 text-[10px] text-muted-foreground">
-                          {t('unitMs')}
+                      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-1.5">
+                        <Dot tone={leg.ok ? 'ok' : 'bad'} />
+                        <span className="text-[10px] tracking-[0.12em] text-muted-foreground">
+                          {t(EDGE_LEG_LABEL[legKey])}
                         </span>
-                      </span>
-                    </div>
+                        <span
+                          className={cn(
+                            'wb-num ml-auto text-[13px] font-semibold',
+                            isNum(leg.totalMs) ? 'text-foreground' : 'text-muted-foreground',
+                          )}
+                        >
+                          {isNum(leg.totalMs) ? fmtInt(leg.totalMs) : '—'}
+                          <span className="ml-0.5 text-[10px] text-muted-foreground">
+                            {t('unitMs')}
+                          </span>
+                        </span>
+                      </div>
+                    </Tooltip>
                   ))}
                 </div>
                 <div className="min-h-0 flex-1">
@@ -2341,6 +2385,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
                     </span>
                   </div>
                 ))}
+                {(traffic?.families.length ?? 0) > 6 ? (
+                  <div className="px-2 py-1 text-center text-[10px] text-muted-foreground">
+                    {t('moreFamilies', { count: (traffic?.families.length ?? 0) - 6 })}
+                  </div>
+                ) : null}
                 {traffic === null ? (
                   <div className="flex justify-center px-2 py-3">
                     <SourceGap text={t('sourceUnreachable')} />
@@ -2484,6 +2533,11 @@ export function WallboardView({ headerExtra }: { headerExtra: React.ReactNode })
 
         <footer className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 pt-1 pb-2 text-[10px] text-muted-foreground">
           <span>{t('footerSources', { url: ov?.prometheusUrl ?? '—' })}</span>
+          <span className={cn('wb-num', dataStale && 'text-warning-text/90')}>
+            {t('footerDataAge', {
+              duration: dataAgeMs === null ? '—' : fmtDuration(dataAgeMs / 1000),
+            })}
+          </span>
         </footer>
       </div>
     </TooltipProvider>
@@ -2638,5 +2692,10 @@ const WALLBOARD_CSS = `
   border-radius: var(--radius-xs);
 }
 .wb-root ::-webkit-scrollbar-track, .wb-scroll-host::-webkit-scrollbar-track { background: transparent; }
+/* 4K/超宽值班屏:视口 ≥2200 时整体放大 12%,字号与图表一起变,不用逐类改 px。
+ * 常规 1920/1440 不触发;不支持 zoom 的浏览器自动退化为当前密度(不做第二套布局)。 */
+@media (min-width: 2200px) {
+  .wb-root { zoom: 1.12; }
+}
 `
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

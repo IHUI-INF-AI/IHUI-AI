@@ -123,6 +123,19 @@ const ENTRY_URL_DEFAULT = 'https://www.aizhs.top/sso/login'
 /** 旧靶(裸域):实测恒 301、零信息。留名是为了让"换回去"这件事在代码里也必须留下理由。 */
 const ZERO_INFO_LEGACY_URL = 'https://aizhs.top/sso/login'
 
+/**
+ * **公网四端矩阵**(票 G-960,2026-10-24)。入口不是一条腿:2026-10-22 实测同一时刻
+ * `www` 522、`api`/`sso`/`ai` 530,而旧靶(裸域)只拿到 CF 边缘 301 —— 结构上看不到这四条真腿。
+ * 每条腿只打**一次** GET(探活不是压测),命中判据见 classifyEndpointTier。
+ * hostname 以票面现读为准;路径取各端既有健康/入口路径,避免把 404 当成源站故障。
+ */
+export const PUBLIC_ENDPOINTS = [
+  { id: 'www', host: 'www.aizhs.top', url: 'https://www.aizhs.top/sso/login' },
+  { id: 'api', host: 'api.aizhs.top', url: 'https://api.aizhs.top/api/health' },
+  { id: 'sso', host: 'sso.aizhs.top', url: 'https://sso.aizhs.top/' },
+  { id: 'ai', host: 'ai.aizhs.top', url: 'https://ai.aizhs.top/health' },
+]
+
 export const DEFAULTS = {
   publicUrl: process.env.IHUI_PUBLIC_URL || ENTRY_URL_DEFAULT,
   localUrl: 'http://127.0.0.1:8801/sso/login',
@@ -219,6 +232,31 @@ export function classifySample(r) {
   }
   if (code) return { stage: 'stall', bucket: 'probeError', unavailable: false, probeSideBroken: true, note: `无法归类的本地异常:${code.slice(0, 90)}` }
   return { stage: 'stall', bucket: 'probeError', unavailable: false, probeSideBroken: true, note: '既无状态码也无错误形态 ⇒ 探测本身没跑到' }
+}
+
+/**
+ * 四端单条探活 → **两档判据**(票 G-960,2026-10-24)。
+ *
+ *   · `origin-ok`          2xx:源站可达(绿)
+ *   · `edge-reachable`     3xx/4xx:到得了应答的那一跳,**不红也不冒充源站健康**(票面"301 放过")
+ *   · `origin-unreachable` 5xx(含 522/530)/拒连/复位:**红** —— 522/530 是"边缘在、回源不通"
+ *                          的签名,绝不能并进 3xx 那一档放过(立案现场 10/10 都这么被放过的)
+ *   · `undetermined`       超时/DNS/TLS/我方上限:探不到 ⇒ 未判定,不得冒充通过
+ *
+ * 与 classifySample 同一份底层归桶(单一真相源);本函数只加"这条腿算红还是算未判定"这一维,
+ * 不改 3xx"单条不算坏"的既有语义(混合腿的合格证仍由 judgeSequence 那一份判)。
+ */
+export function classifyEndpointTier(raw) {
+  const status = raw && typeof raw.status === 'number' ? raw.status : null
+  if (status !== null) {
+    if (status >= 500) return { tier: 'origin-unreachable', red: true, note: `HTTP ${status} ⇒ **源站不可达**(522/530/5xx 是"边缘在、回源不通"的签名)` }
+    if (status >= 300) return { tier: 'edge-reachable', red: false, note: `HTTP ${status} ⇒ **边缘可达**(3xx/4xx 也说明到得了应答的那一跳,但**不证明源站健康**)` }
+    if (status >= 200) return { tier: 'origin-ok', red: false, note: `HTTP ${status} ⇒ **源站可达**` }
+    return { tier: 'undetermined', red: false, note: `HTTP ${status} 不在 2xx/3xx/5xx 口径内 ⇒ 未判定` }
+  }
+  const cls = classifySample(raw)
+  if (cls.unavailable === true) return { tier: 'origin-unreachable', red: true, note: `${cls.note} ⇒ **源站不可达**` }
+  return { tier: 'undetermined', red: false, note: `${cls.note} ⇒ **未判定**(探不到,不冒充通过)` }
 }
 
 /**
@@ -422,6 +460,24 @@ export function judgeSequence(id, stat, opt = {}) {
   }
   if (stat.indeterminate > 0) reasons.push(`(附)${id}:${stat.indeterminate} 次不可归因(DNS/TLS/连接超时/超上限)—— 只报数,不参与判红`)
   return { verdict: reasons.some((r) => !r.startsWith('(附)')) ? 'breach' : 'ok', reasons, numbers }
+}
+
+/**
+ * 四端矩阵的单条判定(票 G-960):把 classifyEndpointTier 的两档落成派发契约里的三态。
+ * `stat` 必须随结论出口 —— 派发层按它算严重度档(522/530 全轮 = 断流级 sev=4)。
+ * 3xx 落 `ok` 是票面口径("301 放过"),但 `tier:'edge-reachable'` 明写"不证明源站健康",
+ * 不与 2xx 的 `origin-ok` 混成一句"入口健康"。
+ */
+export function judgeEndpointSample(id, url, raw, opt = {}) {
+  const cls = classifySample(raw)
+  const tier = classifyEndpointTier(raw)
+  const at = opt.at || new Date().toISOString()
+  const stat = summarizeSequence([{ at, ...raw, ...cls }], { slowMs: opt.slowMs ?? DEFAULTS.slowMs })
+  const key = `E/${id}`
+  const numbers = `${url} ⇒ ${tier.tier}(${tier.note});耗时 ${raw && typeof raw.ms === 'number' ? raw.ms : '?'}ms,归桶 ${cls.bucket}`
+  if (tier.red) return { key, verdict: 'breach', tier: tier.tier, reasons: [`${key}:${tier.note}`], numbers, stat, leg: 'entry' }
+  if (tier.tier === 'undetermined') return { key, verdict: 'unjudged', tier: tier.tier, reasons: [`${key}:${tier.note}`], numbers, stat, leg: null }
+  return { key, verdict: 'ok', tier: tier.tier, reasons: [], numbers, stat, leg: null }
 }
 
 // ───────────────────────── 告警身份归一(纯函数,2026-10-17 立) ─────────────────────────
@@ -1175,15 +1231,38 @@ function selfTest() {
     const g = classifyPublicLeg(healthy, localG960)
     return j.verdict === 'ok' && j.reasons.length === 0 && g.leg === 'clear' && g.tag === null
   })())
-  ok('G6 靶的形状锁(与 env 无关,只锁默认字面量):默认靶必须是**真入口**(www 前缀),不得回落到实测恒 301 的裸域旧靶', (() => {
-    const hostOf = (u) => {
-      try {
-        return new URL(u).host
-      } catch {
-        return ''
-      }
+  const hostOf = (u) => {
+    try {
+      return new URL(u).host
+    } catch {
+      return ''
     }
+  }
+  ok('G6 靶的形状锁(与 env 无关,只锁默认字面量):默认靶必须是**真入口**(www 前缀),不得回落到实测恒 301 的裸域旧靶', (() => {
     return hostOf(ENTRY_URL_DEFAULT).startsWith('www.') && ENTRY_URL_DEFAULT !== ZERO_INFO_LEGACY_URL
+  })())
+  // ── 票 G-960 判据面(2026-10-24):四端各自 hostname + "边缘可达 / 源站不可达"两档 + 探不到未判定
+  ok('G7 四端形状锁:默认矩阵必须是 www/api/sso/ai **四个各自 hostname**(只钉裸域或只钉 www 一条腿 = 立案现场)', (() => {
+    const hosts = PUBLIC_ENDPOINTS.map((e) => hostOf(e.url))
+    return PUBLIC_ENDPOINTS.length === 4 && hosts.every((h, i) => h.startsWith(['www.', 'api.', 'sso.', 'ai.'][i])) && PUBLIC_ENDPOINTS.every((e) => e.host === hostOf(e.url))
+  })())
+  ok('G8 正照:522/530 ⇒ origin-unreachable 且判红(不许当 3xx 放过)', (() => {
+    const a = judgeEndpointSample('www', 'https://www.aizhs.top/sso/login', { status: 522, ms: 10_300 })
+    const b = judgeEndpointSample('api', 'https://api.aizhs.top/api/health', { status: 530, ms: 300 })
+    return a.tier === 'origin-unreachable' && a.verdict === 'breach' && a.stat.unavailable === 1 && b.tier === 'origin-unreachable' && b.verdict === 'breach'
+  })())
+  ok('G9 反照:301 ⇒ 边缘可达、放过(不红,但也不冒充源站健康)', (() => {
+    const j = judgeEndpointSample('sso', 'https://sso.aizhs.top/', { status: 301, ms: 668 })
+    return j.tier === 'edge-reachable' && j.verdict === 'ok' && j.reasons.length === 0 && /不证明源站健康/.test(j.numbers)
+  })())
+  ok('G10 正照:200 ⇒ origin-ok(绿)', (() => {
+    const j = judgeEndpointSample('ai', 'https://ai.aizhs.top/health', { status: 200, ms: 120 })
+    return j.tier === 'origin-ok' && j.verdict === 'ok'
+  })())
+  ok('G11 超时/DNS ⇒ undetermined(探不到如实未判定,不得冒充通过)', (() => {
+    const t = judgeEndpointSample('www', 'https://www.aizhs.top/sso/login', { status: null, ms: 15_001, aborted: true, causeCode: 'ABORT_ERR' })
+    const d = judgeEndpointSample('ai', 'https://ai.aizhs.top/health', { status: null, ms: 5, causeCode: 'ENOTFOUND' })
+    return t.tier === 'undetermined' && t.verdict === 'unjudged' && d.tier === 'undetermined' && d.verdict === 'unjudged'
   })())
   let pass = 0
   for (const [n, p] of cases) {
@@ -1266,12 +1345,20 @@ async function main(argv) {
       }
       if (byUrl.size === 0) console.log(`  ${id}:取证里没有该序列的样本行 ⇒ 未判定(不得读成 0)`)
     }
+    const epSummary = r.summary && Array.isArray(r.summary.endpoints) ? r.summary.endpoints : []
+    for (const ep of epSummary) {
+      console.log(`  四端 ${ep.id}(${ep.url}):${ep.tier} ⇒ ${ep.verdict === 'breach' ? '**红(源站不可达)**' : ep.verdict === 'unjudged' ? '未判定(探不到,不冒充通过)' : '放过(3xx 仅边缘可达 / 2xx 源站可达)'}`)
+    }
     if (r.summary && r.summary.control) {
       const c = r.summary.control
       console.log(`  阳性对照(取证当时):${c.url} ⇒ ${c.bucket} ${c.ms}ms —— ${c.hit ? '命中(尺子有牙)' : '**未命中(尺子失明,该轮结论无效)**'}`)
     } else {
       console.log('  阳性对照:取证里没有对照记录 ⇒ 该轮"抓到过坏"**未被证明**,不得当合格证')
     }
+    const epBreach = epSummary.some((e) => e.verdict === 'breach')
+    const epUnjudged = epSummary.some((e) => e.verdict === 'unjudged')
+    if (epBreach) return 1
+    if (r.exit === 0 && epUnjudged) return 3
     return r.exit === 0 ? 0 : r.exit === 3 ? 3 : 1
   }
   const json = argv.includes('--json')
@@ -1407,6 +1494,15 @@ async function main(argv) {
       }
     }
   }
+  // ── 四端矩阵(票 G-960):www/api/sso/ai 各打**一次** GET。不是压测 —— 四个请求换一条
+  // "哪条腿断了"的可执行事实;522/530 判红,3xx 只记"边缘可达",探不到落未判定。
+  const endpointProbes = []
+  for (const ep of PUBLIC_ENDPOINTS) {
+    const raw = await sampleOnce(ep.url, opt.ceilingMs)
+    const j = judgeEndpointSample(ep.id, ep.url, raw, { slowMs: opt.slowMs })
+    endpointProbes.push({ id: ep.id, host: ep.host, url: ep.url, status: raw.status ?? null, ms: raw.ms, bucket: classifySample(raw).bucket, tier: j.tier, verdict: j.verdict })
+    emit(`E/${ep.id}`, ep.url, j)
+  }
   // ── 阳性对照(判据三):这把尺子必须先证明"看得见一个已知必坏的目标",才有资格报"0 次异常"。
   let control
   if (opt.positiveControl) {
@@ -1422,13 +1518,17 @@ async function main(argv) {
 
   const controlBlind = opt.positiveControl && control && !control.hit
   const anyBreach = verdicts.some((v) => v.verdict === 'breach')
-  const allUnjudged = verdicts.length > 0 && verdicts.every((v) => v.verdict === 'unjudged')
-  let rc = verdicts.length === 0 ? 3 : anyBreach ? 1 : allUnjudged ? 3 : 0
+  // "全未判定"只按 A/B 两条序列算:四端矩阵加的 `E/*` 是**补充面**,不得把原先该报 3 的轮次洗成 0。
+  const seqVerdicts = verdicts.filter((v) => !String(v.key || '').startsWith('E/'))
+  const allUnjudged = seqVerdicts.length > 0 && seqVerdicts.every((v) => v.verdict === 'unjudged')
+  let rc = seqVerdicts.length === 0 ? 3 : anyBreach ? 1 : allUnjudged ? 3 : 0
+  // 四端有任一"探不到"⇒ 本轮不能出合格证(未判定 ≠ 通过)。红优先于未判定。
+  if (endpointProbes.some((p) => p.verdict === 'unjudged') && rc === 0) rc = 3
   if (controlBlind) rc = 3
   const results = {}
   for (const v of verdicts) results[v.key] = projectVerdictForDispatch(v)
   if (opt.ledger) {
-    writeLedgerTrailer(opt.ledger, { at: new Date().toISOString(), rc, results, control, split: splitReport, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), opt: { slowMs: opt.slowMs, ceilingMs: opt.ceilingMs, samples: opt.samples, publicUrl: opt.publicUrl, localUrl: opt.localUrl } })
+    writeLedgerTrailer(opt.ledger, { at: new Date().toISOString(), rc, results, control, split: splitReport, endpoints: endpointProbes, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), opt: { slowMs: opt.slowMs, ceilingMs: opt.ceilingMs, samples: opt.samples, publicUrl: opt.publicUrl, localUrl: opt.localUrl, endpoints: PUBLIC_ENDPOINTS.map((e) => e.url) } })
     sealLedger(opt.ledger, rc)
     // 封缄后**读回自证**(run-evidence 那把尺子判文件):写进去的取证自己读不回 complete,
     // 本轮结论就是无凭据的 —— 探测被掐/磁盘写入失败都必须在这一格现形,而不是让 stdout 继续报平安。
@@ -1439,9 +1539,10 @@ async function main(argv) {
     }
   }
   if (json) {
-    console.log(JSON.stringify({ rc, at: new Date().toISOString(), results, control, split: splitReport, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), ledger: opt.ledger || null, positiveControlRan: opt.positiveControl }))
+    console.log(JSON.stringify({ rc, at: new Date().toISOString(), results, control, split: splitReport, endpoints: endpointProbes, swapEvents: (ev.events || []).map((e) => e.at).slice(-50), ledger: opt.ledger || null, positiveControlRan: opt.positiveControl }))
   } else {
     console.log(`目标:公网 ${opt.publicUrl} | 本地 ${opt.localUrl}(两条独立序列 × 两个目标;任一都不得替另一条顶结论)`)
+    console.log(`四端矩阵:${PUBLIC_ENDPOINTS.map((e) => `${e.id}=${e.host}`).join(' | ')}(各一次 GET;522/530 判红,3xx 只记边缘可达,探不到落未判定)`)
     for (const l of lines) console.log(l)
     console.log(
       rc === 0
@@ -1475,6 +1576,9 @@ if (isDirectRun) {
 
 export const __test__ = {
   classifySample,
+  classifyEndpointTier,
+  judgeEndpointSample,
+  PUBLIC_ENDPOINTS,
   sampleStage,
   summarizeSequence,
   classifyPublicLeg,

@@ -430,6 +430,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       'log',
       'diff',
       'show',
+      'merge-base',
       'ls-files',
       'symbolic-ref',
     ])
@@ -630,6 +631,129 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       const msg = e instanceof Error ? e.message : 'git status 失败'
       server.log.warn({ workspacePath: body.workspacePath, err: msg }, 'git/status 失败')
       return reply.send(success(EMPTY_SNAPSHOT))
+    }
+  })
+
+  // ===========================================================================
+  // D115(2026-10-23,G-229):/review 审查对象采集 —— 只读 diff 出口
+  //
+  // 前端不许自己跑 git(§3 共享层优先 / 多端一致):审查对象由本端点解析成**统一 diff
+  // 文本**,web 只把结果当上下文发给 ai-service 的 review 模式。
+  // 三个 target:
+  //   uncommitted = 工作区 + 暂存相对 HEAD(`git diff HEAD`,不含未跟踪文件);
+  //   branch      = 当前分支相对基线(缺省 origin/main → main → master,
+  //                 以 merge-base 为对侧,等价 `git diff base...HEAD`);
+  //   commit      = 指定 commit 的补丁(`git show --format= --patch`)。
+  // 返回 {code,message,data};参数不合法 400,不是仓库/取不到 400(带 git stderr 首行)。
+  // ===========================================================================
+  const reviewDiffBody = z.object({
+    workspacePath: z.string().min(1),
+    target: z.enum(['uncommitted', 'branch', 'commit']),
+    base: z.string().min(1).max(200).optional(),
+    commit: z
+      .string()
+      .regex(/^[0-9a-fA-F]{7,40}$/)
+      .optional(),
+    maxChars: z.number().int().min(2000).max(200_000).default(60_000),
+  })
+
+  server.post('/git/review-diff', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = reviewDiffBody.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '审查对象参数不合法(需要 target 与 workspacePath)'))
+    }
+    const body = parsed.data
+    if (body.target === 'commit' && !body.commit) {
+      return reply.status(400).send(error(400, 'target=commit 时必须提供 commit(7-40 位 sha)'))
+    }
+    const runGit = async (args: string[], timeoutMs = 15_000) =>
+      fsBridge.run({
+        command: buildGitCmd(args),
+        workspacePath: body.workspacePath,
+        mode: 'read-only',
+        timeoutMs,
+      })
+    try {
+      const inside = await runGit(['rev-parse', '--is-inside-work-tree'], 8_000)
+      if (inside.exitCode !== 0 || inside.stdout.trim() !== 'true') {
+        return reply.status(400).send(error(400, '当前工作区不是 git 仓库'))
+      }
+      let range = ''
+      let diffRes: Awaited<ReturnType<typeof runGit>>
+      if (body.target === 'commit') {
+        range = `commit:${body.commit!.slice(0, 12)}`
+        diffRes = await runGit(['show', '--format=', '--patch', body.commit!])
+      } else if (body.target === 'branch') {
+        let base = body.base?.trim()
+        if (!base) {
+          for (const candidate of ['origin/main', 'main', 'master']) {
+            const probe = await runGit(
+              ['rev-parse', '--verify', '--quiet', `${candidate}^{commit}`],
+              8_000,
+            )
+            if (probe.exitCode === 0 && probe.stdout.trim()) {
+              base = candidate
+              break
+            }
+          }
+        }
+        if (!base) {
+          return reply.status(400).send(error(400, '找不到基线分支(可显式传 base)'))
+        }
+        // buildGitCmd 拒收含 `..` 的参数(安全白名单),故用 merge-base 显式落地三点语义
+        const mergeBase = await runGit(['merge-base', base, 'HEAD'])
+        const origin = mergeBase.exitCode === 0 ? mergeBase.stdout.trim() : ''
+        if (!origin) {
+          return reply.status(400).send(error(400, `无法求 ${base} 与 HEAD 的共同祖先`))
+        }
+        range = `branch:${base}`
+        diffRes = await runGit(['diff', origin])
+      } else {
+        range = 'uncommitted'
+        diffRes = await runGit(['diff', 'HEAD'])
+      }
+      if (diffRes.exitCode !== 0) {
+        const firstErr = (diffRes.stderr || '').split('\n').find((l) => l.trim()) ?? 'git 执行失败'
+        return reply.status(400).send(error(400, firstErr.trim().slice(0, 300)))
+      }
+      const raw = diffRes.stdout ?? ''
+      let additions = 0
+      let deletions = 0
+      let fileCount = 0
+      const files: string[] = []
+      for (const line of raw.split('\n')) {
+        if (line.startsWith('diff --git ')) {
+          fileCount++
+          const m = /^diff --git a\/(.+?) b\//.exec(line)
+          if (m && files.length < 200) files.push(m[1]!)
+        } else if (line.startsWith('+') && !line.startsWith('+++')) {
+          additions++
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          deletions++
+        }
+      }
+      const truncated = raw.length > body.maxChars
+      return reply.send(
+        success({
+          target: body.target,
+          range,
+          diff: truncated ? raw.slice(0, body.maxChars) : raw,
+          truncated,
+          totalChars: raw.length,
+          fileCount,
+          files,
+          lineStats: { additions, deletions },
+        }),
+      )
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'review-diff 失败'
+      server.log.warn(
+        { workspacePath: body.workspacePath, target: body.target, err: msg },
+        'git/review-diff 失败',
+      )
+      return reply.status(400).send(error(400, msg.slice(0, 300)))
     }
   })
 

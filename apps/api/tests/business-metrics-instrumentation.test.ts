@@ -164,8 +164,17 @@ vi.mock('../src/db/queries.js', async (importOriginal) => {
 })
 vi.mock('../src/utils/code-store.js', async (importOriginal) => {
   const actual = await importOriginal<typeof codeStoreShape>()
-  return { ...actual, verifyCode: vi.fn().mockResolvedValue(true) }
+  // G-876:注册路径先读用途场景再消费码;本文件测的是漏斗埋点,不测码校验,
+  // 故无既有条目(用途锁不触发)+ 校验恒过,把变量收敛到「注册是否成功」这一维。
+  return {
+    ...actual,
+    getCodeEntry: vi.fn().mockResolvedValue(null),
+    verifyCode: vi.fn().mockResolvedValue(true),
+  }
 })
+
+// G-876:短信通道未配置时 register 一律 503;本文件用代理档(死端口,不会真发)点亮「已配置」判据。
+process.env.SMS_API_BASE_URL ??= 'http://127.0.0.1:1'
 // 订单表读写:内存状态机,精确复刻 updateOrderStatus 的 B3 条件 UPDATE 语义
 const orderStore: Array<Record<string, unknown>> = []
 vi.mock('../src/db/payment-queries.js', () => ({
@@ -337,7 +346,7 @@ describe.skipIf(!authRoutesProbe.ok)(
       const res = await server.inject({
         method: 'POST',
         url: '/api/auth/register',
-        body: { phone: '13800000001', password: 'password123' },
+        body: { phone: '13800000001', password: 'password123', code: '123456' },
       })
       expect(res.statusCode).toBe(200)
 
@@ -386,7 +395,7 @@ describe.skipIf(!authRoutesProbe.ok)(
           await server.inject({
             method: 'POST',
             url: '/api/auth/register',
-            body: { phone: '13800000001', password: 'password123' },
+            body: { phone: '13800000001', password: 'password123', code: '123456' },
           })
         ).statusCode,
       ).toBe(409)
@@ -396,7 +405,7 @@ describe.skipIf(!authRoutesProbe.ok)(
       const bad = await server.inject({
         method: 'POST',
         url: '/api/auth/register',
-        body: { phone: '13800000002', password: 'password123' },
+        body: { phone: '13800000002', password: 'password123', code: '123456' },
       })
       expect(bad.statusCode).toBeGreaterThanOrEqual(400)
 

@@ -277,7 +277,8 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
 
   /**
    * 构造授权 URL（含 state CSRF 防护）并重定向。
-   * 优先使用后端代理入口（proxyPath）；配置完整时直接跳转厂商授权页。
+   * 配置完整时直接跳转厂商授权页；配置不完整时仅在存在 proxyPath 时走后端代理入口，
+   * 否则明确报未配置（不跳到不存在的后端入口）。
    */
   const startLogin = React.useCallback(
     async (platform: ThirdPartyPlatform): Promise<boolean> => {
@@ -360,6 +361,14 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
         }
 
         // 回退：走后端代理入口（state 由后端接管）
+        // 没有代理入口的平台(如 google/apple/dingtalk/github/feishu)配置不全时,
+        // 厂商授权本就发不起来,跳过去只会得到 404 页面 ⇒ 明确报未配置,不导航。
+        if (!config.proxyPath) {
+          const envPlatform = platform.toUpperCase()
+          throw new Error(
+            `${displayName}登录未配置：无法直连厂商授权页，也没有后端代理入口。请检查 NEXT_PUBLIC_${envPlatform}_CLIENT_ID/APP_ID 与 NEXT_PUBLIC_${envPlatform}_REDIRECT_URI`,
+          )
+        }
         if (typeof window !== 'undefined') {
           window.location.href = `${config.proxyPath}?state=${encodeURIComponent(state)}`
         }
