@@ -98,7 +98,7 @@ export default function CoursePlanet() {
       setLoading(false)
       loadingRef.current = false
     }
-  }, [t, tt])
+  }, [t])
 
   useDidShow(() => {
     loadData()
