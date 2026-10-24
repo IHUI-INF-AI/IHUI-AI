@@ -411,6 +411,19 @@ export function VoiceNote({ conversationId = null, sttEnabled = true }: VoiceNot
                 {t('action.stop')}
               </Button>
             )}
+            {/* 转写完成即可插入当前输入框:与归档行同一个 draftInput 通道,
+                不经服务端落库(落库失败被回滚时这条路径仍通),这是本切片的主链路 */}
+            {phase === 'completed' && !emptyResult && transcript.trim().length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => insertToInput(transcript)}
+                data-testid="voice-note-insert-current"
+              >
+                <ClipboardPaste className="h-3.5 w-3.5" />
+                {t('action.insertToInput')}
+              </Button>
+            )}
             {/* 可恢复失败相:retry */}
             {(phase === 'failed' || phase === 'error' || phase === 'interrupted') && (
               <Button
