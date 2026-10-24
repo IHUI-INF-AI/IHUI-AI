@@ -820,6 +820,7 @@
       "signInTitle": "출석",
       "signInToday": "오늘 출석",
       "signInUnsigned": "미출석",
+      "userGrowth14d": "사용자 증가·14일",
       "sourceUnreachable": "데이터 소스 연결 불가",
       "srcAlertmanager": "Alertmanager",
       "srcDatabase": "데이터베이스",

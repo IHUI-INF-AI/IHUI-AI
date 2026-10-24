@@ -823,6 +823,7 @@
       "signInTitle": "签到",
       "signInToday": "今日签到",
       "signInUnsigned": "未签到",
+      "userGrowth14d": "用户增长·近14日",
       "sourceUnreachable": "数据源不可达",
       "srcAlertmanager": "告警路由",
       "srcDatabase": "数据库",
