@@ -16,7 +16,8 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-interface NotificationPrefs {
+// type 别名(非 interface):具隐式索引签名,可直接喂给 Record<string, boolean> 乐观态
+type NotificationPrefs = {
   apiError: boolean
   quotaWarning: boolean
   webhookFailure: boolean

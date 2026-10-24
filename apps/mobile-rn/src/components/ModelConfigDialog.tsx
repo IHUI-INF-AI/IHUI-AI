@@ -356,6 +356,7 @@ function DynamicVariables({
   isVideoModel: boolean
   onChange: (setVariables: ModelConfigVariable[]) => void
 }) {
+  const { t } = useI18n()
   const [values, setValues] = useState<Record<string, unknown>>(() => buildInitialValues(variables))
   const valuesRef = useRef(values)
   valuesRef.current = values
@@ -505,6 +506,7 @@ function ModelParamsBody(props: ModelParamsBodyProps) {
     variables,
     handleVariableChange,
   } = props
+  const { t } = useI18n()
 
   useUiTextField({
     label: 'Temperature',

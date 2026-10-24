@@ -29,7 +29,7 @@ function formatYuan(n: number): string {
 function buildStats(
   o: CommissionOverview,
   invite: InviteInfo | undefined,
-  t: (k: string, v?: Record<string, unknown>) => string,
+  t: (k: string, v?: Record<string, string | number>) => string,
 ): VipTraderStat[] {
   const base: VipTraderStat[] = [
     {
@@ -113,6 +113,7 @@ export default function VipTraderScreen() {
                   orderCount: null,
                 },
                 inviteInfo,
+                t,
               )
             : [],
         )

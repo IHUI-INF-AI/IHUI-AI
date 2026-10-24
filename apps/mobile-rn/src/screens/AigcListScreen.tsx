@@ -84,12 +84,13 @@ function isMaterialType(ft: AigcFileType): boolean {
   return ft === 0 || ft === 1 || ft === 3 || ft === 4
 }
 
-/** 将 AIGC 任务(result 为 unknown)安全映射为 UI 层 AigcListItem,避免 any */
-function toAigcWork(task: AigcTask): AigcListItem {
+/** 将 AIGC 任务(result 为 unknown)安全映射为 UI 层 AigcListItem,避免 any
+ *  tr 由调用方注入:模块顶层不调 t()(求值早于 I18nProvider 挂载,运行必炸) */
+function toAigcWork(task: AigcTask, tr: (key: string) => string): AigcListItem {
   const r = isRecord(task.result) ? task.result : {}
   return {
     id: task.taskId,
-    title: asString(r.title) ?? t('aigcCover.workTitleDefault'),
+    title: asString(r.title) ?? tr('aigcCover.workTitleDefault'),
     subtitle: asString(r.subtitle),
     prompt: asString(r.prompt),
     content: asString(r.content),
@@ -157,7 +158,7 @@ export default function AigcListScreen() {
         ...(fileTypeRef.current !== undefined ? { fileType: fileTypeRef.current } : {}),
       })
       if (res.success) {
-        setItems(res.data.list.map(toAigcWork))
+        setItems(res.data.list.map((task) => toAigcWork(task, t)))
         setPage(1)
         setHasMore(res.data.list.length >= PAGE_SIZE)
       } else {
@@ -184,7 +185,7 @@ export default function AigcListScreen() {
         ...(fileTypeRef.current !== undefined ? { fileType: fileTypeRef.current } : {}),
       })
       if (res.success) {
-        const nextItems = res.data.list.map(toAigcWork)
+        const nextItems = res.data.list.map((task) => toAigcWork(task, t))
         if (nextItems.length < PAGE_SIZE) setHasMore(false)
         setItems((prev) => [...prev, ...nextItems])
         setPage(nextPage)
@@ -194,7 +195,7 @@ export default function AigcListScreen() {
     } finally {
       setLoadingMore(false)
     }
-  }, [loadingMore, hasMore, page])
+  }, [loadingMore, hasMore, page, t])
 
   useEffect(() => {
     void load()

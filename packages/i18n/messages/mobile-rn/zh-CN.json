@@ -2232,6 +2232,7 @@
     "loadFailed": "加载二维码失败"
   },
   "ranking": {
+    "attention": "关注度",
     "subtitle": "学习排行榜,看看你排第几",
     "retry": "重试",
     "anonymous": "匿名用户",

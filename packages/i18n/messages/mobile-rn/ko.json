@@ -2232,6 +2232,7 @@
     "loadFailed": "QR 코드 불러오기 실패"
   },
   "ranking": {
+    "attention": "관심도",
     "subtitle": "학습 랭킹, 자신의 순위를 확인하세요",
     "retry": "재시도",
     "anonymous": "익명 사용자",

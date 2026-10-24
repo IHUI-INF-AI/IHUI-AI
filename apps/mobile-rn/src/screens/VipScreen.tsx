@@ -104,13 +104,21 @@ function cycleLabel(days: number, t: (k: string) => string): string {
 /**
  * 根据 durationDays 生成详情文案。
  */
-function detailText(days: number, continuous: boolean): string {
+/**
+ * 根据 durationDays 生成详情文案。
+ * tr 由调用方注入:模块顶层函数不得直接吃 t(求值/调用虽在运行期,但该标识符在本作用域不存在)。
+ */
+function detailText(
+  days: number,
+  continuous: boolean,
+  tr: (k: string, v?: Record<string, string | number>) => string,
+): string {
   if (continuous) {
-    if (days <= 31) return t('vip.renewM')
-    if (days <= 93) return t('vip.renewQ')
-    return t('vip.renewY')
+    if (days <= 31) return tr('vip.renewM')
+    if (days <= 93) return tr('vip.renewQ')
+    return tr('vip.renewY')
   }
-  return t('vip.onceN', { n: days })
+  return tr('vip.onceN', { n: days })
 }
 
 /**
@@ -119,7 +127,7 @@ function detailText(days: number, continuous: boolean): string {
  */
 function buildPricePlans(
   levels: readonly VipLevel[],
-  t: (k: string, v?: Record<string, unknown>) => string,
+  t: (k: string, v?: Record<string, string | number>) => string,
 ): PricePlan[] {
   if (levels.length === 0) return []
   const plans: PricePlan[] = []
