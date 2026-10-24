@@ -10,7 +10,8 @@ import './ScreenStates.taro.css'
  * ScreenStates 小程序(Taro)镜像件 —— 对齐 RN 端 packages/app/src/components/ScreenStates.tsx。
  *
  * 换算口径(与仓内既有镜像页一致,见 pkg-content/activity/index.tsx 头注):
- *   RN raw dp × 2 = rpx(750 设计稿基准)。
+ *   RN raw dp × 2 = rpx(750 设计稿基准)。toRpx 的入参一律是**RN 端 StyleSheet 的 px 原值**
+ *   (函数内部 ×2 落 rpx),因此骨架块尺寸与 RN 同数:44/12/10/92,不得再自行折半。
  * 取档一律走 packages/design-tokens 的**同一份档位表**,不在本文件里重写数值:
  *   rnSpacing{lg:16,md:12,sm:8} → 32/24/16 rpx;rnRadius{lg:8,md:6,sm:4} → 16/12/8 rpx。
  * 颜色一律引用 app.css 语义变量(暗色经 ThemeRoot .dark 自动适配),与 RN tk.* 一一映射。
@@ -50,8 +51,8 @@ export function ScreenSkeleton({ variant = 'list', count = 4, colorScheme = 'lig
         <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: toRpx(SP.md) }}>
           {blocks.map((i) => (
             <View key={`${key}-${i}`} style={{ width: '47%', display: 'flex', flexDirection: 'column', gap: toRpx(SP.sm) }}>
-              <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(46), width: '100%', borderRadius: toRpx(RD.md) }} />
-              <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(5), width: '70%' }} />
+              <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(92), width: '100%', borderRadius: toRpx(RD.md) }} />
+              <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(10), width: '70%' }} />
             </View>
           ))}
         </View>
@@ -78,11 +79,11 @@ export function ScreenSkeleton({ variant = 'list', count = 4, colorScheme = 'lig
         >
           <View
             className='ihui-sk-shimmer'
-            style={{ width: toRpx(22), height: toRpx(22), borderRadius: toRpx(RD.md), ...blockBase() }}
+            style={{ width: toRpx(44), height: toRpx(44), borderRadius: toRpx(RD.md), ...blockBase() }}
           />
           <View style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: toRpx(SP.sm) }}>
-            <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(6), width: '80%' }} />
-            <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(5), width: '50%' }} />
+            <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(12), width: '80%' }} />
+            <View className='ihui-sk-shimmer' style={{ ...blockBase(), height: toRpx(10), width: '50%' }} />
           </View>
         </View>
       ))}
