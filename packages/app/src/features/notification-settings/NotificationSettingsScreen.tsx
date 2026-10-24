@@ -134,7 +134,7 @@ function createStyles(tk: AppThemeTokens) {
     successText: { ...rnType.body, color: tk.success.DEFAULT, marginBottom: rnSpacing.sm },
     saveBtn: {
       marginTop: rnSpacing.sm,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       height: 50,
       alignItems: 'center',
       justifyContent: 'center',
