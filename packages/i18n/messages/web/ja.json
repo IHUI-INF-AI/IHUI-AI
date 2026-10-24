@@ -6838,6 +6838,8 @@
       "namePlaceholder": "名称を入力してください",
       "nameRequired": "ごエージェント",
       "noData": "なしデータ",
+      "permissionHint": "このキーがアクセスできる API 権限を選択",
+      "permissionLabel": "権限",
       "sdkDownloads": "SDKダウンロード",
       "subtitle": "のなドキュメントとAPIリファレンス",
       "title": "センター",
@@ -8431,6 +8433,10 @@
           "title": "アカウントが制限されています",
           "action": "管理者に連絡"
         },
+        "ALREADY_CLAIMED": {
+          "title": "このタスクはすでに他のエージェントに引き受けられています",
+          "action": "別のタスクを引き受けるか、相手が解放するのを待ってから再試行してください"
+        },
         "API_BRIDGE_ERROR": {
           "title": "API ブリッジ呼び出しに失敗しました",
           "action": "しばらくしてから再試行"
@@ -8438,6 +8444,10 @@
         "BAD_PARAMS": {
           "title": "パラメータが不完全または無効です",
           "action": "修正して再試行"
+        },
+        "BOARD_FULL": {
+          "title": "チームのタスク一覧が上限に達しています",
+          "action": "完了済みの項目を整理してから追加してください"
         },
         "BUDGET_EXHAUSTED": {
           "title": "利用枠を使い切りました",
@@ -8579,6 +8589,10 @@
           "title": "ファイルが大きすぎます",
           "action": "ファイルを小さくして再試行"
         },
+        "FORBIDDEN": {
+          "title": "このタスクを更新する権限がありません",
+          "action": "先にタスクを引き受けるか、現在の担当者に連絡してください"
+        },
         "FORM_CHANNEL_UNAVAILABLE": {
           "title": "業務フォームのリクエストはメインの対話フローでのみ利用できます",
           "action": "このツールの再試行は不要です。必要な情報は返信の中でユーザーに直接問いかけてください"
@@ -8646,6 +8660,10 @@
         "INVALID_REPO": {
           "title": "パラメータが不完全または無効です",
           "action": "修正して再試行"
+        },
+        "INVALID_STATUS": {
+          "title": "タスクのステータスが無効です",
+          "action": "pending、claimed、done、blocked のいずれかに変更してください"
         },
         "INVALID_TRIGGER": {
           "title": "スケジュール設定が無効です",
@@ -8807,9 +8825,17 @@
           "title": "サブタスクの実行に失敗しました",
           "action": "再試行"
         },
+        "TASK_CLOSED": {
+          "title": "このタスクはすでに完了またはブロックされています",
+          "action": "別のタスクを選択してください"
+        },
         "TASK_FAILED": {
           "title": "サブタスクの実行に失敗しました",
           "action": "再試行"
+        },
+        "TASK_NOT_FOUND": {
+          "title": "タスクが見つかりません",
+          "action": "タスク一覧を更新して再試行"
         },
         "TEXT_TOO_LONG": {
           "title": "コンテキストが長すぎます",

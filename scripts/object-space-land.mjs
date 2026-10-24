@@ -122,8 +122,13 @@
 import { hasAnyWatermarkTrace, hasExactCanonicalBanner, dropZeroWidth } from './lib/watermark-lines.mjs'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { dirname, join, normalize, resolve } from 'node:path'
+import { basename, dirname, join, normalize, relative, resolve } from 'node:path'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
+// G-04(2026-10-24):换面后的预检要把 blob 落到临时副本再跑 verify,而那一层按**仓库相对路径**
+// 判"已登记第三方 / 上游工具生成物"两档豁免 —— 临时路径会丢掉这个身份。两档判据各自只有
+// 一份实现(§0.6),这里直接复用它们的出口,不在本器里另写一份"哪些路径不用带横幅"。
+import { createExclusionPredicate } from './lib/third-party-roots.mjs'
+import { judgeToolGenerated, loadToolGeneratedEntries } from './lib/tool-generated-roots.mjs'
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -960,7 +965,7 @@ function appendSamples(lines, entry) {
 }
 
 /**
- * 溯源水印预检(G-253,2026-09-27 立)。
+ * 溯源水印预检(G-253,2026-09-27 立;G-04,2026-10-24 换面)。
  *
  * 为什么落地点归本器管、而不该由 pre-commit 那道 `check-watermark-coverage` 管:
  * 旁路落地**不跑钩子** —— read 一次真仓历史就能看到,对象空间提交是"新文件带着无横幅
@@ -970,28 +975,114 @@ function appendSamples(lines, entry) {
  * 判据本体仍是那一份:`watermark.mjs verify`(含第三方台账排除 —— 不给 Apache/MIT 原文
  * 打我方归属横幅,那是 provenance-ledger P8 的射程)。这里只回答"要不要现在落地"。
  *
- * @param {{ root: string, paths: string[], run?: Function, node?: string }} a
+ * **判定面(2026-10-24 换面)**:传 `blobs`(声明路径 → 构造 blob oid)时,判的是**对象库里
+ * 将要进树的那一版** —— 逐路径 `git cat-file blob <oid>` 落到 scratch 临时副本,再对副本跑
+ * verify,判完即删;不传 `blobs` 时沿用"显式点名 = 盘上那份"的既有语义(单纯把盘路径交给
+ * verify,供 `scripts/tests/watermark-scope.test.mjs` 与未跟踪新文件通道使用)。
+ *
+ * 为什么**不**判索引那版(票面原话是"索引 blob"):本器工作树模式的正文取自**工作树**
+ * (`writeBlobOfWorktree` = `git hash-object -w -- <path>`,见 lib/bypass-git.mjs:173-175,
+ * 调用点在本文件 `mine` 那一行),索引只在落地**之后**由 `alignSharedIndex` 对齐。判索引
+ * 等于判一份不会进树的字节,而"索引好 / 盘上坏"会被判成通过 —— 比现状更漏。
+ * 换面真正要堵的是判据与提交内容之间的时间窗:`mine` 先把 blob 写进对象库,旧写法 verify
+ * 再重新读一次盘,两次读之间别人改盘 ⇒ 验的就不是要交的那一份。`main` 因此传 `mine`。
+ *
+ * @param {{ root: string, paths: string[], blobs?: Map<string,string>|null, run?: Function, node?: string }} a
  * @returns {{ ok: true } | { ok: false, why: string }}
  */
-export function watermarkPreflight({ root, paths, run = defaultRun, node = process.execPath }) {
-  /** 摘出 verify 的"未覆盖"清单 —— 拒绝理由必须点名是哪个文件,不得只说"没通过"。 */
-  const uncoveredOf = (text) =>
+export function watermarkPreflight({
+  root,
+  paths,
+  blobs = null,
+  run = defaultRun,
+  node = process.execPath,
+}) {
+  /** 摘出 verify 的"未覆盖"清单 —— 拒绝理由必须点名是哪个文件,不得只说"没通过"。
+   *  换面后 verify 看到的是临时副本路径,`nameOf` 把它映射回声明路径。 */
+  const uncoveredOf = (text, nameOf) =>
     String(text ?? '')
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l.startsWith('- '))
       .slice(0, 10)
+      .map((l) => `- ${nameOf(l.slice(2).trim())}`)
       .join('\n  ')
   const hint =
     '  修法:`node scripts/watermark.mjs inject <file>` 后重跑本落地器;' +
     '台账登记的第三方内容不需要横幅(由 provenance-ledger P8 审计)。'
   let res
+  let dir = null
+  let nameOf = (rel) => rel
   try {
+    let args = []
+    if (blobs) {
+      dir = mkScratch('osl-wm-blob-')
+      // verify 的 scopeFromArgs 把显式路径折算成"相对**本仓根**(REPO_ROOT)",两档豁免
+      // (第三方台账 / 上游工具生成物)按那个相对路径判 —— 这里复算同一个 rel,否则临时副本
+      // 会把已登记第三方内容判成"缺横幅"(假红,还是本仓反复登记的那型"给出路跑不通")。
+      const relOf = (p) => relative(REPO_ROOT, resolve(root, p)).replaceAll('\\', '/')
+      let excl
+      try {
+        excl = createExclusionPredicate(REPO_ROOT)
+      } catch (e) {
+        return {
+          ok: false,
+          why: `第三方排除面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 无法判断哪些声明路径本来就不该带横幅,拒绝落地(宁停不猜)`,
+        }
+      }
+      let entries
+      try {
+        entries = loadToolGeneratedEntries(REPO_ROOT)
+      } catch (e) {
+        return {
+          ok: false,
+          why: `工具生成物豁免面无法判定(${String(e?.message ?? e).split('\n')[0]})⇒ 拒绝落地(宁停不猜)`,
+        }
+      }
+      const tempRelOf = new Map()
+      const refusals = []
+      paths.forEach((p, i) => {
+        const rel = relOf(p)
+        if (excl.isExcluded(rel)) return
+        const oid = blobs.get(p)
+        if (!oid) {
+          refusals.push(`${p}: 内容清单里没有该路径的 blob ⇒ 没有可判定的那一版`)
+          return
+        }
+        const text = git(['cat-file', 'blob', oid], { root, raw: true, allowFail: true })
+        if (text === null) {
+          refusals.push(`${p}: 取不到构造 blob ${oid}(对象库问不到)⇒ 未判定,不按"通过"放行`)
+          return
+        }
+        if (judgeToolGenerated({ rel, text, entries }).exempt) return
+        const abs = join(dir, String(i), basename(p))
+        mkdirSync(dirname(abs), { recursive: true })
+        writeFileSync(abs, text)
+        args.push(abs)
+        tempRelOf.set(relative(REPO_ROOT, abs).replaceAll('\\', '/'), p)
+      })
+      if (refusals.length > 0) {
+        return {
+          ok: false,
+          why:
+            '判定面=构造提交的 blob(对象库),非工作树;这些声明路径没有可判定的版本:\n  ' +
+            refusals.join('\n  '),
+        }
+      }
+      nameOf = (rel) => tempRelOf.get(rel) ?? rel
+    } else {
+      // 显式点名档沿用 verify 的既有语义(判你点名的盘上那份):工作树模式的提交正文本就取盘面,
+      // 未跟踪新文件也只有这一条合法通道 —— 换面不得把它判成"没有 blob"而拒掉。
+      args = paths.map((x) => resolve(root, x))
+    }
+    // 声明面为空(纯删除落地)或全部落在豁免面内 ⇒ 没有内容进树。此时**不得**跑 verify:
+    // 零文件参数的 verify 是"整面扫",会把与本次提交无关的路径红算到本票头上。
+    if (args.length === 0) return { ok: true }
     // 刻意用**本文件旁边的** watermark.mjs(绝对路径)+ **绝对**目标路径:
     // 落地器的 `root` 可以是任何仓(镜像测试就在临时仓里跑),按 root 相对拼路径会
     // 指向一个不存在的脚本,而"脚本不存在"被当成"校验不通过"就是假红、当成通过就是假绿。
     // 绝对路径让 verify 的 scopeFromArgs 直接命中文件,与 root 是否为被验仓无关。
-    res = run(node, [WATERMARK_CLI, 'verify', ...paths.map((x) => resolve(root, x))], {
+    res = run(node, [WATERMARK_CLI, 'verify', ...args], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       windowsHide: true,
@@ -1002,7 +1093,7 @@ export function watermarkPreflight({ root, paths, run = defaultRun, node = proce
     if (e && e.code === 'ENOENT') {
       return { ok: false, why: '取不到 node 执行体 ⇒ 无法判断水印是否完整,拒绝落地(宁停不猜)' }
     }
-    const uncovered = uncoveredOf(String(e?.stdout ?? '') + String(e?.stderr ?? ''))
+    const uncovered = uncoveredOf(String(e?.stdout ?? '') + String(e?.stderr ?? ''), nameOf)
     return {
       ok: false,
       why:
@@ -1010,12 +1101,15 @@ export function watermarkPreflight({ root, paths, run = defaultRun, node = proce
         (uncovered ? `  未覆盖清单(前 10):\n  ${uncovered}\n` : '') +
         hint,
     }
+  } finally {
+    // 临时副本用完即删。清理失败**不得改写判据结论**(§26:清理问题归清理,不由它替判定表态)。
+    if (dir) rmScratch(dir, { bestEffort: true })
   }
   const status = res?.status ?? 0
   if (status !== 0) {
     // 两条拒绝路径**共用**同一份清单提取:第一版只在抛异常那一支摘 stdout,而真跑 `verify`
     // 非零退出走的是这一支 —— 于是拒绝理由只说"没通过",不点名是哪个文件。
-    const uncovered = uncoveredOf(String(res?.stdout ?? '') + String(res?.stderr ?? ''))
+    const uncovered = uncoveredOf(String(res?.stdout ?? '') + String(res?.stderr ?? ''), nameOf)
     return {
       ok: false,
       why:
@@ -1682,17 +1776,20 @@ async function main() {
   let parentSha = ''
   // 水印预检(G-253):旁路提交不跑钩子,这道检查是"无横幅文件进 HEAD"的唯一拦截点。
   // 放在 CAS **之前** —— 校验不通过时对象库与 ref 都未被动过。
-  // blob 模式改由 blobBannerPreserved 判(上面已跑):verify 读的是盘上文件,而盘上那份属于别人,
-  // 拿它给要落地的内容做证就是替别人的内容签字。
+  // G-04(2026-10-24)换面:把 `mine`(1564 行 hash-object 已冻结进对象库的那一版,**正是
+  // commitTreeWithIndex 要写进树的 oid**)交给预检 —— 判据与提交内容自此是同一份字节,
+  // 不再在 verify 里重读一次盘(两次读之间别人改盘 = 给未验证的字节发通行证)。
+  // blob 模式仍由 blobBannerPreserved 判(上面已跑):那份内容的来源是调用方构造的 oid,
+  // 盘上那份属于别人,拿它做证就是替别人的内容签字。
   if (!skipWatermark && !blobOf) {
-    const preflight = watermarkPreflight({ root, paths })
+    const preflight = watermarkPreflight({ root, paths, blobs: mine })
     if (!preflight.ok) {
       console.error(`❌ 水印预检不通过,拒绝落地:${preflight.why}`)
       console.error('   应急跳过(仅限确属台账第三方内容):IHUI_LAND_SKIP_WATERMARK=1')
       process.exit(1)
     }
     console.log(
-      `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(verify 口径,含第三方台账排除)`,
+      `✅ 水印预检通过 ${paths.length}/${paths.length} 路径(判定面=构造提交的对象库 blob,非工作树;verify 口径,含第三方台账排除)`,
     )
   } else if (skipWatermark) {
     // 上一版把这条写成 `else`,于是 **blob 模式**(它有自己的横幅判据,已在上面跑过)也走进这一支,

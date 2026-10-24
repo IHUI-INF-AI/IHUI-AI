@@ -94,7 +94,7 @@
  * 一字未动 —— 把判据放宽/收紧都不解决"判据没在真跑它的那一刻成立",而那属于"为消红削判据"。
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, FACE_LABEL, gitBinary, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
@@ -633,9 +633,10 @@ export function collectedInDriftComment(entry, corpus) {
   return { ...no, unjudged: false, key }
 }
 
-export function resolveRegistrationLoss(entries, targetSrc, declared = new Set(), collectedSink = null) {
+export function resolveRegistrationLoss(entries, targetSrc, declared = new Set(), collectedSink = null, retired = new Set()) {
   const declaredSet = declared instanceof Set ? declared : (declared?.set ?? new Set())
   const dropTitleFps = declared instanceof Set ? new Set() : (declared?.dropTitleFps ?? new Set())
+  const retiredSet = retired instanceof Set ? retired : new Set()
   const groups = new Map()
   const textOnly = []
   for (const e of entries) {
@@ -682,6 +683,9 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()
   const declaredExempt = (e) =>
     typeof e.line === 'string' &&
     (declaredSet.has(e.line) || (dropTitleFps.size > 0 && dropTitleFps.has(titleFpOf(e.line))))
+  // 已结清短留痕(2026-10-25):窗口外看不见那次翻勾时,按落盘的 retired 拒绝复插。
+  // 只对"已观察到的翻勾"生效;没观察到的 ≠ 没结清(空集,行为与改前一致)。
+  const retiredExempt = (e) => typeof e.marker === 'string' && retiredSet.has(e.marker)
   /**
    * 第三形态(见 `COLLECTED_TITLE_SPAN` 头注):其余通道都判"这行没了"时,再问一次
    * "它的原文是不是被收拢进漂移注释了"。放在最后一条 = 它只会**减少**误判回捞,
@@ -702,7 +706,7 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()
   // textOnly 档同样要豁免:批⑤的四行真实形态(`- [ ] **G-580 …` 粗体头带空格)headIdOf 给 null,
   // 全走 textOnly —— 只豁免带 id 的组循环等于对这批真实事故行不生效(2026-10-09 端到端探针实证)。
   for (const e of textOnly) {
-    if (targetSrc.includes(e.marker) || declaredExempt(e) || pointerExempt(e)) continue
+    if (targetSrc.includes(e.marker) || declaredExempt(e) || retiredExempt(e) || pointerExempt(e)) continue
     // 加粗族(题面文本判活)的收拢件若把编号写成 `G-855〔旧号〕` 这类形态,marker 逐字断链
     // ⇒ 老口径直接判缺(a 族实测);第三形态按题面认它。
     if (collectedExempt(e)) continue
@@ -718,6 +722,7 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()
     for (const { e } of group) {
       if (head.has(e.marker)) present += 1
       else if (collectedExempt(e)) continue // 已收拢进漂移注释(第三形态)⇒ 不判丢、不回捞
+      else if (retiredExempt(e)) continue // 窗口外已结清(短留痕)⇒ 不判丢、不回捞
       else if (pointerExempt(e)) continue // 合法摘号/改号(全文归一逐字相等)⇒ 不判丢、不点名、不回捞
       // 已声明摘除**不在这里 continue**:它必须占住 absent 的位置但不消耗 slack,
       // 否则同组后面那条真删行会被 slack 吞掉(2026-10-22 审计实测:台账空报 1、有台账报 0)。
@@ -740,7 +745,7 @@ export function resolveRegistrationLoss(entries, targetSrc, declared = new Set()
   return entries
     // 已声明摘除的条目不得随同 marker 被带进回捞集(同号多行时 lost 是 marker 级集合,
     // 不过滤就会把已声明的行一起插回去 —— 2026-10-22 审计指出的同组吞行面)。
-    .filter((e) => e && e.marker && lost.has(e.marker) && !declaredExempt(e))
+    .filter((e) => e && e.marker && lost.has(e.marker) && !declaredExempt(e) && !retiredExempt(e))
     .map((e) => (multiSlot.has(e.marker) ? { ...e, multiSlot: true } : e))
 }
 
@@ -1107,7 +1112,7 @@ export function runCheck(isStaged, faceOverride, { root = ROOT, strict = false }
   const archive = archiveExemptFor(face === 'staged', root)
   let lost
   /** 第三形态「已收拢」的当轮读数(2026-10-24):凭漂移注释认下来的那些行,逐条点名用。 */
-  let collected = []
+  const collected = []
   let reportOnly = []
   let prose = null
   let malformed
@@ -1298,6 +1303,65 @@ export function historyDepth() {
   return Number.isInteger(v) && v > 0 && v <= HISTORY_DEPTH_MAX ? v : HISTORY_DEPTH_DEFAULT
 }
 
+/**
+ * 已结清短留痕(2026-10-25 立,承 10f2378e 的 G-61 诊断)。
+ *
+ * 病型:`historyMarkers` 的 `retired` 只在**最近 60 枚改动过台账的提交**窗口内可见。
+ * 多会话并发时一分钟能推十几枚,一次翻勾几分钟就掉出射程;窗口里只剩更早的未勾形态 ⇒
+ * 被当成"最新开放形态"复插成未勾,结清态**静默丢失**且无人喊。
+ *
+ * 处置:把每次 heal 在窗口里观察到的 `retired` 落盘(短 TTL 30 天),heal 在窗口外也按它
+ * 拒绝复插。留痕只服务"已勾销"这一个方向,不改变窗口内配平状态机的任何判据。
+ * 取不到/坏行 ⇒ 空集(该维不生效,窗口内行为与改前逐字一致),不把"没读到"读成"没结清"。
+ */
+export const RETIRED_LEDGER_REL = path.join('.ihui-agent', 'state', 'plan-retired.jsonl')
+export const RETIRED_LEDGER_TTL_DAYS = 30
+let LAST_HISTORY_RETIRED = null
+export function lastHistoryRetired() {
+  return LAST_HISTORY_RETIRED
+}
+function retiredLedgerAbs(root) {
+  return path.join(String(root || ROOT), RETIRED_LEDGER_REL)
+}
+export function retiredMarkerSet(root = ROOT) {
+  let text = ''
+  try {
+    text = readFileSync(retiredLedgerAbs(root), 'utf8')
+  } catch {
+    return new Set()
+  }
+  const cutoff = Date.now() - RETIRED_LEDGER_TTL_DAYS * 24 * 3600 * 1000
+  const out = new Set()
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue
+    try {
+      const o = JSON.parse(line)
+      if (typeof o?.marker !== 'string' || !o.marker) continue
+      const t = Date.parse(o.at)
+      if (Number.isFinite(t) && t < cutoff) continue
+      out.add(o.marker)
+    } catch {
+      /* 坏行不改变判据:短留痕是加速器,不是唯一真相 */
+    }
+  }
+  return out
+}
+export function recordRetiredMarkers(markers, root = ROOT) {
+  const list = [...(markers ?? [])].filter((m) => typeof m === 'string' && m)
+  if (!list.length) return 0
+  const have = retiredMarkerSet(root)
+  const add = list.filter((m) => !have.has(m))
+  if (!add.length) return 0
+  try {
+    const abs = retiredLedgerAbs(root)
+    mkdirSync(path.dirname(abs), { recursive: true })
+    appendFileSync(abs, add.map((m) => JSON.stringify({ at: new Date().toISOString(), marker: m })).join('\n') + '\n', 'utf8')
+    return add.length
+  } catch {
+    return 0
+  }
+}
+
 /** 上一次 historyMarkers 实际覆盖到的窗口(供报告"报名");没跑过就是 null,不得伪造。 */
 let LAST_HISTORY_WINDOW = null
 export function lastHistoryWindow() {
@@ -1438,6 +1502,7 @@ export function historyMarkers(depth = historyDepth(), root = ROOT) {
     else retired.add(marker)
   }
   LAST_HISTORY_WINDOW.retired = retired.size
+  LAST_HISTORY_RETIRED = retired
   return seen
 }
 
@@ -1517,7 +1582,7 @@ export function bodyKeyOf(text) {
 }
 
 /** 历史登记行里在 targetSrc 中缺席的那些(归档过的正当移除自动排除) */
-export function missingFrom(seen, targetSrc, archived = archivedCopy, declared = declaredRowSet(), collectedSink = null) {
+export function missingFrom(seen, targetSrc, archived = archivedCopy, declared = declaredRowSet(), collectedSink = null, retired = retiredMarkerSet()) {
   // 编号纪元下按映射折算两面(见 epochMapOf 头注);无标记时 map=null ⇒ 逐字旧行为
   const map = epochMapOf(targetSrc)
   const back = new Map()
@@ -1545,7 +1610,7 @@ export function missingFrom(seen, targetSrc, archived = archivedCopy, declared =
     ? [...target.matchAll(/^\s*[-*]\s[^\n]*/gm)].map((m) => bodyKeyOf(m[0])).filter(Boolean)
     : null
   // 与 lostMarkers / healContent 同一把尺子(名额判活),否则"检测判丢、回捞说还活着"
-  const lost = resolveRegistrationLoss(entries, target, declared, collectedSink)
+  const lost = resolveRegistrationLoss(entries, target, declared, collectedSink, retired)
   // sink 里躺着的是**折算后**的编号;报名必须给读台账的人看面上的原号(与返回集同一口径)。
   if (collectedSink && map)
     for (const s of collectedSink) if (back.has(s.marker)) s.marker = back.get(s.marker)
@@ -3367,6 +3432,13 @@ function heal(commit) {
    */
   const index = readSpecOrNull(`:${PLAN}`, ROOT)
   const seen = historyMarkers()
+  // 已结清短留痕:窗口内观察到的 retired 落盘,供窗口外轮次拒绝复插(G-61 型)。
+  const retiredAdded = recordRetiredMarkers(lastHistoryRetired(), ROOT)
+  if (retiredAdded) {
+    console.log(
+      `ℹ️ [已结清短留痕] 记录 ${retiredAdded} 个已勾销 marker(${RETIRED_LEDGER_REL});窗口外不再把它们复插成未勾`,
+    )
+  }
   /**
    * 工作区、HEAD、索引**分别**判缺失。只看工作区会留一个洞:并发会话走 commit-tree 旁路
    * (git-sync-converge / 临时索引提交)时钩子根本不跑,它把某行从 HEAD 合掉后,
@@ -3960,6 +4032,11 @@ export const __test__ = {
   malformedReport,
   runCheck,
   historyMarkers,
+  // 已结清短留痕(2026-10-25):retired 落盘与读取,镜像测试直接用生产实现
+  lastHistoryRetired,
+  retiredMarkerSet,
+  recordRetiredMarkers,
+  RETIRED_LEDGER_REL,
   // 已勾形态身份(2026-10-18):镜像测试据此证明"什么算一条已勾销登记"只有一份实现
   closedRegistrationOf,
   // 「已收拢」第三形态(2026-10-24):漂移注释判活的唯一实现。镜像测试一律 import 这一组,
